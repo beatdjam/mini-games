@@ -103,6 +103,7 @@ function updateEnemies(dt) {
     e.cd -= dt; e.mcd -= dt;
     const los = dist < 40 && hasLOS(e.x, e.z, P.x, P.z, ey, py);
     let still = false;
+    if (e.stun > 0) { e.stun -= dt; still = true; e.mcd = Math.max(e.mcd, 0.2); }
     // bomber: light the fuse when close, blow up when it runs out
     if (def.bomber) {
       if (e.fuse !== undefined) {
@@ -148,7 +149,10 @@ function updateEnemies(dt) {
     }
     const bob = def.fly ? Math.sin(e.t * 3) * 0.3 : 0;
     e.mesh.position.set(e.x, e.fy + def.y + bob, e.z);
-    e.mesh.rotation.y = Math.atan2(dx, dz);
+    const want = Math.atan2(dx, dz);
+    if (def.turn) { const df = Math.atan2(Math.sin(want - e.face), Math.cos(want - e.face)); e.face += clamp(df, -def.turn * dt, def.turn * dt); }
+    else e.face = want;
+    e.mesh.rotation.y = e.face;
     if (def.geo === 'tetra' || def.geo === 'tetraS') e.body.rotation.x += dt * 8;
     if (def.geo === 'octa' || def.geo === 'ico') e.body.rotation.y += dt * 3;
   }
@@ -178,9 +182,19 @@ function updatePBullets(dt) {
         b.hit.add(e);
         if (b.blast) { explode(b.x, b.y, b.z, b.blast, b.dmg, b.color, true); dead = true; break; }
         // shield: rounds arriving from the front are stopped (the rail gun punches through)
-        if (e.def.shield && !b.rail) {
+        if (e.def.shield && e.shieldHp > 0 && !b.rail) {
           const fx = Math.sin(e.mesh.rotation.y), fz = Math.cos(e.mesh.rotation.y), ox = b.x - e.x, oz = b.z - e.z, ol = Math.hypot(ox, oz) || 1;
-          if ((ox * fx + oz * fz) / ol > 0.3) { burst(b.x, b.y, b.z, 0x8cc8ff, 4, 5, 0.25); sfx('empty', 60); dead = true; break; }
+          if ((ox * fx + oz * fz) / ol > 0.3) {
+            e.shieldHp -= b.dmg; burst(b.x, b.y, b.z, 0x8cc8ff, 4, 5, 0.25); hitMark(false);
+            if (e.shieldHp <= 0) { // shield breaks: drop the plate and stagger
+              e.shieldParts.forEach(o => e.mesh.remove(o)); e.stun = 1.0; e.flash = 0.25;
+              burst(b.x, b.y, b.z, 0x8cc8ff, 22, 8, 0.6); sfx('boom', 60);
+            } else {
+              sfx('empty', 60);
+              if (e.shieldHp < e.def.shieldHp * 0.5) e.shieldParts[0].material = basicMat(0x5b3a3a); // cracked
+            }
+            dead = true; break;
+          }
         }
         const crit = Math.random() < P.crit + 0.08 * wo('crit');
         let dmg = b.dmg * (crit ? 2 : 1);

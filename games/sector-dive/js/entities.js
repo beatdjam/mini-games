@@ -86,7 +86,11 @@ function buildEnemyMesh(def) {
   const body = new THREE.Mesh(geoCache[def.geo], mat);
   g.add(body, new THREE.LineSegments(edges(def.geo), lineMat(def.color)));
   if (def.geo === 'cyl') { const head = new THREE.Mesh(geoCache.chip, basicMat(def.color)); head.position.y = 1.1; g.add(head); }
-  if (def.shield) { const plate = new THREE.Mesh(geoCache.shieldPlate, basicMat(0x2b5f8f)); plate.position.set(0, 0.1, 0.75); g.add(plate, new THREE.LineSegments(edges('shieldPlate'), lineMat(0x8cc8ff))); g.children[g.children.length - 1].position.copy(plate.position); }
+  if (def.shield) {
+    const plate = new THREE.Mesh(geoCache.shieldPlate, basicMat(0x2b5f8f)), edge = new THREE.LineSegments(edges('shieldPlate'), lineMat(0x8cc8ff));
+    plate.position.set(0, 0.1, 0.75); edge.position.copy(plate.position);
+    g.add(plate, edge); g.userData.shield = [plate, edge];
+  }
   if (def.sniper) { const eye = new THREE.Mesh(geoCache.chip, basicMat(0xff4d8d)); eye.scale.setScalar(0.5); eye.position.set(0, 0.7, 0.25); g.add(eye); }
   return { g, mat, body };
 }
@@ -95,7 +99,8 @@ function spawnEnemy(type, x, z, room, diff) {
   m.g.position.set(x, fy + def.y, z); dynGroup.add(m.g);
   const e = { type, def, mesh: m.g, body: m.body, mat: m.mat, baseEI: 0.4, x, z, y: def.y, hp: def.hp * diff, maxHp: def.hp * diff,
     dmg: def.dmg * (1 + (run ? run.stage : 0) * 0.045) * presMul(), room, cd: rand(0.8, 1.8), mcd: 0, t: rand(0, 6), flash: 0, active: false,
-    side: Math.random() < 0.5 ? -1 : 1, hitR: def.hitR, r: def.r, fy };
+    side: Math.random() < 0.5 ? -1 : 1, hitR: def.hitR, r: def.r, fy, face: 0, stun: 0 };
+  if (def.shield) { e.shieldHp = def.shieldHp * diff; e.shieldParts = m.g.userData.shield; }
   if (def.sniper) {
     const lg = new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]);
     e.laser = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xff4d8d, transparent: true, opacity: 0.8 }));

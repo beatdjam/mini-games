@@ -74,7 +74,7 @@ const BIOMES = [
     hint: '瓦礫は腰の高さ。弾は越えるが、登れない',
     enemies: ['crawler', 'bomber', 'shield', 'drone', 'shield', 'crawler'], bosses: ['phantom', 'crusher'] },
   { name: '九龍城', code: 'KWLN', fog: 0x12060e, fogNear: 3, fogFar: 34, floor: '#1a0c16', line: '#b0306e', wall: '#1f0d19', wallLine: '#ff3d8a',
-    gen: { kind: 'maze', bridges: 6, hazard: { count: 16, color: 0x3dffb4, name: '漏電床' }, ceiling: true, neon: true },
+    gen: { kind: 'maze', rooms: 7, loops: 20, prune: 40, density: 5, bridges: 5, hazard: { count: 12, color: 0x3dffb4, name: '漏電床' }, ceiling: true, neon: true },
     hint: '緑に光る床は漏電している。光っている間は踏まない',
     enemies: ['crawler', 'bomber', 'turret', 'splitter', 'crawler'], bosses: ['trinity', 'watcher'] },
   { name: '旧市街ビル群', code: 'CITY', fog: 0x140e06, fogNear: 8, fogFar: 64, floor: '#1b150c', line: '#a06d24', wall: '#221a0e', wallLine: '#ffb347',
@@ -96,8 +96,8 @@ const ENEMY = {
              ranged: { rate: 2.8, speed: 11, count: 5, spread: 0.22 } },
   // aims a visible laser for a second, then fires one fast, heavy round
   sniper:  { hp: 40,  speed: 2.4, r: 0.5,  y: 0.95, hitR: 0.8, dmg: 24, keep: 18, sniper: true, bits: 6, color: 0x9fe7ff, geo: 'rod' },
-  // blocks bullets from the front; flank it, use explosives, or a piercing rail shot
-  shield:  { hp: 90,  speed: 3.1, r: 0.8,  y: 1.0, hitR: 1.0,  dmg: 12, melee: true, shield: true, bits: 7, color: 0x8cc8ff, geo: 'slab' },
+  // blocks bullets from the front but turns slowly (turn rad/s); the shield breaks after shieldHp damage and staggers it
+  shield:  { hp: 90,  speed: 3.1, r: 0.8,  y: 1.0, hitR: 1.0,  dmg: 12, melee: true, shield: true, shieldHp: 90, turn: 1.6, bits: 7, color: 0x8cc8ff, geo: 'slab' },
   // rushes in and detonates; also blows up when shot, hurting nearby enemies too
   bomber:  { hp: 16,  speed: 7.8, r: 0.5,  y: 0.6, hitR: 0.75, dmg: 26, bomber: true, bits: 3, color: 0xffb13d, geo: 'ico' },
   splitter:{ hp: 70,  speed: 4.0, r: 0.8,  y: 0.9, hitR: 1.1,  dmg: 12, melee: true, split: true, bits: 6, color: 0x7dffcf, geo: 'dodeca' },

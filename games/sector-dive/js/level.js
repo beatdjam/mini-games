@@ -154,20 +154,31 @@ function genMaze(o) {
     const [nx, ny, dx, dy] = nb[0];
     g[(cy + dy / 2) * w + cx + dx / 2] = 1; g[ny * w + nx] = 1; vis[ny * w + nx] = 1; stack.push([nx, ny]);
   }
-  for (let k = 0; k < 70; k++) { // knock out extra walls so the maze has loops
+  for (let k = 0; k < (o.loops || 20); k++) { // knock out a few extra walls so the maze has some loops
     const x = randi(1, w - 2), y = randi(1, h - 2), q = y * w + x;
     if (g[q]) continue;
     if ((g[q - 1] && g[q + 1] && !g[q - w] && !g[q + w]) || (g[q - w] && g[q + w] && !g[q - 1] && !g[q + 1])) g[q] = 1;
   }
   const rs = []; let tries = 0;
-  while (rs.length < 6 && tries++ < 400) {
-    const rw = pick([3, 5]), rh = pick([3, 5]), x = randi(0, (w - rw - 2) >> 1) * 2 + 1, y = randi(0, (h - rh - 2) >> 1) * 2 + 1;
+  while (rs.length < (o.rooms || 8) && tries++ < 600) {
+    const rw = pick([5, 5, 7]), rh = pick([5, 5, 7]), x = randi(0, (w - rw - 2) >> 1) * 2 + 1, y = randi(0, (h - rh - 2) >> 1) * 2 + 1;
     if (x + rw >= w - 1 || y + rh >= h - 1) continue;
     if (rs.some(q => x < q.x + q.w + 1 && x + rw + 1 > q.x && y < q.y + q.h + 1 && y + rh + 1 > q.y)) continue;
     rs.push({ x, y, w: rw, h: rh });
     for (let j = y; j < y + rh; j++) for (let i = x; i < x + rw; i++) g[j * w + i] = 1;
   }
   rs.forEach((r, idx) => { for (let j = r.y; j < r.y + r.h; j++) for (let i = r.x; i < r.x + r.w; i++) M.ro[j * w + i] = idx; });
+  // prune dead-end corridors so there are fewer side branches (removing a dead end never disconnects anything)
+  for (let pass = 0; pass < (o.prune || 0); pass++) {
+    const ends = [];
+    for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) {
+      const k = j * w + i;
+      if (g[k] !== 1 || M.ro[k] >= 0) continue;
+      if (g[k - 1] + g[k + 1] + g[k - w] + g[k + w] <= 1) ends.push(k);
+    }
+    if (!ends.length) break;
+    ends.forEach(k => { g[k] = 0; });
+  }
   if (o.bridges) addBridges(M, w, h, o.bridges);
   if (o.hazard) addHazards(M, w, h, o.hazard.count);
   return { W: w, H: h, M, rooms: rs };
