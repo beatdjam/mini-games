@@ -49,8 +49,9 @@ function stageLabel(s) { const si = stageInfo(s); return `D${si.tier + 1} ${isBo
 function tierLabel(t) { return `DEPTH ${t + 1}`; }
 const diffOf = s => (1 + s * 0.1 + stageInfo(s).loop * 0.5) * presMul();
 const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 0.3 * wo('mag', w))));
-const wName = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}<em style="color:${RARITY[w.r].css}">${w.basic ? '基本' : RARITY[w.r].name}</em>`;
-const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${w.basic ? '基本' : RARITY[w.r].name}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
+const rarLabel = w => w.basic ? '基本' : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
+const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
+const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${rarLabel(w)}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
 const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
 // ---- viewmodels ----

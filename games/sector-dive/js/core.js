@@ -23,10 +23,11 @@ const WEAPONS = {
 const WEAPON_ORDER = ['pistol', 'smg', 'shotgun', 'rail', 'launcher'];
 const DROP_POOL = ['pistol', 'pistol', 'smg', 'smg', 'smg', 'shotgun', 'shotgun', 'shotgun', 'rail', 'rail', 'launcher'];
 const pickDrop = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
+// rarity rank is shown as stars and a grey -> blue -> gold colour so the order reads at a glance
 const RARITY = [
-  { name: '標準', mult: 1,    css: '#d5e4ee' },
-  { name: '改良', mult: 1.25, css: '#54e8ff' },
-  { name: '試作', mult: 1.55, css: '#ffc24a' },
+  { name: '標準', stars: '★',   mult: 1,    css: '#9aa8b4', hex: 0x9aa8b4 },
+  { name: '改良', stars: '★★',  mult: 1.25, css: '#4da6ff', hex: 0x4da6ff },
+  { name: '試作', stars: '★★★', mult: 1.55, css: '#ffc24a', hex: 0xffc24a },
 ];
 const UPGRADES = [
   { id: 'hp',   name: '装甲',         max: 6, cost: l => Math.round(80 * Math.pow(1.6, l)),  desc: l => `最大HP +15 / 段（現在 +${l * 15}）` },

@@ -137,7 +137,7 @@ function addPickup(kind, x, z, extra) {
   } else {
     const col = WEAPONS[extra.w.id].color;
     mesh = new THREE.Group();
-    mesh.add(new THREE.Mesh(geoCache.wbox, basicMat(col)), new THREE.LineSegments(edges('wbox'), lineMat(0xffffff)));
+    mesh.add(new THREE.Mesh(geoCache.wbox, basicMat(col)), new THREE.LineSegments(edges('wbox'), lineMat(RARITY[extra.w.r].hex)));
     mesh.scale.setScalar(1 + extra.w.r * 0.15);
   }
   const baseY = (kind === 'bit' ? 0.5 : 1.0) + floorY(x, z);

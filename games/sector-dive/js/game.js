@@ -190,7 +190,7 @@ function itemCard(w, where, i) {
   const sel = invSel && invSel.where === where && invSel.i === i;
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">空き</button>`;
   const def = WEAPONS[w.id];
-  return `<button class="item ${sel ? 'sel' : ''}" data-inv="${where}:${i}"><span class="wn">${wName(w)}</span>
+  return `<button class="item ${sel ? 'sel' : ''}" data-inv="${where}:${i}" style="border-left:3px solid ${w.basic ? 'var(--line)' : RARITY[w.r].css}"><span class="wn">${wName(w)}</span>
     <span class="ws">DMG ${Math.round(def.dmg * wDmgMul(w))}${def.pellets > 1 ? '×' + def.pellets : ''} / 弾 ${w.mag}/${magSize(w)}</span>${wOpts(w)}
     ${where === 'eq' ? `<span class="ws">スロット${i + 1}${i === P.cur ? '（手持ち）' : ''}</span>` : ''}</button>`;
 }
@@ -319,7 +319,7 @@ function renderBase() {
       <span class="wn">${w.name}</span><span class="wd">${w.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span><span class="wf">${foot}</span></button>`;
   }).join('');
   $('#stashCount').textContent = `${save.stash.length} / ${STASH_MAX}　潜行で拾って帰還した武器。持ち出すと死亡時に失う`;
-  $('#stash').innerHTML = save.stash.length ? save.stash.map((w, i) => `<div class="wcard"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
+  $('#stash').innerHTML = save.stash.length ? save.stash.map((w, i) => `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
       <span class="acts"><button class="mini-btn amber" data-stash="${i}">装備${selSlot + 1}へ</button><button class="mini-btn" data-sell="${i}">売却 +${sellValue(w)}</button></span></div>`).join('')
     : '<div class="empty">まだ空。潜行中に拾った武器を持って帰還すると、ここに入る</div>';
   $('#ulist').innerHTML = UPGRADES.map(u => {
@@ -397,3 +397,14 @@ $('#scrBase').addEventListener('click', e => {
   persist(); renderBase();
 });
 $('#btnStart').addEventListener('click', startRun);
+
+// ---- full data wipe (red confirmation dialog) ----
+$('#btnWipe').addEventListener('click', () => { $('#dlgWipe').hidden = false; $('#btnWipeCancel').focus(); });
+$('#btnWipeCancel').addEventListener('click', () => { $('#dlgWipe').hidden = true; });
+document.addEventListener('keydown', e => { if (e.code === 'Escape' && !$('#dlgWipe').hidden) $('#dlgWipe').hidden = true; });
+$('#btnWipeGo').addEventListener('click', () => {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  save = defaultSave(); persist();
+  $('#dlgWipe').hidden = true; selSlot = 0;
+  renderBase(); applyLayout();
+});

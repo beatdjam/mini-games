@@ -233,6 +233,14 @@ body.desk.nolock .tbtn{display:grid}
 .statbox .reslist{font-size:13px}
 .statbox .reslist div{padding:6px 12px}
 .wopt{font-size:11px;color:var(--lime)}
+.modal{position:absolute;inset:0;z-index:8;display:grid;place-items:center;padding-inline:16px;background:rgba(20,0,4,.78)}
+.modal-card{width:min(520px,100%);display:grid;gap:12px;padding:20px;background:#140609;border:2px solid #ff3b4e;box-shadow:0 0 30px rgba(255,59,78,.35)}
+.modal-card h2{margin:0;font-size:20px;font-weight:400}
+.modal-card p{margin:0;line-height:1.7}
+.modal-card ul{margin:6px 0 0;padding-left:1.2em;line-height:1.8;color:#ffc7cd;font-size:13px}
+.danger-text{color:#ff5a6a}
+.danger{padding:12px 16px;border:1px solid #ff3b4e;background:#ff3b4e;color:#fff;font-weight:700}
+.danger-ghost{padding:8px 12px;border:1px solid #7a2430;background:transparent;color:#ff7a88}
 @media (prefers-reduced-motion:reduce){#toast,#banner,#fade{transition:none}}
 </style>
 </head>
@@ -328,9 +336,32 @@ body.desk.nolock .tbtn{display:grid}
         <div class="setrow" data-settings="base"></div>
         <p class="help" id="help"></p>
       </div>
+      <div class="sec">
+        <h2>データ</h2>
+        <div class="setrow"><button id="btnWipe" class="danger-ghost">セーブデータを完全に消去…</button></div>
+      </div>
       <div class="startbar"><div id="suspendBox" class="suspend" hidden></div><button id="btnStart" class="primary">DIVE<small id="startSub">潜行開始</small></button></div>
     </div>
   </section>
+
+  <div id="dlgWipe" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="wipeTitle" aria-describedby="wipeBody" hidden>
+    <div class="modal-card">
+      <p class="eyebrow danger-text">warning — cannot be undone</p>
+      <h2 id="wipeTitle" class="danger-text">セーブデータを完全に消去する</h2>
+      <div id="wipeBody">
+        <p>このブラウザに保存されている Sector Dive のデータを全部消す。元には戻せない。</p>
+        <ul>
+          <li>所持ビット、拠点強化、武器の解放</li>
+          <li>倉庫の武器と出撃装備</li>
+          <li>ショートカット、再起動の回数とポイント</li>
+          <li>中断中の潜行</li>
+          <li>最深到達などの記録</li>
+          <li>設定（自動射撃、エイム補正、感度、ボタン配置）</li>
+        </ul>
+      </div>
+      <div class="btnrow"><button id="btnWipeCancel" class="ghost">キャンセル</button><button id="btnWipeGo" class="danger">消去する</button></div>
+    </div>
+  </div>
 
   <section id="scrPerk" class="screen center" hidden>
     <div class="card">

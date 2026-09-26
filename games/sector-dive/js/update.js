@@ -317,6 +317,9 @@ if (location.hash === '#smoke') {
       resumeRun(); tick(60); if (run.stage !== 2 || save.suspend) throw new Error('resume failed');
       suspendRun(); discardSuspended(); if (save.suspend || state !== 'result') throw new Error('discard failed');
       console.log('SMOKE suspend ok');
+      goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
+      if (save.bits !== 0 || save.up.hp !== 0 || !$('#dlgWipe').hidden) throw new Error('wipe failed');
+      console.log('SMOKE wipe ok');
       startRun(); tick(10);
       // reachability: from the start room, can the player walk into every room (and back to the start)?
       BIOMES.forEach((b, bi) => {
