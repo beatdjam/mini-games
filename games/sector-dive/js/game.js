@@ -81,7 +81,7 @@ function nextStage() {
 function openPerk(title, eyebrow, done) {
   state = 'perk'; releaseInputs(); exitLock(); bigmap.hidden = true;
   $('#perkTitle').textContent = title; $('#perkEyebrow').textContent = eyebrow || 'chip acquired';
-  const opts = shuffle(PERKS.slice()).slice(0, 3 + save.pres.up.choice)
+  const opts = shuffle(PERKS.filter(o => !(o.maxed && o.maxed(P)))).slice(0, 3 + save.pres.up.choice)
     .map(o => ({ o, rare: o.rv !== undefined && Math.random() < TUNE.rareChipChance }));
   const list = $('#perkList'); list.innerHTML = '';
   opts.forEach(({ o, rare }) => {

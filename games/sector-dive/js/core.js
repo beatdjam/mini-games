@@ -41,6 +41,7 @@ const UPGRADES = [
   { id: 'chip', name: '持ち込みチップ', max: 2, cost: l => Math.round(450 * Math.pow(2.2, l)), desc: l => `潜行開始時にチップを選ぶ（現在 ${l} 枚）` },
 ];
 // Chips. v = normal amount, rv = amount on the rare (gold) version; chips without rv never come as rare.
+// maxed(p) = true once the chip can't do anything more (it is then left out of the offer).
 // Damage / fire rate / speed stack additively (two 過負荷弾 = +40%), so power grows in a straight line.
 const pct = v => `${Math.round(v * 100)}%`;
 const PERKS = [
@@ -52,12 +53,12 @@ const PERKS = [
   { name: '貫通弾',     v: 1,    rv: 2,    desc: v => `弾が敵を${v}体多く貫通する`,             apply: (p, v) => { p.pierce += v; } },
   { name: '分裂弾',     v: 1,              desc: () => '発射数 +1（1発の威力は2割減）',         apply: p => { p.extra += 1; } },
   { name: '軽量化',     v: 0.12, rv: 0.21, desc: v => `移動速度 +${pct(v)}`,                   apply: (p, v) => { p.spdMul += v; } },
-  { name: '弱点解析',   v: 0.15, rv: 0.26, desc: v => `会心率 +${pct(v)}（2倍ダメージ、上限40%）`, apply: (p, v) => { p.crit += v; } },
+  { name: '弱点解析',   v: 0.15, rv: 0.26, desc: v => `会心率 +${pct(v)}（2倍ダメージ、上限40%）`, apply: (p, v) => { p.crit += v; }, maxed: p => p.crit >= TUNE.critCap },
   { name: '瞬発回路',   v: 0.35, rv: 0.6,  desc: v => `スタミナ回復 +${pct(v)}`,                apply: (p, v) => { p.stRegen *= 1 + v; } },
   { name: '連鎖爆破',   v: 1,    rv: 2,    desc: v => `撃破した敵が周囲を巻き込んで爆発（Lv +${v}）`, apply: (p, v) => { p.chain += v; } },
   { name: '磁力',       v: 1,              desc: () => 'ビット回収範囲 +80%、獲得 +10%',         apply: p => { p.magnet *= 1.8; p.gainMul *= 1.1; } },
-  { name: '高速装填',   v: 0.25, rv: 0.44, desc: v => `リロード時間 -${pct(v)}（最大 -60%）`,   apply: (p, v) => { p.reloadMul = Math.max(0.4, p.reloadMul - v); } },
-  { name: '拡張弾倉',   v: 0.4,  rv: 0.7,  desc: v => `装弾数 +${pct(v)}（最大 +150%）`,        apply: (p, v) => { p.magMul = Math.min(2.5, p.magMul + v); } },
+  { name: '高速装填',   v: 0.25, rv: 0.44, desc: v => `リロード時間 -${pct(v)}（最大 -60%）`,   apply: (p, v) => { p.reloadMul = Math.max(0.4, p.reloadMul - v); }, maxed: p => p.reloadMul <= 0.4 },
+  { name: '拡張弾倉',   v: 0.4,  rv: 0.7,  desc: v => `装弾数 +${pct(v)}（最大 +150%）`,        apply: (p, v) => { p.magMul = Math.min(2.5, p.magMul + v); }, maxed: p => p.magMul >= 2.5 },
   { name: '予備タンク', v: 30,   rv: 52,   desc: v => `最大スタミナ +${v}`,                     apply: (p, v) => { p.stMax += v; p.st += v; } },
 ];
 
