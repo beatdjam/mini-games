@@ -120,6 +120,10 @@ em{font-style:normal}
 #layoutBar b{color:var(--amber);font-weight:400}
 #pickRow{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 92px);display:grid;justify-items:center;gap:6px}
 #pickName{font-size:12px;color:var(--amber);background:rgba(5,8,12,.78);padding:3px 10px;white-space:nowrap;pointer-events:none}
+#pickDiff{font-size:12px;color:var(--text);background:rgba(5,8,12,.78);padding:3px 10px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+#pickDiff .up{color:var(--lime)}
+#pickDiff .down{color:var(--mag)}
+#pickDiff .same{color:var(--dim)}
 .pickbtns{display:flex;gap:8px}
 .pickbtn{height:42px;padding:0 16px;border-radius:21px;border:1px solid var(--amber);background:rgba(10,17,25,.72);color:var(--amber);white-space:nowrap;font-size:13px;touch-action:none}
 .pickbtn:disabled{opacity:.35}
@@ -285,7 +289,7 @@ body.desk.nolock .tbtn{display:grid}
   </div>
   <div id="touch" hidden>
     <div id="joyBase"><div id="joyKnob"></div></div>
-    <div id="pickRow" hidden><div id="pickName"></div><div class="pickbtns"><button id="btnEquip" class="pickbtn">持ち替え</button><button id="btnStow" class="pickbtn">バッグへ</button></div></div>
+    <div id="pickRow" hidden><div id="pickName"></div><div id="pickDiff"></div><div class="pickbtns"><button id="btnEquip" class="pickbtn">持ち替え</button><button id="btnStow" class="pickbtn">バッグへ</button></div></div>
     <button id="btnKit" class="tbtn" data-lb="kit">回復<br><span id="kitBtnN">1</span></button>
     <button id="btnReload" class="tbtn" data-lb="reload">リロード</button>
     <button id="btnDash" class="tbtn" data-lb="dash">ダッシュ</button>
@@ -421,24 +425,24 @@ body.desk.nolock .tbtn{display:grid}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="js/core.js?v=202609270347"></script>
-<script src="js/render.js?v=202609270347"></script>
-<script src="js/level.js?v=202609270347"></script>
-<script src="js/entities.js?v=202609270347"></script>
-<script src="js/player.js?v=202609270347"></script>
-<script src="js/bosses/common.js?v=202609270347"></script>
-<script src="js/bosses/watcher.js?v=202609270347"></script>
-<script src="js/bosses/crusher.js?v=202609270347"></script>
-<script src="js/bosses/core.js?v=202609270347"></script>
-<script src="js/bosses/phantom.js?v=202609270347"></script>
-<script src="js/bosses/trinity.js?v=202609270347"></script>
-<script src="js/bosses/bastion.js?v=202609270347"></script>
-<script src="js/input.js?v=202609270347"></script>
-<script src="js/hud.js?v=202609270347"></script>
-<script src="js/game.js?v=202609270347"></script>
-<script src="js/enemies.js?v=202609270347"></script>
-<script src="js/bullets.js?v=202609270347"></script>
-<script src="js/update.js?v=202609270347"></script>
-<script src="js/dev.js?v=202609270347"></script>
+<script src="js/core.js?v=202609270400"></script>
+<script src="js/render.js?v=202609270400"></script>
+<script src="js/level.js?v=202609270400"></script>
+<script src="js/entities.js?v=202609270400"></script>
+<script src="js/player.js?v=202609270400"></script>
+<script src="js/bosses/common.js?v=202609270400"></script>
+<script src="js/bosses/watcher.js?v=202609270400"></script>
+<script src="js/bosses/crusher.js?v=202609270400"></script>
+<script src="js/bosses/core.js?v=202609270400"></script>
+<script src="js/bosses/phantom.js?v=202609270400"></script>
+<script src="js/bosses/trinity.js?v=202609270400"></script>
+<script src="js/bosses/bastion.js?v=202609270400"></script>
+<script src="js/input.js?v=202609270400"></script>
+<script src="js/hud.js?v=202609270400"></script>
+<script src="js/game.js?v=202609270400"></script>
+<script src="js/enemies.js?v=202609270400"></script>
+<script src="js/bullets.js?v=202609270400"></script>
+<script src="js/update.js?v=202609270400"></script>
+<script src="js/dev.js?v=202609270400"></script>
 </body>
 </html>

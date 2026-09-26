@@ -53,6 +53,17 @@ const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 
 const rarLabel = w => w.basic ? '基本' : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
 const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${rarLabel(w)}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
+// Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
+// dps = sustained damage per second including reloads (shotgun range bonus and explosions not counted).
+function weaponStats(w) {
+  const def = WEAPONS[w.id];
+  const perHit = def.dmg * wDmgMul(w) * P.dmgMul * (P.extra > 0 ? 0.8 : 1);
+  const hits = def.pellets + P.extra;
+  const interval = def.rate / P.fireRate * Math.pow(0.91, wo('rate', w));
+  const mag = magSize(w);
+  const reload = def.reload * P.reloadMul * Math.pow(0.8, wo('reload', w));
+  return { perHit, hits, mag, dps: perHit * hits * mag / (mag * interval + reload) };
+}
 const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
 // ---- viewmodels ----

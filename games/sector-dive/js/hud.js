@@ -44,14 +44,28 @@ function updateHud() {
   if (nearW) {
     const desk = !isTouch && !document.body.classList.contains('nolock'), bagFree = P.bag.includes(null);
     const name = wText(nearW.w) + (desk ? `　[G] ${P.weapons[1] ? '持ち替え' : '装備'} / [E] バッグへ${bagFree ? '' : '（満杯）'}` : '');
-    if (row.hidden || $('#pickName').textContent !== name) {
+    const diff = compareHTML(nearW.w, curW()), key = name + '|' + diff + '|' + P.cur + '|' + bagFree;
+    if (row.hidden || row.dataset.key !== key) {
+      row.dataset.key = key;
       $('#pickName').textContent = name;
+      $('#pickDiff').innerHTML = diff;
       $('#btnEquip').textContent = P.weapons[1] ? '持ち替え' : '装備（2枠目）';
       $('#btnStow').textContent = bagFree ? `バッグへ（空き${P.bag.filter(w => !w).length}）` : 'バッグ満杯';
       $('#btnStow').disabled = !bagFree;
       row.hidden = false;
     }
-  } else if (!row.hidden) { row.hidden = true; }
+    $('#hint').textContent = ''; // the prompt sits where the hint line is
+  } else if (!row.hidden) { row.hidden = true; updateHint(); }
+}
+// "火力 142 ▲+38 / 1発 16×8 ▼-4 / 弾倉 6 ▼-6" against the weapon in hand
+function compareHTML(w, cur) {
+  const a = weaponStats(w), b = weaponStats(cur);
+  const d = (v, base) => {
+    const diff = Math.round(v) - Math.round(base);
+    return diff > 0 ? `<span class="up">▲+${diff}</span>` : diff < 0 ? `<span class="down">▼${diff}</span>` : '<span class="same">±0</span>';
+  };
+  const hits = a.hits > 1 ? `×${a.hits}` : '';
+  return `火力 ${Math.round(a.dps)} ${d(a.dps, b.dps)}　1発 ${Math.round(a.perHit)}${hits} ${d(a.perHit * a.hits, b.perHit * b.hits)}　弾倉 ${a.mag} ${d(a.mag, b.mag)}`;
 }
 function updateHint() {
   const h = $('#hint');

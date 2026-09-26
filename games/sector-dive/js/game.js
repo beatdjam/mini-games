@@ -192,7 +192,7 @@ function itemCard(w, where, i) {
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">空き</button>`;
   const def = WEAPONS[w.id];
   return `<button class="item ${sel ? 'sel' : ''}" data-inv="${where}:${i}" style="border-left:3px solid ${w.basic ? 'var(--line)' : RARITY[w.r].css}"><span class="wn">${wName(w)}</span>
-    <span class="ws">DMG ${Math.round(def.dmg * wDmgMul(w))}${def.pellets > 1 ? '×' + def.pellets : ''} / 弾 ${w.mag}/${magSize(w)}</span>${wOpts(w)}
+    <span class="ws">火力 ${Math.round(weaponStats(w).dps)} / DMG ${Math.round(def.dmg * wDmgMul(w))}${def.pellets > 1 ? '×' + def.pellets : ''} / 弾 ${w.mag}/${magSize(w)}</span>${wOpts(w)}
     ${where === 'eq' ? `<span class="ws">スロット${i + 1}${i === P.cur ? '（手持ち）' : ''}</span>` : ''}</button>`;
 }
 function renderBag() {

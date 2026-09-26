@@ -169,3 +169,9 @@ if (location.hash === '#view-wipe') setTimeout(() => $('#btnWipe').click(), 300)
 // dev view: #boss-phantom etc. starts boss practice against that boss
 // optional depth: #boss-phantom-3 = DEPTH 3 strength
 if (location.hash.startsWith('#boss-')) setTimeout(() => { const [k, d] = location.hash.slice(6).split('-'); if (BOSS_META[k]) startPractice(k, d ? Math.max(0, +d - 1) : 0); }, 300);
+// dev view: #view-pick stands next to a dropped weapon (for screenshots of the pick-up prompt)
+if (location.hash === '#view-pick') setTimeout(() => {
+  startRun(); show(null); state = 'play';
+  addPickup('weapon', P.x + 0.3, P.z, { w: newWeapon('shotgun', 1, false, 2, ['rate']) });
+  for (let k = 0; k < 10; k++) update(1 / 60);
+}, 300);
