@@ -32,7 +32,7 @@ function startStage() {
   const si = stageInfo(run.stage), b = si.biome, isArena = isBossStage(run.stage);
   const fade = $('#fade'); fade.style.transition = 'none'; fade.style.opacity = 1;
   requestAnimationFrame(() => { fade.style.transition = ''; fade.style.opacity = 0; });
-  const bossKind = isArena ? pick(b.bosses) : null;
+  const bossKind = isArena ? (run.forceBoss || pick(b.bosses)) : null;
   buildLevel(b, isArena, bossKind);
   const diff = diffOf(run.stage);
   if (isArena) {
@@ -95,6 +95,7 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; releaseInputs(); exitLock(); bigmap.hidden = true;
   renderSettings();
+  $('#btnSuspend').hidden = !!run.practice;
   $('#pauseChips').innerHTML = statsHTML();
   show('#scrPause');
 }
@@ -235,7 +236,29 @@ $('#scrBag').addEventListener('click', e => {
 });
 
 // ---- run end ----
+// ---- boss practice: fight one boss at DEPTH 1 strength; nothing is gained or lost ----
+function startPractice(kind) {
+  audioInit();
+  if (isTouch && !isFs()) enterFs();
+  const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
+  P = newPlayer(save.loadout);
+  run = { stage: PER - 1, kills: 0, bits: 0, perks: [], startTier: 0, route: [bi], practice: true, forceBoss: kind, t0: performance.now() };
+  show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
+  startStage(); requestLock();
+  toast('ボス練習 — 報酬もロストもなし', 2600);
+}
+function endPractice(kind) {
+  state = 'result'; releaseInputs(); exitLock();
+  const sec = Math.round((performance.now() - run.t0) / 1000);
+  $('#resEyebrow').textContent = 'practice';
+  $('#resTitle').textContent = run.cleared ? '練習終了 — 撃破' : '練習終了';
+  $('#resList').innerHTML = [['ボス', BOSS_META[run.forceBoss].name], ['結果', run.cleared ? '撃破' : kind === 'dead' ? 'やられた' : '中断'], ['時間', `${Math.floor(sec / 60)}分${sec % 60}秒`]]
+    .map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
+  $('#resChips').textContent = '練習なので、ビット・武器・記録は変わらない。';
+  setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
+}
 function endRun(kind) {
+  if (run.practice) { endPractice(kind); return; }
   const dead = kind !== 'extract';
   state = 'result'; releaseInputs(); exitLock();
   const got = Math.floor(run.bits), kept = dead ? Math.floor(got * 0.5) : got;
@@ -329,6 +352,8 @@ function renderBase() {
       <button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? '最大' : cost + ' BIT'}</button></div>`;
   }).join('');
   renderReboot();
+  $('#bossList').innerHTML = BOSS_ORDER.map(k => `<button class="wcard" data-practice="${k}"><span class="wn">${BOSS_META[k].name}</span>
+    <span class="wd">${BOSS_META[k].desc}</span><span class="wf">${save.bossSeen[k] ? '練習する' : '練習する（未遭遇）'}</span></button>`).join('');
   renderSettings();
   $('#help').innerHTML = isTouch
     ? '横持ち推奨。操作一覧は潜行中の一時停止（II）で見られる。セーブはこのブラウザに保存される。'
@@ -373,7 +398,8 @@ function assignLoadout(item) {
 $('#scrBase').addEventListener('click', e => {
   const un = e.target.closest('[data-unequip]'), sl = e.target.closest('[data-slot]'), w = e.target.closest('[data-w]'), u = e.target.closest('[data-up]');
   const st = e.target.closest('[data-stash]'), se = e.target.closest('[data-sell]'), ti = e.target.closest('[data-tier]');
-  const pu = e.target.closest('[data-pres]'), rb = e.target.closest('[data-reboot]');
+  const pu = e.target.closest('[data-pres]'), rb = e.target.closest('[data-reboot]'), pr = e.target.closest('[data-practice]');
+  if (pr) { startPractice(pr.dataset.practice); return; }
   if (rb) { const a = rb.dataset.reboot; if (a === 'go') { doReboot(); return; } rebootArm = a === 'arm'; renderReboot(); return; }
   if (pu) {
     const def = PRES_UP.find(x => x.id === pu.dataset.pres), l = save.pres.up[def.id] || 0;

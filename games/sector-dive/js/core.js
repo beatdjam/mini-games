@@ -83,9 +83,14 @@ const BIOMES = [
     enemies: ['sniper', 'drone', 'shield', 'turret', 'crawler', 'sniper'], bosses: ['bastion', 'phantom'] },
 ];
 const BOSS_META = {
-  watcher: { pillars: true }, crusher: { pillars: true }, core: { pillars: false },
-  phantom: { pillars: true }, trinity: { pillars: false }, bastion: { pillars: false },
+  watcher: { pillars: true,  name: 'WATCHER 監視体',   desc: '弾の輪と螺旋弾。半分でドローンを出す' },
+  crusher: { pillars: true,  name: 'CRUSHER 圧壊機',   desc: '突進と衝撃波。壁に当てるとスタン' },
+  core:    { pillars: false, name: 'NOISE CORE 深層核', desc: '回転レーザーと弾の輪、雑魚召喚' },
+  phantom: { pillars: true,  name: 'PHANTOM 狙撃体',   desc: '柱の近くへワープし、予告レーザーのあと狙撃' },
+  trinity: { pillars: false, name: 'TRINITY 三連体',   desc: '3体で体力を共有して周回。半分で突進' },
+  bastion: { pillars: false, name: 'BASTION 要塞核',   desc: '周りの砲台を全部壊すとしばらく無防備' },
 };
+const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion'];
 const ENEMY = {
   crawler: { hp: 30,  speed: 6.4, r: 0.55, y: 0.6, hitR: 0.85, dmg: 10, melee: true, bits: 3, color: 0xff4d8d, geo: 'tetra' },
   drone:   { hp: 24,  speed: 3.4, r: 0.5,  y: 2.3, hitR: 0.8,  dmg: 8,  fly: true, keep: 9, bits: 3, color: 0xffe14a, geo: 'octa',
@@ -135,7 +140,7 @@ const SAVE_KEY = 'sector-dive-v1';
 const basicW = id => ({ id, r: 0, basic: true });
 const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0,
-  best: 0, runs: 0, bossKills: 0, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
+  best: 0, runs: 0, bossKills: 0, bossSeen: {}, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
   settings: { autofire: isTouch, assist: 'weak', sens: 1, leftFire: true, stickDash: false, layout: {} } });
 function loadSave() {
   const d = defaultSave();

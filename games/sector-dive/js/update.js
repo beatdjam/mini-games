@@ -349,6 +349,22 @@ if (location.hash === '#smoke') {
         if (stuck || inside) throw new Error('ledge check failed');
       }
       startRun(); tick(5);
+      // boss practice: fight, win, go home; the save must not change
+      {
+        const before = JSON.stringify(Object.assign({}, save, { bossSeen: {} }));
+        BOSS_ORDER.forEach(kind => {
+          startPractice(kind); tick(120);
+          if (!boss) spawnBoss(kind);
+          if (boss.name.indexOf(BOSS_META[kind].name.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss.name);
+          if (boss.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
+          hurtEnemy(boss, boss.hp + 1, false); tick(30);
+          if (portals.length !== 1 || portals[0].kind !== 'extract') throw new Error('practice portal ' + kind);
+          endRun('extract');
+        });
+        const after = JSON.stringify(Object.assign({}, save, { bossSeen: {} }));
+        if (before !== after) throw new Error('practice changed the save');
+        console.log('SMOKE practice ok');
+      }
       // suspend -> resume -> suspend -> discard
       run.route = [0]; run.stage = 2; startStage(); tick(30);
       suspendRun(); if (!save.suspend || state !== 'base') throw new Error('suspend failed');
@@ -388,3 +404,5 @@ if (location.hash.startsWith('#view-')) {
 }
 // dev view: #view-wipe opens the data wipe dialog on the base screen (for screenshots)
 if (location.hash === '#view-wipe') setTimeout(() => $('#btnWipe').click(), 300);
+// dev view: #boss-phantom etc. starts boss practice against that boss
+if (location.hash.startsWith('#boss-')) setTimeout(() => { const k = location.hash.slice(6); if (BOSS_META[k]) startPractice(k); }, 300);

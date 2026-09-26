@@ -12,6 +12,7 @@ function bossBase(name, mesh, mat, hp, y, hitR, update) {
   return e;
 }
 function spawnBoss(kind) {
+  if (!save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); }
   if (kind === 'phantom') return spawnPhantom();
   if (kind === 'trinity') return spawnTrinity();
   if (kind === 'bastion') return spawnBastion();
@@ -172,6 +173,12 @@ function bossDown(e) {
   if (e.beams) e.beams.forEach(b => { b.visible = false; });
   enemies.forEach(o => { if (!o.dead && !o.boss) { o.dead = true; burst(o.x, o.mesh.position.y, o.z, o.def.color, 10, 7, 0.6); removeEnemyMesh(o); } });
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
+  if (run.practice) { // practice: no rewards, no progress; just a way home
+    makePortal(e.cx, e.cz - 2, 0x54e8ff, 'extract', '拠点へ');
+    $('#bossBar').hidden = true; boss = null; run.cleared = true;
+    toast('撃破。ゲートから拠点へ戻る', 2600);
+    return;
+  }
   dropBits(e.x, e.z, 45 * bossDiff());
   addPickup('chip', e.cx, e.cz + 4); addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + run.stage * 0.03;
