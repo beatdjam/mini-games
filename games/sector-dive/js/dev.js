@@ -164,6 +164,11 @@ if (location.hash === '#smoke') {
         }
         console.log('SMOKE reach', b.code, 'unreachable rooms', bad, 'one-way rooms', back);
       });
+      // build guard: version.json must match the page's build meta
+      fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(v => {
+        const mine = document.querySelector('meta[name="build"]').content;
+        console.log(v.build === mine ? 'SMOKE build ok ' + mine : 'SMOKE ERR build mismatch ' + mine + ' vs ' + v.build);
+      });
       console.log('SMOKE DONE');
     } catch (err) { console.error('SMOKE FAIL', err && err.stack || err); }
   }, 300);
@@ -183,7 +188,7 @@ if (location.hash === '#view-wipe') setTimeout(() => $('#btnWipe').click(), 300)
 // optional depth: #boss-phantom-3 = DEPTH 3 strength
 if (location.hash.startsWith('#boss-')) setTimeout(() => { const [k, d] = location.hash.slice(6).split('-'); if (BOSS_META[k]) startPractice(k, d ? Math.max(0, +d - 1) : 0); }, 300);
 // dev view: #view-pick stands next to a dropped weapon (for screenshots of the pick-up prompt)
-if (location.hash === '#view-pick') setTimeout(() => {
+if (location.hash.startsWith('#view-pick')) setTimeout(() => {
   startRun(); show(null); state = 'play';
   addPickup('weapon', P.x + 0.3, P.z, { w: newWeapon('shotgun', 1, false, 2, ['rate']) });
   for (let k = 0; k < 10; k++) update(1 / 60);

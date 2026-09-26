@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="スマホで遊べるランダム生成ローグライトFPS">
+<meta name="build" content="20260927041548">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#05080c">
 <meta name="mobile-web-app-capable" content="yes">
@@ -424,25 +425,38 @@ body.desk.nolock .tbtn{display:grid}
   </section>
 </div>
 
+<script>
+// stale-page guard: if this cached page is older than the deployed build, jump to the fresh one (once per session)
+(() => {
+  const mine = document.querySelector('meta[name="build"]').content;
+  fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(v => {
+    if (!v || v.build === mine) return;
+    let tried = null; try { tried = sessionStorage.getItem('sd-reload'); } catch (e) {}
+    if (tried === v.build) return;
+    try { sessionStorage.setItem('sd-reload', v.build); } catch (e) {}
+    location.replace(location.pathname + '?b=' + v.build + location.hash);
+  }).catch(() => {});
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="js/core.js?v=202609270404"></script>
-<script src="js/render.js?v=202609270404"></script>
-<script src="js/level.js?v=202609270404"></script>
-<script src="js/entities.js?v=202609270404"></script>
-<script src="js/player.js?v=202609270404"></script>
-<script src="js/bosses/common.js?v=202609270404"></script>
-<script src="js/bosses/watcher.js?v=202609270404"></script>
-<script src="js/bosses/crusher.js?v=202609270404"></script>
-<script src="js/bosses/core.js?v=202609270404"></script>
-<script src="js/bosses/phantom.js?v=202609270404"></script>
-<script src="js/bosses/trinity.js?v=202609270404"></script>
-<script src="js/bosses/bastion.js?v=202609270404"></script>
-<script src="js/input.js?v=202609270404"></script>
-<script src="js/hud.js?v=202609270404"></script>
-<script src="js/game.js?v=202609270404"></script>
-<script src="js/enemies.js?v=202609270404"></script>
-<script src="js/bullets.js?v=202609270404"></script>
-<script src="js/update.js?v=202609270404"></script>
-<script src="js/dev.js?v=202609270404"></script>
+<script src="js/core.js?v=20260927041548"></script>
+<script src="js/render.js?v=20260927041548"></script>
+<script src="js/level.js?v=20260927041548"></script>
+<script src="js/entities.js?v=20260927041548"></script>
+<script src="js/player.js?v=20260927041548"></script>
+<script src="js/bosses/common.js?v=20260927041548"></script>
+<script src="js/bosses/watcher.js?v=20260927041548"></script>
+<script src="js/bosses/crusher.js?v=20260927041548"></script>
+<script src="js/bosses/core.js?v=20260927041548"></script>
+<script src="js/bosses/phantom.js?v=20260927041548"></script>
+<script src="js/bosses/trinity.js?v=20260927041548"></script>
+<script src="js/bosses/bastion.js?v=20260927041548"></script>
+<script src="js/input.js?v=20260927041548"></script>
+<script src="js/hud.js?v=20260927041548"></script>
+<script src="js/game.js?v=20260927041548"></script>
+<script src="js/enemies.js?v=20260927041548"></script>
+<script src="js/bullets.js?v=20260927041548"></script>
+<script src="js/update.js?v=20260927041548"></script>
+<script src="js/dev.js?v=20260927041548"></script>
 </body>
 </html>
