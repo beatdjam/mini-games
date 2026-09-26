@@ -173,7 +173,7 @@ function statsHTML() {
   rows.push(['会心率（2倍ダメージ）', `${Math.round(critChance() * 100)}%${P.crit + 0.08 * wo('crit') > TUNE.critCap ? '（上限）' : ''}`]);
   const pierce = P.pierce + wo('pierce'), leech = P.leech + 2 * wo('leech'), gain = P.gainMul * (1 + 0.1 * wo('gain'));
   if (pierce) rows.push(['貫通', `+${pierce} 体`]);
-  if (P.extra) rows.push(['分裂弾', `発射数 +${P.extra}（1発の威力 -20%）`]);
+  if (P.extra) rows.push(['分裂弾', `発射数 +${P.extra}（合計ダメージ +${P.extra * 20}%を弾数で分け合う）`]);
   if (leech) rows.push(['撃破時回復', `HP +${leech}`]);
   if (P.chain) rows.push(['連鎖爆破', `Lv ${P.chain}`]);
   if (P.magnet > 1) rows.push(['回収範囲', `×${P.magnet.toFixed(1)}`]);

@@ -53,12 +53,15 @@ const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 
 const rarLabel = w => w.basic ? '基本' : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
 const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${rarLabel(w)}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
+// 分裂弾: each chip adds one projectile and +20% total damage, shared across all projectiles,
+// so a full hit gains the same +20% per chip whether the weapon fires 1 round or 8 pellets
+const splitMul = def => def.pellets * (1 + 0.2 * P.extra) / (def.pellets + P.extra);
 const critChance = w => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
 // dps = sustained damage per second including reloads and average crits (rail range bonus and explosions not counted).
 function weaponStats(w) {
   const def = WEAPONS[w.id];
-  const perHit = def.dmg * wDmgMul(w) * P.dmgMul * (P.extra > 0 ? 0.8 : 1);
+  const perHit = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
   const hits = def.pellets + P.extra;
   const interval = def.rate / P.fireRate * Math.pow(0.91, wo('rate', w));
   const mag = magSize(w);
@@ -161,7 +164,7 @@ function fire() {
   } else aim = cp.clone().addScaledVector(f, 40);
   const base = aim.sub(mz).normalize();
   const n = def.pellets + P.extra;
-  const dmg = def.dmg * wDmgMul(w) * P.dmgMul * (P.extra > 0 ? 0.8 : 1);
+  const dmg = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
   const moving = Math.hypot(joy.x, joy.y) > 0.2 || keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
   for (let k = 0; k < n; k++) {
     const d = base.clone();

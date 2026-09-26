@@ -51,7 +51,7 @@ const PERKS = [
   { name: '修復パッチ', v: 0.5,  rv: 0.85, desc: v => `HPを最大値の${pct(v)}回復`,              apply: (p, v) => { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * v); } },
   { name: '吸収コード', v: 3,    rv: 5,    desc: v => `撃破ごとにHP +${v}`,                     apply: (p, v) => { p.leech += v; } },
   { name: '貫通弾',     v: 1,    rv: 2,    desc: v => `弾が敵を${v}体多く貫通する`,             apply: (p, v) => { p.pierce += v; } },
-  { name: '分裂弾',     v: 1,              desc: () => '発射数 +1（1発の威力は2割減）',         apply: p => { p.extra += 1; } },
+  { name: '分裂弾',     v: 1,              desc: () => '発射数 +1。全弾当てたときの合計ダメージ +20%（弾数で分け合う）', apply: p => { p.extra += 1; } },
   { name: '軽量化',     v: 0.12, rv: 0.21, desc: v => `移動速度 +${pct(v)}`,                   apply: (p, v) => { p.spdMul += v; } },
   { name: '弱点解析',   v: 0.15, rv: 0.26, desc: v => `会心率 +${pct(v)}（2倍ダメージ、上限40%）`, apply: (p, v) => { p.crit += v; }, maxed: p => p.crit >= TUNE.critCap },
   { name: '瞬発回路',   v: 0.35, rv: 0.6,  desc: v => `スタミナ回復 +${pct(v)}`,                apply: (p, v) => { p.stRegen *= 1 + v; } },

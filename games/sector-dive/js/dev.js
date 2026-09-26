@@ -91,6 +91,13 @@ if (location.hash === '#smoke') {
         for (let k = 0; k < 6; k++) ['弱点解析', '高速装填', '拡張弾倉'].forEach(n => perk(n).apply(p0, perk(n).rv));
         if (Math.abs(p0.reloadMul - 0.4) > 1e-9 || Math.abs(p0.magMul - 2.5) > 1e-9) throw new Error('caps ' + p0.reloadMul + ' ' + p0.magMul);
         const keepP = P; P = p0; const cc = critChance(); P = keepP;
+        // 分裂弾: full-hit total must go up by exactly 20% for a single-shot weapon and for the shotgun alike
+        { const keep = P; P = newPlayer(save.loadout);
+          ['rail', 'shotgun'].forEach(id => {
+            const w = newWeapon(id, 0), a = weaponStats(w); P.extra = 1; const b = weaponStats(w); P.extra = 0;
+            if (Math.abs(b.perHit * b.hits / (a.perHit * a.hits) - 1.2) > 1e-9) throw new Error('split ' + id);
+          });
+          P = keep; }
         if (cc !== TUNE.critCap) throw new Error('crit cap ' + cc);
         run = { stage: PER - 1, route: [0] }; const b1 = bossDiff();
         run = { stage: 2 * PER + PER - 1, route: [0] }; const b3 = bossDiff();
