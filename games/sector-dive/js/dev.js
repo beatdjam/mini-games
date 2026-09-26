@@ -146,11 +146,11 @@ if (location.hash === '#smoke') {
         const before = JSON.stringify(P);
         document.querySelector('#perkList .perk.rare').click();
         if (!rareCards || JSON.stringify(P) === before || !run.perks[run.perks.length - 1].endsWith('+')) throw new Error('rare chip');
-        P.crit = TUNE.critCap; P.reloadMul = 0.4; P.magMul = 2.5;
+        P.crit = TUNE.critCap; P.reloadMul = 0.4; P.magMul = 2.5; P.pierce = 3;
         for (let k = 0; k < 30; k++) {
           openPerk('test');
           const names = [...document.querySelectorAll('#perkList .pn')].map(n => n.textContent);
-          if (names.some(n => /弱点解析|高速装填|拡張弾倉/.test(n))) throw new Error('maxed chip offered ' + names);
+          if (names.some(n => /弱点解析|高速装填|拡張弾倉|貫通弾/.test(n))) throw new Error('maxed chip offered ' + names);
         }
         show(null); state = 'play';
         let elite = 0; for (let k = 0; k < 400; k++) if (ELITE_TYPES.includes(pickEnemyType(BIOMES[3], 10))) elite++;
