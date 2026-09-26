@@ -1,7 +1,7 @@
 'use strict';
 // ================= bosses =================
-// boss health multiplier: 1.05 x DEPTH_HP_GROWTH^(depth), about 1.33 at the D1 boss
-function bossDiff() { return 1.05 * Math.pow(DEPTH_HP_GROWTH, prog(run.stage) / 5) * presMul(); }
+// boss health multiplier: 0.913 x BOSS_HP_GROWTH^(depth), about 1.33 at the D1 boss and 3.4 at the D3 boss
+function bossDiff() { return 0.913 * Math.pow(BOSS_HP_GROWTH, prog(run.stage) / 5) * presMul(); }
 function bossBase(name, mesh, mat, hp, y, hitR, update) {
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;

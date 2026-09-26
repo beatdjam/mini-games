@@ -40,24 +40,27 @@ const UPGRADES = [
   { id: 'kit',  name: '救急箱',       max: 2, cost: l => Math.round(220 * Math.pow(2, l)), desc: l => `潜行開始時の回復キット +1 / 段（現在 ${1 + l} 個）` },
   { id: 'chip', name: '持ち込みチップ', max: 2, cost: l => Math.round(450 * Math.pow(2.2, l)), desc: l => `潜行開始時にチップを選ぶ（現在 ${l} 枚）` },
 ];
+// Chips. v = normal amount, rv = amount on the rare (gold) version; chips without rv never come as rare.
+// Damage / fire rate / speed stack additively (two 過負荷弾 = +40%), so power grows in a straight line.
+const pct = v => `${Math.round(v * 100)}%`;
 const PERKS = [
-  // damage / fire rate / speed chips stack additively (two 過負荷弾 = +40%), so power grows in a straight line
-  { name: '過負荷弾', desc: '与ダメージ +20%',            apply: p => { p.dmgMul += 0.2; } },
-  { name: '連射回路', desc: '連射速度 +15%',              apply: p => { p.fireRate += 0.15; } },
-  { name: '装甲パッチ', desc: '最大HP +20、HPを20回復',    apply: p => { p.maxHp += 20; p.hp = Math.min(p.maxHp, p.hp + 20); } },
-  { name: '修復パッチ', desc: 'HPを最大値の50%回復',        apply: p => { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.5); } },
-  { name: '吸収コード', desc: '撃破ごとにHP +3',          apply: p => { p.leech += 3; } },
-  { name: '貫通弾',   desc: '弾が敵を1体多く貫通する',      apply: p => { p.pierce += 1; } },
-  { name: '分裂弾',   desc: '発射数 +1（1発の威力は2割減）', apply: p => { p.extra += 1; } },
-  { name: '軽量化',   desc: '移動速度 +12%',              apply: p => { p.spdMul += 0.12; } },
-  { name: '弱点解析', desc: '会心率 +15%（2倍ダメージ、上限40%）', apply: p => { p.crit += 0.15; } },
-  { name: '瞬発回路', desc: 'スタミナ回復 +35%',           apply: p => { p.stRegen *= 1.35; } },
-  { name: '連鎖爆破', desc: '撃破した敵が周囲を巻き込んで爆発', apply: p => { p.chain += 1; } },
-  { name: '磁力',     desc: 'ビット回収範囲 +80%、獲得 +10%', apply: p => { p.magnet *= 1.8; p.gainMul *= 1.1; } },
-  { name: '高速装填', desc: 'リロード時間 -25%（最大 -60%）', apply: p => { p.reloadMul = Math.max(0.4, p.reloadMul - 0.25); } },
-  { name: '拡張弾倉', desc: '装弾数 +40%（最大 +150%）',   apply: p => { p.magMul = Math.min(2.5, p.magMul + 0.4); } },
-  { name: '予備タンク', desc: '最大スタミナ +30',          apply: p => { p.stMax += 30; p.st += 30; } },
+  { name: '過負荷弾',   v: 0.2,  rv: 0.35, desc: v => `与ダメージ +${pct(v)}`,                 apply: (p, v) => { p.dmgMul += v; } },
+  { name: '連射回路',   v: 0.15, rv: 0.26, desc: v => `連射速度 +${pct(v)}`,                   apply: (p, v) => { p.fireRate += v; } },
+  { name: '装甲パッチ', v: 20,   rv: 35,   desc: v => `最大HP +${v}、HPを${v}回復`,             apply: (p, v) => { p.maxHp += v; p.hp = Math.min(p.maxHp, p.hp + v); } },
+  { name: '修復パッチ', v: 0.5,  rv: 0.85, desc: v => `HPを最大値の${pct(v)}回復`,              apply: (p, v) => { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * v); } },
+  { name: '吸収コード', v: 3,    rv: 5,    desc: v => `撃破ごとにHP +${v}`,                     apply: (p, v) => { p.leech += v; } },
+  { name: '貫通弾',     v: 1,    rv: 2,    desc: v => `弾が敵を${v}体多く貫通する`,             apply: (p, v) => { p.pierce += v; } },
+  { name: '分裂弾',     v: 1,              desc: () => '発射数 +1（1発の威力は2割減）',         apply: p => { p.extra += 1; } },
+  { name: '軽量化',     v: 0.12, rv: 0.21, desc: v => `移動速度 +${pct(v)}`,                   apply: (p, v) => { p.spdMul += v; } },
+  { name: '弱点解析',   v: 0.15, rv: 0.26, desc: v => `会心率 +${pct(v)}（2倍ダメージ、上限40%）`, apply: (p, v) => { p.crit += v; } },
+  { name: '瞬発回路',   v: 0.35, rv: 0.6,  desc: v => `スタミナ回復 +${pct(v)}`,                apply: (p, v) => { p.stRegen *= 1 + v; } },
+  { name: '連鎖爆破',   v: 1,    rv: 2,    desc: v => `撃破した敵が周囲を巻き込んで爆発（Lv +${v}）`, apply: (p, v) => { p.chain += v; } },
+  { name: '磁力',       v: 1,              desc: () => 'ビット回収範囲 +80%、獲得 +10%',         apply: p => { p.magnet *= 1.8; p.gainMul *= 1.1; } },
+  { name: '高速装填',   v: 0.25, rv: 0.44, desc: v => `リロード時間 -${pct(v)}（最大 -60%）`,   apply: (p, v) => { p.reloadMul = Math.max(0.4, p.reloadMul - v); } },
+  { name: '拡張弾倉',   v: 0.4,  rv: 0.7,  desc: v => `装弾数 +${pct(v)}（最大 +150%）`,        apply: (p, v) => { p.magMul = Math.min(2.5, p.magMul + v); } },
+  { name: '予備タンク', v: 30,   rv: 52,   desc: v => `最大スタミナ +${v}`,                     apply: (p, v) => { p.stMax += v; p.st += v; } },
 ];
+
 // sectors: each run visits them in a shuffled order. gen = level generator settings, bosses = candidates for the sector's boss
 const BIOMES = [
   { name: '廃棄データ層', code: 'DATA', fog: 0x061219, fogNear: 4, fogFar: 44, floor: '#08171e', line: '#1d7f94', wall: '#0b232b', wallLine: '#54e8ff',
@@ -128,19 +131,26 @@ const TUNE = {
   kitHeal: 40,
   kitStart: 1,          // kits at the start of a run (first-aid upgrade adds 1 per level)
   kitDropChance: 0.06,  // chance an enemy drops a kit
-  chipChance: 0.3,      // chance a cleared room gives a chip (otherwise a kit + bits); about 5 chips per depth incl. the boss
+  chipChance: 0.5,      // chance a cleared room gives a chip (otherwise a kit + bits); about 8 chips per depth incl. the boss
+  rareChipChance: 0.2,  // chance each offered chip is the rare (gold, stronger) version
   critCap: 0.4,         // crit chance can't go above this
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
 };
 // regular enemies (not bosses): overall knobs on top of the per-type numbers in ENEMY
 const ENEMY_TUNE = {
+  maxPerRoom: 11,     // cap on enemies in one room
+  elitePerDepth: 0.1, // per depth, extra chance a spawn is one of the biome's tougher types (up to eliteMax)
+  eliteMax: 0.5,
   hpMul: 1.4,         // health multiplier
   dmgMul: 1.25,       // damage multiplier
   fireInterval: 0.85, // multiplier on ranged / sniper cooldowns (smaller = shoots more often)
   wakeTiles: 7,       // wakes when the player is within this many tiles of walking distance and in sight
 };
-// enemy / boss health grows by this factor per depth (compounding), to keep pace with weapons and chips
-const DEPTH_HP_GROWTH = 1.35;
+// health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
+const DEPTH_HP_GROWTH = 1.45;
+const BOSS_HP_GROWTH = 1.6;
+// tougher enemy types, favoured more the deeper you go
+const ELITE_TYPES = ['sniper', 'shield', 'brute', 'bomber', 'splitter', 'turret'];
 const PER = 4; // 3 floors + boss per depth
 // progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
 // (depth start = depth * 5, the boss = depth * 5 + 4)

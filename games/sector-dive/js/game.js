@@ -45,8 +45,8 @@ function startStage() {
     makePortal(ex, ez, 0xffc24a, 'next', si.sub === PER - 2 ? 'ボスへ' : '次の区画');
     rooms.forEach((r, idx) => {
       if (idx === startIdx) return;
-      const n = Math.min(9, Math.max(2, Math.floor(r.w * r.h / (b.gen.density || 3))), randi(2, 4) + Math.floor(prog(run.stage) * 0.3));
-      for (let k = 0; k < n; k++) { const [x, z] = randomTileIn(r); spawnEnemy(pick(b.enemies), x, z, idx, diff); }
+      const n = Math.min(ENEMY_TUNE.maxPerRoom, Math.max(2, Math.floor(r.w * r.h / (b.gen.density || 3))), randi(2, 4) + Math.floor(prog(run.stage) * 0.3));
+      for (let k = 0; k < n; k++) { const [x, z] = randomTileIn(r); spawnEnemy(pickEnemyType(b, si.tier), x, z, idx, diff); }
       roomCount[idx] = n;
     });
     const cand = rooms.map((r, i) => i).filter(i => i !== startIdx);
@@ -65,6 +65,12 @@ function startStage() {
   state = 'play';
   updateHint();
 }
+// deeper sectors lean toward the biome's tougher enemy types
+function pickEnemyType(b, tier) {
+  const elites = b.enemies.filter(t => ELITE_TYPES.includes(t));
+  const chance = Math.min(ENEMY_TUNE.eliteMax, ENEMY_TUNE.elitePerDepth * tier);
+  return elites.length && Math.random() < chance ? pick(elites) : pick(b.enemies);
+}
 function nextStage() {
   sfx('portal');
   run.stage++;
@@ -75,13 +81,15 @@ function nextStage() {
 function openPerk(title, eyebrow, done) {
   state = 'perk'; releaseInputs(); exitLock(); bigmap.hidden = true;
   $('#perkTitle').textContent = title; $('#perkEyebrow').textContent = eyebrow || 'chip acquired';
-  const opts = shuffle(PERKS.slice()).slice(0, 3 + save.pres.up.choice);
+  const opts = shuffle(PERKS.slice()).slice(0, 3 + save.pres.up.choice)
+    .map(o => ({ o, rare: o.rv !== undefined && Math.random() < TUNE.rareChipChance }));
   const list = $('#perkList'); list.innerHTML = '';
-  opts.forEach(o => {
-    const b = document.createElement('button'); b.className = 'perk';
-    b.innerHTML = `<span class="pn">${o.name}</span><span class="pd">${o.desc}</span>`;
+  opts.forEach(({ o, rare }) => {
+    const v = rare ? o.rv : o.v, name = o.name + (rare ? '+' : '');
+    const b = document.createElement('button'); b.className = 'perk' + (rare ? ' rare' : '');
+    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}</span><span class="pd">${o.desc(v)}</span>`;
     b.addEventListener('click', () => {
-      o.apply(P); run.perks.push(o.name); sfx('chip');
+      o.apply(P, v); run.perks.push(name); sfx('chip');
       show(null); state = 'play'; weaponHud();
       requestLock();
       if (done) done();

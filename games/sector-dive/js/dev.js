@@ -85,16 +85,16 @@ if (location.hash === '#smoke') {
       // scaling: additive damage chips, compounding health, practice depth
       {
         const p0 = newPlayer(save.loadout), base = p0.dmgMul, od = PERKS.find(x => x.name === '過負荷弾');
-        od.apply(p0); od.apply(p0);
+        od.apply(p0, od.v); od.apply(p0, od.v);
         if (Math.abs(p0.dmgMul - (base + 0.4)) > 1e-9) throw new Error('additive chips ' + p0.dmgMul);
         const perk = n => PERKS.find(x => x.name === n);
-        for (let k = 0; k < 6; k++) { perk('弱点解析').apply(p0); perk('高速装填').apply(p0); perk('拡張弾倉').apply(p0); }
+        for (let k = 0; k < 6; k++) ['弱点解析', '高速装填', '拡張弾倉'].forEach(n => perk(n).apply(p0, perk(n).rv));
         if (Math.abs(p0.reloadMul - 0.4) > 1e-9 || Math.abs(p0.magMul - 2.5) > 1e-9) throw new Error('caps ' + p0.reloadMul + ' ' + p0.magMul);
         const keepP = P; P = p0; const cc = critChance(); P = keepP;
         if (cc !== TUNE.critCap) throw new Error('crit cap ' + cc);
         run = { stage: PER - 1, route: [0] }; const b1 = bossDiff();
         run = { stage: 2 * PER + PER - 1, route: [0] }; const b3 = bossDiff();
-        if (Math.abs(b1 - 1.05 * Math.pow(1.35, 0.8) * presMul()) > 1e-9 || !(b3 > b1 * 1.8)) throw new Error('boss scaling ' + b1 + ' ' + b3);
+        if (Math.abs(b1 - 1.33 * presMul()) > 0.01 || Math.abs(b3 / b1 - BOSS_HP_GROWTH * BOSS_HP_GROWTH) > 1e-6) throw new Error('boss scaling ' + b1 + ' ' + b3);
         if (Math.abs(diffOf(0) - ENEMY_TUNE.hpMul * presMul()) > 1e-9) throw new Error('enemy hp base ' + diffOf(0));
         startPractice('trinity', 2); tick(5);
         if (stageLabel(run.stage) !== 'D3 BOSS') throw new Error('practice depth ' + stageLabel(run.stage));
@@ -127,6 +127,22 @@ if (location.hash === '#smoke') {
         const alive = line.filter(e => !e.dead).length;
         if (alive !== 2) throw new Error('chain cascade: alive ' + alive);
         console.log('SMOKE chain ok');
+        endRun('abandon');
+      }
+      // rare chips show up gold and apply the stronger amount; deep sectors favour tougher enemy types
+      {
+        startRun(); tick(3);
+        const keep = TUNE.rareChipChance; TUNE.rareChipChance = 1;
+        openPerk('test');
+        const rareCards = document.querySelectorAll('#perkList .perk.rare').length;
+        TUNE.rareChipChance = keep;
+        const before = JSON.stringify(P);
+        document.querySelector('#perkList .perk.rare').click();
+        if (!rareCards || JSON.stringify(P) === before || !run.perks[run.perks.length - 1].endsWith('+')) throw new Error('rare chip');
+        let elite = 0; for (let k = 0; k < 400; k++) if (ELITE_TYPES.includes(pickEnemyType(BIOMES[3], 10))) elite++;
+        let elite0 = 0; for (let k = 0; k < 400; k++) if (ELITE_TYPES.includes(pickEnemyType(BIOMES[3], 0))) elite0++;
+        if (!(elite > elite0)) throw new Error('elite bias ' + elite0 + ' ' + elite);
+        console.log('SMOKE rare/elite ok', 'rare cards', rareCards, 'elite share D1', elite0 / 400, 'D11', elite / 400);
         endRun('abandon');
       }
       // boss practice: fight, win, go home; the save must not change
