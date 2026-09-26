@@ -233,7 +233,8 @@ if (location.hash === '#smoke') {
           });
         });
         setMusicMix('combat'); setMusicMix('explore'); musicVolume(0.4); musicVolume(1);
-        console.log('SMOKE music ok', Object.keys(MUSIC_STYLES).length, 'styles');
+        Object.keys(SFX).forEach(k => SFX[k]()); // every effect builds its node graph without errors
+        console.log('SMOKE music/sfx ok', Object.keys(MUSIC_STYLES).length, 'styles');
       }
       // boss entrance and phase change: invulnerable while appearing; one invulnerable burst when dropping below half
       {

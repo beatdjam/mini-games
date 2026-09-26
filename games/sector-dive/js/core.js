@@ -235,7 +235,10 @@ function audioInit() {
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   try {
     actx = new (window.AudioContext || window.webkitAudioContext)();
-    master = actx.createGain(); master.connect(actx.destination); applySfxVolume();
+    // effects bus -> light compressor so layered shots stay punchy without clipping
+    const comp = actx.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.15;
+    master = actx.createGain(); master.connect(comp); comp.connect(actx.destination); applySfxVolume();
     noiseBuf = actx.createBuffer(1, actx.sampleRate * 1.2, actx.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     musicInit(); // js/music.js
@@ -257,29 +260,72 @@ function noise(dur, vol, freq, delay) {
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + dur);
 }
+// ---- layered sound effects ----
+// nz: filtered noise with a filter sweep f0 -> f1; ot: oscillator with a pitch sweep f0 -> f1.
+// Gun shots stack a transient crack, a body, a low thump and a tail, with a little random pitch per shot.
+function nz(t, dur, vol, type, f0, f1, q) {
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = noiseBuf; f.type = type; f.Q.value = q || 0.8;
+  f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(Math.max(40, f1 || f0), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+}
+function ot(t, type, f0, f1, dur, vol, att) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + (att || 0.002)); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+}
+function gunshot(o) {
+  if (!actx) return;
+  const t = actx.currentTime, r = rand(0.92, 1.08);
+  nz(t, 0.02, o.crack, 'highpass', 5000 * r, 3000);                       // transient crack
+  nz(t, o.body, o.bodyVol, 'bandpass', o.bodyF * r, o.bodyF * 0.35, 1.2);   // body
+  ot(t, 'sine', o.thumpF * r, 35, o.thump, o.thumpVol);                     // low thump
+  nz(t + 0.01, o.tail, o.tailVol, 'lowpass', 2200 * r, 300);               // tail
+}
 const SFX = {
-  pistol: () => tone(560, 0.08, 'square', 0.16, 0.4),
-  smg: () => tone(760, 0.05, 'square', 0.09, 0.5),
-  shotgun: () => { noise(0.2, 0.35, 1600); tone(150, 0.16, 'sawtooth', 0.18, 0.4); },
-  rail: () => { tone(1400, 0.35, 'sawtooth', 0.14, 0.12); noise(0.15, 0.2, 4000); },
-  launcher: () => { noise(0.35, 0.3, 900); tone(180, 0.3, 'sawtooth', 0.18, 0.5); },
-  hit: () => tone(1000, 0.035, 'square', 0.06, 0.7),
-  kill: () => tone(320, 0.12, 'square', 0.12, 2.2),
-  boom: () => { noise(0.5, 0.5, 520); tone(80, 0.4, 'sine', 0.35, 0.5); },
-  bigboom: () => { noise(1.0, 0.7, 380); tone(60, 0.8, 'sine', 0.5, 0.4); noise(0.3, 0.4, 3000); },
-  hurt: () => tone(150, 0.22, 'sawtooth', 0.26, 0.5),
-  pick: () => tone(900, 0.07, 'sine', 0.14, 1.6),
+  pistol: () => gunshot({ crack: 0.35, body: 0.12, bodyVol: 0.35, bodyF: 1800, thumpF: 150, thump: 0.12, thumpVol: 0.35, tail: 0.28, tailVol: 0.12 }),
+  smg: () => gunshot({ crack: 0.22, body: 0.07, bodyVol: 0.22, bodyF: 2400, thumpF: 180, thump: 0.07, thumpVol: 0.2, tail: 0.14, tailVol: 0.06 }),
+  shotgun: () => {
+    gunshot({ crack: 0.45, body: 0.22, bodyVol: 0.55, bodyF: 1100, thumpF: 110, thump: 0.25, thumpVol: 0.6, tail: 0.5, tailVol: 0.22 });
+    const t = actx.currentTime + 0.32; // pump: back and forward
+    nz(t, 0.05, 0.25, 'bandpass', 1400, 900, 3); nz(t + 0.09, 0.06, 0.3, 'bandpass', 1900, 1200, 3);
+  },
+  rail: () => {
+    const t = actx.currentTime;
+    ot(t, 'sawtooth', 2600, 180, 0.45, 0.18); ot(t, 'square', 1300, 90, 0.3, 0.1);   // electric zap falling into a hum
+    nz(t, 0.12, 0.35, 'highpass', 6000, 2500); nz(t, 0.6, 0.12, 'bandpass', 3000, 400, 4); // crackle and shimmer tail
+    ot(t, 'sine', 90, 30, 0.35, 0.45);
+  },
+  launcher: () => {
+    const t = actx.currentTime;
+    ot(t, 'sine', 120, 40, 0.3, 0.55);                   // launch thump
+    nz(t, 0.45, 0.35, 'bandpass', 500, 2500, 1.5);         // rising whoosh
+    nz(t, 0.06, 0.3, 'highpass', 3000, 2000);
+  },
+  hit: () => { const t = actx.currentTime; nz(t, 0.03, 0.12, 'bandpass', 3200 * rand(0.9, 1.1), 2000, 4); ot(t, 'square', 1400, 900, 0.03, 0.03); },
+  kill: () => { const t = actx.currentTime; nz(t, 0.18, 0.3, 'bandpass', 900, 250, 2); ot(t, 'square', 420, 90, 0.16, 0.1); nz(t, 0.05, 0.15, 'highpass', 4000, 2500); },
+  boom: () => { const t = actx.currentTime; ot(t, 'sine', 90, 30, 0.5, 0.6); nz(t, 0.6, 0.5, 'lowpass', 1400, 120); nz(t, 0.08, 0.3, 'highpass', 3000, 1500); },
+  bigboom: () => {
+    const t = actx.currentTime;
+    ot(t, 'sine', 70, 22, 1.0, 0.8); nz(t, 1.2, 0.7, 'lowpass', 1800, 80); nz(t, 0.1, 0.4, 'highpass', 3500, 1500);
+    nz(t + 0.15, 0.9, 0.15, 'bandpass', 2500, 600, 2); // debris
+  },
+  hurt: () => { const t = actx.currentTime; ot(t, 'sine', 130, 50, 0.25, 0.5); nz(t, 0.2, 0.35, 'lowpass', 900, 200); ot(t, 'sawtooth', 220, 110, 0.18, 0.08); },
+  pick: () => { const t = actx.currentTime; ot(t, 'sine', 900, 1500, 0.08, 0.14); nz(t, 0.03, 0.08, 'highpass', 5000, 5000); },
   chip: () => { tone(660, 0.1, 'triangle', 0.22, 1.5); tone(990, 0.16, 'triangle', 0.22, 1.3, 0.09); },
-  eshot: () => tone(330, 0.08, 'triangle', 0.06, 0.6),
-  dash: () => noise(0.14, 0.22, 2600),
-  empty: () => tone(1800, 0.03, 'square', 0.08),
-  reload: () => { tone(420, 0.05, 'square', 0.1); },
-  reloaded: () => { tone(700, 0.05, 'square', 0.12); tone(900, 0.05, 'square', 0.12, 0, 0.07); },
+  eshot: () => { const t = actx.currentTime; ot(t, 'square', 520 * rand(0.9, 1.1), 180, 0.12, 0.05); nz(t, 0.06, 0.06, 'bandpass', 1500, 700, 2); },
+  dash: () => { const t = actx.currentTime; nz(t, 0.22, 0.28, 'bandpass', 800, 3500, 1.2); ot(t, 'sine', 200, 90, 0.15, 0.12); },
+  empty: () => { const t = actx.currentTime; nz(t, 0.025, 0.2, 'bandpass', 2800, 2600, 6); },
+  reload: () => { const t = actx.currentTime; nz(t, 0.05, 0.25, 'bandpass', 1200, 800, 4); ot(t, 'square', 300, 180, 0.05, 0.06); },   // mag out
+  reloaded: () => { const t = actx.currentTime; nz(t, 0.04, 0.3, 'bandpass', 1800, 1400, 5); nz(t + 0.07, 0.05, 0.35, 'bandpass', 2400, 1600, 5); ot(t + 0.07, 'square', 500, 300, 0.04, 0.05); }, // mag in, slide
   portal: () => tone(220, 0.9, 'sine', 0.28, 4),
-  beam: () => tone(90, 0.5, 'sawtooth', 0.12, 1.4),
+  beam: () => { const t = actx.currentTime; ot(t, 'sawtooth', 70, 140, 0.6, 0.12, 0.3); nz(t, 0.6, 0.08, 'bandpass', 400, 1600, 6); },
   heal: () => { tone(500, 0.12, 'sine', 0.2, 1.5); tone(750, 0.2, 'sine', 0.2, 1.3, 0.1); },
 };
 function sfx(name, gap) {
+  if (!actx) return; // no audio yet (before the first tap) or not supported
   const now = performance.now();
   if (gap && lastSfx[name] && now - lastSfx[name] < gap) return;
   lastSfx[name] = now; SFX[name]();
