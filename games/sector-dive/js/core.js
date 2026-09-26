@@ -133,7 +133,7 @@ const TUNE = {
 };
 // regular enemies (not bosses): overall knobs on top of the per-type numbers in ENEMY
 const ENEMY_TUNE = {
-  hpMul: 1.15,        // health multiplier
+  hpMul: 1.4,         // health multiplier
   dmgMul: 1.25,       // damage multiplier
   fireInterval: 0.85, // multiplier on ranged / sniper cooldowns (smaller = shoots more often)
   wakeTiles: 7,       // wakes when the player is within this many tiles of walking distance and in sight
