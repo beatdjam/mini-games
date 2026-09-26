@@ -98,17 +98,17 @@ em{font-style:normal}
 .tbtn{position:absolute;width:52px;height:52px;border-radius:50%;border:1px solid rgba(213,228,238,.35);background:rgba(10,17,25,.55);font-size:11px;display:grid;place-items:center;touch-action:none;line-height:1.2;text-align:center}
 .tbtn.down,.tbtn:active{background:rgba(84,232,255,.25);border-color:var(--cyan)}
 .tbtn.off{opacity:.35}
-#btnFire{width:86px;height:86px;right:calc(env(safe-area-inset-right,0px) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 30px);font-size:14px;border-color:rgba(255,77,141,.7);background:rgba(255,77,141,.14)}
-#btnDash{width:62px;height:62px;right:calc(env(safe-area-inset-right,0px) + 116px);bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
-#btnReload{right:calc(env(safe-area-inset-right,0px) + 124px);bottom:calc(env(safe-area-inset-bottom,0px) + 92px)}
-#btnSwap{right:calc(env(safe-area-inset-right,0px) + 68px);bottom:calc(env(safe-area-inset-bottom,0px) + 126px)}
-#btnKit{right:calc(env(safe-area-inset-right,0px) + 10px);bottom:calc(env(safe-area-inset-bottom,0px) + 126px);border-color:rgba(140,255,106,.6)}
+#btnFire{width:86px;height:86px;right:calc(env(safe-area-inset-right,0px) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 24px);font-size:14px;border-color:rgba(255,77,141,.7);background:rgba(255,77,141,.14)}
+#btnDash{width:62px;height:62px;right:calc(env(safe-area-inset-right,0px) + 114px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
+#btnReload{right:calc(env(safe-area-inset-right,0px) + 118px);bottom:calc(env(safe-area-inset-bottom,0px) + 84px)}
+#btnSwap{right:calc(env(safe-area-inset-right,0px) + 186px);bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
+#btnKit{right:calc(env(safe-area-inset-right,0px) + 186px);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);border-color:rgba(140,255,106,.6)}
 #btnUse{width:auto;height:42px;padding:0 16px;border-radius:21px;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 96px);border-color:var(--amber);color:var(--amber);white-space:nowrap}
 /* touch: weapon/ammo block moves under HP so it never sits on the buttons; slots are tappable */
 body.touch #bottom{left:calc(env(safe-area-inset-left,0px) + 12px);top:calc(env(safe-area-inset-top,0px) + 92px);bottom:auto;transform:none;justify-items:start;z-index:4}
 body.touch #weap{flex-direction:column;align-items:flex-start}
 body.touch .slot{pointer-events:auto;padding:6px 10px}
-body.touch #mini{width:clamp(96px,22vmin,150px);height:clamp(96px,22vmin,150px)}
+body.touch #mini{width:clamp(80px,22vmin,150px);height:clamp(80px,22vmin,150px)}
 body.desk .tbtn{display:none}
 body.desk.nolock .tbtn{display:grid}
 #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);font-size:12px;color:var(--amber);white-space:nowrap}
@@ -1521,6 +1521,14 @@ function setPlayUI(on) { $('#hud').hidden = !on; $('#touch').hidden = !on; gun.v
 
 function startRun() {
   audioInit();
+  if (isTouch) {
+    try {
+      const el = document.documentElement, fs = el.requestFullscreen || el.webkitRequestFullscreen;
+      const p = fs && !document.fullscreenElement ? fs.call(el) : null;
+      const lockLand = () => { try { const q = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (q && q.catch) q.catch(() => {}); } catch (e) {} };
+      if (p && p.then) p.then(lockLand, () => {}); else lockLand();
+    } catch (e) {}
+  }
   if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').catch(() => {});
   const tier = clamp(save.startTier, 0, save.shortcut);
   P = newPlayer(save.loadout);
