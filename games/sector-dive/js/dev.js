@@ -204,6 +204,21 @@ if (location.hash === '#smoke') {
         save.unlocked = keepU; save.mods = keepM; save.loadout = keepL; persist();
         console.log('SMOKE unlock/mod ok');
       }
+      // splitter killed by a chain blast or a rocket: both halves must survive that blast
+      {
+        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        grid.fill(1); hgt.fill(0); ramp.fill(-1); cover.fill(0);
+        const cx = W * T / 2, cz = H * T / 2;
+        P.chain = 3; P.dmgMul = 10;
+        let s = spawnEnemy('splitter', cx, cz, -1, 1); hurtEnemy(s, 1e6, false);
+        const a1 = enemies.filter(e => !e.dead && e.type === 'mini').length;
+        P.chain = 0;
+        s = spawnEnemy('splitter', cx + 10, cz, -1, 1); explode(s.x, 1, s.z, 5, 1e6, 0xff6a3d, true);
+        const a2 = enemies.filter(e => !e.dead && e.type === 'mini').length;
+        if (a1 !== 2 || a2 !== 4) throw new Error('splitter halves ' + a1 + ' ' + a2);
+        console.log('SMOKE splitter ok');
+        endRun('abandon');
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);

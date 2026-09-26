@@ -216,7 +216,7 @@ function explode(x, y, z, radius, dmg, color, big) {
     burst(x, y, z, color || 0xff6a3d, 22, 9, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.4);
     sfx('boom', 60); shake = Math.max(shake, 0.12);
   }
-  for (const e of enemies) {
+  for (const e of enemies.slice()) { // enemies spawned by this blast's kills aren't hit by it
     if (e.dead) continue;
     let dd = Infinity;
     for (const sp of spheres(e)) { const q = sp.p; dd = Math.min(dd, Math.hypot(q.x - x, (q.y - y) * 0.6, q.z - z) - sp.r * 0.5); }
@@ -232,7 +232,7 @@ function bomberBlast(x, y, z, dmg) {
   burst(x, y, z, 0xffb13d, 26, 10, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.3); fireball(x, y, z, 3, 0xff8a3d);
   sfx('boom', 40); shake = Math.max(shake, 0.2);
   if (Math.hypot(P.x - x, P.z - z) < 3.4 && Math.abs(P.fy + 1 - y) < 2.5) damagePlayer(dmg);
-  for (const o of enemies) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, 35, false);
+  for (const o of enemies.slice()) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, 35, false);
 }
 function detonate(e) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
 let inChainBlast = false;
@@ -243,24 +243,26 @@ function killEnemy(e, noReward) {
   burst(pos.x, pos.y, pos.z, e.boss ? 0xff4d8d : e.def.color, e.boss ? 60 : 14, e.boss ? 14 : 8, e.boss ? 1.4 : 0.7);
   removeEnemyMesh(e); sfx('kill', 30);
   if (e.boss) { bossDown(e); return; }
+  if (e.def.bomber && !e.detonated) { e.detonated = true; bomberBlast(e.x, pos.y, e.z, e.dmg * 0.6); }
+  if (!noReward) {
+    dropBits(e.x, e.z, e.def.bits * 0.6 * (1 + prog(run.stage) * 0.05));
+    if (Math.random() < TUNE.kitDropChance) addPickup('kit', e.x + rand(-0.5, 0.5), e.z + rand(-0.5, 0.5));
+    const lh = P.leech + 2 * wo('leech'); if (lh) P.hp = Math.min(P.maxHp, P.hp + lh);
+    // chain blast: only enemies you killed explode; kills caused by a chain blast don't set off another one
+    if (P.chain && !inChainBlast) {
+      inChainBlast = true;
+      // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
+      const depthScale = Math.pow(DEPTH_HP_GROWTH, prog(run.stage) / 5);
+      explode(pos.x, pos.y, pos.z, 2.5 + P.chain * 0.5, 18 * P.chain * P.dmgMul * depthScale, 0xffc24a);
+      inChainBlast = false;
+    }
+  }
+  // splitter: the halves appear after any blast from this kill, so they aren't wiped out by it
   if (e.def.split) {
     for (let k = 0; k < 2; k++) {
       const m = spawnEnemy('mini', e.x + (k ? 0.6 : -0.6), e.z + rand(-0.4, 0.4), e.room, diffOf(run.stage)); m.active = true;
     }
     if (e.room >= 0) roomCount[e.room] += 2;
-  }
-  if (e.def.bomber && !e.detonated) { e.detonated = true; bomberBlast(e.x, pos.y, e.z, e.dmg * 0.6); }
-  if (noReward) { if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room); return; }
-  dropBits(e.x, e.z, e.def.bits * 0.6 * (1 + prog(run.stage) * 0.05));
-  if (Math.random() < TUNE.kitDropChance) addPickup('kit', e.x + rand(-0.5, 0.5), e.z + rand(-0.5, 0.5));
-  const lh = P.leech + 2 * wo('leech'); if (lh) P.hp = Math.min(P.maxHp, P.hp + lh);
-  // chain blast: only enemies you killed explode; kills caused by a chain blast don't set off another one
-  if (P.chain && !inChainBlast) {
-    inChainBlast = true;
-    // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
-    const depthScale = Math.pow(DEPTH_HP_GROWTH, prog(run.stage) / 5);
-    explode(pos.x, pos.y, pos.z, 2.5 + P.chain * 0.5, 18 * P.chain * P.dmgMul * depthScale, 0xffc24a);
-    inChainBlast = false;
   }
   if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room);
 }
