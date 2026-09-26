@@ -116,7 +116,7 @@ function useKit() {
   if (!P || (state !== 'play' && state !== 'bag')) return;
   if (P.kits <= 0) { toast('回復キットがない', 1200); return; }
   if (P.hp >= P.maxHp) { toast('HPは満タン', 1200); return; }
-  P.kits--; P.hp = Math.min(P.maxHp, P.hp + 40); sfx('heal'); toast('HP +40', 1000); weaponHud();
+  P.kits--; P.hp = Math.min(P.maxHp, P.hp + TUNE.kitHeal); sfx('heal'); toast(`HP +${TUNE.kitHeal}`, 1000); weaponHud();
 }
 function normalizeWeapons() {
   if (!P.weapons[0] && P.weapons[1]) { P.weapons[0] = P.weapons[1]; P.weapons[1] = null; }

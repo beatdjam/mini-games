@@ -54,6 +54,24 @@ if (location.hash === '#smoke') {
       // progress: depth start = depth*5, boss = depth*5+4 regardless of PER
       if (prog(0) !== 0 || prog(PER - 1) !== 4 || prog(PER) !== 5 || stageLabel(PER - 1) !== 'D1 BOSS' || stageLabel(PER) !== 'D2 1/' + (PER - 1)) throw new Error('prog/label ' + [prog(PER - 1), prog(PER), stageLabel(PER - 1), stageLabel(PER)]);
       console.log('SMOKE prog ok', [0, 1, 2, 3, 4].map(prog).join(','));
+      // shield: a round from the front wears the shield, not HP; from behind it hurts; the shield eventually breaks
+      {
+        run.route = [3]; run.stage = PER * 3 + 1; startStage(); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        const [sx, sz] = roomSpot(rooms[startIdx]);
+        const e = spawnEnemy('shield', sx, sz, -1, 1); e.face = 0; e.mesh.rotation.y = 0; // facing +z
+        const shoot = dir => { spawnPBullet(new V3(sx, e.fy + 1, sz + dir * 3), new V3(0, 0, -dir), 60, 20, 0, 0, 0xffffff, 0, {}); updatePBullets(0.1); };
+        const hp0 = e.hp, sh0 = e.shieldHp;
+        shoot(1);   // from the front
+        if (!(e.shieldHp < sh0 && e.hp === hp0)) throw new Error('shield front ' + [e.shieldHp, sh0, e.hp, hp0]);
+        shoot(-1);  // from behind
+        if (!(e.hp < hp0)) throw new Error('shield back');
+        for (let k = 0; k < 20 && e.shieldHp > 0; k++) shoot(1);
+        if (e.shieldHp > 0 || e.stun <= 0) throw new Error('shield break');
+        const hp1 = e.hp; shoot(1);
+        if (!(e.hp < hp1)) throw new Error('after break');
+        console.log('SMOKE shield ok');
+        removeEnemyMesh(e); enemies = [];
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);

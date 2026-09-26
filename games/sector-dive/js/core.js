@@ -111,6 +111,24 @@ const ENEMY = {
              ranged: { rate: 1.7, speed: 13, count: 3, spread: 0.16 } },
   mini:    { hp: 16,  speed: 7.2, r: 0.4,  y: 0.4, hitR: 0.6,  dmg: 6,  melee: true, bits: 1, color: 0x7dffcf, geo: 'tetraS' },
 };
+// player-side tuning knobs. Enemy numbers live in ENEMY, boss numbers in js/bosses/*.js
+const TUNE = {
+  hp: 100,              // base max HP (armour upgrade adds 15 per level)
+  moveSpeed: 7.4,       // base move speed (m/s)
+  stamina: 100,         // base max stamina (endurance upgrade adds 20 per level)
+  staminaRegen: 34,     // stamina per second (cooling upgrade adds 12% per level)
+  staminaDelay: 0.5,    // seconds after a dash before stamina refills
+  dashCost: 45,
+  dashTime: 0.2,        // seconds
+  dashSpeed: 3.3,       // multiplier on move speed while dashing
+  dashInvuln: 0.32,     // seconds of invulnerability from a dash
+  hitInvuln: 0.45,      // seconds of invulnerability after taking a hit
+  kitHeal: 40,
+  kitStart: 1,          // kits at the start of a run (first-aid upgrade adds 1 per level)
+  kitDropChance: 0.06,  // chance an enemy drops a kit
+  chipChance: 0.7,      // chance a cleared room gives a chip (otherwise a kit + bits)
+  deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
+};
 const PER = 4; // 3 floors + boss per depth
 // progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
 // (depth start = depth * 5, the boss = depth * 5 + 4)

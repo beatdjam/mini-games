@@ -96,17 +96,34 @@ function buildEnemyMesh(def) {
 }
 function spawnEnemy(type, x, z, room, diff) {
   const def = ENEMY[type], m = buildEnemyMesh(def), fy = floorY(x, z);
-  m.g.position.set(x, fy + def.y, z); dynGroup.add(m.g);
-  const e = { type, def, mesh: m.g, body: m.body, mat: m.mat, baseEI: 0.4, x, z, y: def.y, hp: def.hp * diff, maxHp: def.hp * diff,
-    dmg: def.dmg * (1 + (run ? prog(run.stage) : 0) * 0.045) * presMul(), room, cd: rand(0.8, 1.8), mcd: 0, t: rand(0, 6), flash: 0, active: false,
-    side: Math.random() < 0.5 ? -1 : 1, hitR: def.hitR, r: def.r, fy, face: 0, stun: 0 };
-  if (def.shield) { e.shieldHp = def.shieldHp * diff; e.shieldParts = m.g.userData.shield; }
-  if (def.sniper) {
-    const lg = new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]);
-    e.laser = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xff4d8d, transparent: true, opacity: 0.8 }));
-    e.laser.visible = false; e.laser.frustumCulled = false; dynGroup.add(e.laser);
+  m.g.position.set(x, fy + def.y, z);
+  dynGroup.add(m.g);
+  const e = {
+    type, def,
+    mesh: m.g, body: m.body, mat: m.mat, baseEI: 0.4, // group, spinning body, body material, normal glow
+    x, z, fy,               // position on the floor and feet height
+    y: def.y,               // body height above the feet
+    r: def.r, hitR: def.hitR, // collision radius, hit sphere radius
+    hp: def.hp * diff, maxHp: def.hp * diff,
+    dmg: def.dmg * (1 + (run ? prog(run.stage) : 0) * 0.045) * presMul(),
+    room,                   // room index (-1 = not tied to a room, e.g. boss minions)
+    active: false,          // wakes up when the player comes near (see wakeCheck)
+    cd: rand(0.8, 1.8),     // ranged / sniper cooldown
+    mcd: 0,                 // melee cooldown
+    t: rand(0, 6),          // animation clock
+    flash: 0,               // hit flash timer
+    side: Math.random() < 0.5 ? -1 : 1, // strafe direction for `keep` enemies
+    face: 0,                // facing angle (turns gradually when def.turn is set)
+    stun: 0,                // seconds of stagger left (shield break)
+    // set later by behaviour code: fuse (bomber), aim / lock (sniper), lastShot / shotN (shotgun full-hit count), detonated
+  };
+  if (def.shield) {
+    e.shieldHp = def.shieldHp * diff;       // shield breaks at 0
+    e.shieldParts = m.g.userData.shield;    // plate + outline meshes, removed on break
   }
-  enemies.push(e); return e;
+  if (def.sniper) e.laser = makeLaser(0xff4d8d);
+  enemies.push(e);
+  return e;
 }
 function removeEnemyMesh(e) {
   disposeTree(e.mesh); dynGroup.remove(e.mesh);

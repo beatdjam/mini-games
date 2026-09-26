@@ -28,7 +28,7 @@ function updateHud() {
   hpFill.style.transform = `scaleX(${f})`; hpBar.classList.toggle('low', f < 0.3);
   hpNum.textContent = Math.ceil(P.hp);
   stFill.style.transform = `scaleX(${clamp(P.st / P.stMax, 0, 1)})`;
-  stBar.classList.toggle('short', P.st < 45); stBar.classList.toggle('warn', stWarn > 0);
+  stBar.classList.toggle('short', P.st < TUNE.dashCost); stBar.classList.toggle('warn', stWarn > 0);
   bitNum.textContent = Math.floor(run.bits);
   cross.classList.toggle('lock', !!target);
   const w = curW(), ms = magSize(w);
@@ -36,7 +36,7 @@ function updateHud() {
   if (ammoEl.dataset.v !== at) { ammoEl.innerHTML = at; ammoEl.dataset.v = at; ammoEl.classList.toggle('empty', w.mag === 0); }
   reloadEl.hidden = !(P.reloadT > 0);
   if (P.reloadT > 0) rFill.style.transform = `scaleX(${1 - P.reloadT / P.reloadMax})`;
-  $('#btnDash').classList.toggle('off', P.st < 45);
+  $('#btnDash').classList.toggle('off', P.st < TUNE.dashCost);
   if (boss) bossFill.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
   const lowPulse = f < 0.3 ? 0.25 + Math.sin(time * 5) * 0.12 : 0;
   vigEl.style.opacity = Math.max(vig, lowPulse);

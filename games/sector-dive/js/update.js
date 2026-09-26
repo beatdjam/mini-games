@@ -20,14 +20,14 @@ function update(dt) {
   P.stDelay -= dt; if (P.stDelay <= 0) P.st = Math.min(P.stMax, P.st + P.stRegen * dt);
   if (dashReq) {
     dashReq = false;
-    if (P.st >= 45) {
+    if (P.st >= TUNE.dashCost) {
       const l = Math.hypot(vx, vz);
       if (l > 0.1) { P.ddx = vx / l; P.ddz = vz / l; } else { P.ddx = fx; P.ddz = fz; }
-      P.dashT = 0.2; P.st -= 45; P.stDelay = 0.5; P.inv = Math.max(P.inv, 0.32); sfx('dash');
+      P.dashT = TUNE.dashTime; P.st -= TUNE.dashCost; P.stDelay = TUNE.staminaDelay; P.inv = Math.max(P.inv, TUNE.dashInvuln); sfx('dash');
     } else { stWarn = 0.3; sfx('empty'); }
   }
   const sp = P.baseSpeed * P.spdMul * (1 + 0.06 * wo('speed'));
-  if (P.dashT > 0) { P.dashT -= dt; vx = P.ddx * 3.3; vz = P.ddz * 3.3; }
+  if (P.dashT > 0) { P.dashT -= dt; vx = P.ddx * TUNE.dashSpeed; vz = P.ddz * TUNE.dashSpeed; }
   moveCircle(P, vx * sp * dt, vz * sp * dt, P.r);
   const gy = floorY(P.x, P.z);
   if (P.fy > gy + 0.01) { P.vy -= 26 * dt; P.fy = Math.max(gy, P.fy + P.vy * dt); if (P.fy === gy) P.vy = 0; }

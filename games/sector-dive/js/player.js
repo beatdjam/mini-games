@@ -34,12 +34,12 @@ function rollWeapon(stage, minR) {
   return newWeapon(pickDrop(), r, false, plus, shuffle(Object.keys(AFFIX)).slice(0, n));
 }
 function newPlayer(loadout) {
-  const u = save.up, pu = save.pres.up, hp = 100 + u.hp * 15 + pu.hp * 10;
+  const u = save.up, pu = save.pres.up, hp = TUNE.hp + u.hp * 15 + pu.hp * 10;
   const ws = loadout.map(w => w ? newWeapon(w.id, w.r, w.basic, w.plus, w.opts) : null);
-  return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: 7.4, spdMul: 1 + u.spd * 0.05, dmgMul: 1 + u.dmg * 0.08,
+  return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: TUNE.moveSpeed, spdMul: 1 + u.spd * 0.05, dmgMul: 1 + u.dmg * 0.08,
     rateMul: 1, gainMul: (1 + u.gain * 0.15) * (1 + pu.gain * 0.1), leech: 0, pierce: 0, extra: 0, crit: 0, chain: 0, magnet: 1, reloadMul: 1, magMul: 1,
-    st: 100 + (u.stam || 0) * 20, stMax: 100 + (u.stam || 0) * 20, stRegen: 34 * (1 + u.dash * 0.12), stDelay: 0,
-    inv: 0, dashT: 0, ddx: 0, ddz: 0, weapons: ws, cur: 0, bag: [null, null, null, null], kits: 1 + u.kit,
+    st: TUNE.stamina + (u.stam || 0) * 20, stMax: TUNE.stamina + (u.stam || 0) * 20, stRegen: TUNE.staminaRegen * (1 + u.dash * 0.12), stDelay: 0,
+    inv: 0, dashT: 0, ddx: 0, ddz: 0, weapons: ws, cur: 0, bag: [null, null, null, null], kits: TUNE.kitStart + u.kit,
     reloadT: 0, reloadMax: 1, fireCd: 0, tile: -1, bob: 0, fy: 0, vy: 0 };
 }
 // each run walks the sectors in its own shuffled order (run.route); depth (tier) drives difficulty
@@ -167,7 +167,7 @@ function fire() {
 
 function damagePlayer(d) {
   if (P.inv > 0 || state !== 'play') return;
-  P.hp -= d; P.inv = 0.45; shake = Math.max(shake, 0.22); vig = 0.9; sfx('hurt', 80);
+  P.hp -= d; P.inv = TUNE.hitInvuln; shake = Math.max(shake, 0.22); vig = 0.9; sfx('hurt', 80);
   if (P.hp <= 0) { P.hp = 0; endRun('dead'); }
 }
 
@@ -227,13 +227,13 @@ function killEnemy(e, noReward) {
   if (e.def.bomber && !e.detonated) { e.detonated = true; bomberBlast(e.x, pos.y, e.z, e.dmg * 0.6); }
   if (noReward) { if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room); return; }
   dropBits(e.x, e.z, e.def.bits * 0.6 * (1 + prog(run.stage) * 0.05));
-  if (Math.random() < 0.06) addPickup('kit', e.x + rand(-0.5, 0.5), e.z + rand(-0.5, 0.5));
+  if (Math.random() < TUNE.kitDropChance) addPickup('kit', e.x + rand(-0.5, 0.5), e.z + rand(-0.5, 0.5));
   const lh = P.leech + 2 * wo('leech'); if (lh) P.hp = Math.min(P.maxHp, P.hp + lh);
   if (P.chain) explode(pos.x, pos.y, pos.z, 3 + P.chain * 0.8, 18 * P.chain * P.dmgMul, 0xffc24a);
   if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room);
 }
 function roomCleared(idx) {
   const [x, z] = roomSpot(rooms[idx]);
-  if (Math.random() < 0.7) { addPickup('chip', x, z); toast('区画制圧 — チップを回収できる'); }
+  if (Math.random() < TUNE.chipChance) { addPickup('chip', x, z); toast('区画制圧 — チップを回収できる'); }
   else { addPickup('kit', x - 0.8, z); dropBits(x + 0.8, z, 6 + prog(run.stage)); toast('区画制圧'); }
 }

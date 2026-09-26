@@ -159,7 +159,7 @@ function statsHTML() {
   rows.push(['与ダメージ', pct(P.dmgMul * (1 + PLUS_DMG * (w.plus || 0)) - 1)]);
   rows.push(['連射速度', pct(1 / (P.rateMul * Math.pow(0.91, wo('rate'))) - 1)]);
   rows.push(['移動速度', pct(P.spdMul * (1 + 0.06 * wo('speed')) - 1)]);
-  rows.push(['スタミナ', `最大 ${P.stMax}（ダッシュ ${Math.floor(P.stMax / 45)} 回分）/ 回復 ${Math.round(P.stRegen)} 毎秒`]);
+  rows.push(['スタミナ', `最大 ${P.stMax}（ダッシュ ${Math.floor(P.stMax / TUNE.dashCost)} 回分）/ 回復 ${Math.round(P.stRegen)} 毎秒`]);
   rows.push(['リロード時間', pct(P.reloadMul * Math.pow(0.8, wo('reload')) - 1)]);
   rows.push(['装弾数', pct(P.magMul * (1 + 0.3 * wo('mag')) - 1)]);
   rows.push(['会心率（2倍ダメージ）', `${Math.round((P.crit + 0.08 * wo('crit')) * 100)}%`]);
@@ -199,6 +199,7 @@ function renderBag() {
   $('#invEq').innerHTML = P.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
   $('#invBag').innerHTML = P.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
   $('#kitNum').textContent = P.kits;
+  $('#btnUseKit').textContent = `使う（HP +${TUNE.kitHeal}）`;
   $('#btnUseKit').disabled = P.kits <= 0 || P.hp >= P.maxHp;
   $('#bagChips').innerHTML = `<p class="chips">HP ${Math.ceil(P.hp)} / ${P.maxHp}　今回のビット ${Math.floor(run.bits)}</p>` + statsHTML();
   const act = $('#invAct');
@@ -261,7 +262,7 @@ function endRun(kind) {
   if (run.practice) { endPractice(kind); return; }
   const dead = kind !== 'extract';
   state = 'result'; releaseInputs(); exitLock();
-  const got = Math.floor(run.bits), kept = dead ? Math.floor(got * 0.5) : got;
+  const got = Math.floor(run.bits), kept = dead ? Math.floor(got * TUNE.deathBitsKeep) : got;
   save.bits += kept;
   save.best = Math.max(save.best, run.stage + 1);
   const found = P.weapons.concat(P.bag).filter(w => w && !w.basic);
