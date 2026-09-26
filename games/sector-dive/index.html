@@ -978,7 +978,8 @@ function rollWeapon(stage, minR) {
   const roll = Math.random() + stage * 0.025;
   const r = Math.max(minR || 0, roll > 1.05 ? 2 : roll > 0.68 ? 1 : 0);
   let plus = 0;
-  if (stage >= 3) { const q = Math.random() + (stage - 3) * 0.06; plus = q > 1.25 ? 3 : q > 0.95 ? 2 : q > 0.6 ? 1 : 0; }
+  // no cap: the centre climbs 0.6 per stage (about +3 per sector) with a ±1.5 spread
+  if (stage >= 3) plus = Math.max(0, Math.round((stage - 2) * 0.6 + rand(-1.5, 1.5)));
   let n = 0;
   if (stage >= 5 && Math.random() < 0.35 + (stage - 5) * 0.04) n++;
   if (stage >= 10 && Math.random() < 0.3 + (stage - 10) * 0.03) n++;
