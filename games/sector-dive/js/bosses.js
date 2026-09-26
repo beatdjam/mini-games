@@ -12,7 +12,7 @@ function bossBase(name, mesh, mat, hp, y, hitR, update) {
   return e;
 }
 function spawnBoss(kind) {
-  if (!save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); }
+  if (!run.practice && !save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); } // practice doesn't count as an encounter
   if (kind === 'phantom') return spawnPhantom();
   if (kind === 'trinity') return spawnTrinity();
   if (kind === 'bastion') return spawnBastion();

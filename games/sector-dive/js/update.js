@@ -351,7 +351,7 @@ if (location.hash === '#smoke') {
       startRun(); tick(5);
       // boss practice: fight, win, go home; the save must not change
       {
-        const before = JSON.stringify(Object.assign({}, save, { bossSeen: {} }));
+        const before = JSON.stringify(save);
         BOSS_ORDER.forEach(kind => {
           startPractice(kind); tick(120);
           if (!boss) spawnBoss(kind);
@@ -361,7 +361,7 @@ if (location.hash === '#smoke') {
           if (portals.length !== 1 || portals[0].kind !== 'extract') throw new Error('practice portal ' + kind);
           endRun('extract');
         });
-        const after = JSON.stringify(Object.assign({}, save, { bossSeen: {} }));
+        const after = JSON.stringify(save);
         if (before !== after) throw new Error('practice changed the save');
         console.log('SMOKE practice ok');
       }
