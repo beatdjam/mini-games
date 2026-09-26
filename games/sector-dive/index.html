@@ -226,6 +226,11 @@ body.desk.nolock .tbtn{display:grid}
 .item.none{color:#4d5f6e;font-size:12px}
 .invact{display:flex;gap:6px;flex-wrap:wrap;min-height:34px;align-items:center;font-size:12px;color:var(--dim)}
 .invrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line)}
+.statbox{display:grid;gap:8px}
+.statbox h3{margin:0}
+.statbox .reslist{font-size:13px}
+.statbox .reslist div{padding:6px 12px}
+.wopt{font-size:11px;color:var(--lime)}
 @media (prefers-reduced-motion:reduce){#toast,#banner,#fade{transition:none}}
 </style>
 </head>
@@ -343,7 +348,7 @@ body.desk.nolock .tbtn{display:grid}
       <div class="invgrid" id="invBag"></div>
       <div class="invact" id="invAct"></div>
       <div class="invrow"><span>回復キット <b class="num" id="kitNum">0</b> / 3</span><button id="btnUseKit" class="buy">使う（HP +40）</button></div>
-      <p class="chips" id="bagChips"></p>
+      <div class="statbox" id="bagChips"></div>
     </div>
   </section>
 
@@ -355,7 +360,7 @@ body.desk.nolock .tbtn{display:grid}
       <dl class="guide" id="guide"></dl>
       <h3>設定</h3>
       <div class="setrow" data-settings="pause"></div>
-      <p class="chips" id="pauseChips"></p>
+      <div class="statbox" id="pauseChips"></div>
       <div class="btnrow"><button id="btnResume" class="primary">再開</button><button id="btnAbandon" class="ghost">潜行を放棄<br><small class="chips">死亡と同じ扱い</small></button></div>
     </div>
   </section>
@@ -406,6 +411,7 @@ const UPGRADES = [
   { id: 'spd',  name: '駆動系',       max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)),  desc: l => `移動速度 +5% / 段（現在 +${l * 5}%）` },
   { id: 'dash', name: '冷却',         max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)),  desc: l => `スタミナ回復 +12% / 段（現在 +${l * 12}%）` },
   { id: 'gain', name: '回収効率',     max: 5, cost: l => Math.round(150 * Math.pow(1.7, l)),  desc: l => `ビット獲得 +15% / 段（現在 +${l * 15}%）` },
+  { id: 'stam', name: '持久力',       max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)), desc: l => `最大スタミナ +20 / 段（現在 +${l * 20}）` },
   { id: 'kit',  name: '救急箱',       max: 2, cost: l => Math.round(220 * Math.pow(2, l)), desc: l => `潜行開始時の回復キット +1 / 段（現在 ${1 + l} 個）` },
   { id: 'chip', name: '持ち込みチップ', max: 2, cost: l => Math.round(450 * Math.pow(2.2, l)), desc: l => `潜行開始時にチップを選ぶ（現在 ${l} 枚）` },
 ];
@@ -424,6 +430,7 @@ const PERKS = [
   { name: '磁力',     desc: 'ビット回収範囲 +80%、獲得 +10%', apply: p => { p.magnet *= 1.8; p.gainMul *= 1.1; } },
   { name: '高速装填', desc: 'リロード時間 -30%',           apply: p => { p.reloadMul *= 0.7; } },
   { name: '拡張弾倉', desc: '装弾数 +50%',                apply: p => { p.magMul *= 1.5; } },
+  { name: '予備タンク', desc: '最大スタミナ +30',          apply: p => { p.stMax += 30; p.st += 30; } },
 ];
 const BIOMES = [
   { name: '廃棄データ層', code: 'SEC-A', fog: 0x061219, floor: '#08171e', line: '#1d7f94', wall: '#0b232b', wallLine: '#54e8ff',
@@ -469,7 +476,7 @@ const GUIDE_TOUCH = [['移動', '画面左をドラッグ'], ['視点', '画面�
 // ================= save =================
 const SAVE_KEY = 'sector-dive-v1';
 const basicW = id => ({ id, r: 0, basic: true });
-const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
+const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0,
   best: 0, runs: 0, bossKills: 0, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
   settings: { autofire: isTouch, assist: 'weak', sens: 1, leftFire: true, stickDash: false, layout: {} } });
@@ -492,7 +499,7 @@ function loadSave() {
 }
 let save = loadSave();
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
-const sellValue = w => Math.round(8 + WEAPONS[w.id].cost * 0.06 + [0, 20, 55][w.r]);
+const sellValue = w => Math.round(8 + WEAPONS[w.id].cost * 0.06 + [0, 20, 55][w.r] + (w.plus || 0) * 10 + (w.opts || []).length * 20);
 
 // ================= audio =================
 let actx = null, master = null, noiseBuf = null;
@@ -952,13 +959,37 @@ function spawnWave(x, z, speed, max, dmg, color) {
 
 // ================= player =================
 let P = null, run = null;
-const newWeapon = (id, r, basic) => ({ id, r, basic: !!basic, mag: WEAPONS[id].mag });
+const newWeapon = (id, r, basic, plus, opts) => ({ id, r, basic: !!basic, plus: plus || 0, opts: opts || [], mag: WEAPONS[id].mag });
+// weapon options: only active while that weapon is in hand
+const AFFIX = {
+  mag:    { name: '大容量弾倉',   text: '装弾数 +30%' },
+  reload: { name: '速射装填',     text: 'リロード -20%' },
+  rate:   { name: '高速機関',     text: '連射速度 +10%' },
+  crit:   { name: '照準補正',     text: '会心率 +8%' },
+  leech:  { name: '吸収回路',     text: '撃破ごとにHP +2' },
+  speed:  { name: '軽量フレーム', text: '移動速度 +6%' },
+  pierce: { name: '徹甲弾',       text: '貫通 +1' },
+  gain:   { name: '採集機構',     text: 'ビット獲得 +10%' },
+};
+const PLUS_DMG = 0.08;
+const wo = (k, w) => { w = w || (P && P.weapons[P.cur]); return w && w.opts ? w.opts.filter(o => o === k).length : 0; };
+const wDmgMul = w => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
+function rollWeapon(stage, minR) {
+  const roll = Math.random() + stage * 0.025;
+  const r = Math.max(minR || 0, roll > 1.05 ? 2 : roll > 0.68 ? 1 : 0);
+  let plus = 0;
+  if (stage >= 3) { const q = Math.random() + (stage - 3) * 0.06; plus = q > 1.25 ? 3 : q > 0.95 ? 2 : q > 0.6 ? 1 : 0; }
+  let n = 0;
+  if (stage >= 5 && Math.random() < 0.35 + (stage - 5) * 0.04) n++;
+  if (stage >= 10 && Math.random() < 0.3 + (stage - 10) * 0.03) n++;
+  return newWeapon(pickDrop(), r, false, plus, shuffle(Object.keys(AFFIX)).slice(0, n));
+}
 function newPlayer(loadout) {
   const u = save.up, pu = save.pres.up, hp = 100 + u.hp * 15 + pu.hp * 10;
-  const ws = loadout.map(w => w ? newWeapon(w.id, w.r, w.basic) : null);
+  const ws = loadout.map(w => w ? newWeapon(w.id, w.r, w.basic, w.plus, w.opts) : null);
   return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: 7.4, spdMul: 1 + u.spd * 0.05, dmgMul: 1 + u.dmg * 0.08,
     rateMul: 1, gainMul: (1 + u.gain * 0.15) * (1 + pu.gain * 0.1), leech: 0, pierce: 0, extra: 0, crit: 0, chain: 0, magnet: 1, reloadMul: 1, magMul: 1,
-    st: 100, stMax: 100, stRegen: 34 * (1 + u.dash * 0.12), stDelay: 0,
+    st: 100 + (u.stam || 0) * 20, stMax: 100 + (u.stam || 0) * 20, stRegen: 34 * (1 + u.dash * 0.12), stDelay: 0,
     inv: 0, dashT: 0, ddx: 0, ddz: 0, weapons: ws, cur: 0, bag: [null, null, null, null], kits: 1 + u.kit,
     reloadT: 0, reloadMax: 1, fireCd: 0, tile: -1, bob: 0 };
 }
@@ -967,9 +998,10 @@ const isBossStage = s => s % PER === PER - 1;
 function stageLabel(s) { const si = stageInfo(s); return `${si.biome.code}${si.loop ? ' L' + (si.loop + 1) : ''} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
 function tierLabel(t) { const loop = Math.floor(t / 3); return `${BIOMES[t % 3].code}${loop ? ' L' + (loop + 1) : ''}`; }
 const diffOf = s => (1 + s * 0.1 + stageInfo(s).loop * 0.5) * presMul();
-const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul));
-const wName = w => `${WEAPONS[w.id].name}<em style="color:${RARITY[w.r].css}">${w.basic ? '基本' : RARITY[w.r].name}</em>`;
-const wText = w => `${WEAPONS[w.id].name}［${w.basic ? '基本' : RARITY[w.r].name}］`;
+const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 0.3 * wo('mag', w))));
+const wName = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}<em style="color:${RARITY[w.r].css}">${w.basic ? '基本' : RARITY[w.r].name}</em>`;
+const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${w.basic ? '基本' : RARITY[w.r].name}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
+const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
 // ---- viewmodels ----
 const gun = new THREE.Group(); camera.add(gun); gun.visible = false;
@@ -1041,11 +1073,11 @@ function tryFire() {
 function startReload() {
   const w = curW();
   if (P.reloadT > 0 || w.mag >= magSize(w)) return;
-  P.reloadMax = P.reloadT = WEAPONS[w.id].reload * P.reloadMul; sfx('reload');
+  P.reloadMax = P.reloadT = WEAPONS[w.id].reload * P.reloadMul * Math.pow(0.8, wo('reload')); sfx('reload');
 }
 function fire() {
   const w = curW(), def = WEAPONS[w.id], rar = RARITY[w.r];
-  P.fireCd = def.rate * P.rateMul;
+  P.fireCd = def.rate * P.rateMul * Math.pow(0.91, wo('rate'));
   w.mag--;
   camera.updateMatrixWorld();
   const mz = curVM.userData.tip.getWorldPosition(new V3());
@@ -1058,14 +1090,14 @@ function fire() {
   } else aim = cp.clone().addScaledVector(f, 40);
   const base = aim.sub(mz).normalize();
   const n = def.pellets + P.extra;
-  const dmg = def.dmg * rar.mult * P.dmgMul * (P.extra > 0 ? 0.8 : 1);
+  const dmg = def.dmg * wDmgMul(w) * P.dmgMul * (P.extra > 0 ? 0.8 : 1);
   const moving = Math.hypot(joy.x, joy.y) > 0.2 || keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
   for (let k = 0; k < n; k++) {
     const d = base.clone();
     if (P.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * 0.05);
     const s = def.spread + (k >= def.pellets ? 0.02 : 0) + (moving ? 0.014 : 0);
     d.x += rand(-s, s); d.y += rand(-s, s) * 0.7; d.z += rand(-s, s); d.normalize();
-    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce, def.blast, def.color, def.grav);
+    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), def.blast, def.color, def.grav);
   }
   gunKick = Math.min(0.2, gunKick + (def.blast ? 0.2 : def.pellets > 1 || def.pierce ? 0.12 : 0.05));
   flashT = def.blast ? 0.09 : 0.05;
@@ -1118,7 +1150,7 @@ function killEnemy(e) {
   if (e.boss) { bossDown(e); return; }
   dropBits(e.x, e.z, e.def.bits * 0.6 * (1 + run.stage * 0.05));
   if (Math.random() < 0.06) addPickup('kit', e.x + rand(-0.5, 0.5), e.z + rand(-0.5, 0.5));
-  if (P.leech) P.hp = Math.min(P.maxHp, P.hp + P.leech);
+  const lh = P.leech + 2 * wo('leech'); if (lh) P.hp = Math.min(P.maxHp, P.hp + lh);
   if (P.chain) explode(pos.x, pos.y, pos.z, 3 + P.chain * 0.8, 18 * P.chain * P.dmgMul, 0xffc24a);
   if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room);
 }
@@ -1301,7 +1333,7 @@ function bossDown(e) {
   dropBits(e.x, e.z, 45 * bossDiff());
   addPickup('chip', e.cx, e.cz + 4); addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + run.stage * 0.03;
-  addPickup('weapon', e.cx - 2, e.cz + 5, { w: newWeapon(pickDrop(), roll > 0.9 ? 2 : 1) });
+  addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(run.stage + 2, roll > 0.9 ? 2 : 1) });
   makePortal(e.cx + 6, e.cz - 2, 0xffc24a, 'next', '前進');
   makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', '帰還');
   $('#bossBar').hidden = true; boss = null;
@@ -1698,8 +1730,7 @@ function startStage() {
     const caches = Math.random() < 0.4 ? 2 : 1;
     shuffle(cand).slice(0, caches).forEach(i => {
       const [x, z] = randomTileIn(rooms[i]);
-      const roll = Math.random() + run.stage * 0.025;
-      addPickup('weapon', x, z, { w: newWeapon(pickDrop(), roll > 1.05 ? 2 : roll > 0.68 ? 1 : 0) });
+      addPickup('weapon', x, z, { w: rollWeapon(run.stage) });
     });
   }
   P.tile = -1; P.inv = 1.0;
@@ -1739,11 +1770,36 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; releaseInputs(); exitLock(); bigmap.hidden = true;
   renderSettings();
-  $('#pauseChips').textContent = run.perks.length ? `取得チップ: ${run.perks.join('、')}` : '取得チップ: なし';
+  $('#pauseChips').innerHTML = statsHTML();
   show('#scrPause');
 }
 $('#btnResume').addEventListener('click', () => { show(null); state = 'play'; requestLock(); });
 $('#btnAbandon').addEventListener('click', () => endRun('abandon'));
+
+// ---- stats panel ----
+function statsHTML() {
+  const w = curW(), pct = v => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, rows = [];
+  rows.push(['最大HP', P.maxHp]);
+  rows.push(['与ダメージ', pct(P.dmgMul * (1 + PLUS_DMG * (w.plus || 0)) - 1)]);
+  rows.push(['連射速度', pct(1 / (P.rateMul * Math.pow(0.91, wo('rate'))) - 1)]);
+  rows.push(['移動速度', pct(P.spdMul * (1 + 0.06 * wo('speed')) - 1)]);
+  rows.push(['スタミナ', `最大 ${P.stMax}（ダッシュ ${Math.floor(P.stMax / 45)} 回分）/ 回復 ${Math.round(P.stRegen)} 毎秒`]);
+  rows.push(['リロード時間', pct(P.reloadMul * Math.pow(0.8, wo('reload')) - 1)]);
+  rows.push(['装弾数', pct(P.magMul * (1 + 0.3 * wo('mag')) - 1)]);
+  rows.push(['会心率（2倍ダメージ）', `${Math.round((P.crit + 0.08 * wo('crit')) * 100)}%`]);
+  const pierce = P.pierce + wo('pierce'), leech = P.leech + 2 * wo('leech'), gain = P.gainMul * (1 + 0.1 * wo('gain'));
+  if (pierce) rows.push(['貫通', `+${pierce} 体`]);
+  if (P.extra) rows.push(['分裂弾', `発射数 +${P.extra}（1発の威力 -20%）`]);
+  if (leech) rows.push(['撃破時回復', `HP +${leech}`]);
+  if (P.chain) rows.push(['連鎖爆破', `Lv ${P.chain}`]);
+  if (P.magnet > 1) rows.push(['回収範囲', `×${P.magnet.toFixed(1)}`]);
+  rows.push(['ビット獲得', pct(gain - 1)]);
+  const counts = {}; run.perks.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
+  const chips = Object.keys(counts).map(n => counts[n] > 1 ? `${n}×${counts[n]}` : n).join('、') || 'なし';
+  return `<h3>現在の性能<small>拠点強化・チップ・手持ち武器（${wText(w)}）込み</small></h3>
+    <dl class="reslist">${rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>
+    <p class="chips">取得チップ: ${chips}</p>`;
+}
 
 // ---- inventory ----
 let invSel = null; // {where:'eq'|'bag', i}
@@ -1760,7 +1816,7 @@ function itemCard(w, where, i) {
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">空き</button>`;
   const def = WEAPONS[w.id];
   return `<button class="item ${sel ? 'sel' : ''}" data-inv="${where}:${i}"><span class="wn">${wName(w)}</span>
-    <span class="ws">DMG ${Math.round(def.dmg * RARITY[w.r].mult)}${def.pellets > 1 ? '×' + def.pellets : ''} / 弾 ${w.mag}/${magSize(w)}</span>
+    <span class="ws">DMG ${Math.round(def.dmg * wDmgMul(w))}${def.pellets > 1 ? '×' + def.pellets : ''} / 弾 ${w.mag}/${magSize(w)}</span>${wOpts(w)}
     ${where === 'eq' ? `<span class="ws">スロット${i + 1}${i === P.cur ? '（手持ち）' : ''}</span>` : ''}</button>`;
 }
 function renderBag() {
@@ -1768,7 +1824,7 @@ function renderBag() {
   $('#invBag').innerHTML = P.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
   $('#kitNum').textContent = P.kits;
   $('#btnUseKit').disabled = P.kits <= 0 || P.hp >= P.maxHp;
-  $('#bagChips').textContent = `HP ${Math.ceil(P.hp)} / ${P.maxHp}　今回のビット ${Math.floor(run.bits)}　取得チップ: ${run.perks.length ? run.perks.join('、') : 'なし'}`;
+  $('#bagChips').innerHTML = `<p class="chips">HP ${Math.ceil(P.hp)} / ${P.maxHp}　今回のビット ${Math.floor(run.bits)}</p>` + statsHTML();
   const act = $('#invAct');
   if (!invSel) { act.innerHTML = '武器を選ぶと、装備の入れ替えや廃棄ができる'; return; }
   const w = invSel.where === 'eq' ? P.weapons[invSel.i] : P.bag[invSel.i];
@@ -1821,7 +1877,7 @@ function endRun(kind) {
     if (save.shortcut > 0) { save.shortcut--; shortcutMsg = `${tierLabel(save.shortcut + 1)} へのショートカットが閉じた`; }
     save.startTier = Math.min(save.startTier, save.shortcut);
   } else {
-    const strip = w => w ? { id: w.id, r: w.r, basic: !!w.basic } : null;
+    const strip = w => w ? { id: w.id, r: w.r, basic: !!w.basic, plus: w.plus || 0, opts: w.opts || [] } : null;
     save.loadout = [strip(P.weapons[0]), strip(P.weapons[1])];
     if (!save.loadout[0]) save.loadout[0] = basicW('pistol');
     let sold = 0;
@@ -1862,7 +1918,7 @@ function buildAttract() {
 let selSlot = 0;
 function wStat(w) {
   const d = WEAPONS[w.id];
-  return `DMG ${Math.round(d.dmg * RARITY[w.r].mult)}${d.pellets > 1 ? '×' + d.pellets : ''} / ${(1 / d.rate).toFixed(1)}発/秒 / 弾倉 ${d.mag}${d.pierce ? ' / 貫通' : ''}${d.blast ? ' / 爆発' : ''}`;
+  return `DMG ${Math.round(d.dmg * wDmgMul(w))}${d.pellets > 1 ? '×' + d.pellets : ''} / ${(1 / d.rate).toFixed(1)}発/秒 / 弾倉 ${d.mag}${d.pierce ? ' / 貫通' : ''}${d.blast ? ' / 爆発' : ''}`;
 }
 function renderBase() {
   $('#sBits').textContent = save.bits;
@@ -1886,7 +1942,7 @@ function renderBase() {
       <span class="wn">${w.name}</span><span class="wd">${w.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span><span class="wf">${foot}</span></button>`;
   }).join('');
   $('#stashCount').textContent = `${save.stash.length} / ${STASH_MAX}　潜行で拾って帰還した武器。持ち出すと死亡時に失う`;
-  $('#stash').innerHTML = save.stash.length ? save.stash.map((w, i) => `<div class="wcard"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>
+  $('#stash').innerHTML = save.stash.length ? save.stash.map((w, i) => `<div class="wcard"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
       <span class="acts"><button class="mini-btn amber" data-stash="${i}">装備${selSlot + 1}へ</button><button class="mini-btn" data-sell="${i}">売却 +${sellValue(w)}</button></span></div>`).join('')
     : '<div class="empty">まだ空。潜行中に拾った武器を持って帰還すると、ここに入る</div>';
   $('#ulist').innerHTML = UPGRADES.map(u => {
@@ -1991,7 +2047,7 @@ function update(dt) {
       P.dashT = 0.2; P.st -= 45; P.stDelay = 0.5; P.inv = Math.max(P.inv, 0.32); sfx('dash');
     } else { stWarn = 0.3; sfx('empty'); }
   }
-  const sp = P.baseSpeed * P.spdMul;
+  const sp = P.baseSpeed * P.spdMul * (1 + 0.06 * wo('speed'));
   if (P.dashT > 0) { P.dashT -= dt; vx = P.ddx * 3.3; vz = P.ddz * 3.3; }
   moveCircle(P, vx * sp * dt, vz * sp * dt, P.r);
   if (Math.hypot(vx, vz) > 0.1) P.bob += dt * 9;
@@ -2109,7 +2165,7 @@ function updatePBullets(dt) {
         if (dx * dx + dy * dy + dz * dz < hr * hr) {
           b.hit.add(e);
           if (b.blast) { explode(b.x, b.y, b.z, b.blast, b.dmg, b.color, true); dead = true; break; }
-          const crit = Math.random() < P.crit;
+          const crit = Math.random() < P.crit + 0.08 * wo('crit');
           hurtEnemy(e, b.dmg * (crit ? 2 : 1), crit);
           burst(b.x, b.y, b.z, b.color, 2, 3, 0.25);
           if (--b.pierce < 0) { dead = true; break; }
@@ -2148,7 +2204,7 @@ function updatePickups(dt) {
     const dx = P.x - p.x, dz = P.z - p.z, d = Math.hypot(dx, dz);
     if (p.kind === 'bit') {
       if (d < 2.4 * P.magnet) { const s = Math.min(d, 14 * dt); p.x += dx / (d || 1) * s; p.z += dz / (d || 1) * s; }
-      if (d < 0.7) { p.dead = true; run.bits += p.value * P.gainMul; sfx('pick', 30); }
+      if (d < 0.7) { p.dead = true; run.bits += p.value * P.gainMul * (1 + 0.1 * wo('gain')); sfx('pick', 30); }
     } else if (p.kind === 'kit') {
       if (d < 1.1) {
         if (P.kits < KIT_MAX) { p.dead = true; P.kits++; sfx('pick'); toast(`回復キット +1（${P.kits}/${KIT_MAX}）`, 1200); weaponHud(); }
