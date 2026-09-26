@@ -190,6 +190,20 @@ if (location.hash === '#smoke') {
         console.log('SMOKE knockback/mag ok', 'push', pushed.toFixed(2));
         endRun('abandon');
       }
+      // drops only come from unlocked weapons; modded basic weapons start the run modded
+      {
+        const keepU = save.unlocked, keepM = save.mods, keepL = save.loadout;
+        save.unlocked = { pistol: true, rail: true };
+        const ids = new Set(); for (let k = 0; k < 200; k++) ids.add(pickDrop());
+        if ([...ids].some(id => id !== 'pistol' && id !== 'rail') || !ids.has('rail')) throw new Error('drop pool ' + [...ids]);
+        save.mods = { rail: { plus: 3, r: 2 } }; save.loadout = [basicW('rail'), null];
+        startRun(); tick(2);
+        const w = P.weapons[0];
+        if (w.id !== 'rail' || w.plus !== 3 || w.r !== 2 || !w.basic) throw new Error('modded basic ' + JSON.stringify(w));
+        endRun('abandon');
+        save.unlocked = keepU; save.mods = keepM; save.loadout = keepL; persist();
+        console.log('SMOKE unlock/mod ok');
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);

@@ -343,14 +343,22 @@ function renderBase() {
   $('#loadout').innerHTML = [0, 1].map(k => {
     const w = save.loadout[k];
     return `<button class="lslot ${selSlot === k ? 'sel' : ''}" data-slot="${k}"><span class="eyebrow">装備${k + 1}${selSlot === k ? ' — 割り当て先' : ''}</span>
-      <span class="wn">${w ? wName(w) : '空き'}</span>${w && !w.basic ? '<span class="risk">倉庫の武器。死ぬと失う</span>' : ''}
+      <span class="wn">${w ? wName(basicNow(w)) : '空き'}</span>${w && !w.basic ? '<span class="risk">倉庫の武器。死ぬと失う</span>' : ''}
       ${k === 1 && w ? '<span class="mini-btn" data-unequip="1" role="button">外す</span>' : ''}</button>`;
   }).join('');
   $('#wgrid').innerHTML = WEAPON_ORDER.map(id => {
-    const w = WEAPONS[id], un = !!save.unlocked[id];
-    const foot = un ? `装備${selSlot + 1}に割り当て` : `解放 ${w.cost} BIT`;
-    return `<button class="wcard ${un ? '' : 'locked'} ${!un && save.bits < w.cost ? 'poor' : ''}" data-w="${id}">
-      <span class="wn">${w.name}</span><span class="wd">${w.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span><span class="wf">${foot}</span></button>`;
+    const def = WEAPONS[id], un = id === 'pistol' || !!save.unlocked[id];
+    if (!un) return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" data-w="${id}">
+      <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span>
+      <span class="wf">解放 ${def.cost} BIT（潜行中にも落ちるようになる）</span></button>`;
+    const w = basicNow(basicW(id)), m = modOf(id), pc = modPlusCost(m.plus), rc = MOD_RARITY_COST[m.r];
+    const plusBtn = m.plus >= MOD_PLUS_MAX ? '<button class="mini-btn" disabled>+値 最大</button>'
+      : `<button class="mini-btn amber" data-modplus="${id}" ${save.bits < pc ? 'disabled' : ''}>+${m.plus + 1} に改造 ${pc}</button>`;
+    const rarBtn = rc === undefined ? '<button class="mini-btn" disabled>★ 最大</button>'
+      : `<button class="mini-btn amber" data-modrar="${id}" ${save.bits < rc ? 'disabled' : ''}>${RARITY[m.r + 1].stars}${RARITY[m.r + 1].name}に ${rc}</button>`;
+    return `<div class="wcard" style="border-left:3px solid ${m.r ? RARITY[m.r].css : 'var(--line)'}">
+      <span class="wn">${wName(w)}</span><span class="wd">${def.desc}</span><span class="ws">${wStat(w)}</span>
+      <span class="acts"><button class="mini-btn amber" data-w="${id}">装備${selSlot + 1}に割り当て</button>${plusBtn}${rarBtn}</span></div>`;
   }).join('');
   $('#stashCount').textContent = `${save.stash.length} / ${STASH_MAX}　潜行で拾って帰還した武器。持ち出すと死亡時に失う`;
   $('#stash').innerHTML = save.stash.length ? save.stash.map((w, i) => `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
@@ -412,6 +420,14 @@ $('#scrBase').addEventListener('click', e => {
   const st = e.target.closest('[data-stash]'), se = e.target.closest('[data-sell]'), ti = e.target.closest('[data-tier]');
   const pu = e.target.closest('[data-pres]'), rb = e.target.closest('[data-reboot]'), pr = e.target.closest('[data-practice]');
   if (pr) { startPractice(pr.dataset.practice, practiceTier); return; }
+  const mp = e.target.closest('[data-modplus]'), mr = e.target.closest('[data-modrar]');
+  if (mp || mr) {
+    const id = (mp || mr).dataset.modplus || (mp || mr).dataset.modrar, m = Object.assign({ plus: 0, r: 0 }, modOf(id));
+    const cost = mp ? modPlusCost(m.plus) : MOD_RARITY_COST[m.r];
+    if (cost === undefined || save.bits < cost || (mp && m.plus >= MOD_PLUS_MAX)) return;
+    save.bits -= cost; if (mp) m.plus++; else m.r++;
+    save.mods = Object.assign({}, save.mods, { [id]: m }); persist(); audioInit(); sfx('chip'); renderBase(); return;
+  }
   const pt = e.target.closest('[data-ptier]');
   if (pt) { practiceTier = +pt.dataset.ptier; renderBase(); return; }
   if (rb) { const a = rb.dataset.reboot; if (a === 'go') { doReboot(); return; } rebootArm = a === 'arm'; renderReboot(); return; }

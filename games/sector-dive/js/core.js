@@ -23,7 +23,8 @@ const WEAPONS = {
 };
 const WEAPON_ORDER = ['pistol', 'smg', 'shotgun', 'rail', 'launcher'];
 const DROP_POOL = ['pistol', 'pistol', 'smg', 'smg', 'smg', 'shotgun', 'shotgun', 'shotgun', 'rail', 'rail', 'launcher'];
-const pickDrop = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
+// only weapons unlocked at the base drop during a dive (the pistol always does)
+const pickDrop = () => { const pool = DROP_POOL.filter(id => id === 'pistol' || save.unlocked[id]); return pool[Math.floor(Math.random() * pool.length)]; };
 // rarity rank is shown as stars and a grey -> blue -> gold colour so the order reads at a glance
 const RARITY = [
   { name: '標準', stars: '★',   mult: 1,    css: '#9aa8b4', hex: 0x9aa8b4 },
@@ -182,9 +183,16 @@ const GUIDE_TOUCH = [['移動', '画面左をドラッグ'], ['視点', '画面�
 // ================= save =================
 const SAVE_KEY = 'sector-dive-v1';
 const basicW = id => ({ id, r: 0, basic: true });
+// base-side modding of basic weapons: persistent +value / rarity per weapon type (kept on death)
+const MOD_PLUS_MAX = 10;
+const modPlusCost = plus => Math.round(50 * Math.pow(1.5, plus));
+const MOD_RARITY_COST = [300, 900]; // to ★★ and to ★★★
+const modOf = id => (save.mods && save.mods[id]) || { plus: 0, r: 0 };
+// a basic weapon as it currently stands after modding (non-basic weapons pass through)
+const basicNow = w => w && w.basic ? Object.assign({}, w, { plus: modOf(w.id).plus, r: modOf(w.id).r }) : w;
 const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0,
-  best: 0, runs: 0, bossKills: 0, bossSeen: {}, stageV: 2, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
+  best: 0, runs: 0, bossKills: 0, bossSeen: {}, stageV: 2, mods: {}, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
   settings: { autofire: isTouch, assist: 'weak', sens: 1, leftFire: true, stickDash: false, layout: {} } });
 function loadSave() {
   const d = defaultSave();
