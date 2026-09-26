@@ -59,7 +59,7 @@ if (location.hash === '#smoke') {
         run.route = [3]; run.stage = PER * 3 + 1; startStage(); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
         const [sx, sz] = roomSpot(rooms[startIdx]);
         const e = spawnEnemy('shield', sx, sz, -1, 1); e.face = 0; e.mesh.rotation.y = 0; // facing +z
-        const shoot = dir => { spawnPBullet(new V3(sx, e.fy + 1, sz + dir * 3), new V3(0, 0, -dir), 60, 20, 0, 0, 0xffffff, 0, {}); updatePBullets(0.1); };
+        const shoot = dir => { spawnPBullet(new V3(sx, e.fy + 1.6, sz + dir * 2.5), new V3(0, 0, -dir), 60, 20, 0, 0, 0xffffff, 0, {}); updatePBullets(0.1); }; // above rubble height
         const hp0 = e.hp, sh0 = e.shieldHp;
         shoot(1);   // from the front
         if (!(e.shieldHp < sh0 && e.hp === hp0)) throw new Error('shield front ' + [e.shieldHp, sh0, e.hp, hp0]);
@@ -110,6 +110,18 @@ if (location.hash === '#smoke') {
         drop('launcher'); stowNearby();
         if (P.bag.some(w => w.id === 'launcher') || !nearW) throw new Error('stow into a full bag');
         console.log('SMOKE pickup ok');
+        endRun('abandon');
+      }
+      // chain blast: one kill in a tight cluster must not wipe the whole cluster through a cascade
+      {
+        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        P.chain = 3; P.dmgMul = 10; // blasts strong enough to kill anything they touch
+        const [cx, cz] = roomSpot(rooms[startIdx]);
+        const line = [0, 2.8, 5.6, 8.4].map(dx => spawnEnemy('crawler', cx + dx, cz, -1, 1)); // each 2.8m apart, blast radius 4
+        hurtEnemy(line[0], 1e6, false);
+        const alive = line.filter(e => !e.dead).length;
+        if (alive !== 2) throw new Error('chain cascade: alive ' + alive);
+        console.log('SMOKE chain ok');
         endRun('abandon');
       }
       // boss practice: fight, win, go home; the save must not change

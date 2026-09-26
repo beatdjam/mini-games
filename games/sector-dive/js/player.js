@@ -222,6 +222,7 @@ function bomberBlast(x, y, z, dmg) {
   for (const o of enemies) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, 35, false);
 }
 function detonate(e) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
+let inChainBlast = false;
 function killEnemy(e, noReward) {
   e.dead = true;
   if (!noReward) run.kills++;
@@ -240,7 +241,12 @@ function killEnemy(e, noReward) {
   dropBits(e.x, e.z, e.def.bits * 0.6 * (1 + prog(run.stage) * 0.05));
   if (Math.random() < TUNE.kitDropChance) addPickup('kit', e.x + rand(-0.5, 0.5), e.z + rand(-0.5, 0.5));
   const lh = P.leech + 2 * wo('leech'); if (lh) P.hp = Math.min(P.maxHp, P.hp + lh);
-  if (P.chain) explode(pos.x, pos.y, pos.z, 3 + P.chain * 0.8, 18 * P.chain * P.dmgMul, 0xffc24a);
+  // chain blast: only enemies you killed explode; kills caused by a chain blast don't set off another one
+  if (P.chain && !inChainBlast) {
+    inChainBlast = true;
+    explode(pos.x, pos.y, pos.z, 2.5 + P.chain * 0.5, 18 * P.chain * P.dmgMul, 0xffc24a);
+    inChainBlast = false;
+  }
   if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room);
 }
 function roomCleared(idx) {
