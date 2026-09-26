@@ -117,14 +117,17 @@ function fwd() { return new V3(-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.
 
 // hit spheres: multi-body bosses list their parts, everything else is one sphere at the mesh
 function spheres(e) { return e.parts || [{ p: e.mesh.position, r: e.hitR }]; }
+// how far you can actually make enemies out: 60% of the way into the fog
+const visibleRange = () => Math.min(56, scene.fog.near + (scene.fog.far - scene.fog.near) * 0.6);
+// target for autofire, aim assist and the red crosshair: in the aim cone, in line of sight, and not hidden in fog
 function findTarget() {
-  const f = fwd(), cp = camera.position, cone = Math.max(ASSIST[save.settings.assist] || 0, 0.012);
+  const f = fwd(), cp = camera.position, cone = Math.max(ASSIST[save.settings.assist] || 0, 0.012), maxD = visibleRange();
   let best = null, bestS = Infinity;
   for (const e of enemies) {
     if (e.dead) continue;
     for (const sp of spheres(e)) {
       const ep = sp.p, ex = ep.x - cp.x, ey = ep.y - cp.y, ez = ep.z - cp.z, d = Math.hypot(ex, ey, ez);
-      if (d > 56 || d < 0.1) continue;
+      if (d > maxD || d < 0.1) continue;
       const a = Math.acos(clamp((ex * f.x + ey * f.y + ez * f.z) / d, -1, 1)), s = a - Math.atan(sp.r * 0.85 / d);
       if (s < cone && s < bestS && hasLOS(cp.x, cp.z, ep.x, ep.z, cp.y, ep.y)) { best = { e, p: ep }; bestS = s; }
     }

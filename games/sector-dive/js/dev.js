@@ -145,6 +145,21 @@ if (location.hash === '#smoke') {
         console.log('SMOKE rare/elite ok', 'rare cards', rareCards, 'elite share D1', elite0 / 400, 'D11', elite / 400);
         endRun('abandon');
       }
+      // autofire target: an enemy hidden in the fog must not be picked, the same enemy close up must be
+      {
+        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        scene.fog.near = 2; scene.fog.far = 20; // visibleRange = 12.8
+        grid.fill(1); hgt.fill(0); ramp.fill(-1); cover.fill(0); // open floor so only distance matters
+        P.x = W * T / 2; P.z = H * T / 2; P.yaw = 0; P.pitch = 0; P.fy = 0;
+        camera.position.set(P.x, EYE, P.z); camera.rotation.set(0, 0, 0);
+        const far = spawnEnemy('crawler', P.x, P.z - 20, -1, 1); far.mesh.position.set(far.x, EYE, far.z);
+        const t1 = findTarget();
+        far.z = P.z - 8; far.mesh.position.set(far.x, EYE, far.z);
+        const t2 = findTarget();
+        if (t1 || !t2) throw new Error('fog target ' + !!t1 + ' ' + !!t2);
+        console.log('SMOKE fog target ok');
+        endRun('abandon');
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);
