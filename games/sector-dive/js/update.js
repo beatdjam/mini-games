@@ -64,6 +64,7 @@ function update(dt) {
   updateBalls(dt);
   updateParts(dt);
   updateHazards(dt);
+  updateMusic(dt);
   if (state === 'result') return;
 
   for (const pt of portals) {
@@ -143,4 +144,6 @@ function frame(now) {
 }
 renderBase();
 buildAttract();
+setMusic('BASE'); // starts once the first tap/click unlocks audio
+document.addEventListener('pointerdown', () => audioInit(), { once: true });
 requestAnimationFrame(frame);

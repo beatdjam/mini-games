@@ -138,6 +138,8 @@ function settingsHTML(where) {
     <div class="seg" role="group" aria-label="エイム補正"><span>エイム補正</span>${[['off', 'なし'], ['weak', '弱'], ['strong', '強']].map(([k, l]) =>
       `<button data-assist="${k}" aria-pressed="${st.assist === k}">${l}</button>`).join('')}</div>
     <label class="sens" for="sens-${where}">視点感度 <input id="sens-${where}" class="sensIn" type="range" min="0.4" max="2.2" step="0.1" value="${st.sens}"><span class="num sensV">${st.sens.toFixed(1)}</span></label>
+    <label class="sens" for="bgm-${where}">BGM <input id="bgm-${where}" class="volIn" data-vol="bgm" type="range" min="0" max="1" step="0.05" value="${st.bgm ?? 0.6}"></label>
+    <label class="sens" for="sfx-${where}">効果音 <input id="sfx-${where}" class="volIn" data-vol="sfx" type="range" min="0" max="1" step="0.05" value="${st.sfx ?? 1}"></label>
     ${isTouch ? `<button class="toggle" data-set="leftFire" aria-pressed="${st.leftFire}">左の射撃ボタン<b>${st.leftFire ? 'ON' : 'OFF'}</b></button>
     <button class="toggle" data-set="stickDash" aria-pressed="${st.stickDash}">スティック倒し切りでダッシュ<b>${st.stickDash ? 'ON' : 'OFF'}</b></button>
     <button class="toggle" data-layout="1">ボタン配置を編集</button>` : ''}`;
@@ -152,6 +154,12 @@ document.addEventListener('click', e => {
   else if (a) { save.settings.assist = a.dataset.assist; persist(); renderSettings(); }
 });
 document.addEventListener('input', e => {
+  if (e.target.classList && e.target.classList.contains('volIn')) {
+    const k = e.target.dataset.vol; save.settings[k] = parseFloat(e.target.value); persist();
+    document.querySelectorAll(`.volIn[data-vol="${k}"]`).forEach(v => { if (v !== e.target) v.value = save.settings[k]; });
+    audioInit(); musicVolume(); applySfxVolume();
+    return;
+  }
   if (e.target.classList && e.target.classList.contains('sensIn')) {
     save.settings.sens = parseFloat(e.target.value); persist();
     document.querySelectorAll('.sensV').forEach(v => { v.textContent = save.settings.sens.toFixed(1); });

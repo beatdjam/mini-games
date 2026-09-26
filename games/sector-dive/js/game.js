@@ -63,6 +63,8 @@ function startStage() {
   const hintAt = run.stage;
   if (si.sub === 0 && b.hint) setTimeout(() => { if (run && run.stage === hintAt && state === 'play') toast(b.hint, 3600); }, 1800);
   state = 'play';
+  if (!isArena) setMusic(b.code);
+  musicVolume(1);
   updateHint();
 }
 // deeper sectors lean toward the biome's tougher enemy types
@@ -101,13 +103,13 @@ function openPerk(title, eyebrow, done) {
 function exitLock() { if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} } }
 function pause() {
   if (state !== 'play') return;
-  state = 'pause'; releaseInputs(); exitLock(); bigmap.hidden = true;
+  state = 'pause'; releaseInputs(); exitLock(); bigmap.hidden = true; musicVolume(0.4);
   renderSettings();
   $('#btnSuspend').hidden = !!run.practice;
   $('#pauseChips').innerHTML = statsHTML();
   show('#scrPause');
 }
-$('#btnResume').addEventListener('click', () => { show(null); state = 'play'; requestLock(); });
+$('#btnResume').addEventListener('click', () => { show(null); state = 'play'; musicVolume(1); requestLock(); });
 $('#btnAbandon').addEventListener('click', () => endRun('abandon'));
 $('#btnSuspend').addEventListener('click', suspendRun);
 
@@ -200,7 +202,7 @@ function itemCard(w, where, i) {
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">空き</button>`;
   const def = WEAPONS[w.id];
   return `<button class="item ${sel ? 'sel' : ''}" data-inv="${where}:${i}" style="border-left:3px solid ${w.basic ? 'var(--line)' : RARITY[w.r].css}"><span class="wn">${wName(w)}</span>
-    <span class="ws">火力 ${Math.round(weaponStats(w).dps)} / DMG ${Math.round(def.dmg * wDmgMul(w))}${def.pellets > 1 ? '×' + def.pellets : ''} / 弾 ${w.mag}/${magSize(w)}</span>${wOpts(w)}
+    <span class="ws">火力 ${Math.round(weaponStats(w).dps)} / 1発 ${Math.round(weaponStats(w).perHit)}${weaponStats(w).hits > 1 ? '×' + weaponStats(w).hits : ''} / 弾 ${w.mag}/${magSize(w)}</span>${wOpts(w)}
     ${where === 'eq' ? `<span class="ws">スロット${i + 1}${i === P.cur ? '（手持ち）' : ''}</span>` : ''}</button>`;
 }
 function renderBag() {
@@ -311,6 +313,7 @@ $('#btnBack').addEventListener('click', goBase);
 function goBase() {
   state = 'base'; run = null; P = null;
   setPlayUI(false); show('#scrBase'); renderBase();
+  setMusic('BASE'); musicVolume(1);
   buildAttract();
 }
 let attractYaw = 0, attractPos = [0, 0];

@@ -143,6 +143,7 @@ if (location.hash === '#smoke') {
         openPerk('test');
         const rareCards = document.querySelectorAll('#perkList .perk.rare').length;
         TUNE.rareChipChance = keep;
+        P.hp = 1; // so a healing chip also visibly changes something
         const before = JSON.stringify(P);
         document.querySelector('#perkList .perk.rare').click();
         if (!rareCards || JSON.stringify(P) === before || !run.perks[run.perks.length - 1].endsWith('+')) throw new Error('rare chip');
@@ -218,6 +219,21 @@ if (location.hash === '#smoke') {
         if (a1 !== 2 || a2 !== 4) throw new Error('splitter halves ' + a1 + ' ' + a2);
         console.log('SMOKE splitter ok');
         endRun('abandon');
+      }
+      // music: every style and its boss arrangement can be scheduled without errors (the context may be suspended in headless)
+      {
+        audioInit(); musicInit();
+        if (!mus.bus) throw new Error('music bus');
+        Object.keys(MUSIC_STYLES).forEach(name => {
+          [false, true].forEach(boss => {
+            if (boss && name === 'BASE') return;
+            setMusic(name, boss);
+            if (!mus.st || mus.name !== name + (boss ? ':boss' : '')) throw new Error('setMusic ' + name);
+            for (let k = 0; k < 64; k++) playStep(mus.st, k, actx.currentTime + k * 0.01, 0.1);
+          });
+        });
+        setMusicMix('combat'); setMusicMix('explore'); musicVolume(0.4); musicVolume(1);
+        console.log('SMOKE music ok', Object.keys(MUSIC_STYLES).length, 'styles');
       }
       // boss practice: fight, win, go home; the save must not change
       {

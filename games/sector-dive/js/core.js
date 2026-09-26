@@ -193,7 +193,7 @@ const basicNow = w => w && w.basic ? Object.assign({}, w, { plus: modOf(w.id).pl
 const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0,
   best: 0, runs: 0, bossKills: 0, bossSeen: {}, stageV: 2, mods: {}, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
-  settings: { autofire: isTouch, assist: 'weak', sens: 1, leftFire: true, stickDash: false, layout: {} } });
+  settings: { autofire: isTouch, assist: 'weak', sens: 1, bgm: 0.6, sfx: 1, leftFire: true, stickDash: false, layout: {} } });
 function loadSave() {
   const d = defaultSave();
   try {
@@ -229,11 +229,13 @@ function audioInit() {
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   try {
     actx = new (window.AudioContext || window.webkitAudioContext)();
-    master = actx.createGain(); master.gain.value = 0.32; master.connect(actx.destination);
+    master = actx.createGain(); master.connect(actx.destination); applySfxVolume();
     noiseBuf = actx.createBuffer(1, actx.sampleRate * 1.2, actx.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    musicInit(); // js/music.js
   } catch (e) { actx = null; }
 }
+function applySfxVolume() { if (master) master.gain.value = 0.32 * (save.settings.sfx ?? 1); }
 function tone(freq, dur, type, vol, slide, delay) {
   if (!actx) return;
   const t = actx.currentTime + (delay || 0), o = actx.createOscillator(), g = actx.createGain();

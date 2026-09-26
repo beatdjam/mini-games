@@ -17,8 +17,10 @@ function spawnBoss(kind) {
   if (!run.practice && !save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); } // practice doesn't count as an encounter
   const spawn = { watcher: spawnWatcher, crusher: spawnCrusher, core: spawnCore, phantom: spawnPhantom, trinity: spawnTrinity, bastion: spawnBastion }[kind];
   spawn();
+  setMusic(curBiome.code, true); // boss arrangement of this sector's theme
 }
 function bossDown(e) {
+  setMusic(curBiome.code);
   shake = 0.6; sfx('bigboom');
   if (e.beams) e.beams.forEach(b => { b.visible = false; });
   enemies.forEach(o => { if (!o.dead && !o.boss) { o.dead = true; burst(o.x, o.mesh.position.y, o.z, o.def.color, 10, 7, 0.6); removeEnemyMesh(o); } });
