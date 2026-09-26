@@ -15,11 +15,11 @@ const WEAPONS = {
   // SMG: light rounds, very fast, big magazine, no extra spread while moving
   smg:      { name: 'SMG',        dmg: 6,  rate: 0.062, spread: 0.05,  pellets: 1, speed: 70,  mag: 45, reload: 1.7, steady: true, color: 0x8cff6a, cost: 250, desc: '1発は軽いが、連射と装弾数で押し切る。移動しながら撃ってもブレない。' },
   // shotgun: 8 pellets; the closer you are, the more of them land
-  shotgun:  { name: 'ショットガン', dmg: 13, rate: 0.7,   spread: 0.065, pellets: 8, speed: 65,  mag: 6,  reload: 2.0, kb: 0.35, color: 0xffc24a, cost: 320, desc: '8発の散弾。近いほど多く当たる。敵を押し返す。' },
+  shotgun:  { name: 'ショットガン', dmg: 13, rate: 0.7,   spread: 0.065, pellets: 8, speed: 65,  mag: 6,  reload: 2.0, kb: 0.8, color: 0xffc24a, cost: 320, desc: '8発の散弾。近いほど多く当たる。敵を押し返す。' },
   // rail: one heavy piercing round, stronger the farther it travels
   rail:     { name: 'レールガン',   dmg: 90, rate: 1.1,   spread: 0,     pellets: 1, speed: 200, mag: 4,  reload: 2.2, pierce: 4, far: 15, farMul: 1.5, steady: true, color: 0xc58cff, cost: 520, desc: '貫通する高威力の単発。15m以上離れた敵には威力1.5倍。ブレない。' },
   // launcher: slow rocket, full damage near the centre of the blast, knocks enemies back
-  launcher: { name: 'ランチャー',   dmg: 52, rate: 1.15,  spread: 0.008, pellets: 1, speed: 28,  mag: 2,  reload: 2.9, blast: 5, grav: 3.5, color: 0xff6a3d, cost: 700, desc: 'ゆっくり飛ぶロケット。爆心付近は威力が落ちず、敵を吹き飛ばす。近くで撃つと自分も巻き込む。' },
+  launcher: { name: 'ランチャー',   dmg: 52, rate: 1.15,  spread: 0.008, pellets: 1, speed: 28,  mag: 2,  reload: 2.9, blast: 5, grav: 3.5, chipMag: 0.5, color: 0xff6a3d, cost: 700, desc: 'ゆっくり飛ぶロケット。爆心付近は威力が落ちず、敵を吹き飛ばす。近くで撃つと自分も巻き込む。' },
 };
 const WEAPON_ORDER = ['pistol', 'smg', 'shotgun', 'rail', 'launcher'];
 const DROP_POOL = ['pistol', 'pistol', 'smg', 'smg', 'smg', 'shotgun', 'shotgun', 'shotgun', 'rail', 'rail', 'launcher'];

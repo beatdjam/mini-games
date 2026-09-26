@@ -49,7 +49,8 @@ const isBossStage = s => s % PER === PER - 1;
 function stageLabel(s) { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
 function tierLabel(t) { return `DEPTH ${t + 1}`; }
 const diffOf = s => ENEMY_TUNE.hpMul * Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
-const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 0.3 * wo('mag', w))));
+// chipMag: share of the magazine chips' effect a weapon gets (the launcher only half, so it can't double its output)
+const magSize = w => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1); return Math.max(1, Math.round(def.mag * chip * (1 + 0.3 * wo('mag', w)))); };
 const rarLabel = w => w.basic ? '基本' : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
 const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${rarLabel(w)}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
@@ -149,7 +150,9 @@ function startReload() {
   if (P.reloadT > 0 || w.mag >= magSize(w)) return;
   P.reloadMax = P.reloadT = WEAPONS[w.id].reload * P.reloadMul * Math.pow(0.8, wo('reload')); sfx('reload');
 }
+let shotId = 0; // one trigger pull; knockback is applied once per shot per enemy
 function fire() {
+  shotId++;
   const w = curW(), def = WEAPONS[w.id], rar = RARITY[w.r];
   P.fireCd = def.rate / P.fireRate * Math.pow(0.91, wo('rate'));
   w.mag--;
@@ -165,13 +168,15 @@ function fire() {
   const base = aim.sub(mz).normalize();
   const n = def.pellets + P.extra;
   const dmg = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
+  // rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)
+  const blast = def.blast ? def.blast * (1 + 0.15 * (P.pierce + wo('pierce'))) : 0;
   const moving = Math.hypot(joy.x, joy.y) > 0.2 || keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
   for (let k = 0; k < n; k++) {
     const d = base.clone();
     if (P.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * 0.05);
     const s = def.spread + (k >= def.pellets ? 0.02 : 0) + (moving && !def.steady ? 0.014 : 0);
     d.x += rand(-s, s); d.y += rand(-s, s) * 0.7; d.z += rand(-s, s); d.normalize();
-    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), def.blast, def.color, def.grav, { far: def.far, farMul: def.farMul, kb: def.kb, rail: !!def.pierce });
+    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), blast, def.color, def.grav, { far: def.far, farMul: def.farMul, kb: def.kb, rail: !!def.pierce, shot: shotId });
   }
   gunKick = Math.min(0.2, gunKick + (def.blast ? 0.2 : def.pellets > 1 || def.pierce ? 0.12 : 0.05));
   flashT = def.blast ? 0.09 : 0.05;
@@ -196,7 +201,10 @@ function hurtEnemy(e, dmg, isCrit) {
   hitMark(isCrit); sfx('hit', 45);
   if (e.hp <= 0) killEnemy(e);
 }
+// player explosions (rockets, chain blasts); one crit roll per explosion
 function explode(x, y, z, radius, dmg, color, big) {
+  const crit = Math.random() < critChance();
+  if (crit) dmg *= 2;
   if (big) {
     fireball(x, y, z, radius * 0.75, 0xff8a3d); fireball(x, y, z, radius * 0.4, 0xfff2c0);
     burst(x, y, z, 0xff6a3d, 34, 12, 0.9); burst(x, y, z, 0xffc24a, 14, 7, 0.6); burst(x, y + 0.5, z, 0x5b6470, 12, 2.5, 1.4, -3);
@@ -214,7 +222,7 @@ function explode(x, y, z, radius, dmg, color, big) {
     for (const sp of spheres(e)) { const q = sp.p; dd = Math.min(dd, Math.hypot(q.x - x, (q.y - y) * 0.6, q.z - z) - sp.r * 0.5); }
     if (dd < radius) {
       const core = radius * 0.4, fall = dd <= core ? 1 : 1 - (dd - core) / (radius - core) * 0.7;
-      hurtEnemy(e, dmg * fall, false);
+      hurtEnemy(e, dmg * fall, crit);
       if (big && !e.boss && !e.dead) { const kx = e.x - x, kz = e.z - z, kl = Math.hypot(kx, kz) || 1; moveCircle(e, kx / kl * 2.2, kz / kl * 2.2, e.r); e.flash = 0.2; }
     }
   }
@@ -249,7 +257,9 @@ function killEnemy(e, noReward) {
   // chain blast: only enemies you killed explode; kills caused by a chain blast don't set off another one
   if (P.chain && !inChainBlast) {
     inChainBlast = true;
-    explode(pos.x, pos.y, pos.z, 2.5 + P.chain * 0.5, 18 * P.chain * P.dmgMul, 0xffc24a);
+    // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
+    const depthScale = Math.pow(DEPTH_HP_GROWTH, prog(run.stage) / 5);
+    explode(pos.x, pos.y, pos.z, 2.5 + P.chain * 0.5, 18 * P.chain * P.dmgMul * depthScale, 0xffc24a);
     inChainBlast = false;
   }
   if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room);

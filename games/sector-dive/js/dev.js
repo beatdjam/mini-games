@@ -174,6 +174,22 @@ if (location.hash === '#smoke') {
         console.log('SMOKE fog target ok');
         endRun('abandon');
       }
+      // shotgun knockback: once per shot however many pellets land; launcher gets half of the magazine chips
+      {
+        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        grid.fill(1); hgt.fill(0); ramp.fill(-1); cover.fill(0);
+        P.x = W * T / 2; P.z = H * T / 2; P.fy = 0;
+        const e = spawnEnemy('brute', P.x, P.z - 4, -1, 50); e.fy = 0; e.mesh.position.set(e.x, 1.1, e.z);
+        const z0 = e.z;
+        for (let k = 0; k < 8; k++) spawnPBullet(new V3(P.x + rand(-0.2, 0.2), 1.1, P.z), new V3(0, 0, -1), 65, 1, 0, 0, 0xffffff, 0, { kb: WEAPONS.shotgun.kb, shot: 999 });
+        updatePBullets(0.1);
+        const pushed = z0 - e.z;
+        if (!(pushed > 0.5 && pushed < WEAPONS.shotgun.kb + 0.05)) throw new Error('knockback ' + pushed);
+        P.magMul = 2.5;
+        if (magSize(newWeapon('launcher', 0)) > 4 || magSize(newWeapon('smg', 0)) < 110) throw new Error('mag chips ' + magSize(newWeapon('launcher', 0)));
+        console.log('SMOKE knockback/mag ok', 'push', pushed.toFixed(2));
+        endRun('abandon');
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);

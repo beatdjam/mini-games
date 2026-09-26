@@ -81,7 +81,8 @@ function damageFromBullet(b, e) {
   let dmg = b.dmg * (crit ? 2 : 1);
   if (b.far && Math.hypot(b.x - b.ox, b.z - b.oz) > b.far) dmg *= b.farMul;
   hurtEnemy(e, dmg, crit);
-  if (b.kb && !e.boss && !e.dead) {
+  if (b.kb && !e.boss && !e.dead && e.kbShot !== b.shot) { // once per shot, however many pellets hit
+    e.kbShot = b.shot;
     const kx = e.x - P.x, kz = e.z - P.z, kl = Math.hypot(kx, kz) || 1;
     moveCircle(e, kx / kl * b.kb, kz / kl * b.kb, e.r);
     e.fy = floorY(e.x, e.z);
