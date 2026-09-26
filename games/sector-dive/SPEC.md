@@ -239,6 +239,7 @@
 
 - 構成: `index.html`（HTML・CSS）＋ `js/` 以下のクラシックスクリプト。全ファイルが1つのグローバルスコープを共有するので、**読み込み時に実行されるコードは、自分より後のファイルの関数を呼べない**（実行時の呼び出しは問題ない）
   - core（データ・セーブ・音）→ render（three.js 準備）→ level（地形）→ entities（弾・敵・拾い物）→ player → bosses → input → hud → game（進行・拠点）→ update（毎フレーム処理・開発用フック）
+- キャッシュ対策: `index.html` のスクリプトは `js/xxx.js?v=YYYYMMDDHHMM` で読み込む。**js を変えたら v の値を更新する**（GitHub Pages は js を約10分キャッシュするので、古い js と新しい html が混ざると動かなくなる）
 - 描画: three.js r128（cdnjs）。3Dモデルや画像は使わず、図形とCanvasで作ったテクスチャだけで描く
 - セーブ: localStorage の `sector-dive-v1`。古いセーブも読めるように、`loadSave` で足りない項目を補っている
 - 開発用フック（URLの末尾に付ける）

@@ -348,3 +348,5 @@ if (location.hash.startsWith('#view-')) {
     for (let k = 0; k < 20; k++) update(1 / 60);
   }, 300);
 }
+// dev view: #view-wipe opens the data wipe dialog on the base screen (for screenshots)
+if (location.hash === '#view-wipe') setTimeout(() => $('#btnWipe').click(), 300);
