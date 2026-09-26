@@ -223,7 +223,8 @@ function spawnPhantom() {
 function phantomWarp(e, first) {
   const spots = PHANTOM_SPOTS.map(([i, j]) => [(i + 0.5) * T, (j + 0.5) * T])
     .sort((a, b) => Math.hypot(b[0] - P.x, b[1] - P.z) - Math.hypot(a[0] - P.x, a[1] - P.z));
-  const [x, z] = first ? spots[0] : pick(spots.slice(0, 3));
+  // warp anywhere except the two spots nearest the player (first appearance: the farthest spot)
+  const [x, z] = first ? spots[0] : pick(spots.slice(0, spots.length - 2));
   e.x = x; e.z = z;
   if (!first) { burst(x, 2, z, 0x9fe7ff, 16, 6, 0.5); ring(x, z, 1.3, 10, 8, rand(0, 1), e.dmg, 0x9fe7ff); }
 }
@@ -247,8 +248,8 @@ function updPhantom(e, dt) {
   } else if (e.st === 'vanish') {
     sc = Math.max(0.05, e.timer / 0.45);
     if (e.timer <= 0) {
-      phantomWarp(e); e.st = 'idle'; e.timer = enr ? 1.0 : 1.5; e.cycle++;
-      if (e.cycle % 2 === 0 && enemies.filter(o => !o.boss && !o.dead).length < 4)
+      phantomWarp(e); e.st = 'idle'; e.timer = enr ? 1.6 : 2.2; e.cycle++;
+      if (e.cycle % 3 === 0 && enemies.filter(o => !o.boss && !o.dead).length < 2)
         for (let k = 0; k < 2; k++) { const [x, z] = randomTileIn(rooms[0]); spawnEnemy('drone', x, z, -1, diffOf(run.stage)).active = true; }
     }
   }
