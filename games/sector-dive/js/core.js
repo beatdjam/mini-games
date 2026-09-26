@@ -107,7 +107,7 @@ const ENEMY = {
   bomber:  { hp: 16,  speed: 7.8, r: 0.5,  y: 0.6, hitR: 0.75, dmg: 26, bomber: true, bits: 3, color: 0xffb13d, geo: 'ico' },
   splitter:{ hp: 70,  speed: 4.0, r: 0.8,  y: 0.9, hitR: 1.1,  dmg: 12, melee: true, split: true, bits: 6, color: 0x7dffcf, geo: 'dodeca' },
   // Bastion's shield generators (boss minion only)
-  bturret: { hp: 200, speed: 0,   r: 0.8,  y: 0.9, hitR: 1.2,  dmg: 9,  bits: 2, color: 0xffb347, geo: 'cyl',
+  bturret: { hp: 140, speed: 0,   r: 0.8,  y: 0.9, hitR: 1.2,  dmg: 9,  bits: 2, color: 0xffb347, geo: 'cyl',
              ranged: { rate: 1.7, speed: 13, count: 3, spread: 0.16 } },
   mini:    { hp: 16,  speed: 7.2, r: 0.4,  y: 0.4, hitR: 0.6,  dmg: 6,  melee: true, bits: 1, color: 0x7dffcf, geo: 'tetraS' },
 };

@@ -327,10 +327,10 @@ function updBastion(e, dt) {
   e.core.rotation.y += dt * (e.invuln ? 0.6 : 2.5); e.core.rotation.x += dt * 0.4;
   e.shield.visible = e.invuln; e.shield.material.opacity = 0.2 + Math.sin(e.t * 4) * 0.06;
   e.turrets = e.turrets.filter(t => !t.dead);
-  if (e.invuln && !e.turrets.length) { e.invuln = false; e.openT = 9; toast('シールド解除 — 今のうちに本体を撃つ', 2200); sfx('chip'); }
+  if (e.invuln && !e.turrets.length) { e.invuln = false; e.openT = 12; e.stunMul = 1.5; toast('シールド解除 — 12秒間、本体へのダメージ1.5倍', 2400); sfx('chip'); }
   if (!e.invuln) {
     e.openT -= dt;
-    if (e.openT <= 0) { e.invuln = true; e.hinted = true; bastionTurrets(e, enr ? 4 : 3); toast('シールド再展開。砲台が再建された', 2200); }
+    if (e.openT <= 0) { e.invuln = true; e.stunMul = 0; e.hinted = true; bastionTurrets(e, enr ? 3 : 2); toast('シールド再展開。砲台が再建された', 2200); }
   }
   e.ringT -= dt;
   if (e.ringT <= 0) {
