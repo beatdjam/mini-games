@@ -350,7 +350,7 @@ function renderBase() {
     const def = WEAPONS[id], un = id === 'pistol' || !!save.unlocked[id];
     if (!un) return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" data-w="${id}">
       <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span>
-      <span class="wf">解放 ${def.cost} BIT（潜行中にも落ちるようになる）</span></button>`;
+      <span class="wf">解放 ${def.cost} BIT（出撃装備にできて、改造もできる）</span></button>`;
     const w = basicNow(basicW(id)), m = modOf(id), pc = modPlusCost(m.plus), rc = MOD_RARITY_COST[m.r];
     const plusBtn = m.plus >= MOD_PLUS_MAX ? '<button class="mini-btn" disabled>+値 最大</button>'
       : `<button class="mini-btn amber" data-modplus="${id}" ${save.bits < pc ? 'disabled' : ''}>+${m.plus + 1} に改造 ${pc}</button>`;

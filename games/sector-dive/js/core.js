@@ -23,8 +23,8 @@ const WEAPONS = {
 };
 const WEAPON_ORDER = ['pistol', 'smg', 'shotgun', 'rail', 'launcher'];
 const DROP_POOL = ['pistol', 'pistol', 'smg', 'smg', 'smg', 'shotgun', 'shotgun', 'shotgun', 'rail', 'rail', 'launcher'];
-// only weapons unlocked at the base drop during a dive (the pistol always does)
-const pickDrop = () => { const pool = DROP_POOL.filter(id => id === 'pistol' || save.unlocked[id]); return pool[Math.floor(Math.random() * pool.length)]; };
+// every weapon type can drop during a dive; unlocking only decides what you can start with and mod at the base
+const pickDrop = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
 // rarity rank is shown as stars and a grey -> blue -> gold colour so the order reads at a glance
 const RARITY = [
   { name: '標準', stars: '★',   mult: 1,    css: '#9aa8b4', hex: 0x9aa8b4 },
