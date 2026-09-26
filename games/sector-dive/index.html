@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="スマホで遊べるランダム生成ローグライトFPS">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#05080c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sector Dive">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
 <style>
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}
@@ -230,6 +238,7 @@ body.desk.nolock .tbtn{display:grid}
     <div class="tr">
       <div class="trrow">
         <div class="bits"><span>BIT</span><b id="bitNum" class="num">0</b></div>
+        <button id="btnFs" class="icon" aria-label="全画面の切り替え" hidden>全画面</button>
         <button id="btnBag" class="icon" aria-label="バッグを開く">BAG</button>
         <button id="btnPause" class="icon" aria-label="一時停止">II</button>
       </div>
@@ -1490,18 +1499,42 @@ function drawMap(c, g, big) {
   g.moveTo(x + fx * a, z + fz * a); g.lineTo(x - fx * b + fz * b, z - fz * b - fx * b); g.lineTo(x - fx * b - fz * b, z - fz * b + fx * b); g.closePath(); g.fill();
 }
 
+// ================= fullscreen =================
+const fsEl = document.documentElement;
+const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
+const isStandalone = (window.matchMedia && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) || navigator.standalone === true;
+const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
+function enterFs() {
+  try {
+    const fn = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
+    const p = fn.call(fsEl);
+    const lockLand = () => { try { const q = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (q && q.catch) q.catch(() => {}); } catch (e) {} };
+    if (p && p.then) p.then(lockLand, () => {}); else lockLand();
+  } catch (e) {}
+}
+function exitFs() {
+  try { const fn = document.exitFullscreen || document.webkitExitFullscreen; const p = fn.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+}
+function toggleFs() { if (!fsSupported) return; if (document.fullscreenElement || document.webkitFullscreenElement) exitFs(); else enterFs(); }
+function fsLabel() { $('#btnFs').textContent = isFs() ? '全画面解除' : '全画面'; }
+$('#btnFs').hidden = !fsSupported || isStandalone;
+$('#btnFs').addEventListener('click', toggleFs);
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { fsLabel(); renderSettings(); setTimeout(resize, 100); }));
+
 // ================= settings / guide =================
 function settingsHTML(where) {
   const st = save.settings;
-  return `<button class="toggle" data-set="autofire" aria-pressed="${st.autofire}">自動射撃<b>${st.autofire ? 'ON' : 'OFF'}</b></button>
+  const fsBtn = fsSupported && !isStandalone ? `<button class="toggle" data-fs="1" aria-pressed="${isFs()}">全画面<b>${isFs() ? 'ON' : 'OFF'}</b></button>` : '';
+  return `${fsBtn}<button class="toggle" data-set="autofire" aria-pressed="${st.autofire}">自動射撃<b>${st.autofire ? 'ON' : 'OFF'}</b></button>
     <div class="seg" role="group" aria-label="エイム補正"><span>エイム補正</span>${[['off', 'なし'], ['weak', '弱'], ['strong', '強']].map(([k, l]) =>
       `<button data-assist="${k}" aria-pressed="${st.assist === k}">${l}</button>`).join('')}</div>
     <label class="sens" for="sens-${where}">視点感度 <input id="sens-${where}" class="sensIn" type="range" min="0.4" max="2.2" step="0.1" value="${st.sens}"><span class="num sensV">${st.sens.toFixed(1)}</span></label>`;
 }
 function renderSettings() { document.querySelectorAll('[data-settings]').forEach(el => { el.innerHTML = settingsHTML(el.dataset.settings); }); }
 document.addEventListener('click', e => {
-  const s = e.target.closest('[data-set]'), a = e.target.closest('[data-assist]');
-  if (s) { const k = s.dataset.set; save.settings[k] = !save.settings[k]; persist(); renderSettings(); }
+  const s = e.target.closest('[data-set]'), a = e.target.closest('[data-assist]'), f = e.target.closest('[data-fs]');
+  if (f) toggleFs();
+  else if (s) { const k = s.dataset.set; save.settings[k] = !save.settings[k]; persist(); renderSettings(); }
   else if (a) { save.settings.assist = a.dataset.assist; persist(); renderSettings(); }
 });
 document.addEventListener('input', e => {
@@ -1521,14 +1554,7 @@ function setPlayUI(on) { $('#hud').hidden = !on; $('#touch').hidden = !on; gun.v
 
 function startRun() {
   audioInit();
-  if (isTouch) {
-    try {
-      const el = document.documentElement, fs = el.requestFullscreen || el.webkitRequestFullscreen;
-      const p = fs && !document.fullscreenElement ? fs.call(el) : null;
-      const lockLand = () => { try { const q = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (q && q.catch) q.catch(() => {}); } catch (e) {} };
-      if (p && p.then) p.then(lockLand, () => {}); else lockLand();
-    } catch (e) {}
-  }
+  if (isTouch && !isFs()) enterFs();
   if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').catch(() => {});
   const tier = clamp(save.startTier, 0, save.shortcut);
   P = newPlayer(save.loadout);
