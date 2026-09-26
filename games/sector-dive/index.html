@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="スマホで遊べるランダム生成ローグライトFPS">
-<meta name="build" content="20260927052212">
+<meta name="build" content="20260927054018">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#05080c">
 <meta name="mobile-web-app-capable" content="yes">
@@ -52,6 +52,9 @@ em{font-style:normal}
 #stBar i{background:var(--lime)}
 #stBar.short i{background:#50703f}
 #stBar.warn{border-color:var(--mag)}
+.kithud{font-size:12px;color:var(--lime);font-variant-numeric:tabular-nums}
+.kithud.none{color:var(--dim)}
+body.touch .kithud{display:none}
 .stage{font-family:var(--disp);font-size:12px;letter-spacing:.1em;color:var(--dim)}
 .stage b{color:var(--text);font-weight:500}
 .tr{position:absolute;z-index:4;top:calc(env(safe-area-inset-top,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 12px);display:grid;justify-items:end;gap:6px}
@@ -267,6 +270,7 @@ body.desk.nolock .tbtn{display:grid}
       <div class="hplabel"><span>HP</span><b id="hpNum" class="num">100</b></div>
       <div class="bar" id="hpBar"><i id="hpFill"></i></div>
       <div class="bar" id="stBar"><i id="stFill"></i></div>
+      <div class="kithud" id="kitHud"></div>
       <div class="stage" id="stageLbl"></div>
       <canvas id="mini" width="320" height="320" aria-label="ミニマップ（タップで全体マップ）"></canvas>
     </div>
@@ -441,24 +445,24 @@ body.desk.nolock .tbtn{display:grid}
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="js/core.js?v=20260927052212"></script>
-<script src="js/render.js?v=20260927052212"></script>
-<script src="js/level.js?v=20260927052212"></script>
-<script src="js/entities.js?v=20260927052212"></script>
-<script src="js/player.js?v=20260927052212"></script>
-<script src="js/bosses/common.js?v=20260927052212"></script>
-<script src="js/bosses/watcher.js?v=20260927052212"></script>
-<script src="js/bosses/crusher.js?v=20260927052212"></script>
-<script src="js/bosses/core.js?v=20260927052212"></script>
-<script src="js/bosses/phantom.js?v=20260927052212"></script>
-<script src="js/bosses/trinity.js?v=20260927052212"></script>
-<script src="js/bosses/bastion.js?v=20260927052212"></script>
-<script src="js/input.js?v=20260927052212"></script>
-<script src="js/hud.js?v=20260927052212"></script>
-<script src="js/game.js?v=20260927052212"></script>
-<script src="js/enemies.js?v=20260927052212"></script>
-<script src="js/bullets.js?v=20260927052212"></script>
-<script src="js/update.js?v=20260927052212"></script>
-<script src="js/dev.js?v=20260927052212"></script>
+<script src="js/core.js?v=20260927054018"></script>
+<script src="js/render.js?v=20260927054018"></script>
+<script src="js/level.js?v=20260927054018"></script>
+<script src="js/entities.js?v=20260927054018"></script>
+<script src="js/player.js?v=20260927054018"></script>
+<script src="js/bosses/common.js?v=20260927054018"></script>
+<script src="js/bosses/watcher.js?v=20260927054018"></script>
+<script src="js/bosses/crusher.js?v=20260927054018"></script>
+<script src="js/bosses/core.js?v=20260927054018"></script>
+<script src="js/bosses/phantom.js?v=20260927054018"></script>
+<script src="js/bosses/trinity.js?v=20260927054018"></script>
+<script src="js/bosses/bastion.js?v=20260927054018"></script>
+<script src="js/input.js?v=20260927054018"></script>
+<script src="js/hud.js?v=20260927054018"></script>
+<script src="js/game.js?v=20260927054018"></script>
+<script src="js/enemies.js?v=20260927054018"></script>
+<script src="js/bullets.js?v=20260927054018"></script>
+<script src="js/update.js?v=20260927054018"></script>
+<script src="js/dev.js?v=20260927054018"></script>
 </body>
 </html>

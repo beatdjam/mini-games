@@ -21,6 +21,7 @@ function weaponHud() {
     el.innerHTML = w ? `${k + 1}: ${wName(w)}` : `${k + 1}: 空き`;
   });
   $('#kitBtnN').textContent = P.kits;
+  const kh = $('#kitHud'); kh.textContent = `回復キット ${P.kits} / ${KIT_MAX}　[H]`; kh.classList.toggle('none', P.kits <= 0);
   $('#btnKit').classList.toggle('off', P.kits <= 0);
 }
 function updateHud() {
