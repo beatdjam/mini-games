@@ -40,7 +40,7 @@ em{font-style:normal}
 
 /* ---------- HUD ---------- */
 #hud{position:absolute;inset:0;pointer-events:none}
-.tl{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:calc(env(safe-area-inset-left,0px) + 12px);display:grid;gap:5px;width:min(220px,40vw)}
+.tl{position:absolute;z-index:4;top:calc(env(safe-area-inset-top,0px) + 10px);left:calc(env(safe-area-inset-left,0px) + 12px);display:grid;gap:5px;width:min(220px,40vw)}
 .hplabel{display:flex;justify-content:space-between;font-family:var(--disp);font-size:12px;letter-spacing:.12em;color:var(--dim)}
 .hplabel b{color:var(--text);font-size:15px;letter-spacing:0}
 .bar{height:8px;background:#0c1620;border:1px solid var(--line);position:relative;overflow:hidden}
@@ -106,17 +106,23 @@ em{font-style:normal}
 .tbtn{position:absolute;width:52px;height:52px;border-radius:50%;border:1px solid rgba(213,228,238,.35);background:rgba(10,17,25,.55);font-size:11px;display:grid;place-items:center;touch-action:none;line-height:1.2;text-align:center}
 .tbtn.down,.tbtn:active{background:rgba(84,232,255,.25);border-color:var(--cyan)}
 .tbtn.off{opacity:.35}
-#btnFire{width:86px;height:86px;right:calc(env(safe-area-inset-right,0px) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 24px);font-size:14px;border-color:rgba(255,77,141,.7);background:rgba(255,77,141,.14)}
-#btnDash{width:62px;height:62px;right:calc(env(safe-area-inset-right,0px) + 114px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
-#btnReload{right:calc(env(safe-area-inset-right,0px) + 118px);bottom:calc(env(safe-area-inset-bottom,0px) + 84px)}
-#btnSwap{right:calc(env(safe-area-inset-right,0px) + 186px);bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
-#btnKit{right:calc(env(safe-area-inset-right,0px) + 186px);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);border-color:rgba(140,255,106,.6)}
+/* layout buttons are placed by applyLayout(): left/top are the button centre */
+.tbtn[data-lb]{transform:translate(-50%,-50%)}
+#btnFire{font-size:14px;border-color:rgba(255,77,141,.7);background:rgba(255,77,141,.14)}
+#btnFire2{font-size:11px;border-color:rgba(255,77,141,.5);background:rgba(255,77,141,.08)}
+#btnDash{font-size:12px;border-color:rgba(140,255,106,.45)}
+#btnKit{border-color:rgba(140,255,106,.6)}
+#touch.editing{background:rgba(5,8,12,.5)}
+#touch.editing .tbtn[data-lb]{display:grid;border-style:dashed;cursor:move}
+#touch.editing .tbtn.sel{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber)}
+#layoutBar{position:absolute;z-index:5;left:50%;top:calc(env(safe-area-inset-top,0px) + 10px);transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:8px 10px;background:var(--panel);border:1px solid var(--line)}
+#layoutBar p{margin:0;width:100%;text-align:center;font-size:12px;color:var(--dim)}
+#layoutBar b{color:var(--amber);font-weight:400}
 #btnUse{width:auto;height:42px;padding:0 16px;border-radius:21px;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 96px);border-color:var(--amber);color:var(--amber);white-space:nowrap}
 /* touch: weapon/ammo block moves under HP so it never sits on the buttons; slots are tappable */
-body.touch #bottom{left:calc(env(safe-area-inset-left,0px) + 12px);top:calc(env(safe-area-inset-top,0px) + 92px);bottom:auto;transform:none;justify-items:start;z-index:4}
-body.touch #weap{flex-direction:column;align-items:flex-start}
-body.touch .slot{pointer-events:auto;padding:6px 10px}
-body.touch #mini{width:clamp(80px,22vmin,150px);height:clamp(80px,22vmin,150px)}
+body.touch #bottom{z-index:4}
+body.touch .slot{pointer-events:auto;padding:7px 12px;font-size:13px}
+body.touch #mini{width:clamp(80px,22vmin,140px);height:clamp(80px,22vmin,140px)}
 body.desk .tbtn{display:none}
 body.desk.nolock .tbtn{display:grid}
 #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);font-size:12px;color:var(--amber);white-space:nowrap}
@@ -234,6 +240,7 @@ body.desk.nolock .tbtn{display:grid}
       <div class="bar" id="hpBar"><i id="hpFill"></i></div>
       <div class="bar" id="stBar"><i id="stFill"></i></div>
       <div class="stage" id="stageLbl"></div>
+      <canvas id="mini" width="320" height="320" aria-label="ミニマップ（タップで全体マップ）"></canvas>
     </div>
     <div class="tr">
       <div class="trrow">
@@ -242,7 +249,6 @@ body.desk.nolock .tbtn{display:grid}
         <button id="btnBag" class="icon" aria-label="バッグを開く">BAG</button>
         <button id="btnPause" class="icon" aria-label="一時停止">II</button>
       </div>
-      <canvas id="mini" width="320" height="320" aria-label="ミニマップ（タップで全体マップ）"></canvas>
     </div>
     <div id="bossBar" hidden><div class="bname" id="bossName"></div><div class="bbar"><i id="bossFill"></i></div></div>
     <div id="cross"><i></i><i></i><i></i><i></i></div>
@@ -259,11 +265,18 @@ body.desk.nolock .tbtn{display:grid}
   <div id="touch" hidden>
     <div id="joyBase"><div id="joyKnob"></div></div>
     <button id="btnUse" class="tbtn" hidden>拾う</button>
-    <button id="btnKit" class="tbtn">回復<br><span id="kitBtnN">1</span></button>
-    <button id="btnSwap" class="tbtn">持替</button>
-    <button id="btnReload" class="tbtn">リロード</button>
-    <button id="btnDash" class="tbtn">ダッシュ</button>
-    <button id="btnFire" class="tbtn">射撃</button>
+    <button id="btnKit" class="tbtn" data-lb="kit">回復<br><span id="kitBtnN">1</span></button>
+    <button id="btnReload" class="tbtn" data-lb="reload">リロード</button>
+    <button id="btnDash" class="tbtn" data-lb="dash">ダッシュ</button>
+    <button id="btnFire2" class="tbtn" data-lb="fire2">射撃</button>
+    <button id="btnFire" class="tbtn" data-lb="fire">射撃</button>
+    <div id="layoutBar" hidden>
+      <p>ボタンをドラッグして動かす。選択中: <b id="lbName"></b></p>
+      <button class="mini-btn" data-lbact="minus">小さく</button>
+      <button class="mini-btn" data-lbact="plus">大きく</button>
+      <button class="mini-btn" data-lbact="reset">初期配置に戻す</button>
+      <button class="mini-btn amber" data-lbact="done">完了</button>
+    </div>
     <div id="hint"></div>
   </div>
   <div id="fade"></div>
@@ -438,12 +451,20 @@ const PRES_UP = [
   { id: 'choice', name: '選択肢拡張', max: 1, cost: 3, desc: l => `チップの候補が4枚になる（${l ? '取得済み' : '未取得'}）` },
 ];
 const presMul = () => 1 + save.pres.count * 0.15;
+// touch button layout: x/y are the centre as a fraction of the screen, b is the base size in px
+const LAYOUT_DEF = {
+  fire:   { x: 0.88,  y: 0.74, s: 1, b: 88, name: '射撃' },
+  dash:   { x: 0.955, y: 0.44, s: 1, b: 64, name: 'ダッシュ' },
+  reload: { x: 0.75,  y: 0.86, s: 1, b: 50, name: 'リロード' },
+  kit:    { x: 0.86,  y: 0.3,  s: 1, b: 50, name: '回復' },
+  fire2:  { x: 0.2,   y: 0.5,  s: 1, b: 58, name: '左の射撃' },
+};
 const STASH_MAX = 12, BAG_MAX = 4, KIT_MAX = 3;
 const ASSIST = { off: 0, weak: 0.04, strong: 0.1 };
 const GUIDE_DESK = [['移動', 'W A S D'], ['視点', 'マウス（画面クリックでロック）'], ['射撃', '左クリック'], ['ダッシュ', 'Space / Shift（スタミナ消費、短い無敵）'],
   ['リロード', 'R（弾切れで自動）'], ['武器の持ち替え', 'Q / 1 / 2 / ホイール'], ['武器を拾う', 'E'], ['回復キット', 'H'], ['バッグ', 'Tab / I'], ['全体マップ', 'M'], ['一時停止', 'Esc / P']];
-const GUIDE_TOUCH = [['移動', '画面左をドラッグ'], ['視点', '画面右をドラッグ'], ['射撃', '射撃ボタン（押したままドラッグで視点も動く）'], ['ダッシュ', 'ダッシュボタン（スタミナ消費、短い無敵）'],
-  ['リロード', 'リロードボタン（弾切れで自動）'], ['武器の持ち替え', '持替ボタン'], ['武器を拾う', '近づくと出る「拾う」ボタン'], ['回復キット', '回復ボタン'], ['バッグ', '右上の BAG'], ['全体マップ', 'ミニマップをタップ']];
+const GUIDE_TOUCH = [['移動', '画面左をドラッグ'], ['視点', '画面右をドラッグ'], ['射撃', '右の射撃ボタン（押したままドラッグで視点も動く）/ 左の小さい射撃ボタン'], ['ダッシュ', '右端のダッシュボタン（スタミナ消費、短い無敵）。設定でスティック倒し切りにもできる'],
+  ['リロード', 'リロードボタン（弾切れで自動）'], ['武器の持ち替え', '画面下の武器欄をタップ'], ['武器を拾う', '近づくと出る「拾う」ボタン'], ['回復キット', '回復ボタン'], ['バッグ', '右上の BAG'], ['全体マップ', 'ミニマップをタップ']];
 
 // ================= save =================
 const SAVE_KEY = 'sector-dive-v1';
@@ -451,7 +472,7 @@ const basicW = id => ({ id, r: 0, basic: true });
 const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0,
   best: 0, runs: 0, bossKills: 0, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
-  settings: { autofire: isTouch, assist: 'weak', sens: 1 } });
+  settings: { autofire: isTouch, assist: 'weak', sens: 1, leftFire: true, stickDash: false, layout: {} } });
 function loadSave() {
   const d = defaultSave();
   try {
@@ -1295,7 +1316,7 @@ function bossDown(e) {
 // ================= input =================
 const keys = {};
 let joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: null, x: 0, y: 0 }, fireTouch = { id: null, x: 0, y: 0 };
-let fireHeld = false, mouseFire = false, dashReq = false, locked = false, lockWorked = false;
+let fireHeld = false, fire2Held = false, mouseFire = false, dashReq = false, locked = false, lockWorked = false, stickT = 0, stickArmed = true;
 const touchEl = $('#touch');
 function lookDelta(dx, dy, k) { if (!P) return; P.yaw -= dx * k; P.pitch = clamp(P.pitch - dy * k, -1.25, 1.25); }
 const tk = () => 0.0055 * save.settings.sens;
@@ -1330,7 +1351,7 @@ touchEl.addEventListener('pointerup', endPointer);
 touchEl.addEventListener('pointercancel', endPointer);
 function releaseInputs() {
   joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }; look = { id: null, x: 0, y: 0 }; fireTouch = { id: null, x: 0, y: 0 };
-  fireHeld = false; mouseFire = false; $('#joyBase').style.display = 'none'; $('#btnFire').classList.remove('down');
+  fireHeld = false; fire2Held = false; mouseFire = false; $('#joyBase').style.display = 'none'; $('#btnFire').classList.remove('down'); $('#btnFire2').classList.remove('down');
   for (const k in keys) keys[k] = false;
 }
 const btnFire = $('#btnFire');
@@ -1347,7 +1368,10 @@ const fireUp = e => { if (e.pointerId === fireTouch.id) { fireTouch.id = null; f
 btnFire.addEventListener('pointerup', fireUp); btnFire.addEventListener('pointercancel', fireUp);
 function tapBtn(el, fn) { el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audioInit(); fn(); }); }
 tapBtn($('#btnDash'), () => { dashReq = true; });
-tapBtn($('#btnSwap'), swapWeapon);
+const btnFire2 = $('#btnFire2');
+btnFire2.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audioInit(); try { btnFire2.setPointerCapture(e.pointerId); } catch (err) {} fire2Held = true; btnFire2.classList.add('down'); });
+const fire2Up = () => { fire2Held = false; btnFire2.classList.remove('down'); };
+btnFire2.addEventListener('pointerup', fire2Up); btnFire2.addEventListener('pointercancel', fire2Up);
 tapBtn($('#btnReload'), () => { if (state === 'play') startReload(); });
 tapBtn($('#btnKit'), useKit);
 tapBtn($('#btnUse'), useNearby);
@@ -1451,7 +1475,6 @@ function weaponHud() {
     el.classList.toggle('on', k === P.cur);
     el.innerHTML = w ? `${k + 1}: ${wName(w)}` : `${k + 1}: 空き`;
   });
-  $('#btnSwap').classList.toggle('off', !P.weapons[1]);
   $('#kitBtnN').textContent = P.kits;
   $('#btnKit').classList.toggle('off', P.kits <= 0);
 }
@@ -1544,13 +1567,18 @@ function settingsHTML(where) {
   return `${fsBtn}<button class="toggle" data-set="autofire" aria-pressed="${st.autofire}">自動射撃<b>${st.autofire ? 'ON' : 'OFF'}</b></button>
     <div class="seg" role="group" aria-label="エイム補正"><span>エイム補正</span>${[['off', 'なし'], ['weak', '弱'], ['strong', '強']].map(([k, l]) =>
       `<button data-assist="${k}" aria-pressed="${st.assist === k}">${l}</button>`).join('')}</div>
-    <label class="sens" for="sens-${where}">視点感度 <input id="sens-${where}" class="sensIn" type="range" min="0.4" max="2.2" step="0.1" value="${st.sens}"><span class="num sensV">${st.sens.toFixed(1)}</span></label>`;
+    <label class="sens" for="sens-${where}">視点感度 <input id="sens-${where}" class="sensIn" type="range" min="0.4" max="2.2" step="0.1" value="${st.sens}"><span class="num sensV">${st.sens.toFixed(1)}</span></label>
+    ${isTouch ? `<button class="toggle" data-set="leftFire" aria-pressed="${st.leftFire}">左の射撃ボタン<b>${st.leftFire ? 'ON' : 'OFF'}</b></button>
+    <button class="toggle" data-set="stickDash" aria-pressed="${st.stickDash}">スティック倒し切りでダッシュ<b>${st.stickDash ? 'ON' : 'OFF'}</b></button>
+    <button class="toggle" data-layout="1">ボタン配置を編集</button>` : ''}`;
 }
 function renderSettings() { document.querySelectorAll('[data-settings]').forEach(el => { el.innerHTML = settingsHTML(el.dataset.settings); }); }
 document.addEventListener('click', e => {
   const s = e.target.closest('[data-set]'), a = e.target.closest('[data-assist]'), f = e.target.closest('[data-fs]');
-  if (f) toggleFs();
-  else if (s) { const k = s.dataset.set; save.settings[k] = !save.settings[k]; persist(); renderSettings(); }
+  const lo = e.target.closest('[data-layout]');
+  if (lo) openLayoutEditor(state === 'pause' ? 'pause' : 'base');
+  else if (f) toggleFs();
+  else if (s) { const k = s.dataset.set; save.settings[k] = !save.settings[k]; persist(); renderSettings(); applyLayout(); }
   else if (a) { save.settings.assist = a.dataset.assist; persist(); renderSettings(); }
 });
 document.addEventListener('input', e => {
@@ -1560,6 +1588,61 @@ document.addEventListener('input', e => {
     document.querySelectorAll('.sensIn').forEach(v => { if (v !== e.target) v.value = save.settings.sens; });
   }
 });
+// ================= touch layout =================
+const getL = id => Object.assign({}, LAYOUT_DEF[id], (save.settings.layout || {})[id] || {});
+function applyLayout() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  Object.keys(LAYOUT_DEF).forEach(id => {
+    const el = document.querySelector(`[data-lb="${id}"]`), l = getL(id), size = Math.round(l.b * l.s);
+    el.style.width = el.style.height = size + 'px';
+    el.style.left = clamp(l.x * vw, size / 2 + 4, vw - size / 2 - 4) + 'px';
+    el.style.top = clamp(l.y * vh, size / 2 + 4, vh - size / 2 - 4) + 'px';
+    el.classList.toggle('sel', editing && editSel === id);
+  });
+  $('#btnFire2').hidden = !save.settings.leftFire;
+}
+let editing = false, editSel = 'dash', editDrag = null, editFrom = 'base';
+function openLayoutEditor(from) {
+  editFrom = from; editing = true; editSel = 'dash';
+  releaseInputs(); exitLock(); show(null);
+  $('#touch').hidden = false; touchEl.classList.add('editing'); $('#layoutBar').hidden = false;
+  state = 'layout'; applyLayout(); $('#lbName').textContent = LAYOUT_DEF[editSel].name;
+}
+function closeLayoutEditor() {
+  editing = false; editDrag = null; persist();
+  touchEl.classList.remove('editing'); $('#layoutBar').hidden = true; applyLayout();
+  if (editFrom === 'pause') { state = 'pause'; renderSettings(); show('#scrPause'); }
+  else { $('#touch').hidden = true; state = 'base'; renderSettings(); show('#scrBase'); }
+}
+touchEl.addEventListener('pointerdown', e => {
+  if (!editing) return;
+  const b = e.target.closest('[data-lb]');
+  if (!b) { if (!e.target.closest('#layoutBar')) { e.preventDefault(); e.stopImmediatePropagation(); } return; }
+  e.preventDefault(); e.stopPropagation();
+  editSel = b.dataset.lb;
+  const r = b.getBoundingClientRect();
+  editDrag = { id: e.pointerId, dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2) };
+  try { b.setPointerCapture(e.pointerId); } catch (err) {}
+  $('#lbName').textContent = LAYOUT_DEF[editSel].name; applyLayout();
+}, true);
+window.addEventListener('pointermove', e => {
+  if (!editing || !editDrag || e.pointerId !== editDrag.id) return;
+  const L = save.settings.layout || (save.settings.layout = {}), cur = getL(editSel);
+  L[editSel] = { x: clamp((e.clientX - editDrag.dx) / window.innerWidth, 0, 1), y: clamp((e.clientY - editDrag.dy) / window.innerHeight, 0, 1), s: cur.s };
+  applyLayout();
+});
+window.addEventListener('pointerup', e => { if (editDrag && e.pointerId === editDrag.id) { editDrag = null; persist(); } });
+$('#layoutBar').addEventListener('click', e => {
+  const b = e.target.closest('[data-lbact]'); if (!b) return;
+  const a = b.dataset.lbact, L = save.settings.layout || (save.settings.layout = {}), cur = getL(editSel);
+  if (a === 'minus' || a === 'plus') L[editSel] = { x: cur.x, y: cur.y, s: clamp(Math.round((cur.s + (a === 'plus' ? 0.1 : -0.1)) * 10) / 10, 0.7, 1.6) };
+  else if (a === 'reset') save.settings.layout = {};
+  else if (a === 'done') { closeLayoutEditor(); return; }
+  persist(); applyLayout();
+});
+window.addEventListener('resize', applyLayout);
+applyLayout();
+
 $('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
 
 // ================= game flow =================
@@ -1890,6 +1973,11 @@ function update(dt) {
   if (keys.KeyD || keys.ArrowRight) mx += 1;
   if (keys.KeyA || keys.ArrowLeft) mx -= 1;
   mx += joy.x; mz -= joy.y;
+  if (save.settings.stickDash && joy.id !== null) {
+    const jm = Math.hypot(joy.x, joy.y);
+    if (jm > 0.97) { stickT += dt; if (stickT > 0.3 && stickArmed) { dashReq = true; stickArmed = false; } }
+    else { stickT = 0; if (jm < 0.8) stickArmed = true; }
+  } else { stickT = 0; stickArmed = true; }
   const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let vx = fx * mz + rx * mx, vz = fz * mz + rz * mx;
@@ -1928,7 +2016,7 @@ function update(dt) {
   if (P.reloadT > 0) { P.reloadT -= dt; if (P.reloadT <= 0) { P.reloadT = 0; curW().mag = magSize(curW()); sfx('reloaded'); } }
   target = findTarget();
   P.fireCd -= dt;
-  if ((fireHeld || mouseFire || keys.KeyF || (save.settings.autofire && target)) && P.fireCd <= 0) tryFire();
+  if ((fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) && P.fireCd <= 0) tryFire();
 
   updateEnemies(dt);
   updatePBullets(dt);
