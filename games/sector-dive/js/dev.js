@@ -82,6 +82,19 @@ if (location.hash === '#smoke') {
         console.log('SMOKE watcher waves ok');
         endRun('abandon');
       }
+      // scaling: additive damage chips, compounding health, practice depth
+      {
+        const p0 = newPlayer(save.loadout), base = p0.dmgMul, od = PERKS.find(x => x.name === '過負荷弾');
+        od.apply(p0); od.apply(p0);
+        if (Math.abs(p0.dmgMul - (base + 0.4)) > 1e-9) throw new Error('additive chips ' + p0.dmgMul);
+        run = { stage: PER - 1, route: [0] }; const b1 = bossDiff();
+        run = { stage: 2 * PER + PER - 1, route: [0] }; const b3 = bossDiff();
+        if (Math.abs(b1 - 1.05 * Math.pow(1.35, 0.8) * presMul()) > 1e-9 || !(b3 > b1 * 1.8)) throw new Error('boss scaling ' + b1 + ' ' + b3);
+        startPractice('trinity', 2); tick(5);
+        if (stageLabel(run.stage) !== 'D3 BOSS') throw new Error('practice depth ' + stageLabel(run.stage));
+        endRun('abandon');
+        console.log('SMOKE scaling ok', 'D1 boss', b1.toFixed(2), 'D3 boss', b3.toFixed(2));
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);
@@ -138,4 +151,5 @@ if (location.hash.startsWith('#view-')) {
 // dev view: #view-wipe opens the data wipe dialog on the base screen (for screenshots)
 if (location.hash === '#view-wipe') setTimeout(() => $('#btnWipe').click(), 300);
 // dev view: #boss-phantom etc. starts boss practice against that boss
-if (location.hash.startsWith('#boss-')) setTimeout(() => { const k = location.hash.slice(6); if (BOSS_META[k]) startPractice(k); }, 300);
+// optional depth: #boss-phantom-3 = DEPTH 3 strength
+if (location.hash.startsWith('#boss-')) setTimeout(() => { const [k, d] = location.hash.slice(6).split('-'); if (BOSS_META[k]) startPractice(k, d ? Math.max(0, +d - 1) : 0); }, 300);

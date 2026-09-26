@@ -40,14 +40,15 @@ const UPGRADES = [
   { id: 'chip', name: '持ち込みチップ', max: 2, cost: l => Math.round(450 * Math.pow(2.2, l)), desc: l => `潜行開始時にチップを選ぶ（現在 ${l} 枚）` },
 ];
 const PERKS = [
-  { name: '過負荷弾', desc: '与ダメージ +20%',            apply: p => { p.dmgMul *= 1.2; } },
-  { name: '連射回路', desc: '連射速度 +15%',              apply: p => { p.rateMul *= 0.87; } },
+  // damage / fire rate / speed chips stack additively (two 過負荷弾 = +40%), so power grows in a straight line
+  { name: '過負荷弾', desc: '与ダメージ +20%',            apply: p => { p.dmgMul += 0.2; } },
+  { name: '連射回路', desc: '連射速度 +15%',              apply: p => { p.fireRate += 0.15; } },
   { name: '装甲パッチ', desc: '最大HP +20、HPを20回復',    apply: p => { p.maxHp += 20; p.hp = Math.min(p.maxHp, p.hp + 20); } },
   { name: '修復パッチ', desc: 'HPを最大値の50%回復',        apply: p => { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.5); } },
   { name: '吸収コード', desc: '撃破ごとにHP +3',          apply: p => { p.leech += 3; } },
   { name: '貫通弾',   desc: '弾が敵を1体多く貫通する',      apply: p => { p.pierce += 1; } },
   { name: '分裂弾',   desc: '発射数 +1（1発の威力は2割減）', apply: p => { p.extra += 1; } },
-  { name: '軽量化',   desc: '移動速度 +12%',              apply: p => { p.spdMul *= 1.12; } },
+  { name: '軽量化',   desc: '移動速度 +12%',              apply: p => { p.spdMul += 0.12; } },
   { name: '弱点解析', desc: '15%の確率で2倍ダメージ',       apply: p => { p.crit += 0.15; } },
   { name: '瞬発回路', desc: 'スタミナ回復 +35%',           apply: p => { p.stRegen *= 1.35; } },
   { name: '連鎖爆破', desc: '撃破した敵が周囲を巻き込んで爆発', apply: p => { p.chain += 1; } },
@@ -129,6 +130,8 @@ const TUNE = {
   chipChance: 0.7,      // chance a cleared room gives a chip (otherwise a kit + bits)
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
 };
+// enemy / boss health grows by this factor per depth (compounding), to keep pace with weapons and chips
+const DEPTH_HP_GROWTH = 1.35;
 const PER = 4; // 3 floors + boss per depth
 // progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
 // (depth start = depth * 5, the boss = depth * 5 + 4)

@@ -157,7 +157,7 @@ function statsHTML() {
   const w = curW(), pct = v => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, rows = [];
   rows.push(['最大HP', P.maxHp]);
   rows.push(['与ダメージ', pct(P.dmgMul * (1 + PLUS_DMG * (w.plus || 0)) - 1)]);
-  rows.push(['連射速度', pct(1 / (P.rateMul * Math.pow(0.91, wo('rate'))) - 1)]);
+  rows.push(['連射速度', pct(P.fireRate / Math.pow(0.91, wo('rate')) - 1)]);
   rows.push(['移動速度', pct(P.spdMul * (1 + 0.06 * wo('speed')) - 1)]);
   rows.push(['スタミナ', `最大 ${P.stMax}（ダッシュ ${Math.floor(P.stMax / TUNE.dashCost)} 回分）/ 回復 ${Math.round(P.stRegen)} 毎秒`]);
   rows.push(['リロード時間', pct(P.reloadMul * Math.pow(0.8, wo('reload')) - 1)]);
@@ -237,13 +237,15 @@ $('#scrBag').addEventListener('click', e => {
 });
 
 // ---- run end ----
-// ---- boss practice: fight one boss at DEPTH 1 strength; nothing is gained or lost ----
-function startPractice(kind) {
+// ---- boss practice: fight one boss at a chosen depth's strength; nothing is gained or lost ----
+let practiceTier = 0;
+function startPractice(kind, tier) {
+  tier = tier || 0;
   audioInit();
   if (isTouch && !isFs()) enterFs();
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
   P = newPlayer(save.loadout);
-  run = { stage: PER - 1, kills: 0, bits: 0, perks: [], startTier: 0, route: [bi], practice: true, forceBoss: kind, t0: performance.now() };
+  run = { stage: tier * PER + PER - 1, kills: 0, bits: 0, perks: [], startTier: 0, route: [bi], practice: true, forceBoss: kind, t0: performance.now() };
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage(); requestLock();
   toast('ボス練習 — 報酬もロストもなし', 2600);
@@ -253,7 +255,7 @@ function endPractice(kind) {
   const sec = Math.round((performance.now() - run.t0) / 1000);
   $('#resEyebrow').textContent = 'practice';
   $('#resTitle').textContent = run.cleared ? '練習終了 — 撃破' : '練習終了';
-  $('#resList').innerHTML = [['ボス', BOSS_META[run.forceBoss].name], ['結果', run.cleared ? '撃破' : kind === 'dead' ? 'やられた' : '中断'], ['時間', `${Math.floor(sec / 60)}分${sec % 60}秒`]]
+  $('#resList').innerHTML = [['ボス', BOSS_META[run.forceBoss].name], ['強さ', `DEPTH ${stageInfo(run.stage).tier + 1} 相当`], ['結果', run.cleared ? '撃破' : kind === 'dead' ? 'やられた' : '中断'], ['時間', `${Math.floor(sec / 60)}分${sec % 60}秒`]]
     .map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
   $('#resChips').textContent = '練習なので、ビット・武器・記録は変わらない。';
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
@@ -353,6 +355,7 @@ function renderBase() {
       <button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? '最大' : cost + ' BIT'}</button></div>`;
   }).join('');
   renderReboot();
+  $('#practiceTier').innerHTML = '<span>強さ</span>' + [0, 1, 2, 4].map(t => `<button data-ptier="${t}" aria-pressed="${practiceTier === t}">D${t + 1}</button>`).join('');
   $('#bossList').innerHTML = BOSS_ORDER.map(k => `<button class="wcard" data-practice="${k}"><span class="wn">${BOSS_META[k].name}</span>
     <span class="wd">${BOSS_META[k].desc}</span><span class="wf">${save.bossSeen[k] ? '練習する' : '練習する（未遭遇）'}</span></button>`).join('');
   renderSettings();
@@ -400,7 +403,9 @@ $('#scrBase').addEventListener('click', e => {
   const un = e.target.closest('[data-unequip]'), sl = e.target.closest('[data-slot]'), w = e.target.closest('[data-w]'), u = e.target.closest('[data-up]');
   const st = e.target.closest('[data-stash]'), se = e.target.closest('[data-sell]'), ti = e.target.closest('[data-tier]');
   const pu = e.target.closest('[data-pres]'), rb = e.target.closest('[data-reboot]'), pr = e.target.closest('[data-practice]');
-  if (pr) { startPractice(pr.dataset.practice); return; }
+  if (pr) { startPractice(pr.dataset.practice, practiceTier); return; }
+  const pt = e.target.closest('[data-ptier]');
+  if (pt) { practiceTier = +pt.dataset.ptier; renderBase(); return; }
   if (rb) { const a = rb.dataset.reboot; if (a === 'go') { doReboot(); return; } rebootArm = a === 'arm'; renderReboot(); return; }
   if (pu) {
     const def = PRES_UP.find(x => x.id === pu.dataset.pres), l = save.pres.up[def.id] || 0;

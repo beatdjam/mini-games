@@ -37,7 +37,7 @@ function newPlayer(loadout) {
   const u = save.up, pu = save.pres.up, hp = TUNE.hp + u.hp * 15 + pu.hp * 10;
   const ws = loadout.map(w => w ? newWeapon(w.id, w.r, w.basic, w.plus, w.opts) : null);
   return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: TUNE.moveSpeed, spdMul: 1 + u.spd * 0.05, dmgMul: 1 + u.dmg * 0.08,
-    rateMul: 1, gainMul: (1 + u.gain * 0.15) * (1 + pu.gain * 0.1), leech: 0, pierce: 0, extra: 0, crit: 0, chain: 0, magnet: 1, reloadMul: 1, magMul: 1,
+    fireRate: 1, gainMul: (1 + u.gain * 0.15) * (1 + pu.gain * 0.1), leech: 0, pierce: 0, extra: 0, crit: 0, chain: 0, magnet: 1, reloadMul: 1, magMul: 1,
     st: TUNE.stamina + (u.stam || 0) * 20, stMax: TUNE.stamina + (u.stam || 0) * 20, stRegen: TUNE.staminaRegen * (1 + u.dash * 0.12), stDelay: 0,
     inv: 0, dashT: 0, ddx: 0, ddz: 0, weapons: ws, cur: 0, bag: [null, null, null, null], kits: TUNE.kitStart + u.kit,
     reloadT: 0, reloadMax: 1, fireCd: 0, tile: -1, bob: 0, fy: 0, vy: 0 };
@@ -48,7 +48,7 @@ const stageInfo = s => { const tier = Math.floor(s / PER); return { biome: route
 const isBossStage = s => s % PER === PER - 1;
 function stageLabel(s) { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
 function tierLabel(t) { return `DEPTH ${t + 1}`; }
-const diffOf = s => (1 + prog(s) * 0.1 + stageInfo(s).loop * 0.5) * presMul();
+const diffOf = s => Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
 const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 0.3 * wo('mag', w))));
 const rarLabel = w => w.basic ? '基本' : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
@@ -135,7 +135,7 @@ let shotId = 0;
 function fire() {
   shotId++;
   const w = curW(), def = WEAPONS[w.id], rar = RARITY[w.r];
-  P.fireCd = def.rate * P.rateMul * Math.pow(0.91, wo('rate'));
+  P.fireCd = def.rate / P.fireRate * Math.pow(0.91, wo('rate'));
   w.mag--;
   camera.updateMatrixWorld();
   const mz = curVM.userData.tip.getWorldPosition(new V3());
