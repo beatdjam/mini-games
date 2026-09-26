@@ -268,6 +268,7 @@
 | `js/dev.js` | 開発用フック（`#smoke` など） |
 
 - プレイヤー側の調整値（HP、スタミナ、ダッシュ、回復キット、チップ率、死亡時のビット）は `js/core.js` の `TUNE` にまとめてある
+- キャッシュ対策: `index.html` のスクリプトは `js/xxx.js?v=YYYYMMDDHHMM` で読み込む。**js を変えたら v の値を全部更新する**（GitHub Pages は js を約10分キャッシュするので、古い js と新しい html が混ざると動かなくなる）。更新コマンドの例: `sed -i '' -E "s#(src=\"js/[a-z/]+\.js)\?v=[0-9]+#\1?v=$(date +%Y%m%d%H%M)#" index.html`
 - 描画: three.js r128（cdnjs）。3Dモデルや画像は使わず、図形とCanvasで作ったテクスチャだけで描く
 - セーブ: localStorage の `sector-dive-v1`。古いセーブも読めるように、`loadSave` で足りない項目を補っている。1深度が4区画だった頃のセーブ（`stageV` なし）は、最深記録と中断データのステージ番号を3区画の数え方に変換する
 - 開発用フック（URLの末尾に付ける）
