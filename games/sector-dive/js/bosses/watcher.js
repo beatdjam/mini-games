@@ -1,5 +1,5 @@
 'use strict';
-// WATCHER 監視体: rings, aimed fans and a spiral; summons drones at half health
+// WATCHER 監視体: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
 function spawnWatcher() {
   const bd = bossDiff();
@@ -16,9 +16,16 @@ function updWatcher(e, dt) {
   e.x = e.cx + Math.sin(e.t * 0.35) * 7; e.z = e.cz + Math.sin(e.t * 0.22) * 5 - 3;
   e.mesh.position.set(e.x, e.y + Math.sin(e.t * 1.6) * 0.4, e.z);
   e.mesh.lookAt(P.x, 1.6, P.z);
-  if (enr && !e.summoned) {
-    e.summoned = true;
-    for (let k = 0; k < 3; k++) spawnEnemy('drone', e.x + Math.cos(k * 2.1) * 4, e.z + Math.sin(k * 2.1) * 4, -1, diffOf(run.stage)).active = true;
+  // drone waves: [health share at which it triggers, drones]
+  const waves = [[0.75, 2], [0.4, 3]];
+  e.summoned = e.summoned || 0;
+  if (e.summoned < waves.length && e.hp < e.maxHp * waves[e.summoned][0]) {
+    const n = waves[e.summoned++][1];
+    for (let k = 0; k < n; k++) {
+      let x = e.x + Math.cos(k * 2.1) * 4, z = e.z + Math.sin(k * 2.1) * 4;
+      if (blocked(x, z, 0.6)) [x, z] = randomTileIn(rooms[0]);
+      spawnEnemy('drone', x, z, -1, diffOf(run.stage)).active = true;
+    }
     toast('監視体が子機を展開した');
   }
   if (e.timer <= 0) { e.pat = e.patIdx++ % 3; e.pt = 0; e.shots = 0; e.acc = 0; e.timer = [3.4, 2.8, 3.4][e.pat] * (enr ? 0.85 : 1); }

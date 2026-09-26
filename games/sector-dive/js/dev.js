@@ -72,6 +72,16 @@ if (location.hash === '#smoke') {
         console.log('SMOKE shield ok');
         removeEnemyMesh(e); enemies = [];
       }
+      // watcher: drones at 75% and 40%
+      {
+        startPractice('watcher'); tick(10); if (!boss) spawnBoss('watcher');
+        const drones = () => enemies.filter(o => !o.boss && !o.dead && o.type === 'drone').length;
+        boss.hp = boss.maxHp * 0.7; tick(2); const a1 = drones();
+        boss.hp = boss.maxHp * 0.35; tick(2); const a2 = drones();
+        if (a1 !== 2 || a2 !== 5) throw new Error('watcher drones ' + a1 + ' ' + a2);
+        console.log('SMOKE watcher waves ok');
+        endRun('abandon');
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);

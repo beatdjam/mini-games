@@ -83,7 +83,7 @@ const BIOMES = [
     enemies: ['sniper', 'drone', 'shield', 'turret', 'crawler', 'sniper'], bosses: ['bastion', 'phantom'] },
 ];
 const BOSS_META = {
-  watcher: { pillars: true,  name: 'WATCHER 監視体',   desc: '弾の輪と螺旋弾。半分でドローンを出す' },
+  watcher: { pillars: true,  name: 'WATCHER 監視体',   desc: '弾の輪と螺旋弾。体力が減るとドローンを出す' },
   crusher: { pillars: true,  name: 'CRUSHER 圧壊機',   desc: '突進と衝撃波。壁に当てるとスタン' },
   core:    { pillars: false, name: 'NOISE CORE 深層核', desc: '回転レーザーと弾の輪、雑魚召喚' },
   phantom: { pillars: true,  name: 'PHANTOM 狙撃体',   desc: '柱の近くへワープし、予告レーザーのあと狙撃' },
