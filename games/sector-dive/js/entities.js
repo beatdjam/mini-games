@@ -53,8 +53,8 @@ function spawnPBullet(pos, dir, speed, dmg, pierce, blast, color, grav, opt) {
   b.vx = dir.x * speed; b.vy = dir.y * speed; b.vz = dir.z * speed;
   b.dmg = dmg; b.pierce = pierce; b.blast = blast || 0; b.grav = grav || 0; b.life = blast ? 4 : 1.6; b.color = color; b.hit.clear();
   b.ox = pos.x; b.oz = pos.z; const o = opt || {};
-  b.close = o.close || 0; b.closeMul = o.closeMul || 1; b.full = o.full || 0; b.far = o.far || 0; b.farMul = o.farMul || 1;
-  b.kb = o.kb || 0; b.rail = !!o.rail; b.shot = o.shot || 0;
+  b.far = o.far || 0; b.farMul = o.farMul || 1; // rail gun: bonus beyond `far` metres
+  b.kb = o.kb || 0; b.rail = !!o.rail;
   b.mesh.geometry = blast ? geoCache.rocket : geoCache.pbullet;
   b.mesh.material = basicMat(blast ? 0xd8dde3 : color); b.mesh.visible = true; b.mesh.position.set(b.x, b.y, b.z);
   b.mesh.lookAt(b.x + dir.x, b.y + dir.y, b.z + dir.z);
@@ -115,7 +115,7 @@ function spawnEnemy(type, x, z, room, diff) {
     side: Math.random() < 0.5 ? -1 : 1, // strafe direction for `keep` enemies
     face: 0,                // facing angle (turns gradually when def.turn is set)
     stun: 0,                // seconds of stagger left (shield break)
-    // set later by behaviour code: fuse (bomber), aim / lock (sniper), lastShot / shotN (shotgun full-hit count), detonated
+    // set later by behaviour code: fuse (bomber), aim / lock (sniper), detonated
   };
   if (def.shield) {
     e.shieldHp = def.shieldHp * diff;       // shield breaks at 0

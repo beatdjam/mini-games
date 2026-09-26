@@ -162,7 +162,7 @@ function statsHTML() {
   rows.push(['スタミナ', `最大 ${P.stMax}（ダッシュ ${Math.floor(P.stMax / TUNE.dashCost)} 回分）/ 回復 ${Math.round(P.stRegen)} 毎秒`]);
   rows.push(['リロード時間', pct(P.reloadMul * Math.pow(0.8, wo('reload')) - 1)]);
   rows.push(['装弾数', pct(P.magMul * (1 + 0.3 * wo('mag')) - 1)]);
-  rows.push(['会心率（2倍ダメージ）', `${Math.round((P.crit + 0.08 * wo('crit')) * 100)}%`]);
+  rows.push(['会心率（2倍ダメージ）', `${Math.round(critChance() * 100)}%${P.crit + 0.08 * wo('crit') > TUNE.critCap ? '（上限）' : ''}`]);
   const pierce = P.pierce + wo('pierce'), leech = P.leech + 2 * wo('leech'), gain = P.gainMul * (1 + 0.1 * wo('gain'));
   if (pierce) rows.push(['貫通', `+${pierce} 体`]);
   if (P.extra) rows.push(['分裂弾', `発射数 +${P.extra}（1発の威力 -20%）`]);

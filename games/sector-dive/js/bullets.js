@@ -75,22 +75,12 @@ function shieldBlocks(b, e) {
   return true;
 }
 
-// Crits, range bonuses (shotgun close / rail far), shotgun full-hit bonus, knockback.
+// Crits, rail range bonus, knockback.
 function damageFromBullet(b, e) {
-  const crit = Math.random() < P.crit + 0.08 * wo('crit');
+  const crit = Math.random() < critChance();
   let dmg = b.dmg * (crit ? 2 : 1);
-  const travel = Math.hypot(b.x - b.ox, b.z - b.oz);
-  if (b.close && travel < b.close) dmg *= b.closeMul;
-  if (b.far && travel > b.far) dmg *= b.farMul;
+  if (b.far && Math.hypot(b.x - b.ox, b.z - b.oz) > b.far) dmg *= b.farMul;
   hurtEnemy(e, dmg, crit);
-  if (b.full && !e.dead) { // enough pellets from one shotgun blast on the same target
-    if (e.lastShot !== b.shot) { e.lastShot = b.shot; e.shotN = 0; }
-    if (++e.shotN === b.full) {
-      hurtEnemy(e, b.dmg * b.closeMul * 3, true);
-      burst(b.x, b.y, b.z, 0xffffff, 10, 7, 0.35);
-      sfx('kill', 60);
-    }
-  }
   if (b.kb && !e.boss && !e.dead) {
     const kx = e.x - P.x, kz = e.z - P.z, kl = Math.hypot(kx, kz) || 1;
     moveCircle(e, kx / kl * b.kb, kz / kl * b.kb, e.r);

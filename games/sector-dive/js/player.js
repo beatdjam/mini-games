@@ -53,8 +53,9 @@ const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 
 const rarLabel = w => w.basic ? '基本' : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
 const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${rarLabel(w)}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
+const critChance = w => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
-// dps = sustained damage per second including reloads (shotgun range bonus and explosions not counted).
+// dps = sustained damage per second including reloads and average crits (rail range bonus and explosions not counted).
 function weaponStats(w) {
   const def = WEAPONS[w.id];
   const perHit = def.dmg * wDmgMul(w) * P.dmgMul * (P.extra > 0 ? 0.8 : 1);
@@ -62,7 +63,7 @@ function weaponStats(w) {
   const interval = def.rate / P.fireRate * Math.pow(0.91, wo('rate', w));
   const mag = magSize(w);
   const reload = def.reload * P.reloadMul * Math.pow(0.8, wo('reload', w));
-  return { perHit, hits, mag, dps: perHit * hits * mag / (mag * interval + reload) };
+  return { perHit, hits, mag, dps: perHit * hits * mag / (mag * interval + reload) * (1 + critChance(w)) };
 }
 const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
@@ -142,9 +143,7 @@ function startReload() {
   if (P.reloadT > 0 || w.mag >= magSize(w)) return;
   P.reloadMax = P.reloadT = WEAPONS[w.id].reload * P.reloadMul * Math.pow(0.8, wo('reload')); sfx('reload');
 }
-let shotId = 0;
 function fire() {
-  shotId++;
   const w = curW(), def = WEAPONS[w.id], rar = RARITY[w.r];
   P.fireCd = def.rate / P.fireRate * Math.pow(0.91, wo('rate'));
   w.mag--;
@@ -166,7 +165,7 @@ function fire() {
     if (P.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * 0.05);
     const s = def.spread + (k >= def.pellets ? 0.02 : 0) + (moving && !def.steady ? 0.014 : 0);
     d.x += rand(-s, s); d.y += rand(-s, s) * 0.7; d.z += rand(-s, s); d.normalize();
-    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), def.blast, def.color, def.grav, { close: def.close, closeMul: def.closeMul, full: def.full, far: def.far, farMul: def.farMul, kb: def.kb, rail: !!def.pierce, shot: shotId });
+    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), def.blast, def.color, def.grav, { far: def.far, farMul: def.farMul, kb: def.kb, rail: !!def.pierce });
   }
   gunKick = Math.min(0.2, gunKick + (def.blast ? 0.2 : def.pellets > 1 || def.pierce ? 0.12 : 0.05));
   flashT = def.blast ? 0.09 : 0.05;

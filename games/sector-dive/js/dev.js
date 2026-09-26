@@ -87,6 +87,11 @@ if (location.hash === '#smoke') {
         const p0 = newPlayer(save.loadout), base = p0.dmgMul, od = PERKS.find(x => x.name === '過負荷弾');
         od.apply(p0); od.apply(p0);
         if (Math.abs(p0.dmgMul - (base + 0.4)) > 1e-9) throw new Error('additive chips ' + p0.dmgMul);
+        const perk = n => PERKS.find(x => x.name === n);
+        for (let k = 0; k < 6; k++) { perk('弱点解析').apply(p0); perk('高速装填').apply(p0); perk('拡張弾倉').apply(p0); }
+        if (Math.abs(p0.reloadMul - 0.4) > 1e-9 || Math.abs(p0.magMul - 2.5) > 1e-9) throw new Error('caps ' + p0.reloadMul + ' ' + p0.magMul);
+        const keepP = P; P = p0; const cc = critChance(); P = keepP;
+        if (cc !== TUNE.critCap) throw new Error('crit cap ' + cc);
         run = { stage: PER - 1, route: [0] }; const b1 = bossDiff();
         run = { stage: 2 * PER + PER - 1, route: [0] }; const b3 = bossDiff();
         if (Math.abs(b1 - 1.05 * Math.pow(1.35, 0.8) * presMul()) > 1e-9 || !(b3 > b1 * 1.8)) throw new Error('boss scaling ' + b1 + ' ' + b3);

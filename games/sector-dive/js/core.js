@@ -14,8 +14,8 @@ const WEAPONS = {
   pistol:   { name: 'ハンドガン',   dmg: 16, rate: 0.26,  spread: 0.012, pellets: 1, speed: 75,  mag: 12, reload: 1.1, color: 0x54e8ff, cost: 0,   desc: '癖のない単発。リロードが速い。' },
   // SMG: light rounds, very fast, big magazine, no extra spread while moving
   smg:      { name: 'SMG',        dmg: 6,  rate: 0.062, spread: 0.05,  pellets: 1, speed: 70,  mag: 45, reload: 1.7, steady: true, color: 0x8cff6a, cost: 250, desc: '1発は軽いが、連射と装弾数で押し切る。移動しながら撃ってもブレない。' },
-  // shotgun: point-blank burst; 7+ pellets from one shot on the same target adds a bonus hit
-  shotgun:  { name: 'ショットガン', dmg: 11, rate: 0.7,   spread: 0.065, pellets: 8, speed: 65,  mag: 6,  reload: 2.0, close: 5, closeMul: 1.8, full: 7, kb: 0.35, color: 0xffc24a, cost: 320, desc: '5m以内は威力1.8倍。1発で7発以上当てると追加ダメージ。敵を押し返す。' },
+  // shotgun: 8 pellets; the closer you are, the more of them land
+  shotgun:  { name: 'ショットガン', dmg: 13, rate: 0.7,   spread: 0.065, pellets: 8, speed: 65,  mag: 6,  reload: 2.0, kb: 0.35, color: 0xffc24a, cost: 320, desc: '8発の散弾。近いほど多く当たる。敵を押し返す。' },
   // rail: one heavy piercing round, stronger the farther it travels
   rail:     { name: 'レールガン',   dmg: 90, rate: 1.1,   spread: 0,     pellets: 1, speed: 200, mag: 4,  reload: 2.2, pierce: 4, far: 15, farMul: 1.5, steady: true, color: 0xc58cff, cost: 520, desc: '貫通する高威力の単発。15m以上離れた敵には威力1.5倍。ブレない。' },
   // launcher: slow rocket, full damage near the centre of the blast, knocks enemies back
@@ -50,12 +50,12 @@ const PERKS = [
   { name: '貫通弾',   desc: '弾が敵を1体多く貫通する',      apply: p => { p.pierce += 1; } },
   { name: '分裂弾',   desc: '発射数 +1（1発の威力は2割減）', apply: p => { p.extra += 1; } },
   { name: '軽量化',   desc: '移動速度 +12%',              apply: p => { p.spdMul += 0.12; } },
-  { name: '弱点解析', desc: '15%の確率で2倍ダメージ',       apply: p => { p.crit += 0.15; } },
+  { name: '弱点解析', desc: '会心率 +15%（2倍ダメージ、上限40%）', apply: p => { p.crit += 0.15; } },
   { name: '瞬発回路', desc: 'スタミナ回復 +35%',           apply: p => { p.stRegen *= 1.35; } },
   { name: '連鎖爆破', desc: '撃破した敵が周囲を巻き込んで爆発', apply: p => { p.chain += 1; } },
   { name: '磁力',     desc: 'ビット回収範囲 +80%、獲得 +10%', apply: p => { p.magnet *= 1.8; p.gainMul *= 1.1; } },
-  { name: '高速装填', desc: 'リロード時間 -30%',           apply: p => { p.reloadMul *= 0.7; } },
-  { name: '拡張弾倉', desc: '装弾数 +50%',                apply: p => { p.magMul *= 1.5; } },
+  { name: '高速装填', desc: 'リロード時間 -25%（最大 -60%）', apply: p => { p.reloadMul = Math.max(0.4, p.reloadMul - 0.25); } },
+  { name: '拡張弾倉', desc: '装弾数 +40%（最大 +150%）',   apply: p => { p.magMul = Math.min(2.5, p.magMul + 0.4); } },
   { name: '予備タンク', desc: '最大スタミナ +30',          apply: p => { p.stMax += 30; p.st += 30; } },
 ];
 // sectors: each run visits them in a shuffled order. gen = level generator settings, bosses = candidates for the sector's boss
@@ -128,7 +128,8 @@ const TUNE = {
   kitHeal: 40,
   kitStart: 1,          // kits at the start of a run (first-aid upgrade adds 1 per level)
   kitDropChance: 0.06,  // chance an enemy drops a kit
-  chipChance: 0.7,      // chance a cleared room gives a chip (otherwise a kit + bits)
+  chipChance: 0.3,      // chance a cleared room gives a chip (otherwise a kit + bits); about 5 chips per depth incl. the boss
+  critCap: 0.4,         // crit chance can't go above this
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
 };
 // regular enemies (not bosses): overall knobs on top of the per-type numbers in ENEMY
