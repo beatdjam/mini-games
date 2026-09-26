@@ -40,13 +40,18 @@ function updateHud() {
   if (boss) bossFill.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
   const lowPulse = f < 0.3 ? 0.25 + Math.sin(time * 5) * 0.12 : 0;
   vigEl.style.opacity = Math.max(vig, lowPulse);
-  const useB = $('#btnUse');
+  const row = $('#pickRow');
   if (nearW) {
-    const dest = !P.weapons[1] ? '装備' : P.bag.includes(null) ? 'バッグへ' : '持ち替え';
-    const label = `拾う（${dest}）: ${wText(nearW.w)}${isTouch ? '' : ' [E]'}`;
-    if (useB.hidden || useB.textContent !== label) { useB.textContent = label; useB.hidden = false; }
-    if (!isTouch && !document.body.classList.contains('nolock')) $('#hint').textContent = label;
-  } else if (!useB.hidden) { useB.hidden = true; updateHint(); }
+    const desk = !isTouch && !document.body.classList.contains('nolock'), bagFree = P.bag.includes(null);
+    const name = wText(nearW.w) + (desk ? `　[G] ${P.weapons[1] ? '持ち替え' : '装備'} / [E] バッグへ${bagFree ? '' : '（満杯）'}` : '');
+    if (row.hidden || $('#pickName').textContent !== name) {
+      $('#pickName').textContent = name;
+      $('#btnEquip').textContent = P.weapons[1] ? '持ち替え' : '装備（2枠目）';
+      $('#btnStow').textContent = bagFree ? `バッグへ（空き${P.bag.filter(w => !w).length}）` : 'バッグ満杯';
+      $('#btnStow').disabled = !bagFree;
+      row.hidden = false;
+    }
+  } else if (!row.hidden) { row.hidden = true; }
 }
 function updateHint() {
   const h = $('#hint');

@@ -60,7 +60,8 @@ const fire2Up = () => { fire2Held = false; btnFire2.classList.remove('down'); };
 btnFire2.addEventListener('pointerup', fire2Up); btnFire2.addEventListener('pointercancel', fire2Up);
 tapBtn($('#btnReload'), () => { if (state === 'play') startReload(); });
 tapBtn($('#btnKit'), useKit);
-tapBtn($('#btnUse'), useNearby);
+tapBtn($('#btnEquip'), equipNearby);
+tapBtn($('#btnStow'), stowNearby);
 [0, 1].forEach(k => tapBtn($('#w' + k), () => selectSlot(k)));
 $('#btnPause').addEventListener('click', () => { if (state === 'play') pause(); });
 $('#btnBag').addEventListener('click', () => { if (state === 'play') openBag(); });
@@ -96,7 +97,8 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Digit1') selectSlot(0);
   if (e.code === 'Digit2') selectSlot(1);
   if (e.code === 'KeyR') startReload();
-  if (e.code === 'KeyE') useNearby();
+  if (e.code === 'KeyE') stowNearby();
+  if (e.code === 'KeyG') equipNearby();
   if (e.code === 'KeyH') useKit();
   if (e.code === 'KeyM') toggleMap();
   if (e.code === 'Tab' || e.code === 'KeyI') openBag();
@@ -123,19 +125,30 @@ function normalizeWeapons() {
   if (!P.weapons[P.cur]) P.cur = 0;
   P.reloadT = 0; setVM(curW().id);
 }
-function useNearby() {
-  if (state !== 'play' || !nearW) return;
-  const p = nearW, nw = p.w;
+// Picking up a weapon: the player chooses between holding it now and putting it in the bag.
+function takeNearby() {
+  if (state !== 'play' || !nearW) return null;
+  const p = nearW;
   p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh);
+  nearW = null; sfx('pick'); gunKick = 0.12;
+  return p.w;
+}
+// hold it: fills the empty second slot, otherwise swaps with the weapon in hand (that one is dropped here)
+function equipNearby() {
+  const nw = takeNearby(); if (!nw) return;
   if (!P.weapons[1]) { P.weapons[1] = nw; P.cur = 1; normalizeWeapons(); toast(`${wText(nw)} を装備した`, 1400); }
   else {
-    const slot = P.bag.indexOf(null);
-    if (slot >= 0) { P.bag[slot] = nw; toast(`${wText(nw)} をバッグに入れた`, 1400); }
-    else {
-      const old = P.weapons[P.cur]; P.weapons[P.cur] = nw; normalizeWeapons();
-      addPickup('weapon', P.x + rand(-0.5, 0.5), P.z + rand(-0.5, 0.5), { w: old });
-      toast(`バッグが満杯なので ${wText(old)} と持ち替えた`, 1800);
-    }
+    const old = P.weapons[P.cur];
+    P.weapons[P.cur] = nw; normalizeWeapons();
+    addPickup('weapon', P.x + rand(-0.5, 0.5), P.z + rand(-0.5, 0.5), { w: old });
+    toast(`${wText(old)} と持ち替えた`, 1400);
   }
-  nearW = null; sfx('pick'); weaponHud(); gunKick = 0.12;
+  weaponHud();
+}
+function stowNearby() {
+  if (!nearW || !P.bag.includes(null)) { if (nearW) toast('バッグが満杯', 1000); return; }
+  const nw = takeNearby(); if (!nw) return;
+  P.bag[P.bag.indexOf(null)] = nw;
+  toast(`${wText(nw)} をバッグに入れた（${P.bag.filter(Boolean).length} / ${BAG_MAX}）`, 1400);
+  weaponHud();
 }

@@ -95,6 +95,22 @@ if (location.hash === '#smoke') {
         endRun('abandon');
         console.log('SMOKE scaling ok', 'D1 boss', b1.toFixed(2), 'D3 boss', b3.toFixed(2));
       }
+      // picking up: stow goes to the bag, equip swaps with the weapon in hand and drops the old one
+      {
+        startRun(); tick(5); pickups.slice().forEach(p => { p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh); }); pickups = [];
+        P.weapons = [newWeapon('pistol', 0, true), newWeapon('smg', 0)]; P.cur = 0; P.bag = [null, null, null, null];
+        const drop = id => { addPickup('weapon', P.x, P.z, { w: newWeapon(id, 1) }); updatePickups(0); };
+        drop('rail'); stowNearby();
+        if (!P.bag[0] || P.bag[0].id !== 'rail') throw new Error('stow');
+        drop('shotgun'); equipNearby();
+        if (P.weapons[0].id !== 'shotgun' || !pickups.some(p => !p.dead && p.kind === 'weapon' && p.w.id === 'pistol')) throw new Error('equip swap');
+        P.bag = [newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0)];
+        pickups.slice().forEach(p => { p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh); }); pickups = [];
+        drop('launcher'); stowNearby();
+        if (P.bag.some(w => w.id === 'launcher') || !nearW) throw new Error('stow into a full bag');
+        console.log('SMOKE pickup ok');
+        endRun('abandon');
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);
