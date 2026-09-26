@@ -284,6 +284,11 @@ body.desk.nolock .tbtn{display:grid}
         <h2>拠点強化<small>永続。次の潜行から効く</small></h2>
         <div class="ulist" id="ulist"></div>
       </div>
+      <div class="sec" id="rebootSec" hidden>
+        <h2>再起動<small id="rebootNote"></small></h2>
+        <div class="ulist" id="presList"></div>
+        <div class="setrow" id="rebootRow"></div>
+      </div>
       <div class="sec">
         <h2>設定</h2>
         <div class="setrow" data-settings="base"></div>
@@ -411,6 +416,14 @@ const ENEMY = {
              ranged: { rate: 2.8, speed: 11, count: 5, spread: 0.22 } },
 };
 const PER = 5; // 4 floors + boss per sector
+const PRES_UP = [
+  { id: 'gain',   name: '採掘効率',   max: 5, cost: 1, desc: l => `ビット獲得 +10% / 段（現在 +${l * 10}%）` },
+  { id: 'hp',     name: '強化外骨格', max: 5, cost: 1, desc: l => `最大HP +10 / 段（現在 +${l * 10}）` },
+  { id: 'funds',  name: '初期資金',   max: 3, cost: 1, desc: l => `再起動直後のビット +150 / 段（現在 +${l * 150}）` },
+  { id: 'relic',  name: '遺物',       max: 2, cost: 2, desc: l => `再起動直後、倉庫に試作武器が入る（現在 ${l} 本）` },
+  { id: 'choice', name: '選択肢拡張', max: 1, cost: 3, desc: l => `チップの候補が4枚になる（${l ? '取得済み' : '未取得'}）` },
+];
+const presMul = () => 1 + save.pres.count * 0.15;
 const STASH_MAX = 12, BAG_MAX = 4, KIT_MAX = 3;
 const ASSIST = { off: 0, weak: 0.04, strong: 0.1 };
 const GUIDE_DESK = [['移動', 'W A S D'], ['視点', 'マウス（画面クリックでロック）'], ['射撃', '左クリック'], ['ダッシュ', 'Space / Shift（スタミナ消費、短い無敵）'],
@@ -423,14 +436,16 @@ const SAVE_KEY = 'sector-dive-v1';
 const basicW = id => ({ id, r: 0, basic: true });
 const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0,
-  best: 0, runs: 0, bossKills: 0, settings: { autofire: isTouch, assist: 'weak', sens: 1 } });
+  best: 0, runs: 0, bossKills: 0, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
+  settings: { autofire: isTouch, assist: 'weak', sens: 1 } });
 function loadSave() {
   const d = defaultSave();
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY));
     if (s && typeof s === 'object') {
       const out = Object.assign(d, s, { up: Object.assign(d.up, s.up || {}), unlocked: Object.assign(d.unlocked, s.unlocked || {}),
-        settings: Object.assign(d.settings, s.settings || {}) });
+        settings: Object.assign(d.settings, s.settings || {}),
+        pres: Object.assign(d.pres, s.pres || {}, { up: Object.assign(d.pres.up, (s.pres && s.pres.up) || {}) }) });
       if (typeof out.settings.assist === 'boolean') out.settings.assist = out.settings.assist ? 'weak' : 'off';
       if (!Array.isArray(out.loadout)) out.loadout = [basicW(s.weapon && out.unlocked[s.weapon] ? s.weapon : 'pistol'), null];
       if (!out.loadout[0]) out.loadout[0] = basicW('pistol');
@@ -848,7 +863,7 @@ function spawnEnemy(type, x, z, room, diff) {
   const def = ENEMY[type], m = buildEnemyMesh(def);
   m.g.position.set(x, def.y, z); dynGroup.add(m.g);
   const e = { type, def, mesh: m.g, body: m.body, mat: m.mat, baseEI: 0.4, x, z, y: def.y, hp: def.hp * diff, maxHp: def.hp * diff,
-    dmg: def.dmg * (1 + (run ? run.stage : 0) * 0.045), room, cd: rand(0.8, 1.8), mcd: 0, t: rand(0, 6), flash: 0, active: false,
+    dmg: def.dmg * (1 + (run ? run.stage : 0) * 0.045) * presMul(), room, cd: rand(0.8, 1.8), mcd: 0, t: rand(0, 6), flash: 0, active: false,
     side: Math.random() < 0.5 ? -1 : 1, hitR: def.hitR, r: def.r };
   enemies.push(e); return e;
 }
@@ -888,10 +903,10 @@ function spawnWave(x, z, speed, max, dmg, color) {
 let P = null, run = null;
 const newWeapon = (id, r, basic) => ({ id, r, basic: !!basic, mag: WEAPONS[id].mag });
 function newPlayer(loadout) {
-  const u = save.up, hp = 100 + u.hp * 15;
+  const u = save.up, pu = save.pres.up, hp = 100 + u.hp * 15 + pu.hp * 10;
   const ws = loadout.map(w => w ? newWeapon(w.id, w.r, w.basic) : null);
   return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: 7.4, spdMul: 1 + u.spd * 0.05, dmgMul: 1 + u.dmg * 0.08,
-    rateMul: 1, gainMul: 1 + u.gain * 0.15, leech: 0, pierce: 0, extra: 0, crit: 0, chain: 0, magnet: 1, reloadMul: 1, magMul: 1,
+    rateMul: 1, gainMul: (1 + u.gain * 0.15) * (1 + pu.gain * 0.1), leech: 0, pierce: 0, extra: 0, crit: 0, chain: 0, magnet: 1, reloadMul: 1, magMul: 1,
     st: 100, stMax: 100, stRegen: 34 * (1 + u.dash * 0.12), stDelay: 0,
     inv: 0, dashT: 0, ddx: 0, ddz: 0, weapons: ws, cur: 0, bag: [null, null, null, null], kits: 1 + u.kit,
     reloadT: 0, reloadMax: 1, fireCd: 0, tile: -1, bob: 0 };
@@ -900,7 +915,7 @@ const stageInfo = s => ({ biome: BIOMES[Math.floor(s / PER) % 3], sub: s % PER, 
 const isBossStage = s => s % PER === PER - 1;
 function stageLabel(s) { const si = stageInfo(s); return `${si.biome.code}${si.loop ? ' L' + (si.loop + 1) : ''} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
 function tierLabel(t) { const loop = Math.floor(t / 3); return `${BIOMES[t % 3].code}${loop ? ' L' + (loop + 1) : ''}`; }
-const diffOf = s => 1 + s * 0.1 + stageInfo(s).loop * 0.5;
+const diffOf = s => (1 + s * 0.1 + stageInfo(s).loop * 0.5) * presMul();
 const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul));
 const wName = w => `${WEAPONS[w.id].name}<em style="color:${RARITY[w.r].css}">${w.basic ? '基本' : RARITY[w.r].name}</em>`;
 const wText = w => `${WEAPONS[w.id].name}［${w.basic ? '基本' : RARITY[w.r].name}］`;
@@ -1063,12 +1078,12 @@ function roomCleared(idx) {
 }
 
 // ================= bosses =================
-function bossDiff() { return 1 + run.stage * 0.08 + stageInfo(run.stage).loop * 0.5; }
+function bossDiff() { return (1 + run.stage * 0.08 + stageInfo(run.stage).loop * 0.5) * presMul(); }
 function bossBase(name, mesh, mat, hp, y, hitR, update) {
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;
   const e = { boss: true, name, mesh, mat, baseEI: 0.3, x: cx, z: cz - 6, y, hp, maxHp: hp, hitR, r: 1.8, t: 0, timer: 2.2, pat: -1, patIdx: 0,
-    pt: 0, shots: 0, acc: 0, dmg: 10 * (1 + run.stage * 0.045), cx, cz, update, flash: 0, room: -1, active: true, def: { r: 1.8 } };
+    pt: 0, shots: 0, acc: 0, dmg: 10 * (1 + run.stage * 0.045) * presMul(), cx, cz, update, flash: 0, room: -1, active: true, def: { r: 1.8 } };
   mesh.position.set(e.x, y, e.z);
   enemies.push(e); boss = e;
   $('#bossName').textContent = name; $('#bossBar').hidden = false;
@@ -1240,6 +1255,7 @@ function bossDown(e) {
   makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', '帰還');
   $('#bossBar').hidden = true; boss = null;
   save.bossKills++;
+  if (curBiome.boss === 'core' && !save.canReboot) { save.canReboot = true; setTimeout(() => toast('再起動が解放された。拠点で進行をリセットしてボーナスを得られる', 4200), 4400); }
   const newTier = stageInfo(run.stage).tier + 1;
   if (newTier > save.shortcut) { save.shortcut = newTier; toast(`撃破。${tierLabel(newTier)} へのショートカットが開通した。帰還か前進かを選ぶ`, 4200); }
   else toast('撃破。帰還するか、前進するかを選ぶ', 3200);
@@ -1564,7 +1580,7 @@ function nextStage() {
 function openPerk(title, eyebrow, done) {
   state = 'perk'; releaseInputs(); exitLock(); bigmap.hidden = true;
   $('#perkTitle').textContent = title; $('#perkEyebrow').textContent = eyebrow || 'chip acquired';
-  const opts = shuffle(PERKS.slice()).slice(0, 3);
+  const opts = shuffle(PERKS.slice()).slice(0, 3 + save.pres.up.choice);
   const list = $('#perkList'); list.innerHTML = '';
   opts.forEach(o => {
     const b = document.createElement('button'); b.className = 'perk';
@@ -1740,10 +1756,41 @@ function renderBase() {
     return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc(l)}</div><div class="pips">${pips}</div></div>
       <button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? '最大' : cost + ' BIT'}</button></div>`;
   }).join('');
+  renderReboot();
   renderSettings();
   $('#help').innerHTML = isTouch
     ? '横持ち推奨。操作一覧は潜行中の一時停止（II）で見られる。セーブはこのブラウザに保存される。'
     : '操作一覧は潜行中の一時停止（Esc）で見られる。セーブはこのブラウザに保存される。';
+}
+let rebootArm = false;
+const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
+function renderReboot() {
+  const pr = save.pres, sec = $('#rebootSec');
+  sec.hidden = !(save.canReboot || pr.count > 0);
+  if (sec.hidden) return;
+  $('#rebootNote').textContent = `再起動 ${pr.count} 回 / 難度 +${pr.count * 15}% / 再起動ポイント ${pr.pts}`;
+  $('#presList').innerHTML = PRES_UP.map(u => {
+    const l = pr.up[u.id] || 0, maxed = l >= u.max;
+    const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
+    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc(l)}</div><div class="pips">${pips}</div></div>
+      <button class="buy" data-pres="${u.id}" ${maxed || pr.pts < u.cost ? 'disabled' : ''}>${maxed ? '最大' : u.cost + ' pt'}</button></div>`;
+  }).join('');
+  const row = $('#rebootRow');
+  if (!save.canReboot) { row.innerHTML = '<p class="help">もう一度 SEC-C のボス（深層核）を倒すと、次の再起動ができる。</p>'; return; }
+  row.innerHTML = rebootArm
+    ? `<p class="help">拠点強化・武器の解放・倉庫・ショートカット・ビットがすべて消える。敵は +15% 強くなる。本当に再起動する？</p>
+       <button class="buy" data-reboot="go">再起動する（+${rebootGain()} pt）</button><button class="mini-btn" data-reboot="cancel">やめる</button>`
+    : `<p class="help">進行をリセットして再起動ポイントを ${rebootGain()} 得る。ポイントは上の永続ボーナスに使える。</p><button class="buy" data-reboot="arm">再起動…</button>`;
+}
+function doReboot() {
+  const pr = save.pres, keep = { best: save.best, runs: save.runs, bossKills: save.bossKills, settings: save.settings };
+  pr.pts += rebootGain(); pr.count++;
+  const d = defaultSave();
+  Object.assign(save, d, keep, { pres: pr });
+  save.bits = pr.up.funds * 150;
+  for (let k = 0; k < pr.up.relic; k++) save.stash.push({ id: pickDrop(), r: 2, basic: false });
+  rebootArm = false; persist(); renderBase();
+  audioInit(); sfx('portal');
 }
 function assignLoadout(item) {
   const prev = save.loadout[selSlot];
@@ -1753,7 +1800,12 @@ function assignLoadout(item) {
 $('#scrBase').addEventListener('click', e => {
   const un = e.target.closest('[data-unequip]'), sl = e.target.closest('[data-slot]'), w = e.target.closest('[data-w]'), u = e.target.closest('[data-up]');
   const st = e.target.closest('[data-stash]'), se = e.target.closest('[data-sell]'), ti = e.target.closest('[data-tier]');
-  if (un) { const prev = save.loadout[1]; if (prev && !prev.basic) save.stash.push(prev); save.loadout[1] = null; selSlot = 1; }
+  const pu = e.target.closest('[data-pres]'), rb = e.target.closest('[data-reboot]');
+  if (rb) { const a = rb.dataset.reboot; if (a === 'go') { doReboot(); return; } rebootArm = a === 'arm'; renderReboot(); return; }
+  if (pu) {
+    const def = PRES_UP.find(x => x.id === pu.dataset.pres), l = save.pres.up[def.id] || 0;
+    if (l < def.max && save.pres.pts >= def.cost) { save.pres.pts -= def.cost; save.pres.up[def.id] = l + 1; audioInit(); sfx('chip'); }
+  } else if (un) { const prev = save.loadout[1]; if (prev && !prev.basic) save.stash.push(prev); save.loadout[1] = null; selSlot = 1; }
   else if (sl) selSlot = +sl.dataset.slot;
   else if (ti) save.startTier = +ti.dataset.tier;
   else if (w) {
