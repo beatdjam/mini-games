@@ -111,7 +111,10 @@ const ENEMY = {
              ranged: { rate: 1.7, speed: 13, count: 3, spread: 0.16 } },
   mini:    { hp: 16,  speed: 7.2, r: 0.4,  y: 0.4, hitR: 0.6,  dmg: 6,  melee: true, bits: 1, color: 0x7dffcf, geo: 'tetraS' },
 };
-const PER = 5; // 4 floors + boss per sector
+const PER = 4; // 3 floors + boss per depth
+// progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
+// (depth start = depth * 5, the boss = depth * 5 + 4)
+const prog = s => Math.floor(s / PER) * 5 + (s % PER) * 4 / (PER - 1);
 const PRES_UP = [
   { id: 'gain',   name: '採掘効率',   max: 5, cost: 1, desc: l => `ビット獲得 +10% / 段（現在 +${l * 10}%）` },
   { id: 'hp',     name: '強化外骨格', max: 5, cost: 1, desc: l => `最大HP +10 / 段（現在 +${l * 10}）` },
@@ -140,7 +143,7 @@ const SAVE_KEY = 'sector-dive-v1';
 const basicW = id => ({ id, r: 0, basic: true });
 const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0,
-  best: 0, runs: 0, bossKills: 0, bossSeen: {}, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
+  best: 0, runs: 0, bossKills: 0, bossSeen: {}, stageV: 2, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
   settings: { autofire: isTouch, assist: 'weak', sens: 1, leftFire: true, stickDash: false, layout: {} } });
 function loadSave() {
   const d = defaultSave();
@@ -154,6 +157,13 @@ function loadSave() {
       if (!Array.isArray(out.loadout)) out.loadout = [basicW(s.weapon && out.unlocked[s.weapon] ? s.weapon : 'pistol'), null];
       if (!out.loadout[0]) out.loadout[0] = basicW('pistol');
       if (!Array.isArray(out.stash)) out.stash = [];
+      // stageV 2: depths went from 4 floors + boss to 3 floors + boss; convert stage numbers saved under the old layout
+      if (s.stageV !== 2) {
+        const conv = st => Math.floor(st / 5) * 4 + [0, 1, 2, 2, 3][st % 5];
+        if (out.best) out.best = conv(out.best - 1) + 1;
+        if (out.suspend && out.suspend.run) out.suspend.run.stage = conv(out.suspend.run.stage);
+        out.stageV = 2;
+      }
       return out;
     }
   } catch (e) {}

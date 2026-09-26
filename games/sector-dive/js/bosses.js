@@ -1,11 +1,11 @@
 'use strict';
 // ================= bosses =================
-function bossDiff() { return (1 + run.stage * 0.08 + stageInfo(run.stage).loop * 0.5) * presMul(); }
+function bossDiff() { return (1 + prog(run.stage) * 0.08 + stageInfo(run.stage).loop * 0.5) * presMul(); }
 function bossBase(name, mesh, mat, hp, y, hitR, update) {
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;
   const e = { boss: true, name, mesh, mat, baseEI: 0.3, x: cx, z: cz - 6, y, hp, maxHp: hp, hitR, r: 1.8, t: 0, timer: 2.2, pat: -1, patIdx: 0,
-    pt: 0, shots: 0, acc: 0, dmg: 10 * (1 + run.stage * 0.045) * presMul(), cx, cz, update, flash: 0, room: -1, active: true, def: { r: 1.8 } };
+    pt: 0, shots: 0, acc: 0, dmg: 10 * (1 + prog(run.stage) * 0.045) * presMul(), cx, cz, update, flash: 0, room: -1, active: true, def: { r: 1.8 } };
   mesh.position.set(e.x, y, e.z);
   enemies.push(e); boss = e;
   $('#bossName').textContent = name; $('#bossBar').hidden = false;
@@ -181,8 +181,8 @@ function bossDown(e) {
   }
   dropBits(e.x, e.z, 45 * bossDiff());
   addPickup('chip', e.cx, e.cz + 4); addPickup('kit', e.cx + 2, e.cz + 5);
-  const roll = Math.random() + run.stage * 0.03;
-  addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(run.stage + 2, roll > 0.9 ? 2 : 1) });
+  const roll = Math.random() + prog(run.stage) * 0.03;
+  addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(prog(run.stage) + 2, roll > 0.9 ? 2 : 1) });
   makePortal(e.cx + 6, e.cz - 2, 0xffc24a, 'next', '前進');
   makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', '帰還');
   $('#bossBar').hidden = true; boss = null;

@@ -98,7 +98,7 @@ function spawnEnemy(type, x, z, room, diff) {
   const def = ENEMY[type], m = buildEnemyMesh(def), fy = floorY(x, z);
   m.g.position.set(x, fy + def.y, z); dynGroup.add(m.g);
   const e = { type, def, mesh: m.g, body: m.body, mat: m.mat, baseEI: 0.4, x, z, y: def.y, hp: def.hp * diff, maxHp: def.hp * diff,
-    dmg: def.dmg * (1 + (run ? run.stage : 0) * 0.045) * presMul(), room, cd: rand(0.8, 1.8), mcd: 0, t: rand(0, 6), flash: 0, active: false,
+    dmg: def.dmg * (1 + (run ? prog(run.stage) : 0) * 0.045) * presMul(), room, cd: rand(0.8, 1.8), mcd: 0, t: rand(0, 6), flash: 0, active: false,
     side: Math.random() < 0.5 ? -1 : 1, hitR: def.hitR, r: def.r, fy, face: 0, stun: 0 };
   if (def.shield) { e.shieldHp = def.shieldHp * diff; e.shieldParts = m.g.userData.shield; }
   if (def.sniper) {

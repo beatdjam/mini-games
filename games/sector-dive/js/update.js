@@ -349,6 +349,9 @@ if (location.hash === '#smoke') {
         if (stuck || inside) throw new Error('ledge check failed');
       }
       startRun(); tick(5);
+      // progress: depth start = depth*5, boss = depth*5+4 regardless of PER
+      if (prog(0) !== 0 || prog(PER - 1) !== 4 || prog(PER) !== 5 || stageLabel(PER - 1) !== 'D1 BOSS' || stageLabel(PER) !== 'D2 1/' + (PER - 1)) throw new Error('prog/label ' + [prog(PER - 1), prog(PER), stageLabel(PER - 1), stageLabel(PER)]);
+      console.log('SMOKE prog ok', [0, 1, 2, 3, 4].map(prog).join(','));
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);

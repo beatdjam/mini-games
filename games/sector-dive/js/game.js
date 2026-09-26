@@ -45,7 +45,7 @@ function startStage() {
     makePortal(ex, ez, 0xffc24a, 'next', si.sub === PER - 2 ? 'ボスへ' : '次の区画');
     rooms.forEach((r, idx) => {
       if (idx === startIdx) return;
-      const n = Math.min(9, Math.max(2, Math.floor(r.w * r.h / (b.gen.density || 3))), randi(2, 4) + Math.floor(run.stage * 0.3));
+      const n = Math.min(9, Math.max(2, Math.floor(r.w * r.h / (b.gen.density || 3))), randi(2, 4) + Math.floor(prog(run.stage) * 0.3));
       for (let k = 0; k < n; k++) { const [x, z] = randomTileIn(r); spawnEnemy(pick(b.enemies), x, z, idx, diff); }
       roomCount[idx] = n;
     });
@@ -53,7 +53,7 @@ function startStage() {
     const caches = Math.random() < 0.4 ? 2 : 1;
     shuffle(cand).slice(0, caches).forEach(i => {
       const [x, z] = randomTileIn(rooms[i]);
-      addPickup('weapon', x, z, { w: rollWeapon(run.stage) });
+      addPickup('weapon', x, z, { w: rollWeapon(prog(run.stage)) });
     });
   }
   P.tile = -1; P.inv = 1.0; P.fy = floorY(P.x, P.z); P.vy = 0;

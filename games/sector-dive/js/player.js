@@ -16,13 +16,14 @@ const AFFIX = {
 const PLUS_DMG = 0.08;
 const wo = (k, w) => { w = w || (P && P.weapons[P.cur]); return w && w.opts ? w.opts.filter(o => o === k).length : 0; };
 const wDmgMul = w => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
+// `stage` here is progress (prog), not the raw stage number
 function rollWeapon(stage, minR) {
   const roll = Math.random() + stage * 0.025;
   const r = Math.max(minR || 0, roll > 1.05 ? 2 : roll > 0.68 ? 1 : 0);
   let plus = 0;
   // no cap: the stage level climbs 0.6 per stage (about +3 per sector).
   // Usually at or a little below that level; above it only 15% of the time, each further step 30%.
-  if (stage >= 3) {
+  if (stage >= 2.5) {
     const lv = Math.floor((stage - 2) * 0.6);
     if (Math.random() < 0.15) { let over = 1; while (Math.random() < 0.3) over++; plus = lv + over; }
     else plus = Math.max(0, lv - randi(0, 2));
@@ -47,7 +48,7 @@ const stageInfo = s => { const tier = Math.floor(s / PER); return { biome: route
 const isBossStage = s => s % PER === PER - 1;
 function stageLabel(s) { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
 function tierLabel(t) { return `DEPTH ${t + 1}`; }
-const diffOf = s => (1 + s * 0.1 + stageInfo(s).loop * 0.5) * presMul();
+const diffOf = s => (1 + prog(s) * 0.1 + stageInfo(s).loop * 0.5) * presMul();
 const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 0.3 * wo('mag', w))));
 const rarLabel = w => w.basic ? '基本' : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
@@ -225,7 +226,7 @@ function killEnemy(e, noReward) {
   }
   if (e.def.bomber && !e.detonated) { e.detonated = true; bomberBlast(e.x, pos.y, e.z, e.dmg * 0.6); }
   if (noReward) { if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room); return; }
-  dropBits(e.x, e.z, e.def.bits * 0.6 * (1 + run.stage * 0.05));
+  dropBits(e.x, e.z, e.def.bits * 0.6 * (1 + prog(run.stage) * 0.05));
   if (Math.random() < 0.06) addPickup('kit', e.x + rand(-0.5, 0.5), e.z + rand(-0.5, 0.5));
   const lh = P.leech + 2 * wo('leech'); if (lh) P.hp = Math.min(P.maxHp, P.hp + lh);
   if (P.chain) explode(pos.x, pos.y, pos.z, 3 + P.chain * 0.8, 18 * P.chain * P.dmgMul, 0xffc24a);
@@ -233,6 +234,6 @@ function killEnemy(e, noReward) {
 }
 function roomCleared(idx) {
   const [x, z] = roomSpot(rooms[idx]);
-  if (Math.random() < 0.6) { addPickup('chip', x, z); toast('区画制圧 — チップを回収できる'); }
-  else { addPickup('kit', x - 0.8, z); dropBits(x + 0.8, z, 6 + run.stage); toast('区画制圧'); }
+  if (Math.random() < 0.7) { addPickup('chip', x, z); toast('区画制圧 — チップを回収できる'); }
+  else { addPickup('kit', x - 0.8, z); dropBits(x + 0.8, z, 6 + prog(run.stage)); toast('区画制圧'); }
 }
