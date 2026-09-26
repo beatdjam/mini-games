@@ -150,7 +150,13 @@ const ENEMY_TUNE = {
 };
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
 const DEPTH_HP_GROWTH = 1.55;
-const BOSS_HP_GROWTH = 1.6;
+// bosses: health at the D1 boss (x1.33 base) times hpMul, growing by `growth` per depth after that
+const BOSS_TUNE = {
+  hpMul: 1.3,
+  growth: 1.85,
+  introTime: 2.0,   // seconds a boss takes to appear (invulnerable, name shown)
+  phaseTime: 1.2,   // seconds of invulnerability when it drops below half health
+};
 // tougher enemy types, favoured more the deeper you go
 const ELITE_TYPES = ['sniper', 'shield', 'brute', 'bomber', 'splitter', 'turret'];
 const PER = 4; // 3 floors + boss per depth

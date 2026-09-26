@@ -194,12 +194,14 @@ function damagePlayer(d) {
 
 function hurtEnemy(e, dmg, isCrit) {
   if (e.dead) return;
+  if (e.boss && e.spawnT > 0) { burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0xffffff, 2, 3, 0.2); return; }
   if (e.invuln) { if (!e.hinted) { e.hinted = true; toast('シールド中。周りの砲台を先に壊す', 2400); } burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0x8cc8ff, 2, 4, 0.2); return; }
   if (e.stunMul) dmg *= e.stunMul;
   e.hp -= dmg; e.flash = 0.07;
   if (!e.active) { e.active = true; if (e.room >= 0) enemies.forEach(o => { if (o.room === e.room) o.active = true; }); }
   hitMark(isCrit); sfx('hit', 45);
   if (e.hp <= 0) killEnemy(e);
+  else if (e.boss && !e.phased && e.hp < e.maxHp * 0.5) bossPhase(e);
 }
 // player explosions (rockets, chain blasts); one crit roll per explosion
 function explode(x, y, z, radius, dmg, color, big) {

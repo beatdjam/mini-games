@@ -8,7 +8,7 @@ function updateEnemies(dt) {
     if (e.dead) continue;
     if (e.flash > 0) e.flash -= dt;
     e.mat.emissiveIntensity = e.flash > 0 ? 1.8 : e.baseEI;
-    if (e.boss) { e.update(e, dt); continue; }
+    if (e.boss) { if (e.spawnT > 0) bossPauseTick(e, dt); else e.update(e, dt); continue; }
 
     const def = e.def;
     const dx = P.x - e.x, dz = P.z - e.z;

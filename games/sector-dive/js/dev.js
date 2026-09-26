@@ -21,7 +21,7 @@ if (location.hash === '#smoke') {
         b.bosses.forEach(kind => {
           run.stage = bi * PER + PER - 1; startStage(); boss = null;
           enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
-          spawnBoss(kind); tick(400);
+          spawnBoss(kind); boss.spawnT = 0; tick(400);
           if (boss && boss.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
           const had = !!boss; if (boss) hurtEnemy(boss, boss.hp + 1, false); tick(60);
           console.log('SMOKE boss', b.code, kind, had ? 'spawned' : 'MISSING', 'portals', portals.length);
@@ -74,7 +74,7 @@ if (location.hash === '#smoke') {
       }
       // watcher: drones at 75% and 40%
       {
-        startPractice('watcher'); tick(10); if (!boss) spawnBoss('watcher');
+        startPractice('watcher'); tick(10); if (!boss) spawnBoss('watcher'); boss.spawnT = 0; boss.phased = true;
         const drones = () => enemies.filter(o => !o.boss && !o.dead && o.type === 'drone').length;
         boss.hp = boss.maxHp * 0.7; tick(2); const a1 = drones();
         boss.hp = boss.maxHp * 0.35; tick(2); const a2 = drones();
@@ -101,7 +101,7 @@ if (location.hash === '#smoke') {
         if (cc !== TUNE.critCap) throw new Error('crit cap ' + cc);
         run = { stage: PER - 1, route: [0] }; const b1 = bossDiff();
         run = { stage: 2 * PER + PER - 1, route: [0] }; const b3 = bossDiff();
-        if (Math.abs(b1 - 1.33 * presMul()) > 0.01 || Math.abs(b3 / b1 - BOSS_HP_GROWTH * BOSS_HP_GROWTH) > 1e-6) throw new Error('boss scaling ' + b1 + ' ' + b3);
+        if (Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul * presMul()) > 1e-9 || Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6) throw new Error('boss scaling ' + b1 + ' ' + b3);
         if (Math.abs(diffOf(0) - ENEMY_TUNE.hpMul * presMul()) > 1e-9) throw new Error('enemy hp base ' + diffOf(0));
         startPractice('trinity', 2); tick(5);
         if (stageLabel(run.stage) !== 'D3 BOSS') throw new Error('practice depth ' + stageLabel(run.stage));
@@ -235,12 +235,26 @@ if (location.hash === '#smoke') {
         setMusicMix('combat'); setMusicMix('explore'); musicVolume(0.4); musicVolume(1);
         console.log('SMOKE music ok', Object.keys(MUSIC_STYLES).length, 'styles');
       }
+      // boss entrance and phase change: invulnerable while appearing; one invulnerable burst when dropping below half
+      {
+        startPractice('trinity'); tick(3); if (!boss) spawnBoss('trinity');
+        const hp0 = boss.hp; hurtEnemy(boss, 100, false);
+        if (boss.hp !== hp0) throw new Error('hurt during intro');
+        tick(Math.ceil(BOSS_TUNE.introTime * 60) + 5);
+        hurtEnemy(boss, boss.maxHp * 0.6, false);
+        if (!boss.phased || !(boss.spawnT > 0)) throw new Error('phase change');
+        const hp1 = boss.hp; hurtEnemy(boss, 100, false);
+        if (boss.hp !== hp1) throw new Error('hurt during phase change');
+        console.log('SMOKE boss intro/phase ok');
+        endRun('abandon');
+      }
       // boss practice: fight, win, go home; the save must not change
       {
         const before = JSON.stringify(save);
         BOSS_ORDER.forEach(kind => {
           startPractice(kind); tick(120);
           if (!boss) spawnBoss(kind);
+          boss.spawnT = 0;
           if (boss.name.indexOf(BOSS_META[kind].name.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss.name);
           if (boss.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
           hurtEnemy(boss, boss.hp + 1, false); tick(30);

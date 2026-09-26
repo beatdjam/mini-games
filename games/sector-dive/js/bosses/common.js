@@ -1,7 +1,7 @@
 'use strict';
 // ================= bosses =================
-// boss health multiplier: 0.913 x BOSS_HP_GROWTH^(depth), about 1.33 at the D1 boss and 3.4 at the D3 boss
-function bossDiff() { return 0.913 * Math.pow(BOSS_HP_GROWTH, prog(run.stage) / 5) * presMul(); }
+// boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3)
+function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * Math.pow(BOSS_TUNE.growth, (prog(run.stage) - 4) / 5) * presMul(); }
 function bossBase(name, mesh, mat, hp, y, hitR, update) {
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;
@@ -10,7 +10,29 @@ function bossBase(name, mesh, mat, hp, y, hitR, update) {
   mesh.position.set(e.x, y, e.z);
   enemies.push(e); boss = e;
   $('#bossName').textContent = name; $('#bossBar').hidden = false;
+  // entrance: grows in over introTime, invulnerable and not attacking; the name goes up big
+  e.spawnT = e.spawnMax = BOSS_TUNE.introTime; e.intro = true;
+  const [en, jp] = name.split(' — ');
+  banner(en, jp || 'BOSS'); sfx('beam');
   return e;
+}
+// while a boss is appearing or switching phase it can't be hurt and doesn't act
+function bossPauseTick(e, dt) {
+  e.spawnT -= dt;
+  const k = clamp(1 - e.spawnT / e.spawnMax, 0, 1);
+  if (e.intro) e.mesh.scale.setScalar(0.25 + 0.75 * k);
+  else e.mesh.scale.setScalar(1 + Math.sin(k * Math.PI * 6) * 0.08);
+  e.flash = Math.sin(e.t * 30 + k * 20) > 0 ? 0.05 : 0;
+  if (e.spawnT <= 0) { e.mesh.scale.setScalar(1); e.intro = false; }
+}
+// drop below half health: short invulnerable burst, then the boss's enraged patterns take over
+function bossPhase(e) {
+  e.phased = true; e.spawnT = e.spawnMax = BOSS_TUNE.phaseTime; e.intro = false;
+  const p = e.mesh.position;
+  burst(p.x, p.y, p.z, 0xff4d8d, 40, 12, 1.0); fireball(p.x, p.y, p.z, 4, 0xff4d8d);
+  shake = Math.max(shake, 0.4); sfx('bigboom');
+  eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
+  toast('第二段階 — 攻撃が激しくなる', 2000);
 }
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in js/bosses/<name>.js
 function spawnBoss(kind) {
