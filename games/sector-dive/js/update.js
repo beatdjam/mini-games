@@ -325,6 +325,30 @@ if (location.hash === '#smoke') {
           console.log('SMOKE boss', b.code, kind, had ? 'spawned' : 'MISSING', 'portals', portals.length);
         });
       });
+      // ledge: step off a raised deck along +x, then walk on; nothing may stay stuck or half inside the deck
+      {
+        let tested = 0, stuck = 0, inside = 0;
+        for (let n = 0; n < 40 && tested < 12; n++) {
+          run.route = [5]; run.stage = 26; buildLevel(BIOMES[5], false);
+          for (let k = 0; k < W * H && tested < 12; k++) {
+            const i = k % W, j = (k / W) | 0;
+            if (i > W - 4 || grid[k] !== 1 || hgt[k] !== PLAT_H || ramp[k] >= 0 || cover[k]) continue;
+            if (!walkable(k + 1) || hgt[k + 1] !== 0 || !walkable(k + 2) || hgt[k + 2] !== 0) continue;
+            for (const who of ['player', 'enemy']) {
+              const o = who === 'player' ? P : spawnEnemy('crawler', 0, 0, -1, 1);
+              o.x = (i + 1) * T - 0.2; o.z = (j + 0.5) * T; o.fy = PLAT_H; o.vy = 0;
+              for (let t = 0; t < 60; t++) { moveCircle(o, 0.15, 0, o.r || P.r); const g2 = floorY(o.x, o.z); o.fy = who === 'player' ? Math.max(g2, o.fy - 0.2) : g2; }
+              const x0 = o.x; moveCircle(o, 0.3, 0, o.r || P.r);
+              tested++;
+              if (o.x <= x0 && !blocked(x0 + 0.3, o.z, o.r || P.r)) stuck++;
+              if (floorY(o.x - (o.r || P.r) + 0.02, o.z) > o.fy + STEP) inside++;
+            }
+          }
+        }
+        console.log('SMOKE ledge tested', tested, 'stuck', stuck, 'inside', inside);
+        if (stuck || inside) throw new Error('ledge check failed');
+      }
+      startRun(); tick(5);
       // suspend -> resume -> suspend -> discard
       run.route = [0]; run.stage = 2; startStage(); tick(30);
       suspendRun(); if (!save.suspend || state !== 'base') throw new Error('suspend failed');

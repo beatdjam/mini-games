@@ -74,7 +74,7 @@ const BIOMES = [
     hint: '瓦礫は腰の高さ。弾は越えるが、登れない',
     enemies: ['crawler', 'bomber', 'shield', 'drone', 'shield', 'crawler'], bosses: ['phantom', 'crusher'] },
   { name: '九龍城', code: 'KWLN', fog: 0x12060e, fogNear: 3, fogFar: 34, floor: '#1a0c16', line: '#b0306e', wall: '#1f0d19', wallLine: '#ff3d8a',
-    gen: { kind: 'maze', rooms: 7, loops: 20, prune: 40, density: 5, bridges: 5, hazard: { count: 12, color: 0x3dffb4, name: '漏電床' }, ceiling: true, neon: true },
+    gen: { kind: 'rooms', map: 34, countMin: 7, countMax: 8, roomMin: 4, roomMax: 6, platform: 0.2, bridges: 4, density: 4, hazard: { count: 10, color: 0x3dffb4, name: '漏電床' }, ceiling: true, neon: true },
     hint: '緑に光る床は漏電している。光っている間は踏まない',
     enemies: ['crawler', 'bomber', 'turret', 'splitter', 'crawler'], bosses: ['trinity', 'watcher'] },
   { name: '旧市街ビル群', code: 'CITY', fog: 0x140e06, fogNear: 8, fogFar: 64, floor: '#1b150c', line: '#a06d24', wall: '#221a0e', wallLine: '#ffb347',
