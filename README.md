@@ -6,10 +6,15 @@
 ## 構成
 
 ```
-index.html              トップページ（ゲーム一覧）
-games/<game-id>/index.html  各ゲーム（1ファイル完結）
-.nojekyll               GitHub PagesでJekyll処理をしない
+index.html                  トップページ（ゲーム一覧）
+games/<game-id>/index.html  各ゲームの入口
+games/<game-id>/SPEC.md     各ゲームの仕様書兼説明書
+.nojekyll                   GitHub PagesでJekyll処理をしない
 ```
+
+## 仕様書のルール
+
+各ゲームの仕様（数値・ルール・操作）は `games/<game-id>/SPEC.md` にまとめる。仕様を変えたら同じコミットで SPEC.md も更新する。
 
 ## ゲームの追加手順
 
@@ -22,4 +27,4 @@ games/<game-id>/index.html  各ゲーム（1ファイル完結）
 
 | ID | 名前 | 概要 |
 |----|------|------|
-| sector-dive | Sector Dive | ランダム生成ローグライトFPS（Three.js、スマホ対応） |
+| sector-dive | Sector Dive | ランダム生成ローグライトFPS（Three.js、スマホ対応）。仕様: [SPEC.md](games/sector-dive/SPEC.md) |

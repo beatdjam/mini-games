@@ -1,0 +1,101 @@
+'use strict';
+// ================= three setup =================
+const canvas = $('#gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x061219, 4, 44);
+scene.background = new THREE.Color(0x061219);
+const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 140);
+camera.rotation.order = 'YXZ';
+scene.add(camera);
+scene.add(new THREE.HemisphereLight(0xcfefff, 0x141c26, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 0.45); sun.position.set(3, 10, 2); scene.add(sun);
+const dynGroup = new THREE.Group(); scene.add(dynGroup);
+const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.fov = w / h < 1 ? 90 : 72; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize); resize();
+
+function shared(x) { x.userData.shared = true; return x; }
+const rocketGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.7, 8); rocketGeo.rotateX(Math.PI / 2);
+const geoCache = {
+  pbullet: shared(new THREE.BoxGeometry(0.07, 0.07, 1.1)),
+  rocket: shared(rocketGeo),
+  ebullet: shared(new THREE.SphereGeometry(0.22, 8, 6)),
+  part: shared(new THREE.BoxGeometry(0.13, 0.13, 0.13)),
+  ball: shared(new THREE.SphereGeometry(1, 16, 12)),
+  bit: shared(new THREE.OctahedronGeometry(0.22)),
+  tetra: shared(new THREE.TetrahedronGeometry(0.8)),
+  octa: shared(new THREE.OctahedronGeometry(0.62)),
+  cyl: shared(new THREE.CylinderGeometry(0.5, 0.85, 1.8, 8)),
+  box: shared(new THREE.BoxGeometry(1.9, 2.2, 1.9)),
+  chip: shared(new THREE.BoxGeometry(0.5, 0.5, 0.5)),
+  chipOuter: shared(new THREE.BoxGeometry(0.85, 0.85, 0.85)),
+  wbox: shared(new THREE.BoxGeometry(1.0, 0.32, 0.32)),
+  cross1: shared(new THREE.BoxGeometry(0.6, 0.2, 0.2)),
+  cross2: shared(new THREE.BoxGeometry(0.2, 0.6, 0.2)),
+  wave: shared(new THREE.CylinderGeometry(1, 1, 1.1, 56, 1, true)),
+  rod: shared(new THREE.BoxGeometry(0.45, 1.9, 0.45)),
+  slab: shared(new THREE.BoxGeometry(1.1, 1.8, 0.9)),
+  ico: shared(new THREE.IcosahedronGeometry(0.55)),
+  dodeca: shared(new THREE.DodecahedronGeometry(0.8)),
+  tetraS: shared(new THREE.TetrahedronGeometry(0.45)),
+  shieldPlate: shared(new THREE.BoxGeometry(1.8, 2.0, 0.12)),
+};
+const edgeCache = {};
+function edges(key) { return edgeCache[key] || (edgeCache[key] = shared(new THREE.EdgesGeometry(geoCache[key]))); }
+const bmats = {}, lmats = {};
+function basicMat(c) { return bmats[c] || (bmats[c] = shared(new THREE.MeshBasicMaterial({ color: c }))); }
+function lineMat(c) { return lmats[c] || (lmats[c] = shared(new THREE.LineBasicMaterial({ color: c }))); }
+function disposeTree(obj) {
+  obj.traverse(o => {
+    if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
+    (Array.isArray(o.material) ? o.material : o.material ? [o.material] : []).forEach(m => {
+      if (m.userData.shared) return;
+      if (m.map && m.userData.ownMap) m.map.dispose();
+      m.dispose();
+    });
+  });
+}
+
+// textures
+function makeTex(bg, line, kind) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = bg; g.fillRect(0, 0, 128, 128); g.strokeStyle = line; g.fillStyle = line;
+  if (kind === 'floor') {
+    g.globalAlpha = 0.85; g.lineWidth = 2; g.strokeRect(1, 1, 126, 126);
+    g.globalAlpha = 0.25; g.lineWidth = 1; g.beginPath(); g.moveTo(64, 0); g.lineTo(64, 128); g.moveTo(0, 64); g.lineTo(128, 64); g.stroke();
+    g.globalAlpha = 0.6; g.fillRect(60, 60, 8, 8);
+  } else {
+    g.globalAlpha = 1; g.lineWidth = 3; g.strokeRect(2, 2, 124, 124);
+    g.globalAlpha = 0.35; g.lineWidth = 1;
+    for (let y = 18; y < 128; y += 18) { g.beginPath(); g.moveTo(10, y); g.lineTo(118, y); g.stroke(); }
+    g.globalAlpha = 0.9; g.fillRect(12, 52, 34, 4); g.fillRect(84, 76, 30, 4); g.fillRect(12, 100, 8, 8);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+const texCache = {};
+function biomeTex(b) {
+  if (texCache[b.code]) return texCache[b.code];
+  const floor = makeTex(b.floor, b.line, 'floor'); floor.wrapS = floor.wrapT = THREE.RepeatWrapping;
+  return (texCache[b.code] = { floor, tile: makeTex(b.floor, b.line, 'floor'), wall: makeTex(b.wall, b.wallLine, 'wall') });
+}
+function textSprite(text, color) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  g.font = '64px "DotGothic16","Hiragino Sans",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(5,8,12,.7)'; g.fillRect(96, 16, 320, 96);
+  g.strokeStyle = color; g.lineWidth = 4; g.strokeRect(96, 16, 320, 96);
+  g.fillStyle = color; g.fillText(text, 256, 66);
+  const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true });
+  mat.userData.ownMap = true;
+  const s = new THREE.Sprite(mat); s.scale.set(4, 1, 1); return s;
+}
