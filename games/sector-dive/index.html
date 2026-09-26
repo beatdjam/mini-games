@@ -31,7 +31,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
 em{font-style:normal}
 
 /* ---------- HUD ---------- */
-#hud{position:absolute;inset:0;pointer-events:none;z-index:2}
+#hud{position:absolute;inset:0;pointer-events:none}
 .tl{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:calc(env(safe-area-inset-left,0px) + 12px);display:grid;gap:5px;width:min(220px,40vw)}
 .hplabel{display:flex;justify-content:space-between;font-family:var(--disp);font-size:12px;letter-spacing:.12em;color:var(--dim)}
 .hplabel b{color:var(--text);font-size:15px;letter-spacing:0}
@@ -45,12 +45,12 @@ em{font-style:normal}
 #stBar.warn{border-color:var(--mag)}
 .stage{font-family:var(--disp);font-size:12px;letter-spacing:.1em;color:var(--dim)}
 .stage b{color:var(--text);font-weight:500}
-.tr{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 12px);display:grid;justify-items:end;gap:6px}
+.tr{position:absolute;z-index:4;top:calc(env(safe-area-inset-top,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 12px);display:grid;justify-items:end;gap:6px}
 .trrow{display:flex;gap:6px;align-items:center}
 .bits{font-family:var(--disp);color:var(--amber);font-size:16px;display:flex;gap:6px;align-items:baseline;margin-right:4px}
 .bits span{font-size:11px;letter-spacing:.14em;color:#b58a30}
 #mini{width:clamp(120px,24vmin,176px);height:clamp(120px,24vmin,176px);border:1px solid var(--line);background:rgba(5,8,12,.55);pointer-events:auto;cursor:pointer}
-#bigmap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(82vmin,600px);height:min(82vmin,600px);background:rgba(5,8,12,.82);border:1px solid var(--line);pointer-events:auto;cursor:pointer}
+#bigmap{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(82vmin,600px);height:min(82vmin,600px);background:rgba(5,8,12,.82);border:1px solid var(--line);pointer-events:auto;cursor:pointer}
 .icon{pointer-events:auto;min-width:38px;height:36px;padding:0 8px;border:1px solid var(--line);background:rgba(10,17,25,.8);font-family:var(--disp);font-weight:700;letter-spacing:.1em;font-size:12px}
 #bossBar{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 12px);width:min(400px,44vw);display:grid;gap:4px;text-align:center}
 .bname{font-family:var(--disp);font-size:12px;letter-spacing:.2em;color:var(--mag)}
@@ -73,7 +73,7 @@ em{font-style:normal}
 #reload{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);display:grid;gap:4px;justify-items:center;font-family:var(--disp);font-size:11px;letter-spacing:.24em;color:var(--amber)}
 #reload .bar{width:70px;height:4px;border-color:#5a4418}
 #reload .bar i{background:var(--amber)}
-#bottom{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:grid;justify-items:center;gap:4px}
+#bottom{position:absolute;z-index:2;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:grid;justify-items:center;gap:4px}
 #ammo{font-size:26px;line-height:1;color:var(--text)}
 #ammo small{font-size:14px;color:var(--dim)}
 #ammo.empty{color:var(--mag)}
@@ -91,19 +91,24 @@ em{font-style:normal}
 #fade{position:absolute;inset:0;z-index:4;background:#000;pointer-events:none;opacity:0;transition:opacity .35s}
 
 /* ---------- touch ---------- */
-#touch{position:absolute;inset:0;touch-action:none;z-index:1}
+#touch{position:absolute;inset:0;touch-action:none;z-index:3}
 #joyBase,#hint{pointer-events:none}
 #joyBase{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border:1px solid rgba(84,232,255,.45);border-radius:50%;background:rgba(84,232,255,.06);display:none}
 #joyKnob{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(84,232,255,.35);border:1px solid var(--cyan)}
 .tbtn{position:absolute;width:52px;height:52px;border-radius:50%;border:1px solid rgba(213,228,238,.35);background:rgba(10,17,25,.55);font-size:11px;display:grid;place-items:center;touch-action:none;line-height:1.2;text-align:center}
 .tbtn.down,.tbtn:active{background:rgba(84,232,255,.25);border-color:var(--cyan)}
 .tbtn.off{opacity:.35}
-#btnFire{width:86px;height:86px;right:calc(env(safe-area-inset-right,0px) + 22px);bottom:calc(env(safe-area-inset-bottom,0px) + 40px);font-size:14px;border-color:rgba(255,77,141,.7);background:rgba(255,77,141,.14)}
-#btnDash{width:62px;height:62px;right:calc(env(safe-area-inset-right,0px) + 122px);bottom:calc(env(safe-area-inset-bottom,0px) + 28px)}
-#btnReload{right:calc(env(safe-area-inset-right,0px) + 132px);bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
-#btnSwap{right:calc(env(safe-area-inset-right,0px) + 40px);bottom:calc(env(safe-area-inset-bottom,0px) + 140px)}
-#btnKit{right:calc(env(safe-area-inset-right,0px) + 100px);bottom:calc(env(safe-area-inset-bottom,0px) + 186px);border-color:rgba(140,255,106,.6)}
-#btnUse{width:auto;height:42px;padding:0 16px;border-radius:21px;right:calc(env(safe-area-inset-right,0px) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 250px);border-color:var(--amber);color:var(--amber);white-space:nowrap}
+#btnFire{width:86px;height:86px;right:calc(env(safe-area-inset-right,0px) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 30px);font-size:14px;border-color:rgba(255,77,141,.7);background:rgba(255,77,141,.14)}
+#btnDash{width:62px;height:62px;right:calc(env(safe-area-inset-right,0px) + 116px);bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
+#btnReload{right:calc(env(safe-area-inset-right,0px) + 124px);bottom:calc(env(safe-area-inset-bottom,0px) + 92px)}
+#btnSwap{right:calc(env(safe-area-inset-right,0px) + 68px);bottom:calc(env(safe-area-inset-bottom,0px) + 126px)}
+#btnKit{right:calc(env(safe-area-inset-right,0px) + 10px);bottom:calc(env(safe-area-inset-bottom,0px) + 126px);border-color:rgba(140,255,106,.6)}
+#btnUse{width:auto;height:42px;padding:0 16px;border-radius:21px;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 96px);border-color:var(--amber);color:var(--amber);white-space:nowrap}
+/* touch: weapon/ammo block moves under HP so it never sits on the buttons; slots are tappable */
+body.touch #bottom{left:calc(env(safe-area-inset-left,0px) + 12px);top:calc(env(safe-area-inset-top,0px) + 92px);bottom:auto;transform:none;justify-items:start;z-index:4}
+body.touch #weap{flex-direction:column;align-items:flex-start}
+body.touch .slot{pointer-events:auto;padding:6px 10px}
+body.touch #mini{width:clamp(96px,22vmin,150px);height:clamp(96px,22vmin,150px)}
 body.desk .tbtn{display:none}
 body.desk.nolock .tbtn{display:grid}
 #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);font-size:12px;color:var(--amber);white-space:nowrap}
@@ -1321,6 +1326,7 @@ tapBtn($('#btnSwap'), swapWeapon);
 tapBtn($('#btnReload'), () => { if (state === 'play') startReload(); });
 tapBtn($('#btnKit'), useKit);
 tapBtn($('#btnUse'), useNearby);
+[0, 1].forEach(k => tapBtn($('#w' + k), () => selectSlot(k)));
 $('#btnPause').addEventListener('click', () => { if (state === 'play') pause(); });
 $('#btnBag').addEventListener('click', () => { if (state === 'play') openBag(); });
 $('#mini').addEventListener('click', toggleMap);
@@ -1598,7 +1604,7 @@ function openPerk(title, eyebrow, done) {
 function exitLock() { if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} } }
 function pause() {
   if (state !== 'play') return;
-  state = 'pause'; releaseInputs(); exitLock();
+  state = 'pause'; releaseInputs(); exitLock(); bigmap.hidden = true;
   renderSettings();
   $('#pauseChips').textContent = run.perks.length ? `取得チップ: ${run.perks.join('、')}` : '取得チップ: なし';
   show('#scrPause');
@@ -1610,7 +1616,7 @@ $('#btnAbandon').addEventListener('click', () => endRun('abandon'));
 let invSel = null; // {where:'eq'|'bag', i}
 function openBag() {
   if (state !== 'play') return;
-  state = 'bag'; releaseInputs(); exitLock(); invSel = null;
+  state = 'bag'; releaseInputs(); exitLock(); invSel = null; bigmap.hidden = true;
   renderBag(); show('#scrBag');
 }
 function closeBag() { show(null); state = 'play'; normalizeWeapons(); weaponHud(); requestLock(); }
