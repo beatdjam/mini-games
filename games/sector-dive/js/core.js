@@ -237,7 +237,7 @@ function audioInit() {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     // effects bus -> light compressor so layered shots stay punchy without clipping
     const comp = actx.createDynamicsCompressor();
-    comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.15;
+    comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 4; comp.attack.value = 0.012; comp.release.value = 0.15;
     master = actx.createGain(); master.connect(comp); comp.connect(actx.destination); applySfxVolume();
     noiseBuf = actx.createBuffer(1, actx.sampleRate * 1.2, actx.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -279,13 +279,14 @@ function ot(t, type, f0, f1, dur, vol, att) {
 function gunshot(o) {
   if (!actx) return;
   const t = actx.currentTime, r = rand(0.92, 1.08);
-  nz(t, 0.02, o.crack, 'highpass', 5000 * r, 3000);                       // transient crack
-  nz(t, o.body, o.bodyVol, 'bandpass', o.bodyF * r, o.bodyF * 0.35, 1.2);   // body
-  ot(t, 'sine', o.thumpF * r, 35, o.thump, o.thumpVol);                     // low thump
-  nz(t + 0.01, o.tail, o.tailVol, 'lowpass', 2200 * r, 300);               // tail
+  nz(t, 0.02, o.crack, 'highpass', (o.crackF || 5000) * r, 3000);                    // transient crack
+  nz(t, o.body, o.bodyVol, 'bandpass', o.bodyF * r, o.bodyF * (o.bodyEnd || 0.35), 1.2); // body
+  ot(t, 'sine', o.thumpF * r, 35, o.thump, o.thumpVol);                                // low thump
+  nz(t + 0.01, o.tail, o.tailVol, 'lowpass', (o.tailF || 2200) * r, 300);             // tail
 }
 const SFX = {
-  pistol: () => gunshot({ crack: 0.35, body: 0.12, bodyVol: 0.35, bodyF: 1800, thumpF: 150, thump: 0.12, thumpVol: 0.35, tail: 0.28, tailVol: 0.12 }),
+  // pistol: snappy — bright short body, light thump, short bright tail
+  pistol: () => gunshot({ crack: 0.5, crackF: 6500, body: 0.06, bodyVol: 0.3, bodyF: 2800, bodyEnd: 0.7, thumpF: 220, thump: 0.05, thumpVol: 0.18, tail: 0.15, tailVol: 0.08, tailF: 3800 }),
   smg: () => gunshot({ crack: 0.22, body: 0.07, bodyVol: 0.22, bodyF: 2400, thumpF: 180, thump: 0.07, thumpVol: 0.2, tail: 0.14, tailVol: 0.06 }),
   shotgun: () => {
     gunshot({ crack: 0.45, body: 0.22, bodyVol: 0.55, bodyF: 1100, thumpF: 110, thump: 0.25, thumpVol: 0.6, tail: 0.5, tailVol: 0.22 });
