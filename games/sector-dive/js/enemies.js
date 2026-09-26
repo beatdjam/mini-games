@@ -37,7 +37,7 @@ function updateEnemies(dt) {
     }
     if (def.ranged && los && dist < 26 && e.cd <= 0) {
       const r = def.ranged;
-      e.cd = r.rate * rand(0.8, 1.25);
+      e.cd = r.rate * ENEMY_TUNE.fireInterval * rand(0.8, 1.25);
       const muzzleY = e.mesh.position.y + (def.geo === 'cyl' ? 1.1 : 0);
       const color = def.color === 0xffe14a ? 0xffe14a : 0xff4d8d;
       fanAt(e.x, muzzleY, e.z, r.count, r.spread, r.speed, e.dmg, color);
@@ -46,10 +46,10 @@ function updateEnemies(dt) {
   }
 }
 
-// Idle until the player is within 5 tiles of walking distance and in sight. Returns true once awake.
+// Idle until the player is within ENEMY_TUNE.wakeTiles of walking distance and in sight. Returns true once awake.
 function wakeCheck(e, eyeY, py, dt) {
   const fd = flowAt(e.x, e.z);
-  if (fd >= 0 && fd <= 5 && hasLOS(e.x, e.z, P.x, P.z, eyeY, py)) {
+  if (fd >= 0 && fd <= ENEMY_TUNE.wakeTiles && hasLOS(e.x, e.z, P.x, P.z, eyeY, py)) {
     e.active = true;
     return true;
   }
@@ -86,7 +86,7 @@ function updateSniper(e, dt, los, py) {
     setLaser(e.laser, [e.x, sy, e.z], e.lock, opacity);
     if (e.aim <= 0) {
       e.laser.visible = false;
-      e.cd = rand(2.6, 3.4);
+      e.cd = rand(2.6, 3.4) * ENEMY_TUNE.fireInterval;
       const vx = e.lock[0] - e.x, vy = e.lock[1] - sy, vz = e.lock[2] - e.z;
       const l = Math.hypot(vx, vy, vz) || 1, speed = 60;
       spawnEBullet(e.x, sy, e.z, vx / l * speed, vy / l * speed, vz / l * speed, e.dmg, 0xff4d8d, 0.7);

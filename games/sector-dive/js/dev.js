@@ -90,6 +90,7 @@ if (location.hash === '#smoke') {
         run = { stage: PER - 1, route: [0] }; const b1 = bossDiff();
         run = { stage: 2 * PER + PER - 1, route: [0] }; const b3 = bossDiff();
         if (Math.abs(b1 - 1.05 * Math.pow(1.35, 0.8) * presMul()) > 1e-9 || !(b3 > b1 * 1.8)) throw new Error('boss scaling ' + b1 + ' ' + b3);
+        if (Math.abs(diffOf(0) - 1.15 * presMul()) > 1e-9) throw new Error('enemy hp base ' + diffOf(0));
         startPractice('trinity', 2); tick(5);
         if (stageLabel(run.stage) !== 'D3 BOSS') throw new Error('practice depth ' + stageLabel(run.stage));
         endRun('abandon');

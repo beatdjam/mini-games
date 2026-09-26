@@ -105,7 +105,7 @@ function spawnEnemy(type, x, z, room, diff) {
     y: def.y,               // body height above the feet
     r: def.r, hitR: def.hitR, // collision radius, hit sphere radius
     hp: def.hp * diff, maxHp: def.hp * diff,
-    dmg: def.dmg * (1 + (run ? prog(run.stage) : 0) * 0.045) * presMul(),
+    dmg: def.dmg * ENEMY_TUNE.dmgMul * (1 + (run ? prog(run.stage) : 0) * 0.045) * presMul(),
     room,                   // room index (-1 = not tied to a room, e.g. boss minions)
     active: false,          // wakes up when the player comes near (see wakeCheck)
     cd: rand(0.8, 1.8),     // ranged / sniper cooldown

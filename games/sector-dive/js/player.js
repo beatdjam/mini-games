@@ -48,7 +48,7 @@ const stageInfo = s => { const tier = Math.floor(s / PER); return { biome: route
 const isBossStage = s => s % PER === PER - 1;
 function stageLabel(s) { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
 function tierLabel(t) { return `DEPTH ${t + 1}`; }
-const diffOf = s => Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
+const diffOf = s => ENEMY_TUNE.hpMul * Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
 const magSize = w => Math.max(1, Math.round(WEAPONS[w.id].mag * P.magMul * (1 + 0.3 * wo('mag', w))));
 const rarLabel = w => w.basic ? '基本' : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;

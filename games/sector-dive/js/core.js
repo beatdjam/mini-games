@@ -130,6 +130,13 @@ const TUNE = {
   chipChance: 0.7,      // chance a cleared room gives a chip (otherwise a kit + bits)
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
 };
+// regular enemies (not bosses): overall knobs on top of the per-type numbers in ENEMY
+const ENEMY_TUNE = {
+  hpMul: 1.15,        // health multiplier
+  dmgMul: 1.25,       // damage multiplier
+  fireInterval: 0.85, // multiplier on ranged / sniper cooldowns (smaller = shoots more often)
+  wakeTiles: 7,       // wakes when the player is within this many tiles of walking distance and in sight
+};
 // enemy / boss health grows by this factor per depth (compounding), to keep pace with weapons and chips
 const DEPTH_HP_GROWTH = 1.35;
 const PER = 4; // 3 floors + boss per depth
