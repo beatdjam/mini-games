@@ -51,8 +51,9 @@ function tierLabel(t) { return `DEPTH ${t + 1}`; }
 const diffOf = s => ENEMY_TUNE.hpMul * Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
 // chipMag: share of the magazine chips' effect a weapon gets (the launcher only half, so it can't double its output)
 const magSize = w => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1); return Math.max(1, Math.round(def.mag * chip * (1 + 0.3 * wo('mag', w)))); };
-const rarLabel = w => w.basic ? `基本${w.r ? RARITY[w.r].stars : ''}` : `${RARITY[w.r].stars}${RARITY[w.r].name}`;
-const wName = w => `<span style="color:${w.basic ? 'inherit' : RARITY[w.r].css}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
+// rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
+const rarLabel = w => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
+const wName = w => `<span style="color:${w.r ? RARITY[w.r].css : 'inherit'}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
 const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${rarLabel(w)}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
 // 分裂弾: each chip adds one projectile and +20% total damage, shared across all projectiles,
 // so a full hit gains the same +20% per chip whether the weapon fires 1 round or 8 pellets

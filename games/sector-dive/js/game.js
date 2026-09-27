@@ -216,6 +216,7 @@ function itemCard(w, where, i) {
   const def = WEAPONS[w.id];
   return `<button class="item ${sel ? 'sel' : ''}" data-inv="${where}:${i}" style="border-left:3px solid ${w.basic ? 'var(--line)' : RARITY[w.r].css}"><span class="wn">${wName(w)}</span>
     <span class="ws">火力 ${Math.round(weaponStats(w).dps)} / 1発 ${Math.round(weaponStats(w).perHit)}${weaponStats(w).hits > 1 ? '×' + weaponStats(w).hits : ''} / 弾 ${w.mag}/${magSize(w)}</span>${wOpts(w)}
+    ${w.basic ? '<span class="ws">拠点の武器（失わない）</span>' : ''}
     ${where === 'eq' ? `<span class="ws">スロット${i + 1}${i === P.cur ? '（手持ち）' : ''}</span>` : ''}</button>`;
 }
 function renderBag() {
@@ -360,7 +361,7 @@ function renderBase() {
   $('#loadout').innerHTML = [0, 1].map(k => {
     const w = save.loadout[k];
     return `<button class="lslot ${selSlot === k ? 'sel' : ''}" data-slot="${k}"><span class="eyebrow">装備${k + 1}${selSlot === k ? ' — 割り当て先' : ''}</span>
-      <span class="wn">${w ? wName(basicNow(w)) : '空き'}</span>${w && !w.basic ? '<span class="risk">倉庫の武器。死ぬと失う</span>' : ''}
+      <span class="wn">${w ? wName(basicNow(w)) : '空き'}</span>${w && !w.basic ? '<span class="risk">倉庫の武器。死ぬと失う</span>' : w ? '<span class="ws">拠点の武器（失わない）</span>' : ''}
       ${k === 1 && w ? '<span class="mini-btn" data-unequip="1" role="button">外す</span>' : ''}</button>`;
   }).join('');
   $('#wgrid').innerHTML = WEAPON_ORDER.map(id => {
