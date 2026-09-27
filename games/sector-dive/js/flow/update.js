@@ -1,6 +1,11 @@
 'use strict';
-// ================= update =================
-function update(dt) {
+// Per-frame systems of Sector Dive, run by the engine loop (engine/core/loop.js) in this order
+LOOP.mode = () => state;
+// one play step by hand (tests)
+function update(dt) { runSystems(dt, 'play'); }
+
+// ---- player: movement, dash, camera, viewmodel, reload and firing ----
+function updatePlayer(dt) {
   time += dt;
   let mx = 0, mz = 0;
   if (keys.KeyW || keys.ArrowUp) mz += 1;
@@ -55,31 +60,20 @@ function update(dt) {
   target = findTarget();
   P.fireCd -= dt;
   if ((fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) && P.fireCd <= 0) tryFire();
-
-  updateEnemies(dt);
-  updatePBullets(dt);
-  updateEBullets(dt);
-  updatePickups(dt);
-  updateWaves(dt);
-  updateBalls(dt);
-  updateParts(dt);
-  updateHazards(dt);
-  updateMusic(dt);
-  if (state === 'result') return;
-
+}
+// ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
+function updatePortals(dt) {
   for (const pt of portals) {
     pt.ring.rotation.z += dt * 1.5; pt.disc.material.opacity = 0.18 + Math.sin(time * 4) * 0.08;
     if (state === 'play' && Math.hypot(P.x - pt.x, P.z - pt.z) < 1.5 && Math.abs(P.fy + 1.7 - pt.g.position.y) < 1.6) {
       if (pt.kind === 'extract') { sfx('portal'); endRun('extract'); }
       else nextStage();
+      stopFrame();
       return;
     }
   }
-
-  enemies = enemies.filter(e => !e.dead);
-  pickups = pickups.filter(p => !p.dead);
-  waves = waves.filter(w => !w.dead);
-
+}
+function updateScreenFx(dt) {
   hitTimer -= dt; if (hitTimer <= 0) hitm.classList.remove('on');
   vig = Math.max(0, vig - dt * 2);
   if (state === 'play') updateHud();
@@ -133,18 +127,29 @@ function attract(dt) {
   updateParts(dt);
 }
 
-// ================= loop =================
-let last = performance.now();
-function frame(now) {
-  requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (state === 'play') update(dt);
-  else if (state === 'base') attract(dt);
-  renderer.render(scene, camera);
-  renderGun();
-}
+// ---- the systems, in order. 'play' = diving, 'base' = the base screen with the slowly turning backdrop ----
+const PLAY = ['play'];
+addSystem({ name: 'player', order: 0, modes: PLAY, update: updatePlayer });
+addSystem({ name: 'enemies', order: 10, modes: PLAY, update: updateEnemies });
+addSystem({ name: 'playerBullets', order: 20, modes: PLAY, update: updatePBullets });
+addSystem({ name: 'enemyBullets', order: 21, modes: PLAY, update: updateEBullets });
+addSystem({ name: 'pickups', order: 30, modes: PLAY, update: updatePickups });
+addSystem({ name: 'waves', order: 31, modes: PLAY, update: updateWaves });
+addSystem({ name: 'fireballs', order: 40, modes: PLAY, update: updateBalls });
+addSystem({ name: 'particles', order: 41, modes: PLAY, update: updateParts });
+addSystem({ name: 'hazards', order: 50, modes: PLAY, update: updateHazards });
+addSystem({ name: 'music', order: 60, modes: PLAY, update: updateMusic });
+// a run that just ended (death / extraction above) stops here for this frame
+addSystem({ name: 'endGuard', order: 65, modes: PLAY, update: () => { if (state === 'result') stopFrame(); } });
+addSystem({ name: 'portals', order: 70, modes: PLAY, update: updatePortals });
+addSystem({ name: 'cleanup', order: 80, modes: PLAY, update: () => {
+  enemies = enemies.filter(e => !e.dead); pickups = pickups.filter(p => !p.dead); waves = waves.filter(w => !w.dead);
+} });
+addSystem({ name: 'screenFx', order: 90, modes: PLAY, update: updateScreenFx });
+addSystem({ name: 'attract', order: 0, modes: ['base'], update: attract });
+
 renderBase();
 buildAttract();
 setMusic('BASE'); // starts once the first tap/click unlocks audio
 document.addEventListener('pointerdown', () => audioInit(), { once: true });
-requestAnimationFrame(frame);
+startLoop();

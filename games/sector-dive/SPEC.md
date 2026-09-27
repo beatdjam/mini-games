@@ -347,7 +347,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `js/ui/share.js` | 結果のシェア（結果カードの画像と投稿文） |
 | `js/actors/enemies.js` | 敵の毎フレームの行動 |
 | `js/actors/bullets.js` | 弾の毎フレームの処理（当たり判定、盾、ショットガンの全弾ボーナスなど） |
-| `js/flow/update.js` | 毎フレームの処理（移動・カメラ・射撃・拾い物）とメインループ |
+| `js/flow/update.js` | 毎フレームのシステムの登録（プレイヤー・敵・弾・拾い物・ゲートなど）。ループ自体は engine/core/loop.js |
 | `js/dev/dev.js` | 開発用フック（`#smoke` など） |
 
 - プレイヤー側の調整値（HP、スタミナ、ダッシュ、回復キット、チップ率、死亡時のビット）は `js/data/progress.js` の `TUNE` にまとめてある
