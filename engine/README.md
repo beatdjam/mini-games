@@ -1,8 +1,10 @@
 # engine
 
+仕様は [SPEC.md](SPEC.md)、テストは `engine/test/`（`tools/headless.sh 'engine/test/' 20000`）。
+
 ゲームをまたいで使うコア。ビルドなしのクラシックスクリプトで、全ファイルが1つのグローバルスコープを共有する。ゲームの `index.html` から `../../engine/<名前>.js?v=<版>` で、ゲーム固有のファイルより先に読み込む。
 
-共通のツールはリポジトリ直下の `tools/` にある: `bump-version.sh games/<game-id>`（版番号の更新）、`check_i18n.js games/<game-id>`（文言キーの照合）、`build_updates.py`（更新履歴の生成。公開時に Actions が実行）。
+共通のツールはリポジトリ直下の `tools/` にある: `bump-version.sh games/<game-id>`（版番号の更新）、`check_i18n.js games/<game-id>`（文言キーの照合）、`headless.sh <パス>`（ヘッドレス Chrome で開いてコンソールを出す。スモークテストと engine のテスト）、`build_updates.py`（更新履歴の生成。公開時に Actions が実行）。
 
 フォルダは関心ごとに分けている: `core/`（小さな関数・文言・セーブ・確認用フック・古いページ検出）、`render/`（描画）、`world/`（タイルの世界）、`audio/`（効果音と BGM）、`ui/`（画面の部品と入力）。
 

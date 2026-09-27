@@ -316,10 +316,10 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 
 ## 10. 技術メモ
 
-- 構えている銃: 専用のシーン（`gunScene`）に置き、世界を描いたあと奥行きをリセットしてから描く。壁や半透明の床に隠れず、銃の部品どうしは奥行きで正しく重なる
+- 共通のコア: 描画・ループ・当たり判定・弾・音・入力・文言・セーブなどは リポジトリ直下の `engine/` を使う。仕様は [engine/SPEC.md](../../engine/SPEC.md)。ここにはこのゲーム固有のことだけを書く
 - 更新履歴: `updates.html`（公開ごとに1エントリ）。公開時にリポジトリ直下の `tools/build_updates.py` がコミットメッセージの `Changelog:` 行と `updates-archive.json` から生成する。拠点画面の設定タブとトップページのカードからリンク。書き方は README の「更新履歴のルール」
-- 構成: `index.html`（HTML・CSS）＋ `js/` 以下のクラシックスクリプト。全ファイルが1つのグローバルスコープを共有するので、**読み込み時に実行されるコードは、自分より後のファイルの関数を呼べない**（実行時の呼び出しは問題ない）。読み込み順は `index.html` の末尾
-- 多言語化: 画面に出る文言はすべて `js/lang/` に置き、コードでは `t('キー')`、HTML では `data-i18n="キー"`（属性は `data-i18n-aria` など）で引く。言語は設定タブで切り替え、`save.settings.lang` に保存する（未設定ならブラウザの言語で日本語か英語）。英語のときは本文のフォントを Chakra Petch にする
+- 構成: `index.html`（HTML・CSS）＋ engine ＋ `js/` 以下のスクリプト。読み込み順は `index.html` の末尾（読み込み順の決まりは engine/SPEC.md の「基本」）
+- 多言語化: 画面に出る文言はすべて `js/lang/`（`ja` と `en`）に置く（仕組みは engine/SPEC.md の「文言」）。武器・チップ・セクターなどの名前と説明は `js/system/text.js` が定義に流し込む。言語は設定タブで切り替え、`save.settings.lang` に保存する。英語のときは本文のフォントを Chakra Petch にする
 - 文言を足したら `node tools/check_i18n.js games/sector-dive`（リポジトリ直下で）を実行する。コードと HTML で使っているキーが全言語にあるか、言語どうしでキーと定義の項目がそろっているかを照合する
 - 確認用に `?lang=en` を付けると英語で開く
 - 定義（数値・名前・種類の一覧）は `js/data/` に置き、ロジックのファイルには書かない。`js/data/` のファイルは読み込み時に他のファイルの関数を呼ばない
@@ -328,7 +328,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 
 | ファイル | 中身 |
 |----------|------|
-| `../../engine/<フォルダ>/*.js` | **ゲームをまたいで使うコア**（リポジトリ直下の `engine/`）。`util`（小さな関数・タッチ判定）、`i18n`（`t()`・`setLang`）、`audio`（効果音の合成、`SFX` を鳴らす）、`music`（BGM の再生、`SCALES`）、`render`（three.js の準備・共有マテリアル・文字スプライト・手に持つ銃の別パス描画）、`tiles`（タイルの高さと当たり判定・視線・経路）、`ui`（トースト・バナー・全画面）、`input`（キー・マウス・タッチ）、`touchlayout`（タッチボタンの配置と編集）、`store`（セーブの読み書き）、`stale`（古いページ検出）、`dev`（確認用フック）。詳しくは `engine/README.md` |
+| `../../engine/<フォルダ>/*.js` | ゲームをまたいで使うコア。一覧は [engine/README.md](../../engine/README.md)、仕様は [engine/SPEC.md](../../engine/SPEC.md) |
 | `js/data/*.js` | **定義だけ**（ロジックを持たない）。`weapons`（武器・レアリティ・オプション・改造費）、`enemies`（敵と調整値）、`bosses`（ボスの体力・大きさ・攻撃パターンの数値 `tune`）、`viewmodels`（構えている銃の形）、`level`（壁・目線・台・遮蔽物の高さ）、`biomes`（セクター）、`progress`（区画数・`TUNE`・拠点強化・再起動）、`perks`（チップ）、`controls`（ボタン配置と操作一覧）、`sfx`（効果音のレシピ）、`music`（曲調） |
 | `js/system/text.js` | 言語ファイルの名前と説明を定義に流し込む（`i18nApplyData`。`setLang` から呼ばれる） |
 | `js/lang/<言語>.js` | 文言。`ui`（画面の文言）と `data`（武器・チップ・セクターなどの名前と説明）。今は `ja`（基準）と `en` |
@@ -351,13 +351,11 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `js/dev/dev.js` | 開発用フック（`#smoke` など） |
 
 - プレイヤー側の調整値（HP、スタミナ、ダッシュ、回復キット、チップ率、死亡時のビット）は `js/data/progress.js` の `TUNE` にまとめてある
-- キャッシュ対策: GitHub Pages は html も js も約10分キャッシュする。**js や html を変えたら、リポジトリ直下で `tools/bump-version.sh games/sector-dive` を実行する**（engine/ を変えたときも）
-  - スクリプトは `js/xxx.js?v=<build>` で読み込むので、古い js と新しい html が混ざらない
-  - ページ自体が古いまま残る対策として（`engine/core/stale.js`）、起動時に `version.json` を取りに行き、`<meta name="build">` と違えば `?b=<build>` 付きのURLに移って最新版を読み直す（同じ版への切り替えは1セッションに1回まで）
+- キャッシュ対策: **js や html を変えたら、リポジトリ直下で `tools/bump-version.sh games/sector-dive` を実行する**（engine/ を変えたときも。仕組みは engine/SPEC.md）
 - 描画: three.js r128（cdnjs）。3Dモデルや画像は使わず、図形とCanvasで作ったテクスチャだけで描く
-- セーブ: localStorage の `sector-dive-v1`。`engine/core/store.js` の `loadStore` が既定値に保存済みの値を重ねるので、足りない項目は既定値で補われる。1深度が4区画だった頃のセーブ（`stageV` なし）は、最深記録と中断データのステージ番号を3区画の数え方に変換する
+- セーブ: localStorage の `sector-dive-v1`（読み書きは engine の `loadStore`）。1深度が4区画だった頃のセーブ（`stageV` なし）は、最深記録と中断データのステージ番号を3区画の数え方に変換する
 - 開発用フック（URLの末尾に付ける）
-  - `#smoke`: 全セクターの区画と全ボスを一通り動かす。あわせて、段差から降りたときの詰まり、進行度、盾、ボス練習（セーブが変わらないこと）、中断→再開→破棄、データ消去を確かめ、各セクター25回ずつ生成して全部屋に行き来できるかを調べる。結果はコンソールに `SMOKE ...` で出る
+  - `#smoke`: `tools/headless.sh 'games/sector-dive/#smoke' 200000` で流す。全セクターの区画と全ボスを一通り動かす。あわせて、段差から降りたときの詰まり、進行度、盾、ボス練習（セーブが変わらないこと）、中断→再開→破棄、データ消去を確かめ、各セクター25回ずつ生成して全部屋に行き来できるかを調べる。結果はコンソールに `SMOKE ...` で出る
   - `#view-KWLN` など: そのセクターの区画にすぐ入る（スクリーンショット確認用）
   - `#view-haz`: 光っている危険床の上に立った状態で始まる（銃が床より手前に描かれるかの確認用）。`#view-haz-smg` のように武器を指定できる。`#view-perk`: チップ選択画面を開く（`#view-perk4` で4枚）。`#view-share`（`-dead` で死亡時）: 結果カードの画像を表示、`#view-share-res`: その結果画面。`#tab-<sortie|up|practice|settings>`: 拠点のタブを開く。`#view-susp`: 中断データがある拠点画面（`-panel` で PC のシェア欄を開く）
   - `#view-pick`: 足元に武器を落とした状態で始まる（拾うときの表示の確認用）

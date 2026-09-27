@@ -1,0 +1,103 @@
+# engine 仕様
+
+ゲームをまたいで使うコアの仕様。ファイルと関数の一覧は [README.md](README.md)。
+
+## 1. 基本
+
+- ビルドなしのクラシックスクリプト。engine とゲームの全ファイルが、1つのグローバルスコープを共有する
+- 読み込み順は、engine（`core` → `audio` → `render` → `world` → `ui`）のあとにゲームのファイル。**読み込み時に実行されるコードは、自分より後のファイルの関数を呼べない**（実行時の呼び出しは問題ない）
+- engine はゲーム固有の名前を読み込み時に使わない。ゲームの状態や操作は、設定オブジェクト（`LOOP`, `INPUT`, `TOUCH_LAYOUT`）やフック関数（`i18nApplyData`）で受け取る
+- engine が前提にする HTML の要素（`<canvas id="gl">`, `#touch` など）は README の表に書く
+- 描画は three.js r128（cdnjs）
+
+## 2. ループ・モード・システム（core/loop.js）
+
+- engine が `requestAnimationFrame` を持ち、毎フレーム「システムを順に実行 → `renderer.render(scene, camera)` → 手に持つ銃の描画」を行う。dt は `LOOP.maxDt`（0.05秒）で頭打ち
+- **モード**: ゲームは `LOOP.mode = () => 今のモード名` を渡す。フレームの頭で1回だけ読むので、フレームの途中でモードが変わっても、そのフレームの残りは元のモードのまま進む
+- **システム**: `addSystem({ name, order, modes, update })`。`order` の小さい順に実行する。`modes` に今のモードが含まれるものだけ動く（省略すると全モード）。戻り値のシステムの `modes` や `enabled` はあとから変えられる
+- `stopFrame()` を呼ぶと、そのフレームの残りのシステムを飛ばす（次の区画に移った直後など）
+- `runSystems(dt, mode)` で1ステップを手で進められる（テスト用）
+
+## 3. 振る舞いを持つオブジェクト（core/world.js）
+
+- `spawn(obj)` で登録したオブジェクトは、毎フレーム `obj.update(dt)` が呼ばれる（Unity の MonoBehaviour に近い）
+- 登録順に呼ぶ。更新の途中で `spawn` されたものも、同じフレームのうちに呼ばれる
+- `obj.dead = true` にすると、そのグループの更新が終わったところでリストから外れる。そのとき `obj.onRemove()` があれば呼び、`obj.mesh` が画面に残っていれば破棄する
+- `obj.tag` でまとめる。`query(tag)` で生きているものを取り出し、`clearWorld(tag)` でまとめて消す（タグなしは全部）
+- **グループ**: `worldGroup(tag, order)` で、そのタグのオブジェクトを別のリストとシステムに分けて、更新の順番を決められる。それ以外のタグは順番30の既定のグループに入る。グループのリストは作り直さず同じ配列を使い続けるので、ゲーム側で参照を持っていてよい
+- 各グループのシステムは `group.system`（既定は `WORLD.system`）。動くモードは `.modes` で指定する
+
+## 4. タイルの世界（world/tiles.js）
+
+- 1タイルは `T` = 4m 四方。`grid[k] === 1` が歩ける床、それ以外は壁。`k = j * W + i`
+- `hgt[k]` は床の高さ。`ramp[k]` が 0〜3 ならその向き（0:+x 1:-x 2:+z 3:-z）へ `RISE` だけ上る坂、-1 は平ら
+- `cover[k]` は腰の高さの遮蔽物（高さはゲームが決める）
+- **段差の規則**: 足元より `STEP` (0.7m) 以上高いところへは進めない。降りるのは自由
+  - 当たり判定は、進む向きの先端（中央と両脇）で見る。段の上から半分はみ出していても、離れる向きには歩ける
+  - 着地して段にめり込んだときは押し出す（`depenetrate`）
+- `moveCircle(o, dx, dz, r)`: 軸ごとに動かして、壁か段で止まったら true。`o.fy`（足の高さ）が無いものは壁とだけ当たる
+- `hasLOS(x0, z0, x1, z1, y0, y1)`: 壁で視線が切れるか。高さを渡すと、間にある高い床や遮蔽物でも切れる
+- **経路（フローフィールド）**: `computeFlow(i, j)` で、目標のタイルまでの歩数を全タイルに入れる（段差の規則に従う）。`flowDir(x, z)` は歩数が減る隣への単位ベクトル
+- ゲームは地形を生成して `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`, `flowQ` を埋める
+
+## 5. 弾（world/projectiles.js）
+
+- engine は「動かす」「何かに触れたら知らせる」まで。当たったあとの処理（ダメージ・盾・貫通・爆発など）はゲームが判定関数で渡す
+- `stepProjectile(b, dt, maxStep, visit, speed)`: 重力（`b.grav`）をかけてから、1回が `maxStep` m 以下になるよう刻んで動かし、刻むたびに `visit(b)` を呼ぶ。true が返ったら止める。速い弾でも壁や敵をすり抜けない
+- `projHitsTerrain(b, ceil, pad)`: 壁の中、床より下（`pad` の余裕つき）、`ceil` より上
+- `steerToward`: 速さを保ったまま、向きを目標へ寄せる（追尾弾）
+- `ringAngles(n, offset)`: 全方位に等間隔の角度。`aimFan(...)`: 狙った方向を中心に扇に広げた単位ベクトル
+- `takeFromPool` / `clearPool`: メッシュを使い回すプール
+
+## 6. 追跡（world/steer.js）
+
+- `steerChase`: 目標が見えていれば真っすぐ近づく。`keep` m より近ければ、60%の速さで周りを回る（ときどき向きを変える）。見えなければ経路をたどる。仲間どうしは押し合って重ならない
+
+## 7. 描画（render/）
+
+- `render.js`: レンダラー（`<canvas id="gl">`）、シーン、カメラ、画面サイズへの追従。`shared()` を付けたジオメトリとマテリアルは `disposeTree` で破棄しない
+- **手に持つ銃**: 専用のシーン（`gunScene`）に置き、世界を描いたあと奥行きをリセットしてから描く（`renderGun`）。壁や半透明の床に隠れず、銃の部品どうしは奥行きで正しく重なる。形は部品の一覧を `buildViewmodel` に渡して組み立てる
+- `fx.js`: パーティクルと爆発の光。engine がシステムとして自分で更新する（`FX.particles` / `FX.fireballs` の `modes` で動くモードを決める）
+
+## 8. 音（audio/）
+
+- 効果音も BGM も、音声ファイルを使わず Web Audio で合成する
+- 効果音: `sfx(name)` がゲームの `SFX[name]` を鳴らす。同じ音が短い間に重なりすぎないよう間引く。出口に軽いコンプレッサー
+- BGM: ゲームの `MUSIC_STYLES`（調・音階・和音の進行・テンポ・パターン）を鳴らす。層（pad / arp / bass / drums / tension）の混ぜ方は `LAYER_MIX` を `setMusicMix(kind)` で切り替える。ボス戦は同じ曲調を速く激しくしたアレンジにできる
+- 音量はゲームが `sfxVolume` / `bgmVolume`（0〜1）に入れる。最初のタップかクリックまで音は出ない（`audioInit`）
+
+## 9. 画面の部品と入力（ui/）
+
+- `ui.js`: トースト（`#toast`）、バナー（`#banner`）、全画面（横向きに固定を試みる）
+- `input.js`: PC はキーとマウス（ポインタロック）、タッチは左45%が移動スティック、残りが視点ドラッグ。射撃ボタンは押したままドラッグすると視点も動く。ゲームは `INPUT` に `active`（今操作を受け付けるか）, `look`, `sens`, `key`, `pause`, `lockChanged` を入れる
+  - ロックが外れたとき、ページが裏に回ったときは、`INPUT.active()` なら `INPUT.pause()` を呼ぶ
+  - メニューを開く直前に要求したロックがあとから効いた場合（Firefox で起きやすい）は、すぐ外す
+- `touchlayout.js`: タッチボタン（`data-lb`）の配置と、ドラッグで動かす・大きさを変える編集画面（`#layoutBar`）
+
+## 10. 文言（core/i18n.js）
+
+- 言語ファイルが `LANG.<code> = { name, ui, data }` を登録する。`ja` は必須で、キーが無いときの予備
+- `t(key, values)`: `{name}` を値で置き換える。文言が関数なら値のオブジェクトを渡して呼ぶ
+- HTML は `data-i18n="キー"`（中身の文字）、`data-i18n-aria` / `-alt` / `-content`（属性）で引く。`setLang` のたびに書き換える
+- `setLang(code)` はゲームの `i18nApplyData(data)` があれば呼ぶ（定義に名前と説明を流し込むため）。`fillData` は ID・キー・添字で対応させて上書きする
+- `defaultLang()`: ブラウザの言語が日本語なら `ja`、それ以外は `en`
+
+## 11. セーブ（core/store.js）
+
+- `loadStore(key, defaults)`: 既定値に保存済みの値を重ねる。オブジェクトはキーごとに深く重ね、配列やそれ以外の値は置き換える。新しい版で足した項目は、古いセーブでも既定値で補われる
+- 返り値の `raw` は保存されていたそのままの値。古い版からの変換はゲームが `raw` を見て行う
+- `prefGet` / `prefSet`: タブの記憶など、失っても困らない小さな値
+
+## 12. キャッシュ対策（core/stale.js と tools/bump-version.sh）
+
+- GitHub Pages は html も js も約10分キャッシュする。古い js と新しい html が混ざると動かないことがある
+- スクリプトは `?v=<版>` 付きで読み込む。**js（ゲームでも engine でも）や html を変えたら `tools/bump-version.sh games/<game-id>` を実行する**。`?v=`、`<meta name="build">`、ゲームのフォルダの `version.json` をそろえて更新する
+- ページ自体が古いまま残る対策として、`stale.js` が起動時に `version.json` を取りに行き、`<meta name="build">` と違えば `?b=<版>` 付きの URL に移って読み直す（同じ版への切り替えは1セッションに1回まで）
+
+## 13. 確認用フックとテスト
+
+- `core/dev.js`: `devHook('view-x', fn)` は URL の `#view-x…` で動く確認用の入口。`devSmoke(fn)` は `#smoke` で fn を実行し、エラー（`SMOKE ERR` / `SMOKE FAIL`）、版番号の一致（`SMOKE build ok`）、終わり（`SMOKE DONE`）をコンソールに出す
+- **engine のテスト**: `engine/test/` をブラウザで開くか、`tools/headless.sh 'engine/test/' 20000` を実行する。各テストが `TEST ok` / `TEST FAIL` を出し、最後に `TEST DONE 通った数/全体`
+  - engine を変えたら、engine のテストと、engine を使う全ゲームのスモークテスト（`tools/headless.sh 'games/<game-id>/#smoke' 200000`）を流す
+  - engine に機能を足したら、`engine/test/tests.js` にテストを足す
+- 文言キーの照合: `node tools/check_i18n.js games/<game-id>`
