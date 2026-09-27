@@ -177,6 +177,7 @@ LANG.ja = {
     'stats.chips': '取得チップ: {list}',
     'common.none': 'なし',
     'common.sep': '、',
+    'common.count': '{name}×{n}',
     'weapon.text': ({ name, rar, opts }) => `${name}［${rar}］${opts ? '◆' + opts : ''}`,
 
     // ---- bag ----

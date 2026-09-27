@@ -282,7 +282,7 @@ if (location.hash === '#smoke') {
       {
         goBase(); startRun(); tick(5); run.bosses = ['watcher']; run.perks = ['overload', 'overload', 'rapid+'];
         endRun('extract');
-        if ($('#btnShare').hidden || !shareData || shareData.bosses[0] !== BOSS_META.watcher.short || shareData.chips[0] !== perkName('overload') + '×2') throw new Error('share data');
+        if ($('#btnShare').hidden || !shareData || shareData.bosses[0] !== BOSS_META.watcher.short || shareData.chips[0] !== t('common.count', { name: perkName('overload'), n: 2 })) throw new Error('share data');
         if (!shareText(shareData).includes('#SectorDive') || !shareText(shareData).includes(BOSS_META.watcher.short)) throw new Error('share text');
         $('#btnShare').click(); if ($('#sharePanel').hidden) throw new Error('share panel on PC');
         goBase(); startPractice('crusher', 0); tick(5); endRun('abandon');
@@ -364,3 +364,5 @@ if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS
 if (location.hash.startsWith('#tab-')) showTab(location.hash.slice(5).replace(/-touch$/, ''));
 // dev view: #view-susp[-touch] leaves a suspended run and returns to the base
 if (location.hash.startsWith('#view-susp')) setTimeout(() => { startRun(); suspendRun(); }, 300);
+// dev: ?lang=<code> opens the page in that language (saved like the settings button does)
+{ const q = new URLSearchParams(location.search).get('lang'); if (q && LANG[q] && q !== lang) changeLang(q); }

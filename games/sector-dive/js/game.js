@@ -195,7 +195,7 @@ function statsHTML() {
   if (P.magnet > 1) rows.push([t('stats.magnet'), `×${P.magnet.toFixed(1)}`]);
   rows.push([t('stats.gain'), pct(gain - 1)]);
   const counts = {}; run.perks.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
-  const chips = Object.keys(counts).map(n => counts[n] > 1 ? `${perkName(n)}×${counts[n]}` : perkName(n)).join(t('common.sep')) || t('common.none');
+  const chips = Object.keys(counts).map(n => counts[n] > 1 ? t('common.count', { name: perkName(n), n: counts[n] }) : perkName(n)).join(t('common.sep')) || t('common.none');
   return `<h3>${t('stats.title')}<small>${t('stats.titleNote', { w: wText(w) })}</small></h3>
     <dl class="reslist">${rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>
     <p class="chips">${t('stats.chips', { list: chips })}</p>`;
