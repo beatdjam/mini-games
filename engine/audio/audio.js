@@ -18,6 +18,7 @@ function audioInit() {
 }
 // the game sets these from its settings (0..1)
 let sfxVolume = 1, bgmVolume = 0.6;
+function setVolumes(sfx, bgm) { sfxVolume = sfx; bgmVolume = bgm; }
 function applySfxVolume() { if (master) master.gain.value = 0.32 * sfxVolume; }
 function tone(freq, dur, type, vol, slide, delay) {
   if (!actx) return;

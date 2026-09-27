@@ -69,9 +69,9 @@ test('world: update, dead, onRemove, query, groups, spawn during a pass', () => 
 // ---------- world: tiles, projectiles, steering ----------
 // a 6x3 tile room: row 1 is walkable; tile (4,1) is a raised step 2 m up; everything else is wall
 function tinyWorld() {
-  W = 6; H = 3;
-  grid = new Uint8Array(W * H); hgt = new Float32Array(W * H); ramp = new Int8Array(W * H).fill(-1); cover = new Uint8Array(W * H);
-  flow = new Int32Array(W * H); flowQ = new Int32Array(W * H);
+  const w = 6, h = 3;
+  setTileWorld({ W: w, H: h, grid: new Uint8Array(w * h), hgt: new Float32Array(w * h), ramp: new Int8Array(w * h).fill(-1), cover: new Uint8Array(w * h),
+    flow: new Int32Array(w * h), flowQ: new Int32Array(w * h) });
   for (let i = 0; i < 5; i++) grid[W + i] = 1;
   hgt[W + 4] = 2;
 }

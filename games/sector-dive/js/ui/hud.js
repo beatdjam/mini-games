@@ -2,9 +2,10 @@
 const hpFill = $('#hpFill'), hpNum = $('#hpNum'), hpBar = $('#hpBar'), stFill = $('#stFill'), stBar = $('#stBar'), bitNum = $('#bitNum');
 const cross = $('#cross'), hitm = $('#hitm'), ammoEl = $('#ammo'), reloadEl = $('#reload'), rFill = $('#rFill');
 const vigEl = $('#vig'), bossFill = $('#bossFill'), mini = $('#mini'), mctx = mini.getContext('2d'), bigmap = $('#bigmap'), bctx = bigmap.getContext('2d');
-let hitTimer = 0, vig = 0, shake = 0, miniT = 0, stWarn = 0;
-function hitMark(crit) { hitm.classList.add('on'); hitm.classList.toggle('crit', !!crit); hitTimer = 0.09; }
-function toggleMap() { if (state !== 'play') return; bigmap.hidden = !bigmap.hidden; miniT = 0; }
+// screen effects shared by several files: hit marker, damage vignette, camera shake, minimap redraw, stamina warning
+const SCR = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
+function hitMark(crit) { hitm.classList.add('on'); hitm.classList.toggle('crit', !!crit); SCR.hitTimer = 0.09; }
+function toggleMap() { if (state !== 'play') return; bigmap.hidden = !bigmap.hidden; SCR.miniT = 0; }
 function weaponHud() {
   [0, 1].forEach(k => {
     const el = $('#w' + k), w = P.weapons[k];
@@ -20,7 +21,7 @@ function updateHud() {
   hpFill.style.transform = `scaleX(${f})`; hpBar.classList.toggle('low', f < 0.3);
   hpNum.textContent = Math.ceil(P.hp);
   stFill.style.transform = `scaleX(${clamp(P.st / P.stMax, 0, 1)})`;
-  stBar.classList.toggle('short', P.st < TUNE.dashCost); stBar.classList.toggle('warn', stWarn > 0);
+  stBar.classList.toggle('short', P.st < TUNE.dashCost); stBar.classList.toggle('warn', SCR.stWarn > 0);
   bitNum.textContent = Math.floor(run.bits);
   cross.classList.toggle('lock', !!target);
   const w = curW(), ms = magSize(w);
@@ -31,7 +32,7 @@ function updateHud() {
   $('#btnDash').classList.toggle('off', P.st < TUNE.dashCost);
   if (boss) bossFill.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
   const lowPulse = f < 0.3 ? 0.25 + Math.sin(time * 5) * 0.12 : 0;
-  vigEl.style.opacity = Math.max(vig, lowPulse);
+  vigEl.style.opacity = Math.max(SCR.vig, lowPulse);
   const row = $('#pickRow');
   if (nearW) {
     const desk = !isTouch && !document.body.classList.contains('nolock'), bagFree = P.bag.includes(null);
@@ -151,10 +152,10 @@ Object.assign(TOUCH_LAYOUT, {
   reset: () => { save.settings.layout = {}; },
   save: persist,
   afterApply: () => { $('#btnFire2').hidden = !save.settings.leftFire; },
-  onOpen: () => { show(null); state = 'layout'; },
+  onOpen: () => { show(null); setState('layout'); },
   onClose: from => {
-    if (from === 'pause') { state = 'pause'; renderSettings(); show('#scrPause'); }
-    else { $('#touch').hidden = true; state = 'base'; renderSettings(); show('#scrBase'); }
+    if (from === 'pause') { setState('pause'); renderSettings(); show('#scrPause'); }
+    else { $('#touch').hidden = true; setState('base'); renderSettings(); show('#scrBase'); }
   },
 });
 applyLayout();

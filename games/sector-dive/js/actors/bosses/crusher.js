@@ -35,7 +35,7 @@ function updCrusher(e, dt) {
     burst(e.x - e.cdx * 1.6, 0.3, e.z - e.cdz * 1.6, 0xff8a3d, 1, 3, 0.3);
     if (!e.hitP && d < K.chargeHitR) { e.hitP = true; damagePlayer(e.dmg * K.chargeDmg); moveCircle(P, e.cdx * K.chargeKnock, e.cdz * K.chargeKnock, P.r); }
     if (hit || e.timer <= 0) {
-      e.st = 'stun'; e.timer = K.stun; e.stunMul = K.stunMul; shake = Math.max(shake, 0.35); sfx('boom');
+      e.st = 'stun'; e.timer = K.stun; e.stunMul = K.stunMul; SCR.shake = Math.max(SCR.shake, 0.35); sfx('boom');
       spawnWave(e.x, e.z, K.hitWave[0], K.hitWave[1], e.dmg * K.hitWave[2], 0xff8a3d);
       toast(t('boss.crusherStun'), 1400);
     }
@@ -47,7 +47,7 @@ function updCrusher(e, dt) {
     y += Math.sin(Math.PI * clamp(jt, 0, 1)) * K.jump;
     moveCircle(e, dx / d * K.slamMove * dt, dz / d * K.slamMove * dt, 1.8);
     if (e.timer <= 0) {
-      shake = Math.max(shake, 0.4); sfx('boom');
+      SCR.shake = Math.max(SCR.shake, 0.4); sfx('boom');
       spawnWave(e.x, e.z, K.slamWave[0], K.slamWave[1], e.dmg * K.slamWave[2], 0xffc24a);
       if (enr) e.second = K.secondDelay;
       e.st = 'idle'; e.timer = K.afterSlam;

@@ -1,6 +1,7 @@
 'use strict';
 // Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/ui/input.js)
-let dashReq = false, stickT = 0, stickArmed = true;
+// dash request and the full-stick dash timer
+const CTRL = { dashReq: false, stickT: 0, stickArmed: true };
 Object.assign(INPUT, {
   active: () => state === 'play',
   look: (dx, dy) => { if (!P) return; P.yaw -= dx; P.pitch = clamp(P.pitch - dy, -1.25, 1.25); },
@@ -11,7 +12,7 @@ Object.assign(INPUT, {
     if (e.code === 'Tab') e.preventDefault();
     if (state === 'bag' && (e.code === 'Tab' || e.code === 'KeyI' || e.code === 'Escape')) { closeBag(); return; }
     if (state !== 'play') return;
-    if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { dashReq = true; e.preventDefault(); }
+    if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { CTRL.dashReq = true; e.preventDefault(); }
     if (e.code === 'KeyQ') swapWeapon();
     if (e.code === 'Digit1') selectSlot(0);
     if (e.code === 'Digit2') selectSlot(1);
@@ -24,7 +25,7 @@ Object.assign(INPUT, {
     if (e.code === 'Escape' || e.code === 'KeyP') pause();
   },
 });
-tapBtn($('#btnDash'), () => { dashReq = true; });
+tapBtn($('#btnDash'), () => { CTRL.dashReq = true; });
 tapBtn($('#btnReload'), () => { if (state === 'play') startReload(); });
 tapBtn($('#btnKit'), useKit);
 tapBtn($('#btnEquip'), equipNearby);
@@ -38,7 +39,7 @@ window.addEventListener('wheel', e => { if (state === 'play' && locked) swapWeap
 
 function selectSlot(k) {
   if (state !== 'play' || k === P.cur || !P.weapons[k]) return;
-  P.cur = k; P.reloadT = 0; P.fireCd = Math.max(P.fireCd, 0.2); gunKick = 0.15; setVM(curW().id); weaponHud();
+  P.cur = k; P.reloadT = 0; P.fireCd = Math.max(P.fireCd, 0.2); GUNFX.gunKick = 0.15; setVM(curW().id); weaponHud();
 }
 function swapWeapon() { selectSlot(P ? P.cur ^ 1 : 0); }
 function useKit() {
@@ -57,7 +58,7 @@ function takeNearby() {
   if (state !== 'play' || !nearW) return null;
   const p = nearW;
   p.dead = true; p.mesh.visible = false; // the engine world disposes it
-  nearW = null; sfx('pick'); gunKick = 0.12;
+  setNear(null); sfx('pick'); GUNFX.gunKick = 0.12;
   return p.w;
 }
 // hold it: fills the empty second slot, otherwise swaps with the weapon in hand (that one is dropped here)

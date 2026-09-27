@@ -1,5 +1,7 @@
 'use strict';
 let P = null, run = null;
+function setPlayer(p) { P = p; }
+function setRun(r) { run = r; }
 const newWeapon = (id, r, basic, plus, opts) => ({ id, r, basic: !!basic, plus: plus || 0, opts: opts || [], mag: WEAPONS[id].mag });
 const wo = (k, w) => { w = w || (P && P.weapons[P.cur]); return w && w.opts ? w.opts.filter(o => o === k).length : 0; };
 const wDmgMul = w => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
@@ -65,7 +67,9 @@ WEAPON_ORDER.forEach(id => {
   const g = buildViewmodel(VIEWMODELS[id], Object.assign({ acc: WEAPONS[id].color }, VM_COLORS));
   g.visible = false; gun.add(g); VM[id] = g;
 });
-let gunKick = 0, flashT = 0, curVM = null;
+// the gun in hand: recoil and muzzle flash timers
+const GUNFX = { gunKick: 0, flashT: 0 };
+let curVM = null;
 function setVM(id) {
   if (curVM) { curVM.visible = false; curVM.userData.flash.visible = false; }
   curVM = VM[id]; curVM.visible = true;
@@ -134,17 +138,17 @@ function fire() {
     d.x += rand(-s, s); d.y += rand(-s, s) * 0.7; d.z += rand(-s, s); d.normalize();
     spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), blast, def.color, def.grav, { far: def.far, farMul: def.farMul, kb: def.kb, rail: !!def.pierce, shot: shotId });
   }
-  gunKick = Math.min(0.2, gunKick + (def.blast ? 0.2 : def.pellets > 1 || def.pierce ? 0.12 : 0.05));
-  flashT = def.blast ? 0.09 : 0.05;
-  if (def.blast) { shake = Math.max(shake, 0.18); burst(mz.x, mz.y, mz.z, 0x9aa3ad, 6, 2, 0.8, -2); }
-  else if (def.pellets > 1) shake = Math.max(shake, 0.06);
+  GUNFX.gunKick = Math.min(0.2, GUNFX.gunKick + (def.blast ? 0.2 : def.pellets > 1 || def.pierce ? 0.12 : 0.05));
+  GUNFX.flashT = def.blast ? 0.09 : 0.05;
+  if (def.blast) { SCR.shake = Math.max(SCR.shake, 0.18); burst(mz.x, mz.y, mz.z, 0x9aa3ad, 6, 2, 0.8, -2); }
+  else if (def.pellets > 1) SCR.shake = Math.max(SCR.shake, 0.06);
   sfx(w.id, 40);
   if (w.mag <= 0) startReload();
 }
 
 function damagePlayer(d) {
   if (P.inv > 0 || state !== 'play') return;
-  P.hp -= d; P.inv = TUNE.hitInvuln; shake = Math.max(shake, 0.22); vig = 0.9; sfx('hurt', 80);
+  P.hp -= d; P.inv = TUNE.hitInvuln; SCR.shake = Math.max(SCR.shake, 0.22); SCR.vig = 0.9; sfx('hurt', 80);
   if (P.hp <= 0) { P.hp = 0; endRun('dead'); }
 }
 
@@ -168,11 +172,11 @@ function explode(x, y, z, radius, dmg, color, big) {
     burst(x, y, z, 0xff6a3d, 34, 12, 0.9); burst(x, y, z, 0xffc24a, 14, 7, 0.6); burst(x, y + 0.5, z, 0x5b6470, 12, 2.5, 1.4, -3);
     sfx('bigboom', 60);
     const pd = Math.hypot(P.x - x, P.z - z);
-    shake = Math.max(shake, 0.5 * clamp(1 - pd / 30, 0.25, 1));
+    SCR.shake = Math.max(SCR.shake, 0.5 * clamp(1 - pd / 30, 0.25, 1));
     if (pd < radius * 0.6 && state === 'play') damagePlayer(14);
   } else {
     burst(x, y, z, color || 0xff6a3d, 22, 9, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.4);
-    sfx('boom', 60); shake = Math.max(shake, 0.12);
+    sfx('boom', 60); SCR.shake = Math.max(SCR.shake, 0.12);
   }
   for (const e of enemies.slice()) { // enemies spawned by this blast's kills aren't hit by it
     if (e.dead) continue;
@@ -188,7 +192,7 @@ function explode(x, y, z, radius, dmg, color, big) {
 // bomber blast: hurts the player and any enemy caught in it
 function bomberBlast(x, y, z, dmg) {
   burst(x, y, z, 0xffb13d, 26, 10, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.3); fireball(x, y, z, 3, 0xff8a3d);
-  sfx('boom', 40); shake = Math.max(shake, 0.2);
+  sfx('boom', 40); SCR.shake = Math.max(SCR.shake, 0.2);
   if (Math.hypot(P.x - x, P.z - z) < 3.4 && Math.abs(P.fy + 1 - y) < 2.5) damagePlayer(dmg);
   for (const o of enemies.slice()) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, 35, false);
 }

@@ -1,5 +1,6 @@
 'use strict';
 let roomOf = null, rooms = [], seen = null, haz = null, hazMat = null, hazT = 0;
+function setHazardClock(v) { hazT = v; } // tests
 let levelGroup = null, portals = [], startIdx = 0, exitIdx = 0, roomCount = [], arena = false, curBiome = BIOMES[0];
 
 // ---------- generators ----------
@@ -109,7 +110,7 @@ function clearLevel() {
   clearWorld();
   clearPool(pBullets); clearPool(eBullets);
   clearFx();
-  portals = []; boss = null; nearW = null; hazMat = null;
+  portals = []; setBoss(null); setNear(null); hazMat = null;
 }
 
 // wedge rising toward +x across one tile; rotated per ramp direction
@@ -132,9 +133,10 @@ function buildLevel(biome, isArena, bossKind) {
   clearLevel();
   curBiome = biome; arena = isArena;
   const gen = isArena ? genArena(BOSS_META[bossKind].pillars) : genRooms(biome.gen);
-  W = gen.W; H = gen.H; rooms = gen.rooms;
-  const M = gen.M; grid = M.g; hgt = M.hg; ramp = M.rp; cover = M.cv; haz = M.hz; roomOf = M.ro;
-  flow = new Int16Array(W * H); flowQ = new Int32Array(W * H); seen = new Uint8Array(W * H);
+  rooms = gen.rooms;
+  const M = gen.M; haz = M.hz; roomOf = M.ro;
+  setTileWorld({ W: gen.W, H: gen.H, grid: M.g, hgt: M.hg, ramp: M.rp, cover: M.cv, flow: new Int16Array(gen.W * gen.H), flowQ: new Int32Array(gen.W * gen.H) });
+  seen = new Uint8Array(W * H);
   roomCount = new Array(rooms.length).fill(0);
   levelGroup = new THREE.Group(); scene.add(levelGroup);
   const tex = biomeTex(biome);

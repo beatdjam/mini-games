@@ -4,6 +4,10 @@
 // enemies (bosses included) are an engine world group updated at order 10; `enemies` is that group's list
 const ENEMY_GROUP = worldGroup('enemy', 10);
 let enemies = ENEMY_GROUP.list, boss = null, nearW = null, nearD = 1.9, target = null;
+function setBoss(b) { boss = b; }
+function setTarget(e) { target = e; }
+// the weapon pickup nearest to the player (and its distance, if given)
+function setNear(w, d) { nearW = w; if (d !== undefined) nearD = d; }
 const pBullets = [], eBullets = [];
 function spawnPBullet(pos, dir, speed, dmg, pierce, blast, color, grav, opt) {
   const b = takeFromPool(pBullets, geoCache.pbullet, 220); if (!b) return;

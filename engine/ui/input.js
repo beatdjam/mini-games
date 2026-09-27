@@ -16,6 +16,7 @@ const keys = {};
 let joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: null, x: 0, y: 0 }, fireTouch = { id: null, x: 0, y: 0 };
 let fireHeld = false, fire2Held = false, mouseFire = false, locked = false, lockWorked = false;
 const touchEl = $('#touch');
+function setFireHeld(v) { fireHeld = v; } // tests
 function lookDelta(dx, dy, k) { INPUT.look(dx * k, dy * k); }
 const tk = () => 0.0055 * INPUT.sens();
 

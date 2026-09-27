@@ -6,8 +6,8 @@
 devSmoke(() => {
     {
       startRun();
-      const tick = n => { for (let k = 0; k < n; k++) { if (state !== 'play') { show(null); state = 'play'; } P.hp = P.maxHp; P.inv = 1; update(1 / 60); } };
-      fireHeld = true;
+      const tick = n => { for (let k = 0; k < n; k++) { if (state !== 'play') { show(null); setState('play'); } P.hp = P.maxHp; P.inv = 1; update(1 / 60); } };
+      setFireHeld(true);
       BIOMES.forEach((b, bi) => {
         run.route = [bi]; run.stage = bi * PER + 1; startStage(); tick(120);
         const n0 = enemies.length;
@@ -17,7 +17,7 @@ devSmoke(() => {
         enemies.slice().forEach(e => hurtEnemy(e, 1e6, false)); tick(30);
         console.log('SMOKE floor', b.code, 'enemies', n0, 'fy', P.fy.toFixed(2), 'raised', hgt.filter(h => h > 0).length, 'ramps', ramp.filter(r => r >= 0).length, 'haz', haz.filter(Boolean).length);
         b.bosses.forEach(kind => {
-          run.stage = bi * PER + PER - 1; startStage(); boss = null;
+          run.stage = bi * PER + PER - 1; startStage(); setBoss(null);
           enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
           spawnBoss(kind); boss.spawnT = 0; tick(400);
           if (boss && boss.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
@@ -88,17 +88,17 @@ devSmoke(() => {
         const perk = n => PERKS.find(x => x.id === n);
         for (let k = 0; k < 6; k++) ['crit', 'reload', 'mag'].forEach(n => perk(n).apply(p0, perk(n).rv));
         if (Math.abs(p0.reloadMul - 0.4) > 1e-9 || Math.abs(p0.magMul - 2.5) > 1e-9) throw new Error('caps ' + p0.reloadMul + ' ' + p0.magMul);
-        const keepP = P; P = p0; const cc = critChance(); P = keepP;
+        const keepP = P; setPlayer(p0); const cc = critChance(); setPlayer(keepP);
         // split-shot: full-hit total must go up by exactly 20% for a single-shot weapon and for the shotgun alike
-        { const keep = P; P = newPlayer(save.loadout);
+        { const keep = P; setPlayer(newPlayer(save.loadout));
           ['rail', 'shotgun'].forEach(id => {
             const w = newWeapon(id, 0), a = weaponStats(w); P.extra = 1; const b = weaponStats(w); P.extra = 0;
             if (Math.abs(b.perHit * b.hits / (a.perHit * a.hits) - 1.2) > 1e-9) throw new Error('split ' + id);
           });
-          P = keep; }
+          setPlayer(keep); }
         if (cc !== TUNE.critCap) throw new Error('crit cap ' + cc);
-        run = { stage: PER - 1, route: [0] }; const b1 = bossDiff();
-        run = { stage: 2 * PER + PER - 1, route: [0] }; const b3 = bossDiff();
+        setRun({ stage: PER - 1, route: [0] }); const b1 = bossDiff();
+        setRun({ stage: 2 * PER + PER - 1, route: [0] }); const b3 = bossDiff();
         if (Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul * presMul()) > 1e-9 || Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6) throw new Error('boss scaling ' + b1 + ' ' + b3);
         if (Math.abs(diffOf(0) - ENEMY_TUNE.hpMul * presMul()) > 1e-9) throw new Error('enemy hp base ' + diffOf(0));
         startPractice('trinity', 2); tick(5);
@@ -151,7 +151,7 @@ devSmoke(() => {
           const names = [...document.querySelectorAll('#perkList .pn')].map(n => n.textContent), maxedNames = ['crit', 'reload', 'mag', 'pierce'].map(id => perkName(id));
           if (names.some(n => maxedNames.some(m => n.replace(/^★ /, '').replace(/\+$/, '') === m))) throw new Error('maxed chip offered ' + names);
         }
-        show(null); state = 'play';
+        show(null); setState('play');
         let elite = 0; for (let k = 0; k < 400; k++) if (ELITE_TYPES.includes(pickEnemyType(BIOMES[3], 10))) elite++;
         let elite0 = 0; for (let k = 0; k < 400; k++) if (ELITE_TYPES.includes(pickEnemyType(BIOMES[3], 0))) elite0++;
         if (!(elite > elite0)) throw new Error('elite bias ' + elite0 + ' ' + elite);
@@ -266,7 +266,7 @@ devSmoke(() => {
       }
       // checkpoint: saved when a stage starts, holds the state from that moment, deleted when the run ends
       {
-        startRun(); tick(5); show(null); state = 'play';
+        startRun(); tick(5); show(null); setState('play');
         if (!save.suspend || save.suspend.run.stage !== run.stage) throw new Error('checkpoint at stage start');
         const bits0 = save.suspend.run.bits; run.bits += 999;
         if (save.suspend.run.bits !== bits0) throw new Error('checkpoint changed mid-stage');
@@ -328,7 +328,7 @@ if (location.hash.startsWith('#view-')) {
   setTimeout(() => {
     const bi = BIOMES.findIndex(b => b.code === location.hash.slice(6));
     if (bi < 0) return;
-    startRun(); run.route = [bi]; run.stage = bi * PER + 1; startStage(); show(null); state = 'play';
+    startRun(); run.route = [bi]; run.stage = bi * PER + 1; startStage(); show(null); setState('play');
     for (let k = 0; k < 20; k++) update(1 / 60);
   }, 300);
 }
@@ -339,17 +339,17 @@ if (location.hash === '#view-wipe') setTimeout(() => $('#btnWipe').click(), 300)
 if (location.hash.startsWith('#boss-')) setTimeout(() => { const [k, d] = location.hash.slice(6).split('-'); if (BOSS_META[k]) startPractice(k, d ? Math.max(0, +d - 1) : 0); }, 300);
 // dev view: #view-pick stands next to a dropped weapon (for screenshots of the pick-up prompt)
 if (location.hash.startsWith('#view-pick')) setTimeout(() => {
-  startRun(); show(null); state = 'play';
+  startRun(); show(null); setState('play');
   addPickup('weapon', P.x + 0.3, P.z, { w: newWeapon('shotgun', 1, false, 2, ['rate']) });
   for (let k = 0; k < 10; k++) update(1 / 60);
 }, 300);
 // dev view: #view-haz[-<weapon>] stands on a lit hazard tile (checks the gun is drawn over it); #view-perk opens the chip screen
 if (location.hash.startsWith('#view-haz')) setTimeout(() => {
-  startRun(); run.route = [1]; run.stage = PER + 1; startStage(); show(null); state = 'play';
+  startRun(); run.route = [1]; run.stage = PER + 1; startStage(); show(null); setState('play');
   const k = haz.findIndex(Boolean); if (k < 0) return;
   P.x = ((k % W) + 0.5) * T; P.z = (((k / W) | 0) + 0.5) * T - 1.5; P.yaw = Math.PI; P.pitch = -0.5; P.hp = 1e6; P.maxHp = 1e6;
   const wid = location.hash.split('-')[2]; if (WEAPONS[wid]) { P.weapons[0] = basicW(wid); P.weapons[0].mag = magSize(P.weapons[0]); P.cur = 0; normalizeWeapons(); weaponHud(); } // #view-haz-smg etc.
-  hazT = 0.5; for (let n = 0; n < 5; n++) update(1 / 60);
+  setHazardClock(0.5); for (let n = 0; n < 5; n++) update(1 / 60);
 }, 300);
 // dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen, #view-share-res-panel: with the PC share panel open)
 if (location.hash.startsWith('#view-share')) setTimeout(() => {

@@ -11,7 +11,7 @@ function bossBase(kind, mesh, mat, behave) {
   const e = { boss: true, name, mesh, mat, baseEI: 0.3, x: cx, z: cz - 6, y, hp, maxHp: hp, hitR, r: 1.8, t: 0, timer: 2.2, pat: -1, patIdx: 0,
     pt: 0, shots: 0, acc: 0, dmg: 10 * (1 + prog(run.stage) * 0.045) * presMul(), cx, cz, behave, flash: 0, room: -1, active: true, def: { r: 1.8 } };
   mesh.position.set(e.x, y, e.z);
-  spawnEnemyObj(e); boss = e;
+  spawnEnemyObj(e); setBoss(e);
   $('#bossName').textContent = name; $('#bossBar').hidden = false;
   // entrance: grows in over introTime, invulnerable and not attacking; the name goes up big
   e.spawnT = e.spawnMax = BOSS_TUNE.introTime; e.intro = true;
@@ -33,7 +33,7 @@ function bossPhase(e) {
   e.phased = true; e.spawnT = e.spawnMax = BOSS_TUNE.phaseTime; e.intro = false;
   const p = e.mesh.position;
   burst(p.x, p.y, p.z, 0xff4d8d, 40, 12, 1.0); fireball(p.x, p.y, p.z, 4, 0xff4d8d);
-  shake = Math.max(shake, 0.4); sfx('bigboom');
+  SCR.shake = Math.max(SCR.shake, 0.4); sfx('bigboom');
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
   toast(t('boss.phase2'), 2000);
 }
@@ -46,13 +46,13 @@ function spawnBoss(kind) {
 }
 function bossDown(e) {
   setMusic(curBiome.code);
-  shake = 0.6; sfx('bigboom');
+  SCR.shake = 0.6; sfx('bigboom');
   if (e.beams) e.beams.forEach(b => { b.visible = false; });
   enemies.forEach(o => { if (!o.dead && !o.boss) { o.dead = true; burst(o.x, o.mesh.position.y, o.z, o.def.color, 10, 7, 0.6); removeEnemyMesh(o); } });
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
   if (run.practice) { // practice: no rewards, no progress; just a way home
     makePortal(e.cx, e.cz - 2, 0x54e8ff, 'extract', t('boss.toBase'));
-    $('#bossBar').hidden = true; boss = null; run.cleared = true;
+    $('#bossBar').hidden = true; setBoss(null); run.cleared = true;
     toast(t('boss.practiceWon'), 2600);
     return;
   }
@@ -63,7 +63,7 @@ function bossDown(e) {
   addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(prog(run.stage) + 2, roll > 0.9 ? 2 : 1) });
   makePortal(e.cx + 6, e.cz - 2, 0xffc24a, 'next', t('boss.forward'));
   makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', t('boss.extract'));
-  $('#bossBar').hidden = true; boss = null;
+  $('#bossBar').hidden = true; setBoss(null);
   save.bossKills++;
   if (stageInfo(run.stage).tier >= 2 && !save.canReboot) { save.canReboot = true; setTimeout(() => toast(t('boss.rebootUnlocked'), 4200), 4400); }
   const newTier = stageInfo(run.stage).tier + 1;

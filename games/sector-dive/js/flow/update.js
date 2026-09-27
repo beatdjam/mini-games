@@ -1,6 +1,9 @@
 'use strict';
 // Per-frame systems of Sector Dive, run by the engine loop (engine/core/loop.js) in this order
 LOOP.mode = () => state;
+// seconds of play time (drives blinking and animations)
+let time = 0;
+function tickClock(dt) { time += dt; }
 // one play step by hand (tests)
 function update(dt) { runSystems(dt, 'play'); }
 
@@ -15,21 +18,21 @@ function updatePlayer(dt) {
   mx += joy.x; mz -= joy.y;
   if (save.settings.stickDash && joy.id !== null) {
     const jm = Math.hypot(joy.x, joy.y);
-    if (jm > 0.97) { stickT += dt; if (stickT > 0.3 && stickArmed) { dashReq = true; stickArmed = false; } }
-    else { stickT = 0; if (jm < 0.8) stickArmed = true; }
-  } else { stickT = 0; stickArmed = true; }
+    if (jm > 0.97) { CTRL.stickT += dt; if (CTRL.stickT > 0.3 && CTRL.stickArmed) { CTRL.dashReq = true; CTRL.stickArmed = false; } }
+    else { CTRL.stickT = 0; if (jm < 0.8) CTRL.stickArmed = true; }
+  } else { CTRL.stickT = 0; CTRL.stickArmed = true; }
   const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let vx = fx * mz + rx * mx, vz = fz * mz + rz * mx;
-  P.inv -= dt; stWarn -= dt;
+  P.inv -= dt; SCR.stWarn -= dt;
   P.stDelay -= dt; if (P.stDelay <= 0) P.st = Math.min(P.stMax, P.st + P.stRegen * dt);
-  if (dashReq) {
-    dashReq = false;
+  if (CTRL.dashReq) {
+    CTRL.dashReq = false;
     if (P.st >= TUNE.dashCost) {
       const l = Math.hypot(vx, vz);
       if (l > 0.1) { P.ddx = vx / l; P.ddz = vz / l; } else { P.ddx = fx; P.ddz = fz; }
       P.dashT = TUNE.dashTime; P.st -= TUNE.dashCost; P.stDelay = TUNE.staminaDelay; P.inv = Math.max(P.inv, TUNE.dashInvuln); sfx('dash');
-    } else { stWarn = 0.3; sfx('empty'); }
+    } else { SCR.stWarn = 0.3; sfx('empty'); }
   }
   const sp = P.baseSpeed * P.spdMul * (1 + 0.06 * wo('speed'));
   if (P.dashT > 0) { P.dashT -= dt; vx = P.ddx * TUNE.dashSpeed; vz = P.ddz * TUNE.dashSpeed; }
@@ -43,21 +46,21 @@ function updatePlayer(dt) {
   if (tkey !== P.tile) { P.tile = tkey; computeFlow(ti, tj); reveal(ti, tj); }
 
   // camera + viewmodel
-  shake = Math.max(0, shake - dt * 1.2);
-  const sh = shake * shake;
+  SCR.shake = Math.max(0, SCR.shake - dt * 1.2);
+  const sh = SCR.shake * SCR.shake;
   camera.position.set(P.x + rand(-sh, sh), P.fy + EYE + Math.sin(P.bob) * 0.05 + rand(-sh, sh), P.z + rand(-sh, sh));
   camera.rotation.set(P.pitch, P.yaw, 0);
-  gunKick = Math.max(0, gunKick - dt * 0.7);
+  GUNFX.gunKick = Math.max(0, GUNFX.gunKick - dt * 0.7);
   const vp = curVM.userData.pos;
   let rl = 0;
   if (P.reloadT > 0) { const k = 1 - P.reloadT / P.reloadMax; rl = Math.sin(Math.PI * k); }
-  gun.position.set(vp[0] + Math.cos(P.bob * 0.5) * 0.012, vp[1] + Math.abs(Math.sin(P.bob * 0.5)) * 0.012 - gunKick * 0.3 - rl * 0.18, vp[2] + gunKick);
-  gun.rotation.set(gunKick * 1.6 - rl * 0.7, 0, rl * 0.5);
-  flashT -= dt; curVM.userData.flash.visible = flashT > 0;
+  gun.position.set(vp[0] + Math.cos(P.bob * 0.5) * 0.012, vp[1] + Math.abs(Math.sin(P.bob * 0.5)) * 0.012 - GUNFX.gunKick * 0.3 - rl * 0.18, vp[2] + GUNFX.gunKick);
+  gun.rotation.set(GUNFX.gunKick * 1.6 - rl * 0.7, 0, rl * 0.5);
+  GUNFX.flashT -= dt; curVM.userData.flash.visible = GUNFX.flashT > 0;
 
   // reload / shooting
   if (P.reloadT > 0) { P.reloadT -= dt; if (P.reloadT <= 0) { P.reloadT = 0; curW().mag = magSize(curW()); sfx('reloaded'); } }
-  target = findTarget();
+  setTarget(findTarget());
   P.fireCd -= dt;
   if ((fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) && P.fireCd <= 0) tryFire();
 }
@@ -74,15 +77,15 @@ function updatePortals(dt) {
   }
 }
 function updateScreenFx(dt) {
-  hitTimer -= dt; if (hitTimer <= 0) hitm.classList.remove('on');
-  vig = Math.max(0, vig - dt * 2);
+  SCR.hitTimer -= dt; if (SCR.hitTimer <= 0) hitm.classList.remove('on');
+  SCR.vig = Math.max(0, SCR.vig - dt * 2);
   if (state === 'play') updateHud();
-  miniT -= dt;
-  if (miniT <= 0) { miniT = 0.15; drawMap(mini, mctx, false); if (!bigmap.hidden) drawMap(bigmap, bctx, true); }
+  SCR.miniT -= dt;
+  if (SCR.miniT <= 0) { SCR.miniT = 0.15; drawMap(mini, mctx, false); if (!bigmap.hidden) drawMap(bigmap, bctx, true); }
 }
 
 // weapon pickups compete for "nearest" each frame, so the choice starts over first (system pickupReset)
-function resetNearest() { nearW = null; nearD = 1.9; }
+function resetNearest() { setNear(null, 1.9); }
 // all pickups at once (tests)
 function updatePickups(dt) { resetNearest(); query('pickup').forEach(p => p.update(dt)); sweepWorld(); }
 function updatePickup(p, dt) {
@@ -99,7 +102,7 @@ function updatePickup(p, dt) {
   } else if (p.kind === 'chip') {
     if (d < 1.3) { p.dead = true; sfx('chip'); openPerk(t('perk.title')); return; }
   } else if (p.kind === 'weapon') {
-    if (d < nearD) { nearD = d; nearW = p; }
+    if (d < nearD) setNear(p, d);
   }
   if (p.dead) return;
   p.mesh.position.set(p.x, p.y + Math.sin(p.t * 3) * 0.12, p.z);
@@ -114,14 +117,6 @@ function updateWave(w, dt) {
     if (Math.abs(d - w.r) < 0.6) { w.hit = true; damagePlayer(w.dmg); }
   }
   if (w.r >= w.max) w.dead = true;
-}
-function attract(dt) {
-  time += dt;
-  attractYaw += dt * 0.12;
-  camera.position.set(attractPos[0], floorY(attractPos[0], attractPos[1]) + EYE + 0.4, attractPos[1]);
-  camera.rotation.set(-0.05, attractYaw, 0);
-  portals.forEach(pt => { pt.ring.rotation.z += dt * 1.5; });
-  for (const e of enemies) { e.t += dt; e.mesh.position.y = e.fy + e.y + Math.sin(e.t * 2) * 0.15; e.body.rotation.y += dt; }
 }
 
 // ---- the systems, in order. 'play' = diving, 'base' = the base screen with the slowly turning backdrop ----

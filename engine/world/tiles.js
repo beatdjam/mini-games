@@ -6,6 +6,11 @@
 const T = 4, STEP = 0.7, RISE = 2;
 const OPP = [1, 0, 3, 2];
 let W = 0, H = 0, grid = null, flow = null, flowQ = null, hgt = null, ramp = null, cover = null;
+// the game builds a level, then hands its maps over here (only the keys given are replaced)
+function setTileWorld(o) {
+  if ('W' in o) W = o.W; if ('H' in o) H = o.H; if ('grid' in o) grid = o.grid; if ('hgt' in o) hgt = o.hgt;
+  if ('ramp' in o) ramp = o.ramp; if ('cover' in o) cover = o.cover; if ('flow' in o) flow = o.flow; if ('flowQ' in o) flowQ = o.flowQ;
+}
 function isSolid(i, j) { return i < 0 || j < 0 || i >= W || j >= H || grid[j * W + i] !== 1; }
 function solidAt(x, z) { return isSolid(Math.floor(x / T), Math.floor(z / T)); }
 function floorY(x, z) {

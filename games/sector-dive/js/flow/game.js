@@ -1,6 +1,7 @@
 'use strict';
 // ================= game flow =================
-let state = 'base', time = 0;
+let state = 'base';
+function setState(s) { state = s; }
 const screens = ['#scrBase', '#scrPerk', '#scrPause', '#scrResult', '#scrBag'];
 function show(id) { screens.forEach(s => { $(s).hidden = s !== id; }); }
 function setPlayUI(on) { $('#hud').hidden = !on; $('#touch').hidden = !on; gun.visible = on; if (!on) bigmap.hidden = true; }
@@ -10,11 +11,11 @@ function startRun() {
   if (isTouch && !isFs()) enterFs();
   if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').catch(() => {});
   const tier = clamp(save.startTier, 0, save.shortcut);
-  P = newPlayer(save.loadout);
+  setPlayer(newPlayer(save.loadout));
   const risked = save.loadout.filter(w => w && !w.basic).length;
   // non-basic weapons leave the base: they come back only on extraction
   save.loadout = save.loadout.map((w, i) => w && w.basic ? w : (i === 0 ? basicW('pistol') : null));
-  run = { stage: tier * PER, kills: 0, bits: 0, perks: [], bosses: [], startTier: tier, route: shuffle(BIOMES.map((_, i) => i)) };
+  setRun({ stage: tier * PER, kills: 0, bits: 0, perks: [], bosses: [], startTier: tier, route: shuffle(BIOMES.map((_, i) => i)) });
   save.runs++; persist();
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage();
@@ -137,8 +138,8 @@ function suspendRun() {
   goBase();
 }
 function restoreSnapshot(sn) {
-  P = Object.assign(newPlayer([basicW('pistol'), null]), sn.P);
-  run = Object.assign({}, sn.run);
+  setPlayer(Object.assign(newPlayer([basicW('pistol'), null]), sn.P));
+  setRun(Object.assign({}, sn.run));
   run.perks = (run.perks || []).map(perkIdOf);
 }
 function resumeRun() {
@@ -268,8 +269,8 @@ function startPractice(kind, tier) {
   audioInit();
   if (isTouch && !isFs()) enterFs();
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
-  P = newPlayer(save.loadout);
-  run = { stage: tier * PER + PER - 1, kills: 0, bits: 0, perks: [], startTier: 0, route: [bi], practice: true, forceBoss: kind, t0: performance.now() };
+  setPlayer(newPlayer(save.loadout));
+  setRun({ stage: tier * PER + PER - 1, kills: 0, bits: 0, perks: [], startTier: 0, route: [bi], practice: true, forceBoss: kind, t0: performance.now() });
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage(); requestLock();
   toast(t('run.practiceStart'), 2600);
@@ -328,11 +329,12 @@ function endRun(kind) {
 }
 $('#btnBack').addEventListener('click', goBase);
 function goBase() {
-  state = 'base'; run = null; P = null;
+  state = 'base'; setRun(null); setPlayer(null);
   setPlayUI(false); show('#scrBase'); renderBase();
   setMusic('BASE'); musicVolume(1);
   buildAttract();
 }
+// the base screen backdrop: the camera slowly turns in the start room (system 'attract', js/flow/update.js)
 let attractYaw = 0, attractPos = [0, 0];
 function buildAttract() {
   const ab = pick(BIOMES);
@@ -342,6 +344,14 @@ function buildAttract() {
   const [ex, ez] = roomSpot(rooms[exitIdx]); attractYaw = Math.atan2(-(ex - attractPos[0]), -(ez - attractPos[1]));
   makePortal(ex, ez, 0xffc24a, 'next', '');
   seen.fill(1);
+}
+function attract(dt) {
+  tickClock(dt);
+  attractYaw += dt * 0.12;
+  camera.position.set(attractPos[0], floorY(attractPos[0], attractPos[1]) + EYE + 0.4, attractPos[1]);
+  camera.rotation.set(-0.05, attractYaw, 0);
+  portals.forEach(pt => { pt.ring.rotation.z += dt * 1.5; });
+  for (const e of enemies) { e.t += dt; e.mesh.position.y = e.fy + e.y + Math.sin(e.t * 2) * 0.15; e.body.rotation.y += dt; }
 }
 
 // ================= base screen =================
@@ -492,7 +502,7 @@ $('#btnWipeCancel').addEventListener('click', () => { $('#dlgWipe').hidden = tru
 document.addEventListener('keydown', e => { if (e.code === 'Escape' && !$('#dlgWipe').hidden) $('#dlgWipe').hidden = true; });
 $('#btnWipeGo').addEventListener('click', () => {
   clearStore(SAVE_KEY);
-  save = defaultSave(); persist();
+  setSave(defaultSave()); persist();
   $('#dlgWipe').hidden = true; selSlot = 0;
   renderBase(); applyLayout();
 });

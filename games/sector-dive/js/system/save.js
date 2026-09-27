@@ -23,8 +23,9 @@ function loadSave() {
   return out;
 }
 let save = loadSave();
+function setSave(s) { save = s; }
 setLang(save.settings.lang || defaultLang());
 // the engine's audio reads its volumes from these
-function syncVolumes() { sfxVolume = save.settings.sfx ?? 1; bgmVolume = save.settings.bgm ?? 0.6; }
+function syncVolumes() { setVolumes(save.settings.sfx ?? 1, save.settings.bgm ?? 0.6); }
 syncVolumes();
 function persist() { saveStore(SAVE_KEY, save); }
