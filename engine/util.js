@@ -1,4 +1,5 @@
 'use strict';
+// engine: Small helpers: DOM lookup, random, clamp, shuffle, touch detection
 // Small helpers shared by every file
 const $ = s => document.querySelector(s);
 const rand = (a, b) => a + Math.random() * (b - a);

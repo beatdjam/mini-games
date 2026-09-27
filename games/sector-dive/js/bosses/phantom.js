@@ -9,7 +9,7 @@ function spawnPhantom() {
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x9fe7ff })); edge.scale.copy(body.scale);
   const lens = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), new THREE.MeshBasicMaterial({ color: 0xff4d8d })); lens.position.set(0, 0.5, 0.75);
   g.add(body, edge, lens);
-  const e = bossBase(BOSS_META.phantom.title, g, mat, 1100 * bossDiff(), 2.2, 1.6, updPhantom);
+  const e = bossBase('phantom', g, mat, updPhantom);
   e.st = 'idle'; e.timer = 1.6; e.laser = makeLaser(0xff4d8d); e.cycle = 0;
   phantomWarp(e, true);
   toast(t('boss.phantomHint'), 4200);

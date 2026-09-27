@@ -2,7 +2,9 @@
 // ================= bosses =================
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3)
 function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * Math.pow(BOSS_TUNE.growth, (prog(run.stage) - 4) / 5) * presMul(); }
-function bossBase(name, mesh, mat, hp, y, hitR, update) {
+// hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDiff
+function bossBase(kind, mesh, mat, update) {
+  const meta = BOSS_META[kind], name = meta.title, hp = meta.hp * bossDiff(), y = meta.y, hitR = meta.hitR;
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;
   const e = { boss: true, name, mesh, mat, baseEI: 0.3, x: cx, z: cz - 6, y, hp, maxHp: hp, hitR, r: 1.8, t: 0, timer: 2.2, pat: -1, patIdx: 0,

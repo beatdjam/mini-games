@@ -59,19 +59,6 @@ function weaponStats(w) {
 }
 const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
-// ---- viewmodels ----
-// the gun in hand lives in its own scene, drawn after the world with the depth buffer cleared:
-// nothing in the world (walls, hazard floors, blasts) can cover it, and its own parts still depth-sort.
-// gunScene's space is the camera's local space (gunCam sits at the origin looking down -z)
-const gunScene = new THREE.Scene(), gunCam = new THREE.PerspectiveCamera();
-gunScene.add(new THREE.HemisphereLight(0xcfefff, 0x141c26, 1.0));
-{ const l = new THREE.DirectionalLight(0xffffff, 0.45); l.position.set(1, 3, 2); gunScene.add(l); }
-const gun = new THREE.Group(); gunScene.add(gun); gun.visible = false;
-function renderGun() {
-  if (!gun.visible) return;
-  gunCam.projectionMatrix.copy(camera.projectionMatrix); gunCam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
-  renderer.autoClear = false; renderer.clearDepth(); renderer.render(gunScene, gunCam); renderer.autoClear = true;
-}
 function vmMat(c, lit) { return lit ? new THREE.MeshLambertMaterial({ color: c }) : new THREE.MeshBasicMaterial({ color: c }); }
 function vbox(w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; }
 function vcyl(r, len, mat, x, y, z) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); return m; }

@@ -32,4 +32,7 @@ function loadSave() {
 }
 let save = loadSave();
 setLang(save.settings.lang || defaultLang());
+// the engine's audio reads its volumes from these
+function syncVolumes() { sfxVolume = save.settings.sfx ?? 1; bgmVolume = save.settings.bgm ?? 0.6; }
+syncVolumes();
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }

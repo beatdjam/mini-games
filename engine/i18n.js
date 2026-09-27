@@ -1,8 +1,9 @@
 'use strict';
-// Text lookup. Each js/lang/<code>.js registers LANG.<code> = { name, ui: {key: text}, data: {...} }.
+// engine: Text lookup and language switching.
+// Each language file registers LANG.<code> = { name, ui: {key: text}, data: {...} }; ja is the fallback for missing keys.
 // - ui: screen text. A string may contain {name} placeholders; a function gets the values object.
-// - data: names / descriptions for the definitions in js/data/, copied onto them by setLang (matched by id / key / index),
-//   so code keeps reading WEAPONS[id].name, PERKS[i].desc(v) and so on.
+// - data: anything the game wants per language (names / descriptions of its definitions). setLang passes it to the
+//   game's i18nApplyData(data) if the game defines one; fillData(target, src) copies entries onto definitions by id / key / index.
 // Static HTML text is marked with data-i18n="key" (textContent) or data-i18n-aria / -alt / -content (attributes).
 const LANG = {};
 let lang = 'ja';
@@ -19,13 +20,6 @@ function fillData(target, src) {
     if (obj && typeof obj === 'object') Object.assign(obj, src[k]);
   });
 }
-function applyDataText() {
-  const d = LANG[lang].data;
-  fillData(WEAPONS, d.weapons); fillData(RARITY, d.rarity); fillData(AFFIX, d.affix);
-  fillData(BIOMES, d.biomes); fillData(BOSS_META, d.bosses); fillData(PERKS, d.perks);
-  fillData(UPGRADES, d.upgrades); fillData(PRES_UP, d.pres); fillData(LAYOUT_DEF, d.layout);
-  GUIDE_DESK.splice(0, GUIDE_DESK.length, ...d.guideDesk); GUIDE_TOUCH.splice(0, GUIDE_TOUCH.length, ...d.guideTouch);
-}
 function applyStaticText(root) {
   root = root || document;
   root.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
@@ -35,6 +29,7 @@ function applyStaticText(root) {
 }
 function setLang(code) {
   lang = LANG[code] ? code : 'ja';
-  applyDataText(); applyStaticText();
+  if (typeof i18nApplyData === 'function') i18nApplyData(LANG[lang].data);
+  applyStaticText();
 }
 const defaultLang = () => (navigator.language || 'ja').toLowerCase().startsWith('ja') ? 'ja' : 'en';

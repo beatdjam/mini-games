@@ -7,7 +7,7 @@ function spawnWatcher() {
   const mat = new THREE.MeshLambertMaterial({ color: 0x0f151c, emissive: 0x54e8ff, emissiveIntensity: 0.3 });
   g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x54e8ff })));
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff4d8d })); eye.position.z = 1.75; g.add(eye);
-  bossBase(BOSS_META.watcher.title, g, mat, 1300 * bd, 3.2, 2.4, updWatcher);
+  bossBase('watcher', g, mat, updWatcher);
   toast(t('boss.watcherHint'), 3800);
 }
 function updWatcher(e, dt) {

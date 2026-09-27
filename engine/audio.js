@@ -1,4 +1,5 @@
 'use strict';
+// engine: Sound effects synth (Web Audio): layered noise / oscillator helpers, a gunshot voice, sfx(name) plays SFX[name] from the game
 // Sound effects synth (Web Audio)
 let actx = null, master = null, noiseBuf = null;
 const lastSfx = {};
@@ -15,7 +16,9 @@ function audioInit() {
     musicInit(); // js/music.js
   } catch (e) { actx = null; }
 }
-function applySfxVolume() { if (master) master.gain.value = 0.32 * (save.settings.sfx ?? 1); }
+// the game sets these from its settings (0..1)
+let sfxVolume = 1, bgmVolume = 0.6;
+function applySfxVolume() { if (master) master.gain.value = 0.32 * sfxVolume; }
 function tone(freq, dur, type, vol, slide, delay) {
   if (!actx) return;
   const t = actx.currentTime + (delay || 0), o = actx.createOscillator(), g = actx.createGain();

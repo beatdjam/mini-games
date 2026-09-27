@@ -7,7 +7,7 @@ function spawnCrusher() {
   const mat = new THREE.MeshLambertMaterial({ color: 0x1c0f09, emissive: 0xff8a3d, emissiveIntensity: 0.3 });
   const plate = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.2), new THREE.MeshBasicMaterial({ color: 0xffc24a })); plate.position.set(0, 0.5, 1.65);
   g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xff8a3d })), plate);
-  const e = bossBase(BOSS_META.crusher.title, g, mat, 1800 * bd, 1.6, 2.4, updCrusher);
+  const e = bossBase('crusher', g, mat, updCrusher);
   e.st = 'idle'; e.timer = 2;
   toast(t('boss.crusherHint'), 4200);
 }

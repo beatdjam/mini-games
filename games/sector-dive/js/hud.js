@@ -1,17 +1,8 @@
 'use strict';
-// ================= HUD =================
 const hpFill = $('#hpFill'), hpNum = $('#hpNum'), hpBar = $('#hpBar'), stFill = $('#stFill'), stBar = $('#stBar'), bitNum = $('#bitNum');
 const cross = $('#cross'), hitm = $('#hitm'), ammoEl = $('#ammo'), reloadEl = $('#reload'), rFill = $('#rFill');
 const vigEl = $('#vig'), bossFill = $('#bossFill'), mini = $('#mini'), mctx = mini.getContext('2d'), bigmap = $('#bigmap'), bctx = bigmap.getContext('2d');
-let toastTimer = 0, hitTimer = 0, vig = 0, shake = 0, miniT = 0, stWarn = 0;
-function toast(msg, ms) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms || 2200);
-}
-function banner(code, sub) {
-  $('#bannerCode').textContent = code; $('#bannerSub').textContent = sub;
-  const b = $('#banner'); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 2000);
-}
+let hitTimer = 0, vig = 0, shake = 0, miniT = 0, stWarn = 0;
 function hitMark(crit) { hitm.classList.add('on'); hitm.classList.toggle('crit', !!crit); hitTimer = 0.09; }
 function toggleMap() { if (state !== 'play') return; bigmap.hidden = !bigmap.hidden; miniT = 0; }
 function weaponHud() {
@@ -108,30 +99,12 @@ function drawMap(c, g, big) {
   g.moveTo(x + fx * a, z + fz * a); g.lineTo(x - fx * b + fz * b, z - fz * b - fx * b); g.lineTo(x - fx * b - fz * b, z - fz * b + fx * b); g.closePath(); g.fill();
 }
 
-// ================= fullscreen =================
-const fsEl = document.documentElement;
-const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
-const isStandalone = (window.matchMedia && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) || navigator.standalone === true;
-const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
-function enterFs() {
-  try {
-    const fn = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
-    const p = fn.call(fsEl);
-    const lockLand = () => { try { const q = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (q && q.catch) q.catch(() => {}); } catch (e) {} };
-    if (p && p.then) p.then(lockLand, () => {}); else lockLand();
-  } catch (e) {}
-}
-function exitFs() {
-  try { const fn = document.exitFullscreen || document.webkitExitFullscreen; const p = fn.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) {}
-}
-function toggleFs() { if (!fsSupported) return; if (document.fullscreenElement || document.webkitFullscreenElement) exitFs(); else enterFs(); }
 function fsLabel() { $('#btnFs').textContent = t(isFs() ? 'hud.fsOff' : 'hud.fs'); }
 $('#btnFs').hidden = !fsSupported || isStandalone;
 fsLabel();
 $('#btnFs').addEventListener('click', toggleFs);
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { fsLabel(); renderSettings(); setTimeout(resize, 100); }));
 
-// ================= settings / guide =================
 function settingsHTML(where) {
   const st = save.settings;
   const onOff = v => t(v ? 'set.on' : 'set.off');
@@ -162,7 +135,7 @@ document.addEventListener('input', e => {
   if (e.target.classList && e.target.classList.contains('volIn')) {
     const k = e.target.dataset.vol; save.settings[k] = parseFloat(e.target.value); persist();
     document.querySelectorAll(`.volIn[data-vol="${k}"]`).forEach(v => { if (v !== e.target) v.value = save.settings[k]; });
-    audioInit(); musicVolume(); applySfxVolume();
+    syncVolumes(); audioInit(); musicVolume(); applySfxVolume();
     return;
   }
   if (e.target.classList && e.target.classList.contains('sensIn')) {
@@ -171,7 +144,6 @@ document.addEventListener('input', e => {
     document.querySelectorAll('.sensIn').forEach(v => { if (v !== e.target) v.value = save.settings.sens; });
   }
 });
-// ================= touch layout =================
 const getL = id => Object.assign({}, LAYOUT_DEF[id], (save.settings.layout || {})[id] || {});
 function applyLayout() {
   const vw = window.innerWidth, vh = window.innerHeight;

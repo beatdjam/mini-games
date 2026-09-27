@@ -7,6 +7,7 @@
 
 ```
 index.html                  トップページ（ゲーム一覧）
+engine/                     ゲームをまたいで使うコア（描画・当たり判定・音・文言の仕組みなど。engine/README.md）
 games/<game-id>/index.html  各ゲームの入口
 games/<game-id>/SPEC.md     各ゲームの仕様書兼説明書
 games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）

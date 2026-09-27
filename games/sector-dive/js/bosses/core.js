@@ -8,7 +8,7 @@ function spawnCore() {
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   const knot = new THREE.Mesh(geo, mat);
   g.add(knot, core);
-  const e = bossBase(BOSS_META.core.title, g, mat, 2400 * bd, 2.6, 2.3, updCore);
+  const e = bossBase('core', g, mat, updCore);
   e.x = e.cx; e.z = e.cz; g.position.set(e.x, e.y, e.z); e.knot = knot;
   e.beams = []; e.ba = 0; e.bdir = 1;
   for (let k = 0; k < 3; k++) {

@@ -1,11 +1,5 @@
 'use strict';
-// Music: scales, per-sector styles, layer mix (the player is js/music.js)
-const SCALES = {
-  minor:    [0, 2, 3, 5, 7, 8, 10],
-  phrygian: [0, 1, 3, 5, 7, 8, 10],
-  locrian:  [0, 1, 3, 5, 6, 8, 10],
-  harmonic: [0, 2, 3, 5, 7, 8, 11],
-};
+// Music: per-sector styles and the layer mix (the player is engine/music.js, which also holds SCALES)
 // patterns are 16 steps (16th notes, one bar). arp: chord tone index (0-2, +3 = octave up), -1 rest.
 // bass: 1 root, 2 fifth, 3 octave, 0 rest. kick / snare / hat / clank: 1 hit, 0 rest.
 // drone: low sustained root + fifth; wind: filtered noise swells; echo: quieter repeat of arp notes (fake delay);
