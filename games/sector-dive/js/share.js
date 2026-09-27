@@ -1,5 +1,6 @@
 // ---- sharing a run's result: a card image + a short text with #SectorDive ----
-// phones get the share sheet with the image attached; elsewhere the image is saved and X's post screen opens with the text
+// phones get the share sheet with the image attached. PCs skip it (a desktop share sheet rarely has X):
+// the image goes to the clipboard (or is saved if that fails) and X's post screen opens with the text
 const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
 let shareData = null, shareBlob = null;
 
@@ -71,18 +72,25 @@ function shareResult() {
   if (!shareData) return;
   const text = shareText(shareData);
   const file = shareBlob && new File([shareBlob], 'sector-dive.png', { type: 'image/png' });
-  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+  if (isTouch && file && navigator.canShare && navigator.canShare({ files: [file] })) {
     navigator.share({ files: [file], text }).catch(e => { if (e.name !== 'AbortError') shareFallback(text); });
     return;
   }
   shareFallback(text);
 }
+function saveShareImage() {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(shareBlob); a.download = 'sector-dive.png';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast('画像を保存した。投稿画面で添付してね', 3000);
+}
 function shareFallback(text) {
   if (shareBlob) {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(shareBlob); a.download = 'sector-dive.png';
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    // start the clipboard write inside the click, before the new tab takes focus
+    let copy = null;
+    try { if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) copy = navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })]); } catch (e) {}
+    if (copy) copy.then(() => toast('画像をコピーした。投稿画面に貼り付けてね', 3500), saveShareImage);
+    else saveShareImage();
   }
   window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank', 'noopener');
-  if (shareBlob) toast('画像を保存した。投稿画面で添付してね', 2600);
 }
 $('#btnShare').addEventListener('click', shareResult);
