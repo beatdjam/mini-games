@@ -106,8 +106,7 @@ function genArena(withPillars) {
 function clearLevel() {
   if (levelGroup) { disposeTree(levelGroup); scene.remove(levelGroup); levelGroup = null; }
   enemies.forEach(removeEnemyMesh); enemies = [];
-  pickups.forEach(p => { disposeTree(p.mesh); dynGroup.remove(p.mesh); }); pickups = [];
-  waves.forEach(w => { disposeTree(w.m); dynGroup.remove(w.m); }); waves = [];
+  clearWorld();
   clearPool(pBullets); clearPool(eBullets);
   clearFx();
   portals = []; boss = null; nearW = null; hazMat = null;

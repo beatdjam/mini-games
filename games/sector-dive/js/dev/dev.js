@@ -108,15 +108,15 @@ devSmoke(() => {
       }
       // picking up: stow goes to the bag, equip swaps with the weapon in hand and drops the old one
       {
-        startRun(); tick(5); pickups.slice().forEach(p => { p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh); }); pickups = [];
+        startRun(); tick(5); clearWorld('pickup');
         P.weapons = [newWeapon('pistol', 0, true), newWeapon('smg', 0)]; P.cur = 0; P.bag = [null, null, null, null];
         const drop = id => { addPickup('weapon', P.x, P.z, { w: newWeapon(id, 1) }); updatePickups(0); };
         drop('rail'); stowNearby();
         if (!P.bag[0] || P.bag[0].id !== 'rail') throw new Error('stow');
         drop('shotgun'); equipNearby();
-        if (P.weapons[0].id !== 'shotgun' || !pickups.some(p => !p.dead && p.kind === 'weapon' && p.w.id === 'pistol')) throw new Error('equip swap');
+        if (P.weapons[0].id !== 'shotgun' || !query('pickup').some(p => p.kind === 'weapon' && p.w.id === 'pistol')) throw new Error('equip swap');
         P.bag = [newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0)];
-        pickups.slice().forEach(p => { p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh); }); pickups = [];
+        clearWorld('pickup');
         drop('launcher'); stowNearby();
         if (P.bag.some(w => w.id === 'launcher') || !nearW) throw new Error('stow into a full bag');
         console.log('SMOKE pickup ok');

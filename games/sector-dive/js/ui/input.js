@@ -56,7 +56,7 @@ function normalizeWeapons() {
 function takeNearby() {
   if (state !== 'play' || !nearW) return null;
   const p = nearW;
-  p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh);
+  p.dead = true; p.mesh.visible = false; // the engine world disposes it
   nearW = null; sfx('pick'); gunKick = 0.12;
   return p.w;
 }

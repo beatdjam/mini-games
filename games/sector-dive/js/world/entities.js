@@ -1,6 +1,7 @@
 'use strict';
 // ================= entities =================
-let enemies = [], pickups = [], waves = [], boss = null, nearW = null, target = null;
+// pickups and shockwaves live in the engine world (engine/core/world.js) with tag 'pickup' / 'wave'
+let enemies = [], boss = null, nearW = null, nearD = 1.9, target = null;
 const pBullets = [], eBullets = [];
 function spawnPBullet(pos, dir, speed, dmg, pierce, blast, color, grav, opt) {
   const b = takeFromPool(pBullets, geoCache.pbullet, 220); if (!b) return;
@@ -116,8 +117,9 @@ function addPickup(kind, x, z, extra) {
   }
   const baseY = (kind === 'bit' ? 0.5 : 1.0) + floorY(x, z);
   mesh.position.set(x, baseY, z); dynGroup.add(mesh);
-  const p = Object.assign({ kind, x, z, y: baseY, mesh, t: rand(0, 6), dead: false }, extra || {});
-  pickups.push(p); return p;
+  const p = Object.assign({ tag: 'pickup', kind, x, z, y: baseY, mesh, t: rand(0, 6), dead: false }, extra || {});
+  p.update = dt => updatePickup(p, dt);
+  return spawn(p);
 }
 function dropBits(x, z, total) {
   const n = clamp(Math.round(total / 4), 1, 10), per = total / n;
@@ -126,5 +128,6 @@ function dropBits(x, z, total) {
 function spawnWave(x, z, speed, max, dmg, color) {
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false });
   const m = new THREE.Mesh(geoCache.wave, mat); m.position.set(x, floorY(x, z) + 0.55, z); m.scale.set(0.5, 1, 0.5); dynGroup.add(m);
-  waves.push({ x, z, r: 0.5, speed, max, dmg, hit: false, m, dead: false });
+  const w = spawn({ tag: 'wave', x, z, r: 0.5, speed, max, dmg, hit: false, mesh: m, dead: false });
+  w.update = dt => updateWave(w, dt);
 }

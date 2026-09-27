@@ -81,41 +81,39 @@ function updateScreenFx(dt) {
   if (miniT <= 0) { miniT = 0.15; drawMap(mini, mctx, false); if (!bigmap.hidden) drawMap(bigmap, bctx, true); }
 }
 
-function updatePickups(dt) {
-  nearW = null; let nearD = 1.9;
-  for (const p of pickups) {
-    if (p.dead) continue;
-    p.t += dt;
-    const dx = P.x - p.x, dz = P.z - p.z, d = Math.abs(p.y - P.fy - (p.kind === 'bit' ? 0.5 : 1)) < 1.4 || p.kind === 'bit' ? Math.hypot(dx, dz) : 99;
-    if (p.kind === 'bit') {
-      if (d < 2.4 * P.magnet) { const s = Math.min(d, 14 * dt); p.x += dx / (d || 1) * s; p.z += dz / (d || 1) * s; p.y += (P.fy + 0.5 - p.y) * Math.min(1, dt * 8); }
-      if (d < 0.7) { p.dead = true; run.bits += p.value * P.gainMul * (1 + 0.1 * wo('gain')); sfx('pick', 30); }
-    } else if (p.kind === 'kit') {
-      if (d < 1.1) {
-        if (P.kits < KIT_MAX) { p.dead = true; P.kits++; sfx('pick'); toast(t('run.kitPlus', { n: P.kits, max: KIT_MAX }), 1200); weaponHud(); }
-        else if (P.hp < P.maxHp) { p.dead = true; P.hp = Math.min(P.maxHp, P.hp + 20); sfx('heal'); toast(t('run.kitUsedNow'), 1500); }
-      }
-    } else if (p.kind === 'chip') {
-      if (d < 1.3) { p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh); sfx('chip'); openPerk(t('perk.title')); continue; }
-    } else if (p.kind === 'weapon') {
-      if (d < nearD) { nearD = d; nearW = p; }
+// weapon pickups compete for "nearest" each frame, so the choice starts over first (system pickupReset)
+function resetNearest() { nearW = null; nearD = 1.9; }
+// all pickups at once (tests)
+function updatePickups(dt) { resetNearest(); query('pickup').forEach(p => p.update(dt)); sweepWorld(); }
+function updatePickup(p, dt) {
+  p.t += dt;
+  const dx = P.x - p.x, dz = P.z - p.z, d = Math.abs(p.y - P.fy - (p.kind === 'bit' ? 0.5 : 1)) < 1.4 || p.kind === 'bit' ? Math.hypot(dx, dz) : 99;
+  if (p.kind === 'bit') {
+    if (d < 2.4 * P.magnet) { const s = Math.min(d, 14 * dt); p.x += dx / (d || 1) * s; p.z += dz / (d || 1) * s; p.y += (P.fy + 0.5 - p.y) * Math.min(1, dt * 8); }
+    if (d < 0.7) { p.dead = true; run.bits += p.value * P.gainMul * (1 + 0.1 * wo('gain')); sfx('pick', 30); }
+  } else if (p.kind === 'kit') {
+    if (d < 1.1) {
+      if (P.kits < KIT_MAX) { p.dead = true; P.kits++; sfx('pick'); toast(t('run.kitPlus', { n: P.kits, max: KIT_MAX }), 1200); weaponHud(); }
+      else if (P.hp < P.maxHp) { p.dead = true; P.hp = Math.min(P.maxHp, P.hp + 20); sfx('heal'); toast(t('run.kitUsedNow'), 1500); }
     }
-    if (p.dead) { disposeTree(p.mesh); dynGroup.remove(p.mesh); continue; }
-    p.mesh.position.set(p.x, p.y + Math.sin(p.t * 3) * 0.12, p.z);
-    p.mesh.rotation.y += dt * 2;
-    if (p.kind === 'chip') p.mesh.rotation.x += dt;
+  } else if (p.kind === 'chip') {
+    if (d < 1.3) { p.dead = true; sfx('chip'); openPerk(t('perk.title')); return; }
+  } else if (p.kind === 'weapon') {
+    if (d < nearD) { nearD = d; nearW = p; }
   }
+  if (p.dead) return;
+  p.mesh.position.set(p.x, p.y + Math.sin(p.t * 3) * 0.12, p.z);
+  p.mesh.rotation.y += dt * 2;
+  if (p.kind === 'chip') p.mesh.rotation.x += dt;
 }
-function updateWaves(dt) {
-  for (const w of waves) {
-    w.r += w.speed * dt;
-    w.m.scale.set(w.r, 1, w.r); w.m.material.opacity = 0.75 * (1 - w.r / w.max);
-    if (!w.hit) {
-      const d = Math.hypot(P.x - w.x, P.z - w.z);
-      if (Math.abs(d - w.r) < 0.6) { w.hit = true; damagePlayer(w.dmg); }
-    }
-    if (w.r >= w.max) { w.dead = true; disposeTree(w.m); dynGroup.remove(w.m); }
+function updateWave(w, dt) {
+  w.r += w.speed * dt;
+  w.mesh.scale.set(w.r, 1, w.r); w.mesh.material.opacity = 0.75 * (1 - w.r / w.max);
+  if (!w.hit) {
+    const d = Math.hypot(P.x - w.x, P.z - w.z);
+    if (Math.abs(d - w.r) < 0.6) { w.hit = true; damagePlayer(w.dmg); }
   }
+  if (w.r >= w.max) w.dead = true;
 }
 function attract(dt) {
   time += dt;
@@ -132,8 +130,9 @@ addSystem({ name: 'player', order: 0, modes: PLAY, update: updatePlayer });
 addSystem({ name: 'enemies', order: 10, modes: PLAY, update: updateEnemies });
 addSystem({ name: 'playerBullets', order: 20, modes: PLAY, update: updatePBullets });
 addSystem({ name: 'enemyBullets', order: 21, modes: PLAY, update: updateEBullets });
-addSystem({ name: 'pickups', order: 30, modes: PLAY, update: updatePickups });
-addSystem({ name: 'waves', order: 31, modes: PLAY, update: updateWaves });
+addSystem({ name: 'pickupReset', order: 29, modes: PLAY, update: resetNearest });
+// pickups and shockwaves: engine world objects (engine/core/world.js), updated at order 30
+WORLD.system.modes = PLAY;
 // engine effects (engine/render/fx.js): frozen while paused; particles also drift on the base screen
 FX.fireballs.modes = PLAY; FX.particles.modes = ['play', 'base'];
 addSystem({ name: 'hazards', order: 50, modes: PLAY, update: updateHazards });
@@ -142,7 +141,7 @@ addSystem({ name: 'music', order: 60, modes: PLAY, update: updateMusic });
 addSystem({ name: 'endGuard', order: 65, modes: PLAY, update: () => { if (state === 'result') stopFrame(); } });
 addSystem({ name: 'portals', order: 70, modes: PLAY, update: updatePortals });
 addSystem({ name: 'cleanup', order: 80, modes: PLAY, update: () => {
-  enemies = enemies.filter(e => !e.dead); pickups = pickups.filter(p => !p.dead); waves = waves.filter(w => !w.dead);
+  enemies = enemies.filter(e => !e.dead);
 } });
 addSystem({ name: 'screenFx', order: 90, modes: PLAY, update: updateScreenFx });
 addSystem({ name: 'attract', order: 0, modes: ['base'], update: attract });

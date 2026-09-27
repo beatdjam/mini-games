@@ -80,8 +80,8 @@ function drawMap(c, g, big) {
   }
   g.globalAlpha = 1;
   const px = x => x / T * s, u = c.width / 160;
-  pickups.forEach(p => {
-    if (p.dead || p.kind === 'bit') return;
+  query('pickup').forEach(p => {
+    if (p.kind === 'bit') return;
     if (!seen[Math.floor(p.z / T) * W + Math.floor(p.x / T)]) return;
     g.fillStyle = p.kind === 'chip' ? '#ffc24a' : p.kind === 'kit' ? '#8cff6a' : '#ffffff';
     g.fillRect(px(p.x) - 2.5 * u, px(p.z) - 2.5 * u, 5 * u, 5 * u);
