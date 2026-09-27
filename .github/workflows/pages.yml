@@ -35,9 +35,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - name: ビルド（Vite。dist/ に出力し、版番号を書き込む）
+      - name: 型チェックとビルド（Vite。dist/ に出力し、版番号を書き込む）
         run: |
           npm ci
+          npm run typecheck
           npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

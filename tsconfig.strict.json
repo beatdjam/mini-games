@@ -1,0 +1,17 @@
+{
+  // Files already written to the strict rules. npm run typecheck checks the whole repo with the loose settings
+  // (tsconfig.json), then these files strictly. To tighten a file: add it here, run `npx tsc -p tsconfig.strict.json`,
+  // and fix what it reports. The check also covers every file a listed file imports, so go from the leaves up
+  // (a file can join once everything it imports is already listed).
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "strict": true },
+  "include": [],
+  "files": [
+    "engine/vendor.d.ts",
+    "engine/core/util.ts",
+    "engine/core/store.ts",
+    "engine/core/stale.ts",
+    "engine/core/dev.ts",
+    "engine/core/i18n.ts"
+  ]
+}

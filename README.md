@@ -9,8 +9,8 @@
 index.html                   トップページ（ゲーム一覧）
 engine/                      ゲームをまたいで使うコア（ループ・描画・当たり判定・弾・音・入力・文言など。engine/SPEC.md）
 engine/test/                 engine のテスト
-games/<game-id>/index.html   各ゲームのページ。入口の main.js を1つ読む
-games/<game-id>/main.js      入口。全モジュールを読み込み、最後に起動処理をする
+games/<game-id>/index.html   各ゲームのページ。入口の main.ts を1つ読む
+games/<game-id>/main.ts      入口。全モジュールを読み込み、最後に起動処理をする
 games/<game-id>/js/          ゲームのモジュール
 games/<game-id>/SPEC.md      各ゲームの仕様書兼説明書
 games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
@@ -22,12 +22,22 @@ vite.config.js               開発サーバーとビルドの設定
 
 ## 開発
 
-- ES モジュール（import / export）＋ Vite。three.js は npm の `three`（0.128.0 に固定）
+- TypeScript の ES モジュール（import / export）＋ Vite。three.js は npm の `three`（0.128.0 に固定、型は `@types/three`）
 - 最初に `npm install`
 - `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
+- `npm run typecheck`: 型チェック（下の「TypeScript」）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
 - `npm run build`: 公開用に `dist/` を作る。`npm run preview` で、公開と同じ `/mini-games/` の下で確かめられる
 - 確認: `tools/headless.sh 'games/<game-id>/#smoke' 200000`（ゲームのスモークテスト）、`tools/headless.sh 'engine/test/' 20000`（engine のテスト）。開発サーバーが動いていなければ立てる
-- 公開: master に push すると、Actions がビルドして GitHub Pages に出す。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
+- 公開: master に push すると、Actions が型チェックとビルドをして GitHub Pages に出す（型エラーがあれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
+
+## TypeScript
+
+- 型チェックは2段階。`tsconfig.json` はリポジトリ全体をゆるい設定（`strict: false`）で見る。`tsconfig.strict.json` は、厳しい設定（`strict: true`）に書き直し終えたファイルだけを一覧で見る
+- `npm run typecheck` は両方を流す。どちらもエラー0を保つ
+- **厳しくする手順**: ファイルを `tsconfig.strict.json` の `files` に足して `npx tsc --noEmit -p tsconfig.strict.json` を流し、出たエラーを直す。厳しいチェックはそのファイルが import しているファイルにも及ぶので、依存の少ないもの（engine の `core/` など）から順に足していく
+- 型の置き場所: engine の型は持ち主のモジュールから export する（`System`, `WorldObject`, `InputConfig`, `TouchLayoutConfig`, `LangPack` など）。ゲームの定義の型は `games/<id>/js/data/types.ts`
+- あとから項目が増えるオブジェクト（敵やボス）は、今は任意の項目を許す型（`[k: string]: any`）にしている。厳しくするときは項目を書き並べて、これを外す
+- 新しく書くファイル（2本目のゲームなど）は、最初から `tsconfig.strict.json` に入れる
 
 ## 仕様書のルール
 
@@ -51,7 +61,7 @@ vite.config.js               開発サーバーとビルドの設定
 
 ## ゲームの追加手順
 
-1. `games/<game-id>/index.html` と入口の `main.js` を置く（`<script type="module" src="./main.js">`）。engine は `../../engine/...` から import する。版番号を使うなら `<meta name="build" content="dev">` を入れる（ビルドが書き換える）
+1. `games/<game-id>/index.html` と入口の `main.ts` を置く（`<script type="module" src="./main.ts">`）。engine は `../../engine/...` から import する。版番号を使うなら `<meta name="build" content="dev">` を入れる（ビルドが書き換える）
 2. `index.html` の `<ul class="games">` に `<li>` を1つ足す
 3. ゲーム側に一覧へ戻るリンク `<a href="../../">` を入れておく
 4. 更新履歴を付けるなら、`games/sector-dive/updates.html` を参考に `updates.html` を置く（`<!-- updates:start -->` と `<!-- updates:end -->` の目印を入れる）。ゲームのフォルダの `.html` はビルドに自動で入る
@@ -62,4 +72,4 @@ vite.config.js               開発サーバーとビルドの設定
 
 | ID | 名前 | 概要 |
 |----|------|------|
-| sector-dive | Sector Dive | ランダム生成ローグライトFPS（Three.js、スマホ対応）。仕様: [SPEC.md](games/sector-dive/SPEC.md) |
+| sector-dive | Sector Dive | ランダム生成ローグライトFPS（Three.ts、スマホ対応）。仕様: [SPEC.md](games/sector-dive/SPEC.md) |

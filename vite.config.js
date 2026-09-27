@@ -2,8 +2,8 @@
 // Every games/<id>/index.html (plus its other pages) is a page of the build. Files that must keep their names
 // (PWA manifest, icons) live in public/ and are copied as they are. The build stamps a version:
 // <meta name="build" content="dev"> becomes the build time, and games/<id>/version.json carries the same value
-// (engine/core/stale.js, inlined into the page, compares the two to replace a stale cached page).
-import { defineConfig } from 'vite';
+// (engine/core/stale.ts, inlined into the page, compares the two to replace a stale cached page).
+import { defineConfig, transformWithEsbuild } from 'vite';
 import { resolve } from 'node:path';
 import { readdirSync, existsSync, readFileSync } from 'node:fs';
 
@@ -19,9 +19,12 @@ function buildStamp() {
   return {
     name: 'build-stamp',
     apply: 'build',
-    // stamp the build and inline the stale-page guard (engine/core/stale.js) right after the build meta
-    transformIndexHtml: html => html.replace(/(<meta name="build" content=")dev">/,
-      `$1${BUILD}">\n<script>\n${readFileSync('engine/core/stale.js', 'utf8')}</script>`),
+    // stamp the build and inline the stale-page guard (engine/core/stale.ts, compiled to JS) right after the build meta
+    async transformIndexHtml(html) {
+      if (!html.includes('<meta name="build" content="dev">')) return html;
+      const { code } = await transformWithEsbuild(readFileSync('engine/core/stale.ts', 'utf8'), 'stale.ts', { minify: true });
+      return html.replace('<meta name="build" content="dev">', `<meta name="build" content="${BUILD}">\n<script>${code.trim()}</script>`);
+    },
     generateBundle() {
       for (const g of games) this.emitFile({ type: 'asset', fileName: `games/${g}/version.json`, source: JSON.stringify({ build: BUILD }) + '\n' });
     },
