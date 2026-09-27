@@ -105,37 +105,9 @@ function updateSniper(e, dt, los, py) {
 
 // Walk toward the player (straight when in sight, along the flow field otherwise),
 // circle-strafe when a `keep` distance is set, and push away from nearby enemies.
+// chase the player (engine/world/steer.js); bosses don't take part in the pushing apart
 function steerEnemy(e, dt, dx, dz, dist, los) {
-  const def = e.def;
-  let tx = 0, tz = 0, speed = def.speed;
-  if (los) {
-    if (def.keep && dist < def.keep) {
-      tx = -dz / dist * e.side;
-      tz = dx / dist * e.side;
-      speed *= 0.6;
-      if (Math.random() < dt * 0.4) e.side *= -1;
-    } else {
-      tx = dx / dist;
-      tz = dz / dist;
-    }
-  } else {
-    const f = flowDir(e.x, e.z);
-    if (f) { tx = f[0]; tz = f[1]; } else { tx = dx / dist; tz = dz / dist; }
-  }
-  for (const o of enemies) {
-    if (o === e || o.dead || o.boss) continue;
-    const ox = e.x - o.x, oz = e.z - o.z, d2 = ox * ox + oz * oz, rr = e.r + o.r + 0.3;
-    if (d2 < rr * rr && d2 > 1e-4) {
-      const d = Math.sqrt(d2);
-      tx += ox / d * 0.9;
-      tz += oz / d * 0.9;
-    }
-  }
-  const tl = Math.hypot(tx, tz);
-  if (tl > 0.01) {
-    moveCircle(e, tx / tl * speed * dt, tz / tl * speed * dt, e.r);
-    e.fy = floorY(e.x, e.z);
-  }
+  steerChase(e, dt, dx, dz, dist, los, e.def.speed, e.def.keep, enemies, o => o.boss);
 }
 
 // Place the mesh, face the player (limited by def.turn rad/s if set), spin decorative bodies.
