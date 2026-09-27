@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="スマホで遊べるランダム生成ローグライトFPS">
-<meta name="build" content="20260927231505">
+<meta name="build" content="20260928005828">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#05080c">
 <meta name="mobile-web-app-capable" content="yes">
@@ -147,9 +147,9 @@ body.desk.nolock .tbtn{display:grid}
   padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px));
   background:linear-gradient(180deg,rgba(5,8,12,.55),rgba(5,8,12,.93) 45%)}
 .screen.center{display:grid;place-items:center;background:rgba(5,8,12,.84)}
-.base{max-width:880px;margin:0 auto;display:grid;gap:24px}
+.base{max-width:880px;margin:0 auto;display:grid;gap:18px}
 .head{display:grid;gap:6px}
-.head h1{margin:0;font-family:var(--disp);font-weight:700;font-size:clamp(34px,8vw,64px);letter-spacing:.14em;line-height:1;text-shadow:0 0 24px rgba(84,232,255,.35)}
+.head h1{margin:0;font-family:var(--disp);font-weight:700;font-size:clamp(30px,6vw,52px);letter-spacing:.14em;line-height:1;text-shadow:0 0 24px rgba(84,232,255,.35)}
 .head h1 span{color:var(--cyan)}
 .head p{margin:0;color:var(--dim);font-size:14px;line-height:1.7;max-width:62ch}
 .back{justify-self:start;font-size:13px;color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line)}
@@ -209,7 +209,22 @@ body.desk.nolock .tbtn{display:grid}
 .sens{display:flex;gap:8px;align-items:center;padding:6px 12px;border:1px solid var(--line);background:var(--panel)}
 .sens input{width:120px;accent-color:var(--cyan)}
 .help{font-size:12px;color:var(--dim);line-height:1.8;margin:0}
-.startbar{position:sticky;bottom:0;padding-top:8px;display:grid}
+.startbar{position:sticky;bottom:calc(-24px - env(safe-area-inset-bottom,0px));margin-bottom:calc(-24px - env(safe-area-inset-bottom,0px));padding:10px 0 calc(12px + env(safe-area-inset-bottom,0px));display:grid;background:linear-gradient(180deg,rgba(5,8,12,0),#05080c 10px);z-index:2}
+.tabs{position:sticky;top:calc(-20px - env(safe-area-inset-top,0px));z-index:2;display:flex;border-bottom:1px solid var(--line);background:rgba(5,8,12,.96);margin-inline:-4px;padding-inline:4px}
+.tabs button{flex:1 1 0;padding:10px 8px;border:0;border-bottom:2px solid transparent;background:none;color:var(--dim);font-size:15px}
+.tabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--cyan)}
+.tabs button:hover{color:var(--text)}
+.pane{display:grid;gap:24px;min-height:40vh}
+.pane[hidden]{display:none}
+@media (max-height:520px){
+  .base{gap:10px}
+  .head{gap:0}.head .eyebrow,.head .lead{display:none}.head h1{font-size:24px}
+  .stats .eyebrow{font-size:9px;letter-spacing:.14em}.stats b{font-size:15px}.stats div{padding:4px 10px;gap:0}
+  .tabs button{padding:6px}
+  .startbar{padding-top:6px}
+  .startbar .primary{padding:7px 14px;font-size:15px}.startbar .primary small{display:inline;margin:0 0 0 12px}
+  .suspend{padding:8px;gap:6px}.suspend .eyebrow{display:none}
+}
 .primary{padding:14px 18px;border:1px solid var(--cyan);background:rgba(84,232,255,.14);font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:.2em;color:var(--text);box-shadow:0 0 18px rgba(84,232,255,.2)}
 .primary small{display:block;font-family:var(--jp);font-weight:400;font-size:12px;letter-spacing:.1em;color:var(--dim);margin-top:2px}
 .ghost{padding:12px 16px;border:1px solid var(--line);background:var(--panel)}
@@ -331,10 +346,9 @@ body.desk.nolock .tbtn{display:grid}
   <section id="scrBase" class="screen">
     <div class="base">
       <div class="head">
-        <div class="backs"><a class="back" href="../../">← ゲーム一覧</a><a class="back" href="updates.html">更新履歴</a></div>
         <p class="eyebrow">roguelite fps / procedural sectors</p>
         <h1>SECTOR<span>/</span>DIVE</h1>
-        <p>ランダム生成の区画を3つ抜けるとボス。倒したら「帰還」で戦利品を持ち帰るか、「前進」でさらに潜るかを選ぶ。死ぬとバッグの中身と持ち出した武器を失い、ビットは半分になる。</p>
+        <p class="lead">区画を3つ抜けるとボス。倒したら帰還して戦利品を持ち帰るか、さらに潜るか。死ぬとバッグの中身と持ち出した武器を失い、ビットは半分になる。</p>
       </div>
       <div class="stats">
         <div class="amber"><span class="eyebrow">所持ビット</span><b id="sBits">0</b></div>
@@ -342,40 +356,55 @@ body.desk.nolock .tbtn{display:grid}
         <div><span class="eyebrow">出撃回数</span><b id="sRuns">0</b></div>
         <div><span class="eyebrow">ボス撃破</span><b id="sBoss">0</b></div>
       </div>
-      <div class="sec">
-        <h2>出撃地点<small>ボスを倒すと次のセクター入口が開通する。死ぬと1段階閉じる</small></h2>
-        <div class="setrow" id="tiers"></div>
+      <nav class="tabs" role="tablist" aria-label="拠点メニュー">
+        <button role="tab" data-tab="sortie">出撃</button><button role="tab" data-tab="up">強化</button><button role="tab" data-tab="practice">練習</button><button role="tab" data-tab="settings">設定</button>
+      </nav>
+      <div class="pane" data-pane="sortie" role="tabpanel">
+        <div class="sec">
+          <h2>出撃地点<small>ボスを倒すと次のセクター入口が開通する。死ぬと1段階閉じる</small></h2>
+          <div class="setrow" id="tiers"></div>
+        </div>
+        <div class="sec">
+          <h2>出撃装備<small>枠を選んでから、基本武器か倉庫の武器を割り当てる</small></h2>
+          <div class="loadout" id="loadout"></div>
+          <h3>基本武器<small>何度でも持ち出せる。死んでも失わない。ビットで+値とレアリティを改造できる</small></h3>
+          <div class="wgrid" id="wgrid"></div>
+          <h3>倉庫<small id="stashCount"></small></h3>
+          <div class="wgrid" id="stash"></div>
+        </div>
       </div>
-      <div class="sec">
-        <h2>出撃装備<small>枠を選んでから、基本武器か倉庫の武器を割り当てる</small></h2>
-        <div class="loadout" id="loadout"></div>
-        <h3>基本武器<small>何度でも持ち出せる。死んでも失わない。ビットで+値とレアリティを改造できる</small></h3>
-        <div class="wgrid" id="wgrid"></div>
-        <h3>倉庫<small id="stashCount"></small></h3>
-        <div class="wgrid" id="stash"></div>
+      <div class="pane" data-pane="up" role="tabpanel" hidden>
+        <div class="sec">
+          <h2>拠点強化<small>永続。次の潜行から効く</small></h2>
+          <div class="ulist" id="ulist"></div>
+        </div>
+        <div class="sec" id="rebootSec" hidden>
+          <h2>再起動<small id="rebootNote"></small></h2>
+          <div class="ulist" id="presList"></div>
+          <div class="setrow" id="rebootRow"></div>
+        </div>
       </div>
-      <div class="sec">
-        <h2>拠点強化<small>永続。次の潜行から効く</small></h2>
-        <div class="ulist" id="ulist"></div>
+      <div class="pane" data-pane="practice" role="tabpanel" hidden>
+        <div class="sec">
+          <h2>ボス練習<small>選んだ深度のボス相当の強さで1体と戦う。今の出撃装備を使うが、チップはなし。報酬もロストもなく記録にも残らない</small></h2>
+          <div class="setrow"><div class="seg" id="practiceTier" role="group" aria-label="練習の強さ"></div></div>
+          <div class="wgrid" id="bossList"></div>
+        </div>
       </div>
-      <div class="sec">
-        <h2>ボス練習<small>選んだ深度のボス相当の強さで1体と戦う。今の出撃装備を使うが、チップはなし。報酬もロストもなく記録にも残らない</small></h2>
-        <div class="setrow"><div class="seg" id="practiceTier" role="group" aria-label="練習の強さ"></div></div>
-        <div class="wgrid" id="bossList"></div>
-      </div>
-      <div class="sec" id="rebootSec" hidden>
-        <h2>再起動<small id="rebootNote"></small></h2>
-        <div class="ulist" id="presList"></div>
-        <div class="setrow" id="rebootRow"></div>
-      </div>
-      <div class="sec">
-        <h2>設定</h2>
-        <div class="setrow" data-settings="base"></div>
-        <p class="help" id="help"></p>
-      </div>
-      <div class="sec">
-        <h2>データ</h2>
-        <div class="setrow"><button id="btnWipe" class="danger-ghost">セーブデータを完全に消去…</button></div>
+      <div class="pane" data-pane="settings" role="tabpanel" hidden>
+        <div class="sec">
+          <h2>設定</h2>
+          <div class="setrow" data-settings="base"></div>
+          <p class="help" id="help"></p>
+        </div>
+        <div class="sec">
+          <h2>リンク</h2>
+          <div class="backs"><a class="back" href="../../">← ゲーム一覧</a><a class="back" href="updates.html">更新履歴</a></div>
+        </div>
+        <div class="sec">
+          <h2>データ</h2>
+          <div class="setrow"><button id="btnWipe" class="danger-ghost">セーブデータを完全に消去…</button></div>
+        </div>
       </div>
       <div class="startbar"><div id="suspendBox" class="suspend" hidden></div><button id="btnStart" class="primary">DIVE<small id="startSub">潜行開始</small></button></div>
     </div>
@@ -467,26 +496,26 @@ body.desk.nolock .tbtn{display:grid}
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="js/core.js?v=20260927231505"></script>
-<script src="js/music.js?v=20260927231505"></script>
-<script src="js/render.js?v=20260927231505"></script>
-<script src="js/level.js?v=20260927231505"></script>
-<script src="js/entities.js?v=20260927231505"></script>
-<script src="js/player.js?v=20260927231505"></script>
-<script src="js/bosses/common.js?v=20260927231505"></script>
-<script src="js/bosses/watcher.js?v=20260927231505"></script>
-<script src="js/bosses/crusher.js?v=20260927231505"></script>
-<script src="js/bosses/core.js?v=20260927231505"></script>
-<script src="js/bosses/phantom.js?v=20260927231505"></script>
-<script src="js/bosses/trinity.js?v=20260927231505"></script>
-<script src="js/bosses/bastion.js?v=20260927231505"></script>
-<script src="js/input.js?v=20260927231505"></script>
-<script src="js/hud.js?v=20260927231505"></script>
-<script src="js/game.js?v=20260927231505"></script>
-<script src="js/share.js?v=20260927231505"></script>
-<script src="js/enemies.js?v=20260927231505"></script>
-<script src="js/bullets.js?v=20260927231505"></script>
-<script src="js/update.js?v=20260927231505"></script>
-<script src="js/dev.js?v=20260927231505"></script>
+<script src="js/core.js?v=20260928005828"></script>
+<script src="js/music.js?v=20260928005828"></script>
+<script src="js/render.js?v=20260928005828"></script>
+<script src="js/level.js?v=20260928005828"></script>
+<script src="js/entities.js?v=20260928005828"></script>
+<script src="js/player.js?v=20260928005828"></script>
+<script src="js/bosses/common.js?v=20260928005828"></script>
+<script src="js/bosses/watcher.js?v=20260928005828"></script>
+<script src="js/bosses/crusher.js?v=20260928005828"></script>
+<script src="js/bosses/core.js?v=20260928005828"></script>
+<script src="js/bosses/phantom.js?v=20260928005828"></script>
+<script src="js/bosses/trinity.js?v=20260928005828"></script>
+<script src="js/bosses/bastion.js?v=20260928005828"></script>
+<script src="js/input.js?v=20260928005828"></script>
+<script src="js/hud.js?v=20260928005828"></script>
+<script src="js/game.js?v=20260928005828"></script>
+<script src="js/share.js?v=20260928005828"></script>
+<script src="js/enemies.js?v=20260928005828"></script>
+<script src="js/bullets.js?v=20260928005828"></script>
+<script src="js/update.js?v=20260928005828"></script>
+<script src="js/dev.js?v=20260928005828"></script>
 </body>
 </html>

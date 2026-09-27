@@ -360,3 +360,7 @@ if (location.hash.startsWith('#view-share')) setTimeout(() => {
   drawShareCard(shareData).then(b => { const im = new Image(); im.src = URL.createObjectURL(b); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData)); });
 }, 300);
 if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); if (location.hash.includes('perk4')) save.pres.up.choice = 1; openPerk('チップを1枚選ぶ'); }, 300); // #view-perk4: four options
+// dev view: #tab-<sortie|up|practice|settings>[-touch] opens that base tab
+if (location.hash.startsWith('#tab-')) showTab(location.hash.slice(5).replace(/-touch$/, ''));
+// dev view: #view-susp[-touch] leaves a suspended run and returns to the base
+if (location.hash.startsWith('#view-susp')) setTimeout(() => { startRun(); suspendRun(); }, 300);

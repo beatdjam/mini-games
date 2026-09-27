@@ -350,6 +350,18 @@ function wStat(w) {
   const d = WEAPONS[w.id];
   return `DMG ${Math.round(d.dmg * wDmgMul(w))}${d.pellets > 1 ? '×' + d.pellets : ''} / ${(1 / d.rate).toFixed(1)}発/秒 / 弾倉 ${d.mag}${d.pierce ? ' / 貫通' : ''}${d.blast ? ' / 爆発' : ''}`;
 }
+// base menu tabs; the last one opened is remembered in this browser
+let baseTab = 'sortie';
+try { baseTab = localStorage.getItem('sd-base-tab') || 'sortie'; } catch (e) {}
+function showTab(name) {
+  if (!document.querySelector(`[data-pane="${name}"]`)) name = 'sortie';
+  baseTab = name;
+  document.querySelectorAll('.tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
+  document.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
+  try { localStorage.setItem('sd-base-tab', name); } catch (e) {}
+}
+$('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { showTab(b.dataset.tab); $('#scrBase').scrollTop = 0; } });
+showTab(baseTab);
 function renderBase() {
   $('#sBits').textContent = save.bits;
   $('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
