@@ -1,19 +1,6 @@
 'use strict';
-// ================= player =================
 let P = null, run = null;
 const newWeapon = (id, r, basic, plus, opts) => ({ id, r, basic: !!basic, plus: plus || 0, opts: opts || [], mag: WEAPONS[id].mag });
-// weapon options: only active while that weapon is in hand
-const AFFIX = {
-  mag:    { name: '大容量弾倉',   text: '装弾数 +30%' },
-  reload: { name: '速射装填',     text: 'リロード -20%' },
-  rate:   { name: '高速機関',     text: '連射速度 +10%' },
-  crit:   { name: '照準補正',     text: '会心率 +8%' },
-  leech:  { name: '吸収回路',     text: '撃破ごとにHP +2' },
-  speed:  { name: '軽量フレーム', text: '移動速度 +6%' },
-  pierce: { name: '徹甲弾',       text: '貫通 +1' },
-  gain:   { name: '採集機構',     text: 'ビット獲得 +10%' },
-};
-const PLUS_DMG = 0.08;
 const wo = (k, w) => { w = w || (P && P.weapons[P.cur]); return w && w.opts ? w.opts.filter(o => o === k).length : 0; };
 const wDmgMul = w => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
 // `stage` here is progress (prog), not the raw stage number
