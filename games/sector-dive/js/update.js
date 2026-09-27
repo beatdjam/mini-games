@@ -141,6 +141,7 @@ function frame(now) {
   if (state === 'play') update(dt);
   else if (state === 'base') attract(dt);
   renderer.render(scene, camera);
+  renderGun();
 }
 renderBase();
 buildAttract();
