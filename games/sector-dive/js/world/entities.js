@@ -1,7 +1,9 @@
 'use strict';
 // ================= entities =================
 // pickups and shockwaves live in the engine world (engine/core/world.js) with tag 'pickup' / 'wave'
-let enemies = [], boss = null, nearW = null, nearD = 1.9, target = null;
+// enemies (bosses included) are an engine world group updated at order 10; `enemies` is that group's list
+const ENEMY_GROUP = worldGroup('enemy', 10);
+let enemies = ENEMY_GROUP.list, boss = null, nearW = null, nearD = 1.9, target = null;
 const pBullets = [], eBullets = [];
 function spawnPBullet(pos, dir, speed, dmg, pierce, blast, color, grav, opt) {
   const b = takeFromPool(pBullets, geoCache.pbullet, 220); if (!b) return;
@@ -74,9 +76,10 @@ function spawnEnemy(type, x, z, room, diff) {
     e.shieldParts = m.g.userData.shield;    // plate + outline meshes, removed on break
   }
   if (def.sniper) e.laser = makeLaser(0xff4d8d);
-  enemies.push(e);
-  return e;
+  return spawnEnemyObj(e);
 }
+// joins the enemy group; each frame the engine calls updateEnemy (js/actors/enemies.js)
+function spawnEnemyObj(e) { e.tag = 'enemy'; e.update = dt => updateEnemy(e, dt); return spawn(e); }
 function removeEnemyMesh(e) {
   disposeTree(e.mesh); dynGroup.remove(e.mesh);
   if (e.laser) { disposeTree(e.laser); dynGroup.remove(e.laser); e.laser = null; }

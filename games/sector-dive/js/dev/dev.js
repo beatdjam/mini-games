@@ -18,7 +18,7 @@ devSmoke(() => {
         console.log('SMOKE floor', b.code, 'enemies', n0, 'fy', P.fy.toFixed(2), 'raised', hgt.filter(h => h > 0).length, 'ramps', ramp.filter(r => r >= 0).length, 'haz', haz.filter(Boolean).length);
         b.bosses.forEach(kind => {
           run.stage = bi * PER + PER - 1; startStage(); boss = null;
-          enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+          enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
           spawnBoss(kind); boss.spawnT = 0; tick(400);
           if (boss && boss.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
           const had = !!boss; if (boss) hurtEnemy(boss, boss.hp + 1, false); tick(60);
@@ -54,7 +54,7 @@ devSmoke(() => {
       console.log('SMOKE prog ok', [0, 1, 2, 3, 4].map(prog).join(','));
       // shield: a round from the front wears the shield, not HP; from behind it hurts; the shield eventually breaks
       {
-        run.route = [3]; run.stage = PER * 3 + 1; startStage(); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        run.route = [3]; run.stage = PER * 3 + 1; startStage(); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
         const [sx, sz] = roomSpot(rooms[startIdx]);
         const e = spawnEnemy('shield', sx, sz, -1, 1); e.face = 0; e.mesh.rotation.y = 0; // facing +z
         const shoot = dir => { spawnPBullet(new V3(sx, e.fy + 1.6, sz + dir * 2.5), new V3(0, 0, -dir), 60, 20, 0, 0, 0xffffff, 0, {}); updatePBullets(0.1); }; // above rubble height
@@ -68,7 +68,7 @@ devSmoke(() => {
         const hp1 = e.hp; shoot(1);
         if (!(e.hp < hp1)) throw new Error('after break');
         console.log('SMOKE shield ok');
-        removeEnemyMesh(e); enemies = [];
+        removeEnemyMesh(e); clearWorld('enemy');
       }
       // watcher: drones at 75% and 40%
       {
@@ -124,7 +124,7 @@ devSmoke(() => {
       }
       // chain blast: one kill in a tight cluster must not wipe the whole cluster through a cascade
       {
-        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
         P.chain = 3; P.dmgMul = 10; // blasts strong enough to kill anything they touch
         const [cx, cz] = roomSpot(rooms[startIdx]);
         const line = [0, 2.8, 5.6, 8.4].map(dx => spawnEnemy('crawler', cx + dx, cz, -1, 1)); // each 2.8m apart, blast radius 4
@@ -160,7 +160,7 @@ devSmoke(() => {
       }
       // autofire target: an enemy hidden in the fog must not be picked, the same enemy close up must be
       {
-        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
         scene.fog.near = 2; scene.fog.far = 20; // visibleRange = 12.8
         grid.fill(1); hgt.fill(0); ramp.fill(-1); cover.fill(0); // open floor so only distance matters
         P.x = W * T / 2; P.z = H * T / 2; P.yaw = 0; P.pitch = 0; P.fy = 0;
@@ -175,7 +175,7 @@ devSmoke(() => {
       }
       // shotgun knockback: once per shot however many pellets land; launcher gets half of the magazine chips
       {
-        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
         grid.fill(1); hgt.fill(0); ramp.fill(-1); cover.fill(0);
         P.x = W * T / 2; P.z = H * T / 2; P.fy = 0;
         const e = spawnEnemy('brute', P.x, P.z - 4, -1, 50); e.fy = 0; e.mesh.position.set(e.x, 1.1, e.z);
@@ -205,7 +205,7 @@ devSmoke(() => {
       }
       // splitter killed by a chain blast or a rocket: both halves must survive that blast
       {
-        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); enemies = [];
+        startRun(); tick(3); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
         grid.fill(1); hgt.fill(0); ramp.fill(-1); cover.fill(0);
         const cx = W * T / 2, cz = H * T / 2;
         P.chain = 3; P.dmgMul = 10;

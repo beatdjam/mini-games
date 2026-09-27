@@ -345,7 +345,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `js/ui/hud.js` | HUD、ミニマップ、設定、タッチボタンの設定（`TOUCH_LAYOUT`）、言語の切り替え |
 | `js/flow/game.js` | 潜行の流れ、チップ選択、一時停止、バッグ、中断、帰還・ロスト、ボス練習、拠点画面 |
 | `js/ui/share.js` | 結果のシェア（結果カードの画像と投稿文） |
-| `js/actors/enemies.js` | 敵の毎フレームの行動 |
+| `js/actors/enemies.js` | 敵1体の毎フレームの行動（`updateEnemy`。敵は engine の world のグループ `enemy` に入っていて、エンジンが呼ぶ） |
 | `js/actors/bullets.js` | 弾の毎フレームの処理（当たり判定、盾、ショットガンの全弾ボーナスなど） |
 | `js/flow/update.js` | 毎フレームのシステムの登録（プレイヤー・敵・弾・拾い物・ゲートなど）。ループ自体は engine/core/loop.js |
 | `js/dev/dev.js` | 開発用フック（`#smoke` など） |

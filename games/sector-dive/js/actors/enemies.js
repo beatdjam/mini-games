@@ -2,48 +2,46 @@
 // ================= enemy behaviour (per frame) =================
 // Fields on an enemy object are listed in spawnEnemy (js/world/entities.js).
 
-function updateEnemies(dt) {
+// one enemy for one frame (engine world group 'enemy', order 10)
+function updateEnemy(e, dt) {
   const py = P.fy + 1.3; // player chest height, used for line of sight
-  for (const e of enemies) {
-    if (e.dead) continue;
-    if (e.flash > 0) e.flash -= dt;
-    e.mat.emissiveIntensity = e.flash > 0 ? 1.8 : e.baseEI;
-    if (e.boss) { if (e.spawnT > 0) bossPauseTick(e, dt); else e.update(e, dt); continue; }
+  if (e.flash > 0) e.flash -= dt;
+  e.mat.emissiveIntensity = e.flash > 0 ? 1.8 : e.baseEI;
+  if (e.boss) { if (e.spawnT > 0) bossPauseTick(e, dt); else e.behave(e, dt); return; }
 
-    const def = e.def;
-    const dx = P.x - e.x, dz = P.z - e.z;
-    const dist = Math.hypot(dx, dz) || 0.001;
-    const eyeY = e.fy + def.y;
-    e.t += dt;
+  const def = e.def;
+  const dx = P.x - e.x, dz = P.z - e.z;
+  const dist = Math.hypot(dx, dz) || 0.001;
+  const eyeY = e.fy + def.y;
+  e.t += dt;
 
-    if (!e.active && !wakeCheck(e, eyeY, py, dt)) continue;
-    e.cd -= dt;
-    e.mcd -= dt;
-    const los = dist < 40 && hasLOS(e.x, e.z, P.x, P.z, eyeY, py);
+  if (!e.active && !wakeCheck(e, eyeY, py, dt)) return;
+  e.cd -= dt;
+  e.mcd -= dt;
+  const los = dist < 40 && hasLOS(e.x, e.z, P.x, P.z, eyeY, py);
 
-    let still = false; // true = this enemy doesn't walk this frame
-    if (e.stun > 0) { e.stun -= dt; still = true; e.mcd = Math.max(e.mcd, 0.2); }
-    if (def.bomber) {
-      const r = updateBomber(e, dt, dist);
-      if (r === 'gone') continue;
-      if (r) still = true;
-    }
-    if (def.sniper && updateSniper(e, dt, los, py)) still = true;
-    if (def.speed > 0 && !still) steerEnemy(e, dt, dx, dz, dist, los);
-
-    if (def.melee && dist < e.r + P.r + 0.4 && Math.abs(P.fy - e.fy) < 1.2 && e.mcd <= 0) {
-      e.mcd = 0.9;
-      damagePlayer(e.dmg);
-    }
-    if (def.ranged && los && dist < 26 && e.cd <= 0) {
-      const r = def.ranged;
-      e.cd = r.rate * ENEMY_TUNE.fireInterval * rand(0.8, 1.25);
-      const muzzleY = e.mesh.position.y + (def.geo === 'cyl' ? 1.1 : 0);
-      const color = def.color === 0xffe14a ? 0xffe14a : 0xff4d8d;
-      fanAt(e.x, muzzleY, e.z, r.count, r.spread, r.speed, e.dmg, color);
-    }
-    poseEnemy(e, dt, dx, dz);
+  let still = false; // true = this enemy doesn't walk this frame
+  if (e.stun > 0) { e.stun -= dt; still = true; e.mcd = Math.max(e.mcd, 0.2); }
+  if (def.bomber) {
+    const r = updateBomber(e, dt, dist);
+    if (r === 'gone') return;
+    if (r) still = true;
   }
+  if (def.sniper && updateSniper(e, dt, los, py)) still = true;
+  if (def.speed > 0 && !still) steerEnemy(e, dt, dx, dz, dist, los);
+
+  if (def.melee && dist < e.r + P.r + 0.4 && Math.abs(P.fy - e.fy) < 1.2 && e.mcd <= 0) {
+    e.mcd = 0.9;
+    damagePlayer(e.dmg);
+  }
+  if (def.ranged && los && dist < 26 && e.cd <= 0) {
+    const r = def.ranged;
+    e.cd = r.rate * ENEMY_TUNE.fireInterval * rand(0.8, 1.25);
+    const muzzleY = e.mesh.position.y + (def.geo === 'cyl' ? 1.1 : 0);
+    const color = def.color === 0xffe14a ? 0xffe14a : 0xff4d8d;
+    fanAt(e.x, muzzleY, e.z, r.count, r.spread, r.speed, e.dmg, color);
+  }
+  poseEnemy(e, dt, dx, dz);
 }
 
 // Idle until the player is within ENEMY_TUNE.wakeTiles of walking distance and in sight. Returns true once awake.

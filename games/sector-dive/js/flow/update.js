@@ -127,7 +127,7 @@ function attract(dt) {
 // ---- the systems, in order. 'play' = diving, 'base' = the base screen with the slowly turning backdrop ----
 const PLAY = ['play'];
 addSystem({ name: 'player', order: 0, modes: PLAY, update: updatePlayer });
-addSystem({ name: 'enemies', order: 10, modes: PLAY, update: updateEnemies });
+ENEMY_GROUP.system.modes = PLAY; // enemies: engine world group, updateEnemy per enemy (order 10)
 addSystem({ name: 'playerBullets', order: 20, modes: PLAY, update: updatePBullets });
 addSystem({ name: 'enemyBullets', order: 21, modes: PLAY, update: updateEBullets });
 addSystem({ name: 'pickupReset', order: 29, modes: PLAY, update: resetNearest });
@@ -140,9 +140,6 @@ addSystem({ name: 'music', order: 60, modes: PLAY, update: updateMusic });
 // a run that just ended (death / extraction above) stops here for this frame
 addSystem({ name: 'endGuard', order: 65, modes: PLAY, update: () => { if (state === 'result') stopFrame(); } });
 addSystem({ name: 'portals', order: 70, modes: PLAY, update: updatePortals });
-addSystem({ name: 'cleanup', order: 80, modes: PLAY, update: () => {
-  enemies = enemies.filter(e => !e.dead);
-} });
 addSystem({ name: 'screenFx', order: 90, modes: PLAY, update: updateScreenFx });
 addSystem({ name: 'attract', order: 0, modes: ['base'], update: attract });
 

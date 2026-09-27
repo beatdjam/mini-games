@@ -105,7 +105,7 @@ function genArena(withPillars) {
 
 function clearLevel() {
   if (levelGroup) { disposeTree(levelGroup); scene.remove(levelGroup); levelGroup = null; }
-  enemies.forEach(removeEnemyMesh); enemies = [];
+  enemies.forEach(removeEnemyMesh);
   clearWorld();
   clearPool(pBullets); clearPool(eBullets);
   clearFx();
