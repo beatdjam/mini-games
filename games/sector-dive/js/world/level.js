@@ -108,8 +108,7 @@ function clearLevel() {
   enemies.forEach(removeEnemyMesh); enemies = [];
   pickups.forEach(p => { disposeTree(p.mesh); dynGroup.remove(p.mesh); }); pickups = [];
   waves.forEach(w => { disposeTree(w.m); dynGroup.remove(w.m); }); waves = [];
-  pBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
-  eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
+  clearPool(pBullets); clearPool(eBullets);
   clearFx();
   portals = []; boss = null; nearW = null; hazMat = null;
 }

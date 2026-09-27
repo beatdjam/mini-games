@@ -2,14 +2,8 @@
 // ================= entities =================
 let enemies = [], pickups = [], waves = [], boss = null, nearW = null, target = null;
 const pBullets = [], eBullets = [];
-function getBullet(pool, geo, max) {
-  for (const b of pool) if (!b.alive) return b;
-  if (pool.length >= max) return null;
-  const b = { mesh: new THREE.Mesh(geo, basicMat(0xffffff)), alive: false, hit: new Set() };
-  dynGroup.add(b.mesh); pool.push(b); return b;
-}
 function spawnPBullet(pos, dir, speed, dmg, pierce, blast, color, grav, opt) {
-  const b = getBullet(pBullets, geoCache.pbullet, 220); if (!b) return;
+  const b = takeFromPool(pBullets, geoCache.pbullet, 220); if (!b) return;
   b.alive = true; b.x = pos.x; b.y = pos.y; b.z = pos.z;
   b.vx = dir.x * speed; b.vy = dir.y * speed; b.vz = dir.z * speed;
   b.dmg = dmg; b.pierce = pierce; b.blast = blast || 0; b.grav = grav || 0; b.life = blast ? 4 : 1.6; b.color = color; b.hit.clear();
@@ -21,7 +15,7 @@ function spawnPBullet(pos, dir, speed, dmg, pierce, blast, color, grav, opt) {
   b.mesh.lookAt(b.x + dir.x, b.y + dir.y, b.z + dir.z);
 }
 function spawnEBullet(x, y, z, vx, vy, vz, dmg, color, size, homing) {
-  const b = getBullet(eBullets, geoCache.ebullet, 360); if (!b) return;
+  const b = takeFromPool(eBullets, geoCache.ebullet, 360); if (!b) return;
   b.alive = true; b.x = x; b.y = y; b.z = z; b.vx = vx; b.vy = vy; b.vz = vz; b.dmg = dmg; b.life = 6;
   b.size = size || 1; b.homing = homing || 0; b.speed = Math.hypot(vx, vy, vz);
   b.mesh.material = basicMat(color || 0xff4d8d); b.mesh.scale.setScalar(b.size); b.mesh.visible = true; b.mesh.position.set(x, y, z);
@@ -30,14 +24,10 @@ function shootAngle(x, y, z, ang, speed, dmg, color, size) {
   const s = Math.sin(ang), c = Math.cos(ang);
   spawnEBullet(x + s * 1.8, y, z + c * 1.8, s * speed, 0, c * speed, dmg, color, size);
 }
-function ring(x, z, y, n, speed, off, dmg, color, size) { for (let k = 0; k < n; k++) shootAngle(x, y, z, off + k * Math.PI * 2 / n, speed, dmg, color, size); sfx('eshot', 60); }
+function ring(x, z, y, n, speed, off, dmg, color, size) { ringAngles(n, off).forEach(a => shootAngle(x, y, z, a, speed, dmg, color, size)); sfx('eshot', 60); }
 function fanAt(x, y, z, n, spread, speed, dmg, color) {
-  const base = Math.atan2(P.x - x, P.z - z), hd = Math.hypot(P.x - x, P.z - z) || 1, vyr = (P.fy + 1.2 - y) / hd;
-  for (let k = 0; k < n; k++) {
-    const a = base + (n > 1 ? (k - (n - 1) / 2) * spread : 0) + rand(-0.03, 0.03);
-    const dx = Math.sin(a), dz = Math.cos(a), l = Math.hypot(1, vyr);
-    spawnEBullet(x, y, z, dx / l * speed, vyr / l * speed, dz / l * speed, dmg, color);
-  }
+  // aimed at the player's chest, with a little random spread per bullet
+  aimFan(x, y, z, P.x, P.fy + 1.2, P.z, n, spread, 0.03).forEach(([dx, dy, dz]) => spawnEBullet(x, y, z, dx * speed, dy * speed, dz * speed, dmg, color));
   sfx('eshot', 60);
 }
 

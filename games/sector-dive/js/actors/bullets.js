@@ -1,34 +1,13 @@
 'use strict';
 // ================= bullets (per frame) =================
-// Player bullets move in small sub-steps so fast rounds can't skip through walls or enemies.
-// Fields on a player bullet are set in spawnPBullet (js/world/entities.js).
+// What bullets do each frame. Moving in sub-steps, terrain hits and homing are engine/world/projectiles.js;
+// hits on enemies (shields, pierce, crits, blasts) and on the player are here. Fields are set in js/world/entities.js.
 
 function updatePBullets(dt) {
   for (const b of pBullets) {
     if (!b.alive) continue;
     b.life -= dt;
-    if (b.grav) b.vy -= b.grav * dt;
-    const steps = Math.max(1, Math.ceil(Math.hypot(b.vx, b.vy, b.vz) * dt / 0.6));
-    let dead = b.life <= 0;
-    for (let s = 0; s < steps && !dead; s++) {
-      b.x += b.vx * dt / steps;
-      b.y += b.vy * dt / steps;
-      b.z += b.vz * dt / steps;
-      if (hitsTerrain(b)) {
-        if (b.blast) explode(b.x, Math.max(floorY(b.x, b.z) + 0.4, b.y), b.z, b.blast, b.dmg, b.color, true);
-        else burst(b.x, b.y, b.z, b.color, 3, 4, 0.3);
-        dead = true;
-        break;
-      }
-      for (const e of enemies) {
-        if (e.dead || b.hit.has(e) || !bulletTouches(b, e)) continue;
-        b.hit.add(e);
-        if (b.blast) { explode(b.x, b.y, b.z, b.blast, b.dmg, b.color, true); dead = true; break; }
-        if (shieldBlocks(b, e)) { dead = true; break; }
-        damageFromBullet(b, e);
-        if (--b.pierce < 0) { dead = true; break; }
-      }
-    }
+    const dead = b.life <= 0 || stepProjectile(b, dt, 0.6, pBulletStep);
     if (dead) { b.alive = false; b.mesh.visible = false; continue; }
     b.mesh.position.set(b.x, b.y, b.z);
     if (b.blast) { // rocket: face the flight direction and leave a smoke trail
@@ -38,10 +17,25 @@ function updatePBullets(dt) {
     }
   }
 }
-
-function hitsTerrain(b) {
-  return b.y > WALL_H + 3 || solidAt(b.x, b.z) || b.y < floorY(b.x, b.z) + 0.03;
+// one sub-step of a player bullet: true = it is used up
+function pBulletStep(b) {
+  if (hitsTerrain(b)) {
+    if (b.blast) explode(b.x, Math.max(floorY(b.x, b.z) + 0.4, b.y), b.z, b.blast, b.dmg, b.color, true);
+    else burst(b.x, b.y, b.z, b.color, 3, 4, 0.3);
+    return true;
+  }
+  for (const e of enemies) {
+    if (e.dead || b.hit.has(e) || !bulletTouches(b, e)) continue;
+    b.hit.add(e);
+    if (b.blast) { explode(b.x, b.y, b.z, b.blast, b.dmg, b.color, true); return true; }
+    if (shieldBlocks(b, e)) return true;
+    damageFromBullet(b, e);
+    if (--b.pierce < 0) return true;
+  }
+  return false;
 }
+
+function hitsTerrain(b) { return projHitsTerrain(b, WALL_H + 3, 0.03); }
 
 function bulletTouches(b, e) {
   const pad = b.blast ? 0.2 : 0.05;
@@ -95,32 +89,21 @@ function updateEBullets(dt) {
     if (!b.alive) continue;
     b.life -= dt;
     if (b.homing > 0) steerHoming(b, dt);
-    const steps = Math.max(1, Math.ceil(b.speed * dt / 0.5));
     const hitR = 0.42 + 0.2 * b.size;
-    let gone = false;
-    for (let s = 0; s < steps && !gone; s++) {
-      b.x += b.vx * dt / steps;
-      b.y += b.vy * dt / steps;
-      b.z += b.vz * dt / steps;
-      if (b.life <= 0 || solidAt(b.x, b.z) || b.y < floorY(b.x, b.z) + 0.05) {
-        burst(b.x, Math.max(0.1, b.y), b.z, 0xff4d8d, 2, 3, 0.2);
-        gone = true;
-        break;
-      }
+    const gone = stepProjectile(b, dt, 0.5, b => {
+      if (b.life <= 0 || projHitsTerrain(b, Infinity, 0.05)) { burst(b.x, Math.max(0.1, b.y), b.z, 0xff4d8d, 2, 3, 0.2); return true; }
       const dx = b.x - P.x, dz = b.z - P.z;
       const touchesPlayer = dx * dx + dz * dz < hitR * hitR && b.y > P.fy && b.y < P.fy + 2.1;
-      if (touchesPlayer && P.inv <= 0) { damagePlayer(b.dmg); gone = true; break; }
-    }
+      if (touchesPlayer && P.inv <= 0) { damagePlayer(b.dmg); return true; }
+      return false;
+    }, b.speed);
     if (gone) { b.alive = false; b.mesh.visible = false; continue; }
     b.mesh.position.set(b.x, b.y, b.z);
   }
 }
 
+// homing rounds turn toward the player's chest while b.homing lasts
 function steerHoming(b, dt) {
   b.homing -= dt;
-  const dx = P.x - b.x, dy = P.fy + 1.2 - b.y, dz = P.z - b.z;
-  const l = Math.hypot(dx, dy, dz) || 1, k = Math.min(1, dt * 2.2);
-  b.vx += (dx / l * b.speed - b.vx) * k;
-  b.vy += (dy / l * b.speed - b.vy) * k;
-  b.vz += (dz / l * b.speed - b.vz) * k;
+  steerToward(b, P.x, P.fy + 1.2, P.z, dt, 2.2);
 }
