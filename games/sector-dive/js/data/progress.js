@@ -24,21 +24,21 @@ const TUNE = {
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
 };
 const UPGRADES = [
-  { id: 'hp',   name: '装甲',         max: 6, cost: l => Math.round(80 * Math.pow(1.6, l)),  desc: l => `最大HP +15 / 段（現在 +${l * 15}）` },
-  { id: 'dmg',  name: '出力',         max: 6, cost: l => Math.round(100 * Math.pow(1.6, l)),  desc: l => `与ダメージ +8% / 段（現在 +${l * 8}%）` },
-  { id: 'spd',  name: '駆動系',       max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)),  desc: l => `移動速度 +5% / 段（現在 +${l * 5}%）` },
-  { id: 'dash', name: '冷却',         max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)),  desc: l => `スタミナ回復 +12% / 段（現在 +${l * 12}%）` },
-  { id: 'gain', name: '回収効率',     max: 5, cost: l => Math.round(150 * Math.pow(1.7, l)),  desc: l => `ビット獲得 +15% / 段（現在 +${l * 15}%）` },
-  { id: 'stam', name: '持久力',       max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)), desc: l => `最大スタミナ +20 / 段（現在 +${l * 20}）` },
-  { id: 'kit',  name: '救急箱',       max: 2, cost: l => Math.round(220 * Math.pow(2, l)), desc: l => `潜行開始時の回復キット +1 / 段（現在 ${1 + l} 個）` },
-  { id: 'chip', name: '持ち込みチップ', max: 2, cost: l => Math.round(450 * Math.pow(2.2, l)), desc: l => `潜行開始時にチップを選ぶ（現在 ${l} 枚）` },
+  { id: 'hp',   max: 6, cost: l => Math.round(80 * Math.pow(1.6, l)) },
+  { id: 'dmg',  max: 6, cost: l => Math.round(100 * Math.pow(1.6, l)) },
+  { id: 'spd',  max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)) },
+  { id: 'dash', max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)) },
+  { id: 'gain', max: 5, cost: l => Math.round(150 * Math.pow(1.7, l)) },
+  { id: 'stam', max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)) },
+  { id: 'kit',  max: 2, cost: l => Math.round(220 * Math.pow(2, l)) },
+  { id: 'chip', max: 2, cost: l => Math.round(450 * Math.pow(2.2, l)) },
 ];
 const PRES_UP = [
-  { id: 'gain',   name: '採掘効率',   max: 5, cost: 1, desc: l => `ビット獲得 +10% / 段（現在 +${l * 10}%）` },
-  { id: 'hp',     name: '強化外骨格', max: 5, cost: 1, desc: l => `最大HP +10 / 段（現在 +${l * 10}）` },
-  { id: 'funds',  name: '初期資金',   max: 3, cost: 1, desc: l => `再起動直後のビット +150 / 段（現在 +${l * 150}）` },
-  { id: 'relic',  name: '遺物',       max: 2, cost: 2, desc: l => `再起動直後、倉庫に試作武器が入る（現在 ${l} 本）` },
-  { id: 'choice', name: '選択肢拡張', max: 1, cost: 3, desc: l => `チップの候補が4枚になる（${l ? '取得済み' : '未取得'}）` },
+  { id: 'gain',   max: 5, cost: 1 },
+  { id: 'hp',     max: 5, cost: 1 },
+  { id: 'funds',  max: 3, cost: 1 },
+  { id: 'relic',  max: 2, cost: 2 },
+  { id: 'choice', max: 1, cost: 3 },
 ];
 const STASH_MAX = 12, BAG_MAX = 4, KIT_MAX = 3;
 const ASSIST = { off: 0, weak: 0.04, strong: 0.1 };

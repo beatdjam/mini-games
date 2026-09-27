@@ -1,5 +1,5 @@
 'use strict';
-// BASTION 要塞核: shielded core; destroy every turret to open it for a few seconds
+// BASTION: shielded core; destroy every turret to open it for a few seconds
 
 // ---- BASTION: shielded core; destroy every turret to open it for a few seconds ----
 function spawnBastion() {
@@ -11,10 +11,10 @@ function spawnBastion() {
   const core = new THREE.Mesh(coreGeo, mat);
   const shieldM = new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 14), new THREE.MeshBasicMaterial({ color: 0x8cc8ff, transparent: true, opacity: 0.25, depthWrite: false }));
   g.add(base, baseEdge, core, shieldM);
-  const e = bossBase('BASTION — 要塞核', g, mat, 1500 * bossDiff(), 2.4, 2.0, updBastion);
+  const e = bossBase(BOSS_META.bastion.title, g, mat, 1500 * bossDiff(), 2.4, 2.0, updBastion);
   e.x = e.cx; e.z = e.cz; e.core = core; e.shield = shieldM; e.invuln = true; e.turrets = []; e.openT = 0; e.ringT = 2.5;
   bastionTurrets(e, 4);
-  toast('シールド中は本体にダメージが通らない。周りの砲台を全部壊すと、しばらく無防備になる', 4600);
+  toast(t('boss.bastionHint'), 4600);
 }
 function bastionTurrets(e, n) {
   const off = rand(0, Math.PI);
@@ -29,10 +29,10 @@ function updBastion(e, dt) {
   e.core.rotation.y += dt * (e.invuln ? 0.6 : 2.5); e.core.rotation.x += dt * 0.4;
   e.shield.visible = e.invuln; e.shield.material.opacity = 0.2 + Math.sin(e.t * 4) * 0.06;
   e.turrets = e.turrets.filter(t => !t.dead);
-  if (e.invuln && !e.turrets.length) { e.invuln = false; e.openT = 12; e.stunMul = 1.5; toast('シールド解除 — 12秒間、本体へのダメージ1.5倍', 2400); sfx('chip'); }
+  if (e.invuln && !e.turrets.length) { e.invuln = false; e.openT = 12; e.stunMul = 1.5; toast(t('boss.bastionOpen'), 2400); sfx('chip'); }
   if (!e.invuln) {
     e.openT -= dt;
-    if (e.openT <= 0) { e.invuln = true; e.stunMul = 0; e.hinted = true; bastionTurrets(e, enr ? 3 : 2); toast('シールド再展開。砲台が再建された', 2200); }
+    if (e.openT <= 0) { e.invuln = true; e.stunMul = 0; e.hinted = true; bastionTurrets(e, enr ? 3 : 2); toast(t('boss.bastionClose'), 2200); }
   }
   e.ringT -= dt;
   if (e.ringT <= 0) {

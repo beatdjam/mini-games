@@ -98,11 +98,11 @@ function updatePickups(dt) {
       if (d < 0.7) { p.dead = true; run.bits += p.value * P.gainMul * (1 + 0.1 * wo('gain')); sfx('pick', 30); }
     } else if (p.kind === 'kit') {
       if (d < 1.1) {
-        if (P.kits < KIT_MAX) { p.dead = true; P.kits++; sfx('pick'); toast(`回復キット +1（${P.kits}/${KIT_MAX}）`, 1200); weaponHud(); }
-        else if (P.hp < P.maxHp) { p.dead = true; P.hp = Math.min(P.maxHp, P.hp + 20); sfx('heal'); toast('キットが満杯なのでその場で使った（HP +20）', 1500); }
+        if (P.kits < KIT_MAX) { p.dead = true; P.kits++; sfx('pick'); toast(t('run.kitPlus', { n: P.kits, max: KIT_MAX }), 1200); weaponHud(); }
+        else if (P.hp < P.maxHp) { p.dead = true; P.hp = Math.min(P.maxHp, P.hp + 20); sfx('heal'); toast(t('run.kitUsedNow'), 1500); }
       }
     } else if (p.kind === 'chip') {
-      if (d < 1.3) { p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh); sfx('chip'); openPerk('チップを1枚選ぶ'); continue; }
+      if (d < 1.3) { p.dead = true; disposeTree(p.mesh); dynGroup.remove(p.mesh); sfx('chip'); openPerk(t('perk.title')); continue; }
     } else if (p.kind === 'weapon') {
       if (d < nearD) { nearD = d; nearW = p; }
     }

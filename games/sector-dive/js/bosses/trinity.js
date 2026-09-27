@@ -1,5 +1,5 @@
 'use strict';
-// TRINITY 三連体: three bodies orbiting the centre on one shared health pool
+// TRINITY: three bodies orbiting the centre on one shared health pool
 
 // ---- TRINITY: three bodies orbiting the centre on one shared health pool ----
 function spawnTrinity() {
@@ -11,11 +11,11 @@ function spawnTrinity() {
     b.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: c })));
     dynGroup.add(b); return b;
   });
-  const e = bossBase('TRINITY — 三連体', g, mat, 1700 * bossDiff(), 2.2, 1.4, updTrinity);
+  const e = bossBase(BOSS_META.trinity.title, g, mat, 1700 * bossDiff(), 2.2, 1.4, updTrinity);
   e.x = e.cx; e.z = e.cz; e.bodies = bodies; e.extra = bodies; e.parts = bodies.map(b => ({ p: b.position, r: 1.4 }));
   e.fireK = 0; e.fireT = 1.2; e.ringT = 5; e.ramT = 4; e.ram = null;
   updTrinity(e, 0);
-  toast('3体で体力を共有している。どれを撃っても削れる', 3800);
+  toast(t('boss.trinityHint'), 3800);
 }
 function updTrinity(e, dt) {
   e.t += dt;

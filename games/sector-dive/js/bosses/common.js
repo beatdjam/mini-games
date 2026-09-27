@@ -32,7 +32,7 @@ function bossPhase(e) {
   burst(p.x, p.y, p.z, 0xff4d8d, 40, 12, 1.0); fireball(p.x, p.y, p.z, 4, 0xff4d8d);
   shake = Math.max(shake, 0.4); sfx('bigboom');
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
-  toast('第二段階 — 攻撃が激しくなる', 2000);
+  toast(t('boss.phase2'), 2000);
 }
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in js/bosses/<name>.js
 function spawnBoss(kind) {
@@ -48,9 +48,9 @@ function bossDown(e) {
   enemies.forEach(o => { if (!o.dead && !o.boss) { o.dead = true; burst(o.x, o.mesh.position.y, o.z, o.def.color, 10, 7, 0.6); removeEnemyMesh(o); } });
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
   if (run.practice) { // practice: no rewards, no progress; just a way home
-    makePortal(e.cx, e.cz - 2, 0x54e8ff, 'extract', '拠点へ');
+    makePortal(e.cx, e.cz - 2, 0x54e8ff, 'extract', t('boss.toBase'));
     $('#bossBar').hidden = true; boss = null; run.cleared = true;
-    toast('撃破。ゲートから拠点へ戻る', 2600);
+    toast(t('boss.practiceWon'), 2600);
     return;
   }
   (run.bosses = run.bosses || []).push(e.kind);
@@ -58,14 +58,14 @@ function bossDown(e) {
   addPickup('chip', e.cx, e.cz + 4); addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + prog(run.stage) * 0.03;
   addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(prog(run.stage) + 2, roll > 0.9 ? 2 : 1) });
-  makePortal(e.cx + 6, e.cz - 2, 0xffc24a, 'next', '前進');
-  makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', '帰還');
+  makePortal(e.cx + 6, e.cz - 2, 0xffc24a, 'next', t('boss.forward'));
+  makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', t('boss.extract'));
   $('#bossBar').hidden = true; boss = null;
   save.bossKills++;
-  if (stageInfo(run.stage).tier >= 2 && !save.canReboot) { save.canReboot = true; setTimeout(() => toast('再起動が解放された。拠点で進行をリセットしてボーナスを得られる', 4200), 4400); }
+  if (stageInfo(run.stage).tier >= 2 && !save.canReboot) { save.canReboot = true; setTimeout(() => toast(t('boss.rebootUnlocked'), 4200), 4400); }
   const newTier = stageInfo(run.stage).tier + 1;
-  if (newTier > save.shortcut) { save.shortcut = newTier; toast(`撃破。${tierLabel(newTier)} へのショートカットが開通した。帰還か前進かを選ぶ`, 4200); }
-  else toast('撃破。帰還するか、前進するかを選ぶ', 3200);
+  if (newTier > save.shortcut) { save.shortcut = newTier; toast(t('boss.shortcut', { tier: tierLabel(newTier) }), 4200); }
+  else toast(t('boss.choose'), 3200);
   persist();
 }
 

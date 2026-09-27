@@ -10,3 +10,12 @@ const modOf = id => (save.mods && save.mods[id]) || { plus: 0, r: 0 };
 // a basic weapon as it currently stands after modding (non-basic weapons pass through)
 const basicNow = w => w && w.basic ? Object.assign({}, w, { plus: modOf(w.id).plus, r: modOf(w.id).r }) : w;
 const sellValue = w => Math.round(8 + WEAPONS[w.id].cost * 0.06 + [0, 20, 55][w.r] + (w.plus || 0) * 10 + (w.opts || []).length * 20);
+// run.perks from before chips had ids held Japanese names; turn those into ids
+const perkIdOf = rec => {
+  const base = rec.replace(/\+$/, ''), plus = rec.endsWith('+') ? '+' : '';
+  if (PERKS.some(o => o.id === base)) return rec;
+  const id = Object.keys(LANG.ja.data.perks).find(k => LANG.ja.data.perks[k].name === base);
+  return id ? id + plus : rec;
+};
+// a chip as recorded in run.perks: its id, with '+' for the rare version
+const perkName = rec => { const o = PERKS.find(x => x.id === rec.replace(/\+$/, '')); return o ? o.name + (rec.endsWith('+') ? '+' : '') : rec; };

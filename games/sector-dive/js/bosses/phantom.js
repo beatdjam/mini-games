@@ -1,5 +1,5 @@
 'use strict';
-// PHANTOM 狙撃体: warps between spots near the pillars, aims a laser, fires one heavy round
+// PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
 
 const PHANTOM_SPOTS = [[5, 5], [14, 5], [5, 10], [14, 10], [10, 5], [5, 14], [14, 14]];
 function spawnPhantom() {
@@ -9,10 +9,10 @@ function spawnPhantom() {
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x9fe7ff })); edge.scale.copy(body.scale);
   const lens = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), new THREE.MeshBasicMaterial({ color: 0xff4d8d })); lens.position.set(0, 0.5, 0.75);
   g.add(body, edge, lens);
-  const e = bossBase('PHANTOM — 狙撃体', g, mat, 1100 * bossDiff(), 2.2, 1.6, updPhantom);
+  const e = bossBase(BOSS_META.phantom.title, g, mat, 1100 * bossDiff(), 2.2, 1.6, updPhantom);
   e.st = 'idle'; e.timer = 1.6; e.laser = makeLaser(0xff4d8d); e.cycle = 0;
   phantomWarp(e, true);
-  toast('予告レーザーが点滅したら撃ってくる。柱の陰に隠れるか、ダッシュでかわす', 4200);
+  toast(t('boss.phantomHint'), 4200);
 }
 function phantomWarp(e, first) {
   const spots = PHANTOM_SPOTS.map(([i, j]) => [(i + 0.5) * T, (j + 0.5) * T])

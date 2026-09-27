@@ -1,6 +1,6 @@
 'use strict';
 // ================= dev hooks =================
-// URL hash hooks for checking the game without playing it by hand. See SPEC.md 10章.
+// URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
 // dev check: open the page with #smoke to run every sector (floor + each boss candidate) once and log errors to the console
 if (location.hash === '#smoke') {
@@ -84,14 +84,14 @@ if (location.hash === '#smoke') {
       }
       // scaling: additive damage chips, compounding health, practice depth
       {
-        const p0 = newPlayer(save.loadout), base = p0.dmgMul, od = PERKS.find(x => x.name === '過負荷弾');
+        const p0 = newPlayer(save.loadout), base = p0.dmgMul, od = PERKS.find(x => x.id === 'overload');
         od.apply(p0, od.v); od.apply(p0, od.v);
         if (Math.abs(p0.dmgMul - (base + 0.4)) > 1e-9) throw new Error('additive chips ' + p0.dmgMul);
-        const perk = n => PERKS.find(x => x.name === n);
-        for (let k = 0; k < 6; k++) ['弱点解析', '高速装填', '拡張弾倉'].forEach(n => perk(n).apply(p0, perk(n).rv));
+        const perk = n => PERKS.find(x => x.id === n);
+        for (let k = 0; k < 6; k++) ['crit', 'reload', 'mag'].forEach(n => perk(n).apply(p0, perk(n).rv));
         if (Math.abs(p0.reloadMul - 0.4) > 1e-9 || Math.abs(p0.magMul - 2.5) > 1e-9) throw new Error('caps ' + p0.reloadMul + ' ' + p0.magMul);
         const keepP = P; P = p0; const cc = critChance(); P = keepP;
-        // 分裂弾: full-hit total must go up by exactly 20% for a single-shot weapon and for the shotgun alike
+        // split-shot: full-hit total must go up by exactly 20% for a single-shot weapon and for the shotgun alike
         { const keep = P; P = newPlayer(save.loadout);
           ['rail', 'shotgun'].forEach(id => {
             const w = newWeapon(id, 0), a = weaponStats(w); P.extra = 1; const b = weaponStats(w); P.extra = 0;
@@ -150,8 +150,8 @@ if (location.hash === '#smoke') {
         P.crit = TUNE.critCap; P.reloadMul = 0.4; P.magMul = 2.5; P.pierce = 3;
         for (let k = 0; k < 30; k++) {
           openPerk('test');
-          const names = [...document.querySelectorAll('#perkList .pn')].map(n => n.textContent);
-          if (names.some(n => /弱点解析|高速装填|拡張弾倉|貫通弾/.test(n))) throw new Error('maxed chip offered ' + names);
+          const names = [...document.querySelectorAll('#perkList .pn')].map(n => n.textContent), maxedNames = ['crit', 'reload', 'mag', 'pierce'].map(id => perkName(id));
+          if (names.some(n => maxedNames.some(m => n.replace(/^★ /, '').replace(/\+$/, '') === m))) throw new Error('maxed chip offered ' + names);
         }
         show(null); state = 'play';
         let elite = 0; for (let k = 0; k < 400; k++) if (ELITE_TYPES.includes(pickEnemyType(BIOMES[3], 10))) elite++;
@@ -280,10 +280,10 @@ if (location.hash === '#smoke') {
       }
       // share: shown after a real run with the bosses defeated, hidden after practice
       {
-        goBase(); startRun(); tick(5); run.bosses = ['watcher']; run.perks = ['火力', '火力', '連射+'];
+        goBase(); startRun(); tick(5); run.bosses = ['watcher']; run.perks = ['overload', 'overload', 'rapid+'];
         endRun('extract');
-        if ($('#btnShare').hidden || !shareData || shareData.bosses[0] !== '監視体' || shareData.chips[0] !== '火力×2') throw new Error('share data');
-        if (!shareText(shareData).includes('#SectorDive') || !shareText(shareData).includes('監視体を撃破')) throw new Error('share text');
+        if ($('#btnShare').hidden || !shareData || shareData.bosses[0] !== BOSS_META.watcher.short || shareData.chips[0] !== perkName('overload') + '×2') throw new Error('share data');
+        if (!shareText(shareData).includes('#SectorDive') || !shareText(shareData).includes(BOSS_META.watcher.short)) throw new Error('share text');
         $('#btnShare').click(); if ($('#sharePanel').hidden) throw new Error('share panel on PC');
         goBase(); startPractice('crusher', 0); tick(5); endRun('abandon');
         if (!$('#btnShare').hidden) throw new Error('share shown after practice');
@@ -354,12 +354,12 @@ if (location.hash.startsWith('#view-haz')) setTimeout(() => {
 // dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen, #view-share-res-panel: with the PC share panel open)
 if (location.hash.startsWith('#view-share')) setTimeout(() => {
   startRun(); run.stage = 2 * PER + PER - 1; run.kills = 142; run.bosses = ['watcher', 'trinity'];
-  run.perks = ['火力', '火力', '連射+', '会心', 'リロード', '移動速度']; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] };
+  run.perks = ['overload', 'overload', 'rapid+', 'crit', 'reload', 'light']; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] };
   const kind = location.hash.includes('dead') ? 'dead' : 'extract';
   endRun(kind); if (location.hash.includes('res')) { if (location.hash.includes('panel')) setTimeout(() => $('#btnShare').click(), 900); return; } // #view-share-res: the result screen itself
   drawShareCard(shareData).then(b => { const im = new Image(); im.src = URL.createObjectURL(b); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData)); });
 }, 300);
-if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); if (location.hash.includes('perk4')) save.pres.up.choice = 1; openPerk('チップを1枚選ぶ'); }, 300); // #view-perk4: four options
+if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); if (location.hash.includes('perk4')) save.pres.up.choice = 1; openPerk(t('perk.title')); }, 300); // #view-perk4: four options
 // dev view: #tab-<sortie|up|practice|settings>[-touch] opens that base tab
 if (location.hash.startsWith('#tab-')) showTab(location.hash.slice(5).replace(/-touch$/, ''));
 // dev view: #view-susp[-touch] leaves a suspended run and returns to the base

@@ -118,8 +118,8 @@ function selectSlot(k) {
 function swapWeapon() { selectSlot(P ? P.cur ^ 1 : 0); }
 function useKit() {
   if (!P || (state !== 'play' && state !== 'bag')) return;
-  if (P.kits <= 0) { toast('回復キットがない', 1200); return; }
-  if (P.hp >= P.maxHp) { toast('HPは満タン', 1200); return; }
+  if (P.kits <= 0) { toast(t('run.noKit'), 1200); return; }
+  if (P.hp >= P.maxHp) { toast(t('run.hpFull'), 1200); return; }
   P.kits--; P.hp = Math.min(P.maxHp, P.hp + TUNE.kitHeal); sfx('heal'); toast(`HP +${TUNE.kitHeal}`, 1000); weaponHud();
 }
 function normalizeWeapons() {
@@ -138,19 +138,19 @@ function takeNearby() {
 // hold it: fills the empty second slot, otherwise swaps with the weapon in hand (that one is dropped here)
 function equipNearby() {
   const nw = takeNearby(); if (!nw) return;
-  if (!P.weapons[1]) { P.weapons[1] = nw; P.cur = 1; normalizeWeapons(); toast(`${wText(nw)} を装備した`, 1400); }
+  if (!P.weapons[1]) { P.weapons[1] = nw; P.cur = 1; normalizeWeapons(); toast(t('run.equipped', { w: wText(nw) }), 1400); }
   else {
     const old = P.weapons[P.cur];
     P.weapons[P.cur] = nw; normalizeWeapons();
     addPickup('weapon', P.x + rand(-0.5, 0.5), P.z + rand(-0.5, 0.5), { w: old });
-    toast(`${wText(old)} と持ち替えた`, 1400);
+    toast(t('run.swapped', { w: wText(old) }), 1400);
   }
   weaponHud();
 }
 function stowNearby() {
-  if (!nearW || !P.bag.includes(null)) { if (nearW) toast('バッグが満杯', 1000); return; }
+  if (!nearW || !P.bag.includes(null)) { if (nearW) toast(t('run.bagFull'), 1000); return; }
   const nw = takeNearby(); if (!nw) return;
   P.bag[P.bag.indexOf(null)] = nw;
-  toast(`${wText(nw)} をバッグに入れた（${P.bag.filter(Boolean).length} / ${BAG_MAX}）`, 1400);
+  toast(t('run.stowed', { w: wText(nw), n: P.bag.filter(Boolean).length, max: BAG_MAX }), 1400);
   weaponHud();
 }

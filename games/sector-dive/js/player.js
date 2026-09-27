@@ -41,8 +41,8 @@ const magSize = w => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (d
 // rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
 const rarLabel = w => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 const wName = w => `<span style="color:${w.r ? RARITY[w.r].css : 'inherit'}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
-const wText = w => `${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}［${rarLabel(w)}］${w.opts && w.opts.length ? '◆' + w.opts.map(o => AFFIX[o].name).join('・') : ''}`;
-// 分裂弾: each chip adds one projectile and +20% total damage, shared across all projectiles,
+const wText = w => t('weapon.text', { name: WEAPONS[w.id].name + (w.plus ? '+' + w.plus : ''), rar: rarLabel(w), opts: w.opts && w.opts.length ? w.opts.map(o => AFFIX[o].name).join(t('share.join')) : '' });
+// split-shot: each chip adds one projectile and +20% total damage, shared across all projectiles,
 // so a full hit gains the same +20% per chip whether the weapon fires 1 round or 8 pellets
 const splitMul = def => def.pellets * (1 + 0.2 * P.extra) / (def.pellets + P.extra);
 const critChance = w => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
@@ -194,7 +194,7 @@ function damagePlayer(d) {
 function hurtEnemy(e, dmg, isCrit) {
   if (e.dead) return;
   if (e.boss && e.spawnT > 0) { burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0xffffff, 2, 3, 0.2); return; }
-  if (e.invuln) { if (!e.hinted) { e.hinted = true; toast('シールド中。周りの砲台を先に壊す', 2400); } burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0x8cc8ff, 2, 4, 0.2); return; }
+  if (e.invuln) { if (!e.hinted) { e.hinted = true; toast(t('run.shielded'), 2400); } burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0x8cc8ff, 2, 4, 0.2); return; }
   if (e.stunMul) dmg *= e.stunMul;
   e.hp -= dmg; e.flash = 0.07;
   if (!e.active) { e.active = true; if (e.room >= 0) enemies.forEach(o => { if (o.room === e.room) o.active = true; }); }
@@ -269,6 +269,6 @@ function killEnemy(e, noReward) {
 }
 function roomCleared(idx) {
   const [x, z] = roomSpot(rooms[idx]);
-  if (Math.random() < TUNE.chipChance) { addPickup('chip', x, z); toast('区画制圧 — チップを回収できる'); }
-  else { addPickup('kit', x - 0.8, z); dropBits(x + 0.8, z, 6 + prog(run.stage)); toast('区画制圧'); }
+  if (Math.random() < TUNE.chipChance) { addPickup('chip', x, z); toast(t('run.clearedChip')); }
+  else { addPickup('kit', x - 0.8, z); dropBits(x + 0.8, z, 6 + prog(run.stage)); toast(t('run.cleared')); }
 }

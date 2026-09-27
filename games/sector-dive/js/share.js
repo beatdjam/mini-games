@@ -4,12 +4,12 @@
 const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
 let shareData = null, shareBlob = null;
 
-const bossShort = k => { const n = BOSS_META[k].name; return n.slice(n.indexOf(' ') + 1); };
+const bossShort = k => BOSS_META[k].short;
 function prepShare(kind) {
   const si = stageInfo(run.stage), w = P.weapons[P.cur] || P.weapons[0];
   const counts = {};
   run.perks.forEach(n => { const k = n.replace(/\+$/, ''); counts[k] = (counts[k] || 0) + 1; });
-  const chips = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => c > 1 ? `${n}×${c}` : n);
+  const chips = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => c > 1 ? `${perkName(n)}×${c}` : perkName(n));
   shareData = {
     kind, where: stageLabel(run.stage), biome: si.biome.name, kills: run.kills,
     bosses: (run.bosses || []).map(bossShort), weapon: w ? wText(w) : '', wr: w ? w.r : 0, chips, nChips: run.perks.length,
@@ -21,9 +21,7 @@ function prepShare(kind) {
 function hideShare() { shareData = shareBlob = null; $('#btnShare').hidden = true; $('#sharePanel').hidden = true; }
 
 function shareText(d) {
-  const end = d.kind === 'extract' ? 'から帰還した' : d.kind === 'abandon' ? 'で潜行を放棄した' : 'で信号途絶';
-  const b = d.bosses.length ? `${d.bosses.join('・')}を撃破。` : '';
-  return `SECTOR/DIVE ${d.where} ${d.biome}${end}。${b}#SectorDive\n${SHARE_URL}`;
+  return t('share.text', d) + '\n' + SHARE_URL;
 }
 
 async function drawShareCard(d) {
@@ -46,16 +44,16 @@ async function drawShareCard(d) {
   g.textAlign = 'left';
   // headline
   g.font = `64px ${jp}`; g.fillStyle = acc;
-  g.fillText(d.kind === 'extract' ? '帰還完了' : d.kind === 'abandon' ? '潜行放棄' : '信号途絶', 64, 190);
+  g.fillText(t(d.kind === 'extract' ? 'res.extract' : d.kind === 'abandon' ? 'res.abandon' : 'res.dead'), 64, 190);
   g.font = `700 76px ${disp}`; g.fillStyle = '#d5e4ee'; g.fillText(d.where, 64, 290);
   const ww = g.measureText(d.where).width;
   g.font = `34px ${jp}`; g.fillStyle = '#7f94a6'; g.fillText(fit(d.biome, W - 128 - ww - 28), 64 + ww + 28, 290);
   // rows
   const rows = [
-    ['撃破', `${d.kills} 体`, '#d5e4ee'],
-    ['ボス', d.bosses.length ? d.bosses.join('・') : 'なし', '#d5e4ee'],
-    ['武器', d.weapon || 'なし', RARITY[d.wr] ? RARITY[d.wr].css : '#d5e4ee'],
-    ['チップ', d.nChips ? `${d.chips.join('・')}${d.nChips > d.chips.length ? ` ほか（計${d.nChips}枚）` : ''}` : 'なし', '#d5e4ee'],
+    [t('share.kills'), t('share.killsV', { n: d.kills }), '#d5e4ee'],
+    [t('share.bosses'), d.bosses.length ? d.bosses.join(t('share.join')) : t('common.none'), '#d5e4ee'],
+    [t('share.weapon'), d.weapon || t('common.none'), RARITY[d.wr] ? RARITY[d.wr].css : '#d5e4ee'],
+    [t('share.chips'), d.nChips ? `${d.chips.join(t('share.join'))}${d.nChips > d.chips.length ? t('share.chipsMore', { n: d.nChips }) : ''}` : t('common.none'), '#d5e4ee'],
   ];
   rows.forEach(([k, v, col], i) => {
     const y = 370 + i * 50;
@@ -89,7 +87,7 @@ async function openSharePanel() {
 function copyShareImage() {
   if (!shareBlob) return;
   navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })])
-    .then(() => toast('画像をコピーした。X の投稿画面で貼り付けてね', 3000), () => toast('コピーできなかった。「画像を保存」を使ってね', 3000));
+    .then(() => toast(t('share.copied'), 3000), () => toast(t('share.copyFailed'), 3000));
 }
 function saveShareImage() {
   if (!shareBlob) return;

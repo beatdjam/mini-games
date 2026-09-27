@@ -1,5 +1,5 @@
 'use strict';
-// CRUSHER 圧壊機: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
+// CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
 
 function spawnCrusher() {
   const bd = bossDiff();
@@ -7,9 +7,9 @@ function spawnCrusher() {
   const mat = new THREE.MeshLambertMaterial({ color: 0x1c0f09, emissive: 0xff8a3d, emissiveIntensity: 0.3 });
   const plate = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.2), new THREE.MeshBasicMaterial({ color: 0xffc24a })); plate.position.set(0, 0.5, 1.65);
   g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xff8a3d })), plate);
-  const e = bossBase('CRUSHER — 圧壊機', g, mat, 1800 * bd, 1.6, 2.4, updCrusher);
+  const e = bossBase(BOSS_META.crusher.title, g, mat, 1800 * bd, 1.6, 2.4, updCrusher);
   e.st = 'idle'; e.timer = 2;
-  toast('地を這う衝撃波はダッシュですり抜けられる。壁に突っ込ませると隙ができる', 4200);
+  toast(t('boss.crusherHint'), 4200);
 }
 function updCrusher(e, dt) {
   e.t += dt; e.timer -= dt;
@@ -36,7 +36,7 @@ function updCrusher(e, dt) {
     if (hit || e.timer <= 0) {
       e.st = 'stun'; e.timer = 1.6; e.stunMul = 1.5; shake = Math.max(shake, 0.35); sfx('boom');
       spawnWave(e.x, e.z, 11, 18, e.dmg * 1.4, 0xff8a3d);
-      toast('スタン中 — ダメージ1.5倍', 1400);
+      toast(t('boss.crusherStun'), 1400);
     }
   } else if (e.st === 'stun') {
     y += Math.sin(e.t * 30) * 0.08;

@@ -19,15 +19,15 @@ function startRun() {
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage();
   const queue = [];
-  for (let k = 0; k < save.up.chip; k++) queue.push('持ち込みチップ');
-  for (let k = 0; k < tier; k++) queue.push('ショートカット補給');
+  for (let k = 0; k < save.up.chip; k++) queue.push(t('perk.carry'));
+  for (let k = 0; k < tier; k++) queue.push(t('perk.supply'));
   const total = queue.length;
   // after the loadout / shortcut chips are picked, re-save the checkpoint so they are part of it
-  const next = () => { if (queue.length) { const kind = queue.shift(); openPerk(`${kind}（${total - queue.length} / ${total}）`, 'loadout', next); } else checkpoint(); };
+  const next = () => { if (queue.length) { const kind = queue.shift(); openPerk(t('perk.queue', { kind, i: total - queue.length, n: total }), 'loadout', next); } else checkpoint(); };
   next();
   if (!total) requestLock(); // with chips to pick first, the lock is requested when the last one is chosen
-  if (!total) toast(isTouch ? '左で移動 / 右ドラッグで視点。操作一覧は II（一時停止）に' : 'WASD移動 / マウスで視点 / クリックで射撃。操作一覧は Esc（一時停止）に', 4200);
-  if (risked) setTimeout(() => toast('倉庫から持ち出した武器は、死ぬと失う', 3000), total ? 0 : 4400);
+  if (!total) toast(t(isTouch ? 'run.firstTouch' : 'run.firstDesk'), 4200);
+  if (risked) setTimeout(() => toast(t('run.risked'), 3000), total ? 0 : 4400);
 }
 function startStage() {
   const si = stageInfo(run.stage), b = si.biome, isArena = isBossStage(run.stage);
@@ -43,7 +43,7 @@ function startStage() {
   } else {
     const [sx, sz] = roomSpot(rooms[startIdx]); P.x = sx; P.z = sz;
     const [ex, ez] = roomSpot(rooms[exitIdx]); P.yaw = Math.atan2(-(ex - sx), -(ez - sz)); P.pitch = 0;
-    makePortal(ex, ez, 0xffc24a, 'next', si.sub === PER - 2 ? 'ボスへ' : '次の区画');
+    makePortal(ex, ez, 0xffc24a, 'next', t(si.sub === PER - 2 ? 'run.toBoss' : 'run.nextArea'));
     rooms.forEach((r, idx) => {
       if (idx === startIdx) return;
       const n = Math.min(ENEMY_TUNE.maxPerRoom, Math.max(2, Math.floor(r.w * r.h / (b.gen.density || 3))), randi(2, 4) + Math.floor(prog(run.stage) * 0.3));
@@ -79,7 +79,7 @@ function nextStage() {
   sfx('portal');
   run.stage++;
   save.best = Math.max(save.best, run.stage + 1); persist();
-  if (run.stage % (PER * 3) === 0) toast(`DEPTH ${stageInfo(run.stage).tier + 1} — ここから敵がさらに強くなる`, 3000);
+  if (run.stage % (PER * 3) === 0) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), 3000);
   startStage();
 }
 function openPerk(title, eyebrow, done) {
@@ -91,9 +91,9 @@ function openPerk(title, eyebrow, done) {
   opts.forEach(({ o, rare }) => {
     const v = rare ? o.rv : o.v, name = o.name + (rare ? '+' : '');
     const b = document.createElement('button'); b.className = 'perk' + (rare ? ' rare' : '');
-    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}</span><span class="pd">${o.desc(v)}</span><span class="pcur">現在: ${o.cur(P)}</span>`;
+    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}</span><span class="pd">${o.desc(v)}</span><span class="pcur">${t('perk.cur', { v: o.curText(o.cur(P)) })}</span>`;
     b.addEventListener('click', () => {
-      o.apply(P, v); run.perks.push(name); sfx('chip');
+      o.apply(P, v); run.perks.push(o.id + (rare ? '+' : '')); sfx('chip');
       show(null); state = 'play'; weaponHud();
       requestLock();
       if (done) done();
@@ -140,6 +140,7 @@ function suspendRun() {
 function restoreSnapshot(sn) {
   P = Object.assign(newPlayer([basicW('pistol'), null]), sn.P);
   run = Object.assign({}, sn.run);
+  run.perks = (run.perks || []).map(perkIdOf);
 }
 function resumeRun() {
   const sn = save.suspend; if (!sn) return;
@@ -149,7 +150,7 @@ function resumeRun() {
   save.suspend = null; persist();
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage(); requestLock();
-  toast('中断した潜行を再開した', 2000);
+  toast(t('susp.resumed'), 2000);
 }
 function discardSuspended() {
   const sn = save.suspend; if (!sn) return;
@@ -162,10 +163,10 @@ function renderSuspend() {
   if (!sn) return;
   const tier = Math.floor(sn.run.stage / PER), b = BIOMES[sn.run.route[tier % sn.run.route.length]];
   box.innerHTML = `<p class="eyebrow">suspended</p>
-    <div>中断中の潜行: <b>${stageLabel(sn.run.stage)}</b>　${b.name}（HP ${Math.ceil(sn.P.hp)} / ${sn.P.maxHp}、ビット ${Math.floor(sn.run.bits)}）</div>
-    <div class="row"><button class="primary" data-susp="resume">RESUME<small>この区画の最初から再開</small></button>
-    ${discardArm ? '<button class="buy" data-susp="discard">本当に破棄する（死亡扱い）</button><button class="mini-btn" data-susp="cancel">やめる</button>'
-      : '<button class="mini-btn" data-susp="arm">破棄…</button>'}</div>`;
+    <div>${t('susp.info', { where: stageLabel(sn.run.stage), biome: b.name, hp: Math.ceil(sn.P.hp), maxHp: sn.P.maxHp, bits: Math.floor(sn.run.bits) })}</div>
+    <div class="row"><button class="primary" data-susp="resume">${t('susp.resume')}<small>${t('susp.resumeSub')}</small></button>
+    ${discardArm ? `<button class="buy" data-susp="discard">${t('susp.discardGo')}</button><button class="mini-btn" data-susp="cancel">${t('common.cancel')}</button>`
+      : `<button class="mini-btn" data-susp="arm">${t('susp.discard')}</button>`}</div>`;
 }
 $('#suspendBox').addEventListener('click', e => {
   const b = e.target.closest('[data-susp]'); if (!b) return;
@@ -178,26 +179,26 @@ $('#suspendBox').addEventListener('click', e => {
 // ---- stats panel ----
 function statsHTML() {
   const w = curW(), pct = v => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, rows = [];
-  rows.push(['最大HP', P.maxHp]);
-  rows.push(['与ダメージ', pct(P.dmgMul * (1 + PLUS_DMG * (w.plus || 0)) - 1)]);
-  rows.push(['連射速度', pct(P.fireRate / Math.pow(0.91, wo('rate')) - 1)]);
-  rows.push(['移動速度', pct(P.spdMul * (1 + 0.06 * wo('speed')) - 1)]);
-  rows.push(['スタミナ', `最大 ${P.stMax}（ダッシュ ${Math.floor(P.stMax / TUNE.dashCost)} 回分）/ 回復 ${Math.round(P.stRegen)} 毎秒`]);
-  rows.push(['リロード時間', pct(P.reloadMul * Math.pow(0.8, wo('reload')) - 1)]);
-  rows.push(['装弾数', pct(P.magMul * (1 + 0.3 * wo('mag')) - 1)]);
-  rows.push(['会心率（2倍ダメージ）', `${Math.round(critChance() * 100)}%${P.crit + 0.08 * wo('crit') > TUNE.critCap ? '（上限）' : ''}`]);
+  rows.push([t('stats.maxHp'), P.maxHp]);
+  rows.push([t('stats.dmg'), pct(P.dmgMul * (1 + PLUS_DMG * (w.plus || 0)) - 1)]);
+  rows.push([t('stats.rate'), pct(P.fireRate / Math.pow(0.91, wo('rate')) - 1)]);
+  rows.push([t('stats.speed'), pct(P.spdMul * (1 + 0.06 * wo('speed')) - 1)]);
+  rows.push([t('stats.stamina'), t('stats.staminaV', { max: P.stMax, dashes: Math.floor(P.stMax / TUNE.dashCost), regen: Math.round(P.stRegen) })]);
+  rows.push([t('stats.reload'), pct(P.reloadMul * Math.pow(0.8, wo('reload')) - 1)]);
+  rows.push([t('stats.mag'), pct(P.magMul * (1 + 0.3 * wo('mag')) - 1)]);
+  rows.push([t('stats.crit'), `${Math.round(critChance() * 100)}%${P.crit + 0.08 * wo('crit') > TUNE.critCap ? t('stats.capped') : ''}`]);
   const pierce = P.pierce + wo('pierce'), leech = P.leech + 2 * wo('leech'), gain = P.gainMul * (1 + 0.1 * wo('gain'));
-  if (pierce) rows.push(['貫通', `+${pierce} 体`]);
-  if (P.extra) rows.push(['分裂弾', `発射数 +${P.extra}（合計ダメージ +${P.extra * 20}%を弾数で分け合う）`]);
-  if (leech) rows.push(['撃破時回復', `HP +${leech}`]);
-  if (P.chain) rows.push(['連鎖爆破', `Lv ${P.chain}`]);
-  if (P.magnet > 1) rows.push(['回収範囲', `×${P.magnet.toFixed(1)}`]);
-  rows.push(['ビット獲得', pct(gain - 1)]);
+  if (pierce) rows.push([t('stats.pierce'), t('stats.pierceV', { n: pierce })]);
+  if (P.extra) rows.push([t('stats.split'), t('stats.splitV', { n: P.extra, pct: P.extra * 20 })]);
+  if (leech) rows.push([t('stats.leech'), `HP +${leech}`]);
+  if (P.chain) rows.push([t('stats.chain'), `Lv ${P.chain}`]);
+  if (P.magnet > 1) rows.push([t('stats.magnet'), `×${P.magnet.toFixed(1)}`]);
+  rows.push([t('stats.gain'), pct(gain - 1)]);
   const counts = {}; run.perks.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
-  const chips = Object.keys(counts).map(n => counts[n] > 1 ? `${n}×${counts[n]}` : n).join('、') || 'なし';
-  return `<h3>現在の性能<small>拠点強化・チップ・手持ち武器（${wText(w)}）込み</small></h3>
+  const chips = Object.keys(counts).map(n => counts[n] > 1 ? `${perkName(n)}×${counts[n]}` : perkName(n)).join(t('common.sep')) || t('common.none');
+  return `<h3>${t('stats.title')}<small>${t('stats.titleNote', { w: wText(w) })}</small></h3>
     <dl class="reslist">${rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>
-    <p class="chips">取得チップ: ${chips}</p>`;
+    <p class="chips">${t('stats.chips', { list: chips })}</p>`;
 }
 
 // ---- inventory ----
@@ -212,35 +213,35 @@ $('#btnBagClose').addEventListener('click', closeBag);
 $('#btnUseKit').addEventListener('click', () => { useKit(); renderBag(); });
 function itemCard(w, where, i) {
   const sel = invSel && invSel.where === where && invSel.i === i;
-  if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">空き</button>`;
+  if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">${t('base.empty')}</button>`;
   const def = WEAPONS[w.id];
   return `<button class="item ${sel ? 'sel' : ''}" data-inv="${where}:${i}" style="border-left:3px solid ${w.basic ? 'var(--line)' : RARITY[w.r].css}"><span class="wn">${wName(w)}</span>
-    <span class="ws">火力 ${Math.round(weaponStats(w).dps)} / 1発 ${Math.round(weaponStats(w).perHit)}${weaponStats(w).hits > 1 ? '×' + weaponStats(w).hits : ''} / 弾 ${w.mag}/${magSize(w)}</span>${wOpts(w)}
-    ${w.basic ? '<span class="ws">拠点の武器（失わない）</span>' : ''}
-    ${where === 'eq' ? `<span class="ws">スロット${i + 1}${i === P.cur ? '（手持ち）' : ''}</span>` : ''}</button>`;
+    <span class="ws">${t('bag.item', { dps: Math.round(weaponStats(w).dps), hit: Math.round(weaponStats(w).perHit), hits: weaponStats(w).hits > 1 ? '×' + weaponStats(w).hits : '', mag: w.mag, magMax: magSize(w) })}</span>${wOpts(w)}
+    ${w.basic ? `<span class="ws">${t('base.keep')}</span>` : ''}
+    ${where === 'eq' ? `<span class="ws">${t('bag.slotN', { n: i + 1 })}${i === P.cur ? t('bag.inHand') : ''}</span>` : ''}</button>`;
 }
 function renderBag() {
   $('#invEq').innerHTML = P.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
   $('#invBag').innerHTML = P.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
   $('#kitNum').textContent = P.kits;
-  $('#btnUseKit').textContent = `使う（HP +${TUNE.kitHeal}）`;
+  $('#btnUseKit').textContent = t('bag.useKit', { n: TUNE.kitHeal });
   $('#btnUseKit').disabled = P.kits <= 0 || P.hp >= P.maxHp;
-  $('#bagChips').innerHTML = `<p class="chips">HP ${Math.ceil(P.hp)} / ${P.maxHp}　今回のビット ${Math.floor(run.bits)}</p>` + statsHTML();
+  $('#bagChips').innerHTML = `<p class="chips">${t('bag.status', { hp: Math.ceil(P.hp), maxHp: P.maxHp, bits: Math.floor(run.bits) })}</p>` + statsHTML();
   const act = $('#invAct');
-  if (!invSel) { act.innerHTML = '武器を選ぶと、装備の入れ替えや廃棄ができる'; return; }
+  if (!invSel) { act.innerHTML = t('bag.pick'); return; }
   const w = invSel.where === 'eq' ? P.weapons[invSel.i] : P.bag[invSel.i];
-  if (!w) { act.innerHTML = '空きスロット'; return; }
+  if (!w) { act.innerHTML = t('bag.emptySlot'); return; }
   const eqCount = P.weapons.filter(Boolean).length, bagFree = P.bag.includes(null);
   const btns = [];
   if (invSel.where === 'bag') {
-    btns.push(`<button class="mini-btn amber" data-act="equip0">スロット1に装備</button>`);
-    btns.push(`<button class="mini-btn amber" data-act="equip1">スロット2に装備</button>`);
-    btns.push(`<button class="mini-btn" data-act="drop">捨てる</button>`);
+    btns.push(`<button class="mini-btn amber" data-act="equip0">${t('bag.toSlot1')}</button>`);
+    btns.push(`<button class="mini-btn amber" data-act="equip1">${t('bag.toSlot2')}</button>`);
+    btns.push(`<button class="mini-btn" data-act="drop">${t('bag.drop')}</button>`);
   } else {
-    btns.push(`<button class="mini-btn" data-act="stow" ${eqCount > 1 && bagFree ? '' : 'disabled'}>バッグへしまう</button>`);
-    btns.push(`<button class="mini-btn" data-act="drop" ${eqCount > 1 ? '' : 'disabled'}>捨てる</button>`);
+    btns.push(`<button class="mini-btn" data-act="stow" ${eqCount > 1 && bagFree ? '' : 'disabled'}>${t('bag.stow')}</button>`);
+    btns.push(`<button class="mini-btn" data-act="drop" ${eqCount > 1 ? '' : 'disabled'}>${t('bag.drop')}</button>`);
   }
-  act.innerHTML = btns.join('') + (w.basic ? '' : '<span>（帰還すれば倉庫に残る）</span>');
+  act.innerHTML = btns.join('') + (w.basic ? '' : `<span>${t('bag.keptNote')}</span>`);
 }
 $('#scrBag').addEventListener('click', e => {
   const it = e.target.closest('[data-inv]'), ac = e.target.closest('[data-act]');
@@ -272,16 +273,16 @@ function startPractice(kind, tier) {
   run = { stage: tier * PER + PER - 1, kills: 0, bits: 0, perks: [], startTier: 0, route: [bi], practice: true, forceBoss: kind, t0: performance.now() };
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage(); requestLock();
-  toast('ボス練習 — 報酬もロストもなし', 2600);
+  toast(t('run.practiceStart'), 2600);
 }
 function endPractice(kind) {
   state = 'result'; releaseInputs(); exitLock();
   const sec = Math.round((performance.now() - run.t0) / 1000);
   $('#resEyebrow').textContent = 'practice';
-  $('#resTitle').textContent = run.cleared ? '練習終了 — 撃破' : '練習終了';
-  $('#resList').innerHTML = [['ボス', BOSS_META[run.forceBoss].name], ['強さ', `DEPTH ${stageInfo(run.stage).tier + 1} 相当`], ['結果', run.cleared ? '撃破' : kind === 'dead' ? 'やられた' : '中断'], ['時間', `${Math.floor(sec / 60)}分${sec % 60}秒`]]
+  $('#resTitle').textContent = t(run.cleared ? 'res.practiceWon' : 'res.practiceDone');
+  $('#resList').innerHTML = [[t('res.boss'), BOSS_META[run.forceBoss].name], [t('res.strength'), t('res.strengthV', { n: stageInfo(run.stage).tier + 1 })], [t('res.result'), t(run.cleared ? 'res.won' : kind === 'dead' ? 'res.died' : 'res.quit')], [t('res.time'), t('res.timeV', { m: Math.floor(sec / 60), s: sec % 60 })]]
     .map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
-  $('#resChips').textContent = '練習なので、ビット・武器・記録は変わらない。';
+  $('#resChips').textContent = t('res.practiceNote');
   hideShare();
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
@@ -295,13 +296,13 @@ function endRun(kind) {
   save.best = Math.max(save.best, run.stage + 1);
   const found = P.weapons.concat(P.bag).filter(w => w && !w.basic);
   const rows = [];
-  rows.push(['到達区画', `${stageLabel(run.stage)}　${stageInfo(run.stage).biome.name}`]);
-  rows.push(['撃破数', run.kills]);
-  rows.push(['ビット', dead ? `+${kept}（${got - kept} を失った）` : `+${kept}`]);
+  rows.push([t('res.reached'), `${stageLabel(run.stage)}　${stageInfo(run.stage).biome.name}`]);
+  rows.push([t('res.kills'), run.kills]);
+  rows.push([t('res.bits'), dead ? t('res.bitsLost', { kept, lost: got - kept }) : `+${kept}`]);
   let shortcutMsg = '';
   if (dead) {
-    rows.push(['失った武器', found.length ? found.map(wText).join('、') : 'なし']);
-    if (save.shortcut > 0) { save.shortcut--; shortcutMsg = `${tierLabel(save.shortcut + 1)} へのショートカットが閉じた`; }
+    rows.push([t('res.lostWeapons'), found.length ? found.map(wText).join(t('common.sep')) : t('common.none')]);
+    if (save.shortcut > 0) { save.shortcut--; shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut + 1) }); }
     save.startTier = Math.min(save.startTier, save.shortcut);
   } else {
     const strip = w => w ? { id: w.id, r: w.r, basic: !!w.basic, plus: w.plus || 0, opts: w.opts || [] } : null;
@@ -314,15 +315,15 @@ function endRun(kind) {
       sold += sellValue(save.stash[mi]); save.stash.splice(mi, 1);
     }
     if (sold) save.bits += sold;
-    rows.push(['持ち帰った武器', found.length ? found.map(wText).join('、') : 'なし']);
-    if (sold) rows.push(['倉庫あふれ分を換金', `+${sold}`]);
+    rows.push([t('res.keptWeapons'), found.length ? found.map(wText).join(t('common.sep')) : t('common.none')]);
+    if (sold) rows.push([t('res.sold'), `+${sold}`]);
   }
-  if (shortcutMsg) rows.push(['ショートカット', shortcutMsg]);
+  if (shortcutMsg) rows.push([t('res.shortcut'), shortcutMsg]);
   persist();
   $('#resEyebrow').textContent = kind === 'extract' ? 'extracted' : kind === 'abandon' ? 'abandoned' : 'signal lost';
-  $('#resTitle').textContent = kind === 'extract' ? '帰還完了' : kind === 'abandon' ? '潜行放棄' : '信号途絶';
+  $('#resTitle').textContent = t(kind === 'extract' ? 'res.extract' : kind === 'abandon' ? 'res.abandon' : 'res.dead');
   $('#resList').innerHTML = rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
-  $('#resChips').textContent = run.perks.length ? `この潜行のチップ（持ち帰り不可）: ${run.perks.join('、')}` : '';
+  $('#resChips').textContent = run.perks.length ? t('res.chips', { list: run.perks.map(perkName).join(t('common.sep')) }) : '';
   prepShare(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
@@ -348,7 +349,7 @@ function buildAttract() {
 let selSlot = 0;
 function wStat(w) {
   const d = WEAPONS[w.id];
-  return `DMG ${Math.round(d.dmg * wDmgMul(w))}${d.pellets > 1 ? '×' + d.pellets : ''} / ${(1 / d.rate).toFixed(1)}発/秒 / 弾倉 ${d.mag}${d.pierce ? ' / 貫通' : ''}${d.blast ? ' / 爆発' : ''}`;
+  return t('base.wstat', { dmg: Math.round(d.dmg * wDmgMul(w)), pellets: d.pellets, rate: (1 / d.rate).toFixed(1), mag: d.mag, pierce: d.pierce, blast: d.blast });
 }
 // base menu tabs; the last one opened is remembered in this browser
 let baseTab = 'sortie';
@@ -368,48 +369,48 @@ function renderBase() {
   $('#sRuns').textContent = save.runs;
   $('#sBoss').textContent = save.bossKills;
   save.startTier = clamp(save.startTier, 0, save.shortcut);
-  $('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, t) =>
-    `<button class="tier" data-tier="${t}" aria-pressed="${save.startTier === t}"><b>${tierLabel(t)}</b><small>${t === 0 ? '最初から' : `補給チップ ${t} 枚`}</small></button>`).join('');
-  $('#startSub').textContent = `潜行開始 — ${tierLabel(save.startTier)} から`;
+  $('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, n) =>
+    `<button class="tier" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b><small>${n === 0 ? t('base.tierFirst') : t('base.tierChips', { n })}</small></button>`).join('');
+  $('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
   $('#loadout').innerHTML = [0, 1].map(k => {
     const w = save.loadout[k];
-    return `<button class="lslot ${selSlot === k ? 'sel' : ''}" data-slot="${k}"><span class="eyebrow">装備${k + 1}${selSlot === k ? ' — 割り当て先' : ''}</span>
-      <span class="wn">${w ? wName(basicNow(w)) : '空き'}</span>${w && !w.basic ? '<span class="risk">倉庫の武器。死ぬと失う</span>' : w ? '<span class="ws">拠点の武器（失わない）</span>' : ''}
-      ${k === 1 && w ? '<span class="mini-btn" data-unequip="1" role="button">外す</span>' : ''}</button>`;
+    return `<button class="lslot ${selSlot === k ? 'sel' : ''}" data-slot="${k}"><span class="eyebrow">${t('base.slot', { n: k + 1 })}${selSlot === k ? t('base.slotTarget') : ''}</span>
+      <span class="wn">${w ? wName(basicNow(w)) : t('base.empty')}</span>${w && !w.basic ? `<span class="risk">${t('base.stashRisk')}</span>` : w ? `<span class="ws">${t('base.keep')}</span>` : ''}
+      ${k === 1 && w ? `<span class="mini-btn" data-unequip="1" role="button">${t('base.unequip')}</span>` : ''}</button>`;
   }).join('');
   $('#wgrid').innerHTML = WEAPON_ORDER.map(id => {
     const def = WEAPONS[id], un = id === 'pistol' || !!save.unlocked[id];
     if (!un) return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" data-w="${id}">
       <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span>
-      <span class="wf">解放 ${def.cost} BIT（出撃装備にできて、改造もできる）</span></button>`;
+      <span class="wf">${t('base.unlock', { cost: def.cost })}</span></button>`;
     const w = basicNow(basicW(id)), m = modOf(id), pc = modPlusCost(m.plus), rc = MOD_RARITY_COST[m.r];
-    const plusBtn = m.plus >= MOD_PLUS_MAX ? '<button class="mini-btn" disabled>+値 最大</button>'
-      : `<button class="mini-btn amber" data-modplus="${id}" ${save.bits < pc ? 'disabled' : ''}>+${m.plus + 1} に改造 ${pc}</button>`;
-    const rarBtn = rc === undefined ? '<button class="mini-btn" disabled>★ 最大</button>'
-      : `<button class="mini-btn amber" data-modrar="${id}" ${save.bits < rc ? 'disabled' : ''}>${RARITY[m.r + 1].stars}${RARITY[m.r + 1].name}に ${rc}</button>`;
+    const plusBtn = m.plus >= MOD_PLUS_MAX ? `<button class="mini-btn" disabled>${t('base.plusMax')}</button>`
+      : `<button class="mini-btn amber" data-modplus="${id}" ${save.bits < pc ? 'disabled' : ''}>${t('base.modPlus', { n: m.plus + 1, cost: pc })}</button>`;
+    const rarBtn = rc === undefined ? `<button class="mini-btn" disabled>${t('base.rarMax')}</button>`
+      : `<button class="mini-btn amber" data-modrar="${id}" ${save.bits < rc ? 'disabled' : ''}>${t('base.modRar', { stars: RARITY[m.r + 1].stars, name: RARITY[m.r + 1].name, cost: rc })}</button>`;
     return `<div class="wcard" style="border-left:3px solid ${m.r ? RARITY[m.r].css : 'var(--line)'}">
       <span class="wn">${wName(w)}</span><span class="wd">${def.desc}</span><span class="ws">${wStat(w)}</span>
-      <span class="acts"><button class="mini-btn amber" data-w="${id}">装備${selSlot + 1}に割り当て</button>${plusBtn}${rarBtn}</span></div>`;
+      <span class="acts"><button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: selSlot + 1 })}</button>${plusBtn}${rarBtn}</span></div>`;
   }).join('');
-  $('#stashCount').textContent = `${save.stash.length} / ${STASH_MAX}　潜行で拾って帰還した武器。持ち出すと死亡時に失う`;
+  $('#stashCount').textContent = t('base.stashCount', { n: save.stash.length, max: STASH_MAX });
   $('#stash').innerHTML = save.stash.length ? save.stash.map((w, i) => `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
-      <span class="acts"><button class="mini-btn amber" data-stash="${i}">装備${selSlot + 1}へ</button><button class="mini-btn" data-sell="${i}">売却 +${sellValue(w)}</button></span></div>`).join('')
-    : '<div class="empty">まだ空。潜行中に拾った武器を持って帰還すると、ここに入る</div>';
+      <span class="acts"><button class="mini-btn amber" data-stash="${i}">${t('base.stashAssign', { n: selSlot + 1 })}</button><button class="mini-btn" data-sell="${i}">${t('base.sell', { v: sellValue(w) })}</button></span></div>`).join('')
+    : `<div class="empty">${t('base.stashEmpty')}</div>`;
   $('#ulist').innerHTML = UPGRADES.map(u => {
     const l = save.up[u.id] || 0, maxed = l >= u.max, cost = u.cost(l);
     const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
     return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc(l)}</div><div class="pips">${pips}</div></div>
-      <button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? '最大' : cost + ' BIT'}</button></div>`;
+      <button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' BIT'}</button></div>`;
   }).join('');
   renderReboot();
-  $('#practiceTier').innerHTML = '<span>強さ</span>' + [0, 1, 2, 4].map(t => `<button data-ptier="${t}" aria-pressed="${practiceTier === t}">D${t + 1}</button>`).join('');
+  $('#practiceTier').innerHTML = `<span>${t('base.practiceTierLabel')}</span>` + [0, 1, 2, 4].map(t => `<button data-ptier="${t}" aria-pressed="${practiceTier === t}">D${t + 1}</button>`).join('');
   $('#bossList').innerHTML = BOSS_ORDER.map(k => `<button class="wcard" data-practice="${k}"><span class="wn">${BOSS_META[k].name}</span>
-    <span class="wd">${BOSS_META[k].desc}</span><span class="wf">${save.bossSeen[k] ? '練習する' : '練習する（未遭遇）'}</span></button>`).join('');
+    <span class="wd">${BOSS_META[k].desc}</span><span class="wf">${t(save.bossSeen[k] ? 'base.practiceGo' : 'base.practiceGoNew')}</span></button>`).join('');
   renderSettings();
   $('#help').innerHTML = isTouch
-    ? '横持ち推奨。操作一覧は潜行中の一時停止（II）で見られる。セーブはこのブラウザに保存される。'
-    : '操作一覧は潜行中の一時停止（Esc）で見られる。セーブはこのブラウザに保存される。';
+    ? t('base.helpTouch')
+    : t('base.helpDesk');
 }
 let rebootArm = false;
 const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
@@ -417,20 +418,20 @@ function renderReboot() {
   const pr = save.pres, sec = $('#rebootSec');
   sec.hidden = !(save.canReboot || pr.count > 0);
   if (sec.hidden) return;
-  $('#rebootNote').textContent = `再起動 ${pr.count} 回 / 難度 +${pr.count * 15}% / 再起動ポイント ${pr.pts}`;
+  $('#rebootNote').textContent = t('reboot.note', { count: pr.count, diff: pr.count * 15, pts: pr.pts });
   $('#presList').innerHTML = PRES_UP.map(u => {
     const l = pr.up[u.id] || 0, maxed = l >= u.max;
     const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
     return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc(l)}</div><div class="pips">${pips}</div></div>
-      <button class="buy" data-pres="${u.id}" ${maxed || pr.pts < u.cost ? 'disabled' : ''}>${maxed ? '最大' : u.cost + ' pt'}</button></div>`;
+      <button class="buy" data-pres="${u.id}" ${maxed || pr.pts < u.cost ? 'disabled' : ''}>${maxed ? t('base.max') : u.cost + ' pt'}</button></div>`;
   }).join('');
   const row = $('#rebootRow');
-  if (save.suspend) { row.innerHTML = '<p class="help">中断中の潜行を再開するか破棄してから再起動できる。</p>'; return; }
-  if (!save.canReboot) { row.innerHTML = '<p class="help">もう一度 DEPTH 3 以降のボスを倒すと、次の再起動ができる。</p>'; return; }
+  if (save.suspend) { row.innerHTML = `<p class="help">${t('reboot.suspended')}</p>`; return; }
+  if (!save.canReboot) { row.innerHTML = `<p class="help">${t('reboot.locked')}</p>`; return; }
   row.innerHTML = rebootArm
-    ? `<p class="help">拠点強化・武器の解放・倉庫・ショートカット・ビットがすべて消える。敵は +15% 強くなる。本当に再起動する？</p>
-       <button class="buy" data-reboot="go">再起動する（+${rebootGain()} pt）</button><button class="mini-btn" data-reboot="cancel">やめる</button>`
-    : `<p class="help">進行をリセットして再起動ポイントを ${rebootGain()} 得る。ポイントは上の永続ボーナスに使える。</p><button class="buy" data-reboot="arm">再起動…</button>`;
+    ? `<p class="help">${t('reboot.confirm')}</p>
+       <button class="buy" data-reboot="go">${t('reboot.go', { pts: rebootGain() })}</button><button class="mini-btn" data-reboot="cancel">${t('common.cancel')}</button>`
+    : `<p class="help">${t('reboot.info', { pts: rebootGain() })}</p><button class="buy" data-reboot="arm">${t('reboot.arm')}</button>`;
 }
 function doReboot() {
   const pr = save.pres, keep = { best: save.best, runs: save.runs, bossKills: save.bossKills, settings: save.settings };

@@ -1,5 +1,5 @@
 'use strict';
-// NOISE CORE 深層核: rotating beams, bullet rings, summons
+// NOISE CORE: rotating beams, bullet rings, summons
 
 function spawnCore() {
   const bd = bossDiff();
@@ -8,7 +8,7 @@ function spawnCore() {
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   const knot = new THREE.Mesh(geo, mat);
   g.add(knot, core);
-  const e = bossBase('NOISE CORE — 深層核', g, mat, 2400 * bd, 2.6, 2.3, updCore);
+  const e = bossBase(BOSS_META.core.title, g, mat, 2400 * bd, 2.6, 2.3, updCore);
   e.x = e.cx; e.z = e.cz; g.position.set(e.x, e.y, e.z); e.knot = knot;
   e.beams = []; e.ba = 0; e.bdir = 1;
   for (let k = 0; k < 3; k++) {
@@ -16,7 +16,7 @@ function spawnCore() {
     const bm = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: 0xff4d8d, transparent: true, opacity: 0.25, depthWrite: false }));
     bm.position.set(e.cx, 1.2, e.cz); bm.visible = false; levelGroup.add(bm); e.beams.push(bm);
   }
-  toast('回転レーザーはダッシュの無敵で飛び越える', 3800);
+  toast(t('boss.coreHint'), 3800);
 }
 function updCore(e, dt) {
   e.t += dt; e.timer -= dt; e.pt += dt;

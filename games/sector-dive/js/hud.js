@@ -18,10 +18,10 @@ function weaponHud() {
   [0, 1].forEach(k => {
     const el = $('#w' + k), w = P.weapons[k];
     el.classList.toggle('on', k === P.cur);
-    el.innerHTML = w ? `${k + 1}: ${wName(w)}` : `${k + 1}: 空き`;
+    el.innerHTML = w ? t('hud.slot', { n: k + 1, name: wName(w) }) : t('hud.slotEmpty', { n: k + 1 });
   });
   $('#kitBtnN').textContent = P.kits;
-  const kh = $('#kitHud'); kh.textContent = `回復キット ${P.kits} / ${KIT_MAX}　[H]`; kh.classList.toggle('none', P.kits <= 0);
+  const kh = $('#kitHud'); kh.textContent = t('hud.kits', { n: P.kits, max: KIT_MAX }); kh.classList.toggle('none', P.kits <= 0);
   $('#btnKit').classList.toggle('off', P.kits <= 0);
 }
 function updateHud() {
@@ -44,21 +44,21 @@ function updateHud() {
   const row = $('#pickRow');
   if (nearW) {
     const desk = !isTouch && !document.body.classList.contains('nolock'), bagFree = P.bag.includes(null);
-    const name = wText(nearW.w) + (desk ? `　[G] ${P.weapons[1] ? '持ち替え' : '装備'} / [E] バッグへ${bagFree ? '' : '（満杯）'}` : '');
+    const name = wText(nearW.w) + (desk ? t('hud.pickDesk', { act: t(P.weapons[1] ? 'hud.pickSwap' : 'hud.pickEquip'), full: bagFree ? '' : t('hud.pickFull') }) : '');
     const diff = compareHTML(nearW.w, curW()), key = name + '|' + diff + '|' + P.cur + '|' + bagFree;
     if (row.hidden || row.dataset.key !== key) {
       row.dataset.key = key;
       $('#pickName').textContent = name;
       $('#pickDiff').innerHTML = diff;
-      $('#btnEquip').textContent = P.weapons[1] ? '持ち替え' : '装備（2枠目）';
-      $('#btnStow').textContent = bagFree ? `バッグへ（空き${P.bag.filter(w => !w).length}）` : 'バッグ満杯';
+      $('#btnEquip').textContent = t(P.weapons[1] ? 'hud.btnSwap' : 'hud.btnEquip2');
+      $('#btnStow').textContent = bagFree ? t('hud.btnStow', { n: P.bag.filter(w => !w).length }) : t('hud.btnStowFull');
       $('#btnStow').disabled = !bagFree;
       row.hidden = false;
     }
     $('#hint').textContent = ''; // the prompt sits where the hint line is
   } else if (!row.hidden) { row.hidden = true; updateHint(); }
 }
-// "火力 142 ▲+38 / 1発 16×8 ▼-4 / 弾倉 6 ▼-6" against the weapon in hand
+// "DPS 142 ▲+38 / per hit 16×8 ▼-4 / mag 6 ▼-6" against the weapon in hand
 function compareHTML(w, cur) {
   const a = weaponStats(w), b = weaponStats(cur);
   const d = (v, base) => {
@@ -66,13 +66,13 @@ function compareHTML(w, cur) {
     return diff > 0 ? `<span class="up">▲+${diff}</span>` : diff < 0 ? `<span class="down">▼${diff}</span>` : '<span class="same">±0</span>';
   };
   const hits = a.hits > 1 ? `×${a.hits}` : '';
-  return `火力 ${Math.round(a.dps)} ${d(a.dps, b.dps)}　1発 ${Math.round(a.perHit)}${hits} ${d(a.perHit * a.hits, b.perHit * b.hits)}　弾倉 ${a.mag} ${d(a.mag, b.mag)}`;
+  return t('hud.compare', { dps: Math.round(a.dps), ddps: d(a.dps, b.dps), hit: Math.round(a.perHit), hits, dhit: d(a.perHit * a.hits, b.perHit * b.hits), mag: a.mag, dmag: d(a.mag, b.mag) });
 }
 function updateHint() {
   const h = $('#hint');
   if (isTouch) h.textContent = '';
-  else if (document.body.classList.contains('nolock')) h.textContent = '右側ドラッグで視点 / 画面のボタンかキーで操作';
-  else h.textContent = locked || state !== 'play' ? '' : 'クリックで視点ロック';
+  else if (document.body.classList.contains('nolock')) h.textContent = t('hud.hintTouchLook');
+  else h.textContent = locked || state !== 'play' ? '' : t('hud.hintLock');
 }
 function drawMap(c, g, big) {
   const s = c.width / Math.max(W, H);
@@ -99,7 +99,7 @@ function drawMap(c, g, big) {
     if (!seen[Math.floor(pt.z / T) * W + Math.floor(pt.x / T)]) return;
     g.strokeStyle = '#' + pt.color.toString(16).padStart(6, '0'); g.lineWidth = 2 * u;
     g.beginPath(); g.arc(px(pt.x), px(pt.z), 5 * u, 0, Math.PI * 2); g.stroke();
-    if (big) { g.fillStyle = g.strokeStyle; g.font = `${7 * u}px "DotGothic16",sans-serif`; g.textAlign = 'center'; g.fillText(pt.kind === 'extract' ? '帰還' : pt.kind === 'next' && arena ? '前進' : '出口', px(pt.x), px(pt.z) - 8 * u); }
+    if (big) { g.fillStyle = g.strokeStyle; g.font = `${7 * u}px "DotGothic16",sans-serif`; g.textAlign = 'center'; g.fillText(t(pt.kind === 'extract' ? 'map.extract' : pt.kind === 'next' && arena ? 'map.next' : 'map.exit'), px(pt.x), px(pt.z) - 8 * u); }
   });
   g.fillStyle = '#ff4d8d';
   enemies.forEach(e => { if (!e.dead && (e.active || e.boss) && seen[Math.floor(e.z / T) * W + Math.floor(e.x / T)]) { g.beginPath(); g.arc(px(e.x), px(e.z), (e.boss ? 5 : 2.2) * u, 0, Math.PI * 2); g.fill(); } });
@@ -125,30 +125,35 @@ function exitFs() {
   try { const fn = document.exitFullscreen || document.webkitExitFullscreen; const p = fn.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) {}
 }
 function toggleFs() { if (!fsSupported) return; if (document.fullscreenElement || document.webkitFullscreenElement) exitFs(); else enterFs(); }
-function fsLabel() { $('#btnFs').textContent = isFs() ? '全画面解除' : '全画面'; }
+function fsLabel() { $('#btnFs').textContent = t(isFs() ? 'hud.fsOff' : 'hud.fs'); }
 $('#btnFs').hidden = !fsSupported || isStandalone;
+fsLabel();
 $('#btnFs').addEventListener('click', toggleFs);
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { fsLabel(); renderSettings(); setTimeout(resize, 100); }));
 
 // ================= settings / guide =================
 function settingsHTML(where) {
   const st = save.settings;
-  const fsBtn = fsSupported && !isStandalone ? `<button class="toggle" data-fs="1" aria-pressed="${isFs()}">全画面<b>${isFs() ? 'ON' : 'OFF'}</b></button>` : '';
-  return `${fsBtn}<button class="toggle" data-set="autofire" aria-pressed="${st.autofire}">自動射撃<b>${st.autofire ? 'ON' : 'OFF'}</b></button>
-    <div class="seg" role="group" aria-label="エイム補正"><span>エイム補正</span>${[['off', 'なし'], ['weak', '弱'], ['strong', '強']].map(([k, l]) =>
-      `<button data-assist="${k}" aria-pressed="${st.assist === k}">${l}</button>`).join('')}</div>
-    <label class="sens" for="sens-${where}">視点感度 <input id="sens-${where}" class="sensIn" type="range" min="0.4" max="2.2" step="0.1" value="${st.sens}"><span class="num sensV">${st.sens.toFixed(1)}</span></label>
-    <label class="sens" for="bgm-${where}">BGM <input id="bgm-${where}" class="volIn" data-vol="bgm" type="range" min="0" max="1" step="0.05" value="${st.bgm ?? 0.6}"></label>
-    <label class="sens" for="sfx-${where}">効果音 <input id="sfx-${where}" class="volIn" data-vol="sfx" type="range" min="0" max="1" step="0.05" value="${st.sfx ?? 1}"></label>
-    ${isTouch ? `<button class="toggle" data-set="leftFire" aria-pressed="${st.leftFire}">左の射撃ボタン<b>${st.leftFire ? 'ON' : 'OFF'}</b></button>
-    <button class="toggle" data-set="stickDash" aria-pressed="${st.stickDash}">スティック倒し切りでダッシュ<b>${st.stickDash ? 'ON' : 'OFF'}</b></button>
-    <button class="toggle" data-layout="1">ボタン配置を編集</button>` : ''}`;
+  const onOff = v => t(v ? 'set.on' : 'set.off');
+  const langSeg = `<div class="seg" role="group" aria-label="${t('set.lang')}"><span>${t('set.lang')}</span>${Object.keys(LANG).map(k =>
+    `<button data-lang="${k}" aria-pressed="${lang === k}">${LANG[k].name}</button>`).join('')}</div>`;
+  const fsBtn = fsSupported && !isStandalone ? `<button class="toggle" data-fs="1" aria-pressed="${isFs()}">${t('set.fs')}<b>${onOff(isFs())}</b></button>` : '';
+  return `${langSeg}${fsBtn}<button class="toggle" data-set="autofire" aria-pressed="${st.autofire}">${t('set.autofire')}<b>${onOff(st.autofire)}</b></button>
+    <div class="seg" role="group" aria-label="${t('set.assist')}"><span>${t('set.assist')}</span>${[['off', 'set.assistOff'], ['weak', 'set.assistWeak'], ['strong', 'set.assistStrong']].map(([k, l]) =>
+      `<button data-assist="${k}" aria-pressed="${st.assist === k}">${t(l)}</button>`).join('')}</div>
+    <label class="sens" for="sens-${where}">${t('set.sens')} <input id="sens-${where}" class="sensIn" type="range" min="0.4" max="2.2" step="0.1" value="${st.sens}"><span class="num sensV">${st.sens.toFixed(1)}</span></label>
+    <label class="sens" for="bgm-${where}">${t('set.bgm')} <input id="bgm-${where}" class="volIn" data-vol="bgm" type="range" min="0" max="1" step="0.05" value="${st.bgm ?? 0.6}"></label>
+    <label class="sens" for="sfx-${where}">${t('set.sfx')} <input id="sfx-${where}" class="volIn" data-vol="sfx" type="range" min="0" max="1" step="0.05" value="${st.sfx ?? 1}"></label>
+    ${isTouch ? `<button class="toggle" data-set="leftFire" aria-pressed="${st.leftFire}">${t('set.leftFire')}<b>${onOff(st.leftFire)}</b></button>
+    <button class="toggle" data-set="stickDash" aria-pressed="${st.stickDash}">${t('set.stickDash')}<b>${onOff(st.stickDash)}</b></button>
+    <button class="toggle" data-layout="1">${t('set.layout')}</button>` : ''}`;
 }
 function renderSettings() { document.querySelectorAll('[data-settings]').forEach(el => { el.innerHTML = settingsHTML(el.dataset.settings); }); }
 document.addEventListener('click', e => {
   const s = e.target.closest('[data-set]'), a = e.target.closest('[data-assist]'), f = e.target.closest('[data-fs]');
-  const lo = e.target.closest('[data-layout]');
-  if (lo) openLayoutEditor(state === 'pause' ? 'pause' : 'base');
+  const lo = e.target.closest('[data-layout]'), lg = e.target.closest('[data-lang]');
+  if (lg) changeLang(lg.dataset.lang);
+  else if (lo) openLayoutEditor(state === 'pause' ? 'pause' : 'base');
   else if (f) toggleFs();
   else if (s) { const k = s.dataset.set; save.settings[k] = !save.settings[k]; persist(); renderSettings(); applyLayout(); }
   else if (a) { save.settings.assist = a.dataset.assist; persist(); renderSettings(); }
@@ -221,4 +226,12 @@ $('#layoutBar').addEventListener('click', e => {
 window.addEventListener('resize', applyLayout);
 applyLayout();
 
-$('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+function renderGuide() { $('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join(''); }
+renderGuide();
+// switching language redraws whatever is on screen (static text is handled by setLang)
+function changeLang(code) {
+  save.settings.lang = code; persist(); setLang(code);
+  renderSettings(); renderGuide(); fsLabel(); updateHint();
+  if (state === 'base') renderBase();
+  if (P) weaponHud();
+}

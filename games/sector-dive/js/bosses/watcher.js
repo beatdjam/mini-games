@@ -1,5 +1,5 @@
 'use strict';
-// WATCHER 監視体: rings, aimed fans and a spiral; summons drones at 75% and 40% health
+// WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
 function spawnWatcher() {
   const bd = bossDiff();
@@ -7,8 +7,8 @@ function spawnWatcher() {
   const mat = new THREE.MeshLambertMaterial({ color: 0x0f151c, emissive: 0x54e8ff, emissiveIntensity: 0.3 });
   g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x54e8ff })));
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff4d8d })); eye.position.z = 1.75; g.add(eye);
-  bossBase('WATCHER — 監視体', g, mat, 1300 * bd, 3.2, 2.4, updWatcher);
-  toast('弾の輪は隙間を抜けるか、ダッシュ中の無敵で抜ける', 3800);
+  bossBase(BOSS_META.watcher.title, g, mat, 1300 * bd, 3.2, 2.4, updWatcher);
+  toast(t('boss.watcherHint'), 3800);
 }
 function updWatcher(e, dt) {
   e.t += dt; e.timer -= dt; e.pt += dt;
@@ -26,7 +26,7 @@ function updWatcher(e, dt) {
       if (blocked(x, z, 0.6)) [x, z] = randomTileIn(rooms[0]);
       spawnEnemy('drone', x, z, -1, diffOf(run.stage)).active = true;
     }
-    toast('監視体が子機を展開した');
+    toast(t('boss.watcherDrones'));
   }
   if (e.timer <= 0) { e.pat = e.patIdx++ % 3; e.pt = 0; e.shots = 0; e.acc = 0; e.timer = [3.4, 2.8, 3.4][e.pat] * (enr ? 0.85 : 1); }
   const y = 1.3;
