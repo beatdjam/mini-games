@@ -32,13 +32,13 @@ test('store: saved values merge deeply over defaults', () => {
 test('i18n: placeholders, functions, ja fallback, data hook, static text', () => {
   LANG.ja = { name: '日本語', ui: { hello: 'こんにちは', n: '{n} 個', f: v => `f${v.a}`, only: 'ja だけ' }, data: { thing: 'ja' } };
   LANG.en = { name: 'English', ui: { hello: 'hello', n: '{n} items', f: v => `F${v.a}` }, data: { thing: 'en' } };
-  let got = null; window.i18nApplyData = d => { got = d.thing; };
+  let got = null; setI18nHook(d => { got = d.thing; });
   setLang('en');
   eq(t('n', { n: 3 }), '3 items'); eq(t('f', { a: 1 }), 'F1'); eq(t('only'), 'ja だけ', 'falls back to ja');
   eq(got, 'en', 'game hook got the data'); eq(document.querySelector('[data-i18n="hello"]').textContent, 'hello');
   setLang('xx'); eq(lang, 'ja', 'unknown language -> ja');
   const target = [{ id: 'a' }, { id: 'b' }]; fillData(target, { b: { name: 'B' } }); eq(target[1].name, 'B', 'fillData by id');
-  delete window.i18nApplyData;
+  setI18nHook(null);
 });
 
 test('loop: order, modes, stopFrame', () => {

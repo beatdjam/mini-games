@@ -5,7 +5,7 @@
 // drone: low sustained root + fifth; wind: filtered noise swells; echo: quieter repeat of arp notes (fake delay);
 // oct: register shift in octaves (negative = darker). All progressions stay on minor / diminished chords.
 const _ = -1;
-const MUSIC_STYLES = {
+Object.assign(MUSIC_STYLES, {
   // base: dark ambient, a drone and the odd distant note
   BASE:  { bpm: 60, root: 38, scale: 'minor', prog: [0, 3, 0, 4], padWave: 'sawtooth', padCut: 420, drone: true, wind: true,
            arp: { wave: 'triangle', cut: 1200, echo: true, pat: [0, _, _, _, _, _, _, _, _, _, 2, _, _, _, _, _] } },
@@ -40,12 +40,12 @@ const MUSIC_STYLES = {
            arp: { wave: 'triangle', cut: 1600, echo: true, pat: [0, _, _, 2, _, _, _, _, 1, _, _, _, 4, _, _, _] },
            bass: { wave: 'triangle', cut: 380, pat: [1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0] },
            kick: [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], hat: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0] },
-};
+});
 // layer levels per situation
 // tension: combat-only layer (pulsing 16th ostinato with a rising filter, busy hats, a dissonant stab)
-const LAYER_MIX = {
+Object.assign(LAYER_MIX, {
   base:    { pad: 1, arp: 0.6, bass: 0, drums: 0, tension: 0 },
   explore: { pad: 1, arp: 0.7, bass: 0.35, drums: 0, tension: 0 },
   combat:  { pad: 0.7, arp: 0.8, bass: 1, drums: 1, tension: 1 },
   boss:    { pad: 0.8, arp: 1, bass: 1, drums: 1, tension: 0.7 },
-};
+});

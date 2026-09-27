@@ -7,3 +7,4 @@ function i18nApplyData(d) {
   fillData(UPGRADES, d.upgrades); fillData(PRES_UP, d.pres); fillData(LAYOUT_DEF, d.layout);
   GUIDE_DESK.splice(0, GUIDE_DESK.length, ...d.guideDesk); GUIDE_TOUCH.splice(0, GUIDE_TOUCH.length, ...d.guideTouch);
 }
+setI18nHook(i18nApplyData);

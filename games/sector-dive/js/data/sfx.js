@@ -1,6 +1,6 @@
 'use strict';
-// Sound effect recipes (the synth is js/audio.js)
-const SFX = {
+// Sound effect recipes, added to the engine's SFX table (the synth is engine/audio/audio.js)
+Object.assign(SFX, {
   // pistol: snappy — bright short body, light thump, short bright tail
   pistol: () => gunshot({ crack: 0.5, crackF: 6500, body: 0.06, bodyVol: 0.3, bodyF: 2800, bodyEnd: 0.7, thumpF: 220, thump: 0.05, thumpVol: 0.18, tail: 0.15, tailVol: 0.08, tailF: 3800 }),
   smg: () => gunshot({ crack: 0.22, body: 0.07, bodyVol: 0.22, bodyF: 2400, thumpF: 180, thump: 0.07, thumpVol: 0.2, tail: 0.14, tailVol: 0.06 }),
@@ -40,4 +40,4 @@ const SFX = {
   portal: () => tone(220, 0.9, 'sine', 0.28, 4),
   beam: () => { const t = actx.currentTime; ot(t, 'sawtooth', 70, 140, 0.6, 0.12, 0.3); nz(t, 0.6, 0.08, 'bandpass', 400, 1600, 6); },
   heal: () => { tone(500, 0.12, 'sine', 0.2, 1.5); tone(750, 0.2, 'sine', 0.2, 1.3, 0.1); },
-};
+});

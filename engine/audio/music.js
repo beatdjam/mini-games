@@ -5,7 +5,8 @@
 // with the situation: quiet while exploring, full when enemies are on you. Boss fights can play an
 // arrangement of the sector's own style: same key and chords, faster, with driving bass and drums.
 // A combat-only tension layer (pulsing ostinato, busy hats, dissonant stabs) fades in when enemies are on you.
-// The game provides MUSIC_STYLES and LAYER_MIX, and calls setMusic(name, boss) / setMusicMix(kind).
+// The game fills MUSIC_STYLES and LAYER_MIX (Object.assign), and calls setMusic(name, boss) / setMusicMix(kind).
+const MUSIC_STYLES = {}, LAYER_MIX = {};
 const SCALES = {
   minor:    [0, 2, 3, 5, 7, 8, 10],
   phrygian: [0, 1, 3, 5, 7, 8, 10],

@@ -17,6 +17,8 @@ function audioInit() {
   } catch (e) { actx = null; }
 }
 // the game sets these from its settings (0..1)
+// sound recipes by name, filled by the game: SFX.name = () => { ... }
+const SFX = {};
 let sfxVolume = 1, bgmVolume = 0.6;
 function setVolumes(sfx, bgm) { sfxVolume = sfx; bgmVolume = bgm; }
 function applySfxVolume() { if (master) master.gain.value = 0.32 * sfxVolume; }

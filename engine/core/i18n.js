@@ -3,10 +3,11 @@
 // Each language file registers LANG.<code> = { name, ui: {key: text}, data: {...} }; ja is the fallback for missing keys.
 // - ui: screen text. A string may contain {name} placeholders; a function gets the values object.
 // - data: anything the game wants per language (names / descriptions of its definitions). setLang passes it to the
-//   game's i18nApplyData(data) if the game defines one; fillData(target, src) copies entries onto definitions by id / key / index.
+//   function the game registered with setI18nHook(fn), if any; fillData(target, src) copies entries onto definitions by id / key / index.
 // Static HTML text is marked with data-i18n="key" (textContent) or data-i18n-aria / -alt / -content (attributes).
 const LANG = {};
-let lang = 'ja';
+let lang = 'ja', i18nHook = null;
+function setI18nHook(fn) { i18nHook = fn; }
 function t(key, v) {
   let s = LANG[lang].ui[key];
   if (s === undefined) s = LANG.ja.ui[key];
@@ -29,7 +30,7 @@ function applyStaticText(root) {
 }
 function setLang(code) {
   lang = LANG[code] ? code : 'ja';
-  if (typeof i18nApplyData === 'function') i18nApplyData(LANG[lang].data);
+  if (i18nHook) i18nHook(LANG[lang].data);
   applyStaticText();
 }
 const defaultLang = () => (navigator.language || 'ja').toLowerCase().startsWith('ja') ? 'ja' : 'en';
