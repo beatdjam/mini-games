@@ -25,8 +25,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # push ごとにコミットを分けるので全履歴が要る
-      - name: Sector Dive の更新履歴を生成
-        run: python3 games/sector-dive/tools/build_updates.py
+      - name: 各ゲームの更新履歴を生成
+        # 失敗しても公開は止めない（その場合はコミット済みのページがそのまま出る）
+        continue-on-error: true
+        run: python3 tools/build_updates.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/configure-pages@v5

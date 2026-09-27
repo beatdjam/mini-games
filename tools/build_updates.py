@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
-"""更新履歴ページ（updates.html）を生成する。
+"""各ゲームの更新履歴ページ（games/<game-id>/updates.html）を生成する。
 
-- 過去分: updates-archive.json（手書き、固定）
+対象は updates.html に `<!-- updates:start` の目印があるゲーム全部。
+- 過去分: games/<game-id>/updates-archive.json（手書き、固定。無ければ無し）
 - それ以降: コミットメッセージの `Changelog: 追加|調整|修正 | 本文` 行を、
-  GitHub Pages の公開（ワークフローの実行）ごとにまとめる
+  GitHub Pages の公開（ワークフローの実行）ごとにまとめる。そのゲームのフォルダを触ったコミットだけを見る
 公開の時刻と head は GitHub Actions の実行履歴から取る。GITHUB_TOKEN が無いときは過去分だけで作る。
 """
 import datetime, html, json, os, re, subprocess, sys, urllib.request
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-GAME = os.path.dirname(HERE)
-ROOT = os.path.dirname(os.path.dirname(GAME))
-GAME_PATH = os.path.relpath(GAME, ROOT)
-PAGE = os.path.join(GAME, 'updates.html')
-ARCHIVE = os.path.join(GAME, 'updates-archive.json')
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MARK = '<!-- updates:start'
 REPO = os.environ.get('GITHUB_REPOSITORY', 'beatdjam/mini-games')
 # 旧来のブランチ公開（dynamic/pages/...）と、このリポジトリの公開ワークフロー
 DEPLOY_PATHS = ('dynamic/pages/pages-build-deployment', '.github/workflows/pages.yml')
@@ -61,22 +58,20 @@ def reachable(sha):
     return subprocess.run(['git', 'cat-file', '-e', sha + '^{commit}'], cwd=ROOT, capture_output=True).returncode == 0
 
 
-def changelog(prev, head):
+def changelog(game_path, prev, head):
     rng = f'{prev}..{head}' if prev else head
-    log = git('log', '--reverse', '--format=%x1e%B', rng, '--', GAME_PATH)
+    log = git('log', '--reverse', '--format=%x1e%B', rng, '--', game_path)
     return [[m.group(1), m.group(2)] for body in log.split('\x1e') for m in LINE.finditer(body)]
 
 
-def entries():
-    rel = json.load(open(ARCHIVE, encoding='utf-8'))  # 新しい順
-    if not os.environ.get('GITHUB_TOKEN'):
-        print('GITHUB_TOKEN が無いので過去分だけで作る', file=sys.stderr)
-        return rel
+def entries(game_path, deps):
+    archive = os.path.join(ROOT, game_path, 'updates-archive.json')
+    rel = json.load(open(archive, encoding='utf-8')) if os.path.exists(archive) else []  # 新しい順
     new, prev = [], None
-    for t, sha in deploys():
+    for t, sha in deps:
         if not reachable(sha):
             continue
-        items = changelog(prev, sha)
+        items = changelog(game_path, prev, sha)
         prev = sha
         if items:
             new.append({'time': t, 'sha': sha[:7], 'items': items})
@@ -105,13 +100,27 @@ def render(es):
     return ''.join(out)
 
 
+def games():
+    base = os.path.join(ROOT, 'games')
+    for gid in sorted(os.listdir(base)):
+        page = os.path.join(base, gid, 'updates.html')
+        if os.path.exists(page) and MARK in open(page, encoding='utf-8').read():
+            yield os.path.join('games', gid), page
+
+
 def main():
-    es = entries()
-    t = open(PAGE, encoding='utf-8').read()
-    a = t.index('-->', t.index('<!-- updates:start')) + 4
-    b = t.index('  <!-- updates:end -->')
-    open(PAGE, 'w', encoding='utf-8').write(t[:a] + render(es) + t[b:])
-    print(f'{len(es)} 件', file=sys.stderr)
+    if os.environ.get('GITHUB_TOKEN'):
+        deps = deploys()
+    else:
+        print('GITHUB_TOKEN が無いので過去分だけで作る', file=sys.stderr)
+        deps = []
+    for game_path, page in games():
+        es = entries(game_path, deps)
+        t = open(page, encoding='utf-8').read()
+        a = t.index('-->', t.index(MARK)) + 4
+        b = t.index('  <!-- updates:end -->')
+        open(page, 'w', encoding='utf-8').write(t[:a] + render(es) + t[b:])
+        print(f'{game_path}: {len(es)} 件', file=sys.stderr)
 
 
 if __name__ == '__main__':

@@ -295,7 +295,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 
 ## 10. 技術メモ
 
-- 更新履歴: `updates.html`（公開ごとに1エントリ）。公開時に `tools/build_updates.py` がコミットメッセージの `Changelog:` 行と `updates-archive.json` から生成する。拠点画面とトップページのカードからリンク。書き方は README の「更新履歴のルール」
+- 更新履歴: `updates.html`（公開ごとに1エントリ）。公開時にリポジトリ直下の `tools/build_updates.py` がコミットメッセージの `Changelog:` 行と `updates-archive.json` から生成する。拠点画面とトップページのカードからリンク。書き方は README の「更新履歴のルール」
 - 構成: `index.html`（HTML・CSS）＋ `js/` 以下のクラシックスクリプト。全ファイルが1つのグローバルスコープを共有するので、**読み込み時に実行されるコードは、自分より後のファイルの関数を呼べない**（実行時の呼び出しは問題ない）。読み込み順は `index.html` の末尾
 
 | ファイル | 中身 |

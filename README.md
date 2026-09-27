@@ -29,16 +29,19 @@ games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
   ```
 
   種類は `追加` / `調整` / `修正` のどれか。リファクタや開発用の変更には書かない
-- 生成スクリプト（`games/<game-id>/tools/build_updates.py`）は、Actions の実行履歴から公開の時刻（JST）と head のコミットを取り、`Changelog:` 行を push ごとにまとめる。対象はそのゲームのフォルダを触ったコミットだけ
+- 生成スクリプト（`tools/build_updates.py`）は、`updates.html` に `<!-- updates:start` の目印があるゲームを全部処理する。Actions の実行履歴から公開の時刻（JST）と head のコミットを取り、`Changelog:` 行を push ごとにまとめる。対象はそのゲームのフォルダを触ったコミットだけ
 - 2026-09-27 22:35 までの分は `updates-archive.json` に手書きで固定してある
-- 手元で `python3 games/sector-dive/tools/build_updates.py` を実行すると過去分だけで作る（`GITHUB_TOKEN` を渡すと実行履歴も読む）
+- 生成に失敗しても公開は止めない（コミット済みのページがそのまま出る）
+- 手元で `python3 tools/build_updates.py` を実行すると過去分だけで作る（`GITHUB_TOKEN` を渡すと実行履歴も読む）
 
 ## ゲームの追加手順
 
 1. `games/<game-id>/index.html` を置く（外部ライブラリはCDNから読み込む）
 2. `index.html` の `<ul class="games">` に `<li>` を1つ足す
 3. ゲーム側に一覧へ戻るリンク `<a href="../../">` を入れておく
-4. master に push すると GitHub Actions が GitHub Pages に公開する
+4. 更新履歴を付けるなら、`games/sector-dive/updates.html` を参考に `updates.html` を置く（`<!-- updates:start -->` と `<!-- updates:end -->` の目印を入れる）
+5. master に push すると GitHub Actions が GitHub Pages に公開する
+6. 2本目以降のゲームは、生成スクリプトをそのゲームで試していない。最初の push のあと、Actions の「各ゲームの更新履歴を生成」が成功しているか、新しいゲームの `updates.html` に `Changelog:` 行が載っているか、既存のゲームの履歴にまぎれていないかを確かめる
 
 ## ゲーム一覧
 
