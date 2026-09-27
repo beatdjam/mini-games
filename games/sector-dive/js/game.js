@@ -14,7 +14,7 @@ function startRun() {
   const risked = save.loadout.filter(w => w && !w.basic).length;
   // non-basic weapons leave the base: they come back only on extraction
   save.loadout = save.loadout.map((w, i) => w && w.basic ? w : (i === 0 ? basicW('pistol') : null));
-  run = { stage: tier * PER, kills: 0, bits: 0, perks: [], startTier: tier, route: shuffle(BIOMES.map((_, i) => i)) };
+  run = { stage: tier * PER, kills: 0, bits: 0, perks: [], bosses: [], startTier: tier, route: shuffle(BIOMES.map((_, i) => i)) };
   save.runs++; persist();
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage();
@@ -126,7 +126,7 @@ let discardArm = false;
 function makeSnapshot() {
   const p = {};
   Object.keys(P).forEach(k => { if (!SNAP_SKIP.includes(k)) p[k] = P[k]; });
-  return { run: { stage: run.stage, kills: run.kills, bits: run.bits, perks: run.perks, startTier: run.startTier, route: run.route }, P: JSON.parse(JSON.stringify(p)) };
+  return { run: { stage: run.stage, kills: run.kills, bits: run.bits, perks: run.perks, bosses: run.bosses || [], startTier: run.startTier, route: run.route }, P: JSON.parse(JSON.stringify(p)) };
 }
 function checkpoint() {
   if (!run || run.practice || !P) return;
@@ -282,6 +282,7 @@ function endPractice(kind) {
   $('#resList').innerHTML = [['ボス', BOSS_META[run.forceBoss].name], ['強さ', `DEPTH ${stageInfo(run.stage).tier + 1} 相当`], ['結果', run.cleared ? '撃破' : kind === 'dead' ? 'やられた' : '中断'], ['時間', `${Math.floor(sec / 60)}分${sec % 60}秒`]]
     .map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
   $('#resChips').textContent = '練習なので、ビット・武器・記録は変わらない。';
+  hideShare();
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
 function endRun(kind) {
@@ -322,6 +323,7 @@ function endRun(kind) {
   $('#resTitle').textContent = kind === 'extract' ? '帰還完了' : kind === 'abandon' ? '潜行放棄' : '信号途絶';
   $('#resList').innerHTML = rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
   $('#resChips').textContent = run.perks.length ? `この潜行のチップ（持ち帰り不可）: ${run.perks.join('、')}` : '';
+  prepShare(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
 $('#btnBack').addEventListener('click', goBase);

@@ -38,7 +38,7 @@ function bossPhase(e) {
 function spawnBoss(kind) {
   if (!run.practice && !save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); } // practice doesn't count as an encounter
   const spawn = { watcher: spawnWatcher, crusher: spawnCrusher, core: spawnCore, phantom: spawnPhantom, trinity: spawnTrinity, bastion: spawnBastion }[kind];
-  spawn();
+  spawn(); boss.kind = kind; // remembered for the run's result (bosses defeated)
   setMusic(curBiome.code, true); // boss arrangement of this sector's theme
 }
 function bossDown(e) {
@@ -53,6 +53,7 @@ function bossDown(e) {
     toast('撃破。ゲートから拠点へ戻る', 2600);
     return;
   }
+  (run.bosses = run.bosses || []).push(e.kind);
   dropBits(e.x, e.z, 45 * bossDiff());
   addPickup('chip', e.cx, e.cz + 4); addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + prog(run.stage) * 0.03;

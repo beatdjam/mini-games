@@ -278,6 +278,17 @@ if (location.hash === '#smoke') {
         goBase(); startRun(); tick(5); // leave a run going for the next check
         console.log('SMOKE checkpoint ok');
       }
+      // share: shown after a real run with the bosses defeated, hidden after practice
+      {
+        goBase(); startRun(); tick(5); run.bosses = ['watcher']; run.perks = ['火力', '火力', '連射+'];
+        endRun('extract');
+        if ($('#btnShare').hidden || !shareData || shareData.bosses[0] !== '監視体' || shareData.chips[0] !== '火力×2') throw new Error('share data');
+        if (!shareText(shareData).includes('#SectorDive') || !shareText(shareData).includes('監視体を撃破')) throw new Error('share text');
+        goBase(); startPractice('crusher', 0); tick(5); endRun('abandon');
+        if (!$('#btnShare').hidden) throw new Error('share shown after practice');
+        goBase(); startRun(); tick(5);
+        console.log('SMOKE share ok');
+      }
       // suspend -> resume -> suspend -> discard
       run.route = [0]; run.stage = 2; startStage(); tick(30);
       suspendRun(); if (!save.suspend || state !== 'base') throw new Error('suspend failed');
@@ -338,5 +349,13 @@ if (location.hash.startsWith('#view-haz')) setTimeout(() => {
   P.x = ((k % W) + 0.5) * T; P.z = (((k / W) | 0) + 0.5) * T - 1.5; P.yaw = Math.PI; P.pitch = -0.5; P.hp = 1e6; P.maxHp = 1e6;
   const wid = location.hash.split('-')[2]; if (WEAPONS[wid]) { P.weapons[0] = basicW(wid); P.weapons[0].mag = magSize(P.weapons[0]); P.cur = 0; normalizeWeapons(); weaponHud(); } // #view-haz-smg etc.
   hazT = 0.5; for (let n = 0; n < 5; n++) update(1 / 60);
+}, 300);
+// dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen)
+if (location.hash.startsWith('#view-share')) setTimeout(() => {
+  startRun(); run.stage = 2 * PER + PER - 1; run.kills = 142; run.bosses = ['watcher', 'trinity'];
+  run.perks = ['火力', '火力', '連射+', '会心', 'リロード', '移動速度']; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] };
+  const kind = location.hash.includes('dead') ? 'dead' : 'extract';
+  endRun(kind); if (location.hash.includes('res')) return; // #view-share-res: the result screen itself
+  drawShareCard(shareData).then(b => { const im = new Image(); im.src = URL.createObjectURL(b); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData)); });
 }, 300);
 if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); openPerk('チップを1枚選ぶ'); }, 300);
