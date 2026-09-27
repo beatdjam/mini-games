@@ -13,7 +13,7 @@ function audioInit() {
     master = actx.createGain(); master.connect(comp); comp.connect(actx.destination); applySfxVolume();
     noiseBuf = actx.createBuffer(1, actx.sampleRate * 1.2, actx.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    musicInit(); // js/music.js
+    musicInit(); // js/flow/music.js
   } catch (e) { actx = null; }
 }
 // the game sets these from its settings (0..1)

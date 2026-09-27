@@ -1,7 +1,7 @@
 'use strict';
-// Bosses: names, order, tuning (each boss's behaviour is in js/bosses/)
+// Bosses: names, order, tuning (each boss's behaviour is in js/actors/bosses/)
 // pillars: arena has pillars. hp: health at difficulty 1 (times bossDiff). y: body height. hitR: hit radius.
-// tune: the numbers each boss's attacks use (js/bosses/<name>.js). *Enr = the value once below half health (enraged).
+// tune: the numbers each boss's attacks use (js/actors/bosses/<name>.js). *Enr = the value once below half health (enraged).
 // Shots: [count, spread, speed] for fans, [count, speed] for rings, waves: [radius, speed, damage multiplier]. Times in seconds.
 const BOSS_META = {
   watcher: { pillars: true, hp: 1300, y: 3.2, hitR: 2.4,

@@ -1,6 +1,6 @@
 'use strict';
 // Language files -> definitions: copies the names / descriptions in js/lang/<code>.js (data) onto js/data/.
-// Called by setLang (engine/i18n.js), so code keeps reading WEAPONS[id].name, PERKS[i].desc(v) and so on.
+// Called by setLang (engine/core/i18n.js), so code keeps reading WEAPONS[id].name, PERKS[i].desc(v) and so on.
 function i18nApplyData(d) {
   fillData(WEAPONS, d.weapons); fillData(RARITY, d.rarity); fillData(AFFIX, d.affix);
   fillData(BIOMES, d.biomes); fillData(BOSS_META, d.bosses); fillData(PERKS, d.perks);

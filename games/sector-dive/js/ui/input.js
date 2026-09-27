@@ -1,5 +1,5 @@
 'use strict';
-// Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/input.js)
+// Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/ui/input.js)
 let dashReq = false, stickT = 0, stickArmed = true;
 Object.assign(INPUT, {
   active: () => state === 'play',

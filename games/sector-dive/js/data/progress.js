@@ -3,7 +3,7 @@
 const PER = 4; // 3 floors + boss per depth
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
 const DEPTH_HP_GROWTH = 1.55;
-// player-side tuning knobs. Enemy numbers live in ENEMY, boss numbers in js/bosses/*.js
+// player-side tuning knobs. Enemy numbers live in ENEMY, boss numbers in js/actors/bosses/*.js
 const TUNE = {
   hp: 100,              // base max HP (armour upgrade adds 15 per level)
   moveSpeed: 7.4,       // base move speed (m/s)

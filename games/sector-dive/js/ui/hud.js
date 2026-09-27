@@ -144,7 +144,7 @@ document.addEventListener('input', e => {
     document.querySelectorAll('.sensIn').forEach(v => { if (v !== e.target) v.value = save.settings.sens; });
   }
 });
-// touch buttons: placement and the editor are engine/touchlayout.js
+// touch buttons: placement and the editor are engine/ui/touchlayout.js
 Object.assign(TOUCH_LAYOUT, {
   defs: LAYOUT_DEF, first: 'dash',
   edits: () => save.settings.layout || (save.settings.layout = {}),

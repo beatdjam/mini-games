@@ -36,7 +36,7 @@ function bossPhase(e) {
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
   toast(t('boss.phase2'), 2000);
 }
-// candidates per sector are listed in BIOMES[].bosses; each boss lives in js/bosses/<name>.js
+// candidates per sector are listed in BIOMES[].bosses; each boss lives in js/actors/bosses/<name>.js
 function spawnBoss(kind) {
   if (!run.practice && !save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); } // practice doesn't count as an encounter
   const spawn = { watcher: spawnWatcher, crusher: spawnCrusher, core: spawnCore, phantom: spawnPhantom, trinity: spawnTrinity, bastion: spawnBastion }[kind];

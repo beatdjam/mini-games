@@ -1,5 +1,5 @@
 'use strict';
-// Which music plays when (the player is engine/music.js, the styles are js/data/music.js)
+// Which music plays when (the player is engine/audio/music.js, the styles are js/data/music.js)
 
 // called every frame while playing: combat when a woken enemy is near or a boss is up
 let musicCheckT = 0;

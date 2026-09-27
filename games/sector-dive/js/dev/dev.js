@@ -2,7 +2,7 @@
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
-// dev check: open the page with #smoke (engine/dev.js) to run every sector (floor + each boss candidate) once and log errors to the console
+// dev check: open the page with #smoke (engine/core/dev.js) to run every sector (floor + each boss candidate) once and log errors to the console
 devSmoke(() => {
     {
       startRun();

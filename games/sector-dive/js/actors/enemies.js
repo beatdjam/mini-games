@@ -1,6 +1,6 @@
 'use strict';
 // ================= enemy behaviour (per frame) =================
-// Fields on an enemy object are listed in spawnEnemy (js/entities.js).
+// Fields on an enemy object are listed in spawnEnemy (js/world/entities.js).
 
 function updateEnemies(dt) {
   const py = P.fy + 1.3; // player chest height, used for line of sight

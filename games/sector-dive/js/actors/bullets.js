@@ -1,7 +1,7 @@
 'use strict';
 // ================= bullets (per frame) =================
 // Player bullets move in small sub-steps so fast rounds can't skip through walls or enemies.
-// Fields on a player bullet are set in spawnPBullet (js/entities.js).
+// Fields on a player bullet are set in spawnPBullet (js/world/entities.js).
 
 function updatePBullets(dt) {
   for (const b of pBullets) {

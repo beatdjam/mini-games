@@ -1,5 +1,5 @@
 'use strict';
-// Save data: defaults and conversions from older versions (reading / writing is engine/store.js)
+// Save data: defaults and conversions from older versions (reading / writing is engine/core/store.js)
 const SAVE_KEY = 'sector-dive-v1';
 const basicW = id => ({ id, r: 0, basic: true });
 const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
