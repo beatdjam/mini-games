@@ -266,22 +266,22 @@ if (location.hash === '#smoke') {
         if (before !== after) throw new Error('practice changed the save');
         console.log('SMOKE practice ok');
       }
-      // auto-suspend: hiding the page stores a snapshot, coming back drops it, a fresh load would offer RESUME
+      // checkpoint: saved when a stage starts, holds the state from that moment, deleted when the run ends
       {
         startRun(); tick(5); show(null); state = 'play';
-        autoSuspend();
-        if (!save.suspend || !save.suspend.auto || save.suspend.run.stage !== run.stage) throw new Error('auto suspend');
-        dropAutoSuspend();
-        if (save.suspend) throw new Error('auto suspend not dropped');
-        autoSuspend(); endRun('dead');
-        if (save.suspend) throw new Error('auto suspend survived the end of the run');
+        if (!save.suspend || save.suspend.run.stage !== run.stage) throw new Error('checkpoint at stage start');
+        const bits0 = save.suspend.run.bits; run.bits += 999;
+        if (save.suspend.run.bits !== bits0) throw new Error('checkpoint changed mid-stage');
+        nextStage(); if (save.suspend.run.stage !== run.stage) throw new Error('checkpoint on next stage');
+        endRun('dead');
+        if (save.suspend) throw new Error('checkpoint survived the end of the run');
         goBase(); startRun(); tick(5); // leave a run going for the next check
-        console.log('SMOKE auto-suspend ok');
+        console.log('SMOKE checkpoint ok');
       }
       // suspend -> resume -> suspend -> discard
       run.route = [0]; run.stage = 2; startStage(); tick(30);
       suspendRun(); if (!save.suspend || state !== 'base') throw new Error('suspend failed');
-      resumeRun(); tick(60); if (run.stage !== 2 || save.suspend) throw new Error('resume failed');
+      resumeRun(); tick(60); if (run.stage !== 2 || !save.suspend || save.suspend.run.stage !== 2) throw new Error('resume failed');
       suspendRun(); discardSuspended(); if (save.suspend || state !== 'result') throw new Error('discard failed');
       console.log('SMOKE suspend ok');
       goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
