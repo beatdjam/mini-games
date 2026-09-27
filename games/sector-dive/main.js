@@ -6,7 +6,6 @@ import { applyLayout } from '../../engine/ui/touchlayout.js';
 import { save, syncVolumes } from './js/system/save.js';
 import { fsLabel, renderGuide } from './js/ui/hud.js';
 import { showTab, baseTab } from './js/flow/game.js';
-import '../../engine/core/stale.js';
 import '../../engine/core/util.js';
 import '../../engine/core/store.js';
 import '../../engine/core/dev.js';

@@ -316,9 +316,9 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 
 ## 10. 技術メモ
 
-- 共通のコア: 描画・ループ・当たり判定・弾・音・入力・文言・セーブなどは リポジトリ直下の `engine/` を使う。仕様は [engine/SPEC.md](../../engine/SPEC.md)。ここにはこのゲーム固有のことだけを書く
+- 共通のコア: 描画・ループ・当たり判定・弾・音・入力・文言・セーブなどは リポジトリ直下の `engine/` を使う。開発とビルドはリポジトリの README「開発」。仕様は [engine/SPEC.md](../../engine/SPEC.md)。ここにはこのゲーム固有のことだけを書く
 - 更新履歴: `updates.html`（公開ごとに1エントリ）。公開時にリポジトリ直下の `tools/build_updates.py` がコミットメッセージの `Changelog:` 行と `updates-archive.json` から生成する。拠点画面の設定タブとトップページのカードからリンク。書き方は README の「更新履歴のルール」
-- 構成: `index.html`（HTML・CSS）＋ engine ＋ `js/` 以下のスクリプト。読み込み順は `index.html` の末尾（読み込み順の決まりは engine/SPEC.md の「基本」）
+- 構成: `index.html`（HTML・CSS）＋ 入口の `main.js` ＋ `js/` 以下のモジュール。`main.js` が全部を読み込んだあと、言語・音量・拠点画面・システムの登録とループの開始（`boot`）を行う（決まりは engine/SPEC.md の「基本」）
 - 多言語化: 画面に出る文言はすべて `js/lang/`（`ja` と `en`）に置く（仕組みは engine/SPEC.md の「文言」）。武器・チップ・セクターなどの名前と説明は `js/system/text.js` が定義に流し込む。言語は設定タブで切り替え、`save.settings.lang` に保存する。英語のときは本文のフォントを Chakra Petch にする
 - 文言を足したら `node tools/check_i18n.js games/sector-dive`（リポジトリ直下で）を実行する。コードと HTML で使っているキーが全言語にあるか、言語どうしでキーと定義の項目がそろっているかを照合する
 - 確認用に `?lang=en` を付けると英語で開く
@@ -330,7 +330,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 |----------|------|
 | `../../engine/<フォルダ>/*.js` | ゲームをまたいで使うコア。一覧は [engine/README.md](../../engine/README.md)、仕様は [engine/SPEC.md](../../engine/SPEC.md) |
 | `js/data/*.js` | **定義だけ**（ロジックを持たない）。`weapons`（武器・レアリティ・オプション・改造費）、`enemies`（敵と調整値）、`bosses`（ボスの体力・大きさ・攻撃パターンの数値 `tune`）、`viewmodels`（構えている銃の形）、`level`（壁・目線・台・遮蔽物の高さ）、`biomes`（セクター）、`progress`（区画数・`TUNE`・拠点強化・再起動）、`perks`（チップ）、`controls`（ボタン配置と操作一覧）、`sfx`（効果音のレシピ）、`music`（曲調） |
-| `js/system/text.js` | 言語ファイルの名前と説明を定義に流し込む（`i18nApplyData`。`setLang` から呼ばれる） |
+| `js/system/text.js` | 言語ファイルの名前と説明を定義に流し込む（`i18nApplyData` を `setI18nHook` で登録し、`setLang` のたびに呼ばれる） |
 | `js/lang/<言語>.js` | 文言。`ui`（画面の文言）と `data`（武器・チップ・セクターなどの名前と説明）。今は `ja`（基準）と `en` |
 | `js/system/save.js` | セーブの既定値、読み込みと旧版の変換、保存 |
 | `js/system/rules.js` | 定義を使う計算式（進行度、ドロップ、改造後の武器、売値） |
@@ -351,7 +351,6 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `js/dev/dev.js` | 開発用フック（`#smoke` など） |
 
 - プレイヤー側の調整値（HP、スタミナ、ダッシュ、回復キット、チップ率、死亡時のビット）は `js/data/progress.js` の `TUNE` にまとめてある
-- キャッシュ対策: **js や html を変えたら、リポジトリ直下で `tools/bump-version.sh games/sector-dive` を実行する**（engine/ を変えたときも。仕組みは engine/SPEC.md）
 - 描画: three.js r128（cdnjs）。3Dモデルや画像は使わず、図形とCanvasで作ったテクスチャだけで描く
 - セーブ: localStorage の `sector-dive-v1`（読み書きは engine の `loadStore`）。1深度が4区画だった頃のセーブ（`stageV` なし）は、最深記録と中断データのステージ番号を3区画の数え方に変換する
 - 開発用フック（URLの末尾に付ける）

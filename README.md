@@ -6,15 +6,28 @@
 ## 構成
 
 ```
-index.html                  トップページ（ゲーム一覧）
-engine/                     ゲームをまたいで使うコア（ループ・描画・当たり判定・弾・音・入力・文言など。engine/SPEC.md）
-tools/                      版番号の更新、文言キーの照合、ヘッドレス確認、更新履歴の生成
-games/<game-id>/index.html  各ゲームの入口
-games/<game-id>/SPEC.md     各ゲームの仕様書兼説明書
+index.html                   トップページ（ゲーム一覧）
+engine/                      ゲームをまたいで使うコア（ループ・描画・当たり判定・弾・音・入力・文言など。engine/SPEC.md）
+engine/test/                 engine のテスト
+games/<game-id>/index.html   各ゲームのページ。入口の main.js を1つ読む
+games/<game-id>/main.js      入口。全モジュールを読み込み、最後に起動処理をする
+games/<game-id>/js/          ゲームのモジュール
+games/<game-id>/SPEC.md      各ゲームの仕様書兼説明書
 games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
-.github/workflows/pages.yml GitHub Pages への公開
-.nojekyll                   GitHub PagesでJekyll処理をしない
+public/                      名前を変えずにそのまま出すファイル（PWA の manifest とアイコン）
+tools/                       文言キーの照合、ヘッドレス確認、更新履歴の生成
+vite.config.js               開発サーバーとビルドの設定
+.github/workflows/pages.yml  GitHub Pages への公開（ビルドして dist/ を出す）
 ```
+
+## 開発
+
+- ES モジュール（import / export）＋ Vite。three.js は npm の `three`（0.128.0 に固定）
+- 最初に `npm install`
+- `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
+- `npm run build`: 公開用に `dist/` を作る。`npm run preview` で、公開と同じ `/mini-games/` の下で確かめられる
+- 確認: `tools/headless.sh 'games/<game-id>/#smoke' 200000`（ゲームのスモークテスト）、`tools/headless.sh 'engine/test/' 20000`（engine のテスト）。開発サーバーが動いていなければ立てる
+- 公開: master に push すると、Actions がビルドして GitHub Pages に出す。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
 
 ## 仕様書のルール
 
@@ -38,11 +51,11 @@ games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
 
 ## ゲームの追加手順
 
-1. `games/<game-id>/index.html` を置く（外部ライブラリはCDNから読み込む）
+1. `games/<game-id>/index.html` と入口の `main.js` を置く（`<script type="module" src="./main.js">`）。engine は `../../engine/...` から import する。版番号を使うなら `<meta name="build" content="dev">` を入れる（ビルドが書き換える）
 2. `index.html` の `<ul class="games">` に `<li>` を1つ足す
 3. ゲーム側に一覧へ戻るリンク `<a href="../../">` を入れておく
-4. 更新履歴を付けるなら、`games/sector-dive/updates.html` を参考に `updates.html` を置く（`<!-- updates:start -->` と `<!-- updates:end -->` の目印を入れる）
-5. master に push すると GitHub Actions が GitHub Pages に公開する
+4. 更新履歴を付けるなら、`games/sector-dive/updates.html` を参考に `updates.html` を置く（`<!-- updates:start -->` と `<!-- updates:end -->` の目印を入れる）。ゲームのフォルダの `.html` はビルドに自動で入る
+5. master に push すると GitHub Actions がビルドして GitHub Pages に公開する
 6. 2本目以降のゲームは、生成スクリプトをそのゲームで試していない。最初の push のあと、Actions の「各ゲームの更新履歴を生成」が成功しているか、新しいゲームの `updates.html` に `Changelog:` 行が載っているか、既存のゲームの履歴にまぎれていないかを確かめる
 
 ## ゲーム一覧

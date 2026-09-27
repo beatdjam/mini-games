@@ -4,9 +4,10 @@
 
 ## 1. 基本
 
-- ビルドなしのクラシックスクリプト。engine とゲームの全ファイルが、1つのグローバルスコープを共有する
-- 読み込み順は、engine（`core` → `audio` → `render` → `world` → `ui`）のあとにゲームのファイル。**読み込み時に実行されるコードは、自分より後のファイルの関数を呼べない**（実行時の呼び出しは問題ない）
-- engine はゲーム固有の名前を読み込み時に使わない。ゲームの状態や操作は、設定オブジェクト（`LOOP`, `INPUT`, `TOUCH_LAYOUT`）やフック関数（`i18nApplyData`）で受け取る
+- ES モジュール（import / export）。Vite で開発・ビルドする（リポジトリの README「開発」）。three.js は npm の `three` 0.128.0
+- **engine はゲームを import しない**。ゲームの状態や操作は、設定オブジェクト（`LOOP`, `INPUT`, `TOUCH_LAYOUT`）、登録用の関数（`setI18nHook`, `addSystem`, `spawn`）、ゲームが中身を入れる器（`SFX`, `MUSIC_STYLES`, `LAYER_MIX`）で受け取る
+- 他のモジュールの変数には代入できないので、ゲームや engine の状態を外から変えるときは、持ち主のモジュールの関数（`setTileWorld`, `setVolumes` など）を呼ぶ
+- モジュールの読み込み時は、宣言とイベントの登録だけにする。ほかのモジュールの値を使う起動処理は、入口（`games/<id>/main.js`）が全部を読み込んだあとに呼ぶ（import が循環していると、読み込みの順番は保証されないため）
 - engine が前提にする HTML の要素（`<canvas id="gl">`, `#touch` など）は README の表に書く
 - 描画は three.js r128（cdnjs）
 
@@ -38,7 +39,7 @@
 - `moveCircle(o, dx, dz, r)`: 軸ごとに動かして、壁か段で止まったら true。`o.fy`（足の高さ）が無いものは壁とだけ当たる
 - `hasLOS(x0, z0, x1, z1, y0, y1)`: 壁で視線が切れるか。高さを渡すと、間にある高い床や遮蔽物でも切れる
 - **経路（フローフィールド）**: `computeFlow(i, j)` で、目標のタイルまでの歩数を全タイルに入れる（段差の規則に従う）。`flowDir(x, z)` は歩数が減る隣への単位ベクトル
-- ゲームは地形を生成して `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`, `flowQ` を埋める
+- ゲームは地形を生成して `setTileWorld({ W, H, grid, hgt, ramp, cover, flow, flowQ })` で渡す（渡したキーだけ入れ替わる）
 
 ## 5. 弾（world/projectiles.js）
 
@@ -62,9 +63,9 @@
 ## 8. 音（audio/）
 
 - 効果音も BGM も、音声ファイルを使わず Web Audio で合成する
-- 効果音: `sfx(name)` がゲームの `SFX[name]` を鳴らす。同じ音が短い間に重なりすぎないよう間引く。出口に軽いコンプレッサー
-- BGM: ゲームの `MUSIC_STYLES`（調・音階・和音の進行・テンポ・パターン）を鳴らす。層（pad / arp / bass / drums / tension）の混ぜ方は `LAYER_MIX` を `setMusicMix(kind)` で切り替える。ボス戦は同じ曲調を速く激しくしたアレンジにできる
-- 音量はゲームが `sfxVolume` / `bgmVolume`（0〜1）に入れる。最初のタップかクリックまで音は出ない（`audioInit`）
+- 効果音: `sfx(name)` が `SFX[name]` を鳴らす（`SFX` は engine の器で、ゲームが `Object.assign(SFX, {...})` で中身を入れる）。同じ音が短い間に重なりすぎないよう間引く。出口に軽いコンプレッサー
+- BGM: `MUSIC_STYLES`（調・音階・和音の進行・テンポ・パターン。ゲームが中身を入れる）を鳴らす。層（pad / arp / bass / drums / tension）の混ぜ方は `LAYER_MIX` を `setMusicMix(kind)` で切り替える。ボス戦は同じ曲調を速く激しくしたアレンジにできる
+- 音量はゲームが `setVolumes(sfx, bgm)`（0〜1）で入れる。最初のタップかクリックまで音は出ない（`audioInit`）
 
 ## 9. 画面の部品と入力（ui/）
 
@@ -79,7 +80,7 @@
 - 言語ファイルが `LANG.<code> = { name, ui, data }` を登録する。`ja` は必須で、キーが無いときの予備
 - `t(key, values)`: `{name}` を値で置き換える。文言が関数なら値のオブジェクトを渡して呼ぶ
 - HTML は `data-i18n="キー"`（中身の文字）、`data-i18n-aria` / `-alt` / `-content`（属性）で引く。`setLang` のたびに書き換える
-- `setLang(code)` はゲームの `i18nApplyData(data)` があれば呼ぶ（定義に名前と説明を流し込むため）。`fillData` は ID・キー・添字で対応させて上書きする
+- `setLang(code)` は、ゲームが `setI18nHook(fn)` で登録した関数があれば `fn(data)` を呼ぶ（定義に名前と説明を流し込むため）。`fillData` は ID・キー・添字で対応させて上書きする
 - `defaultLang()`: ブラウザの言語が日本語なら `ja`、それ以外は `en`
 
 ## 11. セーブ（core/store.js）
@@ -88,16 +89,17 @@
 - 返り値の `raw` は保存されていたそのままの値。古い版からの変換はゲームが `raw` を見て行う
 - `prefGet` / `prefSet`: タブの記憶など、失っても困らない小さな値
 
-## 12. キャッシュ対策（core/stale.js と tools/bump-version.sh）
+## 12. キャッシュ対策（core/stale.js と vite.config.js）
 
 - GitHub Pages は html も js も約10分キャッシュする。古い js と新しい html が混ざると動かないことがある
-- スクリプトは `?v=<版>` 付きで読み込む。**js（ゲームでも engine でも）や html を変えたら `tools/bump-version.sh games/<game-id>` を実行する**。`?v=`、`<meta name="build">`、ゲームのフォルダの `version.json` をそろえて更新する
-- ページ自体が古いまま残る対策として、`stale.js` が起動時に `version.json` を取りに行き、`<meta name="build">` と違えば `?b=<版>` 付きの URL に移って読み直す（同じ版への切り替えは1セッションに1回まで）
+- ビルドした JS はファイル名に中身のハッシュが付くので、古い JS と新しい HTML が混ざることはない。ただし公開し直すと古い JS はサーバーから消えるので、キャッシュに残った古い HTML は読み込みに失敗する
+- ビルドは、ページの `<meta name="build" content="dev">` をビルドの時刻に書き換え、同じ値を `games/<id>/version.json` に出す。開発サーバーでは `dev` のまま（比べない）
+- `stale.js` はビルドのときにページの `<head>` に直接埋め込む（JS にまとめると、古いページでは読み込めずに動かないため）。起動時に `version.json` を取りに行き、`<meta name="build">` と違えば `?b=<版>` 付きの URL に移って読み直す（同じ版への切り替えは1セッションに1回まで）
 
 ## 13. 確認用フックとテスト
 
 - `core/dev.js`: `devHook('view-x', fn)` は URL の `#view-x…` で動く確認用の入口。`devSmoke(fn)` は `#smoke` で fn を実行し、エラー（`SMOKE ERR` / `SMOKE FAIL`）、版番号の一致（`SMOKE build ok`）、終わり（`SMOKE DONE`）をコンソールに出す
-- **engine のテスト**: `engine/test/` をブラウザで開くか、`tools/headless.sh 'engine/test/' 20000` を実行する。各テストが `TEST ok` / `TEST FAIL` を出し、最後に `TEST DONE 通った数/全体`
+- **engine のテスト**: 開発サーバーで `engine/test/` を開くか、`tools/headless.sh 'engine/test/' 20000` を実行する。各テストが `TEST ok` / `TEST FAIL` を出し、最後に `TEST DONE 通った数/全体`
   - engine を変えたら、engine のテストと、engine を使う全ゲームのスモークテスト（`tools/headless.sh 'games/<game-id>/#smoke' 200000`）を流す
   - engine に機能を足したら、`engine/test/tests.js` にテストを足す
 - 文言キーの照合: `node tools/check_i18n.js games/<game-id>`
