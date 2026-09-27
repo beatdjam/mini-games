@@ -331,3 +331,11 @@ if (location.hash.startsWith('#view-pick')) setTimeout(() => {
   addPickup('weapon', P.x + 0.3, P.z, { w: newWeapon('shotgun', 1, false, 2, ['rate']) });
   for (let k = 0; k < 10; k++) update(1 / 60);
 }, 300);
+// dev view: #view-haz stands on a lit hazard tile (checks the gun is drawn over it); #view-perk opens the chip screen
+if (location.hash.startsWith('#view-haz')) setTimeout(() => {
+  startRun(); run.route = [1]; run.stage = PER + 1; startStage(); show(null); state = 'play';
+  const k = haz.findIndex(Boolean); if (k < 0) return;
+  P.x = ((k % W) + 0.5) * T; P.z = (((k / W) | 0) + 0.5) * T - 1.5; P.yaw = Math.PI; P.pitch = -0.5; P.hp = 1e6; P.maxHp = 1e6;
+  hazT = 0.5; for (let n = 0; n < 5; n++) update(1 / 60);
+}, 300);
+if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); openPerk('チップを1枚選ぶ'); }, 300);

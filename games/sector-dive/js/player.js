@@ -73,7 +73,9 @@ const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o 
 
 // ---- viewmodels ----
 const gun = new THREE.Group(); camera.add(gun); gun.visible = false;
-function vmMat(c, lit) { const m = lit ? new THREE.MeshLambertMaterial({ color: c }) : new THREE.MeshBasicMaterial({ color: c }); m.depthTest = false; return m; }
+// the gun in hand: no depth test, and flagged transparent so it is drawn after the translucent world
+// (hazard floors, portals, blasts); renderOrder 999 then puts it last within that pass
+function vmMat(c, lit) { const m = lit ? new THREE.MeshLambertMaterial({ color: c }) : new THREE.MeshBasicMaterial({ color: c }); m.depthTest = false; m.transparent = true; return m; }
 function vbox(w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; }
 function vcyl(r, len, mat, x, y, z) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); return m; }
 const VM = {};

@@ -141,7 +141,8 @@ function clearOfPortals(x, z) {
     for (let k = 0; k < 12; k++) {
       const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 6;
       const nx = pt.x + Math.cos(a) * R, nz = pt.z + Math.sin(a) * R;
-      if (!blocked(nx, nz, 0.4) && walkable(Math.floor(nz / T) * W + Math.floor(nx / T))) return clearOfPortals(nx, nz);
+      const tile = Math.floor(nz / T) * W + Math.floor(nx / T);
+      if (!blocked(nx, nz, 0.4) && walkable(tile) && !haz[tile]) return clearOfPortals(nx, nz);
     }
   }
   return [x, z];

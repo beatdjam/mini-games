@@ -18,7 +18,6 @@ function startRun() {
   save.runs++; persist();
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage();
-  requestLock();
   const queue = [];
   for (let k = 0; k < save.up.chip; k++) queue.push('持ち込みチップ');
   for (let k = 0; k < tier; k++) queue.push('ショートカット補給');
@@ -26,6 +25,7 @@ function startRun() {
   // after the loadout / shortcut chips are picked, re-save the checkpoint so they are part of it
   const next = () => { if (queue.length) { const kind = queue.shift(); openPerk(`${kind}（${total - queue.length} / ${total}）`, 'loadout', next); } else checkpoint(); };
   next();
+  if (!total) requestLock(); // with chips to pick first, the lock is requested when the last one is chosen
   if (!total) toast(isTouch ? '左で移動 / 右ドラッグで視点。操作一覧は II（一時停止）に' : 'WASD移動 / マウスで視点 / クリックで射撃。操作一覧は Esc（一時停止）に', 4200);
   if (risked) setTimeout(() => toast('倉庫から持ち出した武器は、死ぬと失う', 3000), total ? 0 : 4400);
 }
@@ -91,7 +91,7 @@ function openPerk(title, eyebrow, done) {
   opts.forEach(({ o, rare }) => {
     const v = rare ? o.rv : o.v, name = o.name + (rare ? '+' : '');
     const b = document.createElement('button'); b.className = 'perk' + (rare ? ' rare' : '');
-    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}</span><span class="pd">${o.desc(v)}</span>`;
+    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}</span><span class="pd">${o.desc(v)}</span><span class="pcur">現在: ${o.cur(P)}</span>`;
     b.addEventListener('click', () => {
       o.apply(P, v); run.perks.push(name); sfx('chip');
       show(null); state = 'play'; weaponHud();
@@ -100,6 +100,7 @@ function openPerk(title, eyebrow, done) {
     });
     list.appendChild(b);
   });
+  $('#perkStats').innerHTML = statsHTML();
   show('#scrPerk');
 }
 function exitLock() { if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} } }

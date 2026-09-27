@@ -79,6 +79,8 @@ function requestLock() {
 document.addEventListener('pointerlockchange', () => {
   const was = locked; locked = document.pointerLockElement === canvas;
   if (locked) { lockWorked = true; document.body.classList.remove('nolock'); }
+  // a lock requested just before a menu opened can land after it (Firefox is slow here): let go so the menu is usable
+  if (locked && state !== 'play') exitLock();
   updateHint();
   if (was && !locked && state === 'play') pause();
 });

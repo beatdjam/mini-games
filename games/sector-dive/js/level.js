@@ -294,7 +294,8 @@ function roomSpot(r) {
 function randomTileIn(r) {
   for (let k = 0; k < 40; k++) {
     const i = randi(r.x, r.x + r.w - 1), j = randi(r.y, r.y + r.h - 1);
-    if (walkable(j * W + i)) return [(i + 0.5) * T + rand(-1, 1), (j + 0.5) * T + rand(-1, 1)];
+    const k = j * W + i;
+    if (walkable(k) && !haz[k]) return [(i + 0.5) * T + rand(-1, 1), (j + 0.5) * T + rand(-1, 1)];
   }
   return roomSpot(r);
 }
