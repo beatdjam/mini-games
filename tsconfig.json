@@ -1,6 +1,5 @@
 {
   // Type checking only (npm run typecheck); Vite strips the types when it serves / builds.
-  // Loose for now so the converted code checks clean; files move to strict one by one via tsconfig.strict.json.
   "compilerOptions": {
     "target": "ES2020",
     "module": "ESNext",
@@ -11,7 +10,7 @@
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "strict": false
+    "strict": true
   },
   "include": ["engine/**/*.ts", "games/**/*.ts"]
 }

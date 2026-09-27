@@ -11,15 +11,14 @@ import { disposeTree } from '../render/render.ts';
 //   group.system / WORLD.system are the systems; set their .modes like any other.
 export interface WorldObject { tag?: string; dead?: boolean; mesh?: any; update?(dt: number): void; onRemove?(): void; [k: string]: any; }
 export interface WorldGroup { tag: string; list: WorldObject[]; system: System; }
-export const WORLD: { groups: Record<string, WorldGroup>; system: System | null } = { groups: {}, system: null };
 export function newWorldGroup(tag: string, order: number): WorldGroup {
   const g = { tag, list: [] } as unknown as WorldGroup;
   g.system = addSystem({ name: 'world:' + tag, order, update: dt => updateWorldGroup(g, dt) });
   return g;
 }
 export function worldGroup(tag: string, order: number) { return WORLD.groups[tag] = newWorldGroup(tag, order); }
-WORLD.groups['*'] = newWorldGroup('*', 30);
-WORLD.system = WORLD.groups['*'].system;
+const ALL = newWorldGroup('*', 30);
+export const WORLD: { groups: Record<string, WorldGroup>; system: System } = { groups: { '*': ALL }, system: ALL.system };
 export const groupOf = (tag?: string): WorldGroup => (tag !== undefined && WORLD.groups[tag]) || WORLD.groups['*'];
 export function spawn<T extends WorldObject>(o: T): T & WorldObject { groupOf(o.tag).list.push(o); return o; }
 export function query(tag: string): WorldObject[] { return groupOf(tag).list.filter(o => o.tag === tag && !o.dead); }

@@ -1,3 +1,4 @@
+import type { Enemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -22,7 +23,7 @@ export function spawnCrusher() {
   e.st = 'idle'; e.timer = 2;
   toast(t('boss.crusherHint'), 4200);
 }
-export function updCrusher(e, dt) {
+export function updCrusher(e: Enemy, dt: number) {
   const K = BOSS_META.crusher.tune;
   e.t += dt; e.timer -= dt;
   const enr = e.hp < e.maxHp * 0.5, dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 1;

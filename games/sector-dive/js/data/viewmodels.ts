@@ -1,10 +1,11 @@
+import type { ViewmodelDef } from '../../../../engine/render/render.ts';
 // The gun in hand for each weapon, built from boxes and cylinders by buildViewmodel (engine/render/render.js).
 // Sizes and positions are in metres in camera space (-z is forward). part: [shape, ...size, material, x, y, z]
 //   'box' size = w, h, d / 'cyl' size = r, len (along the barrel)
 //   material: dark / darker (body colours below) or acc (the weapon's colour)
 // tip: the muzzle (bullets and the flash start here), pos: where the gun sits on screen, flash: muzzle flash radius
 export const VM_COLORS = { dark: 0x1d2935, darker: 0x0f161d };
-export const VIEWMODELS = {
+export const VIEWMODELS: Record<string, ViewmodelDef> = {
   pistol: { tip: [0, 0.01, -0.3], pos: [0.28, -0.28, -0.55], flash: 0.08, parts: [
     ['box', 0.1, 0.13, 0.34, 'dark', 0, 0, 0], ['box', 0.105, 0.025, 0.3, 'acc', 0, 0.05, 0], ['box', 0.05, 0.05, 0.12, 'darker', 0, 0.01, -0.22], ['box', 0.08, 0.2, 0.09, 'darker', 0, -0.13, 0.1]] },
   smg: { tip: [0, 0.01, -0.4], pos: [0.3, -0.3, -0.6], flash: 0.08, parts: [

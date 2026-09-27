@@ -32,12 +32,11 @@ vite.config.js               開発サーバーとビルドの設定
 
 ## TypeScript
 
-- 型チェックは2段階。`tsconfig.json` はリポジトリ全体をゆるい設定（`strict: false`）で見る。`tsconfig.strict.json` は、厳しい設定（`strict: true`）に書き直し終えたファイルだけを一覧で見る
-- `npm run typecheck` は両方を流す。どちらもエラー0を保つ
-- **厳しくする手順**: ファイルを `tsconfig.strict.json` の `files` に足して `npx tsc --noEmit -p tsconfig.strict.json` を流し、出たエラーを直す。厳しいチェックはそのファイルが import しているファイルにも及ぶので、依存の少ないもの（engine の `core/` など）から順に足していく
+- 型チェックは `tsconfig.json` の1本で、リポジトリ全体を厳しい設定（`strict: true`）で見る。`npm run typecheck` でエラー0を保つ
 - 型の置き場所: engine の型は持ち主のモジュールから export する（`System`, `WorldObject`, `InputConfig`, `TouchLayoutConfig`, `LangPack` など）。ゲームの定義の型は `games/<id>/js/data/types.ts`
-- あとから項目が増えるオブジェクト（敵やボス）は、今は任意の項目を許す型（`[k: string]: any`）にしている。厳しくするときは項目を書き並べて、これを外す
-- 新しく書くファイル（2本目のゲームなど）は、最初から `tsconfig.strict.json` に入れる
+- あとから項目が増えるオブジェクト（敵やボス、弾）は、今は任意の項目を許す型（`[k: string]: any`）にしている。さらに固くするときは項目を書き並べて、これを外す
+- `$()` は戻り値が `any`。型を効かせたい所では `el<T>()` か `querySelector<T>()` を使う
+- 言語ファイルが後から埋める項目（名前・説明文など）は型では省略可能になっている。表示時に必ず入っているものは `!` で受けている
 
 ## 仕様書のルール
 

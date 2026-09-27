@@ -1,4 +1,4 @@
-import type { Biome } from '../data/types.ts';
+import type { Biome, Snapshot, Weapon, WeaponItem } from '../data/types.ts';
 import { $, clamp, isTouch, pick, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { clearStore, prefGet, prefSet } from '../../../../engine/core/store.ts';
 import { t } from '../../../../engine/core/i18n.ts';
@@ -29,10 +29,10 @@ import { hideShare, prepShare } from '../ui/share.ts';
 import { tickClock } from './update.ts';
 // ================= game flow =================
 export let state: string = 'base';
-export function setState(s) { state = s; }
+export function setState(s: string) { state = s; }
 export const screens = ['#scrBase', '#scrPerk', '#scrPause', '#scrResult', '#scrBag'];
-export function show(id) { screens.forEach(s => { $(s).hidden = s !== id; }); }
-export function setPlayUI(on) { $('#hud').hidden = !on; $('#touch').hidden = !on; gun.visible = on; if (!on) bigmap.hidden = true; }
+export function show(id: string | null) { screens.forEach(s => { $(s).hidden = s !== id; }); }
+export function setPlayUI(on: boolean) { $('#hud').hidden = !on; $('#touch').hidden = !on; gun.visible = on; if (!on) bigmap.hidden = true; }
 
 export function startRun() {
   audioInit();
@@ -47,7 +47,7 @@ export function startRun() {
   save.runs++; persist();
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage();
-  const queue = [];
+  const queue: string[] = [];
   for (let k = 0; k < save.up.chip; k++) queue.push(t('perk.carry'));
   for (let k = 0; k < tier; k++) queue.push(t('perk.supply'));
   const total = queue.length;
@@ -68,7 +68,7 @@ export function startStage() {
   if (isArena) {
     P.x = W * T / 2; P.z = 14.5 * T; P.yaw = 0; P.pitch = 0.08;
     const stageAt = run.stage;
-    setTimeout(() => { if (run && run.stage === stageAt && !boss && !portals.length && state !== 'base' && state !== 'result') spawnBoss(bossKind); }, 1200);
+    setTimeout(() => { if (run && run.stage === stageAt && !boss && !portals.length && state !== 'base' && state !== 'result') spawnBoss(bossKind!); }, 1200);
   } else {
     const [sx, sz] = roomSpot(rooms[startIdx]); P.x = sx; P.z = sz;
     const [ex, ez] = roomSpot(rooms[exitIdx]); P.yaw = Math.atan2(-(ex - sx), -(ez - sz)); P.pitch = 0;
@@ -89,9 +89,9 @@ export function startStage() {
   P.tile = -1; P.inv = 1.0; P.fy = floorY(P.x, P.z); P.vy = 0;
   $('#bossBar').hidden = true;
   $('#stageLbl').innerHTML = `<b>${stageLabel(run.stage)}</b>　${b.name}`;
-  banner(stageLabel(run.stage), b.name);
+  banner(stageLabel(run.stage), b.name!);
   const hintAt = run.stage;
-  if (si.sub === 0 && b.hint) setTimeout(() => { if (run && run.stage === hintAt && state === 'play') toast(b.hint, 3600); }, 1800);
+  if (si.sub === 0 && b.hint) setTimeout(() => { if (run && run.stage === hintAt && state === 'play') toast(b.hint!, 3600); }, 1800);
   state = 'play';
   checkpoint();
   if (!isArena) setMusic(b.code);
@@ -111,16 +111,16 @@ export function nextStage() {
   if (run.stage % (PER * 3) === 0) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), 3000);
   startStage();
 }
-export function openPerk(title, eyebrow?, done?) {
+export function openPerk(title: string, eyebrow?: string, done?: () => void) {
   state = 'perk'; releaseInputs(); exitLock(); bigmap.hidden = true;
   $('#perkTitle').textContent = title; $('#perkEyebrow').textContent = eyebrow || 'chip acquired';
   const opts = shuffle(PERKS.filter(o => !(o.maxed && o.maxed(P)))).slice(0, 3 + save.pres.up.choice)
     .map(o => ({ o, rare: o.rv !== undefined && Math.random() < TUNE.rareChipChance }));
   const list = $('#perkList'); list.innerHTML = ''; list.style.setProperty('--n', opts.length); // one row, however many options
   opts.forEach(({ o, rare }) => {
-    const v = rare ? o.rv : o.v, name = o.name + (rare ? '+' : '');
+    const v = rare ? o.rv! : o.v, name = o.name + (rare ? '+' : '');
     const b = document.createElement('button'); b.className = 'perk' + (rare ? ' rare' : '');
-    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}</span><span class="pd">${o.desc(v)}</span><span class="pcur">${t('perk.cur', { v: o.curText(o.cur(P)) })}</span>`;
+    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}</span><span class="pd">${o.desc!(v)}</span><span class="pcur">${t('perk.cur', { v: o.curText!(o.cur(P)) })}</span>`;
     b.addEventListener('click', () => {
       o.apply(P, v); run.perks.push(o.id + (rare ? '+' : '')); sfx('chip');
       show(null); state = 'play'; weaponHud();
@@ -152,8 +152,8 @@ export let discardArm = false;
 // If the page is killed (e.g. a phone closing a backgrounded browser) or the player suspends by hand,
 // the next launch offers RESUME from the start of that stage, with the state it had when the stage began.
 export function makeSnapshot() {
-  const p = {};
-  Object.keys(P).forEach(k => { if (!SNAP_SKIP.includes(k)) p[k] = P[k]; });
+  const p: Record<string, unknown> = {};
+  Object.entries(P).forEach(([k, v]) => { if (!SNAP_SKIP.includes(k)) p[k] = v; });
   return { run: { stage: run.stage, kills: run.kills, bits: run.bits, perks: run.perks, bosses: run.bosses || [], startTier: run.startTier, route: run.route }, P: JSON.parse(JSON.stringify(p)) };
 }
 export function checkpoint() {
@@ -165,7 +165,7 @@ export function suspendRun() {
   releaseInputs(); exitLock(); discardArm = false;
   goBase();
 }
-export function restoreSnapshot(sn) {
+export function restoreSnapshot(sn: Snapshot) {
   setPlayer(Object.assign(newPlayer([basicW('pistol'), null]), sn.P));
   setRun(Object.assign({}, sn.run));
   run.perks = (run.perks || []).map(perkIdOf);
@@ -196,8 +196,8 @@ export function renderSuspend() {
     ${discardArm ? `<button class="buy" data-susp="discard">${t('susp.discardGo')}</button><button class="mini-btn" data-susp="cancel">${t('common.cancel')}</button>`
       : `<button class="mini-btn" data-susp="arm">${t('susp.discard')}</button>`}</div>`;
 }
-$('#suspendBox').addEventListener('click', e => {
-  const b = e.target.closest('[data-susp]'); if (!b) return;
+$('#suspendBox').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
+  const b = tg.closest<HTMLElement>('[data-susp]'); if (!b) return;
   const a = b.dataset.susp;
   if (a === 'resume') resumeRun();
   else if (a === 'discard') discardSuspended();
@@ -206,7 +206,7 @@ $('#suspendBox').addEventListener('click', e => {
 
 // ---- stats panel ----
 export function statsHTML() {
-  const w = curW(), pct = v => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, rows = [];
+  const w = curW(), pct = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, rows: [string, string | number][] = [];
   rows.push([t('stats.maxHp'), P.maxHp]);
   rows.push([t('stats.dmg'), pct(P.dmgMul * (1 + PLUS_DMG * (w.plus || 0)) - 1)]);
   rows.push([t('stats.rate'), pct(P.fireRate / Math.pow(0.91, wo('rate')) - 1)]);
@@ -222,15 +222,15 @@ export function statsHTML() {
   if (P.chain) rows.push([t('stats.chain'), `Lv ${P.chain}`]);
   if (P.magnet > 1) rows.push([t('stats.magnet'), `×${P.magnet.toFixed(1)}`]);
   rows.push([t('stats.gain'), pct(gain - 1)]);
-  const counts = {}; run.perks.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
-  const chips = Object.keys(counts).map(n => counts[n] > 1 ? t('common.count', { name: perkName(n), n: counts[n] }) : perkName(n)).join(t('common.sep')) || t('common.none');
+  const counts: Record<string, number> = {}; run.perks.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
+  const chips = Object.keys(counts).map(n => counts[n]! > 1 ? t('common.count', { name: perkName(n), n: counts[n] }) : perkName(n)).join(t('common.sep')) || t('common.none');
   return `<h3>${t('stats.title')}<small>${t('stats.titleNote', { w: wText(w) })}</small></h3>
     <dl class="reslist">${rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>
     <p class="chips">${t('stats.chips', { list: chips })}</p>`;
 }
 
 // ---- inventory ----
-export let invSel = null; // {where:'eq'|'bag', i}
+export let invSel: { where: string; i: number } | null = null; // {where:'eq'|'bag', i}
 export function openBag() {
   if (state !== 'play') return;
   state = 'bag'; releaseInputs(); exitLock(); invSel = null; bigmap.hidden = true;
@@ -239,7 +239,7 @@ export function openBag() {
 export function closeBag() { show(null); state = 'play'; normalizeWeapons(); weaponHud(); requestLock(); }
 $('#btnBagClose').addEventListener('click', closeBag);
 $('#btnUseKit').addEventListener('click', () => { useKit(); renderBag(); });
-export function itemCard(w, where, i) {
+export function itemCard(w: WeaponItem | null, where: string, i: number) {
   const sel = invSel && invSel.where === where && invSel.i === i;
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">${t('base.empty')}</button>`;
   const def = WEAPONS[w.id];
@@ -271,9 +271,9 @@ export function renderBag() {
   }
   act.innerHTML = btns.join('') + (w.basic ? '' : `<span>${t('bag.keptNote')}</span>`);
 }
-$('#scrBag').addEventListener('click', e => {
-  const it = e.target.closest('[data-inv]'), ac = e.target.closest('[data-act]');
-  if (it) { const [where, i] = it.dataset.inv.split(':'); invSel = { where, i: +i }; renderBag(); return; }
+$('#scrBag').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
+  const it = tg.closest<HTMLElement>('[data-inv]'), ac = tg.closest<HTMLElement>('[data-act]');
+  if (it) { const [where, i] = it.dataset.inv!.split(':'); invSel = { where, i: +i }; renderBag(); return; }
   if (!ac || !invSel) return;
   const a = ac.dataset.act, src = invSel.where === 'eq' ? P.weapons : P.bag, w = src[invSel.i];
   if (!w) return;
@@ -292,7 +292,7 @@ $('#scrBag').addEventListener('click', e => {
 // ---- run end ----
 // ---- boss practice: fight one boss at a chosen depth's strength; nothing is gained or lost ----
 export let practiceTier = 0;
-export function startPractice(kind, tier?) {
+export function startPractice(kind: string, tier?: number) {
   tier = tier || 0;
   audioInit();
   if (isTouch && !isFs()) enterFs();
@@ -303,18 +303,18 @@ export function startPractice(kind, tier?) {
   startStage(); requestLock();
   toast(t('run.practiceStart'), 2600);
 }
-export function endPractice(kind) {
+export function endPractice(kind: string) {
   state = 'result'; releaseInputs(); exitLock();
-  const sec = Math.round((performance.now() - run.t0) / 1000);
+  const sec = Math.round((performance.now() - run.t0!) / 1000);
   $('#resEyebrow').textContent = 'practice';
   $('#resTitle').textContent = t(run.cleared ? 'res.practiceWon' : 'res.practiceDone');
-  $('#resList').innerHTML = [[t('res.boss'), BOSS_META[run.forceBoss].name], [t('res.strength'), t('res.strengthV', { n: stageInfo(run.stage).tier + 1 })], [t('res.result'), t(run.cleared ? 'res.won' : kind === 'dead' ? 'res.died' : 'res.quit')], [t('res.time'), t('res.timeV', { m: Math.floor(sec / 60), s: sec % 60 })]]
+  $('#resList').innerHTML = [[t('res.boss'), BOSS_META[run.forceBoss!]!.name], [t('res.strength'), t('res.strengthV', { n: stageInfo(run.stage).tier + 1 })], [t('res.result'), t(run.cleared ? 'res.won' : kind === 'dead' ? 'res.died' : 'res.quit')], [t('res.time'), t('res.timeV', { m: Math.floor(sec / 60), s: sec % 60 })]]
     .map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
   $('#resChips').textContent = t('res.practiceNote');
   hideShare();
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
-export function endRun(kind) {
+export function endRun(kind: string) {
   if (run.practice) { endPractice(kind); return; }
   save.suspend = null; // the run is over: its checkpoint must not come back
   const dead = kind !== 'extract';
@@ -322,7 +322,7 @@ export function endRun(kind) {
   const got = Math.floor(run.bits), kept = dead ? Math.floor(got * TUNE.deathBitsKeep) : got;
   save.bits += kept;
   save.best = Math.max(save.best, run.stage + 1);
-  const found = P.weapons.concat(P.bag).filter(w => w && !w.basic);
+  const found = P.weapons.concat(P.bag).filter((w): w is Weapon => !!w && !w.basic);
   const rows = [];
   rows.push([t('res.reached'), `${stageLabel(run.stage)}　${stageInfo(run.stage).biome.name}`]);
   rows.push([t('res.kills'), run.kills]);
@@ -333,11 +333,11 @@ export function endRun(kind) {
     if (save.shortcut > 0) { save.shortcut--; shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut + 1) }); }
     save.startTier = Math.min(save.startTier, save.shortcut);
   } else {
-    const strip = w => w ? { id: w.id, r: w.r, basic: !!w.basic, plus: w.plus || 0, opts: w.opts || [] } : null;
+    const strip = (w: WeaponItem | null): WeaponItem | null => w ? { id: w.id, r: w.r, basic: !!w.basic, plus: w.plus || 0, opts: w.opts || [] } : null;
     save.loadout = [strip(P.weapons[0]), strip(P.weapons[1])];
     if (!save.loadout[0]) save.loadout[0] = basicW('pistol');
     let sold = 0;
-    P.bag.filter(w => w && !w.basic).forEach(w => save.stash.push(strip(w)));
+    P.bag.filter(w => w && !w.basic).forEach(w => save.stash.push(strip(w)!));
     while (save.stash.length > STASH_MAX) {
       let mi = 0; save.stash.forEach((w, i) => { if (sellValue(w) < sellValue(save.stash[mi])) mi = i; });
       sold += sellValue(save.stash[mi]); save.stash.splice(mi, 1);
@@ -373,7 +373,7 @@ export function buildAttract() {
   makePortal(ex, ez, 0xffc24a, 'next', '');
   seen.fill(1);
 }
-export function attract(dt) {
+export function attract(dt: number) {
   tickClock(dt);
   attractYaw += dt * 0.12;
   camera.position.set(attractPos[0], floorY(attractPos[0], attractPos[1]) + EYE + 0.4, attractPos[1]);
@@ -384,21 +384,21 @@ export function attract(dt) {
 
 // ================= base screen =================
 export let selSlot = 0;
-export function wStat(w) {
+export function wStat(w: WeaponItem) {
   const d = WEAPONS[w.id];
   return t('base.wstat', { dmg: Math.round(d.dmg * wDmgMul(w)), pellets: d.pellets, rate: (1 / d.rate).toFixed(1), mag: d.mag, pierce: d.pierce, blast: d.blast });
 }
 // base menu tabs; the last one opened is remembered in this browser
 export let baseTab = 'sortie';
 baseTab = prefGet('sd-base-tab', 'sortie');
-export function showTab(name) {
+export function showTab(name: string) {
   if (!document.querySelector(`[data-pane="${name}"]`)) name = 'sortie';
   baseTab = name;
   document.querySelectorAll<HTMLElement>('.tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   document.querySelectorAll<HTMLElement>('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
   prefSet('sd-base-tab', name);
 }
-$('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { showTab(b.dataset.tab); $('#scrBase').scrollTop = 0; } });
+$('.tabs').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement; const b = tg.closest<HTMLElement>('[data-tab]'); if (b) { showTab(b.dataset.tab!); $('#scrBase').scrollTop = 0; } });
 export function renderBase() {
   $('#sBits').textContent = save.bits;
   $('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
@@ -436,7 +436,7 @@ export function renderBase() {
   $('#ulist').innerHTML = UPGRADES.map(u => {
     const l = save.up[u.id] || 0, maxed = l >= u.max, cost = u.cost(l);
     const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
-    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc(l)}</div><div class="pips">${pips}</div></div>
+    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc!(l)}</div><div class="pips">${pips}</div></div>
       <button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' BIT'}</button></div>`;
   }).join('');
   renderReboot();
@@ -458,7 +458,7 @@ export function renderReboot() {
   $('#presList').innerHTML = PRES_UP.map(u => {
     const l = pr.up[u.id] || 0, maxed = l >= u.max;
     const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
-    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc(l)}</div><div class="pips">${pips}</div></div>
+    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc!(l)}</div><div class="pips">${pips}</div></div>
       <button class="buy" data-pres="${u.id}" ${maxed || pr.pts < u.cost ? 'disabled' : ''}>${maxed ? t('base.max') : u.cost + ' pt'}</button></div>`;
   }).join('');
   const row = $('#rebootRow');
@@ -479,44 +479,44 @@ export function doReboot() {
   rebootArm = false; persist(); renderBase();
   audioInit(); sfx('portal');
 }
-export function assignLoadout(item) {
+export function assignLoadout(item: WeaponItem | null) {
   const prev = save.loadout[selSlot];
   if (prev && !prev.basic) save.stash.push(prev);
   save.loadout[selSlot] = item;
 }
-$('#scrBase').addEventListener('click', e => {
-  const un = e.target.closest('[data-unequip]'), sl = e.target.closest('[data-slot]'), w = e.target.closest('[data-w]'), u = e.target.closest('[data-up]');
-  const st = e.target.closest('[data-stash]'), se = e.target.closest('[data-sell]'), ti = e.target.closest('[data-tier]');
-  const pu = e.target.closest('[data-pres]'), rb = e.target.closest('[data-reboot]'), pr = e.target.closest('[data-practice]');
-  if (pr) { startPractice(pr.dataset.practice, practiceTier); return; }
-  const mp = e.target.closest('[data-modplus]'), mr = e.target.closest('[data-modrar]');
+$('#scrBase').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
+  const un = tg.closest<HTMLElement>('[data-unequip]'), sl = tg.closest<HTMLElement>('[data-slot]'), w = tg.closest<HTMLElement>('[data-w]'), u = tg.closest<HTMLElement>('[data-up]');
+  const st = tg.closest<HTMLElement>('[data-stash]'), se = tg.closest<HTMLElement>('[data-sell]'), ti = tg.closest<HTMLElement>('[data-tier]');
+  const pu = tg.closest<HTMLElement>('[data-pres]'), rb = tg.closest<HTMLElement>('[data-reboot]'), pr = tg.closest<HTMLElement>('[data-practice]');
+  if (pr) { startPractice(pr.dataset.practice!, practiceTier); return; }
+  const mp = tg.closest<HTMLElement>('[data-modplus]'), mr = tg.closest<HTMLElement>('[data-modrar]');
   if (mp || mr) {
-    const id = (mp || mr).dataset.modplus || (mp || mr).dataset.modrar, m = Object.assign({ plus: 0, r: 0 }, modOf(id));
+    const id = (mp || mr)!.dataset.modplus || (mp || mr)!.dataset.modrar!, m = Object.assign({ plus: 0, r: 0 }, modOf(id));
     const cost = mp ? modPlusCost(m.plus) : MOD_RARITY_COST[m.r];
     if (cost === undefined || save.bits < cost || (mp && m.plus >= MOD_PLUS_MAX)) return;
     save.bits -= cost; if (mp) m.plus++; else m.r++;
     save.mods = Object.assign({}, save.mods, { [id]: m }); persist(); audioInit(); sfx('chip'); renderBase(); return;
   }
-  const pt = e.target.closest('[data-ptier]');
-  if (pt) { practiceTier = +pt.dataset.ptier; renderBase(); return; }
+  const pt = tg.closest<HTMLElement>('[data-ptier]');
+  if (pt) { practiceTier = +pt.dataset.ptier!; renderBase(); return; }
   if (rb) { const a = rb.dataset.reboot; if (a === 'go') { doReboot(); return; } rebootArm = a === 'arm'; renderReboot(); return; }
   if (pu) {
-    const def = PRES_UP.find(x => x.id === pu.dataset.pres), l = save.pres.up[def.id] || 0;
+    const def = PRES_UP.find(x => x.id === pu.dataset.pres)!, l = save.pres.up[def.id] || 0;
     if (l < def.max && save.pres.pts >= def.cost) { save.pres.pts -= def.cost; save.pres.up[def.id] = l + 1; audioInit(); sfx('chip'); }
   } else if (un) { const prev = save.loadout[1]; if (prev && !prev.basic) save.stash.push(prev); save.loadout[1] = null; selSlot = 1; }
-  else if (sl) selSlot = +sl.dataset.slot;
-  else if (ti) save.startTier = +ti.dataset.tier;
+  else if (sl) selSlot = +sl.dataset.slot!;
+  else if (ti) save.startTier = +ti.dataset.tier!;
   else if (w) {
-    const id = w.dataset.w, def = WEAPONS[id];
+    const id = w.dataset.w!, def = WEAPONS[id];
     if (!save.unlocked[id]) { if (save.bits < def.cost) return; save.bits -= def.cost; save.unlocked[id] = true; audioInit(); sfx('chip'); }
     assignLoadout(basicW(id));
   } else if (st) {
-    const i = +st.dataset.stash, item = save.stash.splice(i, 1)[0];
+    const i = +st.dataset.stash!, item = save.stash.splice(i, 1)[0];
     assignLoadout(item);
   } else if (se) {
-    const i = +se.dataset.sell; save.bits += sellValue(save.stash[i]); save.stash.splice(i, 1); audioInit(); sfx('pick');
+    const i = +se.dataset.sell!; save.bits += sellValue(save.stash[i]); save.stash.splice(i, 1); audioInit(); sfx('pick');
   } else if (u) {
-    const def = UPGRADES.find(x => x.id === u.dataset.up), l = save.up[def.id] || 0, cost = def.cost(l);
+    const def = UPGRADES.find(x => x.id === u.dataset.up)!, l = save.up[def.id] || 0, cost = def.cost(l);
     if (l < def.max && save.bits >= cost) { save.bits -= cost; save.up[def.id] = l + 1; audioInit(); sfx('pick'); }
   } else return;
   persist(); renderBase();

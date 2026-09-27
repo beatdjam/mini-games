@@ -1,3 +1,5 @@
+import type { Biome, Enemy, Player, RunState, Weapon, WeaponDef, WeaponItem } from '../data/types.ts';
+import type { AimTarget } from '../world/entities.ts';
 import { clamp, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { t } from '../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../engine/audio/audio.ts';
@@ -18,14 +20,18 @@ import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy, spawnPBullet
 import { bossDown, bossPhase } from './bosses/common.ts';
 import { SCR, hitMark } from '../ui/hud.ts';
 import { endRun, state } from '../flow/game.ts';
-export let P = null, run = null;
-export function setPlayer(p) { P = p; }
-export function setRun(r) { run = r; }
-export const newWeapon = (id, r, basic?, plus?, opts?) => ({ id, r, basic: !!basic, plus: plus || 0, opts: opts || [], mag: WEAPONS[id].mag });
-export const wo = (k, w?) => { w = w || (P && P.weapons[P.cur]); return w && w.opts ? w.opts.filter(o => o === k).length : 0; };
-export const wDmgMul = w => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
+// The player and the run exist only during a run; on the base screen they are null (setPlayer(null) / setRun(null)).
+// They are typed without null because nearly all code using them runs during a run; code that can also run
+// on the base screen checks them (if (P) ..., run && ...).
+export let P = null as unknown as Player, run = null as unknown as RunState;
+export function setPlayer(p: Player | null) { P = p as Player; }
+export function setRun(r: RunState | null) { run = r as RunState; }
+export const newWeapon = (id: string, r: number, basic?: boolean, plus?: number, opts?: string[]): Weapon => ({ id, r, basic: !!basic, plus: plus || 0, opts: opts || [], mag: WEAPONS[id].mag });
+// how many of option k a weapon has (the one in hand if none given)
+export const wo = (k: string, w?: WeaponItem | null): number => { w = w || (P && P.weapons[P.cur]); return w && w.opts ? w.opts.filter(o => o === k).length : 0; };
+export const wDmgMul = (w: WeaponItem): number => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
 // `stage` here is progress (prog), not the raw stage number
-export function rollWeapon(stage, minR?) {
+export function rollWeapon(stage: number, minR?: number): Weapon {
   const roll = Math.random() + stage * 0.025;
   const r = Math.max(minR || 0, roll > 1.05 ? 2 : roll > 0.68 ? 1 : 0);
   let plus = 0;
@@ -41,7 +47,7 @@ export function rollWeapon(stage, minR?) {
   if (stage >= 10 && Math.random() < 0.3 + (stage - 10) * 0.03) n++;
   return newWeapon(pickDrop(), r, false, plus, shuffle(Object.keys(AFFIX)).slice(0, n));
 }
-export function newPlayer(loadout) {
+export function newPlayer(loadout: (WeaponItem | null)[]): Player {
   const u = save.up, pu = save.pres.up, hp = TUNE.hp + u.hp * 15 + pu.hp * 10;
   const ws = loadout.map(basicNow).map(w => w ? newWeapon(w.id, w.r, w.basic, w.plus, w.opts) : null);
   return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: TUNE.moveSpeed, spdMul: 1 + u.spd * 0.05, dmgMul: 1 + u.dmg * 0.08,
@@ -51,25 +57,25 @@ export function newPlayer(loadout) {
     reloadT: 0, reloadMax: 1, fireCd: 0, tile: -1, bob: 0, fy: 0, vy: 0 };
 }
 // each run walks the sectors in its own shuffled order (run.route); depth (tier) drives difficulty
-export const routeBiome = t => BIOMES[run && run.route ? run.route[t % run.route.length] : t % BIOMES.length];
-export const stageInfo = s => { const tier = Math.floor(s / PER); return { biome: routeBiome(tier), sub: s % PER, loop: Math.floor(tier / 3), tier }; };
-export const isBossStage = s => s % PER === PER - 1;
-export function stageLabel(s) { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
-export function tierLabel(t) { return `DEPTH ${t + 1}`; }
-export const diffOf = s => ENEMY_TUNE.hpMul * Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
+export const routeBiome = (t: number): Biome => BIOMES[run && run.route ? run.route[t % run.route.length] : t % BIOMES.length];
+export const stageInfo = (s: number) => { const tier = Math.floor(s / PER); return { biome: routeBiome(tier), sub: s % PER, loop: Math.floor(tier / 3), tier }; };
+export const isBossStage = (s: number): boolean => s % PER === PER - 1;
+export function stageLabel(s: number): string { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
+export function tierLabel(t: number): string { return `DEPTH ${t + 1}`; }
+export const diffOf = (s: number): number => ENEMY_TUNE.hpMul * Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
 // chipMag: share of the magazine chips' effect a weapon gets (the launcher only half, so it can't double its output)
-export const magSize = w => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1); return Math.max(1, Math.round(def.mag * chip * (1 + 0.3 * wo('mag', w)))); };
+export const magSize = (w: WeaponItem): number => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1); return Math.max(1, Math.round(def.mag * chip * (1 + 0.3 * wo('mag', w)))); };
 // rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
-export const rarLabel = w => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
-export const wName = w => `<span style="color:${w.r ? RARITY[w.r].css : 'inherit'}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
-export const wText = w => t('weapon.text', { name: WEAPONS[w.id].name + (w.plus ? '+' + w.plus : ''), rar: rarLabel(w), opts: w.opts && w.opts.length ? w.opts.map(o => AFFIX[o].name).join(t('share.join')) : '' });
+export const rarLabel = (w: WeaponItem): string => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
+export const wName = (w: WeaponItem): string => `<span style="color:${w.r ? RARITY[w.r].css : 'inherit'}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
+export const wText = (w: WeaponItem): string => t('weapon.text', { name: WEAPONS[w.id].name + (w.plus ? '+' + w.plus : ''), rar: rarLabel(w), opts: w.opts && w.opts.length ? w.opts.map(o => AFFIX[o].name).join(t('share.join')) : '' });
 // split-shot: each chip adds one projectile and +20% total damage, shared across all projectiles,
 // so a full hit gains the same +20% per chip whether the weapon fires 1 round or 8 pellets
-export const splitMul = def => def.pellets * (1 + 0.2 * P.extra) / (def.pellets + P.extra);
-export const critChance = (w?) => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
+export const splitMul = (def: WeaponDef): number => def.pellets * (1 + 0.2 * P.extra) / (def.pellets + P.extra);
+export const critChance = (w?: WeaponItem): number => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
 // dps = sustained damage per second including reloads and average crits (rail range bonus and explosions not counted).
-export function weaponStats(w) {
+export function weaponStats(w: WeaponItem) {
   const def = WEAPONS[w.id];
   const perHit = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
   const hits = def.pellets + P.extra;
@@ -78,33 +84,35 @@ export function weaponStats(w) {
   const reload = def.reload * P.reloadMul * Math.pow(0.8, wo('reload', w));
   return { perHit, hits, mag, dps: perHit * hits * mag / (mag * interval + reload) * (1 + critChance(w)) };
 }
-export const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
+export const wOpts = (w: WeaponItem): string => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
 // the gun in hand per weapon, from js/data/viewmodels.js
-export const VM = {};
+export const VM: Record<string, THREE.Group> = {};
 WEAPON_ORDER.forEach(id => {
   const g = buildViewmodel(VIEWMODELS[id], Object.assign({ acc: WEAPONS[id].color }, VM_COLORS));
   g.visible = false; gun.add(g); VM[id] = g;
 });
 // the gun in hand: recoil and muzzle flash timers
 export const GUNFX = { gunKick: 0, flashT: 0 };
-export let curVM = null;
-export function setVM(id) {
+// the viewmodel shown (none until the first weapon is set)
+export let curVM: THREE.Group | null = null;
+export function setVM(id: string) {
   if (curVM) { curVM.visible = false; curVM.userData.flash.visible = false; }
-  curVM = VM[id]; curVM.visible = true;
+  const vm = curVM = VM[id]; vm.visible = true;
 }
 
-export const curW = () => P.weapons[P.cur];
+// the weapon in hand; during a run there always is one (normalizeWeapons keeps slot 0 filled)
+export const curW = (): Weapon => P.weapons[P.cur]!;
 export function fwd() { return new V3(-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.pitch), -Math.cos(P.yaw) * Math.cos(P.pitch)); }
 
 // hit spheres: multi-body bosses list their parts, everything else is one sphere at the mesh
-export function spheres(e) { return e.parts || [{ p: e.mesh.position, r: e.hitR }]; }
+export function spheres(e: Enemy): { p: THREE.Vector3; r: number }[] { return e.parts || [{ p: e.mesh.position, r: e.hitR }]; }
 // how far you can actually make enemies out: 60% of the way into the fog
 export const visibleRange = () => Math.min(56, (scene.fog as THREE.Fog).near + ((scene.fog as THREE.Fog).far - (scene.fog as THREE.Fog).near) * 0.6);
 // target for autofire, aim assist and the red crosshair: in the aim cone, in line of sight, and not hidden in fog
-export function findTarget() {
+export function findTarget(): AimTarget | null {
   const f = fwd(), cp = camera.position, cone = Math.max(ASSIST[save.settings.assist] || 0, 0.012), maxD = visibleRange();
-  let best = null, bestS = Infinity;
+  let best: AimTarget | null = null, bestS = Infinity;
   for (const e of enemies) {
     if (e.dead) continue;
     for (const sp of spheres(e)) {
@@ -136,9 +144,9 @@ export function fire() {
   w.mag--;
   camera.updateMatrixWorld();
   camera.updateMatrixWorld();
-  const mz = curVM.userData.tip.getWorldPosition(new V3()).applyMatrix4(camera.matrixWorld); // gun space -> world
+  const mz = curVM!.userData.tip.getWorldPosition(new V3()).applyMatrix4(camera.matrixWorld); // gun space -> world
   const cp = camera.position, f = fwd();
-  let aim;
+  let aim: THREE.Vector3;
   if (target) {
     const tp = target.p, d = cp.distanceTo(tp), straight = cp.clone().addScaledVector(f, d);
     const lvl = save.settings.assist;
@@ -155,7 +163,7 @@ export function fire() {
     if (P.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * 0.05);
     const s = def.spread + (k >= def.pellets ? 0.02 : 0) + (moving && !def.steady ? 0.014 : 0);
     d.x += rand(-s, s); d.y += rand(-s, s) * 0.7; d.z += rand(-s, s); d.normalize();
-    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), blast, def.color, def.grav, { far: def.far, farMul: def.farMul, kb: def.kb, rail: !!def.pierce, shot: shotId });
+    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), blast, def.color, def.grav || 0, { far: def.far, farMul: def.farMul, kb: def.kb, rail: !!def.pierce, shot: shotId });
   }
   GUNFX.gunKick = Math.min(0.2, GUNFX.gunKick + (def.blast ? 0.2 : def.pellets > 1 || def.pierce ? 0.12 : 0.05));
   GUNFX.flashT = def.blast ? 0.09 : 0.05;
@@ -165,13 +173,13 @@ export function fire() {
   if (w.mag <= 0) startReload();
 }
 
-export function damagePlayer(d) {
+export function damagePlayer(d: number) {
   if (P.inv > 0 || state !== 'play') return;
   P.hp -= d; P.inv = TUNE.hitInvuln; SCR.shake = Math.max(SCR.shake, 0.22); SCR.vig = 0.9; sfx('hurt', 80);
   if (P.hp <= 0) { P.hp = 0; endRun('dead'); }
 }
 
-export function hurtEnemy(e, dmg, isCrit) {
+export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
   if (e.dead) return;
   if (e.boss && e.spawnT > 0) { burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0xffffff, 2, 3, 0.2); return; }
   if (e.invuln) { if (!e.hinted) { e.hinted = true; toast(t('run.shielded'), 2400); } burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0x8cc8ff, 2, 4, 0.2); return; }
@@ -183,7 +191,7 @@ export function hurtEnemy(e, dmg, isCrit) {
   else if (e.boss && !e.phased && e.hp < e.maxHp * 0.5) bossPhase(e);
 }
 // player explosions (rockets, chain blasts); one crit roll per explosion
-export function explode(x, y, z, radius, dmg, color, big?) {
+export function explode(x: number, y: number, z: number, radius: number, dmg: number, color: number, big?: boolean) {
   const crit = Math.random() < critChance();
   if (crit) dmg *= 2;
   if (big) {
@@ -209,15 +217,15 @@ export function explode(x, y, z, radius, dmg, color, big?) {
   }
 }
 // bomber blast: hurts the player and any enemy caught in it
-export function bomberBlast(x, y, z, dmg) {
+export function bomberBlast(x: number, y: number, z: number, dmg: number) {
   burst(x, y, z, 0xffb13d, 26, 10, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.3); fireball(x, y, z, 3, 0xff8a3d);
   sfx('boom', 40); SCR.shake = Math.max(SCR.shake, 0.2);
   if (Math.hypot(P.x - x, P.z - z) < 3.4 && Math.abs(P.fy + 1 - y) < 2.5) damagePlayer(dmg);
   for (const o of enemies.slice()) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, 35, false);
 }
-export function detonate(e) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
+export function detonate(e: Enemy) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
 export let inChainBlast = false;
-export function killEnemy(e, noReward?) {
+export function killEnemy(e: Enemy, noReward?: boolean) {
   e.dead = true;
   if (!noReward) run.kills++;
   const pos = e.mesh.position;
@@ -247,7 +255,7 @@ export function killEnemy(e, noReward?) {
   }
   if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room);
 }
-export function roomCleared(idx) {
+export function roomCleared(idx: number) {
   const [x, z] = roomSpot(rooms[idx]);
   if (Math.random() < TUNE.chipChance) { addPickup('chip', x, z); toast(t('run.clearedChip')); }
   else { addPickup('kit', x - 0.8, z); dropBits(x + 0.8, z, 6 + prog(run.stage)); toast(t('run.cleared')); }

@@ -1,3 +1,4 @@
+import type { Enemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { rand } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -24,20 +25,20 @@ export function spawnBastion() {
   bastionTurrets(e, BOSS_META.bastion.tune.turretsFirst);
   toast(t('boss.bastionHint'), 4600);
 }
-export function bastionTurrets(e, n) {
+export function bastionTurrets(e: Enemy, n: number) {
   const off = rand(0, Math.PI);
   for (let k = 0; k < n; k++) {
     const a = off + k * Math.PI * 2 / n, t = spawnEnemy('bturret', e.cx + Math.cos(a) * BOSS_META.bastion.tune.turretR, e.cz + Math.sin(a) * BOSS_META.bastion.tune.turretR, -1, diffOf(run.stage));
     t.active = true; e.turrets.push(t);
   }
 }
-export function updBastion(e, dt) {
+export function updBastion(e: Enemy, dt: number) {
   const K = BOSS_META.bastion.tune;
   e.t += dt;
   const enr = e.hp < e.maxHp * 0.5;
   e.core.rotation.y += dt * (e.invuln ? 0.6 : 2.5); e.core.rotation.x += dt * 0.4;
   e.shield.visible = e.invuln; e.shield.material.opacity = 0.2 + Math.sin(e.t * 4) * 0.06;
-  e.turrets = e.turrets.filter(t => !t.dead);
+  e.turrets = e.turrets.filter((t: Enemy) => !t.dead);
   if (e.invuln && !e.turrets.length) { e.invuln = false; e.openT = K.open; e.stunMul = K.openMul; toast(t('boss.bastionOpen'), 2400); sfx('chip'); }
   if (!e.invuln) {
     e.openT -= dt;

@@ -41,4 +41,4 @@ export const PRES_UP: PresUpgrade[] = [
   { id: 'choice', max: 1, cost: 3 },
 ];
 export const STASH_MAX = 12, BAG_MAX = 4, KIT_MAX = 3;
-export const ASSIST = { off: 0, weak: 0.04, strong: 0.1 };
+export const ASSIST: Record<string, number> = { off: 0, weak: 0.04, strong: 0.1 };

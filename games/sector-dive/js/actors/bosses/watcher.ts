@@ -1,3 +1,4 @@
+import type { Enemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { t } from '../../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../../engine/audio/audio.ts';
@@ -19,7 +20,7 @@ export function spawnWatcher() {
   bossBase('watcher', g, mat, updWatcher);
   toast(t('boss.watcherHint'), 3800);
 }
-export function updWatcher(e, dt) {
+export function updWatcher(e: Enemy, dt: number) {
   const K = BOSS_META.watcher.tune;
   e.t += dt; e.timer -= dt; e.pt += dt;
   const enr = e.hp < e.maxHp * 0.5;

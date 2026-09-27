@@ -1,3 +1,4 @@
+import type { Enemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { pick, rand } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -23,11 +24,11 @@ export function spawnCore() {
   for (let k = 0; k < 3; k++) {
     const bg = new THREE.BoxGeometry(34, 0.45, 0.45); bg.translate(17, 0, 0);
     const bm = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: 0xff4d8d, transparent: true, opacity: 0.25, depthWrite: false }));
-    bm.position.set(e.cx, 1.2, e.cz); bm.visible = false; levelGroup.add(bm); e.beams.push(bm);
+    bm.position.set(e.cx, 1.2, e.cz); bm.visible = false; levelGroup!.add(bm); e.beams.push(bm);
   }
   toast(t('boss.coreHint'), 3800);
 }
-export function updCore(e, dt) {
+export function updCore(e: Enemy, dt: number) {
   const K = BOSS_META.core.tune;
   e.t += dt; e.timer -= dt; e.pt += dt;
   const enr = e.hp < e.maxHp * 0.5;
@@ -39,7 +40,7 @@ export function updCore(e, dt) {
     if (e.pat === 0) { e.bdir *= -1; e.ba = Math.atan2(-(P.z - e.cz), P.x - e.cx) + Math.PI * 0.5; sfx('beam'); }
   }
   const nb = enr ? K.beamsEnr : K.beams;
-  e.beams.forEach((b, k) => { b.visible = e.pat === 0 && k < nb; });
+  e.beams.forEach((b: THREE.Mesh, k: number) => { b.visible = e.pat === 0 && k < nb; });
   if (e.pat === 0) {
     const live = e.pt > K.beamWarm;
     const sp = (live ? (enr ? K.beamSpinEnr : K.beamSpin) : K.beamSpinWarm) * e.bdir;

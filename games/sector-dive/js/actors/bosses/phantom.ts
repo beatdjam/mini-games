@@ -1,3 +1,4 @@
+import type { Enemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { pick, rand } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -24,15 +25,15 @@ export function spawnPhantom() {
   phantomWarp(e, true);
   toast(t('boss.phantomHint'), 4200);
 }
-export function phantomWarp(e, first?) {
-  const spots = BOSS_META.phantom.tune.spots.map(([i, j]) => [(i + 0.5) * T, (j + 0.5) * T])
-    .sort((a, b) => Math.hypot(b[0] - P.x, b[1] - P.z) - Math.hypot(a[0] - P.x, a[1] - P.z));
+export function phantomWarp(e: Enemy, first?: boolean) {
+  const spots = BOSS_META.phantom.tune.spots.map(([i, j]: [number, number]) => [(i + 0.5) * T, (j + 0.5) * T])
+    .sort((a: number[], b: number[]) => Math.hypot(b[0] - P.x, b[1] - P.z) - Math.hypot(a[0] - P.x, a[1] - P.z));
   // warp anywhere except the two spots nearest the player (first appearance: the farthest spot)
   const [x, z] = first ? spots[0] : pick(spots.slice(0, spots.length - 2));
   e.x = x; e.z = z;
   if (!first) { burst(x, 2, z, 0x9fe7ff, 16, 6, 0.5); ring(x, z, 1.3, BOSS_META.phantom.tune.warpRing[0], BOSS_META.phantom.tune.warpRing[1], rand(0, 1), e.dmg, 0x9fe7ff); }
 }
-export function updPhantom(e, dt) {
+export function updPhantom(e: Enemy, dt: number) {
   const K = BOSS_META.phantom.tune;
   e.t += dt; e.timer -= dt;
   const enr = e.hp < e.maxHp * 0.5, eye = [e.x, e.y + 0.5, e.z];

@@ -1,3 +1,4 @@
+import type { WeaponItem } from '../data/types.ts';
 import { $, clamp, isTouch } from '../../../../engine/core/util.ts';
 import { query } from '../../../../engine/core/world.ts';
 import { LANG, lang, setLang, t } from '../../../../engine/core/i18n.ts';
@@ -21,7 +22,7 @@ export const cross = $('#cross'), hitm = $('#hitm'), ammoEl = $('#ammo'), reload
 export const vigEl = $('#vig'), bossFill = $('#bossFill'), mini = $('#mini'), mctx = mini.getContext('2d'), bigmap = $('#bigmap'), bctx = bigmap.getContext('2d');
 // screen effects shared by several files: hit marker, damage vignette, camera shake, minimap redraw, stamina warning
 export const SCR = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
-export function hitMark(crit) { hitm.classList.add('on'); hitm.classList.toggle('crit', !!crit); SCR.hitTimer = 0.09; }
+export function hitMark(crit?: boolean) { hitm.classList.add('on'); hitm.classList.toggle('crit', !!crit); SCR.hitTimer = 0.09; }
 export function toggleMap() { if (state !== 'play') return; bigmap.hidden = !bigmap.hidden; SCR.miniT = 0; }
 export function weaponHud() {
   [0, 1].forEach(k => {
@@ -53,8 +54,8 @@ export function updateHud() {
   const row = $('#pickRow');
   if (nearW) {
     const desk = !isTouch && !document.body.classList.contains('nolock'), bagFree = P.bag.includes(null);
-    const name = wText(nearW.w) + (desk ? t('hud.pickDesk', { act: t(P.weapons[1] ? 'hud.pickSwap' : 'hud.pickEquip'), full: bagFree ? '' : t('hud.pickFull') }) : '');
-    const diff = compareHTML(nearW.w, curW()), key = name + '|' + diff + '|' + P.cur + '|' + bagFree;
+    const name = wText(nearW.w!) + (desk ? t('hud.pickDesk', { act: t(P.weapons[1] ? 'hud.pickSwap' : 'hud.pickEquip'), full: bagFree ? '' : t('hud.pickFull') }) : '');
+    const diff = compareHTML(nearW.w!, curW()), key = name + '|' + diff + '|' + P.cur + '|' + bagFree;
     if (row.hidden || row.dataset.key !== key) {
       row.dataset.key = key;
       $('#pickName').textContent = name;
@@ -68,9 +69,9 @@ export function updateHud() {
   } else if (!row.hidden) { row.hidden = true; updateHint(); }
 }
 // "DPS 142 ▲+38 / per hit 16×8 ▼-4 / mag 6 ▼-6" against the weapon in hand
-export function compareHTML(w, cur) {
+export function compareHTML(w: WeaponItem, cur: WeaponItem) {
   const a = weaponStats(w), b = weaponStats(cur);
-  const d = (v, base) => {
+  const d = (v: number, base: number) => {
     const diff = Math.round(v) - Math.round(base);
     return diff > 0 ? `<span class="up">▲+${diff}</span>` : diff < 0 ? `<span class="down">▼${diff}</span>` : '<span class="same">±0</span>';
   };
@@ -83,7 +84,7 @@ export function updateHint() {
   else if (document.body.classList.contains('nolock')) h.textContent = t('hud.hintTouchLook');
   else h.textContent = locked || state !== 'play' ? '' : t('hud.hintLock');
 }
-export function drawMap(c, g, big) {
+export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?: boolean) {
   const s = c.width / Math.max(W, H);
   g.clearRect(0, 0, c.width, c.height);
   g.fillStyle = curBiome.line;
@@ -97,7 +98,7 @@ export function drawMap(c, g, big) {
     if (haz[k]) { g.fillStyle = '#ff4d4d'; g.globalAlpha = 0.45; g.fillRect(i * s, j * s, s + 0.5, s + 0.5); }
   }
   g.globalAlpha = 1;
-  const px = x => x / T * s, u = c.width / 160;
+  const px = (x: number) => x / T * s, u = c.width / 160;
   query('pickup').forEach(p => {
     if (p.kind === 'bit') return;
     if (!seen[Math.floor(p.z / T) * W + Math.floor(p.x / T)]) return;
@@ -122,9 +123,9 @@ $('#btnFs').hidden = !fsSupported || isStandalone;
 $('#btnFs').addEventListener('click', toggleFs);
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { fsLabel(); renderSettings(); setTimeout(resize, 100); }));
 
-export function settingsHTML(where) {
+export function settingsHTML(where?: string) {
   const st = save.settings;
-  const onOff = v => t(v ? 'set.on' : 'set.off');
+  const onOff = (v: boolean) => t(v ? 'set.on' : 'set.off');
   const langSeg = `<div class="seg" role="group" aria-label="${t('set.lang')}"><span>${t('set.lang')}</span>${Object.keys(LANG).map(k =>
     `<button data-lang="${k}" aria-pressed="${lang === k}">${LANG[k].name}</button>`).join('')}</div>`;
   const fsBtn = fsSupported && !isStandalone ? `<button class="toggle" data-fs="1" aria-pressed="${isFs()}">${t('set.fs')}<b>${onOff(isFs())}</b></button>` : '';
@@ -143,16 +144,16 @@ document.addEventListener('click', e => {
   const el = e.target as HTMLElement;
   const s = el.closest<HTMLElement>('[data-set]'), a = el.closest<HTMLElement>('[data-assist]'), f = el.closest('[data-fs]');
   const lo = el.closest('[data-layout]'), lg = el.closest<HTMLElement>('[data-lang]');
-  if (lg) changeLang(lg.dataset.lang);
+  if (lg) changeLang(lg.dataset.lang!);
   else if (lo) openLayoutEditor(state === 'pause' ? 'pause' : 'base');
   else if (f) toggleFs();
-  else if (s) { const k = s.dataset.set; save.settings[k] = !save.settings[k]; persist(); renderSettings(); applyLayout(); }
-  else if (a) { save.settings.assist = a.dataset.assist; persist(); renderSettings(); }
+  else if (s) { const k = s.dataset.set as 'autofire' | 'leftFire' | 'stickDash'; save.settings[k] = !save.settings[k]; persist(); renderSettings(); applyLayout(); }
+  else if (a) { save.settings.assist = a.dataset.assist!; persist(); renderSettings(); }
 });
 document.addEventListener('input', ev => {
   const e = { target: ev.target as HTMLInputElement };
   if (e.target.classList && e.target.classList.contains('volIn')) {
-    const k = e.target.dataset.vol; save.settings[k] = parseFloat(e.target.value); persist();
+    const k = e.target.dataset.vol as 'bgm' | 'sfx'; save.settings[k] = parseFloat(e.target.value); persist();
     document.querySelectorAll<HTMLInputElement>(`.volIn[data-vol="${k}"]`).forEach(v => { if (v !== e.target) v.value = String(save.settings[k]); });
     syncVolumes(); audioInit(); musicVolume(); applySfxVolume();
     return;
@@ -171,7 +172,7 @@ Object.assign(TOUCH_LAYOUT, {
   save: persist,
   afterApply: () => { $('#btnFire2').hidden = !save.settings.leftFire; },
   onOpen: () => { show(null); setState('layout'); },
-  onClose: from => {
+  onClose: (from: string) => {
     if (from === 'pause') { setState('pause'); renderSettings(); show('#scrPause'); }
     else { $('#touch').hidden = true; setState('base'); renderSettings(); show('#scrBase'); }
   },
@@ -179,7 +180,7 @@ Object.assign(TOUCH_LAYOUT, {
 
 export function renderGuide() { $('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join(''); }
 // switching language redraws whatever is on screen (static text is handled by setLang)
-export function changeLang(code) {
+export function changeLang(code: string) {
   save.settings.lang = code; persist(); setLang(code);
   renderSettings(); renderGuide(); fsLabel(); updateHint();
   if (state === 'base') renderBase();

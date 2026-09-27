@@ -1,3 +1,4 @@
+import type { Pickup, Wave } from '../data/types.ts';
 import { rand } from '../../../../engine/core/util.ts';
 import { LOOP, addSystem, runSystems, startLoop, stopFrame } from '../../../../engine/core/loop.ts';
 import { WORLD, query, sweepWorld } from '../../../../engine/core/world.ts';
@@ -24,12 +25,12 @@ import { updateEBullets, updatePBullets } from '../actors/bullets.ts';
 LOOP.mode = () => state;
 // seconds of play time (drives blinking and animations)
 export let time = 0;
-export function tickClock(dt) { time += dt; }
+export function tickClock(dt: number) { time += dt; }
 // one play step by hand (tests)
-export function update(dt) { runSystems(dt, 'play'); }
+export function update(dt: number) { runSystems(dt, 'play'); }
 
 // ---- player: movement, dash, camera, viewmodel, reload and firing ----
-export function updatePlayer(dt) {
+export function updatePlayer(dt: number) {
   time += dt;
   let mx = 0, mz = 0;
   if (keys.KeyW || keys.ArrowUp) mz += 1;
@@ -72,12 +73,12 @@ export function updatePlayer(dt) {
   camera.position.set(P.x + rand(-sh, sh), P.fy + EYE + Math.sin(P.bob) * 0.05 + rand(-sh, sh), P.z + rand(-sh, sh));
   camera.rotation.set(P.pitch, P.yaw, 0);
   GUNFX.gunKick = Math.max(0, GUNFX.gunKick - dt * 0.7);
-  const vp = curVM.userData.pos;
+  const vm = curVM!, vp = vm.userData.pos;
   let rl = 0;
   if (P.reloadT > 0) { const k = 1 - P.reloadT / P.reloadMax; rl = Math.sin(Math.PI * k); }
   gun.position.set(vp[0] + Math.cos(P.bob * 0.5) * 0.012, vp[1] + Math.abs(Math.sin(P.bob * 0.5)) * 0.012 - GUNFX.gunKick * 0.3 - rl * 0.18, vp[2] + GUNFX.gunKick);
   gun.rotation.set(GUNFX.gunKick * 1.6 - rl * 0.7, 0, rl * 0.5);
-  GUNFX.flashT -= dt; curVM.userData.flash.visible = GUNFX.flashT > 0;
+  GUNFX.flashT -= dt; vm.userData.flash.visible = GUNFX.flashT > 0;
 
   // reload / shooting
   if (P.reloadT > 0) { P.reloadT -= dt; if (P.reloadT <= 0) { P.reloadT = 0; curW().mag = magSize(curW()); sfx('reloaded'); } }
@@ -86,7 +87,7 @@ export function updatePlayer(dt) {
   if ((fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) && P.fireCd <= 0) tryFire();
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
-export function updatePortals(dt) {
+export function updatePortals(dt: number) {
   for (const pt of portals) {
     pt.ring.rotation.z += dt * 1.5; pt.disc.material.opacity = 0.18 + Math.sin(time * 4) * 0.08;
     if (state === 'play' && Math.hypot(P.x - pt.x, P.z - pt.z) < 1.5 && Math.abs(P.fy + 1.7 - pt.g.position.y) < 1.6) {
@@ -97,7 +98,7 @@ export function updatePortals(dt) {
     }
   }
 }
-export function updateScreenFx(dt) {
+export function updateScreenFx(dt: number) {
   SCR.hitTimer -= dt; if (SCR.hitTimer <= 0) hitm.classList.remove('on');
   SCR.vig = Math.max(0, SCR.vig - dt * 2);
   if (state === 'play') updateHud();
@@ -108,13 +109,13 @@ export function updateScreenFx(dt) {
 // weapon pickups compete for "nearest" each frame, so the choice starts over first (system pickupReset)
 export function resetNearest() { setNear(null, 1.9); }
 // all pickups at once (tests)
-export function updatePickups(dt) { resetNearest(); query('pickup').forEach(p => p.update(dt)); sweepWorld(); }
-export function updatePickup(p, dt) {
+export function updatePickups(dt: number) { resetNearest(); query('pickup').forEach(p => p.update!(dt)); sweepWorld(); }
+export function updatePickup(p: Pickup, dt: number) {
   p.t += dt;
   const dx = P.x - p.x, dz = P.z - p.z, d = Math.abs(p.y - P.fy - (p.kind === 'bit' ? 0.5 : 1)) < 1.4 || p.kind === 'bit' ? Math.hypot(dx, dz) : 99;
   if (p.kind === 'bit') {
     if (d < 2.4 * P.magnet) { const s = Math.min(d, 14 * dt); p.x += dx / (d || 1) * s; p.z += dz / (d || 1) * s; p.y += (P.fy + 0.5 - p.y) * Math.min(1, dt * 8); }
-    if (d < 0.7) { p.dead = true; run.bits += p.value * P.gainMul * (1 + 0.1 * wo('gain')); sfx('pick', 30); }
+    if (d < 0.7) { p.dead = true; run.bits += p.value! * P.gainMul * (1 + 0.1 * wo('gain')); sfx('pick', 30); }
   } else if (p.kind === 'kit') {
     if (d < 1.1) {
       if (P.kits < KIT_MAX) { p.dead = true; P.kits++; sfx('pick'); toast(t('run.kitPlus', { n: P.kits, max: KIT_MAX }), 1200); weaponHud(); }
@@ -130,7 +131,7 @@ export function updatePickup(p, dt) {
   p.mesh.rotation.y += dt * 2;
   if (p.kind === 'chip') p.mesh.rotation.x += dt;
 }
-export function updateWave(w, dt) {
+export function updateWave(w: Wave, dt: number) {
   w.r += w.speed * dt;
   w.mesh.scale.set(w.r, 1, w.r); w.mesh.material.opacity = 0.75 * (1 - w.r / w.max);
   if (!w.hit) {

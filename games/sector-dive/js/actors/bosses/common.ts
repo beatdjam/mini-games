@@ -26,8 +26,8 @@ import { SCR } from '../../ui/hud.ts';
 export function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * Math.pow(BOSS_TUNE.growth, (prog(run.stage) - 4) / 5) * presMul(); }
 // hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDiff
 // behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared
-export function bossBase(kind, mesh, mat, behave) {
-  const meta = BOSS_META[kind], name = meta.title, hp = meta.hp * bossDiff(), y = meta.y, hitR = meta.hitR;
+export function bossBase(kind: string, mesh: THREE.Object3D, mat: THREE.MeshLambertMaterial, behave: (e: Enemy, dt: number) => void) {
+  const meta = BOSS_META[kind]!, name = meta.title ?? kind, hp = meta.hp * bossDiff(), y = meta.y, hitR = meta.hitR;
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;
   const e: Enemy = { boss: true, name, mesh, mat, baseEI: 0.3, x: cx, z: cz - 6, y, hp, maxHp: hp, hitR, r: 1.8, t: 0, timer: 2.2, pat: -1, patIdx: 0,
@@ -42,7 +42,7 @@ export function bossBase(kind, mesh, mat, behave) {
   return e;
 }
 // while a boss is appearing or switching phase it can't be hurt and doesn't act
-export function bossPauseTick(e, dt) {
+export function bossPauseTick(e: Enemy, dt: number) {
   e.spawnT -= dt;
   const k = clamp(1 - e.spawnT / e.spawnMax, 0, 1);
   if (e.intro) e.mesh.scale.setScalar(0.25 + 0.75 * k);
@@ -51,7 +51,7 @@ export function bossPauseTick(e, dt) {
   if (e.spawnT <= 0) { e.mesh.scale.setScalar(1); e.intro = false; }
 }
 // drop below half health: short invulnerable burst, then the boss's enraged patterns take over
-export function bossPhase(e) {
+export function bossPhase(e: Enemy) {
   e.phased = true; e.spawnT = e.spawnMax = BOSS_TUNE.phaseTime; e.intro = false;
   const p = e.mesh.position;
   burst(p.x, p.y, p.z, 0xff4d8d, 40, 12, 1.0); fireball(p.x, p.y, p.z, 4, 0xff4d8d);
@@ -60,16 +60,16 @@ export function bossPhase(e) {
   toast(t('boss.phase2'), 2000);
 }
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in js/actors/bosses/<name>.js
-export function spawnBoss(kind) {
+export function spawnBoss(kind: string) {
   if (!run.practice && !save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); } // practice doesn't count as an encounter
-  const spawn = { watcher: spawnWatcher, crusher: spawnCrusher, core: spawnCore, phantom: spawnPhantom, trinity: spawnTrinity, bastion: spawnBastion }[kind];
-  spawn(); boss.kind = kind; // remembered for the run's result (bosses defeated)
+  const spawn = ({ watcher: spawnWatcher, crusher: spawnCrusher, core: spawnCore, phantom: spawnPhantom, trinity: spawnTrinity, bastion: spawnBastion } as Record<string, () => void>)[kind]!;
+  spawn(); boss!.kind = kind; // remembered for the run's result (bosses defeated)
   setMusic(curBiome.code, true); // boss arrangement of this sector's theme
 }
-export function bossDown(e) {
+export function bossDown(e: Enemy) {
   setMusic(curBiome.code);
   SCR.shake = 0.6; sfx('bigboom');
-  if (e.beams) e.beams.forEach(b => { b.visible = false; });
+  if (e.beams) e.beams.forEach((b: THREE.Object3D) => { b.visible = false; });
   enemies.forEach(o => { if (!o.dead && !o.boss) { o.dead = true; burst(o.x, o.mesh.position.y, o.z, o.def.color, 10, 7, 0.6); removeEnemyMesh(o); } });
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
   if (run.practice) { // practice: no rewards, no progress; just a way home
@@ -96,12 +96,13 @@ export function bossDown(e) {
 
 // ---- aimed laser line (sniper enemy, Phantom) ----
 // ---- shared helpers for aimed lasers ----
-export function makeLaser(color) {
+export type Laser = THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+export function makeLaser(color: number): Laser {
   const lg = new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]);
   const l = new THREE.Line(lg, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8 }));
   l.visible = false; l.frustumCulled = false; dynGroup.add(l); return l;
 }
-export function setLaser(l, a, b, op) {
+export function setLaser(l: Laser, a: number[], b: number[], op: number) {
   const p = l.geometry.attributes.position;
   p.setXYZ(0, a[0], a[1], a[2]); p.setXYZ(1, b[0], b[1], b[2]); p.needsUpdate = true;
   l.material.opacity = op; l.visible = true;

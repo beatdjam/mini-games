@@ -5,7 +5,7 @@ import { P } from '../actors/player.ts';
 
 // called every frame while playing: combat when a woken enemy is near or a boss is up
 export let musicCheckT = 0;
-export function updateMusic(dt) {
+export function updateMusic(dt: number) {
   if ((musicCheckT -= dt) > 0 || !mus.bus || !mus.st) return;
   musicCheckT = 0.5;
   if (mus.st.boss || mus.name === 'BASE') return;

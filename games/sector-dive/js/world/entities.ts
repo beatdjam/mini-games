@@ -1,4 +1,5 @@
-import type { Enemy } from '../data/types.ts';
+import type { Enemy, EnemyDef, Pickup, Wave, Weapon } from '../data/types.ts';
+import type { Projectile } from '../../../../engine/world/projectiles.ts';
 import * as THREE from 'three';
 import { clamp, rand } from '../../../../engine/core/util.ts';
 import { spawn, worldGroup } from '../../../../engine/core/world.ts';
@@ -19,42 +20,46 @@ import { updatePickup, updateWave } from '../flow/update.ts';
 // pickups and shockwaves live in the engine world (engine/core/world.js) with tag 'pickup' / 'wave'
 // enemies (bosses included) are an engine world group updated at order 10; `enemies` is that group's list
 export const ENEMY_GROUP = worldGroup('enemy', 10);
-export let enemies = ENEMY_GROUP.list as Enemy[], boss = null, nearW = null, nearD = 1.9, target = null;
-export function setBoss(b) { boss = b; }
-export function setTarget(e) { target = e; }
+export let enemies = ENEMY_GROUP.list as Enemy[], boss: Enemy | null = null, nearW: Pickup | null = null, nearD = 1.9, target: AimTarget | null = null;
+// what the aim assist / autofire locks onto: an enemy and the point on it (a body of a multi-body boss)
+export interface AimTarget { e: Enemy; p: THREE.Vector3; }
+export function setBoss(b: Enemy | null) { boss = b; }
+export function setTarget(e: AimTarget | null) { target = e; }
 // the weapon pickup nearest to the player (and its distance, if given)
-export function setNear(w, d?) { nearW = w; if (d !== undefined) nearD = d; }
-export const pBullets = [], eBullets = [];
-export function spawnPBullet(pos, dir, speed, dmg, pierce, blast, color, grav, opt) {
+export function setNear(w: Pickup | null, d?: number) { nearW = w; if (d !== undefined) nearD = d; }
+export const pBullets: Projectile[] = [], eBullets: Projectile[] = [];
+// far / farMul: rail damage bonus past `far` metres; kb: knockback; rail: punches through shields; shot: id of the trigger pull
+export interface ShotOptions { far?: number; farMul?: number; kb?: number; rail?: boolean; shot?: number; }
+export function spawnPBullet(pos: THREE.Vector3, dir: THREE.Vector3, speed: number, dmg: number, pierce: number, blast: number, color: number, grav: number, opt?: ShotOptions) {
   const b = takeFromPool(pBullets, geoCache.pbullet, 220); if (!b) return;
   b.alive = true; b.x = pos.x; b.y = pos.y; b.z = pos.z;
   b.vx = dir.x * speed; b.vy = dir.y * speed; b.vz = dir.z * speed;
   b.dmg = dmg; b.pierce = pierce; b.blast = blast || 0; b.grav = grav || 0; b.life = blast ? 4 : 1.6; b.color = color; b.hit.clear();
-  b.ox = pos.x; b.oz = pos.z; const o = opt || {};
+  b.ox = pos.x; b.oz = pos.z; const o: ShotOptions = opt || {};
   b.far = o.far || 0; b.farMul = o.farMul || 1; // rail gun: bonus beyond `far` metres
   b.kb = o.kb || 0; b.rail = !!o.rail; b.shot = o.shot || 0;
   b.mesh.geometry = blast ? geoCache.rocket : geoCache.pbullet;
   b.mesh.material = basicMat(blast ? 0xd8dde3 : color); b.mesh.visible = true; b.mesh.position.set(b.x, b.y, b.z);
   b.mesh.lookAt(b.x + dir.x, b.y + dir.y, b.z + dir.z);
 }
-export function spawnEBullet(x, y, z, vx, vy, vz, dmg, color, size?, homing?) {
+export function spawnEBullet(x: number, y: number, z: number, vx: number, vy: number, vz: number, dmg: number, color: number, size?: number, homing?: number) {
   const b = takeFromPool(eBullets, geoCache.ebullet, 360); if (!b) return;
   b.alive = true; b.x = x; b.y = y; b.z = z; b.vx = vx; b.vy = vy; b.vz = vz; b.dmg = dmg; b.life = 6;
   b.size = size || 1; b.homing = homing || 0; b.speed = Math.hypot(vx, vy, vz);
   b.mesh.material = basicMat(color || 0xff4d8d); b.mesh.scale.setScalar(b.size); b.mesh.visible = true; b.mesh.position.set(x, y, z);
 }
-export function shootAngle(x, y, z, ang, speed, dmg, color, size?) {
+export function shootAngle(x: number, y: number, z: number, ang: number, speed: number, dmg: number, color: number, size?: number) {
   const s = Math.sin(ang), c = Math.cos(ang);
   spawnEBullet(x + s * 1.8, y, z + c * 1.8, s * speed, 0, c * speed, dmg, color, size);
 }
-export function ring(x, z, y, n, speed, off, dmg, color, size?) { ringAngles(n, off).forEach(a => shootAngle(x, y, z, a, speed, dmg, color, size)); sfx('eshot', 60); }
-export function fanAt(x, y, z, n, spread, speed, dmg, color) {
+export function ring(x: number, z: number, y: number, n: number, speed: number, off: number, dmg: number, color: number, size?: number) { ringAngles(n, off).forEach(a => shootAngle(x, y, z, a, speed, dmg, color, size)); sfx('eshot', 60); }
+export function fanAt(x: number, y: number, z: number, n: number, spread: number, speed: number, dmg: number, color: number) {
   // aimed at the player's chest, with a little random spread per bullet
   aimFan(x, y, z, P.x, P.fy + 1.2, P.z, n, spread, 0.03).forEach(([dx, dy, dz]) => spawnEBullet(x, y, z, dx * speed, dy * speed, dz * speed, dmg, color));
   sfx('eshot', 60);
 }
 
-export function buildEnemyMesh(def) {
+export function buildEnemyMesh(def: EnemyDef) {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x10161d, emissive: def.color, emissiveIntensity: 0.4 });
   const body = new THREE.Mesh(geoCache[def.geo], mat);
@@ -68,7 +73,7 @@ export function buildEnemyMesh(def) {
   if (def.sniper) { const eye = new THREE.Mesh(geoCache.chip, basicMat(0xff4d8d)); eye.scale.setScalar(0.5); eye.position.set(0, 0.7, 0.25); g.add(eye); }
   return { g, mat, body };
 }
-export function spawnEnemy(type, x, z, room, diff) {
+export function spawnEnemy(type: string, x: number, z: number, room: number, diff: number): Enemy {
   const def = ENEMY[type], m = buildEnemyMesh(def), fy = floorY(x, z);
   m.g.position.set(x, fy + def.y, z);
   dynGroup.add(m.g);
@@ -99,15 +104,15 @@ export function spawnEnemy(type, x, z, room, diff) {
   return spawnEnemyObj(e);
 }
 // joins the enemy group; each frame the engine calls updateEnemy (js/actors/enemies.js)
-export function spawnEnemyObj(e) { e.tag = 'enemy'; e.update = dt => updateEnemy(e, dt); return spawn(e); }
-export function removeEnemyMesh(e) {
+export function spawnEnemyObj(e: Enemy): Enemy { e.tag = 'enemy'; e.update = (dt: number) => updateEnemy(e, dt); return spawn(e); }
+export function removeEnemyMesh(e: Enemy) {
   disposeTree(e.mesh); dynGroup.remove(e.mesh);
   if (e.laser) { disposeTree(e.laser); dynGroup.remove(e.laser); e.laser = null; }
-  if (e.extra) e.extra.forEach(o => { disposeTree(o); (o.parent || dynGroup).remove(o); });
+  if (e.extra) e.extra.forEach((o: THREE.Object3D) => { disposeTree(o); (o.parent || dynGroup).remove(o); });
 }
 
 // keep drops out of portal range so they can be picked up without touching the gate
-export function clearOfPortals(x, z) {
+export function clearOfPortals(x: number, z: number): [number, number] {
   const R = 3.2;
   for (const pt of portals) {
     const dx = x - pt.x, dz = z - pt.z, d = Math.hypot(dx, dz);
@@ -122,9 +127,9 @@ export function clearOfPortals(x, z) {
   }
   return [x, z];
 }
-export function addPickup(kind, x, z, extra?) {
+export function addPickup(kind: string, x: number, z: number, extra?: { value?: number; w?: Weapon }): Pickup {
   [x, z] = clearOfPortals(x, z);
-  let mesh;
+  let mesh: THREE.Object3D;
   if (kind === 'bit') mesh = new THREE.Mesh(geoCache.bit, basicMat(0xffc24a));
   else if (kind === 'kit') {
     mesh = new THREE.Group();
@@ -133,24 +138,24 @@ export function addPickup(kind, x, z, extra?) {
     mesh = new THREE.Group();
     mesh.add(new THREE.Mesh(geoCache.chip, basicMat(0xffc24a)), new THREE.LineSegments(edges('chipOuter'), lineMat(0xffc24a)));
   } else {
-    const col = WEAPONS[extra.w.id].color;
+    const w = extra!.w!, col = WEAPONS[w.id].color;
     mesh = new THREE.Group();
-    mesh.add(new THREE.Mesh(geoCache.wbox, basicMat(col)), new THREE.LineSegments(edges('wbox'), lineMat(RARITY[extra.w.r].hex)));
-    mesh.scale.setScalar(1 + extra.w.r * 0.15);
+    mesh.add(new THREE.Mesh(geoCache.wbox, basicMat(col)), new THREE.LineSegments(edges('wbox'), lineMat(RARITY[w.r].hex)));
+    mesh.scale.setScalar(1 + w.r * 0.15);
   }
   const baseY = (kind === 'bit' ? 0.5 : 1.0) + floorY(x, z);
   mesh.position.set(x, baseY, z); dynGroup.add(mesh);
-  const p = Object.assign({ tag: 'pickup', kind, x, z, y: baseY, mesh, t: rand(0, 6), dead: false }, extra || {});
-  p.update = dt => updatePickup(p, dt);
+  const p: Pickup = Object.assign({ tag: 'pickup' as const, kind, x, z, y: baseY, mesh, t: rand(0, 6), dead: false }, extra || {});
+  p.update = (dt: number) => updatePickup(p, dt);
   return spawn(p);
 }
-export function dropBits(x, z, total) {
+export function dropBits(x: number, z: number, total: number) {
   const n = clamp(Math.round(total / 4), 1, 10), per = total / n;
   for (let k = 0; k < n; k++) addPickup('bit', x + rand(-0.9, 0.9), z + rand(-0.9, 0.9), { value: per });
 }
-export function spawnWave(x, z, speed, max, dmg, color) {
+export function spawnWave(x: number, z: number, speed: number, max: number, dmg: number, color: number) {
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false });
   const m = new THREE.Mesh(geoCache.wave, mat); m.position.set(x, floorY(x, z) + 0.55, z); m.scale.set(0.5, 1, 0.5); dynGroup.add(m);
-  const w = spawn({ tag: 'wave', x, z, r: 0.5, speed, max, dmg, hit: false, mesh: m, dead: false });
-  w.update = dt => updateWave(w, dt);
+  const w: Wave = spawn({ tag: 'wave' as const, x, z, r: 0.5, speed, max, dmg, hit: false, mesh: m, dead: false });
+  w.update = (dt: number) => updateWave(w, dt);
 }

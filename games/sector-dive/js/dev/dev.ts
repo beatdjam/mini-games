@@ -1,3 +1,4 @@
+import type { RunState, Snapshot, Weapon } from '../data/types.ts';
 import { $, rand } from '../../../../engine/core/util.ts';
 import { devSmoke } from '../../../../engine/core/dev.ts';
 import { clearWorld, query } from '../../../../engine/core/world.ts';
@@ -34,7 +35,7 @@ import { update, updatePickups } from '../flow/update.ts';
 devSmoke(() => {
     {
       startRun();
-      const tick = n => { for (let k = 0; k < n; k++) { if (state !== 'play') { show(null); setState('play'); } P.hp = P.maxHp; P.inv = 1; update(1 / 60); } };
+      const tick = (n: number) => { for (let k = 0; k < n; k++) { if (state !== 'play') { show(null); setState('play'); } P.hp = P.maxHp; P.inv = 1; update(1 / 60); } };
       setFireHeld(true);
       BIOMES.forEach((b, bi) => {
         run.route = [bi]; run.stage = bi * PER + 1; startStage(); tick(120);
@@ -47,7 +48,7 @@ devSmoke(() => {
         b.bosses.forEach(kind => {
           run.stage = bi * PER + PER - 1; startStage(); setBoss(null);
           enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
-          spawnBoss(kind); boss.spawnT = 0; tick(400);
+          spawnBoss(kind); boss!.spawnT = 0; tick(400);
           if (boss && boss.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
           const had = !!boss; if (boss) hurtEnemy(boss, boss.hp + 1, false); tick(60);
           console.log('SMOKE boss', b.code, kind, had ? 'spawned' : 'MISSING', 'portals', portals.length);
@@ -85,7 +86,7 @@ devSmoke(() => {
         run.route = [3]; run.stage = PER * 3 + 1; startStage(); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
         const [sx, sz] = roomSpot(rooms[startIdx]);
         const e = spawnEnemy('shield', sx, sz, -1, 1); e.face = 0; e.mesh.rotation.y = 0; // facing +z
-        const shoot = dir => { spawnPBullet(new V3(sx, e.fy + 1.6, sz + dir * 2.5), new V3(0, 0, -dir), 60, 20, 0, 0, 0xffffff, 0, {}); updatePBullets(0.1); }; // above rubble height
+        const shoot = (dir: number) => { spawnPBullet(new V3(sx, e.fy! + 1.6, sz + dir * 2.5), new V3(0, 0, -dir), 60, 20, 0, 0, 0xffffff, 0, {}); updatePBullets(0.1); }; // above rubble height
         const hp0 = e.hp, sh0 = e.shieldHp;
         shoot(1);   // from the front
         if (!(e.shieldHp < sh0 && e.hp === hp0)) throw new Error('shield front ' + [e.shieldHp, sh0, e.hp, hp0]);
@@ -100,21 +101,21 @@ devSmoke(() => {
       }
       // watcher: drones at 75% and 40%
       {
-        startPractice('watcher'); tick(10); if (!boss) spawnBoss('watcher'); boss.spawnT = 0; boss.phased = true;
+        startPractice('watcher'); tick(10); if (!boss) spawnBoss('watcher'); boss!.spawnT = 0; boss!.phased = true;
         const drones = () => enemies.filter(o => !o.boss && !o.dead && o.type === 'drone').length;
-        boss.hp = boss.maxHp * 0.7; tick(2); const a1 = drones();
-        boss.hp = boss.maxHp * 0.35; tick(2); const a2 = drones();
+        boss!.hp = boss!.maxHp * 0.7; tick(2); const a1 = drones();
+        boss!.hp = boss!.maxHp * 0.35; tick(2); const a2 = drones();
         if (a1 !== 2 || a2 !== 5) throw new Error('watcher drones ' + a1 + ' ' + a2);
         console.log('SMOKE watcher waves ok');
         endRun('abandon');
       }
       // scaling: additive damage chips, compounding health, practice depth
       {
-        const p0 = newPlayer(save.loadout), base = p0.dmgMul, od = PERKS.find(x => x.id === 'overload');
+        const p0 = newPlayer(save.loadout), base = p0.dmgMul, od = PERKS.find(x => x.id === 'overload')!;
         od.apply(p0, od.v); od.apply(p0, od.v);
         if (Math.abs(p0.dmgMul - (base + 0.4)) > 1e-9) throw new Error('additive chips ' + p0.dmgMul);
-        const perk = n => PERKS.find(x => x.id === n);
-        for (let k = 0; k < 6; k++) ['crit', 'reload', 'mag'].forEach(n => perk(n).apply(p0, perk(n).rv));
+        const perk = (n: string) => PERKS.find(x => x.id === n)!;
+        for (let k = 0; k < 6; k++) ['crit', 'reload', 'mag'].forEach(n => perk(n).apply(p0, perk(n).rv!));
         if (Math.abs(p0.reloadMul - 0.4) > 1e-9 || Math.abs(p0.magMul - 2.5) > 1e-9) throw new Error('caps ' + p0.reloadMul + ' ' + p0.magMul);
         const keepP = P; setPlayer(p0); const cc = critChance(); setPlayer(keepP);
         // split-shot: full-hit total must go up by exactly 20% for a single-shot weapon and for the shotgun alike
@@ -125,8 +126,8 @@ devSmoke(() => {
           });
           setPlayer(keep); }
         if (cc !== TUNE.critCap) throw new Error('crit cap ' + cc);
-        setRun({ stage: PER - 1, route: [0] }); const b1 = bossDiff();
-        setRun({ stage: 2 * PER + PER - 1, route: [0] }); const b3 = bossDiff();
+        setRun({ stage: PER - 1, route: [0] } as RunState); const b1 = bossDiff();
+        setRun({ stage: 2 * PER + PER - 1, route: [0] } as RunState); const b3 = bossDiff();
         if (Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul * presMul()) > 1e-9 || Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6) throw new Error('boss scaling ' + b1 + ' ' + b3);
         if (Math.abs(diffOf(0) - ENEMY_TUNE.hpMul * presMul()) > 1e-9) throw new Error('enemy hp base ' + diffOf(0));
         startPractice('trinity', 2); tick(5);
@@ -138,15 +139,15 @@ devSmoke(() => {
       {
         startRun(); tick(5); clearWorld('pickup');
         P.weapons = [newWeapon('pistol', 0, true), newWeapon('smg', 0)]; P.cur = 0; P.bag = [null, null, null, null];
-        const drop = id => { addPickup('weapon', P.x, P.z, { w: newWeapon(id, 1) }); updatePickups(0); };
+        const drop = (id: string) => { addPickup('weapon', P.x, P.z, { w: newWeapon(id, 1) }); updatePickups(0); };
         drop('rail'); stowNearby();
         if (!P.bag[0] || P.bag[0].id !== 'rail') throw new Error('stow');
         drop('shotgun'); equipNearby();
-        if (P.weapons[0].id !== 'shotgun' || !query('pickup').some(p => p.kind === 'weapon' && p.w.id === 'pistol')) throw new Error('equip swap');
+        if (P.weapons[0]!.id !== 'shotgun' || !query('pickup').some(p => p.kind === 'weapon' && p.w.id === 'pistol')) throw new Error('equip swap');
         P.bag = [newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0)];
         clearWorld('pickup');
         drop('launcher'); stowNearby();
-        if (P.bag.some(w => w.id === 'launcher') || !nearW) throw new Error('stow into a full bag');
+        if (P.bag.some(w => w?.id === 'launcher') || !nearW) throw new Error('stow into a full bag');
         console.log('SMOKE pickup ok');
         endRun('abandon');
       }
@@ -171,7 +172,7 @@ devSmoke(() => {
         TUNE.rareChipChance = keep;
         P.hp = 1; // so a healing chip also visibly changes something
         const before = JSON.stringify(P);
-        document.querySelector<HTMLElement>('#perkList .perk.rare').click();
+        document.querySelector<HTMLElement>('#perkList .perk.rare')!.click();
         if (!rareCards || JSON.stringify(P) === before || !run.perks[run.perks.length - 1].endsWith('+')) throw new Error('rare chip');
         P.crit = TUNE.critCap; P.reloadMul = 0.4; P.magMul = 2.5; P.pierce = 3;
         for (let k = 0; k < 30; k++) {
@@ -211,7 +212,7 @@ devSmoke(() => {
         for (let k = 0; k < 8; k++) spawnPBullet(new V3(P.x + rand(-0.2, 0.2), 1.1, P.z), new V3(0, 0, -1), 65, 1, 0, 0, 0xffffff, 0, { kb: WEAPONS.shotgun.kb, shot: 999 });
         updatePBullets(0.1);
         const pushed = z0 - e.z;
-        if (!(pushed > 0.5 && pushed < WEAPONS.shotgun.kb + 0.05)) throw new Error('knockback ' + pushed);
+        if (!(pushed > 0.5 && pushed < WEAPONS.shotgun!.kb! + 0.05)) throw new Error('knockback ' + pushed);
         P.magMul = 2.5;
         if (magSize(newWeapon('launcher', 0)) > 4 || magSize(newWeapon('smg', 0)) < 110) throw new Error('mag chips ' + magSize(newWeapon('launcher', 0)));
         console.log('SMOKE knockback/mag ok', 'push', pushed.toFixed(2));
@@ -225,7 +226,7 @@ devSmoke(() => {
         if (ids.size !== WEAPON_ORDER.length) throw new Error('drop pool should have every type: ' + [...ids]);
         save.mods = { rail: { plus: 3, r: 2 } }; save.loadout = [basicW('rail'), null];
         startRun(); tick(2);
-        const w = P.weapons[0];
+        const w = P.weapons[0]!;
         if (w.id !== 'rail' || w.plus !== 3 || w.r !== 2 || !w.basic) throw new Error('modded basic ' + JSON.stringify(w));
         endRun('abandon');
         save.unlocked = keepU; save.mods = keepM; save.loadout = keepL; persist();
@@ -255,7 +256,7 @@ devSmoke(() => {
             if (boss && name === 'BASE') return;
             setMusic(name, boss);
             if (!mus.st || mus.name !== name + (boss ? ':boss' : '')) throw new Error('setMusic ' + name);
-            for (let k = 0; k < 64; k++) playStep(mus.st, k, actx.currentTime + k * 0.01, 0.1);
+            for (let k = 0; k < 64; k++) playStep(mus.st, k, actx!.currentTime + k * 0.01, 0.1);
           });
         });
         setMusicMix('combat'); setMusicMix('explore'); musicVolume(0.4); musicVolume(1);
@@ -265,13 +266,13 @@ devSmoke(() => {
       // boss entrance and phase change: invulnerable while appearing; one invulnerable burst when dropping below half
       {
         startPractice('trinity'); tick(3); if (!boss) spawnBoss('trinity');
-        const hp0 = boss.hp; hurtEnemy(boss, 100, false);
-        if (boss.hp !== hp0) throw new Error('hurt during intro');
+        const hp0 = boss!.hp; hurtEnemy(boss!, 100, false);
+        if (boss!.hp !== hp0) throw new Error('hurt during intro');
         tick(Math.ceil(BOSS_TUNE.introTime * 60) + 5);
-        hurtEnemy(boss, boss.maxHp * 0.6, false);
-        if (!boss.phased || !(boss.spawnT > 0)) throw new Error('phase change');
-        const hp1 = boss.hp; hurtEnemy(boss, 100, false);
-        if (boss.hp !== hp1) throw new Error('hurt during phase change');
+        hurtEnemy(boss!, boss!.maxHp * 0.6, false);
+        if (!boss!.phased || !(boss!.spawnT > 0)) throw new Error('phase change');
+        const hp1 = boss!.hp; hurtEnemy(boss!, 100, false);
+        if (boss!.hp !== hp1) throw new Error('hurt during phase change');
         console.log('SMOKE boss intro/phase ok');
         endRun('abandon');
       }
@@ -281,10 +282,10 @@ devSmoke(() => {
         BOSS_ORDER.forEach(kind => {
           startPractice(kind); tick(120);
           if (!boss) spawnBoss(kind);
-          boss.spawnT = 0;
-          if (boss.name.indexOf(BOSS_META[kind].name.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss.name);
-          if (boss.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
-          hurtEnemy(boss, boss.hp + 1, false); tick(30);
+          boss!.spawnT = 0;
+          if (boss!.name.indexOf(BOSS_META[kind]!.name!.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss!.name);
+          if (boss!.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
+          hurtEnemy(boss!, boss!.hp + 1, false); tick(30);
           if (portals.length !== 1 || portals[0].kind !== 'extract') throw new Error('practice portal ' + kind);
           endRun('extract');
         });
@@ -319,7 +320,7 @@ devSmoke(() => {
       // suspend -> resume -> suspend -> discard
       run.route = [0]; run.stage = 2; startStage(); tick(30);
       suspendRun(); if (!save.suspend || state !== 'base') throw new Error('suspend failed');
-      resumeRun(); tick(60); if (run.stage !== 2 || !save.suspend || save.suspend.run.stage !== 2) throw new Error('resume failed');
+      resumeRun(); tick(60); if (run.stage !== 2 || (save.suspend as Snapshot | null)?.run.stage !== 2) throw new Error('resume failed');
       suspendRun(); discardSuspended(); if (save.suspend || (state as string) !== 'result') throw new Error('discard failed');
       console.log('SMOKE suspend ok');
       goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
@@ -329,7 +330,7 @@ devSmoke(() => {
       {
         const s0 = getL('dash').s;
         openLayoutEditor('base'); if ((state as string) !== 'layout' || $('#layoutBar').hidden) throw new Error('layout editor open');
-        document.querySelector<HTMLElement>('[data-lbact="plus"]').click(); document.querySelector<HTMLElement>('[data-lbact="done"]').click();
+        document.querySelector<HTMLElement>('[data-lbact="plus"]')!.click(); document.querySelector<HTMLElement>('[data-lbact="done"]')!.click();
         if (state !== 'base' || Math.abs(getL('dash').s - (s0 + 0.1)) > 1e-9) throw new Error('layout editor ' + getL('dash').s);
         save.settings.layout = {}; applyLayout();
         console.log('SMOKE layout ok');
@@ -340,8 +341,8 @@ devSmoke(() => {
         let bad = 0, back = 0;
         for (let n = 0; n < 25; n++) {
           run.route = [bi]; run.stage = bi * PER; buildLevel(b, false);
-          const reach = from => { const seenT = new Uint8Array(W * H), q = [from]; seenT[from] = 1;
-            while (q.length) { const c = q.pop(), ci = c % W, cj = (c / W) | 0;
+          const reach = (from: number) => { const seenT = new Uint8Array(W * H), q = [from]; seenT[from] = 1;
+            while (q.length) { const c = q.pop()!, ci = c % W, cj = (c / W) | 0;
               [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([a, bb], sd) => { const ni = ci + a, nj = cj + bb; if (isSolid(ni, nj)) return; const nn = nj * W + ni; if (!seenT[nn] && passable(c, nn, sd)) { seenT[nn] = 1; q.push(nn); } }); }
             return seenT; };
           const [sx, sz] = roomSpot(rooms[startIdx]), st = Math.floor(sz / T) * W + Math.floor(sx / T), fwdR = reach(st);
@@ -376,16 +377,16 @@ if (location.hash.startsWith('#view-haz')) setTimeout(() => {
   startRun(); run.route = [1]; run.stage = PER + 1; startStage(); show(null); setState('play');
   const k = haz.findIndex(Boolean); if (k < 0) return;
   P.x = ((k % W) + 0.5) * T; P.z = (((k / W) | 0) + 0.5) * T - 1.5; P.yaw = Math.PI; P.pitch = -0.5; P.hp = 1e6; P.maxHp = 1e6;
-  const wid = location.hash.split('-')[2]; if (WEAPONS[wid]) { P.weapons[0] = basicW(wid); P.weapons[0].mag = magSize(P.weapons[0]); P.cur = 0; normalizeWeapons(); weaponHud(); } // #view-haz-smg etc.
+  const wid = location.hash.split('-')[2]; if (WEAPONS[wid]) { const w0 = basicW(wid) as Weapon; w0.mag = magSize(w0); P.weapons[0] = w0; P.cur = 0; normalizeWeapons(); weaponHud(); } // #view-haz-smg etc.
   setHazardClock(0.5); for (let n = 0; n < 5; n++) update(1 / 60);
 }, 300);
 // dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen, #view-share-res-panel: with the PC share panel open)
 if (location.hash.startsWith('#view-share')) setTimeout(() => {
   startRun(); run.stage = 2 * PER + PER - 1; run.kills = 142; run.bosses = ['watcher', 'trinity'];
-  run.perks = ['overload', 'overload', 'rapid+', 'crit', 'reload', 'light']; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] };
+  run.perks = ['overload', 'overload', 'rapid+', 'crit', 'reload', 'light']; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
   const kind = location.hash.includes('dead') ? 'dead' : 'extract';
   endRun(kind); if (location.hash.includes('res')) { if (location.hash.includes('panel')) setTimeout(() => $('#btnShare').click(), 900); return; } // #view-share-res: the result screen itself
-  drawShareCard(shareData).then(b => { const im = new Image(); im.src = URL.createObjectURL(b); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData)); });
+  drawShareCard(shareData!).then(b => { const im = new Image(); im.src = URL.createObjectURL(b!); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData!)); });
 }, 300);
 if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); if (location.hash.includes('perk4')) save.pres.up.choice = 1; openPerk(t('perk.title')); }, 300); // #view-perk4: four options
 // dev view: #tab-<sortie|up|practice|settings>[-touch] opens that base tab

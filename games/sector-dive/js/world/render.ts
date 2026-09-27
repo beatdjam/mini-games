@@ -1,7 +1,9 @@
+import type { Biome } from '../data/types.ts';
 import * as THREE from 'three';
 import { renderer, shared } from '../../../../engine/render/render.ts';
 export const rocketGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.7, 8); rocketGeo.rotateX(Math.PI / 2);
-export const geoCache = {
+// shared shapes by name (enemy defs pick theirs with `geo`)
+export const geoCache: Record<string, THREE.BufferGeometry> = {
   pbullet: shared(new THREE.BoxGeometry(0.07, 0.07, 1.1)),
   rocket: shared(rocketGeo),
   ebullet: shared(new THREE.SphereGeometry(0.22, 8, 6)),
@@ -23,12 +25,12 @@ export const geoCache = {
   tetraS: shared(new THREE.TetrahedronGeometry(0.45)),
   shieldPlate: shared(new THREE.BoxGeometry(1.8, 2.0, 0.12)),
 };
-export const edgeCache = {};
-export function edges(key) { return edgeCache[key] || (edgeCache[key] = shared(new THREE.EdgesGeometry(geoCache[key]))); }
+export const edgeCache: Record<string, THREE.EdgesGeometry> = {};
+export function edges(key: string): THREE.EdgesGeometry { return edgeCache[key] || (edgeCache[key] = shared(new THREE.EdgesGeometry(geoCache[key]))); }
 // textures
-export function makeTex(bg, line, kind) {
+export function makeTex(bg: string, line: string, kind: 'floor' | 'wall'): THREE.CanvasTexture {
   const c = document.createElement('canvas'); c.width = c.height = 128;
-  const g = c.getContext('2d');
+  const g = c.getContext('2d')!;
   g.fillStyle = bg; g.fillRect(0, 0, 128, 128); g.strokeStyle = line; g.fillStyle = line;
   if (kind === 'floor') {
     g.globalAlpha = 0.85; g.lineWidth = 2; g.strokeRect(1, 1, 126, 126);
@@ -44,8 +46,9 @@ export function makeTex(bg, line, kind) {
   t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
   return t;
 }
-export const texCache = {};
-export function biomeTex(b) {
+export interface BiomeTextures { floor: THREE.CanvasTexture; tile: THREE.CanvasTexture; wall: THREE.CanvasTexture; }
+export const texCache: Record<string, BiomeTextures> = {};
+export function biomeTex(b: Biome): BiomeTextures {
   if (texCache[b.code]) return texCache[b.code];
   const floor = makeTex(b.floor, b.line, 'floor'); floor.wrapS = floor.wrapT = THREE.RepeatWrapping;
   return (texCache[b.code] = { floor, tile: makeTex(b.floor, b.line, 'floor'), wall: makeTex(b.wall, b.wallLine, 'wall') });

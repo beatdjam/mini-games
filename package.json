@@ -6,7 +6,7 @@
     "dev": "vite --port 8765",
     "build": "vite build",
     "preview": "vite preview --port 8765",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.strict.json"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "three": "0.128.0"

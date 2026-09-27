@@ -14,11 +14,11 @@ import { closeBag, openBag, pause, state } from '../flow/game.ts';
 export const CTRL = { dashReq: false, stickT: 0, stickArmed: true };
 Object.assign(INPUT, {
   active: () => state === 'play',
-  look: (dx, dy) => { if (!P) return; P.yaw -= dx; P.pitch = clamp(P.pitch - dy, -1.25, 1.25); },
+  look: (dx: number, dy: number) => { if (!P) return; P.yaw -= dx; P.pitch = clamp(P.pitch - dy, -1.25, 1.25); },
   sens: () => save.settings.sens,
   pause: () => pause(),
   lockChanged: () => updateHint(),
-  key: e => {
+  key: (e: KeyboardEvent) => {
     if (e.code === 'Tab') e.preventDefault();
     if (state === 'bag' && (e.code === 'Tab' || e.code === 'KeyI' || e.code === 'Escape')) { closeBag(); return; }
     if (state !== 'play') return;
@@ -47,7 +47,7 @@ $('#mini').addEventListener('click', () => toggleMap());
 $('#bigmap').addEventListener('click', () => toggleMap());
 window.addEventListener('wheel', e => { if (state === 'play' && locked) swapWeapon(); }, { passive: true });
 
-export function selectSlot(k) {
+export function selectSlot(k: number) {
   if (state !== 'play' || k === P.cur || !P.weapons[k]) return;
   P.cur = k; P.reloadT = 0; P.fireCd = Math.max(P.fireCd, 0.2); GUNFX.gunKick = 0.15; setVM(curW().id); weaponHud();
 }
@@ -76,7 +76,7 @@ export function equipNearby() {
   const nw = takeNearby(); if (!nw) return;
   if (!P.weapons[1]) { P.weapons[1] = nw; P.cur = 1; normalizeWeapons(); toast(t('run.equipped', { w: wText(nw) }), 1400); }
   else {
-    const old = P.weapons[P.cur];
+    const old = curW();
     P.weapons[P.cur] = nw; normalizeWeapons();
     addPickup('weapon', P.x + rand(-0.5, 0.5), P.z + rand(-0.5, 0.5), { w: old });
     toast(t('run.swapped', { w: wText(old) }), 1400);

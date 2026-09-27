@@ -9,16 +9,20 @@ import { P, run, stageInfo, stageLabel, wText } from '../actors/player.ts';
 // phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
 // the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
 export const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
-export let shareData = null, shareBlob = null;
+export interface ShareCard {
+  kind: string; where: string; biome: string; kills: number; bosses: string[];
+  weapon: string; wr: number; chips: string[]; nChips: number;
+}
+export let shareData: ShareCard | null = null, shareBlob: Blob | null = null;
 
-export const bossShort = k => BOSS_META[k].short;
-export function prepShare(kind) {
+export const bossShort = (k: string) => BOSS_META[k]?.short ?? k;
+export function prepShare(kind: string) {
   const si = stageInfo(run.stage), w = P.weapons[P.cur] || P.weapons[0];
   const counts: Record<string, number> = {};
   run.perks.forEach(n => { const k = n.replace(/\+$/, ''); counts[k] = (counts[k] || 0) + 1; });
   const chips = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => c > 1 ? t('common.count', { name: perkName(n), n: c }) : perkName(n));
   shareData = {
-    kind, where: stageLabel(run.stage), biome: si.biome.name, kills: run.kills,
+    kind, where: stageLabel(run.stage), biome: si.biome.name ?? '', kills: run.kills,
     bosses: (run.bosses || []).map(bossShort), weapon: w ? wText(w) : '', wr: w ? w.r : 0, chips, nChips: run.perks.length,
   };
   shareBlob = null;
@@ -27,17 +31,17 @@ export function prepShare(kind) {
 }
 export function hideShare() { shareData = shareBlob = null; $('#btnShare').hidden = true; $('#sharePanel').hidden = true; }
 
-export function shareText(d) {
+export function shareText(d: ShareCard) {
   return t('share.text', d) + '\n' + SHARE_URL;
 }
 
-export async function drawShareCard(d): Promise<Blob> {
+export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   try { await Promise.all([document.fonts.load('700 40px "Chakra Petch"'), document.fonts.load('30px "DotGothic16"')]); } catch (e) {}
   const W = 1200, H = 630, c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d');
+  const g = c.getContext('2d')!;
   const disp = '"Chakra Petch","DotGothic16",sans-serif', jp = lang === 'en' ? '"Chakra Petch",sans-serif' : '"DotGothic16","Hiragino Sans","Noto Sans JP",sans-serif';
   const acc = d.kind === 'extract' ? '#54e8ff' : '#ff4d8d';
-  const fit = (s, max) => { if (g.measureText(s).width <= max) return s; while (s && g.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
+  const fit = (s: string, max: number) => { if (g.measureText(s).width <= max) return s; while (s && g.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
   g.fillStyle = '#05080c'; g.fillRect(0, 0, W, H);
   g.strokeStyle = 'rgba(84,232,255,0.06)'; g.lineWidth = 1;
   for (let x = 0; x <= W; x += 40) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); g.stroke(); }
@@ -70,7 +74,7 @@ export async function drawShareCard(d): Promise<Blob> {
   });
   g.font = `22px ${jp}`; g.fillStyle = '#7f94a6'; g.fillText('#SectorDive', 64, H - 36);
   g.textAlign = 'right'; g.font = `500 20px ${disp}`; g.fillText(SHARE_URL.replace('https://', ''), W - 64, H - 36); g.textAlign = 'left';
-  return new Promise(r => c.toBlob(r, 'image/png'));
+  return new Promise<Blob | null>(r => c.toBlob(r, 'image/png'));
 }
 
 export function shareResult() {
@@ -87,7 +91,8 @@ export async function openSharePanel() {
   if (!panel.hidden) { panel.hidden = true; return; }
   panel.hidden = false;
   $('#btnShareCopy').hidden = !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
-  if (!shareBlob) shareBlob = await drawShareCard(shareData);
+  if (!shareBlob) shareBlob = await drawShareCard(shareData!);
+  if (!shareBlob) return;
   const img = $('#shareImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(shareBlob);
 }
