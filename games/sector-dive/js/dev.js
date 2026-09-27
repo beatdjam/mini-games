@@ -2,11 +2,9 @@
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
-// dev check: open the page with #smoke to run every sector (floor + each boss candidate) once and log errors to the console
-if (location.hash === '#smoke') {
-  window.addEventListener('error', e => console.error('SMOKE ERR', e.message, e.filename + ':' + e.lineno));
-  setTimeout(() => {
-    try {
+// dev check: open the page with #smoke (engine/dev.js) to run every sector (floor + each boss candidate) once and log errors to the console
+devSmoke(() => {
+    {
       startRun();
       const tick = n => { for (let k = 0; k < n; k++) { if (state !== 'play') { show(null); state = 'play'; } P.hp = P.maxHp; P.inv = 1; update(1 / 60); } };
       fireHeld = true;
@@ -314,15 +312,8 @@ if (location.hash === '#smoke') {
         }
         console.log('SMOKE reach', b.code, 'unreachable rooms', bad, 'one-way rooms', back);
       });
-      // build guard: version.json must match the page's build meta
-      fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(v => {
-        const mine = document.querySelector('meta[name="build"]').content;
-        console.log(v.build === mine ? 'SMOKE build ok ' + mine : 'SMOKE ERR build mismatch ' + mine + ' vs ' + v.build);
-      });
-      console.log('SMOKE DONE');
-    } catch (err) { console.error('SMOKE FAIL', err && err.stack || err); }
-  }, 300);
-}
+    }
+});
 // dev view: #view-KWLN etc. drops straight into that sector's first floor (for screenshots)
 if (location.hash.startsWith('#view-')) {
   setTimeout(() => {

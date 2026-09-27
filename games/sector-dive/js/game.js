@@ -353,13 +353,13 @@ function wStat(w) {
 }
 // base menu tabs; the last one opened is remembered in this browser
 let baseTab = 'sortie';
-try { baseTab = localStorage.getItem('sd-base-tab') || 'sortie'; } catch (e) {}
+baseTab = prefGet('sd-base-tab', 'sortie');
 function showTab(name) {
   if (!document.querySelector(`[data-pane="${name}"]`)) name = 'sortie';
   baseTab = name;
   document.querySelectorAll('.tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
   document.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
-  try { localStorage.setItem('sd-base-tab', name); } catch (e) {}
+  prefSet('sd-base-tab', name);
 }
 $('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { showTab(b.dataset.tab); $('#scrBase').scrollTop = 0; } });
 showTab(baseTab);
@@ -492,7 +492,7 @@ $('#btnWipe').addEventListener('click', () => { $('#dlgWipe').hidden = false; $(
 $('#btnWipeCancel').addEventListener('click', () => { $('#dlgWipe').hidden = true; });
 document.addEventListener('keydown', e => { if (e.code === 'Escape' && !$('#dlgWipe').hidden) $('#dlgWipe').hidden = true; });
 $('#btnWipeGo').addEventListener('click', () => {
-  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  clearStore(SAVE_KEY);
   save = defaultSave(); persist();
   $('#dlgWipe').hidden = true; selSlot = 0;
   renderBase(); applyLayout();

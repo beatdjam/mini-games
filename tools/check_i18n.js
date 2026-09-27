@@ -1,7 +1,7 @@
 // Checks the language files: every key used in the code / HTML exists in each language,
-// and every language has the same ui keys and data entries as ja. Run: node tools/check_i18n.js
+// and every language has the same ui keys and data entries as ja. Run: node tools/check_i18n.js games/<game-id>
 const fs = require('fs'), path = require('path'), vm = require('vm');
-const root = path.join(__dirname, '..');
+const root = path.resolve(path.join(__dirname, '..'), process.argv[2] || (console.error('usage: node tools/check_i18n.js games/<game-id>'), process.exit(2)));
 const files = [];
 (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else if (p.endsWith('.js')) files.push(p); } })(path.join(root, 'js'));
 const ctx = { LANG: {}, pct: v => `${Math.round(v * 100)}%`, console };

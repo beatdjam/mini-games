@@ -2,6 +2,8 @@
 
 ゲームをまたいで使うコア。ビルドなしのクラシックスクリプトで、全ファイルが1つのグローバルスコープを共有する。ゲームの `index.html` から `../../engine/<名前>.js?v=<版>` で、ゲーム固有のファイルより先に読み込む。
 
+共通のツールはリポジトリ直下の `tools/` にある: `bump-version.sh games/<game-id>`（版番号の更新）、`check_i18n.js games/<game-id>`（文言キーの照合）、`build_updates.py`（更新履歴の生成。公開時に Actions が実行）。
+
 | ファイル | 中身 | ゲームに用意してもらうもの |
 |---|---|---|
 | `util.js` | `$`, `rand`, `randi`, `pick`, `clamp`, `shuffle`, `pct`, `isTouch`（body に `touch` / `desk` クラスを付ける） | — |
@@ -11,6 +13,9 @@
 | `render.js` | `canvas`（`#gl`）, `renderer`, `scene`, `camera`, `dynGroup`, `resize`, `shared`, `basicMat`, `lineMat`, `disposeTree`, `textSprite`、手に持つ銃の別パス（`gunScene`, `gun`, `renderGun`） | `<canvas id="gl">`。毎フレーム `renderer.render(scene, camera)` のあとに `renderGun()` |
 | `tiles.js` | タイルの世界（`T`=4, `STEP`, `RISE`, `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`）と、`floorY`, `moveCircle`, `hasLOS`, `passable`, `computeFlow`, `flowDir` など | 地形を生成して `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`, `flowQ` を埋める |
 | `ui.js` | `toast(msg, ms)`, `banner(code, sub)`, 全画面（`enterFs`, `exitFs`, `toggleFs`, `isFs`） | `#toast`, `#banner`（`#bannerCode`, `#bannerSub`） |
+| `store.js` | `loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `prefGet` / `prefSet`（タブの記憶など小さな値） | 既定値を返す関数。古い版からの変換は `raw` を見てゲーム側でやる |
+| `stale.js` | 古いページ検出。キャッシュに残った古いページなら、最新版の URL へ1回だけ切り替える | `<meta name="build">` とゲームのフォルダの `version.json`（`tools/bump-version.sh` が書く） |
+| `dev.js` | `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`devSmoke(fn)`（`#smoke` で fn を実行し、エラー・版番号の不一致・`SMOKE DONE` をコンソールに出す） | テストの中身 |
 
 - engine のファイルは、ゲーム固有の名前を読み込み時に使わない（実行時に使うものは上の表の右列だけ）
 - engine を変えたら、使っている全ゲームで確認する。今のところ使っているのは Sector Dive だけ
@@ -21,6 +26,3 @@ Sector Dive の中に残っているが、2本目のゲームを作るときに 
 
 - **入力**（`games/sector-dive/js/input.js`）: キーボード、マウスとポインタロック、タッチの移動スティックと視点ドラッグ、射撃ボタン。今は拾う・回復・持ち替え・一時停止などゲームの操作を直接呼んでいる
 - **タッチボタンの配置の編集**（`games/sector-dive/js/hud.js` の `getL`, `applyLayout`, `openLayoutEditor`, `closeLayoutEditor`）: ボタンの位置と大きさの編集と保存。今は `save.settings.layout`、画面の切り替え（`show`, `state`）に依存している
-- **セーブ**（`games/sector-dive/js/save.js`）: localStorage の読み書きと旧版の変換。中身はゲーム固有だが、読み書きと既定値の合成の部分は共通にできる
-- **スモークテストの仕組み**（`games/sector-dive/js/dev.js`）: `#smoke` などの URL フックとヘッドレス Chrome での確認。テストの中身はゲーム固有
-- **版番号とキャッシュ対策**（`games/sector-dive/tools/bump-version.sh`、`index.html` 先頭の古いページ検出）
