@@ -1,5 +1,4 @@
 'use strict';
-const WALL_H = 6, EYE = 1.6, PLAT_H = 2, COVER_H = 1.2;
 let roomOf = null, rooms = [], seen = null, haz = null, hazMat = null, hazT = 0;
 let levelGroup = null, portals = [], startIdx = 0, exitIdx = 0, roomCount = [], arena = false, curBiome = BIOMES[0];
 

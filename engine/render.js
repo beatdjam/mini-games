@@ -61,3 +61,22 @@ function renderGun() {
   gunCam.projectionMatrix.copy(camera.projectionMatrix); gunCam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
   renderer.autoClear = false; renderer.clearDepth(); renderer.render(gunScene, gunCam); renderer.autoClear = true;
 }
+
+// viewmodel parts: lit materials for the body, unlit for accents so they read as glowing
+function vmMat(c, lit) { return lit ? new THREE.MeshLambertMaterial({ color: c }) : new THREE.MeshBasicMaterial({ color: c }); }
+function vbox(w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; }
+function vcyl(r, len, mat, x, y, z) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); return m; }
+// def = { tip: [x, y, z], pos: [x, y, z], flash: radius, parts: [['box', w, h, d, material, x, y, z] | ['cyl', r, len, material, x, y, z]] }
+// colors = { material name: hex }; names listed in `unlit` get an unlit material. Returns a Group with
+// userData { tip (Object3D at the muzzle), flash (hidden muzzle-flash mesh), pos } to add under `gun`.
+function buildViewmodel(def, colors, unlit) {
+  unlit = unlit || ['acc'];
+  const g = new THREE.Group(), mats = {};
+  const mat = name => mats[name] || (mats[name] = vmMat(colors[name], !unlit.includes(name)));
+  def.parts.forEach(p => g.add(p[0] === 'cyl' ? vcyl(p[1], p[2], mat(p[3]), p[4], p[5], p[6]) : vbox(p[1], p[2], p[3], mat(p[4]), p[5], p[6], p[7])));
+  const tip = new THREE.Object3D(); tip.position.set(def.tip[0], def.tip[1], def.tip[2]); g.add(tip);
+  const flash = new THREE.Mesh(new THREE.SphereGeometry(def.flash, 8, 6), vmMat(0xffffff));
+  flash.position.copy(tip.position); flash.visible = false; g.add(flash);
+  g.userData = { tip, flash, pos: def.pos };
+  return g;
+}

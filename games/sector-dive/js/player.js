@@ -59,42 +59,12 @@ function weaponStats(w) {
 }
 const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
-function vmMat(c, lit) { return lit ? new THREE.MeshLambertMaterial({ color: c }) : new THREE.MeshBasicMaterial({ color: c }); }
-function vbox(w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; }
-function vcyl(r, len, mat, x, y, z) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); return m; }
+// the gun in hand per weapon, from js/data/viewmodels.js
 const VM = {};
-function buildVM(id) {
-  const g = new THREE.Group(), col = WEAPONS[id].color;
-  const dark = vmMat(0x1d2935, true), darker = vmMat(0x0f161d, true), acc = vmMat(col);
-  let tip = [0, 0.02, -0.5], pos = [0.3, -0.3, -0.6];
-  if (id === 'pistol') {
-    g.add(vbox(0.1, 0.13, 0.34, dark, 0, 0, 0), vbox(0.105, 0.025, 0.3, acc, 0, 0.05, 0), vbox(0.05, 0.05, 0.12, darker, 0, 0.01, -0.22), vbox(0.08, 0.2, 0.09, darker, 0, -0.13, 0.1));
-    tip = [0, 0.01, -0.3]; pos = [0.28, -0.28, -0.55];
-  } else if (id === 'smg') {
-    g.add(vbox(0.11, 0.14, 0.46, dark, 0, 0, 0), vbox(0.115, 0.025, 0.38, acc, 0, 0.055, 0), vbox(0.06, 0.22, 0.08, darker, 0, -0.17, -0.06),
-      vbox(0.06, 0.08, 0.2, darker, 0, -0.02, 0.3), vbox(0.05, 0.05, 0.16, darker, 0, 0.01, -0.3));
-    tip = [0, 0.01, -0.4];
-  } else if (id === 'shotgun') {
-    g.add(vbox(0.12, 0.13, 0.5, dark, 0, 0, 0.05), vbox(0.075, 0.075, 0.55, darker, 0, 0.035, -0.42), vbox(0.11, 0.08, 0.2, acc, 0, -0.045, -0.36),
-      vbox(0.09, 0.16, 0.12, darker, 0, -0.12, 0.2));
-    tip = [0, 0.035, -0.7]; pos = [0.3, -0.3, -0.55];
-  } else if (id === 'rail') {
-    g.add(vbox(0.09, 0.12, 0.72, dark, 0, 0, -0.05), vbox(0.02, 0.02, 0.7, acc, 0.05, 0.07, -0.12), vbox(0.02, 0.02, 0.7, acc, -0.05, 0.07, -0.12));
-    [-0.12, -0.26, -0.4].forEach(z => g.add(vbox(0.14, 0.14, 0.03, acc, 0, 0.01, z)));
-    g.add(vbox(0.08, 0.18, 0.1, darker, 0, -0.13, 0.15));
-    tip = [0, 0.01, -0.46];
-  } else {
-    g.add(vcyl(0.12, 0.95, dark, 0, 0, -0.05), vcyl(0.135, 0.07, acc, 0, 0, -0.52), vcyl(0.135, 0.05, acc, 0, 0, 0.4),
-      vbox(0.04, 0.09, 0.12, darker, -0.12, 0.12, -0.1), vbox(0.07, 0.18, 0.08, darker, 0, -0.18, 0.08));
-    tip = [0, 0, -0.58]; pos = [0.32, -0.25, -0.5];
-  }
-  const t = new THREE.Object3D(); t.position.set(tip[0], tip[1], tip[2]); g.add(t);
-  const flash = new THREE.Mesh(new THREE.SphereGeometry(id === 'launcher' ? 0.16 : 0.08, 8, 6), vmMat(0xffffff));
-  flash.position.copy(t.position); flash.visible = false; g.add(flash);
-  g.userData = { tip: t, flash, pos };
+WEAPON_ORDER.forEach(id => {
+  const g = buildViewmodel(VIEWMODELS[id], Object.assign({ acc: WEAPONS[id].color }, VM_COLORS));
   g.visible = false; gun.add(g); VM[id] = g;
-}
-WEAPON_ORDER.forEach(buildVM);
+});
 let gunKick = 0, flashT = 0, curVM = null;
 function setVM(id) {
   if (curVM) { curVM.visible = false; curVM.userData.flash.visible = false; }

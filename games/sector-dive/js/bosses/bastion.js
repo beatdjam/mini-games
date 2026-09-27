@@ -13,32 +13,33 @@ function spawnBastion() {
   g.add(base, baseEdge, core, shieldM);
   const e = bossBase('bastion', g, mat, updBastion);
   e.x = e.cx; e.z = e.cz; e.core = core; e.shield = shieldM; e.invuln = true; e.turrets = []; e.openT = 0; e.ringT = 2.5;
-  bastionTurrets(e, 4);
+  bastionTurrets(e, BOSS_META.bastion.tune.turretsFirst);
   toast(t('boss.bastionHint'), 4600);
 }
 function bastionTurrets(e, n) {
   const off = rand(0, Math.PI);
   for (let k = 0; k < n; k++) {
-    const a = off + k * Math.PI * 2 / n, t = spawnEnemy('bturret', e.cx + Math.cos(a) * 8, e.cz + Math.sin(a) * 8, -1, diffOf(run.stage));
+    const a = off + k * Math.PI * 2 / n, t = spawnEnemy('bturret', e.cx + Math.cos(a) * BOSS_META.bastion.tune.turretR, e.cz + Math.sin(a) * BOSS_META.bastion.tune.turretR, -1, diffOf(run.stage));
     t.active = true; e.turrets.push(t);
   }
 }
 function updBastion(e, dt) {
+  const K = BOSS_META.bastion.tune;
   e.t += dt;
   const enr = e.hp < e.maxHp * 0.5;
   e.core.rotation.y += dt * (e.invuln ? 0.6 : 2.5); e.core.rotation.x += dt * 0.4;
   e.shield.visible = e.invuln; e.shield.material.opacity = 0.2 + Math.sin(e.t * 4) * 0.06;
   e.turrets = e.turrets.filter(t => !t.dead);
-  if (e.invuln && !e.turrets.length) { e.invuln = false; e.openT = 12; e.stunMul = 1.5; toast(t('boss.bastionOpen'), 2400); sfx('chip'); }
+  if (e.invuln && !e.turrets.length) { e.invuln = false; e.openT = K.open; e.stunMul = K.openMul; toast(t('boss.bastionOpen'), 2400); sfx('chip'); }
   if (!e.invuln) {
     e.openT -= dt;
-    if (e.openT <= 0) { e.invuln = true; e.stunMul = 0; e.hinted = true; bastionTurrets(e, enr ? 3 : 2); toast(t('boss.bastionClose'), 2200); }
+    if (e.openT <= 0) { e.invuln = true; e.stunMul = 0; e.hinted = true; bastionTurrets(e, enr ? K.turretsEnr : K.turrets); toast(t('boss.bastionClose'), 2200); }
   }
   e.ringT -= dt;
   if (e.ringT <= 0) {
-    ring(e.cx, e.cz, 1.3, e.invuln ? 16 : 24, e.invuln ? 7 : 9, e.t, e.dmg, 0xffb347);
-    if (enr) for (let k = 0; k < 3; k++) { const a = rand(0, Math.PI * 2); spawnEBullet(e.cx + Math.sin(a) * 2.5, 2.6, e.cz + Math.cos(a) * 2.5, Math.sin(a) * 5, 1, Math.cos(a) * 5, e.dmg, 0xff4d8d, 1.3, 3); }
-    e.ringT = e.invuln ? 3 : 2;
+    ring(e.cx, e.cz, 1.3, e.invuln ? K.ring[0] : K.ringOpen[0], e.invuln ? K.ring[1] : K.ringOpen[1], e.t, e.dmg, 0xffb347);
+    if (enr) for (let k = 0; k < K.enrShots; k++) { const a = rand(0, Math.PI * 2); spawnEBullet(e.cx + Math.sin(a) * 2.5, 2.6, e.cz + Math.cos(a) * 2.5, Math.sin(a) * K.enrSpeed, 1, Math.cos(a) * K.enrSpeed, e.dmg, 0xff4d8d, 1.3, 3); }
+    e.ringT = e.invuln ? K.ringEvery : K.ringEveryOpen;
   }
   e.mesh.position.set(e.cx, e.y, e.cz);
 }
