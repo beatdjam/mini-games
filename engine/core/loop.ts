@@ -22,7 +22,7 @@ export function runSystems(dt: number, mode?: string | null) {
   if (mode === undefined) mode = LOOP.mode();
   frameStopped = false;
   for (const s of systems) {
-    if (!s.enabled || (s.modes && !s.modes.includes(mode))) continue;
+    if (!s.enabled || (s.modes && (mode == null || !s.modes.includes(mode)))) continue;
     s.update(dt);
     if (frameStopped) break;
   }

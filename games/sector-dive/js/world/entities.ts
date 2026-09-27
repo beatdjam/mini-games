@@ -19,7 +19,7 @@ import { updatePickup, updateWave } from '../flow/update.ts';
 // pickups and shockwaves live in the engine world (engine/core/world.js) with tag 'pickup' / 'wave'
 // enemies (bosses included) are an engine world group updated at order 10; `enemies` is that group's list
 export const ENEMY_GROUP = worldGroup('enemy', 10);
-export let enemies = ENEMY_GROUP.list, boss = null, nearW = null, nearD = 1.9, target = null;
+export let enemies = ENEMY_GROUP.list as Enemy[], boss = null, nearW = null, nearD = 1.9, target = null;
 export function setBoss(b) { boss = b; }
 export function setTarget(e) { target = e; }
 // the weapon pickup nearest to the player (and its distance, if given)

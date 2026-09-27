@@ -12,6 +12,13 @@
     "engine/core/store.ts",
     "engine/core/stale.ts",
     "engine/core/dev.ts",
-    "engine/core/i18n.ts"
+    "engine/core/i18n.ts",
+    "engine/render/render.ts",
+    "engine/core/loop.ts",
+    "engine/core/world.ts",
+    "engine/render/fx.ts",
+    "engine/world/tiles.ts",
+    "engine/world/projectiles.ts",
+    "engine/world/steer.ts"
   ]
 }

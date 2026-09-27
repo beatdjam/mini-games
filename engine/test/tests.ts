@@ -7,7 +7,7 @@ import { LANG, fillData, lang, setI18nHook, setLang, t } from '../core/i18n.ts';
 import { buildViewmodel } from '../render/render.ts';
 import { burst, clearFx, fireball, parts, updateBalls } from '../render/fx.ts';
 import { RISE, T, W, computeFlow, floorY, flowAt, flowDir, grid, hasLOS, hgt, moveCircle, ramp, setTileWorld, solidAt } from '../world/tiles.ts';
-import { aimFan, clearPool, projHitsTerrain, ringAngles, steerToward, stepProjectile, takeFromPool } from '../world/projectiles.ts';
+import { type Projectile, aimFan, clearPool, projHitsTerrain, ringAngles, steerToward, stepProjectile, takeFromPool } from '../world/projectiles.ts';
 import { steerChase } from '../world/steer.ts';
 import { toast } from '../ui/ui.ts';
 import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../ui/input.ts';
@@ -123,7 +123,7 @@ test('projectiles: pool, sub-steps, terrain, homing, patterns', () => {
   ok(hit !== null && hit >= 4 * T - 0.5 && hit <= 4 * T + 0.5, 'stops at the raised tile ' + hit);
   clearPool(pool); ok(!pool[0].alive && !pool[1].alive, 'clearPool');
   const h = { x: 0, y: 0, z: 0, vx: 5, vy: 0, vz: 0, speed: 5 };
-  for (let k = 0; k < 200; k++) steerToward(h, 0, 0, 10, 0.05, 2.2);
+  for (let k = 0; k < 200; k++) steerToward(h as unknown as Projectile, 0, 0, 10, 0.05, 2.2);
   ok(h.vz > 4.9 && Math.abs(h.vx) < 0.1, 'turned toward +z');
   eq(ringAngles(4, 0).length, 4); near(ringAngles(4, 0)[1], Math.PI / 2);
   const fan = aimFan(0, 0, 0, 0, 0, 10, 3, 0.2, 0); eq(fan.length, 3);

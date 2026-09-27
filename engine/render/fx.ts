@@ -8,13 +8,15 @@ import { basicMat, disposeTree, dynGroup, shared } from './render.ts';
 // - clearFx(): remove everything (when a level is torn down)
 // FX.particles / FX.fireballs are the systems; set their .modes to the game's mode names (default: every mode).
 export const FX_GEO = { part: shared(new THREE.BoxGeometry(0.13, 0.13, 0.13)), ball: shared(new THREE.SphereGeometry(1, 16, 12)) };
-export const parts = [];
+interface Particle { mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>; life: number; max: number; vx: number; vy: number; vz: number; g: number; }
+interface Fireball { m: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>; t: number; radius: number; dead: boolean; }
+export const parts: Particle[] = [];
 for (let i = 0; i < 300; i++) {
   const m = new THREE.Mesh(FX_GEO.part, basicMat(0xffffff)); m.visible = false; dynGroup.add(m);
   parts.push({ mesh: m, life: 0, max: 1, vx: 0, vy: 0, vz: 0, g: 14 });
 }
-export let partIdx = 0, balls = [];
-export function burst(x, y, z, color, n, spd, life, grav?) {
+export let partIdx = 0, balls: Fireball[] = [];
+export function burst(x: number, y: number, z: number, color: number, n: number, spd: number, life?: number, grav?: number) {
   for (let k = 0; k < n; k++) {
     const p = parts[partIdx = (partIdx + 1) % parts.length];
     p.mesh.material = basicMat(color); p.mesh.visible = true; p.mesh.position.set(x, y, z);
@@ -23,7 +25,7 @@ export function burst(x, y, z, color, n, spd, life, grav?) {
     p.life = p.max = (life || 0.6) * rand(0.6, 1.2); p.g = grav === undefined ? 14 : grav;
   }
 }
-export function updateParts(dt) {
+export function updateParts(dt: number) {
   for (const p of parts) {
     if (p.life <= 0) continue;
     p.life -= dt; if (p.life <= 0) { p.mesh.visible = false; continue; }
@@ -33,12 +35,12 @@ export function updateParts(dt) {
     const s = p.life / p.max; p.mesh.scale.setScalar(p.g < 0 ? 1.8 - s : 0.3 + s);
   }
 }
-export function fireball(x, y, z, radius, color) {
+export function fireball(x: number, y: number, z: number, radius: number, color: number) {
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending });
   const m = new THREE.Mesh(FX_GEO.ball, mat); m.position.set(x, y, z); m.scale.setScalar(0.3); dynGroup.add(m);
   balls.push({ m, t: 0, radius, dead: false });
 }
-export function updateBalls(dt) {
+export function updateBalls(dt: number) {
   for (const b of balls) {
     b.t += dt;
     const k = Math.min(1, b.t / 0.16);

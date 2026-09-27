@@ -32,4 +32,4 @@ export interface Upgrade { id: string; max: number; cost(level: number): number;
 export interface PresUpgrade { id: string; max: number; cost: number; name?: string; desc?(level: number): string; }
 export interface EnemyDef { [k: string]: any; }
 // an enemy or boss on the field (fields are listed in spawnEnemy / bossBase)
-export interface Enemy extends WorldObject { [k: string]: any; }
+export interface Enemy extends WorldObject { x: number; z: number; r: number; fy?: number; side?: number; [k: string]: any; }

@@ -20,24 +20,24 @@ export function newWorldGroup(tag: string, order: number): WorldGroup {
 export function worldGroup(tag: string, order: number) { return WORLD.groups[tag] = newWorldGroup(tag, order); }
 WORLD.groups['*'] = newWorldGroup('*', 30);
 WORLD.system = WORLD.groups['*'].system;
-export const groupOf = tag => WORLD.groups[tag] || WORLD.groups['*'];
-export function spawn(o) { groupOf(o.tag).list.push(o); return o; }
-export function query(tag) { return groupOf(tag).list.filter(o => o.tag === tag && !o.dead); }
-export function removeFromWorld(o) {
+export const groupOf = (tag?: string): WorldGroup => (tag !== undefined && WORLD.groups[tag]) || WORLD.groups['*'];
+export function spawn<T extends WorldObject>(o: T): T & WorldObject { groupOf(o.tag).list.push(o); return o; }
+export function query(tag: string): WorldObject[] { return groupOf(tag).list.filter(o => o.tag === tag && !o.dead); }
+export function removeFromWorld(o: WorldObject) {
   if (o.onRemove) o.onRemove();
   if (o.mesh && o.mesh.parent) { disposeTree(o.mesh); o.mesh.parent.remove(o.mesh); }
 }
-export function sweepGroup(g) {
+export function sweepGroup(g: WorldGroup) {
   let j = 0;
   for (const o of g.list) { if (o.dead) removeFromWorld(o); else g.list[j++] = o; }
   g.list.length = j;
 }
 export function sweepWorld() { Object.values(WORLD.groups).forEach(sweepGroup); }
-export function clearWorld(tag?) {
+export function clearWorld(tag?: string) {
   Object.values(WORLD.groups).forEach(g => g.list.forEach(o => { if (!tag || o.tag === tag) o.dead = true; }));
   sweepWorld();
 }
-export function updateWorldGroup(g, dt) {
+export function updateWorldGroup(g: WorldGroup, dt: number) {
   for (let i = 0; i < g.list.length; i++) { const o = g.list[i]; if (!o.dead && o.update) o.update(dt); }
   sweepGroup(g);
 }

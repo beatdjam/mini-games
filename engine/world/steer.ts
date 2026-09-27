@@ -1,4 +1,4 @@
-import { floorY, flowDir, moveCircle } from './tiles.ts';
+import { floorY, flowDir, moveCircle, type Mover } from './tiles.ts';
 // engine: Chasing on the tile world.
 // steerChase(e, dt, dx, dz, dist, los, speed, keep, others, ignore)
 //   e: the mover (x, z, r, fy; side = +1/-1 for which way it circles, flipped now and then)
@@ -6,14 +6,18 @@ import { floorY, flowDir, moveCircle } from './tiles.ts';
 //   In sight it heads straight at the target, or circles it at `keep` metres if closer than that (at 60% speed).
 //   Out of sight it follows the flow field (engine/world/tiles.js computeFlow). Movers in `others` push each other
 //   apart (skipping dead ones and any for which ignore(o) is true). Moves with collision and updates e.fy.
-export function steerChase(e, dt, dx, dz, dist, los, speed, keep, others, ignore) {
+// a mover with a radius; side (+1 / -1, default +1) is the way it circles when too close
+export interface Chaser extends Mover { r: number; side?: number; dead?: boolean; }
+export function steerChase<C extends Chaser>(e: C, dt: number, dx: number, dz: number, dist: number, los: boolean, speed: number, keep: number | undefined,
+  others: Iterable<C>, ignore?: ((o: C) => boolean) | null) {
   let tx = 0, tz = 0;
   if (los) {
     if (keep && dist < keep) {
-      tx = -dz / dist * e.side;
-      tz = dx / dist * e.side;
+      const side = e.side ?? 1;
+      tx = -dz / dist * side;
+      tz = dx / dist * side;
       speed *= 0.6;
-      if (Math.random() < dt * 0.4) e.side *= -1;
+      if (Math.random() < dt * 0.4) e.side = -side;
     } else {
       tx = dx / dist;
       tz = dz / dist;
