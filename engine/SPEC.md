@@ -1,6 +1,6 @@
 # engine 仕様
 
-ゲームをまたいで使うコアの仕様。ファイルと関数の一覧は [README.md](README.md)。
+ゲームをまたいで使うコアの仕様。ファイルと関数の一覧は [README.md](README.md)、考え方と構造の図は [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 ## 1. 基本
 
@@ -10,7 +10,7 @@
 - 他のモジュールの変数には代入できないので、ゲームや engine の状態を外から変えるときは、持ち主のモジュールの関数（`setTileWorld`, `setVolumes` など）を呼ぶ
 - モジュールの読み込み時は、宣言とイベントの登録だけにする。ほかのモジュールの値を使う起動処理は、入口（`games/<id>/main.ts`）が全部を読み込んだあとに呼ぶ（import が循環していると、読み込みの順番は保証されないため）
 - engine が前提にする HTML の要素（`<canvas id="gl">`, `#touch` など）は README の表に書く
-- 描画は three.js r128（cdnjs）
+- 描画は three.js r128（npm の `three`）
 
 ## 2. ループ・モード・システム（core/loop.ts）
 
