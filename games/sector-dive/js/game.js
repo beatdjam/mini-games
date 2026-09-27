@@ -117,13 +117,30 @@ $('#btnSuspend').addEventListener('click', suspendRun);
 // the snapshot keeps the run and the player's build; resuming regenerates the current stage from its start
 const SNAP_SKIP = ['x', 'z', 'yaw', 'pitch', 'tile', 'bob', 'fy', 'vy', 'inv', 'dashT', 'ddx', 'ddz', 'reloadT', 'reloadMax', 'fireCd', 'stDelay'];
 let discardArm = false;
-function suspendRun() {
+function makeSnapshot(auto) {
   const p = {};
   Object.keys(P).forEach(k => { if (!SNAP_SKIP.includes(k)) p[k] = P[k]; });
-  save.suspend = { run: { stage: run.stage, kills: run.kills, bits: run.bits, perks: run.perks, startTier: run.startTier, route: run.route }, P: JSON.parse(JSON.stringify(p)) };
+  return { run: { stage: run.stage, kills: run.kills, bits: run.bits, perks: run.perks, startTier: run.startTier, route: run.route }, P: JSON.parse(JSON.stringify(p)), auto: !!auto };
+}
+function suspendRun() {
+  save.suspend = makeSnapshot(false);
   persist(); releaseInputs(); exitLock(); discardArm = false;
   goBase();
 }
+// Mobile browsers may kill a page that went to the background. When the page is hidden mid-run we
+// quietly store a suspend snapshot; if the page comes back it is thrown away and play continues,
+// if the page was killed the next launch offers RESUME from the start of that stage.
+const RUN_STATES = ['play', 'pause', 'bag', 'perk'];
+function autoSuspend() {
+  if (!run || run.practice || !P || !RUN_STATES.includes(state)) return;
+  save.suspend = makeSnapshot(true); persist();
+}
+function dropAutoSuspend() {
+  if (save.suspend && save.suspend.auto && run && RUN_STATES.includes(state)) { save.suspend = null; persist(); }
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoSuspend(); else dropAutoSuspend(); });
+window.addEventListener('pagehide', autoSuspend);
+window.addEventListener('pageshow', dropAutoSuspend);
 function restoreSnapshot(sn) {
   P = Object.assign(newPlayer([basicW('pistol'), null]), sn.P);
   run = Object.assign({}, sn.run);
@@ -149,6 +166,7 @@ function renderSuspend() {
   if (!sn) return;
   const tier = Math.floor(sn.run.stage / PER), b = BIOMES[sn.run.route[tier % sn.run.route.length]];
   box.innerHTML = `<p class="eyebrow">suspended</p>
+    ${sn.auto ? '<div class="help">アプリが閉じられたので、自動で中断しておいた</div>' : ''}
     <div>中断中の潜行: <b>${stageLabel(sn.run.stage)}</b>　${b.name}（HP ${Math.ceil(sn.P.hp)} / ${sn.P.maxHp}、ビット ${Math.floor(sn.run.bits)}）</div>
     <div class="row"><button class="primary" data-susp="resume">RESUME<small>この区画の最初から再開</small></button>
     ${discardArm ? '<button class="buy" data-susp="discard">本当に破棄する（死亡扱い）</button><button class="mini-btn" data-susp="cancel">やめる</button>'
@@ -272,6 +290,7 @@ function endPractice(kind) {
 }
 function endRun(kind) {
   if (run.practice) { endPractice(kind); return; }
+  if (save.suspend && save.suspend.auto) save.suspend = null; // the run is over; an auto snapshot of it must not come back
   const dead = kind !== 'extract';
   state = 'result'; releaseInputs(); exitLock();
   const got = Math.floor(run.bits), kept = dead ? Math.floor(got * TUNE.deathBitsKeep) : got;
