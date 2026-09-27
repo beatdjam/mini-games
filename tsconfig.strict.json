@@ -5,20 +5,7 @@
   // (a file can join once everything it imports is already listed).
   "extends": "./tsconfig.json",
   "compilerOptions": { "strict": true },
-  "include": [],
-  "files": [
-    "engine/vendor.d.ts",
-    "engine/core/util.ts",
-    "engine/core/store.ts",
-    "engine/core/stale.ts",
-    "engine/core/dev.ts",
-    "engine/core/i18n.ts",
-    "engine/render/render.ts",
-    "engine/core/loop.ts",
-    "engine/core/world.ts",
-    "engine/render/fx.ts",
-    "engine/world/tiles.ts",
-    "engine/world/projectiles.ts",
-    "engine/world/steer.ts"
-  ]
+  "include": ["engine/**/*.ts"],
+  // game files already strict are listed here until the whole game is
+  "files": []
 }

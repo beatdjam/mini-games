@@ -14,14 +14,14 @@ import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../u
 import { TOUCH_LAYOUT, applyLayout, editing, getL, openLayoutEditor } from '../ui/touchlayout.ts';
 // Engine tests: open engine/test/ in a browser, or run  tools/headless.sh 'engine/test/' 20000
 // Each test logs 'TEST ok <name>' or 'TEST FAIL <name> <reason>'; the last line is 'TEST DONE <passed>/<total>'.
-export const results = [];
-export function test(name, fn) {
+export const results: [string, boolean][] = [];
+export function test(name: string, fn: () => void) {
   try { fn(); results.push([name, true]); console.log('TEST ok ' + name); }
-  catch (e) { results.push([name, false]); console.error('TEST FAIL ' + name + ' ' + (e && e.message || e)); }
+  catch (e) { results.push([name, false]); console.error('TEST FAIL ' + name + ' ' + (e instanceof Error ? e.message : e)); }
 }
-export function eq(a, b, what?) { if (a !== b) throw new Error(`${what || 'value'}: expected ${b}, got ${a}`); }
-export function near(a, b, eps?, what?) { if (Math.abs(a - b) > (eps ?? 1e-9)) throw new Error(`${what || 'value'}: expected ~${b}, got ${a}`); }
-export function ok(cond, what?) { if (!cond) throw new Error(what || 'expected true'); }
+export function eq(a: unknown, b: unknown, what?: string) { if (a !== b) throw new Error(`${what || 'value'}: expected ${b}, got ${a}`); }
+export function near(a: number, b: number, eps?: number, what?: string) { if (Math.abs(a - b) > (eps ?? 1e-9)) throw new Error(`${what || 'value'}: expected ~${b}, got ${a}`); }
+export function ok(cond: unknown, what?: string) { if (!cond) throw new Error(what || 'expected true'); }
 
 // ---------- core ----------
 test('util: clamp / randi / shuffle', () => {
@@ -36,7 +36,7 @@ test('store: saved values merge deeply over defaults', () => {
   saveStore(key, { a: 2, nested: { x: 9 }, list: [7] });
   const { data, raw } = loadStore(key, () => ({ a: 1, b: 5, nested: { x: 1, y: 2 }, list: [1, 2, 3] }));
   eq(data.a, 2); eq(data.b, 5, 'new default kept'); eq(data.nested.x, 9); eq(data.nested.y, 2, 'nested default kept');
-  eq(data.list.join(), '7', 'arrays are replaced'); eq(raw.a, 2);
+  eq(data.list.join(), '7', 'arrays are replaced'); eq(raw!.a, 2);
   clearStore(key);
   eq(loadStore(key, () => ({ a: 1 })).raw, null, 'cleared');
   prefSet(key, 'v'); eq(prefGet(key, 'd'), 'v'); clearStore(key); eq(prefGet(key, 'd'), 'd');
@@ -48,14 +48,14 @@ test('i18n: placeholders, functions, ja fallback, data hook, static text', () =>
   let got = null; setI18nHook(d => { got = d.thing; });
   setLang('en');
   eq(t('n', { n: 3 }), '3 items'); eq(t('f', { a: 1 }), 'F1'); eq(t('only'), 'ja だけ', 'falls back to ja');
-  eq(got, 'en', 'game hook got the data'); eq(document.querySelector('[data-i18n="hello"]').textContent, 'hello');
+  eq(got, 'en', 'game hook got the data'); eq(document.querySelector('[data-i18n="hello"]')!.textContent, 'hello');
   setLang('xx'); eq(lang, 'ja', 'unknown language -> ja');
   const target: { id: string; name?: string }[] = [{ id: 'a' }, { id: 'b' }]; fillData(target, { b: { name: 'B' } }); eq(target[1].name, 'B', 'fillData by id');
   setI18nHook(null);
 });
 
 test('loop: order, modes, stopFrame', () => {
-  const log = [];
+  const log: string[] = [];
   const a = addSystem({ name: 't-b', order: 2, modes: ['m1'], update: () => log.push('b') });
   const b = addSystem({ name: 't-a', order: 1, update: () => log.push('a') });
   const c = addSystem({ name: 't-c', order: 3, modes: ['m1'], update: () => { log.push('c'); stopFrame(); } });
@@ -66,10 +66,10 @@ test('loop: order, modes, stopFrame', () => {
 });
 
 test('world: update, dead, onRemove, query, groups, spawn during a pass', () => {
-  const log = [];
+  const log: string[] = [];
   const g = worldGroup('t-early', 5);
   const late = spawn({ tag: 't-late', update() { log.push('late'); } });
-  const early = spawn({ tag: 't-early', n: 0, update() { log.push('early'); if (!this.kid) { this.kid = true; spawn({ tag: 't-early', update() { log.push('kid'); } }); } } });
+  const early = spawn({ tag: 't-early', n: 0, kid: false, update() { log.push('early'); if (!this.kid) { this.kid = true; spawn({ tag: 't-early', update() { log.push('kid'); } }); } } });
   runSystems(0.016, 'any');
   eq(log.slice(0, 3).join(), 'early,kid,late', 'group order 5 before the default 30; a spawned object runs in the same pass');
   eq(query('t-early').length, 2); eq(g.list, WORLD.groups['t-early'].list, 'group list is stable');
@@ -113,13 +113,13 @@ test('tiles: flow field leads to the target around the step', () => {
 
 test('projectiles: pool, sub-steps, terrain, homing, patterns', () => {
   tinyWorld();
-  const pool = [], geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-  const b = takeFromPool(pool, geo, 2); b.alive = true; ok(takeFromPool(pool, geo, 2) !== b, 'second slot');
+  const pool: Projectile[] = [], geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+  const b = takeFromPool(pool, geo, 2)!; b.alive = true; ok(takeFromPool(pool, geo, 2) !== b, 'second slot');
   pool[1].alive = true; eq(takeFromPool(pool, geo, 2), null, 'pool full');
   Object.assign(b, { x: 0.5 * T, y: 1, z: 1.5 * T, vx: 30, vy: 0, vz: 0 });
   let steps = 0; stepProjectile(b, 0.1, 0.5, () => { steps++; return false; });
   eq(steps, 6, '3 m in 0.5 m steps'); near(b.x, 0.5 * T + 3, 1e-9);
-  let hit = null; stepProjectile(b, 1, 0.5, p => { if (projHitsTerrain(p, 10, 0.03)) { hit = p.x; return true; } return false; });
+  let hit: number | null = null; stepProjectile(b, 1, 0.5, p => { if (projHitsTerrain(p, 10, 0.03)) { hit = p.x; return true; } return false; });
   ok(hit !== null && hit >= 4 * T - 0.5 && hit <= 4 * T + 0.5, 'stops at the raised tile ' + hit);
   clearPool(pool); ok(!pool[0].alive && !pool[1].alive, 'clearPool');
   const h = { x: 0, y: 0, z: 0, vx: 5, vy: 0, vz: 0, speed: 5 };
@@ -147,27 +147,27 @@ test('render: viewmodel from parts, fx', () => {
 });
 
 test('touchlayout: place, edit, reset', () => {
-  let saved = 0, closed = null; const edits = {};
+  let saved = 0, closed: string | undefined; const edits: Record<string, { x: number; y: number; s: number }> = {};
   Object.assign(TOUCH_LAYOUT, {
     defs: { fire: { x: 0.9, y: 0.8, s: 1, b: 80, name: 'fire' }, fire2: { x: 0.2, y: 0.5, s: 1, b: 60, name: 'fire2' } }, first: 'fire',
-    edits: () => edits, reset: () => { for (const k in edits) delete edits[k]; }, save: () => { saved++; }, onClose: from => { closed = from; },
+    edits: () => edits, reset: () => { for (const k in edits) delete edits[k]; }, save: () => { saved++; }, onClose: (from?: string) => { closed = from; },
   });
-  applyLayout(); eq(document.querySelector<HTMLElement>('[data-lb="fire"]').style.width, '80px');
+  applyLayout(); eq(document.querySelector<HTMLElement>('[data-lb="fire"]')!.style.width, '80px');
   openLayoutEditor('here'); ok(editing && !$('#layoutBar').hidden, 'editor open');
-  document.querySelector<HTMLElement>('[data-lbact="plus"]').click(); near(getL('fire').s, 1.1, 1e-9, 'bigger');
-  document.querySelector<HTMLElement>('[data-lbact="reset"]').click(); eq(getL('fire').s, 1, 'reset');
-  document.querySelector<HTMLElement>('[data-lbact="done"]').click(); eq(closed, 'here'); ok(saved > 0, 'saved');
+  document.querySelector<HTMLElement>('[data-lbact="plus"]')!.click(); near(getL('fire').s, 1.1, 1e-9, 'bigger');
+  document.querySelector<HTMLElement>('[data-lbact="reset"]')!.click(); eq(getL('fire').s, 1, 'reset');
+  document.querySelector<HTMLElement>('[data-lbact="done"]')!.click(); eq(closed, 'here'); ok(saved > 0, 'saved');
 });
 
 test('ui / input: toast, keys, INPUT hooks', () => {
   toast('hi', 50); eq($('#toast').textContent, 'hi');
-  let key = null; INPUT.key = e => { key = e.code; };
+  let key: string | null = null; INPUT.key = e => { key = e.code; };
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyZ' })); ok(keys.KeyZ, 'held'); eq(key, 'KeyZ', 'INPUT.key called');
   window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyZ' })); ok(!keys.KeyZ, 'released');
-  let looked = null; INPUT.look = (dx, dy) => { looked = [dx, dy]; }; lookDelta(10, 0, 0.01); near(looked[0], 0.1);
+  let looked: number[] = []; INPUT.look = (dx, dy) => { looked = [dx, dy]; }; lookDelta(10, 0, 0.01); near(looked[0], 0.1);
   releaseInputs(); ok(!fireHeld && !mouseFire);
 });
 
 export const passed = results.filter(r => r[1]).length;
 console.log(`TEST DONE ${passed}/${results.length}`);
-document.getElementById('out').innerHTML = results.map(([n, p]) => `<span class="${p ? 'ok' : 'fail'}">${p ? 'ok  ' : 'FAIL'} ${n}</span>`).join('\n') + `\n\n${passed}/${results.length} passed`;
+document.getElementById('out')!.innerHTML = results.map(([n, p]) => `<span class="${p ? 'ok' : 'fail'}">${p ? 'ok  ' : 'FAIL'} ${n}</span>`).join('\n') + `\n\n${passed}/${results.length} passed`;

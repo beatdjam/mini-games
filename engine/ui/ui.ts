@@ -1,18 +1,17 @@
-import { $ } from '../core/util.ts';
-import { t } from '../core/i18n.ts';
+import { el } from '../core/util.ts';
 // engine: Screen helpers: toast (#toast), banner (#banner), fullscreen
-export let toastTimer = 0;
-export function toast(msg, ms?) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+export let toastTimer: ReturnType<typeof setTimeout> | undefined;
+export function toast(msg: string, ms?: number) {
+  const t = el('#toast'); t.textContent = msg; t.classList.add('on');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms || 2200);
 }
-export function banner(code, sub) {
-  $('#bannerCode').textContent = code; $('#bannerSub').textContent = sub;
-  const b = $('#banner'); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 2000);
+export function banner(code: string, sub: string) {
+  el('#bannerCode').textContent = code; el('#bannerSub').textContent = sub;
+  const b = el('#banner'); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 2000);
 }
 export const fsEl = document.documentElement;
 export const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
-export const isStandalone = (window.matchMedia && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) || navigator.standalone === true;
+export const isStandalone = (typeof window.matchMedia === 'function' && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) || navigator.standalone === true;
 export const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
 export function enterFs() {
   try {
