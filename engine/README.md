@@ -13,6 +13,8 @@
 | `render.js` | `canvas`（`#gl`）, `renderer`, `scene`, `camera`, `dynGroup`, `resize`, `shared`, `basicMat`, `lineMat`, `disposeTree`, `textSprite`、手に持つ銃の別パス（`gunScene`, `gun`, `renderGun`） | `<canvas id="gl">`。毎フレーム `renderer.render(scene, camera)` のあとに `renderGun()` |
 | `tiles.js` | タイルの世界（`T`=4, `STEP`, `RISE`, `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`）と、`floorY`, `moveCircle`, `hasLOS`, `passable`, `computeFlow`, `flowDir` など | 地形を生成して `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`, `flowQ` を埋める |
 | `ui.js` | `toast(msg, ms)`, `banner(code, sub)`, 全画面（`enterFs`, `exitFs`, `toggleFs`, `isFs`） | `#toast`, `#banner`（`#bannerCode`, `#bannerSub`） |
+| `input.js` | キー（`keys`）、マウスとポインタロック（`requestLock`, `exitLock`, `locked`, `mouseFire`）、タッチの移動スティック（`joy`）と視点ドラッグ、押しっぱなしの射撃ボタン（`fireHeld`, `fire2Held`）、`tapBtn(el, fn)`, `releaseInputs` | `INPUT` に `active`, `look`, `sens`, `key`, `pause`, `lockChanged` を入れる。`#touch`, `#joyBase`, `#joyKnob`, `#btnFire`, `#btnFire2`, `<canvas id="gl">` |
+| `touchlayout.js` | タッチボタンの配置（`applyLayout`, `getL`）と配置の編集（`openLayoutEditor`, `closeLayoutEditor`） | `TOUCH_LAYOUT` に `defs`, `first`, `edits`, `reset`, `save`, `afterApply`, `onOpen`, `onClose` を入れる。`data-lb` の付いたボタン、`#layoutBar`, `#lbName` |
 | `store.js` | `loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `prefGet` / `prefSet`（タブの記憶など小さな値） | 既定値を返す関数。古い版からの変換は `raw` を見てゲーム側でやる |
 | `stale.js` | 古いページ検出。キャッシュに残った古いページなら、最新版の URL へ1回だけ切り替える | `<meta name="build">` とゲームのフォルダの `version.json`（`tools/bump-version.sh` が書く） |
 | `dev.js` | `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`devSmoke(fn)`（`#smoke` で fn を実行し、エラー・版番号の不一致・`SMOKE DONE` をコンソールに出す） | テストの中身 |
@@ -22,7 +24,7 @@
 
 ## まだ切り出していないもの
 
-Sector Dive の中に残っているが、2本目のゲームを作るときに engine へ移すと良さそうなもの。移すときは、ゲームの操作（拾う・回復・持ち替えなど）を呼んでいる箇所を、ゲームから渡す関数（フック）に置き換える。
+今のところなし。2本目のゲームで足りないところが出たら、そのとき engine を広げる。そのときの方針:
 
-- **入力**（`games/sector-dive/js/input.js`）: キーボード、マウスとポインタロック、タッチの移動スティックと視点ドラッグ、射撃ボタン。今は拾う・回復・持ち替え・一時停止などゲームの操作を直接呼んでいる
-- **タッチボタンの配置の編集**（`games/sector-dive/js/hud.js` の `getL`, `applyLayout`, `openLayoutEditor`, `closeLayoutEditor`）: ボタンの位置と大きさの編集と保存。今は `save.settings.layout`、画面の切り替え（`show`, `state`）に依存している
+- ゲームの状態や操作を engine から直接呼ばず、設定オブジェクト（`INPUT`, `TOUCH_LAYOUT` のような形）やフック関数でゲームから渡す
+- HTML の要素の ID を engine が前提にするときは、上の表に書く

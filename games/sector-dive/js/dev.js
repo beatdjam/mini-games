@@ -297,6 +297,15 @@ devSmoke(() => {
       goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
       if (save.bits !== 0 || save.up.hp !== 0 || !$('#dlgWipe').hidden) throw new Error('wipe failed');
       console.log('SMOKE wipe ok');
+      // touch layout editor: open from the base, make the dash button bigger, close; the edit is kept
+      {
+        const s0 = getL('dash').s;
+        openLayoutEditor('base'); if (state !== 'layout' || $('#layoutBar').hidden) throw new Error('layout editor open');
+        document.querySelector('[data-lbact="plus"]').click(); document.querySelector('[data-lbact="done"]').click();
+        if (state !== 'base' || Math.abs(getL('dash').s - (s0 + 0.1)) > 1e-9) throw new Error('layout editor ' + getL('dash').s);
+        save.settings.layout = {}; applyLayout();
+        console.log('SMOKE layout ok');
+      }
       startRun(); tick(10);
       // reachability: from the start room, can the player walk into every room (and back to the start)?
       BIOMES.forEach((b, bi) => {

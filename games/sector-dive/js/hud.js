@@ -144,58 +144,19 @@ document.addEventListener('input', e => {
     document.querySelectorAll('.sensIn').forEach(v => { if (v !== e.target) v.value = save.settings.sens; });
   }
 });
-const getL = id => Object.assign({}, LAYOUT_DEF[id], (save.settings.layout || {})[id] || {});
-function applyLayout() {
-  const vw = window.innerWidth, vh = window.innerHeight;
-  Object.keys(LAYOUT_DEF).forEach(id => {
-    const el = document.querySelector(`[data-lb="${id}"]`), l = getL(id), size = Math.round(l.b * l.s);
-    el.style.width = el.style.height = size + 'px';
-    el.style.left = clamp(l.x * vw, size / 2 + 4, vw - size / 2 - 4) + 'px';
-    el.style.top = clamp(l.y * vh, size / 2 + 4, vh - size / 2 - 4) + 'px';
-    el.classList.toggle('sel', editing && editSel === id);
-  });
-  $('#btnFire2').hidden = !save.settings.leftFire;
-}
-let editing = false, editSel = 'dash', editDrag = null, editFrom = 'base';
-function openLayoutEditor(from) {
-  editFrom = from; editing = true; editSel = 'dash';
-  releaseInputs(); exitLock(); show(null);
-  $('#touch').hidden = false; touchEl.classList.add('editing'); $('#layoutBar').hidden = false;
-  state = 'layout'; applyLayout(); $('#lbName').textContent = LAYOUT_DEF[editSel].name;
-}
-function closeLayoutEditor() {
-  editing = false; editDrag = null; persist();
-  touchEl.classList.remove('editing'); $('#layoutBar').hidden = true; applyLayout();
-  if (editFrom === 'pause') { state = 'pause'; renderSettings(); show('#scrPause'); }
-  else { $('#touch').hidden = true; state = 'base'; renderSettings(); show('#scrBase'); }
-}
-touchEl.addEventListener('pointerdown', e => {
-  if (!editing) return;
-  const b = e.target.closest('[data-lb]');
-  if (!b) { if (!e.target.closest('#layoutBar')) { e.preventDefault(); e.stopImmediatePropagation(); } return; }
-  e.preventDefault(); e.stopPropagation();
-  editSel = b.dataset.lb;
-  const r = b.getBoundingClientRect();
-  editDrag = { id: e.pointerId, dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2) };
-  try { b.setPointerCapture(e.pointerId); } catch (err) {}
-  $('#lbName').textContent = LAYOUT_DEF[editSel].name; applyLayout();
-}, true);
-window.addEventListener('pointermove', e => {
-  if (!editing || !editDrag || e.pointerId !== editDrag.id) return;
-  const L = save.settings.layout || (save.settings.layout = {}), cur = getL(editSel);
-  L[editSel] = { x: clamp((e.clientX - editDrag.dx) / window.innerWidth, 0, 1), y: clamp((e.clientY - editDrag.dy) / window.innerHeight, 0, 1), s: cur.s };
-  applyLayout();
+// touch buttons: placement and the editor are engine/touchlayout.js
+Object.assign(TOUCH_LAYOUT, {
+  defs: LAYOUT_DEF, first: 'dash',
+  edits: () => save.settings.layout || (save.settings.layout = {}),
+  reset: () => { save.settings.layout = {}; },
+  save: persist,
+  afterApply: () => { $('#btnFire2').hidden = !save.settings.leftFire; },
+  onOpen: () => { show(null); state = 'layout'; },
+  onClose: from => {
+    if (from === 'pause') { state = 'pause'; renderSettings(); show('#scrPause'); }
+    else { $('#touch').hidden = true; state = 'base'; renderSettings(); show('#scrBase'); }
+  },
 });
-window.addEventListener('pointerup', e => { if (editDrag && e.pointerId === editDrag.id) { editDrag = null; persist(); } });
-$('#layoutBar').addEventListener('click', e => {
-  const b = e.target.closest('[data-lbact]'); if (!b) return;
-  const a = b.dataset.lbact, L = save.settings.layout || (save.settings.layout = {}), cur = getL(editSel);
-  if (a === 'minus' || a === 'plus') L[editSel] = { x: cur.x, y: cur.y, s: clamp(Math.round((cur.s + (a === 'plus' ? 0.1 : -0.1)) * 10) / 10, 0.7, 1.6) };
-  else if (a === 'reset') save.settings.layout = {};
-  else if (a === 'done') { closeLayoutEditor(); return; }
-  persist(); applyLayout();
-});
-window.addEventListener('resize', applyLayout);
 applyLayout();
 
 function renderGuide() { $('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join(''); }

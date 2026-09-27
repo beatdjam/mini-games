@@ -103,7 +103,6 @@ function openPerk(title, eyebrow, done) {
   $('#perkStats').innerHTML = statsHTML();
   show('#scrPerk');
 }
-function exitLock() { if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} } }
 function pause() {
   if (state !== 'play') return;
   state = 'pause'; releaseInputs(); exitLock(); bigmap.hidden = true; musicVolume(0.4);
