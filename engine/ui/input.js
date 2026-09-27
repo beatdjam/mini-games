@@ -1,4 +1,6 @@
-'use strict';
+import { $, isTouch } from '../core/util.js';
+import { audioInit } from '../audio/audio.js';
+import { canvas } from '../render/render.js';
 // engine: Input for a first-person game on PC and touch.
 // - PC: keys[code] is true while held; mouse look while the pointer is locked to canvas (#gl); left button -> mouseFire.
 // - Touch (#touch): the left 45% of the screen is the move stick (joy.x / joy.y in -1..1, drawn with #joyBase / #joyKnob),
@@ -11,14 +13,14 @@
 //   key(e)        a key went down (keys[] already updated)
 //   pause()       the pointer lock was lost or the page was hidden while active
 //   lockChanged() the lock state changed (for hint text)
-const INPUT = { active: () => false, look: () => {}, sens: () => 1, key: () => {}, pause: () => {}, lockChanged: () => {} };
-const keys = {};
-let joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: null, x: 0, y: 0 }, fireTouch = { id: null, x: 0, y: 0 };
-let fireHeld = false, fire2Held = false, mouseFire = false, locked = false, lockWorked = false;
-const touchEl = $('#touch');
-function setFireHeld(v) { fireHeld = v; } // tests
-function lookDelta(dx, dy, k) { INPUT.look(dx * k, dy * k); }
-const tk = () => 0.0055 * INPUT.sens();
+export const INPUT = { active: () => false, look: () => {}, sens: () => 1, key: () => {}, pause: () => {}, lockChanged: () => {} };
+export const keys = {};
+export let joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: null, x: 0, y: 0 }, fireTouch = { id: null, x: 0, y: 0 };
+export let fireHeld = false, fire2Held = false, mouseFire = false, locked = false, lockWorked = false;
+export const touchEl = $('#touch');
+export function setFireHeld(v) { fireHeld = v; } // tests
+export function lookDelta(dx, dy, k) { INPUT.look(dx * k, dy * k); }
+export const tk = () => 0.0055 * INPUT.sens();
 
 touchEl.addEventListener('pointerdown', e => {
   if (e.target !== touchEl) return;
@@ -42,18 +44,18 @@ touchEl.addEventListener('pointermove', e => {
     lookDelta(e.clientX - look.x, e.clientY - look.y, tk()); look.x = e.clientX; look.y = e.clientY;
   }
 });
-function endPointer(e) {
+export function endPointer(e) {
   if (e.pointerId === joy.id) { joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }; $('#joyBase').style.display = 'none'; }
   if (e.pointerId === look.id) look = { id: null, x: 0, y: 0 };
 }
 touchEl.addEventListener('pointerup', endPointer);
 touchEl.addEventListener('pointercancel', endPointer);
-function releaseInputs() {
+export function releaseInputs() {
   joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }; look = { id: null, x: 0, y: 0 }; fireTouch = { id: null, x: 0, y: 0 };
   fireHeld = false; fire2Held = false; mouseFire = false; $('#joyBase').style.display = 'none'; $('#btnFire').classList.remove('down'); $('#btnFire2').classList.remove('down');
   for (const k in keys) keys[k] = false;
 }
-const btnFire = $('#btnFire');
+export const btnFire = $('#btnFire');
 btnFire.addEventListener('pointerdown', e => {
   e.preventDefault(); e.stopPropagation(); audioInit();
   try { btnFire.setPointerCapture(e.pointerId); } catch (err) {}
@@ -63,17 +65,17 @@ btnFire.addEventListener('pointermove', e => {
   if (e.pointerId !== fireTouch.id) return;
   lookDelta(e.clientX - fireTouch.x, e.clientY - fireTouch.y, tk()); fireTouch.x = e.clientX; fireTouch.y = e.clientY;
 });
-const fireUp = e => { if (e.pointerId === fireTouch.id) { fireTouch.id = null; fireHeld = false; btnFire.classList.remove('down'); } };
+export const fireUp = e => { if (e.pointerId === fireTouch.id) { fireTouch.id = null; fireHeld = false; btnFire.classList.remove('down'); } };
 btnFire.addEventListener('pointerup', fireUp); btnFire.addEventListener('pointercancel', fireUp);
-function tapBtn(el, fn) { el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audioInit(); fn(); }); }
-const btnFire2 = $('#btnFire2');
+export function tapBtn(el, fn) { el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audioInit(); fn(); }); }
+export const btnFire2 = $('#btnFire2');
 btnFire2.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audioInit(); try { btnFire2.setPointerCapture(e.pointerId); } catch (err) {} fire2Held = true; btnFire2.classList.add('down'); });
-const fire2Up = () => { fire2Held = false; btnFire2.classList.remove('down'); };
+export const fire2Up = () => { fire2Held = false; btnFire2.classList.remove('down'); };
 btnFire2.addEventListener('pointerup', fire2Up); btnFire2.addEventListener('pointercancel', fire2Up);
 
-function exitLock() { if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} } }
-function lockFailed() { if (!lockWorked) document.body.classList.add('nolock'); INPUT.lockChanged(); }
-function requestLock() {
+export function exitLock() { if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} } }
+export function lockFailed() { if (!lockWorked) document.body.classList.add('nolock'); INPUT.lockChanged(); }
+export function requestLock() {
   if (isTouch) return;
   try {
     const p = canvas.requestPointerLock();

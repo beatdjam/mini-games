@@ -1,14 +1,35 @@
-'use strict';
+import { rand } from '../../../../engine/core/util.js';
+import { LOOP, addSystem, runSystems, startLoop, stopFrame } from '../../../../engine/core/loop.js';
+import { WORLD, query, sweepWorld } from '../../../../engine/core/world.js';
+import { t } from '../../../../engine/core/i18n.js';
+import { audioInit, sfx } from '../../../../engine/audio/audio.js';
+import { setMusic } from '../../../../engine/audio/music.js';
+import { camera, gun } from '../../../../engine/render/render.js';
+import { FX } from '../../../../engine/render/fx.js';
+import { T, W, computeFlow, floorY, moveCircle } from '../../../../engine/world/tiles.js';
+import { toast } from '../../../../engine/ui/ui.js';
+import { fire2Held, fireHeld, joy, keys, mouseFire } from '../../../../engine/ui/input.js';
+import { EYE } from '../data/level.js';
+import { KIT_MAX, TUNE } from '../data/progress.js';
+import { save } from '../system/save.js';
+import { updateMusic } from './music.js';
+import { portals, reveal, updateHazards } from '../world/level.js';
+import { ENEMY_GROUP, nearD, setNear, setTarget, target } from '../world/entities.js';
+import { GUNFX, P, curVM, curW, damagePlayer, findTarget, magSize, run, tryFire, wo } from '../actors/player.js';
+import { CTRL } from '../ui/input.js';
+import { SCR, bctx, bigmap, drawMap, hitm, mctx, mini, updateHud, weaponHud } from '../ui/hud.js';
+import { attract, buildAttract, endRun, nextStage, openPerk, renderBase, state } from './game.js';
+import { updateEBullets, updatePBullets } from '../actors/bullets.js';
 // Per-frame systems of Sector Dive, run by the engine loop (engine/core/loop.js) in this order
 LOOP.mode = () => state;
 // seconds of play time (drives blinking and animations)
-let time = 0;
-function tickClock(dt) { time += dt; }
+export let time = 0;
+export function tickClock(dt) { time += dt; }
 // one play step by hand (tests)
-function update(dt) { runSystems(dt, 'play'); }
+export function update(dt) { runSystems(dt, 'play'); }
 
 // ---- player: movement, dash, camera, viewmodel, reload and firing ----
-function updatePlayer(dt) {
+export function updatePlayer(dt) {
   time += dt;
   let mx = 0, mz = 0;
   if (keys.KeyW || keys.ArrowUp) mz += 1;
@@ -65,7 +86,7 @@ function updatePlayer(dt) {
   if ((fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) && P.fireCd <= 0) tryFire();
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
-function updatePortals(dt) {
+export function updatePortals(dt) {
   for (const pt of portals) {
     pt.ring.rotation.z += dt * 1.5; pt.disc.material.opacity = 0.18 + Math.sin(time * 4) * 0.08;
     if (state === 'play' && Math.hypot(P.x - pt.x, P.z - pt.z) < 1.5 && Math.abs(P.fy + 1.7 - pt.g.position.y) < 1.6) {
@@ -76,7 +97,7 @@ function updatePortals(dt) {
     }
   }
 }
-function updateScreenFx(dt) {
+export function updateScreenFx(dt) {
   SCR.hitTimer -= dt; if (SCR.hitTimer <= 0) hitm.classList.remove('on');
   SCR.vig = Math.max(0, SCR.vig - dt * 2);
   if (state === 'play') updateHud();
@@ -85,10 +106,10 @@ function updateScreenFx(dt) {
 }
 
 // weapon pickups compete for "nearest" each frame, so the choice starts over first (system pickupReset)
-function resetNearest() { setNear(null, 1.9); }
+export function resetNearest() { setNear(null, 1.9); }
 // all pickups at once (tests)
-function updatePickups(dt) { resetNearest(); query('pickup').forEach(p => p.update(dt)); sweepWorld(); }
-function updatePickup(p, dt) {
+export function updatePickups(dt) { resetNearest(); query('pickup').forEach(p => p.update(dt)); sweepWorld(); }
+export function updatePickup(p, dt) {
   p.t += dt;
   const dx = P.x - p.x, dz = P.z - p.z, d = Math.abs(p.y - P.fy - (p.kind === 'bit' ? 0.5 : 1)) < 1.4 || p.kind === 'bit' ? Math.hypot(dx, dz) : 99;
   if (p.kind === 'bit') {
@@ -109,7 +130,7 @@ function updatePickup(p, dt) {
   p.mesh.rotation.y += dt * 2;
   if (p.kind === 'chip') p.mesh.rotation.x += dt;
 }
-function updateWave(w, dt) {
+export function updateWave(w, dt) {
   w.r += w.speed * dt;
   w.mesh.scale.set(w.r, 1, w.r); w.mesh.material.opacity = 0.75 * (1 - w.r / w.max);
   if (!w.hit) {
@@ -120,26 +141,29 @@ function updateWave(w, dt) {
 }
 
 // ---- the systems, in order. 'play' = diving, 'base' = the base screen with the slowly turning backdrop ----
-const PLAY = ['play'];
-addSystem({ name: 'player', order: 0, modes: PLAY, update: updatePlayer });
-ENEMY_GROUP.system.modes = PLAY; // enemies: engine world group, updateEnemy per enemy (order 10)
-addSystem({ name: 'playerBullets', order: 20, modes: PLAY, update: updatePBullets });
-addSystem({ name: 'enemyBullets', order: 21, modes: PLAY, update: updateEBullets });
-addSystem({ name: 'pickupReset', order: 29, modes: PLAY, update: resetNearest });
-// pickups and shockwaves: engine world objects (engine/core/world.js), updated at order 30
-WORLD.system.modes = PLAY;
-// engine effects (engine/render/fx.js): frozen while paused; particles also drift on the base screen
-FX.fireballs.modes = PLAY; FX.particles.modes = ['play', 'base'];
-addSystem({ name: 'hazards', order: 50, modes: PLAY, update: updateHazards });
-addSystem({ name: 'music', order: 60, modes: PLAY, update: updateMusic });
-// a run that just ended (death / extraction above) stops here for this frame
-addSystem({ name: 'endGuard', order: 65, modes: PLAY, update: () => { if (state === 'result') stopFrame(); } });
-addSystem({ name: 'portals', order: 70, modes: PLAY, update: updatePortals });
-addSystem({ name: 'screenFx', order: 90, modes: PLAY, update: updateScreenFx });
-addSystem({ name: 'attract', order: 0, modes: ['base'], update: attract });
+export const PLAY = ['play'];
+// registers the systems and starts the loop; main.js calls this once every module has loaded
+export function boot() {
+  addSystem({ name: 'player', order: 0, modes: PLAY, update: updatePlayer });
+  ENEMY_GROUP.system.modes = PLAY; // enemies: engine world group, updateEnemy per enemy (order 10)
+  addSystem({ name: 'playerBullets', order: 20, modes: PLAY, update: updatePBullets });
+  addSystem({ name: 'enemyBullets', order: 21, modes: PLAY, update: updateEBullets });
+  addSystem({ name: 'pickupReset', order: 29, modes: PLAY, update: resetNearest });
+  // pickups and shockwaves: engine world objects (engine/core/world.js), updated at order 30
+  WORLD.system.modes = PLAY;
+  // engine effects (engine/render/fx.js): frozen while paused; particles also drift on the base screen
+  FX.fireballs.modes = PLAY; FX.particles.modes = ['play', 'base'];
+  addSystem({ name: 'hazards', order: 50, modes: PLAY, update: updateHazards });
+  addSystem({ name: 'music', order: 60, modes: PLAY, update: updateMusic });
+  // a run that just ended (death / extraction above) stops here for this frame
+  addSystem({ name: 'endGuard', order: 65, modes: PLAY, update: () => { if (state === 'result') stopFrame(); } });
+  addSystem({ name: 'portals', order: 70, modes: PLAY, update: updatePortals });
+  addSystem({ name: 'screenFx', order: 90, modes: PLAY, update: updateScreenFx });
+  addSystem({ name: 'attract', order: 0, modes: ['base'], update: attract });
 
-renderBase();
-buildAttract();
-setMusic('BASE'); // starts once the first tap/click unlocks audio
-document.addEventListener('pointerdown', () => audioInit(), { once: true });
-startLoop();
+  renderBase();
+  buildAttract();
+  setMusic('BASE'); // starts once the first tap/click unlocks audio
+  document.addEventListener('pointerdown', () => audioInit(), { once: true });
+  startLoop();
+}

@@ -1,12 +1,39 @@
-'use strict';
+import { $, clamp, isTouch, pct, pick, rand, randi, shuffle } from '../../../../engine/core/util.js';
+import { clearStore, prefGet, prefSet } from '../../../../engine/core/store.js';
+import { t } from '../../../../engine/core/i18n.js';
+import { audioInit, sfx } from '../../../../engine/audio/audio.js';
+import { musicVolume, setMusic } from '../../../../engine/audio/music.js';
+import { camera, gun } from '../../../../engine/render/render.js';
+import { T, W, floorY } from '../../../../engine/world/tiles.js';
+import { banner, enterFs, isFs, toast } from '../../../../engine/ui/ui.js';
+import { exitLock, releaseInputs, requestLock } from '../../../../engine/ui/input.js';
+import { applyLayout } from '../../../../engine/ui/touchlayout.js';
+import { MOD_PLUS_MAX, MOD_RARITY_COST, PLUS_DMG, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.js';
+import { EYE } from '../data/level.js';
+import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.js';
+import { BOSS_META, BOSS_ORDER } from '../data/bosses.js';
+import { BIOMES } from '../data/biomes.js';
+import { PER, PRES_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.js';
+import { PERKS } from '../data/perks.js';
+import { _ } from '../data/music.js';
+import { SAVE_KEY, basicW, defaultSave, persist, save, setSave } from '../system/save.js';
+import { basicNow, modOf, perkIdOf, perkName, pickDrop, prog, sellValue } from '../system/rules.js';
+import { buildLevel, exitIdx, makePortal, portals, randomTileIn, roomCount, roomSpot, rooms, seen, startIdx } from '../world/level.js';
+import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.js';
+import { P, critChance, curW, diffOf, isBossStage, magSize, newPlayer, rollWeapon, run, setPlayer, setRun, stageInfo, stageLabel, tierLabel, wDmgMul, wName, wOpts, wText, weaponStats, wo } from '../actors/player.js';
+import { spawnBoss } from '../actors/bosses/common.js';
+import { normalizeWeapons, useKit } from '../ui/input.js';
+import { bigmap, renderSettings, updateHint, weaponHud } from '../ui/hud.js';
+import { hideShare, prepShare } from '../ui/share.js';
+import { tickClock } from './update.js';
 // ================= game flow =================
-let state = 'base';
-function setState(s) { state = s; }
-const screens = ['#scrBase', '#scrPerk', '#scrPause', '#scrResult', '#scrBag'];
-function show(id) { screens.forEach(s => { $(s).hidden = s !== id; }); }
-function setPlayUI(on) { $('#hud').hidden = !on; $('#touch').hidden = !on; gun.visible = on; if (!on) bigmap.hidden = true; }
+export let state = 'base';
+export function setState(s) { state = s; }
+export const screens = ['#scrBase', '#scrPerk', '#scrPause', '#scrResult', '#scrBag'];
+export function show(id) { screens.forEach(s => { $(s).hidden = s !== id; }); }
+export function setPlayUI(on) { $('#hud').hidden = !on; $('#touch').hidden = !on; gun.visible = on; if (!on) bigmap.hidden = true; }
 
-function startRun() {
+export function startRun() {
   audioInit();
   if (isTouch && !isFs()) enterFs();
   if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').catch(() => {});
@@ -30,7 +57,7 @@ function startRun() {
   if (!total) toast(t(isTouch ? 'run.firstTouch' : 'run.firstDesk'), 4200);
   if (risked) setTimeout(() => toast(t('run.risked'), 3000), total ? 0 : 4400);
 }
-function startStage() {
+export function startStage() {
   const si = stageInfo(run.stage), b = si.biome, isArena = isBossStage(run.stage);
   const fade = $('#fade'); fade.style.transition = 'none'; fade.style.opacity = 1;
   requestAnimationFrame(() => { fade.style.transition = ''; fade.style.opacity = 0; });
@@ -71,19 +98,19 @@ function startStage() {
   updateHint();
 }
 // deeper sectors lean toward the biome's tougher enemy types
-function pickEnemyType(b, tier) {
+export function pickEnemyType(b, tier) {
   const elites = b.enemies.filter(t => ELITE_TYPES.includes(t));
   const chance = Math.min(ENEMY_TUNE.eliteMax, ENEMY_TUNE.elitePerDepth * tier);
   return elites.length && Math.random() < chance ? pick(elites) : pick(b.enemies);
 }
-function nextStage() {
+export function nextStage() {
   sfx('portal');
   run.stage++;
   save.best = Math.max(save.best, run.stage + 1); persist();
   if (run.stage % (PER * 3) === 0) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), 3000);
   startStage();
 }
-function openPerk(title, eyebrow, done) {
+export function openPerk(title, eyebrow, done) {
   state = 'perk'; releaseInputs(); exitLock(); bigmap.hidden = true;
   $('#perkTitle').textContent = title; $('#perkEyebrow').textContent = eyebrow || 'chip acquired';
   const opts = shuffle(PERKS.filter(o => !(o.maxed && o.maxed(P)))).slice(0, 3 + save.pres.up.choice)
@@ -104,7 +131,7 @@ function openPerk(title, eyebrow, done) {
   $('#perkStats').innerHTML = statsHTML();
   show('#scrPerk');
 }
-function pause() {
+export function pause() {
   if (state !== 'play') return;
   state = 'pause'; releaseInputs(); exitLock(); bigmap.hidden = true; musicVolume(0.4);
   renderSettings();
@@ -118,31 +145,31 @@ $('#btnSuspend').addEventListener('click', suspendRun);
 
 // ---- suspend / resume ----
 // the snapshot keeps the run and the player's build; resuming regenerates the current stage from its start
-const SNAP_SKIP = ['x', 'z', 'yaw', 'pitch', 'tile', 'bob', 'fy', 'vy', 'inv', 'dashT', 'ddx', 'ddz', 'reloadT', 'reloadMax', 'fireCd', 'stDelay'];
-let discardArm = false;
+export const SNAP_SKIP = ['x', 'z', 'yaw', 'pitch', 'tile', 'bob', 'fy', 'vy', 'inv', 'dashT', 'ddx', 'ddz', 'reloadT', 'reloadMax', 'fireCd', 'stDelay'];
+export let discardArm = false;
 // Checkpoint: the run is saved every time a stage (floor or boss room) starts, and deleted when the run ends.
 // If the page is killed (e.g. a phone closing a backgrounded browser) or the player suspends by hand,
 // the next launch offers RESUME from the start of that stage, with the state it had when the stage began.
-function makeSnapshot() {
+export function makeSnapshot() {
   const p = {};
   Object.keys(P).forEach(k => { if (!SNAP_SKIP.includes(k)) p[k] = P[k]; });
   return { run: { stage: run.stage, kills: run.kills, bits: run.bits, perks: run.perks, bosses: run.bosses || [], startTier: run.startTier, route: run.route }, P: JSON.parse(JSON.stringify(p)) };
 }
-function checkpoint() {
+export function checkpoint() {
   if (!run || run.practice || !P) return;
   save.suspend = makeSnapshot(); persist();
 }
-function suspendRun() {
+export function suspendRun() {
   // the checkpoint from the start of this stage is already saved; progress since then is dropped
   releaseInputs(); exitLock(); discardArm = false;
   goBase();
 }
-function restoreSnapshot(sn) {
+export function restoreSnapshot(sn) {
   setPlayer(Object.assign(newPlayer([basicW('pistol'), null]), sn.P));
   setRun(Object.assign({}, sn.run));
   run.perks = (run.perks || []).map(perkIdOf);
 }
-function resumeRun() {
+export function resumeRun() {
   const sn = save.suspend; if (!sn) return;
   audioInit();
   if (isTouch && !isFs()) enterFs();
@@ -152,12 +179,12 @@ function resumeRun() {
   startStage(); requestLock();
   toast(t('susp.resumed'), 2000);
 }
-function discardSuspended() {
+export function discardSuspended() {
   const sn = save.suspend; if (!sn) return;
   restoreSnapshot(sn); save.suspend = null; discardArm = false;
   endRun('abandon');
 }
-function renderSuspend() {
+export function renderSuspend() {
   const box = $('#suspendBox'), sn = save.suspend;
   box.hidden = !sn; $('#btnStart').hidden = !!sn;
   if (!sn) return;
@@ -177,7 +204,7 @@ $('#suspendBox').addEventListener('click', e => {
 });
 
 // ---- stats panel ----
-function statsHTML() {
+export function statsHTML() {
   const w = curW(), pct = v => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, rows = [];
   rows.push([t('stats.maxHp'), P.maxHp]);
   rows.push([t('stats.dmg'), pct(P.dmgMul * (1 + PLUS_DMG * (w.plus || 0)) - 1)]);
@@ -202,16 +229,16 @@ function statsHTML() {
 }
 
 // ---- inventory ----
-let invSel = null; // {where:'eq'|'bag', i}
-function openBag() {
+export let invSel = null; // {where:'eq'|'bag', i}
+export function openBag() {
   if (state !== 'play') return;
   state = 'bag'; releaseInputs(); exitLock(); invSel = null; bigmap.hidden = true;
   renderBag(); show('#scrBag');
 }
-function closeBag() { show(null); state = 'play'; normalizeWeapons(); weaponHud(); requestLock(); }
+export function closeBag() { show(null); state = 'play'; normalizeWeapons(); weaponHud(); requestLock(); }
 $('#btnBagClose').addEventListener('click', closeBag);
 $('#btnUseKit').addEventListener('click', () => { useKit(); renderBag(); });
-function itemCard(w, where, i) {
+export function itemCard(w, where, i) {
   const sel = invSel && invSel.where === where && invSel.i === i;
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">${t('base.empty')}</button>`;
   const def = WEAPONS[w.id];
@@ -220,7 +247,7 @@ function itemCard(w, where, i) {
     ${w.basic ? `<span class="ws">${t('base.keep')}</span>` : ''}
     ${where === 'eq' ? `<span class="ws">${t('bag.slotN', { n: i + 1 })}${i === P.cur ? t('bag.inHand') : ''}</span>` : ''}</button>`;
 }
-function renderBag() {
+export function renderBag() {
   $('#invEq').innerHTML = P.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
   $('#invBag').innerHTML = P.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
   $('#kitNum').textContent = P.kits;
@@ -263,8 +290,8 @@ $('#scrBag').addEventListener('click', e => {
 
 // ---- run end ----
 // ---- boss practice: fight one boss at a chosen depth's strength; nothing is gained or lost ----
-let practiceTier = 0;
-function startPractice(kind, tier) {
+export let practiceTier = 0;
+export function startPractice(kind, tier) {
   tier = tier || 0;
   audioInit();
   if (isTouch && !isFs()) enterFs();
@@ -275,7 +302,7 @@ function startPractice(kind, tier) {
   startStage(); requestLock();
   toast(t('run.practiceStart'), 2600);
 }
-function endPractice(kind) {
+export function endPractice(kind) {
   state = 'result'; releaseInputs(); exitLock();
   const sec = Math.round((performance.now() - run.t0) / 1000);
   $('#resEyebrow').textContent = 'practice';
@@ -286,7 +313,7 @@ function endPractice(kind) {
   hideShare();
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
-function endRun(kind) {
+export function endRun(kind) {
   if (run.practice) { endPractice(kind); return; }
   save.suspend = null; // the run is over: its checkpoint must not come back
   const dead = kind !== 'extract';
@@ -328,15 +355,15 @@ function endRun(kind) {
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
 $('#btnBack').addEventListener('click', goBase);
-function goBase() {
+export function goBase() {
   state = 'base'; setRun(null); setPlayer(null);
   setPlayUI(false); show('#scrBase'); renderBase();
   setMusic('BASE'); musicVolume(1);
   buildAttract();
 }
 // the base screen backdrop: the camera slowly turns in the start room (system 'attract', js/flow/update.js)
-let attractYaw = 0, attractPos = [0, 0];
-function buildAttract() {
+export let attractYaw = 0, attractPos = [0, 0];
+export function buildAttract() {
   const ab = pick(BIOMES);
   buildLevel(ab, false);
   rooms.forEach((r, idx) => { if (idx === startIdx) return; for (let k = 0; k < 3; k++) { const [x, z] = randomTileIn(r); spawnEnemy(pick(ab.enemies), x, z, idx, 1); } });
@@ -345,7 +372,7 @@ function buildAttract() {
   makePortal(ex, ez, 0xffc24a, 'next', '');
   seen.fill(1);
 }
-function attract(dt) {
+export function attract(dt) {
   tickClock(dt);
   attractYaw += dt * 0.12;
   camera.position.set(attractPos[0], floorY(attractPos[0], attractPos[1]) + EYE + 0.4, attractPos[1]);
@@ -355,15 +382,15 @@ function attract(dt) {
 }
 
 // ================= base screen =================
-let selSlot = 0;
-function wStat(w) {
+export let selSlot = 0;
+export function wStat(w) {
   const d = WEAPONS[w.id];
   return t('base.wstat', { dmg: Math.round(d.dmg * wDmgMul(w)), pellets: d.pellets, rate: (1 / d.rate).toFixed(1), mag: d.mag, pierce: d.pierce, blast: d.blast });
 }
 // base menu tabs; the last one opened is remembered in this browser
-let baseTab = 'sortie';
+export let baseTab = 'sortie';
 baseTab = prefGet('sd-base-tab', 'sortie');
-function showTab(name) {
+export function showTab(name) {
   if (!document.querySelector(`[data-pane="${name}"]`)) name = 'sortie';
   baseTab = name;
   document.querySelectorAll('.tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
@@ -371,8 +398,7 @@ function showTab(name) {
   prefSet('sd-base-tab', name);
 }
 $('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { showTab(b.dataset.tab); $('#scrBase').scrollTop = 0; } });
-showTab(baseTab);
-function renderBase() {
+export function renderBase() {
   $('#sBits').textContent = save.bits;
   $('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
   $('#sRuns').textContent = save.runs;
@@ -421,9 +447,9 @@ function renderBase() {
     ? t('base.helpTouch')
     : t('base.helpDesk');
 }
-let rebootArm = false;
-const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
-function renderReboot() {
+export let rebootArm = false;
+export const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
+export function renderReboot() {
   const pr = save.pres, sec = $('#rebootSec');
   sec.hidden = !(save.canReboot || pr.count > 0);
   if (sec.hidden) return;
@@ -442,7 +468,7 @@ function renderReboot() {
        <button class="buy" data-reboot="go">${t('reboot.go', { pts: rebootGain() })}</button><button class="mini-btn" data-reboot="cancel">${t('common.cancel')}</button>`
     : `<p class="help">${t('reboot.info', { pts: rebootGain() })}</p><button class="buy" data-reboot="arm">${t('reboot.arm')}</button>`;
 }
-function doReboot() {
+export function doReboot() {
   const pr = save.pres, keep = { best: save.best, runs: save.runs, bossKills: save.bossKills, settings: save.settings };
   pr.pts += rebootGain(); pr.count++;
   const d = defaultSave();
@@ -452,7 +478,7 @@ function doReboot() {
   rebootArm = false; persist(); renderBase();
   audioInit(); sfx('portal');
 }
-function assignLoadout(item) {
+export function assignLoadout(item) {
   const prev = save.loadout[selSlot];
   if (prev && !prev.basic) save.stash.push(prev);
   save.loadout[selSlot] = item;

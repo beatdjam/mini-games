@@ -1,9 +1,17 @@
-'use strict';
+import { sfx } from '../../../../engine/audio/audio.js';
+import { basicMat } from '../../../../engine/render/render.js';
+import { burst } from '../../../../engine/render/fx.js';
+import { floorY, moveCircle } from '../../../../engine/world/tiles.js';
+import { projHitsTerrain, steerToward, stepProjectile } from '../../../../engine/world/projectiles.js';
+import { WALL_H } from '../data/level.js';
+import { eBullets, enemies, pBullets } from '../world/entities.js';
+import { P, critChance, damagePlayer, explode, hurtEnemy, spheres } from './player.js';
+import { hitMark } from '../ui/hud.js';
 // ================= bullets (per frame) =================
 // What bullets do each frame. Moving in sub-steps, terrain hits and homing are engine/world/projectiles.js;
 // hits on enemies (shields, pierce, crits, blasts) and on the player are here. Fields are set in js/world/entities.js.
 
-function updatePBullets(dt) {
+export function updatePBullets(dt) {
   for (const b of pBullets) {
     if (!b.alive) continue;
     b.life -= dt;
@@ -18,7 +26,7 @@ function updatePBullets(dt) {
   }
 }
 // one sub-step of a player bullet: true = it is used up
-function pBulletStep(b) {
+export function pBulletStep(b) {
   if (hitsTerrain(b)) {
     if (b.blast) explode(b.x, Math.max(floorY(b.x, b.z) + 0.4, b.y), b.z, b.blast, b.dmg, b.color, true);
     else burst(b.x, b.y, b.z, b.color, 3, 4, 0.3);
@@ -35,9 +43,9 @@ function pBulletStep(b) {
   return false;
 }
 
-function hitsTerrain(b) { return projHitsTerrain(b, WALL_H + 3, 0.03); }
+export function hitsTerrain(b) { return projHitsTerrain(b, WALL_H + 3, 0.03); }
 
-function bulletTouches(b, e) {
+export function bulletTouches(b, e) {
   const pad = b.blast ? 0.2 : 0.05;
   for (const sp of spheres(e)) {
     const q = sp.p, dx = b.x - q.x, dy = b.y - q.y, dz = b.z - q.z, hr = sp.r + pad;
@@ -48,7 +56,7 @@ function bulletTouches(b, e) {
 
 // Shield enemies stop rounds arriving from the front (the rail gun punches through).
 // Each blocked round wears the shield down; at 0 it breaks and the enemy staggers.
-function shieldBlocks(b, e) {
+export function shieldBlocks(b, e) {
   if (!e.def.shield || e.shieldHp <= 0 || b.rail) return false;
   const fx = Math.sin(e.mesh.rotation.y), fz = Math.cos(e.mesh.rotation.y);
   const ox = b.x - e.x, oz = b.z - e.z, ol = Math.hypot(ox, oz) || 1;
@@ -70,7 +78,7 @@ function shieldBlocks(b, e) {
 }
 
 // Crits, rail range bonus, knockback.
-function damageFromBullet(b, e) {
+export function damageFromBullet(b, e) {
   const crit = Math.random() < critChance();
   let dmg = b.dmg * (crit ? 2 : 1);
   if (b.far && Math.hypot(b.x - b.ox, b.z - b.oz) > b.far) dmg *= b.farMul;
@@ -84,7 +92,7 @@ function damageFromBullet(b, e) {
   burst(b.x, b.y, b.z, b.color, 2, 3, 0.25);
 }
 
-function updateEBullets(dt) {
+export function updateEBullets(dt) {
   for (const b of eBullets) {
     if (!b.alive) continue;
     b.life -= dt;
@@ -103,7 +111,7 @@ function updateEBullets(dt) {
 }
 
 // homing rounds turn toward the player's chest while b.homing lasts
-function steerHoming(b, dt) {
+export function steerHoming(b, dt) {
   b.homing -= dt;
   steerToward(b, P.x, P.fy + 1.2, P.z, dt, 2.2);
 }

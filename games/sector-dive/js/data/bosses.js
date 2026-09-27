@@ -1,9 +1,8 @@
-'use strict';
 // Bosses: names, order, tuning (each boss's behaviour is in js/actors/bosses/)
 // pillars: arena has pillars. hp: health at difficulty 1 (times bossDiff). y: body height. hitR: hit radius.
 // tune: the numbers each boss's attacks use (js/actors/bosses/<name>.js). *Enr = the value once below half health (enraged).
 // Shots: [count, spread, speed] for fans, [count, speed] for rings, waves: [radius, speed, damage multiplier]. Times in seconds.
-const BOSS_META = {
+export const BOSS_META = {
   watcher: { pillars: true, hp: 1300, y: 3.2, hitR: 2.4,
     tune: { drones: [[0.75, 2], [0.4, 3]], patTime: [3.4, 2.8, 3.4], enrTime: 0.85, ringShots: 3, ringGap: 0.75, ringN: 18, ringNEnr: 22, ringSpeed: 8.5,
       fanShots: 3, fanShotsEnr: 4, fanGap: 0.55, fanN: 5, fanSpread: 0.14, fanSpeed: 16, spiralTime: 2.6, spiralGap: 0.08, spiralArms: 2, spiralArmsEnr: 3, spiralSpeed: 9 } },
@@ -23,9 +22,9 @@ const BOSS_META = {
   bastion: { pillars: false, hp: 1500, y: 2.4, hitR: 2.0,
     tune: { turretsFirst: 4, turrets: 2, turretsEnr: 3, turretR: 8, open: 12, openMul: 1.5, ring: [16, 7], ringOpen: [24, 9], ringEvery: 3, ringEveryOpen: 2, enrShots: 3, enrSpeed: 5 } },
 };
-const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion'];
+export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion'];
 // bosses: health at the D1 boss (x1.33 base) times hpMul, growing by `growth` per depth after that
-const BOSS_TUNE = {
+export const BOSS_TUNE = {
   hpMul: 1.3,
   growth: 1.85,
   introTime: 2.0,   // seconds a boss takes to appear (invulnerable, name shown)

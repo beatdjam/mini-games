@@ -1,4 +1,6 @@
-'use strict';
+import { rand, randi } from '../core/util.js';
+import { t } from '../core/i18n.js';
+import { actx, bgmVolume, noiseBuf } from './audio.js';
 // engine: Procedural music player: plays a style (key, scale, chords, patterns) in layers whose mix follows the situation.
 // Everything is synthesised with Web Audio; no music files. A game gives each area its own style (MUSIC_STYLES)
 // (key, scale, chord loop, tempo, patterns). Layers (pad / arp / bass / drums) fade in and out
@@ -6,8 +8,8 @@
 // arrangement of the sector's own style: same key and chords, faster, with driving bass and drums.
 // A combat-only tension layer (pulsing ostinato, busy hats, dissonant stabs) fades in when enemies are on you.
 // The game fills MUSIC_STYLES and LAYER_MIX (Object.assign), and calls setMusic(name, boss) / setMusicMix(kind).
-const MUSIC_STYLES = {}, LAYER_MIX = {};
-const SCALES = {
+export const MUSIC_STYLES = {}, LAYER_MIX = {};
+export const SCALES = {
   minor:    [0, 2, 3, 5, 7, 8, 10],
   phrygian: [0, 1, 3, 5, 7, 8, 10],
   locrian:  [0, 1, 3, 5, 6, 8, 10],
@@ -15,7 +17,7 @@ const SCALES = {
 };
 // boss arrangement of a sector style: same key and chords, 25% faster, 16th-note arp with octave jumps,
 // octave-bouncing 8th bass, full drums with 16th hats, and a chord stab on every downbeat
-function bossArrangement(st) {
+export function bossArrangement(st) {
   return Object.assign({}, st, {
     bpm: Math.round(st.bpm * 1.3), boss: true, padCut: st.padCut * 1.3, drone: true,
     arp: { wave: st.arp.wave === 'triangle' ? 'square' : st.arp.wave, cut: st.arp.cut * 1.2, pat: [0, 1, 2, 3, 4, 2, 1, 3, 0, 1, 2, 3, 5, 4, 2, 1] },
@@ -26,10 +28,10 @@ function bossArrangement(st) {
   });
 }
 
-const mus = { want: null, name: null, st: null, step: 0, next: 0, bus: null, layers: {}, mix: null, duck: 1, timer: null };
-const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+export const mus = { want: null, name: null, st: null, step: 0, next: 0, bus: null, layers: {}, mix: null, duck: 1, timer: null };
+export const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
 
-function musicInit() {
+export function musicInit() {
   if (!actx || mus.bus) return;
   mus.bus = actx.createGain(); mus.bus.gain.value = 0; mus.bus.connect(actx.destination);
   ['pad', 'arp', 'bass', 'drums', 'tension'].forEach(k => { const g = actx.createGain(); g.gain.value = 0; g.connect(mus.bus); mus.layers[k] = g; });
@@ -37,7 +39,7 @@ function musicInit() {
   if (mus.want) { const w = mus.want; mus.want = null; setMusic(w.name, w.boss); }
 }
 // name: a sector code or 'BASE'; boss: play the sector's boss arrangement
-function setMusic(name, boss) {
+export function setMusic(name, boss) {
   const key = name + (boss ? ':boss' : '');
   if (!actx || !mus.bus) { mus.want = { name, boss }; return; }
   if (mus.name === key) return;
@@ -47,19 +49,19 @@ function setMusic(name, boss) {
   setMusicMix(boss ? 'boss' : name === 'BASE' ? 'base' : 'explore');
   musicVolume();
 }
-function setMusicMix(kind) {
+export function setMusicMix(kind) {
   if (!mus.bus || mus.mix === kind) return;
   mus.mix = kind;
   const m = LAYER_MIX[kind], t = actx.currentTime;
   for (const k in mus.layers) mus.layers[k].gain.setTargetAtTime(m[k], t, kind === 'combat' ? 0.4 : 1.2);
 }
 // overall BGM volume from the setting; duck = 0..1 (quieter while paused)
-function musicVolume(duck) {
+export function musicVolume(duck) {
   if (duck !== undefined) mus.duck = duck;
   if (!mus.bus) return;
   mus.bus.gain.setTargetAtTime(0.2 * bgmVolume * mus.duck, actx.currentTime, 0.3);
 }
-function musicTick() {
+export function musicTick() {
   const st = mus.st;
   if (!st || !actx || actx.state !== 'running') return;
   const stepDur = 60 / st.bpm / 4;
@@ -70,11 +72,11 @@ function musicTick() {
   }
 }
 
-function chordOf(st, degree) {
+export function chordOf(st, degree) {
   const sc = SCALES[st.scale], n = sc.length;
   return [0, 2, 4].map(k => sc[(degree + k) % n] + 12 * Math.floor((degree + k) / n));
 }
-function playStep(st, step, t, d) {
+export function playStep(st, step, t, d) {
   const s = step % 16, bar = Math.floor(step / 16);
   const chord = chordOf(st, st.prog[bar % st.prog.length]), root = st.root + 12 * (st.oct || 0);
   if (s === 0) chord.forEach((c, i) => synthNote('pad', midiHz(root + 12 + c), t, d * 16, st.padWave, 0.045, 0.8, st.padCut, (i - 1) * 9));
@@ -101,7 +103,7 @@ function playStep(st, step, t, d) {
   if (s === 8 && bar % 2 === 1) [12, 13].forEach(iv => synthNote('tension', midiHz(root + 12 + chord[0] + iv), t, d * 3, 'square', 0.025, 0.01, 1500));
 }
 // metallic hit: two inharmonic square partials through a resonant bandpass, plus a noise tick
-function drumClank(t) {
+export function drumClank(t) {
   [523, 797].forEach(fq => {
     const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
     o.type = 'square'; o.frequency.value = fq * rand(0.97, 1.03);
@@ -112,14 +114,14 @@ function drumClank(t) {
   drumNoise(t, 0.05, 0.08, 'bandpass', 3500);
 }
 // wind: long noise swell with a slowly sweeping lowpass
-function windSwell(t, dur) {
+export function windSwell(t, dur) {
   const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
   s.buffer = noiseBuf; s.loop = true; f.type = 'lowpass'; f.Q.value = 3;
   f.frequency.setValueAtTime(300, t); f.frequency.linearRampToValueAtTime(900, t + dur * 0.5); f.frequency.linearRampToValueAtTime(250, t + dur);
   g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05, t + dur * 0.4); g.gain.linearRampToValueAtTime(0.0001, t + dur);
   s.connect(f); f.connect(g); g.connect(mus.layers.pad); s.start(t); s.stop(t + dur + 0.1);
 }
-function synthNote(layer, freq, t, dur, wave, peak, att, cut, detune) {
+export function synthNote(layer, freq, t, dur, wave, peak, att, cut, detune) {
   const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
   o.type = wave; o.frequency.value = freq; if (detune) o.detune.value = detune;
   f.type = 'lowpass'; f.frequency.value = cut;
@@ -129,13 +131,13 @@ function synthNote(layer, freq, t, dur, wave, peak, att, cut, detune) {
   o.connect(f); f.connect(g); g.connect(mus.layers[layer]);
   o.start(t); o.stop(t + dur + 1);
 }
-function drumKick(t) {
+export function drumKick(t) {
   const o = actx.createOscillator(), g = actx.createGain();
   o.type = 'sine'; o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.14);
   g.gain.setValueAtTime(0.45, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
   o.connect(g); g.connect(mus.layers.drums); o.start(t); o.stop(t + 0.25);
 }
-function drumNoise(t, dur, vol, type, freq, layer) {
+export function drumNoise(t, dur, vol, type, freq, layer) {
   const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
   s.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);

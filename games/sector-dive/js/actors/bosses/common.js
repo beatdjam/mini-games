@@ -1,10 +1,32 @@
-'use strict';
+import * as THREE from 'three';
+import { $, clamp } from '../../../../../engine/core/util.js';
+import { spawn } from '../../../../../engine/core/world.js';
+import { t } from '../../../../../engine/core/i18n.js';
+import { sfx } from '../../../../../engine/audio/audio.js';
+import { setMusic } from '../../../../../engine/audio/music.js';
+import { V3, dynGroup } from '../../../../../engine/render/render.js';
+import { burst, fireball } from '../../../../../engine/render/fx.js';
+import { H, T, W } from '../../../../../engine/world/tiles.js';
+import { banner, toast } from '../../../../../engine/ui/ui.js';
+import { BOSS_META, BOSS_TUNE } from '../../data/bosses.js';
+import { persist, save } from '../../system/save.js';
+import { presMul, prog } from '../../system/rules.js';
+import { curBiome, makePortal } from '../../world/level.js';
+import { addPickup, boss, dropBits, eBullets, enemies, removeEnemyMesh, setBoss, spawnEnemyObj } from '../../world/entities.js';
+import { rollWeapon, run, stageInfo, tierLabel } from '../player.js';
+import { spawnWatcher } from './watcher.js';
+import { spawnCrusher } from './crusher.js';
+import { spawnCore } from './core.js';
+import { spawnPhantom } from './phantom.js';
+import { spawnTrinity } from './trinity.js';
+import { spawnBastion } from './bastion.js';
+import { SCR } from '../../ui/hud.js';
 // ================= bosses =================
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3)
-function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * Math.pow(BOSS_TUNE.growth, (prog(run.stage) - 4) / 5) * presMul(); }
+export function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * Math.pow(BOSS_TUNE.growth, (prog(run.stage) - 4) / 5) * presMul(); }
 // hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDiff
 // behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared
-function bossBase(kind, mesh, mat, behave) {
+export function bossBase(kind, mesh, mat, behave) {
   const meta = BOSS_META[kind], name = meta.title, hp = meta.hp * bossDiff(), y = meta.y, hitR = meta.hitR;
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;
@@ -20,7 +42,7 @@ function bossBase(kind, mesh, mat, behave) {
   return e;
 }
 // while a boss is appearing or switching phase it can't be hurt and doesn't act
-function bossPauseTick(e, dt) {
+export function bossPauseTick(e, dt) {
   e.spawnT -= dt;
   const k = clamp(1 - e.spawnT / e.spawnMax, 0, 1);
   if (e.intro) e.mesh.scale.setScalar(0.25 + 0.75 * k);
@@ -29,7 +51,7 @@ function bossPauseTick(e, dt) {
   if (e.spawnT <= 0) { e.mesh.scale.setScalar(1); e.intro = false; }
 }
 // drop below half health: short invulnerable burst, then the boss's enraged patterns take over
-function bossPhase(e) {
+export function bossPhase(e) {
   e.phased = true; e.spawnT = e.spawnMax = BOSS_TUNE.phaseTime; e.intro = false;
   const p = e.mesh.position;
   burst(p.x, p.y, p.z, 0xff4d8d, 40, 12, 1.0); fireball(p.x, p.y, p.z, 4, 0xff4d8d);
@@ -38,13 +60,13 @@ function bossPhase(e) {
   toast(t('boss.phase2'), 2000);
 }
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in js/actors/bosses/<name>.js
-function spawnBoss(kind) {
+export function spawnBoss(kind) {
   if (!run.practice && !save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); } // practice doesn't count as an encounter
   const spawn = { watcher: spawnWatcher, crusher: spawnCrusher, core: spawnCore, phantom: spawnPhantom, trinity: spawnTrinity, bastion: spawnBastion }[kind];
   spawn(); boss.kind = kind; // remembered for the run's result (bosses defeated)
   setMusic(curBiome.code, true); // boss arrangement of this sector's theme
 }
-function bossDown(e) {
+export function bossDown(e) {
   setMusic(curBiome.code);
   SCR.shake = 0.6; sfx('bigboom');
   if (e.beams) e.beams.forEach(b => { b.visible = false; });
@@ -74,12 +96,12 @@ function bossDown(e) {
 
 // ---- aimed laser line (sniper enemy, Phantom) ----
 // ---- shared helpers for aimed lasers ----
-function makeLaser(color) {
+export function makeLaser(color) {
   const lg = new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]);
   const l = new THREE.Line(lg, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8 }));
   l.visible = false; l.frustumCulled = false; dynGroup.add(l); return l;
 }
-function setLaser(l, a, b, op) {
+export function setLaser(l, a, b, op) {
   const p = l.geometry.attributes.position;
   p.setXYZ(0, a[0], a[1], a[2]); p.setXYZ(1, b[0], b[1], b[2]); p.needsUpdate = true;
   l.material.opacity = op; l.visible = true;

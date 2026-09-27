@@ -1,12 +1,29 @@
-'use strict';
-const hpFill = $('#hpFill'), hpNum = $('#hpNum'), hpBar = $('#hpBar'), stFill = $('#stFill'), stBar = $('#stBar'), bitNum = $('#bitNum');
-const cross = $('#cross'), hitm = $('#hitm'), ammoEl = $('#ammo'), reloadEl = $('#reload'), rFill = $('#rFill');
-const vigEl = $('#vig'), bossFill = $('#bossFill'), mini = $('#mini'), mctx = mini.getContext('2d'), bigmap = $('#bigmap'), bctx = bigmap.getContext('2d');
+import { $, clamp, isTouch } from '../../../../engine/core/util.js';
+import { query } from '../../../../engine/core/world.js';
+import { LANG, lang, setLang, t } from '../../../../engine/core/i18n.js';
+import { applySfxVolume, audioInit } from '../../../../engine/audio/audio.js';
+import { musicVolume } from '../../../../engine/audio/music.js';
+import { resize } from '../../../../engine/render/render.js';
+import { H, T, W, cover, grid, hgt, ramp } from '../../../../engine/world/tiles.js';
+import { fsSupported, isFs, isStandalone, toggleFs } from '../../../../engine/ui/ui.js';
+import { locked } from '../../../../engine/ui/input.js';
+import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '../../../../engine/ui/touchlayout.js';
+import { KIT_MAX, TUNE } from '../data/progress.js';
+import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.js';
+import { persist, save, syncVolumes } from '../system/save.js';
+import { arena, curBiome, haz, portals, roomOf, seen } from '../world/level.js';
+import { boss, enemies, nearW, target } from '../world/entities.js';
+import { P, curW, magSize, run, wName, wText, weaponStats } from '../actors/player.js';
+import { renderBase, setState, show, state } from '../flow/game.js';
+import { time } from '../flow/update.js';
+export const hpFill = $('#hpFill'), hpNum = $('#hpNum'), hpBar = $('#hpBar'), stFill = $('#stFill'), stBar = $('#stBar'), bitNum = $('#bitNum');
+export const cross = $('#cross'), hitm = $('#hitm'), ammoEl = $('#ammo'), reloadEl = $('#reload'), rFill = $('#rFill');
+export const vigEl = $('#vig'), bossFill = $('#bossFill'), mini = $('#mini'), mctx = mini.getContext('2d'), bigmap = $('#bigmap'), bctx = bigmap.getContext('2d');
 // screen effects shared by several files: hit marker, damage vignette, camera shake, minimap redraw, stamina warning
-const SCR = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
-function hitMark(crit) { hitm.classList.add('on'); hitm.classList.toggle('crit', !!crit); SCR.hitTimer = 0.09; }
-function toggleMap() { if (state !== 'play') return; bigmap.hidden = !bigmap.hidden; SCR.miniT = 0; }
-function weaponHud() {
+export const SCR = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
+export function hitMark(crit) { hitm.classList.add('on'); hitm.classList.toggle('crit', !!crit); SCR.hitTimer = 0.09; }
+export function toggleMap() { if (state !== 'play') return; bigmap.hidden = !bigmap.hidden; SCR.miniT = 0; }
+export function weaponHud() {
   [0, 1].forEach(k => {
     const el = $('#w' + k), w = P.weapons[k];
     el.classList.toggle('on', k === P.cur);
@@ -16,7 +33,7 @@ function weaponHud() {
   const kh = $('#kitHud'); kh.textContent = t('hud.kits', { n: P.kits, max: KIT_MAX }); kh.classList.toggle('none', P.kits <= 0);
   $('#btnKit').classList.toggle('off', P.kits <= 0);
 }
-function updateHud() {
+export function updateHud() {
   const f = clamp(P.hp / P.maxHp, 0, 1);
   hpFill.style.transform = `scaleX(${f})`; hpBar.classList.toggle('low', f < 0.3);
   hpNum.textContent = Math.ceil(P.hp);
@@ -51,7 +68,7 @@ function updateHud() {
   } else if (!row.hidden) { row.hidden = true; updateHint(); }
 }
 // "DPS 142 ▲+38 / per hit 16×8 ▼-4 / mag 6 ▼-6" against the weapon in hand
-function compareHTML(w, cur) {
+export function compareHTML(w, cur) {
   const a = weaponStats(w), b = weaponStats(cur);
   const d = (v, base) => {
     const diff = Math.round(v) - Math.round(base);
@@ -60,13 +77,13 @@ function compareHTML(w, cur) {
   const hits = a.hits > 1 ? `×${a.hits}` : '';
   return t('hud.compare', { dps: Math.round(a.dps), ddps: d(a.dps, b.dps), hit: Math.round(a.perHit), hits, dhit: d(a.perHit * a.hits, b.perHit * b.hits), mag: a.mag, dmag: d(a.mag, b.mag) });
 }
-function updateHint() {
+export function updateHint() {
   const h = $('#hint');
   if (isTouch) h.textContent = '';
   else if (document.body.classList.contains('nolock')) h.textContent = t('hud.hintTouchLook');
   else h.textContent = locked || state !== 'play' ? '' : t('hud.hintLock');
 }
-function drawMap(c, g, big) {
+export function drawMap(c, g, big) {
   const s = c.width / Math.max(W, H);
   g.clearRect(0, 0, c.width, c.height);
   g.fillStyle = curBiome.line;
@@ -100,13 +117,12 @@ function drawMap(c, g, big) {
   g.moveTo(x + fx * a, z + fz * a); g.lineTo(x - fx * b + fz * b, z - fz * b - fx * b); g.lineTo(x - fx * b - fz * b, z - fz * b + fx * b); g.closePath(); g.fill();
 }
 
-function fsLabel() { $('#btnFs').textContent = t(isFs() ? 'hud.fsOff' : 'hud.fs'); }
+export function fsLabel() { $('#btnFs').textContent = t(isFs() ? 'hud.fsOff' : 'hud.fs'); }
 $('#btnFs').hidden = !fsSupported || isStandalone;
-fsLabel();
 $('#btnFs').addEventListener('click', toggleFs);
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { fsLabel(); renderSettings(); setTimeout(resize, 100); }));
 
-function settingsHTML(where) {
+export function settingsHTML(where) {
   const st = save.settings;
   const onOff = v => t(v ? 'set.on' : 'set.off');
   const langSeg = `<div class="seg" role="group" aria-label="${t('set.lang')}"><span>${t('set.lang')}</span>${Object.keys(LANG).map(k =>
@@ -122,7 +138,7 @@ function settingsHTML(where) {
     <button class="toggle" data-set="stickDash" aria-pressed="${st.stickDash}">${t('set.stickDash')}<b>${onOff(st.stickDash)}</b></button>
     <button class="toggle" data-layout="1">${t('set.layout')}</button>` : ''}`;
 }
-function renderSettings() { document.querySelectorAll('[data-settings]').forEach(el => { el.innerHTML = settingsHTML(el.dataset.settings); }); }
+export function renderSettings() { document.querySelectorAll('[data-settings]').forEach(el => { el.innerHTML = settingsHTML(el.dataset.settings); }); }
 document.addEventListener('click', e => {
   const s = e.target.closest('[data-set]'), a = e.target.closest('[data-assist]'), f = e.target.closest('[data-fs]');
   const lo = e.target.closest('[data-layout]'), lg = e.target.closest('[data-lang]');
@@ -158,12 +174,10 @@ Object.assign(TOUCH_LAYOUT, {
     else { $('#touch').hidden = true; setState('base'); renderSettings(); show('#scrBase'); }
   },
 });
-applyLayout();
 
-function renderGuide() { $('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join(''); }
-renderGuide();
+export function renderGuide() { $('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join(''); }
 // switching language redraws whatever is on screen (static text is handled by setLang)
-function changeLang(code) {
+export function changeLang(code) {
   save.settings.lang = code; persist(); setLang(code);
   renderSettings(); renderGuide(); fsLabel(); updateHint();
   if (state === 'base') renderBase();

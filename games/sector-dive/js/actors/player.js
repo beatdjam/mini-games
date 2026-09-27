@@ -1,12 +1,31 @@
-'use strict';
-let P = null, run = null;
-function setPlayer(p) { P = p; }
-function setRun(r) { run = r; }
-const newWeapon = (id, r, basic, plus, opts) => ({ id, r, basic: !!basic, plus: plus || 0, opts: opts || [], mag: WEAPONS[id].mag });
-const wo = (k, w) => { w = w || (P && P.weapons[P.cur]); return w && w.opts ? w.opts.filter(o => o === k).length : 0; };
-const wDmgMul = w => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
+import { $, clamp, rand, randi, shuffle } from '../../../../engine/core/util.js';
+import { t } from '../../../../engine/core/i18n.js';
+import { sfx } from '../../../../engine/audio/audio.js';
+import { UP, V3, buildViewmodel, camera, gun, scene } from '../../../../engine/render/render.js';
+import { burst, fireball } from '../../../../engine/render/fx.js';
+import { hasLOS, moveCircle } from '../../../../engine/world/tiles.js';
+import { toast } from '../../../../engine/ui/ui.js';
+import { joy, keys } from '../../../../engine/ui/input.js';
+import { AFFIX, PLUS_DMG, RARITY, WEAPONS, WEAPON_ORDER } from '../data/weapons.js';
+import { VIEWMODELS, VM_COLORS } from '../data/viewmodels.js';
+import { ENEMY_TUNE } from '../data/enemies.js';
+import { BIOMES } from '../data/biomes.js';
+import { ASSIST, DEPTH_HP_GROWTH, PER, TUNE } from '../data/progress.js';
+import { save } from '../system/save.js';
+import { basicNow, pickDrop, presMul, prog } from '../system/rules.js';
+import { roomCount, roomSpot, rooms } from '../world/level.js';
+import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy, spawnPBullet, target } from '../world/entities.js';
+import { bossDown, bossPhase } from './bosses/common.js';
+import { SCR, hitMark } from '../ui/hud.js';
+import { endRun, state } from '../flow/game.js';
+export let P = null, run = null;
+export function setPlayer(p) { P = p; }
+export function setRun(r) { run = r; }
+export const newWeapon = (id, r, basic, plus, opts) => ({ id, r, basic: !!basic, plus: plus || 0, opts: opts || [], mag: WEAPONS[id].mag });
+export const wo = (k, w) => { w = w || (P && P.weapons[P.cur]); return w && w.opts ? w.opts.filter(o => o === k).length : 0; };
+export const wDmgMul = w => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
 // `stage` here is progress (prog), not the raw stage number
-function rollWeapon(stage, minR) {
+export function rollWeapon(stage, minR) {
   const roll = Math.random() + stage * 0.025;
   const r = Math.max(minR || 0, roll > 1.05 ? 2 : roll > 0.68 ? 1 : 0);
   let plus = 0;
@@ -22,7 +41,7 @@ function rollWeapon(stage, minR) {
   if (stage >= 10 && Math.random() < 0.3 + (stage - 10) * 0.03) n++;
   return newWeapon(pickDrop(), r, false, plus, shuffle(Object.keys(AFFIX)).slice(0, n));
 }
-function newPlayer(loadout) {
+export function newPlayer(loadout) {
   const u = save.up, pu = save.pres.up, hp = TUNE.hp + u.hp * 15 + pu.hp * 10;
   const ws = loadout.map(basicNow).map(w => w ? newWeapon(w.id, w.r, w.basic, w.plus, w.opts) : null);
   return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: TUNE.moveSpeed, spdMul: 1 + u.spd * 0.05, dmgMul: 1 + u.dmg * 0.08,
@@ -32,25 +51,25 @@ function newPlayer(loadout) {
     reloadT: 0, reloadMax: 1, fireCd: 0, tile: -1, bob: 0, fy: 0, vy: 0 };
 }
 // each run walks the sectors in its own shuffled order (run.route); depth (tier) drives difficulty
-const routeBiome = t => BIOMES[run && run.route ? run.route[t % run.route.length] : t % BIOMES.length];
-const stageInfo = s => { const tier = Math.floor(s / PER); return { biome: routeBiome(tier), sub: s % PER, loop: Math.floor(tier / 3), tier }; };
-const isBossStage = s => s % PER === PER - 1;
-function stageLabel(s) { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
-function tierLabel(t) { return `DEPTH ${t + 1}`; }
-const diffOf = s => ENEMY_TUNE.hpMul * Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
+export const routeBiome = t => BIOMES[run && run.route ? run.route[t % run.route.length] : t % BIOMES.length];
+export const stageInfo = s => { const tier = Math.floor(s / PER); return { biome: routeBiome(tier), sub: s % PER, loop: Math.floor(tier / 3), tier }; };
+export const isBossStage = s => s % PER === PER - 1;
+export function stageLabel(s) { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
+export function tierLabel(t) { return `DEPTH ${t + 1}`; }
+export const diffOf = s => ENEMY_TUNE.hpMul * Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
 // chipMag: share of the magazine chips' effect a weapon gets (the launcher only half, so it can't double its output)
-const magSize = w => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1); return Math.max(1, Math.round(def.mag * chip * (1 + 0.3 * wo('mag', w)))); };
+export const magSize = w => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1); return Math.max(1, Math.round(def.mag * chip * (1 + 0.3 * wo('mag', w)))); };
 // rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
-const rarLabel = w => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
-const wName = w => `<span style="color:${w.r ? RARITY[w.r].css : 'inherit'}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
-const wText = w => t('weapon.text', { name: WEAPONS[w.id].name + (w.plus ? '+' + w.plus : ''), rar: rarLabel(w), opts: w.opts && w.opts.length ? w.opts.map(o => AFFIX[o].name).join(t('share.join')) : '' });
+export const rarLabel = w => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
+export const wName = w => `<span style="color:${w.r ? RARITY[w.r].css : 'inherit'}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
+export const wText = w => t('weapon.text', { name: WEAPONS[w.id].name + (w.plus ? '+' + w.plus : ''), rar: rarLabel(w), opts: w.opts && w.opts.length ? w.opts.map(o => AFFIX[o].name).join(t('share.join')) : '' });
 // split-shot: each chip adds one projectile and +20% total damage, shared across all projectiles,
 // so a full hit gains the same +20% per chip whether the weapon fires 1 round or 8 pellets
-const splitMul = def => def.pellets * (1 + 0.2 * P.extra) / (def.pellets + P.extra);
-const critChance = w => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
+export const splitMul = def => def.pellets * (1 + 0.2 * P.extra) / (def.pellets + P.extra);
+export const critChance = w => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
 // dps = sustained damage per second including reloads and average crits (rail range bonus and explosions not counted).
-function weaponStats(w) {
+export function weaponStats(w) {
   const def = WEAPONS[w.id];
   const perHit = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
   const hits = def.pellets + P.extra;
@@ -59,31 +78,31 @@ function weaponStats(w) {
   const reload = def.reload * P.reloadMul * Math.pow(0.8, wo('reload', w));
   return { perHit, hits, mag, dps: perHit * hits * mag / (mag * interval + reload) * (1 + critChance(w)) };
 }
-const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
+export const wOpts = w => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
 // the gun in hand per weapon, from js/data/viewmodels.js
-const VM = {};
+export const VM = {};
 WEAPON_ORDER.forEach(id => {
   const g = buildViewmodel(VIEWMODELS[id], Object.assign({ acc: WEAPONS[id].color }, VM_COLORS));
   g.visible = false; gun.add(g); VM[id] = g;
 });
 // the gun in hand: recoil and muzzle flash timers
-const GUNFX = { gunKick: 0, flashT: 0 };
-let curVM = null;
-function setVM(id) {
+export const GUNFX = { gunKick: 0, flashT: 0 };
+export let curVM = null;
+export function setVM(id) {
   if (curVM) { curVM.visible = false; curVM.userData.flash.visible = false; }
   curVM = VM[id]; curVM.visible = true;
 }
 
-const curW = () => P.weapons[P.cur];
-function fwd() { return new V3(-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.pitch), -Math.cos(P.yaw) * Math.cos(P.pitch)); }
+export const curW = () => P.weapons[P.cur];
+export function fwd() { return new V3(-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.pitch), -Math.cos(P.yaw) * Math.cos(P.pitch)); }
 
 // hit spheres: multi-body bosses list their parts, everything else is one sphere at the mesh
-function spheres(e) { return e.parts || [{ p: e.mesh.position, r: e.hitR }]; }
+export function spheres(e) { return e.parts || [{ p: e.mesh.position, r: e.hitR }]; }
 // how far you can actually make enemies out: 60% of the way into the fog
-const visibleRange = () => Math.min(56, scene.fog.near + (scene.fog.far - scene.fog.near) * 0.6);
+export const visibleRange = () => Math.min(56, scene.fog.near + (scene.fog.far - scene.fog.near) * 0.6);
 // target for autofire, aim assist and the red crosshair: in the aim cone, in line of sight, and not hidden in fog
-function findTarget() {
+export function findTarget() {
   const f = fwd(), cp = camera.position, cone = Math.max(ASSIST[save.settings.assist] || 0, 0.012), maxD = visibleRange();
   let best = null, bestS = Infinity;
   for (const e of enemies) {
@@ -98,19 +117,19 @@ function findTarget() {
   return best;
 }
 
-function tryFire() {
+export function tryFire() {
   if (P.reloadT > 0) return;
   const w = curW();
   if (w.mag <= 0) { startReload(); return; }
   fire();
 }
-function startReload() {
+export function startReload() {
   const w = curW();
   if (P.reloadT > 0 || w.mag >= magSize(w)) return;
   P.reloadMax = P.reloadT = WEAPONS[w.id].reload * P.reloadMul * Math.pow(0.8, wo('reload')); sfx('reload');
 }
-let shotId = 0; // one trigger pull; knockback is applied once per shot per enemy
-function fire() {
+export let shotId = 0; // one trigger pull; knockback is applied once per shot per enemy
+export function fire() {
   shotId++;
   const w = curW(), def = WEAPONS[w.id], rar = RARITY[w.r];
   P.fireCd = def.rate / P.fireRate * Math.pow(0.91, wo('rate'));
@@ -146,13 +165,13 @@ function fire() {
   if (w.mag <= 0) startReload();
 }
 
-function damagePlayer(d) {
+export function damagePlayer(d) {
   if (P.inv > 0 || state !== 'play') return;
   P.hp -= d; P.inv = TUNE.hitInvuln; SCR.shake = Math.max(SCR.shake, 0.22); SCR.vig = 0.9; sfx('hurt', 80);
   if (P.hp <= 0) { P.hp = 0; endRun('dead'); }
 }
 
-function hurtEnemy(e, dmg, isCrit) {
+export function hurtEnemy(e, dmg, isCrit) {
   if (e.dead) return;
   if (e.boss && e.spawnT > 0) { burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0xffffff, 2, 3, 0.2); return; }
   if (e.invuln) { if (!e.hinted) { e.hinted = true; toast(t('run.shielded'), 2400); } burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0x8cc8ff, 2, 4, 0.2); return; }
@@ -164,7 +183,7 @@ function hurtEnemy(e, dmg, isCrit) {
   else if (e.boss && !e.phased && e.hp < e.maxHp * 0.5) bossPhase(e);
 }
 // player explosions (rockets, chain blasts); one crit roll per explosion
-function explode(x, y, z, radius, dmg, color, big) {
+export function explode(x, y, z, radius, dmg, color, big) {
   const crit = Math.random() < critChance();
   if (crit) dmg *= 2;
   if (big) {
@@ -190,15 +209,15 @@ function explode(x, y, z, radius, dmg, color, big) {
   }
 }
 // bomber blast: hurts the player and any enemy caught in it
-function bomberBlast(x, y, z, dmg) {
+export function bomberBlast(x, y, z, dmg) {
   burst(x, y, z, 0xffb13d, 26, 10, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.3); fireball(x, y, z, 3, 0xff8a3d);
   sfx('boom', 40); SCR.shake = Math.max(SCR.shake, 0.2);
   if (Math.hypot(P.x - x, P.z - z) < 3.4 && Math.abs(P.fy + 1 - y) < 2.5) damagePlayer(dmg);
   for (const o of enemies.slice()) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, 35, false);
 }
-function detonate(e) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
-let inChainBlast = false;
-function killEnemy(e, noReward) {
+export function detonate(e) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
+export let inChainBlast = false;
+export function killEnemy(e, noReward) {
   e.dead = true;
   if (!noReward) run.kills++;
   const pos = e.mesh.position;
@@ -228,7 +247,7 @@ function killEnemy(e, noReward) {
   }
   if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room);
 }
-function roomCleared(idx) {
+export function roomCleared(idx) {
   const [x, z] = roomSpot(rooms[idx]);
   if (Math.random() < TUNE.chipChance) { addPickup('chip', x, z); toast(t('run.clearedChip')); }
   else { addPickup('kit', x - 0.8, z); dropBits(x + 0.8, z, 6 + prog(run.stage)); toast(t('run.cleared')); }

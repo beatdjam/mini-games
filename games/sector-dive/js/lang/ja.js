@@ -1,4 +1,5 @@
-'use strict';
+import { $, pct } from '../../../../engine/core/util.js';
+import { LANG } from '../../../../engine/core/i18n.js';
 // 日本語（基準の言語。キーが足りない言語はここの文言を使う）
 LANG.ja = {
   name: '日本語',

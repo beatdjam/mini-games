@@ -1,6 +1,8 @@
-'use strict';
-const rocketGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.7, 8); rocketGeo.rotateX(Math.PI / 2);
-const geoCache = {
+import * as THREE from 'three';
+import { t } from '../../../../engine/core/i18n.js';
+import { renderer, shared } from '../../../../engine/render/render.js';
+export const rocketGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.7, 8); rocketGeo.rotateX(Math.PI / 2);
+export const geoCache = {
   pbullet: shared(new THREE.BoxGeometry(0.07, 0.07, 1.1)),
   rocket: shared(rocketGeo),
   ebullet: shared(new THREE.SphereGeometry(0.22, 8, 6)),
@@ -22,10 +24,10 @@ const geoCache = {
   tetraS: shared(new THREE.TetrahedronGeometry(0.45)),
   shieldPlate: shared(new THREE.BoxGeometry(1.8, 2.0, 0.12)),
 };
-const edgeCache = {};
-function edges(key) { return edgeCache[key] || (edgeCache[key] = shared(new THREE.EdgesGeometry(geoCache[key]))); }
+export const edgeCache = {};
+export function edges(key) { return edgeCache[key] || (edgeCache[key] = shared(new THREE.EdgesGeometry(geoCache[key]))); }
 // textures
-function makeTex(bg, line, kind) {
+export function makeTex(bg, line, kind) {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g = c.getContext('2d');
   g.fillStyle = bg; g.fillRect(0, 0, 128, 128); g.strokeStyle = line; g.fillStyle = line;
@@ -43,8 +45,8 @@ function makeTex(bg, line, kind) {
   t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
   return t;
 }
-const texCache = {};
-function biomeTex(b) {
+export const texCache = {};
+export function biomeTex(b) {
   if (texCache[b.code]) return texCache[b.code];
   const floor = makeTex(b.floor, b.line, 'floor'); floor.wrapS = floor.wrapT = THREE.RepeatWrapping;
   return (texCache[b.code] = { floor, tile: makeTex(b.floor, b.line, 'floor'), wall: makeTex(b.wall, b.wallLine, 'wall') });

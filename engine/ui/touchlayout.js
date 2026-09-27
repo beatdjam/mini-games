@@ -1,4 +1,5 @@
-'use strict';
+import { $, clamp } from '../core/util.js';
+import { exitLock, releaseInputs, touchEl } from './input.js';
 // engine: On-screen touch buttons: placement from defaults plus the player's edits, and an editor to drag / resize them.
 // Buttons are elements with data-lb="<id>". The editor bar is #layoutBar with [data-lbact] buttons (minus / plus /
 // reset / done) and #lbName. The game fills TOUCH_LAYOUT:
@@ -7,10 +8,10 @@
 //   edits()      the saved edits, a mutable object { id: { x, y, s } }; reset() clears them; save() persists
 //   afterApply() extra tweaks after placing (e.g. hide a button the player turned off)
 //   onOpen(from) / onClose(from)  switch screens around the editor (from = whatever openLayoutEditor was given)
-const TOUCH_LAYOUT = { defs: {}, first: null, edits: () => ({}), reset: () => {}, save: () => {}, afterApply: () => {}, onOpen: () => {}, onClose: () => {} };
-const getL = id => Object.assign({}, TOUCH_LAYOUT.defs[id], TOUCH_LAYOUT.edits()[id] || {});
-let editing = false, editSel = null, editDrag = null, editFrom = null;
-function applyLayout() {
+export const TOUCH_LAYOUT = { defs: {}, first: null, edits: () => ({}), reset: () => {}, save: () => {}, afterApply: () => {}, onOpen: () => {}, onClose: () => {} };
+export const getL = id => Object.assign({}, TOUCH_LAYOUT.defs[id], TOUCH_LAYOUT.edits()[id] || {});
+export let editing = false, editSel = null, editDrag = null, editFrom = null;
+export function applyLayout() {
   const vw = window.innerWidth, vh = window.innerHeight;
   Object.keys(TOUCH_LAYOUT.defs).forEach(id => {
     const el = document.querySelector(`[data-lb="${id}"]`), l = getL(id), size = Math.round(l.b * l.s);
@@ -22,13 +23,13 @@ function applyLayout() {
   });
   TOUCH_LAYOUT.afterApply();
 }
-function openLayoutEditor(from) {
+export function openLayoutEditor(from) {
   editFrom = from; editing = true; editSel = TOUCH_LAYOUT.first || Object.keys(TOUCH_LAYOUT.defs)[0];
   releaseInputs(); exitLock(); TOUCH_LAYOUT.onOpen(from);
   $('#touch').hidden = false; touchEl.classList.add('editing'); $('#layoutBar').hidden = false;
   applyLayout(); $('#lbName').textContent = TOUCH_LAYOUT.defs[editSel].name;
 }
-function closeLayoutEditor() {
+export function closeLayoutEditor() {
   editing = false; editDrag = null; TOUCH_LAYOUT.save();
   touchEl.classList.remove('editing'); $('#layoutBar').hidden = true; applyLayout();
   TOUCH_LAYOUT.onClose(editFrom);

@@ -1,7 +1,16 @@
-'use strict';
+import * as THREE from 'three';
+import { t } from '../../../../../engine/core/i18n.js';
+import { sfx } from '../../../../../engine/audio/audio.js';
+import { blocked } from '../../../../../engine/world/tiles.js';
+import { toast } from '../../../../../engine/ui/ui.js';
+import { BOSS_META } from '../../data/bosses.js';
+import { randomTileIn, rooms } from '../../world/level.js';
+import { fanAt, ring, shootAngle, spawnEnemy } from '../../world/entities.js';
+import { P, diffOf, run } from '../player.js';
+import { bossBase, bossDiff } from './common.js';
 // WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
-function spawnWatcher() {
+export function spawnWatcher() {
   const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.IcosahedronGeometry(2.1, 0);
   const mat = new THREE.MeshLambertMaterial({ color: 0x0f151c, emissive: 0x54e8ff, emissiveIntensity: 0.3 });
@@ -10,7 +19,7 @@ function spawnWatcher() {
   bossBase('watcher', g, mat, updWatcher);
   toast(t('boss.watcherHint'), 3800);
 }
-function updWatcher(e, dt) {
+export function updWatcher(e, dt) {
   const K = BOSS_META.watcher.tune;
   e.t += dt; e.timer -= dt; e.pt += dt;
   const enr = e.hp < e.maxHp * 0.5;

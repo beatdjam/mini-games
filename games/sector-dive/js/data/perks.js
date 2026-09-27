@@ -1,10 +1,10 @@
-'use strict';
+import { TUNE } from './progress.js';
 // Chips offered during a run
 // Chips. v = normal amount, rv = amount on the rare (gold) version; chips without rv never come as rare.
 // maxed(p) = true once the chip can't do anything more (it is then left out of the offer). cur(p) = the current value;
 // the language file's curText(c) turns it into the line on the card. Names and descriptions are in js/lang/.
 // Damage / fire rate / speed stack additively (two overload chips = +40%), so power grows in a straight line.
-const PERKS = [
+export const PERKS = [
   { id: 'overload', v: 0.2,  rv: 0.35, apply: (p, v) => { p.dmgMul += v; }, cur: p => p.dmgMul - 1 },
   { id: 'rapid',    v: 0.15, rv: 0.26, apply: (p, v) => { p.fireRate += v; }, cur: p => p.fireRate - 1 },
   { id: 'armor',    v: 20,   rv: 35,   apply: (p, v) => { p.maxHp += v; p.hp = Math.min(p.maxHp, p.hp + v); }, cur: p => p.maxHp },

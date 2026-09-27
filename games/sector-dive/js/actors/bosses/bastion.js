@@ -1,8 +1,16 @@
-'use strict';
+import * as THREE from 'three';
+import { rand } from '../../../../../engine/core/util.js';
+import { t } from '../../../../../engine/core/i18n.js';
+import { sfx } from '../../../../../engine/audio/audio.js';
+import { toast } from '../../../../../engine/ui/ui.js';
+import { BOSS_META } from '../../data/bosses.js';
+import { ring, spawnEBullet, spawnEnemy } from '../../world/entities.js';
+import { diffOf, run } from '../player.js';
+import { bossBase } from './common.js';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
 // ---- BASTION: shielded core; destroy every turret to open it for a few seconds ----
-function spawnBastion() {
+export function spawnBastion() {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x1b1408, emissive: 0xffb347, emissiveIntensity: 0.3 });
   const baseGeo = new THREE.CylinderGeometry(2.4, 3, 1.6, 8), coreGeo = new THREE.IcosahedronGeometry(1.3, 1);
@@ -16,14 +24,14 @@ function spawnBastion() {
   bastionTurrets(e, BOSS_META.bastion.tune.turretsFirst);
   toast(t('boss.bastionHint'), 4600);
 }
-function bastionTurrets(e, n) {
+export function bastionTurrets(e, n) {
   const off = rand(0, Math.PI);
   for (let k = 0; k < n; k++) {
     const a = off + k * Math.PI * 2 / n, t = spawnEnemy('bturret', e.cx + Math.cos(a) * BOSS_META.bastion.tune.turretR, e.cz + Math.sin(a) * BOSS_META.bastion.tune.turretR, -1, diffOf(run.stage));
     t.active = true; e.turrets.push(t);
   }
 }
-function updBastion(e, dt) {
+export function updBastion(e, dt) {
   const K = BOSS_META.bastion.tune;
   e.t += dt;
   const enr = e.hp < e.maxHp * 0.5;

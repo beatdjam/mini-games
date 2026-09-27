@@ -1,9 +1,16 @@
-'use strict';
+import { clamp, rand } from '../../../../engine/core/util.js';
+import { sfx } from '../../../../engine/audio/audio.js';
+import { flowAt, hasLOS } from '../../../../engine/world/tiles.js';
+import { steerChase } from '../../../../engine/world/steer.js';
+import { ENEMY_TUNE } from '../data/enemies.js';
+import { enemies, fanAt, spawnEBullet } from '../world/entities.js';
+import { P, damagePlayer, detonate } from './player.js';
+import { bossPauseTick, setLaser } from './bosses/common.js';
 // ================= enemy behaviour (per frame) =================
 // Fields on an enemy object are listed in spawnEnemy (js/world/entities.js).
 
 // one enemy for one frame (engine world group 'enemy', order 10)
-function updateEnemy(e, dt) {
+export function updateEnemy(e, dt) {
   const py = P.fy + 1.3; // player chest height, used for line of sight
   if (e.flash > 0) e.flash -= dt;
   e.mat.emissiveIntensity = e.flash > 0 ? 1.8 : e.baseEI;
@@ -45,7 +52,7 @@ function updateEnemy(e, dt) {
 }
 
 // Idle until the player is within ENEMY_TUNE.wakeTiles of walking distance and in sight. Returns true once awake.
-function wakeCheck(e, eyeY, py, dt) {
+export function wakeCheck(e, eyeY, py, dt) {
   const fd = flowAt(e.x, e.z);
   if (fd >= 0 && fd <= ENEMY_TUNE.wakeTiles && hasLOS(e.x, e.z, P.x, P.z, eyeY, py)) {
     e.active = true;
@@ -58,7 +65,7 @@ function wakeCheck(e, eyeY, py, dt) {
 
 // Bomber: light the fuse when close, blow up when it runs out.
 // Returns 'gone' if it exploded, true if it should stand still, false otherwise.
-function updateBomber(e, dt, dist) {
+export function updateBomber(e, dt, dist) {
   if (e.fuse !== undefined) {
     e.fuse -= dt;
     e.flash = Math.sin(e.t * 50) > 0 ? 0.05 : 0;
@@ -75,7 +82,7 @@ function updateBomber(e, dt, dist) {
 
 // Sniper: 1.1s visible laser (tracks, then locks for the last 0.25s), then one fast round.
 // Returns true while aiming (it stands still).
-function updateSniper(e, dt, los, py) {
+export function updateSniper(e, dt, los, py) {
   if (e.aim > 0) {
     e.aim -= dt;
     const sy = e.mesh.position.y + 0.7;
@@ -104,12 +111,12 @@ function updateSniper(e, dt, los, py) {
 // Walk toward the player (straight when in sight, along the flow field otherwise),
 // circle-strafe when a `keep` distance is set, and push away from nearby enemies.
 // chase the player (engine/world/steer.js); bosses don't take part in the pushing apart
-function steerEnemy(e, dt, dx, dz, dist, los) {
+export function steerEnemy(e, dt, dx, dz, dist, los) {
   steerChase(e, dt, dx, dz, dist, los, e.def.speed, e.def.keep, enemies, o => o.boss);
 }
 
 // Place the mesh, face the player (limited by def.turn rad/s if set), spin decorative bodies.
-function poseEnemy(e, dt, dx, dz) {
+export function poseEnemy(e, dt, dx, dz) {
   const def = e.def;
   const bob = def.fly ? Math.sin(e.t * 3) * 0.3 : 0;
   e.mesh.position.set(e.x, e.fy + def.y + bob, e.z);

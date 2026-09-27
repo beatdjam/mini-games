@@ -1,7 +1,18 @@
-'use strict';
+import * as THREE from 'three';
+import { pick, rand } from '../../../../../engine/core/util.js';
+import { t } from '../../../../../engine/core/i18n.js';
+import { sfx } from '../../../../../engine/audio/audio.js';
+import { burst } from '../../../../../engine/render/fx.js';
+import { T } from '../../../../../engine/world/tiles.js';
+import { toast } from '../../../../../engine/ui/ui.js';
+import { BOSS_META } from '../../data/bosses.js';
+import { randomTileIn, rooms } from '../../world/level.js';
+import { enemies, ring, spawnEBullet, spawnEnemy } from '../../world/entities.js';
+import { P, diffOf, run } from '../player.js';
+import { bossBase, bossDiff, makeLaser, setLaser } from './common.js';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
 
-function spawnPhantom() {
+export function spawnPhantom() {
   const bd = bossDiff(), g = new THREE.Group(), geo = new THREE.OctahedronGeometry(1.2, 0);
   const mat = new THREE.MeshLambertMaterial({ color: 0x0c1418, emissive: 0x9fe7ff, emissiveIntensity: 0.3 });
   const body = new THREE.Mesh(geo, mat); body.scale.set(0.8, 1.7, 0.8);
@@ -13,7 +24,7 @@ function spawnPhantom() {
   phantomWarp(e, true);
   toast(t('boss.phantomHint'), 4200);
 }
-function phantomWarp(e, first) {
+export function phantomWarp(e, first) {
   const spots = BOSS_META.phantom.tune.spots.map(([i, j]) => [(i + 0.5) * T, (j + 0.5) * T])
     .sort((a, b) => Math.hypot(b[0] - P.x, b[1] - P.z) - Math.hypot(a[0] - P.x, a[1] - P.z));
   // warp anywhere except the two spots nearest the player (first appearance: the farthest spot)
@@ -21,7 +32,7 @@ function phantomWarp(e, first) {
   e.x = x; e.z = z;
   if (!first) { burst(x, 2, z, 0x9fe7ff, 16, 6, 0.5); ring(x, z, 1.3, BOSS_META.phantom.tune.warpRing[0], BOSS_META.phantom.tune.warpRing[1], rand(0, 1), e.dmg, 0x9fe7ff); }
 }
-function updPhantom(e, dt) {
+export function updPhantom(e, dt) {
   const K = BOSS_META.phantom.tune;
   e.t += dt; e.timer -= dt;
   const enr = e.hp < e.maxHp * 0.5, eye = [e.x, e.y + 0.5, e.z];

@@ -1,7 +1,18 @@
-'use strict';
+import * as THREE from 'three';
+import { clamp } from '../../../../../engine/core/util.js';
+import { t } from '../../../../../engine/core/i18n.js';
+import { sfx } from '../../../../../engine/audio/audio.js';
+import { burst } from '../../../../../engine/render/fx.js';
+import { moveCircle } from '../../../../../engine/world/tiles.js';
+import { toast } from '../../../../../engine/ui/ui.js';
+import { BOSS_META } from '../../data/bosses.js';
+import { spawnEBullet, spawnWave } from '../../world/entities.js';
+import { P, damagePlayer } from '../player.js';
+import { bossBase, bossDiff } from './common.js';
+import { SCR } from '../../ui/hud.js';
 // CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
 
-function spawnCrusher() {
+export function spawnCrusher() {
   const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.BoxGeometry(3.2, 3.2, 3.2);
   const mat = new THREE.MeshLambertMaterial({ color: 0x1c0f09, emissive: 0xff8a3d, emissiveIntensity: 0.3 });
@@ -11,7 +22,7 @@ function spawnCrusher() {
   e.st = 'idle'; e.timer = 2;
   toast(t('boss.crusherHint'), 4200);
 }
-function updCrusher(e, dt) {
+export function updCrusher(e, dt) {
   const K = BOSS_META.crusher.tune;
   e.t += dt; e.timer -= dt;
   const enr = e.hp < e.maxHp * 0.5, dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 1;

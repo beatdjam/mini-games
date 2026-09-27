@@ -1,14 +1,27 @@
-'use strict';
-let roomOf = null, rooms = [], seen = null, haz = null, hazMat = null, hazT = 0;
-function setHazardClock(v) { hazT = v; } // tests
-let levelGroup = null, portals = [], startIdx = 0, exitIdx = 0, roomCount = [], arena = false, curBiome = BIOMES[0];
+import * as THREE from 'three';
+import { pick, rand, randi, shuffle } from '../../../../engine/core/util.js';
+import { clearWorld } from '../../../../engine/core/world.js';
+import { t } from '../../../../engine/core/i18n.js';
+import { UP, disposeTree, scene, textSprite } from '../../../../engine/render/render.js';
+import { clearFx } from '../../../../engine/render/fx.js';
+import { H, RISE, T, W, computeFlow, cover, floorY, flow, grid, hgt, isSolid, ramp, setTileWorld, walkable } from '../../../../engine/world/tiles.js';
+import { clearPool } from '../../../../engine/world/projectiles.js';
+import { COVER_H, PLAT_H, WALL_H } from '../data/level.js';
+import { BOSS_META } from '../data/bosses.js';
+import { BIOMES } from '../data/biomes.js';
+import { biomeTex } from './render.js';
+import { eBullets, enemies, pBullets, removeEnemyMesh, ring, setBoss, setNear, target } from './entities.js';
+import { P, damagePlayer } from '../actors/player.js';
+export let roomOf = null, rooms = [], seen = null, haz = null, hazMat = null, hazT = 0;
+export function setHazardClock(v) { hazT = v; } // tests
+export let levelGroup = null, portals = [], startIdx = 0, exitIdx = 0, roomCount = [], arena = false, curBiome = BIOMES[0];
 
 // ---------- generators ----------
-function newMaps(w, h) {
+export function newMaps(w, h) {
   return { g: new Uint8Array(w * h), hg: new Float32Array(w * h), rp: new Int8Array(w * h).fill(-1),
     cv: new Uint8Array(w * h), hz: new Uint8Array(w * h), ro: new Int8Array(w * h).fill(-1) };
 }
-function genRooms(o) {
+export function genRooms(o) {
   const w = o.map || 36, h = w, M = newMaps(w, h), g = M.g, rs = [];
   const target = randi(o.countMin || 5, o.countMax || 6), rmin = o.roomMin || 4, rmax = o.roomMax || 7, cw = o.corridorW || 1;
   let tries = 0;
@@ -47,13 +60,13 @@ function genRooms(o) {
   return { W: w, H: h, M, rooms: rs };
 }
 // raised deck inside the room; the outer ring stays at ground level so every doorway still connects
-function addPlatform(M, w, r) {
+export function addPlatform(M, w, r) {
   for (let j = r.y + 2; j <= r.y + r.h - 2; j++) for (let i = r.x + 1; i <= r.x + r.w - 2; i++) M.hg[j * w + i] = PLAT_H;
   const k = (r.y + 1) * w + Math.floor(r.x + r.w / 2);
   M.rp[k] = 2; M.hg[k] = 0;
   r.plat = true;
 }
-function addRubble(M, w, r, rate) {
+export function addRubble(M, w, r, rate) {
   const cx = Math.floor(r.x + r.w / 2), cy = Math.floor(r.y + r.h / 2);
   for (let j = r.y + 1; j <= r.y + r.h - 2; j++) for (let i = r.x + 1; i <= r.x + r.w - 2; i++) {
     const k = j * w + i;
@@ -64,7 +77,7 @@ function addRubble(M, w, r, rate) {
   }
 }
 // straight 1-wide corridor runs (walls on both sides) become raised walkways with a ramp at each end
-function addBridges(M, w, h, count) {
+export function addBridges(M, w, h, count) {
   const g = M.g, free = k => g[k] === 1 && M.ro[k] < 0 && M.hg[k] === 0 && M.rp[k] < 0 && !M.cv[k] && !M.hz[k];
   const runs = [];
   for (let j = 1; j < h - 1; j++) {
@@ -89,7 +102,7 @@ function addBridges(M, w, h, count) {
     for (let t = r.a + 1; t < r.b; t++) M.hg[K(t)] = PLAT_H;
   });
 }
-function addHazards(M, w, h, count) {
+export function addHazards(M, w, h, count) {
   let placed = 0, tries = 0;
   while (placed < count && tries++ < 2000) {
     const i = randi(1, w - 2), j = randi(1, h - 2), k = j * w + i;
@@ -97,14 +110,14 @@ function addHazards(M, w, h, count) {
     M.hz[k] = 1; placed++;
   }
 }
-function genArena(withPillars) {
+export function genArena(withPillars) {
   const w = 20, h = 20, M = newMaps(w, h);
   for (let j = 4; j < 16; j++) for (let i = 4; i < 16; i++) M.g[j * w + i] = 1;
   if (withPillars) [[6, 6], [13, 6], [6, 13], [13, 13]].forEach(([i, j]) => { M.g[j * w + i] = 0; });
   return { W: w, H: h, M, rooms: [{ x: 4, y: 4, w: 12, h: 12 }] };
 }
 
-function clearLevel() {
+export function clearLevel() {
   if (levelGroup) { disposeTree(levelGroup); scene.remove(levelGroup); levelGroup = null; }
   enemies.forEach(removeEnemyMesh);
   clearWorld();
@@ -114,7 +127,7 @@ function clearLevel() {
 }
 
 // wedge rising toward +x across one tile; rotated per ramp direction
-function wedgeGeo() {
+export function wedgeGeo() {
   const a = T / 2, r = RISE, pos = [], uv = [], idx = [];
   const quad = (p0, p1, p2, p3) => { const b = pos.length / 3; pos.push(...p0, ...p1, ...p2, ...p3); uv.push(0, 0, 1, 0, 1, 1, 0, 1); idx.push(b, b + 1, b + 2, b, b + 2, b + 3); };
   const tri = (p0, p1, p2) => { const b = pos.length / 3; pos.push(...p0, ...p1, ...p2); uv.push(0, 0, 1, 0, 1, 1); idx.push(b, b + 1, b + 2); };
@@ -127,9 +140,9 @@ function wedgeGeo() {
   g.setIndex(idx); g.addGroup(0, 6, 0); g.addGroup(6, 12, 1);
   return g;
 }
-const RAMP_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
+export const RAMP_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
 
-function buildLevel(biome, isArena, bossKind) {
+export function buildLevel(biome, isArena, bossKind) {
   clearLevel();
   curBiome = biome; arena = isArena;
   const gen = isArena ? genArena(BOSS_META[bossKind].pillars) : genRooms(biome.gen);
@@ -219,7 +232,7 @@ function buildLevel(biome, isArena, bossKind) {
   rooms.forEach((r, idx) => { const [x, z] = roomSpot(r), d = flow[Math.floor(z / T) * W + Math.floor(x / T)]; if (d > best) { best = d; exitIdx = idx; } });
 }
 // nearest plain floor tile to the room centre (the centre itself can be cover or a ramp)
-function roomSpot(r) {
+export function roomSpot(r) {
   const cx = Math.floor(r.x + r.w / 2), cy = Math.floor(r.y + r.h / 2);
   let best = null, bd = Infinity;
   for (let j = r.y; j < r.y + r.h; j++) for (let i = r.x; i < r.x + r.w; i++) {
@@ -229,7 +242,7 @@ function roomSpot(r) {
   }
   return best || [(cx + 0.5) * T, (cy + 0.5) * T];
 }
-function randomTileIn(r) {
+export function randomTileIn(r) {
   for (let k = 0; k < 40; k++) {
     const i = randi(r.x, r.x + r.w - 1), j = randi(r.y, r.y + r.h - 1);
     const k = j * W + i;
@@ -237,7 +250,7 @@ function randomTileIn(r) {
   }
   return roomSpot(r);
 }
-function reveal(ti, tj) {
+export function reveal(ti, tj) {
   if (arena) { seen.fill(1); return; }
   for (let dj = -4; dj <= 4; dj++) for (let di = -4; di <= 4; di++) {
     if (di * di + dj * dj > 18) continue;
@@ -247,11 +260,11 @@ function reveal(ti, tj) {
   if (r >= 0) { const R = rooms[r]; for (let j = R.y - 1; j <= R.y + R.h; j++) for (let i = R.x - 1; i <= R.x + R.w; i++) if (i >= 0 && j >= 0 && i < W && j < H) seen[j * W + i] = 1; }
 }
 // hazard floors cycle: 1.4s live, 1.6s off, blinking for the last 0.5s before going live
-function hazardState() {
+export function hazardState() {
   const t = hazT % 3;
   return t < 1.4 ? 'on' : t > 2.5 ? 'warn' : 'off';
 }
-function updateHazards(dt) {
+export function updateHazards(dt) {
   if (!hazMat) return;
   hazT += dt;
   const st = hazardState();
@@ -259,7 +272,7 @@ function updateHazards(dt) {
   const i = Math.floor(P.x / T), j = Math.floor(P.z / T), k = j * W + i;
   if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && haz[k] && P.fy < hgt[k] + 0.3) damagePlayer(7);
 }
-function makePortal(x, z, color, kind, label) {
+export function makePortal(x, z, color, kind, label) {
   const g = new THREE.Group();
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.12, 8, 40), new THREE.MeshBasicMaterial({ color }));
   const disc = new THREE.Mesh(new THREE.CircleGeometry(1.4, 32), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));

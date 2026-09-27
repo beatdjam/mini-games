@@ -1,6 +1,5 @@
-'use strict';
 // Enemy types and their tuning
-const ENEMY = {
+export const ENEMY = {
   crawler: { hp: 30,  speed: 6.4, r: 0.55, y: 0.6, hitR: 0.85, dmg: 10, melee: true, bits: 3, color: 0xff4d8d, geo: 'tetra' },
   drone:   { hp: 24,  speed: 3.4, r: 0.5,  y: 2.3, hitR: 0.8,  dmg: 8,  fly: true, keep: 9, bits: 3, color: 0xffe14a, geo: 'octa',
              ranged: { rate: 1.9, speed: 14, count: 1, spread: 0 } },
@@ -21,7 +20,7 @@ const ENEMY = {
   mini:    { hp: 16,  speed: 7.2, r: 0.4,  y: 0.4, hitR: 0.6,  dmg: 6,  melee: true, bits: 1, color: 0x7dffcf, geo: 'tetraS' },
 };
 // regular enemies (not bosses): overall knobs on top of the per-type numbers in ENEMY
-const ENEMY_TUNE = {
+export const ENEMY_TUNE = {
   maxPerRoom: 11,     // cap on enemies in one room
   elitePerDepth: 0.1, // per depth, extra chance a spawn is one of the biome's tougher types (up to eliteMax)
   eliteMax: 0.5,
@@ -31,4 +30,4 @@ const ENEMY_TUNE = {
   wakeTiles: 7,       // wakes when the player is within this many tiles of walking distance and in sight
 };
 // tougher enemy types, favoured more the deeper you go
-const ELITE_TYPES = ['sniper', 'shield', 'brute', 'bomber', 'splitter', 'turret'];
+export const ELITE_TYPES = ['sniper', 'shield', 'brute', 'bomber', 'splitter', 'turret'];

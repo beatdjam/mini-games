@@ -1,12 +1,15 @@
-'use strict';
+import { isTouch } from '../../../../engine/core/util.js';
+import { loadStore, saveStore } from '../../../../engine/core/store.js';
+import { defaultLang, setLang } from '../../../../engine/core/i18n.js';
+import { setVolumes } from '../../../../engine/audio/audio.js';
 // Save data: defaults and conversions from older versions (reading / writing is engine/core/store.js)
-const SAVE_KEY = 'sector-dive-v1';
-const basicW = id => ({ id, r: 0, basic: true });
-const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
+export const SAVE_KEY = 'sector-dive-v1';
+export const basicW = id => ({ id, r: 0, basic: true });
+export const defaultSave = () => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0,
   best: 0, runs: 0, bossKills: 0, bossSeen: {}, stageV: 2, mods: {}, canReboot: false, pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0 } },
   settings: { lang: null, autofire: isTouch, assist: 'weak', sens: 1, bgm: 0.6, sfx: 1, leftFire: true, stickDash: false, layout: {} } });
-function loadSave() {
+export function loadSave() {
   const { data: out, raw: s } = loadStore(SAVE_KEY, defaultSave);
   if (!s) return out;
   if (typeof out.settings.assist === 'boolean') out.settings.assist = out.settings.assist ? 'weak' : 'off';
@@ -22,10 +25,8 @@ function loadSave() {
   }
   return out;
 }
-let save = loadSave();
-function setSave(s) { save = s; }
-setLang(save.settings.lang || defaultLang());
+export let save = loadSave();
+export function setSave(s) { save = s; }
 // the engine's audio reads its volumes from these
-function syncVolumes() { setVolumes(save.settings.sfx ?? 1, save.settings.bgm ?? 0.6); }
-syncVolumes();
-function persist() { saveStore(SAVE_KEY, save); }
+export function syncVolumes() { setVolumes(save.settings.sfx ?? 1, save.settings.bgm ?? 0.6); }
+export function persist() { saveStore(SAVE_KEY, save); }

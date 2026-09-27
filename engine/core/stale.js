@@ -1,9 +1,8 @@
-'use strict';
 // engine: Stale-page guard. Load it first, in <head>. The page carries <meta name="build" content="<build>"> and the
 // game folder has version.json ({ "build": "<build>" }), both written by tools/bump-version.sh. If a cached copy of the
 // page is older than what is deployed, jump once (per session and build) to a fresh URL.
 (() => {
-  const meta = document.querySelector('meta[name="build"]'); if (!meta) return;
+  const meta = document.querySelector('meta[name="build"]'); if (!meta || meta.content === 'dev') return; // dev server: nothing to compare
   const mine = meta.content, key = 'stale-reload:' + location.pathname;
   fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(v => {
     if (!v || v.build === mine) return;

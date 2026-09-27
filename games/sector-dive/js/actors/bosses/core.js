@@ -1,7 +1,16 @@
-'use strict';
+import * as THREE from 'three';
+import { pick, rand } from '../../../../../engine/core/util.js';
+import { t } from '../../../../../engine/core/i18n.js';
+import { sfx } from '../../../../../engine/audio/audio.js';
+import { toast } from '../../../../../engine/ui/ui.js';
+import { BOSS_META } from '../../data/bosses.js';
+import { levelGroup } from '../../world/level.js';
+import { enemies, fanAt, ring, spawnEBullet, spawnEnemy } from '../../world/entities.js';
+import { P, damagePlayer, diffOf, run } from '../player.js';
+import { bossBase, bossDiff } from './common.js';
 // NOISE CORE: rotating beams, bullet rings, summons
 
-function spawnCore() {
+export function spawnCore() {
   const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.TorusKnotGeometry(1.3, 0.38, 72, 8);
   const mat = new THREE.MeshLambertMaterial({ color: 0x140c20, emissive: 0xc58cff, emissiveIntensity: 0.3 });
@@ -18,7 +27,7 @@ function spawnCore() {
   }
   toast(t('boss.coreHint'), 3800);
 }
-function updCore(e, dt) {
+export function updCore(e, dt) {
   const K = BOSS_META.core.tune;
   e.t += dt; e.timer -= dt; e.pt += dt;
   const enr = e.hp < e.maxHp * 0.5;

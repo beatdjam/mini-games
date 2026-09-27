@@ -1,4 +1,4 @@
-'use strict';
+import { floorY, flowDir, moveCircle } from './tiles.js';
 // engine: Chasing on the tile world.
 // steerChase(e, dt, dx, dz, dist, los, speed, keep, others, ignore)
 //   e: the mover (x, z, r, fy; side = +1/-1 for which way it circles, flipped now and then)
@@ -6,7 +6,7 @@
 //   In sight it heads straight at the target, or circles it at `keep` metres if closer than that (at 60% speed).
 //   Out of sight it follows the flow field (engine/world/tiles.js computeFlow). Movers in `others` push each other
 //   apart (skipping dead ones and any for which ignore(o) is true). Moves with collision and updates e.fy.
-function steerChase(e, dt, dx, dz, dist, los, speed, keep, others, ignore) {
+export function steerChase(e, dt, dx, dz, dist, los, speed, keep, others, ignore) {
   let tx = 0, tz = 0;
   if (los) {
     if (keep && dist < keep) {

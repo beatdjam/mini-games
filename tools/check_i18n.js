@@ -1,12 +1,16 @@
 // Checks the language files: every key used in the code / HTML exists in each language,
 // and every language has the same ui keys and data entries as ja. Run: node tools/check_i18n.js games/<game-id>
-const fs = require('fs'), path = require('path'), vm = require('vm');
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(path.join(__dirname, '..'), process.argv[2] || (console.error('usage: node tools/check_i18n.js games/<game-id>'), process.exit(2)));
 const files = [];
 (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else if (p.endsWith('.js')) files.push(p); } })(path.join(root, 'js'));
 const ctx = { LANG: {}, pct: v => `${Math.round(v * 100)}%`, console };
 vm.createContext(ctx);
-for (const f of fs.readdirSync(path.join(root, 'js/lang'))) vm.runInContext(fs.readFileSync(path.join(root, 'js/lang', f), 'utf8').replace(/^'use strict';/, '').replace(/^LANG\./m, 'LANG.'), ctx);
+for (const f of fs.readdirSync(path.join(root, 'js/lang'))) vm.runInContext(fs.readFileSync(path.join(root, 'js/lang', f), 'utf8').replace(/^import .*$/gm, ''), ctx); // the imports (LANG, pct) come from ctx
 const LANG = ctx.LANG, used = new Set();
 const code = files.filter(f => !f.includes('/lang/')).map(f => fs.readFileSync(f, 'utf8')).join('\n');
 for (const m of code.matchAll(/\bt\(\s*'([\w.]+)'/g)) used.add(m[1]);

@@ -1,9 +1,11 @@
-'use strict';
+import { rand } from '../core/util.js';
+import { t } from '../core/i18n.js';
+import { musicInit } from './music.js';
 // engine: Sound effects synth (Web Audio): layered noise / oscillator helpers, a gunshot voice, sfx(name) plays SFX[name] from the game
 // Sound effects synth (Web Audio)
-let actx = null, master = null, noiseBuf = null;
-const lastSfx = {};
-function audioInit() {
+export let actx = null, master = null, noiseBuf = null;
+export const lastSfx = {};
+export function audioInit() {
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   try {
     actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -18,11 +20,11 @@ function audioInit() {
 }
 // the game sets these from its settings (0..1)
 // sound recipes by name, filled by the game: SFX.name = () => { ... }
-const SFX = {};
-let sfxVolume = 1, bgmVolume = 0.6;
-function setVolumes(sfx, bgm) { sfxVolume = sfx; bgmVolume = bgm; }
-function applySfxVolume() { if (master) master.gain.value = 0.32 * sfxVolume; }
-function tone(freq, dur, type, vol, slide, delay) {
+export const SFX = {};
+export let sfxVolume = 1, bgmVolume = 0.6;
+export function setVolumes(sfx, bgm) { sfxVolume = sfx; bgmVolume = bgm; }
+export function applySfxVolume() { if (master) master.gain.value = 0.32 * sfxVolume; }
+export function tone(freq, dur, type, vol, slide, delay) {
   if (!actx) return;
   const t = actx.currentTime + (delay || 0), o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t);
@@ -30,7 +32,7 @@ function tone(freq, dur, type, vol, slide, delay) {
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
 }
-function noise(dur, vol, freq, delay) {
+export function noise(dur, vol, freq, delay) {
   if (!actx) return;
   const t = actx.currentTime + (delay || 0), s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
   s.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.value = freq;
@@ -40,20 +42,20 @@ function noise(dur, vol, freq, delay) {
 // ---- layered sound effects ----
 // nz: filtered noise with a filter sweep f0 -> f1; ot: oscillator with a pitch sweep f0 -> f1.
 // Gun shots stack a transient crack, a body, a low thump and a tail, with a little random pitch per shot.
-function nz(t, dur, vol, type, f0, f1, q) {
+export function nz(t, dur, vol, type, f0, f1, q) {
   const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
   s.buffer = noiseBuf; f.type = type; f.Q.value = q || 0.8;
   f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(Math.max(40, f1 || f0), t + dur);
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
-function ot(t, type, f0, f1, dur, vol, att) {
+export function ot(t, type, f0, f1, dur, vol, att) {
   const o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
   g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + (att || 0.002)); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
 }
-function gunshot(o) {
+export function gunshot(o) {
   if (!actx) return;
   const t = actx.currentTime, r = rand(0.92, 1.08);
   nz(t, 0.02, o.crack, 'highpass', (o.crackF || 5000) * r, 3000);                    // transient crack
@@ -61,7 +63,7 @@ function gunshot(o) {
   ot(t, 'sine', o.thumpF * r, 35, o.thump, o.thumpVol);                                // low thump
   nz(t + 0.01, o.tail, o.tailVol, 'lowpass', (o.tailF || 2200) * r, 300);             // tail
 }
-function sfx(name, gap) {
+export function sfx(name, gap) {
   if (!actx) return; // no audio yet (before the first tap) or not supported
   const now = performance.now();
   if (gap && lastSfx[name] && now - lastSfx[name] < gap) return;

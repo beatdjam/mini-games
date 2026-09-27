@@ -1,4 +1,32 @@
-'use strict';
+import { $, rand } from '../../../../engine/core/util.js';
+import { devSmoke } from '../../../../engine/core/dev.js';
+import { clearWorld, query } from '../../../../engine/core/world.js';
+import { LANG, lang, t } from '../../../../engine/core/i18n.js';
+import { SFX, actx, audioInit } from '../../../../engine/audio/audio.js';
+import { MUSIC_STYLES, mus, musicInit, musicVolume, playStep, setMusic, setMusicMix } from '../../../../engine/audio/music.js';
+import { V3, camera, scene } from '../../../../engine/render/render.js';
+import { H, STEP, T, W, blocked, cover, floorY, grid, hgt, isSolid, moveCircle, passable, ramp, walkable } from '../../../../engine/world/tiles.js';
+import { joy, setFireHeld } from '../../../../engine/ui/input.js';
+import { applyLayout, getL, openLayoutEditor } from '../../../../engine/ui/touchlayout.js';
+import { WEAPONS, WEAPON_ORDER } from '../data/weapons.js';
+import { EYE, PLAT_H } from '../data/level.js';
+import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.js';
+import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../data/bosses.js';
+import { BIOMES } from '../data/biomes.js';
+import { PER, TUNE } from '../data/progress.js';
+import { PERKS } from '../data/perks.js';
+import { basicW, persist, save } from '../system/save.js';
+import { perkName, pickDrop, presMul, prog } from '../system/rules.js';
+import { buildLevel, haz, portals, roomSpot, rooms, setHazardClock, startIdx } from '../world/level.js';
+import { addPickup, boss, enemies, nearW, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet } from '../world/entities.js';
+import { P, critChance, diffOf, explode, findTarget, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.js';
+import { bossDiff, spawnBoss } from '../actors/bosses/common.js';
+import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.js';
+import { changeLang, weaponHud } from '../ui/hud.js';
+import { discardSuspended, endRun, goBase, nextStage, openPerk, pickEnemyType, resumeRun, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.js';
+import { drawShareCard, shareData, shareText } from '../ui/share.js';
+import { updatePBullets } from '../actors/bullets.js';
+import { update, updatePickups } from '../flow/update.js';
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
@@ -361,8 +389,8 @@ if (location.hash.startsWith('#view-share')) setTimeout(() => {
 }, 300);
 if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); if (location.hash.includes('perk4')) save.pres.up.choice = 1; openPerk(t('perk.title')); }, 300); // #view-perk4: four options
 // dev view: #tab-<sortie|up|practice|settings>[-touch] opens that base tab
-if (location.hash.startsWith('#tab-')) showTab(location.hash.slice(5).replace(/-touch$/, ''));
+if (location.hash.startsWith('#tab-')) setTimeout(() => showTab(location.hash.slice(5).replace(/-touch$/, '')), 0);
 // dev view: #view-susp[-touch] leaves a suspended run and returns to the base
 if (location.hash.startsWith('#view-susp')) setTimeout(() => { startRun(); suspendRun(); }, 300);
 // dev: ?lang=<code> opens the page in that language (saved like the settings button does)
-{ const q = new URLSearchParams(location.search).get('lang'); if (q && LANG[q] && q !== lang) changeLang(q); }
+setTimeout(() => { const q = new URLSearchParams(location.search).get('lang'); if (q && LANG[q] && q !== lang) changeLang(q); }, 0);

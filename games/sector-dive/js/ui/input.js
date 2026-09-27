@@ -1,7 +1,17 @@
-'use strict';
+import { $, clamp, rand } from '../../../../engine/core/util.js';
+import { t } from '../../../../engine/core/i18n.js';
+import { sfx } from '../../../../engine/audio/audio.js';
+import { toast } from '../../../../engine/ui/ui.js';
+import { INPUT, locked, tapBtn } from '../../../../engine/ui/input.js';
+import { BAG_MAX, TUNE } from '../data/progress.js';
+import { save } from '../system/save.js';
+import { addPickup, nearW, setNear } from '../world/entities.js';
+import { GUNFX, P, curW, setVM, startReload, wText } from '../actors/player.js';
+import { toggleMap, updateHint, weaponHud } from './hud.js';
+import { closeBag, openBag, pause, state } from '../flow/game.js';
 // Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/ui/input.js)
 // dash request and the full-stick dash timer
-const CTRL = { dashReq: false, stickT: 0, stickArmed: true };
+export const CTRL = { dashReq: false, stickT: 0, stickArmed: true };
 Object.assign(INPUT, {
   active: () => state === 'play',
   look: (dx, dy) => { if (!P) return; P.yaw -= dx; P.pitch = clamp(P.pitch - dy, -1.25, 1.25); },
@@ -37,24 +47,24 @@ $('#mini').addEventListener('click', () => toggleMap());
 $('#bigmap').addEventListener('click', () => toggleMap());
 window.addEventListener('wheel', e => { if (state === 'play' && locked) swapWeapon(); }, { passive: true });
 
-function selectSlot(k) {
+export function selectSlot(k) {
   if (state !== 'play' || k === P.cur || !P.weapons[k]) return;
   P.cur = k; P.reloadT = 0; P.fireCd = Math.max(P.fireCd, 0.2); GUNFX.gunKick = 0.15; setVM(curW().id); weaponHud();
 }
-function swapWeapon() { selectSlot(P ? P.cur ^ 1 : 0); }
-function useKit() {
+export function swapWeapon() { selectSlot(P ? P.cur ^ 1 : 0); }
+export function useKit() {
   if (!P || (state !== 'play' && state !== 'bag')) return;
   if (P.kits <= 0) { toast(t('run.noKit'), 1200); return; }
   if (P.hp >= P.maxHp) { toast(t('run.hpFull'), 1200); return; }
   P.kits--; P.hp = Math.min(P.maxHp, P.hp + TUNE.kitHeal); sfx('heal'); toast(`HP +${TUNE.kitHeal}`, 1000); weaponHud();
 }
-function normalizeWeapons() {
+export function normalizeWeapons() {
   if (!P.weapons[0] && P.weapons[1]) { P.weapons[0] = P.weapons[1]; P.weapons[1] = null; }
   if (!P.weapons[P.cur]) P.cur = 0;
   P.reloadT = 0; setVM(curW().id);
 }
 // Picking up a weapon: the player chooses between holding it now and putting it in the bag.
-function takeNearby() {
+export function takeNearby() {
   if (state !== 'play' || !nearW) return null;
   const p = nearW;
   p.dead = true; p.mesh.visible = false; // the engine world disposes it
@@ -62,7 +72,7 @@ function takeNearby() {
   return p.w;
 }
 // hold it: fills the empty second slot, otherwise swaps with the weapon in hand (that one is dropped here)
-function equipNearby() {
+export function equipNearby() {
   const nw = takeNearby(); if (!nw) return;
   if (!P.weapons[1]) { P.weapons[1] = nw; P.cur = 1; normalizeWeapons(); toast(t('run.equipped', { w: wText(nw) }), 1400); }
   else {
@@ -73,7 +83,7 @@ function equipNearby() {
   }
   weaponHud();
 }
-function stowNearby() {
+export function stowNearby() {
   if (!nearW || !P.bag.includes(null)) { if (nearW) toast(t('run.bagFull'), 1000); return; }
   const nw = takeNearby(); if (!nw) return;
   P.bag[P.bag.indexOf(null)] = nw;

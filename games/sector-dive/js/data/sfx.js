@@ -1,4 +1,6 @@
-'use strict';
+import { rand } from '../../../../engine/core/util.js';
+import { t } from '../../../../engine/core/i18n.js';
+import { SFX, actx, gunshot, nz, ot, tone } from '../../../../engine/audio/audio.js';
 // Sound effect recipes, added to the engine's SFX table (the synth is engine/audio/audio.js)
 Object.assign(SFX, {
   // pistol: snappy — bright short body, light thump, short bright tail

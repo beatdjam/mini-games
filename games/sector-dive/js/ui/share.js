@@ -1,11 +1,19 @@
+import { $, isTouch } from '../../../../engine/core/util.js';
+import { lang, t } from '../../../../engine/core/i18n.js';
+import { H, W } from '../../../../engine/world/tiles.js';
+import { toast } from '../../../../engine/ui/ui.js';
+import { RARITY } from '../data/weapons.js';
+import { BOSS_META } from '../data/bosses.js';
+import { perkName } from '../system/rules.js';
+import { P, run, stageInfo, stageLabel, wText } from '../actors/player.js';
 // ---- sharing a run's result: a card image + a short text with #SectorDive ----
 // phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
 // the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
-const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
-let shareData = null, shareBlob = null;
+export const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
+export let shareData = null, shareBlob = null;
 
-const bossShort = k => BOSS_META[k].short;
-function prepShare(kind) {
+export const bossShort = k => BOSS_META[k].short;
+export function prepShare(kind) {
   const si = stageInfo(run.stage), w = P.weapons[P.cur] || P.weapons[0];
   const counts = {};
   run.perks.forEach(n => { const k = n.replace(/\+$/, ''); counts[k] = (counts[k] || 0) + 1; });
@@ -18,13 +26,13 @@ function prepShare(kind) {
   drawShareCard(shareData).then(b => { if (shareData && b) shareBlob = b; }).catch(() => {});
   $('#btnShare').hidden = false; $('#sharePanel').hidden = true;
 }
-function hideShare() { shareData = shareBlob = null; $('#btnShare').hidden = true; $('#sharePanel').hidden = true; }
+export function hideShare() { shareData = shareBlob = null; $('#btnShare').hidden = true; $('#sharePanel').hidden = true; }
 
-function shareText(d) {
+export function shareText(d) {
   return t('share.text', d) + '\n' + SHARE_URL;
 }
 
-async function drawShareCard(d) {
+export async function drawShareCard(d) {
   try { await Promise.all([document.fonts.load('700 40px "Chakra Petch"'), document.fonts.load('30px "DotGothic16"')]); } catch (e) {}
   const W = 1200, H = 630, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
@@ -66,7 +74,7 @@ async function drawShareCard(d) {
   return new Promise(r => c.toBlob(r, 'image/png'));
 }
 
-function shareResult() {
+export function shareResult() {
   if (!shareData) return;
   const file = shareBlob && new File([shareBlob], 'sector-dive.png', { type: 'image/png' });
   if (isTouch && file && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -75,7 +83,7 @@ function shareResult() {
   }
   openSharePanel();
 }
-async function openSharePanel() {
+export async function openSharePanel() {
   const panel = $('#sharePanel');
   if (!panel.hidden) { panel.hidden = true; return; }
   panel.hidden = false;
@@ -84,17 +92,17 @@ async function openSharePanel() {
   const img = $('#shareImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(shareBlob);
 }
-function copyShareImage() {
+export function copyShareImage() {
   if (!shareBlob) return;
   navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })])
     .then(() => toast(t('share.copied'), 3000), () => toast(t('share.copyFailed'), 3000));
 }
-function saveShareImage() {
+export function saveShareImage() {
   if (!shareBlob) return;
   const a = document.createElement('a'); a.href = URL.createObjectURL(shareBlob); a.download = 'sector-dive.png';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
-function openXPost() {
+export function openXPost() {
   if (shareData) window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(shareData)), '_blank', 'noopener');
 }
 $('#btnShareCopy').addEventListener('click', copyShareImage);

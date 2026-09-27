@@ -1,14 +1,27 @@
-'use strict';
+import * as THREE from 'three';
+import { $, clamp, pct, randi, shuffle } from '../core/util.js';
+import { clearStore, loadStore, prefGet, prefSet, saveStore } from '../core/store.js';
+import { addSystem, runSystems, stopFrame } from '../core/loop.js';
+import { WORLD, clearWorld, query, spawn, worldGroup } from '../core/world.js';
+import { LANG, fillData, lang, setI18nHook, setLang, t } from '../core/i18n.js';
+import { buildViewmodel } from '../render/render.js';
+import { burst, clearFx, fireball, parts, updateBalls } from '../render/fx.js';
+import { RISE, T, W, computeFlow, floorY, flowAt, flowDir, grid, hasLOS, hgt, moveCircle, ramp, setTileWorld, solidAt } from '../world/tiles.js';
+import { aimFan, clearPool, projHitsTerrain, ringAngles, steerToward, stepProjectile, takeFromPool } from '../world/projectiles.js';
+import { steerChase } from '../world/steer.js';
+import { toast } from '../ui/ui.js';
+import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../ui/input.js';
+import { TOUCH_LAYOUT, applyLayout, editing, getL, openLayoutEditor } from '../ui/touchlayout.js';
 // Engine tests: open engine/test/ in a browser, or run  tools/headless.sh 'engine/test/' 20000
 // Each test logs 'TEST ok <name>' or 'TEST FAIL <name> <reason>'; the last line is 'TEST DONE <passed>/<total>'.
-const results = [];
-function test(name, fn) {
+export const results = [];
+export function test(name, fn) {
   try { fn(); results.push([name, true]); console.log('TEST ok ' + name); }
   catch (e) { results.push([name, false]); console.error('TEST FAIL ' + name + ' ' + (e && e.message || e)); }
 }
-function eq(a, b, what) { if (a !== b) throw new Error(`${what || 'value'}: expected ${b}, got ${a}`); }
-function near(a, b, eps, what) { if (Math.abs(a - b) > (eps ?? 1e-9)) throw new Error(`${what || 'value'}: expected ~${b}, got ${a}`); }
-function ok(cond, what) { if (!cond) throw new Error(what || 'expected true'); }
+export function eq(a, b, what) { if (a !== b) throw new Error(`${what || 'value'}: expected ${b}, got ${a}`); }
+export function near(a, b, eps, what) { if (Math.abs(a - b) > (eps ?? 1e-9)) throw new Error(`${what || 'value'}: expected ~${b}, got ${a}`); }
+export function ok(cond, what) { if (!cond) throw new Error(what || 'expected true'); }
 
 // ---------- core ----------
 test('util: clamp / randi / shuffle', () => {
@@ -68,7 +81,7 @@ test('world: update, dead, onRemove, query, groups, spawn during a pass', () => 
 
 // ---------- world: tiles, projectiles, steering ----------
 // a 6x3 tile room: row 1 is walkable; tile (4,1) is a raised step 2 m up; everything else is wall
-function tinyWorld() {
+export function tinyWorld() {
   const w = 6, h = 3;
   setTileWorld({ W: w, H: h, grid: new Uint8Array(w * h), hgt: new Float32Array(w * h), ramp: new Int8Array(w * h).fill(-1), cover: new Uint8Array(w * h),
     flow: new Int32Array(w * h), flowQ: new Int32Array(w * h) });
@@ -155,6 +168,6 @@ test('ui / input: toast, keys, INPUT hooks', () => {
   releaseInputs(); ok(!fireHeld && !mouseFire);
 });
 
-const passed = results.filter(r => r[1]).length;
+export const passed = results.filter(r => r[1]).length;
 console.log(`TEST DONE ${passed}/${results.length}`);
 document.getElementById('out').innerHTML = results.map(([n, p]) => `<span class="${p ? 'ok' : 'fail'}">${p ? 'ok  ' : 'FAIL'} ${n}</span>`).join('\n') + `\n\n${passed}/${results.length} passed`;

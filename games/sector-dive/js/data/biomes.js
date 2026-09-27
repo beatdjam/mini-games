@@ -1,7 +1,6 @@
-'use strict';
 // Sectors: look, level generation parameters, boss candidates
 // sectors: each run visits them in a shuffled order. gen = level generator settings, bosses = candidates for the sector's boss
-const BIOMES = [
+export const BIOMES = [
   { code: 'DATA', fog: 0x061219, fogNear: 4, fogFar: 44, floor: '#08171e', line: '#1d7f94', wall: '#0b232b', wallLine: '#54e8ff',
     gen: { kind: 'rooms', platform: 0.35, bridges: 2 },
     enemies: ['crawler', 'crawler', 'drone', 'drone', 'turret'], bosses: ['watcher', 'phantom'] },

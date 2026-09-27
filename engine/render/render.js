@@ -1,31 +1,32 @@
-'use strict';
+import * as THREE from 'three';
+import { $, isTouch } from '../core/util.js';
 // engine: three.js setup: renderer on canvas#gl, scene, camera, resize, shared materials, disposal, text sprites, and the in-hand viewmodel pass
-const canvas = $('#gl');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
+export const canvas = $('#gl');
+export const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
-const scene = new THREE.Scene();
+export const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x061219, 4, 44);
 scene.background = new THREE.Color(0x061219);
-const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 140);
+export const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 140);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 scene.add(new THREE.HemisphereLight(0xcfefff, 0x141c26, 1.0));
-const sun = new THREE.DirectionalLight(0xffffff, 0.45); sun.position.set(3, 10, 2); scene.add(sun);
-const dynGroup = new THREE.Group(); scene.add(dynGroup);
-const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
+export const sun = new THREE.DirectionalLight(0xffffff, 0.45); sun.position.set(3, 10, 2); scene.add(sun);
+export const dynGroup = new THREE.Group(); scene.add(dynGroup);
+export const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
 
-function resize() {
+export function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.fov = w / h < 1 ? 90 : 72; camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize); resize();
 
-function shared(x) { x.userData.shared = true; return x; }
-const bmats = {}, lmats = {};
-function basicMat(c) { return bmats[c] || (bmats[c] = shared(new THREE.MeshBasicMaterial({ color: c }))); }
-function lineMat(c) { return lmats[c] || (lmats[c] = shared(new THREE.LineBasicMaterial({ color: c }))); }
-function disposeTree(obj) {
+export function shared(x) { x.userData.shared = true; return x; }
+export const bmats = {}, lmats = {};
+export function basicMat(c) { return bmats[c] || (bmats[c] = shared(new THREE.MeshBasicMaterial({ color: c }))); }
+export function lineMat(c) { return lmats[c] || (lmats[c] = shared(new THREE.LineBasicMaterial({ color: c }))); }
+export function disposeTree(obj) {
   obj.traverse(o => {
     if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
     (Array.isArray(o.material) ? o.material : o.material ? [o.material] : []).forEach(m => {
@@ -36,7 +37,7 @@ function disposeTree(obj) {
   });
 }
 
-function textSprite(text, color) {
+export function textSprite(text, color) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 128;
   const g = c.getContext('2d');
   g.font = '64px "DotGothic16","Hiragino Sans",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -52,24 +53,24 @@ function textSprite(text, color) {
 // the gun in hand lives in its own scene, drawn after the world with the depth buffer cleared:
 // nothing in the world (walls, hazard floors, blasts) can cover it, and its own parts still depth-sort.
 // gunScene's space is the camera's local space (gunCam sits at the origin looking down -z)
-const gunScene = new THREE.Scene(), gunCam = new THREE.PerspectiveCamera();
+export const gunScene = new THREE.Scene(), gunCam = new THREE.PerspectiveCamera();
 gunScene.add(new THREE.HemisphereLight(0xcfefff, 0x141c26, 1.0));
 { const l = new THREE.DirectionalLight(0xffffff, 0.45); l.position.set(1, 3, 2); gunScene.add(l); }
-const gun = new THREE.Group(); gunScene.add(gun); gun.visible = false;
-function renderGun() {
+export const gun = new THREE.Group(); gunScene.add(gun); gun.visible = false;
+export function renderGun() {
   if (!gun.visible) return;
   gunCam.projectionMatrix.copy(camera.projectionMatrix); gunCam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
   renderer.autoClear = false; renderer.clearDepth(); renderer.render(gunScene, gunCam); renderer.autoClear = true;
 }
 
 // viewmodel parts: lit materials for the body, unlit for accents so they read as glowing
-function vmMat(c, lit) { return lit ? new THREE.MeshLambertMaterial({ color: c }) : new THREE.MeshBasicMaterial({ color: c }); }
-function vbox(w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; }
-function vcyl(r, len, mat, x, y, z) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); return m; }
+export function vmMat(c, lit) { return lit ? new THREE.MeshLambertMaterial({ color: c }) : new THREE.MeshBasicMaterial({ color: c }); }
+export function vbox(w, h, d, mat, x, y, z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; }
+export function vcyl(r, len, mat, x, y, z) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); return m; }
 // def = { tip: [x, y, z], pos: [x, y, z], flash: radius, parts: [['box', w, h, d, material, x, y, z] | ['cyl', r, len, material, x, y, z]] }
 // colors = { material name: hex }; names listed in `unlit` get an unlit material. Returns a Group with
 // userData { tip (Object3D at the muzzle), flash (hidden muzzle-flash mesh), pos } to add under `gun`.
-function buildViewmodel(def, colors, unlit) {
+export function buildViewmodel(def, colors, unlit) {
   unlit = unlit || ['acc'];
   const g = new THREE.Group(), mats = {};
   const mat = name => mats[name] || (mats[name] = vmMat(colors[name], !unlit.includes(name)));

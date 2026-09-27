@@ -1,4 +1,9 @@
-'use strict';
+import { $, pct } from '../../../../engine/core/util.js';
+import { LANG } from '../../../../engine/core/i18n.js';
+import { enemies } from '../world/entities.js';
+import { explode } from '../actors/player.js';
+import { show } from '../flow/game.js';
+import { time } from '../flow/update.js';
 // English
 LANG.en = {
   name: 'English',

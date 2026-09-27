@@ -1,8 +1,17 @@
-'use strict';
+import * as THREE from 'three';
+import { randi } from '../../../../../engine/core/util.js';
+import { t } from '../../../../../engine/core/i18n.js';
+import { sfx } from '../../../../../engine/audio/audio.js';
+import { dynGroup } from '../../../../../engine/render/render.js';
+import { toast } from '../../../../../engine/ui/ui.js';
+import { BOSS_META } from '../../data/bosses.js';
+import { fanAt, ring } from '../../world/entities.js';
+import { P, damagePlayer } from '../player.js';
+import { bossBase } from './common.js';
 // TRINITY: three bodies orbiting the centre on one shared health pool
 
 // ---- TRINITY: three bodies orbiting the centre on one shared health pool ----
-function spawnTrinity() {
+export function spawnTrinity() {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x160a12, emissive: 0xff4d8d, emissiveIntensity: 0.3 });
   const geo = new THREE.OctahedronGeometry(1.2, 0), cols = [0xff4d8d, 0xffc24a, 0x54e8ff];
@@ -18,7 +27,7 @@ function spawnTrinity() {
   updTrinity(e, 0);
   toast(t('boss.trinityHint'), 3800);
 }
-function updTrinity(e, dt) {
+export function updTrinity(e, dt) {
   const K = BOSS_META.trinity.tune;
   e.t += dt;
   const enr = e.hp < e.maxHp * 0.5, R = enr ? K.orbitREnr : K.orbitR, a0 = e.t * (enr ? K.orbitSpeedEnr : K.orbitSpeed), cols = [0xff4d8d, 0xffc24a, 0x54e8ff];
