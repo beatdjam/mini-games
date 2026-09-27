@@ -19,6 +19,16 @@ export function audioInit() {
     musicInit(); // engine/audio/music.ts
   } catch (e) { actx = null; }
 }
+// call once at start-up. Browsers start audio only from a user gesture, and on phones a touch's pointerdown
+// doesn't count (its pointerup / touchend does), so every kind of input tries again until audio is actually running
+export function unlockAudio() {
+  const evs = ['pointerdown', 'pointerup', 'touchend', 'keydown', 'click'];
+  const tryUnlock = () => {
+    audioInit();
+    if (actx && actx.state === 'running') evs.forEach(ev => document.removeEventListener(ev, tryUnlock, true));
+  };
+  evs.forEach(ev => document.addEventListener(ev, tryUnlock, true));
+}
 // the game sets these from its settings (0..1)
 // sound recipes by name, filled by the game: SFX.name = () => { ... }
 export const SFX: Record<string, () => void> = {};

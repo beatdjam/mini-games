@@ -66,7 +66,7 @@
 - 効果音も BGM も、音声ファイルを使わず Web Audio で合成する
 - 効果音: `sfx(name)` が `SFX[name]` を鳴らす（`SFX` は engine の器で、ゲームが `Object.assign(SFX, {...})` で中身を入れる）。同じ音が短い間に重なりすぎないよう間引く。出口に軽いコンプレッサー
 - BGM: `MUSIC_STYLES`（調・音階・和音の進行・テンポ・パターン。ゲームが中身を入れる）を鳴らす。層（pad / arp / bass / drums / tension）の混ぜ方は `LAYER_MIX` を `setMusicMix(kind)` で切り替える。ボス戦は同じ曲調を速く激しくしたアレンジにできる
-- 音量はゲームが `setVolumes(sfx, bgm)`（0〜1）で入れる。最初のタップかクリックまで音は出ない（`audioInit`）
+- 音量はゲームが `setVolumes(sfx, bgm)`（0〜1）で入れる。最初のタップかクリックまで音は出ない（`audioInit`）。ゲームは起動時に `unlockAudio()` を1回呼ぶ。スマホではタッチの pointerdown では音を出せない（指を離したときなら出せる）ので、音が実際に動き出すまで、どの入力でも試し直す
 
 ## 9. 画面の部品と入力（ui/）
 

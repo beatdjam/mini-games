@@ -3,7 +3,7 @@ import { rand } from '../../../../engine/core/util.ts';
 import { LOOP, addSystem, runSystems, startLoop, stopFrame } from '../../../../engine/core/loop.ts';
 import { WORLD, query, sweepWorld } from '../../../../engine/core/world.ts';
 import { t } from '../../../../engine/core/i18n.ts';
-import { audioInit, sfx } from '../../../../engine/audio/audio.ts';
+import { sfx, unlockAudio } from '../../../../engine/audio/audio.ts';
 import { setMusic } from '../../../../engine/audio/music.ts';
 import { camera, gun } from '../../../../engine/render/render.ts';
 import { FX } from '../../../../engine/render/fx.ts';
@@ -165,6 +165,6 @@ export function boot() {
   renderBase();
   buildAttract();
   setMusic('BASE'); // starts once the first tap/click unlocks audio
-  document.addEventListener('pointerdown', () => audioInit(), { once: true });
+  unlockAudio();
   startLoop();
 }
