@@ -4,8 +4,6 @@ const geoCache = {
   pbullet: shared(new THREE.BoxGeometry(0.07, 0.07, 1.1)),
   rocket: shared(rocketGeo),
   ebullet: shared(new THREE.SphereGeometry(0.22, 8, 6)),
-  part: shared(new THREE.BoxGeometry(0.13, 0.13, 0.13)),
-  ball: shared(new THREE.SphereGeometry(1, 16, 12)),
   bit: shared(new THREE.OctahedronGeometry(0.22)),
   tetra: shared(new THREE.TetrahedronGeometry(0.8)),
   octa: shared(new THREE.OctahedronGeometry(0.62)),

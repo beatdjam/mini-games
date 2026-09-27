@@ -337,7 +337,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `js/flow/music.js` | どの場面でどの BGM の層を鳴らすか（再生は engine、曲のデータは `js/data/music.js`） |
 | `js/world/render.js` | 弾などの共有ジオメトリ、床と壁のテクスチャ |
 | `js/world/level.js` | 地形の生成と描画、危険床、ゲート（当たり判定と経路は engine/world/tiles.js） |
-| `js/world/entities.js` | 弾・パーティクル・拾い物の生成、敵の生成（敵オブジェクトの項目一覧もここ） |
+| `js/world/entities.js` | 弾・拾い物の生成、敵の生成（敵オブジェクトの項目一覧もここ）。パーティクルは engine/render/fx.js |
 | `js/actors/player.js` | プレイヤー、武器のレアリティ・+値・オプション、構えている銃のモデル、射撃、被弾、撃破 |
 | `js/actors/bosses/common.js` | ボスの共通処理（生成、体力倍率、撃破後の処理）、予告レーザー |
 | `js/actors/bosses/<名前>.js` | ボス1体ずつの生成と行動 |

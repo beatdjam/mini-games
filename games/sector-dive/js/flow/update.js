@@ -124,7 +124,6 @@ function attract(dt) {
   camera.rotation.set(-0.05, attractYaw, 0);
   portals.forEach(pt => { pt.ring.rotation.z += dt * 1.5; });
   for (const e of enemies) { e.t += dt; e.mesh.position.y = e.fy + e.y + Math.sin(e.t * 2) * 0.15; e.body.rotation.y += dt; }
-  updateParts(dt);
 }
 
 // ---- the systems, in order. 'play' = diving, 'base' = the base screen with the slowly turning backdrop ----
@@ -135,8 +134,8 @@ addSystem({ name: 'playerBullets', order: 20, modes: PLAY, update: updatePBullet
 addSystem({ name: 'enemyBullets', order: 21, modes: PLAY, update: updateEBullets });
 addSystem({ name: 'pickups', order: 30, modes: PLAY, update: updatePickups });
 addSystem({ name: 'waves', order: 31, modes: PLAY, update: updateWaves });
-addSystem({ name: 'fireballs', order: 40, modes: PLAY, update: updateBalls });
-addSystem({ name: 'particles', order: 41, modes: PLAY, update: updateParts });
+// engine effects (engine/render/fx.js): frozen while paused; particles also drift on the base screen
+FX.fireballs.modes = PLAY; FX.particles.modes = ['play', 'base'];
 addSystem({ name: 'hazards', order: 50, modes: PLAY, update: updateHazards });
 addSystem({ name: 'music', order: 60, modes: PLAY, update: updateMusic });
 // a run that just ended (death / extraction above) stops here for this frame
