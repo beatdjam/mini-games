@@ -1,6 +1,5 @@
 import { $, isTouch } from '../../../../engine/core/util.ts';
 import { lang, t } from '../../../../engine/core/i18n.ts';
-import { H, W } from '../../../../engine/world/tiles.ts';
 import { toast } from '../../../../engine/ui/ui.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';

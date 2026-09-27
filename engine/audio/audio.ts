@@ -71,6 +71,8 @@ export function gunshot(o: GunshotSpec) {
   ot(t, 'sine', o.thumpF * r, 35, o.thump, o.thumpVol);                                // low thump
   nz(t + 0.01, o.tail, o.tailVol, 'lowpass', (o.tailF || 2200) * r, 300);             // tail
 }
+// the audio clock (s) for sound recipes; 0 before audio starts
+export const audioNow = (): number => actx ? actx.currentTime : 0;
 export function sfx(name: string, gap?: number) {
   if (!actx) return; // no audio yet (before the first tap) or not supported
   const now = performance.now();

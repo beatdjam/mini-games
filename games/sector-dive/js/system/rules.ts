@@ -1,4 +1,3 @@
-import { $ } from '../../../../engine/core/util.ts';
 import { LANG } from '../../../../engine/core/i18n.ts';
 import { DROP_POOL, WEAPONS } from '../data/weapons.ts';
 import { PER } from '../data/progress.ts';

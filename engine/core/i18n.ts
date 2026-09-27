@@ -1,4 +1,3 @@
-import { $ } from './util.ts';
 // engine: Text lookup and language switching.
 // Each language file registers LANG.<code> = { name, ui: {key: text}, data: {...} }; ja is the fallback for missing keys.
 // - ui: screen text. A string may contain {name} placeholders; a function gets the values object.

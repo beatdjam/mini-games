@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { pick, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { clearWorld } from '../../../../engine/core/world.ts';
-import { t } from '../../../../engine/core/i18n.ts';
 import { UP, disposeTree, scene, textSprite } from '../../../../engine/render/render.ts';
 import { clearFx } from '../../../../engine/render/fx.ts';
 import { H, RISE, T, W, computeFlow, cover, floorY, flow, grid, hgt, isSolid, ramp, setTileWorld, walkable } from '../../../../engine/world/tiles.ts';
@@ -10,7 +9,7 @@ import { COVER_H, PLAT_H, WALL_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { biomeTex } from './render.ts';
-import { eBullets, enemies, pBullets, removeEnemyMesh, ring, setBoss, setNear, target } from './entities.ts';
+import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
 import { P, damagePlayer } from '../actors/player.ts';
 export let roomOf = null, rooms = [], seen = null, haz = null, hazMat = null, hazT = 0;
 export function setHazardClock(v) { hazT = v; } // tests

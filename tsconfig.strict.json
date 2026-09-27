@@ -7,5 +7,20 @@
   "compilerOptions": { "strict": true },
   "include": ["engine/**/*.ts"],
   // game files already strict are listed here until the whole game is
-  "files": []
+  "files": [
+    "games/sector-dive/js/data/biomes.ts",
+    "games/sector-dive/js/data/bosses.ts",
+    "games/sector-dive/js/data/controls.ts",
+    "games/sector-dive/js/data/enemies.ts",
+    "games/sector-dive/js/data/level.ts",
+    "games/sector-dive/js/data/music.ts",
+    "games/sector-dive/js/data/perks.ts",
+    "games/sector-dive/js/data/progress.ts",
+    "games/sector-dive/js/data/sfx.ts",
+    "games/sector-dive/js/data/types.ts",
+    "games/sector-dive/js/data/viewmodels.ts",
+    "games/sector-dive/js/data/weapons.ts",
+    "games/sector-dive/js/lang/en.ts",
+    "games/sector-dive/js/lang/ja.ts"
+  ]
 }

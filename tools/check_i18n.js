@@ -10,7 +10,7 @@ const files = [];
 (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else if (p.endsWith('.ts') && !p.endsWith('.d.ts')) files.push(p); } })(path.join(root, 'js'));
 const ctx = { LANG: {}, pct: v => `${Math.round(v * 100)}%`, console };
 vm.createContext(ctx);
-for (const f of fs.readdirSync(path.join(root, 'js/lang'))) vm.runInContext(fs.readFileSync(path.join(root, 'js/lang', f), 'utf8').replace(/^import .*$/gm, ''), ctx); // the imports (LANG, pct) come from ctx
+for (const f of fs.readdirSync(path.join(root, 'js/lang'))) vm.runInContext(fs.readFileSync(path.join(root, 'js/lang', f), 'utf8').replace(/^import .*$/gm, '').replace(/ satisfies \w+/g, ''), ctx); // the imports (LANG, pct) come from ctx; TS-only syntax is dropped
 const LANG = ctx.LANG, used = new Set();
 const code = files.filter(f => !f.includes('/lang/')).map(f => fs.readFileSync(f, 'utf8')).join('\n');
 for (const m of code.matchAll(/\bt\(\s*'([\w.]+)'/g)) used.add(m[1]);

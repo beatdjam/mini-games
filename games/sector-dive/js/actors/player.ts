@@ -1,4 +1,4 @@
-import { $, clamp, rand, randi, shuffle } from '../../../../engine/core/util.ts';
+import { clamp, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { t } from '../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../engine/audio/audio.ts';
 import { UP, V3, buildViewmodel, camera, gun, scene } from '../../../../engine/render/render.ts';

@@ -2,7 +2,7 @@ import type { Enemy } from '../data/types.ts';
 import * as THREE from 'three';
 import { clamp, rand } from '../../../../engine/core/util.ts';
 import { spawn, worldGroup } from '../../../../engine/core/world.ts';
-import { nz, sfx } from '../../../../engine/audio/audio.ts';
+import { sfx } from '../../../../engine/audio/audio.ts';
 import { basicMat, disposeTree, dynGroup, lineMat } from '../../../../engine/render/render.ts';
 import { T, W, blocked, floorY, walkable } from '../../../../engine/world/tiles.ts';
 import { aimFan, ringAngles, takeFromPool } from '../../../../engine/world/projectiles.ts';

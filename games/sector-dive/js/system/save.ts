@@ -1,6 +1,5 @@
 import { isTouch } from '../../../../engine/core/util.ts';
 import { loadStore, saveStore } from '../../../../engine/core/store.ts';
-import { defaultLang, setLang } from '../../../../engine/core/i18n.ts';
 import { setVolumes } from '../../../../engine/audio/audio.ts';
 // Save data: defaults and conversions from older versions (reading / writing is engine/core/store.js)
 export const SAVE_KEY = 'sector-dive-v1';

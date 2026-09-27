@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { t } from '../../../../engine/core/i18n.ts';
 import { renderer, shared } from '../../../../engine/render/render.ts';
 export const rocketGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.7, 8); rocketGeo.rotateX(Math.PI / 2);
 export const geoCache = {

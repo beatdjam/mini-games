@@ -33,3 +33,17 @@ export interface PresUpgrade { id: string; max: number; cost: number; name?: str
 export interface EnemyDef { [k: string]: any; }
 // an enemy or boss on the field (fields are listed in spawnEnemy / bossBase)
 export interface Enemy extends WorldObject { x: number; z: number; r: number; fy?: number; side?: number; [k: string]: any; }
+
+// the `data` part of a language file (js/lang/<code>.ts): names and descriptions copied onto the definitions
+export interface LangData {
+  weapons: Record<string, { name: string; desc: string }>;
+  rarity: Record<number, { name: string }>;
+  affix: Record<string, { name: string; text: string }>;
+  biomes: Record<string, { name: string; hint?: string }>;
+  bosses: Record<string, { name: string; title: string; short: string; desc: string }>;
+  perks: Record<string, { name: string; desc(v: number): string; curText(c: any): string }>;
+  upgrades: Record<string, { name: string; desc(level: number): string }>;
+  pres: Record<string, { name: string; desc(level: number): string }>;
+  layout: Record<string, { name: string }>;
+  guideDesk: [string, string][]; guideTouch: [string, string][];
+}

@@ -1,7 +1,6 @@
 import type { Enemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { $, clamp } from '../../../../../engine/core/util.ts';
-import { spawn } from '../../../../../engine/core/world.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../../engine/audio/audio.ts';
 import { setMusic } from '../../../../../engine/audio/music.ts';

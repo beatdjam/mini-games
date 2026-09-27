@@ -1,5 +1,5 @@
 import type { Biome } from '../data/types.ts';
-import { $, clamp, isTouch, pct, pick, rand, randi, shuffle } from '../../../../engine/core/util.ts';
+import { $, clamp, isTouch, pick, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { clearStore, prefGet, prefSet } from '../../../../engine/core/store.ts';
 import { t } from '../../../../engine/core/i18n.ts';
 import { audioInit, sfx } from '../../../../engine/audio/audio.ts';

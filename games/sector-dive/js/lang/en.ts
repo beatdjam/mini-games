@@ -1,9 +1,6 @@
-import { $, pct } from '../../../../engine/core/util.ts';
+import type { LangData } from '../data/types.ts';
+import { pct } from '../../../../engine/core/util.ts';
 import { LANG } from '../../../../engine/core/i18n.ts';
-import { enemies } from '../world/entities.ts';
-import { explode } from '../actors/player.ts';
-import { show } from '../flow/game.ts';
-import { time } from '../flow/update.ts';
 // English
 LANG.en = {
   name: 'English',
@@ -374,5 +371,5 @@ LANG.en = {
       ['Reload', 'R (automatic when empty)'], ['Switch weapon', 'Q / 1 / 2 / wheel'], ['Pick up weapon', 'G to swap / E to bag'], ['Med kit', 'H'], ['Bag', 'Tab / I'], ['Full map', 'M'], ['Pause', 'Esc / P']],
     guideTouch: [['Move', 'Drag the left side'], ['Look', 'Drag the right side'], ['Fire', 'Right fire button (drag while holding to look) / small left fire button'], ['Dash', 'Dash button at the right edge (uses stamina, brief invulnerability). Settings can make a full stick push dash too'],
       ['Reload', 'Reload button (automatic when empty)'], ['Switch weapon', 'Tap the weapon bar at the bottom'], ['Pick up weapon', 'The "Swap" / "To bag" buttons that appear nearby'], ['Med kit', 'Heal button'], ['Bag', 'BAG at the top right'], ['Full map', 'Tap the minimap']],
-  },
+  } satisfies LangData,
 };

@@ -33,5 +33,5 @@ export const AFFIX: Record<string, Affix> = {
 export const PLUS_DMG = 0.08;
 // base-side modding of basic weapons: persistent +value / rarity per weapon type (kept on death)
 export const MOD_PLUS_MAX = 10;
-export const modPlusCost = plus => Math.round(50 * Math.pow(1.5, plus));
+export const modPlusCost = (plus: number): number => Math.round(50 * Math.pow(1.5, plus));
 export const MOD_RARITY_COST = [300, 900]; // to ★★ and to ★★★
