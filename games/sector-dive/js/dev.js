@@ -284,6 +284,7 @@ if (location.hash === '#smoke') {
         endRun('extract');
         if ($('#btnShare').hidden || !shareData || shareData.bosses[0] !== '監視体' || shareData.chips[0] !== '火力×2') throw new Error('share data');
         if (!shareText(shareData).includes('#SectorDive') || !shareText(shareData).includes('監視体を撃破')) throw new Error('share text');
+        $('#btnShare').click(); if ($('#sharePanel').hidden) throw new Error('share panel on PC');
         goBase(); startPractice('crusher', 0); tick(5); endRun('abandon');
         if (!$('#btnShare').hidden) throw new Error('share shown after practice');
         goBase(); startRun(); tick(5);
@@ -350,12 +351,12 @@ if (location.hash.startsWith('#view-haz')) setTimeout(() => {
   const wid = location.hash.split('-')[2]; if (WEAPONS[wid]) { P.weapons[0] = basicW(wid); P.weapons[0].mag = magSize(P.weapons[0]); P.cur = 0; normalizeWeapons(); weaponHud(); } // #view-haz-smg etc.
   hazT = 0.5; for (let n = 0; n < 5; n++) update(1 / 60);
 }, 300);
-// dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen)
+// dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen, #view-share-res-panel: with the PC share panel open)
 if (location.hash.startsWith('#view-share')) setTimeout(() => {
   startRun(); run.stage = 2 * PER + PER - 1; run.kills = 142; run.bosses = ['watcher', 'trinity'];
   run.perks = ['火力', '火力', '連射+', '会心', 'リロード', '移動速度']; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] };
   const kind = location.hash.includes('dead') ? 'dead' : 'extract';
-  endRun(kind); if (location.hash.includes('res')) return; // #view-share-res: the result screen itself
+  endRun(kind); if (location.hash.includes('res')) { if (location.hash.includes('panel')) setTimeout(() => $('#btnShare').click(), 900); return; } // #view-share-res: the result screen itself
   drawShareCard(shareData).then(b => { const im = new Image(); im.src = URL.createObjectURL(b); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData)); });
 }, 300);
 if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); openPerk('チップを1枚選ぶ'); }, 300);

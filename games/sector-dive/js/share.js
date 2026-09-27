@@ -1,6 +1,6 @@
 // ---- sharing a run's result: a card image + a short text with #SectorDive ----
-// phones get the share sheet with the image attached. PCs skip it (a desktop share sheet rarely has X):
-// the image goes to the clipboard (or is saved if that fails) and X's post screen opens with the text
+// phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
+// the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
 const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
 let shareData = null, shareBlob = null;
 
@@ -16,9 +16,9 @@ function prepShare(kind) {
   };
   shareBlob = null;
   drawShareCard(shareData).then(b => { if (shareData && b) shareBlob = b; }).catch(() => {});
-  $('#btnShare').hidden = false;
+  $('#btnShare').hidden = false; $('#sharePanel').hidden = true;
 }
-function hideShare() { shareData = shareBlob = null; $('#btnShare').hidden = true; }
+function hideShare() { shareData = shareBlob = null; $('#btnShare').hidden = true; $('#sharePanel').hidden = true; }
 
 function shareText(d) {
   const end = d.kind === 'extract' ? 'から帰還した' : d.kind === 'abandon' ? 'で潜行を放棄した' : 'で信号途絶';
@@ -70,27 +70,36 @@ async function drawShareCard(d) {
 
 function shareResult() {
   if (!shareData) return;
-  const text = shareText(shareData);
   const file = shareBlob && new File([shareBlob], 'sector-dive.png', { type: 'image/png' });
   if (isTouch && file && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], text }).catch(e => { if (e.name !== 'AbortError') shareFallback(text); });
+    navigator.share({ files: [file], text: shareText(shareData) }).catch(e => { if (e.name !== 'AbortError') openSharePanel(); });
     return;
   }
-  shareFallback(text);
+  openSharePanel();
+}
+async function openSharePanel() {
+  const panel = $('#sharePanel');
+  if (!panel.hidden) { panel.hidden = true; return; }
+  panel.hidden = false;
+  $('#btnShareCopy').hidden = !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+  if (!shareBlob) shareBlob = await drawShareCard(shareData);
+  const img = $('#shareImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+  img.src = URL.createObjectURL(shareBlob);
+}
+function copyShareImage() {
+  if (!shareBlob) return;
+  navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })])
+    .then(() => toast('画像をコピーした。X の投稿画面で貼り付けてね', 3000), () => toast('コピーできなかった。「画像を保存」を使ってね', 3000));
 }
 function saveShareImage() {
+  if (!shareBlob) return;
   const a = document.createElement('a'); a.href = URL.createObjectURL(shareBlob); a.download = 'sector-dive.png';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-  toast('画像を保存した。投稿画面で添付してね', 3000);
 }
-function shareFallback(text) {
-  if (shareBlob) {
-    // start the clipboard write inside the click, before the new tab takes focus
-    let copy = null;
-    try { if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) copy = navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })]); } catch (e) {}
-    if (copy) copy.then(() => toast('画像をコピーした。投稿画面に貼り付けてね', 3500), saveShareImage);
-    else saveShareImage();
-  }
-  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank', 'noopener');
+function openXPost() {
+  if (shareData) window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(shareData)), '_blank', 'noopener');
 }
+$('#btnShareCopy').addEventListener('click', copyShareImage);
+$('#btnShareSave').addEventListener('click', saveShareImage);
+$('#btnShareX').addEventListener('click', openXPost);
 $('#btnShare').addEventListener('click', shareResult);
