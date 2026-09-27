@@ -3,6 +3,7 @@
 // Objects that gain fields while the game runs (enemies, bosses) still allow any extra field ([k: string]: any);
 // to make one stricter, list its fields here and drop the index signature.
 import type { WorldObject } from '../../../../engine/core/world.ts';
+import type { ButtonPlace } from '../../../../engine/ui/touchlayout.ts';
 
 export interface WeaponDef {
   dmg: number; rate: number; spread: number; pellets: number; speed: number; mag: number; reload: number; color: number; cost: number;
@@ -46,4 +47,24 @@ export interface LangData {
   pres: Record<string, { name: string; desc(level: number): string }>;
   layout: Record<string, { name: string }>;
   guideDesk: [string, string][]; guideTouch: [string, string][];
+}
+
+// one weapon: in hand, in the bag, in storage or on the ground. basic = a base weapon (never lost);
+// r = rarity index, plus = + value, opts = option ids (AFFIX), mag = rounds left in the magazine
+export interface WeaponItem { id: string; r: number; basic?: boolean; plus?: number; opts?: string[]; mag?: number; }
+// the state of a run and of the player (filled in when js/flow and js/actors are made strict)
+export type RunState = Record<string, any>;
+export type PlayerState = Record<string, any>;
+export interface Snapshot { run: RunState; P: PlayerState; }
+export interface SaveData {
+  bits: number; up: Record<string, number>; unlocked: Record<string, boolean>;
+  loadout: (WeaponItem | null)[]; stash: WeaponItem[]; shortcut: number; startTier: number;
+  best: number; runs: number; bossKills: number; bossSeen: Record<string, boolean>; stageV: number;
+  mods: Record<string, { plus: number; r: number }>; canReboot: boolean;
+  pres: { count: number; pts: number; up: Record<string, number> };
+  suspend: Snapshot | null; // the checkpoint of a run in progress (js/flow/game.ts makeSnapshot)
+  settings: {
+    lang: string | null; autofire: boolean; assist: string; sens: number; bgm: number; sfx: number;
+    leftFire: boolean; stickDash: boolean; layout: Record<string, ButtonPlace>;
+  };
 }

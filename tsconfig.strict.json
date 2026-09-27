@@ -21,6 +21,9 @@
     "games/sector-dive/js/data/viewmodels.ts",
     "games/sector-dive/js/data/weapons.ts",
     "games/sector-dive/js/lang/en.ts",
-    "games/sector-dive/js/lang/ja.ts"
+    "games/sector-dive/js/lang/ja.ts",
+    "games/sector-dive/js/system/save.ts",
+    "games/sector-dive/js/system/rules.ts",
+    "games/sector-dive/js/system/text.ts"
   ]
 }

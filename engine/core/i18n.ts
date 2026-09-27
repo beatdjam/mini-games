@@ -8,8 +8,9 @@
 export type Text = string | ((v: Record<string, any>) => string);
 export interface LangPack { name: string; ui: Record<string, Text>; data: Record<string, any>; }
 export const LANG: Record<string, LangPack> = {};
-export let lang = 'ja', i18nHook: ((data: Record<string, any>) => void) | null = null;
-export function setI18nHook(fn: ((data: Record<string, any>) => void) | null) { i18nHook = fn; }
+export let lang = 'ja', i18nHook: ((data: any) => void) | null = null;
+// the game knows the shape of its language data (D); the engine just passes it through
+export function setI18nHook<D>(fn: ((data: D) => void) | null) { i18nHook = fn; }
 export function t(key: string, v?: Record<string, any>): string {
   let s: Text | undefined = LANG[lang].ui[key];
   if (s === undefined) s = LANG.ja.ui[key];

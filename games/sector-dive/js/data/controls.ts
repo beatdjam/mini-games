@@ -7,5 +7,5 @@ export const LAYOUT_DEF = {
   kit:    { x: 0.86,  y: 0.3,  s: 1, b: 50 },
   fire2:  { x: 0.2,   y: 0.5,  s: 1, b: 58 },
 };
-export const GUIDE_DESK = []; // filled from the language file
-export const GUIDE_TOUCH = [];
+export const GUIDE_DESK: [string, string][] = []; // filled from the language file
+export const GUIDE_TOUCH: [string, string][] = [];
