@@ -18,7 +18,7 @@ import { PER, TUNE } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
 import { perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
-import { buildLevel, haz, portals, roomSpot, rooms, setHazardClock, startIdx } from '../world/level.ts';
+import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet } from '../world/entities.ts';
 import { P, critChance, diffOf, explode, findTarget, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
@@ -338,6 +338,18 @@ devSmoke(() => {
       goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
       if (save.bits !== 0 || save.up.hp !== 0 || !$('#dlgWipe').hidden) throw new Error('wipe failed');
       console.log('SMOKE wipe ok');
+      // gates: one that opens underfoot doesn't take the player until they step off it and come back after arming
+      {
+        goBase(); startRun(); tick(5);
+        const st = run.stage;
+        makePortal(P.x, P.z, 0xffffff, 'next', '');
+        tick(30); if (run.stage !== st) throw new Error('gate took the player right away');
+        tick(60); if (run.stage !== st) throw new Error('gate took the player without stepping off');
+        P.x += 3; tick(2); P.x -= 3; tick(2);
+        if (run.stage !== st + 1) throw new Error('gate did not work after stepping off and back');
+        goBase();
+        console.log('SMOKE gate arming ok');
+      }
       // save codes: export, change things, import -> back to the exported state; a bad code is refused
       {
         save.bits = 777; save.up.dmg = 2; persist();

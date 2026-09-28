@@ -10,7 +10,7 @@ import { FX } from '../../../../engine/render/fx.ts';
 import { T, W, computeFlow, floorY, moveCircle } from '../../../../engine/world/tiles.ts';
 import { toast } from '../../../../engine/ui/ui.ts';
 import { fire2Held, fireHeld, joy, keys, mouseFire } from '../../../../engine/ui/input.ts';
-import { EYE } from '../data/level.ts';
+import { EYE, PORTAL } from '../data/level.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { save } from '../system/save.ts';
 import { updateMusic } from './music.ts';
@@ -89,8 +89,15 @@ export function updatePlayer(dt: number) {
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
 export function updatePortals(dt: number) {
   for (const pt of portals) {
-    pt.ring.rotation.z += dt * 1.5; pt.disc.material.opacity = 0.18 + Math.sin(time * 4) * 0.08;
-    if (state === 'play' && Math.hypot(P.x - pt.x, P.z - pt.z) < 1.5 && Math.abs(P.fy + 1.7 - pt.g.position.y) < 1.6) {
+    // arming (data/level.ts PORTAL): dim and still until it works, then bright and turning
+    pt.t += dt;
+    const d = Math.hypot(P.x - pt.x, P.z - pt.z);
+    if (!pt.clear && d >= PORTAL.clearR) pt.clear = true;
+    const armed = pt.t >= PORTAL.armTime && pt.clear;
+    pt.ring.material.opacity = armed ? 1 : 0.35;
+    pt.disc.material.opacity = armed ? 0.18 + Math.sin(time * 4) * 0.08 : 0.06;
+    if (armed) pt.ring.rotation.z += dt * 1.5;
+    if (armed && state === 'play' && d < PORTAL.enterR && Math.abs(P.fy + 1.7 - pt.g.position.y) < 1.6) {
       if (pt.kind === 'extract') { sfx('portal'); endRun('extract'); }
       else nextStage();
       stopFrame();

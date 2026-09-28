@@ -5,7 +5,7 @@ import { UP, disposeTree, scene, textSprite } from '../../../../engine/render/re
 import { clearFx } from '../../../../engine/render/fx.ts';
 import { H, RISE, T, W, computeFlow, cover, floorY, flow, grid, hgt, isSolid, ramp, setTileWorld, walkable } from '../../../../engine/world/tiles.ts';
 import { clearPool } from '../../../../engine/world/projectiles.ts';
-import { COVER_H, PLAT_H, WALL_H } from '../data/level.ts';
+import { COVER_H, PLAT_H, PORTAL, WALL_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
 import type { Biome } from '../data/types.ts';
@@ -15,7 +15,8 @@ import { P, damagePlayer } from '../actors/player.ts';
 // a room on the tile grid (tiles); plat = has a raised deck
 export interface Room { x: number; y: number; w: number; h: number; plat?: boolean; }
 // a gate: kind 'next' (on to the next area) or 'extract' (back to base)
-export interface Portal { x: number; z: number; g: THREE.Group; ring: THREE.Mesh; disc: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>; kind: string; color: number; }
+// t: seconds since it appeared; clear: the player has been away from it since then (both needed before it works)
+export interface Portal { x: number; z: number; g: THREE.Group; ring: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>; disc: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>; kind: string; color: number; t: number; clear: boolean; }
 export type LevelMaps = ReturnType<typeof newMaps>;
 // per-tile maps of the current level (empty until the first level is built): room index, seen on the map, hazard floor
 export let roomOf: Int8Array = new Int8Array(0), seen: Uint8Array = new Uint8Array(0), haz: Uint8Array = new Uint8Array(0);
@@ -282,7 +283,7 @@ export function updateHazards(dt: number) {
 }
 export function makePortal(x: number, z: number, color: number, kind: string, label: string) {
   const g = new THREE.Group();
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.12, 8, 40), new THREE.MeshBasicMaterial({ color }));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.12, 8, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35 }));
   const disc = new THREE.Mesh(new THREE.CircleGeometry(1.4, 32), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
   const base = new THREE.Mesh(new THREE.RingGeometry(1.6, 1.9, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
   base.rotation.x = -Math.PI / 2; base.position.y = -1.55;
@@ -290,5 +291,6 @@ export function makePortal(x: number, z: number, color: number, kind: string, la
   if (label) { const s = textSprite(label, '#' + color.toString(16).padStart(6, '0')); s.position.y = 2.4; g.add(s); }
   g.position.set(x, floorY(x, z) + 1.7, z);
   levelGroup!.add(g); // gates are made after the level is built
-  portals.push({ x, z, g, ring, disc, kind, color });
+  const clear = !P || Math.hypot(P.x - x, P.z - z) >= PORTAL.clearR; // opened underfoot: wait until the player steps off
+  portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear });
 }

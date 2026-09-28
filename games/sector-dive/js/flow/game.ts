@@ -385,7 +385,7 @@ export function attract(dt: number) {
   attractYaw += dt * 0.12;
   camera.position.set(attractPos[0], floorY(attractPos[0], attractPos[1]) + EYE + 0.4, attractPos[1]);
   camera.rotation.set(-0.05, attractYaw, 0);
-  portals.forEach(pt => { pt.ring.rotation.z += dt * 1.5; });
+  portals.forEach(pt => { pt.ring.rotation.z += dt * 1.5; pt.ring.material.opacity = 1; }); // the backdrop's gate looks armed
   for (const e of enemies) { e.t += dt; e.mesh.position.y = e.fy + e.y + Math.sin(e.t * 2) * 0.15; e.body.rotation.y += dt; }
 }
 
