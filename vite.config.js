@@ -10,7 +10,7 @@ import { readdirSync, existsSync, readFileSync } from 'node:fs';
 const jst = new Date(Date.now() + 9 * 3600e3).toISOString();
 const BUILD = jst.slice(0, 19).replace(/\D/g, '');
 const games = readdirSync('games').filter(g => existsSync(`games/${g}/index.html`));
-const pages = { top: resolve('index.html'), engineTest: resolve('engine/test/index.html') };
+const pages = { top: resolve('index.html'), privacy: resolve('privacy.html'), engineTest: resolve('engine/test/index.html') };
 for (const g of games) {
   for (const f of readdirSync(`games/${g}`).filter(f => f.endsWith('.html'))) pages[f === 'index.html' ? g : `${g}-${f.replace('.html', '')}`] = resolve(`games/${g}/${f}`);
 }

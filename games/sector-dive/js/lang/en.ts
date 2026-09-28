@@ -94,6 +94,7 @@ LANG.en = {
     'base.links': 'Links',
     'base.backToList': '← All games',
     'base.updates': 'Update log (Japanese)',
+    'base.privacy': 'Privacy policy (Japanese)',
     'base.data': 'Data',
     'base.wipe': 'Delete all save data…',
     'base.diveSub': 'Start from {tier}',

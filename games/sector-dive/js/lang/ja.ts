@@ -94,6 +94,7 @@ LANG.ja = {
     'base.links': 'リンク',
     'base.backToList': '← ゲーム一覧',
     'base.updates': '更新履歴',
+    'base.privacy': 'プライバシーポリシー',
     'base.data': 'データ',
     'base.wipe': 'セーブデータを完全に消去…',
     'base.diveSub': '潜行開始 — {tier} から',
