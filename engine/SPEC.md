@@ -105,9 +105,9 @@
 - ゲームは `track(name, params)` でイベントを送る。タグがあれば `gtag('event', name, params)` を呼び、どのページでも `TRACK_LOG` に直近50件を残す（テストで確かめるため）
 - 名前は snake_case で40文字以内、パラメータは文字列・数値・真偽値だけで25個まで（GA4 の決まり）。個人を特定できる値は送らない
 - **パラメータを GA のレポートで使うには、GA の管理画面でカスタム定義に登録する**（管理 → カスタム定義。分類で見るものはイベント範囲のカスタム ディメンション、合計・平均で見るものはカスタム指標。登録前のデータには効かない）。パラメータは全ゲームで共有なので、ゲーム固有の言葉を避けた一般的な名前にして、同じ意味なら使い回す。GA の推奨イベント（`share` の `method`、`earn_virtual_currency` の `value`・`virtual_currency_name` など）に合う所はその名前に寄せる
-  - GA に登録済み（2026-09-28）: ディメンション `game` `result` `method` `level` `start_level` `stage` `stage_type` `target` `item_name` `virtual_currency_name`、指標 `value` `count` `upgrades` `duration_sec`
+  - GA に登録済み（2026-09-28。`stage_role` は追加分）: ディメンション `game` `result` `method` `level` `start_level` `stage` `stage_type` `stage_role` `target` `item_name` `virtual_currency_name`、指標 `value` `count` `upgrades` `duration_sec`
   - GA が予約している名前（`currency` など EC 用のもの）は登録できない。登録で弾かれたら、推奨イベントの名前に置き換える
-  - 意味: `level` 深度・ステージ番号などの段階 / `stage` その中の区切り / `stage_type` ステージの種類 / `target` 倒した・挑んだ相手 / `item_name` 使っている道具 / `value`＋`virtual_currency_name` 手に入れた通貨の量と種類 / `count` 倒した・こなした数 / `upgrades` 取得した強化の数 / `duration_sec` かかった秒数
+  - 意味: `level` 深度・ステージ番号などの段階 / `stage` その中の区切り / `stage_type` ステージの種類 / `stage_role` 部屋の役割（`normal` / `boss` など。何番目かに頼らず絞るため） / `target` 倒した・挑んだ相手 / `item_name` 使っている道具 / `value`＋`virtual_currency_name` 手に入れた通貨の量と種類 / `count` 倒した・こなした数 / `upgrades` 取得した強化の数 / `duration_sec` かかった秒数
   - 新しいパラメータを足したら、この一覧に足して、登録してもらうよう伝える
 
 ## 14. 確認用フックとテスト

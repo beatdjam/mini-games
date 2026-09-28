@@ -324,6 +324,7 @@ devSmoke(() => {
         const ev = TRACK_LOG.map(e => e.name + ':' + (e.params.result ?? e.params.method ?? ''));
         for (const want of ['dive_start:', 'level_start:', 'level_end:extract', 'level_end:dead', 'share:panel', 'practice_start:', 'practice_end:abandon'])
           if (!ev.includes(want)) throw new Error('analytics event ' + want + ' / ' + ev.slice(-12).join(' '));
+        if (TRACK_LOG.some(e => (e.name === 'level_start' || e.name === 'level_end') && e.params.stage_role !== 'normal' && e.params.stage_role !== 'boss')) throw new Error('analytics: stage_role');
         console.log('SMOKE analytics ok');
       }
       // suspend -> resume -> suspend -> discard
