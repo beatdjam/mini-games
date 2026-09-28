@@ -8,7 +8,11 @@ import { save } from './save.ts';
 // progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
 // (depth start = depth * 5, the boss = depth * 5 + 4)
 export const prog = (s: number): number => Math.floor(s / PER) * 5 + (s % PER) * 4 / (PER - 1);
-export const presMul = () => 1 + save.pres.count * 0.15;
+// enemies get 15% stronger per reboot, up to PRES_DIFF_CAP reboots: the bonuses run out after a few reboots,
+// so without a cap a long prestige run would leave DEPTH 1 out of reach right after a reboot
+export const PRES_DIFF_CAP = 7;
+export const presMulOf = (count: number): number => 1 + Math.min(count, PRES_DIFF_CAP) * 0.15;
+export const presMul = (): number => presMulOf(save.pres.count);
 // every weapon type can drop during a dive; unlocking only decides what you can start with and mod at the base
 export const pickDrop = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
 export const modOf = (id: string): { plus: number; r: number } => (save.mods && save.mods[id]) || { plus: 0, r: 0 };
@@ -29,16 +33,25 @@ export function bareDps(w: WeaponItem): number {
 // score = the geometric mean of the two, where 1 = DEPTH 1 with a plain handgun and no upgrades.
 // Returns 0 (easy) .. 4 (reckless) by READY_CUTS.
 export const READY_CUTS = [1.5, 1.15, 0.85, 0.6];
-export function readinessScore(tier: number): number {
-  const u = save.up, pu = save.pres.up, pres = presMul();
+// what the readiness is computed from: the loadout weapons, the damage upgrade level, max HP and the reboot multiplier
+export interface ReadyState { weapons: WeaponItem[]; dmgUp: number; hp: number; pres: number }
+export const readyNow = (): ReadyState => ({
+  weapons: save.loadout.map(basicNow).filter((w): w is WeaponItem => !!w), dmgUp: save.up.dmg,
+  hp: TUNE.hp + save.up.hp * 15 + save.pres.up.hp * 10, pres: presMul(),
+});
+// right after the next reboot: a plain handgun, no base upgrades, the kept reboot bonuses, one more reboot
+export const readyAfterReboot = (): ReadyState => ({
+  weapons: [{ id: 'pistol', r: 0, basic: true }], dmgUp: 0, hp: TUNE.hp + save.pres.up.hp * 10, pres: presMulOf(save.pres.count + 1),
+});
+export function readinessScore(tier: number, s: ReadyState = readyNow()): number {
   const ref = bareDps({ id: 'pistol', r: 0, basic: true });
-  const best = Math.max(0, ...save.loadout.map(basicNow).filter((w): w is WeaponItem => !!w).map(bareDps));
-  const off = best / ref * (1 + u.dmg * 0.08) * Math.pow(1.1, tier) / (Math.pow(DEPTH_HP_GROWTH, tier) * pres);
-  const def = (TUNE.hp + u.hp * 15 + pu.hp * 10) / TUNE.hp / ((1 + 0.045 * 5 * tier) * pres);
+  const best = Math.max(0, ...s.weapons.map(bareDps));
+  const off = best / ref * (1 + s.dmgUp * 0.08) * Math.pow(1.1, tier) / (Math.pow(DEPTH_HP_GROWTH, tier) * s.pres);
+  const def = s.hp / TUNE.hp / ((1 + 0.045 * 5 * tier) * s.pres);
   return Math.sqrt(off * def);
 }
-export function readiness(tier: number): number {
-  const s = readinessScore(tier), k = READY_CUTS.findIndex(c => s >= c);
+export function readiness(tier: number, s?: ReadyState): number {
+  const v = readinessScore(tier, s), k = READY_CUTS.findIndex(c => v >= c);
   return k < 0 ? READY_CUTS.length : k;
 }
 export const sellValue = (w: WeaponItem): number => Math.round(8 + WEAPONS[w.id].cost * 0.06 + [0, 20, 55][w.r] + (w.plus || 0) * 10 + (w.opts || []).length * 20);

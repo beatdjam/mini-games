@@ -17,7 +17,7 @@ import { BIOMES } from '../data/biomes.ts';
 import { PER, TUNE } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, persist, save } from '../system/save.ts';
-import { perkName, pickDrop, presMul, prog, readiness, readinessScore } from '../system/rules.ts';
+import { perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, portals, roomSpot, rooms, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet } from '../world/entities.ts';
 import { P, critChance, diffOf, explode, findTarget, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
@@ -338,12 +338,15 @@ devSmoke(() => {
       console.log('SMOKE wipe ok');
       // start-depth readiness: a fresh save is "fair" at DEPTH 1 and gets harder deeper; upgrades and mods make it easier
       {
-        const fresh = [0, 1, 2, 4].map(readiness);
+        const fresh = [0, 1, 2, 4].map(n => readiness(n));
         if (fresh[0] !== 2 || fresh.some((r, i) => i && r < fresh[i - 1]!)) throw new Error('readiness fresh ' + fresh);
         const s0 = readinessScore(2);
         save.up.dmg = 6; save.up.hp = 6; save.mods = { rail: { plus: 10, r: 2 } }; save.loadout = [basicW('rail'), null];
         const s1 = readinessScore(2);
         if (!(s1 > s0)) throw new Error('readiness upgrades ' + s0 + ' ' + s1);
+        // reboot difficulty stops growing at PRES_DIFF_CAP reboots; the rating after the next reboot is worse than now
+        if (presMulOf(PRES_DIFF_CAP + 5) !== presMulOf(PRES_DIFF_CAP) || !(presMulOf(1) > presMulOf(0))) throw new Error('reboot cap');
+        if (!(readinessScore(0, readyAfterReboot()) < readinessScore(0))) throw new Error('readiness after reboot');
         console.log('SMOKE readiness ok', fresh.join(','), 'D3 fresh', s0.toFixed(2), 'maxed', s1.toFixed(2), '->', readiness(2));
         $('#btnWipe').click(); $('#btnWipeGo').click();
       }
@@ -404,7 +407,7 @@ if (location.hash.startsWith('#view-haz')) setTimeout(() => {
 // dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen, #view-share-res-panel: with the PC share panel open)
 if (location.hash.startsWith('#view-share')) setTimeout(() => {
   startRun(); run.stage = 2 * PER + PER - 1; run.kills = 142; run.bosses = ['watcher', 'trinity'];
-  run.perks = ['overload', 'overload', 'rapid+', 'crit', 'reload', 'light']; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
+  run.perks = ['overload', 'overload', 'rapid+', 'crit', 'reload', 'light']; if (location.hash.includes('reboot')) save.pres.count = 3; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
   const kind = location.hash.includes('dead') ? 'dead' : 'extract';
   endRun(kind); if (location.hash.includes('res')) { if (location.hash.includes('panel')) setTimeout(() => $('#btnShare').click(), 900); return; } // #view-share-res: the result screen itself
   drawShareCard(shareData!).then(b => { const im = new Image(); im.src = URL.createObjectURL(b!); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData!)); });

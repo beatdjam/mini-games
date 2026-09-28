@@ -6,6 +6,7 @@ import { BOSS_META } from '../data/bosses.ts';
 import { perkName } from '../system/rules.ts';
 import { P, run, stageInfo, stageLabel, wText } from '../actors/player.ts';
 import { track } from '../../../../engine/core/analytics.ts';
+import { save } from '../system/save.ts';
 // ---- sharing a run's result: a card image + a short text with #SectorDive ----
 // phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
 // the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
@@ -13,6 +14,7 @@ export const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-div
 export interface ShareCard {
   kind: string; where: string; biome: string; kills: number; bosses: string[];
   weapon: string; wr: number; chips: string[]; nChips: number;
+  reboots: number; // reboot (prestige) count, shown next to the result label when above 0
 }
 export let shareData: ShareCard | null = null, shareBlob: Blob | null = null;
 
@@ -24,7 +26,7 @@ export function prepShare(kind: string) {
   const chips = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n, c]) => c > 1 ? t('common.count', { name: perkName(n), n: c }) : perkName(n));
   shareData = {
     kind, where: stageLabel(run.stage), biome: si.biome.name ?? '', kills: run.kills,
-    bosses: (run.bosses || []).map(bossShort), weapon: w ? wText(w) : '', wr: w ? w.r : 0, chips, nChips: run.perks.length,
+    bosses: (run.bosses || []).map(bossShort), weapon: w ? wText(w) : '', wr: w ? w.r : 0, chips, nChips: run.perks.length, reboots: save.pres.count,
   };
   shareBlob = null;
   drawShareCard(shareData).then(b => { if (shareData && b) shareBlob = b; }).catch(() => {});
@@ -52,7 +54,7 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   let x = 64; g.font = `700 34px ${disp}`;
   [['SECTOR', '#d5e4ee'], ['/', '#54e8ff'], ['DIVE', '#d5e4ee']].forEach(([s, col]) => { g.fillStyle = col; g.fillText(s, x, 86); x += g.measureText(s).width; });
   g.font = `500 20px ${disp}`; g.fillStyle = '#7f94a6'; g.textAlign = 'right';
-  g.fillText(d.kind === 'extract' ? 'EXTRACTED' : d.kind === 'abandon' ? 'ABANDONED' : 'SIGNAL LOST', W - 64, 84);
+  g.fillText((d.kind === 'extract' ? 'EXTRACTED' : d.kind === 'abandon' ? 'ABANDONED' : 'SIGNAL LOST') + (d.reboots ? `  ·  REBOOT ×${d.reboots}` : ''), W - 64, 84);
   g.textAlign = 'left';
   // headline
   g.font = `64px ${jp}`; g.fillStyle = acc;

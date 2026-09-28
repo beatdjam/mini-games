@@ -18,7 +18,7 @@ import { PER, PRES_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { _ } from '../data/music.ts';
 import { SAVE_KEY, basicW, defaultSave, persist, save, setSave } from '../system/save.ts';
-import { basicNow, modOf, perkIdOf, perkName, pickDrop, prog, readiness, sellValue } from '../system/rules.ts';
+import { basicNow, modOf, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
 import { buildLevel, exitIdx, makePortal, portals, randomTileIn, roomCount, roomSpot, rooms, seen, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { P, critChance, curW, diffOf, isBossStage, magSize, newPlayer, rollWeapon, run, setPlayer, setRun, stageInfo, stageLabel, tierLabel, wDmgMul, wName, wOpts, wText, weaponStats, wo } from '../actors/player.ts';
@@ -461,7 +461,7 @@ export function renderReboot() {
   const pr = save.pres, sec = $('#rebootSec');
   sec.hidden = !(save.canReboot || pr.count > 0);
   if (sec.hidden) return;
-  $('#rebootNote').textContent = t('reboot.note', { count: pr.count, diff: pr.count * 15, pts: pr.pts });
+  $('#rebootNote').textContent = t('reboot.note', { count: pr.count, diff: Math.round((presMul() - 1) * 100), pts: pr.pts });
   $('#presList').innerHTML = PRES_UP.map(u => {
     const l = pr.up[u.id] || 0, maxed = l >= u.max;
     const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
@@ -472,7 +472,7 @@ export function renderReboot() {
   if (save.suspend) { row.innerHTML = `<p class="help">${t('reboot.suspended')}</p>`; return; }
   if (!save.canReboot) { row.innerHTML = `<p class="help">${t('reboot.locked')}</p>`; return; }
   row.innerHTML = rebootArm
-    ? `<p class="help">${t('reboot.confirm')}</p>
+    ? `<p class="help">${t('reboot.confirm')}<br>${t('reboot.after', { diff: Math.round((presMulOf(pr.count + 1) - 1) * 100), cap: Math.round(PRES_DIFF_CAP * 15), ready: t(`base.ready${readiness(0, readyAfterReboot())}`) })}</p>
        <button class="buy" data-reboot="go">${t('reboot.go', { pts: rebootGain() })}</button><button class="mini-btn" data-reboot="cancel">${t('common.cancel')}</button>`
     : `<p class="help">${t('reboot.info', { pts: rebootGain() })}</p><button class="buy" data-reboot="arm">${t('reboot.arm')}</button>`;
 }
