@@ -46,7 +46,7 @@ export function startRun() {
   save.loadout = save.loadout.map((w, i) => w && w.basic ? w : (i === 0 ? basicW('pistol') : null));
   setRun({ stage: tier * PER, kills: 0, bits: 0, perks: [], bosses: [], startTier: tier, route: shuffle(BIOMES.map((_, i) => i)) });
   save.runs++; persist();
-  track('dive_start', { start_depth: tier + 1, weapon: save.loadout[0]?.id ?? '', runs: save.runs });
+  track('dive_start', { start_level: tier + 1, item_name: save.loadout[0]?.id ?? '' });
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage();
   const queue: string[] = [];
@@ -65,7 +65,7 @@ export function startStage() {
   const fade = $('#fade'); fade.style.transition = 'none'; fade.style.opacity = 1;
   requestAnimationFrame(() => { fade.style.transition = ''; fade.style.opacity = 0; });
   const bossKind = isArena ? (run.forceBoss || pick(b.bosses)) : null;
-  if (!run.practice) track('stage_start', { depth: si.tier + 1, area: si.sub + 1, sector: b.code, boss: bossKind ?? '' }); // area 4 = the boss room
+  if (!run.practice) track('level_start', { level: si.tier + 1, stage: si.sub + 1, stage_type: b.code, target: bossKind ?? '' }); // stage 4 = the boss room
   buildLevel(b, isArena, bossKind);
   const diff = diffOf(run.stage);
   if (isArena) {
@@ -178,7 +178,7 @@ export function resumeRun() {
   audioInit();
   if (isTouch && !isFs()) enterFs();
   restoreSnapshot(sn);
-  track('dive_resume', { depth: stageInfo(run.stage).tier + 1 });
+  track('dive_resume', { level: stageInfo(run.stage).tier + 1 });
   save.suspend = null; persist();
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage(); requestLock();
@@ -303,7 +303,7 @@ export function startPractice(kind: string, tier?: number) {
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
   setPlayer(newPlayer(save.loadout));
   setRun({ stage: tier * PER + PER - 1, kills: 0, bits: 0, perks: [], startTier: 0, route: [bi], practice: true, forceBoss: kind, t0: performance.now() });
-  track('practice_start', { boss: kind, depth: tier + 1 });
+  track('practice_start', { target: kind, level: tier + 1 });
   show(null); setPlayUI(true); normalizeWeapons(); weaponHud();
   startStage(); requestLock();
   toast(t('run.practiceStart'), 2600);
@@ -311,7 +311,7 @@ export function startPractice(kind: string, tier?: number) {
 export function endPractice(kind: string) {
   state = 'result'; releaseInputs(); exitLock();
   const sec = Math.round((performance.now() - run.t0!) / 1000);
-  track('practice_end', { boss: run.forceBoss!, depth: stageInfo(run.stage).tier + 1, result: run.cleared ? 'won' : kind, seconds: sec });
+  track('practice_end', { target: run.forceBoss!, level: stageInfo(run.stage).tier + 1, result: run.cleared ? 'won' : kind, duration_sec: sec });
   $('#resEyebrow').textContent = 'practice';
   $('#resTitle').textContent = t(run.cleared ? 'res.practiceWon' : 'res.practiceDone');
   $('#resList').innerHTML = [[t('res.boss'), BOSS_META[run.forceBoss!]!.name], [t('res.strength'), t('res.strengthV', { n: stageInfo(run.stage).tier + 1 })], [t('res.result'), t(run.cleared ? 'res.won' : kind === 'dead' ? 'res.died' : 'res.quit')], [t('res.time'), t('res.timeV', { m: Math.floor(sec / 60), s: sec % 60 })]]
@@ -326,7 +326,7 @@ export function endRun(kind: string) {
   const dead = kind !== 'extract';
   state = 'result'; releaseInputs(); exitLock();
   const got = Math.floor(run.bits), kept = dead ? Math.floor(got * TUNE.deathBitsKeep) : got;
-  track('run_end', { result: kind, depth: stageInfo(run.stage).tier + 1, area: stageInfo(run.stage).sub + 1, sector: stageInfo(run.stage).biome.code, kills: run.kills, bosses: (run.bosses || []).length, chips: run.perks.length, bits_kept: kept });
+  track('level_end', { result: kind, level: stageInfo(run.stage).tier + 1, stage: stageInfo(run.stage).sub + 1, stage_type: stageInfo(run.stage).biome.code, count: run.kills, upgrades: run.perks.length, value: kept, currency: 'bits' });
   save.bits += kept;
   save.best = Math.max(save.best, run.stage + 1);
   const found = P.weapons.concat(P.bag).filter((w): w is Weapon => !!w && !w.basic);

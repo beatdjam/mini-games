@@ -318,17 +318,17 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 
 - 共通のコア: 描画・ループ・当たり判定・弾・音・入力・文言・セーブなどは リポジトリ直下の `engine/` を使う。開発とビルドはリポジトリの README「開発」。仕様は [engine/SPEC.md](../../engine/SPEC.md)。ここにはこのゲーム固有のことだけを書く
 - 更新履歴: `updates.html`（公開ごとに1エントリ）。公開時にリポジトリ直下の `tools/build_updates.py` がコミットメッセージの `Changelog:` 行と `updates-archive.json` から生成する。拠点画面の設定タブとトップページのカードからリンク。書き方は README の「更新履歴のルール」
-- アクセス解析のイベント（`track`、仕組みは engine/SPEC.md「アクセス解析」）。練習中は `stage_start` を送らない
+- アクセス解析のイベント（`track`、仕組みとパラメータ名の決まりは engine/SPEC.md「アクセス解析」）。全イベントに `game: 'sector-dive'` が付く（`main.ts` で `ANALYTICS.game` を設定）。練習中は `level_start` を送らない
 
   | イベント | いつ | パラメータ |
   |---|---|---|
-  | `dive_start` | 出撃 | `start_depth`, `weapon`（装備1の武器）, `runs`（出撃回数） |
-  | `dive_resume` | 中断からの再開 | `depth` |
-  | `stage_start` | 区画・ボス部屋の開始 | `depth`, `area`（1〜3、4がボス部屋）, `sector`, `boss` |
-  | `boss_defeated` | ボス撃破（練習を除く） | `boss`, `depth` |
-  | `run_end` | 潜行の終わり | `result`（extract / dead / abandon）, `depth`, `area`, `sector`, `kills`, `bosses`, `chips`, `bits_kept` |
-  | `practice_start` / `practice_end` | ボス練習の開始・終わり | `boss`, `depth`, 終わりは `result`（won / dead / abandon）と `seconds` |
-  | `reboot` | 再起動 | `count` |
+  | `dive_start` | 出撃 | `start_level`（出撃する深度）, `item_name`（装備1の武器） |
+  | `dive_resume` | 中断からの再開 | `level` |
+  | `level_start` | 区画・ボス部屋の開始 | `level`（深度）, `stage`（1〜3、4がボス部屋）, `stage_type`（セクター）, `target`（ボス部屋のボス） |
+  | `boss_defeated` | ボス撃破（練習を除く） | `target`（ボス）, `level` |
+  | `level_end` | 潜行の終わり | `result`（extract / dead / abandon）, `level`, `stage`, `stage_type`, `count`（撃破数）, `upgrades`（チップの枚数）, `value`＋`currency: 'bits'`（持ち帰ったビット） |
+  | `practice_start` / `practice_end` | ボス練習の開始・終わり | `target`, `level`, 終わりは `result`（won / dead / abandon）と `duration_sec` |
+  | `reboot` | 再起動 | `count`（再起動の回数） |
   | `share` | シェアの操作 | `method`（native / panel / copy / save / x） |
 
 - 構成: `index.html`（HTML・CSS）＋ 入口の `main.ts` ＋ `js/` 以下のモジュール。`main.ts` が全部を読み込んだあと、言語・音量・拠点画面・システムの登録とループの開始（`boot`）を行う（決まりは engine/SPEC.md の「基本」）

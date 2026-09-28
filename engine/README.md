@@ -26,7 +26,7 @@
 | `ui/touchlayout.ts` | タッチボタンの配置（`applyLayout`, `getL`）と配置の編集（`openLayoutEditor`, `closeLayoutEditor`） | `TOUCH_LAYOUT` に `defs`, `first`, `edits`, `reset`, `save`, `afterApply`, `onOpen`, `onClose` を入れる。`data-lb` の付いたボタン、`#layoutBar`, `#lbName` |
 | `core/store.ts` | `loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `prefGet` / `prefSet`（タブの記憶など小さな値） | 既定値を返す関数。古い版からの変換は `raw` を見てゲーム側でやる |
 | `core/stale.ts` | 古いページ検出。キャッシュに残った古いページなら、最新版の URL へ1回だけ切り替える | `<meta name="build" content="dev">`（ビルドが版番号に書き換え、`version.json` も出す。このファイルはページに埋め込まれる） |
-| `core/analytics.ts` | `track(name, params)`（GA4 のイベントを送る。タグの無いページでは記録だけ）、`TRACK_LOG`（直近50件） | 送りたい出来事で `track` を呼ぶ。タグはビルドが入れる（`vite.config.js` の `GA_ID`） |
+| `core/analytics.ts` | `track(name, params)`（GA4 のイベントを送る。タグの無いページでは記録だけ）、`TRACK_LOG`（直近50件）、`ANALYTICS.game` | 起動時に `ANALYTICS.game` へゲームID。送りたい出来事で `track` を呼ぶ。タグはビルドが入れる（`vite.config.js` の `GA_ID`） |
 | `core/dev.ts` | `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`devSmoke(fn)`（`#smoke` で fn を実行し、エラー・版番号の不一致・`SMOKE DONE` をコンソールに出す） | テストの中身 |
 
 - engine のファイルは、ゲーム固有の名前を読み込み時に使わない（実行時に使うものは上の表の右列だけ）

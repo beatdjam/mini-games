@@ -101,10 +101,12 @@
 
 - ビルドが、公開する全ページ（engine のテストを除く）に GA4 のタグを入れる。測定 ID は `vite.config.js` の `GA_ID`（空にするとどのページにも入らない）
 - タグは公開先のホスト（`beatdjam.github.io`）で開いたときだけ動く。開発サーバー・テスト・手元の `npm run preview` では何も送らない
+- ゲームは起動時に `ANALYTICS.game` に自分の ID を入れる。全イベントに `game` として付く
 - ゲームは `track(name, params)` でイベントを送る。タグがあれば `gtag('event', name, params)` を呼び、どのページでも `TRACK_LOG` に直近50件を残す（テストで確かめるため）
 - 名前は snake_case で40文字以内、パラメータは文字列・数値・真偽値だけで25個まで（GA4 の決まり）。個人を特定できる値は送らない
-- **パラメータを GA のレポートで使うには、GA の管理画面でカスタム定義に登録する**（管理 → カスタム定義。分類で見るものはイベント範囲のカスタム ディメンション、合計・平均で見るものはカスタム指標。登録前のデータには効かない）。パラメータは全ゲームで共有なので、同じ意味なら同じ名前を使い回す
-  - 登録する想定のもの: ディメンション `result` `boss` `sector` `depth` `area` `method` `weapon` `start_depth`、指標 `kills` `chips` `bits_kept` `seconds`
+- **パラメータを GA のレポートで使うには、GA の管理画面でカスタム定義に登録する**（管理 → カスタム定義。分類で見るものはイベント範囲のカスタム ディメンション、合計・平均で見るものはカスタム指標。登録前のデータには効かない）。パラメータは全ゲームで共有なので、ゲーム固有の言葉を避けた一般的な名前にして、同じ意味なら使い回す。GA の推奨イベント（`share` の `method`、`earn_virtual_currency` の `value`・`virtual_currency_name` など）に合う所はその名前に寄せる
+  - GA に登録するもの: ディメンション `game` `result` `method` `level` `start_level` `stage` `stage_type` `target` `item_name` `currency`、指標 `value` `count` `upgrades` `duration_sec`
+  - 意味: `level` 深度・ステージ番号などの段階 / `stage` その中の区切り / `stage_type` ステージの種類 / `target` 倒した・挑んだ相手 / `item_name` 使っている道具 / `value`＋`currency` 手に入れた通貨の量と種類 / `count` 倒した・こなした数 / `upgrades` 取得した強化の数 / `duration_sec` かかった秒数
   - 新しいパラメータを足したら、この一覧に足して、登録してもらうよう伝える
 
 ## 14. 確認用フックとテスト

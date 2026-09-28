@@ -80,7 +80,7 @@ export function bossDown(e: Enemy) {
     return;
   }
   (run.bosses = run.bosses || []).push(e.kind);
-  track('boss_defeated', { boss: e.kind, depth: stageInfo(run.stage).tier + 1 });
+  track('boss_defeated', { target: e.kind, level: stageInfo(run.stage).tier + 1 });
   dropBits(e.x, e.z, 45 * bossDiff());
   addPickup('chip', e.cx, e.cz + 4); addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + prog(run.stage) * 0.03;

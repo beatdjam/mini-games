@@ -320,8 +320,9 @@ devSmoke(() => {
       }
       // analytics: the flow above sent its events (recorded in TRACK_LOG; no tag is loaded outside the real site)
       {
+        if (TRACK_LOG.some(e => e.params.game !== 'sector-dive')) throw new Error('analytics: game id missing');
         const ev = TRACK_LOG.map(e => e.name + ':' + (e.params.result ?? e.params.method ?? ''));
-        for (const want of ['dive_start:', 'stage_start:', 'run_end:extract', 'run_end:dead', 'share:panel', 'practice_start:', 'practice_end:abandon'])
+        for (const want of ['dive_start:', 'level_start:', 'level_end:extract', 'level_end:dead', 'share:panel', 'practice_start:', 'practice_end:abandon'])
           if (!ev.includes(want)) throw new Error('analytics event ' + want + ' / ' + ev.slice(-12).join(' '));
         console.log('SMOKE analytics ok');
       }

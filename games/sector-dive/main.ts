@@ -2,6 +2,7 @@
 // registers listeners); the start-up that needs everything loaded — language, volumes, the base screen, the
 // systems and the loop — runs at the bottom, after all of them.
 import { setLang, defaultLang } from '../../engine/core/i18n.ts';
+import { ANALYTICS } from '../../engine/core/analytics.ts';
 import { applyLayout } from '../../engine/ui/touchlayout.ts';
 import { save, syncVolumes } from './js/system/save.ts';
 import { fsLabel, renderGuide } from './js/ui/hud.ts';
@@ -59,6 +60,7 @@ import './js/actors/bullets.ts';
 import { boot } from './js/flow/update.ts';
 import './js/dev/dev.ts';
 
+ANALYTICS.game = 'sector-dive'; // sent with every analytics event
 setLang(save.settings.lang || defaultLang());
 syncVolumes();
 fsLabel(); applyLayout(); renderGuide(); showTab(baseTab);

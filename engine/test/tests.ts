@@ -4,7 +4,7 @@ import { clearStore, loadStore, prefGet, prefSet, saveStore } from '../core/stor
 import { addSystem, runSystems, stopFrame } from '../core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../core/world.ts';
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../core/i18n.ts';
-import { TRACK_LOG, track } from '../core/analytics.ts';
+import { ANALYTICS, TRACK_LOG, track } from '../core/analytics.ts';
 import { buildViewmodel } from '../render/render.ts';
 import { burst, clearFx, fireball, parts, updateBalls } from '../render/fx.ts';
 import { RISE, T, W, computeFlow, floorY, flowAt, flowDir, grid, hasLOS, hgt, moveCircle, ramp, setTileWorld, solidAt } from '../world/tiles.ts';
@@ -33,6 +33,8 @@ test('analytics: track records the event and passes it to the GA tag when there 
   window.gtag = (...args: unknown[]) => { sent.push(args); };
   try { track('test_event2', { b: 'x' }); } finally { delete window.gtag; }
   eq(sent.length, 1, 'gtag called'); eq(sent[0]![0], 'event'); eq(sent[0]![1], 'test_event2');
+  ANALYTICS.game = 'g1'; track('with_game', { a: 2 }); ANALYTICS.game = '';
+  eq(TRACK_LOG[TRACK_LOG.length - 1]!.params.game, 'g1', 'game id added');
   for (let k = 0; k < 60; k++) track('fill');
   eq(TRACK_LOG.length, 50, 'log keeps the last 50');
 });
