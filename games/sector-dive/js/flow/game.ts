@@ -18,7 +18,7 @@ import { PER, PRES_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { _ } from '../data/music.ts';
 import { SAVE_KEY, basicW, defaultSave, persist, save, setSave } from '../system/save.ts';
-import { basicNow, modOf, perkIdOf, perkName, pickDrop, prog, sellValue } from '../system/rules.ts';
+import { basicNow, modOf, perkIdOf, perkName, pickDrop, prog, readiness, sellValue } from '../system/rules.ts';
 import { buildLevel, exitIdx, makePortal, portals, randomTileIn, roomCount, roomSpot, rooms, seen, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { P, critChance, curW, diffOf, isBossStage, magSize, newPlayer, rollWeapon, run, setPlayer, setRun, stageInfo, stageLabel, tierLabel, wDmgMul, wName, wOpts, wText, weaponStats, wo } from '../actors/player.ts';
@@ -413,7 +413,7 @@ export function renderBase() {
   $('#sBoss').textContent = save.bossKills;
   save.startTier = clamp(save.startTier, 0, save.shortcut);
   $('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, n) =>
-    `<button class="tier" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b><small>${n === 0 ? t('base.tierFirst') : t('base.tierChips', { n })}</small></button>`).join('');
+    `<button class="tier" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b><small>${n === 0 ? t('base.tierFirst') : t('base.tierChips', { n })}</small><small class="rd rd${readiness(n)}">${t(`base.ready${readiness(n)}`)}</small></button>`).join('');
   $('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
   $('#loadout').innerHTML = [0, 1].map(k => {

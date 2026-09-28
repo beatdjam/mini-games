@@ -17,7 +17,7 @@ import { BIOMES } from '../data/biomes.ts';
 import { PER, TUNE } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, persist, save } from '../system/save.ts';
-import { perkName, pickDrop, presMul, prog } from '../system/rules.ts';
+import { perkName, pickDrop, presMul, prog, readiness, readinessScore } from '../system/rules.ts';
 import { buildLevel, haz, portals, roomSpot, rooms, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet } from '../world/entities.ts';
 import { P, critChance, diffOf, explode, findTarget, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
@@ -336,6 +336,17 @@ devSmoke(() => {
       goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
       if (save.bits !== 0 || save.up.hp !== 0 || !$('#dlgWipe').hidden) throw new Error('wipe failed');
       console.log('SMOKE wipe ok');
+      // start-depth readiness: a fresh save is "fair" at DEPTH 1 and gets harder deeper; upgrades and mods make it easier
+      {
+        const fresh = [0, 1, 2, 4].map(readiness);
+        if (fresh[0] !== 2 || fresh.some((r, i) => i && r < fresh[i - 1]!)) throw new Error('readiness fresh ' + fresh);
+        const s0 = readinessScore(2);
+        save.up.dmg = 6; save.up.hp = 6; save.mods = { rail: { plus: 10, r: 2 } }; save.loadout = [basicW('rail'), null];
+        const s1 = readinessScore(2);
+        if (!(s1 > s0)) throw new Error('readiness upgrades ' + s0 + ' ' + s1);
+        console.log('SMOKE readiness ok', fresh.join(','), 'D3 fresh', s0.toFixed(2), 'maxed', s1.toFixed(2), '->', readiness(2));
+        $('#btnWipe').click(); $('#btnWipeGo').click();
+      }
       // touch layout editor: open from the base, make the dash button bigger, close; the edit is kept
       {
         const s0 = getL('dash').s;
