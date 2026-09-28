@@ -18,7 +18,7 @@ import { basicNow, pickDrop, presMul, prog } from '../system/rules.ts';
 import { roomCount, roomSpot, rooms } from '../world/level.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy, spawnPBullet, target } from '../world/entities.ts';
 import { bossDown, bossPhase } from './bosses/common.ts';
-import { SCR, hitMark } from '../ui/hud.ts';
+import { SCR, hitDirection, hitMark } from '../ui/hud.ts';
 import { endRun, state } from '../flow/game.ts';
 // The player and the run exist only during a run; on the base screen they are null (setPlayer(null) / setRun(null)).
 // They are typed without null because nearly all code using them runs during a run; code that can also run
@@ -173,9 +173,11 @@ export function fire() {
   if (w.mag <= 0) startReload();
 }
 
-export function damagePlayer(d: number) {
+// from: where the hit came from (the attacker or the blast), for the direction arc; none for floors and your own blasts
+export function damagePlayer(d: number, from?: { x: number; z: number }) {
   if (P.inv > 0 || state !== 'play') return;
   P.hp -= d; P.inv = TUNE.hitInvuln; SCR.shake = Math.max(SCR.shake, 0.22); SCR.vig = 0.9; sfx('hurt', 80);
+  if (from) hitDirection(from.x, from.z);
   if (P.hp <= 0) { P.hp = 0; endRun('dead'); }
 }
 
@@ -220,7 +222,7 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
 export function bomberBlast(x: number, y: number, z: number, dmg: number) {
   burst(x, y, z, 0xffb13d, 26, 10, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.3); fireball(x, y, z, 3, 0xff8a3d);
   sfx('boom', 40); SCR.shake = Math.max(SCR.shake, 0.2);
-  if (Math.hypot(P.x - x, P.z - z) < 3.4 && Math.abs(P.fy + 1 - y) < 2.5) damagePlayer(dmg);
+  if (Math.hypot(P.x - x, P.z - z) < 3.4 && Math.abs(P.fy + 1 - y) < 2.5) damagePlayer(dmg, { x, z });
   for (const o of enemies.slice()) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, 35, false);
 }
 export function detonate(e: Enemy) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }

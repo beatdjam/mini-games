@@ -70,6 +70,8 @@ body.touch .kithud{display:none}
 .bname{font-family:var(--disp);font-size:12px;letter-spacing:.2em;color:var(--mag)}
 .bbar{height:6px;background:#1a0a12;border:1px solid #4a1a2c;position:relative;overflow:hidden}
 .bbar i{position:absolute;inset:0;background:var(--mag);transform-origin:left;box-shadow:0 0 10px var(--mag)}
+#hitDirs{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
+.hdir{position:absolute;left:-95px;top:-95px;width:190px;height:190px;border-radius:50%;border:5px solid transparent;border-top-color:#ff4d6e;filter:drop-shadow(0 0 6px #ff4d6e);opacity:0}
 #cross{position:absolute;left:50%;top:50%;width:26px;height:26px;transform:translate(-50%,-50%);transition:width .1s,height .1s}
 #cross i{position:absolute;background:var(--text);opacity:.85}
 #cross i:nth-child(1){left:50%;top:0;width:2px;height:7px;margin-left:-1px}
@@ -321,6 +323,7 @@ body.desk.nolock .tbtn{display:grid}
     <div id="bossBar" hidden><div class="bname" id="bossName"></div><div class="bbar"><i id="bossFill"></i></div></div>
     <div id="cross"><i></i><i></i><i></i><i></i></div>
     <div id="hitm"></div>
+    <div id="hitDirs"></div>
     <div id="reload" hidden><span>RELOAD</span><div class="bar"><i id="rFill"></i></div></div>
     <div id="bottom">
       <div id="ammo" class="num"></div>

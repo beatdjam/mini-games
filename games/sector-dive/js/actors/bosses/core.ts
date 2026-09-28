@@ -53,7 +53,7 @@ export function updCore(e: Enemy, dt: number) {
       b.scale.set(1, live ? 1 : 0.35, live ? 1 : 0.35);
       if (live) {
         const df = Math.atan2(Math.sin(pa - a), Math.cos(pa - a));
-        if (Math.cos(df) > 0 && pd * Math.abs(Math.sin(df)) < K.beamWidth) damagePlayer(e.dmg * K.beamDmg);
+        if (Math.cos(df) > 0 && pd * Math.abs(Math.sin(df)) < K.beamWidth) damagePlayer(e.dmg * K.beamDmg, { x: e.cx, z: e.cz });
       }
     }
     if (enr && live && e.pt > 2 + e.shots * K.fanGap) { e.shots++; fanAt(e.cx, 2.6, e.cz, K.fan[0], K.fan[1], K.fan[2], e.dmg, 0xc58cff); }

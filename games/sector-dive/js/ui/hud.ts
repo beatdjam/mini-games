@@ -4,7 +4,7 @@ import { query } from '../../../../engine/core/world.ts';
 import { LANG, lang, setLang, t } from '../../../../engine/core/i18n.ts';
 import { applySfxVolume, audioInit } from '../../../../engine/audio/audio.ts';
 import { musicVolume } from '../../../../engine/audio/music.ts';
-import { resize } from '../../../../engine/render/render.ts';
+import { camera, resize } from '../../../../engine/render/render.ts';
 import { H, T, W, cover, grid, hgt, ramp } from '../../../../engine/world/tiles.ts';
 import { fsSupported, isFs, isStandalone, toggleFs } from '../../../../engine/ui/ui.ts';
 import { locked } from '../../../../engine/ui/input.ts';
@@ -22,6 +22,27 @@ export const cross = $('#cross'), hitm = $('#hitm'), ammoEl = $('#ammo'), reload
 export const vigEl = $('#vig'), bossFill = $('#bossFill'), mini = $('#mini'), mctx = mini.getContext('2d'), bigmap = $('#bigmap'), bctx = bigmap.getContext('2d');
 // screen effects shared by several files: hit marker, damage vignette, camera shake, minimap redraw, stamina warning
 export const SCR = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
+// ---- where a hit came from: a red arc around the crosshair, only when the attacker is outside the view ----
+// hits from in front need no arc (you can see them); the arc keeps pointing at the spot while you turn, then fades
+export const hitDirs: { el: HTMLElement; x: number; z: number; t: number }[] = [];
+// angle of a point from the view direction: 0 = straight ahead, positive = to the left (the camera's yaw convention)
+const relAngle = (x: number, z: number) => { const a = Math.atan2(-(x - P.x), -(z - P.z)) - P.yaw; return Math.atan2(Math.sin(a), Math.cos(a)); };
+export function hitDirection(x: number, z: number) {
+  const half = Math.atan(Math.tan(camera.fov * Math.PI / 360) * camera.aspect); // half the horizontal field of view
+  if (Math.abs(relAngle(x, z)) < half * 0.9) return;
+  let d = hitDirs.find(h => h.t <= 0);
+  if (!d && hitDirs.length < 4) { const el = document.createElement('div'); el.className = 'hdir'; $('#hitDirs').appendChild(el); d = { el, x: 0, z: 0, t: 0 }; hitDirs.push(d); }
+  if (!d) d = hitDirs.reduce((a, b) => (a.t < b.t ? a : b));
+  d.x = x; d.z = z; d.t = TUNE.hitDirTime;
+}
+export function updateHitDirs(dt: number) {
+  for (const d of hitDirs) {
+    if (d.t <= 0) { d.el.style.opacity = '0'; continue; }
+    d.t -= dt;
+    d.el.style.transform = `rotate(${-relAngle(d.x, d.z)}rad)`;
+    d.el.style.opacity = String(Math.max(0, d.t / TUNE.hitDirTime));
+  }
+}
 export function hitMark(crit?: boolean) { hitm.classList.add('on'); hitm.classList.toggle('crit', !!crit); SCR.hitTimer = 0.09; }
 export function toggleMap() { if (state !== 'play') return; bigmap.hidden = !bigmap.hidden; SCR.miniT = 0; }
 export function weaponHud() {

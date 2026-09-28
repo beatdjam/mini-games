@@ -37,7 +37,7 @@ export function updTrinity(e: Enemy, dt: number) {
     if (e.ram && e.ram.k === k) { // enraged: one body lunges at where you stood, then returns
       const r = e.ram, u = r.t / r.dur, f = u < 0.5 ? u * 2 : 2 - u * 2;
       x += (r.tx - x) * f; z += (r.tz - z) * f; y += (1.2 - y) * f;
-      if (!r.hit && Math.hypot(P.x - x, P.z - z) < 1.8) { r.hit = true; damagePlayer(e.dmg * K.ramDmg); }
+      if (!r.hit && Math.hypot(P.x - x, P.z - z) < 1.8) { r.hit = true; damagePlayer(e.dmg * K.ramDmg, { x, z }); }
     }
     b.position.set(x, y, z); b.rotation.y += dt * (1.5 + k);
   });

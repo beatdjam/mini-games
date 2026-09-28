@@ -45,7 +45,7 @@ export function updCrusher(e: Enemy, dt: number) {
   } else if (e.st === 'charge') {
     const hit = moveCircle(e, e.cdx * K.chargeSpeed * dt, e.cdz * K.chargeSpeed * dt, 1.8);
     burst(e.x - e.cdx * 1.6, 0.3, e.z - e.cdz * 1.6, 0xff8a3d, 1, 3, 0.3);
-    if (!e.hitP && d < K.chargeHitR) { e.hitP = true; damagePlayer(e.dmg * K.chargeDmg); moveCircle(P, e.cdx * K.chargeKnock, e.cdz * K.chargeKnock, P.r); }
+    if (!e.hitP && d < K.chargeHitR) { e.hitP = true; damagePlayer(e.dmg * K.chargeDmg, e); moveCircle(P, e.cdx * K.chargeKnock, e.cdz * K.chargeKnock, P.r); }
     if (hit || e.timer <= 0) {
       e.st = 'stun'; e.timer = K.stun; e.stunMul = K.stunMul; SCR.shake = Math.max(SCR.shake, 0.35); sfx('boom');
       spawnWave(e.x, e.z, K.hitWave[0], K.hitWave[1], e.dmg * K.hitWave[2], 0xff8a3d);

@@ -44,7 +44,7 @@ export function spawnPBullet(pos: THREE.Vector3, dir: THREE.Vector3, speed: numb
 }
 export function spawnEBullet(x: number, y: number, z: number, vx: number, vy: number, vz: number, dmg: number, color: number, size?: number, homing?: number) {
   const b = takeFromPool(eBullets, geoCache.ebullet, 360); if (!b) return;
-  b.alive = true; b.x = x; b.y = y; b.z = z; b.vx = vx; b.vy = vy; b.vz = vz; b.dmg = dmg; b.life = 6;
+  b.alive = true; b.x = x; b.y = y; b.z = z; b.ox = x; b.oz = z; b.vx = vx; b.vy = vy; b.vz = vz; b.dmg = dmg; b.life = 6;
   b.size = size || 1; b.homing = homing || 0; b.speed = Math.hypot(vx, vy, vz);
   b.mesh.material = basicMat(color || 0xff4d8d); b.mesh.scale.setScalar(b.size); b.mesh.visible = true; b.mesh.position.set(x, y, z);
 }

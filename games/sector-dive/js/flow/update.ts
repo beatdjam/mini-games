@@ -18,7 +18,7 @@ import { portals, reveal, updateHazards } from '../world/level.ts';
 import { ENEMY_GROUP, nearD, setNear, setTarget, target } from '../world/entities.ts';
 import { GUNFX, P, curVM, curW, damagePlayer, findTarget, magSize, run, tryFire, wo } from '../actors/player.ts';
 import { CTRL } from '../ui/input.ts';
-import { SCR, bctx, bigmap, drawMap, hitm, mctx, mini, updateHud, weaponHud } from '../ui/hud.ts';
+import { SCR, bctx, bigmap, drawMap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract, endRun, nextStage, openPerk, renderBase, state } from './game.ts';
 import { updateEBullets, updatePBullets } from '../actors/bullets.ts';
 // Per-frame systems of Sector Dive, run by the engine loop (engine/core/loop.js) in this order
@@ -106,6 +106,7 @@ export function updatePortals(dt: number) {
   }
 }
 export function updateScreenFx(dt: number) {
+  updateHitDirs(dt);
   SCR.hitTimer -= dt; if (SCR.hitTimer <= 0) hitm.classList.remove('on');
   SCR.vig = Math.max(0, SCR.vig - dt * 2);
   if (state === 'play') updateHud();
@@ -143,7 +144,7 @@ export function updateWave(w: Wave, dt: number) {
   w.mesh.scale.set(w.r, 1, w.r); w.mesh.material.opacity = 0.75 * (1 - w.r / w.max);
   if (!w.hit) {
     const d = Math.hypot(P.x - w.x, P.z - w.z);
-    if (Math.abs(d - w.r) < 0.6) { w.hit = true; damagePlayer(w.dmg); }
+    if (Math.abs(d - w.r) < 0.6) { w.hit = true; damagePlayer(w.dmg, w); }
   }
   if (w.r >= w.max) w.dead = true;
 }

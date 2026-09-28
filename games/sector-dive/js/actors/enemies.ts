@@ -40,7 +40,7 @@ export function updateEnemy(e: Enemy, dt: number) {
 
   if (def.melee && dist < e.r + P.r + 0.4 && Math.abs(P.fy - e.fy!) < 1.2 && e.mcd <= 0) {
     e.mcd = 0.9;
-    damagePlayer(e.dmg);
+    damagePlayer(e.dmg, e);
   }
   if (def.ranged && los && dist < 26 && e.cd <= 0) {
     const r = def.ranged;

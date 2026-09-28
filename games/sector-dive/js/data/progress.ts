@@ -21,6 +21,7 @@ export const TUNE = {
   chipChance: 0.5,      // chance a cleared room gives a chip (otherwise a kit + bits); about 8 chips per depth incl. the boss
   rareChipChance: 0.12, // chance each offered chip is the rare (gold, stronger) version
   critCap: 0.4,         // crit chance can't go above this
+  hitDirTime: 0.6,      // seconds the red arc pointing at an off-screen attacker stays up (ui/hud.ts hitDirection)
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
 };
 export const UPGRADES: Upgrade[] = [

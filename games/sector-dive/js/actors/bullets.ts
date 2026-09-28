@@ -105,7 +105,7 @@ export function updateEBullets(dt: number) {
       if (b.life <= 0 || projHitsTerrain(b, Infinity, 0.05)) { burst(b.x, Math.max(0.1, b.y), b.z, 0xff4d8d, 2, 3, 0.2); return true; }
       const dx = b.x - P.x, dz = b.z - P.z;
       const touchesPlayer = dx * dx + dz * dz < hitR * hitR && b.y > P.fy && b.y < P.fy + 2.1;
-      if (touchesPlayer && P.inv <= 0) { damagePlayer(b.dmg); return true; }
+      if (touchesPlayer && P.inv <= 0) { damagePlayer(b.dmg, { x: b.ox, z: b.oz }); return true; }
       return false;
     }, b.speed);
     if (gone) { b.alive = false; b.mesh.visible = false; continue; }

@@ -20,10 +20,10 @@ import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '
 import { perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet } from '../world/entities.ts';
-import { P, critChance, diffOf, explode, findTarget, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
+import { P, critChance, damagePlayer, diffOf, explode, findTarget, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
-import { changeLang, weaponHud } from '../ui/hud.ts';
+import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
 import { discardSuspended, endRun, goBase, nextStage, openPerk, pickEnemyType, resumeRun, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { updatePBullets } from '../actors/bullets.ts';
@@ -338,6 +338,17 @@ devSmoke(() => {
       goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
       if (save.bits !== 0 || save.up.hp !== 0 || !$('#dlgWipe').hidden) throw new Error('wipe failed');
       console.log('SMOKE wipe ok');
+      // hit direction: a hit from behind shows the arc, one from in front doesn't
+      {
+        goBase(); startRun(); tick(5); P.yaw = 0; P.hp = P.maxHp = 1e6;
+        hitDirs.forEach(d => { d.t = 0; });
+        P.inv = 0; damagePlayer(1, { x: P.x, z: P.z - 8 });
+        if (hitDirs.some(d => d.t > 0)) throw new Error('hit arc shown for a hit from the front');
+        P.inv = 0; damagePlayer(1, { x: P.x + 3, z: P.z + 8 });
+        if (!hitDirs.some(d => d.t > 0)) throw new Error('no hit arc for a hit from behind');
+        goBase();
+        console.log('SMOKE hit direction ok');
+      }
       // gates: one that opens underfoot doesn't take the player until they step off it and come back after arming
       {
         goBase(); startRun(); tick(5);
@@ -445,3 +456,9 @@ if (location.hash.startsWith('#tab-')) setTimeout(() => showTab(location.hash.sl
 if (location.hash.startsWith('#view-susp')) setTimeout(() => { startRun(); suspendRun(); }, 300);
 // dev: ?lang=<code> opens the page in that language (saved like the settings button does)
 setTimeout(() => { const q = new URLSearchParams(location.search).get('lang'); if (q && LANG[q] && q !== lang) changeLang(q); }, 0);
+// dev view: #view-hitdir shows the hit-direction arcs (hits from behind-right and from the left)
+if (location.hash === '#view-hitdir') setTimeout(() => {
+  startRun(); show(null); setState('play'); P.yaw = 0; P.hp = P.maxHp = 1e6;
+  P.inv = 0; damagePlayer(1, { x: P.x + 6, z: P.z + 6 }); P.inv = 0; damagePlayer(1, { x: P.x - 8, z: P.z });
+  updateHitDirs(0.05);
+}, 300);
