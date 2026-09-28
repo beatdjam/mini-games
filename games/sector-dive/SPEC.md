@@ -326,7 +326,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
   | `dive_resume` | 中断からの再開 | `level` |
   | `level_start` | 区画・ボス部屋の開始 | `level`（深度）, `stage`（1〜3、4がボス部屋）, `stage_type`（セクター）, `target`（ボス部屋のボス） |
   | `boss_defeated` | ボス撃破（練習を除く） | `target`（ボス）, `level` |
-  | `level_end` | 潜行の終わり | `result`（extract / dead / abandon）, `level`, `stage`, `stage_type`, `count`（撃破数）, `upgrades`（チップの枚数）, `value`＋`currency: 'bits'`（持ち帰ったビット） |
+  | `level_end` | 潜行の終わり | `result`（extract / dead / abandon）, `level`, `stage`, `stage_type`, `count`（撃破数）, `upgrades`（チップの枚数）, `value`＋`virtual_currency_name: 'bits'`（持ち帰ったビット） |
   | `practice_start` / `practice_end` | ボス練習の開始・終わり | `target`, `level`, 終わりは `result`（won / dead / abandon）と `duration_sec` |
   | `reboot` | 再起動 | `count`（再起動の回数） |
   | `share` | シェアの操作 | `method`（native / panel / copy / save / x） |

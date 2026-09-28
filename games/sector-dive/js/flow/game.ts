@@ -326,7 +326,7 @@ export function endRun(kind: string) {
   const dead = kind !== 'extract';
   state = 'result'; releaseInputs(); exitLock();
   const got = Math.floor(run.bits), kept = dead ? Math.floor(got * TUNE.deathBitsKeep) : got;
-  track('level_end', { result: kind, level: stageInfo(run.stage).tier + 1, stage: stageInfo(run.stage).sub + 1, stage_type: stageInfo(run.stage).biome.code, count: run.kills, upgrades: run.perks.length, value: kept, currency: 'bits' });
+  track('level_end', { result: kind, level: stageInfo(run.stage).tier + 1, stage: stageInfo(run.stage).sub + 1, stage_type: stageInfo(run.stage).biome.code, count: run.kills, upgrades: run.perks.length, value: kept, virtual_currency_name: 'bits' });
   save.bits += kept;
   save.best = Math.max(save.best, run.stage + 1);
   const found = P.weapons.concat(P.bag).filter((w): w is Weapon => !!w && !w.basic);
