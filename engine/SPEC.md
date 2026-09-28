@@ -119,4 +119,6 @@
 - **engine のテスト**: 開発サーバーで `engine/test/` を開くか、`tools/headless.sh 'engine/test/' 20000` を実行する。各テストが `TEST ok` / `TEST FAIL` を出し、最後に `TEST DONE 通った数/全体`
   - engine を変えたら、engine のテストと、engine を使う全ゲームのスモークテスト（`tools/headless.sh 'games/<game-id>/#smoke' 200000`）を流す
   - engine に機能を足したら、`engine/test/tests.ts` にテストを足す
+- **まとめて流す**: `npm test`（開発サーバー）と `npm run test:build`（テスト用ビルド）が、engine のテストと全ゲームのスモークを流し、失敗があれば終了コード1（`tools/test.sh`）。公開の Actions でも流し、失敗したら公開しない
+- 確認用のコードは公開版に入れない: ゲームは入口で `if (import.meta.env.DEV || import.meta.env.MODE === 'test') import('./js/dev/dev.ts')` のように読み込む。engine のテストのページもテスト用ビルドにだけ入る（`vite.config.js`）
 - 文言キーの照合: `node tools/check_i18n.js games/<game-id>`

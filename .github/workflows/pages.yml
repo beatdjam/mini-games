@@ -35,11 +35,19 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - name: 型チェックとビルド（Vite。dist/ に出力し、版番号を書き込む）
+      - name: 型チェック
         run: |
           npm ci
           npm run typecheck
-          npm run build
+      - name: テスト（engine のテストと各ゲームのスモーク。開発サーバーと、テスト用ビルドの両方）
+        # 失敗したら公開しない。ランナーの Chrome は google-chrome
+        env:
+          CHROME: google-chrome
+        run: |
+          npm test
+          npm run test:build
+      - name: ビルド（Vite。dist/ に出力し、版番号を書き込む。確認用のコードは入らない）
+        run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

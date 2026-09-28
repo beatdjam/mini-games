@@ -325,6 +325,8 @@ devSmoke(() => {
         for (const want of ['dive_start:', 'level_start:', 'level_end:extract', 'level_end:dead', 'share:panel', 'practice_start:', 'practice_end:abandon'])
           if (!ev.includes(want)) throw new Error('analytics event ' + want + ' / ' + ev.slice(-12).join(' '));
         if (TRACK_LOG.some(e => (e.name === 'level_start' || e.name === 'level_end') && e.params.stage_role !== 'normal' && e.params.stage_role !== 'boss')) throw new Error('analytics: stage_role');
+        // in a build (npm run test:build) the analytics tag must be in the page; the dev server has none
+        if (import.meta.env.MODE === 'test' && !document.head.innerHTML.includes("gtag('config'")) throw new Error('analytics tag missing in the build');
         console.log('SMOKE analytics ok');
       }
       // suspend -> resume -> suspend -> discard

@@ -6,7 +6,9 @@
     "dev": "vite --port 8765",
     "build": "vite build",
     "preview": "vite preview --port 8765",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tools/test.sh",
+    "test:build": "tools/test.sh --build"
   },
   "dependencies": {
     "three": "0.128.0"

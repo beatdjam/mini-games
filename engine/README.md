@@ -4,7 +4,7 @@
 
 ゲームをまたいで使うコア。ES モジュールで、ゲームは `../../engine/<フォルダ>/<名前>.ts` から必要なものを import する。engine はゲームを import しない。
 
-共通のツールはリポジトリ直下の `tools/` にある: `check_i18n.js games/<game-id>`（文言キーの照合）、`headless.sh <パス>`（ヘッドレス Chrome で開いてコンソールを出す。スモークテストと engine のテスト）、`build_updates.py`（更新履歴の生成。公開時に Actions が実行）。
+共通のツールはリポジトリ直下の `tools/` にある: `check_i18n.js games/<game-id>`（文言キーの照合）、`test.sh`（`npm test` / `npm run test:build` の中身）、`headless.sh <パス>`（ヘッドレス Chrome で開いてコンソールを出す。スモークテストと engine のテスト）、`build_updates.py`（更新履歴の生成。公開時に Actions が実行）。
 
 フォルダは関心ごとに分けている: `core/`（小さな関数・文言・セーブ・確認用フック・古いページ検出）、`render/`（描画）、`world/`（タイルの世界）、`audio/`（効果音と BGM）、`ui/`（画面の部品と入力）。
 
