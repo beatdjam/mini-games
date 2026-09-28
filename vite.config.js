@@ -15,6 +15,25 @@ for (const g of games) {
   for (const f of readdirSync(`games/${g}`).filter(f => f.endsWith('.html'))) pages[f === 'index.html' ? g : `${g}-${f.replace('.html', '')}`] = resolve(`games/${g}/${f}`);
 }
 
+// Google Analytics 4 measurement id (it is public: it ends up in every page). Empty = no tag anywhere.
+const GA_ID = 'G-N6B7J9DVGE';
+const SITE_HOST = 'beatdjam.github.io';
+// adds the GA4 tag to every built page except the engine tests. The tag only starts on the real site, so a local
+// `npm run preview` (and the smoke test run against it) sends nothing. Events: engine/core/analytics.ts track()
+function analytics() {
+  return {
+    name: 'analytics',
+    apply: 'build',
+    transformIndexHtml(html, ctx) {
+      if (!GA_ID || ctx.path.startsWith('/engine/')) return html;
+      const tag = `<script>if(location.hostname==='${SITE_HOST}'){window.dataLayer=window.dataLayer||[];` +
+        `window.gtag=function(){dataLayer.push(arguments)};gtag('js',new Date());gtag('config','${GA_ID}');` +
+        `const s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=${GA_ID}';document.head.appendChild(s)}</script>`;
+      return html.replace('</head>', tag + '\n</head>');
+    },
+  };
+}
+
 function buildStamp() {
   return {
     name: 'build-stamp',
@@ -37,5 +56,5 @@ export default defineConfig(({ command, isPreview }) => ({
   server: { port: 8765, strictPort: true },
   // three.js alone is ~550 kB, so the vendor chunk is always over the default 500 kB warning
   build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 800, rollupOptions: { input: pages } },
-  plugins: [buildStamp()],
+  plugins: [buildStamp(), analytics()],
 }));

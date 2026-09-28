@@ -28,6 +28,7 @@ import { discardSuspended, endRun, goBase, nextStage, openPerk, pickEnemyType, r
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { updatePBullets } from '../actors/bullets.ts';
 import { update, updatePickups } from '../flow/update.ts';
+import { TRACK_LOG } from '../../../../engine/core/analytics.ts';
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
@@ -316,6 +317,13 @@ devSmoke(() => {
         if (!$('#btnShare').hidden) throw new Error('share shown after practice');
         goBase(); startRun(); tick(5);
         console.log('SMOKE share ok');
+      }
+      // analytics: the flow above sent its events (recorded in TRACK_LOG; no tag is loaded outside the real site)
+      {
+        const ev = TRACK_LOG.map(e => e.name + ':' + (e.params.result ?? e.params.method ?? ''));
+        for (const want of ['dive_start:', 'stage_start:', 'run_end:extract', 'run_end:dead', 'share:panel', 'practice_start:', 'practice_end:abandon'])
+          if (!ev.includes(want)) throw new Error('analytics event ' + want + ' / ' + ev.slice(-12).join(' '));
+        console.log('SMOKE analytics ok');
       }
       // suspend -> resume -> suspend -> discard
       run.route = [0]; run.stage = 2; startStage(); tick(30);

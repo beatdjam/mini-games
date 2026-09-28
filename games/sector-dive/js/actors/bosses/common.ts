@@ -21,6 +21,7 @@ import { spawnPhantom } from './phantom.ts';
 import { spawnTrinity } from './trinity.ts';
 import { spawnBastion } from './bastion.ts';
 import { SCR } from '../../ui/hud.ts';
+import { track } from '../../../../../engine/core/analytics.ts';
 // ================= bosses =================
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3)
 export function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * Math.pow(BOSS_TUNE.growth, (prog(run.stage) - 4) / 5) * presMul(); }
@@ -79,6 +80,7 @@ export function bossDown(e: Enemy) {
     return;
   }
   (run.bosses = run.bosses || []).push(e.kind);
+  track('boss_defeated', { boss: e.kind, depth: stageInfo(run.stage).tier + 1 });
   dropBits(e.x, e.z, 45 * bossDiff());
   addPickup('chip', e.cx, e.cz + 4); addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + prog(run.stage) * 0.03;

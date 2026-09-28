@@ -5,6 +5,7 @@ import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { perkName } from '../system/rules.ts';
 import { P, run, stageInfo, stageLabel, wText } from '../actors/player.ts';
+import { track } from '../../../../engine/core/analytics.ts';
 // ---- sharing a run's result: a card image + a short text with #SectorDive ----
 // phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
 // the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
@@ -81,6 +82,7 @@ export function shareResult() {
   if (!shareData) return;
   const file = shareBlob && new File([shareBlob], 'sector-dive.png', { type: 'image/png' });
   if (isTouch && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    track('share', { method: 'native' });
     navigator.share({ files: [file], text: shareText(shareData) }).catch(e => { if (e.name !== 'AbortError') openSharePanel(); });
     return;
   }
@@ -89,7 +91,7 @@ export function shareResult() {
 export async function openSharePanel() {
   const panel = $('#sharePanel');
   if (!panel.hidden) { panel.hidden = true; return; }
-  panel.hidden = false;
+  panel.hidden = false; track('share', { method: 'panel' });
   $('#btnShareCopy').hidden = !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
   if (!shareBlob) shareBlob = await drawShareCard(shareData!);
   if (!shareBlob) return;
@@ -98,15 +100,18 @@ export async function openSharePanel() {
 }
 export function copyShareImage() {
   if (!shareBlob) return;
+  track('share', { method: 'copy' });
   navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })])
     .then(() => toast(t('share.copied'), 3000), () => toast(t('share.copyFailed'), 3000));
 }
 export function saveShareImage() {
   if (!shareBlob) return;
+  track('share', { method: 'save' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(shareBlob); a.download = 'sector-dive.png';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
 export function openXPost() {
+  if (shareData) track('share', { method: 'x' });
   if (shareData) window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(shareData)), '_blank', 'noopener');
 }
 $('#btnShareCopy').addEventListener('click', copyShareImage);

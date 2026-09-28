@@ -4,6 +4,7 @@ import { clearStore, loadStore, prefGet, prefSet, saveStore } from '../core/stor
 import { addSystem, runSystems, stopFrame } from '../core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../core/world.ts';
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../core/i18n.ts';
+import { TRACK_LOG, track } from '../core/analytics.ts';
 import { buildViewmodel } from '../render/render.ts';
 import { burst, clearFx, fireball, parts, updateBalls } from '../render/fx.ts';
 import { RISE, T, W, computeFlow, floorY, flowAt, flowDir, grid, hasLOS, hgt, moveCircle, ramp, setTileWorld, solidAt } from '../world/tiles.ts';
@@ -24,6 +25,17 @@ export function near(a: number, b: number, eps?: number, what?: string) { if (Ma
 export function ok(cond: unknown, what?: string) { if (!cond) throw new Error(what || 'expected true'); }
 
 // ---------- core ----------
+test('analytics: track records the event and passes it to the GA tag when there is one', () => {
+  const n = TRACK_LOG.length;
+  track('test_event', { a: 1 });
+  eq(TRACK_LOG.length, n + 1, 'recorded'); eq(TRACK_LOG[TRACK_LOG.length - 1]!.name, 'test_event');
+  const sent: unknown[][] = [];
+  window.gtag = (...args: unknown[]) => { sent.push(args); };
+  try { track('test_event2', { b: 'x' }); } finally { delete window.gtag; }
+  eq(sent.length, 1, 'gtag called'); eq(sent[0]![0], 'event'); eq(sent[0]![1], 'test_event2');
+  for (let k = 0; k < 60; k++) track('fill');
+  eq(TRACK_LOG.length, 50, 'log keeps the last 50');
+});
 test('util: clamp / randi / shuffle', () => {
   eq(clamp(5, 0, 3), 3); eq(clamp(-1, 0, 3), 0);
   for (let k = 0; k < 50; k++) { const v = randi(2, 4); ok(v >= 2 && v <= 4 && Number.isInteger(v), 'randi range'); }

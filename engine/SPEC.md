@@ -97,7 +97,14 @@
 - ビルドは、ページの `<meta name="build" content="dev">` をビルドの時刻に書き換え、同じ値を `games/<id>/version.json` に出す。開発サーバーでは `dev` のまま（比べない）
 - `stale.ts` はビルドのときにページの `<head>` に直接埋め込む（JS にまとめると、古いページでは読み込めずに動かないため）。起動時に `version.json` を取りに行き、`<meta name="build">` と違えば `?b=<版>` 付きの URL に移って読み直す（同じ版への切り替えは1セッションに1回まで）
 
-## 13. 確認用フックとテスト
+## 13. アクセス解析（core/analytics.ts と vite.config.js）
+
+- ビルドが、公開する全ページ（engine のテストを除く）に GA4 のタグを入れる。測定 ID は `vite.config.js` の `GA_ID`（空にするとどのページにも入らない）
+- タグは公開先のホスト（`beatdjam.github.io`）で開いたときだけ動く。開発サーバー・テスト・手元の `npm run preview` では何も送らない
+- ゲームは `track(name, params)` でイベントを送る。タグがあれば `gtag('event', name, params)` を呼び、どのページでも `TRACK_LOG` に直近50件を残す（テストで確かめるため）
+- 名前は snake_case で40文字以内、パラメータは文字列・数値・真偽値だけで25個まで（GA4 の決まり）。個人を特定できる値は送らない
+
+## 14. 確認用フックとテスト
 
 - `core/dev.ts`: `devHook('view-x', fn)` は URL の `#view-x…` で動く確認用の入口。`devSmoke(fn)` は `#smoke` で fn を実行し、エラー（`SMOKE ERR` / `SMOKE FAIL`）、版番号の一致（`SMOKE build ok`）、終わり（`SMOKE DONE`）をコンソールに出す
 - **engine のテスト**: 開発サーバーで `engine/test/` を開くか、`tools/headless.sh 'engine/test/' 20000` を実行する。各テストが `TEST ok` / `TEST FAIL` を出し、最後に `TEST DONE 通った数/全体`

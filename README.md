@@ -28,6 +28,7 @@ vite.config.js               開発サーバーとビルドの設定
 - `npm run typecheck`: 型チェック（下の「TypeScript」）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
 - `npm run build`: 公開用に `dist/` を作る。`npm run preview` で、公開と同じ `/mini-games/` の下で確かめられる
 - 確認: `tools/headless.sh 'games/<game-id>/#smoke' 200000`（ゲームのスモークテスト）、`tools/headless.sh 'engine/test/' 20000`（engine のテスト）。開発サーバーが動いていなければ立てる
+- アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）
 - 公開: master に push すると、Actions が型チェックとビルドをして GitHub Pages に出す（型エラーがあれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
 
 ## TypeScript
