@@ -290,6 +290,8 @@ body.desk.nolock .tbtn{display:grid}
 .modal-card ul{margin:6px 0 0;padding-left:1.2em;line-height:1.8;color:#ffc7cd;font-size:13px}
 .danger-text{color:#ff5a6a}
 .danger{padding:12px 16px;border:1px solid #ff3b4e;background:#ff3b4e;color:#fff;font-weight:700}
+.savepanel{display:grid;gap:8px;margin-top:10px;max-width:640px}
+.savepanel textarea{width:100%;font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--text);background:var(--panel);border:1px solid var(--line);padding:8px;resize:vertical;word-break:break-all}
 .danger-ghost{padding:8px 12px;border:1px solid #7a2430;background:transparent;color:#ff7a88}
 @media (prefers-reduced-motion:reduce){#toast,#banner,#fade{transition:none}}
 </style>
@@ -407,7 +409,13 @@ body.desk.nolock .tbtn{display:grid}
         </div>
         <div class="sec">
           <h2 data-i18n="base.data"></h2>
-          <div class="setrow"><button id="btnWipe" class="danger-ghost" data-i18n="base.wipe"></button></div>
+          <div class="setrow"><button id="btnExport" class="mini-btn" data-i18n="save.export"></button><button id="btnImport" class="mini-btn" data-i18n="save.import"></button><button id="btnWipe" class="danger-ghost" data-i18n="base.wipe"></button></div>
+          <div id="savePanel" class="savepanel" hidden>
+            <p id="saveMsg" class="help"></p>
+            <textarea id="saveCode" rows="4" spellcheck="false" autocomplete="off"></textarea>
+            <div id="saveBtns" class="setrow"></div>
+            <input id="saveFile" type="file" accept=".txt,text/plain" hidden>
+          </div>
         </div>
       </div>
       <div class="startbar"><div id="suspendBox" class="suspend" hidden></div><button id="btnStart" class="primary">DIVE<small id="startSub"></small></button></div>

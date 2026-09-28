@@ -1,6 +1,6 @@
 import type { SaveData, WeaponItem } from '../data/types.ts';
 import { isTouch } from '../../../../engine/core/util.ts';
-import { loadStore, saveStore } from '../../../../engine/core/store.ts';
+import { decodeStore, encodeStore, loadStore, saveStore } from '../../../../engine/core/store.ts';
 import { setVolumes } from '../../../../engine/audio/audio.ts';
 // Save data: defaults and conversions from older versions (reading / writing is engine/core/store.js)
 export const SAVE_KEY = 'sector-dive-v1';
@@ -32,3 +32,18 @@ export function setSave(s: SaveData) { save = s; }
 // the engine's audio reads its volumes from these
 export function syncVolumes() { setVolumes(save.settings.sfx ?? 1, save.settings.bgm ?? 0.6); }
 export function persist() { saveStore(SAVE_KEY, save); }
+// save codes for moving a save between devices (settings tab > data; the format is engine/core/store.ts encodeStore)
+export const SAVE_CODE_TAG = 'SD1';
+export const exportSave = (): string => encodeStore(SAVE_CODE_TAG, save);
+// false when the code isn't a Sector Dive save. On success the save is stored and read back like one at start-up
+// (defaults filled in, old formats converted); the caller reloads the page so every screen picks it up
+const readCode = (code: string): object | null => {
+  const obj = decodeStore(SAVE_CODE_TAG, code);
+  return obj && typeof obj === 'object' && !Array.isArray(obj) && 'bits' in obj ? obj : null;
+};
+export const importSaveCheck = (code: string): boolean => !!readCode(code);
+export function importSave(code: string): boolean {
+  const obj = readCode(code);
+  if (!obj) return false;
+  saveStore(SAVE_KEY, obj); setSave(loadSave()); return true;
+}

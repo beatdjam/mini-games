@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { $, clamp, pct, randi, shuffle } from '../core/util.ts';
-import { clearStore, loadStore, prefGet, prefSet, saveStore } from '../core/store.ts';
+import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../core/store.ts';
 import { addSystem, runSystems, stopFrame } from '../core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../core/world.ts';
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../core/i18n.ts';
@@ -25,6 +25,17 @@ export function near(a: number, b: number, eps?: number, what?: string) { if (Ma
 export function ok(cond: unknown, what?: string) { if (!cond) throw new Error(what || 'expected true'); }
 
 // ---------- core ----------
+test('store: save codes round-trip, reject edits, other tags and cut-off codes', () => {
+  const obj = { bits: 1234, name: 'テスト', list: [1, null, { a: true }] };
+  const code = encodeStore('T1', obj);
+  ok(/^T1:[A-Za-z0-9_-]+\.[0-9a-f]{8}$/.test(code), 'format ' + code);
+  ok(!code.includes('bits'), 'not plain JSON');
+  eq(JSON.stringify(decodeStore('T1', code)), JSON.stringify(obj), 'round trip');
+  eq(JSON.stringify(decodeStore('T1', ' ' + code.slice(0, 10) + '\n' + code.slice(10) + ' ')), JSON.stringify(obj), 'whitespace ignored');
+  const i = code.indexOf(':') + 5, edited = code.slice(0, i) + (code[i] === 'A' ? 'B' : 'A') + code.slice(i + 1);
+  eq(decodeStore('T1', edited), null, 'edited'); eq(decodeStore('T2', code), null, 'other tag');
+  eq(decodeStore('T1', code.slice(0, -3)), null, 'cut off'); eq(decodeStore('T1', 'hello'), null, 'garbage');
+});
 test('analytics: track records the event and passes it to the GA tag when there is one', () => {
   const n = TRACK_LOG.length;
   track('test_event', { a: 1 });

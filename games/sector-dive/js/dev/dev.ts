@@ -1,5 +1,5 @@
 import type { RunState, Snapshot, Weapon } from '../data/types.ts';
-import { $, rand } from '../../../../engine/core/util.ts';
+import { $, el, rand } from '../../../../engine/core/util.ts';
 import { devSmoke } from '../../../../engine/core/dev.ts';
 import { clearWorld, query } from '../../../../engine/core/world.ts';
 import { LANG, lang, t } from '../../../../engine/core/i18n.ts';
@@ -16,7 +16,7 @@ import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { PER, TUNE } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
-import { basicW, persist, save } from '../system/save.ts';
+import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
 import { perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, portals, roomSpot, rooms, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet } from '../world/entities.ts';
@@ -336,6 +336,18 @@ devSmoke(() => {
       goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
       if (save.bits !== 0 || save.up.hp !== 0 || !$('#dlgWipe').hidden) throw new Error('wipe failed');
       console.log('SMOKE wipe ok');
+      // save codes: export, change things, import -> back to the exported state; a bad code is refused
+      {
+        save.bits = 777; save.up.dmg = 2; persist();
+        const code = exportSave();
+        save.bits = 1; save.up.dmg = 0; persist();
+        if (importSaveCheck(code.slice(0, -1) + (code.endsWith('0') ? '1' : '0')) || importSave('SD1:abc.00000000')) throw new Error('bad save code accepted');
+        if (!importSave(code) || save.bits !== 777 || save.up.dmg !== 2) throw new Error('save code round trip');
+        $('#btnExport').click(); if ($('#savePanel').hidden || !el<HTMLTextAreaElement>('#saveCode').value.startsWith('SD1:')) throw new Error('export panel');
+        $('#btnExport').click(); if (!$('#savePanel').hidden) throw new Error('export panel toggle');
+        $('#btnWipe').click(); $('#btnWipeGo').click();
+        console.log('SMOKE savecode ok', code.length + ' chars');
+      }
       // start-depth readiness: a fresh save is "fair" at DEPTH 1 and gets harder deeper; upgrades and mods make it easier
       {
         const fresh = [0, 1, 2, 4].map(n => readiness(n));
