@@ -29,6 +29,7 @@ import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { updatePBullets } from '../actors/bullets.ts';
 import { update, updatePickups } from '../flow/update.ts';
 import { TRACK_LOG } from '../../../../engine/core/analytics.ts';
+import { FEEDBACK_FORM } from '../../../../engine/core/feedback.ts';
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
@@ -337,6 +338,26 @@ devSmoke(() => {
         if (save.suspend) throw new Error('checkpoint survived the end of the run');
         goBase(); startRun(); tick(5); // leave a run going for the next check
         console.log('SMOKE checkpoint ok');
+      }
+      // feedback: hidden while there is no form; with one, the result screen opens it with the run filled in
+      {
+        const keepForm = { ...FEEDBACK_FORM }, keepOpen = window.open, opened: string[] = [];
+        window.open = ((u: string) => { opened.push(u); return null; }) as typeof window.open;
+        try {
+          FEEDBACK_FORM.url = '';
+          goBase(); if (!$('#btnFeedbackBase').hidden) throw new Error('feedback shown without a form');
+          Object.assign(FEEDBACK_FORM, { url: 'https://docs.google.com/forms/d/e/test/viewform', game: '1', build: '2', info: '3' });
+          startRun(); tick(5); run.perks = ['split', 'split', 'rapid+']; endRun('extract');
+          if ($('#btnFeedbackRes').hidden) throw new Error('feedback button on the result screen');
+          $('#btnFeedbackRes').click();
+          const info = new URL(opened[0]!).searchParams.get('entry.3') || '';
+          if (!info.includes('result=extract') || !info.includes('splitx2') || !info.includes('rapid+') || new URL(opened[0]!).searchParams.get('entry.1') !== 'sector-dive') throw new Error('feedback info ' + info);
+          goBase(); if ($('#btnFeedbackBase').hidden) throw new Error('feedback link on the base screen');
+          $('#btnFeedbackBase').click();
+          if (!(new URL(opened[1]!).searchParams.get('entry.3') || '').startsWith('from=base')) throw new Error('feedback base info');
+        } finally { Object.assign(FEEDBACK_FORM, keepForm); window.open = keepOpen; }
+        goBase(); startRun(); tick(5);
+        console.log('SMOKE feedback ok');
       }
       // share: shown after a real run with the bosses defeated, hidden after practice
       {

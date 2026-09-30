@@ -26,6 +26,7 @@ import { spawnBoss } from '../actors/bosses/common.ts';
 import { normalizeWeapons, useKit } from '../ui/input.ts';
 import { bigmap, renderSettings, updateHint, weaponHud } from '../ui/hud.ts';
 import { hideShare, prepShare } from '../ui/share.ts';
+import { prepFeedback, showBaseFeedback } from '../ui/feedback.ts';
 import { tickClock } from './update.ts';
 import { track } from '../../../../engine/core/analytics.ts';
 // ================= game flow =================
@@ -325,7 +326,7 @@ export function endPractice(kind: string) {
   $('#resList').innerHTML = [[t('res.boss'), BOSS_META[run.forceBoss!]!.name], [t('res.strength'), t('res.strengthV', { n: stageInfo(run.stage).tier + 1 })], [t('res.result'), t(run.cleared ? 'res.won' : kind === 'dead' ? 'res.died' : 'res.quit')], [t('res.time'), t('res.timeV', { m: Math.floor(sec / 60), s: sec % 60 })]]
     .map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
   $('#resChips').textContent = t('res.practiceNote');
-  hideShare();
+  hideShare(); prepFeedback(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
 export function endRun(kind: string) {
@@ -367,7 +368,7 @@ export function endRun(kind: string) {
   $('#resTitle').textContent = t(kind === 'extract' ? 'res.extract' : kind === 'abandon' ? 'res.abandon' : 'res.dead');
   $('#resList').innerHTML = rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
   $('#resChips').textContent = run.perks.length ? t('res.chips', { list: run.perks.map(perkName).join(t('common.sep')) }) : '';
-  prepShare(kind);
+  prepShare(kind); prepFeedback(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
 $('#btnBack').addEventListener('click', goBase);
@@ -415,6 +416,7 @@ export function showTab(name: string) {
 }
 $('.tabs').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement; const b = tg.closest<HTMLElement>('[data-tab]'); if (b) { showTab(b.dataset.tab!); $('#scrBase').scrollTop = 0; } });
 export function renderBase() {
+  showBaseFeedback();
   $('#sBits').textContent = save.bits;
   $('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
   $('#sRuns').textContent = save.runs;

@@ -34,7 +34,7 @@ flowchart TB
     DATA["data/ lang/<br/>定義と文言（ロジックなし）"]
   end
   subgraph ENGINE["engine/"]
-    CORE["core/<br/>loop・world・i18n・store・dev・analytics・util"]
+    CORE["core/<br/>loop・world・i18n・store・dev・analytics・feedback・util"]
     REND["render/<br/>three.js・手の銃・FX"]
     WORLD["world/<br/>タイル・弾・追跡"]
     AUD["audio/<br/>効果音・BGM"]

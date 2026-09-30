@@ -100,7 +100,15 @@
 - ビルドは、ページの `<meta name="build" content="dev">` をビルドの時刻に書き換え、同じ値を `games/<id>/version.json` に出す。開発サーバーでは `dev` のまま（比べない）
 - `stale.ts` はビルドのときにページの `<head>` に直接埋め込む（JS にまとめると、古いページでは読み込めずに動かないため）。起動時に `version.json` を取りに行き、`<meta name="build">` と違えば `?b=<版>` 付きの URL に移って読み直す（同じ版への切り替えは1セッションに1回まで）
 
-## 13. アクセス解析（core/analytics.ts と vite.config.js）
+## 13. 感想フォーム（core/feedback.ts）
+
+- 全ゲームで Google フォームを1つ共有する。記入済みにする質問は「ゲーム」「ビルド」「プレイ情報」の3つで、残り（感想・不具合など）はプレイヤーが書く
+- フォームの場所と3つの質問の ID は `FEEDBACK_FORM`（`url` は `.../viewform` のアドレス）。フォームの「事前入力したURLを取得」で3つを埋めてリンクを作ると、`entry.<ID>=<値>` として ID が分かる。`url` が空の間は `feedbackReady()` が false で、`openFeedback` は何もしない
+- ゲームは起動時に `FEEDBACK.game` に自分の ID を入れ、`feedbackReady()` のときだけ送信の導線を出す。押されたら今の状況（到達地点・装備・強化など）をテキストにして `openFeedback(info)` に渡す。ビルドはページの `<meta name="build">`（開発サーバーでは `dev`）
+- `info` は `FEEDBACK_INFO_MAX`（1500文字）で切る（アドレスが長くなりすぎないように）。個人を特定できる値は入れない
+- 送られた内容はフォームの回答（スプレッドシート）にたまる。プライバシーポリシー（`privacy.html`）に記載済み
+
+## 14. アクセス解析（core/analytics.ts と vite.config.js）
 
 - ビルドが、公開する全ページ（engine のテストを除く）に GA4 のタグを入れる。測定 ID は `vite.config.js` の `GA_ID`（空にするとどのページにも入らない）
 - タグは公開先のホスト（`beatdjam.github.io`）で開いたときだけ動く。開発サーバー・テスト・手元の `npm run preview` では何も送らない
@@ -113,7 +121,7 @@
   - 意味: `level` 深度・ステージ番号などの段階 / `stage` その中の区切り / `stage_type` ステージの種類 / `stage_role` 部屋の役割（`normal` / `boss` など。何番目かに頼らず絞るため） / `target` 倒した・挑んだ相手 / `item_name` 使っている道具 / `value`＋`virtual_currency_name` 手に入れた通貨の量と種類 / `count` 倒した・こなした数 / `upgrades` 取得した強化の数 / `duration_sec` かかった秒数
   - 新しいパラメータを足したら、この一覧に足して、登録してもらうよう伝える
 
-## 14. 確認用フックとテスト
+## 15. 確認用フックとテスト
 
 - `core/dev.ts`: `devHook('view-x', fn)` は URL の `#view-x…` で動く確認用の入口。`devSmoke(fn)` は `#smoke` で fn を実行し、エラー（`SMOKE ERR` / `SMOKE FAIL`）、版番号の一致（`SMOKE build ok`）、終わり（`SMOKE DONE`）をコンソールに出す
 - **engine のテスト**: 開発サーバーで `engine/test/` を開くか、`tools/headless.sh 'engine/test/' 20000` を実行する。各テストが `TEST ok` / `TEST FAIL` を出し、最後に `TEST DONE 通った数/全体`

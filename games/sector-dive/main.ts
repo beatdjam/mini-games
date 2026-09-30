@@ -3,6 +3,7 @@
 // systems and the loop — runs at the bottom, after all of them.
 import { setLang, defaultLang } from '../../engine/core/i18n.ts';
 import { ANALYTICS } from '../../engine/core/analytics.ts';
+import { FEEDBACK } from '../../engine/core/feedback.ts';
 import { applyLayout } from '../../engine/ui/touchlayout.ts';
 import { save, syncVolumes } from './js/system/save.ts';
 import { fsLabel, renderGuide } from './js/ui/hud.ts';
@@ -55,11 +56,13 @@ import './js/ui/input.ts';
 import './js/ui/hud.ts';
 import './js/flow/game.ts';
 import './js/ui/share.ts';
+import './js/ui/feedback.ts';
 import './js/actors/enemies.ts';
 import './js/actors/bullets.ts';
 import { boot } from './js/flow/update.ts';
 
 ANALYTICS.game = 'sector-dive'; // sent with every analytics event
+FEEDBACK.game = 'sector-dive';   // filled into the feedback form
 setLang(save.settings.lang || defaultLang());
 syncVolumes();
 fsLabel(); applyLayout(); renderGuide(); showTab(baseTab);
