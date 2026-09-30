@@ -645,3 +645,5 @@ if (location.hash === '#view-hitdir') setTimeout(() => {
   P.inv = 0; damagePlayer(1, { x: P.x + 6, z: P.z + 6 }); P.inv = 0; damagePlayer(1, { x: P.x - 8, z: P.z });
   updateHitDirs(0.05);
 }, 300);
+// #trailer / #trailer-music: the scripted trailer (tools/trailer/capture.mjs drives it frame by frame)
+if (location.hash.startsWith('#trailer')) import('./trailer.ts').then(m => m.runTrailer(location.hash.startsWith('#trailer-music')));
