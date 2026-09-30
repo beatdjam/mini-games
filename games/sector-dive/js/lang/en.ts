@@ -301,7 +301,7 @@ LANG.en = {
     'run.bagFull': 'Bag is full',
     'run.stowed': 'Put {w} in the bag ({n} / {max})',
     'run.kitPlus': 'Med kit +1 ({n}/{max})',
-    'run.kitUsedNow': 'Kits full, so it was used right away (HP +20)',
+    'run.kitUsedNow': 'Kits full, so it was used right away (HP +{n})',
     'run.practiceStart': 'Boss practice — no rewards, no losses',
     'boss.phase2': 'Phase two — the attacks intensify',
     'boss.toBase': 'To base',

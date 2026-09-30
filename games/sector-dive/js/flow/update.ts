@@ -16,7 +16,7 @@ import { save } from '../system/save.ts';
 import { updateMusic } from './music.ts';
 import { portals, reveal, updateHazards } from '../world/level.ts';
 import { ENEMY_GROUP, nearD, setNear, setTarget, target } from '../world/entities.ts';
-import { GUNFX, P, curVM, curW, damagePlayer, findTarget, magSize, run, shotId, tryFire, wo } from '../actors/player.ts';
+import { GUNFX, P, curVM, curW, damagePlayer, findTarget, kitHealAmount, magSize, run, shotId, tryFire, wo } from '../actors/player.ts';
 import { CTRL } from '../ui/input.ts';
 import { SCR, bctx, bigmap, drawMap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract, endRun, nextStage, openPerk, renderBase, state } from './game.ts';
@@ -131,7 +131,8 @@ export function updatePickup(p: Pickup, dt: number) {
   } else if (p.kind === 'kit') {
     if (d < 1.1) {
       if (P.kits < KIT_MAX) { p.dead = true; P.kits++; sfx('pick'); toast(t('run.kitPlus', { n: P.kits, max: KIT_MAX }), 1200); weaponHud(); }
-      else if (P.hp < P.maxHp) { p.dead = true; P.hp = Math.min(P.maxHp, P.hp + 20); sfx('heal'); toast(t('run.kitUsedNow'), 1500); }
+      // kits full: used on the spot for half a kit's heal (it used to be a flat 20, which did nothing deep down)
+      else if (P.hp < P.maxHp) { const heal = Math.round(kitHealAmount() / 2); p.dead = true; P.hp = Math.min(P.maxHp, P.hp + heal); sfx('heal'); toast(t('run.kitUsedNow', { n: heal }), 1500); }
     }
   } else if (p.kind === 'chip') {
     if (d < 1.3) { p.dead = true; sfx('chip'); openPerk(t('perk.title')); return; }

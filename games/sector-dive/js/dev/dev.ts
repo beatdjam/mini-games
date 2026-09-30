@@ -14,7 +14,7 @@ import { EYE, PLAT_H } from '../data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, PER, PRES_ENDLESS, PRES_UP, TUNE } from '../data/progress.ts';
+import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, PRES_ENDLESS, PRES_UP, TUNE } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
 import { modOf, modPlusCap, perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
@@ -128,6 +128,14 @@ devSmoke(() => {
         const want = 1 / (WEAPONS.smg.rate / 4.03); // about 65 a second, more than the 60 frames
         if (shots < want - 2 || shots > want + 2 || last !== 11) throw new Error('fast gun ' + shots + ' shots (want ' + want.toFixed(1) + '), last shot ' + last + ' rounds');
         console.log('SMOKE fast gun ok', shots, 'shots/s');
+      }
+      // picking up a kit with the kits full uses it on the spot for half a kit's heal (it was a flat 20)
+      {
+        const keep = [P.kits, P.maxHp, P.hp]; P.kits = KIT_MAX; P.maxHp = 500; P.hp = 100;
+        addPickup('kit', P.x, P.z); updatePickups(1 / 60); updatePickups(1 / 60);
+        const healed = P.hp - 100, want = Math.round(kitHealAmount() / 2); [P.kits, P.maxHp, P.hp] = keep;
+        if (healed !== want || want !== 63) throw new Error('kit on the spot healed ' + healed + ' (want ' + want + ')');
+        console.log('SMOKE kit on the spot ok', healed);
       }
       // watcher: drones at 75% and 40%
       {
