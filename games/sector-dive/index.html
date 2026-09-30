@@ -171,9 +171,11 @@ body.desk.nolock .tbtn{display:grid}
 .sec h2 small,.sec h3 small{font-size:12px;color:var(--dim)}
 .sec h3{margin:6px 0 0;font-size:14px;font-weight:400;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
 .wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
-.wcard{display:grid;gap:4px;text-align:left;padding:10px 12px;background:var(--panel);border:1px solid var(--line);align-content:start}
+.wcard{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;text-align:left;padding:10px 12px;background:var(--panel);border:1px solid var(--line);align-content:start}
+/* one column no wider than the card: long English names and option lines wrap instead of running past the edge */
+.wcard>*{min-width:0;overflow-wrap:break-word}
 .wcard .wn{font-size:15px}
-.wcard .wn em{font-size:12px;margin-left:6px}
+.wcard .wn em{font-size:12px;margin-left:6px;display:inline-block} /* the rarity moves to the next line whole */
 .wcard .wd{font-size:12px;color:var(--dim);line-height:1.5}
 .wcard .ws{font-family:var(--disp);font-size:11px;color:var(--dim);letter-spacing:.04em}
 .wcard .wf{font-size:12px;color:var(--cyan);margin-top:2px}
