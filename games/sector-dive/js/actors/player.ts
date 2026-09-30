@@ -32,7 +32,8 @@ export const wo = (k: string, w?: WeaponItem | null): number => { w = w || (P &&
 export const wDmgMul = (w: WeaponItem): number => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
 // `stage` here is progress (prog), not the raw stage number
 export function rollWeapon(stage: number, minR?: number): Weapon {
-  const roll = Math.random() + stage * 0.025;
+  // deeper drops lean rarer, up to a point (+0.6): even deep down about 55% are ★★★, 37% ★★ and 8% ★, so rarity still matters
+  const roll = Math.random() + Math.min(stage * 0.025, 0.6);
   const r = Math.max(minR || 0, roll > 1.05 ? 2 : roll > 0.68 ? 1 : 0);
   let plus = 0;
   // no cap: the stage level climbs 0.6 per stage (about +3 per sector).

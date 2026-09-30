@@ -25,7 +25,7 @@ export interface BossMeta {
   name?: string; title?: string; short?: string; desc?: string; // (lang)
 }
 export interface Perk {
-  id: string; v: number; rv?: number;
+  id: string; v: number; rv?: number; noSupply?: boolean; // noSupply: left out of the shortcut supply picks
   apply(p: any, v: number): void; cur(p: any): any; maxed?(p: any): boolean;
   name?: string; desc?(v: number): string; curText?(c: any): string; // (lang)
 }

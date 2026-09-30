@@ -20,7 +20,7 @@ import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '
 import { perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
-import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
+import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
 import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
@@ -203,6 +203,19 @@ devSmoke(() => {
         // a capped chip (pierce, crit, reload, magazine) stops once maxed, after 3-4 of the supplyTimes
         if (run.perks.length < 6 || run.perks.length > 2 * TUNE.supplyTimes) throw new Error('supply picks ' + run.perks.length);
         console.log('SMOKE supply ok', run.perks.length, 'chips');
+        // the heal chip is never a supply pick; stamina regen and pickup range add up per chip instead of multiplying
+        for (let k = 0; k < 40; k++) {
+          openPerk('test', 'loadout', undefined, TUNE.supplyTimes);
+          if ([...document.querySelectorAll('#perkList .pn')].some(n => n.textContent!.includes(perkName('repair')))) throw new Error('repair offered as supply');
+        }
+        show(null); setState('play');
+        { const keep = P; setPlayer(newPlayer(save.loadout)); const r0 = P.stRegen, sp = PERKS.find(x => x.id === 'sprint')!, mg = PERKS.find(x => x.id === 'magnet')!;
+          for (let k = 0; k < 5; k++) { sp.apply(P, sp.v); mg.apply(P, mg.v); }
+          const regen = P.stRegen - r0, range = P.magnet; setPlayer(keep);
+          if (Math.abs(regen - 5 * sp.v * TUNE.staminaRegen) > 1e-9 || Math.abs(range - 5) > 1e-9) throw new Error('additive chips ' + regen + ' ' + range); }
+        // deep drops: rarer on the whole, but not all ★★★
+        { const rs = Array.from({ length: 400 }, () => rollWeapon(100).r), top = rs.filter(r => r === 2).length / rs.length;
+          if (!(top > 0.4 && top < 0.7) || !rs.includes(0)) throw new Error('deep rarity ' + top); }
         endRun('abandon'); goBase();
       }
       // rare chips show up gold and apply the stronger amount; deep sectors favour tougher enemy types
