@@ -18,7 +18,7 @@ import { PER, PRES_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { _ } from '../data/music.ts';
 import { SAVE_KEY, basicW, defaultSave, exportSave, importSave, importSaveCheck, persist, save, setSave } from '../system/save.ts';
-import { basicNow, modOf, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
+import { basicNow, chipSummary, modOf, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
 import { buildLevel, exitIdx, makePortal, portals, randomTileIn, roomCount, roomSpot, rooms, seen, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { P, critChance, curW, diffOf, isBossStage, magSize, newPlayer, rollWeapon, run, setPlayer, setRun, stageInfo, stageLabel, tierLabel, wDmgMul, wName, wOpts, wText, weaponStats, wo } from '../actors/player.ts';
@@ -325,7 +325,7 @@ export function endPractice(kind: string) {
   $('#resTitle').textContent = t(run.cleared ? 'res.practiceWon' : 'res.practiceDone');
   $('#resList').innerHTML = [[t('res.boss'), BOSS_META[run.forceBoss!]!.name], [t('res.strength'), t('res.strengthV', { n: stageInfo(run.stage).tier + 1 })], [t('res.result'), t(run.cleared ? 'res.won' : kind === 'dead' ? 'res.died' : 'res.quit')], [t('res.time'), t('res.timeV', { m: Math.floor(sec / 60), s: sec % 60 })]]
     .map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
-  $('#resChips').textContent = t('res.practiceNote');
+  $('#resChips').textContent = t('res.practiceNote'); $('#resOrder').hidden = true;
   hideShare(); prepFeedback(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
@@ -367,7 +367,10 @@ export function endRun(kind: string) {
   $('#resEyebrow').textContent = kind === 'extract' ? 'extracted' : kind === 'abandon' ? 'abandoned' : 'signal lost';
   $('#resTitle').textContent = t(kind === 'extract' ? 'res.extract' : kind === 'abandon' ? 'res.abandon' : 'res.dead');
   $('#resList').innerHTML = rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
-  $('#resChips').textContent = run.perks.length ? t('res.chips', { list: run.perks.map(perkName).join(t('common.sep')) }) : '';
+  $('#resChips').textContent = run.perks.length ? t('res.chips', { n: run.perks.length, list: chipSummary(run.perks) }) : '';
+  // the order they were taken, folded away (a deep run has around a hundred)
+  $('#resOrderList').textContent = run.perks.map(perkName).join(t('common.sep'));
+  $('#resOrder').hidden = !run.perks.length; ($('#resOrder') as HTMLDetailsElement).open = false;
   prepShare(kind); prepFeedback(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }

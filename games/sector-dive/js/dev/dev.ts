@@ -1,5 +1,5 @@
 import type { RunState, Snapshot, Weapon } from '../data/types.ts';
-import { $, el, rand } from '../../../../engine/core/util.ts';
+import { $, el, rand, shuffle } from '../../../../engine/core/util.ts';
 import { devSmoke } from '../../../../engine/core/dev.ts';
 import { clearWorld, query } from '../../../../engine/core/world.ts';
 import { LANG, lang, t } from '../../../../engine/core/i18n.ts';
@@ -359,6 +359,18 @@ devSmoke(() => {
         goBase(); startRun(); tick(5);
         console.log('SMOKE feedback ok');
       }
+      // result chips: counted, most first, rare ones folded in; the order taken is folded away underneath
+      {
+        goBase(); startRun(); tick(5); run.perks = ['rapid', 'split', 'split+', 'split', 'overload+'];
+        endRun('extract');
+        const want = t('res.chips', { n: 5, list: [t('common.countRare', { name: perkName('split'), n: 3, r: 1 }), perkName('rapid'), perkName('overload+')].join(t('common.sep')) });
+        if ($('#resChips').textContent !== want) throw new Error('result chips ' + $('#resChips').textContent);
+        if ($('#resOrder').hidden || ($('#resOrder') as HTMLDetailsElement).open || $('#resOrderList').textContent !== run.perks.map(perkName).join(t('common.sep'))) throw new Error('result chip order');
+        goBase(); startPractice('crusher', 0); tick(5); endRun('abandon');
+        if (!$('#resOrder').hidden) throw new Error('chip order after practice');
+        goBase(); startRun(); tick(5);
+        console.log('SMOKE result chips ok');
+      }
       // share: shown after a real run with the bosses defeated, hidden after practice
       {
         goBase(); startRun(); tick(5); run.bosses = ['watcher']; run.perks = ['overload', 'overload', 'rapid+'];
@@ -494,10 +506,14 @@ if (location.hash.startsWith('#view-haz')) setTimeout(() => {
   const wid = location.hash.split('-')[2]; if (WEAPONS[wid]) { const w0 = basicW(wid) as Weapon; w0.mag = magSize(w0); P.weapons[0] = w0; P.cur = 0; normalizeWeapons(); weaponHud(); } // #view-haz-smg etc.
   setHazardClock(0.5); for (let n = 0; n < 5; n++) update(1 / 60);
 }, 300);
-// dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen, #view-share-res-panel: with the PC share panel open)
+// dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen, #view-share-res-panel: with the PC share panel open,
+// #view-share-res-many: a deep run's hundred chips)
 if (location.hash.startsWith('#view-share')) setTimeout(() => {
   startRun(); run.stage = 2 * PER + PER - 1; run.kills = 142; run.bosses = ['watcher', 'trinity'];
-  run.perks = ['overload', 'overload', 'rapid+', 'crit', 'reload', 'light']; if (location.hash.includes('reboot')) save.pres.count = 3; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
+  run.perks = ['overload', 'overload', 'rapid+', 'crit', 'reload', 'light'];
+  // -many: a deep run's hundred chips (the mix from a player's D14 run), to see the result screen fold them up
+  if (location.hash.includes('many')) run.perks = shuffle(Object.entries({ split: 25, rapid: 18, overload: 13, 'overload+': 3, armor: 10, 'armor+': 3, mag: 4, leech: 4, 'leech+': 3, sprint: 4, 'sprint+': 1, reload: 3, 'crit+': 2, chain: 1, pierce: 1, 'light+': 1, repair: 1, 'rapid+': 1 }).flatMap(([id, n]) => Array(n).fill(id)));
+  if (location.hash.includes('reboot')) save.pres.count = 3; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
   const kind = location.hash.includes('dead') ? 'dead' : 'extract';
   endRun(kind); if (location.hash.includes('res')) { if (location.hash.includes('panel')) setTimeout(() => $('#btnShare').click(), 900); return; } // #view-share-res: the result screen itself
   drawShareCard(shareData!).then(b => { const im = new Image(); im.src = URL.createObjectURL(b!); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData!)); });
