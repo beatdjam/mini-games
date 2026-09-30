@@ -1,5 +1,6 @@
 import type { Perk } from './types.ts';
 import { TUNE } from './progress.ts';
+import { SPLIT_MAX } from './weapons.ts';
 // Chips offered during a run
 // Chips. v = normal amount, rv = amount on the rare (gold) version; chips without rv never come as rare.
 // maxed(p) = true once the chip can't do anything more (it is then left out of the offer). cur(p) = the current value;
@@ -14,7 +15,8 @@ export const PERKS: Perk[] = [
   { id: 'repair',   v: 0.5,  rv: 0.85, noSupply: true, apply: (p, v) => { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * v); }, cur: p => [Math.ceil(p.hp), p.maxHp] },
   { id: 'leech',    v: 3,    rv: 5,    apply: (p, v) => { p.leech += v; }, cur: p => p.leech },
   { id: 'pierce',   v: 1,    rv: 2,    apply: (p, v) => { p.pierce = Math.min(3, p.pierce + v); }, maxed: p => p.pierce >= 3, cur: p => p.pierce },
-  { id: 'split',    v: 1,              apply: p => { p.extra += 1; }, cur: p => p.extra },
+  // capped at SPLIT_MAX so it stays "more rounds" (past a few it only multiplied damage, far past overload)
+  { id: 'split',    v: 1,              apply: p => { p.extra += 1; }, maxed: p => p.extra >= SPLIT_MAX, cur: p => p.extra },
   { id: 'light',    v: 0.12, rv: 0.21, apply: (p, v) => { p.spdMul += v; }, cur: p => p.spdMul - 1 },
   { id: 'crit',     v: 0.15, rv: 0.26, apply: (p, v) => { p.crit += v; }, maxed: p => p.crit >= TUNE.critCap, cur: p => p.crit },
   { id: 'sprint',   v: 0.35, rv: 0.6,  apply: (p, v) => { p.stRegen += TUNE.staminaRegen * v; }, cur: p => Math.round(p.stRegen) },

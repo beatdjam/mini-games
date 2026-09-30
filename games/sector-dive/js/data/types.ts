@@ -8,6 +8,7 @@ import type * as THREE from 'three';
 
 export interface WeaponDef {
   dmg: number; rate: number; spread: number; pellets: number; speed: number; mag: number; reload: number; color: number; cost: number;
+  maxShots?: number; // rounds one trigger pull fires at most (shotCount); split-shot past it goes into each round's damage
   steady?: boolean; kb?: number; pierce?: number; far?: number; farMul?: number; blast?: number; grav?: number; chipMag?: number;
   name?: string; desc?: string; // (lang)
 }

@@ -9,7 +9,7 @@ import { V3, camera, scene } from '../../../../engine/render/render.ts';
 import { H, STEP, T, W, blocked, cover, floorY, grid, hgt, isSolid, moveCircle, passable, ramp, walkable } from '../../../../engine/world/tiles.ts';
 import { joy, setFireHeld } from '../../../../engine/ui/input.ts';
 import { applyLayout, getL, openLayoutEditor } from '../../../../engine/ui/touchlayout.ts';
-import { SPLIT_FAN, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
+import { SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { EYE, PLAT_H } from '../data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../data/bosses.ts';
@@ -154,6 +154,13 @@ devSmoke(() => {
             const w = newWeapon(id, 0), a = weaponStats(w); P.extra = 1; const b = weaponStats(w); P.extra = 0;
             if (Math.abs(b.perHit * b.hits / (a.perHit * a.hits) - 1.2) > 1e-9) throw new Error('split ' + id);
           });
+          // split-shot stops being offered at SPLIT_MAX; the launcher fires 3 rockets at most and the rest of the
+          // +20%s goes into each rocket (the total stays 1 + 0.2 x chips)
+          const sp = PERKS.find(x => x.id === 'split')!; P.extra = SPLIT_MAX;
+          if (!sp.maxed!(P)) throw new Error('split cap');
+          P.extra = 5; const lw = newWeapon('launcher', 0), ls = weaponStats(lw); P.extra = 0; const l0 = weaponStats(lw);
+          if (ls.hits !== 3 || Math.abs(ls.perHit * ls.hits / l0.perHit - 2) > 1e-9) throw new Error('launcher split ' + ls.hits + ' ' + ls.perHit / l0.perHit);
+
           setPlayer(keep); }
         if (cc !== TUNE.critCap) throw new Error('crit cap ' + cc);
         setRun({ stage: PER - 1, route: [0] } as RunState); const b1 = bossDiff();

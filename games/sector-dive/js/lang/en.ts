@@ -362,7 +362,7 @@ LANG.en = {
       repair:   { name: 'Repair Patch',    desc: v => `Heal ${pct(v)} of max HP`,                  curText: c => `HP ${c[0]} / ${c[1]}` },
       leech:    { name: 'Leech Code',      desc: v => `HP +${v} per kill`,                         curText: c => `HP +${c} per kill` },
       pierce:   { name: 'Piercing Rounds', desc: v => `Shots pierce ${v} more enem${v > 1 ? 'ies' : 'y'} (max 3 from chips)`, curText: c => `Pierce +${c}` },
-      split:    { name: 'Split Shot',      desc: () => '+1 projectile. +20% total damage when all hit (shared among them)', curText: c => `Projectiles +${c}` },
+      split:    { name: 'Split Shot',      desc: () => '+1 projectile. +20% total damage when all hit (shared among them). Max 7. The launcher fires 3 at most; the rest goes into damage', curText: c => `Projectiles +${c}` },
       light:    { name: 'Lightweight',     desc: v => `Move speed +${pct(v)}`,                     curText: c => `Move speed +${pct(c)}` },
       crit:     { name: 'Weak Point Scan', desc: v => `Crit chance +${pct(v)} (2× damage, max 40%)`, curText: c => `Crit ${pct(c)}` },
       sprint:   { name: 'Burst Circuit',   desc: v => `Stamina regen +${pct(v)}`,                  curText: c => `Stamina regen ${c} per s` },
