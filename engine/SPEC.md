@@ -49,7 +49,7 @@
 - `projHitsTerrain(b, ceil, pad)`: 壁の中、床より下（`pad` の余裕つき）、`ceil` より上
 - `steerToward`: 速さを保ったまま、向きを目標へ寄せる（追尾弾）
 - `ringAngles(n, offset)`: 全方位に等間隔の角度。`aimFan(...)`: 狙った方向を中心に扇に広げた単位ベクトル
-- `takeFromPool` / `clearPool`: メッシュを使い回すプール
+- `takeFromPool` / `clearPool`: メッシュを使い回すプール。上限まで埋まっているときは null を返す。`recycle` を付けると、いちばん前に渡した弾を使い回して返す（新しい弾を落とさない）
 
 ## 6. 追跡（world/steer.ts）
 

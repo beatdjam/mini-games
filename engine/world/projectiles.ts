@@ -5,7 +5,8 @@ import { floorY, solidAt } from './tiles.ts';
 // engine: Projectiles: pooled meshes, movement in sub-steps (so fast rounds can't skip through walls or targets),
 // terrain hits, homing, and the direction maths for bullet patterns. What happens on a hit is up to the game.
 // A projectile is any object with x, y, z, vx, vy, vz (and optionally grav, mesh, alive).
-// - takeFromPool(pool, geo, max): a free projectile from the pool (a new one with a mesh if there's room), or null
+// - takeFromPool(pool, geo, max, recycle): a free projectile from the pool (a new one with a mesh if there's room);
+//   when the pool is full, null, or with recycle the live one handed out longest ago (reused; `born` counts hand-outs)
 // - clearPool(pool): hide and free every projectile in it
 // - stepProjectile(b, dt, maxStep, visit, speed): applies b.grav, then moves b in sub-steps no longer than maxStep
 //   metres (counted from `speed` if given, else the current velocity); after each sub-step visit(b) returns true to
@@ -20,11 +21,18 @@ export interface Projectile {
   x: number; y: number; z: number; vx: number; vy: number; vz: number; grav?: number; speed?: number;
   [k: string]: any;
 }
-export function takeFromPool(pool: Projectile[], geo: THREE.BufferGeometry, max: number): Projectile | null {
-  for (const b of pool) if (!b.alive) return b;
-  if (pool.length >= max) return null;
+let handedOut = 0;
+export function takeFromPool(pool: Projectile[], geo: THREE.BufferGeometry, max: number, recycle = false): Projectile | null {
+  for (const b of pool) if (!b.alive) { b.born = ++handedOut; return b; }
+  if (pool.length >= max) {
+    if (!recycle || !pool.length) return null;
+    let old = pool[0]!;
+    for (const b of pool) if ((b.born ?? 0) < (old.born ?? 0)) old = b;
+    old.born = ++handedOut;
+    return old;
+  }
   const b: Projectile = { mesh: new THREE.Mesh(geo, basicMat(0xffffff)), alive: false, hit: new Set(), x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 };
-  dynGroup.add(b.mesh); pool.push(b); return b;
+  b.born = ++handedOut; dynGroup.add(b.mesh); pool.push(b); return b;
 }
 export function clearPool(pool: Projectile[]) { pool.forEach(b => { b.alive = false; b.mesh.visible = false; }); }
 export function stepProjectile(b: Projectile, dt: number, maxStep: number, visit: (b: Projectile) => boolean, speed?: number): boolean {

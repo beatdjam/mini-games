@@ -16,7 +16,7 @@ import { save } from '../system/save.ts';
 import { updateMusic } from './music.ts';
 import { portals, reveal, updateHazards } from '../world/level.ts';
 import { ENEMY_GROUP, nearD, setNear, setTarget, target } from '../world/entities.ts';
-import { GUNFX, P, curVM, curW, damagePlayer, findTarget, magSize, run, tryFire, wo } from '../actors/player.ts';
+import { GUNFX, P, curVM, curW, damagePlayer, findTarget, magSize, run, shotId, tryFire, wo } from '../actors/player.ts';
 import { CTRL } from '../ui/input.ts';
 import { SCR, bctx, bigmap, drawMap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract, endRun, nextStage, openPerk, renderBase, state } from './game.ts';
@@ -83,8 +83,12 @@ export function updatePlayer(dt: number) {
   // reload / shooting
   if (P.reloadT > 0) { P.reloadT -= dt; if (P.reloadT <= 0) { P.reloadT = 0; curW().mag = magSize(curW()); sfx('reloaded'); } }
   setTarget(findTarget());
-  P.fireCd -= dt;
-  if ((fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) && P.fireCd <= 0) tryFire();
+  // A gun faster than the frame rate fires several rounds in one frame, so fire-rate chips keep working past 60 (or 30)
+  // shots a second. The carry-over is kept to one frame, so a pause (reloading, not holding fire) doesn't bank shots.
+  P.fireCd = Math.max(P.fireCd - dt, -dt);
+  if (fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) {
+    for (let k = 0; k < 8 && P.fireCd <= 0; k++) { const before = shotId; tryFire(); if (shotId === before) break; }
+  }
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
 export function updatePortals(dt: number) {

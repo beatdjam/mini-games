@@ -144,7 +144,7 @@ export let shotId = 0; // one trigger pull; knockback is applied once per shot p
 export function fire() {
   shotId++;
   const w = curW(), def = WEAPONS[w.id], rar = RARITY[w.r];
-  P.fireCd = def.rate / P.fireRate * Math.pow(0.91, wo('rate'));
+  P.fireCd += def.rate / P.fireRate * Math.pow(0.91, wo('rate')); // added, not set: the frame loop may fire more than once (update)
   w.mag--;
   camera.updateMatrixWorld();
   camera.updateMatrixWorld();
