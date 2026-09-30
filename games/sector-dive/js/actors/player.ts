@@ -14,7 +14,7 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { ASSIST, PER, TUNE, enemyGrowth } from '../data/progress.ts';
 import { save } from '../system/save.ts';
-import { basicNow, pickDrop, presMul, prog } from '../system/rules.ts';
+import { basicNow, pickDrop, presMul, prog, startDmgMul, startMaxHp } from '../system/rules.ts';
 import { roomCount, roomSpot, rooms } from '../world/level.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy, spawnPBullet, target } from '../world/entities.ts';
 import { bossDown, bossPhase } from './bosses/common.ts';
@@ -49,9 +49,9 @@ export function rollWeapon(stage: number, minR?: number): Weapon {
   return newWeapon(pickDrop(), r, false, plus, shuffle(Object.keys(AFFIX)).slice(0, n));
 }
 export function newPlayer(loadout: (WeaponItem | null)[]): Player {
-  const u = save.up, pu = save.pres.up, hp = TUNE.hp + u.hp * 15 + pu.hp * 10;
+  const u = save.up, pu = save.pres.up, hp = startMaxHp(u.hp);
   const ws = loadout.map(basicNow).map(w => w ? newWeapon(w.id, w.r, w.basic, w.plus, w.opts) : null);
-  return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: TUNE.moveSpeed, spdMul: 1 + u.spd * 0.05, dmgMul: 1 + u.dmg * 0.08,
+  return { x: 0, z: 0, yaw: 0, pitch: 0, hp, maxHp: hp, r: 0.45, baseSpeed: TUNE.moveSpeed, spdMul: 1 + u.spd * 0.05, dmgMul: startDmgMul(u.dmg),
     fireRate: 1, gainMul: (1 + u.gain * 0.15) * (1 + pu.gain * 0.1), leech: 0, pierce: 0, extra: 0, crit: 0, chain: 0, magnet: 1, reloadMul: 1, magMul: 1,
     st: TUNE.stamina + (u.stam || 0) * 20, stMax: TUNE.stamina + (u.stam || 0) * 20, stRegen: TUNE.staminaRegen * (1 + u.dash * 0.12), stDelay: 0,
     inv: 0, dashT: 0, ddx: 0, ddz: 0, weapons: ws, cur: 0, bag: [null, null, null, null], kits: TUNE.kitStart + u.kit,

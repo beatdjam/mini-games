@@ -18,7 +18,7 @@ import { PER, PRES_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { _ } from '../data/music.ts';
 import { SAVE_KEY, basicW, defaultSave, exportSave, importSave, importSaveCheck, persist, save, setSave } from '../system/save.ts';
-import { basicNow, chipSummary, modOf, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
+import { basicNow, chipSummary, presCost, modOf, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
 import { buildLevel, exitIdx, makePortal, portals, randomTileIn, roomCount, roomSpot, rooms, seen, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { P, critChance, curW, diffOf, isBossStage, kitHealAmount, magSize, newPlayer, rollWeapon, run, setPlayer, setRun, stageInfo, stageLabel, tierLabel, wDmgMul, wName, wOpts, wText, weaponStats, wo } from '../actors/player.ts';
@@ -475,10 +475,11 @@ export function renderReboot() {
   if (sec.hidden) return;
   $('#rebootNote').textContent = t('reboot.note', { count: pr.count, diff: Math.round((presMul() - 1) * 100), pts: pr.pts });
   $('#presList').innerHTML = PRES_UP.map(u => {
-    const l = pr.up[u.id] || 0, maxed = l >= u.max;
-    const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
+    const l = pr.up[u.id] || 0, maxed = l >= u.max, cost = presCost(u, l);
+    // uncapped bonuses show their level instead of a row of pips
+    const pips = isFinite(u.max) ? Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('') : `<small>${t('pres.level', { n: l })}</small>`;
     return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc!(l)}</div><div class="pips">${pips}</div></div>
-      <button class="buy" data-pres="${u.id}" ${maxed || pr.pts < u.cost ? 'disabled' : ''}>${maxed ? t('base.max') : u.cost + ' pt'}</button></div>`;
+      <button class="buy" data-pres="${u.id}" ${maxed || pr.pts < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' pt'}</button></div>`;
   }).join('');
   const row = $('#rebootRow');
   if (save.suspend) { row.innerHTML = `<p class="help">${t('reboot.suspended')}</p>`; return; }
@@ -522,7 +523,8 @@ $('#scrBase').addEventListener('click', (e: Event) => { const tg = e.target as H
   if (rb) { const a = rb.dataset.reboot; if (a === 'go') { doReboot(); return; } rebootArm = a === 'arm'; renderReboot(); return; }
   if (pu) {
     const def = PRES_UP.find(x => x.id === pu.dataset.pres)!, l = save.pres.up[def.id] || 0;
-    if (l < def.max && save.pres.pts >= def.cost) { save.pres.pts -= def.cost; save.pres.up[def.id] = l + 1; audioInit(); sfx('chip'); }
+    const cost = presCost(def, l);
+    if (l < def.max && save.pres.pts >= cost) { save.pres.pts -= cost; save.pres.up[def.id] = l + 1; audioInit(); sfx('chip'); }
   } else if (un) { const prev = save.loadout[1]; if (prev && !prev.basic) save.stash.push(prev); save.loadout[1] = null; selSlot = 1; }
   else if (sl) selSlot = +sl.dataset.slot!;
   else if (ti) save.startTier = +ti.dataset.tier!;

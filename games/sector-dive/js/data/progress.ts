@@ -57,6 +57,12 @@ export const PRES_UP: PresUpgrade[] = [
   { id: 'funds',  max: 3, cost: 1 },
   { id: 'relic',  max: 2, cost: 2 },
   { id: 'choice', max: 1, cost: 3 },
+  // no cap: something to spend points on once the rest is bought, so every reboot still makes you stronger.
+  // The cost climbs by 1 pt per level (1, 2, 3, ...), so it grows slowly
+  { id: 'dmg',    max: Infinity, cost: 1, step: 1 },
+  { id: 'vit',    max: Infinity, cost: 1, step: 1 },
 ];
+// per level of the uncapped reboot bonuses: damage +5% (added to the base "output" upgrade), max HP +5% (multiplied)
+export const PRES_ENDLESS = { dmg: 0.05, vit: 0.05 };
 export const STASH_MAX = 12, BAG_MAX = 4, KIT_MAX = 3;
 export const ASSIST: Record<string, number> = { off: 0, weak: 0.04, strong: 0.1 };

@@ -14,17 +14,17 @@ import { EYE, PLAT_H } from '../data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, PER, TUNE } from '../data/progress.ts';
+import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, PER, PRES_ENDLESS, PRES_UP, TUNE } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
-import { perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
+import { perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
 import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
 import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
-import { discardSuspended, endRun, goBase, nextStage, openPerk, pickEnemyType, resumeRun, statsHTML, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.ts';
+import { discardSuspended, endRun, goBase, nextStage, openPerk, pickEnemyType, renderBase, resumeRun, statsHTML, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { updatePBullets } from '../actors/bullets.ts';
 import { update, updatePickups } from '../flow/update.ts';
@@ -483,8 +483,25 @@ devSmoke(() => {
         // reboot difficulty stops growing at PRES_DIFF_CAP reboots; the rating after the next reboot is worse than now
         if (presMulOf(PRES_DIFF_CAP + 5) !== presMulOf(PRES_DIFF_CAP) || !(presMulOf(1) > presMulOf(0))) throw new Error('reboot cap');
         if (!(readinessScore(0, readyAfterReboot()) < readinessScore(0))) throw new Error('readiness after reboot');
+        // uncapped reboot bonuses: the cost climbs 1 pt per level; damage and max HP reach the player and the readiness
+        {
+          const dmgU = PRES_UP.find(u => u.id === 'dmg')!, keepUp = { ...save.pres.up };
+          if ([0, 1, 4].map(l => presCost(dmgU, l)).join() !== '1,2,5' || isFinite(dmgU.max)) throw new Error('reboot bonus cost');
+          const s0 = readinessScore(5), p0 = newPlayer(save.loadout);
+          save.pres.up.dmg = 4; save.pres.up.vit = 2;
+          const p1 = newPlayer(save.loadout), s1 = readinessScore(5);
+          Object.assign(save.pres.up, keepUp);
+          if (Math.abs(p1.dmgMul - p0.dmgMul - 4 * PRES_ENDLESS.dmg) > 1e-9 || p1.maxHp !== Math.round(p0.maxHp * (1 + 2 * PRES_ENDLESS.vit)) || !(s1 > s0)) throw new Error('reboot bonus effect ' + [p1.dmgMul, p1.maxHp, s0, s1]);
+          const keepCan = save.canReboot; goBase(); showTab('up'); save.pres.pts = 3; save.canReboot = true; renderBase();
+          const buy = () => document.querySelector<HTMLButtonElement>('[data-pres="dmg"]')!.click();
+          buy(); buy(); // 1 pt, then 2 pt
+          const got = save.pres.up.dmg, left = save.pres.pts;
+          Object.assign(save.pres.up, keepUp); save.pres.pts = 0; save.canReboot = keepCan; renderBase();
+          if (got !== 2 || left !== 0) throw new Error('reboot bonus buy ' + got + ' ' + left);
+          console.log('SMOKE reboot bonus ok');
+        }
         // a strong loadout still gets harder the deeper you start (the supply picks don't outgrow the late depths)
-        const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmgUp: 6, hp: 200, pres: 1.45 };
+        const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmg: 1.48, hp: 200, pres: 1.45 };
         const deep = [6, 9, 13, 19].map(n => readinessScore(n, strong));
         if (deep.some((v, i) => i && v >= deep[i - 1]!)) throw new Error('readiness deep ' + deep.map(v => v.toFixed(2)));
         console.log('SMOKE readiness ok', fresh.join(','), 'D3 fresh', s0.toFixed(2), 'maxed', s1.toFixed(2), '->', readiness(2));
