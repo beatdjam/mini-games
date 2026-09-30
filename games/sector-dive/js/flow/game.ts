@@ -54,7 +54,13 @@ export function startRun() {
   for (let k = 0; k < tier; k++) queue.push(t('perk.supply'));
   const total = queue.length;
   // after the loadout / shortcut chips are picked, re-save the checkpoint so they are part of it
-  const next = () => { if (queue.length) { const kind = queue.shift(); openPerk(t('perk.queue', { kind, i: total - queue.length, n: total }), 'loadout', next); } else checkpoint(); };
+  // a walked depth gives about 8 chips, so one supply chip per skipped depth left deep starts hopeless: each supply pick
+  // counts supplyTimes times instead
+  const next = () => {
+    if (!queue.length) { checkpoint(); return; }
+    const kind = queue.shift()!;
+    openPerk(t('perk.queue', { kind, i: total - queue.length, n: total }), 'loadout', next, kind === t('perk.supply') ? TUNE.supplyTimes : 1);
+  };
   next();
   if (!total) requestLock(); // with chips to pick first, the lock is requested when the last one is chosen
   if (!total) toast(t(isTouch ? 'run.firstTouch' : 'run.firstDesk'), 4200);
@@ -114,7 +120,8 @@ export function nextStage() {
   if (run.stage % (PER * 3) === 0) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), 3000);
   startStage();
 }
-export function openPerk(title: string, eyebrow?: string, done?: () => void) {
+// times: the chosen chip is applied that many times (shortcut supply), stopping early once it is maxed
+export function openPerk(title: string, eyebrow?: string, done?: () => void, times = 1) {
   state = 'perk'; releaseInputs(); exitLock(); bigmap.hidden = true;
   $('#perkTitle').textContent = title; $('#perkEyebrow').textContent = eyebrow || 'chip acquired';
   const opts = shuffle(PERKS.filter(o => !(o.maxed && o.maxed(P)))).slice(0, 3 + save.pres.up.choice)
@@ -123,9 +130,10 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void) {
   opts.forEach(({ o, rare }) => {
     const v = rare ? o.rv! : o.v, name = o.name + (rare ? '+' : '');
     const b = document.createElement('button'); b.className = 'perk' + (rare ? ' rare' : '');
-    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}</span><span class="pd">${o.desc!(v)}</span><span class="pcur">${t('perk.cur', { v: o.curText!(o.cur(P)) })}</span>`;
+    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}${times > 1 ? t('perk.times', { n: times }) : ''}</span><span class="pd">${o.desc!(v)}</span><span class="pcur">${t('perk.cur', { v: o.curText!(o.cur(P)) })}</span>`;
     b.addEventListener('click', () => {
-      o.apply(P, v); run.perks.push(o.id + (rare ? '+' : '')); sfx('chip');
+      for (let k = 0; k < times && !(k && o.maxed && o.maxed(P)); k++) { o.apply(P, v); run.perks.push(o.id + (rare ? '+' : '')); }
+      sfx('chip');
       show(null); state = 'play'; weaponHud();
       requestLock();
       if (done) done();
@@ -413,7 +421,7 @@ export function renderBase() {
   $('#sBoss').textContent = save.bossKills;
   save.startTier = clamp(save.startTier, 0, save.shortcut);
   $('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, n) =>
-    `<button class="tier" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b><small>${n === 0 ? t('base.tierFirst') : t('base.tierChips', { n })}</small><small class="rd rd${readiness(n)}">${t(`base.ready${readiness(n)}`)}</small></button>`).join('');
+    `<button class="tier" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b><small>${n === 0 ? t('base.tierFirst') : t('base.tierChips', { n, times: TUNE.supplyTimes })}</small><small class="rd rd${readiness(n)}">${t(`base.ready${readiness(n)}`)}</small></button>`).join('');
   $('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
   $('#loadout').innerHTML = [0, 1].map(k => {

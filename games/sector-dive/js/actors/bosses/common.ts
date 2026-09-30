@@ -7,8 +7,10 @@ import { setMusic } from '../../../../../engine/audio/music.ts';
 import { V3, dynGroup } from '../../../../../engine/render/render.ts';
 import { burst, fireball } from '../../../../../engine/render/fx.ts';
 import { H, T, W } from '../../../../../engine/world/tiles.ts';
+import { query } from '../../../../../engine/core/world.ts';
 import { banner, toast } from '../../../../../engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
+import { hpGrowth } from '../../data/progress.ts';
 import { persist, save } from '../../system/save.ts';
 import { presMul, prog } from '../../system/rules.ts';
 import { curBiome, makePortal } from '../../world/level.ts';
@@ -23,8 +25,9 @@ import { spawnBastion } from './bastion.ts';
 import { SCR } from '../../ui/hud.ts';
 import { track } from '../../../../../engine/core/analytics.ts';
 // ================= bosses =================
-// boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3)
-export function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * Math.pow(BOSS_TUNE.growth, (prog(run.stage) - 4) / 5) * presMul(); }
+// boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
+// x lateGrowth per depth from the D7 boss on
+export function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * hpGrowth((prog(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) * presMul(); }
 // hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDiff
 // behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared
 export function bossBase(kind: string, mesh: THREE.Object3D, mat: THREE.MeshLambertMaterial, behave: (e: Enemy, dt: number) => void) {
@@ -73,6 +76,7 @@ export function bossDown(e: Enemy) {
   if (e.beams) e.beams.forEach((b: THREE.Object3D) => { b.visible = false; });
   enemies.forEach(o => { if (!o.dead && !o.boss) { o.dead = true; burst(o.x, o.mesh.position.y, o.z, o.def.color, 10, 7, 0.6); removeEnemyMesh(o); } });
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
+  query('wave').forEach(w => { w.dead = true; }); // a shockwave still spreading must not kill the player after the win
   if (run.practice) { // practice: no rewards, no progress; just a way home
     makePortal(e.cx, e.cz - 2, 0x54e8ff, 'extract', t('boss.toBase'));
     $('#bossBar').hidden = true; setBoss(null); run.cleared = true;

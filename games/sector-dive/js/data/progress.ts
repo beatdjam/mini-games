@@ -2,7 +2,13 @@ import type { Upgrade, PresUpgrade } from './types.ts';
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
-export const DEPTH_HP_GROWTH = 1.55;
+// From GROWTH_KNEE depths in, health grows by the *_LATE factors instead: the player's own growth (additive chips,
+// +8% per weapon +) slows to about 1.3x per depth by then, so the early rates would leave bosses taking many minutes.
+export const DEPTH_HP_GROWTH = 1.55, DEPTH_HP_LATE = 1.3, GROWTH_KNEE = 5;
+// health factor after `depths` depths: `rate` per depth up to the knee, `late` per depth after it
+export const hpGrowth = (depths: number, rate: number, late: number): number =>
+  Math.pow(rate, Math.min(depths, GROWTH_KNEE)) * Math.pow(late, Math.max(0, depths - GROWTH_KNEE));
+export const enemyGrowth = (depths: number): number => hpGrowth(depths, DEPTH_HP_GROWTH, DEPTH_HP_LATE);
 // player-side tuning knobs. Enemy numbers live in ENEMY, boss numbers in js/actors/bosses/*.js
 export const TUNE = {
   hp: 100,              // base max HP (armour upgrade adds 15 per level)
@@ -20,6 +26,8 @@ export const TUNE = {
   kitDropChance: 0.06,  // chance an enemy drops a kit
   chipChance: 0.5,      // chance a cleared room gives a chip (otherwise a kit + bits); about 8 chips per depth incl. the boss
   rareChipChance: 0.12, // chance each offered chip is the rare (gold, stronger) version
+  supplyTimes: 5,       // a shortcut supply pick (one per skipped depth) gives the chosen chip this many times
+  supplyPower: 1.35,    // what one supply pick is worth in the start-depth readiness (chips of different kinds multiply)
   critCap: 0.4,         // crit chance can't go above this
   hitDirTime: 0.6,      // seconds the red arc pointing at an off-screen attacker stays up (ui/hud.ts hitDirection)
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon

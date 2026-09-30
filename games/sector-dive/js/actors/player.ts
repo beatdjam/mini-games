@@ -8,11 +8,11 @@ import { burst, fireball } from '../../../../engine/render/fx.ts';
 import { hasLOS, moveCircle } from '../../../../engine/world/tiles.ts';
 import { toast } from '../../../../engine/ui/ui.ts';
 import { joy, keys } from '../../../../engine/ui/input.ts';
-import { AFFIX, PLUS_DMG, RARITY, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
+import { AFFIX, PLUS_DMG, RARITY, SPLIT_FAN, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { VIEWMODELS, VM_COLORS } from '../data/viewmodels.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { ASSIST, DEPTH_HP_GROWTH, PER, TUNE } from '../data/progress.ts';
+import { ASSIST, PER, TUNE, enemyGrowth } from '../data/progress.ts';
 import { save } from '../system/save.ts';
 import { basicNow, pickDrop, presMul, prog } from '../system/rules.ts';
 import { roomCount, roomSpot, rooms } from '../world/level.ts';
@@ -62,7 +62,7 @@ export const stageInfo = (s: number) => { const tier = Math.floor(s / PER); retu
 export const isBossStage = (s: number): boolean => s % PER === PER - 1;
 export function stageLabel(s: number): string { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
 export function tierLabel(t: number): string { return `DEPTH ${t + 1}`; }
-export const diffOf = (s: number): number => ENEMY_TUNE.hpMul * Math.pow(DEPTH_HP_GROWTH, prog(s) / 5) * presMul();
+export const diffOf = (s: number): number => ENEMY_TUNE.hpMul * enemyGrowth(prog(s) / 5) * presMul();
 // chipMag: share of the magazine chips' effect a weapon gets (the launcher only half, so it can't double its output)
 export const magSize = (w: WeaponItem): number => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1); return Math.max(1, Math.round(def.mag * chip * (1 + 0.3 * wo('mag', w)))); };
 // rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
@@ -158,9 +158,10 @@ export function fire() {
   // rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)
   const blast = def.blast ? def.blast * (1 + 0.15 * (P.pierce + wo('pierce'))) : 0;
   const moving = Math.hypot(joy.x, joy.y) > 0.2 || keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
+  const fanStep = n > 1 ? Math.min(SPLIT_FAN.step, SPLIT_FAN.max / (n - 1)) : 0;
   for (let k = 0; k < n; k++) {
     const d = base.clone();
-    if (P.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * 0.05);
+    if (P.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * fanStep);
     const s = def.spread + (k >= def.pellets ? 0.02 : 0) + (moving && !def.steady ? 0.014 : 0);
     d.x += rand(-s, s); d.y += rand(-s, s) * 0.7; d.z += rand(-s, s); d.normalize();
     spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), blast, def.color, def.grav || 0, { far: def.far, farMul: def.farMul, kb: def.kb, rail: !!def.pierce, shot: shotId });
@@ -243,7 +244,7 @@ export function killEnemy(e: Enemy, noReward?: boolean) {
     if (P.chain && !inChainBlast) {
       inChainBlast = true;
       // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
-      const depthScale = Math.pow(DEPTH_HP_GROWTH, prog(run.stage) / 5);
+      const depthScale = enemyGrowth(prog(run.stage) / 5);
       explode(pos.x, pos.y, pos.z, 2.5 + P.chain * 0.5, 18 * P.chain * P.dmgMul * depthScale, 0xffc24a);
       inChainBlast = false;
     }
