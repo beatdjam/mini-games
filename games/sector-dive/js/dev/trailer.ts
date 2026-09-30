@@ -128,14 +128,21 @@ function sceneEnd() {
 
 // ---- the player's hands, each frame ----
 let target: Enemy | null = null;
+// a fight scene with nothing left in sight to shoot
+const inSight = (e: Enemy) => !e.dead && !e.boss && Math.hypot(e.x - P.x, e.z - P.z) < 30 && hasLOS(P.x, P.z, e.x, e.z, P.fy + 1.6, e.mesh.position.y);
+function fightCleared(s: number) {
+  return s >= SC.run && s < SC.chip && state === 'play' && !enemies.some(inSight);
+}
 const dashAt = [5.3, 7.6, 10.2, 12.1, 21.7, 23.0, 24.9, 25.6];
-// the next target: the enemy closest to the crosshair (a little weight on distance), in sight
+// the next target: the enemy closest to the crosshair (a little weight on distance), in sight and in front; one that
+// runs round behind is let go rather than chased (turning on the spot after crawlers looks clumsy)
+const FRONT = 1.1;
 function nearest(): Enemy | null {
   let best: Enemy | null = null, bd = Infinity;
   for (const e of enemies) {
-    if (e.dead || e.boss) continue;
-    const d = Math.hypot(e.x - P.x, e.z - P.z), score = offAim(e.x, e.z) + d * 0.02;
-    if (score < bd && d < 30 && hasLOS(P.x, P.z, e.x, e.z, P.fy + 1.6, e.mesh.position.y)) { best = e; bd = score; }
+    if (!inSight(e) || offAim(e.x, e.z) > FRONT) continue;
+    const score = offAim(e.x, e.z) + Math.hypot(e.x - P.x, e.z - P.z) * 0.02;
+    if (score < bd) { best = e; bd = score; }
   }
   return best;
 }
@@ -153,10 +160,15 @@ function hands(s: number, dt: number) {
   if (state === 'play' && P) { P.hp = P.maxHp; P.inv = Math.max(P.inv, 0.2); }
   dashAt.forEach(d => { if (Math.round(s * FPS) === Math.round(d * FPS) && state === 'play') CTRL.dashReq = true; });
   if (inScene(SC.run, SC.chip) && state === 'play') {
-    if (!target || target.dead) target = nearest();
+    if (!target || target.dead || offAim(target.x, target.z) > FRONT + 0.4) target = nearest();
     const r = rooms[fightRoom]!;
     if (target) aimAt(target.x, target.mesh.position.y, target.z, dt, 9);
-    else aimAt((r.x + r.w / 2) * 4, 1, (r.y + r.h / 2) * 4, dt, 3); // room cleared: face the room, not a wall
+    else {
+      // nothing in front: turn calmly toward whatever is left in sight, else face the room, not a wall
+      const left = enemies.filter(inSight).sort((u, v) => offAim(u.x, u.z) - offAim(v.x, v.z))[0];
+      if (left) aimAt(left.x, left.mesh.position.y, left.z, dt, 3);
+      else aimAt((r.x + r.w / 2) * 4, 1, (r.y + r.h / 2) * 4, dt, 3);
+    }
     const k = s - SC.run;
     joy.x = Math.sin(k * 1.4) * 0.9; joy.y = Math.sin(k * 0.8) * 0.3; // strafe, a step in and a step back
     setFireHeld(!!target && offAim(target.x, target.z) < 0.25);
@@ -215,16 +227,28 @@ export async function runTrailer(musicOnly: boolean) {
   const q = new URLSearchParams(location.search); bossLog = q.has('tboss');
   const limit = +(q.get('tframes') || 0), from = +(q.get('tfrom') || 0), every = +(q.get('tevery') || 1);
   const N = limit || Math.round(SC.total * FPS), dt = 1 / FPS;
+  // the script's clock runs ahead of the film's when a fight's room is cleared early: the next scene comes at once
+  // (the video comes out that much shorter; the BGM pass has no cuts and is trimmed to the video's length)
+  let ahead = 0, clearK = -1, shot = 0;
   const frame = async (k: number) => {
-    const s = k * dt;
+    let sk = k + ahead;
+    if (!musicOnly && fightCleared(sk * dt)) {
+      if (clearK < 0) clearK = sk;
+      else if (sk - clearK >= Math.round(0.3 * FPS)) { // a beat on the last kill, then the cut
+        ahead += Math.round((sk * dt < SC.run2 ? SC.run2 : SC.chip) * FPS) - sk; sk = k + ahead; clearK = -1;
+        console.log(`TRAILER room cleared: cut at frame ${k}, ${ahead} frames ahead`);
+      }
+    } else clearK = -1;
+    if (sk >= N) return; // the film has ended
+    const s = sk * dt;
     if (musicOnly) musicScript(s, dt);
     else {
-      sceneAt.forEach(([at, fn]) => { if (k === Math.round(at * FPS)) fn(); }); // by frame number: s - dt < at can hold on two frames
-      if (k === 0) sceneBase();
+      sceneAt.forEach(([at, fn]) => { if (sk === Math.round(at * FPS)) fn(); }); // by frame number: s - dt < at can hold on two frames
+      if (sk === 0) sceneBase();
       hands(s, dt); uiScript(s, dt);
     }
     w.__advance(1000 * dt);
-    if (!musicOnly && k >= from && (k - from) % every === 0) await new Promise<void>(r => { w.__ack = r; w.__shot(String(k)); });
+    if (!musicOnly && k >= from && (k - from) % every === 0) { shot++; await new Promise<void>(r => { w.__ack = r; w.__shot(String(k)); }); }
   };
   for (let k = 1; k < N; k++) off.suspend(k * dt).then(async () => { await frame(k); off.resume(); });
   await frame(0);
@@ -243,5 +267,5 @@ export async function runTrailer(musicOnly: boolean) {
     for (let i = 0; i < part.length; i += 0x8000) bin += String.fromCharCode(...part.subarray(i, i + 0x8000));
     await new Promise<void>(r => { w.__audioAck = r; w.__audio(btoa(bin)); });
   }
-  w.__done(`${N} frames`);
+  w.__done(`${N - ahead} frames (${ahead} cut after cleared rooms), ${shot} shot`);
 }
