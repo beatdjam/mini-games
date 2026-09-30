@@ -155,6 +155,8 @@ test('projectiles: pool, sub-steps, terrain, homing, patterns', () => {
   const pool: Projectile[] = [], geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
   const b = takeFromPool(pool, geo, 2)!; b.alive = true; ok(takeFromPool(pool, geo, 2) !== b, 'second slot');
   pool[1].alive = true; eq(takeFromPool(pool, geo, 2), null, 'pool full');
+  const r1 = takeFromPool(pool, geo, 2, true), r2 = takeFromPool(pool, geo, 2, true);
+  eq(r1, b, 'full + recycle: the one handed out first'); eq(r2, pool[1], 'then the next oldest, not the one just reused');
   Object.assign(b, { x: 0.5 * T, y: 1, z: 1.5 * T, vx: 30, vy: 0, vz: 0 });
   let steps = 0; stepProjectile(b, 0.1, 0.5, () => { steps++; return false; });
   eq(steps, 6, '3 m in 0.5 m steps'); near(b.x, 0.5 * T + 3, 1e-9);

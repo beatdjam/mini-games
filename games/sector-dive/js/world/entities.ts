@@ -31,7 +31,9 @@ export const pBullets: Projectile[] = [], eBullets: Projectile[] = [];
 // far / farMul: rail damage bonus past `far` metres; kb: knockback; rail: punches through shields; shot: id of the trigger pull
 export interface ShotOptions { far?: number; farMul?: number; kb?: number; rail?: boolean; shot?: number; }
 export function spawnPBullet(pos: THREE.Vector3, dir: THREE.Vector3, speed: number, dmg: number, pierce: number, blast: number, color: number, grav: number, opt?: ShotOptions) {
-  const b = takeFromPool(pBullets, geoCache.pbullet, 220); if (!b) return;
+  // a very fast gun with many split rounds can have hundreds in the air: when the pool is full the oldest round is
+  // reused, so a new shot is never silently dropped (it used to vanish, hits and all)
+  const b = takeFromPool(pBullets, geoCache.pbullet, 480, true); if (!b) return;
   b.alive = true; b.x = pos.x; b.y = pos.y; b.z = pos.z;
   b.vx = dir.x * speed; b.vy = dir.y * speed; b.vz = dir.z * speed;
   b.dmg = dmg; b.pierce = pierce; b.blast = blast || 0; b.grav = grav || 0; b.life = blast ? 4 : 1.6; b.color = color; b.hit.clear();

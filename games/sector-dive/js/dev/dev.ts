@@ -20,7 +20,7 @@ import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '
 import { perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
-import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
+import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, shotId, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
 import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
@@ -112,6 +112,22 @@ devSmoke(() => {
         P.weapons[P.cur] = keep; P.extra = 0; pBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
         if (hs.length !== 26 || span > SPLIT_FAN.max + 0.045 || span < SPLIT_FAN.max * 0.7) throw new Error('split fan ' + hs.length + ' ' + span);
         console.log('SMOKE split fan ok', span.toFixed(3));
+      }
+      // a gun faster than the frame rate: fires more than once a frame, and a full bullet pool reuses the oldest round
+      // instead of dropping the new shot (FB: a +303% fire rate SMG lost its rounds, hits and all)
+      {
+        const keep = P.weapons[P.cur]; P.weapons[P.cur] = newWeapon('smg', 0); P.weapons[P.cur]!.mag = 1e5; P.fireRate = 4.03; P.extra = 10; P.reloadT = 0; P.fireCd = 0;
+        const s0 = shotId; tick(60); const shots = shotId - s0;
+        const last = pBullets.filter(b => b.alive && b.shot === shotId).length;
+        // fill the whole pool with rounds in flight, then shoot: the new shot's rounds must still all be there
+        for (let k = 0; k < 600; k++) spawnPBullet(new V3(P.x, 50, P.z), new V3(0, 1, 0), 1, 1, 0, 0, 0xffffff, 0, {});
+        P.fireCd = 0; fire();
+        const fresh = pBullets.filter(b => b.alive && b.shot === shotId).length;
+        if (fresh !== 11) throw new Error('full pool dropped the shot: ' + fresh + ' of 11 rounds');
+        P.weapons[P.cur] = keep; P.fireRate = 1; P.extra = 0; P.fireCd = 0; pBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
+        const want = 1 / (WEAPONS.smg.rate / 4.03); // about 65 a second, more than the 60 frames
+        if (shots < want - 2 || shots > want + 2 || last !== 11) throw new Error('fast gun ' + shots + ' shots (want ' + want.toFixed(1) + '), last shot ' + last + ' rounds');
+        console.log('SMOKE fast gun ok', shots, 'shots/s');
       }
       // watcher: drones at 75% and 40%
       {
