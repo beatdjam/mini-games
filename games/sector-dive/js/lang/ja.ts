@@ -100,7 +100,7 @@ LANG.ja = {
     'base.wipe': 'セーブデータを完全に消去…',
     'base.diveSub': '潜行開始 — {tier} から',
     'base.tierFirst': '最初から',
-    'base.tierChips': '補給チップ {n} 枚',
+    'base.tierChips': '補給チップ {n} 回（各×{times}）',
     'base.helpTouch': '横持ち推奨。操作一覧は潜行中の一時停止（II）で見られる。セーブはこのブラウザに保存される。',
     'base.helpDesk': '操作一覧は潜行中の一時停止（Esc）で見られる。セーブはこのブラウザに保存される。',
     'base.slot': '装備{n}',
@@ -172,6 +172,7 @@ LANG.ja = {
     'perk.queue': '{kind}（{i} / {n}）',
     'perk.carry': '持ち込みチップ',
     'perk.supply': 'ショートカット補給',
+    'perk.times': ' ×{n}',
 
     // ---- stats panel ----
     'stats.title': '現在の性能',

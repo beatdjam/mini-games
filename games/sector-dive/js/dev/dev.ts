@@ -180,6 +180,19 @@ devSmoke(() => {
         console.log('SMOKE chain ok');
         endRun('abandon');
       }
+      // shortcut supply: starting at DEPTH 3 gives 2 picks, each applying the chosen chip supplyTimes times
+      {
+        const keep = [save.shortcut, save.startTier, save.up.chip]; save.shortcut = save.startTier = 2; save.up.chip = 0;
+        goBase(); startRun(); tick(3);
+        const pick = (id: string) => { const cards = [...document.querySelectorAll<HTMLElement>('#perkList .perk')]; const c = cards.find(b => b.querySelector('.pn')!.textContent!.includes(perkName(id))) || cards[0]!; c.click(); };
+        if (!document.querySelector('#perkList .pn')!.textContent!.includes('×' + TUNE.supplyTimes)) throw new Error('supply card label');
+        pick('overload'); pick('overload');
+        [save.shortcut, save.startTier, save.up.chip] = keep;
+        // a capped chip (pierce, crit, reload, magazine) stops once maxed, after 3-4 of the supplyTimes
+        if (run.perks.length < 6 || run.perks.length > 2 * TUNE.supplyTimes) throw new Error('supply picks ' + run.perks.length);
+        console.log('SMOKE supply ok', run.perks.length, 'chips');
+        endRun('abandon'); goBase();
+      }
       // rare chips show up gold and apply the stronger amount; deep sectors favour tougher enemy types
       {
         startRun(); tick(3);

@@ -100,7 +100,7 @@ LANG.en = {
     'base.wipe': 'Delete all save data…',
     'base.diveSub': 'Start from {tier}',
     'base.tierFirst': 'From the top',
-    'base.tierChips': '{n} supply chip(s)',
+    'base.tierChips': '{n} supply pick(s) (×{times} each)',
     'base.helpTouch': 'Play in landscape. The controls are listed in the pause menu (II) during a dive. Progress is saved in this browser.',
     'base.helpDesk': 'The controls are listed in the pause menu (Esc) during a dive. Progress is saved in this browser.',
     'base.slot': 'Slot {n}',
@@ -172,6 +172,7 @@ LANG.en = {
     'perk.queue': '{kind} ({i} / {n})',
     'perk.carry': 'Starting chip',
     'perk.supply': 'Shortcut supply',
+    'perk.times': ' ×{n}',
 
     // ---- stats panel ----
     'stats.title': 'Current stats',
