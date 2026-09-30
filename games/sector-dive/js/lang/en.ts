@@ -260,6 +260,7 @@ LANG.en = {
     'res.practiceNote': 'Practice: your bits, weapons and records are unchanged.',
 
     // ---- share ----
+    'fb.send': 'Send feedback',
     'share.btn': 'Share result',
     'share.img': 'Result card',
     'share.copy': 'Copy image',

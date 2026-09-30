@@ -5,6 +5,7 @@ import { addSystem, runSystems, stopFrame } from '../core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../core/world.ts';
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../core/i18n.ts';
 import { ANALYTICS, TRACK_LOG, track } from '../core/analytics.ts';
+import { FEEDBACK, FEEDBACK_INFO_MAX, feedbackReady, feedbackUrl } from '../core/feedback.ts';
 import { buildViewmodel } from '../render/render.ts';
 import { burst, clearFx, fireball, parts, updateBalls } from '../render/fx.ts';
 import { RISE, T, W, computeFlow, floorY, flowAt, flowDir, grid, hasLOS, hgt, moveCircle, ramp, setTileWorld, solidAt } from '../world/tiles.ts';
@@ -48,6 +49,19 @@ test('analytics: track records the event and passes it to the GA tag when there 
   eq(TRACK_LOG[TRACK_LOG.length - 1]!.params.game, 'g1', 'game id added');
   for (let k = 0; k < 60; k++) track('fill');
   eq(TRACK_LOG.length, 50, 'log keeps the last 50');
+});
+test('feedback: no form, no link; with one, the game, build and info are filled in', () => {
+  eq(feedbackUrl('x', { url: '', game: '1', build: '2', info: '3' }), null, 'no form');
+  ok(!feedbackReady({ url: '', game: '', build: '', info: '' }), 'not ready');
+  const form = { url: 'https://docs.google.com/forms/d/e/abc/viewform', game: '11', build: '22', info: '33' };
+  FEEDBACK.game = 'g1';
+  const u = new URL(feedbackUrl('D3 BOSS & more', form)!); FEEDBACK.game = '';
+  eq(u.origin + u.pathname, form.url, 'address'); eq(u.searchParams.get('usp'), 'pp_url');
+  eq(u.searchParams.get('entry.11'), 'g1', 'game'); eq(u.searchParams.get('entry.22'), 'dev', 'build on the dev server');
+  eq(u.searchParams.get('entry.33'), 'D3 BOSS & more', 'info');
+  const long = new URL(feedbackUrl('a'.repeat(5000), form)!).searchParams.get('entry.33')!;
+  eq(long.length, FEEDBACK_INFO_MAX, 'info cut'); ok(long.endsWith('…'), 'cut is marked');
+  ok(!new URL(feedbackUrl('', form)!).searchParams.has('entry.33'), 'empty info left out');
 });
 test('util: clamp / randi / shuffle', () => {
   eq(clamp(5, 0, 3), 3); eq(clamp(-1, 0, 3), 0);

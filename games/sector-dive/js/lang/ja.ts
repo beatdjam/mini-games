@@ -261,6 +261,7 @@ LANG.ja = {
 
     // ---- share ----
     'share.btn': '結果をシェア',
+    'fb.send': '感想・不具合を送る',
     'share.img': '結果カード',
     'share.copy': '画像をコピー',
     'share.save': '画像を保存',

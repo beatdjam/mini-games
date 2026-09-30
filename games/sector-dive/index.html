@@ -159,6 +159,8 @@ body.desk.nolock .tbtn{display:grid}
 .back{justify-self:start;font-size:13px;color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line)}
 .back:hover{color:var(--text)}
 .backs{display:flex;gap:16px;flex-wrap:wrap}
+.linkbtn{padding:0;background:none;border-width:0 0 1px;border-radius:0;font:inherit;font-size:13px;cursor:pointer}
+.linkbtn[hidden]{display:none}
 .eyebrow{margin:0;font-family:var(--disp);font-size:11px;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
 .stats div{background:var(--panel);padding:10px 12px;display:grid;gap:2px}
@@ -408,7 +410,7 @@ body.desk.nolock .tbtn{display:grid}
         </div>
         <div class="sec">
           <h2 data-i18n="base.links"></h2>
-          <div class="backs"><a class="back" href="../../" data-i18n="base.backToList"></a><a class="back" href="updates.html" data-i18n="base.updates"></a><a class="back" href="../../privacy.html" data-i18n="base.privacy"></a></div>
+          <div class="backs"><a class="back" href="../../" data-i18n="base.backToList"></a><a class="back" href="updates.html" data-i18n="base.updates"></a><a class="back" href="../../privacy.html" data-i18n="base.privacy"></a><button id="btnFeedbackBase" class="back linkbtn" hidden data-i18n="fb.send"></button></div>
         </div>
         <div class="sec">
           <h2 data-i18n="base.data"></h2>
@@ -488,6 +490,7 @@ body.desk.nolock .tbtn{display:grid}
       <p class="chips" id="resChips"></p>
       <button id="btnBack" class="primary" data-i18n="res.back"></button>
       <button id="btnShare" class="sharebtn" hidden data-i18n="share.btn"></button>
+      <button id="btnFeedbackRes" class="sharebtn" hidden data-i18n="fb.send"></button>
       <div id="sharePanel" class="sharepanel" hidden>
         <img id="shareImg" alt="" data-i18n-alt="share.img">
         <div class="sharerow"><button id="btnShareCopy" class="ghost" data-i18n="share.copy"></button><button id="btnShareSave" class="ghost" data-i18n="share.save"></button><button id="btnShareX" class="ghost" data-i18n="share.x"></button></div>
