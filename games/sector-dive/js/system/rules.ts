@@ -1,6 +1,6 @@
 import type { WeaponItem } from '../data/types.ts';
 import { LANG, t } from '../../../../engine/core/i18n.ts';
-import { DROP_POOL, PLUS_DMG, RARITY, WEAPONS } from '../data/weapons.ts';
+import { DROP_POOL, MOD_CAP_PER_DEPTH, MOD_PLUS_MAX, PLUS_DMG, RARITY, WEAPONS } from '../data/weapons.ts';
 import { PER, PRES_ENDLESS, TUNE, enemyGrowth, hpGrowth } from '../data/progress.ts';
 import type { PresUpgrade } from '../data/types.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
@@ -22,6 +22,9 @@ export const presCost = (u: PresUpgrade, level: number): number => u.cost + (u.s
 export const startMaxHp = (upHp: number): number => Math.round((TUNE.hp + upHp * 15 + save.pres.up.hp * 10) * (1 + PRES_ENDLESS.vit * (save.pres.up.vit || 0)));
 export const startDmgMul = (upDmg: number): number => 1 + upDmg * 0.08 + PRES_ENDLESS.dmg * (save.pres.up.dmg || 0);
 export const pickDrop = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
+// the deepest DEPTH opened since the last reboot, and the + cap for modding base weapons that it gives
+export const peakDepth = (): number => Math.max(save.peak || 0, save.shortcut) + 1;
+export const modPlusCap = (): number => Math.max(MOD_PLUS_MAX, Math.round(peakDepth() * MOD_CAP_PER_DEPTH));
 export const modOf = (id: string): { plus: number; r: number } => (save.mods && save.mods[id]) || { plus: 0, r: 0 };
 // a basic weapon as it currently stands after modding (non-basic weapons pass through)
 export const basicNow = <W extends WeaponItem | null>(w: W): W => w && w.basic ? Object.assign({}, w, { plus: modOf(w.id).plus, r: modOf(w.id).r }) : w;

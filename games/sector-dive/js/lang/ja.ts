@@ -111,6 +111,7 @@ LANG.ja = {
     'base.unequip': '外す',
     'base.unlock': '解放 {cost} BIT（出撃装備にできて、改造もできる）',
     'base.plusMax': '+値 最大',
+    'base.modCap': '改造の上限 +{cap}（開通した最深の深度 DEPTH {depth} × {per}。最低 +{min}。再起動で戻る）',
     'base.modPlus': '+{n} に改造 {cost}',
     'base.rarMax': '★ 最大',
     'base.modRar': '{stars}{name}に {cost}',

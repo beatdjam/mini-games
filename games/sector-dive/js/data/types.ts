@@ -77,6 +77,7 @@ export interface Snapshot { run: RunState; P: Player; }
 export interface SaveData {
   bits: number; up: Record<string, number>; unlocked: Record<string, boolean>;
   loadout: (WeaponItem | null)[]; stash: WeaponItem[]; shortcut: number; startTier: number;
+  peak: number; // the deepest shortcut opened since the last reboot (it doesn't close on death; sets the modding cap)
   best: number; runs: number; bossKills: number; bossSeen: Record<string, boolean>; stageV: number;
   mods: Record<string, { plus: number; r: number }>; canReboot: boolean;
   pres: { count: number; pts: number; up: Record<string, number> };
