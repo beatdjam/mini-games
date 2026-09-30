@@ -4,7 +4,10 @@
 // pre-filled questions: in Google Forms, "Get pre-filled link", fill those three and copy the link; each answer shows
 // up in it as entry.<id>=. While url is empty feedbackReady() is false and openFeedback does nothing, so games can
 // show their button only when it works.
-export const FEEDBACK_FORM = { url: '', game: '', build: '', info: '' };
+export const FEEDBACK_FORM = {
+  url: 'https://docs.google.com/forms/d/e/1FAIpQLSeBQFZawx76qvFJLOQsaoR26gI2l0shTm5DvBMROq3r78qpbg/viewform',
+  game: '1274129536', build: '1369941180', info: '431974325',
+};
 // set by the game at start-up: its id, filled into the form's "game" question
 export const FEEDBACK = { game: '' };
 // info is cut to this many characters: the whole address has to stay a length browsers and Google accept

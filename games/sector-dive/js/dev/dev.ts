@@ -341,11 +341,12 @@ devSmoke(() => {
       }
       // feedback: hidden while there is no form; with one, the result screen opens it with the run filled in
       {
-        goBase(); if (!$('#btnFeedbackBase').hidden) throw new Error('feedback shown without a form');
         const keepForm = { ...FEEDBACK_FORM }, keepOpen = window.open, opened: string[] = [];
-        Object.assign(FEEDBACK_FORM, { url: 'https://docs.google.com/forms/d/e/test/viewform', game: '1', build: '2', info: '3' });
         window.open = ((u: string) => { opened.push(u); return null; }) as typeof window.open;
         try {
+          FEEDBACK_FORM.url = '';
+          goBase(); if (!$('#btnFeedbackBase').hidden) throw new Error('feedback shown without a form');
+          Object.assign(FEEDBACK_FORM, { url: 'https://docs.google.com/forms/d/e/test/viewform', game: '1', build: '2', info: '3' });
           startRun(); tick(5); run.perks = ['split', 'split', 'rapid+']; endRun('extract');
           if ($('#btnFeedbackRes').hidden) throw new Error('feedback button on the result screen');
           $('#btnFeedbackRes').click();
