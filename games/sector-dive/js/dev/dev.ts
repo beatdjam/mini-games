@@ -449,6 +449,10 @@ devSmoke(() => {
         // reboot difficulty stops growing at PRES_DIFF_CAP reboots; the rating after the next reboot is worse than now
         if (presMulOf(PRES_DIFF_CAP + 5) !== presMulOf(PRES_DIFF_CAP) || !(presMulOf(1) > presMulOf(0))) throw new Error('reboot cap');
         if (!(readinessScore(0, readyAfterReboot()) < readinessScore(0))) throw new Error('readiness after reboot');
+        // a strong loadout still gets harder the deeper you start (the supply picks don't outgrow the late depths)
+        const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmgUp: 6, hp: 200, pres: 1.45 };
+        const deep = [6, 9, 13, 19].map(n => readinessScore(n, strong));
+        if (deep.some((v, i) => i && v >= deep[i - 1]!)) throw new Error('readiness deep ' + deep.map(v => v.toFixed(2)));
         console.log('SMOKE readiness ok', fresh.join(','), 'D3 fresh', s0.toFixed(2), 'maxed', s1.toFixed(2), '->', readiness(2));
         $('#btnWipe').click(); $('#btnWipeGo').click();
       }

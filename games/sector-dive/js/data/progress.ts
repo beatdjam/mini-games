@@ -27,7 +27,9 @@ export const TUNE = {
   chipChance: 0.5,      // chance a cleared room gives a chip (otherwise a kit + bits); about 8 chips per depth incl. the boss
   rareChipChance: 0.12, // chance each offered chip is the rare (gold, stronger) version
   supplyTimes: 5,       // a shortcut supply pick (one per skipped depth) gives the chosen chip this many times
-  supplyPower: 1.35,    // what one supply pick is worth in the start-depth readiness (chips of different kinds multiply)
+  // what the supply picks are worth in the start-depth readiness: exp(a * picks ^ b). Chips of different kinds multiply
+  // but the same kind only adds up, so each further pick is worth a little less (fitted to a deep run's chip mix)
+  supplyCurve: [0.45, 0.8],
   critCap: 0.4,         // crit chance can't go above this
   hitDirTime: 0.6,      // seconds the red arc pointing at an off-screen attacker stays up (ui/hud.ts hitDirection)
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
