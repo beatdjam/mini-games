@@ -1,17 +1,18 @@
 import type { Enemy, WeaponItem } from '../data/types.ts';
+import type * as THREE from 'three';
 import { $, clamp } from '../../../../engine/core/util.ts';
 import { t } from '../../../../engine/core/i18n.ts';
-import { clearWorld } from '../../../../engine/core/world.ts';
-import { applySfxVolume, audioInit, setVolumes } from '../../../../engine/audio/audio.ts';
+import { actx, applySfxVolume, audioInit, master, setVolumes, sfxVolume } from '../../../../engine/audio/audio.ts';
+import { runSystems } from '../../../../engine/core/loop.ts';
 import { musicVolume, setMusic, setMusicMix } from '../../../../engine/audio/music.ts';
 import { hasLOS } from '../../../../engine/world/tiles.ts';
 import { joy, setFireHeld } from '../../../../engine/ui/input.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
 import { PER } from '../data/progress.ts';
 import { save } from '../system/save.ts';
-import { randomTileIn, rooms, startIdx } from '../world/level.ts';
-import { boss, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
-import { P, hurtEnemy, newWeapon, run } from '../actors/player.ts';
+import { rooms, startIdx } from '../world/level.ts';
+import { boss, enemies } from '../world/entities.ts';
+import { P, run } from '../actors/player.ts';
 import { CTRL } from '../ui/input.ts';
 import { changeLang } from '../ui/hud.ts';
 import { goBase, openPerk, renderBase, show, showTab, startRun, startStage, state } from '../flow/game.ts';
@@ -19,11 +20,16 @@ import { goBase, openPerk, renderBase, show, showTab, startRun, startStage, stat
 // game's sound effects, #trailer-music: the BGM track only). The page runs on a virtual clock set up by that script:
 // each frame this sets the scene and the "player's" hands, then advances the clock by 1/30 s (the game runs and
 // draws), then waits for the screenshot. Sound goes to an OfflineAudioContext that renders up to each frame and waits.
-// Scenes: base screen -> a fight in a neon room (strafing, dashing, chain blasts) -> picking a rare chip -> buying
-// upgrades at base -> the WATCHER boss (phase change, kill) -> title card.
+// Scenes: base screen -> fights in two areas (a cut between them; only the enemies the game placed; strafing, dashing,
+// chain blasts) -> picking a rare chip -> buying upgrades at base -> three boss fights cut together (WATCHER's entrance,
+// CRUSHER mid-fight, TRINITY's last moments and the kill; nobody's health is touched: a clip that starts mid-fight
+// really plays the fight up to there, off camera) -> a flash into the title card.
 const FPS = 30;
 const w = window as any;
-const SC = { base: 0, run: 3.2, chip: 13.2, up: 16.0, boss: 18.8, end: 27.6, total: 31.0 };
+const SC = { base: 0, run: 3.2, run2: 8.4, chip: 13.2, up: 16.0, boss: 18.8, boss2: 21.4, boss3: 24.5, end: 27.6, total: 31.0 };
+// the last clip cuts in once the fight has brought TRINITY this low, so that the kill lands about a second before the
+// title card (measured with ?tboss=1, which logs the boss's health each half second)
+const KILL_FROM = 0.08;
 
 // ---- the scenes ----
 const loadout: WeaponItem[] = [{ id: 'shotgun', r: 2, plus: 24, opts: ['rate'] }, { id: 'rail', r: 2, plus: 22, opts: ['pierce'] }];
@@ -32,7 +38,6 @@ function buff() {
   P.extra = 3; P.chain = 2; P.dmgMul = 2.6; P.fireRate = 1.6; P.crit = 0.25; P.spdMul = 1.35; P.magMul = 2.5; P.reloadMul = 0.5;
   P.weapons[0]!.mag = 19;
 }
-function clearEnemies() { enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy'); }
 function quietToast() { $('#toast').classList.remove('on'); }
 
 function sceneBase() {
@@ -43,31 +48,25 @@ function sceneBase() {
   showTab('sortie'); renderBase();
 }
 let fightRoom = 0;
+// Only the enemies the game itself put in the area (no extra spawns): the player steps into the room with the most
+// of them, at one end, looking down its long side, and they notice (shooting one wakes the whole room anyway)
+function enterFight(route: number, stage: number) {
+  run.route = [route]; run.stage = stage; startStage(); buff();
+  const count = (i: number) => enemies.filter(e => e.room === i && !e.dead).length;
+  fightRoom = rooms.map((r, i) => ({ i, n: i === startIdx ? -1 : count(i) * 10 + r.w * r.h / 10 })).sort((a, b) => b.n - a.n)[0]!.i;
+  const r = rooms[fightRoom]!, long = r.w >= r.h;
+  P.x = (long ? r.x + 0.6 : r.x + r.w / 2) * 4; P.z = (long ? r.y + r.h / 2 : r.y + 0.6) * 4;
+  P.yaw = long ? -Math.PI / 2 : Math.PI; P.pitch = 0; P.inv = 1;
+  enemies.forEach(e => { if (e.room === fightRoom) e.active = true; });
+  target = null;
+}
 function sceneRun() {
   save.startTier = 0; save.up.chip = 0; save.settings.autofire = true; save.settings.assist = 'strong';
   startRun(); quietToast();
-  run.route = [4]; run.stage = 5 * PER; startStage(); // D6, the neon walled city
-  buff(); clearEnemies();
-  // the biggest room other than the start: the fight happens there
-  fightRoom = rooms.map((r, i) => ({ i, a: i === startIdx ? 0 : r.w * r.h })).sort((a, b) => b.a - a.a)[0]!.i;
-  // stand at one end of it, looking down its long side
-  const r = rooms[fightRoom]!, long = r.w >= r.h;
-  P.x = (long ? r.x + 1 : r.x + r.w / 2) * 4; P.z = (long ? r.y + r.h / 2 : r.y + 1) * 4;
-  P.yaw = long ? -Math.PI / 2 : Math.PI; P.pitch = 0; P.inv = 1;
-  wave(['crawler', 'crawler', 'bomber', 'bomber', 'drone', 'splitter']);
+  enterFight(4, 5 * PER); // D6 1/3, the neon walled city
 }
-// enemies come in where the camera looks: 7-20 m ahead, within about 50 degrees of the view
-function wave(types: string[]) {
-  const r = rooms[fightRoom]!, fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
-  types.forEach(type => {
-    let x = 0, z = 0;
-    for (let k = 0; k < 60; k++) {
-      [x, z] = randomTileIn(r); const d = Math.hypot(x - P.x, z - P.z);
-      if (d > 7 && d < 20 && ((x - P.x) * fx + (z - P.z) * fz) / d > 0.65) break;
-    }
-    const e = spawnEnemy(type, x, z, fightRoom, 2); e.active = true;
-  });
-}
+// a cut to another area (an edit, not something the game does): D6 2/3 in the smelter
+function sceneRun2() { quietToast(); enterFight(1, 5 * PER + 1); }
 function sceneChip() {
   quietToast();
   // a pick with exactly one gold (rare) card
@@ -78,12 +77,40 @@ function sceneUp() {
   goBase(); save.bits = 64880; showTab('up'); renderBase();
   document.querySelector('[data-up]')?.closest('.sec')?.scrollIntoView(); // the upgrade list at the top of the screen
 }
+// a boss arena at depth D<tier+1> (the fights are cuts: each clip starts its own stage)
+function enterBoss(route: number, kind: string, tier = 2) {
+  run.route = [route]; run.stage = tier * PER + PER - 1; run.forceBoss = kind; BOSS_TUNE.introTime = 1.0;
+  startStage(); buff(); P.yaw = 0; P.pitch = 0.12; quietToast();
+}
+// play the fight on without filming it (no drawing, sound muted) until done() or maxS seconds; a cut that starts
+// mid-fight. The sounds of that stretch all start at the same instant, so the effects fade back in after the cut
+function offCamera(s: number, done: () => boolean, maxS: number) {
+  const dt = 1 / FPS;
+  if (master) master.gain.value = 0;
+  filming.off = true;
+  for (let i = 0; i < maxS * FPS && !done(); i++) { hands(s, dt); w.__tick(1000 * dt); runSystems(dt); }
+  filming.off = false;
+  if (master && actx) {
+    const g = master.gain, now = actx.currentTime;
+    g.cancelScheduledValues(now); g.setValueAtTime(0, now); g.linearRampToValueAtTime(0.32 * sfxVolume, now + 0.6);
+  }
+  if (bossLog) console.log('TRAILER off camera', boss ? (boss.hp / boss.maxHp).toFixed(3) : 'no boss');
+}
+const bossUp = () => !!boss && !boss.dead && !(boss.spawnT > 0);
 function sceneBoss() {
   save.settings.autofire = true;
   save.loadout = loadout.map(x => ({ ...x })) as any; // the first run took them out of the base
-  startRun(); quietToast();
-  run.route = [4]; run.stage = 2 * PER + PER - 1; run.forceBoss = 'watcher'; BOSS_TUNE.introTime = 1.0;
-  startStage(); buff(); P.yaw = 0; P.pitch = 0.12;
+  startRun();
+  enterBoss(4, 'watcher'); // its entrance, in the walled city
+}
+function sceneBoss2() {
+  enterBoss(1, 'crusher', 4); // in the smelter, a few seconds into the fight (D5: it must still be up when the clip ends)
+  offCamera(SC.boss2, () => bossUp() && boss!.hp < boss!.maxHp * 0.8, 40);
+}
+function sceneBoss3() {
+  enterBoss(4, 'trinity', 8); // TRINITY's last moments (a deeper, tougher one, so the end takes a moment)
+  // (cut in with a loaded gun, not in the middle of a reload)
+  offCamera(SC.boss3, () => bossUp() && boss!.hp < boss!.maxHp * KILL_FROM && P.reloadT <= 0 && P.weapons[P.cur]!.mag >= 10, 90);
 }
 function sceneEnd() {
   const o = document.createElement('div'); o.id = 'trailerEnd';
@@ -94,11 +121,14 @@ function sceneEnd() {
     <div id="teSub" style="font-size:15px;color:#7f94a6;letter-spacing:.08em;opacity:0">ローグライトFPS ／ ブラウザで無料プレイ・スマホ対応</div>
     <div id="teUrl" style="font-family:var(--disp);font-size:17px;color:#54e8ff;letter-spacing:.1em;margin-top:6px;opacity:0">beatdjam.github.io/mini-games</div>`;
   document.body.appendChild(o);
+  const f = document.createElement('div'); f.id = 'teFlash'; // the cut from the kill to the card
+  f.style.cssText = 'position:fixed;inset:0;z-index:10000;pointer-events:none;background:#e8fbff;opacity:0';
+  document.body.appendChild(f);
 }
 
 // ---- the player's hands, each frame ----
 let target: Enemy | null = null;
-const dashAt = [5.3, 7.6, 10.2, 12.1, 21.7, 23.0, 24.4, 25.6];
+const dashAt = [5.3, 7.6, 10.2, 12.1, 21.7, 23.0, 24.9, 25.6];
 // the next target: the enemy closest to the crosshair (a little weight on distance), in sight
 function nearest(): Enemy | null {
   let best: Enemy | null = null, bd = Infinity;
@@ -121,41 +151,34 @@ function aimAt(x: number, y: number, z: number, dt: number, rate: number) {
 function hands(s: number, dt: number) {
   const inScene = (a: number, b: number) => s >= a && s < b;
   if (state === 'play' && P) { P.hp = P.maxHp; P.inv = Math.max(P.inv, 0.2); }
-  dashAt.forEach(d => { if (s >= d && s - dt < d && state === 'play') CTRL.dashReq = true; });
+  dashAt.forEach(d => { if (Math.round(s * FPS) === Math.round(d * FPS) && state === 'play') CTRL.dashReq = true; });
   if (inScene(SC.run, SC.chip) && state === 'play') {
     if (!target || target.dead) target = nearest();
     const r = rooms[fightRoom]!;
     if (target) aimAt(target.x, target.mesh.position.y, target.z, dt, 9);
-    else aimAt((r.x + r.w / 2) * 4, 1, (r.y + r.h / 2) * 4, dt, 3); // between waves: face the room, not a wall
+    else aimAt((r.x + r.w / 2) * 4, 1, (r.y + r.h / 2) * 4, dt, 3); // room cleared: face the room, not a wall
     const k = s - SC.run;
     joy.x = Math.sin(k * 1.4) * 0.9; joy.y = Math.sin(k * 0.8) * 0.3; // strafe, a step in and a step back
-    const waves = [['crawler', 'crawler', 'crawler', 'bomber', 'drone', 'drone'], ['bomber', 'bomber', 'bomber', 'crawler', 'splitter'],
-      ['crawler', 'crawler', 'drone', 'bomber', 'bomber', 'splitter'], ['bomber', 'bomber', 'crawler', 'crawler', 'drone'], ['crawler', 'bomber', 'bomber', 'splitter', 'drone']];
-    [2.2, 4.4, 6.4, 8.2, 9.6].forEach((at, i) => { if (k >= at && k - dt < at) wave(waves[i]!); });
     setFireHeld(!!target && offAim(target.x, target.z) < 0.25);
   } else if (inScene(SC.boss, SC.end) && state === 'play' && P) {
     const b = boss;
     if (b && !b.dead) {
-      aimAt(b.x, b.mesh.position.y, b.z, dt, 6);
+      // TRINITY's bodies orbit the middle of the arena: aim at the one nearest the crosshair and keep further out
+      const bodies: THREE.Object3D[] | undefined = b.bodies;
+      const at = bodies ? bodies.map(o => o.position).sort((u, v) => offAim(u.x, u.z) - offAim(v.x, v.z))[0]! : { x: b.x, y: b.mesh.position.y, z: b.z };
+      aimAt(at.x, at.y, at.z, dt, 6);
       const d = Math.hypot(b.x - P.x, b.z - P.z);
-      joy.x = 0.9; joy.y = clamp((8.5 - d) * 0.15, -0.6, 0.6);
+      joy.x = 0.9; joy.y = clamp(((bodies ? 10 : 8.5) - d) * 0.15, -0.6, 0.6);
       setFireHeld(!b.spawnT || b.spawnT <= 0);
-      bossHp(b, s);
-    } else { joy.x = 0; joy.y = 0; setFireHeld(false); P.yaw += dt * 0.15; }
+      if (bossLog && !filming.off && Math.round(s * FPS) % 15 === 0) console.log('TRAILER boss', s.toFixed(1), (b.hp / b.maxHp).toFixed(3), b.phased ? 'phased' : '');
+    } else { joy.x = 0; joy.y = 0; setFireHeld(false); } // no boss: hold still (no idle camera drift)
   } else { joy.x = 0; joy.y = 0; setFireHeld(false); }
 }
-// the boss's health follows the script (the phase change at about half, the kill on time); the shots still land
-function bossHp(b: Enemy, s: number) {
-  if (b.spawnT > 0) return;
-  const lin = (a: number, bb: number, x: number, y: number) => x + (y - x) * clamp((s - a) / (bb - a), 0, 1);
-  if (s < 23.6) b.hp = b.maxHp * lin(20.9, 23.6, 1, 0.52);
-  else if (!b.phased) hurtEnemy(b, b.hp - b.maxHp * 0.49, false);
-  else if (s < 26.4) b.hp = b.maxHp * lin(24.9, 26.4, 0.49, 0.03);
-  else hurtEnemy(b, b.hp + 1, false);
-}
+let bossLog = false;
+const filming = { off: false };
 
 // ---- the frame loop ----
-const sceneAt: [number, () => void][] = [[SC.base, sceneBase], [SC.run, sceneRun], [SC.chip, sceneChip], [SC.up, sceneUp], [SC.boss, sceneBoss], [SC.end, sceneEnd]];
+const sceneAt: [number, () => void][] = [[SC.base, sceneBase], [SC.run, sceneRun], [SC.run2, sceneRun2], [SC.chip, sceneChip], [SC.up, sceneUp], [SC.boss, sceneBoss], [SC.boss2, sceneBoss2], [SC.boss3, sceneBoss3], [SC.end, sceneEnd]];
 function uiScript(s: number, dt: number) {
   // chip scene: the rare card lights up, then gets picked
   const rare = document.querySelector<HTMLElement>('#perkList .perk.rare');
@@ -163,13 +186,14 @@ function uiScript(s: number, dt: number) {
   if (rare && state === 'perk' && s >= 15.5) { rare.click(); show(null); }
   // upgrades: buy a few
   [[16.9, 'dmg'], [17.5, 'hp'], [18.1, 'dmg']].forEach(([at, id]) => {
-    if (s >= (at as number) && s - dt < (at as number)) document.querySelector<HTMLElement>(`[data-up="${id}"]`)?.click();
+    if (Math.round(s * FPS) === Math.round((at as number) * FPS)) document.querySelector<HTMLElement>(`[data-up="${id}"]`)?.click();
   });
-  // title card: fades in, the logo closes up, then the lines
+  // title card: a flash, the card under it, the logo closes up, then the lines
   const o = document.getElementById('trailerEnd');
   if (o) {
     const k = s - SC.end, ease = (x: number) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
-    o.style.opacity = String(ease(k / 0.5));
+    $('#teFlash').style.opacity = String(k < 0.1 ? 0.9 * k / 0.1 : 0.9 * (1 - ease((k - 0.1) / 0.6)));
+    o.style.opacity = k < 0.1 ? '0' : '1';
     $('#teLogo').style.letterSpacing = `${0.5 - 0.32 * ease(k / 1.1)}em`;
     $('#teTag').style.opacity = String(ease((k - 0.7) / 0.5));
     $('#teSub').style.opacity = String(ease((k - 1.1) / 0.5));
@@ -178,7 +202,7 @@ function uiScript(s: number, dt: number) {
 }
 function musicScript(s: number, dt: number) {
   if (s === 0) setMusic('BASE');
-  if (s >= SC.run && s - dt < SC.run) { setMusic('KWLN', true); setMusicMix('boss'); }
+  if (Math.round(s * FPS) === Math.round(SC.run * FPS)) { setMusic('KWLN', true); setMusicMix('boss'); }
 }
 
 // frames to render: the whole trailer, or ?tframes=N (?tfrom=K: screenshots from frame K only, ?tevery=M: every Mth) for a quick look
@@ -188,13 +212,14 @@ export async function runTrailer(musicOnly: boolean) {
   audioInit();
   setVolumes(musicOnly ? 0 : 1, musicOnly ? 1 : 0); applySfxVolume(); musicVolume();
   const off: OfflineAudioContext = w.__off;
-  const q = new URLSearchParams(location.search), limit = +(q.get('tframes') || 0), from = +(q.get('tfrom') || 0), every = +(q.get('tevery') || 1);
+  const q = new URLSearchParams(location.search); bossLog = q.has('tboss');
+  const limit = +(q.get('tframes') || 0), from = +(q.get('tfrom') || 0), every = +(q.get('tevery') || 1);
   const N = limit || Math.round(SC.total * FPS), dt = 1 / FPS;
   const frame = async (k: number) => {
     const s = k * dt;
     if (musicOnly) musicScript(s, dt);
     else {
-      sceneAt.forEach(([at, fn]) => { if (s >= at && s - dt < at) fn(); });
+      sceneAt.forEach(([at, fn]) => { if (k === Math.round(at * FPS)) fn(); }); // by frame number: s - dt < at can hold on two frames
       if (k === 0) sceneBase();
       hands(s, dt); uiScript(s, dt);
     }

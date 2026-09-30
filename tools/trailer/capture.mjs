@@ -32,7 +32,8 @@ const SHIM = `(() => {
   window.clearTimeout = window.clearInterval = id => { timers.delete(id); };
   window.requestAnimationFrame = fn => { rafs.push(fn); return rafs.length; };
   window.cancelAnimationFrame = () => {};
-  window.__advance = ms => {
+  // __tick: time and timers only (a stretch of the fight that isn't filmed; the script runs the game's systems itself)
+  const tick = ms => {
     const end = now + ms;
     for (;;) {
       let id = null, tm = null;
@@ -43,6 +44,10 @@ const SHIM = `(() => {
       try { typeof tm.fn === 'function' ? tm.fn(...tm.a) : 0; } catch (e) { console.error(e); }
     }
     now = end;
+  };
+  window.__tick = tick;
+  window.__advance = ms => {
+    tick(ms);
     const r = rafs; rafs = [];
     r.forEach(f => { try { f(now); } catch (e) { console.error(e); } });
   };
@@ -120,7 +125,7 @@ const finished = new Promise(resolve => {
 });
 
 // TFRAMES=N renders only the first N frames, TFROM=K screenshots only from frame K on, TEVERY=M only every Mth (a quick look at one scene)
-const tf = (process.env.TFRAMES ? `&tframes=${process.env.TFRAMES}` : '') + (process.env.TFROM ? `&tfrom=${process.env.TFROM}` : '') + (process.env.TEVERY ? `&tevery=${process.env.TEVERY}` : '');
+const tf = (process.env.TFRAMES ? `&tframes=${process.env.TFRAMES}` : '') + (process.env.TFROM ? `&tfrom=${process.env.TFROM}` : '') + (process.env.TEVERY ? `&tevery=${process.env.TEVERY}` : '') + (process.env.TBOSS ? '&tboss=1' : '');
 await s('Page.navigate', { url: `${BASE}games/sector-dive/?lang=ja${tf}#trailer${pass === 'music' ? '-music' : ''}-touch` });
 const info = await finished;
 // the page sends the rendered sound as base64 of a 16-bit stereo WAV
