@@ -301,7 +301,7 @@ LANG.ja = {
     'run.bagFull': 'バッグが満杯',
     'run.stowed': '{w} をバッグに入れた（{n} / {max}）',
     'run.kitPlus': '回復キット +1（{n}/{max}）',
-    'run.kitUsedNow': 'キットが満杯なのでその場で使った（HP +20）',
+    'run.kitUsedNow': 'キットが満杯なのでその場で使った（HP +{n}）',
     'run.practiceStart': 'ボス練習 — 報酬もロストもなし',
     'boss.phase2': '第二段階 — 攻撃が激しくなる',
     'boss.toBase': '拠点へ',
