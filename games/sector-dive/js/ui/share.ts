@@ -19,6 +19,13 @@ export interface ShareCard {
 export let shareData: ShareCard | null = null, shareBlob: Blob | null = null;
 
 export const bossShort = (k: string) => BOSS_META[k]?.short ?? k;
+// the bosses of a run, each kind once with a count, in the order first met ("監視体×3・圧壊機"): a deep run beats a
+// dozen bosses or more, and the full list pushed the post past X's length limit
+export function bossSummary(bosses: string[]): string {
+  const n = new Map<string, number>();
+  bosses.forEach(b => n.set(b, (n.get(b) || 0) + 1));
+  return [...n].map(([name, c]) => c > 1 ? t('common.count', { name, n: c }) : name).join(t('share.join'));
+}
 export function prepShare(kind: string) {
   const si = stageInfo(run.stage), w = P.weapons[P.cur] || P.weapons[0];
   const counts: Record<string, number> = {};
@@ -35,7 +42,7 @@ export function prepShare(kind: string) {
 export function hideShare() { shareData = shareBlob = null; $('#btnShare').hidden = true; $('#sharePanel').hidden = true; }
 
 export function shareText(d: ShareCard) {
-  return t('share.text', d) + '\n' + SHARE_URL;
+  return t('share.text', { ...d, bosses: bossSummary(d.bosses), nBoss: d.bosses.length }) + '\n' + SHARE_URL;
 }
 
 export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
@@ -65,7 +72,7 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   // rows
   const rows = [
     [t('share.kills'), t('share.killsV', { n: d.kills }), '#d5e4ee'],
-    [t('share.bosses'), d.bosses.length ? d.bosses.join(t('share.join')) : t('common.none'), '#d5e4ee'],
+    [t('share.bosses'), d.bosses.length ? bossSummary(d.bosses) : t('common.none'), '#d5e4ee'],
     [t('share.weapon'), d.weapon || t('common.none'), RARITY[d.wr] ? RARITY[d.wr].css : '#d5e4ee'],
     [t('share.chips'), d.nChips ? `${d.chips.join(t('share.join'))}${d.nChips > d.chips.length ? t('share.chipsMore', { n: d.nChips }) : ''}` : t('common.none'), '#d5e4ee'],
   ];

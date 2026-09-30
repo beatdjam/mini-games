@@ -273,8 +273,9 @@ LANG.ja = {
     'share.help': 'X の投稿画面で、コピーした画像を貼り付けるか、保存した画像を添付してね。',
     'share.copied': '画像をコピーした。X の投稿画面で貼り付けてね',
     'share.copyFailed': 'コピーできなかった。「画像を保存」を使ってね',
-    'share.text': ({ where, biome, kind, bosses }) =>
-      `SECTOR/DIVE ${where} ${biome}${kind === 'extract' ? 'から帰還した' : kind === 'abandon' ? 'で潜行を放棄した' : 'で信号途絶'}。${bosses.length ? `${bosses.join('・')}を撃破。` : ''}#SectorDive`,
+    // bosses: each kind once with a count (bossSummary), nBoss: how many in all
+    'share.text': ({ where, biome, kind, bosses, nBoss }) =>
+      `SECTOR/DIVE ${where} ${biome}${kind === 'extract' ? 'から帰還した' : kind === 'abandon' ? 'で潜行を放棄した' : 'で信号途絶'}。${nBoss > 1 ? `ボス${nBoss}体を撃破（${bosses}）。` : nBoss ? `${bosses}を撃破。` : ''}#SectorDive`,
     'share.kills': '撃破',
     'share.killsV': '{n} 体',
     'share.bosses': 'ボス',

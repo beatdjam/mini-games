@@ -20,11 +20,11 @@ import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '
 import { modOf, modPlusCap, perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
-import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, shotId, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
+import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, shotId, stageInfo, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
 import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
-import { discardSuspended, endRun, goBase, nextStage, openPerk, pickEnemyType, renderBase, resumeRun, statsHTML, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.ts';
+import { discardSuspended, endRun, goBase, nextStage, openPerk, pause, pickEnemyType, renderBase, resumeRun, statsHTML, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { updatePBullets } from '../actors/bullets.ts';
 import { update, updatePickups } from '../flow/update.ts';
@@ -453,8 +453,20 @@ devSmoke(() => {
         $('#btnShare').click(); if ($('#sharePanel').hidden) throw new Error('share panel on PC');
         goBase(); startPractice('crusher', 0); tick(5); endRun('abandon');
         if (!$('#btnShare').hidden) throw new Error('share shown after practice');
+        // a deep run beats many bosses: the post counts them per kind and stays within X's 280 (CJK counts 2, the URL 23)
+        const xLen = (s: string) => { const [body, url] = [s.slice(0, s.lastIndexOf('\n')), s.slice(s.lastIndexOf('\n') + 1)]; return [...body].reduce((n, c) => n + (c.charCodeAt(0) > 0x10ff ? 2 : 1), 0) + 1 + (url ? 23 : 0); };
+        const many = { ...shareData!, bosses: Array.from({ length: 30 }, (_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short!) };
+        const keepLang = lang, lens: number[] = [];
+        for (const code of ['ja', 'en']) { changeLang(code); const s = shareText({ ...many, bosses: many.bosses.map((_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short!) }); lens.push(xLen(s)); if (!s.includes('30')) throw new Error('boss count missing ' + s); }
+        changeLang(keepLang);
+        if (lens.some(n => n > 280)) throw new Error('share text too long ' + lens);
         goBase(); startRun(); tick(5);
-        console.log('SMOKE share ok');
+        // switching the language from the pause screen rewrites the stats panel and the stage label
+        { const other = lang === 'ja' ? 'en' : 'ja'; pause(); changeLang(other);
+          const ok = $('#pauseChips').innerHTML.includes(t('stats.title')) && $('#stageLbl').textContent!.includes(stageInfo(run.stage).biome.name!);
+          changeLang(keepLang); show(null); setState('play');
+          if (!ok) throw new Error('pause screen kept the old language'); }
+        console.log('SMOKE share ok', lens.join('/'), 'chars');
       }
       // analytics: the flow above sent its events (recorded in TRACK_LOG; no tag is loaded outside the real site)
       {

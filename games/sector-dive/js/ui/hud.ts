@@ -15,7 +15,7 @@ import { persist, save, syncVolumes } from '../system/save.ts';
 import { arena, curBiome, haz, portals, roomOf, seen } from '../world/level.ts';
 import { boss, enemies, nearW, target } from '../world/entities.ts';
 import { P, curW, magSize, run, wName, wText, weaponStats } from '../actors/player.ts';
-import { renderBase, setState, show, state } from '../flow/game.ts';
+import { refreshRunText, renderBase, setState, show, state } from '../flow/game.ts';
 import { time } from '../flow/update.ts';
 export const hpFill = $('#hpFill'), hpNum = $('#hpNum'), hpBar = $('#hpBar'), stFill = $('#stFill'), stBar = $('#stBar'), bitNum = $('#bitNum');
 export const cross = $('#cross'), hitm = $('#hitm'), ammoEl = $('#ammo'), reloadEl = $('#reload'), rFill = $('#rFill');
@@ -205,5 +205,5 @@ export function changeLang(code: string) {
   save.settings.lang = code; persist(); setLang(code);
   renderSettings(); renderGuide(); fsLabel(); updateHint();
   if (state === 'base') renderBase();
-  if (P) weaponHud();
+  if (P) { weaponHud(); refreshRunText(); }
 }
