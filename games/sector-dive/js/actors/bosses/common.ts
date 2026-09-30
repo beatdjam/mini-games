@@ -26,7 +26,7 @@ import { SCR } from '../../ui/hud.ts';
 import { track } from '../../../../../engine/core/analytics.ts';
 // ================= bosses =================
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
-// x lateGrowth per depth from the D7 boss on
+// sliding down to x lateGrowth per depth deeper in (hpGrowth in js/data/progress.ts)
 export function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * hpGrowth((prog(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) * presMul(); }
 // hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDiff
 // behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared

@@ -144,10 +144,15 @@ devSmoke(() => {
         setRun({ stage: 2 * PER + PER - 1, route: [0] } as RunState); const b3 = bossDiff();
         if (Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul * presMul()) > 1e-9 || Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6) throw new Error('boss scaling ' + b1 + ' ' + b3);
         if (Math.abs(diffOf(0) - ENEMY_TUNE.hpMul * presMul()) > 1e-9) throw new Error('enemy hp base ' + diffOf(0));
-        // past GROWTH_KNEE depths health grows by the late rates: D6 -> D7 boss by lateGrowth, D5 -> D6 still by growth
+        // the per-depth factor slides from the early rate down to the late one (GROWTH_SLIDE) and never goes back up
         const bossAt = (d: number) => { setRun({ stage: (d - 1) * PER + PER - 1, route: [0] } as RunState); return bossDiff(); };
-        if (Math.abs(bossAt(6) / bossAt(5) - BOSS_TUNE.growth) > 1e-6 || Math.abs(bossAt(7) / bossAt(6) - BOSS_TUNE.lateGrowth) > 1e-6) throw new Error('boss late growth');
-        if (Math.abs(diffOf(6 * PER) / diffOf(5 * PER) - DEPTH_HP_LATE) > 1e-6 || Math.abs(diffOf(5 * PER) / diffOf(4 * PER) - DEPTH_HP_GROWTH) > 1e-6) throw new Error('enemy late growth');
+        const slides = (at: (d: number) => number, early: number, late: number, what: string) => {
+          const r = Array.from({ length: 18 }, (_, i) => at(i + 2) / at(i + 1)); // D1->D2 .. D18->D19
+          if (Math.abs(r[0]! - early) > 1e-6 || Math.abs(r[r.length - 1]! - late) > 1e-6) throw new Error(what + ' ends ' + r[0] + ' ' + r[r.length - 1]);
+          if (r.some((v, i) => i && v > r[i - 1]! + 1e-9)) throw new Error(what + ' rate went up ' + r.map(v => v.toFixed(3)));
+        };
+        slides(bossAt, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth, 'boss growth');
+        slides(d => diffOf((d - 1) * PER), DEPTH_HP_GROWTH, DEPTH_HP_LATE, 'enemy growth');
         // values that grow with depth: hazard floors and your own rockets hit like enemies do (dmgScaleOf),
         // a med kit heals a share of max HP once that is more than kitHeal
         setRun({ stage: 13 * PER, route: [0] } as RunState);
