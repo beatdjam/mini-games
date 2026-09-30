@@ -29,8 +29,8 @@ const SC = { base: 0, run: 3.2, chip: 13.2, up: 16.0, boss: 18.8, end: 27.6, tot
 const loadout: WeaponItem[] = [{ id: 'shotgun', r: 2, plus: 24, opts: ['rate'] }, { id: 'rail', r: 2, plus: 22, opts: ['pierce'] }];
 // a practised player's build: the numbers a few depths of good chips give
 function buff() {
-  P.extra = 3; P.chain = 2; P.dmgMul = 2.6; P.fireRate = 1.6; P.crit = 0.25; P.spdMul = 1.35; P.magMul = 2; P.reloadMul = 0.6;
-  P.weapons[0]!.mag = 99;
+  P.extra = 3; P.chain = 2; P.dmgMul = 2.6; P.fireRate = 1.6; P.crit = 0.25; P.spdMul = 1.35; P.magMul = 2.5; P.reloadMul = 0.5;
+  P.weapons[0]!.mag = 19;
 }
 function clearEnemies() { enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy'); }
 function quietToast() { $('#toast').classList.remove('on'); }
@@ -50,16 +50,22 @@ function sceneRun() {
   buff(); clearEnemies();
   // the biggest room other than the start: the fight happens there
   fightRoom = rooms.map((r, i) => ({ i, a: i === startIdx ? 0 : r.w * r.h })).sort((a, b) => b.a - a.a)[0]!.i;
-  const r = rooms[fightRoom]!;
-  P.x = (r.x + 1.5) * 4; P.z = (r.y + r.h / 2) * 4; P.yaw = -Math.PI / 2; P.pitch = 0; P.inv = 1;
-  wave(['crawler', 'crawler', 'crawler', 'bomber', 'bomber', 'drone', 'drone', 'splitter']);
+  // stand at one end of it, looking down its long side
+  const r = rooms[fightRoom]!, long = r.w >= r.h;
+  P.x = (long ? r.x + 1 : r.x + r.w / 2) * 4; P.z = (long ? r.y + r.h / 2 : r.y + 1) * 4;
+  P.yaw = long ? -Math.PI / 2 : Math.PI; P.pitch = 0; P.inv = 1;
+  wave(['crawler', 'crawler', 'bomber', 'bomber', 'drone', 'splitter']);
 }
+// enemies come in where the camera looks: 7-20 m ahead, within about 50 degrees of the view
 function wave(types: string[]) {
-  const r = rooms[fightRoom]!;
+  const r = rooms[fightRoom]!, fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
   types.forEach(type => {
     let x = 0, z = 0;
-    for (let k = 0; k < 30; k++) { [x, z] = randomTileIn(r); if (Math.hypot(x - P.x, z - P.z) > 9) break; }
-    const e = spawnEnemy(type, x, z, fightRoom, 4); e.active = true;
+    for (let k = 0; k < 60; k++) {
+      [x, z] = randomTileIn(r); const d = Math.hypot(x - P.x, z - P.z);
+      if (d > 7 && d < 20 && ((x - P.x) * fx + (z - P.z) * fz) / d > 0.65) break;
+    }
+    const e = spawnEnemy(type, x, z, fightRoom, 2); e.active = true;
   });
 }
 function sceneChip() {
@@ -68,11 +74,13 @@ function sceneChip() {
   for (let k = 0; k < 40; k++) { openPerk(t('perk.title')); if (document.querySelectorAll('#perkList .perk.rare').length === 1) break; }
 }
 function sceneUp() {
-  goBase(); save.bits = 64880; showTab('up'); renderBase(); window.scrollTo(0, 0);
-  document.querySelectorAll('.pane').forEach(p => { p.scrollTop = 0; });
+  save.suspend = null; // the fight's checkpoint would show as a RESUME bar
+  goBase(); save.bits = 64880; showTab('up'); renderBase();
+  document.querySelector('[data-up]')?.closest('.sec')?.scrollIntoView(); // the upgrade list at the top of the screen
 }
 function sceneBoss() {
   save.settings.autofire = true;
+  save.loadout = loadout.map(x => ({ ...x })) as any; // the first run took them out of the base
   startRun(); quietToast();
   run.route = [4]; run.stage = 2 * PER + PER - 1; run.forceBoss = 'watcher'; BOSS_TUNE.introTime = 1.0;
   startStage(); buff(); P.yaw = 0; P.pitch = 0.12;
@@ -91,15 +99,17 @@ function sceneEnd() {
 // ---- the player's hands, each frame ----
 let target: Enemy | null = null;
 const dashAt = [5.3, 7.6, 10.2, 12.1, 21.7, 23.0, 24.4, 25.6];
+// the next target: the enemy closest to the crosshair (a little weight on distance), in sight
 function nearest(): Enemy | null {
   let best: Enemy | null = null, bd = Infinity;
   for (const e of enemies) {
     if (e.dead || e.boss) continue;
-    const d = Math.hypot(e.x - P.x, e.z - P.z);
-    if (d < bd && d < 30 && hasLOS(P.x, P.z, e.x, e.z, P.fy + 1.6, e.mesh.position.y)) { best = e; bd = d; }
+    const d = Math.hypot(e.x - P.x, e.z - P.z), score = offAim(e.x, e.z) + d * 0.02;
+    if (score < bd && d < 30 && hasLOS(P.x, P.z, e.x, e.z, P.fy + 1.6, e.mesh.position.y)) { best = e; bd = score; }
   }
   return best;
 }
+function offAim(x: number, z: number) { const want = Math.atan2(-(x - P.x), -(z - P.z)); return Math.abs(Math.atan2(Math.sin(want - P.yaw), Math.cos(want - P.yaw))); }
 // turn smoothly toward a point, like a thumb on the right side of the screen
 function aimAt(x: number, y: number, z: number, dt: number, rate: number) {
   const want = Math.atan2(-(x - P.x), -(z - P.z));
@@ -114,17 +124,21 @@ function hands(s: number, dt: number) {
   dashAt.forEach(d => { if (s >= d && s - dt < d && state === 'play') CTRL.dashReq = true; });
   if (inScene(SC.run, SC.chip) && state === 'play') {
     if (!target || target.dead) target = nearest();
-    if (target) aimAt(target.x, target.mesh.position.y, target.z, dt, 5.5);
+    const r = rooms[fightRoom]!;
+    if (target) aimAt(target.x, target.mesh.position.y, target.z, dt, 9);
+    else aimAt((r.x + r.w / 2) * 4, 1, (r.y + r.h / 2) * 4, dt, 3); // between waves: face the room, not a wall
     const k = s - SC.run;
-    joy.x = Math.sin(k * 1.7) * 0.85; joy.y = k < 6 ? -0.25 : 0.1;
-    if (k > 4.6 && k - dt <= 4.6) wave(['crawler', 'crawler', 'bomber', 'bomber', 'bomber', 'splitter', 'drone']);
-    setFireHeld(false);
+    joy.x = Math.sin(k * 1.4) * 0.9; joy.y = Math.sin(k * 0.8) * 0.3; // strafe, a step in and a step back
+    const waves = [['crawler', 'crawler', 'crawler', 'bomber', 'drone', 'drone'], ['bomber', 'bomber', 'bomber', 'crawler', 'splitter'],
+      ['crawler', 'crawler', 'drone', 'bomber', 'bomber', 'splitter'], ['bomber', 'bomber', 'crawler', 'crawler', 'drone'], ['crawler', 'bomber', 'bomber', 'splitter', 'drone']];
+    [2.2, 4.4, 6.4, 8.2, 9.6].forEach((at, i) => { if (k >= at && k - dt < at) wave(waves[i]!); });
+    setFireHeld(!!target && offAim(target.x, target.z) < 0.25);
   } else if (inScene(SC.boss, SC.end) && state === 'play' && P) {
     const b = boss;
     if (b && !b.dead) {
-      aimAt(b.x, b.mesh.position.y, b.z, dt, 4);
+      aimAt(b.x, b.mesh.position.y, b.z, dt, 6);
       const d = Math.hypot(b.x - P.x, b.z - P.z);
-      joy.x = 0.9; joy.y = clamp((11 - d) * 0.15, -0.6, 0.6);
+      joy.x = 0.9; joy.y = clamp((8.5 - d) * 0.15, -0.6, 0.6);
       setFireHeld(!b.spawnT || b.spawnT <= 0);
       bossHp(b, s);
     } else { joy.x = 0; joy.y = 0; setFireHeld(false); P.yaw += dt * 0.15; }
@@ -167,13 +181,14 @@ function musicScript(s: number, dt: number) {
   if (s >= SC.run && s - dt < SC.run) { setMusic('KWLN', true); setMusicMix('boss'); }
 }
 
-// frames to render: the whole trailer, or ?tframes=N for a quick look
+// frames to render: the whole trailer, or ?tframes=N (?tfrom=K: screenshots from frame K only, ?tevery=M: every Mth) for a quick look
 export async function runTrailer(musicOnly: boolean) {
   changeLang('ja');
+  $('#toast').style.display = 'none'; // hints and notices would cover the top of the picture
   audioInit();
   setVolumes(musicOnly ? 0 : 1, musicOnly ? 1 : 0); applySfxVolume(); musicVolume();
   const off: OfflineAudioContext = w.__off;
-  const limit = +(new URLSearchParams(location.search).get('tframes') || 0);
+  const q = new URLSearchParams(location.search), limit = +(q.get('tframes') || 0), from = +(q.get('tfrom') || 0), every = +(q.get('tevery') || 1);
   const N = limit || Math.round(SC.total * FPS), dt = 1 / FPS;
   const frame = async (k: number) => {
     const s = k * dt;
@@ -184,7 +199,7 @@ export async function runTrailer(musicOnly: boolean) {
       hands(s, dt); uiScript(s, dt);
     }
     w.__advance(1000 * dt);
-    if (!musicOnly) await new Promise<void>(r => { w.__ack = r; w.__shot(String(k)); });
+    if (!musicOnly && k >= from && (k - from) % every === 0) await new Promise<void>(r => { w.__ack = r; w.__shot(String(k)); });
   };
   for (let k = 1; k < N; k++) off.suspend(k * dt).then(async () => { await frame(k); off.resume(); });
   await frame(0);

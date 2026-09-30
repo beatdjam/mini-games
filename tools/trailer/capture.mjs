@@ -119,8 +119,8 @@ const finished = new Promise(resolve => {
   });
 });
 
-// TFRAMES=N renders only the first N frames (a quick look)
-const tf = process.env.TFRAMES ? `&tframes=${process.env.TFRAMES}` : '';
+// TFRAMES=N renders only the first N frames, TFROM=K screenshots only from frame K on, TEVERY=M only every Mth (a quick look at one scene)
+const tf = (process.env.TFRAMES ? `&tframes=${process.env.TFRAMES}` : '') + (process.env.TFROM ? `&tfrom=${process.env.TFROM}` : '') + (process.env.TEVERY ? `&tevery=${process.env.TEVERY}` : '');
 await s('Page.navigate', { url: `${BASE}games/sector-dive/?lang=ja${tf}#trailer${pass === 'music' ? '-music' : ''}-touch` });
 const info = await finished;
 // the page sends the rendered sound as base64 of a 16-bit stereo WAV
