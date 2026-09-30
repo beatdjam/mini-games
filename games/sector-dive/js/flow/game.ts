@@ -9,7 +9,7 @@ import { T, W, floorY } from '../../../../engine/world/tiles.ts';
 import { banner, enterFs, isFs, toast } from '../../../../engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '../../../../engine/ui/input.ts';
 import { applyLayout } from '../../../../engine/ui/touchlayout.ts';
-import { MOD_PLUS_MAX, MOD_RARITY_COST, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
+import { MOD_CAP_PER_DEPTH, MOD_PLUS_MAX, MOD_RARITY_COST, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
 import { EYE } from '../data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
@@ -18,7 +18,7 @@ import { PER, PRES_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { _ } from '../data/music.ts';
 import { SAVE_KEY, basicW, defaultSave, exportSave, importSave, importSaveCheck, persist, save, setSave } from '../system/save.ts';
-import { basicNow, chipSummary, presCost, modOf, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
+import { basicNow, chipSummary, presCost, modOf, modPlusCap, peakDepth, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
 import { buildLevel, exitIdx, makePortal, portals, randomTileIn, roomCount, roomSpot, rooms, seen, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { P, critChance, curW, diffOf, isBossStage, kitHealAmount, magSize, newPlayer, rollWeapon, run, setPlayer, setRun, stageInfo, stageLabel, tierLabel, wDmgMul, wName, wOpts, wText, weaponStats, wo } from '../actors/player.ts';
@@ -434,13 +434,14 @@ export function renderBase() {
       <span class="wn">${w ? wName(basicNow(w)) : t('base.empty')}</span>${w && !w.basic ? `<span class="risk">${t('base.stashRisk')}</span>` : w ? `<span class="ws">${t('base.keep')}</span>` : ''}
       ${k === 1 && w ? `<span class="mini-btn" data-unequip="1" role="button">${t('base.unequip')}</span>` : ''}</button>`;
   }).join('');
+  $('#modCap').textContent = t('base.modCap', { cap: modPlusCap(), depth: peakDepth(), per: MOD_CAP_PER_DEPTH, min: MOD_PLUS_MAX });
   $('#wgrid').innerHTML = WEAPON_ORDER.map(id => {
     const def = WEAPONS[id], un = id === 'pistol' || !!save.unlocked[id];
     if (!un) return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" data-w="${id}">
       <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span>
       <span class="wf">${t('base.unlock', { cost: def.cost })}</span></button>`;
     const w = basicNow(basicW(id)), m = modOf(id), pc = modPlusCost(m.plus), rc = MOD_RARITY_COST[m.r];
-    const plusBtn = m.plus >= MOD_PLUS_MAX ? `<button class="mini-btn" disabled>${t('base.plusMax')}</button>`
+    const plusBtn = m.plus >= modPlusCap() ? `<button class="mini-btn" disabled>${t('base.plusMax')}</button>`
       : `<button class="mini-btn amber" data-modplus="${id}" ${save.bits < pc ? 'disabled' : ''}>${t('base.modPlus', { n: m.plus + 1, cost: pc })}</button>`;
     const rarBtn = rc === undefined ? `<button class="mini-btn" disabled>${t('base.rarMax')}</button>`
       : `<button class="mini-btn amber" data-modrar="${id}" ${save.bits < rc ? 'disabled' : ''}>${t('base.modRar', { stars: RARITY[m.r + 1].stars, name: RARITY[m.r + 1].name, cost: rc })}</button>`;
@@ -514,7 +515,7 @@ $('#scrBase').addEventListener('click', (e: Event) => { const tg = e.target as H
   if (mp || mr) {
     const id = (mp || mr)!.dataset.modplus || (mp || mr)!.dataset.modrar!, m = Object.assign({ plus: 0, r: 0 }, modOf(id));
     const cost = mp ? modPlusCost(m.plus) : MOD_RARITY_COST[m.r];
-    if (cost === undefined || save.bits < cost || (mp && m.plus >= MOD_PLUS_MAX)) return;
+    if (cost === undefined || save.bits < cost || (mp && m.plus >= modPlusCap())) return;
     save.bits -= cost; if (mp) m.plus++; else m.r++;
     save.mods = Object.assign({}, save.mods, { [id]: m }); persist(); audioInit(); sfx('chip'); renderBase(); return;
   }

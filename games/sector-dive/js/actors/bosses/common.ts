@@ -95,6 +95,7 @@ export function bossDown(e: Enemy) {
   save.bossKills++;
   if (stageInfo(run.stage).tier >= 2 && !save.canReboot) { save.canReboot = true; setTimeout(() => toast(t('boss.rebootUnlocked'), 4200), 4400); }
   const newTier = stageInfo(run.stage).tier + 1;
+  save.peak = Math.max(save.peak || 0, newTier);
   if (newTier > save.shortcut) { save.shortcut = newTier; toast(t('boss.shortcut', { tier: tierLabel(newTier) }), 4200); }
   else toast(t('boss.choose'), 3200);
   persist();

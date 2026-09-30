@@ -110,6 +110,7 @@ LANG.en = {
     'base.keep': 'Base weapon (never lost)',
     'base.unequip': 'Remove',
     'base.unlock': 'Unlock {cost} BIT (use it in your loadout and mod it)',
+    'base.modCap': 'Modding cap +{cap} (deepest DEPTH opened, {depth}, x {per}; at least +{min}; resets on reboot)',
     'base.plusMax': '+ value maxed',
     'base.modPlus': 'Mod to +{n}  {cost}',
     'base.rarMax': '★ maxed',

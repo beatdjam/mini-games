@@ -9,7 +9,7 @@ import { V3, camera, scene } from '../../../../engine/render/render.ts';
 import { H, STEP, T, W, blocked, cover, floorY, grid, hgt, isSolid, moveCircle, passable, ramp, walkable } from '../../../../engine/world/tiles.ts';
 import { joy, setFireHeld } from '../../../../engine/ui/input.ts';
 import { applyLayout, getL, openLayoutEditor } from '../../../../engine/ui/touchlayout.ts';
-import { SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
+import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
 import { EYE, PLAT_H } from '../data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../data/bosses.ts';
@@ -17,7 +17,7 @@ import { BIOMES } from '../data/biomes.ts';
 import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, PER, PRES_ENDLESS, PRES_UP, TUNE } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
-import { perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
+import { modOf, modPlusCap, perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
 import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, shotId, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
@@ -309,6 +309,22 @@ devSmoke(() => {
         endRun('abandon');
         save.unlocked = keepU; save.mods = keepM; save.loadout = keepL; persist();
         console.log('SMOKE unlock/mod ok');
+        // the + cap follows the deepest depth opened since the reboot (x1.5, at least +10) and doesn't drop on death;
+        // past +10 each level costs only x1.2 more
+        const keepS = [save.shortcut, save.peak, save.bits], keepMods = save.mods;
+        save.shortcut = 0; save.peak = 0; const c0 = modPlusCap();
+        save.shortcut = 13; save.peak = 13; const c1 = modPlusCap();
+        save.shortcut = 12; const c2 = modPlusCap(); // died once: the shortcut closed a step, the cap stays
+        if (c0 !== MOD_PLUS_MAX || c1 !== 21 || c2 !== 21) throw new Error('mod cap ' + [c0, c1, c2]);
+        if (Math.abs(modPlusCost(11) / modPlusCost(10) - 1.2) > 0.01 || Math.abs(modPlusCost(10) / modPlusCost(9) - 1.5) > 0.01) throw new Error('mod cost');
+        save.mods = { pistol: { plus: 10, r: 0 } }; save.bits = 1e7; goBase(); showTab('sortie'); renderBase();
+        document.querySelector<HTMLButtonElement>('[data-modplus="pistol"]')!.click();
+        const raised = modOf('pistol').plus;
+        save.peak = 0; save.shortcut = 0; renderBase();
+        const capped = !document.querySelector('[data-modplus="pistol"]');
+        [save.shortcut, save.peak, save.bits] = keepS; save.mods = keepMods; renderBase(); persist();
+        if (raised !== 11 || !capped) throw new Error('mod past +10 ' + raised + ' ' + capped);
+        console.log('SMOKE mod cap ok');
       }
       // splitter killed by a chain blast or a rocket: both halves must survive that blast
       {
