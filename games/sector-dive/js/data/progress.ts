@@ -27,7 +27,8 @@ export const TUNE = {
   dashSpeed: 3.3,       // multiplier on move speed while dashing
   dashInvuln: 0.32,     // seconds of invulnerability from a dash
   hitInvuln: 0.45,      // seconds of invulnerability after taking a hit
-  kitHeal: 40,
+  kitHeal: 40,          // a med kit heals this much, or kitHealPct of max HP when that is more (max HP grows deep down)
+  kitHealPct: 0.25,
   kitStart: 1,          // kits at the start of a run (first-aid upgrade adds 1 per level)
   kitDropChance: 0.06,  // chance an enemy drops a kit
   chipChance: 0.5,      // chance a cleared room gives a chip (otherwise a kit + bits); about 8 chips per depth incl. the boss

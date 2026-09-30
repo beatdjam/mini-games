@@ -15,7 +15,7 @@ import { persist, save } from '../../system/save.ts';
 import { presMul, prog } from '../../system/rules.ts';
 import { curBiome, makePortal } from '../../world/level.ts';
 import { addPickup, boss, dropBits, eBullets, enemies, removeEnemyMesh, setBoss, spawnEnemyObj } from '../../world/entities.ts';
-import { rollWeapon, run, stageInfo, tierLabel } from '../player.ts';
+import { dmgScaleOf, rollWeapon, run, stageInfo, tierLabel } from '../player.ts';
 import { spawnWatcher } from './watcher.ts';
 import { spawnCrusher } from './crusher.ts';
 import { spawnCore } from './core.ts';
@@ -35,7 +35,7 @@ export function bossBase(kind: string, mesh: THREE.Object3D, mat: THREE.MeshLamb
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;
   const e: Enemy = { boss: true, name, mesh, mat, baseEI: 0.3, x: cx, z: cz - 6, y, hp, maxHp: hp, hitR, r: 1.8, t: 0, timer: 2.2, pat: -1, patIdx: 0,
-    pt: 0, shots: 0, acc: 0, dmg: 10 * (1 + prog(run.stage) * 0.045) * presMul(), cx, cz, behave, flash: 0, room: -1, active: true, def: { r: 1.8 } };
+    pt: 0, shots: 0, acc: 0, dmg: 10 * dmgScaleOf(run.stage), cx, cz, behave, flash: 0, room: -1, active: true, def: { r: 1.8 } };
   mesh.position.set(e.x, y, e.z);
   spawnEnemyObj(e); setBoss(e);
   $('#bossName').textContent = name; $('#bossBar').hidden = false;

@@ -63,6 +63,9 @@ export const isBossStage = (s: number): boolean => s % PER === PER - 1;
 export function stageLabel(s: number): string { const si = stageInfo(s); return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : (si.sub + 1) + '/' + (PER - 1)}`; }
 export function tierLabel(t: number): string { return `DEPTH ${t + 1}`; }
 export const diffOf = (s: number): number => ENEMY_TUNE.hpMul * enemyGrowth(prog(s) / 5) * presMul();
+// how much harder things hit at stage s: enemies, bosses, hazard floors and your own rockets all grow by this
+export const dmgScaleOf = (s: number): number => (1 + prog(s) * 0.045) * presMul();
+export const kitHealAmount = (): number => Math.round(Math.max(TUNE.kitHeal, P.maxHp * TUNE.kitHealPct));
 // chipMag: share of the magazine chips' effect a weapon gets (the launcher only half, so it can't double its output)
 export const magSize = (w: WeaponItem): number => { const def = WEAPONS[w.id], chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1); return Math.max(1, Math.round(def.mag * chip * (1 + 0.3 * wo('mag', w)))); };
 // rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
@@ -203,7 +206,7 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
     sfx('bigboom', 60);
     const pd = Math.hypot(P.x - x, P.z - z);
     SCR.shake = Math.max(SCR.shake, 0.5 * clamp(1 - pd / 30, 0.25, 1));
-    if (pd < radius * 0.6 && state === 'play') damagePlayer(14);
+    if (pd < radius * 0.6 && state === 'play') damagePlayer(14 * dmgScaleOf(run.stage));
   } else {
     burst(x, y, z, color || 0xff6a3d, 22, 9, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.4);
     sfx('boom', 60); SCR.shake = Math.max(SCR.shake, 0.12);
@@ -224,7 +227,9 @@ export function bomberBlast(x: number, y: number, z: number, dmg: number) {
   burst(x, y, z, 0xffb13d, 26, 10, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.3); fireball(x, y, z, 3, 0xff8a3d);
   sfx('boom', 40); SCR.shake = Math.max(SCR.shake, 0.2);
   if (Math.hypot(P.x - x, P.z - z) < 3.4 && Math.abs(P.fy + 1 - y) < 2.5) damagePlayer(dmg, { x, z });
-  for (const o of enemies.slice()) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, 35, false);
+  // the blast on other enemies grows with enemy health, so it still matters deep down
+  const hit = 35 * diffOf(run.stage) / ENEMY_TUNE.hpMul;
+  for (const o of enemies.slice()) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, hit, false);
 }
 export function detonate(e: Enemy) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
 export let inChainBlast = false;

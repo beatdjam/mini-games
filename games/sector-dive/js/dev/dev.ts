@@ -20,7 +20,7 @@ import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '
 import { perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
-import { P, critChance, damagePlayer, diffOf, explode, findTarget, fire, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
+import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
 import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
@@ -153,6 +153,12 @@ devSmoke(() => {
         };
         slides(bossAt, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth, 'boss growth');
         slides(d => diffOf((d - 1) * PER), DEPTH_HP_GROWTH, DEPTH_HP_LATE, 'enemy growth');
+        // values that grow with depth: hazard floors and your own rockets hit like enemies do (dmgScaleOf),
+        // a med kit heals a share of max HP once that is more than kitHeal
+        setRun({ stage: 13 * PER, route: [0] } as RunState);
+        if (Math.abs(dmgScaleOf(0) - presMul()) > 1e-9 || !(dmgScaleOf(13 * PER) > 3 * presMul())) throw new Error('damage scale ' + dmgScaleOf(13 * PER));
+        { const keep = P; setPlayer(newPlayer(save.loadout)); P.maxHp = 100; const a = kitHealAmount(); P.maxHp = 500; const b = kitHealAmount(); setPlayer(keep);
+          if (a !== TUNE.kitHeal || b !== Math.round(500 * TUNE.kitHealPct)) throw new Error('kit heal ' + a + ' ' + b); }
         startPractice('trinity', 2); tick(5);
         if (stageLabel(run.stage) !== 'D3 BOSS') throw new Error('practice depth ' + stageLabel(run.stage));
         endRun('abandon');

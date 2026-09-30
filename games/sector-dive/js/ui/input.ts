@@ -6,7 +6,7 @@ import { INPUT, locked, tapBtn } from '../../../../engine/ui/input.ts';
 import { BAG_MAX, TUNE } from '../data/progress.ts';
 import { save } from '../system/save.ts';
 import { addPickup, nearW, setNear } from '../world/entities.ts';
-import { GUNFX, P, curW, setVM, startReload, wText } from '../actors/player.ts';
+import { GUNFX, P, curW, kitHealAmount, setVM, startReload, wText } from '../actors/player.ts';
 import { toggleMap, updateHint, weaponHud } from './hud.ts';
 import { closeBag, openBag, pause, state } from '../flow/game.ts';
 // Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/ui/input.js)
@@ -56,7 +56,8 @@ export function useKit() {
   if (!P || (state !== 'play' && state !== 'bag')) return;
   if (P.kits <= 0) { toast(t('run.noKit'), 1200); return; }
   if (P.hp >= P.maxHp) { toast(t('run.hpFull'), 1200); return; }
-  P.kits--; P.hp = Math.min(P.maxHp, P.hp + TUNE.kitHeal); sfx('heal'); toast(`HP +${TUNE.kitHeal}`, 1000); weaponHud();
+  const heal = kitHealAmount();
+  P.kits--; P.hp = Math.min(P.maxHp, P.hp + heal); sfx('heal'); toast(`HP +${heal}`, 1000); weaponHud();
 }
 export function normalizeWeapons() {
   if (!P.weapons[0] && P.weapons[1]) { P.weapons[0] = P.weapons[1]; P.weapons[1] = null; }
