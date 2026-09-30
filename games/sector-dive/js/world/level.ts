@@ -11,7 +11,7 @@ import { BIOMES } from '../data/biomes.ts';
 import type { Biome } from '../data/types.ts';
 import { biomeTex } from './render.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
-import { P, damagePlayer } from '../actors/player.ts';
+import { P, damagePlayer, dmgScaleOf, run } from '../actors/player.ts';
 // a room on the tile grid (tiles); plat = has a raised deck
 export interface Room { x: number; y: number; w: number; h: number; plat?: boolean; }
 // a gate: kind 'next' (on to the next area) or 'extract' (back to base)
@@ -279,7 +279,7 @@ export function updateHazards(dt: number) {
   const st = hazardState();
   hazMat.opacity = st === 'on' ? 0.85 : st === 'warn' ? (Math.sin(hazT * 30) > 0 ? 0.55 : 0.15) : 0.15;
   const i = Math.floor(P.x / T), j = Math.floor(P.z / T), k = j * W + i;
-  if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && haz[k] && P.fy < hgt[k] + 0.3) damagePlayer(7);
+  if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && haz[k] && P.fy < hgt[k] + 0.3) damagePlayer(7 * dmgScaleOf(run.stage));
 }
 export function makePortal(x: number, z: number, color: number, kind: string, label: string) {
   const g = new THREE.Group();

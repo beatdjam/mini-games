@@ -21,7 +21,7 @@ import { SAVE_KEY, basicW, defaultSave, exportSave, importSave, importSaveCheck,
 import { basicNow, chipSummary, modOf, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
 import { buildLevel, exitIdx, makePortal, portals, randomTileIn, roomCount, roomSpot, rooms, seen, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
-import { P, critChance, curW, diffOf, isBossStage, magSize, newPlayer, rollWeapon, run, setPlayer, setRun, stageInfo, stageLabel, tierLabel, wDmgMul, wName, wOpts, wText, weaponStats, wo } from '../actors/player.ts';
+import { P, critChance, curW, diffOf, isBossStage, kitHealAmount, magSize, newPlayer, rollWeapon, run, setPlayer, setRun, stageInfo, stageLabel, tierLabel, wDmgMul, wName, wOpts, wText, weaponStats, wo } from '../actors/player.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
 import { normalizeWeapons, useKit } from '../ui/input.ts';
 import { bigmap, renderSettings, updateHint, weaponHud } from '../ui/hud.ts';
@@ -265,7 +265,7 @@ export function renderBag() {
   $('#invEq').innerHTML = P.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
   $('#invBag').innerHTML = P.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
   $('#kitNum').textContent = P.kits;
-  $('#btnUseKit').textContent = t('bag.useKit', { n: TUNE.kitHeal });
+  $('#btnUseKit').textContent = t('bag.useKit', { n: kitHealAmount() });
   $('#btnUseKit').disabled = P.kits <= 0 || P.hp >= P.maxHp;
   $('#bagChips').innerHTML = `<p class="chips">${t('bag.status', { hp: Math.ceil(P.hp), maxHp: P.maxHp, bits: Math.floor(run.bits) })}</p>` + statsHTML();
   const act = $('#invAct');
