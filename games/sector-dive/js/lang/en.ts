@@ -273,8 +273,9 @@ LANG.en = {
     'share.help': 'Paste the copied image into the X post, or attach the saved one.',
     'share.copied': 'Image copied. Paste it into your X post.',
     'share.copyFailed': 'Could not copy. Use "Save image" instead.',
-    'share.text': ({ where, biome, kind, bosses }) =>
-      `SECTOR/DIVE: ${kind === 'extract' ? 'extracted from' : kind === 'abandon' ? 'abandoned the dive at' : 'signal lost at'} ${where} ${biome}.${bosses.length ? ` Defeated ${bosses.join(', ')}.` : ''} #SectorDive`,
+    // bosses: each kind once with a count (bossSummary), nBoss: how many in all
+    'share.text': ({ where, biome, kind, bosses, nBoss }) =>
+      `SECTOR/DIVE: ${kind === 'extract' ? 'extracted from' : kind === 'abandon' ? 'abandoned the dive at' : 'signal lost at'} ${where} ${biome}.${nBoss > 1 ? ` Defeated ${nBoss} bosses (${bosses}).` : nBoss ? ` Defeated ${bosses}.` : ''} #SectorDive`,
     'share.kills': 'Kills',
     'share.killsV': '{n}',
     'share.bosses': 'Bosses',

@@ -98,7 +98,7 @@ export function startStage() {
   }
   P.tile = -1; P.inv = 1.0; P.fy = floorY(P.x, P.z); P.vy = 0;
   $('#bossBar').hidden = true;
-  $('#stageLbl').innerHTML = `<b>${stageLabel(run.stage)}</b>　${b.name}`;
+  refreshRunText();
   banner(stageLabel(run.stage), b.name!);
   const hintAt = run.stage;
   if (si.sub === 0 && b.hint) setTimeout(() => { if (run && run.stage === hintAt && state === 'play') toast(b.hint!, 3600); }, 1800);
@@ -143,6 +143,14 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
   });
   $('#perkStats').innerHTML = statsHTML();
   show('#scrPerk');
+}
+// the run's own text that was written out in the old language (the language can be switched from the pause screen)
+export function refreshRunText() {
+  if (!run || !P) return;
+  const b = stageInfo(run.stage).biome;
+  $('#stageLbl').innerHTML = `<b>${stageLabel(run.stage)}</b>　${b.name}`;
+  if (boss && boss.kind) $('#bossName').textContent = BOSS_META[boss.kind]!.title ?? boss.kind;
+  if (state === 'pause') $('#pauseChips').innerHTML = statsHTML();
 }
 export function pause() {
   if (state !== 'play') return;
