@@ -9,7 +9,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
   // rail: one heavy piercing round, stronger the farther it travels
   rail:     { dmg: 90, rate: 1.1,   spread: 0,     pellets: 1, speed: 200, mag: 4,  reload: 2.2, pierce: 4, far: 15, farMul: 1.5, steady: true, color: 0xc58cff, cost: 520 },
   // launcher: slow rocket, full damage near the centre of the blast, knocks enemies back
-  launcher: { dmg: 52, rate: 1.15,  spread: 0.008, pellets: 1, speed: 28,  mag: 2,  reload: 2.9, blast: 5, grav: 3.5, chipMag: 0.5, color: 0xff6a3d, cost: 700 },
+  launcher: { dmg: 52, rate: 1.15,  spread: 0.008, pellets: 1, speed: 28,  mag: 2,  reload: 2.9, maxShots: 3, blast: 5, grav: 3.5, chipMag: 0.5, color: 0xff6a3d, cost: 700 },
 };
 export const WEAPON_ORDER = ['pistol', 'smg', 'shotgun', 'rail', 'launcher'];
 export const DROP_POOL = ['pistol', 'pistol', 'smg', 'smg', 'smg', 'shotgun', 'shotgun', 'shotgun', 'rail', 'rail', 'launcher'];
@@ -34,6 +34,8 @@ export const PLUS_DMG = 0.08;
 // split-shot on a single-round weapon fans the rounds out sideways: `step` radians apart,
 // squeezed together once the whole fan would be wider than `max`, so a big stack still lands on one target
 export const SPLIT_FAN = { step: 0.05, max: 0.15 };
+// split-shot chips stop being offered at this many
+export const SPLIT_MAX = 7;
 // base-side modding of basic weapons: persistent +value / rarity per weapon type (kept on death)
 export const MOD_PLUS_MAX = 10;
 export const modPlusCost = (plus: number): number => Math.round(50 * Math.pow(1.5, plus));

@@ -363,7 +363,7 @@ LANG.ja = {
       repair:   { name: '修復パッチ', desc: v => `HPを最大値の${pct(v)}回復`,                       curText: c => `HP ${c[0]} / ${c[1]}` },
       leech:    { name: '吸収コード', desc: v => `撃破ごとにHP +${v}`,                              curText: c => `撃破ごとにHP +${c}` },
       pierce:   { name: '貫通弾',     desc: v => `弾が敵を${v}体多く貫通する（チップでは最大3）`,     curText: c => `貫通 +${c}` },
-      split:    { name: '分裂弾',     desc: () => '発射数 +1。全弾当てたときの合計ダメージ +20%（弾数で分け合う）', curText: c => `発射数 +${c}` },
+      split:    { name: '分裂弾',     desc: () => '発射数 +1。全弾当てたときの合計ダメージ +20%（弾数で分け合う。最大7枚。ランチャーは3発まで、超えた分は威力へ）', curText: c => `発射数 +${c}` },
       light:    { name: '軽量化',     desc: v => `移動速度 +${pct(v)}`,                            curText: c => `移動速度 +${pct(c)}` },
       crit:     { name: '弱点解析',   desc: v => `会心率 +${pct(v)}（2倍ダメージ、上限40%）`,        curText: c => `会心率 ${pct(c)}` },
       sprint:   { name: '瞬発回路',   desc: v => `スタミナ回復 +${pct(v)}`,                         curText: c => `スタミナ回復 ${c} 毎秒` },

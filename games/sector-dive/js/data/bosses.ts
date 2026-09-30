@@ -29,7 +29,7 @@ export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', '
 export const BOSS_TUNE = {
   hpMul: 1.3,
   growth: 1.85,
-  lateGrowth: 1.3,
+  lateGrowth: 1.24,
   introTime: 2.0,   // seconds a boss takes to appear (invulnerable, name shown)
   phaseTime: 1.2,   // seconds of invulnerability when it drops below half health
 };

@@ -36,11 +36,12 @@ export function bareDps(w: WeaponItem): number {
 }
 // How ready the current loadout and base upgrades are for starting at a depth (shown on the start-depth buttons).
 // offence: the best loadout weapon x the damage upgrade x the shortcut supply picks (supplyGain),
-// over how much enemy health has grown by then, and half-way (square root) over how much more the depth's boss has
+// over how much enemy health has grown by then, and three quarters of the way (^READY_BOSS_WEIGHT) over how much more the depth's boss has
 // grown than the rooms: a deep start's first wall is that boss; defence: max HP over how much enemy damage has grown.
 // score = the geometric mean of the two, where 1 = DEPTH 1 with a plain handgun and no upgrades.
 // Returns 0 (easy) .. 4 (reckless) by READY_CUTS.
 export const READY_CUTS = [1.5, 1.15, 0.85, 0.6];
+export const READY_BOSS_WEIGHT = 0.75;
 // what the readiness is computed from: the loadout weapons, the damage upgrade level, max HP and the reboot multiplier
 export interface ReadyState { weapons: WeaponItem[]; dmg: number; hp: number; pres: number } // dmg: the damage multiplier (startDmgMul)
 export const readyNow = (): ReadyState => ({
@@ -56,7 +57,7 @@ export const supplyGain = (picks: number): number => picks > 0 ? Math.exp(TUNE.s
 export function readinessScore(tier: number, s: ReadyState = readyNow()): number {
   const ref = bareDps({ id: 'pistol', r: 0, basic: true });
   const best = Math.max(0, ...s.weapons.map(bareDps));
-  const bossWall = Math.sqrt(hpGrowth(tier, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(tier));
+  const bossWall = Math.pow(hpGrowth(tier, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(tier), READY_BOSS_WEIGHT);
   const off = best / ref * s.dmg * supplyGain(tier) / (enemyGrowth(tier) * bossWall * s.pres);
   const def = s.hp / TUNE.hp / ((1 + 0.045 * 5 * tier) * s.pres);
   return Math.sqrt(off * def);

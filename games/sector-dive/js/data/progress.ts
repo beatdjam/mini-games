@@ -6,7 +6,7 @@ export const PER = 4; // 3 floors + boss per depth
 // so the per-depth factor slides the same way: `rate` up to GROWTH_SLIDE[0] depths in, then (geometrically) down to
 // the *_LATE factor by GROWTH_SLIDE[1], `late` after that. A sudden switch made the depths just past it easier than
 // the one before it.
-export const DEPTH_HP_GROWTH = 1.55, DEPTH_HP_LATE = 1.28, GROWTH_SLIDE = [2, 11];
+export const DEPTH_HP_GROWTH = 1.55, DEPTH_HP_LATE = 1.22, GROWTH_SLIDE = [2, 11];
 // health factor after `depths` depths (the log of the per-depth factor moves in a straight line across the slide)
 export function hpGrowth(depths: number, rate: number, late: number): number {
   const [a, b] = GROWTH_SLIDE as [number, number], lr = Math.log(rate), ll = Math.log(late);
@@ -35,8 +35,8 @@ export const TUNE = {
   rareChipChance: 0.12, // chance each offered chip is the rare (gold, stronger) version
   supplyTimes: 5,       // a shortcut supply pick (one per skipped depth) gives the chosen chip this many times
   // what the supply picks are worth in the start-depth readiness: exp(a * picks ^ b). Chips of different kinds multiply
-  // but the same kind only adds up, so each further pick is worth a little less (fitted to a deep run's chip mix)
-  supplyCurve: [0.45, 0.8],
+  // but the same kind only adds up, so each further pick is worth a little less (fitted to a deep run's chip mix, split-shot capped at SPLIT_MAX)
+  supplyCurve: [0.6, 0.69],
   critCap: 0.4,         // crit chance can't go above this
   hitDirTime: 0.6,      // seconds the red arc pointing at an off-screen attacker stays up (ui/hud.ts hitDirection)
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon

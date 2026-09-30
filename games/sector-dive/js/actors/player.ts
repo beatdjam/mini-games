@@ -75,14 +75,17 @@ export const wName = (w: WeaponItem): string => `<span style="color:${w.r ? RARI
 export const wText = (w: WeaponItem): string => t('weapon.text', { name: WEAPONS[w.id].name + (w.plus ? '+' + w.plus : ''), rar: rarLabel(w), opts: w.opts && w.opts.length ? w.opts.map(o => AFFIX[o].name).join(t('share.join')) : '' });
 // split-shot: each chip adds one projectile and +20% total damage, shared across all projectiles,
 // so a full hit gains the same +20% per chip whether the weapon fires 1 round or 8 pellets
-export const splitMul = (def: WeaponDef): number => def.pellets * (1 + 0.2 * P.extra) / (def.pellets + P.extra);
+// rounds per trigger pull; a weapon with maxShots (the launcher: 3 rockets) puts the split-shot bonus past that into
+// each round instead, so its blasts don't flood a corridor
+export const shotCount = (def: WeaponDef): number => Math.min(def.pellets + P.extra, def.maxShots ?? Infinity);
+export const splitMul = (def: WeaponDef): number => def.pellets * (1 + 0.2 * P.extra) / shotCount(def);
 export const critChance = (w?: WeaponItem): number => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
 // dps = sustained damage per second including reloads and average crits (rail range bonus and explosions not counted).
 export function weaponStats(w: WeaponItem) {
   const def = WEAPONS[w.id];
   const perHit = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
-  const hits = def.pellets + P.extra;
+  const hits = shotCount(def);
   const interval = def.rate / P.fireRate * Math.pow(0.91, wo('rate', w));
   const mag = magSize(w);
   const reload = def.reload * P.reloadMul * Math.pow(0.8, wo('reload', w));
@@ -157,7 +160,7 @@ export function fire() {
     aim = lvl === 'strong' ? tp.clone() : lvl === 'weak' ? straight.lerp(tp, 0.5) : straight;
   } else aim = cp.clone().addScaledVector(f, 40);
   const base = aim.sub(mz).normalize();
-  const n = def.pellets + P.extra;
+  const n = shotCount(def);
   const dmg = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
   // rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)
   const blast = def.blast ? def.blast * (1 + 0.15 * (P.pierce + wo('pierce'))) : 0;
