@@ -199,6 +199,7 @@ LANG.en = {
     'common.none': 'none',
     'common.sep': ', ',
     'common.count': '{name} ×{n}',
+    'common.countRare': '{name} ×{n} ({r} rare)',
     'weapon.text': ({ name, rar, opts }) => `${name} [${rar}]${opts ? ' ◆' + opts : ''}`,
 
     // ---- bag ----
@@ -245,7 +246,8 @@ LANG.en = {
     'res.sold': 'Storage overflow sold',
     'res.shortcut': 'Shortcut',
     'res.shortcutClosed': 'The shortcut to {tier} closed',
-    'res.chips': 'Chips this dive (not kept): {list}',
+    'res.chips': 'Chips this dive (not kept, {n} in all): {list}',
+    'res.chipsOrder': 'Show the order taken',
     'res.practiceDone': 'Practice over',
     'res.practiceWon': 'Practice over — boss down',
     'res.boss': 'Boss',

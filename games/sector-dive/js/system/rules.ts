@@ -1,5 +1,5 @@
 import type { WeaponItem } from '../data/types.ts';
-import { LANG } from '../../../../engine/core/i18n.ts';
+import { LANG, t } from '../../../../engine/core/i18n.ts';
 import { DROP_POOL, PLUS_DMG, RARITY, WEAPONS } from '../data/weapons.ts';
 import { PER, TUNE, enemyGrowth } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
@@ -62,5 +62,13 @@ export const perkIdOf = (rec: string): string => {
   const id = Object.keys(LANG.ja.data.perks).find(k => LANG.ja.data.perks[k].name === base);
   return id ? id + plus : rec;
 };
+// the chips of a run, most taken first (ties in the order first taken), the rare versions counted with the normal
+// ones: "Split ×25, Rapid ×18, Overload ×16 (3 rare)"; a chip taken once keeps its own name ("Overload+")
+export function chipSummary(perks: string[]): string {
+  const seen: Record<string, { n: number; rare: number; first: string }> = {};
+  perks.forEach(rec => { const id = rec.replace(/\+$/, ''), c = seen[id] = seen[id] || { n: 0, rare: 0, first: rec }; c.n++; if (rec.endsWith('+')) c.rare++; });
+  return Object.values(seen).sort((a, b) => b.n - a.n).map(c => c.n === 1 ? perkName(c.first)
+    : t(c.rare ? 'common.countRare' : 'common.count', { name: perkName(c.first.replace(/\+$/, '')), n: c.n, r: c.rare })).join(t('common.sep'));
+}
 // a chip as recorded in run.perks: its id, with '+' for the rare version
 export const perkName = (rec: string): string => { const o = PERKS.find(x => x.id === rec.replace(/\+$/, '')); return o ? o.name + (rec.endsWith('+') ? '+' : '') : rec; };

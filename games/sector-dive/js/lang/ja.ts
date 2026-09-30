@@ -199,6 +199,7 @@ LANG.ja = {
     'common.none': 'なし',
     'common.sep': '、',
     'common.count': '{name}×{n}',
+    'common.countRare': '{name}×{n}（うちレア{r}）',
     'weapon.text': ({ name, rar, opts }) => `${name}［${rar}］${opts ? '◆' + opts : ''}`,
 
     // ---- bag ----
@@ -245,7 +246,8 @@ LANG.ja = {
     'res.sold': '倉庫あふれ分を換金',
     'res.shortcut': 'ショートカット',
     'res.shortcutClosed': '{tier} へのショートカットが閉じた',
-    'res.chips': 'この潜行のチップ（持ち帰り不可）: {list}',
+    'res.chips': 'この潜行のチップ（持ち帰り不可・計{n}枚）: {list}',
+    'res.chipsOrder': '取得順を見る',
     'res.practiceDone': '練習終了',
     'res.practiceWon': '練習終了 — 撃破',
     'res.boss': 'ボス',
