@@ -1,7 +1,8 @@
 import type { WeaponItem } from '../data/types.ts';
 import { LANG, t } from '../../../../engine/core/i18n.ts';
 import { DROP_POOL, PLUS_DMG, RARITY, WEAPONS } from '../data/weapons.ts';
-import { PER, TUNE, enemyGrowth, hpGrowth } from '../data/progress.ts';
+import { PER, PRES_ENDLESS, TUNE, enemyGrowth, hpGrowth } from '../data/progress.ts';
+import type { PresUpgrade } from '../data/types.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
 import { PERKS } from '../data/perks.ts';
 import { save } from './save.ts';
@@ -15,6 +16,11 @@ export const PRES_DIFF_CAP = 7;
 export const presMulOf = (count: number): number => 1 + Math.min(count, PRES_DIFF_CAP) * 0.15;
 export const presMul = (): number => presMulOf(save.pres.count);
 // every weapon type can drop during a dive; unlocking only decides what you can start with and mod at the base
+// what the next level of a reboot bonus costs
+export const presCost = (u: PresUpgrade, level: number): number => u.cost + (u.step || 0) * level;
+// max HP and damage multiplier at the start of a dive, from the base upgrades (levels given) and the reboot bonuses
+export const startMaxHp = (upHp: number): number => Math.round((TUNE.hp + upHp * 15 + save.pres.up.hp * 10) * (1 + PRES_ENDLESS.vit * (save.pres.up.vit || 0)));
+export const startDmgMul = (upDmg: number): number => 1 + upDmg * 0.08 + PRES_ENDLESS.dmg * (save.pres.up.dmg || 0);
 export const pickDrop = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
 export const modOf = (id: string): { plus: number; r: number } => (save.mods && save.mods[id]) || { plus: 0, r: 0 };
 // a basic weapon as it currently stands after modding (non-basic weapons pass through)
@@ -36,14 +42,14 @@ export function bareDps(w: WeaponItem): number {
 // Returns 0 (easy) .. 4 (reckless) by READY_CUTS.
 export const READY_CUTS = [1.5, 1.15, 0.85, 0.6];
 // what the readiness is computed from: the loadout weapons, the damage upgrade level, max HP and the reboot multiplier
-export interface ReadyState { weapons: WeaponItem[]; dmgUp: number; hp: number; pres: number }
+export interface ReadyState { weapons: WeaponItem[]; dmg: number; hp: number; pres: number } // dmg: the damage multiplier (startDmgMul)
 export const readyNow = (): ReadyState => ({
-  weapons: save.loadout.map(basicNow).filter((w): w is WeaponItem => !!w), dmgUp: save.up.dmg,
-  hp: TUNE.hp + save.up.hp * 15 + save.pres.up.hp * 10, pres: presMul(),
+  weapons: save.loadout.map(basicNow).filter((w): w is WeaponItem => !!w), dmg: startDmgMul(save.up.dmg),
+  hp: startMaxHp(save.up.hp), pres: presMul(),
 });
 // right after the next reboot: a plain handgun, no base upgrades, the kept reboot bonuses, one more reboot
 export const readyAfterReboot = (): ReadyState => ({
-  weapons: [{ id: 'pistol', r: 0, basic: true }], dmgUp: 0, hp: TUNE.hp + save.pres.up.hp * 10, pres: presMulOf(save.pres.count + 1),
+  weapons: [{ id: 'pistol', r: 0, basic: true }], dmg: startDmgMul(0), hp: startMaxHp(0), pres: presMulOf(save.pres.count + 1),
 });
 // what `picks` shortcut supply picks multiply the offence by
 export const supplyGain = (picks: number): number => picks > 0 ? Math.exp(TUNE.supplyCurve[0]! * Math.pow(picks, TUNE.supplyCurve[1]!)) : 1;
@@ -51,7 +57,7 @@ export function readinessScore(tier: number, s: ReadyState = readyNow()): number
   const ref = bareDps({ id: 'pistol', r: 0, basic: true });
   const best = Math.max(0, ...s.weapons.map(bareDps));
   const bossWall = Math.sqrt(hpGrowth(tier, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(tier));
-  const off = best / ref * (1 + s.dmgUp * 0.08) * supplyGain(tier) / (enemyGrowth(tier) * bossWall * s.pres);
+  const off = best / ref * s.dmg * supplyGain(tier) / (enemyGrowth(tier) * bossWall * s.pres);
   const def = s.hp / TUNE.hp / ((1 + 0.045 * 5 * tier) * s.pres);
   return Math.sqrt(off * def);
 }

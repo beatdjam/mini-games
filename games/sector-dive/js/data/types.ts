@@ -31,7 +31,8 @@ export interface Perk {
 }
 // base upgrades cost bits by level; reboot upgrades cost a fixed number of points
 export interface Upgrade { id: string; max: number; cost(level: number): number; name?: string; desc?(level: number): string; }
-export interface PresUpgrade { id: string; max: number; cost: number; name?: string; desc?(level: number): string; }
+// max may be Infinity; step: the cost goes up by this much per level already taken (presCost in js/system/rules.ts)
+export interface PresUpgrade { id: string; max: number; cost: number; step?: number; name?: string; desc?(level: number): string; }
 export interface EnemyDef { [k: string]: any; }
 // an enemy or boss on the field (fields are listed in spawnEnemy / bossBase)
 export interface Enemy extends WorldObject { x: number; z: number; r: number; fy?: number; side?: number; [k: string]: any; }
