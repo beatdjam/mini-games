@@ -24,7 +24,7 @@ import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, f
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
 import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
-import { discardSuspended, endRun, goBase, nextStage, openPerk, pickEnemyType, resumeRun, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.ts';
+import { discardSuspended, endRun, goBase, nextStage, openPerk, pickEnemyType, resumeRun, statsHTML, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { updatePBullets } from '../actors/bullets.ts';
 import { update, updatePickups } from '../flow/update.ts';
@@ -381,6 +381,16 @@ devSmoke(() => {
         if (!$('#resOrder').hidden) throw new Error('chip order after practice');
         goBase(); startRun(); tick(5);
         console.log('SMOKE result chips ok');
+      }
+      // current stats: damage includes the weapon's rarity, the magazine is what the weapon really loads, chips are counted
+      {
+        const keep = P.weapons[P.cur]; P.weapons[P.cur] = newWeapon('launcher', 2); P.magMul = 2.5; run.perks = ['mag', 'mag', 'mag+'];
+        const rows = new Map([...new DOMParser().parseFromString(statsHTML(), 'text/html').querySelectorAll('.reslist div')].map(d => [d.querySelector('dt')!.textContent, d.querySelector('dd')!.textContent]));
+        const pc = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`;
+        const dmg = rows.get(t('stats.dmg')), mag = rows.get(t('stats.mag')), html = statsHTML();
+        P.weapons[P.cur] = keep; P.magMul = 1;
+        if (dmg !== pc(P.dmgMul * 1.55 - 1) || mag !== pc(4 / 2 - 1) /* 2 rounds x (1 + 1.5 x 0.5) = 3.5 -> 4, not +150% */ || !html.includes(t('common.countRare', { name: perkName('mag'), n: 3, r: 1 }))) throw new Error('stats ' + [dmg, mag]);
+        console.log('SMOKE stats ok');
       }
       // share: shown after a real run with the bosses defeated, hidden after practice
       {

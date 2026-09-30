@@ -9,7 +9,7 @@ import { T, W, floorY } from '../../../../engine/world/tiles.ts';
 import { banner, enterFs, isFs, toast } from '../../../../engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '../../../../engine/ui/input.ts';
 import { applyLayout } from '../../../../engine/ui/touchlayout.ts';
-import { MOD_PLUS_MAX, MOD_RARITY_COST, PLUS_DMG, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
+import { MOD_PLUS_MAX, MOD_RARITY_COST, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
 import { EYE } from '../data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
@@ -221,12 +221,12 @@ $('#suspendBox').addEventListener('click', (e: Event) => { const tg = e.target a
 export function statsHTML() {
   const w = curW(), pct = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, rows: [string, string | number][] = [];
   rows.push([t('stats.maxHp'), P.maxHp]);
-  rows.push([t('stats.dmg'), pct(P.dmgMul * (1 + PLUS_DMG * (w.plus || 0)) - 1)]);
+  rows.push([t('stats.dmg'), pct(P.dmgMul * wDmgMul(w) - 1)]); // chips and upgrades x the weapon's rarity and +value
   rows.push([t('stats.rate'), pct(P.fireRate / Math.pow(0.91, wo('rate')) - 1)]);
   rows.push([t('stats.speed'), pct(P.spdMul * (1 + 0.06 * wo('speed')) - 1)]);
   rows.push([t('stats.stamina'), t('stats.staminaV', { max: P.stMax, dashes: Math.floor(P.stMax / TUNE.dashCost), regen: Math.round(P.stRegen) })]);
   rows.push([t('stats.reload'), pct(P.reloadMul * Math.pow(0.8, wo('reload')) - 1)]);
-  rows.push([t('stats.mag'), pct(P.magMul * (1 + 0.3 * wo('mag')) - 1)]);
+  rows.push([t('stats.mag'), pct(magSize(w) / WEAPONS[w.id].mag - 1)]); // as the weapon really loads (the launcher gets half the chips)
   rows.push([t('stats.crit'), `${Math.round(critChance() * 100)}%${P.crit + 0.08 * wo('crit') > TUNE.critCap ? t('stats.capped') : ''}`]);
   const pierce = P.pierce + wo('pierce'), leech = P.leech + 2 * wo('leech'), gain = P.gainMul * (1 + 0.1 * wo('gain'));
   if (pierce) rows.push([t('stats.pierce'), t('stats.pierceV', { n: pierce })]);
@@ -235,8 +235,7 @@ export function statsHTML() {
   if (P.chain) rows.push([t('stats.chain'), `Lv ${P.chain}`]);
   if (P.magnet > 1) rows.push([t('stats.magnet'), `×${P.magnet.toFixed(1)}`]);
   rows.push([t('stats.gain'), pct(gain - 1)]);
-  const counts: Record<string, number> = {}; run.perks.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
-  const chips = Object.keys(counts).map(n => counts[n]! > 1 ? t('common.count', { name: perkName(n), n: counts[n] }) : perkName(n)).join(t('common.sep')) || t('common.none');
+  const chips = chipSummary(run.perks) || t('common.none');
   return `<h3>${t('stats.title')}<small>${t('stats.titleNote', { w: wText(w) })}</small></h3>
     <dl class="reslist">${rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>
     <p class="chips">${t('stats.chips', { list: chips })}</p>`;
