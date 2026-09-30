@@ -1,7 +1,7 @@
 import type { WeaponItem } from '../data/types.ts';
 import { LANG } from '../../../../engine/core/i18n.ts';
 import { DROP_POOL, PLUS_DMG, RARITY, WEAPONS } from '../data/weapons.ts';
-import { DEPTH_HP_GROWTH, PER, TUNE } from '../data/progress.ts';
+import { PER, TUNE, enemyGrowth } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { save } from './save.ts';
 // Formulas that read the data: progress, drops, modding, sell value
@@ -46,7 +46,7 @@ export const readyAfterReboot = (): ReadyState => ({
 export function readinessScore(tier: number, s: ReadyState = readyNow()): number {
   const ref = bareDps({ id: 'pistol', r: 0, basic: true });
   const best = Math.max(0, ...s.weapons.map(bareDps));
-  const off = best / ref * (1 + s.dmgUp * 0.08) * Math.pow(1.1, tier) / (Math.pow(DEPTH_HP_GROWTH, tier) * s.pres);
+  const off = best / ref * (1 + s.dmgUp * 0.08) * Math.pow(1.1, tier) / (enemyGrowth(tier) * s.pres);
   const def = s.hp / TUNE.hp / ((1 + 0.045 * 5 * tier) * s.pres);
   return Math.sqrt(off * def);
 }

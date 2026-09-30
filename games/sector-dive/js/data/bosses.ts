@@ -25,9 +25,11 @@ export const BOSS_META: Record<string, BossMeta> = {
 };
 export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion'];
 // bosses: health at the D1 boss (x1.33 base) times hpMul, growing by `growth` per depth after that
+// (by `lateGrowth` past GROWTH_KNEE in js/data/progress.ts, from the D7 boss on)
 export const BOSS_TUNE = {
   hpMul: 1.3,
   growth: 1.85,
+  lateGrowth: 1.35,
   introTime: 2.0,   // seconds a boss takes to appear (invulnerable, name shown)
   phaseTime: 1.2,   // seconds of invulnerability when it drops below half health
 };

@@ -31,6 +31,9 @@ export const AFFIX: Record<string, Affix> = {
   gain:   {},
 };
 export const PLUS_DMG = 0.08;
+// split-shot on a single-round weapon fans the rounds out sideways: `step` radians apart,
+// squeezed together once the whole fan would be wider than `max`, so a big stack still lands on one target
+export const SPLIT_FAN = { step: 0.05, max: 0.15 };
 // base-side modding of basic weapons: persistent +value / rarity per weapon type (kept on death)
 export const MOD_PLUS_MAX = 10;
 export const modPlusCost = (plus: number): number => Math.round(50 * Math.pow(1.5, plus));

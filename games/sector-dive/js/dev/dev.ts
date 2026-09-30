@@ -9,18 +9,18 @@ import { V3, camera, scene } from '../../../../engine/render/render.ts';
 import { H, STEP, T, W, blocked, cover, floorY, grid, hgt, isSolid, moveCircle, passable, ramp, walkable } from '../../../../engine/world/tiles.ts';
 import { joy, setFireHeld } from '../../../../engine/ui/input.ts';
 import { applyLayout, getL, openLayoutEditor } from '../../../../engine/ui/touchlayout.ts';
-import { WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
+import { SPLIT_FAN, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { EYE, PLAT_H } from '../data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { PER, TUNE } from '../data/progress.ts';
+import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, PER, TUNE } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
 import { perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
-import { addPickup, boss, enemies, nearW, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet } from '../world/entities.ts';
-import { P, critChance, damagePlayer, diffOf, explode, findTarget, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
+import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
+import { P, critChance, damagePlayer, diffOf, explode, findTarget, fire, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
 import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
@@ -100,6 +100,18 @@ devSmoke(() => {
         console.log('SMOKE shield ok');
         removeEnemyMesh(e); clearWorld('enemy');
       }
+      // split-shot fan: a big stack on a single-round weapon squeezes into SPLIT_FAN.max instead of fanning ever wider
+      {
+        pBullets.forEach(b => { b.alive = false; });
+        const keep = P.weapons[P.cur]; P.weapons[P.cur] = newWeapon('rail', 0); P.extra = 25; P.pitch = 0;
+        fire();
+        const hs = pBullets.filter(b => b.alive).map(b => { const l = Math.hypot(b.vx, b.vz); return [b.vx / l, b.vz / l]; });
+        let span = 0; // the extra rounds also get up to ±0.02 of random spread on top of the fan
+        hs.forEach(a => hs.forEach(b => { span = Math.max(span, Math.acos(Math.min(1, a[0] * b[0] + a[1] * b[1]))); }));
+        P.weapons[P.cur] = keep; P.extra = 0; pBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
+        if (hs.length !== 26 || span > SPLIT_FAN.max + 0.045 || span < SPLIT_FAN.max * 0.7) throw new Error('split fan ' + hs.length + ' ' + span);
+        console.log('SMOKE split fan ok', span.toFixed(3));
+      }
       // watcher: drones at 75% and 40%
       {
         startPractice('watcher'); tick(10); if (!boss) spawnBoss('watcher'); boss!.spawnT = 0; boss!.phased = true;
@@ -131,6 +143,10 @@ devSmoke(() => {
         setRun({ stage: 2 * PER + PER - 1, route: [0] } as RunState); const b3 = bossDiff();
         if (Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul * presMul()) > 1e-9 || Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6) throw new Error('boss scaling ' + b1 + ' ' + b3);
         if (Math.abs(diffOf(0) - ENEMY_TUNE.hpMul * presMul()) > 1e-9) throw new Error('enemy hp base ' + diffOf(0));
+        // past GROWTH_KNEE depths health grows by the late rates: D6 -> D7 boss by lateGrowth, D5 -> D6 still by growth
+        const bossAt = (d: number) => { setRun({ stage: (d - 1) * PER + PER - 1, route: [0] } as RunState); return bossDiff(); };
+        if (Math.abs(bossAt(6) / bossAt(5) - BOSS_TUNE.growth) > 1e-6 || Math.abs(bossAt(7) / bossAt(6) - BOSS_TUNE.lateGrowth) > 1e-6) throw new Error('boss late growth');
+        if (Math.abs(diffOf(6 * PER) / diffOf(5 * PER) - DEPTH_HP_LATE) > 1e-6 || Math.abs(diffOf(5 * PER) / diffOf(4 * PER) - DEPTH_HP_GROWTH) > 1e-6) throw new Error('enemy late growth');
         startPractice('trinity', 2); tick(5);
         if (stageLabel(run.stage) !== 'D3 BOSS') throw new Error('practice depth ' + stageLabel(run.stage));
         endRun('abandon');
@@ -286,7 +302,10 @@ devSmoke(() => {
           boss!.spawnT = 0;
           if (boss!.name.indexOf(BOSS_META[kind]!.name!.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss!.name);
           if (boss!.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
-          hurtEnemy(boss!, boss!.hp + 1, false); tick(30);
+          spawnWave(boss!.x, boss!.z, 11, 18, 10, 0xff8a3d); // a shockwave still spreading when the boss falls
+          hurtEnemy(boss!, boss!.hp + 1, false);
+          if (query('wave').length) throw new Error('shockwave outlived the boss ' + kind);
+          tick(30);
           if (portals.length !== 1 || portals[0].kind !== 'extract') throw new Error('practice portal ' + kind);
           endRun('extract');
         });

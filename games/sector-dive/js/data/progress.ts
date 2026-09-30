@@ -2,7 +2,13 @@ import type { Upgrade, PresUpgrade } from './types.ts';
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
-export const DEPTH_HP_GROWTH = 1.55;
+// From GROWTH_KNEE depths in, health grows by the *_LATE factors instead: the player's own growth (additive chips,
+// +8% per weapon +) slows to about 1.3x per depth by then, so the early rates would leave bosses taking many minutes.
+export const DEPTH_HP_GROWTH = 1.55, DEPTH_HP_LATE = 1.3, GROWTH_KNEE = 5;
+// health factor after `depths` depths: `rate` per depth up to the knee, `late` per depth after it
+export const hpGrowth = (depths: number, rate: number, late: number): number =>
+  Math.pow(rate, Math.min(depths, GROWTH_KNEE)) * Math.pow(late, Math.max(0, depths - GROWTH_KNEE));
+export const enemyGrowth = (depths: number): number => hpGrowth(depths, DEPTH_HP_GROWTH, DEPTH_HP_LATE);
 // player-side tuning knobs. Enemy numbers live in ENEMY, boss numbers in js/actors/bosses/*.js
 export const TUNE = {
   hp: 100,              // base max HP (armour upgrade adds 15 per level)
