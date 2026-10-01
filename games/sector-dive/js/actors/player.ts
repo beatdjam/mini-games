@@ -89,7 +89,7 @@ export function weaponStats(w: WeaponItem) {
   const interval = def.rate / P.fireRate * Math.pow(0.91, wo('rate', w));
   const mag = magSize(w);
   const reload = def.reload * P.reloadMul * Math.pow(0.8, wo('reload', w));
-  return { perHit, hits, mag, dps: perHit * hits * mag / (mag * interval + reload) * (1 + critChance(w)) };
+  return { perHit, hits, mag, interval, dps: perHit * hits * mag / (mag * interval + reload) * (1 + critChance(w)) };
 }
 export const wOpts = (w: WeaponItem): string => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 

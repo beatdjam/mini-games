@@ -410,9 +410,15 @@ export function attract(dt: number) {
 
 // ================= base screen =================
 export let selSlot = 0;
+// a weapon's numbers as it would be right after diving: base upgrades and reboot bonuses in, no chips, its own options
+// in (so weapons in the base can be compared; P may still be the last run's player, chips and all)
 export function wStat(w: WeaponItem) {
-  const d = WEAPONS[w.id];
-  return t('base.wstat', { dmg: Math.round(d.dmg * wDmgMul(w)), pellets: d.pellets, rate: (1 / d.rate).toFixed(1), mag: d.mag, pierce: d.pierce, blast: d.blast });
+  const d = WEAPONS[w.id], keep = P;
+  setPlayer(newPlayer([]));
+  try {
+    const s = weaponStats(w);
+    return t('base.wstat', { dps: Math.round(s.dps), dmg: Math.round(s.perHit), pellets: s.hits, rate: (1 / s.interval).toFixed(1), mag: s.mag, pierce: d.pierce, blast: d.blast });
+  } finally { setPlayer(keep); }
 }
 // base menu tabs; the last one opened is remembered in this browser
 export let baseTab = 'sortie';

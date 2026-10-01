@@ -119,7 +119,7 @@ LANG.ja = {
     'base.stashAssign': '装備{n}へ',
     'base.sell': '売却 +{v}',
     'base.max': '最大',
-    'base.wstat': ({ dmg, pellets, rate, mag, pierce, blast }) => `DMG ${dmg}${pellets > 1 ? '×' + pellets : ''} / ${rate}発/秒 / 弾倉 ${mag}${pierce ? ' / 貫通' : ''}${blast ? ' / 爆発' : ''}`,
+    'base.wstat': ({ dps, dmg, pellets, rate, mag, pierce, blast }) => `出撃時の火力 ${dps} / DMG ${dmg}${pellets > 1 ? '×' + pellets : ''} / ${rate}発/秒 / 弾倉 ${mag}${pierce ? ' / 貫通' : ''}${blast ? ' / 爆発' : ''}`,
     'pres.level': 'Lv {n}',
     'reboot.note': '再起動 {count} 回 / 難度 +{diff}% / 再起動ポイント {pts}',
     'reboot.suspended': '中断中の潜行を再開するか破棄してから再起動できる。',

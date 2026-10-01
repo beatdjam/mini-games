@@ -119,7 +119,7 @@ LANG.en = {
     'base.stashAssign': 'To slot {n}',
     'base.sell': 'Sell +{v}',
     'base.max': 'MAX',
-    'base.wstat': ({ dmg, pellets, rate, mag, pierce, blast }) => `DMG ${dmg}${pellets > 1 ? '×' + pellets : ''} / ${rate} shots/s / mag ${mag}${pierce ? ' / pierce' : ''}${blast ? ' / blast' : ''}`,
+    'base.wstat': ({ dps, dmg, pellets, rate, mag, pierce, blast }) => `DPS at dive ${dps} / DMG ${dmg}${pellets > 1 ? '×' + pellets : ''} / ${rate} shots/s / mag ${mag}${pierce ? ' / pierce' : ''}${blast ? ' / blast' : ''}`,
     'pres.level': 'Lv {n}',
     'reboot.note': '{count} reboot(s) / difficulty +{diff}% / {pts} reboot point(s)',
     'reboot.suspended': 'Resume or discard your suspended dive before rebooting.',
