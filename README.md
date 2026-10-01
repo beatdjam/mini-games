@@ -56,7 +56,8 @@ vite.config.js               開発サーバーとビルドの設定
   Changelog: 調整 | ショットガンの押し返しは1発につき1回に
   ```
 
-  種類は `追加` / `調整` / `修正` のどれか。リファクタや開発用の変更には書かない
+  種類は `追加` / `調整` / `修正` のどれか。リファクタ・テスト・開発用など遊ぶ人に関係しない変更には `Changelog: なし` と書く（更新履歴には載らない）
+- 書き忘れは PR の CI（`.github/workflows/changelog.yml` → `tools/check_changelog.py`）で止まる。ゲームのフォルダ（`games/<game-id>/`）を触ったコミットに、どちらの行もなければ失敗する。開発用のコード（`js/dev/`）と Markdown だけのコミットは対象外
 - 生成スクリプト（`tools/build_updates.py`）は、`updates.html` に `<!-- updates:start` の目印があるゲームを全部処理する。Actions の実行履歴から公開の時刻（JST）と head のコミットを取り、`Changelog:` 行を push ごとにまとめる。対象はそのゲームのフォルダを触ったコミットだけ
 - 2026-09-27 22:35 までの分は `updates-archive.json` に手書きで固定してある
 - 生成に失敗しても公開は止めない（コミット済みのページがそのまま出る）
