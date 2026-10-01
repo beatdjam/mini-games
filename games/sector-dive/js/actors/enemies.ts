@@ -45,11 +45,22 @@ export function updateEnemy(e: Enemy, dt: number) {
   if (def.ranged && los && dist < 26 && e.cd <= 0) {
     const r = def.ranged;
     e.cd = r.rate * ENEMY_TUNE.fireInterval * rand(0.8, 1.25);
-    const muzzleY = e.mesh.position.y + (def.geo === 'cyl' ? 1.1 : 0);
-    const color = def.color === 0xffe14a ? 0xffe14a : 0xff4d8d;
-    fanAt(e.x, muzzleY, e.z, r.count, r.spread, r.speed, e.dmg, color);
+    fireRanged(e);
+    if (r.burst) { e.burstN = r.burst - 1; e.burstT = r.burstGap; }
+  }
+  // the rest of a burst: one round every burstGap while the player stays in sight
+  if (e.burstN > 0 && (e.burstT -= dt) <= 0) {
+    if (los) { fireRanged(e); e.burstN--; e.burstT = def.ranged.burstGap; } else e.burstN = 0;
   }
   poseEnemy(e, dt, dx, dz);
+}
+
+function fireRanged(e: Enemy) {
+  const def = e.def, r = def.ranged;
+  const muzzleY = e.mesh.position.y + (def.muzzle ?? (def.geo === 'cyl' ? 1.1 : 0));
+  const color = def.color === 0xffe14a ? 0xffe14a : 0xff4d8d;
+  fanAt(e.x, muzzleY, e.z, r.count, r.spread, r.speed, e.dmg, color);
+  e.kick = 1;
 }
 
 // Idle until the player is within ENEMY_TUNE.wakeTiles of walking distance and in sight. Returns true once awake.
@@ -59,8 +70,13 @@ export function wakeCheck(e: Enemy, eyeY: number, py: number, dt: number) {
     e.active = true;
     return true;
   }
-  e.mesh.position.y = eyeY + Math.sin(e.t * 2) * 0.12;
-  e.body.rotation.y += dt * 0.5;
+  if (e.def.humanoid) { // stands on its feet and looks around
+    e.body.rotation.y = Math.sin(e.t * 0.7) * 0.7;
+    poseHumanoid(e, dt, false);
+  } else {
+    e.mesh.position.y = eyeY + Math.sin(e.t * 2) * 0.12;
+    e.body.rotation.y += dt * 0.5;
+  }
   return false;
 }
 
@@ -131,4 +147,25 @@ export function poseEnemy(e: Enemy, dt: number, dx: number, dz: number) {
   e.mesh.rotation.y = e.face;
   if (def.geo === 'tetra' || def.geo === 'tetraS') e.body.rotation.x += dt * 8;
   if (def.geo === 'octa' || def.geo === 'ico') e.body.rotation.y += dt * 3;
+  if (def.humanoid) { e.body.rotation.y *= Math.max(0, 1 - dt * 6); poseHumanoid(e, dt, true); }
+}
+
+// The trooper's limbs: legs and the free arm swing with the distance walked, the gun arm is raised toward the player
+// while awake (kicking back on each shot), and the hit spheres follow the head, chest and legs.
+export function poseHumanoid(e: Enemy, dt: number, aiming: boolean) {
+  const rig = e.rig, moved = Math.hypot(e.x - e.px, e.z - e.pz);
+  e.px = e.x; e.pz = e.z;
+  const pace = clamp(moved / Math.max(dt, 1e-3) / 3.5, 0, 1);
+  e.walk += moved * 2.4;
+  const swing = Math.sin(e.walk) * 0.65 * pace;
+  rig.legL.rotation.x = swing; rig.legR.rotation.x = -swing;
+  rig.armL.rotation.x = -swing * 0.8;
+  e.kick = Math.max(0, e.kick - dt * 9);
+  const dy = P.fy + 1.3 - (e.mesh.position.y + 0.6), dh = Math.hypot(P.x - e.x, P.z - e.z) || 1;
+  const want = aiming ? -Math.PI / 2 - Math.atan2(dy, dh) * 0.8 + e.kick * 0.35 : swing * 0.8;
+  rig.armR.rotation.x += (want - rig.armR.rotation.x) * Math.min(1, dt * 12);
+  rig.upper.rotation.x = -e.kick * 0.08;
+  e.mesh.position.y = e.fy + e.def.y + Math.abs(Math.sin(e.walk)) * 0.05 * pace;
+  const m = e.mesh.position;
+  e.parts[0].p.set(m.x, m.y + 0.95, m.z); e.parts[1].p.set(m.x, m.y + 0.4, m.z); e.parts[2].p.set(m.x, m.y - 0.5, m.z);
 }
