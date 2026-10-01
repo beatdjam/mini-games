@@ -60,7 +60,7 @@ function fireRanged(e: Enemy) {
   const muzzleY = e.mesh.position.y + (def.muzzle ?? (def.geo === 'cyl' ? 1.1 : 0));
   const color = def.color === 0xffe14a ? 0xffe14a : 0xff4d8d;
   fanAt(e.x, muzzleY, e.z, r.count, r.spread, r.speed, e.dmg, color);
-  e.kick = 1;
+  e.kick = 1; e.shots = (e.shots || 0) + 1; // rounds fired (the smoke test counts a burst)
 }
 
 // Idle until the player is within ENEMY_TUNE.wakeTiles of walking distance and in sight. Returns true once awake.
