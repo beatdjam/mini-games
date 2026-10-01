@@ -15,9 +15,10 @@ games/<game-id>/js/          ゲームのモジュール
 games/<game-id>/SPEC.md      各ゲームの仕様書兼説明書
 games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
 public/                      名前を変えずにそのまま出すファイル（PWA の manifest とアイコン）
-tools/                       文言キーの照合、ヘッドレス確認、更新履歴の生成
+tools/                       文言キーの照合、ヘッドレス確認、更新履歴の生成と Changelog 行の確認
 vite.config.js               開発サーバーとビルドの設定
-.github/workflows/pages.yml  GitHub Pages への公開（ビルドして dist/ を出す）
+.github/workflows/pages.yml  GitHub Pages への公開（テストとビルドをして dist/ を出す）
+.github/workflows/changelog.yml  PR の Changelog 行の確認
 ```
 
 ## 開発
@@ -76,4 +77,4 @@ vite.config.js               開発サーバーとビルドの設定
 
 | ID | 名前 | 概要 |
 |----|------|------|
-| sector-dive | Sector Dive | ランダム生成ローグライトFPS（Three.ts、スマホ対応）。仕様: [SPEC.md](games/sector-dive/SPEC.md) |
+| sector-dive | Sector Dive | ランダム生成ローグライトFPS（three.js、スマホ対応）。仕様: [SPEC.md](games/sector-dive/SPEC.md) |
