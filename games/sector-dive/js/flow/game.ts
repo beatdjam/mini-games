@@ -262,9 +262,9 @@ $('#btnUseKit').addEventListener('click', () => { useKit(); renderBag(); });
 export function itemCard(w: WeaponItem | null, where: string, i: number) {
   const sel = invSel && invSel.where === where && invSel.i === i;
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">${t('base.empty')}</button>`;
-  const def = WEAPONS[w.id];
+  const s = weaponStats(w);
   return `<button class="item ${sel ? 'sel' : ''}" data-inv="${where}:${i}" style="border-left:3px solid ${w.basic ? 'var(--line)' : RARITY[w.r].css}"><span class="wn">${wName(w)}</span>
-    <span class="ws">${t('bag.item', { dps: Math.round(weaponStats(w).dps), hit: Math.round(weaponStats(w).perHit), hits: weaponStats(w).hits > 1 ? '×' + weaponStats(w).hits : '', mag: w.mag, magMax: magSize(w) })}</span>${wOpts(w)}
+    <span class="ws">${t('bag.item', { dps: Math.round(s.dps), reach: wReach(s), hit: Math.round(s.perHit), hits: s.hits > 1 ? '×' + s.hits : '', mag: w.mag, magMax: s.mag })}</span>${wOpts(w)}
     ${w.basic ? `<span class="ws">${t('base.keep')}</span>` : ''}
     ${where === 'eq' ? `<span class="ws">${t('bag.slotN', { n: i + 1 })}${i === P.cur ? t('bag.inHand') : ''}</span>` : ''}</button>`;
 }
@@ -412,12 +412,14 @@ export function attract(dt: number) {
 export let selSlot = 0;
 // a weapon's numbers as it would be right after diving: base upgrades and reboot bonuses in, no chips, its own options
 // in (so weapons in the base can be compared; P may still be the last run's player, chips and all)
+// what the one-target DPS leaves out: the rail's damage past `far` metres, the rocket's blast radius
+export const wReach = (s: ReturnType<typeof weaponStats>): string => s.farDps ? t('weapon.far', { m: s.far, dps: Math.round(s.farDps) }) : s.blast ? t('weapon.blast', { m: s.blast.toFixed(1) }) : '';
 export function wStat(w: WeaponItem) {
   const d = WEAPONS[w.id], keep = P;
   setPlayer(newPlayer([]));
   try {
     const s = weaponStats(w);
-    return t('base.wstat', { dps: Math.round(s.dps), dmg: Math.round(s.perHit), pellets: s.hits, rate: (1 / s.interval).toFixed(1), mag: s.mag, pierce: d.pierce, blast: d.blast });
+    return t('base.wstat', { dps: Math.round(s.dps), reach: wReach(s), dmg: Math.round(s.perHit), pellets: s.hits, rate: (1 / s.interval).toFixed(1), mag: s.mag, pierce: d.pierce });
   } finally { setPlayer(keep); }
 }
 // base menu tabs; the last one opened is remembered in this browser
