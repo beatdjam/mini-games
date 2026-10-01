@@ -209,12 +209,13 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
   const crit = Math.random() < critChance();
   if (crit) dmg *= 2;
   if (big) {
-    fireball(x, y, z, radius * 0.75, 0xff8a3d); fireball(x, y, z, radius * 0.4, 0xfff2c0);
-    burst(x, y, z, 0xff6a3d, 34, 12, 0.9); burst(x, y, z, 0xffc24a, 14, 7, 0.6); burst(x, y + 0.5, z, 0x5b6470, 12, 2.5, 1.4, -3);
+    // kept small and short so a blast near you doesn't hide what's behind it
+    fireball(x, y, z, radius * 0.5, 0xff8a3d); fireball(x, y, z, radius * 0.28, 0xfff2c0);
+    burst(x, y, z, 0xff6a3d, 26, 12, 0.6); burst(x, y, z, 0xffc24a, 10, 7, 0.45); burst(x, y + 0.5, z, 0x5b6470, 6, 2.5, 0.7, -3);
     sfx('bigboom', 60);
     const pd = Math.hypot(P.x - x, P.z - z);
     SCR.shake = Math.max(SCR.shake, 0.5 * clamp(1 - pd / 30, 0.25, 1));
-    if (pd < radius * 0.6 && state === 'play') damagePlayer(14 * dmgScaleOf(run.stage));
+    if (pd < radius * 0.6 && state === 'play') damagePlayer(7 * dmgScaleOf(run.stage));
   } else {
     burst(x, y, z, color || 0xff6a3d, 22, 9, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.4);
     sfx('boom', 60); SCR.shake = Math.max(SCR.shake, 0.12);
@@ -226,7 +227,7 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
     if (dd < radius) {
       const core = radius * 0.4, fall = dd <= core ? 1 : 1 - (dd - core) / (radius - core) * 0.7;
       hurtEnemy(e, dmg * fall, crit);
-      if (big && !e.boss && !e.dead) { const kx = e.x - x, kz = e.z - z, kl = Math.hypot(kx, kz) || 1; moveCircle(e, kx / kl * 2.2, kz / kl * 2.2, e.r); e.flash = 0.2; }
+      if (big && !e.boss && !e.dead) { const kx = e.x - x, kz = e.z - z, kl = Math.hypot(kx, kz) || 1; moveCircle(e, kx / kl * 0.8, kz / kl * 0.8, e.r); e.flash = 0.2; }
     }
   }
 }

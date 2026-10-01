@@ -8,8 +8,8 @@ export const WEAPONS: Record<string, WeaponDef> = {
   shotgun:  { dmg: 13, rate: 0.7,   spread: 0.065, pellets: 8, speed: 65,  mag: 6,  reload: 2.0, kb: 0.8, color: 0xffc24a, cost: 320 },
   // rail: one heavy piercing round, stronger the farther it travels
   rail:     { dmg: 90, rate: 1.1,   spread: 0,     pellets: 1, speed: 200, mag: 4,  reload: 2.2, pierce: 4, far: 15, farMul: 1.5, steady: true, color: 0xc58cff, cost: 520 },
-  // launcher: slow rocket, full damage near the centre of the blast, knocks enemies back
-  launcher: { dmg: 52, rate: 1.15,  spread: 0.008, pellets: 1, speed: 28,  mag: 2,  reload: 2.9, maxShots: 3, blast: 5, grav: 3.5, chipMag: 0.5, color: 0xff6a3d, cost: 700 },
+  // launcher: slow rocket, full damage near the centre of the blast, nudges enemies back
+  launcher: { dmg: 70, rate: 1.15,  spread: 0.008, pellets: 1, speed: 28,  mag: 2,  reload: 2.4, maxShots: 3, blast: 5, grav: 3.5, chipMag: 0.5, color: 0xff6a3d, cost: 700 },
 };
 export const WEAPON_ORDER = ['pistol', 'smg', 'shotgun', 'rail', 'launcher'];
 export const DROP_POOL = ['pistol', 'pistol', 'smg', 'smg', 'smg', 'shotgun', 'shotgun', 'shotgun', 'rail', 'rail', 'launcher'];
