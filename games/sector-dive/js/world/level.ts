@@ -201,6 +201,13 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
     rm.position.set(((k % W) + 0.5) * T, hgt[k], (((k / W) | 0) + 0.5) * T); rm.rotation.y = RAMP_ROT[ramp[k]];
     lg.add(rm);
   }
+  // the start room (picked before the hazard floor is drawn): none in it or its doorways, so the first steps of an
+  // area can't land on one (the spot is the room's middle, so a hazard there put the player right next to others)
+  if (!isArena) {
+    startIdx = randi(0, rooms.length - 1);
+    const R = rooms[startIdx]!;
+    for (let j = R.y - 1; j <= R.y + R.h; j++) for (let i = R.x - 1; i <= R.x + R.w; i++) if (i >= 0 && j >= 0 && i < W && j < H) haz[j * W + i] = 0;
+  }
   // hazard floor
   const hz: number[] = [];
   for (let k = 0; k < W * H; k++) if (haz[k]) hz.push(k);
@@ -211,7 +218,7 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
     hz.forEach((k, n) => { m.makeTranslation(((k % W) + 0.5) * T, hgt[k] + 0.04, (((k / W) | 0) + 0.5) * T); im.setMatrixAt(n, m); });
     im.instanceMatrix.needsUpdate = true; lg.add(im);
   }
-  hazT = 0;
+  hazT = 1.4; // an area starts with the hazards off (about 1 s before they blink, 1.6 s before they go live)
   // ceiling and neon signs (sectors with gen.ceiling / gen.neon)
   if (biome.gen.ceiling && !isArena) {
     const cg = new THREE.PlaneGeometry(W * T, H * T); cg.rotateX(Math.PI / 2);
@@ -234,7 +241,6 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
   (scene.fog as THREE.Fog).color.setHex(biome.fog); (scene.background as THREE.Color).setHex(biome.fog);
   (scene.fog as THREE.Fog).near = isArena ? 6 : biome.fogNear; (scene.fog as THREE.Fog).far = isArena ? Math.max(50, biome.fogFar) : biome.fogFar;
   if (isArena) { startIdx = 0; exitIdx = 0; return; }
-  startIdx = randi(0, rooms.length - 1);
   const [sx, sz] = roomSpot(rooms[startIdx]);
   computeFlow(Math.floor(sx / T), Math.floor(sz / T));
   let best = -1;

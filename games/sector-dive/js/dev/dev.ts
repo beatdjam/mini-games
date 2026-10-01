@@ -18,7 +18,7 @@ import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, PRES_ENDLESS, PRES_UP, TU
 import { PERKS } from '../data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
 import { modOf, modPlusCap, perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
-import { buildLevel, haz, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
+import { buildLevel, haz, hazardState, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
 import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, shotId, stageInfo, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
@@ -558,6 +558,19 @@ devSmoke(() => {
           Object.assign(save.pres.up, keepUp); save.pres.pts = 0; save.canReboot = keepCan; renderBase();
           if (got !== 2 || left !== 0) throw new Error('reboot bonus buy ' + got + ' ' + left);
           console.log('SMOKE reboot bonus ok');
+        }
+        // hazard floors: none in the start room or its doorways, and an area starts with them off (stepping off the spawn
+        // spot used to land on a lit one, a death when low on health)
+        {
+          goBase(); startRun();
+          for (const route of [1, 4]) for (let k = 0; k < 30; k++) {
+            run.route = [route]; run.stage = (k % 6) * PER + (k % 3); startStage();
+            const R = rooms[startIdx]!;
+            for (let j = R.y - 1; j <= R.y + R.h; j++) for (let i = R.x - 1; i <= R.x + R.w; i++) if (haz[j * W + i]) throw new Error(`hazard in the start room: route ${route} stage ${run.stage} tile ${i},${j}`);
+            if (hazardState() === 'on') throw new Error('hazards live at the start of an area');
+          }
+          endRun('abandon'); goBase();
+          console.log('SMOKE hazard start ok');
         }
         // a strong loadout still gets harder the deeper you start (the supply picks don't outgrow the late depths)
         const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmg: 1.48, hp: 200, pres: 1.45 };
