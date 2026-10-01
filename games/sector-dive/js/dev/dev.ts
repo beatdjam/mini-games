@@ -24,7 +24,7 @@ import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, f
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
 import { changeLang, hitDirs, updateHitDirs, weaponHud } from '../ui/hud.ts';
-import { discardSuspended, endRun, goBase, nextStage, openPerk, pause, pickEnemyType, renderBase, resumeRun, statsHTML, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun } from '../flow/game.ts';
+import { discardSuspended, endRun, goBase, nextStage, openPerk, pause, pickEnemyType, renderBase, resumeRun, statsHTML, setState, show, showTab, startPractice, startRun, startStage, state, suspendRun, wStat } from '../flow/game.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { updatePBullets } from '../actors/bullets.ts';
 import { update, updatePickups } from '../flow/update.ts';
@@ -136,6 +136,13 @@ devSmoke(() => {
         const healed = P.hp - 100, want = kitHealAmount(); [P.kits, P.maxHp, P.hp] = keep;
         if (healed !== want || want !== 125) throw new Error('kit on the spot healed ' + healed + ' (want ' + want + ')');
         console.log('SMOKE kit on the spot ok', healed);
+      }
+      // the base's weapon cards show the numbers right after diving: the current run's chips don't leak in
+      {
+        const w = { id: 'shotgun', r: 1, plus: 3, opts: ['rate'] }, before = wStat(w), keep = P, dm = P.dmgMul;
+        P.dmgMul *= 5; P.extra += 3; const during = wStat(w); P.dmgMul = dm; P.extra -= 3;
+        if (before !== during || P !== keep || !/\d/.test(before)) throw new Error('base weapon stats moved with the run: ' + before + ' / ' + during);
+        console.log('SMOKE base weapon stats ok', before);
       }
       // watcher: drones at 75% and 40%
       {

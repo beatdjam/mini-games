@@ -80,8 +80,12 @@ export const wText = (w: WeaponItem): string => t('weapon.text', { name: WEAPONS
 export const shotCount = (def: WeaponDef): number => Math.min(def.pellets + P.extra, def.maxShots ?? Infinity);
 export const splitMul = (def: WeaponDef): number => def.pellets * (1 + 0.2 * P.extra) / shotCount(def);
 export const critChance = (w?: WeaponItem): number => Math.min(TUNE.critCap, P.crit + 0.08 * wo('crit', w));
+// rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)
+export const blastRadius = (def: WeaponDef, w?: WeaponItem): number => def.blast ? def.blast * (1 + 0.15 * (P.pierce + wo('pierce', w))) : 0;
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
-// dps = sustained damage per second including reloads and average crits (rail range bonus and explosions not counted).
+// dps = sustained damage per second on one target, including reloads and average crits. What it leaves out is given
+// apart: farDps = the rail's dps on targets past `far` metres; blast = the rocket's blast radius (every enemy caught
+// in it takes the hit, up to full damage near the centre).
 export function weaponStats(w: WeaponItem) {
   const def = WEAPONS[w.id];
   const perHit = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
@@ -89,7 +93,8 @@ export function weaponStats(w: WeaponItem) {
   const interval = def.rate / P.fireRate * Math.pow(0.91, wo('rate', w));
   const mag = magSize(w);
   const reload = def.reload * P.reloadMul * Math.pow(0.8, wo('reload', w));
-  return { perHit, hits, mag, dps: perHit * hits * mag / (mag * interval + reload) * (1 + critChance(w)) };
+  const dps = perHit * hits * mag / (mag * interval + reload) * (1 + critChance(w));
+  return { perHit, hits, mag, interval, dps, far: def.far || 0, farDps: def.far ? dps * def.farMul! : 0, blast: blastRadius(def, w) };
 }
 export const wOpts = (w: WeaponItem): string => w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
@@ -162,8 +167,7 @@ export function fire() {
   const base = aim.sub(mz).normalize();
   const n = shotCount(def);
   const dmg = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
-  // rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)
-  const blast = def.blast ? def.blast * (1 + 0.15 * (P.pierce + wo('pierce'))) : 0;
+  const blast = blastRadius(def);
   const moving = Math.hypot(joy.x, joy.y) > 0.2 || keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
   const fanStep = n > 1 ? Math.min(SPLIT_FAN.step, SPLIT_FAN.max / (n - 1)) : 0;
   for (let k = 0; k < n; k++) {
