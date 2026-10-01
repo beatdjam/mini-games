@@ -6,7 +6,7 @@ import { LANG, lang, t } from '../../../../engine/core/i18n.ts';
 import { SFX, actx, audioInit } from '../../../../engine/audio/audio.ts';
 import { MUSIC_STYLES, mus, musicInit, musicVolume, playStep, setMusic, setMusicMix } from '../../../../engine/audio/music.ts';
 import { V3, camera, scene } from '../../../../engine/render/render.ts';
-import { H, STEP, T, W, blocked, cover, floorY, grid, hasLOS, hgt, isSolid, moveCircle, passable, ramp, walkable } from '../../../../engine/world/tiles.ts';
+import { H, STEP, T, W, blocked, cover, floorY, grid, hgt, isSolid, moveCircle, passable, ramp, walkable } from '../../../../engine/world/tiles.ts';
 import { joy, setFireHeld } from '../../../../engine/ui/input.ts';
 import { applyLayout, getL, openLayoutEditor } from '../../../../engine/ui/touchlayout.ts';
 import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
@@ -19,7 +19,7 @@ import { PERKS } from '../data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
 import { modOf, modPlusCap, perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, hazardState, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
-import { addPickup, boss, eBullets, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
+import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
 import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, shotId, stageInfo, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
@@ -568,14 +568,14 @@ devSmoke(() => {
         }
         // trooper (the humanoid soldier): fires 3-round bursts, and its hit spheres sit at head, chest and legs
         {
-          goBase(); startRun(); P.hp = P.maxHp = 1e6;
-          enemies.forEach(o => { o.dead = true; removeEnemyMesh(o); }); eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
-          let spot: [number, number] | null = null;
-          for (let a = 0; a < 16 && !spot; a++) { const x = P.x + Math.sin(a * Math.PI / 8) * 6, z = P.z + Math.cos(a * Math.PI / 8) * 6; if (walkable(Math.floor(z / T) * W + Math.floor(x / T)) && hasLOS(P.x, P.z, x, z, P.fy + 1.3, P.fy + 1.3)) spot = [x, z]; }
-          if (!spot) throw new Error('trooper test: no open spot');
-          const e = spawnEnemy('trooper', spot[0], spot[1], -1, 1); e.active = true; e.cd = 0;
+          // in a pillarless boss arena (TRINITY's), so nothing stands between it and the player whatever the random level;
+          // the boss itself only appears on a timer this test doesn't wait for
+          goBase(); startRun(); run.stage = PER - 1; run.forceBoss = 'trinity'; startStage(); show(null); setState('play'); P.hp = P.maxHp = 1e6;
+          enemies.forEach(o => { o.dead = true; removeEnemyMesh(o); });
+          const e = spawnEnemy('trooper', P.x, P.z - 7, -1, 1); e.active = true; e.cd = 0;
           for (let k = 0; k < 30; k++) update(1 / 60); // 0.5 s: one burst (3 rounds, 0.13 s apart)
-          const shots = eBullets.filter(b => b.alive).length, [head, chest, legs] = e.parts.map((q: { p: THREE.Vector3 }) => q.p.y);
+          const shots = e.shots, [head, chest, legs] = e.parts.map((q: { p: THREE.Vector3 }) => q.p.y);
+          run.forceBoss = undefined;
           endRun('abandon'); goBase();
           if (shots !== 3 || !(head > chest && chest > legs)) throw new Error('trooper burst ' + shots + ' spheres ' + [head, chest, legs]);
           console.log('SMOKE trooper ok');
