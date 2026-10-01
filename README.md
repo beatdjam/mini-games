@@ -17,6 +17,8 @@ games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
 public/                      名前を変えずにそのまま出すファイル（PWA の manifest とアイコン）
 tools/                       文言キーの照合、ヘッドレス確認、更新履歴の生成と Changelog 行の確認
 vite.config.js               開発サーバーとビルドの設定
+CLAUDE.md                    Claude Code が作業時に守る決まり（コミット前の確認、サブエージェントへの振り分け）
+.claude/agents/              Claude Code のサブエージェント（worker: 決まった変更の実行、scout: 調べるだけ）
 .github/workflows/pages.yml  GitHub Pages への公開（テストとビルドをして dist/ を出す）
 .github/workflows/changelog.yml  PR の Changelog 行の確認
 ```
