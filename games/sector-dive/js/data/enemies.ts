@@ -15,6 +15,10 @@ export const ENEMY: Record<string, EnemyDef> = {
   // rushes in and detonates; also blows up when shot, hurting nearby enemies too
   bomber:  { hp: 16,  speed: 7.8, r: 0.5,  y: 0.6, hitR: 0.75, dmg: 26, bomber: true, bits: 3, color: 0xffb13d, geo: 'ico' },
   splitter:{ hp: 70,  speed: 4.0, r: 0.8,  y: 0.9, hitR: 1.1,  dmg: 12, melee: true, split: true, bits: 6, color: 0x7dffcf, geo: 'dodeca' },
+  // humanoid robot soldier: keeps a middle distance and fires 3-round bursts. Not tied to a sector: a few turn up
+  // everywhere (ENEMY_TUNE.trooperChance). Built from boxes with jointed limbs (buildHumanoid in js/world/entities.ts)
+  trooper: { hp: 75,  speed: 3.6, r: 0.55, y: 1.05, hitR: 0.9, dmg: 8,  keep: 11, humanoid: true, bits: 8, color: 0xb48cff, geo: 'humanoid',
+             ranged: { rate: 2.3, speed: 18, count: 1, spread: 0, burst: 3, burstGap: 0.13 }, muzzle: 0.45 },
   // Bastion's shield generators (boss minion only)
   bturret: { hp: 140, speed: 0,   r: 0.8,  y: 0.9, hitR: 1.2,  dmg: 9,  bits: 2, color: 0xffb347, geo: 'cyl',
              ranged: { rate: 1.7, speed: 13, count: 3, spread: 0.16 } },
@@ -29,6 +33,7 @@ export const ENEMY_TUNE = {
   dmgMul: 1.25,       // damage multiplier
   fireInterval: 0.85, // multiplier on ranged / sniper cooldowns (smaller = shoots more often)
   wakeTiles: 7,       // wakes when the player is within this many tiles of walking distance and in sight
+  trooperChance: 0.06, // chance any spawn in any sector is a trooper (the humanoid soldier) instead
 };
 // tougher enemy types, favoured more the deeper you go
 export const ELITE_TYPES = ['sniper', 'shield', 'brute', 'bomber', 'splitter', 'turret'];

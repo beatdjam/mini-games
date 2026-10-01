@@ -24,6 +24,13 @@ export const geoCache: Record<string, THREE.BufferGeometry> = {
   dodeca: shared(new THREE.DodecahedronGeometry(0.8)),
   tetraS: shared(new THREE.TetrahedronGeometry(0.45)),
   shieldPlate: shared(new THREE.BoxGeometry(1.8, 2.0, 0.12)),
+  // the trooper's parts (buildHumanoid)
+  hTorso: shared(new THREE.BoxGeometry(0.62, 0.7, 0.38)),
+  hHead: shared(new THREE.BoxGeometry(0.34, 0.32, 0.34)),
+  hVisor: shared(new THREE.BoxGeometry(0.26, 0.08, 0.04)),
+  hArm: shared(new THREE.BoxGeometry(0.17, 0.62, 0.19)),
+  hLeg: shared(new THREE.BoxGeometry(0.22, 0.98, 0.25)),
+  hGun: shared(new THREE.BoxGeometry(0.11, 0.55, 0.13)), // long along the arm
 };
 export const edgeCache: Record<string, THREE.EdgesGeometry> = {};
 export function edges(key: string): THREE.EdgesGeometry { return edgeCache[key] || (edgeCache[key] = shared(new THREE.EdgesGeometry(geoCache[key]))); }

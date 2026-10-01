@@ -110,6 +110,7 @@ export function startStage() {
 }
 // deeper sectors lean toward the biome's tougher enemy types
 export function pickEnemyType(b: Biome, tier: number): string {
+  if (Math.random() < ENEMY_TUNE.trooperChance) return 'trooper'; // the humanoid soldier turns up in every sector
   const elites = b.enemies.filter(t => ELITE_TYPES.includes(t));
   const chance = Math.min(ENEMY_TUNE.eliteMax, ENEMY_TUNE.elitePerDepth * tier);
   return elites.length && Math.random() < chance ? pick(elites) : pick(b.enemies);
