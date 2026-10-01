@@ -129,12 +129,12 @@ devSmoke(() => {
         if (shots < want - 2 || shots > want + 2 || last !== 11) throw new Error('fast gun ' + shots + ' shots (want ' + want.toFixed(1) + '), last shot ' + last + ' rounds');
         console.log('SMOKE fast gun ok', shots, 'shots/s');
       }
-      // picking up a kit with the kits full uses it on the spot for half a kit's heal (it was a flat 20)
+      // picking up a kit with the kits full uses it on the spot for a whole kit's heal
       {
         const keep = [P.kits, P.maxHp, P.hp]; P.kits = KIT_MAX; P.maxHp = 500; P.hp = 100;
         addPickup('kit', P.x, P.z); updatePickups(1 / 60); updatePickups(1 / 60);
-        const healed = P.hp - 100, want = Math.round(kitHealAmount() / 2); [P.kits, P.maxHp, P.hp] = keep;
-        if (healed !== want || want !== 63) throw new Error('kit on the spot healed ' + healed + ' (want ' + want + ')');
+        const healed = P.hp - 100, want = kitHealAmount(); [P.kits, P.maxHp, P.hp] = keep;
+        if (healed !== want || want !== 125) throw new Error('kit on the spot healed ' + healed + ' (want ' + want + ')');
         console.log('SMOKE kit on the spot ok', healed);
       }
       // watcher: drones at 75% and 40%

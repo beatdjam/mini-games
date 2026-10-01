@@ -131,8 +131,8 @@ export function updatePickup(p: Pickup, dt: number) {
   } else if (p.kind === 'kit') {
     if (d < 1.1) {
       if (P.kits < KIT_MAX) { p.dead = true; P.kits++; sfx('pick'); toast(t('run.kitPlus', { n: P.kits, max: KIT_MAX }), 1200); weaponHud(); }
-      // kits full: used on the spot for half a kit's heal (it used to be a flat 20, which did nothing deep down)
-      else if (P.hp < P.maxHp) { const heal = Math.round(kitHealAmount() / 2); p.dead = true; P.hp = Math.min(P.maxHp, P.hp + heal); sfx('heal'); toast(t('run.kitUsedNow', { n: heal }), 1500); }
+      // kits full: used on the spot for a whole kit's heal (the same as using one and picking this up again)
+      else if (P.hp < P.maxHp) { const heal = kitHealAmount(); p.dead = true; P.hp = Math.min(P.maxHp, P.hp + heal); sfx('heal'); toast(t('run.kitUsedNow', { n: heal }), 1500); }
     }
   } else if (p.kind === 'chip') {
     if (d < 1.3) { p.dead = true; sfx('chip'); openPerk(t('perk.title')); return; }
