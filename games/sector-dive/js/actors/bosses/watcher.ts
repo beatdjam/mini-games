@@ -8,14 +8,13 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { randomTileIn, rooms } from '../../world/level.ts';
 import { fanAt, ring, shootAngle, spawnEnemy } from '../../world/entities.ts';
 import { P, diffOf, run } from '../player.ts';
-import { bossBase, bossDiff } from './common.ts';
+import { bossBase } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
 // drone waves summoned so far
 export type WatcherBoss = Boss & { summoned: number };
 export function spawnWatcher() {
-  const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.IcosahedronGeometry(2.1, 0);
   const mat = new THREE.MeshLambertMaterial({ color: 0x0f151c, emissive: COLOR.cyan, emissiveIntensity: 0.3 });
   g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: COLOR.cyan })));

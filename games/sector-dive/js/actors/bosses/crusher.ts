@@ -9,7 +9,7 @@ import { toast } from '../../../../../engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { spawnEBullet, spawnWave } from '../../world/entities.ts';
 import { P, damagePlayer } from '../player.ts';
-import { bossBase, bossDiff } from './common.ts';
+import { bossBase } from './common.ts';
 import { SCR } from '../../ui/hud.ts';
 import { COLOR } from '../../data/colors.ts';
 // CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
@@ -17,7 +17,6 @@ import { COLOR } from '../../data/colors.ts';
 // st: state machine; cdx / cdz: charge direction; hitP: the charge has hit the player; second: delay of the enraged second wave
 export type CrusherBoss = Boss & { st: string; cdx: number; cdz: number; hitP: boolean; second: number };
 export function spawnCrusher() {
-  const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.BoxGeometry(3.2, 3.2, 3.2);
   const mat = new THREE.MeshLambertMaterial({ color: 0x1c0f09, emissive: COLOR.orange, emissiveIntensity: 0.3 });
   const plate = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.2), new THREE.MeshBasicMaterial({ color: COLOR.amber })); plate.position.set(0, 0.5, 1.65);

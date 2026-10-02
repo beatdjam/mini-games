@@ -1,0 +1,23 @@
+name: Checks
+
+# PR ごとに、型チェックとスタイル・文言の確認（Chrome の要らない速いもの）を流す。テストは公開時（pages.yml）に流す
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: 型チェック
+        run: npm run typecheck
+      - name: スタイルと文言の確認
+        run: npm run lint

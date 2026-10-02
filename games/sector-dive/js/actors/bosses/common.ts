@@ -1,4 +1,4 @@
-import type { Boss, Enemy, Laser } from '../../data/types.ts';
+import type { Boss, Laser } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp, el } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -14,7 +14,7 @@ import { hpGrowth } from '../../data/progress.ts';
 import { persist, save } from '../../system/save.ts';
 import { presMul, prog } from '../../system/rules.ts';
 import { curBiome, makePortal } from '../../world/level.ts';
-import { addPickup, boss, dropBits, eBullets, enemies, removeEnemyMesh, setBoss, spawnEnemyObj } from '../../world/entities.ts';
+import { addPickup, dropBits, eBullets, enemies, removeEnemyMesh, setBoss, spawnEnemyObj } from '../../world/entities.ts';
 import { dmgScaleOf, rollWeapon, run, stageInfo, tierLabel } from '../player.ts';
 import { spawnWatcher } from './watcher.ts';
 import { spawnCrusher } from './crusher.ts';

@@ -39,6 +39,8 @@ jobs:
         run: |
           npm ci
           npm run typecheck
+      - name: スタイルと文言の確認（tools/check_style.js、tools/check_i18n.js）
+        run: npm run lint
       - name: テスト（engine のテストと各ゲームのスモーク。開発サーバーと、テスト用ビルドの両方）
         # 失敗したら公開しない。ランナーの Chrome は google-chrome
         env:

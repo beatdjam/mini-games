@@ -3,7 +3,7 @@ import { t } from '../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../engine/audio/audio.ts';
 import { toast } from '../../../../engine/ui/ui.ts';
 import { INPUT, locked, tapBtn } from '../../../../engine/ui/input.ts';
-import { BAG_MAX, TUNE } from '../data/progress.ts';
+import { BAG_MAX } from '../data/progress.ts';
 import { save } from '../system/save.ts';
 import { addPickup, nearW, setNear } from '../world/entities.ts';
 import { GUNFX, P, curW, kitHealAmount, setVM, startReload, wText } from '../actors/player.ts';
@@ -45,7 +45,7 @@ el('#btnPause').addEventListener('click', () => { if (state === 'play') pause();
 el('#btnBag').addEventListener('click', () => { if (state === 'play') openBag(); });
 el('#mini').addEventListener('click', () => toggleMap());
 el('#bigmap').addEventListener('click', () => toggleMap());
-window.addEventListener('wheel', e => { if (state === 'play' && locked) swapWeapon(); }, { passive: true });
+window.addEventListener('wheel', () => { if (state === 'play' && locked) swapWeapon(); }, { passive: true });
 
 export function selectSlot(k: number) {
   if (state !== 'play' || k === P.cur || !P.weapons[k]) return;

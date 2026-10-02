@@ -15,12 +15,14 @@ games/<game-id>/js/          ゲームのモジュール
 games/<game-id>/SPEC.md      各ゲームの仕様書兼説明書
 games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
 public/                      名前を変えずにそのまま出すファイル（PWA の manifest とアイコン）
-tools/                       文言キーの照合、ヘッドレス確認、更新履歴の生成と Changelog 行の確認
+tools/                       文言キーとスタイルの確認、ヘッドレス確認、更新履歴の生成と Changelog 行の確認
 vite.config.js               開発サーバーとビルドの設定
 CLAUDE.md                    Claude Code が作業時に守る決まり（コミット前の確認、サブエージェントへの振り分け）
+STYLE.md                     コードと文書の書き方の決まり（型・名前の付け方・文言・テストなど。一部は npm run lint で確認）
 .claude/agents/              Claude Code のサブエージェント（worker: 決まった変更の実行、scout: 調べるだけ）
 .github/workflows/pages.yml  GitHub Pages への公開（テストとビルドをして dist/ を出す）
 .github/workflows/changelog.yml  PR の Changelog 行の確認
+.github/workflows/checks.yml PR の型チェックとスタイル・文言の確認
 ```
 
 ## 開発
@@ -30,6 +32,7 @@ CLAUDE.md                    Claude Code が作業時に守る決まり（コミ
 - 最初に `npm install`
 - `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
 - `npm run typecheck`: 型チェック（下の「TypeScript」）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
+- `npm run lint`: STYLE.md の決まりのうち機械で確かめられるもの（`tools/check_style.js`）と、全ゲームの文言キーの照合（`tools/check_i18n.js`）
 - `npm run build`: 公開用に `dist/` を作る。`npm run preview` で、公開と同じ `/mini-games/` の下で確かめられる
 - `npm test`: engine のテストと全ゲームのスモークテストを、ヘッドレスの Chrome で流す（開発サーバーが動いていなければ立てる）。どれか失敗すると終了コード1
 - `npm run test:build`: テスト用ビルド（`vite build --mode test` を `dist-test/` へ）に対して同じテストを流す。ビルドでしか入らないもの（版番号、GA のタグ）も確かめる

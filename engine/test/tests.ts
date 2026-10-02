@@ -111,7 +111,7 @@ test('world: update, dead, onRemove, query, groups, spawn during a pass', () => 
   const log: string[] = [];
   const g = worldGroup('t-early', 5);
   const late = spawn({ tag: 't-late', update() { log.push('late'); } });
-  const early = spawn({ tag: 't-early', n: 0, kid: false, update() { log.push('early'); if (!this.kid) { this.kid = true; spawn({ tag: 't-early', update() { log.push('kid'); } }); } } });
+  spawn({ tag: 't-early', n: 0, kid: false, update() { log.push('early'); if (!this.kid) { this.kid = true; spawn({ tag: 't-early', update() { log.push('kid'); } }); } } });
   runSystems(0.016, 'any');
   eq(log.slice(0, 3).join(), 'early,kid,late', 'group order 5 before the default 30; a spawned object runs in the same pass');
   eq(query('t-early').length, 2); eq(g.list, WORLD.groups['t-early'].list, 'group list is stable');
