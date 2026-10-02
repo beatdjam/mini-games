@@ -1,4 +1,4 @@
-import type { Enemy } from '../../data/types.ts';
+import type { Boss, Laser } from '../../data/types.ts';
 import * as THREE from 'three';
 import { pick, rand } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -13,6 +13,8 @@ import { P, diffOf, run } from '../player.ts';
 import { bossBase, bossDiff, makeLaser, setLaser } from './common.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
 
+// laser: the aim line; lock: where it is locked on; cycle: warps so far (every droneEvery-th brings drones)
+export type PhantomBoss = Boss & { st: string; laser: Laser; lock: number[]; cycle: number };
 export function spawnPhantom() {
   const bd = bossDiff(), g = new THREE.Group(), geo = new THREE.OctahedronGeometry(1.2, 0);
   const mat = new THREE.MeshLambertMaterial({ color: 0x0c1418, emissive: 0x9fe7ff, emissiveIntensity: 0.3 });
@@ -20,12 +22,12 @@ export function spawnPhantom() {
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x9fe7ff })); edge.scale.copy(body.scale);
   const lens = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), new THREE.MeshBasicMaterial({ color: 0xff4d8d })); lens.position.set(0, 0.5, 0.75);
   g.add(body, edge, lens);
-  const e = bossBase('phantom', g, mat, updPhantom);
-  e.st = 'idle'; e.timer = 1.6; e.laser = makeLaser(0xff4d8d); e.cycle = 0;
+  const e = bossBase('phantom', g, mat, updPhantom, { st: 'idle', laser: makeLaser(0xff4d8d), lock: [0, 0, 0], cycle: 0 });
+  e.timer = 1.6;
   phantomWarp(e, true);
   toast(t('boss.phantomHint'), 4200);
 }
-export function phantomWarp(e: Enemy, first?: boolean) {
+export function phantomWarp(e: Boss, first?: boolean) {
   const spots = BOSS_META.phantom.tune.spots.map(([i, j]: [number, number]) => [(i + 0.5) * T, (j + 0.5) * T])
     .sort((a: number[], b: number[]) => Math.hypot(b[0] - P.x, b[1] - P.z) - Math.hypot(a[0] - P.x, a[1] - P.z));
   // warp anywhere except the two spots nearest the player (first appearance: the farthest spot)
@@ -33,7 +35,7 @@ export function phantomWarp(e: Enemy, first?: boolean) {
   e.x = x; e.z = z;
   if (!first) { burst(x, 2, z, 0x9fe7ff, 16, 6, 0.5); ring(x, z, 1.3, BOSS_META.phantom.tune.warpRing[0], BOSS_META.phantom.tune.warpRing[1], rand(0, 1), e.dmg, 0x9fe7ff); }
 }
-export function updPhantom(e: Enemy, dt: number) {
+export function updPhantom(e: PhantomBoss, dt: number) {
   const K = BOSS_META.phantom.tune;
   e.t += dt; e.timer -= dt;
   const enr = e.hp < e.maxHp * 0.5, eye = [e.x, e.y + 0.5, e.z];

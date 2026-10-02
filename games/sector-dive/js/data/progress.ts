@@ -1,4 +1,5 @@
 import type { Upgrade, PresUpgrade } from './types.ts';
+import { withLang } from './langslots.ts';
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
@@ -41,7 +42,7 @@ export const TUNE = {
   hitDirTime: 0.6,      // seconds the red arc pointing at an off-screen attacker stays up (ui/hud.ts hitDirection)
   deathBitsKeep: 0.5,   // share of the run's bits kept on death / abandon
 };
-export const UPGRADES: Upgrade[] = [
+export const UPGRADES = withLang<Upgrade, 'name' | 'desc'>([
   { id: 'hp',   max: 6, cost: l => Math.round(80 * Math.pow(1.6, l)) },
   { id: 'dmg',  max: 6, cost: l => Math.round(100 * Math.pow(1.6, l)) },
   { id: 'spd',  max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)) },
@@ -50,8 +51,8 @@ export const UPGRADES: Upgrade[] = [
   { id: 'stam', max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)) },
   { id: 'kit',  max: 2, cost: l => Math.round(220 * Math.pow(2, l)) },
   { id: 'chip', max: 2, cost: l => Math.round(450 * Math.pow(2.2, l)) },
-];
-export const PRES_UP: PresUpgrade[] = [
+], { name: '', desc: () => '' });
+export const PRES_UP = withLang<PresUpgrade, 'name' | 'desc'>([
   { id: 'gain',   max: 5, cost: 1 },
   { id: 'hp',     max: 5, cost: 1 },
   { id: 'funds',  max: 3, cost: 1 },
@@ -61,7 +62,7 @@ export const PRES_UP: PresUpgrade[] = [
   // The cost climbs by 1 pt per level (1, 2, 3, ...), so it grows slowly
   { id: 'dmg',    max: Infinity, cost: 1, step: 1 },
   { id: 'vit',    max: Infinity, cost: 1, step: 1 },
-];
+], { name: '', desc: () => '' });
 // per level of the uncapped reboot bonuses: damage +5% (added to the base "output" upgrade), max HP +5% (multiplied)
 export const PRES_ENDLESS = { dmg: 0.05, vit: 0.05 };
 export const STASH_MAX = 12, BAG_MAX = 4, KIT_MAX = 3;

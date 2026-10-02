@@ -1,4 +1,4 @@
-import type { Enemy } from '../../data/types.ts';
+import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { t } from '../../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../../engine/audio/audio.ts';
@@ -11,16 +11,18 @@ import { P, diffOf, run } from '../player.ts';
 import { bossBase, bossDiff } from './common.ts';
 // WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
+// drone waves summoned so far
+export type WatcherBoss = Boss & { summoned: number };
 export function spawnWatcher() {
   const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.IcosahedronGeometry(2.1, 0);
   const mat = new THREE.MeshLambertMaterial({ color: 0x0f151c, emissive: 0x54e8ff, emissiveIntensity: 0.3 });
   g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x54e8ff })));
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff4d8d })); eye.position.z = 1.75; g.add(eye);
-  bossBase('watcher', g, mat, updWatcher);
+  bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
   toast(t('boss.watcherHint'), 3800);
 }
-export function updWatcher(e: Enemy, dt: number) {
+export function updWatcher(e: WatcherBoss, dt: number) {
   const K = BOSS_META.watcher.tune;
   e.t += dt; e.timer -= dt; e.pt += dt;
   const enr = e.hp < e.maxHp * 0.5;
@@ -29,7 +31,6 @@ export function updWatcher(e: Enemy, dt: number) {
   e.mesh.lookAt(P.x, 1.6, P.z);
   // drone waves: [health share at which it triggers, drones]
   const waves = K.drones;
-  e.summoned = e.summoned || 0;
   if (e.summoned < waves.length && e.hp < e.maxHp * waves[e.summoned][0]) {
     const n = waves[e.summoned++][1];
     for (let k = 0; k < n; k++) {

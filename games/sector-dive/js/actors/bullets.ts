@@ -1,13 +1,12 @@
 import type * as THREE from 'three';
-import type { Enemy } from '../data/types.ts';
-import type { Projectile } from '../../../../engine/world/projectiles.ts';
+import type { EBullet, Enemy, PBullet } from '../data/types.ts';
 import { sfx } from '../../../../engine/audio/audio.ts';
 import { basicMat } from '../../../../engine/render/render.ts';
 import { burst } from '../../../../engine/render/fx.ts';
 import { floorY, moveCircle } from '../../../../engine/world/tiles.ts';
 import { projHitsTerrain, steerToward, stepProjectile } from '../../../../engine/world/projectiles.ts';
 import { WALL_H } from '../data/level.ts';
-import { eBullets, enemies, pBullets } from '../world/entities.ts';
+import { eBullets, enemies, isShielded, pBullets } from '../world/entities.ts';
 import { CRIT_MUL, P, critChance, damagePlayer, explode, hurtEnemy, spheres } from './player.ts';
 import { hitMark } from '../ui/hud.ts';
 // ---- tuning numbers used only here ----
@@ -44,7 +43,7 @@ export function updatePBullets(dt: number) {
   }
 }
 // one sub-step of a player bullet: true = it is used up
-export function pBulletStep(b: Projectile) {
+export function pBulletStep(b: PBullet) {
   if (hitsTerrain(b)) {
     if (b.blast) explode(b.x, Math.max(floorY(b.x, b.z) + 0.4, b.y), b.z, b.blast, b.dmg, b.color, true);
     else burst(b.x, b.y, b.z, b.color, 3, 4, 0.3);
@@ -61,9 +60,9 @@ export function pBulletStep(b: Projectile) {
   return false;
 }
 
-export function hitsTerrain(b: Projectile) { return projHitsTerrain(b, WALL_H + TERRAIN_ABOVE_WALL, PBULLET_TERRAIN_PAD); }
+export function hitsTerrain(b: PBullet) { return projHitsTerrain(b, WALL_H + TERRAIN_ABOVE_WALL, PBULLET_TERRAIN_PAD); }
 
-export function bulletTouches(b: Projectile, e: Enemy) {
+export function bulletTouches(b: PBullet, e: Enemy) {
   const pad = b.blast ? BLAST_TOUCH_PAD : SHOT_TOUCH_PAD;
   for (const sp of spheres(e)) {
     const q = sp.p, dx = b.x - q.x, dy = b.y - q.y, dz = b.z - q.z, hr = sp.r + pad;
@@ -74,8 +73,8 @@ export function bulletTouches(b: Projectile, e: Enemy) {
 
 // Shield enemies stop rounds arriving from the front (the rail gun punches through).
 // Each blocked round wears the shield down; at 0 it breaks and the enemy staggers.
-export function shieldBlocks(b: Projectile, e: Enemy) {
-  if (!e.def.shield || e.shieldHp <= 0 || b.rail) return false;
+export function shieldBlocks(b: PBullet, e: Enemy) {
+  if (!isShielded(e) || e.shieldHp <= 0 || b.rail) return false;
   const fx = Math.sin(e.mesh.rotation.y), fz = Math.cos(e.mesh.rotation.y);
   const ox = b.x - e.x, oz = b.z - e.z, ol = Math.hypot(ox, oz) || 1;
   if ((ox * fx + oz * fz) / ol <= SHIELD_FRONT_DOT) return false; // came from the side or behind
@@ -96,7 +95,7 @@ export function shieldBlocks(b: Projectile, e: Enemy) {
 }
 
 // Crits, rail range bonus, knockback.
-export function damageFromBullet(b: Projectile, e: Enemy) {
+export function damageFromBullet(b: PBullet, e: Enemy) {
   const crit = Math.random() < critChance();
   let dmg = b.dmg * (crit ? CRIT_MUL : 1);
   if (b.far && Math.hypot(b.x - b.ox, b.z - b.oz) > b.far) dmg *= b.farMul;
@@ -129,7 +128,7 @@ export function updateEBullets(dt: number) {
 }
 
 // homing rounds turn toward the player's chest while b.homing lasts
-export function steerHoming(b: Projectile, dt: number) {
+export function steerHoming(b: EBullet, dt: number) {
   b.homing -= dt;
   steerToward(b, P.x, P.fy + HOMING_AIM_Y, P.z, dt, HOMING_TURN);
 }

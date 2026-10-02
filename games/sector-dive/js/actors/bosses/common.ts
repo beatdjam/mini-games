@@ -1,4 +1,4 @@
-import type { Enemy } from '../../data/types.ts';
+import type { Boss, Enemy, Laser } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp, el } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -30,23 +30,24 @@ import { track } from '../../../../../engine/core/analytics.ts';
 export function bossDiff() { return 1.33 * BOSS_TUNE.hpMul * hpGrowth((prog(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) * presMul(); }
 // hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDiff
 // behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared
-export function bossBase(kind: string, mesh: THREE.Object3D, mat: THREE.MeshLambertMaterial, behave: (e: Enemy, dt: number) => void) {
+// state: the fields only this boss has (its type S is in js/actors/bosses/<name>.ts); they're put on the boss as it's made
+export function bossBase<S extends object>(kind: string, mesh: THREE.Object3D, mat: THREE.MeshLambertMaterial, behave: (e: Boss & S, dt: number) => void, state: S): Boss & S {
   const meta = BOSS_META[kind]!, name = meta.title ?? kind, hp = meta.hp * bossDiff(), y = meta.y, hitR = meta.hitR;
   dynGroup.add(mesh);
   const cx = W * T / 2, cz = H * T / 2;
-  const e: Enemy = { boss: true, name, mesh, mat, baseEI: 0.3, x: cx, z: cz - 6, y, hp, maxHp: hp, hitR, r: 1.8, t: 0, timer: 2.2, pat: -1, patIdx: 0,
-    pt: 0, shots: 0, acc: 0, dmg: 10 * dmgScaleOf(run.stage), cx, cz, behave, flash: 0, room: -1, active: true, def: { r: 1.8 } };
+  // entrance: grows in over introTime, invulnerable and not attacking (spawnT counts down in bossPauseTick); the name goes up big
+  const e: Boss & S = { boss: true, kind, name, mesh, mat, baseEI: 0.3, x: cx, z: cz - 6, y, hp, maxHp: hp, hitR, r: 1.8, t: 0, timer: 2.2, pat: -1, patIdx: 0,
+    pt: 0, shots: 0, acc: 0, dmg: 10 * dmgScaleOf(run.stage), cx, cz, behave, flash: 0, room: -1, active: true, def: { r: 1.8 },
+    spawnT: BOSS_TUNE.introTime, spawnMax: BOSS_TUNE.introTime, intro: true, ...state };
   mesh.position.set(e.x, y, e.z);
   spawnEnemyObj(e); setBoss(e);
   el('#bossName').textContent = name; el('#bossBar').hidden = false;
-  // entrance: grows in over introTime, invulnerable and not attacking; the name goes up big
-  e.spawnT = e.spawnMax = BOSS_TUNE.introTime; e.intro = true;
   const [en, jp] = name.split(' — ');
   banner(en, jp || 'BOSS'); sfx('beam');
   return e;
 }
 // while a boss is appearing or switching phase it can't be hurt and doesn't act
-export function bossPauseTick(e: Enemy, dt: number) {
+export function bossPauseTick(e: Boss, dt: number) {
   e.spawnT -= dt;
   const k = clamp(1 - e.spawnT / e.spawnMax, 0, 1);
   if (e.intro) e.mesh.scale.setScalar(0.25 + 0.75 * k);
@@ -55,7 +56,7 @@ export function bossPauseTick(e: Enemy, dt: number) {
   if (e.spawnT <= 0) { e.mesh.scale.setScalar(1); e.intro = false; }
 }
 // drop below half health: short invulnerable burst, then the boss's enraged patterns take over
-export function bossPhase(e: Enemy) {
+export function bossPhase(e: Boss) {
   e.phased = true; e.spawnT = e.spawnMax = BOSS_TUNE.phaseTime; e.intro = false;
   const p = e.mesh.position;
   burst(p.x, p.y, p.z, 0xff4d8d, 40, 12, 1.0); fireball(p.x, p.y, p.z, 4, 0xff4d8d);
@@ -67,10 +68,10 @@ export function bossPhase(e: Enemy) {
 export function spawnBoss(kind: string) {
   if (!run.practice && !save.bossSeen[kind]) { save.bossSeen[kind] = true; persist(); } // practice doesn't count as an encounter
   const spawn = ({ watcher: spawnWatcher, crusher: spawnCrusher, core: spawnCore, phantom: spawnPhantom, trinity: spawnTrinity, bastion: spawnBastion } as Record<string, () => void>)[kind]!;
-  spawn(); boss!.kind = kind; // remembered for the run's result (bosses defeated)
+  spawn();
   setMusic(curBiome.code, true); // boss arrangement of this sector's theme
 }
-export function bossDown(e: Enemy) {
+export function bossDown(e: Boss) {
   setMusic(curBiome.code);
   SCR.shake = 0.6; sfx('bigboom');
   if (e.beams) e.beams.forEach((b: THREE.Object3D) => { b.visible = false; });
@@ -103,7 +104,6 @@ export function bossDown(e: Enemy) {
 
 // ---- aimed laser line (sniper enemy, Phantom) ----
 // ---- shared helpers for aimed lasers ----
-export type Laser = THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
 export function makeLaser(color: number): Laser {
   const lg = new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]);
   const l = new THREE.Line(lg, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8 }));

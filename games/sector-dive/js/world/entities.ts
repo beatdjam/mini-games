@@ -1,5 +1,4 @@
-import type { Enemy, EnemyDef, Pickup, Wave, Weapon } from '../data/types.ts';
-import type { Projectile } from '../../../../engine/world/projectiles.ts';
+import type { Boss, EBullet, Enemy, EnemyDef, PBullet, Pickup, RegularEnemy, Shielded, Sniper, Trooper, Wave, Weapon } from '../data/types.ts';
 import * as THREE from 'three';
 import { clamp, rand } from '../../../../engine/core/util.ts';
 import { spawn, worldGroup } from '../../../../engine/core/world.ts';
@@ -20,14 +19,14 @@ import { updatePickup, updateWave } from '../flow/update.ts';
 // pickups and shockwaves live in the engine world (engine/core/world.js) with tag 'pickup' / 'wave'
 // enemies (bosses included) are an engine world group updated at order 10; `enemies` is that group's list
 export const ENEMY_GROUP = worldGroup('enemy', 10);
-export let enemies = ENEMY_GROUP.list as Enemy[], boss: Enemy | null = null, nearW: Pickup | null = null, nearD = 1.9, target: AimTarget | null = null;
+export let enemies = ENEMY_GROUP.list as Enemy[], boss: Boss | null = null, nearW: Pickup | null = null, nearD = 1.9, target: AimTarget | null = null;
 // what the aim assist / autofire locks onto: an enemy and the point on it (a body of a multi-body boss)
 export interface AimTarget { e: Enemy; p: THREE.Vector3; }
-export function setBoss(b: Enemy | null) { boss = b; }
+export function setBoss(b: Boss | null) { boss = b; }
 export function setTarget(e: AimTarget | null) { target = e; }
 // the weapon pickup nearest to the player (and its distance, if given)
 export function setNear(w: Pickup | null, d?: number) { nearW = w; if (d !== undefined) nearD = d; }
-export const pBullets: Projectile[] = [], eBullets: Projectile[] = [];
+export const pBullets: PBullet[] = [], eBullets: EBullet[] = [];
 // far / farMul: rail damage bonus past `far` metres; kb: knockback; rail: punches through shields; shot: id of the trigger pull
 export interface ShotOptions { far?: number; farMul?: number; kb?: number; rail?: boolean; shot?: number; }
 export function spawnPBullet(pos: THREE.Vector3, dir: THREE.Vector3, speed: number, dmg: number, pierce: number, blast: number, color: number, grav: number, opt?: ShotOptions) {
@@ -99,11 +98,11 @@ export function buildEnemyMesh(def: EnemyDef) {
   if (def.sniper) { const eye = new THREE.Mesh(geoCache.chip, basicMat(0xff4d8d)); eye.scale.setScalar(0.5); eye.position.set(0, 0.7, 0.25); g.add(eye); }
   return { g, mat, body };
 }
-export function spawnEnemy(type: string, x: number, z: number, room: number, diff: number): Enemy {
+export function spawnEnemy(type: string, x: number, z: number, room: number, diff: number): RegularEnemy {
   const def = ENEMY[type], m = buildEnemyMesh(def), fy = floorY(x, z);
   m.g.position.set(x, fy + def.y, z);
   dynGroup.add(m.g);
-  const e: Enemy = {
+  const e: RegularEnemy = {
     type, def,
     mesh: m.g, body: m.body, mat: m.mat, baseEI: 0.4, // group, spinning body, body material, normal glow
     x, z, fy,               // position on the floor and feet height
@@ -120,13 +119,14 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     side: Math.random() < 0.5 ? -1 : 1, // strafe direction for `keep` enemies
     face: 0,                // facing angle (turns gradually when def.turn is set)
     stun: 0,                // seconds of stagger left (shield break)
-    // set later by behaviour code: fuse (bomber), aim / lock (sniper), detonated, kbShot (last shot that knocked it back)
+    burstN: 0, burstT: 0,   // rounds left in a burst, time to the next (trooper)
+    // set later by behaviour code: fuse (bomber), detonated, kbShot (last shot that knocked it back)
   };
   if (def.shield) {
-    e.shieldHp = def.shieldHp * diff;       // shield breaks at 0
+    e.shieldHp = def.shieldHp! * diff;       // shield breaks at 0
     e.shieldParts = m.g.userData.shield;    // plate + outline meshes, removed on break
   }
-  if (def.sniper) e.laser = makeLaser(0xff4d8d);
+  if (def.sniper) { e.laser = makeLaser(0xff4d8d); e.aim = 0; e.lock = [0, 0, 0]; }
   if (def.humanoid) { // head, chest and legs are hit separately (kept in place by poseHumanoid); walk cycle state
     e.rig = m.g.userData.rig; e.walk = 0; e.px = x; e.pz = z; e.kick = 0;
     e.parts = [{ p: new THREE.Vector3(), r: 0.36 }, { p: new THREE.Vector3(), r: 0.62 }, { p: new THREE.Vector3(), r: 0.5 }];
@@ -134,7 +134,11 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
   return spawnEnemyObj(e);
 }
 // joins the enemy group; each frame the engine calls updateEnemy (js/actors/enemies.js)
-export function spawnEnemyObj(e: Enemy): Enemy { e.tag = 'enemy'; e.update = (dt: number) => updateEnemy(e, dt); return spawn(e); }
+// type guards: the fields of a shield / sniper / trooper are set by spawnEnemy for exactly those types
+export const isShielded = (e: Enemy): e is Shielded => !e.boss && !!e.def.shield;
+export const isSniper = (e: Enemy): e is Sniper => !e.boss && !!e.def.sniper;
+export const isTrooper = (e: Enemy): e is Trooper => !e.boss && !!e.def.humanoid;
+export function spawnEnemyObj<T extends Enemy>(e: T): T { e.tag = 'enemy'; e.update = (dt: number) => updateEnemy(e, dt); return spawn(e); }
 export function removeEnemyMesh(e: Enemy) {
   disposeTree(e.mesh); dynGroup.remove(e.mesh);
   if (e.laser) { disposeTree(e.laser); dynGroup.remove(e.laser); e.laser = null; }

@@ -1,4 +1,4 @@
-import type { RunState, Snapshot, Weapon } from '../data/types.ts';
+import type { Pickup, RunState, Snapshot, Weapon } from '../data/types.ts';
 import { el, rand, shuffle } from '../../../../engine/core/util.ts';
 import { devSmoke } from '../../../../engine/core/dev.ts';
 import { clearWorld, query } from '../../../../engine/core/world.ts';
@@ -19,7 +19,7 @@ import { PERKS } from '../data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../system/save.ts';
 import { modOf, modPlusCap, perkName, pickDrop, PRES_DIFF_CAP, presCost, presMul, presMulOf, prog, readiness, readinessScore, readyAfterReboot } from '../system/rules.ts';
 import { buildLevel, haz, hazardState, makePortal, portals, rooms, roomSpot, setHazardClock, startIdx } from '../world/level.ts';
-import { addPickup, boss, enemies, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
+import { addPickup, boss, enemies, isShielded, nearW, pBullets, removeEnemyMesh, setBoss, spawnEnemy, spawnPBullet, spawnWave } from '../world/entities.ts';
 import { P, critChance, damagePlayer, diffOf, dmgScaleOf, explode, findTarget, fire, kitHealAmount, rollWeapon, shotId, stageInfo, hurtEnemy, magSize, newPlayer, newWeapon, run, setPlayer, setRun, stageLabel, weaponStats } from '../actors/player.ts';
 import { bossDiff, spawnBoss } from '../actors/bosses/common.ts';
 import { equipNearby, normalizeWeapons, stowNearby } from '../ui/input.ts';
@@ -66,7 +66,7 @@ devSmoke(() => {
             if (i > W - 4 || grid[k] !== 1 || hgt[k] !== PLAT_H || ramp[k] >= 0 || cover[k]) continue;
             if (!walkable(k + 1) || hgt[k + 1] !== 0 || !walkable(k + 2) || hgt[k + 2] !== 0) continue;
             for (const who of ['player', 'enemy']) {
-              const o = who === 'player' ? P : spawnEnemy('crawler', 0, 0, -1, 1);
+              const o: { x: number; z: number; fy: number; vy?: number; r?: number } = who === 'player' ? P : spawnEnemy('crawler', 0, 0, -1, 1);
               o.x = (i + 1) * T - 0.2; o.z = (j + 0.5) * T; o.fy = PLAT_H; o.vy = 0;
               for (let t = 0; t < 60; t++) { moveCircle(o, 0.15, 0, o.r || P.r); const g2 = floorY(o.x, o.z); o.fy = who === 'player' ? Math.max(g2, o.fy - 0.2) : g2; }
               const x0 = o.x; moveCircle(o, 0.3, 0, o.r || P.r);
@@ -87,7 +87,7 @@ devSmoke(() => {
       {
         run.route = [3]; run.stage = PER * 3 + 1; startStage(); enemies.slice().forEach(e => { e.dead = true; removeEnemyMesh(e); }); clearWorld('enemy');
         const [sx, sz] = roomSpot(rooms[startIdx]);
-        const e = spawnEnemy('shield', sx, sz, -1, 1); e.face = 0; e.mesh.rotation.y = 0; // facing +z
+        const e = spawnEnemy('shield', sx, sz, -1, 1); if (!isShielded(e)) throw new Error('shield fields'); e.face = 0; e.mesh.rotation.y = 0; // facing +z
         const shoot = (dir: number) => { spawnPBullet(new V3(sx, e.fy! + 1.6, sz + dir * 2.5), new V3(0, 0, -dir), 60, 20, 0, 0, 0xffffff, 0, {}); updatePBullets(0.1); }; // above rubble height
         const hp0 = e.hp, sh0 = e.shieldHp;
         shoot(1);   // from the front
@@ -210,7 +210,7 @@ devSmoke(() => {
         drop('rail'); stowNearby();
         if (!P.bag[0] || P.bag[0].id !== 'rail') throw new Error('stow');
         drop('shotgun'); equipNearby();
-        if (P.weapons[0]!.id !== 'shotgun' || !query('pickup').some(p => p.kind === 'weapon' && p.w.id === 'pistol')) throw new Error('equip swap');
+        if (P.weapons[0]!.id !== 'shotgun' || !query<Pickup>('pickup').some(p => p.kind === 'weapon' && p.w!.id === 'pistol')) throw new Error('equip swap');
         P.bag = [newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0)];
         clearWorld('pickup');
         drop('launcher'); stowNearby();
@@ -348,10 +348,10 @@ devSmoke(() => {
         const cx = W * T / 2, cz = H * T / 2;
         P.chain = 3; P.dmgMul = 10;
         let s = spawnEnemy('splitter', cx, cz, -1, 1); hurtEnemy(s, 1e6, false);
-        const a1 = enemies.filter(e => !e.dead && e.type === 'mini').length;
+        const a1 = enemies.filter(e => !e.dead && !e.boss && e.type === 'mini').length;
         P.chain = 0;
         s = spawnEnemy('splitter', cx + 10, cz, -1, 1); explode(s.x, 1, s.z, 5, 1e6, 0xff6a3d, true);
-        const a2 = enemies.filter(e => !e.dead && e.type === 'mini').length;
+        const a2 = enemies.filter(e => !e.dead && !e.boss && e.type === 'mini').length;
         if (a1 !== 2 || a2 !== 4) throw new Error('splitter halves ' + a1 + ' ' + a2);
         console.log('SMOKE splitter ok');
         endRun('abandon');
@@ -392,7 +392,7 @@ devSmoke(() => {
           startPractice(kind); tick(120);
           if (!boss) spawnBoss(kind);
           boss!.spawnT = 0;
-          if (boss!.name.indexOf(BOSS_META[kind]!.name!.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss!.name);
+          if (boss!.name.indexOf(BOSS_META[kind]!.name.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss!.name);
           if (boss!.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
           spawnWave(boss!.x, boss!.z, 11, 18, 10, 0xff8a3d); // a shockwave still spreading when the boss falls
           hurtEnemy(boss!, boss!.hp + 1, false);
@@ -470,15 +470,15 @@ devSmoke(() => {
         if (!el('#btnShare').hidden) throw new Error('share shown after practice');
         // a deep run beats many bosses: the post counts them per kind and stays within X's 280 (CJK counts 2, the URL 23)
         const xLen = (s: string) => { const [body, url] = [s.slice(0, s.lastIndexOf('\n')), s.slice(s.lastIndexOf('\n') + 1)]; return [...body].reduce((n, c) => n + (c.charCodeAt(0) > 0x10ff ? 2 : 1), 0) + 1 + (url ? 23 : 0); };
-        const many = { ...shareData!, bosses: Array.from({ length: 30 }, (_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short!) };
+        const many = { ...shareData!, bosses: Array.from({ length: 30 }, (_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short) };
         const keepLang = lang, lens: number[] = [];
-        for (const code of ['ja', 'en']) { changeLang(code); const s = shareText({ ...many, bosses: many.bosses.map((_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short!) }); lens.push(xLen(s)); if (!s.includes('30')) throw new Error('boss count missing ' + s); }
+        for (const code of ['ja', 'en']) { changeLang(code); const s = shareText({ ...many, bosses: many.bosses.map((_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short) }); lens.push(xLen(s)); if (!s.includes('30')) throw new Error('boss count missing ' + s); }
         changeLang(keepLang);
         if (lens.some(n => n > 280)) throw new Error('share text too long ' + lens);
         goBase(); startRun(); tick(5);
         // switching the language from the pause screen rewrites the stats panel and the stage label
         { const other = lang === 'ja' ? 'en' : 'ja'; pause(); changeLang(other);
-          const ok = el('#pauseChips').innerHTML.includes(t('stats.title')) && el('#stageLbl').textContent!.includes(stageInfo(run.stage).biome.name!);
+          const ok = el('#pauseChips').innerHTML.includes(t('stats.title')) && el('#stageLbl').textContent!.includes(stageInfo(run.stage).biome.name);
           changeLang(keepLang); show(null); setState('play');
           if (!ok) throw new Error('pause screen kept the old language'); }
         console.log('SMOKE share ok', lens.join('/'), 'chars');
@@ -574,7 +574,7 @@ devSmoke(() => {
           enemies.forEach(o => { o.dead = true; removeEnemyMesh(o); });
           const e = spawnEnemy('trooper', P.x, P.z - 7, -1, 1); e.active = true; e.cd = 0;
           for (let k = 0; k < 30; k++) update(1 / 60); // 0.5 s: one burst (3 rounds, 0.13 s apart)
-          const shots = e.shots, [head, chest, legs] = e.parts.map((q: { p: THREE.Vector3 }) => q.p.y);
+          const shots = e.shots, [head, chest, legs] = e.parts!.map(q => q.p.y);
           run.forceBoss = undefined;
           endRun('abandon'); goBase();
           if (shots !== 3 || !(head > chest && chest > legs)) throw new Error('trooper burst ' + shots + ' spheres ' + [head, chest, legs]);
