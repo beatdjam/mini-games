@@ -8,7 +8,9 @@ import { save } from '../core/save.ts';
 import { addPickup, nearW, setNear } from '../world/entities.ts';
 import { GUNFX, P, curW, kitHealAmount, setVM, startReload, wText } from '../actors/player.ts';
 import { toggleMap, updateHint, weaponHud } from './hud.ts';
-import { closeBag, openBag, pause, state } from '../flow/game.ts';
+import { state } from '../flow/state.ts';
+import { closeBag, openBag } from '../screens/bag.ts';
+import { pause } from '../screens/pause.ts';
 // Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/src/ui/input.ts)
 // dash request and the full-stick dash timer
 export const CTRL = { dashReq: false, stickT: 0, stickArmed: true };

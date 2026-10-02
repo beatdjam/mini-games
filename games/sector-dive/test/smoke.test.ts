@@ -89,27 +89,12 @@ import {
 import { bossDiff, spawnBoss } from '../src/actors/bosses/common.ts';
 import { equipNearby, stowNearby } from '../src/ui/input.ts';
 import { changeLang, hitDirs } from '../src/ui/hud.ts';
-import {
-  discardSuspended,
-  endRun,
-  goBase,
-  nextStage,
-  openPerk,
-  pause,
-  pickEnemyType,
-  renderBase,
-  resumeRun,
-  statsHTML,
-  setState,
-  show,
-  showTab,
-  startPractice,
-  startRun,
-  startStage,
-  state,
-  suspendRun,
-  wStat,
-} from '../src/flow/game.ts';
+import { endRun, goBase, nextStage, pickEnemyType, startPractice, startRun, startStage } from '../src/flow/run.ts';
+import { setState, show, state } from '../src/flow/state.ts';
+import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
+import { openPerk } from '../src/screens/perk.ts';
+import { pause, statsHTML } from '../src/screens/pause.ts';
+import { renderBase, showTab, wStat } from '../src/screens/base.ts';
 import { shareData, shareText } from '../src/ui/share.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
 import { update, updatePickups } from '../src/flow/update.ts';

@@ -30,7 +30,7 @@ flowchart TB
   subgraph GAME["games/&lt;id&gt;/（ゲーム）"]
     MAIN["src/main.ts<br/>入口・起動"]
     FLOW["flow/<br/>モード遷移・システム登録"]
-    ACT["actors/ world/ ui/ core/<br/>振る舞い・画面・ルール"]
+    ACT["actors/ world/ screens/ ui/ core/<br/>振る舞い・画面・ルール"]
     DATA["data/ i18n/<br/>定義と文言（ロジックなし）"]
   end
   subgraph ENGINE["engine/src/"]

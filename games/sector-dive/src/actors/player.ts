@@ -38,7 +38,8 @@ import { roomCount, roomSpot, rooms } from '../world/level.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy, spawnPBullet, target } from '../world/entities.ts';
 import { bossDown, bossPhase } from './bosses/common.ts';
 import { SCR, hitDirection, hitMark } from '../ui/hud.ts';
-import { endRun, state } from '../flow/game.ts';
+import { endRun } from '../flow/run.ts';
+import { state } from '../flow/state.ts';
 import { COLOR } from '../data/colors.ts';
 // ---- tuning numbers used only here ----
 // player

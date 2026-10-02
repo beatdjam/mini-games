@@ -13,17 +13,11 @@ import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entiti
 import { P, damagePlayer, magSize, newWeapon, run } from '../actors/player.ts';
 import { normalizeWeapons } from '../ui/input.ts';
 import { changeLang, updateHitDirs, weaponHud } from '../ui/hud.ts';
-import {
-  endRun,
-  openPerk,
-  setState,
-  show,
-  showTab,
-  startPractice,
-  startRun,
-  startStage,
-  suspendRun,
-} from '../flow/game.ts';
+import { endRun, startPractice, startRun, startStage } from '../flow/run.ts';
+import { setState, show } from '../flow/state.ts';
+import { suspendRun } from '../flow/suspend.ts';
+import { openPerk } from '../screens/perk.ts';
+import { showTab } from '../screens/base.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { update } from '../flow/update.ts';
 // ================= dev hooks =================

@@ -370,7 +370,7 @@ export interface SaveData {
   mods: Record<string, { plus: number; r: number }>;
   canReboot: boolean;
   pres: { count: number; pts: number; up: Record<string, number> };
-  suspend: Snapshot | null; // the checkpoint of a run in progress (src/flow/game.ts makeSnapshot)
+  suspend: Snapshot | null; // the checkpoint of a run in progress (src/flow/suspend.ts makeSnapshot)
   settings: {
     lang: string | null;
     autofire: boolean;
@@ -411,7 +411,7 @@ export interface Wave extends WorldObject {
   dead: boolean;
 }
 
-// the flow of the game (src/flow/game.ts state)
+// the flow of the game (src/flow/state.ts state)
 export type GameState = 'base' | 'play' | 'pause' | 'perk' | 'result' | 'bag' | 'layout';
 // how a dive ends
 export type RunEnd = 'extract' | 'dead' | 'abandon';
