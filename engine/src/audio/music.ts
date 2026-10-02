@@ -61,7 +61,7 @@ export function bossArrangement(st: MusicStyle): MusicStyle {
   });
 }
 
-export const mus: {
+export const musicState: {
   want: { name: string; boss?: boolean } | null;
   name: string | null;
   st: MusicStyle | null;
@@ -77,61 +77,61 @@ export const midiHz = (m: number): number => 440 * Math.pow(2, (m - 69) / 12);
 
 export function musicInit() {
   const ac = actx;
-  if (!ac || mus.bus) return;
-  const bus = (mus.bus = ac.createGain());
+  if (!ac || musicState.bus) return;
+  const bus = (musicState.bus = ac.createGain());
   bus.gain.value = 0;
   bus.connect(ac.destination);
   ['pad', 'arp', 'bass', 'drums', 'tension'].forEach(k => {
     const g = ac.createGain();
     g.gain.value = 0;
     g.connect(bus);
-    mus.layers[k] = g;
+    musicState.layers[k] = g;
   });
-  mus.timer = setInterval(musicTick, 25);
-  if (mus.want) {
-    const w = mus.want;
-    mus.want = null;
+  musicState.timer = setInterval(musicTick, 25);
+  if (musicState.want) {
+    const w = musicState.want;
+    musicState.want = null;
     setMusic(w.name, w.boss);
   }
 }
 // name: a sector code or 'BASE'; boss: play the sector's boss arrangement
 export function setMusic(name: string, boss?: boolean) {
   const key = name + (boss ? ':boss' : '');
-  if (!actx || !mus.bus) {
-    mus.want = { name, boss };
+  if (!actx || !musicState.bus) {
+    musicState.want = { name, boss };
     return;
   }
-  if (mus.name === key) return;
+  if (musicState.name === key) return;
   const base = MUSIC_STYLES[name] || MUSIC_STYLES.DATA;
-  mus.name = key;
-  mus.st = boss ? bossArrangement(base) : base;
-  mus.step = 0;
-  mus.next = actx.currentTime + 0.08;
+  musicState.name = key;
+  musicState.st = boss ? bossArrangement(base) : base;
+  musicState.step = 0;
+  musicState.next = actx.currentTime + 0.08;
   setMusicMix(boss ? 'boss' : name === 'BASE' ? 'base' : 'explore');
   musicVolume();
 }
 export function setMusicMix(kind: string) {
-  if (!actx || !mus.bus || mus.mix === kind) return;
-  mus.mix = kind;
+  if (!actx || !musicState.bus || musicState.mix === kind) return;
+  musicState.mix = kind;
   const m = LAYER_MIX[kind],
     t = actx.currentTime;
-  for (const k in mus.layers) mus.layers[k].gain.setTargetAtTime(m[k], t, kind === 'combat' ? 0.4 : 1.2);
+  for (const k in musicState.layers) musicState.layers[k].gain.setTargetAtTime(m[k], t, kind === 'combat' ? 0.4 : 1.2);
 }
 // overall BGM volume from the setting; duck = 0..1 (quieter while paused)
 export function musicVolume(duck?: number) {
-  if (duck !== undefined) mus.duck = duck;
-  if (!actx || !mus.bus) return;
-  mus.bus.gain.setTargetAtTime(0.2 * bgmVolume * mus.duck, actx.currentTime, 0.3);
+  if (duck !== undefined) musicState.duck = duck;
+  if (!actx || !musicState.bus) return;
+  musicState.bus.gain.setTargetAtTime(0.2 * bgmVolume * musicState.duck, actx.currentTime, 0.3);
 }
 export function musicTick() {
-  const st = mus.st;
+  const st = musicState.st;
   if (!st || !actx || actx.state !== 'running') return;
   const stepDur = 60 / st.bpm / 4;
-  if (mus.next < actx.currentTime - 0.3) mus.next = actx.currentTime + 0.05; // tab was in the background
-  while (mus.next < actx.currentTime + 0.12) {
-    playStep(st, mus.step, mus.next, stepDur);
-    mus.next += stepDur;
-    mus.step++;
+  if (musicState.next < actx.currentTime - 0.3) musicState.next = actx.currentTime + 0.05; // tab was in the background
+  while (musicState.next < actx.currentTime + 0.12) {
+    playStep(st, musicState.step, musicState.next, stepDur);
+    musicState.next += stepDur;
+    musicState.step++;
   }
 }
 
@@ -220,7 +220,7 @@ export function drumClank(t: number) {
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
     o.connect(f);
     f.connect(g);
-    g.connect(mus.layers.drums);
+    g.connect(musicState.layers.drums);
     o.start(t);
     o.stop(t + 0.4);
   });
@@ -244,7 +244,7 @@ export function windSwell(t: number, dur: number) {
   g.gain.linearRampToValueAtTime(0.0001, t + dur);
   s.connect(f);
   f.connect(g);
-  g.connect(mus.layers.pad);
+  g.connect(musicState.layers.pad);
   s.start(t);
   s.stop(t + dur + 0.1);
 }
@@ -273,7 +273,7 @@ export function synthNote(
   g.gain.setTargetAtTime(0.0001, t + Math.max(att, dur * 0.7), dur * 0.25 + 0.02);
   o.connect(f);
   f.connect(g);
-  g.connect(mus.layers[layer]);
+  g.connect(musicState.layers[layer]);
   o.start(t);
   o.stop(t + dur + 1);
 }
@@ -287,7 +287,7 @@ export function drumKick(t: number) {
   g.gain.setValueAtTime(0.45, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
   o.connect(g);
-  g.connect(mus.layers.drums);
+  g.connect(musicState.layers.drums);
   o.start(t);
   o.stop(t + 0.25);
 }
@@ -303,7 +303,7 @@ export function drumNoise(t: number, dur: number, vol: number, type: BiquadFilte
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   s.connect(f);
   f.connect(g);
-  g.connect(mus.layers[layer || 'drums']);
+  g.connect(musicState.layers[layer || 'drums']);
   s.start(t);
   s.stop(t + dur + 0.02);
 }

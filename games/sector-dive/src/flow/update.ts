@@ -15,12 +15,12 @@ import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
 import { portals, reveal, updateHazards } from '../world/level.ts';
-import { ENEMY_GROUP, nearD, setNear, setTarget, target } from '../world/entities.ts';
+import { ENEMY_GROUP, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
 import {
   GUNFX,
-  P,
+  player,
   curVM,
-  curW,
+  currentWeapon,
   damagePlayer,
   findTarget,
   kitHealAmount,
@@ -28,10 +28,10 @@ import {
   run,
   shotId,
   tryFire,
-  wo,
+  weaponOptCount,
 } from '../actors/player.ts';
-import { CTRL } from '../ui/input.ts';
-import { SCR, bctx, bigmap, drawMap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
+import { controlState } from '../ui/input.ts';
+import { screenFx, bctx, bigmap, drawMap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
 import { state } from './state.ts';
@@ -88,98 +88,102 @@ export function updatePlayer(dt: number) {
   if (save.settings.stickDash && joy.id !== null) {
     const jm = Math.hypot(joy.x, joy.y);
     if (jm > STICK_DASH_PUSH) {
-      CTRL.stickT += dt;
-      if (CTRL.stickT > STICK_DASH_HOLD && CTRL.stickArmed) {
-        CTRL.dashReq = true;
-        CTRL.stickArmed = false;
+      controlState.stickT += dt;
+      if (controlState.stickT > STICK_DASH_HOLD && controlState.stickArmed) {
+        controlState.dashReq = true;
+        controlState.stickArmed = false;
       }
     } else {
-      CTRL.stickT = 0;
-      if (jm < STICK_DASH_REARM) CTRL.stickArmed = true;
+      controlState.stickT = 0;
+      if (jm < STICK_DASH_REARM) controlState.stickArmed = true;
     }
   } else {
-    CTRL.stickT = 0;
-    CTRL.stickArmed = true;
+    controlState.stickT = 0;
+    controlState.stickArmed = true;
   }
   const ml = Math.hypot(mx, mz);
   if (ml > 1) {
     mx /= ml;
     mz /= ml;
   }
-  const fx = -Math.sin(P.yaw),
-    fz = -Math.cos(P.yaw),
-    rx = Math.cos(P.yaw),
-    rz = -Math.sin(P.yaw);
+  const fx = -Math.sin(player.yaw),
+    fz = -Math.cos(player.yaw),
+    rx = Math.cos(player.yaw),
+    rz = -Math.sin(player.yaw);
   let vx = fx * mz + rx * mx,
     vz = fz * mz + rz * mx;
-  P.inv -= dt;
-  SCR.stWarn -= dt;
-  P.stDelay -= dt;
-  if (P.stDelay <= 0) P.st = Math.min(P.stMax, P.st + P.stRegen * dt);
-  if (CTRL.dashReq) {
-    CTRL.dashReq = false;
-    if (P.st >= TUNE.dashCost) {
+  player.inv -= dt;
+  screenFx.stWarn -= dt;
+  player.stDelay -= dt;
+  if (player.stDelay <= 0) player.st = Math.min(player.stMax, player.st + player.stRegen * dt);
+  if (controlState.dashReq) {
+    controlState.dashReq = false;
+    if (player.st >= TUNE.dashCost) {
       const l = Math.hypot(vx, vz);
       if (l > MOVE_EPS) {
-        P.ddx = vx / l;
-        P.ddz = vz / l;
+        player.ddx = vx / l;
+        player.ddz = vz / l;
       } else {
-        P.ddx = fx;
-        P.ddz = fz;
+        player.ddx = fx;
+        player.ddz = fz;
       }
-      P.dashT = TUNE.dashTime;
-      P.st -= TUNE.dashCost;
-      P.stDelay = TUNE.staminaDelay;
-      P.inv = Math.max(P.inv, TUNE.dashInvuln);
+      player.dashT = TUNE.dashTime;
+      player.st -= TUNE.dashCost;
+      player.stDelay = TUNE.staminaDelay;
+      player.inv = Math.max(player.inv, TUNE.dashInvuln);
       sfx('dash');
     } else {
-      SCR.stWarn = STAMINA_WARN_TIME;
+      screenFx.stWarn = STAMINA_WARN_TIME;
       sfx('empty');
     }
   }
-  const sp = P.baseSpeed * P.spdMul * (1 + SPEED_CHIP_PER_LEVEL * wo('speed'));
-  if (P.dashT > 0) {
-    P.dashT -= dt;
-    vx = P.ddx * TUNE.dashSpeed;
-    vz = P.ddz * TUNE.dashSpeed;
+  const sp = player.baseSpeed * player.spdMul * (1 + SPEED_CHIP_PER_LEVEL * weaponOptCount('speed'));
+  if (player.dashT > 0) {
+    player.dashT -= dt;
+    vx = player.ddx * TUNE.dashSpeed;
+    vz = player.ddz * TUNE.dashSpeed;
   }
-  moveCircle(P, vx * sp * dt, vz * sp * dt, P.r);
-  const gy = floorY(P.x, P.z);
-  if (P.fy > gy + GROUND_EPS) {
-    P.vy -= GRAVITY * dt;
-    P.fy = Math.max(gy, P.fy + P.vy * dt);
-    if (P.fy === gy) P.vy = 0;
+  moveCircle(player, vx * sp * dt, vz * sp * dt, player.r);
+  const gy = floorY(player.x, player.z);
+  if (player.fy > gy + GROUND_EPS) {
+    player.vy -= GRAVITY * dt;
+    player.fy = Math.max(gy, player.fy + player.vy * dt);
+    if (player.fy === gy) player.vy = 0;
   } else {
-    P.fy = gy;
-    P.vy = 0;
+    player.fy = gy;
+    player.vy = 0;
   }
-  if (Math.hypot(vx, vz) > MOVE_EPS) P.bob += dt * BOB_RATE;
+  if (Math.hypot(vx, vz) > MOVE_EPS) player.bob += dt * BOB_RATE;
 
-  const ti = Math.floor(P.x / T),
-    tj = Math.floor(P.z / T),
+  const ti = Math.floor(player.x / T),
+    tj = Math.floor(player.z / T),
     tkey = tj * W + ti;
-  if (tkey !== P.tile) {
-    P.tile = tkey;
+  if (tkey !== player.tile) {
+    player.tile = tkey;
     computeFlow(ti, tj);
     reveal(ti, tj);
   }
 
   // camera + viewmodel
-  SCR.shake = Math.max(0, SCR.shake - dt * SHAKE_DECAY);
-  const sh = SCR.shake * SCR.shake;
-  camera.position.set(P.x + rand(-sh, sh), P.fy + EYE + Math.sin(P.bob) * 0.05 + rand(-sh, sh), P.z + rand(-sh, sh));
-  camera.rotation.set(P.pitch, P.yaw, 0);
+  screenFx.shake = Math.max(0, screenFx.shake - dt * SHAKE_DECAY);
+  const sh = screenFx.shake * screenFx.shake;
+  camera.position.set(
+    player.x + rand(-sh, sh),
+    player.fy + EYE + Math.sin(player.bob) * 0.05 + rand(-sh, sh),
+    player.z + rand(-sh, sh),
+  );
+  camera.rotation.set(player.pitch, player.yaw, 0);
   GUNFX.gunKick = Math.max(0, GUNFX.gunKick - dt * GUN_KICK_DECAY);
   const vm = curVM!,
     vp = vm.userData.pos;
   let rl = 0;
-  if (P.reloadT > 0) {
-    const k = 1 - P.reloadT / P.reloadMax;
+  if (player.reloadT > 0) {
+    const k = 1 - player.reloadT / player.reloadMax;
     rl = Math.sin(Math.PI * k);
   }
   gun.position.set(
-    vp[0] + Math.cos(P.bob * 0.5) * 0.012,
-    vp[1] + Math.abs(Math.sin(P.bob * 0.5)) * 0.012 - GUNFX.gunKick * 0.3 - rl * 0.18,
+    vp[0] + Math.cos(player.bob * 0.5) * 0.012,
+    vp[1] + Math.abs(Math.sin(player.bob * 0.5)) * 0.012 - GUNFX.gunKick * 0.3 - rl * 0.18,
     vp[2] + GUNFX.gunKick,
   );
   gun.rotation.set(GUNFX.gunKick * 1.6 - rl * 0.7, 0, rl * 0.5);
@@ -187,20 +191,20 @@ export function updatePlayer(dt: number) {
   vm.userData.flash.visible = GUNFX.flashT > 0;
 
   // reload / shooting
-  if (P.reloadT > 0) {
-    P.reloadT -= dt;
-    if (P.reloadT <= 0) {
-      P.reloadT = 0;
-      curW().mag = magSize(curW());
+  if (player.reloadT > 0) {
+    player.reloadT -= dt;
+    if (player.reloadT <= 0) {
+      player.reloadT = 0;
+      currentWeapon().mag = magSize(currentWeapon());
       sfx('reloaded');
     }
   }
   setTarget(findTarget());
   // A gun faster than the frame rate fires several rounds in one frame, so fire-rate chips keep working past 60 (or 30)
   // shots a second. The carry-over is kept to one frame, so a pause (reloading, not holding fire) doesn't bank shots.
-  P.fireCd = Math.max(P.fireCd - dt, -dt);
+  player.fireCd = Math.max(player.fireCd - dt, -dt);
   if (fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) {
-    for (let k = 0; k < MAX_SHOTS_PER_FRAME && P.fireCd <= 0; k++) {
+    for (let k = 0; k < MAX_SHOTS_PER_FRAME && player.fireCd <= 0; k++) {
       const before = shotId;
       tryFire();
       if (shotId === before) break;
@@ -212,7 +216,7 @@ export function updatePortals(dt: number) {
   for (const pt of portals) {
     // arming (data/level.ts PORTAL): dim and still until it works, then bright and turning
     pt.t += dt;
-    const d = distXZ(P, pt);
+    const d = distXZ(player, pt);
     if (!pt.clear && d >= PORTAL.clearR) pt.clear = true;
     const armed = pt.t >= PORTAL.armTime && pt.clear;
     pt.ring.material.opacity = armed ? 1 : 0.35;
@@ -222,7 +226,7 @@ export function updatePortals(dt: number) {
       armed &&
       state === 'play' &&
       d < PORTAL.enterR &&
-      Math.abs(P.fy + PORTAL.centerY - pt.g.position.y) < PORTAL.reachY
+      Math.abs(player.fy + PORTAL.centerY - pt.g.position.y) < PORTAL.reachY
     ) {
       if (pt.kind === 'extract') {
         sfx('portal');
@@ -235,13 +239,13 @@ export function updatePortals(dt: number) {
 }
 export function updateScreenFx(dt: number) {
   updateHitDirs(dt);
-  SCR.hitTimer -= dt;
-  if (SCR.hitTimer <= 0) hitm.classList.remove('on');
-  SCR.vig = Math.max(0, SCR.vig - dt * VIGNETTE_DECAY);
+  screenFx.hitTimer -= dt;
+  if (screenFx.hitTimer <= 0) hitm.classList.remove('on');
+  screenFx.vig = Math.max(0, screenFx.vig - dt * VIGNETTE_DECAY);
   if (state === 'play') updateHud();
-  SCR.miniT -= dt;
-  if (SCR.miniT <= 0) {
-    SCR.miniT = MINIMAP_INTERVAL;
+  screenFx.miniT -= dt;
+  if (screenFx.miniT <= 0) {
+    screenFx.miniT = MINIMAP_INTERVAL;
     drawMap(mini, mctx, false);
     if (!bigmap.hidden) drawMap(bigmap, bctx, true);
   }
@@ -259,38 +263,38 @@ export function updatePickups(dt: number) {
 }
 export function updatePickup(p: Pickup, dt: number) {
   p.t += dt;
-  const dx = P.x - p.x,
-    dz = P.z - p.z,
+  const dx = player.x - p.x,
+    dz = player.z - p.z,
     d =
-      Math.abs(p.y - P.fy - (p.kind === 'bit' ? 0.5 : 1)) < PICKUP_REACH_Y || p.kind === 'bit'
+      Math.abs(p.y - player.fy - (p.kind === 'bit' ? 0.5 : 1)) < PICKUP_REACH_Y || p.kind === 'bit'
         ? Math.hypot(dx, dz)
         : 99;
   if (p.kind === 'bit') {
-    if (d < BIT_MAGNET_R * P.magnet) {
+    if (d < BIT_MAGNET_R * player.magnet) {
       const s = Math.min(d, BIT_PULL_SPEED * dt);
       p.x += (dx / (d || 1)) * s;
       p.z += (dz / (d || 1)) * s;
-      p.y += (P.fy + 0.5 - p.y) * Math.min(1, dt * 8);
+      p.y += (player.fy + 0.5 - p.y) * Math.min(1, dt * 8);
     }
     if (d < BIT_PICK_R) {
       p.dead = true;
-      run.bits += p.value! * P.gainMul * (1 + BIT_GAIN_PER_LEVEL * wo('gain'));
+      run.bits += p.value! * player.gainMul * (1 + BIT_GAIN_PER_LEVEL * weaponOptCount('gain'));
       sfx('pick', 30);
     }
   } else if (p.kind === 'kit') {
     if (d < KIT_PICK_R) {
-      if (P.kits < KIT_MAX) {
+      if (player.kits < KIT_MAX) {
         p.dead = true;
-        P.kits++;
+        player.kits++;
         sfx('pick');
-        toast(t('run.kitPlus', { n: P.kits, max: KIT_MAX }), 1200);
+        toast(t('run.kitPlus', { n: player.kits, max: KIT_MAX }), 1200);
         weaponHud();
       }
       // kits full: used on the spot for a whole kit's heal (the same as using one and picking this up again)
-      else if (P.hp < P.maxHp) {
+      else if (player.hp < player.maxHp) {
         const heal = kitHealAmount();
         p.dead = true;
-        P.hp = Math.min(P.maxHp, P.hp + heal);
+        player.hp = Math.min(player.maxHp, player.hp + heal);
         sfx('heal');
         toast(t('run.kitUsedNow', { n: heal }), 1500);
       }
@@ -303,7 +307,7 @@ export function updatePickup(p: Pickup, dt: number) {
       return;
     }
   } else if (p.kind === 'weapon') {
-    if (d < nearD) setNear(p, d);
+    if (d < nearPickupDist) setNear(p, d);
   }
   if (p.dead) return;
   p.mesh.position.set(p.x, p.y + Math.sin(p.t * 3) * 0.12, p.z);
@@ -315,7 +319,7 @@ export function updateWave(w: Wave, dt: number) {
   w.mesh.scale.set(w.r, 1, w.r);
   w.mesh.material.opacity = 0.75 * (1 - w.r / w.max);
   if (!w.hit) {
-    const d = distXZ(P, w);
+    const d = distXZ(player, w);
     if (Math.abs(d - w.r) < WAVE_HIT_WIDTH) {
       w.hit = true;
       damagePlayer(w.dmg, w);

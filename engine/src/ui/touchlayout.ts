@@ -37,7 +37,8 @@ export const TOUCH_LAYOUT: TouchLayoutConfig = {
   onOpen: () => {},
   onClose: () => {},
 };
-export const getL = (id: string): ButtonDef => Object.assign({}, TOUCH_LAYOUT.defs[id], TOUCH_LAYOUT.edits()[id] || {});
+export const buttonLayout = (id: string): ButtonDef =>
+  Object.assign({}, TOUCH_LAYOUT.defs[id], TOUCH_LAYOUT.edits()[id] || {});
 // the button layout editor: open, selected button, where it was opened from, the pointer dragging a button
 export const layoutEditor: {
   open: boolean;
@@ -50,7 +51,7 @@ export function applyLayout() {
     vh = window.innerHeight;
   Object.keys(TOUCH_LAYOUT.defs).forEach(id => {
     const el = document.querySelector<HTMLElement>(`[data-lb="${id}"]`),
-      l = getL(id),
+      l = buttonLayout(id),
       size = Math.round(l.b * l.s);
     if (!el) return;
     el.style.width = el.style.height = size + 'px';
@@ -115,7 +116,7 @@ touchEl.addEventListener(
 window.addEventListener('pointermove', e => {
   if (!layoutEditor.open || !layoutEditor.drag || e.pointerId !== layoutEditor.drag.id) return;
   const L = TOUCH_LAYOUT.edits(),
-    cur = getL(layoutEditor.sel);
+    cur = buttonLayout(layoutEditor.sel);
   L[layoutEditor.sel] = {
     x: clamp((e.clientX - layoutEditor.drag.dx) / window.innerWidth, 0, 1),
     y: clamp((e.clientY - layoutEditor.drag.dy) / window.innerHeight, 0, 1),
@@ -134,7 +135,7 @@ el('#layoutBar').addEventListener('click', e => {
   if (!b) return;
   const a = b.dataset.lbact,
     L = TOUCH_LAYOUT.edits(),
-    cur = getL(layoutEditor.sel);
+    cur = buttonLayout(layoutEditor.sel);
   if (a === 'minus' || a === 'plus')
     L[layoutEditor.sel] = {
       x: cur.x,

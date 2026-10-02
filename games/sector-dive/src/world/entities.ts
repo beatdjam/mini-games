@@ -22,10 +22,10 @@ import { blocked, floorY, tileIndex, walkable } from '@engine/world/tiles.ts';
 import { aimFan, ringAngles, takeFromPool } from '@engine/world/projectiles.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
-import { presMul } from '../core/rules.ts';
+import { rebootMul } from '../core/rules.ts';
 import { edges, geoCache } from './render.ts';
-import { haz, portals } from './level.ts';
-import { P, dmgScaleOf, run } from '../actors/player.ts';
+import { hazardTiles, portals } from './level.ts';
+import { player, damageScaleAt, run } from '../actors/player.ts';
 import { makeLaser } from '../actors/bosses/common.ts';
 import { updateEnemy } from '../actors/enemies.ts';
 import { updatePickup, updateWave } from '../flow/update.ts';
@@ -37,8 +37,8 @@ export const ENEMY_GROUP = worldGroup('enemy', 10);
 // the living enemies: the group's list
 export const enemies = ENEMY_GROUP.list as Enemy[];
 export let boss: Boss | null = null; // the boss of this stage (set by setBoss)
-export let nearW: Pickup | null = null; // the pickup in reach for the interact key (set by setNear)
-export let nearD = 1.9; // its distance (m)
+export let nearPickup: Pickup | null = null; // the pickup in reach for the interact key (set by setNear)
+export let nearPickupDist = 1.9; // its distance (m)
 export let target: AimTarget | null = null; // aim assist / autofire lock (set by setTarget)
 // what the aim assist / autofire locks onto: an enemy and the point on it (a body of a multi-body boss)
 export interface AimTarget {
@@ -53,8 +53,8 @@ export function setTarget(e: AimTarget | null) {
 }
 // the weapon pickup nearest to the player (and its distance, if given)
 export function setNear(w: Pickup | null, d?: number) {
-  nearW = w;
-  if (d !== undefined) nearD = d;
+  nearPickup = w;
+  if (d !== undefined) nearPickupDist = d;
 }
 export const pBullets: PBullet[] = [],
   eBullets: EBullet[] = [];
@@ -181,7 +181,7 @@ export function fanAt(
   color: number,
 ) {
   // aimed at the player's chest, with a little random spread per bullet
-  aimFan(x, y, z, P.x, P.fy + 1.2, P.z, n, spread, 0.03).forEach(([dx, dy, dz]) =>
+  aimFan(x, y, z, player.x, player.fy + 1.2, player.z, n, spread, 0.03).forEach(([dx, dy, dz]) =>
     spawnEBullet(x, y, z, dx * speed, dy * speed, dz * speed, dmg, color),
   );
   sfx('eshot', 60);
@@ -276,7 +276,7 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     hitR: def.hitR, // collision radius, hit sphere radius
     hp: def.hp * diff,
     maxHp: def.hp * diff,
-    dmg: def.dmg * ENEMY_TUNE.dmgMul * (run ? dmgScaleOf(run.stage) : presMul()),
+    dmg: def.dmg * ENEMY_TUNE.dmgMul * (run ? damageScaleAt(run.stage) : rebootMul()),
     room, // room index (-1 = not tied to a room, e.g. boss minions)
     active: false, // wakes up when the player comes near (see wakeCheck)
     cd: rand(0.8, 1.8), // ranged / sniper cooldown
@@ -353,7 +353,7 @@ export function clearOfPortals(x: number, z: number): [number, number] {
       const nx = pt.x + Math.cos(a) * R,
         nz = pt.z + Math.sin(a) * R;
       const tile = tileIndex(nx, nz);
-      if (!blocked(nx, nz, 0.4) && walkable(tile) && !haz[tile]) return clearOfPortals(nx, nz);
+      if (!blocked(nx, nz, 0.4) && walkable(tile) && !hazardTiles[tile]) return clearOfPortals(nx, nz);
     }
   }
   return [x, z];

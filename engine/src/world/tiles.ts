@@ -6,7 +6,7 @@ import { clamp } from '../core/util.ts';
 export const T = 4,
   STEP = 0.7,
   RISE = 2;
-export const OPP = [1, 0, 3, 2];
+export const OPPOSITE_SIDE = [1, 0, 3, 2];
 // the tile world: empty until the game hands over a level (W = H = 0 makes every tile read as solid);
 // replaced only through setTileWorld
 export let W = 0; // width (tiles)
@@ -129,12 +129,12 @@ export function edgeH(k: number, side: number): number {
     d = ramp[k];
   if (d < 0) return h;
   if (side === d) return h + RISE;
-  if (side === OPP[d]) return h;
+  if (side === OPPOSITE_SIDE[d]) return h;
   return h + RISE / 2;
 }
 // can something walk from tile a into its neighbour b across a's `side`
 export function passable(a: number, b: number, side: number): boolean {
-  return grid[b] === 1 && edgeH(b, OPP[side]) - edgeH(a, side) <= STEP;
+  return grid[b] === 1 && edgeH(b, OPPOSITE_SIDE[side]) - edgeH(a, side) <= STEP;
 }
 export function computeFlow(pi: number, pj: number) {
   flow.fill(-1);
@@ -153,7 +153,7 @@ export function computeFlow(pi: number, pj: number) {
     for (let sd = 0; sd < 4; sd++) {
       const n = nb[sd];
       if (n < 0 || grid[n] !== 1 || flow[n] >= 0) continue;
-      if (!passable(n, c, OPP[sd])) continue; // enemies walk n -> c
+      if (!passable(n, c, OPPOSITE_SIDE[sd])) continue; // enemies walk n -> c
       flow[n] = d;
       flowQ[t++] = n;
     }

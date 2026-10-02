@@ -53,7 +53,7 @@ export function setFireHeld(v: boolean) {
 export function lookDelta(dx: number, dy: number, k: number) {
   INPUT.look(dx * k, dy * k);
 }
-export const tk = () => 0.0055 * INPUT.sens();
+export const lookSpeed = () => 0.0055 * INPUT.sens();
 
 touchEl.addEventListener('pointerdown', e => {
   if (e.target !== touchEl) return;
@@ -91,7 +91,7 @@ touchEl.addEventListener('pointermove', e => {
     joy.y = dy / R;
     el('#joyKnob').style.transform = `translate(${dx}px,${dy}px)`;
   } else if (e.pointerId === look.id) {
-    lookDelta(e.clientX - look.x, e.clientY - look.y, tk());
+    lookDelta(e.clientX - look.x, e.clientY - look.y, lookSpeed());
     look.x = e.clientX;
     look.y = e.clientY;
   }
@@ -131,7 +131,7 @@ btnFire.addEventListener('pointerdown', e => {
 });
 btnFire.addEventListener('pointermove', e => {
   if (e.pointerId !== fireTouch.id) return;
-  lookDelta(e.clientX - fireTouch.x, e.clientY - fireTouch.y, tk());
+  lookDelta(e.clientX - fireTouch.x, e.clientY - fireTouch.y, lookSpeed());
   fireTouch.x = e.clientX;
   fireTouch.y = e.clientY;
 });

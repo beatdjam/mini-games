@@ -5,7 +5,7 @@ import { flowAt, hasLOS } from '@engine/world/tiles.ts';
 import { steerChase } from '@engine/world/steer.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, spawnEBullet } from '../world/entities.ts';
-import { P, damagePlayer, detonate } from './player.ts';
+import { player, damagePlayer, detonate } from './player.ts';
 import { bossPauseTick, setLaser } from './bosses/common.ts';
 import { COLOR } from '../data/colors.ts';
 // ================= enemy behaviour (per frame) =================
@@ -29,7 +29,7 @@ const SNIPER_COOLDOWN: [number, number] = [2.6, 3.4]; // seconds between shots (
 const SNIPER_BULLET_SPEED = 60; // m/s
 // one enemy for one frame (engine world group 'enemy', order 10)
 export function updateEnemy(e: Enemy, dt: number) {
-  const py = P.fy + CHEST_Y; // player chest height, used for line of sight
+  const py = player.fy + CHEST_Y; // player chest height, used for line of sight
   if (e.flash > 0) e.flash -= dt;
   e.mat.emissiveIntensity = e.flash > 0 ? 1.8 : e.baseEI;
   if (e.boss) {
@@ -39,8 +39,8 @@ export function updateEnemy(e: Enemy, dt: number) {
   }
 
   const def = e.def;
-  const dx = P.x - e.x,
-    dz = P.z - e.z;
+  const dx = player.x - e.x,
+    dz = player.z - e.z;
   const dist = Math.hypot(dx, dz) || 0.001;
   const eyeY = e.fy + def.y;
   e.t += dt;
@@ -48,7 +48,7 @@ export function updateEnemy(e: Enemy, dt: number) {
   if (!e.active && !wakeCheck(e, eyeY, py, dt)) return;
   e.cd -= dt;
   e.mcd -= dt;
-  const los = dist < SIGHT_RANGE && hasLOS(e.x, e.z, P.x, P.z, eyeY, py);
+  const los = dist < SIGHT_RANGE && hasLOS(e.x, e.z, player.x, player.z, eyeY, py);
 
   let still = false; // true = this enemy doesn't walk this frame
   if (e.stun > 0) {
@@ -64,7 +64,7 @@ export function updateEnemy(e: Enemy, dt: number) {
   if (isSniper(e) && updateSniper(e, dt, los, py)) still = true;
   if (def.speed > 0 && !still) steerEnemy(e, dt, dx, dz, dist, los);
 
-  if (def.melee && dist < e.r + P.r + MELEE_REACH && Math.abs(P.fy - e.fy!) < MELEE_REACH_Y && e.mcd <= 0) {
+  if (def.melee && dist < e.r + player.r + MELEE_REACH && Math.abs(player.fy - e.fy!) < MELEE_REACH_Y && e.mcd <= 0) {
     e.mcd = MELEE_INTERVAL;
     damagePlayer(e.dmg, e);
   }
@@ -101,7 +101,7 @@ function fireRanged(e: RegularEnemy) {
 // Idle until the player is within ENEMY_TUNE.wakeTiles of walking distance and in sight. Returns true once awake.
 export function wakeCheck(e: RegularEnemy, eyeY: number, py: number, dt: number) {
   const fd = flowAt(e.x, e.z);
-  if (fd >= 0 && fd <= ENEMY_TUNE.wakeTiles && hasLOS(e.x, e.z, P.x, P.z, eyeY, py)) {
+  if (fd >= 0 && fd <= ENEMY_TUNE.wakeTiles && hasLOS(e.x, e.z, player.x, player.z, eyeY, py)) {
     e.active = true;
     return true;
   }
@@ -128,7 +128,7 @@ export function updateBomber(e: RegularEnemy, dt: number, dist: number) {
     }
     return true;
   }
-  if (dist < BOMBER_FUSE_DIST && Math.abs(P.fy - e.fy!) < BOMBER_FUSE_DY) {
+  if (dist < BOMBER_FUSE_DIST && Math.abs(player.fy - e.fy!) < BOMBER_FUSE_DY) {
     e.fuse = BOMBER_FUSE;
     sfx('empty');
     return true;
@@ -142,7 +142,7 @@ export function updateSniper(e: Sniper, dt: number, los: boolean, py: number) {
   if (e.aim > 0) {
     e.aim -= dt;
     const sy = e.mesh.position.y + 0.7;
-    if (e.aim > SNIPER_LOCK_TIME) e.lock = [P.x, py - 0.1, P.z];
+    if (e.aim > SNIPER_LOCK_TIME) e.lock = [player.x, py - 0.1, player.z];
     const opacity = e.aim > SNIPER_LOCK_TIME ? 0.45 : Math.sin(e.t * 60) > 0 ? 1 : 0.3;
     setLaser(e.laser, [e.x, sy, e.z], e.lock, opacity);
     if (e.aim <= 0) {
@@ -160,7 +160,7 @@ export function updateSniper(e: Sniper, dt: number, los: boolean, py: number) {
   }
   if (los && e.cd <= 0) {
     e.aim = SNIPER_AIM_TIME;
-    e.lock = [P.x, py, P.z];
+    e.lock = [player.x, py, player.z];
     return true;
   }
   e.laser.visible = false;
@@ -209,8 +209,8 @@ export function poseHumanoid(e: Trooper, dt: number, aiming: boolean) {
   rig.legR.rotation.x = -swing;
   rig.armL.rotation.x = -swing * 0.8;
   e.kick = Math.max(0, e.kick - dt * 9);
-  const dy = P.fy + CHEST_Y - (e.mesh.position.y + 0.6),
-    dh = distXZ(P, e) || 1;
+  const dy = player.fy + CHEST_Y - (e.mesh.position.y + 0.6),
+    dh = distXZ(player, e) || 1;
   const want = aiming ? -Math.PI / 2 - Math.atan2(dy, dh) * 0.8 + e.kick * 0.35 : swing * 0.8;
   rig.armR.rotation.x += (want - rig.armR.rotation.x) * Math.min(1, dt * 12);
   rig.upper.rotation.x = -e.kick * 0.08;

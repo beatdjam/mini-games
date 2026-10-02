@@ -12,7 +12,7 @@ import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { hpGrowth } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
-import { presMul, prog } from '../../core/rules.ts';
+import { rebootMul, progressOf } from '../../core/rules.ts';
 import { curBiome, makePortal } from '../../world/level.ts';
 import {
   addPickup,
@@ -23,25 +23,28 @@ import {
   setBoss,
   spawnEnemyObj,
 } from '../../world/entities.ts';
-import { dmgScaleOf, rollWeapon, run, stageInfo, tierLabel } from '../player.ts';
+import { damageScaleAt, rollWeapon, run, stageInfo, tierLabel } from '../player.ts';
 import { spawnWatcher } from './watcher.ts';
 import { spawnCrusher } from './crusher.ts';
 import { spawnCore } from './core.ts';
 import { spawnPhantom } from './phantom.ts';
 import { spawnTrinity } from './trinity.ts';
 import { spawnBastion } from './bastion.ts';
-import { SCR } from '../../ui/hud.ts';
+import { screenFx } from '../../ui/hud.ts';
 import { track } from '@engine/core/analytics.ts';
 import { COLOR } from '../../data/colors.ts';
 // ================= bosses =================
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
 // sliding down to x lateGrowth per depth deeper in (hpGrowth in src/data/progress.ts)
-export function bossDiff() {
+export function bossDifficulty() {
   return (
-    1.33 * BOSS_TUNE.hpMul * hpGrowth((prog(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) * presMul()
+    1.33 *
+    BOSS_TUNE.hpMul *
+    hpGrowth((progressOf(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) *
+    rebootMul()
   );
 }
-// hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDiff
+// hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDifficulty
 // behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared
 // state: the fields only this boss has (its type S is in src/actors/bosses/<name>.ts); they're put on the boss as it's made
 export function bossBase<S extends object>(
@@ -53,7 +56,7 @@ export function bossBase<S extends object>(
 ): Boss & S {
   const meta = BOSS_META[kind]!,
     name = meta.title ?? kind,
-    hp = meta.hp * bossDiff(),
+    hp = meta.hp * bossDifficulty(),
     y = meta.y,
     hitR = meta.hitR;
   dynGroup.add(mesh);
@@ -81,7 +84,7 @@ export function bossBase<S extends object>(
     pt: 0,
     shots: 0,
     acc: 0,
-    dmg: 10 * dmgScaleOf(run.stage),
+    dmg: 10 * damageScaleAt(run.stage),
     cx,
     cz,
     behave,
@@ -124,7 +127,7 @@ export function bossPhase(e: Boss) {
   const p = e.mesh.position;
   burst(p.x, p.y, p.z, COLOR.mag, 40, 12, 1.0);
   fireball(p.x, p.y, p.z, 4, COLOR.mag);
-  SCR.shake = Math.max(SCR.shake, 0.4);
+  screenFx.shake = Math.max(screenFx.shake, 0.4);
   sfx('bigboom');
   eBullets.forEach(b => {
     b.alive = false;
@@ -153,7 +156,7 @@ export function spawnBoss(kind: string) {
 }
 export function bossDown(e: Boss) {
   setMusic(curBiome.code);
-  SCR.shake = 0.6;
+  screenFx.shake = 0.6;
   sfx('bigboom');
   if (e.beams)
     e.beams.forEach((b: THREE.Object3D) => {
@@ -184,11 +187,11 @@ export function bossDown(e: Boss) {
   }
   (run.bosses = run.bosses || []).push(e.kind);
   track('boss_defeated', { target: e.kind, level: stageInfo(run.stage).tier + 1 });
-  dropBits(e.x, e.z, 45 * bossDiff());
+  dropBits(e.x, e.z, 45 * bossDifficulty());
   addPickup('chip', e.cx, e.cz + 4);
   addPickup('kit', e.cx + 2, e.cz + 5);
-  const roll = Math.random() + prog(run.stage) * 0.03;
-  addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(prog(run.stage) + 2, roll > 0.9 ? 2 : 1) });
+  const roll = Math.random() + progressOf(run.stage) * 0.03;
+  addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(progressOf(run.stage) + 2, roll > 0.9 ? 2 : 1) });
   makePortal(e.cx + 6, e.cz - 2, COLOR.amber, 'next', t('boss.forward'));
   makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
   el('#bossBar').hidden = true;

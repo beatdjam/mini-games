@@ -1,4 +1,4 @@
-import type { Upgrade, PresUpgrade } from './types.ts';
+import type { Upgrade, RebootUpgrade } from './types.ts';
 import { withLang } from './langslots.ts';
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
@@ -59,7 +59,7 @@ export const UPGRADES = withLang<Upgrade, 'name' | 'desc'>(
   ],
   { name: '', desc: () => '' },
 );
-export const PRES_UP = withLang<PresUpgrade, 'name' | 'desc'>(
+export const REBOOT_UP = withLang<RebootUpgrade, 'name' | 'desc'>(
   [
     { id: 'gain', max: 5, cost: 1 },
     { id: 'hp', max: 5, cost: 1 },
@@ -74,7 +74,7 @@ export const PRES_UP = withLang<PresUpgrade, 'name' | 'desc'>(
   { name: '', desc: () => '' },
 );
 // per level of the uncapped reboot bonuses: damage +5% (added to the base "output" upgrade), max HP +5% (multiplied)
-export const PRES_ENDLESS = { dmg: 0.05, vit: 0.05 };
+export const REBOOT_ENDLESS = { dmg: 0.05, vit: 0.05 };
 export const STASH_MAX = 12,
   BAG_MAX = 4,
   KIT_MAX = 3;

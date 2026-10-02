@@ -8,9 +8,9 @@ import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, save } from '../core/save.ts';
-import { haz, setHazardClock } from '../world/level.ts';
+import { hazardTiles, setHazardClock } from '../world/level.ts';
 import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
-import { P, damagePlayer, magSize, newWeapon, run } from '../actors/player.ts';
+import { player, damagePlayer, magSize, newWeapon, run } from '../actors/player.ts';
 import { normalizeWeapons } from '../ui/input.ts';
 import { changeLang, updateHitDirs, weaponHud } from '../ui/hud.ts';
 import { endRun, startPractice, startRun, startStage } from '../flow/run.ts';
@@ -43,14 +43,14 @@ if (location.hash === '#view-trooper')
     startRun();
     show(null);
     setState('play');
-    P.hp = P.maxHp = 1e6;
+    player.hp = player.maxHp = 1e6;
     enemies.forEach(e => {
       e.dead = true;
       removeEnemyMesh(e);
     });
     const f = (d: number, side: number): [number, number] => [
-      P.x - Math.sin(P.yaw) * d + Math.cos(P.yaw) * side,
-      P.z - Math.cos(P.yaw) * d - Math.sin(P.yaw) * side,
+      player.x - Math.sin(player.yaw) * d + Math.cos(player.yaw) * side,
+      player.z - Math.cos(player.yaw) * d - Math.sin(player.yaw) * side,
     ];
     [
       [5, -1.6],
@@ -78,7 +78,7 @@ if (location.hash.startsWith('#view-pick'))
     startRun();
     show(null);
     setState('play');
-    addPickup('weapon', P.x + 0.3, P.z, { w: newWeapon('shotgun', 1, false, 2, ['rate']) });
+    addPickup('weapon', player.x + 0.3, player.z, { w: newWeapon('shotgun', 1, false, 2, ['rate']) });
     for (let k = 0; k < 10; k++) update(1 / 60);
   }, 300);
 // dev view: #view-haz[-<weapon>] stands on a lit hazard tile (checks the gun is drawn over it); #view-perk opens the chip screen
@@ -90,20 +90,20 @@ if (location.hash.startsWith('#view-haz'))
     startStage();
     show(null);
     setState('play');
-    const k = haz.findIndex(Boolean);
+    const k = hazardTiles.findIndex(Boolean);
     if (k < 0) return;
-    P.x = ((k % W) + 0.5) * T;
-    P.z = (((k / W) | 0) + 0.5) * T - 1.5;
-    P.yaw = Math.PI;
-    P.pitch = -0.5;
-    P.hp = 1e6;
-    P.maxHp = 1e6;
+    player.x = ((k % W) + 0.5) * T;
+    player.z = (((k / W) | 0) + 0.5) * T - 1.5;
+    player.yaw = Math.PI;
+    player.pitch = -0.5;
+    player.hp = 1e6;
+    player.maxHp = 1e6;
     const wid = location.hash.split('-')[2];
     if (WEAPONS[wid]) {
       const w0 = basicW(wid) as Weapon;
       w0.mag = magSize(w0);
-      P.weapons[0] = w0;
-      P.cur = 0;
+      player.weapons[0] = w0;
+      player.cur = 0;
       normalizeWeapons();
       weaponHud();
     } // #view-haz-smg etc.
@@ -144,7 +144,7 @@ if (location.hash.startsWith('#view-share'))
         }).flatMap(([id, n]) => Array(n).fill(id)),
       );
     if (location.hash.includes('reboot')) save.pres.count = 3;
-    P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
+    player.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
     const kind: RunEnd = location.hash.includes('dead') ? 'dead' : 'extract';
     endRun(kind);
     if (location.hash.includes('res')) {
@@ -162,7 +162,7 @@ if (location.hash.startsWith('#view-share'))
 if (location.hash.startsWith('#view-perk'))
   setTimeout(() => {
     startRun();
-    PERKS[0].apply(P, 0.2);
+    PERKS[0].apply(player, 0.2);
     if (location.hash.includes('perk4')) save.pres.up.choice = 1;
     openPerk(t('perk.title'));
   }, 300); // #view-perk4: four options
@@ -185,11 +185,11 @@ if (location.hash === '#view-hitdir')
     startRun();
     show(null);
     setState('play');
-    P.yaw = 0;
-    P.hp = P.maxHp = 1e6;
-    P.inv = 0;
-    damagePlayer(1, { x: P.x + 6, z: P.z + 6 });
-    P.inv = 0;
-    damagePlayer(1, { x: P.x - 8, z: P.z });
+    player.yaw = 0;
+    player.hp = player.maxHp = 1e6;
+    player.inv = 0;
+    damagePlayer(1, { x: player.x + 6, z: player.z + 6 });
+    player.inv = 0;
+    damagePlayer(1, { x: player.x - 8, z: player.z });
     updateHitDirs(0.05);
   }, 300);

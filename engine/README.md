@@ -24,11 +24,11 @@
 | `src/world/tiles.ts` | タイルの世界（`T`=4, `STEP`, `RISE`, `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`）と、`floorY`, `tileIndex`, `moveCircle`, `hasLOS`, `passable`, `computeFlow`, `flowDir` など | 地形を生成して `setTileWorld({ W, H, grid, hgt, ramp, cover, flow, flowQ })` で渡す |
 | `src/world/projectiles.ts` | 弾の汎用部分: プール（`takeFromPool`, `clearPool`）、細かく刻んだ移動（`stepProjectile`。刻むたびにゲームの判定を呼ぶ）、地形との当たり（`projHitsTerrain`）、追尾（`steerToward`）、弾幕の方向（`ringAngles`, `aimFan`） | 弾の項目と、当たったときの処理（判定関数として渡す） |
 | `src/world/steer.ts` | `steerChase`: 見えていれば近づく（近すぎたら回り込む）、見えなければ経路をたどる、仲間と押し合う | 速さ・保つ距離・押し合う相手のリスト |
-| `src/audio/audio.ts` | 効果音の合成（`tone`, `nz`, `ot`, `gunshot`）、`sfx(name)`、`audioInit`, `sfxVolume` | `Object.assign(SFX, { 名前: () => {...} })` で効果音のレシピを入れる。音量は `setVolumes(sfx, bgm)`（0〜1） |
+| `src/audio/audio.ts` | 効果音の合成（`tone`, `noiseBurst`, `sweepTone`, `gunshot`）、`sfx(name)`、`audioInit`, `sfxVolume` | `Object.assign(SFX, { 名前: () => {...} })` で効果音のレシピを入れる。音量は `setVolumes(sfx, bgm)`（0〜1） |
 | `src/audio/music.ts` | BGM の再生（`setMusic(name, boss)`, `setMusicMix(kind)`, `musicVolume(duck)`, `musicTick`）、`SCALES` | `MUSIC_STYLES`（曲調）と `LAYER_MIX`（層の混ぜ方）に `Object.assign` で中身を入れる |
-| `src/ui/ui.ts` | `toast(msg, ms)`, `banner(code, sub)`, 全画面（`enterFs`, `exitFs`, `toggleFs`, `isFs`） | `#toast`, `#banner`（`#bannerCode`, `#bannerSub`） |
+| `src/ui/ui.ts` | `toast(msg, ms)`, `banner(code, sub)`, 全画面（`enterFs`, `exitFs`, `toggleFs`, `isFullscreen`） | `#toast`, `#banner`（`#bannerCode`, `#bannerSub`） |
 | `src/ui/input.ts` | キー（`keys`）、マウスとポインタロック（`requestLock`, `exitLock`, `locked`, `mouseFire`）、タッチの移動スティック（`joy`）と視点ドラッグ、押しっぱなしの射撃ボタン（`fireHeld`, `fire2Held`）、`tapBtn(el, fn)`, `releaseInputs` | `INPUT` に `active`, `look`, `sens`, `key`, `pause`, `lockChanged` を入れる。`#touch`, `#joyBase`, `#joyKnob`, `#btnFire`, `#btnFire2`, `<canvas id="gl">` |
-| `src/ui/touchlayout.ts` | タッチボタンの配置（`applyLayout`, `getL`）と配置の編集（`openLayoutEditor`, `closeLayoutEditor`） | `TOUCH_LAYOUT` に `defs`, `first`, `edits`, `reset`, `save`, `afterApply`, `onOpen`, `onClose` を入れる。`data-lb` の付いたボタン、`#layoutBar`, `#lbName` |
+| `src/ui/touchlayout.ts` | タッチボタンの配置（`applyLayout`, `buttonLayout`）と配置の編集（`openLayoutEditor`, `closeLayoutEditor`） | `TOUCH_LAYOUT` に `defs`, `first`, `edits`, `reset`, `save`, `afterApply`, `onOpen`, `onClose` を入れる。`data-lb` の付いたボタン、`#layoutBar`, `#lbName` |
 
 - engine のファイルは、ゲーム固有の名前を読み込み時に使わない（実行時に使うものは上の表の右列だけ）
 - engine を変えたら、使っている全ゲームで確認する。今のところ使っているのは Sector Dive だけ

@@ -5,21 +5,21 @@ import { toast } from '@engine/ui/ui.ts';
 import { INPUT, locked, tapBtn } from '@engine/ui/input.ts';
 import { BAG_MAX } from '../data/progress.ts';
 import { save } from '../core/save.ts';
-import { addPickup, nearW, setNear } from '../world/entities.ts';
-import { GUNFX, P, curW, kitHealAmount, setVM, startReload, wText } from '../actors/player.ts';
+import { addPickup, nearPickup, setNear } from '../world/entities.ts';
+import { GUNFX, player, currentWeapon, kitHealAmount, setVM, startReload, weaponText } from '../actors/player.ts';
 import { toggleMap, updateHint, weaponHud } from './hud.ts';
 import { state } from '../flow/state.ts';
 import { closeBag, openBag } from '../screens/bag.ts';
 import { pause } from '../screens/pause.ts';
 // Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/src/ui/input.ts)
 // dash request and the full-stick dash timer
-export const CTRL = { dashReq: false, stickT: 0, stickArmed: true };
+export const controlState = { dashReq: false, stickT: 0, stickArmed: true };
 Object.assign(INPUT, {
   active: () => state === 'play',
   look: (dx: number, dy: number) => {
-    if (!P) return;
-    P.yaw -= dx;
-    P.pitch = clamp(P.pitch - dy, -1.25, 1.25);
+    if (!player) return;
+    player.yaw -= dx;
+    player.pitch = clamp(player.pitch - dy, -1.25, 1.25);
   },
   sens: () => save.settings.sens,
   pause: () => pause(),
@@ -32,7 +32,7 @@ Object.assign(INPUT, {
     }
     if (state !== 'play') return;
     if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-      CTRL.dashReq = true;
+      controlState.dashReq = true;
       e.preventDefault();
     }
     if (e.code === 'KeyQ') swapWeapon();
@@ -48,7 +48,7 @@ Object.assign(INPUT, {
   },
 });
 tapBtn(el('#btnDash'), () => {
-  CTRL.dashReq = true;
+  controlState.dashReq = true;
 });
 tapBtn(el('#btnReload'), () => {
   if (state === 'play') startReload();
@@ -74,47 +74,47 @@ window.addEventListener(
 );
 
 export function selectSlot(k: number) {
-  if (state !== 'play' || k === P.cur || !P.weapons[k]) return;
-  P.cur = k;
-  P.reloadT = 0;
-  P.fireCd = Math.max(P.fireCd, 0.2);
+  if (state !== 'play' || k === player.cur || !player.weapons[k]) return;
+  player.cur = k;
+  player.reloadT = 0;
+  player.fireCd = Math.max(player.fireCd, 0.2);
   GUNFX.gunKick = 0.15;
-  setVM(curW().id);
+  setVM(currentWeapon().id);
   weaponHud();
 }
 export function swapWeapon() {
-  selectSlot(P ? P.cur ^ 1 : 0);
+  selectSlot(player ? player.cur ^ 1 : 0);
 }
 export function useKit() {
-  if (!P || (state !== 'play' && state !== 'bag')) return;
-  if (P.kits <= 0) {
+  if (!player || (state !== 'play' && state !== 'bag')) return;
+  if (player.kits <= 0) {
     toast(t('run.noKit'), 1200);
     return;
   }
-  if (P.hp >= P.maxHp) {
+  if (player.hp >= player.maxHp) {
     toast(t('run.hpFull'), 1200);
     return;
   }
   const heal = kitHealAmount();
-  P.kits--;
-  P.hp = Math.min(P.maxHp, P.hp + heal);
+  player.kits--;
+  player.hp = Math.min(player.maxHp, player.hp + heal);
   sfx('heal');
   toast(`HP +${heal}`, 1000);
   weaponHud();
 }
 export function normalizeWeapons() {
-  if (!P.weapons[0] && P.weapons[1]) {
-    P.weapons[0] = P.weapons[1];
-    P.weapons[1] = null;
+  if (!player.weapons[0] && player.weapons[1]) {
+    player.weapons[0] = player.weapons[1];
+    player.weapons[1] = null;
   }
-  if (!P.weapons[P.cur]) P.cur = 0;
-  P.reloadT = 0;
-  setVM(curW().id);
+  if (!player.weapons[player.cur]) player.cur = 0;
+  player.reloadT = 0;
+  setVM(currentWeapon().id);
 }
 // Picking up a weapon: the player chooses between holding it now and putting it in the bag.
 export function takeNearby() {
-  if (state !== 'play' || !nearW) return null;
-  const p = nearW;
+  if (state !== 'play' || !nearPickup) return null;
+  const p = nearPickup;
   p.dead = true;
   p.mesh.visible = false; // the engine world disposes it
   setNear(null);
@@ -126,28 +126,28 @@ export function takeNearby() {
 export function equipNearby() {
   const nw = takeNearby();
   if (!nw) return;
-  if (!P.weapons[1]) {
-    P.weapons[1] = nw;
-    P.cur = 1;
+  if (!player.weapons[1]) {
+    player.weapons[1] = nw;
+    player.cur = 1;
     normalizeWeapons();
-    toast(t('run.equipped', { w: wText(nw) }), 1400);
+    toast(t('run.equipped', { w: weaponText(nw) }), 1400);
   } else {
-    const old = curW();
-    P.weapons[P.cur] = nw;
+    const old = currentWeapon();
+    player.weapons[player.cur] = nw;
     normalizeWeapons();
-    addPickup('weapon', P.x + rand(-0.5, 0.5), P.z + rand(-0.5, 0.5), { w: old });
-    toast(t('run.swapped', { w: wText(old) }), 1400);
+    addPickup('weapon', player.x + rand(-0.5, 0.5), player.z + rand(-0.5, 0.5), { w: old });
+    toast(t('run.swapped', { w: weaponText(old) }), 1400);
   }
   weaponHud();
 }
 export function stowNearby() {
-  if (!nearW || !P.bag.includes(null)) {
-    if (nearW) toast(t('run.bagFull'), 1000);
+  if (!nearPickup || !player.bag.includes(null)) {
+    if (nearPickup) toast(t('run.bagFull'), 1000);
     return;
   }
   const nw = takeNearby();
   if (!nw) return;
-  P.bag[P.bag.indexOf(null)] = nw;
-  toast(t('run.stowed', { w: wText(nw), n: P.bag.filter(Boolean).length, max: BAG_MAX }), 1400);
+  player.bag[player.bag.indexOf(null)] = nw;
+  toast(t('run.stowed', { w: weaponText(nw), n: player.bag.filter(Boolean).length, max: BAG_MAX }), 1400);
   weaponHud();
 }

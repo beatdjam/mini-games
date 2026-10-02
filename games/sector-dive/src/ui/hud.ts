@@ -6,15 +6,15 @@ import { applySfxVolume, audioInit } from '@engine/audio/audio.ts';
 import { musicVolume } from '@engine/audio/music.ts';
 import { camera, resize } from '@engine/render/render.ts';
 import { H, T, W, cover, grid, hgt, ramp, tileIndex } from '@engine/world/tiles.ts';
-import { fsSupported, isFs, isStandalone, toggleFs } from '@engine/ui/ui.ts';
+import { fsSupported, isFullscreen, isStandalone, toggleFs } from '@engine/ui/ui.ts';
 import { locked } from '@engine/ui/input.ts';
 import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
 import { persist, save, syncVolumes } from '../core/save.ts';
-import { arena, curBiome, haz, portals, roomOf, seen } from '../world/level.ts';
-import { boss, enemies, nearW, target } from '../world/entities.ts';
-import { P, curW, magSize, run, wName, wText, weaponStats } from '../actors/player.ts';
+import { arena, curBiome, hazardTiles, portals, roomOf, seen } from '../world/level.ts';
+import { boss, enemies, nearPickup, target } from '../world/entities.ts';
+import { player, currentWeapon, magSize, run, weaponName, weaponText, weaponStats } from '../actors/player.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { refreshRunText } from '../screens/pause.ts';
 import { renderBase } from '../screens/base.ts';
@@ -38,13 +38,13 @@ export const vigEl = el('#vig'),
   bigmap = el<HTMLCanvasElement>('#bigmap'),
   bctx = bigmap.getContext('2d')!;
 // screen effects shared by several files: hit marker, damage vignette, camera shake, minimap redraw, stamina warning
-export const SCR = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
+export const screenFx = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
 // ---- where a hit came from: a red arc around the crosshair, only when the attacker is outside the view ----
 // hits from in front need no arc (you can see them); the arc keeps pointing at the spot while you turn, then fades
 export const hitDirs: { el: HTMLElement; x: number; z: number; t: number }[] = [];
 // angle of a point from the view direction: 0 = straight ahead, positive = to the left (the camera's yaw convention)
 const relAngle = (x: number, z: number) => {
-  const a = Math.atan2(-(x - P.x), -(z - P.z)) - P.yaw;
+  const a = Math.atan2(-(x - player.x), -(z - player.z)) - player.yaw;
   return Math.atan2(Math.sin(a), Math.cos(a));
 };
 export function hitDirection(x: number, z: number) {
@@ -77,37 +77,37 @@ export function updateHitDirs(dt: number) {
 export function hitMark(crit?: boolean) {
   hitm.classList.add('on');
   hitm.classList.toggle('crit', !!crit);
-  SCR.hitTimer = 0.09;
+  screenFx.hitTimer = 0.09;
 }
 export function toggleMap() {
   if (state !== 'play') return;
   bigmap.hidden = !bigmap.hidden;
-  SCR.miniT = 0;
+  screenFx.miniT = 0;
 }
 export function weaponHud() {
   [0, 1].forEach(k => {
     const slot = el('#w' + k),
-      w = P.weapons[k];
-    slot.classList.toggle('on', k === P.cur);
-    slot.innerHTML = w ? t('hud.slot', { n: k + 1, name: wName(w) }) : t('hud.slotEmpty', { n: k + 1 });
+      w = player.weapons[k];
+    slot.classList.toggle('on', k === player.cur);
+    slot.innerHTML = w ? t('hud.slot', { n: k + 1, name: weaponName(w) }) : t('hud.slotEmpty', { n: k + 1 });
   });
-  el('#kitBtnN').textContent = String(P.kits);
+  el('#kitBtnN').textContent = String(player.kits);
   const kh = el('#kitHud');
-  kh.textContent = t('hud.kits', { n: P.kits, max: KIT_MAX });
-  kh.classList.toggle('none', P.kits <= 0);
-  el('#btnKit').classList.toggle('off', P.kits <= 0);
+  kh.textContent = t('hud.kits', { n: player.kits, max: KIT_MAX });
+  kh.classList.toggle('none', player.kits <= 0);
+  el('#btnKit').classList.toggle('off', player.kits <= 0);
 }
 export function updateHud() {
-  const f = clamp(P.hp / P.maxHp, 0, 1);
+  const f = clamp(player.hp / player.maxHp, 0, 1);
   hpFill.style.transform = `scaleX(${f})`;
   hpBar.classList.toggle('low', f < 0.3);
-  hpNum.textContent = String(Math.ceil(P.hp));
-  stFill.style.transform = `scaleX(${clamp(P.st / P.stMax, 0, 1)})`;
-  stBar.classList.toggle('short', P.st < TUNE.dashCost);
-  stBar.classList.toggle('warn', SCR.stWarn > 0);
+  hpNum.textContent = String(Math.ceil(player.hp));
+  stFill.style.transform = `scaleX(${clamp(player.st / player.stMax, 0, 1)})`;
+  stBar.classList.toggle('short', player.st < TUNE.dashCost);
+  stBar.classList.toggle('warn', screenFx.stWarn > 0);
   bitNum.textContent = String(Math.floor(run.bits));
   cross.classList.toggle('lock', !!target);
-  const w = curW(),
+  const w = currentWeapon(),
     ms = magSize(w);
   const at = `${w.mag}<small> / ${ms}</small>`;
   if (ammoEl.dataset.v !== at) {
@@ -115,33 +115,33 @@ export function updateHud() {
     ammoEl.dataset.v = at;
     ammoEl.classList.toggle('empty', w.mag === 0);
   }
-  reloadEl.hidden = !(P.reloadT > 0);
-  if (P.reloadT > 0) rFill.style.transform = `scaleX(${1 - P.reloadT / P.reloadMax})`;
-  el('#btnDash').classList.toggle('off', P.st < TUNE.dashCost);
+  reloadEl.hidden = !(player.reloadT > 0);
+  if (player.reloadT > 0) rFill.style.transform = `scaleX(${1 - player.reloadT / player.reloadMax})`;
+  el('#btnDash').classList.toggle('off', player.st < TUNE.dashCost);
   if (boss) bossFill.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
   const lowPulse = f < 0.3 ? 0.25 + Math.sin(time * 5) * 0.12 : 0;
-  vigEl.style.opacity = String(Math.max(SCR.vig, lowPulse));
+  vigEl.style.opacity = String(Math.max(screenFx.vig, lowPulse));
   const row = el('#pickRow');
-  if (nearW) {
+  if (nearPickup) {
     const desk = !isTouch && !document.body.classList.contains('nolock'),
-      bagFree = P.bag.includes(null);
+      bagFree = player.bag.includes(null);
     const name =
-      wText(nearW.w!) +
+      weaponText(nearPickup.w!) +
       (desk
         ? t('hud.pickDesk', {
-            act: t(P.weapons[1] ? 'hud.pickSwap' : 'hud.pickEquip'),
+            act: t(player.weapons[1] ? 'hud.pickSwap' : 'hud.pickEquip'),
             full: bagFree ? '' : t('hud.pickFull'),
           })
         : '');
-    const diff = compareHTML(nearW.w!, curW()),
-      key = name + '|' + diff + '|' + P.cur + '|' + bagFree;
+    const diff = compareHTML(nearPickup.w!, currentWeapon()),
+      key = name + '|' + diff + '|' + player.cur + '|' + bagFree;
     if (row.hidden || row.dataset.key !== key) {
       row.dataset.key = key;
       el('#pickName').textContent = name;
       el('#pickDiff').innerHTML = diff;
-      el('#btnEquip').textContent = t(P.weapons[1] ? 'hud.btnSwap' : 'hud.btnEquip2');
+      el('#btnEquip').textContent = t(player.weapons[1] ? 'hud.btnSwap' : 'hud.btnEquip2');
       el('#btnStow').textContent = bagFree
-        ? t('hud.btnStow', { n: P.bag.filter(w => !w).length })
+        ? t('hud.btnStow', { n: player.bag.filter(w => !w).length })
         : t('hud.btnStowFull');
       el<HTMLButtonElement>('#btnStow').disabled = !bagFree;
       row.hidden = false;
@@ -193,7 +193,7 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
       g.fillStyle = cover[k] ? '#5b6168' : curBiome.line;
       g.globalAlpha = cover[k] ? 0.8 : ramp[k] >= 0 ? 0.8 : hgt[k] > 0 ? 1 : roomOf[k] >= 0 ? 0.55 : 0.4;
       g.fillRect(i * s, j * s, s + 0.5, s + 0.5);
-      if (haz[k]) {
+      if (hazardTiles[k]) {
         g.fillStyle = '#ff4d4d';
         g.globalAlpha = 0.45;
         g.fillRect(i * s, j * s, s + 0.5, s + 0.5);
@@ -234,10 +234,10 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
       g.fill();
     }
   });
-  const x = px(P.x),
-    z = px(P.z),
-    fx = -Math.sin(P.yaw),
-    fz = -Math.cos(P.yaw),
+  const x = px(player.x),
+    z = px(player.z),
+    fx = -Math.sin(player.yaw),
+    fz = -Math.cos(player.yaw),
     a = 6 * u,
     b = 3.5 * u;
   g.fillStyle = '#ffffff';
@@ -250,7 +250,7 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
 }
 
 export function fsLabel() {
-  el('#btnFs').textContent = t(isFs() ? 'hud.fsOff' : 'hud.fs');
+  el('#btnFs').textContent = t(isFullscreen() ? 'hud.fsOff' : 'hud.fs');
 }
 el('#btnFs').hidden = !fsSupported || isStandalone;
 el('#btnFs').addEventListener('click', toggleFs);
@@ -272,7 +272,7 @@ export function settingsHTML(where?: string) {
     .join('')}</div>`;
   const fsBtn =
     fsSupported && !isStandalone
-      ? `<button class="toggle" data-fs="1" aria-pressed="${isFs()}">${t('set.fs')}<b>${onOff(isFs())}</b></button>`
+      ? `<button class="toggle" data-fs="1" aria-pressed="${isFullscreen()}">${t('set.fs')}<b>${onOff(isFullscreen())}</b></button>`
       : '';
   return `${langSeg}${fsBtn}<button class="toggle" data-set="autofire" aria-pressed="${st.autofire}">${t('set.autofire')}<b>${onOff(st.autofire)}</b></button>
     <div class="seg" role="group" aria-label="${t('set.assist')}"><span>${t('set.assist')}</span>${[
@@ -389,7 +389,7 @@ export function changeLang(code: string) {
   fsLabel();
   updateHint();
   if (state === 'base') renderBase();
-  if (P) {
+  if (player) {
     weaponHud();
     refreshRunText();
   }

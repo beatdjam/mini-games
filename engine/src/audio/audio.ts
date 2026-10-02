@@ -89,9 +89,17 @@ export function noise(dur: number, vol: number, freq: number, delay?: number) {
   s.stop(t + dur);
 }
 // ---- layered sound effects ----
-// nz: filtered noise with a filter sweep f0 -> f1; ot: oscillator with a pitch sweep f0 -> f1.
+// noiseBurst: filtered noise with a filter sweep f0 -> f1; sweepTone: oscillator with a pitch sweep f0 -> f1.
 // Gun shots stack a transient crack, a body, a low thump and a tail, with a little random pitch per shot.
-export function nz(t: number, dur: number, vol: number, type: BiquadFilterType, f0: number, f1?: number, q?: number) {
+export function noiseBurst(
+  t: number,
+  dur: number,
+  vol: number,
+  type: BiquadFilterType,
+  f0: number,
+  f1?: number,
+  q?: number,
+) {
   if (!actx || !master) return;
   const s = actx.createBufferSource(),
     f = actx.createBiquadFilter(),
@@ -109,7 +117,15 @@ export function nz(t: number, dur: number, vol: number, type: BiquadFilterType, 
   s.start(t, Math.random() * 0.5);
   s.stop(t + dur + 0.02);
 }
-export function ot(t: number, type: OscillatorType, f0: number, f1: number, dur: number, vol: number, att?: number) {
+export function sweepTone(
+  t: number,
+  type: OscillatorType,
+  f0: number,
+  f1: number,
+  dur: number,
+  vol: number,
+  att?: number,
+) {
   if (!actx || !master) return;
   const o = actx.createOscillator(),
     g = actx.createGain();
@@ -143,10 +159,10 @@ export function gunshot(o: GunshotSpec) {
   if (!actx) return;
   const t = actx.currentTime,
     r = rand(0.92, 1.08);
-  nz(t, 0.02, o.crack, 'highpass', (o.crackF || 5000) * r, 3000); // transient crack
-  nz(t, o.body, o.bodyVol, 'bandpass', o.bodyF * r, o.bodyF * (o.bodyEnd || 0.35), 1.2); // body
-  ot(t, 'sine', o.thumpF * r, 35, o.thump, o.thumpVol); // low thump
-  nz(t + 0.01, o.tail, o.tailVol, 'lowpass', (o.tailF || 2200) * r, 300); // tail
+  noiseBurst(t, 0.02, o.crack, 'highpass', (o.crackF || 5000) * r, 3000); // transient crack
+  noiseBurst(t, o.body, o.bodyVol, 'bandpass', o.bodyF * r, o.bodyF * (o.bodyEnd || 0.35), 1.2); // body
+  sweepTone(t, 'sine', o.thumpF * r, 35, o.thump, o.thumpVol); // low thump
+  noiseBurst(t + 0.01, o.tail, o.tailVol, 'lowpass', (o.tailF || 2200) * r, 300); // tail
 }
 // the audio clock (s) for sound recipes; 0 before audio starts
 export const audioNow = (): number => (actx ? actx.currentTime : 0);

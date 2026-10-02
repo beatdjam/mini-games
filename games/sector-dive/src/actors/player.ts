@@ -33,11 +33,11 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { ASSIST, BAG_MAX, PER, TUNE, enemyGrowth } from '../data/progress.ts';
 import { save } from '../core/save.ts';
-import { basicNow, pickDrop, presMul, prog, startDmgMul, startMaxHp } from '../core/rules.ts';
+import { basicNow, pickDrop, rebootMul, progressOf, startDmgMul, startMaxHp } from '../core/rules.ts';
 import { roomCount, roomSpot, rooms } from '../world/level.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy, spawnPBullet, target } from '../world/entities.ts';
 import { bossDown, bossPhase } from './bosses/common.ts';
-import { SCR, hitDirection, hitMark } from '../ui/hud.ts';
+import { screenFx, hitDirection, hitMark } from '../ui/hud.ts';
 import { endRun } from '../flow/run.ts';
 import { state } from '../flow/state.ts';
 import { COLOR } from '../data/colors.ts';
@@ -46,7 +46,7 @@ import { COLOR } from '../data/colors.ts';
 const PLAYER_R = 0.45; // body radius (m)
 const SPD_UP_PER_LEVEL = 0.05; // move speed per speed upgrade level
 const GAIN_UP_PER_LEVEL = 0.15; // bits per gain upgrade level
-const PRES_GAIN_PER_LEVEL = 0.1; // bits per reboot gain level
+const REBOOT_GAIN_PER_LEVEL = 0.1; // bits per reboot gain level
 const STAM_UP_PER_LEVEL = 20; // max stamina per endurance upgrade level
 const REGEN_UP_PER_LEVEL = 0.12; // stamina regen per cooling upgrade level
 // weapon drops
@@ -67,7 +67,7 @@ const AFFIX2_FROM_STAGE = 10,
   AFFIX2_BASE = 0.3,
   AFFIX2_PER_STAGE = 0.03; // second option: the same
 // difficulty scaling
-const STAGES_PER_GROWTH_DEPTH = 5; // progress (prog) per step of the enemy health growth curve
+const STAGES_PER_GROWTH_DEPTH = 5; // progress (progressOf) per step of the enemy health growth curve
 const DMG_SCALE_PER_PROG = 0.045; // damage taken grows this much per progress
 // weapon option and chip effects
 const MAG_OPT_PER_LEVEL = 0.3; // magazine size per mag option
@@ -105,7 +105,7 @@ const BLAST_SHAKE = 0.5; // rocket blast screen shake at point-blank
 const BLAST_SHAKE_DIST = 30; // ... fades out by this distance (m)
 const BLAST_SHAKE_MIN = 0.25; // ... but never below this share
 const BLAST_SELF_R = 0.6; // share of the radius that hurts the player
-const BLAST_SELF_DMG = 7; // damage to the player there (x dmgScaleOf)
+const BLAST_SELF_DMG = 7; // damage to the player there (x damageScaleAt)
 const BLAST_Y_SQUASH = 0.6; // height differences count this much in blast distance
 const BLAST_BODY_SHRINK = 0.5; // share of a hit sphere's radius taken off the blast distance
 const BLAST_CORE = 0.4; // share of the radius that takes full damage
@@ -132,12 +132,12 @@ const ROOM_KIT_OFFSET = 0.8; // a cleared room puts the kit / bits this far to e
 const ROOM_BITS_BASE = 6; // bits from a cleared room (+ progress)
 // The player and the run exist only during a run; on the base screen they are null (setPlayer(null) / setRun(null)).
 // They are typed without null because nearly all code using them runs during a run; code that can also run
-// on the base screen checks them (if (P) ..., run && ...).
+// on the base screen checks them (if (player) ..., run && ...).
 // replaced only through setPlayer / setRun
-export let P = null as unknown as Player;
+export let player = null as unknown as Player;
 export let run = null as unknown as RunState;
 export function setPlayer(p: Player | null) {
-  P = p as Player;
+  player = p as Player;
 }
 export function setRun(r: RunState | null) {
   run = r as RunState;
@@ -151,12 +151,12 @@ export const newWeapon = (id: string, r: number, basic?: boolean, plus?: number,
   mag: WEAPONS[id].mag,
 });
 // how many of option k a weapon has (the one in hand if none given)
-export const wo = (k: string, w?: WeaponItem | null): number => {
-  w = w || (P && P.weapons[P.cur]);
+export const weaponOptCount = (k: string, w?: WeaponItem | null): number => {
+  w = w || (player && player.weapons[player.cur]);
   return w && w.opts ? w.opts.filter(o => o === k).length : 0;
 };
 export const wDmgMul = (w: WeaponItem): number => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
-// `stage` here is progress (prog), not the raw stage number
+// `stage` here is progress (progressOf), not the raw stage number
 export function rollWeapon(stage: number, minR?: number): Weapon {
   // deeper drops lean rarer, up to a point (+0.6): even deep down about 55% are ★★★, 37% ★★ and 8% ★, so rarity still matters
   const roll = Math.random() + Math.min(stage * RARITY_STAGE_BONUS, RARITY_BONUS_MAX);
@@ -194,7 +194,7 @@ export function newPlayer(loadout: (WeaponItem | null)[]): Player {
     spdMul: 1 + u.spd * SPD_UP_PER_LEVEL,
     dmgMul: startDmgMul(u.dmg),
     fireRate: 1,
-    gainMul: (1 + u.gain * GAIN_UP_PER_LEVEL) * (1 + pu.gain * PRES_GAIN_PER_LEVEL),
+    gainMul: (1 + u.gain * GAIN_UP_PER_LEVEL) * (1 + pu.gain * REBOOT_GAIN_PER_LEVEL),
     leech: 0,
     pierce: 0,
     extra: 0,
@@ -239,22 +239,22 @@ export function stageLabel(s: number): string {
 export function tierLabel(t: number): string {
   return `DEPTH ${t + 1}`;
 }
-export const diffOf = (s: number): number =>
-  ENEMY_TUNE.hpMul * enemyGrowth(prog(s) / STAGES_PER_GROWTH_DEPTH) * presMul();
+export const difficultyAt = (s: number): number =>
+  ENEMY_TUNE.hpMul * enemyGrowth(progressOf(s) / STAGES_PER_GROWTH_DEPTH) * rebootMul();
 // how much harder things hit at stage s: enemies, bosses, hazard floors and your own rockets all grow by this
-export const dmgScaleOf = (s: number): number => (1 + prog(s) * DMG_SCALE_PER_PROG) * presMul();
-export const kitHealAmount = (): number => Math.round(Math.max(TUNE.kitHeal, P.maxHp * TUNE.kitHealPct));
+export const damageScaleAt = (s: number): number => (1 + progressOf(s) * DMG_SCALE_PER_PROG) * rebootMul();
+export const kitHealAmount = (): number => Math.round(Math.max(TUNE.kitHeal, player.maxHp * TUNE.kitHealPct));
 // chipMag: share of the magazine chips' effect a weapon gets (the launcher only half, so it can't double its output)
 export const magSize = (w: WeaponItem): number => {
   const def = WEAPONS[w.id],
-    chip = 1 + (P.magMul - 1) * (def.chipMag ?? 1);
-  return Math.max(1, Math.round(def.mag * chip * (1 + MAG_OPT_PER_LEVEL * wo('mag', w))));
+    chip = 1 + (player.magMul - 1) * (def.chipMag ?? 1);
+  return Math.max(1, Math.round(def.mag * chip * (1 + MAG_OPT_PER_LEVEL * weaponOptCount('mag', w))));
 };
 // rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
 export const rarLabel = (w: WeaponItem): string => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
-export const wName = (w: WeaponItem): string =>
+export const weaponName = (w: WeaponItem): string =>
   `<span style="color:${w.r ? RARITY[w.r].css : 'inherit'}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
-export const wText = (w: WeaponItem): string =>
+export const weaponText = (w: WeaponItem): string =>
   t('weapon.text', {
     name: WEAPONS[w.id].name + (w.plus ? '+' + w.plus : ''),
     rar: rarLabel(w),
@@ -264,23 +264,25 @@ export const wText = (w: WeaponItem): string =>
 // so a full hit gains the same +20% per chip whether the weapon fires 1 round or 8 pellets
 // rounds per trigger pull; a weapon with maxShots (the launcher: 3 rockets) puts the split-shot bonus past that into
 // each round instead, so its blasts don't flood a corridor
-export const shotCount = (def: WeaponDef): number => Math.min(def.pellets + P.extra, def.maxShots ?? Infinity);
-export const splitMul = (def: WeaponDef): number => (def.pellets * (1 + SPLIT_DMG_PER_CHIP * P.extra)) / shotCount(def);
-export const critChance = (w?: WeaponItem): number => Math.min(TUNE.critCap, P.crit + CRIT_PER_OPT * wo('crit', w));
+export const shotCount = (def: WeaponDef): number => Math.min(def.pellets + player.extra, def.maxShots ?? Infinity);
+export const splitMul = (def: WeaponDef): number =>
+  (def.pellets * (1 + SPLIT_DMG_PER_CHIP * player.extra)) / shotCount(def);
+export const critChance = (w?: WeaponItem): number =>
+  Math.min(TUNE.critCap, player.crit + CRIT_PER_OPT * weaponOptCount('crit', w));
 // rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)
 export const blastRadius = (def: WeaponDef, w?: WeaponItem): number =>
-  def.blast ? def.blast * (1 + PIERCE_BLAST_PER_LEVEL * (P.pierce + wo('pierce', w))) : 0;
+  def.blast ? def.blast * (1 + PIERCE_BLAST_PER_LEVEL * (player.pierce + weaponOptCount('pierce', w))) : 0;
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
 // dps = sustained damage per second on one target, including reloads and average crits. What it leaves out is given
 // apart: farDps = the rail's dps on targets past `far` metres; blast = the rocket's blast radius (every enemy caught
 // in it takes the hit, up to full damage near the centre).
 export function weaponStats(w: WeaponItem) {
   const def = WEAPONS[w.id];
-  const perHit = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
+  const perHit = def.dmg * wDmgMul(w) * player.dmgMul * splitMul(def);
   const hits = shotCount(def);
-  const interval = (def.rate / P.fireRate) * Math.pow(RATE_OPT_MUL, wo('rate', w));
+  const interval = (def.rate / player.fireRate) * Math.pow(RATE_OPT_MUL, weaponOptCount('rate', w));
   const mag = magSize(w);
-  const reload = def.reload * P.reloadMul * Math.pow(RELOAD_OPT_MUL, wo('reload', w));
+  const reload = def.reload * player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload', w));
   const dps = ((perHit * hits * mag) / (mag * interval + reload)) * (1 + critChance(w));
   return {
     perHit,
@@ -293,16 +295,16 @@ export function weaponStats(w: WeaponItem) {
     blast: blastRadius(def, w),
   };
 }
-export const wOpts = (w: WeaponItem): string =>
+export const weaponOptsHTML = (w: WeaponItem): string =>
   w.opts && w.opts.length ? `<span class="wopt">${w.opts.map(o => AFFIX[o].text).join(' / ')}</span>` : '';
 
 // the gun in hand per weapon, from src/data/viewmodels.ts
-export const VM: Record<string, THREE.Group> = {};
+export const viewmodelGroups: Record<string, THREE.Group> = {};
 WEAPON_ORDER.forEach(id => {
   const g = buildViewmodel(VIEWMODELS[id], Object.assign({ acc: WEAPONS[id].color }, VM_COLORS));
   g.visible = false;
   gun.add(g);
-  VM[id] = g;
+  viewmodelGroups[id] = g;
 });
 // the gun in hand: recoil and muzzle flash timers
 export const GUNFX = { gunKick: 0, flashT: 0 };
@@ -313,14 +315,18 @@ export function setVM(id: string) {
     curVM.visible = false;
     curVM.userData.flash.visible = false;
   }
-  const vm = (curVM = VM[id]);
+  const vm = (curVM = viewmodelGroups[id]);
   vm.visible = true;
 }
 
 // the weapon in hand; during a run there always is one (normalizeWeapons keeps slot 0 filled)
-export const curW = (): Weapon => P.weapons[P.cur]!;
-export function fwd() {
-  return new V3(-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.pitch), -Math.cos(P.yaw) * Math.cos(P.pitch));
+export const currentWeapon = (): Weapon => player.weapons[player.cur]!;
+export function lookDir() {
+  return new V3(
+    -Math.sin(player.yaw) * Math.cos(player.pitch),
+    Math.sin(player.pitch),
+    -Math.cos(player.yaw) * Math.cos(player.pitch),
+  );
 }
 
 // hit spheres: multi-body bosses list their parts, everything else is one sphere at the mesh
@@ -335,7 +341,7 @@ export const visibleRange = () =>
   );
 // target for autofire, aim assist and the red crosshair: in the aim cone, in line of sight, and not hidden in fog
 export function findTarget(): AimTarget | null {
-  const f = fwd(),
+  const f = lookDir(),
     cp = camera.position,
     cone = Math.max(ASSIST[save.settings.assist] || 0, MIN_AIM_CONE),
     maxD = visibleRange();
@@ -362,8 +368,8 @@ export function findTarget(): AimTarget | null {
 }
 
 export function tryFire() {
-  if (P.reloadT > 0) return;
-  const w = curW();
+  if (player.reloadT > 0) return;
+  const w = currentWeapon();
   if (w.mag <= 0) {
     startReload();
     return;
@@ -371,23 +377,24 @@ export function tryFire() {
   fire();
 }
 export function startReload() {
-  const w = curW();
-  if (P.reloadT > 0 || w.mag >= magSize(w)) return;
-  P.reloadMax = P.reloadT = WEAPONS[w.id].reload * P.reloadMul * Math.pow(RELOAD_OPT_MUL, wo('reload'));
+  const w = currentWeapon();
+  if (player.reloadT > 0 || w.mag >= magSize(w)) return;
+  player.reloadMax = player.reloadT =
+    WEAPONS[w.id].reload * player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload'));
   sfx('reload');
 }
 export let shotId = 0; // one trigger pull; knockback is applied once per shot per enemy
 export function fire() {
   shotId++;
-  const w = curW(),
+  const w = currentWeapon(),
     def = WEAPONS[w.id];
-  P.fireCd += (def.rate / P.fireRate) * Math.pow(RATE_OPT_MUL, wo('rate')); // added, not set: the frame loop may fire more than once (update)
+  player.fireCd += (def.rate / player.fireRate) * Math.pow(RATE_OPT_MUL, weaponOptCount('rate')); // added, not set: the frame loop may fire more than once (update)
   w.mag--;
   camera.updateMatrixWorld();
   camera.updateMatrixWorld();
   const mz = curVM!.userData.tip.getWorldPosition(new V3()).applyMatrix4(camera.matrixWorld); // gun space -> world
   const cp = camera.position,
-    f = fwd();
+    f = lookDir();
   let aim: THREE.Vector3;
   if (target) {
     const tp = target.p,
@@ -398,25 +405,35 @@ export function fire() {
   } else aim = cp.clone().addScaledVector(f, NO_TARGET_AIM_DIST);
   const base = aim.sub(mz).normalize();
   const n = shotCount(def);
-  const dmg = def.dmg * wDmgMul(w) * P.dmgMul * splitMul(def);
+  const dmg = def.dmg * wDmgMul(w) * player.dmgMul * splitMul(def);
   const blast = blastRadius(def);
   const moving = Math.hypot(joy.x, joy.y) > MOVE_SPREAD_STICK || keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
   const fanStep = n > 1 ? Math.min(SPLIT_FAN.step, SPLIT_FAN.max / (n - 1)) : 0;
   for (let k = 0; k < n; k++) {
     const d = base.clone();
-    if (P.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * fanStep);
+    if (player.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * fanStep);
     const s = def.spread + (k >= def.pellets ? EXTRA_PELLET_SPREAD : 0) + (moving && !def.steady ? MOVING_SPREAD : 0);
     d.x += rand(-s, s);
     d.y += rand(-s, s) * 0.7;
     d.z += rand(-s, s);
     d.normalize();
-    spawnPBullet(mz, d, def.speed, dmg, (def.pierce || 0) + P.pierce + wo('pierce'), blast, def.color, def.grav || 0, {
-      far: def.far,
-      farMul: def.farMul,
-      kb: def.kb,
-      rail: !!def.pierce,
-      shot: shotId,
-    });
+    spawnPBullet(
+      mz,
+      d,
+      def.speed,
+      dmg,
+      (def.pierce || 0) + player.pierce + weaponOptCount('pierce'),
+      blast,
+      def.color,
+      def.grav || 0,
+      {
+        far: def.far,
+        farMul: def.farMul,
+        kb: def.kb,
+        rail: !!def.pierce,
+        shot: shotId,
+      },
+    );
   }
   GUNFX.gunKick = Math.min(
     GUNKICK_MAX,
@@ -424,24 +441,24 @@ export function fire() {
   );
   GUNFX.flashT = def.blast ? FLASH_BLAST : FLASH_NORMAL;
   if (def.blast) {
-    SCR.shake = Math.max(SCR.shake, SHAKE_BLAST_FIRE);
+    screenFx.shake = Math.max(screenFx.shake, SHAKE_BLAST_FIRE);
     burst(mz.x, mz.y, mz.z, 0x9aa3ad, 6, 2, 0.8, -2);
-  } else if (def.pellets > 1) SCR.shake = Math.max(SCR.shake, SHAKE_PELLET_FIRE);
+  } else if (def.pellets > 1) screenFx.shake = Math.max(screenFx.shake, SHAKE_PELLET_FIRE);
   sfx(w.id, 40);
   if (w.mag <= 0) startReload();
 }
 
 // from: where the hit came from (the attacker or the blast), for the direction arc; none for floors and your own blasts
 export function damagePlayer(d: number, from?: { x: number; z: number }) {
-  if (P.inv > 0 || state !== 'play') return;
-  P.hp -= d;
-  P.inv = TUNE.hitInvuln;
-  SCR.shake = Math.max(SCR.shake, HIT_SHAKE);
-  SCR.vig = HIT_VIGNETTE;
+  if (player.inv > 0 || state !== 'play') return;
+  player.hp -= d;
+  player.inv = TUNE.hitInvuln;
+  screenFx.shake = Math.max(screenFx.shake, HIT_SHAKE);
+  screenFx.vig = HIT_VIGNETTE;
   sfx('hurt', 80);
   if (from) hitDirection(from.x, from.z);
-  if (P.hp <= 0) {
-    P.hp = 0;
+  if (player.hp <= 0) {
+    player.hp = 0;
     endRun('dead');
   }
 }
@@ -487,14 +504,14 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
     burst(x, y, z, COLOR.amber, 10, 7, 0.45);
     burst(x, y + 0.5, z, 0x5b6470, 6, 2.5, 0.7, -3);
     sfx('bigboom', 60);
-    const pd = Math.hypot(P.x - x, P.z - z);
-    SCR.shake = Math.max(SCR.shake, BLAST_SHAKE * clamp(1 - pd / BLAST_SHAKE_DIST, BLAST_SHAKE_MIN, 1));
-    if (pd < radius * BLAST_SELF_R && state === 'play') damagePlayer(BLAST_SELF_DMG * dmgScaleOf(run.stage));
+    const pd = Math.hypot(player.x - x, player.z - z);
+    screenFx.shake = Math.max(screenFx.shake, BLAST_SHAKE * clamp(1 - pd / BLAST_SHAKE_DIST, BLAST_SHAKE_MIN, 1));
+    if (pd < radius * BLAST_SELF_R && state === 'play') damagePlayer(BLAST_SELF_DMG * damageScaleAt(run.stage));
   } else {
     burst(x, y, z, color || COLOR.fire, 22, 9, 0.7);
     burst(x, y, z, 0xffffff, 8, 5, 0.4);
     sfx('boom', 60);
-    SCR.shake = Math.max(SCR.shake, 0.12);
+    screenFx.shake = Math.max(screenFx.shake, 0.12);
   }
   for (const e of enemies.slice()) {
     // enemies spawned by this blast's kills aren't hit by it
@@ -524,11 +541,11 @@ export function bomberBlast(x: number, y: number, z: number, dmg: number) {
   burst(x, y, z, 0xffffff, 8, 5, 0.3);
   fireball(x, y, z, 3, COLOR.orange);
   sfx('boom', 40);
-  SCR.shake = Math.max(SCR.shake, BOMBER_SHAKE);
-  if (Math.hypot(P.x - x, P.z - z) < BOMBER_PLAYER_R && Math.abs(P.fy + 1 - y) < BOMBER_PLAYER_DY)
+  screenFx.shake = Math.max(screenFx.shake, BOMBER_SHAKE);
+  if (Math.hypot(player.x - x, player.z - z) < BOMBER_PLAYER_R && Math.abs(player.fy + 1 - y) < BOMBER_PLAYER_DY)
     damagePlayer(dmg, { x, z });
   // the blast on other enemies grows with enemy health, so it still matters deep down
-  const hit = (BOMBER_ENEMY_DMG * diffOf(run.stage)) / ENEMY_TUNE.hpMul;
+  const hit = (BOMBER_ENEMY_DMG * difficultyAt(run.stage)) / ENEMY_TUNE.hpMul;
   for (const o of enemies.slice())
     if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < BOMBER_ENEMY_R) hurtEnemy(o, hit, false);
 }
@@ -554,22 +571,22 @@ export function killEnemy(e: Enemy, noReward?: boolean) {
     bomberBlast(e.x, pos.y, e.z, e.dmg * BOMBER_DEATH_DMG);
   }
   if (!noReward) {
-    dropBits(e.x, e.z, e.def.bits * KILL_BITS_MUL * (1 + prog(run.stage) * KILL_BITS_PER_PROG));
+    dropBits(e.x, e.z, e.def.bits * KILL_BITS_MUL * (1 + progressOf(run.stage) * KILL_BITS_PER_PROG));
     if (Math.random() < TUNE.kitDropChance)
       addPickup('kit', e.x + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD), e.z + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD));
-    const lh = P.leech + LEECH_OPT_HP * wo('leech');
-    if (lh) P.hp = Math.min(P.maxHp, P.hp + lh);
+    const lh = player.leech + LEECH_OPT_HP * weaponOptCount('leech');
+    if (lh) player.hp = Math.min(player.maxHp, player.hp + lh);
     // chain blast: only enemies you killed explode; kills caused by a chain blast don't set off another one
-    if (P.chain && !inChainBlast) {
+    if (player.chain && !inChainBlast) {
       inChainBlast = true;
       // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
-      const depthScale = enemyGrowth(prog(run.stage) / STAGES_PER_GROWTH_DEPTH);
+      const depthScale = enemyGrowth(progressOf(run.stage) / STAGES_PER_GROWTH_DEPTH);
       explode(
         pos.x,
         pos.y,
         pos.z,
-        CHAIN_R_BASE + P.chain * CHAIN_R_PER,
-        CHAIN_DMG * P.chain * P.dmgMul * depthScale,
+        CHAIN_R_BASE + player.chain * CHAIN_R_PER,
+        CHAIN_DMG * player.chain * player.dmgMul * depthScale,
         COLOR.amber,
       );
       inChainBlast = false;
@@ -583,7 +600,7 @@ export function killEnemy(e: Enemy, noReward?: boolean) {
         e.x + (k ? SPLIT_OFFSET : -SPLIT_OFFSET),
         e.z + rand(-0.4, 0.4),
         e.room,
-        diffOf(run.stage),
+        difficultyAt(run.stage),
       );
       m.active = true;
     }
@@ -598,7 +615,7 @@ export function roomCleared(idx: number) {
     toast(t('run.clearedChip'));
   } else {
     addPickup('kit', x - ROOM_KIT_OFFSET, z);
-    dropBits(x + ROOM_KIT_OFFSET, z, ROOM_BITS_BASE + prog(run.stage));
+    dropBits(x + ROOM_KIT_OFFSET, z, ROOM_BITS_BASE + progressOf(run.stage));
     toast(t('run.cleared'));
   }
 }

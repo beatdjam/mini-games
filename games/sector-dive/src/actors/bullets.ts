@@ -7,7 +7,7 @@ import { floorY, moveCircle } from '@engine/world/tiles.ts';
 import { projHitsTerrain, steerToward, stepProjectile } from '@engine/world/projectiles.ts';
 import { WALL_H } from '../data/level.ts';
 import { eBullets, enemies, isShielded, pBullets } from '../world/entities.ts';
-import { CRIT_MUL, P, critChance, damagePlayer, explode, hurtEnemy, spheres } from './player.ts';
+import { CRIT_MUL, player, critChance, damagePlayer, explode, hurtEnemy, spheres } from './player.ts';
 import { hitMark } from '../ui/hud.ts';
 import { COLOR } from '../data/colors.ts';
 // ---- tuning numbers used only here ----
@@ -124,8 +124,8 @@ export function damageFromBullet(b: PBullet, e: Enemy) {
   if (b.kb && !e.boss && !e.dead && e.kbShot !== b.shot) {
     // once per shot, however many pellets hit
     e.kbShot = b.shot;
-    const kx = e.x - P.x,
-      kz = e.z - P.z,
+    const kx = e.x - player.x,
+      kz = e.z - player.z,
       kl = Math.hypot(kx, kz) || 1;
     moveCircle(e, (kx / kl) * b.kb, (kz / kl) * b.kb, e.r);
     e.fy = floorY(e.x, e.z);
@@ -148,10 +148,10 @@ export function updateEBullets(dt: number) {
           burst(b.x, Math.max(0.1, b.y), b.z, COLOR.mag, 2, 3, 0.2);
           return true;
         }
-        const dx = b.x - P.x,
-          dz = b.z - P.z;
-        const touchesPlayer = dx * dx + dz * dz < hitR * hitR && b.y > P.fy && b.y < P.fy + PLAYER_HEIGHT;
-        if (touchesPlayer && P.inv <= 0) {
+        const dx = b.x - player.x,
+          dz = b.z - player.z;
+        const touchesPlayer = dx * dx + dz * dz < hitR * hitR && b.y > player.fy && b.y < player.fy + PLAYER_HEIGHT;
+        if (touchesPlayer && player.inv <= 0) {
           damagePlayer(b.dmg, { x: b.ox, z: b.oz });
           return true;
         }
@@ -171,5 +171,5 @@ export function updateEBullets(dt: number) {
 // homing rounds turn toward the player's chest while b.homing lasts
 export function steerHoming(b: EBullet, dt: number) {
   b.homing -= dt;
-  steerToward(b, P.x, P.fy + HOMING_AIM_Y, P.z, dt, HOMING_TURN);
+  steerToward(b, player.x, player.fy + HOMING_AIM_Y, player.z, dt, HOMING_TURN);
 }

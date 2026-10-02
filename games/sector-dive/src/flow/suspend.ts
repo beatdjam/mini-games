@@ -2,14 +2,14 @@ import type { Snapshot } from '../data/types.ts';
 import { el, isTouch } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit } from '@engine/audio/audio.ts';
-import { enterFs, isFs, toast } from '@engine/ui/ui.ts';
+import { enterFs, isFullscreen, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
 import { basicW, persist, save } from '../core/save.ts';
 import { perkIdOf } from '../core/rules.ts';
-import { P, newPlayer, run, setPlayer, setRun, stageInfo, stageLabel } from '../actors/player.ts';
+import { player, newPlayer, run, setPlayer, setRun, stageInfo, stageLabel } from '../actors/player.ts';
 import { normalizeWeapons } from '../ui/input.ts';
 import { weaponHud } from '../ui/hud.ts';
 import { setPlayUI, show } from './state.ts';
@@ -41,7 +41,7 @@ let discardArm = false; // the discard button shows its confirmation
 // the next launch offers RESUME from the start of that stage, with the state it had when the stage began.
 export function makeSnapshot() {
   const p: Record<string, unknown> = {};
-  Object.entries(P).forEach(([k, v]) => {
+  Object.entries(player).forEach(([k, v]) => {
     if (!SNAP_SKIP.includes(k)) p[k] = v;
   });
   return {
@@ -58,7 +58,7 @@ export function makeSnapshot() {
   };
 }
 export function checkpoint() {
-  if (!run || run.practice || !P) return;
+  if (!run || run.practice || !player) return;
   save.suspend = makeSnapshot();
   persist();
 }
@@ -78,7 +78,7 @@ export function resumeRun() {
   const sn = save.suspend;
   if (!sn) return;
   audioInit();
-  if (isTouch && !isFs()) enterFs();
+  if (isTouch && !isFullscreen()) enterFs();
   restoreSnapshot(sn);
   track('dive_resume', { level: stageInfo(run.stage).tier + 1 });
   save.suspend = null;

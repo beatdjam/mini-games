@@ -3,7 +3,7 @@ import { fillData, setI18nHook } from '@engine/core/i18n.ts';
 import { AFFIX, RARITY, WEAPONS } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { PRES_UP, UPGRADES } from '../data/progress.ts';
+import { REBOOT_UP, UPGRADES } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
 // Language files -> definitions: copies the names / descriptions in src/i18n/<code>.ts (data) onto src/data/.
@@ -16,7 +16,7 @@ export function i18nApplyData(d: LangData) {
   fillData(BOSS_META, d.bosses);
   fillData(PERKS, d.perks);
   fillData(UPGRADES, d.upgrades);
-  fillData(PRES_UP, d.pres);
+  fillData(REBOOT_UP, d.pres);
   fillData(LAYOUT_DEF, d.layout);
   GUIDE_DESK.splice(0, GUIDE_DESK.length, ...d.guideDesk);
   GUIDE_TOUCH.splice(0, GUIDE_TOUCH.length, ...d.guideTouch);
