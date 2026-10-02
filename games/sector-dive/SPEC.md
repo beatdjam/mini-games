@@ -427,7 +427,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/actors/combat.ts` | 被弾、敵へのダメージ、爆発、撃破（報酬・連鎖爆発・分裂）、区画制圧、回復キットの回復量 |
 | `src/actors/enemies.ts` | 敵1体の毎フレームの行動（`updateEnemy`。敵は engine の world のグループ `enemy` に入っていて、エンジンが呼ぶ） |
 | `src/actors/bullets.ts` | 弾の毎フレームの処理（当たり判定、盾、ショットガンの全弾ボーナスなど） |
-| `src/actors/bosses/common.ts` | ボスの共通処理（生成、体力倍率、撃破後の処理） |
+| `src/actors/bosses/common.ts` | ボスの共通処理（生成、体力倍率、怒り判定 `isEnraged`、パターン切替 `nextPattern`、手下の召喚 `spawnMinion`、撃破後の処理） |
 | `src/actors/bosses/<名前>.ts` | ボス1体ずつの生成と行動 |
 | `src/flow/state.ts` | 今どの画面か（`state`）、画面の切り替え（`show`）、潜行中の HUD の出し入れ |
 | `src/flow/run.ts` | 潜行の流れ（出撃、区画の生成、次の区画、帰還・ロストの集計、拠点へ戻る）、ボス練習 |

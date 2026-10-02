@@ -7,13 +7,15 @@ import { burst } from '@engine/render/fx.ts';
 import { moveCircle } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { spawnEBullet, spawnWave } from '../../world/entities.ts';
+import { shootHoming, spawnWave } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { bossBase } from './common.ts';
+import { bossBase, isEnraged } from './common.ts';
 import { screenFx } from '../../ui/hud.ts';
 import { COLOR } from '../../data/colors.ts';
 // CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
+
+const AFTER_STUN_WAIT = 1.0; // idle wait after a stun ends when it doesn't go straight into a slam (s)
 
 // st: state machine; cdx / cdz: charge direction; hitP: the charge has hit the player; second: delay of the enraged second wave
 export type CrusherBoss = Boss & { st: string; cdx: number; cdz: number; hitP: boolean; second: number };
@@ -39,7 +41,7 @@ export function updCrusher(e: CrusherBoss, dt: number) {
   const K = BOSS_META.crusher.tune;
   e.t += dt;
   e.timer -= dt;
-  const enr = e.hp < e.maxHp * 0.5,
+  const enr = isEnraged(e),
     dx = player.x - e.x,
     dz = player.z - e.z,
     d = Math.hypot(dx, dz) || 1;
@@ -92,11 +94,12 @@ export function updCrusher(e: CrusherBoss, dt: number) {
     y += Math.sin(e.t * 30) * 0.08;
     if (e.timer <= 0) {
       e.stunMul = 0;
-      e.st = enr && Math.random() < 0.5 ? 'slam' : 'idle';
-      e.timer = 1.0;
+      const slam = enr && Math.random() < 0.5;
+      e.st = slam ? 'slam' : 'idle';
+      e.timer = slam ? K.slamTime : AFTER_STUN_WAIT;
     }
   } else if (e.st === 'slam') {
-    const jt = 1 - e.timer;
+    const jt = 1 - e.timer / K.slamTime;
     y += Math.sin(Math.PI * clamp(jt, 0, 1)) * K.jump;
     moveCircle(e, (dx / d) * K.slamMove * dt, (dz / d) * K.slamMove * dt, 1.8);
     if (e.timer <= 0) {
@@ -112,18 +115,7 @@ export function updCrusher(e: CrusherBoss, dt: number) {
       const n = enr ? K.volleyNEnr : K.volleyN;
       for (let k = 0; k < n; k++) {
         const a = (k / n) * Math.PI * 2;
-        spawnEBullet(
-          e.x + Math.sin(a) * 2,
-          3.4,
-          e.z + Math.cos(a) * 2,
-          Math.sin(a) * K.volleySpeed,
-          2,
-          Math.cos(a) * K.volleySpeed,
-          e.dmg,
-          COLOR.fire,
-          1.3,
-          2.6,
-        );
+        shootHoming(e.x, 3.4, e.z, a, K.volleySpeed, e.dmg, COLOR.fire, { reach: 2, rise: 2, homing: 2.6 });
       }
       sfx('eshot');
       e.st = 'idle';

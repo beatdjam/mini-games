@@ -1,5 +1,5 @@
 import type { Enemy, RegularEnemy } from '../data/types.ts';
-import { clamp, rand } from '@engine/core/util.ts';
+import { clamp, distXZ, rand } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { burst, fireball } from '@engine/render/fx.ts';
@@ -11,7 +11,7 @@ import { progressOf } from '../core/rules.ts';
 import { STAGES_PER_GROWTH_DEPTH, damageScaleAt, difficultyAt } from '../core/stages.ts';
 import { level, roomSpot } from '../world/level.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
-import { bossDown, bossPhase } from './bosses/common.ts';
+import { bossDown, bossPhase, isEnraged } from './bosses/common.ts';
 import { screenFx, hitDirection, hitMark } from '../ui/hud.ts';
 import { endRun } from '../flow/run.ts';
 import { state } from '../flow/state.ts';
@@ -26,7 +26,6 @@ const LEECH_OPT_HP = 2; // HP per kill from each leech option
 const HIT_SHAKE = 0.22; // screen shake when the player is hurt
 const HIT_VIGNETTE = 0.9; // damage vignette strength when hurt
 const ENEMY_FLASH = 0.07; // seconds an enemy flashes white when hit
-const BOSS_PHASE_HP = 0.5; // a boss enters its next phase below this share of its health
 // explosions
 const BLAST_SHAKE = 0.5; // rocket blast screen shake at point-blank
 const BLAST_SHAKE_DIST = 30; // ... fades out by this distance (m)
@@ -101,7 +100,7 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
   hitMark(isCrit);
   sfx('hit', 45);
   if (e.hp <= 0) killEnemy(e);
-  else if (e.boss && !e.phased && e.hp < e.maxHp * BOSS_PHASE_HP) bossPhase(e);
+  else if (e.boss && !e.phased && isEnraged(e)) bossPhase(e);
 }
 // player explosions (rockets, chain blasts); one crit roll per explosion
 export function explode(x: number, y: number, z: number, radius: number, dmg: number, color: number, big?: boolean) {
@@ -115,7 +114,7 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
     burst(x, y, z, COLOR.amber, 10, 7, 0.45);
     burst(x, y + 0.5, z, 0x5b6470, 6, 2.5, 0.7, -3);
     sfx('bigboom', 60);
-    const pd = Math.hypot(player.x - x, player.z - z);
+    const pd = distXZ(player, { x, z });
     screenFx.shake = Math.max(screenFx.shake, BLAST_SHAKE * clamp(1 - pd / BLAST_SHAKE_DIST, BLAST_SHAKE_MIN, 1));
     if (pd < radius * BLAST_SELF_R && state === 'play') damagePlayer(BLAST_SELF_DMG * damageScaleAt(run.stage));
   } else {
@@ -153,12 +152,11 @@ export function bomberBlast(x: number, y: number, z: number, dmg: number) {
   fireball(x, y, z, 3, COLOR.orange);
   sfx('boom', 40);
   screenFx.shake = Math.max(screenFx.shake, BOMBER_SHAKE);
-  if (Math.hypot(player.x - x, player.z - z) < BOMBER_PLAYER_R && Math.abs(player.fy + 1 - y) < BOMBER_PLAYER_DY)
-    damagePlayer(dmg, { x, z });
+  const at = { x, z };
+  if (distXZ(player, at) < BOMBER_PLAYER_R && Math.abs(player.fy + 1 - y) < BOMBER_PLAYER_DY) damagePlayer(dmg, at);
   // the blast on other enemies grows with enemy health, so it still matters deep down
   const hit = (BOMBER_ENEMY_DMG * difficultyAt(run.stage)) / ENEMY_TUNE.hpMul;
-  for (const o of enemies.slice())
-    if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < BOMBER_ENEMY_R) hurtEnemy(o, hit, false);
+  for (const o of enemies.slice()) if (!o.dead && !o.boss && distXZ(o, at) < BOMBER_ENEMY_R) hurtEnemy(o, hit, false);
 }
 export function detonate(e: RegularEnemy) {
   e.detonated = true;

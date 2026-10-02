@@ -5,14 +5,12 @@ import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
-import { difficultyAt } from '../../core/stages.ts';
-import { run } from '../player.ts';
-import { bossBase } from './common.ts';
+import { ring, shootHoming } from '../../world/entities.ts';
+import { ringAngles } from '@engine/world/projectiles.ts';
+import { RING_Y, bossBase, isEnraged, spawnMinion } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
-// ---- BASTION: shielded core; destroy every turret to open it for a few seconds ----
 // invuln: shielded; core / shield: meshes; turrets: the shield generators still standing; openT: seconds left open; ringT: ring timer
 export type BastionBoss = Boss & {
   invuln: boolean;
@@ -55,28 +53,21 @@ export function spawnBastion() {
 }
 export function bastionTurrets(e: BastionBoss, n: number) {
   const off = rand(0, Math.PI);
-  for (let k = 0; k < n; k++) {
-    const a = off + (k * Math.PI * 2) / n,
-      t = spawnEnemy(
-        'bturret',
-        e.cx + Math.cos(a) * BOSS_META.bastion.tune.turretR,
-        e.cz + Math.sin(a) * BOSS_META.bastion.tune.turretR,
-        -1,
-        difficultyAt(run.stage),
-      );
-    t.active = true;
-    e.turrets.push(t);
-  }
+  ringAngles(n, off).forEach(a => {
+    const x = e.cx + Math.cos(a) * BOSS_META.bastion.tune.turretR,
+      z = e.cz + Math.sin(a) * BOSS_META.bastion.tune.turretR;
+    e.turrets.push(spawnMinion('bturret', x, z));
+  });
 }
 export function updBastion(e: BastionBoss, dt: number) {
   const K = BOSS_META.bastion.tune;
   e.t += dt;
-  const enr = e.hp < e.maxHp * 0.5;
+  const enr = isEnraged(e);
   e.core.rotation.y += dt * (e.invuln ? 0.6 : 2.5);
   e.core.rotation.x += dt * 0.4;
   e.shield.visible = e.invuln;
   e.shield.material.opacity = 0.2 + Math.sin(e.t * 4) * 0.06;
-  e.turrets = e.turrets.filter(t => !t.dead);
+  e.turrets = e.turrets.filter(turret => !turret.dead);
   if (e.invuln && !e.turrets.length) {
     e.invuln = false;
     e.openT = K.open;
@@ -98,8 +89,8 @@ export function updBastion(e: BastionBoss, dt: number) {
   if (e.ringT <= 0) {
     ring(
       e.cx,
+      RING_Y,
       e.cz,
-      1.3,
       e.invuln ? K.ring[0] : K.ringOpen[0],
       e.invuln ? K.ring[1] : K.ringOpen[1],
       e.t,
@@ -109,18 +100,7 @@ export function updBastion(e: BastionBoss, dt: number) {
     if (enr)
       for (let k = 0; k < K.enrShots; k++) {
         const a = rand(0, Math.PI * 2);
-        spawnEBullet(
-          e.cx + Math.sin(a) * 2.5,
-          2.6,
-          e.cz + Math.cos(a) * 2.5,
-          Math.sin(a) * K.enrSpeed,
-          1,
-          Math.cos(a) * K.enrSpeed,
-          e.dmg,
-          COLOR.mag,
-          1.3,
-          3,
-        );
+        shootHoming(e.cx, 2.6, e.cz, a, K.enrSpeed, e.dmg, COLOR.mag, { reach: 2.5, rise: 1, homing: 3 });
       }
     e.ringT = e.invuln ? K.ringEvery : K.ringEveryOpen;
   }

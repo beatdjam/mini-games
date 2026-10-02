@@ -1,6 +1,7 @@
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
-import { randi } from '@engine/core/util.ts';
+import { distXZ, randi } from '@engine/core/util.ts';
+import { ringAngles } from '@engine/world/projectiles.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { dynGroup } from '@engine/render/render.ts';
@@ -9,11 +10,10 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, ring } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { bossBase } from './common.ts';
+import { RING_Y, bossBase, isEnraged } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // TRINITY: three bodies orbiting the centre on one shared health pool
 
-// ---- TRINITY: three bodies orbiting the centre on one shared health pool ----
 // bodies: the three orbiting meshes; fireK / fireT: fan fire counter and timer; ringT / ramT: ring and lunge timers; ram: the lunge in progress
 export type Ram = { k: number; t: number; dur: number; tx: number; tz: number; hit: boolean };
 export type TrinityBoss = Boss & {
@@ -57,13 +57,14 @@ export function spawnTrinity() {
 export function updTrinity(e: TrinityBoss, dt: number) {
   const K = BOSS_META.trinity.tune;
   e.t += dt;
-  const enr = e.hp < e.maxHp * 0.5,
+  const enr = isEnraged(e),
     R = enr ? K.orbitREnr : K.orbitR,
     a0 = e.t * (enr ? K.orbitSpeedEnr : K.orbitSpeed),
-    cols = [COLOR.mag, COLOR.amber, COLOR.cyan];
+    cols = [COLOR.mag, COLOR.amber, COLOR.cyan],
+    angles = ringAngles(e.bodies.length, a0);
   e.bodies.forEach((b, k) => {
-    let x = e.cx + Math.cos(a0 + (k * Math.PI * 2) / 3) * R,
-      z = e.cz + Math.sin(a0 + (k * Math.PI * 2) / 3) * R,
+    let x = e.cx + Math.cos(angles[k]) * R,
+      z = e.cz + Math.sin(angles[k]) * R,
       y = 2.2 + Math.sin(e.t * 2 + k) * 0.4;
     if (e.ram && e.ram.k === k) {
       // enraged: one body lunges at where you stood, then returns
@@ -73,9 +74,10 @@ export function updTrinity(e: TrinityBoss, dt: number) {
       x += (r.tx - x) * f;
       z += (r.tz - z) * f;
       y += (1.2 - y) * f;
-      if (!r.hit && Math.hypot(player.x - x, player.z - z) < 1.8) {
+      const at = { x, z };
+      if (!r.hit && distXZ(player, at) < 1.8) {
         r.hit = true;
-        damagePlayer(e.dmg * K.ramDmg, { x, z });
+        damagePlayer(e.dmg * K.ramDmg, at);
       }
     }
     b.position.set(x, y, z);
@@ -91,7 +93,7 @@ export function updTrinity(e: TrinityBoss, dt: number) {
   e.ringT -= dt;
   if (e.ringT <= 0) {
     e.bodies.forEach((b, k) =>
-      ring(b.position.x, b.position.z, 1.3, K.ring[0], K.ring[1], k * 0.3 + e.t, e.dmg, COLOR.violet),
+      ring(b.position.x, RING_Y, b.position.z, K.ring[0], K.ring[1], k * 0.3 + e.t, e.dmg, COLOR.violet),
     );
     e.ringT = enr ? K.ringEveryEnr : K.ringEvery;
   }
