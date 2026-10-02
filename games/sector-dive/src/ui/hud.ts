@@ -12,7 +12,7 @@ import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '@engine/ui/touchlay
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
 import { persist, save, syncVolumes } from '../core/save.ts';
-import { arena, curBiome, hazardTiles, portals, roomOf, seen } from '../world/level.ts';
+import { level } from '../world/level.ts';
 import { boss, enemies, nearPickup, target } from '../world/entities.ts';
 import { player, currentWeapon, magSize, run, weaponName, weaponText, weaponStats } from '../actors/player.ts';
 import { setState, show, state } from '../flow/state.ts';
@@ -184,16 +184,16 @@ export function updateHint() {
 export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?: boolean) {
   const s = c.width / Math.max(W, H);
   g.clearRect(0, 0, c.width, c.height);
-  g.fillStyle = curBiome.line;
+  g.fillStyle = level.biome.line;
   for (let j = 0; j < H; j++)
     for (let i = 0; i < W; i++) {
       const k = j * W + i;
-      if (!seen[k] || grid[k] !== 1) continue;
+      if (!level.seen[k] || grid[k] !== 1) continue;
       // brighter = higher; cover is grey, hazard tiles get a red tint
-      g.fillStyle = cover[k] ? '#5b6168' : curBiome.line;
-      g.globalAlpha = cover[k] ? 0.8 : ramp[k] >= 0 ? 0.8 : hgt[k] > 0 ? 1 : roomOf[k] >= 0 ? 0.55 : 0.4;
+      g.fillStyle = cover[k] ? '#5b6168' : level.biome.line;
+      g.globalAlpha = cover[k] ? 0.8 : ramp[k] >= 0 ? 0.8 : hgt[k] > 0 ? 1 : level.roomOf[k] >= 0 ? 0.55 : 0.4;
       g.fillRect(i * s, j * s, s + 0.5, s + 0.5);
-      if (hazardTiles[k]) {
+      if (level.hazardTiles[k]) {
         g.fillStyle = '#ff4d4d';
         g.globalAlpha = 0.45;
         g.fillRect(i * s, j * s, s + 0.5, s + 0.5);
@@ -204,12 +204,12 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
     u = c.width / 160;
   query<Pickup>('pickup').forEach(p => {
     if (p.kind === 'bit') return;
-    if (!seen[tileIndex(p.x, p.z)]) return;
+    if (!level.seen[tileIndex(p.x, p.z)]) return;
     g.fillStyle = p.kind === 'chip' ? CSS_COLOR.amber : p.kind === 'kit' ? CSS_COLOR.lime : '#ffffff';
     g.fillRect(px(p.x) - 2.5 * u, px(p.z) - 2.5 * u, 5 * u, 5 * u);
   });
-  portals.forEach(pt => {
-    if (!seen[tileIndex(pt.x, pt.z)]) return;
+  level.portals.forEach(pt => {
+    if (!level.seen[tileIndex(pt.x, pt.z)]) return;
     g.strokeStyle = '#' + pt.color.toString(16).padStart(6, '0');
     g.lineWidth = 2 * u;
     g.beginPath();
@@ -220,7 +220,7 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
       g.font = `${7 * u}px "DotGothic16",sans-serif`;
       g.textAlign = 'center';
       g.fillText(
-        t(pt.kind === 'extract' ? 'map.extract' : pt.kind === 'next' && arena ? 'map.next' : 'map.exit'),
+        t(pt.kind === 'extract' ? 'map.extract' : pt.kind === 'next' && level.arena ? 'map.next' : 'map.exit'),
         px(pt.x),
         px(pt.z) - 8 * u,
       );
@@ -228,7 +228,7 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
   });
   g.fillStyle = CSS_COLOR.mag;
   enemies.forEach(e => {
-    if (!e.dead && (e.active || e.boss) && seen[tileIndex(e.x, e.z)]) {
+    if (!e.dead && (e.active || e.boss) && level.seen[tileIndex(e.x, e.z)]) {
       g.beginPath();
       g.arc(px(e.x), px(e.z), (e.boss ? 5 : 2.2) * u, 0, Math.PI * 2);
       g.fill();

@@ -8,7 +8,7 @@ import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, save } from '../core/save.ts';
-import { hazardTiles, setHazardClock } from '../world/level.ts';
+import { level, setHazardClock } from '../world/level.ts';
 import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
 import { player, damagePlayer, magSize, newWeapon, run } from '../actors/player.ts';
 import { normalizeWeapons } from '../ui/input.ts';
@@ -91,7 +91,7 @@ if (location.hash.startsWith('#view-haz'))
     startStage();
     show(null);
     setState('play');
-    const k = hazardTiles.findIndex(Boolean);
+    const k = level.hazardTiles.findIndex(Boolean);
     if (k < 0) return;
     player.x = ((k % W) + 0.5) * T;
     player.z = (((k / W) | 0) + 0.5) * T - 1.5;

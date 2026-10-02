@@ -5,7 +5,7 @@ import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { levelGroup } from '../../world/level.ts';
+import { level } from '../../world/level.ts';
 import { enemies, fanAt, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
 import { player, damagePlayer, difficultyAt, run } from '../player.ts';
 import { bossBase } from './common.ts';
@@ -40,7 +40,7 @@ export function spawnCore() {
     );
     bm.position.set(e.cx, 1.2, e.cz);
     bm.visible = false;
-    levelGroup!.add(bm);
+    level.group!.add(bm);
     e.beams.push(bm);
   }
   toast(t('boss.coreHint'), 3800);

@@ -34,7 +34,7 @@ import { BIOMES } from '../data/biomes.ts';
 import { ASSIST, BAG_MAX, PER, TUNE, enemyGrowth } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { basicNow, pickDrop, rebootMul, progressOf, startDmgMul, startMaxHp } from '../core/rules.ts';
-import { roomCount, roomSpot, rooms } from '../world/level.ts';
+import { level, roomSpot } from '../world/level.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy, spawnPBullet, target } from '../world/entities.ts';
 import { bossDown, bossPhase } from './bosses/common.ts';
 import { screenFx, hitDirection, hitMark } from '../ui/hud.ts';
@@ -606,12 +606,12 @@ export function killEnemy(e: Enemy, noReward?: boolean) {
       );
       m.active = true;
     }
-    if (e.room >= 0) roomCount[e.room] += SPLIT_KIDS;
+    if (e.room >= 0) level.roomCount[e.room] += SPLIT_KIDS;
   }
-  if (e.room >= 0 && --roomCount[e.room] === 0) roomCleared(e.room);
+  if (e.room >= 0 && --level.roomCount[e.room] === 0) roomCleared(e.room);
 }
 export function roomCleared(idx: number) {
-  const [x, z] = roomSpot(rooms[idx]);
+  const [x, z] = roomSpot(level.rooms[idx]);
   if (Math.random() < TUNE.chipChance) {
     addPickup('chip', x, z);
     toast(t('run.clearedChip'));

@@ -7,7 +7,7 @@ import { burst } from '@engine/render/fx.ts';
 import { T } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { randomTileIn, rooms } from '../../world/level.ts';
+import { level, randomTileIn } from '../../world/level.ts';
 import { enemies, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
 import { player, difficultyAt, run } from '../player.ts';
 import { bossBase, makeLaser, setLaser } from './common.ts';
@@ -116,7 +116,7 @@ export function updPhantom(e: PhantomBoss, dt: number) {
       e.cycle++;
       if (e.cycle % K.droneEvery === 0 && enemies.filter(o => !o.boss && !o.dead).length < K.droneCap)
         for (let k = 0; k < K.drones; k++) {
-          const [x, z] = randomTileIn(rooms[0]);
+          const [x, z] = randomTileIn(level.rooms[0]);
           spawnEnemy('drone', x, z, -1, difficultyAt(run.stage)).active = true;
         }
     }

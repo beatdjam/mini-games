@@ -13,7 +13,7 @@ import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { hpGrowth } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
 import { rebootMul, progressOf } from '../../core/rules.ts';
-import { curBiome, makePortal } from '../../world/level.ts';
+import { level, makePortal } from '../../world/level.ts';
 import {
   addPickup,
   dropBits,
@@ -153,10 +153,10 @@ export function spawnBoss(kind: string) {
     } as Record<string, () => void>
   )[kind]!;
   spawn();
-  setMusic(curBiome.code, true); // boss arrangement of this sector's theme
+  setMusic(level.biome.code, true); // boss arrangement of this sector's theme
 }
 export function bossDown(e: Boss) {
-  setMusic(curBiome.code);
+  setMusic(level.biome.code);
   screenFx.shake = 0.6;
   sfx('bigboom');
   if (e.beams)
