@@ -17,6 +17,7 @@ import { boss, enemies, nearW, target } from '../world/entities.ts';
 import { P, curW, magSize, run, wName, wText, weaponStats } from '../actors/player.ts';
 import { refreshRunText, renderBase, setState, show, state } from '../flow/game.ts';
 import { time } from '../flow/update.ts';
+import { CSS_COLOR } from '../data/colors.ts';
 export const hpFill = el('#hpFill'), hpNum = el('#hpNum'), hpBar = el('#hpBar'), stFill = el('#stFill'), stBar = el('#stBar'), bitNum = el('#bitNum');
 export const cross = el('#cross'), hitm = el('#hitm'), ammoEl = el('#ammo'), reloadEl = el('#reload'), rFill = el('#rFill');
 export const vigEl = el('#vig'), bossFill = el('#bossFill'), mini = el<HTMLCanvasElement>('#mini'), mctx = mini.getContext('2d')!, bigmap = el<HTMLCanvasElement>('#bigmap'), bctx = bigmap.getContext('2d')!;
@@ -123,7 +124,7 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
   query<Pickup>('pickup').forEach(p => {
     if (p.kind === 'bit') return;
     if (!seen[Math.floor(p.z / T) * W + Math.floor(p.x / T)]) return;
-    g.fillStyle = p.kind === 'chip' ? '#ffc24a' : p.kind === 'kit' ? '#8cff6a' : '#ffffff';
+    g.fillStyle = p.kind === 'chip' ? CSS_COLOR.amber : p.kind === 'kit' ? CSS_COLOR.lime : '#ffffff';
     g.fillRect(px(p.x) - 2.5 * u, px(p.z) - 2.5 * u, 5 * u, 5 * u);
   });
   portals.forEach(pt => {
@@ -132,7 +133,7 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
     g.beginPath(); g.arc(px(pt.x), px(pt.z), 5 * u, 0, Math.PI * 2); g.stroke();
     if (big) { g.fillStyle = g.strokeStyle; g.font = `${7 * u}px "DotGothic16",sans-serif`; g.textAlign = 'center'; g.fillText(t(pt.kind === 'extract' ? 'map.extract' : pt.kind === 'next' && arena ? 'map.next' : 'map.exit'), px(pt.x), px(pt.z) - 8 * u); }
   });
-  g.fillStyle = '#ff4d8d';
+  g.fillStyle = CSS_COLOR.mag;
   enemies.forEach(e => { if (!e.dead && (e.active || e.boss) && seen[Math.floor(e.z / T) * W + Math.floor(e.x / T)]) { g.beginPath(); g.arc(px(e.x), px(e.z), (e.boss ? 5 : 2.2) * u, 0, Math.PI * 2); g.fill(); } });
   const x = px(P.x), z = px(P.z), fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), a = 6 * u, b = 3.5 * u;
   g.fillStyle = '#ffffff'; g.beginPath();

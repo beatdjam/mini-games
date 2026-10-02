@@ -9,6 +9,7 @@ import { levelGroup } from '../../world/level.ts';
 import { enemies, fanAt, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
 import { P, damagePlayer, diffOf, run } from '../player.ts';
 import { bossBase, bossDiff } from './common.ts';
+import { COLOR } from '../../data/colors.ts';
 // NOISE CORE: rotating beams, bullet rings, summons
 
 // knot: the spinning mesh; beams: the three beam meshes; ba / bdir: beam angle and spin direction
@@ -16,7 +17,7 @@ export type CoreBoss = Boss & { knot: THREE.Mesh; beams: THREE.Mesh<THREE.Buffer
 export function spawnCore() {
   const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.TorusKnotGeometry(1.3, 0.38, 72, 8);
-  const mat = new THREE.MeshLambertMaterial({ color: 0x140c20, emissive: 0xc58cff, emissiveIntensity: 0.3 });
+  const mat = new THREE.MeshLambertMaterial({ color: 0x140c20, emissive: COLOR.violet, emissiveIntensity: 0.3 });
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   const knot = new THREE.Mesh(geo, mat);
   g.add(knot, core);
@@ -25,7 +26,7 @@ export function spawnCore() {
   e.x = e.cx; e.z = e.cz; g.position.set(e.x, e.y, e.z);
   for (let k = 0; k < 3; k++) {
     const bg = new THREE.BoxGeometry(34, 0.45, 0.45); bg.translate(17, 0, 0);
-    const bm = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: 0xff4d8d, transparent: true, opacity: 0.25, depthWrite: false }));
+    const bm = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: COLOR.mag, transparent: true, opacity: 0.25, depthWrite: false }));
     bm.position.set(e.cx, 1.2, e.cz); bm.visible = false; levelGroup!.add(bm); e.beams.push(bm);
   }
   toast(t('boss.coreHint'), 3800);
@@ -58,11 +59,11 @@ export function updCore(e: CoreBoss, dt: number) {
         if (Math.cos(df) > 0 && pd * Math.abs(Math.sin(df)) < K.beamWidth) damagePlayer(e.dmg * K.beamDmg, { x: e.cx, z: e.cz });
       }
     }
-    if (enr && live && e.pt > 2 + e.shots * K.fanGap) { e.shots++; fanAt(e.cx, 2.6, e.cz, K.fan[0], K.fan[1], K.fan[2], e.dmg, 0xc58cff); }
+    if (enr && live && e.pt > 2 + e.shots * K.fanGap) { e.shots++; fanAt(e.cx, 2.6, e.cz, K.fan[0], K.fan[1], K.fan[2], e.dmg, COLOR.violet); }
   } else if (e.pat === 1) {
     if (e.shots < K.ringShots && e.pt > 0.3 + e.shots * K.ringGap) {
-      ring(e.cx, e.cz, 1.3, K.ring[0], K.ring[1], e.shots * 0.16, e.dmg, 0xc58cff);
-      if (enr) ring(e.cx, e.cz, 1.3, K.ringEnr[0], K.ringEnr[1], e.shots * 0.3 + 0.1, e.dmg, 0xff4d8d, 0.8);
+      ring(e.cx, e.cz, 1.3, K.ring[0], K.ring[1], e.shots * 0.16, e.dmg, COLOR.violet);
+      if (enr) ring(e.cx, e.cz, 1.3, K.ringEnr[0], K.ringEnr[1], e.shots * 0.3 + 0.1, e.dmg, COLOR.mag, 0.8);
       e.shots++;
     }
   } else if (e.pat === 2 && e.shots === 0 && e.pt > 0.3) {
@@ -70,6 +71,6 @@ export function updCore(e: CoreBoss, dt: number) {
     const minions = enemies.filter(o => !o.boss && !o.dead).length;
     const n = minions < K.minionCap ? (enr ? K.minionsEnr : K.minions) : 0;
     for (let k = 0; k < n; k++) { const a = rand(0, Math.PI * 2); spawnEnemy(pick(['crawler', 'crawler', 'drone']), e.cx + Math.cos(a) * 5, e.cz + Math.sin(a) * 5, -1, diffOf(run.stage)).active = true; }
-    for (let k = 0; k < K.burstN; k++) { const a = k / K.burstN * Math.PI * 2; spawnEBullet(e.cx + Math.sin(a) * 2, 2.6, e.cz + Math.cos(a) * 2, Math.sin(a) * K.burstSpeed, 0, Math.cos(a) * K.burstSpeed, e.dmg, 0xff4d8d, 1.3, 3); }
+    for (let k = 0; k < K.burstN; k++) { const a = k / K.burstN * Math.PI * 2; spawnEBullet(e.cx + Math.sin(a) * 2, 2.6, e.cz + Math.cos(a) * 2, Math.sin(a) * K.burstSpeed, 0, Math.cos(a) * K.burstSpeed, e.dmg, COLOR.mag, 1.3, 3); }
   }
 }

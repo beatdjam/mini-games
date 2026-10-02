@@ -9,6 +9,7 @@ import { randomTileIn, rooms } from '../../world/level.ts';
 import { fanAt, ring, shootAngle, spawnEnemy } from '../../world/entities.ts';
 import { P, diffOf, run } from '../player.ts';
 import { bossBase, bossDiff } from './common.ts';
+import { COLOR } from '../../data/colors.ts';
 // WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
 // drone waves summoned so far
@@ -16,9 +17,9 @@ export type WatcherBoss = Boss & { summoned: number };
 export function spawnWatcher() {
   const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.IcosahedronGeometry(2.1, 0);
-  const mat = new THREE.MeshLambertMaterial({ color: 0x0f151c, emissive: 0x54e8ff, emissiveIntensity: 0.3 });
-  g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x54e8ff })));
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff4d8d })); eye.position.z = 1.75; g.add(eye);
+  const mat = new THREE.MeshLambertMaterial({ color: 0x0f151c, emissive: COLOR.cyan, emissiveIntensity: 0.3 });
+  g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: COLOR.cyan })));
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: COLOR.mag })); eye.position.z = 1.75; g.add(eye);
   bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
   toast(t('boss.watcherHint'), 3800);
 }
@@ -43,15 +44,15 @@ export function updWatcher(e: WatcherBoss, dt: number) {
   if (e.timer <= 0) { e.pat = e.patIdx++ % 3; e.pt = 0; e.shots = 0; e.acc = 0; e.timer = K.patTime[e.pat] * (enr ? K.enrTime : 1); }
   const y = 1.3;
   if (e.pat === 0) {
-    if (e.shots < K.ringShots && e.pt > 0.3 + e.shots * K.ringGap) { ring(e.x, e.z, y, enr ? K.ringNEnr : K.ringN, K.ringSpeed, e.shots * 0.15 + e.t, e.dmg, 0xff4d8d); e.shots++; }
+    if (e.shots < K.ringShots && e.pt > 0.3 + e.shots * K.ringGap) { ring(e.x, e.z, y, enr ? K.ringNEnr : K.ringN, K.ringSpeed, e.shots * 0.15 + e.t, e.dmg, COLOR.mag); e.shots++; }
   } else if (e.pat === 1) {
-    if (e.shots < (enr ? K.fanShotsEnr : K.fanShots) && e.pt > 0.3 + e.shots * K.fanGap) { fanAt(e.x, e.mesh.position.y, e.z, K.fanN, K.fanSpread, K.fanSpeed, e.dmg, 0xffc24a); e.shots++; }
+    if (e.shots < (enr ? K.fanShotsEnr : K.fanShots) && e.pt > 0.3 + e.shots * K.fanGap) { fanAt(e.x, e.mesh.position.y, e.z, K.fanN, K.fanSpread, K.fanSpeed, e.dmg, COLOR.amber); e.shots++; }
   } else if (e.pat === 2 && e.pt < K.spiralTime) {
     e.acc += dt;
     const arms = enr ? K.spiralArmsEnr : K.spiralArms;
     while (e.acc > K.spiralGap) {
       e.acc -= K.spiralGap;
-      for (let k = 0; k < arms; k++) shootAngle(e.x, y, e.z, e.t * 2.2 + k * Math.PI * 2 / arms, K.spiralSpeed, e.dmg, 0x54e8ff);
+      for (let k = 0; k < arms; k++) shootAngle(e.x, y, e.z, e.t * 2.2 + k * Math.PI * 2 / arms, K.spiralSpeed, e.dmg, COLOR.cyan);
       sfx('eshot', 90);
     }
   }

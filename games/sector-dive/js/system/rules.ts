@@ -1,6 +1,6 @@
 import type { WeaponItem } from '../data/types.ts';
 import { LANG, t } from '../../../../engine/core/i18n.ts';
-import { DROP_POOL, MOD_CAP_PER_DEPTH, MOD_PLUS_MAX, PLUS_DMG, RARITY, WEAPONS } from '../data/weapons.ts';
+import { DROP_POOL, MOD_CAP_PER_DEPTH, MOD_PLUS_MAX, PLUS_DMG, RARITY, RATE_OPT_MUL, RELOAD_OPT_MUL, WEAPONS } from '../data/weapons.ts';
 import { PER, PRES_ENDLESS, TUNE, enemyGrowth, hpGrowth } from '../data/progress.ts';
 import type { PresUpgrade } from '../data/types.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
@@ -33,7 +33,7 @@ export const basicNow = <W extends WeaponItem | null>(w: W): W => w && w.basic ?
 export function bareDps(w: WeaponItem): number {
   const def = WEAPONS[w.id]!, opt = (k: string) => (w.opts || []).filter(o => o === k).length;
   const mag = Math.max(1, Math.round(def.mag * (1 + 0.3 * opt('mag'))));
-  const interval = def.rate * Math.pow(0.91, opt('rate')), reload = def.reload * Math.pow(0.8, opt('reload'));
+  const interval = def.rate * Math.pow(RATE_OPT_MUL, opt('rate')), reload = def.reload * Math.pow(RELOAD_OPT_MUL, opt('reload'));
   const crit = Math.min(TUNE.critCap, 0.08 * opt('crit'));
   return def.dmg * RARITY[w.r]!.mult * (1 + PLUS_DMG * (w.plus || 0)) * def.pellets * mag / (mag * interval + reload) * (1 + crit);
 }
