@@ -36,16 +36,20 @@ export function fillData(target: any[] | Record<string, any>, src: Record<string
     if (obj && typeof obj === 'object') Object.assign(obj, src[k]);
   });
 }
+// [HTML attribute holding the key, its dataset name, the attribute that gets the text], applied in this order
+const TEXT_ATTRS: [string, string, string][] = [
+  ['data-i18n-aria', 'i18nAria', 'aria-label'],
+  ['data-i18n-alt', 'i18nAlt', 'alt'],
+  ['data-i18n-content', 'i18nContent', 'content'],
+];
 export function applyStaticText(root: ParentNode = document) {
   root.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n ?? '');
   });
-  ['aria', 'alt', 'content'].forEach(a =>
+  TEXT_ATTRS.forEach(([keyAttr, keyName, target]) =>
     root
-      .querySelectorAll<HTMLElement>(`[data-i18n-${a}]`)
-      .forEach(el =>
-        el.setAttribute(a === 'aria' ? 'aria-label' : a, t(el.dataset['i18n' + a[0].toUpperCase() + a.slice(1)] ?? '')),
-      ),
+      .querySelectorAll<HTMLElement>(`[${keyAttr}]`)
+      .forEach(el => el.setAttribute(target, t(el.dataset[keyName] ?? ''))),
   );
   document.documentElement.lang = lang;
 }

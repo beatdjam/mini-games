@@ -1,30 +1,38 @@
 import * as THREE from 'three';
-import { isTouch } from '../core/util.ts';
+import { el, isTouch } from '../core/util.ts';
 // engine: three.js setup: renderer on canvas#gl, scene, camera, resize, shared materials, disposal, text sprites, and the in-hand viewmodel pass
-export const canvas = document.querySelector<HTMLCanvasElement>('#gl')!;
+const BG_COLOR = 0x061219; // fog and background
+const FOV_LANDSCAPE = 72; // vertical field of view (deg) on a wide window
+const FOV_PORTRAIT = 90; // ... on a tall window (width < height)
+// a sky/ground light and one directional light, added to `target`; sunPos is where the directional light sits
+function addLights(target: THREE.Scene, sunPos: [number, number, number]): THREE.DirectionalLight {
+  target.add(new THREE.HemisphereLight(0xcfefff, 0x141c26, 1.0));
+  const light = new THREE.DirectionalLight(0xffffff, 0.45);
+  light.position.set(...sunPos);
+  target.add(light);
+  return light;
+}
+export const canvas = el<HTMLCanvasElement>('#gl');
 export const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
 export const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x061219, 4, 44);
-scene.background = new THREE.Color(0x061219);
-export const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 140);
+scene.fog = new THREE.Fog(BG_COLOR, 4, 44);
+scene.background = new THREE.Color(BG_COLOR);
+export const camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.05, 140);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
-scene.add(new THREE.HemisphereLight(0xcfefff, 0x141c26, 1.0));
-export const sun = new THREE.DirectionalLight(0xffffff, 0.45);
-sun.position.set(3, 10, 2);
-scene.add(sun);
+export const sun = addLights(scene, [3, 10, 2]);
 export const dynGroup = new THREE.Group();
 scene.add(dynGroup);
-export const V3 = THREE.Vector3,
-  UP = new V3(0, 1, 0);
+export const V3 = THREE.Vector3;
+export const UP = new V3(0, 1, 0);
 
 export function resize() {
   const w = window.innerWidth,
     h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  camera.fov = w / h < 1 ? 90 : 72;
+  camera.fov = w / h < 1 ? FOV_PORTRAIT : FOV_LANDSCAPE;
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);
@@ -35,8 +43,8 @@ export function shared<T extends { userData: Record<string, any> }>(x: T): T {
   x.userData.shared = true;
   return x;
 }
-export const bmats: Record<number, THREE.MeshBasicMaterial> = {},
-  lmats: Record<number, THREE.LineBasicMaterial> = {};
+export const bmats: Record<number, THREE.MeshBasicMaterial> = {};
+export const lmats: Record<number, THREE.LineBasicMaterial> = {};
 export function basicMat(c: number): THREE.MeshBasicMaterial {
   return bmats[c] || (bmats[c] = shared(new THREE.MeshBasicMaterial({ color: c })));
 }
@@ -83,14 +91,9 @@ export function textSprite(text: string, color: string): THREE.Sprite {
 // the gun in hand lives in its own scene, drawn after the world with the depth buffer cleared:
 // nothing in the world (walls, hazard floors, blasts) can cover it, and its own parts still depth-sort.
 // gunScene's space is the camera's local space (gunCam sits at the origin looking down -z)
-export const gunScene = new THREE.Scene(),
-  gunCam = new THREE.PerspectiveCamera();
-gunScene.add(new THREE.HemisphereLight(0xcfefff, 0x141c26, 1.0));
-{
-  const l = new THREE.DirectionalLight(0xffffff, 0.45);
-  l.position.set(1, 3, 2);
-  gunScene.add(l);
-}
+export const gunScene = new THREE.Scene();
+export const gunCam = new THREE.PerspectiveCamera();
+addLights(gunScene, [1, 3, 2]);
 export const gun = new THREE.Group();
 gunScene.add(gun);
 gun.visible = false;
