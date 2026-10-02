@@ -67,6 +67,6 @@ setLang(save.settings.lang || defaultLang());
 syncVolumes();
 fsLabel(); applyLayout(); renderGuide(); showTab(baseTab);
 boot();
-// checks and screenshot hooks (#smoke, #view-…): only on the dev server and in the test build (npm run test:build),
-// never in the published pages. The dev module sets up its hooks with timers, so loading it after boot() is fine
-if (import.meta.env.DEV || import.meta.env.MODE === 'test') import('./js/dev/dev.ts');
+// checks and screenshot hooks (#view-…): only on the dev server, never in the built pages. The dev module sets up
+// its hooks with timers, so loading it after boot() is fine
+if (import.meta.env.DEV) import('./js/dev/dev.ts');
