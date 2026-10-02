@@ -7,7 +7,7 @@ import { sfx, unlockAudio } from '@engine/audio/audio.ts';
 import { setMusic } from '@engine/audio/music.ts';
 import { camera, gun } from '@engine/render/render.ts';
 import { FX } from '@engine/render/fx.ts';
-import { T, W, computeFlow, floorY, moveCircle } from '@engine/world/tiles.ts';
+import { T, computeFlow, floorY, moveCircle, tileIndex } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { fire2Held, fireHeld, joy, keys, mouseFire } from '@engine/ui/input.ts';
 import { EYE, PORTAL } from '../data/level.ts';
@@ -54,6 +54,8 @@ const BIT_PULL_SPEED = 14; // m/s a bit flies toward the player
 const BIT_PICK_R = 0.7; // bits are collected inside this (m)
 const BIT_GAIN_PER_LEVEL = 0.1; // bits per gain chip level (+10%)
 const PICKUP_REACH_Y = 1.4; // vertical reach for picking things up (m)
+const BIT_HOVER_Y = 0.5; // height a bit rests at above the floor, and where it flies to above the player's feet (m)
+const PICKUP_HOVER_Y = 1; // height a kit, chip or weapon rests at above the floor (m)
 const KIT_PICK_R = 1.1; // med kit pick-up radius (m)
 const CHIP_PICK_R = 1.3; // chip pick-up radius (m)
 const WAVE_HIT_WIDTH = 0.6; // shockwave ring thickness that hurts (m)
@@ -68,19 +70,35 @@ export function update(dt: number) {
 }
 
 // ---- player: movement, dash, camera, viewmodel, reload and firing ----
-export function updatePlayer(dt: number) {
-  time += dt;
-  let mx = 0,
-    mz = 0;
-  if (keys.KeyW || keys.ArrowUp) mz += 1;
-  if (keys.KeyS || keys.ArrowDown) mz -= 1;
-  if (keys.KeyD || keys.ArrowRight) mx += 1;
-  if (keys.KeyA || keys.ArrowLeft) mx -= 1;
-  mx += joy.x;
-  mz -= joy.y;
+// a point or direction on the ground (x, z)
+interface Vec2 {
+  x: number;
+  z: number;
+}
+
+// move input from the keyboard and the stick: x = right, z = forward, at most 1 long
+function readMoveInput(): Vec2 {
+  let x = 0,
+    z = 0;
+  if (keys.KeyW || keys.ArrowUp) z += 1;
+  if (keys.KeyS || keys.ArrowDown) z -= 1;
+  if (keys.KeyD || keys.ArrowRight) x += 1;
+  if (keys.KeyA || keys.ArrowLeft) x -= 1;
+  x += joy.x;
+  z -= joy.y;
+  const inputLen = Math.hypot(x, z);
+  if (inputLen > 1) {
+    x /= inputLen;
+    z /= inputLen;
+  }
+  return { x, z };
+}
+
+// holding the stick at its rim for a moment asks for a dash (controlState.dashReq)
+function updateStickDash(dt: number) {
   if (save.settings.stickDash && joy.id !== null) {
-    const jm = Math.hypot(joy.x, joy.y);
-    if (jm > STICK_DASH_PUSH) {
+    const stickPush = Math.hypot(joy.x, joy.y);
+    if (stickPush > STICK_DASH_PUSH) {
       controlState.stickT += dt;
       if (controlState.stickT > STICK_DASH_HOLD && controlState.stickArmed) {
         controlState.dashReq = true;
@@ -88,102 +106,140 @@ export function updatePlayer(dt: number) {
       }
     } else {
       controlState.stickT = 0;
-      if (jm < STICK_DASH_REARM) controlState.stickArmed = true;
+      if (stickPush < STICK_DASH_REARM) controlState.stickArmed = true;
     }
   } else {
     controlState.stickT = 0;
     controlState.stickArmed = true;
   }
-  const ml = Math.hypot(mx, mz);
-  if (ml > 1) {
-    mx /= ml;
-    mz /= ml;
-  }
-  const fx = -Math.sin(player.yaw),
-    fz = -Math.cos(player.yaw),
-    rx = Math.cos(player.yaw),
-    rz = -Math.sin(player.yaw);
-  let vx = fx * mz + rx * mx,
-    vz = fz * mz + rz * mx;
+}
+
+// the ground direction the player faces
+function facingDir(): Vec2 {
+  return { x: -Math.sin(player.yaw), z: -Math.cos(player.yaw) };
+}
+
+// move input (relative to where the player faces) turned into a ground direction in the world
+function worldMoveDir(input: Vec2): Vec2 {
+  const forward = facingDir();
+  const rightX = Math.cos(player.yaw),
+    rightZ = -Math.sin(player.yaw);
+  return {
+    x: forward.x * input.z + rightX * input.x,
+    z: forward.z * input.z + rightZ * input.x,
+  };
+}
+
+// invulnerability, the stamina bar warning and stamina regeneration
+function tickStamina(dt: number) {
   player.inv -= dt;
   screenFx.stWarn -= dt;
   player.stDelay -= dt;
   if (player.stDelay <= 0) player.st = Math.min(player.stMax, player.st + player.stRegen * dt);
-  if (controlState.dashReq) {
-    controlState.dashReq = false;
-    if (player.st >= TUNE.dashCost) {
-      const l = Math.hypot(vx, vz);
-      if (l > MOVE_EPS) {
-        player.ddx = vx / l;
-        player.ddz = vz / l;
-      } else {
-        player.ddx = fx;
-        player.ddz = fz;
-      }
-      player.dashT = TUNE.dashTime;
-      player.st -= TUNE.dashCost;
-      player.stDelay = TUNE.staminaDelay;
-      player.inv = Math.max(player.inv, TUNE.dashInvuln);
-      sfx('dash');
+}
+
+// a dash was asked for: starts it toward the move direction (or straight ahead) if there is stamina, else warns
+function startDashIfRequested(moveDir: Vec2) {
+  if (!controlState.dashReq) return;
+  controlState.dashReq = false;
+  if (player.st >= TUNE.dashCost) {
+    const moveLen = Math.hypot(moveDir.x, moveDir.z);
+    if (moveLen > MOVE_EPS) {
+      player.ddx = moveDir.x / moveLen;
+      player.ddz = moveDir.z / moveLen;
     } else {
-      screenFx.stWarn = STAMINA_WARN_TIME;
-      sfx('empty');
+      const forward = facingDir();
+      player.ddx = forward.x;
+      player.ddz = forward.z;
     }
-  }
-  const sp = player.baseSpeed * player.spdMul * (1 + SPEED_CHIP_PER_LEVEL * weaponOptCount('speed'));
-  if (player.dashT > 0) {
-    player.dashT -= dt;
-    vx = player.ddx * TUNE.dashSpeed;
-    vz = player.ddz * TUNE.dashSpeed;
-  }
-  moveCircle(player, vx * sp * dt, vz * sp * dt, player.r);
-  const gy = floorY(player.x, player.z);
-  if (player.fy > gy + GROUND_EPS) {
-    player.vy -= GRAVITY * dt;
-    player.fy = Math.max(gy, player.fy + player.vy * dt);
-    if (player.fy === gy) player.vy = 0;
+    player.dashT = TUNE.dashTime;
+    player.st -= TUNE.dashCost;
+    player.stDelay = TUNE.staminaDelay;
+    player.inv = Math.max(player.inv, TUNE.dashInvuln);
+    sfx('dash');
   } else {
-    player.fy = gy;
+    screenFx.stWarn = STAMINA_WARN_TIME;
+    sfx('empty');
+  }
+}
+
+// while dashing, the dash direction replaces the move direction
+function applyDash(dt: number, moveDir: Vec2): Vec2 {
+  if (player.dashT <= 0) return moveDir;
+  player.dashT -= dt;
+  return { x: player.ddx * TUNE.dashSpeed, z: player.ddz * TUNE.dashSpeed };
+}
+
+function movePlayer(dt: number, dir: Vec2) {
+  const speed = player.baseSpeed * player.spdMul * (1 + SPEED_CHIP_PER_LEVEL * weaponOptCount('speed'));
+  moveCircle(player, dir.x * speed * dt, dir.z * speed * dt, player.r);
+}
+
+// falls after a ledge or a drop, otherwise stays on the floor
+function applyGravity(dt: number) {
+  const groundY = floorY(player.x, player.z);
+  if (player.fy > groundY + GROUND_EPS) {
+    player.vy -= GRAVITY * dt;
+    player.fy = Math.max(groundY, player.fy + player.vy * dt);
+    if (player.fy === groundY) player.vy = 0;
+  } else {
+    player.fy = groundY;
     player.vy = 0;
   }
-  if (Math.hypot(vx, vz) > MOVE_EPS) player.bob += dt * BOB_RATE;
+}
 
-  const ti = Math.floor(player.x / T),
-    tj = Math.floor(player.z / T),
-    tkey = tj * W + ti;
-  if (tkey !== player.tile) {
-    player.tile = tkey;
-    computeFlow(ti, tj);
-    reveal(ti, tj);
+function updateHeadBob(dt: number, dir: Vec2) {
+  if (Math.hypot(dir.x, dir.z) > MOVE_EPS) player.bob += dt * BOB_RATE;
+}
+
+// entering a new tile refreshes the flow field and what the map shows
+function updatePlayerTile() {
+  const tile = tileIndex(player.x, player.z);
+  if (tile !== player.tile) {
+    player.tile = tile;
+    const tileX = Math.floor(player.x / T),
+      tileZ = Math.floor(player.z / T);
+    computeFlow(tileX, tileZ);
+    reveal(tileX, tileZ);
   }
+}
 
-  // camera + viewmodel
+// camera: head bob and screen shake (shake draws 3 random numbers per frame, in x, y, z order)
+function updateCamera(dt: number) {
   screenFx.shake = Math.max(0, screenFx.shake - dt * SHAKE_DECAY);
-  const sh = screenFx.shake * screenFx.shake;
+  const shakeRange = screenFx.shake * screenFx.shake;
   camera.position.set(
-    player.x + rand(-sh, sh),
-    player.fy + EYE + Math.sin(player.bob) * 0.05 + rand(-sh, sh),
-    player.z + rand(-sh, sh),
+    player.x + rand(-shakeRange, shakeRange),
+    player.fy + EYE + Math.sin(player.bob) * 0.05 + rand(-shakeRange, shakeRange),
+    player.z + rand(-shakeRange, shakeRange),
   );
   camera.rotation.set(player.pitch, player.yaw, 0);
-  GUNFX.gunKick = Math.max(0, GUNFX.gunKick - dt * GUN_KICK_DECAY);
-  const vm = curVM!,
-    vp = vm.userData.pos;
-  let rl = 0;
-  if (player.reloadT > 0) {
-    const k = 1 - player.reloadT / player.reloadMax;
-    rl = Math.sin(Math.PI * k);
-  }
-  gun.position.set(
-    vp[0] + Math.cos(player.bob * 0.5) * 0.012,
-    vp[1] + Math.abs(Math.sin(player.bob * 0.5)) * 0.012 - GUNFX.gunKick * 0.3 - rl * 0.18,
-    vp[2] + GUNFX.gunKick,
-  );
-  gun.rotation.set(GUNFX.gunKick * 1.6 - rl * 0.7, 0, rl * 0.5);
-  GUNFX.flashT -= dt;
-  vm.userData.flash.visible = GUNFX.flashT > 0;
+}
 
-  // reload / shooting
+// 0 -> 1 -> 0 over a reload (how far the gun is lowered and tilted); 0 when not reloading
+function reloadPhase(): number {
+  if (player.reloadT <= 0) return 0;
+  const progress = 1 - player.reloadT / player.reloadMax;
+  return Math.sin(Math.PI * progress);
+}
+
+// the gun in hand: bob, recoil, reload dip and muzzle flash
+function updateGunView(dt: number) {
+  GUNFX.gunKick = Math.max(0, GUNFX.gunKick - dt * GUN_KICK_DECAY);
+  const viewModel = curVM!,
+    restPos = viewModel.userData.pos;
+  const reload = reloadPhase();
+  gun.position.set(
+    restPos[0] + Math.cos(player.bob * 0.5) * 0.012,
+    restPos[1] + Math.abs(Math.sin(player.bob * 0.5)) * 0.012 - GUNFX.gunKick * 0.3 - reload * 0.18,
+    restPos[2] + GUNFX.gunKick,
+  );
+  gun.rotation.set(GUNFX.gunKick * 1.6 - reload * 0.7, 0, reload * 0.5);
+  GUNFX.flashT -= dt;
+  viewModel.userData.flash.visible = GUNFX.flashT > 0;
+}
+
+function updateReload(dt: number) {
   if (player.reloadT > 0) {
     player.reloadT -= dt;
     if (player.reloadT <= 0) {
@@ -192,17 +248,38 @@ export function updatePlayer(dt: number) {
       sfx('reloaded');
     }
   }
+}
+
+function updateFiring(dt: number) {
   setTarget(findTarget());
   // A gun faster than the frame rate fires several rounds in one frame, so fire-rate chips keep working past 60 (or 30)
   // shots a second. The carry-over is kept to one frame, so a pause (reloading, not holding fire) doesn't bank shots.
   player.fireCd = Math.max(player.fireCd - dt, -dt);
   if (fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) {
-    for (let k = 0; k < MAX_SHOTS_PER_FRAME && player.fireCd <= 0; k++) {
+    for (let shots = 0; shots < MAX_SHOTS_PER_FRAME && player.fireCd <= 0; shots++) {
       const before = shotId;
       tryFire();
       if (shotId === before) break;
     }
   }
+}
+
+export function updatePlayer(dt: number) {
+  time += dt;
+  const input = readMoveInput();
+  updateStickDash(dt);
+  const moveDir = worldMoveDir(input);
+  tickStamina(dt);
+  startDashIfRequested(moveDir);
+  const dir = applyDash(dt, moveDir);
+  movePlayer(dt, dir);
+  applyGravity(dt);
+  updateHeadBob(dt, dir);
+  updatePlayerTile();
+  updateCamera(dt);
+  updateGunView(dt);
+  updateReload(dt);
+  updateFiring(dt);
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
 export function updatePortals(dt: number) {
@@ -254,49 +331,60 @@ export function updatePickups(dt: number) {
   query('pickup').forEach(p => p.update!(dt));
   sweepWorld();
 }
+// horizontal distance to a pickup; Infinity when a kit, chip or weapon is out of vertical reach (bits ignore height)
+function pickupDistance(p: Pickup): number {
+  if (p.kind === 'bit') return distXZ(player, p);
+  const inReachY = Math.abs(p.y - player.fy - PICKUP_HOVER_Y) < PICKUP_REACH_Y;
+  return inReachY ? distXZ(player, p) : Infinity;
+}
+// bits inside the magnet radius fly toward the player
+function pullBit(p: Pickup, d: number, dt: number) {
+  if (d >= BIT_MAGNET_R * player.magnet) return;
+  const dx = player.x - p.x,
+    dz = player.z - p.z;
+  const step = Math.min(d, BIT_PULL_SPEED * dt);
+  p.x += (dx / (d || 1)) * step;
+  p.z += (dz / (d || 1)) * step;
+  p.y += (player.fy + BIT_HOVER_Y - p.y) * Math.min(1, dt * 8);
+}
+function collectBit(p: Pickup) {
+  p.dead = true;
+  run.bits += p.value! * player.gainMul * (1 + BIT_GAIN_PER_LEVEL * weaponOptCount('gain'));
+  sfx('pick', 30);
+}
+function collectKit(p: Pickup) {
+  if (player.kits < KIT_MAX) {
+    p.dead = true;
+    player.kits++;
+    sfx('pick');
+    toast(t('run.kitPlus', { n: player.kits, max: KIT_MAX }), 1200);
+    weaponHud();
+  }
+  // kits full: used on the spot for a whole kit's heal (the same as using one and picking this up again)
+  else if (player.hp < player.maxHp) {
+    const heal = kitHealAmount();
+    p.dead = true;
+    player.hp = Math.min(player.maxHp, player.hp + heal);
+    sfx('heal');
+    toast(t('run.kitUsedNow', { n: heal }), 1500);
+  }
+}
+function collectChip(p: Pickup) {
+  p.dead = true;
+  sfx('chip');
+  openPerk(t('perk.title'));
+}
 export function updatePickup(p: Pickup, dt: number) {
   p.t += dt;
-  const dx = player.x - p.x,
-    dz = player.z - p.z,
-    d =
-      Math.abs(p.y - player.fy - (p.kind === 'bit' ? 0.5 : 1)) < PICKUP_REACH_Y || p.kind === 'bit'
-        ? Math.hypot(dx, dz)
-        : 99;
+  const d = pickupDistance(p);
   if (p.kind === 'bit') {
-    if (d < BIT_MAGNET_R * player.magnet) {
-      const s = Math.min(d, BIT_PULL_SPEED * dt);
-      p.x += (dx / (d || 1)) * s;
-      p.z += (dz / (d || 1)) * s;
-      p.y += (player.fy + 0.5 - p.y) * Math.min(1, dt * 8);
-    }
-    if (d < BIT_PICK_R) {
-      p.dead = true;
-      run.bits += p.value! * player.gainMul * (1 + BIT_GAIN_PER_LEVEL * weaponOptCount('gain'));
-      sfx('pick', 30);
-    }
+    pullBit(p, d, dt);
+    if (d < BIT_PICK_R) collectBit(p);
   } else if (p.kind === 'kit') {
-    if (d < KIT_PICK_R) {
-      if (player.kits < KIT_MAX) {
-        p.dead = true;
-        player.kits++;
-        sfx('pick');
-        toast(t('run.kitPlus', { n: player.kits, max: KIT_MAX }), 1200);
-        weaponHud();
-      }
-      // kits full: used on the spot for a whole kit's heal (the same as using one and picking this up again)
-      else if (player.hp < player.maxHp) {
-        const heal = kitHealAmount();
-        p.dead = true;
-        player.hp = Math.min(player.maxHp, player.hp + heal);
-        sfx('heal');
-        toast(t('run.kitUsedNow', { n: heal }), 1500);
-      }
-    }
+    if (d < KIT_PICK_R) collectKit(p);
   } else if (p.kind === 'chip') {
     if (d < CHIP_PICK_R) {
-      p.dead = true;
-      sfx('chip');
-      openPerk(t('perk.title'));
+      collectChip(p);
       return;
     }
   } else if (p.kind === 'weapon') {
