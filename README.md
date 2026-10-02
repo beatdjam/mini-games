@@ -31,7 +31,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - Node は 24（`.nvmrc`。CI も同じ版を使う）。22.12 以上なら動く（`package.json` の `engines`）
 - 最初に `npm install`
 - `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
-- `npm run typecheck`: 型チェック（下の「TypeScript」）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
+- `npm run typecheck`: 型チェック（`tsconfig.json` の1本でリポジトリ全体を見る。型の決まりは STYLE.md）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
 - `npm run lint`: STYLE.md の決まりのうち機械で確かめられるもの（`tools/check_style.js`）と、全ゲームの文言キーの照合（`tools/check_i18n.js`）
 - `npm run build`: 公開用に `dist/` を作る。`npm run preview` で、公開と同じ `/mini-games/` の下で確かめられる
 - `npm test`: engine のテストと全ゲームのスモークテストを、ヘッドレスの Chrome で流す（開発サーバーが動いていなければ立てる）。どれか失敗すると終了コード1
@@ -41,18 +41,6 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）。GA の利用規約に沿って、`privacy.html`（プライバシーポリシー）をトップと各ゲームの設定から開けるようにしておく。送る内容の種類を増やしたら、この文面も見直す
 - PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト（`npm test` と `npm run test:build`）・ビルドを流す。マージの前に、ここが通っていることを確かめる
 - 公開: master に push すると、Actions が同じ確認をもう一度してから GitHub Pages に出す（どれかが失敗すれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
-
-## TypeScript
-
-- 型チェックは `tsconfig.json` の1本で、リポジトリ全体を厳しい設定（`strict: true`）で見る。`npm run typecheck` でエラー0を保つ
-- 型の置き場所: engine の型は持ち主のモジュールから export する（`System`, `WorldObject`, `InputConfig`, `TouchLayoutConfig`, `LangPack` など）。ゲームの定義の型は `games/<id>/js/data/types.ts`
-- あとから項目が増えるオブジェクト（敵やボス、弾）も、任意の項目を許す型（`[k: string]: any`）は使わず、項目を全部書き出している。全員が持つ項目は必須、種類ごとの状態（狙撃手のレーザー、ボスごとの状態など）は省略可能にするか、その種類だけの型（`Sniper`、各ボスの `...Boss`）にして、型ガードや `bossBase` の引数で付ける。engine の型（`Projectile`、`WorldObject`）はゲームの項目を知らず、ゲーム側が `extends` で足す（弾は `Bullet` / `PBullet` / `EBullet`）
-- DOM の取得は `el<T>()`（要素が必ずある所。T は `HTMLCanvasElement` など）。無いかもしれない要素は `document.querySelector<T>()` で null を残す
-- 言語ファイルが後から埋める項目（名前・説明文など）は、型では必須（`name: string` など）にしている。定義には `withLang`（`games/<game-id>/js/data/langslots.ts`）で空の既定値を入れておき、`setLang` が言語ファイルの値で上書きする。そのため使う側は `!` なしで読め、言語が入る前に読んでも `undefined` にならず空になる。一部の定義にしかない項目（セクターの `hint` など）だけは省略可能のまま
-
-## 仕様書のルール
-
-各ゲームの仕様（数値・ルール・操作）は `games/<game-id>/SPEC.md` にまとめる。仕様を変えたら同じコミットで SPEC.md も更新する。
 
 ## 更新履歴のルール
 

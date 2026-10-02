@@ -179,6 +179,4 @@ import が循環していると、読み込みの順番は保証されない。�
 
 ## 8. 確かめ方
 
-- `tools/headless.sh 'engine/test/' 20000` … engine 単体のテスト（ループの順番・モード・world の片付けなど）
-- `tools/headless.sh 'games/<id>/#smoke' 200000` … ゲームのスモークテスト。`devSmoke` が実際のループの部品を `runSystems` で手で回す
-- `npm run typecheck` … strict の型チェック
+engine のテストはループの順番・モード・world の片付けなどを見る。ゲームのスモークテストは `devSmoke` が実際のループの部品を `runSystems` で手で回す。流し方はリポジトリの README「開発」。
