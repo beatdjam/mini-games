@@ -12,6 +12,7 @@ import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { hpGrowth } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
+import { openShortcut, recordBossKill, recordBossSeen, recordPeak, unlockReboot } from '../../core/progress.ts';
 import { rebootMul, progressOf } from '../../core/rules.ts';
 import { level, makePortal } from '../../world/level.ts';
 import {
@@ -139,7 +140,7 @@ export function bossPhase(e: Boss) {
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in src/actors/bosses/<name>.ts
 export function spawnBoss(kind: string) {
   if (!run.practice && !save.bossSeen[kind]) {
-    save.bossSeen[kind] = true;
+    recordBossSeen(kind);
     persist();
   } // practice doesn't count as an encounter
   const spawn = (
@@ -197,15 +198,15 @@ export function bossDown(e: Boss) {
   makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
   el('#bossBar').hidden = true;
   setBoss(null);
-  save.bossKills++;
+  recordBossKill();
   if (stageInfo(run.stage).tier >= 2 && !save.canReboot) {
-    save.canReboot = true;
+    unlockReboot();
     setTimeout(() => toast(t('boss.rebootUnlocked'), 4200), 4400);
   }
   const newTier = stageInfo(run.stage).tier + 1;
-  save.peak = Math.max(save.peak || 0, newTier);
+  recordPeak(newTier);
   if (newTier > save.shortcut) {
-    save.shortcut = newTier;
+    openShortcut(newTier);
     toast(t('boss.shortcut', { tier: tierLabel(newTier) }), 4200);
   } else toast(t('boss.choose'), 3200);
   persist();

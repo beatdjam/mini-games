@@ -9,10 +9,19 @@ import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { PER, STASH_MAX, TUNE } from '../data/progress.ts';
+import { PER, TUNE } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
-import { basicW, persist, save } from '../core/save.ts';
-import { progressOf, sellValue } from '../core/rules.ts';
+import { persist, save } from '../core/save.ts';
+import { progressOf } from '../core/rules.ts';
+import {
+  closeShortcut,
+  earnBits,
+  recordBest,
+  recordRunStart,
+  riskLoadout,
+  setSuspend,
+  storeWeapons,
+} from '../core/progress.ts';
 import { buildLevel, level, makePortal, randomTileIn, roomSpot } from '../world/level.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import {
@@ -73,7 +82,7 @@ export function startRun() {
   setPlayer(newPlayer(save.loadout));
   const risked = save.loadout.filter(w => w && !w.basic).length;
   // non-basic weapons leave the base: they come back only on extraction
-  save.loadout = save.loadout.map((w, i) => (w && w.basic ? w : i === 0 ? basicW('pistol') : null));
+  riskLoadout();
   setRun({
     stage: tier * PER,
     kills: 0,
@@ -83,7 +92,7 @@ export function startRun() {
     startTier: tier,
     route: shuffle(BIOMES.map((_, i) => i)),
   });
-  save.runs++;
+  recordRunStart();
   persist();
   track('dive_start', { start_level: tier + 1, item_name: save.loadout[0]?.id ?? '' });
   show(null);
@@ -192,7 +201,7 @@ export function pickEnemyType(b: Biome, tier: number): string {
 export function nextStage() {
   sfx('portal');
   run.stage++;
-  save.best = Math.max(save.best, run.stage + 1);
+  recordBest(run.stage);
   persist();
   if (run.stage % (PER * 3) === 0) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), 3000);
   startStage();
@@ -243,30 +252,12 @@ export function endPractice(kind: RunEnd) {
 // a stripped copy for the save (no per-run fields)
 const strip = (w: WeaponItem | null): WeaponItem | null =>
   w ? { id: w.id, r: w.r, basic: !!w.basic, plus: w.plus || 0, opts: w.opts || [] } : null;
-// extraction: the equipped weapons are the next loadout, the bag goes to the stash (the cheapest is sold when it is full)
-// returns the bits from the weapons sold
-function storeWeapons(): number {
-  save.loadout = [strip(player.weapons[0]), strip(player.weapons[1])];
-  if (!save.loadout[0]) save.loadout[0] = basicW('pistol');
-  let sold = 0;
-  player.bag.filter(w => w && !w.basic).forEach(w => save.stash.push(strip(w)!));
-  while (save.stash.length > STASH_MAX) {
-    let mi = 0;
-    save.stash.forEach((w, i) => {
-      if (sellValue(w) < sellValue(save.stash[mi])) mi = i;
-    });
-    sold += sellValue(save.stash[mi]);
-    save.stash.splice(mi, 1);
-  }
-  if (sold) save.bits += sold;
-  return sold;
-}
 export function endRun(kind: RunEnd) {
   if (run.practice) {
     endPractice(kind);
     return;
   }
-  save.suspend = null; // the run is over: its checkpoint must not come back
+  setSuspend(null); // the run is over: its checkpoint must not come back
   const dead = kind !== 'extract';
   setState('result');
   releaseInputs();
@@ -284,8 +275,8 @@ export function endRun(kind: RunEnd) {
     value: kept,
     virtual_currency_name: 'bits',
   });
-  save.bits += kept;
-  save.best = Math.max(save.best, run.stage + 1);
+  earnBits(kept);
+  recordBest(run.stage);
   const found = player.weapons.concat(player.bag).filter((w): w is Weapon => !!w && !w.basic);
   const foundText = found.length ? found.map(weaponText).join(t('common.sep')) : t('common.none');
   const rows: [string, string | number][] = [];
@@ -295,13 +286,12 @@ export function endRun(kind: RunEnd) {
   let shortcutMsg = '';
   if (dead) {
     rows.push([t('res.lostWeapons'), foundText]);
-    if (save.shortcut > 0) {
-      save.shortcut--;
-      shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut + 1) });
-    }
-    save.startTier = Math.min(save.startTier, save.shortcut);
+    if (closeShortcut()) shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut + 1) });
   } else {
-    const sold = storeWeapons();
+    const sold = storeWeapons(
+      [strip(player.weapons[0]), strip(player.weapons[1])],
+      player.bag.filter(w => w && !w.basic).map(w => strip(w)!),
+    );
     rows.push([t('res.keptWeapons'), foundText]);
     if (sold) rows.push([t('res.sold'), `+${sold}`]);
   }

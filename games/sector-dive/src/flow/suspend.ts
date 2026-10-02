@@ -8,6 +8,7 @@ import { track } from '@engine/core/analytics.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
 import { basicW, persist, save } from '../core/save.ts';
+import { setSuspend } from '../core/progress.ts';
 import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun, stageInfo, stageLabel } from '../actors/player.ts';
 import { normalizeWeapons } from '../ui/input.ts';
@@ -59,7 +60,7 @@ export function makeSnapshot() {
 }
 export function checkpoint() {
   if (!run || run.practice || !player) return;
-  save.suspend = makeSnapshot();
+  setSuspend(makeSnapshot());
   persist();
 }
 export function suspendRun() {
@@ -81,7 +82,7 @@ export function resumeRun() {
   if (isTouch && !isFullscreen()) enterFs();
   restoreSnapshot(sn);
   track('dive_resume', { level: stageInfo(run.stage).tier + 1 });
-  save.suspend = null;
+  setSuspend(null);
   persist();
   show(null);
   setPlayUI(true);
@@ -95,7 +96,7 @@ export function discardSuspended() {
   const sn = save.suspend;
   if (!sn) return;
   restoreSnapshot(sn);
-  save.suspend = null;
+  setSuspend(null);
   discardArm = false;
   endRun('abandon');
 }

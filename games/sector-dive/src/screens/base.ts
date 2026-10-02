@@ -1,5 +1,5 @@
 import type { WeaponItem } from '../data/types.ts';
-import { clamp, el, isTouch } from '@engine/core/util.ts';
+import { el, isTouch } from '@engine/core/util.ts';
 import { prefGet, prefSet } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
@@ -15,13 +15,25 @@ import {
 } from '../data/weapons.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
 import { REBOOT_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
-import { BASE_TAB_KEY, basicW, defaultSave, persist, save } from '../core/save.ts';
+import { BASE_TAB_KEY, basicW, persist, save } from '../core/save.ts';
+import {
+  applyReboot,
+  buyRebootUpgrade,
+  buyUpgrade,
+  clampStartTier,
+  equipWeapon,
+  sellFromStash,
+  setStartTier,
+  setWeaponMod,
+  spendBits,
+  takeFromStash,
+  unlockWeapon,
+} from '../core/progress.ts';
 import {
   basicNow,
   weaponModOf,
   modPlusCap,
   peakDepth,
-  pickDrop,
   REBOOT_DIFF_CAP,
   rebootCost,
   rebootMul,
@@ -192,7 +204,7 @@ export function renderBase() {
   el('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
   el('#sRuns').textContent = String(save.runs);
   el('#sBoss').textContent = String(save.bossKills);
-  save.startTier = clamp(save.startTier, 0, save.shortcut);
+  clampStartTier();
   el('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, n) => tierButton(n)).join('');
   el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
@@ -260,15 +272,7 @@ export function renderReboot() {
   el('#rebootRow').innerHTML = rebootRowHTML();
 }
 export function doReboot() {
-  const pr = save.pres,
-    keep = { best: save.best, runs: save.runs, bossKills: save.bossKills, settings: save.settings };
-  pr.pts += rebootGain();
-  pr.count++;
-  track('reboot', { count: pr.count });
-  const d = defaultSave();
-  Object.assign(save, d, keep, { pres: pr });
-  save.bits = pr.up.funds * 150;
-  for (let k = 0; k < pr.up.relic; k++) save.stash.push({ id: pickDrop(), r: 2, basic: false });
+  track('reboot', { count: applyReboot(rebootGain()) });
   baseUI.rebootArm = false;
   persist();
   renderBase();
@@ -276,9 +280,7 @@ export function doReboot() {
   sfx('portal');
 }
 export function assignLoadout(item: WeaponItem | null) {
-  const prev = save.loadout[baseUI.selSlot];
-  if (prev && !prev.basic) save.stash.push(prev);
-  save.loadout[baseUI.selSlot] = item;
+  equipWeapon(baseUI.selSlot, item);
 }
 el('#scrBase').addEventListener('click', (e: Event) => {
   const tg = e.target as HTMLElement;
@@ -303,10 +305,10 @@ el('#scrBase').addEventListener('click', (e: Event) => {
       m = Object.assign({ plus: 0, r: 0 }, weaponModOf(id));
     const cost = mp ? modPlusCost(m.plus) : MOD_RARITY_COST[m.r];
     if (cost === undefined || save.bits < cost || (mp && m.plus >= modPlusCap())) return;
-    save.bits -= cost;
+    spendBits(cost);
     if (mp) m.plus++;
     else m.r++;
-    save.mods = Object.assign({}, save.mods, { [id]: m });
+    setWeaponMod(id, m);
     persist();
     audioInit();
     sfx('chip');
@@ -334,37 +336,33 @@ el('#scrBase').addEventListener('click', (e: Event) => {
       l = save.pres.up[def.id] || 0;
     const cost = rebootCost(def, l);
     if (l < def.max && save.pres.pts >= cost) {
-      save.pres.pts -= cost;
-      save.pres.up[def.id] = l + 1;
+      buyRebootUpgrade(def.id, cost);
       audioInit();
       sfx('chip');
     }
   } else if (un) {
-    const prev = save.loadout[1];
-    if (prev && !prev.basic) save.stash.push(prev);
-    save.loadout[1] = null;
+    equipWeapon(1, null);
     baseUI.selSlot = 1;
   } else if (sl) baseUI.selSlot = +sl.dataset.slot!;
-  else if (ti) save.startTier = +ti.dataset.tier!;
+  else if (ti) setStartTier(+ti.dataset.tier!);
   else if (w) {
     const id = w.dataset.w!,
       def = WEAPONS[id];
     if (!save.unlocked[id]) {
       if (save.bits < def.cost) return;
-      save.bits -= def.cost;
-      save.unlocked[id] = true;
+      spendBits(def.cost);
+      unlockWeapon(id);
       audioInit();
       sfx('chip');
     }
     assignLoadout(basicW(id));
   } else if (st) {
     const i = +st.dataset.stash!,
-      item = save.stash.splice(i, 1)[0];
+      item = takeFromStash(i);
     assignLoadout(item);
   } else if (se) {
     const i = +se.dataset.sell!;
-    save.bits += sellValue(save.stash[i]);
-    save.stash.splice(i, 1);
+    sellFromStash(i);
     audioInit();
     sfx('pick');
   } else if (u) {
@@ -372,8 +370,7 @@ el('#scrBase').addEventListener('click', (e: Event) => {
       l = save.up[def.id] || 0,
       cost = def.cost(l);
     if (l < def.max && save.bits >= cost) {
-      save.bits -= cost;
-      save.up[def.id] = l + 1;
+      buyUpgrade(def.id, cost);
       audioInit();
       sfx('pick');
     }

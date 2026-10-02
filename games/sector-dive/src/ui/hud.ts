@@ -12,6 +12,7 @@ import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '@engine/ui/touchlay
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
 import { persist, save, syncVolumes } from '../core/save.ts';
+import { layoutEdits, resetLayout, setLanguage, setSetting, toggleSetting } from '../core/progress.ts';
 import { level } from '../world/level.ts';
 import { boss, enemies, nearPickup, target } from '../world/entities.ts';
 import { player, currentWeapon, magSize, run, weaponName, weaponText, weaponStats } from '../actors/player.ts';
@@ -310,12 +311,12 @@ document.addEventListener('click', e => {
   else if (f) toggleFs();
   else if (s) {
     const k = s.dataset.set as 'autofire' | 'leftFire' | 'stickDash';
-    save.settings[k] = !save.settings[k];
+    toggleSetting(k);
     persist();
     renderSettings();
     applyLayout();
   } else if (a) {
-    save.settings.assist = a.dataset.assist!;
+    setSetting('assist', a.dataset.assist!);
     persist();
     renderSettings();
   }
@@ -324,7 +325,7 @@ document.addEventListener('input', ev => {
   const e = { target: ev.target as HTMLInputElement };
   if (e.target.classList && e.target.classList.contains('volIn')) {
     const k = e.target.dataset.vol as 'bgm' | 'sfx';
-    save.settings[k] = parseFloat(e.target.value);
+    setSetting(k, parseFloat(e.target.value));
     persist();
     document.querySelectorAll<HTMLInputElement>(`.volIn[data-vol="${k}"]`).forEach(v => {
       if (v !== e.target) v.value = String(save.settings[k]);
@@ -336,7 +337,7 @@ document.addEventListener('input', ev => {
     return;
   }
   if (e.target.classList && e.target.classList.contains('sensIn')) {
-    save.settings.sens = parseFloat(e.target.value);
+    setSetting('sens', parseFloat(e.target.value));
     persist();
     document.querySelectorAll('.sensV').forEach(v => {
       v.textContent = save.settings.sens.toFixed(1);
@@ -350,10 +351,8 @@ document.addEventListener('input', ev => {
 Object.assign(TOUCH_LAYOUT, {
   defs: LAYOUT_DEF,
   first: 'dash',
-  edits: () => save.settings.layout || (save.settings.layout = {}),
-  reset: () => {
-    save.settings.layout = {};
-  },
+  edits: layoutEdits,
+  reset: resetLayout,
   save: persist,
   afterApply: () => {
     el('#btnFire2').hidden = !save.settings.leftFire;
@@ -381,7 +380,7 @@ export function renderGuide() {
 }
 // switching language redraws whatever is on screen (static text is handled by setLang)
 export function changeLang(code: string) {
-  save.settings.lang = code;
+  setLanguage(code);
   persist();
   setLang(code);
   renderSettings();
