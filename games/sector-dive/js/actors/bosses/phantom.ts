@@ -10,14 +10,14 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { randomTileIn, rooms } from '../../world/level.ts';
 import { enemies, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
 import { P, diffOf, run } from '../player.ts';
-import { bossBase, bossDiff, makeLaser, setLaser } from './common.ts';
+import { bossBase, makeLaser, setLaser } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
 
 // laser: the aim line; lock: where it is locked on; cycle: warps so far (every droneEvery-th brings drones)
 export type PhantomBoss = Boss & { st: string; laser: Laser; lock: number[]; cycle: number };
 export function spawnPhantom() {
-  const bd = bossDiff(), g = new THREE.Group(), geo = new THREE.OctahedronGeometry(1.2, 0);
+  const g = new THREE.Group(), geo = new THREE.OctahedronGeometry(1.2, 0);
   const mat = new THREE.MeshLambertMaterial({ color: 0x0c1418, emissive: 0x9fe7ff, emissiveIntensity: 0.3 });
   const body = new THREE.Mesh(geo, mat); body.scale.set(0.8, 1.7, 0.8);
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x9fe7ff })); edge.scale.copy(body.scale);

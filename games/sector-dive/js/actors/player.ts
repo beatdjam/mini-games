@@ -232,7 +232,7 @@ export function startReload() {
 export let shotId = 0; // one trigger pull; knockback is applied once per shot per enemy
 export function fire() {
   shotId++;
-  const w = curW(), def = WEAPONS[w.id], rar = RARITY[w.r];
+  const w = curW(), def = WEAPONS[w.id];
   P.fireCd += def.rate / P.fireRate * Math.pow(RATE_OPT_MUL, wo('rate')); // added, not set: the frame loop may fire more than once (update)
   w.mag--;
   camera.updateMatrixWorld();

@@ -4,7 +4,7 @@ import { clamp, rand } from '../../../../engine/core/util.ts';
 import { spawn, worldGroup } from '../../../../engine/core/world.ts';
 import { sfx } from '../../../../engine/audio/audio.ts';
 import { basicMat, disposeTree, dynGroup, lineMat } from '../../../../engine/render/render.ts';
-import { T, W, blocked, floorY, tileIndex, walkable } from '../../../../engine/world/tiles.ts';
+import { blocked, floorY, tileIndex, walkable } from '../../../../engine/world/tiles.ts';
 import { aimFan, ringAngles, takeFromPool } from '../../../../engine/world/projectiles.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';

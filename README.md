@@ -15,12 +15,14 @@ games/<game-id>/js/          ゲームのモジュール
 games/<game-id>/SPEC.md      各ゲームの仕様書兼説明書
 games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
 public/                      名前を変えずにそのまま出すファイル（PWA の manifest とアイコン）
-tools/                       文言キーの照合、ヘッドレス確認、更新履歴の生成と Changelog 行の確認
+tools/                       文言キーとスタイルの確認、ヘッドレス確認、更新履歴の生成と Changelog 行の確認
 vite.config.js               開発サーバーとビルドの設定
 CLAUDE.md                    Claude Code が作業時に守る決まり（コミット前の確認、サブエージェントへの振り分け）
+STYLE.md                     コードと文書の書き方の決まり（型・名前の付け方・文言・テストなど。一部は npm run lint で確認）
 .claude/agents/              Claude Code のサブエージェント（worker: 決まった変更の実行、scout: 調べるだけ）
 .github/workflows/pages.yml  GitHub Pages への公開（テストとビルドをして dist/ を出す）
 .github/workflows/changelog.yml  PR の Changelog 行の確認
+.github/workflows/checks.yml PR ごとの確認（型チェック・lint・テスト・ビルド。公開ジョブと同じ）
 ```
 
 ## 開発
@@ -30,13 +32,15 @@ CLAUDE.md                    Claude Code が作業時に守る決まり（コミ
 - 最初に `npm install`
 - `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
 - `npm run typecheck`: 型チェック（下の「TypeScript」）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
+- `npm run lint`: STYLE.md の決まりのうち機械で確かめられるもの（`tools/check_style.js`）と、全ゲームの文言キーの照合（`tools/check_i18n.js`）
 - `npm run build`: 公開用に `dist/` を作る。`npm run preview` で、公開と同じ `/mini-games/` の下で確かめられる
 - `npm test`: engine のテストと全ゲームのスモークテストを、ヘッドレスの Chrome で流す（開発サーバーが動いていなければ立てる）。どれか失敗すると終了コード1
 - `npm run test:build`: テスト用ビルド（`vite build --mode test` を `dist-test/` へ）に対して同じテストを流す。ビルドでしか入らないもの（版番号、GA のタグ）も確かめる
 - 個別に見るとき: `tools/headless.sh 'games/<game-id>/#smoke' 200000`、`tools/headless.sh 'engine/test/' 20000`。Chrome の場所は `CHROME=...` で変えられる
 - 確認用のコード（各ゲームの `js/dev/`：スモークテストと `#view-…` などのフック）と engine のテストは、開発サーバーとテスト用ビルドにだけ入る。公開用のビルド（`npm run build`）には入らない
 - アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）。GA の利用規約に沿って、`privacy.html`（プライバシーポリシー）をトップと各ゲームの設定から開けるようにしておく。送る内容の種類を増やしたら、この文面も見直す
-- 公開: master に push すると、Actions が型チェック・テスト（`npm test` と `npm run test:build`）・ビルドをして GitHub Pages に出す（型エラーかテストの失敗があれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
+- PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト（`npm test` と `npm run test:build`）・ビルドを流す。マージの前に、ここが通っていることを確かめる
+- 公開: master に push すると、Actions が同じ確認をもう一度してから GitHub Pages に出す（どれかが失敗すれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
 
 ## TypeScript
 

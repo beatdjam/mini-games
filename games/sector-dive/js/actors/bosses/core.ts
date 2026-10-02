@@ -8,14 +8,13 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { levelGroup } from '../../world/level.ts';
 import { enemies, fanAt, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
 import { P, damagePlayer, diffOf, run } from '../player.ts';
-import { bossBase, bossDiff } from './common.ts';
+import { bossBase } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // NOISE CORE: rotating beams, bullet rings, summons
 
 // knot: the spinning mesh; beams: the three beam meshes; ba / bdir: beam angle and spin direction
 export type CoreBoss = Boss & { knot: THREE.Mesh; beams: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[]; ba: number; bdir: number };
 export function spawnCore() {
-  const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.TorusKnotGeometry(1.3, 0.38, 72, 8);
   const mat = new THREE.MeshLambertMaterial({ color: 0x140c20, emissive: COLOR.violet, emissiveIntensity: 0.3 });
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));

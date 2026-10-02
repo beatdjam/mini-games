@@ -90,7 +90,7 @@ export function startStage() {
       for (let k = 0; k < n; k++) { const [x, z] = randomTileIn(r); spawnEnemy(pickEnemyType(b, si.tier), x, z, idx, diff); }
       roomCount[idx] = n;
     });
-    const cand = rooms.map((r, i) => i).filter(i => i !== startIdx);
+    const cand = rooms.map((_, i) => i).filter(i => i !== startIdx);
     const caches = Math.random() < 0.4 ? 2 : 1;
     shuffle(cand).slice(0, caches).forEach(i => {
       const [x, z] = randomTileIn(rooms[i]);
