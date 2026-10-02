@@ -48,6 +48,7 @@ import { toast } from '../src/ui/ui.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveImage } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
+import { drawTileMap } from '../src/ui/minimap.ts';
 import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
 import { TOUCH_LAYOUT, applyLayout, buttonLayout, layoutEditor, openLayoutEditor } from '../src/ui/touchlayout.ts';
 // Engine tests (Vitest, in Chromium: npm test). The page elements the engine expects are made by engine/test/setup.ts.
@@ -653,4 +654,33 @@ test('settings: every panel shows the items, a click or a slider changes them ev
     SETTINGS.items = keep.items;
     SETTINGS.onChange = keep.onChange;
   }
+});
+
+test('minimap: tiles the game lets through, overlays, markers on top, the viewer arrow', () => {
+  const n = 4;
+  setTileWorld({
+    W: n,
+    H: n,
+    grid: new Uint8Array(n * n).fill(1),
+    hgt: new Float32Array(n * n),
+    ramp: new Int8Array(n * n).fill(-1),
+    cover: new Uint8Array(n * n),
+  });
+  const c = document.createElement('canvas');
+  c.width = 160; // 40 px per tile, 1 px per map unit
+  c.height = 160;
+  const g = c.getContext('2d')!;
+  drawTileMap(c, g, {
+    tile: k => (k === 0 || k === 5 ? { color: '#0000ff', alpha: 1 } : null),
+    overlay: k => (k === 5 ? { color: '#ff0000', alpha: 1 } : null),
+    markers: [{ x: 3.5 * T, z: 0.5 * T, shape: 'square', color: '#00ff00', size: 5 }],
+    viewer: { x: 2.5 * T, z: 3.5 * T, yaw: 0 },
+  });
+  const px = (x: number, y: number) => Array.from(g.getImageData(x, y, 1, 1).data).join();
+  eq(px(20, 20), '0,0,255,255', 'tile 0 drawn');
+  eq(px(60, 60), '255,0,0,255', 'tile 5 drawn with its overlay on top');
+  eq(px(100, 20), '0,0,0,0', 'a null tile stays empty');
+  eq(px(140, 20), '0,255,0,255', 'a marker sits at its world position');
+  eq(px(100, 137), '255,255,255,255', 'the viewer arrow points ahead (yaw 0 = -z = up)');
+  eq(px(100, 146), '0,0,0,0', 'and not behind');
 });

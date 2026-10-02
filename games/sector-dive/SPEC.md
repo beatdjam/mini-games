@@ -443,7 +443,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/screens/data.ts` | セーブのコードの書き出し・読み込み、データ消去 |
 | `src/ui/hud.ts` | HUD、被弾方向の表示（部品は `engine/ui/hitdir.ts`）、タッチボタンの設定（`TOUCH_LAYOUT`）、言語の切り替え |
 | `src/ui/settings.ts` | 設定の項目（言語・全画面・オート射撃・エイム補助・感度・音量・タッチ用の項目）と、変えたときの保存・反映。パネルは `engine/ui/settings.ts` |
-| `src/ui/minimap.ts` | ミニマップと大きなマップの描画（`drawMap`） |
+| `src/ui/minimap.ts` | ミニマップと大きなマップに何をどの色で出すか（`drawMap`。描くのは `engine/ui/minimap.ts`） |
 | `src/ui/input.ts` | キーとボタンの割り当て（`INPUT`）、持ち替え・拾う・回復 |
 | `src/ui/share.ts` | 結果のシェア（結果カードの画像と投稿文、パネル。共有・コピー・保存・X 投稿の部品は `engine/ui/share.ts`） |
 | `src/ui/feedback.ts` | 感想フォームを開く導線と、フォームに入れるプレイ情報 |
