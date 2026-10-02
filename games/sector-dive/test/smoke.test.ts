@@ -82,7 +82,7 @@ import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/
 import { findTarget, fire, shotId } from '../src/actors/firing.ts';
 import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
 import { equipNearby, stowNearby } from '../src/ui/input.ts';
-import { changeLang, hitDirs } from '../src/ui/hud.ts';
+import { changeLang, hitDirs, updateHud } from '../src/ui/hud.ts';
 import { endRun, goBase, nextStage, pickEnemyType, startPractice, startRun, startStage } from '../src/flow/run.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
@@ -470,6 +470,29 @@ test('pickup: stow goes to the bag, equip swaps with the weapon in hand', () => 
   drop('launcher');
   stowNearby();
   if (player.bag.some(w => w?.id === 'launcher') || !nearPickup) throw new Error('stow into a full bag');
+  endRun('abandon');
+});
+test('pickup prompt: the buttons follow slot changes made while it is up (bag screen)', () => {
+  startRun();
+  tick(5);
+  clearWorld('pickup');
+  player.weapons = [newWeapon('pistol', 0, true), null];
+  player.cur = 0;
+  player.bag = [null, null, null, null];
+  addPickup('weapon', player.x, player.z, { w: newWeapon('rail', 1) });
+  updatePickups(0);
+  updateHud();
+  if (el('#btnStow').textContent !== t('hud.btnStow', { n: 4 }))
+    throw new Error('stow label ' + el('#btnStow').textContent);
+  if (el('#btnEquip').textContent !== t('hud.btnEquip2')) throw new Error('equip label');
+  // what the bag screen does: fill a bag slot, then put a weapon in slot 2 (one change at a time)
+  player.bag[0] = newWeapon('smg', 0);
+  updateHud();
+  if (el('#btnStow').textContent !== t('hud.btnStow', { n: 3 }))
+    throw new Error('stale stow label ' + el('#btnStow').textContent);
+  player.weapons[1] = newWeapon('smg', 0);
+  updateHud();
+  if (el('#btnEquip').textContent !== t('hud.btnSwap')) throw new Error('stale equip label');
   endRun('abandon');
 });
 test('chain blast: one kill in a tight cluster does not cascade', () => {
