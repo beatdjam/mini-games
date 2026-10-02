@@ -11,7 +11,8 @@ import { level, randomTileIn } from '../../world/level.ts';
 import { enemies, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
 import { player, run } from '../player.ts';
 import { difficultyAt } from '../../core/stages.ts';
-import { bossBase, makeLaser, setLaser } from './common.ts';
+import { bossBase } from './common.ts';
+import { makeLaser, setLaser } from '../../world/models.ts';
 import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
 

@@ -110,7 +110,7 @@ export const ENEMY: Record<string, EnemyDef> = {
     geo: 'dodeca',
   },
   // humanoid robot soldier: keeps a middle distance and fires 3-round bursts. Not tied to a sector: a few turn up
-  // everywhere (ENEMY_TUNE.trooperChance). Built from boxes with jointed limbs (buildHumanoid in src/world/entities.ts)
+  // everywhere (ENEMY_TUNE.trooperChance). Built from boxes with jointed limbs (buildHumanoid in src/world/models.ts)
   trooper: {
     hp: 75,
     speed: 3.6,
