@@ -209,10 +209,6 @@ export function nextStage() {
 }
 
 // ---- boss practice: fight one boss at a chosen depth's strength; nothing is gained or lost ----
-export let practiceTier = 0;
-export function setPracticeTier(n: number) {
-  practiceTier = n;
-}
 export function startPractice(kind: string, tier?: number) {
   tier = tier || 0;
   audioInit();

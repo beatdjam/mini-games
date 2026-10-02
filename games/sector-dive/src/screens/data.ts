@@ -4,7 +4,7 @@ import { t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { applyLayout } from '@engine/ui/touchlayout.ts';
 import { SAVE_KEY, defaultSave, exportSave, importSave, importSaveCheck, persist, setSave } from '../core/save.ts';
-import { renderBase, setSelSlot } from './base.ts';
+import { baseUI, renderBase } from './base.ts';
 
 // ---- full data wipe (red confirmation dialog) ----
 el('#btnWipe').addEventListener('click', () => {
@@ -19,8 +19,11 @@ document.addEventListener('keydown', e => {
 });
 // ---- save codes: copy the save to another device (settings tab > data) ----
 // export shows the code with copy / save-to-file; import takes a pasted code or a file, asks once, then reloads
-export let saveMode: 'export' | 'import' | null = null,
-  importArm = false;
+// transient state of the save-code panel
+const savePanel: {
+  mode: 'export' | 'import' | null; // null = closed
+  importArm: boolean; // the import confirmation is showing
+} = { mode: null, importArm: false };
 // the buttons under the code box: export (copy / file / close), import (check / file / close), or the import confirmation
 const saveBtn = (act: string, label: string, cls = 'mini-btn'): string =>
   `<button class="${cls}" data-save="${act}">${label}</button>`;
@@ -29,25 +32,26 @@ function saveButtons(mode: 'export' | 'import'): string {
   if (mode === 'export') {
     return saveBtn('copy', t('save.copy'), 'mini-btn amber') + saveBtn('download', t('save.download')) + close;
   }
-  if (importArm) return saveBtn('go', t('save.importGo'), 'danger-ghost') + saveBtn('cancel', t('common.cancel'));
+  if (savePanel.importArm)
+    return saveBtn('go', t('save.importGo'), 'danger-ghost') + saveBtn('cancel', t('common.cancel'));
   return saveBtn('check', t('save.importCheck'), 'mini-btn amber') + saveBtn('file', t('save.fromFile')) + close;
 }
 export function renderSavePanel() {
   const panel = el('#savePanel'),
     box = el<HTMLTextAreaElement>('#saveCode');
-  panel.hidden = !saveMode;
-  if (!saveMode) return;
-  box.readOnly = saveMode === 'export';
-  box.placeholder = saveMode === 'import' ? t('save.paste') : '';
+  panel.hidden = !savePanel.mode;
+  if (!savePanel.mode) return;
+  box.readOnly = savePanel.mode === 'export';
+  box.placeholder = savePanel.mode === 'import' ? t('save.paste') : '';
   el('#saveMsg').textContent = t(
-    saveMode === 'export' ? 'save.exportNote' : importArm ? 'save.importConfirm' : 'save.importNote',
+    savePanel.mode === 'export' ? 'save.exportNote' : savePanel.importArm ? 'save.importConfirm' : 'save.importNote',
   );
-  el('#saveBtns').innerHTML = saveButtons(saveMode);
+  el('#saveBtns').innerHTML = saveButtons(savePanel.mode);
 }
 function openSavePanel(mode: 'export' | 'import') {
-  saveMode = saveMode === mode ? null : mode;
-  importArm = false;
-  el<HTMLTextAreaElement>('#saveCode').value = saveMode === 'export' ? exportSave() : '';
+  savePanel.mode = savePanel.mode === mode ? null : mode;
+  savePanel.importArm = false;
+  el<HTMLTextAreaElement>('#saveCode').value = savePanel.mode === 'export' ? exportSave() : '';
   renderSavePanel();
 }
 el('#btnExport').addEventListener('click', () => openSavePanel('export'));
@@ -58,7 +62,7 @@ el('#saveBtns').addEventListener('click', (e: Event) => {
   const a = b.dataset.save,
     box = el<HTMLTextAreaElement>('#saveCode');
   if (a === 'close') {
-    saveMode = null;
+    savePanel.mode = null;
     renderSavePanel();
   } else if (a === 'copy') {
     const done = () => toast(t('save.copied'), 2000);
@@ -87,14 +91,14 @@ el('#saveBtns').addEventListener('click', (e: Event) => {
       toast(t('save.invalid'), 3000);
       return;
     }
-    importArm = true;
+    savePanel.importArm = true;
     renderSavePanel();
   } else if (a === 'cancel') {
-    importArm = false;
+    savePanel.importArm = false;
     renderSavePanel();
   } else if (a === 'go') {
     if (!importSave(box.value)) {
-      importArm = false;
+      savePanel.importArm = false;
       renderSavePanel();
       toast(t('save.invalid'), 3000);
       return;
@@ -116,7 +120,7 @@ el('#btnWipeGo').addEventListener('click', () => {
   setSave(defaultSave());
   persist();
   el('#dlgWipe').hidden = true;
-  setSelSlot(0);
+  baseUI.selSlot = 0;
   renderBase();
   applyLayout();
 });

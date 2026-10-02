@@ -18,8 +18,8 @@ import {
 import { enemies, spawnEnemy } from '../world/entities.ts';
 import { tickClock } from './update.ts';
 // the base screen backdrop: the camera slowly turns in the start room (system 'attract', src/flow/update.ts)
-export let attractYaw = 0,
-  attractPos = [0, 0];
+let attractYaw = 0; // camera yaw (rad)
+let attractPos = [0, 0]; // camera position (x, z)
 export function buildAttract() {
   const ab = pick(BIOMES);
   buildLevel(ab, false);

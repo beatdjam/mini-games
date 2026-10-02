@@ -133,8 +133,9 @@ const ROOM_BITS_BASE = 6; // bits from a cleared room (+ progress)
 // The player and the run exist only during a run; on the base screen they are null (setPlayer(null) / setRun(null)).
 // They are typed without null because nearly all code using them runs during a run; code that can also run
 // on the base screen checks them (if (P) ..., run && ...).
-export let P = null as unknown as Player,
-  run = null as unknown as RunState;
+// replaced only through setPlayer / setRun
+export let P = null as unknown as Player;
+export let run = null as unknown as RunState;
 export function setPlayer(p: Player | null) {
   P = p as Player;
 }
@@ -536,7 +537,7 @@ export function detonate(e: RegularEnemy) {
   killEnemy(e, true);
   bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg);
 }
-export let inChainBlast = false;
+let inChainBlast = false;
 export function killEnemy(e: Enemy, noReward?: boolean) {
   e.dead = true;
   if (!noReward) run.kills++;

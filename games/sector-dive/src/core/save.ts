@@ -54,6 +54,7 @@ export function loadSave(): SaveData {
   }
   return out;
 }
+// the save data; replaced only through setSave
 export let save = loadSave();
 export function setSave(s: SaveData) {
   save = s;

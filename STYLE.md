@@ -17,6 +17,10 @@
 - 種類を表す文字列は、取りうる値を列挙した型（union 型）にする。新しい種類を足すときは、型に足してから使う
   - 今あるもの: `GameState`・`RunEnd`・`PickupKind`・`PortalKind`（`games/sector-dive/src/data/types.ts`）
 - 型の置き場所: engine の型は持ち主のモジュールから export する。ゲームの定義の型は `games/<id>/src/data/types.ts`
+- モジュールの状態の置き方
+  - 他のファイルで使わない変数は export しない。1つの宣言に1つの変数にして、名前だけでは分からないものは意味と単位をコメントに書く
+  - 画面ごとの一時的な状態は、その画面のファイルの1つのオブジェクトにまとめる（例: `baseUI`・`bagUI`・`savePanel`）。ほかのファイルが読み書きするなら export して、プロパティを直接書き換える（値ごとの setter は作らない）
+  - ゲーム全体の状態（`P`・`run`・`save`・`state`）は live binding として読み、書き換えは setter（`setRun` など）を通す。変数の上に「何が書き換えるか」を1行で書く
 
 ## 2. DOM
 

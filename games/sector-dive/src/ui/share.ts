@@ -25,8 +25,8 @@ export interface ShareCard {
   nChips: number;
   reboots: number; // reboot (prestige) count, shown next to the result label when above 0
 }
-export let shareData: ShareCard | null = null,
-  shareBlob: Blob | null = null;
+export let shareData: ShareCard | null = null; // the card for the result on screen
+let shareBlob: Blob | null = null; // its image, drawn on first use
 
 export const bossShort = (k: string) => BOSS_META[k]?.short ?? k;
 // the bosses of a run, each kind once with a count, in the order first met ("監視体×3・圧壊機"): a deep run beats a

@@ -7,15 +7,16 @@ export const T = 4,
   STEP = 0.7,
   RISE = 2;
 export const OPP = [1, 0, 3, 2];
-// empty until the game hands over a level (W = H = 0 makes every tile read as solid)
-export let W = 0,
-  H = 0;
-export let grid: Uint8Array = new Uint8Array(0),
-  hgt: Float32Array = new Float32Array(0),
-  ramp: Int8Array = new Int8Array(0),
-  cover: Uint8Array = new Uint8Array(0);
-export let flow: Int16Array | Int32Array = new Int16Array(0),
-  flowQ: Int32Array = new Int32Array(0);
+// the tile world: empty until the game hands over a level (W = H = 0 makes every tile read as solid);
+// replaced only through setTileWorld
+export let W = 0; // width (tiles)
+export let H = 0; // height (tiles)
+export let grid: Uint8Array = new Uint8Array(0); // tile kinds
+export let hgt: Float32Array = new Float32Array(0); // floor height per tile
+export let ramp: Int8Array = new Int8Array(0); // ramp direction per tile (-1 = none)
+export let cover: Uint8Array = new Uint8Array(0); // cover flags per tile
+export let flow: Int16Array | Int32Array = new Int16Array(0); // steps to the flow target tile (-1 = unreachable)
+let flowQ: Int32Array = new Int32Array(0); // scratch queue for building the flow field
 export interface TileWorld {
   W: number;
   H: number;

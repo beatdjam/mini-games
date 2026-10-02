@@ -34,11 +34,12 @@ import { COLOR } from '../data/colors.ts';
 // pickups and shockwaves live in the engine world (engine/src/core/world.ts) with tag 'pickup' / 'wave'
 // enemies (bosses included) are an engine world group updated at order 10; `enemies` is that group's list
 export const ENEMY_GROUP = worldGroup('enemy', 10);
-export let enemies = ENEMY_GROUP.list as Enemy[],
-  boss: Boss | null = null,
-  nearW: Pickup | null = null,
-  nearD = 1.9,
-  target: AimTarget | null = null;
+// the living enemies: the group's list
+export const enemies = ENEMY_GROUP.list as Enemy[];
+export let boss: Boss | null = null; // the boss of this stage (set by setBoss)
+export let nearW: Pickup | null = null; // the pickup in reach for the interact key (set by setNear)
+export let nearD = 1.9; // its distance (m)
+export let target: AimTarget | null = null; // aim assist / autofire lock (set by setTarget)
 // what the aim assist / autofire locks onto: an enemy and the point on it (a body of a multi-body boss)
 export interface AimTarget {
   e: Enemy;

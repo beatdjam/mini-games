@@ -38,10 +38,13 @@ export const TOUCH_LAYOUT: TouchLayoutConfig = {
   onClose: () => {},
 };
 export const getL = (id: string): ButtonDef => Object.assign({}, TOUCH_LAYOUT.defs[id], TOUCH_LAYOUT.edits()[id] || {});
-export let editing = false,
-  editSel = '',
-  editFrom: string | undefined;
-export let editDrag: { id: number; dx: number; dy: number } | null = null;
+// the button layout editor: open, selected button, where it was opened from, the pointer dragging a button
+export const layoutEditor: {
+  open: boolean;
+  sel: string;
+  from: string | undefined;
+  drag: { id: number; dx: number; dy: number } | null;
+} = { open: false, sel: '', from: undefined, drag: null };
 export function applyLayout() {
   const vw = window.innerWidth,
     vh = window.innerHeight;
@@ -53,14 +56,14 @@ export function applyLayout() {
     el.style.width = el.style.height = size + 'px';
     el.style.left = clamp(l.x * vw, size / 2 + 4, vw - size / 2 - 4) + 'px';
     el.style.top = clamp(l.y * vh, size / 2 + 4, vh - size / 2 - 4) + 'px';
-    el.classList.toggle('sel', editing && editSel === id);
+    el.classList.toggle('sel', layoutEditor.open && layoutEditor.sel === id);
   });
   TOUCH_LAYOUT.afterApply();
 }
 export function openLayoutEditor(from?: string) {
-  editFrom = from;
-  editing = true;
-  editSel = TOUCH_LAYOUT.first || Object.keys(TOUCH_LAYOUT.defs)[0];
+  layoutEditor.from = from;
+  layoutEditor.open = true;
+  layoutEditor.sel = TOUCH_LAYOUT.first || Object.keys(TOUCH_LAYOUT.defs)[0];
   releaseInputs();
   exitLock();
   TOUCH_LAYOUT.onOpen(from);
@@ -68,21 +71,21 @@ export function openLayoutEditor(from?: string) {
   touchEl.classList.add('editing');
   el('#layoutBar').hidden = false;
   applyLayout();
-  el('#lbName').textContent = TOUCH_LAYOUT.defs[editSel].name;
+  el('#lbName').textContent = TOUCH_LAYOUT.defs[layoutEditor.sel].name;
 }
 export function closeLayoutEditor() {
-  editing = false;
-  editDrag = null;
+  layoutEditor.open = false;
+  layoutEditor.drag = null;
   TOUCH_LAYOUT.save();
   touchEl.classList.remove('editing');
   el('#layoutBar').hidden = true;
   applyLayout();
-  TOUCH_LAYOUT.onClose(editFrom);
+  TOUCH_LAYOUT.onClose(layoutEditor.from);
 }
 touchEl.addEventListener(
   'pointerdown',
   e => {
-    if (!editing) return;
+    if (!layoutEditor.open) return;
     const target = e.target as HTMLElement,
       b = target.closest<HTMLElement>('[data-lb]');
     if (!b) {
@@ -94,31 +97,35 @@ touchEl.addEventListener(
     }
     e.preventDefault();
     e.stopPropagation();
-    editSel = b.dataset.lb ?? '';
+    layoutEditor.sel = b.dataset.lb ?? '';
     const r = b.getBoundingClientRect();
-    editDrag = { id: e.pointerId, dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2) };
+    layoutEditor.drag = {
+      id: e.pointerId,
+      dx: e.clientX - (r.left + r.width / 2),
+      dy: e.clientY - (r.top + r.height / 2),
+    };
     try {
       b.setPointerCapture(e.pointerId);
     } catch (err) {}
-    el('#lbName').textContent = TOUCH_LAYOUT.defs[editSel].name;
+    el('#lbName').textContent = TOUCH_LAYOUT.defs[layoutEditor.sel].name;
     applyLayout();
   },
   true,
 );
 window.addEventListener('pointermove', e => {
-  if (!editing || !editDrag || e.pointerId !== editDrag.id) return;
+  if (!layoutEditor.open || !layoutEditor.drag || e.pointerId !== layoutEditor.drag.id) return;
   const L = TOUCH_LAYOUT.edits(),
-    cur = getL(editSel);
-  L[editSel] = {
-    x: clamp((e.clientX - editDrag.dx) / window.innerWidth, 0, 1),
-    y: clamp((e.clientY - editDrag.dy) / window.innerHeight, 0, 1),
+    cur = getL(layoutEditor.sel);
+  L[layoutEditor.sel] = {
+    x: clamp((e.clientX - layoutEditor.drag.dx) / window.innerWidth, 0, 1),
+    y: clamp((e.clientY - layoutEditor.drag.dy) / window.innerHeight, 0, 1),
     s: cur.s,
   };
   applyLayout();
 });
 window.addEventListener('pointerup', e => {
-  if (editDrag && e.pointerId === editDrag.id) {
-    editDrag = null;
+  if (layoutEditor.drag && e.pointerId === layoutEditor.drag.id) {
+    layoutEditor.drag = null;
     TOUCH_LAYOUT.save();
   }
 });
@@ -127,9 +134,9 @@ el('#layoutBar').addEventListener('click', e => {
   if (!b) return;
   const a = b.dataset.lbact,
     L = TOUCH_LAYOUT.edits(),
-    cur = getL(editSel);
+    cur = getL(layoutEditor.sel);
   if (a === 'minus' || a === 'plus')
-    L[editSel] = {
+    L[layoutEditor.sel] = {
       x: cur.x,
       y: cur.y,
       s: clamp(Math.round((cur.s + (a === 'plus' ? 0.1 : -0.1)) * 10) / 10, 0.7, 1.6),

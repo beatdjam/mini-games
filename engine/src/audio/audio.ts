@@ -2,9 +2,9 @@ import { rand } from '../core/util.ts';
 import { musicInit } from './music.ts';
 // engine: Sound effects synth (Web Audio): layered noise / oscillator helpers, a gunshot voice, sfx(name) plays SFX[name] from the game
 // all null until the first tap / click (browsers only allow audio after one), or when Web Audio is missing
-export let actx: AudioContext | null = null,
-  master: GainNode | null = null,
-  noiseBuf: AudioBuffer | null = null;
+export let actx: AudioContext | null = null;
+let master: GainNode | null = null;
+export let noiseBuf: AudioBuffer | null = null;
 export const lastSfx: Record<string, number> = {};
 export function audioInit() {
   if (actx) {
@@ -47,8 +47,8 @@ export function unlockAudio() {
 // the game sets these from its settings (0..1)
 // sound recipes by name, filled by the game: SFX.name = () => { ... }
 export const SFX: Record<string, () => void> = {};
-export let sfxVolume = 1,
-  bgmVolume = 0.6;
+let sfxVolume = 1;
+export let bgmVolume = 0.6;
 export function setVolumes(sfx: number, bgm: number) {
   sfxVolume = sfx;
   bgmVolume = bgm;

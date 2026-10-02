@@ -5,7 +5,7 @@ import { P } from '../actors/player.ts';
 // Which music plays when (the player is engine/src/audio/music.ts, the styles are src/data/music.ts)
 
 // called every frame while playing: combat when a woken enemy is near or a boss is up
-export let musicCheckT = 0;
+let musicCheckT = 0;
 export function updateMusic(dt: number) {
   if ((musicCheckT -= dt) > 0 || !mus.bus || !mus.st) return;
   musicCheckT = 0.5;

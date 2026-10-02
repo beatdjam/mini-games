@@ -12,13 +12,16 @@ import { setState, show, state } from '../flow/state.ts';
 import { statsHTML } from './pause.ts';
 import { wReach } from './base.ts';
 
-export let invSel: { where: string; i: number } | null = null; // {where:'eq'|'bag', i}
+// transient state of the bag screen
+const bagUI: { sel: { where: string; i: number } | null } = {
+  sel: null, // the selected weapon: 'eq' (equipped slot) or 'bag' (bag slot)
+};
 export function openBag() {
   if (state !== 'play') return;
   setState('bag');
   releaseInputs();
   exitLock();
-  invSel = null;
+  bagUI.sel = null;
   bigmap.hidden = true;
   renderBag();
   show('#scrBag');
@@ -36,7 +39,7 @@ el('#btnUseKit').addEventListener('click', () => {
   renderBag();
 });
 export function itemCard(w: WeaponItem | null, where: string, i: number) {
-  const sel = invSel && invSel.where === where && invSel.i === i;
+  const sel = bagUI.sel && bagUI.sel.where === where && bagUI.sel.i === i;
   const attrs = `data-inv="${where}:${i}"`;
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" ${attrs}>${t('base.empty')}</button>`;
   const s = weaponStats(w);
@@ -88,16 +91,16 @@ export function renderBag() {
     `<p class="chips">${t('bag.status', { hp: Math.ceil(P.hp), maxHp: P.maxHp, bits: Math.floor(run.bits) })}</p>` +
     statsHTML();
   const act = el('#invAct');
-  if (!invSel) {
+  if (!bagUI.sel) {
     act.innerHTML = t('bag.pick');
     return;
   }
-  const w = invSel.where === 'eq' ? P.weapons[invSel.i] : P.bag[invSel.i];
+  const w = bagUI.sel.where === 'eq' ? P.weapons[bagUI.sel.i] : P.bag[bagUI.sel.i];
   if (!w) {
     act.innerHTML = t('bag.emptySlot');
     return;
   }
-  act.innerHTML = actionButtons(invSel.where) + (w.basic ? '' : `<span>${t('bag.keptNote')}</span>`);
+  act.innerHTML = actionButtons(bagUI.sel.where) + (w.basic ? '' : `<span>${t('bag.keptNote')}</span>`);
 }
 el('#scrBag').addEventListener('click', (e: Event) => {
   const tg = e.target as HTMLElement;
@@ -105,32 +108,32 @@ el('#scrBag').addEventListener('click', (e: Event) => {
     ac = tg.closest<HTMLElement>('[data-act]');
   if (it) {
     const [where, i] = it.dataset.inv!.split(':');
-    invSel = { where, i: +i };
+    bagUI.sel = { where, i: +i };
     renderBag();
     return;
   }
-  if (!ac || !invSel) return;
+  if (!ac || !bagUI.sel) return;
   const a = ac.dataset.act,
-    src = invSel.where === 'eq' ? P.weapons : P.bag,
-    w = src[invSel.i];
+    src = bagUI.sel.where === 'eq' ? P.weapons : P.bag,
+    w = src[bagUI.sel.i];
   if (!w) return;
   if (a === 'equip0' || a === 'equip1') {
     const k = a === 'equip0' ? 0 : 1,
       prev = P.weapons[k];
     P.weapons[k] = w;
-    P.bag[invSel.i] = prev;
+    P.bag[bagUI.sel.i] = prev;
     P.cur = k;
-    invSel = { where: 'eq', i: k };
+    bagUI.sel = { where: 'eq', i: k };
   } else if (a === 'stow') {
     const slot = P.bag.indexOf(null);
     if (slot < 0) return;
     P.bag[slot] = w;
-    P.weapons[invSel.i] = null;
-    invSel = { where: 'bag', i: slot };
+    P.weapons[bagUI.sel.i] = null;
+    bagUI.sel = { where: 'bag', i: slot };
   } else if (a === 'drop') {
-    src[invSel.i] = null;
+    src[bagUI.sel.i] = null;
     addPickup('weapon', P.x + rand(-0.6, 0.6), P.z + rand(-0.6, 0.6), { w });
-    invSel = null;
+    bagUI.sel = null;
   }
   normalizeWeapons();
   sfx('pick');
