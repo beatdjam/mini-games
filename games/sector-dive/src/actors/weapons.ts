@@ -93,17 +93,28 @@ export const critChance = (w?: WeaponItem): number =>
 // rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)
 export const blastRadius = (def: WeaponDef, w?: WeaponItem): number =>
   def.blast ? def.blast * (1 + PIERCE_BLAST_PER_LEVEL * (player.pierce + weaponOptCount('pierce', w))) : 0;
+// The numbers below are shared by firing (firing.ts) and weaponStats, so what the screen shows is what the gun does.
+// `w` picks whose options count; without it, the weapon in hand.
+// seconds between shots
+export const fireInterval = (def: WeaponDef, w?: WeaponItem): number =>
+  (def.rate / player.fireRate) * Math.pow(RATE_OPT_MUL, weaponOptCount('rate', w));
+// seconds a reload takes
+export const reloadTime = (def: WeaponDef, w?: WeaponItem): number =>
+  def.reload * player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload', w));
+// damage of one projectile
+export const shotDamage = (def: WeaponDef, w: WeaponItem): number =>
+  def.dmg * wDmgMul(w) * player.dmgMul * splitMul(def);
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
 // dps = sustained damage per second on one target, including reloads and average crits. What it leaves out is given
 // apart: farDps = the rail's dps on targets past `far` metres; blast = the rocket's blast radius (every enemy caught
 // in it takes the hit, up to full damage near the centre).
 export function weaponStats(w: WeaponItem) {
   const def = WEAPONS[w.id];
-  const perHit = def.dmg * wDmgMul(w) * player.dmgMul * splitMul(def);
+  const perHit = shotDamage(def, w);
   const hits = shotCount(def);
-  const interval = (def.rate / player.fireRate) * Math.pow(RATE_OPT_MUL, weaponOptCount('rate', w));
+  const interval = fireInterval(def, w);
   const mag = magSize(w);
-  const reload = def.reload * player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload', w));
+  const reload = reloadTime(def, w);
   const dps = ((perHit * hits * mag) / (mag * interval + reload)) * (1 + critChance(w));
   return {
     perHit,
