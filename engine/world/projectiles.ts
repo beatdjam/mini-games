@@ -18,12 +18,31 @@ import { floorY, solidAt } from './tiles.ts';
 // the fields the engine uses; the game adds its own (damage, pierce, ...) by extending this type and giving that type
 // to the pool (takeFromPool / stepProjectile are generic over it). born: the hand-out count (takeFromPool)
 export interface Projectile {
-  mesh: THREE.Mesh; alive: boolean; hit: Set<unknown>;
-  x: number; y: number; z: number; vx: number; vy: number; vz: number; grav?: number; speed?: number; born?: number;
+  mesh: THREE.Mesh;
+  alive: boolean;
+  hit: Set<unknown>;
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  grav?: number;
+  speed?: number;
+  born?: number;
 }
 let handedOut = 0;
-export function takeFromPool<T extends Projectile>(pool: T[], geo: THREE.BufferGeometry, max: number, recycle = false): T | null {
-  for (const b of pool) if (!b.alive) { b.born = ++handedOut; return b; }
+export function takeFromPool<T extends Projectile>(
+  pool: T[],
+  geo: THREE.BufferGeometry,
+  max: number,
+  recycle = false,
+): T | null {
+  for (const b of pool)
+    if (!b.alive) {
+      b.born = ++handedOut;
+      return b;
+    }
   if (pool.length >= max) {
     if (!recycle || !pool.length) return null;
     let old = pool[0]!;
@@ -32,35 +51,84 @@ export function takeFromPool<T extends Projectile>(pool: T[], geo: THREE.BufferG
     return old;
   }
   // a new projectile has only the engine's fields; the game's own fields (T's extra ones) are filled in by the caller right after
-  const b = { mesh: new THREE.Mesh(geo, basicMat(0xffffff)), alive: false, hit: new Set(), x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 } as unknown as T;
-  b.born = ++handedOut; dynGroup.add(b.mesh); pool.push(b); return b;
+  const b = {
+    mesh: new THREE.Mesh(geo, basicMat(0xffffff)),
+    alive: false,
+    hit: new Set(),
+    x: 0,
+    y: 0,
+    z: 0,
+    vx: 0,
+    vy: 0,
+    vz: 0,
+  } as unknown as T;
+  b.born = ++handedOut;
+  dynGroup.add(b.mesh);
+  pool.push(b);
+  return b;
 }
-export function clearPool(pool: Projectile[]) { pool.forEach(b => { b.alive = false; b.mesh.visible = false; }); }
-export function stepProjectile<T extends Projectile>(b: T, dt: number, maxStep: number, visit: (b: T) => boolean, speed?: number): boolean {
+export function clearPool(pool: Projectile[]) {
+  pool.forEach(b => {
+    b.alive = false;
+    b.mesh.visible = false;
+  });
+}
+export function stepProjectile<T extends Projectile>(
+  b: T,
+  dt: number,
+  maxStep: number,
+  visit: (b: T) => boolean,
+  speed?: number,
+): boolean {
   if (b.grav) b.vy -= b.grav * dt;
-  const steps = Math.max(1, Math.ceil((speed ?? Math.hypot(b.vx, b.vy, b.vz)) * dt / maxStep));
+  const steps = Math.max(1, Math.ceil(((speed ?? Math.hypot(b.vx, b.vy, b.vz)) * dt) / maxStep));
   for (let s = 0; s < steps; s++) {
-    b.x += b.vx * dt / steps;
-    b.y += b.vy * dt / steps;
-    b.z += b.vz * dt / steps;
+    b.x += (b.vx * dt) / steps;
+    b.y += (b.vy * dt) / steps;
+    b.z += (b.vz * dt) / steps;
     if (visit(b)) return true;
   }
   return false;
 }
-export function projHitsTerrain(b: Projectile, ceil: number, pad: number): boolean { return b.y > ceil || solidAt(b.x, b.z) || b.y < floorY(b.x, b.z) + pad; }
-export function steerToward(b: Projectile, tx: number, ty: number, tz: number, dt: number, rate: number) {
-  const dx = tx - b.x, dy = ty - b.y, dz = tz - b.z, speed = b.speed ?? Math.hypot(b.vx, b.vy, b.vz);
-  const l = Math.hypot(dx, dy, dz) || 1, k = Math.min(1, dt * rate);
-  b.vx += (dx / l * speed - b.vx) * k;
-  b.vy += (dy / l * speed - b.vy) * k;
-  b.vz += (dz / l * speed - b.vz) * k;
+export function projHitsTerrain(b: Projectile, ceil: number, pad: number): boolean {
+  return b.y > ceil || solidAt(b.x, b.z) || b.y < floorY(b.x, b.z) + pad;
 }
-export function ringAngles(n: number, offset: number): number[] { const out: number[] = []; for (let k = 0; k < n; k++) out.push(offset + k * Math.PI * 2 / n); return out; }
-export function aimFan(x: number, y: number, z: number, tx: number, ty: number, tz: number, n: number, spread: number, jitter: number): [number, number, number][] {
-  const base = Math.atan2(tx - x, tz - z), hd = Math.hypot(tx - x, tz - z) || 1, vyr = (ty - y) / hd, out: [number, number, number][] = [];
+export function steerToward(b: Projectile, tx: number, ty: number, tz: number, dt: number, rate: number) {
+  const dx = tx - b.x,
+    dy = ty - b.y,
+    dz = tz - b.z,
+    speed = b.speed ?? Math.hypot(b.vx, b.vy, b.vz);
+  const l = Math.hypot(dx, dy, dz) || 1,
+    k = Math.min(1, dt * rate);
+  b.vx += ((dx / l) * speed - b.vx) * k;
+  b.vy += ((dy / l) * speed - b.vy) * k;
+  b.vz += ((dz / l) * speed - b.vz) * k;
+}
+export function ringAngles(n: number, offset: number): number[] {
+  const out: number[] = [];
+  for (let k = 0; k < n; k++) out.push(offset + (k * Math.PI * 2) / n);
+  return out;
+}
+export function aimFan(
+  x: number,
+  y: number,
+  z: number,
+  tx: number,
+  ty: number,
+  tz: number,
+  n: number,
+  spread: number,
+  jitter: number,
+): [number, number, number][] {
+  const base = Math.atan2(tx - x, tz - z),
+    hd = Math.hypot(tx - x, tz - z) || 1,
+    vyr = (ty - y) / hd,
+    out: [number, number, number][] = [];
   for (let k = 0; k < n; k++) {
     const a = base + (n > 1 ? (k - (n - 1) / 2) * spread : 0) + rand(-jitter, jitter);
-    const dx = Math.sin(a), dz = Math.cos(a), l = Math.hypot(1, vyr);
+    const dx = Math.sin(a),
+      dz = Math.cos(a),
+      l = Math.hypot(1, vyr);
     out.push([dx / l, vyr / l, dz / l]);
   }
   return out;

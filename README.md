@@ -35,7 +35,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - 最初に `npm install`
 - `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
 - `npm run typecheck`: 型チェック（`tsconfig.json` の1本でリポジトリ全体を見る。型の決まりは STYLE.md）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
-- `npm run lint`: STYLE.md の決まりのうち機械で確かめられるもの（`tools/check_style.js`）と、全ゲームの文言キーの照合（`tools/check_i18n.js`）
+- `npm run lint`: コードの書式（Prettier。`npm run format` で整える）と、STYLE.md の決まりのうち機械で確かめられるもの（`tools/check_style.js`）と、全ゲームの文言キーの照合（`tools/check_i18n.js`）
 - `npm run build`: 公開用に `dist/` を作る。`npm run preview` で、公開と同じ `/mini-games/` の下で確かめられる
 - `npm test`: engine のテストと、各ゲームのスモークテスト（`games/<game-id>/test/`）を Vitest で流す。Chromium の中で動かし、テスト1件ずつが結果に出る。どれか失敗すると終了コード1。Chrome の場所は `CHROME=...` で指定する（無ければ Playwright のもの）
 - `npm run test:engine`: engine のテストだけ（`vitest run --project engine`。`npx vitest` なら変更を見張って流し直す）

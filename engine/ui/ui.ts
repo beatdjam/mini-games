@@ -2,26 +2,51 @@ import { el } from '../core/util.ts';
 // engine: Screen helpers: toast (#toast), banner (#banner), fullscreen
 export let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(msg: string, ms?: number) {
-  const t = el('#toast'); t.textContent = msg; t.classList.add('on');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms || 2200);
+  const t = el('#toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), ms || 2200);
 }
 export function banner(code: string, sub: string) {
-  el('#bannerCode').textContent = code; el('#bannerSub').textContent = sub;
-  const b = el('#banner'); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 2000);
+  el('#bannerCode').textContent = code;
+  el('#bannerSub').textContent = sub;
+  const b = el('#banner');
+  b.classList.add('on');
+  setTimeout(() => b.classList.remove('on'), 2000);
 }
 export const fsEl = document.documentElement;
-export const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
-export const isStandalone = (typeof window.matchMedia === 'function' && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) || navigator.standalone === true;
+export const fsSupported =
+  !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) &&
+  !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
+export const isStandalone =
+  (typeof window.matchMedia === 'function' &&
+    matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) ||
+  navigator.standalone === true;
 export const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
 export function enterFs() {
   try {
     const fn = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
     const p = fn.call(fsEl);
-    const lockLand = () => { try { const q = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); if (q && q.catch) q.catch(() => {}); } catch (e) {} };
-    if (p && p.then) p.then(lockLand, () => {}); else lockLand();
+    const lockLand = () => {
+      try {
+        const q = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape');
+        if (q && q.catch) q.catch(() => {});
+      } catch (e) {}
+    };
+    if (p && p.then) p.then(lockLand, () => {});
+    else lockLand();
   } catch (e) {}
 }
 export function exitFs() {
-  try { const fn = document.exitFullscreen || document.webkitExitFullscreen; const p = fn.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  try {
+    const fn = document.exitFullscreen || document.webkitExitFullscreen;
+    const p = fn.call(document);
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
 }
-export function toggleFs() { if (!fsSupported) return; if (document.fullscreenElement || document.webkitFullscreenElement) exitFs(); else enterFs(); }
+export function toggleFs() {
+  if (!fsSupported) return;
+  if (document.fullscreenElement || document.webkitFullscreenElement) exitFs();
+  else enterFs();
+}

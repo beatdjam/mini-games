@@ -46,11 +46,15 @@ describe.each(games)('%s', id => {
       const errors: string[] = [];
       page.on('pageerror', e => errors.push(e.message));
       // a font or another site that cannot be reached is not the page's fault: only count errors from our own files
-      page.on('console', m => { if (m.type() === 'error' && (!m.location().url || m.location().url.startsWith(ORIGIN))) errors.push(m.text()); });
+      page.on('console', m => {
+        if (m.type() === 'error' && (!m.location().url || m.location().url.startsWith(ORIGIN))) errors.push(m.text());
+      });
       await page.goto(`${ORIGIN}/mini-games/games/${id}/`);
       await page.waitForTimeout(SETTLE_MS);
       expect(errors).toEqual([]);
       expect(await page.locator(BASE_SCREEN[id]!).isVisible()).toBe(true);
-    } finally { await browser.close(); }
+    } finally {
+      await browser.close();
+    }
   }, 30000);
 });

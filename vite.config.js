@@ -12,7 +12,8 @@ const BUILD = jst.slice(0, 19).replace(/\D/g, '');
 const games = readdirSync('games').filter(g => existsSync(`games/${g}/index.html`));
 const pages = { top: resolve('index.html'), privacy: resolve('privacy.html') };
 for (const g of games) {
-  for (const f of readdirSync(`games/${g}`).filter(f => f.endsWith('.html'))) pages[f === 'index.html' ? g : `${g}-${f.replace('.html', '')}`] = resolve(`games/${g}/${f}`);
+  for (const f of readdirSync(`games/${g}`).filter(f => f.endsWith('.html')))
+    pages[f === 'index.html' ? g : `${g}-${f.replace('.html', '')}`] = resolve(`games/${g}/${f}`);
 }
 
 // Google Analytics 4 measurement id (it is public: it ends up in every page). Empty = no tag anywhere.
@@ -26,7 +27,8 @@ function analytics() {
     apply: 'build',
     transformIndexHtml(html, ctx) {
       if (!GA_ID || ctx.path.startsWith('/engine/')) return html;
-      const tag = `<script>if(location.hostname==='${SITE_HOST}'){window.dataLayer=window.dataLayer||[];` +
+      const tag =
+        `<script>if(location.hostname==='${SITE_HOST}'){window.dataLayer=window.dataLayer||[];` +
         `window.gtag=function(){dataLayer.push(arguments)};gtag('js',new Date());gtag('config','${GA_ID}');` +
         `const s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=${GA_ID}';document.head.appendChild(s)}</script>`;
       return html.replace('</head>', tag + '\n</head>');
@@ -42,10 +44,18 @@ function buildStamp() {
     async transformIndexHtml(html) {
       if (!html.includes('<meta name="build" content="dev">')) return html;
       const { code } = await transformWithOxc(readFileSync('engine/core/stale.ts', 'utf8'), 'stale.ts');
-      return html.replace('<meta name="build" content="dev">', `<meta name="build" content="${BUILD}">\n<script>${code.trim()}</script>`);
+      return html.replace(
+        '<meta name="build" content="dev">',
+        `<meta name="build" content="${BUILD}">\n<script>${code.trim()}</script>`,
+      );
     },
     generateBundle() {
-      for (const g of games) this.emitFile({ type: 'asset', fileName: `games/${g}/version.json`, source: JSON.stringify({ build: BUILD }) + '\n' });
+      for (const g of games)
+        this.emitFile({
+          type: 'asset',
+          fileName: `games/${g}/version.json`,
+          source: JSON.stringify({ build: BUILD }) + '\n',
+        });
     },
   };
 }

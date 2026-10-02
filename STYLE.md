@@ -1,7 +1,7 @@
 # コードと文書の書き方
 
 このリポジトリでコードや文書を書くときの決まり。Claude Code は作業の前に読む（CLAUDE.md から参照）。
-**[自動]** の付いた項目は、`npm run typecheck` と `npm run lint`（`tools/check_style.js`、`tools/check_i18n.js`）が確かめる。PR ごとに CI（`.github/workflows/checks.yml`）でも、テスト・ビルドと一緒に流れる。
+**[自動]** の付いた項目は、`npm run typecheck` と `npm run lint`（Prettier、`tools/check_style.js`、`tools/check_i18n.js`）が確かめる。PR ごとに CI（`.github/workflows/checks.yml`）でも、テスト・ビルドと一緒に流れる。
 
 ## 1. 型（TypeScript）
 
@@ -94,3 +94,8 @@
 - プロセスを止めるときに、`pkill -f` や `pgrep -f` へ自分のコマンド行に含まれる文字列を渡さない（自分のシェルごと止まる）。`pgrep -f "vite --port [8]765"` のように、1文字を `[ ]` で囲むと自分には一致しない
 - 開発サーバーを並行で立てるときは、ポートを分ける（`--port 87xx`）。立てたら `kill` で止める。ビルドのテスト（`npm run test:build`）は 8766 番を使うので、並行して流さない
 - サブエージェントの作業用 worktree（`.claude/worktrees/`）はコミットしない。作業が終わったら片付ける
+
+## 11. 書式
+
+- **[自動]** コード（`.ts`・`.js`）の書式は Prettier に任せる（`.prettierrc.json`。1行120文字、1行に1文）。書いたら `npm run format` で整える
+- Prettier が折り返せない長い行（長い文字列・正規表現など）は、そのままでよい。長い HTML の文字列は、部品ごとの変数や関数に分けて短くする

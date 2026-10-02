@@ -14,93 +14,215 @@ import { canvas } from '../render/render.ts';
 //   pause()       the pointer lock was lost or the page was hidden while active
 //   lockChanged() the lock state changed (for hint text)
 export interface InputConfig {
-  active(): boolean; look(dx: number, dy: number): void; sens(): number; key(e: KeyboardEvent): void; pause(): void; lockChanged(): void;
+  active(): boolean;
+  look(dx: number, dy: number): void;
+  sens(): number;
+  key(e: KeyboardEvent): void;
+  pause(): void;
+  lockChanged(): void;
 }
-export const INPUT: InputConfig = { active: () => false, look: () => {}, sens: () => 1, key: () => {}, pause: () => {}, lockChanged: () => {} };
+export const INPUT: InputConfig = {
+  active: () => false,
+  look: () => {},
+  sens: () => 1,
+  key: () => {},
+  pause: () => {},
+  lockChanged: () => {},
+};
 export const keys: Record<string, boolean> = {};
 // id = the pointer holding it (null when free); ox / oy = where the stick was grabbed
-export let joy: { id: number | null; ox: number; oy: number; x: number; y: number } = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
-export let look: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 }, fireTouch: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 };
-export let fireHeld = false, fire2Held = false, mouseFire = false, locked = false, lockWorked = false;
+export let joy: { id: number | null; ox: number; oy: number; x: number; y: number } = {
+  id: null,
+  ox: 0,
+  oy: 0,
+  x: 0,
+  y: 0,
+};
+export let look: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 },
+  fireTouch: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 };
+export let fireHeld = false,
+  fire2Held = false,
+  mouseFire = false,
+  locked = false,
+  lockWorked = false;
 export const touchEl = el('#touch');
-export function setFireHeld(v: boolean) { fireHeld = v; } // tests
-export function lookDelta(dx: number, dy: number, k: number) { INPUT.look(dx * k, dy * k); }
+export function setFireHeld(v: boolean) {
+  fireHeld = v;
+} // tests
+export function lookDelta(dx: number, dy: number, k: number) {
+  INPUT.look(dx * k, dy * k);
+}
 export const tk = () => 0.0055 * INPUT.sens();
 
 touchEl.addEventListener('pointerdown', e => {
   if (e.target !== touchEl) return;
   audioInit();
-  if (e.pointerType === 'mouse' && !document.body.classList.contains('nolock')) { if (!locked) requestLock(); return; }
+  if (e.pointerType === 'mouse' && !document.body.classList.contains('nolock')) {
+    if (!locked) requestLock();
+    return;
+  }
   e.preventDefault();
-  try { touchEl.setPointerCapture(e.pointerId); } catch (err) {}
+  try {
+    touchEl.setPointerCapture(e.pointerId);
+  } catch (err) {}
   if (e.clientX < window.innerWidth * 0.45 && joy.id === null) {
     joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: 0, y: 0 };
-    const jb = el('#joyBase'); jb.style.left = e.clientX + 'px'; jb.style.top = e.clientY + 'px'; jb.style.display = 'block';
+    const jb = el('#joyBase');
+    jb.style.left = e.clientX + 'px';
+    jb.style.top = e.clientY + 'px';
+    jb.style.display = 'block';
     el('#joyKnob').style.transform = '';
-  } else if (look.id === null) { look = { id: e.pointerId, x: e.clientX, y: e.clientY }; }
+  } else if (look.id === null) {
+    look = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  }
 });
 touchEl.addEventListener('pointermove', e => {
   if (e.pointerId === joy.id) {
-    let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const l = Math.hypot(dx, dy), R = 55;
-    if (l > R) { dx = dx / l * R; dy = dy / l * R; }
-    joy.x = dx / R; joy.y = dy / R;
+    let dx = e.clientX - joy.ox,
+      dy = e.clientY - joy.oy;
+    const l = Math.hypot(dx, dy),
+      R = 55;
+    if (l > R) {
+      dx = (dx / l) * R;
+      dy = (dy / l) * R;
+    }
+    joy.x = dx / R;
+    joy.y = dy / R;
     el('#joyKnob').style.transform = `translate(${dx}px,${dy}px)`;
   } else if (e.pointerId === look.id) {
-    lookDelta(e.clientX - look.x, e.clientY - look.y, tk()); look.x = e.clientX; look.y = e.clientY;
+    lookDelta(e.clientX - look.x, e.clientY - look.y, tk());
+    look.x = e.clientX;
+    look.y = e.clientY;
   }
 });
 export function endPointer(e: PointerEvent) {
-  if (e.pointerId === joy.id) { joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }; el('#joyBase').style.display = 'none'; }
+  if (e.pointerId === joy.id) {
+    joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+    el('#joyBase').style.display = 'none';
+  }
   if (e.pointerId === look.id) look = { id: null, x: 0, y: 0 };
 }
 touchEl.addEventListener('pointerup', endPointer);
 touchEl.addEventListener('pointercancel', endPointer);
 export function releaseInputs() {
-  joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }; look = { id: null, x: 0, y: 0 }; fireTouch = { id: null, x: 0, y: 0 };
-  fireHeld = false; fire2Held = false; mouseFire = false; el('#joyBase').style.display = 'none'; el('#btnFire').classList.remove('down'); el('#btnFire2').classList.remove('down');
+  joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  look = { id: null, x: 0, y: 0 };
+  fireTouch = { id: null, x: 0, y: 0 };
+  fireHeld = false;
+  fire2Held = false;
+  mouseFire = false;
+  el('#joyBase').style.display = 'none';
+  el('#btnFire').classList.remove('down');
+  el('#btnFire2').classList.remove('down');
   for (const k in keys) keys[k] = false;
 }
 export const btnFire = el('#btnFire');
 btnFire.addEventListener('pointerdown', e => {
-  e.preventDefault(); e.stopPropagation(); audioInit();
-  try { btnFire.setPointerCapture(e.pointerId); } catch (err) {}
-  fireTouch = { id: e.pointerId, x: e.clientX, y: e.clientY }; fireHeld = true; btnFire.classList.add('down');
+  e.preventDefault();
+  e.stopPropagation();
+  audioInit();
+  try {
+    btnFire.setPointerCapture(e.pointerId);
+  } catch (err) {}
+  fireTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  fireHeld = true;
+  btnFire.classList.add('down');
 });
 btnFire.addEventListener('pointermove', e => {
   if (e.pointerId !== fireTouch.id) return;
-  lookDelta(e.clientX - fireTouch.x, e.clientY - fireTouch.y, tk()); fireTouch.x = e.clientX; fireTouch.y = e.clientY;
+  lookDelta(e.clientX - fireTouch.x, e.clientY - fireTouch.y, tk());
+  fireTouch.x = e.clientX;
+  fireTouch.y = e.clientY;
 });
-export const fireUp = (e: PointerEvent) => { if (e.pointerId === fireTouch.id) { fireTouch.id = null; fireHeld = false; btnFire.classList.remove('down'); } };
-btnFire.addEventListener('pointerup', fireUp); btnFire.addEventListener('pointercancel', fireUp);
-export function tapBtn(el: HTMLElement, fn: () => void) { el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audioInit(); fn(); }); }
+export const fireUp = (e: PointerEvent) => {
+  if (e.pointerId === fireTouch.id) {
+    fireTouch.id = null;
+    fireHeld = false;
+    btnFire.classList.remove('down');
+  }
+};
+btnFire.addEventListener('pointerup', fireUp);
+btnFire.addEventListener('pointercancel', fireUp);
+export function tapBtn(el: HTMLElement, fn: () => void) {
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    audioInit();
+    fn();
+  });
+}
 export const btnFire2 = el('#btnFire2');
-btnFire2.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audioInit(); try { btnFire2.setPointerCapture(e.pointerId); } catch (err) {} fire2Held = true; btnFire2.classList.add('down'); });
-export const fire2Up = () => { fire2Held = false; btnFire2.classList.remove('down'); };
-btnFire2.addEventListener('pointerup', fire2Up); btnFire2.addEventListener('pointercancel', fire2Up);
+btnFire2.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  audioInit();
+  try {
+    btnFire2.setPointerCapture(e.pointerId);
+  } catch (err) {}
+  fire2Held = true;
+  btnFire2.classList.add('down');
+});
+export const fire2Up = () => {
+  fire2Held = false;
+  btnFire2.classList.remove('down');
+};
+btnFire2.addEventListener('pointerup', fire2Up);
+btnFire2.addEventListener('pointercancel', fire2Up);
 
-export function exitLock() { if (document.pointerLockElement) { try { document.exitPointerLock(); } catch (e) {} } }
-export function lockFailed() { if (!lockWorked) document.body.classList.add('nolock'); INPUT.lockChanged(); }
+export function exitLock() {
+  if (document.pointerLockElement) {
+    try {
+      document.exitPointerLock();
+    } catch (e) {}
+  }
+}
+export function lockFailed() {
+  if (!lockWorked) document.body.classList.add('nolock');
+  INPUT.lockChanged();
+}
 export function requestLock() {
   if (isTouch) return;
   try {
     const p = canvas.requestPointerLock();
     if (p && p.catch) p.catch(lockFailed);
-  } catch (err) { lockFailed(); }
+  } catch (err) {
+    lockFailed();
+  }
 }
 document.addEventListener('pointerlockchange', () => {
-  const was = locked; locked = document.pointerLockElement === canvas;
-  if (locked) { lockWorked = true; document.body.classList.remove('nolock'); }
+  const was = locked;
+  locked = document.pointerLockElement === canvas;
+  if (locked) {
+    lockWorked = true;
+    document.body.classList.remove('nolock');
+  }
   // a lock requested just before a menu opened can land after it (Firefox is slow here): let go so the menu is usable
   if (locked && !INPUT.active()) exitLock();
   INPUT.lockChanged();
   if (was && !locked && INPUT.active()) INPUT.pause();
 });
 document.addEventListener('pointerlockerror', lockFailed);
-document.addEventListener('mousedown', e => { if (locked && INPUT.active() && e.button === 0) { audioInit(); mouseFire = true; } });
-document.addEventListener('mouseup', () => { mouseFire = false; });
-document.addEventListener('mousemove', e => { if (locked && INPUT.active()) lookDelta(e.movementX, e.movementY, 0.0022 * INPUT.sens()); });
-window.addEventListener('keydown', e => { keys[e.code] = true; INPUT.key(e); });
-window.addEventListener('keyup', e => { keys[e.code] = false; });
-document.addEventListener('visibilitychange', () => { if (document.hidden && INPUT.active()) INPUT.pause(); });
+document.addEventListener('mousedown', e => {
+  if (locked && INPUT.active() && e.button === 0) {
+    audioInit();
+    mouseFire = true;
+  }
+});
+document.addEventListener('mouseup', () => {
+  mouseFire = false;
+});
+document.addEventListener('mousemove', e => {
+  if (locked && INPUT.active()) lookDelta(e.movementX, e.movementY, 0.0022 * INPUT.sens());
+});
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  INPUT.key(e);
+});
+window.addEventListener('keyup', e => {
+  keys[e.code] = false;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && INPUT.active()) INPUT.pause();
+});
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('contextmenu', e => e.preventDefault());

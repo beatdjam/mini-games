@@ -62,10 +62,13 @@ import './js/actors/bullets.ts';
 import { boot } from './js/flow/update.ts';
 
 ANALYTICS.game = 'sector-dive'; // sent with every analytics event
-FEEDBACK.game = 'sector-dive';   // filled into the feedback form
+FEEDBACK.game = 'sector-dive'; // filled into the feedback form
 setLang(save.settings.lang || defaultLang());
 syncVolumes();
-fsLabel(); applyLayout(); renderGuide(); showTab(baseTab);
+fsLabel();
+applyLayout();
+renderGuide();
+showTab(baseTab);
 boot();
 // checks and screenshot hooks (#view-…): only on the dev server, never in the built pages. The dev module sets up
 // its hooks with timers, so loading it after boot() is fine
