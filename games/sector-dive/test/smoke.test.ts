@@ -1,21 +1,13 @@
 // Smoke test for Sector Dive: boots the game page (setup.ts) and runs its parts through the real loop by hand.
 // The tests share one game state and run in order; some checks depend on how many random numbers the earlier ones used.
 import { beforeAll, describe, expect, test } from 'vitest';
-import type { GameState, Pickup, RunState, Snapshot } from '../js/data/types.ts';
-import { el, rand } from '../../../engine/core/util.ts';
-import { clearWorld, query } from '../../../engine/core/world.ts';
-import { lang, t } from '../../../engine/core/i18n.ts';
-import { SFX, actx, audioInit } from '../../../engine/audio/audio.ts';
-import {
-  MUSIC_STYLES,
-  mus,
-  musicInit,
-  musicVolume,
-  playStep,
-  setMusic,
-  setMusicMix,
-} from '../../../engine/audio/music.ts';
-import { V3, camera, scene } from '../../../engine/render/render.ts';
+import type { GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
+import { el, rand } from '@engine/core/util.ts';
+import { clearWorld, query } from '@engine/core/world.ts';
+import { lang, t } from '@engine/core/i18n.ts';
+import { SFX, actx, audioInit } from '@engine/audio/audio.ts';
+import { MUSIC_STYLES, mus, musicInit, musicVolume, playStep, setMusic, setMusicMix } from '@engine/audio/music.ts';
+import { V3, camera, scene } from '@engine/render/render.ts';
 import {
   H,
   STEP,
@@ -32,17 +24,17 @@ import {
   ramp,
   tileIndex,
   walkable,
-} from '../../../engine/world/tiles.ts';
-import { joy, setFireHeld } from '../../../engine/ui/input.ts';
-import { applyLayout, getL, openLayoutEditor } from '../../../engine/ui/touchlayout.ts';
-import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../js/data/weapons.ts';
-import { EYE, PLAT_H } from '../js/data/level.ts';
-import { ELITE_TYPES, ENEMY_TUNE } from '../js/data/enemies.ts';
-import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../js/data/bosses.ts';
-import { BIOMES } from '../js/data/biomes.ts';
-import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, PRES_ENDLESS, PRES_UP, TUNE } from '../js/data/progress.ts';
-import { PERKS } from '../js/data/perks.ts';
-import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../js/system/save.ts';
+} from '@engine/world/tiles.ts';
+import { joy, setFireHeld } from '@engine/ui/input.ts';
+import { applyLayout, getL, openLayoutEditor } from '@engine/ui/touchlayout.ts';
+import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
+import { EYE, PLAT_H } from '../src/data/level.ts';
+import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
+import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
+import { BIOMES } from '../src/data/biomes.ts';
+import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, PRES_ENDLESS, PRES_UP, TUNE } from '../src/data/progress.ts';
+import { PERKS } from '../src/data/perks.ts';
+import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../src/core/save.ts';
 import {
   modOf,
   modPlusCap,
@@ -56,8 +48,8 @@ import {
   readiness,
   readinessScore,
   readyAfterReboot,
-} from '../js/system/rules.ts';
-import { buildLevel, haz, hazardState, makePortal, portals, rooms, roomSpot, startIdx } from '../js/world/level.ts';
+} from '../src/core/rules.ts';
+import { buildLevel, haz, hazardState, makePortal, portals, rooms, roomSpot, startIdx } from '../src/world/level.ts';
 import {
   addPickup,
   boss,
@@ -70,7 +62,7 @@ import {
   spawnEnemy,
   spawnPBullet,
   spawnWave,
-} from '../js/world/entities.ts';
+} from '../src/world/entities.ts';
 import {
   P,
   critChance,
@@ -93,10 +85,10 @@ import {
   setRun,
   stageLabel,
   weaponStats,
-} from '../js/actors/player.ts';
-import { bossDiff, spawnBoss } from '../js/actors/bosses/common.ts';
-import { equipNearby, stowNearby } from '../js/ui/input.ts';
-import { changeLang, hitDirs } from '../js/ui/hud.ts';
+} from '../src/actors/player.ts';
+import { bossDiff, spawnBoss } from '../src/actors/bosses/common.ts';
+import { equipNearby, stowNearby } from '../src/ui/input.ts';
+import { changeLang, hitDirs } from '../src/ui/hud.ts';
 import {
   discardSuspended,
   endRun,
@@ -117,13 +109,13 @@ import {
   state,
   suspendRun,
   wStat,
-} from '../js/flow/game.ts';
-import { shareData, shareText } from '../js/ui/share.ts';
-import { updatePBullets } from '../js/actors/bullets.ts';
-import { update, updatePickups } from '../js/flow/update.ts';
-import { TRACK_LOG } from '../../../engine/core/analytics.ts';
-import { FEEDBACK_FORM } from '../../../engine/core/feedback.ts';
-import { COLOR } from '../js/data/colors.ts';
+} from '../src/flow/game.ts';
+import { shareData, shareText } from '../src/ui/share.ts';
+import { updatePBullets } from '../src/actors/bullets.ts';
+import { update, updatePickups } from '../src/flow/update.ts';
+import { TRACK_LOG } from '@engine/core/analytics.ts';
+import { FEEDBACK_FORM } from '@engine/core/feedback.ts';
+import { COLOR } from '../src/data/colors.ts';
 
 const stateIs = (s: GameState) => state === s; // a call, so TypeScript does not keep the narrowing of an earlier state check
 const tick = (n: number) => {
@@ -139,7 +131,7 @@ const tick = (n: number) => {
 };
 
 beforeAll(async () => {
-  await import('../main.ts');
+  await import('../src/main.ts');
   await new Promise(r => setTimeout(r, 300)); // the start-up timers
   startRun();
   setFireHeld(true);

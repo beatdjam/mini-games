@@ -1,14 +1,14 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
-import { clamp, distXZ, el, pct, randi, shuffle } from '../core/util.ts';
-import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../core/store.ts';
-import { addSystem, runSystems, stopFrame } from '../core/loop.ts';
-import { WORLD, clearWorld, query, spawn, worldGroup } from '../core/world.ts';
-import { LANG, fillData, lang, setI18nHook, setLang, t } from '../core/i18n.ts';
-import { ANALYTICS, TRACK_LOG, track } from '../core/analytics.ts';
-import { FEEDBACK, FEEDBACK_INFO_MAX, feedbackReady, feedbackUrl } from '../core/feedback.ts';
-import { buildViewmodel } from '../render/render.ts';
-import { burst, clearFx, fireball, parts, updateBalls } from '../render/fx.ts';
+import { clamp, distXZ, el, pct, randi, shuffle } from '../src/core/util.ts';
+import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../src/core/store.ts';
+import { addSystem, runSystems, stopFrame } from '../src/core/loop.ts';
+import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.ts';
+import { LANG, fillData, lang, setI18nHook, setLang, t } from '../src/core/i18n.ts';
+import { ANALYTICS, TRACK_LOG, track } from '../src/core/analytics.ts';
+import { FEEDBACK, FEEDBACK_INFO_MAX, feedbackReady, feedbackUrl } from '../src/core/feedback.ts';
+import { buildViewmodel } from '../src/render/render.ts';
+import { burst, clearFx, fireball, parts, updateBalls } from '../src/render/fx.ts';
 import {
   RISE,
   T,
@@ -25,7 +25,7 @@ import {
   setTileWorld,
   solidAt,
   tileIndex,
-} from '../world/tiles.ts';
+} from '../src/world/tiles.ts';
 import {
   type Projectile,
   aimFan,
@@ -35,11 +35,11 @@ import {
   steerToward,
   stepProjectile,
   takeFromPool,
-} from '../world/projectiles.ts';
-import { steerChase } from '../world/steer.ts';
-import { toast } from '../ui/ui.ts';
-import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../ui/input.ts';
-import { TOUCH_LAYOUT, applyLayout, editing, getL, openLayoutEditor } from '../ui/touchlayout.ts';
+} from '../src/world/projectiles.ts';
+import { steerChase } from '../src/world/steer.ts';
+import { toast } from '../src/ui/ui.ts';
+import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
+import { TOUCH_LAYOUT, applyLayout, editing, getL, openLayoutEditor } from '../src/ui/touchlayout.ts';
 // Engine tests (Vitest, in Chromium: npm test). The page elements the engine expects are made by engine/test/setup.ts.
 // eq / near / ok keep the short messages the tests were written with
 const eq = (a: unknown, b: unknown, what?: string) => expect(a, what).toBe(b);

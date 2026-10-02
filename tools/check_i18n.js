@@ -16,13 +16,14 @@ const files = [];
     if (fs.statSync(p).isDirectory()) walk(p);
     else if (p.endsWith('.ts') && !p.endsWith('.d.ts')) files.push(p);
   }
-})(path.join(root, 'js'));
+})(path.join(root, 'src'));
 const ctx = { LANG: {}, pct: v => `${Math.round(v * 100)}%`, console };
 vm.createContext(ctx);
-for (const f of fs.readdirSync(path.join(root, 'js/lang')))
+// a language file is named by its language code (ja.ts, en.ts); text.ts next to them is the code that loads them
+for (const f of fs.readdirSync(path.join(root, 'src/i18n')).filter(f => /^[a-z]{2}\.ts$/.test(f)))
   vm.runInContext(
     fs
-      .readFileSync(path.join(root, 'js/lang', f), 'utf8')
+      .readFileSync(path.join(root, 'src/i18n', f), 'utf8')
       .replace(/^import .*$/gm, '')
       .replace(/ satisfies \w+/g, ''),
     ctx,
@@ -30,7 +31,7 @@ for (const f of fs.readdirSync(path.join(root, 'js/lang')))
 const LANG = ctx.LANG,
   used = new Set();
 const code = files
-  .filter(f => !f.includes('/lang/'))
+  .filter(f => !/\/i18n\/[a-z]{2}\.ts$/.test(f))
   .map(f => fs.readFileSync(f, 'utf8'))
   .join('\n');
 for (const m of code.matchAll(/\bt\(\s*'([\w.]+)'/g)) used.add(m[1]);

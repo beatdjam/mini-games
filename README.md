@@ -7,14 +7,14 @@
 
 ```
 index.html                   トップページ（ゲーム一覧）
-engine/                      ゲームをまたいで使うコア（ループ・描画・当たり判定・弾・音・入力・文言など。engine/SPEC.md）
+engine/src/                  ゲームをまたいで使うコア（ループ・描画・当たり判定・弾・音・入力・文言など。engine/SPEC.md）
 engine/test/                 engine のテスト（Vitest）
 games/<game-id>/test/        各ゲームのスモークテスト（Vitest）と、そのページの用意（setup.ts）
 vitest.config.ts             テストの設定（Vitest のブラウザモード。Chromium で動かす）
 vitest.build.config.ts       ビルドのテストの設定（Node で動かす）
-games/<game-id>/index.html   各ゲームのページ。入口の main.ts を1つ読む
-games/<game-id>/main.ts      入口。全モジュールを読み込み、最後に起動処理をする
-games/<game-id>/js/          ゲームのモジュール
+games/<game-id>/index.html   各ゲームのページ。入口の src/main.ts を1つ読む
+games/<game-id>/src/main.ts  入口。全モジュールを読み込み、最後に起動処理をする
+games/<game-id>/src/         ゲームのモジュール（data・i18n・core・world・actors・flow・ui・dev）
 games/<game-id>/SPEC.md      各ゲームの仕様書兼説明書
 games/<game-id>/updates.html 更新履歴（公開ごと、Actions が生成）
 public/                      名前を変えずにそのまま出すファイル（PWA の manifest とアイコン）
@@ -40,7 +40,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - `npm test`: engine のテストと、各ゲームのスモークテスト（`games/<game-id>/test/`）を Vitest で流す。Chromium の中で動かし、テスト1件ずつが結果に出る。どれか失敗すると終了コード1。Chrome の場所は `CHROME=...` で指定する（無ければ Playwright のもの）
 - `npm run test:engine`: engine のテストだけ（`vitest run --project engine`。`npx vitest` なら変更を見張って流し直す）
 - `npm run test:build`: 公開用のビルドを `dist-test/` へ作り、全ゲームについて、版番号が `version.json` と合うこと、GA のタグが入っていること、Chromium でページを開いてエラーが出ず拠点画面が出ることを確かめる（`tools/build.test.ts`）
-- 確認用のコード（各ゲームの `js/dev/`：`#view-…` などのフック）は、開発サーバーにだけ入る。公開用のビルド（`npm run build`）には入らない
+- 確認用のコード（各ゲームの `src/dev/`：`#view-…` などのフック）は、開発サーバーにだけ入る。公開用のビルド（`npm run build`）には入らない
 - アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）。GA の利用規約に沿って、`privacy.html`（プライバシーポリシー）をトップと各ゲームの設定から開けるようにしておく。送る内容の種類を増やしたら、この文面も見直す
 - PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト（`npm test` と `npm run test:build`）・ビルドを流す。マージの前に、ここが通っていることを確かめる。テストの結果は Actions の実行画面のサマリに出て、JUnit と HTML のレポート（`test-results/`）は実行結果の Artifacts（`test-report`）からダウンロードできる
 - 公開: master に push すると、Actions が同じ確認をもう一度してから GitHub Pages に出す（どれかが失敗すれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
@@ -56,7 +56,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
   ```
 
   種類は `追加` / `調整` / `修正` のどれか。リファクタ・テスト・開発用など遊ぶ人に関係しない変更には `Changelog: なし` と書く（更新履歴には載らない）
-- 書き忘れは PR の CI（`.github/workflows/changelog.yml` → `tools/check_changelog.py`）で止まる。ゲームのフォルダ（`games/<game-id>/`）を触ったコミットに、どちらの行もなければ失敗する。開発用のコード（`js/dev/`）と Markdown だけのコミットは対象外
+- 書き忘れは PR の CI（`.github/workflows/changelog.yml` → `tools/check_changelog.py`）で止まる。ゲームのフォルダ（`games/<game-id>/`）を触ったコミットに、どちらの行もなければ失敗する。開発用のコード（`src/dev/`）と Markdown だけのコミットは対象外
 - 生成スクリプト（`tools/build_updates.py`）は、`updates.html` に `<!-- updates:start` の目印があるゲームを全部処理する。Actions の実行履歴から公開の時刻（JST）と head のコミットを取り、`Changelog:` 行を push ごとにまとめる。対象はそのゲームのフォルダを触ったコミットだけ
 - 2026-09-27 22:35 までの分は `updates-archive.json` に手書きで固定してある
 - 生成に失敗しても公開は止めない（コミット済みのページがそのまま出る）
@@ -64,7 +64,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 
 ## ゲームの追加手順
 
-1. `games/<game-id>/index.html` と入口の `main.ts` を置く（`<script type="module" src="./main.ts">`）。engine は `../../engine/...` から import する。版番号を使うなら `<meta name="build" content="dev">` を入れる（ビルドが書き換える）
+1. `games/<game-id>/index.html` と入口の `src/main.ts` を置く（`<script type="module" src="./src/main.ts">`）。engine は `@engine/...`（`engine/src/` の別名）から import する。版番号を使うなら `<meta name="build" content="dev">` を入れる（ビルドが書き換える）
 2. `index.html` の `<ul class="games">` に `<li>` を1つ足す
 3. ゲーム側に一覧へ戻るリンク `<a href="../../">` を入れておく
 4. 更新履歴を付けるなら、`games/sector-dive/updates.html` を参考に `updates.html` を置く（`<!-- updates:start -->` と `<!-- updates:end -->` の目印を入れる）。ゲームのフォルダの `.html` はビルドに自動で入る

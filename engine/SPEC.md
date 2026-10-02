@@ -5,10 +5,10 @@
 ## 1. 基本
 
 - 開発・ビルド・テストのコマンドはリポジトリの README「開発」、型や名前の付け方は STYLE.md
-- engine が外に見せる型（設定オブジェクト・システム・world のオブジェクト・言語ファイルの形など）は、持ち主のモジュールから export する。ブラウザ固有の古い API の型は `engine/vendor.d.ts`
+- engine が外に見せる型（設定オブジェクト・システム・world のオブジェクト・言語ファイルの形など）は、持ち主のモジュールから export する。ブラウザ固有の古い API の型は `engine/src/vendor.d.ts`
 - **engine はゲームを import しない**。ゲームの状態や操作は、設定オブジェクト（`LOOP`, `INPUT`, `TOUCH_LAYOUT`）、登録用の関数（`setI18nHook`, `addSystem`, `spawn`）、ゲームが中身を入れる器（`SFX`, `MUSIC_STYLES`, `LAYER_MIX`）で受け取る
 - 他のモジュールの変数には代入できないので、ゲームや engine の状態を外から変えるときは、持ち主のモジュールの関数（`setTileWorld`, `setVolumes` など）を呼ぶ
-- モジュールの読み込み時は、宣言とイベントの登録だけにする。ほかのモジュールの値を使う起動処理は、入口（`games/<id>/main.ts`）が全部を読み込んだあとに呼ぶ（import が循環していると、読み込みの順番は保証されないため）
+- モジュールの読み込み時は、宣言とイベントの登録だけにする。ほかのモジュールの値を使う起動処理は、入口（`games/<id>/src/main.ts`）が全部を読み込んだあとに呼ぶ（import が循環していると、読み込みの順番は保証されないため）
 - engine が前提にする HTML の要素（`<canvas id="gl">`, `#touch` など）は README の表に書く
 
 ## 2. ループ・モード・システム（core/loop.ts）
@@ -92,7 +92,7 @@
   - 暗号化ではない。JSON を鍵で XOR して Base64 にし、ぱっと見では読めず、手で書き換えにくくするだけ。チェックサム（元の JSON の FNV-1a）が合わない・タグが違う・途中で切れているときは `null`
   - 空白や改行は無視するので、折り返されたコードを貼ってもよい。ゲームごとにタグを変える（Sector Dive は `SD1`）
 
-## 12. キャッシュ対策（core/stale.ts と vite.config.js）
+## 12. キャッシュ対策（engine/src/core/stale.ts と vite.config.js）
 
 - GitHub Pages は html も js も約10分キャッシュする。古い js と新しい html が混ざると動かないことがある
 - ビルドした JS はファイル名に中身のハッシュが付くので、古い JS と新しい HTML が混ざることはない。ただし公開し直すと古い JS はサーバーから消えるので、キャッシュに残った古い HTML は読み込みに失敗する
@@ -107,7 +107,7 @@
 - `info` は `FEEDBACK_INFO_MAX`（1500文字）で切る（アドレスが長くなりすぎないように）。個人を特定できる値は入れない
 - 送られた内容はフォームの回答（スプレッドシート）にたまる。プライバシーポリシー（`privacy.html`）に記載済み
 
-## 14. アクセス解析（core/analytics.ts と vite.config.js）
+## 14. アクセス解析（engine/src/core/analytics.ts と vite.config.js）
 
 - ビルドが、公開する全ページ（engine のテストを除く）に GA4 のタグを入れる。測定 ID は `vite.config.js` の `GA_ID`（空にするとどのページにも入らない）
 - タグは公開先のホスト（`beatdjam.github.io`）で開いたときだけ動く。開発サーバー・テスト・手元の `npm run preview` では何も送らない
@@ -125,4 +125,4 @@
 - `core/dev.ts`: `devHook('view-x', fn)` は URL の `#view-x…` で動く確認用の入口
 - **engine のテスト**: `engine/test/*.test.ts`（Vitest のブラウザモードで Chromium の中で動かす。`npm run test:engine`）。engine が前提にする画面の要素は `engine/test/setup.ts` が作る
   - engine を変えたら、engine のテストと、engine を使う全ゲームのスモークテストを流す（`npm test` が両方を流す。README「開発」）
-- 確認用のコードは公開版に入れない: ゲームは入口で `if (import.meta.env.DEV) import('./js/dev/dev.ts')` のように読み込む。テスト（engine の `test/`、各ゲームの `test/`）はビルドには入らない（Vitest が直接動かす）
+- 確認用のコードは公開版に入れない: ゲームは入口で `if (import.meta.env.DEV) import('./src/dev/dev.ts')` のように読み込む。テスト（engine の `test/`、各ゲームの `test/`）はビルドには入らない（Vitest が直接動かす）
