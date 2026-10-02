@@ -1,8 +1,11 @@
 // engine: Saved data in localStorage. loadStore merges what was saved over fresh defaults, so fields added in a later
 // version appear in old saves. Plain objects merge key by key (deeply); arrays and other values are replaced.
 type Obj = Record<string, any>;
+// keys that would reach Object.prototype instead of the save's own data (a pasted save code is just JSON)
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 export function mergeDefaults<T extends Obj>(d: T, s: Obj): T {
   for (const k of Object.keys(s)) {
+    if (UNSAFE_KEYS.has(k)) continue;
     const a = d[k],
       b = s[k];
     if (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b))
