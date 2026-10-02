@@ -1,6 +1,7 @@
 import { el, isTouch } from '@engine/core/util.ts';
 import { lang, t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
+import { canCopyImage, canShareFile, copyImage, openXPost, saveImage, shareNative } from '@engine/ui/share.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { perkName } from '../core/rules.ts';
@@ -12,6 +13,7 @@ import type { RunEnd } from '../data/types.ts';
 // ---- sharing a run's result: a card image + a short text with #SectorDive ----
 // phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
 // the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
+const SHARE_FILE = 'sector-dive.png';
 export const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
 export interface ShareCard {
   kind: RunEnd;
@@ -183,14 +185,12 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   return new Promise<Blob | null>(r => c.toBlob(r, 'image/png'));
 }
 
-export function shareResult() {
+export async function shareResult() {
   if (!shareData) return;
-  const file = shareBlob && new File([shareBlob], 'sector-dive.png', { type: 'image/png' });
-  if (isTouch && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+  const file = shareBlob && new File([shareBlob], SHARE_FILE, { type: 'image/png' });
+  if (isTouch && file && canShareFile(file)) {
     track('share', { method: 'native' });
-    navigator.share({ files: [file], text: shareText(shareData) }).catch(e => {
-      if (e.name !== 'AbortError') openSharePanel();
-    });
+    if ((await shareNative(file, shareText(shareData))) === 'failed') openSharePanel();
     return;
   }
   openSharePanel();
@@ -203,7 +203,7 @@ export async function openSharePanel() {
   }
   panel.hidden = false;
   track('share', { method: 'panel' });
-  el('#btnShareCopy').hidden = !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+  el('#btnShareCopy').hidden = !canCopyImage();
   if (!shareBlob) shareBlob = await drawShareCard(shareData!);
   if (!shareBlob) return;
   const img = el<HTMLImageElement>('#shareImg');
@@ -213,32 +213,19 @@ export async function openSharePanel() {
 export function copyShareImage() {
   if (!shareBlob) return;
   track('share', { method: 'copy' });
-  navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })]).then(
-    () => toast(t('share.copied'), 3000),
-    () => toast(t('share.copyFailed'), 3000),
-  );
+  copyImage(shareBlob).then(ok => toast(t(ok ? 'share.copied' : 'share.copyFailed'), 3000));
 }
 export function saveShareImage() {
   if (!shareBlob) return;
   track('share', { method: 'save' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(shareBlob);
-  a.download = 'sector-dive.png';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  saveImage(shareBlob, SHARE_FILE);
 }
-export function openXPost() {
-  if (shareData) track('share', { method: 'x' });
-  if (shareData)
-    window.open(
-      'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(shareData)),
-      '_blank',
-      'noopener',
-    );
+export function openShareX() {
+  if (!shareData) return;
+  track('share', { method: 'x' });
+  openXPost(shareText(shareData));
 }
 el('#btnShareCopy').addEventListener('click', copyShareImage);
 el('#btnShareSave').addEventListener('click', saveShareImage);
-el('#btnShareX').addEventListener('click', openXPost);
+el('#btnShareX').addEventListener('click', openShareX);
 el('#btnShare').addEventListener('click', shareResult);
