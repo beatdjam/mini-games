@@ -27,7 +27,9 @@ import { BIOMES } from '../data/biomes.ts';
 import type { Biome, PortalKind } from '../data/types.ts';
 import { biomeTex } from './render.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
-import { player, damagePlayer, damageScaleAt, run } from '../actors/player.ts';
+import { player, run } from '../actors/player.ts';
+import { damagePlayer } from '../actors/combat.ts';
+import { damageScaleAt } from '../core/stages.ts';
 import { COLOR } from '../data/colors.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const GEN_MAP_SIZE = 36; // default map side (tiles)

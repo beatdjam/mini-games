@@ -24,7 +24,9 @@ import {
   setBoss,
   spawnEnemyObj,
 } from '../../world/entities.ts';
-import { damageScaleAt, rollWeapon, run, stageInfo, tierLabel } from '../player.ts';
+import { damageScaleAt, stageInfo, tierLabel } from '../../core/stages.ts';
+import { rollWeapon } from '../weapons.ts';
+import { run } from '../player.ts';
 import { spawnWatcher } from './watcher.ts';
 import { spawnCrusher } from './crusher.ts';
 import { spawnCore } from './core.ts';

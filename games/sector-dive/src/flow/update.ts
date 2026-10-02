@@ -16,20 +16,11 @@ import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
 import { level, reveal, updateHazards } from '../world/level.ts';
 import { ENEMY_GROUP, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
-import {
-  GUNFX,
-  player,
-  curVM,
-  currentWeapon,
-  damagePlayer,
-  findTarget,
-  kitHealAmount,
-  magSize,
-  run,
-  shotId,
-  tryFire,
-  weaponOptCount,
-} from '../actors/player.ts';
+import { GUNFX, curVM } from '../actors/viewmodel.ts';
+import { player, currentWeapon, run } from '../actors/player.ts';
+import { damagePlayer, kitHealAmount } from '../actors/combat.ts';
+import { findTarget, shotId, tryFire } from '../actors/firing.ts';
+import { magSize, weaponOptCount } from '../actors/weapons.ts';
 import { controlState } from '../ui/input.ts';
 import { screenFx, bctx, bigmap, drawMap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
