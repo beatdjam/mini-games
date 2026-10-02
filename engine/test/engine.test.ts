@@ -10,22 +10,29 @@ import { FEEDBACK, FEEDBACK_INFO_MAX, feedbackReady, feedbackUrl } from '../src/
 import { buildViewmodel } from '../src/render/render.ts';
 import { burst, clearFx, fireball, parts, updateBalls } from '../src/render/fx.ts';
 import {
+  COVER_H,
+  DECK_H,
   RISE,
   T,
   W,
   computeFlow,
   floorY,
+  flow,
   flowAt,
   flowDir,
   grid,
   hasLOS,
   hgt,
+  isSolid,
   moveCircle,
+  passable,
   ramp,
   setTileWorld,
   solidAt,
   tileIndex,
 } from '../src/world/tiles.ts';
+import { generateArena, generateDungeon } from '../src/world/dungeon.ts';
+import { tileMapFromRows } from '../src/world/tilemap.ts';
 import {
   type Projectile,
   aimFan,
@@ -311,6 +318,105 @@ test('tiles: flow field leads to the target around the step', () => {
   eq(flowAt(4.5 * T, 1.5 * T), 4, 'dropping down the 2 m step is allowed');
   computeFlow(4, 1);
   eq(flowAt(3.5 * T, 1.5 * T), -1, 'climbing it is not (more than STEP)');
+});
+test('dungeon: the same seed gives the same rooms, joined by walkable ground, features in place', () => {
+  const opts = { map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1, bridges: 2 };
+  for (const seed of [1, 7, 99]) {
+    const d = generateDungeon(opts, createRng(seed)),
+      again = generateDungeon(opts, createRng(seed)),
+      M = d.maps;
+    eq(JSON.stringify(d.rooms), JSON.stringify(again.rooms), 'rooms repeat');
+    eq(Array.from(M.hgt).join(), Array.from(again.maps.hgt).join(), 'heights repeat');
+    ok(d.rooms.length >= 2 && d.rooms.every(r => r.x >= 1 && r.y >= 1 && r.x + r.w < d.W && r.y + r.h < d.H), 'rooms');
+    for (let k = 0; k < d.W * d.H; k++) {
+      if (M.hgt[k] > 0 || M.ramp[k] >= 0 || M.cover[k]) ok(M.grid[k] === 1, 'features stand on floor');
+      if (M.cover[k]) near(M.hgt[k], COVER_H, 1e-6, 'cover height');
+      else if (M.hgt[k] > 0) eq(M.hgt[k], DECK_H, 'deck height');
+    }
+    ok(d.rooms.some(r => r.plat) && M.ramp.some(r => r >= 0), 'a deck with its ramp');
+    setTileWorld({ W: d.W, H: d.H, grid: M.grid, hgt: M.hgt, ramp: M.ramp, cover: M.cover });
+    setTileWorld({ flow: new Int16Array(d.W * d.H), flowQ: new Int32Array(d.W * d.H) });
+    const c = (r: { x: number; y: number; w: number; h: number }) => [
+      Math.floor(r.x + r.w / 2),
+      Math.floor(r.y + r.h / 2),
+    ];
+    computeFlow(c(d.rooms[0])[0], c(d.rooms[0])[1]);
+    d.rooms.forEach(r => ok(flow[c(r)[1] * d.W + c(r)[0]] >= 0, 'every room reaches the first'));
+  }
+  eq(
+    generateDungeon({ deckH: 3, coverH: 1, platform: 1, rubble: 0.2 }, createRng(5)).maps.hgt.some(h => h === 3),
+    true,
+    'deckH option',
+  );
+});
+test('dungeon: an arena is a floor square with the pillars as walls', () => {
+  const a = generateArena(20, 4, 16, [[6, 6]]);
+  eq(a.W, 20);
+  eq(
+    a.maps.grid.reduce((n, v) => n + v, 0),
+    12 * 12 - 1,
+    'floor minus one pillar',
+  );
+  eq(a.maps.grid[6 * 20 + 6], 0, 'pillar');
+  eq(JSON.stringify(a.rooms), JSON.stringify([{ x: 4, y: 4, w: 12, h: 12 }]));
+});
+test('tilemap: rows become the tile maps, rooms from letters or a list, errors on bad rows', () => {
+  const rows = ['########', '#A.>==.#', '#A.>==c#', '########'];
+  const m = tileMapFromRows(rows);
+  eq(m.W, 8);
+  eq(m.H, 4);
+  const at = (i: number, j: number) => j * m.W + i;
+  eq(m.maps.grid[at(0, 0)], 0, 'wall');
+  eq(m.maps.grid[at(2, 1)], 1, 'floor');
+  eq(m.maps.hgt[at(4, 1)], DECK_H, 'deck');
+  eq(m.maps.ramp[at(3, 1)], 0, 'ramp rises toward +x');
+  eq(m.maps.ramp[at(4, 1)], -1, 'no ramp on a deck');
+  eq(m.maps.cover[at(6, 2)], 1, 'cover');
+  near(m.maps.hgt[at(6, 2)], COVER_H, 1e-6, 'cover height');
+  eq(JSON.stringify(m.rooms), JSON.stringify([{ x: 1, y: 1, w: 1, h: 2 }]), 'room from letters');
+  eq(m.maps.roomOf[at(1, 2)], 0, 'roomOf');
+  eq(m.maps.roomOf[at(2, 1)], -1, 'roomOf outside');
+  const listed = tileMapFromRows(rows, {}, [{ x: 2, y: 1, w: 2, h: 2 }]);
+  eq(listed.maps.roomOf[at(3, 2)], 0, 'roomOf from a given list');
+  eq(listed.maps.roomOf[at(1, 1)], -1, 'letters do not count when a list is given');
+  const own = tileMapFromRows(['XYx'], { wall: 'X', floor: 'Y', deck: 'x' });
+  eq(own.maps.grid.join(), '0,1,1', 'custom legend');
+  eq(own.maps.hgt[2], DECK_H);
+  const dirs = tileMapFromRows(['.>', '<v', '^.']);
+  eq(dirs.maps.ramp.join(), '-1,0,1,2,3,-1', 'ramp sides 0:+x 1:-x 2:+z 3:-z');
+  expect(() => tileMapFromRows(['##', '#'])).toThrow();
+  expect(() => tileMapFromRows(['#?'])).toThrow();
+  expect(() => tileMapFromRows(['#B'])).toThrow();
+
+  setTileWorld({
+    W: m.W,
+    H: m.H,
+    grid: m.maps.grid,
+    hgt: m.maps.hgt,
+    ramp: m.maps.ramp,
+    cover: m.maps.cover,
+    flow: new Int16Array(m.W * m.H),
+    flowQ: new Int32Array(m.W * m.H),
+  });
+  ok(isSolid(0, 0) && !isSolid(2, 1) && isSolid(-1, 1) && isSolid(8, 1), 'isSolid');
+  eq(floorY(4.5 * T, 1.5 * T), DECK_H, 'floorY on the deck');
+  near(floorY(3.5 * T, 1.5 * T), RISE / 2, 1e-9, 'floorY halfway up the ramp');
+  ok(passable(at(2, 1), at(3, 1), 0), 'floor to ramp');
+  ok(passable(at(3, 1), at(4, 1), 0), 'ramp to deck');
+  ok(passable(at(4, 1), at(3, 1), 1), 'deck back down the ramp');
+  ok(!passable(at(6, 1), at(5, 1), 1), 'deck edge blocked from below');
+  ok(passable(at(5, 1), at(6, 1), 0), 'stepping off the deck');
+  const walker = { x: 2.5 * T, z: 1.5 * T, fy: 0 };
+  for (let t = 0; t < 110; t++) {
+    moveCircle(walker, 0.1, 0, 0.4);
+    walker.fy = floorY(walker.x, walker.z);
+  }
+  ok(walker.x > 5 * T && walker.fy === DECK_H, 'walked up the ramp onto the deck');
+  for (let t = 0; t < 40; t++) moveCircle(walker, 0.1, 0, 0.4);
+  ok(walker.x > 6 * T, 'and off its far edge');
+  const below = { x: 6.5 * T, z: 1.5 * T, fy: 0 };
+  for (let t = 0; t < 40; t++) moveCircle(below, -0.1, 0, 0.4);
+  ok(below.x >= 6 * T, 'blocked by the deck edge from below');
 });
 
 test('projectiles: pool, sub-steps, terrain, homing, patterns', () => {
