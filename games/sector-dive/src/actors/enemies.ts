@@ -5,7 +5,8 @@ import { flowAt, hasLOS } from '@engine/world/tiles.ts';
 import { steerChase } from '@engine/world/steer.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, spawnEBullet } from '../world/entities.ts';
-import { player, damagePlayer, detonate } from './player.ts';
+import { player } from './player.ts';
+import { damagePlayer, detonate } from './combat.ts';
 import { bossPauseTick, setLaser } from './bosses/common.ts';
 import { COLOR } from '../data/colors.ts';
 // ================= enemy behaviour (per frame) =================

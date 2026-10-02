@@ -7,18 +7,9 @@ import { BOSS_META } from '../data/bosses.ts';
 import { TUNE } from '../data/progress.ts';
 import { chipSummary } from '../core/rules.ts';
 import { boss } from '../world/entities.ts';
-import {
-  player,
-  critChance,
-  currentWeapon,
-  magSize,
-  run,
-  stageInfo,
-  stageLabel,
-  wDmgMul,
-  weaponText,
-  weaponOptCount,
-} from '../actors/player.ts';
+import { player, currentWeapon, run } from '../actors/player.ts';
+import { critChance, magSize, wDmgMul, weaponText, weaponOptCount } from '../actors/weapons.ts';
+import { stageInfo, stageLabel } from '../core/stages.ts';
 import { bigmap, renderSettings } from '../ui/hud.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { endRun } from '../flow/run.ts';

@@ -7,7 +7,8 @@ import { dynGroup } from '@engine/render/render.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, ring } from '../../world/entities.ts';
-import { player, damagePlayer } from '../player.ts';
+import { player } from '../player.ts';
+import { damagePlayer } from '../combat.ts';
 import { bossBase } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // TRINITY: three bodies orbiting the centre on one shared health pool
