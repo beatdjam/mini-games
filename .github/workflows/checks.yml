@@ -1,11 +1,17 @@
 name: Checks
 
-# PR ごとに、型チェックとスタイル・文言の確認（Chrome の要らない速いもの）を流す。テストは公開時（pages.yml）に流す
+# PR ごとに、公開ジョブ（pages.yml）と同じ確認を流す。マージしてから公開ジョブで落ちて公開が止まる、を防ぐため。
+# 公開ジョブでも同じ確認をもう一度流す（PR どうしの組み合わせで master が壊れたときに、公開しないため）
 on:
   pull_request:
 
 permissions:
   contents: read
+
+# 同じ PR に続けて push したら、古いほうの実行は止める
+concurrency:
+  group: checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -19,5 +25,14 @@ jobs:
       - run: npm ci
       - name: 型チェック
         run: npm run typecheck
-      - name: スタイルと文言の確認
+      - name: スタイルと文言の確認（tools/check_style.js、tools/check_i18n.js）
         run: npm run lint
+      - name: テスト（engine のテストと各ゲームのスモーク。開発サーバーと、テスト用ビルドの両方）
+        # ランナーの Chrome は google-chrome
+        env:
+          CHROME: google-chrome
+        run: |
+          npm test
+          npm run test:build
+      - name: 公開用のビルド
+        run: npm run build

@@ -1,7 +1,7 @@
 # コードと文書の書き方
 
 このリポジトリでコードや文書を書くときの決まり。Claude Code は作業の前に読む（CLAUDE.md から参照）。
-**[自動]** の付いた項目は、`npm run typecheck` と `npm run lint`（`tools/check_style.js`、`tools/check_i18n.js`）が確かめる。PR ごとに CI（`.github/workflows/checks.yml`）でも流れる。
+**[自動]** の付いた項目は、`npm run typecheck` と `npm run lint`（`tools/check_style.js`、`tools/check_i18n.js`）が確かめる。PR ごとに CI（`.github/workflows/checks.yml`）でも、テスト・ビルドと一緒に流れる。
 
 ## 1. 型（TypeScript）
 
@@ -86,6 +86,7 @@
 ## 9. コミットと PR
 
 - ゲームのフォルダを触るコミットには `Changelog:` 行を書く（CLAUDE.md・README「更新履歴のルール」）。遊ぶ人に関係しない変更は `Changelog: なし`
+- PR を作ったら、CI の確認（`Checks`: 型チェック・lint・テスト・ビルド、`Changelog`）が通ることを確かめる。落ちたら直してから、マージを頼む
 - 1つの修正・調整につき PR を1本。前の PR に依存するときは、その PR のブランチを向き先にして積み、PR の説明に書く
 - 同じファイルを触る PR が並んでいて衝突したら、master を取り込んで両方の変更を残す形で解消し、テストし直してから push する
 

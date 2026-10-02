@@ -22,7 +22,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 .claude/agents/              Claude Code のサブエージェント（worker: 決まった変更の実行、scout: 調べるだけ）
 .github/workflows/pages.yml  GitHub Pages への公開（テストとビルドをして dist/ を出す）
 .github/workflows/changelog.yml  PR の Changelog 行の確認
-.github/workflows/checks.yml PR の型チェックとスタイル・文言の確認
+.github/workflows/checks.yml PR ごとの確認（型チェック・lint・テスト・ビルド。公開ジョブと同じ）
 ```
 
 ## 開発
@@ -39,7 +39,8 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - 個別に見るとき: `tools/headless.sh 'games/<game-id>/#smoke' 200000`、`tools/headless.sh 'engine/test/' 20000`。Chrome の場所は `CHROME=...` で変えられる
 - 確認用のコード（各ゲームの `js/dev/`：スモークテストと `#view-…` などのフック）と engine のテストは、開発サーバーとテスト用ビルドにだけ入る。公開用のビルド（`npm run build`）には入らない
 - アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）。GA の利用規約に沿って、`privacy.html`（プライバシーポリシー）をトップと各ゲームの設定から開けるようにしておく。送る内容の種類を増やしたら、この文面も見直す
-- 公開: master に push すると、Actions が型チェック・テスト（`npm test` と `npm run test:build`）・ビルドをして GitHub Pages に出す（型エラーかテストの失敗があれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
+- PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト（`npm test` と `npm run test:build`）・ビルドを流す。マージの前に、ここが通っていることを確かめる
+- 公開: master に push すると、Actions が同じ確認をもう一度してから GitHub Pages に出す（どれかが失敗すれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
 
 ## TypeScript
 
