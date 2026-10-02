@@ -210,13 +210,13 @@ export function nextStage() {
 
 // ---- boss practice: fight one boss at a chosen depth's strength; nothing is gained or lost ----
 export function startPractice(kind: string, tier?: number) {
-  tier = tier || 0;
+  const depth = tier || 0;
   audioInit();
   if (isTouch && !isFullscreen()) enterFs();
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
   setPlayer(newPlayer(save.loadout));
   setRun({
-    stage: tier * PER + PER - 1,
+    stage: depth * PER + PER - 1,
     kills: 0,
     bits: 0,
     perks: [],
@@ -226,7 +226,7 @@ export function startPractice(kind: string, tier?: number) {
     forceBoss: kind,
     t0: performance.now(),
   });
-  track('practice_start', { target: kind, level: tier + 1 });
+  track('practice_start', { target: kind, level: depth + 1 });
   show(null);
   setPlayUI(true);
   normalizeWeapons();

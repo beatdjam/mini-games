@@ -117,7 +117,8 @@ export function chipSummary(perks: string[]): string {
   const seen: Record<string, { n: number; rare: number; first: string }> = {};
   perks.forEach(rec => {
     const id = rec.replace(/\+$/, ''),
-      c = (seen[id] = seen[id] || { n: 0, rare: 0, first: rec });
+      c = seen[id] || { n: 0, rare: 0, first: rec };
+    seen[id] = c;
     c.n++;
     if (rec.endsWith('+')) c.rare++;
   });

@@ -57,7 +57,8 @@ export function burst(
     p.vx = Math.cos(a) * q * s;
     p.vy = u * s + spd * 0.35;
     p.vz = Math.sin(a) * q * s;
-    p.life = p.max = (life || 0.6) * rand(0.6, 1.2);
+    p.life = (life || 0.6) * rand(0.6, 1.2);
+    p.max = p.life;
     p.g = grav === undefined ? 14 : grav;
   }
 }

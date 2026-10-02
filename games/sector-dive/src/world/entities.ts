@@ -359,7 +359,7 @@ export function clearOfPortals(x: number, z: number): [number, number] {
   return [x, z];
 }
 export function addPickup(kind: PickupKind, x: number, z: number, extra?: { value?: number; w?: Weapon }): Pickup {
-  [x, z] = clearOfPortals(x, z);
+  const [px, pz] = clearOfPortals(x, z);
   let mesh: THREE.Object3D;
   if (kind === 'bit') mesh = new THREE.Mesh(geoCache.bit, basicMat(COLOR.amber));
   else if (kind === 'kit') {
@@ -385,11 +385,11 @@ export function addPickup(kind: PickupKind, x: number, z: number, extra?: { valu
     );
     mesh.scale.setScalar(1 + w.r * 0.15);
   }
-  const baseY = (kind === 'bit' ? 0.5 : 1.0) + floorY(x, z);
-  mesh.position.set(x, baseY, z);
+  const baseY = (kind === 'bit' ? 0.5 : 1.0) + floorY(px, pz);
+  mesh.position.set(px, baseY, pz);
   dynGroup.add(mesh);
   const p: Pickup = Object.assign(
-    { tag: 'pickup' as const, kind, x, z, y: baseY, mesh, t: rand(0, 6), dead: false },
+    { tag: 'pickup' as const, kind, x: px, z: pz, y: baseY, mesh, t: rand(0, 6), dead: false },
     extra || {},
   );
   p.update = (dt: number) => updatePickup(p, dt);

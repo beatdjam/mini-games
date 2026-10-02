@@ -40,7 +40,8 @@ export function edges(key: string): THREE.EdgesGeometry {
 // textures
 export function makeTex(bg: string, line: string, kind: 'floor' | 'wall'): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = 128;
+  c.height = 128;
   const g = c.getContext('2d')!;
   g.fillStyle = bg;
   g.fillRect(0, 0, 128, 128);
@@ -90,7 +91,8 @@ export const texCache: Record<string, BiomeTextures> = {};
 export function biomeTex(b: Biome): BiomeTextures {
   if (texCache[b.code]) return texCache[b.code];
   const floor = makeTex(b.floor, b.line, 'floor');
-  floor.wrapS = floor.wrapT = THREE.RepeatWrapping;
+  floor.wrapS = THREE.RepeatWrapping;
+  floor.wrapT = THREE.RepeatWrapping;
   return (texCache[b.code] = {
     floor,
     tile: makeTex(b.floor, b.line, 'floor'),

@@ -54,7 +54,8 @@ export function applyLayout() {
       l = buttonLayout(id),
       size = Math.round(l.b * l.s);
     if (!el) return;
-    el.style.width = el.style.height = size + 'px';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
     el.style.left = clamp(l.x * vw, size / 2 + 4, vw - size / 2 - 4) + 'px';
     el.style.top = clamp(l.y * vh, size / 2 + 4, vh - size / 2 - 4) + 'px';
     el.classList.toggle('sel', layoutEditor.open && layoutEditor.sel === id);

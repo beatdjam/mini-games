@@ -82,15 +82,15 @@ export function weaponStatText(w: WeaponItem) {
 }
 // base menu tabs
 export function showTab(name: string) {
-  if (!document.querySelector(`[data-pane="${name}"]`)) name = 'sortie';
-  baseUI.tab = name;
+  const tab = document.querySelector(`[data-pane="${name}"]`) ? name : 'sortie';
+  baseUI.tab = tab;
   document
     .querySelectorAll<HTMLElement>('.tabs [data-tab]')
-    .forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+    .forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
   document.querySelectorAll<HTMLElement>('[data-pane]').forEach(p => {
-    p.hidden = p.dataset.pane !== name;
+    p.hidden = p.dataset.pane !== tab;
   });
-  prefSet(BASE_TAB_KEY, name);
+  prefSet(BASE_TAB_KEY, tab);
 }
 el('.tabs').addEventListener('click', (e: Event) => {
   const tg = e.target as HTMLElement;

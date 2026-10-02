@@ -14,7 +14,8 @@ export function audioInit() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
-    const ac = (actx = new Ctx());
+    const ac = new Ctx();
+    actx = ac;
     // effects bus -> light compressor so layered shots stay punchy without clipping
     const comp = ac.createDynamicsCompressor();
     comp.threshold.value = -14;
@@ -22,11 +23,13 @@ export function audioInit() {
     comp.ratio.value = 4;
     comp.attack.value = 0.012;
     comp.release.value = 0.15;
-    const m = (master = ac.createGain());
+    const m = ac.createGain();
+    master = m;
     m.connect(comp);
     comp.connect(ac.destination);
     applySfxVolume();
-    const nb = (noiseBuf = ac.createBuffer(1, ac.sampleRate * 1.2, ac.sampleRate));
+    const nb = ac.createBuffer(1, ac.sampleRate * 1.2, ac.sampleRate);
+    noiseBuf = nb;
     const d = nb.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     musicInit(); // engine/src/audio/music.ts

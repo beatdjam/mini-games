@@ -8,8 +8,8 @@ export const ANALYTICS = { game: '' };
 // the most recent events (tests check them; also handy in the console)
 export const TRACK_LOG: { name: string; params: TrackParams }[] = [];
 export function track(name: string, params: TrackParams = {}) {
-  if (ANALYTICS.game) params = { game: ANALYTICS.game, ...params };
-  TRACK_LOG.push({ name, params });
+  const sent = ANALYTICS.game ? { game: ANALYTICS.game, ...params } : params;
+  TRACK_LOG.push({ name, params: sent });
   if (TRACK_LOG.length > 50) TRACK_LOG.shift();
-  if (typeof window.gtag === 'function') window.gtag('event', name, params);
+  if (typeof window.gtag === 'function') window.gtag('event', name, sent);
 }

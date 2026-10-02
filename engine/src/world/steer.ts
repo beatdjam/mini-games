@@ -25,13 +25,14 @@ export function steerChase<C extends Chaser>(
   ignore?: ((o: C) => boolean) | null,
 ) {
   let tx = 0,
-    tz = 0;
+    tz = 0,
+    moveSpeed = speed;
   if (los) {
     if (keep && dist < keep) {
       const side = e.side ?? 1;
       tx = (-dz / dist) * side;
       tz = (dx / dist) * side;
-      speed *= 0.6;
+      moveSpeed *= 0.6;
       if (Math.random() < dt * 0.4) e.side = -side;
     } else {
       tx = dx / dist;
@@ -61,7 +62,7 @@ export function steerChase<C extends Chaser>(
   }
   const tl = Math.hypot(tx, tz);
   if (tl > 0.01) {
-    moveCircle(e, (tx / tl) * speed * dt, (tz / tl) * speed * dt, e.r);
+    moveCircle(e, (tx / tl) * moveSpeed * dt, (tz / tl) * moveSpeed * dt, e.r);
     e.fy = floorY(e.x, e.z);
   }
 }
