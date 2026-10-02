@@ -8,12 +8,15 @@ export function toast(msg: string, ms?: number) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('on'), ms || 2200);
 }
+// a new banner restarts the clock, so an earlier banner's timer can't hide it early (same as toast)
+let bannerTimer: ReturnType<typeof setTimeout> | undefined;
 export function banner(code: string, sub: string) {
   el('#bannerCode').textContent = code;
   el('#bannerSub').textContent = sub;
   const b = el('#banner');
   b.classList.add('on');
-  setTimeout(() => b.classList.remove('on'), 2000);
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => b.classList.remove('on'), 2000);
 }
 export const fullscreenTarget = document.documentElement;
 export const fsSupported =

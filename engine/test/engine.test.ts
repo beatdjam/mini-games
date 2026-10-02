@@ -44,7 +44,7 @@ import {
   takeFromPool,
 } from '../src/world/projectiles.ts';
 import { steerChase } from '../src/world/steer.ts';
-import { toast } from '../src/ui/ui.ts';
+import { banner, toast } from '../src/ui/ui.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveImage } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
@@ -560,6 +560,22 @@ test('ui / input: toast, keys, INPUT hooks', () => {
   near(looked[0], 0.1);
   releaseInputs();
   ok(!fireHeld && !mouseFire);
+});
+test('ui: a second banner stays its full time instead of going out with the first', () => {
+  vi.useFakeTimers();
+  try {
+    const b = el('#banner');
+    banner('A', 'first');
+    vi.advanceTimersByTime(1500);
+    banner('B', 'second');
+    vi.advanceTimersByTime(1000); // the first banner's 2 s are up
+    ok(b.classList.contains('on'), 'still showing');
+    eq(el('#bannerCode').textContent, 'B');
+    vi.advanceTimersByTime(1000);
+    ok(!b.classList.contains('on'), 'gone after its own 2 s');
+  } finally {
+    vi.useRealTimers();
+  }
 });
 test('hitdir: an arc shows for a hit from behind, not from in front, and fades out', () => {
   const box = document.createElement('div');
