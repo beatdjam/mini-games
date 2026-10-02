@@ -30,6 +30,7 @@
 | `src/audio/music.ts` | BGM の再生（`setMusic(name, boss)`, `setMusicMix(kind)`, `musicVolume(duck)`, `musicTick`）、`SCALES` | `MUSIC_STYLES`（曲調）と `LAYER_MIX`（層の混ぜ方）に `Object.assign` で中身を入れる |
 | `src/ui/ui.ts` | `toast(msg, ms)`, `banner(code, sub)`, 全画面（`enterFs`, `exitFs`, `toggleFs`, `isFullscreen`） | `#toast`, `#banner`（`#bannerCode`, `#bannerSub`） |
 | `src/ui/hitdir.ts` | 被弾方向の表示。`createHitDirs({ container, view, camera, time, max?, className? })` が `{ show(x, z), update(dt), list }` を返す。視界の外から当たったときだけ、攻撃元を指す弧を出し、振り向きに合わせて向きを追って薄れる | `container`（照準の中心に置いた幅0・高さ0の要素。Sector Dive は `#hitDirs`）、`view()`（`x`・`z`・`yaw`。yaw は左が正）、`camera`、表示時間 `time`（秒）、弧の見た目の CSS（`className`、既定 `hdir`）。被弾で `show`、毎フレーム `update` |
+| `src/ui/minimap.ts` | 上から見たタイルの地図。`drawTileMap(canvas, ctx, { tile, overlay?, markers, viewer, viewerColor? })` が、タイル（`tile(k)` が色と濃さを返したものだけ）→ 重ね塗り → 印（`square`・`ring`・`dot`、ラベル付きも可）→ 見ている人の向きの矢印、の順に描く。大きさの単位はキャンバスの幅の 1/160 | どのタイルを何色で描くか（見た場所だけ、など）と、印の一覧（位置はワールドの x・z） |
 | `src/ui/settings.ts` | 設定パネル。`SETTINGS.items` に並べた設定を、ページの `[data-settings="<場所>"]` の要素すべてに描き、どれかで変えると全部を描き直す（スライダーは動かしている間、ほかのパネルのつまみと値だけを追わせる）。種類は `toggle`（オン・オフ）・`choice`（切り替えボタン）・`range`（スライダー。`format` を渡すと値も出す）・`button`。`show()` が false の項目は出さない。言語と全画面は `languageSetting(label, change)`・`fullscreenSetting(label)` で作れる。`renderSettings()` | `SETTINGS.items`（ラベル・値の読み書き）、`SETTINGS.onOff`（オン・オフの文言）、`SETTINGS.onChange(key)`（保存や反映）。見た目はゲームの CSS（`.toggle`・`.seg`・`.sens`） |
 | `src/ui/share.ts` | 画像のシェアのブラウザ側の部品。`canShareFile(file)`, `shareNative(file, text)`（`'shared'`・`'cancelled'`・`'failed'`）, `canCopyImage()`, `copyImage(blob)`（成功したか）, `saveImage(blob, filename)`, `openXPost(text)`（X の投稿画面を開く） | 画像（`Blob`）と投稿文、ファイル名。パネルの要素・文言・解析イベントはゲームが持つ（スマホは `shareNative`、失敗したらパネル、PC はコピー・保存・X 投稿のボタン） |
 | `src/ui/input.ts` | キー（`keys`）、マウスとポインタロック（`requestLock`, `exitLock`, `locked`, `mouseFire`）、タッチの移動スティック（`joy`）と視点ドラッグ、押しっぱなしの射撃ボタン（`fireHeld`, `fire2Held`）、`tapBtn(el, fn)`, `releaseInputs` | `INPUT` に `active`, `look`, `sens`, `key`, `pause`, `lockChanged` を入れる。`#touch`, `#joyBase`, `#joyKnob`, `#btnFire`, `#btnFire2`, `<canvas id="gl">` |
@@ -57,8 +58,7 @@
 
 どのゲームでもそのまま使えるものは engine に置く。迷うものはゲームに置き、2本目のゲームで要るとわかったときに engine を広げる。今のところ候補は次のもの（どれも Sector Dive の中にある）:
 
-- ヒットマーカー（FPS なら共通。`ui/hud.ts` の `hitMark`）
-- ミニマップ（グリッドのダンジョン型のゲームなら。`ui/minimap.ts`）
+- ヒットマーカー（FPS なら共通。`ui/hud.ts` の `hitMark`。タイマーをビネット・画面の揺れと同じ `screenFx` で回しているので、切り出すならそれらとまとめて）
 
 切り出すときの方針:
 
