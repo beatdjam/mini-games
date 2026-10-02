@@ -12,6 +12,30 @@ import type { Biome } from '../data/types.ts';
 import { biomeTex } from './render.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
 import { P, damagePlayer, dmgScaleOf, run } from '../actors/player.ts';
+// ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
+const GEN_MAP_SIZE = 36;          // default map side (tiles)
+const GEN_ROOM_COUNT: [number, number] = [5, 6]; // default number of rooms (min, max)
+const GEN_ROOM_SIZE: [number, number] = [4, 7];  // default room side (min, max, tiles)
+const GEN_ROOM_TRIES = 1000;      // attempts to place the rooms
+const ROOM_GAP = 2;               // rooms keep this many tiles apart
+const EXTRA_LINK_MIN_ROOMS = 4;   // with more rooms than this, one extra corridor makes a loop
+const BIG_ROOM = 6;               // a room at least this wide and tall (tiles) can hold a platform or pillars
+const PILLAR_CHANCE = 0.5;        // chance a big room (without rubble) gets two pillars
+const BRIDGE_MIN_LEN = 5;         // shortest straight corridor run (tiles) that can become a walkway
+const HAZARD_TRIES = 2000;        // attempts to place the hazard floors
+const ARENA_SIZE = 20, ARENA_FROM = 4, ARENA_TO = 16; // boss arena: map side, floor from tile .. to tile
+const NEON_COUNT = 90;            // neon signs per level
+const ARENA_FOG_NEAR = 6;         // fog start in boss arenas (m)
+const ARENA_FOG_FAR_MIN = 50;     // fog end in boss arenas is at least this (m)
+const SPOT_JITTER = 1;            // random spots in a room scatter this far from the tile centre (m)
+const SPOT_TRIES = 40;            // attempts to find a free random spot
+const REVEAL_R2 = 18;             // map reveal radius around the player, squared (tiles)
+const REVEAL_BOX = 4;             // ... searched in this many tiles each way
+const HAZARD_CYCLE = 3;           // hazard floor cycle (s): live, then off
+const HAZARD_LIVE = 1.4;          // seconds live (an area starts right after this: hazards off)
+const HAZARD_WARN_FROM = 2.5;     // blinks from here to the end of the cycle
+const HAZARD_DMG = 7;             // hazard floor damage (x dmgScaleOf)
+const HAZARD_REACH_Y = 0.3;       // standing this far above the floor still gets hurt (m)
 // a room on the tile grid (tiles); plat = has a raised deck
 export interface Room { x: number; y: number; w: number; h: number; plat?: boolean; }
 // a gate: kind 'next' (on to the next area) or 'extract' (back to base)
@@ -30,12 +54,12 @@ export function newMaps(w: number, h: number) {
     cv: new Uint8Array(w * h), hz: new Uint8Array(w * h), ro: new Int8Array(w * h).fill(-1) };
 }
 export function genRooms(o: Record<string, any>) {
-  const w: number = o.map || 36, h = w, M = newMaps(w, h), g = M.g, rs: Room[] = [];
-  const target = randi(o.countMin || 5, o.countMax || 6), rmin = o.roomMin || 4, rmax = o.roomMax || 7, cw = o.corridorW || 1;
+  const w: number = o.map || GEN_MAP_SIZE, h = w, M = newMaps(w, h), g = M.g, rs: Room[] = [];
+  const target = randi(o.countMin || GEN_ROOM_COUNT[0], o.countMax || GEN_ROOM_COUNT[1]), rmin = o.roomMin || GEN_ROOM_SIZE[0], rmax = o.roomMax || GEN_ROOM_SIZE[1], cw = o.corridorW || 1;
   let tries = 0;
-  while (rs.length < target && tries++ < 1000) {
+  while (rs.length < target && tries++ < GEN_ROOM_TRIES) {
     const rw = randi(rmin, rmax), rh = randi(rmin, rmax), x = randi(1, w - rw - 1), y = randi(1, h - rh - 1);
-    if (rs.some(q => x < q.x + q.w + 2 && x + rw + 2 > q.x && y < q.y + q.h + 2 && y + rh + 2 > q.y)) continue;
+    if (rs.some(q => x < q.x + q.w + ROOM_GAP && x + rw + ROOM_GAP > q.x && y < q.y + q.h + ROOM_GAP && y + rh + ROOM_GAP > q.y)) continue;
     rs.push({ x, y, w: rw, h: rh });
   }
   const carve = (i: number, j: number) => { for (let a = 0; a < cw; a++) for (let b = 0; b < cw; b++) { const x = i + a, y = j + b; if (x > 0 && y > 0 && x < w - 1 && y < h - 1) g[y * w + x] = 1; } };
@@ -52,12 +76,12 @@ export function genRooms(o: Record<string, any>) {
   const dist = (a: Room, b: Room) => Math.hypot(a.x + a.w / 2 - b.x - b.w / 2, a.y + a.h / 2 - b.y - b.h / 2);
   while (rest.length) { const last = order[order.length - 1]; rest.sort((a, b) => dist(a, last) - dist(b, last)); order.push(rest.shift()!); }
   for (let k = 1; k < order.length; k++) corridor(order[k - 1], order[k]);
-  if (order.length > 4) corridor(order[0], order[randi(2, order.length - 1)]);
+  if (order.length > EXTRA_LINK_MIN_ROOMS) corridor(order[0], order[randi(2, order.length - 1)]);
   rs.forEach((r, idx) => { for (let j = r.y; j < r.y + r.h; j++) for (let i = r.x; i < r.x + r.w; i++) M.ro[j * w + i] = idx; });
   rs.forEach(r => {
-    const big = r.w >= 6 && r.h >= 6;
+    const big = r.w >= BIG_ROOM && r.h >= BIG_ROOM;
     if (big && Math.random() < (o.platform || 0)) addPlatform(M, w, r);
-    else if (big && !o.rubble && Math.random() < 0.5) {
+    else if (big && !o.rubble && Math.random() < PILLAR_CHANCE) {
       const [cx, cy] = ctr(r);
       [[r.x + 1, r.y + 1], [r.x + r.w - 2, r.y + r.h - 2]].forEach(([i, j]) => { if (i !== cx || j !== cy) g[j * w + i] = 0; });
     }
@@ -93,7 +117,7 @@ export function addBridges(M: LevelMaps, w: number, h: number, count: number) {
     for (let i = 1; i < w; i++) {
       const k = j * w + i, ok = i < w - 1 && free(k) && !g[k - w] && !g[k + w];
       if (ok && i0 < 0) i0 = i;
-      if (!ok && i0 >= 0) { if (i - i0 >= 5) runs.push({ hor: true, a: i0, b: i - 1, c: j }); i0 = -1; }
+      if (!ok && i0 >= 0) { if (i - i0 >= BRIDGE_MIN_LEN) runs.push({ hor: true, a: i0, b: i - 1, c: j }); i0 = -1; }
     }
   }
   for (let i = 1; i < w - 1; i++) {
@@ -101,7 +125,7 @@ export function addBridges(M: LevelMaps, w: number, h: number, count: number) {
     for (let j = 1; j < h; j++) {
       const k = j * w + i, ok = j < h - 1 && free(k) && !g[k - 1] && !g[k + 1];
       if (ok && j0 < 0) j0 = j;
-      if (!ok && j0 >= 0) { if (j - j0 >= 5) runs.push({ hor: false, a: j0, b: j - 1, c: i }); j0 = -1; }
+      if (!ok && j0 >= 0) { if (j - j0 >= BRIDGE_MIN_LEN) runs.push({ hor: false, a: j0, b: j - 1, c: i }); j0 = -1; }
     }
   }
   shuffle(runs).slice(0, count).forEach(r => {
@@ -112,17 +136,17 @@ export function addBridges(M: LevelMaps, w: number, h: number, count: number) {
 }
 export function addHazards(M: LevelMaps, w: number, h: number, count: number) {
   let placed = 0, tries = 0;
-  while (placed < count && tries++ < 2000) {
+  while (placed < count && tries++ < HAZARD_TRIES) {
     const i = randi(1, w - 2), j = randi(1, h - 2), k = j * w + i;
     if (M.g[k] !== 1 || M.hg[k] !== 0 || M.rp[k] >= 0 || M.cv[k] || M.hz[k]) continue;
     M.hz[k] = 1; placed++;
   }
 }
 export function genArena(withPillars: boolean) {
-  const w = 20, h = 20, M = newMaps(w, h);
-  for (let j = 4; j < 16; j++) for (let i = 4; i < 16; i++) M.g[j * w + i] = 1;
+  const w = ARENA_SIZE, h = ARENA_SIZE, M = newMaps(w, h);
+  for (let j = ARENA_FROM; j < ARENA_TO; j++) for (let i = ARENA_FROM; i < ARENA_TO; i++) M.g[j * w + i] = 1;
   if (withPillars) [[6, 6], [13, 6], [6, 13], [13, 13]].forEach(([i, j]) => { M.g[j * w + i] = 0; });
-  return { W: w, H: h, M, rooms: [{ x: 4, y: 4, w: 12, h: 12 }] };
+  return { W: w, H: h, M, rooms: [{ x: ARENA_FROM, y: ARENA_FROM, w: ARENA_TO - ARENA_FROM, h: ARENA_TO - ARENA_FROM }] };
 }
 
 export function clearLevel() {
@@ -218,7 +242,7 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
     hz.forEach((k, n) => { m.makeTranslation(((k % W) + 0.5) * T, hgt[k] + 0.04, (((k / W) | 0) + 0.5) * T); im.setMatrixAt(n, m); });
     im.instanceMatrix.needsUpdate = true; lg.add(im);
   }
-  hazT = 1.4; // an area starts with the hazards off (about 1 s before they blink, 1.6 s before they go live)
+  hazT = HAZARD_LIVE; // an area starts with the hazards off (about 1 s before they blink, 1.6 s before they go live)
   // ceiling and neon signs (sectors with gen.ceiling / gen.neon)
   if (biome.gen.ceiling && !isArena) {
     const cg = new THREE.PlaneGeometry(W * T, H * T); cg.rotateX(Math.PI / 2);
@@ -228,7 +252,7 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
   if (biome.gen.neon && !isArena) {
     const spots: [number, number, number, number][] = [];
     list.forEach(([i, j]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([a, b]) => { if (!isSolid(i + a, j + b)) spots.push([i, j, a, b]); }));
-    const pickSpots = shuffle(spots).slice(0, 90), colors = [0xff3d8a, 0x3dffb4, 0xffd23d, 0x4dc3ff, 0xc58cff];
+    const pickSpots = shuffle(spots).slice(0, NEON_COUNT), colors = [0xff3d8a, 0x3dffb4, 0xffd23d, 0x4dc3ff, 0xc58cff];
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(T * 0.55, 0.45, 0.08), new THREE.MeshBasicMaterial({ color: 0xffffff }), pickSpots.length);
     const q = new THREE.Quaternion(), s1 = new THREE.Vector3(1, 1, 1), c = new THREE.Color();
     pickSpots.forEach(([i, j, a, b], n) => {
@@ -239,7 +263,7 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
     im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; lg.add(im);
   }
   (scene.fog as THREE.Fog).color.setHex(biome.fog); (scene.background as THREE.Color).setHex(biome.fog);
-  (scene.fog as THREE.Fog).near = isArena ? 6 : biome.fogNear; (scene.fog as THREE.Fog).far = isArena ? Math.max(50, biome.fogFar) : biome.fogFar;
+  (scene.fog as THREE.Fog).near = isArena ? ARENA_FOG_NEAR : biome.fogNear; (scene.fog as THREE.Fog).far = isArena ? Math.max(ARENA_FOG_FAR_MIN, biome.fogFar) : biome.fogFar;
   if (isArena) { startIdx = 0; exitIdx = 0; return; }
   const [sx, sz] = roomSpot(rooms[startIdx]);
   computeFlow(Math.floor(sx / T), Math.floor(sz / T));
@@ -258,17 +282,17 @@ export function roomSpot(r: Room): [number, number] {
   return best || [(cx + 0.5) * T, (cy + 0.5) * T];
 }
 export function randomTileIn(r: Room): [number, number] {
-  for (let k = 0; k < 40; k++) {
+  for (let k = 0; k < SPOT_TRIES; k++) {
     const i = randi(r.x, r.x + r.w - 1), j = randi(r.y, r.y + r.h - 1);
     const k = j * W + i;
-    if (walkable(k) && !haz[k]) return [(i + 0.5) * T + rand(-1, 1), (j + 0.5) * T + rand(-1, 1)];
+    if (walkable(k) && !haz[k]) return [(i + 0.5) * T + rand(-SPOT_JITTER, SPOT_JITTER), (j + 0.5) * T + rand(-SPOT_JITTER, SPOT_JITTER)];
   }
   return roomSpot(r);
 }
 export function reveal(ti: number, tj: number) {
   if (arena) { seen.fill(1); return; }
-  for (let dj = -4; dj <= 4; dj++) for (let di = -4; di <= 4; di++) {
-    if (di * di + dj * dj > 18) continue;
+  for (let dj = -REVEAL_BOX; dj <= REVEAL_BOX; dj++) for (let di = -REVEAL_BOX; di <= REVEAL_BOX; di++) {
+    if (di * di + dj * dj > REVEAL_R2) continue;
     const i = ti + di, j = tj + dj; if (i >= 0 && j >= 0 && i < W && j < H) seen[j * W + i] = 1;
   }
   const r = roomOf[tj * W + ti];
@@ -276,8 +300,8 @@ export function reveal(ti: number, tj: number) {
 }
 // hazard floors cycle: 1.4s live, 1.6s off, blinking for the last 0.5s before going live
 export function hazardState() {
-  const t = hazT % 3;
-  return t < 1.4 ? 'on' : t > 2.5 ? 'warn' : 'off';
+  const t = hazT % HAZARD_CYCLE;
+  return t < HAZARD_LIVE ? 'on' : t > HAZARD_WARN_FROM ? 'warn' : 'off';
 }
 export function updateHazards(dt: number) {
   if (!hazMat) return;
@@ -285,7 +309,7 @@ export function updateHazards(dt: number) {
   const st = hazardState();
   hazMat.opacity = st === 'on' ? 0.85 : st === 'warn' ? (Math.sin(hazT * 30) > 0 ? 0.55 : 0.15) : 0.15;
   const i = Math.floor(P.x / T), j = Math.floor(P.z / T), k = j * W + i;
-  if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && haz[k] && P.fy < hgt[k] + 0.3) damagePlayer(7 * dmgScaleOf(run.stage));
+  if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && haz[k] && P.fy < hgt[k] + HAZARD_REACH_Y) damagePlayer(HAZARD_DMG * dmgScaleOf(run.stage));
 }
 export function makePortal(x: number, z: number, color: number, kind: string, label: string) {
   const g = new THREE.Group();
@@ -295,7 +319,7 @@ export function makePortal(x: number, z: number, color: number, kind: string, la
   base.rotation.x = -Math.PI / 2; base.position.y = -1.55;
   g.add(ring, disc, base);
   if (label) { const s = textSprite(label, '#' + color.toString(16).padStart(6, '0')); s.position.y = 2.4; g.add(s); }
-  g.position.set(x, floorY(x, z) + 1.7, z);
+  g.position.set(x, floorY(x, z) + PORTAL.centerY, z);
   levelGroup!.add(g); // gates are made after the level is built
   const clear = !P || Math.hypot(P.x - x, P.z - z) >= PORTAL.clearR; // opened underfoot: wait until the player steps off
   portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear });
