@@ -1,4 +1,4 @@
-import type { Enemy } from '../../data/types.ts';
+import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -13,17 +13,19 @@ import { bossBase, bossDiff } from './common.ts';
 import { SCR } from '../../ui/hud.ts';
 // CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
 
+// st: state machine; cdx / cdz: charge direction; hitP: the charge has hit the player; second: delay of the enraged second wave
+export type CrusherBoss = Boss & { st: string; cdx: number; cdz: number; hitP: boolean; second: number };
 export function spawnCrusher() {
   const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.BoxGeometry(3.2, 3.2, 3.2);
   const mat = new THREE.MeshLambertMaterial({ color: 0x1c0f09, emissive: 0xff8a3d, emissiveIntensity: 0.3 });
   const plate = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.2), new THREE.MeshBasicMaterial({ color: 0xffc24a })); plate.position.set(0, 0.5, 1.65);
   g.add(new THREE.Mesh(geo, mat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xff8a3d })), plate);
-  const e = bossBase('crusher', g, mat, updCrusher);
-  e.st = 'idle'; e.timer = 2;
+  const e = bossBase('crusher', g, mat, updCrusher, { st: 'idle', cdx: 0, cdz: 0, hitP: false, second: 0 });
+  e.timer = 2;
   toast(t('boss.crusherHint'), 4200);
 }
-export function updCrusher(e: Enemy, dt: number) {
+export function updCrusher(e: CrusherBoss, dt: number) {
   const K = BOSS_META.crusher.tune;
   e.t += dt; e.timer -= dt;
   const enr = e.hp < e.maxHp * 0.5, dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 1;

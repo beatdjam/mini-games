@@ -1,4 +1,4 @@
-import type { Enemy } from '../../data/types.ts';
+import type { Boss, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { rand } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -11,6 +11,8 @@ import { bossBase } from './common.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
 // ---- BASTION: shielded core; destroy every turret to open it for a few seconds ----
+// invuln: shielded; core / shield: meshes; turrets: the shield generators still standing; openT: seconds left open; ringT: ring timer
+export type BastionBoss = Boss & { invuln: boolean; core: THREE.Mesh; shield: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>; turrets: RegularEnemy[]; openT: number; ringT: number };
 export function spawnBastion() {
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: 0x1b1408, emissive: 0xffb347, emissiveIntensity: 0.3 });
@@ -20,25 +22,25 @@ export function spawnBastion() {
   const core = new THREE.Mesh(coreGeo, mat);
   const shieldM = new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 14), new THREE.MeshBasicMaterial({ color: 0x8cc8ff, transparent: true, opacity: 0.25, depthWrite: false }));
   g.add(base, baseEdge, core, shieldM);
-  const e = bossBase('bastion', g, mat, updBastion);
-  e.x = e.cx; e.z = e.cz; e.core = core; e.shield = shieldM; e.invuln = true; e.turrets = []; e.openT = 0; e.ringT = 2.5;
+  const e = bossBase('bastion', g, mat, updBastion, { core, shield: shieldM, invuln: true, turrets: [], openT: 0, ringT: 2.5 });
+  e.x = e.cx; e.z = e.cz;
   bastionTurrets(e, BOSS_META.bastion.tune.turretsFirst);
   toast(t('boss.bastionHint'), 4600);
 }
-export function bastionTurrets(e: Enemy, n: number) {
+export function bastionTurrets(e: BastionBoss, n: number) {
   const off = rand(0, Math.PI);
   for (let k = 0; k < n; k++) {
     const a = off + k * Math.PI * 2 / n, t = spawnEnemy('bturret', e.cx + Math.cos(a) * BOSS_META.bastion.tune.turretR, e.cz + Math.sin(a) * BOSS_META.bastion.tune.turretR, -1, diffOf(run.stage));
     t.active = true; e.turrets.push(t);
   }
 }
-export function updBastion(e: Enemy, dt: number) {
+export function updBastion(e: BastionBoss, dt: number) {
   const K = BOSS_META.bastion.tune;
   e.t += dt;
   const enr = e.hp < e.maxHp * 0.5;
   e.core.rotation.y += dt * (e.invuln ? 0.6 : 2.5); e.core.rotation.x += dt * 0.4;
   e.shield.visible = e.invuln; e.shield.material.opacity = 0.2 + Math.sin(e.t * 4) * 0.06;
-  e.turrets = e.turrets.filter((t: Enemy) => !t.dead);
+  e.turrets = e.turrets.filter(t => !t.dead);
   if (e.invuln && !e.turrets.length) { e.invuln = false; e.openT = K.open; e.stunMul = K.openMul; toast(t('boss.bastionOpen'), 2400); sfx('chip'); }
   if (!e.invuln) {
     e.openT -= dt;

@@ -1,4 +1,4 @@
-import type { Enemy } from '../../data/types.ts';
+import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { pick, rand } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
@@ -11,6 +11,8 @@ import { P, damagePlayer, diffOf, run } from '../player.ts';
 import { bossBase, bossDiff } from './common.ts';
 // NOISE CORE: rotating beams, bullet rings, summons
 
+// knot: the spinning mesh; beams: the three beam meshes; ba / bdir: beam angle and spin direction
+export type CoreBoss = Boss & { knot: THREE.Mesh; beams: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[]; ba: number; bdir: number };
 export function spawnCore() {
   const bd = bossDiff();
   const g = new THREE.Group(), geo = new THREE.TorusKnotGeometry(1.3, 0.38, 72, 8);
@@ -18,9 +20,9 @@ export function spawnCore() {
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   const knot = new THREE.Mesh(geo, mat);
   g.add(knot, core);
-  const e = bossBase('core', g, mat, updCore);
-  e.x = e.cx; e.z = e.cz; g.position.set(e.x, e.y, e.z); e.knot = knot;
-  e.beams = []; e.ba = 0; e.bdir = 1;
+  const beams: CoreBoss['beams'] = [];
+  const e = bossBase('core', g, mat, updCore, { knot, beams, ba: 0, bdir: 1 });
+  e.x = e.cx; e.z = e.cz; g.position.set(e.x, e.y, e.z);
   for (let k = 0; k < 3; k++) {
     const bg = new THREE.BoxGeometry(34, 0.45, 0.45); bg.translate(17, 0, 0);
     const bm = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: 0xff4d8d, transparent: true, opacity: 0.25, depthWrite: false }));
@@ -28,7 +30,7 @@ export function spawnCore() {
   }
   toast(t('boss.coreHint'), 3800);
 }
-export function updCore(e: Enemy, dt: number) {
+export function updCore(e: CoreBoss, dt: number) {
   const K = BOSS_META.core.tune;
   e.t += dt; e.timer -= dt; e.pt += dt;
   const enr = e.hp < e.maxHp * 0.5;
@@ -40,7 +42,7 @@ export function updCore(e: Enemy, dt: number) {
     if (e.pat === 0) { e.bdir *= -1; e.ba = Math.atan2(-(P.z - e.cz), P.x - e.cx) + Math.PI * 0.5; sfx('beam'); }
   }
   const nb = enr ? K.beamsEnr : K.beams;
-  e.beams.forEach((b: THREE.Mesh, k: number) => { b.visible = e.pat === 0 && k < nb; });
+  e.beams.forEach((b, k) => { b.visible = e.pat === 0 && k < nb; });
   if (e.pat === 0) {
     const live = e.pt > K.beamWarm;
     const sp = (live ? (enr ? K.beamSpinEnr : K.beamSpin) : K.beamSpinWarm) * e.bdir;

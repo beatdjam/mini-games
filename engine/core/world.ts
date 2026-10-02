@@ -9,7 +9,7 @@ import { disposeTree } from '../render/render.ts';
 //   (other tags share the default group at order 30). group.list is kept as the same array for the game's lifetime,
 //   so the game may keep a reference to it (e.g. let enemies = worldGroup('enemy', 10).list).
 //   group.system / WORLD.system are the systems; set their .modes like any other.
-export interface WorldObject { tag?: string; dead?: boolean; mesh?: any; update?(dt: number): void; onRemove?(): void; [k: string]: any; }
+export interface WorldObject { tag?: string; dead?: boolean; mesh?: any; update?(dt: number): void; onRemove?(): void; }
 export interface WorldGroup { tag: string; list: WorldObject[]; system: System; }
 export function newWorldGroup(tag: string, order: number): WorldGroup {
   const g = { tag, list: [] } as unknown as WorldGroup;
@@ -21,7 +21,8 @@ const ALL = newWorldGroup('*', 30);
 export const WORLD: { groups: Record<string, WorldGroup>; system: System } = { groups: { '*': ALL }, system: ALL.system };
 export const groupOf = (tag?: string): WorldGroup => (tag !== undefined && WORLD.groups[tag]) || WORLD.groups['*'];
 export function spawn<T extends WorldObject>(o: T): T & WorldObject { groupOf(o.tag).list.push(o); return o; }
-export function query(tag: string): WorldObject[] { return groupOf(tag).list.filter(o => o.tag === tag && !o.dead); }
+// T: the game's type of the objects with that tag (the tag says which type they are, so the list is taken as T[])
+export function query<T extends WorldObject = WorldObject>(tag: string): T[] { return groupOf(tag).list.filter(o => o.tag === tag && !o.dead) as T[]; }
 export function removeFromWorld(o: WorldObject) {
   if (o.onRemove) o.onRemove();
   if (o.mesh && o.mesh.parent) { disposeTree(o.mesh); o.mesh.parent.remove(o.mesh); }

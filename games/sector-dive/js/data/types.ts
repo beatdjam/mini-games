@@ -1,8 +1,9 @@
 // Types of the definitions in js/data/ and of the objects built from them.
 // Fields marked "(lang)" are filled from js/lang/<code>.js by js/system/text.ts when the language is set.
-// Objects that gain fields while the game runs (enemies, bosses) still allow any extra field ([k: string]: any);
-// to make one stricter, list its fields here and drop the index signature.
+// Objects that gain fields while the game runs (enemies, bosses, bullets) list every field: the ones every object has
+// are required, the ones only some kinds use (a sniper's laser, a boss's pattern state) are optional.
 import type { WorldObject } from '../../../../engine/core/world.ts';
+import type { Projectile } from '../../../../engine/world/projectiles.ts';
 import type { ButtonPlace } from '../../../../engine/ui/touchlayout.ts';
 import type * as THREE from 'three';
 
@@ -34,9 +35,71 @@ export interface Perk {
 export interface Upgrade { id: string; max: number; cost(level: number): number; name?: string; desc?(level: number): string; }
 // max may be Infinity; step: the cost goes up by this much per level already taken (presCost in js/system/rules.ts)
 export interface PresUpgrade { id: string; max: number; cost: number; step?: number; name?: string; desc?(level: number): string; }
-export interface EnemyDef { [k: string]: any; }
-// an enemy or boss on the field (fields are listed in spawnEnemy / bossBase)
-export interface Enemy extends WorldObject { x: number; z: number; r: number; fy?: number; side?: number; [k: string]: any; }
+// one enemy type (js/data/enemies.ts): hp, speed (m/s), r (collision radius), y (body height), hitR (hit sphere radius), dmg,
+// bits (drop), color and geo (geoCache key) are on every type; the rest are switches and numbers of some types
+export interface RangedDef { rate: number; speed: number; count: number; spread: number; burst?: number; burstGap?: number; } // burst: rounds per volley
+export interface EnemyDef {
+  hp: number; speed: number; r: number; y: number; hitR: number; dmg: number; bits: number; color: number; geo: string;
+  melee?: boolean; fly?: boolean; keep?: number; // keep: distance it holds from the player (circle-strafes)
+  ranged?: RangedDef; muzzle?: number;           // muzzle: height of the muzzle above the body
+  sniper?: boolean; bomber?: boolean; split?: boolean; humanoid?: boolean;
+  shield?: boolean; shieldHp?: number; turn?: number; // turn: rad/s
+}
+// a hit sphere (the head, chest and legs of a trooper, the bodies of Trinity): enemies without `parts` use their own mesh and hitR
+export interface HitSphere { p: THREE.Vector3; r: number; }
+export type Laser = THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+// the fields of any enemy or boss on the field (an engine world object with tag 'enemy')
+interface EnemyBase extends WorldObject {
+  mesh: THREE.Object3D; mat: THREE.MeshLambertMaterial; baseEI: number; // group, body material, normal glow
+  x: number; z: number; y: number; r: number; hitR: number;
+  hp: number; maxHp: number; dmg: number;
+  room: number; active: boolean; t: number; flash: number; // room: -1 = not tied to a room; t: animation clock
+  update?(dt: number): void;
+  parts?: HitSphere[];            // trooper, Trinity
+  laser?: Laser | null;           // sniper, Phantom (null once removed)
+  extra?: THREE.Object3D[];       // meshes removed with it (Trinity's bodies)
+  stunMul?: number;               // bosses: damage multiplier while stunned or open
+  invuln?: boolean; hinted?: boolean; // Bastion: shielded; whether the hint toast was shown
+}
+// a regular enemy (spawnEnemy in js/world/entities.ts)
+export interface RegularEnemy extends EnemyBase {
+  boss?: undefined;
+  type: string; def: EnemyDef; body: THREE.Object3D; // body: the spinning part
+  fy: number; side: number; face: number; // feet height; strafe direction (±1); facing angle
+  cd: number; mcd: number; stun: number;  // ranged / sniper cooldown, melee cooldown, seconds of stagger left
+  burstN: number; burstT: number;         // burst rounds left, seconds to the next
+  kbShot?: number;                        // the last shot that knocked it back
+  // the rest is set only on some types (see Shielded / Sniper / Trooper below, and the guards isShielded / isSniper / isTrooper in js/world/entities.ts)
+  shieldHp?: number; shieldParts?: [THREE.Mesh, THREE.LineSegments]; // shield
+  fuse?: number; detonated?: boolean;                // bomber: fuse = seconds left once lit
+  aim?: number; lock?: number[];                     // sniper
+  rig?: HumanoidRig; walk?: number; px?: number; pz?: number; kick?: number; // trooper
+  shots?: number;                                    // ranged: rounds fired (the smoke test counts a burst)
+}
+// shield: the plate breaks at shieldHp 0; sniper: aim = seconds of aiming left, lock = where the laser locked; trooper: rig = joints,
+// walk = walk cycle, px / pz = last position, kick = gun recoil, parts = head, chest and legs
+export type Shielded = RegularEnemy & { shieldHp: number; shieldParts: [THREE.Mesh, THREE.LineSegments]; def: EnemyDef & { shieldHp: number } };
+export type Sniper = RegularEnemy & { aim: number; lock: number[]; laser: Laser };
+export type Trooper = RegularEnemy & { rig: HumanoidRig; walk: number; px: number; pz: number; kick: number; parts: HitSphere[] };
+export interface HumanoidRig { upper: THREE.Object3D; neck: THREE.Object3D; armL: THREE.Object3D; armR: THREE.Object3D; legL: THREE.Object3D; legR: THREE.Object3D; }
+// a boss (bossBase in js/actors/bosses/common.ts). Each boss adds its own state on top of this (the types are in js/actors/bosses/<name>.ts)
+export interface Boss extends EnemyBase {
+  boss: true; kind: string; name: string; def: { r: number };
+  behave(e: Boss, dt: number): void;  // the boss's own behaviour, once it has appeared
+  cx: number; cz: number;             // centre of the arena
+  timer: number; pat: number; patIdx: number; pt: number; shots: number; acc: number; // pattern clock and counters
+  spawnT: number; spawnMax: number; intro: boolean; phased?: boolean; // entrance / phase change (bossPauseTick, bossPhase)
+  beams?: THREE.Object3D[];           // Noise Core's beams (hidden when it dies)
+}
+export type Enemy = RegularEnemy | Boss;
+
+// a bullet in flight: ox / oz = where it started, dmg, life = seconds left
+export interface Bullet extends Projectile { dmg: number; life: number; ox: number; oz: number; }
+// the player's: pierce = enemies it can still pass through, blast = explosion radius (rockets), far / farMul = rail range bonus,
+// kb = knockback, rail = punches through shields, shot = id of the trigger pull, color
+export interface PBullet extends Bullet { pierce: number; blast: number; color: number; far: number; farMul: number; kb: number; rail: boolean; shot: number; }
+// an enemy's: size = scale (and hit radius), homing = seconds it still steers toward the player
+export interface EBullet extends Bullet { size: number; homing: number; }
 
 // the `data` part of a language file (js/lang/<code>.ts): names and descriptions copied onto the definitions
 export interface LangData {
