@@ -1,4 +1,5 @@
 import type { Perk } from './types.ts';
+import { withLang } from './langslots.ts';
 import { TUNE } from './progress.ts';
 import { SPLIT_MAX } from './weapons.ts';
 // Chips offered during a run
@@ -7,7 +8,7 @@ import { SPLIT_MAX } from './weapons.ts';
 // the language file's curText(c) turns it into the line on the card. Names and descriptions are in js/lang/.
 // Damage / fire rate / speed / stamina regen / pickup range stack additively (two overload chips = +40%), so power
 // grows in a straight line and a shortcut supply pick (the same chip several times) can't snowball.
-export const PERKS: Perk[] = [
+export const PERKS = withLang<Perk, 'name' | 'desc' | 'curText'>([
   { id: 'overload', v: 0.2,  rv: 0.35, apply: (p, v) => { p.dmgMul += v; }, cur: p => p.dmgMul - 1 },
   { id: 'rapid',    v: 0.15, rv: 0.26, apply: (p, v) => { p.fireRate += v; }, cur: p => p.fireRate - 1 },
   { id: 'armor',    v: 20,   rv: 35,   apply: (p, v) => { p.maxHp += v; p.hp = Math.min(p.maxHp, p.hp + v); }, cur: p => p.maxHp },
@@ -25,4 +26,4 @@ export const PERKS: Perk[] = [
   { id: 'reload',   v: 0.25, rv: 0.44, apply: (p, v) => { p.reloadMul = Math.max(0.4, p.reloadMul - v); }, maxed: p => p.reloadMul <= 0.4, cur: p => 1 - p.reloadMul },
   { id: 'mag',      v: 0.4,  rv: 0.7,  apply: (p, v) => { p.magMul = Math.min(2.5, p.magMul + v); }, maxed: p => p.magMul >= 2.5, cur: p => p.magMul - 1 },
   { id: 'tank',     v: 30,   rv: 52,   apply: (p, v) => { p.stMax += v; p.st += v; }, cur: p => p.stMax },
-];
+], { name: '', desc: () => '', curText: () => '' });

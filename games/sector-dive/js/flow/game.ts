@@ -99,9 +99,9 @@ export function startStage() {
   P.tile = -1; P.inv = 1.0; P.fy = floorY(P.x, P.z); P.vy = 0;
   $('#bossBar').hidden = true;
   refreshRunText();
-  banner(stageLabel(run.stage), b.name!);
-  const hintAt = run.stage;
-  if (si.sub === 0 && b.hint) setTimeout(() => { if (run && run.stage === hintAt && state === 'play') toast(b.hint!, 3600); }, 1800);
+  banner(stageLabel(run.stage), b.name);
+  const hintAt = run.stage, hint = b.hint;
+  if (si.sub === 0 && hint) setTimeout(() => { if (run && run.stage === hintAt && state === 'play') toast(hint, 3600); }, 1800);
   state = 'play';
   checkpoint();
   if (!isArena) setMusic(b.code);
@@ -132,7 +132,7 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
   opts.forEach(({ o, rare }) => {
     const v = rare ? o.rv! : o.v, name = o.name + (rare ? '+' : '');
     const b = document.createElement('button'); b.className = 'perk' + (rare ? ' rare' : '');
-    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}${times > 1 ? t('perk.times', { n: times }) : ''}</span><span class="pd">${o.desc!(v)}</span><span class="pcur">${t('perk.cur', { v: o.curText!(o.cur(P)) })}</span>`;
+    b.innerHTML = `<span class="pn">${rare ? '★ ' : ''}${name}${times > 1 ? t('perk.times', { n: times }) : ''}</span><span class="pd">${o.desc(v)}</span><span class="pcur">${t('perk.cur', { v: o.curText(o.cur(P)) })}</span>`;
     b.addEventListener('click', () => {
       for (let k = 0; k < times && !(k && o.maxed && o.maxed(P)); k++) { o.apply(P, v); run.perks.push(o.id + (rare ? '+' : '')); }
       sfx('chip');
@@ -473,7 +473,7 @@ export function renderBase() {
   $('#ulist').innerHTML = UPGRADES.map(u => {
     const l = save.up[u.id] || 0, maxed = l >= u.max, cost = u.cost(l);
     const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
-    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc!(l)}</div><div class="pips">${pips}</div></div>
+    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc(l)}</div><div class="pips">${pips}</div></div>
       <button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' BIT'}</button></div>`;
   }).join('');
   renderReboot();
@@ -496,7 +496,7 @@ export function renderReboot() {
     const l = pr.up[u.id] || 0, maxed = l >= u.max, cost = presCost(u, l);
     // uncapped bonuses show their level instead of a row of pips
     const pips = isFinite(u.max) ? Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('') : `<small>${t('pres.level', { n: l })}</small>`;
-    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc!(l)}</div><div class="pips">${pips}</div></div>
+    return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc(l)}</div><div class="pips">${pips}</div></div>
       <button class="buy" data-pres="${u.id}" ${maxed || pr.pts < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' pt'}</button></div>`;
   }).join('');
   const row = $('#rebootRow');

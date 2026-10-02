@@ -1,7 +1,8 @@
 import type { Biome } from './types.ts';
+import { withLang } from './langslots.ts';
 // Sectors: look, level generation parameters, boss candidates
 // sectors: each run visits them in a shuffled order. gen = level generator settings, bosses = candidates for the sector's boss
-export const BIOMES: Biome[] = [
+export const BIOMES = withLang<Biome, 'name'>([
   { code: 'DATA', fog: 0x061219, fogNear: 4, fogFar: 44, floor: '#08171e', line: '#1d7f94', wall: '#0b232b', wallLine: '#54e8ff',
     gen: { kind: 'rooms', platform: 0.35, bridges: 2 },
     enemies: ['crawler', 'crawler', 'drone', 'drone', 'turret'], bosses: ['watcher', 'phantom'] },
@@ -20,4 +21,4 @@ export const BIOMES: Biome[] = [
   { code: 'CITY', fog: 0x140e06, fogNear: 8, fogFar: 64, floor: '#1b150c', line: '#a06d24', wall: '#221a0e', wallLine: '#ffb347',
     gen: { kind: 'rooms', map: 44, roomMin: 6, roomMax: 9, corridorW: 2, platform: 0.8, rubble: 0.06 },
     enemies: ['sniper', 'drone', 'shield', 'turret', 'crawler', 'sniper'], bosses: ['bastion', 'phantom'] },
-];
+], { name: '' });
