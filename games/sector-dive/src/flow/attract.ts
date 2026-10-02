@@ -4,7 +4,8 @@ import { floorY } from '@engine/world/tiles.ts';
 import { EYE } from '../data/level.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { COLOR } from '../data/colors.ts';
-import { buildLevel, level, makePortal, randomTileIn, roomSpot } from '../world/level.ts';
+import { buildLevel, level, randomTileIn, roomSpot } from '../world/level.ts';
+import { makePortal } from '../world/portals.ts';
 import { enemies, spawnEnemy } from '../world/entities.ts';
 import { tickClock } from './update.ts';
 // the base screen backdrop: the camera slowly turns in the start room (system 'attract', src/flow/update.ts)
