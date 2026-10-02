@@ -174,6 +174,16 @@ test('store: saved values merge deeply over defaults', () => {
   eq(prefGet(key, 'd'), 'd');
 });
 
+test('store: a save cannot add properties to every object through __proto__', () => {
+  const key = 'engine-test-proto';
+  localStorage.setItem(key, '{"a":2,"__proto__":{"polluted":1},"constructor":{"prototype":{"polluted2":1}}}');
+  const { data } = loadStore(key, () => ({ a: 1 }));
+  eq(data.a, 2);
+  eq(({} as Record<string, unknown>).polluted, undefined, 'Object.prototype untouched');
+  eq(({} as Record<string, unknown>).polluted2, undefined, 'Object.prototype untouched through constructor');
+  clearStore(key);
+});
+
 test('i18n: placeholders, functions, ja fallback, data hook, static text', () => {
   LANG.ja = {
     name: '日本語',
