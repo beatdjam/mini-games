@@ -5,7 +5,7 @@ import { LANG, lang, setLang, t } from '../../../../engine/core/i18n.ts';
 import { applySfxVolume, audioInit } from '../../../../engine/audio/audio.ts';
 import { musicVolume } from '../../../../engine/audio/music.ts';
 import { camera, resize } from '../../../../engine/render/render.ts';
-import { H, T, W, cover, grid, hgt, ramp } from '../../../../engine/world/tiles.ts';
+import { H, T, W, cover, grid, hgt, ramp, tileIndex } from '../../../../engine/world/tiles.ts';
 import { fsSupported, isFs, isStandalone, toggleFs } from '../../../../engine/ui/ui.ts';
 import { locked } from '../../../../engine/ui/input.ts';
 import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '../../../../engine/ui/touchlayout.ts';
@@ -123,18 +123,18 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
   const px = (x: number) => x / T * s, u = c.width / 160;
   query<Pickup>('pickup').forEach(p => {
     if (p.kind === 'bit') return;
-    if (!seen[Math.floor(p.z / T) * W + Math.floor(p.x / T)]) return;
+    if (!seen[tileIndex(p.x, p.z)]) return;
     g.fillStyle = p.kind === 'chip' ? CSS_COLOR.amber : p.kind === 'kit' ? CSS_COLOR.lime : '#ffffff';
     g.fillRect(px(p.x) - 2.5 * u, px(p.z) - 2.5 * u, 5 * u, 5 * u);
   });
   portals.forEach(pt => {
-    if (!seen[Math.floor(pt.z / T) * W + Math.floor(pt.x / T)]) return;
+    if (!seen[tileIndex(pt.x, pt.z)]) return;
     g.strokeStyle = '#' + pt.color.toString(16).padStart(6, '0'); g.lineWidth = 2 * u;
     g.beginPath(); g.arc(px(pt.x), px(pt.z), 5 * u, 0, Math.PI * 2); g.stroke();
     if (big) { g.fillStyle = g.strokeStyle; g.font = `${7 * u}px "DotGothic16",sans-serif`; g.textAlign = 'center'; g.fillText(t(pt.kind === 'extract' ? 'map.extract' : pt.kind === 'next' && arena ? 'map.next' : 'map.exit'), px(pt.x), px(pt.z) - 8 * u); }
   });
   g.fillStyle = CSS_COLOR.mag;
-  enemies.forEach(e => { if (!e.dead && (e.active || e.boss) && seen[Math.floor(e.z / T) * W + Math.floor(e.x / T)]) { g.beginPath(); g.arc(px(e.x), px(e.z), (e.boss ? 5 : 2.2) * u, 0, Math.PI * 2); g.fill(); } });
+  enemies.forEach(e => { if (!e.dead && (e.active || e.boss) && seen[tileIndex(e.x, e.z)]) { g.beginPath(); g.arc(px(e.x), px(e.z), (e.boss ? 5 : 2.2) * u, 0, Math.PI * 2); g.fill(); } });
   const x = px(P.x), z = px(P.z), fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), a = 6 * u, b = 3.5 * u;
   g.fillStyle = '#ffffff'; g.beginPath();
   g.moveTo(x + fx * a, z + fz * a); g.lineTo(x - fx * b + fz * b, z - fz * b - fx * b); g.lineTo(x - fx * b - fz * b, z - fz * b + fx * b); g.closePath(); g.fill();

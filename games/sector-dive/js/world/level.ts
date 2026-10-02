@@ -3,12 +3,12 @@ import { pick, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { clearWorld } from '../../../../engine/core/world.ts';
 import { UP, disposeTree, scene, textSprite } from '../../../../engine/render/render.ts';
 import { clearFx } from '../../../../engine/render/fx.ts';
-import { H, RISE, T, W, computeFlow, cover, floorY, flow, grid, hgt, isSolid, ramp, setTileWorld, walkable } from '../../../../engine/world/tiles.ts';
+import { H, RISE, T, W, computeFlow, cover, floorY, flow, grid, hgt, isSolid, ramp, setTileWorld, tileIndex, walkable } from '../../../../engine/world/tiles.ts';
 import { clearPool } from '../../../../engine/world/projectiles.ts';
 import { COVER_H, PLAT_H, PORTAL, WALL_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
-import type { Biome } from '../data/types.ts';
+import type { Biome, PortalKind } from '../data/types.ts';
 import { biomeTex } from './render.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
 import { P, damagePlayer, dmgScaleOf, run } from '../actors/player.ts';
@@ -41,7 +41,7 @@ const HAZARD_REACH_Y = 0.3;       // standing this far above the floor still get
 export interface Room { x: number; y: number; w: number; h: number; plat?: boolean; }
 // a gate: kind 'next' (on to the next area) or 'extract' (back to base)
 // t: seconds since it appeared; clear: the player has been away from it since then (both needed before it works)
-export interface Portal { x: number; z: number; g: THREE.Group; ring: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>; disc: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>; kind: string; color: number; t: number; clear: boolean; }
+export interface Portal { x: number; z: number; g: THREE.Group; ring: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>; disc: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>; kind: PortalKind; color: number; t: number; clear: boolean; }
 export type LevelMaps = ReturnType<typeof newMaps>;
 // per-tile maps of the current level (empty until the first level is built): room index, seen on the map, hazard floor
 export let roomOf: Int8Array = new Int8Array(0), seen: Uint8Array = new Uint8Array(0), haz: Uint8Array = new Uint8Array(0);
@@ -269,7 +269,7 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
   const [sx, sz] = roomSpot(rooms[startIdx]);
   computeFlow(Math.floor(sx / T), Math.floor(sz / T));
   let best = -1;
-  rooms.forEach((r, idx) => { const [x, z] = roomSpot(r), d = flow[Math.floor(z / T) * W + Math.floor(x / T)]; if (d > best) { best = d; exitIdx = idx; } });
+  rooms.forEach((r, idx) => { const [x, z] = roomSpot(r), d = flow[tileIndex(x, z)]; if (d > best) { best = d; exitIdx = idx; } });
 }
 // nearest plain floor tile to the room centre (the centre itself can be cover or a ramp)
 export function roomSpot(r: Room): [number, number] {
@@ -312,7 +312,7 @@ export function updateHazards(dt: number) {
   const i = Math.floor(P.x / T), j = Math.floor(P.z / T), k = j * W + i;
   if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && haz[k] && P.fy < hgt[k] + HAZARD_REACH_Y) damagePlayer(HAZARD_DMG * dmgScaleOf(run.stage));
 }
-export function makePortal(x: number, z: number, color: number, kind: string, label: string) {
+export function makePortal(x: number, z: number, color: number, kind: PortalKind, label: string) {
   const g = new THREE.Group();
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.12, 8, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35 }));
   const disc = new THREE.Mesh(new THREE.CircleGeometry(1.4, 32), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));

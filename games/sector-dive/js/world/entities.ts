@@ -1,10 +1,10 @@
-import type { Boss, EBullet, Enemy, EnemyDef, PBullet, Pickup, RegularEnemy, Shielded, Sniper, Trooper, Wave, Weapon } from '../data/types.ts';
+import type { Boss, EBullet, Enemy, EnemyDef, PBullet, Pickup, PickupKind, RegularEnemy, Shielded, Sniper, Trooper, Wave, Weapon } from '../data/types.ts';
 import * as THREE from 'three';
 import { clamp, rand } from '../../../../engine/core/util.ts';
 import { spawn, worldGroup } from '../../../../engine/core/world.ts';
 import { sfx } from '../../../../engine/audio/audio.ts';
 import { basicMat, disposeTree, dynGroup, lineMat } from '../../../../engine/render/render.ts';
-import { T, W, blocked, floorY, walkable } from '../../../../engine/world/tiles.ts';
+import { T, W, blocked, floorY, tileIndex, walkable } from '../../../../engine/world/tiles.ts';
 import { aimFan, ringAngles, takeFromPool } from '../../../../engine/world/projectiles.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
@@ -156,13 +156,13 @@ export function clearOfPortals(x: number, z: number): [number, number] {
     for (let k = 0; k < 12; k++) {
       const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 6;
       const nx = pt.x + Math.cos(a) * R, nz = pt.z + Math.sin(a) * R;
-      const tile = Math.floor(nz / T) * W + Math.floor(nx / T);
+      const tile = tileIndex(nx, nz);
       if (!blocked(nx, nz, 0.4) && walkable(tile) && !haz[tile]) return clearOfPortals(nx, nz);
     }
   }
   return [x, z];
 }
-export function addPickup(kind: string, x: number, z: number, extra?: { value?: number; w?: Weapon }): Pickup {
+export function addPickup(kind: PickupKind, x: number, z: number, extra?: { value?: number; w?: Weapon }): Pickup {
   [x, z] = clearOfPortals(x, z);
   let mesh: THREE.Object3D;
   if (kind === 'bit') mesh = new THREE.Mesh(geoCache.bit, basicMat(COLOR.amber));

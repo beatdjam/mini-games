@@ -153,6 +153,14 @@ export interface SaveData {
 }
 
 // something on the ground (engine world tag 'pickup'): bits (value), a med kit, a chip or a weapon (w)
-export interface Pickup extends WorldObject { tag: 'pickup'; kind: string; x: number; z: number; y: number; mesh: THREE.Object3D; t: number; dead: boolean; value?: number; w?: Weapon; }
+export interface Pickup extends WorldObject { tag: 'pickup'; kind: PickupKind; x: number; z: number; y: number; mesh: THREE.Object3D; t: number; dead: boolean; value?: number; w?: Weapon; }
 // a ground shockwave ring (engine world tag 'wave'): grows to max radius, hurts the player once when the ring passes
 export interface Wave extends WorldObject { tag: 'wave'; x: number; z: number; r: number; speed: number; max: number; dmg: number; hit: boolean; mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>; dead: boolean; }
+
+// the flow of the game (js/flow/game.ts state)
+export type GameState = 'base' | 'play' | 'pause' | 'perk' | 'result' | 'bag' | 'layout';
+// how a dive ends
+export type RunEnd = 'extract' | 'dead' | 'abandon';
+export type PickupKind = 'bit' | 'kit' | 'chip' | 'weapon';
+// a gate: 'next' (on to the next area) or 'extract' (back to base)
+export type PortalKind = 'next' | 'extract';

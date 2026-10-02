@@ -1,4 +1,4 @@
-import type { Pickup, RunState, Snapshot, Weapon } from '../data/types.ts';
+import type { GameState, Pickup, RunEnd, RunState, Snapshot, Weapon } from '../data/types.ts';
 import { el, rand, shuffle } from '../../../../engine/core/util.ts';
 import { devSmoke } from '../../../../engine/core/dev.ts';
 import { clearWorld, query } from '../../../../engine/core/world.ts';
@@ -6,7 +6,7 @@ import { LANG, lang, t } from '../../../../engine/core/i18n.ts';
 import { SFX, actx, audioInit } from '../../../../engine/audio/audio.ts';
 import { MUSIC_STYLES, mus, musicInit, musicVolume, playStep, setMusic, setMusicMix } from '../../../../engine/audio/music.ts';
 import { V3, camera, scene } from '../../../../engine/render/render.ts';
-import { H, STEP, T, W, blocked, cover, floorY, grid, hgt, isSolid, moveCircle, passable, ramp, walkable } from '../../../../engine/world/tiles.ts';
+import { H, STEP, T, W, blocked, cover, floorY, grid, hgt, isSolid, moveCircle, passable, ramp, tileIndex, walkable } from '../../../../engine/world/tiles.ts';
 import { joy, setFireHeld } from '../../../../engine/ui/input.ts';
 import { applyLayout, getL, openLayoutEditor } from '../../../../engine/ui/touchlayout.ts';
 import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
@@ -38,7 +38,8 @@ import { COLOR } from '../data/colors.ts';
 devSmoke(() => {
     {
       startRun();
-      const tick = (n: number) => { for (let k = 0; k < n; k++) { if (state !== 'play') { show(null); setState('play'); } P.hp = P.maxHp; P.inv = 1; update(1 / 60); } };
+      const stateIs = (s: GameState) => state === s; // a call, so TypeScript does not keep the narrowing of an earlier state check
+      const tick =(n: number) => { for (let k = 0; k < n; k++) { if (state !== 'play') { show(null); setState('play'); } P.hp = P.maxHp; P.inv = 1; update(1 / 60); } };
       setFireHeld(true);
       BIOMES.forEach((b, bi) => {
         run.route = [bi]; run.stage = bi * PER + 1; startStage(); tick(120);
@@ -499,7 +500,7 @@ devSmoke(() => {
       run.route = [0]; run.stage = 2; startStage(); tick(30);
       suspendRun(); if (!save.suspend || state !== 'base') throw new Error('suspend failed');
       resumeRun(); tick(60); if (run.stage !== 2 || (save.suspend as Snapshot | null)?.run.stage !== 2) throw new Error('resume failed');
-      suspendRun(); discardSuspended(); if (save.suspend || (state as string) !== 'result') throw new Error('discard failed');
+      suspendRun(); discardSuspended(); if (save.suspend || !stateIs('result')) throw new Error('discard failed');
       console.log('SMOKE suspend ok');
       goBase(); save.bits = 999; save.up.hp = 3; el('#btnWipe').click(); el('#btnWipeGo').click();
       if (save.bits !== 0 || save.up.hp !== 0 || !el('#dlgWipe').hidden) throw new Error('wipe failed');
@@ -604,7 +605,7 @@ devSmoke(() => {
       // touch layout editor: open from the base, make the dash button bigger, close; the edit is kept
       {
         const s0 = getL('dash').s;
-        openLayoutEditor('base'); if ((state as string) !== 'layout' || el('#layoutBar').hidden) throw new Error('layout editor open');
+        openLayoutEditor('base'); if (!stateIs('layout') || el('#layoutBar').hidden) throw new Error('layout editor open');
         document.querySelector<HTMLElement>('[data-lbact="plus"]')!.click(); document.querySelector<HTMLElement>('[data-lbact="done"]')!.click();
         if (state !== 'base' || Math.abs(getL('dash').s - (s0 + 0.1)) > 1e-9) throw new Error('layout editor ' + getL('dash').s);
         save.settings.layout = {}; applyLayout();
@@ -620,8 +621,8 @@ devSmoke(() => {
             while (q.length) { const c = q.pop()!, ci = c % W, cj = (c / W) | 0;
               [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([a, bb], sd) => { const ni = ci + a, nj = cj + bb; if (isSolid(ni, nj)) return; const nn = nj * W + ni; if (!seenT[nn] && passable(c, nn, sd)) { seenT[nn] = 1; q.push(nn); } }); }
             return seenT; };
-          const [sx, sz] = roomSpot(rooms[startIdx]), st = Math.floor(sz / T) * W + Math.floor(sx / T), fwdR = reach(st);
-          rooms.forEach(r => { const [x, z] = roomSpot(r), k = Math.floor(z / T) * W + Math.floor(x / T); if (!fwdR[k]) bad++; else if (!reach(k)[st]) back++; });
+          const [sx, sz] = roomSpot(rooms[startIdx]), st = tileIndex(sx, sz), fwdR = reach(st);
+          rooms.forEach(r => { const [x, z] = roomSpot(r), k = tileIndex(x, z); if (!fwdR[k]) bad++; else if (!reach(k)[st]) back++; });
         }
         console.log('SMOKE reach', b.code, 'unreachable rooms', bad, 'one-way rooms', back);
       });
@@ -671,7 +672,7 @@ if (location.hash.startsWith('#view-share')) setTimeout(() => {
   // -many: a deep run's hundred chips (the mix from a player's D14 run), to see the result screen fold them up
   if (location.hash.includes('many')) run.perks = shuffle(Object.entries({ split: 25, rapid: 18, overload: 13, 'overload+': 3, armor: 10, 'armor+': 3, mag: 4, leech: 4, 'leech+': 3, sprint: 4, 'sprint+': 1, reload: 3, 'crit+': 2, chain: 1, pierce: 1, 'light+': 1, repair: 1, 'rapid+': 1 }).flatMap(([id, n]) => Array(n).fill(id)));
   if (location.hash.includes('reboot')) save.pres.count = 3; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
-  const kind = location.hash.includes('dead') ? 'dead' : 'extract';
+  const kind: RunEnd = location.hash.includes('dead') ? 'dead' : 'extract';
   endRun(kind); if (location.hash.includes('res')) { if (location.hash.includes('panel')) setTimeout(() => el('#btnShare').click(), 900); return; } // #view-share-res: the result screen itself
   drawShareCard(shareData!).then(b => { const im = new Image(); im.src = URL.createObjectURL(b!); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData!)); });
 }, 300);

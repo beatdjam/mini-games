@@ -1,4 +1,4 @@
-import type { Biome, Snapshot, Weapon, WeaponItem } from '../data/types.ts';
+import type { Biome, GameState, RunEnd, Snapshot, Weapon, WeaponItem } from '../data/types.ts';
 import { clamp, el, isTouch, pick, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { clearStore, prefGet, prefSet } from '../../../../engine/core/store.ts';
 import { t } from '../../../../engine/core/i18n.ts';
@@ -17,7 +17,7 @@ import { BIOMES } from '../data/biomes.ts';
 import { PER, PRES_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { _ } from '../data/music.ts';
-import { SAVE_KEY, basicW, defaultSave, exportSave, importSave, importSaveCheck, persist, save, setSave } from '../system/save.ts';
+import { BASE_TAB_KEY, SAVE_KEY, basicW, defaultSave, exportSave, importSave, importSaveCheck, persist, save, setSave } from '../system/save.ts';
 import { basicNow, chipSummary, presCost, modOf, modPlusCap, peakDepth, perkIdOf, perkName, pickDrop, PRES_DIFF_CAP, presMul, presMulOf, prog, readiness, readyAfterReboot, sellValue } from '../system/rules.ts';
 import { buildLevel, exitIdx, makePortal, portals, randomTileIn, roomCount, roomSpot, rooms, seen, startIdx } from '../world/level.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
@@ -31,8 +31,8 @@ import { tickClock } from './update.ts';
 import { track } from '../../../../engine/core/analytics.ts';
 import { COLOR } from '../data/colors.ts';
 // ================= game flow =================
-export let state: string = 'base';
-export function setState(s: string) { state = s; }
+export let state: GameState = 'base';
+export function setState(s: GameState) { state = s; }
 export const screens = ['#scrBase', '#scrPerk', '#scrPause', '#scrResult', '#scrBag'];
 export function show(id: string | null) { screens.forEach(s => { el(s).hidden = s !== id; }); }
 export function setPlayUI(on: boolean) { el('#hud').hidden = !on; el('#touch').hidden = !on; gun.visible = on; if (!on) bigmap.hidden = true; }
@@ -326,7 +326,7 @@ export function startPractice(kind: string, tier?: number) {
   startStage(); requestLock();
   toast(t('run.practiceStart'), 2600);
 }
-export function endPractice(kind: string) {
+export function endPractice(kind: RunEnd) {
   state = 'result'; releaseInputs(); exitLock();
   const sec = Math.round((performance.now() - run.t0!) / 1000);
   track('practice_end', { target: run.forceBoss!, level: stageInfo(run.stage).tier + 1, result: run.cleared ? 'won' : kind, duration_sec: sec });
@@ -338,7 +338,7 @@ export function endPractice(kind: string) {
   hideShare(); prepFeedback(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
-export function endRun(kind: string) {
+export function endRun(kind: RunEnd) {
   if (run.practice) { endPractice(kind); return; }
   save.suspend = null; // the run is over: its checkpoint must not come back
   const dead = kind !== 'extract';
@@ -426,13 +426,13 @@ export function wStat(w: WeaponItem) {
 }
 // base menu tabs; the last one opened is remembered in this browser
 export let baseTab = 'sortie';
-baseTab = prefGet('sd-base-tab', 'sortie');
+baseTab = prefGet(BASE_TAB_KEY, 'sortie');
 export function showTab(name: string) {
   if (!document.querySelector(`[data-pane="${name}"]`)) name = 'sortie';
   baseTab = name;
   document.querySelectorAll<HTMLElement>('.tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   document.querySelectorAll<HTMLElement>('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
-  prefSet('sd-base-tab', name);
+  prefSet(BASE_TAB_KEY, name);
 }
 el('.tabs').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement; const b = tg.closest<HTMLElement>('[data-tab]'); if (b) { showTab(b.dataset.tab!); el('#scrBase').scrollTop = 0; } });
 export function renderBase() {

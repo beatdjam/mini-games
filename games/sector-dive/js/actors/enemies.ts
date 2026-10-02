@@ -1,5 +1,5 @@
 import type { Enemy, RegularEnemy, Sniper, Trooper } from '../data/types.ts';
-import { clamp, rand } from '../../../../engine/core/util.ts';
+import { clamp, distXZ, rand } from '../../../../engine/core/util.ts';
 import { sfx } from '../../../../engine/audio/audio.ts';
 import { flowAt, hasLOS } from '../../../../engine/world/tiles.ts';
 import { steerChase } from '../../../../engine/world/steer.ts';
@@ -178,7 +178,7 @@ export function poseHumanoid(e: Trooper, dt: number, aiming: boolean) {
   rig.legL.rotation.x = swing; rig.legR.rotation.x = -swing;
   rig.armL.rotation.x = -swing * 0.8;
   e.kick = Math.max(0, e.kick - dt * 9);
-  const dy = P.fy + CHEST_Y - (e.mesh.position.y + 0.6), dh = Math.hypot(P.x - e.x, P.z - e.z) || 1;
+  const dy = P.fy + CHEST_Y - (e.mesh.position.y + 0.6), dh = distXZ(P, e) || 1;
   const want = aiming ? -Math.PI / 2 - Math.atan2(dy, dh) * 0.8 + e.kick * 0.35 : swing * 0.8;
   rig.armR.rotation.x += (want - rig.armR.rotation.x) * Math.min(1, dt * 12);
   rig.upper.rotation.x = -e.kick * 0.08;
