@@ -667,7 +667,8 @@ test('minimap: tiles the game lets through, overlays, markers on top, the viewer
     cover: new Uint8Array(n * n),
   });
   const c = document.createElement('canvas');
-  c.width = c.height = 160; // 40 px per tile, 1 px per map unit
+  c.width = 160; // 40 px per tile, 1 px per map unit
+  c.height = 160;
   const g = c.getContext('2d')!;
   drawTileMap(c, g, {
     tile: k => (k === 0 || k === 5 ? { color: '#0000ff', alpha: 1 } : null),
