@@ -2,7 +2,7 @@
 // The tests share one game state and run in order; some checks depend on how many random numbers the earlier ones used.
 import { beforeAll, describe, expect, test } from 'vitest';
 import type { GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
-import { el, rand } from '@engine/core/util.ts';
+import { createRng, el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
 import { lang, t } from '@engine/core/i18n.ts';
 import { SFX, actx, audioInit } from '@engine/audio/audio.ts';
@@ -57,8 +57,10 @@ import {
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import { buildLevel, level, roomSpot } from '../src/world/level.ts';
+import { buildFixedLevel, buildLevel, level, roomSpot } from '../src/world/level.ts';
 import { hazardState } from '../src/world/hazards.ts';
+import { generateLevel } from '../src/world/levelGen.ts';
+import type { GeneratedLevel } from '../src/world/levelGen.ts';
 import { makePortal } from '../src/world/portals.ts';
 import {
   addPickup,
@@ -172,38 +174,39 @@ BIOMES.forEach((b, bi) => {
 });
 
 test('ledge: stepping off a raised deck leaves nothing stuck or half inside', () => {
+  // a ramp, a 3x3 deck and open floor beside it
+  const rows = ['##########', '#>===....#', '#>===....#', '#>===....#', '##########'];
+  run.route = [5];
+  run.stage = 26;
+  buildFixedLevel(BIOMES[5], { rows, rooms: [{ x: 1, y: 1, w: 8, h: 3 }], start: 0, exit: 0 });
   let tested = 0,
     stuck = 0,
     inside = 0;
-  for (let n = 0; n < 40 && tested < 12; n++) {
-    run.route = [5];
-    run.stage = 26;
-    buildLevel(BIOMES[5], false);
-    for (let k = 0; k < W * H && tested < 12; k++) {
-      const i = k % W,
-        j = (k / W) | 0;
-      if (i > W - 4 || grid[k] !== 1 || hgt[k] !== PLAT_H || ramp[k] >= 0 || cover[k]) continue;
-      if (!walkable(k + 1) || hgt[k + 1] !== 0 || !walkable(k + 2) || hgt[k + 2] !== 0) continue;
-      for (const who of ['player', 'enemy']) {
-        const o: { x: number; z: number; fy: number; vy?: number; r?: number } =
-          who === 'player' ? player : spawnEnemy('crawler', 0, 0, -1, 1);
-        o.x = (i + 1) * T - 0.2;
-        o.z = (j + 0.5) * T;
-        o.fy = PLAT_H;
-        o.vy = 0;
-        for (let t = 0; t < 60; t++) {
-          moveCircle(o, 0.15, 0, o.r || player.r);
-          const g2 = floorY(o.x, o.z);
-          o.fy = who === 'player' ? Math.max(g2, o.fy - 0.2) : g2;
-        }
-        const x0 = o.x;
-        moveCircle(o, 0.3, 0, o.r || player.r);
-        tested++;
-        if (o.x <= x0 && !blocked(x0 + 0.3, o.z, o.r || player.r)) stuck++;
-        if (floorY(o.x - (o.r || player.r) + 0.02, o.z) > o.fy + STEP) inside++;
+  for (let k = 0; k < W * H; k++) {
+    const i = k % W,
+      j = (k / W) | 0;
+    if (i > W - 4 || grid[k] !== 1 || hgt[k] !== PLAT_H || ramp[k] >= 0 || cover[k]) continue;
+    if (!walkable(k + 1) || hgt[k + 1] !== 0 || !walkable(k + 2) || hgt[k + 2] !== 0) continue;
+    for (const who of ['player', 'enemy']) {
+      const o: { x: number; z: number; fy: number; vy?: number; r?: number } =
+        who === 'player' ? player : spawnEnemy('crawler', 0, 0, -1, 1);
+      o.x = (i + 1) * T - 0.2;
+      o.z = (j + 0.5) * T;
+      o.fy = PLAT_H;
+      o.vy = 0;
+      for (let t = 0; t < 60; t++) {
+        moveCircle(o, 0.15, 0, o.r || player.r);
+        const g2 = floorY(o.x, o.z);
+        o.fy = who === 'player' ? Math.max(g2, o.fy - 0.2) : g2;
       }
+      const x0 = o.x;
+      moveCircle(o, 0.3, 0, o.r || player.r);
+      tested++;
+      if (o.x <= x0 && !blocked(x0 + 0.3, o.z, o.r || player.r)) stuck++;
+      if (floorY(o.x - (o.r || player.r) + 0.02, o.z) > o.fy + STEP) inside++;
     }
   }
+  if (tested !== 6) throw new Error('ledge: expected 6 cases, ran ' + tested);
   if (stuck || inside) throw new Error('ledge check failed');
 });
 test('progress: depth start = depth*5, boss = depth*5+4 regardless of PER', () => {
@@ -1223,4 +1226,38 @@ test('the same seed builds the same level', () => {
   buildLevel(BIOMES[1], false, null, 1234);
   expect(snap()).toEqual(a);
   expect(level.seed).toBe(1234);
+});
+
+// A pin on generation: the same seed must keep giving the same maps, rooms and start. Changing the generator or the
+// order it draws random numbers in changes these on purpose, and then the numbers here are updated with it.
+function levelHash(gen: GeneratedLevel): string {
+  const M = gen.maps;
+  const maps = [M.grid, M.hgt, M.ramp, M.cover, gen.hazard, M.roomOf].map(a => Array.from(a).join(','));
+  const text = maps.join('|') + JSON.stringify(gen.rooms) + gen.startIdx;
+  let h = 2166136261; // FNV-1a
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619) >>> 0;
+  return h.toString(16);
+}
+test('generation is pinned: the same seed gives the same level', () => {
+  const got: Record<string, string> = {};
+  BIOMES.forEach(b => {
+    got[b.code] = levelHash(generateLevel(b, false, null, createRng(1234)));
+  });
+  BOSS_ORDER.forEach(k => {
+    got['arena ' + k] = levelHash(generateLevel(BIOMES[0], true, k, createRng(1234)));
+  });
+  expect(got).toEqual({
+    DATA: '31230a44',
+    FORGE: 'a37e213e',
+    NOISE: 'f514cc1b',
+    RUIN: 'ea80ade1',
+    KWLN: '9b86bedd',
+    CITY: 'd1432964',
+    'arena watcher': 'b566d42b',
+    'arena crusher': 'b566d42b',
+    'arena core': 'dc3f981b',
+    'arena phantom': 'b566d42b',
+    'arena trinity': 'dc3f981b',
+    'arena bastion': 'dc3f981b',
+  });
 });

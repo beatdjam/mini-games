@@ -6,6 +6,10 @@ import { clamp } from '../core/util.ts';
 export const T = 4,
   STEP = 0.7,
   RISE = 2;
+// default heights of the tile features the generators and fixed maps build (m): a raised deck (the same as RISE, so a
+// ramp up to it is level at the top) and waist-high cover
+export const DECK_H = 2,
+  COVER_H = 1.2;
 export const OPPOSITE_SIDE = [1, 0, 3, 2];
 // the tile world: empty until the game hands over a level (W = H = 0 makes every tile read as solid);
 // replaced only through setTileWorld

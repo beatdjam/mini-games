@@ -36,7 +36,7 @@ flowchart TB
   subgraph ENGINE["engine/src/"]
     CORE["core/<br/>loop・world・i18n・store・dev・analytics・feedback・util"]
     REND["render/<br/>three.js・手の銃・FX"]
-    WORLD["world/<br/>タイル・弾・追跡"]
+    WORLD["world/<br/>タイル・ダンジョン生成・弾・追跡"]
     AUD["audio/<br/>効果音・BGM"]
     UI["ui/<br/>入力・タッチ配置・トースト"]
   end
