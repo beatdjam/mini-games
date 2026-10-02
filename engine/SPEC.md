@@ -31,6 +31,8 @@
 ## 4. タイルの世界（world/tiles.ts）
 
 - 1タイルは `T` = 4m 四方。`grid[k] === 1` が歩ける床、それ以外は壁。`k = j * W + i`
+- 座標の変換: `tileCoord(v)` はワールド座標（x か z）のタイル番号（`Math.floor(v / T)`）、`tileCenter(i)` はタイル番号（列 i か行 j）の中心のワールド座標（`(i + 0.5) * T`）、`inBounds(i, j)` はタイルが `W` × `H` の中か
+- 辺の番号は坂の向きと同じ（`SIDE_PX` = 0:+x、`SIDE_NX` = 1:-x、`SIDE_PZ` = 2:+z、`SIDE_NZ` = 3:-z）。`SIDE_STEP[sd]` はその辺の隣へ進む `[di, dj]`、`OPPOSITE_SIDE[sd]` は反対側の辺
 - `hgt[k]` は床の高さ。`ramp[k]` が 0〜3 ならその向き（0:+x 1:-x 2:+z 3:-z）へ `RISE` だけ上る坂、-1 は平ら
 - `cover[k]` は腰の高さの遮蔽物（高さは `hgt` に入れる。既定は `COVER_H` = 1.2m、高台は `DECK_H` = 2m）
 - **段差の規則**: 足元より `STEP` (0.7m) 以上高いところへは進めない。降りるのは自由

@@ -3,7 +3,18 @@ import { createRng, rand, randi } from '@engine/core/util.ts';
 import { clearWorld } from '@engine/core/world.ts';
 import { disposeTree, scene } from '@engine/render/render.ts';
 import { clearFx } from '@engine/render/fx.ts';
-import { H, T, W, computeFlow, flow, setTileWorld, tileIndex, walkable } from '@engine/world/tiles.ts';
+import {
+  H,
+  W,
+  computeFlow,
+  flow,
+  inBounds,
+  setTileWorld,
+  tileCenter,
+  tileCoord,
+  tileIndex,
+  walkable,
+} from '@engine/world/tiles.ts';
 import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
 import { BIOMES } from '../data/biomes.ts';
@@ -84,7 +95,7 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
   if (isArena) return;
   // the exit is the room farthest (by walking) from the start
   const [sx, sz] = roomSpot(level.rooms[level.startIdx]);
-  computeFlow(Math.floor(sx / T), Math.floor(sz / T));
+  computeFlow(tileCoord(sx), tileCoord(sz));
   let best = -1;
   level.rooms.forEach((r, idx) => {
     const [x, z] = roomSpot(r),
@@ -158,18 +169,18 @@ export function roomSpot(r: Room): [number, number] {
       const d = (i - cx) * (i - cx) + (j - cy) * (j - cy);
       if (d < bd) {
         bd = d;
-        best = [(i + 0.5) * T, (j + 0.5) * T];
+        best = [tileCenter(i), tileCenter(j)];
       }
     }
-  return best || [(cx + 0.5) * T, (cy + 0.5) * T];
+  return best || [tileCenter(cx), tileCenter(cy)];
 }
 export function randomTileIn(r: Room): [number, number] {
   for (let k = 0; k < SPOT_TRIES; k++) {
     const i = randi(r.x, r.x + r.w - 1),
       j = randi(r.y, r.y + r.h - 1);
-    const k = j * W + i;
-    if (walkable(k) && !level.hazardTiles[k])
-      return [(i + 0.5) * T + rand(-SPOT_JITTER, SPOT_JITTER), (j + 0.5) * T + rand(-SPOT_JITTER, SPOT_JITTER)];
+    const tile = j * W + i;
+    if (walkable(tile) && !level.hazardTiles[tile])
+      return [tileCenter(i) + rand(-SPOT_JITTER, SPOT_JITTER), tileCenter(j) + rand(-SPOT_JITTER, SPOT_JITTER)];
   }
   return roomSpot(r);
 }
@@ -183,12 +194,12 @@ export function reveal(ti: number, tj: number) {
       if (di * di + dj * dj > REVEAL_R2) continue;
       const i = ti + di,
         j = tj + dj;
-      if (i >= 0 && j >= 0 && i < W && j < H) level.seen[j * W + i] = 1;
+      if (inBounds(i, j)) level.seen[j * W + i] = 1;
     }
   const r = level.roomOf[tj * W + ti];
   if (r >= 0) {
     const R = level.rooms[r];
     for (let j = R.y - 1; j <= R.y + R.h; j++)
-      for (let i = R.x - 1; i <= R.x + R.w; i++) if (i >= 0 && j >= 0 && i < W && j < H) level.seen[j * W + i] = 1;
+      for (let i = R.x - 1; i <= R.x + R.w; i++) if (inBounds(i, j)) level.seen[j * W + i] = 1;
   }
 }
