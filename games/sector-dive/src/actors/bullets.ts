@@ -3,13 +3,13 @@ import type { EBullet, Enemy, PBullet } from '../data/types.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { basicMat } from '@engine/render/render.ts';
 import { burst } from '@engine/render/fx.ts';
-import { floorY, moveCircle } from '@engine/world/tiles.ts';
+import { floorY } from '@engine/world/tiles.ts';
 import { projHitsTerrain, steerToward, stepProjectile } from '@engine/world/projectiles.ts';
 import { WALL_H } from '../data/level.ts';
 import { eBullets, enemies, isShielded, pBullets } from '../world/entities.ts';
 import { CRIT_MUL, critChance } from './weapons.ts';
 import { player } from './player.ts';
-import { damagePlayer, explode, hurtEnemy } from './combat.ts';
+import { damagePlayer, explode, hurtEnemy, knockAway } from './combat.ts';
 import { spheres } from './firing.ts';
 import { hitMark } from '../ui/hud.ts';
 import { COLOR } from '../data/colors.ts';
@@ -127,10 +127,7 @@ export function damageFromBullet(b: PBullet, e: Enemy) {
   if (b.kb && !e.boss && !e.dead && e.kbShot !== b.shot) {
     // once per shot, however many pellets hit
     e.kbShot = b.shot;
-    const kx = e.x - player.x,
-      kz = e.z - player.z,
-      kl = Math.hypot(kx, kz) || 1;
-    moveCircle(e, (kx / kl) * b.kb, (kz / kl) * b.kb, e.r);
+    knockAway(e, player.x, player.z, b.kb);
     e.fy = floorY(e.x, e.z);
   }
   burst(b.x, b.y, b.z, b.color, 2, 3, 0.25);

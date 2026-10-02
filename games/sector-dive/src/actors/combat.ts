@@ -102,10 +102,15 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
   if (e.hp <= 0) killEnemy(e);
   else if (e.boss && !e.phased && isEnraged(e)) bossPhase(e);
 }
-// player explosions (rockets, chain blasts); one crit roll per explosion
-export function explode(x: number, y: number, z: number, radius: number, dmg: number, color: number, big?: boolean) {
-  const crit = Math.random() < critChance();
-  const blastDmg = crit ? dmg * CRIT_MUL : dmg;
+// push an enemy dist metres straight away from (fromX, fromZ), stopping at walls
+export function knockAway(e: Enemy, fromX: number, fromZ: number, dist: number) {
+  const kx = e.x - fromX,
+    kz = e.z - fromZ,
+    kl = Math.hypot(kx, kz) || 1;
+  moveCircle(e, (kx / kl) * dist, (kz / kl) * dist, e.r);
+}
+// the look and sound of a player explosion, and the screen shake
+function blastFx(x: number, y: number, z: number, radius: number, color: number, big?: boolean) {
   if (big) {
     // kept small and short so a blast near you doesn't hide what's behind it
     fireball(x, y, z, radius * 0.5, COLOR.orange);
@@ -116,13 +121,20 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
     sfx('bigboom', 60);
     const pd = distXZ(player, { x, z });
     screenFx.shake = Math.max(screenFx.shake, BLAST_SHAKE * clamp(1 - pd / BLAST_SHAKE_DIST, BLAST_SHAKE_MIN, 1));
-    if (pd < radius * BLAST_SELF_R && state === 'play') damagePlayer(BLAST_SELF_DMG * damageScaleAt(run.stage));
   } else {
     burst(x, y, z, color || COLOR.fire, 22, 9, 0.7);
     burst(x, y, z, 0xffffff, 8, 5, 0.4);
     sfx('boom', 60);
     screenFx.shake = Math.max(screenFx.shake, 0.12);
   }
+}
+// a rocket blast hurts the player standing close to it
+function blastSelfHit(x: number, z: number, radius: number) {
+  const pd = distXZ(player, { x, z });
+  if (pd < radius * BLAST_SELF_R && state === 'play') damagePlayer(BLAST_SELF_DMG * damageScaleAt(run.stage));
+}
+// damage every enemy in the blast; rockets (big) also push non-bosses away
+function blastEnemies(x: number, y: number, z: number, radius: number, blastDmg: number, crit: boolean, big?: boolean) {
   for (const e of enemies.slice()) {
     // enemies spawned by this blast's kills aren't hit by it
     if (e.dead) continue;
@@ -136,14 +148,20 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
         fall = dd <= core ? 1 : 1 - ((dd - core) / (radius - core)) * BLAST_EDGE_LOSS;
       hurtEnemy(e, blastDmg * fall, crit);
       if (big && !e.boss && !e.dead) {
-        const kx = e.x - x,
-          kz = e.z - z,
-          kl = Math.hypot(kx, kz) || 1;
-        moveCircle(e, (kx / kl) * BLAST_PUSH, (kz / kl) * BLAST_PUSH, e.r);
+        knockAway(e, x, z, BLAST_PUSH);
         e.flash = BLAST_PUSH_FLASH;
       }
     }
   }
+}
+// player explosions (rockets, chain blasts); one crit roll per explosion
+// big: true for rockets (bigger fireball and shake, hurts the player nearby, pushes enemies); false for chain blasts
+export function explode(x: number, y: number, z: number, radius: number, dmg: number, color: number, big?: boolean) {
+  const crit = Math.random() < critChance();
+  const blastDmg = crit ? dmg * CRIT_MUL : dmg;
+  blastFx(x, y, z, radius, color, big);
+  if (big) blastSelfHit(x, z, radius);
+  blastEnemies(x, y, z, radius, blastDmg, crit, big);
 }
 // bomber blast: hurts the player and any enemy caught in it
 export function bomberBlast(x: number, y: number, z: number, dmg: number) {
@@ -163,7 +181,48 @@ export function detonate(e: RegularEnemy) {
   killEnemy(e, true);
   bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg);
 }
+// bits, a kit (chance) and leech healing for a kill
+function dropKillRewards(e: RegularEnemy) {
+  dropBits(e.x, e.z, e.def.bits * KILL_BITS_MUL * (1 + progressOf(run.stage) * KILL_BITS_PER_PROG));
+  if (Math.random() < TUNE.kitDropChance)
+    addPickup('kit', e.x + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD), e.z + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD));
+  const lh = player.leech + LEECH_OPT_HP * weaponOptCount('leech');
+  if (lh) player.hp = Math.min(player.maxHp, player.hp + lh);
+}
 let inChainBlast = false;
+// chain chip: the dead enemy explodes
+function chainBlast(e: RegularEnemy) {
+  // chain blast: only enemies you killed explode; kills caused by a chain blast don't set off another one
+  if (!player.chain || inChainBlast) return;
+  inChainBlast = true;
+  const pos = e.mesh.position;
+  // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
+  const depthScale = enemyGrowth(progressOf(run.stage) / STAGES_PER_GROWTH_DEPTH);
+  explode(
+    pos.x,
+    pos.y,
+    pos.z,
+    CHAIN_R_BASE + player.chain * CHAIN_R_PER,
+    CHAIN_DMG * player.chain * player.dmgMul * depthScale,
+    COLOR.amber,
+  );
+  inChainBlast = false;
+}
+// splitter: breaks into minis
+function splitIntoMinis(e: RegularEnemy) {
+  if (!e.def.split) return;
+  for (let k = 0; k < SPLIT_KIDS; k++) {
+    const m = spawnEnemy(
+      'mini',
+      e.x + (k ? SPLIT_OFFSET : -SPLIT_OFFSET),
+      e.z + rand(-0.4, 0.4),
+      e.room,
+      difficultyAt(run.stage),
+    );
+    m.active = true;
+  }
+  if (e.room >= 0) level.roomCount[e.room] += SPLIT_KIDS;
+}
 export function killEnemy(e: Enemy, noReward?: boolean) {
   e.dead = true;
   if (!noReward) run.kills++;
@@ -180,41 +239,11 @@ export function killEnemy(e: Enemy, noReward?: boolean) {
     bomberBlast(e.x, pos.y, e.z, e.dmg * BOMBER_DEATH_DMG);
   }
   if (!noReward) {
-    dropBits(e.x, e.z, e.def.bits * KILL_BITS_MUL * (1 + progressOf(run.stage) * KILL_BITS_PER_PROG));
-    if (Math.random() < TUNE.kitDropChance)
-      addPickup('kit', e.x + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD), e.z + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD));
-    const lh = player.leech + LEECH_OPT_HP * weaponOptCount('leech');
-    if (lh) player.hp = Math.min(player.maxHp, player.hp + lh);
-    // chain blast: only enemies you killed explode; kills caused by a chain blast don't set off another one
-    if (player.chain && !inChainBlast) {
-      inChainBlast = true;
-      // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
-      const depthScale = enemyGrowth(progressOf(run.stage) / STAGES_PER_GROWTH_DEPTH);
-      explode(
-        pos.x,
-        pos.y,
-        pos.z,
-        CHAIN_R_BASE + player.chain * CHAIN_R_PER,
-        CHAIN_DMG * player.chain * player.dmgMul * depthScale,
-        COLOR.amber,
-      );
-      inChainBlast = false;
-    }
+    dropKillRewards(e);
+    chainBlast(e);
   }
   // splitter: the halves appear after any blast from this kill, so they aren't wiped out by it
-  if (e.def.split) {
-    for (let k = 0; k < SPLIT_KIDS; k++) {
-      const m = spawnEnemy(
-        'mini',
-        e.x + (k ? SPLIT_OFFSET : -SPLIT_OFFSET),
-        e.z + rand(-0.4, 0.4),
-        e.room,
-        difficultyAt(run.stage),
-      );
-      m.active = true;
-    }
-    if (e.room >= 0) level.roomCount[e.room] += SPLIT_KIDS;
-  }
+  splitIntoMinis(e);
   if (e.room >= 0 && --level.roomCount[e.room] === 0) roomCleared(e.room);
 }
 export function roomCleared(idx: number) {
