@@ -1,6 +1,6 @@
 # engine
 
-考え方と構造の図は [ARCHITECTURE.md](ARCHITECTURE.md)、仕様は [SPEC.md](SPEC.md)、テストは `engine/test/`（`tools/headless.sh 'engine/test/' 20000`）。
+考え方と構造の図は [ARCHITECTURE.md](ARCHITECTURE.md)、仕様は [SPEC.md](SPEC.md)、テストは `engine/test/`（Vitest。`npm run test:engine`）。
 
 ゲームをまたいで使うコア。ES モジュールで、ゲームは `../../engine/<フォルダ>/<名前>.ts` から必要なものを import する。engine はゲームを import しない。
 

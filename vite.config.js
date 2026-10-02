@@ -51,11 +51,11 @@ function buildStamp() {
 }
 
 // the published site lives at https://beatdjam.github.io/mini-games/ (build and `npm run preview`); the dev server at /
-// `vite build --mode test` (npm run test:build) also builds the engine tests and keeps the games' check hooks (js/dev)
-export default defineConfig(({ command, mode, isPreview }) => ({
+// `vite build --mode test` (npm run test:build) keeps the games' check hooks (js/dev)
+export default defineConfig(({ command, isPreview }) => ({
   base: command === 'build' || isPreview ? '/mini-games/' : '/',
   server: { port: 8765, strictPort: true },
   // three.js alone is ~550 kB, so the vendor chunk is always over the default 500 kB warning
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 800, rolldownOptions: { input: mode === 'test' ? { ...pages, engineTest: resolve('engine/test/index.html') } : pages } },
+  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 800, rolldownOptions: { input: pages } },
   plugins: [buildStamp(), analytics()],
 }));

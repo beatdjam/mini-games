@@ -46,7 +46,7 @@
 ## 4. engine とゲームの境界
 
 - **[自動]** engine はゲームを import しない。ゲームの事情は、設定オブジェクト・登録関数・ゲームが中身を入れる器で受け取る（`engine/ARCHITECTURE.md`）
-- engine に関数を足したら `engine/test/tests.ts` にテストを足し、`engine/README.md` の表に書く
+- engine に関数を足したら `engine/test/engine.test.ts` にテストを足し、`engine/README.md` の表に書く
 - 2本目のゲームで要るとわかるまで、ゲームのものを engine に切り出さない（候補は `engine/README.md`「まだ切り出していないもの」）
 
 ## 5. データの定義（`games/<id>/js/data/`）

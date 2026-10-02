@@ -28,11 +28,18 @@ jobs:
       - name: スタイルと文言の確認（tools/check_style.js、tools/check_i18n.js）
         run: npm run lint
       - name: テスト（engine のテストと各ゲームのスモーク。開発サーバーと、テスト用ビルドの両方）
-        # ランナーの Chrome は google-chrome
+        # ランナーの Chrome を使う。結果はジョブのサマリに出て、JUnit と HTML のレポートは test-results/ に書かれる
         env:
-          CHROME: google-chrome
+          CHROME: /usr/bin/google-chrome
         run: |
           npm test
           npm run test:build
+      - name: テストのレポートを保存（失敗したときも）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: test-results/
+          if-no-files-found: ignore
       - name: 公開用のビルド
         run: npm run build
