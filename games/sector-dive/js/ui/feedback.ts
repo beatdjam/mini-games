@@ -1,5 +1,5 @@
 import type { WeaponItem } from '../data/types.ts';
-import { $, isTouch } from '../../../../engine/core/util.ts';
+import { el, isTouch } from '../../../../engine/core/util.ts';
 import { lang } from '../../../../engine/core/i18n.ts';
 import { feedbackReady, openFeedback } from '../../../../engine/core/feedback.ts';
 import { track } from '../../../../engine/core/analytics.ts';
@@ -25,11 +25,11 @@ export function prepFeedback(kind: string) {
     `chips(${run.perks.length})=${chips}`, `bosses=${(run.bosses || []).join(',')}`,
     ...common(),
   ].join(' | ');
-  $('#btnFeedbackRes').hidden = !feedbackReady();
+  el('#btnFeedbackRes').hidden = !feedbackReady();
 }
 // the base screen: what the save holds
 export const baseInfo = () => ['from=base', `loadout=${save.loadout.map(wInfo).filter(Boolean).join(' / ')}`, `best=${stageLabel(Math.max(0, save.best - 1))}`, ...common()].join(' | ');
-export function showBaseFeedback() { $('#btnFeedbackBase').hidden = !feedbackReady(); }
+export function showBaseFeedback() { el('#btnFeedbackBase').hidden = !feedbackReady(); }
 
-$('#btnFeedbackRes').addEventListener('click', () => { if (openFeedback(resultInfo)) track('feedback', { method: 'result' }); });
-$('#btnFeedbackBase').addEventListener('click', () => { if (openFeedback(baseInfo())) track('feedback', { method: 'base' }); });
+el('#btnFeedbackRes').addEventListener('click', () => { if (openFeedback(resultInfo)) track('feedback', { method: 'result' }); });
+el('#btnFeedbackBase').addEventListener('click', () => { if (openFeedback(baseInfo())) track('feedback', { method: 'base' }); });

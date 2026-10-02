@@ -43,7 +43,7 @@ CLAUDE.md                    Claude Code が作業時に守る決まり（コミ
 - 型チェックは `tsconfig.json` の1本で、リポジトリ全体を厳しい設定（`strict: true`）で見る。`npm run typecheck` でエラー0を保つ
 - 型の置き場所: engine の型は持ち主のモジュールから export する（`System`, `WorldObject`, `InputConfig`, `TouchLayoutConfig`, `LangPack` など）。ゲームの定義の型は `games/<id>/js/data/types.ts`
 - あとから項目が増えるオブジェクト（敵やボス、弾）は、今は任意の項目を許す型（`[k: string]: any`）にしている。さらに固くするときは項目を書き並べて、これを外す
-- `$()` は戻り値が `any`。型を効かせたい所では `el<T>()` か `querySelector<T>()` を使う
+- DOM の取得は `el<T>()`（要素が必ずある所。T は `HTMLCanvasElement` など）。無いかもしれない要素は `document.querySelector<T>()` で null を残す
 - 言語ファイルが後から埋める項目（名前・説明文など）は型では省略可能になっている。表示時に必ず入っているものは `!` で受けている
 
 ## 仕様書のルール

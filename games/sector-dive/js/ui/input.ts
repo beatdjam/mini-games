@@ -1,4 +1,4 @@
-import { $, clamp, rand } from '../../../../engine/core/util.ts';
+import { clamp, el, rand } from '../../../../engine/core/util.ts';
 import { t } from '../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../engine/audio/audio.ts';
 import { toast } from '../../../../engine/ui/ui.ts';
@@ -35,16 +35,16 @@ Object.assign(INPUT, {
     if (e.code === 'Escape' || e.code === 'KeyP') pause();
   },
 });
-tapBtn($('#btnDash'), () => { CTRL.dashReq = true; });
-tapBtn($('#btnReload'), () => { if (state === 'play') startReload(); });
-tapBtn($('#btnKit'), useKit);
-tapBtn($('#btnEquip'), equipNearby);
-tapBtn($('#btnStow'), stowNearby);
-[0, 1].forEach(k => tapBtn($('#w' + k), () => selectSlot(k)));
-$('#btnPause').addEventListener('click', () => { if (state === 'play') pause(); });
-$('#btnBag').addEventListener('click', () => { if (state === 'play') openBag(); });
-$('#mini').addEventListener('click', () => toggleMap());
-$('#bigmap').addEventListener('click', () => toggleMap());
+tapBtn(el('#btnDash'), () => { CTRL.dashReq = true; });
+tapBtn(el('#btnReload'), () => { if (state === 'play') startReload(); });
+tapBtn(el('#btnKit'), useKit);
+tapBtn(el('#btnEquip'), equipNearby);
+tapBtn(el('#btnStow'), stowNearby);
+[0, 1].forEach(k => tapBtn(el('#w' + k), () => selectSlot(k)));
+el('#btnPause').addEventListener('click', () => { if (state === 'play') pause(); });
+el('#btnBag').addEventListener('click', () => { if (state === 'play') openBag(); });
+el('#mini').addEventListener('click', () => toggleMap());
+el('#bigmap').addEventListener('click', () => toggleMap());
 window.addEventListener('wheel', e => { if (state === 'play' && locked) swapWeapon(); }, { passive: true });
 
 export function selectSlot(k: number) {
