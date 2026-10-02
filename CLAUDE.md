@@ -2,13 +2,10 @@
 
 詳しいルールは README.md。**コードや文書を書く前に STYLE.md（書き方の決まり）を読む。** コミットの前に必ず次を守る。
 
-- **更新履歴**: ゲームのフォルダ（`games/<game-id>/`）を触るコミットには、メッセージの末尾に `Changelog:` 行を書く（1変更1行）
-  - 遊ぶ人に関係する変更: `Changelog: 追加|調整|修正 | 本文`（本文は遊ぶ人向けの日本語。更新履歴のページにそのまま載る）
-  - 関係しない変更（リファクタ・テスト・開発用）: `Changelog: なし`（更新履歴には載らない）
-  - 書き忘れは PR の CI（`.github/workflows/changelog.yml`）で止まる。`python3 tools/check_changelog.py origin/master HEAD` で手元でも確かめられる
+- **更新履歴**: ゲームのフォルダ（`games/<game-id>/`）を触るコミットには、末尾に `Changelog: 追加|調整|修正 | 本文`（遊ぶ人に関係しない変更は `Changelog: なし`）を書く。書き方は README「更新履歴のルール」。`python3 tools/check_changelog.py origin/master HEAD` で確かめられる
 - **仕様書**: 数値・ルール・操作・表示を変えたら、同じコミットで `games/<game-id>/SPEC.md` も直す
 - **確認**: `npm run typecheck`、`npm run lint`（スタイルと文言）、`npm test`（Chrome は `CHROME=` で指定）を通してから push する
-- **PR**: 1つの修正・調整につき1本。マージはユーザーがする
+- **PR**: 1つの修正・調整につき1本。PR の CI（Checks・Changelog）が通ってから、マージをユーザーに頼む
 
 ## 作業の進め方（サブエージェントへの振り分け）
 
