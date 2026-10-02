@@ -407,7 +407,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | ファイル | 中身 |
 |----------|------|
 | `../../engine/<フォルダ>/*.ts` | ゲームをまたいで使うコア。一覧は [engine/README.md](../../engine/README.md)、仕様は [engine/SPEC.md](../../engine/SPEC.md) |
-| `js/data/*.ts` | **定義だけ**（ロジックを持たない）。`weapons`（武器・レアリティ・オプション・改造費）、`enemies`（敵と調整値）、`bosses`（ボスの体力・大きさ・攻撃パターンの数値 `tune`）、`viewmodels`（構えている銃の形）、`level`（壁・目線・台・遮蔽物の高さ）、`biomes`（セクター）、`progress`（区画数・`TUNE`・拠点強化・再起動）、`perks`（チップ）、`controls`（ボタン配置と操作一覧）、`sfx`（効果音のレシピ）、`music`（曲調） |
+| `js/data/*.ts` | **定義だけ**（ロジックを持たない）。`weapons`（武器・レアリティ・オプション・改造費）、`enemies`（敵と調整値）、`bosses`（ボスの体力・大きさ・攻撃パターンの数値 `tune`）、`viewmodels`（構えている銃の形）、`level`（壁・目線・台・遮蔽物の高さ）、`biomes`（セクター）、`progress`（区画数・`TUNE`・拠点強化・再起動）、`perks`（チップ）、`controls`（ボタン配置と操作一覧）、`sfx`（効果音のレシピ）、`music`（曲調）、`colors`（共通の色。`COLOR` は three.js 用の数値、`CSS_COLOR` は canvas 用の文字列） |
 | `js/lang/<言語>.ts` | 文言。`ui`（画面の文言）と `data`（武器・チップ・セクターなどの名前と説明）。今は `ja`（基準）と `en` |
 | `js/system/save.ts` | セーブの既定値、読み込みと旧版の変換、保存 |
 | `js/system/rules.ts` | 定義を使う計算式（進行度、ドロップ、改造後の武器、売値） |

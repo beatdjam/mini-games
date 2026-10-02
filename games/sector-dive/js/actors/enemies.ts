@@ -7,6 +7,7 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, spawnEBullet } from '../world/entities.ts';
 import { P, damagePlayer, detonate } from './player.ts';
 import { bossPauseTick, setLaser } from './bosses/common.ts';
+import { COLOR } from '../data/colors.ts';
 // ================= enemy behaviour (per frame) =================
 // Fields on an enemy object are listed in spawnEnemy (js/world/entities.js).
 
@@ -74,7 +75,7 @@ export function updateEnemy(e: Enemy, dt: number) {
 function fireRanged(e: RegularEnemy) {
   const def = e.def, r = def.ranged!; // only called for types with `ranged`
   const muzzleY = e.mesh.position.y + (def.muzzle ?? (def.geo === 'cyl' ? 1.1 : 0));
-  const color = def.color === 0xffe14a ? 0xffe14a : 0xff4d8d;
+  const color = def.color === COLOR.yellow ? COLOR.yellow : COLOR.mag;
   fanAt(e.x, muzzleY, e.z, r.count, r.spread, r.speed, e.dmg, color);
   e.kick = 1; e.shots = (e.shots || 0) + 1; // rounds fired (the smoke test counts a burst)
 }
@@ -127,7 +128,7 @@ export function updateSniper(e: Sniper, dt: number, los: boolean, py: number) {
       e.cd = rand(SNIPER_COOLDOWN[0], SNIPER_COOLDOWN[1]) * ENEMY_TUNE.fireInterval;
       const vx = e.lock[0] - e.x, vy = e.lock[1] - sy, vz = e.lock[2] - e.z;
       const l = Math.hypot(vx, vy, vz) || 1, speed = SNIPER_BULLET_SPEED;
-      spawnEBullet(e.x, sy, e.z, vx / l * speed, vy / l * speed, vz / l * speed, e.dmg, 0xff4d8d, 0.7);
+      spawnEBullet(e.x, sy, e.z, vx / l * speed, vy / l * speed, vz / l * speed, e.dmg, COLOR.mag, 0.7);
       sfx('rail', 80);
     }
     return true;

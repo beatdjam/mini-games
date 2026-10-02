@@ -11,6 +11,7 @@ import { randomTileIn, rooms } from '../../world/level.ts';
 import { enemies, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
 import { P, diffOf, run } from '../player.ts';
 import { bossBase, bossDiff, makeLaser, setLaser } from './common.ts';
+import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
 
 // laser: the aim line; lock: where it is locked on; cycle: warps so far (every droneEvery-th brings drones)
@@ -20,9 +21,9 @@ export function spawnPhantom() {
   const mat = new THREE.MeshLambertMaterial({ color: 0x0c1418, emissive: 0x9fe7ff, emissiveIntensity: 0.3 });
   const body = new THREE.Mesh(geo, mat); body.scale.set(0.8, 1.7, 0.8);
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x9fe7ff })); edge.scale.copy(body.scale);
-  const lens = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), new THREE.MeshBasicMaterial({ color: 0xff4d8d })); lens.position.set(0, 0.5, 0.75);
+  const lens = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), new THREE.MeshBasicMaterial({ color: COLOR.mag })); lens.position.set(0, 0.5, 0.75);
   g.add(body, edge, lens);
-  const e = bossBase('phantom', g, mat, updPhantom, { st: 'idle', laser: makeLaser(0xff4d8d), lock: [0, 0, 0], cycle: 0 });
+  const e = bossBase('phantom', g, mat, updPhantom, { st: 'idle', laser: makeLaser(COLOR.mag), lock: [0, 0, 0], cycle: 0 });
   e.timer = 1.6;
   phantomWarp(e, true);
   toast(t('boss.phantomHint'), 4200);
@@ -48,7 +49,7 @@ export function updPhantom(e: PhantomBoss, dt: number) {
     setLaser(e.laser, eye, e.lock, e.timer > 0.3 ? 0.45 : (Math.sin(e.t * 60) > 0 ? 1 : 0.25));
     if (e.timer <= 0) {
       const v = [e.lock[0] - eye[0], e.lock[1] - eye[1], e.lock[2] - eye[2]], l = Math.hypot(v[0], v[1], v[2]) || 1;
-      spawnEBullet(eye[0], eye[1], eye[2], v[0] / l * K.shotSpeed, v[1] / l * K.shotSpeed, v[2] / l * K.shotSpeed, e.dmg * K.shotDmg, 0xff4d8d, 0.9);
+      spawnEBullet(eye[0], eye[1], eye[2], v[0] / l * K.shotSpeed, v[1] / l * K.shotSpeed, v[2] / l * K.shotSpeed, e.dmg * K.shotDmg, COLOR.mag, 0.9);
       sfx('rail'); e.laser.visible = false; e.shots++;
       if (enr && e.shots < 2) e.timer = K.secondGap; // enraged: a quick second shot
       else { e.st = 'vanish'; e.timer = K.vanish; }

@@ -9,6 +9,7 @@ import { WALL_H } from '../data/level.ts';
 import { eBullets, enemies, isShielded, pBullets } from '../world/entities.ts';
 import { CRIT_MUL, P, critChance, damagePlayer, explode, hurtEnemy, spheres } from './player.ts';
 import { hitMark } from '../ui/hud.ts';
+import { COLOR } from '../data/colors.ts';
 // ---- tuning numbers used only here ----
 const PBULLET_STEP = 0.6;        // player bullets move in sub-steps of at most this (m)
 const EBULLET_STEP = 0.5;        // enemy bullets: the same
@@ -37,7 +38,7 @@ export function updatePBullets(dt: number) {
     b.mesh.position.set(b.x, b.y, b.z);
     if (b.blast) { // rocket: face the flight direction and leave a smoke trail
       b.mesh.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
-      const smoke = Math.random() < SMOKE_ORANGE ? 0xff8a3d : 0x6b7480;
+      const smoke = Math.random() < SMOKE_ORANGE ? COLOR.orange : 0x6b7480;
       burst(b.x - b.vx * 0.02, b.y, b.z - b.vz * 0.02, smoke, 1, 0.6, 0.7, -1.5);
     }
   }
@@ -79,13 +80,13 @@ export function shieldBlocks(b: PBullet, e: Enemy) {
   const ox = b.x - e.x, oz = b.z - e.z, ol = Math.hypot(ox, oz) || 1;
   if ((ox * fx + oz * fz) / ol <= SHIELD_FRONT_DOT) return false; // came from the side or behind
   e.shieldHp -= b.dmg;
-  burst(b.x, b.y, b.z, 0x8cc8ff, 4, 5, 0.25);
+  burst(b.x, b.y, b.z, COLOR.shield, 4, 5, 0.25);
   hitMark(false);
   if (e.shieldHp <= 0) {
     e.shieldParts.forEach((o: THREE.Object3D) => e.mesh.remove(o));
     e.stun = SHIELD_BREAK_STUN;
     e.flash = SHIELD_BREAK_FLASH;
-    burst(b.x, b.y, b.z, 0x8cc8ff, 22, 8, 0.6);
+    burst(b.x, b.y, b.z, COLOR.shield, 22, 8, 0.6);
     sfx('boom', 60);
   } else {
     sfx('empty', 60);
@@ -116,7 +117,7 @@ export function updateEBullets(dt: number) {
     if (b.homing > 0) steerHoming(b, dt);
     const hitR = EBULLET_HIT_R + EBULLET_HIT_R_PER_SIZE * b.size;
     const gone = stepProjectile(b, dt, EBULLET_STEP, b => {
-      if (b.life <= 0 || projHitsTerrain(b, Infinity, EBULLET_TERRAIN_PAD)) { burst(b.x, Math.max(0.1, b.y), b.z, 0xff4d8d, 2, 3, 0.2); return true; }
+      if (b.life <= 0 || projHitsTerrain(b, Infinity, EBULLET_TERRAIN_PAD)) { burst(b.x, Math.max(0.1, b.y), b.z, COLOR.mag, 2, 3, 0.2); return true; }
       const dx = b.x - P.x, dz = b.z - P.z;
       const touchesPlayer = dx * dx + dz * dz < hitR * hitR && b.y > P.fy && b.y < P.fy + PLAYER_HEIGHT;
       if (touchesPlayer && P.inv <= 0) { damagePlayer(b.dmg, { x: b.ox, z: b.oz }); return true; }

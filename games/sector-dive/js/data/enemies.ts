@@ -1,8 +1,9 @@
 import type { EnemyDef } from './types.ts';
+import { COLOR } from './colors.ts';
 // Enemy types and their tuning
 export const ENEMY: Record<string, EnemyDef> = {
   crawler: { hp: 30,  speed: 6.4, r: 0.55, y: 0.6, hitR: 0.85, dmg: 10, melee: true, bits: 3, color: 0xff4d8d, geo: 'tetra' },
-  drone:   { hp: 24,  speed: 3.4, r: 0.5,  y: 2.3, hitR: 0.8,  dmg: 8,  fly: true, keep: 9, bits: 3, color: 0xffe14a, geo: 'octa',
+  drone:   { hp: 24,  speed: 3.4, r: 0.5,  y: 2.3, hitR: 0.8,  dmg: 8,  fly: true, keep: 9, bits: 3, color: COLOR.yellow, geo: 'octa',
              ranged: { rate: 1.9, speed: 14, count: 1, spread: 0 } },
   turret:  { hp: 60,  speed: 0,   r: 0.8,  y: 0.9, hitR: 1.1,  dmg: 9,  bits: 5, color: 0x8cff6a, geo: 'cyl',
              ranged: { rate: 2.2, speed: 12, count: 3, spread: 0.2 } },
@@ -13,7 +14,7 @@ export const ENEMY: Record<string, EnemyDef> = {
   // blocks bullets from the front but turns slowly (turn rad/s); the shield breaks after shieldHp damage and staggers it
   shield:  { hp: 90,  speed: 3.1, r: 0.8,  y: 1.0, hitR: 1.0,  dmg: 12, melee: true, shield: true, shieldHp: 90, turn: 1.6, bits: 7, color: 0x8cc8ff, geo: 'slab' },
   // rushes in and detonates; also blows up when shot, hurting nearby enemies too
-  bomber:  { hp: 16,  speed: 7.8, r: 0.5,  y: 0.6, hitR: 0.75, dmg: 26, bomber: true, bits: 3, color: 0xffb13d, geo: 'ico' },
+  bomber:  { hp: 16,  speed: 7.8, r: 0.5,  y: 0.6, hitR: 0.75, dmg: 26, bomber: true, bits: 3, color: COLOR.bomber, geo: 'ico' },
   splitter:{ hp: 70,  speed: 4.0, r: 0.8,  y: 0.9, hitR: 1.1,  dmg: 12, melee: true, split: true, bits: 6, color: 0x7dffcf, geo: 'dodeca' },
   // humanoid robot soldier: keeps a middle distance and fires 3-round bursts. Not tied to a sector: a few turn up
   // everywhere (ENEMY_TUNE.trooperChance). Built from boxes with jointed limbs (buildHumanoid in js/world/entities.ts)

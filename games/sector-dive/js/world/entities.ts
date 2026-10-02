@@ -15,6 +15,7 @@ import { P, dmgScaleOf, run } from '../actors/player.ts';
 import { makeLaser } from '../actors/bosses/common.ts';
 import { updateEnemy } from '../actors/enemies.ts';
 import { updatePickup, updateWave } from '../flow/update.ts';
+import { COLOR } from '../data/colors.ts';
 // ================= entities =================
 // pickups and shockwaves live in the engine world (engine/core/world.js) with tag 'pickup' / 'wave'
 // enemies (bosses included) are an engine world group updated at order 10; `enemies` is that group's list
@@ -47,7 +48,7 @@ export function spawnEBullet(x: number, y: number, z: number, vx: number, vy: nu
   const b = takeFromPool(eBullets, geoCache.ebullet, 360); if (!b) return;
   b.alive = true; b.x = x; b.y = y; b.z = z; b.ox = x; b.oz = z; b.vx = vx; b.vy = vy; b.vz = vz; b.dmg = dmg; b.life = 6;
   b.size = size || 1; b.homing = homing || 0; b.speed = Math.hypot(vx, vy, vz);
-  b.mesh.material = basicMat(color || 0xff4d8d); b.mesh.scale.setScalar(b.size); b.mesh.visible = true; b.mesh.position.set(x, y, z);
+  b.mesh.material = basicMat(color || COLOR.mag); b.mesh.scale.setScalar(b.size); b.mesh.visible = true; b.mesh.position.set(x, y, z);
 }
 export function shootAngle(x: number, y: number, z: number, ang: number, speed: number, dmg: number, color: number, size?: number) {
   const s = Math.sin(ang), c = Math.cos(ang);
@@ -74,7 +75,7 @@ function buildHumanoid(def: EnemyDef, mat: THREE.Material) {
   part('hTorso', upper, 0, 0.4, 0);
   const neck = joint(upper, 0, 0.78, 0);
   part('hHead', neck, 0, 0.16, 0);
-  const visor = new THREE.Mesh(geoCache.hVisor, basicMat(0xff4d8d)); visor.position.set(0, 0.18, 0.18); neck.add(visor);
+  const visor = new THREE.Mesh(geoCache.hVisor, basicMat(COLOR.mag)); visor.position.set(0, 0.18, 0.18); neck.add(visor);
   const armL = joint(upper, -0.42, 0.68, 0), armR = joint(upper, 0.42, 0.68, 0);
   part('hArm', armL, 0, -0.3, 0); part('hArm', armR, 0, -0.3, 0);
   part('hGun', armR, 0, -0.66, 0.1, basicMat(0x1d2935)); // along the forearm: points forward when the arm is raised
@@ -91,11 +92,11 @@ export function buildEnemyMesh(def: EnemyDef) {
   g.add(body, new THREE.LineSegments(edges(def.geo), lineMat(def.color)));
   if (def.geo === 'cyl') { const head = new THREE.Mesh(geoCache.chip, basicMat(def.color)); head.position.y = 1.1; g.add(head); }
   if (def.shield) {
-    const plate = new THREE.Mesh(geoCache.shieldPlate, basicMat(0x2b5f8f)), edge = new THREE.LineSegments(edges('shieldPlate'), lineMat(0x8cc8ff));
+    const plate = new THREE.Mesh(geoCache.shieldPlate, basicMat(0x2b5f8f)), edge = new THREE.LineSegments(edges('shieldPlate'), lineMat(COLOR.shield));
     plate.position.set(0, 0.1, 0.75); edge.position.copy(plate.position);
     g.add(plate, edge); g.userData.shield = [plate, edge];
   }
-  if (def.sniper) { const eye = new THREE.Mesh(geoCache.chip, basicMat(0xff4d8d)); eye.scale.setScalar(0.5); eye.position.set(0, 0.7, 0.25); g.add(eye); }
+  if (def.sniper) { const eye = new THREE.Mesh(geoCache.chip, basicMat(COLOR.mag)); eye.scale.setScalar(0.5); eye.position.set(0, 0.7, 0.25); g.add(eye); }
   return { g, mat, body };
 }
 export function spawnEnemy(type: string, x: number, z: number, room: number, diff: number): RegularEnemy {
@@ -126,7 +127,7 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     e.shieldHp = def.shieldHp! * diff;       // shield breaks at 0
     e.shieldParts = m.g.userData.shield;    // plate + outline meshes, removed on break
   }
-  if (def.sniper) { e.laser = makeLaser(0xff4d8d); e.aim = 0; e.lock = [0, 0, 0]; }
+  if (def.sniper) { e.laser = makeLaser(COLOR.mag); e.aim = 0; e.lock = [0, 0, 0]; }
   if (def.humanoid) { // head, chest and legs are hit separately (kept in place by poseHumanoid); walk cycle state
     e.rig = m.g.userData.rig; e.walk = 0; e.px = x; e.pz = z; e.kick = 0;
     e.parts = [{ p: new THREE.Vector3(), r: 0.36 }, { p: new THREE.Vector3(), r: 0.62 }, { p: new THREE.Vector3(), r: 0.5 }];
@@ -164,13 +165,13 @@ export function clearOfPortals(x: number, z: number): [number, number] {
 export function addPickup(kind: string, x: number, z: number, extra?: { value?: number; w?: Weapon }): Pickup {
   [x, z] = clearOfPortals(x, z);
   let mesh: THREE.Object3D;
-  if (kind === 'bit') mesh = new THREE.Mesh(geoCache.bit, basicMat(0xffc24a));
+  if (kind === 'bit') mesh = new THREE.Mesh(geoCache.bit, basicMat(COLOR.amber));
   else if (kind === 'kit') {
     mesh = new THREE.Group();
-    mesh.add(new THREE.Mesh(geoCache.cross1, basicMat(0x8cff6a)), new THREE.Mesh(geoCache.cross2, basicMat(0x8cff6a)), new THREE.LineSegments(edges('chipOuter'), lineMat(0x8cff6a)));
+    mesh.add(new THREE.Mesh(geoCache.cross1, basicMat(COLOR.lime)), new THREE.Mesh(geoCache.cross2, basicMat(COLOR.lime)), new THREE.LineSegments(edges('chipOuter'), lineMat(COLOR.lime)));
   } else if (kind === 'chip') {
     mesh = new THREE.Group();
-    mesh.add(new THREE.Mesh(geoCache.chip, basicMat(0xffc24a)), new THREE.LineSegments(edges('chipOuter'), lineMat(0xffc24a)));
+    mesh.add(new THREE.Mesh(geoCache.chip, basicMat(COLOR.amber)), new THREE.LineSegments(edges('chipOuter'), lineMat(COLOR.amber)));
   } else {
     const w = extra!.w!, col = WEAPONS[w.id].color;
     mesh = new THREE.Group();

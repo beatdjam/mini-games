@@ -8,6 +8,7 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
 import { diffOf, run } from '../player.ts';
 import { bossBase } from './common.ts';
+import { COLOR } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
 // ---- BASTION: shielded core; destroy every turret to open it for a few seconds ----
@@ -20,7 +21,7 @@ export function spawnBastion() {
   const base = new THREE.Mesh(baseGeo, mat); base.position.y = -1.6;
   const baseEdge = new THREE.LineSegments(new THREE.EdgesGeometry(baseGeo), new THREE.LineBasicMaterial({ color: 0xffb347 })); baseEdge.position.y = -1.6;
   const core = new THREE.Mesh(coreGeo, mat);
-  const shieldM = new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 14), new THREE.MeshBasicMaterial({ color: 0x8cc8ff, transparent: true, opacity: 0.25, depthWrite: false }));
+  const shieldM = new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 14), new THREE.MeshBasicMaterial({ color: COLOR.shield, transparent: true, opacity: 0.25, depthWrite: false }));
   g.add(base, baseEdge, core, shieldM);
   const e = bossBase('bastion', g, mat, updBastion, { core, shield: shieldM, invuln: true, turrets: [], openT: 0, ringT: 2.5 });
   e.x = e.cx; e.z = e.cz;
@@ -49,7 +50,7 @@ export function updBastion(e: BastionBoss, dt: number) {
   e.ringT -= dt;
   if (e.ringT <= 0) {
     ring(e.cx, e.cz, 1.3, e.invuln ? K.ring[0] : K.ringOpen[0], e.invuln ? K.ring[1] : K.ringOpen[1], e.t, e.dmg, 0xffb347);
-    if (enr) for (let k = 0; k < K.enrShots; k++) { const a = rand(0, Math.PI * 2); spawnEBullet(e.cx + Math.sin(a) * 2.5, 2.6, e.cz + Math.cos(a) * 2.5, Math.sin(a) * K.enrSpeed, 1, Math.cos(a) * K.enrSpeed, e.dmg, 0xff4d8d, 1.3, 3); }
+    if (enr) for (let k = 0; k < K.enrShots; k++) { const a = rand(0, Math.PI * 2); spawnEBullet(e.cx + Math.sin(a) * 2.5, 2.6, e.cz + Math.cos(a) * 2.5, Math.sin(a) * K.enrSpeed, 1, Math.cos(a) * K.enrSpeed, e.dmg, COLOR.mag, 1.3, 3); }
     e.ringT = e.invuln ? K.ringEvery : K.ringEveryOpen;
   }
   e.mesh.position.set(e.cx, e.y, e.cz);

@@ -24,6 +24,7 @@ import { spawnTrinity } from './trinity.ts';
 import { spawnBastion } from './bastion.ts';
 import { SCR } from '../../ui/hud.ts';
 import { track } from '../../../../../engine/core/analytics.ts';
+import { COLOR } from '../../data/colors.ts';
 // ================= bosses =================
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
 // sliding down to x lateGrowth per depth deeper in (hpGrowth in js/data/progress.ts)
@@ -59,7 +60,7 @@ export function bossPauseTick(e: Boss, dt: number) {
 export function bossPhase(e: Boss) {
   e.phased = true; e.spawnT = e.spawnMax = BOSS_TUNE.phaseTime; e.intro = false;
   const p = e.mesh.position;
-  burst(p.x, p.y, p.z, 0xff4d8d, 40, 12, 1.0); fireball(p.x, p.y, p.z, 4, 0xff4d8d);
+  burst(p.x, p.y, p.z, COLOR.mag, 40, 12, 1.0); fireball(p.x, p.y, p.z, 4, COLOR.mag);
   SCR.shake = Math.max(SCR.shake, 0.4); sfx('bigboom');
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
   toast(t('boss.phase2'), 2000);
@@ -79,7 +80,7 @@ export function bossDown(e: Boss) {
   eBullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
   query('wave').forEach(w => { w.dead = true; }); // a shockwave still spreading must not kill the player after the win
   if (run.practice) { // practice: no rewards, no progress; just a way home
-    makePortal(e.cx, e.cz - 2, 0x54e8ff, 'extract', t('boss.toBase'));
+    makePortal(e.cx, e.cz - 2, COLOR.cyan, 'extract', t('boss.toBase'));
     el('#bossBar').hidden = true; setBoss(null); run.cleared = true;
     toast(t('boss.practiceWon'), 2600);
     return;
@@ -90,8 +91,8 @@ export function bossDown(e: Boss) {
   addPickup('chip', e.cx, e.cz + 4); addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + prog(run.stage) * 0.03;
   addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(prog(run.stage) + 2, roll > 0.9 ? 2 : 1) });
-  makePortal(e.cx + 6, e.cz - 2, 0xffc24a, 'next', t('boss.forward'));
-  makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', t('boss.extract'));
+  makePortal(e.cx + 6, e.cz - 2, COLOR.amber, 'next', t('boss.forward'));
+  makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
   el('#bossBar').hidden = true; setBoss(null);
   save.bossKills++;
   if (stageInfo(run.stage).tier >= 2 && !save.canReboot) { save.canReboot = true; setTimeout(() => toast(t('boss.rebootUnlocked'), 4200), 4400); }

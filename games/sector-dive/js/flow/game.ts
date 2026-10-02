@@ -9,7 +9,7 @@ import { T, W, floorY } from '../../../../engine/world/tiles.ts';
 import { banner, enterFs, isFs, toast } from '../../../../engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '../../../../engine/ui/input.ts';
 import { applyLayout } from '../../../../engine/ui/touchlayout.ts';
-import { MOD_CAP_PER_DEPTH, MOD_PLUS_MAX, MOD_RARITY_COST, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
+import { MOD_CAP_PER_DEPTH, MOD_PLUS_MAX, MOD_RARITY_COST, RARITY, RATE_OPT_MUL, RELOAD_OPT_MUL, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
 import { EYE } from '../data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
@@ -29,6 +29,7 @@ import { hideShare, prepShare } from '../ui/share.ts';
 import { prepFeedback, showBaseFeedback } from '../ui/feedback.ts';
 import { tickClock } from './update.ts';
 import { track } from '../../../../engine/core/analytics.ts';
+import { COLOR } from '../data/colors.ts';
 // ================= game flow =================
 export let state: string = 'base';
 export function setState(s: string) { state = s; }
@@ -82,7 +83,7 @@ export function startStage() {
   } else {
     const [sx, sz] = roomSpot(rooms[startIdx]); P.x = sx; P.z = sz;
     const [ex, ez] = roomSpot(rooms[exitIdx]); P.yaw = Math.atan2(-(ex - sx), -(ez - sz)); P.pitch = 0;
-    makePortal(ex, ez, 0xffc24a, 'next', t(si.sub === PER - 2 ? 'run.toBoss' : 'run.nextArea'));
+    makePortal(ex, ez, COLOR.amber, 'next', t(si.sub === PER - 2 ? 'run.toBoss' : 'run.nextArea'));
     rooms.forEach((r, idx) => {
       if (idx === startIdx) return;
       const n = Math.min(ENEMY_TUNE.maxPerRoom, Math.max(2, Math.floor(r.w * r.h / (b.gen.density || 3))), randi(2, 4) + Math.floor(prog(run.stage) * 0.3));
@@ -231,10 +232,10 @@ export function statsHTML() {
   const w = curW(), pct = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`, rows: [string, string | number][] = [];
   rows.push([t('stats.maxHp'), P.maxHp]);
   rows.push([t('stats.dmg'), pct(P.dmgMul * wDmgMul(w) - 1)]); // chips and upgrades x the weapon's rarity and +value
-  rows.push([t('stats.rate'), pct(P.fireRate / Math.pow(0.91, wo('rate')) - 1)]);
+  rows.push([t('stats.rate'), pct(P.fireRate / Math.pow(RATE_OPT_MUL, wo('rate')) - 1)]);
   rows.push([t('stats.speed'), pct(P.spdMul * (1 + 0.06 * wo('speed')) - 1)]);
   rows.push([t('stats.stamina'), t('stats.staminaV', { max: P.stMax, dashes: Math.floor(P.stMax / TUNE.dashCost), regen: Math.round(P.stRegen) })]);
-  rows.push([t('stats.reload'), pct(P.reloadMul * Math.pow(0.8, wo('reload')) - 1)]);
+  rows.push([t('stats.reload'), pct(P.reloadMul * Math.pow(RELOAD_OPT_MUL, wo('reload')) - 1)]);
   rows.push([t('stats.mag'), pct(magSize(w) / WEAPONS[w.id].mag - 1)]); // as the weapon really loads (the launcher gets half the chips)
   rows.push([t('stats.crit'), `${Math.round(critChance() * 100)}%${P.crit + 0.08 * wo('crit') > TUNE.critCap ? t('stats.capped') : ''}`]);
   const pierce = P.pierce + wo('pierce'), leech = P.leech + 2 * wo('leech'), gain = P.gainMul * (1 + 0.1 * wo('gain'));
@@ -397,7 +398,7 @@ export function buildAttract() {
   rooms.forEach((r, idx) => { if (idx === startIdx) return; for (let k = 0; k < 3; k++) { const [x, z] = randomTileIn(r); spawnEnemy(pick(ab.enemies), x, z, idx, 1); } });
   attractPos = roomSpot(rooms[startIdx]);
   const [ex, ez] = roomSpot(rooms[exitIdx]); attractYaw = Math.atan2(-(ex - attractPos[0]), -(ez - attractPos[1]));
-  makePortal(ex, ez, 0xffc24a, 'next', '');
+  makePortal(ex, ez, COLOR.amber, 'next', '');
   seen.fill(1);
 }
 export function attract(dt: number) {

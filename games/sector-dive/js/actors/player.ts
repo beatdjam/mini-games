@@ -8,7 +8,7 @@ import { burst, fireball } from '../../../../engine/render/fx.ts';
 import { hasLOS, moveCircle } from '../../../../engine/world/tiles.ts';
 import { toast } from '../../../../engine/ui/ui.ts';
 import { joy, keys } from '../../../../engine/ui/input.ts';
-import { AFFIX, PLUS_DMG, RARITY, SPLIT_FAN, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
+import { AFFIX, PLUS_DMG, RARITY, RATE_OPT_MUL, RELOAD_OPT_MUL, SPLIT_FAN, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { VIEWMODELS, VM_COLORS } from '../data/viewmodels.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
@@ -20,6 +20,7 @@ import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy, spawnPBullet
 import { bossDown, bossPhase } from './bosses/common.ts';
 import { SCR, hitDirection, hitMark } from '../ui/hud.ts';
 import { endRun, state } from '../flow/game.ts';
+import { COLOR } from '../data/colors.ts';
 // ---- tuning numbers used only here ----
 // player
 const PLAYER_R = 0.45;              // body radius (m)
@@ -49,8 +50,6 @@ const MAG_OPT_PER_LEVEL = 0.3;      // magazine size per mag option
 const SPLIT_DMG_PER_CHIP = 0.2;     // total damage per split-shot chip
 const CRIT_PER_OPT = 0.08;          // crit chance per crit option
 const PIERCE_BLAST_PER_LEVEL = 0.15; // rocket blast radius per pierce level
-const RATE_OPT_MUL = 0.91;          // fire interval multiplier per rate option
-const RELOAD_OPT_MUL = 0.8;         // reload time multiplier per reload option
 export const CRIT_MUL = 2;                 // crit damage multiplier
 const LEECH_OPT_HP = 2;             // HP per kill from each leech option
 // aim
@@ -278,7 +277,7 @@ export function damagePlayer(d: number, from?: { x: number; z: number }) {
 export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
   if (e.dead) return;
   if (e.boss && e.spawnT > 0) { burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0xffffff, 2, 3, 0.2); return; }
-  if (e.invuln) { if (!e.hinted) { e.hinted = true; toast(t('run.shielded'), 2400); } burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0x8cc8ff, 2, 4, 0.2); return; }
+  if (e.invuln) { if (!e.hinted) { e.hinted = true; toast(t('run.shielded'), 2400); } burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, COLOR.shield, 2, 4, 0.2); return; }
   if (e.stunMul) dmg *= e.stunMul;
   e.hp -= dmg; e.flash = ENEMY_FLASH;
   if (!e.active) { e.active = true; if (e.room >= 0) enemies.forEach(o => { if (o.room === e.room) o.active = true; }); }
@@ -292,14 +291,14 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
   if (crit) dmg *= CRIT_MUL;
   if (big) {
     // kept small and short so a blast near you doesn't hide what's behind it
-    fireball(x, y, z, radius * 0.5, 0xff8a3d); fireball(x, y, z, radius * 0.28, 0xfff2c0);
-    burst(x, y, z, 0xff6a3d, 26, 12, 0.6); burst(x, y, z, 0xffc24a, 10, 7, 0.45); burst(x, y + 0.5, z, 0x5b6470, 6, 2.5, 0.7, -3);
+    fireball(x, y, z, radius * 0.5, COLOR.orange); fireball(x, y, z, radius * 0.28, 0xfff2c0);
+    burst(x, y, z, COLOR.fire, 26, 12, 0.6); burst(x, y, z, COLOR.amber, 10, 7, 0.45); burst(x, y + 0.5, z, 0x5b6470, 6, 2.5, 0.7, -3);
     sfx('bigboom', 60);
     const pd = Math.hypot(P.x - x, P.z - z);
     SCR.shake = Math.max(SCR.shake, BLAST_SHAKE * clamp(1 - pd / BLAST_SHAKE_DIST, BLAST_SHAKE_MIN, 1));
     if (pd < radius * BLAST_SELF_R && state === 'play') damagePlayer(BLAST_SELF_DMG * dmgScaleOf(run.stage));
   } else {
-    burst(x, y, z, color || 0xff6a3d, 22, 9, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.4);
+    burst(x, y, z, color || COLOR.fire, 22, 9, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.4);
     sfx('boom', 60); SCR.shake = Math.max(SCR.shake, 0.12);
   }
   for (const e of enemies.slice()) { // enemies spawned by this blast's kills aren't hit by it
@@ -315,7 +314,7 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
 }
 // bomber blast: hurts the player and any enemy caught in it
 export function bomberBlast(x: number, y: number, z: number, dmg: number) {
-  burst(x, y, z, 0xffb13d, 26, 10, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.3); fireball(x, y, z, 3, 0xff8a3d);
+  burst(x, y, z, COLOR.bomber, 26, 10, 0.7); burst(x, y, z, 0xffffff, 8, 5, 0.3); fireball(x, y, z, 3, COLOR.orange);
   sfx('boom', 40); SCR.shake = Math.max(SCR.shake, BOMBER_SHAKE);
   if (Math.hypot(P.x - x, P.z - z) < BOMBER_PLAYER_R && Math.abs(P.fy + 1 - y) < BOMBER_PLAYER_DY) damagePlayer(dmg, { x, z });
   // the blast on other enemies grows with enemy health, so it still matters deep down
@@ -328,7 +327,7 @@ export function killEnemy(e: Enemy, noReward?: boolean) {
   e.dead = true;
   if (!noReward) run.kills++;
   const pos = e.mesh.position;
-  burst(pos.x, pos.y, pos.z, e.boss ? 0xff4d8d : e.def.color, e.boss ? 60 : 14, e.boss ? 14 : 8, e.boss ? 1.4 : 0.7);
+  burst(pos.x, pos.y, pos.z, e.boss ? COLOR.mag : e.def.color, e.boss ? 60 : 14, e.boss ? 14 : 8, e.boss ? 1.4 : 0.7);
   removeEnemyMesh(e); sfx('kill', 30);
   if (e.boss) { bossDown(e); return; }
   if (e.def.bomber && !e.detonated) { e.detonated = true; bomberBlast(e.x, pos.y, e.z, e.dmg * BOMBER_DEATH_DMG); }
@@ -341,7 +340,7 @@ export function killEnemy(e: Enemy, noReward?: boolean) {
       inChainBlast = true;
       // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
       const depthScale = enemyGrowth(prog(run.stage) / STAGES_PER_GROWTH_DEPTH);
-      explode(pos.x, pos.y, pos.z, CHAIN_R_BASE + P.chain * CHAIN_R_PER, CHAIN_DMG * P.chain * P.dmgMul * depthScale, 0xffc24a);
+      explode(pos.x, pos.y, pos.z, CHAIN_R_BASE + P.chain * CHAIN_R_PER, CHAIN_DMG * P.chain * P.dmgMul * depthScale, COLOR.amber);
       inChainBlast = false;
     }
   }

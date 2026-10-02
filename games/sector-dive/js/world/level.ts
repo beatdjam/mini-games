@@ -12,6 +12,7 @@ import type { Biome } from '../data/types.ts';
 import { biomeTex } from './render.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
 import { P, damagePlayer, dmgScaleOf, run } from '../actors/player.ts';
+import { COLOR } from '../data/colors.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const GEN_MAP_SIZE = 36;          // default map side (tiles)
 const GEN_ROOM_COUNT: [number, number] = [5, 6]; // default number of rooms (min, max)
@@ -252,7 +253,7 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
   if (biome.gen.neon && !isArena) {
     const spots: [number, number, number, number][] = [];
     list.forEach(([i, j]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([a, b]) => { if (!isSolid(i + a, j + b)) spots.push([i, j, a, b]); }));
-    const pickSpots = shuffle(spots).slice(0, NEON_COUNT), colors = [0xff3d8a, 0x3dffb4, 0xffd23d, 0x4dc3ff, 0xc58cff];
+    const pickSpots = shuffle(spots).slice(0, NEON_COUNT), colors = [0xff3d8a, 0x3dffb4, 0xffd23d, 0x4dc3ff, COLOR.violet];
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(T * 0.55, 0.45, 0.08), new THREE.MeshBasicMaterial({ color: 0xffffff }), pickSpots.length);
     const q = new THREE.Quaternion(), s1 = new THREE.Vector3(1, 1, 1), c = new THREE.Color();
     pickSpots.forEach(([i, j, a, b], n) => {

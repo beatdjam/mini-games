@@ -30,6 +30,7 @@ import { updatePBullets } from '../actors/bullets.ts';
 import { update, updatePickups } from '../flow/update.ts';
 import { TRACK_LOG } from '../../../../engine/core/analytics.ts';
 import { FEEDBACK_FORM } from '../../../../engine/core/feedback.ts';
+import { COLOR } from '../data/colors.ts';
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
@@ -350,7 +351,7 @@ devSmoke(() => {
         let s = spawnEnemy('splitter', cx, cz, -1, 1); hurtEnemy(s, 1e6, false);
         const a1 = enemies.filter(e => !e.dead && !e.boss && e.type === 'mini').length;
         P.chain = 0;
-        s = spawnEnemy('splitter', cx + 10, cz, -1, 1); explode(s.x, 1, s.z, 5, 1e6, 0xff6a3d, true);
+        s = spawnEnemy('splitter', cx + 10, cz, -1, 1); explode(s.x, 1, s.z, 5, 1e6, COLOR.fire, true);
         const a2 = enemies.filter(e => !e.dead && !e.boss && e.type === 'mini').length;
         if (a1 !== 2 || a2 !== 4) throw new Error('splitter halves ' + a1 + ' ' + a2);
         console.log('SMOKE splitter ok');
@@ -394,7 +395,7 @@ devSmoke(() => {
           boss!.spawnT = 0;
           if (boss!.name.indexOf(BOSS_META[kind]!.name.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss!.name);
           if (boss!.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
-          spawnWave(boss!.x, boss!.z, 11, 18, 10, 0xff8a3d); // a shockwave still spreading when the boss falls
+          spawnWave(boss!.x, boss!.z, 11, 18, 10, COLOR.orange); // a shockwave still spreading when the boss falls
           hurtEnemy(boss!, boss!.hp + 1, false);
           if (query('wave').length) throw new Error('shockwave outlived the boss ' + kind);
           tick(30);
