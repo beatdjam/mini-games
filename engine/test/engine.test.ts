@@ -47,6 +47,7 @@ import { steerChase } from '../src/world/steer.ts';
 import { toast } from '../src/ui/ui.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveImage } from '../src/ui/share.ts';
+import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
 import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
 import { TOUCH_LAYOUT, applyLayout, buttonLayout, layoutEditor, openLayoutEditor } from '../src/ui/touchlayout.ts';
 // Engine tests (Vitest, in Chromium: npm test). The page elements the engine expects are made by engine/test/setup.ts.
@@ -590,4 +591,66 @@ test('share: X post URL, saving an image, clipboard support', () => {
   expect(click).toHaveBeenCalledTimes(1);
   click.mockRestore();
   eq(typeof canCopyImage(), 'boolean');
+});
+
+test('settings: every panel shows the items, a click or a slider changes them everywhere', () => {
+  const st = { on: false, mode: 'a', vol: 0.5 };
+  const changed: string[] = [];
+  let pressed = 0;
+  const keep = { items: SETTINGS.items, onChange: SETTINGS.onChange };
+  SETTINGS.items = [
+    { kind: 'toggle', key: 'on', label: () => 'On', get: () => st.on, set: v => (st.on = v) },
+    {
+      kind: 'choice',
+      key: 'mode',
+      label: () => 'Mode',
+      options: [
+        { value: 'a', label: () => 'A' },
+        { value: 'b', label: () => 'B' },
+      ],
+      get: () => st.mode,
+      set: v => (st.mode = v),
+    },
+    {
+      kind: 'range',
+      key: 'vol',
+      label: () => 'Vol',
+      min: 0,
+      max: 1,
+      step: 0.1,
+      get: () => st.vol,
+      set: v => (st.vol = v),
+      format: v => v.toFixed(1),
+    },
+    { kind: 'button', key: 'go', label: () => 'Go', onClick: () => pressed++ },
+    { kind: 'toggle', key: 'hidden', label: () => 'Hidden', show: () => false, get: () => true, set: () => {} },
+  ];
+  SETTINGS.onChange = key => changed.push(key);
+  const box = document.createElement('div');
+  box.innerHTML = '<div data-settings="one"></div><div data-settings="two"></div>';
+  document.body.appendChild(box);
+  try {
+    renderSettings();
+    const [one, two] = [...box.querySelectorAll<HTMLElement>('[data-settings]')];
+    ok(one.querySelector('#vol-one') && two.querySelector('#vol-two'), 'each panel has its own slider id');
+    eq(one.querySelector('[data-set="hidden"]'), null, 'show: false hides the item');
+    one.querySelector<HTMLElement>('[data-set="on"]')!.click();
+    eq(st.on, true, 'the toggle flips the value');
+    eq(two.querySelector('[data-set="on"]')!.getAttribute('aria-pressed'), 'true', 'the other panel is drawn again');
+    two.querySelector<HTMLElement>('[data-choice="mode"][data-value="b"]')!.click();
+    eq(st.mode, 'b', 'a choice sets the value');
+    const slider = one.querySelector<HTMLInputElement>('[data-range="vol"]')!;
+    slider.value = '0.8';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    near(st.vol, 0.8, 1e-9, 'the slider sets the value');
+    eq(two.querySelector<HTMLInputElement>('[data-range="vol"]')!.value, '0.8', 'the other slider follows');
+    eq(two.querySelector('[data-range-v="vol"]')!.textContent, '0.8', 'and its value text');
+    one.querySelector<HTMLElement>('[data-action="go"]')!.click();
+    eq(pressed, 1, 'a button runs its action');
+    eq(changed.join(), 'on,mode,vol', 'onChange runs for each change');
+  } finally {
+    box.remove();
+    SETTINGS.items = keep.items;
+    SETTINGS.onChange = keep.onChange;
+  }
 });

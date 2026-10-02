@@ -1,17 +1,16 @@
 import type { WeaponItem } from '../data/types.ts';
 import { clamp, el, isTouch } from '@engine/core/util.ts';
-import { LANG, lang, setLang, t } from '@engine/core/i18n.ts';
-import { applySfxVolume, audioInit } from '@engine/audio/audio.ts';
-import { musicVolume } from '@engine/audio/music.ts';
+import { setLang, t } from '@engine/core/i18n.ts';
 import { camera, resize } from '@engine/render/render.ts';
 import { fsSupported, isFullscreen, isStandalone, toggleFs } from '@engine/ui/ui.ts';
 import { locked } from '@engine/ui/input.ts';
 import { createHitDirs } from '@engine/ui/hitdir.ts';
-import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
+import { TOUCH_LAYOUT } from '@engine/ui/touchlayout.ts';
+import { renderSettings } from '@engine/ui/settings.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
-import { persist, save, syncVolumes } from '../core/save.ts';
-import { layoutEdits, resetLayout, setLanguage, setSetting, toggleSetting } from '../core/progress.ts';
+import { persist, save } from '../core/save.ts';
+import { layoutEdits, resetLayout, setLanguage } from '../core/progress.ts';
 import { boss, nearPickup, target } from '../world/entities.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
 import { magSize, weaponName, weaponText, weaponStats } from '../actors/weapons.ts';
@@ -168,90 +167,6 @@ el('#btnFs').addEventListener('click', toggleFs);
   }),
 );
 
-export function settingsHTML(where?: string) {
-  const st = save.settings;
-  const onOff = (v: boolean) => t(v ? 'set.on' : 'set.off');
-  const langSeg = `<div class="seg" role="group" aria-label="${t('set.lang')}"><span>${t('set.lang')}</span>${Object.keys(
-    LANG,
-  )
-    .map(k => `<button data-lang="${k}" aria-pressed="${lang === k}">${LANG[k].name}</button>`)
-    .join('')}</div>`;
-  const fsBtn =
-    fsSupported && !isStandalone
-      ? `<button class="toggle" data-fs="1" aria-pressed="${isFullscreen()}">${t('set.fs')}<b>${onOff(isFullscreen())}</b></button>`
-      : '';
-  return `${langSeg}${fsBtn}<button class="toggle" data-set="autofire" aria-pressed="${st.autofire}">${t('set.autofire')}<b>${onOff(st.autofire)}</b></button>
-    <div class="seg" role="group" aria-label="${t('set.assist')}"><span>${t('set.assist')}</span>${[
-      ['off', 'set.assistOff'],
-      ['weak', 'set.assistWeak'],
-      ['strong', 'set.assistStrong'],
-    ]
-      .map(([k, l]) => `<button data-assist="${k}" aria-pressed="${st.assist === k}">${t(l)}</button>`)
-      .join('')}</div>
-    <label class="sens" for="sens-${where}">${t('set.sens')} <input id="sens-${where}" class="sensIn" type="range" min="0.4" max="2.2" step="0.1" value="${st.sens}"><span class="num sensV">${st.sens.toFixed(1)}</span></label>
-    <label class="sens" for="bgm-${where}">${t('set.bgm')} <input id="bgm-${where}" class="volIn" data-vol="bgm" type="range" min="0" max="1" step="0.05" value="${st.bgm ?? 0.6}"></label>
-    <label class="sens" for="sfx-${where}">${t('set.sfx')} <input id="sfx-${where}" class="volIn" data-vol="sfx" type="range" min="0" max="1" step="0.05" value="${st.sfx ?? 1}"></label>
-    ${
-      isTouch
-        ? `<button class="toggle" data-set="leftFire" aria-pressed="${st.leftFire}">${t('set.leftFire')}<b>${onOff(st.leftFire)}</b></button>
-    <button class="toggle" data-set="stickDash" aria-pressed="${st.stickDash}">${t('set.stickDash')}<b>${onOff(st.stickDash)}</b></button>
-    <button class="toggle" data-layout="1">${t('set.layout')}</button>`
-        : ''
-    }`;
-}
-export function renderSettings() {
-  document.querySelectorAll<HTMLElement>('[data-settings]').forEach(el => {
-    el.innerHTML = settingsHTML(el.dataset.settings);
-  });
-}
-document.addEventListener('click', e => {
-  const el = e.target as HTMLElement;
-  const s = el.closest<HTMLElement>('[data-set]'),
-    a = el.closest<HTMLElement>('[data-assist]'),
-    f = el.closest('[data-fs]');
-  const lo = el.closest('[data-layout]'),
-    lg = el.closest<HTMLElement>('[data-lang]');
-  if (lg) changeLang(lg.dataset.lang!);
-  else if (lo) openLayoutEditor(state === 'pause' ? 'pause' : 'base');
-  else if (f) toggleFs();
-  else if (s) {
-    const k = s.dataset.set as 'autofire' | 'leftFire' | 'stickDash';
-    toggleSetting(k);
-    persist();
-    renderSettings();
-    applyLayout();
-  } else if (a) {
-    setSetting('assist', a.dataset.assist!);
-    persist();
-    renderSettings();
-  }
-});
-document.addEventListener('input', ev => {
-  const e = { target: ev.target as HTMLInputElement };
-  if (e.target.classList && e.target.classList.contains('volIn')) {
-    const k = e.target.dataset.vol as 'bgm' | 'sfx';
-    setSetting(k, parseFloat(e.target.value));
-    persist();
-    document.querySelectorAll<HTMLInputElement>(`.volIn[data-vol="${k}"]`).forEach(v => {
-      if (v !== e.target) v.value = String(save.settings[k]);
-    });
-    syncVolumes();
-    audioInit();
-    musicVolume();
-    applySfxVolume();
-    return;
-  }
-  if (e.target.classList && e.target.classList.contains('sensIn')) {
-    setSetting('sens', parseFloat(e.target.value));
-    persist();
-    document.querySelectorAll('.sensV').forEach(v => {
-      v.textContent = save.settings.sens.toFixed(1);
-    });
-    document.querySelectorAll<HTMLInputElement>('.sensIn').forEach(v => {
-      if (v !== e.target) v.value = String(save.settings.sens);
-    });
-  }
-});
 // touch buttons: placement and the editor are engine/src/ui/touchlayout.ts
 Object.assign(TOUCH_LAYOUT, {
   defs: LAYOUT_DEF,

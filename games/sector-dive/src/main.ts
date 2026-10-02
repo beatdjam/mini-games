@@ -59,6 +59,7 @@ import './actors/bosses/trinity.ts';
 import './actors/bosses/bastion.ts';
 import './ui/input.ts';
 import './ui/hud.ts';
+import './ui/settings.ts';
 import './flow/state.ts';
 import './flow/attract.ts';
 import './flow/run.ts';
