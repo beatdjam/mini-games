@@ -19,7 +19,7 @@ for (const g of games) {
 const GA_ID = 'G-N6B7J9DVGE';
 const SITE_HOST = 'beatdjam.github.io';
 // adds the GA4 tag to every built page except the engine tests. The tag only starts on the real site, so a local
-// `npm run preview` (and the smoke test run against it) sends nothing. Events: engine/core/analytics.ts track()
+// `npm run preview` sends nothing. Events: engine/core/analytics.ts track()
 function analytics() {
   return {
     name: 'analytics',
@@ -51,7 +51,6 @@ function buildStamp() {
 }
 
 // the published site lives at https://beatdjam.github.io/mini-games/ (build and `npm run preview`); the dev server at /
-// `vite build --mode test` (npm run test:build) keeps the games' check hooks (js/dev)
 export default defineConfig(({ command, isPreview }) => ({
   base: command === 'build' || isPreview ? '/mini-games/' : '/',
   server: { port: 8765, strictPort: true },

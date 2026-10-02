@@ -122,7 +122,7 @@
 
 ## 15. 確認用フックとテスト
 
-- `core/dev.ts`: `devHook('view-x', fn)` は URL の `#view-x…` で動く確認用の入口。`devSmoke(fn)` は `#smoke` で fn を実行し、エラー（`SMOKE ERR` / `SMOKE FAIL`）、版番号の一致（`SMOKE build ok`）、終わり（`SMOKE DONE`）をコンソールに出す
+- `core/dev.ts`: `devHook('view-x', fn)` は URL の `#view-x…` で動く確認用の入口
 - **engine のテスト**: `engine/test/*.test.ts`（Vitest のブラウザモードで Chromium の中で動かす。`npm run test:engine`）。engine が前提にする画面の要素は `engine/test/setup.ts` が作る
   - engine を変えたら、engine のテストと、engine を使う全ゲームのスモークテストを流す（`npm test` が両方を流す。README「開発」）
-- 確認用のコードは公開版に入れない: ゲームは入口で `if (import.meta.env.DEV || import.meta.env.MODE === 'test') import('./js/dev/dev.ts')` のように読み込む。engine のテストはビルドには入らない（Vitest が直接動かす）
+- 確認用のコードは公開版に入れない: ゲームは入口で `if (import.meta.env.DEV) import('./js/dev/dev.ts')` のように読み込む。テスト（engine の `test/`、各ゲームの `test/`）はビルドには入らない（Vitest が直接動かす）

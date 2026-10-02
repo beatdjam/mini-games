@@ -27,7 +27,7 @@ jobs:
         run: npm run typecheck
       - name: スタイルと文言の確認（tools/check_style.js、tools/check_i18n.js）
         run: npm run lint
-      - name: テスト（engine のテストと各ゲームのスモーク。開発サーバーと、テスト用ビルドの両方）
+      - name: テスト（engine のテストと各ゲームのスモークは Vitest。ビルドのテストは公開用のビルドを Chromium で開く）
         # ランナーの Chrome を使う。結果はジョブのサマリに出て、JUnit と HTML のレポートは test-results/ に書かれる
         env:
           CHROME: /usr/bin/google-chrome

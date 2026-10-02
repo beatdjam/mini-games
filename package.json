@@ -7,10 +7,10 @@
     "build": "vite build",
     "preview": "vite preview --port 8765",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && tools/test.sh",
-    "test:build": "tools/test.sh --build",
+    "test": "vitest run",
+    "test:build": "vitest run --config vitest.build.config.ts",
     "lint": "node tools/check_style.js && for g in games/*/; do node tools/check_i18n.js \"$g\" || exit 1; done",
-    "test:engine": "vitest run"
+    "test:engine": "vitest run --project engine"
   },
   "dependencies": {
     "three": "0.128.0"
