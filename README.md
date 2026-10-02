@@ -26,6 +26,7 @@ CLAUDE.md                    Claude Code が作業時に守る決まり（コミ
 ## 開発
 
 - TypeScript の ES モジュール（import / export）＋ Vite。three.js は npm の `three`（0.128.0 に固定、型は `@types/three`）
+- Node は 24（`.nvmrc`。CI も同じ版を使う）。22.12 以上なら動く（`package.json` の `engines`）
 - 最初に `npm install`
 - `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
 - `npm run typecheck`: 型チェック（下の「TypeScript」）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
@@ -42,7 +43,7 @@ CLAUDE.md                    Claude Code が作業時に守る決まり（コミ
 - 型チェックは `tsconfig.json` の1本で、リポジトリ全体を厳しい設定（`strict: true`）で見る。`npm run typecheck` でエラー0を保つ
 - 型の置き場所: engine の型は持ち主のモジュールから export する（`System`, `WorldObject`, `InputConfig`, `TouchLayoutConfig`, `LangPack` など）。ゲームの定義の型は `games/<id>/js/data/types.ts`
 - あとから項目が増えるオブジェクト（敵やボス、弾）は、今は任意の項目を許す型（`[k: string]: any`）にしている。さらに固くするときは項目を書き並べて、これを外す
-- `$()` は戻り値が `any`。型を効かせたい所では `el<T>()` か `querySelector<T>()` を使う
+- DOM の取得は `el<T>()`（要素が必ずある所。T は `HTMLCanvasElement` など）。無いかもしれない要素は `document.querySelector<T>()` で null を残す
 - 言語ファイルが後から埋める項目（名前・説明文など）は、型では必須（`name: string` など）にしている。定義には `withLang`（`games/<game-id>/js/data/langslots.ts`）で空の既定値を入れておき、`setLang` が言語ファイルの値で上書きする。そのため使う側は `!` なしで読め、言語が入る前に読んでも `undefined` にならず空になる。一部の定義にしかない項目（セクターの `hint` など）だけは省略可能のまま
 
 ## 仕様書のルール

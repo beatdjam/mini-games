@@ -3,7 +3,7 @@
 // (PWA manifest, icons) live in public/ and are copied as they are. The build stamps a version:
 // <meta name="build" content="dev"> becomes the build time, and games/<id>/version.json carries the same value
 // (engine/core/stale.ts, inlined into the page, compares the two to replace a stale cached page).
-import { defineConfig, transformWithEsbuild } from 'vite';
+import { defineConfig, transformWithOxc } from 'vite';
 import { resolve } from 'node:path';
 import { readdirSync, existsSync, readFileSync } from 'node:fs';
 
@@ -38,10 +38,10 @@ function buildStamp() {
   return {
     name: 'build-stamp',
     apply: 'build',
-    // stamp the build and inline the stale-page guard (engine/core/stale.ts, compiled to JS) right after the build meta
+    // stamp the build and inline the stale-page guard (engine/core/stale.ts, types stripped to JS) right after the build meta
     async transformIndexHtml(html) {
       if (!html.includes('<meta name="build" content="dev">')) return html;
-      const { code } = await transformWithEsbuild(readFileSync('engine/core/stale.ts', 'utf8'), 'stale.ts', { minify: true });
+      const { code } = await transformWithOxc(readFileSync('engine/core/stale.ts', 'utf8'), 'stale.ts');
       return html.replace('<meta name="build" content="dev">', `<meta name="build" content="${BUILD}">\n<script>${code.trim()}</script>`);
     },
     generateBundle() {
@@ -56,6 +56,6 @@ export default defineConfig(({ command, mode, isPreview }) => ({
   base: command === 'build' || isPreview ? '/mini-games/' : '/',
   server: { port: 8765, strictPort: true },
   // three.js alone is ~550 kB, so the vendor chunk is always over the default 500 kB warning
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 800, rollupOptions: { input: mode === 'test' ? { ...pages, engineTest: resolve('engine/test/index.html') } : pages } },
+  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 800, rolldownOptions: { input: mode === 'test' ? { ...pages, engineTest: resolve('engine/test/index.html') } : pages } },
   plugins: [buildStamp(), analytics()],
 }));

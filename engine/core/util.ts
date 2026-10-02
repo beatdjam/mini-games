@@ -1,8 +1,6 @@
 // engine: Small helpers: DOM lookup, random, clamp, shuffle, touch detection
 // Small helpers shared by every file
-// $ returns any so game code can use any element directly; for a typed lookup use document.querySelector<T>(...)
-export const $ = (s: string): any => document.querySelector(s);
-// el: an element that must exist, typed (el<HTMLCanvasElement>('#mini'))
+// el: an element that must exist, typed (el<HTMLCanvasElement>('#mini')); for one that may be missing use document.querySelector<T>(...)
 export const el = <T extends HTMLElement = HTMLElement>(s: string): T => document.querySelector<T>(s)!;
 export const rand = (a: number, b: number): number => a + Math.random() * (b - a);
 export const randi = (a: number, b: number): number => Math.floor(rand(a, b + 1));
