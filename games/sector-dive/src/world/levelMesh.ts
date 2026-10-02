@@ -118,7 +118,7 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
     rm.rotation.y = RAMP_ROT[ramp[k]];
     lg.add(rm);
   }
-  buildHazardMesh(biome, gen.M.hz, lg);
+  buildHazardMesh(biome, gen.hazard, lg);
   // ceiling and neon signs (sectors with gen.ceiling / gen.neon)
   if (biome.gen.ceiling && !isArena) {
     const cg = new THREE.PlaneGeometry(W * T, H * T);

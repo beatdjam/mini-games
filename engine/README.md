@@ -6,7 +6,7 @@
 
 テストやビルドの道具（`tools/`）の使い方は、リポジトリの README「開発」にまとめてある。
 
-`engine/src/` のフォルダは関心ごとに分けている: `core/`（ループ・world・文言・セーブ・感想フォーム・アクセス解析・確認用フック・古いページ検出・小さな関数）、`render/`（描画）、`world/`（タイルの世界・弾・追跡）、`audio/`（効果音と BGM）、`ui/`（画面の部品と入力）。下の表もこの順に並べている。
+`engine/src/` のフォルダは関心ごとに分けている: `core/`（ループ・world・文言・セーブ・感想フォーム・アクセス解析・確認用フック・古いページ検出・小さな関数）、`render/`（描画）、`world/`（タイルの世界・ダンジョン生成と固定マップ・弾・追跡）、`audio/`（効果音と BGM）、`ui/`（画面の部品と入力）。下の表もこの順に並べている。
 
 | ファイル | 中身 | ゲームに用意してもらうもの |
 |---|---|---|
@@ -21,7 +21,9 @@
 | `src/core/dev.ts` | `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口） | テストの中身 |
 | `src/render/render.ts` | `canvas`（`#gl`）, `renderer`, `scene`, `camera`, `dynGroup`, `resize`, `shared`, `basicMat`, `lineMat`, `disposeTree`, `textSprite`、手に持つ銃（部品の一覧から組み立てる `buildViewmodel` と、別パスで描く `gunScene`, `gun`, `renderGun`） | `<canvas id="gl">`。毎フレーム `renderer.render(scene, camera)` のあとに `renderGun()` |
 | `src/render/fx.ts` | パーティクル（`burst`）と爆発の光（`fireball`）、`clearFx()`。システム `FX.particles` / `FX.fireballs` をエンジンが登録する | 動かすモードを `FX.particles.modes` などに入れる（入れなければ全モードで動く） |
-| `src/world/tiles.ts` | タイルの世界（`T`=4, `STEP`, `RISE`, `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`）と、`floorY`, `tileIndex`, `moveCircle`, `hasLOS`, `passable`, `computeFlow`, `flowDir` など | 地形を生成して `setTileWorld({ W, H, grid, hgt, ramp, cover, flow, flowQ })` で渡す |
+| `src/world/tiles.ts` | タイルの世界（`T`=4, `STEP`, `RISE`, `DECK_H`, `COVER_H`, `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`）と、`floorY`, `tileIndex`, `moveCircle`, `hasLOS`, `passable`, `computeFlow`, `flowDir` など | 地形を生成して `setTileWorld({ W, H, grid, hgt, ramp, cover, flow, flowQ })` で渡す |
+| `src/world/dungeon.ts` | 部屋と通路のダンジョン生成: `generateDungeon(opts, rng)` → `{ W, H, maps, rooms }`（部屋を置く・通路でつなぐ・大きい部屋に高台か柱・瓦礫・橋）、開けたアリーナ `generateArena(size, from, to, pillars)`、単体で使える `addPlatform`, `addRubble`, `addBridges`、型 `Room`, `TileMaps`（`grid`, `hgt`, `ramp`, `cover`, `roomOf`）, `DungeonOptions`。乱数は渡した `Rng` だけから引く（同じシードなら同じ地形） | 生成の設定（`DungeonOptions`: 広さ・部屋数・部屋の大きさ・通路の幅・高台の確率・瓦礫の確率・橋の数・高さ）と `Rng`。結果の `maps` はそのまま `setTileWorld` に渡せる。危険床・開始部屋など、ゲームのルールで決める部分はゲームが足す |
+| `src/world/tilemap.ts` | 文字の行から作る固定マップ: `tileMapFromRows(rows, legend?, rooms?)` → `{ W, H, maps, rooms }`、`DEFAULT_LEGEND` | 行の配列。凡例（下）を変えたいときは `legend` |
 | `src/world/projectiles.ts` | 弾の汎用部分: プール（`takeFromPool`, `clearPool`）、細かく刻んだ移動（`stepProjectile`。刻むたびにゲームの判定を呼ぶ）、地形との当たり（`projHitsTerrain`）、追尾（`steerToward`）、弾幕の方向（`ringAngles`, `aimFan`） | 弾の項目と、当たったときの処理（判定関数として渡す） |
 | `src/world/steer.ts` | `steerChase`: 見えていれば近づく（近すぎたら回り込む）、見えなければ経路をたどる、仲間と押し合う | 速さ・保つ距離・押し合う相手のリスト |
 | `src/audio/audio.ts` | 効果音の合成（`tone`, `noiseBurst`, `sweepTone`, `gunshot`）、`sfx(name)`、`audioInit`, `sfxVolume` | `Object.assign(SFX, { 名前: () => {...} })` で効果音のレシピを入れる。音量は `setVolumes(sfx, bgm)`（0〜1） |
@@ -32,6 +34,21 @@
 | `src/ui/input.ts` | キー（`keys`）、マウスとポインタロック（`requestLock`, `exitLock`, `locked`, `mouseFire`）、タッチの移動スティック（`joy`）と視点ドラッグ、押しっぱなしの射撃ボタン（`fireHeld`, `fire2Held`）、`tapBtn(el, fn)`, `releaseInputs` | `INPUT` に `active`, `look`, `sens`, `key`, `pause`, `lockChanged` を入れる。`#touch`, `#joyBase`, `#joyKnob`, `#btnFire`, `#btnFire2`, `<canvas id="gl">` |
 | `src/ui/touchlayout.ts` | タッチボタンの配置（`applyLayout`, `buttonLayout`）と配置の編集（`openLayoutEditor`, `closeLayoutEditor`） | `TOUCH_LAYOUT` に `defs`, `first`, `edits`, `reset`, `save`, `afterApply`, `onOpen`, `onClose` を入れる。`data-lb` の付いたボタン、`#layoutBar`, `#lbName` |
 
+`tileMapFromRows` の凡例（`DEFAULT_LEGEND`。`legend` で文字と高さを差し替えられる）:
+
+| 文字 | 意味 | `grid` / `hgt` / `ramp` / `cover` |
+|------|------|-----------------------------------|
+| `#` | 壁 | 0 / 0 / -1 / 0 |
+| `.` | 床 | 1 / 0 / -1 / 0 |
+| `=` | 高台（高さ `deckH` = `DECK_H` 2m） | 1 / `deckH` / -1 / 0 |
+| `c` | 遮蔽物（高さ `coverH` = `COVER_H` 1.2m） | 1 / `coverH` / -1 / 1 |
+| `>` `<` `v` `^` | 坂。上る向きが +x / -x / +z（次の行）/ -z（前の行）。`ramp` は順に 0 / 1 / 2 / 3 | 1 / 0 / 向き / 0 |
+| `A`〜`Z` | 床。部屋の目印（A = 部屋0 …）。`rooms` を渡さないときだけ部屋になる | 1 / 0 / -1 / 0 |
+
+- 坂のタイルの高さは 0 で、`RISE` 上った先が同じ高さの高台なら、坂の隣に `=` を置けば上がれる
+- 行の長さが違う、凡例にない文字、`A` から途切れた部屋の文字は例外にする
+- `rooms` を渡したときは、その長方形の中のタイルに `roomOf` を入れる（文字の目印は使わない）
+
 - engine のファイルは、ゲーム固有の名前を読み込み時に使わない（実行時に使うものは上の表の右列だけ）
 - engine を変えたら、使っている全ゲームで確認する。今のところ使っているのは Sector Dive だけ
 
@@ -41,7 +58,7 @@
 
 - 設定画面の共通部分（音量・言語・感度・全画面。`ui/hud.ts` の `settingsHTML`）
 - ヒットマーカー（FPS なら共通。`ui/hud.ts` の `hitMark`）
-- 部屋と通路の自動生成・ミニマップ（グリッドのダンジョン型のゲームなら。`world/level.ts`）
+- ミニマップ（グリッドのダンジョン型のゲームなら。`ui/minimap.ts`）
 
 切り出すときの方針:
 

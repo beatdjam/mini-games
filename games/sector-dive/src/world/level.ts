@@ -4,13 +4,14 @@ import { clearWorld } from '@engine/core/world.ts';
 import { disposeTree, scene } from '@engine/render/render.ts';
 import { clearFx } from '@engine/render/fx.ts';
 import { H, T, W, computeFlow, flow, setTileWorld, tileIndex, walkable } from '@engine/world/tiles.ts';
+import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
 import { BIOMES } from '../data/biomes.ts';
 import type { Biome } from '../data/types.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
 import { clearHazards } from './hazards.ts';
 import { generateLevel } from './levelGen.ts';
-import type { Room } from './levelGen.ts';
+import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildLevelMeshes } from './levelMesh.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
@@ -51,7 +52,7 @@ function emptyLevel(): Level {
     seed: 0,
   };
 }
-// replaced only by buildLevel (and emptied piecewise by clearLevel)
+// replaced only by buildLevel and buildFixedLevel (and emptied piecewise by clearLevel)
 export let level: Level = emptyLevel();
 
 export function clearLevel() {
@@ -78,43 +79,10 @@ export function devSeed(seed: number | null) {
 }
 // the seed makes the generated level (and its signs) reproducible; tests can build a fixed level with it
 export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | null, seed?: number) {
-  clearLevel();
   const useSeed = seed ?? forcedSeed ?? (Math.random() * 2 ** 32) >>> 0;
-  const gen = generateLevel(biome, isArena, bossKind, createRng(useSeed));
-  const M = gen.M;
-  setTileWorld({
-    W: gen.W,
-    H: gen.H,
-    grid: M.g,
-    hgt: M.hg,
-    ramp: M.rp,
-    cover: M.cv,
-    flow: new Int16Array(gen.W * gen.H),
-    flowQ: new Int32Array(gen.W * gen.H),
-  });
-  const lg = new THREE.Group();
-  // a new object per build; exitIdx and portals are filled in below, before anything else reads it
-  level = {
-    biome,
-    arena: isArena,
-    rooms: gen.rooms,
-    roomOf: M.ro,
-    seen: new Uint8Array(W * H),
-    hazardTiles: M.hz,
-    roomCount: new Array(gen.rooms.length).fill(0),
-    portals: [],
-    startIdx: gen.startIdx,
-    exitIdx: 0,
-    group: lg,
-    seed: useSeed,
-  };
-  scene.add(lg);
-  buildLevelMeshes(biome, isArena, gen, lg, createRng(useSeed ^ 0x9e3779b9));
-  (scene.fog as THREE.Fog).color.setHex(biome.fog);
-  (scene.background as THREE.Color).setHex(biome.fog);
-  (scene.fog as THREE.Fog).near = isArena ? ARENA_FOG_NEAR : biome.fogNear;
-  (scene.fog as THREE.Fog).far = isArena ? Math.max(ARENA_FOG_FAR_MIN, biome.fogFar) : biome.fogFar;
+  useLevel(biome, isArena, generateLevel(biome, isArena, bossKind, createRng(useSeed)), useSeed);
   if (isArena) return;
+  // the exit is the room farthest (by walking) from the start
   const [sx, sz] = roomSpot(level.rooms[level.startIdx]);
   computeFlow(Math.floor(sx / T), Math.floor(sz / T));
   let best = -1;
@@ -126,6 +94,56 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
       level.exitIdx = idx;
     }
   });
+}
+// a hand-drawn level (a map written as rows of text, engine/src/world/tilemap.ts) instead of a generated one: the same
+// tile world, meshes and Level, with the start and exit rooms given. For tests that need a known terrain.
+export interface FixedMap {
+  rows: string[];
+  rooms: Room[];
+  start: number; // room index of the start
+  exit: number; // room index of the exit
+}
+export function buildFixedLevel(biome: Biome, map: FixedMap) {
+  const { W, H, maps } = tileMapFromRows(map.rows, {}, map.rooms);
+  useLevel(biome, false, { W, H, maps, hazard: new Uint8Array(W * H), rooms: map.rooms, startIdx: map.start }, 0);
+  level.exitIdx = map.exit;
+}
+// the steps buildLevel and buildFixedLevel share: hand the maps to the tile world, make the Level and its meshes
+function useLevel(biome: Biome, isArena: boolean, gen: GeneratedLevel, seed: number) {
+  clearLevel();
+  const M = gen.maps;
+  setTileWorld({
+    W: gen.W,
+    H: gen.H,
+    grid: M.grid,
+    hgt: M.hgt,
+    ramp: M.ramp,
+    cover: M.cover,
+    flow: new Int16Array(gen.W * gen.H),
+    flowQ: new Int32Array(gen.W * gen.H),
+  });
+  const lg = new THREE.Group();
+  // a new object per build; exitIdx and portals are filled in below, before anything else reads it
+  level = {
+    biome,
+    arena: isArena,
+    rooms: gen.rooms,
+    roomOf: M.roomOf,
+    seen: new Uint8Array(W * H),
+    hazardTiles: gen.hazard,
+    roomCount: new Array(gen.rooms.length).fill(0),
+    portals: [],
+    startIdx: gen.startIdx,
+    exitIdx: 0,
+    group: lg,
+    seed,
+  };
+  scene.add(lg);
+  buildLevelMeshes(biome, isArena, gen, lg, createRng(seed ^ 0x9e3779b9));
+  (scene.fog as THREE.Fog).color.setHex(biome.fog);
+  (scene.background as THREE.Color).setHex(biome.fog);
+  (scene.fog as THREE.Fog).near = isArena ? ARENA_FOG_NEAR : biome.fogNear;
+  (scene.fog as THREE.Fog).far = isArena ? Math.max(ARENA_FOG_FAR_MIN, biome.fogFar) : biome.fogFar;
 }
 // nearest plain floor tile to the room centre (the centre itself can be cover or a ramp)
 export function roomSpot(r: Room): [number, number] {
