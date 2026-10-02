@@ -15,7 +15,9 @@ import { persist, save, syncVolumes } from '../core/save.ts';
 import { arena, curBiome, haz, portals, roomOf, seen } from '../world/level.ts';
 import { boss, enemies, nearW, target } from '../world/entities.ts';
 import { P, curW, magSize, run, wName, wText, weaponStats } from '../actors/player.ts';
-import { refreshRunText, renderBase, setState, show, state } from '../flow/game.ts';
+import { setState, show, state } from '../flow/state.ts';
+import { refreshRunText } from '../screens/pause.ts';
+import { renderBase } from '../screens/base.ts';
 import { time } from '../flow/update.ts';
 import { CSS_COLOR } from '../data/colors.ts';
 export const hpFill = el('#hpFill'),

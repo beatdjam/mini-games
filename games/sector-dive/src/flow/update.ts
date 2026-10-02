@@ -32,7 +32,11 @@ import {
 } from '../actors/player.ts';
 import { CTRL } from '../ui/input.ts';
 import { SCR, bctx, bigmap, drawMap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
-import { attract, buildAttract, endRun, nextStage, openPerk, renderBase, state } from './game.ts';
+import { attract, buildAttract } from './attract.ts';
+import { endRun, nextStage } from './run.ts';
+import { state } from './state.ts';
+import { openPerk } from '../screens/perk.ts';
+import { renderBase } from '../screens/base.ts';
 import { updateEBullets, updatePBullets } from '../actors/bullets.ts';
 // Per-frame systems of Sector Dive, run by the engine loop (engine/src/core/loop.ts) in this order
 LOOP.mode = () => state;
