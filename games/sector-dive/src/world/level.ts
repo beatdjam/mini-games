@@ -373,7 +373,8 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
   });
   seen = new Uint8Array(W * H);
   roomCount = new Array(rooms.length).fill(0);
-  const lg = (levelGroup = new THREE.Group());
+  const lg = new THREE.Group();
+  levelGroup = lg;
   scene.add(lg);
   const tex = biomeTex(biome);
   tex.floor.repeat.set(W, H);

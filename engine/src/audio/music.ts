@@ -78,7 +78,8 @@ export const midiHz = (m: number): number => 440 * Math.pow(2, (m - 69) / 12);
 export function musicInit() {
   const ac = actx;
   if (!ac || musicState.bus) return;
-  const bus = (musicState.bus = ac.createGain());
+  const bus = ac.createGain();
+  musicState.bus = bus;
   bus.gain.value = 0;
   bus.connect(ac.destination);
   ['pad', 'arp', 'bass', 'drums', 'tension'].forEach(k => {

@@ -70,7 +70,8 @@ export function prepShare(kind: RunEnd) {
   el('#sharePanel').hidden = true;
 }
 export function hideShare() {
-  shareData = shareBlob = null;
+  shareData = null;
+  shareBlob = null;
   el('#btnShare').hidden = true;
   el('#sharePanel').hidden = true;
 }
@@ -94,8 +95,9 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   const acc = d.kind === 'extract' ? CSS_COLOR.cyan : CSS_COLOR.mag;
   const fit = (s: string, max: number) => {
     if (g.measureText(s).width <= max) return s;
-    while (s && g.measureText(s + '…').width > max) s = s.slice(0, -1);
-    return s + '…';
+    let cut = s;
+    while (cut && g.measureText(cut + '…').width > max) cut = cut.slice(0, -1);
+    return cut + '…';
   };
   g.fillStyle = '#05080c';
   g.fillRect(0, 0, W, H);

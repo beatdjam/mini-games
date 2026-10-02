@@ -152,8 +152,8 @@ export const newWeapon = (id: string, r: number, basic?: boolean, plus?: number,
 });
 // how many of option k a weapon has (the one in hand if none given)
 export const weaponOptCount = (k: string, w?: WeaponItem | null): number => {
-  w = w || (player && player.weapons[player.cur]);
-  return w && w.opts ? w.opts.filter(o => o === k).length : 0;
+  const item = w || (player && player.weapons[player.cur]);
+  return item && item.opts ? item.opts.filter(o => o === k).length : 0;
 };
 export const wDmgMul = (w: WeaponItem): number => RARITY[w.r].mult * (1 + PLUS_DMG * (w.plus || 0));
 // `stage` here is progress (progressOf), not the raw stage number
@@ -315,7 +315,8 @@ export function setVM(id: string) {
     curVM.visible = false;
     curVM.userData.flash.visible = false;
   }
-  const vm = (curVM = viewmodelGroups[id]);
+  const vm = viewmodelGroups[id];
+  curVM = vm;
   vm.visible = true;
 }
 
@@ -379,8 +380,9 @@ export function tryFire() {
 export function startReload() {
   const w = currentWeapon();
   if (player.reloadT > 0 || w.mag >= magSize(w)) return;
-  player.reloadMax = player.reloadT =
-    WEAPONS[w.id].reload * player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload'));
+  const reloadTime = WEAPONS[w.id].reload * player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload'));
+  player.reloadMax = reloadTime;
+  player.reloadT = reloadTime;
   sfx('reload');
 }
 export let shotId = 0; // one trigger pull; knockback is applied once per shot per enemy
@@ -477,8 +479,8 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
     burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, COLOR.shield, 2, 4, 0.2);
     return;
   }
-  if (e.stunMul) dmg *= e.stunMul;
-  e.hp -= dmg;
+  const dealt = e.stunMul ? dmg * e.stunMul : dmg;
+  e.hp -= dealt;
   e.flash = ENEMY_FLASH;
   if (!e.active) {
     e.active = true;
@@ -495,7 +497,7 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
 // player explosions (rockets, chain blasts); one crit roll per explosion
 export function explode(x: number, y: number, z: number, radius: number, dmg: number, color: number, big?: boolean) {
   const crit = Math.random() < critChance();
-  if (crit) dmg *= CRIT_MUL;
+  const blastDmg = crit ? dmg * CRIT_MUL : dmg;
   if (big) {
     // kept small and short so a blast near you doesn't hide what's behind it
     fireball(x, y, z, radius * 0.5, COLOR.orange);
@@ -524,7 +526,7 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
     if (dd < radius) {
       const core = radius * BLAST_CORE,
         fall = dd <= core ? 1 : 1 - ((dd - core) / (radius - core)) * BLAST_EDGE_LOSS;
-      hurtEnemy(e, dmg * fall, crit);
+      hurtEnemy(e, blastDmg * fall, crit);
       if (big && !e.boss && !e.dead) {
         const kx = e.x - x,
           kz = e.z - z,

@@ -513,7 +513,8 @@ test('chain blast: one kill in a tight cluster does not cascade', () => {
 });
 test('shortcut supply: 2 picks at DEPTH 3, chips applied supplyTimes times', () => {
   const keep = [save.shortcut, save.startTier, save.up.chip];
-  save.shortcut = save.startTier = 2;
+  save.shortcut = 2;
+  save.startTier = 2;
   save.up.chip = 0;
   goBase();
   startRun();
@@ -1023,7 +1024,8 @@ test('hit direction: a hit from behind shows the arc, one from in front does not
   startRun();
   tick(5);
   player.yaw = 0;
-  player.hp = player.maxHp = 1e6;
+  player.hp = 1e6;
+  player.maxHp = 1e6;
   hitDirs.forEach(d => {
     d.t = 0;
   });
@@ -1129,7 +1131,8 @@ test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
   startStage();
   show(null);
   setState('play');
-  player.hp = player.maxHp = 1e6;
+  player.hp = 1e6;
+  player.maxHp = 1e6;
   enemies.forEach(o => {
     o.dead = true;
     removeEnemyMesh(o);

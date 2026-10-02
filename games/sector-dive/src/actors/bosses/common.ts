@@ -122,7 +122,8 @@ export function bossPauseTick(e: Boss, dt: number) {
 // drop below half health: short invulnerable burst, then the boss's enraged patterns take over
 export function bossPhase(e: Boss) {
   e.phased = true;
-  e.spawnT = e.spawnMax = BOSS_TUNE.phaseTime;
+  e.spawnT = BOSS_TUNE.phaseTime;
+  e.spawnMax = BOSS_TUNE.phaseTime;
   e.intro = false;
   const p = e.mesh.position;
   burst(p.x, p.y, p.z, COLOR.mag, 40, 12, 1.0);

@@ -43,7 +43,8 @@ if (location.hash === '#view-trooper')
     startRun();
     show(null);
     setState('play');
-    player.hp = player.maxHp = 1e6;
+    player.hp = 1e6;
+    player.maxHp = 1e6;
     enemies.forEach(e => {
       e.dead = true;
       removeEnemyMesh(e);
@@ -186,7 +187,8 @@ if (location.hash === '#view-hitdir')
     show(null);
     setState('play');
     player.yaw = 0;
-    player.hp = player.maxHp = 1e6;
+    player.hp = 1e6;
+    player.maxHp = 1e6;
     player.inv = 0;
     damagePlayer(1, { x: player.x + 6, z: player.z + 6 });
     player.inv = 0;

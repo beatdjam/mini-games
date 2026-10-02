@@ -35,10 +35,10 @@ export function stopFrame() {
   frameStopped = true;
 }
 export function runSystems(dt: number, mode?: string | null) {
-  if (mode === undefined) mode = LOOP.mode();
+  const curMode = mode === undefined ? LOOP.mode() : mode;
   frameStopped = false;
   for (const s of systems) {
-    if (!s.enabled || (s.modes && (mode == null || !s.modes.includes(mode)))) continue;
+    if (!s.enabled || (s.modes && (curMode == null || !s.modes.includes(curMode)))) continue;
     s.update(dt);
     if (frameStopped) break;
   }
