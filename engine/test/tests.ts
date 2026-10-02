@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp, el, pct, randi, shuffle } from '../core/util.ts';
+import { clamp, distXZ, el, pct, randi, shuffle } from '../core/util.ts';
 import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../core/store.ts';
 import { addSystem, runSystems, stopFrame } from '../core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../core/world.ts';
@@ -8,7 +8,7 @@ import { ANALYTICS, TRACK_LOG, track } from '../core/analytics.ts';
 import { FEEDBACK, FEEDBACK_INFO_MAX, feedbackReady, feedbackUrl } from '../core/feedback.ts';
 import { buildViewmodel } from '../render/render.ts';
 import { burst, clearFx, fireball, parts, updateBalls } from '../render/fx.ts';
-import { RISE, T, W, computeFlow, floorY, flowAt, flowDir, grid, hasLOS, hgt, moveCircle, ramp, setTileWorld, solidAt } from '../world/tiles.ts';
+import { RISE, T, W, computeFlow, floorY, flowAt, flowDir, grid, hasLOS, hgt, moveCircle, ramp, setTileWorld, solidAt, tileIndex } from '../world/tiles.ts';
 import { type Projectile, aimFan, clearPool, projHitsTerrain, ringAngles, steerToward, stepProjectile, takeFromPool } from '../world/projectiles.ts';
 import { steerChase } from '../world/steer.ts';
 import { toast } from '../ui/ui.ts';
@@ -62,6 +62,9 @@ test('feedback: no form, no link; with one, the game, build and info are filled 
   const long = new URL(feedbackUrl('a'.repeat(5000), form)!).searchParams.get('entry.33')!;
   eq(long.length, FEEDBACK_INFO_MAX, 'info cut'); ok(long.endsWith('…'), 'cut is marked');
   ok(!new URL(feedbackUrl('', form)!).searchParams.has('entry.33'), 'empty info left out');
+});
+test('util: distXZ ignores y', () => {
+  near(distXZ({ x: 1, z: 2 }, { x: 4, z: 6 }), 5); near(distXZ({ x: 0, z: 0, y: 9 } as { x: number; z: number }, { x: 0, z: 0 }), 0);
 });
 test('util: clamp / randi / shuffle', () => {
   eq(clamp(5, 0, 3), 3); eq(clamp(-1, 0, 3), 0);
@@ -127,6 +130,10 @@ export function tinyWorld() {
   for (let i = 0; i < 5; i++) grid[W + i] = 1;
   hgt[W + 4] = 2;
 }
+test('tiles: tileIndex is the grid index of the tile holding a world point', () => {
+  tinyWorld();
+  eq(tileIndex(0.5 * T, 0.5 * T), 0); eq(tileIndex(2.5 * T, 1.5 * T), W + 2); eq(tileIndex(4.99 * T, 2.01 * T), 2 * W + 4);
+});
 test('tiles: floor height, ramps, walls and steps block, line of sight', () => {
   tinyWorld();
   eq(floorY(1.5 * T, 1.5 * T), 0); eq(floorY(4.5 * T, 1.5 * T), 2, 'raised tile');

@@ -12,3 +12,5 @@ export const isTouch = (typeof window.matchMedia === 'function' && matchMedia('(
 document.body.classList.add(isTouch ? 'touch' : 'desk');
 
 export const pct = (v: number): string => `${Math.round(v * 100)}%`;
+// distance between two points on the ground plane (ignores y)
+export function distXZ(a: { x: number; z: number }, b: { x: number; z: number }): number { return Math.hypot(a.x - b.x, a.z - b.z); }

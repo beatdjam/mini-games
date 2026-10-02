@@ -1,5 +1,5 @@
 import type { Pickup, Wave } from '../data/types.ts';
-import { rand } from '../../../../engine/core/util.ts';
+import { distXZ, rand } from '../../../../engine/core/util.ts';
 import { LOOP, addSystem, runSystems, startLoop, stopFrame } from '../../../../engine/core/loop.ts';
 import { WORLD, query, sweepWorld } from '../../../../engine/core/world.ts';
 import { t } from '../../../../engine/core/i18n.ts';
@@ -119,7 +119,7 @@ export function updatePortals(dt: number) {
   for (const pt of portals) {
     // arming (data/level.ts PORTAL): dim and still until it works, then bright and turning
     pt.t += dt;
-    const d = Math.hypot(P.x - pt.x, P.z - pt.z);
+    const d = distXZ(P, pt);
     if (!pt.clear && d >= PORTAL.clearR) pt.clear = true;
     const armed = pt.t >= PORTAL.armTime && pt.clear;
     pt.ring.material.opacity = armed ? 1 : 0.35;
@@ -172,7 +172,7 @@ export function updateWave(w: Wave, dt: number) {
   w.r += w.speed * dt;
   w.mesh.scale.set(w.r, 1, w.r); w.mesh.material.opacity = 0.75 * (1 - w.r / w.max);
   if (!w.hit) {
-    const d = Math.hypot(P.x - w.x, P.z - w.z);
+    const d = distXZ(P, w);
     if (Math.abs(d - w.r) < WAVE_HIT_WIDTH) { w.hit = true; damagePlayer(w.dmg, w); }
   }
   if (w.r >= w.max) w.dead = true;

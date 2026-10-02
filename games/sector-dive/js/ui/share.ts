@@ -8,12 +8,13 @@ import { P, run, stageInfo, stageLabel, wText } from '../actors/player.ts';
 import { track } from '../../../../engine/core/analytics.ts';
 import { save } from '../system/save.ts';
 import { CSS_COLOR } from '../data/colors.ts';
+import type { RunEnd } from '../data/types.ts';
 // ---- sharing a run's result: a card image + a short text with #SectorDive ----
 // phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
 // the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
 export const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
 export interface ShareCard {
-  kind: string; where: string; biome: string; kills: number; bosses: string[];
+  kind: RunEnd; where: string; biome: string; kills: number; bosses: string[];
   weapon: string; wr: number; chips: string[]; nChips: number;
   reboots: number; // reboot (prestige) count, shown next to the result label when above 0
 }
@@ -27,7 +28,7 @@ export function bossSummary(bosses: string[]): string {
   bosses.forEach(b => n.set(b, (n.get(b) || 0) + 1));
   return [...n].map(([name, c]) => c > 1 ? t('common.count', { name, n: c }) : name).join(t('share.join'));
 }
-export function prepShare(kind: string) {
+export function prepShare(kind: RunEnd) {
   const si = stageInfo(run.stage), w = P.weapons[P.cur] || P.weapons[0];
   const counts: Record<string, number> = {};
   run.perks.forEach(n => { const k = n.replace(/\+$/, ''); counts[k] = (counts[k] || 0) + 1; });

@@ -1,4 +1,4 @@
-import type { WeaponItem } from '../data/types.ts';
+import type { RunEnd, WeaponItem } from '../data/types.ts';
 import { el, isTouch } from '../../../../engine/core/util.ts';
 import { lang } from '../../../../engine/core/i18n.ts';
 import { feedbackReady, openFeedback } from '../../../../engine/core/feedback.ts';
@@ -14,7 +14,7 @@ const wInfo = (w: WeaponItem | null | undefined) => w ? `${w.id}${w.plus ? '+' +
 const common = () => [`reboots=${save.pres.count}`, `shortcut=D${save.shortcut + 1}`, `runs=${save.runs}`, `lang=${lang}`, `device=${isTouch ? 'touch' : 'desktop'}`];
 // the run that just ended (called by endRun / endPractice while the run is still there)
 let resultInfo = '';
-export function prepFeedback(kind: string) {
+export function prepFeedback(kind: RunEnd) {
   const counts: Record<string, number> = {};
   run.perks.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
   const chips = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([n, c]) => c > 1 ? `${n}x${c}` : n).join(',');

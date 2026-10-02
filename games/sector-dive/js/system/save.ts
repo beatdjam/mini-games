@@ -4,6 +4,7 @@ import { decodeStore, encodeStore, loadStore, saveStore } from '../../../../engi
 import { setVolumes } from '../../../../engine/audio/audio.ts';
 // Save data: defaults and conversions from older versions (reading / writing is engine/core/store.js)
 export const SAVE_KEY = 'sector-dive-v1';
+export const BASE_TAB_KEY = 'sd-base-tab'; // the base tab last opened (a preference, kept apart from the save)
 export const basicW = (id: string): WeaponItem => ({ id, r: 0, basic: true });
 export const defaultSave = (): SaveData => ({ bits: 0, up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 }, unlocked: { pistol: true },
   loadout: [basicW('pistol'), null], stash: [], shortcut: 0, startTier: 0, peak: 0,

@@ -19,6 +19,8 @@ export function setTileWorld(o: Partial<TileWorld>) {
 }
 export function isSolid(i: number, j: number): boolean { return i < 0 || j < 0 || i >= W || j >= H || grid[j * W + i] !== 1; }
 export function solidAt(x: number, z: number): boolean { return isSolid(Math.floor(x / T), Math.floor(z / T)); }
+// index into grid / hgt / flow of the tile that contains the world point (x, z); not bounds-checked
+export function tileIndex(x: number, z: number): number { return Math.floor(z / T) * W + Math.floor(x / T); }
 export function floorY(x: number, z: number): number {
   const i = Math.floor(x / T), j = Math.floor(z / T);
   if (i < 0 || j < 0 || i >= W || j >= H) return 0;
