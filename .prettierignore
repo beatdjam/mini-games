@@ -1,0 +1,10 @@
+# Prettier formats the code only (npm run format; npm run lint checks it). Pages, docs and generated files are left as they are.
+*.html
+*.md
+*.json
+*.yml
+dist/
+dist-test/
+test-results/
+.vitest/
+public/

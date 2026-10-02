@@ -8,21 +8,47 @@ import { exitLock, releaseInputs, touchEl } from './input.ts';
 //   edits()      the saved edits, a mutable object { id: { x, y, s } }; reset() clears them; save() persists
 //   afterApply() extra tweaks after placing (e.g. hide a button the player turned off)
 //   onOpen(from) / onClose(from)  switch screens around the editor (from = whatever openLayoutEditor was given)
-export interface ButtonPlace { x: number; y: number; s: number; }
-export interface ButtonDef extends ButtonPlace { b: number; name: string; }
-export interface TouchLayoutConfig {
-  defs: Record<string, ButtonDef>; first: string | null;
-  edits(): Record<string, ButtonPlace>; reset(): void; save(): void; afterApply(): void;
-  onOpen(from?: string): void; onClose(from?: string): void;
+export interface ButtonPlace {
+  x: number;
+  y: number;
+  s: number;
 }
-export const TOUCH_LAYOUT: TouchLayoutConfig = { defs: {}, first: null, edits: () => ({}), reset: () => {}, save: () => {}, afterApply: () => {}, onOpen: () => {}, onClose: () => {} };
+export interface ButtonDef extends ButtonPlace {
+  b: number;
+  name: string;
+}
+export interface TouchLayoutConfig {
+  defs: Record<string, ButtonDef>;
+  first: string | null;
+  edits(): Record<string, ButtonPlace>;
+  reset(): void;
+  save(): void;
+  afterApply(): void;
+  onOpen(from?: string): void;
+  onClose(from?: string): void;
+}
+export const TOUCH_LAYOUT: TouchLayoutConfig = {
+  defs: {},
+  first: null,
+  edits: () => ({}),
+  reset: () => {},
+  save: () => {},
+  afterApply: () => {},
+  onOpen: () => {},
+  onClose: () => {},
+};
 export const getL = (id: string): ButtonDef => Object.assign({}, TOUCH_LAYOUT.defs[id], TOUCH_LAYOUT.edits()[id] || {});
-export let editing = false, editSel = '', editFrom: string | undefined;
+export let editing = false,
+  editSel = '',
+  editFrom: string | undefined;
 export let editDrag: { id: number; dx: number; dy: number } | null = null;
 export function applyLayout() {
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const vw = window.innerWidth,
+    vh = window.innerHeight;
   Object.keys(TOUCH_LAYOUT.defs).forEach(id => {
-    const el = document.querySelector<HTMLElement>(`[data-lb="${id}"]`), l = getL(id), size = Math.round(l.b * l.s);
+    const el = document.querySelector<HTMLElement>(`[data-lb="${id}"]`),
+      l = getL(id),
+      size = Math.round(l.b * l.s);
     if (!el) return;
     el.style.width = el.style.height = size + 'px';
     el.style.left = clamp(l.x * vw, size / 2 + 4, vw - size / 2 - 4) + 'px';
@@ -32,40 +58,88 @@ export function applyLayout() {
   TOUCH_LAYOUT.afterApply();
 }
 export function openLayoutEditor(from?: string) {
-  editFrom = from; editing = true; editSel = TOUCH_LAYOUT.first || Object.keys(TOUCH_LAYOUT.defs)[0];
-  releaseInputs(); exitLock(); TOUCH_LAYOUT.onOpen(from);
-  el('#touch').hidden = false; touchEl.classList.add('editing'); el('#layoutBar').hidden = false;
-  applyLayout(); el('#lbName').textContent = TOUCH_LAYOUT.defs[editSel].name;
+  editFrom = from;
+  editing = true;
+  editSel = TOUCH_LAYOUT.first || Object.keys(TOUCH_LAYOUT.defs)[0];
+  releaseInputs();
+  exitLock();
+  TOUCH_LAYOUT.onOpen(from);
+  el('#touch').hidden = false;
+  touchEl.classList.add('editing');
+  el('#layoutBar').hidden = false;
+  applyLayout();
+  el('#lbName').textContent = TOUCH_LAYOUT.defs[editSel].name;
 }
 export function closeLayoutEditor() {
-  editing = false; editDrag = null; TOUCH_LAYOUT.save();
-  touchEl.classList.remove('editing'); el('#layoutBar').hidden = true; applyLayout();
+  editing = false;
+  editDrag = null;
+  TOUCH_LAYOUT.save();
+  touchEl.classList.remove('editing');
+  el('#layoutBar').hidden = true;
+  applyLayout();
   TOUCH_LAYOUT.onClose(editFrom);
 }
-touchEl.addEventListener('pointerdown', e => {
-  if (!editing) return;
-  const target = e.target as HTMLElement, b = target.closest<HTMLElement>('[data-lb]');
-  if (!b) { if (!target.closest('#layoutBar')) { e.preventDefault(); e.stopImmediatePropagation(); } return; }
-  e.preventDefault(); e.stopPropagation();
-  editSel = b.dataset.lb ?? '';
-  const r = b.getBoundingClientRect();
-  editDrag = { id: e.pointerId, dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2) };
-  try { b.setPointerCapture(e.pointerId); } catch (err) {}
-  el('#lbName').textContent = TOUCH_LAYOUT.defs[editSel].name; applyLayout();
-}, true);
+touchEl.addEventListener(
+  'pointerdown',
+  e => {
+    if (!editing) return;
+    const target = e.target as HTMLElement,
+      b = target.closest<HTMLElement>('[data-lb]');
+    if (!b) {
+      if (!target.closest('#layoutBar')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    editSel = b.dataset.lb ?? '';
+    const r = b.getBoundingClientRect();
+    editDrag = { id: e.pointerId, dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2) };
+    try {
+      b.setPointerCapture(e.pointerId);
+    } catch (err) {}
+    el('#lbName').textContent = TOUCH_LAYOUT.defs[editSel].name;
+    applyLayout();
+  },
+  true,
+);
 window.addEventListener('pointermove', e => {
   if (!editing || !editDrag || e.pointerId !== editDrag.id) return;
-  const L = TOUCH_LAYOUT.edits(), cur = getL(editSel);
-  L[editSel] = { x: clamp((e.clientX - editDrag.dx) / window.innerWidth, 0, 1), y: clamp((e.clientY - editDrag.dy) / window.innerHeight, 0, 1), s: cur.s };
+  const L = TOUCH_LAYOUT.edits(),
+    cur = getL(editSel);
+  L[editSel] = {
+    x: clamp((e.clientX - editDrag.dx) / window.innerWidth, 0, 1),
+    y: clamp((e.clientY - editDrag.dy) / window.innerHeight, 0, 1),
+    s: cur.s,
+  };
   applyLayout();
 });
-window.addEventListener('pointerup', e => { if (editDrag && e.pointerId === editDrag.id) { editDrag = null; TOUCH_LAYOUT.save(); } });
+window.addEventListener('pointerup', e => {
+  if (editDrag && e.pointerId === editDrag.id) {
+    editDrag = null;
+    TOUCH_LAYOUT.save();
+  }
+});
 el('#layoutBar').addEventListener('click', e => {
-  const b = (e.target as HTMLElement).closest<HTMLElement>('[data-lbact]'); if (!b) return;
-  const a = b.dataset.lbact, L = TOUCH_LAYOUT.edits(), cur = getL(editSel);
-  if (a === 'minus' || a === 'plus') L[editSel] = { x: cur.x, y: cur.y, s: clamp(Math.round((cur.s + (a === 'plus' ? 0.1 : -0.1)) * 10) / 10, 0.7, 1.6) };
+  const b = (e.target as HTMLElement).closest<HTMLElement>('[data-lbact]');
+  if (!b) return;
+  const a = b.dataset.lbact,
+    L = TOUCH_LAYOUT.edits(),
+    cur = getL(editSel);
+  if (a === 'minus' || a === 'plus')
+    L[editSel] = {
+      x: cur.x,
+      y: cur.y,
+      s: clamp(Math.round((cur.s + (a === 'plus' ? 0.1 : -0.1)) * 10) / 10, 0.7, 1.6),
+    };
   else if (a === 'reset') TOUCH_LAYOUT.reset();
-  else if (a === 'done') { closeLayoutEditor(); return; }
-  TOUCH_LAYOUT.save(); applyLayout();
+  else if (a === 'done') {
+    closeLayoutEditor();
+    return;
+  }
+  TOUCH_LAYOUT.save();
+  applyLayout();
 });
 window.addEventListener('resize', applyLayout);

@@ -6,7 +6,9 @@
 // show their button only when it works.
 export const FEEDBACK_FORM = {
   url: 'https://docs.google.com/forms/d/e/1FAIpQLSeBQFZawx76qvFJLOQsaoR26gI2l0shTm5DvBMROq3r78qpbg/viewform',
-  game: '1274129536', build: '1369941180', info: '431974325',
+  game: '1274129536',
+  build: '1369941180',
+  info: '431974325',
 };
 // set by the game at start-up: its id, filled into the form's "game" question
 export const FEEDBACK = { game: '' };
@@ -19,8 +21,11 @@ export const pageBuild = (): string => document.querySelector<HTMLMetaElement>('
 export function feedbackUrl(info = '', form = FEEDBACK_FORM): string | null {
   if (!feedbackReady(form)) return null;
   const q = new URLSearchParams({ usp: 'pp_url' });
-  const put = (id: string, v: string) => { if (id && v) q.set('entry.' + id, v); };
-  put(form.game, FEEDBACK.game); put(form.build, pageBuild());
+  const put = (id: string, v: string) => {
+    if (id && v) q.set('entry.' + id, v);
+  };
+  put(form.game, FEEDBACK.game);
+  put(form.build, pageBuild());
   put(form.info, info.length > FEEDBACK_INFO_MAX ? info.slice(0, FEEDBACK_INFO_MAX - 1) + '…' : info);
   return form.url + (form.url.includes('?') ? '&' : '?') + q.toString();
 }

@@ -10,7 +10,14 @@ export default defineConfig({
     name: 'build',
     environment: 'node',
     include: ['tools/build.test.ts'],
-    reporters: ci ? ['default', ['github-actions', { jobSummary: { enabled: true } }], 'junit', ['html', { outputDir: 'test-results/build-html' }]] : ['default'],
+    reporters: ci
+      ? [
+          'default',
+          ['github-actions', { jobSummary: { enabled: true } }],
+          'junit',
+          ['html', { outputDir: 'test-results/build-html' }],
+        ]
+      : ['default'],
     outputFile: { junit: 'test-results/build-junit.xml' },
   },
 });

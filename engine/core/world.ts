@@ -9,35 +9,70 @@ import { disposeTree } from '../render/render.ts';
 //   (other tags share the default group at order 30). group.list is kept as the same array for the game's lifetime,
 //   so the game may keep a reference to it (e.g. let enemies = worldGroup('enemy', 10).list).
 //   group.system / WORLD.system are the systems; set their .modes like any other.
-export interface WorldObject { tag?: string; dead?: boolean; mesh?: any; update?(dt: number): void; onRemove?(): void; }
-export interface WorldGroup { tag: string; list: WorldObject[]; system: System; }
+export interface WorldObject {
+  tag?: string;
+  dead?: boolean;
+  mesh?: any;
+  update?(dt: number): void;
+  onRemove?(): void;
+}
+export interface WorldGroup {
+  tag: string;
+  list: WorldObject[];
+  system: System;
+}
 export function newWorldGroup(tag: string, order: number): WorldGroup {
   const g = { tag, list: [] } as unknown as WorldGroup;
   g.system = addSystem({ name: 'world:' + tag, order, update: dt => updateWorldGroup(g, dt) });
   return g;
 }
-export function worldGroup(tag: string, order: number) { return WORLD.groups[tag] = newWorldGroup(tag, order); }
+export function worldGroup(tag: string, order: number) {
+  return (WORLD.groups[tag] = newWorldGroup(tag, order));
+}
 const ALL = newWorldGroup('*', 30);
-export const WORLD: { groups: Record<string, WorldGroup>; system: System } = { groups: { '*': ALL }, system: ALL.system };
+export const WORLD: { groups: Record<string, WorldGroup>; system: System } = {
+  groups: { '*': ALL },
+  system: ALL.system,
+};
 export const groupOf = (tag?: string): WorldGroup => (tag !== undefined && WORLD.groups[tag]) || WORLD.groups['*'];
-export function spawn<T extends WorldObject>(o: T): T & WorldObject { groupOf(o.tag).list.push(o); return o; }
+export function spawn<T extends WorldObject>(o: T): T & WorldObject {
+  groupOf(o.tag).list.push(o);
+  return o;
+}
 // T: the game's type of the objects with that tag (the tag says which type they are, so the list is taken as T[])
-export function query<T extends WorldObject = WorldObject>(tag: string): T[] { return groupOf(tag).list.filter(o => o.tag === tag && !o.dead) as T[]; }
+export function query<T extends WorldObject = WorldObject>(tag: string): T[] {
+  return groupOf(tag).list.filter(o => o.tag === tag && !o.dead) as T[];
+}
 export function removeFromWorld(o: WorldObject) {
   if (o.onRemove) o.onRemove();
-  if (o.mesh && o.mesh.parent) { disposeTree(o.mesh); o.mesh.parent.remove(o.mesh); }
+  if (o.mesh && o.mesh.parent) {
+    disposeTree(o.mesh);
+    o.mesh.parent.remove(o.mesh);
+  }
 }
 export function sweepGroup(g: WorldGroup) {
   let j = 0;
-  for (const o of g.list) { if (o.dead) removeFromWorld(o); else g.list[j++] = o; }
+  for (const o of g.list) {
+    if (o.dead) removeFromWorld(o);
+    else g.list[j++] = o;
+  }
   g.list.length = j;
 }
-export function sweepWorld() { Object.values(WORLD.groups).forEach(sweepGroup); }
+export function sweepWorld() {
+  Object.values(WORLD.groups).forEach(sweepGroup);
+}
 export function clearWorld(tag?: string) {
-  Object.values(WORLD.groups).forEach(g => g.list.forEach(o => { if (!tag || o.tag === tag) o.dead = true; }));
+  Object.values(WORLD.groups).forEach(g =>
+    g.list.forEach(o => {
+      if (!tag || o.tag === tag) o.dead = true;
+    }),
+  );
   sweepWorld();
 }
 export function updateWorldGroup(g: WorldGroup, dt: number) {
-  for (let i = 0; i < g.list.length; i++) { const o = g.list[i]; if (!o.dead && o.update) o.update(dt); }
+  for (let i = 0; i < g.list.length; i++) {
+    const o = g.list[i];
+    if (!o.dead && o.update) o.update(dt);
+  }
   sweepGroup(g);
 }

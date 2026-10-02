@@ -10,26 +10,52 @@ import { save } from '../system/save.ts';
 // From the result screen it describes the run that just ended; from the base screen, the save.
 
 // a weapon as id+plus, rarity 0-2 and options: "shotgun+37 r2 [mag,speed]"
-const wInfo = (w: WeaponItem | null | undefined) => w ? `${w.id}${w.plus ? '+' + w.plus : ''} r${w.r}${w.opts && w.opts.length ? ` [${w.opts.join(',')}]` : ''}` : '';
-const common = () => [`reboots=${save.pres.count}`, `shortcut=D${save.shortcut + 1}`, `runs=${save.runs}`, `lang=${lang}`, `device=${isTouch ? 'touch' : 'desktop'}`];
+const wInfo = (w: WeaponItem | null | undefined) =>
+  w ? `${w.id}${w.plus ? '+' + w.plus : ''} r${w.r}${w.opts && w.opts.length ? ` [${w.opts.join(',')}]` : ''}` : '';
+const common = () => [
+  `reboots=${save.pres.count}`,
+  `shortcut=D${save.shortcut + 1}`,
+  `runs=${save.runs}`,
+  `lang=${lang}`,
+  `device=${isTouch ? 'touch' : 'desktop'}`,
+];
 // the run that just ended (called by endRun / endPractice while the run is still there)
 let resultInfo = '';
 export function prepFeedback(kind: RunEnd) {
   const counts: Record<string, number> = {};
-  run.perks.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
-  const chips = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([n, c]) => c > 1 ? `${n}x${c}` : n).join(',');
+  run.perks.forEach(n => {
+    counts[n] = (counts[n] || 0) + 1;
+  });
+  const chips = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([n, c]) => (c > 1 ? `${n}x${c}` : n))
+    .join(',');
   resultInfo = [
     run.practice ? `practice=${run.forceBoss} result=${run.cleared ? 'won' : kind}` : `result=${kind}`,
-    `at=${stageLabel(run.stage)}`, `kills=${run.kills}`,
+    `at=${stageLabel(run.stage)}`,
+    `kills=${run.kills}`,
     `weapons=${P.weapons.concat(P.bag).filter(Boolean).map(wInfo).join(' / ')}`,
-    `chips(${run.perks.length})=${chips}`, `bosses=${(run.bosses || []).join(',')}`,
+    `chips(${run.perks.length})=${chips}`,
+    `bosses=${(run.bosses || []).join(',')}`,
     ...common(),
   ].join(' | ');
   el('#btnFeedbackRes').hidden = !feedbackReady();
 }
 // the base screen: what the save holds
-export const baseInfo = () => ['from=base', `loadout=${save.loadout.map(wInfo).filter(Boolean).join(' / ')}`, `best=${stageLabel(Math.max(0, save.best - 1))}`, ...common()].join(' | ');
-export function showBaseFeedback() { el('#btnFeedbackBase').hidden = !feedbackReady(); }
+export const baseInfo = () =>
+  [
+    'from=base',
+    `loadout=${save.loadout.map(wInfo).filter(Boolean).join(' / ')}`,
+    `best=${stageLabel(Math.max(0, save.best - 1))}`,
+    ...common(),
+  ].join(' | ');
+export function showBaseFeedback() {
+  el('#btnFeedbackBase').hidden = !feedbackReady();
+}
 
-el('#btnFeedbackRes').addEventListener('click', () => { if (openFeedback(resultInfo)) track('feedback', { method: 'result' }); });
-el('#btnFeedbackBase').addEventListener('click', () => { if (openFeedback(baseInfo())) track('feedback', { method: 'base' }); });
+el('#btnFeedbackRes').addEventListener('click', () => {
+  if (openFeedback(resultInfo)) track('feedback', { method: 'result' });
+});
+el('#btnFeedbackBase').addEventListener('click', () => {
+  if (openFeedback(baseInfo())) track('feedback', { method: 'base' });
+});

@@ -6,18 +6,34 @@ import { camera, renderGun, renderer, scene } from '../render/render.ts';
 // - LOOP.mode(): the game says which mode it is in (e.g. 'play', 'base', 'pause'); read once at the start of each frame.
 // - stopFrame(): skip the remaining systems for this frame (e.g. after moving to the next level).
 // - runSystems(dt, mode): run one step by hand (tests do this); startLoop(): begin.
-export interface LoopConfig { mode(): string | null; maxDt: number; }
-export interface SystemDef { name: string; order?: number; modes?: string[]; enabled?: boolean; update(dt: number): void; }
-export interface System extends SystemDef { order: number; enabled: boolean; }
+export interface LoopConfig {
+  mode(): string | null;
+  maxDt: number;
+}
+export interface SystemDef {
+  name: string;
+  order?: number;
+  modes?: string[];
+  enabled?: boolean;
+  update(dt: number): void;
+}
+export interface System extends SystemDef {
+  order: number;
+  enabled: boolean;
+}
 export const LOOP: LoopConfig = { mode: () => null, maxDt: 0.05 };
 export const systems: System[] = [];
-export let frameStopped = false, loopLast = 0;
+export let frameStopped = false,
+  loopLast = 0;
 export function addSystem(s: SystemDef): System {
   const sys: System = Object.assign({ order: 0, enabled: true }, s);
-  systems.push(sys); systems.sort((a, b) => a.order - b.order);
+  systems.push(sys);
+  systems.sort((a, b) => a.order - b.order);
   return sys;
 }
-export function stopFrame() { frameStopped = true; }
+export function stopFrame() {
+  frameStopped = true;
+}
 export function runSystems(dt: number, mode?: string | null) {
   if (mode === undefined) mode = LOOP.mode();
   frameStopped = false;
@@ -29,9 +45,13 @@ export function runSystems(dt: number, mode?: string | null) {
 }
 export function loopFrame(now: number) {
   requestAnimationFrame(loopFrame);
-  const dt = Math.min(LOOP.maxDt, (now - loopLast) / 1000); loopLast = now;
+  const dt = Math.min(LOOP.maxDt, (now - loopLast) / 1000);
+  loopLast = now;
   runSystems(dt);
   renderer.render(scene, camera);
   renderGun();
 }
-export function startLoop() { loopLast = performance.now(); requestAnimationFrame(loopFrame); }
+export function startLoop() {
+  loopLast = performance.now();
+  requestAnimationFrame(loopFrame);
+}

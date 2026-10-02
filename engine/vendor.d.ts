@@ -5,7 +5,16 @@ interface Document {
   webkitFullscreenElement?: Element | null;
   webkitExitFullscreen?: () => Promise<void> | void;
 }
-interface HTMLElement { webkitRequestFullscreen?: () => Promise<void> | void; }
-interface Navigator { standalone?: boolean; }
-interface Window { webkitAudioContext?: typeof AudioContext; gtag?: (...args: unknown[]) => void; }
-interface ScreenOrientation { lock?(orientation: string): Promise<void>; }
+interface HTMLElement {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+}
+interface Navigator {
+  standalone?: boolean;
+}
+interface Window {
+  webkitAudioContext?: typeof AudioContext;
+  gtag?: (...args: unknown[]) => void;
+}
+interface ScreenOrientation {
+  lock?(orientation: string): Promise<void>;
+}

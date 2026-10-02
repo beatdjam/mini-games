@@ -19,10 +19,32 @@ const games = readdirSync('games').filter(g => existsSync(`games/${g}/test`));
 export default defineConfig({
   test: {
     projects: [
-      { test: { name: 'engine', include: ['engine/test/**/*.test.ts'], setupFiles: ['engine/test/setup.ts'], browser: browser() } },
-      ...games.map(id => ({ test: { name: id, include: [`games/${id}/test/**/*.test.ts`], setupFiles: [`games/${id}/test/setup.ts`], testTimeout: 60000, browser: browser() } })),
+      {
+        test: {
+          name: 'engine',
+          include: ['engine/test/**/*.test.ts'],
+          setupFiles: ['engine/test/setup.ts'],
+          browser: browser(),
+        },
+      },
+      ...games.map(id => ({
+        test: {
+          name: id,
+          include: [`games/${id}/test/**/*.test.ts`],
+          setupFiles: [`games/${id}/test/setup.ts`],
+          testTimeout: 60000,
+          browser: browser(),
+        },
+      })),
     ],
-    reporters: ci ? ['default', ['github-actions', { jobSummary: { enabled: true } }], 'junit', ['html', { outputDir: 'test-results/html' }]] : ['default'],
+    reporters: ci
+      ? [
+          'default',
+          ['github-actions', { jobSummary: { enabled: true } }],
+          'junit',
+          ['html', { outputDir: 'test-results/html' }],
+        ]
+      : ['default'],
     outputFile: { junit: 'test-results/junit.xml' },
   },
 });

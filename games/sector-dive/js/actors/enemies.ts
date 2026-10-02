@@ -12,19 +12,19 @@ import { COLOR } from '../data/colors.ts';
 // Fields on an enemy object are listed in spawnEnemy (js/world/entities.js).
 
 // ---- tuning numbers used only here (the per-enemy numbers are in data/enemies.ts) ----
-const CHEST_Y = 1.3;            // player chest height above the feet: line of sight and aim (m)
-const SIGHT_RANGE = 40;         // enemies see the player no farther than this (m)
-const STUN_MELEE_DELAY = 0.2;   // a stunned enemy can't melee for at least this long (s)
-const MELEE_REACH = 0.4;        // melee reach beyond the two body radii (m)
-const MELEE_REACH_Y = 1.2;      // vertical difference a melee hit still reaches (m)
-const MELEE_INTERVAL = 0.9;     // seconds between melee hits
-const RANGED_RANGE = 26;        // ranged enemies only fire inside this (m)
+const CHEST_Y = 1.3; // player chest height above the feet: line of sight and aim (m)
+const SIGHT_RANGE = 40; // enemies see the player no farther than this (m)
+const STUN_MELEE_DELAY = 0.2; // a stunned enemy can't melee for at least this long (s)
+const MELEE_REACH = 0.4; // melee reach beyond the two body radii (m)
+const MELEE_REACH_Y = 1.2; // vertical difference a melee hit still reaches (m)
+const MELEE_INTERVAL = 0.9; // seconds between melee hits
+const RANGED_RANGE = 26; // ranged enemies only fire inside this (m)
 const FIRE_JITTER: [number, number] = [0.8, 1.25]; // random factor on the time between shots
-const BOMBER_FUSE_DIST = 2.2;   // a bomber lights its fuse this close (m)
-const BOMBER_FUSE_DY = 1.5;     // ... and within this height difference (m)
-const BOMBER_FUSE = 0.45;       // seconds from lit to blast
-const SNIPER_AIM_TIME = 1.1;    // seconds of laser before the shot
-const SNIPER_LOCK_TIME = 0.25;  // the laser stops tracking for the last this-many seconds
+const BOMBER_FUSE_DIST = 2.2; // a bomber lights its fuse this close (m)
+const BOMBER_FUSE_DY = 1.5; // ... and within this height difference (m)
+const BOMBER_FUSE = 0.45; // seconds from lit to blast
+const SNIPER_AIM_TIME = 1.1; // seconds of laser before the shot
+const SNIPER_LOCK_TIME = 0.25; // the laser stops tracking for the last this-many seconds
 const SNIPER_COOLDOWN: [number, number] = [2.6, 3.4]; // seconds between shots (x fireInterval)
 const SNIPER_BULLET_SPEED = 60; // m/s
 // one enemy for one frame (engine world group 'enemy', order 10)
@@ -32,10 +32,15 @@ export function updateEnemy(e: Enemy, dt: number) {
   const py = P.fy + CHEST_Y; // player chest height, used for line of sight
   if (e.flash > 0) e.flash -= dt;
   e.mat.emissiveIntensity = e.flash > 0 ? 1.8 : e.baseEI;
-  if (e.boss) { if (e.spawnT > 0) bossPauseTick(e, dt); else e.behave(e, dt); return; }
+  if (e.boss) {
+    if (e.spawnT > 0) bossPauseTick(e, dt);
+    else e.behave(e, dt);
+    return;
+  }
 
   const def = e.def;
-  const dx = P.x - e.x, dz = P.z - e.z;
+  const dx = P.x - e.x,
+    dz = P.z - e.z;
   const dist = Math.hypot(dx, dz) || 0.001;
   const eyeY = e.fy + def.y;
   e.t += dt;
@@ -46,7 +51,11 @@ export function updateEnemy(e: Enemy, dt: number) {
   const los = dist < SIGHT_RANGE && hasLOS(e.x, e.z, P.x, P.z, eyeY, py);
 
   let still = false; // true = this enemy doesn't walk this frame
-  if (e.stun > 0) { e.stun -= dt; still = true; e.mcd = Math.max(e.mcd, STUN_MELEE_DELAY); }
+  if (e.stun > 0) {
+    e.stun -= dt;
+    still = true;
+    e.mcd = Math.max(e.mcd, STUN_MELEE_DELAY);
+  }
   if (def.bomber) {
     const r = updateBomber(e, dt, dist);
     if (r === 'gone') return;
@@ -63,21 +72,30 @@ export function updateEnemy(e: Enemy, dt: number) {
     const r = def.ranged;
     e.cd = r.rate * ENEMY_TUNE.fireInterval * rand(FIRE_JITTER[0], FIRE_JITTER[1]);
     fireRanged(e);
-    if (r.burst) { e.burstN = r.burst - 1; e.burstT = r.burstGap!; } // burstGap goes with burst
+    if (r.burst) {
+      e.burstN = r.burst - 1;
+      e.burstT = r.burstGap!;
+    } // burstGap goes with burst
   }
   // the rest of a burst: one round every burstGap while the player stays in sight
   if (e.burstN > 0 && (e.burstT -= dt) <= 0) {
-    if (los) { fireRanged(e); e.burstN--; e.burstT = def.ranged!.burstGap!; } else e.burstN = 0;
+    if (los) {
+      fireRanged(e);
+      e.burstN--;
+      e.burstT = def.ranged!.burstGap!;
+    } else e.burstN = 0;
   }
   poseEnemy(e, dt, dx, dz);
 }
 
 function fireRanged(e: RegularEnemy) {
-  const def = e.def, r = def.ranged!; // only called for types with `ranged`
+  const def = e.def,
+    r = def.ranged!; // only called for types with `ranged`
   const muzzleY = e.mesh.position.y + (def.muzzle ?? (def.geo === 'cyl' ? 1.1 : 0));
   const color = def.color === COLOR.yellow ? COLOR.yellow : COLOR.mag;
   fanAt(e.x, muzzleY, e.z, r.count, r.spread, r.speed, e.dmg, color);
-  e.kick = 1; e.shots = (e.shots || 0) + 1; // rounds fired (the smoke test counts a burst)
+  e.kick = 1;
+  e.shots = (e.shots || 0) + 1; // rounds fired (the smoke test counts a burst)
 }
 
 // Idle until the player is within ENEMY_TUNE.wakeTiles of walking distance and in sight. Returns true once awake.
@@ -87,7 +105,8 @@ export function wakeCheck(e: RegularEnemy, eyeY: number, py: number, dt: number)
     e.active = true;
     return true;
   }
-  if (isTrooper(e)) { // stands on its feet and looks around
+  if (isTrooper(e)) {
+    // stands on its feet and looks around
     e.body.rotation.y = Math.sin(e.t * 0.7) * 0.7;
     poseHumanoid(e, dt, false);
   } else {
@@ -103,7 +122,10 @@ export function updateBomber(e: RegularEnemy, dt: number, dist: number) {
   if (e.fuse !== undefined) {
     e.fuse -= dt;
     e.flash = Math.sin(e.t * 50) > 0 ? 0.05 : 0;
-    if (e.fuse <= 0) { detonate(e); return 'gone'; }
+    if (e.fuse <= 0) {
+      detonate(e);
+      return 'gone';
+    }
     return true;
   }
   if (dist < BOMBER_FUSE_DIST && Math.abs(P.fy - e.fy!) < BOMBER_FUSE_DY) {
@@ -121,14 +143,17 @@ export function updateSniper(e: Sniper, dt: number, los: boolean, py: number) {
     e.aim -= dt;
     const sy = e.mesh.position.y + 0.7;
     if (e.aim > SNIPER_LOCK_TIME) e.lock = [P.x, py - 0.1, P.z];
-    const opacity = e.aim > SNIPER_LOCK_TIME ? 0.45 : (Math.sin(e.t * 60) > 0 ? 1 : 0.3);
+    const opacity = e.aim > SNIPER_LOCK_TIME ? 0.45 : Math.sin(e.t * 60) > 0 ? 1 : 0.3;
     setLaser(e.laser, [e.x, sy, e.z], e.lock, opacity);
     if (e.aim <= 0) {
       e.laser.visible = false;
       e.cd = rand(SNIPER_COOLDOWN[0], SNIPER_COOLDOWN[1]) * ENEMY_TUNE.fireInterval;
-      const vx = e.lock[0] - e.x, vy = e.lock[1] - sy, vz = e.lock[2] - e.z;
-      const l = Math.hypot(vx, vy, vz) || 1, speed = SNIPER_BULLET_SPEED;
-      spawnEBullet(e.x, sy, e.z, vx / l * speed, vy / l * speed, vz / l * speed, e.dmg, COLOR.mag, 0.7);
+      const vx = e.lock[0] - e.x,
+        vy = e.lock[1] - sy,
+        vz = e.lock[2] - e.z;
+      const l = Math.hypot(vx, vy, vz) || 1,
+        speed = SNIPER_BULLET_SPEED;
+      spawnEBullet(e.x, sy, e.z, (vx / l) * speed, (vy / l) * speed, (vz / l) * speed, e.dmg, COLOR.mag, 0.7);
       sfx('rail', 80);
     }
     return true;
@@ -164,25 +189,34 @@ export function poseEnemy(e: RegularEnemy, dt: number, dx: number, dz: number) {
   e.mesh.rotation.y = e.face;
   if (def.geo === 'tetra' || def.geo === 'tetraS') e.body.rotation.x += dt * 8;
   if (def.geo === 'octa' || def.geo === 'ico') e.body.rotation.y += dt * 3;
-  if (isTrooper(e)) { e.body.rotation.y *= Math.max(0, 1 - dt * 6); poseHumanoid(e, dt, true); }
+  if (isTrooper(e)) {
+    e.body.rotation.y *= Math.max(0, 1 - dt * 6);
+    poseHumanoid(e, dt, true);
+  }
 }
 
 // The trooper's limbs: legs and the free arm swing with the distance walked, the gun arm is raised toward the player
 // while awake (kicking back on each shot), and the hit spheres follow the head, chest and legs.
 export function poseHumanoid(e: Trooper, dt: number, aiming: boolean) {
-  const rig = e.rig, moved = Math.hypot(e.x - e.px, e.z - e.pz);
-  e.px = e.x; e.pz = e.z;
+  const rig = e.rig,
+    moved = Math.hypot(e.x - e.px, e.z - e.pz);
+  e.px = e.x;
+  e.pz = e.z;
   const pace = clamp(moved / Math.max(dt, 1e-3) / 3.5, 0, 1);
   e.walk += moved * 2.4;
   const swing = Math.sin(e.walk) * 0.65 * pace;
-  rig.legL.rotation.x = swing; rig.legR.rotation.x = -swing;
+  rig.legL.rotation.x = swing;
+  rig.legR.rotation.x = -swing;
   rig.armL.rotation.x = -swing * 0.8;
   e.kick = Math.max(0, e.kick - dt * 9);
-  const dy = P.fy + CHEST_Y - (e.mesh.position.y + 0.6), dh = distXZ(P, e) || 1;
+  const dy = P.fy + CHEST_Y - (e.mesh.position.y + 0.6),
+    dh = distXZ(P, e) || 1;
   const want = aiming ? -Math.PI / 2 - Math.atan2(dy, dh) * 0.8 + e.kick * 0.35 : swing * 0.8;
   rig.armR.rotation.x += (want - rig.armR.rotation.x) * Math.min(1, dt * 12);
   rig.upper.rotation.x = -e.kick * 0.08;
   e.mesh.position.y = e.fy + e.def.y + Math.abs(Math.sin(e.walk)) * 0.05 * pace;
   const m = e.mesh.position;
-  e.parts[0].p.set(m.x, m.y + 0.95, m.z); e.parts[1].p.set(m.x, m.y + 0.4, m.z); e.parts[2].p.set(m.x, m.y - 0.5, m.z);
+  e.parts[0].p.set(m.x, m.y + 0.95, m.z);
+  e.parts[1].p.set(m.x, m.y + 0.4, m.z);
+  e.parts[2].p.set(m.x, m.y - 0.5, m.z);
 }
