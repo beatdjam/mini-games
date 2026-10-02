@@ -1,4 +1,4 @@
-import type { Biome, Enemy, Player, RunState, Weapon, WeaponDef, WeaponItem } from '../data/types.ts';
+import type { Biome, Enemy, HitSphere, Player, RegularEnemy, RunState, Weapon, WeaponDef, WeaponItem } from '../data/types.ts';
 import type { AimTarget } from '../world/entities.ts';
 import { clamp, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { t } from '../../../../engine/core/i18n.ts';
@@ -118,7 +118,7 @@ export const curW = (): Weapon => P.weapons[P.cur]!;
 export function fwd() { return new V3(-Math.sin(P.yaw) * Math.cos(P.pitch), Math.sin(P.pitch), -Math.cos(P.yaw) * Math.cos(P.pitch)); }
 
 // hit spheres: multi-body bosses list their parts, everything else is one sphere at the mesh
-export function spheres(e: Enemy): { p: THREE.Vector3; r: number }[] { return e.parts || [{ p: e.mesh.position, r: e.hitR }]; }
+export function spheres(e: Enemy): HitSphere[] { return e.parts || [{ p: e.mesh.position, r: e.hitR }]; }
 // how far you can actually make enemies out: 60% of the way into the fog
 export const visibleRange = () => Math.min(56, (scene.fog as THREE.Fog).near + ((scene.fog as THREE.Fog).far - (scene.fog as THREE.Fog).near) * 0.6);
 // target for autofire, aim assist and the red crosshair: in the aim cone, in line of sight, and not hidden in fog
@@ -240,7 +240,7 @@ export function bomberBlast(x: number, y: number, z: number, dmg: number) {
   const hit = 35 * diffOf(run.stage) / ENEMY_TUNE.hpMul;
   for (const o of enemies.slice()) if (!o.dead && !o.boss && Math.hypot(o.x - x, o.z - z) < 3.2) hurtEnemy(o, hit, false);
 }
-export function detonate(e: Enemy) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
+export function detonate(e: RegularEnemy) { e.detonated = true; killEnemy(e, true); bomberBlast(e.x, e.mesh.position.y, e.z, e.dmg); }
 export let inChainBlast = false;
 export function killEnemy(e: Enemy, noReward?: boolean) {
   e.dead = true;

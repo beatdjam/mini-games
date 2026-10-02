@@ -15,14 +15,14 @@ import { floorY, solidAt } from './tiles.ts';
 // - steerToward(b, tx, ty, tz, dt, rate): turn the velocity toward a point, keeping b.speed
 // - ringAngles(n, offset): n evenly spaced angles; aimFan(x, y, z, tx, ty, tz, n, spread, jitter): n unit directions
 //   fanned `spread` radians apart around the aim at (tx, ty, tz), each with up to ±jitter of random turn
-// the fields the engine uses; the game adds its own (damage, pierce, ...) to the same objects
+// the fields the engine uses; the game adds its own (damage, pierce, ...) by extending this type and giving that type
+// to the pool (takeFromPool / stepProjectile are generic over it). born: the hand-out count (takeFromPool)
 export interface Projectile {
   mesh: THREE.Mesh; alive: boolean; hit: Set<unknown>;
-  x: number; y: number; z: number; vx: number; vy: number; vz: number; grav?: number; speed?: number;
-  [k: string]: any;
+  x: number; y: number; z: number; vx: number; vy: number; vz: number; grav?: number; speed?: number; born?: number;
 }
 let handedOut = 0;
-export function takeFromPool(pool: Projectile[], geo: THREE.BufferGeometry, max: number, recycle = false): Projectile | null {
+export function takeFromPool<T extends Projectile>(pool: T[], geo: THREE.BufferGeometry, max: number, recycle = false): T | null {
   for (const b of pool) if (!b.alive) { b.born = ++handedOut; return b; }
   if (pool.length >= max) {
     if (!recycle || !pool.length) return null;
@@ -31,11 +31,12 @@ export function takeFromPool(pool: Projectile[], geo: THREE.BufferGeometry, max:
     old.born = ++handedOut;
     return old;
   }
-  const b: Projectile = { mesh: new THREE.Mesh(geo, basicMat(0xffffff)), alive: false, hit: new Set(), x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 };
+  // a new projectile has only the engine's fields; the game's own fields (T's extra ones) are filled in by the caller right after
+  const b = { mesh: new THREE.Mesh(geo, basicMat(0xffffff)), alive: false, hit: new Set(), x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 } as unknown as T;
   b.born = ++handedOut; dynGroup.add(b.mesh); pool.push(b); return b;
 }
 export function clearPool(pool: Projectile[]) { pool.forEach(b => { b.alive = false; b.mesh.visible = false; }); }
-export function stepProjectile(b: Projectile, dt: number, maxStep: number, visit: (b: Projectile) => boolean, speed?: number): boolean {
+export function stepProjectile<T extends Projectile>(b: T, dt: number, maxStep: number, visit: (b: T) => boolean, speed?: number): boolean {
   if (b.grav) b.vy -= b.grav * dt;
   const steps = Math.max(1, Math.ceil((speed ?? Math.hypot(b.vx, b.vy, b.vz)) * dt / maxStep));
   for (let s = 0; s < steps; s++) {

@@ -1,4 +1,4 @@
-import type { WeaponItem } from '../data/types.ts';
+import type { Pickup, WeaponItem } from '../data/types.ts';
 import { clamp, el, isTouch } from '../../../../engine/core/util.ts';
 import { query } from '../../../../engine/core/world.ts';
 import { LANG, lang, setLang, t } from '../../../../engine/core/i18n.ts';
@@ -120,7 +120,7 @@ export function drawMap(c: HTMLCanvasElement, g: CanvasRenderingContext2D, big?:
   }
   g.globalAlpha = 1;
   const px = (x: number) => x / T * s, u = c.width / 160;
-  query('pickup').forEach(p => {
+  query<Pickup>('pickup').forEach(p => {
     if (p.kind === 'bit') return;
     if (!seen[Math.floor(p.z / T) * W + Math.floor(p.x / T)]) return;
     g.fillStyle = p.kind === 'chip' ? '#ffc24a' : p.kind === 'kit' ? '#8cff6a' : '#ffffff';
