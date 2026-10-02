@@ -97,25 +97,26 @@ export function updateHud() {
   const row = el('#pickRow');
   if (nearPickup) {
     const desk = !isTouch && !document.body.classList.contains('nolock'),
-      bagFree = player.bag.includes(null);
+      bagFree = player.bag.includes(null),
+      freeSlots = player.bag.filter(w => !w).length,
+      hasSecond = !!player.weapons[1];
     const name =
       weaponText(nearPickup.w!) +
       (desk
         ? t('hud.pickDesk', {
-            act: t(player.weapons[1] ? 'hud.pickSwap' : 'hud.pickEquip'),
+            act: t(hasSecond ? 'hud.pickSwap' : 'hud.pickEquip'),
             full: bagFree ? '' : t('hud.pickFull'),
           })
         : '');
     const diff = compareHTML(nearPickup.w!, currentWeapon()),
-      key = name + '|' + diff + '|' + player.cur + '|' + bagFree;
+      // everything the labels below depend on: the bag screen can change the slots while the prompt stays up
+      key = name + '|' + diff + '|' + player.cur + '|' + bagFree + '|' + freeSlots + '|' + hasSecond;
     if (row.hidden || row.dataset.key !== key) {
       row.dataset.key = key;
       el('#pickName').textContent = name;
       el('#pickDiff').innerHTML = diff;
-      el('#btnEquip').textContent = t(player.weapons[1] ? 'hud.btnSwap' : 'hud.btnEquip2');
-      el('#btnStow').textContent = bagFree
-        ? t('hud.btnStow', { n: player.bag.filter(w => !w).length })
-        : t('hud.btnStowFull');
+      el('#btnEquip').textContent = t(hasSecond ? 'hud.btnSwap' : 'hud.btnEquip2');
+      el('#btnStow').textContent = bagFree ? t('hud.btnStow', { n: freeSlots }) : t('hud.btnStowFull');
       el<HTMLButtonElement>('#btnStow').disabled = !bagFree;
       row.hidden = false;
     }
