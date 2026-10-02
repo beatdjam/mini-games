@@ -7,6 +7,13 @@ import { basicMat, disposeTree, dynGroup, shared } from './render.ts';
 // - fireball(x, y, z, radius, color): a flash that grows to `radius` and fades in 0.5 s
 // - clearFx(): remove everything (when a level is torn down)
 // FX.particles / FX.fireballs are the systems; set their .modes to the game's mode names (default: every mode).
+const PART_POOL = 300; // particle cubes made up front and reused in a ring
+const PART_GRAVITY = 14; // default downward pull of a particle (m/s^2)
+const PART_LIFE = 0.6; // default particle life when burst() gets none (s)
+const FIREBALL_START = 0.3; // scale of a fireball when it appears
+const FIREBALL_GROW = 0.16; // time to grow to full radius (s)
+const FIREBALL_LIFE = 0.5; // time until a fireball has faded out (s)
+const FIREBALL_OPACITY = 0.85; // opacity of a fireball when it appears
 export const FX_GEO = {
   part: shared(new THREE.BoxGeometry(0.13, 0.13, 0.13)),
   ball: shared(new THREE.SphereGeometry(1, 16, 12)),
@@ -27,11 +34,11 @@ interface Fireball {
   dead: boolean;
 }
 export const parts: Particle[] = [];
-for (let i = 0; i < 300; i++) {
+for (let i = 0; i < PART_POOL; i++) {
   const m = new THREE.Mesh(FX_GEO.part, basicMat(0xffffff));
   m.visible = false;
   dynGroup.add(m);
-  parts.push({ mesh: m, life: 0, max: 1, vx: 0, vy: 0, vz: 0, g: 14 });
+  parts.push({ mesh: m, life: 0, max: 1, vx: 0, vy: 0, vz: 0, g: PART_GRAVITY });
 }
 let partIdx = 0; // next particle to reuse (ring)
 let balls: Fireball[] = [];
@@ -46,7 +53,8 @@ export function burst(
   grav?: number,
 ) {
   for (let k = 0; k < n; k++) {
-    const p = parts[(partIdx = (partIdx + 1) % parts.length)];
+    partIdx = (partIdx + 1) % parts.length;
+    const p = parts[partIdx];
     p.mesh.material = basicMat(color);
     p.mesh.visible = true;
     p.mesh.position.set(x, y, z);
@@ -57,9 +65,9 @@ export function burst(
     p.vx = Math.cos(a) * q * s;
     p.vy = u * s + spd * 0.35;
     p.vz = Math.sin(a) * q * s;
-    p.life = (life || 0.6) * rand(0.6, 1.2);
+    p.life = (life || PART_LIFE) * rand(0.6, 1.2);
     p.max = p.life;
-    p.g = grav === undefined ? 14 : grav;
+    p.g = grav === undefined ? PART_GRAVITY : grav;
   }
 }
 export function updateParts(dt: number) {
@@ -89,23 +97,23 @@ export function fireball(x: number, y: number, z: number, radius: number, color:
   const mat = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.85,
+    opacity: FIREBALL_OPACITY,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
   const m = new THREE.Mesh(FX_GEO.ball, mat);
   m.position.set(x, y, z);
-  m.scale.setScalar(0.3);
+  m.scale.setScalar(FIREBALL_START);
   dynGroup.add(m);
   balls.push({ m, t: 0, radius, dead: false });
 }
 export function updateBalls(dt: number) {
   for (const b of balls) {
     b.t += dt;
-    const k = Math.min(1, b.t / 0.16);
-    b.m.scale.setScalar(0.3 + (b.radius - 0.3) * (1 - Math.pow(1 - k, 3)));
-    b.m.material.opacity = 0.85 * Math.max(0, 1 - b.t / 0.5);
-    if (b.t > 0.5) {
+    const k = Math.min(1, b.t / FIREBALL_GROW);
+    b.m.scale.setScalar(FIREBALL_START + (b.radius - FIREBALL_START) * (1 - Math.pow(1 - k, 3)));
+    b.m.material.opacity = FIREBALL_OPACITY * Math.max(0, 1 - b.t / FIREBALL_LIFE);
+    if (b.t > FIREBALL_LIFE) {
       b.dead = true;
       disposeTree(b.m);
       dynGroup.remove(b.m);
