@@ -5,7 +5,7 @@ import { canvas } from '../render/render.ts';
 // - PC: keys[code] is true while held; mouse look while the pointer is locked to canvas (#gl); left button -> mouseFire.
 // - Touch (#touch): the left 45% of the screen is the move stick (joy.x / joy.y in -1..1, drawn with #joyBase / #joyKnob),
 //   the rest drags the view. #btnFire: hold to fire (fireHeld), dragging it also turns the view. #btnFire2: hold (fire2Held).
-// - tapBtn(el, fn) binds a touch button that acts on press.
+// - tapBtn(btn, fn) binds a touch button that acts on press.
 // The game fills INPUT:
 //   active()      is play accepting look / fire right now
 //   look(dx, dy)  turn the view by dx / dy radians
@@ -29,15 +29,26 @@ export const INPUT: InputConfig = {
   pause: () => {},
   lockChanged: () => {},
 };
+// touch: the left part of the screen is the move stick; this is its width as a fraction of the screen width
+const STICK_ZONE = 0.45;
+// touch: how far the stick knob can move from where it was grabbed (px)
+const STICK_R = 55;
+// touch: view turn per px of finger drag (radians per px, before INPUT.sens())
+const TOUCH_LOOK = 0.0055;
+// mouse: view turn per px of mouse movement while locked (radians per px, before INPUT.sens())
+const MOUSE_LOOK = 0.0022;
+
 export const keys: Record<string, boolean> = {};
 // id = the pointer holding it (null when free); ox / oy = where the stick was grabbed
-export let joy: { id: number | null; ox: number; oy: number; x: number; y: number } = {
-  id: null,
-  ox: 0,
-  oy: 0,
-  x: 0,
-  y: 0,
-};
+interface Stick {
+  id: number | null;
+  ox: number;
+  oy: number;
+  x: number;
+  y: number;
+}
+const freeJoy = (): Stick => ({ id: null, ox: 0, oy: 0, x: 0, y: 0 });
+export let joy = freeJoy();
 // the pointer turning the view, and the pointer holding #btnFire (id null when free)
 let look: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 };
 let fireTouch: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 };
@@ -47,13 +58,14 @@ export let mouseFire = false; // left mouse button held while the pointer is loc
 export let locked = false; // the pointer is locked to the canvas
 let lockWorked = false; // pointer lock has worked at least once (else lockFailed adds body.nolock)
 export const touchEl = el('#touch');
+// fireHeld can only be written in this module, so tests press fire through this
 export function setFireHeld(v: boolean) {
   fireHeld = v;
-} // tests
+}
 export function lookDelta(dx: number, dy: number, k: number) {
   INPUT.look(dx * k, dy * k);
 }
-export const lookSpeed = () => 0.0055 * INPUT.sens();
+export const lookSpeed = () => TOUCH_LOOK * INPUT.sens();
 
 touchEl.addEventListener('pointerdown', e => {
   if (e.target !== touchEl) return;
@@ -66,7 +78,7 @@ touchEl.addEventListener('pointerdown', e => {
   try {
     touchEl.setPointerCapture(e.pointerId);
   } catch (err) {}
-  if (e.clientX < window.innerWidth * 0.45 && joy.id === null) {
+  if (e.clientX < window.innerWidth * STICK_ZONE && joy.id === null) {
     joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: 0, y: 0 };
     const jb = el('#joyBase');
     jb.style.left = e.clientX + 'px';
@@ -81,14 +93,13 @@ touchEl.addEventListener('pointermove', e => {
   if (e.pointerId === joy.id) {
     let dx = e.clientX - joy.ox,
       dy = e.clientY - joy.oy;
-    const l = Math.hypot(dx, dy),
-      R = 55;
-    if (l > R) {
-      dx = (dx / l) * R;
-      dy = (dy / l) * R;
+    const l = Math.hypot(dx, dy);
+    if (l > STICK_R) {
+      dx = (dx / l) * STICK_R;
+      dy = (dy / l) * STICK_R;
     }
-    joy.x = dx / R;
-    joy.y = dy / R;
+    joy.x = dx / STICK_R;
+    joy.y = dy / STICK_R;
     el('#joyKnob').style.transform = `translate(${dx}px,${dy}px)`;
   } else if (e.pointerId === look.id) {
     lookDelta(e.clientX - look.x, e.clientY - look.y, lookSpeed());
@@ -98,7 +109,7 @@ touchEl.addEventListener('pointermove', e => {
 });
 export function endPointer(e: PointerEvent) {
   if (e.pointerId === joy.id) {
-    joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+    joy = freeJoy();
     el('#joyBase').style.display = 'none';
   }
   if (e.pointerId === look.id) look = { id: null, x: 0, y: 0 };
@@ -106,7 +117,7 @@ export function endPointer(e: PointerEvent) {
 touchEl.addEventListener('pointerup', endPointer);
 touchEl.addEventListener('pointercancel', endPointer);
 export function releaseInputs() {
-  joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  joy = freeJoy();
   look = { id: null, x: 0, y: 0 };
   fireTouch = { id: null, x: 0, y: 0 };
   fireHeld = false;
@@ -117,24 +128,24 @@ export function releaseInputs() {
   el('#btnFire2').classList.remove('down');
   for (const k in keys) keys[k] = false;
 }
+// a hold button: pressing it captures the pointer and adds the 'down' class; onDown sets the held state
+// and onUp (pointerup / pointercancel) clears it, including the 'down' class
+function bindHoldButton(btn: HTMLElement, onDown: (e: PointerEvent) => void, onUp: (e: PointerEvent) => void) {
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    audioInit();
+    try {
+      btn.setPointerCapture(e.pointerId);
+    } catch (err) {}
+    onDown(e);
+    btn.classList.add('down');
+  });
+  btn.addEventListener('pointerup', onUp);
+  btn.addEventListener('pointercancel', onUp);
+}
 export const btnFire = el('#btnFire');
-btnFire.addEventListener('pointerdown', e => {
-  e.preventDefault();
-  e.stopPropagation();
-  audioInit();
-  try {
-    btnFire.setPointerCapture(e.pointerId);
-  } catch (err) {}
-  fireTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
-  fireHeld = true;
-  btnFire.classList.add('down');
-});
-btnFire.addEventListener('pointermove', e => {
-  if (e.pointerId !== fireTouch.id) return;
-  lookDelta(e.clientX - fireTouch.x, e.clientY - fireTouch.y, lookSpeed());
-  fireTouch.x = e.clientX;
-  fireTouch.y = e.clientY;
-});
+// only the pointer that pressed #btnFire can release it (unlike fire2Up)
 export const fireUp = (e: PointerEvent) => {
   if (e.pointerId === fireTouch.id) {
     fireTouch.id = null;
@@ -142,10 +153,22 @@ export const fireUp = (e: PointerEvent) => {
     btnFire.classList.remove('down');
   }
 };
-btnFire.addEventListener('pointerup', fireUp);
-btnFire.addEventListener('pointercancel', fireUp);
-export function tapBtn(el: HTMLElement, fn: () => void) {
-  el.addEventListener('pointerdown', e => {
+bindHoldButton(
+  btnFire,
+  e => {
+    fireTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    fireHeld = true;
+  },
+  fireUp,
+);
+btnFire.addEventListener('pointermove', e => {
+  if (e.pointerId !== fireTouch.id) return;
+  lookDelta(e.clientX - fireTouch.x, e.clientY - fireTouch.y, lookSpeed());
+  fireTouch.x = e.clientX;
+  fireTouch.y = e.clientY;
+});
+export function tapBtn(btn: HTMLElement, fn: () => void) {
+  btn.addEventListener('pointerdown', e => {
     e.preventDefault();
     e.stopPropagation();
     audioInit();
@@ -153,22 +176,18 @@ export function tapBtn(el: HTMLElement, fn: () => void) {
   });
 }
 export const btnFire2 = el('#btnFire2');
-btnFire2.addEventListener('pointerdown', e => {
-  e.preventDefault();
-  e.stopPropagation();
-  audioInit();
-  try {
-    btnFire2.setPointerCapture(e.pointerId);
-  } catch (err) {}
-  fire2Held = true;
-  btnFire2.classList.add('down');
-});
+// releases on any pointerup / pointercancel on #btnFire2, without checking which pointer (unlike fireUp)
 export const fire2Up = () => {
   fire2Held = false;
   btnFire2.classList.remove('down');
 };
-btnFire2.addEventListener('pointerup', fire2Up);
-btnFire2.addEventListener('pointercancel', fire2Up);
+bindHoldButton(
+  btnFire2,
+  () => {
+    fire2Held = true;
+  },
+  fire2Up,
+);
 
 export function exitLock() {
   if (document.pointerLockElement) {
@@ -213,7 +232,7 @@ document.addEventListener('mouseup', () => {
   mouseFire = false;
 });
 document.addEventListener('mousemove', e => {
-  if (locked && INPUT.active()) lookDelta(e.movementX, e.movementY, 0.0022 * INPUT.sens());
+  if (locked && INPUT.active()) lookDelta(e.movementX, e.movementY, MOUSE_LOOK * INPUT.sens());
 });
 window.addEventListener('keydown', e => {
   keys[e.code] = true;
