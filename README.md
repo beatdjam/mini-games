@@ -26,6 +26,7 @@ CLAUDE.md                    Claude Code が作業時に守る決まり（コミ
 ## 開発
 
 - TypeScript の ES モジュール（import / export）＋ Vite。three.js は npm の `three`（0.128.0 に固定、型は `@types/three`）
+- Node は 24（`.nvmrc`。CI も同じ版を使う）。22.12 以上なら動く（`package.json` の `engines`）
 - 最初に `npm install`
 - `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
 - `npm run typecheck`: 型チェック（下の「TypeScript」）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
