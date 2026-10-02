@@ -5,10 +5,10 @@
 //   no-index-any   no `[k: string]: any` (list an object's fields instead)
 //   no-as-any      no `as any` (type it properly; a narrow `as` with a comment is fine)
 //   engine-import  engine/ never imports from games/
-//   ui-text        no Japanese in string literals outside js/lang/ (screen text goes in the language files)
+//   ui-text        no Japanese in string literals outside src/i18n/ (screen text goes in the language files)
 //   lang-tone      the Japanese UI text keeps the plain tone: no casual endings such as 「〜てね」「〜だよ」
-//   shared-color   a colour written in two or more files of a game (outside js/data/, js/dev/, js/lang/) needs a
-//                  name in js/data/colors.ts (white and black excepted)
+//   shared-color   a colour written in two or more files of a game (outside src/data/, src/dev/, src/i18n/) needs a
+//                  name in src/data/colors.ts (white and black excepted)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +41,7 @@ const code = line => line.replace(/(^|[^:'"`\\])\/\/.*$/, '$1');
 for (const { f, text } of files) {
   const lines = text.split('\n');
   const isEngine = f.startsWith('engine/'),
-    isLang = /\/js\/lang\//.test(f),
+    isLang = /\/src\/i18n\/[a-z]{2}\.ts$/.test(f),
     isTest = /\/(dev|test)\//.test(f);
   lines.forEach((line, i) => {
     const c = code(line);
@@ -53,7 +53,7 @@ for (const { f, text } of files) {
     if (!isLang && !isTest) {
       for (const m of c.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g))
         if (JA.test(m[2])) {
-          report(f, i, 'ui-text', `screen text belongs in js/lang/: ${m[0].slice(0, 40)}`);
+          report(f, i, 'ui-text', `screen text belongs in src/i18n/: ${m[0].slice(0, 40)}`);
           break;
         }
     }
@@ -66,7 +66,7 @@ for (const { f, text } of files) {
 const byGame = {};
 for (const { f, text } of files) {
   const m = f.match(/^games\/([^/]+)\//);
-  if (!m || /\/js\/(data|dev|lang)\//.test(f)) continue;
+  if (!m || /\/src\/(data|dev|i18n)\//.test(f)) continue;
   text.split('\n').forEach((line, i) => {
     for (const h of code(line).matchAll(/(?:0x|#)([0-9a-fA-F]{6})\b/g)) {
       const hex = h[1].toLowerCase();
@@ -85,7 +85,7 @@ for (const g of Object.values(byGame))
         f,
         i,
         'shared-color',
-        `#${hex} is written in ${new Set(at.map(a => a[0])).size} files: give it a name in js/data/colors.ts`,
+        `#${hex} is written in ${new Set(at.map(a => a[0])).size} files: give it a name in src/data/colors.ts`,
       );
   }
 

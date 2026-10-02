@@ -7,13 +7,13 @@
 メッセージに次のどれかの行が要る。
 - `Changelog: 追加|調整|修正 | 本文`  更新履歴に載る（tools/build_updates.py が拾う）
 - `Changelog: なし`                   遊ぶ人に関係しない変更（リファクタ・テスト・仕様書だけ等）。更新履歴には載らない
-開発用のコード（js/dev/）と Markdown（SPEC.md など）だけを触ったコミットは対象外。
+開発用のコード（src/dev/）と Markdown（SPEC.md など）だけを触ったコミットは対象外。
 """
 import re, subprocess, sys
 
 LINE = re.compile(r'^Changelog:\s*(?:(追加|調整|修正)\s*\|\s*\S.*|なし\s*)$', re.M)
 GAME = re.compile(r'^games/[^/]+/')
-EXEMPT = re.compile(r'(^games/[^/]+/js/dev/|\.md$)')
+EXEMPT = re.compile(r'(^games/[^/]+/src/dev/|\.md$)')
 
 
 def git(*args):

@@ -21,19 +21,19 @@ Unity に例えると次のようになる。
 
 1. **engine はゲームを import しない。** ゲームの事情は、設定オブジェクト・登録関数・器を通して受け取る（5章）
 2. **動くものはすべて「システム」か「world のオブジェクト」。** 毎フレームの処理をループの外に置かない（3章・4章）
-3. **読み込み時は宣言だけにする。** 起動処理は入口の `main.ts` が全部を読み込んだあとに呼ぶ（6章）
+3. **読み込み時は宣言だけにする。** 起動処理は入口の `src/main.ts` が全部を読み込んだあとに呼ぶ（6章）
 
 ## 2. 層の構成
 
 ```mermaid
 flowchart TB
   subgraph GAME["games/&lt;id&gt;/（ゲーム）"]
-    MAIN["main.ts<br/>入口・起動"]
+    MAIN["src/main.ts<br/>入口・起動"]
     FLOW["flow/<br/>モード遷移・システム登録"]
-    ACT["actors/ world/ ui/ system/<br/>振る舞い・画面・ルール"]
-    DATA["data/ lang/<br/>定義と文言（ロジックなし）"]
+    ACT["actors/ world/ ui/ core/<br/>振る舞い・画面・ルール"]
+    DATA["data/ i18n/<br/>定義と文言（ロジックなし）"]
   end
-  subgraph ENGINE["engine/"]
+  subgraph ENGINE["engine/src/"]
     CORE["core/<br/>loop・world・i18n・store・dev・analytics・feedback・util"]
     REND["render/<br/>three.js・手の銃・FX"]
     WORLD["world/<br/>タイル・弾・追跡"]
@@ -49,7 +49,7 @@ flowchart TB
 ```
 
 - 上から下へだけ依存する。engine の中でも `core/` がいちばん下（`render/fx.ts` と `core/world.ts` は `core/loop.ts` にシステムを登録する）
-- ゲームの中では、`data/` と `lang/` は値だけを持つ。数値や文言を変えるときにロジックを触らなくて済む
+- ゲームの中では、`data/` と `i18n/` は値だけを持つ。数値や文言を変えるときにロジックを触らなくて済む
 
 ## 3. 1フレームの流れ
 
@@ -77,7 +77,7 @@ sequenceDiagram
 
 ### 例: Sector Dive のシステムの並び
 
-`games/sector-dive/js/flow/update.ts` の `boot()` で登録している。エンジンが自分で登録するもの（world のグループ、FX）も同じ列に並ぶ。
+`games/sector-dive/src/flow/update.ts` の `boot()` で登録している。エンジンが自分で登録するもの（world のグループ、FX）も同じ列に並ぶ。
 
 | order | システム | 動くモード | 登録元 |
 |---:|---|---|---|
@@ -154,7 +154,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   participant HTML as index.html
-  participant M as main.ts
+  participant M as src/main.ts
   participant Mods as 全モジュール
   participant B as boot()（flow/update.ts）
   participant L as loop.ts
@@ -169,7 +169,7 @@ sequenceDiagram
   B->>L: startLoop()
 ```
 
-import が循環していると、読み込みの順番は保証されない。なので、他のモジュールの値を使う処理を読み込み時に走らせない。全部読み込み終わった `main.ts` の最後からだけ起動する。
+import が循環していると、読み込みの順番は保証されない。なので、他のモジュールの値を使う処理を読み込み時に走らせない。全部読み込み終わった `src/main.ts` の最後からだけ起動する。
 
 ## 7. 状態の持ち主
 

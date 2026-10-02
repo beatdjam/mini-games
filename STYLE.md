@@ -15,12 +15,12 @@
 - `as`（型の決めつけ）は、型で表せない前提があるときだけ使い、理由をコメントに書く
 - `!`（null ではないという決めつけ）は、仕組みで必ず値がある所だけに使う。言語ファイルが入れる項目は `!` で受けず、型で必須にする（4章の `withLang`）
 - 種類を表す文字列は、取りうる値を列挙した型（union 型）にする。新しい種類を足すときは、型に足してから使う
-  - 今あるもの: `GameState`・`RunEnd`・`PickupKind`・`PortalKind`（`games/sector-dive/js/data/types.ts`）
-- 型の置き場所: engine の型は持ち主のモジュールから export する。ゲームの定義の型は `games/<id>/js/data/types.ts`
+  - 今あるもの: `GameState`・`RunEnd`・`PickupKind`・`PortalKind`（`games/sector-dive/src/data/types.ts`）
+- 型の置き場所: engine の型は持ち主のモジュールから export する。ゲームの定義の型は `games/<id>/src/data/types.ts`
 
 ## 2. DOM
 
-- 要素の取得は `el<T>('#id')`（`engine/core/util.ts`）。T は実際の要素の型にする（`HTMLCanvasElement`・`HTMLButtonElement`・`HTMLDetailsElement` など。`textContent` や `hidden` しか使わないなら既定の `HTMLElement` でよい）
+- 要素の取得は `el<T>('#id')`（`engine/src/core/util.ts`）。T は実際の要素の型にする（`HTMLCanvasElement`・`HTMLButtonElement`・`HTMLDetailsElement` など。`textContent` や `hidden` しか使わないなら既定の `HTMLElement` でよい）
 - 無いかもしれない要素だけ `document.querySelector<T>()` を使い、null の扱いを書く
 - `textContent`・`style.*`・`setProperty` に数値を入れるときは `String(...)` にする
 
@@ -28,20 +28,20 @@
 
 - **調整用の数値には名前を付ける**: 距離・時間・倍率・確率・上限など、変えるとゲームの手触りが変わる値
   - 置き場所の優先順:
-    1. 既存の調整値の置き場所（`TUNE`・`ENEMY_TUNE`・`BOSS_TUNE`・各ボスの `tune`・`js/data/level.ts`・`js/data/weapons.ts`）
+    1. 既存の調整値の置き場所（`TUNE`・`ENEMY_TUNE`・`BOSS_TUNE`・各ボスの `tune`・`src/data/level.ts`・`src/data/weapons.ts`）
     2. そのファイルでしか使わないものは、ファイル冒頭の `const` にまとめる。意味と単位の短いコメントを付ける（例: `const BIT_MAGNET_R = 2.4; // bits fly to you within this (m)`）
   - 名前を付けなくてよいもの: 0・1・2・0.5 のような自明な値、配列の添字、単位変換、見た目だけの値（パーティクルの数・大きさ、three.js の形の寸法）
-  - 同じ意味の値が複数のファイルにあるなら、1つの名前を共有する（例: `RATE_OPT_MUL` は `js/data/weapons.ts` に置き、3ファイルが使う）。同じ値でも意味が違うものは、無理にまとめない
+  - 同じ意味の値が複数のファイルにあるなら、1つの名前を共有する（例: `RATE_OPT_MUL` は `src/data/weapons.ts` に置き、3ファイルが使う）。同じ値でも意味が違うものは、無理にまとめない
   - 数値の置き場所を変えたら、SPEC.md の「定義場所」の記載も直す
-- **色**: 共通の色は `js/data/colors.ts` の `COLOR`（three.js 用の数値）と `CSS_COLOR`（canvas・CSS 用の文字列）を使う
-  - **[自動]** 同じ色を2つ以上のファイルに直書きしたら、`colors.ts` に名前を付ける（白と黒、`js/data/`・`js/dev/`・`js/lang/` は対象外）
+- **色**: 共通の色は `src/data/colors.ts` の `COLOR`（three.js 用の数値）と `CSS_COLOR`（canvas・CSS 用の文字列）を使う
+  - **[自動]** 同じ色を2つ以上のファイルに直書きしたら、`colors.ts` に名前を付ける（白と黒、`src/data/`・`src/dev/`・`src/i18n/` は対象外）
   - CSS の変数（`index.html` の `:root` の `--cyan` など）と同じ色は、CSS と同じ名前にする
   - 敵やセクターの色のように、データの中で1か所だけ定義される固有の色は、その定義の中に書く
 - **繰り返す計算には共通の関数を使う**
-  - `distXZ(a, b)`: 2点の水平距離（`engine/core/util.ts`）
-  - `tileIndex(x, z)`: ワールド座標からタイル番号（`engine/world/tiles.ts`）
+  - `distXZ(a, b)`: 2点の水平距離（`engine/src/core/util.ts`）
+  - `tileIndex(x, z)`: ワールド座標からタイル番号（`engine/src/world/tiles.ts`）
   - 同じ計算を3か所以上に書きそうになったら、関数にする。タイル・距離のように engine の世界の概念なら engine に置き、テストも足す
-- 保存キー（`localStorage`）は `SAVE_KEY`・`BASE_TAB_KEY` のように名前を付け、セーブのモジュール（`js/system/save.ts`）に並べる
+- 保存キー（`localStorage`）は `SAVE_KEY`・`BASE_TAB_KEY` のように名前を付け、セーブのモジュール（`src/core/save.ts`）に並べる
 
 ## 4. engine とゲームの境界
 
@@ -49,15 +49,15 @@
 - engine に関数を足したら `engine/test/engine.test.ts` にテストを足し、`engine/README.md` の表に書く
 - 2本目のゲームで要るとわかるまで、ゲームのものを engine に切り出さない（候補は `engine/README.md`「まだ切り出していないもの」）
 
-## 5. データの定義（`games/<id>/js/data/`）
+## 5. データの定義（`games/<id>/src/data/`）
 
 - 定義（数値・名前・種類の一覧）だけを置き、ロジックは書かない
 - 読み込み時に他のファイルの関数を呼ばない。例外は、何も import しない小さな関数（`withLang`、`colors.ts` の文字列への変換）だけ
-- 言語ファイルが入れる項目（名前・説明）は、型では必須にして、定義は `withLang(定義, 空の既定値)` に通す（`js/data/langslots.ts`）
+- 言語ファイルが入れる項目（名前・説明）は、型では必須にして、定義は `withLang(定義, 空の既定値)` に通す（`src/data/langslots.ts`）
 
-## 6. 画面の文言（`games/<id>/js/lang/`）
+## 6. 画面の文言（`games/<id>/src/i18n/`）
 
-- **[自動]** 画面に出る文字は全部言語ファイルに置く。コードの文字列に日本語を直書きしない（`js/dev/` を除く）
+- **[自動]** 画面に出る文字は全部言語ファイルに置く。コードの文字列に日本語を直書きしない（`src/dev/` を除く）
 - **[自動]** ja と en でキーと項目がそろっていること（`tools/check_i18n.js`）。文言を足したら両方に書く
 - 日本語の口調: 説明は「〜する」「〜できる」の常体。プレイヤーへのお願いは「〜して」
   - **[自動]** 「〜てね」「〜だよ」のようなくだけた語尾は使わない

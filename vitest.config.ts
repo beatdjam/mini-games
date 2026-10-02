@@ -4,6 +4,7 @@
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { existsSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const browser = () => ({
   enabled: true,
@@ -11,6 +12,7 @@ const browser = () => ({
   provider: playwright({ launchOptions: process.env.CHROME ? { executablePath: process.env.CHROME } : {} }),
   instances: [{ browser: 'chromium' as const }],
 });
+// the games import the engine as @engine/... (same alias as vite.config.js; projects do not inherit it)
 const ci = !!process.env.GITHUB_ACTIONS;
 // every game with a games/<id>/test/ folder is a project of its own; its smoke test boots the game page (setup.ts)
 // and simulates thousands of frames, so it gets a long timeout
@@ -28,6 +30,7 @@ export default defineConfig({
         },
       },
       ...games.map(id => ({
+        resolve: { alias: { '@engine': resolve('engine/src') } },
         test: {
           name: id,
           include: [`games/${id}/test/**/*.test.ts`],
