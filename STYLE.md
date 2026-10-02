@@ -22,6 +22,7 @@
   - 他のファイルで使わない変数は export しない。1つの宣言に1つの変数にして、名前だけでは分からないものは意味と単位をコメントに書く
   - 画面ごとの一時的な状態は、その画面のファイルの1つのオブジェクトにまとめる（例: `baseUI`・`bagUI`・`savePanel`）。ほかのファイルが読み書きするなら export して、プロパティを直接書き換える（値ごとの setter は作らない）
   - ゲーム全体の状態（`player`・`run`・`save`・`state`）は live binding として読み、書き換えは setter（`setRun` など）を通す。変数の上に「何が書き換えるか」を1行で書く
+  - **[自動]** セーブ（`save`）を書き換えるのは `src/core/` の中だけ。ほかのファイルは読むだけにして、変えるときは `core/progress.ts` の名前の付いた操作（`spendBits`・`equipWeapon` など）を呼ぶ（ESLint の `no-restricted-syntax` が確かめる）
 
 ## 2. DOM
 

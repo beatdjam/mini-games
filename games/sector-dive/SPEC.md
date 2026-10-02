@@ -408,6 +408,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/data/*.ts` | **定義だけ**（ロジックを持たない）。`weapons`（武器・レアリティ・オプション・改造費）、`enemies`（敵と調整値）、`bosses`（ボスの体力・大きさ・攻撃パターンの数値 `tune`）、`viewmodels`（構えている銃の形）、`level`（壁・目線・台・遮蔽物の高さ）、`biomes`（セクター）、`progress`（区画数・`TUNE`・拠点強化・再起動）、`perks`（チップ）、`controls`（ボタン配置と操作一覧）、`sfx`（効果音のレシピ）、`music`（曲調）、`colors`（共通の色。`COLOR` は three.js 用の数値、`CSS_COLOR` は canvas 用の文字列） |
 | `src/i18n/<言語>.ts` | 文言。`ui`（画面の文言）と `data`（武器・チップ・セクターなどの名前と説明）。今は `ja`（基準）と `en` |
 | `src/core/save.ts` | セーブの既定値、読み込みと旧版の変換、保存 |
+| `src/core/progress.ts` | セーブを変える操作（`spendBits`・`equipWeapon`・`recordBossKill` など。セーブを書き換えるのは `src/core/` の中だけ） |
 | `src/core/rules.ts` | 定義を使う計算式（進行度、ドロップ、改造後の武器、売値） |
 | `src/i18n/text.ts` | 言語ファイルの名前と説明を定義に流し込む（`i18nApplyData` を `setI18nHook` で登録し、`setLang` のたびに呼ばれる） |
 | `src/world/level.ts` | 地形の生成と描画、危険床、ゲート（当たり判定と経路は engine/src/world/tiles.ts） |
