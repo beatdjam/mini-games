@@ -12,7 +12,7 @@
 |---|---|---|
 | `src/core/loop.ts` | メインループ。`requestAnimationFrame`、dt の上限、システムの実行、描画（`renderer.render` と手の銃）。`addSystem({ name, order, modes, update })`, `stopFrame()`, `runSystems(dt, mode)`, `startLoop()` | `LOOP.mode = () => 今のモード名`。動かしたいものを `addSystem` で登録し、最後に `startLoop()` |
 | `src/core/world.ts` | 振る舞いを持つオブジェクト（Unity の MonoBehaviour に近い）。`spawn(obj)` で毎フレーム `obj.update(dt)`、`obj.dead = true` で片付け（`onRemove` と、画面に残っているメッシュの破棄）、`query(tag)`, `clearWorld(tag)`。`worldGroup(tag, order)` でタグごとに更新の順番を分けられる（リストは同じ配列のまま使い続けられる） | 各グループの `.system.modes` に動くモード。オブジェクトに `tag`, `update`, `mesh` |
-| `src/core/util.ts` | `el`, `rand`, `randi`, `pick`, `clamp`, `shuffle`, `pct`, `distXZ`（x-z 平面の距離）, `isTouch`（body に `touch` / `desk` クラスを付ける） | — |
+| `src/core/util.ts` | `el`, `rand`, `randi`, `pick`, `clamp`, `shuffle`, `createRng(seed)`（同じシードなら同じ並びになる乱数。`rand`・`randi`・`pick`・`shuffle` を持つ）, `pct`, `distXZ`（x-z 平面の距離）, `isTouch`（body に `touch` / `desk` クラスを付ける） | — |
 | `src/core/i18n.ts` | `LANG`, `lang`, `t(key, values)`, `setLang(code)`, `setI18nHook(fn)`, `fillData`, `applyStaticText`, `defaultLang` | `LANG.<code>` を登録する言語ファイル（`ja` は必須で、キーが無いときの予備）。定義に名前を流し込むなら `setI18nHook(fn)` で関数を登録 |
 | `src/core/store.ts` | `encodeStore` / `decodeStore`（セーブを端末間で移す1行のコード。暗号化ではなく、読みにくく・書き換えにくくするだけ）、`loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `prefGet` / `prefSet`（タブの記憶など小さな値） | 既定値を返す関数。古い版からの変換は `raw` を見てゲーム側でやる |
 | `src/core/stale.ts` | 古いページ検出。キャッシュに残った古いページなら、最新版の URL へ1回だけ切り替える | `<meta name="build" content="dev">`（ビルドが版番号に書き換え、`version.json` も出す。このファイルはページに埋め込まれる） |
