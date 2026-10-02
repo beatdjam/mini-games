@@ -5,6 +5,7 @@ import { sfx } from '@engine/audio/audio.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { TUNE } from '../data/progress.ts';
 import { save } from '../core/save.ts';
+import { perkRecord } from '../core/rules.ts';
 import { PERKS } from '../data/perks.ts';
 import { player, run } from '../actors/player.ts';
 import { bigmap, weaponHud } from '../ui/hud.ts';
@@ -39,7 +40,7 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
     b.addEventListener('click', () => {
       for (let k = 0; k < times && !(k && o.maxed && o.maxed(player)); k++) {
         o.apply(player, v);
-        run.perks.push(o.id + (rare ? '+' : ''));
+        run.perks.push(perkRecord(o.id, rare));
       }
       sfx('chip');
       show(null);

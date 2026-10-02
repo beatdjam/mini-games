@@ -1,4 +1,4 @@
-import type { WeaponItem } from '../data/types.ts';
+import type { RunEnd, WeaponItem } from '../data/types.ts';
 import { LANG, t } from '@engine/core/i18n.ts';
 import {
   DROP_POOL,
@@ -103,40 +103,58 @@ export function readiness(tier: number, s?: ReadyState): number {
 }
 export const sellValue = (w: WeaponItem): number =>
   Math.round(8 + WEAPONS[w.id].cost * 0.06 + [0, 20, 55][w.r] + (w.plus || 0) * 10 + (w.opts || []).length * 20);
+// a chip as recorded in run.perks: its id, with a trailing '+' for the rare version ("split", "split+")
+const RARE_MARK = '+';
+export const perkRecord = (id: string, rare: boolean): string => (rare ? id + RARE_MARK : id);
+export const parsePerk = (rec: string): { id: string; rare: boolean } => {
+  const rare = rec.endsWith(RARE_MARK);
+  return { id: rare ? rec.slice(0, -RARE_MARK.length) : rec, rare };
+};
 // run.perks from before chips had ids held Japanese names; turn those into ids
 export const perkIdOf = (rec: string): string => {
-  const base = rec.replace(/\+$/, ''),
-    plus = rec.endsWith('+') ? '+' : '';
+  const { id: base, rare } = parsePerk(rec);
   if (PERKS.some(o => o.id === base)) return rec;
   const id = Object.keys(LANG.ja.data.perks).find(k => LANG.ja.data.perks[k].name === base);
-  return id ? id + plus : rec;
+  return id ? perkRecord(id, rare) : rec;
+};
+// how many times each key comes up among the items, keys in the order first seen (a Map keeps insertion order)
+export const countBy = <T, K>(items: readonly T[], keyOf: (item: T) => K): Map<K, number> => {
+  const counts = new Map<K, number>();
+  items.forEach(item => {
+    const k = keyOf(item);
+    counts.set(k, (counts.get(k) || 0) + 1);
+  });
+  return counts;
 };
 // the chips of a run, most taken first (ties in the order first taken), the rare versions counted with the normal
 // ones: "Split ×25, Rapid ×18, Overload ×16 (3 rare)"; a chip taken once keeps its own name ("Overload+")
 export function chipSummary(perks: string[]): string {
-  const seen: Record<string, { n: number; rare: number; first: string }> = {};
-  perks.forEach(rec => {
-    const id = rec.replace(/\+$/, ''),
-      c = seen[id] || { n: 0, rare: 0, first: rec };
-    seen[id] = c;
-    c.n++;
-    if (rec.endsWith('+')) c.rare++;
-  });
-  return Object.values(seen)
-    .sort((a, b) => b.n - a.n)
-    .map(c =>
-      c.n === 1
-        ? perkName(c.first)
-        : t(c.rare ? 'common.countRare' : 'common.count', {
-            name: perkName(c.first.replace(/\+$/, '')),
-            n: c.n,
-            r: c.rare,
-          }),
-    )
+  const recs = perks.map(parsePerk);
+  const taken = countBy(recs, p => p.id),
+    rare = countBy(
+      recs.filter(p => p.rare),
+      p => p.id,
+    );
+  return [...taken]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, n]) => {
+      const r = rare.get(id) ?? 0;
+      return n === 1
+        ? perkName(perkRecord(id, r > 0))
+        : t(r ? 'common.countRare' : 'common.count', { name: perkName(id), n, r });
+    })
     .join(t('common.sep'));
 }
-// a chip as recorded in run.perks: its id, with '+' for the rare version
 export const perkName = (rec: string): string => {
-  const o = PERKS.find(x => x.id === rec.replace(/\+$/, ''));
-  return o ? o.name + (rec.endsWith('+') ? '+' : '') : rec;
+  const { id, rare } = parsePerk(rec);
+  const o = PERKS.find(x => x.id === id);
+  return o ? o.name + (rare ? '+' : '') : rec;
+};
+// how each way a dive can end is shown: the result screen's eyebrow (lowercase) and title, and the share card's
+// badge (fixed English capitals: the card is drawn with the same Latin font in both languages, so it does not go
+// through i18n and is not the title uppercased: ja's title is 帰還完了). title is a function so the language is read when shown
+export const RUN_END: Record<RunEnd, { eyebrow: string; title: () => string; badge: string }> = {
+  extract: { eyebrow: 'extracted', title: () => t('res.extract'), badge: 'EXTRACTED' },
+  abandon: { eyebrow: 'abandoned', title: () => t('res.abandon'), badge: 'ABANDONED' },
+  dead: { eyebrow: 'signal lost', title: () => t('res.dead'), badge: 'SIGNAL LOST' },
 };
