@@ -42,16 +42,9 @@ import {
   readyAfterReboot,
   sellValue,
 } from '../core/rules.ts';
-import {
-  player,
-  newPlayer,
-  setPlayer,
-  stageLabel,
-  tierLabel,
-  weaponName,
-  weaponOptsHTML,
-  weaponStats,
-} from '../actors/player.ts';
+import { player, newPlayer, setPlayer } from '../actors/player.ts';
+import { stageLabel, tierLabel } from '../core/stages.ts';
+import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
 import { renderSettings } from '../ui/hud.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
 import { startPractice, startRun } from '../flow/run.ts';

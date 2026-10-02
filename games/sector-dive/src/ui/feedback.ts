@@ -3,7 +3,8 @@ import { el, isTouch } from '@engine/core/util.ts';
 import { lang } from '@engine/core/i18n.ts';
 import { feedbackReady, openFeedback } from '@engine/core/feedback.ts';
 import { track } from '@engine/core/analytics.ts';
-import { player, run, stageLabel } from '../actors/player.ts';
+import { player, run } from '../actors/player.ts';
+import { stageLabel } from '../core/stages.ts';
 import { save } from '../core/save.ts';
 // ---- sending feedback: the shared form (engine/src/core/feedback.ts) opens with the player's situation filled in ----
 // the situation is written with ids, not display names, so answers read the same whatever the language.
