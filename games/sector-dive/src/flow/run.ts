@@ -24,20 +24,9 @@ import {
 } from '../core/progress.ts';
 import { buildLevel, level, makePortal, randomTileIn, roomSpot } from '../world/level.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
-import {
-  player,
-  difficultyAt,
-  isBossStage,
-  newPlayer,
-  rollWeapon,
-  run,
-  setPlayer,
-  setRun,
-  stageInfo,
-  stageLabel,
-  tierLabel,
-  weaponText,
-} from '../actors/player.ts';
+import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
+import { difficultyAt, isBossStage, stageInfo, stageLabel, tierLabel } from '../core/stages.ts';
+import { rollWeapon, weaponText } from '../actors/weapons.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
 import { normalizeWeapons } from '../ui/input.ts';
 import { updateHint, weaponHud } from '../ui/hud.ts';
