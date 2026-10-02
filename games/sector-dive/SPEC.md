@@ -417,6 +417,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/world/hazards.ts` | 危険床の描画・周期・ダメージ |
 | `src/world/portals.ts` | ゲートの生成（`makePortal`） |
 | `src/world/entities.ts` | 弾・拾い物の生成、敵の生成（敵オブジェクトの項目一覧もここ）。パーティクルは engine/src/render/fx.ts |
+| `src/world/models.ts` | 敵・拾い物の three.js モデル（トルーパーの関節、盾、狙撃手の目、拾い物の形）、予告レーザーの線 |
 | `src/world/render.ts` | 弾などの共有ジオメトリ、床と壁のテクスチャ |
 | `src/core/stages.ts` | 区画番号の計算（セクターの並び、区画ラベル、難易度、被ダメージの伸び） |
 | `src/actors/player.ts` | プレイヤーと潜行の状態（`player`・`run`）、プレイヤーの初期値、手に持っている武器 |
@@ -426,7 +427,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/actors/combat.ts` | 被弾、敵へのダメージ、爆発、撃破（報酬・連鎖爆発・分裂）、区画制圧、回復キットの回復量 |
 | `src/actors/enemies.ts` | 敵1体の毎フレームの行動（`updateEnemy`。敵は engine の world のグループ `enemy` に入っていて、エンジンが呼ぶ） |
 | `src/actors/bullets.ts` | 弾の毎フレームの処理（当たり判定、盾、ショットガンの全弾ボーナスなど） |
-| `src/actors/bosses/common.ts` | ボスの共通処理（生成、体力倍率、撃破後の処理）、予告レーザー |
+| `src/actors/bosses/common.ts` | ボスの共通処理（生成、体力倍率、撃破後の処理） |
 | `src/actors/bosses/<名前>.ts` | ボス1体ずつの生成と行動 |
 | `src/flow/state.ts` | 今どの画面か（`state`）、画面の切り替え（`show`）、潜行中の HUD の出し入れ |
 | `src/flow/run.ts` | 潜行の流れ（出撃、区画の生成、次の区画、帰還・ロストの集計、拠点へ戻る）、ボス練習 |

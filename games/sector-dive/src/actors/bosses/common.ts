@@ -1,10 +1,10 @@
-import type { Boss, Laser } from '../../data/types.ts';
+import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp, el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { setMusic } from '@engine/audio/music.ts';
-import { V3, dynGroup } from '@engine/render/render.ts';
+import { dynGroup } from '@engine/render/render.ts';
 import { burst, fireball } from '@engine/render/fx.ts';
 import { H, T, W } from '@engine/world/tiles.ts';
 import { query } from '@engine/core/world.ts';
@@ -213,23 +213,4 @@ export function bossDown(e: Boss) {
     toast(t('boss.shortcut', { tier: tierLabel(newTier) }), 4200);
   } else toast(t('boss.choose'), 3200);
   persist();
-}
-
-// ---- aimed laser line (sniper enemy, Phantom) ----
-// ---- shared helpers for aimed lasers ----
-export function makeLaser(color: number): Laser {
-  const lg = new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]);
-  const l = new THREE.Line(lg, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8 }));
-  l.visible = false;
-  l.frustumCulled = false;
-  dynGroup.add(l);
-  return l;
-}
-export function setLaser(l: Laser, a: number[], b: number[], op: number) {
-  const p = l.geometry.attributes.position;
-  p.setXYZ(0, a[0], a[1], a[2]);
-  p.setXYZ(1, b[0], b[1], b[2]);
-  p.needsUpdate = true;
-  l.material.opacity = op;
-  l.visible = true;
 }
