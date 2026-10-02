@@ -1,6 +1,14 @@
 import { rand } from '../core/util.ts';
 import { musicInit } from './music.ts';
 // engine: Sound effects synth (Web Audio): layered noise / oscillator helpers, a gunshot voice, sfx(name) plays SFX[name] from the game
+// effects bus compressor: light, so layered shots stay punchy without clipping
+const COMP_THRESHOLD = -14; // level where compression starts (dB)
+const COMP_KNEE = 8; // width of the soft transition into compression (dB)
+const COMP_RATIO = 4; // input dB per output dB above the threshold
+const COMP_ATTACK = 0.012; // (s)
+const COMP_RELEASE = 0.15; // (s)
+const SFX_MASTER_GAIN = 0.32; // effects bus level at SFX volume 1
+const NOISE_BUF_SECONDS = 1.2; // length of the shared white-noise buffer (s)
 // all null until the first tap / click (browsers only allow audio after one), or when Web Audio is missing
 export let actx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -18,17 +26,17 @@ export function audioInit() {
     actx = ac;
     // effects bus -> light compressor so layered shots stay punchy without clipping
     const comp = ac.createDynamicsCompressor();
-    comp.threshold.value = -14;
-    comp.knee.value = 8;
-    comp.ratio.value = 4;
-    comp.attack.value = 0.012;
-    comp.release.value = 0.15;
+    comp.threshold.value = COMP_THRESHOLD;
+    comp.knee.value = COMP_KNEE;
+    comp.ratio.value = COMP_RATIO;
+    comp.attack.value = COMP_ATTACK;
+    comp.release.value = COMP_RELEASE;
     const m = ac.createGain();
     master = m;
     m.connect(comp);
     comp.connect(ac.destination);
     applySfxVolume();
-    const nb = ac.createBuffer(1, ac.sampleRate * 1.2, ac.sampleRate);
+    const nb = ac.createBuffer(1, ac.sampleRate * NOISE_BUF_SECONDS, ac.sampleRate);
     noiseBuf = nb;
     const d = nb.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -47,17 +55,17 @@ export function unlockAudio() {
   };
   evs.forEach(ev => document.addEventListener(ev, tryUnlock, true));
 }
-// the game sets these from its settings (0..1)
 // sound recipes by name, filled by the game: SFX.name = () => { ... }
 export const SFX: Record<string, () => void> = {};
 let sfxVolume = 1;
 export let bgmVolume = 0.6;
+// the game passes its volume settings here (0..1)
 export function setVolumes(sfx: number, bgm: number) {
   sfxVolume = sfx;
   bgmVolume = bgm;
 }
 export function applySfxVolume() {
-  if (master) master.gain.value = 0.32 * sfxVolume;
+  if (master) master.gain.value = SFX_MASTER_GAIN * sfxVolume;
 }
 export function tone(freq: number, dur: number, type: OscillatorType, vol: number, slide?: number, delay?: number) {
   if (!actx || !master) return;
