@@ -31,7 +31,7 @@ import {
   solidAt,
   tileIndex,
 } from '../src/world/tiles.ts';
-import { generateArena, generateDungeon } from '../src/world/dungeon.ts';
+import { forEachRoomTile, generateArena, generateDungeon } from '../src/world/dungeon.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
 import {
   type Projectile,
@@ -363,6 +363,11 @@ test('dungeon: an arena is a floor square with the pillars as walls', () => {
   );
   eq(a.maps.grid[6 * 20 + 6], 0, 'pillar');
   eq(JSON.stringify(a.rooms), JSON.stringify([{ x: 4, y: 4, w: 12, h: 12 }]));
+});
+test('dungeon: forEachRoomTile visits every tile of a room once, row by row', () => {
+  const seen: string[] = [];
+  forEachRoomTile({ x: 2, y: 5, w: 3, h: 2 }, (i, j) => seen.push(i + ',' + j));
+  eq(seen.join(' '), '2,5 3,5 4,5 2,6 3,6 4,6');
 });
 test('tilemap: rows become the tile maps, rooms from letters or a list, errors on bad rows', () => {
   const rows = ['########', '#A.>==.#', '#A.>==c#', '########'];
