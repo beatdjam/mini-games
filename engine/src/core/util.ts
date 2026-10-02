@@ -13,6 +13,39 @@ export const shuffle = <T>(a: T[]): T[] => {
   }
   return a;
 };
+// A random source that repeats for the same seed (mulberry32), for things that must come out the same again: a
+// level built from a seed, a fixed test. The plain rand / pick / shuffle above stay on Math.random.
+export interface Rng {
+  next: () => number; // 0 <= x < 1, like Math.random
+  rand: (a: number, b: number) => number;
+  randi: (a: number, b: number) => number; // a..b, both included
+  pick: <T>(a: readonly T[]) => T;
+  shuffle: <T>(a: T[]) => T[];
+}
+export function createRng(seed: number): Rng {
+  let s = seed >>> 0;
+  const next = (): number => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const r = (a: number, b: number): number => a + next() * (b - a);
+  return {
+    next,
+    rand: r,
+    randi: (a, b) => Math.floor(r(a, b + 1)),
+    pick: a => a[Math.floor(next() * a.length)],
+    shuffle: a => {
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(next() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    },
+  };
+}
 // `-touch` at the end of a dev hash (e.g. #view-pick-touch) forces the touch layout for screenshots
 export const isTouch =
   (typeof window.matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ||

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
-import { clamp, distXZ, el, pct, randi, shuffle } from '../src/core/util.ts';
+import { clamp, createRng, distXZ, el, pct, randi, shuffle } from '../src/core/util.ts';
 import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../src/core/store.ts';
 import { addSystem, runSystems, stopFrame } from '../src/core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.ts';
@@ -122,6 +122,27 @@ test('util: clamp / randi / shuffle', () => {
   shuffle(a);
   eq(a.slice().sort().join(), '1,2,3,4,5', 'shuffle keeps items');
   eq(pct(0.256), '26%');
+});
+
+test('util: createRng repeats for the same seed and stays in range', () => {
+  const a = createRng(42),
+    b = createRng(42),
+    c = createRng(43);
+  const seqA = Array.from({ length: 50 }, () => a.next());
+  const seqB = Array.from({ length: 50 }, () => b.next());
+  eq(seqA.join(), seqB.join(), 'same seed, same numbers');
+  ok(seqA.join() !== Array.from({ length: 50 }, () => c.next()).join(), 'another seed, other numbers');
+  ok(
+    seqA.every(x => x >= 0 && x < 1),
+    'next is in [0, 1)',
+  );
+  const r = createRng(7);
+  for (let k = 0; k < 200; k++) {
+    const n = r.randi(2, 4);
+    ok(n >= 2 && n <= 4 && Number.isInteger(n), 'randi stays in a..b: ' + n);
+  }
+  eq(r.shuffle([1, 2, 3, 4, 5]).sort().join(), '1,2,3,4,5', 'shuffle keeps items');
+  eq(createRng(9).pick(['x']), 'x', 'pick from one');
 });
 
 test('store: saved values merge deeply over defaults', () => {
