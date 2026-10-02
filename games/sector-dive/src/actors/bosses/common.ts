@@ -45,6 +45,23 @@ const PATTERN_COUNT = 3; // attack patterns the bosses with a pat / pt clock cyc
 // the bosses' shared timings and heights
 export const FIRST_SHOT_DELAY = 0.3; // a pattern waits this long before its first round (s)
 export const RING_Y = 1.3; // height of ring and spiral bullets above the floor (m)
+// a boss as bossBase makes it
+const BOSS_START_OFFSET_Z = 6; // it appears this far from the arena centre along z (m)
+const BOSS_BODY_R = 1.8; // collision radius of the body (m)
+const BOSS_DEF_R = 1.8; // r of the boss's `def` (the enemy-def shape the generic enemy code expects) (m)
+const BOSS_GLOW = 0.3; // emissive intensity of the body at rest (baseEI)
+const BOSS_FIRST_TIMER = 2.2; // starting value of the pattern timer (s); bosses that need another set it in their spawn
+const BOSS_BASE_DMG = 10; // attack damage before damageScaleAt
+// what a boss drops when it goes down (bossDown)
+const BOSS_BITS = 45; // bits dropped before the bossDifficulty multiplier
+const BOSS_WEAPON_ROLL_PER_PROGRESS = 0.03; // added to the weapon's lucky roll for each point of progress
+const BOSS_WEAPON_LUCKY_ABOVE = 0.9; // a lucky roll above this raises the weapon's minimum rarity
+const BOSS_WEAPON_MIN_RARITY = 1; // minimum rarity of the weapon (index into RARITY: 1 = ★★)
+const BOSS_WEAPON_LUCKY_RARITY = 2; // minimum rarity on a lucky roll (★★★)
+const BOSS_WEAPON_PROGRESS_BONUS = 2; // the weapon is rolled as if this many progress points deeper
+const REBOOT_UNLOCK_TIER = 2; // beating the boss of this depth (0-based tier, 2 = DEPTH 3) unlocks the reboot
+const REBOOT_TOAST_DELAY = 4400; // the reboot-unlocked toast appears this long after the kill (ms)
+const REBOOT_TOAST_MS = 4200; // how long the reboot-unlocked toast stays (ms)
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
 // sliding down to x lateGrowth per depth deeper in (hpGrowth in src/data/progress.ts)
 export function bossDifficulty() {
@@ -80,29 +97,29 @@ export function bossBase<S extends object>(
     name,
     mesh,
     mat,
-    baseEI: 0.3,
+    baseEI: BOSS_GLOW,
     x: cx,
-    z: cz - 6,
+    z: cz - BOSS_START_OFFSET_Z,
     y,
     hp,
     maxHp: hp,
     hitR,
-    r: 1.8,
+    r: BOSS_BODY_R,
     t: 0,
-    timer: 2.2,
+    timer: BOSS_FIRST_TIMER,
     pat: -1,
     patIdx: 0,
     pt: 0,
     shots: 0,
     acc: 0,
-    dmg: 10 * damageScaleAt(run.stage),
+    dmg: BOSS_BASE_DMG * damageScaleAt(run.stage),
     cx,
     cz,
     behave,
     flash: 0,
     room: -1,
     active: true,
-    def: { r: 1.8 },
+    def: { r: BOSS_DEF_R },
     spawnT: BOSS_TUNE.introTime,
     spawnMax: BOSS_TUNE.introTime,
     intro: true,
@@ -165,26 +182,27 @@ export function bossPhase(e: Boss) {
   clearPool(eBullets);
   toast(t('boss.phase2'), 2000);
 }
+// the lookup wraps each call (not the function itself): the boss files import this one, so at load time
+// their exports may not exist yet
+const BOSS_SPAWNERS: Record<string, () => void> = {
+  watcher: () => spawnWatcher(),
+  crusher: () => spawnCrusher(),
+  core: () => spawnCore(),
+  phantom: () => spawnPhantom(),
+  trinity: () => spawnTrinity(),
+  bastion: () => spawnBastion(),
+};
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in src/actors/bosses/<name>.ts
 export function spawnBoss(kind: string) {
   if (!run.practice && !save.bossSeen[kind]) {
     recordBossSeen(kind);
     persist();
   } // practice doesn't count as an encounter
-  const spawn = (
-    {
-      watcher: spawnWatcher,
-      crusher: spawnCrusher,
-      core: spawnCore,
-      phantom: spawnPhantom,
-      trinity: spawnTrinity,
-      bastion: spawnBastion,
-    } as Record<string, () => void>
-  )[kind]!;
-  spawn();
+  BOSS_SPAWNERS[kind]!();
   setMusic(level.biome.code, true); // boss arrangement of this sector's theme
 }
-export function bossDown(e: Boss) {
+// the fight is over: music, shake and sound, then clear the minions, bullets and shockwaves left in the arena
+function clearBattle(e: Boss) {
   setMusic(level.biome.code);
   screenFx.shake = 0.6;
   sfx('bigboom');
@@ -203,36 +221,52 @@ export function bossDown(e: Boss) {
   query('wave').forEach(w => {
     w.dead = true;
   }); // a shockwave still spreading must not kill the player after the win
-  if (run.practice) {
-    // practice: no rewards, no progress; just a way home
-    makePortal(e.cx, e.cz - 2, COLOR.cyan, 'extract', t('boss.toBase'));
-    el('#bossBar').hidden = true;
-    setBoss(null);
-    run.cleared = true;
-    toast(t('boss.practiceWon'), 2600);
-    return;
-  }
-  (run.bosses = run.bosses || []).push(e.kind);
-  track('boss_defeated', { target: e.kind, level: stageInfo(run.stage).tier + 1 });
-  dropBits(e.x, e.z, 45 * bossDifficulty());
-  addPickup('chip', e.cx, e.cz + 4);
-  addPickup('kit', e.cx + 2, e.cz + 5);
-  const roll = Math.random() + progressOf(run.stage) * 0.03;
-  addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(progressOf(run.stage) + 2, roll > 0.9 ? 2 : 1) });
-  makePortal(e.cx + 6, e.cz - 2, COLOR.amber, 'next', t('boss.forward'));
-  makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
+}
+function hideBossBar() {
   el('#bossBar').hidden = true;
   setBoss(null);
+}
+// tier: the 0-based depth of this stage (stageInfo(run.stage).tier), progress: progressOf(run.stage)
+function giveBossRewards(e: Boss, tier: number, progress: number) {
+  run.bosses = run.bosses || [];
+  run.bosses.push(e.kind);
+  track('boss_defeated', { target: e.kind, level: tier + 1 });
+  dropBits(e.x, e.z, BOSS_BITS * bossDifficulty());
+  addPickup('chip', e.cx, e.cz + 4);
+  addPickup('kit', e.cx + 2, e.cz + 5);
+  const roll = Math.random() + progress * BOSS_WEAPON_ROLL_PER_PROGRESS;
+  const minRarity = roll > BOSS_WEAPON_LUCKY_ABOVE ? BOSS_WEAPON_LUCKY_RARITY : BOSS_WEAPON_MIN_RARITY;
+  addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(progress + BOSS_WEAPON_PROGRESS_BONUS, minRarity) });
+  makePortal(e.cx + 6, e.cz - 2, COLOR.amber, 'next', t('boss.forward'));
+  makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
+}
+// the kill counts toward the save: reboot unlock, deepest depth, the next shortcut
+function recordBossProgress(tier: number) {
   recordBossKill();
-  if (stageInfo(run.stage).tier >= 2 && !save.canReboot) {
+  if (tier >= REBOOT_UNLOCK_TIER && !save.canReboot) {
     unlockReboot();
-    setTimeout(() => toast(t('boss.rebootUnlocked'), 4200), 4400);
+    setTimeout(() => toast(t('boss.rebootUnlocked'), REBOOT_TOAST_MS), REBOOT_TOAST_DELAY);
   }
-  const newTier = stageInfo(run.stage).tier + 1;
+  const newTier = tier + 1;
   recordPeak(newTier);
   if (newTier > save.shortcut) {
     openShortcut(newTier);
     toast(t('boss.shortcut', { tier: tierLabel(newTier) }), 4200);
   } else toast(t('boss.choose'), 3200);
   persist();
+}
+export function bossDown(e: Boss) {
+  clearBattle(e);
+  if (run.practice) {
+    // practice: no rewards, no progress; just a way home
+    makePortal(e.cx, e.cz - 2, COLOR.cyan, 'extract', t('boss.toBase'));
+    hideBossBar();
+    run.cleared = true;
+    toast(t('boss.practiceWon'), 2600);
+    return;
+  }
+  const tier = stageInfo(run.stage).tier;
+  giveBossRewards(e, tier, progressOf(run.stage));
+  hideBossBar();
+  recordBossProgress(tier);
 }
