@@ -5,6 +5,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { applyLayout } from '@engine/ui/touchlayout.ts';
 import { SAVE_KEY, defaultSave, exportSave, importSave, importSaveCheck, persist, setSave } from '../core/save.ts';
 import { baseUI, renderBase } from './base.ts';
+import { onDataClick } from './rows.ts';
 
 // ---- full data wipe (red confirmation dialog) ----
 el('#btnWipe').addEventListener('click', () => {
@@ -56,56 +57,56 @@ function openSavePanel(mode: 'export' | 'import') {
 }
 el('#btnExport').addEventListener('click', () => openSavePanel('export'));
 el('#btnImport').addEventListener('click', () => openSavePanel('import'));
-el('#saveBtns').addEventListener('click', (e: Event) => {
-  const b = (e.target as HTMLElement).closest<HTMLElement>('[data-save]');
-  if (!b) return;
-  const a = b.dataset.save,
-    box = el<HTMLTextAreaElement>('#saveCode');
-  if (a === 'close') {
-    savePanel.mode = null;
-    renderSavePanel();
-  } else if (a === 'copy') {
-    const done = () => toast(t('save.copied'), 2000);
-    if (navigator.clipboard && navigator.clipboard.writeText)
-      navigator.clipboard.writeText(box.value).then(done, () => {
+onDataClick(el('#saveBtns'), [
+  'save',
+  a => {
+    const box = el<HTMLTextAreaElement>('#saveCode');
+    if (a === 'close') {
+      savePanel.mode = null;
+      renderSavePanel();
+    } else if (a === 'copy') {
+      const done = () => toast(t('save.copied'), 2000);
+      if (navigator.clipboard && navigator.clipboard.writeText)
+        navigator.clipboard.writeText(box.value).then(done, () => {
+          box.select();
+          toast(t('save.copyFailed'), 3000);
+        });
+      else {
         box.select();
         toast(t('save.copyFailed'), 3000);
-      });
-    else {
-      box.select();
-      toast(t('save.copyFailed'), 3000);
-    }
-  } else if (a === 'download') {
-    const url = URL.createObjectURL(new Blob([box.value + '\n'], { type: 'text/plain' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `sector-dive-save-${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  } else if (a === 'file') el<HTMLInputElement>('#saveFile').click();
-  else if (a === 'check') {
-    if (!box.value.trim()) return;
-    if (!importSaveCheck(box.value)) {
-      toast(t('save.invalid'), 3000);
-      return;
-    }
-    savePanel.importArm = true;
-    renderSavePanel();
-  } else if (a === 'cancel') {
-    savePanel.importArm = false;
-    renderSavePanel();
-  } else if (a === 'go') {
-    if (!importSave(box.value)) {
+      }
+    } else if (a === 'download') {
+      const url = URL.createObjectURL(new Blob([box.value + '\n'], { type: 'text/plain' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `sector-dive-save-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } else if (a === 'file') el<HTMLInputElement>('#saveFile').click();
+    else if (a === 'check') {
+      if (!box.value.trim()) return;
+      if (!importSaveCheck(box.value)) {
+        toast(t('save.invalid'), 3000);
+        return;
+      }
+      savePanel.importArm = true;
+      renderSavePanel();
+    } else if (a === 'cancel') {
       savePanel.importArm = false;
       renderSavePanel();
-      toast(t('save.invalid'), 3000);
-      return;
+    } else if (a === 'go') {
+      if (!importSave(box.value)) {
+        savePanel.importArm = false;
+        renderSavePanel();
+        toast(t('save.invalid'), 3000);
+        return;
+      }
+      location.reload();
     }
-    location.reload();
-  }
-});
+  },
+]);
 el<HTMLInputElement>('#saveFile').addEventListener('change', e => {
   const f = (e.target as HTMLInputElement).files?.[0];
   if (!f) return;

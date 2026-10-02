@@ -49,6 +49,7 @@ import { renderSettings } from '@engine/ui/settings.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
 import { startPractice, startRun } from '../flow/run.ts';
 import { renderSuspend } from '../flow/suspend.ts';
+import { onDataClick, type DataClick } from './rows.ts';
 
 // transient state of the base screen
 export const baseUI = {
@@ -97,14 +98,13 @@ export function showTab(name: string) {
   });
   prefSet(BASE_TAB_KEY, tab);
 }
-el('.tabs').addEventListener('click', (e: Event) => {
-  const tg = e.target as HTMLElement;
-  const b = tg.closest<HTMLElement>('[data-tab]');
-  if (b) {
-    showTab(b.dataset.tab!);
+onDataClick(el('.tabs'), [
+  'tab',
+  name => {
+    showTab(name);
     el('#scrBase').scrollTop = 0;
-  }
-});
+  },
+]);
 
 // ---- the pieces of the base screen ----
 const tierButton = (n: number): string => {
@@ -275,100 +275,123 @@ export function doReboot() {
 export function assignLoadout(item: WeaponItem | null) {
   equipWeapon(baseUI.selSlot, item);
 }
-el('#scrBase').addEventListener('click', (e: Event) => {
-  const tg = e.target as HTMLElement;
-  const un = tg.closest<HTMLElement>('[data-unequip]'),
-    sl = tg.closest<HTMLElement>('[data-slot]'),
-    w = tg.closest<HTMLElement>('[data-w]'),
-    u = tg.closest<HTMLElement>('[data-up]');
-  const st = tg.closest<HTMLElement>('[data-stash]'),
-    se = tg.closest<HTMLElement>('[data-sell]'),
-    ti = tg.closest<HTMLElement>('[data-tier]');
-  const pu = tg.closest<HTMLElement>('[data-pres]'),
-    rb = tg.closest<HTMLElement>('[data-reboot]'),
-    pr = tg.closest<HTMLElement>('[data-practice]');
-  if (pr) {
-    startPractice(pr.dataset.practice!, baseUI.practiceTier);
-    return;
+// what the click handler does after an action: 'save' saves and redraws the base, 'redraw' only redraws it,
+// 'none' does neither (the action did what it needed itself, or it did not apply)
+type After = 'save' | 'redraw' | 'none';
+const startBossPractice = (boss: string): After => {
+  startPractice(boss, baseUI.practiceTier);
+  return 'none';
+};
+// raise a base weapon's + value or rarity by one step
+function buyWeaponMod(id: string, kind: 'plus' | 'rar'): After {
+  const m = Object.assign({ plus: 0, r: 0 }, weaponModOf(id));
+  const cost = kind === 'plus' ? modPlusCost(m.plus) : MOD_RARITY_COST[m.r];
+  if (cost === undefined || save.bits < cost || (kind === 'plus' && m.plus >= modPlusCap())) return 'none';
+  spendBits(cost);
+  if (kind === 'plus') m.plus++;
+  else m.r++;
+  setWeaponMod(id, m);
+  audioInit();
+  sfx('chip');
+  return 'save';
+}
+const pickPracticeTier = (tier: string): After => {
+  baseUI.practiceTier = +tier;
+  return 'redraw';
+};
+// arm / cancel / go of the reboot row; arm and cancel only redraw that row, go saves and redraws by itself
+function onRebootButton(action: string): After {
+  if (action === 'go') {
+    doReboot();
+    return 'none';
   }
-  const mp = tg.closest<HTMLElement>('[data-modplus]'),
-    mr = tg.closest<HTMLElement>('[data-modrar]');
-  if (mp || mr) {
-    const id = (mp || mr)!.dataset.modplus || (mp || mr)!.dataset.modrar!,
-      m = Object.assign({ plus: 0, r: 0 }, weaponModOf(id));
-    const cost = mp ? modPlusCost(m.plus) : MOD_RARITY_COST[m.r];
-    if (cost === undefined || save.bits < cost || (mp && m.plus >= modPlusCap())) return;
-    spendBits(cost);
-    if (mp) m.plus++;
-    else m.r++;
-    setWeaponMod(id, m);
-    persist();
+  baseUI.rebootArm = action === 'arm';
+  renderReboot();
+  return 'none';
+}
+// saves and redraws even when the bonus cannot be bought
+function buyRebootBonus(id: string): After {
+  const def = REBOOT_UP.find(x => x.id === id)!,
+    l = save.pres.up[def.id] || 0;
+  const cost = rebootCost(def, l);
+  if (l < def.max && save.pres.pts >= cost) {
+    buyRebootUpgrade(def.id, cost);
     audioInit();
     sfx('chip');
-    renderBase();
-    return;
   }
-  const pt = tg.closest<HTMLElement>('[data-ptier]');
-  if (pt) {
-    baseUI.practiceTier = +pt.dataset.ptier!;
-    renderBase();
-    return;
+  return 'save';
+}
+const unequipSecond = (): After => {
+  equipWeapon(1, null);
+  baseUI.selSlot = 1;
+  return 'save';
+};
+const selectSlot = (slot: string): After => {
+  baseUI.selSlot = +slot;
+  return 'save';
+};
+const chooseStartTier = (tier: string): After => {
+  setStartTier(+tier);
+  return 'save';
+};
+// a locked weapon is bought first (nothing happens if the chips fall short); then it goes to the selected slot
+function unlockOrAssign(id: string): After {
+  const def = WEAPONS[id];
+  if (!save.unlocked[id]) {
+    if (save.bits < def.cost) return 'none';
+    spendBits(def.cost);
+    unlockWeapon(id);
+    audioInit();
+    sfx('chip');
   }
-  if (rb) {
-    const a = rb.dataset.reboot;
-    if (a === 'go') {
-      doReboot();
-      return;
-    }
-    baseUI.rebootArm = a === 'arm';
-    renderReboot();
-    return;
-  }
-  if (pu) {
-    const def = REBOOT_UP.find(x => x.id === pu.dataset.pres)!,
-      l = save.pres.up[def.id] || 0;
-    const cost = rebootCost(def, l);
-    if (l < def.max && save.pres.pts >= cost) {
-      buyRebootUpgrade(def.id, cost);
-      audioInit();
-      sfx('chip');
-    }
-  } else if (un) {
-    equipWeapon(1, null);
-    baseUI.selSlot = 1;
-  } else if (sl) baseUI.selSlot = +sl.dataset.slot!;
-  else if (ti) setStartTier(+ti.dataset.tier!);
-  else if (w) {
-    const id = w.dataset.w!,
-      def = WEAPONS[id];
-    if (!save.unlocked[id]) {
-      if (save.bits < def.cost) return;
-      spendBits(def.cost);
-      unlockWeapon(id);
-      audioInit();
-      sfx('chip');
-    }
-    assignLoadout(basicW(id));
-  } else if (st) {
-    const i = +st.dataset.stash!,
-      item = takeFromStash(i);
-    assignLoadout(item);
-  } else if (se) {
-    const i = +se.dataset.sell!;
-    sellFromStash(i);
+  assignLoadout(basicW(id));
+  return 'save';
+}
+const assignFromStash = (index: string): After => {
+  assignLoadout(takeFromStash(+index));
+  return 'save';
+};
+const sellStashItem = (index: string): After => {
+  sellFromStash(+index);
+  audioInit();
+  sfx('pick');
+  return 'save';
+};
+// saves and redraws even when the upgrade cannot be bought
+function buyBaseUpgrade(id: string): After {
+  const def = UPGRADES.find(x => x.id === id)!,
+    l = save.up[def.id] || 0,
+    cost = def.cost(l);
+  if (l < def.max && save.bits >= cost) {
+    buyUpgrade(def.id, cost);
     audioInit();
     sfx('pick');
-  } else if (u) {
-    const def = UPGRADES.find(x => x.id === u.dataset.up)!,
-      l = save.up[def.id] || 0,
-      cost = def.cost(l);
-    if (l < def.max && save.bits >= cost) {
-      buyUpgrade(def.id, cost);
-      audioInit();
-      sfx('pick');
-    }
-  } else return;
-  persist();
-  renderBase();
-});
+  }
+  return 'save';
+}
+const baseAction = (attr: string, run: (value: string) => After): DataClick => [
+  attr,
+  value => {
+    const after = run(value);
+    if (after === 'save') persist();
+    if (after !== 'none') renderBase();
+  },
+];
+// the order matters: when elements are nested, the attribute that comes first here wins
+onDataClick(
+  el('#scrBase'),
+  baseAction('practice', startBossPractice),
+  baseAction('modplus', id => buyWeaponMod(id, 'plus')),
+  baseAction('modrar', id => buyWeaponMod(id, 'rar')),
+  baseAction('ptier', pickPracticeTier),
+  baseAction('reboot', onRebootButton),
+  baseAction('pres', buyRebootBonus),
+  baseAction('unequip', unequipSecond),
+  baseAction('slot', selectSlot),
+  baseAction('tier', chooseStartTier),
+  baseAction('w', unlockOrAssign),
+  baseAction('stash', assignFromStash),
+  baseAction('sell', sellStashItem),
+  baseAction('up', buyBaseUpgrade),
+);
 el('#btnStart').addEventListener('click', startRun);
