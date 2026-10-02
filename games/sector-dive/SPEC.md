@@ -411,7 +411,11 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/core/progress.ts` | セーブを変える操作（`spendBits`・`equipWeapon`・`recordBossKill` など。セーブを書き換えるのは `src/core/` の中だけ） |
 | `src/core/rules.ts` | 定義を使う計算式（進行度、ドロップ、改造後の武器、売値） |
 | `src/i18n/text.ts` | 言語ファイルの名前と説明を定義に流し込む（`i18nApplyData` を `setI18nHook` で登録し、`setLang` のたびに呼ばれる） |
-| `src/world/level.ts` | 地形の生成と描画、危険床、ゲート（当たり判定と経路は engine/src/world/tiles.ts） |
+| `src/world/level.ts` | いまのステージ（`level`）の状態と、生成・描画をまとめる `buildLevel`（シードを受け取る）、部屋の位置の取得、マップの開示（当たり判定と経路は engine/src/world/tiles.ts） |
+| `src/world/levelGen.ts` | 地形の生成（部屋・通路・足場・瓦礫・橋・危険床・ボスアリーナ）。乱数は渡された `Rng` だけから引くので、同じシードなら同じ地形になる。three.js も DOM も使わない |
+| `src/world/levelMesh.ts` | 地形の three.js のメッシュ（床・壁・足場・坂・遮蔽物・天井・ネオン看板）。看板の位置と色はシードから作る別の乱数で決める |
+| `src/world/hazards.ts` | 危険床の描画・周期・ダメージ |
+| `src/world/portals.ts` | ゲートの生成（`makePortal`） |
 | `src/world/entities.ts` | 弾・拾い物の生成、敵の生成（敵オブジェクトの項目一覧もここ）。パーティクルは engine/src/render/fx.ts |
 | `src/world/render.ts` | 弾などの共有ジオメトリ、床と壁のテクスチャ |
 | `src/core/stages.ts` | 区画番号の計算（セクターの並び、区画ラベル、難易度、被ダメージの伸び） |
@@ -436,7 +440,8 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/screens/result.ts` | 結果画面の表示（集計は `src/flow/run.ts`） |
 | `src/screens/base.ts` | 拠点画面（タブ、出撃装備、倉庫、強化、再起動、ボス練習の選択） |
 | `src/screens/data.ts` | セーブのコードの書き出し・読み込み、データ消去 |
-| `src/ui/hud.ts` | HUD、ミニマップ、設定、タッチボタンの設定（`TOUCH_LAYOUT`）、言語の切り替え |
+| `src/ui/hud.ts` | HUD、設定、タッチボタンの設定（`TOUCH_LAYOUT`）、言語の切り替え |
+| `src/ui/minimap.ts` | ミニマップと大きなマップの描画（`drawMap`） |
 | `src/ui/input.ts` | キーとボタンの割り当て（`INPUT`）、持ち替え・拾う・回復 |
 | `src/ui/share.ts` | 結果のシェア（結果カードの画像と投稿文） |
 | `src/ui/feedback.ts` | 感想フォームを開く導線と、フォームに入れるプレイ情報 |
@@ -448,6 +453,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 - セーブ: localStorage の `sector-dive-v1`（読み書きは engine の `loadStore`）。1深度が4区画だった頃のセーブ（`stageV` なし）は、最深記録と中断データのステージ番号を3区画の数え方に変換する
 - スモークテスト: `test/smoke.test.ts`（`npm test` が Vitest で流す）。ゲームのページを用意して `src/main.ts` を読み込み、確認を1件ずつのテストにして順に流す。全セクターの区画と全ボス、段差から降りたときの詰まり、進行度、盾、ボス練習（セーブが変わらないこと）、中断→再開→破棄、データ消去などを確かめ、各セクター25回ずつ生成して全部屋に行き来できるかを調べる。ほかのテストの結果に影響するので、順番を入れ替えるときは乱数の使われ方に気をつける
 - 開発用フック（URL の末尾に付ける。`src/dev/dev.ts`。公開版では使えない。どれも末尾に `-touch` を足すとタッチ端末として開く。実機で特定の状態を見たいときは、セーブのコード（9.7）を読み込む）
+  - `?seed=<数>`（`#` の前、検索部分）: その後に作るステージをすべてそのシードで生成する（同じ地形を何度でも開ける）
   - `#view-KWLN` など: そのセクターの区画にすぐ入る（スクリーンショット確認用）
   - `#view-trooper`: 兵士（人型ロボ）3体の前に立った状態で始まる（見た目の確認用）
   - `#view-haz`: 光っている危険床の上に立った状態で始まる（銃が床より手前に描かれるかの確認用）。`#view-haz-smg` のように武器を指定できる
