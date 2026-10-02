@@ -30,6 +30,7 @@ import { updateEnemy } from '../actors/enemies.ts';
 import { updatePickup, updateWave } from '../flow/update.ts';
 import { COLOR } from '../data/colors.ts';
 // ================= entities =================
+const HOMING_SIZE = 1.3; // size of the bosses' homing bullets (shootHoming)
 // pickups and shockwaves live in the engine world (engine/src/core/world.ts) with tag 'pickup' / 'wave'
 // enemies (bosses included) are an engine world group updated at order 10; `enemies` is that group's list
 export const ENEMY_GROUP = worldGroup('enemy', 10);
@@ -157,8 +158,8 @@ export function shootAngle(
 }
 export function ring(
   x: number,
-  z: number,
   y: number,
+  z: number,
   n: number,
   speed: number,
   off: number,
@@ -184,6 +185,51 @@ export function fanAt(
     spawnEBullet(x, y, z, dx * speed, dy * speed, dz * speed, dmg, color),
   );
   sfx('eshot', 60);
+}
+// one bullet from (x, y, z) straight at the point (tx, ty, tz)
+export function shootAtPoint(
+  x: number,
+  y: number,
+  z: number,
+  tx: number,
+  ty: number,
+  tz: number,
+  speed: number,
+  dmg: number,
+  color: number,
+  size?: number,
+) {
+  const vx = tx - x,
+    vy = ty - y,
+    vz = tz - z;
+  const l = Math.hypot(vx, vy, vz) || 1;
+  spawnEBullet(x, y, z, (vx / l) * speed, (vy / l) * speed, (vz / l) * speed, dmg, color, size);
+}
+// a homing bullet flying out sideways at angle ang from `reach` m off (x, z); rise: its climb (m/s); homing: how hard it turns toward the player
+export function shootHoming(
+  x: number,
+  y: number,
+  z: number,
+  ang: number,
+  speed: number,
+  dmg: number,
+  color: number,
+  opt: { reach: number; rise: number; homing: number },
+) {
+  const s = Math.sin(ang),
+    c = Math.cos(ang);
+  spawnEBullet(
+    x + s * opt.reach,
+    y,
+    z + c * opt.reach,
+    s * speed,
+    opt.rise,
+    c * speed,
+    dmg,
+    color,
+    HOMING_SIZE,
+    opt.homing,
+  );
 }
 
 export function spawnEnemy(type: string, x: number, z: number, room: number, diff: number): RegularEnemy {

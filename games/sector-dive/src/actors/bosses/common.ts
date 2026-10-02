@@ -1,4 +1,4 @@
-import type { Boss } from '../../data/types.ts';
+import type { Boss, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp, el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
@@ -6,6 +6,7 @@ import { sfx } from '@engine/audio/audio.ts';
 import { setMusic } from '@engine/audio/music.ts';
 import { dynGroup } from '@engine/render/render.ts';
 import { burst, fireball } from '@engine/render/fx.ts';
+import { clearPool } from '@engine/world/projectiles.ts';
 import { H, T, W } from '@engine/world/tiles.ts';
 import { query } from '@engine/core/world.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
@@ -23,9 +24,10 @@ import {
   enemies,
   removeEnemyMesh,
   setBoss,
+  spawnEnemy,
   spawnEnemyObj,
 } from '../../world/entities.ts';
-import { damageScaleAt, stageInfo, tierLabel } from '../../core/stages.ts';
+import { damageScaleAt, difficultyAt, stageInfo, tierLabel } from '../../core/stages.ts';
 import { rollWeapon } from '../weapons.ts';
 import { run } from '../player.ts';
 import { spawnWatcher } from './watcher.ts';
@@ -38,6 +40,11 @@ import { screenFx } from '../../ui/hud.ts';
 import { track } from '@engine/core/analytics.ts';
 import { COLOR } from '../../data/colors.ts';
 // ================= bosses =================
+const BOSS_PHASE_HP = 0.5; // a boss enrages (and enters its next phase) below this share of its health
+const PATTERN_COUNT = 3; // attack patterns the bosses with a pat / pt clock cycle through
+// the bosses' shared timings and heights
+export const FIRST_SHOT_DELAY = 0.3; // a pattern waits this long before its first round (s)
+export const RING_Y = 1.3; // height of ring and spiral bullets above the floor (m)
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
 // sliding down to x lateGrowth per depth deeper in (hpGrowth in src/data/progress.ts)
 export function bossDifficulty() {
@@ -123,6 +130,27 @@ export function bossPauseTick(e: Boss, dt: number) {
     e.intro = false;
   }
 }
+// below half health: the boss uses its enraged numbers (*Enr in BOSS_META tune); bossPhase fires at the same point
+export function isEnraged(e: Boss): boolean {
+  return e.hp < e.maxHp * BOSS_PHASE_HP;
+}
+// start the next attack pattern: e.pat cycles 0..PATTERN_COUNT-1; the caller sets e.timer (its length) after this
+export function nextPattern(e: Boss) {
+  e.pat = e.patIdx++ % PATTERN_COUNT;
+  e.pt = 0;
+  e.shots = 0;
+  e.acc = 0;
+}
+// a drone / crawler / turret the boss calls in; it's awake from the start and belongs to no room
+export function spawnMinion(type: string, x: number, z: number): RegularEnemy {
+  const m = spawnEnemy(type, x, z, -1, difficultyAt(run.stage));
+  m.active = true;
+  return m;
+}
+// how many minions are alive (the boss itself doesn't count)
+export function minionCount(): number {
+  return enemies.filter(o => !o.boss && !o.dead).length;
+}
 // drop below half health: short invulnerable burst, then the boss's enraged patterns take over
 export function bossPhase(e: Boss) {
   e.phased = true;
@@ -134,10 +162,7 @@ export function bossPhase(e: Boss) {
   fireball(p.x, p.y, p.z, 4, COLOR.mag);
   screenFx.shake = Math.max(screenFx.shake, 0.4);
   sfx('bigboom');
-  eBullets.forEach(b => {
-    b.alive = false;
-    b.mesh.visible = false;
-  });
+  clearPool(eBullets);
   toast(t('boss.phase2'), 2000);
 }
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in src/actors/bosses/<name>.ts
@@ -174,10 +199,7 @@ export function bossDown(e: Boss) {
       removeEnemyMesh(o);
     }
   });
-  eBullets.forEach(b => {
-    b.alive = false;
-    b.mesh.visible = false;
-  });
+  clearPool(eBullets);
   query('wave').forEach(w => {
     w.dead = true;
   }); // a shockwave still spreading must not kill the player after the win

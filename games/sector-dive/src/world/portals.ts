@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { distXZ } from '@engine/core/util.ts';
 import { textSprite } from '@engine/render/render.ts';
 import { floorY } from '@engine/world/tiles.ts';
 import { PORTAL } from '../data/level.ts';
@@ -42,6 +43,6 @@ export function makePortal(x: number, z: number, color: number, kind: PortalKind
   }
   g.position.set(x, floorY(x, z) + PORTAL.centerY, z);
   level.group!.add(g); // gates are made after the level is built
-  const clear = !player || Math.hypot(player.x - x, player.z - z) >= PORTAL.clearR; // opened underfoot: wait until the player steps off
+  const clear = !player || distXZ(player, { x, z }) >= PORTAL.clearR; // opened underfoot: wait until the player steps off
   level.portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear });
 }
