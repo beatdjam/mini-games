@@ -7,7 +7,7 @@ import { dynGroup } from '@engine/render/render.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, ring } from '../../world/entities.ts';
-import { P, damagePlayer } from '../player.ts';
+import { player, damagePlayer } from '../player.ts';
 import { bossBase } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // TRINITY: three bodies orbiting the centre on one shared health pool
@@ -72,7 +72,7 @@ export function updTrinity(e: TrinityBoss, dt: number) {
       x += (r.tx - x) * f;
       z += (r.tz - z) * f;
       y += (1.2 - y) * f;
-      if (!r.hit && Math.hypot(P.x - x, P.z - z) < 1.8) {
+      if (!r.hit && Math.hypot(player.x - x, player.z - z) < 1.8) {
         r.hit = true;
         damagePlayer(e.dmg * K.ramDmg, { x, z });
       }
@@ -99,7 +99,7 @@ export function updTrinity(e: TrinityBoss, dt: number) {
       e.ram.t += dt;
       if (e.ram.t >= e.ram.dur) e.ram = null;
     } else if ((e.ramT -= dt) <= 0) {
-      e.ram = { k: randi(0, 2), t: 0, dur: K.ramDur, tx: P.x, tz: P.z, hit: false };
+      e.ram = { k: randi(0, 2), t: 0, dur: K.ramDur, tx: player.x, tz: player.z, hit: false };
       e.ramT = K.ramEvery;
       sfx('dash');
     }

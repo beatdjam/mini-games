@@ -4,7 +4,7 @@ import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { musicVolume, setMusic } from '@engine/audio/music.ts';
 import { T, W, floorY } from '@engine/world/tiles.ts';
-import { banner, enterFs, isFs, toast } from '@engine/ui/ui.ts';
+import { banner, enterFs, isFullscreen, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
@@ -12,7 +12,7 @@ import { BIOMES } from '../data/biomes.ts';
 import { PER, STASH_MAX, TUNE } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
 import { basicW, persist, save } from '../core/save.ts';
-import { prog, sellValue } from '../core/rules.ts';
+import { progressOf, sellValue } from '../core/rules.ts';
 import {
   makePortal,
   portals,
@@ -26,8 +26,8 @@ import {
 } from '../world/level.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import {
-  P,
-  diffOf,
+  player,
+  difficultyAt,
   isBossStage,
   newPlayer,
   rollWeapon,
@@ -37,7 +37,7 @@ import {
   stageInfo,
   stageLabel,
   tierLabel,
-  wText,
+  weaponText,
 } from '../actors/player.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
 import { normalizeWeapons } from '../ui/input.ts';
@@ -77,7 +77,7 @@ function pickStartChips(tier: number) {
 }
 export function startRun() {
   audioInit();
-  if (isTouch && !isFs()) enterFs();
+  if (isTouch && !isFullscreen()) enterFs();
   if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').catch(() => {});
   const tier = clamp(save.startTier, 0, save.shortcut);
   setPlayer(newPlayer(save.loadout));
@@ -108,10 +108,10 @@ export function startRun() {
 }
 // the boss room: the player starts at the south end, the boss comes after a moment
 function setupArena(bossKind: string | null) {
-  P.x = (W * T) / 2;
-  P.z = 14.5 * T;
-  P.yaw = 0;
-  P.pitch = 0.08;
+  player.x = (W * T) / 2;
+  player.z = 14.5 * T;
+  player.yaw = 0;
+  player.pitch = 0.08;
   const stageAt = run.stage;
   setTimeout(() => {
     if (run && run.stage === stageAt && !boss && !portals.length && state !== 'base' && state !== 'result')
@@ -120,20 +120,20 @@ function setupArena(bossKind: string | null) {
 }
 // a floor: the player in the start room facing the exit, enemies in every other room, weapon caches
 function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
-  const diff = diffOf(run.stage);
+  const diff = difficultyAt(run.stage);
   const [sx, sz] = roomSpot(rooms[startIdx]);
-  P.x = sx;
-  P.z = sz;
+  player.x = sx;
+  player.z = sz;
   const [ex, ez] = roomSpot(rooms[exitIdx]);
-  P.yaw = Math.atan2(-(ex - sx), -(ez - sz));
-  P.pitch = 0;
+  player.yaw = Math.atan2(-(ex - sx), -(ez - sz));
+  player.pitch = 0;
   makePortal(ex, ez, COLOR.amber, 'next', t(si.sub === PER - 2 ? 'run.toBoss' : 'run.nextArea'));
   rooms.forEach((r, idx) => {
     if (idx === startIdx) return;
     const n = Math.min(
       ENEMY_TUNE.maxPerRoom,
       Math.max(2, Math.floor((r.w * r.h) / (b.gen.density || 3))),
-      randi(2, 4) + Math.floor(prog(run.stage) * 0.3),
+      randi(2, 4) + Math.floor(progressOf(run.stage) * 0.3),
     );
     for (let k = 0; k < n; k++) {
       const [x, z] = randomTileIn(r);
@@ -147,7 +147,7 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
     .slice(0, caches)
     .forEach(i => {
       const [x, z] = randomTileIn(rooms[i]);
-      addPickup('weapon', x, z, { w: rollWeapon(prog(run.stage)) });
+      addPickup('weapon', x, z, { w: rollWeapon(progressOf(run.stage)) });
     });
 }
 export function startStage() {
@@ -173,10 +173,10 @@ export function startStage() {
   buildLevel(b, isArena, bossKind);
   if (isArena) setupArena(bossKind);
   else setupFloor(b, si);
-  P.tile = -1;
-  P.inv = 1.0;
-  P.fy = floorY(P.x, P.z);
-  P.vy = 0;
+  player.tile = -1;
+  player.inv = 1.0;
+  player.fy = floorY(player.x, player.z);
+  player.vy = 0;
   el('#bossBar').hidden = true;
   refreshRunText();
   banner(stageLabel(run.stage), b.name);
@@ -212,7 +212,7 @@ export function nextStage() {
 export function startPractice(kind: string, tier?: number) {
   tier = tier || 0;
   audioInit();
-  if (isTouch && !isFs()) enterFs();
+  if (isTouch && !isFullscreen()) enterFs();
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
   setPlayer(newPlayer(save.loadout));
   setRun({
@@ -256,10 +256,10 @@ const strip = (w: WeaponItem | null): WeaponItem | null =>
 // extraction: the equipped weapons are the next loadout, the bag goes to the stash (the cheapest is sold when it is full)
 // returns the bits from the weapons sold
 function storeWeapons(): number {
-  save.loadout = [strip(P.weapons[0]), strip(P.weapons[1])];
+  save.loadout = [strip(player.weapons[0]), strip(player.weapons[1])];
   if (!save.loadout[0]) save.loadout[0] = basicW('pistol');
   let sold = 0;
-  P.bag.filter(w => w && !w.basic).forEach(w => save.stash.push(strip(w)!));
+  player.bag.filter(w => w && !w.basic).forEach(w => save.stash.push(strip(w)!));
   while (save.stash.length > STASH_MAX) {
     let mi = 0;
     save.stash.forEach((w, i) => {
@@ -296,8 +296,8 @@ export function endRun(kind: RunEnd) {
   });
   save.bits += kept;
   save.best = Math.max(save.best, run.stage + 1);
-  const found = P.weapons.concat(P.bag).filter((w): w is Weapon => !!w && !w.basic);
-  const foundText = found.length ? found.map(wText).join(t('common.sep')) : t('common.none');
+  const found = player.weapons.concat(player.bag).filter((w): w is Weapon => !!w && !w.basic);
+  const foundText = found.length ? found.map(weaponText).join(t('common.sep')) : t('common.none');
   const rows: [string, string | number][] = [];
   rows.push([t('res.reached'), `${stageLabel(run.stage)}　${stageInfo(run.stage).biome.name}`]);
   rows.push([t('res.kills'), run.kills]);

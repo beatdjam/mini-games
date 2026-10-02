@@ -173,7 +173,7 @@ import が循環していると、読み込みの順番は保証されない。�
 
 ## 7. 状態の持ち主
 
-- 状態は、それを持つモジュールが export する。書き換えは持ち主の関数（`setPlayer`, `setState`, `setBoss` など）か、共有のオブジェクト（`SCR`, `GUNFX`, `CTRL`）の中身を通す
+- 状態は、それを持つモジュールが export する。書き換えは持ち主の関数（`setPlayer`, `setState`, `setBoss` など）か、共有のオブジェクト（`screenFx`, `GUNFX`, `CTRL`）の中身を通す
 - 永続化するもの（セーブ）は `core/store.ts` の `loadStore` / `saveStore`。既定値に深く重ねて読むので、新しい項目を足しても古いセーブが壊れない
 - 音声・描画など、ブラウザの資源は engine が持つ。`actx` は最初のユーザー操作までは null
 

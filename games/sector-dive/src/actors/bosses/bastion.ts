@@ -6,7 +6,7 @@ import { sfx } from '@engine/audio/audio.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
-import { diffOf, run } from '../player.ts';
+import { difficultyAt, run } from '../player.ts';
 import { bossBase } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
@@ -61,7 +61,7 @@ export function bastionTurrets(e: BastionBoss, n: number) {
         e.cx + Math.cos(a) * BOSS_META.bastion.tune.turretR,
         e.cz + Math.sin(a) * BOSS_META.bastion.tune.turretR,
         -1,
-        diffOf(run.stage),
+        difficultyAt(run.stage),
       );
     t.active = true;
     e.turrets.push(t);

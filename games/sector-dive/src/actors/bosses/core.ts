@@ -7,7 +7,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { levelGroup } from '../../world/level.ts';
 import { enemies, fanAt, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
-import { P, damagePlayer, diffOf, run } from '../player.ts';
+import { player, damagePlayer, difficultyAt, run } from '../player.ts';
 import { bossBase } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // NOISE CORE: rotating beams, bullet rings, summons
@@ -62,7 +62,7 @@ export function updCore(e: CoreBoss, dt: number) {
     e.timer = K.patTime[e.pat];
     if (e.pat === 0) {
       e.bdir *= -1;
-      e.ba = Math.atan2(-(P.z - e.cz), P.x - e.cx) + Math.PI * 0.5;
+      e.ba = Math.atan2(-(player.z - e.cz), player.x - e.cx) + Math.PI * 0.5;
       sfx('beam');
     }
   }
@@ -74,8 +74,8 @@ export function updCore(e: CoreBoss, dt: number) {
     const live = e.pt > K.beamWarm;
     const sp = (live ? (enr ? K.beamSpinEnr : K.beamSpin) : K.beamSpinWarm) * e.bdir;
     e.ba += sp * dt;
-    const pd = Math.hypot(P.x - e.cx, P.z - e.cz),
-      pa = Math.atan2(-(P.z - e.cz), P.x - e.cx);
+    const pd = Math.hypot(player.x - e.cx, player.z - e.cz),
+      pa = Math.atan2(-(player.z - e.cz), player.x - e.cx);
     for (let k = 0; k < nb; k++) {
       const b = e.beams[k],
         a = e.ba + (k * Math.PI * 2) / nb;
@@ -109,7 +109,7 @@ export function updCore(e: CoreBoss, dt: number) {
         e.cx + Math.cos(a) * 5,
         e.cz + Math.sin(a) * 5,
         -1,
-        diffOf(run.stage),
+        difficultyAt(run.stage),
       ).active = true;
     }
     for (let k = 0; k < K.burstN; k++) {

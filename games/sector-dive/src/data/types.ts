@@ -87,8 +87,8 @@ export interface Upgrade {
   name: string;
   desc(level: number): string; /* (lang) */
 }
-// max may be Infinity; step: the cost goes up by this much per level already taken (presCost in src/core/rules.ts)
-export interface PresUpgrade {
+// max may be Infinity; step: the cost goes up by this much per level already taken (rebootCost in src/core/rules.ts)
+export interface RebootUpgrade {
   id: string;
   max: number;
   cost: number;

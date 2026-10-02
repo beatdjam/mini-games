@@ -4,7 +4,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { perkName } from '../core/rules.ts';
-import { P, run, stageInfo, stageLabel, wText } from '../actors/player.ts';
+import { player, run, stageInfo, stageLabel, weaponText } from '../actors/player.ts';
 import { track } from '@engine/core/analytics.ts';
 import { save } from '../core/save.ts';
 import { CSS_COLOR } from '../data/colors.ts';
@@ -38,7 +38,7 @@ export function bossSummary(bosses: string[]): string {
 }
 export function prepShare(kind: RunEnd) {
   const si = stageInfo(run.stage),
-    w = P.weapons[P.cur] || P.weapons[0];
+    w = player.weapons[player.cur] || player.weapons[0];
   const counts: Record<string, number> = {};
   run.perks.forEach(n => {
     const k = n.replace(/\+$/, '');
@@ -54,7 +54,7 @@ export function prepShare(kind: RunEnd) {
     biome: si.biome.name ?? '',
     kills: run.kills,
     bosses: (run.bosses || []).map(bossShort),
-    weapon: w ? wText(w) : '',
+    weapon: w ? weaponText(w) : '',
     wr: w ? w.r : 0,
     chips,
     nChips: run.perks.length,

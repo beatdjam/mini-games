@@ -14,23 +14,32 @@ import {
   modPlusCost,
 } from '../data/weapons.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
-import { PRES_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
+import { REBOOT_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { BASE_TAB_KEY, basicW, defaultSave, persist, save } from '../core/save.ts';
 import {
   basicNow,
-  modOf,
+  weaponModOf,
   modPlusCap,
   peakDepth,
   pickDrop,
-  PRES_DIFF_CAP,
-  presCost,
-  presMul,
-  presMulOf,
+  REBOOT_DIFF_CAP,
+  rebootCost,
+  rebootMul,
+  rebootMulOf,
   readiness,
   readyAfterReboot,
   sellValue,
 } from '../core/rules.ts';
-import { P, newPlayer, setPlayer, stageLabel, tierLabel, wName, wOpts, weaponStats } from '../actors/player.ts';
+import {
+  player,
+  newPlayer,
+  setPlayer,
+  stageLabel,
+  tierLabel,
+  weaponName,
+  weaponOptsHTML,
+  weaponStats,
+} from '../actors/player.ts';
 import { renderSettings } from '../ui/hud.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
 import { startPractice, startRun } from '../flow/run.ts';
@@ -44,23 +53,23 @@ export const baseUI = {
   practiceTier: 0, // boss practice depth chosen (0-based)
 };
 // a weapon's numbers as it would be right after diving: base upgrades and reboot bonuses in, no chips, its own options
-// in (so weapons in the base can be compared; P may still be the last run's player, chips and all)
+// in (so weapons in the base can be compared; player may still be the last run's player, chips and all)
 // what the one-target DPS leaves out: the rail's damage past `far` metres, the rocket's blast radius
-export const wReach = (s: ReturnType<typeof weaponStats>): string =>
+export const weaponReachText = (s: ReturnType<typeof weaponStats>): string =>
   s.farDps
     ? t('weapon.far', { m: s.far, dps: Math.round(s.farDps) })
     : s.blast
       ? t('weapon.blast', { m: s.blast.toFixed(1) })
       : '';
-export function wStat(w: WeaponItem) {
+export function weaponStatText(w: WeaponItem) {
   const d = WEAPONS[w.id],
-    keep = P;
+    keep = player;
   setPlayer(newPlayer([]));
   try {
     const s = weaponStats(w);
     return t('base.wstat', {
       dps: Math.round(s.dps),
-      reach: wReach(s),
+      reach: weaponReachText(s),
       dmg: Math.round(s.perHit),
       pellets: s.hits,
       rate: (1 / s.interval).toFixed(1),
@@ -104,7 +113,7 @@ const tierButton = (n: number): string => {
 const loadoutSlot = (k: number): string => {
   const w = save.loadout[k],
     on = baseUI.selSlot === k;
-  const name = w ? wName(basicNow(w)) : t('base.empty');
+  const name = w ? weaponName(basicNow(w)) : t('base.empty');
   const note =
     w && !w.basic
       ? `<span class="risk">${t('base.stashRisk')}</span>`
@@ -120,12 +129,12 @@ const loadoutSlot = (k: number): string => {
 const lockedCard = (id: string): string => {
   const def = WEAPONS[id];
   return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" data-w="${id}">
-      <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span>
+      <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText({ id, r: 0 })}</span>
       <span class="wf">${t('base.unlock', { cost: def.cost })}</span></button>`;
 };
 // the buttons that raise a base weapon's + value and rarity
 const modButtons = (id: string): string => {
-  const m = modOf(id),
+  const m = weaponModOf(id),
     pc = modPlusCost(m.plus),
     rc = MOD_RARITY_COST[m.r];
   const plusBtn =
@@ -142,16 +151,16 @@ const modButtons = (id: string): string => {
 const weaponCard = (id: string): string => {
   const def = WEAPONS[id],
     w = basicNow(basicW(id)),
-    m = modOf(id);
+    m = weaponModOf(id);
   const edge = m.r ? RARITY[m.r].css : 'var(--line)';
   return `<div class="wcard" style="border-left:3px solid ${edge}">
-      <span class="wn">${wName(w)}</span><span class="wd">${def.desc}</span><span class="ws">${wStat(w)}</span>
+      <span class="wn">${weaponName(w)}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText(w)}</span>
       <span class="acts"><button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: baseUI.selSlot + 1 })}</button>${modButtons(id)}</span></div>`;
 };
 const stashCard = (w: WeaponItem, i: number): string => {
   const assign = `<button class="mini-btn amber" data-stash="${i}">${t('base.stashAssign', { n: baseUI.selSlot + 1 })}</button>`;
   const sell = `<button class="mini-btn" data-sell="${i}">${t('base.sell', { v: sellValue(w) })}</button>`;
-  return `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
+  return `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${weaponName(w)}</span><span class="ws">${weaponStatText(w)}</span>${weaponOptsHTML(w)}
       <span class="acts">${assign}${sell}</span></div>`;
 };
 const pipsHTML = (max: number, level: number): string =>
@@ -219,8 +228,8 @@ function rebootRowHTML(): string {
     return `<p class="help">${t('reboot.info', { pts: rebootGain() })}</p><button class="buy" data-reboot="arm">${t('reboot.arm')}</button>`;
   }
   const after = t('reboot.after', {
-    diff: Math.round((presMulOf(save.pres.count + 1) - 1) * 100),
-    cap: Math.round(PRES_DIFF_CAP * 15),
+    diff: Math.round((rebootMulOf(save.pres.count + 1) - 1) * 100),
+    cap: Math.round(REBOOT_DIFF_CAP * 15),
     ready: t(`base.ready${readiness(0, readyAfterReboot())}`),
   });
   return (
@@ -236,13 +245,13 @@ export function renderReboot() {
   if (sec.hidden) return;
   el('#rebootNote').textContent = t('reboot.note', {
     count: pr.count,
-    diff: Math.round((presMul() - 1) * 100),
+    diff: Math.round((rebootMul() - 1) * 100),
     pts: pr.pts,
   });
-  el('#presList').innerHTML = PRES_UP.map(u => {
+  el('#presList').innerHTML = REBOOT_UP.map(u => {
     const l = pr.up[u.id] || 0,
       maxed = l >= u.max,
-      cost = presCost(u, l);
+      cost = rebootCost(u, l);
     // uncapped bonuses show their level instead of a row of pips
     const pips = isFinite(u.max) ? pipsHTML(u.max, l) : `<small>${t('pres.level', { n: l })}</small>`;
     const buy = `<button class="buy" data-pres="${u.id}" ${maxed || pr.pts < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' pt'}</button>`;
@@ -291,7 +300,7 @@ el('#scrBase').addEventListener('click', (e: Event) => {
     mr = tg.closest<HTMLElement>('[data-modrar]');
   if (mp || mr) {
     const id = (mp || mr)!.dataset.modplus || (mp || mr)!.dataset.modrar!,
-      m = Object.assign({ plus: 0, r: 0 }, modOf(id));
+      m = Object.assign({ plus: 0, r: 0 }, weaponModOf(id));
     const cost = mp ? modPlusCost(m.plus) : MOD_RARITY_COST[m.r];
     if (cost === undefined || save.bits < cost || (mp && m.plus >= modPlusCap())) return;
     save.bits -= cost;
@@ -321,9 +330,9 @@ el('#scrBase').addEventListener('click', (e: Event) => {
     return;
   }
   if (pu) {
-    const def = PRES_UP.find(x => x.id === pu.dataset.pres)!,
+    const def = REBOOT_UP.find(x => x.id === pu.dataset.pres)!,
       l = save.pres.up[def.id] || 0;
-    const cost = presCost(def, l);
+    const cost = rebootCost(def, l);
     if (l < def.max && save.pres.pts >= cost) {
       save.pres.pts -= cost;
       save.pres.up[def.id] = l + 1;

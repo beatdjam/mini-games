@@ -108,12 +108,12 @@ export function renderGun() {
 export function vmMat(c: number, lit?: boolean): THREE.MeshLambertMaterial | THREE.MeshBasicMaterial {
   return lit ? new THREE.MeshLambertMaterial({ color: c }) : new THREE.MeshBasicMaterial({ color: c });
 }
-export function vbox(w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) {
+export function partBox(w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
   return m;
 }
-export function vcyl(r: number, len: number, mat: THREE.Material, x: number, y: number, z: number) {
+export function partCylinder(r: number, len: number, mat: THREE.Material, x: number, y: number, z: number) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat);
   m.rotation.x = Math.PI / 2;
   m.position.set(x, y, z);
@@ -143,8 +143,8 @@ export function buildViewmodel(
   def.parts.forEach(p =>
     g.add(
       p[0] === 'cyl'
-        ? vcyl(p[1], p[2], mat(p[3]), p[4], p[5], p[6])
-        : vbox(p[1], p[2], p[3], mat(p[4]), p[5], p[6], p[7]),
+        ? partCylinder(p[1], p[2], mat(p[3]), p[4], p[5], p[6])
+        : partBox(p[1], p[2], p[3], mat(p[4]), p[5], p[6], p[7]),
     ),
   );
   const tip = new THREE.Object3D();

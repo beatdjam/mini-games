@@ -15,19 +15,19 @@ export function banner(code: string, sub: string) {
   b.classList.add('on');
   setTimeout(() => b.classList.remove('on'), 2000);
 }
-export const fsEl = document.documentElement;
+export const fullscreenTarget = document.documentElement;
 export const fsSupported =
   !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) &&
-  !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
+  !!(fullscreenTarget.requestFullscreen || fullscreenTarget.webkitRequestFullscreen);
 export const isStandalone =
   (typeof window.matchMedia === 'function' &&
     matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) ||
   navigator.standalone === true;
-export const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
+export const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
 export function enterFs() {
   try {
-    const fn = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
-    const p = fn.call(fsEl);
+    const fn = fullscreenTarget.requestFullscreen || fullscreenTarget.webkitRequestFullscreen;
+    const p = fn.call(fullscreenTarget);
     const lockLand = () => {
       try {
         const q = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape');

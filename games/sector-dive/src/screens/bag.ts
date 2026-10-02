@@ -5,12 +5,12 @@ import { sfx } from '@engine/audio/audio.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { RARITY } from '../data/weapons.ts';
 import { addPickup } from '../world/entities.ts';
-import { P, kitHealAmount, run, wName, wOpts, weaponStats } from '../actors/player.ts';
+import { player, kitHealAmount, run, weaponName, weaponOptsHTML, weaponStats } from '../actors/player.ts';
 import { normalizeWeapons, useKit } from '../ui/input.ts';
 import { bigmap, weaponHud } from '../ui/hud.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { statsHTML } from './pause.ts';
-import { wReach } from './base.ts';
+import { weaponReachText } from './base.ts';
 
 // transient state of the bag screen
 const bagUI: { sel: { where: string; i: number } | null } = {
@@ -46,7 +46,7 @@ export function itemCard(w: WeaponItem | null, where: string, i: number) {
   const edge = w.basic ? 'var(--line)' : RARITY[w.r].css;
   const nums = t('bag.item', {
     dps: Math.round(s.dps),
-    reach: wReach(s),
+    reach: weaponReachText(s),
     hit: Math.round(s.perHit),
     hits: s.hits > 1 ? '×' + s.hits : '',
     mag: w.mag,
@@ -55,18 +55,18 @@ export function itemCard(w: WeaponItem | null, where: string, i: number) {
   const keep = w.basic ? `<span class="ws">${t('base.keep')}</span>` : '';
   const slot =
     where === 'eq'
-      ? `<span class="ws">${t('bag.slotN', { n: i + 1 })}${i === P.cur ? t('bag.inHand') : ''}</span>`
+      ? `<span class="ws">${t('bag.slotN', { n: i + 1 })}${i === player.cur ? t('bag.inHand') : ''}</span>`
       : '';
   return `<button class="item ${sel ? 'sel' : ''}" ${attrs} style="border-left:3px solid ${edge}">
-    <span class="wn">${wName(w)}</span>
-    <span class="ws">${nums}</span>${wOpts(w)}
+    <span class="wn">${weaponName(w)}</span>
+    <span class="ws">${nums}</span>${weaponOptsHTML(w)}
     ${keep}
     ${slot}</button>`;
 }
 // the action buttons for the selected weapon
 function actionButtons(where: string): string {
-  const eqCount = P.weapons.filter(Boolean).length,
-    bagFree = P.bag.includes(null);
+  const eqCount = player.weapons.filter(Boolean).length,
+    bagFree = player.bag.includes(null);
   if (where === 'bag') {
     return (
       `<button class="mini-btn amber" data-act="equip0">${t('bag.toSlot1')}</button>` +
@@ -82,20 +82,20 @@ function actionButtons(where: string): string {
   );
 }
 export function renderBag() {
-  el('#invEq').innerHTML = P.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
-  el('#invBag').innerHTML = P.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
-  el('#kitNum').textContent = String(P.kits);
+  el('#invEq').innerHTML = player.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
+  el('#invBag').innerHTML = player.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
+  el('#kitNum').textContent = String(player.kits);
   el('#btnUseKit').textContent = t('bag.useKit', { n: kitHealAmount() });
-  el<HTMLButtonElement>('#btnUseKit').disabled = P.kits <= 0 || P.hp >= P.maxHp;
+  el<HTMLButtonElement>('#btnUseKit').disabled = player.kits <= 0 || player.hp >= player.maxHp;
   el('#bagChips').innerHTML =
-    `<p class="chips">${t('bag.status', { hp: Math.ceil(P.hp), maxHp: P.maxHp, bits: Math.floor(run.bits) })}</p>` +
+    `<p class="chips">${t('bag.status', { hp: Math.ceil(player.hp), maxHp: player.maxHp, bits: Math.floor(run.bits) })}</p>` +
     statsHTML();
   const act = el('#invAct');
   if (!bagUI.sel) {
     act.innerHTML = t('bag.pick');
     return;
   }
-  const w = bagUI.sel.where === 'eq' ? P.weapons[bagUI.sel.i] : P.bag[bagUI.sel.i];
+  const w = bagUI.sel.where === 'eq' ? player.weapons[bagUI.sel.i] : player.bag[bagUI.sel.i];
   if (!w) {
     act.innerHTML = t('bag.emptySlot');
     return;
@@ -114,25 +114,25 @@ el('#scrBag').addEventListener('click', (e: Event) => {
   }
   if (!ac || !bagUI.sel) return;
   const a = ac.dataset.act,
-    src = bagUI.sel.where === 'eq' ? P.weapons : P.bag,
+    src = bagUI.sel.where === 'eq' ? player.weapons : player.bag,
     w = src[bagUI.sel.i];
   if (!w) return;
   if (a === 'equip0' || a === 'equip1') {
     const k = a === 'equip0' ? 0 : 1,
-      prev = P.weapons[k];
-    P.weapons[k] = w;
-    P.bag[bagUI.sel.i] = prev;
-    P.cur = k;
+      prev = player.weapons[k];
+    player.weapons[k] = w;
+    player.bag[bagUI.sel.i] = prev;
+    player.cur = k;
     bagUI.sel = { where: 'eq', i: k };
   } else if (a === 'stow') {
-    const slot = P.bag.indexOf(null);
+    const slot = player.bag.indexOf(null);
     if (slot < 0) return;
-    P.bag[slot] = w;
-    P.weapons[bagUI.sel.i] = null;
+    player.bag[slot] = w;
+    player.weapons[bagUI.sel.i] = null;
     bagUI.sel = { where: 'bag', i: slot };
   } else if (a === 'drop') {
     src[bagUI.sel.i] = null;
-    addPickup('weapon', P.x + rand(-0.6, 0.6), P.z + rand(-0.6, 0.6), { w });
+    addPickup('weapon', player.x + rand(-0.6, 0.6), player.z + rand(-0.6, 0.6), { w });
     bagUI.sel = null;
   }
   normalizeWeapons();

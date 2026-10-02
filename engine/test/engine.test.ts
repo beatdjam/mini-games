@@ -39,7 +39,7 @@ import {
 import { steerChase } from '../src/world/steer.ts';
 import { toast } from '../src/ui/ui.ts';
 import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
-import { TOUCH_LAYOUT, applyLayout, getL, layoutEditor, openLayoutEditor } from '../src/ui/touchlayout.ts';
+import { TOUCH_LAYOUT, applyLayout, buttonLayout, layoutEditor, openLayoutEditor } from '../src/ui/touchlayout.ts';
 // Engine tests (Vitest, in Chromium: npm test). The page elements the engine expects are made by engine/test/setup.ts.
 // eq / near / ok keep the short messages the tests were written with
 const eq = (a: unknown, b: unknown, what?: string) => expect(a, what).toBe(b);
@@ -401,9 +401,9 @@ test('touchlayout: place, edit, reset', () => {
   openLayoutEditor('here');
   ok(layoutEditor.open && !el('#layoutBar').hidden, 'editor open');
   document.querySelector<HTMLElement>('[data-lbact="plus"]')!.click();
-  near(getL('fire').s, 1.1, 1e-9, 'bigger');
+  near(buttonLayout('fire').s, 1.1, 1e-9, 'bigger');
   document.querySelector<HTMLElement>('[data-lbact="reset"]')!.click();
-  eq(getL('fire').s, 1, 'reset');
+  eq(buttonLayout('fire').s, 1, 'reset');
   document.querySelector<HTMLElement>('[data-lbact="done"]')!.click();
   eq(closed, 'here');
   ok(saved > 0, 'saved');

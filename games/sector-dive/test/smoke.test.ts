@@ -6,7 +6,15 @@ import { el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
 import { lang, t } from '@engine/core/i18n.ts';
 import { SFX, actx, audioInit } from '@engine/audio/audio.ts';
-import { MUSIC_STYLES, mus, musicInit, musicVolume, playStep, setMusic, setMusicMix } from '@engine/audio/music.ts';
+import {
+  MUSIC_STYLES,
+  musicState,
+  musicInit,
+  musicVolume,
+  playStep,
+  setMusic,
+  setMusicMix,
+} from '@engine/audio/music.ts';
 import { V3, camera, scene } from '@engine/render/render.ts';
 import {
   H,
@@ -26,36 +34,45 @@ import {
   walkable,
 } from '@engine/world/tiles.ts';
 import { joy, setFireHeld } from '@engine/ui/input.ts';
-import { applyLayout, getL, openLayoutEditor } from '@engine/ui/touchlayout.ts';
+import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
 import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
 import { EYE, PLAT_H } from '../src/data/level.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
-import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, PRES_ENDLESS, PRES_UP, TUNE } from '../src/data/progress.ts';
+import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, REBOOT_ENDLESS, REBOOT_UP, TUNE } from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
 import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../src/core/save.ts';
 import {
-  modOf,
+  weaponModOf,
   modPlusCap,
   perkName,
   pickDrop,
-  PRES_DIFF_CAP,
-  presCost,
-  presMul,
-  presMulOf,
-  prog,
+  REBOOT_DIFF_CAP,
+  rebootCost,
+  rebootMul,
+  rebootMulOf,
+  progressOf,
   readiness,
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import { buildLevel, haz, hazardState, makePortal, portals, rooms, roomSpot, startIdx } from '../src/world/level.ts';
+import {
+  buildLevel,
+  hazardTiles,
+  hazardState,
+  makePortal,
+  portals,
+  rooms,
+  roomSpot,
+  startIdx,
+} from '../src/world/level.ts';
 import {
   addPickup,
   boss,
   enemies,
   isShielded,
-  nearW,
+  nearPickup,
   pBullets,
   removeEnemyMesh,
   setBoss,
@@ -64,11 +81,11 @@ import {
   spawnWave,
 } from '../src/world/entities.ts';
 import {
-  P,
+  player,
   critChance,
   damagePlayer,
-  diffOf,
-  dmgScaleOf,
+  difficultyAt,
+  damageScaleAt,
   explode,
   findTarget,
   fire,
@@ -86,7 +103,7 @@ import {
   stageLabel,
   weaponStats,
 } from '../src/actors/player.ts';
-import { bossDiff, spawnBoss } from '../src/actors/bosses/common.ts';
+import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
 import { equipNearby, stowNearby } from '../src/ui/input.ts';
 import { changeLang, hitDirs } from '../src/ui/hud.ts';
 import { endRun, goBase, nextStage, pickEnemyType, startPractice, startRun, startStage } from '../src/flow/run.ts';
@@ -94,7 +111,7 @@ import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { openPerk } from '../src/screens/perk.ts';
 import { pause, statsHTML } from '../src/screens/pause.ts';
-import { renderBase, showTab, wStat } from '../src/screens/base.ts';
+import { renderBase, showTab, weaponStatText } from '../src/screens/base.ts';
 import { shareData, shareText } from '../src/ui/share.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
 import { update, updatePickups } from '../src/flow/update.ts';
@@ -109,8 +126,8 @@ const tick = (n: number) => {
       show(null);
       setState('play');
     }
-    P.hp = P.maxHp;
-    P.inv = 1;
+    player.hp = player.maxHp;
+    player.inv = 1;
     update(1 / 60);
   }
 };
@@ -133,7 +150,7 @@ BIOMES.forEach((b, bi) => {
     // walk the player through the level to exercise movement over ramps/decks
     for (let k = 0; k < 120; k++) {
       joy.y = -1;
-      P.yaw += 0.05;
+      player.yaw += 0.05;
       tick(1);
     }
     joy.y = 0;
@@ -145,13 +162,13 @@ BIOMES.forEach((b, bi) => {
       'enemies',
       n0,
       'fy',
-      P.fy.toFixed(2),
+      player.fy.toFixed(2),
       'raised',
       hgt.filter(h => h > 0).length,
       'ramps',
       ramp.filter(r => r >= 0).length,
       'haz',
-      haz.filter(Boolean).length,
+      hazardTiles.filter(Boolean).length,
     );
   });
   b.bosses.forEach(kind => {
@@ -194,21 +211,21 @@ test('ledge: stepping off a raised deck leaves nothing stuck or half inside', ()
       if (!walkable(k + 1) || hgt[k + 1] !== 0 || !walkable(k + 2) || hgt[k + 2] !== 0) continue;
       for (const who of ['player', 'enemy']) {
         const o: { x: number; z: number; fy: number; vy?: number; r?: number } =
-          who === 'player' ? P : spawnEnemy('crawler', 0, 0, -1, 1);
+          who === 'player' ? player : spawnEnemy('crawler', 0, 0, -1, 1);
         o.x = (i + 1) * T - 0.2;
         o.z = (j + 0.5) * T;
         o.fy = PLAT_H;
         o.vy = 0;
         for (let t = 0; t < 60; t++) {
-          moveCircle(o, 0.15, 0, o.r || P.r);
+          moveCircle(o, 0.15, 0, o.r || player.r);
           const g2 = floorY(o.x, o.z);
           o.fy = who === 'player' ? Math.max(g2, o.fy - 0.2) : g2;
         }
         const x0 = o.x;
-        moveCircle(o, 0.3, 0, o.r || P.r);
+        moveCircle(o, 0.3, 0, o.r || player.r);
         tested++;
-        if (o.x <= x0 && !blocked(x0 + 0.3, o.z, o.r || P.r)) stuck++;
-        if (floorY(o.x - (o.r || P.r) + 0.02, o.z) > o.fy + STEP) inside++;
+        if (o.x <= x0 && !blocked(x0 + 0.3, o.z, o.r || player.r)) stuck++;
+        if (floorY(o.x - (o.r || player.r) + 0.02, o.z) > o.fy + STEP) inside++;
       }
     }
   }
@@ -218,13 +235,13 @@ test('progress: depth start = depth*5, boss = depth*5+4 regardless of PER', () =
   startRun();
   tick(5);
   if (
-    prog(0) !== 0 ||
-    prog(PER - 1) !== 4 ||
-    prog(PER) !== 5 ||
+    progressOf(0) !== 0 ||
+    progressOf(PER - 1) !== 4 ||
+    progressOf(PER) !== 5 ||
     stageLabel(PER - 1) !== 'D1 BOSS' ||
     stageLabel(PER) !== 'D2 1/' + (PER - 1)
   )
-    throw new Error('prog/label ' + [prog(PER - 1), prog(PER), stageLabel(PER - 1), stageLabel(PER)]);
+    throw new Error('prog/label ' + [progressOf(PER - 1), progressOf(PER), stageLabel(PER - 1), stageLabel(PER)]);
 });
 test('shield: front wears the shield, back hurts, then it breaks', () => {
   run.route = [3];
@@ -262,10 +279,10 @@ test('split-shot fan squeezes into SPLIT_FAN.max', () => {
   pBullets.forEach(b => {
     b.alive = false;
   });
-  const keep = P.weapons[P.cur];
-  P.weapons[P.cur] = newWeapon('rail', 0);
-  P.extra = 25;
-  P.pitch = 0;
+  const keep = player.weapons[player.cur];
+  player.weapons[player.cur] = newWeapon('rail', 0);
+  player.extra = 25;
+  player.pitch = 0;
   fire();
   const hs = pBullets
     .filter(b => b.alive)
@@ -279,8 +296,8 @@ test('split-shot fan squeezes into SPLIT_FAN.max', () => {
       span = Math.max(span, Math.acos(Math.min(1, a[0] * b[0] + a[1] * b[1])));
     }),
   );
-  P.weapons[P.cur] = keep;
-  P.extra = 0;
+  player.weapons[player.cur] = keep;
+  player.extra = 0;
   pBullets.forEach(b => {
     b.alive = false;
     b.mesh.visible = false;
@@ -289,27 +306,28 @@ test('split-shot fan squeezes into SPLIT_FAN.max', () => {
     throw new Error('split fan ' + hs.length + ' ' + span);
 });
 test('fast gun fires more than once a frame and a full pool reuses the oldest round', () => {
-  const keep = P.weapons[P.cur];
-  P.weapons[P.cur] = newWeapon('smg', 0);
-  P.weapons[P.cur]!.mag = 1e5;
-  P.fireRate = 4.03;
-  P.extra = 10;
-  P.reloadT = 0;
-  P.fireCd = 0;
+  const keep = player.weapons[player.cur];
+  player.weapons[player.cur] = newWeapon('smg', 0);
+  player.weapons[player.cur]!.mag = 1e5;
+  player.fireRate = 4.03;
+  player.extra = 10;
+  player.reloadT = 0;
+  player.fireCd = 0;
   const s0 = shotId;
   tick(60);
   const shots = shotId - s0;
   const last = pBullets.filter(b => b.alive && b.shot === shotId).length;
   // fill the whole pool with rounds in flight, then shoot: the new shot's rounds must still all be there
-  for (let k = 0; k < 600; k++) spawnPBullet(new V3(P.x, 50, P.z), new V3(0, 1, 0), 1, 1, 0, 0, 0xffffff, 0, {});
-  P.fireCd = 0;
+  for (let k = 0; k < 600; k++)
+    spawnPBullet(new V3(player.x, 50, player.z), new V3(0, 1, 0), 1, 1, 0, 0, 0xffffff, 0, {});
+  player.fireCd = 0;
   fire();
   const fresh = pBullets.filter(b => b.alive && b.shot === shotId).length;
   if (fresh !== 11) throw new Error('full pool dropped the shot: ' + fresh + ' of 11 rounds');
-  P.weapons[P.cur] = keep;
-  P.fireRate = 1;
-  P.extra = 0;
-  P.fireCd = 0;
+  player.weapons[player.cur] = keep;
+  player.fireRate = 1;
+  player.extra = 0;
+  player.fireCd = 0;
   pBullets.forEach(b => {
     b.alive = false;
     b.mesh.visible = false;
@@ -319,29 +337,29 @@ test('fast gun fires more than once a frame and a full pool reuses the oldest ro
     throw new Error('fast gun ' + shots + ' shots (want ' + want.toFixed(1) + '), last shot ' + last + ' rounds');
 });
 test('a kit picked up with the kits full is used on the spot', () => {
-  const keep = [P.kits, P.maxHp, P.hp];
-  P.kits = KIT_MAX;
-  P.maxHp = 500;
-  P.hp = 100;
-  addPickup('kit', P.x, P.z);
+  const keep = [player.kits, player.maxHp, player.hp];
+  player.kits = KIT_MAX;
+  player.maxHp = 500;
+  player.hp = 100;
+  addPickup('kit', player.x, player.z);
   updatePickups(1 / 60);
   updatePickups(1 / 60);
-  const healed = P.hp - 100,
+  const healed = player.hp - 100,
     want = kitHealAmount();
-  [P.kits, P.maxHp, P.hp] = keep;
+  [player.kits, player.maxHp, player.hp] = keep;
   if (healed !== want || want !== 125) throw new Error('kit on the spot healed ' + healed + ' (want ' + want + ')');
 });
 test("base weapon cards ignore the current run's chips", () => {
   const w = { id: 'shotgun', r: 1, plus: 3, opts: ['rate'] },
-    before = wStat(w),
-    keep = P,
-    dm = P.dmgMul;
-  P.dmgMul *= 5;
-  P.extra += 3;
-  const during = wStat(w);
-  P.dmgMul = dm;
-  P.extra -= 3;
-  if (before !== during || P !== keep || !/\d/.test(before))
+    before = weaponStatText(w),
+    keep = player,
+    dm = player.dmgMul;
+  player.dmgMul *= 5;
+  player.extra += 3;
+  const during = weaponStatText(w);
+  player.dmgMul = dm;
+  player.extra -= 3;
+  if (before !== during || player !== keep || !/\d/.test(before))
     throw new Error('base weapon stats moved with the run: ' + before + ' / ' + during);
 });
 test('watcher: drones at 75% and 40%', () => {
@@ -371,31 +389,31 @@ test('scaling: additive damage chips, compounding health, practice depth', () =>
   for (let k = 0; k < 6; k++) ['crit', 'reload', 'mag'].forEach(n => perk(n).apply(p0, perk(n).rv!));
   if (Math.abs(p0.reloadMul - 0.4) > 1e-9 || Math.abs(p0.magMul - 2.5) > 1e-9)
     throw new Error('caps ' + p0.reloadMul + ' ' + p0.magMul);
-  const keepP = P;
+  const keepP = player;
   setPlayer(p0);
   const cc = critChance();
   setPlayer(keepP);
   // split-shot: full-hit total must go up by exactly 20% for a single-shot weapon and for the shotgun alike
   {
-    const keep = P;
+    const keep = player;
     setPlayer(newPlayer(save.loadout));
     ['rail', 'shotgun'].forEach(id => {
       const w = newWeapon(id, 0),
         a = weaponStats(w);
-      P.extra = 1;
+      player.extra = 1;
       const b = weaponStats(w);
-      P.extra = 0;
+      player.extra = 0;
       if (Math.abs((b.perHit * b.hits) / (a.perHit * a.hits) - 1.2) > 1e-9) throw new Error('split ' + id);
     });
     // split-shot stops being offered at SPLIT_MAX; the launcher fires 3 rockets at most and the rest of the
     // +20%s goes into each rocket (the total stays 1 + 0.2 x chips)
     const sp = PERKS.find(x => x.id === 'split')!;
-    P.extra = SPLIT_MAX;
-    if (!sp.maxed!(P)) throw new Error('split cap');
-    P.extra = 5;
+    player.extra = SPLIT_MAX;
+    if (!sp.maxed!(player)) throw new Error('split cap');
+    player.extra = 5;
     const lw = newWeapon('launcher', 0),
       ls = weaponStats(lw);
-    P.extra = 0;
+    player.extra = 0;
     const l0 = weaponStats(lw);
     if (ls.hits !== 3 || Math.abs((ls.perHit * ls.hits) / l0.perHit - 2) > 1e-9)
       throw new Error('launcher split ' + ls.hits + ' ' + ls.perHit / l0.perHit);
@@ -404,19 +422,20 @@ test('scaling: additive damage chips, compounding health, practice depth', () =>
   }
   if (cc !== TUNE.critCap) throw new Error('crit cap ' + cc);
   setRun({ stage: PER - 1, route: [0] } as RunState);
-  const b1 = bossDiff();
+  const b1 = bossDifficulty();
   setRun({ stage: 2 * PER + PER - 1, route: [0] } as RunState);
-  const b3 = bossDiff();
+  const b3 = bossDifficulty();
   if (
-    Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul * presMul()) > 1e-9 ||
+    Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul * rebootMul()) > 1e-9 ||
     Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6
   )
     throw new Error('boss scaling ' + b1 + ' ' + b3);
-  if (Math.abs(diffOf(0) - ENEMY_TUNE.hpMul * presMul()) > 1e-9) throw new Error('enemy hp base ' + diffOf(0));
+  if (Math.abs(difficultyAt(0) - ENEMY_TUNE.hpMul * rebootMul()) > 1e-9)
+    throw new Error('enemy hp base ' + difficultyAt(0));
   // the per-depth factor slides from the early rate down to the late one (GROWTH_SLIDE) and never goes back up
   const bossAt = (d: number) => {
     setRun({ stage: (d - 1) * PER + PER - 1, route: [0] } as RunState);
-    return bossDiff();
+    return bossDifficulty();
   };
   const slides = (at: (d: number) => number, early: number, late: number, what: string) => {
     const r = Array.from({ length: 18 }, (_, i) => at(i + 2) / at(i + 1)); // D1->D2 .. D18->D19
@@ -426,18 +445,18 @@ test('scaling: additive damage chips, compounding health, practice depth', () =>
       throw new Error(what + ' rate went up ' + r.map(v => v.toFixed(3)));
   };
   slides(bossAt, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth, 'boss growth');
-  slides(d => diffOf((d - 1) * PER), DEPTH_HP_GROWTH, DEPTH_HP_LATE, 'enemy growth');
-  // values that grow with depth: hazard floors and your own rockets hit like enemies do (dmgScaleOf),
+  slides(d => difficultyAt((d - 1) * PER), DEPTH_HP_GROWTH, DEPTH_HP_LATE, 'enemy growth');
+  // values that grow with depth: hazard floors and your own rockets hit like enemies do (damageScaleAt),
   // a med kit heals a share of max HP once that is more than kitHeal
   setRun({ stage: 13 * PER, route: [0] } as RunState);
-  if (Math.abs(dmgScaleOf(0) - presMul()) > 1e-9 || !(dmgScaleOf(13 * PER) > 3 * presMul()))
-    throw new Error('damage scale ' + dmgScaleOf(13 * PER));
+  if (Math.abs(damageScaleAt(0) - rebootMul()) > 1e-9 || !(damageScaleAt(13 * PER) > 3 * rebootMul()))
+    throw new Error('damage scale ' + damageScaleAt(13 * PER));
   {
-    const keep = P;
+    const keep = player;
     setPlayer(newPlayer(save.loadout));
-    P.maxHp = 100;
+    player.maxHp = 100;
     const a = kitHealAmount();
-    P.maxHp = 500;
+    player.maxHp = 500;
     const b = kitHealAmount();
     setPlayer(keep);
     if (a !== TUNE.kitHeal || b !== Math.round(500 * TUNE.kitHealPct)) throw new Error('kit heal ' + a + ' ' + b);
@@ -451,25 +470,28 @@ test('pickup: stow goes to the bag, equip swaps with the weapon in hand', () => 
   startRun();
   tick(5);
   clearWorld('pickup');
-  P.weapons = [newWeapon('pistol', 0, true), newWeapon('smg', 0)];
-  P.cur = 0;
-  P.bag = [null, null, null, null];
+  player.weapons = [newWeapon('pistol', 0, true), newWeapon('smg', 0)];
+  player.cur = 0;
+  player.bag = [null, null, null, null];
   const drop = (id: string) => {
-    addPickup('weapon', P.x, P.z, { w: newWeapon(id, 1) });
+    addPickup('weapon', player.x, player.z, { w: newWeapon(id, 1) });
     updatePickups(0);
   };
   drop('rail');
   stowNearby();
-  if (!P.bag[0] || P.bag[0].id !== 'rail') throw new Error('stow');
+  if (!player.bag[0] || player.bag[0].id !== 'rail') throw new Error('stow');
   drop('shotgun');
   equipNearby();
-  if (P.weapons[0]!.id !== 'shotgun' || !query<Pickup>('pickup').some(p => p.kind === 'weapon' && p.w!.id === 'pistol'))
+  if (
+    player.weapons[0]!.id !== 'shotgun' ||
+    !query<Pickup>('pickup').some(p => p.kind === 'weapon' && p.w!.id === 'pistol')
+  )
     throw new Error('equip swap');
-  P.bag = [newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0)];
+  player.bag = [newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0), newWeapon('smg', 0)];
   clearWorld('pickup');
   drop('launcher');
   stowNearby();
-  if (P.bag.some(w => w?.id === 'launcher') || !nearW) throw new Error('stow into a full bag');
+  if (player.bag.some(w => w?.id === 'launcher') || !nearPickup) throw new Error('stow into a full bag');
   endRun('abandon');
 });
 test('chain blast: one kill in a tight cluster does not cascade', () => {
@@ -480,8 +502,8 @@ test('chain blast: one kill in a tight cluster does not cascade', () => {
     removeEnemyMesh(e);
   });
   clearWorld('enemy');
-  P.chain = 3;
-  P.dmgMul = 10; // blasts strong enough to kill anything they touch
+  player.chain = 3;
+  player.dmgMul = 10; // blasts strong enough to kill anything they touch
   const [cx, cz] = roomSpot(rooms[startIdx]);
   const line = [0, 2.8, 5.6, 8.4].map(dx => spawnEnemy('crawler', cx + dx, cz, -1, 1)); // each 2.8m apart, blast radius 4
   hurtEnemy(line[0], 1e6, false);
@@ -518,17 +540,17 @@ test('shortcut supply: 2 picks at DEPTH 3, chips applied supplyTimes times', () 
   show(null);
   setState('play');
   {
-    const keep = P;
+    const keep = player;
     setPlayer(newPlayer(save.loadout));
-    const r0 = P.stRegen,
+    const r0 = player.stRegen,
       sp = PERKS.find(x => x.id === 'sprint')!,
       mg = PERKS.find(x => x.id === 'magnet')!;
     for (let k = 0; k < 5; k++) {
-      sp.apply(P, sp.v);
-      mg.apply(P, mg.v);
+      sp.apply(player, sp.v);
+      mg.apply(player, mg.v);
     }
-    const regen = P.stRegen - r0,
-      range = P.magnet;
+    const regen = player.stRegen - r0,
+      range = player.magnet;
     setPlayer(keep);
     if (Math.abs(regen - 5 * sp.v * TUNE.staminaRegen) > 1e-9 || Math.abs(range - 5) > 1e-9)
       throw new Error('additive chips ' + regen + ' ' + range);
@@ -550,15 +572,15 @@ test('rare chips show up gold; deep sectors favour tougher enemy types', () => {
   openPerk('test');
   const rareCards = document.querySelectorAll('#perkList .perk.rare').length;
   TUNE.rareChipChance = keep;
-  P.hp = 1; // so a healing chip also visibly changes something
-  const before = JSON.stringify(P);
+  player.hp = 1; // so a healing chip also visibly changes something
+  const before = JSON.stringify(player);
   document.querySelector<HTMLElement>('#perkList .perk.rare')!.click();
-  if (!rareCards || JSON.stringify(P) === before || !run.perks[run.perks.length - 1].endsWith('+'))
+  if (!rareCards || JSON.stringify(player) === before || !run.perks[run.perks.length - 1].endsWith('+'))
     throw new Error('rare chip');
-  P.crit = TUNE.critCap;
-  P.reloadMul = 0.4;
-  P.magMul = 2.5;
-  P.pierce = 3;
+  player.crit = TUNE.critCap;
+  player.reloadMul = 0.4;
+  player.magMul = 2.5;
+  player.pierce = 3;
   for (let k = 0; k < 30; k++) {
     openPerk('test');
     const names = [...document.querySelectorAll('#perkList .pn')].map(n => n.textContent),
@@ -589,17 +611,17 @@ test('autofire target: a fogged enemy is not picked, a close one is', () => {
   hgt.fill(0);
   ramp.fill(-1);
   cover.fill(0); // open floor so only distance matters
-  P.x = (W * T) / 2;
-  P.z = (H * T) / 2;
-  P.yaw = 0;
-  P.pitch = 0;
-  P.fy = 0;
-  camera.position.set(P.x, EYE, P.z);
+  player.x = (W * T) / 2;
+  player.z = (H * T) / 2;
+  player.yaw = 0;
+  player.pitch = 0;
+  player.fy = 0;
+  camera.position.set(player.x, EYE, player.z);
   camera.rotation.set(0, 0, 0);
-  const far = spawnEnemy('crawler', P.x, P.z - 20, -1, 1);
+  const far = spawnEnemy('crawler', player.x, player.z - 20, -1, 1);
   far.mesh.position.set(far.x, EYE, far.z);
   const t1 = findTarget();
-  far.z = P.z - 8;
+  far.z = player.z - 8;
   far.mesh.position.set(far.x, EYE, far.z);
   const t2 = findTarget();
   if (t1 || !t2) throw new Error('fog target ' + !!t1 + ' ' + !!t2);
@@ -617,22 +639,22 @@ test('shotgun knockback once per shot; launcher gets half the magazine chips', (
   hgt.fill(0);
   ramp.fill(-1);
   cover.fill(0);
-  P.x = (W * T) / 2;
-  P.z = (H * T) / 2;
-  P.fy = 0;
-  const e = spawnEnemy('brute', P.x, P.z - 4, -1, 50);
+  player.x = (W * T) / 2;
+  player.z = (H * T) / 2;
+  player.fy = 0;
+  const e = spawnEnemy('brute', player.x, player.z - 4, -1, 50);
   e.fy = 0;
   e.mesh.position.set(e.x, 1.1, e.z);
   const z0 = e.z;
   for (let k = 0; k < 8; k++)
-    spawnPBullet(new V3(P.x + rand(-0.2, 0.2), 1.1, P.z), new V3(0, 0, -1), 65, 1, 0, 0, 0xffffff, 0, {
+    spawnPBullet(new V3(player.x + rand(-0.2, 0.2), 1.1, player.z), new V3(0, 0, -1), 65, 1, 0, 0, 0xffffff, 0, {
       kb: WEAPONS.shotgun.kb,
       shot: 999,
     });
   updatePBullets(0.1);
   const pushed = z0 - e.z;
   if (!(pushed > 0.5 && pushed < WEAPONS.shotgun!.kb! + 0.05)) throw new Error('knockback ' + pushed);
-  P.magMul = 2.5;
+  player.magMul = 2.5;
   if (magSize(newWeapon('launcher', 0)) > 4 || magSize(newWeapon('smg', 0)) < 110)
     throw new Error('mag chips ' + magSize(newWeapon('launcher', 0)));
   endRun('abandon');
@@ -649,7 +671,7 @@ test('every type drops regardless of unlocks; modded basic weapons start modded'
   save.loadout = [basicW('rail'), null];
   startRun();
   tick(2);
-  const w = P.weapons[0]!;
+  const w = player.weapons[0]!;
   if (w.id !== 'rail' || w.plus !== 3 || w.r !== 2 || !w.basic) throw new Error('modded basic ' + JSON.stringify(w));
   endRun('abandon');
   save.unlocked = keepU;
@@ -680,7 +702,7 @@ test('mod + cap follows the deepest depth; past +10 each level costs x1.2', () =
   showTab('sortie');
   renderBase();
   document.querySelector<HTMLButtonElement>('[data-modplus="pistol"]')!.click();
-  const raised = modOf('pistol').plus;
+  const raised = weaponModOf('pistol').plus;
   save.peak = 0;
   save.shortcut = 0;
   renderBase();
@@ -705,12 +727,12 @@ test('splitter killed by a chain blast or a rocket: both halves survive', () => 
   cover.fill(0);
   const cx = (W * T) / 2,
     cz = (H * T) / 2;
-  P.chain = 3;
-  P.dmgMul = 10;
+  player.chain = 3;
+  player.dmgMul = 10;
   let s = spawnEnemy('splitter', cx, cz, -1, 1);
   hurtEnemy(s, 1e6, false);
   const a1 = enemies.filter(e => !e.dead && !e.boss && e.type === 'mini').length;
-  P.chain = 0;
+  player.chain = 0;
   s = spawnEnemy('splitter', cx + 10, cz, -1, 1);
   explode(s.x, 1, s.z, 5, 1e6, COLOR.fire, true);
   const a2 = enemies.filter(e => !e.dead && !e.boss && e.type === 'mini').length;
@@ -720,13 +742,13 @@ test('splitter killed by a chain blast or a rocket: both halves survive', () => 
 test('music: every style and its boss arrangement can be scheduled', () => {
   audioInit();
   musicInit();
-  if (!mus.bus) throw new Error('music bus');
+  if (!musicState.bus) throw new Error('music bus');
   Object.keys(MUSIC_STYLES).forEach(name => {
     [false, true].forEach(boss => {
       if (boss && name === 'BASE') return;
       setMusic(name, boss);
-      if (!mus.st || mus.name !== name + (boss ? ':boss' : '')) throw new Error('setMusic ' + name);
-      for (let k = 0; k < 64; k++) playStep(mus.st, k, actx!.currentTime + k * 0.01, 0.1);
+      if (!musicState.st || musicState.name !== name + (boss ? ':boss' : '')) throw new Error('setMusic ' + name);
+      for (let k = 0; k < 64; k++) playStep(musicState.st, k, actx!.currentTime + k * 0.01, 0.1);
     });
   });
   setMusicMix('combat');
@@ -866,9 +888,9 @@ test('result chips: counted, most first, order folded underneath', () => {
   tick(5);
 });
 test('current stats: rarity damage, real magazine, chips counted', () => {
-  const keep = P.weapons[P.cur];
-  P.weapons[P.cur] = newWeapon('launcher', 2);
-  P.magMul = 2.5;
+  const keep = player.weapons[player.cur];
+  player.weapons[player.cur] = newWeapon('launcher', 2);
+  player.magMul = 2.5;
   run.perks = ['mag', 'mag', 'mag+'];
   const rows = new Map(
     [...new DOMParser().parseFromString(statsHTML(), 'text/html').querySelectorAll('.reslist div')].map(d => [
@@ -880,10 +902,10 @@ test('current stats: rarity damage, real magazine, chips counted', () => {
   const dmg = rows.get(t('stats.dmg')),
     mag = rows.get(t('stats.mag')),
     html = statsHTML();
-  P.weapons[P.cur] = keep;
-  P.magMul = 1;
+  player.weapons[player.cur] = keep;
+  player.magMul = 1;
   if (
-    dmg !== pc(P.dmgMul * 1.55 - 1) ||
+    dmg !== pc(player.dmgMul * 1.55 - 1) ||
     mag !== pc(4 / 2 - 1) /* 2 rounds x (1 + 1.5 x 0.5) = 3.5 -> 4, not +150% */ ||
     !html.includes(t('common.countRare', { name: perkName('mag'), n: 3, r: 1 }))
   )
@@ -1000,16 +1022,16 @@ test('hit direction: a hit from behind shows the arc, one from in front does not
   goBase();
   startRun();
   tick(5);
-  P.yaw = 0;
-  P.hp = P.maxHp = 1e6;
+  player.yaw = 0;
+  player.hp = player.maxHp = 1e6;
   hitDirs.forEach(d => {
     d.t = 0;
   });
-  P.inv = 0;
-  damagePlayer(1, { x: P.x, z: P.z - 8 });
+  player.inv = 0;
+  damagePlayer(1, { x: player.x, z: player.z - 8 });
   if (hitDirs.some(d => d.t > 0)) throw new Error('hit arc shown for a hit from the front');
-  P.inv = 0;
-  damagePlayer(1, { x: P.x + 3, z: P.z + 8 });
+  player.inv = 0;
+  damagePlayer(1, { x: player.x + 3, z: player.z + 8 });
   if (!hitDirs.some(d => d.t > 0)) throw new Error('no hit arc for a hit from behind');
   goBase();
 });
@@ -1018,14 +1040,14 @@ test('gates: one opening underfoot waits until the player steps off and back', (
   startRun();
   tick(5);
   const st = run.stage;
-  makePortal(P.x, P.z, 0xffffff, 'next', '');
+  makePortal(player.x, player.z, 0xffffff, 'next', '');
   tick(30);
   if (run.stage !== st) throw new Error('gate took the player right away');
   tick(60);
   if (run.stage !== st) throw new Error('gate took the player without stepping off');
-  P.x += 3;
+  player.x += 3;
   tick(2);
-  P.x -= 3;
+  player.x -= 3;
   tick(2);
   if (run.stage !== st + 1) throw new Error('gate did not work after stepping off and back');
   goBase();
@@ -1059,15 +1081,15 @@ test('readiness: fair at DEPTH 1, harder deeper; upgrades and mods make it easie
   save.loadout = [basicW('rail'), null];
   const s1 = readinessScore(2);
   if (!(s1 > s0)) throw new Error('readiness upgrades ' + s0 + ' ' + s1);
-  // reboot difficulty stops growing at PRES_DIFF_CAP reboots; the rating after the next reboot is worse than now
-  if (presMulOf(PRES_DIFF_CAP + 5) !== presMulOf(PRES_DIFF_CAP) || !(presMulOf(1) > presMulOf(0)))
+  // reboot difficulty stops growing at REBOOT_DIFF_CAP reboots; the rating after the next reboot is worse than now
+  if (rebootMulOf(REBOOT_DIFF_CAP + 5) !== rebootMulOf(REBOOT_DIFF_CAP) || !(rebootMulOf(1) > rebootMulOf(0)))
     throw new Error('reboot cap');
   if (!(readinessScore(0, readyAfterReboot()) < readinessScore(0))) throw new Error('readiness after reboot');
 });
 test('reboot bonuses: uncapped, cost climbs, reach the player and the readiness', () => {
-  const dmgU = PRES_UP.find(u => u.id === 'dmg')!,
+  const dmgU = REBOOT_UP.find(u => u.id === 'dmg')!,
     keepUp = { ...save.pres.up };
-  if ([0, 1, 4].map(l => presCost(dmgU, l)).join() !== '1,2,5' || isFinite(dmgU.max))
+  if ([0, 1, 4].map(l => rebootCost(dmgU, l)).join() !== '1,2,5' || isFinite(dmgU.max))
     throw new Error('reboot bonus cost');
   const s0 = readinessScore(5),
     p0 = newPlayer(save.loadout);
@@ -1077,8 +1099,8 @@ test('reboot bonuses: uncapped, cost climbs, reach the player and the readiness'
     s1 = readinessScore(5);
   Object.assign(save.pres.up, keepUp);
   if (
-    Math.abs(p1.dmgMul - p0.dmgMul - 4 * PRES_ENDLESS.dmg) > 1e-9 ||
-    p1.maxHp !== Math.round(p0.maxHp * (1 + 2 * PRES_ENDLESS.vit)) ||
+    Math.abs(p1.dmgMul - p0.dmgMul - 4 * REBOOT_ENDLESS.dmg) > 1e-9 ||
+    p1.maxHp !== Math.round(p0.maxHp * (1 + 2 * REBOOT_ENDLESS.vit)) ||
     !(s1 > s0)
   )
     throw new Error('reboot bonus effect ' + [p1.dmgMul, p1.maxHp, s0, s1]);
@@ -1107,12 +1129,12 @@ test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
   startStage();
   show(null);
   setState('play');
-  P.hp = P.maxHp = 1e6;
+  player.hp = player.maxHp = 1e6;
   enemies.forEach(o => {
     o.dead = true;
     removeEnemyMesh(o);
   });
-  const e = spawnEnemy('trooper', P.x, P.z - 7, -1, 1);
+  const e = spawnEnemy('trooper', player.x, player.z - 7, -1, 1);
   e.active = true;
   e.cd = 0;
   for (let k = 0; k < 30; k++) update(1 / 60); // 0.5 s: one burst (3 rounds, 0.13 s apart)
@@ -1135,7 +1157,7 @@ test('hazard floors: none in the start room, off at the start of an area', () =>
       const R = rooms[startIdx]!;
       for (let j = R.y - 1; j <= R.y + R.h; j++)
         for (let i = R.x - 1; i <= R.x + R.w; i++)
-          if (haz[j * W + i])
+          if (hazardTiles[j * W + i])
             throw new Error(`hazard in the start room: route ${route} stage ${run.stage} tile ${i},${j}`);
       if (hazardState() === 'on') throw new Error('hazards live at the start of an area');
     }
@@ -1143,20 +1165,20 @@ test('hazard floors: none in the start room, off at the start of an area', () =>
   goBase();
 });
 test('readiness: a strong loadout still gets harder the deeper you start', () => {
-  const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmg: 1.48, hp: 200, pres: 1.45 };
+  const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmg: 1.48, hp: 200, rebootMul: 1.45 };
   const deep = [6, 9, 13, 19].map(n => readinessScore(n, strong));
   if (deep.some((v, i) => i && v >= deep[i - 1]!)) throw new Error('readiness deep ' + deep.map(v => v.toFixed(2)));
   el('#btnWipe').click();
   el('#btnWipeGo').click();
 });
 test('touch layout editor: the edit is kept', () => {
-  const s0 = getL('dash').s;
+  const s0 = buttonLayout('dash').s;
   openLayoutEditor('base');
   if (!stateIs('layout') || el('#layoutBar').hidden) throw new Error('layout editor open');
   document.querySelector<HTMLElement>('[data-lbact="plus"]')!.click();
   document.querySelector<HTMLElement>('[data-lbact="done"]')!.click();
-  if (state !== 'base' || Math.abs(getL('dash').s - (s0 + 0.1)) > 1e-9)
-    throw new Error('layout editor ' + getL('dash').s);
+  if (state !== 'base' || Math.abs(buttonLayout('dash').s - (s0 + 0.1)) > 1e-9)
+    throw new Error('layout editor ' + buttonLayout('dash').s);
   save.settings.layout = {};
   applyLayout();
 });

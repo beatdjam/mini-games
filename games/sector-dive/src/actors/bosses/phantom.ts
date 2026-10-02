@@ -9,7 +9,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { randomTileIn, rooms } from '../../world/level.ts';
 import { enemies, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
-import { P, diffOf, run } from '../player.ts';
+import { player, difficultyAt, run } from '../player.ts';
 import { bossBase, makeLaser, setLaser } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
@@ -43,7 +43,10 @@ export function spawnPhantom() {
 export function phantomWarp(e: Boss, first?: boolean) {
   const spots = BOSS_META.phantom.tune.spots
     .map(([i, j]: [number, number]) => [(i + 0.5) * T, (j + 0.5) * T])
-    .sort((a: number[], b: number[]) => Math.hypot(b[0] - P.x, b[1] - P.z) - Math.hypot(a[0] - P.x, a[1] - P.z));
+    .sort(
+      (a: number[], b: number[]) =>
+        Math.hypot(b[0] - player.x, b[1] - player.z) - Math.hypot(a[0] - player.x, a[1] - player.z),
+    );
   // warp anywhere except the two spots nearest the player (first appearance: the farthest spot)
   const [x, z] = first ? spots[0] : pick(spots.slice(0, spots.length - 2));
   e.x = x;
@@ -69,7 +72,7 @@ export function updPhantom(e: PhantomBoss, dt: number) {
   const enr = e.hp < e.maxHp * 0.5,
     eye = [e.x, e.y + 0.5, e.z];
   let sc = 1;
-  e.mesh.lookAt(P.x, e.y, P.z);
+  e.mesh.lookAt(player.x, e.y, player.z);
   if (e.st === 'idle') {
     if (e.timer <= 0) {
       e.st = 'aim';
@@ -78,7 +81,7 @@ export function updPhantom(e: PhantomBoss, dt: number) {
       sfx('beam');
     }
   } else if (e.st === 'aim') {
-    if (e.timer > 0.3) e.lock = [P.x, P.fy + 1.3, P.z];
+    if (e.timer > 0.3) e.lock = [player.x, player.fy + 1.3, player.z];
     setLaser(e.laser, eye, e.lock, e.timer > 0.3 ? 0.45 : Math.sin(e.t * 60) > 0 ? 1 : 0.25);
     if (e.timer <= 0) {
       const v = [e.lock[0] - eye[0], e.lock[1] - eye[1], e.lock[2] - eye[2]],
@@ -114,7 +117,7 @@ export function updPhantom(e: PhantomBoss, dt: number) {
       if (e.cycle % K.droneEvery === 0 && enemies.filter(o => !o.boss && !o.dead).length < K.droneCap)
         for (let k = 0; k < K.drones; k++) {
           const [x, z] = randomTileIn(rooms[0]);
-          spawnEnemy('drone', x, z, -1, diffOf(run.stage)).active = true;
+          spawnEnemy('drone', x, z, -1, difficultyAt(run.stage)).active = true;
         }
     }
   }

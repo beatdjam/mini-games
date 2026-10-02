@@ -3,7 +3,7 @@ import { el, isTouch } from '@engine/core/util.ts';
 import { lang } from '@engine/core/i18n.ts';
 import { feedbackReady, openFeedback } from '@engine/core/feedback.ts';
 import { track } from '@engine/core/analytics.ts';
-import { P, run, stageLabel } from '../actors/player.ts';
+import { player, run, stageLabel } from '../actors/player.ts';
 import { save } from '../core/save.ts';
 // ---- sending feedback: the shared form (engine/src/core/feedback.ts) opens with the player's situation filled in ----
 // the situation is written with ids, not display names, so answers read the same whatever the language.
@@ -34,7 +34,7 @@ export function prepFeedback(kind: RunEnd) {
     run.practice ? `practice=${run.forceBoss} result=${run.cleared ? 'won' : kind}` : `result=${kind}`,
     `at=${stageLabel(run.stage)}`,
     `kills=${run.kills}`,
-    `weapons=${P.weapons.concat(P.bag).filter(Boolean).map(wInfo).join(' / ')}`,
+    `weapons=${player.weapons.concat(player.bag).filter(Boolean).map(wInfo).join(' / ')}`,
     `chips(${run.perks.length})=${chips}`,
     `bosses=${(run.bosses || []).join(',')}`,
     ...common(),

@@ -8,9 +8,9 @@ import { moveCircle } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { spawnEBullet, spawnWave } from '../../world/entities.ts';
-import { P, damagePlayer } from '../player.ts';
+import { player, damagePlayer } from '../player.ts';
 import { bossBase } from './common.ts';
-import { SCR } from '../../ui/hud.ts';
+import { screenFx } from '../../ui/hud.ts';
 import { COLOR } from '../../data/colors.ts';
 // CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
 
@@ -39,8 +39,8 @@ export function updCrusher(e: CrusherBoss, dt: number) {
   e.t += dt;
   e.timer -= dt;
   const enr = e.hp < e.maxHp * 0.5,
-    dx = P.x - e.x,
-    dz = P.z - e.z,
+    dx = player.x - e.x,
+    dz = player.z - e.z,
     d = Math.hypot(dx, dz) || 1;
   let y = 1.6;
   if (e.st === 'idle') {
@@ -76,13 +76,13 @@ export function updCrusher(e: CrusherBoss, dt: number) {
     if (!e.hitP && d < K.chargeHitR) {
       e.hitP = true;
       damagePlayer(e.dmg * K.chargeDmg, e);
-      moveCircle(P, e.cdx * K.chargeKnock, e.cdz * K.chargeKnock, P.r);
+      moveCircle(player, e.cdx * K.chargeKnock, e.cdz * K.chargeKnock, player.r);
     }
     if (hit || e.timer <= 0) {
       e.st = 'stun';
       e.timer = K.stun;
       e.stunMul = K.stunMul;
-      SCR.shake = Math.max(SCR.shake, 0.35);
+      screenFx.shake = Math.max(screenFx.shake, 0.35);
       sfx('boom');
       spawnWave(e.x, e.z, K.hitWave[0], K.hitWave[1], e.dmg * K.hitWave[2], COLOR.orange);
       toast(t('boss.crusherStun'), 1400);
@@ -99,7 +99,7 @@ export function updCrusher(e: CrusherBoss, dt: number) {
     y += Math.sin(Math.PI * clamp(jt, 0, 1)) * K.jump;
     moveCircle(e, (dx / d) * K.slamMove * dt, (dz / d) * K.slamMove * dt, 1.8);
     if (e.timer <= 0) {
-      SCR.shake = Math.max(SCR.shake, 0.4);
+      screenFx.shake = Math.max(screenFx.shake, 0.4);
       sfx('boom');
       spawnWave(e.x, e.z, K.slamWave[0], K.slamWave[1], e.dmg * K.slamWave[2], COLOR.amber);
       if (enr) e.second = K.secondDelay;
