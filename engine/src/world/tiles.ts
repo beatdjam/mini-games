@@ -10,7 +10,19 @@ export const T = 4,
 // ramp up to it is level at the top) and waist-high cover
 export const DECK_H = 2,
   COVER_H = 1.2;
-export const OPPOSITE_SIDE = [1, 0, 3, 2];
+// the four sides of a tile, numbered the same way as the ramp directions
+export const SIDE_PX = 0, // +x
+  SIDE_NX = 1, // -x
+  SIDE_PZ = 2, // +z
+  SIDE_NZ = 3; // -z
+export const OPPOSITE_SIDE = [SIDE_NX, SIDE_PX, SIDE_NZ, SIDE_PZ];
+// the (i, j) step to the neighbour across each side, indexed by side number
+export const SIDE_STEP: readonly (readonly [number, number])[] = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
 // the tile world: empty until the game hands over a level (W = H = 0 makes every tile read as solid);
 // replaced only through setTileWorld
 export let W = 0; // width (tiles)
@@ -48,33 +60,45 @@ export function setTileWorld(o: Partial<TileWorld>) {
   if (o.flow) flow = o.flow;
   if (o.flowQ) flowQ = o.flowQ;
 }
+// tile number (column i or row j) of a world coordinate
+export function tileCoord(v: number): number {
+  return Math.floor(v / T);
+}
+// is tile (i, j) inside the tile world
+export function inBounds(i: number, j: number): boolean {
+  return i >= 0 && j >= 0 && i < W && j < H;
+}
+// world coordinate of the middle of tile column i (or row j)
+export function tileCenter(i: number): number {
+  return (i + 0.5) * T;
+}
 export function isSolid(i: number, j: number): boolean {
-  return i < 0 || j < 0 || i >= W || j >= H || grid[j * W + i] !== 1;
+  return !inBounds(i, j) || grid[j * W + i] !== 1;
 }
 export function solidAt(x: number, z: number): boolean {
-  return isSolid(Math.floor(x / T), Math.floor(z / T));
+  return isSolid(tileCoord(x), tileCoord(z));
 }
 // index into grid / hgt / flow of the tile that contains the world point (x, z); not bounds-checked
 export function tileIndex(x: number, z: number): number {
-  return Math.floor(z / T) * W + Math.floor(x / T);
+  return tileCoord(z) * W + tileCoord(x);
 }
 export function floorY(x: number, z: number): number {
-  const i = Math.floor(x / T),
-    j = Math.floor(z / T);
-  if (i < 0 || j < 0 || i >= W || j >= H) return 0;
+  const i = tileCoord(x),
+    j = tileCoord(z);
+  if (!inBounds(i, j)) return 0;
   const k = j * W + i,
     h = hgt[k],
     d = ramp[k];
   if (d < 0) return h;
   const fx = x / T - i,
     fz = z / T - j;
-  return h + RISE * clamp(d === 0 ? fx : d === 1 ? 1 - fx : d === 2 ? fz : 1 - fz, 0, 1);
+  return h + RISE * clamp(d === SIDE_PX ? fx : d === SIDE_NX ? 1 - fx : d === SIDE_PZ ? fz : 1 - fz, 0, 1);
 }
 export function blocked(x: number, z: number, r: number): boolean {
-  const i0 = Math.floor((x - r) / T),
-    i1 = Math.floor((x + r) / T),
-    j0 = Math.floor((z - r) / T),
-    j1 = Math.floor((z + r) / T);
+  const i0 = tileCoord(x - r),
+    i1 = tileCoord(x + r),
+    j0 = tileCoord(z - r),
+    j1 = tileCoord(z + r);
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (isSolid(i, j)) return true;
   return false;
 }
@@ -93,10 +117,10 @@ export function blockedDir(x: number, z: number, r: number, fy: number | undefin
 export function depenetrate(o: Mover & { fy: number }, r: number) {
   const lim = o.fy + STEP;
   if (floorY(o.x, o.z) > lim) return;
-  if (floorY(o.x + r, o.z) > lim) o.x = Math.floor((o.x + r) / T) * T - r - 0.01;
-  if (floorY(o.x - r, o.z) > lim) o.x = (Math.floor((o.x - r) / T) + 1) * T + r + 0.01;
-  if (floorY(o.x, o.z + r) > lim) o.z = Math.floor((o.z + r) / T) * T - r - 0.01;
-  if (floorY(o.x, o.z - r) > lim) o.z = (Math.floor((o.z - r) / T) + 1) * T + r + 0.01;
+  if (floorY(o.x + r, o.z) > lim) o.x = tileCoord(o.x + r) * T - r - 0.01;
+  if (floorY(o.x - r, o.z) > lim) o.x = (tileCoord(o.x - r) + 1) * T + r + 0.01;
+  if (floorY(o.x, o.z + r) > lim) o.z = tileCoord(o.z + r) * T - r - 0.01;
+  if (floorY(o.x, o.z - r) > lim) o.z = (tileCoord(o.z - r) + 1) * T + r + 0.01;
 }
 // o.fy (feet height) enables the height rule; bosses leave it undefined and only collide with walls
 export function moveCircle(o: Mover, dx: number, dz: number, r: number): boolean {
@@ -143,7 +167,7 @@ export function passable(a: number, b: number, side: number): boolean {
 export function computeFlow(pi: number, pj: number) {
   flow.fill(-1);
   const s = pj * W + pi;
-  if (pi < 0 || pj < 0 || pi >= W || pj >= H || grid[s] !== 1) return;
+  if (!inBounds(pi, pj) || grid[s] !== 1) return;
   let h = 0,
     t = 0;
   flow[s] = 0;
@@ -153,10 +177,11 @@ export function computeFlow(pi: number, pj: number) {
       ci = c % W,
       cj = (c / W) | 0,
       d = flow[c] + 1;
-    const nb = [ci < W - 1 ? c + 1 : -1, ci > 0 ? c - 1 : -1, cj < H - 1 ? c + W : -1, cj > 0 ? c - W : -1];
-    for (let sd = 0; sd < 4; sd++) {
-      const n = nb[sd];
-      if (n < 0 || grid[n] !== 1 || flow[n] >= 0) continue;
+    for (let sd = 0; sd < SIDE_STEP.length; sd++) {
+      const [a, b] = SIDE_STEP[sd];
+      if (!inBounds(ci + a, cj + b)) continue;
+      const n = c + a + b * W;
+      if (grid[n] !== 1 || flow[n] >= 0) continue;
       if (!passable(n, c, OPPOSITE_SIDE[sd])) continue; // enemies walk n -> c
       flow[n] = d;
       flowQ[t++] = n;
@@ -164,24 +189,19 @@ export function computeFlow(pi: number, pj: number) {
   }
 }
 export function flowAt(x: number, z: number): number {
-  const i = Math.floor(x / T),
-    j = Math.floor(z / T);
+  const i = tileCoord(x),
+    j = tileCoord(z);
   return isSolid(i, j) ? -1 : flow[j * W + i];
 }
 export function flowDir(x: number, z: number): [number, number] | null {
-  const i = Math.floor(x / T),
-    j = Math.floor(z / T);
+  const i = tileCoord(x),
+    j = tileCoord(z);
   if (isSolid(i, j)) return null;
   const k = j * W + i;
   let best = flow[k],
     bn = -1;
   if (best <= 0) return null;
-  [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ].forEach(([a, b], sd) => {
+  SIDE_STEP.forEach(([a, b], sd) => {
     const ni = i + a,
       nj = j + b;
     if (isSolid(ni, nj)) return;
@@ -193,8 +213,8 @@ export function flowDir(x: number, z: number): [number, number] | null {
     }
   });
   if (bn < 0) return null;
-  const tx = ((bn % W) + 0.5) * T - x,
-    tz = (((bn / W) | 0) + 0.5) * T - z,
+  const tx = tileCenter(bn % W) - x,
+    tz = tileCenter((bn / W) | 0) - z,
     l = Math.hypot(tx, tz) || 1;
   return [tx / l, tz / l];
 }

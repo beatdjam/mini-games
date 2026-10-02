@@ -23,12 +23,21 @@ import {
   grid,
   hasLOS,
   hgt,
+  inBounds,
   isSolid,
   moveCircle,
+  OPPOSITE_SIDE,
   passable,
   ramp,
   setTileWorld,
+  SIDE_NX,
+  SIDE_NZ,
+  SIDE_PX,
+  SIDE_PZ,
+  SIDE_STEP,
   solidAt,
+  tileCenter,
+  tileCoord,
   tileIndex,
 } from '../src/world/tiles.ts';
 import { generateArena, generateDungeon } from '../src/world/dungeon.ts';
@@ -293,6 +302,30 @@ test('tiles: tileIndex is the grid index of the tile holding a world point', () 
   eq(tileIndex(0.5 * T, 0.5 * T), 0);
   eq(tileIndex(2.5 * T, 1.5 * T), W + 2);
   eq(tileIndex(4.99 * T, 2.01 * T), 2 * W + 4);
+});
+test('tiles: tileCoord, inBounds and tileCenter', () => {
+  tinyWorld();
+  eq(tileCoord(0), 0);
+  eq(tileCoord(T - 0.01), 0);
+  eq(tileCoord(T), 1);
+  eq(tileCoord(2.5 * T), 2);
+  eq(tileCoord(-0.01), -1, 'floors toward -infinity');
+  ok(inBounds(0, 0) && inBounds(W - 1, 2), 'corners are inside');
+  ok(!inBounds(-1, 0) && !inBounds(0, -1), 'negative is outside');
+  ok(!inBounds(W, 0) && !inBounds(0, 3), 'W and H themselves are outside');
+  eq(tileCenter(0), T / 2);
+  eq(tileCenter(3), 3.5 * T);
+  eq(tileCoord(tileCenter(4)), 4, 'the centre is inside its own tile');
+});
+test('tiles: side numbers match the ramp directions, steps and opposites', () => {
+  eq(JSON.stringify([SIDE_PX, SIDE_NX, SIDE_PZ, SIDE_NZ]), '[0,1,2,3]');
+  eq(JSON.stringify(SIDE_STEP), '[[1,0],[-1,0],[0,1],[0,-1]]');
+  for (let sd = 0; sd < 4; sd++) {
+    const [a, b] = SIDE_STEP[sd],
+      [oa, ob] = SIDE_STEP[OPPOSITE_SIDE[sd]];
+    eq(OPPOSITE_SIDE[OPPOSITE_SIDE[sd]], sd, 'opposite of the opposite');
+    ok(oa === -a && ob === -b, 'the opposite side steps back');
+  }
 });
 test('tiles: floor height, ramps, walls and steps block, line of sight', () => {
   tinyWorld();
