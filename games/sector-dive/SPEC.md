@@ -48,7 +48,7 @@
 | 段差 | 足元より0.7以上高い床には登れない。低い所へは落ちられる | `STEP` (engine/src/world/tiles.ts) |
 | 回復キット | 所持上限3。1個で HP +40、最大HPの25%のほうが多ければそちら（深くなって最大HPが増えても効くように）。開始時 1 ＋「救急箱」の段数。上限まで持っているときに拾うと、その場で使って1個分回復する（1個使ってから拾い直すのと同じ） | `useKit`, `kitHealAmount`, `KIT_MAX`, `updatePickup` |
 
-- **被弾の向き**: 視界の外（横方向の画角の9割より外）から当たったときだけ、照準のまわりに攻撃元の方向を指す赤い弧を0.6秒出す（`hitDirection` in src/ui/hud.ts、`TUNE.hitDirTime`）。表示中は振り向きに合わせて向きを追う。正面からの被弾は画面のビネットだけ。方向は、弾なら撃った位置、近接・突進・爆発・衝撃波・ボスのビームならその発生位置。危険床と自分の爆発には出さない
+- **被弾の向き**: 視界の外（横方向の画角の9割より外）から当たったときだけ、照準のまわりに攻撃元の方向を指す赤い弧を0.6秒出す（`hitDirection` in src/ui/hud.ts、部品は `engine/src/ui/hitdir.ts`、`TUNE.hitDirTime`）。表示中は振り向きに合わせて向きを追う。正面からの被弾は画面のビネットだけ。方向は、弾なら撃った位置、近接・突進・爆発・衝撃波・ボスのビームならその発生位置。危険床と自分の爆発には出さない
 
 ## 4. 武器
 
@@ -417,6 +417,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/world/hazards.ts` | 危険床の描画・周期・ダメージ |
 | `src/world/portals.ts` | ゲートの生成（`makePortal`） |
 | `src/world/entities.ts` | 弾・拾い物の生成、敵の生成（敵オブジェクトの項目一覧もここ）。パーティクルは engine/src/render/fx.ts |
+| `src/world/models.ts` | 敵・拾い物の three.js モデル（トルーパーの関節、盾、狙撃手の目、拾い物の形）、予告レーザーの線 |
 | `src/world/render.ts` | 弾などの共有ジオメトリ、床と壁のテクスチャ |
 | `src/core/stages.ts` | 区画番号の計算（セクターの並び、区画ラベル、難易度、被ダメージの伸び） |
 | `src/actors/player.ts` | プレイヤーと潜行の状態（`player`・`run`）、プレイヤーの初期値、手に持っている武器 |
@@ -426,7 +427,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/actors/combat.ts` | 被弾、敵へのダメージ、爆発、撃破（報酬・連鎖爆発・分裂）、区画制圧、回復キットの回復量 |
 | `src/actors/enemies.ts` | 敵1体の毎フレームの行動（`updateEnemy`。敵は engine の world のグループ `enemy` に入っていて、エンジンが呼ぶ） |
 | `src/actors/bullets.ts` | 弾の毎フレームの処理（当たり判定、盾、ショットガンの全弾ボーナスなど） |
-| `src/actors/bosses/common.ts` | ボスの共通処理（生成、体力倍率、撃破後の処理）、予告レーザー |
+| `src/actors/bosses/common.ts` | ボスの共通処理（生成、体力倍率、撃破後の処理） |
 | `src/actors/bosses/<名前>.ts` | ボス1体ずつの生成と行動 |
 | `src/flow/state.ts` | 今どの画面か（`state`）、画面の切り替え（`show`）、潜行中の HUD の出し入れ |
 | `src/flow/run.ts` | 潜行の流れ（出撃、区画の生成、次の区画、帰還・ロストの集計、拠点へ戻る）、ボス練習 |
@@ -440,10 +441,10 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/screens/result.ts` | 結果画面の表示（集計は `src/flow/run.ts`） |
 | `src/screens/base.ts` | 拠点画面（タブ、出撃装備、倉庫、強化、再起動、ボス練習の選択） |
 | `src/screens/data.ts` | セーブのコードの書き出し・読み込み、データ消去 |
-| `src/ui/hud.ts` | HUD、設定、タッチボタンの設定（`TOUCH_LAYOUT`）、言語の切り替え |
+| `src/ui/hud.ts` | HUD、被弾方向の表示（部品は `engine/ui/hitdir.ts`）、設定、タッチボタンの設定（`TOUCH_LAYOUT`）、言語の切り替え |
 | `src/ui/minimap.ts` | ミニマップと大きなマップの描画（`drawMap`） |
 | `src/ui/input.ts` | キーとボタンの割り当て（`INPUT`）、持ち替え・拾う・回復 |
-| `src/ui/share.ts` | 結果のシェア（結果カードの画像と投稿文） |
+| `src/ui/share.ts` | 結果のシェア（結果カードの画像と投稿文、パネル。共有・コピー・保存・X 投稿の部品は `engine/ui/share.ts`） |
 | `src/ui/feedback.ts` | 感想フォームを開く導線と、フォームに入れるプレイ情報 |
 | `src/dev/dev.ts` | 開発用フック（`#view-…` など） |
 | `test/*.ts` | スモークテスト（`smoke.test.ts`）と、テストのためにページの要素と CSS を用意する `setup.ts` |

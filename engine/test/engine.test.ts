@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import * as THREE from 'three';
 import { clamp, createRng, distXZ, el, pct, randi, shuffle } from '../src/core/util.ts';
 import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../src/core/store.ts';
@@ -45,6 +45,8 @@ import {
 } from '../src/world/projectiles.ts';
 import { steerChase } from '../src/world/steer.ts';
 import { toast } from '../src/ui/ui.ts';
+import { createHitDirs } from '../src/ui/hitdir.ts';
+import { canCopyImage, openXPost, saveImage } from '../src/ui/share.ts';
 import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
 import { TOUCH_LAYOUT, applyLayout, buttonLayout, layoutEditor, openLayoutEditor } from '../src/ui/touchlayout.ts';
 // Engine tests (Vitest, in Chromium: npm test). The page elements the engine expects are made by engine/test/setup.ts.
@@ -556,4 +558,36 @@ test('ui / input: toast, keys, INPUT hooks', () => {
   near(looked[0], 0.1);
   releaseInputs();
   ok(!fireHeld && !mouseFire);
+});
+test('hitdir: an arc shows for a hit from behind, not from in front, and fades out', () => {
+  const box = document.createElement('div');
+  const cam = new THREE.PerspectiveCamera(70, 16 / 9);
+  const hd = createHitDirs({ container: box, view: () => ({ x: 0, z: 0, yaw: 0 }), camera: cam, time: 0.6 });
+  hd.show(0, -8); // yaw 0 faces -z: straight ahead
+  eq(hd.list.length, 0, 'no arc in front');
+  hd.show(2, 8);
+  eq(hd.list.length, 1, 'arc behind');
+  eq(box.children.length, 1);
+  hd.update(0.3);
+  near(Number(hd.list[0].el.style.opacity), 0.5);
+  hd.update(0.4);
+  eq(hd.list[0].el.style.opacity, '0', 'faded out');
+  hd.show(-2, 8);
+  eq(hd.list.length, 1, 'the free arc is reused');
+  ok(hd.list[0].t > 0);
+});
+test('share: X post URL, saving an image, clipboard support', () => {
+  const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+  openXPost('a b #x');
+  expect(open).toHaveBeenCalledWith('https://twitter.com/intent/tweet?text=a%20b%20%23x', '_blank', 'noopener');
+  open.mockRestore();
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+    eq(this.download, 'card.png');
+  });
+  URL.createObjectURL = () => 'blob:test';
+  URL.revokeObjectURL = () => {};
+  saveImage(new Blob(['x'], { type: 'image/png' }), 'card.png');
+  expect(click).toHaveBeenCalledTimes(1);
+  click.mockRestore();
+  eq(typeof canCopyImage(), 'boolean');
 });

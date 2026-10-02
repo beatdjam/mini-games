@@ -29,6 +29,8 @@
 | `src/audio/audio.ts` | 効果音の合成（`tone`, `noiseBurst`, `sweepTone`, `gunshot`）、`sfx(name)`、`audioInit`, `sfxVolume` | `Object.assign(SFX, { 名前: () => {...} })` で効果音のレシピを入れる。音量は `setVolumes(sfx, bgm)`（0〜1） |
 | `src/audio/music.ts` | BGM の再生（`setMusic(name, boss)`, `setMusicMix(kind)`, `musicVolume(duck)`, `musicTick`）、`SCALES` | `MUSIC_STYLES`（曲調）と `LAYER_MIX`（層の混ぜ方）に `Object.assign` で中身を入れる |
 | `src/ui/ui.ts` | `toast(msg, ms)`, `banner(code, sub)`, 全画面（`enterFs`, `exitFs`, `toggleFs`, `isFullscreen`） | `#toast`, `#banner`（`#bannerCode`, `#bannerSub`） |
+| `src/ui/hitdir.ts` | 被弾方向の表示。`createHitDirs({ container, view, camera, time, max?, className? })` が `{ show(x, z), update(dt), list }` を返す。視界の外から当たったときだけ、攻撃元を指す弧を出し、振り向きに合わせて向きを追って薄れる | `container`（照準の中心に置いた幅0・高さ0の要素。Sector Dive は `#hitDirs`）、`view()`（`x`・`z`・`yaw`。yaw は左が正）、`camera`、表示時間 `time`（秒）、弧の見た目の CSS（`className`、既定 `hdir`）。被弾で `show`、毎フレーム `update` |
+| `src/ui/share.ts` | 画像のシェアのブラウザ側の部品。`canShareFile(file)`, `shareNative(file, text)`（`'shared'`・`'cancelled'`・`'failed'`）, `canCopyImage()`, `copyImage(blob)`（成功したか）, `saveImage(blob, filename)`, `openXPost(text)`（X の投稿画面を開く） | 画像（`Blob`）と投稿文、ファイル名。パネルの要素・文言・解析イベントはゲームが持つ（スマホは `shareNative`、失敗したらパネル、PC はコピー・保存・X 投稿のボタン） |
 | `src/ui/input.ts` | キー（`keys`）、マウスとポインタロック（`requestLock`, `exitLock`, `locked`, `mouseFire`）、タッチの移動スティック（`joy`）と視点ドラッグ、押しっぱなしの射撃ボタン（`fireHeld`, `fire2Held`）、`tapBtn(el, fn)`, `releaseInputs` | `INPUT` に `active`, `look`, `sens`, `key`, `pause`, `lockChanged` を入れる。`#touch`, `#joyBase`, `#joyKnob`, `#btnFire`, `#btnFire2`, `<canvas id="gl">` |
 | `src/ui/touchlayout.ts` | タッチボタンの配置（`applyLayout`, `buttonLayout`）と配置の編集（`openLayoutEditor`, `closeLayoutEditor`） | `TOUCH_LAYOUT` に `defs`, `first`, `edits`, `reset`, `save`, `afterApply`, `onOpen`, `onClose` を入れる。`data-lb` の付いたボタン、`#layoutBar`, `#lbName` |
 
@@ -52,11 +54,10 @@
 
 ## まだ切り出していないもの
 
-ゲームが1本のうちは切り出さず、2本目のゲームで要るとわかったときに engine を広げる。今のところ候補は次のもの（どれも Sector Dive の中にある）:
+どのゲームでもそのまま使えるものは engine に置く。迷うものはゲームに置き、2本目のゲームで要るとわかったときに engine を広げる。今のところ候補は次のもの（どれも Sector Dive の中にある）:
 
-- 結果のシェアの流れ（スマホは共有シート、PC はコピー・保存・X 投稿を別々のボタンで。`ui/share.ts` の後半）
 - 設定画面の共通部分（音量・言語・感度・全画面。`ui/hud.ts` の `settingsHTML`）
-- 被弾方向の表示とヒットマーカー（FPS なら共通。`ui/hud.ts`）
+- ヒットマーカー（FPS なら共通。`ui/hud.ts` の `hitMark`）
 - ミニマップ（グリッドのダンジョン型のゲームなら。`ui/minimap.ts`）
 
 切り出すときの方針:

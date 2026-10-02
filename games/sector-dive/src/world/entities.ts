@@ -2,7 +2,6 @@ import type {
   Boss,
   EBullet,
   Enemy,
-  EnemyDef,
   PBullet,
   Pickup,
   PickupKind,
@@ -17,17 +16,16 @@ import * as THREE from 'three';
 import { clamp, rand } from '@engine/core/util.ts';
 import { spawn, worldGroup } from '@engine/core/world.ts';
 import { sfx } from '@engine/audio/audio.ts';
-import { basicMat, disposeTree, dynGroup, lineMat } from '@engine/render/render.ts';
+import { basicMat, disposeTree, dynGroup } from '@engine/render/render.ts';
 import { blocked, floorY, tileIndex, walkable } from '@engine/world/tiles.ts';
 import { aimFan, ringAngles, takeFromPool } from '@engine/world/projectiles.ts';
-import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
 import { rebootMul } from '../core/rules.ts';
-import { edges, geoCache } from './render.ts';
+import { geoCache } from './render.ts';
 import { level } from './level.ts';
 import { player, run } from '../actors/player.ts';
 import { damageScaleAt } from '../core/stages.ts';
-import { makeLaser } from '../actors/bosses/common.ts';
+import { buildEnemyMesh, buildPickupMesh, makeLaser } from './models.ts';
 import { updateEnemy } from '../actors/enemies.ts';
 import { updatePickup, updateWave } from '../flow/update.ts';
 import { COLOR } from '../data/colors.ts';
@@ -188,74 +186,6 @@ export function fanAt(
   sfx('eshot', 60);
 }
 
-// The trooper: boxes on joints. The group's origin is at the hips (def.y above the feet) and it faces +z like the others.
-// rig = the joints its walk / aim animation turns (poseHumanoid in src/actors/enemies.ts); body = the upper body (it looks
-// around while idle)
-function buildHumanoid(def: EnemyDef, mat: THREE.Material) {
-  const g = new THREE.Group();
-  const part = (key: string, parent: THREE.Object3D, x: number, y: number, z: number, m: THREE.Material = mat) => {
-    const o = new THREE.Mesh(geoCache[key], m),
-      l = new THREE.LineSegments(edges(key), lineMat(def.color));
-    o.position.set(x, y, z);
-    l.position.copy(o.position);
-    parent.add(o, l);
-    return o;
-  };
-  const joint = (parent: THREE.Object3D, x: number, y: number, z: number) => {
-    const j = new THREE.Group();
-    j.position.set(x, y, z);
-    parent.add(j);
-    return j;
-  };
-  const upper = joint(g, 0, 0, 0);
-  part('hTorso', upper, 0, 0.4, 0);
-  const neck = joint(upper, 0, 0.78, 0);
-  part('hHead', neck, 0, 0.16, 0);
-  const visor = new THREE.Mesh(geoCache.hVisor, basicMat(COLOR.mag));
-  visor.position.set(0, 0.18, 0.18);
-  neck.add(visor);
-  const armL = joint(upper, -0.42, 0.68, 0),
-    armR = joint(upper, 0.42, 0.68, 0);
-  part('hArm', armL, 0, -0.3, 0);
-  part('hArm', armR, 0, -0.3, 0);
-  part('hGun', armR, 0, -0.66, 0.1, basicMat(0x1d2935)); // along the forearm: points forward when the arm is raised
-  const legL = joint(g, -0.17, 0, 0),
-    legR = joint(g, 0.17, 0, 0);
-  part('hLeg', legL, 0, -0.5, 0);
-  part('hLeg', legR, 0, -0.5, 0);
-  g.userData.rig = { upper, neck, armL, armR, legL, legR };
-  return { g, body: upper };
-}
-export function buildEnemyMesh(def: EnemyDef) {
-  const mat = new THREE.MeshLambertMaterial({ color: 0x10161d, emissive: def.color, emissiveIntensity: 0.4 });
-  if (def.humanoid) {
-    const h = buildHumanoid(def, mat);
-    return { g: h.g, mat, body: h.body };
-  }
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(geoCache[def.geo], mat);
-  g.add(body, new THREE.LineSegments(edges(def.geo), lineMat(def.color)));
-  if (def.geo === 'cyl') {
-    const head = new THREE.Mesh(geoCache.chip, basicMat(def.color));
-    head.position.y = 1.1;
-    g.add(head);
-  }
-  if (def.shield) {
-    const plate = new THREE.Mesh(geoCache.shieldPlate, basicMat(0x2b5f8f)),
-      edge = new THREE.LineSegments(edges('shieldPlate'), lineMat(COLOR.shield));
-    plate.position.set(0, 0.1, 0.75);
-    edge.position.copy(plate.position);
-    g.add(plate, edge);
-    g.userData.shield = [plate, edge];
-  }
-  if (def.sniper) {
-    const eye = new THREE.Mesh(geoCache.chip, basicMat(COLOR.mag));
-    eye.scale.setScalar(0.5);
-    eye.position.set(0, 0.7, 0.25);
-    g.add(eye);
-  }
-  return { g, mat, body };
-}
 export function spawnEnemy(type: string, x: number, z: number, room: number, diff: number): RegularEnemy {
   const def = ENEMY[type],
     m = buildEnemyMesh(def),
@@ -361,31 +291,7 @@ export function clearOfPortals(x: number, z: number): [number, number] {
 }
 export function addPickup(kind: PickupKind, x: number, z: number, extra?: { value?: number; w?: Weapon }): Pickup {
   const [px, pz] = clearOfPortals(x, z);
-  let mesh: THREE.Object3D;
-  if (kind === 'bit') mesh = new THREE.Mesh(geoCache.bit, basicMat(COLOR.amber));
-  else if (kind === 'kit') {
-    mesh = new THREE.Group();
-    mesh.add(
-      new THREE.Mesh(geoCache.cross1, basicMat(COLOR.lime)),
-      new THREE.Mesh(geoCache.cross2, basicMat(COLOR.lime)),
-      new THREE.LineSegments(edges('chipOuter'), lineMat(COLOR.lime)),
-    );
-  } else if (kind === 'chip') {
-    mesh = new THREE.Group();
-    mesh.add(
-      new THREE.Mesh(geoCache.chip, basicMat(COLOR.amber)),
-      new THREE.LineSegments(edges('chipOuter'), lineMat(COLOR.amber)),
-    );
-  } else {
-    const w = extra!.w!,
-      col = WEAPONS[w.id].color;
-    mesh = new THREE.Group();
-    mesh.add(
-      new THREE.Mesh(geoCache.wbox, basicMat(col)),
-      new THREE.LineSegments(edges('wbox'), lineMat(RARITY[w.r].hex)),
-    );
-    mesh.scale.setScalar(1 + w.r * 0.15);
-  }
+  const mesh = buildPickupMesh(kind, extra?.w);
   const baseY = (kind === 'bit' ? 0.5 : 1.0) + floorY(px, pz);
   mesh.position.set(px, baseY, pz);
   dynGroup.add(mesh);

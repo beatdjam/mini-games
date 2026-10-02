@@ -7,7 +7,8 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, spawnEBullet } from '../world/entities.ts';
 import { player } from './player.ts';
 import { damagePlayer, detonate } from './combat.ts';
-import { bossPauseTick, setLaser } from './bosses/common.ts';
+import { bossPauseTick } from './bosses/common.ts';
+import { setLaser } from '../world/models.ts';
 import { COLOR } from '../data/colors.ts';
 // ================= enemy behaviour (per frame) =================
 // Fields on an enemy object are listed in spawnEnemy (src/world/entities.ts).
