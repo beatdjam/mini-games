@@ -14,7 +14,8 @@ import { hpGrowth } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
 import { openShortcut, recordBossKill, recordBossSeen, recordPeak, unlockReboot } from '../../core/progress.ts';
 import { rebootMul, progressOf } from '../../core/rules.ts';
-import { level, makePortal } from '../../world/level.ts';
+import { level } from '../../world/level.ts';
+import { makePortal } from '../../world/portals.ts';
 import {
   addPickup,
   dropBits,

@@ -22,7 +22,8 @@ import {
   setSuspend,
   storeWeapons,
 } from '../core/progress.ts';
-import { buildLevel, level, makePortal, randomTileIn, roomSpot } from '../world/level.ts';
+import { buildLevel, level, randomTileIn, roomSpot } from '../world/level.ts';
+import { makePortal } from '../world/portals.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { difficultyAt, isBossStage, stageInfo, stageLabel, tierLabel } from '../core/stages.ts';
