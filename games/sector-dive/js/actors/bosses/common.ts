@@ -1,6 +1,6 @@
 import type { Enemy } from '../../data/types.ts';
 import * as THREE from 'three';
-import { $, clamp } from '../../../../../engine/core/util.ts';
+import { clamp, el } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../../engine/audio/audio.ts';
 import { setMusic } from '../../../../../engine/audio/music.ts';
@@ -38,7 +38,7 @@ export function bossBase(kind: string, mesh: THREE.Object3D, mat: THREE.MeshLamb
     pt: 0, shots: 0, acc: 0, dmg: 10 * dmgScaleOf(run.stage), cx, cz, behave, flash: 0, room: -1, active: true, def: { r: 1.8 } };
   mesh.position.set(e.x, y, e.z);
   spawnEnemyObj(e); setBoss(e);
-  $('#bossName').textContent = name; $('#bossBar').hidden = false;
+  el('#bossName').textContent = name; el('#bossBar').hidden = false;
   // entrance: grows in over introTime, invulnerable and not attacking; the name goes up big
   e.spawnT = e.spawnMax = BOSS_TUNE.introTime; e.intro = true;
   const [en, jp] = name.split(' — ');
@@ -79,7 +79,7 @@ export function bossDown(e: Enemy) {
   query('wave').forEach(w => { w.dead = true; }); // a shockwave still spreading must not kill the player after the win
   if (run.practice) { // practice: no rewards, no progress; just a way home
     makePortal(e.cx, e.cz - 2, 0x54e8ff, 'extract', t('boss.toBase'));
-    $('#bossBar').hidden = true; setBoss(null); run.cleared = true;
+    el('#bossBar').hidden = true; setBoss(null); run.cleared = true;
     toast(t('boss.practiceWon'), 2600);
     return;
   }
@@ -91,7 +91,7 @@ export function bossDown(e: Enemy) {
   addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(prog(run.stage) + 2, roll > 0.9 ? 2 : 1) });
   makePortal(e.cx + 6, e.cz - 2, 0xffc24a, 'next', t('boss.forward'));
   makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', t('boss.extract'));
-  $('#bossBar').hidden = true; setBoss(null);
+  el('#bossBar').hidden = true; setBoss(null);
   save.bossKills++;
   if (stageInfo(run.stage).tier >= 2 && !save.canReboot) { save.canReboot = true; setTimeout(() => toast(t('boss.rebootUnlocked'), 4200), 4400); }
   const newTier = stageInfo(run.stage).tier + 1;

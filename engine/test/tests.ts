@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { $, clamp, pct, randi, shuffle } from '../core/util.ts';
+import { clamp, el, pct, randi, shuffle } from '../core/util.ts';
 import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../core/store.ts';
 import { addSystem, runSystems, stopFrame } from '../core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../core/world.ts';
@@ -194,14 +194,14 @@ test('touchlayout: place, edit, reset', () => {
     edits: () => edits, reset: () => { for (const k in edits) delete edits[k]; }, save: () => { saved++; }, onClose: (from?: string) => { closed = from; },
   });
   applyLayout(); eq(document.querySelector<HTMLElement>('[data-lb="fire"]')!.style.width, '80px');
-  openLayoutEditor('here'); ok(editing && !$('#layoutBar').hidden, 'editor open');
+  openLayoutEditor('here'); ok(editing && !el('#layoutBar').hidden, 'editor open');
   document.querySelector<HTMLElement>('[data-lbact="plus"]')!.click(); near(getL('fire').s, 1.1, 1e-9, 'bigger');
   document.querySelector<HTMLElement>('[data-lbact="reset"]')!.click(); eq(getL('fire').s, 1, 'reset');
   document.querySelector<HTMLElement>('[data-lbact="done"]')!.click(); eq(closed, 'here'); ok(saved > 0, 'saved');
 });
 
 test('ui / input: toast, keys, INPUT hooks', () => {
-  toast('hi', 50); eq($('#toast').textContent, 'hi');
+  toast('hi', 50); eq(el('#toast').textContent, 'hi');
   let key: string | null = null; INPUT.key = e => { key = e.code; };
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyZ' })); ok(keys.KeyZ, 'held'); eq(key, 'KeyZ', 'INPUT.key called');
   window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyZ' })); ok(!keys.KeyZ, 'released');

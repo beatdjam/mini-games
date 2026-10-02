@@ -1,4 +1,4 @@
-import { $, isTouch } from '../../../../engine/core/util.ts';
+import { el, isTouch } from '../../../../engine/core/util.ts';
 import { lang, t } from '../../../../engine/core/i18n.ts';
 import { toast } from '../../../../engine/ui/ui.ts';
 import { RARITY } from '../data/weapons.ts';
@@ -37,9 +37,9 @@ export function prepShare(kind: string) {
   };
   shareBlob = null;
   drawShareCard(shareData).then(b => { if (shareData && b) shareBlob = b; }).catch(() => {});
-  $('#btnShare').hidden = false; $('#sharePanel').hidden = true;
+  el('#btnShare').hidden = false; el('#sharePanel').hidden = true;
 }
-export function hideShare() { shareData = shareBlob = null; $('#btnShare').hidden = true; $('#sharePanel').hidden = true; }
+export function hideShare() { shareData = shareBlob = null; el('#btnShare').hidden = true; el('#sharePanel').hidden = true; }
 
 export function shareText(d: ShareCard) {
   return t('share.text', { ...d, bosses: bossSummary(d.bosses), nBoss: d.bosses.length }) + '\n' + SHARE_URL;
@@ -98,13 +98,13 @@ export function shareResult() {
   openSharePanel();
 }
 export async function openSharePanel() {
-  const panel = $('#sharePanel');
+  const panel = el('#sharePanel');
   if (!panel.hidden) { panel.hidden = true; return; }
   panel.hidden = false; track('share', { method: 'panel' });
-  $('#btnShareCopy').hidden = !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+  el('#btnShareCopy').hidden = !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
   if (!shareBlob) shareBlob = await drawShareCard(shareData!);
   if (!shareBlob) return;
-  const img = $('#shareImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+  const img = el<HTMLImageElement>('#shareImg'); if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(shareBlob);
 }
 export function copyShareImage() {
@@ -123,7 +123,7 @@ export function openXPost() {
   if (shareData) track('share', { method: 'x' });
   if (shareData) window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(shareData)), '_blank', 'noopener');
 }
-$('#btnShareCopy').addEventListener('click', copyShareImage);
-$('#btnShareSave').addEventListener('click', saveShareImage);
-$('#btnShareX').addEventListener('click', openXPost);
-$('#btnShare').addEventListener('click', shareResult);
+el('#btnShareCopy').addEventListener('click', copyShareImage);
+el('#btnShareSave').addEventListener('click', saveShareImage);
+el('#btnShareX').addEventListener('click', openXPost);
+el('#btnShare').addEventListener('click', shareResult);
