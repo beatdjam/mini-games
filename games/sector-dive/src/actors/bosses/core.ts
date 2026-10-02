@@ -7,7 +7,9 @@ import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { level } from '../../world/level.ts';
 import { enemies, fanAt, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
-import { player, damagePlayer, difficultyAt, run } from '../player.ts';
+import { player, run } from '../player.ts';
+import { damagePlayer } from '../combat.ts';
+import { difficultyAt } from '../../core/stages.ts';
 import { bossBase } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // NOISE CORE: rotating beams, bullet rings, summons

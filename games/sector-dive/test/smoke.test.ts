@@ -73,29 +73,11 @@ import {
   spawnPBullet,
   spawnWave,
 } from '../src/world/entities.ts';
-import {
-  player,
-  critChance,
-  damagePlayer,
-  difficultyAt,
-  damageScaleAt,
-  explode,
-  findTarget,
-  fire,
-  kitHealAmount,
-  rollWeapon,
-  shotId,
-  stageInfo,
-  hurtEnemy,
-  magSize,
-  newPlayer,
-  newWeapon,
-  run,
-  setPlayer,
-  setRun,
-  stageLabel,
-  weaponStats,
-} from '../src/actors/player.ts';
+import { player, newPlayer, run, setPlayer, setRun } from '../src/actors/player.ts';
+import { critChance, rollWeapon, magSize, newWeapon, weaponStats } from '../src/actors/weapons.ts';
+import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/combat.ts';
+import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
+import { findTarget, fire, shotId } from '../src/actors/firing.ts';
 import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
 import { equipNearby, stowNearby } from '../src/ui/input.ts';
 import { changeLang, hitDirs } from '../src/ui/hud.ts';

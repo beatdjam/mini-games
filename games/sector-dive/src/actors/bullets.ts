@@ -7,7 +7,10 @@ import { floorY, moveCircle } from '@engine/world/tiles.ts';
 import { projHitsTerrain, steerToward, stepProjectile } from '@engine/world/projectiles.ts';
 import { WALL_H } from '../data/level.ts';
 import { eBullets, enemies, isShielded, pBullets } from '../world/entities.ts';
-import { CRIT_MUL, player, critChance, damagePlayer, explode, hurtEnemy, spheres } from './player.ts';
+import { CRIT_MUL, critChance } from './weapons.ts';
+import { player } from './player.ts';
+import { damagePlayer, explode, hurtEnemy } from './combat.ts';
+import { spheres } from './firing.ts';
 import { hitMark } from '../ui/hud.ts';
 import { COLOR } from '../data/colors.ts';
 // ---- tuning numbers used only here ----

@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { H, T, W, hgt } from '@engine/world/tiles.ts';
 import type { Biome } from '../data/types.ts';
-import { player, damagePlayer, damageScaleAt, run } from '../actors/player.ts';
+import { player, run } from '../actors/player.ts';
+import { damagePlayer } from '../actors/combat.ts';
+import { damageScaleAt } from '../core/stages.ts';
 import { level } from './level.ts';
 const HAZARD_CYCLE = 3; // hazard floor cycle (s): live, then off
 const HAZARD_LIVE = 1.4; // seconds live (an area starts right after this: hazards off)

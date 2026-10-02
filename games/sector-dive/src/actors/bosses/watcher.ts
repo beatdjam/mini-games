@@ -7,7 +7,8 @@ import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { level, randomTileIn } from '../../world/level.ts';
 import { fanAt, ring, shootAngle, spawnEnemy } from '../../world/entities.ts';
-import { player, difficultyAt, run } from '../player.ts';
+import { player, run } from '../player.ts';
+import { difficultyAt } from '../../core/stages.ts';
 import { bossBase } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health

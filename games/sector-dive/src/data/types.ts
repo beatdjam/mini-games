@@ -293,7 +293,7 @@ export interface Weapon extends WeaponItem {
   opts: string[];
   mag: number;
 }
-// the player during a run (newWeapon / newPlayer in src/actors/player.ts)
+// the player during a run (newPlayer in src/actors/player.ts, newWeapon in src/actors/weapons.ts)
 export interface Player {
   x: number;
   z: number;

@@ -40,7 +40,7 @@ export const weaponModOf = (id: string): { plus: number; r: number } =>
 // a basic weapon as it currently stands after modding (non-basic weapons pass through)
 export const basicNow = <W extends WeaponItem | null>(w: W): W =>
   w && w.basic ? Object.assign({}, w, { plus: weaponModOf(w.id).plus, r: weaponModOf(w.id).r }) : w;
-// sustained damage per second of a weapon before any chips: the same sum as weaponStats (src/actors/player.ts)
+// sustained damage per second of a weapon before any chips: the same sum as weaponStats (src/actors/weapons.ts)
 // with every chip-driven value at its start, so it works on the base screen where there is no player
 export function bareDps(w: WeaponItem): number {
   const def = WEAPONS[w.id]!,
