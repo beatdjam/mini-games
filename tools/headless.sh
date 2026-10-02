@@ -2,7 +2,6 @@
 # Open a page of this repo in headless Chrome and print its console output (SMOKE / TEST lines etc.).
 # Usage: tools/headless.sh <path> [virtual-time ms] [max lines]
 #   tools/headless.sh 'games/sector-dive/#smoke' 200000     the game's smoke test
-#   tools/headless.sh 'engine/test/' 20000                  the engine's tests
 # BASE: the site to open (default the Vite dev server http://localhost:8765/, started here if nothing is there yet).
 # CHROME overrides the browser (e.g. CHROME=google-chrome on Linux).
 cd "$(dirname "$0")/.." || exit 1

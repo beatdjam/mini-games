@@ -1,20 +1,8 @@
-<!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<title>engine tests</title>
-<style>body{background:#05080c;color:#d5e4ee;font:14px ui-monospace,monospace;padding:16px}#touch,#layoutBar,#toast,#banner{display:none}.fail{color:#ff4d8d}.ok{color:#8cff6a}</style>
-</head>
-<body>
-<!-- the elements the engine expects (see engine/SPEC.md) -->
+// Vitest setup for the engine tests: the page elements the engine looks up when its modules load (engine/README.md)
+document.body.innerHTML = `
 <canvas id="gl" width="64" height="64"></canvas>
 <div id="touch" hidden><div id="joyBase"><div id="joyKnob"></div></div>
   <button id="btnFire" data-lb="fire"></button><button id="btnFire2" data-lb="fire2"></button></div>
 <div id="layoutBar" hidden><b id="lbName"></b><button data-lbact="minus"></button><button data-lbact="plus"></button><button data-lbact="reset"></button><button data-lbact="done"></button></div>
 <div id="toast"></div><div id="banner"><b id="bannerCode"></b><span id="bannerSub"></span></div>
-<p data-i18n="hello"></p>
-<pre id="out"></pre>
-
-<script type="module" src="./tests.ts"></script>
-</body>
-</html>
+<p data-i18n="hello"></p>`;

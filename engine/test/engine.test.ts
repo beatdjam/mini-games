@@ -1,3 +1,4 @@
+import { expect, test } from 'vitest';
 import * as THREE from 'three';
 import { clamp, distXZ, el, pct, randi, shuffle } from '../core/util.ts';
 import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../core/store.ts';
@@ -14,16 +15,11 @@ import { steerChase } from '../world/steer.ts';
 import { toast } from '../ui/ui.ts';
 import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../ui/input.ts';
 import { TOUCH_LAYOUT, applyLayout, editing, getL, openLayoutEditor } from '../ui/touchlayout.ts';
-// Engine tests: open engine/test/ in a browser, or run  tools/headless.sh 'engine/test/' 20000
-// Each test logs 'TEST ok <name>' or 'TEST FAIL <name> <reason>'; the last line is 'TEST DONE <passed>/<total>'.
-export const results: [string, boolean][] = [];
-export function test(name: string, fn: () => void) {
-  try { fn(); results.push([name, true]); console.log('TEST ok ' + name); }
-  catch (e) { results.push([name, false]); console.error('TEST FAIL ' + name + ' ' + (e instanceof Error ? e.message : e)); }
-}
-export function eq(a: unknown, b: unknown, what?: string) { if (a !== b) throw new Error(`${what || 'value'}: expected ${b}, got ${a}`); }
-export function near(a: number, b: number, eps?: number, what?: string) { if (Math.abs(a - b) > (eps ?? 1e-9)) throw new Error(`${what || 'value'}: expected ~${b}, got ${a}`); }
-export function ok(cond: unknown, what?: string) { if (!cond) throw new Error(what || 'expected true'); }
+// Engine tests (Vitest, in Chromium: npm test). The page elements the engine expects are made by engine/test/setup.ts.
+// eq / near / ok keep the short messages the tests were written with
+const eq = (a: unknown, b: unknown, what?: string) => expect(a, what).toBe(b);
+const near = (a: number, b: number, eps = 1e-9, what?: string) => expect(Math.abs(a - b), what ?? `expected ~${b}, got ${a}`).toBeLessThanOrEqual(eps);
+const ok = (cond: unknown, what?: string) => expect(cond, what).toBeTruthy();
 
 // ---------- core ----------
 test('store: save codes round-trip, reject edits, other tags and cut-off codes', () => {
@@ -216,6 +212,3 @@ test('ui / input: toast, keys, INPUT hooks', () => {
   releaseInputs(); ok(!fireHeld && !mouseFire);
 });
 
-export const passed = results.filter(r => r[1]).length;
-console.log(`TEST DONE ${passed}/${results.length}`);
-document.getElementById('out')!.innerHTML = results.map(([n, p]) => `<span class="${p ? 'ok' : 'fail'}">${p ? 'ok  ' : 'FAIL'} ${n}</span>`).join('\n') + `\n\n${passed}/${results.length} passed`;

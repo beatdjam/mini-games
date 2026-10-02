@@ -8,7 +8,8 @@
 ```
 index.html                   トップページ（ゲーム一覧）
 engine/                      ゲームをまたいで使うコア（ループ・描画・当たり判定・弾・音・入力・文言など。engine/SPEC.md）
-engine/test/                 engine のテスト
+engine/test/                 engine のテスト（Vitest）
+vitest.config.ts             テストの設定（Vitest のブラウザモード。Chromium で動かす）
 games/<game-id>/index.html   各ゲームのページ。入口の main.ts を1つ読む
 games/<game-id>/main.ts      入口。全モジュールを読み込み、最後に起動処理をする
 games/<game-id>/js/          ゲームのモジュール
@@ -34,12 +35,13 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - `npm run typecheck`: 型チェック（`tsconfig.json` の1本でリポジトリ全体を見る。型の決まりは STYLE.md）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
 - `npm run lint`: STYLE.md の決まりのうち機械で確かめられるもの（`tools/check_style.js`）と、全ゲームの文言キーの照合（`tools/check_i18n.js`）
 - `npm run build`: 公開用に `dist/` を作る。`npm run preview` で、公開と同じ `/mini-games/` の下で確かめられる
-- `npm test`: engine のテストと全ゲームのスモークテストを、ヘッドレスの Chrome で流す（開発サーバーが動いていなければ立てる）。どれか失敗すると終了コード1
-- `npm run test:build`: テスト用ビルド（`vite build --mode test` を `dist-test/` へ）に対して同じテストを流す。ビルドでしか入らないもの（版番号、GA のタグ）も確かめる
-- 個別に見るとき: `tools/headless.sh 'games/<game-id>/#smoke' 200000`、`tools/headless.sh 'engine/test/' 20000`。Chrome の場所は `CHROME=...` で変えられる
-- 確認用のコード（各ゲームの `js/dev/`：スモークテストと `#view-…` などのフック）と engine のテストは、開発サーバーとテスト用ビルドにだけ入る。公開用のビルド（`npm run build`）には入らない
+- `npm test`: engine のテスト（Vitest。Chromium の中で動かす）と、全ゲームのスモークテスト（`tools/test.sh`。ヘッドレスの Chrome でゲームのページを `#smoke` で開く。開発サーバーが動いていなければ立てる）を流す。どれか失敗すると終了コード1。Chrome の場所は `CHROME=...` で指定する（無ければ Playwright のもの）
+- `npm run test:engine`: engine のテストだけ（`vitest run`。`npx vitest` なら変更を見張って流し直す）
+- `npm run test:build`: テスト用ビルド（`vite build --mode test` を `dist-test/` へ）に対してスモークテストを流す。ビルドでしか入らないもの（版番号、GA のタグ）も確かめる
+- スモークテストだけを個別に見るとき: `tools/headless.sh 'games/<game-id>/#smoke' 200000`
+- 確認用のコード（各ゲームの `js/dev/`：スモークテストと `#view-…` などのフック）は、開発サーバーとテスト用ビルドにだけ入る。公開用のビルド（`npm run build`）には入らない
 - アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）。GA の利用規約に沿って、`privacy.html`（プライバシーポリシー）をトップと各ゲームの設定から開けるようにしておく。送る内容の種類を増やしたら、この文面も見直す
-- PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト（`npm test` と `npm run test:build`）・ビルドを流す。マージの前に、ここが通っていることを確かめる
+- PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト（`npm test` と `npm run test:build`）・ビルドを流す。マージの前に、ここが通っていることを確かめる。テストの結果は Actions の実行画面のサマリに出て、JUnit と HTML のレポート（`test-results/`）は実行結果の Artifacts（`test-report`）からダウンロードできる
 - 公開: master に push すると、Actions が同じ確認をもう一度してから GitHub Pages に出す（どれかが失敗すれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
 
 ## 更新履歴のルール

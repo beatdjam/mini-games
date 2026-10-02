@@ -42,12 +42,19 @@ jobs:
       - name: スタイルと文言の確認（tools/check_style.js、tools/check_i18n.js）
         run: npm run lint
       - name: テスト（engine のテストと各ゲームのスモーク。開発サーバーと、テスト用ビルドの両方）
-        # 失敗したら公開しない。ランナーの Chrome は google-chrome
+        # 失敗したら公開しない。ランナーの Chrome を使う。結果はジョブのサマリに出る
         env:
-          CHROME: google-chrome
+          CHROME: /usr/bin/google-chrome
         run: |
           npm test
           npm run test:build
+      - name: テストのレポートを保存（失敗したときも）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: test-results/
+          if-no-files-found: ignore
       - name: ビルド（Vite。dist/ に出力し、版番号を書き込む。確認用のコードは入らない）
         run: npm run build
       - uses: actions/configure-pages@v5
