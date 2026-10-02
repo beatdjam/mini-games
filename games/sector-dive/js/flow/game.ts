@@ -1,5 +1,5 @@
 import type { Biome, Snapshot, Weapon, WeaponItem } from '../data/types.ts';
-import { $, clamp, el, isTouch, pick, rand, randi, shuffle } from '../../../../engine/core/util.ts';
+import { clamp, el, isTouch, pick, rand, randi, shuffle } from '../../../../engine/core/util.ts';
 import { clearStore, prefGet, prefSet } from '../../../../engine/core/store.ts';
 import { t } from '../../../../engine/core/i18n.ts';
 import { audioInit, sfx } from '../../../../engine/audio/audio.ts';
@@ -33,8 +33,8 @@ import { track } from '../../../../engine/core/analytics.ts';
 export let state: string = 'base';
 export function setState(s: string) { state = s; }
 export const screens = ['#scrBase', '#scrPerk', '#scrPause', '#scrResult', '#scrBag'];
-export function show(id: string | null) { screens.forEach(s => { $(s).hidden = s !== id; }); }
-export function setPlayUI(on: boolean) { $('#hud').hidden = !on; $('#touch').hidden = !on; gun.visible = on; if (!on) bigmap.hidden = true; }
+export function show(id: string | null) { screens.forEach(s => { el(s).hidden = s !== id; }); }
+export function setPlayUI(on: boolean) { el('#hud').hidden = !on; el('#touch').hidden = !on; gun.visible = on; if (!on) bigmap.hidden = true; }
 
 export function startRun() {
   audioInit();
@@ -69,8 +69,8 @@ export function startRun() {
 }
 export function startStage() {
   const si = stageInfo(run.stage), b = si.biome, isArena = isBossStage(run.stage);
-  const fade = $('#fade'); fade.style.transition = 'none'; fade.style.opacity = 1;
-  requestAnimationFrame(() => { fade.style.transition = ''; fade.style.opacity = 0; });
+  const fade = el('#fade'); fade.style.transition = 'none'; fade.style.opacity = '1';
+  requestAnimationFrame(() => { fade.style.transition = ''; fade.style.opacity = '0'; });
   const bossKind = isArena ? (run.forceBoss || pick(b.bosses)) : null;
   if (!run.practice) track('level_start', { level: si.tier + 1, stage: si.sub + 1, stage_type: b.code, stage_role: isArena ? 'boss' : 'normal', target: bossKind ?? '' });
   buildLevel(b, isArena, bossKind);
@@ -97,7 +97,7 @@ export function startStage() {
     });
   }
   P.tile = -1; P.inv = 1.0; P.fy = floorY(P.x, P.z); P.vy = 0;
-  $('#bossBar').hidden = true;
+  el('#bossBar').hidden = true;
   refreshRunText();
   banner(stageLabel(run.stage), b.name!);
   const hintAt = run.stage;
@@ -125,10 +125,10 @@ export function nextStage() {
 // times: the chosen chip is applied that many times (shortcut supply), stopping early once it is maxed
 export function openPerk(title: string, eyebrow?: string, done?: () => void, times = 1) {
   state = 'perk'; releaseInputs(); exitLock(); bigmap.hidden = true;
-  $('#perkTitle').textContent = title; $('#perkEyebrow').textContent = eyebrow || 'chip acquired';
+  el('#perkTitle').textContent = title; el('#perkEyebrow').textContent = eyebrow || 'chip acquired';
   const opts = shuffle(PERKS.filter(o => !(o.maxed && o.maxed(P)) && !(times > 1 && o.noSupply))).slice(0, 3 + save.pres.up.choice)
     .map(o => ({ o, rare: o.rv !== undefined && Math.random() < TUNE.rareChipChance }));
-  const list = $('#perkList'); list.innerHTML = ''; list.style.setProperty('--n', opts.length); // one row, however many options
+  const list = el('#perkList'); list.innerHTML = ''; list.style.setProperty('--n', String(opts.length)); // one row, however many options
   opts.forEach(({ o, rare }) => {
     const v = rare ? o.rv! : o.v, name = o.name + (rare ? '+' : '');
     const b = document.createElement('button'); b.className = 'perk' + (rare ? ' rare' : '');
@@ -142,28 +142,28 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
     });
     list.appendChild(b);
   });
-  $('#perkStats').innerHTML = statsHTML();
+  el('#perkStats').innerHTML = statsHTML();
   show('#scrPerk');
 }
 // the run's own text that was written out in the old language (the language can be switched from the pause screen)
 export function refreshRunText() {
   if (!run || !P) return;
   const b = stageInfo(run.stage).biome;
-  $('#stageLbl').innerHTML = `<b>${stageLabel(run.stage)}</b>　${b.name}`;
-  if (boss && boss.kind) $('#bossName').textContent = BOSS_META[boss.kind]!.title ?? boss.kind;
-  if (state === 'pause') $('#pauseChips').innerHTML = statsHTML();
+  el('#stageLbl').innerHTML = `<b>${stageLabel(run.stage)}</b>　${b.name}`;
+  if (boss && boss.kind) el('#bossName').textContent = BOSS_META[boss.kind]!.title ?? boss.kind;
+  if (state === 'pause') el('#pauseChips').innerHTML = statsHTML();
 }
 export function pause() {
   if (state !== 'play') return;
   state = 'pause'; releaseInputs(); exitLock(); bigmap.hidden = true; musicVolume(0.4);
   renderSettings();
-  $('#btnSuspend').hidden = !!run.practice;
-  $('#pauseChips').innerHTML = statsHTML();
+  el('#btnSuspend').hidden = !!run.practice;
+  el('#pauseChips').innerHTML = statsHTML();
   show('#scrPause');
 }
-$('#btnResume').addEventListener('click', () => { show(null); state = 'play'; musicVolume(1); requestLock(); });
-$('#btnAbandon').addEventListener('click', () => endRun('abandon'));
-$('#btnSuspend').addEventListener('click', suspendRun);
+el('#btnResume').addEventListener('click', () => { show(null); state = 'play'; musicVolume(1); requestLock(); });
+el('#btnAbandon').addEventListener('click', () => endRun('abandon'));
+el('#btnSuspend').addEventListener('click', suspendRun);
 
 // ---- suspend / resume ----
 // the snapshot keeps the run and the player's build; resuming regenerates the current stage from its start
@@ -208,8 +208,8 @@ export function discardSuspended() {
   endRun('abandon');
 }
 export function renderSuspend() {
-  const box = $('#suspendBox'), sn = save.suspend;
-  box.hidden = !sn; $('#btnStart').hidden = !!sn;
+  const box = el('#suspendBox'), sn = save.suspend;
+  box.hidden = !sn; el('#btnStart').hidden = !!sn;
   if (!sn) return;
   const tier = Math.floor(sn.run.stage / PER), b = BIOMES[sn.run.route[tier % sn.run.route.length]];
   box.innerHTML = `<p class="eyebrow">suspended</p>
@@ -218,7 +218,7 @@ export function renderSuspend() {
     ${discardArm ? `<button class="buy" data-susp="discard">${t('susp.discardGo')}</button><button class="mini-btn" data-susp="cancel">${t('common.cancel')}</button>`
       : `<button class="mini-btn" data-susp="arm">${t('susp.discard')}</button>`}</div>`;
 }
-$('#suspendBox').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
+el('#suspendBox').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
   const b = tg.closest<HTMLElement>('[data-susp]'); if (!b) return;
   const a = b.dataset.susp;
   if (a === 'resume') resumeRun();
@@ -258,8 +258,8 @@ export function openBag() {
   renderBag(); show('#scrBag');
 }
 export function closeBag() { show(null); state = 'play'; normalizeWeapons(); weaponHud(); requestLock(); }
-$('#btnBagClose').addEventListener('click', closeBag);
-$('#btnUseKit').addEventListener('click', () => { useKit(); renderBag(); });
+el('#btnBagClose').addEventListener('click', closeBag);
+el('#btnUseKit').addEventListener('click', () => { useKit(); renderBag(); });
 export function itemCard(w: WeaponItem | null, where: string, i: number) {
   const sel = invSel && invSel.where === where && invSel.i === i;
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" data-inv="${where}:${i}">${t('base.empty')}</button>`;
@@ -270,13 +270,13 @@ export function itemCard(w: WeaponItem | null, where: string, i: number) {
     ${where === 'eq' ? `<span class="ws">${t('bag.slotN', { n: i + 1 })}${i === P.cur ? t('bag.inHand') : ''}</span>` : ''}</button>`;
 }
 export function renderBag() {
-  $('#invEq').innerHTML = P.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
-  $('#invBag').innerHTML = P.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
-  $('#kitNum').textContent = P.kits;
-  $('#btnUseKit').textContent = t('bag.useKit', { n: kitHealAmount() });
-  $('#btnUseKit').disabled = P.kits <= 0 || P.hp >= P.maxHp;
-  $('#bagChips').innerHTML = `<p class="chips">${t('bag.status', { hp: Math.ceil(P.hp), maxHp: P.maxHp, bits: Math.floor(run.bits) })}</p>` + statsHTML();
-  const act = $('#invAct');
+  el('#invEq').innerHTML = P.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
+  el('#invBag').innerHTML = P.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
+  el('#kitNum').textContent = String(P.kits);
+  el('#btnUseKit').textContent = t('bag.useKit', { n: kitHealAmount() });
+  el<HTMLButtonElement>('#btnUseKit').disabled = P.kits <= 0 || P.hp >= P.maxHp;
+  el('#bagChips').innerHTML = `<p class="chips">${t('bag.status', { hp: Math.ceil(P.hp), maxHp: P.maxHp, bits: Math.floor(run.bits) })}</p>` + statsHTML();
+  const act = el('#invAct');
   if (!invSel) { act.innerHTML = t('bag.pick'); return; }
   const w = invSel.where === 'eq' ? P.weapons[invSel.i] : P.bag[invSel.i];
   if (!w) { act.innerHTML = t('bag.emptySlot'); return; }
@@ -292,7 +292,7 @@ export function renderBag() {
   }
   act.innerHTML = btns.join('') + (w.basic ? '' : `<span>${t('bag.keptNote')}</span>`);
 }
-$('#scrBag').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
+el('#scrBag').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
   const it = tg.closest<HTMLElement>('[data-inv]'), ac = tg.closest<HTMLElement>('[data-act]');
   if (it) { const [where, i] = it.dataset.inv!.split(':'); invSel = { where, i: +i }; renderBag(); return; }
   if (!ac || !invSel) return;
@@ -329,11 +329,11 @@ export function endPractice(kind: string) {
   state = 'result'; releaseInputs(); exitLock();
   const sec = Math.round((performance.now() - run.t0!) / 1000);
   track('practice_end', { target: run.forceBoss!, level: stageInfo(run.stage).tier + 1, result: run.cleared ? 'won' : kind, duration_sec: sec });
-  $('#resEyebrow').textContent = 'practice';
-  $('#resTitle').textContent = t(run.cleared ? 'res.practiceWon' : 'res.practiceDone');
-  $('#resList').innerHTML = [[t('res.boss'), BOSS_META[run.forceBoss!]!.name], [t('res.strength'), t('res.strengthV', { n: stageInfo(run.stage).tier + 1 })], [t('res.result'), t(run.cleared ? 'res.won' : kind === 'dead' ? 'res.died' : 'res.quit')], [t('res.time'), t('res.timeV', { m: Math.floor(sec / 60), s: sec % 60 })]]
+  el('#resEyebrow').textContent = 'practice';
+  el('#resTitle').textContent = t(run.cleared ? 'res.practiceWon' : 'res.practiceDone');
+  el('#resList').innerHTML = [[t('res.boss'), BOSS_META[run.forceBoss!]!.name], [t('res.strength'), t('res.strengthV', { n: stageInfo(run.stage).tier + 1 })], [t('res.result'), t(run.cleared ? 'res.won' : kind === 'dead' ? 'res.died' : 'res.quit')], [t('res.time'), t('res.timeV', { m: Math.floor(sec / 60), s: sec % 60 })]]
     .map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
-  $('#resChips').textContent = t('res.practiceNote'); $('#resOrder').hidden = true;
+  el('#resChips').textContent = t('res.practiceNote'); el('#resOrder').hidden = true;
   hideShare(); prepFeedback(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
@@ -372,17 +372,17 @@ export function endRun(kind: string) {
   }
   if (shortcutMsg) rows.push([t('res.shortcut'), shortcutMsg]);
   persist();
-  $('#resEyebrow').textContent = kind === 'extract' ? 'extracted' : kind === 'abandon' ? 'abandoned' : 'signal lost';
-  $('#resTitle').textContent = t(kind === 'extract' ? 'res.extract' : kind === 'abandon' ? 'res.abandon' : 'res.dead');
-  $('#resList').innerHTML = rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
-  $('#resChips').textContent = run.perks.length ? t('res.chips', { n: run.perks.length, list: chipSummary(run.perks) }) : '';
+  el('#resEyebrow').textContent = kind === 'extract' ? 'extracted' : kind === 'abandon' ? 'abandoned' : 'signal lost';
+  el('#resTitle').textContent = t(kind === 'extract' ? 'res.extract' : kind === 'abandon' ? 'res.abandon' : 'res.dead');
+  el('#resList').innerHTML = rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
+  el('#resChips').textContent = run.perks.length ? t('res.chips', { n: run.perks.length, list: chipSummary(run.perks) }) : '';
   // the order they were taken, folded away (a deep run has around a hundred)
-  $('#resOrderList').textContent = run.perks.map(perkName).join(t('common.sep'));
-  $('#resOrder').hidden = !run.perks.length; ($('#resOrder') as HTMLDetailsElement).open = false;
+  el('#resOrderList').textContent = run.perks.map(perkName).join(t('common.sep'));
+  el('#resOrder').hidden = !run.perks.length; el<HTMLDetailsElement>('#resOrder').open = false;
   prepShare(kind); prepFeedback(kind);
   setTimeout(() => { setPlayUI(false); show('#scrResult'); }, kind === 'dead' ? 700 : 0);
 }
-$('#btnBack').addEventListener('click', goBase);
+el('#btnBack').addEventListener('click', goBase);
 export function goBase() {
   state = 'base'; setRun(null); setPlayer(null);
   setPlayUI(false); show('#scrBase'); renderBase();
@@ -433,26 +433,26 @@ export function showTab(name: string) {
   document.querySelectorAll<HTMLElement>('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
   prefSet('sd-base-tab', name);
 }
-$('.tabs').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement; const b = tg.closest<HTMLElement>('[data-tab]'); if (b) { showTab(b.dataset.tab!); $('#scrBase').scrollTop = 0; } });
+el('.tabs').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement; const b = tg.closest<HTMLElement>('[data-tab]'); if (b) { showTab(b.dataset.tab!); el('#scrBase').scrollTop = 0; } });
 export function renderBase() {
   showBaseFeedback();
-  $('#sBits').textContent = save.bits;
-  $('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
-  $('#sRuns').textContent = save.runs;
-  $('#sBoss').textContent = save.bossKills;
+  el('#sBits').textContent = String(save.bits);
+  el('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
+  el('#sRuns').textContent = String(save.runs);
+  el('#sBoss').textContent = String(save.bossKills);
   save.startTier = clamp(save.startTier, 0, save.shortcut);
-  $('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, n) =>
+  el('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, n) =>
     `<button class="tier" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b><small>${n === 0 ? t('base.tierFirst') : t('base.tierChips', { n, times: TUNE.supplyTimes })}</small><small class="rd rd${readiness(n)}">${t(`base.ready${readiness(n)}`)}</small></button>`).join('');
-  $('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
+  el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
-  $('#loadout').innerHTML = [0, 1].map(k => {
+  el('#loadout').innerHTML = [0, 1].map(k => {
     const w = save.loadout[k];
     return `<button class="lslot ${selSlot === k ? 'sel' : ''}" data-slot="${k}"><span class="eyebrow">${t('base.slot', { n: k + 1 })}${selSlot === k ? t('base.slotTarget') : ''}</span>
       <span class="wn">${w ? wName(basicNow(w)) : t('base.empty')}</span>${w && !w.basic ? `<span class="risk">${t('base.stashRisk')}</span>` : w ? `<span class="ws">${t('base.keep')}</span>` : ''}
       ${k === 1 && w ? `<span class="mini-btn" data-unequip="1" role="button">${t('base.unequip')}</span>` : ''}</button>`;
   }).join('');
-  $('#modCap').textContent = t('base.modCap', { cap: modPlusCap(), depth: peakDepth(), per: MOD_CAP_PER_DEPTH, min: MOD_PLUS_MAX });
-  $('#wgrid').innerHTML = WEAPON_ORDER.map(id => {
+  el('#modCap').textContent = t('base.modCap', { cap: modPlusCap(), depth: peakDepth(), per: MOD_CAP_PER_DEPTH, min: MOD_PLUS_MAX });
+  el('#wgrid').innerHTML = WEAPON_ORDER.map(id => {
     const def = WEAPONS[id], un = id === 'pistol' || !!save.unlocked[id];
     if (!un) return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" data-w="${id}">
       <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${wStat({ id, r: 0 })}</span>
@@ -466,40 +466,40 @@ export function renderBase() {
       <span class="wn">${wName(w)}</span><span class="wd">${def.desc}</span><span class="ws">${wStat(w)}</span>
       <span class="acts"><button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: selSlot + 1 })}</button>${plusBtn}${rarBtn}</span></div>`;
   }).join('');
-  $('#stashCount').textContent = t('base.stashCount', { n: save.stash.length, max: STASH_MAX });
-  $('#stash').innerHTML = save.stash.length ? save.stash.map((w, i) => `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
+  el('#stashCount').textContent = t('base.stashCount', { n: save.stash.length, max: STASH_MAX });
+  el('#stash').innerHTML = save.stash.length ? save.stash.map((w, i) => `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
       <span class="acts"><button class="mini-btn amber" data-stash="${i}">${t('base.stashAssign', { n: selSlot + 1 })}</button><button class="mini-btn" data-sell="${i}">${t('base.sell', { v: sellValue(w) })}</button></span></div>`).join('')
     : `<div class="empty">${t('base.stashEmpty')}</div>`;
-  $('#ulist').innerHTML = UPGRADES.map(u => {
+  el('#ulist').innerHTML = UPGRADES.map(u => {
     const l = save.up[u.id] || 0, maxed = l >= u.max, cost = u.cost(l);
     const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('');
     return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc!(l)}</div><div class="pips">${pips}</div></div>
       <button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' BIT'}</button></div>`;
   }).join('');
   renderReboot();
-  $('#practiceTier').innerHTML = `<span>${t('base.practiceTierLabel')}</span>` + [0, 1, 2, 4].map(t => `<button data-ptier="${t}" aria-pressed="${practiceTier === t}">D${t + 1}</button>`).join('');
-  $('#bossList').innerHTML = BOSS_ORDER.map(k => `<button class="wcard" data-practice="${k}"><span class="wn">${BOSS_META[k].name}</span>
+  el('#practiceTier').innerHTML = `<span>${t('base.practiceTierLabel')}</span>` + [0, 1, 2, 4].map(t => `<button data-ptier="${t}" aria-pressed="${practiceTier === t}">D${t + 1}</button>`).join('');
+  el('#bossList').innerHTML = BOSS_ORDER.map(k => `<button class="wcard" data-practice="${k}"><span class="wn">${BOSS_META[k].name}</span>
     <span class="wd">${BOSS_META[k].desc}</span><span class="wf">${t(save.bossSeen[k] ? 'base.practiceGo' : 'base.practiceGoNew')}</span></button>`).join('');
   renderSettings();
-  $('#help').innerHTML = isTouch
+  el('#help').innerHTML = isTouch
     ? t('base.helpTouch')
     : t('base.helpDesk');
 }
 export let rebootArm = false;
 export const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
 export function renderReboot() {
-  const pr = save.pres, sec = $('#rebootSec');
+  const pr = save.pres, sec = el('#rebootSec');
   sec.hidden = !(save.canReboot || pr.count > 0);
   if (sec.hidden) return;
-  $('#rebootNote').textContent = t('reboot.note', { count: pr.count, diff: Math.round((presMul() - 1) * 100), pts: pr.pts });
-  $('#presList').innerHTML = PRES_UP.map(u => {
+  el('#rebootNote').textContent = t('reboot.note', { count: pr.count, diff: Math.round((presMul() - 1) * 100), pts: pr.pts });
+  el('#presList').innerHTML = PRES_UP.map(u => {
     const l = pr.up[u.id] || 0, maxed = l >= u.max, cost = presCost(u, l);
     // uncapped bonuses show their level instead of a row of pips
     const pips = isFinite(u.max) ? Array.from({ length: u.max }, (_, k) => `<i class="${k < l ? 'on' : ''}"></i>`).join('') : `<small>${t('pres.level', { n: l })}</small>`;
     return `<div class="urow"><div><div class="un">${u.name}</div><div class="ud">${u.desc!(l)}</div><div class="pips">${pips}</div></div>
       <button class="buy" data-pres="${u.id}" ${maxed || pr.pts < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' pt'}</button></div>`;
   }).join('');
-  const row = $('#rebootRow');
+  const row = el('#rebootRow');
   if (save.suspend) { row.innerHTML = `<p class="help">${t('reboot.suspended')}</p>`; return; }
   if (!save.canReboot) { row.innerHTML = `<p class="help">${t('reboot.locked')}</p>`; return; }
   row.innerHTML = rebootArm
@@ -523,7 +523,7 @@ export function assignLoadout(item: WeaponItem | null) {
   if (prev && !prev.basic) save.stash.push(prev);
   save.loadout[selSlot] = item;
 }
-$('#scrBase').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
+el('#scrBase').addEventListener('click', (e: Event) => { const tg = e.target as HTMLElement;
   const un = tg.closest<HTMLElement>('[data-unequip]'), sl = tg.closest<HTMLElement>('[data-slot]'), w = tg.closest<HTMLElement>('[data-w]'), u = tg.closest<HTMLElement>('[data-up]');
   const st = tg.closest<HTMLElement>('[data-stash]'), se = tg.closest<HTMLElement>('[data-sell]'), ti = tg.closest<HTMLElement>('[data-tier]');
   const pu = tg.closest<HTMLElement>('[data-pres]'), rb = tg.closest<HTMLElement>('[data-reboot]'), pr = tg.closest<HTMLElement>('[data-practice]');
@@ -561,23 +561,23 @@ $('#scrBase').addEventListener('click', (e: Event) => { const tg = e.target as H
   } else return;
   persist(); renderBase();
 });
-$('#btnStart').addEventListener('click', startRun);
+el('#btnStart').addEventListener('click', startRun);
 
 // ---- full data wipe (red confirmation dialog) ----
-$('#btnWipe').addEventListener('click', () => { $('#dlgWipe').hidden = false; $('#btnWipeCancel').focus(); });
-$('#btnWipeCancel').addEventListener('click', () => { $('#dlgWipe').hidden = true; });
-document.addEventListener('keydown', e => { if (e.code === 'Escape' && !$('#dlgWipe').hidden) $('#dlgWipe').hidden = true; });
+el('#btnWipe').addEventListener('click', () => { el('#dlgWipe').hidden = false; el('#btnWipeCancel').focus(); });
+el('#btnWipeCancel').addEventListener('click', () => { el('#dlgWipe').hidden = true; });
+document.addEventListener('keydown', e => { if (e.code === 'Escape' && !el('#dlgWipe').hidden) el('#dlgWipe').hidden = true; });
 // ---- save codes: copy the save to another device (settings tab > data) ----
 // export shows the code with copy / save-to-file; import takes a pasted code or a file, asks once, then reloads
 export let saveMode: 'export' | 'import' | null = null, importArm = false;
 export function renderSavePanel() {
-  const panel = $('#savePanel'), box = el<HTMLTextAreaElement>('#saveCode');
+  const panel = el('#savePanel'), box = el<HTMLTextAreaElement>('#saveCode');
   panel.hidden = !saveMode;
   if (!saveMode) return;
   box.readOnly = saveMode === 'export';
   box.placeholder = saveMode === 'import' ? t('save.paste') : '';
-  $('#saveMsg').textContent = t(saveMode === 'export' ? 'save.exportNote' : importArm ? 'save.importConfirm' : 'save.importNote');
-  $('#saveBtns').innerHTML = saveMode === 'export'
+  el('#saveMsg').textContent = t(saveMode === 'export' ? 'save.exportNote' : importArm ? 'save.importConfirm' : 'save.importNote');
+  el('#saveBtns').innerHTML = saveMode === 'export'
     ? `<button class="mini-btn amber" data-save="copy">${t('save.copy')}</button><button class="mini-btn" data-save="download">${t('save.download')}</button><button class="mini-btn" data-save="close">${t('common.close')}</button>`
     : importArm
       ? `<button class="danger-ghost" data-save="go">${t('save.importGo')}</button><button class="mini-btn" data-save="cancel">${t('common.cancel')}</button>`
@@ -588,9 +588,9 @@ function openSavePanel(mode: 'export' | 'import') {
   el<HTMLTextAreaElement>('#saveCode').value = saveMode === 'export' ? exportSave() : '';
   renderSavePanel();
 }
-$('#btnExport').addEventListener('click', () => openSavePanel('export'));
-$('#btnImport').addEventListener('click', () => openSavePanel('import'));
-$('#saveBtns').addEventListener('click', (e: Event) => {
+el('#btnExport').addEventListener('click', () => openSavePanel('export'));
+el('#btnImport').addEventListener('click', () => openSavePanel('import'));
+el('#saveBtns').addEventListener('click', (e: Event) => {
   const b = (e.target as HTMLElement).closest<HTMLElement>('[data-save]'); if (!b) return;
   const a = b.dataset.save, box = el<HTMLTextAreaElement>('#saveCode');
   if (a === 'close') { saveMode = null; renderSavePanel(); }
@@ -618,9 +618,9 @@ el<HTMLInputElement>('#saveFile').addEventListener('change', e => {
   f.text().then(txt => { el<HTMLTextAreaElement>('#saveCode').value = txt.trim(); (e.target as HTMLInputElement).value = ''; });
 });
 
-$('#btnWipeGo').addEventListener('click', () => {
+el('#btnWipeGo').addEventListener('click', () => {
   clearStore(SAVE_KEY);
   setSave(defaultSave()); persist();
-  $('#dlgWipe').hidden = true; selSlot = 0;
+  el('#dlgWipe').hidden = true; selSlot = 0;
   renderBase(); applyLayout();
 });

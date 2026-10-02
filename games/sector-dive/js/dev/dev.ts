@@ -1,5 +1,5 @@
 import type { Pickup, RunState, Snapshot, Weapon } from '../data/types.ts';
-import { $, el, rand, shuffle } from '../../../../engine/core/util.ts';
+import { el, rand, shuffle } from '../../../../engine/core/util.ts';
 import { devSmoke } from '../../../../engine/core/dev.ts';
 import { clearWorld, query } from '../../../../engine/core/world.ts';
 import { LANG, lang, t } from '../../../../engine/core/i18n.ts';
@@ -423,15 +423,15 @@ devSmoke(() => {
         window.open = ((u: string) => { opened.push(u); return null; }) as typeof window.open;
         try {
           FEEDBACK_FORM.url = '';
-          goBase(); if (!$('#btnFeedbackBase').hidden) throw new Error('feedback shown without a form');
+          goBase(); if (!el('#btnFeedbackBase').hidden) throw new Error('feedback shown without a form');
           Object.assign(FEEDBACK_FORM, { url: 'https://docs.google.com/forms/d/e/test/viewform', game: '1', build: '2', info: '3' });
           startRun(); tick(5); run.perks = ['split', 'split', 'rapid+']; endRun('extract');
-          if ($('#btnFeedbackRes').hidden) throw new Error('feedback button on the result screen');
-          $('#btnFeedbackRes').click();
+          if (el('#btnFeedbackRes').hidden) throw new Error('feedback button on the result screen');
+          el('#btnFeedbackRes').click();
           const info = new URL(opened[0]!).searchParams.get('entry.3') || '';
           if (!info.includes('result=extract') || !info.includes('splitx2') || !info.includes('rapid+') || new URL(opened[0]!).searchParams.get('entry.1') !== 'sector-dive') throw new Error('feedback info ' + info);
-          goBase(); if ($('#btnFeedbackBase').hidden) throw new Error('feedback link on the base screen');
-          $('#btnFeedbackBase').click();
+          goBase(); if (el('#btnFeedbackBase').hidden) throw new Error('feedback link on the base screen');
+          el('#btnFeedbackBase').click();
           if (!(new URL(opened[1]!).searchParams.get('entry.3') || '').startsWith('from=base')) throw new Error('feedback base info');
         } finally { Object.assign(FEEDBACK_FORM, keepForm); window.open = keepOpen; }
         goBase(); startRun(); tick(5);
@@ -442,10 +442,10 @@ devSmoke(() => {
         goBase(); startRun(); tick(5); run.perks = ['rapid', 'split', 'split+', 'split', 'overload+'];
         endRun('extract');
         const want = t('res.chips', { n: 5, list: [t('common.countRare', { name: perkName('split'), n: 3, r: 1 }), perkName('rapid'), perkName('overload+')].join(t('common.sep')) });
-        if ($('#resChips').textContent !== want) throw new Error('result chips ' + $('#resChips').textContent);
-        if ($('#resOrder').hidden || ($('#resOrder') as HTMLDetailsElement).open || $('#resOrderList').textContent !== run.perks.map(perkName).join(t('common.sep'))) throw new Error('result chip order');
+        if (el('#resChips').textContent !== want) throw new Error('result chips ' + el('#resChips').textContent);
+        if (el('#resOrder').hidden || el<HTMLDetailsElement>('#resOrder').open || el('#resOrderList').textContent !== run.perks.map(perkName).join(t('common.sep'))) throw new Error('result chip order');
         goBase(); startPractice('crusher', 0); tick(5); endRun('abandon');
-        if (!$('#resOrder').hidden) throw new Error('chip order after practice');
+        if (!el('#resOrder').hidden) throw new Error('chip order after practice');
         goBase(); startRun(); tick(5);
         console.log('SMOKE result chips ok');
       }
@@ -463,11 +463,11 @@ devSmoke(() => {
       {
         goBase(); startRun(); tick(5); run.bosses = ['watcher']; run.perks = ['overload', 'overload', 'rapid+'];
         endRun('extract');
-        if ($('#btnShare').hidden || !shareData || shareData.bosses[0] !== BOSS_META.watcher.short || shareData.chips[0] !== t('common.count', { name: perkName('overload'), n: 2 })) throw new Error('share data');
+        if (el('#btnShare').hidden || !shareData || shareData.bosses[0] !== BOSS_META.watcher.short || shareData.chips[0] !== t('common.count', { name: perkName('overload'), n: 2 })) throw new Error('share data');
         if (!shareText(shareData).includes('#SectorDive') || !shareText(shareData).includes(BOSS_META.watcher.short)) throw new Error('share text');
-        $('#btnShare').click(); if ($('#sharePanel').hidden) throw new Error('share panel on PC');
+        el('#btnShare').click(); if (el('#sharePanel').hidden) throw new Error('share panel on PC');
         goBase(); startPractice('crusher', 0); tick(5); endRun('abandon');
-        if (!$('#btnShare').hidden) throw new Error('share shown after practice');
+        if (!el('#btnShare').hidden) throw new Error('share shown after practice');
         // a deep run beats many bosses: the post counts them per kind and stays within X's 280 (CJK counts 2, the URL 23)
         const xLen = (s: string) => { const [body, url] = [s.slice(0, s.lastIndexOf('\n')), s.slice(s.lastIndexOf('\n') + 1)]; return [...body].reduce((n, c) => n + (c.charCodeAt(0) > 0x10ff ? 2 : 1), 0) + 1 + (url ? 23 : 0); };
         const many = { ...shareData!, bosses: Array.from({ length: 30 }, (_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short!) };
@@ -478,7 +478,7 @@ devSmoke(() => {
         goBase(); startRun(); tick(5);
         // switching the language from the pause screen rewrites the stats panel and the stage label
         { const other = lang === 'ja' ? 'en' : 'ja'; pause(); changeLang(other);
-          const ok = $('#pauseChips').innerHTML.includes(t('stats.title')) && $('#stageLbl').textContent!.includes(stageInfo(run.stage).biome.name!);
+          const ok = el('#pauseChips').innerHTML.includes(t('stats.title')) && el('#stageLbl').textContent!.includes(stageInfo(run.stage).biome.name!);
           changeLang(keepLang); show(null); setState('play');
           if (!ok) throw new Error('pause screen kept the old language'); }
         console.log('SMOKE share ok', lens.join('/'), 'chars');
@@ -500,8 +500,8 @@ devSmoke(() => {
       resumeRun(); tick(60); if (run.stage !== 2 || (save.suspend as Snapshot | null)?.run.stage !== 2) throw new Error('resume failed');
       suspendRun(); discardSuspended(); if (save.suspend || (state as string) !== 'result') throw new Error('discard failed');
       console.log('SMOKE suspend ok');
-      goBase(); save.bits = 999; save.up.hp = 3; $('#btnWipe').click(); $('#btnWipeGo').click();
-      if (save.bits !== 0 || save.up.hp !== 0 || !$('#dlgWipe').hidden) throw new Error('wipe failed');
+      goBase(); save.bits = 999; save.up.hp = 3; el('#btnWipe').click(); el('#btnWipeGo').click();
+      if (save.bits !== 0 || save.up.hp !== 0 || !el('#dlgWipe').hidden) throw new Error('wipe failed');
       console.log('SMOKE wipe ok');
       // hit direction: a hit from behind shows the arc, one from in front doesn't
       {
@@ -533,9 +533,9 @@ devSmoke(() => {
         save.bits = 1; save.up.dmg = 0; persist();
         if (importSaveCheck(code.slice(0, -1) + (code.endsWith('0') ? '1' : '0')) || importSave('SD1:abc.00000000')) throw new Error('bad save code accepted');
         if (!importSave(code) || save.bits !== 777 || save.up.dmg !== 2) throw new Error('save code round trip');
-        $('#btnExport').click(); if ($('#savePanel').hidden || !el<HTMLTextAreaElement>('#saveCode').value.startsWith('SD1:')) throw new Error('export panel');
-        $('#btnExport').click(); if (!$('#savePanel').hidden) throw new Error('export panel toggle');
-        $('#btnWipe').click(); $('#btnWipeGo').click();
+        el('#btnExport').click(); if (el('#savePanel').hidden || !el<HTMLTextAreaElement>('#saveCode').value.startsWith('SD1:')) throw new Error('export panel');
+        el('#btnExport').click(); if (!el('#savePanel').hidden) throw new Error('export panel toggle');
+        el('#btnWipe').click(); el('#btnWipeGo').click();
         console.log('SMOKE savecode ok', code.length + ' chars');
       }
       // start-depth readiness: a fresh save is "fair" at DEPTH 1 and gets harder deeper; upgrades and mods make it easier
@@ -598,12 +598,12 @@ devSmoke(() => {
         const deep = [6, 9, 13, 19].map(n => readinessScore(n, strong));
         if (deep.some((v, i) => i && v >= deep[i - 1]!)) throw new Error('readiness deep ' + deep.map(v => v.toFixed(2)));
         console.log('SMOKE readiness ok', fresh.join(','), 'D3 fresh', s0.toFixed(2), 'maxed', s1.toFixed(2), '->', readiness(2));
-        $('#btnWipe').click(); $('#btnWipeGo').click();
+        el('#btnWipe').click(); el('#btnWipeGo').click();
       }
       // touch layout editor: open from the base, make the dash button bigger, close; the edit is kept
       {
         const s0 = getL('dash').s;
-        openLayoutEditor('base'); if ((state as string) !== 'layout' || $('#layoutBar').hidden) throw new Error('layout editor open');
+        openLayoutEditor('base'); if ((state as string) !== 'layout' || el('#layoutBar').hidden) throw new Error('layout editor open');
         document.querySelector<HTMLElement>('[data-lbact="plus"]')!.click(); document.querySelector<HTMLElement>('[data-lbact="done"]')!.click();
         if (state !== 'base' || Math.abs(getL('dash').s - (s0 + 0.1)) > 1e-9) throw new Error('layout editor ' + getL('dash').s);
         save.settings.layout = {}; applyLayout();
@@ -644,7 +644,7 @@ if (location.hash === '#view-trooper') setTimeout(() => {
   for (let k = 0; k < 40; k++) update(1 / 60);
 }, 300);
 // dev view: #view-wipe opens the data wipe dialog on the base screen (for screenshots)
-if (location.hash === '#view-wipe') setTimeout(() => $('#btnWipe').click(), 300);
+if (location.hash === '#view-wipe') setTimeout(() => el('#btnWipe').click(), 300);
 // dev view: #boss-phantom etc. starts boss practice against that boss
 // optional depth: #boss-phantom-3 = DEPTH 3 strength
 if (location.hash.startsWith('#boss-')) setTimeout(() => { const [k, d] = location.hash.slice(6).split('-'); if (BOSS_META[k]) startPractice(k, d ? Math.max(0, +d - 1) : 0); }, 300);
@@ -671,7 +671,7 @@ if (location.hash.startsWith('#view-share')) setTimeout(() => {
   if (location.hash.includes('many')) run.perks = shuffle(Object.entries({ split: 25, rapid: 18, overload: 13, 'overload+': 3, armor: 10, 'armor+': 3, mag: 4, leech: 4, 'leech+': 3, sprint: 4, 'sprint+': 1, reload: 3, 'crit+': 2, chain: 1, pierce: 1, 'light+': 1, repair: 1, 'rapid+': 1 }).flatMap(([id, n]) => Array(n).fill(id)));
   if (location.hash.includes('reboot')) save.pres.count = 3; P.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
   const kind = location.hash.includes('dead') ? 'dead' : 'extract';
-  endRun(kind); if (location.hash.includes('res')) { if (location.hash.includes('panel')) setTimeout(() => $('#btnShare').click(), 900); return; } // #view-share-res: the result screen itself
+  endRun(kind); if (location.hash.includes('res')) { if (location.hash.includes('panel')) setTimeout(() => el('#btnShare').click(), 900); return; } // #view-share-res: the result screen itself
   drawShareCard(shareData!).then(b => { const im = new Image(); im.src = URL.createObjectURL(b!); im.style.cssText = 'position:fixed;inset:0;width:100%;z-index:99;background:#000'; document.body.appendChild(im); console.log('VIEW share', shareText(shareData!)); });
 }, 300);
 if (location.hash.startsWith('#view-perk')) setTimeout(() => { startRun(); PERKS[0].apply(P, 0.2); if (location.hash.includes('perk4')) save.pres.up.choice = 1; openPerk(t('perk.title')); }, 300); // #view-perk4: four options

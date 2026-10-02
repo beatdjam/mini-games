@@ -1,6 +1,6 @@
 import type { Boss, Enemy, Laser } from '../../data/types.ts';
 import * as THREE from 'three';
-import { $, clamp } from '../../../../../engine/core/util.ts';
+import { clamp, el } from '../../../../../engine/core/util.ts';
 import { t } from '../../../../../engine/core/i18n.ts';
 import { sfx } from '../../../../../engine/audio/audio.ts';
 import { setMusic } from '../../../../../engine/audio/music.ts';
@@ -41,7 +41,7 @@ export function bossBase<S extends object>(kind: string, mesh: THREE.Object3D, m
     spawnT: BOSS_TUNE.introTime, spawnMax: BOSS_TUNE.introTime, intro: true, ...state };
   mesh.position.set(e.x, y, e.z);
   spawnEnemyObj(e); setBoss(e);
-  $('#bossName').textContent = name; $('#bossBar').hidden = false;
+  el('#bossName').textContent = name; el('#bossBar').hidden = false;
   const [en, jp] = name.split(' — ');
   banner(en, jp || 'BOSS'); sfx('beam');
   return e;
@@ -80,7 +80,7 @@ export function bossDown(e: Boss) {
   query('wave').forEach(w => { w.dead = true; }); // a shockwave still spreading must not kill the player after the win
   if (run.practice) { // practice: no rewards, no progress; just a way home
     makePortal(e.cx, e.cz - 2, 0x54e8ff, 'extract', t('boss.toBase'));
-    $('#bossBar').hidden = true; setBoss(null); run.cleared = true;
+    el('#bossBar').hidden = true; setBoss(null); run.cleared = true;
     toast(t('boss.practiceWon'), 2600);
     return;
   }
@@ -92,7 +92,7 @@ export function bossDown(e: Boss) {
   addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(prog(run.stage) + 2, roll > 0.9 ? 2 : 1) });
   makePortal(e.cx + 6, e.cz - 2, 0xffc24a, 'next', t('boss.forward'));
   makePortal(e.cx - 6, e.cz - 2, 0x54e8ff, 'extract', t('boss.extract'));
-  $('#bossBar').hidden = true; setBoss(null);
+  el('#bossBar').hidden = true; setBoss(null);
   save.bossKills++;
   if (stageInfo(run.stage).tier >= 2 && !save.canReboot) { save.canReboot = true; setTimeout(() => toast(t('boss.rebootUnlocked'), 4200), 4400); }
   const newTier = stageInfo(run.stage).tier + 1;
