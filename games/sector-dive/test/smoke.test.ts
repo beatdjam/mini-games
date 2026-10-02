@@ -57,16 +57,7 @@ import {
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import {
-  buildLevel,
-  hazardTiles,
-  hazardState,
-  makePortal,
-  portals,
-  rooms,
-  roomSpot,
-  startIdx,
-} from '../src/world/level.ts';
+import { buildLevel, hazardState, level, makePortal, roomSpot } from '../src/world/level.ts';
 import {
   addPickup,
   boss,
@@ -168,7 +159,7 @@ BIOMES.forEach((b, bi) => {
       'ramps',
       ramp.filter(r => r >= 0).length,
       'haz',
-      hazardTiles.filter(Boolean).length,
+      level.hazardTiles.filter(Boolean).length,
     );
   });
   b.bosses.forEach(kind => {
@@ -252,7 +243,7 @@ test('shield: front wears the shield, back hurts, then it breaks', () => {
     removeEnemyMesh(e);
   });
   clearWorld('enemy');
-  const [sx, sz] = roomSpot(rooms[startIdx]);
+  const [sx, sz] = roomSpot(level.rooms[level.startIdx]);
   const e = spawnEnemy('shield', sx, sz, -1, 1);
   if (!isShielded(e)) throw new Error('shield fields');
   e.face = 0;
@@ -504,7 +495,7 @@ test('chain blast: one kill in a tight cluster does not cascade', () => {
   clearWorld('enemy');
   player.chain = 3;
   player.dmgMul = 10; // blasts strong enough to kill anything they touch
-  const [cx, cz] = roomSpot(rooms[startIdx]);
+  const [cx, cz] = roomSpot(level.rooms[level.startIdx]);
   const line = [0, 2.8, 5.6, 8.4].map(dx => spawnEnemy('crawler', cx + dx, cz, -1, 1)); // each 2.8m apart, blast radius 4
   hurtEnemy(line[0], 1e6, false);
   const alive = line.filter(e => !e.dead).length;
@@ -790,7 +781,7 @@ test('boss practice: fight, win, go home; the save does not change', () => {
     hurtEnemy(boss!, boss!.hp + 1, false);
     if (query('wave').length) throw new Error('shockwave outlived the boss ' + kind);
     tick(30);
-    if (portals.length !== 1 || portals[0].kind !== 'extract') throw new Error('practice portal ' + kind);
+    if (level.portals.length !== 1 || level.portals[0].kind !== 'extract') throw new Error('practice portal ' + kind);
     endRun('extract');
   });
   const after = JSON.stringify(save);
@@ -1157,10 +1148,10 @@ test('hazard floors: none in the start room, off at the start of an area', () =>
       run.route = [route];
       run.stage = (k % 6) * PER + (k % 3);
       startStage();
-      const R = rooms[startIdx]!;
+      const R = level.rooms[level.startIdx]!;
       for (let j = R.y - 1; j <= R.y + R.h; j++)
         for (let i = R.x - 1; i <= R.x + R.w; i++)
-          if (hazardTiles[j * W + i])
+          if (level.hazardTiles[j * W + i])
             throw new Error(`hazard in the start room: route ${route} stage ${run.stage} tile ${i},${j}`);
       if (hazardState() === 'on') throw new Error('hazards live at the start of an area');
     }
@@ -1226,10 +1217,10 @@ describe('reachability', () => {
           }
           return seenT;
         };
-        const [sx, sz] = roomSpot(rooms[startIdx]),
+        const [sx, sz] = roomSpot(level.rooms[level.startIdx]),
           st = tileIndex(sx, sz),
           fwdR = reach(st);
-        rooms.forEach(r => {
+        level.rooms.forEach(r => {
           const [x, z] = roomSpot(r),
             k = tileIndex(x, z);
           if (!fwdR[k]) bad++;

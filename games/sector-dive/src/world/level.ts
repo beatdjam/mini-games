@@ -77,24 +77,42 @@ export interface Portal {
   clear: boolean;
 }
 export type LevelMaps = ReturnType<typeof newMaps>;
-// per-tile maps of the current level (empty until the first level is built): room index, seen on the map, hazard floor
-export let roomOf: Int8Array = new Int8Array(0);
-export let seen: Uint8Array = new Uint8Array(0);
-export let hazardTiles: Uint8Array = new Uint8Array(0);
-// the rooms of the current level; replaced when a level is built
-export let rooms: Room[] = [];
 let hazMat: THREE.MeshBasicMaterial | null = null; // material of the hazard floor
 let hazT = 0; // hazard floor clock (s)
 export function setHazardClock(v: number) {
   hazT = v;
 } // tests
-export let levelGroup: THREE.Group | null = null; // the three.js group holding the level's meshes
-export let portals: Portal[] = [];
-export let startIdx = 0; // room index of the start
-export let exitIdx = 0; // room index of the exit
-export let roomCount: number[] = []; // enemies left per room (a room is cleared at 0)
-export let arena = false; // the level is a boss arena
-export let curBiome = BIOMES[0]; // sector (biome) of the current level
+// the level being played: built as a whole by buildLevel, replaced (never patched field by field) on the next one
+export interface Level {
+  biome: Biome; // sector of this level
+  arena: boolean; // a boss arena
+  rooms: Room[];
+  roomOf: Int8Array; // per tile: index of the room it is in (-1 = none)
+  seen: Uint8Array; // per tile: shown on the map (filled in as the player explores)
+  hazardTiles: Uint8Array; // per tile: hazard floor
+  roomCount: number[]; // enemies left per room (a room is cleared at 0)
+  portals: Portal[];
+  startIdx: number; // room index of the start
+  exitIdx: number; // room index of the exit
+  group: THREE.Group | null; // the three.js group holding the level's meshes
+}
+function emptyLevel(): Level {
+  return {
+    biome: BIOMES[0],
+    arena: false,
+    rooms: [],
+    roomOf: new Int8Array(0),
+    seen: new Uint8Array(0),
+    hazardTiles: new Uint8Array(0),
+    roomCount: [],
+    portals: [],
+    startIdx: 0,
+    exitIdx: 0,
+    group: null,
+  };
+}
+// replaced only by buildLevel (and emptied piecewise by clearLevel)
+export let level: Level = emptyLevel();
 
 // ---------- generators ----------
 export function newMaps(w: number, h: number) {
@@ -302,17 +320,17 @@ export function genArena(withPillars: boolean) {
 }
 
 export function clearLevel() {
-  if (levelGroup) {
-    disposeTree(levelGroup);
-    scene.remove(levelGroup);
-    levelGroup = null;
+  if (level.group) {
+    disposeTree(level.group);
+    scene.remove(level.group);
+    level.group = null;
   }
   enemies.forEach(removeEnemyMesh);
   clearWorld();
   clearPool(pBullets);
   clearPool(eBullets);
   clearFx();
-  portals = [];
+  level.portals = [];
   setBoss(null);
   setNear(null);
   hazMat = null;
@@ -354,13 +372,8 @@ export const RAMP_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
 
 export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | null) {
   clearLevel();
-  curBiome = biome;
-  arena = isArena;
   const gen = isArena ? genArena(BOSS_META[bossKind!].pillars) : genRooms(biome.gen);
-  rooms = gen.rooms;
   const M = gen.M;
-  hazardTiles = M.hz;
-  roomOf = M.ro;
   setTileWorld({
     W: gen.W,
     H: gen.H,
@@ -371,10 +384,21 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
     flow: new Int16Array(gen.W * gen.H),
     flowQ: new Int32Array(gen.W * gen.H),
   });
-  seen = new Uint8Array(W * H);
-  roomCount = new Array(rooms.length).fill(0);
   const lg = new THREE.Group();
-  levelGroup = lg;
+  // a new object per build; startIdx, exitIdx and portals are filled in below, before anything else reads it
+  level = {
+    biome,
+    arena: isArena,
+    rooms: gen.rooms,
+    roomOf: M.ro,
+    seen: new Uint8Array(W * H),
+    hazardTiles: M.hz,
+    roomCount: new Array(gen.rooms.length).fill(0),
+    portals: [],
+    startIdx: 0,
+    exitIdx: 0,
+    group: lg,
+  };
   scene.add(lg);
   const tex = biomeTex(biome);
   tex.floor.repeat.set(W, H);
@@ -449,14 +473,15 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
   // the start room (picked before the hazard floor is drawn): none in it or its doorways, so the first steps of an
   // area can't land on one (the spot is the room's middle, so a hazard there put the player right next to others)
   if (!isArena) {
-    startIdx = randi(0, rooms.length - 1);
-    const R = rooms[startIdx]!;
+    level.startIdx = randi(0, level.rooms.length - 1);
+    const R = level.rooms[level.startIdx]!;
     for (let j = R.y - 1; j <= R.y + R.h; j++)
-      for (let i = R.x - 1; i <= R.x + R.w; i++) if (i >= 0 && j >= 0 && i < W && j < H) hazardTiles[j * W + i] = 0;
+      for (let i = R.x - 1; i <= R.x + R.w; i++)
+        if (i >= 0 && j >= 0 && i < W && j < H) level.hazardTiles[j * W + i] = 0;
   }
   // hazard floor
   const hz: number[] = [];
-  for (let k = 0; k < W * H; k++) if (hazardTiles[k]) hz.push(k);
+  for (let k = 0; k < W * H; k++) if (level.hazardTiles[k]) hz.push(k);
   if (hz.length) {
     hazMat = new THREE.MeshBasicMaterial({
       color: biome.gen.hazard.color,
@@ -526,20 +551,16 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
   (scene.background as THREE.Color).setHex(biome.fog);
   (scene.fog as THREE.Fog).near = isArena ? ARENA_FOG_NEAR : biome.fogNear;
   (scene.fog as THREE.Fog).far = isArena ? Math.max(ARENA_FOG_FAR_MIN, biome.fogFar) : biome.fogFar;
-  if (isArena) {
-    startIdx = 0;
-    exitIdx = 0;
-    return;
-  }
-  const [sx, sz] = roomSpot(rooms[startIdx]);
+  if (isArena) return;
+  const [sx, sz] = roomSpot(level.rooms[level.startIdx]);
   computeFlow(Math.floor(sx / T), Math.floor(sz / T));
   let best = -1;
-  rooms.forEach((r, idx) => {
+  level.rooms.forEach((r, idx) => {
     const [x, z] = roomSpot(r),
       d = flow[tileIndex(x, z)];
     if (d > best) {
       best = d;
-      exitIdx = idx;
+      level.exitIdx = idx;
     }
   });
 }
@@ -552,7 +573,7 @@ export function roomSpot(r: Room): [number, number] {
   for (let j = r.y; j < r.y + r.h; j++)
     for (let i = r.x; i < r.x + r.w; i++) {
       const k = j * W + i;
-      if (!walkable(k) || hazardTiles[k]) continue;
+      if (!walkable(k) || level.hazardTiles[k]) continue;
       const d = (i - cx) * (i - cx) + (j - cy) * (j - cy);
       if (d < bd) {
         bd = d;
@@ -566,14 +587,14 @@ export function randomTileIn(r: Room): [number, number] {
     const i = randi(r.x, r.x + r.w - 1),
       j = randi(r.y, r.y + r.h - 1);
     const k = j * W + i;
-    if (walkable(k) && !hazardTiles[k])
+    if (walkable(k) && !level.hazardTiles[k])
       return [(i + 0.5) * T + rand(-SPOT_JITTER, SPOT_JITTER), (j + 0.5) * T + rand(-SPOT_JITTER, SPOT_JITTER)];
   }
   return roomSpot(r);
 }
 export function reveal(ti: number, tj: number) {
-  if (arena) {
-    seen.fill(1);
+  if (level.arena) {
+    level.seen.fill(1);
     return;
   }
   for (let dj = -REVEAL_BOX; dj <= REVEAL_BOX; dj++)
@@ -581,13 +602,13 @@ export function reveal(ti: number, tj: number) {
       if (di * di + dj * dj > REVEAL_R2) continue;
       const i = ti + di,
         j = tj + dj;
-      if (i >= 0 && j >= 0 && i < W && j < H) seen[j * W + i] = 1;
+      if (i >= 0 && j >= 0 && i < W && j < H) level.seen[j * W + i] = 1;
     }
-  const r = roomOf[tj * W + ti];
+  const r = level.roomOf[tj * W + ti];
   if (r >= 0) {
-    const R = rooms[r];
+    const R = level.rooms[r];
     for (let j = R.y - 1; j <= R.y + R.h; j++)
-      for (let i = R.x - 1; i <= R.x + R.w; i++) if (i >= 0 && j >= 0 && i < W && j < H) seen[j * W + i] = 1;
+      for (let i = R.x - 1; i <= R.x + R.w; i++) if (i >= 0 && j >= 0 && i < W && j < H) level.seen[j * W + i] = 1;
   }
 }
 // hazard floors cycle: 1.4s live, 1.6s off, blinking for the last 0.5s before going live
@@ -603,7 +624,7 @@ export function updateHazards(dt: number) {
   const i = Math.floor(player.x / T),
     j = Math.floor(player.z / T),
     k = j * W + i;
-  if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && hazardTiles[k] && player.fy < hgt[k] + HAZARD_REACH_Y)
+  if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && level.hazardTiles[k] && player.fy < hgt[k] + HAZARD_REACH_Y)
     damagePlayer(HAZARD_DMG * damageScaleAt(run.stage));
 }
 export function makePortal(x: number, z: number, color: number, kind: PortalKind, label: string) {
@@ -629,7 +650,7 @@ export function makePortal(x: number, z: number, color: number, kind: PortalKind
     g.add(s);
   }
   g.position.set(x, floorY(x, z) + PORTAL.centerY, z);
-  levelGroup!.add(g); // gates are made after the level is built
+  level.group!.add(g); // gates are made after the level is built
   const clear = !player || Math.hypot(player.x - x, player.z - z) >= PORTAL.clearR; // opened underfoot: wait until the player steps off
-  portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear });
+  level.portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear });
 }

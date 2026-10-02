@@ -5,7 +5,7 @@ import { sfx } from '@engine/audio/audio.ts';
 import { blocked } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { randomTileIn, rooms } from '../../world/level.ts';
+import { level, randomTileIn } from '../../world/level.ts';
 import { fanAt, ring, shootAngle, spawnEnemy } from '../../world/entities.ts';
 import { player, difficultyAt, run } from '../player.ts';
 import { bossBase } from './common.ts';
@@ -45,7 +45,7 @@ export function updWatcher(e: WatcherBoss, dt: number) {
     for (let k = 0; k < n; k++) {
       let x = e.x + Math.cos(k * 2.1) * 4,
         z = e.z + Math.sin(k * 2.1) * 4;
-      if (blocked(x, z, 0.6)) [x, z] = randomTileIn(rooms[0]);
+      if (blocked(x, z, 0.6)) [x, z] = randomTileIn(level.rooms[0]);
       spawnEnemy('drone', x, z, -1, difficultyAt(run.stage)).active = true;
     }
     toast(t('boss.watcherDrones'));

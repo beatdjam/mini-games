@@ -14,7 +14,7 @@ import { EYE, PORTAL } from '../data/level.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
-import { portals, reveal, updateHazards } from '../world/level.ts';
+import { level, reveal, updateHazards } from '../world/level.ts';
 import { ENEMY_GROUP, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
 import {
   GUNFX,
@@ -213,7 +213,7 @@ export function updatePlayer(dt: number) {
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
 export function updatePortals(dt: number) {
-  for (const pt of portals) {
+  for (const pt of level.portals) {
     // arming (data/level.ts PORTAL): dim and still until it works, then bright and turning
     pt.t += dt;
     const d = distXZ(player, pt);

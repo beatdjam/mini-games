@@ -13,17 +13,7 @@ import { PER, STASH_MAX, TUNE } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
 import { basicW, persist, save } from '../core/save.ts';
 import { progressOf, sellValue } from '../core/rules.ts';
-import {
-  makePortal,
-  portals,
-  randomTileIn,
-  roomCount,
-  roomSpot,
-  rooms,
-  exitIdx,
-  startIdx,
-  buildLevel,
-} from '../world/level.ts';
+import { buildLevel, level, makePortal, randomTileIn, roomSpot } from '../world/level.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import {
   player,
@@ -114,22 +104,22 @@ function setupArena(bossKind: string | null) {
   player.pitch = 0.08;
   const stageAt = run.stage;
   setTimeout(() => {
-    if (run && run.stage === stageAt && !boss && !portals.length && state !== 'base' && state !== 'result')
+    if (run && run.stage === stageAt && !boss && !level.portals.length && state !== 'base' && state !== 'result')
       spawnBoss(bossKind!);
   }, 1200);
 }
 // a floor: the player in the start room facing the exit, enemies in every other room, weapon caches
 function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
   const diff = difficultyAt(run.stage);
-  const [sx, sz] = roomSpot(rooms[startIdx]);
+  const [sx, sz] = roomSpot(level.rooms[level.startIdx]);
   player.x = sx;
   player.z = sz;
-  const [ex, ez] = roomSpot(rooms[exitIdx]);
+  const [ex, ez] = roomSpot(level.rooms[level.exitIdx]);
   player.yaw = Math.atan2(-(ex - sx), -(ez - sz));
   player.pitch = 0;
   makePortal(ex, ez, COLOR.amber, 'next', t(si.sub === PER - 2 ? 'run.toBoss' : 'run.nextArea'));
-  rooms.forEach((r, idx) => {
-    if (idx === startIdx) return;
+  level.rooms.forEach((r, idx) => {
+    if (idx === level.startIdx) return;
     const n = Math.min(
       ENEMY_TUNE.maxPerRoom,
       Math.max(2, Math.floor((r.w * r.h) / (b.gen.density || 3))),
@@ -139,14 +129,14 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
       const [x, z] = randomTileIn(r);
       spawnEnemy(pickEnemyType(b, si.tier), x, z, idx, diff);
     }
-    roomCount[idx] = n;
+    level.roomCount[idx] = n;
   });
-  const cand = rooms.map((_, i) => i).filter(i => i !== startIdx);
+  const cand = level.rooms.map((_, i) => i).filter(i => i !== level.startIdx);
   const caches = Math.random() < 0.4 ? 2 : 1;
   shuffle(cand)
     .slice(0, caches)
     .forEach(i => {
-      const [x, z] = randomTileIn(rooms[i]);
+      const [x, z] = randomTileIn(level.rooms[i]);
       addPickup('weapon', x, z, { w: rollWeapon(progressOf(run.stage)) });
     });
 }

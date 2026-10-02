@@ -24,7 +24,7 @@ import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
 import { rebootMul } from '../core/rules.ts';
 import { edges, geoCache } from './render.ts';
-import { hazardTiles, portals } from './level.ts';
+import { level } from './level.ts';
 import { player, damageScaleAt, run } from '../actors/player.ts';
 import { makeLaser } from '../actors/bosses/common.ts';
 import { updateEnemy } from '../actors/enemies.ts';
@@ -342,7 +342,7 @@ export function removeEnemyMesh(e: Enemy) {
 // keep drops out of portal range so they can be picked up without touching the gate
 export function clearOfPortals(x: number, z: number): [number, number] {
   const R = 3.2;
-  for (const pt of portals) {
+  for (const pt of level.portals) {
     const dx = x - pt.x,
       dz = z - pt.z,
       d = Math.hypot(dx, dz);
@@ -353,7 +353,7 @@ export function clearOfPortals(x: number, z: number): [number, number] {
       const nx = pt.x + Math.cos(a) * R,
         nz = pt.z + Math.sin(a) * R;
       const tile = tileIndex(nx, nz);
-      if (!blocked(nx, nz, 0.4) && walkable(tile) && !hazardTiles[tile]) return clearOfPortals(nx, nz);
+      if (!blocked(nx, nz, 0.4) && walkable(tile) && !level.hazardTiles[tile]) return clearOfPortals(nx, nz);
     }
   }
   return [x, z];
