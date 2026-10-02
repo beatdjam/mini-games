@@ -8,7 +8,8 @@ import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, save } from '../core/save.ts';
-import { level, setHazardClock } from '../world/level.ts';
+import { devSeed, level } from '../world/level.ts';
+import { setHazardClock } from '../world/hazards.ts';
 import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
 import { player, damagePlayer, magSize, newWeapon, run } from '../actors/player.ts';
 import { normalizeWeapons } from '../ui/input.ts';
@@ -22,6 +23,10 @@ import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { update } from '../flow/update.ts';
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
+
+// dev seed: ?seed=<n> builds every level from that seed (the same level each time)
+const seedParam = new URLSearchParams(location.search).get('seed');
+if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
 
 // dev view: #view-KWLN etc. drops straight into that sector's first floor (for screenshots)
 if (location.hash.startsWith('#view-')) {

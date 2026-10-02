@@ -14,7 +14,8 @@ import { EYE, PORTAL } from '../data/level.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
-import { level, reveal, updateHazards } from '../world/level.ts';
+import { level, reveal } from '../world/level.ts';
+import { updateHazards } from '../world/hazards.ts';
 import { ENEMY_GROUP, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
 import {
   GUNFX,
@@ -31,7 +32,8 @@ import {
   weaponOptCount,
 } from '../actors/player.ts';
 import { controlState } from '../ui/input.ts';
-import { screenFx, bctx, bigmap, drawMap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
+import { drawMap } from '../ui/minimap.ts';
+import { screenFx, bctx, bigmap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
 import { state } from './state.ts';

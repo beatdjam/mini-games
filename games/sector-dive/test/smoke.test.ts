@@ -57,7 +57,9 @@ import {
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import { buildLevel, hazardState, level, makePortal, roomSpot } from '../src/world/level.ts';
+import { buildLevel, level, roomSpot } from '../src/world/level.ts';
+import { hazardState } from '../src/world/hazards.ts';
+import { makePortal } from '../src/world/portals.ts';
 import {
   addPickup,
   boss,
@@ -1230,4 +1232,13 @@ describe('reachability', () => {
       console.log('reach', b.code, 'unreachable rooms', bad, 'one-way rooms', back);
     });
   });
+});
+
+test('the same seed builds the same level', () => {
+  const snap = () => ({ rooms: JSON.stringify(level.rooms), grid: Array.from(grid), start: level.startIdx });
+  buildLevel(BIOMES[1], false, null, 1234);
+  const a = snap();
+  buildLevel(BIOMES[1], false, null, 1234);
+  expect(snap()).toEqual(a);
+  expect(level.seed).toBe(1234);
 });
