@@ -392,7 +392,7 @@ devSmoke(() => {
           startPractice(kind); tick(120);
           if (!boss) spawnBoss(kind);
           boss!.spawnT = 0;
-          if (boss!.name.indexOf(BOSS_META[kind]!.name!.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss!.name);
+          if (boss!.name.indexOf(BOSS_META[kind]!.name.split(' ')[0]) !== 0) throw new Error('wrong boss ' + kind + ' ' + boss!.name);
           if (boss!.invuln) { enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false)); tick(20); }
           spawnWave(boss!.x, boss!.z, 11, 18, 10, 0xff8a3d); // a shockwave still spreading when the boss falls
           hurtEnemy(boss!, boss!.hp + 1, false);
@@ -470,15 +470,15 @@ devSmoke(() => {
         if (!el('#btnShare').hidden) throw new Error('share shown after practice');
         // a deep run beats many bosses: the post counts them per kind and stays within X's 280 (CJK counts 2, the URL 23)
         const xLen = (s: string) => { const [body, url] = [s.slice(0, s.lastIndexOf('\n')), s.slice(s.lastIndexOf('\n') + 1)]; return [...body].reduce((n, c) => n + (c.charCodeAt(0) > 0x10ff ? 2 : 1), 0) + 1 + (url ? 23 : 0); };
-        const many = { ...shareData!, bosses: Array.from({ length: 30 }, (_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short!) };
+        const many = { ...shareData!, bosses: Array.from({ length: 30 }, (_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short) };
         const keepLang = lang, lens: number[] = [];
-        for (const code of ['ja', 'en']) { changeLang(code); const s = shareText({ ...many, bosses: many.bosses.map((_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short!) }); lens.push(xLen(s)); if (!s.includes('30')) throw new Error('boss count missing ' + s); }
+        for (const code of ['ja', 'en']) { changeLang(code); const s = shareText({ ...many, bosses: many.bosses.map((_, i) => BOSS_META[BOSS_ORDER[i % BOSS_ORDER.length]!]!.short) }); lens.push(xLen(s)); if (!s.includes('30')) throw new Error('boss count missing ' + s); }
         changeLang(keepLang);
         if (lens.some(n => n > 280)) throw new Error('share text too long ' + lens);
         goBase(); startRun(); tick(5);
         // switching the language from the pause screen rewrites the stats panel and the stage label
         { const other = lang === 'ja' ? 'en' : 'ja'; pause(); changeLang(other);
-          const ok = el('#pauseChips').innerHTML.includes(t('stats.title')) && el('#stageLbl').textContent!.includes(stageInfo(run.stage).biome.name!);
+          const ok = el('#pauseChips').innerHTML.includes(t('stats.title')) && el('#stageLbl').textContent!.includes(stageInfo(run.stage).biome.name);
           changeLang(keepLang); show(null); setState('play');
           if (!ok) throw new Error('pause screen kept the old language'); }
         console.log('SMOKE share ok', lens.join('/'), 'chars');
