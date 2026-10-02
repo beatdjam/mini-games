@@ -7,7 +7,7 @@ import { FEEDBACK } from '@engine/core/feedback.ts';
 import { applyLayout } from '@engine/ui/touchlayout.ts';
 import { save, syncVolumes } from './core/save.ts';
 import { fsLabel, renderGuide } from './ui/hud.ts';
-import { showTab, baseTab } from './screens/base.ts';
+import { baseUI, showTab } from './screens/base.ts';
 import '@engine/core/util.ts';
 import '@engine/core/store.ts';
 import '@engine/core/dev.ts';
@@ -77,7 +77,7 @@ syncVolumes();
 fsLabel();
 applyLayout();
 renderGuide();
-showTab(baseTab);
+showTab(baseUI.tab);
 boot();
 // checks and screenshot hooks (#view-…): only on the dev server, never in the built pages. The dev module sets up
 // its hooks with timers, so loading it after boot() is fine

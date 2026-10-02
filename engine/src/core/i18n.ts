@@ -12,8 +12,9 @@ export interface LangPack {
   data: Record<string, any>;
 }
 export const LANG: Record<string, LangPack> = {};
-export let lang = 'ja',
-  i18nHook: ((data: any) => void) | null = null;
+// current language id; replaced only through setLang
+export let lang = 'ja';
+let i18nHook: ((data: any) => void) | null = null;
 // the game knows the shape of its language data (D); the engine just passes it through
 export function setI18nHook<D>(fn: ((data: D) => void) | null) {
   i18nHook = fn;

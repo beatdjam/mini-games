@@ -3,6 +3,7 @@ import { el } from '@engine/core/util.ts';
 import { gun } from '@engine/render/render.ts';
 import { bigmap } from '../ui/hud.ts';
 // ================= which screen is up =================
+// the screen that is up; replaced only through setState
 export let state: GameState = 'base';
 export function setState(s: GameState) {
   state = s;

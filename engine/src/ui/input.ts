@@ -38,13 +38,14 @@ export let joy: { id: number | null; ox: number; oy: number; x: number; y: numbe
   x: 0,
   y: 0,
 };
-export let look: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 },
-  fireTouch: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 };
-export let fireHeld = false,
-  fire2Held = false,
-  mouseFire = false,
-  locked = false,
-  lockWorked = false;
+// the pointer turning the view, and the pointer holding #btnFire (id null when free)
+let look: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 };
+let fireTouch: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 };
+export let fireHeld = false; // #btnFire held
+export let fire2Held = false; // #btnFire2 held
+export let mouseFire = false; // left mouse button held while the pointer is locked
+export let locked = false; // the pointer is locked to the canvas
+let lockWorked = false; // pointer lock has worked at least once (else lockFailed adds body.nolock)
 export const touchEl = el('#touch');
 export function setFireHeld(v: boolean) {
   fireHeld = v;

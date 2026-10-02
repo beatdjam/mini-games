@@ -33,13 +33,16 @@ import {
 import { P, newPlayer, setPlayer, stageLabel, tierLabel, wName, wOpts, weaponStats } from '../actors/player.ts';
 import { renderSettings } from '../ui/hud.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
-import { practiceTier, setPracticeTier, startPractice, startRun } from '../flow/run.ts';
+import { startPractice, startRun } from '../flow/run.ts';
 import { renderSuspend } from '../flow/suspend.ts';
 
-export let selSlot = 0;
-export function setSelSlot(k: number) {
-  selSlot = k;
-}
+// transient state of the base screen
+export const baseUI = {
+  selSlot: 0, // loadout slot (0 / 1) that the next weapon assignment goes to
+  tab: prefGet(BASE_TAB_KEY, 'sortie'), // open tab; the last one opened is remembered in this browser
+  rebootArm: false, // the reboot row shows its confirmation
+  practiceTier: 0, // boss practice depth chosen (0-based)
+};
 // a weapon's numbers as it would be right after diving: base upgrades and reboot bonuses in, no chips, its own options
 // in (so weapons in the base can be compared; P may still be the last run's player, chips and all)
 // what the one-target DPS leaves out: the rail's damage past `far` metres, the rocket's blast radius
@@ -68,12 +71,10 @@ export function wStat(w: WeaponItem) {
     setPlayer(keep);
   }
 }
-// base menu tabs; the last one opened is remembered in this browser
-export let baseTab = 'sortie';
-baseTab = prefGet(BASE_TAB_KEY, 'sortie');
+// base menu tabs
 export function showTab(name: string) {
   if (!document.querySelector(`[data-pane="${name}"]`)) name = 'sortie';
-  baseTab = name;
+  baseUI.tab = name;
   document
     .querySelectorAll<HTMLElement>('.tabs [data-tab]')
     .forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
@@ -102,7 +103,7 @@ const tierButton = (n: number): string => {
 };
 const loadoutSlot = (k: number): string => {
   const w = save.loadout[k],
-    on = selSlot === k;
+    on = baseUI.selSlot === k;
   const name = w ? wName(basicNow(w)) : t('base.empty');
   const note =
     w && !w.basic
@@ -145,10 +146,10 @@ const weaponCard = (id: string): string => {
   const edge = m.r ? RARITY[m.r].css : 'var(--line)';
   return `<div class="wcard" style="border-left:3px solid ${edge}">
       <span class="wn">${wName(w)}</span><span class="wd">${def.desc}</span><span class="ws">${wStat(w)}</span>
-      <span class="acts"><button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: selSlot + 1 })}</button>${modButtons(id)}</span></div>`;
+      <span class="acts"><button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: baseUI.selSlot + 1 })}</button>${modButtons(id)}</span></div>`;
 };
 const stashCard = (w: WeaponItem, i: number): string => {
-  const assign = `<button class="mini-btn amber" data-stash="${i}">${t('base.stashAssign', { n: selSlot + 1 })}</button>`;
+  const assign = `<button class="mini-btn amber" data-stash="${i}">${t('base.stashAssign', { n: baseUI.selSlot + 1 })}</button>`;
   const sell = `<button class="mini-btn" data-sell="${i}">${t('base.sell', { v: sellValue(w) })}</button>`;
   return `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${wName(w)}</span><span class="ws">${wStat(w)}</span>${wOpts(w)}
       <span class="acts">${assign}${sell}</span></div>`;
@@ -169,7 +170,9 @@ const upgradeRows = (): string =>
   }).join('');
 const practiceTierButtons = (): string =>
   `<span>${t('base.practiceTierLabel')}</span>` +
-  [0, 1, 2, 4].map(n => `<button data-ptier="${n}" aria-pressed="${practiceTier === n}">D${n + 1}</button>`).join('');
+  [0, 1, 2, 4]
+    .map(n => `<button data-ptier="${n}" aria-pressed="${baseUI.practiceTier === n}">D${n + 1}</button>`)
+    .join('');
 const bossButton = (k: string): string =>
   `<button class="wcard" data-practice="${k}"><span class="wn">${BOSS_META[k].name}</span>
     <span class="wd">${BOSS_META[k].desc}</span><span class="wf">${t(save.bossSeen[k] ? 'base.practiceGo' : 'base.practiceGoNew')}</span></button>`;
@@ -207,13 +210,12 @@ export function renderBase() {
 }
 
 // ---- reboot (prestige) ----
-export let rebootArm = false;
 export const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
 // the reboot row: info + arm button, or the confirmation
 function rebootRowHTML(): string {
   if (save.suspend) return `<p class="help">${t('reboot.suspended')}</p>`;
   if (!save.canReboot) return `<p class="help">${t('reboot.locked')}</p>`;
-  if (!rebootArm) {
+  if (!baseUI.rebootArm) {
     return `<p class="help">${t('reboot.info', { pts: rebootGain() })}</p><button class="buy" data-reboot="arm">${t('reboot.arm')}</button>`;
   }
   const after = t('reboot.after', {
@@ -258,16 +260,16 @@ export function doReboot() {
   Object.assign(save, d, keep, { pres: pr });
   save.bits = pr.up.funds * 150;
   for (let k = 0; k < pr.up.relic; k++) save.stash.push({ id: pickDrop(), r: 2, basic: false });
-  rebootArm = false;
+  baseUI.rebootArm = false;
   persist();
   renderBase();
   audioInit();
   sfx('portal');
 }
 export function assignLoadout(item: WeaponItem | null) {
-  const prev = save.loadout[selSlot];
+  const prev = save.loadout[baseUI.selSlot];
   if (prev && !prev.basic) save.stash.push(prev);
-  save.loadout[selSlot] = item;
+  save.loadout[baseUI.selSlot] = item;
 }
 el('#scrBase').addEventListener('click', (e: Event) => {
   const tg = e.target as HTMLElement;
@@ -282,7 +284,7 @@ el('#scrBase').addEventListener('click', (e: Event) => {
     rb = tg.closest<HTMLElement>('[data-reboot]'),
     pr = tg.closest<HTMLElement>('[data-practice]');
   if (pr) {
-    startPractice(pr.dataset.practice!, practiceTier);
+    startPractice(pr.dataset.practice!, baseUI.practiceTier);
     return;
   }
   const mp = tg.closest<HTMLElement>('[data-modplus]'),
@@ -304,7 +306,7 @@ el('#scrBase').addEventListener('click', (e: Event) => {
   }
   const pt = tg.closest<HTMLElement>('[data-ptier]');
   if (pt) {
-    setPracticeTier(+pt.dataset.ptier!);
+    baseUI.practiceTier = +pt.dataset.ptier!;
     renderBase();
     return;
   }
@@ -314,7 +316,7 @@ el('#scrBase').addEventListener('click', (e: Event) => {
       doReboot();
       return;
     }
-    rebootArm = a === 'arm';
+    baseUI.rebootArm = a === 'arm';
     renderReboot();
     return;
   }
@@ -332,8 +334,8 @@ el('#scrBase').addEventListener('click', (e: Event) => {
     const prev = save.loadout[1];
     if (prev && !prev.basic) save.stash.push(prev);
     save.loadout[1] = null;
-    selSlot = 1;
-  } else if (sl) selSlot = +sl.dataset.slot!;
+    baseUI.selSlot = 1;
+  } else if (sl) baseUI.selSlot = +sl.dataset.slot!;
   else if (ti) save.startTier = +ti.dataset.tier!;
   else if (w) {
     const id = w.dataset.w!,

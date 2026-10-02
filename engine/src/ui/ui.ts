@@ -1,6 +1,6 @@
 import { el } from '../core/util.ts';
 // engine: Screen helpers: toast (#toast), banner (#banner), fullscreen
-export let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(msg: string, ms?: number) {
   const t = el('#toast');
   t.textContent = msg;

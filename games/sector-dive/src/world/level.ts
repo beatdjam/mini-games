@@ -78,22 +78,23 @@ export interface Portal {
 }
 export type LevelMaps = ReturnType<typeof newMaps>;
 // per-tile maps of the current level (empty until the first level is built): room index, seen on the map, hazard floor
-export let roomOf: Int8Array = new Int8Array(0),
-  seen: Uint8Array = new Uint8Array(0),
-  haz: Uint8Array = new Uint8Array(0);
-export let rooms: Room[] = [],
-  hazMat: THREE.MeshBasicMaterial | null = null,
-  hazT = 0;
+export let roomOf: Int8Array = new Int8Array(0);
+export let seen: Uint8Array = new Uint8Array(0);
+export let haz: Uint8Array = new Uint8Array(0);
+// the rooms of the current level; replaced when a level is built
+export let rooms: Room[] = [];
+let hazMat: THREE.MeshBasicMaterial | null = null; // material of the hazard floor
+let hazT = 0; // hazard floor clock (s)
 export function setHazardClock(v: number) {
   hazT = v;
 } // tests
-export let levelGroup: THREE.Group | null = null,
-  portals: Portal[] = [],
-  startIdx = 0,
-  exitIdx = 0,
-  roomCount: number[] = [],
-  arena = false,
-  curBiome = BIOMES[0];
+export let levelGroup: THREE.Group | null = null; // the three.js group holding the level's meshes
+export let portals: Portal[] = [];
+export let startIdx = 0; // room index of the start
+export let exitIdx = 0; // room index of the exit
+export let roomCount: number[] = []; // enemies left per room (a room is cleared at 0)
+export let arena = false; // the level is a boss arena
+export let curBiome = BIOMES[0]; // sector (biome) of the current level
 
 // ---------- generators ----------
 export function newMaps(w: number, h: number) {

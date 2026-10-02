@@ -23,8 +23,8 @@ export interface System extends SystemDef {
 }
 export const LOOP: LoopConfig = { mode: () => null, maxDt: 0.05 };
 export const systems: System[] = [];
-export let frameStopped = false,
-  loopLast = 0;
+let frameStopped = false; // set by stopFrame(): the rest of this frame's systems are skipped
+let loopLast = 0; // time of the previous frame (ms)
 export function addSystem(s: SystemDef): System {
   const sys: System = Object.assign({ order: 0, enabled: true }, s);
   systems.push(sys);

@@ -35,7 +35,7 @@ export const SNAP_SKIP = [
   'fireCd',
   'stDelay',
 ];
-export let discardArm = false;
+let discardArm = false; // the discard button shows its confirmation
 // Checkpoint: the run is saved every time a stage (floor or boss room) starts, and deleted when the run ends.
 // If the page is killed (e.g. a phone closing a backgrounded browser) or the player suspends by hand,
 // the next launch offers RESUME from the start of that stage, with the state it had when the stage began.

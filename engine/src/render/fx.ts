@@ -33,8 +33,8 @@ for (let i = 0; i < 300; i++) {
   dynGroup.add(m);
   parts.push({ mesh: m, life: 0, max: 1, vx: 0, vy: 0, vz: 0, g: 14 });
 }
-export let partIdx = 0,
-  balls: Fireball[] = [];
+let partIdx = 0; // next particle to reuse (ring)
+let balls: Fireball[] = [];
 export function burst(
   x: number,
   y: number,
