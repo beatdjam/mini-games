@@ -1,5 +1,6 @@
 // Types of the definitions in js/data/ and of the objects built from them.
-// Fields marked "(lang)" are filled from js/lang/<code>.js by js/system/text.ts when the language is set.
+// Fields marked "(lang)" are filled from js/lang/<code>.js by js/system/text.ts when the language is set. They are required
+// in the type; the definitions get an empty value for them first (withLang in js/data/langslots.ts), so they are never undefined.
 // Objects that gain fields while the game runs (enemies, bosses, bullets) list every field: the ones every object has
 // are required, the ones only some kinds use (a sniper's laser, a boss's pattern state) are optional.
 import type { WorldObject } from '../../../../engine/core/world.ts';
@@ -11,30 +12,30 @@ export interface WeaponDef {
   dmg: number; rate: number; spread: number; pellets: number; speed: number; mag: number; reload: number; color: number; cost: number;
   maxShots?: number; // rounds one trigger pull fires at most (shotCount); split-shot past it goes into each round's damage
   steady?: boolean; kb?: number; pierce?: number; far?: number; farMul?: number; blast?: number; grav?: number; chipMag?: number;
-  name?: string; desc?: string; // (lang)
+  name: string; desc: string; // (lang)
 }
-export interface Rarity { stars: string; mult: number; css: string; hex: number; name?: string /* (lang) */; }
-export interface Affix { name?: string; text?: string; } // (lang)
+export interface Rarity { stars: string; mult: number; css: string; hex: number; name: string /* (lang) */; }
+export interface Affix { name: string; text: string; } // (lang)
 export interface Biome {
   code: string; fog: number; fogNear: number; fogFar: number; floor: string; line: string; wall: string; wallLine: string;
   gen: Record<string, any>; // level generator settings (js/world/level.ts)
   enemies: string[]; bosses: string[];
-  name?: string; hint?: string; // (lang)
+  name: string; hint?: string; // (lang; hint only on some sectors)
 }
 export interface BossMeta {
   pillars: boolean; hp: number; y: number; hitR: number;
   tune: Record<string, any>; // attack numbers, read by js/actors/bosses/<name>.ts
-  name?: string; title?: string; short?: string; desc?: string; // (lang)
+  name: string; title: string; short: string; desc: string; // (lang)
 }
 export interface Perk {
   id: string; v: number; rv?: number; noSupply?: boolean; // noSupply: left out of the shortcut supply picks
   apply(p: any, v: number): void; cur(p: any): any; maxed?(p: any): boolean;
-  name?: string; desc?(v: number): string; curText?(c: any): string; // (lang)
+  name: string; desc(v: number): string; curText(c: any): string; // (lang)
 }
 // base upgrades cost bits by level; reboot upgrades cost a fixed number of points
-export interface Upgrade { id: string; max: number; cost(level: number): number; name?: string; desc?(level: number): string; }
+export interface Upgrade { id: string; max: number; cost(level: number): number; name: string; desc(level: number): string; /* (lang) */ }
 // max may be Infinity; step: the cost goes up by this much per level already taken (presCost in js/system/rules.ts)
-export interface PresUpgrade { id: string; max: number; cost: number; step?: number; name?: string; desc?(level: number): string; }
+export interface PresUpgrade { id: string; max: number; cost: number; step?: number; name: string; desc(level: number): string; /* (lang) */ }
 // one enemy type (js/data/enemies.ts): hp, speed (m/s), r (collision radius), y (body height), hitR (hit sphere radius), dmg,
 // bits (drop), color and geo (geoCache key) are on every type; the rest are switches and numbers of some types
 export interface RangedDef { rate: number; speed: number; count: number; spread: number; burst?: number; burstGap?: number; } // burst: rounds per volley

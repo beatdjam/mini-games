@@ -44,7 +44,7 @@ CLAUDE.md                    Claude Code が作業時に守る決まり（コミ
 - 型の置き場所: engine の型は持ち主のモジュールから export する（`System`, `WorldObject`, `InputConfig`, `TouchLayoutConfig`, `LangPack` など）。ゲームの定義の型は `games/<id>/js/data/types.ts`
 - あとから項目が増えるオブジェクト（敵やボス、弾）も、任意の項目を許す型（`[k: string]: any`）は使わず、項目を全部書き出している。全員が持つ項目は必須、種類ごとの状態（狙撃手のレーザー、ボスごとの状態など）は省略可能にするか、その種類だけの型（`Sniper`、各ボスの `...Boss`）にして、型ガードや `bossBase` の引数で付ける。engine の型（`Projectile`、`WorldObject`）はゲームの項目を知らず、ゲーム側が `extends` で足す（弾は `Bullet` / `PBullet` / `EBullet`）
 - DOM の取得は `el<T>()`（要素が必ずある所。T は `HTMLCanvasElement` など）。無いかもしれない要素は `document.querySelector<T>()` で null を残す
-- 言語ファイルが後から埋める項目（名前・説明文など）は型では省略可能になっている。表示時に必ず入っているものは `!` で受けている
+- 言語ファイルが後から埋める項目（名前・説明文など）は、型では必須（`name: string` など）にしている。定義には `withLang`（`games/<game-id>/js/data/langslots.ts`）で空の既定値を入れておき、`setLang` が言語ファイルの値で上書きする。そのため使う側は `!` なしで読め、言語が入る前に読んでも `undefined` にならず空になる。一部の定義にしかない項目（セクターの `hint` など）だけは省略可能のまま
 
 ## 仕様書のルール
 
