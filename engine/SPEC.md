@@ -54,6 +54,7 @@
 
 - `generateDungeon(opts, rng)` は、部屋を置く → 近い順に通路でつなぐ（部屋が5つより多ければ輪になる通路を1本足す）→ 部屋ごとに高台か柱と瓦礫 → 橋、の順に作る。乱数はこの順に `rng` から引くので、同じシードなら同じ結果になる（順番を変えると地形が変わる）
 - 返す `maps`（`TileMaps`: `grid`, `hgt`, `ramp`, `cover`, `roomOf`。ドアのあるときだけ `door`, `doorOpen`）は上の章の配列と同じ決まりで、`setTileWorld` に渡せる。`rooms` は部屋の長方形（`plat` は高台のある部屋）
+- `tileWorldOf(data)` は、生成した（または `tileMapFromRows` の）マップから `TileWorld` を作る。配列はコピーせずそのまま使い、`flow`・`flowQ` は新しく作る。ドアのあるマップなら `door`・`doorOpen` も入れる。`setTileWorld` にも `createFloors` にも渡せる
 - 高台は大きい部屋（6タイル四方以上）の内側だけで、外周は地面のまま残る。橋は両側が壁の直線通路（5タイル以上）が、両端に坂の付いた高い通路になる。瓦礫は部屋の中央・坂・高台・ほかの瓦礫の隣には置かない
 - `addPlatform`, `addRubble`, `addBridges` は単体でも使える。`generateArena` は柱の位置を渡す開けた四角いアリーナ
 - **出入口のドア**: オプションの `doors: true` で、`addDoorways` が部屋の出入口にドアを置く。出入口は「部屋の外側の通路のタイルで、部屋のタイルに接していて、その向きの反対側が床、両脇が壁」のタイル。通路が幅2以上のところや、部屋を出てすぐ曲がるところには置かない。乱数は引かず、ドア以外の地形も乱数の消費も `doors` なしと同じ（橋だけは、ドアのタイルを避けて選ぶ）。ドアは閉じた状態（`doorOpen` = 0）で、床のまま（`grid` = 1）なので、全部の床へ行けることは変わらない。`doors` を指定しないと `door`・`doorOpen` は作らない
@@ -119,6 +120,15 @@
   - 既定は `LIFT_WAIT`（0.8 秒）・`LIFT_RIDE`（2.5 秒）。ゲームは `cfg`（`Partial<LiftConfig>`）で1つずつ差し替えられる。`dt` が 0 以下なら何もしない
 - `liftProgress(lift, cfg?)` は `ride` の間の進み具合（0〜1）、それ以外は 0。`liftTarget(lift)` は `ride` の間の行き先の乗り場、それ以外は null
 - `useFloor(f, floor)`: その階の地形をモジュールの関数（4章の `isSolid`・`moveCircle`・`computeFlow` など）に渡す（`setTileWorld` にその階の `world` を渡す）。地図はコピーせず共有するので、その階で開けたドアはその階で開いたまま。プレイヤーが階を変えたときに呼ぶ。存在しない階なら例外。ほかの階にいる敵は、その階の `TileGrid`（`f.grids[e.floor]`）のメソッドで動かす
+
+### 4.5 複数階の生成（world/floorgen.ts）
+
+- `generateFloors(o, rng)` は、階ごとに `generateDungeon` で作ったマップを、隣り合う階どうし（0-1、1-2 …）の階段とエレベーターでつなぐ。返すのは `{ maps, links, floors }`。`maps` は階ごとのマップ（部屋つき）、`links` は階段とエレベーターのリンク、`floors` はそれから作った `Floors`（`tileWorldOf` で作った地形、`baseY` = 階の番号 × `floorH`）
+- オプション（`FloorGenOptions`）: `floors`（階の数。1以上の整数）、`dungeon`（全部の階に同じ `DungeonOptions`、または階ごとの配列）、`stairs`（隣り合う階ごとの階段の数。既定 1、1 未満は 1）、`lifts`（エレベーターの数。既定 0）、`floorH`（階の高さの差。既定 `FLOOR_H` = 8 m）、`stairsKind`・`liftKind`（リンクの `kind`。既定 'stairs'・'elevator'）
+- **敵が全部の階へ来られる**: 隣り合う階ごとに階段を必ず1本以上置く。各階は `generateDungeon` で全部の床がつながっているので、階段だけで全部の階に行ける（テストで、乗れないカバー以外の全部のタイルについて確かめている）
+- **リンクの端**: 部屋の中の平らな床（ドア・高台・坂・カバーでない）で、ほかのリンクの端と重ならないタイル。まだリンクのない部屋を優先して選ぶので、階段やエレベーターが散らばる。置けるタイルが無くなると、階の番号を書いた例外
+- **乱数の順番**: 階 0、1 … の `generateDungeon`、続いて隣り合う階の組ごとに階段、エレベーターの順。1本ごとに下の階の端、上の階の端の順に、それぞれ部屋とタイルを1つずつ選ぶ。同じ種なら同じ階ができる
+- `floors` が1以上の整数でないとき、`dungeon` の配列の数が階の数と違うとき、例外
 
 ## 5. 弾（world/projectiles.ts）
 

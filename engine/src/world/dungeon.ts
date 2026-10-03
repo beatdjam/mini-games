@@ -1,5 +1,6 @@
 import type { Rng } from '../core/util.ts';
 import { COVER_H, DECK_H, SIDE_NX, SIDE_NZ, SIDE_PX, SIDE_PZ } from './tiles.ts';
+import type { TileWorld } from './tiles.ts';
 // engine: Grid dungeon generation: rooms joined by corridors, then optional passes (raised decks, rubble, bridges).
 // Everything random draws from the rng you pass, so the same seed gives the same dungeon. No three.js, no DOM.
 // The maps use the same encoding as the tile world (world/tiles.ts), so they can go straight into setTileWorld.
@@ -81,6 +82,28 @@ export function generateDungeon(o: DungeonOptions, rng: Rng): TileMapData {
   if (o.doors) addDoorways(maps, size);
   if (o.bridges) addBridges(maps, size, size, o.bridges, rng, o.deckH);
   return { W: size, H: size, maps, rooms };
+}
+
+// A TileWorld for generated (or fixed) maps: the maps themselves, not copies, with new flow buffers. The door maps go
+// along when the maps have them. Hand it to setTileWorld or createFloors
+export function tileWorldOf(d: TileMapData): TileWorld {
+  const n = d.W * d.H,
+    M = d.maps;
+  const w: TileWorld = {
+    W: d.W,
+    H: d.H,
+    grid: M.grid,
+    hgt: M.hgt,
+    ramp: M.ramp,
+    cover: M.cover,
+    flow: new Int16Array(n),
+    flowQ: new Int32Array(n),
+  };
+  if (M.door) {
+    w.door = M.door;
+    w.doorOpen = M.doorOpen;
+  }
+  return w;
 }
 
 // puts a door on floor tile k, making the door maps first if the maps have none (the door starts shut)
