@@ -108,6 +108,7 @@ import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
 import { drawTileMap } from '../src/ui/minimap.ts';
+import { createFloorMap3D } from '../src/ui/floormap3d.ts';
 import { actx, audioInit } from '../src/audio/audio.ts';
 import {
   LAYER_MIX,
@@ -2259,4 +2260,77 @@ test('materials: buildParts makes a model of parts, sharing geometry, with its o
   ok(b.mats[0] !== material('m.armor'), 'not the shared one');
   expect(() => buildParts([{ shape: 'box', size: [1, 1, 1], mat: 'm.none' }])).toThrow(/unknown material m.none/);
   expect(() => buildParts([{ shape: 'blob' as never, size: [1], mat: 'm.armor' }])).toThrow(/unknown part shape blob/);
+});
+
+// ---- the 3D detail map ----
+test('floormap3d: floors as slabs of the tiles that show, links as lines, the viewer on its floor, drag to turn', () => {
+  const { f } = crossFloors(),
+    c = document.createElement('canvas');
+  c.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px';
+  document.body.appendChild(c);
+  const map = createFloorMap3D(c);
+  // floor 0 all shown, floor 1 only its first floor row (rows 0-1), floor 2 nothing; only the stairs drawn
+  const style = {
+    tile: (floor: number, k: number) => {
+      const w = f.grids[floor].world;
+      if (!w.grid[k] || floor === 2) return null;
+      return floor === 1 && k >= 2 * w.W ? null : { color: floor ? '#00ff00' : '#ff0000', alpha: 1 };
+    },
+    link: (l: FloorLink) => (l.kind === 'stairs' ? '#ffff00' : null),
+  };
+  map.build(f, style, T);
+  const slabs = map.scene.children[0].children.filter(o => o instanceof THREE.InstancedMesh) as THREE.InstancedMesh[];
+  eq(
+    slabs.map(m => `${m.userData.floor}:${m.count}`).join(),
+    '0:5,1:5',
+    'one slab mesh per floor with tiles: 5 each (the door is a floor tile)',
+  );
+  const at = new THREE.Matrix4(),
+    p = new THREE.Vector3();
+  slabs[1].getMatrixAt(0, at);
+  p.setFromMatrixPosition(at);
+  eq([p.x, p.y, p.z].join(), '1.5,8,1.5', 'floor 1, tile (1, 1): one floor gap up');
+  const lines = map.scene.children[0].children.find(o => o.userData.links) as THREE.LineSegments;
+  eq(lines.geometry.getAttribute('position').count, 2, 'the stairs only: one line, two ends');
+  map.draw({
+    floor: 1,
+    viewer: { x: 3.5 * T, z: 1.5 * T, yaw: 0.5 },
+    markers: [{ floor: 0, x: 1.5 * T, z: 1.5 * T, color: '#00ffff' }],
+  });
+  const dyn = map.scene.children[1].children,
+    viewer = dyn.find(o => o.userData.viewer) as THREE.Mesh;
+  near(viewer.position.x, 3.5, 1e-9, 'the viewer in tiles');
+  near(viewer.position.z, 1.5, 1e-9);
+  ok(viewer.position.y > 8 && viewer.position.y < 9, 'on floor 1');
+  eq(viewer.rotation.y, 0.5, 'facing its yaw');
+  eq(dyn.length, 2, 'the viewer and one marker');
+  const opac = slabs.map(m => (m.material as THREE.MeshBasicMaterial).opacity);
+  ok(opac[1] > opac[0], 'the viewer floor is bright, the others dimmed');
+  // something was drawn
+  const probe = document.createElement('canvas');
+  probe.width = c.width;
+  probe.height = c.height;
+  const pg = probe.getContext('2d')!;
+  pg.drawImage(c, 0, 0);
+  const px = pg.getImageData(0, 0, c.width, c.height).data;
+  let lit = 0;
+  for (let k = 3; k < px.length; k += 4) if (px[k] > 0) lit++;
+  ok(lit > 0, `${lit} pixels drawn`);
+  // drag turns the view, the tilt stays in its range
+  const yaw0 = map.yaw;
+  c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 7, clientX: 100, clientY: 100, bubbles: true }));
+  window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 150, clientY: 100 }));
+  near(map.yaw, yaw0 - 50 * 0.008, 1e-9, 'left-right turns around');
+  window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 150, clientY: 5000 }));
+  ok(map.pitch <= 1.45, 'tilt capped');
+  window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 8, clientX: 900, clientY: 100 }));
+  near(map.yaw, yaw0 - 50 * 0.008, 1e-9, 'another pointer does not turn it');
+  window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7 }));
+  window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 300, clientY: 100 }));
+  near(map.yaw, yaw0 - 50 * 0.008, 1e-9, 'released');
+  // building again replaces the slabs
+  map.build(f, { tile: (floor, k) => (f.grids[floor].world.grid[k] ? { color: '#ffffff', alpha: 1 } : null) }, T);
+  eq(map.scene.children[0].children.length, 3, 'all three floors, no links drawn');
+  map.dispose();
+  c.remove();
 });
