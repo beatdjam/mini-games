@@ -17,6 +17,10 @@ export const SIDE_PX = 0, // +x
   SIDE_PZ = 2, // +z
   SIDE_NZ = 3; // -z
 export const OPPOSITE_SIDE = [SIDE_NX, SIDE_PX, SIDE_NZ, SIDE_PZ];
+// A door is a floor tile (grid = 1) that is also marked in TileWorld.door. How far it is open is doorOpen (0 = shut,
+// 1 = wide open). From DOOR_PASS up it is the same as floor (walk, shoot and look through it); below it, the same as a
+// wall. Paths and reach checks treat every door as floor, open or not (whoever comes near can open it: world/doors.ts)
+export const DOOR_PASS = 0.5; // doorOpen at or above this = open (0 to 1)
 // the (i, j) step to the neighbour across each side, indexed by side number
 export const SIDE_STEP: readonly (readonly [number, number])[] = [
   [1, 0],
@@ -34,6 +38,10 @@ export interface TileWorld {
   cover: Uint8Array; // cover flags per tile
   flow: Int16Array | Int32Array; // steps to the flow target tile (-1 = unreachable)
   flowQ: Int32Array; // scratch queue for building the flow field
+  // Doors, only for worlds that have any (without `door` nothing below changes). Both are indexed like grid and the
+  // two come together: door without doorOpen throws in updateDoors and keeps every door shut
+  door?: Uint8Array; // 1 = a door on this floor tile (grid stays 1)
+  doorOpen?: Float32Array; // how far each door is open, 0 (shut) to 1 (wide open); only read where door = 1
 }
 // something that moves on the tiles; fy (feet height) is only set for movers that obey the step rule
 export interface Mover {
@@ -47,7 +55,10 @@ export interface Mover {
 export interface TileGrid {
   readonly world: TileWorld; // the maps the methods read; a field set here is seen by the next call
   inBounds(i: number, j: number): boolean;
+  // wall (or outside the map), or a door that is not open yet; collision, sight and bullets use this
   isSolid(i: number, j: number): boolean;
+  // floor (grid = 1), a door of any openness included; the flow field and reach checks use this
+  isFloor(i: number, j: number): boolean;
   solidAt(x: number, z: number): boolean;
   // index into grid / hgt / flow of the tile that contains the world point (x, z); not bounds-checked
   tileIndex(x: number, z: number): number;
@@ -76,8 +87,18 @@ export function createTileGrid(world: TileWorld): TileGrid {
   function inBounds(i: number, j: number): boolean {
     return i >= 0 && j >= 0 && i < world.W && j < world.H;
   }
+  function isFloor(i: number, j: number): boolean {
+    return inBounds(i, j) && world.grid[j * world.W + i] === 1;
+  }
+  // a door that is not open enough to pass (k = tile index)
+  function isShutDoor(k: number): boolean {
+    const { door, doorOpen } = world;
+    return door !== undefined && door[k] === 1 && (doorOpen === undefined || doorOpen[k] < DOOR_PASS);
+  }
   function isSolid(i: number, j: number): boolean {
-    return !inBounds(i, j) || world.grid[j * world.W + i] !== 1;
+    if (!inBounds(i, j)) return true;
+    const k = j * world.W + i;
+    return world.grid[k] !== 1 || isShutDoor(k);
   }
   function solidAt(x: number, z: number): boolean {
     return isSolid(tileCoord(x), tileCoord(z));
@@ -188,13 +209,13 @@ export function createTileGrid(world: TileWorld): TileGrid {
   function flowAt(x: number, z: number): number {
     const i = tileCoord(x),
       j = tileCoord(z);
-    return isSolid(i, j) ? -1 : world.flow[j * world.W + i];
+    return isFloor(i, j) ? world.flow[j * world.W + i] : -1;
   }
   function flowDir(x: number, z: number): [number, number] | null {
     const { W, flow } = world,
       i = tileCoord(x),
       j = tileCoord(z);
-    if (isSolid(i, j)) return null;
+    if (!isFloor(i, j)) return null;
     const k = j * W + i;
     let best = flow[k],
       bn = -1;
@@ -202,7 +223,7 @@ export function createTileGrid(world: TileWorld): TileGrid {
     SIDE_STEP.forEach(([a, b], sd) => {
       const ni = i + a,
         nj = j + b;
-      if (isSolid(ni, nj)) return;
+      if (!isFloor(ni, nj)) return;
       const n = nj * W + ni,
         f = flow[n];
       if (f >= 0 && f < best && passable(k, n, sd)) {
@@ -220,6 +241,7 @@ export function createTileGrid(world: TileWorld): TileGrid {
     world,
     inBounds,
     isSolid,
+    isFloor,
     solidAt,
     tileIndex,
     floorY,
@@ -261,7 +283,8 @@ export let hgt: Float32Array = activeWorld.hgt; // floor height per tile
 export let ramp: Int8Array = activeWorld.ramp; // ramp direction per tile (-1 = none)
 export let cover: Uint8Array = activeWorld.cover; // cover flags per tile
 export let flow: Int16Array | Int32Array = activeWorld.flow; // steps to the flow target tile (-1 = unreachable)
-// the game builds a level, then hands its maps over here (only the keys given are replaced)
+// the game builds a level, then hands its maps over here (only the keys given are replaced; the door maps are not
+// among the live copies above, read them from activeTileGrid().world)
 export function setTileWorld(o: Partial<TileWorld>) {
   if (o.W !== undefined) {
     activeWorld.W = o.W;
@@ -292,6 +315,10 @@ export function setTileWorld(o: Partial<TileWorld>) {
     flow = o.flow;
   }
   if (o.flowQ) activeWorld.flowQ = o.flowQ;
+  // the door maps are the one optional part. A new grid is a new level, so its doors (or none) replace the old ones;
+  // otherwise a key that is present replaces them (undefined removes the doors)
+  if (o.grid || 'door' in o) activeWorld.door = o.door;
+  if (o.grid || 'doorOpen' in o) activeWorld.doorOpen = o.doorOpen;
 }
 // tile number (column i or row j) of a world coordinate
 export function tileCoord(v: number): number {
@@ -308,6 +335,9 @@ export function inBounds(i: number, j: number): boolean {
 }
 export function isSolid(i: number, j: number): boolean {
   return active.isSolid(i, j);
+}
+export function isFloor(i: number, j: number): boolean {
+  return active.isFloor(i, j);
 }
 export function solidAt(x: number, z: number): boolean {
   return active.solidAt(x, z);

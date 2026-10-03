@@ -12,6 +12,7 @@ import { burst, clearFx, fireball, parts, updateBalls } from '../src/render/fx.t
 import {
   COVER_H,
   DECK_H,
+  DOOR_PASS,
   RISE,
   T,
   W,
@@ -28,6 +29,7 @@ import {
   hasLOS,
   hgt,
   inBounds,
+  isFloor,
   isSolid,
   blocked,
   moveCircle,
@@ -46,7 +48,8 @@ import {
   tileIndex,
   walkable,
 } from '../src/world/tiles.ts';
-import { forEachRoomTile, generateArena, generateDungeon } from '../src/world/dungeon.ts';
+import { addDoorways, forEachRoomTile, generateArena, generateDungeon, setDoor } from '../src/world/dungeon.ts';
+import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
 import {
   type FloorLink,
@@ -394,6 +397,8 @@ function worldFromRows(rows: string[], deckH?: number): TileWorld {
     cover: m.maps.cover,
     flow: new Int16Array(n),
     flowQ: new Int32Array(n),
+    door: m.maps.door,
+    doorOpen: m.maps.doorOpen,
   };
 }
 test('tiles: two tile grids keep their own terrain, collision, sight and flow', () => {
@@ -474,6 +479,7 @@ test('tiles: the module functions give what a tile grid made from the same maps 
     eq(act.floorY(x, z), floorY(x, z), 'floorY (active object)');
     eq(g.solidAt(x, z), solidAt(x, z), 'solidAt');
     eq(g.isSolid(i, j), isSolid(i, j), 'isSolid');
+    eq(g.isFloor(i, j), isFloor(i, j), 'isFloor');
     eq(g.inBounds(i, j), inBounds(i, j), 'inBounds');
     eq(g.tileIndex(x, z), tileIndex(x, z), 'tileIndex');
     eq(g.blocked(x, z, r), blocked(x, z, r), 'blocked');
@@ -1018,4 +1024,361 @@ test('floors: createFloors names the wrong link, floorReach rejects a start off 
   const f = make(good);
   expect(() => floorReach(f, spot(0, 0, 0))).toThrow(/floorReach: from.*not a floor tile/);
   expect(() => floorReach(f, spot(3, 1, 1))).toThrow(/floorReach: from: floor 3/);
+});
+
+// ---- doors ----
+// one row of floor with a door at column 3: the player side is columns 1-2, the far side columns 4-5
+const DOOR_ROWS = ['#######', '#..+..#', '#######'];
+const doorX = 3.5 * T,
+  midZ = 1.5 * T;
+const person = (x: number, r = 0.4) => ({ x, z: midZ, r });
+// runs updateDoors for `seconds` in steps of dt
+function tickDoors(
+  g: ReturnType<typeof createTileGrid>,
+  movers: { x: number; z: number; r: number }[],
+  seconds: number,
+) {
+  for (let t = 0; t < seconds; t += 0.05) updateDoors(g, movers, 0.05);
+}
+test('doors: a shut door is a wall for movement, sight and bullets, but still a floor tile', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ);
+  eq(g.world.door![k], 1);
+  eq(g.world.doorOpen![k], 0, 'doors start shut');
+  eq(g.world.grid[k], 1, 'the tile stays a floor tile');
+  ok(g.isSolid(3, 1) && g.solidAt(doorX, midZ) && g.blocked(doorX, midZ, 0.4), 'solid');
+  ok(g.isFloor(3, 1) && !g.isFloor(0, 0) && !g.isFloor(9, 9), 'isFloor counts the door but not walls or outside');
+  ok(!g.hasLOS(1.5 * T, midZ, 5.5 * T, midZ), 'no sight through it');
+  ok(g.hasLOS(1.5 * T, midZ, 2.5 * T, midZ) && g.hasLOS(4.5 * T, midZ, 5.5 * T, midZ), 'but sight on each side');
+  const o = { x: 1.5 * T, z: midZ, fy: 0 };
+  for (let n = 0; n < 100; n++) g.moveCircle(o, 0.2, 0, 0.4);
+  ok(o.x < 3 * T - 0.4 + 1e-6 && g.moveCircle({ x: o.x, z: midZ }, 0.5, 0, 0.4), 'stopped in front of the door');
+  eq(g.world.door![g.tileIndex(1.5 * T, midZ)], 0, 'ordinary floor is not a door');
+});
+test('doors: near someone it opens (floor to walk and see through), and it shuts again after a while', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ),
+    open = () => g.world.doorOpen![k];
+  const far = person(1.5 * T); // 8 m from the door's middle
+  ok(Math.abs(far.x - doorX) > DOOR_SENSE_R);
+  tickDoors(g, [far], 1);
+  eq(open(), 0, 'out of range: stays shut');
+  const near = person(doorX - DOOR_SENSE_R + 0.2);
+  tickDoors(g, [near], 0.1);
+  ok(open() > 0 && open() < DOOR_PASS, 'opening, not yet through');
+  ok(g.isSolid(3, 1), 'still a wall while under DOOR_PASS');
+  tickDoors(g, [near], 0.4);
+  ok(open() >= DOOR_PASS && !g.isSolid(3, 1) && !g.blocked(doorX, midZ, 0.4), 'open enough: floor');
+  ok(g.hasLOS(1.5 * T, midZ, 5.5 * T, midZ), 'sight goes through');
+  const o = { x: near.x, z: midZ, fy: 0 };
+  for (let n = 0; n < 100; n++) g.moveCircle(o, 0.2, 0, 0.4);
+  ok(o.x > 4 * T, 'walks through to the far side');
+  tickDoors(g, [near], 1);
+  near.x = 1.5 * T; // steps away, out of range
+  tickDoors(g, [near], DOOR_CLOSE_DELAY - 0.3);
+  eq(open(), 1, 'stays wide open until the delay is over');
+  tickDoors(g, [near], 0.3 + 1 / DOOR_SPEED + 0.3);
+  eq(open(), 0, 'then closes all the way');
+  ok(g.isSolid(3, 1) && !g.hasLOS(1.5 * T, midZ, 5.5 * T, midZ), 'a wall again');
+});
+test('doors: it does not shut while someone overlaps the tile; any of the movers opens it; options override', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ),
+    open = () => g.world.doorOpen![k],
+    tiny = { sense: 0.5, closeDelay: 0.1 };
+  tickDoors(g, [person(doorX)], 1);
+  eq(open(), 1);
+  // the door's tile starts at x = 3 * T = 12: a body at 11.8 with r 0.4 overlaps it, one at 11.4 does not
+  const run = (movers: { x: number; z: number; r: number }[], seconds: number) => {
+    for (let t = 0; t < seconds; t += 0.05) updateDoors(g, movers, 0.05, tiny);
+  };
+  run([person(11.8)], 3);
+  eq(open(), 1, 'an overlapping body holds it open');
+  run([person(11.4)], 1.5);
+  eq(open(), 0, 'one just outside the tile (and out of the small sense range) lets it shut');
+  run([person(11.8)], 1);
+  eq(open(), 1, 'overlapping a shut door opens it');
+  // several movers, given as any iterable: only the near one counts
+  const set = new Set([person(1.5 * T), person(4.5 * T), person(doorX + 1)]);
+  tickDoors(g, [], 3);
+  eq(open(), 0);
+  for (let n = 0; n < 20; n++) updateDoors(g, set, 0.05);
+  eq(open(), 1, 'one near mover of three is enough');
+  // a faster door (the options replace the defaults one by one)
+  tickDoors(g, [], 3);
+  updateDoors(g, [person(doorX)], 0.1, { speed: 10 });
+  eq(open(), 1, 'speed 10: fully open in 0.1 s');
+  updateDoors(g, [person(doorX)], 0, {});
+  updateDoors(g, [person(doorX)], -1, {});
+  eq(open(), 1, 'a dt of 0 or less changes nothing');
+});
+test('doors: a world without doors is left alone; door without doorOpen is an error', () => {
+  const plain = createTileGrid(worldFromRows(['####', '#..#', '####']));
+  updateDoors(plain, [person(1.5 * T)], 1);
+  eq(plain.world.door, undefined, 'nothing is added to the world');
+  const bad = worldFromRows(DOOR_ROWS);
+  delete bad.doorOpen;
+  const g = createTileGrid(bad);
+  ok(g.isSolid(3, 1), 'a door with no doorOpen counts as shut');
+  expect(() => updateDoors(g, [person(doorX)], 0.1)).toThrow(/doorOpen/);
+});
+test('doors: paths and reach checks go through a shut door', () => {
+  const rows = ['#######', '#..+..#', '#######'],
+    withDoor = createTileGrid(worldFromRows(rows)),
+    noDoor = createTileGrid(worldFromRows(['#######', '#.....#', '#######']));
+  withDoor.computeFlow(5, 1);
+  noDoor.computeFlow(5, 1);
+  eq(Array.from(withDoor.world.flow).join(), Array.from(noDoor.world.flow).join(), 'the same steps as with a floor');
+  eq(withDoor.flowAt(doorX, midZ), 2, 'on the door tile itself (shut)');
+  eq(withDoor.flowAt(1.5 * T, midZ), 4);
+  const d = withDoor.flowDir(2.5 * T, midZ);
+  ok(d && d[0] > 0.9, 'flowDir heads into the shut door');
+  ok(withDoor.flowDir(doorX, midZ)![0] > 0.9, 'and on along from the door tile');
+  // a wall in the same place does cut the path
+  const wall = createTileGrid(worldFromRows(['#######', '#..#..#', '#######']));
+  wall.computeFlow(5, 1);
+  eq(wall.flowAt(1.5 * T, midZ), -1);
+  // floors
+  const f = floorsFromRows([['#######', '#..+..#', '#######']], []);
+  eq(unreachableFloorTiles(f, spot(0, 1, 1)).length, 0, 'every tile is reached through the shut door');
+  eq(reached(floorReach(f, spot(0, 1, 1)), 0), '0000000' + '0111110' + '0000000', 'floorReach too');
+  const sealed = floorsFromRows([['#####', '#.#+#', '#####']], []);
+  eq(
+    JSON.stringify(unreachableFloorTiles(sealed, spot(0, 1, 1))),
+    JSON.stringify([spot(0, 3, 1)]),
+    'a door cut off from the start is listed as a floor tile that cannot be reached',
+  );
+  eq(unreachableFloorTiles(sealed, spot(0, 3, 1)).length, 1, 'starting on the door tile itself works too');
+  // a link may end on a door tile
+  const two = floorsFromRows(
+    [DOOR_ROWS, ['###', '#.#', '###']],
+    [{ kind: 'stairs', a: spot(0, 3, 1), b: spot(1, 1, 1) }],
+  );
+  eq(unreachableFloorTiles(two, spot(0, 1, 1)).length, 0, 'a link on a door tile is accepted');
+});
+test('doors: without door maps (or with every door open, or none marked) the results are the same', () => {
+  const d = generateDungeon({ map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1, bridges: 2 }, createRng(7)),
+    M = d.maps,
+    n = d.W * d.H,
+    base = (): TileWorld => ({
+      W: d.W,
+      H: d.H,
+      grid: M.grid,
+      hgt: M.hgt,
+      ramp: M.ramp,
+      cover: M.cover,
+      flow: new Int16Array(n),
+      flowQ: new Int32Array(n),
+    });
+  const plain = createTileGrid(base()),
+    zeros = createTileGrid({ ...base(), door: new Uint8Array(n), doorOpen: new Float32Array(n) }),
+    // doors on real floor tiles, all wide open
+    opened = base(),
+    marked = new Uint8Array(n);
+  for (let k = 0; k < n; k++) if (M.grid[k] === 1 && k % 7 === 0) marked[k] = 1;
+  const allOpen = createTileGrid({ ...opened, door: marked, doorOpen: new Float32Array(n).fill(1) });
+  eq(
+    marked.some(v => v === 1),
+    true,
+    'the sample has doors',
+  );
+  const c = d.rooms[0],
+    ci = Math.floor(c.x + c.w / 2),
+    cj = Math.floor(c.y + c.h / 2),
+    rng = createRng(3),
+    span = Math.max(d.W, d.H) * T;
+  const grids = [plain, zeros, allOpen];
+  grids.forEach(g => g.computeFlow(ci, cj));
+  const flowOf = (g: typeof plain) => Array.from(g.world.flow).join();
+  eq(flowOf(zeros), flowOf(plain), 'flow with all-zero door maps');
+  eq(flowOf(allOpen), flowOf(plain), 'flow with open doors');
+  let seen = 0;
+  for (let q = 0; q < 300; q++) {
+    const x = rng.rand(-T, span + T),
+      z = rng.rand(-T, span + T),
+      x1 = rng.rand(0, span),
+      z1 = rng.rand(0, span),
+      dx = rng.rand(-1, 1),
+      dz = rng.rand(-1, 1),
+      fy = q % 3 === 0 ? undefined : plain.floorY(x, z);
+    const res = grids.map(g => {
+      const m = { x, z, fy },
+        hit = g.moveCircle(m, dx, dz, 0.4);
+      return [
+        g.solidAt(x, z),
+        g.isSolid(tileCoord(x), tileCoord(z)),
+        g.isFloor(tileCoord(x), tileCoord(z)),
+        g.blocked(x, z, 0.4),
+        g.hasLOS(x, z, x1, z1),
+        g.hasLOS(x, z, x1, z1, 0.5, 1.5),
+        g.flowAt(x, z),
+        JSON.stringify(g.flowDir(x, z)),
+        hit,
+        m.x,
+        m.z,
+      ].join();
+    });
+    eq(res[1], res[0], 'all-zero door maps');
+    eq(res[2], res[0], 'open doors');
+    if (plain.flowAt(x, z) > 0) seen++;
+  }
+  ok(seen > 20, 'the sample covers reachable ground');
+  // a world made with no door key at all has none, and the same module result
+  eq('door' in createTileGrid(base()).world, false);
+});
+test('doors: the active world takes door maps through setTileWorld, and they can be removed again', () => {
+  const m = tileMapFromRows(DOOR_ROWS),
+    n = m.W * m.H;
+  setTileWorld({ W: m.W, H: m.H, grid: m.maps.grid, hgt: m.maps.hgt, ramp: m.maps.ramp, cover: m.maps.cover });
+  setTileWorld({ flow: new Int16Array(n), flowQ: new Int32Array(n), door: undefined, doorOpen: undefined });
+  eq(isSolid(3, 1), false, 'no door maps: floor');
+  setTileWorld({ door: m.maps.door, doorOpen: m.maps.doorOpen });
+  ok(isSolid(3, 1) && isFloor(3, 1) && solidAt(doorX, midZ), 'the module functions see the shut door');
+  updateDoors(activeTileGrid(), [person(doorX)], 1);
+  ok(!isSolid(3, 1) && hasLOS(1.5 * T, midZ, 5.5 * T, midZ), 'and the open one');
+  computeFlow(5, 1);
+  eq(flowAt(1.5 * T, midZ), 4);
+  setTileWorld({ door: undefined, doorOpen: undefined });
+  eq(activeTileGrid().world.door, undefined);
+  m.maps.doorOpen![3 + m.W] = 0;
+  eq(isSolid(3, 1), false, 'removed: the tile is plain floor again');
+  // a new level (a new grid) without door maps drops the doors of the one before
+  setTileWorld({ door: m.maps.door, doorOpen: m.maps.doorOpen });
+  setTileWorld({ W: m.W, H: m.H, grid: m.maps.grid.slice(), hgt: m.maps.hgt, ramp: m.maps.ramp, cover: m.maps.cover });
+  eq(activeTileGrid().world.door, undefined, 'a new grid comes with its own doors (here none)');
+  eq(DOOR_PASS > 0 && DOOR_PASS <= 1, true);
+});
+test('tilemap: + is a door on a floor tile; the door maps exist only when a row has one', () => {
+  const m = tileMapFromRows(['#####', '#.+A#', '#####']);
+  const at = (i: number, j: number) => j * m.W + i;
+  eq(m.maps.grid[at(2, 1)], 1, 'a door is floor in grid');
+  eq(m.maps.door![at(2, 1)], 1, 'and marked in door');
+  eq(m.maps.doorOpen![at(2, 1)], 0, 'shut');
+  eq(m.maps.hgt[at(2, 1)], 0);
+  eq(m.maps.ramp[at(2, 1)], -1);
+  eq(m.maps.cover[at(2, 1)], 0);
+  eq(
+    Array.from(m.maps.door!).reduce((a, b) => a + b, 0),
+    1,
+    'only one door',
+  );
+  eq(m.maps.roomOf[at(3, 1)], 0, 'room letters still work next to a door');
+  eq(tileMapFromRows(['#..#', '#A.#']).maps.door, undefined, 'no door character: no door maps');
+  eq(tileMapFromRows(['#..#', '#A.#']).maps.doorOpen, undefined);
+  const own = tileMapFromRows(['#D.#'], { door: 'D' });
+  eq(own.maps.door![1], 1, 'the door character can be changed');
+  expect(() => tileMapFromRows(['#+#'], { door: 'D' })).toThrow();
+  // setDoor on any maps
+  const g = generateArena(10, 2, 8, []);
+  eq(g.maps.door, undefined);
+  setDoor(g.maps, 3 * 10 + 3);
+  eq(g.maps.door![33], 1);
+  eq(g.maps.doorOpen!.length, 100);
+});
+// a short hash of a generated dungeon (all five maps and the rooms), to compare with one made by the code before doors
+function dungeonHash(d: ReturnType<typeof generateDungeon>): string {
+  const M = d.maps,
+    text =
+      [M.grid, M.hgt, M.ramp, M.cover, M.roomOf].map(a => Array.from(a).join()).join('|') + JSON.stringify(d.rooms);
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return (h >>> 0).toString(16);
+}
+test('dungeon: without the doors option the maps and the random numbers are what they were before doors existed', () => {
+  // the hashes and the next random number were taken from the generator before doors were added
+  const full = { map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1, bridges: 2 };
+  const golden: [object, number, string, number][] = [
+    [full, 1, '10260462', 0.163012815406546],
+    [full, 7, '101b7d00', 0.8379574753344059],
+    [full, 99, '5c7cc35c', 0.8688769349828362],
+    [{}, 1, 'e083cc19', 0.5763414488174021],
+    [{}, 7, '56976c6e', 0.42671570368111134],
+    [{ bridges: 0, rubble: 0.2 }, 99, 'ef5f9794', 0.19899036060087383],
+  ];
+  for (const [o, seed, hash, next] of golden) {
+    const rng = createRng(seed),
+      d = generateDungeon(o, rng);
+    eq(dungeonHash(d), hash, `seed ${seed}`);
+    eq(rng.next(), next, `random numbers used, seed ${seed}`);
+    eq(d.maps.door, undefined, 'no door maps');
+    eq(d.maps.doorOpen, undefined);
+    const off = generateDungeon({ ...o, doors: false }, createRng(seed));
+    eq(dungeonHash(off), hash, 'doors: false is the same');
+    eq(off.maps.door, undefined);
+  }
+});
+test('dungeon: doors go in the room doorways, draw no random numbers, and every floor stays reachable', () => {
+  const opts = { map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1 };
+  for (const seed of [1, 7, 99, 123, 2024]) {
+    // without bridges the only difference is the doors
+    const plainRng = createRng(seed),
+      doorRng = createRng(seed),
+      plain = generateDungeon(opts, plainRng),
+      d = generateDungeon({ ...opts, doors: true }, doorRng),
+      M = d.maps,
+      W = d.W;
+    eq(dungeonHash(d), dungeonHash(plain), 'the same maps as without doors');
+    eq(doorRng.next(), plainRng.next(), 'no random numbers drawn for doors');
+    const doors: number[] = [];
+    M.door!.forEach((v, k) => {
+      if (v) doors.push(k);
+    });
+    ok(doors.length >= d.rooms.length / 2, `seed ${seed}: ${doors.length} doors`);
+    eq(M.doorOpen!.length, W * d.H);
+    ok(
+      M.doorOpen!.every(v => v === 0),
+      'all shut',
+    );
+    for (const k of doors) {
+      eq(M.grid[k], 1, 'a door is a floor tile');
+      eq(M.roomOf[k], -1, 'outside the rooms');
+      // along one axis: a room tile on one side, floor on the other; across: walls
+      const axisX = M.roomOf[k - 1] >= 0 || M.roomOf[k + 1] >= 0,
+        [a, b] = axisX ? [k - 1, k + 1] : [k - W, k + W],
+        [c, e] = axisX ? [k - W, k + W] : [k - 1, k + 1];
+      ok(M.roomOf[a] >= 0 || M.roomOf[b] >= 0, 'touches a room');
+      ok(M.grid[a] === 1 && M.grid[b] === 1, 'floor on both ends');
+      ok(!M.grid[c] && !M.grid[e], 'walls on both sides');
+    }
+    // most rooms are entered through a door (a corridor that bends right at a room's edge has no doorway)
+    let withDoor = 0;
+    d.rooms.forEach((_r, id) => {
+      if (doors.some(k => [k - 1, k + 1, k - W, k + W].some(t => M.roomOf[t] === id))) withDoor++;
+    });
+    ok(withDoor * 2 >= d.rooms.length, `seed ${seed}: ${withDoor} of ${d.rooms.length} rooms have a door`);
+    // all floor tiles can still be reached, shut doors or not
+    const f = createFloors(
+      [
+        {
+          W,
+          H: d.H,
+          grid: M.grid,
+          hgt: M.hgt,
+          ramp: M.ramp,
+          cover: M.cover,
+          door: M.door,
+          doorOpen: M.doorOpen,
+          flow: new Int16Array(W * d.H),
+          flowQ: new Int32Array(W * d.H),
+        },
+      ],
+      [0],
+      [],
+    );
+    const r0 = d.rooms[0];
+    eq(unreachableFloorTiles(f, spot(0, Math.floor(r0.x + r0.w / 2), Math.floor(r0.y + r0.h / 2))).length, 0, 'reach');
+    const g = f.grids[0];
+    g.computeFlow(Math.floor(r0.x + r0.w / 2), Math.floor(r0.y + r0.h / 2));
+    for (let k = 0; k < W * d.H; k++) if (M.grid[k] === 1) ok(g.world.flow[k] >= 0, 'flow reaches every floor tile');
+    // while a shut door really is a wall
+    ok(g.isSolid(doors[0] % W, Math.floor(doors[0] / W)), 'shut: solid');
+  }
+  // with bridges the doorway tiles are not used for a walkway
+  const b = generateDungeon({ ...opts, doors: true, bridges: 3 }, createRng(7));
+  for (let k = 0; k < b.W * b.H; k++)
+    if (b.maps.door![k]) ok(b.maps.ramp[k] < 0 && b.maps.hgt[k] === 0, 'flat door tile');
+  // addDoorways alone, on a corridor of width 2 there is none
+  const wide = generateDungeon({ ...opts, corridorW: 2 }, createRng(7));
+  addDoorways(wide.maps, wide.W);
+  eq(wide.maps.door, undefined, 'a corridor 2 wide has no doorway');
 });
