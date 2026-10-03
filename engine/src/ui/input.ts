@@ -54,6 +54,7 @@ let look: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 }
 let fireTouch: { id: number | null; x: number; y: number } = { id: null, x: 0, y: 0 };
 export let fireHeld = false; // #btnFire held
 export let fire2Held = false; // #btnFire2 held
+let fire2Id: number | null = null; // the pointer holding #btnFire2
 export let mouseFire = false; // left mouse button held while the pointer is locked
 export let locked = false; // the pointer is locked to the canvas
 let lockWorked = false; // pointer lock has worked at least once (else lockFailed adds body.nolock)
@@ -122,6 +123,7 @@ export function releaseInputs() {
   fireTouch = { id: null, x: 0, y: 0 };
   fireHeld = false;
   fire2Held = false;
+  fire2Id = null;
   mouseFire = false;
   el('#joyBase').style.display = 'none';
   el('#btnFire').classList.remove('down');
@@ -145,7 +147,7 @@ function bindHoldButton(btn: HTMLElement, onDown: (e: PointerEvent) => void, onU
   btn.addEventListener('pointercancel', onUp);
 }
 export const btnFire = el('#btnFire');
-// only the pointer that pressed #btnFire can release it (unlike fire2Up)
+// only the pointer that pressed #btnFire can release it (the same for #btnFire2)
 export const fireUp = (e: PointerEvent) => {
   if (e.pointerId === fireTouch.id) {
     fireTouch.id = null;
@@ -176,14 +178,18 @@ export function tapBtn(btn: HTMLElement, fn: () => void) {
   });
 }
 export const btnFire2 = el('#btnFire2');
-// releases on any pointerup / pointercancel on #btnFire2, without checking which pointer (unlike fireUp)
-export const fire2Up = () => {
-  fire2Held = false;
-  btnFire2.classList.remove('down');
+// like fireUp: only the pointer that pressed #btnFire2 can release it
+export const fire2Up = (e: PointerEvent) => {
+  if (e.pointerId === fire2Id) {
+    fire2Id = null;
+    fire2Held = false;
+    btnFire2.classList.remove('down');
+  }
 };
 bindHoldButton(
   btnFire2,
-  () => {
+  e => {
+    fire2Id = e.pointerId;
     fire2Held = true;
   },
   fire2Up,
