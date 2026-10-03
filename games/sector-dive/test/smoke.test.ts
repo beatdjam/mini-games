@@ -782,8 +782,12 @@ test('music: every style and its boss arrangement can be scheduled', () => {
       setMusic(name, boss);
       if (!musicState.st || musicState.name !== name + (boss ? ':boss' : '')) throw new Error('setMusic ' + name);
       for (let k = 0; k < 64; k++) playStep(musicState.st, k, actx!.currentTime + k * 0.01, 0.1);
+      const mix = boss ? 'boss' : name === 'BASE' ? 'base' : 'explore';
+      if (musicState.mix !== mix) throw new Error('music mix ' + name + ' ' + musicState.mix);
     });
   });
+  setMusic('NOWHERE'); // a name with no style plays DATA, mixed like a sector
+  if (musicState.st !== MUSIC_STYLES.DATA || musicState.mix !== 'explore') throw new Error('music fallback');
   setMusicMix('combat');
   setMusicMix('explore');
   musicVolume(0.4);

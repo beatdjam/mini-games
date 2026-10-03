@@ -6,7 +6,7 @@
 
 - 開発・ビルド・テストのコマンドはリポジトリの README「開発」、型や名前の付け方は STYLE.md
 - engine が外に見せる型（設定オブジェクト・システム・world のオブジェクト・言語ファイルの形など）は、持ち主のモジュールから export する。ブラウザ固有の古い API の型は `engine/src/vendor.d.ts`
-- **engine はゲームを import しない**。ゲームの状態や操作は、設定オブジェクト（`LOOP`, `INPUT`, `TOUCH_LAYOUT`）、登録用の関数（`setI18nHook`, `addSystem`, `spawn`）、ゲームが中身を入れる器（`SFX`, `MUSIC_STYLES`, `LAYER_MIX`）で受け取る
+- **engine はゲームを import しない**。ゲームの状態や操作は、設定オブジェクト（`LOOP`, `INPUT`, `TOUCH_LAYOUT`, `MUSIC`）、登録用の関数（`setI18nHook`, `addSystem`, `spawn`）、ゲームが中身を入れる器（`SFX`, `MUSIC_STYLES`, `LAYER_MIX`）で受け取る
 - 他のモジュールの変数には代入できないので、ゲームや engine の状態を外から変えるときは、持ち主のモジュールの関数（`setTileWorld`, `setVolumes` など）を呼ぶ
 - モジュールの読み込み時は、宣言とイベントの登録だけにする。ほかのモジュールの値を使う起動処理は、入口（`games/<id>/src/main.ts`）が全部を読み込んだあとに呼ぶ（import が循環していると、読み込みの順番は保証されないため）
 - engine が前提にする HTML の要素（`<canvas id="gl">`, `#touch` など）は README の表に書く
@@ -128,6 +128,7 @@
 - 効果音も BGM も、音声ファイルを使わず Web Audio で合成する
 - 効果音: `sfx(name)` が `SFX[name]` を鳴らす（`SFX` は engine の器で、ゲームが `Object.assign(SFX, {...})` で中身を入れる）。同じ音が短い間に重なりすぎないよう間引く。出口に軽いコンプレッサー
 - BGM: `MUSIC_STYLES`（調・音階・和音の進行・テンポ・パターン。ゲームが中身を入れる）を鳴らす。層（pad / arp / bass / drums / tension）の混ぜ方は `LAYER_MIX` を `setMusicMix(kind)` で切り替える。ボス戦は同じ曲調を速く激しくしたアレンジにできる
+- BGM の名前は engine が1つも知らない。`setMusic(name, boss)` は `MUSIC_STYLES[name]` を鳴らし、無い名前は `MUSIC.fallback`（曲の名前）の曲を鳴らす。`fallback` が `null`（既定）か、その曲も無いときは何も鳴らさず、今の曲もそのまま。層の混ぜ方は `MUSIC.mixOf(name, boss)` が返す `LAYER_MIX` のキーで決まる。`null`（既定）を返すか `LAYER_MIX` に無いキーなら、混ぜ方は変えない。混ぜ方が切り替わる速さ（各層の音量を寄せる時定数、秒）は `MUSIC.fadeOf(mix)` で決まる（既定は 1.2 秒）
 - 音量はゲームが `setVolumes(sfx, bgm)`（0〜1）で入れる。最初のタップかクリックまで音は出ない（`audioInit`）。ゲームは起動時に `unlockAudio()` を1回呼ぶ。スマホではタッチの pointerdown では音を出せない（指を離したときなら出せる）ので、音が実際に動き出すまで、どの入力でも試し直す
 
 ## 9. 画面の部品と入力（ui/）
