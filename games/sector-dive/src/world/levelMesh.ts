@@ -19,6 +19,7 @@ import { WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
 import { COLOR } from '../data/colors.ts';
 import { biomeTex } from './render.ts';
+import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 const NEON_COUNT = 90; // neon signs per level
@@ -57,121 +58,149 @@ export function wedgeGeo() {
 }
 export const RAMP_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
 
-// The three.js part of a level: floor, walls, decks, ramps, cover, hazard floor, ceiling and neon signs. Reads the
-// tile world (set from gen first). rng only places the signs, so the same seed gives the same look.
-export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedLevel, group: THREE.Group, rng: Rng) {
-  const lg = group;
-  const tex = biomeTex(biome);
-  tex.floor.repeat.set(W, H);
-  const fgeo = new THREE.PlaneGeometry(W * T, H * T);
-  fgeo.rotateX(-Math.PI / 2);
-  const floor = new THREE.Mesh(fgeo, new THREE.MeshBasicMaterial({ map: tex.floor }));
-  floor.position.set((W * T) / 2, 0, (H * T) / 2);
-  lg.add(floor);
-  const m = new THREE.Matrix4();
-  // walls
-  const list: [number, number][] = [];
+// does a floor tile (grid 1) lie within the 8 tiles around (i, j), or on it
+function touchesFloor(i: number, j: number): boolean {
+  for (let dj = -1; dj <= 1; dj++)
+    for (let di = -1; di <= 1; di++) {
+      const ni = i + di,
+        nj = j + dj;
+      if (inBounds(ni, nj) && grid[nj * W + ni] === 1) return true;
+    }
+  return false;
+}
+
+// the solid tiles that touch a floor tile: the only walls that can be seen
+function wallTiles(): [number, number][] {
+  const tiles: [number, number][] = [];
   for (let j = 0; j < H; j++)
     for (let i = 0; i < W; i++) {
       if (grid[j * W + i] === 1) continue;
-      let near = false;
-      for (let dj = -1; dj <= 1 && !near; dj++)
-        for (let di = -1; di <= 1; di++) {
-          const a = i + di,
-            b = j + dj;
-          if (inBounds(a, b) && grid[b * W + a] === 1) {
-            near = true;
-            break;
-          }
-        }
-      if (near) list.push([i, j]);
+      if (touchesFloor(i, j)) tiles.push([i, j]);
     }
-  const inst = new THREE.InstancedMesh(
+  return tiles;
+}
+
+function addFloor(tex: BiomeTextures, group: THREE.Group) {
+  tex.floor.repeat.set(W, H);
+  const geo = new THREE.PlaneGeometry(W * T, H * T);
+  geo.rotateX(-Math.PI / 2);
+  const floor = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex.floor }));
+  floor.position.set((W * T) / 2, 0, (H * T) / 2);
+  group.add(floor);
+}
+
+function addWalls(tex: BiomeTextures, tiles: [number, number][], group: THREE.Group) {
+  const matrix = new THREE.Matrix4();
+  const walls = new THREE.InstancedMesh(
     new THREE.BoxGeometry(T, WALL_H, T),
     new THREE.MeshBasicMaterial({ map: tex.wall }),
-    list.length,
+    tiles.length,
   );
-  list.forEach(([i, j], k) => {
-    m.makeTranslation(tileCenter(i), WALL_H / 2, tileCenter(j));
-    inst.setMatrixAt(k, m);
+  tiles.forEach(([i, j], n) => {
+    matrix.makeTranslation(tileCenter(i), WALL_H / 2, tileCenter(j));
+    walls.setMatrixAt(n, matrix);
   });
-  inst.instanceMatrix.needsUpdate = true;
-  lg.add(inst);
-  // raised decks, walkways and cover
+  walls.instanceMatrix.needsUpdate = true;
+  group.add(walls);
+}
+
+// raised decks, walkways and cover (not ramps): one box per tile, scaled to the tile height
+function addDecks(tex: BiomeTextures, group: THREE.Group) {
+  const matrix = new THREE.Matrix4();
   const raised: number[] = [];
   for (let k = 0; k < W * H; k++) if (grid[k] === 1 && ramp[k] < 0 && hgt[k] > 0) raised.push(k);
-  const side = new THREE.MeshBasicMaterial({ map: tex.wall }),
-    top = new THREE.MeshBasicMaterial({ map: tex.tile });
-  const coverSide = new THREE.MeshBasicMaterial({ map: tex.wall, color: 0x9a9a9a });
+  const sideMat = new THREE.MeshBasicMaterial({ map: tex.wall }),
+    topMat = new THREE.MeshBasicMaterial({ map: tex.tile });
+  const coverSideMat = new THREE.MeshBasicMaterial({ map: tex.wall, color: 0x9a9a9a });
   (
     [
-      [raised.filter(k => !cover[k]), side],
-      [raised.filter(k => cover[k]), coverSide],
+      [raised.filter(k => !cover[k]), sideMat],
+      [raised.filter(k => cover[k]), coverSideMat],
     ] as [number[], THREE.Material][]
-  ).forEach(([ks, sm]) => {
-    if (!ks.length) return;
-    const bg = new THREE.BoxGeometry(T, 1, T);
-    bg.translate(0, 0.5, 0);
-    const im = new THREE.InstancedMesh(bg, [sm, sm, top, sm, sm, sm], ks.length);
-    ks.forEach((k, n) => {
-      m.makeScale(1, hgt[k], 1);
-      m.setPosition(tileCenter(k % W), 0, tileCenter((k / W) | 0));
-      im.setMatrixAt(n, m);
+  ).forEach(([tiles, mat]) => {
+    if (!tiles.length) return;
+    const geo = new THREE.BoxGeometry(T, 1, T);
+    geo.translate(0, 0.5, 0);
+    const decks = new THREE.InstancedMesh(geo, [mat, mat, topMat, mat, mat, mat], tiles.length);
+    tiles.forEach((k, n) => {
+      matrix.makeScale(1, hgt[k], 1);
+      matrix.setPosition(tileCenter(k % W), 0, tileCenter((k / W) | 0));
+      decks.setMatrixAt(n, matrix);
     });
-    im.instanceMatrix.needsUpdate = true;
-    lg.add(im);
+    decks.instanceMatrix.needsUpdate = true;
+    group.add(decks);
   });
-  const rampTop = new THREE.MeshBasicMaterial({ map: tex.tile, side: THREE.DoubleSide }),
-    rampSide = new THREE.MeshBasicMaterial({ map: tex.wall, side: THREE.DoubleSide });
-  const wg = wedgeGeo();
+}
+
+function addRamps(tex: BiomeTextures, group: THREE.Group) {
+  const topMat = new THREE.MeshBasicMaterial({ map: tex.tile, side: THREE.DoubleSide }),
+    sideMat = new THREE.MeshBasicMaterial({ map: tex.wall, side: THREE.DoubleSide });
+  const geo = wedgeGeo();
   for (let k = 0; k < W * H; k++) {
     if (grid[k] !== 1 || ramp[k] < 0) continue;
-    const rm = new THREE.Mesh(wg, [rampTop, rampSide]);
-    rm.position.set(tileCenter(k % W), hgt[k], tileCenter((k / W) | 0));
-    rm.rotation.y = RAMP_ROT[ramp[k]];
-    lg.add(rm);
+    const mesh = new THREE.Mesh(geo, [topMat, sideMat]);
+    mesh.position.set(tileCenter(k % W), hgt[k], tileCenter((k / W) | 0));
+    mesh.rotation.y = RAMP_ROT[ramp[k]];
+    group.add(mesh);
   }
-  buildHazardMesh(biome, gen.hazard, lg);
-  // ceiling and neon signs (sectors with gen.ceiling / gen.neon)
-  if (biome.gen.ceiling && !isArena) {
-    const cg = new THREE.PlaneGeometry(W * T, H * T);
-    cg.rotateX(Math.PI / 2);
-    const ceil = new THREE.Mesh(
-      cg,
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(biome.wall).multiplyScalar(0.7) }),
+}
+
+function addCeiling(biome: Biome, group: THREE.Group) {
+  const geo = new THREE.PlaneGeometry(W * T, H * T);
+  geo.rotateX(Math.PI / 2);
+  const ceiling = new THREE.Mesh(
+    geo,
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(biome.wall).multiplyScalar(0.7) }),
+  );
+  ceiling.position.set((W * T) / 2, WALL_H, (H * T) / 2);
+  group.add(ceiling);
+}
+
+// neon signs on the open sides of wall tiles; rng picks which sides get one, then each sign's height, size and colour
+function addNeonSigns(tiles: [number, number][], group: THREE.Group, rng: Rng) {
+  const matrix = new THREE.Matrix4();
+  const spots: [number, number, number, number][] = [];
+  tiles.forEach(([i, j]) =>
+    SIDE_STEP.forEach(([dx, dz]) => {
+      if (!isSolid(i + dx, j + dz)) spots.push([i, j, dx, dz]);
+    }),
+  );
+  const pickSpots = rng.shuffle(spots).slice(0, NEON_COUNT),
+    colors = [0xff3d8a, 0x3dffb4, 0xffd23d, 0x4dc3ff, COLOR.violet];
+  const signs = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(T * 0.55, 0.45, 0.08),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+    pickSpots.length,
+  );
+  const rotation = new THREE.Quaternion(),
+    scale = new THREE.Vector3(1, 1, 1),
+    color = new THREE.Color();
+  pickSpots.forEach(([i, j, dx, dz], n) => {
+    rotation.setFromAxisAngle(UP, dx !== 0 ? Math.PI / 2 : 0);
+    matrix.compose(
+      new THREE.Vector3((i + 0.5 + dx * 0.52) * T, rng.rand(2.4, 4.8), (j + 0.5 + dz * 0.52) * T),
+      rotation,
+      scale.set(rng.rand(0.5, 1.2), rng.rand(0.7, 1.6), 1),
     );
-    ceil.position.set((W * T) / 2, WALL_H, (H * T) / 2);
-    lg.add(ceil);
-  }
-  if (biome.gen.neon && !isArena) {
-    const spots: [number, number, number, number][] = [];
-    list.forEach(([i, j]) =>
-      SIDE_STEP.forEach(([a, b]) => {
-        if (!isSolid(i + a, j + b)) spots.push([i, j, a, b]);
-      }),
-    );
-    const pickSpots = rng.shuffle(spots).slice(0, NEON_COUNT),
-      colors = [0xff3d8a, 0x3dffb4, 0xffd23d, 0x4dc3ff, COLOR.violet];
-    const im = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(T * 0.55, 0.45, 0.08),
-      new THREE.MeshBasicMaterial({ color: 0xffffff }),
-      pickSpots.length,
-    );
-    const q = new THREE.Quaternion(),
-      s1 = new THREE.Vector3(1, 1, 1),
-      c = new THREE.Color();
-    pickSpots.forEach(([i, j, a, b], n) => {
-      q.setFromAxisAngle(UP, a !== 0 ? Math.PI / 2 : 0);
-      m.compose(
-        new THREE.Vector3((i + 0.5 + a * 0.52) * T, rng.rand(2.4, 4.8), (j + 0.5 + b * 0.52) * T),
-        q,
-        s1.set(rng.rand(0.5, 1.2), rng.rand(0.7, 1.6), 1),
-      );
-      im.setMatrixAt(n, m);
-      im.setColorAt(n, c.setHex(rng.pick(colors)));
-    });
-    im.instanceMatrix.needsUpdate = true;
-    if (im.instanceColor) im.instanceColor.needsUpdate = true;
-    lg.add(im);
-  }
+    signs.setMatrixAt(n, matrix);
+    signs.setColorAt(n, color.setHex(rng.pick(colors)));
+  });
+  signs.instanceMatrix.needsUpdate = true;
+  if (signs.instanceColor) signs.instanceColor.needsUpdate = true;
+  group.add(signs);
+}
+
+// The three.js part of a level: floor, walls, decks, ramps, cover, hazard floor, ceiling and neon signs. Reads the
+// tile world (set from gen first). rng only places the signs, so the same seed gives the same look.
+export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedLevel, group: THREE.Group, rng: Rng) {
+  const tex = biomeTex(biome);
+  const walls = wallTiles();
+  addFloor(tex, group);
+  addWalls(tex, walls, group);
+  addDecks(tex, group);
+  addRamps(tex, group);
+  buildHazardMesh(biome, gen.hazard, group);
+  // sectors with gen.ceiling / gen.neon
+  if (biome.gen.ceiling && !isArena) addCeiling(biome, group);
+  if (biome.gen.neon && !isArena) addNeonSigns(walls, group, rng);
 }
