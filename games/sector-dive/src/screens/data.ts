@@ -3,6 +3,7 @@ import { clearStore } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { applyLayout } from '@engine/ui/touchlayout.ts';
+import { saveFile } from '@engine/ui/share.ts';
 import { SAVE_KEY, defaultSave, exportSave, importSave, importSaveCheck, persist, setSave } from '../core/save.ts';
 import { baseUI, renderBase } from './base.ts';
 import { onDataClick } from './rows.ts';
@@ -76,14 +77,10 @@ onDataClick(el('#saveBtns'), [
         toast(t('save.copyFailed'), 3000);
       }
     } else if (a === 'download') {
-      const url = URL.createObjectURL(new Blob([box.value + '\n'], { type: 'text/plain' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `sector-dive-save-${new Date().toISOString().slice(0, 10)}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      saveFile(
+        new Blob([box.value + '\n'], { type: 'text/plain' }),
+        `sector-dive-save-${new Date().toISOString().slice(0, 10)}.txt`,
+      );
     } else if (a === 'file') el<HTMLInputElement>('#saveFile').click();
     else if (a === 'check') {
       if (!box.value.trim()) return;

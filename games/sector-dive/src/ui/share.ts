@@ -1,7 +1,7 @@
 import { el, isTouch } from '@engine/core/util.ts';
 import { lang, t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
-import { canCopyImage, canShareFile, copyImage, openXPost, saveImage, shareNative } from '@engine/ui/share.ts';
+import { canCopyImage, canShareFile, copyImage, openXPost, saveFile, shareNative } from '@engine/ui/share.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { RUN_END, countBy, parsePerk, perkName } from '../core/rules.ts';
@@ -274,7 +274,7 @@ export function copyShareImage() {
 export function saveShareImage() {
   if (!shareBlob) return;
   track('share', { method: 'save' });
-  saveImage(shareBlob, SHARE_FILE);
+  saveFile(shareBlob, SHARE_FILE);
 }
 export function openShareX() {
   if (!shareData) return;

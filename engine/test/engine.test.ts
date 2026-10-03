@@ -55,7 +55,7 @@ import {
 import { steerChase } from '../src/world/steer.ts';
 import { banner, toast } from '../src/ui/ui.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
-import { canCopyImage, openXPost, saveImage } from '../src/ui/share.ts';
+import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
 import { drawTileMap } from '../src/ui/minimap.ts';
 import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
@@ -652,7 +652,7 @@ test('share: X post URL, saving an image, clipboard support', () => {
   });
   URL.createObjectURL = () => 'blob:test';
   URL.revokeObjectURL = () => {};
-  saveImage(new Blob(['x'], { type: 'image/png' }), 'card.png');
+  saveFile(new Blob(['x'], { type: 'image/png' }), 'card.png');
   expect(click).toHaveBeenCalledTimes(1);
   click.mockRestore();
   eq(typeof canCopyImage(), 'boolean');
