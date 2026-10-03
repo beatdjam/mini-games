@@ -1989,18 +1989,80 @@ test('floorgen: floors joined by stairs (and lifts), every floor reached by stai
     });
   }
 });
+test('floorgen: floors and rooms that only a lift reaches', () => {
+  const stairsOnly = (l: FloorLink) => l.kind === 'stairs',
+    offCover = (g: ReturnType<typeof generateFloors>) => (s: FloorSpot) =>
+      !g.maps[s.floor].maps.cover[s.j * g.maps[s.floor].W + s.i];
+  for (const seed of [1, 7, 99, 123, 2024]) {
+    // floor 2 hangs on a lift only; every floor has one room that only a lift reaches
+    const g = generateFloors(
+        { floors: 3, dungeon: { map: 40, doors: true }, stairs: [1, 0], liftRooms: 1 },
+        createRng(seed),
+      ),
+      again = generateFloors(
+        { floors: 3, dungeon: { map: 40, doors: true }, stairs: [1, 0], liftRooms: 1 },
+        createRng(seed),
+      );
+    eq(JSON.stringify(g.links), JSON.stringify(again.links), 'repeats');
+    eq(g.liftRooms.length, 3, `seed ${seed}: one lift-only room per floor`);
+    eq(
+      g.links.map(l => `${l.kind}:${l.a.floor}-${l.b.floor}`).join(),
+      'stairs:0-1,elevator:1-2,elevator:0-1,elevator:1-2,elevator:2-1',
+      'the pairs, then each lift-only room to the floor above (below on the top floor)',
+    );
+    const start = g.links[0].a,
+      everything = unreachableFloorTiles(g.floors, start).filter(offCover(g)),
+      byStairs = unreachableFloorTiles(g.floors, start, stairsOnly).filter(offCover(g));
+    eq(everything.length, 0, `seed ${seed}: with the lifts, every tile`);
+    const inLiftRoom = (s: FloorSpot) =>
+      g.liftRooms.some(
+        r => r.floor === s.floor && g.maps[s.floor].maps.roomOf[s.j * g.maps[s.floor].W + s.i] === r.room,
+      );
+    // by stairs alone: all of floor 2 and the lift-only rooms are out of reach, and nothing else
+    ok(
+      byStairs.every(s => s.floor === 2 || inLiftRoom(s)),
+      'only floor 2 and the lift-only rooms are cut off',
+    );
+    ok(
+      byStairs.some(s => s.floor === 2) &&
+        g.liftRooms.every(r => byStairs.some(s => s.floor === r.floor && inLiftRoom(s))),
+      'all of them',
+    );
+    for (const r of g.liftRooms) {
+      const m = g.maps[r.floor],
+        room = m.rooms[r.room];
+      // walls all round, two tiles deep
+      for (let j = room.y - 2; j < room.y + room.h + 2; j++)
+        for (let i = room.x - 2; i < room.x + room.w + 2; i++) {
+          const inside = i >= room.x && j >= room.y && i < room.x + room.w && j < room.y + room.h;
+          if (!inside && i >= 0 && j >= 0 && i < m.W && j < m.H)
+            eq(m.maps.grid[j * m.W + i], 0, 'a wall round the room');
+        }
+      const ends = g.links.flatMap(l => [l.a, l.b]).filter(s => s.floor === r.floor && inLiftRoom(s));
+      eq(ends.length, 1, 'one link end in the room: its own lift');
+    }
+  }
+  // no room for a lift-only room: it is left out
+  const full = generateFloors(
+    { floors: 2, dungeon: { map: 12, countMin: 1, countMax: 1, roomMin: 8, roomMax: 8 }, liftRooms: 2 },
+    createRng(3),
+  );
+  eq(full.liftRooms.length, 0, 'no place, no room');
+  eq(full.links.length, 1, 'just the stairs');
+});
 test('floorgen: options and wrong input', () => {
   const one = generateFloors({ floors: 1 }, createRng(1));
   eq([one.maps.length, one.links.length, one.floors.grids.length].join(','), '1,0,1', 'one floor, no links');
   const per = generateFloors({ floors: 2, dungeon: [{ map: 30 }, { map: 40 }], stairs: 0, floorH: 5 }, createRng(2));
   eq(per.maps.map(m => m.W).join(), '30,40', 'options per floor');
-  eq(per.links.length, 1, 'stairs: 0 still gets one stairs');
+  eq(per.links.map(l => l.kind).join(), 'elevator', 'stairs: 0: a lift joins the pair instead');
   eq(per.floors.baseY.join(), '0,5', 'floorH');
   const many = generateFloors({ floors: 2, stairs: 3, stairsKind: 'ladder' }, createRng(4));
   eq(many.links.map(l => l.kind).join(), 'ladder,ladder,ladder', 'the kind and the count');
   expect(() => generateFloors({ floors: 0 }, createRng(1))).toThrow(/floors must be 1 or more/);
   expect(() => generateFloors({ floors: 1.5 }, createRng(1))).toThrow(/floors must be 1 or more/);
   expect(() => generateFloors({ floors: 2, dungeon: [{}] }, createRng(1))).toThrow(/2 floors but 1 dungeon options/);
+  expect(() => generateFloors({ floors: 3, stairs: [1] }, createRng(1))).toThrow(/2 floor pairs but 1 stairs counts/);
   const tiny = { map: 12, countMin: 1, countMax: 1, roomMin: 4, roomMax: 4 };
   expect(() => generateFloors({ floors: 2, dungeon: tiny, stairs: 20 }, createRng(1))).toThrow(
     /floor 0 has no room tile left/,
