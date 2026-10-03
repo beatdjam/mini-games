@@ -5,7 +5,7 @@ import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { musicVolume, setMusic } from '@engine/audio/music.ts';
 import { T, W, floorY } from '@engine/world/tiles.ts';
 import type { Room } from '@engine/world/dungeon.ts';
-import { banner, enterFs, isFullscreen, toast } from '@engine/ui/ui.ts';
+import { banner, enterFs, isFullscreen, keepAwake, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
@@ -88,7 +88,7 @@ function pickStartChips(tier: number) {
 export function startRun() {
   audioInit();
   if (isTouch && !isFullscreen()) enterFs();
-  if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').catch(() => {});
+  keepAwake(true); // the screen stays on until the run ends (endRun, endPractice, goBase turn it off)
   const tier = clamp(save.startTier, 0, save.shortcut);
   setPlayer(newPlayer(save.loadout));
   const risked = save.loadout.filter(w => w && !w.basic).length;
@@ -230,6 +230,7 @@ export function startPractice(kind: string, tier?: number) {
   const depth = tier || 0;
   audioInit();
   if (isTouch && !isFullscreen()) enterFs();
+  keepAwake(true);
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
   setPlayer(newPlayer(save.loadout));
   setRun({
@@ -254,6 +255,7 @@ export function startPractice(kind: string, tier?: number) {
 }
 function endPractice(kind: RunEnd) {
   setState('result');
+  keepAwake(false);
   releaseInputs();
   exitLock();
   const sec = Math.round((performance.now() - run.t0!) / 1000);
@@ -278,6 +280,7 @@ export function endRun(kind: RunEnd) {
   setSuspend(null); // the run is over: its checkpoint must not come back
   const dead = kind !== 'extract';
   setState('result');
+  keepAwake(false);
   releaseInputs();
   exitLock();
   const got = Math.floor(run.bits),
@@ -321,6 +324,7 @@ export function endRun(kind: RunEnd) {
 el('#btnBack').addEventListener('click', goBase);
 export function goBase() {
   setState('base');
+  keepAwake(false);
   setRun(null);
   setPlayer(null);
   setPlayUI(false);

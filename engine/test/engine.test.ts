@@ -71,7 +71,7 @@ import {
   takeFromPool,
 } from '../src/world/projectiles.ts';
 import { steerChase } from '../src/world/steer.ts';
-import { banner, toast } from '../src/ui/ui.ts';
+import { banner, keepAwake, toast } from '../src/ui/ui.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
@@ -804,6 +804,95 @@ test('ui: a second banner stays its full time instead of going out with the firs
     ok(!b.classList.contains('on'), 'gone after its own 2 s');
   } finally {
     vi.useRealTimers();
+  }
+});
+// a stand-in for navigator.wakeLock: counts the requests and keeps the locks it handed out
+function fakeWakeLock(present = true) {
+  const log = { requests: 0, locks: [] as { released: boolean; release: () => Promise<void> }[], reject: false };
+  const wakeLock = {
+    request: (_type: string) => {
+      log.requests++;
+      if (log.reject) return Promise.reject(new DOMException('refused', 'NotAllowedError'));
+      const lock = {
+        released: false,
+        release: () => {
+          lock.released = true;
+          return Promise.resolve();
+        },
+      };
+      log.locks.push(lock);
+      return Promise.resolve(lock);
+    },
+  };
+  Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: present ? wakeLock : undefined });
+  return log;
+}
+const settle = () => new Promise(r => setTimeout(r, 0)); // lets the request promises resolve
+const showPage = (visibility: 'visible' | 'hidden') => {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+  document.dispatchEvent(new Event('visibilitychange'));
+};
+test('ui: keepAwake takes the wake lock, gives it back, and takes it again when the page is visible again', async () => {
+  const log = fakeWakeLock();
+  try {
+    keepAwake(true);
+    await settle();
+    eq(log.requests, 1, 'on: requested');
+    keepAwake(true);
+    await settle();
+    eq(log.requests, 1, 'on twice: no second lock');
+    showPage('visible');
+    await settle();
+    eq(log.requests, 1, 'still held: no new request');
+    // the browser takes the lock away when the page goes to the background
+    log.locks[0]!.released = true;
+    showPage('hidden');
+    await settle();
+    eq(log.requests, 1, 'hidden: no request');
+    showPage('visible');
+    await settle();
+    eq(log.requests, 2, 'visible again: taken again');
+    keepAwake(false);
+    await settle();
+    ok(log.locks[1]!.released, 'off: released');
+    // off: coming back to the page takes nothing
+    showPage('hidden');
+    showPage('visible');
+    await settle();
+    eq(log.requests, 2, 'off: not taken again');
+    // off while the request is still in flight: the lock that arrives is given back
+    keepAwake(true);
+    keepAwake(false);
+    await settle();
+    eq(log.requests, 3);
+    ok(log.locks[2]!.released, 'off during the request');
+  } finally {
+    keepAwake(false);
+    Reflect.deleteProperty(document, 'visibilityState');
+    Reflect.deleteProperty(navigator, 'wakeLock');
+  }
+});
+test('ui: keepAwake does nothing without navigator.wakeLock and ignores a refused request', async () => {
+  try {
+    fakeWakeLock(false);
+    keepAwake(true);
+    showPage('visible');
+    keepAwake(false);
+    await settle(); // no exception, no unhandled rejection
+    const log = fakeWakeLock();
+    log.reject = true;
+    keepAwake(true);
+    await settle();
+    eq(log.requests, 1, 'asked');
+    log.reject = false;
+    showPage('visible');
+    await settle();
+    eq(log.requests, 2, 'tried again after the refusal');
+    eq(log.locks.length, 1);
+  } finally {
+    keepAwake(false);
+    Reflect.deleteProperty(document, 'visibilityState');
+    Reflect.deleteProperty(navigator, 'wakeLock');
   }
 });
 test('hitdir: an arc shows for a hit from behind, not from in front, and fades out', () => {
