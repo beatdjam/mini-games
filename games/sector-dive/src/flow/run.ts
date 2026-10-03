@@ -85,10 +85,24 @@ function pickStartChips(tier: number) {
   next();
   return total;
 }
-export function startRun() {
+// ---- the parts every way into a dive shares (startRun, startPractice, resumeRun in suspend.ts) ----
+// first, before the run is set up: sound on, fullscreen on touch, the screen kept awake until the run ends
+// (endRun, endPractice, goBase turn it off)
+export function enterDive() {
   audioInit();
   if (isTouch && !isFullscreen()) enterFs();
-  keepAwake(true); // the screen stays on until the run ends (endRun, endPractice, goBase turn it off)
+  keepAwake(true);
+}
+// once the player and the run are set: menus away, the play UI and the weapons on screen, the stage built
+export function beginDive() {
+  show(null);
+  setPlayUI(true);
+  normalizeWeapons();
+  weaponHud();
+  startStage();
+}
+export function startRun() {
+  enterDive();
   const tier = clamp(save.startTier, 0, save.shortcut);
   setPlayer(newPlayer(save.loadout));
   const risked = save.loadout.filter(w => w && !w.basic).length;
@@ -106,11 +120,7 @@ export function startRun() {
   recordRunStart();
   persist();
   track('dive_start', { start_level: tier + 1, item_name: save.loadout[0]?.id ?? '' });
-  show(null);
-  setPlayUI(true);
-  normalizeWeapons();
-  weaponHud();
-  startStage();
+  beginDive();
   const total = pickStartChips(tier);
   if (!total) {
     // with chips to pick first, the lock is requested when the last one is chosen
@@ -228,9 +238,7 @@ export function nextStage() {
 // ---- boss practice: fight one boss at a chosen depth's strength; nothing is gained or lost ----
 export function startPractice(kind: string, tier?: number) {
   const depth = tier || 0;
-  audioInit();
-  if (isTouch && !isFullscreen()) enterFs();
-  keepAwake(true);
+  enterDive();
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
   setPlayer(newPlayer(save.loadout));
   setRun({
@@ -245,11 +253,7 @@ export function startPractice(kind: string, tier?: number) {
     t0: performance.now(),
   });
   track('practice_start', { target: kind, level: depth + 1 });
-  show(null);
-  setPlayUI(true);
-  normalizeWeapons();
-  weaponHud();
-  startStage();
+  beginDive();
   requestLock();
   toast(t('run.practiceStart'), PRACTICE_TOAST_MS);
 }
