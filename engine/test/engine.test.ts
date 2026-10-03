@@ -59,6 +59,7 @@ import {
 import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
 import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
+import { type PropRule, type Slot, placeProps, slotsOf } from '../src/world/slots.ts';
 import {
   type FloorLink,
   type FloorSpot,
@@ -1995,4 +1996,104 @@ test('floorgen: options and wrong input', () => {
   expect(() => generateFloors({ floors: 2, dungeon: tiny, stairs: 20 }, createRng(1))).toThrow(
     /floor 0 has no room tile left/,
   );
+});
+// ---- prop slots ----
+const slotText = (s: Slot) => `${s.kind}@${s.i},${s.j}` + (s.side === undefined ? '' : `/${s.side}`);
+test('slots: slotsOf finds wall faces, corners, middles, room floor, corridors and doorways', () => {
+  // a 5 x 4 room, a door on its east side, a corridor behind it
+  const d = tileMapFromRows(['##########', '#.....####', '#.....+..#', '#.....####', '#.....####', '##########'], {}, [
+    { x: 1, y: 1, w: 5, h: 4 },
+  ]);
+  const list = slotsOf(d).map(slotText),
+    of = (kind: string) => list.filter(t => t.startsWith(kind + '@'));
+  eq(of('center').join(), 'center@3,3', 'the middle of the room');
+  eq(of('corner').join(), 'corner@1,1,corner@5,1,corner@1,4,corner@5,4', 'the four corners, row by row');
+  eq(of('floor').join(), 'floor@2,2,floor@3,2,floor@4,2,floor@5,2,floor@2,3,floor@4,3', 'room tiles with no wall');
+  eq(of('doorway').join(), 'doorway@6,2', 'the door');
+  eq(of('corridor').join(), 'corridor@7,2,corridor@8,2');
+  ok(list.includes('wall@1,1/1') && list.includes('wall@1,1/3'), 'a corner has two wall faces (-x, -z)');
+  eq(
+    list.filter(t => t.startsWith('wall@8,2')).join(),
+    'wall@8,2/0,wall@8,2/2,wall@8,2/3',
+    'the corridor end: walls on +x, +z, -z',
+  );
+  ok(!list.some(t => t.startsWith('wall@6,2')), 'a door tile is only a doorway');
+  eq(list.indexOf('wall@1,1/1') < list.indexOf('corner@1,1'), true, 'a tile lists its wall faces first');
+  // decks, ramps and cover take no slots
+  const deck = tileMapFromRows(['######', '#.>==#', '#.##.#', '######'], {}, [{ x: 1, y: 1, w: 4, h: 2 }]);
+  ok(
+    slotsOf(deck).every(s => deck.maps.hgt[s.j * deck.W + s.i] === 0 && deck.maps.ramp[s.j * deck.W + s.i] < 0),
+    'flat tiles only',
+  );
+});
+test('slots: placeProps keeps blocking props out of the way, and the same seed repeats', () => {
+  const rules: PropRule[] = [
+    { id: 'crate', slots: ['corner', 'floor'], blocks: true, count: [6, 10] },
+    { id: 'sign', slots: ['wall'], blocks: false, count: 12, gap: 3 },
+    { id: 'lamp', slots: ['center'], blocks: false, count: 3 },
+    { id: 'stuck', slots: ['wall', 'corridor', 'doorway'], blocks: true, count: 5 },
+  ];
+  for (const seed of [1, 7, 99, 123, 2024]) {
+    const d = generateDungeon({ map: 36, doors: true, platform: 1, rubble: 0.1 }, createRng(seed)),
+      W = d.W,
+      r0 = d.rooms[0],
+      keep = [Math.floor(r0.y + r0.h / 2) * W + Math.floor(r0.x + r0.w / 2)];
+    const p = placeProps(d, rules, createRng(seed), keep),
+      again = placeProps(d, rules, createRng(seed), keep);
+    eq(JSON.stringify(p), JSON.stringify(again), 'repeats');
+    const crates = p.filter(x => x.id === 'crate'),
+      signs = p.filter(x => x.id === 'sign');
+    ok(crates.length >= 6 && crates.length <= 10, `seed ${seed}: ${crates.length} crates`);
+    eq(signs.length, 12, `seed ${seed}: signs`);
+    eq(p.filter(x => x.id === 'lamp').length, 3);
+    eq(p.filter(x => x.id === 'stuck').length, 0, 'a blocking prop never takes a wall, corridor or doorway slot');
+    ok(
+      p.every(x => rules.find(r => r.id === x.id)!.slots.includes(x.slot.kind)),
+      'only the kinds a rule allows',
+    );
+    for (const a of signs)
+      for (const b of signs)
+        if (a !== b) ok(Math.max(Math.abs(a.slot.i - b.slot.i), Math.abs(a.slot.j - b.slot.j)) >= 3, 'gap');
+    const tileOf = (x: { slot: Slot }) => x.slot.j * W + x.slot.i;
+    for (const c of crates) {
+      const k = tileOf(c);
+      ok(p.filter(x => tileOf(x) === k).length === 1, 'nothing else on a crate tile');
+      ok(!keep.includes(k), 'not on a kept tile');
+      ok(![k - 1, k + 1, k - W, k + W].some(n => d.maps.door![n]), 'not next to a door');
+    }
+    eq(new Set(p.map(x => slotText(x.slot))).size, p.length, 'one prop per slot');
+    // with the crates made solid, every tile that could be walked to still can be (cover never could)
+    const grid = d.maps.grid.slice();
+    crates.forEach(c => (grid[tileOf(c)] = 0));
+    const n = W * d.H,
+      world = (g: Uint8Array) => ({
+        W,
+        H: d.H,
+        grid: g,
+        hgt: d.maps.hgt,
+        ramp: d.maps.ramp,
+        cover: d.maps.cover,
+        flow: new Int16Array(n),
+        flowQ: new Int32Array(n),
+      }),
+      start = spot(0, keep[0] % W, Math.floor(keep[0] / W)),
+      before = unreachableFloorTiles(createFloors([world(d.maps.grid)], [0], []), start).length,
+      after = unreachableFloorTiles(createFloors([world(grid)], [0], []), start).length;
+    eq(after, before, `seed ${seed}: nothing new cut off (only cover, ${before} tiles, was out of reach)`);
+  }
+});
+test('slots: a blocking prop that would cut the way is not placed; the count is what fits', () => {
+  // a room one tile wide: blocking the middle would cut off the east end
+  const d = tileMapFromRows(['#######', '#.....#', '#######'], {}, [{ x: 1, y: 1, w: 5, h: 1 }]);
+  eq(
+    slotsOf(d)
+      .filter(s => s.kind !== 'wall')
+      .map(slotText)
+      .join(),
+    'corner@1,1,center@3,1,corner@5,1',
+  );
+  const p = placeProps(d, [{ id: 'crate', slots: ['corner', 'center'], blocks: true, count: 3 }], createRng(1));
+  // the west corner is where the reach check starts (no keep given), the middle would cut the way: only the east corner
+  eq(p.map(x => slotText(x.slot)).join(), 'corner@5,1');
+  eq(placeProps(d, [{ id: 'x', slots: ['floor'], blocks: false, count: 4 }], createRng(1)).length, 0, 'no floor slots');
 });
