@@ -1,5 +1,5 @@
 import { COVER_H, DECK_H } from './tiles.ts';
-import { newTileMaps } from './dungeon.ts';
+import { forEachRoomTile, newTileMaps } from './dungeon.ts';
 import type { Room, TileMapData } from './dungeon.ts';
 // engine: Fixed maps written as rows of text, for levels that are drawn by hand (and for tests that need a known
 // terrain). The maps use the same encoding as the tile world (world/tiles.ts) and the generators (world/dungeon.ts).
@@ -74,9 +74,11 @@ export function tileMapFromRows(rows: string[], legend: Partial<Legend> = {}, ro
   });
   if (rooms) {
     maps.roomOf.fill(-1);
-    rooms.forEach((r, id) => {
-      for (let j = r.y; j < r.y + r.h; j++) for (let i = r.x; i < r.x + r.w; i++) maps.roomOf[j * W + i] = id;
-    });
+    rooms.forEach((r, id) =>
+      forEachRoomTile(r, (i, j) => {
+        maps.roomOf[j * W + i] = id;
+      }),
+    );
     return { W, H, maps, rooms };
   }
   for (let id = 0; id < letters.length; id++)
