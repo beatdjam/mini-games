@@ -7,7 +7,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { ring, shootHoming } from '../../world/entities.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
-import { RING_Y, bossBase, isEnraged, spawnMinion } from './common.ts';
+import { RING_Y, bossBase, bossMaterial, isEnraged, spawnMinion, wireOutline } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
@@ -22,15 +22,12 @@ export type BastionBoss = Boss & {
 };
 export function spawnBastion() {
   const g = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color: 0x1b1408, emissive: 0xffb347, emissiveIntensity: 0.3 });
+  const mat = bossMaterial(0x1b1408, 0xffb347);
   const baseGeo = new THREE.CylinderGeometry(2.4, 3, 1.6, 8),
     coreGeo = new THREE.IcosahedronGeometry(1.3, 1);
   const base = new THREE.Mesh(baseGeo, mat);
   base.position.y = -1.6;
-  const baseEdge = new THREE.LineSegments(
-    new THREE.EdgesGeometry(baseGeo),
-    new THREE.LineBasicMaterial({ color: 0xffb347 }),
-  );
+  const baseEdge = wireOutline(baseGeo, 0xffb347);
   baseEdge.position.y = -1.6;
   const core = new THREE.Mesh(coreGeo, mat);
   const shieldM = new THREE.Mesh(

@@ -10,7 +10,7 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { shootHoming, spawnWave } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { bossBase, isEnraged } from './common.ts';
+import { bossBase, bossMaterial, isEnraged, wireOutline } from './common.ts';
 import { screenFx } from '../../ui/hud.ts';
 import { COLOR } from '../../data/colors.ts';
 // CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
@@ -22,17 +22,13 @@ export type CrusherBoss = Boss & { st: string; cdx: number; cdz: number; hitP: b
 export function spawnCrusher() {
   const g = new THREE.Group(),
     geo = new THREE.BoxGeometry(3.2, 3.2, 3.2);
-  const mat = new THREE.MeshLambertMaterial({ color: 0x1c0f09, emissive: COLOR.orange, emissiveIntensity: 0.3 });
+  const mat = bossMaterial(0x1c0f09, COLOR.orange);
   const plate = new THREE.Mesh(
     new THREE.BoxGeometry(2.6, 0.5, 0.2),
     new THREE.MeshBasicMaterial({ color: COLOR.amber }),
   );
   plate.position.set(0, 0.5, 1.65);
-  g.add(
-    new THREE.Mesh(geo, mat),
-    new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: COLOR.orange })),
-    plate,
-  );
+  g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.orange), plate);
   const e = bossBase('crusher', g, mat, updCrusher, { st: 'idle', cdx: 0, cdz: 0, hitP: false, second: 0 });
   e.timer = 2;
   toast(t('boss.crusherHint'), 4200);

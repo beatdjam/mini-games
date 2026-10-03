@@ -10,7 +10,7 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { level, randomTileIn } from '../../world/level.ts';
 import { ring, shootAtPoint } from '../../world/entities.ts';
 import { player } from '../player.ts';
-import { RING_Y, bossBase, isEnraged, minionCount, spawnMinion } from './common.ts';
+import { RING_Y, bossBase, bossMaterial, isEnraged, minionCount, spawnMinion, wireOutline } from './common.ts';
 import { makeLaser, setLaser } from '../../world/models.ts';
 import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
@@ -20,10 +20,10 @@ export type PhantomBoss = Boss & { st: string; laser: Laser; lock: number[]; cyc
 export function spawnPhantom() {
   const g = new THREE.Group(),
     geo = new THREE.OctahedronGeometry(1.2, 0);
-  const mat = new THREE.MeshLambertMaterial({ color: 0x0c1418, emissive: 0x9fe7ff, emissiveIntensity: 0.3 });
+  const mat = bossMaterial(0x0c1418, 0x9fe7ff);
   const body = new THREE.Mesh(geo, mat);
   body.scale.set(0.8, 1.7, 0.8);
-  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x9fe7ff }));
+  const edge = wireOutline(geo, 0x9fe7ff);
   edge.scale.copy(body.scale);
   const lens = new THREE.Mesh(
     new THREE.SphereGeometry(0.32, 12, 10),

@@ -10,7 +10,16 @@ import { level } from '../../world/level.ts';
 import { fanAt, ring, shootHoming } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { FIRST_SHOT_DELAY, RING_Y, bossBase, isEnraged, minionCount, nextPattern, spawnMinion } from './common.ts';
+import {
+  FIRST_SHOT_DELAY,
+  RING_Y,
+  bossBase,
+  bossMaterial,
+  isEnraged,
+  minionCount,
+  nextPattern,
+  spawnMinion,
+} from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // NOISE CORE: rotating beams, bullet rings, summons
 
@@ -24,7 +33,7 @@ export type CoreBoss = Boss & {
 export function spawnCore() {
   const g = new THREE.Group(),
     geo = new THREE.TorusKnotGeometry(1.3, 0.38, 72, 8);
-  const mat = new THREE.MeshLambertMaterial({ color: 0x140c20, emissive: COLOR.violet, emissiveIntensity: 0.3 });
+  const mat = bossMaterial(0x140c20, COLOR.violet);
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   const knot = new THREE.Mesh(geo, mat);
   g.add(knot, core);

@@ -10,7 +10,7 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, ring } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { RING_Y, bossBase, isEnraged } from './common.ts';
+import { RING_Y, bossBase, bossMaterial, isEnraged, wireOutline } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // TRINITY: three bodies orbiting the centre on one shared health pool
 
@@ -26,15 +26,12 @@ export type TrinityBoss = Boss & {
 };
 export function spawnTrinity() {
   const g = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color: 0x160a12, emissive: COLOR.mag, emissiveIntensity: 0.3 });
+  const mat = bossMaterial(0x160a12, COLOR.mag);
   const geo = new THREE.OctahedronGeometry(1.2, 0),
     cols = [COLOR.mag, COLOR.amber, COLOR.cyan];
   const bodies = cols.map(c => {
     const b = new THREE.Group();
-    b.add(
-      new THREE.Mesh(geo, mat),
-      new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: c })),
-    );
+    b.add(new THREE.Mesh(geo, mat), wireOutline(geo, c));
     dynGroup.add(b);
     return b;
   });
