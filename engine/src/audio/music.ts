@@ -4,9 +4,10 @@ import { actx, bgmVolume, noiseBuf } from './audio.ts';
 // Everything is synthesised with Web Audio; no music files. A game gives each area its own style (MUSIC_STYLES)
 // (key, scale, chord loop, tempo, patterns). Layers (pad / arp / bass / drums) fade in and out
 // with the situation: quiet while exploring, full when enemies are on you. Boss fights can play an
-// arrangement of the sector's own style: same key and chords, faster, with driving bass and drums.
+// arrangement of the area's own style: same key and chords, faster, with driving bass and drums.
 // A combat-only tension layer (pulsing ostinato, busy hats, dissonant stabs) fades in when enemies are on you.
-// The game fills MUSIC_STYLES and LAYER_MIX (Object.assign), and calls setMusic(name, boss) / setMusicMix(kind).
+// The engine knows no style or mix names. The game fills MUSIC_STYLES and LAYER_MIX (Object.assign), sets MUSIC
+// (the fallback style and which mix a name suits), and calls setMusic(name, boss) / setMusicMix(kind).
 // style fields are described above; the mix is { pad, arp, bass, drums, tension } levels per situation
 
 // ---- tuning: times are seconds (s), pitches Hz, "steps" are 16th notes, peaks are gain levels ----
@@ -20,8 +21,7 @@ const RESYNC_DELAY = 0.05; // after a background gap, the schedule restarts this
 const START_DELAY = 0.08; // a newly chosen style starts this far ahead (s)
 const BUS_GAIN = 0.2; // music bus level at BGM volume 1 with no duck
 const BUS_SMOOTH = 0.3; // time constant of bus volume changes (s)
-const MIX_FADE_COMBAT = 0.4; // time constant of the layer fade when the mix switches to combat (s)
-const MIX_FADE = 1.2; // time constant of the layer fade for every other mix (s)
+const MIX_FADE = 1.2; // time constant of the layer fade when a mix comes in, unless MUSIC.fadeOf says otherwise (s)
 
 // boss arrangement (bossArrangement)
 const BOSS_TEMPO_MUL = 1.3; // bpm multiplier
@@ -151,6 +151,13 @@ export interface MusicStyle {
 }
 export const MUSIC_STYLES: Record<string, MusicStyle> = {},
   LAYER_MIX: Record<string, Record<string, number>> = {};
+// what the game decides about names: the engine only looks them up
+export interface MusicConfig {
+  fallback: string | null; // style played for a name that has no style; null: such a name plays nothing
+  mixOf(name: string, boss: boolean): string | null; // LAYER_MIX key that suits the name; null: leave the mix as it is
+  fadeOf(mix: string): number; // time constant (s) of the layer fade when `mix` comes in
+}
+export const MUSIC: MusicConfig = { fallback: null, mixOf: () => null, fadeOf: () => MIX_FADE };
 export const SCALES: Record<string, number[]> = {
   minor: [0, 2, 3, 5, 7, 8, 10],
   phrygian: [0, 1, 3, 5, 7, 8, 10],
@@ -211,7 +218,8 @@ export function musicInit() {
     setMusic(w.name, w.boss);
   }
 }
-// name: a sector code or 'BASE'; boss: play the sector's boss arrangement
+// name: a MUSIC_STYLES key (an unknown name plays MUSIC.fallback, or nothing without one); boss: play its boss arrangement.
+// The mix is MUSIC.mixOf(name, boss)
 export function setMusic(name: string, boss?: boolean) {
   const key = name + (boss ? ':boss' : '');
   if (!actx || !musicState.bus) {
@@ -219,21 +227,24 @@ export function setMusic(name: string, boss?: boolean) {
     return;
   }
   if (musicState.name === key) return;
-  const base = MUSIC_STYLES[name] || MUSIC_STYLES.DATA;
+  const base = MUSIC_STYLES[name] || (MUSIC.fallback === null ? undefined : MUSIC_STYLES[MUSIC.fallback]);
+  if (!base) return;
   musicState.name = key;
   musicState.st = boss ? bossArrangement(base) : base;
   musicState.step = 0;
   musicState.next = actx.currentTime + START_DELAY;
-  setMusicMix(boss ? 'boss' : name === 'BASE' ? 'base' : 'explore');
+  const mix = MUSIC.mixOf(name, !!boss);
+  if (mix !== null) setMusicMix(mix);
   musicVolume();
 }
 export function setMusicMix(kind: string) {
   if (!actx || !musicState.bus || musicState.mix === kind) return;
+  const m = LAYER_MIX[kind];
+  if (!m) return; // the game has no such mix
   musicState.mix = kind;
-  const m = LAYER_MIX[kind],
-    t = actx.currentTime;
-  for (const k in musicState.layers)
-    musicState.layers[k].gain.setTargetAtTime(m[k], t, kind === 'combat' ? MIX_FADE_COMBAT : MIX_FADE);
+  const t = actx.currentTime,
+    fade = MUSIC.fadeOf(kind);
+  for (const k in musicState.layers) musicState.layers[k].gain.setTargetAtTime(m[k] ?? 0, t, fade);
 }
 // overall BGM volume from the setting; duck = 0..1 (quieter while paused)
 export function musicVolume(duck?: number) {

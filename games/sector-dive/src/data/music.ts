@@ -1,4 +1,4 @@
-import { LAYER_MIX, MUSIC_STYLES } from '@engine/audio/music.ts';
+import { LAYER_MIX, MUSIC, MUSIC_STYLES } from '@engine/audio/music.ts';
 // Music: per-sector styles and the layer mix (the player is engine/src/audio/music.ts, which also holds SCALES)
 // patterns are 16 steps (16th notes, one bar). arp: chord tone index (0-2, +3 = octave up), -1 rest.
 // bass: 1 root, 2 fifth, 3 octave, 0 rest. kick / snare / hat / clank: 1 hit, 0 rest.
@@ -120,4 +120,13 @@ Object.assign(LAYER_MIX, {
   explore: { pad: 1, arp: 0.7, bass: 0.35, drums: 0, tension: 0 },
   combat: { pad: 0.7, arp: 0.8, bass: 1, drums: 1, tension: 1 },
   boss: { pad: 0.8, arp: 1, bass: 1, drums: 1, tension: 0.7 },
+});
+const MIX_FADE_COMBAT = 0.4; // the combat mix comes in fast when enemies close in (time constant, s)
+const MIX_FADE = 1.2; // every other mix fades in slowly (s)
+// the names the engine does not know: DATA is the style for a name with no style of its own; the base plays the 'base' mix,
+// a boss arrangement the 'boss' mix, every sector the 'explore' mix (the fight check in flow/music.ts raises it to 'combat')
+Object.assign(MUSIC, {
+  fallback: 'DATA',
+  mixOf: (name: string, boss: boolean) => (boss ? 'boss' : name === 'BASE' ? 'base' : 'explore'),
+  fadeOf: (mix: string) => (mix === 'combat' ? MIX_FADE_COMBAT : MIX_FADE),
 });
