@@ -104,6 +104,21 @@
 - ゲームは `doorOpen[k]` を見て、ドアの見た目（スライドなど）を動かす。見た目と当たり判定は `DOOR_PASS` でそろう（半分開くと通れる）
 - **固定マップ**: `tileMapFromRows` の凡例に `+`（`Legend.door`）。**ランダム生成**: `generateDungeon` の `doors: true`（4.1）
 
+### 4.4 エレベーター（world/lifts.ts）
+
+乗ると自分で動くエレベーターと、プレイヤーのいる階の地形を切り替える `useFloor`。乱数は使わない。
+
+- **持ち方**: `createLift(link)` が `Lift`（`link`・`phase`・`t`・`from`）を作る。`link` は `Floors` のリンクの1本で、その両端が乗り場。どのリンクをエレベーターにするかはゲームが決める
+- `updateLift(f, lift, rider, dt, cfg?)`: ゲームが毎フレーム呼ぶ。`rider` は乗れるキャラ1人（`FloorMover`。プレイヤーなど）。乗らない敵は渡さない
+  - `idle`（だれもいない）→ `rider` がどちらかの乗り場のタイルに立つと `wait`
+  - `wait` → `wait` 秒たつ前に降りたら `idle`、たったら `ride` に変わり、その回は `'depart'` を返す
+  - `ride` → `ride` 秒たったら、`rider` を乗った側の乗り場から反対側へ移す（`crossLink` と同じく、`floor` と反対側のタイルの中心、出てきたタイルの保持）。`idle` に戻り、その回は `'arrive'` を返す。それ以外の回は null
+  - 乗っている間に `rider` が動かないようにするのと、移動の見せ方はゲームが作る。エレベーターは乗っている間の `rider` の位置を見ない（ずれていても、乗った側から反対側へ移す）
+  - 降りた乗り場には、そのタイルから一度出るまで反応しない（`FloorMover.linkTile`）。着いてすぐ戻らないため。タイルを出ると保持を外す
+  - 既定は `LIFT_WAIT`（0.8 秒）・`LIFT_RIDE`（2.5 秒）。ゲームは `cfg`（`Partial<LiftConfig>`）で1つずつ差し替えられる。`dt` が 0 以下なら何もしない
+- `liftProgress(lift, cfg?)` は `ride` の間の進み具合（0〜1）、それ以外は 0。`liftTarget(lift)` は `ride` の間の行き先の乗り場、それ以外は null
+- `useFloor(f, floor)`: その階の地形をモジュールの関数（4章の `isSolid`・`moveCircle`・`computeFlow` など）に渡す（`setTileWorld` にその階の `world` を渡す）。地図はコピーせず共有するので、その階で開けたドアはその階で開いたまま。プレイヤーが階を変えたときに呼ぶ。存在しない階なら例外。ほかの階にいる敵は、その階の `TileGrid`（`f.grids[e.floor]`）のメソッドで動かす
+
 ## 5. 弾（world/projectiles.ts）
 
 - engine は「動かす」「何かに触れたら知らせる」まで。当たったあとの処理（ダメージ・盾・貫通・爆発など）はゲームが判定関数で渡す

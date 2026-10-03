@@ -65,6 +65,15 @@ import {
   unreachableFloorTiles,
 } from '../src/world/floors.ts';
 import {
+  LIFT_RIDE,
+  LIFT_WAIT,
+  createLift,
+  liftProgress,
+  liftTarget,
+  updateLift,
+  useFloor,
+} from '../src/world/lifts.ts';
+import {
   type Projectile,
   aimFan,
   clearPool,
@@ -1126,6 +1135,59 @@ test('floors: crossLink moves a mover across a link once, until it steps off', (
   const lost = { floor: 0, x: -3, z: 1.5 * T };
   eq(crossLink(f, lost, anyLink), null, 'outside the map');
   eq(crossLink(f, { floor: 7, x: 1.5 * T, z: 1.5 * T }, anyLink), null, 'a floor that does not exist');
+});
+test('lifts: standing on a lift for a moment starts it, the ride carries the rider to the other end', () => {
+  const { f, lift: link } = crossFloors(),
+    lift = createLift(link),
+    rider: { floor: number; x: number; z: number; linkTile?: number } = { floor: 0, x: 1.5 * T, z: 1.5 * T };
+  eq(updateLift(f, lift, rider, 0.5), null, 'on the lift: waiting');
+  eq(lift.phase, 'wait');
+  ok(lift.from === link.a, 'got on at the a end');
+  rider.x = 2.5 * T;
+  eq(updateLift(f, lift, rider, 0.1), null, 'stepped off before it started');
+  eq([lift.phase, lift.t, lift.from].join(','), 'idle,0,', 'idle again, the wait starts over');
+  rider.x = 1.5 * T;
+  eq(updateLift(f, lift, rider, 0.5), null);
+  eq(updateLift(f, lift, rider, 0.4), 'depart', `it starts after ${LIFT_WAIT} s`);
+  ok(liftTarget(lift) === link.b, 'going to the b end');
+  eq(liftProgress(lift), 0);
+  eq(updateLift(f, lift, rider, 1), null, 'riding');
+  near(liftProgress(lift), 1 / LIFT_RIDE, 1e-6, 'progress over the ride');
+  rider.x = 2.5 * T; // the game let it drift: it still rides from where it got on
+  eq(updateLift(f, lift, rider, LIFT_RIDE), 'arrive', 'the ride is over');
+  eq(
+    [rider.floor, rider.x, rider.z, rider.linkTile].join(','),
+    [1, 5.5 * T, 3.5 * T, 3 * 7 + 5].join(','),
+    'at the b end',
+  );
+  eq([lift.phase, liftProgress(lift), liftTarget(lift)].join(','), 'idle,0,', 'idle again');
+  eq(updateLift(f, lift, rider, 5), null, 'standing where it came out: the lift does not go back');
+  eq(lift.phase, 'idle');
+  rider.x = 4.5 * T;
+  eq(updateLift(f, lift, rider, 0.1), null, 'off the lift');
+  eq(rider.linkTile, -1, 'the hold is dropped');
+  rider.x = 5.5 * T;
+  updateLift(f, lift, rider, 0.1);
+  eq(
+    updateLift(f, lift, rider, 0.1, { wait: 0.15, ride: 0.2 }),
+    'depart',
+    'back on: it goes down (the game may pass its own times)',
+  );
+  eq(updateLift(f, lift, rider, 0.2, { wait: 0.15, ride: 0.2 }), 'arrive');
+  eq([rider.floor, rider.x, rider.z].join(','), [0, 1.5 * T, 1.5 * T].join(','), 'back on floor 0');
+  const other = { floor: 1, x: 1.5 * T, z: 1.5 * T }; // the stairs tile of floor 1, not a lift stop
+  eq(updateLift(f, createLift(link), other, 5), null, 'a tile that is not a stop');
+  eq(updateLift(f, lift, rider, 0), null, 'dt 0 does nothing');
+});
+test('lifts: useFloor hands one floor to the module-level tile functions', () => {
+  const { f } = crossFloors();
+  useFloor(f, 1);
+  const act = activeTileGrid().world;
+  ok(act.grid === f.grids[1].world.grid && act.door === f.grids[1].world.door, 'the floor maps themselves, not copies');
+  eq([act.W, act.H].join(','), '7,5');
+  useFloor(f, 2);
+  eq(activeTileGrid().world.door, f.grids[2].world.door, 'the next floor replaces it');
+  expect(() => useFloor(f, 9)).toThrow(/useFloor: floor 9 does not exist/);
 });
 
 // ---- doors ----
