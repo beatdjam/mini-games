@@ -1,22 +1,14 @@
 import type { WeaponItem } from '../data/types.ts';
 import { clamp, el, isTouch } from '@engine/core/util.ts';
-import { setLang, t } from '@engine/core/i18n.ts';
-import { camera, resize } from '@engine/render/render.ts';
-import { fsSupported, isFullscreen, isStandalone, toggleFs } from '@engine/ui/ui.ts';
+import { t } from '@engine/core/i18n.ts';
+import { camera } from '@engine/render/render.ts';
 import { locked } from '@engine/ui/input.ts';
 import { createHitDirs } from '@engine/ui/hitdir.ts';
-import { TOUCH_LAYOUT } from '@engine/ui/touchlayout.ts';
-import { renderSettings } from '@engine/ui/settings.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
-import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
-import { persist, save } from '../core/save.ts';
-import { layoutEdits, resetLayout, setLanguage } from '../core/progress.ts';
 import { boss, nearPickup, target } from '../world/entities.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
 import { magSize, weaponName, weaponText, weaponStats } from '../actors/weapons.ts';
-import { setState, show, state } from '../flow/state.ts';
-import { refreshRunText } from '../screens/pause.ts';
-import { renderBase } from '../screens/base.ts';
+import { state } from '../flow/state.ts';
 import { time } from '../flow/update.ts';
 export const hpFill = el('#hpFill'),
   hpNum = el('#hpNum'),
@@ -180,63 +172,4 @@ export function updateHint() {
   if (isTouch) h.textContent = '';
   else if (document.body.classList.contains('nolock')) h.textContent = t('hud.hintTouchLook');
   else h.textContent = locked || state !== 'play' ? '' : t('hud.hintLock');
-}
-export function fsLabel() {
-  el('#btnFs').textContent = t(isFullscreen() ? 'hud.fsOff' : 'hud.fs');
-}
-el('#btnFs').hidden = !fsSupported || isStandalone;
-el('#btnFs').addEventListener('click', toggleFs);
-['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
-  document.addEventListener(ev, () => {
-    fsLabel();
-    renderSettings();
-    setTimeout(resize, 100);
-  }),
-);
-
-// touch buttons: placement and the editor are engine/src/ui/touchlayout.ts
-Object.assign(TOUCH_LAYOUT, {
-  defs: LAYOUT_DEF,
-  first: 'dash',
-  edits: layoutEdits,
-  reset: resetLayout,
-  save: persist,
-  afterApply: () => {
-    el('#btnFire2').hidden = !save.settings.leftFire;
-  },
-  onOpen: () => {
-    show(null);
-    setState('layout');
-  },
-  onClose: (from: string) => {
-    if (from === 'pause') {
-      setState('pause');
-      renderSettings();
-      show('#scrPause');
-    } else {
-      el('#touch').hidden = true;
-      setState('base');
-      renderSettings();
-      show('#scrBase');
-    }
-  },
-});
-
-export function renderGuide() {
-  el('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
-}
-// switching language redraws whatever is on screen (static text is handled by setLang)
-export function changeLang(code: string) {
-  setLanguage(code);
-  persist();
-  setLang(code);
-  renderSettings();
-  renderGuide();
-  fsLabel();
-  updateHint();
-  if (state === 'base') renderBase();
-  if (player) {
-    weaponHud();
-    refreshRunText();
-  }
 }
