@@ -72,6 +72,14 @@ export function bossDifficulty() {
     rebootMul()
   );
 }
+// the body material of a boss: a near-black base colour that glows in the boss's own colour (at rest: BOSS_GLOW)
+export function bossMaterial(dark: number, emissive: number): THREE.MeshLambertMaterial {
+  return new THREE.MeshLambertMaterial({ color: dark, emissive, emissiveIntensity: BOSS_GLOW });
+}
+// the edge lines drawn over a body mesh
+export function wireOutline(geo: THREE.BufferGeometry, color: number): THREE.LineSegments {
+  return new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color }));
+}
 // hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDifficulty
 // behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared
 // state: the fields only this boss has (its type S is in src/actors/bosses/<name>.ts); they're put on the boss as it's made
