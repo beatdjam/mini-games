@@ -90,7 +90,7 @@ import {
   spawnWave,
 } from '../src/world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../src/actors/player.ts';
-import { critChance, rollWeapon, magSize, newWeapon, weaponStats } from '../src/actors/weapons.ts';
+import { critChance, fillMag, rollWeapon, magSize, newWeapon, weaponStats } from '../src/actors/weapons.ts';
 import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/combat.ts';
 import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { findTarget, fire, shotId } from '../src/actors/firing.ts';
@@ -1786,4 +1786,29 @@ describe('screen wake lock', () => {
     await settle();
     expect(heldNow()).toBe(0);
   });
+});
+
+// a weapon new to the player (a drop, the loadout) comes with the full magazine of its options and the chips, not
+// the bare WEAPONS[id].mag. At the end of the file: rollWeapon draws random numbers
+test('a dropped weapon and the loadout come fully loaded, options and chips included', () => {
+  setPlayer(newPlayer(save.loadout));
+  player.magMul = 1.8; // magazine chips
+  for (let k = 0; k < 30; k++) {
+    const w = rollWeapon(30);
+    expect(w.mag, w.id).toBe(magSize(w));
+  }
+  const smg = fillMag(newWeapon('smg', 1, false, 0, ['mag', 'mag']));
+  expect(smg.mag).toBe(magSize(smg));
+  expect(smg.mag, 'more than the bare magazine').toBeGreaterThan(WEAPONS.smg.mag * 1.8);
+  // equipping it keeps that magazine
+  player.weapons = [newWeapon('pistol', 0, true), smg];
+  player.cur = 1;
+  expect(player.weapons[player.cur]!.mag).toBe(magSize(smg));
+  // the loadout: no chips yet, the option counts
+  const opted = newWeapon('smg', 1, false, 0, ['mag']);
+  const p = newPlayer([opted, null]);
+  expect(p.weapons[0]!.mag).toBeGreaterThan(WEAPONS.smg.mag);
+  expect(p.weapons[0]!.mag).toBe(fillMag(newWeapon('smg', 1, false, 0, ['mag']), 1).mag);
+  expect(newPlayer([newWeapon('smg', 1), null]).weapons[0]!.mag, 'no option: the bare magazine').toBe(WEAPONS.smg.mag);
+  setPlayer(null);
 });
