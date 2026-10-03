@@ -48,9 +48,10 @@ export const VIEWMODELS: Record<string, ViewmodelDef> = {
       ['box', 0.09, 0.12, 0.72, 'dark', 0, 0, -0.05],
       ['box', 0.02, 0.02, 0.7, 'acc', 0.05, 0.07, -0.12],
       ['box', 0.02, 0.02, 0.7, 'acc', -0.05, 0.07, -0.12],
-      ['box', 0.14, 0.14, 0.03, 'acc', 0, 0.01, -0.12],
-      ['box', 0.14, 0.14, 0.03, 'acc', 0, 0.01, -0.26],
-      ['box', 0.14, 0.14, 0.03, 'acc', 0, 0.01, -0.4],
+      // the rings stick out past the body and the rails, so no face lies flat on another (it would flicker)
+      ['box', 0.14, 0.15, 0.03, 'acc', 0, 0.01, -0.12],
+      ['box', 0.14, 0.15, 0.03, 'acc', 0, 0.01, -0.26],
+      ['box', 0.14, 0.15, 0.03, 'acc', 0, 0.01, -0.4],
       ['box', 0.08, 0.18, 0.1, 'darker', 0, -0.13, 0.15],
     ],
   },
@@ -61,7 +62,7 @@ export const VIEWMODELS: Record<string, ViewmodelDef> = {
     parts: [
       ['cyl', 0.12, 0.95, 'dark', 0, 0, -0.05],
       ['cyl', 0.135, 0.07, 'acc', 0, 0, -0.52],
-      ['cyl', 0.135, 0.05, 'acc', 0, 0, 0.4],
+      ['cyl', 0.135, 0.05, 'acc', 0, 0, 0.405], // ends 5 mm behind the tube so the two back faces don't overlap
       ['box', 0.04, 0.09, 0.12, 'darker', -0.12, 0.12, -0.1],
       ['box', 0.07, 0.18, 0.08, 'darker', 0, -0.18, 0.08],
     ],
