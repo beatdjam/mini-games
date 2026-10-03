@@ -24,7 +24,7 @@ import { COLOR } from '../../data/colors.ts';
 // NOISE CORE: rotating beams, bullet rings, summons
 
 // knot: the spinning mesh; beams: the three beam meshes; ba / bdir: beam angle and spin direction
-export type CoreBoss = Boss & {
+type CoreBoss = Boss & {
   knot: THREE.Mesh;
   beams: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
   ba: number;
@@ -56,7 +56,7 @@ export function spawnCore() {
   }
   toast(t('boss.coreHint'), 3800);
 }
-export function updCore(e: CoreBoss, dt: number) {
+function updCore(e: CoreBoss, dt: number) {
   const K = BOSS_META.core.tune;
   e.t += dt;
   e.timer -= dt;

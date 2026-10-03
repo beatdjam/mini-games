@@ -252,7 +252,7 @@ export function startPractice(kind: string, tier?: number) {
   requestLock();
   toast(t('run.practiceStart'), PRACTICE_TOAST_MS);
 }
-export function endPractice(kind: RunEnd) {
+function endPractice(kind: RunEnd) {
   setState('result');
   releaseInputs();
   exitLock();

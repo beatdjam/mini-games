@@ -263,7 +263,7 @@ function updateFiring(dt: number) {
   }
 }
 
-export function updatePlayer(dt: number) {
+function updatePlayer(dt: number) {
   time += dt;
   const input = readMoveInput();
   updateStickDash(dt);
@@ -281,7 +281,7 @@ export function updatePlayer(dt: number) {
   updateFiring(dt);
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
-export function updatePortals(dt: number) {
+function updatePortals(dt: number) {
   for (const pt of level.portals) {
     // arming (data/level.ts PORTAL): dim and still until it works, then bright and turning
     pt.t += dt;
@@ -306,7 +306,7 @@ export function updatePortals(dt: number) {
     }
   }
 }
-export function updateScreenFx(dt: number) {
+function updateScreenFx(dt: number) {
   updateHitDirs(dt);
   screenFx.hitTimer -= dt;
   if (screenFx.hitTimer <= 0) hitm.classList.remove('on');
@@ -321,7 +321,7 @@ export function updateScreenFx(dt: number) {
 }
 
 // weapon pickups compete for "nearest" each frame, so the choice starts over first (system pickupReset)
-export function resetNearest() {
+function resetNearest() {
   setNear(null, WEAPON_PICK_R);
 }
 // all pickups at once (tests)
@@ -409,7 +409,7 @@ export function updateWave(w: Wave, dt: number) {
 }
 
 // ---- the systems, in order. 'play' = diving, 'base' = the base screen with the slowly turning backdrop ----
-export const PLAY = ['play'];
+const PLAY = ['play'];
 // registers the systems and starts the loop; main.ts calls this once every module has loaded
 export function boot() {
   addSystem({ name: 'player', order: 0, modes: PLAY, update: updatePlayer });

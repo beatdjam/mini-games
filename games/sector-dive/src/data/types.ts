@@ -98,7 +98,7 @@ export interface RebootUpgrade {
 }
 // one enemy type (src/data/enemies.ts): hp, speed (m/s), r (collision radius), y (body height), hitR (hit sphere radius), dmg,
 // bits (drop), color and geo (geoCache key) are on every type; the rest are switches and numbers of some types
-export interface RangedDef {
+interface RangedDef {
   rate: number;
   speed: number;
   count: number;
@@ -205,7 +205,7 @@ export type Trooper = RegularEnemy & {
   kick: number;
   parts: HitSphere[];
 };
-export interface HumanoidRig {
+interface HumanoidRig {
   upper: THREE.Object3D;
   neck: THREE.Object3D;
   armL: THREE.Object3D;
@@ -237,7 +237,7 @@ export interface Boss extends EnemyBase {
 export type Enemy = RegularEnemy | Boss;
 
 // a bullet in flight: ox / oz = where it started, dmg, life = seconds left
-export interface Bullet extends Projectile {
+interface Bullet extends Projectile {
   dmg: number;
   life: number;
   ox: number;

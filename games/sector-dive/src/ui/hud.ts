@@ -10,20 +10,20 @@ import { player, currentWeapon, run } from '../actors/player.ts';
 import { magSize, weaponName, weaponText, weaponStats } from '../actors/weapons.ts';
 import { state } from '../flow/state.ts';
 import { time } from '../flow/update.ts';
-export const hpFill = el('#hpFill'),
+const hpFill = el('#hpFill'),
   hpNum = el('#hpNum'),
   hpBar = el('#hpBar'),
   stFill = el('#stFill'),
   stBar = el('#stBar'),
   bitNum = el('#bitNum');
-export const cross = el('#cross'),
-  hitm = el('#hitm'),
-  ammoEl = el('#ammo'),
+const cross = el('#cross');
+export const hitm = el('#hitm');
+const ammoEl = el('#ammo'),
   reloadEl = el('#reload'),
   rFill = el('#rFill');
-export const vigEl = el('#vig'),
-  bossFill = el('#bossFill'),
-  mini = el<HTMLCanvasElement>('#mini'),
+const vigEl = el('#vig'),
+  bossFill = el('#bossFill');
+export const mini = el<HTMLCanvasElement>('#mini'),
   mctx = mini.getContext('2d')!,
   bigmap = el<HTMLCanvasElement>('#bigmap'),
   bctx = bigmap.getContext('2d')!;
@@ -145,7 +145,7 @@ export function updateHud() {
   updatePickPrompt();
 }
 // "DPS 142 ▲+38 / per hit 16×8 ▼-4 / mag 6 ▼-6" against the weapon in hand
-export function compareHTML(w: WeaponItem, cur: WeaponItem) {
+function compareHTML(w: WeaponItem, cur: WeaponItem) {
   const a = weaponStats(w),
     b = weaponStats(cur);
   const d = (v: number, base: number) => {

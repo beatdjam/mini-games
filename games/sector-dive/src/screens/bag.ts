@@ -41,7 +41,7 @@ el('#btnUseKit').addEventListener('click', () => {
   useKit();
   renderBag();
 });
-export function itemCard(w: WeaponItem | null, where: string, i: number) {
+function itemCard(w: WeaponItem | null, where: string, i: number) {
   const sel = bagUI.sel && bagUI.sel.where === where && bagUI.sel.i === i;
   const attrs = `data-inv="${where}:${i}"`;
   if (!w) return `<button class="item none ${sel ? 'sel' : ''}" ${attrs}>${t('base.empty')}</button>`;
@@ -84,7 +84,7 @@ function actionButtons(where: string): string {
     `<button class="mini-btn" data-act="drop" ${canDrop}>${t('bag.drop')}</button>`
   );
 }
-export function renderBag() {
+function renderBag() {
   el('#invEq').innerHTML = player.weapons.map((w, i) => itemCard(w, 'eq', i)).join('');
   el('#invBag').innerHTML = player.bag.map((w, i) => itemCard(w, 'bag', i)).join('');
   el('#kitNum').textContent = String(player.kits);

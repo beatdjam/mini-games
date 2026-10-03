@@ -8,7 +8,7 @@ export let state: GameState = 'base';
 export function setState(s: GameState) {
   state = s;
 }
-export const screens = ['#scrBase', '#scrPerk', '#scrPause', '#scrResult', '#scrBag'];
+const screens = ['#scrBase', '#scrPerk', '#scrPause', '#scrResult', '#scrBag'];
 export function show(id: string | null) {
   screens.forEach(s => {
     el(s).hidden = s !== id;

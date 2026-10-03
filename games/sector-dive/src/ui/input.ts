@@ -77,7 +77,7 @@ window.addEventListener(
   { passive: true },
 );
 
-export function selectSlot(k: number) {
+function selectSlot(k: number) {
   if (state !== 'play' || k === player.cur || !player.weapons[k]) return;
   player.cur = k;
   player.reloadT = 0;
@@ -86,7 +86,7 @@ export function selectSlot(k: number) {
   setVM(currentWeapon().id);
   weaponHud();
 }
-export function swapWeapon() {
+function swapWeapon() {
   selectSlot(player ? player.cur ^ 1 : 0);
 }
 export function useKit() {
@@ -116,7 +116,7 @@ export function normalizeWeapons() {
   setVM(currentWeapon().id);
 }
 // Picking up a weapon: the player chooses between holding it now and putting it in the bag.
-export function takeNearby() {
+function takeNearby() {
   if (state !== 'play' || !nearPickup) return null;
   const p = nearPickup;
   p.dead = true;

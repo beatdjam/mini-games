@@ -23,7 +23,7 @@ import { COLOR } from '../../data/colors.ts';
 // WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
 // drone waves summoned so far
-export type WatcherBoss = Boss & { summoned: number };
+type WatcherBoss = Boss & { summoned: number };
 export function spawnWatcher() {
   const g = new THREE.Group(),
     geo = new THREE.IcosahedronGeometry(2.1, 0);
@@ -35,7 +35,7 @@ export function spawnWatcher() {
   bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
   toast(t('boss.watcherHint'), 3800);
 }
-export function updWatcher(e: WatcherBoss, dt: number) {
+function updWatcher(e: WatcherBoss, dt: number) {
   const K = BOSS_META.watcher.tune;
   e.t += dt;
   e.timer -= dt;

@@ -33,7 +33,7 @@ const SPOT_TRIES = 40; // attempts to find a free random spot
 const REVEAL_R2 = 18; // map reveal radius around the player, squared (tiles)
 const REVEAL_BOX = 4; // ... searched in this many tiles each way
 // the level being played: built as a whole by buildLevel, replaced (never patched field by field) on the next one
-export interface Level {
+interface Level {
   biome: Biome; // sector of this level
   arena: boolean; // a boss arena
   rooms: Room[];
@@ -66,7 +66,7 @@ function emptyLevel(): Level {
 // replaced only by buildLevel and buildFixedLevel (and emptied piecewise by clearLevel)
 export let level: Level = emptyLevel();
 
-export function clearLevel() {
+function clearLevel() {
   if (level.group) {
     disposeTree(level.group);
     scene.remove(level.group);
@@ -108,7 +108,7 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
 }
 // a hand-drawn level (a map written as rows of text, engine/src/world/tilemap.ts) instead of a generated one: the same
 // tile world, meshes and Level, with the start and exit rooms given. For tests that need a known terrain.
-export interface FixedMap {
+interface FixedMap {
   rows: string[];
   rooms: Room[];
   start: number; // room index of the start

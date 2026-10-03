@@ -38,7 +38,7 @@ const FLASH_BLAST = 0.09,
 const SHAKE_BLAST_FIRE = 0.18,
   SHAKE_PELLET_FIRE = 0.06; // screen shake when firing a rocket / pellets
 
-export function lookDir() {
+function lookDir() {
   return new V3(
     -Math.sin(player.yaw) * Math.cos(player.pitch),
     Math.sin(player.pitch),
@@ -51,7 +51,7 @@ export function spheres(e: Enemy): HitSphere[] {
   return e.parts || [{ p: e.mesh.position, r: e.hitR }];
 }
 // how far you can actually make enemies out: 60% of the way into the fog
-export const visibleRange = () => {
+const visibleRange = () => {
   const fog = scene.fog as THREE.Fog; // scene.fog is typed Fog | FogExp2 | null, but the game only ever sets a linear Fog
   return Math.min(VISIBLE_RANGE_MAX, fog.near + (fog.far - fog.near) * FOG_VISIBLE_SHARE);
 };

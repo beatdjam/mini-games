@@ -9,8 +9,7 @@ import { run } from '../actors/player.ts';
 export const STAGES_PER_GROWTH_DEPTH = 5; // progress (progressOf) per step of the enemy health growth curve
 
 // each run walks the sectors in its own shuffled order (run.route); depth (tier) drives difficulty
-export const routeBiome = (t: number): Biome =>
-  BIOMES[run && run.route ? run.route[t % run.route.length] : t % BIOMES.length];
+const routeBiome = (t: number): Biome => BIOMES[run && run.route ? run.route[t % run.route.length] : t % BIOMES.length];
 export const stageInfo = (s: number) => {
   const tier = Math.floor(s / PER);
   return { biome: routeBiome(tier), sub: s % PER, loop: Math.floor(tier / 3), tier };

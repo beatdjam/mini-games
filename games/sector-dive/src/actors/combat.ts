@@ -164,7 +164,7 @@ export function explode(x: number, y: number, z: number, radius: number, dmg: nu
   blastEnemies(x, y, z, radius, blastDmg, crit, big);
 }
 // bomber blast: hurts the player and any enemy caught in it
-export function bomberBlast(x: number, y: number, z: number, dmg: number) {
+function bomberBlast(x: number, y: number, z: number, dmg: number) {
   burst(x, y, z, COLOR.bomber, 26, 10, 0.7);
   burst(x, y, z, 0xffffff, 8, 5, 0.3);
   fireball(x, y, z, 3, COLOR.orange);
@@ -223,7 +223,7 @@ function splitIntoMinis(e: RegularEnemy) {
   }
   if (e.room >= 0) level.roomCount[e.room] += SPLIT_KIDS;
 }
-export function killEnemy(e: Enemy, noReward?: boolean) {
+function killEnemy(e: Enemy, noReward?: boolean) {
   e.dead = true;
   if (!noReward) run.kills++;
   const pos = e.mesh.position;
@@ -246,7 +246,7 @@ export function killEnemy(e: Enemy, noReward?: boolean) {
   splitIntoMinis(e);
   if (e.room >= 0 && --level.roomCount[e.room] === 0) roomCleared(e.room);
 }
-export function roomCleared(idx: number) {
+function roomCleared(idx: number) {
   const [x, z] = roomSpot(level.rooms[idx]);
   if (Math.random() < TUNE.chipChance) {
     addPickup('chip', x, z);

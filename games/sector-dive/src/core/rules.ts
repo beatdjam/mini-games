@@ -45,7 +45,7 @@ export const basicNow = <W extends WeaponItem | null>(w: W): W =>
   w && w.basic ? Object.assign({}, w, { plus: weaponModOf(w.id).plus, r: weaponModOf(w.id).r }) : w;
 // sustained damage per second of a weapon before any chips: the same sum as weaponStats (src/actors/weapons.ts)
 // with every chip-driven value at its start, so it works on the base screen where there is no player
-export function bareDps(w: WeaponItem): number {
+function bareDps(w: WeaponItem): number {
   const def = WEAPONS[w.id]!,
     opt = (k: string) => (w.opts || []).filter(o => o === k).length;
   const mag = Math.max(1, Math.round(def.mag * (1 + MAG_OPT_PER_LEVEL * opt('mag'))));
@@ -63,16 +63,16 @@ export function bareDps(w: WeaponItem): number {
 // grown than the rooms: a deep start's first wall is that boss; defence: max HP over how much enemy damage has grown.
 // score = the geometric mean of the two, where 1 = DEPTH 1 with a plain handgun and no upgrades.
 // Returns 0 (easy) .. 4 (reckless) by READY_CUTS.
-export const READY_CUTS = [1.5, 1.15, 0.85, 0.6];
-export const READY_BOSS_WEIGHT = 0.75;
+const READY_CUTS = [1.5, 1.15, 0.85, 0.6];
+const READY_BOSS_WEIGHT = 0.75;
 // what the readiness is computed from: the loadout weapons, the damage upgrade level, max HP and the reboot multiplier
-export interface ReadyState {
+interface ReadyState {
   weapons: WeaponItem[];
   dmg: number;
   hp: number;
   rebootMul: number;
 } // dmg: the damage multiplier (startDmgMul)
-export const readyNow = (): ReadyState => ({
+const readyNow = (): ReadyState => ({
   weapons: save.loadout.map(basicNow).filter((w): w is WeaponItem => !!w),
   dmg: startDmgMul(save.up.dmg),
   hp: startMaxHp(save.up.hp),
@@ -86,7 +86,7 @@ export const readyAfterReboot = (): ReadyState => ({
   rebootMul: rebootMulOf(save.pres.count + 1),
 });
 // what `picks` shortcut supply picks multiply the offence by
-export const supplyGain = (picks: number): number =>
+const supplyGain = (picks: number): number =>
   picks > 0 ? Math.exp(TUNE.supplyCurve[0]! * Math.pow(picks, TUNE.supplyCurve[1]!)) : 1;
 export function readinessScore(tier: number, s: ReadyState = readyNow()): number {
   const ref = bareDps({ id: 'pistol', r: 0, basic: true });

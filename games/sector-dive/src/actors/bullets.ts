@@ -55,7 +55,7 @@ export function updatePBullets(dt: number) {
   }
 }
 // one sub-step of a player bullet: true = it is used up
-export function pBulletStep(b: PBullet) {
+function pBulletStep(b: PBullet) {
   if (hitsTerrain(b)) {
     if (b.blast) explode(b.x, Math.max(floorY(b.x, b.z) + 0.4, b.y), b.z, b.blast, b.dmg, b.color, true);
     else burst(b.x, b.y, b.z, b.color, 3, 4, 0.3);
@@ -75,11 +75,11 @@ export function pBulletStep(b: PBullet) {
   return false;
 }
 
-export function hitsTerrain(b: PBullet) {
+function hitsTerrain(b: PBullet) {
   return projHitsTerrain(b, WALL_H + TERRAIN_ABOVE_WALL, PBULLET_TERRAIN_PAD);
 }
 
-export function bulletTouches(b: PBullet, e: Enemy) {
+function bulletTouches(b: PBullet, e: Enemy) {
   const pad = b.blast ? BLAST_TOUCH_PAD : SHOT_TOUCH_PAD;
   for (const sp of spheres(e)) {
     const q = sp.p,
@@ -94,7 +94,7 @@ export function bulletTouches(b: PBullet, e: Enemy) {
 
 // Shield enemies stop rounds arriving from the front (the rail gun punches through).
 // Each blocked round wears the shield down; at 0 it breaks and the enemy staggers.
-export function shieldBlocks(b: PBullet, e: Enemy) {
+function shieldBlocks(b: PBullet, e: Enemy) {
   if (!isShielded(e) || e.shieldHp <= 0 || b.rail) return false;
   const fx = Math.sin(e.mesh.rotation.y),
     fz = Math.cos(e.mesh.rotation.y);
@@ -119,7 +119,7 @@ export function shieldBlocks(b: PBullet, e: Enemy) {
 }
 
 // Crits, rail range bonus, knockback.
-export function damageFromBullet(b: PBullet, e: Enemy) {
+function damageFromBullet(b: PBullet, e: Enemy) {
   const crit = Math.random() < critChance();
   let dmg = b.dmg * (crit ? CRIT_MUL : 1);
   if (b.far && Math.hypot(b.x - b.ox, b.z - b.oz) > b.far) dmg *= b.farMul;
@@ -169,7 +169,7 @@ export function updateEBullets(dt: number) {
 }
 
 // homing rounds turn toward the player's chest while b.homing lasts
-export function steerHoming(b: EBullet, dt: number) {
+function steerHoming(b: EBullet, dt: number) {
   b.homing -= dt;
   steerToward(b, player.x, player.fy + HOMING_AIM_Y, player.z, dt, HOMING_TURN);
 }

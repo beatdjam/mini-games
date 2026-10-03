@@ -15,8 +15,8 @@ import { COLOR } from '../../data/colors.ts';
 // TRINITY: three bodies orbiting the centre on one shared health pool
 
 // bodies: the three orbiting meshes; fireK / fireT: fan fire counter and timer; ringT / ramT: ring and lunge timers; ram: the lunge in progress
-export type Ram = { k: number; t: number; dur: number; tx: number; tz: number; hit: boolean };
-export type TrinityBoss = Boss & {
+type Ram = { k: number; t: number; dur: number; tx: number; tz: number; hit: boolean };
+type TrinityBoss = Boss & {
   bodies: THREE.Object3D[];
   fireK: number;
   fireT: number;
@@ -51,7 +51,7 @@ export function spawnTrinity() {
   updTrinity(e, 0);
   toast(t('boss.trinityHint'), 3800);
 }
-export function updTrinity(e: TrinityBoss, dt: number) {
+function updTrinity(e: TrinityBoss, dt: number) {
   const K = BOSS_META.trinity.tune;
   e.t += dt;
   const enr = isEnraged(e),
