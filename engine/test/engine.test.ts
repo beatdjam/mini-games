@@ -55,9 +55,13 @@ import {
   type FloorLink,
   type Floors,
   createFloors,
+  crossLink,
   feetY,
+  floorFlow,
   floorReach,
+  flowLink,
   linksAt,
+  otherEnd,
   unreachableFloorTiles,
 } from '../src/world/floors.ts';
 import {
@@ -1140,6 +1144,77 @@ test('floors: createFloors names the wrong link, floorReach rejects a start off 
   const f = make(good);
   expect(() => floorReach(f, spot(0, 0, 0))).toThrow(/floorReach: from.*not a floor tile/);
   expect(() => floorReach(f, spot(3, 1, 1))).toThrow(/floorReach: from: floor 3/);
+});
+// floor 0: a corridor with stairs at its east end and a lift at its west end. floor 1: a loop with a shut door,
+// the stairs come out at its north-west corner, the lift at its south-east corner. floor 2: joined to nothing
+function crossFloors() {
+  const stairs: FloorLink = { kind: 'stairs', a: spot(0, 5, 1), b: spot(1, 1, 1) },
+    lift: FloorLink = { kind: 'elevator', a: spot(0, 1, 1), b: spot(1, 5, 3) },
+    f = floorsFromRows(
+      [
+        ['#######', '#.....#', '#######'],
+        ['#######', '#.+...#', '#.###.#', '#.....#', '#######'],
+        ['####', '#..#', '####'],
+      ],
+      [stairs, lift],
+    );
+  return { f, stairs, lift };
+}
+const flowRow = (f: Floors, floor: number, j: number) => {
+  const w = f.grids[floor].world;
+  return Array.from(w.flow.slice(j * w.W, (j + 1) * w.W)).join(',');
+};
+const onlyStairs = (l: FloorLink) => l.kind === 'stairs',
+  anyLink = () => true;
+test('floors: floorFlow leads over the floors through the links it may use', () => {
+  const { f, stairs, lift } = crossFloors();
+  floorFlow(f, spot(1, 3, 1), onlyStairs);
+  eq(flowRow(f, 1, 1), '-1,2,1,0,1,2,-1', 'the target floor, through the shut door');
+  eq(flowRow(f, 0, 1), '-1,7,6,5,4,3,-1', 'floor 0 leads to the stairs: one step over them');
+  eq(flowRow(f, 2, 1), '-1,-1,-1,-1', 'a floor with no link has no way');
+  eq(JSON.stringify(f.grids[0].flowDir(2.5 * T, 1.5 * T)), '[1,0]', 'flowDir on floor 0 heads for the stairs');
+  eq(f.grids[0].flowDir(5.5 * T, 1.5 * T), null, 'on the stairs tile no neighbour is closer');
+  ok(flowLink(f, 0, 5, 1, onlyStairs) === stairs, 'flowLink: the stairs lead on');
+  eq(flowLink(f, 0, 1, 1, onlyStairs), null, 'the lift is not one to use');
+  eq(flowLink(f, 1, 1, 1, onlyStairs), null, 'the stairs do not lead back down (floor 0 is farther)');
+  eq(flowLink(f, 1, 3, 1, anyLink), null, 'the target tile itself');
+  eq(flowLink(f, 2, 1, 1, anyLink), null, 'a tile with no way');
+  eq(flowLink(f, 0, 9, 9, anyLink), null, 'outside the map');
+  floorFlow(f, spot(1, 3, 1), anyLink);
+  eq(flowRow(f, 0, 1), '-1,5,6,5,4,3,-1', 'with the lift too, the west end goes up by lift');
+  ok(flowLink(f, 0, 1, 1, anyLink) === lift, 'flowLink picks the lift there');
+  floorFlow(f, spot(0, 3, 1), onlyStairs);
+  eq(flowRow(f, 1, 3), '-1,5,6,7,8,9,-1', 'the other way round: floor 1 leads down the stairs');
+  ok(otherEnd(stairs, 0, 5, 1) === stairs.b && otherEnd(stairs, 1, 1, 1) === stairs.a, 'otherEnd from either end');
+  expect(() => floorFlow(f, spot(0, 0, 0), anyLink)).toThrow(/floorFlow: target.*not a floor tile/);
+});
+test('floors: crossLink moves a mover across a link once, until it steps off', () => {
+  const { f, stairs } = crossFloors();
+  const m: { floor: number; x: number; z: number; linkTile?: number } = { floor: 0, x: 5.3 * T, z: 1.6 * T };
+  eq(
+    crossLink(f, m, l => l.kind === 'elevator'),
+    null,
+    'a link it may not use: no move',
+  );
+  eq(m.floor, 0);
+  ok(crossLink(f, m, onlyStairs) === stairs, 'up the stairs');
+  eq(
+    [m.floor, m.x, m.z, m.linkTile].join(','),
+    [1, 1.5 * T, 1.5 * T, 1 * 7 + 1].join(','),
+    'the middle of the other end',
+  );
+  eq(crossLink(f, m, onlyStairs), null, 'standing where it came out: no crossing back');
+  m.x = 1.9 * T;
+  eq(crossLink(f, m, onlyStairs), null, 'still on that tile');
+  m.x = 2.5 * T;
+  eq(crossLink(f, m, onlyStairs), null, 'off the tile: nothing there');
+  eq(m.linkTile, -1, 'and the hold is gone');
+  m.x = 1.5 * T;
+  ok(crossLink(f, m, onlyStairs) === stairs, 'back on the stairs: down again');
+  eq([m.floor, m.x, m.z].join(','), [0, 5.5 * T, 1.5 * T].join(','));
+  const lost = { floor: 0, x: -3, z: 1.5 * T };
+  eq(crossLink(f, lost, anyLink), null, 'outside the map');
+  eq(crossLink(f, { floor: 7, x: 1.5 * T, z: 1.5 * T }, anyLink), null, 'a floor that does not exist');
 });
 
 // ---- doors ----

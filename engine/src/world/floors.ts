@@ -1,8 +1,9 @@
-import { SIDE_STEP, createTileGrid } from './tiles.ts';
+import { OPPOSITE_SIDE, SIDE_STEP, createTileGrid, tileCenter, tileCoord } from './tiles.ts';
 import type { TileGrid, TileWorld } from './tiles.ts';
 // engine: A map of several floors stacked on top of each other: one TileGrid per floor, the height of each floor's
 // ground, and links that join two tiles (stairs, an elevator ...). The links are only data ("these two tiles are
-// connected"); how a mover uses one (when it moves, how its floor changes) is up to the game.
+// connected"); when a mover uses one (walking onto stairs, after a lift's ride ...) is up to the game. The engine finds
+// the way over several floors (floorFlow, flowLink) and moves a mover across a link (crossLink).
 
 // one tile on one floor
 export interface FloorSpot {
@@ -111,8 +112,7 @@ export function floorReach(f: Floors, from: FloorSpot): Uint8Array[] {
       if (!reach[floor][n] && g.passable(k, n, sd)) visit(floor, n);
     }
     for (const l of linksAt(f, floor, i, j)) {
-      const here = l.a.floor === floor && l.a.i === i && l.a.j === j,
-        to = here ? l.b : l.a;
+      const to = otherEnd(l, floor, i, j);
       visit(to.floor, to.j * f.grids[to.floor].world.W + to.i);
     }
   }
@@ -130,4 +130,121 @@ export function unreachableFloorTiles(f: Floors, from: FloorSpot): FloorSpot[] {
       for (let i = 0; i < W; i++) if (!reach[floor][j * W + i] && g.isFloor(i, j)) out.push({ floor, i, j });
   });
   return out;
+}
+
+// ---- moving between floors: the engine finds the way and moves a mover across a link; when to cross is the game's ----
+
+// the end of `l` that is not tile (i, j) of `floor` (for a link from a tile to itself, that tile)
+export function otherEnd(l: FloorLink, floor: number, i: number, j: number): FloorSpot {
+  return l.a.floor === floor && l.a.i === i && l.a.j === j ? l.b : l.a;
+}
+
+// A flow field toward `target` over every floor: each grid's world.flow becomes the steps from that tile to `target`
+// (-1 = no way there), the target's own floor included. A step between neighbouring tiles follows the same rule as
+// computeFlow (the direction a mover walks toward the target, doors open or shut count as floor). Crossing a link is
+// one step, and only the links that `use` accepts are crossed (say, only stairs for enemies that never ride a lift).
+// Every grid's flow is overwritten, the active grid's too when it is one of them. Read it with each grid's flowAt /
+// flowDir as usual; at a link tile flowDir finds no closer neighbour, ask flowLink which link leads on.
+// Throws when `target` is not a floor tile on an existing floor
+export function floorFlow(f: Floors, target: FloorSpot, use: (l: FloorLink) => boolean) {
+  checkSpot(f.grids, target, 'floorFlow: target');
+  for (const g of f.grids) g.world.flow.fill(-1);
+  const qFloor: number[] = [],
+    qTile: number[] = [];
+  const visit = (floor: number, k: number, d: number) => {
+    f.grids[floor].world.flow[k] = d;
+    qFloor.push(floor);
+    qTile.push(k);
+  };
+  visit(target.floor, target.j * f.grids[target.floor].world.W + target.i, 0);
+  for (let h = 0; h < qFloor.length; h++) {
+    const floor = qFloor[h],
+      c = qTile[h],
+      g = f.grids[floor],
+      { W, grid, flow } = g.world,
+      i = c % W,
+      j = (c / W) | 0,
+      d = flow[c] + 1;
+    for (let sd = 0; sd < SIDE_STEP.length; sd++) {
+      const ni = i + SIDE_STEP[sd][0],
+        nj = j + SIDE_STEP[sd][1];
+      if (!g.inBounds(ni, nj)) continue;
+      const n = nj * W + ni;
+      if (grid[n] !== 1 || flow[n] >= 0) continue;
+      if (g.passable(n, c, OPPOSITE_SIDE[sd])) visit(floor, n, d); // movers walk n -> c
+    }
+    for (const l of linksAt(f, floor, i, j)) {
+      if (!use(l)) continue;
+      const to = otherEnd(l, floor, i, j),
+        tw = f.grids[to.floor].world,
+        n = to.j * tw.W + to.i;
+      if (tw.flow[n] < 0) visit(to.floor, n, d);
+    }
+  }
+}
+
+// After floorFlow: the link at tile (i, j) of `floor` that leads closer to the target (its other end has fewer steps
+// left than this tile), among the ones `use` accepts; the closest one when several do. null when none does, or when
+// the tile has no flow (out of reach, or outside the map)
+export function flowLink(
+  f: Floors,
+  floor: number,
+  i: number,
+  j: number,
+  use: (l: FloorLink) => boolean,
+): FloorLink | null {
+  const g = f.grids[floor];
+  if (!g || !g.inBounds(i, j)) return null;
+  let best = g.world.flow[j * g.world.W + i],
+    pick: FloorLink | null = null;
+  if (best <= 0) return null;
+  for (const l of linksAt(f, floor, i, j)) {
+    if (!use(l)) continue;
+    const to = otherEnd(l, floor, i, j),
+      tw = f.grids[to.floor].world,
+      d = tw.flow[to.j * tw.W + to.i];
+    if (d >= 0 && d < best) {
+      best = d;
+      pick = l;
+    }
+  }
+  return pick;
+}
+
+// anything that walks the floors: the player, an enemy ...
+export interface FloorMover {
+  floor: number;
+  x: number;
+  z: number;
+  // the tile (index j * W + i on `floor`) the mover came out on after crossing a link, until it steps off it; while
+  // it stands there, crossLink does nothing, so it does not cross straight back. -1 or missing = none
+  linkTile?: number;
+}
+
+// Moves `m` across a link of the tile it stands on, when there is one that `use` accepts: `m.floor` becomes the other
+// end's floor and (x, z) the middle of the other end's tile; y is left to the game (feetY gives the ground there).
+// Returns the link it crossed, or null. Right after a crossing it does nothing until the mover has stepped off the tile
+// it came out on (see FloorMover.linkTile). With several links on the tile the first one `use` accepts is taken.
+// When to call it is the game's: every frame for stairs, once a lift has done its ride, ...
+export function crossLink(f: Floors, m: FloorMover, use: (l: FloorLink) => boolean): FloorLink | null {
+  const g = f.grids[m.floor];
+  if (!g) return null;
+  const i = tileCoord(m.x),
+    j = tileCoord(m.z),
+    k = g.inBounds(i, j) ? j * g.world.W + i : -1;
+  if (m.linkTile !== undefined && m.linkTile >= 0) {
+    if (m.linkTile === k) return null;
+    m.linkTile = -1;
+  }
+  if (k < 0) return null;
+  for (const l of linksAt(f, m.floor, i, j)) {
+    if (!use(l)) continue;
+    const to = otherEnd(l, m.floor, i, j);
+    m.floor = to.floor;
+    m.x = tileCenter(to.i);
+    m.z = tileCenter(to.j);
+    m.linkTile = to.j * f.grids[to.floor].world.W + to.i;
+    return l;
+  }
+  return null;
 }
