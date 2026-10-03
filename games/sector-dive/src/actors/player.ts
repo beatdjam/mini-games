@@ -2,7 +2,7 @@ import type { Player, RunState, Weapon, WeaponItem } from '../data/types.ts';
 import { TUNE, BAG_MAX } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { basicNow, startDmgMul, startMaxHp } from '../core/rules.ts';
-import { newWeapon } from './weapons.ts';
+import { fillMag, newWeapon } from './weapons.ts';
 
 // ---- tuning numbers used only here ----
 const PLAYER_R = 0.45; // body radius (m)
@@ -27,7 +27,8 @@ export function newPlayer(loadout: (WeaponItem | null)[]): Player {
   const u = save.up,
     pu = save.pres.up,
     hp = startMaxHp(u.hp);
-  const ws = loadout.map(basicNow).map(w => (w ? newWeapon(w.id, w.r, w.basic, w.plus, w.opts) : null));
+  // the dive starts with full magazines (options count; there are no chips yet)
+  const ws = loadout.map(basicNow).map(w => (w ? fillMag(newWeapon(w.id, w.r, w.basic, w.plus, w.opts), 1) : null));
   return {
     x: 0,
     z: 0,

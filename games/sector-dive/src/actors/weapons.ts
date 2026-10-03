@@ -70,14 +70,22 @@ export function rollWeapon(stage: number, minR?: number): Weapon {
   let n = 0;
   if (stage >= AFFIX1_FROM_STAGE && Math.random() < AFFIX1_BASE + (stage - AFFIX1_FROM_STAGE) * AFFIX1_PER_STAGE) n++;
   if (stage >= AFFIX2_FROM_STAGE && Math.random() < AFFIX2_BASE + (stage - AFFIX2_FROM_STAGE) * AFFIX2_PER_STAGE) n++;
-  return newWeapon(pickDrop(), r, false, plus, shuffle(Object.keys(AFFIX)).slice(0, n));
+  return fillMag(newWeapon(pickDrop(), r, false, plus, shuffle(Object.keys(AFFIX)).slice(0, n)));
 }
 // chipMag: share of the magazine chips' effect a weapon gets (the launcher only half, so it can't double its output)
-export const magSize = (w: WeaponItem): number => {
+// the magazine for a given chip multiplier (Player.magMul)
+const magFor = (w: WeaponItem, magMul: number): number => {
   const def = WEAPONS[w.id],
-    chip = 1 + (player.magMul - 1) * (def.chipMag ?? 1);
+    chip = 1 + (magMul - 1) * (def.chipMag ?? 1);
   return Math.max(1, Math.round(def.mag * chip * (1 + MAG_OPT_PER_LEVEL * weaponOptCount('mag', w))));
 };
+export const magSize = (w: WeaponItem): number => magFor(w, player.magMul);
+// A weapon that is new to the player comes fully loaded: the magazine its options and the chips give, not the bare
+// WEAPONS[id].mag that newWeapon starts with. Drops take the chips the player has now; newPlayer passes 1 (no chips yet)
+export function fillMag<T extends WeaponItem>(w: T, magMul = player ? player.magMul : 1): T {
+  w.mag = magFor(w, magMul);
+  return w;
+}
 // rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
 const rarLabel = (w: WeaponItem): string => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 export const weaponName = (w: WeaponItem): string =>
