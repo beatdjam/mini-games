@@ -1,16 +1,87 @@
 // The settings the game offers (the panel itself is engine/src/ui/settings.ts): shown in the base's settings tab and
-// on the pause screen. A change is saved at once; volumes and the touch layout are applied right away too.
-import { isTouch } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
+// on the pause screen. A change is saved at once; volumes and the touch layout are applied right away too. Also here:
+// the other things that follow from settings — the language switch, the fullscreen button, the touch button layout
+// and the how-to-play list.
+import { el, isTouch } from '@engine/core/util.ts';
+import { setLang, t } from '@engine/core/i18n.ts';
 import { applySfxVolume, audioInit } from '@engine/audio/audio.ts';
 import { musicVolume } from '@engine/audio/music.ts';
-import { applyLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
-import { SETTINGS, fullscreenSetting, languageSetting } from '@engine/ui/settings.ts';
+import { resize } from '@engine/render/render.ts';
+import { fsSupported, isFullscreen, isStandalone, toggleFs } from '@engine/ui/ui.ts';
+import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
+import { SETTINGS, fullscreenSetting, languageSetting, renderSettings } from '@engine/ui/settings.ts';
 import type { SettingItem } from '@engine/ui/settings.ts';
+import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
 import { persist, save, syncVolumes } from '../core/save.ts';
-import { setSetting, toggleSetting } from '../core/progress.ts';
-import { state } from '../flow/state.ts';
-import { changeLang } from './hud.ts';
+import { layoutEdits, resetLayout, setLanguage, setSetting, toggleSetting } from '../core/progress.ts';
+import { player } from '../actors/player.ts';
+import { setState, show, state } from '../flow/state.ts';
+import { renderBase } from '../screens/base.ts';
+import { refreshRunText } from '../screens/pause.ts';
+import { updateHint, weaponHud } from './hud.ts';
+// languageSetting() lists the languages that are registered when it runs, so they must be loaded before this file
+import '../i18n/ja.ts';
+import '../i18n/en.ts';
+
+export function fsLabel() {
+  el('#btnFs').textContent = t(isFullscreen() ? 'hud.fsOff' : 'hud.fs');
+}
+el('#btnFs').hidden = !fsSupported || isStandalone;
+el('#btnFs').addEventListener('click', toggleFs);
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
+  document.addEventListener(ev, () => {
+    fsLabel();
+    renderSettings();
+    setTimeout(resize, 100);
+  }),
+);
+
+// touch buttons: placement and the editor are engine/src/ui/touchlayout.ts
+Object.assign(TOUCH_LAYOUT, {
+  defs: LAYOUT_DEF,
+  first: 'dash',
+  edits: layoutEdits,
+  reset: resetLayout,
+  save: persist,
+  afterApply: () => {
+    el('#btnFire2').hidden = !save.settings.leftFire;
+  },
+  onOpen: () => {
+    show(null);
+    setState('layout');
+  },
+  onClose: (from: string) => {
+    if (from === 'pause') {
+      setState('pause');
+      renderSettings();
+      show('#scrPause');
+    } else {
+      el('#touch').hidden = true;
+      setState('base');
+      renderSettings();
+      show('#scrBase');
+    }
+  },
+});
+
+export function renderGuide() {
+  el('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+}
+// switching language redraws whatever is on screen (static text is handled by setLang)
+export function changeLang(code: string) {
+  setLanguage(code);
+  persist();
+  setLang(code);
+  renderSettings();
+  renderGuide();
+  fsLabel();
+  updateHint();
+  if (state === 'base') renderBase();
+  if (player) {
+    weaponHud();
+    refreshRunText();
+  }
+}
 
 type Flag = 'autofire' | 'leftFire' | 'stickDash';
 const flag = (key: Flag, label: () => string, show?: () => boolean): SettingItem => ({

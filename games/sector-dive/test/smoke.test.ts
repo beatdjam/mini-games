@@ -82,7 +82,8 @@ import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/
 import { findTarget, fire, shotId } from '../src/actors/firing.ts';
 import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
 import { equipNearby, stowNearby } from '../src/ui/input.ts';
-import { changeLang, hitDirs, updateHud } from '../src/ui/hud.ts';
+import { hitDirs, updateHud } from '../src/ui/hud.ts';
+import { changeLang } from '../src/ui/settings.ts';
 import { endRun, goBase, nextStage, pickEnemyType, startPractice, startRun, startStage } from '../src/flow/run.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
