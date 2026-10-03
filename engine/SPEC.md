@@ -42,6 +42,11 @@
 - `hasLOS(x0, z0, x1, z1, y0, y1)`: 壁で視線が切れるか。高さを渡すと、間にある高い床や遮蔽物でも切れる
 - **経路（フローフィールド）**: `computeFlow(i, j)` で、目標のタイルまでの歩数を全タイルに入れる（段差の規則に従う）。`flowDir(x, z)` は歩数が減る隣への単位ベクトル
 - ゲームは地形を生成して `setTileWorld({ W, H, grid, hgt, ramp, cover, flow, flowQ })` で渡す（渡したキーだけ入れ替わる）
+- **地形オブジェクト**: `createTileGrid(world)`（`world` は `TileWorld` = `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`, `flowQ`）は、その地形を読む関数をまとめた `TileGrid` を返す。地形を何枚持っても互いに影響しない（`computeFlow` が書くのも、そのオブジェクトの `world.flow` だけ）
+  - メソッド: `inBounds`, `isSolid`, `solidAt`, `tileIndex`, `floorY`, `blocked`, `blockedDir`, `depenetrate`, `moveCircle`, `hasLOS`, `walkable`, `edgeH`, `passable`, `computeFlow`, `flowAt`, `flowDir`。意味と計算は上の各項のとおり
+  - `world` はコピーせず、そのまま持つ。配列の中身や項目を後から変えると、次の呼び出しから反映される
+  - `tileCoord`・`tileCenter`・辺の番号（`SIDE_*`）は地形に依存しないので、オブジェクトには入れない
+- **今の地形**: モジュールの `inBounds`, `isSolid`, `solidAt`, `tileIndex`, `floorY`, `blocked`, `blockedDir`, `depenetrate`, `moveCircle`, `hasLOS`, `walkable`, `edgeH`, `passable`, `computeFlow`, `flowAt`, `flowDir` と、`W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow` は、今の地形（`activeTileGrid()` が返すオブジェクト）に対するもの。`setTileWorld` はこの地形の中身を入れ替え、`W` などもそれに合わせて更新する
 
 ### 4.1 ダンジョンの生成と固定マップ（world/dungeon.ts, world/tilemap.ts）
 
