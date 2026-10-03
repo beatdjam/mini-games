@@ -16,6 +16,7 @@ import {
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
 import { REBOOT_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { BASE_TAB_KEY, basicW, persist, save } from '../core/save.ts';
+import { keyText } from '../ui/input.ts';
 import {
   applyReboot,
   buyRebootUpgrade,
@@ -221,7 +222,7 @@ export function renderBase() {
   el('#practiceTier').innerHTML = practiceTierButtons();
   el('#bossList').innerHTML = BOSS_ORDER.map(bossButton).join('');
   renderSettings();
-  el('#help').innerHTML = isTouch ? t('base.helpTouch') : t('base.helpDesk');
+  el('#help').innerHTML = isTouch ? t('base.helpTouch') : t('base.helpDesk', { pause: keyText('pause', 0) });
 }
 
 // ---- reboot (prestige) ----

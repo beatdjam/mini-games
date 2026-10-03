@@ -74,6 +74,13 @@ if (location.hash === '#view-trooper')
   }, 300);
 // dev view: #view-wipe opens the data wipe dialog on the base screen (for screenshots)
 if (location.hash === '#view-wipe') setTimeout(() => el('#btnWipe').click(), 300);
+// dev view: #view-keys opens the key settings dialog on the base screen; #view-keys-wait also clicks the reload key
+if (location.hash === '#view-keys' || location.hash === '#view-keys-wait')
+  setTimeout(() => {
+    showTab('settings');
+    document.querySelector<HTMLElement>('[data-settings="base"] [data-action="keys"]')?.click();
+    if (location.hash.endsWith('-wait')) document.querySelector<HTMLElement>('[data-key-action="reload"]')?.click();
+  }, 300);
 // dev view: #boss-phantom etc. starts boss practice against that boss
 // optional depth: #boss-phantom-3 = DEPTH 3 strength
 if (location.hash.startsWith('#boss-'))

@@ -30,7 +30,7 @@ import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { difficultyAt, isBossStage, stageInfo, stageLabel, tierLabel } from '../core/stages.ts';
 import { rollWeapon, weaponText } from '../actors/weapons.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
-import { normalizeWeapons } from '../ui/input.ts';
+import { keyText, moveKeysText, normalizeWeapons } from '../ui/input.ts';
 import { updateHint, weaponHud } from '../ui/hud.ts';
 import { openPerk } from '../screens/perk.ts';
 import { refreshRunText } from '../screens/pause.ts';
@@ -125,7 +125,10 @@ export function startRun() {
   if (!total) {
     // with chips to pick first, the lock is requested when the last one is chosen
     requestLock();
-    toast(t(isTouch ? 'run.firstTouch' : 'run.firstDesk'), FIRST_TOAST_MS);
+    toast(
+      t(isTouch ? 'run.firstTouch' : 'run.firstDesk', { move: moveKeysText(), pause: keyText('pause', 0) }),
+      FIRST_TOAST_MS,
+    );
   }
   if (risked) setTimeout(() => toast(t('run.risked'), RISKED_TOAST_MS), total ? 0 : RISKED_TOAST_DELAY_MS);
 }

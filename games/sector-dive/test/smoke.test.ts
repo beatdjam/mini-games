@@ -2,7 +2,7 @@
 // The tests share one game state and run in order; some checks depend on how many random numbers the earlier ones used.
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type { GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
-import { createRng, el, rand } from '@engine/core/util.ts';
+import { createRng, distXZ, el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
 import { lang, t } from '@engine/core/i18n.ts';
 import { SFX, actx, audioInit } from '@engine/audio/audio.ts';
@@ -34,6 +34,10 @@ import {
   walkable,
 } from '@engine/world/tiles.ts';
 import { joy, setFireHeld } from '@engine/ui/input.ts';
+import { SETTINGS } from '@engine/ui/settings.ts';
+import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBindings } from '@engine/ui/keymap.ts';
+import { encodeStore } from '@engine/core/store.ts';
+import { isTouch } from '@engine/core/util.ts';
 import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
 import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
 import { EYE, PLAT_H } from '../src/data/level.ts';
@@ -43,7 +47,16 @@ import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, REBOOT_ENDLESS, REBOOT_UP, TUNE } from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
-import { basicW, exportSave, importSave, importSaveCheck, persist, save } from '../src/core/save.ts';
+import {
+  SAVE_KEY,
+  basicW,
+  defaultSave,
+  exportSave,
+  importSave,
+  importSaveCheck,
+  persist,
+  save,
+} from '../src/core/save.ts';
 import {
   weaponModOf,
   modPlusCap,
@@ -82,9 +95,11 @@ import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/c
 import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { findTarget, fire, shotId } from '../src/actors/firing.ts';
 import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
-import { equipNearby, stowNearby } from '../src/ui/input.ts';
-import { hitDirs, updateHud } from '../src/ui/hud.ts';
-import { changeLang } from '../src/ui/settings.ts';
+import { KEY_ACTIONS } from '../src/data/controls.ts';
+import { setKeyBindings } from '../src/core/progress.ts';
+import { applyKeyBindings, controlState, equipNearby, stowNearby } from '../src/ui/input.ts';
+import { bigmap, hitDirs, updateHud } from '../src/ui/hud.ts';
+import { changeLang, renderGuide } from '../src/ui/settings.ts';
 import { endRun, goBase, nextStage, pickEnemyType, startPractice, startRun, startStage } from '../src/flow/run.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
@@ -1317,6 +1332,394 @@ test('generation is pinned: the same seed gives the same level', () => {
     'arena phantom': 'b566d42b',
     'arena trinity': 'dc3f981b',
     'arena bastion': 'dc3f981b',
+  });
+});
+
+// ---- PC key bindings: every action runs through the engine's bindings (engine/src/ui/keymap.ts) ----
+describe('key bindings', () => {
+  // from the page body, so the event passes the document and the window like a real key press does
+  const keyEvent = (type: 'keydown' | 'keyup', code: string, repeat = false) =>
+    document.body.dispatchEvent(new KeyboardEvent(type, { code, repeat, bubbles: true, cancelable: true }));
+  const press = (code: string) => {
+    keyEvent('keydown', code);
+    keyEvent('keyup', code);
+  };
+  // how far holding `code` for a moment moves the player
+  const moveBy = (code: string) => {
+    const x = player.x,
+      z = player.z;
+    keyEvent('keydown', code);
+    tick(8);
+    keyEvent('keyup', code);
+    return distXZ({ x, z }, player);
+  };
+  // a play state where weapons, kits and the map can be tried
+  const freshPlay = () => {
+    startRun();
+    tick(5);
+    clearWorld('pickup');
+    player.weapons = [newWeapon('pistol', 0, true), newWeapon('smg', 0)];
+    player.cur = 0;
+    player.bag = [null, null, null, null];
+    player.reloadT = 0;
+    controlState.dashReq = false;
+  };
+  const toPlay = () => {
+    show(null);
+    setState('play');
+  };
+  const guideTexts = () => Array.from(document.querySelectorAll('#guide dd'), d => d.textContent);
+  const keyCell = (action: string, slot: number) =>
+    el('#keysList').querySelector<HTMLElement>(`[data-key-action="${action}"][data-slot="${slot}"]`)!;
+  const savedKeys = () => JSON.parse(localStorage.getItem(SAVE_KEY) ?? '{}').settings.keys;
+
+  beforeAll(() => {
+    setFireHeld(false); // the file's start-up holds fire; these tests press fire by key
+    resetBindings();
+    freshPlay();
+  });
+
+  test('the default bindings are the keys the game always had', () => {
+    const want: Record<string, string[]> = {
+      forward: ['KeyW', 'ArrowUp'],
+      back: ['KeyS', 'ArrowDown'],
+      left: ['KeyA', 'ArrowLeft'],
+      right: ['KeyD', 'ArrowRight'],
+      dash: ['Space', 'ShiftLeft'],
+      fire: ['KeyF'],
+      swap: ['KeyQ'],
+      slot1: ['Digit1'],
+      slot2: ['Digit2'],
+      reload: ['KeyR'],
+      stow: ['KeyE'],
+      equip: ['KeyG'],
+      kit: ['KeyH'],
+      map: ['KeyM'],
+      bag: ['Tab', 'KeyI'],
+      pause: ['Escape', 'KeyP'],
+    };
+    expect(KEY_ACTIONS.map(a => a.id)).toEqual(Object.keys(want));
+    for (const [action, keys] of Object.entries(want)) expect(keysOf(action), action).toEqual(keys);
+    expect(save.settings.keys, 'a new save keeps no keys: every action is on its default').toEqual({});
+  });
+
+  test('default keys: move, fire, dash, weapons, reload and kit work as before', () => {
+    freshPlay();
+    for (const code of ['KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyD', 'ArrowRight'])
+      expect(moveBy(code), code).toBeGreaterThan(0.2);
+    expect(moveBy('KeyZ'), 'an unbound key').toBeLessThan(0.01);
+    // fire: F held shoots
+    const shots = shotId;
+    keyEvent('keydown', 'KeyF');
+    tick(3);
+    keyEvent('keyup', 'KeyF');
+    expect(shotId).toBeGreaterThan(shots);
+    // dash: Space, either Shift
+    for (const code of ['Space', 'ShiftLeft', 'ShiftRight']) {
+      controlState.dashReq = false;
+      press(code);
+      expect(controlState.dashReq, code).toBe(true);
+    }
+    // switch weapon: Q, 2, 1
+    press('KeyQ');
+    expect(player.cur).toBe(1);
+    press('KeyQ');
+    expect(player.cur).toBe(0);
+    press('Digit2');
+    expect(player.cur).toBe(1);
+    press('Digit1');
+    expect(player.cur).toBe(0);
+    // reload
+    player.weapons[0]!.mag = 1;
+    press('KeyR');
+    expect(player.reloadT).toBeGreaterThan(0);
+    player.reloadT = 0;
+    // med kit
+    player.kits = 1;
+    player.hp = player.maxHp - 50;
+    press('KeyH');
+    expect(player.kits).toBe(0);
+    // map
+    expect(bigmap.hidden).toBe(true);
+    press('KeyM');
+    expect(bigmap.hidden).toBe(false);
+    press('KeyM');
+    expect(bigmap.hidden).toBe(true);
+  });
+
+  test('default keys: pick up (G swap, E to bag), bag (Tab, I, Esc closes) and pause (Esc, P)', () => {
+    freshPlay();
+    player.weapons = [newWeapon('pistol', 0, true), null];
+    addPickup('weapon', player.x, player.z, { w: newWeapon('rail', 1) });
+    updatePickups(0);
+    press('KeyG');
+    expect(player.weapons[1]?.id).toBe('rail');
+    addPickup('weapon', player.x, player.z, { w: newWeapon('smg', 1) });
+    updatePickups(0);
+    press('KeyE');
+    expect(player.bag.filter(Boolean).length).toBe(1);
+    // the bag: Tab and I open and close, Esc closes
+    for (const [open, close] of [
+      ['Tab', 'Tab'],
+      ['KeyI', 'KeyI'],
+      ['Tab', 'Escape'],
+      ['KeyI', 'Escape'],
+    ] as const) {
+      toPlay();
+      press(open);
+      expect(state, open).toBe('bag');
+      press(close);
+      expect(state, `${open} then ${close}`).toBe('play');
+    }
+    // pause: Esc and P
+    for (const code of ['Escape', 'KeyP']) {
+      toPlay();
+      press(code);
+      expect(state, code).toBe('pause');
+    }
+    toPlay();
+    // Tab's browser default (moving focus) is stopped, in play and in the bag
+    expect(keyEvent('keydown', 'Tab')).toBe(false);
+    keyEvent('keyup', 'Tab');
+    expect(keyEvent('keydown', 'Tab')).toBe(false);
+    keyEvent('keyup', 'Tab');
+    toPlay();
+  });
+
+  test('the controls list is built from the bindings', () => {
+    renderGuide();
+    const g = guideTexts();
+    expect(g[0]).toBe('W A S D');
+    expect(g[2]).toContain('F');
+    expect(g[3]).toBe(
+      lang === 'ja' ? 'Space / Shift（スタミナ消費、短い無敵）' : 'Space / Shift (uses stamina, brief invulnerability)',
+    );
+    expect(g[5]).toContain('Q / 1 / 2');
+    expect(g[7]).toBe('H');
+    expect(g[8]).toBe('Tab / I');
+    expect(g[10]).toBe('Esc / P');
+    for (const code of ['ja', 'en']) {
+      changeLang(code);
+      expect(
+        guideTexts().some(x => /[{}]/.test(x ?? '')),
+        `${code}: a placeholder is left`,
+      ).toBe(false);
+    }
+    changeLang('ja');
+  });
+
+  test('changing a binding: the new key works, the old key does nothing', () => {
+    freshPlay();
+    bindKey('reload', 0, 'KeyV');
+    player.weapons[0]!.mag = 1;
+    press('KeyR');
+    expect(player.reloadT, 'the old key').toBe(0);
+    press('KeyV');
+    expect(player.reloadT, 'the new key').toBeGreaterThan(0);
+    player.reloadT = 0;
+    bindKey('forward', 0, 'KeyT');
+    expect(moveBy('KeyW'), 'the old move key').toBeLessThan(0.01);
+    expect(moveBy('KeyT'), 'the new move key').toBeGreaterThan(0.2);
+    expect(moveBy('ArrowUp'), 'the other key of the action stays').toBeGreaterThan(0.2);
+    // firing and the bag follow too
+    bindKey('fire', 0, 'KeyJ');
+    const shots = shotId;
+    keyEvent('keydown', 'KeyF');
+    tick(3);
+    keyEvent('keyup', 'KeyF');
+    expect(shotId, 'the old fire key').toBe(shots);
+    keyEvent('keydown', 'KeyJ');
+    tick(3);
+    keyEvent('keyup', 'KeyJ');
+    expect(shotId, 'the new fire key').toBeGreaterThan(shots);
+    bindKey('bag', 0, 'KeyB');
+    press('Tab');
+    expect(state, 'Tab no longer opens the bag').toBe('play');
+    press('KeyB');
+    expect(state).toBe('bag');
+    press('KeyB');
+    expect(state, 'the new key closes it').toBe('play');
+    expect(actionDown('forward')).toBe(false);
+    resetBindings();
+  });
+
+  test('a key given to a second action leaves the first', () => {
+    freshPlay();
+    expect(bindKey('kit', 0, 'KeyR')).toBe('reload');
+    expect(keysOf('reload')).toEqual([]);
+    player.weapons[0]!.mag = 1;
+    press('KeyR');
+    expect(player.reloadT, 'R is the kit now').toBe(0);
+    player.kits = 1;
+    player.hp = player.maxHp - 50;
+    press('KeyR');
+    expect(player.kits).toBe(0);
+    resetBindings();
+  });
+
+  test('Esc pauses even when the pause keys are changed', () => {
+    freshPlay();
+    toPlay();
+    bindKey('pause', 0, 'KeyK');
+    expect(keysOf('pause')).toEqual(['KeyK', 'KeyP']);
+    press('Escape');
+    expect(state, 'Esc still pauses').toBe('pause');
+    toPlay();
+    press('KeyK');
+    expect(state, 'and so does the new key').toBe('pause');
+    resetBindings();
+    toPlay();
+  });
+
+  test('the controls list shows the changed keys', () => {
+    bindKey('reload', 0, 'KeyV');
+    bindKey('dash', 1, 'KeyC');
+    renderGuide();
+    const g = guideTexts();
+    expect(g[4]).toMatch(/^V/);
+    expect(g[3]).toMatch(/^Space \/ C/);
+    resetBindings();
+    renderGuide();
+  });
+
+  test('the key settings dialog: click a key, press a new one; Esc cancels; reset', () => {
+    toPlay();
+    show(null);
+    setState('base');
+    renderBase();
+    const open = document.querySelector<HTMLElement>('[data-settings="base"] [data-action="keys"]');
+    expect(open, 'the button is in the settings').not.toBeNull();
+    open!.click();
+    expect(el('#dlgKeys').hidden).toBe(false);
+    expect(el('#keysList').querySelectorAll('.keyrow').length).toBe(KEY_ACTIONS.length);
+    expect(keyCell('reload', 0).textContent).toBe('R');
+    expect(keyCell('reload', 1).textContent).toBe(t('keys.none'));
+    // click, then the cell waits
+    keyCell('reload', 0).click();
+    expect(keyCell('reload', 0).textContent).toBe(t('keys.press'));
+    // Esc cancels: nothing changes, and the dialog stays open
+    expect(keyEvent('keydown', 'Escape')).toBe(false);
+    keyEvent('keyup', 'Escape');
+    expect(el('#dlgKeys').hidden).toBe(false);
+    expect(keyCell('reload', 0).textContent).toBe('R');
+    expect(keysOf('reload')).toEqual(['KeyR']);
+    // a key press is the answer, and it does nothing else (Tab would have moved the focus, Space would have clicked)
+    keyCell('reload', 0).click();
+    expect(keyEvent('keydown', 'KeyV')).toBe(false);
+    keyEvent('keyup', 'KeyV');
+    expect(keysOf('reload')).toEqual(['KeyV']);
+    expect(keyCell('reload', 0).textContent).toBe('V');
+    expect(savedKeys().reload).toEqual(['KeyV']);
+    // the second slot
+    keyCell('reload', 1).click();
+    keyEvent('keydown', 'Tab');
+    keyEvent('keyup', 'Tab');
+    expect(keysOf('reload')).toEqual(['KeyV', 'Tab']);
+    expect(keysOf('bag'), 'Tab was taken from the bag').toEqual(['KeyI']);
+    expect(el('#keysMsg').textContent).toBe(
+      t('keys.moved', { key: 'Tab', action: KEY_ACTIONS.find(a => a.id === 'bag')!.name }),
+    );
+    // the right-hand Shift is the Shift key
+    keyCell('dash', 1).click();
+    keyEvent('keydown', 'ShiftRight');
+    keyEvent('keyup', 'ShiftRight');
+    expect(keysOf('dash')).toEqual(['Space', 'ShiftLeft']);
+    // the held key that clicked a cell (auto-repeat) is not an answer
+    keyCell('map', 0).click();
+    keyEvent('keydown', 'Enter', true);
+    expect(keysOf('map')).toEqual(['KeyM']);
+    keyEvent('keydown', 'KeyN');
+    keyEvent('keyup', 'KeyN');
+    expect(keysOf('map')).toEqual(['KeyN']);
+    // the controls list shows the new key
+    expect(guideTexts()[4]).toMatch(/^V/);
+    // reset
+    el('#btnKeysReset').click();
+    expect(save.settings.keys, 'nothing is changed: nothing is saved').toEqual({});
+    expect(keysOf('reload')).toEqual(['KeyR']);
+    expect(keysOf('bag')).toEqual(['Tab', 'KeyI']);
+    expect(keyCell('reload', 0).textContent).toBe('R');
+    expect(savedKeys()).toEqual({});
+    // Esc closes the dialog when nothing is waiting, and so does the button
+    keyEvent('keydown', 'Escape');
+    keyEvent('keyup', 'Escape');
+    expect(el('#dlgKeys').hidden).toBe(true);
+    open!.click();
+    el('#btnKeysClose').click();
+    expect(el('#dlgKeys').hidden).toBe(true);
+  });
+
+  test('the dialog also opens from the pause screen', () => {
+    freshPlay();
+    pause();
+    const open = document.querySelector<HTMLElement>('[data-settings="pause"] [data-action="keys"]');
+    expect(open).not.toBeNull();
+    open!.click();
+    expect(el('#dlgKeys').hidden).toBe(false);
+    keyCell('map', 0).click();
+    keyEvent('keydown', 'Escape'); // cancel, not "resume" or anything else
+    keyEvent('keyup', 'Escape');
+    expect(state).toBe('pause');
+    el('#btnKeysClose').click();
+    expect(state).toBe('pause');
+    toPlay();
+  });
+
+  test('the key settings button is for PC only', () => {
+    const item = SETTINGS.items.find(i => i.key === 'keys')!;
+    const layout = SETTINGS.items.find(i => i.key === 'layout')!;
+    expect(item.show!()).toBe(!isTouch);
+    expect(item.show!()).toBe(!layout.show!());
+  });
+
+  test('the bindings are saved, read back at start-up, and old saves get the defaults', () => {
+    bindKey('reload', 0, 'KeyV');
+    bindKey('stow', 1, 'KeyC');
+    setKeyBindings(changedBindings()); // what the dialog does after a change
+    persist();
+    expect(save.settings.keys, 'only the changed actions are saved').toEqual({
+      reload: ['KeyV'],
+      stow: ['KeyE', 'KeyC'],
+    });
+    // a restart: the engine starts on defaults and takes the save's bindings
+    const stored = exportBindings();
+    expect(savedKeys()).toEqual(save.settings.keys);
+    resetBindings();
+    applyKeyBindings();
+    expect(exportBindings()).toEqual(stored);
+    expect(keysOf('reload')).toEqual(['KeyV']);
+    // through a save code
+    const code = exportSave();
+    resetBindings();
+    expect(importSave(code)).toBe(true);
+    applyKeyBindings();
+    expect(keysOf('reload')).toEqual(['KeyV']);
+    expect(keysOf('stow')).toEqual(['KeyE', 'KeyC']);
+    // a save from before the key settings existed: default keys
+    const old = JSON.parse(JSON.stringify(save));
+    delete old.settings.keys;
+    expect(importSave(encodeStore('SD1', old))).toBe(true);
+    expect(save.settings.keys).toEqual(defaultSave().settings.keys);
+    applyKeyBindings();
+    expect(keysOf('reload')).toEqual(['KeyR']);
+    expect(keysOf('forward')).toEqual(['KeyW', 'ArrowUp']);
+    // a save with a broken value does not stop the others
+    old.settings.keys = { reload: 'KeyV', kit: ['KeyU'], nothing: ['KeyZ'] };
+    expect(importSave(encodeStore('SD1', old))).toBe(true);
+    applyKeyBindings();
+    expect(keysOf('reload')).toEqual(['KeyR']);
+    expect(keysOf('kit')).toEqual(['KeyU']);
+  });
+
+  test('wiping the data puts the keys back to the defaults', () => {
+    bindKey('reload', 0, 'KeyV');
+    setKeyBindings(changedBindings());
+    persist();
+    el('#btnWipe').click();
+    el('#btnWipeGo').click();
+    expect(keysOf('reload')).toEqual(['KeyR']);
+    expect(save.settings.keys).toEqual({});
+    expect(guideTexts()[4]).toMatch(/^R/);
   });
 });
 

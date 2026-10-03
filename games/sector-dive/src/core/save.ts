@@ -34,6 +34,7 @@ export const defaultSave = (): SaveData => ({
     leftFire: true,
     stickDash: false,
     layout: {},
+    keys: {}, // only the actions the player changed (changedBindings); the rest use KEY_ACTIONS' defaults
   },
 });
 function loadSave(): SaveData {
