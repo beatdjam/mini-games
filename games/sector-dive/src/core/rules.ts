@@ -1,7 +1,9 @@
 import type { RunEnd, WeaponItem } from '../data/types.ts';
 import { LANG, t } from '@engine/core/i18n.ts';
 import {
+  CRIT_OPT_PER_LEVEL,
   DROP_POOL,
+  MAG_OPT_PER_LEVEL,
   MOD_CAP_PER_DEPTH,
   MOD_PLUS_MAX,
   PLUS_DMG,
@@ -10,7 +12,7 @@ import {
   RELOAD_OPT_MUL,
   WEAPONS,
 } from '../data/weapons.ts';
-import { PER, REBOOT_ENDLESS, TUNE, enemyGrowth, hpGrowth } from '../data/progress.ts';
+import { DMG_SCALE_PER_PROG, PER, REBOOT_ENDLESS, TUNE, enemyGrowth, hpGrowth } from '../data/progress.ts';
 import type { RebootUpgrade } from '../data/types.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
 import { PERKS } from '../data/perks.ts';
@@ -19,10 +21,11 @@ import { save } from './save.ts';
 // progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
 // (depth start = depth * 5, the boss = depth * 5 + 4)
 export const progressOf = (s: number): number => Math.floor(s / PER) * 5 + ((s % PER) * 4) / (PER - 1);
-// enemies get 15% stronger per reboot, up to REBOOT_DIFF_CAP reboots: the bonuses run out after a few reboots,
+// enemies get stronger by REBOOT_DIFF_PER per reboot, up to REBOOT_DIFF_CAP reboots: the bonuses run out after a few reboots,
 // so without a cap a long prestige run would leave DEPTH 1 out of reach right after a reboot
 export const REBOOT_DIFF_CAP = 7;
-export const rebootMulOf = (count: number): number => 1 + Math.min(count, REBOOT_DIFF_CAP) * 0.15;
+export const REBOOT_DIFF_PER = 0.15; // enemy strength per reboot (+15%)
+export const rebootMulOf = (count: number): number => 1 + Math.min(count, REBOOT_DIFF_CAP) * REBOOT_DIFF_PER;
 export const rebootMul = (): number => rebootMulOf(save.pres.count);
 // every weapon type can drop during a dive; unlocking only decides what you can start with and mod at the base
 // what the next level of a reboot bonus costs
@@ -45,10 +48,10 @@ export const basicNow = <W extends WeaponItem | null>(w: W): W =>
 export function bareDps(w: WeaponItem): number {
   const def = WEAPONS[w.id]!,
     opt = (k: string) => (w.opts || []).filter(o => o === k).length;
-  const mag = Math.max(1, Math.round(def.mag * (1 + 0.3 * opt('mag'))));
+  const mag = Math.max(1, Math.round(def.mag * (1 + MAG_OPT_PER_LEVEL * opt('mag'))));
   const interval = def.rate * Math.pow(RATE_OPT_MUL, opt('rate')),
     reload = def.reload * Math.pow(RELOAD_OPT_MUL, opt('reload'));
-  const crit = Math.min(TUNE.critCap, 0.08 * opt('crit'));
+  const crit = Math.min(TUNE.critCap, CRIT_OPT_PER_LEVEL * opt('crit'));
   return (
     ((def.dmg * RARITY[w.r]!.mult * (1 + PLUS_DMG * (w.plus || 0)) * def.pellets * mag) / (mag * interval + reload)) *
     (1 + crit)
@@ -93,7 +96,7 @@ export function readinessScore(tier: number, s: ReadyState = readyNow()): number
     READY_BOSS_WEIGHT,
   );
   const off = ((best / ref) * s.dmg * supplyGain(tier)) / (enemyGrowth(tier) * bossWall * s.rebootMul);
-  const def = s.hp / TUNE.hp / ((1 + 0.045 * 5 * tier) * s.rebootMul);
+  const def = s.hp / TUNE.hp / ((1 + DMG_SCALE_PER_PROG * 5 * tier) * s.rebootMul);
   return Math.sqrt(off * def);
 }
 export function readiness(tier: number, s?: ReadyState): number {

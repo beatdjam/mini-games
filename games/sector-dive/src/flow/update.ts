@@ -12,6 +12,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { fire2Held, fireHeld, joy, keys, mouseFire } from '@engine/ui/input.ts';
 import { EYE, PORTAL } from '../data/level.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
+import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
 import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
 import { level, reveal } from '../world/level.ts';
@@ -39,7 +40,6 @@ const STICK_DASH_HOLD = 0.3; // seconds held at the rim before the stick dash fi
 const STICK_DASH_REARM = 0.8; // the stick must come back below this before it can dash again
 const MOVE_EPS = 0.1; // move input / speed below this counts as standing still
 const STAMINA_WARN_TIME = 0.3; // seconds the stamina bar flashes when a dash is refused
-const SPEED_CHIP_PER_LEVEL = 0.06; // move speed per speed chip level (+6%)
 const GRAVITY = 26; // m/s^2, falling after a ledge or a drop
 const GROUND_EPS = 0.01; // within this of the floor counts as standing on it (m)
 const BOB_RATE = 9; // head-bob phase speed while moving (rad/s)
@@ -52,7 +52,6 @@ const WEAPON_PICK_R = 1.9; // how close a weapon pickup must be to be the "neare
 const BIT_MAGNET_R = 2.4; // bits start flying to the player inside this x magnet chip (m)
 const BIT_PULL_SPEED = 14; // m/s a bit flies toward the player
 const BIT_PICK_R = 0.7; // bits are collected inside this (m)
-const BIT_GAIN_PER_LEVEL = 0.1; // bits per gain chip level (+10%)
 const PICKUP_REACH_Y = 1.4; // vertical reach for picking things up (m)
 const BIT_HOVER_Y = 0.5; // height a bit rests at above the floor, and where it flies to above the player's feet (m)
 const PICKUP_HOVER_Y = 1; // height a kit, chip or weapon rests at above the floor (m)
@@ -171,7 +170,7 @@ function applyDash(dt: number, moveDir: Vec2): Vec2 {
 }
 
 function movePlayer(dt: number, dir: Vec2) {
-  const speed = player.baseSpeed * player.spdMul * (1 + SPEED_CHIP_PER_LEVEL * weaponOptCount('speed'));
+  const speed = player.baseSpeed * player.spdMul * (1 + SPEED_OPT_PER_LEVEL * weaponOptCount('speed'));
   moveCircle(player, dir.x * speed * dt, dir.z * speed * dt, player.r);
 }
 
@@ -349,7 +348,7 @@ function pullBit(p: Pickup, d: number, dt: number) {
 }
 function collectBit(p: Pickup) {
   p.dead = true;
-  run.bits += p.value! * player.gainMul * (1 + BIT_GAIN_PER_LEVEL * weaponOptCount('gain'));
+  run.bits += p.value! * player.gainMul * (1 + GAIN_OPT_PER_LEVEL * weaponOptCount('gain'));
   sfx('pick', 30);
 }
 function collectKit(p: Pickup) {

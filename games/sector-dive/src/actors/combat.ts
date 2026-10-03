@@ -6,6 +6,7 @@ import { burst, fireball } from '@engine/render/fx.ts';
 import { moveCircle } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
+import { LEECH_OPT_HP } from '../data/weapons.ts';
 import { TUNE, enemyGrowth } from '../data/progress.ts';
 import { progressOf } from '../core/rules.ts';
 import { STAGES_PER_GROWTH_DEPTH, damageScaleAt, difficultyAt } from '../core/stages.ts';
@@ -21,7 +22,6 @@ import { CRIT_MUL, critChance, weaponOptCount } from './weapons.ts';
 import { spheres } from './firing.ts';
 
 // ---- tuning numbers used only here ----
-const LEECH_OPT_HP = 2; // HP per kill from each leech option
 // being hit and hitting
 const HIT_SHAKE = 0.22; // screen shake when the player is hurt
 const HIT_VIGNETTE = 0.9; // damage vignette strength when hurt

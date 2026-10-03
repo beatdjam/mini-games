@@ -102,6 +102,14 @@ export const RARITY = withLang<Rarity, 'name'>(
 // per-level multiplier of the fire-rate / reload options (applied as Math.pow(MUL, level))
 export const RATE_OPT_MUL = 0.91,
   RELOAD_OPT_MUL = 0.8;
+// per-level additive bonuses of the other weapon options (and, for the split shot, of the chip); the actual rules and
+// the pause screen's stats panel both read these
+export const MAG_OPT_PER_LEVEL = 0.3, // magazine size per mag option
+  CRIT_OPT_PER_LEVEL = 0.08, // crit chance per crit option
+  SPEED_OPT_PER_LEVEL = 0.06, // move speed per speed option (+6%)
+  GAIN_OPT_PER_LEVEL = 0.1, // bits per gain option (+10%)
+  LEECH_OPT_HP = 2, // HP per kill from each leech option
+  SPLIT_DMG_PER_CHIP = 0.2; // total damage per split-shot chip
 // weapon options: only active while that weapon is in hand
 export const AFFIX = withLang<Affix, 'name' | 'text'>(
   {
