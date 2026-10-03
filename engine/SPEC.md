@@ -163,6 +163,14 @@
 - `render.ts`: レンダラー（`<canvas id="gl">`）、シーン、カメラ、画面サイズへの追従。`shared()` を付けたジオメトリとマテリアルは `disposeTree` で破棄しない
 - **手に持つ銃**: 専用のシーン（`gunScene`）に置き、世界を描いたあと奥行きをリセットしてから描く（`renderGun`）。壁や半透明の床に隠れず、銃の部品どうしは奥行きで正しく重なる。形は部品の一覧を `buildViewmodel` に渡して組み立てる
 - `fx.ts`: パーティクルと爆発の光。engine がシステムとして自分で更新する（`FX.particles` / `FX.fireballs` の `modes` で動くモードを決める）
+- `materials.ts`: ステージと敵で共通の、名前で引くテクスチャとマテリアル、部品から組む模型
+  - `defineTexture(name, { src, size?, repeat? })`: `src` は描く関数（2D コンテキストと一辺の px を受けて1回だけ描く。一辺は既定 128）か、画像ファイルの URL。描いたものと画像は混ぜて使える。`repeat` は既定 true（面に敷き詰める）
+  - `defineMaterial(name, { color?, map?, glow?, emissive?, emissiveIntensity?, lit?, opacity? })`: `map` は表面のテクスチャ名、`glow` は光る部分（目・通気口・ライン）のテクスチャ名。`glow` があると既定で白く光る。`emissiveIntensity` を上げると光る部分が強く光る（敵の被弾の光り方と同じ）。`lit: false` はライトの影響を受けない（Basic）。`opacity` が 1 未満なら半透明
+  - 同じ名前を2回登録すると例外。知らない名前を引くと、名前を書いた例外
+  - `texture(name)` は最初に使うときに作って、そのあとは同じものを返す。画像はそのとき読み込みを始め、`texturesReady()` が読み込み（失敗も含む）を待つ。読めない画像は無地のまま進む
+  - `material(name)` は名前ごとに1つの共有マテリアル（`shared()` 付き。変更しない）。`ownMaterial(name)` は1体用の新しいマテリアル（被弾で光らせる敵など）。テクスチャは共有なので、`disposeTree` はマテリアルだけを捨ててテクスチャは残す
+  - `buildParts(parts, { own? })`: `PartDef`（`shape`: box / cylinder / cone / sphere / tetra / octa / ico、`size`、マテリアル名 `mat`、任意の `pos`・`rot`）の並びから `THREE.Group` を作る。同じ形と大きさのジオメトリは全部の模型で共有する。`own` なら、使うマテリアル名ごとに1つ自分用のマテリアルを作り、`mats` に最初に使った順で返す（被弾で全部光らせるため）
+  - 当たり判定は見た目と別に持つ。あとで部品の代わりにモデルファイル（glTF）を受ける入口を足しても、当たり方は変わらない
 
 ## 8. 音（audio/）
 

@@ -7,7 +7,16 @@ import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.t
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../src/core/i18n.ts';
 import { ANALYTICS, TRACK_LOG, track } from '../src/core/analytics.ts';
 import { FEEDBACK, FEEDBACK_INFO_MAX, feedbackReady, feedbackUrl } from '../src/core/feedback.ts';
-import { buildViewmodel } from '../src/render/render.ts';
+import { buildViewmodel, disposeTree } from '../src/render/render.ts';
+import {
+  buildParts,
+  defineMaterial,
+  defineTexture,
+  material,
+  ownMaterial,
+  texture,
+  texturesReady,
+} from '../src/render/materials.ts';
 import { burst, clearFx, fireball, parts, updateBalls } from '../src/render/fx.ts';
 import {
   COVER_H,
@@ -2096,4 +2105,96 @@ test('slots: a blocking prop that would cut the way is not placed; the count is 
   // the west corner is where the reach check starts (no keep given), the middle would cut the way: only the east corner
   eq(p.map(x => slotText(x.slot)).join(), 'corner@5,1');
   eq(placeProps(d, [{ id: 'x', slots: ['floor'], blocks: false, count: 4 }], createRng(1)).length, 0, 'no floor slots');
+});
+
+// ---- materials and part models ----
+// a 1 x 1 PNG
+const PIXEL_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
+test('materials: textures from a drawing or an image, materials with a glow, shared or own', async () => {
+  defineTexture('t.panel', {
+    src: (g, size) => {
+      g.fillStyle = '#ff0000';
+      g.fillRect(0, 0, size, size);
+    },
+    size: 32,
+  });
+  defineTexture('t.eyes', { src: (g, size) => g.clearRect(0, 0, size, size), repeat: false });
+  defineTexture('t.photo', { src: PIXEL_PNG });
+  expect(() => defineTexture('t.panel', { src: () => {} })).toThrow(/texture defined twice: t.panel/);
+  const panel = texture('t.panel');
+  ok(panel === texture('t.panel'), 'made once, then shared');
+  const img = panel.image as HTMLCanvasElement;
+  eq(img.width, 32, 'the canvas side');
+  eq(Array.from(img.getContext('2d')!.getImageData(5, 5, 1, 1).data).join(), '255,0,0,255', 'drawn once');
+  eq(panel.wrapS, THREE.RepeatWrapping, 'repeats by default');
+  eq(texture('t.eyes').wrapS, THREE.ClampToEdgeWrapping, 'repeat: false');
+  const photo = texture('t.photo');
+  await texturesReady();
+  eq((photo.image as HTMLImageElement).width, 1, 'the image is loaded');
+  expect(() => texture('t.none')).toThrow(/unknown texture t.none/);
+
+  defineMaterial('m.body', { map: 't.panel', glow: 't.eyes', emissiveIntensity: 0.4 });
+  defineMaterial('m.flat', { color: 0x00ff00, lit: false, opacity: 0.5 });
+  const body = material('m.body') as THREE.MeshLambertMaterial;
+  ok(body instanceof THREE.MeshLambertMaterial && body === material('m.body'), 'one shared Lambert material');
+  ok(body.userData.shared, 'marked shared: disposeTree keeps it');
+  ok(body.map === panel && body.emissiveMap === texture('t.eyes'), 'surface and glow textures');
+  eq(body.emissive.getHex(), 0xffffff, 'a glow texture glows white unless told otherwise');
+  eq(body.emissiveIntensity, 0.4);
+  const flat = material('m.flat');
+  ok(flat instanceof THREE.MeshBasicMaterial && flat.transparent && flat.opacity === 0.5, 'unlit, see-through');
+  eq((flat as THREE.MeshBasicMaterial).color.getHex(), 0x00ff00);
+  const mine = ownMaterial('m.body') as THREE.MeshLambertMaterial;
+  ok(mine !== body && !mine.userData.shared && mine.map === panel, 'an own copy with the shared textures');
+  mine.emissiveIntensity = 3;
+  eq(body.emissiveIntensity, 0.4, 'flashing the own copy leaves the shared one alone');
+  // disposing a mesh with an own material frees the material, not the shared texture
+  let freed = 0;
+  const keep = panel.dispose;
+  panel.dispose = () => {
+    freed++;
+  };
+  disposeTree(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mine));
+  panel.dispose = keep;
+  eq(freed, 0, 'the texture stays');
+  expect(() => material('m.none')).toThrow(/unknown material m.none/);
+  expect(() => defineMaterial('m.body', {})).toThrow(/material defined twice/);
+});
+test('materials: buildParts makes a model of parts, sharing geometry, with its own materials when asked', () => {
+  defineMaterial('m.armor', { color: 0x334455 });
+  defineMaterial('m.light', { color: 0xffaa00, lit: false });
+  const parts = [
+    { shape: 'box' as const, size: [1, 0.6, 1.2], mat: 'm.armor', pos: [0, 0.5, 0] as [number, number, number] },
+    {
+      shape: 'cylinder' as const,
+      size: [0.1, 0.8],
+      mat: 'm.armor',
+      pos: [0.6, 0.5, 0] as [number, number, number],
+      rot: [0, 0, Math.PI / 2] as [number, number, number],
+    },
+    { shape: 'sphere' as const, size: [0.1], mat: 'm.light', pos: [0, 0.6, -0.6] as [number, number, number] },
+    { shape: 'cylinder' as const, size: [0.1, 0.2, 0.5], mat: 'm.armor' },
+    { shape: 'cone' as const, size: [0.2, 0.4], mat: 'm.light' },
+    { shape: 'tetra' as const, size: [0.3], mat: 'm.armor' },
+    { shape: 'octa' as const, size: [0.3], mat: 'm.armor' },
+    { shape: 'ico' as const, size: [0.3], mat: 'm.armor' },
+  ];
+  const a = buildParts(parts),
+    b = buildParts(parts, { own: true });
+  eq(a.group.children.length, parts.length, 'one mesh per part');
+  const m0 = a.group.children[0] as THREE.Mesh,
+    m1 = a.group.children[1] as THREE.Mesh;
+  eq(m0.position.y, 0.5, 'placed');
+  near(m1.rotation.z, Math.PI / 2, 1e-9, 'turned');
+  ok(m0.material === material('m.armor'), 'shared materials by default');
+  eq(a.mats.length, 0);
+  ok((b.group.children[0] as THREE.Mesh).geometry === m0.geometry, 'the same shape and size share one geometry');
+  ok(m0.geometry.userData.shared, 'kept by disposeTree');
+  eq(b.mats.length, 2, 'own: one material per name');
+  ok((b.group.children[0] as THREE.Mesh).material === b.mats[0], 'the first name first');
+  ok((b.group.children[1] as THREE.Mesh).material === b.mats[0], 'parts with the same name share it');
+  ok(b.mats[0] !== material('m.armor'), 'not the shared one');
+  expect(() => buildParts([{ shape: 'box', size: [1, 1, 1], mat: 'm.none' }])).toThrow(/unknown material m.none/);
+  expect(() => buildParts([{ shape: 'blob' as never, size: [1], mat: 'm.armor' }])).toThrow(/unknown part shape blob/);
 });
