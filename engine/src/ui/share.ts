@@ -2,7 +2,7 @@
 // the game draws the image and decides which of these to offer (see games' share panels)
 export type NativeShareResult = 'shared' | 'cancelled' | 'failed';
 export const X_INTENT_URL = 'https://twitter.com/intent/tweet?text=';
-const REVOKE_DELAY = 10000; // ms before a saved image's URL is released
+const REVOKE_DELAY = 10000; // ms before a saved file's URL is released
 export function canShareFile(file: File): boolean {
   return !!(navigator.canShare && navigator.canShare({ files: [file] }));
 }
@@ -26,7 +26,8 @@ export async function copyImage(blob: Blob): Promise<boolean> {
     return false;
   }
 }
-export function saveImage(blob: Blob, filename: string) {
+// download any blob (an image, a save code...) as a file named `filename`
+export function saveFile(blob: Blob, filename: string) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;

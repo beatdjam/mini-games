@@ -15,7 +15,11 @@ import {
   RISE,
   T,
   W,
+  type TileWorld,
+  activeTileGrid,
   computeFlow,
+  createTileGrid,
+  edgeH,
   floorY,
   flow,
   flowAt,
@@ -25,6 +29,7 @@ import {
   hgt,
   inBounds,
   isSolid,
+  blocked,
   moveCircle,
   OPPOSITE_SIDE,
   passable,
@@ -39,6 +44,7 @@ import {
   tileCenter,
   tileCoord,
   tileIndex,
+  walkable,
 } from '../src/world/tiles.ts';
 import { forEachRoomTile, generateArena, generateDungeon } from '../src/world/dungeon.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
@@ -55,7 +61,7 @@ import {
 import { steerChase } from '../src/world/steer.ts';
 import { banner, toast } from '../src/ui/ui.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
-import { canCopyImage, openXPost, saveImage } from '../src/ui/share.ts';
+import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
 import { drawTileMap } from '../src/ui/minimap.ts';
 import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
@@ -366,6 +372,139 @@ test('tiles: flow field leads to the target around the step', () => {
   computeFlow(4, 1);
   eq(flowAt(3.5 * T, 1.5 * T), -1, 'climbing it is not (more than STEP)');
 });
+// a TileWorld (with its own flow arrays) from rows of text
+function worldFromRows(rows: string[]): TileWorld {
+  const m = tileMapFromRows(rows),
+    n = m.W * m.H;
+  return {
+    W: m.W,
+    H: m.H,
+    grid: m.maps.grid,
+    hgt: m.maps.hgt,
+    ramp: m.maps.ramp,
+    cover: m.maps.cover,
+    flow: new Int16Array(n),
+    flowQ: new Int32Array(n),
+  };
+}
+test('tiles: two tile grids keep their own terrain, collision, sight and flow', () => {
+  // A: a flat corridor. B: the same size, with a 2 m deck at the right end and a wall in the middle
+  const a = createTileGrid(worldFromRows(['######', '#....#', '######'])),
+    b = createTileGrid(worldFromRows(['######', '#.#.=#', '######']));
+  tinyWorld();
+  const flowBefore = Array.from(flow).join();
+  eq(a.floorY(4.5 * T, 1.5 * T), 0, 'A is flat at the right end');
+  eq(b.floorY(4.5 * T, 1.5 * T), DECK_H, 'B has a deck there');
+  eq(floorY(4.5 * T, 1.5 * T), 2, 'the active world is the tiny one, not A or B');
+  ok(!a.solidAt(2.5 * T, 1.5 * T) && b.solidAt(2.5 * T, 1.5 * T), 'the middle tile is floor in A, wall in B');
+  ok(a.hasLOS(1.5 * T, 1.5 * T, 4.5 * T, 1.5 * T), 'A: clear along the corridor');
+  ok(!b.hasLOS(1.5 * T, 1.5 * T, 3.5 * T, 1.5 * T), 'B: the wall cuts the line');
+  ok(!a.blocked(2.5 * T, 1.5 * T, 0.4) && b.blocked(2.5 * T, 1.5 * T, 0.4), 'blocked');
+  const oa = { x: 1.5 * T, z: 1.5 * T, fy: 0 },
+    ob = { x: 1.5 * T, z: 1.5 * T, fy: 0 };
+  for (let k = 0; k < 100; k++) {
+    a.moveCircle(oa, 0.2, 0, 0.4);
+    b.moveCircle(ob, 0.2, 0, 0.4);
+  }
+  ok(oa.x > 4 * T, 'A: walks to the end');
+  ok(ob.x < 2 * T, 'B: stops at the wall');
+  ok(a.walkable(a.tileIndex(1.5 * T, 1.5 * T)) && !b.walkable(b.tileIndex(2.5 * T, 1.5 * T)), 'walkable');
+  eq(a.edgeH(a.tileIndex(1.5 * T, 1.5 * T), SIDE_PX), 0, 'edgeH');
+  ok(!a.inBounds(6, 1) && !b.inBounds(0, 3), 'inBounds uses each own size');
+  b.computeFlow(3, 1);
+  const flowB = Array.from(b.world.flow).join();
+  eq(b.flowAt(3.5 * T, 1.5 * T), 0, 'B: target tile');
+  eq(b.flowAt(4.5 * T, 1.5 * T), 1, 'B: one step away');
+  eq(b.flowAt(1.5 * T, 1.5 * T), -1, 'B: the wall keeps the left side unreachable');
+  a.computeFlow(1, 1);
+  eq(Array.from(b.world.flow).join(), flowB, "B's flow is untouched by computing A's");
+  eq(Array.from(flow).join(), flowBefore, "the active world's flow is untouched too");
+  eq(a.flowAt(4.5 * T, 1.5 * T), 3, 'A: three steps to the left end');
+  ok(a.flowDir(4.5 * T, 1.5 * T)![0] < -0.9, 'A: flowDir heads to -x');
+  eq(b.flowDir(1.5 * T, 1.5 * T), null, 'B: no way from the unreachable side');
+  // a change to one world shows only in the grid made from it
+  b.world.hgt[b.tileIndex(3.5 * T, 1.5 * T)] = 1;
+  eq(b.floorY(3.5 * T, 1.5 * T), 1);
+  eq(a.floorY(3.5 * T, 1.5 * T), 0);
+});
+test('tiles: the module functions give what a tile grid made from the same maps gives', () => {
+  const d = generateDungeon({ map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1, bridges: 2 }, createRng(7)),
+    M = d.maps,
+    n = d.W * d.H,
+    world: TileWorld = {
+      W: d.W,
+      H: d.H,
+      grid: M.grid,
+      hgt: M.hgt,
+      ramp: M.ramp,
+      cover: M.cover,
+      flow: new Int16Array(n),
+      flowQ: new Int32Array(n),
+    };
+  setTileWorld(world);
+  const g = createTileGrid(world),
+    act = activeTileGrid(),
+    rng = createRng(3),
+    r = 0.4,
+    span = Math.max(d.W, d.H) * T;
+  // the maps are shared, so the active flow is the one g reads
+  const c = d.rooms[0];
+  computeFlow(Math.floor(c.x + c.w / 2), Math.floor(c.y + c.h / 2));
+  let rampSeen = 0,
+    flowSeen = 0;
+  for (let k = 0; k < 400; k++) {
+    const x = rng.rand(-T, span + T),
+      z = rng.rand(-T, span + T),
+      x1 = rng.rand(0, span),
+      z1 = rng.rand(0, span),
+      i = tileCoord(x),
+      j = tileCoord(z),
+      idx = rng.randi(0, n - 1),
+      sd = rng.randi(0, 3);
+    eq(g.floorY(x, z), floorY(x, z), 'floorY');
+    eq(act.floorY(x, z), floorY(x, z), 'floorY (active object)');
+    eq(g.solidAt(x, z), solidAt(x, z), 'solidAt');
+    eq(g.isSolid(i, j), isSolid(i, j), 'isSolid');
+    eq(g.inBounds(i, j), inBounds(i, j), 'inBounds');
+    eq(g.tileIndex(x, z), tileIndex(x, z), 'tileIndex');
+    eq(g.blocked(x, z, r), blocked(x, z, r), 'blocked');
+    eq(g.hasLOS(x, z, x1, z1), hasLOS(x, z, x1, z1), 'hasLOS');
+    eq(g.hasLOS(x, z, x1, z1, 0.5, 1.5), hasLOS(x, z, x1, z1, 0.5, 1.5), 'hasLOS with heights');
+    eq(g.walkable(idx), walkable(idx), 'walkable');
+    eq(g.edgeH(idx, sd), edgeH(idx, sd), 'edgeH');
+    const nb = idx + SIDE_STEP[sd][0] + SIDE_STEP[sd][1] * d.W;
+    if (nb >= 0 && nb < n) eq(g.passable(idx, nb, sd), passable(idx, nb, sd), 'passable');
+    eq(g.flowAt(x, z), flowAt(x, z), 'flowAt');
+    eq(JSON.stringify(g.flowDir(x, z)), JSON.stringify(flowDir(x, z)), 'flowDir');
+    if (ramp[idx] >= 0) rampSeen++;
+    if (flowAt(x, z) > 0) flowSeen++;
+    const dx = rng.rand(-1, 1),
+      dz = rng.rand(-1, 1),
+      fy = k % 3 === 0 ? undefined : floorY(x, z),
+      m1 = { x, z, fy },
+      m2 = { x, z, fy };
+    eq(g.moveCircle(m1, dx, dz, r), moveCircle(m2, dx, dz, r), 'moveCircle hit');
+    eq(m1.x + ',' + m1.z, m2.x + ',' + m2.z, 'moveCircle position');
+  }
+  ok(rampSeen > 0 && flowSeen > 0, 'the sample touched ramps and the flow field');
+  // computeFlow on g's own arrays gives the same field as the module one
+  const own = createTileGrid({ ...world, flow: new Int16Array(n), flowQ: new Int32Array(n) });
+  own.computeFlow(Math.floor(c.x + c.w / 2), Math.floor(c.y + c.h / 2));
+  eq(Array.from(own.world.flow).join(), Array.from(flow).join(), 'computeFlow');
+  // setTileWorld with part of the maps shows in the active object and the module functions alike, not in g
+  const flat = M.grid.findIndex((v, k) => v === 1 && M.ramp[k] < 0),
+    fx = tileCenter(flat % d.W),
+    fz = tileCenter(Math.floor(flat / d.W)),
+    raised = new Float32Array(n).fill(1.5);
+  ok(M.hgt[flat] !== 1.5, 'the sample tile is not already 1.5 m up');
+  setTileWorld({ hgt: raised });
+  eq(floorY(fx, fz), 1.5, 'module function');
+  eq(act.floorY(fx, fz), 1.5, 'active object');
+  eq(act.world.hgt, raised, 'the active object holds the new array');
+  eq(hgt, raised, 'the live binding follows');
+  eq(g.floorY(fx, fz), M.hgt[flat], 'g keeps the maps it was made from');
+});
+
 test('dungeon: the same seed gives the same rooms, joined by walkable ground, features in place', () => {
   const opts = { map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1, bridges: 2 };
   for (const seed of [1, 7, 99]) {
@@ -652,7 +791,7 @@ test('share: X post URL, saving an image, clipboard support', () => {
   });
   URL.createObjectURL = () => 'blob:test';
   URL.revokeObjectURL = () => {};
-  saveImage(new Blob(['x'], { type: 'image/png' }), 'card.png');
+  saveFile(new Blob(['x'], { type: 'image/png' }), 'card.png');
   expect(click).toHaveBeenCalledTimes(1);
   click.mockRestore();
   eq(typeof canCopyImage(), 'boolean');
