@@ -9,7 +9,7 @@ let musicCheckT = 0;
 export function updateMusic(dt: number) {
   if ((musicCheckT -= dt) > 0 || !musicState.bus || !musicState.st) return;
   musicCheckT = 0.5;
-  if (musicState.st.boss || musicState.name === 'BASE') return;
+  if (musicState.st.boss || musicState.mix === 'base') return; // the base keeps its own mix (see MUSIC.mixOf in src/data/music.ts)
   const fight = enemies.some(e => !e.dead && e.active && distXZ(e, player) < 30);
   setMusicMix(fight ? 'combat' : 'explore');
 }
