@@ -1,6 +1,6 @@
 // Smoke test for Sector Dive: boots the game page (setup.ts) and runs its parts through the real loop by hand.
 // The tests share one game state and run in order; some checks depend on how many random numbers the earlier ones used.
-import { beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type { GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
 import { createRng, distXZ, el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
@@ -1720,5 +1720,70 @@ describe('key bindings', () => {
     expect(keysOf('reload')).toEqual(['KeyR']);
     expect(save.settings.keys).toEqual({});
     expect(guideTexts()[4]).toMatch(/^R/);
+  });
+});
+
+// the screen stays awake for the whole dive (practice and resume too) and is let go on the base and result screens
+describe('screen wake lock', () => {
+  const held: { released: boolean }[] = []; // the locks the stand-in navigator.wakeLock handed out
+  const heldNow = () => held.filter(l => !l.released).length;
+  const settle = () => new Promise(r => setTimeout(r, 0)); // lets the request promises resolve
+  beforeAll(() => {
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      value: {
+        request: () => {
+          const lock = {
+            released: false,
+            release: () => {
+              lock.released = true;
+              return Promise.resolve();
+            },
+          };
+          held.push(lock);
+          return Promise.resolve(lock);
+        },
+      },
+    });
+    goBase();
+  });
+  afterAll(() => {
+    Reflect.deleteProperty(navigator, 'wakeLock');
+  });
+  test('startRun on, endRun off', async () => {
+    startRun();
+    await settle();
+    expect(heldNow()).toBe(1);
+    endRun('abandon');
+    await settle();
+    expect(heldNow()).toBe(0);
+    goBase();
+  });
+  test('startPractice on, endRun off', async () => {
+    startPractice('watcher');
+    await settle();
+    expect(heldNow()).toBe(1);
+    endRun('abandon');
+    await settle();
+    expect(heldNow()).toBe(0);
+    goBase();
+  });
+  test('suspendRun off, resumeRun on, back at the base off', async () => {
+    startRun();
+    await settle();
+    expect(heldNow()).toBe(1);
+    suspendRun();
+    await settle();
+    expect(save.suspend).not.toBeNull();
+    expect(heldNow()).toBe(0);
+    resumeRun();
+    await settle();
+    expect(heldNow()).toBe(1);
+    endRun('abandon');
+    await settle();
+    expect(heldNow()).toBe(0);
+    goBase();
+    await settle();
+    expect(heldNow()).toBe(0);
   });
 });

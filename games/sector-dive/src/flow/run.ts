@@ -5,7 +5,7 @@ import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { musicVolume, setMusic } from '@engine/audio/music.ts';
 import { T, W, floorY } from '@engine/world/tiles.ts';
 import type { Room } from '@engine/world/dungeon.ts';
-import { banner, enterFs, isFullscreen, toast } from '@engine/ui/ui.ts';
+import { banner, enterFs, isFullscreen, keepAwake, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
@@ -85,10 +85,24 @@ function pickStartChips(tier: number) {
   next();
   return total;
 }
-export function startRun() {
+// ---- the parts every way into a dive shares (startRun, startPractice, resumeRun in suspend.ts) ----
+// first, before the run is set up: sound on, fullscreen on touch, the screen kept awake until the run ends
+// (endRun, endPractice, goBase turn it off)
+export function enterDive() {
   audioInit();
   if (isTouch && !isFullscreen()) enterFs();
-  if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').catch(() => {});
+  keepAwake(true);
+}
+// once the player and the run are set: menus away, the play UI and the weapons on screen, the stage built
+export function beginDive() {
+  show(null);
+  setPlayUI(true);
+  normalizeWeapons();
+  weaponHud();
+  startStage();
+}
+export function startRun() {
+  enterDive();
   const tier = clamp(save.startTier, 0, save.shortcut);
   setPlayer(newPlayer(save.loadout));
   const risked = save.loadout.filter(w => w && !w.basic).length;
@@ -106,11 +120,7 @@ export function startRun() {
   recordRunStart();
   persist();
   track('dive_start', { start_level: tier + 1, item_name: save.loadout[0]?.id ?? '' });
-  show(null);
-  setPlayUI(true);
-  normalizeWeapons();
-  weaponHud();
-  startStage();
+  beginDive();
   const total = pickStartChips(tier);
   if (!total) {
     // with chips to pick first, the lock is requested when the last one is chosen
@@ -231,8 +241,7 @@ export function nextStage() {
 // ---- boss practice: fight one boss at a chosen depth's strength; nothing is gained or lost ----
 export function startPractice(kind: string, tier?: number) {
   const depth = tier || 0;
-  audioInit();
-  if (isTouch && !isFullscreen()) enterFs();
+  enterDive();
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
   setPlayer(newPlayer(save.loadout));
   setRun({
@@ -247,16 +256,13 @@ export function startPractice(kind: string, tier?: number) {
     t0: performance.now(),
   });
   track('practice_start', { target: kind, level: depth + 1 });
-  show(null);
-  setPlayUI(true);
-  normalizeWeapons();
-  weaponHud();
-  startStage();
+  beginDive();
   requestLock();
   toast(t('run.practiceStart'), PRACTICE_TOAST_MS);
 }
 function endPractice(kind: RunEnd) {
   setState('result');
+  keepAwake(false);
   releaseInputs();
   exitLock();
   const sec = Math.round((performance.now() - run.t0!) / 1000);
@@ -281,6 +287,7 @@ export function endRun(kind: RunEnd) {
   setSuspend(null); // the run is over: its checkpoint must not come back
   const dead = kind !== 'extract';
   setState('result');
+  keepAwake(false);
   releaseInputs();
   exitLock();
   const got = Math.floor(run.bits),
@@ -324,6 +331,7 @@ export function endRun(kind: RunEnd) {
 el('#btnBack').addEventListener('click', goBase);
 export function goBase() {
   setState('base');
+  keepAwake(false);
   setRun(null);
   setPlayer(null);
   setPlayUI(false);

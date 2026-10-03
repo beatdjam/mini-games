@@ -1,8 +1,7 @@
 import type { Snapshot } from '../data/types.ts';
-import { el, isTouch } from '@engine/core/util.ts';
+import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
-import { audioInit } from '@engine/audio/audio.ts';
-import { enterFs, isFullscreen, toast } from '@engine/ui/ui.ts';
+import { toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
 import { BIOMES } from '../data/biomes.ts';
@@ -12,11 +11,8 @@ import { setSuspend } from '../core/progress.ts';
 import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
-import { normalizeWeapons } from '../ui/input.ts';
-import { weaponHud } from '../ui/hud.ts';
 import { onDataClick } from '../screens/rows.ts';
-import { setPlayUI, show } from './state.ts';
-import { endRun, goBase, startStage } from './run.ts';
+import { beginDive, endRun, enterDive, goBase } from './run.ts';
 
 // ---- suspend / resume ----
 // the snapshot keeps the run and the player's build; resuming regenerates the current stage from its start
@@ -80,17 +76,12 @@ function restoreSnapshot(sn: Snapshot) {
 export function resumeRun() {
   const sn = save.suspend;
   if (!sn) return;
-  audioInit();
-  if (isTouch && !isFullscreen()) enterFs();
+  enterDive();
   restoreSnapshot(sn);
   track('dive_resume', { level: stageInfo(run.stage).tier + 1 });
   setSuspend(null);
   persist();
-  show(null);
-  setPlayUI(true);
-  normalizeWeapons();
-  weaponHud();
-  startStage();
+  beginDive();
   requestLock();
   toast(t('susp.resumed'), 2000);
 }

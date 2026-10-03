@@ -55,11 +55,24 @@ import {
   type FloorLink,
   type Floors,
   createFloors,
+  crossLink,
   feetY,
+  floorFlow,
   floorReach,
+  flowLink,
   linksAt,
+  otherEnd,
   unreachableFloorTiles,
 } from '../src/world/floors.ts';
+import {
+  LIFT_RIDE,
+  LIFT_WAIT,
+  createLift,
+  liftProgress,
+  liftTarget,
+  updateLift,
+  useFloor,
+} from '../src/world/lifts.ts';
 import {
   type Projectile,
   aimFan,
@@ -71,7 +84,7 @@ import {
   takeFromPool,
 } from '../src/world/projectiles.ts';
 import { steerChase } from '../src/world/steer.ts';
-import { banner, toast } from '../src/ui/ui.ts';
+import { banner, keepAwake, toast } from '../src/ui/ui.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
@@ -1010,6 +1023,95 @@ test('ui: a second banner stays its full time instead of going out with the firs
     vi.useRealTimers();
   }
 });
+// a stand-in for navigator.wakeLock: counts the requests and keeps the locks it handed out
+function fakeWakeLock(present = true) {
+  const log = { requests: 0, locks: [] as { released: boolean; release: () => Promise<void> }[], reject: false };
+  const wakeLock = {
+    request: (_type: string) => {
+      log.requests++;
+      if (log.reject) return Promise.reject(new DOMException('refused', 'NotAllowedError'));
+      const lock = {
+        released: false,
+        release: () => {
+          lock.released = true;
+          return Promise.resolve();
+        },
+      };
+      log.locks.push(lock);
+      return Promise.resolve(lock);
+    },
+  };
+  Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: present ? wakeLock : undefined });
+  return log;
+}
+const settle = () => new Promise(r => setTimeout(r, 0)); // lets the request promises resolve
+const showPage = (visibility: 'visible' | 'hidden') => {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+  document.dispatchEvent(new Event('visibilitychange'));
+};
+test('ui: keepAwake takes the wake lock, gives it back, and takes it again when the page is visible again', async () => {
+  const log = fakeWakeLock();
+  try {
+    keepAwake(true);
+    await settle();
+    eq(log.requests, 1, 'on: requested');
+    keepAwake(true);
+    await settle();
+    eq(log.requests, 1, 'on twice: no second lock');
+    showPage('visible');
+    await settle();
+    eq(log.requests, 1, 'still held: no new request');
+    // the browser takes the lock away when the page goes to the background
+    log.locks[0]!.released = true;
+    showPage('hidden');
+    await settle();
+    eq(log.requests, 1, 'hidden: no request');
+    showPage('visible');
+    await settle();
+    eq(log.requests, 2, 'visible again: taken again');
+    keepAwake(false);
+    await settle();
+    ok(log.locks[1]!.released, 'off: released');
+    // off: coming back to the page takes nothing
+    showPage('hidden');
+    showPage('visible');
+    await settle();
+    eq(log.requests, 2, 'off: not taken again');
+    // off while the request is still in flight: the lock that arrives is given back
+    keepAwake(true);
+    keepAwake(false);
+    await settle();
+    eq(log.requests, 3);
+    ok(log.locks[2]!.released, 'off during the request');
+  } finally {
+    keepAwake(false);
+    Reflect.deleteProperty(document, 'visibilityState');
+    Reflect.deleteProperty(navigator, 'wakeLock');
+  }
+});
+test('ui: keepAwake does nothing without navigator.wakeLock and ignores a refused request', async () => {
+  try {
+    fakeWakeLock(false);
+    keepAwake(true);
+    showPage('visible');
+    keepAwake(false);
+    await settle(); // no exception, no unhandled rejection
+    const log = fakeWakeLock();
+    log.reject = true;
+    keepAwake(true);
+    await settle();
+    eq(log.requests, 1, 'asked');
+    log.reject = false;
+    showPage('visible');
+    await settle();
+    eq(log.requests, 2, 'tried again after the refusal');
+    eq(log.locks.length, 1);
+  } finally {
+    keepAwake(false);
+    Reflect.deleteProperty(document, 'visibilityState');
+    Reflect.deleteProperty(navigator, 'wakeLock');
+  }
+});
 test('hitdir: an arc shows for a hit from behind, not from in front, and fades out', () => {
   const box = document.createElement('div');
   const cam = new THREE.PerspectiveCamera(70, 16 / 9);
@@ -1255,6 +1357,130 @@ test('floors: createFloors names the wrong link, floorReach rejects a start off 
   const f = make(good);
   expect(() => floorReach(f, spot(0, 0, 0))).toThrow(/floorReach: from.*not a floor tile/);
   expect(() => floorReach(f, spot(3, 1, 1))).toThrow(/floorReach: from: floor 3/);
+});
+// floor 0: a corridor with stairs at its east end and a lift at its west end. floor 1: a loop with a shut door,
+// the stairs come out at its north-west corner, the lift at its south-east corner. floor 2: joined to nothing
+function crossFloors() {
+  const stairs: FloorLink = { kind: 'stairs', a: spot(0, 5, 1), b: spot(1, 1, 1) },
+    lift: FloorLink = { kind: 'elevator', a: spot(0, 1, 1), b: spot(1, 5, 3) },
+    f = floorsFromRows(
+      [
+        ['#######', '#.....#', '#######'],
+        ['#######', '#.+...#', '#.###.#', '#.....#', '#######'],
+        ['####', '#..#', '####'],
+      ],
+      [stairs, lift],
+    );
+  return { f, stairs, lift };
+}
+const flowRow = (f: Floors, floor: number, j: number) => {
+  const w = f.grids[floor].world;
+  return Array.from(w.flow.slice(j * w.W, (j + 1) * w.W)).join(',');
+};
+const onlyStairs = (l: FloorLink) => l.kind === 'stairs',
+  anyLink = () => true;
+test('floors: floorFlow leads over the floors through the links it may use', () => {
+  const { f, stairs, lift } = crossFloors();
+  floorFlow(f, spot(1, 3, 1), onlyStairs);
+  eq(flowRow(f, 1, 1), '-1,2,1,0,1,2,-1', 'the target floor, through the shut door');
+  eq(flowRow(f, 0, 1), '-1,7,6,5,4,3,-1', 'floor 0 leads to the stairs: one step over them');
+  eq(flowRow(f, 2, 1), '-1,-1,-1,-1', 'a floor with no link has no way');
+  eq(JSON.stringify(f.grids[0].flowDir(2.5 * T, 1.5 * T)), '[1,0]', 'flowDir on floor 0 heads for the stairs');
+  eq(f.grids[0].flowDir(5.5 * T, 1.5 * T), null, 'on the stairs tile no neighbour is closer');
+  ok(flowLink(f, 0, 5, 1, onlyStairs) === stairs, 'flowLink: the stairs lead on');
+  eq(flowLink(f, 0, 1, 1, onlyStairs), null, 'the lift is not one to use');
+  eq(flowLink(f, 1, 1, 1, onlyStairs), null, 'the stairs do not lead back down (floor 0 is farther)');
+  eq(flowLink(f, 1, 3, 1, anyLink), null, 'the target tile itself');
+  eq(flowLink(f, 2, 1, 1, anyLink), null, 'a tile with no way');
+  eq(flowLink(f, 0, 9, 9, anyLink), null, 'outside the map');
+  floorFlow(f, spot(1, 3, 1), anyLink);
+  eq(flowRow(f, 0, 1), '-1,5,6,5,4,3,-1', 'with the lift too, the west end goes up by lift');
+  ok(flowLink(f, 0, 1, 1, anyLink) === lift, 'flowLink picks the lift there');
+  floorFlow(f, spot(0, 3, 1), onlyStairs);
+  eq(flowRow(f, 1, 3), '-1,5,6,7,8,9,-1', 'the other way round: floor 1 leads down the stairs');
+  ok(otherEnd(stairs, 0, 5, 1) === stairs.b && otherEnd(stairs, 1, 1, 1) === stairs.a, 'otherEnd from either end');
+  expect(() => floorFlow(f, spot(0, 0, 0), anyLink)).toThrow(/floorFlow: target.*not a floor tile/);
+});
+test('floors: crossLink moves a mover across a link once, until it steps off', () => {
+  const { f, stairs } = crossFloors();
+  const m: { floor: number; x: number; z: number; linkTile?: number } = { floor: 0, x: 5.3 * T, z: 1.6 * T };
+  eq(
+    crossLink(f, m, l => l.kind === 'elevator'),
+    null,
+    'a link it may not use: no move',
+  );
+  eq(m.floor, 0);
+  ok(crossLink(f, m, onlyStairs) === stairs, 'up the stairs');
+  eq(
+    [m.floor, m.x, m.z, m.linkTile].join(','),
+    [1, 1.5 * T, 1.5 * T, 1 * 7 + 1].join(','),
+    'the middle of the other end',
+  );
+  eq(crossLink(f, m, onlyStairs), null, 'standing where it came out: no crossing back');
+  m.x = 1.9 * T;
+  eq(crossLink(f, m, onlyStairs), null, 'still on that tile');
+  m.x = 2.5 * T;
+  eq(crossLink(f, m, onlyStairs), null, 'off the tile: nothing there');
+  eq(m.linkTile, -1, 'and the hold is gone');
+  m.x = 1.5 * T;
+  ok(crossLink(f, m, onlyStairs) === stairs, 'back on the stairs: down again');
+  eq([m.floor, m.x, m.z].join(','), [0, 5.5 * T, 1.5 * T].join(','));
+  const lost = { floor: 0, x: -3, z: 1.5 * T };
+  eq(crossLink(f, lost, anyLink), null, 'outside the map');
+  eq(crossLink(f, { floor: 7, x: 1.5 * T, z: 1.5 * T }, anyLink), null, 'a floor that does not exist');
+});
+test('lifts: standing on a lift for a moment starts it, the ride carries the rider to the other end', () => {
+  const { f, lift: link } = crossFloors(),
+    lift = createLift(link),
+    rider: { floor: number; x: number; z: number; linkTile?: number } = { floor: 0, x: 1.5 * T, z: 1.5 * T };
+  eq(updateLift(f, lift, rider, 0.5), null, 'on the lift: waiting');
+  eq(lift.phase, 'wait');
+  ok(lift.from === link.a, 'got on at the a end');
+  rider.x = 2.5 * T;
+  eq(updateLift(f, lift, rider, 0.1), null, 'stepped off before it started');
+  eq([lift.phase, lift.t, lift.from].join(','), 'idle,0,', 'idle again, the wait starts over');
+  rider.x = 1.5 * T;
+  eq(updateLift(f, lift, rider, 0.5), null);
+  eq(updateLift(f, lift, rider, 0.4), 'depart', `it starts after ${LIFT_WAIT} s`);
+  ok(liftTarget(lift) === link.b, 'going to the b end');
+  eq(liftProgress(lift), 0);
+  eq(updateLift(f, lift, rider, 1), null, 'riding');
+  near(liftProgress(lift), 1 / LIFT_RIDE, 1e-6, 'progress over the ride');
+  rider.x = 2.5 * T; // the game let it drift: it still rides from where it got on
+  eq(updateLift(f, lift, rider, LIFT_RIDE), 'arrive', 'the ride is over');
+  eq(
+    [rider.floor, rider.x, rider.z, rider.linkTile].join(','),
+    [1, 5.5 * T, 3.5 * T, 3 * 7 + 5].join(','),
+    'at the b end',
+  );
+  eq([lift.phase, liftProgress(lift), liftTarget(lift)].join(','), 'idle,0,', 'idle again');
+  eq(updateLift(f, lift, rider, 5), null, 'standing where it came out: the lift does not go back');
+  eq(lift.phase, 'idle');
+  rider.x = 4.5 * T;
+  eq(updateLift(f, lift, rider, 0.1), null, 'off the lift');
+  eq(rider.linkTile, -1, 'the hold is dropped');
+  rider.x = 5.5 * T;
+  updateLift(f, lift, rider, 0.1);
+  eq(
+    updateLift(f, lift, rider, 0.1, { wait: 0.15, ride: 0.2 }),
+    'depart',
+    'back on: it goes down (the game may pass its own times)',
+  );
+  eq(updateLift(f, lift, rider, 0.2, { wait: 0.15, ride: 0.2 }), 'arrive');
+  eq([rider.floor, rider.x, rider.z].join(','), [0, 1.5 * T, 1.5 * T].join(','), 'back on floor 0');
+  const other = { floor: 1, x: 1.5 * T, z: 1.5 * T }; // the stairs tile of floor 1, not a lift stop
+  eq(updateLift(f, createLift(link), other, 5), null, 'a tile that is not a stop');
+  eq(updateLift(f, lift, rider, 0), null, 'dt 0 does nothing');
+});
+test('lifts: useFloor hands one floor to the module-level tile functions', () => {
+  const { f } = crossFloors();
+  useFloor(f, 1);
+  const act = activeTileGrid().world;
+  ok(act.grid === f.grids[1].world.grid && act.door === f.grids[1].world.door, 'the floor maps themselves, not copies');
+  eq([act.W, act.H].join(','), '7,5');
+  useFloor(f, 2);
+  eq(activeTileGrid().world.door, f.grids[2].world.door, 'the next floor replaces it');
+  expect(() => useFloor(f, 9)).toThrow(/useFloor: floor 9 does not exist/);
 });
 
 // ---- doors ----
