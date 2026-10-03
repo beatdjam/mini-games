@@ -1,5 +1,5 @@
 import { el } from '../core/util.ts';
-// engine: Screen helpers: toast (#toast), banner (#banner), fullscreen
+// engine: Screen helpers: toast (#toast), banner (#banner), fullscreen, keeping the screen awake
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(msg: string, ms?: number) {
   const t = el('#toast');
@@ -53,3 +53,36 @@ export function toggleFs() {
   if (document.fullscreenElement || document.webkitFullscreenElement) exitFs();
   else enterFs();
 }
+
+// Screen Wake Lock: the screen does not dim while the game wants it awake (keepAwake(true)).
+// The browser drops the lock whenever the page goes to the background, so it is taken again when the page is visible.
+const awake = {
+  on: false, // keepAwake(true) was called and not yet undone
+  lock: null as WakeLockSentinel | null, // the lock we hold (the browser sets .released when it takes it away)
+};
+const holding = () => !!awake.lock && !awake.lock.released;
+function acquireWakeLock() {
+  const wl = navigator.wakeLock;
+  if (!awake.on || holding() || !wl || !wl.request) return;
+  // a request that settles late (or twice over) must not leave a second lock behind, or one after keepAwake(false)
+  wl.request('screen').then(
+    lock => {
+      if (awake.on && !holding()) awake.lock = lock;
+      else lock.release().catch(() => {});
+    },
+    () => {}, // refused (page hidden, battery saver...): the next visibilitychange tries again
+  );
+}
+export function keepAwake(on: boolean) {
+  awake.on = on;
+  if (on) {
+    acquireWakeLock();
+    return;
+  }
+  const lock = awake.lock;
+  awake.lock = null;
+  if (lock && !lock.released) lock.release().catch(() => {});
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') acquireWakeLock();
+});

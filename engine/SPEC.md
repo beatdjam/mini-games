@@ -122,6 +122,7 @@
 ## 9. 画面の部品と入力（ui/）
 
 - `ui.ts`: トースト（`#toast`）、バナー（`#banner`）、全画面（横向きに固定を試みる）
+  - `keepAwake(on)`: 画面のスリープを止める（Screen Wake Lock）。on の間、ページが見えるようになる（`visibilitychange`）たびに、外れていれば取り直す。off で外す。`navigator.wakeLock` が無い環境や、取得の失敗（Promise の reject）では何もしない
 - `input.ts`: PC はキーとマウス（ポインタロック）、タッチは左45%が移動スティック、残りが視点ドラッグ。射撃ボタンは押したままドラッグすると視点も動く。ゲームは `INPUT` に `active`（今操作を受け付けるか）, `look`, `sens`, `key`, `pause`, `lockChanged` を入れる
   - ロックが外れたとき、ページが裏に回ったときは、`INPUT.active()` なら `INPUT.pause()` を呼ぶ
   - メニューを開く直前に要求したロックがあとから効いた場合（Firefox で起きやすい）は、すぐ外す

@@ -2,7 +2,7 @@ import type { Snapshot } from '../data/types.ts';
 import { el, isTouch } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit } from '@engine/audio/audio.ts';
-import { enterFs, isFullscreen, toast } from '@engine/ui/ui.ts';
+import { enterFs, isFullscreen, keepAwake, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
 import { BIOMES } from '../data/biomes.ts';
@@ -82,6 +82,7 @@ export function resumeRun() {
   if (!sn) return;
   audioInit();
   if (isTouch && !isFullscreen()) enterFs();
+  keepAwake(true);
   restoreSnapshot(sn);
   track('dive_resume', { level: stageInfo(run.stage).tier + 1 });
   setSuspend(null);
