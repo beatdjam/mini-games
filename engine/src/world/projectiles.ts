@@ -32,25 +32,25 @@ export interface Projectile {
   born?: number;
 }
 let handedOut = 0;
-export function takeFromPool<T extends Projectile>(
-  pool: T[],
-  geo: THREE.BufferGeometry,
-  max: number,
-  recycle = false,
-): T | null {
-  for (const b of pool)
-    if (!b.alive) {
-      b.born = ++handedOut;
-      return b;
-    }
-  if (pool.length >= max) {
-    if (!recycle || !pool.length) return null;
-    let old = pool[0]!;
-    for (const b of pool) if ((b.born ?? 0) < (old.born ?? 0)) old = b;
-    old.born = ++handedOut;
-    return old;
-  }
-  // a new projectile has only the engine's fields; the game's own fields (T's extra ones) are filled in by the caller right after
+// mark b as handed out now (born counts hand-outs)
+function handOut<T extends Projectile>(b: T): T {
+  b.born = ++handedOut;
+  return b;
+}
+// the first projectile in the pool that is not alive
+function freeOf<T extends Projectile>(pool: T[]): T | undefined {
+  for (const b of pool) if (!b.alive) return b;
+  return undefined;
+}
+// the projectile handed out longest ago (the first one if tied); the pool must not be empty
+function oldestOf<T extends Projectile>(pool: T[]): T {
+  let old = pool[0]!;
+  for (const b of pool) if ((b.born ?? 0) < (old.born ?? 0)) old = b;
+  return old;
+}
+// a new projectile with a mesh, added to the scene; it has only the engine's fields, and the game's own fields
+// (T's extra ones) are filled in by the caller right after
+function newProjectile<T extends Projectile>(geo: THREE.BufferGeometry): T {
   const b = {
     mesh: new THREE.Mesh(geo, basicMat(0xffffff)),
     alive: false,
@@ -62,10 +62,24 @@ export function takeFromPool<T extends Projectile>(
     vy: 0,
     vz: 0,
   } as unknown as T;
-  b.born = ++handedOut;
   dynGroup.add(b.mesh);
-  pool.push(b);
   return b;
+}
+export function takeFromPool<T extends Projectile>(
+  pool: T[],
+  geo: THREE.BufferGeometry,
+  max: number,
+  recycle = false,
+): T | null {
+  const free = freeOf(pool);
+  if (free) return handOut(free);
+  if (pool.length >= max) {
+    if (!recycle || !pool.length) return null;
+    return handOut(oldestOf(pool));
+  }
+  const b = newProjectile<T>(geo);
+  pool.push(b);
+  return handOut(b);
 }
 export function clearPool(pool: Projectile[]) {
   pool.forEach(b => {
@@ -93,6 +107,7 @@ export function stepProjectile<T extends Projectile>(
 export function projHitsTerrain(b: Projectile, ceil: number, pad: number): boolean {
   return b.y > ceil || solidAt(b.x, b.z) || b.y < floorY(b.x, b.z) + pad;
 }
+// rate: how fast the velocity turns toward the point (1/s; the turn per step is dt * rate, at most all the way)
 export function steerToward(b: Projectile, tx: number, ty: number, tz: number, dt: number, rate: number) {
   const dx = tx - b.x,
     dy = ty - b.y,
@@ -109,6 +124,8 @@ export function ringAngles(n: number, offset: number): number[] {
   for (let k = 0; k < n; k++) out.push(offset + (k * Math.PI * 2) / n);
   return out;
 }
+// (x, y, z): where the shots start; (tx, ty, tz): the aim point; n: how many directions; spread: radians between
+// neighbours; jitter: each direction is turned by a random amount in ±jitter radians
 export function aimFan(
   x: number,
   y: number,
@@ -123,13 +140,13 @@ export function aimFan(
   const base = Math.atan2(tx - x, tz - z),
     hd = Math.hypot(tx - x, tz - z) || 1,
     vyr = (ty - y) / hd,
+    l = Math.hypot(1, vyr),
+    vy = vyr / l,
+    mid = (n - 1) / 2,
     out: [number, number, number][] = [];
   for (let k = 0; k < n; k++) {
-    const a = base + (n > 1 ? (k - (n - 1) / 2) * spread : 0) + rand(-jitter, jitter);
-    const dx = Math.sin(a),
-      dz = Math.cos(a),
-      l = Math.hypot(1, vyr);
-    out.push([dx / l, vyr / l, dz / l]);
+    const a = base + (n > 1 ? (k - mid) * spread : 0) + rand(-jitter, jitter);
+    out.push([Math.sin(a) / l, vy, Math.cos(a) / l]);
   }
   return out;
 }
