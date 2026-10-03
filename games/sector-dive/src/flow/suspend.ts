@@ -14,6 +14,7 @@ import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
 import { normalizeWeapons } from '../ui/input.ts';
 import { weaponHud } from '../ui/hud.ts';
+import { onDataClick } from '../screens/rows.ts';
 import { setPlayUI, show } from './state.ts';
 import { endRun, goBase, startStage } from './run.ts';
 
@@ -130,15 +131,14 @@ export function renderSuspend() {
     <div class="row">${resume}
     ${discardButtons()}</div>`;
 }
-el('#suspendBox').addEventListener('click', (e: Event) => {
-  const tg = e.target as HTMLElement;
-  const b = tg.closest<HTMLElement>('[data-susp]');
-  if (!b) return;
-  const a = b.dataset.susp;
-  if (a === 'resume') resumeRun();
-  else if (a === 'discard') discardSuspended();
-  else {
-    discardArm = a === 'arm';
-    renderSuspend();
-  }
-});
+onDataClick(el('#suspendBox'), [
+  'susp',
+  a => {
+    if (a === 'resume') resumeRun();
+    else if (a === 'discard') discardSuspended();
+    else {
+      discardArm = a === 'arm';
+      renderSuspend();
+    }
+  },
+]);

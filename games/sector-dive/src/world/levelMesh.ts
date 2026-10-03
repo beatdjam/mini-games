@@ -1,7 +1,20 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { UP } from '@engine/render/render.ts';
-import { H, RISE, T, W, cover, grid, hgt, isSolid, ramp } from '@engine/world/tiles.ts';
+import {
+  H,
+  RISE,
+  SIDE_STEP,
+  T,
+  W,
+  cover,
+  grid,
+  hgt,
+  inBounds,
+  isSolid,
+  ramp,
+  tileCenter,
+} from '@engine/world/tiles.ts';
 import { WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
 import { COLOR } from '../data/colors.ts';
@@ -66,7 +79,7 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
         for (let di = -1; di <= 1; di++) {
           const a = i + di,
             b = j + dj;
-          if (a >= 0 && b >= 0 && a < W && b < H && grid[b * W + a] === 1) {
+          if (inBounds(a, b) && grid[b * W + a] === 1) {
             near = true;
             break;
           }
@@ -79,7 +92,7 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
     list.length,
   );
   list.forEach(([i, j], k) => {
-    m.makeTranslation((i + 0.5) * T, WALL_H / 2, (j + 0.5) * T);
+    m.makeTranslation(tileCenter(i), WALL_H / 2, tileCenter(j));
     inst.setMatrixAt(k, m);
   });
   inst.instanceMatrix.needsUpdate = true;
@@ -102,7 +115,7 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
     const im = new THREE.InstancedMesh(bg, [sm, sm, top, sm, sm, sm], ks.length);
     ks.forEach((k, n) => {
       m.makeScale(1, hgt[k], 1);
-      m.setPosition(((k % W) + 0.5) * T, 0, (((k / W) | 0) + 0.5) * T);
+      m.setPosition(tileCenter(k % W), 0, tileCenter((k / W) | 0));
       im.setMatrixAt(n, m);
     });
     im.instanceMatrix.needsUpdate = true;
@@ -114,7 +127,7 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
   for (let k = 0; k < W * H; k++) {
     if (grid[k] !== 1 || ramp[k] < 0) continue;
     const rm = new THREE.Mesh(wg, [rampTop, rampSide]);
-    rm.position.set(((k % W) + 0.5) * T, hgt[k], (((k / W) | 0) + 0.5) * T);
+    rm.position.set(tileCenter(k % W), hgt[k], tileCenter((k / W) | 0));
     rm.rotation.y = RAMP_ROT[ramp[k]];
     lg.add(rm);
   }
@@ -133,12 +146,7 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
   if (biome.gen.neon && !isArena) {
     const spots: [number, number, number, number][] = [];
     list.forEach(([i, j]) =>
-      [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ].forEach(([a, b]) => {
+      SIDE_STEP.forEach(([a, b]) => {
         if (!isSolid(i + a, j + b)) spots.push([i, j, a, b]);
       }),
     );

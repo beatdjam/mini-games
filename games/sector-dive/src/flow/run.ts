@@ -4,6 +4,7 @@ import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { musicVolume, setMusic } from '@engine/audio/music.ts';
 import { T, W, floorY } from '@engine/world/tiles.ts';
+import type { Room } from '@engine/world/dungeon.ts';
 import { banner, enterFs, isFullscreen, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
@@ -39,27 +40,47 @@ import { setPlayUI, setState, show, state } from './state.ts';
 import { checkpoint } from './suspend.ts';
 import { buildAttract } from './attract.ts';
 
+// toast and timer lengths (ms)
+const FIRST_TOAST_MS = 4200; // the how-to-play toast shown when a run opens with no chips to pick
+const RISKED_TOAST_MS = 3000; // the "weapons at risk" toast
+const RISKED_TOAST_DELAY_MS = FIRST_TOAST_MS + 200; // shown just after the how-to-play toast ends
+const HINT_DELAY_MS = 1800; // the sector hint toast comes up this long after a sector's first floor starts
+const HINT_TOAST_MS = 3600;
+const DEEPER_TOAST_MS = 3000; // the "next depth" toast
+const PRACTICE_TOAST_MS = 2600;
+const BOSS_SPAWN_DELAY_MS = 1200; // the boss arrives this long after the player enters its arena
+
+// the player's start in the boss arena and on every new stage
+const ARENA_START_Z = 14.5; // tile rows (multiplied by T), the south end of the arena
+const ARENA_START_PITCH = 0.08; // radians
+const STAGE_START_INVULN = 1.0; // seconds of invulnerability when a stage starts
+
+// enemies per room: the smallest of three limits (ENEMY_TUNE.maxPerRoom, room size, pace by progress)
+const ROOM_MIN_ENEMIES = 2; // floor of the room-size limit
+const DEFAULT_TILES_PER_ENEMY = 3; // room tiles per enemy when the biome has no gen.density
+const ROOM_PACE_MIN = 2; // the pace limit is a random number from ROOM_PACE_MIN to ROOM_PACE_MAX ...
+const ROOM_PACE_MAX = 4;
+const ROOM_PACE_PER_PROGRESS = 0.3; // ... plus this many per progress (progressOf) step, rounded down
+const WEAPON_CACHE_TWO_CHANCE = 0.4; // chance a floor has 2 weapon caches instead of 1
+
+// one pick of the chips that open every run; times is how many times the chosen chip counts
+type StartChip = { label: string; times: number };
 // the chip picks that open every run: one per chip carried from the base, one per skipped depth
 function pickStartChips(tier: number) {
-  const queue: string[] = [];
-  for (let k = 0; k < save.up.chip; k++) queue.push(t('perk.carry'));
-  for (let k = 0; k < tier; k++) queue.push(t('perk.supply'));
-  const total = queue.length;
-  // after the loadout / shortcut chips are picked, re-save the checkpoint so they are part of it
+  const queue: StartChip[] = [];
+  for (let k = 0; k < save.up.chip; k++) queue.push({ label: t('perk.carry'), times: 1 });
   // a walked depth gives about 8 chips, so one supply chip per skipped depth left deep starts hopeless: each supply pick
   // counts supplyTimes times instead
+  for (let k = 0; k < tier; k++) queue.push({ label: t('perk.supply'), times: TUNE.supplyTimes });
+  const total = queue.length;
+  // after the loadout / shortcut chips are picked, re-save the checkpoint so they are part of it
   const next = () => {
     if (!queue.length) {
       checkpoint();
       return;
     }
-    const kind = queue.shift()!;
-    openPerk(
-      t('perk.queue', { kind, i: total - queue.length, n: total }),
-      'loadout',
-      next,
-      kind === t('perk.supply') ? TUNE.supplyTimes : 1,
-    );
+    const chip = queue.shift()!;
+    openPerk(t('perk.queue', { kind: chip.label, i: total - queue.length, n: total }), 'loadout', next, chip.times);
   };
   next();
   return total;
@@ -91,21 +112,32 @@ export function startRun() {
   weaponHud();
   startStage();
   const total = pickStartChips(tier);
-  if (!total) requestLock(); // with chips to pick first, the lock is requested when the last one is chosen
-  if (!total) toast(t(isTouch ? 'run.firstTouch' : 'run.firstDesk'), 4200);
-  if (risked) setTimeout(() => toast(t('run.risked'), 3000), total ? 0 : 4400);
+  if (!total) {
+    // with chips to pick first, the lock is requested when the last one is chosen
+    requestLock();
+    toast(t(isTouch ? 'run.firstTouch' : 'run.firstDesk'), FIRST_TOAST_MS);
+  }
+  if (risked) setTimeout(() => toast(t('run.risked'), RISKED_TOAST_MS), total ? 0 : RISKED_TOAST_DELAY_MS);
 }
 // the boss room: the player starts at the south end, the boss comes after a moment
 function setupArena(bossKind: string | null) {
   player.x = (W * T) / 2;
-  player.z = 14.5 * T;
+  player.z = ARENA_START_Z * T;
   player.yaw = 0;
-  player.pitch = 0.08;
+  player.pitch = ARENA_START_PITCH;
   const stageAt = run.stage;
   setTimeout(() => {
     if (run && run.stage === stageAt && !boss && !level.portals.length && state !== 'base' && state !== 'result')
       spawnBoss(bossKind!);
-  }, 1200);
+  }, BOSS_SPAWN_DELAY_MS);
+}
+// enemies in one room. Calls randi once, so keep its place in the order of random calls
+function roomEnemyCount(r: Room, b: Biome): number {
+  return Math.min(
+    ENEMY_TUNE.maxPerRoom,
+    Math.max(ROOM_MIN_ENEMIES, Math.floor((r.w * r.h) / (b.gen.density || DEFAULT_TILES_PER_ENEMY))),
+    randi(ROOM_PACE_MIN, ROOM_PACE_MAX) + Math.floor(progressOf(run.stage) * ROOM_PACE_PER_PROGRESS),
+  );
 }
 // a floor: the player in the start room facing the exit, enemies in every other room, weapon caches
 function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
@@ -119,11 +151,7 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
   makePortal(ex, ez, COLOR.amber, 'next', t(si.sub === PER - 2 ? 'run.toBoss' : 'run.nextArea'));
   level.rooms.forEach((r, idx) => {
     if (idx === level.startIdx) return;
-    const n = Math.min(
-      ENEMY_TUNE.maxPerRoom,
-      Math.max(2, Math.floor((r.w * r.h) / (b.gen.density || 3))),
-      randi(2, 4) + Math.floor(progressOf(run.stage) * 0.3),
-    );
+    const n = roomEnemyCount(r, b);
     for (let k = 0; k < n; k++) {
       const [x, z] = randomTileIn(r);
       spawnEnemy(pickEnemyType(b, si.tier), x, z, idx, diff);
@@ -131,7 +159,7 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
     level.roomCount[idx] = n;
   });
   const cand = level.rooms.map((_, i) => i).filter(i => i !== level.startIdx);
-  const caches = Math.random() < 0.4 ? 2 : 1;
+  const caches = Math.random() < WEAPON_CACHE_TWO_CHANCE ? 2 : 1;
   shuffle(cand)
     .slice(0, caches)
     .forEach(i => {
@@ -163,7 +191,7 @@ export function startStage() {
   if (isArena) setupArena(bossKind);
   else setupFloor(b, si);
   player.tile = -1;
-  player.inv = 1.0;
+  player.inv = STAGE_START_INVULN;
   player.fy = floorY(player.x, player.z);
   player.vy = 0;
   el('#bossBar').hidden = true;
@@ -173,8 +201,8 @@ export function startStage() {
     hint = b.hint;
   if (si.sub === 0 && hint)
     setTimeout(() => {
-      if (run && run.stage === hintAt && state === 'play') toast(hint, 3600);
-    }, 1800);
+      if (run && run.stage === hintAt && state === 'play') toast(hint, HINT_TOAST_MS);
+    }, HINT_DELAY_MS);
   setState('play');
   checkpoint();
   if (!isArena) setMusic(b.code);
@@ -184,7 +212,7 @@ export function startStage() {
 // deeper sectors lean toward the biome's tougher enemy types
 export function pickEnemyType(b: Biome, tier: number): string {
   if (Math.random() < ENEMY_TUNE.trooperChance) return 'trooper'; // the humanoid soldier turns up in every sector
-  const elites = b.enemies.filter(t => ELITE_TYPES.includes(t));
+  const elites = b.enemies.filter(type => ELITE_TYPES.includes(type));
   const chance = Math.min(ENEMY_TUNE.eliteMax, ENEMY_TUNE.elitePerDepth * tier);
   return elites.length && Math.random() < chance ? pick(elites) : pick(b.enemies);
 }
@@ -193,7 +221,7 @@ export function nextStage() {
   run.stage++;
   recordBest(run.stage);
   persist();
-  if (run.stage % (PER * 3) === 0) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), 3000);
+  if (run.stage % (PER * 3) === 0) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), DEEPER_TOAST_MS);
   startStage();
 }
 
@@ -222,7 +250,7 @@ export function startPractice(kind: string, tier?: number) {
   weaponHud();
   startStage();
   requestLock();
-  toast(t('run.practiceStart'), 2600);
+  toast(t('run.practiceStart'), PRACTICE_TOAST_MS);
 }
 export function endPractice(kind: RunEnd) {
   setState('result');
@@ -254,11 +282,12 @@ export function endRun(kind: RunEnd) {
   exitLock();
   const got = Math.floor(run.bits),
     kept = dead ? Math.floor(got * TUNE.deathBitsKeep) : got;
+  const si = stageInfo(run.stage);
   track('level_end', {
     result: kind,
-    level: stageInfo(run.stage).tier + 1,
-    stage: stageInfo(run.stage).sub + 1,
-    stage_type: stageInfo(run.stage).biome.code,
+    level: si.tier + 1,
+    stage: si.sub + 1,
+    stage_type: si.biome.code,
     stage_role: isBossStage(run.stage) ? 'boss' : 'normal',
     count: run.kills,
     upgrades: run.perks.length,
@@ -270,7 +299,7 @@ export function endRun(kind: RunEnd) {
   const found = player.weapons.concat(player.bag).filter((w): w is Weapon => !!w && !w.basic);
   const foundText = found.length ? found.map(weaponText).join(t('common.sep')) : t('common.none');
   const rows: [string, string | number][] = [];
-  rows.push([t('res.reached'), `${stageLabel(run.stage)}　${stageInfo(run.stage).biome.name}`]);
+  rows.push([t('res.reached'), `${stageLabel(run.stage)}　${si.biome.name}`]);
   rows.push([t('res.kills'), run.kills]);
   rows.push([t('res.bits'), dead ? t('res.bitsLost', { kept, lost: got - kept }) : `+${kept}`]);
   let shortcutMsg = '';

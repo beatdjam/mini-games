@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { H, T, W, hgt } from '@engine/world/tiles.ts';
+import { H, T, W, hgt, inBounds, tileCenter, tileCoord } from '@engine/world/tiles.ts';
 import type { Biome } from '../data/types.ts';
 import { player, run } from '../actors/player.ts';
 import { damagePlayer } from '../actors/combat.ts';
@@ -32,7 +32,7 @@ export function buildHazardMesh(biome: Biome, hazardTiles: Uint8Array, group: TH
     pg.rotateX(-Math.PI / 2);
     const im = new THREE.InstancedMesh(pg, hazMat, hz.length);
     hz.forEach((k, n) => {
-      m.makeTranslation(((k % W) + 0.5) * T, hgt[k] + 0.04, (((k / W) | 0) + 0.5) * T);
+      m.makeTranslation(tileCenter(k % W), hgt[k] + 0.04, tileCenter((k / W) | 0));
       im.setMatrixAt(n, m);
     });
     im.instanceMatrix.needsUpdate = true;
@@ -54,9 +54,9 @@ export function updateHazards(dt: number) {
   hazT += dt;
   const st = hazardState();
   hazMat.opacity = st === 'on' ? 0.85 : st === 'warn' ? (Math.sin(hazT * 30) > 0 ? 0.55 : 0.15) : 0.15;
-  const i = Math.floor(player.x / T),
-    j = Math.floor(player.z / T),
+  const i = tileCoord(player.x),
+    j = tileCoord(player.z),
     k = j * W + i;
-  if (st === 'on' && i >= 0 && j >= 0 && i < W && j < H && level.hazardTiles[k] && player.fy < hgt[k] + HAZARD_REACH_Y)
+  if (st === 'on' && inBounds(i, j) && level.hazardTiles[k] && player.fy < hgt[k] + HAZARD_REACH_Y)
     damagePlayer(HAZARD_DMG * damageScaleAt(run.stage));
 }

@@ -4,7 +4,7 @@ import { sfx } from '@engine/audio/audio.ts';
 import { flowAt, hasLOS } from '@engine/world/tiles.ts';
 import { steerChase } from '@engine/world/steer.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
-import { enemies, fanAt, isSniper, isTrooper, spawnEBullet } from '../world/entities.ts';
+import { enemies, fanAt, isSniper, isTrooper, shootAtPoint } from '../world/entities.ts';
 import { player } from './player.ts';
 import { damagePlayer, detonate } from './combat.ts';
 import { bossPauseTick } from './bosses/common.ts';
@@ -150,12 +150,7 @@ export function updateSniper(e: Sniper, dt: number, los: boolean, py: number) {
     if (e.aim <= 0) {
       e.laser.visible = false;
       e.cd = rand(SNIPER_COOLDOWN[0], SNIPER_COOLDOWN[1]) * ENEMY_TUNE.fireInterval;
-      const vx = e.lock[0] - e.x,
-        vy = e.lock[1] - sy,
-        vz = e.lock[2] - e.z;
-      const l = Math.hypot(vx, vy, vz) || 1,
-        speed = SNIPER_BULLET_SPEED;
-      spawnEBullet(e.x, sy, e.z, (vx / l) * speed, (vy / l) * speed, (vz / l) * speed, e.dmg, COLOR.mag, 0.7);
+      shootAtPoint(e.x, sy, e.z, e.lock[0], e.lock[1], e.lock[2], SNIPER_BULLET_SPEED, e.dmg, COLOR.mag, 0.7);
       sfx('rail', 80);
     }
     return true;

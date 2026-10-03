@@ -50,15 +50,15 @@ export function applyLayout() {
   const vw = window.innerWidth,
     vh = window.innerHeight;
   Object.keys(TOUCH_LAYOUT.defs).forEach(id => {
-    const el = document.querySelector<HTMLElement>(`[data-lb="${id}"]`),
+    const btn = document.querySelector<HTMLElement>(`[data-lb="${id}"]`),
       l = buttonLayout(id),
       size = Math.round(l.b * l.s);
-    if (!el) return;
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
-    el.style.left = clamp(l.x * vw, size / 2 + 4, vw - size / 2 - 4) + 'px';
-    el.style.top = clamp(l.y * vh, size / 2 + 4, vh - size / 2 - 4) + 'px';
-    el.classList.toggle('sel', layoutEditor.open && layoutEditor.sel === id);
+    if (!btn) return;
+    btn.style.width = size + 'px';
+    btn.style.height = size + 'px';
+    btn.style.left = clamp(l.x * vw, size / 2 + 4, vw - size / 2 - 4) + 'px';
+    btn.style.top = clamp(l.y * vh, size / 2 + 4, vh - size / 2 - 4) + 'px';
+    btn.classList.toggle('sel', layoutEditor.open && layoutEditor.sel === id);
   });
   TOUCH_LAYOUT.afterApply();
 }
@@ -69,7 +69,7 @@ export function openLayoutEditor(from?: string) {
   releaseInputs();
   exitLock();
   TOUCH_LAYOUT.onOpen(from);
-  el('#touch').hidden = false;
+  touchEl.hidden = false;
   touchEl.classList.add('editing');
   el('#layoutBar').hidden = false;
   applyLayout();

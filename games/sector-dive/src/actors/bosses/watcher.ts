@@ -6,10 +6,10 @@ import { blocked } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { level, randomTileIn } from '../../world/level.ts';
-import { fanAt, ring, shootAngle, spawnEnemy } from '../../world/entities.ts';
-import { player, run } from '../player.ts';
-import { difficultyAt } from '../../core/stages.ts';
-import { bossBase } from './common.ts';
+import { fanAt, ring, shootAngle } from '../../world/entities.ts';
+import { ringAngles } from '@engine/world/projectiles.ts';
+import { player } from '../player.ts';
+import { FIRST_SHOT_DELAY, RING_Y, bossBase, isEnraged, nextPattern, spawnMinion } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
@@ -34,7 +34,7 @@ export function updWatcher(e: WatcherBoss, dt: number) {
   e.t += dt;
   e.timer -= dt;
   e.pt += dt;
-  const enr = e.hp < e.maxHp * 0.5;
+  const enr = isEnraged(e);
   e.x = e.cx + Math.sin(e.t * 0.35) * 7;
   e.z = e.cz + Math.sin(e.t * 0.22) * 5 - 3;
   e.mesh.position.set(e.x, e.y + Math.sin(e.t * 1.6) * 0.4, e.z);
@@ -47,25 +47,21 @@ export function updWatcher(e: WatcherBoss, dt: number) {
       let x = e.x + Math.cos(k * 2.1) * 4,
         z = e.z + Math.sin(k * 2.1) * 4;
       if (blocked(x, z, 0.6)) [x, z] = randomTileIn(level.rooms[0]);
-      spawnEnemy('drone', x, z, -1, difficultyAt(run.stage)).active = true;
+      spawnMinion('drone', x, z);
     }
     toast(t('boss.watcherDrones'));
   }
   if (e.timer <= 0) {
-    e.pat = e.patIdx++ % 3;
-    e.pt = 0;
-    e.shots = 0;
-    e.acc = 0;
+    nextPattern(e);
     e.timer = K.patTime[e.pat] * (enr ? K.enrTime : 1);
   }
-  const y = 1.3;
   if (e.pat === 0) {
-    if (e.shots < K.ringShots && e.pt > 0.3 + e.shots * K.ringGap) {
-      ring(e.x, e.z, y, enr ? K.ringNEnr : K.ringN, K.ringSpeed, e.shots * 0.15 + e.t, e.dmg, COLOR.mag);
+    if (e.shots < K.ringShots && e.pt > FIRST_SHOT_DELAY + e.shots * K.ringGap) {
+      ring(e.x, RING_Y, e.z, enr ? K.ringNEnr : K.ringN, K.ringSpeed, e.shots * 0.15 + e.t, e.dmg, COLOR.mag);
       e.shots++;
     }
   } else if (e.pat === 1) {
-    if (e.shots < (enr ? K.fanShotsEnr : K.fanShots) && e.pt > 0.3 + e.shots * K.fanGap) {
+    if (e.shots < (enr ? K.fanShotsEnr : K.fanShots) && e.pt > FIRST_SHOT_DELAY + e.shots * K.fanGap) {
       fanAt(e.x, e.mesh.position.y, e.z, K.fanN, K.fanSpread, K.fanSpeed, e.dmg, COLOR.amber);
       e.shots++;
     }
@@ -74,8 +70,7 @@ export function updWatcher(e: WatcherBoss, dt: number) {
     const arms = enr ? K.spiralArmsEnr : K.spiralArms;
     while (e.acc > K.spiralGap) {
       e.acc -= K.spiralGap;
-      for (let k = 0; k < arms; k++)
-        shootAngle(e.x, y, e.z, e.t * 2.2 + (k * Math.PI * 2) / arms, K.spiralSpeed, e.dmg, COLOR.cyan);
+      ringAngles(arms, e.t * 2.2).forEach(a => shootAngle(e.x, RING_Y, e.z, a, K.spiralSpeed, e.dmg, COLOR.cyan));
       sfx('eshot', 90);
     }
   }

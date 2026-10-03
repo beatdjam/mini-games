@@ -8,10 +8,9 @@ import { T } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { level, randomTileIn } from '../../world/level.ts';
-import { enemies, ring, spawnEBullet, spawnEnemy } from '../../world/entities.ts';
-import { player, run } from '../player.ts';
-import { difficultyAt } from '../../core/stages.ts';
-import { bossBase } from './common.ts';
+import { ring, shootAtPoint } from '../../world/entities.ts';
+import { player } from '../player.ts';
+import { RING_Y, bossBase, isEnraged, minionCount, spawnMinion } from './common.ts';
 import { makeLaser, setLaser } from '../../world/models.ts';
 import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
@@ -57,8 +56,8 @@ export function phantomWarp(e: Boss, first?: boolean) {
     burst(x, 2, z, 0x9fe7ff, 16, 6, 0.5);
     ring(
       x,
+      RING_Y,
       z,
-      1.3,
       BOSS_META.phantom.tune.warpRing[0],
       BOSS_META.phantom.tune.warpRing[1],
       rand(0, 1),
@@ -71,7 +70,7 @@ export function updPhantom(e: PhantomBoss, dt: number) {
   const K = BOSS_META.phantom.tune;
   e.t += dt;
   e.timer -= dt;
-  const enr = e.hp < e.maxHp * 0.5,
+  const enr = isEnraged(e),
     eye = [e.x, e.y + 0.5, e.z];
   let sc = 1;
   e.mesh.lookAt(player.x, e.y, player.z);
@@ -86,15 +85,14 @@ export function updPhantom(e: PhantomBoss, dt: number) {
     if (e.timer > 0.3) e.lock = [player.x, player.fy + 1.3, player.z];
     setLaser(e.laser, eye, e.lock, e.timer > 0.3 ? 0.45 : Math.sin(e.t * 60) > 0 ? 1 : 0.25);
     if (e.timer <= 0) {
-      const v = [e.lock[0] - eye[0], e.lock[1] - eye[1], e.lock[2] - eye[2]],
-        l = Math.hypot(v[0], v[1], v[2]) || 1;
-      spawnEBullet(
+      shootAtPoint(
         eye[0],
         eye[1],
         eye[2],
-        (v[0] / l) * K.shotSpeed,
-        (v[1] / l) * K.shotSpeed,
-        (v[2] / l) * K.shotSpeed,
+        e.lock[0],
+        e.lock[1],
+        e.lock[2],
+        K.shotSpeed,
         e.dmg * K.shotDmg,
         COLOR.mag,
         0.9,
@@ -116,10 +114,10 @@ export function updPhantom(e: PhantomBoss, dt: number) {
       e.st = 'idle';
       e.timer = enr ? K.idleEnr : K.idle;
       e.cycle++;
-      if (e.cycle % K.droneEvery === 0 && enemies.filter(o => !o.boss && !o.dead).length < K.droneCap)
+      if (e.cycle % K.droneEvery === 0 && minionCount() < K.droneCap)
         for (let k = 0; k < K.drones; k++) {
           const [x, z] = randomTileIn(level.rooms[0]);
-          spawnEnemy('drone', x, z, -1, difficultyAt(run.stage)).active = true;
+          spawnMinion('drone', x, z);
         }
     }
   }
