@@ -35,6 +35,14 @@ export const vigEl = el('#vig'),
   mctx = mini.getContext('2d')!,
   bigmap = el<HTMLCanvasElement>('#bigmap'),
   bctx = bigmap.getContext('2d')!;
+const btnDash = el('#btnDash'),
+  pickRow = el('#pickRow'),
+  pickName = el('#pickName'),
+  pickDiff = el('#pickDiff'),
+  btnEquip = el('#btnEquip'),
+  btnStow = el<HTMLButtonElement>('#btnStow'),
+  hintEl = el('#hint');
+const LOW_HP_FRAC = 0.3; // below this share of max HP the HP bar turns red and the screen edge pulses
 // screen effects shared by several files: hit marker, damage vignette, camera shake, minimap redraw, stamina warning
 export const screenFx = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
 // where a hit came from: a red arc around the crosshair, only when the attacker is outside the view (engine/ui/hitdir.ts)
@@ -70,16 +78,22 @@ export function weaponHud() {
   kh.classList.toggle('none', player.kits <= 0);
   el('#btnKit').classList.toggle('off', player.kits <= 0);
 }
-export function updateHud() {
-  const f = clamp(player.hp / player.maxHp, 0, 1);
+function hpFrac() {
+  return clamp(player.hp / player.maxHp, 0, 1);
+}
+// HP, stamina and the dash button that needs stamina
+function updateBars() {
+  const f = hpFrac();
   hpFill.style.transform = `scaleX(${f})`;
-  hpBar.classList.toggle('low', f < 0.3);
+  hpBar.classList.toggle('low', f < LOW_HP_FRAC);
   hpNum.textContent = String(Math.ceil(player.hp));
   stFill.style.transform = `scaleX(${clamp(player.st / player.stMax, 0, 1)})`;
   stBar.classList.toggle('short', player.st < TUNE.dashCost);
   stBar.classList.toggle('warn', screenFx.stWarn > 0);
-  bitNum.textContent = String(Math.floor(run.bits));
-  cross.classList.toggle('lock', !!target);
+  btnDash.classList.toggle('off', player.st < TUNE.dashCost);
+}
+// rounds in the magazine and the reload bar
+function updateAmmo() {
   const w = currentWeapon(),
     ms = magSize(w);
   const at = `${w.mag}<small> / ${ms}</small>`;
@@ -90,11 +104,14 @@ export function updateHud() {
   }
   reloadEl.hidden = !(player.reloadT > 0);
   if (player.reloadT > 0) rFill.style.transform = `scaleX(${1 - player.reloadT / player.reloadMax})`;
-  el('#btnDash').classList.toggle('off', player.st < TUNE.dashCost);
-  if (boss) bossFill.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
-  const lowPulse = f < 0.3 ? 0.25 + Math.sin(time * 5) * 0.12 : 0;
+}
+// the red screen edge: hits, and a pulse while HP is low
+function updateVignette() {
+  const lowPulse = hpFrac() < LOW_HP_FRAC ? 0.25 + Math.sin(time * 5) * 0.12 : 0;
   vigEl.style.opacity = String(Math.max(screenFx.vig, lowPulse));
-  const row = el('#pickRow');
+}
+// the weapon on the floor next to the player: name, comparison and the equip / stow buttons
+function updatePickPrompt() {
   if (nearPickup) {
     const desk = !isTouch && !document.body.classList.contains('nolock'),
       bagFree = player.bag.includes(null),
@@ -111,20 +128,29 @@ export function updateHud() {
     const diff = compareHTML(nearPickup.w!, currentWeapon()),
       // everything the labels below depend on: the bag screen can change the slots while the prompt stays up
       key = name + '|' + diff + '|' + player.cur + '|' + bagFree + '|' + freeSlots + '|' + hasSecond;
-    if (row.hidden || row.dataset.key !== key) {
-      row.dataset.key = key;
-      el('#pickName').textContent = name;
-      el('#pickDiff').innerHTML = diff;
-      el('#btnEquip').textContent = t(hasSecond ? 'hud.btnSwap' : 'hud.btnEquip2');
-      el('#btnStow').textContent = bagFree ? t('hud.btnStow', { n: freeSlots }) : t('hud.btnStowFull');
-      el<HTMLButtonElement>('#btnStow').disabled = !bagFree;
-      row.hidden = false;
+    if (pickRow.hidden || pickRow.dataset.key !== key) {
+      pickRow.dataset.key = key;
+      pickName.textContent = name;
+      pickDiff.innerHTML = diff;
+      btnEquip.textContent = t(hasSecond ? 'hud.btnSwap' : 'hud.btnEquip2');
+      btnStow.textContent = bagFree ? t('hud.btnStow', { n: freeSlots }) : t('hud.btnStowFull');
+      btnStow.disabled = !bagFree;
+      pickRow.hidden = false;
     }
-    el('#hint').textContent = ''; // the prompt sits where the hint line is
-  } else if (!row.hidden) {
-    row.hidden = true;
+    hintEl.textContent = ''; // the prompt sits where the hint line is
+  } else if (!pickRow.hidden) {
+    pickRow.hidden = true;
     updateHint();
   }
+}
+export function updateHud() {
+  updateBars();
+  bitNum.textContent = String(Math.floor(run.bits));
+  cross.classList.toggle('lock', !!target);
+  updateAmmo();
+  if (boss) bossFill.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
+  updateVignette();
+  updatePickPrompt();
 }
 // "DPS 142 ▲+38 / per hit 16×8 ▼-4 / mag 6 ▼-6" against the weapon in hand
 export function compareHTML(w: WeaponItem, cur: WeaponItem) {
