@@ -2,7 +2,7 @@ import { el, isTouch } from '../core/util.ts';
 import { audioInit } from '../audio/audio.ts';
 import { canvas } from '../render/render.ts';
 // engine: Input for a first-person game on PC and touch.
-// - PC: keys[code] is true while held; mouse look while the pointer is locked to canvas (#gl); left button -> mouseFire.
+// - PC: keys[code] is true while held (right-hand Shift / Ctrl / Alt / Meta are stored as the left-hand code); mouse look while the pointer is locked to canvas (#gl); left button -> mouseFire.
 // - Touch (#touch): the left 45% of the screen is the move stick (joy.x / joy.y in -1..1, drawn with #joyBase / #joyKnob),
 //   the rest drags the view. #btnFire: hold to fire (fireHeld), dragging it also turns the view. #btnFire2: hold (fire2Held).
 // - tapBtn(btn, fn) binds a touch button that acts on press.
@@ -38,7 +38,10 @@ const TOUCH_LOOK = 0.0055;
 // mouse: view turn per px of mouse movement while locked (radians per px, before INPUT.sens())
 const MOUSE_LOOK = 0.0022;
 
+// keys[code] is true while held. The right-hand Shift / Ctrl / Alt / Meta count as the left-hand ones (normalizeCode),
+// so a binding to 'ShiftLeft' works with either Shift key
 export const keys: Record<string, boolean> = {};
+export const normalizeCode = (code: string): string => code.replace(/^(Shift|Control|Alt|Meta)Right$/, '$1Left');
 // id = the pointer holding it (null when free); ox / oy = where the stick was grabbed
 interface Stick {
   id: number | null;
@@ -241,11 +244,11 @@ document.addEventListener('mousemove', e => {
   if (locked && INPUT.active()) lookDelta(e.movementX, e.movementY, MOUSE_LOOK * INPUT.sens());
 });
 window.addEventListener('keydown', e => {
-  keys[e.code] = true;
+  keys[normalizeCode(e.code)] = true;
   INPUT.key(e);
 });
 window.addEventListener('keyup', e => {
-  keys[e.code] = false;
+  keys[normalizeCode(e.code)] = false;
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && INPUT.active()) INPUT.pause();

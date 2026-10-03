@@ -140,6 +140,10 @@ export const setLanguage = (code: string) => {
 };
 // the touch button placements, for the layout editor to change
 export const layoutEdits = (): Settings['layout'] => save.settings.layout || (save.settings.layout = {});
+// the PC key bindings (engine exportBindings form), after the key settings dialog changed them
+export const setKeyBindings = (keys: Settings['keys']) => {
+  save.settings.keys = keys;
+};
 export const resetLayout = () => {
   save.settings.layout = {};
 };

@@ -144,8 +144,8 @@ flowchart LR
 |---|---|---|
 | 設定オブジェクト | `LOOP`, `INPUT`, `TOUCH_LAYOUT`, `MUSIC` | 「今のモードは？」「キーが押された」など、engine から呼び出す窓口 |
 | 器 | `SFX`, `MUSIC_STYLES`, `LAYER_MIX`, `LANG` | `sfx('shot')` のように名前で引く中身 |
-| 登録関数 | `addSystem`, `spawn`, `worldGroup`, `setI18nHook`, `devHook` | 毎フレーム呼ぶもの、条件で呼ぶもの |
-| 受け渡し関数 | `setTileWorld`, `setVolumes` | engine が持つ状態をゲームが入れ替える（ES モジュールでは他のモジュールの変数に代入できないため） |
+| 登録関数 | `addSystem`, `spawn`, `worldGroup`, `setI18nHook`, `devHook`, `defineActions` | 毎フレーム呼ぶもの、条件で呼ぶもの |
+| 受け渡し関数 | `setTileWorld`, `setVolumes`, `importBindings` / `exportBindings` | engine が持つ状態をゲームが入れ替える（ES モジュールでは他のモジュールの変数に代入できないため）。キーの割り当ては、ゲームのセーブとこの2つでやり取りする |
 
 新しい機能を engine に足すときも、この4つのどれかで受け取る。
 

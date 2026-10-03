@@ -87,6 +87,18 @@ import {
   setMusicMix,
 } from '../src/audio/music.ts';
 import { INPUT, fire2Held, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
+import {
+  KEYS_PER_ACTION,
+  actionDown,
+  actionOf,
+  bindKey,
+  defineActions,
+  exportBindings,
+  importBindings,
+  keyLabel,
+  keysOf,
+  resetBindings,
+} from '../src/ui/keymap.ts';
 import { TOUCH_LAYOUT, applyLayout, buttonLayout, layoutEditor, openLayoutEditor } from '../src/ui/touchlayout.ts';
 // Engine tests (Vitest, in Chromium: npm test). The page elements the engine expects are made by engine/test/setup.ts.
 // eq / near / ok keep the short messages the tests were written with
@@ -789,6 +801,173 @@ test('ui / input: toast, keys, INPUT hooks', () => {
   near(looked[0], 0.1);
   releaseInputs();
   ok(!fireHeld && !mouseFire);
+});
+// ---------- key bindings ----------
+const keyEvent = (type: 'keydown' | 'keyup', code: string) => window.dispatchEvent(new KeyboardEvent(type, { code }));
+const listsOf = () => JSON.stringify(exportBindings());
+const defineTestActions = () =>
+  defineActions([
+    { id: 'jump', keys: ['Space', 'ShiftLeft'] },
+    { id: 'fire', keys: ['KeyF'] },
+    { id: 'map', keys: ['KeyM', 'Tab'] },
+  ]);
+test('keymap: actions start on their default keys; actionDown and actionOf follow the bindings', () => {
+  defineTestActions();
+  eq(KEYS_PER_ACTION, 2);
+  eq(JSON.stringify(keysOf('jump')), '["Space","ShiftLeft"]');
+  eq(JSON.stringify(keysOf('fire')), '["KeyF"]');
+  eq(actionOf('KeyF'), 'fire');
+  eq(actionOf('KeyM'), 'map');
+  eq(actionOf('KeyZ'), null, 'unbound key');
+  ok(!actionDown('jump') && !actionDown('fire'), 'nothing held');
+  keyEvent('keydown', 'Space');
+  ok(actionDown('jump') && !actionDown('fire'), 'first key of jump');
+  keyEvent('keyup', 'Space');
+  ok(!actionDown('jump'), 'released');
+  keyEvent('keydown', 'ShiftLeft');
+  ok(actionDown('jump'), 'second key of jump');
+  keyEvent('keyup', 'ShiftLeft');
+  // the right-hand Shift is the same key as the left-hand one
+  eq(actionOf('ShiftRight'), 'jump');
+  keyEvent('keydown', 'ShiftRight');
+  ok(actionDown('jump'), 'right Shift');
+  keyEvent('keyup', 'ShiftRight');
+  ok(!actionDown('jump'), 'right Shift released');
+  releaseInputs();
+});
+test('keymap: an unknown action is an error, so a typo does not pass silently', () => {
+  defineTestActions();
+  expect(() => actionDown('jmup')).toThrow(/unknown action/);
+  expect(() => keysOf('jmup')).toThrow(/unknown action/);
+  expect(() => bindKey('jmup', 0, 'KeyZ')).toThrow(/unknown action/);
+});
+test('keymap: defineActions refuses three keys, a default used twice and an action defined twice', () => {
+  expect(() => defineActions([{ id: 'a', keys: ['KeyA', 'KeyB', 'KeyC'] }])).toThrow(/more than 2/);
+  expect(() =>
+    defineActions([
+      { id: 'a', keys: ['KeyA'] },
+      { id: 'b', keys: ['KeyA'] },
+    ]),
+  ).toThrow(/both a and b/);
+  expect(() =>
+    defineActions([
+      { id: 'a', keys: ['KeyA'] },
+      { id: 'a', keys: ['KeyB'] },
+    ]),
+  ).toThrow(/twice/);
+  // a failed call leaves the earlier definition alone
+  defineTestActions();
+  expect(() => defineActions([{ id: 'a', keys: ['KeyA', 'KeyB', 'KeyC'] }])).toThrow();
+  eq(actionOf('KeyF'), 'fire');
+});
+test('keymap: bindKey replaces a slot, fills an empty one, and moves a key between actions', () => {
+  defineTestActions();
+  // replace slot 0 of fire: the old key is no longer fire
+  eq(bindKey('fire', 0, 'KeyX'), null);
+  eq(JSON.stringify(keysOf('fire')), '["KeyX"]');
+  eq(actionOf('KeyF'), null, 'the old key is free');
+  eq(actionOf('KeyX'), 'fire');
+  // an empty slot (and a slot past the end) appends
+  eq(bindKey('fire', 1, 'KeyC'), null);
+  eq(JSON.stringify(keysOf('fire')), '["KeyX","KeyC"]');
+  eq(bindKey('fire', 5, 'KeyV'), null, 'a slot past the end is the last slot');
+  eq(JSON.stringify(keysOf('fire')), '["KeyX","KeyV"]');
+  // a held key stops working when it is rebound away, and the new key works
+  resetBindings();
+  bindKey('fire', 0, 'KeyJ');
+  keyEvent('keydown', 'KeyF');
+  ok(!actionDown('fire'), 'old key does nothing');
+  keyEvent('keyup', 'KeyF');
+  keyEvent('keydown', 'KeyJ');
+  ok(actionDown('fire'), 'new key works');
+  keyEvent('keyup', 'KeyJ');
+  // a key another action has is taken from it, and the action that lost it is named
+  resetBindings();
+  eq(bindKey('fire', 1, 'KeyM'), 'map');
+  eq(JSON.stringify(keysOf('fire')), '["KeyF","KeyM"]');
+  eq(JSON.stringify(keysOf('map')), '["Tab"]', 'map lost KeyM and keeps its other key');
+  eq(actionOf('KeyM'), 'fire');
+  // the other action can end up with no keys
+  eq(bindKey('jump', 0, 'Tab'), 'map');
+  eq(JSON.stringify(keysOf('map')), '[]');
+  ok(!actionDown('map'), 'no keys, never down');
+  // the same key on the other slot of the same action swaps the two
+  resetBindings();
+  eq(bindKey('jump', 1, 'Space'), null);
+  eq(JSON.stringify(keysOf('jump')), '["ShiftLeft","Space"]');
+  // the same key on the slot it already has, or on an empty slot of its own action, changes nothing
+  eq(bindKey('jump', 1, 'Space'), null);
+  eq(bindKey('fire', 1, 'KeyF'), null);
+  eq(JSON.stringify(keysOf('jump')), '["ShiftLeft","Space"]');
+  eq(JSON.stringify(keysOf('fire')), '["KeyF"]');
+  // the right-hand Shift counts as the left-hand one
+  eq(bindKey('fire', 1, 'ShiftRight'), 'jump');
+  eq(JSON.stringify(keysOf('fire')), '["KeyF","ShiftLeft"]');
+  eq(JSON.stringify(keysOf('jump')), '["Space"]');
+});
+test('keymap: resetBindings returns every action to its default keys', () => {
+  defineTestActions();
+  const before = listsOf();
+  bindKey('fire', 0, 'KeyX');
+  bindKey('jump', 1, 'KeyM');
+  ok(listsOf() !== before, 'changed');
+  resetBindings();
+  eq(listsOf(), before);
+  eq(actionOf('KeyF'), 'fire');
+});
+test('keymap: exportBindings / importBindings round-trip, and import forgives a bad or old save', () => {
+  defineTestActions();
+  bindKey('fire', 0, 'KeyX');
+  bindKey('map', 1, 'KeyC');
+  const saved = JSON.parse(JSON.stringify(exportBindings()));
+  eq(JSON.stringify(saved), '{"jump":["Space","ShiftLeft"],"fire":["KeyX"],"map":["KeyM","KeyC"]}');
+  // the exported object is a copy
+  saved.fire.push('KeyZ');
+  eq(JSON.stringify(keysOf('fire')), '["KeyX"]');
+  resetBindings();
+  importBindings({ jump: ['Space', 'ShiftLeft'], fire: ['KeyX'], map: ['KeyM', 'KeyC'] });
+  eq(listsOf(), '{"jump":["Space","ShiftLeft"],"fire":["KeyX"],"map":["KeyM","KeyC"]}');
+  // nothing saved (an old save): the defaults
+  importBindings(undefined);
+  eq(JSON.stringify(keysOf('fire')), '["KeyF"]');
+  importBindings({});
+  eq(JSON.stringify(keysOf('map')), '["KeyM","Tab"]');
+  importBindings([1, 2]);
+  eq(JSON.stringify(keysOf('jump')), '["Space","ShiftLeft"]');
+  // an action that is missing gets its defaults; unknown actions and bad values are ignored
+  importBindings({ fire: ['KeyX'], gone: ['KeyG'], jump: 'Space', map: [1, null, 'KeyC', ''] });
+  eq(listsOf(), '{"jump":["Space","ShiftLeft"],"fire":["KeyX"],"map":["KeyC"]}');
+  eq(actionOf('KeyG'), null, 'unknown action ignored');
+  // too many keys are cut to 2, repeats are dropped, an empty list stays empty
+  importBindings({ jump: ['KeyA', 'KeyA', 'KeyB', 'KeyC'], map: [] });
+  eq(JSON.stringify(keysOf('jump')), '["KeyA","KeyB"]');
+  eq(JSON.stringify(keysOf('map')), '[]');
+  // a key saved on two actions stays with the one defined first; a missing action never takes a key a saved one uses
+  importBindings({ jump: ['KeyF'], fire: ['KeyF', 'KeyV'] });
+  eq(JSON.stringify(keysOf('jump')), '["KeyF"]');
+  eq(JSON.stringify(keysOf('fire')), '["KeyV"]');
+  importBindings({ jump: ['KeyM'] });
+  eq(JSON.stringify(keysOf('jump')), '["KeyM"]');
+  eq(JSON.stringify(keysOf('map')), '["Tab"]', 'map is missing: its default KeyM is already jump');
+  // right-hand keys in a save are read as left-hand ones
+  importBindings({ jump: ['ShiftRight'] });
+  eq(JSON.stringify(keysOf('jump')), '["ShiftLeft"]');
+  resetBindings();
+});
+test('keymap: keyLabel gives the short name of a key', () => {
+  eq(keyLabel('KeyW'), 'W');
+  eq(keyLabel('Digit1'), '1');
+  eq(keyLabel('ArrowUp'), '↑');
+  eq(keyLabel('ArrowLeft'), '←');
+  eq(keyLabel('ShiftLeft'), 'Shift');
+  eq(keyLabel('ShiftRight'), 'Shift');
+  eq(keyLabel('ControlLeft'), 'Ctrl');
+  eq(keyLabel('Escape'), 'Esc');
+  eq(keyLabel('Space'), 'Space');
+  eq(keyLabel('Tab'), 'Tab');
+  eq(keyLabel('Numpad5'), 'Num 5');
+  eq(keyLabel('Semicolon'), ';');
+  eq(keyLabel('F5'), 'F5');
 });
 test('ui: a second banner stays its full time instead of going out with the first', () => {
   vi.useFakeTimers();

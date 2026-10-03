@@ -3,6 +3,8 @@ import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { INPUT, locked, tapBtn } from '@engine/ui/input.ts';
+import { actionOf, defineActions, importBindings, keyLabel, keysOf } from '@engine/ui/keymap.ts';
+import { KEY_ACTIONS } from '../data/controls.ts';
 import { BAG_MAX } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { addPickup, nearPickup, setNear } from '../world/entities.ts';
@@ -15,7 +17,19 @@ import { toggleMap, updateHint, weaponHud } from './hud.ts';
 import { state } from '../flow/state.ts';
 import { closeBag, openBag } from '../screens/bag.ts';
 import { pause } from '../screens/pause.ts';
-// Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/src/ui/input.ts)
+// Controls: what the keys and touch buttons do in Sector Dive (the input itself is engine/src/ui/input.ts, the key
+// bindings engine/src/ui/keymap.ts). The keys are looked up by action (KEY_ACTIONS in src/data/controls.ts), never by code.
+defineActions(KEY_ACTIONS);
+// reads the saved bindings into the engine (start-up, and after the save is replaced)
+export const applyKeyBindings = () => importBindings(save.settings.keys);
+// an action's keys as text for screens: "W / ↑" (all of them) or only the one at `index`; "-" when there is none
+export function keyText(action: string, index?: number): string {
+  const list = keysOf(action).map(keyLabel);
+  const shown = index === undefined ? list : list.slice(index, index + 1);
+  return shown.length ? shown.join(' / ') : '-';
+}
+// the four move keys written in a row: "WASD" (the first key of forward, left, back, right)
+export const moveKeysText = (): string => ['forward', 'left', 'back', 'right'].map(a => keyText(a, 0)).join('');
 // dash request and the full-stick dash timer
 export const controlState = { dashReq: false, stickT: 0, stickArmed: true };
 Object.assign(INPUT, {
@@ -29,26 +43,54 @@ Object.assign(INPUT, {
   pause: () => pause(),
   lockChanged: () => updateHint(),
   key: (e: KeyboardEvent) => {
+    const action = actionOf(e.code);
     if (e.code === 'Tab') e.preventDefault();
-    if (state === 'bag' && (e.code === 'Tab' || e.code === 'KeyI' || e.code === 'Escape')) {
+    if (state === 'bag' && (action === 'bag' || e.code === 'Escape')) {
       closeBag();
       return;
     }
     if (state !== 'play') return;
-    if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-      controlState.dashReq = true;
-      e.preventDefault();
+    // Esc always pauses, whatever the bindings say (the key dialog cannot bind it, and it frees the mouse anyway)
+    if (e.code === 'Escape') {
+      pause();
+      return;
     }
-    if (e.code === 'KeyQ') swapWeapon();
-    if (e.code === 'Digit1') selectSlot(0);
-    if (e.code === 'Digit2') selectSlot(1);
-    if (e.code === 'KeyR') startReload();
-    if (e.code === 'KeyE') stowNearby();
-    if (e.code === 'KeyG') equipNearby();
-    if (e.code === 'KeyH') useKit();
-    if (e.code === 'KeyM') toggleMap();
-    if (e.code === 'Tab' || e.code === 'KeyI') openBag();
-    if (e.code === 'Escape' || e.code === 'KeyP') pause();
+    switch (action) {
+      case 'dash':
+        controlState.dashReq = true;
+        e.preventDefault();
+        break;
+      case 'swap':
+        swapWeapon();
+        break;
+      case 'slot1':
+        selectSlot(0);
+        break;
+      case 'slot2':
+        selectSlot(1);
+        break;
+      case 'reload':
+        startReload();
+        break;
+      case 'stow':
+        stowNearby();
+        break;
+      case 'equip':
+        equipNearby();
+        break;
+      case 'kit':
+        useKit();
+        break;
+      case 'map':
+        toggleMap();
+        break;
+      case 'bag':
+        openBag();
+        break;
+      case 'pause':
+        pause();
+        break;
+    }
   },
 });
 tapBtn(el('#btnDash'), () => {

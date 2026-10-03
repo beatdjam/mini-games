@@ -2,6 +2,7 @@ import type { SaveData, WeaponItem } from '../data/types.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { decodeStore, encodeStore, loadStore, saveStore } from '@engine/core/store.ts';
 import { setVolumes } from '@engine/audio/audio.ts';
+import { KEY_ACTIONS } from '../data/controls.ts';
 // Save data: defaults and conversions from older versions (reading / writing is engine/src/core/store.ts)
 export const SAVE_KEY = 'sector-dive-v1';
 export const BASE_TAB_KEY = 'sd-base-tab'; // the base tab last opened (a preference, kept apart from the save)
@@ -34,6 +35,7 @@ export const defaultSave = (): SaveData => ({
     leftFire: true,
     stickDash: false,
     layout: {},
+    keys: Object.fromEntries(KEY_ACTIONS.map(a => [a.id, [...a.keys]])),
   },
 });
 function loadSave(): SaveData {

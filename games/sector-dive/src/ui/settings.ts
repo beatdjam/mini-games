@@ -17,8 +17,10 @@ import { layoutEdits, resetLayout, setLanguage, setSetting, toggleSetting } from
 import { player } from '../actors/player.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { renderBase } from '../screens/base.ts';
+import { openKeyDialog } from '../screens/keys.ts';
 import { refreshRunText } from '../screens/pause.ts';
 import { updateHint, weaponHud } from './hud.ts';
+import { keyText } from './input.ts';
 // languageSetting() lists the languages that are registered when it runs, so they must be loaded before this file
 import '../i18n/ja.ts';
 import '../i18n/en.ts';
@@ -64,8 +66,14 @@ Object.assign(TOUCH_LAYOUT, {
   },
 });
 
+// a PC guide text with {action} / {action.0} replaced by the keys assigned now (all of them / the first one)
+const withKeys = (text: string) =>
+  text.replace(/\{(\w+)(?:\.(\d))?\}/g, (_, action: string, index?: string) =>
+    keyText(action, index === undefined ? undefined : Number(index)),
+  );
 export function renderGuide() {
-  el('#guide').innerHTML = (isTouch ? GUIDE_TOUCH : GUIDE_DESK).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+  const rows = isTouch ? GUIDE_TOUCH : GUIDE_DESK.map(([a, b]): [string, string] => [a, withKeys(b)]);
+  el('#guide').innerHTML = rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
 }
 // switching language redraws whatever is on screen (static text is handled by setLang)
 export function changeLang(code: string) {
@@ -103,6 +111,7 @@ const volume = (key: 'bgm' | 'sfx', label: () => string, fallback: number): Sett
   set: v => setSetting(key, v),
 });
 const touchOnly = () => isTouch;
+const deskOnly = () => !isTouch;
 
 SETTINGS.onOff = on => t(on ? 'set.on' : 'set.off');
 SETTINGS.items = [
@@ -143,6 +152,7 @@ SETTINGS.items = [
     show: touchOnly,
     onClick: () => openLayoutEditor(state === 'pause' ? 'pause' : 'base'),
   },
+  { kind: 'button', key: 'keys', label: () => t('set.keys'), show: deskOnly, onClick: openKeyDialog },
 ];
 SETTINGS.onChange = key => {
   if (key === 'lang' || key === 'fs') return; // changeLang saves; fullscreen is not saved

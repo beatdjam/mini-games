@@ -272,8 +272,16 @@ export interface LangData {
   upgrades: Record<string, { name: string; desc(level: number): string }>;
   pres: Record<string, { name: string; desc(level: number): string }>;
   layout: Record<string, { name: string }>;
+  keyActions: Record<string, { name: string }>;
   guideDesk: [string, string][];
   guideTouch: [string, string][];
+}
+
+// a keyboard action (PC) and the keys it starts with; name comes from the language file (keyActions)
+export interface KeyActionDef {
+  id: string;
+  keys: string[]; // default keys (KeyboardEvent.code), up to 2
+  name: string;
 }
 
 // one weapon: in hand, in the bag, in storage or on the ground. basic = a base weapon (never lost);
@@ -381,6 +389,7 @@ export interface SaveData {
     leftFire: boolean;
     stickDash: boolean;
     layout: Record<string, ButtonPlace>;
+    keys: Record<string, string[]>; // PC key bindings: action id -> its keys (KEY_ACTIONS in src/data/controls.ts)
   };
 }
 

@@ -9,7 +9,8 @@ import { camera, gun } from '@engine/render/render.ts';
 import { FX } from '@engine/render/fx.ts';
 import { T, computeFlow, floorY, moveCircle, tileIndex } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
-import { fire2Held, fireHeld, joy, keys, mouseFire } from '@engine/ui/input.ts';
+import { fire2Held, fireHeld, joy, mouseFire } from '@engine/ui/input.ts';
+import { actionDown } from '@engine/ui/keymap.ts';
 import { EYE, PORTAL } from '../data/level.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
@@ -79,10 +80,10 @@ interface Vec2 {
 function readMoveInput(): Vec2 {
   let x = 0,
     z = 0;
-  if (keys.KeyW || keys.ArrowUp) z += 1;
-  if (keys.KeyS || keys.ArrowDown) z -= 1;
-  if (keys.KeyD || keys.ArrowRight) x += 1;
-  if (keys.KeyA || keys.ArrowLeft) x -= 1;
+  if (actionDown('forward')) z += 1;
+  if (actionDown('back')) z -= 1;
+  if (actionDown('right')) x += 1;
+  if (actionDown('left')) x -= 1;
   x += joy.x;
   z -= joy.y;
   const inputLen = Math.hypot(x, z);
@@ -254,7 +255,7 @@ function updateFiring(dt: number) {
   // A gun faster than the frame rate fires several rounds in one frame, so fire-rate chips keep working past 60 (or 30)
   // shots a second. The carry-over is kept to one frame, so a pause (reloading, not holding fire) doesn't bank shots.
   player.fireCd = Math.max(player.fireCd - dt, -dt);
-  if (fireHeld || fire2Held || mouseFire || keys.KeyF || (save.settings.autofire && target)) {
+  if (fireHeld || fire2Held || mouseFire || actionDown('fire') || (save.settings.autofire && target)) {
     for (let shots = 0; shots < MAX_SHOTS_PER_FRAME && player.fireCd <= 0; shots++) {
       const before = shotId;
       tryFire();

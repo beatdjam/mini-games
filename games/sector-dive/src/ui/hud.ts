@@ -10,6 +10,7 @@ import { player, currentWeapon, run } from '../actors/player.ts';
 import { magSize, weaponName, weaponText, weaponStats } from '../actors/weapons.ts';
 import { state } from '../flow/state.ts';
 import { time } from '../flow/update.ts';
+import { keyText } from './input.ts';
 const hpFill = el('#hpFill'),
   hpNum = el('#hpNum'),
   hpBar = el('#hpBar'),
@@ -66,7 +67,7 @@ export function weaponHud() {
   });
   el('#kitBtnN').textContent = String(player.kits);
   const kh = el('#kitHud');
-  kh.textContent = t('hud.kits', { n: player.kits, max: KIT_MAX });
+  kh.textContent = t('hud.kits', { n: player.kits, max: KIT_MAX, key: keyText('kit', 0) });
   kh.classList.toggle('none', player.kits <= 0);
   el('#btnKit').classList.toggle('off', player.kits <= 0);
 }
@@ -113,6 +114,8 @@ function updatePickPrompt() {
       weaponText(nearPickup.w!) +
       (desk
         ? t('hud.pickDesk', {
+            equip: keyText('equip', 0),
+            stow: keyText('stow', 0),
             act: t(hasSecond ? 'hud.pickSwap' : 'hud.pickEquip'),
             full: bagFree ? '' : t('hud.pickFull'),
           })

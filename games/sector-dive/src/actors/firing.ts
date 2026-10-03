@@ -5,7 +5,8 @@ import { sfx } from '@engine/audio/audio.ts';
 import { UP, V3, camera, scene } from '@engine/render/render.ts';
 import { burst } from '@engine/render/fx.ts';
 import { hasLOS } from '@engine/world/tiles.ts';
-import { joy, keys } from '@engine/ui/input.ts';
+import { joy } from '@engine/ui/input.ts';
+import { actionDown } from '@engine/ui/keymap.ts';
 import { SPLIT_FAN, WEAPONS } from '../data/weapons.ts';
 import { ASSIST } from '../data/progress.ts';
 import { save } from '../core/save.ts';
@@ -117,7 +118,12 @@ function spawnShots(w: Weapon, def: WeaponDef, mz: THREE.Vector3, base: THREE.Ve
   const n = shotCount(def);
   const dmg = shotDamage(def, w);
   const blast = blastRadius(def);
-  const moving = Math.hypot(joy.x, joy.y) > MOVE_SPREAD_STICK || keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
+  const moving =
+    Math.hypot(joy.x, joy.y) > MOVE_SPREAD_STICK ||
+    actionDown('forward') ||
+    actionDown('back') ||
+    actionDown('left') ||
+    actionDown('right');
   const fanStep = n > 1 ? Math.min(SPLIT_FAN.step, SPLIT_FAN.max / (n - 1)) : 0;
   for (let k = 0; k < n; k++) {
     const d = base.clone();

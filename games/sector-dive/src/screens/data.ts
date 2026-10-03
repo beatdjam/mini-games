@@ -7,6 +7,8 @@ import { saveFile } from '@engine/ui/share.ts';
 import { SAVE_KEY, defaultSave, exportSave, importSave, importSaveCheck, persist, setSave } from '../core/save.ts';
 import { baseUI, renderBase } from './base.ts';
 import { onDataClick } from './rows.ts';
+import { refreshKeyTexts } from './keys.ts';
+import { applyKeyBindings } from '../ui/input.ts';
 
 // ---- full data wipe (red confirmation dialog) ----
 el('#btnWipe').addEventListener('click', () => {
@@ -121,4 +123,6 @@ el('#btnWipeGo').addEventListener('click', () => {
   baseUI.selSlot = 0;
   renderBase();
   applyLayout();
+  applyKeyBindings();
+  refreshKeyTexts();
 });
