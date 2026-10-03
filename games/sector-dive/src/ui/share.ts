@@ -17,6 +17,31 @@ import type { RunEnd } from '../data/types.ts';
 // the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
 const SHARE_FILE = 'sector-dive.png';
 export const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
+// card layout (px, on a CARD_W x CARD_H canvas). y values are text baselines unless noted
+const CARD_W = 1200;
+const CARD_H = 630;
+const MARGIN_X = 64; // left / right edge of the text
+const CONTENT_W = CARD_W - MARGIN_X * 2; // width between the margins
+const BG_COLOR = '#05080c';
+const GRID_STEP = 40; // distance between grid lines
+const GRID_COLOR = 'rgba(84,232,255,0.06)'; // the cyan of CSS_COLOR.cyan, faint
+const ACCENT_BAR_W = 10; // coloured bar on the left edge
+const LOGO_Y = 86; // the logo and the result badge sit on slightly different baselines
+const BADGE_Y = 84;
+const TITLE_Y = 190; // result title ("EXTRACTED" in the language)
+const WHERE_Y = 290; // sector label; the biome name follows it on the same baseline
+const WHERE_BIOME_GAP = 28; // between the sector label and the biome name
+const ROWS_Y = 370; // first row
+const ROW_STEP = 50; // distance between rows
+const ROW_RULE_DROP = 16; // the rule under a row is drawn this far below its baseline
+const ROW_RULE_COLOR = 'rgba(213,228,238,0.08)'; // the CSS_COLOR.text, faint
+const ROW_LABEL_W = 140; // width of the label column; the value starts after it
+const FOOTER_BOTTOM = 36; // footer baseline, up from the bottom edge
+
+interface CardFonts {
+  disp: string; // headings, numbers
+  jp: string; // body text, in the language's font
+}
 export interface ShareCard {
   kind: RunEnd;
   where: string;
@@ -79,72 +104,83 @@ export function shareText(d: ShareCard) {
   return t('share.text', { ...d, bosses: bossSummary(d.bosses), nBoss: d.bosses.length }) + '\n' + SHARE_URL;
 }
 
-export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
-  try {
-    await Promise.all([document.fonts.load('700 40px "Chakra Petch"'), document.fonts.load('30px "DotGothic16"')]);
-  } catch (e) {}
-  const W = 1200,
-    H = 630,
-    c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const g = c.getContext('2d')!;
-  const disp = '"Chakra Petch","DotGothic16",sans-serif',
-    jp = lang === 'en' ? '"Chakra Petch",sans-serif' : '"DotGothic16","Hiragino Sans","Noto Sans JP",sans-serif';
-  const acc = d.kind === 'extract' ? CSS_COLOR.cyan : CSS_COLOR.mag;
-  const fit = (s: string, max: number) => {
-    if (g.measureText(s).width <= max) return s;
-    let cut = s;
-    while (cut && g.measureText(cut + '…').width > max) cut = cut.slice(0, -1);
-    return cut + '…';
-  };
-  g.fillStyle = '#05080c';
-  g.fillRect(0, 0, W, H);
-  g.strokeStyle = 'rgba(84,232,255,0.06)';
+// the text that fits in max px with "…" cut in, measured with the ctx's current font
+function fitText(g: CanvasRenderingContext2D, s: string, max: number) {
+  if (g.measureText(s).width <= max) return s;
+  let cut = s;
+  while (cut && g.measureText(cut + '…').width > max) cut = cut.slice(0, -1);
+  return cut + '…';
+}
+
+function drawBackground(g: CanvasRenderingContext2D) {
+  g.fillStyle = BG_COLOR;
+  g.fillRect(0, 0, CARD_W, CARD_H);
+}
+
+// vertical lines, then horizontal ones. The 0.5 puts a 1px line on whole pixels
+function drawGridLines(g: CanvasRenderingContext2D, dir: 'vertical' | 'horizontal') {
+  const length = dir === 'vertical' ? CARD_W : CARD_H;
+  for (let p = 0; p <= length; p += GRID_STEP) {
+    g.beginPath();
+    if (dir === 'vertical') {
+      g.moveTo(p + 0.5, 0);
+      g.lineTo(p + 0.5, CARD_H);
+    } else {
+      g.moveTo(0, p + 0.5);
+      g.lineTo(CARD_W, p + 0.5);
+    }
+    g.stroke();
+  }
+}
+
+function drawGrid(g: CanvasRenderingContext2D) {
+  g.strokeStyle = GRID_COLOR;
   g.lineWidth = 1;
-  for (let x = 0; x <= W; x += 40) {
-    g.beginPath();
-    g.moveTo(x + 0.5, 0);
-    g.lineTo(x + 0.5, H);
-    g.stroke();
-  }
-  for (let y = 0; y <= H; y += 40) {
-    g.beginPath();
-    g.moveTo(0, y + 0.5);
-    g.lineTo(W, y + 0.5);
-    g.stroke();
-  }
+  drawGridLines(g, 'vertical');
+  drawGridLines(g, 'horizontal');
+}
+
+function drawAccentBar(g: CanvasRenderingContext2D, acc: string) {
   g.fillStyle = acc;
-  g.fillRect(0, 0, 10, H);
-  // logo
-  let x = 64;
-  g.font = `700 34px ${disp}`;
+  g.fillRect(0, 0, ACCENT_BAR_W, CARD_H);
+}
+
+// the logo on the left, the result badge (with the reboot count) on the right. Leaves textAlign at 'left'
+function drawHeader(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts) {
+  let x = MARGIN_X;
+  g.font = `700 34px ${fonts.disp}`;
   [
     ['SECTOR', CSS_COLOR.text],
     ['/', CSS_COLOR.cyan],
     ['DIVE', CSS_COLOR.text],
   ].forEach(([s, col]) => {
     g.fillStyle = col;
-    g.fillText(s, x, 86);
+    g.fillText(s, x, LOGO_Y);
     x += g.measureText(s).width;
   });
-  g.font = `500 20px ${disp}`;
+  g.font = `500 20px ${fonts.disp}`;
   g.fillStyle = CSS_COLOR.dim;
   g.textAlign = 'right';
-  g.fillText(RUN_END[d.kind].badge + (d.reboots ? `  ·  REBOOT ×${d.reboots}` : ''), W - 64, 84);
+  g.fillText(RUN_END[d.kind].badge + (d.reboots ? `  ·  REBOOT ×${d.reboots}` : ''), CARD_W - MARGIN_X, BADGE_Y);
   g.textAlign = 'left';
-  // headline
-  g.font = `64px ${jp}`;
+}
+
+// the result title, then the sector label with the biome name after it. Needs textAlign 'left'
+function drawHeadline(g: CanvasRenderingContext2D, d: ShareCard, acc: string, fonts: CardFonts) {
+  g.font = `64px ${fonts.jp}`;
   g.fillStyle = acc;
-  g.fillText(RUN_END[d.kind].title(), 64, 190);
-  g.font = `700 76px ${disp}`;
+  g.fillText(RUN_END[d.kind].title(), MARGIN_X, TITLE_Y);
+  g.font = `700 76px ${fonts.disp}`;
   g.fillStyle = CSS_COLOR.text;
-  g.fillText(d.where, 64, 290);
-  const ww = g.measureText(d.where).width;
-  g.font = `34px ${jp}`;
+  g.fillText(d.where, MARGIN_X, WHERE_Y);
+  const whereW = g.measureText(d.where).width;
+  g.font = `34px ${fonts.jp}`;
   g.fillStyle = CSS_COLOR.dim;
-  g.fillText(fit(d.biome, W - 128 - ww - 28), 64 + ww + 28, 290);
-  // rows
+  g.fillText(fitText(g, d.biome, CONTENT_W - whereW - WHERE_BIOME_GAP), MARGIN_X + whereW + WHERE_BIOME_GAP, WHERE_Y);
+}
+
+// label / value rows under a rule each. Needs textAlign 'left'
+function drawRows(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts) {
   const rows = [
     [t('share.kills'), t('share.killsV', { n: d.kills }), CSS_COLOR.text],
     [t('share.bosses'), d.bosses.length ? bossSummary(d.bosses) : t('common.none'), CSS_COLOR.text],
@@ -158,22 +194,50 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
     ],
   ];
   rows.forEach(([k, v, col], i) => {
-    const y = 370 + i * 50;
-    g.fillStyle = 'rgba(213,228,238,0.08)';
-    g.fillRect(64, y + 16, W - 128, 1);
-    g.font = `24px ${jp}`;
+    const y = ROWS_Y + i * ROW_STEP;
+    g.fillStyle = ROW_RULE_COLOR;
+    g.fillRect(MARGIN_X, y + ROW_RULE_DROP, CONTENT_W, 1);
+    g.font = `24px ${fonts.jp}`;
     g.fillStyle = CSS_COLOR.dim;
-    g.fillText(k, 64, y);
+    g.fillText(k, MARGIN_X, y);
     g.fillStyle = col;
-    g.fillText(fit(v, W - 128 - 140), 204, y);
+    g.fillText(fitText(g, v, CONTENT_W - ROW_LABEL_W), MARGIN_X + ROW_LABEL_W, y);
   });
-  g.font = `22px ${jp}`;
+}
+
+// the hashtag on the left, the URL on the right. Needs textAlign 'left'; leaves it 'left'
+function drawFooter(g: CanvasRenderingContext2D, fonts: CardFonts) {
+  g.font = `22px ${fonts.jp}`;
   g.fillStyle = CSS_COLOR.dim;
-  g.fillText('#SectorDive', 64, H - 36);
+  g.fillText('#SectorDive', MARGIN_X, CARD_H - FOOTER_BOTTOM);
   g.textAlign = 'right';
-  g.font = `500 20px ${disp}`;
-  g.fillText(SHARE_URL.replace('https://', ''), W - 64, H - 36);
+  g.font = `500 20px ${fonts.disp}`;
+  g.fillText(SHARE_URL.replace('https://', ''), CARD_W - MARGIN_X, CARD_H - FOOTER_BOTTOM);
   g.textAlign = 'left';
+}
+
+export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
+  try {
+    await Promise.all([document.fonts.load('700 40px "Chakra Petch"'), document.fonts.load('30px "DotGothic16"')]);
+  } catch {
+    // the fonts are only for looks: if loading fails, the card is still drawn with the fallback fonts
+  }
+  const c = document.createElement('canvas');
+  c.width = CARD_W;
+  c.height = CARD_H;
+  const g = c.getContext('2d')!;
+  const fonts: CardFonts = {
+    disp: '"Chakra Petch","DotGothic16",sans-serif',
+    jp: lang === 'en' ? '"Chakra Petch",sans-serif' : '"DotGothic16","Hiragino Sans","Noto Sans JP",sans-serif',
+  };
+  const acc = d.kind === 'extract' ? CSS_COLOR.cyan : CSS_COLOR.mag;
+  drawBackground(g);
+  drawGrid(g);
+  drawAccentBar(g, acc);
+  drawHeader(g, d, fonts);
+  drawHeadline(g, d, acc, fonts);
+  drawRows(g, d, fonts);
+  drawFooter(g, fonts);
   return new Promise<Blob | null>(r => c.toBlob(r, 'image/png'));
 }
 
