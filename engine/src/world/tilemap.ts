@@ -1,5 +1,5 @@
 import { COVER_H, DECK_H } from './tiles.ts';
-import { forEachRoomTile, newTileMaps } from './dungeon.ts';
+import { forEachRoomTile, newTileMaps, setDoor } from './dungeon.ts';
 import type { Room, TileMapData } from './dungeon.ts';
 // engine: Fixed maps written as rows of text, for levels that are drawn by hand (and for tests that need a known
 // terrain). The maps use the same encoding as the tile world (world/tiles.ts) and the generators (world/dungeon.ts).
@@ -14,6 +14,7 @@ export interface Legend {
   rampMX: string; // toward -x (side 1)
   rampPZ: string; // toward +z (side 2, the next row down)
   rampMZ: string; // toward -z (side 3, the previous row)
+  door: string; // a door on a floor tile (shut at the start); the door maps exist only when a row has one
   deckH: number;
   coverH: number;
 }
@@ -27,6 +28,7 @@ export const DEFAULT_LEGEND: Legend = {
   rampMX: '<',
   rampPZ: 'v',
   rampMZ: '^',
+  door: '+',
   deckH: DECK_H,
   coverH: COVER_H,
 };
@@ -56,6 +58,7 @@ export function tileMapFromRows(rows: string[], legend: Partial<Legend> = {}, ro
         maps.cover[k] = 1;
         maps.hgt[k] = L.coverH;
       } else if (side >= 0) maps.ramp[k] = side;
+      else if (c === L.door) setDoor(maps, k);
       else if (c >= 'A' && c <= 'Z') {
         const id = c.charCodeAt(0) - 65,
           r = letters[id];

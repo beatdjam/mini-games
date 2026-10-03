@@ -31,6 +31,9 @@ export interface TileMaps {
   ramp: Int8Array; // -1 = flat
   cover: Uint8Array;
   roomOf: Int8Array; // index of the room the tile is in (-1 = none)
+  // only on maps that have doors (setDoor makes them; same meaning as in TileWorld, doors start shut)
+  door?: Uint8Array;
+  doorOpen?: Float32Array;
 }
 export interface TileMapData {
   W: number;
@@ -51,6 +54,7 @@ export interface DungeonOptions {
   bridges?: number; // how many straight corridor runs become raised walkways
   deckH?: number; // height of decks and walkways (m)
   coverH?: number; // height of cover (m)
+  doors?: boolean; // a door in every room doorway (see addDoorways); no random numbers. Off: no door maps at all
 }
 
 export function newTileMaps(w: number, h: number): TileMaps {
@@ -65,6 +69,7 @@ export function newTileMaps(w: number, h: number): TileMaps {
 
 // Places rooms, links them with corridors (nearest-first order plus one loop), then runs the passes the options ask
 // for. The random numbers are drawn in a fixed order: rooms, corridors, per room (deck or pillars, rubble), bridges.
+// The doorways take none, so `doors` changes nothing else about the map except that bridges avoid the door tiles.
 export function generateDungeon(o: DungeonOptions, rng: Rng): TileMapData {
   const size = o.map || GEN_MAP_SIZE;
   const maps = newTileMaps(size, size);
@@ -73,8 +78,36 @@ export function generateDungeon(o: DungeonOptions, rng: Rng): TileMapData {
   carveCorridors(maps.grid, size, o.corridorW || 1, rooms, rng);
   markRoomIds(maps, size, rooms);
   decorateRooms(maps, size, rooms, o, rng);
+  if (o.doors) addDoorways(maps, size);
   if (o.bridges) addBridges(maps, size, size, o.bridges, rng, o.deckH);
   return { W: size, H: size, maps, rooms };
+}
+
+// puts a door on floor tile k, making the door maps first if the maps have none (the door starts shut)
+export function setDoor(maps: TileMaps, k: number) {
+  if (!maps.door) maps.door = new Uint8Array(maps.grid.length);
+  if (!maps.doorOpen) maps.doorOpen = new Float32Array(maps.grid.length);
+  maps.door[k] = 1;
+}
+// Doors on the doorways: a corridor tile (outside every room) that touches a room tile along x or along y, has wall on
+// both of its other two sides and floor straight on beyond. A corridor of width 2 or more has no such tile. The map
+// must have its rooms marked (roomOf). No random numbers.
+export function addDoorways(maps: TileMaps, size: number) {
+  const g = maps.grid,
+    roomOf = maps.roomOf,
+    inRoom = (t: number) => g[t] === 1 && roomOf[t] >= 0, // a floor tile of a room
+    inCorridor = (t: number) => g[t] === 1 && roomOf[t] < 0;
+  for (let j = 1; j < size - 1; j++)
+    for (let i = 1; i < size - 1; i++) {
+      const k = j * size + i;
+      if (!inCorridor(k)) continue;
+      // [the tiles before and after along the axis, the two across it], once along x and once along y
+      for (const [a, b, c, d] of [
+        [k - 1, k + 1, k - size, k + size],
+        [k - size, k + size, k - 1, k + 1],
+      ])
+        if (((inRoom(a) && inCorridor(b)) || (inRoom(b) && inCorridor(a))) && !g[c] && !g[d]) setDoor(maps, k);
+    }
 }
 
 // the middle tile of a room (x, y)
@@ -264,7 +297,12 @@ interface BridgeRun {
 const runTile = (w: number, hor: boolean, c: number, t: number): number => (hor ? c * w + t : t * w + c);
 // a corridor tile that nothing is built on yet
 const isFreeCorridor = (maps: TileMaps, k: number): boolean =>
-  maps.grid[k] === 1 && maps.roomOf[k] < 0 && maps.hgt[k] === 0 && maps.ramp[k] < 0 && !maps.cover[k];
+  maps.grid[k] === 1 &&
+  maps.roomOf[k] < 0 &&
+  maps.hgt[k] === 0 &&
+  maps.ramp[k] < 0 &&
+  !maps.cover[k] &&
+  !maps.door?.[k];
 // the straight runs (at least BRIDGE_MIN_LEN long, walls on both sides) along x (hor) or along y, line by line
 function findBridgeRuns(maps: TileMaps, w: number, h: number, hor: boolean): BridgeRun[] {
   const g = maps.grid;

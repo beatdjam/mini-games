@@ -35,7 +35,7 @@ function checkSpot(grids: TileGrid[], s: FloorSpot, label: string) {
     throw new Error(`${label}: floor ${s.floor} does not exist (${grids.length} floors)`);
   if (!Number.isInteger(s.i) || !Number.isInteger(s.j) || !g.inBounds(s.i, s.j))
     throw new Error(`${label}: tile (${s.i}, ${s.j}) is outside floor ${s.floor} (${g.world.W} x ${g.world.H})`);
-  if (g.isSolid(s.i, s.j)) throw new Error(`${label}: tile (${s.i}, ${s.j}) on floor ${s.floor} is not a floor tile`);
+  if (!g.isFloor(s.i, s.j)) throw new Error(`${label}: tile (${s.i}, ${s.j}) on floor ${s.floor} is not a floor tile`);
 }
 
 // Builds a TileGrid for each world (the worlds are kept, not copied) and indexes the links by the tiles they touch.
@@ -81,6 +81,7 @@ export function linksAt(f: Floors, floor: number, i: number, j: number): readonl
 // Which floor tiles can be reached on foot from `from`, going through the links as well. One Uint8Array per floor
 // (index j * W + i of that floor; 1 = reachable, `from` included). A step into a neighbouring tile follows
 // passable(here, neighbour, side) of the floor's grid, so a step up of more than STEP is not allowed while a drop is.
+// A door is a floor tile whether it is open or shut (whoever walks there can open it).
 // A link is crossed in both directions and ignores heights. Throws when `from` is not a floor tile on an existing floor
 export function floorReach(f: Floors, from: FloorSpot): Uint8Array[] {
   checkSpot(f.grids, from, 'floorReach: from');
@@ -118,7 +119,7 @@ export function floorReach(f: Floors, from: FloorSpot): Uint8Array[] {
   return reach;
 }
 
-// The floor tiles (grid = 1) that floorReach does not reach from `from`, floor by floor, row by row. Empty when every
+// The floor tiles (grid = 1, doors included) that floorReach does not reach from `from`, floor by floor, row by row. Empty when every
 // floor tile can be reached: a check for a generated map. Throws like floorReach
 export function unreachableFloorTiles(f: Floors, from: FloorSpot): FloorSpot[] {
   const reach = floorReach(f, from),
@@ -126,7 +127,7 @@ export function unreachableFloorTiles(f: Floors, from: FloorSpot): FloorSpot[] {
   f.grids.forEach((g, floor) => {
     const { W, H } = g.world;
     for (let j = 0; j < H; j++)
-      for (let i = 0; i < W; i++) if (!reach[floor][j * W + i] && !g.isSolid(i, j)) out.push({ floor, i, j });
+      for (let i = 0; i < W; i++) if (!reach[floor][j * W + i] && g.isFloor(i, j)) out.push({ floor, i, j });
   });
   return out;
 }

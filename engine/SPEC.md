@@ -34,27 +34,30 @@
 - 座標の変換: `tileCoord(v)` はワールド座標（x か z）のタイル番号（`Math.floor(v / T)`）、`tileCenter(i)` はタイル番号（列 i か行 j）の中心のワールド座標（`(i + 0.5) * T`）、`inBounds(i, j)` はタイルが `W` × `H` の中か
 - 辺の番号は坂の向きと同じ（`SIDE_PX` = 0:+x、`SIDE_NX` = 1:-x、`SIDE_PZ` = 2:+z、`SIDE_NZ` = 3:-z）。`SIDE_STEP[sd]` はその辺の隣へ進む `[di, dj]`、`OPPOSITE_SIDE[sd]` は反対側の辺
 - `hgt[k]` は床の高さ。`ramp[k]` が 0〜3 ならその向き（0:+x 1:-x 2:+z 3:-z）へ `RISE` だけ上る坂、-1 は平ら
+- `door[k]`・`doorOpen[k]` はドア（4.3）。どちらも任意で、無い地形はドアなしの計算のまま
 - `cover[k]` は腰の高さの遮蔽物（高さは `hgt` に入れる。既定は `COVER_H` = 1.2m、高台は `DECK_H` = 2m）
 - **段差の規則**: 足元より `STEP` (0.7m) 以上高いところへは進めない。降りるのは自由
   - 当たり判定は、進む向きの先端（中央と両脇）で見る。段の上から半分はみ出していても、離れる向きには歩ける
   - 着地して段にめり込んだときは押し出す（`depenetrate`）
+- `isSolid(i, j)` は壁か、マップの外か、開ききっていないドア。`isFloor(i, j)` は `grid` = 1 のタイル（ドアは開閉に関係なく床）
 - `moveCircle(o, dx, dz, r)`: 軸ごとに動かして、壁か段で止まったら true。`o.fy`（足の高さ）が無いものは壁とだけ当たる
 - `hasLOS(x0, z0, x1, z1, y0, y1)`: 壁で視線が切れるか。高さを渡すと、間にある高い床や遮蔽物でも切れる
 - **経路（フローフィールド）**: `computeFlow(i, j)` で、目標のタイルまでの歩数を全タイルに入れる（段差の規則に従う）。`flowDir(x, z)` は歩数が減る隣への単位ベクトル
 - ゲームは地形を生成して `setTileWorld({ W, H, grid, hgt, ramp, cover, flow, flowQ })` で渡す（渡したキーだけ入れ替わる）
-- **地形オブジェクト**: `createTileGrid(world)`（`world` は `TileWorld` = `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`, `flowQ`）は、その地形を読む関数をまとめた `TileGrid` を返す。地形を何枚持っても互いに影響しない（`computeFlow` が書くのも、そのオブジェクトの `world.flow` だけ）
-  - メソッド: `inBounds`, `isSolid`, `solidAt`, `tileIndex`, `floorY`, `blocked`, `blockedDir`, `depenetrate`, `moveCircle`, `hasLOS`, `walkable`, `edgeH`, `passable`, `computeFlow`, `flowAt`, `flowDir`。意味と計算は上の各項のとおり
+- **地形オブジェクト**: `createTileGrid(world)`（`world` は `TileWorld` = `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`, `flowQ` と、任意の `door`, `doorOpen`）は、その地形を読む関数をまとめた `TileGrid` を返す。地形を何枚持っても互いに影響しない（`computeFlow` が書くのも、そのオブジェクトの `world.flow` だけ）
+  - メソッド: `inBounds`, `isSolid`, `isFloor`, `solidAt`, `tileIndex`, `floorY`, `blocked`, `blockedDir`, `depenetrate`, `moveCircle`, `hasLOS`, `walkable`, `edgeH`, `passable`, `computeFlow`, `flowAt`, `flowDir`。意味と計算は上の各項のとおり
   - `world` はコピーせず、そのまま持つ。配列の中身や項目を後から変えると、次の呼び出しから反映される
   - `tileCoord`・`tileCenter`・辺の番号（`SIDE_*`）は地形に依存しないので、オブジェクトには入れない
-- **今の地形**: モジュールの `inBounds`, `isSolid`, `solidAt`, `tileIndex`, `floorY`, `blocked`, `blockedDir`, `depenetrate`, `moveCircle`, `hasLOS`, `walkable`, `edgeH`, `passable`, `computeFlow`, `flowAt`, `flowDir` と、`W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow` は、今の地形（`activeTileGrid()` が返すオブジェクト）に対するもの。`setTileWorld` はこの地形の中身を入れ替え、`W` などもそれに合わせて更新する
+- **今の地形**: モジュールの `inBounds`, `isSolid`, `isFloor`, `solidAt`, `tileIndex`, `floorY`, `blocked`, `blockedDir`, `depenetrate`, `moveCircle`, `hasLOS`, `walkable`, `edgeH`, `passable`, `computeFlow`, `flowAt`, `flowDir` と、`W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow` は、今の地形（`activeTileGrid()` が返すオブジェクト）に対するもの。`setTileWorld` はこの地形の中身を入れ替え、`W` などもそれに合わせて更新する。`door`・`doorOpen` は、キーを渡したときだけ入れ替わる（`undefined` を渡すとドアなしに戻る）。この2つは `W` などのような読み取り用の変数を持たないので、`activeTileGrid().world` から読む
 
 ### 4.1 ダンジョンの生成と固定マップ（world/dungeon.ts, world/tilemap.ts）
 
 - `generateDungeon(opts, rng)` は、部屋を置く → 近い順に通路でつなぐ（部屋が5つより多ければ輪になる通路を1本足す）→ 部屋ごとに高台か柱と瓦礫 → 橋、の順に作る。乱数はこの順に `rng` から引くので、同じシードなら同じ結果になる（順番を変えると地形が変わる）
-- 返す `maps`（`TileMaps`: `grid`, `hgt`, `ramp`, `cover`, `roomOf`）は上の章の配列と同じ決まりで、`setTileWorld` に渡せる。`rooms` は部屋の長方形（`plat` は高台のある部屋）
+- 返す `maps`（`TileMaps`: `grid`, `hgt`, `ramp`, `cover`, `roomOf`。ドアのあるときだけ `door`, `doorOpen`）は上の章の配列と同じ決まりで、`setTileWorld` に渡せる。`rooms` は部屋の長方形（`plat` は高台のある部屋）
 - 高台は大きい部屋（6タイル四方以上）の内側だけで、外周は地面のまま残る。橋は両側が壁の直線通路（5タイル以上）が、両端に坂の付いた高い通路になる。瓦礫は部屋の中央・坂・高台・ほかの瓦礫の隣には置かない
 - `addPlatform`, `addRubble`, `addBridges` は単体でも使える。`generateArena` は柱の位置を渡す開けた四角いアリーナ
-- `tileMapFromRows(rows, legend?, rooms?)` は文字の行から同じ形のマップを作る（凡例は README の表）。手で描いたステージと、地形が決まっていてほしいテストに使う
+- **出入口のドア**: オプションの `doors: true` で、`addDoorways` が部屋の出入口にドアを置く。出入口は「部屋の外側の通路のタイルで、部屋のタイルに接していて、その向きの反対側が床、両脇が壁」のタイル。通路が幅2以上のところや、部屋を出てすぐ曲がるところには置かない。乱数は引かず、ドア以外の地形も乱数の消費も `doors` なしと同じ（橋だけは、ドアのタイルを避けて選ぶ）。ドアは閉じた状態（`doorOpen` = 0）で、床のまま（`grid` = 1）なので、全部の床へ行けることは変わらない。`doors` を指定しないと `door`・`doorOpen` は作らない
+- `tileMapFromRows(rows, legend?, rooms?)` は文字の行から同じ形のマップを作る（凡例は README の表）。手で描いたステージと、地形が決まっていてほしいテストに使う。ドアは `+`（凡例の `door`。`door`・`doorOpen` は、ドアの文字がある行があるときだけ作る）
 
 ### 4.2 複数階（world/floors.ts）
 
@@ -70,7 +73,25 @@
 - **到達チェック**: `floorReach(f, from)` は、`from` から歩いて行ける床を、階ごとの `Uint8Array`（添字 `j * W + i`、1 = 行ける。`from` も含む）で返す。`from` が床でないと例外
   - 隣のタイルへの1歩は、その階の `passable(今のタイル, 隣, 辺)`（4章の段差の規則）で決める。向きは「今いるタイルから外へ歩く」向きで、目標へ向かう向きで調べる `computeFlow` とは逆。足元より `STEP` を超えて高い隣へは上れず、降りるのは自由
   - リンクは、端のタイルから反対の端へ、高さに関係なく渡れる（向きの制限もない）。`baseY` の違いは歩ける・歩けないに影響しない
+  - ドアのタイルは、開閉に関係なく床として歩ける（近づけば開くので）。`createFloors` のリンクの端にもできる
   - `unreachableFloorTiles(f, from)` は、`floorReach` で行けない床のタイルを `FloorSpot` の一覧（階、行、列の順）で返す。空なら全部の床に行ける。生成したマップの検査に使う
+
+### 4.3 ドア（world/tiles.ts, world/doors.ts, world/dungeon.ts, world/tilemap.ts）
+
+近づくと開くドア。プレイヤーも敵も開けられる（`updateDoors` に渡したキャラのだれでも）。
+
+- **持ち方**: ドアのタイルは `grid[k]` = 1 の床のまま。`TileWorld` の任意の `door`（Uint8Array。1 = ドア）で印を付け、`doorOpen`（Float32Array。0 = 閉、1 = 全開）で開き具合を持つ。2つは `grid` と同じ大きさで、組で渡す。`door` が無い地形は、この章のほかの計算とまったく同じ結果になる
+- **当たり判定と見通し**: `doorOpen[k]` が `DOOR_PASS`（0.5）未満のドアは壁と同じ。`isSolid`・`solidAt`・`blocked`・`moveCircle`・`hasLOS`、弾と地形の当たり（`projHitsTerrain`）がそう扱う。`DOOR_PASS` 以上なら床と同じ。ドアのタイルの高さは `hgt` のまま（ふつうは 0）
+- **経路と到達チェック**: `computeFlow`・`flowAt`・`flowDir`・`passable` と、`floorReach`・`unreachableFloorTiles` は、ドアを開閉に関係なく通れる床として扱う。敵は近づけば開けられるので、閉じたドアの向こうへも経路が伸びる。ドアの上に立っているキャラの `flowAt`・`flowDir` も値が返る。`walkable` もドアを床として数える
+- `updateDoors(grid, movers, dt, cfg?)`（`doors.ts`）: ゲームが毎フレーム呼ぶ。`movers` は `{ x, z, r }` の並び（配列でも `Set` でもよい）。複数階なら、その階にいるキャラだけを渡す。乱数は使わない
+  - ドアのタイルの中心から `sense` m 以内、またはタイルの四角に円（半径 `r`）が重なっているキャラが1人でもいれば、`speed`（毎秒 `doorOpen` がいくら変わるか）で開く
+  - だれも近くにいない時間が `closeDelay` 秒を超えたら、同じ速さで閉じる。ドアに重なっているキャラがいる間は「近く」なので閉じない
+  - 既定は `DOOR_SENSE_R`（3.5 m）・`DOOR_SPEED`（2.5。全開まで0.4秒）・`DOOR_CLOSE_DELAY`（1.5 秒）。ゲームは `cfg`（`Partial<DoorConfig>`）で1つずつ差し替えられる
+  - ドアのタイルの一覧と、ドアごとの「最後に近くにいてからの時間」は、最初の呼び出しで `door` 配列ごとに作って持つ。毎フレーム全タイルは走査しない。あとから同じ配列にドアを足しても反映されないので、ドアの位置を変えるときは新しい配列を渡す（新しいステージ）
+  - `dt` が 0 以下のときは何もしない。`door` が無い地形では何もしない。`door` があって `doorOpen` が無い（大きさも違う）と例外
+  - 最初の `doorOpen` が 0 より大きいドアは、最初の呼び出しから `closeDelay` 秒たってから閉じ始める
+- ゲームは `doorOpen[k]` を見て、ドアの見た目（スライドなど）を動かす。見た目と当たり判定は `DOOR_PASS` でそろう（半分開くと通れる）
+- **固定マップ**: `tileMapFromRows` の凡例に `+`（`Legend.door`）。**ランダム生成**: `generateDungeon` の `doors: true`（4.1）
 
 ## 5. 弾（world/projectiles.ts）
 
