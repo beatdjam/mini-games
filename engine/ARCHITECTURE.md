@@ -126,7 +126,7 @@ flowchart LR
   subgraph G["ゲーム"]
     g1["LOOP.mode = () => state"]
     g2["Object.assign(INPUT, {...})<br/>Object.assign(TOUCH_LAYOUT, {...})"]
-    g3["Object.assign(SFX, {...})<br/>MUSIC_STYLES / LAYER_MIX"]
+    g3["Object.assign(SFX, {...})<br/>MUSIC_STYLES / LAYER_MIX / MUSIC"]
     g4["addSystem / spawn / worldGroup<br/>setI18nHook / setTileWorld / setVolumes"]
   end
   subgraph E["engine"]
@@ -142,7 +142,7 @@ flowchart LR
 
 | 種類 | 例 | engine 側から見ると |
 |---|---|---|
-| 設定オブジェクト | `LOOP`, `INPUT`, `TOUCH_LAYOUT` | 「今のモードは？」「キーが押された」など、engine から呼び出す窓口 |
+| 設定オブジェクト | `LOOP`, `INPUT`, `TOUCH_LAYOUT`, `MUSIC` | 「今のモードは？」「キーが押された」など、engine から呼び出す窓口 |
 | 器 | `SFX`, `MUSIC_STYLES`, `LAYER_MIX`, `LANG` | `sfx('shot')` のように名前で引く中身 |
 | 登録関数 | `addSystem`, `spawn`, `worldGroup`, `setI18nHook`, `devHook` | 毎フレーム呼ぶもの、条件で呼ぶもの |
 | 受け渡し関数 | `setTileWorld`, `setVolumes` | engine が持つ状態をゲームが入れ替える（ES モジュールでは他のモジュールの変数に代入できないため） |
