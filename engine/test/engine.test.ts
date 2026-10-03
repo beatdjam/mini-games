@@ -49,6 +49,15 @@ import {
 import { forEachRoomTile, generateArena, generateDungeon } from '../src/world/dungeon.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
 import {
+  type FloorLink,
+  type Floors,
+  createFloors,
+  feetY,
+  floorReach,
+  linksAt,
+  unreachableFloorTiles,
+} from '../src/world/floors.ts';
+import {
   type Projectile,
   aimFan,
   clearPool,
@@ -373,8 +382,8 @@ test('tiles: flow field leads to the target around the step', () => {
   eq(flowAt(3.5 * T, 1.5 * T), -1, 'climbing it is not (more than STEP)');
 });
 // a TileWorld (with its own flow arrays) from rows of text
-function worldFromRows(rows: string[]): TileWorld {
-  const m = tileMapFromRows(rows),
+function worldFromRows(rows: string[], deckH?: number): TileWorld {
+  const m = tileMapFromRows(rows, deckH === undefined ? {} : { deckH }),
     n = m.W * m.H;
   return {
     W: m.W,
@@ -886,4 +895,127 @@ test('minimap: tiles the game lets through, overlays, markers on top, the viewer
   eq(px(140, 20), '0,255,0,255', 'a marker sits at its world position');
   eq(px(100, 137), '255,255,255,255', 'the viewer arrow points ahead (yaw 0 = -z = up)');
   eq(px(100, 146), '0,0,0,0', 'and not behind');
+});
+
+// floors from rows of text, one per floor, the ground of floor n at 10 * n m
+function floorsFromRows(floors: string[][], links: FloorLink[], deckH?: number): Floors {
+  return createFloors(
+    floors.map(rows => worldFromRows(rows, deckH)),
+    floors.map((_, n) => 10 * n),
+    links,
+  );
+}
+const spot = (floor: number, i: number, j: number) => ({ floor, i, j });
+const reached = (r: Uint8Array[], floor: number) => Array.from(r[floor]).join('');
+test('floors: a link joins two floors, in both directions', () => {
+  const f = floorsFromRows(
+    [
+      ['#######', '#.....#', '#######'],
+      ['#######', '#.....#', '#.###.#', '#.....#', '#######'],
+    ],
+    [{ kind: 'stairs', a: spot(0, 5, 1), b: spot(1, 1, 1) }],
+  );
+  const up = floorReach(f, spot(0, 1, 1));
+  eq(reached(up, 0), '0000000' + '0111110' + '0000000', 'floor 1 (the starting floor) is walkable end to end');
+  eq(unreachableFloorTiles(f, spot(0, 1, 1)).length, 0, 'every floor tile of both floors is reached');
+  eq(
+    up[1].reduce((a, b) => a + b, 0),
+    5 + 2 + 5,
+    'all 12 floor tiles of floor 1',
+  );
+  const down = floorReach(f, spot(1, 3, 3));
+  eq(down[0][1 * 7 + 1], 1, 'the link also leads from floor 2 down to floor 1');
+  eq(unreachableFloorTiles(f, spot(1, 3, 3)).length, 0);
+});
+test('floors: without a link, a wall or a closed room, a floor is out of reach', () => {
+  const rows1 = ['#######', '#..#..#', '#######'],
+    rows0 = ['#####', '#...#', '#####'];
+  const none = floorsFromRows([rows0, rows1], []);
+  eq(reached(floorReach(none, spot(0, 1, 1)), 1), '0'.repeat(21), 'no link: nothing of floor 2');
+  eq(unreachableFloorTiles(none, spot(0, 1, 1)).length, 4, 'the 4 tiles of floor 2');
+  const one = floorsFromRows([rows0, rows1], [{ kind: 'elevator', a: spot(0, 3, 1), b: spot(1, 1, 1) }]);
+  const list = unreachableFloorTiles(one, spot(0, 1, 1));
+  eq(
+    JSON.stringify(list),
+    JSON.stringify([spot(1, 4, 1), spot(1, 5, 1)]),
+    'the room behind the wall stays out of reach',
+  );
+  eq(floorReach(one, spot(0, 1, 1))[1][1 * 7 + 2], 1, 'the left room of floor 2 is reached');
+  // a link on one floor can cross a wall
+  const same = floorsFromRows([rows1], [{ kind: 'door', a: spot(0, 2, 1), b: spot(0, 4, 1) }]);
+  eq(unreachableFloorTiles(same, spot(0, 1, 1)).length, 0, 'a link on one floor crosses the wall');
+});
+test('floors: steps up of more than STEP block the walk, drops and low steps do not', () => {
+  // ground at 0 m (i 1-2), deck at 2 m (i 3-4)
+  const high = floorsFromRows([['######', '#..==#', '######']], []);
+  eq(reached(floorReach(high, spot(0, 1, 1)), 0), '000000' + '011000' + '000000', 'cannot climb the 2 m deck');
+  eq(reached(floorReach(high, spot(0, 4, 1)), 0), '000000' + '011110' + '000000', 'but can drop from it');
+  eq(
+    JSON.stringify(unreachableFloorTiles(high, spot(0, 1, 1))),
+    JSON.stringify([spot(0, 3, 1), spot(0, 4, 1)]),
+    'the deck tiles are the unreachable ones',
+  );
+  eq(unreachableFloorTiles(high, spot(0, 3, 1)).length, 0, 'from the deck everything is reached');
+  // the same rows with a 0.5 m deck: under STEP, so both ways work
+  const low = floorsFromRows([['######', '#..==#', '######']], [], 0.5);
+  eq(unreachableFloorTiles(low, spot(0, 1, 1)).length, 0, 'a 0.5 m step can be climbed');
+  eq(unreachableFloorTiles(low, spot(0, 4, 1)).length, 0);
+  // a ramp leads up onto the deck
+  const ramp = floorsFromRows([['#####', '#.>=#', '#####']], []);
+  eq(unreachableFloorTiles(ramp, spot(0, 1, 1)).length, 0, 'the ramp climbs to the deck');
+  eq(unreachableFloorTiles(ramp, spot(0, 3, 1)).length, 0, 'and back down');
+  // heights are per floor: floors at different baseY are joined by the link, not by their heights
+  const apart = floorsFromRows(
+    [
+      ['####', '#..#', '####'],
+      ['####', '#..#', '####'],
+    ],
+    [{ kind: 'stairs', a: spot(0, 2, 1), b: spot(1, 1, 1) }],
+  );
+  eq(unreachableFloorTiles(apart, spot(0, 1, 1)).length, 0, 'a link ignores the 10 m between the floors');
+});
+test('floors: feetY adds the floor height, linksAt lists the links of a tile', () => {
+  const stairs: FloorLink = { kind: 'stairs', a: spot(0, 2, 1), b: spot(1, 1, 1) },
+    lift: FloorLink = { kind: 'elevator', a: spot(0, 2, 1), b: spot(1, 3, 1) },
+    f = floorsFromRows(
+      [
+        ['#####', '#.>=#', '#####'],
+        ['#####', '#...#', '#####'],
+      ],
+      [stairs, lift],
+    );
+  eq(feetY(f, 0, 1.5 * T, 1.5 * T), 0, 'floor 0 ground');
+  eq(feetY(f, 1, 1.5 * T, 1.5 * T), 10, 'floor 1 is 10 m up');
+  eq(feetY(f, 0, 3.5 * T, 1.5 * T), DECK_H, 'the deck on floor 0');
+  near(feetY(f, 0, 2.5 * T, 1.5 * T), RISE / 2, 1e-6, 'halfway up the ramp');
+  f.baseY[1] = 12;
+  eq(feetY(f, 1, 1.5 * T, 1.5 * T), 12, 'it reads baseY at call time');
+  eq(linksAt(f, 0, 2, 1).length, 2, 'two links at the ramp tile');
+  ok(linksAt(f, 0, 2, 1)[0] === stairs && linksAt(f, 0, 2, 1)[1] === lift, 'the links themselves, in the order given');
+  ok(linksAt(f, 1, 1, 1)[0] === stairs && linksAt(f, 1, 3, 1)[0] === lift, 'found from the b end too');
+  eq(linksAt(f, 1, 2, 1).length, 0, 'a tile with no link');
+  eq(linksAt(f, 1, 9, 9).length, 0, 'outside the map');
+  eq(linksAt(f, 5, 1, 1).length, 0, 'a floor that does not exist');
+  const self = floorsFromRows([['###', '#.#', '###']], [{ kind: 'x', a: spot(0, 1, 1), b: spot(0, 1, 1) }]);
+  eq(linksAt(self, 0, 1, 1).length, 1, 'a link from a tile to itself is listed once');
+});
+test('floors: createFloors names the wrong link, floorReach rejects a start off the floor', () => {
+  const worlds = [worldFromRows(['####', '#..#', '####']), worldFromRows(['####', '#.##', '####'])],
+    good: FloorLink = { kind: 'stairs', a: spot(0, 1, 1), b: spot(1, 1, 1) },
+    make = (...links: FloorLink[]) => createFloors(worlds, [0, 5], links);
+  make(good);
+  expect(() => createFloors(worlds, [0], [])).toThrow(/2 floors but 1 baseY/);
+  expect(() => make(good, { kind: 'lift', a: spot(2, 1, 1), b: spot(1, 1, 1) })).toThrow(/link 1 \(lift\) a: floor 2/);
+  expect(() => make({ kind: 'lift', a: spot(0, 1, 1), b: spot(-1, 1, 1) })).toThrow(/link 0 \(lift\) b: floor -1/);
+  expect(() => make({ kind: 'lift', a: spot(0, 4, 1), b: spot(1, 1, 1) })).toThrow(/link 0 \(lift\) a: tile \(4, 1\)/);
+  expect(() => make(good, good, { kind: 'lift', a: spot(0, 1, 1), b: spot(1, 1, 3) })).toThrow(
+    /link 2 \(lift\) b: tile \(1, 3\)/,
+  );
+  expect(() => make({ kind: 'lift', a: spot(0, 1, 1), b: spot(1, 2, 1) })).toThrow(
+    /link 0 \(lift\) b: tile \(2, 1\).*not a floor/,
+  );
+  expect(() => make({ kind: 'lift', a: spot(0, 0.5, 1), b: spot(1, 1, 1) })).toThrow(/link 0 \(lift\) a/);
+  const f = make(good);
+  expect(() => floorReach(f, spot(0, 0, 0))).toThrow(/floorReach: from.*not a floor tile/);
+  expect(() => floorReach(f, spot(3, 1, 1))).toThrow(/floorReach: from: floor 3/);
 });
