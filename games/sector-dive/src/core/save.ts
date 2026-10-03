@@ -36,7 +36,7 @@ export const defaultSave = (): SaveData => ({
     layout: {},
   },
 });
-export function loadSave(): SaveData {
+function loadSave(): SaveData {
   const { data: out, raw: s } = loadStore(SAVE_KEY, defaultSave);
   if (!s) return out;
   const assist: unknown = out.settings.assist; // saves from before the setting had levels hold a boolean
@@ -67,7 +67,7 @@ export function persist() {
   saveStore(SAVE_KEY, save);
 }
 // save codes for moving a save between devices (settings tab > data; the format is engine/src/core/store.ts encodeStore)
-export const SAVE_CODE_TAG = 'SD1';
+const SAVE_CODE_TAG = 'SD1';
 export const exportSave = (): string => encodeStore(SAVE_CODE_TAG, save);
 // false when the code isn't a Sector Dive save. On success the save is stored and read back like one at start-up
 // (defaults filled in, old formats converted); the caller reloads the page so every screen picks it up

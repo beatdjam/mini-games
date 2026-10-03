@@ -4,7 +4,7 @@ import { LAYER_MIX, MUSIC_STYLES } from '@engine/audio/music.ts';
 // bass: 1 root, 2 fifth, 3 octave, 0 rest. kick / snare / hat / clank: 1 hit, 0 rest.
 // drone: low sustained root + fifth; wind: filtered noise swells; echo: quieter repeat of arp notes (fake delay);
 // oct: register shift in octaves (negative = darker). All progressions stay on minor / diminished chords.
-export const _ = -1;
+const _ = -1;
 Object.assign(MUSIC_STYLES, {
   // base: dark ambient, a drone and the odd distant note
   BASE: {

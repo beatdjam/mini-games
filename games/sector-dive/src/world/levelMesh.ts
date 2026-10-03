@@ -25,7 +25,7 @@ import type { GeneratedLevel } from './levelGen.ts';
 const NEON_COUNT = 90; // neon signs per level
 
 // wedge rising toward +x across one tile; rotated per ramp direction
-export function wedgeGeo() {
+function wedgeGeo() {
   type P3 = [number, number, number];
   const a = T / 2,
     r = RISE,
@@ -56,7 +56,7 @@ export function wedgeGeo() {
   g.addGroup(6, 12, 1);
   return g;
 }
-export const RAMP_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
+const RAMP_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
 
 // does a floor tile (grid 1) lie within the 8 tiles around (i, j), or on it
 function touchesFloor(i: number, j: number): boolean {

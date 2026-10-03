@@ -225,7 +225,7 @@ export function renderBase() {
 }
 
 // ---- reboot (prestige) ----
-export const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
+const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
 // the reboot row: info + arm button, or the confirmation
 function rebootRowHTML(): string {
   if (save.suspend) return `<p class="help">${t('reboot.suspended')}</p>`;
@@ -244,7 +244,7 @@ function rebootRowHTML(): string {
     `<button class="mini-btn" data-reboot="cancel">${t('common.cancel')}</button>`
   );
 }
-export function renderReboot() {
+function renderReboot() {
   const pr = save.pres,
     sec = el('#rebootSec');
   sec.hidden = !(save.canReboot || pr.count > 0);
@@ -265,7 +265,7 @@ export function renderReboot() {
   }).join('');
   el('#rebootRow').innerHTML = rebootRowHTML();
 }
-export function doReboot() {
+function doReboot() {
   track('reboot', { count: applyReboot(rebootGain()) });
   baseUI.rebootArm = false;
   persist();
@@ -273,7 +273,7 @@ export function doReboot() {
   audioInit();
   sfx('portal');
 }
-export function assignLoadout(item: WeaponItem | null) {
+function assignLoadout(item: WeaponItem | null) {
   equipWeapon(baseUI.selSlot, item);
 }
 // what the click handler does after an action: 'save' saves and redraws the base, 'redraw' only redraws it,

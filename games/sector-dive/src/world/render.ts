@@ -1,7 +1,7 @@
 import type { Biome } from '../data/types.ts';
 import * as THREE from 'three';
 import { renderer, shared } from '@engine/render/render.ts';
-export const rocketGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.7, 8);
+const rocketGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.7, 8);
 rocketGeo.rotateX(Math.PI / 2);
 // shared shapes by name (enemy defs pick theirs with `geo`)
 export const geoCache: Record<string, THREE.BufferGeometry> = {
@@ -33,12 +33,12 @@ export const geoCache: Record<string, THREE.BufferGeometry> = {
   hLeg: shared(new THREE.BoxGeometry(0.22, 0.98, 0.25)),
   hGun: shared(new THREE.BoxGeometry(0.11, 0.55, 0.13)), // long along the arm
 };
-export const edgeCache: Record<string, THREE.EdgesGeometry> = {};
+const edgeCache: Record<string, THREE.EdgesGeometry> = {};
 export function edges(key: string): THREE.EdgesGeometry {
   return edgeCache[key] || (edgeCache[key] = shared(new THREE.EdgesGeometry(geoCache[key])));
 }
 // textures
-export function makeTex(bg: string, line: string, kind: 'floor' | 'wall'): THREE.CanvasTexture {
+function makeTex(bg: string, line: string, kind: 'floor' | 'wall'): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 128;
@@ -87,7 +87,7 @@ export interface BiomeTextures {
   tile: THREE.CanvasTexture;
   wall: THREE.CanvasTexture;
 }
-export const texCache: Record<string, BiomeTextures> = {};
+const texCache: Record<string, BiomeTextures> = {};
 export function biomeTex(b: Biome): BiomeTextures {
   if (texCache[b.code]) return texCache[b.code];
   const floor = makeTex(b.floor, b.line, 'floor');

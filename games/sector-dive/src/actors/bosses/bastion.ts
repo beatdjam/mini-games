@@ -12,7 +12,7 @@ import { COLOR } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
 // invuln: shielded; core / shield: meshes; turrets: the shield generators still standing; openT: seconds left open; ringT: ring timer
-export type BastionBoss = Boss & {
+type BastionBoss = Boss & {
   invuln: boolean;
   core: THREE.Mesh;
   shield: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
@@ -48,7 +48,7 @@ export function spawnBastion() {
   bastionTurrets(e, BOSS_META.bastion.tune.turretsFirst);
   toast(t('boss.bastionHint'), 4600);
 }
-export function bastionTurrets(e: BastionBoss, n: number) {
+function bastionTurrets(e: BastionBoss, n: number) {
   const off = rand(0, Math.PI);
   ringAngles(n, off).forEach(a => {
     const x = e.cx + Math.cos(a) * BOSS_META.bastion.tune.turretR,
@@ -56,7 +56,7 @@ export function bastionTurrets(e: BastionBoss, n: number) {
     e.turrets.push(spawnMinion('bturret', x, z));
   });
 }
-export function updBastion(e: BastionBoss, dt: number) {
+function updBastion(e: BastionBoss, dt: number) {
   const K = BOSS_META.bastion.tune;
   e.t += dt;
   const enr = isEnraged(e);

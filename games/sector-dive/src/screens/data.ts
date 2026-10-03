@@ -37,7 +37,7 @@ function saveButtons(mode: 'export' | 'import'): string {
     return saveBtn('go', t('save.importGo'), 'danger-ghost') + saveBtn('cancel', t('common.cancel'));
   return saveBtn('check', t('save.importCheck'), 'mini-btn amber') + saveBtn('file', t('save.fromFile')) + close;
 }
-export function renderSavePanel() {
+function renderSavePanel() {
   const panel = el('#savePanel'),
     box = el<HTMLTextAreaElement>('#saveCode');
   panel.hidden = !savePanel.mode;

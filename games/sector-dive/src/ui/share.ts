@@ -16,7 +16,7 @@ import type { RunEnd } from '../data/types.ts';
 // phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
 // the card, plus copy / save / open X as separate clicks (copying and opening a tab in one click loses the clipboard)
 const SHARE_FILE = 'sector-dive.png';
-export const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
+const SHARE_URL = 'https://beatdjam.github.io/mini-games/games/sector-dive/';
 // card layout (px, on a CARD_W x CARD_H canvas). y values are text baselines unless noted
 const CARD_W = 1200;
 const CARD_H = 630;
@@ -42,7 +42,7 @@ interface CardFonts {
   disp: string; // headings, numbers
   jp: string; // body text, in the language's font
 }
-export interface ShareCard {
+interface ShareCard {
   kind: RunEnd;
   where: string;
   biome: string;
@@ -57,10 +57,10 @@ export interface ShareCard {
 export let shareData: ShareCard | null = null; // the card for the result on screen
 let shareBlob: Blob | null = null; // its image, drawn on first use
 
-export const bossShort = (k: string) => BOSS_META[k]?.short ?? k;
+const bossShort = (k: string) => BOSS_META[k]?.short ?? k;
 // the bosses of a run, each kind once with a count, in the order first met ("監視体×3・圧壊機"): a deep run beats a
 // dozen bosses or more, and the full list pushed the post past X's length limit
-export function bossSummary(bosses: string[]): string {
+function bossSummary(bosses: string[]): string {
   return [...countBy(bosses, b => b)]
     .map(([name, c]) => (c > 1 ? t('common.count', { name, n: c }) : name))
     .join(t('share.join'));
@@ -241,7 +241,7 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   return new Promise<Blob | null>(r => c.toBlob(r, 'image/png'));
 }
 
-export async function shareResult() {
+async function shareResult() {
   if (!shareData) return;
   const file = shareBlob && new File([shareBlob], SHARE_FILE, { type: 'image/png' });
   if (isTouch && file && canShareFile(file)) {
@@ -251,7 +251,7 @@ export async function shareResult() {
   }
   openSharePanel();
 }
-export async function openSharePanel() {
+async function openSharePanel() {
   const panel = el('#sharePanel');
   if (!panel.hidden) {
     panel.hidden = true;
@@ -266,17 +266,17 @@ export async function openSharePanel() {
   if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(shareBlob);
 }
-export function copyShareImage() {
+function copyShareImage() {
   if (!shareBlob) return;
   track('share', { method: 'copy' });
   copyImage(shareBlob).then(ok => toast(t(ok ? 'share.copied' : 'share.copyFailed'), 3000));
 }
-export function saveShareImage() {
+function saveShareImage() {
   if (!shareBlob) return;
   track('share', { method: 'save' });
   saveImage(shareBlob, SHARE_FILE);
 }
-export function openShareX() {
+function openShareX() {
   if (!shareData) return;
   track('share', { method: 'x' });
   openXPost(shareText(shareData));

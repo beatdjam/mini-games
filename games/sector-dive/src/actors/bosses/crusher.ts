@@ -18,7 +18,7 @@ import { COLOR } from '../../data/colors.ts';
 const AFTER_STUN_WAIT = 1.0; // idle wait after a stun ends when it doesn't go straight into a slam (s)
 
 // st: state machine; cdx / cdz: charge direction; hitP: the charge has hit the player; second: delay of the enraged second wave
-export type CrusherBoss = Boss & { st: string; cdx: number; cdz: number; hitP: boolean; second: number };
+type CrusherBoss = Boss & { st: string; cdx: number; cdz: number; hitP: boolean; second: number };
 export function spawnCrusher() {
   const g = new THREE.Group(),
     geo = new THREE.BoxGeometry(3.2, 3.2, 3.2);
@@ -33,7 +33,7 @@ export function spawnCrusher() {
   e.timer = 2;
   toast(t('boss.crusherHint'), 4200);
 }
-export function updCrusher(e: CrusherBoss, dt: number) {
+function updCrusher(e: CrusherBoss, dt: number) {
   const K = BOSS_META.crusher.tune;
   e.t += dt;
   e.timer -= dt;

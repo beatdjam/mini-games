@@ -8,7 +8,7 @@ import { PERKS } from '../data/perks.ts';
 import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
 // Language files -> definitions: copies the names / descriptions in src/i18n/<code>.ts (data) onto src/data/.
 // Called by setLang (engine/src/core/i18n.ts), so code keeps reading WEAPONS[id].name, PERKS[i].desc(v) and so on.
-export function i18nApplyData(d: LangData) {
+function i18nApplyData(d: LangData) {
   fillData(WEAPONS, d.weapons);
   fillData(RARITY, d.rarity);
   fillData(AFFIX, d.affix);

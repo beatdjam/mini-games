@@ -79,7 +79,7 @@ export const magSize = (w: WeaponItem): number => {
   return Math.max(1, Math.round(def.mag * chip * (1 + MAG_OPT_PER_LEVEL * weaponOptCount('mag', w))));
 };
 // rarity only; whether it's a base (never-lost) weapon is shown separately where it matters (bag, loadout)
-export const rarLabel = (w: WeaponItem): string => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
+const rarLabel = (w: WeaponItem): string => `${RARITY[w.r].stars}${RARITY[w.r].name}`;
 export const weaponName = (w: WeaponItem): string =>
   `<span style="color:${w.r ? RARITY[w.r].css : 'inherit'}">${WEAPONS[w.id].name}${w.plus ? '+' + w.plus : ''}</span><em style="color:${RARITY[w.r].css}">${rarLabel(w)}</em>`;
 export const weaponText = (w: WeaponItem): string =>
@@ -93,8 +93,7 @@ export const weaponText = (w: WeaponItem): string =>
 // rounds per trigger pull; a weapon with maxShots (the launcher: 3 rockets) puts the split-shot bonus past that into
 // each round instead, so its blasts don't flood a corridor
 export const shotCount = (def: WeaponDef): number => Math.min(def.pellets + player.extra, def.maxShots ?? Infinity);
-export const splitMul = (def: WeaponDef): number =>
-  (def.pellets * (1 + SPLIT_DMG_PER_CHIP * player.extra)) / shotCount(def);
+const splitMul = (def: WeaponDef): number => (def.pellets * (1 + SPLIT_DMG_PER_CHIP * player.extra)) / shotCount(def);
 export const critChance = (w?: WeaponItem): number =>
   Math.min(TUNE.critCap, player.crit + CRIT_OPT_PER_LEVEL * weaponOptCount('crit', w));
 // rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)

@@ -40,7 +40,7 @@ export function prepFeedback(kind: RunEnd) {
   el('#btnFeedbackRes').hidden = !feedbackReady();
 }
 // the base screen: what the save holds
-export const baseInfo = () =>
+const baseInfo = () =>
   [
     'from=base',
     `loadout=${save.loadout.map(wInfo).filter(Boolean).join(' / ')}`,

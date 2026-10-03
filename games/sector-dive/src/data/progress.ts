@@ -8,8 +8,8 @@ export const PER = 4; // 3 floors + boss per depth
 // the *_LATE factor by GROWTH_SLIDE[1], `late` after that. A sudden switch made the depths just past it easier than
 // the one before it.
 export const DEPTH_HP_GROWTH = 1.55,
-  DEPTH_HP_LATE = 1.22,
-  GROWTH_SLIDE = [2, 11];
+  DEPTH_HP_LATE = 1.22;
+const GROWTH_SLIDE = [2, 11];
 // health factor after `depths` depths (the log of the per-depth factor moves in a straight line across the slide)
 export function hpGrowth(depths: number, rate: number, late: number): number {
   const [a, b] = GROWTH_SLIDE as [number, number],

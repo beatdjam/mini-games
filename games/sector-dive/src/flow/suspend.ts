@@ -20,7 +20,7 @@ import { endRun, goBase, startStage } from './run.ts';
 
 // ---- suspend / resume ----
 // the snapshot keeps the run and the player's build; resuming regenerates the current stage from its start
-export const SNAP_SKIP = [
+const SNAP_SKIP = [
   'x',
   'z',
   'yaw',
@@ -42,7 +42,7 @@ let discardArm = false; // the discard button shows its confirmation
 // Checkpoint: the run is saved every time a stage (floor or boss room) starts, and deleted when the run ends.
 // If the page is killed (e.g. a phone closing a backgrounded browser) or the player suspends by hand,
 // the next launch offers RESUME from the start of that stage, with the state it had when the stage began.
-export function makeSnapshot() {
+function makeSnapshot() {
   const p: Record<string, unknown> = {};
   Object.entries(player).forEach(([k, v]) => {
     if (!SNAP_SKIP.includes(k)) p[k] = v;
@@ -72,7 +72,7 @@ export function suspendRun() {
   discardArm = false;
   goBase();
 }
-export function restoreSnapshot(sn: Snapshot) {
+function restoreSnapshot(sn: Snapshot) {
   setPlayer(Object.assign(newPlayer([basicW('pistol'), null]), sn.P));
   setRun(Object.assign({}, sn.run));
   run.perks = (run.perks || []).map(perkIdOf);

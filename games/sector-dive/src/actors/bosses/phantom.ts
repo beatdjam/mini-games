@@ -16,7 +16,7 @@ import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
 
 // laser: the aim line; lock: where it is locked on; cycle: warps so far (every droneEvery-th brings drones)
-export type PhantomBoss = Boss & { st: string; laser: Laser; lock: number[]; cycle: number };
+type PhantomBoss = Boss & { st: string; laser: Laser; lock: number[]; cycle: number };
 export function spawnPhantom() {
   const g = new THREE.Group(),
     geo = new THREE.OctahedronGeometry(1.2, 0);
@@ -41,7 +41,7 @@ export function spawnPhantom() {
   phantomWarp(e, true);
   toast(t('boss.phantomHint'), 4200);
 }
-export function phantomWarp(e: Boss, first?: boolean) {
+function phantomWarp(e: Boss, first?: boolean) {
   const spots = BOSS_META.phantom.tune.spots
     .map(([i, j]: [number, number]) => [(i + 0.5) * T, (j + 0.5) * T])
     .sort(
@@ -66,7 +66,7 @@ export function phantomWarp(e: Boss, first?: boolean) {
     );
   }
 }
-export function updPhantom(e: PhantomBoss, dt: number) {
+function updPhantom(e: PhantomBoss, dt: number) {
   const K = BOSS_META.phantom.tune;
   e.t += dt;
   e.timer -= dt;

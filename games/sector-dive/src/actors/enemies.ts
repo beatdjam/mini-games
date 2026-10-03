@@ -101,7 +101,7 @@ function fireRanged(e: RegularEnemy) {
 }
 
 // Idle until the player is within ENEMY_TUNE.wakeTiles of walking distance and in sight. Returns true once awake.
-export function wakeCheck(e: RegularEnemy, eyeY: number, py: number, dt: number) {
+function wakeCheck(e: RegularEnemy, eyeY: number, py: number, dt: number) {
   const fd = flowAt(e.x, e.z);
   if (fd >= 0 && fd <= ENEMY_TUNE.wakeTiles && hasLOS(e.x, e.z, player.x, player.z, eyeY, py)) {
     e.active = true;
@@ -120,7 +120,7 @@ export function wakeCheck(e: RegularEnemy, eyeY: number, py: number, dt: number)
 
 // Bomber: light the fuse when close, blow up when it runs out.
 // Returns 'gone' if it exploded, true if it should stand still, false otherwise.
-export function updateBomber(e: RegularEnemy, dt: number, dist: number) {
+function updateBomber(e: RegularEnemy, dt: number, dist: number) {
   if (e.fuse !== undefined) {
     e.fuse -= dt;
     e.flash = Math.sin(e.t * 50) > 0 ? 0.05 : 0;
@@ -140,7 +140,7 @@ export function updateBomber(e: RegularEnemy, dt: number, dist: number) {
 
 // Sniper: SNIPER_AIM_TIME visible laser (tracks, then locks for the last SNIPER_LOCK_TIME), then one fast round.
 // Returns true while aiming (it stands still).
-export function updateSniper(e: Sniper, dt: number, los: boolean, py: number) {
+function updateSniper(e: Sniper, dt: number, los: boolean, py: number) {
   if (e.aim > 0) {
     e.aim -= dt;
     const sy = e.mesh.position.y + 0.7;
@@ -167,12 +167,12 @@ export function updateSniper(e: Sniper, dt: number, los: boolean, py: number) {
 // Walk toward the player (straight when in sight, along the flow field otherwise),
 // circle-strafe when a `keep` distance is set, and push away from nearby enemies.
 // chase the player (engine/src/world/steer.ts); bosses don't take part in the pushing apart
-export function steerEnemy(e: RegularEnemy, dt: number, dx: number, dz: number, dist: number, los: boolean) {
+function steerEnemy(e: RegularEnemy, dt: number, dx: number, dz: number, dist: number, los: boolean) {
   steerChase<Enemy>(e, dt, dx, dz, dist, los, e.def.speed, e.def.keep, enemies, o => !!o.boss);
 }
 
 // Place the mesh, face the player (limited by def.turn rad/s if set), spin decorative bodies.
-export function poseEnemy(e: RegularEnemy, dt: number, dx: number, dz: number) {
+function poseEnemy(e: RegularEnemy, dt: number, dx: number, dz: number) {
   const def = e.def;
   const bob = def.fly ? Math.sin(e.t * 3) * 0.3 : 0;
   e.mesh.position.set(e.x, e.fy + def.y + bob, e.z);
@@ -194,7 +194,7 @@ export function poseEnemy(e: RegularEnemy, dt: number, dx: number, dz: number) {
 
 // The trooper's limbs: legs and the free arm swing with the distance walked, the gun arm is raised toward the player
 // while awake (kicking back on each shot), and the hit spheres follow the head, chest and legs.
-export function poseHumanoid(e: Trooper, dt: number, aiming: boolean) {
+function poseHumanoid(e: Trooper, dt: number, aiming: boolean) {
   const rig = e.rig,
     moved = Math.hypot(e.x - e.px, e.z - e.pz);
   e.px = e.x;

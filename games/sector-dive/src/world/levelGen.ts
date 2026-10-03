@@ -28,7 +28,7 @@ export interface GeneratedLevel {
   startIdx: number; // room index of the start (0 in a boss arena)
 }
 // hazard floors on plain floor tiles (not on decks, ramps or cover)
-export function addHazards(gen: TileMapData, hazard: Uint8Array, count: number, rng: Rng) {
+function addHazards(gen: TileMapData, hazard: Uint8Array, count: number, rng: Rng) {
   const { W: w, H: h, maps: M } = gen;
   let placed = 0,
     tries = 0;

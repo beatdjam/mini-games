@@ -59,7 +59,7 @@ export function setNear(w: Pickup | null, d?: number) {
 export const pBullets: PBullet[] = [],
   eBullets: EBullet[] = [];
 // far / farMul: rail damage bonus past `far` metres; kb: knockback; rail: punches through shields; shot: id of the trigger pull
-export interface ShotOptions {
+interface ShotOptions {
   far?: number;
   farMul?: number;
   kb?: number;
@@ -109,7 +109,7 @@ export function spawnPBullet(
   b.mesh.position.set(b.x, b.y, b.z);
   b.mesh.lookAt(b.x + dir.x, b.y + dir.y, b.z + dir.z);
 }
-export function spawnEBullet(
+function spawnEBullet(
   x: number,
   y: number,
   z: number,
@@ -317,7 +317,7 @@ export function removeEnemyMesh(e: Enemy) {
 }
 
 // keep drops out of portal range so they can be picked up without touching the gate
-export function clearOfPortals(x: number, z: number): [number, number] {
+function clearOfPortals(x: number, z: number): [number, number] {
   const R = 3.2;
   for (const pt of level.portals) {
     const dx = x - pt.x,

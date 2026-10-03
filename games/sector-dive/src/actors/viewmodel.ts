@@ -3,7 +3,7 @@ import { VIEWMODELS, VM_COLORS } from '../data/viewmodels.ts';
 import { buildViewmodel, gun } from '@engine/render/render.ts';
 
 // the gun in hand per weapon, from src/data/viewmodels.ts
-export const viewmodelGroups: Record<string, THREE.Group> = {};
+const viewmodelGroups: Record<string, THREE.Group> = {};
 WEAPON_ORDER.forEach(id => {
   const g = buildViewmodel(VIEWMODELS[id], Object.assign({ acc: WEAPONS[id].color }, VM_COLORS));
   g.visible = false;
