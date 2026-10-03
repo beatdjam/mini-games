@@ -6,7 +6,7 @@
 
 テストやビルドの道具（`tools/`）の使い方は、リポジトリの README「開発」にまとめてある。
 
-`engine/src/` のフォルダは関心ごとに分けている: `core/`（ループ・world・文言・セーブ・感想フォーム・アクセス解析・確認用フック・古いページ検出・小さな関数）、`render/`（描画）、`world/`（タイルの世界・ダンジョン生成と固定マップ・弾・追跡）、`audio/`（効果音と BGM）、`ui/`（画面の部品と入力）。下の表もこの順に並べている。
+`engine/src/` のフォルダは関心ごとに分けている: `core/`（ループ・world・文言・セーブ・感想フォーム・アクセス解析・確認用フック・古いページ検出・小さな関数）、`render/`（描画）、`world/`（タイルの世界・ダンジョン生成と固定マップ・複数階・弾・追跡）、`audio/`（効果音と BGM）、`ui/`（画面の部品と入力）。下の表もこの順に並べている。
 
 | ファイル | 中身 | ゲームに用意してもらうもの |
 |---|---|---|
@@ -24,6 +24,7 @@
 | `src/world/tiles.ts` | タイルの世界。地形1枚を表すオブジェクト `TileGrid`（`createTileGrid(world)` で作る。`inBounds`, `isSolid`, `solidAt`, `tileIndex`, `floorY`, `blocked`, `blockedDir`, `depenetrate`, `moveCircle`, `hasLOS`, `walkable`, `edgeH`, `passable`, `computeFlow`, `flowAt`, `flowDir` のメソッドを持つ。複数作っても互いに影響しない）。同じ名前のモジュール関数は「今の地形」（`activeTileGrid()`）に対するもの。そのほか `T`=4, `STEP`, `RISE`, `DECK_H`, `COVER_H`、今の地形の `W`, `H`, `grid`, `hgt`, `ramp`, `cover`, `flow`、地形に依存しない `tileCoord`, `tileCenter`、辺の番号（`SIDE_PX`・`SIDE_NX`・`SIDE_PZ`・`SIDE_NZ`, `SIDE_STEP`, `OPPOSITE_SIDE`） | 地形を生成して `setTileWorld({ W, H, grid, hgt, ramp, cover, flow, flowQ })` で今の地形に渡す。複数の地形を持つときは、`TileWorld` ごとに `createTileGrid` する |
 | `src/world/dungeon.ts` | 部屋と通路のダンジョン生成: `generateDungeon(opts, rng)` → `{ W, H, maps, rooms }`（部屋を置く・通路でつなぐ・大きい部屋に高台か柱・瓦礫・橋）、開けたアリーナ `generateArena(size, from, to, pillars)`、単体で使える `addPlatform`, `addRubble`, `addBridges`、部屋の全タイルを回る `forEachRoomTile(room, fn)`、型 `Room`, `TileMaps`（`grid`, `hgt`, `ramp`, `cover`, `roomOf`）, `DungeonOptions`。乱数は渡した `Rng` だけから引く（同じシードなら同じ地形） | 生成の設定（`DungeonOptions`: 広さ・部屋数・部屋の大きさ・通路の幅・高台の確率・瓦礫の確率・橋の数・高さ）と `Rng`。結果の `maps` はそのまま `setTileWorld` に渡せる。危険床・開始部屋など、ゲームのルールで決める部分はゲームが足す |
 | `src/world/tilemap.ts` | 文字の行から作る固定マップ: `tileMapFromRows(rows, legend?, rooms?)` → `{ W, H, maps, rooms }`、`DEFAULT_LEGEND` | 行の配列。凡例（下）を変えたいときは `legend` |
+| `src/world/floors.ts` | 階を重ねたマップ。`createFloors(worlds, baseY, links)` が `Floors`（階ごとの `TileGrid`、各階の床の基準の高さ `baseY`、リンク `FloorLink`）を作る（リンクの誤りは、どのリンクが悪いか書いた例外）。`feetY(f, floor, x, z)`（その階の床の高さ。ワールド座標）, `linksAt(f, floor, i, j)`（そのタイルのリンク。`createFloors` で引ける形にしてある）, `floorReach(f, from)`（`from` から歩いて＋リンクを通って行ける床を、階ごとの `Uint8Array`（1 = 行ける）で返す）, `unreachableFloorTiles(f, from)`（行けない床の `FloorSpot` の一覧。生成したマップの検査用）。型 `FloorSpot`（`floor`, `i`, `j`）, `FloorLink`（`kind`, `a`, `b`）, `Floors` | 階ごとの `TileWorld` と `baseY`、リンクの一覧。リンクの `kind`（'stairs' など）はゲームが決める文字列で、engine は読まない。エレベーターや階段の動きと、キャラの階の切り替えはゲームが作る |
 | `src/world/projectiles.ts` | 弾の汎用部分: プール（`takeFromPool`, `clearPool`）、細かく刻んだ移動（`stepProjectile`。刻むたびにゲームの判定を呼ぶ）、地形との当たり（`projHitsTerrain`）、追尾（`steerToward`）、弾幕の方向（`ringAngles`, `aimFan`） | 弾の項目と、当たったときの処理（判定関数として渡す） |
 | `src/world/steer.ts` | `steerChase`: 見えていれば近づく（近すぎたら回り込む）、見えなければ経路をたどる、仲間と押し合う | 速さ・保つ距離・押し合う相手のリスト |
 | `src/audio/audio.ts` | 効果音の合成（`tone`, `noiseBurst`, `sweepTone`, `gunshot`）、`sfx(name)`、`audioInit`, `sfxVolume` | `Object.assign(SFX, { 名前: () => {...} })` で効果音のレシピを入れる。音量は `setVolumes(sfx, bgm)`（0〜1） |

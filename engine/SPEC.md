@@ -56,6 +56,22 @@
 - `addPlatform`, `addRubble`, `addBridges` は単体でも使える。`generateArena` は柱の位置を渡す開けた四角いアリーナ
 - `tileMapFromRows(rows, legend?, rooms?)` は文字の行から同じ形のマップを作る（凡例は README の表）。手で描いたステージと、地形が決まっていてほしいテストに使う
 
+### 4.2 複数階（world/floors.ts）
+
+部屋が縦に重なるマップのための入れ物と、階をまたいだ到達チェック。階ごとの地形は `createTileGrid` で作る `TileGrid`（4章）で、互いに影響しない。
+
+- `Floors` は `grids`（階ごとの `TileGrid`）、`baseY`（各階の床の基準の高さ。ワールド座標、m）、`links`（リンク）を持つ。`createFloors(worlds, baseY, links)` が作り、`worlds` はコピーせず持つ。`links` と `baseY` は作ったときの内容で固定する（`linkIndex` はそこから作る）
+- `feetY(f, floor, x, z)` は、その階のその位置の床の高さ（ワールド座標）。`baseY[floor]` に、その階の `floorY(x, z)`（坂の途中も含む）を足した値
+- **リンク**: `FloorLink` は `kind`・`a`・`b`。`a` と `b` は `FloorSpot`（階の番号 `floor` とタイル `i`・`j`）で、両方向に通れる2か所のつながり。同じ階の2か所でもよい。リンクは「この2か所がつながっている」というデータだけで、engine は動きを持たない
+  - `kind`（'stairs'、'elevator' など）はゲームが決める文字列で、engine は解釈しない
+  - 階段やエレベーターがいつ動くか、キャラの階をどう切り替えるかは、まだ engine にない。ゲームが決めて作る
+  - `linksAt(f, floor, i, j)` は、そのタイルに端があるリンクの一覧。`createFloors` が作った索引から引くので、全リンクは走査しない。リンクのないタイルや、マップの外・存在しない階では空
+- **入力の検査**: `createFloors` は、`baseY` の数が階の数と違うとき、リンクの `floor` がない階を指すとき、リンクのタイルがマップの外か床（`grid` = 1）でないとき、例外を投げる。メッセージにリンクの番号と `kind`、どちら側（`a` か `b`）かを入れる
+- **到達チェック**: `floorReach(f, from)` は、`from` から歩いて行ける床を、階ごとの `Uint8Array`（添字 `j * W + i`、1 = 行ける。`from` も含む）で返す。`from` が床でないと例外
+  - 隣のタイルへの1歩は、その階の `passable(今のタイル, 隣, 辺)`（4章の段差の規則）で決める。向きは「今いるタイルから外へ歩く」向きで、目標へ向かう向きで調べる `computeFlow` とは逆。足元より `STEP` を超えて高い隣へは上れず、降りるのは自由
+  - リンクは、端のタイルから反対の端へ、高さに関係なく渡れる（向きの制限もない）。`baseY` の違いは歩ける・歩けないに影響しない
+  - `unreachableFloorTiles(f, from)` は、`floorReach` で行けない床のタイルを `FloorSpot` の一覧（階、行、列の順）で返す。空なら全部の床に行ける。生成したマップの検査に使う
+
 ## 5. 弾（world/projectiles.ts）
 
 - engine は「動かす」「何かに触れたら知らせる」まで。当たったあとの処理（ダメージ・盾・貫通・爆発など）はゲームが判定関数で渡す
