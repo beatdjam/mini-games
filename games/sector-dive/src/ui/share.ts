@@ -4,7 +4,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { canCopyImage, canShareFile, copyImage, openXPost, saveImage, shareNative } from '@engine/ui/share.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
-import { perkName } from '../core/rules.ts';
+import { RUN_END, countBy, parsePerk, perkName } from '../core/rules.ts';
 import { player, run } from '../actors/player.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
 import { weaponText } from '../actors/weapons.ts';
@@ -36,19 +36,14 @@ export const bossShort = (k: string) => BOSS_META[k]?.short ?? k;
 // the bosses of a run, each kind once with a count, in the order first met ("監視体×3・圧壊機"): a deep run beats a
 // dozen bosses or more, and the full list pushed the post past X's length limit
 export function bossSummary(bosses: string[]): string {
-  const n = new Map<string, number>();
-  bosses.forEach(b => n.set(b, (n.get(b) || 0) + 1));
-  return [...n].map(([name, c]) => (c > 1 ? t('common.count', { name, n: c }) : name)).join(t('share.join'));
+  return [...countBy(bosses, b => b)]
+    .map(([name, c]) => (c > 1 ? t('common.count', { name, n: c }) : name))
+    .join(t('share.join'));
 }
 export function prepShare(kind: RunEnd) {
   const si = stageInfo(run.stage),
     w = player.weapons[player.cur] || player.weapons[0];
-  const counts: Record<string, number> = {};
-  run.perks.forEach(n => {
-    const k = n.replace(/\+$/, '');
-    counts[k] = (counts[k] || 0) + 1;
-  });
-  const chips = Object.entries(counts)
+  const chips = [...countBy(run.perks, rec => parsePerk(rec).id)]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
     .map(([n, c]) => (c > 1 ? t('common.count', { name: perkName(n), n: c }) : perkName(n)));
@@ -136,17 +131,12 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   g.font = `500 20px ${disp}`;
   g.fillStyle = CSS_COLOR.dim;
   g.textAlign = 'right';
-  g.fillText(
-    (d.kind === 'extract' ? 'EXTRACTED' : d.kind === 'abandon' ? 'ABANDONED' : 'SIGNAL LOST') +
-      (d.reboots ? `  ·  REBOOT ×${d.reboots}` : ''),
-    W - 64,
-    84,
-  );
+  g.fillText(RUN_END[d.kind].badge + (d.reboots ? `  ·  REBOOT ×${d.reboots}` : ''), W - 64, 84);
   g.textAlign = 'left';
   // headline
   g.font = `64px ${jp}`;
   g.fillStyle = acc;
-  g.fillText(t(d.kind === 'extract' ? 'res.extract' : d.kind === 'abandon' ? 'res.abandon' : 'res.dead'), 64, 190);
+  g.fillText(RUN_END[d.kind].title(), 64, 190);
   g.font = `700 76px ${disp}`;
   g.fillStyle = CSS_COLOR.text;
   g.fillText(d.where, 64, 290);

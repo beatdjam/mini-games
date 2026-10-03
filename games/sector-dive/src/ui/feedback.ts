@@ -6,6 +6,7 @@ import { track } from '@engine/core/analytics.ts';
 import { player, run } from '../actors/player.ts';
 import { stageLabel } from '../core/stages.ts';
 import { save } from '../core/save.ts';
+import { countBy } from '../core/rules.ts';
 // ---- sending feedback: the shared form (engine/src/core/feedback.ts) opens with the player's situation filled in ----
 // the situation is written with ids, not display names, so answers read the same whatever the language.
 // From the result screen it describes the run that just ended; from the base screen, the save.
@@ -23,11 +24,7 @@ const common = () => [
 // the run that just ended (called by endRun / endPractice while the run is still there)
 let resultInfo = '';
 export function prepFeedback(kind: RunEnd) {
-  const counts: Record<string, number> = {};
-  run.perks.forEach(n => {
-    counts[n] = (counts[n] || 0) + 1;
-  });
-  const chips = Object.entries(counts)
+  const chips = [...countBy(run.perks, rec => rec)] // the rare version (with '+') counts apart from the normal one
     .sort((a, b) => b[1] - a[1])
     .map(([n, c]) => (c > 1 ? `${n}x${c}` : n))
     .join(',');

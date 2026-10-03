@@ -2,7 +2,7 @@ import type { RunEnd } from '../data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { BOSS_META } from '../data/bosses.ts';
-import { chipSummary, perkName } from '../core/rules.ts';
+import { RUN_END, chipSummary, perkName } from '../core/rules.ts';
 import { run } from '../actors/player.ts';
 import { stageInfo } from '../core/stages.ts';
 import { hideShare, prepShare } from '../ui/share.ts';
@@ -39,8 +39,8 @@ export function showPracticeResult(kind: RunEnd, sec: number) {
 }
 // a real run: the rows (reached, kills, bits, weapons...) come from endRun, the chips are listed here
 export function showRunResult(kind: RunEnd, rows: [string, string | number][]) {
-  el('#resEyebrow').textContent = kind === 'extract' ? 'extracted' : kind === 'abandon' ? 'abandoned' : 'signal lost';
-  el('#resTitle').textContent = t(kind === 'extract' ? 'res.extract' : kind === 'abandon' ? 'res.abandon' : 'res.dead');
+  el('#resEyebrow').textContent = RUN_END[kind].eyebrow;
+  el('#resTitle').textContent = RUN_END[kind].title();
   el('#resList').innerHTML = rowsHTML(rows);
   el('#resChips').textContent = run.perks.length
     ? t('res.chips', { n: run.perks.length, list: chipSummary(run.perks) })
