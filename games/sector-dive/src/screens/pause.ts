@@ -2,7 +2,16 @@ import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { musicVolume } from '@engine/audio/music.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
-import { RATE_OPT_MUL, RELOAD_OPT_MUL, WEAPONS } from '../data/weapons.ts';
+import {
+  CRIT_OPT_PER_LEVEL,
+  GAIN_OPT_PER_LEVEL,
+  LEECH_OPT_HP,
+  RATE_OPT_MUL,
+  RELOAD_OPT_MUL,
+  SPEED_OPT_PER_LEVEL,
+  SPLIT_DMG_PER_CHIP,
+  WEAPONS,
+} from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { TUNE } from '../data/progress.ts';
 import { chipSummary } from '../core/rules.ts';
@@ -55,12 +64,12 @@ function baseStatRows(w: ReturnType<typeof currentWeapon>): [string, string | nu
     dashes: Math.floor(player.stMax / TUNE.dashCost),
     regen: Math.round(player.stRegen),
   });
-  const crit = `${Math.round(critChance() * 100)}%${player.crit + 0.08 * weaponOptCount('crit') > TUNE.critCap ? t('stats.capped') : ''}`;
+  const crit = `${Math.round(critChance() * 100)}%${player.crit + CRIT_OPT_PER_LEVEL * weaponOptCount('crit') > TUNE.critCap ? t('stats.capped') : ''}`;
   return [
     [t('stats.maxHp'), player.maxHp],
     [t('stats.dmg'), pct(player.dmgMul * wDmgMul(w) - 1)], // chips and upgrades x the weapon's rarity and +value
     [t('stats.rate'), pct(player.fireRate / Math.pow(RATE_OPT_MUL, weaponOptCount('rate')) - 1)],
-    [t('stats.speed'), pct(player.spdMul * (1 + 0.06 * weaponOptCount('speed')) - 1)],
+    [t('stats.speed'), pct(player.spdMul * (1 + SPEED_OPT_PER_LEVEL * weaponOptCount('speed')) - 1)],
     [t('stats.stamina'), stamina],
     [t('stats.reload'), pct(player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload')) - 1)],
     [t('stats.mag'), pct(magSize(w) / WEAPONS[w.id].mag - 1)], // as the weapon really loads (the launcher gets half the chips)
@@ -71,10 +80,14 @@ export function statsHTML() {
   const w = currentWeapon(),
     rows = baseStatRows(w);
   const pierce = player.pierce + weaponOptCount('pierce'),
-    leech = player.leech + 2 * weaponOptCount('leech'),
-    gain = player.gainMul * (1 + 0.1 * weaponOptCount('gain'));
+    leech = player.leech + LEECH_OPT_HP * weaponOptCount('leech'),
+    gain = player.gainMul * (1 + GAIN_OPT_PER_LEVEL * weaponOptCount('gain'));
   if (pierce) rows.push([t('stats.pierce'), t('stats.pierceV', { n: pierce })]);
-  if (player.extra) rows.push([t('stats.split'), t('stats.splitV', { n: player.extra, pct: player.extra * 20 })]);
+  if (player.extra)
+    rows.push([
+      t('stats.split'),
+      t('stats.splitV', { n: player.extra, pct: Math.round(player.extra * SPLIT_DMG_PER_CHIP * 100) }),
+    ]);
   if (leech) rows.push([t('stats.leech'), `HP +${leech}`]);
   if (player.chain) rows.push([t('stats.chain'), `Lv ${player.chain}`]);
   if (player.magnet > 1) rows.push([t('stats.magnet'), `×${player.magnet.toFixed(1)}`]);

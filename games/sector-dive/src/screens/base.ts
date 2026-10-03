@@ -35,6 +35,7 @@ import {
   modPlusCap,
   peakDepth,
   REBOOT_DIFF_CAP,
+  REBOOT_DIFF_PER,
   rebootCost,
   rebootMul,
   rebootMulOf,
@@ -234,7 +235,7 @@ function rebootRowHTML(): string {
   }
   const after = t('reboot.after', {
     diff: Math.round((rebootMulOf(save.pres.count + 1) - 1) * 100),
-    cap: Math.round(REBOOT_DIFF_CAP * 15),
+    cap: Math.round(REBOOT_DIFF_CAP * REBOOT_DIFF_PER * 100),
     ready: t(`base.ready${readiness(0, readyAfterReboot())}`),
   });
   return (

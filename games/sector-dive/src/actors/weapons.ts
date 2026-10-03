@@ -1,7 +1,17 @@
 import type { Weapon, WeaponDef, WeaponItem } from '../data/types.ts';
 import { randi, shuffle } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
-import { AFFIX, PLUS_DMG, RARITY, RATE_OPT_MUL, RELOAD_OPT_MUL, WEAPONS } from '../data/weapons.ts';
+import {
+  AFFIX,
+  CRIT_OPT_PER_LEVEL,
+  MAG_OPT_PER_LEVEL,
+  PLUS_DMG,
+  RARITY,
+  RATE_OPT_MUL,
+  RELOAD_OPT_MUL,
+  SPLIT_DMG_PER_CHIP,
+  WEAPONS,
+} from '../data/weapons.ts';
 import { TUNE } from '../data/progress.ts';
 import { pickDrop } from '../core/rules.ts';
 import { player } from './player.ts';
@@ -25,9 +35,6 @@ const AFFIX2_FROM_STAGE = 10,
   AFFIX2_BASE = 0.3,
   AFFIX2_PER_STAGE = 0.03; // second option: the same
 // weapon option and chip effects
-const MAG_OPT_PER_LEVEL = 0.3; // magazine size per mag option
-const SPLIT_DMG_PER_CHIP = 0.2; // total damage per split-shot chip
-const CRIT_PER_OPT = 0.08; // crit chance per crit option
 const PIERCE_BLAST_PER_LEVEL = 0.15; // rocket blast radius per pierce level
 export const CRIT_MUL = 2; // crit damage multiplier
 export const newWeapon = (id: string, r: number, basic?: boolean, plus?: number, opts?: string[]): Weapon => ({
@@ -89,7 +96,7 @@ export const shotCount = (def: WeaponDef): number => Math.min(def.pellets + play
 export const splitMul = (def: WeaponDef): number =>
   (def.pellets * (1 + SPLIT_DMG_PER_CHIP * player.extra)) / shotCount(def);
 export const critChance = (w?: WeaponItem): number =>
-  Math.min(TUNE.critCap, player.crit + CRIT_PER_OPT * weaponOptCount('crit', w));
+  Math.min(TUNE.critCap, player.crit + CRIT_OPT_PER_LEVEL * weaponOptCount('crit', w));
 // rockets burst on the first hit, so pierce bonuses widen the blast instead (+15% radius each)
 export const blastRadius = (def: WeaponDef, w?: WeaponItem): number =>
   def.blast ? def.blast * (1 + PIERCE_BLAST_PER_LEVEL * (player.pierce + weaponOptCount('pierce', w))) : 0;

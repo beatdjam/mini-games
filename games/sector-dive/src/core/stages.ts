@@ -1,13 +1,12 @@
 import type { Biome } from '../data/types.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { PER, enemyGrowth } from '../data/progress.ts';
+import { DMG_SCALE_PER_PROG, PER, enemyGrowth } from '../data/progress.ts';
 import { progressOf, rebootMul } from './rules.ts';
 import { run } from '../actors/player.ts';
 
 // ---- tuning numbers used only here ----
 export const STAGES_PER_GROWTH_DEPTH = 5; // progress (progressOf) per step of the enemy health growth curve
-const DMG_SCALE_PER_PROG = 0.045; // damage taken grows this much per progress
 
 // each run walks the sectors in its own shuffled order (run.route); depth (tier) drives difficulty
 export const routeBiome = (t: number): Biome =>

@@ -20,6 +20,8 @@ export function hpGrowth(depths: number, rate: number, late: number): number {
   return Math.exp(lr * (a + s) - ((lr - ll) * s * s) / (2 * (b - a)) + ll * Math.max(0, depths - b));
 }
 export const enemyGrowth = (depths: number): number => hpGrowth(depths, DEPTH_HP_GROWTH, DEPTH_HP_LATE);
+// damage taken grows this much per progress (progressOf); the start-depth readiness uses it too (progress per depth is 5)
+export const DMG_SCALE_PER_PROG = 0.045;
 // player-side tuning knobs. Enemy numbers live in ENEMY, boss numbers in src/actors/bosses/*.ts
 export const TUNE = {
   hp: 100, // base max HP (armour upgrade adds 15 per level)
