@@ -35,7 +35,7 @@ import {
 } from '@engine/world/tiles.ts';
 import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { SETTINGS } from '@engine/ui/settings.ts';
-import { actionDown, bindKey, exportBindings, keysOf, resetBindings } from '@engine/ui/keymap.ts';
+import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBindings } from '@engine/ui/keymap.ts';
 import { encodeStore } from '@engine/core/store.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
@@ -1400,7 +1400,7 @@ describe('key bindings', () => {
     };
     expect(KEY_ACTIONS.map(a => a.id)).toEqual(Object.keys(want));
     for (const [action, keys] of Object.entries(want)) expect(keysOf(action), action).toEqual(keys);
-    expect(save.settings.keys).toEqual(want);
+    expect(save.settings.keys, 'a new save keeps no keys: every action is on its default').toEqual({});
   });
 
   test('default keys: move, fire, dash, weapons, reload and kit work as before', () => {
@@ -1635,11 +1635,11 @@ describe('key bindings', () => {
     expect(guideTexts()[4]).toMatch(/^V/);
     // reset
     el('#btnKeysReset').click();
-    expect(exportBindings()).toEqual(save.settings.keys);
+    expect(save.settings.keys, 'nothing is changed: nothing is saved').toEqual({});
     expect(keysOf('reload')).toEqual(['KeyR']);
     expect(keysOf('bag')).toEqual(['Tab', 'KeyI']);
     expect(keyCell('reload', 0).textContent).toBe('R');
-    expect(savedKeys().reload).toEqual(['KeyR']);
+    expect(savedKeys()).toEqual({});
     // Esc closes the dialog when nothing is waiting, and so does the button
     keyEvent('keydown', 'Escape');
     keyEvent('keyup', 'Escape');
@@ -1675,8 +1675,12 @@ describe('key bindings', () => {
   test('the bindings are saved, read back at start-up, and old saves get the defaults', () => {
     bindKey('reload', 0, 'KeyV');
     bindKey('stow', 1, 'KeyC');
-    setKeyBindings(exportBindings()); // what the dialog does after a change
+    setKeyBindings(changedBindings()); // what the dialog does after a change
     persist();
+    expect(save.settings.keys, 'only the changed actions are saved').toEqual({
+      reload: ['KeyV'],
+      stow: ['KeyE', 'KeyC'],
+    });
     // a restart: the engine starts on defaults and takes the save's bindings
     const stored = exportBindings();
     expect(savedKeys()).toEqual(save.settings.keys);
@@ -1709,12 +1713,12 @@ describe('key bindings', () => {
 
   test('wiping the data puts the keys back to the defaults', () => {
     bindKey('reload', 0, 'KeyV');
-    setKeyBindings(exportBindings());
+    setKeyBindings(changedBindings());
     persist();
     el('#btnWipe').click();
     el('#btnWipeGo').click();
     expect(keysOf('reload')).toEqual(['KeyR']);
-    expect(exportBindings()).toEqual(save.settings.keys);
+    expect(save.settings.keys).toEqual({});
     expect(guideTexts()[4]).toMatch(/^R/);
   });
 });

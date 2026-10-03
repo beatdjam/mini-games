@@ -93,6 +93,7 @@ import {
   actionOf,
   bindKey,
   defineActions,
+  changedBindings,
   exportBindings,
   importBindings,
   keyLabel,
@@ -952,6 +953,30 @@ test('keymap: exportBindings / importBindings round-trip, and import forgives a 
   // right-hand keys in a save are read as left-hand ones
   importBindings({ jump: ['ShiftRight'] });
   eq(JSON.stringify(keysOf('jump')), '["ShiftLeft"]');
+  resetBindings();
+});
+test('keymap: changedBindings saves only the changed actions, so a new default reaches old saves', () => {
+  defineTestActions();
+  eq(JSON.stringify(changedBindings()), '{}', 'nothing changed');
+  bindKey('fire', 0, 'KeyX');
+  bindKey('jump', 0, 'ShiftLeft'); // the same keys in another order count as changed
+  const saved = changedBindings();
+  eq(JSON.stringify(saved), '{"jump":["ShiftLeft","Space"],"fire":["KeyX"]}');
+  saved.fire.push('KeyZ');
+  eq(JSON.stringify(keysOf('fire')), '["KeyX"]', 'a copy');
+  bindKey('map', 0, 'KeyF'); // taken from nobody now; then put back
+  bindKey('map', 0, 'KeyM');
+  eq(JSON.stringify(Object.keys(changedBindings())), '["jump","fire"]', 'map is back on its defaults');
+  bindKey('fire', 0, 'Tab'); // takes Tab from map: both are saved, map with what is left
+  eq(JSON.stringify(changedBindings()), '{"jump":["ShiftLeft","Space"],"fire":["Tab"],"map":["KeyM"]}');
+  // a later version changes map's default: a save that left map alone picks it up
+  defineActions([
+    { id: 'jump', keys: ['Space', 'ShiftLeft'] },
+    { id: 'fire', keys: ['KeyF'] },
+    { id: 'map', keys: ['KeyN', 'Tab'] },
+  ]);
+  importBindings({ fire: ['KeyX'] });
+  eq(listsOf(), '{"jump":["Space","ShiftLeft"],"fire":["KeyX"],"map":["KeyN","Tab"]}');
   resetBindings();
 });
 test('keymap: keyLabel gives the short name of a key', () => {

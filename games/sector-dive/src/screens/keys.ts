@@ -1,6 +1,6 @@
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
-import { KEYS_PER_ACTION, bindKey, exportBindings, keyLabel, keysOf, resetBindings } from '@engine/ui/keymap.ts';
+import { KEYS_PER_ACTION, bindKey, changedBindings, keyLabel, keysOf, resetBindings } from '@engine/ui/keymap.ts';
 import { KEY_ACTIONS } from '../data/controls.ts';
 import { persist } from '../core/save.ts';
 import { setKeyBindings } from '../core/progress.ts';
@@ -39,7 +39,7 @@ export function refreshKeyTexts() {
   if (player) weaponHud();
 }
 function saveKeys() {
-  setKeyBindings(exportBindings());
+  setKeyBindings(changedBindings());
   persist();
   refreshKeyTexts();
 }

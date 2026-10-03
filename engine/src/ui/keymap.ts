@@ -9,7 +9,9 @@ import { keys, normalizeCode } from './input.ts';
 //   binding a key that another action has takes it away from that action (which can end up with no keys), and
 //   bindKey returns that action's name so the game can say so. Binding a key to another slot of the same action
 //   swaps the two.
-// - exportBindings() / importBindings(saved) move the bindings in and out of the game's save (action -> keys).
+// - changedBindings() / importBindings(saved) move the bindings in and out of the game's save (action -> keys). Only the
+//   actions whose keys differ from their defaults are saved, so a later change of a default reaches every save that left
+//   that action alone. exportBindings() gives every action (for screens and checks).
 //   Import is forgiving: unknown actions and bad values are ignored, a missing action gets its default keys (minus
 //   keys the saved actions already use), a key used by two saved actions stays with the first one defined.
 // - keyLabel(code) is the short name of a key for screens ('KeyW' -> 'W', 'ArrowUp' -> '↑', 'ShiftLeft' -> 'Shift').
@@ -78,6 +80,12 @@ export const resetBindings = () => {
   current = copyBindings(defaults);
 };
 export const exportBindings = (): KeyBindings => copyBindings(current);
+// the actions whose keys are not their defaults (same keys in the same order), as a copy: the form to save
+export function changedBindings(): KeyBindings {
+  const out: KeyBindings = {};
+  for (const id of order) if (current[id].join(' ') !== defaults[id].join(' ')) out[id] = [...current[id]];
+  return out;
+}
 export function importBindings(saved: unknown) {
   // a plain object was checked just above; its values are checked one by one below
   const src = (saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {}) as Record<string, unknown>,
