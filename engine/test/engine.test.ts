@@ -1401,6 +1401,25 @@ test('floors: floorFlow leads over the floors through the links it may use', () 
   ok(otherEnd(stairs, 0, 5, 1) === stairs.b && otherEnd(stairs, 1, 1, 1) === stairs.a, 'otherEnd from either end');
   expect(() => floorFlow(f, spot(0, 0, 0), anyLink)).toThrow(/floorFlow: target.*not a floor tile/);
 });
+test('floors: floorReach and unreachableFloorTiles cross only the links `use` accepts', () => {
+  const { f } = crossFloors();
+  eq(unreachableFloorTiles(f, spot(0, 1, 1)).length, 2, 'every link: only floor 2 (joined to nothing) is out of reach');
+  eq(unreachableFloorTiles(f, spot(0, 1, 1), onlyStairs).length, 2, 'stairs alone still reach floor 1');
+  const lifted = floorsFromRows(
+    [
+      ['#####', '#...#', '#####'],
+      ['#####', '#...#', '#####'],
+    ],
+    [{ kind: 'elevator', a: spot(0, 3, 1), b: spot(1, 1, 1) }],
+  );
+  eq(unreachableFloorTiles(lifted, spot(0, 1, 1)).length, 0, 'the lift joins the floors');
+  eq(
+    JSON.stringify(unreachableFloorTiles(lifted, spot(0, 1, 1), onlyStairs)),
+    JSON.stringify([spot(1, 1, 1), spot(1, 2, 1), spot(1, 3, 1)]),
+    'without stairs, floor 1 is out of reach: enemies that never ride could not get there',
+  );
+  eq(reached(floorReach(lifted, spot(1, 2, 1), onlyStairs), 0), '0'.repeat(15), 'nor floor 0 from floor 1');
+});
 test('floors: crossLink moves a mover across a link once, until it steps off', () => {
   const { f, stairs } = crossFloors();
   const m: { floor: number; x: number; z: number; linkTile?: number } = { floor: 0, x: 5.3 * T, z: 1.6 * T };

@@ -83,8 +83,11 @@ export function linksAt(f: Floors, floor: number, i: number, j: number): readonl
 // (index j * W + i of that floor; 1 = reachable, `from` included). A step into a neighbouring tile follows
 // passable(here, neighbour, side) of the floor's grid, so a step up of more than STEP is not allowed while a drop is.
 // A door is a floor tile whether it is open or shut (whoever walks there can open it).
-// A link is crossed in both directions and ignores heights. Throws when `from` is not a floor tile on an existing floor
-export function floorReach(f: Floors, from: FloorSpot): Uint8Array[] {
+// A link is crossed in both directions and ignores heights; only the links that `use` accepts are crossed (all of them
+// by default; say, only stairs, to check that enemies that never ride a lift can get everywhere).
+// Throws when `from` is not a floor tile on an existing floor
+const ANY_LINK = () => true;
+export function floorReach(f: Floors, from: FloorSpot, use: (l: FloorLink) => boolean = ANY_LINK): Uint8Array[] {
   checkSpot(f.grids, from, 'floorReach: from');
   const reach = f.grids.map(g => new Uint8Array(g.world.W * g.world.H)),
     qFloor: number[] = [],
@@ -112,6 +115,7 @@ export function floorReach(f: Floors, from: FloorSpot): Uint8Array[] {
       if (!reach[floor][n] && g.passable(k, n, sd)) visit(floor, n);
     }
     for (const l of linksAt(f, floor, i, j)) {
+      if (!use(l)) continue;
       const to = otherEnd(l, floor, i, j);
       visit(to.floor, to.j * f.grids[to.floor].world.W + to.i);
     }
@@ -120,9 +124,13 @@ export function floorReach(f: Floors, from: FloorSpot): Uint8Array[] {
 }
 
 // The floor tiles (grid = 1, doors included) that floorReach does not reach from `from`, floor by floor, row by row. Empty when every
-// floor tile can be reached: a check for a generated map. Throws like floorReach
-export function unreachableFloorTiles(f: Floors, from: FloorSpot): FloorSpot[] {
-  const reach = floorReach(f, from),
+// floor tile can be reached: a check for a generated map. `use` picks the links as in floorReach. Throws like floorReach
+export function unreachableFloorTiles(
+  f: Floors,
+  from: FloorSpot,
+  use: (l: FloorLink) => boolean = ANY_LINK,
+): FloorSpot[] {
+  const reach = floorReach(f, from, use),
     out: FloorSpot[] = [];
   f.grids.forEach((g, floor) => {
     const { W, H } = g.world;
