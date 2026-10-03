@@ -1,5 +1,5 @@
 import type { Rng } from '../core/util.ts';
-import { COVER_H, DECK_H } from './tiles.ts';
+import { COVER_H, DECK_H, SIDE_NX, SIDE_NZ, SIDE_PX, SIDE_PZ } from './tiles.ts';
 // engine: Grid dungeon generation: rooms joined by corridors, then optional passes (raised decks, rubble, bridges).
 // Everything random draws from the rng you pass, so the same seed gives the same dungeon. No three.js, no DOM.
 // The maps use the same encoding as the tile world (world/tiles.ts), so they can go straight into setTileWorld.
@@ -15,11 +15,6 @@ const CORRIDOR_X_FIRST_CHANCE = 0.5; // chance a corridor runs along x first and
 const BIG_ROOM = 6; // a room at least this wide and tall (tiles) can hold a deck or pillars; must stay 5 or more (see addPillars)
 const PILLAR_CHANCE = 0.5; // chance a big room (without rubble) gets two pillars
 const BRIDGE_MIN_LEN = 5; // shortest straight corridor run (tiles) that can become a walkway
-// ramp sides, as in world/tiles.ts: the ramp rises toward this side
-const RAMP_PX = 0; // +x
-const RAMP_MX = 1; // -x
-const RAMP_PZ = 2; // +z (the next row down)
-const RAMP_MZ = 3; // -z (the previous row)
 
 // a room on the tile grid (tiles); plat = has a raised deck
 export interface Room {
@@ -230,7 +225,7 @@ export function addPlatform(maps: TileMaps, w: number, r: Room, deckH = DECK_H) 
     for (let i = r.x + 1; i <= r.x + r.w - 2; i++) maps.hgt[j * w + i] = deckH;
   // the ramp up to the deck: in the ring's top row, in the middle column, rising toward the deck
   const k = (r.y + 1) * w + roomCenter(r)[0];
-  maps.ramp[k] = RAMP_PZ;
+  maps.ramp[k] = SIDE_PZ;
   maps.hgt[k] = 0;
   r.plat = true;
 }
@@ -299,8 +294,8 @@ export function addBridges(maps: TileMaps, w: number, h: number, count: number, 
     .slice(0, count)
     .forEach(r => {
       const tile = (t: number) => runTile(w, r.hor, r.c, t);
-      maps.ramp[tile(r.a)] = r.hor ? RAMP_PX : RAMP_PZ;
-      maps.ramp[tile(r.b)] = r.hor ? RAMP_MX : RAMP_MZ;
+      maps.ramp[tile(r.a)] = r.hor ? SIDE_PX : SIDE_PZ;
+      maps.ramp[tile(r.b)] = r.hor ? SIDE_NX : SIDE_NZ;
       for (let t = r.a + 1; t < r.b; t++) maps.hgt[tile(t)] = deckH;
     });
 }
