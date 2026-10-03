@@ -86,7 +86,7 @@ import {
   setMusic,
   setMusicMix,
 } from '../src/audio/music.ts';
-import { INPUT, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
+import { INPUT, fire2Held, fireHeld, keys, lookDelta, mouseFire, releaseInputs } from '../src/ui/input.ts';
 import { TOUCH_LAYOUT, applyLayout, buttonLayout, layoutEditor, openLayoutEditor } from '../src/ui/touchlayout.ts';
 // Engine tests (Vitest, in Chromium: npm test). The page elements the engine expects are made by engine/test/setup.ts.
 // eq / near / ok keep the short messages the tests were written with
@@ -752,6 +752,23 @@ test('touchlayout: place, edit, reset', () => {
   ok(saved > 0, 'saved');
 });
 
+test('ui / input: a hold button lets go only when the finger that pressed it lifts', () => {
+  const btn = el('#btnFire2');
+  const ptr = (type: string, id: number) => btn.dispatchEvent(new PointerEvent(type, { pointerId: id, bubbles: true }));
+  ptr('pointerdown', 1);
+  ok(fire2Held, 'pressed');
+  ptr('pointerup', 7); // another finger lifting over the button
+  ok(fire2Held, 'still held by the first finger');
+  ptr('pointercancel', 7);
+  ok(fire2Held, 'nor on its cancel');
+  ptr('pointerup', 1);
+  ok(!fire2Held, 'released by its own finger');
+  ptr('pointerdown', 2);
+  releaseInputs();
+  ok(!fire2Held, 'releaseInputs lets go too');
+  ptr('pointerup', 2);
+  ok(!fire2Held);
+});
 test('ui / input: toast, keys, INPUT hooks', () => {
   toast('hi', 50);
   eq(el('#toast').textContent, 'hi');
