@@ -131,23 +131,35 @@ export function setDoor(maps: TileMaps, k: number) {
   maps.door[k] = 1;
 }
 // Doors on the doorways: a corridor tile (outside every room) that touches a room tile along x or along y, has wall on
-// both of its other two sides and floor straight on beyond. A corridor of width 2 or more has no such tile. The map
-// must have its rooms marked (roomOf). No random numbers.
+// both of its other two sides and floor straight on beyond. A corridor 2 wide gets a door on both of its tiles, side
+// by side (each has the other on one side and wall on the far side); a wider one has no such tile. The map must have
+// its rooms marked (roomOf). No random numbers.
 export function addDoorways(maps: TileMaps, size: number) {
   const g = maps.grid,
     roomOf = maps.roomOf,
     inRoom = (t: number) => g[t] === 1 && roomOf[t] >= 0, // a floor tile of a room
-    inCorridor = (t: number) => g[t] === 1 && roomOf[t] < 0;
+    inCorridor = (t: number) => g[t] === 1 && roomOf[t] < 0,
+    // is tile k a corridor's last tile before a room along `along`: 1 the room is behind it, -1 ahead, 0 it is not
+    way = (k: number, along: number): number =>
+      inRoom(k - along) && inCorridor(k + along) ? 1 : inRoom(k + along) && inCorridor(k - along) ? -1 : 0;
   for (let j = 1; j < size - 1; j++)
     for (let i = 1; i < size - 1; i++) {
       const k = j * size + i;
       if (!inCorridor(k)) continue;
-      // [the tiles before and after along the axis, the two across it], once along x and once along y
-      for (const [a, b, c, d] of [
-        [k - 1, k + 1, k - size, k + size],
-        [k - size, k + size, k - 1, k + 1],
-      ])
-        if (((inRoom(a) && inCorridor(b)) || (inRoom(b) && inCorridor(a))) && !g[c] && !g[d]) setDoor(maps, k);
+      // [the step along the corridor, the step across it], once along x and once along y
+      for (const [along, across] of [
+        [1, size],
+        [size, 1],
+      ]) {
+        const w = way(k, along);
+        if (!w) continue;
+        if (!g[k - across] && !g[k + across]) setDoor(maps, k);
+        // one half of a doorway 2 wide: wall on one side, on the other a tile that is the same kind of doorway with
+        // wall beyond it
+        for (const side of [across, -across])
+          if (!g[k - side] && inCorridor(k + side) && way(k + side, along) === w && !g[k + side + side])
+            setDoor(maps, k);
+      }
     }
 }
 

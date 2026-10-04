@@ -17,3 +17,19 @@ export const NOISE_PLATE_QUIET = '静粛';
 export const NOISE_PLATE_STAFF = '関係者以外立入禁止';
 export const NOISE_ON_AIR = 'ON AIR';
 export const NOISE_DANGER = '高電圧';
+// The ruined streets: the head of the residents' notice board ("notice board"), and the plate on the boss room's door
+// ("keep out")
+export const RUIN_NOTICE_BOARD = '掲示板';
+export const RUIN_KEEP_OUT = '立入禁止';
+// The old downtown: the signs of a Japanese office building (the emergency exit, the floor guide, the plate over a
+// fire extinguisher), and "keep out" painted down each leaf of the boss room's door
+export const CITY_EXIT = '非常口';
+export const CITY_GUIDE = 'フロア案内';
+export const CITY_EXTINGUISHER = '消火器';
+export const CITY_KEEP_OUT = '立入禁止';
+// The discarded data layer: the numbers on the racks, the zone's plate on a wall (its code, and "mind the static"),
+// and the word painted down each leaf of the boss room's door ("sealed")
+export const DATA_RACK_IDS = ['A-01', 'A-02', 'A-03', 'B-07', 'B-08', 'C-12'];
+export const DATA_PLATE_ZONE = 'DS-04';
+export const DATA_PLATE_CAUTION = '静電気注意';
+export const DATA_SEALED = '封鎖';

@@ -1899,6 +1899,36 @@ function putOnTile(k: number) {
   player.fy = floorY(player.x, player.z);
   player.vy = 0;
 }
+test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
+  // a door stands across a corridor: floor before and behind it, wall on its two sides
+  for (let seed = 1; seed <= 40; seed++) {
+    const b = makeBuilding(BIOMES[seed % BIOMES.length]!, 'watcher', seed);
+    b.plans.forEach((p, floor) => {
+      const { W: w, maps } = p.gen;
+      maps.door?.forEach((v, k) => {
+        if (!v) return;
+        // (the other half of a door 2 tiles wide is floor beside it, but it is a door)
+        const open = (t: number) => maps.grid[t] === 1 && !maps.door![t],
+          alongX = open(k - 1) || open(k + 1),
+          alongZ = open(k - w) || open(k + w);
+        expect(alongX && alongZ, `seed ${seed} floor ${floor} door ${k}`).toBe(false);
+      });
+    });
+  }
+});
+test('building: a sector with corridors 2 wide has doors 2 tiles wide, so a room that can be shut (a lockdown)', () => {
+  const city = BIOMES.find(x => x.gen.corridorW === 2)!;
+  for (const seed of [31, 62, 93]) {
+    const b = makeBuilding(city, city.bosses[0]!, seed);
+    expect(b.lockdown, `seed ${seed}`).not.toBeNull();
+    const p = b.plans[b.lockdown!.floor]!,
+      door = p.gen.maps.door!,
+      doors = roomDoors(p.gen, b.lockdown!.room).doors;
+    // every door tile of the room has its other half beside it, or is a door 1 wide (the corridor to the boss room)
+    for (const k of doors)
+      expect([k - 1, k + 1, k - p.gen.W, k + p.gen.W].filter(t => door[t]).length, `door ${k}`).toBeLessThanOrEqual(1);
+  }
+});
 test('building: the same seed gives the same three floors, joined at the same places, the boss room lowest', () => {
   const a = makeBuilding(BIOMES[0]!, 'watcher', 1234),
     b = makeBuilding(BIOMES[0]!, 'watcher', 1234),
@@ -1927,8 +1957,8 @@ test('building: the same seed gives the same three floors, joined at the same pl
         last = bld.plans[bld.plans.length - 1]!,
         hall = last.gen.rooms[last.hall!.room]!;
       expect(`${hall.w}x${hall.h}`, at).toBe('12x12');
-      expect(last.gen.rooms.length - 1, at).toBeGreaterThanOrEqual(2);
-      expect(last.gen.rooms.length - 1, at).toBeLessThanOrEqual(3);
+      expect(last.gen.rooms.length - 1, at).toBeGreaterThanOrEqual(3);
+      expect(last.gen.rooms.length - 1, at).toBeLessThanOrEqual(4);
       // the boss's pillars stand where they do in a boss arena (2 tiles in from the corners)
       expect(last.gen.maps.grid[(hall.y + 2) * last.gen.W + hall.x + 2], at).toBe(BOSS_META[kind]!.pillars ? 0 : 1);
       // the route: every floor once, from the top to the lowest, never more than two floors at a step
@@ -1983,7 +2013,11 @@ test('building: the same seed gives the same three floors, joined at the same pl
         const door = p.gen.maps.door;
         door?.forEach((v, k) => {
           if (!v) return;
-          for (const step of [1, p.gen.W]) for (const n of [1, 2]) expect(door[k + step * n], at).toBeFalsy();
+          // along the corridor: the axis with floor that is not door on it (the other half of a door 2 tiles wide
+          // is beside it, across the corridor)
+          const grid = p.gen.maps.grid,
+            step = [1, p.gen.W].find(st => [k - st, k + st].some(t => grid[t] === 1 && !door[t]))!;
+          for (const n of [1, 2]) expect(door[k + step * n], at).toBeFalsy();
         });
       });
       expect(last.gen.maps.door![last.hall!.door], at).toBe(1);
@@ -2289,6 +2323,25 @@ test('map: what lies behind a wall (a stairwell, a lift) stays off the map until
     }
   });
   expect(checked, 'at least one link had a wall near it').toBeGreaterThan(0);
+  goToFloor(0);
+});
+test('dash: in long frames (20 fps) a dash still goes up a stairwell', () => {
+  const b = building!,
+    stairs = b.links.find(l => l.kind === 'stairs');
+  if (!stairs) return; // a building without a stairwell: nothing to climb
+  goToFloor(stairs.lower);
+  const step = stairs.strip[1]! - stairs.strip[0]!,
+    di = Math.abs(step) === 1 ? step : 0,
+    dj = Math.abs(step) === 1 ? 0 : Math.sign(step);
+  putOnTile(stairs.strip[0]!);
+  const from = { x: player.x, z: player.z };
+  player.dashT = TUNE.dashTime;
+  player.ddx = di;
+  player.ddz = dj;
+  for (let k = 0; k < 4; k++) runSystems(0.05);
+  // 0.2 s of dash is about 4.9 m; stopped at the first metre of the ramp it would be about 2.4 m
+  expect(Math.hypot(player.x - from.x, player.z - from.z), 'how far the dash went').toBeGreaterThan(4);
+  expect(player.fy, 'and it climbed').toBeGreaterThan(1);
   goToFloor(0);
 });
 test('boss room: in it and at its door only its own floor is drawn (the room is higher than a floor)', () => {
