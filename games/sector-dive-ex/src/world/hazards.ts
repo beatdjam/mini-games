@@ -22,7 +22,8 @@ export function buildHazardMesh(biome: Biome, hazardTiles: Uint8Array, group: TH
   const hz: number[] = [];
   for (let k = 0; k < W * H; k++) if (hazardTiles[k]) hz.push(k);
   if (hz.length) {
-    hazMat = new THREE.MeshBasicMaterial({
+    // one material until clearHazards: the floors of a building are built one after another and blink together
+    hazMat ??= new THREE.MeshBasicMaterial({
       color: biome.gen.hazard.color,
       transparent: true,
       opacity: 0.2,

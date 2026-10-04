@@ -1,7 +1,7 @@
 import type { RunEnd, Weapon } from '../data/types.ts';
 import { el, shuffle } from '@engine/core/util.ts';
 import { LANG, lang, t } from '@engine/core/i18n.ts';
-import { T, W } from '@engine/world/tiles.ts';
+import { T, W, floorY } from '@engine/world/tiles.ts';
 import { WEAPONS } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';
@@ -9,6 +9,7 @@ import { PER } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
+import { building } from '../world/building.ts';
 import { setHazardClock } from '../world/hazards.ts';
 import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
@@ -31,6 +32,54 @@ import { update } from '../flow/update.ts';
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
 
+// dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
+// foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
+// the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door)
+if (location.hash.startsWith('#bld-'))
+  setTimeout(() => {
+    startRun();
+    const what = location.hash.slice(5),
+      b = building!,
+      stairs = b.links.find(l => l.kind === 'stairs' && l.upper === 0)!,
+      lift = b.links.find(l => l.kind === 'elevator' && l.upper === 0)!,
+      step = stairs.strip[1]! - stairs.strip[0]!, // one tile up the stairs
+      dirOf = (d: number): [number, number] => [Math.abs(d) === 1 ? d : 0, Math.abs(d) === 1 ? 0 : Math.sign(d)],
+      // the floor tile next to tile k (for standing beside a lift or a door), and the step from it to k
+      beside = (grid: Uint8Array, k: number): [number, number] => {
+        const d = [1, -1, W, -W].find(o => grid[k + o] === 1)!;
+        return [k + d, -d];
+      },
+      stand = (floor: number, tile: number, look: number) => {
+        run.bld!.floor = floor;
+        run.bld!.at = floor ? b.links.findIndex(l => l.upper === floor - 1) : -1;
+        startStage();
+        enemies.slice().forEach(e => {
+          e.dead = true;
+          removeEnemyMesh(e);
+        });
+        player.x = ((tile % W) + 0.5) * T;
+        player.z = (Math.floor(tile / W) + 0.5) * T;
+        player.fy = floorY(player.x, player.z);
+        const [dx, dz] = dirOf(look);
+        player.yaw = Math.atan2(-dx, -dz);
+        player.pitch = what === 'top' ? -0.35 : what === 'foot' ? 0.3 : 0;
+      };
+    if (what === 'foot') stand(1, stairs.strip[0]! - step, step);
+    else if (what === 'mid') stand(1, stairs.strip[2]!, step);
+    else if (what === 'top') stand(0, stairs.strip[stairs.strip.length - 1]! + step, -step);
+    else if (what === 'lift') stand(0, ...beside(b.plans[0]!.gen.maps.grid, lift.a));
+    else if (what === 'liftlow') stand(1, ...beside(b.plans[1]!.gen.maps.grid, lift.a));
+    else if (what === 'boss') {
+      const hall = b.plans[b.plans.length - 1]!.hall!,
+        grid = b.plans[b.plans.length - 1]!.gen.maps.grid,
+        roomOf = b.plans[b.plans.length - 1]!.gen.maps.roomOf,
+        out = [1, -1, W, -W].find(o => grid[hall.door + o] === 1 && roomOf[hall.door + o] !== hall.room)!;
+      stand(b.plans.length - 1, hall.door + out * 2, -out);
+    }
+    show(null);
+    setState('play');
+    for (let k = 0; k < 20; k++) update(1 / 60);
+  }, 300);
 // dev view: #view-KWLN etc. drops straight into that sector's first floor (for screenshots)
 if (location.hash.startsWith('#view-')) {
   setTimeout(() => {

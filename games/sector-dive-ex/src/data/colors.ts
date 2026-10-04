@@ -24,4 +24,5 @@ export const CSS_COLOR = {
   lime: css(COLOR.lime),
   text: css(COLOR.text),
   dim: css(COLOR.dim),
+  violet: css(COLOR.violet),
 };

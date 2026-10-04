@@ -439,4 +439,4 @@ export type GameState = 'base' | 'play' | 'pause' | 'perk' | 'result' | 'bag' | 
 export type RunEnd = 'extract' | 'dead' | 'abandon';
 export type PickupKind = 'bit' | 'kit' | 'chip' | 'weapon';
 // a gate: 'next' (on to the next area) or 'extract' (back to base)
-export type PortalKind = 'next' | 'extract' | 'link'; // link: stairs or a lift to another floor
+export type PortalKind = 'next' | 'extract';

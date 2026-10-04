@@ -19,14 +19,17 @@ import {
 import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
 import { BIOMES } from '../data/biomes.ts';
+import { COLOR } from '../data/colors.ts';
 import type { Biome } from '../data/types.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
 import { clearHazards } from './hazards.ts';
 import { ARENA_FROM, generateLevel } from './levelGen.ts';
 import type { FloorPlan } from './building.ts';
-import { buildDoorMeshes } from './doors.ts';
+import { FLOOR_H } from './building.ts';
+import type { Building } from './building.ts';
+import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
-import { buildLevelMeshes } from './levelMesh.ts';
+import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const ARENA_FOG_NEAR = 6; // fog start in boss arenas (m)
@@ -73,12 +76,34 @@ function emptyLevel(): Level {
 // replaced only by buildLevel and buildFixedLevel (and emptied piecewise by clearLevel)
 export let level: Level = emptyLevel();
 
+// the building on screen: every floor's meshes, stacked (see showBuilding). The level's group is one of floorGroups then
+let buildingGroup: THREE.Group | null = null;
+let floorGroups: THREE.Group[] = [];
+let shown: Building | null = null;
+// the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
+export let liftPads: { link: number; mesh: THREE.Mesh }[] = [];
+export const buildingShown = (b: Building | null): boolean => !!b && shown === b;
+
 function clearLevel() {
-  if (level.group) {
+  if (buildingGroup) {
+    disposeTree(buildingGroup);
+    scene.remove(buildingGroup);
+    buildingGroup = null;
+    floorGroups = [];
+    liftPads = [];
+    shown = null;
+    resetDoorMeshes();
+    level.group = null;
+  } else if (level.group) {
     disposeTree(level.group);
     scene.remove(level.group);
     level.group = null;
   }
+  clearHazards();
+  clearEntities();
+}
+// everything that lives on the level being played: enemies, bullets, pickups, effects, gates
+function clearEntities() {
   enemies.forEach(removeEnemyMesh);
   clearWorld();
   clearPool(pBullets);
@@ -87,7 +112,6 @@ function clearLevel() {
   level.portals = [];
   setBoss(null);
   setNear(null);
-  clearHazards();
 }
 
 // dev only (src/dev/dev.ts, ?seed=): the seed the next built levels use instead of a random one
@@ -115,15 +139,88 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
     }
   });
 }
-// A floor of the building (world/building.ts): the same tile world, meshes and Level as a level on its own, plus its
-// doors. The map explored so far (plan.seen) is kept, and the doors start shut.
-export function buildFloor(biome: Biome, plan: FloorPlan, floor: number, seed: number) {
+// hands one floor's maps to the tile world (new flow buffers each time)
+function setFloorWorld(plan: FloorPlan) {
+  const { W: w, H: h, maps: M } = plan.gen;
+  setTileWorld({
+    W: w,
+    H: h,
+    grid: M.grid,
+    hgt: M.hgt,
+    ramp: M.ramp,
+    cover: M.cover,
+    flow: new Int16Array(w * h),
+    flowQ: new Int32Array(w * h),
+    door: M.door,
+    doorOpen: M.doorOpen,
+  });
+}
+const LIFT_PAD = { side: T * 0.92, thick: 0.16 }; // a lift's platform (m)
+// Puts the whole building (world/building.ts) on screen: the meshes and doors of every floor, each in a group of its
+// own, plus the lifts' platforms. Which floor is played, and where the groups stand, is enterFloor's
+export function showBuilding(b: Building) {
+  clearLevel();
+  const all = new THREE.Group();
+  b.plans.forEach((plan, n) => {
+    setFloorWorld(plan);
+    const g = new THREE.Group();
+    buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9));
+    buildDoorMeshes(b.biome, g, plan.hall ? plan.hall.door : -1, n);
+    all.add(g);
+    floorGroups.push(g);
+  });
+  const w = b.plans[0]!.gen.W;
+  b.links.forEach((l, n) => {
+    if (l.kind !== 'elevator') return;
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(LIFT_PAD.side, LIFT_PAD.thick, LIFT_PAD.side),
+      new THREE.MeshBasicMaterial({ color: COLOR.violet }),
+    );
+    mesh.position.set(tileCenter(l.a % w), -LIFT_PAD.thick / 2 + 0.02, tileCenter(Math.floor(l.a / w)));
+    all.add(mesh);
+    liftPads.push({ link: n, mesh });
+  });
+  scene.add(all);
+  buildingGroup = all;
+  shown = b;
+  (scene.fog as THREE.Fog).color.setHex(b.biome.fog);
+  (scene.background as THREE.Color).setHex(b.biome.fog);
+}
+// Makes floor n of the building on screen the one being played: its maps in the tile world, a new Level for it, and
+// the floors placed so that this one stands at height 0 (the ones above it higher, the ones below lower). What lived
+// on the floor played before (enemies, bullets, pickups) is gone; the explored map and the meshes stay
+export function enterFloor(b: Building, n: number) {
+  clearEntities();
+  const plan = b.plans[n]!;
   plan.gen.maps.doorOpen?.fill(0);
-  useLevel(biome, false, plan.gen, seed);
-  level.floor = floor;
-  level.hall = plan.hall;
-  level.seen = plan.seen;
-  buildDoorMeshes(biome, level.group!, plan.hall ? plan.hall.door : -1);
+  setFloorWorld(plan);
+  level = {
+    biome: b.biome,
+    arena: false,
+    rooms: plan.gen.rooms,
+    roomOf: plan.gen.maps.roomOf,
+    seen: plan.seen,
+    hazardTiles: plan.gen.hazard,
+    roomCount: new Array(plan.gen.rooms.length).fill(0),
+    portals: [],
+    startIdx: plan.gen.startIdx,
+    exitIdx: 0,
+    group: floorGroups[n]!,
+    seed: b.seed,
+    floor: n,
+    hall: plan.hall,
+  };
+  floorGroups.forEach((g, m) => {
+    g.position.y = (n - m) * FLOOR_H;
+  });
+  liftPads.forEach(p => {
+    const up = b.links[p.link]!.upper;
+    p.mesh.visible = n === up || n === up + 1;
+    p.mesh.position.y = -LIFT_PAD.thick / 2 + 0.02;
+  });
+  useDoorFloor(n);
+  (scene.fog as THREE.Fog).near = b.biome.fogNear;
+  (scene.fog as THREE.Fog).far = b.biome.fogFar;
 }
 // where the boss fights: the middle of the boss room on a building floor, the middle of the map in a boss arena;
 // and how many tiles the arena's own coordinates (data/bosses.ts) are shifted by

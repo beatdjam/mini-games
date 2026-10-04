@@ -30,8 +30,8 @@ import { controlState } from '../ui/input.ts';
 import { drawMap } from '../ui/minimap.ts';
 import { screenFx, bctx, bigmap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
-import { endRun, nextStage, useLink } from './run.ts';
-import { onPlayerRoom, updateFloorEvents } from './events.ts';
+import { endRun, nextStage } from './run.ts';
+import { onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
 import { state } from './state.ts';
 import { openPerk } from '../screens/perk.ts';
 import { renderBase } from '../screens/base.ts';
@@ -174,12 +174,19 @@ function applyDash(dt: number, moveDir: Vec2): Vec2 {
 }
 
 function movePlayer(dt: number, dir: Vec2) {
+  if (ridingY() !== null) return; // riding a lift: the platform carries the player
   const speed = player.baseSpeed * player.spdMul * (1 + SPEED_OPT_PER_LEVEL * weaponOptCount('speed'));
   moveCircle(player, dir.x * speed * dt, dir.z * speed * dt, player.r);
 }
 
 // falls after a ledge or a drop, otherwise stays on the floor
 function applyGravity(dt: number) {
+  const rideY = ridingY();
+  if (rideY !== null) {
+    player.fy = rideY;
+    player.vy = 0;
+    return;
+  }
   const groundY = floorY(player.x, player.z);
   if (player.fy > groundY + GROUND_EPS) {
     player.vy -= GRAVITY * dt;
@@ -204,7 +211,7 @@ function updatePlayerTile() {
       tileZ = Math.floor(player.z / T);
     computeFlow(tileX, tileZ);
     reveal(tileX, tileZ);
-    onPlayerRoom(level.roomOf[tile]!);
+    onPlayerTile(tile);
   }
 }
 
@@ -315,8 +322,7 @@ function updatePortals(dt: number) {
       if (pt.kind === 'extract') {
         sfx('portal');
         endRun('extract');
-      } else if (pt.kind === 'link') useLink(pt.link);
-      else nextStage();
+      } else nextStage();
       stopFrame();
       return;
     }

@@ -3,7 +3,7 @@ import { clamp, el, isTouch, pick, randi, shuffle } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { musicVolume, setMusic } from '@engine/audio/music.ts';
-import { T, W, floorY, tileCenter } from '@engine/world/tiles.ts';
+import { T, W, computeFlow, floorY, tileCenter, tileCoord, tileIndex } from '@engine/world/tiles.ts';
 import type { Room } from '@engine/world/dungeon.ts';
 import { banner, enterFs, isFullscreen, keepAwake, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
@@ -23,8 +23,18 @@ import {
   setSuspend,
   storeWeapons,
 } from '../core/progress.ts';
-import { buildFloor, buildLevel, level, newSeed, randomTileIn, roomSpot } from '../world/level.ts';
-import { FLOORS, building, makeBuilding, setBuilding } from '../world/building.ts';
+import {
+  buildLevel,
+  buildingShown,
+  enterFloor,
+  level,
+  newSeed,
+  randomTileIn,
+  reveal,
+  roomSpot,
+  showBuilding,
+} from '../world/level.ts';
+import { FLOORS, FLOOR_H, building, makeBuilding, setBuilding } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal } from '../world/portals.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
@@ -183,7 +193,7 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
       addPickup('weapon', x, z, { w: rollWeapon(progressOf(run.stage)) });
     });
 }
-// ---- the building: a depth is FLOORS floors joined by stairs and lifts (world/building.ts) ----
+// ---- the building: a depth is FLOORS floors joined by stairwells and lifts (world/building.ts) ----
 // the building of this depth: a new one when the run has none for this depth yet; built again from its seed when the
 // one in memory is another (a resumed run)
 function ensureBuilding(tier: number, b: Biome): BuildingState {
@@ -202,32 +212,26 @@ function ensureBuilding(tier: number, b: Biome): BuildingState {
   if (!building || building.seed !== st.seed || building.biome !== b) setBuilding(makeBuilding(b, st.boss, st.seed));
   return st;
 }
-// a floor of the building: the player where they came in (the start room, or the end of the stairs or lift), a gate on
-// every stairs and lift of the floor, enemies in the rooms not cleared yet (none in the start room and the boss room),
-// weapon caches on the first visit
-function setupBuildingFloor(b: Biome, tier: number, plan: FloorPlan, st: BuildingState) {
-  const links = building!.links,
-    here = links.map(l => (l.a.floor === st.floor ? l.a : l.b.floor === st.floor ? l.b : null)),
-    came = st.at >= 0 ? here[st.at] : null;
-  const [sx, sz] = came ? [tileCenter(came.i), tileCenter(came.j)] : roomSpot(level.rooms[level.startIdx]);
-  player.x = sx;
-  player.z = sz;
+// where the player stands after taking link n of the building to the floor `floor` (a tile of that floor)
+const arrivalTile = (n: number, floor: number): number => {
+  const l = building!.links[n]!;
+  return floor === l.upper ? l.a : l.b;
+};
+// the player where they came in: the start room, or the end of the stairwell or lift they took (the top of the
+// stairs, or on the lift's platform)
+function placePlayerOnFloor(st: BuildingState) {
+  if (st.at < 0) [player.x, player.z] = roomSpot(level.rooms[level.startIdx]);
+  else {
+    const k = arrivalTile(st.at, st.floor);
+    player.x = tileCenter(k % W);
+    player.z = tileCenter(Math.floor(k / W));
+  }
   player.yaw = 0;
   player.pitch = 0;
-  links.forEach((l, n) => {
-    const end = here[n];
-    if (!end) return;
-    const other = l.a === end ? l.b : l.a,
-      stairs = l.kind === 'stairs';
-    makePortal(
-      tileCenter(end.i),
-      tileCenter(end.j),
-      stairs ? COLOR.lime : COLOR.violet,
-      'link',
-      t(stairs ? 'run.stairs' : 'run.lift', { dir: other.floor > end.floor ? '▼' : '▲' }),
-      n,
-    );
-  });
+}
+// what lives on a floor of the building: enemies in the rooms not cleared yet (none in the start room and the boss
+// room), and weapon caches on the first visit
+function populateFloor(b: Biome, tier: number, plan: FloorPlan, st: BuildingState) {
   const diff = difficultyAt(run.stage),
     done = st.cleared[st.floor]!,
     hasEnemies = (idx: number) => idx !== plan.gen.startIdx && idx !== plan.hall?.room && !done.includes(idx);
@@ -251,15 +255,38 @@ function setupBuildingFloor(b: Biome, tier: number, plan: FloorPlan, st: Buildin
       addPickup('weapon', x, z, { w: rollWeapon(progressOf(run.stage)) });
     });
 }
-// taking the stairs or a lift (a gate of kind 'link'): on to the floor at its other end
+// The player has walked (or ridden) from one floor of the building onto the next by link n, without a cut: the floor
+// they are on now becomes the one being played. The world does not move: the player's height is re-read against the
+// new floor's ground (dy = how far the new floor's ground is below the old one's, FLOOR_H going down, -FLOOR_H up)
+export function crossToFloor(n: number, to: number) {
+  const st = run.bld!,
+    b = building!,
+    dy = (to - st.floor) * FLOOR_H;
+  st.floor = to;
+  st.at = n;
+  run.stage = st.tier * PER + to;
+  recordBest(run.stage);
+  persist();
+  enterFloor(b, to);
+  resetFloorEvents();
+  populateFloor(b.biome, st.tier, b.plans[to]!, st);
+  player.fy += dy;
+  player.tile = tileIndex(player.x, player.z);
+  computeFlow(tileCoord(player.x), tileCoord(player.z));
+  reveal(tileCoord(player.x), tileCoord(player.z));
+  refreshRunText();
+  banner(stageLabel(run.stage), b.biome.name);
+  checkpoint();
+  updateHint();
+}
+// taking link n of the building with a cut (a fade): the player is put where the link ends on the other floor. The
+// game itself crosses floors without a cut (crossToFloor); this is for tests and dev hooks
 export function useLink(n: number) {
   const st = run.bld!,
-    l = building!.links[n]!,
-    to = l.a.floor === st.floor ? l.b : l.a;
-  sfx('portal');
-  st.floor = to.floor;
+    l = building!.links[n]!;
+  st.floor = st.floor === l.upper ? l.upper + 1 : l.upper;
   st.at = n;
-  run.stage = st.tier * PER + to.floor;
+  run.stage = st.tier * PER + st.floor;
   recordBest(run.stage);
   persist();
   startStage();
@@ -291,11 +318,12 @@ export function startStage() {
       target: bossKind ?? '',
     });
   if (inBuilding) {
-    const st = run.bld!,
-      plan = building!.plans[st.floor]!;
-    buildFloor(b, plan, st.floor, building!.seed + st.floor);
+    const st = run.bld!;
+    if (!buildingShown(building)) showBuilding(building!);
+    enterFloor(building!, st.floor);
     resetFloorEvents();
-    setupBuildingFloor(b, si.tier, plan, st);
+    placePlayerOnFloor(st);
+    populateFloor(b, si.tier, building!.plans[st.floor]!, st);
   } else {
     buildLevel(b, isArena, bossKind);
     if (isArena) setupArena(bossKind);

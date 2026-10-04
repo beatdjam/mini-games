@@ -7,17 +7,18 @@ import { lockDoor } from '@engine/world/doors.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
 import { PER } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
-import { building, roomDoors } from '../world/building.ts';
-import { arenaFog, level, randomTileIn, roomSpot } from '../world/level.ts';
+import { FLOOR_H, building, roomDoors } from '../world/building.ts';
+import { arenaFog, level, liftPads, randomTileIn, roomSpot } from '../world/level.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
 import { difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
 import { refreshRunText } from '../screens/pause.ts';
-import { pickEnemyType, roomEnemyCount } from './run.ts';
+import { crossToFloor, pickEnemyType, roomEnemyCount } from './run.ts';
 import { state } from './state.ts';
-// What happens in the rooms of a building floor: the lockdown (a room shuts and enemies come in waves) and the boss
-// room (its door opens when the player waits in front of it; walking in starts the fight).
+// What happens on a building floor: walking over a stairwell's landing or riding a lift moves on to the next floor,
+// the lockdown (a room shuts and enemies come in waves) and the boss room (its door opens when the player waits in
+// front of it; walking in starts the fight).
 // ---- tuning numbers used only here ----
 const LOCKDOWN_WAVES = 2; // waves that arrive after the room's own enemies
 const WAVE_MIN_DIST = 6; // a wave's enemies appear at least this far from the player when a spot can be found (m)
@@ -27,6 +28,10 @@ const BOSS_DOOR_R = 4; // waiting within this of the boss door's middle opens it
 const BOSS_DOOR_HOLD = 1.2; // ... for this long (s)
 const BOSS_DOOR_TOAST_MS = 2600;
 const BOSS_SPAWN_DELAY_MS = 1200; // the boss arrives this long after the player walks into its room
+const LIFT_R = 1.2; // standing within this of the middle of a lift's platform calls it (m)
+const LIFT_WAIT = 0.45; // ... for this long (s)
+const LIFT_TIME = 2.2; // a ride from one floor to the next (s)
+const LIFT_INVULN = 0.2; // the rider cannot be hurt (refreshed every frame of the ride) (s)
 
 // the state of the floor being played; reset when a floor is built (resetFloorEvents)
 const ev = {
@@ -36,6 +41,10 @@ const ev = {
   bossStarted: false, // the player has walked into the boss room
   bossDoorT: 0, // seconds the player has waited at the boss door
   bossDoorHint: false, // the hint at the boss door has been shown
+  liftArmed: false, // the player has been off the lifts' platforms since arriving (so a ride does not start at once)
+  liftT: 0, // seconds the player has stood on a platform
+  // the ride in progress: which lift, +1 down / -1 up, seconds so far
+  ride: null as { link: number; dir: number; t: number } | null,
 };
 const world = () => activeTileGrid().world;
 // is this room of the floor being played the building's lockdown room, with the lockdown still to come
@@ -53,6 +62,9 @@ export function resetFloorEvents() {
   ev.bossStarted = false;
   ev.bossDoorT = 0;
   ev.bossDoorHint = false;
+  ev.liftArmed = false;
+  ev.liftT = 0;
+  ev.ride = null;
   if (level.hall) lockDoor(world(), level.hall.door);
 }
 
@@ -133,17 +145,80 @@ export function onBossDown() {
   if (level.hall) lockDoor(world(), level.hall.door, false);
 }
 
-// the player stepped onto a new tile of a building floor (room = the room it is in, -1 = a corridor or a door)
-export function onPlayerRoom(room: number) {
-  if (level.floor < 0 || room < 0) return;
+// ---- between floors ----
+// The height of a lift rider's feet above the ground of the floor being played while a ride is on (null otherwise):
+// 0 to -FLOOR_H going down, 0 to FLOOR_H going up, easing in and out. The player's update keeps them there
+export function ridingY(): number | null {
+  const r = ev.ride;
+  if (!r) return null;
+  const u = Math.min(1, r.t / LIFT_TIME),
+    ease = u * u * (3 - 2 * u);
+  return -r.dir * FLOOR_H * ease;
+}
+// a lift: standing on its platform for a moment starts the ride; at its end the next floor is the one being played
+function updateLift(dt: number) {
+  const b = building!,
+    W = world().W,
+    r = ev.ride;
+  if (r) {
+    r.t += dt;
+    const l = b.links[r.link]!;
+    player.x = tileCenter(l.a % W);
+    player.z = tileCenter(Math.floor(l.a / W));
+    player.inv = Math.max(player.inv, LIFT_INVULN);
+    const pad = liftPads.find(p => p.link === r.link);
+    if (pad) pad.mesh.position.y = ridingY()! - 0.06;
+    if (r.t < LIFT_TIME) return;
+    player.fy = -r.dir * FLOOR_H;
+    crossToFloor(r.link, level.floor + r.dir); // resets these events: the ride is over
+    return;
+  }
+  const n = b.links.findIndex(
+    l =>
+      l.kind === 'elevator' &&
+      (l.upper === level.floor || l.upper + 1 === level.floor) &&
+      distXZ(player, { x: tileCenter(l.a % W), z: tileCenter(Math.floor(l.a / W)) }) < LIFT_R,
+  );
+  if (n < 0) {
+    ev.liftArmed = true;
+    ev.liftT = 0;
+    return;
+  }
+  if (!ev.liftArmed || ev.ldActive || ev.bossStarted) return;
+  ev.liftT += dt;
+  if (ev.liftT < LIFT_WAIT) return;
+  ev.ride = { link: n, dir: b.links[n]!.upper === level.floor ? 1 : -1, t: 0 };
+  sfx('portal');
+}
+// a stairwell: its landing is two tiles that are floor on both floors (world/building.ts). Stepping onto the one
+// nearer the stairs from the upper floor, or the far one from the lower floor, makes the other floor the one played
+function crossStairs(tile: number): boolean {
+  const n = building!.links.findIndex(
+    l =>
+      l.kind === 'stairs' &&
+      ((l.upper === level.floor && tile === l.b) || (l.upper + 1 === level.floor && tile === l.a)),
+  );
+  if (n < 0) return false;
+  const l = building!.links[n]!;
+  crossToFloor(n, l.upper === level.floor ? l.upper + 1 : l.upper);
+  return true;
+}
+
+// the player stepped onto a new tile of a building floor
+export function onPlayerTile(tile: number) {
+  if (level.floor < 0 || crossStairs(tile)) return;
+  const room = level.roomOf[tile]!; // -1 = a corridor or a door
+  if (room < 0) return;
   if (isLockdownRoom(room) && !ev.ldActive) startLockdown(room);
   if (level.hall && room === level.hall.room && !ev.bossStarted) startBossFight();
 }
 
-// every frame on a building floor: waiting in front of the locked boss door opens it
+// every frame on a building floor: the lifts, and waiting in front of the locked boss door opens it
 export function updateFloorEvents(dt: number) {
+  if (level.floor < 0) return;
+  updateLift(dt);
   const hall = level.hall;
-  if (level.floor < 0 || !hall || ev.bossStarted || !world().doorLock?.[hall.door]) return;
+  if (!hall || ev.bossStarted || !world().doorLock?.[hall.door]) return;
   const W = world().W,
     at = { x: tileCenter(hall.door % W), z: tileCenter(Math.floor(hall.door / W)) };
   if (distXZ(player, at) > BOSS_DOOR_R) {

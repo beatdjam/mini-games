@@ -22,7 +22,10 @@ import { biomeTex } from './render.ts';
 import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
+import { FLOOR_H } from './building.ts';
+import type { FloorPlan } from './building.ts';
 const NEON_COUNT = 90; // neon signs per level
+const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall colour times this
 
 // wedge rising toward +x across one tile; rotated per ramp direction
 function wedgeGeo() {
@@ -188,6 +191,72 @@ function addNeonSigns(tiles: [number, number][], group: THREE.Group, rng: Rng) {
   signs.instanceMatrix.needsUpdate = true;
   if (signs.instanceColor) signs.instanceColor.needsUpdate = true;
   group.add(signs);
+}
+
+// ---- a floor of the building: drawn tile by tile, so it can be open where a stairwell or a lift passes ----
+// one flat square per tile at height y, facing up or down
+function addTilePlanes(tiles: number[], y: number, up: boolean, mat: THREE.Material, group: THREE.Group) {
+  if (!tiles.length) return;
+  const geo = new THREE.PlaneGeometry(T, T);
+  geo.rotateX(up ? -Math.PI / 2 : Math.PI / 2);
+  const mesh = new THREE.InstancedMesh(geo, mat, tiles.length),
+    matrix = new THREE.Matrix4();
+  tiles.forEach((k, n) => {
+    matrix.makeTranslation(tileCenter(k % W), y, tileCenter((k / W) | 0));
+    mesh.setMatrixAt(n, matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  group.add(mesh);
+}
+// The three.js part of one floor of the building (world/building.ts). Reads the tile world (set to this floor first).
+// Unlike a level on its own it has a ceiling, and it is open where the plan says so: no wall over the stairwell that
+// comes up from the floor below, no floor on a landing or a lift's shaft, no ceiling where a stairwell or shaft goes
+// up, and the gap between the ceiling and the next floor walled round those
+export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Group, rng: Rng) {
+  const tex = biomeTex(biome),
+    all = Array.from({ length: W * H }, (_, k) => k),
+    wallSet = new Set(wallTiles().map(([i, j]) => j * W + i));
+  plan.shaftWall.forEach((v, k) => {
+    if (v) wallSet.add(k);
+  });
+  const walls = [...wallSet].filter(k => !plan.voids[k]).map(k => [k % W, (k / W) | 0] as [number, number]);
+  tex.floor.repeat.set(1, 1);
+  addTilePlanes(
+    all.filter(k => grid[k] === 1 && !plan.noFloor[k]),
+    0,
+    true,
+    new THREE.MeshBasicMaterial({ map: tex.floor }),
+    group,
+  );
+  addWalls(tex, walls, group);
+  addDecks(tex, group);
+  addRamps(tex, group);
+  buildHazardMesh(biome, plan.gen.hazard, group);
+  const dark = new THREE.MeshBasicMaterial({ color: new THREE.Color(biome.wall).multiplyScalar(CEILING_SHADE) });
+  addTilePlanes(
+    all.filter(k => (grid[k] === 1 || plan.voids[k]) && !plan.noCeil[k]),
+    WALL_H,
+    false,
+    dark,
+    group,
+  );
+  // between this floor's ceiling and the next floor's ground, round a stairwell or shaft that goes up
+  const fill = all.filter(k => plan.shaft[k] && !plan.noCeil[k]);
+  if (fill.length) {
+    const boxes = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(T, FLOOR_H - WALL_H, T),
+        new THREE.MeshBasicMaterial({ map: tex.wall }),
+        fill.length,
+      ),
+      matrix = new THREE.Matrix4();
+    fill.forEach((k, n) => {
+      matrix.makeTranslation(tileCenter(k % W), (WALL_H + FLOOR_H) / 2, tileCenter((k / W) | 0));
+      boxes.setMatrixAt(n, matrix);
+    });
+    boxes.instanceMatrix.needsUpdate = true;
+    group.add(boxes);
+  }
+  if (biome.gen.neon) addNeonSigns(walls, group, rng);
 }
 
 // The three.js part of a level: floor, walls, decks, ramps, cover, hazard floor, ceiling and neon signs. Reads the

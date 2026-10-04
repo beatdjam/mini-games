@@ -26,12 +26,24 @@ interface DoorMesh {
   mid: number; // the middle of the door's tile along `axis` (m)
   mat: THREE.MeshLambertMaterial; // shared by the two leaves
 }
-// rebuilt by buildDoorMeshes for every floor
+// the doors of every floor of the building (filled by buildDoorMeshes), and the floor whose doors move
+let doorSets: DoorMesh[][] = [];
 let doorMeshes: DoorMesh[] = [];
-
-// two leaves per door of the active tile world, across its corridor. bossDoor (a tile, or -1) gets its own colour and label
-export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: number) {
+export function resetDoorMeshes() {
+  doorSets = [];
   doorMeshes = [];
+}
+// the floor being played: its doors are the ones that move from now on
+export function useDoorFloor(floor: number) {
+  doorMeshes = doorSets[floor] ?? [];
+  doorMeshes.forEach(d => placeLeaves(d, 0));
+}
+
+// Two leaves per door of the active tile world (set to the floor being drawn), across its corridor, into the floor's
+// group. bossDoor (a tile, or -1) gets its own colour and label
+export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: number, floor: number) {
+  const list: DoorMesh[] = [];
+  doorSets[floor] = list;
   const { door, grid, W } = activeTileGrid().world;
   if (!door) return;
   door.forEach((v, k) => {
@@ -61,7 +73,7 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
       label.position.set(tileCenter(i), BOSS_LABEL_Y, tileCenter(j));
       group.add(label);
     }
-    doorMeshes.push(d);
+    list.push(d);
   });
 }
 // the leaves meet in the middle when shut and are each half a tile further out (inside the walls) when wide open
