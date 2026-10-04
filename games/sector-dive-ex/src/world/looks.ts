@@ -9,13 +9,15 @@ import { COLOR } from '../data/colors.ts';
 import { KWLN_DANGER, KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
 import type { Biome } from '../data/types.ts';
 import type { FloorPlan } from './building.ts';
+import { forgeLook } from './looks/forge.ts';
 // A sector's own look: its wall, floor, deck and ceiling pictures (painted on canvases, a few variants each so the
 // same picture is not on every tile) and the things fixed to its walls and ceilings (props; none of them is in the
 // way, so the tile world is not touched). A sector without a look is drawn with the plain line pattern in its colours
 // (world/render.ts). The pictures and the props are drawn from a seed, so a floor looks the same every time.
+// The walled city is painted in this file; a look in a file of its own (world/looks/) uses the tools exported here.
 // ---- tuning numbers used only here ----
-const TEX = 256; // side of a painted picture (px)
-const LAMP_POOL = 7; // side of the pool of light a ceiling lamp throws on the floor (m)
+export const TEX = 256; // side of a painted picture (px)
+export const LAMP_POOL = 7; // side of the pool of light a ceiling lamp throws on the floor (m)
 const LAMP_POOL_OPACITY = 0.7;
 
 export interface Look {
@@ -28,7 +30,7 @@ export interface Look {
   fog: number; // the colour things fade to in the distance (the sector's own is for the plain look)
   props: (plan: FloorPlan, group: THREE.Group, rng: Rng) => void;
 }
-type Paint = (g: CanvasRenderingContext2D, rand: () => number) => void;
+export type Paint = (g: CanvasRenderingContext2D, rand: () => number) => void;
 
 // dev only (?plain): every sector drawn the plain way, to compare a look with what was there before
 let plain = false;
@@ -46,7 +48,7 @@ function seeded(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function paint(seed: number, fn: Paint, repeat = false): THREE.CanvasTexture {
+export function paint(seed: number, fn: Paint, repeat = false): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = TEX;
   c.height = TEX;
@@ -60,7 +62,7 @@ function paint(seed: number, fn: Paint, repeat = false): THREE.CanvasTexture {
   return t;
 }
 // speckles and blotches over the whole picture: dirt
-function grime(g: CanvasRenderingContext2D, rand: () => number, n: number, light: string, dark: string) {
+export function grime(g: CanvasRenderingContext2D, rand: () => number, n: number, light: string, dark: string) {
   for (let k = 0; k < n; k++) {
     g.globalAlpha = 0.04 + rand() * 0.1;
     g.fillStyle = rand() < 0.5 ? light : dark;
@@ -72,7 +74,7 @@ function grime(g: CanvasRenderingContext2D, rand: () => number, n: number, light
 }
 
 // fine grain over the whole picture, pixel by pixel: what makes flat paint look like a surface
-function grain(g: CanvasRenderingContext2D, rand: () => number, amount: number) {
+export function grain(g: CanvasRenderingContext2D, rand: () => number, amount: number) {
   const img = g.getImageData(0, 0, TEX, TEX),
     px = img.data;
   for (let n = 0; n < px.length; n += 4) {
@@ -416,7 +418,7 @@ const kwlnDoor =
     grain(g, rand, 20);
   };
 // a soft round patch of light, for the pools under the lamps and signs
-const poolPaint: Paint = g => {
+export const poolPaint: Paint = g => {
   const r = g.createRadialGradient(TEX / 2, TEX / 2, 4, TEX / 2, TEX / 2, TEX / 2);
   r.addColorStop(0, 'rgba(255,255,255,1)');
   r.addColorStop(0.35, 'rgba(255,255,255,.45)');
@@ -725,6 +727,7 @@ const MAKERS: Record<string, () => Look> = {
     fog: 0x12100f,
     props: kwlnProps,
   }),
+  FORGE: forgeLook,
 };
 const made: Record<string, Look> = {};
 // the sector's look, or null when it has none (or ?plain is on): it is drawn the plain way then

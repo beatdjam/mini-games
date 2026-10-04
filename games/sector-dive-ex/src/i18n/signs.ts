@@ -6,3 +6,8 @@ export const KWLN_SHOP_NAMES = ['永興麵家', '福記茶餐廳', '榮華藥房
 // painted down each leaf of the boss room's door
 export const KWLN_DANGER = '危險';
 export const KWLN_NEON_WORDS = ['冰室', '旅館', '酒家', '麻雀', '理髮', '茶樓', '押', '藥'];
+// The smelter block: the enamel plates of a Japanese steelworks ("mind the heat", "safety first"), and the warning
+// painted down each leaf of the boss room's door
+export const FORGE_PLATE_HEAT = '高温注意';
+export const FORGE_PLATE_SAFETY = '安全第一';
+export const FORGE_DANGER = '危険';
