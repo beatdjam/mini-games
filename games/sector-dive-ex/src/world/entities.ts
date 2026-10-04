@@ -335,7 +335,12 @@ function clearOfPortals(x: number, z: number): [number, number] {
   }
   return [x, z];
 }
-export function addPickup(kind: PickupKind, x: number, z: number, extra?: { value?: number; w?: Weapon }): Pickup {
+export function addPickup(
+  kind: PickupKind,
+  x: number,
+  z: number,
+  extra?: { value?: number; w?: Weapon; rare?: boolean },
+): Pickup {
   const [px, pz] = clearOfPortals(x, z);
   const mesh = buildPickupMesh(kind, extra?.w);
   const baseY = (kind === 'bit' ? 0.5 : 1.0) + floorY(px, pz);

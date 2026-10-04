@@ -429,7 +429,7 @@ function collectKit(p: Pickup) {
 function collectChip(p: Pickup) {
   p.dead = true;
   sfx('chip');
-  openPerk(t('perk.title'));
+  openPerk(t('perk.title'), undefined, undefined, 1, !!p.rare);
 }
 export function updatePickup(p: Pickup, dt: number) {
   p.t += dt;

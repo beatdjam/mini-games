@@ -319,7 +319,7 @@ LANG.ja = {
     'run.lockdown': '敵を全滅させるまで出られない',
     'run.lockdownWave': '増援 {i}/{n}',
     'run.lockdownHud': 'LOCKDOWN {i}/{n}',
-    'run.lockdownClear': 'ロックダウン解除 — チップを回収できる',
+    'run.lockdownClear': 'ロックダウン解除 — チップ2枚と武器を回収できる',
     'run.bossDoorLabel': 'BOSS',
     'run.bossDoor': 'この先はボス部屋。ドアの前で待つと開く',
     'run.bossDoorOpen': 'ボス部屋のドアが開いた',
