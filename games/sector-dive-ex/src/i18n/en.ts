@@ -316,6 +316,7 @@ LANG.en = {
     'run.lockdownTitle': 'LOCKDOWN',
     'run.lockdown': 'No way out until every enemy is down',
     'run.lockdownWave': 'Reinforcements {i}/{n}',
+    'run.lockdownHud': 'LOCKDOWN {i}/{n}',
     'run.lockdownClear': 'Lockdown lifted — a chip is waiting',
     'run.bossDoorLabel': 'BOSS',
     'run.bossDoor': 'The boss room is ahead. Wait at the door to open it',

@@ -108,6 +108,13 @@ body.touch .kithud{display:none}
 #banner .code{font-family:var(--disp);font-weight:700;font-size:clamp(28px,6vw,46px);letter-spacing:.18em;color:var(--text);text-shadow:0 0 18px rgba(84,232,255,.5)}
 #banner .sub{font-size:15px;color:var(--dim);letter-spacing:.2em}
 #vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(255,40,90,.55) 100%);opacity:0}
+/* lockdown: a red frame that pulses for as long as the room is shut, with the wave count under the top row; the banner turns red */
+#alarm{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;box-shadow:inset 0 0 0 3px rgba(255,64,48,.95),inset 0 0 70px rgba(255,40,30,.6)}
+#alarm.on{opacity:1;animation:alarm 1.1s ease-in-out infinite}
+@keyframes alarm{0%,100%{opacity:.5}50%{opacity:1}}
+#alarmText{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 98px);text-align:center;font-family:var(--disp);font-size:13px;letter-spacing:.3em;color:#ff5a48;text-shadow:0 0 10px rgba(255,60,40,.9)}
+#banner.alert .code{color:#ff5a48;text-shadow:0 0 22px rgba(255,60,40,.9)}
+#banner.alert .sub{color:var(--amber)}
 #fade{position:absolute;inset:0;z-index:4;background:#000;pointer-events:none;opacity:0;transition:opacity .35s}
 
 /* ---------- touch ---------- */
@@ -321,6 +328,7 @@ body.desk.nolock .tbtn{display:grid}
 <div id="app">
   <canvas id="gl"></canvas>
   <div id="vig"></div>
+  <div id="alarm"><div id="alarmText"></div></div>
   <div id="hud" hidden>
     <div class="tl">
       <div class="hplabel"><span>HP</span><b id="hpNum" class="num">100</b></div>

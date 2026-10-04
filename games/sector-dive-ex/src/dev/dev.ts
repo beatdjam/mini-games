@@ -34,7 +34,8 @@ if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>>
 
 // dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
-// the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door)
+// the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
+// lockdown (in the lockdown room, which shuts)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -69,7 +70,12 @@ if (location.hash.startsWith('#bld-'))
     else if (what === 'top') stand(0, stairs.strip[stairs.strip.length - 1]! + step, -step);
     else if (what === 'lift') stand(0, ...beside(b.plans[0]!.gen.maps.grid, lift.a));
     else if (what === 'liftlow') stand(1, ...beside(b.plans[1]!.gen.maps.grid, lift.a));
-    else if (what === 'boss') {
+    else if (what === 'lockdown' && b.lockdown) {
+      const r = b.plans[b.lockdown.floor]!.gen.rooms[b.lockdown.room]!,
+        mid = Math.floor(r.y + r.h / 2) * W + Math.floor(r.x + r.w / 2);
+      stand(b.lockdown.floor, mid, 1);
+      player.hp = 1e6;
+    } else if (what === 'boss') {
       const hall = b.plans[b.plans.length - 1]!.hall!,
         grid = b.plans[b.plans.length - 1]!.gen.maps.grid,
         roomOf = b.plans[b.plans.length - 1]!.gen.maps.roomOf,

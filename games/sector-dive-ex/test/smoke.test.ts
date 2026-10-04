@@ -2212,6 +2212,11 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   tick(3);
   expect(run.stage, 'the boss stage of this depth').toBe(tier * PER + PER - 1);
   expect(isDoorLocked(world, hall.door), 'shut behind the player').toBe(true);
+  // an enemy waiting in another room of the floor has nothing to do with the fight
+  const other = level.rooms.findIndex((_, idx) => idx !== hall.room),
+    [ox, oz] = roomSpot(level.rooms[other]!),
+    bystander = spawnEnemy('crawler', ox, oz, other, 1);
+  level.roomCount[other] = 1;
   // the boss stands in the middle of the room (it arrives by a timer in the game; the test brings it)
   spawnBoss(run.bld!.boss);
   expect(boss!.cx).toBeCloseTo((r.x + r.w / 2) * T);
@@ -2226,6 +2231,8 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   tick(2);
   expect(level.portals.map(p => p.kind).sort()).toEqual(expect.arrayContaining(['extract', 'next']));
   expect(isDoorLocked(world, hall.door), 'the way back opens again').toBe(false);
+  expect(bystander.dead, 'the enemies in the other rooms are still there').toBeFalsy();
+  hurtEnemy(bystander, 1e6, false);
   // onward: the next depth is a new building, from its top floor
   const seedWas = run.bld!.seed;
   nextStage();
@@ -2257,6 +2264,8 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
   player.fy = floorY(x, z);
   tick(2);
   expect(locked(), 'shut with the player inside').toBe(true);
+  expect(el('#alarm').classList.contains('on'), 'the red frame is up').toBe(true);
+  expect(el('#alarmText').textContent).toContain('1/3');
   // the room's own enemies, then two waves: after each of the first three clears there are enemies again
   let waves = 0;
   const chipsWas = chips();
@@ -2270,6 +2279,7 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
     }
   }
   expect(run.bld!.ld, 'the lockdown is over').toBe(1);
+  expect(el('#alarm').classList.contains('on'), 'the red frame is gone').toBe(false);
   expect(waves, 'waves came before it ended').toBeGreaterThanOrEqual(2);
   expect(locked(), 'open again').toBe(false);
   expect(doors.some(k => isDoorLocked(world, k))).toBe(false);

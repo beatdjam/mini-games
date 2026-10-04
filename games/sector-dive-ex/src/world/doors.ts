@@ -17,7 +17,8 @@ const DOOR_THICK = 0.5; // thickness of a leaf (m)
 const DOOR_CFG = { sense: 7, speed: 5 }; // m from the middle of the door's tile; doorOpen per second
 const DOOR_LOCKED_GLOW = 0.9; // emissive intensity of a locked door
 const DOOR_GLOW = 0.25; // ... of an ordinary door
-const BOSS_LABEL_Y = WALL_H * 0.72; // height of the boss door's label (m)
+const BOSS_LABEL_Y = WALL_H * 0.6; // height of the boss door's label (m)
+const BOSS_LABEL_OUT = 1.2; // the label hangs this far in front of the door (m)
 
 interface DoorMesh {
   k: number; // tile
@@ -68,11 +69,14 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
       },
       d: DoorMesh = { k, leaves: [leaf(), leaf()], axis: alongX ? 'z' : 'x', mid: tileCenter(alongX ? j : i), mat };
     placeLeaves(d, 0);
-    if (boss) {
-      const label = textSprite(t('run.bossDoorLabel'), '#' + COLOR.mag.toString(16).padStart(6, '0'));
-      label.position.set(tileCenter(i), BOSS_LABEL_Y, tileCenter(j));
-      group.add(label);
-    }
+    // the boss door's label, in front of the door on both sides (in the door's own plane the leaves would hide it)
+    if (boss)
+      for (const side of [-1, 1]) {
+        const label = textSprite(t('run.bossDoorLabel'), '#' + COLOR.mag.toString(16).padStart(6, '0')),
+          off = side * BOSS_LABEL_OUT;
+        label.position.set(tileCenter(i) + (alongX ? off : 0), BOSS_LABEL_Y, tileCenter(j) + (alongX ? 0 : off));
+        group.add(label);
+      }
     list.push(d);
   });
 }

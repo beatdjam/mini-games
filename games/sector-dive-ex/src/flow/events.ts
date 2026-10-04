@@ -1,6 +1,7 @@
-import { distXZ } from '@engine/core/util.ts';
+import { distXZ, el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
+import { setMusic } from '@engine/audio/music.ts';
 import { burst } from '@engine/render/fx.ts';
 import { activeTileGrid, tileCenter } from '@engine/world/tiles.ts';
 import { lockDoor } from '@engine/world/doors.ts';
@@ -24,6 +25,8 @@ const LOCKDOWN_WAVES = 2; // waves that arrive after the room's own enemies
 const WAVE_MIN_DIST = 6; // a wave's enemies appear at least this far from the player when a spot can be found (m)
 const WAVE_SPOT_TRIES = 8; // attempts to find such a spot
 const LOCKDOWN_TOAST_MS = 3200;
+const ALARM_EVERY = 2.4; // the lockdown siren sounds this often (s)
+const ALERT_BANNER_MS = 2400; // how long the banner stays red after the lockdown's title (the banner itself shows for 2 s)
 const BOSS_DOOR_R = 4; // waiting within this of the boss door's middle opens it (m)
 const BOSS_DOOR_HOLD = 1.2; // ... for this long (s)
 const BOSS_DOOR_TOAST_MS = 2600;
@@ -38,6 +41,7 @@ const ev = {
   ldActive: false, // the lockdown is running
   ldPending: false, // the lockdown room was emptied from outside: the waves start when the player walks in
   wavesLeft: 0,
+  alarmT: 0, // seconds until the siren sounds again
   bossStarted: false, // the player has walked into the boss room
   bossDoorT: 0, // seconds the player has waited at the boss door
   bossDoorHint: false, // the hint at the boss door has been shown
@@ -59,6 +63,7 @@ export function resetFloorEvents() {
   ev.ldActive = false;
   ev.ldPending = false;
   ev.wavesLeft = 0;
+  showAlarm(false);
   ev.bossStarted = false;
   ev.bossDoorT = 0;
   ev.bossDoorHint = false;
@@ -68,6 +73,16 @@ export function resetFloorEvents() {
   if (level.hall) lockDoor(world(), level.hall.door);
 }
 
+// the lockdown's look: the red frame and the wave count (step i of n: the room's own enemies, then the waves)
+function showAlarm(on: boolean) {
+  el('#alarm').classList.toggle('on', on);
+  if (!on) el('#banner').classList.remove('alert');
+  else
+    el('#alarmText').textContent = t('run.lockdownHud', {
+      i: LOCKDOWN_WAVES - ev.wavesLeft + 1,
+      n: LOCKDOWN_WAVES + 1,
+    });
+}
 function spawnWave(room: number) {
   const r = level.rooms[room]!,
     si = stageInfo(run.stage),
@@ -83,18 +98,27 @@ function spawnWave(room: number) {
   }
   level.roomCount[room] = n;
   ev.wavesLeft--;
+  showAlarm(true);
+  sfx('alarm');
   toast(t('run.lockdownWave', { i: LOCKDOWN_WAVES - ev.wavesLeft, n: LOCKDOWN_WAVES }));
 }
 function startLockdown(room: number) {
   ev.ldActive = true;
   ev.wavesLeft = LOCKDOWN_WAVES;
   lockdownDoors(room).forEach(k => lockDoor(world(), k));
-  sfx('beam');
+  sfx('alarm');
+  ev.alarmT = ALARM_EVERY;
   banner(t('run.lockdownTitle'), t('run.lockdown'));
+  el('#banner').classList.add('alert');
+  setTimeout(() => el('#banner').classList.remove('alert'), ALERT_BANNER_MS);
+  showAlarm(true);
+  setMusic(level.biome.code, true); // the sector's boss arrangement while the room is shut
   if (ev.ldPending || level.roomCount[room] === 0) spawnWave(room);
 }
 function endLockdown(room: number) {
   ev.ldActive = false;
+  showAlarm(false);
+  setMusic(level.biome.code);
   run.bld!.ld = 1;
   lockdownDoors(room).forEach(k => lockDoor(world(), k, false));
   markCleared(room);
@@ -216,6 +240,13 @@ export function onPlayerTile(tile: number) {
 // every frame on a building floor: the lifts, and waiting in front of the locked boss door opens it
 export function updateFloorEvents(dt: number) {
   if (level.floor < 0) return;
+  if (ev.ldActive) {
+    ev.alarmT -= dt;
+    if (ev.alarmT <= 0) {
+      ev.alarmT = ALARM_EVERY;
+      sfx('alarm');
+    }
+  }
   updateLift(dt);
   const hall = level.hall;
   if (!hall || ev.bossStarted || !world().doorLock?.[hall.door]) return;

@@ -1,4 +1,4 @@
-import type { Boss, RegularEnemy } from '../../data/types.ts';
+import type { Boss, Enemy, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp, el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
@@ -7,6 +7,7 @@ import { setMusic } from '@engine/audio/music.ts';
 import { dynGroup } from '@engine/render/render.ts';
 import { burst, fireball } from '@engine/render/fx.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
+import { tileIndex } from '@engine/world/tiles.ts';
 import { query } from '@engine/core/world.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
@@ -208,6 +209,11 @@ export function spawnBoss(kind: string) {
   BOSS_SPAWNERS[kind]!();
   setMusic(level.biome.code, true); // boss arrangement of this sector's theme
 }
+// is the enemy in the boss's arena: anywhere in a boss arena, inside the boss room on a building floor (the enemies
+// in the floor's other rooms have nothing to do with the fight)
+function inArena(o: Enemy): boolean {
+  return !level.hall || level.roomOf[tileIndex(o.x, o.z)] === level.hall.room;
+}
 // the fight is over: music, shake and sound, then clear the minions, bullets and shockwaves left in the arena
 function clearBattle(e: Boss) {
   setMusic(level.biome.code);
@@ -218,7 +224,7 @@ function clearBattle(e: Boss) {
       b.visible = false;
     });
   enemies.forEach(o => {
-    if (!o.dead && !o.boss) {
+    if (!o.dead && !o.boss && inArena(o)) {
       o.dead = true;
       burst(o.x, o.mesh.position.y, o.z, o.def.color, 10, 7, 0.6);
       removeEnemyMesh(o);

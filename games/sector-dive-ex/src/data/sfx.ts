@@ -125,6 +125,11 @@ Object.assign(SFX, {
     sweepTone(t + 0.07, 'square', 500, 300, 0.04, 0.05);
   }, // mag in, slide
   portal: () => tone(220, 0.9, 'sine', 0.28, 4),
+  // lockdown siren: two rising notes
+  alarm: () => {
+    tone(520, 0.22, 'square', 0.09, 1.5);
+    tone(520, 0.22, 'square', 0.09, 1.5, 0.3);
+  },
   beam: () => {
     const t = audioNow();
     sweepTone(t, 'sawtooth', 70, 140, 0.6, 0.12, 0.3);
