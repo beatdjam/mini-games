@@ -11,3 +11,9 @@ export const KWLN_NEON_WORDS = ['冰室', '旅館', '酒家', '麻雀', '理髮'
 export const FORGE_PLATE_HEAT = '高温注意';
 export const FORGE_PLATE_SAFETY = '安全第一';
 export const FORGE_DANGER = '危険';
+// The old downtown: the signs of a Japanese office building (the emergency exit, the floor guide, the plate over a
+// fire extinguisher), and "keep out" painted down each leaf of the boss room's door
+export const CITY_EXIT = '非常口';
+export const CITY_GUIDE = 'フロア案内';
+export const CITY_EXTINGUISHER = '消火器';
+export const CITY_KEEP_OUT = '立入禁止';

@@ -1,5 +1,6 @@
 import type { Biome } from '../data/types.ts';
 import type { Look } from './looks/common.ts';
+import { cityLook } from './looks/city.ts';
 import { forgeLook } from './looks/forge.ts';
 import { kwlnLook } from './looks/kwln.ts';
 // A sector's own look: its wall, floor, deck and ceiling pictures (painted on canvases, a few variants each so the
@@ -21,6 +22,7 @@ export function devPlainLooks(on: boolean) {
 const MAKERS: Record<string, () => Look> = {
   KWLN: kwlnLook,
   FORGE: forgeLook,
+  CITY: cityLook,
 };
 const made: Record<string, Look> = {};
 // the sector's look, or null when it has none (or ?plain is on): it is drawn the plain way then
