@@ -1899,6 +1899,21 @@ function putOnTile(k: number) {
   player.fy = floorY(player.x, player.z);
   player.vy = 0;
 }
+test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
+  // a door stands across a corridor: floor before and behind it, wall on its two sides
+  for (let seed = 1; seed <= 40; seed++) {
+    const b = makeBuilding(BIOMES[seed % BIOMES.length]!, 'watcher', seed);
+    b.plans.forEach((p, floor) => {
+      const { W: w, maps } = p.gen;
+      maps.door?.forEach((v, k) => {
+        if (!v) return;
+        const alongX = maps.grid[k - 1] === 1 || maps.grid[k + 1] === 1,
+          alongZ = maps.grid[k - w] === 1 || maps.grid[k + w] === 1;
+        expect(alongX && alongZ, `seed ${seed} floor ${floor} door ${k}`).toBe(false);
+      });
+    });
+  }
+});
 test('building: the same seed gives the same three floors, joined at the same places, the boss room lowest', () => {
   const a = makeBuilding(BIOMES[0]!, 'watcher', 1234),
     b = makeBuilding(BIOMES[0]!, 'watcher', 1234),
