@@ -11,3 +11,7 @@ export const KWLN_NEON_WORDS = ['冰室', '旅館', '酒家', '麻雀', '理髮'
 export const FORGE_PLATE_HEAT = '高温注意';
 export const FORGE_PLATE_SAFETY = '安全第一';
 export const FORGE_DANGER = '危険';
+// The ruined streets: the head of the residents' notice board ("notice board"), and the plate on the boss room's door
+// ("keep out")
+export const RUIN_NOTICE_BOARD = '掲示板';
+export const RUIN_KEEP_OUT = '立入禁止';
