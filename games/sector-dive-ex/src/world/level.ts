@@ -215,22 +215,24 @@ function setFloorWorld(plan: FloorPlan) {
 }
 const LIFT_PAD = { side: T * 0.92, thick: 0.16 }; // a lift's platform (m)
 const NEIGHBOUR_SHOW_R = 40; // the floors above and below are drawn within this of a stairwell or lift, or the fog's end if nearer (m)
-// Draws the floors next to the one being played only while the player is near a stairwell or lift that leads to them
-// (that is the only place they can be seen from); the rest of the time only this floor is drawn. Floors further away
-// are never drawn. Called every frame on a building floor
+// Draws the other floors only while the player is near a stairwell or lift of this floor: the floors it leads to and
+// passes (that is the only place they can be seen from). The rest of the time only this floor is drawn. Called every
+// frame on a building floor
 export function showNeighbourFloors(b: Building, x: number, z: number) {
   const n = level.floor,
     w = b.plans[0]!.gen.W,
     reach = Math.min(NEIGHBOUR_SHOW_R, b.biome.fogFar),
+    // a link of this floor that the player is near: the floors it joins and passes are seen along it
     near = (m: number) =>
       b.links.some(
         l =>
-          Math.min(l.upper, n) === Math.min(m, n) &&
-          l.upper + 1 === Math.max(m, n) &&
+          (l.upper === n || l.lower === n) &&
+          m >= l.upper &&
+          m <= l.lower &&
           l.strip.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach),
       );
   floorGroups.forEach((g, m) => {
-    g.visible = m === n || (Math.abs(m - n) === 1 && near(m));
+    g.visible = m === n || near(m);
   });
 }
 export const floorDrawn = (m: number): boolean => !!floorGroups[m]?.visible;
@@ -292,8 +294,8 @@ export function enterFloor(b: Building, n: number) {
     g.position.y = (n - m) * FLOOR_H;
   });
   liftPads.forEach(p => {
-    const up = b.links[p.link]!.upper;
-    p.mesh.visible = n === up || n === up + 1;
+    const l = b.links[p.link]!;
+    p.mesh.visible = n === l.upper || n === l.lower;
     p.mesh.position.y = -LIFT_PAD.thick / 2 + 0.02;
   });
   useDoorFloor(n);

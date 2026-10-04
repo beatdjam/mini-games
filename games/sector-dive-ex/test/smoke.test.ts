@@ -111,7 +111,7 @@ import {
   startStage,
   useLink,
 } from '../src/flow/run.ts';
-import { FLOORS, FLOOR_H, STRIP, building, makeBuilding, roomDoors } from '../src/world/building.ts';
+import { FLOORS_RANGE, FLOOR_H, STRIP, building, makeBuilding, roomDoors } from '../src/world/building.ts';
 import { ridingY } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
 import { setState, show, state } from '../src/flow/state.ts';
@@ -186,7 +186,7 @@ BIOMES.forEach((b, bi) => {
       run.forceBoss = kind;
       startStage();
       run.forceBoss = undefined;
-      goToFloor(FLOORS - 1);
+      goToFloor(building!.plans.length - 1);
       run.stage = bi * PER + PER - 1; // the boss stage, as once the player has walked into the boss room
       setBoss(null);
       enemies.slice().forEach(e => {
@@ -1076,17 +1076,18 @@ test('suspend -> resume -> suspend -> discard', () => {
   run.route = [0];
   run.stage = 0;
   startStage();
-  run.bld!.floor = FLOORS - 1;
-  run.bld!.at = building!.links.findIndex(l => l.upper === FLOORS - 2);
-  startStage();
+  goToFloor(building!.plans.length - 1);
   tick(30);
-  const seedWas = run.bld!.seed;
+  const seedWas = run.bld!.seed,
+    stageWas = run.stage;
   suspendRun();
   if (!save.suspend || state !== 'base') throw new Error('suspend failed');
   resumeRun();
   tick(60);
-  if (run.stage !== 2 || (save.suspend as Snapshot | null)?.run.stage !== 2) throw new Error('resume failed');
-  if (run.bld!.seed !== seedWas || level.floor !== FLOORS - 1 || !level.hall) throw new Error('not the same building');
+  if (run.stage !== stageWas || (save.suspend as Snapshot | null)?.run.stage !== stageWas)
+    throw new Error('resume failed');
+  if (run.bld!.seed !== seedWas || level.floor !== building!.plans.length - 1 || !level.hall)
+    throw new Error('not the same building');
   suspendRun();
   discardSuspended();
   if (save.suspend || !stateIs('result')) throw new Error('discard failed');
@@ -1207,6 +1208,9 @@ test('reboot bonuses: uncapped, cost climbs, reach the player and the readiness'
 test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
   goBase();
   startRun();
+  // an open boss arena without pillars (a run's own boss room is inside a building floor: as boss practice gets one)
+  run.practice = true;
+  run.t0 = performance.now();
   run.stage = PER - 1;
   run.forceBoss = 'trinity';
   startStage();
@@ -1225,6 +1229,7 @@ test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
   const shots = e.shots,
     [head, chest, legs] = e.parts!.map(q => q.p.y);
   run.forceBoss = undefined;
+  run.practice = false; // ends as the ordinary run it was started as
   endRun('abandon');
   goBase();
   if (shots !== 3 || !(head > chest && chest > legs))
@@ -1855,7 +1860,7 @@ const killRoom = (room: number) =>
 // puts the player on a building floor as if they had come down to it by a stairwell or lift (the start room on floor 0)
 function goToFloor(floor: number) {
   run.bld!.floor = floor;
-  run.bld!.at = floor ? building!.links.findIndex(l => l.upper === floor - 1) : -1;
+  run.bld!.at = floor ? building!.links.findIndex(l => l.upper === floor || l.lower === floor) : -1;
   startStage();
   player.hp = 1e6;
   player.maxHp = 1e6;
@@ -1872,32 +1877,55 @@ test('building: the same seed gives the same three floors, joined at the same pl
   const a = makeBuilding(BIOMES[0]!, 'watcher', 1234),
     b = makeBuilding(BIOMES[0]!, 'watcher', 1234),
     maps = (x: typeof a) => x.plans.map(p => Array.from(p.gen.maps.grid).join('')).join('|');
-  expect(a.plans.length).toBe(FLOORS);
   expect(maps(a)).toBe(maps(b));
   expect(JSON.stringify([a.links, a.lockdown])).toBe(JSON.stringify([b.links, b.lockdown]));
   expect(maps(makeBuilding(BIOMES[0]!, 'watcher', 1235))).not.toBe(maps(a));
-  expect(a.plans.map(p => !!p.hall)).toEqual([false, false, true]);
-  expect(a.plans.map(p => p.gen.startIdx >= 0)).toEqual([true, false, false]);
+  expect(a.plans.map(p => !!p.hall).join()).toBe(a.plans.map((_, n) => n === a.plans.length - 1).join());
+  expect(a.plans.map(p => p.gen.startIdx >= 0).join()).toBe(a.plans.map((_, n) => n === 0).join());
+  // over many seeds: buildings of 3, 4 and 5 floors, and routes that go back up on the way down
+  const many = Array.from({ length: 60 }, (_, n) => makeBuilding(BIOMES[0]!, 'watcher', n + 1));
+  expect([...new Set(many.map(b => b.plans.length))].sort().join()).toBe('3,4,5');
+  expect(
+    many.some(b => b.route.some((f, n) => n > 0 && f < b.route[n - 1]!)),
+    'a route that climbs',
+  ).toBe(true);
+  expect(
+    many.some(b => b.links.some(l => l.lower - l.upper === 2)),
+    'a lift past a floor',
+  ).toBe(true);
   for (const biome of BIOMES)
     for (let seed = 1; seed <= 25; seed++) {
       const kind = biome.bosses[seed % biome.bosses.length]!,
         bld = makeBuilding(biome, kind, seed),
         at = `${biome.code} seed ${seed}`,
-        last = bld.plans[FLOORS - 1]!,
+        last = bld.plans[bld.plans.length - 1]!,
         hall = last.gen.rooms[last.hall!.room]!;
       expect(`${hall.w}x${hall.h}`, at).toBe('12x12');
       expect(last.gen.rooms.length - 1, at).toBeGreaterThanOrEqual(2);
       expect(last.gen.rooms.length - 1, at).toBeLessThanOrEqual(3);
       // the boss's pillars stand where they do in a boss arena (2 tiles in from the corners)
       expect(last.gen.maps.grid[(hall.y + 2) * last.gen.W + hall.x + 2], at).toBe(BOSS_META[kind]!.pillars ? 0 : 1);
-      // every pair of neighbouring floors has a stairwell and a lift
-      expect(bld.links.map(l => `${l.kind}${l.upper}`).join(), at).toBe('stairs0,elevator0,stairs1,elevator1');
+      // the route: every floor once, from the top to the lowest, never more than two floors at a step
+      const F = bld.plans.length;
+      expect(F >= FLOORS_RANGE[0] && F <= FLOORS_RANGE[1], at).toBe(true);
+      expect(bld.route.slice().sort().join(), at).toBe(bld.plans.map((_, n) => n).join());
+      expect(bld.route[0] === 0 && bld.route[F - 1] === F - 1, at).toBe(true);
+      // one stairwell or lift per step of the route, joining exactly those two floors
+      expect(bld.links.length, at).toBe(F - 1);
+      bld.links.forEach((l, n) => {
+        expect([l.upper, l.lower].join(), at).toBe([bld.route[n]!, bld.route[n + 1]!].sort().join());
+        expect(l.lower - l.upper, at).toBeLessThanOrEqual(l.kind === 'stairs' ? 1 : 2);
+      });
       for (const l of bld.links) {
         const up = bld.plans[l.upper]!.gen.maps,
-          lo = bld.plans[l.upper + 1]!.gen.maps;
+          lo = bld.plans[l.lower]!.gen.maps;
         if (l.kind === 'elevator') {
-          // one tile, floor on both floors
+          // one tile, floor on the two floors it stops at, wall on a floor it only passes
           expect(l.strip.length === 1 && up.grid[l.a] === 1 && lo.grid[l.a] === 1 && l.a === l.b, at).toBe(true);
+          for (let n = l.upper + 1; n < l.lower; n++) {
+            expect(bld.plans[n]!.gen.maps.grid[l.a], at).toBe(0);
+            expect(bld.plans[n]!.voids[l.a] && bld.plans[n]!.noCeil[l.a], `${at}: an open shaft`).toBeTruthy();
+          }
           continue;
         }
         // the lower floor: the foot on the ground, ramps one RISE after the other, the landing at the next floor
@@ -1914,7 +1942,7 @@ test('building: the same seed gives the same three floors, joined at the same pl
         expect([l.b, l.a].join(), at).toBe(l.strip.slice(-2).join());
         // drawn open: no wall over the stairs on the upper floor, no ceiling over them on the lower floor
         const upPlan = bld.plans[l.upper]!,
-          loPlan = bld.plans[l.upper + 1]!;
+          loPlan = bld.plans[l.lower]!;
         expect(
           l.strip.slice(0, -2).every(k => upPlan.voids[k]),
           at,
@@ -1940,8 +1968,7 @@ test('building: the same seed gives the same three floors, joined at the same pl
       for (let j = hall.y; j < hall.y + hall.h; j++)
         for (let i = hall.x; i < hall.x + hall.w; i++) expect(last.gen.hazard[j * last.gen.W + i], at).toBe(0);
       for (const l of bld.links)
-        for (const k of l.strip)
-          for (const n of [l.upper, l.upper + 1]) expect(bld.plans[n]!.gen.hazard[k], at).toBe(0);
+        for (const k of l.strip) for (const n of [l.upper, l.lower]) expect(bld.plans[n]!.gen.hazard[k], at).toBe(0);
       // the lockdown room can be shut, and is not the start room or the boss room
       const ld = bld.lockdown;
       if (!ld) continue;
@@ -1957,6 +1984,7 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   player.hp = 1e6;
   player.maxHp = 1e6;
   expect(level.floor).toBe(0);
+  expect(run.bld!.step).toBe(0);
   expect(run.stage % PER).toBe(0);
   expect(level.portals.length, 'no gate: the floors are joined by stairwells and lifts').toBe(0);
   // empty one room (not the lockdown room: that one sends waves)
@@ -1971,18 +1999,24 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   const [kx, kz] = roomSpot(level.rooms[level.startIdx]!),
     kit = addPickup('kit', kx + 3, kz),
     countsWas = level.roomCount.join();
-  const n = building!.links.findIndex(l => l.kind === 'stairs' && l.upper === 0);
+  // the first step of the route: its stairwell or lift leads to the route's second floor
+  const n = 0,
+    next = building!.route[1]!,
+    arrive = building!.links[n]!;
   useLink(n);
   tick(5);
   expect(enemies.includes(hurt) || query<Pickup>('pickup').includes(kit), 'the floor left took them along').toBe(false);
-  expect(level.floor).toBe(1);
-  expect(run.stage % PER).toBe(1);
-  expect(tileIndex(player.x, player.z), 'the player stands at the top of the stairs').toBe(building!.links[n]!.b);
-  expect(player.fy, 'on the lower floor that is a floor above its ground').toBeCloseTo(FLOOR_H);
-  expect((save.suspend as Snapshot | null)?.run.bld?.floor, 'the checkpoint is on the new floor').toBe(1);
+  expect(level.floor).toBe(next);
+  expect(run.bld!.step, 'the second floor of the route, whichever floor that is').toBe(1);
+  expect(stageLabel(run.stage)).toBe(`D${run.bld!.tier + 1} 2/${run.bld!.floors}`);
+  expect(progressOf(run.stage), 'the strength follows the route').toBeCloseTo(run.bld!.tier * 5 + 4 / run.bld!.floors);
+  expect(tileIndex(player.x, player.z), 'the player stands where the link ends on this floor').toBe(arrive.b);
+  // at the top of a stairwell that is a floor above this floor's ground; on a lift's platform it is the ground
+  expect(player.fy).toBeCloseTo(arrive.kind === 'stairs' ? FLOOR_H : 0);
+  expect((save.suspend as Snapshot | null)?.run.bld?.floor, 'the checkpoint is on the new floor').toBe(next);
   expect(level.startIdx, 'no start room down here').toBe(-1);
   tick(120);
-  expect(level.floor, 'standing there changes nothing').toBe(1);
+  expect(level.floor, 'standing there changes nothing').toBe(next);
   useLink(n);
   tick(5);
   expect(level.floor).toBe(0);
@@ -2010,24 +2044,32 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   expect(level.roomCount[room]).toBe(0);
 });
 test('stairwell: walking over the landing changes the floor without moving the player in the world', () => {
-  goToFloor(0);
+  // a run whose building has a stairwell (about half the steps of a route are one)
+  for (let k = 0; k < 40 && !building!.links.some(x => x.kind === 'stairs'); k++) {
+    goBase();
+    startRun();
+    tick(2);
+  }
+  const l = building!.links.find(x => x.kind === 'stairs')!,
+    stepOf = (floor: number) => building!.route.indexOf(floor);
+  goToFloor(l.upper);
   enemies.slice().forEach(e => hurtEnemy(e, 1e6, false));
-  const l = building!.links.find(x => x.kind === 'stairs' && x.upper === 0)!,
-    [foot, , , , top, l1, l2] = l.strip as [number, number, number, number, number, number, number];
+  const [foot, , , , top, l1, l2] = l.strip as [number, number, number, number, number, number, number];
   // on the upper floor the far landing tile changes nothing
   putOnTile(l2);
   tick(2);
-  expect(level.floor).toBe(0);
-  // at the stairwell the floor below is drawn (it is seen down the stairs); the one two floors down never is
-  expect([0, 1, 2].map(floorDrawn)).toEqual([true, true, false]);
+  expect(level.floor).toBe(l.upper);
+  // at the stairwell the floor below is drawn (it is seen down the stairs)
+  // (another stairwell or lift of this floor may be near too, so the other floors are not checked)
+  expect(floorDrawn(l.upper) && floorDrawn(l.lower)).toBe(true);
   expect(player.fy).toBeCloseTo(0);
   // the tile nearer the stairs is the lower floor's: its ground is a floor below, so the player is FLOOR_H above it
   putOnTile(l1);
   tick(2);
-  expect(level.floor).toBe(1);
+  expect(level.floor).toBe(l.lower);
   expect(player.fy, 'the same height in the world').toBeCloseTo(FLOOR_H);
   expect(floorY(player.x, player.z)).toBeCloseTo(FLOOR_H);
-  expect(run.stage % PER).toBe(1);
+  expect(run.bld!.step).toBe(stepOf(l.lower));
   // down the ramps to the foot
   putOnTile(top);
   tick(2);
@@ -2035,17 +2077,17 @@ test('stairwell: walking over the landing changes the floor without moving the p
   expect(player.fy).toBeLessThan(FLOOR_H);
   putOnTile(foot);
   tick(2);
-  expect(level.floor).toBe(1);
+  expect(level.floor).toBe(l.lower);
   expect(player.fy).toBeCloseTo(0);
   // and back up: the far landing tile is the upper floor's
   putOnTile(l1);
   tick(2);
-  expect(level.floor, 'still the lower floor on the near tile').toBe(1);
+  expect(level.floor, 'still the lower floor on the near tile').toBe(l.lower);
   putOnTile(l2);
   tick(2);
-  expect(level.floor).toBe(0);
+  expect(level.floor).toBe(l.upper);
   expect(player.fy).toBeCloseTo(0);
-  expect(run.stage % PER).toBe(0);
+  expect(run.bld!.step).toBe(stepOf(l.upper));
 });
 test('running: the dash held on after a dash keeps the player fast and drains stamina until it is let go', () => {
   // a long straight corridor, the player walking along it (the stick pushed forward)
@@ -2188,40 +2230,62 @@ test('big map: closed, the 2D map, the 3D map of the building, closed again', ()
   expect(flat.hidden).toBe(true);
   expect(solid.hidden).toBe(true);
 });
-test('lift: standing on the platform rides to the next floor and back', () => {
-  goToFloor(0);
-  enemies.slice().forEach(e => hurtEnemy(e, 1e6, false));
-  const l = building!.links.find(x => x.kind === 'elevator' && x.upper === 0)!;
-  putOnTile(l.a);
-  tick(20);
-  expect(ridingY(), 'the wait is not over').toBe(null);
-  tick(40);
-  expect(ridingY(), 'riding down').toBeLessThan(0);
-  expect(level.floor).toBe(0);
-  const before = player.fy;
-  player.x += 3; // the rider cannot walk off
-  tick(1);
-  expect(tileIndex(player.x, player.z)).toBe(l.a);
-  expect(player.fy).toBeLessThan(before);
-  tick(200);
-  expect(ridingY()).toBe(null);
-  expect(level.floor).toBe(1);
-  expect(player.fy).toBeCloseTo(0);
-  expect(tileIndex(player.x, player.z)).toBe(l.a);
-  // it does not leave again until the player has stepped off and back on
-  tick(120);
-  expect(level.floor).toBe(1);
-  putOnTile(building!.links.find(x => x.kind === 'stairs' && x.upper === 0)!.strip[0]!);
-  tick(2);
-  putOnTile(l.a);
-  tick(40);
-  expect(ridingY(), 'riding up').toBeGreaterThan(0);
-  tick(200);
-  expect(level.floor).toBe(0);
-  expect(player.fy).toBeCloseTo(0);
+test('lift: standing on the platform rides to its other floor and back, past a floor when it is a long one', () => {
+  // once with any lift, and once with one that passes a floor (in a building that has one)
+  for (const long of [false, true]) {
+    const want = (x: { kind: string; upper: number; lower: number }) =>
+      x.kind === 'elevator' && (!long || x.lower - x.upper === 2);
+    for (let k = 0; k < 60 && !building!.links.some(want); k++) {
+      goBase();
+      startRun();
+      tick(2);
+    }
+    const l = building!.links.find(want)!,
+      span = l.lower - l.upper,
+      ride = Math.ceil(2.2 * 60 * span) + 40; // frames of a ride, with some to spare
+    goToFloor(l.upper);
+    enemies.slice().forEach(e => hurtEnemy(e, 1e6, false));
+    // arriving on the platform does not start a ride: step off first
+    const off = [1, -1, W, -W].map(d => l.a + d).find(k => grid[k] === 1)!;
+    putOnTile(off);
+    tick(2);
+    putOnTile(l.a);
+    tick(20);
+    expect(ridingY(), 'the wait is not over').toBe(null);
+    tick(40);
+    expect(ridingY(), 'riding down').toBeLessThan(0);
+    expect(level.floor).toBe(l.upper);
+    const before = player.fy;
+    player.x += 3; // the rider cannot walk off
+    tick(1);
+    expect(tileIndex(player.x, player.z)).toBe(l.a);
+    expect(player.fy).toBeLessThan(before);
+    if (long) {
+      // half way: about a floor down, with the floor passed and both ends drawn
+      tick(Math.ceil(2.2 * 60) - 60);
+      expect(player.fy).toBeLessThan(-FLOOR_H * 0.6);
+      expect([l.upper, l.upper + 1, l.lower].every(floorDrawn)).toBe(true);
+    }
+    tick(ride);
+    expect(ridingY()).toBe(null);
+    expect(level.floor).toBe(l.lower);
+    expect(player.fy).toBeCloseTo(0);
+    expect(tileIndex(player.x, player.z)).toBe(l.a);
+    // it does not leave again until the player has stepped off and back on
+    tick(120);
+    expect(level.floor).toBe(l.lower);
+    putOnTile([1, -1, W, -W].map(d => l.a + d).find(k => grid[k] === 1)!);
+    tick(2);
+    putOnTile(l.a);
+    tick(40);
+    expect(ridingY(), 'riding up').toBeGreaterThan(0);
+    tick(ride);
+    expect(level.floor).toBe(l.upper);
+    expect(player.fy).toBeCloseTo(0);
+  }
 });
 test('boss room: its door opens for a player who waits at it; walking in starts the boss stage', () => {
-  goToFloor(FLOORS - 1);
+  goToFloor(building!.plans.length - 1);
   const hall = level.hall!,
     world = activeTileGrid().world,
     r = level.rooms[hall.room]!,
@@ -2244,7 +2308,7 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   expect(isDoorLocked(world, hall.door), 'half a second is not enough').toBe(true);
   tick(90);
   expect(isDoorLocked(world, hall.door), 'it opens after the wait').toBe(false);
-  expect(run.stage % PER, 'still a floor').toBe(FLOORS - 1);
+  expect(run.bld!.step, 'still the last floor of the route').toBe(run.bld!.floors - 1);
   put(hall.door + step * 2);
   tick(3);
   expect(run.stage, 'the boss stage of this depth').toBe(tier * PER + PER - 1);

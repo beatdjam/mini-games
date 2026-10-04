@@ -48,7 +48,7 @@ function markers(big: boolean): MapMarker[] {
   if (level.floor >= 0 && building)
     building.links.forEach(l => {
       const down = l.upper === level.floor;
-      if (!down && l.upper + 1 !== level.floor) return;
+      if (!down && l.lower !== level.floor) return;
       // the stairs are marked where they are entered: the landing above, the foot below
       const k = l.kind === 'elevator' ? l.a : down ? l.a : l.strip[0]!,
         x = tileCenter(k % W),

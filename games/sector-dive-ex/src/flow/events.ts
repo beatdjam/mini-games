@@ -33,7 +33,7 @@ const BOSS_DOOR_TOAST_MS = 2600;
 const BOSS_SPAWN_DELAY_MS = 1200; // the boss arrives this long after the player walks into its room
 const LIFT_R = 1.2; // standing within this of the middle of a lift's platform calls it (m)
 const LIFT_WAIT = 0.45; // ... for this long (s)
-const LIFT_TIME = 2.2; // a ride from one floor to the next (s)
+const LIFT_TIME = 2.2; // a ride takes this long per floor travelled (s)
 const LIFT_INVULN = 0.2; // the rider cannot be hurt (refreshed every frame of the ride) (s)
 
 // the state of the floor being played; reset when a floor is built (resetFloorEvents)
@@ -175,9 +175,11 @@ export function onBossDown() {
 export function ridingY(): number | null {
   const r = ev.ride;
   if (!r) return null;
-  const u = Math.min(1, r.t / LIFT_TIME),
+  const l = building!.links[r.link]!,
+    span = l.lower - l.upper, // floors the lift travels
+    u = Math.min(1, r.t / (LIFT_TIME * span)),
     ease = u * u * (3 - 2 * u);
-  return -r.dir * FLOOR_H * ease;
+  return -r.dir * FLOOR_H * span * ease;
 }
 // a lift: standing on its platform for a moment starts the ride; at its end the next floor is the one being played
 function updateLift(dt: number) {
@@ -192,15 +194,15 @@ function updateLift(dt: number) {
     player.inv = Math.max(player.inv, LIFT_INVULN);
     const pad = liftPads.find(p => p.link === r.link);
     if (pad) pad.mesh.position.y = ridingY()! - 0.06;
-    if (r.t < LIFT_TIME) return;
-    player.fy = -r.dir * FLOOR_H;
-    crossToFloor(r.link, level.floor + r.dir); // resets these events: the ride is over
+    if (r.t < LIFT_TIME * (l.lower - l.upper)) return;
+    player.fy = -r.dir * FLOOR_H * (l.lower - l.upper);
+    crossToFloor(r.link, r.dir > 0 ? l.lower : l.upper); // resets these events: the ride is over
     return;
   }
   const n = b.links.findIndex(
     l =>
       l.kind === 'elevator' &&
-      (l.upper === level.floor || l.upper + 1 === level.floor) &&
+      (l.upper === level.floor || l.lower === level.floor) &&
       distXZ(player, { x: tileCenter(l.a % W), z: tileCenter(Math.floor(l.a / W)) }) < LIFT_R,
   );
   if (n < 0) {
@@ -219,12 +221,11 @@ function updateLift(dt: number) {
 function crossStairs(tile: number): boolean {
   const n = building!.links.findIndex(
     l =>
-      l.kind === 'stairs' &&
-      ((l.upper === level.floor && tile === l.b) || (l.upper + 1 === level.floor && tile === l.a)),
+      l.kind === 'stairs' && ((l.upper === level.floor && tile === l.b) || (l.lower === level.floor && tile === l.a)),
   );
   if (n < 0) return false;
   const l = building!.links[n]!;
-  crossToFloor(n, l.upper === level.floor ? l.upper + 1 : l.upper);
+  crossToFloor(n, l.upper === level.floor ? l.lower : l.upper);
   return true;
 }
 

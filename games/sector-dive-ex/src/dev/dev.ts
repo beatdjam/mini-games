@@ -41,9 +41,9 @@ if (location.hash.startsWith('#bld-'))
     startRun();
     const what = location.hash.slice(5),
       b = building!,
-      stairs = b.links.find(l => l.kind === 'stairs' && l.upper === 0)!,
-      lift = b.links.find(l => l.kind === 'elevator' && l.upper === 0)!,
-      step = stairs.strip[1]! - stairs.strip[0]!, // one tile up the stairs
+      stairs = b.links.find(l => l.kind === 'stairs'), // a building may have none: the stairs hooks do nothing then
+      lift = b.links.find(l => l.kind === 'elevator'),
+      step = stairs ? stairs.strip[1]! - stairs.strip[0]! : 1, // one tile up the stairs
       dirOf = (d: number): [number, number] => [Math.abs(d) === 1 ? d : 0, Math.abs(d) === 1 ? 0 : Math.sign(d)],
       // the floor tile next to tile k (for standing beside a lift or a door), and the step from it to k
       beside = (grid: Uint8Array, k: number): [number, number] => {
@@ -52,7 +52,7 @@ if (location.hash.startsWith('#bld-'))
       },
       stand = (floor: number, tile: number, look: number) => {
         run.bld!.floor = floor;
-        run.bld!.at = floor ? b.links.findIndex(l => l.upper === floor - 1) : -1;
+        run.bld!.at = floor ? b.links.findIndex(l => l.upper === floor || l.lower === floor) : -1;
         startStage();
         enemies.slice().forEach(e => {
           e.dead = true;
@@ -65,14 +65,13 @@ if (location.hash.startsWith('#bld-'))
         player.yaw = Math.atan2(-dx, -dz);
         player.pitch = what === 'top' ? -0.35 : what === 'foot' ? 0.3 : 0;
       };
-    if (what === 'foot') stand(1, stairs.strip[0]! - step, step);
-    else if (what === 'mid') stand(1, stairs.strip[2]!, step);
-    else if (what === 'top') stand(0, stairs.strip[stairs.strip.length - 1]! + step, -step);
-    else if (what === 'lift') stand(0, ...beside(b.plans[0]!.gen.maps.grid, lift.a));
-    else if (what === 'liftlow') stand(1, ...beside(b.plans[1]!.gen.maps.grid, lift.a));
+    if (what === 'foot' && stairs) stand(stairs.lower, stairs.strip[0]! - step, step);
+    else if (what === 'mid' && stairs) stand(stairs.lower, stairs.strip[2]!, step);
+    else if (what === 'top' && stairs) stand(stairs.upper, stairs.strip[stairs.strip.length - 1]! + step, -step);
+    else if (what === 'lift' && lift) stand(lift.upper, ...beside(b.plans[lift.upper]!.gen.maps.grid, lift.a));
+    else if (what === 'liftlow' && lift) stand(lift.lower, ...beside(b.plans[lift.lower]!.gen.maps.grid, lift.a));
     else if (what === 'map3d') {
       // the whole building seen, the big map on its 3D page
-      stand(1, stairs.strip[0]! - step, step);
       b.plans.forEach(p => p.seen.fill(1));
       setState('play');
       toggleMap();

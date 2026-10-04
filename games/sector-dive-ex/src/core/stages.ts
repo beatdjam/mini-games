@@ -15,9 +15,17 @@ export const stageInfo = (s: number) => {
   return { biome: routeBiome(tier), sub: s % PER, loop: Math.floor(tier / 3), tier };
 };
 export const isBossStage = (s: number): boolean => s % PER === PER - 1;
+// In a building the stage number of a floor is depth * PER + step * (PER - 1) / floors (step = how far along the route),
+// so the progress (progressOf) runs evenly from the depth's start to its boss whatever the number of floors
+export const buildingStage = (tier: number, step: number, floors: number): number =>
+  tier * PER + (step * (PER - 1)) / floors;
 export function stageLabel(s: number): string {
-  const si = stageInfo(s);
-  return `D${si.tier + 1} ${isBossStage(s) ? 'BOSS' : si.sub + 1 + '/' + (PER - 1)}`;
+  const si = stageInfo(s),
+    b = run?.bld;
+  if (isBossStage(s)) return `D${si.tier + 1} BOSS`;
+  // the run's own building: the step along its route out of its floors
+  if (b && b.tier === si.tier && s === run.stage) return `D${si.tier + 1} ${b.step + 1}/${b.floors}`;
+  return `D${si.tier + 1} ${Math.floor(si.sub) + 1}/${PER - 1}`;
 }
 export function tierLabel(t: number): string {
   return `DEPTH ${t + 1}`;

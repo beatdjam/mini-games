@@ -9,10 +9,11 @@ import { BOSS_META } from '../data/bosses.ts';
 import type { Biome } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
 import type { GeneratedLevel } from './levelGen.ts';
-// One depth is one building: FLOORS floors stacked FLOOR_H apart, with the boss room (a hall with a single door,
-// engine/src/world/dungeon.ts) on the lowest floor. Floor 0 is the top, where the run starts; the floors below are
-// reached by a stairwell and a lift between every two neighbouring floors, each at the same place on both floors, so
-// the building is one connected space. The whole building is generated at once from one seed, so the same seed gives
+// One depth is one building: 3 to 5 floors stacked FLOOR_H apart, with the boss room (a hall with a single door,
+// engine/src/world/dungeon.ts) on the lowest floor. Floor 0 is the top, where the run starts. The floors are visited
+// in the order of the building's route (it starts on the top floor and ends on the lowest, but may go down two floors
+// and back up one in between); each step of the route is one stairwell or one lift, at the same place on the floors
+// it joins, so the building is one connected space. Enemies get stronger along the route, not floor by floor. The whole building is generated at once from one seed, so the same seed gives
 // the same building again (resuming a suspended run rebuilds it).
 // No three.js and no tile world here: only the plans. world/level.ts draws them and makes one floor the active one.
 //
@@ -22,7 +23,12 @@ import type { GeneratedLevel } from './levelGen.ts';
 // The player is on the lower floor's tile world up to L1 and on the upper floor's from L2 on (flow/events.ts).
 // A lift is one tile S that is floor on both floors; standing on it rides to the other one.
 // ---- tuning numbers used only here ----
-export const FLOORS = 3; // floors of a building
+export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
+// ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with
+// enemies as a Sector Dive depth (12 to 15) however many floors it has. null = the sector's own numbers
+const ROOMS_BY_FLOORS: Record<number, [number, number] | null> = { 3: null, 4: [3, 4], 5: [3, 3] };
+const LIFT_REACH = 2; // a lift goes at most this many floors
+const STAIRS_CHANCE = 0.5; // a step of one floor is a stairwell this often, a lift otherwise
 export const FLOOR_H = 8; // from the ground of one floor to the ground of the next (m)
 const RAMPS = FLOOR_H / RISE; // ramp tiles of a stairwell
 export const STRIP = RAMPS + 3; // tiles of a stairwell: E, the ramps, L1, L2
@@ -33,10 +39,12 @@ const SEED_TRIES = 30; // seeds tried until a building has room for its stairwel
 const SEED_STEP = 7919; // added to the seed for the next try
 const DOOR_PAIR_REACH = 2; // of two doors this many tiles apart or closer along a corridor, only one stays
 
-// a way between two neighbouring floors. upper is the floor above (the smaller number); the one below is upper + 1
+// A way between two floors: a stairwell joins neighbouring floors, a lift may pass one floor on its way. upper is the
+// floor above (the smaller number), lower the one below
 export interface BuildingLink {
   kind: 'stairs' | 'elevator';
   upper: number;
+  lower: number;
   a: number; // the tile where the player stands on the upper floor after crossing (stairs: L2, lift: S)
   b: number; // ... on the lower floor (stairs: L1, lift: S)
   strip: number[]; // stairs: E, the ramps, L1, L2 in order; lift: [S]
@@ -57,7 +65,8 @@ export interface Building {
   seed: number; // what makeBuilding was given
   biome: Biome;
   plans: FloorPlan[];
-  links: BuildingLink[]; // floor pair by floor pair: the stairwell, then the lift
+  route: number[]; // the floors in the order they are visited: route[0] = 0 (the top), the last = the lowest floor
+  links: BuildingLink[]; // step by step along the route: links[n] joins route[n] and route[n + 1]
   lockdown: { floor: number; room: number } | null; // the room where the lockdown happens (none when no room fits)
 }
 // the building of the depth being played; replaced as a whole by setBuilding
@@ -155,6 +164,29 @@ function markAround(keepOut: Uint8Array, W: number, tiles: number[]) {
   );
 }
 
+// A route through `floors` floors: from the top floor to the lowest, every floor once, never more than LIFT_REACH
+// floors at a step (so 3 floors have one route, 4 have two, 5 have three). Draws one random number
+export function makeRoute(floors: number, rng: Rng): number[] {
+  const between = Array.from({ length: floors - 2 }, (_, n) => n + 1),
+    routes: number[][] = [];
+  // every order of the floors between the top and the lowest, kept when no step is too long
+  const walk = (route: number[], left: number[]) => {
+    const at = route[route.length - 1]!;
+    if (!left.length) {
+      if (floors - 1 - at <= LIFT_REACH) routes.push([...route, floors - 1]);
+      return;
+    }
+    for (const f of left)
+      if (Math.abs(f - at) <= LIFT_REACH)
+        walk(
+          [...route, f],
+          left.filter(g => g !== f),
+        );
+  };
+  walk([0], between);
+  return rng.pick(routes);
+}
+
 // Puts a stairwell between the floor `up` and the one below it: a random strip that is wall (with wall round it) on
 // both floors, then a corridor from its foot on the lower floor and one from its landing on the upper floor.
 // Draws up to PLACE_TRIES places (a tile and a direction each). Returns null when no place fits or a corridor finds
@@ -196,24 +228,29 @@ function addStairs(maps: TileMapData[], keepOut: Uint8Array[], up: number, rng: 
     if (!carveCorridorFrom(L, foot, outL) || !carveCorridorFrom(U, top, outU)) return null;
     outU[top] = 1;
     outL[foot] = 1;
-    return { kind: 'stairs', upper: up, a: strip[STRIP - 1]!, b: strip[STRIP - 2]!, strip };
+    return { kind: 'stairs', upper: up, lower: up + 1, a: strip[STRIP - 1]!, b: strip[STRIP - 2]!, strip };
   }
   return null;
 }
-// Puts a lift between the floor `up` and the one below it: a random tile that is wall (with wall round it) on both
-// floors, then a corridor from it on each floor. Returns null when no place fits or a corridor finds no way
-function addLift(maps: TileMapData[], keepOut: Uint8Array[], up: number, rng: Rng): BuildingLink | null {
+// Puts a lift between the floors `up` and `lo` (lo below up, at most LIFT_REACH floors apart): a random tile that is
+// wall (with wall round it) on those floors and every floor between, then a corridor from it on the two floors it
+// stops at. On a floor it only passes, the tile stays wall. Returns null when no place fits or a corridor finds no way
+function addLift(maps: TileMapData[], keepOut: Uint8Array[], up: number, lo: number, rng: Rng): BuildingLink | null {
   const U = maps[up]!,
-    L = maps[up + 1]!,
-    W = U.W;
+    W = U.W,
+    span = Array.from({ length: lo - up + 1 }, (_, n) => up + n);
   for (let t = 0; t < PLACE_TRIES; t++) {
-    const s = rng.randi(2, W - 3) + rng.randi(2, U.H - 3) * W;
-    if (!allSolid(L, U, [s]) || around(W, s).some(k => keepOut[up]![k] || keepOut[up + 1]![k])) continue;
-    for (const n of [up, up + 1]) {
+    const s = rng.randi(2, W - 3) + rng.randi(2, U.H - 3) * W,
+      free = span.every(
+        n => around(W, s).every(k => !maps[n]!.maps.grid[k] && !keepOut[n]![k]) && allSolid(maps[n]!, U, [s]),
+      );
+    if (!free) continue;
+    for (const n of [up, lo]) {
       if (!carveCorridorFrom(maps[n]!, s, keepOut[n]!)) return null;
       keepOut[n]![s] = 1;
     }
-    return { kind: 'elevator', upper: up, a: s, b: s, strip: [s] };
+    for (const n of span.slice(1, -1)) markAround(keepOut[n]!, W, [s]);
+    return { kind: 'elevator', upper: up, lower: lo, a: s, b: s, strip: [s] };
   }
   return null;
 }
@@ -226,7 +263,7 @@ function allReached(maps: TileMapData[], links: BuildingLink[], startIdx: number
     f = createFloors(
       maps.map(tileWorldOf),
       maps.map((_, n) => -n * FLOOR_H),
-      links.map(l => ({ kind: l.kind, a: spot(l.upper, top(l)), b: spot(l.upper + 1, top(l)) })),
+      links.map(l => ({ kind: l.kind, a: spot(l.upper, top(l)), b: spot(l.lower, top(l)) })),
     ),
     r = maps[0]!.rooms[startIdx]!,
     from = { floor: 0, i: Math.floor(r.x + r.w / 2), j: Math.floor(r.y + r.h / 2) };
@@ -249,12 +286,22 @@ export function roomTiles(d: { W: number; rooms: TileMapData['rooms'] }, room: n
   return out;
 }
 
-// One try at a building from this exact seed. The random numbers are drawn in this order: the floors, then floor pair
-// by floor pair the stairwell and the lift, floor by floor the hazard floors, the start room, the lockdown room.
+// One try at a building from this exact seed. The random numbers are drawn in this order: the number of floors, the
+// route, the floors, then step by step along the route its stairwell or lift, floor by floor the hazard floors, the
+// start room, the lockdown room.
 // Returns null when a stairwell or lift finds no place, or a floor tile ends up cut off
 function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | null {
   const rng = createRng(seed);
-  const base = { ...biome.gen, deckH: PLAT_H, coverH: COVER_H, doors: true };
+  const FLOORS = rng.randi(FLOORS_RANGE[0], FLOORS_RANGE[1]),
+    route = makeRoute(FLOORS, rng),
+    rooms = ROOMS_BY_FLOORS[FLOORS];
+  const base = {
+    ...biome.gen,
+    ...(rooms ? { countMin: rooms[0], countMax: rooms[1] } : {}),
+    deckH: PLAT_H,
+    coverH: COVER_H,
+    doors: true,
+  };
   const last = {
     ...base,
     countMin: LAST_FLOOR_ROOMS[0],
@@ -271,11 +318,13 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
       return out;
     }),
     links: BuildingLink[] = [];
-  for (let up = 0; up + 1 < FLOORS; up++) {
-    const stairs = addStairs(maps, keepOut, up, rng),
-      lift = stairs && addLift(maps, keepOut, up, rng);
-    if (!stairs || !lift) return null;
-    links.push(stairs, lift);
+  for (let n = 0; n + 1 < route.length; n++) {
+    const up = Math.min(route[n]!, route[n + 1]!),
+      lo = Math.max(route[n]!, route[n + 1]!),
+      stairs = lo - up === 1 && rng.next() < STAIRS_CHANCE,
+      link = stairs ? addStairs(maps, keepOut, up, rng) : addLift(maps, keepOut, up, lo, rng);
+    if (!link) return null;
+    links.push(link);
   }
   const plans: FloorPlan[] = maps.map(d => {
     const hazard = new Uint8Array(size);
@@ -294,12 +343,21 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
   // how each floor is drawn round its stairwells and lifts, and no hazard floor there
   for (const l of links) {
     const up = plans[l.upper]!,
-      lo = plans[l.upper + 1]!;
+      lo = plans[l.lower]!;
     clearHazardsAround(up, l.strip);
     clearHazardsAround(lo, l.strip);
-    for (const k of l.strip) {
-      lo.noCeil[k] = 1;
-      for (const t of around(W, k)) lo.shaft[t] = 1;
+    // every floor below the top of the link is open upward there, with the gap to the next floor walled round it;
+    // a floor the lift only passes also gets walls round the shaft (nothing else of it stands there)
+    for (let n = l.upper + 1; n <= l.lower; n++) {
+      const p = plans[n]!;
+      for (const k of l.strip) {
+        p.noCeil[k] = 1;
+        for (const t of around(W, k)) {
+          p.shaft[t] = 1;
+          if (n < l.lower && t !== k) p.shaftWall[t] = 1;
+        }
+        if (n < l.lower) p.voids[k] = 1;
+      }
     }
     up.noFloor[l.a] = 1;
     if (l.kind === 'elevator') continue;
@@ -334,7 +392,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
         fits.push({ floor, room });
     }),
   );
-  return { seed, biome, plans, links, lockdown: fits.length ? rng.pick(fits) : null };
+  return { seed, biome, plans, route, links, lockdown: fits.length ? rng.pick(fits) : null };
 }
 // The same seed, sector and boss give the same building. A seed whose floors leave no room for a stairwell or lift is
 // passed over for the next one (seed + SEED_STEP, ...), the same way every time; the building keeps the seed it was

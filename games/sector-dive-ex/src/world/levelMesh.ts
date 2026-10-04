@@ -26,6 +26,7 @@ import { FLOOR_H } from './building.ts';
 import type { FloorPlan } from './building.ts';
 const NEON_COUNT = 90; // neon signs per level
 const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall colour times this
+const SHAFT_FILL_GAP = 0.03; // the wall between a ceiling and the next floor stops this short of both (m)
 
 // wedge rising toward +x across one tile; rotated per ramp direction
 function wedgeGeo() {
@@ -244,7 +245,9 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
   const fill = all.filter(k => plan.shaft[k] && !plan.noCeil[k]);
   if (fill.length) {
     const boxes = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(T, FLOOR_H - WALL_H, T),
+        // a little short at both ends: its top would lie in the plane of the next floor's ground and its bottom in the
+        // plane of this floor's ceiling, and two faces in one plane flicker
+        new THREE.BoxGeometry(T, FLOOR_H - WALL_H - 2 * SHAFT_FILL_GAP, T),
         new THREE.MeshBasicMaterial({ map: tex.wall }),
         fill.length,
       ),

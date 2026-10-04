@@ -34,7 +34,7 @@ function floorsOf(b: Building): Floors {
       .map(p => tileWorldOf({ W: p.gen.W, H: p.gen.H, maps: p.gen.maps, rooms: p.gen.rooms })),
     b.plans.map((_, n) => n),
     // a stairwell runs from its landing on the upper floor down to its foot; a lift straight down
-    b.links.map(l => ({ kind: l.kind, a: spot(l.upper, l.a), b: spot(l.upper + 1, l.strip[0]!) })),
+    b.links.map(l => ({ kind: l.kind, a: spot(l.upper, l.a), b: spot(l.lower, l.strip[0]!) })),
   );
 }
 // Called every frame of play. Shows the 3D canvas only while the big map is open on its 3D page in a building, makes

@@ -352,6 +352,8 @@ export interface BuildingState {
   seed: number; // makeBuilding's seed
   boss: string; // the boss in its boss room
   floor: number; // the floor the player is on (0 = top)
+  floors: number; // how many floors the building has (the stage number and its label need it)
+  step: number; // how far along the building's route that floor is (0 = the first; enemies get stronger by this)
   at: number; // the stairs or lift the player came by (index into the building's links), -1 = the start room
   cleared: number[][]; // per floor: the rooms with no enemy left
   ld: number; // the lockdown: 0 = still to come, 1 = done

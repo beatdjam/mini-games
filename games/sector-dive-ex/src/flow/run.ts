@@ -36,12 +36,12 @@ import {
   showBuilding,
   stashFloor,
 } from '../world/level.ts';
-import { FLOORS, FLOOR_H, building, makeBuilding, setBuilding } from '../world/building.ts';
+import { FLOOR_H, building, makeBuilding, setBuilding } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal } from '../world/portals.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
-import { difficultyAt, isBossStage, stageInfo, stageLabel, tierLabel } from '../core/stages.ts';
+import { buildingStage, difficultyAt, isBossStage, stageInfo, stageLabel, tierLabel } from '../core/stages.ts';
 import { rollWeapon, weaponText } from '../actors/weapons.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
 import { keyText, moveKeysText, normalizeWeapons } from '../ui/input.ts';
@@ -199,20 +199,33 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
 // the building of this depth: a new one when the run has none for this depth yet; built again from its seed when the
 // one in memory is another (a resumed run)
 function ensureBuilding(tier: number, b: Biome): BuildingState {
-  if (!run.bld || run.bld.tier !== tier)
+  if (!run.bld || run.bld.tier !== tier) {
+    const seed = newSeed(),
+      boss = run.forceBoss || pick(b.bosses),
+      made = makeBuilding(b, boss, seed);
+    setBuilding(made);
     run.bld = {
       tier,
-      seed: newSeed(),
-      boss: run.forceBoss || pick(b.bosses),
+      seed,
+      boss,
       floor: 0,
+      floors: made.plans.length,
+      step: 0,
       at: -1,
-      cleared: Array.from({ length: FLOORS }, () => []),
+      cleared: made.plans.map(() => []),
       ld: 0,
       visited: [],
     };
+  }
   const st = run.bld;
   if (!building || building.seed !== st.seed || building.biome !== b) setBuilding(makeBuilding(b, st.boss, st.seed));
   return st;
+}
+// the player is on floor `floor` of the building now: the step along the route and the stage number follow
+function setFloor(st: BuildingState, floor: number) {
+  st.floor = floor;
+  st.step = building!.route.indexOf(floor);
+  run.stage = buildingStage(st.tier, st.step, st.floors);
 }
 // where the player stands after taking link n of the building to the floor `floor` (a tile of that floor)
 const arrivalTile = (n: number, floor: number): number => {
@@ -264,9 +277,8 @@ export function crossToFloor(n: number, to: number) {
   const st = run.bld!,
     b = building!,
     dy = (to - st.floor) * FLOOR_H;
-  st.floor = to;
+  setFloor(st, to);
   st.at = n;
-  run.stage = st.tier * PER + to;
   recordBest(run.stage);
   persist();
   stashFloor();
@@ -287,9 +299,8 @@ export function crossToFloor(n: number, to: number) {
 export function useLink(n: number) {
   const st = run.bld!,
     l = building!.links[n]!;
-  st.floor = st.floor === l.upper ? l.upper + 1 : l.upper;
+  setFloor(st, st.floor === l.upper ? l.lower : l.upper);
   st.at = n;
-  run.stage = st.tier * PER + st.floor;
   recordBest(run.stage);
   persist();
   startStage();
@@ -302,7 +313,7 @@ export function startStage() {
   if (inBuilding) {
     // a run is never resumed in the boss fight (the checkpoint is the floor's); a stage left at the boss is the lowest floor
     const st = ensureBuilding(si.tier, b);
-    run.stage = st.tier * PER + st.floor;
+    setFloor(st, st.floor);
   }
   const fade = el('#fade');
   fade.style.transition = 'none';
@@ -315,7 +326,7 @@ export function startStage() {
   if (!run.practice)
     track('level_start', {
       level: si.tier + 1,
-      stage: si.sub + 1,
+      stage: inBuilding ? run.bld!.step + 1 : si.sub + 1,
       stage_type: b.code,
       stage_role: isArena ? 'boss' : 'normal',
       target: bossKind ?? '',
@@ -426,7 +437,7 @@ export function endRun(kind: RunEnd) {
   track('level_end', {
     result: kind,
     level: si.tier + 1,
-    stage: si.sub + 1,
+    stage: isBossStage(run.stage) ? PER : run.bld ? run.bld.step + 1 : si.sub + 1,
     stage_type: si.biome.code,
     stage_role: isBossStage(run.stage) ? 'boss' : 'normal',
     count: run.kills,
