@@ -66,7 +66,7 @@ import {
   tileWorldOf,
 } from '../src/world/dungeon.ts';
 import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
-import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, updateDoors } from '../src/world/doors.ts';
+import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, isDoorLocked, lockDoor, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
 import { type PropRule, type Slot, placeProps, slotsOf } from '../src/world/slots.ts';
 import {
@@ -1651,6 +1651,79 @@ test('doors: paths and reach checks go through a shut door', () => {
     [{ kind: 'stairs', a: spot(0, 3, 1), b: spot(1, 1, 1) }],
   );
   eq(unreachableFloorTiles(two, spot(0, 1, 1)).length, 0, 'a link on a door tile is accepted');
+});
+test('doors: a locked door shuts at once, opens for nobody, and opens again once unlocked', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ),
+    open = () => g.world.doorOpen![k];
+  eq(g.world.doorLock, undefined, 'no lock map until a door is locked');
+  ok(!isDoorLocked(g.world, k));
+  lockDoor(g.world, k, false);
+  eq(g.world.doorLock, undefined, 'unlocking a door that was never locked adds nothing');
+  const near = person(doorX - 3); // in sense range, not on the door's tile (which starts 1 m further on)
+  tickDoors(g, [near], 1);
+  eq(open(), 1, 'an ordinary door: open');
+  lockDoor(g.world, k);
+  ok(isDoorLocked(g.world, k) && !isDoorLocked(g.world, k - 1));
+  updateDoors(g, [near], 0.1);
+  ok(open() < 1, 'locked: it starts shutting right away, with someone near and no closeDelay');
+  tickDoors(g, [near], 1);
+  eq(open(), 0, 'and shuts all the way');
+  ok(g.isSolid(3, 1) && !g.hasLOS(1.5 * T, midZ, 5.5 * T, midZ), 'a wall');
+  tickDoors(g, [near, person(doorX + 3)], 2);
+  eq(open(), 0, 'nobody near opens it');
+  lockDoor(g.world, k, false);
+  ok(!isDoorLocked(g.world, k));
+  tickDoors(g, [near], 1);
+  eq(open(), 1, 'unlocked: an ordinary door again');
+  expect(() => lockDoor(g.world, k - 1)).toThrow(/no door/);
+  expect(() => lockDoor(worldFromRows(['###', '#.#', '###']), 4)).toThrow(/no door/);
+});
+test('doors: a locked door waits for a body in the doorway before it shuts', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ),
+    open = () => g.world.doorOpen![k],
+    body = person(doorX);
+  tickDoors(g, [body], 1);
+  lockDoor(g.world, k);
+  tickDoors(g, [body], 2);
+  eq(open(), 1, 'held open while the body overlaps the tile');
+  ok(!g.blocked(body.x, body.z, body.r), 'so the body is never inside a wall');
+  body.x = 11.8; // the tile starts at x = 12: still overlapping
+  tickDoors(g, [body], 1);
+  eq(open(), 1);
+  body.x = 11.4; // off the tile, still within sense range
+  tickDoors(g, [body], 1);
+  eq(open(), 0, 'shuts once the doorway is clear');
+});
+test('doors: paths and reach checks stop at a locked door', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ);
+  g.computeFlow(5, 1);
+  eq(g.flowAt(1.5 * T, midZ), 4, 'unlocked: the path goes through');
+  lockDoor(g.world, k);
+  g.computeFlow(5, 1);
+  eq(g.flowAt(1.5 * T, midZ), -1, 'locked: the far side cannot be reached');
+  eq(g.flowAt(doorX, midZ), 2, 'a body still in the doorway keeps its way out');
+  eq(g.flowAt(4.5 * T, midZ), 1, 'the near side is as before');
+  eq(g.flowDir(2.5 * T, midZ), null, 'no direction into the locked door');
+  ok(g.isFloor(3, 1), 'the tile is still a floor tile');
+  g.computeFlow(1, 1);
+  eq(g.flowAt(4.5 * T, midZ), -1, 'the same from the other side');
+  lockDoor(g.world, k, false);
+  g.computeFlow(5, 1);
+  eq(g.flowAt(1.5 * T, midZ), 4, 'unlocked again: through');
+  // floors
+  const f = floorsFromRows([DOOR_ROWS], []);
+  lockDoor(f.grids[0].world, k);
+  eq(reached(floorReach(f, spot(0, 1, 1)), 0), '0000000' + '0110000' + '0000000', 'floorReach stops in front of it');
+  // the active world takes and drops the lock map with its maps
+  const w = worldFromRows(DOOR_ROWS);
+  lockDoor(w, k);
+  setTileWorld(w);
+  eq(activeTileGrid().world.doorLock, w.doorLock, 'setTileWorld hands the lock map over');
+  setTileWorld(worldFromRows(DOOR_ROWS));
+  eq(activeTileGrid().world.doorLock, undefined, 'a new grid starts with no lock');
 });
 test('doors: without door maps (or with every door open, or none marked) the results are the same', () => {
   const d = generateDungeon({ map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1, bridges: 2 }, createRng(7)),

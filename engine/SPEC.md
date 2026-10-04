@@ -95,7 +95,7 @@
 
 - **持ち方**: ドアのタイルは `grid[k]` = 1 の床のまま。`TileWorld` の任意の `door`（Uint8Array。1 = ドア）で印を付け、`doorOpen`（Float32Array。0 = 閉、1 = 全開）で開き具合を持つ。2つは `grid` と同じ大きさで、組で渡す。`door` が無い地形は、この章のほかの計算とまったく同じ結果になる
 - **当たり判定と見通し**: `doorOpen[k]` が `DOOR_PASS`（0.5）未満のドアは壁と同じ。`isSolid`・`solidAt`・`blocked`・`moveCircle`・`hasLOS`、弾と地形の当たり（`projHitsTerrain`）がそう扱う。`DOOR_PASS` 以上なら床と同じ。ドアのタイルの高さは `hgt` のまま（ふつうは 0）
-- **経路と到達チェック**: `computeFlow`・`flowAt`・`flowDir`・`passable` と、`floorReach`・`unreachableFloorTiles` は、ドアを開閉に関係なく通れる床として扱う。敵は近づけば開けられるので、閉じたドアの向こうへも経路が伸びる。ドアの上に立っているキャラの `flowAt`・`flowDir` も値が返る。`walkable` もドアを床として数える
+- **経路と到達チェック**: `computeFlow`・`flowAt`・`flowDir`・`passable` と、`floorReach`・`unreachableFloorTiles` は、ロックされていないドアを開閉に関係なく通れる床として扱う（ロックは下の「ロック」）。敵は近づけば開けられるので、閉じたドアの向こうへも経路が伸びる。ドアの上に立っているキャラの `flowAt`・`flowDir` も値が返る。`walkable` もドアを床として数える
 - `updateDoors(grid, movers, dt, cfg?)`（`doors.ts`）: ゲームが毎フレーム呼ぶ。`movers` は `{ x, z, r }` の並び（配列でも `Set` でもよい）。複数階なら、その階にいるキャラだけを渡す。乱数は使わない
   - ドアのタイルの中心から `sense` m 以内、またはタイルの四角に円（半径 `r`）が重なっているキャラが1人でもいれば、`speed`（毎秒 `doorOpen` がいくら変わるか）で開く
   - だれも近くにいない時間が `closeDelay` 秒を超えたら、同じ速さで閉じる。ドアに重なっているキャラがいる間は「近く」なので閉じない
@@ -103,6 +103,13 @@
   - ドアのタイルの一覧と、ドアごとの「最後に近くにいてからの時間」は、最初の呼び出しで `door` 配列ごとに作って持つ。毎フレーム全タイルは走査しない。あとから同じ配列にドアを足しても反映されないので、ドアの位置を変えるときは新しい配列を渡す（新しいステージ）
   - `dt` が 0 以下のときは何もしない。`door` が無い地形では何もしない。`door` があって `doorOpen` が無い（大きさも違う）と例外
   - 最初の `doorOpen` が 0 より大きいドアは、最初の呼び出しから `closeDelay` 秒たってから閉じ始める
+- **ロック**: `lockDoor(world, k, on = true)`（`doors.ts`）で、タイル `k` のドアをロックする（`on` = false で解除）。部屋に閉じ込める、決まった条件まで開けない、などに使う
+  - 持ち方は `TileWorld` の任意の `doorLock`（Uint8Array。1 = ロック中）。最初にロックしたときに作る。`doorLock` の無い地形は、ロックの無い地形と同じ計算になる。`isDoorLocked(world, k)` で読める
+  - ロック中のドアは、だれが近くにいても開かない。開いていたら `closeDelay` を待たずに `speed` で閉じる。ドアのタイルに重なっているキャラがいる間だけは閉じない（体が壁の中に残らないように）。重なりがなくなると閉じる
+  - 経路と到達チェックは、ロック中のドアのタイルへは入れないものとして扱う（`passable(a, b, side)` は `b` がロック中のドアなら false）。ドアの向こうへの経路は切れる。ドアのタイルに立っているキャラは、外へ出る経路を持つ。`isFloor` はロック中も true
+  - ロックを変えたあとの経路は、次に `computeFlow`・`floorFlow` を呼んだときから変わる
+  - 解除すると、ふつうのドアに戻る。ドアの無いタイルを渡すと例外
+  - `setTileWorld` は、新しい `grid` を渡すと `doorLock` も入れ替える（渡さなければ無しになる）。`tileWorldOf` が作る地形はロック無しで始まる
 - ゲームは `doorOpen[k]` を見て、ドアの見た目（スライドなど）を動かす。見た目と当たり判定は `DOOR_PASS` でそろう（半分開くと通れる）
 - **固定マップ**: `tileMapFromRows` の凡例に `+`（`Legend.door`）。**ランダム生成**: `generateDungeon` の `doors: true`（4.1）
 

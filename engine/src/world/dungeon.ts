@@ -103,6 +103,7 @@ export function tileWorldOf(d: TileMapData): TileWorld {
     w.door = M.door;
     w.doorOpen = M.doorOpen;
   }
+  // locks are set on the world while the game runs (lockDoor), so a new world starts with none
   return w;
 }
 
