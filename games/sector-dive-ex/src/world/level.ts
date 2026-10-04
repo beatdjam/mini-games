@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createRng, rand, randi } from '@engine/core/util.ts';
-import { clearWorld } from '@engine/core/world.ts';
-import { disposeTree, scene } from '@engine/render/render.ts';
+import { clearWorld, groupOf, spawn, sweepWorld } from '@engine/core/world.ts';
+import { disposeTree, dynGroup, scene } from '@engine/render/render.ts';
 import { clearFx } from '@engine/render/fx.ts';
 import {
   H,
@@ -20,8 +20,8 @@ import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { COLOR } from '../data/colors.ts';
-import type { Biome } from '../data/types.ts';
-import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
+import type { Biome, Enemy, Pickup } from '../data/types.ts';
+import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear, setTarget } from './entities.ts';
 import { clearHazards } from './hazards.ts';
 import { ARENA_FROM, generateLevel } from './levelGen.ts';
 import type { FloorPlan } from './building.ts';
@@ -83,6 +83,63 @@ let shown: Building | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
 export let liftPads: { link: number; mesh: THREE.Mesh }[] = [];
 export const buildingShown = (b: Building | null): boolean => !!b && shown === b;
+// What was left on the floors of the building on screen when the player went on to another floor: the enemies still
+// alive, the pickups still lying there, the enemies left per room. A floor the player comes back to gets them back
+// as they were. In memory only: a resumed run rebuilds the floors from what the checkpoint says (the cleared rooms)
+interface FloorStash {
+  enemies: Enemy[];
+  pickups: Pickup[];
+  roomCount: number[];
+}
+const floorStash = new Map<number, FloorStash>();
+// Takes the living enemies and the pickups of the floor being played out of the world (out of the scene too) and keeps
+// them for the floor. Call before enterFloor moves on
+export function stashFloor() {
+  if (level.floor < 0 || !shown) return;
+  sweepWorld();
+  const kept = enemies.filter(e => !e.boss),
+    others = groupOf('pickup').list,
+    pickups = others.filter(o => o.tag === 'pickup') as Pickup[];
+  enemies.filter(e => e.boss).forEach(removeEnemyMesh);
+  enemies.length = 0;
+  let n = 0;
+  for (const o of others) if (o.tag !== 'pickup') others[n++] = o;
+  others.length = n;
+  for (const e of kept) {
+    dynGroup.remove(e.mesh);
+    if (e.laser) dynGroup.remove(e.laser);
+  }
+  for (const p of pickups) dynGroup.remove(p.mesh);
+  setTarget(null);
+  setNear(null);
+  floorStash.set(level.floor, { enemies: kept, pickups, roomCount: level.roomCount.slice() });
+}
+// Puts back what stashFloor kept for the floor being played. False when there is nothing kept (a first visit, or a
+// floor rebuilt after a resume): the caller populates the floor then
+export function restoreFloor(): boolean {
+  const s = floorStash.get(level.floor);
+  if (!s) return false;
+  floorStash.delete(level.floor);
+  for (const e of s.enemies) {
+    dynGroup.add(e.mesh);
+    if (e.laser) dynGroup.add(e.laser);
+    spawn(e);
+  }
+  for (const p of s.pickups) {
+    dynGroup.add(p.mesh);
+    spawn(p);
+  }
+  level.roomCount = s.roomCount;
+  return true;
+}
+// the building is gone: so is everything kept for its floors
+function dropFloorStash() {
+  floorStash.forEach(s => {
+    s.enemies.forEach(removeEnemyMesh);
+    s.pickups.forEach(p => disposeTree(p.mesh));
+  });
+  floorStash.clear();
+}
 
 function clearLevel() {
   if (buildingGroup) {
@@ -92,6 +149,7 @@ function clearLevel() {
     floorGroups = [];
     liftPads = [];
     shown = null;
+    dropFloorStash();
     resetDoorMeshes();
     level.group = null;
   } else if (level.group) {

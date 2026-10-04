@@ -1960,9 +1960,17 @@ test('building run: a cleared room stays empty across floors and a resume; the c
     room = level.roomCount.findIndex((n, idx) => n > 0 && !(ld && ld.floor === 0 && ld.room === idx));
   for (let k = 0; k < 6 && level.roomCount[room]! > 0; k++) killRoom(room);
   expect(run.bld!.cleared[0]).toContain(room);
+  // a wounded enemy and a dropped kit are left behind on this floor
+  const hurt = enemies.find(e => !e.dead && e.room !== room && e.hp > 2)!,
+    hpLeft = hurt.hp - 1;
+  hurtEnemy(hurt, 1, false);
+  const [kx, kz] = roomSpot(level.rooms[level.startIdx]!),
+    kit = addPickup('kit', kx + 3, kz),
+    countsWas = level.roomCount.join();
   const n = building!.links.findIndex(l => l.kind === 'stairs' && l.upper === 0);
   useLink(n);
   tick(5);
+  expect(enemies.includes(hurt) || query<Pickup>('pickup').includes(kit), 'the floor left took them along').toBe(false);
   expect(level.floor).toBe(1);
   expect(run.stage % PER).toBe(1);
   expect(tileIndex(player.x, player.z), 'the player stands at the top of the stairs').toBe(building!.links[n]!.b);
@@ -1983,6 +1991,12 @@ test('building run: a cleared room stays empty across floors and a resume; the c
     level.roomCount.some(c => c > 0),
     'the other rooms have their enemies',
   ).toBe(true);
+  // the floor is as it was left: the same enemies (the wounded one still wounded), the kit still lying there
+  expect(level.roomCount.join()).toBe(countsWas);
+  expect(enemies.includes(hurt) && !hurt.dead).toBe(true);
+  expect(hurt.hp).toBeCloseTo(hpLeft);
+  expect(hurt.mesh.parent, 'drawn again').toBeTruthy();
+  expect(query<Pickup>('pickup').includes(kit)).toBe(true);
   // suspending and resuming builds the same floor again, with the room still cleared
   const gridWas = Array.from(grid).join('');
   suspendRun();
@@ -2224,7 +2238,7 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   tick(200);
   // a shielded boss (bastion) first loses what shields it
   if (boss!.invuln) {
-    enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false));
+    enemies.filter(e => !e.boss && e !== bystander).forEach(e => hurtEnemy(e, 1e6, false));
     tick(20);
   }
   hurtEnemy(boss!, boss!.hp + 1, false);

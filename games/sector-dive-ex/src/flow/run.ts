@@ -30,9 +30,11 @@ import {
   level,
   newSeed,
   randomTileIn,
+  restoreFloor,
   reveal,
   roomSpot,
   showBuilding,
+  stashFloor,
 } from '../world/level.ts';
 import { FLOORS, FLOOR_H, building, makeBuilding, setBuilding } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
@@ -267,9 +269,10 @@ export function crossToFloor(n: number, to: number) {
   run.stage = st.tier * PER + to;
   recordBest(run.stage);
   persist();
+  stashFloor();
   enterFloor(b, to);
   resetFloorEvents();
-  populateFloor(b.biome, st.tier, b.plans[to]!, st);
+  if (!restoreFloor()) populateFloor(b.biome, st.tier, b.plans[to]!, st);
   player.fy += dy;
   player.tile = tileIndex(player.x, player.z);
   computeFlow(tileCoord(player.x), tileCoord(player.z));
@@ -320,10 +323,11 @@ export function startStage() {
   if (inBuilding) {
     const st = run.bld!;
     if (!buildingShown(building)) showBuilding(building!);
+    else if (level.floor !== st.floor) stashFloor(); // moving on within the building: the floor left keeps its contents
     enterFloor(building!, st.floor);
     resetFloorEvents();
     placePlayerOnFloor(st);
-    populateFloor(b, si.tier, building!.plans[st.floor]!, st);
+    if (!restoreFloor()) populateFloor(b, si.tier, building!.plans[st.floor]!, st);
   } else {
     buildLevel(b, isArena, bossKind);
     if (isArena) setupArena(bossKind);
