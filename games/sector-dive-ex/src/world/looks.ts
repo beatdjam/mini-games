@@ -1,5 +1,7 @@
 import type { Biome } from '../data/types.ts';
 import type { Look } from './looks/common.ts';
+import { cityLook } from './looks/city.ts';
+import { dataLook } from './looks/data.ts';
 import { forgeLook } from './looks/forge.ts';
 import { kwlnLook } from './looks/kwln.ts';
 import { ruinLook } from './looks/ruin.ts';
@@ -20,9 +22,11 @@ export function devPlainLooks(on: boolean) {
 
 // the looks, made the first time a sector is drawn (the pictures stay for the life of the page)
 const MAKERS: Record<string, () => Look> = {
+  DATA: dataLook,
   KWLN: kwlnLook,
   FORGE: forgeLook,
   RUIN: ruinLook,
+  CITY: cityLook,
 };
 const made: Record<string, Look> = {};
 // the sector's look, or null when it has none (or ?plain is on): it is drawn the plain way then
