@@ -130,7 +130,8 @@ import { pause, statsHTML } from '../src/screens/pause.ts';
 import { renderBase, showTab, weaponStatText } from '../src/screens/base.ts';
 import { shareData, shareText } from '../src/ui/share.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
-import { update, updatePickups } from '../src/flow/update.ts';
+import { time, update, updatePickups } from '../src/flow/update.ts';
+import { LOOP, runSystems } from '@engine/core/loop.ts';
 import { TRACK_LOG } from '@engine/core/analytics.ts';
 import { FEEDBACK_FORM } from '@engine/core/feedback.ts';
 import { COLOR } from '../src/data/colors.ts';
@@ -2252,6 +2253,26 @@ test('big map: the map key opens and closes it, the 3D map key turns to the 3D p
   tick(2);
   expect(pages(), 'the 3D page lies over the 2D one').toEqual([false, false]);
   expect(map3dWanted()).toBe(true);
+  // the game stands still while the 3D map is up: the loop is in the map's own mode, where no system of the dive runs
+  expect(LOOP.mode()).toBe('map');
+  const clock = time,
+    enemyAt = enemies
+      .filter(e => !e.dead)
+      .map(e => `${e.x},${e.z}`)
+      .join();
+  enemies.forEach(e => {
+    e.active = true;
+  });
+  for (let k = 0; k < 30; k++) runSystems(1 / 60);
+  expect(time, 'the dive clock has not moved').toBe(clock);
+  expect(
+    enemies
+      .filter(e => !e.dead)
+      .map(e => `${e.x},${e.z}`)
+      .join(),
+    'nor has any enemy',
+  ).toBe(enemyAt);
+  expect(solid.hidden, 'the map is still drawn').toBe(false);
   // while the 3D page is up the move keys turn the map: the player stands still
   const at = [player.x, player.z].join();
   joy.y = -1;
@@ -2269,6 +2290,7 @@ test('big map: the map key opens and closes it, the 3D map key turns to the 3D p
   tick(2);
   expect(pages(), 'the map key closes it from the 3D page too').toEqual([true, true]);
   expect(map3dWanted()).toBe(false);
+  expect(LOOP.mode(), 'the game runs again').toBe('play');
   // straight to the 3D page from closed
   toggleMap3D();
   tick(2);
