@@ -28,6 +28,7 @@ import type { FloorPlan } from './building.ts';
 import { FLOOR_H } from './building.ts';
 import type { Building } from './building.ts';
 import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
+import { lookOf } from './looks.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import type { Portal } from './portals.ts';
@@ -263,8 +264,10 @@ export function showBuilding(b: Building) {
   scene.add(all);
   buildingGroup = all;
   shown = b;
-  (scene.fog as THREE.Fog).color.setHex(b.biome.fog);
-  (scene.background as THREE.Color).setHex(b.biome.fog);
+  // a sector with its own look fades to that look's colour
+  const fog = lookOf(b.biome)?.fog ?? b.biome.fog;
+  (scene.fog as THREE.Fog).color.setHex(fog);
+  (scene.background as THREE.Color).setHex(fog);
 }
 // Makes floor n of the building on screen the one being played: its maps in the tile world, a new Level for it, and
 // the floors placed so that this one stands at height 0 (the ones above it higher, the ones below lower). What lived

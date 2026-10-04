@@ -15,6 +15,11 @@ export const COLOR = {
   shield: 0x8cc8ff, // shield enemy, blocked-hit sparks, bastion barrier
   yellow: 0xffe14a, // drone
   bomber: 0xffb13d, // bomber and its blast
+  // the neon of the walled city: its signs, lamps, conduits and posters
+  neonPink: 0xff3d8a,
+  neonMint: 0x3dffb4,
+  neonGold: 0xffd23d,
+  neonSky: 0x4dc3ff,
 };
 
 export const CSS_COLOR = {
@@ -25,4 +30,8 @@ export const CSS_COLOR = {
   text: css(COLOR.text),
   dim: css(COLOR.dim),
   violet: css(COLOR.violet),
+  neonPink: css(COLOR.neonPink),
+  neonMint: css(COLOR.neonMint),
+  neonGold: css(COLOR.neonGold),
+  neonSky: css(COLOR.neonSky),
 };

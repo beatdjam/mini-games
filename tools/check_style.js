@@ -50,7 +50,8 @@ for (const { f, text } of files) {
     if (/\bas\s+any\b/.test(c)) report(f, i, 'no-as-any', 'type it instead of `as any`');
     if (isEngine && /from\s+['"][^'"]*\/games\//.test(c))
       report(f, i, 'engine-import', 'engine must not import from games/');
-    if (!isLang && !isTest) {
+    // (any file of src/i18n/ may hold written words: the language files, and the words on the scenery's signs)
+    if (!/\/src\/i18n\//.test(f) && !isTest) {
       for (const m of c.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g))
         if (JA.test(m[2])) {
           report(f, i, 'ui-text', `screen text belongs in src/i18n/: ${m[0].slice(0, 40)}`);
