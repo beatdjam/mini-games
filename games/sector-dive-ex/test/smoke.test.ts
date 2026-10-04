@@ -2255,7 +2255,7 @@ test('running: the dash held on after a dash keeps the player fast and drains st
   startRun();
   tick(2);
 });
-test('map: a stairwell or lift tile behind a wall stays off the map until the player has a line to it', () => {
+test('map: what lies behind a wall (a stairwell, a lift) stays off the map until the player has a line to it', () => {
   const b = building!,
     mid = (k: number): [number, number] => [((k % W) + 0.5) * T, (Math.floor(k / W) + 0.5) * T];
   let checked = 0;
