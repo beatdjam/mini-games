@@ -6,7 +6,7 @@ import { placeProps } from '@engine/world/slots.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../data/level.ts';
 import { COLOR } from '../data/colors.ts';
-import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
+import { KWLN_DANGER, KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
 import type { Biome } from '../data/types.ts';
 import type { FloorPlan } from './building.ts';
 // A sector's own look: its wall, floor, deck and ceiling pictures (painted on canvases, a few variants each so the
@@ -23,6 +23,9 @@ export interface Look {
   floors: THREE.CanvasTexture[];
   deck: THREE.CanvasTexture; // top of raised decks and ramps
   ceiling: THREE.CanvasTexture;
+  door: THREE.CanvasTexture; // one leaf of a door (a leaf is half a tile wide and a wall high)
+  bossDoor: THREE.CanvasTexture; // ... of the boss room's door
+  fog: number; // the colour things fade to in the distance (the sector's own is for the plain look)
   props: (plan: FloorPlan, group: THREE.Group, rng: Rng) => void;
 }
 type Paint = (g: CanvasRenderingContext2D, rand: () => number) => void;
@@ -342,6 +345,76 @@ const kwlnCeiling: Paint = (g, rand) => {
   }
   grain(g, rand, 14);
 };
+// the signs and the painted words are drawn with whatever CJK face the device has (the words: src/i18n/signs.ts)
+const SIGN_FONT =
+  '"PingFang HK","PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Hiragino Sans",sans-serif';
+// One leaf of a sliding steel door: ribbed plate, cross bars, a warning band low down, rust at the foot. The boss
+// room's is red, with the warning painted down it
+const kwlnDoor =
+  (boss: boolean): Paint =>
+  (g, rand) => {
+    const steel = g.createLinearGradient(0, 0, TEX, 0);
+    steel.addColorStop(0, boss ? '#6a231f' : '#59625a');
+    steel.addColorStop(0.5, boss ? '#84302a' : '#6f7a70');
+    steel.addColorStop(1, boss ? '#5a1d1a' : '#4d564f');
+    g.fillStyle = steel;
+    g.fillRect(0, 0, TEX, TEX);
+    grime(g, rand, 110, boss ? '#a5564c' : '#8d968c', '#12100f');
+    // ribs down the plate, bars across it, a frame with rivets
+    for (let x = 28; x < TEX; x += 40) {
+      g.fillStyle = 'rgba(0,0,0,.3)';
+      g.fillRect(x, 0, 5, TEX);
+      g.fillStyle = 'rgba(255,255,255,.1)';
+      g.fillRect(x + 5, 0, 2, TEX);
+    }
+    g.fillStyle = boss ? '#451614' : '#3b423c';
+    for (const y of [0, TEX * 0.33, TEX * 0.66, TEX - 12]) g.fillRect(0, y, TEX, 12);
+    g.fillRect(0, 0, 14, TEX);
+    g.fillRect(TEX - 14, 0, 14, TEX);
+    g.fillStyle = 'rgba(0,0,0,.45)';
+    for (let y = 10; y < TEX; y += 22) {
+      g.fillRect(4, y, 6, 3);
+      g.fillRect(TEX - 10, y, 6, 3);
+    }
+    // the warning band: black and yellow, about a metre up
+    const by = TEX * 0.8,
+      bh = 18;
+    g.save();
+    g.beginPath();
+    g.rect(14, by, TEX - 28, bh);
+    g.clip();
+    g.fillStyle = '#c9a23a';
+    g.fillRect(14, by, TEX - 28, bh);
+    g.fillStyle = '#161412';
+    for (let x = -bh; x < TEX; x += 26) {
+      g.beginPath();
+      g.moveTo(x, by + bh);
+      g.lineTo(x + bh, by);
+      g.lineTo(x + bh + 13, by);
+      g.lineTo(x + 13, by + bh);
+      g.fill();
+    }
+    g.restore();
+    if (boss) {
+      // the warning, one character over the other (the leaf is three times as tall as it is wide), below the height
+      // of the door's "BOSS" label (world/doors.ts BOSS_LABEL_Y) so the two do not cover each other
+      g.fillStyle = '#e6c04a';
+      g.font = `900 150px ${SIGN_FONT}`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.save();
+      g.translate(TEX / 2, 0);
+      g.scale(1, 1 / 3);
+      [...KWLN_DANGER].forEach((ch, n) => g.fillText(ch, 0, (TEX * 0.5 + n * TEX * 0.18) * 3));
+      g.restore();
+    }
+    const rust = g.createLinearGradient(0, TEX * 0.9, 0, TEX);
+    rust.addColorStop(0, 'rgba(110,55,25,0)');
+    rust.addColorStop(1, 'rgba(110,55,25,.6)');
+    g.fillStyle = rust;
+    g.fillRect(0, TEX * 0.9, TEX, TEX * 0.1);
+    grain(g, rand, 20);
+  };
 // a soft round patch of light, for the pools under the lamps and signs
 const poolPaint: Paint = g => {
   const r = g.createRadialGradient(TEX / 2, TEX / 2, 4, TEX / 2, TEX / 2, TEX / 2);
@@ -377,9 +450,6 @@ const acPaint: Paint = (g, rand) => {
 };
 
 // ---- the signs ----
-// the words are in src/i18n/signs.ts; they are drawn with whatever CJK face the device has
-const SIGN_FONT =
-  '"PingFang HK","PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Hiragino Sans",sans-serif';
 // a shop's board over its shutter: [paint colour, board colour], one per name of KWLN_SHOP_NAMES
 const BOARD_PAINT: [string, string][] = [
   ['#b3261e', '#e6dcc3'],
@@ -650,6 +720,9 @@ const MAKERS: Record<string, () => Look> = {
     floors: [0, 1, 2].map(v => paint(200 + v, kwlnFloor(v))), // bare, a puddle, a drain
     deck: paint(300, kwlnDeck),
     ceiling: paint(400, kwlnCeiling),
+    door: paint(500, kwlnDoor(false)),
+    bossDoor: paint(501, kwlnDoor(true)),
+    fog: 0x12100f,
     props: kwlnProps,
   }),
 };

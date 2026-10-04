@@ -42,6 +42,13 @@ if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>>
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
+    // ?sector=KWLN etc.: the building in that sector (otherwise the run's own first sector)
+    const sector = BIOMES.findIndex(x => x.code === new URLSearchParams(location.search).get('sector'));
+    if (sector >= 0) {
+      run.route = [sector];
+      run.bld = undefined;
+      startStage();
+    }
     const what = location.hash.slice(5),
       b = building!,
       stairs = b.links.find(l => l.kind === 'stairs'), // a building may have none: the stairs hooks do nothing then
