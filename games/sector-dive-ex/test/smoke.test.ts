@@ -595,8 +595,9 @@ test('shortcut supply: 2 picks at DEPTH 3, chips applied supplyTimes times', () 
   pick('overload');
   pick('overload');
   [save.shortcut, save.startTier, save.up.chip] = keep;
-  // a capped chip (pierce, crit, reload, magazine) stops once maxed, after 3-4 of the supplyTimes
-  if (run.perks.length < 6 || run.perks.length > 2 * TUNE.supplyTimes)
+  // a capped chip (pierce, crit, reload, magazine) stops once maxed: after 3-4 of the supplyTimes, or after 2 when
+  // the card is the rare version (the cards are random, so the wanted chip is not always among them)
+  if (run.perks.length < 4 || run.perks.length > 2 * TUNE.supplyTimes)
     throw new Error('supply picks ' + run.perks.length);
   // the heal chip is never a supply pick; stamina regen and pickup range add up per chip instead of multiplying
   for (let k = 0; k < 40; k++) {
@@ -1472,7 +1473,10 @@ describe('key bindings', () => {
     expect(bigmap.hidden).toBe(true);
     press('KeyM');
     expect(bigmap.hidden).toBe(false);
+    // in a building the second press turns to the 3D page, the third closes
     press('KeyM');
+    expect(bigmap.hidden).toBe(level.floor >= 0 ? false : true);
+    if (level.floor >= 0) press('KeyM');
     expect(bigmap.hidden).toBe(true);
   });
 
