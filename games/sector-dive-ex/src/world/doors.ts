@@ -27,7 +27,8 @@ const BOSS_LABEL_OUT = 1.2; // the label hangs this far in front of the door (m)
 
 const LOOK_DOOR = { lit: 0.9, lockedTint: 0xff6a5a, lockedLit: 1.15 }; // a painted door: how brightly it shows
 interface DoorMesh {
-  k: number; // tile
+  k: number; // tile (the first of the two, for a door 2 tiles wide)
+  wide: number; // tiles across: 1, or 2 in a corridor 2 wide (the two tiles are one door: a leaf per tile)
   painted: boolean; // drawn with the sector's own door picture (world/looks.ts)
   leaves: [THREE.Mesh, THREE.Mesh]; // the two halves; they slide apart along `axis`
   axis: 'x' | 'z';
@@ -57,9 +58,16 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
   if (!door) return;
   door.forEach((v, k) => {
     if (!v) return;
+    // the second tile of a door 2 wide: drawn with the first
+    if ((door[k - 1] && !door[k + 1]) || (door[k - W] && !door[k + W])) return;
     const i = k % W,
       j = Math.floor(k / W),
-      alongX = grid[k - 1] === 1 || grid[k + 1] === 1, // the corridor runs along x: the door spans z
+      // the corridor runs along x (the door spans z) when the floor before or behind the door is on that axis; the
+      // other half of a door 2 wide is floor too, but it is a door
+      open = (t: number) => grid[t] === 1 && !door[t],
+      alongX = open(k - 1) || open(k + 1),
+      across = alongX ? W : 1,
+      wide = door[k + across] ? 2 : 1,
       boss = k === bossDoor,
       map = look ? (boss ? look.bossDoor : look.door) : null,
       // a painted door shows its picture by its own light (the scene's lights are for the enemies); a plain one is a
@@ -71,9 +79,10 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
             emissive: boss ? COLOR.mag : biome.line,
             emissiveIntensity: DOOR_GLOW,
           }),
+      span = (T * wide) / 2, // width of a leaf
       leaf = () => {
         const m = new THREE.Mesh(
-          new THREE.BoxGeometry(alongX ? DOOR_THICK : T / 2, WALL_H - DOOR_CLEAR, alongX ? T / 2 : DOOR_THICK),
+          new THREE.BoxGeometry(alongX ? DOOR_THICK : span, WALL_H - DOOR_CLEAR, alongX ? span : DOOR_THICK),
           mat,
         );
         m.position.set(tileCenter(i), (WALL_H - DOOR_CLEAR) / 2, tileCenter(j));
@@ -82,10 +91,11 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
       },
       d: DoorMesh = {
         k,
+        wide,
         painted: !!map,
         leaves: [leaf(), leaf()],
         axis: alongX ? 'z' : 'x',
-        mid: tileCenter(alongX ? j : i),
+        mid: tileCenter(alongX ? j : i) + ((wide - 1) * T) / 2, // a door 2 wide meets between its two tiles
         mat,
       };
     placeLeaves(d, 0);
@@ -103,7 +113,8 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
 // the leaves meet in the middle when shut and are each a little more than half a tile further out when wide open:
 // wholly inside the walls, their ends clear of the walls' faces
 function placeLeaves(d: DoorMesh, open: number) {
-  const off = T / 4 + open * (T / 2 + DOOR_CLEAR);
+  const span = (T * d.wide) / 2,
+    off = span / 2 + open * (span + DOOR_CLEAR);
   d.leaves[0].position[d.axis] = d.mid - off;
   d.leaves[1].position[d.axis] = d.mid + off;
 }
@@ -114,7 +125,9 @@ export function updateDoorMeshes(movers: Iterable<DoorMover>, dt: number) {
   if (!doorOpen) return;
   updateDoors(g, movers, dt, DOOR_CFG);
   for (const d of doorMeshes) {
-    placeLeaves(d, doorOpen[d.k]!);
+    // a door 2 wide moves as one: as far open as the further open of its two tiles
+    const other = d.k + (d.axis === 'z' ? g.world.W : 1);
+    placeLeaves(d, d.wide > 1 ? Math.max(doorOpen[d.k]!, doorOpen[other]!) : doorOpen[d.k]!);
     const locked = isDoorLocked(g.world, d.k);
     if (d.painted) {
       // a locked painted door is lit red
