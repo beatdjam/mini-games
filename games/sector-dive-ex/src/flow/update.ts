@@ -373,8 +373,9 @@ function updateScreenFx(dt: number) {
     screenFx.miniT = MINIMAP_INTERVAL;
     drawMap(mini, mctx, false);
     if (!bigmap.hidden) drawMap(bigmap, bctx, true);
-    updateMap3D(!bigmap.hidden);
   }
+  // the 3D map is drawn every frame, not at the minimap's pace: it turns as it is dragged
+  updateMap3D(!bigmap.hidden);
 }
 
 // weapon pickups compete for "nearest" each frame, so the choice starts over first (system pickupReset)
