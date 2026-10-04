@@ -4,6 +4,7 @@ import { cityLook } from './looks/city.ts';
 import { dataLook } from './looks/data.ts';
 import { forgeLook } from './looks/forge.ts';
 import { kwlnLook } from './looks/kwln.ts';
+import { noiseLook } from './looks/noise.ts';
 import { ruinLook } from './looks/ruin.ts';
 // A sector's own look: its wall, floor, deck and ceiling pictures (painted on canvases, a few variants each so the
 // same picture is not on every tile) and the things fixed to its walls and ceilings (props; none of them is in the
@@ -25,6 +26,7 @@ const MAKERS: Record<string, () => Look> = {
   DATA: dataLook,
   KWLN: kwlnLook,
   FORGE: forgeLook,
+  NOISE: noiseLook,
   RUIN: ruinLook,
   CITY: cityLook,
 };
