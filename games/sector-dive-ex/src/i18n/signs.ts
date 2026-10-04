@@ -17,3 +17,9 @@ export const CITY_EXIT = '非常口';
 export const CITY_GUIDE = 'フロア案内';
 export const CITY_EXTINGUISHER = '消火器';
 export const CITY_KEEP_OUT = '立入禁止';
+// The discarded data layer: the numbers on the racks, the zone's plate on a wall (its code, and "mind the static"),
+// and the word painted down each leaf of the boss room's door ("sealed")
+export const DATA_RACK_IDS = ['A-01', 'A-02', 'A-03', 'B-07', 'B-08', 'C-12'];
+export const DATA_PLATE_ZONE = 'DS-04';
+export const DATA_PLATE_CAUTION = '静電気注意';
+export const DATA_SEALED = '封鎖';

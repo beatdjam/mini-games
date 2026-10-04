@@ -1,6 +1,7 @@
 import type { Biome } from '../data/types.ts';
 import type { Look } from './looks/common.ts';
 import { cityLook } from './looks/city.ts';
+import { dataLook } from './looks/data.ts';
 import { forgeLook } from './looks/forge.ts';
 import { kwlnLook } from './looks/kwln.ts';
 // A sector's own look: its wall, floor, deck and ceiling pictures (painted on canvases, a few variants each so the
@@ -20,6 +21,7 @@ export function devPlainLooks(on: boolean) {
 
 // the looks, made the first time a sector is drawn (the pictures stay for the life of the page)
 const MAKERS: Record<string, () => Look> = {
+  DATA: dataLook,
   KWLN: kwlnLook,
   FORGE: forgeLook,
   CITY: cityLook,

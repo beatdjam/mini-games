@@ -7,7 +7,7 @@ import { sfx, unlockAudio } from '@engine/audio/audio.ts';
 import { setMusic } from '@engine/audio/music.ts';
 import { camera, gun } from '@engine/render/render.ts';
 import { FX } from '@engine/render/fx.ts';
-import { T, computeFlow, floorY, moveCircle, tileIndex } from '@engine/world/tiles.ts';
+import { STEP, T, computeFlow, floorY, moveCircle, tileIndex } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { fire2Held, fireHeld, joy, mouseFire } from '@engine/ui/input.ts';
 import { actionDown } from '@engine/ui/keymap.ts';
@@ -58,6 +58,7 @@ const STICK_DASH_HOLD = 0.3; // seconds held at the rim before the stick dash fi
 const STICK_DASH_REARM = 0.8; // the stick must come back below this before it can dash again
 const MOVE_EPS = 0.1; // move input / speed below this counts as standing still
 const STAMINA_WARN_TIME = 0.3; // seconds the stamina bar flashes when a dash is refused
+const MOVE_STEP = 0.3; // the player moves at most this far at a time (m); see movePlayer
 const RUN_LATCH_HOLD = 0.25; // touch: the dash button held this long keeps the run on after it is let go (s)
 const RUN_LATCH_STICK = 0.5; // ... while the stick stays pushed further than this (0-1)
 const GRAVITY = 26; // m/s^2, falling after a ledge or a drop
@@ -220,7 +221,16 @@ function applyDash(dt: number, moveDir: Vec2): Vec2 {
 function movePlayer(dt: number, dir: Vec2) {
   if (ridingY() !== null) return; // riding a lift: the platform carries the player
   const speed = player.baseSpeed * player.spdMul * (1 + SPEED_OPT_PER_LEVEL * weaponOptCount('speed'));
-  moveCircle(player, dir.x * speed * dt, dir.z * speed * dt, player.r);
+  // In short steps, climbing as it goes: a ramp rises under a fast mover, and the whole move at once (a dash in a
+  // long frame) would end more than a STEP above the feet, which reads as a wall and stops the dash on the ramp
+  const dx = dir.x * speed * dt,
+    dz = dir.z * speed * dt,
+    steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / MOVE_STEP));
+  for (let n = 0; n < steps; n++) {
+    moveCircle(player, dx / steps, dz / steps, player.r);
+    const ground = floorY(player.x, player.z);
+    if (ground > player.fy && ground <= player.fy + STEP) player.fy = ground;
+  }
 }
 
 // falls after a ledge or a drop, otherwise stays on the floor
