@@ -344,6 +344,13 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     keepOut = maps.map(d => {
       const out = new Uint8Array(size);
       if (d.hall) markAround(out, W, roomTiles(d, d.hall.room));
+      // nor past a door: a corridor carved beside a door tile would open a way round it, and the door would stand
+      // along that corridor instead of across its own
+      const doors: number[] = [];
+      d.maps.door?.forEach((v, k) => {
+        if (v) doors.push(k);
+      });
+      markAround(out, W, doors);
       return out;
     }),
     links: BuildingLink[] = [];
