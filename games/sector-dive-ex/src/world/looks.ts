@@ -1,5 +1,6 @@
 import type { Biome } from '../data/types.ts';
 import type { Look } from './looks/common.ts';
+import { cityLook } from './looks/city.ts';
 import { dataLook } from './looks/data.ts';
 import { forgeLook } from './looks/forge.ts';
 import { kwlnLook } from './looks/kwln.ts';
@@ -23,6 +24,7 @@ const MAKERS: Record<string, () => Look> = {
   DATA: dataLook,
   KWLN: kwlnLook,
   FORGE: forgeLook,
+  CITY: cityLook,
 };
 const made: Record<string, Look> = {};
 // the sector's look, or null when it has none (or ?plain is on): it is drawn the plain way then
