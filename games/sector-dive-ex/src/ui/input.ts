@@ -30,8 +30,8 @@ export function keyText(action: string, index?: number): string {
 }
 // the four move keys written in a row: "WASD" (the first key of forward, left, back, right)
 export const moveKeysText = (): string => ['forward', 'left', 'back', 'right'].map(a => keyText(a, 0)).join('');
-// dash request and the full-stick dash timer
-export const controlState = { dashReq: false, stickT: 0, stickArmed: true };
+// dash request, the dash button held (touch), and the full-stick dash timer
+export const controlState = { dashReq: false, dashHeld: false, stickT: 0, stickArmed: true };
 Object.assign(INPUT, {
   active: () => state === 'play',
   look: (dx: number, dy: number) => {
@@ -96,6 +96,17 @@ Object.assign(INPUT, {
 tapBtn(el('#btnDash'), () => {
   controlState.dashReq = true;
 });
+// held on after the dash, the button keeps the player running (flow/update.ts)
+el('#btnDash').addEventListener('pointerdown', e => {
+  controlState.dashHeld = true;
+  try {
+    el('#btnDash').setPointerCapture(e.pointerId);
+  } catch (err) {}
+});
+for (const type of ['pointerup', 'pointercancel'])
+  el('#btnDash').addEventListener(type, () => {
+    controlState.dashHeld = false;
+  });
 tapBtn(el('#btnReload'), () => {
   if (state === 'play') startReload();
 });

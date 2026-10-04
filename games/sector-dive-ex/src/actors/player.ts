@@ -56,6 +56,7 @@ export function newPlayer(loadout: (WeaponItem | null)[]): Player {
     stDelay: 0,
     inv: 0,
     dashT: 0,
+    sprint: false,
     ddx: 0,
     ddz: 0,
     weapons: ws,

@@ -519,7 +519,7 @@ LANG.en = {
       ['Move', '{forward.0} {left.0} {back.0} {right.0}'],
       ['Look', 'Mouse (click the screen to lock)'],
       ['Fire', 'Left click / {fire}'],
-      ['Dash', '{dash} (uses stamina, brief invulnerability)'],
+      ['Dash', '{dash} (uses stamina, brief invulnerability; hold to keep running)'],
       ['Reload', '{reload} (automatic when empty)'],
       ['Switch weapon', '{swap} / {slot1} / {slot2} / wheel'],
       ['Pick up weapon', '{equip} to swap / {stow} to bag'],
@@ -534,7 +534,7 @@ LANG.en = {
       ['Fire', 'Right fire button (drag while holding to look) / small left fire button'],
       [
         'Dash',
-        'Dash button at the right edge (uses stamina, brief invulnerability). Settings can make a full stick push dash too',
+        'Dash button at the right edge (uses stamina, brief invulnerability; hold to keep running). Settings can make a full stick push dash too',
       ],
       ['Reload', 'Reload button (automatic when empty)'],
       ['Switch weapon', 'Tap the weapon bar at the bottom'],

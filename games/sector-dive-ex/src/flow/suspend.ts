@@ -27,6 +27,7 @@ const SNAP_SKIP = [
   'vy',
   'inv',
   'dashT',
+  'sprint',
   'ddx',
   'ddz',
   'reloadT',

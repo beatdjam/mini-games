@@ -321,6 +321,7 @@ export interface Player {
   stRegen: number;
   stDelay: number;
   dashT: number;
+  sprint: boolean; // running: the dash has been held since a dash (flow/update.ts)
   ddx: number;
   ddz: number;
   baseSpeed: number;

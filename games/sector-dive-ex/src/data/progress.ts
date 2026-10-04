@@ -33,6 +33,8 @@ export const TUNE = {
   dashTime: 0.2, // seconds
   dashSpeed: 3.3, // multiplier on move speed while dashing
   dashInvuln: 0.32, // seconds of invulnerability from a dash
+  sprintSpeed: 1.5, // multiplier on move speed while running (the dash held on after a dash)
+  sprintCost: 12, // stamina per second while running
   hitInvuln: 0.45, // seconds of invulnerability after taking a hit
   kitHeal: 40, // a med kit heals this much, or kitHealPct of max HP when that is more (max HP grows deep down)
   kitHealPct: 0.25,

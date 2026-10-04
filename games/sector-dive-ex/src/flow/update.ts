@@ -156,19 +156,40 @@ function startDashIfRequested(moveDir: Vec2) {
       player.ddz = forward.z;
     }
     player.dashT = TUNE.dashTime;
+    player.sprint = true; // holding the dash on keeps the player running once the dash is over (applySprint)
     player.st -= TUNE.dashCost;
     player.stDelay = TUNE.staminaDelay;
     player.inv = Math.max(player.inv, TUNE.dashInvuln);
     sfx('dash');
   } else {
+    // not enough for a dash: the bar warns, but holding on still runs on what stamina is left (applySprint)
+    player.sprint = true;
     screenFx.stWarn = STAMINA_WARN_TIME;
     sfx('empty');
   }
 }
 
-// while dashing, the dash direction replaces the move direction
+// is the dash held right now: its key, its button, or (with the stick dash on) the stick at its rim
+function dashHeld(): boolean {
+  if (actionDown('dash') || controlState.dashHeld) return true;
+  return save.settings.stickDash && joy.id !== null && Math.hypot(joy.x, joy.y) > STICK_DASH_PUSH;
+}
+// Running: after pressing the dash (whether the dash came or there was too little stamina for it), while it stays
+// held and the player keeps moving, they move faster and stamina drains instead of refilling. It ends when the dash
+// is let go, the player stops, or the stamina runs out; the next run needs a new press. No invulnerability
+function applySprint(dt: number, moveDir: Vec2): Vec2 {
+  if (!player.sprint) return moveDir;
+  if (!dashHeld() || player.st <= 0 || Math.hypot(moveDir.x, moveDir.z) < MOVE_EPS) {
+    player.sprint = false;
+    return moveDir;
+  }
+  player.st = Math.max(0, player.st - TUNE.sprintCost * dt);
+  player.stDelay = TUNE.staminaDelay;
+  return { x: moveDir.x * TUNE.sprintSpeed, z: moveDir.z * TUNE.sprintSpeed };
+}
+// while dashing, the dash direction replaces the move direction; after it, running (applySprint)
 function applyDash(dt: number, moveDir: Vec2): Vec2 {
-  if (player.dashT <= 0) return moveDir;
+  if (player.dashT <= 0) return applySprint(dt, moveDir);
   player.dashT -= dt;
   return { x: player.ddx * TUNE.dashSpeed, z: player.ddz * TUNE.dashSpeed };
 }

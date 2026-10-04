@@ -706,6 +706,7 @@ test('shotgun knockback once per shot; launcher gets half the magazine chips', (
   hgt.fill(0);
   ramp.fill(-1);
   cover.fill(0);
+  activeTileGrid().world.door?.fill(0); // a building floor has doors: none in the way here
   player.x = (W * T) / 2;
   player.z = (H * T) / 2;
   player.fy = 0;
@@ -792,6 +793,7 @@ test('splitter killed by a chain blast or a rocket: both halves survive', () => 
   hgt.fill(0);
   ramp.fill(-1);
   cover.fill(0);
+  activeTileGrid().world.door?.fill(0); // a building floor has doors: none in the way here
   const cx = (W * T) / 2,
     cz = (H * T) / 2;
   player.chain = 3;
@@ -1518,7 +1520,9 @@ describe('key bindings', () => {
     expect(g[0]).toBe('W A S D');
     expect(g[2]).toContain('F');
     expect(g[3]).toBe(
-      lang === 'ja' ? 'Space / Shift（スタミナ消費、短い無敵）' : 'Space / Shift (uses stamina, brief invulnerability)',
+      lang === 'ja'
+        ? 'Space / Shift（スタミナ消費、短い無敵。押し続けると走る）'
+        : 'Space / Shift (uses stamina, brief invulnerability; hold to keep running)',
     );
     expect(g[5]).toContain('Q / 1 / 2');
     expect(g[7]).toBe('H');
@@ -2021,6 +2025,74 @@ test('stairwell: walking over the landing changes the floor without moving the p
   expect(level.floor).toBe(0);
   expect(player.fy).toBeCloseTo(0);
   expect(run.stage % PER).toBe(0);
+});
+test('running: the dash held on after a dash keeps the player fast and drains stamina until it is let go', () => {
+  // a long straight corridor, the player walking along it (the stick pushed forward)
+  const rows = ['#'.repeat(64), '#' + '.'.repeat(62) + '#', '#'.repeat(64)];
+  goBase();
+  startRun();
+  tick(2);
+  buildFixedLevel(BIOMES[0]!, { rows, rooms: [{ x: 1, y: 1, w: 62, h: 1 }], start: 0, exit: 0 });
+  const walk = (frames: number) => {
+    const from = player.x;
+    tick(frames);
+    return Math.abs(player.x - from);
+  };
+  player.x = 2 * T;
+  player.z = 1.5 * T;
+  player.fy = 0;
+  player.yaw = -Math.PI / 2; // facing +x
+  joy.y = -1;
+  tick(2);
+  const plain = walk(30);
+  expect(plain).toBeGreaterThan(1);
+  // a dash, the button held: after the dash the player runs
+  player.st = player.stMax;
+  controlState.dashHeld = true;
+  controlState.dashReq = true;
+  tick(Math.ceil(TUNE.dashTime * 60) + 2);
+  expect(player.sprint).toBe(true);
+  const st0 = player.st,
+    run1 = walk(30);
+  expect(run1 / plain, 'sprintSpeed times as far').toBeCloseTo(TUNE.sprintSpeed, 1);
+  expect(st0 - player.st, 'half a second of sprintCost').toBeCloseTo(TUNE.sprintCost * 0.5, 0);
+  // let go: back to walking, and the stamina refills after the usual delay
+  controlState.dashHeld = false;
+  tick(1);
+  expect(player.sprint).toBe(false);
+  expect(walk(30) / plain).toBeCloseTo(1, 1);
+  tick(60);
+  expect(player.st).toBeGreaterThan(st0 - TUNE.sprintCost * 0.5);
+  // holding the button on its own (no new press) does not run
+  controlState.dashHeld = true;
+  expect(walk(30) / plain).toBeCloseTo(1, 1);
+  // too little stamina for a dash: no dash, but holding on still runs on what is left
+  controlState.dashHeld = false;
+  tick(2);
+  player.st = TUNE.dashCost - 5;
+  player.stDelay = 9; // no refill during the check
+  controlState.dashHeld = true;
+  controlState.dashReq = true;
+  tick(1);
+  expect(player.dashT, 'no dash').toBeLessThanOrEqual(0);
+  expect(player.sprint).toBe(true);
+  expect(walk(30) / plain).toBeCloseTo(TUNE.sprintSpeed, 1);
+  // it stops when the stamina is gone
+  controlState.dashHeld = false;
+  tick(2);
+  controlState.dashHeld = true;
+  player.st = TUNE.dashCost + 2;
+  controlState.dashReq = true;
+  tick(Math.ceil(TUNE.dashTime * 60) + 2);
+  expect(player.sprint).toBe(true);
+  tick(60);
+  expect(player.sprint, 'out of stamina').toBe(false);
+  controlState.dashHeld = false;
+  joy.y = 0;
+  // a run in a building again, for the tests below
+  goBase();
+  startRun();
+  tick(2);
 });
 test('lift: standing on the platform rides to the next floor and back', () => {
   goToFloor(0);
