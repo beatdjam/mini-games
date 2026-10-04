@@ -7,7 +7,7 @@ import { burst } from '@engine/render/fx.ts';
 import { T } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { level, randomTileIn } from '../../world/level.ts';
+import { arenaShift, level, randomTileIn } from '../../world/level.ts';
 import { ring, shootAtPoint } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { RING_Y, bossBase, bossMaterial, isEnraged, minionCount, spawnMinion, wireOutline } from './common.ts';
@@ -42,8 +42,9 @@ export function spawnPhantom() {
   toast(t('boss.phantomHint'), 4200);
 }
 function phantomWarp(e: Boss, first?: boolean) {
+  const [si, sj] = arenaShift();
   const spots = BOSS_META.phantom.tune.spots
-    .map(([i, j]: [number, number]) => [(i + 0.5) * T, (j + 0.5) * T])
+    .map(([i, j]: [number, number]) => [(i + si + 0.5) * T, (j + sj + 0.5) * T])
     .sort(
       (a: number[], b: number[]) =>
         Math.hypot(b[0] - player.x, b[1] - player.z) - Math.hypot(a[0] - player.x, a[1] - player.z),

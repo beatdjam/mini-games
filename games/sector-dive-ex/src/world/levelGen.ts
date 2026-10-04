@@ -10,9 +10,9 @@ export type { Room, TileMaps };
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const HAZARD_TRIES = 2000; // attempts to place the hazard floors
 const ARENA_SIZE = 20,
-  ARENA_FROM = 4,
-  ARENA_TO = 16; // boss arena: map side, floor from tile .. to tile
-const ARENA_PILLARS: [number, number][] = [
+  ARENA_TO = 16; // boss arena: map side, floor from tile ARENA_FROM .. to tile
+export const ARENA_FROM = 4;
+export const ARENA_PILLARS: [number, number][] = [
   [6, 6],
   [13, 6],
   [6, 13],
@@ -28,7 +28,7 @@ export interface GeneratedLevel {
   startIdx: number; // room index of the start (0 in a boss arena)
 }
 // hazard floors on plain floor tiles (not on decks, ramps or cover)
-function addHazards(gen: TileMapData, hazard: Uint8Array, count: number, rng: Rng) {
+export function addHazards(gen: TileMapData, hazard: Uint8Array, count: number, rng: Rng) {
   const { W: w, H: h, maps: M } = gen;
   let placed = 0,
     tries = 0;

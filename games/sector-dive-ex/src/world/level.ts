@@ -5,6 +5,7 @@ import { disposeTree, scene } from '@engine/render/render.ts';
 import { clearFx } from '@engine/render/fx.ts';
 import {
   H,
+  T,
   W,
   computeFlow,
   flow,
@@ -21,7 +22,9 @@ import { BIOMES } from '../data/biomes.ts';
 import type { Biome } from '../data/types.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';
 import { clearHazards } from './hazards.ts';
-import { generateLevel } from './levelGen.ts';
+import { ARENA_FROM, generateLevel } from './levelGen.ts';
+import type { FloorPlan } from './building.ts';
+import { buildDoorMeshes } from './doors.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildLevelMeshes } from './levelMesh.ts';
 import type { Portal } from './portals.ts';
@@ -46,6 +49,8 @@ interface Level {
   exitIdx: number; // room index of the exit
   group: THREE.Group | null; // the three.js group holding the level's meshes
   seed: number; // what generateLevel was given; the same seed rebuilds the same level
+  floor: number; // a floor of the building (0 = top), or -1 for a level on its own (boss practice, tests)
+  hall: { room: number; door: number } | null; // the boss room of a building floor and its door's tile
 }
 function emptyLevel(): Level {
   return {
@@ -61,6 +66,8 @@ function emptyLevel(): Level {
     exitIdx: 0,
     group: null,
     seed: 0,
+    floor: -1,
+    hall: null,
   };
 }
 // replaced only by buildLevel and buildFixedLevel (and emptied piecewise by clearLevel)
@@ -88,6 +95,8 @@ let forcedSeed: number | null = null;
 export function devSeed(seed: number | null) {
   forcedSeed = seed;
 }
+// a seed for something new to generate: the forced one (dev) or a random one
+export const newSeed = (): number => forcedSeed ?? (Math.random() * 2 ** 32) >>> 0;
 // the seed makes the generated level (and its signs) reproducible; tests can build a fixed level with it
 export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | null, seed?: number) {
   const useSeed = seed ?? forcedSeed ?? (Math.random() * 2 ** 32) >>> 0;
@@ -105,6 +114,33 @@ export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | n
       level.exitIdx = idx;
     }
   });
+}
+// A floor of the building (world/building.ts): the same tile world, meshes and Level as a level on its own, plus its
+// doors. The map explored so far (plan.seen) is kept, and the doors start shut.
+export function buildFloor(biome: Biome, plan: FloorPlan, floor: number, seed: number) {
+  plan.gen.maps.doorOpen?.fill(0);
+  useLevel(biome, false, plan.gen, seed);
+  level.floor = floor;
+  level.hall = plan.hall;
+  level.seen = plan.seen;
+  buildDoorMeshes(biome, level.group!, plan.hall ? plan.hall.door : -1);
+}
+// where the boss fights: the middle of the boss room on a building floor, the middle of the map in a boss arena;
+// and how many tiles the arena's own coordinates (data/bosses.ts) are shifted by
+export function arenaCenter(): [number, number] {
+  if (!level.hall) return [(W * T) / 2, (H * T) / 2];
+  const r = level.rooms[level.hall.room]!;
+  return [(r.x + r.w / 2) * T, (r.y + r.h / 2) * T];
+}
+export function arenaShift(): [number, number] {
+  if (!level.hall) return [0, 0];
+  const r = level.rooms[level.hall.room]!;
+  return [r.x - ARENA_FROM, r.y - ARENA_FROM];
+}
+// the fog of a boss arena, for the boss room of a building floor once the fight starts
+export function arenaFog() {
+  (scene.fog as THREE.Fog).near = ARENA_FOG_NEAR;
+  (scene.fog as THREE.Fog).far = Math.max(ARENA_FOG_FAR_MIN, level.biome.fogFar);
 }
 // a hand-drawn level (a map written as rows of text, engine/src/world/tilemap.ts) instead of a generated one: the same
 // tile world, meshes and Level, with the start and exit rooms given. For tests that need a known terrain.
@@ -132,6 +168,8 @@ function useLevel(biome: Biome, isArena: boolean, gen: GeneratedLevel, seed: num
     cover: M.cover,
     flow: new Int16Array(gen.W * gen.H),
     flowQ: new Int32Array(gen.W * gen.H),
+    door: M.door,
+    doorOpen: M.doorOpen,
   });
   const lg = new THREE.Group();
   // a new object per build; exitIdx and portals are filled in below, before anything else reads it
@@ -148,6 +186,8 @@ function useLevel(biome: Biome, isArena: boolean, gen: GeneratedLevel, seed: num
     exitIdx: 0,
     group: lg,
     seed,
+    floor: -1,
+    hall: null,
   };
   scene.add(lg);
   buildLevelMeshes(biome, isArena, gen, lg, createRng(seed ^ 0x9e3779b9));

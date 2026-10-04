@@ -344,6 +344,18 @@ export interface Player {
   fireCd: number;
 }
 // one run (a dive, or a boss practice when practice is set)
+// the building of the depth being played (src/world/building.ts): what is needed to build it again and to know how
+// far the player has got in it. Saved with the checkpoint
+export interface BuildingState {
+  tier: number; // the depth this building is (0-based)
+  seed: number; // makeBuilding's seed
+  boss: string; // the boss in its boss room
+  floor: number; // the floor the player is on (0 = top)
+  at: number; // the stairs or lift the player came by (index into the building's links), -1 = the start room
+  cleared: number[][]; // per floor: the rooms with no enemy left
+  ld: number; // the lockdown: 0 = still to come, 1 = done
+  visited: boolean[]; // per floor: entered before (the weapon caches are put down on the first visit)
+}
 export interface RunState {
   stage: number;
   kills: number;
@@ -352,6 +364,7 @@ export interface RunState {
   route: number[];
   perks: string[]; // chip ids taken, '+' for the rare version
   bosses?: string[]; // bosses defeated
+  bld?: BuildingState; // not in boss practice
   cleared?: boolean;
   practice?: boolean;
   forceBoss?: string;
@@ -426,4 +439,4 @@ export type GameState = 'base' | 'play' | 'pause' | 'perk' | 'result' | 'bag' | 
 export type RunEnd = 'extract' | 'dead' | 'abandon';
 export type PickupKind = 'bit' | 'kit' | 'chip' | 'weapon';
 // a gate: 'next' (on to the next area) or 'extract' (back to base)
-export type PortalKind = 'next' | 'extract';
+export type PortalKind = 'next' | 'extract' | 'link'; // link: stairs or a lift to another floor

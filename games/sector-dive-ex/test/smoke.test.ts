@@ -21,6 +21,7 @@ import {
   STEP,
   T,
   W,
+  activeTileGrid,
   blocked,
   cover,
   floorY,
@@ -100,7 +101,18 @@ import { setKeyBindings } from '../src/core/progress.ts';
 import { applyKeyBindings, controlState, equipNearby, stowNearby } from '../src/ui/input.ts';
 import { bigmap, hitDirs, updateHud } from '../src/ui/hud.ts';
 import { changeLang, renderGuide } from '../src/ui/settings.ts';
-import { endRun, goBase, nextStage, pickEnemyType, startPractice, startRun, startStage } from '../src/flow/run.ts';
+import {
+  endRun,
+  goBase,
+  nextStage,
+  pickEnemyType,
+  startPractice,
+  startRun,
+  startStage,
+  useLink,
+} from '../src/flow/run.ts';
+import { FLOORS, building, makeBuilding, roomDoors } from '../src/world/building.ts';
+import { isDoorLocked } from '@engine/world/doors.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { openPerk } from '../src/screens/perk.ts';
@@ -167,8 +179,14 @@ BIOMES.forEach((b, bi) => {
   });
   b.bosses.forEach(kind => {
     test(`boss ${b.code} ${kind}`, () => {
-      run.stage = bi * PER + PER - 1;
+      // a new building of this sector with this boss, then its boss room on the lowest floor
+      run.stage = bi * PER;
+      run.bld = undefined;
+      run.forceBoss = kind;
       startStage();
+      run.forceBoss = undefined;
+      goToFloor(FLOORS - 1);
+      run.stage = bi * PER + PER - 1; // the boss stage, as once the player has walked into the boss room
       setBoss(null);
       enemies.slice().forEach(e => {
         e.dead = true;
@@ -1049,15 +1067,21 @@ test('analytics: the flow above sent its events', () => {
     throw new Error('analytics: stage_role');
 });
 test('suspend -> resume -> suspend -> discard', () => {
+  // the lowest floor of the building (stage 2 of the depth), reached by one of its stairs or lifts
   run.route = [0];
-  run.stage = 2;
+  run.stage = 0;
+  startStage();
+  run.bld!.floor = FLOORS - 1;
+  run.bld!.at = building!.links.findIndex(l => l.a.floor === FLOORS - 1 || l.b.floor === FLOORS - 1);
   startStage();
   tick(30);
+  const seedWas = run.bld!.seed;
   suspendRun();
   if (!save.suspend || state !== 'base') throw new Error('suspend failed');
   resumeRun();
   tick(60);
   if (run.stage !== 2 || (save.suspend as Snapshot | null)?.run.stage !== 2) throw new Error('resume failed');
+  if (run.bld!.seed !== seedWas || level.floor !== FLOORS - 1 || !level.hall) throw new Error('not the same building');
   suspendRun();
   discardSuspended();
   if (save.suspend || !stateIs('result')) throw new Error('discard failed');
@@ -1092,6 +1116,7 @@ test('gates: one opening underfoot waits until the player steps off and back', (
   goBase();
   startRun();
   tick(5);
+  run.stage = PER - 1; // as after the boss: an onward gate leads to the next depth
   const st = run.stage;
   makePortal(player.x, player.z, 0xffffff, 'next', '');
   tick(30);
@@ -1811,4 +1836,216 @@ test('a dropped weapon and the loadout come fully loaded, options and chips incl
   expect(p.weapons[0]!.mag).toBe(fillMag(newWeapon('smg', 1, false, 0, ['mag']), 1).mag);
   expect(newPlayer([newWeapon('smg', 1), null]).weapons[0]!.mag, 'no option: the bare magazine').toBe(WEAPONS.smg.mag);
   setPlayer(null);
+});
+
+// ---- the building: floors, stairs and lifts, the boss room, the lockdown ----
+// kills what is alive in a room right now (a splitter's halves are left for the next call)
+const killRoom = (room: number) =>
+  enemies.filter(e => e.room === room && !e.dead).forEach(e => hurtEnemy(e, 1e6, false));
+// puts the player on a building floor as if they had come by one of its stairs or lifts (the start room on floor 0)
+function goToFloor(floor: number) {
+  run.bld!.floor = floor;
+  run.bld!.at = floor ? building!.links.findIndex(l => l.a.floor === floor || l.b.floor === floor) : -1;
+  startStage();
+  player.hp = 1e6;
+  player.maxHp = 1e6;
+  tick(2);
+}
+test('building: the same seed gives the same three floors, the boss room is on the lowest', () => {
+  const a = makeBuilding(BIOMES[0]!, 'watcher', 1234),
+    b = makeBuilding(BIOMES[0]!, 'watcher', 1234),
+    maps = (x: typeof a) => x.plans.map(p => Array.from(p.gen.maps.grid).join('')).join('|');
+  expect(a.plans.length).toBe(FLOORS);
+  expect(maps(a)).toBe(maps(b));
+  expect(JSON.stringify([a.links, a.lockdown])).toBe(JSON.stringify([b.links, b.lockdown]));
+  expect(maps(makeBuilding(BIOMES[0]!, 'watcher', 1235))).not.toBe(maps(a));
+  expect(a.plans.map(p => !!p.hall)).toEqual([false, false, true]);
+  expect(a.plans.map(p => p.gen.startIdx >= 0)).toEqual([true, false, false]);
+  for (const biome of BIOMES)
+    for (let seed = 1; seed <= 25; seed++) {
+      const kind = biome.bosses[seed % biome.bosses.length]!,
+        bld = makeBuilding(biome, kind, seed),
+        at = `${biome.code} seed ${seed}`,
+        last = bld.plans[FLOORS - 1]!,
+        hall = last.gen.rooms[last.hall!.room]!;
+      expect(`${hall.w}x${hall.h}`, at).toBe('12x12');
+      expect(last.gen.rooms.length - 1, at).toBeGreaterThanOrEqual(2);
+      expect(last.gen.rooms.length - 1, at).toBeLessThanOrEqual(3);
+      // the boss's pillars stand where they do in a boss arena (2 tiles in from the corners)
+      expect(last.gen.maps.grid[(hall.y + 2) * last.gen.W + hall.x + 2], at).toBe(BOSS_META[kind]!.pillars ? 0 : 1);
+      // every pair of neighbouring floors has stairs and a lift, and nothing skips a floor
+      for (let lo = 0; lo + 1 < FLOORS; lo++)
+        for (const kind2 of ['stairs', 'elevator'])
+          expect(
+            bld.links.some(l => l.kind === kind2 && Math.min(l.a.floor, l.b.floor) === lo),
+            `${at}: ${kind2} ${lo}`,
+          ).toBe(true);
+      expect(
+        bld.links.every(l => Math.abs(l.a.floor - l.b.floor) === 1),
+        at,
+      ).toBe(true);
+      // no hazard floor on a door, in the boss room, or where the stairs and lifts end
+      bld.plans.forEach(p => {
+        p.gen.maps.door?.forEach((v, k) => expect(v && p.gen.hazard[k], at).toBeFalsy());
+      });
+      for (let j = hall.y; j < hall.y + hall.h; j++)
+        for (let i = hall.x; i < hall.x + hall.w; i++) expect(last.gen.hazard[j * last.gen.W + i], at).toBe(0);
+      for (const l of bld.links)
+        for (const sp of [l.a, l.b]) {
+          const g = bld.plans[sp.floor]!.gen;
+          expect(g.hazard[sp.j * g.W + sp.i], at).toBe(0);
+        }
+      // the lockdown room can be shut, and is not the start room, the boss room or a room with stairs or a lift
+      const ld = bld.lockdown;
+      if (!ld) continue;
+      const plan = bld.plans[ld.floor]!;
+      expect(roomDoors(plan.gen, ld.room).closable, at).toBe(true);
+      expect(ld.room !== plan.gen.startIdx && ld.room !== plan.hall?.room, at).toBe(true);
+      for (const l of bld.links)
+        for (const sp of [l.a, l.b])
+          if (sp.floor === ld.floor) expect(plan.gen.maps.roomOf[sp.j * plan.gen.W + sp.i], at).not.toBe(ld.room);
+    }
+});
+test('building run: stairs lead down and back, a cleared room stays empty, the checkpoint follows the floor', () => {
+  goBase();
+  startRun();
+  tick(5);
+  player.hp = 1e6;
+  player.maxHp = 1e6;
+  expect(level.floor).toBe(0);
+  expect(run.stage % PER).toBe(0);
+  const gates = level.portals.filter(p => p.kind === 'link');
+  expect(gates.length, 'a gate on every stairs and lift of the floor').toBe(
+    building!.links.filter(l => l.a.floor === 0 || l.b.floor === 0).length,
+  );
+  // empty one room (not the lockdown room: that one sends waves)
+  const ld = building!.lockdown,
+    room = level.roomCount.findIndex((n, idx) => n > 0 && !(ld && ld.floor === 0 && ld.room === idx));
+  for (let k = 0; k < 6 && level.roomCount[room]! > 0; k++) killRoom(room);
+  expect(run.bld!.cleared[0]).toContain(room);
+  const n = gates[0]!.link,
+    link = building!.links[n]!,
+    end = link.a.floor === 1 ? link.a : link.b;
+  useLink(n);
+  tick(5);
+  expect(level.floor).toBe(1);
+  expect(run.stage % PER).toBe(1);
+  expect(tileIndex(player.x, player.z), 'the player stands where the stairs end').toBe(end.j * W + end.i);
+  expect((save.suspend as Snapshot | null)?.run.bld?.floor, 'the checkpoint is on the new floor').toBe(1);
+  expect(level.startIdx, 'no start room down here').toBe(-1);
+  tick(120);
+  expect(level.floor, 'the gate underfoot waits until the player steps off').toBe(1);
+  useLink(n);
+  tick(5);
+  expect(level.floor).toBe(0);
+  expect(level.roomCount[room]).toBe(0);
+  expect(
+    enemies.some(e => e.room === room && !e.dead),
+    'the cleared room is still empty',
+  ).toBe(false);
+  expect(
+    level.roomCount.some(c => c > 0),
+    'the other rooms have their enemies',
+  ).toBe(true);
+  // suspending and resuming builds the same floor again, with the room still cleared
+  const gridWas = Array.from(grid).join('');
+  suspendRun();
+  resumeRun();
+  tick(5);
+  expect(Array.from(grid).join('')).toBe(gridWas);
+  expect(level.roomCount[room]).toBe(0);
+});
+test('boss room: its door opens for a player who waits at it; walking in starts the boss stage', () => {
+  goToFloor(FLOORS - 1);
+  const hall = level.hall!,
+    world = activeTileGrid().world,
+    r = level.rooms[hall.room]!,
+    tier = stageInfo(run.stage).tier;
+  expect(isDoorLocked(world, hall.door), 'locked at first').toBe(true);
+  expect(
+    enemies.some(e => e.room === hall.room),
+    'no enemy waits in the boss room',
+  ).toBe(false);
+  enemies.slice().forEach(e => hurtEnemy(e, 1e6, false));
+  // the corridor tile in front of the door, and the room tile two steps inside
+  const step = [1, -1, W, -W].find(d => grid[hall.door + d] === 1 && level.roomOf[hall.door + d] === hall.room)!,
+    put = (k: number) => {
+      player.x = ((k % W) + 0.5) * T;
+      player.z = (Math.floor(k / W) + 0.5) * T;
+      player.fy = floorY(player.x, player.z);
+    };
+  put(hall.door - step);
+  tick(30);
+  expect(isDoorLocked(world, hall.door), 'half a second is not enough').toBe(true);
+  tick(90);
+  expect(isDoorLocked(world, hall.door), 'it opens after the wait').toBe(false);
+  expect(run.stage % PER, 'still a floor').toBe(FLOORS - 1);
+  put(hall.door + step * 2);
+  tick(3);
+  expect(run.stage, 'the boss stage of this depth').toBe(tier * PER + PER - 1);
+  expect(isDoorLocked(world, hall.door), 'shut behind the player').toBe(true);
+  // the boss stands in the middle of the room (it arrives by a timer in the game; the test brings it)
+  spawnBoss(run.bld!.boss);
+  expect(boss!.cx).toBeCloseTo((r.x + r.w / 2) * T);
+  expect(boss!.cz).toBeCloseTo((r.y + r.h / 2) * T);
+  tick(200);
+  // a shielded boss (bastion) first loses what shields it
+  if (boss!.invuln) {
+    enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false));
+    tick(20);
+  }
+  hurtEnemy(boss!, boss!.hp + 1, false);
+  tick(2);
+  expect(level.portals.map(p => p.kind).sort()).toEqual(expect.arrayContaining(['extract', 'next']));
+  expect(isDoorLocked(world, hall.door), 'the way back opens again').toBe(false);
+  // onward: the next depth is a new building, from its top floor
+  const seedWas = run.bld!.seed;
+  nextStage();
+  tick(2);
+  expect(stageInfo(run.stage).tier).toBe(tier + 1);
+  expect(level.floor).toBe(0);
+  expect(run.bld!.seed).not.toBe(seedWas);
+  expect(run.bld!.tier).toBe(tier + 1);
+});
+test('lockdown: the room shuts, two waves come, then it opens and leaves a chip', () => {
+  // runs until a building has a lockdown room (most do)
+  for (let k = 0; k < 20; k++) {
+    goBase();
+    startRun();
+    tick(2);
+    if (building!.lockdown) break;
+  }
+  const ld = building!.lockdown!;
+  goToFloor(ld.floor);
+  const world = activeTileGrid().world,
+    doors = roomDoors(building!.plans[ld.floor]!.gen, ld.room).doors,
+    locked = () => doors.every(k => isDoorLocked(world, k)),
+    chips = () => query<Pickup>('pickup').filter(p => p.kind === 'chip').length;
+  expect(doors.length).toBeGreaterThan(0);
+  expect(locked(), 'open until the player walks in').toBe(false);
+  const [x, z] = roomSpot(level.rooms[ld.room]!);
+  player.x = x;
+  player.z = z;
+  player.fy = floorY(x, z);
+  tick(2);
+  expect(locked(), 'shut with the player inside').toBe(true);
+  // the room's own enemies, then two waves: after each of the first three clears there are enemies again
+  let waves = 0;
+  const chipsWas = chips();
+  for (let k = 0; k < 20 && !run.bld!.ld; k++) {
+    for (let n = 0; n < 6 && level.roomCount[ld.room]! > 0 && !run.bld!.ld; n++) {
+      const before = enemies.filter(e => e.room === ld.room && !e.dead).length;
+      killRoom(ld.room);
+      // a wave arrived when the room has enemies that were not there before the kills
+      if (!run.bld!.ld && enemies.filter(e => e.room === ld.room && !e.dead && e.active).length >= 2 && before > 0)
+        waves++;
+    }
+  }
+  expect(run.bld!.ld, 'the lockdown is over').toBe(1);
+  expect(waves, 'waves came before it ended').toBeGreaterThanOrEqual(2);
+  expect(locked(), 'open again').toBe(false);
+  expect(doors.some(k => isDoorLocked(world, k))).toBe(false);
+  expect(run.bld!.cleared[ld.floor]).toContain(ld.room);
+  expect(chips(), 'a chip to pick up').toBe(chipsWas + 1);
+  goBase();
 });

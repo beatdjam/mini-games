@@ -18,8 +18,9 @@ export interface Portal {
   color: number;
   t: number;
   clear: boolean;
+  link: number; // kind 'link': the stairs or lift it is (index into the building's links); -1 otherwise
 }
-export function makePortal(x: number, z: number, color: number, kind: PortalKind, label: string) {
+export function makePortal(x: number, z: number, color: number, kind: PortalKind, label: string, link = -1) {
   const g = new THREE.Group();
   const ring = new THREE.Mesh(
     new THREE.TorusGeometry(1.5, 0.12, 8, 40),
@@ -44,5 +45,5 @@ export function makePortal(x: number, z: number, color: number, kind: PortalKind
   g.position.set(x, floorY(x, z) + PORTAL.centerY, z);
   level.group!.add(g); // gates are made after the level is built
   const clear = !player || distXZ(player, { x, z }) >= PORTAL.clearR; // opened underfoot: wait until the player steps off
-  level.portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear });
+  level.portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear, link });
 }

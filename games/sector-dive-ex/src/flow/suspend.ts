@@ -52,6 +52,7 @@ function makeSnapshot() {
       bosses: run.bosses || [],
       startTier: run.startTier,
       route: run.route,
+      bld: run.bld,
     },
     P: JSON.parse(JSON.stringify(p)),
   };

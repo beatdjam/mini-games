@@ -7,7 +7,6 @@ import { setMusic } from '@engine/audio/music.ts';
 import { dynGroup } from '@engine/render/render.ts';
 import { burst, fireball } from '@engine/render/fx.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
-import { H, T, W } from '@engine/world/tiles.ts';
 import { query } from '@engine/core/world.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
@@ -15,7 +14,8 @@ import { hpGrowth } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
 import { openShortcut, recordBossKill, recordBossSeen, recordPeak, unlockReboot } from '../../core/progress.ts';
 import { rebootMul, progressOf } from '../../core/rules.ts';
-import { level } from '../../world/level.ts';
+import { arenaCenter, level } from '../../world/level.ts';
+import { onBossDown } from '../../flow/events.ts';
 import { makePortal } from '../../world/portals.ts';
 import {
   addPickup,
@@ -96,8 +96,7 @@ export function bossBase<S extends object>(
     y = meta.y,
     hitR = meta.hitR;
   dynGroup.add(mesh);
-  const cx = (W * T) / 2,
-    cz = (H * T) / 2;
+  const [cx, cz] = arenaCenter();
   // entrance: grows in over introTime, invulnerable and not attacking (spawnT counts down in bossPauseTick); the name goes up big
   const e: Boss & S = {
     boss: true,
@@ -275,6 +274,7 @@ export function bossDown(e: Boss) {
   }
   const tier = stageInfo(run.stage).tier;
   giveBossRewards(e, tier, progressOf(run.stage));
+  onBossDown();
   hideBossBar();
   recordBossProgress(tier);
 }

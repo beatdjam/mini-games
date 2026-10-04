@@ -18,7 +18,9 @@ import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
 import { level, reveal } from '../world/level.ts';
 import { updateHazards } from '../world/hazards.ts';
-import { ENEMY_GROUP, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
+import { ENEMY_GROUP, enemies, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
+import { updateDoorMeshes } from '../world/doors.ts';
+import type { DoorMover } from '@engine/world/doors.ts';
 import { GUNFX, curVM } from '../actors/viewmodel.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
 import { damagePlayer, kitHealAmount } from '../actors/combat.ts';
@@ -28,7 +30,8 @@ import { controlState } from '../ui/input.ts';
 import { drawMap } from '../ui/minimap.ts';
 import { screenFx, bctx, bigmap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
-import { endRun, nextStage } from './run.ts';
+import { endRun, nextStage, useLink } from './run.ts';
+import { onPlayerRoom, updateFloorEvents } from './events.ts';
 import { state } from './state.ts';
 import { openPerk } from '../screens/perk.ts';
 import { renderBase } from '../screens/base.ts';
@@ -201,6 +204,7 @@ function updatePlayerTile() {
       tileZ = Math.floor(player.z / T);
     computeFlow(tileX, tileZ);
     reveal(tileX, tileZ);
+    onPlayerRoom(level.roomOf[tile]!);
   }
 }
 
@@ -281,6 +285,16 @@ function updatePlayer(dt: number) {
   updateReload(dt);
   updateFiring(dt);
 }
+// ---- a building floor: its doors (the player and the awake enemies open them) and its room events ----
+function updateBuildingFloor(dt: number) {
+  if (level.floor < 0) return;
+  const movers: DoorMover[] = [player];
+  enemies.forEach(e => {
+    if (!e.dead && (e.active || e.boss)) movers.push(e);
+  });
+  updateDoorMeshes(movers, dt);
+  updateFloorEvents(dt);
+}
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
 function updatePortals(dt: number) {
   for (const pt of level.portals) {
@@ -301,7 +315,8 @@ function updatePortals(dt: number) {
       if (pt.kind === 'extract') {
         sfx('portal');
         endRun('extract');
-      } else nextStage();
+      } else if (pt.kind === 'link') useLink(pt.link);
+      else nextStage();
       stopFrame();
       return;
     }
@@ -424,6 +439,7 @@ export function boot() {
   FX.fireballs.modes = PLAY;
   FX.particles.modes = ['play', 'base'];
   addSystem({ name: 'hazards', order: 50, modes: PLAY, update: updateHazards });
+  addSystem({ name: 'building', order: 55, modes: PLAY, update: updateBuildingFloor });
   addSystem({ name: 'music', order: 60, modes: PLAY, update: updateMusic });
   // a run that just ended (death / extraction above) stops here for this frame
   addSystem({

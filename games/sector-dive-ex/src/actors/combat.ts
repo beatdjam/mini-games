@@ -11,6 +11,7 @@ import { TUNE, enemyGrowth } from '../data/progress.ts';
 import { progressOf } from '../core/rules.ts';
 import { STAGES_PER_GROWTH_DEPTH, damageScaleAt, difficultyAt } from '../core/stages.ts';
 import { level, roomSpot } from '../world/level.ts';
+import { onRoomCleared } from '../flow/events.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
 import { bossDown, bossPhase, isEnraged } from './bosses/common.ts';
 import { screenFx, hitDirection, hitMark } from '../ui/hud.ts';
@@ -247,6 +248,7 @@ function killEnemy(e: Enemy, noReward?: boolean) {
   if (e.room >= 0 && --level.roomCount[e.room] === 0) roomCleared(e.room);
 }
 function roomCleared(idx: number) {
+  if (onRoomCleared(idx)) return; // a lockdown wave, or the lockdown's own reward
   const [x, z] = roomSpot(level.rooms[idx]);
   if (Math.random() < TUNE.chipChance) {
     addPickup('chip', x, z);
