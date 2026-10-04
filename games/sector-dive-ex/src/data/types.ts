@@ -358,6 +358,7 @@ export interface BuildingState {
   cleared: number[][]; // per floor: the rooms with no enemy left
   ld: number; // the lockdown: 0 = still to come, 1 = done
   visited: boolean[]; // per floor: entered before (the weapon caches are put down on the first visit)
+  supplied?: boolean; // the pre-boss supply has been given: the rooms of this building drop no more chips
   seen?: string[]; // per floor: the tiles shown on the map, packed (packSeen); written when the checkpoint is saved
 }
 export interface RunState {

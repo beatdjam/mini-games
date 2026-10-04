@@ -250,7 +250,8 @@ function killEnemy(e: Enemy, noReward?: boolean) {
 function roomCleared(idx: number) {
   if (onRoomCleared(idx)) return; // a lockdown wave, or the lockdown's own reward
   const [x, z] = roomSpot(level.rooms[idx]);
-  if (Math.random() < TUNE.chipChance) {
+  // (once the pre-boss supply has been given, the building's rooms drop no chips: flow/events.ts)
+  if (!run.bld?.supplied && Math.random() < TUNE.chipChance) {
     addPickup('chip', x, z);
     toast(t('run.clearedChip'));
   } else {

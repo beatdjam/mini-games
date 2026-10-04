@@ -121,7 +121,7 @@ import {
   roomDoors,
   setBuilding,
 } from '../src/world/building.ts';
-import { ridingY } from '../src/flow/events.ts';
+import { ridingY, supplyChips } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
@@ -2364,7 +2364,21 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   tick(90);
   expect(isDoorLocked(world, hall.door), 'it opens after the wait').toBe(false);
   expect(run.bld!.step, 'still the last floor of the route').toBe(run.bld!.floors - 1);
+  // the rooms of the other floors were never cleared: walking in gives the pre-boss supply for them, about 0.3 chips
+  // a room, one pick after another
+  const owed = supplyChips(),
+    chipsHad = run.perks.length;
+  expect(owed, 'rooms are left on the floors above').toBeGreaterThan(0);
   put(hall.door + step * 2);
+  update(1 / 60);
+  expect(run.bld!.supplied).toBe(true);
+  for (let k = 0; k < owed; k++) {
+    expect(stateIs('perk'), `supply pick ${k + 1} of ${owed}`).toBe(true);
+    document.querySelector<HTMLElement>('#perkList .perk')!.click();
+  }
+  expect(stateIs('play')).toBe(true);
+  expect(run.perks.length).toBe(chipsHad + owed);
+  expect(supplyChips(), 'given once').toBe(0);
   tick(3);
   expect(run.stage, 'the boss stage of this depth').toBe(tier * PER + PER - 1);
   expect(isDoorLocked(world, hall.door), 'shut behind the player').toBe(true);
@@ -2388,7 +2402,16 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   expect(level.portals.map(p => p.kind).sort()).toEqual(expect.arrayContaining(['extract', 'next']));
   expect(isDoorLocked(world, hall.door), 'the way back opens again').toBe(false);
   expect(bystander.dead, 'the enemies in the other rooms are still there').toBeFalsy();
+  // after the supply the rooms of this building drop no chips, however often one is cleared
+  const chipsLying = () => query<Pickup>('pickup').filter(q => q.kind === 'chip').length,
+    lying = chipsLying();
   hurtEnemy(bystander, 1e6, false);
+  for (let k = 0; k < 12; k++) {
+    const again = spawnEnemy('crawler', ox, oz, other, 1);
+    level.roomCount[other] = 1;
+    hurtEnemy(again, 1e6, false);
+  }
+  expect(chipsLying(), 'no chip from a room after the supply').toBe(lying);
   // onward: the next depth is a new building, from its top floor
   const seedWas = run.bld!.seed;
   nextStage();

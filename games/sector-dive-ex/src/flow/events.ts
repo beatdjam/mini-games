@@ -15,6 +15,7 @@ import { player, run } from '../actors/player.ts';
 import { difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
 import { refreshRunText } from '../screens/pause.ts';
+import { openPerk } from '../screens/perk.ts';
 import { crossToFloor, pickEnemyType, roomEnemyCount } from './run.ts';
 import { state } from './state.ts';
 // What happens on a building floor: walking over a stairwell's landing or riding a lift moves on to the next floor,
@@ -29,8 +30,12 @@ const ALARM_EVERY = 2.4; // the lockdown siren sounds this often (s)
 const ALERT_BANNER_MS = 2400; // how long the banner stays red after the lockdown's title (the banner itself shows for 2 s)
 const BOSS_DOOR_R = 4; // waiting within this of the boss door's middle opens it (m)
 const BOSS_DOOR_HOLD = 1.2; // ... for this long (s)
-const BOSS_DOOR_TOAST_MS = 2600;
+const BOSS_DOOR_TOAST_MS = 4200;
 const BOSS_SPAWN_DELAY_MS = 1200; // the boss arrives this long after the player walks into its room
+// The pre-boss supply: walking into the boss room gives chips for the rooms left uncleared, about 60% of what clearing
+// them would have brought (a cleared room is a chip half the time), so skipping rooms is not a dead end and clearing
+// them is still better. The same idea as Sector Dive's shortcut supply
+const SUPPLY_PER_ROOM = 0.3; // chips per room with enemies left, rounded to a whole number over the building
 const LIFT_R = 1.2; // standing within this of the middle of a lift's platform calls it (m)
 const LIFT_WAIT = 0.45; // ... for this long (s)
 const LIFT_TIME = 2.2; // a ride takes this long per floor travelled (s)
@@ -123,9 +128,10 @@ function endLockdown(room: number) {
   lockdownDoors(room).forEach(k => lockDoor(world(), k, false));
   markCleared(room);
   const [x, z] = roomSpot(level.rooms[room]!);
-  addPickup('chip', x, z);
+  // (after the pre-boss supply the building's rooms drop no chips: a kit then)
+  addPickup(run.bld!.supplied ? 'kit' : 'chip', x, z);
   sfx('chip');
-  toast(t('run.lockdownClear'), LOCKDOWN_TOAST_MS);
+  toast(t(run.bld!.supplied ? 'run.cleared' : 'run.lockdownClear'), LOCKDOWN_TOAST_MS);
 }
 function markCleared(room: number) {
   const done = run.bld?.cleared[level.floor];
@@ -149,6 +155,33 @@ export function onRoomCleared(room: number): boolean {
   return true;
 }
 
+// the rooms of the building whose enemies have not all been killed (the start room and the boss room have none)
+function roomsLeft(): number {
+  const b = building!,
+    done = run.bld!.cleared;
+  return b.plans.reduce(
+    (sum, p, floor) =>
+      sum +
+      p.gen.rooms.filter((_, idx) => idx !== p.gen.startIdx && idx !== p.hall?.room && !done[floor]!.includes(idx))
+        .length,
+    0,
+  );
+}
+// how many chips the pre-boss supply would give right now (0 once it has been given)
+export const supplyChips = (): number => (run.bld?.supplied ? 0 : Math.round(roomsLeft() * SUPPLY_PER_ROOM));
+// gives the supply: one chip pick after another. From then on the building's rooms drop no chips (combat.ts)
+function giveSupply() {
+  const total = supplyChips();
+  if (!total) return;
+  run.bld!.supplied = true;
+  let given = 0;
+  const next = () => {
+    if (given >= total) return;
+    given++;
+    openPerk(t('perk.queue', { kind: t('perk.bossSupply'), i: given, n: total }), 'supply', next);
+  };
+  next();
+}
 function startBossFight() {
   ev.bossStarted = true;
   lockDoor(world(), level.hall!.door);
@@ -163,6 +196,7 @@ function startBossFight() {
     if (run && run.stage === stageAt && ev.bossStarted && !boss && state !== 'base' && state !== 'result')
       spawnBoss(kind);
   }, BOSS_SPAWN_DELAY_MS);
+  giveSupply();
 }
 // the boss is down: the way back up opens again
 export function onBossDown() {
@@ -259,7 +293,8 @@ export function updateFloorEvents(dt: number) {
   }
   if (!ev.bossDoorHint) {
     ev.bossDoorHint = true;
-    toast(t('run.bossDoor'), BOSS_DOOR_TOAST_MS);
+    const chips = supplyChips();
+    toast(t('run.bossDoor') + (chips ? t('run.bossDoorSupply', { n: chips }) : ''), BOSS_DOOR_TOAST_MS);
   }
   ev.bossDoorT += dt;
   if (ev.bossDoorT < BOSS_DOOR_HOLD) return;

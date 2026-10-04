@@ -195,6 +195,7 @@ LANG.ja = {
     'perk.queue': '{kind}（{i} / {n}）',
     'perk.carry': '持ち込みチップ',
     'perk.supply': 'ショートカット補給',
+    'perk.bossSupply': 'ボス前の補給',
     'perk.times': ' ×{n}',
 
     // ---- stats panel ----
@@ -322,6 +323,8 @@ LANG.ja = {
     'run.bossDoorLabel': 'BOSS',
     'run.bossDoor': 'この先はボス部屋。ドアの前で待つと開く',
     'run.bossDoorOpen': 'ボス部屋のドアが開いた',
+    'run.bossDoorSupply':
+      '。入ると、制圧していない部屋のぶんの補給（チップ {n}枚）を受け取る。そのあとは、この建物の部屋からチップが出ない',
     'run.cleared': '区画制圧',
     'run.clearedChip': '区画制圧 — チップを回収できる',
     'run.shielded': 'シールド中。周りの砲台を先に壊す',

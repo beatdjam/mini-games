@@ -199,6 +199,7 @@ LANG.en = {
     'perk.queue': '{kind} ({i} / {n})',
     'perk.carry': 'Starting chip',
     'perk.supply': 'Shortcut supply',
+    'perk.bossSupply': 'Pre-boss supply',
     'perk.times': ' ×{n}',
 
     // ---- stats panel ----
@@ -326,6 +327,8 @@ LANG.en = {
     'run.bossDoorLabel': 'BOSS',
     'run.bossDoor': 'The boss room is ahead. Wait at the door to open it',
     'run.bossDoorOpen': 'The boss door is open',
+    'run.bossDoorSupply':
+      '. Walking in gives a supply for the rooms left uncleared ({n} chips); after that the rooms of this building drop no chips',
     'run.cleared': 'Area cleared',
     'run.clearedChip': 'Area cleared — a chip is waiting',
     'run.shielded': 'Shielded. Destroy the turrets around it first',
