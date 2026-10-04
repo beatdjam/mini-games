@@ -2025,6 +2025,8 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   expect(level.floor).toBe(next);
   expect(run.bld!.step, 'the second floor of the route, whichever floor that is').toBe(1);
   expect(stageLabel(run.stage)).toBe(`D${run.bld!.tier + 1} 2/${run.bld!.floors}`);
+  // the top-left label also says which floor of the building this is, counted from the top
+  expect(el('#stageLbl').textContent).toContain(` ${next + 1}F`);
   expect(progressOf(run.stage), 'the strength follows the route').toBeCloseTo(run.bld!.tier * 5 + 4 / run.bld!.floors);
   expect(tileIndex(player.x, player.z), 'the player stands where the link ends on this floor').toBe(arrive.b);
   // at the top of a stairwell that is a floor above this floor's ground; on a lift's platform it is the ground

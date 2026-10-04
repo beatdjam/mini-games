@@ -37,6 +37,8 @@ LANG.en = {
     'map.extract': 'Extract',
     'map.next': 'Onward',
     'map.exit': 'Exit',
+    'map.onward': 'Onward',
+    'map.back': 'Back',
     'btn.kit': 'Heal',
     'btn.reload': 'Reload',
     'btn.dash': 'Dash',

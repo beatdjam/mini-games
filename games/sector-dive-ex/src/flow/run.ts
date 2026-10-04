@@ -41,7 +41,15 @@ import type { FloorPlan } from '../world/building.ts';
 import { makePortal } from '../world/portals.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
-import { buildingStage, difficultyAt, isBossStage, stageInfo, stageLabel, tierLabel } from '../core/stages.ts';
+import {
+  buildingStage,
+  difficultyAt,
+  floorLabel,
+  isBossStage,
+  stageInfo,
+  stageLabel,
+  tierLabel,
+} from '../core/stages.ts';
 import { rollWeapon, weaponText } from '../actors/weapons.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
 import { keyText, moveKeysText, normalizeWeapons } from '../ui/input.ts';
@@ -295,7 +303,7 @@ export function crossToFloor(n: number, to: number) {
   computeFlow(tileCoord(player.x), tileCoord(player.z));
   reveal(tileCoord(player.x), tileCoord(player.z));
   refreshRunText();
-  banner(stageLabel(run.stage), b.biome.name);
+  banner(stageLabel(run.stage), `${floorLabel()}　${b.biome.name}`);
   checkpoint();
   updateHint();
 }
@@ -355,7 +363,7 @@ export function startStage() {
   player.vy = 0;
   el('#bossBar').hidden = true;
   refreshRunText();
-  banner(stageLabel(run.stage), b.name);
+  banner(stageLabel(run.stage), inBuilding ? `${floorLabel()}　${b.name}` : b.name);
   const hintAt = run.stage,
     hint = b.hint;
   if (si.sub === 0 && hint)
