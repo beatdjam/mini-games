@@ -1,7 +1,8 @@
 // The 3D map of the building: every floor as a slab of the tiles seen so far, the stairwells and lifts as lines between
 // them, the player as an arrow. It is the second page of the big map (hud.ts toggleMap: closed, 2D, 3D, closed). The
 // drawing and the dragging are the engine's (engine/src/ui/floormap3d.ts); this file says what to show.
-import { el } from '@engine/core/util.ts';
+import { el, isTouch } from '@engine/core/util.ts';
+import { actionDown } from '@engine/ui/keymap.ts';
 import { T, tileCenter } from '@engine/world/tiles.ts';
 import { tileWorldOf } from '@engine/world/dungeon.ts';
 import { createFloors } from '@engine/world/floors.ts';
@@ -22,13 +23,18 @@ let floors: Floors | null = null; // the building as the engine's floors, lowest
 let builtFor: Building | null = null;
 let seenShown = -1; // how many tiles were seen when the slabs were last made
 
-// Turns the 3D map by a look movement (the same dx, dy the view gets). On a PC the pointer is locked while playing, so
-// the map cannot be dragged: while its 3D page is open the mouse turns the map instead of the view (hud.ts lookInput)
+// While the 3D page is up on a PC, the move keys turn the map (left / right round it, forward / back tilt it) and the
+// player stands still; the mouse drags it (the engine's own dragging: the mouse lock is let go, hud.ts setMap).
+// Returns true when the keys were taken (the caller gives the player no move input then)
 const MAP_PITCH: [number, number] = [0.15, 1.45]; // the tilt the engine's own dragging allows (radians)
-export function turnMap3D(dx: number, dy: number) {
-  if (!map) return;
-  map.yaw -= dx;
-  map.pitch = Math.min(MAP_PITCH[1], Math.max(MAP_PITCH[0], map.pitch + dy));
+const MAP_KEY_TURN = 1.6; // radians per second while a move key is held
+export function keysTurnMap3D(dt: number): boolean {
+  if (isTouch || canvas.hidden || !map) return false;
+  const turn = (actionDown('right') ? 1 : 0) - (actionDown('left') ? 1 : 0),
+    tilt = (actionDown('forward') ? 1 : 0) - (actionDown('back') ? 1 : 0);
+  map.yaw += turn * MAP_KEY_TURN * dt;
+  map.pitch = Math.min(MAP_PITCH[1], Math.max(MAP_PITCH[0], map.pitch + tilt * MAP_KEY_TURN * dt));
+  return true;
 }
 // is the 3D page on screen right now
 export const map3dOpen = (): boolean => !canvas.hidden;

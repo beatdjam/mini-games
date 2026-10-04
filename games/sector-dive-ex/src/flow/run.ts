@@ -36,7 +36,7 @@ import {
   showBuilding,
   stashFloor,
 } from '../world/level.ts';
-import { FLOOR_H, building, makeBuilding, setBuilding } from '../world/building.ts';
+import { FLOOR_H, building, makeBuilding, setBuilding, unpackSeen } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal } from '../world/portals.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
@@ -218,7 +218,12 @@ function ensureBuilding(tier: number, b: Biome): BuildingState {
     };
   }
   const st = run.bld;
-  if (!building || building.seed !== st.seed || building.biome !== b) setBuilding(makeBuilding(b, st.boss, st.seed));
+  if (!building || building.seed !== st.seed || building.biome !== b) {
+    // a resumed run: the same building from its seed, with the map as far as it was explored at the checkpoint
+    const made = makeBuilding(b, st.boss, st.seed);
+    unpackSeen(made, st.seen);
+    setBuilding(made);
+  }
   return st;
 }
 // the player is on floor `floor` of the building now: the step along the route and the stage number follow

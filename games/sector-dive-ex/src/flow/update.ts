@@ -33,7 +33,7 @@ import { screenFx, bctx, bigmap, hitm, mctx, mini, updateHitDirs, updateHud, wea
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
 import { onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
-import { updateMap3D } from '../ui/map3d.ts';
+import { keysTurnMap3D, updateMap3D } from '../ui/map3d.ts';
 import { state } from './state.ts';
 import { openPerk } from '../screens/perk.ts';
 import { renderBase } from '../screens/base.ts';
@@ -309,7 +309,8 @@ function updateFiring(dt: number) {
 
 function updatePlayer(dt: number) {
   time += dt;
-  const input = readMoveInput();
+  // the 3D map is up on a PC: the move keys turn the map, the player stands still
+  const input = keysTurnMap3D(dt) ? { x: 0, z: 0 } : readMoveInput();
   updateStickDash(dt);
   const moveDir = worldMoveDir(input);
   tickStamina(dt);

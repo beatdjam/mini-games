@@ -27,6 +27,7 @@ export const KEY_ACTIONS: KeyActionDef[] = withLang<KeyActionDef, 'name'>(
     { id: 'equip', keys: ['KeyG'] },
     { id: 'kit', keys: ['KeyH'] },
     { id: 'map', keys: ['KeyM'] },
+    { id: 'map3d', keys: ['KeyN'] },
     { id: 'bag', keys: ['Tab', 'KeyI'] },
     { id: 'pause', keys: ['Escape', 'KeyP'] },
   ],

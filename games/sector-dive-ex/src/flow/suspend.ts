@@ -10,6 +10,7 @@ import { basicW, persist, save } from '../core/save.ts';
 import { setSuspend } from '../core/progress.ts';
 import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
+import { building, packSeen } from '../world/building.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
 import { onDataClick } from '../screens/rows.ts';
 import { beginDive, endRun, enterDive, goBase } from './run.ts';
@@ -40,6 +41,8 @@ let discardArm = false; // the discard button shows its confirmation
 // If the page is killed (e.g. a phone closing a backgrounded browser) or the player suspends by hand,
 // the next launch offers RESUME from the start of that stage, with the state it had when the stage began.
 function makeSnapshot() {
+  // the explored map goes into the checkpoint with the building's state
+  if (run.bld && building) run.bld.seen = packSeen(building);
   const p: Record<string, unknown> = {};
   Object.entries(player).forEach(([k, v]) => {
     if (!SNAP_SKIP.includes(k)) p[k] = v;

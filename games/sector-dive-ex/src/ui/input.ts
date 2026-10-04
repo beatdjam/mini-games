@@ -13,8 +13,7 @@ import { player, currentWeapon } from '../actors/player.ts';
 import { kitHealAmount } from '../actors/combat.ts';
 import { startReload } from '../actors/firing.ts';
 import { weaponText } from '../actors/weapons.ts';
-import { toggleMap, updateHint, weaponHud } from './hud.ts';
-import { map3dOpen, turnMap3D } from './map3d.ts';
+import { cycleMap, map3dWanted, toggleMap, toggleMap3D, updateHint, weaponHud } from './hud.ts';
 import { state } from '../flow/state.ts';
 import { closeBag, openBag } from '../screens/bag.ts';
 import { pause } from '../screens/pause.ts';
@@ -38,16 +37,14 @@ Object.assign(INPUT, {
   active: () => state === 'play',
   look: (dx: number, dy: number) => {
     if (!player) return;
-    // the 3D map is open: looking turns the map, not the view (a locked mouse has no pointer to drag it with)
-    if (map3dOpen()) {
-      turnMap3D(dx, dy);
-      return;
-    }
     player.yaw -= dx;
     player.pitch = clamp(player.pitch - dy, -1.25, 1.25);
   },
   sens: () => save.settings.sens,
-  pause: () => pause(),
+  // the mouse lock was lost: pause, unless the game let it go itself for the 3D map (it is dragged with the mouse)
+  pause: () => {
+    if (!map3dWanted()) pause();
+  },
   lockChanged: () => updateHint(),
   key: (e: KeyboardEvent) => {
     const action = actionOf(e.code);
@@ -91,6 +88,9 @@ Object.assign(INPUT, {
       case 'map':
         toggleMap();
         break;
+      case 'map3d':
+        toggleMap3D();
+        break;
       case 'bag':
         openBag();
         break;
@@ -127,8 +127,8 @@ el('#btnPause').addEventListener('click', () => {
 el('#btnBag').addEventListener('click', () => {
   if (state === 'play') openBag();
 });
-el('#mini').addEventListener('click', () => toggleMap());
-el('#bigmap').addEventListener('click', () => toggleMap());
+el('#mini').addEventListener('click', () => cycleMap());
+el('#bigmap').addEventListener('click', () => cycleMap());
 window.addEventListener(
   'wheel',
   () => {

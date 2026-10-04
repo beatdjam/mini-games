@@ -2,7 +2,7 @@ import type { WeaponItem } from '../data/types.ts';
 import { clamp, el, isTouch } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { camera } from '@engine/render/render.ts';
-import { locked } from '@engine/ui/input.ts';
+import { exitLock, locked, requestLock } from '@engine/ui/input.ts';
 import { createHitDirs } from '@engine/ui/hitdir.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { boss, nearPickup, target } from '../world/entities.ts';
@@ -12,7 +12,7 @@ import { state } from '../flow/state.ts';
 import { level } from '../world/level.ts';
 import { map3d } from './map3d.ts';
 import { time } from '../flow/update.ts';
-import { keyText } from './input.ts';
+import { keyText, moveKeysText } from './input.ts';
 const hpFill = el('#hpFill'),
   hpNum = el('#hpNum'),
   hpBar = el('#hpBar'),
@@ -55,18 +55,46 @@ export function hitMark(crit?: boolean) {
   hitm.classList.toggle('crit', !!crit);
   screenFx.hitTimer = 0.09;
 }
-// the big map: closed, the 2D map of this floor, the 3D map of the building (in a building only), closed again
+// ---- the big map: the 2D map of this floor, and (in a building) a second page with the 3D map of the building ----
+const mapHint = el('#mapHint');
+// is the 3D page the one asked for (it is on screen from the next frame: ui/map3d.ts)
+export const map3dWanted = (): boolean => !bigmap.hidden && map3d.on && level.floor >= 0;
+// Opens or closes the big map on one of its pages. On a PC the 3D page needs the pointer (the map is dragged with the
+// mouse), so the mouse lock is let go while it is up and taken back when it goes
+function setMap(open: boolean, solid: boolean) {
+  const was = map3dWanted();
+  bigmap.hidden = !open;
+  map3d.on = open && solid && level.floor >= 0;
+  screenFx.miniT = 0;
+  if (!isTouch && was !== map3dWanted()) {
+    if (map3dWanted()) exitLock();
+    else if (state === 'play') requestLock();
+  }
+  mapHint.hidden = !open;
+  if (!open) return;
+  const keys = { map: keyText('map', 0), map3d: keyText('map3d', 0), move: moveKeysText() };
+  mapHint.textContent = isTouch
+    ? t(map3d.on ? 'map.hintTouch3d' : 'map.hintTouch2d')
+    : level.floor < 0
+      ? ''
+      : t(map3d.on ? 'map.hint3d' : 'map.hint2d', keys);
+}
+// the map key: opens the 2D map, or closes the big map whichever page it is on
 export function toggleMap() {
   if (state !== 'play') return;
-  if (bigmap.hidden) {
-    bigmap.hidden = false;
-    map3d.on = false;
-  } else if (!map3d.on && level.floor >= 0) map3d.on = true;
-  else {
-    bigmap.hidden = true;
-    map3d.on = false;
-  }
-  screenFx.miniT = 0;
+  setMap(bigmap.hidden, false);
+}
+// the 3D map key: opens the big map on its 3D page, or turns between the two pages
+export function toggleMap3D() {
+  if (state !== 'play' || level.floor < 0) return;
+  setMap(true, bigmap.hidden || !map3d.on);
+}
+// a tap on the minimap or the map (touch): closed, the 2D map, the 3D map, closed again
+export function cycleMap() {
+  if (state !== 'play') return;
+  if (bigmap.hidden) setMap(true, false);
+  else if (!map3d.on && level.floor >= 0) setMap(true, true);
+  else setMap(false, false);
 }
 export function weaponHud() {
   [0, 1].forEach(k => {

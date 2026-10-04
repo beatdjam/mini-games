@@ -34,7 +34,7 @@ import {
   tileIndex,
   walkable,
 } from '@engine/world/tiles.ts';
-import { INPUT, joy, setFireHeld } from '@engine/ui/input.ts';
+import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { SETTINGS } from '@engine/ui/settings.ts';
 import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBindings } from '@engine/ui/keymap.ts';
 import { encodeStore } from '@engine/core/store.ts';
@@ -99,8 +99,7 @@ import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
 import { KEY_ACTIONS } from '../src/data/controls.ts';
 import { setKeyBindings } from '../src/core/progress.ts';
 import { applyKeyBindings, controlState, equipNearby, stowNearby } from '../src/ui/input.ts';
-import { bigmap, hitDirs, toggleMap, updateHud } from '../src/ui/hud.ts';
-import { map3dOpen } from '../src/ui/map3d.ts';
+import { bigmap, cycleMap, hitDirs, map3dWanted, toggleMap, toggleMap3D, updateHud } from '../src/ui/hud.ts';
 import { changeLang, renderGuide } from '../src/ui/settings.ts';
 import {
   endRun,
@@ -112,7 +111,16 @@ import {
   startStage,
   useLink,
 } from '../src/flow/run.ts';
-import { FLOORS_RANGE, FLOOR_H, STRIP, building, makeBuilding, roomDoors } from '../src/world/building.ts';
+import {
+  FLOORS_RANGE,
+  FLOOR_H,
+  STRIP,
+  building,
+  makeBuilding,
+  packSeen,
+  roomDoors,
+  setBuilding,
+} from '../src/world/building.ts';
 import { ridingY } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
 import { setState, show, state } from '../src/flow/state.ts';
@@ -1431,6 +1439,7 @@ describe('key bindings', () => {
       equip: ['KeyG'],
       kit: ['KeyH'],
       map: ['KeyM'],
+      map3d: ['KeyN'],
       bag: ['Tab', 'KeyI'],
       pause: ['Escape', 'KeyP'],
     };
@@ -1479,11 +1488,17 @@ describe('key bindings', () => {
     expect(bigmap.hidden).toBe(true);
     press('KeyM');
     expect(bigmap.hidden).toBe(false);
-    // in a building the second press turns to the 3D page, the third closes
     press('KeyM');
-    expect(bigmap.hidden).toBe(level.floor >= 0 ? false : true);
-    if (level.floor >= 0) press('KeyM');
     expect(bigmap.hidden).toBe(true);
+    // the 3D map (in a building): N opens it, N again turns back to the 2D page, M closes
+    if (level.floor >= 0) {
+      press('KeyN');
+      expect(map3dWanted()).toBe(true);
+      press('KeyN');
+      expect(!bigmap.hidden && !map3dWanted()).toBe(true);
+      press('KeyM');
+      expect(bigmap.hidden).toBe(true);
+    }
   });
 
   test('default keys: pick up (G swap, E to bag), bag (Tab, I, Esc closes) and pause (Esc, P)', () => {
@@ -2036,10 +2051,20 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   expect(hurt.hp).toBeCloseTo(hpLeft);
   expect(hurt.mesh.parent, 'drawn again').toBeTruthy();
   expect(query<Pickup>('pickup').includes(kit)).toBe(true);
-  // suspending and resuming builds the same floor again, with the room still cleared
-  const gridWas = Array.from(grid).join('');
+  // suspending and resuming builds the same floor again, with the room still cleared and the map as it was explored
+  // when the checkpoint was saved
+  const gridWas = Array.from(grid).join(''),
+    seenWas = (save.suspend as Snapshot | null)!.run.bld!.seen!;
+  expect(seenWas.length).toBe(building!.plans.length);
+  expect(
+    building!.plans[0]!.seen.some(v => v === 1),
+    'something of the top floor has been seen',
+  ).toBe(true);
   suspendRun();
+  building!.plans.forEach(p => p.seen.fill(0)); // (the building in memory is the same object here: make sure the map is read back)
+  setBuilding(null);
   resumeRun();
+  expect(packSeen(building!).join(), 'the explored map came back').toBe(seenWas.join());
   tick(5);
   expect(Array.from(grid).join('')).toBe(gridWas);
   expect(level.roomCount[room]).toBe(0);
@@ -2212,31 +2237,53 @@ test('running: the dash held on after a dash keeps the player fast and drains st
   startRun();
   tick(2);
 });
-test('big map: closed, the 2D map, the 3D map of the building, closed again', () => {
+test('big map: the map key opens and closes it, the 3D map key turns to the 3D page, a tap cycles', () => {
   goToFloor(0);
   const flat = el<HTMLCanvasElement>('#bigmap'),
-    solid = el<HTMLCanvasElement>('#bigmap3d');
-  expect(flat.hidden && solid.hidden).toBe(true);
+    solid = el<HTMLCanvasElement>('#bigmap3d'),
+    pages = () => [flat.hidden, solid.hidden];
+  expect(pages()).toEqual([true, true]);
+  // the keys
   toggleMap();
   tick(2);
-  expect([flat.hidden, solid.hidden]).toEqual([false, true]);
-  toggleMap();
+  expect(pages()).toEqual([false, true]);
+  expect(el('#mapHint').hidden).toBe(false);
+  toggleMap3D();
   tick(2);
-  expect([flat.hidden, solid.hidden], 'the 3D page lies over the 2D one').toEqual([false, false]);
-  // with the 3D page open, looking turns the map and leaves the view alone (a locked mouse cannot drag the map)
-  const yawWas = player.yaw;
-  INPUT.look(0.3, 0.1);
-  expect(player.yaw).toBe(yawWas);
-  expect(map3dOpen()).toBe(true);
+  expect(pages(), 'the 3D page lies over the 2D one').toEqual([false, false]);
+  expect(map3dWanted()).toBe(true);
+  // while the 3D page is up the move keys turn the map: the player stands still
+  const at = [player.x, player.z].join();
+  joy.y = -1;
+  tick(20);
+  joy.y = 0;
+  expect(isTouch || [player.x, player.z].join() === at, 'no walking with the 3D map up (PC)').toBe(true);
   // more of the building seen: the map is made again without trouble
   building!.plans.forEach(p => p.seen.fill(1));
   tick(2);
+  toggleMap3D();
+  tick(2);
+  expect(pages(), 'back to the 2D page').toEqual([false, true]);
+  toggleMap3D();
   toggleMap();
   tick(2);
-  expect(flat.hidden).toBe(true);
-  expect(solid.hidden).toBe(true);
-  INPUT.look(0.3, 0);
-  expect(player.yaw, 'closed: looking turns the view again').not.toBe(yawWas);
+  expect(pages(), 'the map key closes it from the 3D page too').toEqual([true, true]);
+  expect(map3dWanted()).toBe(false);
+  // straight to the 3D page from closed
+  toggleMap3D();
+  tick(2);
+  expect(pages()).toEqual([false, false]);
+  toggleMap();
+  // a tap (touch): closed, 2D, 3D, closed
+  cycleMap();
+  tick(2);
+  expect(pages()).toEqual([false, true]);
+  cycleMap();
+  tick(2);
+  expect(pages()).toEqual([false, false]);
+  cycleMap();
+  tick(2);
+  expect(pages()).toEqual([true, true]);
 });
 test('lift: standing on the platform rides to its other floor and back, past a floor when it is a long one', () => {
   // once with any lift, and once with one that passes a floor (in a building that has one)
