@@ -23,6 +23,7 @@ import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 import { FLOOR_H } from './building.ts';
+import { FLOOR_PLAIN_SHARE, WALL_PLAIN_SHARE, lookOf, variantOf } from './looks.ts';
 import type { FloorPlan } from './building.ts';
 const NEON_COUNT = 90; // neon signs per level
 const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall colour times this
@@ -93,11 +94,12 @@ function addFloor(tex: BiomeTextures, group: THREE.Group) {
   group.add(floor);
 }
 
-function addWalls(tex: BiomeTextures, tiles: [number, number][], group: THREE.Group) {
+function addWalls(wallTex: THREE.Texture, tiles: [number, number][], group: THREE.Group) {
+  if (!tiles.length) return;
   const matrix = new THREE.Matrix4();
   const walls = new THREE.InstancedMesh(
     new THREE.BoxGeometry(T, WALL_H, T),
-    new THREE.MeshBasicMaterial({ map: tex.wall }),
+    new THREE.MeshBasicMaterial({ map: wallTex }),
     tiles.length,
   );
   tiles.forEach(([i, j], n) => {
@@ -170,7 +172,7 @@ function addNeonSigns(tiles: [number, number][], group: THREE.Group, rng: Rng) {
     }),
   );
   const pickSpots = rng.shuffle(spots).slice(0, NEON_COUNT),
-    colors = [0xff3d8a, 0x3dffb4, 0xffd23d, 0x4dc3ff, COLOR.violet];
+    colors = [COLOR.neonPink, COLOR.neonMint, COLOR.neonGold, COLOR.neonSky, COLOR.violet];
   const signs = new THREE.InstancedMesh(
     new THREE.BoxGeometry(T * 0.55, 0.45, 0.08),
     new THREE.MeshBasicMaterial({ color: 0xffffff }),
@@ -214,26 +216,45 @@ function addTilePlanes(tiles: number[], y: number, up: boolean, mat: THREE.Mater
 // comes up from the floor below, no floor on a landing or a lift's shaft, no ceiling where a stairwell or shaft goes
 // up, and the gap between the ceiling and the next floor walled round those
 export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Group, rng: Rng) {
-  const tex = biomeTex(biome),
+  // the sector's own look when it has one (world/looks.ts): pictures in a few variants, scattered over the tiles
+  const look = lookOf(biome),
+    plainTex = biomeTex(biome),
+    tex: BiomeTextures = look ? { floor: look.floors[0]!, tile: look.deck, wall: look.walls[0]! } : plainTex,
     all = Array.from({ length: W * H }, (_, k) => k),
     wallSet = new Set(wallTiles().map(([i, j]) => j * W + i));
   plan.shaftWall.forEach((v, k) => {
     if (v) wallSet.add(k);
   });
   const walls = [...wallSet].filter(k => !plan.voids[k]).map(k => [k % W, (k / W) | 0] as [number, number]);
-  tex.floor.repeat.set(1, 1);
-  addTilePlanes(
-    all.filter(k => grid[k] === 1 && !plan.noFloor[k]),
-    0,
-    true,
-    new THREE.MeshBasicMaterial({ map: tex.floor }),
-    group,
-  );
-  addWalls(tex, walls, group);
+  const floorTiles = all.filter(k => grid[k] === 1 && !plan.noFloor[k]);
+  if (look) {
+    look.floors.forEach((map, v) =>
+      addTilePlanes(
+        floorTiles.filter(k => variantOf(k, look.floors.length, FLOOR_PLAIN_SHARE) === v),
+        0,
+        true,
+        new THREE.MeshBasicMaterial({ map }),
+        group,
+      ),
+    );
+    look.walls.forEach((map, v) =>
+      addWalls(
+        map,
+        walls.filter(([i, j]) => variantOf(j * W + i, look.walls.length, WALL_PLAIN_SHARE) === v),
+        group,
+      ),
+    );
+  } else {
+    tex.floor.repeat.set(1, 1);
+    addTilePlanes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }), group);
+    addWalls(tex.wall, walls, group);
+  }
   addDecks(tex, group);
   addRamps(tex, group);
   buildHazardMesh(biome, plan.gen.hazard, group);
-  const dark = new THREE.MeshBasicMaterial({ color: new THREE.Color(biome.wall).multiplyScalar(CEILING_SHADE) });
+  const dark = look
+    ? new THREE.MeshBasicMaterial({ map: look.ceiling })
+    : new THREE.MeshBasicMaterial({ color: new THREE.Color(biome.wall).multiplyScalar(CEILING_SHADE) });
   addTilePlanes(
     all.filter(k => (grid[k] === 1 || plan.voids[k]) && !plan.noCeil[k]),
     WALL_H,
@@ -260,6 +281,7 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
     group.add(boxes);
   }
   if (biome.gen.neon) addNeonSigns(walls, group, rng);
+  if (look) look.props(plan, group, rng);
 }
 
 // The three.js part of a level: floor, walls, decks, ramps, cover, hazard floor, ceiling and neon signs. Reads the
@@ -268,7 +290,7 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
   const tex = biomeTex(biome);
   const walls = wallTiles();
   addFloor(tex, group);
-  addWalls(tex, walls, group);
+  addWalls(tex.wall, walls, group);
   addDecks(tex, group);
   addRamps(tex, group);
   buildHazardMesh(biome, gen.hazard, group);

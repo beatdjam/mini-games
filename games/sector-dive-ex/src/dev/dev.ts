@@ -10,6 +10,7 @@ import { PERKS } from '../data/perks.ts';
 import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
 import { building } from '../world/building.ts';
+import { devPlainLooks } from '../world/looks.ts';
 import { setHazardClock } from '../world/hazards.ts';
 import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
@@ -28,6 +29,8 @@ import { update } from '../flow/update.ts';
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
+// dev: ?plain draws every sector the plain way (no sector's own look), to compare with what was there before
+if (new URLSearchParams(location.search).has('plain')) devPlainLooks(true);
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
@@ -95,12 +98,27 @@ if (location.hash.startsWith('#bld-'))
 // dev view: #view-KWLN etc. drops straight into that sector's first floor (for screenshots)
 if (location.hash.startsWith('#view-')) {
   setTimeout(() => {
-    const bi = BIOMES.findIndex(b => b.code === location.hash.slice(6));
+    // #view-KWLN: the start room. #view-KWLN-b / -c / -d: other rooms of the floor, seen from a corner (for comparing looks)
+    const [code, pose] = location.hash.slice(6).split('-');
+    const bi = BIOMES.findIndex(b => b.code === code);
     if (bi < 0) return;
     startRun();
     run.route = [bi];
     run.stage = bi * PER + 1;
     startStage();
+    if (pose) {
+      const others = level.rooms.map((_, i) => i).filter(i => i !== level.startIdx && i !== level.hall?.room),
+        r = level.rooms[others['bcd'.indexOf(pose) % others.length]!]!;
+      enemies.slice().forEach(e => {
+        e.dead = true;
+        removeEnemyMesh(e);
+      });
+      player.x = (r.x + 0.6) * T;
+      player.z = (r.y + 0.6) * T;
+      player.fy = floorY(player.x, player.z);
+      player.yaw = Math.atan2(-(r.w - 1.2), -(r.h - 1.2)); // toward the far corner
+      player.pitch = 0.05;
+    }
     show(null);
     setState('play');
     for (let k = 0; k < 20; k++) update(1 / 60);
