@@ -29,7 +29,18 @@ import { findTarget, shotId, tryFire } from '../actors/firing.ts';
 import { magSize, weaponOptCount } from '../actors/weapons.ts';
 import { controlState } from '../ui/input.ts';
 import { drawMap } from '../ui/minimap.ts';
-import { screenFx, bctx, bigmap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
+import {
+  screenFx,
+  bctx,
+  bigmap,
+  hitm,
+  map3dWanted,
+  mctx,
+  mini,
+  updateHitDirs,
+  updateHud,
+  weaponHud,
+} from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
 import { onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
@@ -39,7 +50,8 @@ import { openPerk } from '../screens/perk.ts';
 import { renderBase } from '../screens/base.ts';
 import { updateEBullets, updatePBullets } from '../actors/bullets.ts';
 // Per-frame systems of Sector Dive Extended, run by the engine loop (engine/src/core/loop.ts) in this order
-LOOP.mode = () => state;
+// while the 3D map is up the game stands still: no system of the dive runs, only the map's own (mode 'map')
+LOOP.mode = () => (state === 'play' && map3dWanted() ? 'map' : state);
 // ---- tuning numbers used only here ----
 const STICK_DASH_PUSH = 0.97; // stick pushed this far (0-1) counts as "at the rim" for the stick dash
 const STICK_DASH_HOLD = 0.3; // seconds held at the rim before the stick dash fires
@@ -495,6 +507,16 @@ export function boot() {
   addSystem({ name: 'portals', order: 70, modes: PLAY, update: updatePortals });
   addSystem({ name: 'screenFx', order: 90, modes: PLAY, update: updateScreenFx });
   addSystem({ name: 'attract', order: 0, modes: ['base'], update: attract });
+  // the 3D map, while it is up: drawn, and turned by the move keys
+  addSystem({
+    name: 'map3d',
+    order: 0,
+    modes: ['map'],
+    update: dt => {
+      updateMap3D(true);
+      keysTurnMap3D(dt);
+    },
+  });
 
   renderBase();
   buildAttract();
