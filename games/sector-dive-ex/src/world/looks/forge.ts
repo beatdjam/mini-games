@@ -6,8 +6,19 @@ import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../data/level.ts';
 import { FORGE_DANGER, FORGE_PLATE_HEAT, FORGE_PLATE_SAFETY } from '../../i18n/signs.ts';
 import type { FloorPlan } from '../building.ts';
-import { LAMP_POOL, TEX, WALL_PLAIN_SHARE, grain, grime, paint, poolPaint, variantOf } from '../looks.ts';
-import type { Look, Paint } from '../looks.ts';
+import {
+  LAMP_POOL,
+  TEX,
+  WALL_PLAIN_SHARE,
+  facing,
+  grain,
+  grime,
+  onWall,
+  paint,
+  poolPaint,
+  variantOf,
+} from './common.ts';
+import type { Look, Paint, WallSlot } from './common.ts';
 // The smelter block (FORGE): a steelworks. Sooty riveted iron and firebrick, girders overhead, thick pipes on the
 // walls, and the orange of the furnaces thrown back by everything. world/looks.ts lists it among the looks; that file
 // and this one import each other, so nothing here may use a value of looks.ts while the file is being loaded (inside
@@ -675,7 +686,6 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     placed = placeProps(d, FORGE_PROPS, rng),
     one = new THREE.Vector3(1, 1, 1),
     up = new THREE.Vector3(0, 1, 0);
-  type WallSlot = { i: number; j: number; side?: number };
   // the wall tile a wall slot is on
   const wallOf = (s: WallSlot) => {
     const [di, dj] = SIDE_STEP[s.side ?? 0]!;
@@ -687,20 +697,6 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       .filter(p => p.id === id)
       .map(p => p.slot)
       .filter(s => s.kind !== 'wall' || !plan.voids[wallOf(s)]);
-  // where on a wall face: the tile's middle moved to the wall, `off` along it, `out` away from it
-  const onWall = (s: WallSlot, off: number, out: number, y: number) => {
-    const [di, dj] = SIDE_STEP[s.side ?? 0]!;
-    return new THREE.Vector3(
-      tileCenter(s.i) + di * (T / 2 - out) + dj * off,
-      y,
-      tileCenter(s.j) + dj * (T / 2 - out) + di * off,
-    );
-  };
-  // the turn that makes a thing's +z look away from the wall (its +x then runs along the wall)
-  const facing = (s: WallSlot) => {
-    const [di, dj] = SIDE_STEP[s.side ?? 0]!;
-    return Math.atan2(-di, -dj);
-  };
   const at = (pos: THREE.Vector3, turn = 0, scale = one) =>
     new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromAxisAngle(up, turn), scale);
   // one instanced mesh for all the copies of a part
