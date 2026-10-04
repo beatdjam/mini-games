@@ -9,6 +9,7 @@ import {
   W,
   computeFlow,
   flow,
+  hasLOS,
   inBounds,
   setTileWorld,
   tileCenter,
@@ -39,6 +40,10 @@ const SPOT_JITTER = 1; // random spots in a room scatter this far from the tile 
 const SPOT_TRIES = 40; // attempts to find a free random spot
 const REVEAL_R2 = 18; // map reveal radius around the player, squared (tiles)
 const REVEAL_BOX = 4; // ... searched in this many tiles each way
+// The stairwell and lift tiles of the building floor being played (1 = one of them; null outside a building). The map
+// opens in a circle round the player, through walls; these tiles wait until the player has a clear line to them, so
+// the way on is not given away from the far side of a wall (finding it is part of exploring)
+let linkTiles: Uint8Array | null = null;
 // the level being played: built as a whole by buildLevel, replaced (never patched field by field) on the next one
 interface Level {
   biome: Biome; // sector of this level
@@ -293,6 +298,9 @@ export function enterFloor(b: Building, n: number) {
     floor: n,
     hall: plan.hall,
   };
+  linkTiles = new Uint8Array(plan.seen.length);
+  for (const l of b.links)
+    if (l.upper === n || l.lower === n) for (const k of l.strip) if (plan.gen.maps.grid[k] === 1) linkTiles[k] = 1;
   floorGroups.forEach((g, m) => {
     g.position.y = (n - m) * FLOOR_H;
   });
@@ -351,6 +359,7 @@ function useLevel(biome: Biome, isArena: boolean, gen: GeneratedLevel, seed: num
     door: M.door,
     doorOpen: M.doorOpen,
   });
+  linkTiles = null;
   const lg = new THREE.Group();
   // a new object per build; exitIdx and portals are filled in below, before anything else reads it
   level = {
@@ -409,17 +418,20 @@ export function reveal(ti: number, tj: number) {
     level.seen.fill(1);
     return;
   }
+  // a stairwell or lift tile is only put on the map from where it can be seen
+  const hidden = (k: number): boolean =>
+    !!linkTiles?.[k] && !hasLOS(tileCenter(ti), tileCenter(tj), tileCenter(k % W), tileCenter(Math.floor(k / W)));
+  const show = (i: number, j: number) => {
+    if (inBounds(i, j) && !hidden(j * W + i)) level.seen[j * W + i] = 1;
+  };
   for (let dj = -REVEAL_BOX; dj <= REVEAL_BOX; dj++)
     for (let di = -REVEAL_BOX; di <= REVEAL_BOX; di++) {
       if (di * di + dj * dj > REVEAL_R2) continue;
-      const i = ti + di,
-        j = tj + dj;
-      if (inBounds(i, j)) level.seen[j * W + i] = 1;
+      show(ti + di, tj + dj);
     }
   const r = level.roomOf[tj * W + ti];
   if (r >= 0) {
     const R = level.rooms[r];
-    for (let j = R.y - 1; j <= R.y + R.h; j++)
-      for (let i = R.x - 1; i <= R.x + R.w; i++) if (inBounds(i, j)) level.seen[j * W + i] = 1;
+    for (let j = R.y - 1; j <= R.y + R.h; j++) for (let i = R.x - 1; i <= R.x + R.w; i++) show(i, j);
   }
 }
