@@ -4,6 +4,7 @@ import { cityLook } from './looks/city.ts';
 import { dataLook } from './looks/data.ts';
 import { forgeLook } from './looks/forge.ts';
 import { kwlnLook } from './looks/kwln.ts';
+import { ruinLook } from './looks/ruin.ts';
 // A sector's own look: its wall, floor, deck and ceiling pictures (painted on canvases, a few variants each so the
 // same picture is not on every tile) and the things fixed to its walls and ceilings (props; none of them is in the
 // way, so the tile world is not touched). A sector without a look is drawn with the plain line pattern in its colours
@@ -24,6 +25,7 @@ const MAKERS: Record<string, () => Look> = {
   DATA: dataLook,
   KWLN: kwlnLook,
   FORGE: forgeLook,
+  RUIN: ruinLook,
   CITY: cityLook,
 };
 const made: Record<string, Look> = {};
