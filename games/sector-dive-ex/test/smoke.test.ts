@@ -2306,6 +2306,25 @@ test('map: what lies behind a wall (a stairwell, a lift) stays off the map until
   expect(checked, 'at least one link had a wall near it').toBeGreaterThan(0);
   goToFloor(0);
 });
+test('dash: in long frames (20 fps) a dash still goes up a stairwell', () => {
+  const b = building!,
+    stairs = b.links.find(l => l.kind === 'stairs');
+  if (!stairs) return; // a building without a stairwell: nothing to climb
+  goToFloor(stairs.lower);
+  const step = stairs.strip[1]! - stairs.strip[0]!,
+    di = Math.abs(step) === 1 ? step : 0,
+    dj = Math.abs(step) === 1 ? 0 : Math.sign(step);
+  putOnTile(stairs.strip[0]!);
+  const from = { x: player.x, z: player.z };
+  player.dashT = TUNE.dashTime;
+  player.ddx = di;
+  player.ddz = dj;
+  for (let k = 0; k < 4; k++) runSystems(0.05);
+  // 0.2 s of dash is about 4.9 m; stopped at the first metre of the ramp it would be about 2.4 m
+  expect(Math.hypot(player.x - from.x, player.z - from.z), 'how far the dash went').toBeGreaterThan(4);
+  expect(player.fy, 'and it climbed').toBeGreaterThan(1);
+  goToFloor(0);
+});
 test('boss room: in it and at its door only its own floor is drawn (the room is higher than a floor)', () => {
   const b = building!,
     last = b.plans.length - 1,
