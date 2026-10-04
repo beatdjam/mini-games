@@ -25,15 +25,15 @@ import type { GeneratedLevel } from './levelGen.ts';
 // ---- tuning numbers used only here ----
 export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
 // ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with
-// enemies as a Sector Dive depth (12 to 15) however many floors it has. null = the sector's own numbers
-const ROOMS_BY_FLOORS: Record<number, [number, number] | null> = { 3: null, 4: [3, 4], 5: [3, 3] };
+// enemies as a Sector Dive depth (about 13.6 on average) however many floors it has. null = the sector's own numbers
+const ROOMS_BY_FLOORS: Record<number, [number, number] | null> = { 3: null, 4: [4, 4], 5: [3, 3] };
 const LIFT_REACH = 2; // a lift goes at most this many floors
 const STAIRS_CHANCE = 0.5; // a step of one floor is a stairwell this often, a lift otherwise
 export const FLOOR_H = 8; // from the ground of one floor to the ground of the next (m)
 const RAMPS = FLOOR_H / RISE; // ramp tiles of a stairwell
 export const STRIP = RAMPS + 3; // tiles of a stairwell: E, the ramps, L1, L2
 const BOSS_HALL = 12; // side of the boss room (tiles), the same as the floor of a boss arena
-const LAST_FLOOR_ROOMS: [number, number] = [2, 3]; // ordinary rooms on the lowest floor, next to the boss room
+const LAST_FLOOR_ROOMS: [number, number] = [3, 4]; // ordinary rooms on the lowest floor, next to the boss room
 const PLACE_TRIES = 600; // random places tried for one stairwell or lift
 const SEED_TRIES = 30; // seeds tried until a building has room for its stairwells and every floor is reached
 const SEED_STEP = 7919; // added to the seed for the next try

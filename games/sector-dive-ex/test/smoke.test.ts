@@ -1942,8 +1942,8 @@ test('building: the same seed gives the same three floors, joined at the same pl
         last = bld.plans[bld.plans.length - 1]!,
         hall = last.gen.rooms[last.hall!.room]!;
       expect(`${hall.w}x${hall.h}`, at).toBe('12x12');
-      expect(last.gen.rooms.length - 1, at).toBeGreaterThanOrEqual(2);
-      expect(last.gen.rooms.length - 1, at).toBeLessThanOrEqual(3);
+      expect(last.gen.rooms.length - 1, at).toBeGreaterThanOrEqual(3);
+      expect(last.gen.rooms.length - 1, at).toBeLessThanOrEqual(4);
       // the boss's pillars stand where they do in a boss arena (2 tiles in from the corners)
       expect(last.gen.maps.grid[(hall.y + 2) * last.gen.W + hall.x + 2], at).toBe(BOSS_META[kind]!.pillars ? 0 : 1);
       // the route: every floor once, from the top to the lowest, never more than two floors at a step
