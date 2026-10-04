@@ -12,6 +12,10 @@ import type { Biome } from '../data/types.ts';
 // them and sets how early and how fast they open.
 // ---- tuning numbers used only here ----
 const DOOR_THICK = 0.5; // thickness of a leaf (m)
+// A face of a leaf must never lie in the plane of another face, or the two flicker: wide open, a leaf goes this much
+// further into the wall than its own width (its end would sit exactly in the wall's face), and it stops this much
+// short of the ceiling
+const DOOR_CLEAR = 0.06; // m
 // a door starts opening well before anyone reaches it and is through (DOOR_PASS) in about 0.1 s, so nobody has to
 // stop in front of it
 const DOOR_CFG = { sense: 7, speed: 5 }; // m from the middle of the door's tile; doorOpen per second
@@ -60,10 +64,10 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
       }),
       leaf = () => {
         const m = new THREE.Mesh(
-          new THREE.BoxGeometry(alongX ? DOOR_THICK : T / 2, WALL_H, alongX ? T / 2 : DOOR_THICK),
+          new THREE.BoxGeometry(alongX ? DOOR_THICK : T / 2, WALL_H - DOOR_CLEAR, alongX ? T / 2 : DOOR_THICK),
           mat,
         );
-        m.position.set(tileCenter(i), WALL_H / 2, tileCenter(j));
+        m.position.set(tileCenter(i), (WALL_H - DOOR_CLEAR) / 2, tileCenter(j));
         group.add(m);
         return m;
       },
@@ -80,9 +84,10 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
     list.push(d);
   });
 }
-// the leaves meet in the middle when shut and are each half a tile further out (inside the walls) when wide open
+// the leaves meet in the middle when shut and are each a little more than half a tile further out when wide open:
+// wholly inside the walls, their ends clear of the walls' faces
 function placeLeaves(d: DoorMesh, open: number) {
-  const off = T / 4 + (open * T) / 2;
+  const off = T / 4 + open * (T / 2 + DOOR_CLEAR);
   d.leaves[0].position[d.axis] = d.mid - off;
   d.leaves[1].position[d.axis] = d.mid + off;
 }
