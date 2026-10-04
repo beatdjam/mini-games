@@ -113,6 +113,7 @@ function carveLiftRoom(m: TileMapData, size: [number, number], rng: Rng): number
 // below on the top floor; the same floor when there is only one), the room's end drawn first. The far end is never in a lift-only room.
 // The ends sit on flat room tiles, never on a door, a deck, a ramp, cover or another link's end; stairs and the pairs'
 // lifts never end in a lift-only room (they are carved after). A lift-only room that finds no place is left out.
+// No link ends in a floor's hall (DungeonOptions.hall).
 // Throws when `floors` is not a whole number of 1 or more, when an options list does not have one entry per floor or
 // pair, or when a floor runs out of room tiles for the links
 export function generateFloors(o: FloorGenOptions, rng: Rng): GeneratedFloors {
@@ -126,9 +127,11 @@ export function generateFloors(o: FloorGenOptions, rng: Rng): GeneratedFloors {
   const used = maps.map(() => new Set<number>()),
     usedRooms = maps.map(() => new Set<number>()),
     links: FloorLink[] = [];
+  // per floor, the rooms no link from elsewhere ends in: its hall, and (added below) its lift-only rooms
+  const closed = maps.map(m => new Set<number>(m.hall ? [m.hall.room] : []));
   const join = (kind: string, lo: number) => {
-    const a = pickSpot(maps[lo], lo, used[lo], usedRooms[lo], rng),
-      b = pickSpot(maps[lo + 1], lo + 1, used[lo + 1], usedRooms[lo + 1], rng);
+    const a = pickSpot(maps[lo], lo, used[lo], usedRooms[lo], rng, undefined, closed[lo]),
+      b = pickSpot(maps[lo + 1], lo + 1, used[lo + 1], usedRooms[lo + 1], rng, undefined, closed[lo + 1]);
     links.push({ kind, a, b });
   };
   const stairsOf = o.stairs ?? 1;
@@ -144,7 +147,6 @@ export function generateFloors(o: FloorGenOptions, rng: Rng): GeneratedFloors {
     for (let s = 0; s < (stairs ? lifts : Math.max(1, lifts)); s++) join(liftKind, lo);
   }
   const liftRooms: { floor: number; room: number }[] = [],
-    liftOnly = maps.map(() => new Set<number>()), // per floor, its lift-only rooms
     perFloor = Math.max(0, Math.floor(o.liftRooms ?? 0));
   for (let n = 0; n < count; n++)
     for (let r = 0; r < perFloor; r++) {
@@ -152,10 +154,10 @@ export function generateFloors(o: FloorGenOptions, rng: Rng): GeneratedFloors {
       if (room < 0) continue;
       const to = n + 1 < count ? n + 1 : n > 0 ? n - 1 : n,
         a = pickSpot(maps[n], n, used[n], usedRooms[n], rng, room),
-        b = pickSpot(maps[to], to, used[to], usedRooms[to], rng, undefined, liftOnly[to]);
+        b = pickSpot(maps[to], to, used[to], usedRooms[to], rng, undefined, closed[to]);
       links.push({ kind: liftKind, a, b });
       liftRooms.push({ floor: n, room });
-      liftOnly[n].add(room);
+      closed[n].add(room);
     }
   const floorH = o.floorH ?? FLOOR_H;
   return {
