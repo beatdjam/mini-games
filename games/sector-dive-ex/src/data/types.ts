@@ -423,6 +423,7 @@ export interface Pickup extends WorldObject {
   dead: boolean;
   value?: number;
   w?: Weapon;
+  rare?: boolean; // a chip whose choices are all the rare version (a lockdown's reward)
 }
 // a ground shockwave ring (engine world tag 'wave'): grows to max radius, hurts the player once when the ring passes
 export interface Wave extends WorldObject {

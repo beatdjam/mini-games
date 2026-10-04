@@ -1988,16 +1988,30 @@ test('building: the same seed gives the same three floors, joined at the same pl
         for (const k of l.strip) for (const n of [l.upper, l.lower]) expect(bld.plans[n]!.gen.hazard[k], at).toBe(0);
       // the lockdown room can be shut, and is not the start room or the boss room
       const ld = bld.lockdown;
+      expect(!!bld.quiet, `${at}: a quiet room exactly when there is a lockdown`).toBe(!!ld);
       if (!ld) continue;
+      const q = bld.quiet!,
+        qp = bld.plans[q.floor]!;
+      expect(q.room !== qp.gen.startIdx && q.room !== qp.hall?.room, at).toBe(true);
+      expect(q.floor !== ld.floor || q.room !== ld.room, at).toBe(true);
       const plan = bld.plans[ld.floor]!;
       expect(roomDoors(plan.gen, ld.room).closable, at).toBe(true);
       expect(ld.room !== plan.gen.startIdx && ld.room !== plan.hall?.room, at).toBe(true);
     }
 });
 test('building run: a cleared room stays empty across floors and a resume; the checkpoint follows the floor', () => {
-  goBase();
-  startRun();
-  tick(5);
+  // a building whose top floor has at least two ordinary rooms with enemies (one to empty, one to wound an enemy in):
+  // on a small top floor the lockdown room and the quiet room can leave fewer
+  const plainRooms = () => {
+    const ld0 = building!.lockdown;
+    return level.roomCount.filter((n, idx) => n > 0 && !(ld0 && ld0.floor === 0 && ld0.room === idx)).length;
+  };
+  for (let k = 0; k < 40; k++) {
+    goBase();
+    startRun();
+    tick(5);
+    if (plainRooms() >= 2) break;
+  }
   player.hp = 1e6;
   player.maxHp = 1e6;
   expect(level.floor).toBe(0);
@@ -2487,6 +2501,25 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
   expect(locked(), 'open again').toBe(false);
   expect(doors.some(k => isDoorLocked(world, k))).toBe(false);
   expect(run.bld!.cleared[ld.floor]).toContain(ld.room);
-  expect(chips(), 'a chip to pick up').toBe(chipsWas + 1);
+  // the reward: two chips (one whose choices are all rare) and a weapon of the second rarity or better
+  const reward = query<Pickup>('pickup');
+  expect(chips(), 'two chips to pick up').toBe(chipsWas + 2);
+  expect(reward.filter(q => q.kind === 'chip' && q.rare).length).toBe(1);
+  expect(
+    reward.some(q => q.kind === 'weapon' && q.w!.r >= 1),
+    'and a weapon',
+  ).toBe(true);
+  openPerk('test', undefined, undefined, 1, true);
+  const cards = [...document.querySelectorAll('#perkList .perk')];
+  expect(cards.length > 0 && cards.every(c => c.classList.contains('rare')), 'an all-rare pick').toBe(true);
+  show(null);
+  setState('play');
+  // the building has one room with no enemies to make up for the lockdown
+  const quiet = building!.quiet!;
+  expect(quiet.floor !== ld.floor || quiet.room !== ld.room).toBe(true);
+  goToFloor(quiet.floor);
+  expect(level.roomCount[quiet.room], 'no enemy in the quiet room').toBe(0);
+  expect(enemies.some(e => e.room === quiet.room)).toBe(false);
+  expect(run.bld!.cleared[quiet.floor], 'and it is not a cleared room either').not.toContain(quiet.room);
   goBase();
 });

@@ -14,6 +14,8 @@ import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
 import { difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
 import { spawnBoss } from '../actors/bosses/common.ts';
+import { rollWeapon } from '../actors/weapons.ts';
+import { progressOf } from '../core/rules.ts';
 import { refreshRunText } from '../screens/pause.ts';
 import { openPerk } from '../screens/perk.ts';
 import { crossToFloor, pickEnemyType, roomEnemyCount } from './run.ts';
@@ -26,6 +28,8 @@ const LOCKDOWN_WAVES = 2; // waves that arrive after the room's own enemies
 const WAVE_MIN_DIST = 6; // a wave's enemies appear at least this far from the player when a spot can be found (m)
 const WAVE_SPOT_TRIES = 8; // attempts to find such a spot
 const LOCKDOWN_TOAST_MS = 3200;
+const LOCKDOWN_REWARD_GAP = 2; // the lockdown's rewards lie this far apart (m)
+const LOCKDOWN_WEAPON_MIN_RARITY = 1; // the reward weapon's minimum rarity (index into RARITY: 1 = ★★)
 const ALARM_EVERY = 2.4; // the lockdown siren sounds this often (s)
 const ALERT_BANNER_MS = 2400; // how long the banner stays red after the lockdown's title (the banner itself shows for 2 s)
 const BOSS_DOOR_R = 4; // waiting within this of the boss door's middle opens it (m)
@@ -127,9 +131,15 @@ function endLockdown(room: number) {
   run.bld!.ld = 1;
   lockdownDoors(room).forEach(k => lockDoor(world(), k, false));
   markCleared(room);
-  const [x, z] = roomSpot(level.rooms[room]!);
-  // (after the pre-boss supply the building's rooms drop no chips: a kit then)
-  addPickup(run.bld!.supplied ? 'kit' : 'chip', x, z);
+  // the reward: two chips (the choices of one are all rare) and a weapon of at least the second rarity, in a row
+  // across the room's middle. After the pre-boss supply the building's rooms drop no chips: kits in their place
+  const [x, z] = roomSpot(level.rooms[room]!),
+    chips = !run.bld!.supplied;
+  addPickup(chips ? 'chip' : 'kit', x - LOCKDOWN_REWARD_GAP, z, chips ? { rare: true } : undefined);
+  addPickup(chips ? 'chip' : 'kit', x, z);
+  addPickup('weapon', x + LOCKDOWN_REWARD_GAP, z, {
+    w: rollWeapon(progressOf(run.stage), LOCKDOWN_WEAPON_MIN_RARITY),
+  });
   sfx('chip');
   toast(t(run.bld!.supplied ? 'run.cleared' : 'run.lockdownClear'), LOCKDOWN_TOAST_MS);
 }
@@ -162,8 +172,13 @@ function roomsLeft(): number {
   return b.plans.reduce(
     (sum, p, floor) =>
       sum +
-      p.gen.rooms.filter((_, idx) => idx !== p.gen.startIdx && idx !== p.hall?.room && !done[floor]!.includes(idx))
-        .length,
+      p.gen.rooms.filter(
+        (_, idx) =>
+          idx !== p.gen.startIdx &&
+          idx !== p.hall?.room &&
+          !(b.quiet && b.quiet.floor === floor && b.quiet.room === idx) &&
+          !done[floor]!.includes(idx),
+      ).length,
     0,
   );
 }
