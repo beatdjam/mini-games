@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="スマホで遊べるランダム生成ローグライトFPS" data-i18n-content="meta.description">
+<meta name="build" content="dev">
+<link rel="manifest" href="/games/sector-dive-ex/manifest.webmanifest">
+<meta name="theme-color" content="#05080c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sector Dive EX">
+<link rel="apple-touch-icon" href="/games/sector-dive-ex/apple-touch-icon.png">
+<link rel="icon" href="/games/sector-dive-ex/icon-192.png">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+</style>
+<title>Sector Dive Extended</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=DotGothic16&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#05080c; --panel:#0a1119; --panel2:#0f1923; --line:#1b2a38;
+  --text:#d5e4ee; --dim:#7f94a6; --cyan:#54e8ff; --mag:#ff4d8d; --amber:#ffc24a; --lime:#8cff6a;
+  --disp:"Chakra Petch","DotGothic16","Hiragino Sans",system-ui,sans-serif;
+  --jp:"DotGothic16","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+}
+html[lang="en"]{--jp:"Chakra Petch","Hiragino Sans",system-ui,sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);overflow:hidden;overscroll-behavior:none}
+body{font-family:var(--jp);font-size:14px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+#app{position:fixed;inset:0;overflow:hidden}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+em{font-style:normal}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;inset:0;pointer-events:none}
+.tl{position:absolute;z-index:4;top:calc(env(safe-area-inset-top,0px) + 10px);left:calc(env(safe-area-inset-left,0px) + 12px);display:grid;gap:5px;width:min(220px,40vw)}
+.hplabel{display:flex;justify-content:space-between;font-family:var(--disp);font-size:12px;letter-spacing:.12em;color:var(--dim)}
+.hplabel b{color:var(--text);font-size:15px;letter-spacing:0}
+.bar{height:8px;background:#0c1620;border:1px solid var(--line);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0;transform-origin:left}
+#hpBar i{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+#hpBar.low i{background:var(--mag);box-shadow:0 0 8px var(--mag)}
+#stBar{height:5px}
+#stBar i{background:var(--lime)}
+#stBar.short i{background:#50703f}
+#stBar.warn{border-color:var(--mag)}
+.kithud{font-size:12px;color:var(--lime);font-variant-numeric:tabular-nums}
+.kithud.none{color:var(--dim)}
+body.touch .kithud{display:none}
+.stage{font-family:var(--disp);font-size:12px;letter-spacing:.1em;color:var(--dim)}
+.stage b{color:var(--text);font-weight:500}
+.tr{position:absolute;z-index:4;top:calc(env(safe-area-inset-top,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 12px);display:grid;justify-items:end;gap:6px}
+.trrow{display:flex;gap:6px;align-items:center}
+.bits{font-family:var(--disp);color:var(--amber);font-size:16px;display:flex;gap:6px;align-items:baseline;margin-right:4px}
+.bits span{font-size:11px;letter-spacing:.14em;color:#b58a30}
+#mini{width:clamp(120px,24vmin,176px);height:clamp(120px,24vmin,176px);border:1px solid var(--line);background:rgba(5,8,12,.55);pointer-events:auto;cursor:pointer}
+#bigmap{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(82vmin,600px);height:min(82vmin,600px);background:rgba(5,8,12,.82);border:1px solid var(--line);pointer-events:auto;cursor:pointer}
+.icon{pointer-events:auto;min-width:38px;height:36px;padding:0 8px;border:1px solid var(--line);background:rgba(10,17,25,.8);font-family:var(--disp);font-weight:700;letter-spacing:.1em;font-size:12px}
+#bossBar{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 12px);width:min(400px,44vw);display:grid;gap:4px;text-align:center}
+/* below about 1170px the centred bar runs into the HP block (left) or the bits and buttons (right): it drops under
+   the top row, below the banner. On a tall screen it goes under the minimap (top block ~82px + the minimap), narrow enough to miss the heal button */
+@media (max-width:1170px){#bossBar{top:calc(env(safe-area-inset-top,0px) + 108px)}}
+@media (max-aspect-ratio:1/1){#bossBar{top:calc(env(safe-area-inset-top,0px) + 94px + clamp(120px,24vmin,176px));width:50vw}}
+.bname{font-family:var(--disp);font-size:12px;letter-spacing:.2em;color:var(--mag)}
+.bbar{height:6px;background:#1a0a12;border:1px solid #4a1a2c;position:relative;overflow:hidden}
+.bbar i{position:absolute;inset:0;background:var(--mag);transform-origin:left;box-shadow:0 0 10px var(--mag)}
+#hitDirs{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
+.hdir{position:absolute;left:-95px;top:-95px;width:190px;height:190px;border-radius:50%;border:5px solid transparent;border-top-color:#ff4d6e;filter:drop-shadow(0 0 6px #ff4d6e);opacity:0}
+#cross{position:absolute;left:50%;top:50%;width:26px;height:26px;transform:translate(-50%,-50%);transition:width .1s,height .1s}
+#cross i{position:absolute;background:var(--text);opacity:.85}
+#cross i:nth-child(1){left:50%;top:0;width:2px;height:7px;margin-left:-1px}
+#cross i:nth-child(2){left:50%;bottom:0;width:2px;height:7px;margin-left:-1px}
+#cross i:nth-child(3){top:50%;left:0;height:2px;width:7px;margin-top:-1px}
+#cross i:nth-child(4){top:50%;right:0;height:2px;width:7px;margin-top:-1px}
+#cross.lock{width:18px;height:18px}
+#cross.lock i{background:var(--mag);opacity:1}
+#hitm{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%) rotate(45deg);opacity:0}
+#hitm::before,#hitm::after{content:"";position:absolute;background:#fff}
+#hitm::before{left:50%;top:0;bottom:0;width:2px;margin-left:-1px}
+#hitm::after{top:50%;left:0;right:0;height:2px;margin-top:-1px}
+#hitm.on{opacity:1}
+#hitm.crit::before,#hitm.crit::after{background:var(--amber)}
+#reload{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);display:grid;gap:4px;justify-items:center;font-family:var(--disp);font-size:11px;letter-spacing:.24em;color:var(--amber)}
+#reload .bar{width:70px;height:4px;border-color:#5a4418}
+#reload .bar i{background:var(--amber)}
+#bottom{position:absolute;z-index:2;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:grid;justify-items:center;gap:4px}
+#ammo{font-size:26px;line-height:1;color:var(--text)}
+#ammo small{font-size:14px;color:var(--dim)}
+#ammo.empty{color:var(--mag)}
+#weap{display:flex;gap:6px}
+.slot{padding:4px 9px;border:1px solid var(--line);background:rgba(10,17,25,.7);font-size:12px;color:var(--dim);white-space:nowrap}
+.slot.on{color:var(--text);border-color:var(--cyan)}
+.slot em{font-size:11px;margin-left:4px}
+#toast{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 58px);transform:translateX(-50%);max-width:calc(100% - 32px);padding:6px 14px;background:rgba(5,8,12,.82);border:1px solid var(--line);font-size:13px;text-align:center;opacity:0;transition:opacity .25s}
+#toast.on{opacity:1}
+#banner{position:absolute;left:0;right:0;top:32%;text-align:center;opacity:0;transition:opacity .5s;display:grid;gap:4px}
+#banner.on{opacity:1}
+#banner .code{font-family:var(--disp);font-weight:700;font-size:clamp(28px,6vw,46px);letter-spacing:.18em;color:var(--text);text-shadow:0 0 18px rgba(84,232,255,.5)}
+#banner .sub{font-size:15px;color:var(--dim);letter-spacing:.2em}
+#vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(255,40,90,.55) 100%);opacity:0}
+#fade{position:absolute;inset:0;z-index:4;background:#000;pointer-events:none;opacity:0;transition:opacity .35s}
+
+/* ---------- touch ---------- */
+#touch{position:absolute;inset:0;touch-action:none;z-index:3}
+#joyBase,#hint{pointer-events:none}
+#joyBase{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border:1px solid rgba(84,232,255,.45);border-radius:50%;background:rgba(84,232,255,.06);display:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(84,232,255,.35);border:1px solid var(--cyan)}
+.tbtn{position:absolute;width:52px;height:52px;border-radius:50%;border:1px solid rgba(213,228,238,.35);background:rgba(10,17,25,.55);font-size:11px;display:grid;place-items:center;touch-action:none;line-height:1.2;text-align:center}
+.tbtn.down,.tbtn:active{background:rgba(84,232,255,.25);border-color:var(--cyan)}
+.tbtn.off{opacity:.35}
+/* layout buttons are placed by applyLayout(): left/top are the button centre */
+.tbtn[data-lb]{transform:translate(-50%,-50%)}
+#btnFire{font-size:14px;border-color:rgba(255,77,141,.7);background:rgba(255,77,141,.14)}
+#btnFire2{font-size:11px;border-color:rgba(255,77,141,.5);background:rgba(255,77,141,.08)}
+#btnDash{font-size:12px;border-color:rgba(140,255,106,.45)}
+#btnKit{border-color:rgba(140,255,106,.6)}
+#touch.editing{background:rgba(5,8,12,.5)}
+#touch.editing .tbtn[data-lb]{display:grid;border-style:dashed;cursor:move}
+#touch.editing .tbtn.sel{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber)}
+#layoutBar{position:absolute;z-index:5;left:50%;top:calc(env(safe-area-inset-top,0px) + 10px);transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:8px 10px;background:var(--panel);border:1px solid var(--line)}
+#layoutBar p{margin:0;width:100%;text-align:center;font-size:12px;color:var(--dim)}
+#layoutBar b{color:var(--amber);font-weight:400}
+#pickRow{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 92px);display:grid;justify-items:center;gap:6px}
+#pickName{font-size:12px;color:var(--amber);background:rgba(5,8,12,.78);padding:3px 10px;white-space:nowrap;pointer-events:none}
+#pickDiff{font-size:12px;color:var(--text);background:rgba(5,8,12,.78);padding:3px 10px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+#pickDiff .up{color:var(--lime)}
+#pickDiff .down{color:var(--mag)}
+#pickDiff .same{color:var(--dim)}
+.pickbtns{display:flex;gap:8px}
+.pickbtn{height:42px;padding:0 16px;border-radius:21px;border:1px solid var(--amber);background:rgba(10,17,25,.72);color:var(--amber);white-space:nowrap;font-size:13px;touch-action:none}
+.pickbtn:disabled{opacity:.35}
+body.desk .pickbtns{display:none}
+body.desk.nolock .pickbtns{display:flex}
+/* touch: weapon/ammo block moves under HP so it never sits on the buttons; slots are tappable */
+body.touch #bottom{z-index:4}
+body.touch .slot{pointer-events:auto;padding:7px 12px;font-size:13px}
+body.touch #mini{width:clamp(80px,22vmin,140px);height:clamp(80px,22vmin,140px)}
+body.desk .tbtn{display:none}
+body.desk.nolock .tbtn{display:grid}
+#hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);font-size:12px;color:var(--amber);white-space:nowrap}
+
+/* ---------- screens ---------- */
+.screen{position:absolute;inset:0;z-index:5;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;
+  padding-block:calc(env(safe-area-inset-top,0px) + 20px) calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px));
+  background:linear-gradient(180deg,rgba(5,8,12,.55),rgba(5,8,12,.93) 45%)}
+.screen.center{display:grid;place-items:center;background:rgba(5,8,12,.84)}
+.base{max-width:880px;margin:0 auto;display:grid;gap:18px}
+.head{display:grid;gap:6px}
+.head h1{margin:0;font-family:var(--disp);font-weight:700;font-size:clamp(30px,6vw,52px);letter-spacing:.14em;line-height:1;text-shadow:0 0 24px rgba(84,232,255,.35)}
+.head h1 span{color:var(--cyan)}
+.head p{margin:0;color:var(--dim);font-size:14px;line-height:1.7;max-width:62ch}
+.back{justify-self:start;font-size:13px;color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line)}
+.back:hover{color:var(--text)}
+.backs{display:flex;gap:16px;flex-wrap:wrap}
+.linkbtn{padding:0;background:none;border-width:0 0 1px;border-radius:0;font:inherit;font-size:13px;cursor:pointer}
+.linkbtn[hidden]{display:none}
+.eyebrow{margin:0;font-family:var(--disp);font-size:11px;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.stats div{background:var(--panel);padding:10px 12px;display:grid;gap:2px}
+.stats b{font-family:var(--disp);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.stats .amber b{color:var(--amber)}
+.sec{display:grid;gap:10px}
+.sec h2{margin:0;font-size:16px;font-weight:400;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.sec h2 small,.sec h3 small{font-size:12px;color:var(--dim)}
+.sec h3{margin:6px 0 0;font-size:14px;font-weight:400;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.wcard{display:grid;gap:4px;text-align:left;padding:10px 12px;background:var(--panel);border:1px solid var(--line);align-content:start}
+/* cards and rows: a column no wider than the card, so long English names and option lines wrap instead of running
+   past the edge; the rarity (★★★Prototype) moves to the next line whole */
+.wcard,.lslot,.item,.perk,.tier{grid-template-columns:minmax(0,1fr)}
+.wcard>*,.lslot>*,.item>*,.perk>*,.tier>*,.urow>*,.invrow>*{min-width:0;overflow-wrap:break-word}
+.wcard .wn em,.lslot .wn em,.item .wn em{display:inline-block}
+.wcard .wn{font-size:15px}
+.wcard .wn em{font-size:12px;margin-left:6px}
+.wcard .wd{font-size:12px;color:var(--dim);line-height:1.5}
+.wcard .ws{font-family:var(--disp);font-size:11px;color:var(--dim);letter-spacing:.04em}
+.wcard .wf{font-size:12px;color:var(--cyan);margin-top:2px}
+.wcard.locked .wn{color:var(--dim)}
+.wcard.locked .wf{color:var(--amber)}
+.wcard.poor .wf{color:#6b5a36}
+.wcard .acts{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap}
+.mini-btn{padding:5px 9px;border:1px solid var(--line);background:var(--panel2);font-size:12px}
+.mini-btn.amber{border-color:#7a5c1c;color:var(--amber)}
+.mini-btn:disabled{opacity:.4;cursor:default}
+.empty{font-size:12px;color:var(--dim);padding:10px 12px;border:1px dashed var(--line)}
+.loadout{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.lslot{display:grid;gap:4px;text-align:left;padding:12px;background:var(--panel);border:1px solid var(--line)}
+.lslot.sel{border-color:var(--cyan);background:var(--panel2);box-shadow:inset 3px 0 0 var(--cyan)}
+.lslot .wn{font-size:16px}
+.lslot .wn em{font-size:12px;margin-left:6px}
+.risk{font-size:12px;color:var(--mag)}
+.ulist{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+.urow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--panel);padding:10px 12px}
+.urow .un{font-size:14px}
+.urow .ud{font-size:12px;color:var(--dim);margin-top:2px}
+.pips{display:flex;gap:3px;margin-top:6px}
+.pips i{width:14px;height:5px;background:#1b2a38}
+.pips i.on{background:var(--cyan)}
+.buy{min-width:92px;padding:8px 10px;border:1px solid var(--amber);background:transparent;color:var(--amber);font-family:var(--disp);font-size:13px}
+.buy:disabled{border-color:var(--line);color:#4d5f6e;cursor:default}
+.setrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toggle,.tier{padding:8px 12px;border:1px solid var(--line);background:var(--panel)}
+.toggle b{font-family:var(--disp);margin-left:6px;color:var(--dim)}
+.toggle[aria-pressed="true"] b{color:var(--lime)}
+.tier{display:grid;gap:2px;text-align:left}
+.tier b{font-family:var(--disp);font-weight:500}
+.tier small{font-size:11px;color:var(--dim)}
+.tier .rd{font-family:var(--disp);letter-spacing:.06em}
+.rd0{color:var(--lime)!important}.rd1{color:var(--cyan)!important}.rd2{color:var(--text)!important}.rd3{color:var(--amber)!important}.rd4{color:var(--mag)!important}
+.tier[aria-pressed="true"]{border-color:var(--cyan);background:var(--panel2)}
+.seg{display:flex;align-items:center;border:1px solid var(--line);background:var(--panel)}
+.seg span{padding:0 10px}
+.seg button{padding:8px 12px;border:0;border-left:1px solid var(--line);background:transparent;color:var(--dim)}
+.seg button[aria-pressed="true"]{color:var(--lime);background:var(--panel2)}
+.sens{display:flex;gap:8px;align-items:center;padding:6px 12px;border:1px solid var(--line);background:var(--panel)}
+.sens input{width:120px;accent-color:var(--cyan)}
+.help{font-size:12px;color:var(--dim);line-height:1.8;margin:0}
+.startbar{position:sticky;bottom:calc(-24px - env(safe-area-inset-bottom,0px));margin-bottom:calc(-24px - env(safe-area-inset-bottom,0px));padding:10px 0 calc(12px + env(safe-area-inset-bottom,0px));display:grid;background:linear-gradient(180deg,rgba(5,8,12,0),#05080c 10px);z-index:2}
+.tabs{position:sticky;top:calc(-20px - env(safe-area-inset-top,0px));z-index:2;display:flex;border-bottom:1px solid var(--line);background:rgba(5,8,12,.96);margin-inline:-4px;padding-inline:4px}
+.tabs button{flex:1 1 0;padding:10px 8px;border:0;border-bottom:2px solid transparent;background:none;color:var(--dim);font-size:15px}
+.tabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--cyan)}
+.tabs button:hover{color:var(--text)}
+.pane{display:grid;gap:24px;min-height:40vh}
+.pane[hidden]{display:none}
+@media (max-height:520px){
+  .base{gap:10px}
+  .head{gap:0}.head .eyebrow,.head .lead{display:none}.head h1{font-size:24px}
+  .stats .eyebrow{font-size:9px;letter-spacing:.14em}.stats b{font-size:15px}.stats div{padding:4px 10px;gap:0}
+  .tabs button{padding:6px}
+  .startbar{padding-top:6px}
+  .startbar .primary{padding:7px 14px;font-size:15px}.startbar .primary small{display:inline;margin:0 0 0 12px}
+  .suspend{padding:8px;gap:6px}.suspend .eyebrow{display:none}
+}
+.primary{padding:14px 18px;border:1px solid var(--cyan);background:rgba(84,232,255,.14);font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:.2em;color:var(--text);box-shadow:0 0 18px rgba(84,232,255,.2)}
+.primary small{display:block;font-family:var(--jp);font-weight:400;font-size:12px;letter-spacing:.1em;color:var(--dim);margin-top:2px}
+.ghost{padding:12px 16px;border:1px solid var(--line);background:var(--panel)}
+.card{width:min(620px,100%);display:grid;gap:14px;padding:20px;background:var(--panel);border:1px solid var(--line)}
+.card h2{margin:0;font-size:22px;font-weight:400}
+.card h3{margin:0;font-size:14px;font-weight:400;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card h3 small{font-size:12px;color:var(--dim)}
+.cardhead{display:flex;justify-content:space-between;align-items:start;gap:12px}
+.perks{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:8px}
+#scrPerk .card{width:min(860px,100%)}
+@media (max-width:560px){.perks{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-height:460px){#scrPerk .card{gap:8px;padding:12px 16px}#scrPerk .card h2{font-size:18px}.perk{padding:10px;gap:4px}}
+.perk{display:grid;gap:6px;text-align:left;padding:14px;background:var(--panel2);border:1px solid var(--line)}
+.perk:hover,.perk:focus-visible{border-color:var(--amber)}
+.perk .pn{font-size:16px;color:var(--amber)}
+.perk.rare{border-color:var(--amber);background:linear-gradient(160deg,#2a1f08,var(--panel2) 60%);box-shadow:0 0 14px rgba(255,194,74,.25)}
+.perk.rare .pn{color:#ffd76a}
+.perk .pd{font-size:13px;color:var(--dim);line-height:1.5}
+.perk .pcur{font-size:12px;color:var(--cyan)}
+.perkmore summary{cursor:pointer;font-size:13px;color:var(--dim);padding:6px 0}
+.perkmore[open] summary{margin-bottom:6px}
+.reslist{margin:0;display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+.reslist div{display:flex;justify-content:space-between;gap:12px;background:var(--panel2);padding:9px 12px}
+.reslist dt{color:var(--dim);flex:none}
+.reslist dd{margin:0;text-align:right}
+.chips{font-size:12px;color:var(--dim);line-height:1.7;margin:0}
+.sharebtn{justify-self:center;padding:6px 10px;border:0;background:none;color:var(--dim);font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.sharebtn:hover{color:var(--text)}
+.sharebtn[hidden]{display:none}
+.sharepanel{display:grid;gap:10px}
+.sharepanel[hidden]{display:none}
+.sharepanel img{width:100%;aspect-ratio:1200/630;border:1px solid var(--line);background:var(--bg)}
+.sharerow{display:flex;gap:8px;flex-wrap:wrap}
+.sharerow button{flex:1 1 0;min-width:110px}
+.btnrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.suspend{display:grid;gap:8px;padding:12px;background:var(--panel);border:1px solid var(--amber)}
+.suspend .row{display:flex;gap:8px;flex-wrap:wrap}
+.guide{display:grid;grid-template-columns:auto 1fr;gap:1px;background:var(--line);border:1px solid var(--line);font-size:13px}
+.guide dt,.guide dd{margin:0;background:var(--panel2);padding:6px 10px}
+.guide dt{color:var(--dim)}
+.invgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.item{display:grid;gap:3px;text-align:left;padding:9px 10px;background:var(--panel2);border:1px solid var(--line);min-height:58px;align-content:start}
+.item.sel{border-color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber)}
+.item .wn{font-size:13px}
+.item .wn em{font-size:11px;margin-left:4px}
+.item .ws{font-family:var(--disp);font-size:11px;color:var(--dim)}
+.item.none{color:#4d5f6e;font-size:12px}
+.invact{display:flex;gap:6px;flex-wrap:wrap;min-height:34px;align-items:center;font-size:12px;color:var(--dim)}
+.invrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line)}
+.statbox{display:grid;gap:8px}
+.statbox h3{margin:0}
+.statbox .reslist{font-size:13px}
+.statbox .reslist div{padding:6px 12px}
+.wopt{font-size:11px;color:var(--lime)}
+.modal{position:absolute;inset:0;z-index:8;display:grid;place-items:center;padding-inline:16px;background:rgba(20,0,4,.78)}
+.modal-card{width:min(520px,100%);display:grid;gap:12px;padding:20px;background:#140609;border:2px solid #ff3b4e;box-shadow:0 0 30px rgba(255,59,78,.35)}
+.modal-card h2{margin:0;font-size:20px;font-weight:400}
+.modal-card p{margin:0;line-height:1.7}
+.modal-card ul{margin:6px 0 0;padding-left:1.2em;line-height:1.8;color:#ffc7cd;font-size:13px}
+.modal.calm{background:rgba(5,8,12,.84);grid-template-rows:minmax(0,1fr);padding-block:16px}
+.modal.calm .modal-card{box-sizing:border-box;max-height:100%;grid-template-rows:auto auto minmax(0,1fr) auto auto;background:var(--panel);border:1px solid var(--cyan);box-shadow:0 0 30px rgba(84,232,255,.2)}
+.keylist{display:grid;gap:4px;overflow-y:auto;align-content:start}
+.keyrow{padding:5px 12px}
+.keycells{display:flex;gap:6px;flex:none}
+.keycell{min-width:100px;line-height:1.2}
+.keycell.unset{color:var(--dim);border-style:dashed}
+.danger-text{color:#ff5a6a}
+.danger{padding:12px 16px;border:1px solid #ff3b4e;background:#ff3b4e;color:#fff;font-weight:700}
+.savepanel{display:grid;gap:8px;margin-top:10px;max-width:640px}
+.savepanel textarea{width:100%;font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--text);background:var(--panel);border:1px solid var(--line);padding:8px;resize:vertical;word-break:break-all}
+.danger-ghost{padding:8px 12px;border:1px solid #7a2430;background:transparent;color:#ff7a88}
+@media (prefers-reduced-motion:reduce){#toast,#banner,#fade{transition:none}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <canvas id="gl"></canvas>
+  <div id="vig"></div>
+  <div id="hud" hidden>
+    <div class="tl">
+      <div class="hplabel"><span>HP</span><b id="hpNum" class="num">100</b></div>
+      <div class="bar" id="hpBar"><i id="hpFill"></i></div>
+      <div class="bar" id="stBar"><i id="stFill"></i></div>
+      <div class="kithud" id="kitHud"></div>
+      <div class="stage" id="stageLbl"></div>
+      <canvas id="mini" width="320" height="320" data-i18n-aria="hud.minimap"></canvas>
+    </div>
+    <div class="tr">
+      <div class="trrow">
+        <div class="bits"><span>BIT</span><b id="bitNum" class="num">0</b></div>
+        <button id="btnFs" class="icon" data-i18n-aria="hud.fsToggle" hidden></button>
+        <button id="btnBag" class="icon" data-i18n-aria="hud.bagOpen">BAG</button>
+        <button id="btnPause" class="icon" data-i18n-aria="hud.pause">II</button>
+      </div>
+    </div>
+    <div id="bossBar" hidden><div class="bname" id="bossName"></div><div class="bbar"><i id="bossFill"></i></div></div>
+    <div id="cross"><i></i><i></i><i></i><i></i></div>
+    <div id="hitm"></div>
+    <div id="hitDirs"></div>
+    <div id="reload" hidden><span>RELOAD</span><div class="bar"><i id="rFill"></i></div></div>
+    <div id="bottom">
+      <div id="ammo" class="num"></div>
+      <div id="weap"><div id="w0" class="slot"></div><div id="w1" class="slot"></div></div>
+    </div>
+    <div id="toast"></div>
+    <div id="banner"><div class="code" id="bannerCode"></div><div class="sub" id="bannerSub"></div></div>
+    <canvas id="bigmap" width="720" height="720" hidden data-i18n-aria="hud.bigmap"></canvas>
+  </div>
+  <div id="touch" hidden>
+    <div id="joyBase"><div id="joyKnob"></div></div>
+    <div id="pickRow" hidden><div id="pickName"></div><div id="pickDiff"></div><div class="pickbtns"><button id="btnEquip" class="pickbtn" data-i18n="hud.btnSwap"></button><button id="btnStow" class="pickbtn" data-i18n="hud.btnStowIdle"></button></div></div>
+    <button id="btnKit" class="tbtn" data-lb="kit"><span data-i18n="btn.kit"></span><br><span id="kitBtnN">1</span></button>
+    <button id="btnReload" class="tbtn" data-lb="reload" data-i18n="btn.reload"></button>
+    <button id="btnDash" class="tbtn" data-lb="dash" data-i18n="btn.dash"></button>
+    <button id="btnFire2" class="tbtn" data-lb="fire2" data-i18n="btn.fire"></button>
+    <button id="btnFire" class="tbtn" data-lb="fire" data-i18n="btn.fire"></button>
+    <div id="layoutBar" hidden>
+      <p><span data-i18n="layout.help"></span><b id="lbName"></b></p>
+      <button class="mini-btn" data-lbact="minus" data-i18n="layout.minus"></button>
+      <button class="mini-btn" data-lbact="plus" data-i18n="layout.plus"></button>
+      <button class="mini-btn" data-lbact="reset" data-i18n="layout.reset"></button>
+      <button class="mini-btn amber" data-lbact="done" data-i18n="layout.done"></button>
+    </div>
+    <div id="hint"></div>
+  </div>
+  <div id="fade"></div>
+
+  <section id="scrBase" class="screen">
+    <div class="base">
+      <div class="head">
+        <p class="eyebrow">roguelite fps / procedural sectors</p>
+        <h1>SECTOR<span>/</span>DIVE <span>EX</span></h1>
+        <p class="lead" data-i18n="base.lead"></p>
+      </div>
+      <div class="stats">
+        <div class="amber"><span class="eyebrow" data-i18n="base.bits"></span><b id="sBits">0</b></div>
+        <div><span class="eyebrow" data-i18n="base.best"></span><b id="sBest">—</b></div>
+        <div><span class="eyebrow" data-i18n="base.runs"></span><b id="sRuns">0</b></div>
+        <div><span class="eyebrow" data-i18n="base.bossKills"></span><b id="sBoss">0</b></div>
+      </div>
+      <nav class="tabs" role="tablist" data-i18n-aria="base.menu">
+        <button role="tab" data-tab="sortie" data-i18n="tab.sortie"></button><button role="tab" data-tab="up" data-i18n="tab.up"></button><button role="tab" data-tab="practice" data-i18n="tab.practice"></button><button role="tab" data-tab="settings" data-i18n="tab.settings"></button>
+      </nav>
+      <div class="pane" data-pane="sortie" role="tabpanel">
+        <div class="sec">
+          <h2><span data-i18n="base.tiers"></span><small data-i18n="base.tiersNote"></small></h2>
+          <div class="setrow" id="tiers"></div>
+        </div>
+        <div class="sec">
+          <h2><span data-i18n="base.loadout"></span><small data-i18n="base.loadoutNote"></small></h2>
+          <div class="loadout" id="loadout"></div>
+          <h3><span data-i18n="base.basic"></span><small data-i18n="base.basicNote"></small></h3>
+          <p class="help" id="modCap"></p>
+          <div class="wgrid" id="wgrid"></div>
+          <h3><span data-i18n="base.stash"></span><small id="stashCount"></small></h3>
+          <div class="wgrid" id="stash"></div>
+        </div>
+      </div>
+      <div class="pane" data-pane="up" role="tabpanel" hidden>
+        <div class="sec">
+          <h2><span data-i18n="base.upgrades"></span><small data-i18n="base.upgradesNote"></small></h2>
+          <div class="ulist" id="ulist"></div>
+        </div>
+        <div class="sec" id="rebootSec" hidden>
+          <h2><span data-i18n="base.reboot"></span><small id="rebootNote"></small></h2>
+          <div class="ulist" id="presList"></div>
+          <div class="setrow" id="rebootRow"></div>
+        </div>
+      </div>
+      <div class="pane" data-pane="practice" role="tabpanel" hidden>
+        <div class="sec">
+          <h2><span data-i18n="base.practice"></span><small data-i18n="base.practiceNote"></small></h2>
+          <div class="setrow"><div class="seg" id="practiceTier" role="group" data-i18n-aria="base.practiceTier"></div></div>
+          <div class="wgrid" id="bossList"></div>
+        </div>
+      </div>
+      <div class="pane" data-pane="settings" role="tabpanel" hidden>
+        <div class="sec">
+          <h2 data-i18n="base.settings"></h2>
+          <div class="setrow" data-settings="base"></div>
+          <p class="help" id="help"></p>
+        </div>
+        <div class="sec">
+          <h2 data-i18n="base.links"></h2>
+          <div class="backs"><a class="back" href="../../" data-i18n="base.backToList"></a><a class="back" href="updates.html" data-i18n="base.updates"></a><a class="back" href="../../privacy.html" data-i18n="base.privacy"></a><button id="btnFeedbackBase" class="back linkbtn" hidden data-i18n="fb.send"></button></div>
+        </div>
+        <div class="sec">
+          <h2 data-i18n="base.data"></h2>
+          <div class="setrow"><button id="btnExport" class="mini-btn" data-i18n="save.export"></button><button id="btnImport" class="mini-btn" data-i18n="save.import"></button><button id="btnWipe" class="danger-ghost" data-i18n="base.wipe"></button></div>
+          <div id="savePanel" class="savepanel" hidden>
+            <p id="saveMsg" class="help"></p>
+            <textarea id="saveCode" rows="4" spellcheck="false" autocomplete="off"></textarea>
+            <div id="saveBtns" class="setrow"></div>
+            <input id="saveFile" type="file" accept=".txt,text/plain" hidden>
+          </div>
+        </div>
+      </div>
+      <div class="startbar"><div id="suspendBox" class="suspend" hidden></div><button id="btnStart" class="primary">DIVE<small id="startSub"></small></button></div>
+    </div>
+  </section>
+
+  <div id="dlgWipe" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="wipeTitle" aria-describedby="wipeBody" hidden>
+    <div class="modal-card">
+      <p class="eyebrow danger-text">warning — cannot be undone</p>
+      <h2 id="wipeTitle" class="danger-text" data-i18n="wipe.title"></h2>
+      <div id="wipeBody">
+        <p data-i18n="wipe.body"></p>
+        <ul>
+          <li data-i18n="wipe.l1"></li>
+          <li data-i18n="wipe.l2"></li>
+          <li data-i18n="wipe.l3"></li>
+          <li data-i18n="wipe.l4"></li>
+          <li data-i18n="wipe.l5"></li>
+          <li data-i18n="wipe.l6"></li>
+        </ul>
+      </div>
+      <div class="btnrow"><button id="btnWipeCancel" class="ghost" data-i18n="wipe.cancel"></button><button id="btnWipeGo" class="danger" data-i18n="wipe.go"></button></div>
+    </div>
+  </div>
+
+  <div id="dlgKeys" class="modal calm" role="dialog" aria-modal="true" aria-labelledby="keysTitle" hidden>
+    <div class="modal-card">
+      <h2 id="keysTitle" data-i18n="keys.title"></h2>
+      <p class="help" data-i18n="keys.note"></p>
+      <div id="keysList" class="keylist"></div>
+      <p id="keysMsg" class="help" aria-live="polite"></p>
+      <div class="btnrow"><button id="btnKeysReset" class="ghost" data-i18n="keys.reset"></button><button id="btnKeysClose" class="ghost" data-i18n="keys.close"></button></div>
+    </div>
+  </div>
+
+  <section id="scrPerk" class="screen center" hidden>
+    <div class="card">
+      <p class="eyebrow" id="perkEyebrow">chip acquired</p>
+      <h2 id="perkTitle"></h2>
+      <p class="chips" data-i18n="perk.note"></p>
+      <div class="perks" id="perkList"></div>
+      <details class="perkmore"><summary data-i18n="perk.stats"></summary><div class="statbox" id="perkStats"></div></details>
+    </div>
+  </section>
+
+  <section id="scrBag" class="screen center" hidden>
+    <div class="card">
+      <div class="cardhead"><div><p class="eyebrow">inventory</p><h2 data-i18n="bag.title"></h2></div><button id="btnBagClose" class="ghost" data-i18n="bag.close"></button></div>
+      <h3 data-i18n="bag.equipped"></h3>
+      <div class="invgrid" id="invEq"></div>
+      <h3><span data-i18n="bag.bag"></span><small data-i18n="bag.bagNote"></small></h3>
+      <div class="invgrid" id="invBag"></div>
+      <div class="invact" id="invAct"></div>
+      <div class="invrow"><span><span data-i18n="bag.kits"></span> <b class="num" id="kitNum">0</b> / 3</span><button id="btnUseKit" class="buy"></button></div>
+      <div class="statbox" id="bagChips"></div>
+    </div>
+  </section>
+
+  <section id="scrPause" class="screen center" hidden>
+    <div class="card">
+      <p class="eyebrow">paused</p>
+      <h2 data-i18n="pause.title"></h2>
+      <h3 data-i18n="pause.controls"></h3>
+      <dl class="guide" id="guide"></dl>
+      <h3 data-i18n="pause.settings"></h3>
+      <div class="setrow" data-settings="pause"></div>
+      <div class="statbox" id="pauseChips"></div>
+      <div class="btnrow"><button id="btnResume" class="primary" data-i18n="pause.resume"></button><button id="btnSuspend" class="ghost"><span data-i18n="pause.suspend"></span><br><small class="chips" data-i18n="pause.suspendSub"></small></button><button id="btnAbandon" class="ghost"><span data-i18n="pause.abandon"></span><br><small class="chips" data-i18n="pause.abandonSub"></small></button></div>
+    </div>
+  </section>
+
+  <section id="scrResult" class="screen center" hidden>
+    <div class="card">
+      <p class="eyebrow" id="resEyebrow">signal lost</p>
+      <h2 id="resTitle"></h2>
+      <dl class="reslist" id="resList"></dl>
+      <p class="chips" id="resChips"></p>
+      <details class="perkmore" id="resOrder" hidden><summary data-i18n="res.chipsOrder"></summary><p class="chips" id="resOrderList"></p></details>
+      <button id="btnBack" class="primary" data-i18n="res.back"></button>
+      <button id="btnShare" class="sharebtn" hidden data-i18n="share.btn"></button>
+      <button id="btnFeedbackRes" class="sharebtn" hidden data-i18n="fb.send"></button>
+      <div id="sharePanel" class="sharepanel" hidden>
+        <img id="shareImg" alt="" data-i18n-alt="share.img">
+        <div class="sharerow"><button id="btnShareCopy" class="ghost" data-i18n="share.copy"></button><button id="btnShareSave" class="ghost" data-i18n="share.save"></button><button id="btnShareX" class="ghost" data-i18n="share.x"></button></div>
+        <p class="chips" data-i18n="share.help"></p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>
