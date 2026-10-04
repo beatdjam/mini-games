@@ -1884,6 +1884,15 @@ test('building: the same seed gives the same three floors, the boss room is on t
         bld.links.every(l => Math.abs(l.a.floor - l.b.floor) === 1),
         at,
       ).toBe(true);
+      // no two doors one right after the other along a corridor; the boss room keeps its door
+      bld.plans.forEach(p => {
+        const door = p.gen.maps.door;
+        door?.forEach((v, k) => {
+          if (!v) return;
+          for (const step of [1, p.gen.W]) for (const n of [1, 2]) expect(door[k + step * n], at).toBeFalsy();
+        });
+      });
+      expect(last.gen.maps.door![last.hall!.door], at).toBe(1);
       // no hazard floor on a door, in the boss room, or where the stairs and lifts end
       bld.plans.forEach(p => {
         p.gen.maps.door?.forEach((v, k) => expect(v && p.gen.hazard[k], at).toBeFalsy());

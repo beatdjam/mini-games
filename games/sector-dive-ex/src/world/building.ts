@@ -20,6 +20,7 @@ const LAST_FLOOR_ROOMS: [number, number] = [2, 3]; // ordinary rooms on the lowe
 const STAIRS_PER_PAIR = 1; // stairs between two neighbouring floors
 const LIFTS_PER_PAIR = 1; // lifts between two neighbouring floors
 const LINK_HAZARD_GAP = 1; // no hazard floor this many tiles around the end of a stairs or lift
+const DOOR_PAIR_REACH = 2; // of two doors this many tiles apart or closer along a corridor, only one stays
 
 // one floor of the building, as generated
 export interface FloorPlan {
@@ -58,6 +59,21 @@ export function roomDoors(d: TileMapData, room: number): { doors: number[]; clos
 }
 const spotTile = (d: TileMapData, s: FloorSpot): number => s.j * d.W + s.i;
 
+// Two rooms joined by a very short corridor would have a door at each end of it, one right after the other. Of such
+// a pair the second goes (the boss room's door always stays), so there is one door to wait for, not two
+function thinDoorPairs(d: TileMapData) {
+  const door = d.maps.door;
+  if (!door) return;
+  const keep = d.hall?.door ?? -1;
+  for (let k = 0; k < door.length; k++)
+    for (const step of [1, d.W])
+      for (let n = 1; n <= DOOR_PAIR_REACH && door[k]; n++) {
+        const other = k + step * n;
+        if (!door[other]) continue;
+        door[other === keep ? k : other] = 0;
+      }
+}
+
 // no hazard floor in the room or just outside it
 function clearHazardsAround(plan: FloorPlan, x: number, y: number, w: number, h: number) {
   const { W, H, hazard } = plan.gen;
@@ -85,6 +101,7 @@ export function makeBuilding(biome: Biome, bossKind: string, seed: number): Buil
     },
     rng,
   );
+  g.maps.forEach(thinDoorPairs);
   const plans: FloorPlan[] = g.maps.map(d => {
     const hazard = new Uint8Array(d.W * d.H);
     if (biome.gen.hazard) addHazards(d, hazard, biome.gen.hazard.count, rng);
