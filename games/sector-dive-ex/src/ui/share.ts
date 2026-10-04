@@ -153,6 +153,7 @@ function drawHeader(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts)
     ['SECTOR', CSS_COLOR.text],
     ['/', CSS_COLOR.cyan],
     ['DIVE', CSS_COLOR.text],
+    [' EX', CSS_COLOR.cyan],
   ].forEach(([s, col]) => {
     g.fillStyle = col;
     g.fillText(s, x, LOGO_Y);
