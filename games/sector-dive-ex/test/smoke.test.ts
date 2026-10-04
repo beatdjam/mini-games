@@ -26,6 +26,7 @@ import {
   cover,
   floorY,
   grid,
+  hasLOS,
   hgt,
   isSolid,
   moveCircle,
@@ -72,7 +73,7 @@ import {
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import { buildFixedLevel, buildLevel, floorDrawn, level, roomSpot } from '../src/world/level.ts';
+import { buildFixedLevel, buildLevel, floorDrawn, level, reveal, roomSpot } from '../src/world/level.ts';
 import { hazardState } from '../src/world/hazards.ts';
 import { generateLevel } from '../src/world/levelGen.ts';
 import type { GeneratedLevel } from '../src/world/levelGen.ts';
@@ -2253,6 +2254,34 @@ test('running: the dash held on after a dash keeps the player fast and drains st
   goBase();
   startRun();
   tick(2);
+});
+test('map: what lies behind a wall (a stairwell, a lift) stays off the map until the player has a line to it', () => {
+  const b = building!,
+    mid = (k: number): [number, number] => [((k % W) + 0.5) * T, (Math.floor(k / W) + 0.5) * T];
+  let checked = 0;
+  b.plans.forEach((plan, floor) => {
+    goToFloor(floor);
+    for (const l of b.links) {
+      if (l.upper !== floor && l.lower !== floor) continue;
+      const k = l.a,
+        // a floor tile inside the map's reveal circle (4 tiles) with a wall between it and the link's tile
+        from = Array.from(grid.keys()).find(q => {
+          const di = (q % W) - (k % W),
+            dj = Math.floor(q / W) - Math.floor(k / W);
+          return grid[q] === 1 && !l.strip.includes(q) && di * di + dj * dj <= 16 && !hasLOS(...mid(q), ...mid(k));
+        });
+      if (from === undefined) continue;
+      checked++;
+      plan.seen.fill(0);
+      reveal(from % W, Math.floor(from / W));
+      expect(plan.seen[from], 'the tile stood on is on the map').toBe(1);
+      expect(plan.seen[k], `floor ${floor}: the ${l.kind} behind the wall is not`).toBe(0);
+      reveal(k % W, Math.floor(k / W));
+      expect(plan.seen[k], 'standing on it puts it on the map').toBe(1);
+    }
+  });
+  expect(checked, 'at least one link had a wall near it').toBeGreaterThan(0);
+  goToFloor(0);
 });
 test('big map: the map key opens and closes it, the 3D map key turns to the 3D page, a tap cycles', () => {
   goToFloor(0);

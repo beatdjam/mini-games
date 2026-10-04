@@ -17,7 +17,7 @@ import { player, run } from '../actors/player.ts';
 import { damagePlayer } from '../actors/combat.ts';
 import { magSize, newWeapon } from '../actors/weapons.ts';
 import { normalizeWeapons } from '../ui/input.ts';
-import { toggleMap, updateHitDirs, weaponHud } from '../ui/hud.ts';
+import { toggleMap3D, updateHitDirs, weaponHud } from '../ui/hud.ts';
 import { changeLang } from '../ui/settings.ts';
 import { endRun, startPractice, startRun, startStage } from '../flow/run.ts';
 import { setState, show } from '../flow/state.ts';
@@ -80,12 +80,11 @@ if (location.hash.startsWith('#bld-'))
     else if (what === 'top' && stairs) stand(stairs.upper, stairs.strip[stairs.strip.length - 1]! + step, -step);
     else if (what === 'lift' && lift) stand(lift.upper, ...beside(b.plans[lift.upper]!.gen.maps.grid, lift.a));
     else if (what === 'liftlow' && lift) stand(lift.lower, ...beside(b.plans[lift.lower]!.gen.maps.grid, lift.a));
-    else if (what === 'map3d') {
-      // the whole building seen, the big map on its 3D page
-      b.plans.forEach(p => p.seen.fill(1));
+    else if (what === 'map3d' || what === 'map3d-start') {
+      // the big map on its 3D page: the whole building seen, or (map3d-start) only what a run has seen at its start
+      if (what === 'map3d') b.plans.forEach(p => p.seen.fill(1));
       setState('play');
-      toggleMap();
-      toggleMap();
+      toggleMap3D();
     } else if (what === 'lockdown' && b.lockdown) {
       const r = b.plans[b.lockdown.floor]!.gen.rooms[b.lockdown.room]!,
         mid = Math.floor(r.y + r.h / 2) * W + Math.floor(r.x + r.w / 2);

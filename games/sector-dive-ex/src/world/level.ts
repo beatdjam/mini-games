@@ -9,6 +9,7 @@ import {
   W,
   computeFlow,
   flow,
+  hasLOS,
   inBounds,
   setTileWorld,
   tileCenter,
@@ -409,17 +410,21 @@ export function reveal(ti: number, tj: number) {
     level.seen.fill(1);
     return;
   }
+  const show = (i: number, j: number) => {
+    if (inBounds(i, j)) level.seen[j * W + i] = 1;
+  };
+  // the circle round the player opens only where there is a clear line from the tile stood on: nothing on the far
+  // side of a wall (a stairwell next door, the room behind a locked door) is given away before it is found
+  const inSight = (i: number, j: number): boolean =>
+    hasLOS(tileCenter(ti), tileCenter(tj), tileCenter(i), tileCenter(j));
   for (let dj = -REVEAL_BOX; dj <= REVEAL_BOX; dj++)
     for (let di = -REVEAL_BOX; di <= REVEAL_BOX; di++) {
       if (di * di + dj * dj > REVEAL_R2) continue;
-      const i = ti + di,
-        j = tj + dj;
-      if (inBounds(i, j)) level.seen[j * W + i] = 1;
+      if (inBounds(ti + di, tj + dj) && inSight(ti + di, tj + dj)) show(ti + di, tj + dj);
     }
   const r = level.roomOf[tj * W + ti];
   if (r >= 0) {
     const R = level.rooms[r];
-    for (let j = R.y - 1; j <= R.y + R.h; j++)
-      for (let i = R.x - 1; i <= R.x + R.w; i++) if (inBounds(i, j)) level.seen[j * W + i] = 1;
+    for (let j = R.y - 1; j <= R.y + R.h; j++) for (let i = R.x - 1; i <= R.x + R.w; i++) show(i, j);
   }
 }
