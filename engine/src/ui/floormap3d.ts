@@ -21,6 +21,9 @@ const PITCH_MIN = 0.15; // how low and how high the camera can tilt (radians abo
 const PITCH_MAX = 1.45;
 const START_YAW = 0.6; // the view the map opens with
 const START_PITCH = 0.5;
+const ZOOM_RANGE: [number, number] = [0.3, 1.5]; // camera distance as a share of the whole-map distance (small = close)
+const WHEEL_ZOOM = 0.0012; // zoom per unit of wheel movement
+const PAN_TILT_FLOOR = 0.35; // dragging the map toward or away from the camera divides by sin(pitch), not less than this
 
 export interface FloorMapStyle {
   tile: (floor: number, k: number) => TileStyle | null; // null leaves the tile out (alpha is not used: floors dim as a whole)
@@ -44,6 +47,9 @@ export interface FloorMap3D {
   readonly camera: THREE.PerspectiveCamera;
   yaw: number; // the camera's turn around the map (radians); dragging changes it
   pitch: number; // the camera's tilt above the horizon (radians)
+  zoom: number; // 1 = the whole map in view; smaller = closer (ZOOM_RANGE). A pinch or the wheel changes it
+  panX: number; // where the camera looks, from the middle of the map (tiles); two fingers or the right button move it
+  panZ: number;
   build(f: Floors, style: FloorMapStyle, tileSize: number): void; // (re)makes the slabs and links; tileSize = T (m)
   draw(view: FloorMapView): void; // places the viewer and markers, dims the other floors and renders
   dispose(): void;
@@ -69,6 +75,9 @@ export function createFloorMap3D(canvas: HTMLCanvasElement): FloorMap3D {
     camera,
     yaw: START_YAW,
     pitch: START_PITCH,
+    zoom: 1,
+    panX: 0,
+    panZ: 0,
     build(f, style, tileSize) {
       clearGroup(content);
       floorMats.forEach(m => m.dispose());
@@ -141,9 +150,9 @@ export function createFloorMap3D(canvas: HTMLCanvasElement): FloorMap3D {
         mark.position.copy(at(m.floor, m.x, m.z, MARKER_R));
         dynamic.add(mark);
       }
-      // the camera circles the middle of all the floors
-      const mid = new THREE.Vector3(size.w / 2, ((size.floors - 1) * size.gap) / 2, size.h / 2),
-        dist = Math.max(size.w, size.h, (size.floors - 1) * size.gap) * VIEW_DIST;
+      // the camera circles the middle of all the floors, moved by the pan and brought closer by the zoom
+      const mid = new THREE.Vector3(size.w / 2 + map.panX, ((size.floors - 1) * size.gap) / 2, size.h / 2 + map.panZ),
+        dist = fullDist() * map.zoom;
       camera.position.set(
         mid.x + Math.sin(map.yaw) * Math.cos(map.pitch) * dist,
         mid.y + Math.sin(map.pitch) * dist,
@@ -166,29 +175,80 @@ export function createFloorMap3D(canvas: HTMLCanvasElement): FloorMap3D {
       arrow.dispose();
       dot.dispose();
       canvas.removeEventListener('pointerdown', down);
+      canvas.removeEventListener('wheel', wheel);
+      canvas.removeEventListener('contextmenu', noMenu);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
       renderer.dispose();
     },
   };
-  // dragging turns the view (left-right: around, up-down: tilt)
-  let drag: { id: number; x: number; y: number } | null = null;
+  // the camera distance that shows the whole map
+  const fullDist = () => Math.max(size.w, size.h, (size.floors - 1) * size.gap) * VIEW_DIST;
+  const setZoom = (z: number) => {
+    map.zoom = Math.min(ZOOM_RANGE[1], Math.max(ZOOM_RANGE[0], z));
+  };
+  // moves where the camera looks so that the map follows a drag of (dx, dy) pixels; it stays over the map
+  const panBy = (dx: number, dy: number) => {
+    const perPx = (2 * Math.tan((camera.fov * Math.PI) / 360) * fullDist() * map.zoom) / (canvas.clientHeight || 1),
+      along = (dy * perPx) / Math.max(PAN_TILT_FLOOR, Math.sin(map.pitch)), // toward (+) or away from the camera
+      across = dx * perPx;
+    // on the ground the camera looks along (-sin yaw, -cos yaw); its right is (cos yaw, -sin yaw)
+    map.panX = Math.min(
+      size.w / 2,
+      Math.max(-size.w / 2, map.panX - Math.cos(map.yaw) * across - Math.sin(map.yaw) * along),
+    );
+    map.panZ = Math.min(
+      size.h / 2,
+      Math.max(-size.h / 2, map.panZ + Math.sin(map.yaw) * across - Math.cos(map.yaw) * along),
+    );
+  };
+  // One pointer dragging turns the view (left-right: around, up-down: tilt); with the right button it moves the map.
+  // Two pointers: pinching zooms, moving them together moves the map. The wheel zooms. Pointers beyond two are ignored
+  const points = new Map<number, { x: number; y: number; pan: boolean }>();
+  const spread = () => {
+    const [a, b] = [...points.values()];
+    return { d: Math.hypot(a!.x - b!.x, a!.y - b!.y), x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 };
+  };
   const down = (e: PointerEvent) => {
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    if (points.size < 2) points.set(e.pointerId, { x: e.clientX, y: e.clientY, pan: e.button === 2 });
   };
   const move = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    map.yaw -= (e.clientX - drag.x) * DRAG_TURN;
-    map.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, map.pitch + (e.clientY - drag.y) * DRAG_TURN));
-    drag.x = e.clientX;
-    drag.y = e.clientY;
+    const p = points.get(e.pointerId);
+    if (!p) return;
+    if (points.size === 1) {
+      const dx = e.clientX - p.x,
+        dy = e.clientY - p.y;
+      if (p.pan) panBy(dx, dy);
+      else {
+        map.yaw -= dx * DRAG_TURN;
+        map.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, map.pitch + dy * DRAG_TURN));
+      }
+      p.x = e.clientX;
+      p.y = e.clientY;
+      return;
+    }
+    const was = spread();
+    p.x = e.clientX;
+    p.y = e.clientY;
+    const now = spread();
+    if (was.d > 0 && now.d > 0) setZoom((map.zoom * was.d) / now.d);
+    panBy(now.x - was.x, now.y - was.y);
   };
   const up = (e: PointerEvent) => {
-    if (drag && e.pointerId === drag.id) drag = null;
+    points.delete(e.pointerId);
   };
+  const wheel = (e: WheelEvent) => {
+    e.preventDefault();
+    setZoom(map.zoom * Math.exp(e.deltaY * WHEEL_ZOOM));
+  };
+  const noMenu = (e: Event) => e.preventDefault(); // the right button drags the map
   canvas.addEventListener('pointerdown', down);
+  canvas.addEventListener('wheel', wheel, { passive: false });
+  canvas.addEventListener('contextmenu', noMenu);
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
   return map;
 }
 

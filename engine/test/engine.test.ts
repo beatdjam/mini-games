@@ -2517,6 +2517,46 @@ test('floormap3d: floors as slabs of the tiles that show, links as lines, the vi
   window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7 }));
   window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 300, clientY: 100 }));
   near(map.yaw, yaw0 - 50 * 0.008, 1e-9, 'released');
+  // two pointers: pinching out zooms in, moving them together moves where the camera looks; the turn is left alone
+  const yaw1 = map.yaw,
+    ptr = (type: string, id: number, x: number, y: number, target: EventTarget = window) =>
+      target.dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: x, clientY: y, bubbles: true }));
+  eq(map.zoom, 1);
+  ptr('pointerdown', 1, 80, 100, c);
+  ptr('pointerdown', 2, 120, 100, c);
+  ptr('pointermove', 2, 160, 100); // 40 px apart -> 80 px apart
+  ok(map.zoom < 0.75 && map.zoom >= 0.3, `pinching out comes closer (${map.zoom})`);
+  eq(map.yaw, yaw1, 'two pointers do not turn the map');
+  const zoomed = map.zoom,
+    pan0 = [map.panX, map.panZ].join();
+  ptr('pointermove', 1, 80, 140);
+  ptr('pointermove', 2, 160, 140); // both down by 40 px: the same spread, the map moves
+  near(map.zoom, zoomed, 1e-9, 'moving both without pinching keeps the zoom');
+  ok([map.panX, map.panZ].join() !== pan0, 'the look-at point moved');
+  ptr('pointermove', 2, 9000, 9000);
+  ok(
+    map.zoom >= 0.3 && Math.abs(map.panX) <= 3.5 + 1e-9 && Math.abs(map.panZ) <= 2.5 + 1e-9,
+    'zoom and pan are capped',
+  );
+  ptr('pointerdown', 3, 10, 10, c); // a third pointer is ignored
+  ptr('pointerup', 1, 0, 0);
+  ptr('pointerup', 2, 0, 0);
+  // the wheel zooms; the right button drags the map instead of turning it
+  map.zoom = 1;
+  c.dispatchEvent(new WheelEvent('wheel', { deltaY: -300, bubbles: true, cancelable: true }));
+  ok(map.zoom < 1, 'wheel up comes closer');
+  c.dispatchEvent(new WheelEvent('wheel', { deltaY: 1e6, bubbles: true, cancelable: true }));
+  eq(map.zoom, 1.5, 'capped');
+  map.panX = 0;
+  map.panZ = 0;
+  c.dispatchEvent(
+    new PointerEvent('pointerdown', { pointerId: 5, clientX: 50, clientY: 50, button: 2, bubbles: true }),
+  );
+  ptr('pointermove', 5, 70, 50);
+  eq(map.yaw, yaw1, 'the right button does not turn');
+  ok(map.panX !== 0 || map.panZ !== 0, 'it moves the map');
+  ptr('pointerup', 5, 0, 0);
+  map.draw({ floor: 0, viewer: { x: T, z: T, yaw: 0 } });
   // building again replaces the slabs
   map.build(f, { tile: (floor, k) => (f.grids[floor].world.grid[k] ? { color: '#ffffff', alpha: 1 } : null) }, T);
   eq(map.scene.children[0].children.length, 3, 'all three floors, no links drawn');
