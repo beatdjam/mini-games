@@ -83,6 +83,7 @@ let buildingGroup: THREE.Group | null = null;
 let floorGroups: THREE.Group[] = [];
 let shown: Building | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
+let hallTop: THREE.Group | null = null; // the part of the boss room above WALL_H (levelMesh.ts buildFloorMeshes)
 export let liftPads: { link: number; mesh: THREE.Mesh }[] = [];
 export const buildingShown = (b: Building | null): boolean => !!b && shown === b;
 // What was left on the floors of the building on screen when the player went on to another floor: the enemies still
@@ -150,6 +151,7 @@ function clearLevel() {
     buildingGroup = null;
     floorGroups = [];
     liftPads = [];
+    hallTop = null;
     shown = null;
     dropFloorStash();
     resetDoorMeshes();
@@ -216,6 +218,7 @@ function setFloorWorld(plan: FloorPlan) {
   });
 }
 const LIFT_PAD = { side: T * 0.92, thick: 0.16 }; // a lift's platform (m)
+const HALL_NEAR = 14; // this close to the boss room's door counts as at the boss room (m)
 const NEIGHBOUR_SHOW_R = 40; // the floors above and below are drawn within this of a stairwell or lift, or the fog's end if nearer (m)
 // Draws the other floors only while the player is near a stairwell or lift of this floor: the floors it leads to and
 // passes (that is the only place they can be seen from). The rest of the time only this floor is drawn. Called every
@@ -233,9 +236,18 @@ export function showNeighbourFloors(b: Building, x: number, z: number) {
           m <= l.lower &&
           l.strip.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach),
       );
+  // In the boss room, and in front of its door, only this floor is drawn: the room is higher than a floor (HALL_H),
+  // so its top stands where the floor above is, and the two must not show together
+  const hall = level.hall,
+    atHall =
+      !!hall &&
+      (level.roomOf[tileIndex(x, z)] === hall.room ||
+        Math.hypot(tileCenter(hall.door % w) - x, tileCenter(Math.floor(hall.door / w)) - z) < HALL_NEAR);
   floorGroups.forEach((g, m) => {
-    g.visible = m === n || near(m);
+    g.visible = m === n || (!atHall && near(m));
   });
+  // the top of the boss room shows while its floor is the one played (from another floor it would stand in the way)
+  if (hallTop) hallTop.visible = !!hall;
 }
 export const floorDrawn = (m: number): boolean => !!floorGroups[m]?.visible;
 // Puts the whole building (world/building.ts) on screen: the meshes and doors of every floor, each in a group of its
@@ -246,7 +258,8 @@ export function showBuilding(b: Building) {
   b.plans.forEach((plan, n) => {
     setFloorWorld(plan);
     const g = new THREE.Group();
-    buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9));
+    const top = buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9));
+    if (top) hallTop = top;
     buildDoorMeshes(b.biome, g, plan.hall ? plan.hall.door : -1, n);
     all.add(g);
     floorGroups.push(g);

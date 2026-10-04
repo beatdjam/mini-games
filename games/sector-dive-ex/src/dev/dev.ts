@@ -38,7 +38,7 @@ if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>>
 // dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
-// lockdown (in the lockdown room, which shuts), map3d (the 3D map of the whole building)
+// lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -89,6 +89,14 @@ if (location.hash.startsWith('#bld-'))
       const r = b.plans[b.lockdown.floor]!.gen.rooms[b.lockdown.room]!,
         mid = Math.floor(r.y + r.h / 2) * W + Math.floor(r.x + r.w / 2);
       stand(b.lockdown.floor, mid, 1);
+      player.hp = 1e6;
+    } else if (what === 'hall') {
+      // inside the boss room, in a corner, looking up across it (its high ceiling)
+      const last = b.plans.length - 1,
+        r = b.plans[last]!.gen.rooms[b.plans[last]!.hall!.room]!;
+      stand(last, (r.y + 1) * W + r.x + 1, W + 1);
+      player.pitch = 0.45;
+      run.bld!.supplied = true; // no supply screen over the view
       player.hp = 1e6;
     } else if (what === 'boss') {
       const hall = b.plans[b.plans.length - 1]!.hall!,

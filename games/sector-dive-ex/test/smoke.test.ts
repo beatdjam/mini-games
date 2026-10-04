@@ -73,7 +73,15 @@ import {
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import { buildFixedLevel, buildLevel, floorDrawn, level, reveal, roomSpot } from '../src/world/level.ts';
+import {
+  buildFixedLevel,
+  buildLevel,
+  floorDrawn,
+  level,
+  reveal,
+  roomSpot,
+  showNeighbourFloors,
+} from '../src/world/level.ts';
 import { hazardState } from '../src/world/hazards.ts';
 import { generateLevel } from '../src/world/levelGen.ts';
 import type { GeneratedLevel } from '../src/world/levelGen.ts';
@@ -2281,6 +2289,26 @@ test('map: what lies behind a wall (a stairwell, a lift) stays off the map until
     }
   });
   expect(checked, 'at least one link had a wall near it').toBeGreaterThan(0);
+  goToFloor(0);
+});
+test('boss room: in it and at its door only its own floor is drawn (the room is higher than a floor)', () => {
+  const b = building!,
+    last = b.plans.length - 1,
+    hall = b.plans[last]!.hall!,
+    r = b.plans[last]!.gen.rooms[hall.room]!,
+    drawn = () => b.plans.map((_, m) => floorDrawn(m)).join(),
+    own = b.plans.map((_, m) => m === last).join();
+  goToFloor(last);
+  // the stairwell or lift that comes down to this floor: next to it the floors above are drawn
+  const link = b.links.find(l => l.lower === last)!;
+  putOnTile(link.strip[0]!);
+  showNeighbourFloors(b, player.x, player.z);
+  expect(floorDrawn(link.upper), 'by the way down, the floor above shows').toBe(true);
+  for (const k of [(r.y + 1) * W + r.x + 1, hall.door]) {
+    putOnTile(k);
+    showNeighbourFloors(b, player.x, player.z);
+    expect(drawn(), 'in the boss room and on its door').toBe(own);
+  }
   goToFloor(0);
 });
 test('big map: the map key opens and closes it, the 3D map key turns to the 3D page, a tap cycles', () => {
