@@ -16,7 +16,8 @@ import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
 import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
-import { level, reveal } from '../world/level.ts';
+import { level, reveal, showNeighbourFloors } from '../world/level.ts';
+import { building } from '../world/building.ts';
 import { updateHazards } from '../world/hazards.ts';
 import { ENEMY_GROUP, enemies, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
 import { updateDoorMeshes } from '../world/doors.ts';
@@ -44,6 +45,8 @@ const STICK_DASH_HOLD = 0.3; // seconds held at the rim before the stick dash fi
 const STICK_DASH_REARM = 0.8; // the stick must come back below this before it can dash again
 const MOVE_EPS = 0.1; // move input / speed below this counts as standing still
 const STAMINA_WARN_TIME = 0.3; // seconds the stamina bar flashes when a dash is refused
+const RUN_LATCH_HOLD = 0.25; // touch: the dash button held this long keeps the run on after it is let go (s)
+const RUN_LATCH_STICK = 0.5; // ... while the stick stays pushed further than this (0-1)
 const GRAVITY = 26; // m/s^2, falling after a ledge or a drop
 const GROUND_EPS = 0.01; // within this of the floor counts as standing on it (m)
 const BOB_RATE = 9; // head-bob phase speed while moving (rad/s)
@@ -169,18 +172,25 @@ function startDashIfRequested(moveDir: Vec2) {
   }
 }
 
-// is the dash held right now: its key, its button, or (with the stick dash on) the stick at its rim
+// is the dash held right now: its key, its button, or (with the stick dash on) the stick at its rim. On touch a run
+// that was started by holding the button for RUN_LATCH_HOLD goes on after the thumb leaves the button (it is needed
+// for aiming), for as long as the stick stays pushed past RUN_LATCH_STICK
 function dashHeld(): boolean {
   if (actionDown('dash') || controlState.dashHeld) return true;
-  return save.settings.stickDash && joy.id !== null && Math.hypot(joy.x, joy.y) > STICK_DASH_PUSH;
+  const push = joy.id !== null ? Math.hypot(joy.x, joy.y) : 0;
+  return (controlState.runLatch && push > RUN_LATCH_STICK) || (save.settings.stickDash && push > STICK_DASH_PUSH);
 }
 // Running: after pressing the dash (whether the dash came or there was too little stamina for it), while it stays
 // held and the player keeps moving, they move faster and stamina drains instead of refilling. It ends when the dash
 // is let go, the player stops, or the stamina runs out; the next run needs a new press. No invulnerability
 function applySprint(dt: number, moveDir: Vec2): Vec2 {
   if (!player.sprint) return moveDir;
+  controlState.heldT = controlState.dashHeld ? controlState.heldT + dt : 0;
+  if (controlState.heldT >= RUN_LATCH_HOLD) controlState.runLatch = true;
   if (!dashHeld() || player.st <= 0 || Math.hypot(moveDir.x, moveDir.z) < MOVE_EPS) {
     player.sprint = false;
+    controlState.runLatch = false;
+    controlState.heldT = 0;
     return moveDir;
   }
   player.st = Math.max(0, player.st - TUNE.sprintCost * dt);
@@ -322,6 +332,7 @@ function updateBuildingFloor(dt: number) {
   });
   updateDoorMeshes(movers, dt);
   updateFloorEvents(dt);
+  if (building) showNeighbourFloors(building, player.x, player.z);
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
 function updatePortals(dt: number) {

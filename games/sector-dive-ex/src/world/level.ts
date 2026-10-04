@@ -156,6 +156,26 @@ function setFloorWorld(plan: FloorPlan) {
   });
 }
 const LIFT_PAD = { side: T * 0.92, thick: 0.16 }; // a lift's platform (m)
+const NEIGHBOUR_SHOW_R = 40; // the floors above and below are drawn within this of a stairwell or lift, or the fog's end if nearer (m)
+// Draws the floors next to the one being played only while the player is near a stairwell or lift that leads to them
+// (that is the only place they can be seen from); the rest of the time only this floor is drawn. Floors further away
+// are never drawn. Called every frame on a building floor
+export function showNeighbourFloors(b: Building, x: number, z: number) {
+  const n = level.floor,
+    w = b.plans[0]!.gen.W,
+    reach = Math.min(NEIGHBOUR_SHOW_R, b.biome.fogFar),
+    near = (m: number) =>
+      b.links.some(
+        l =>
+          Math.min(l.upper, n) === Math.min(m, n) &&
+          l.upper + 1 === Math.max(m, n) &&
+          l.strip.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach),
+      );
+  floorGroups.forEach((g, m) => {
+    g.visible = m === n || (Math.abs(m - n) === 1 && near(m));
+  });
+}
+export const floorDrawn = (m: number): boolean => !!floorGroups[m]?.visible;
 // Puts the whole building (world/building.ts) on screen: the meshes and doors of every floor, each in a group of its
 // own, plus the lifts' platforms. Which floor is played, and where the groups stand, is enterFloor's
 export function showBuilding(b: Building) {

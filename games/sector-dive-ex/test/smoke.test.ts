@@ -72,7 +72,7 @@ import {
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import { buildFixedLevel, buildLevel, level, roomSpot } from '../src/world/level.ts';
+import { buildFixedLevel, buildLevel, floorDrawn, level, roomSpot } from '../src/world/level.ts';
 import { hazardState } from '../src/world/hazards.ts';
 import { generateLevel } from '../src/world/levelGen.ts';
 import type { GeneratedLevel } from '../src/world/levelGen.ts';
@@ -94,7 +94,7 @@ import { player, newPlayer, run, setPlayer, setRun } from '../src/actors/player.
 import { critChance, fillMag, rollWeapon, magSize, newWeapon, weaponStats } from '../src/actors/weapons.ts';
 import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/combat.ts';
 import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
-import { findTarget, fire, shotId } from '../src/actors/firing.ts';
+import { RUNNING_SPREAD, findTarget, fire, shotId } from '../src/actors/firing.ts';
 import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
 import { KEY_ACTIONS } from '../src/data/controls.ts';
 import { setKeyBindings } from '../src/core/progress.ts';
@@ -678,6 +678,7 @@ test('autofire target: a fogged enemy is not picked, a close one is', () => {
   hgt.fill(0);
   ramp.fill(-1);
   cover.fill(0); // open floor so only distance matters
+  activeTileGrid().world.door?.fill(0);
   player.x = (W * T) / 2;
   player.z = (H * T) / 2;
   player.yaw = 0;
@@ -1999,6 +2000,8 @@ test('stairwell: walking over the landing changes the floor without moving the p
   putOnTile(l2);
   tick(2);
   expect(level.floor).toBe(0);
+  // at the stairwell the floor below is drawn (it is seen down the stairs); the one two floors down never is
+  expect([0, 1, 2].map(floorDrawn)).toEqual([true, true, false]);
   expect(player.fy).toBeCloseTo(0);
   // the tile nearer the stairs is the lower floor's: its ground is a floor below, so the player is FLOOR_H above it
   putOnTile(l1);
@@ -2066,6 +2069,60 @@ test('running: the dash held on after a dash keeps the player fast and drains st
   // holding the button on its own (no new press) does not run
   controlState.dashHeld = true;
   expect(walk(30) / plain).toBeCloseTo(1, 1);
+  // shooting on the run scatters the rounds, even from a rail gun (which is steady when walking)
+  const keep = player.weapons[player.cur];
+  player.weapons[player.cur] = newWeapon('rail', 0);
+  player.extra = 0;
+  player.pitch = 0;
+  const widest = () => {
+    let most = 0;
+    for (let k = 0; k < 40; k++) {
+      pBullets.forEach(b => {
+        b.alive = false;
+      });
+      player.fireCd = 0;
+      player.reloadT = 0;
+      player.weapons[player.cur]!.mag = 4;
+      fire();
+      const b = pBullets.find(x => x.alive)!;
+      most = Math.max(most, Math.abs(Math.atan2(b.vz, b.vx))); // the player faces +x
+    }
+    return most;
+  };
+  joy.y = 0; // standing still for the shots: only the running state differs
+  player.sprint = true;
+  player.dashT = 0;
+  expect(widest(), 'running').toBeGreaterThan(RUNNING_SPREAD * 0.6);
+  player.sprint = false;
+  // (the muzzle sits beside the eye, so a straight shot is a hair off the facing direction)
+  expect(widest(), 'not running: straight').toBeLessThan(RUNNING_SPREAD * 0.3);
+  joy.y = -1;
+  player.weapons[player.cur] = keep;
+  // touch: held for a moment, the run goes on after the button is let go, until the stick comes back
+  controlState.dashHeld = false;
+  tick(2);
+  player.st = player.stMax;
+  player.stDelay = 9;
+  joy.id = 1;
+  controlState.dashHeld = true;
+  controlState.dashReq = true;
+  tick(Math.ceil(TUNE.dashTime * 60) + 20);
+  controlState.dashHeld = false;
+  tick(20);
+  expect(player.sprint, 'still running with the thumb off the button').toBe(true);
+  joy.y = -0.3;
+  tick(2);
+  expect(player.sprint, 'the stick came back: walking').toBe(false);
+  joy.y = -1;
+  // a short press does not latch: the run ends with the button
+  player.st = player.stMax;
+  controlState.dashHeld = true;
+  controlState.dashReq = true;
+  tick(Math.ceil(TUNE.dashTime * 60) + 2);
+  controlState.dashHeld = false;
+  tick(2);
+  expect(player.sprint, 'a short press: no run').toBe(false);
+  joy.id = null;
   // too little stamina for a dash: no dash, but holding on still runs on what is left
   controlState.dashHeld = false;
   tick(2);

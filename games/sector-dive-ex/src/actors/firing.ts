@@ -30,6 +30,7 @@ const MOVE_SPREAD_STICK = 0.2; // stick push that counts as moving (for the movi
 const SPREAD_Y_MUL = 0.7; // vertical spread is this share of the horizontal spread
 const EXTRA_PELLET_SPREAD = 0.02; // extra spread for pellets added by split-shot
 const MOVING_SPREAD = 0.014; // extra spread while moving (weapons that aren't steady)
+export const RUNNING_SPREAD = 0.05; // extra spread while running, for every weapon (the price of shooting on the run)
 const GUNKICK_MAX = 0.2; // recoil cap
 const KICK_BLAST = 0.2,
   KICK_SPREAD = 0.12,
@@ -124,11 +125,13 @@ function spawnShots(w: Weapon, def: WeaponDef, mz: THREE.Vector3, base: THREE.Ve
     actionDown('back') ||
     actionDown('left') ||
     actionDown('right');
+  const running = player.sprint && player.dashT <= 0; // the dash has been held on after a dash (flow/update.ts)
+  const loose = (moving && !def.steady ? MOVING_SPREAD : 0) + (running ? RUNNING_SPREAD : 0);
   const fanStep = n > 1 ? Math.min(SPLIT_FAN.step, SPLIT_FAN.max / (n - 1)) : 0;
   for (let k = 0; k < n; k++) {
     const d = base.clone();
     if (player.extra > 0 && def.pellets === 1) d.applyAxisAngle(UP, (k - (n - 1) / 2) * fanStep);
-    const s = def.spread + (k >= def.pellets ? EXTRA_PELLET_SPREAD : 0) + (moving && !def.steady ? MOVING_SPREAD : 0);
+    const s = def.spread + (k >= def.pellets ? EXTRA_PELLET_SPREAD : 0) + loose;
     d.x += rand(-s, s);
     d.y += rand(-s, s) * SPREAD_Y_MUL;
     d.z += rand(-s, s);

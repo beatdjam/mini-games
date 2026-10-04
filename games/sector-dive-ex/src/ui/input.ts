@@ -30,8 +30,9 @@ export function keyText(action: string, index?: number): string {
 }
 // the four move keys written in a row: "WASD" (the first key of forward, left, back, right)
 export const moveKeysText = (): string => ['forward', 'left', 'back', 'right'].map(a => keyText(a, 0)).join('');
-// dash request, the dash button held (touch), and the full-stick dash timer
-export const controlState = { dashReq: false, dashHeld: false, stickT: 0, stickArmed: true };
+// dash request, the dash button held (touch) and for how long, the run kept on after letting it go (touch), and the
+// full-stick dash timer
+export const controlState = { dashReq: false, dashHeld: false, heldT: 0, runLatch: false, stickT: 0, stickArmed: true };
 Object.assign(INPUT, {
   active: () => state === 'play',
   look: (dx: number, dy: number) => {
