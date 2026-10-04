@@ -18,7 +18,7 @@ import { chipSummary } from '../core/rules.ts';
 import { boss } from '../world/entities.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
 import { critChance, magSize, wDmgMul, weaponText, weaponOptCount } from '../actors/weapons.ts';
-import { stageInfo, stageLabel } from '../core/stages.ts';
+import { floorLabel, stageInfo, stageLabel } from '../core/stages.ts';
 import { bigmap } from '../ui/hud.ts';
 import { renderSettings } from '@engine/ui/settings.ts';
 import { setState, show, state } from '../flow/state.ts';
@@ -30,7 +30,8 @@ import { rowsHTML } from './rows.ts';
 export function refreshRunText() {
   if (!run || !player) return;
   const b = stageInfo(run.stage).biome;
-  el('#stageLbl').innerHTML = `<b>${stageLabel(run.stage)}</b>　${b.name}`;
+  // the step along the route, the floor of the building it is on, the sector
+  el('#stageLbl').innerHTML = `<b>${stageLabel(run.stage)}</b> ${floorLabel()}　${b.name}`;
   if (boss && boss.kind) el('#bossName').textContent = BOSS_META[boss.kind]!.title ?? boss.kind;
   if (state === 'pause') el('#pauseChips').innerHTML = statsHTML();
 }

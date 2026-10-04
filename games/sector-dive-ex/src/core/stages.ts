@@ -19,6 +19,8 @@ export const isBossStage = (s: number): boolean => s % PER === PER - 1;
 // so the progress (progressOf) runs evenly from the depth's start to its boss whatever the number of floors
 export const buildingStage = (tier: number, step: number, floors: number): number =>
   tier * PER + (step * (PER - 1)) / floors;
+// which floor of the building the player is on, counted from the top: '1F' is the top floor ('' outside a building)
+export const floorLabel = (): string => (run?.bld ? `${run.bld.floor + 1}F` : '');
 export function stageLabel(s: number): string {
   const si = stageInfo(s),
     b = run?.bld;
