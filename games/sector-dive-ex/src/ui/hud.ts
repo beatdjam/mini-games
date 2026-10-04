@@ -9,6 +9,8 @@ import { boss, nearPickup, target } from '../world/entities.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
 import { magSize, weaponName, weaponText, weaponStats } from '../actors/weapons.ts';
 import { state } from '../flow/state.ts';
+import { level } from '../world/level.ts';
+import { map3d } from './map3d.ts';
 import { time } from '../flow/update.ts';
 import { keyText } from './input.ts';
 const hpFill = el('#hpFill'),
@@ -53,9 +55,17 @@ export function hitMark(crit?: boolean) {
   hitm.classList.toggle('crit', !!crit);
   screenFx.hitTimer = 0.09;
 }
+// the big map: closed, the 2D map of this floor, the 3D map of the building (in a building only), closed again
 export function toggleMap() {
   if (state !== 'play') return;
-  bigmap.hidden = !bigmap.hidden;
+  if (bigmap.hidden) {
+    bigmap.hidden = false;
+    map3d.on = false;
+  } else if (!map3d.on && level.floor >= 0) map3d.on = true;
+  else {
+    bigmap.hidden = true;
+    map3d.on = false;
+  }
   screenFx.miniT = 0;
 }
 export function weaponHud() {

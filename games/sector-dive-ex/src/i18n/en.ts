@@ -9,6 +9,7 @@ LANG.en = {
     'meta.description': 'A procedurally generated roguelite FPS you can play on your phone',
     'hud.minimap': 'Minimap (tap for the full map)',
     'hud.bigmap': 'Full map (tap to close)',
+    'hud.bigmap3d': '3D map of the building (drag to turn)',
     'hud.fsToggle': 'Toggle fullscreen',
     'hud.fs': 'Fullscreen',
     'hud.fsOff': 'Exit fullscreen',

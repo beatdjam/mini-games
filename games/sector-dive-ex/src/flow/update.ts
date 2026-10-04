@@ -33,6 +33,7 @@ import { screenFx, bctx, bigmap, hitm, mctx, mini, updateHitDirs, updateHud, wea
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
 import { onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
+import { updateMap3D } from '../ui/map3d.ts';
 import { state } from './state.ts';
 import { openPerk } from '../screens/perk.ts';
 import { renderBase } from '../screens/base.ts';
@@ -371,6 +372,7 @@ function updateScreenFx(dt: number) {
     screenFx.miniT = MINIMAP_INTERVAL;
     drawMap(mini, mctx, false);
     if (!bigmap.hidden) drawMap(bigmap, bctx, true);
+    updateMap3D(!bigmap.hidden);
   }
 }
 

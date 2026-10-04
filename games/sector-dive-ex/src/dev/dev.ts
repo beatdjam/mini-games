@@ -16,7 +16,7 @@ import { player, run } from '../actors/player.ts';
 import { damagePlayer } from '../actors/combat.ts';
 import { magSize, newWeapon } from '../actors/weapons.ts';
 import { normalizeWeapons } from '../ui/input.ts';
-import { updateHitDirs, weaponHud } from '../ui/hud.ts';
+import { toggleMap, updateHitDirs, weaponHud } from '../ui/hud.ts';
 import { changeLang } from '../ui/settings.ts';
 import { endRun, startPractice, startRun, startStage } from '../flow/run.ts';
 import { setState, show } from '../flow/state.ts';
@@ -35,7 +35,7 @@ if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>>
 // dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
-// lockdown (in the lockdown room, which shuts)
+// lockdown (in the lockdown room, which shuts), map3d (the 3D map of the whole building)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -70,7 +70,14 @@ if (location.hash.startsWith('#bld-'))
     else if (what === 'top') stand(0, stairs.strip[stairs.strip.length - 1]! + step, -step);
     else if (what === 'lift') stand(0, ...beside(b.plans[0]!.gen.maps.grid, lift.a));
     else if (what === 'liftlow') stand(1, ...beside(b.plans[1]!.gen.maps.grid, lift.a));
-    else if (what === 'lockdown' && b.lockdown) {
+    else if (what === 'map3d') {
+      // the whole building seen, the big map on its 3D page
+      stand(1, stairs.strip[0]! - step, step);
+      b.plans.forEach(p => p.seen.fill(1));
+      setState('play');
+      toggleMap();
+      toggleMap();
+    } else if (what === 'lockdown' && b.lockdown) {
       const r = b.plans[b.lockdown.floor]!.gen.rooms[b.lockdown.room]!,
         mid = Math.floor(r.y + r.h / 2) * W + Math.floor(r.x + r.w / 2);
       stand(b.lockdown.floor, mid, 1);

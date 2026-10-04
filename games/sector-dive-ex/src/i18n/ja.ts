@@ -9,6 +9,7 @@ LANG.ja = {
     'meta.description': 'スマホで遊べるランダム生成ローグライトFPS',
     'hud.minimap': 'ミニマップ（タップで全体マップ）',
     'hud.bigmap': '全体マップ（タップで閉じる）',
+    'hud.bigmap3d': '建物の立体マップ（ドラッグで回す）',
     'hud.fsToggle': '全画面の切り替え',
     'hud.fs': '全画面',
     'hud.fsOff': '全画面解除',

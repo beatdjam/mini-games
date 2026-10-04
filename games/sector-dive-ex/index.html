@@ -64,7 +64,11 @@ body.touch .kithud{display:none}
 .bits{font-family:var(--disp);color:var(--amber);font-size:16px;display:flex;gap:6px;align-items:baseline;margin-right:4px}
 .bits span{font-size:11px;letter-spacing:.14em;color:#b58a30}
 #mini{width:clamp(120px,24vmin,176px);height:clamp(120px,24vmin,176px);border:1px solid var(--line);background:rgba(5,8,12,.55);pointer-events:auto;cursor:pointer}
-#bigmap{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(82vmin,600px);height:min(82vmin,600px);background:rgba(5,8,12,.82);border:1px solid var(--line);pointer-events:auto;cursor:pointer}
+#bigmap,#bigmap3d{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(82vmin,600px);height:min(82vmin,600px);border:1px solid var(--line);pointer-events:auto}
+#bigmap{z-index:4;background:rgba(5,8,12,.82);cursor:pointer}
+/* #bigmap3d: the 3D page of the big map, over the 2D one; it goes away with it (the sibling rule) */
+#bigmap3d{z-index:5;cursor:grab;touch-action:none;background:#05080c}
+#bigmap[hidden]+#bigmap3d{display:none}
 .icon{pointer-events:auto;min-width:38px;height:36px;padding:0 8px;border:1px solid var(--line);background:rgba(10,17,25,.8);font-family:var(--disp);font-weight:700;letter-spacing:.1em;font-size:12px}
 #bossBar{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 12px);width:min(400px,44vw);display:grid;gap:4px;text-align:center}
 /* below about 1170px the centred bar runs into the HP block (left) or the bits and buttons (right): it drops under
@@ -358,6 +362,7 @@ body.desk.nolock .tbtn{display:grid}
     <div id="toast"></div>
     <div id="banner"><div class="code" id="bannerCode"></div><div class="sub" id="bannerSub"></div></div>
     <canvas id="bigmap" width="720" height="720" hidden data-i18n-aria="hud.bigmap"></canvas>
+    <canvas id="bigmap3d" width="720" height="720" hidden data-i18n-aria="hud.bigmap3d"></canvas>
   </div>
   <div id="touch" hidden>
     <div id="joyBase"><div id="joyKnob"></div></div>

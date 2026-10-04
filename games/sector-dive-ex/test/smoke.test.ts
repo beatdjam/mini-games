@@ -99,7 +99,7 @@ import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
 import { KEY_ACTIONS } from '../src/data/controls.ts';
 import { setKeyBindings } from '../src/core/progress.ts';
 import { applyKeyBindings, controlState, equipNearby, stowNearby } from '../src/ui/input.ts';
-import { bigmap, hitDirs, updateHud } from '../src/ui/hud.ts';
+import { bigmap, hitDirs, toggleMap, updateHud } from '../src/ui/hud.ts';
 import { changeLang, renderGuide } from '../src/ui/settings.ts';
 import {
   endRun,
@@ -2164,6 +2164,25 @@ test('running: the dash held on after a dash keeps the player fast and drains st
   goBase();
   startRun();
   tick(2);
+});
+test('big map: closed, the 2D map, the 3D map of the building, closed again', () => {
+  goToFloor(0);
+  const flat = el<HTMLCanvasElement>('#bigmap'),
+    solid = el<HTMLCanvasElement>('#bigmap3d');
+  expect(flat.hidden && solid.hidden).toBe(true);
+  toggleMap();
+  tick(2);
+  expect([flat.hidden, solid.hidden]).toEqual([false, true]);
+  toggleMap();
+  tick(2);
+  expect([flat.hidden, solid.hidden], 'the 3D page lies over the 2D one').toEqual([false, false]);
+  // more of the building seen: the map is made again without trouble
+  building!.plans.forEach(p => p.seen.fill(1));
+  tick(2);
+  toggleMap();
+  tick(2);
+  expect(flat.hidden).toBe(true);
+  expect(solid.hidden).toBe(true);
 });
 test('lift: standing on the platform rides to the next floor and back', () => {
   goToFloor(0);
