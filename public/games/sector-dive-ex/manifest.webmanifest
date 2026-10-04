@@ -1,0 +1,15 @@
+{
+  "name": "Sector Dive Extended",
+  "short_name": "Sector Dive EX",
+  "description": "複数階の建物を潜るローグライトFPS（Sector Dive の実験的な拡張版）",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#05080c",
+  "theme_color": "#05080c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

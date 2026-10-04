@@ -12,7 +12,7 @@ const ORIGIN = `http://localhost:${PORT}`;
 const SETTLE_MS = 2000; // how long a page may run before its errors are counted
 const games = readdirSync('games').filter(g => existsSync(`games/${g}/index.html`));
 // the element that shows on the base screen of each game
-const BASE_SCREEN: Record<string, string> = { 'sector-dive': '#scrBase' };
+const BASE_SCREEN: Record<string, string> = { 'sector-dive': '#scrBase', 'sector-dive-ex': '#scrBase' };
 
 let server: PreviewServer;
 

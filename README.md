@@ -77,3 +77,4 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 | ID | 名前 | 概要 |
 |----|------|------|
 | sector-dive | Sector Dive | ランダム生成ローグライトFPS（three.js、スマホ対応）。仕様: [SPEC.md](games/sector-dive/SPEC.md) |
+| sector-dive-ex | Sector Dive Extended（仮） | Sector Dive を改造した実験作。複数階の建物・ボス部屋・ロックダウン。作りかけ（今は Sector Dive の写し）。仕様の下書き: [SPEC.md](games/sector-dive-ex/SPEC.md) |

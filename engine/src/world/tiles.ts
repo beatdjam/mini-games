@@ -19,7 +19,8 @@ export const SIDE_PX = 0, // +x
 export const OPPOSITE_SIDE = [SIDE_NX, SIDE_PX, SIDE_NZ, SIDE_PZ];
 // A door is a floor tile (grid = 1) that is also marked in TileWorld.door. How far it is open is doorOpen (0 = shut,
 // 1 = wide open). From DOOR_PASS up it is the same as floor (walk, shoot and look through it); below it, the same as a
-// wall. Paths and reach checks treat every door as floor, open or not (whoever comes near can open it: world/doors.ts)
+// wall. Paths and reach checks treat every door as floor, open or not (whoever comes near can open it: world/doors.ts),
+// except a locked door (TileWorld.doorLock, set with lockDoor): nobody opens it, so nothing walks into its tile
 export const DOOR_PASS = 0.5; // doorOpen at or above this = open (0 to 1)
 // the (i, j) step to the neighbour across each side, indexed by side number
 export const SIDE_STEP: readonly (readonly [number, number])[] = [
@@ -42,6 +43,9 @@ export interface TileWorld {
   // two come together: door without doorOpen throws in updateDoors and keeps every door shut
   door?: Uint8Array; // 1 = a door on this floor tile (grid stays 1)
   doorOpen?: Float32Array; // how far each door is open, 0 (shut) to 1 (wide open); only read where door = 1
+  // 1 = this door is locked: it shuts and stays shut (world/doors.ts), and paths do not go into its tile. Only read
+  // where door = 1. Made by lockDoor the first time a door is locked; a world without it has no locked door
+  doorLock?: Uint8Array;
 }
 // something that moves on the tiles; fy (feet height) is only set for movers that obey the step rule
 export interface Mover {
@@ -57,7 +61,7 @@ export interface TileGrid {
   inBounds(i: number, j: number): boolean;
   // wall (or outside the map), or a door that is not open yet; collision, sight and bullets use this
   isSolid(i: number, j: number): boolean;
-  // floor (grid = 1), a door of any openness included; the flow field and reach checks use this
+  // floor (grid = 1), a door of any openness included (a locked one too); the flow field and reach checks use this
   isFloor(i: number, j: number): boolean;
   solidAt(x: number, z: number): boolean;
   // index into grid / hgt / flow of the tile that contains the world point (x, z); not bounds-checked
@@ -75,7 +79,7 @@ export interface TileGrid {
   hasLOS(x0: number, z0: number, x1: number, z1: number, y0?: number, y1?: number): boolean;
   walkable(k: number): boolean;
   edgeH(k: number, side: number): number;
-  // can something walk from tile a into its neighbour b across a's `side`
+  // can something walk from tile a into its neighbour b across a's `side` (never into a locked door)
   passable(a: number, b: number, side: number): boolean;
   // fills world.flow with the steps to tile (pi, pj)
   computeFlow(pi: number, pj: number): void;
@@ -178,8 +182,13 @@ export function createTileGrid(world: TileWorld): TileGrid {
     if (side === OPPOSITE_SIDE[d]) return h;
     return h + RISE / 2;
   }
+  // a door nobody can open (k = tile index)
+  function isLockedDoor(k: number): boolean {
+    const { door, doorLock } = world;
+    return door !== undefined && doorLock !== undefined && door[k] === 1 && doorLock[k] === 1;
+  }
   function passable(a: number, b: number, side: number): boolean {
-    return world.grid[b] === 1 && edgeH(b, OPPOSITE_SIDE[side]) - edgeH(a, side) <= STEP;
+    return world.grid[b] === 1 && !isLockedDoor(b) && edgeH(b, OPPOSITE_SIDE[side]) - edgeH(a, side) <= STEP;
   }
   function computeFlow(pi: number, pj: number) {
     const { W, grid, flow, flowQ } = world;
@@ -319,6 +328,7 @@ export function setTileWorld(o: Partial<TileWorld>) {
   // otherwise a key that is present replaces them (undefined removes the doors)
   if (o.grid || 'door' in o) activeWorld.door = o.door;
   if (o.grid || 'doorOpen' in o) activeWorld.doorOpen = o.doorOpen;
+  if (o.grid || 'doorLock' in o) activeWorld.doorLock = o.doorLock;
 }
 // tile number (column i or row j) of a world coordinate
 export function tileCoord(v: number): number {

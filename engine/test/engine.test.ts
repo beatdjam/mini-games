@@ -66,7 +66,7 @@ import {
   tileWorldOf,
 } from '../src/world/dungeon.ts';
 import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
-import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, updateDoors } from '../src/world/doors.ts';
+import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, isDoorLocked, lockDoor, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
 import { type PropRule, type Slot, placeProps, slotsOf } from '../src/world/slots.ts';
 import {
@@ -1652,6 +1652,79 @@ test('doors: paths and reach checks go through a shut door', () => {
   );
   eq(unreachableFloorTiles(two, spot(0, 1, 1)).length, 0, 'a link on a door tile is accepted');
 });
+test('doors: a locked door shuts at once, opens for nobody, and opens again once unlocked', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ),
+    open = () => g.world.doorOpen![k];
+  eq(g.world.doorLock, undefined, 'no lock map until a door is locked');
+  ok(!isDoorLocked(g.world, k));
+  lockDoor(g.world, k, false);
+  eq(g.world.doorLock, undefined, 'unlocking a door that was never locked adds nothing');
+  const near = person(doorX - 3); // in sense range, not on the door's tile (which starts 1 m further on)
+  tickDoors(g, [near], 1);
+  eq(open(), 1, 'an ordinary door: open');
+  lockDoor(g.world, k);
+  ok(isDoorLocked(g.world, k) && !isDoorLocked(g.world, k - 1));
+  updateDoors(g, [near], 0.1);
+  ok(open() < 1, 'locked: it starts shutting right away, with someone near and no closeDelay');
+  tickDoors(g, [near], 1);
+  eq(open(), 0, 'and shuts all the way');
+  ok(g.isSolid(3, 1) && !g.hasLOS(1.5 * T, midZ, 5.5 * T, midZ), 'a wall');
+  tickDoors(g, [near, person(doorX + 3)], 2);
+  eq(open(), 0, 'nobody near opens it');
+  lockDoor(g.world, k, false);
+  ok(!isDoorLocked(g.world, k));
+  tickDoors(g, [near], 1);
+  eq(open(), 1, 'unlocked: an ordinary door again');
+  expect(() => lockDoor(g.world, k - 1)).toThrow(/no door/);
+  expect(() => lockDoor(worldFromRows(['###', '#.#', '###']), 4)).toThrow(/no door/);
+});
+test('doors: a locked door waits for a body in the doorway before it shuts', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ),
+    open = () => g.world.doorOpen![k],
+    body = person(doorX);
+  tickDoors(g, [body], 1);
+  lockDoor(g.world, k);
+  tickDoors(g, [body], 2);
+  eq(open(), 1, 'held open while the body overlaps the tile');
+  ok(!g.blocked(body.x, body.z, body.r), 'so the body is never inside a wall');
+  body.x = 11.8; // the tile starts at x = 12: still overlapping
+  tickDoors(g, [body], 1);
+  eq(open(), 1);
+  body.x = 11.4; // off the tile, still within sense range
+  tickDoors(g, [body], 1);
+  eq(open(), 0, 'shuts once the doorway is clear');
+});
+test('doors: paths and reach checks stop at a locked door', () => {
+  const g = createTileGrid(worldFromRows(DOOR_ROWS)),
+    k = g.tileIndex(doorX, midZ);
+  g.computeFlow(5, 1);
+  eq(g.flowAt(1.5 * T, midZ), 4, 'unlocked: the path goes through');
+  lockDoor(g.world, k);
+  g.computeFlow(5, 1);
+  eq(g.flowAt(1.5 * T, midZ), -1, 'locked: the far side cannot be reached');
+  eq(g.flowAt(doorX, midZ), 2, 'a body still in the doorway keeps its way out');
+  eq(g.flowAt(4.5 * T, midZ), 1, 'the near side is as before');
+  eq(g.flowDir(2.5 * T, midZ), null, 'no direction into the locked door');
+  ok(g.isFloor(3, 1), 'the tile is still a floor tile');
+  g.computeFlow(1, 1);
+  eq(g.flowAt(4.5 * T, midZ), -1, 'the same from the other side');
+  lockDoor(g.world, k, false);
+  g.computeFlow(5, 1);
+  eq(g.flowAt(1.5 * T, midZ), 4, 'unlocked again: through');
+  // floors
+  const f = floorsFromRows([DOOR_ROWS], []);
+  lockDoor(f.grids[0].world, k);
+  eq(reached(floorReach(f, spot(0, 1, 1)), 0), '0000000' + '0110000' + '0000000', 'floorReach stops in front of it');
+  // the active world takes and drops the lock map with its maps
+  const w = worldFromRows(DOOR_ROWS);
+  lockDoor(w, k);
+  setTileWorld(w);
+  eq(activeTileGrid().world.doorLock, w.doorLock, 'setTileWorld hands the lock map over');
+  setTileWorld(worldFromRows(DOOR_ROWS));
+  eq(activeTileGrid().world.doorLock, undefined, 'a new grid starts with no lock');
+});
 test('doors: without door maps (or with every door open, or none marked) the results are the same', () => {
   const d = generateDungeon({ map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1, bridges: 2 }, createRng(7)),
     M = d.maps,
@@ -1941,6 +2014,119 @@ test('music: the game decides the fallback style and the mix; without them nothi
 });
 
 // ---- several floors, generated ----
+// ---- the hall: a room with a single way in ----
+// the floor tiles reached from tile `from` walking over floor (4 ways, heights ignored), never stepping on `skip`
+function floodFloor(d: ReturnType<typeof generateDungeon>, from: number, skip = -1): Uint8Array {
+  const seen = new Uint8Array(d.W * d.H),
+    queue = [from];
+  seen[from] = 1;
+  for (let n = 0; n < queue.length; n++)
+    for (const step of [1, -1, d.W, -d.W]) {
+      const k = queue[n] + step;
+      if (d.maps.grid[k] !== 1 || seen[k] || k === skip) continue;
+      seen[k] = 1;
+      queue.push(k);
+    }
+  return seen;
+}
+const HALL_CASES = [
+  { map: 36, countMin: 2, countMax: 3, hall: { w: 12, h: 12 } },
+  { map: 36, hall: { w: 12, h: 12 }, platform: 1, rubble: 0.1, bridges: 2, doors: true },
+  { map: 44, roomMin: 6, roomMax: 9, corridorW: 2, hall: { w: 12, h: 12 }, platform: 0.8 },
+  { map: 30, countMin: 6, countMax: 8, hall: { w: 5, h: 9 }, doors: true },
+];
+test('dungeon: the hall is the last room, bare, with one door, and no corridor runs through it', () => {
+  for (const opts of HALL_CASES)
+    for (let seed = 1; seed <= 60; seed++) {
+      const d = generateDungeon(opts, createRng(seed)),
+        { W, maps: M } = d,
+        at = `map ${opts.map} seed ${seed}`;
+      ok(d.hall && d.hall.room === d.rooms.length - 1 && d.rooms.length >= 2, `${at}: the last of 2 rooms or more`);
+      const hall = d.rooms[d.hall!.room],
+        door = d.hall!.door;
+      eq(`${hall.w}x${hall.h}`, `${opts.hall.w}x${opts.hall.h}`, 'the size asked for');
+      ok(hall.x >= 3 && hall.y >= 3 && hall.x + hall.w <= W - 3 && hall.y + hall.h <= d.H - 3, `${at}: off the edge`);
+      ok(!hall.plat, 'no deck');
+      forEachRoomTile(hall, (i, j) => {
+        const k = j * W + i;
+        ok(M.grid[k] === 1 && M.hgt[k] === 0 && M.ramp[k] < 0 && !M.cover[k], `${at}: bare floor at ${i},${j}`);
+        eq(M.roomOf[k], d.hall!.room, 'marked as the hall');
+      });
+      // the ring of wall round the hall has exactly one opening: the door
+      const openings: number[] = [];
+      for (let j = hall.y - 1; j <= hall.y + hall.h; j++)
+        for (let i = hall.x - 1; i <= hall.x + hall.w; i++) {
+          const inside = i >= hall.x && i < hall.x + hall.w && j >= hall.y && j < hall.y + hall.h;
+          if (!inside && M.grid[j * W + i] === 1) openings.push(j * W + i);
+        }
+      eq(openings.join(), String(door), `${at}: the door is the only opening`);
+      eq(M.door![door], 1, 'and it has a door, whatever the doors option says');
+      eq(M.doorOpen![door], 0);
+      eq(M.roomOf[door], -1);
+      // every other room is reached without the hall; the hall only through its door
+      const middle = (r: { x: number; y: number; w: number; h: number }) =>
+          Math.floor(r.y + r.h / 2) * W + Math.floor(r.x + r.w / 2),
+        without = floodFloor(d, middle(d.rooms[0]), door),
+        withDoor = floodFloor(d, middle(d.rooms[0]));
+      d.rooms.slice(0, -1).forEach((r, n) => eq(without[middle(r)], 1, `${at}: room ${n} reached round the hall`));
+      eq(without[middle(hall)], 0, `${at}: the hall is not reached without its door`);
+      eq(withDoor[middle(hall)], 1, `${at}: and is reached through it`);
+      // walking by the height rules too: nothing but cover is cut off
+      const f = createFloors([tileWorldOf(d)], [0], []),
+        start = { floor: 0, i: middle(d.rooms[0]) % W, j: Math.floor(middle(d.rooms[0]) / W) };
+      ok(
+        unreachableFloorTiles(f, start).every(t => M.cover[t.j * W + t.i]),
+        `${at}: every floor tile is walked to`,
+      );
+    }
+});
+test('dungeon: the hall draws two numbers first, repeats with the seed, and the option alone changes nothing else', () => {
+  const opts = { map: 36, platform: 0.5, rubble: 0.1, bridges: 2 };
+  for (const seed of [1, 7, 99, 2024]) {
+    const a = generateDungeon({ ...opts, hall: { w: 12, h: 12 } }, createRng(seed)),
+      b = generateDungeon({ ...opts, hall: { w: 12, h: 12 } }, createRng(seed));
+    eq(dungeonHash(a), dungeonHash(b), 'the same seed gives the same map');
+    eq(JSON.stringify(a.hall), JSON.stringify(b.hall));
+    // the hall's place is the first two numbers of the seed
+    const rng = createRng(seed),
+      x = rng.randi(3, 36 - 12 - 3),
+      y = rng.randi(3, 36 - 12 - 3),
+      hall = a.rooms[a.hall!.room];
+    eq(`${hall.x},${hall.y}`, `${x},${y}`);
+    eq(generateDungeon(opts, createRng(seed)).hall, undefined, 'no hall without the option');
+  }
+  expect(() => generateDungeon({ map: 20, hall: { w: 15, h: 4 } }, createRng(1))).toThrow(/does not fit/);
+  expect(() => generateDungeon({ map: 20, hall: { w: 4, h: 0 } }, createRng(1))).toThrow(/does not fit/);
+  // a map the hall fills leaves no place for another room
+  expect(() => generateDungeon({ map: 18, hall: { w: 12, h: 12 } }, createRng(1))).toThrow(/no room could be placed/);
+});
+test('floorgen: no stairs or lift ends in a hall', () => {
+  const hallFloor = { countMin: 2, countMax: 3, hall: { w: 12, h: 12 } };
+  for (let seed = 1; seed <= 40; seed++) {
+    const g = generateFloors(
+      { floors: 3, dungeon: [hallFloor, {}, hallFloor], stairs: 2, lifts: 1, liftRooms: 1 },
+      createRng(seed),
+    );
+    for (const l of g.links)
+      for (const s of [l.a, l.b]) {
+        const m = g.maps[s.floor];
+        ok(!m.hall || m.maps.roomOf[s.j * m.W + s.i] !== m.hall.room, `seed ${seed}: a ${l.kind} ends in the hall`);
+      }
+    eq(g.maps[0].hall!.room < g.maps[0].rooms.length, true);
+    // every floor is still reached by stairs alone, the halls through their doors included
+    const start = g.maps[0].rooms[0],
+      from = { floor: 0, i: Math.floor(start.x + start.w / 2), j: Math.floor(start.y + start.h / 2) },
+      cut = unreachableFloorTiles(g.floors, from, l => l.kind === 'stairs');
+    const liftOnly = (t: { floor: number; i: number; j: number }) =>
+      g.liftRooms.some(
+        r => r.floor === t.floor && g.maps[t.floor].maps.roomOf[t.j * g.maps[t.floor].W + t.i] === r.room,
+      );
+    ok(
+      cut.every(t => liftOnly(t) || g.maps[t.floor].maps.cover[t.j * g.maps[t.floor].W + t.i]),
+      `seed ${seed}: stairs reach everything but the lift-only rooms`,
+    );
+  }
+});
 test('floorgen: tileWorldOf shares the maps and brings the doors along', () => {
   const d = generateDungeon({ map: 30, doors: true }, createRng(3)),
     w = tileWorldOf(d);
@@ -2285,6 +2471,9 @@ test('floormap3d: floors as slabs of the tiles that show, links as lines, the vi
     '0:5,1:5',
     'one slab mesh per floor with tiles: 5 each (the door is a floor tile)',
   );
+  // drawn from the lowest floor up, without writing depth: seen from above (always), that is back to front
+  eq(slabs.map(m => m.renderOrder).join(), '0,1');
+  ok(slabs.every(m => !(m.material as THREE.Material).depthWrite));
   const at = new THREE.Matrix4(),
     p = new THREE.Vector3();
   slabs[1].getMatrixAt(0, at);
@@ -2328,6 +2517,46 @@ test('floormap3d: floors as slabs of the tiles that show, links as lines, the vi
   window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7 }));
   window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: 300, clientY: 100 }));
   near(map.yaw, yaw0 - 50 * 0.008, 1e-9, 'released');
+  // two pointers: pinching out zooms in, moving them together moves where the camera looks; the turn is left alone
+  const yaw1 = map.yaw,
+    ptr = (type: string, id: number, x: number, y: number, target: EventTarget = window) =>
+      target.dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: x, clientY: y, bubbles: true }));
+  eq(map.zoom, 1);
+  ptr('pointerdown', 1, 80, 100, c);
+  ptr('pointerdown', 2, 120, 100, c);
+  ptr('pointermove', 2, 160, 100); // 40 px apart -> 80 px apart
+  ok(map.zoom < 0.75 && map.zoom >= 0.3, `pinching out comes closer (${map.zoom})`);
+  eq(map.yaw, yaw1, 'two pointers do not turn the map');
+  const zoomed = map.zoom,
+    pan0 = [map.panX, map.panZ].join();
+  ptr('pointermove', 1, 80, 140);
+  ptr('pointermove', 2, 160, 140); // both down by 40 px: the same spread, the map moves
+  near(map.zoom, zoomed, 1e-9, 'moving both without pinching keeps the zoom');
+  ok([map.panX, map.panZ].join() !== pan0, 'the look-at point moved');
+  ptr('pointermove', 2, 9000, 9000);
+  ok(
+    map.zoom >= 0.3 && Math.abs(map.panX) <= 3.5 + 1e-9 && Math.abs(map.panZ) <= 2.5 + 1e-9,
+    'zoom and pan are capped',
+  );
+  ptr('pointerdown', 3, 10, 10, c); // a third pointer is ignored
+  ptr('pointerup', 1, 0, 0);
+  ptr('pointerup', 2, 0, 0);
+  // the wheel zooms; the right button drags the map instead of turning it
+  map.zoom = 1;
+  c.dispatchEvent(new WheelEvent('wheel', { deltaY: -300, bubbles: true, cancelable: true }));
+  ok(map.zoom < 1, 'wheel up comes closer');
+  c.dispatchEvent(new WheelEvent('wheel', { deltaY: 1e6, bubbles: true, cancelable: true }));
+  eq(map.zoom, 1.5, 'capped');
+  map.panX = 0;
+  map.panZ = 0;
+  c.dispatchEvent(
+    new PointerEvent('pointerdown', { pointerId: 5, clientX: 50, clientY: 50, button: 2, bubbles: true }),
+  );
+  ptr('pointermove', 5, 70, 50);
+  eq(map.yaw, yaw1, 'the right button does not turn');
+  ok(map.panX !== 0 || map.panZ !== 0, 'it moves the map');
+  ptr('pointerup', 5, 0, 0);
+  map.draw({ floor: 0, viewer: { x: T, z: T, yaw: 0 } });
   // building again replaces the slabs
   map.build(f, { tile: (floor, k) => (f.grids[floor].world.grid[k] ? { color: '#ffffff', alpha: 1 } : null) }, T);
   eq(map.scene.children[0].children.length, 3, 'all three floors, no links drawn');
