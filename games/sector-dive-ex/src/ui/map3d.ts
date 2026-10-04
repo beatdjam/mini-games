@@ -22,6 +22,16 @@ let floors: Floors | null = null; // the building as the engine's floors, lowest
 let builtFor: Building | null = null;
 let seenShown = -1; // how many tiles were seen when the slabs were last made
 
+// Turns the 3D map by a look movement (the same dx, dy the view gets). On a PC the pointer is locked while playing, so
+// the map cannot be dragged: while its 3D page is open the mouse turns the map instead of the view (hud.ts lookInput)
+const MAP_PITCH: [number, number] = [0.15, 1.45]; // the tilt the engine's own dragging allows (radians)
+export function turnMap3D(dx: number, dy: number) {
+  if (!map) return;
+  map.yaw -= dx;
+  map.pitch = Math.min(MAP_PITCH[1], Math.max(MAP_PITCH[0], map.pitch + dy));
+}
+// is the 3D page on screen right now
+export const map3dOpen = (): boolean => !canvas.hidden;
 // The engine draws floor n at height n, so the building goes in upside down: its lowest floor is floor 0 of the map
 const mapFloor = (b: Building, n: number): number => b.plans.length - 1 - n;
 function floorsOf(b: Building): Floors {

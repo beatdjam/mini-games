@@ -34,7 +34,7 @@ import {
   tileIndex,
   walkable,
 } from '@engine/world/tiles.ts';
-import { joy, setFireHeld } from '@engine/ui/input.ts';
+import { INPUT, joy, setFireHeld } from '@engine/ui/input.ts';
 import { SETTINGS } from '@engine/ui/settings.ts';
 import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBindings } from '@engine/ui/keymap.ts';
 import { encodeStore } from '@engine/core/store.ts';
@@ -100,6 +100,7 @@ import { KEY_ACTIONS } from '../src/data/controls.ts';
 import { setKeyBindings } from '../src/core/progress.ts';
 import { applyKeyBindings, controlState, equipNearby, stowNearby } from '../src/ui/input.ts';
 import { bigmap, hitDirs, toggleMap, updateHud } from '../src/ui/hud.ts';
+import { map3dOpen } from '../src/ui/map3d.ts';
 import { changeLang, renderGuide } from '../src/ui/settings.ts';
 import {
   endRun,
@@ -2222,6 +2223,11 @@ test('big map: closed, the 2D map, the 3D map of the building, closed again', ()
   toggleMap();
   tick(2);
   expect([flat.hidden, solid.hidden], 'the 3D page lies over the 2D one').toEqual([false, false]);
+  // with the 3D page open, looking turns the map and leaves the view alone (a locked mouse cannot drag the map)
+  const yawWas = player.yaw;
+  INPUT.look(0.3, 0.1);
+  expect(player.yaw).toBe(yawWas);
+  expect(map3dOpen()).toBe(true);
   // more of the building seen: the map is made again without trouble
   building!.plans.forEach(p => p.seen.fill(1));
   tick(2);
@@ -2229,6 +2235,8 @@ test('big map: closed, the 2D map, the 3D map of the building, closed again', ()
   tick(2);
   expect(flat.hidden).toBe(true);
   expect(solid.hidden).toBe(true);
+  INPUT.look(0.3, 0);
+  expect(player.yaw, 'closed: looking turns the view again').not.toBe(yawWas);
 });
 test('lift: standing on the platform rides to its other floor and back, past a floor when it is a long one', () => {
   // once with any lift, and once with one that passes a floor (in a building that has one)

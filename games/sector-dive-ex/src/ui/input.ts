@@ -14,6 +14,7 @@ import { kitHealAmount } from '../actors/combat.ts';
 import { startReload } from '../actors/firing.ts';
 import { weaponText } from '../actors/weapons.ts';
 import { toggleMap, updateHint, weaponHud } from './hud.ts';
+import { map3dOpen, turnMap3D } from './map3d.ts';
 import { state } from '../flow/state.ts';
 import { closeBag, openBag } from '../screens/bag.ts';
 import { pause } from '../screens/pause.ts';
@@ -37,6 +38,11 @@ Object.assign(INPUT, {
   active: () => state === 'play',
   look: (dx: number, dy: number) => {
     if (!player) return;
+    // the 3D map is open: looking turns the map, not the view (a locked mouse has no pointer to drag it with)
+    if (map3dOpen()) {
+      turnMap3D(dx, dy);
+      return;
+    }
     player.yaw -= dx;
     player.pitch = clamp(player.pitch - dy, -1.25, 1.25);
   },

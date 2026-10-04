@@ -87,7 +87,11 @@ export function createFloorMap3D(canvas: HTMLCanvasElement): FloorMap3D {
           const st = style.tile(floor, k);
           if (st) shown.push([k, st.color]);
         }
-        const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: OTHER_FLOOR_OPACITY });
+        // The slabs are see-through, and three.js sorts see-through meshes by their own position, which is the same
+        // for all of them. The camera always looks down on the map (PITCH_MIN is above the horizon), so drawing the
+        // floors from the lowest up is always back to front: a floor never shows through the one above it wrongly.
+        // No depth write: a dim floor must not hide what lies behind it
+        const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: OTHER_FLOOR_OPACITY, depthWrite: false });
         floorMats.push(mat);
         if (!shown.length) return;
         const mesh = new THREE.InstancedMesh(slab, mat, shown.length);
@@ -97,6 +101,7 @@ export function createFloorMap3D(canvas: HTMLCanvasElement): FloorMap3D {
           mesh.setColorAt(n, color.set(c));
         });
         mesh.userData.floor = floor;
+        mesh.renderOrder = floor;
         content.add(mesh);
       });
       // the links: a line from end to end, each in its own colour

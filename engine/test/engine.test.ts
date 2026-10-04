@@ -2471,6 +2471,9 @@ test('floormap3d: floors as slabs of the tiles that show, links as lines, the vi
     '0:5,1:5',
     'one slab mesh per floor with tiles: 5 each (the door is a floor tile)',
   );
+  // drawn from the lowest floor up, without writing depth: seen from above (always), that is back to front
+  eq(slabs.map(m => m.renderOrder).join(), '0,1');
+  ok(slabs.every(m => !(m.material as THREE.Material).depthWrite));
   const at = new THREE.Matrix4(),
     p = new THREE.Vector3();
   slabs[1].getMatrixAt(0, at);
