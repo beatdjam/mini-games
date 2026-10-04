@@ -11,3 +11,9 @@ export const KWLN_NEON_WORDS = ['冰室', '旅館', '酒家', '麻雀', '理髮'
 export const FORGE_PLATE_HEAT = '高温注意';
 export const FORGE_PLATE_SAFETY = '安全第一';
 export const FORGE_DANGER = '危険';
+// The deep noise: the plates of a Japanese broadcasting station ("quiet", "staff only"), the lamp sign over a studio,
+// and the warning ("high voltage") painted down each leaf of the boss room's door
+export const NOISE_PLATE_QUIET = '静粛';
+export const NOISE_PLATE_STAFF = '関係者以外立入禁止';
+export const NOISE_ON_AIR = 'ON AIR';
+export const NOISE_DANGER = '高電圧';
