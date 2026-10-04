@@ -1907,7 +1907,13 @@ test('dungeon: doors go in the room doorways, draw no random numbers, and every 
         [c, e] = axisX ? [k - W, k + W] : [k - 1, k + 1];
       ok(M.roomOf[a] >= 0 || M.roomOf[b] >= 0, 'touches a room');
       ok(M.grid[a] === 1 && M.grid[b] === 1, 'floor on both ends');
-      ok(!M.grid[c] && !M.grid[e], 'walls on both sides');
+      // (or, where two corridors run side by side, wall on one side and the other half of the door on the other)
+      const wall = (t: number) => !M.grid[t],
+        half = (t: number, beyond: number) => !!M.door![t] && wall(beyond);
+      ok(
+        (wall(c) && wall(e)) || (wall(c) && half(e, e + (e - k))) || (wall(e) && half(c, c + (c - k))),
+        'walls on both sides',
+      );
     }
     // most rooms are entered through a door (a corridor that bends right at a room's edge has no doorway)
     let withDoor = 0;
@@ -1946,10 +1952,18 @@ test('dungeon: doors go in the room doorways, draw no random numbers, and every 
   const b = generateDungeon({ ...opts, doors: true, bridges: 3 }, createRng(7));
   for (let k = 0; k < b.W * b.H; k++)
     if (b.maps.door![k]) ok(b.maps.ramp[k] < 0 && b.maps.hgt[k] === 0, 'flat door tile');
-  // addDoorways alone, on a corridor of width 2 there is none
+  // addDoorways alone, on a corridor of width 2: the doors come in pairs, side by side across the corridor
   const wide = generateDungeon({ ...opts, corridorW: 2 }, createRng(7));
   addDoorways(wide.maps, wide.W);
-  eq(wide.maps.door, undefined, 'a corridor 2 wide has no doorway');
+  const wd = wide.maps.door!,
+    pairs = [...wd.keys()].filter(k => wd[k]);
+  ok(pairs.length >= 2 && pairs.length % 2 === 0, 'a corridor 2 wide has doors, an even number');
+  for (const k of pairs)
+    eq([k - 1, k + 1, k - wide.W, k + wide.W].filter(t => wd[t]).length, 1, 'each has one door beside it');
+  // a corridor 3 wide has none
+  const wider = generateDungeon({ ...opts, corridorW: 3 }, createRng(7));
+  addDoorways(wider.maps, wider.W);
+  eq(wider.maps.door, undefined, 'a corridor 3 wide has no doorway');
 });
 
 // ---------- audio ----------

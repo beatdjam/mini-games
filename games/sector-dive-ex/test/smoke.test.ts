@@ -1907,11 +1907,26 @@ test('building: no door has floor beside it (a corridor to a stairwell or lift n
       const { W: w, maps } = p.gen;
       maps.door?.forEach((v, k) => {
         if (!v) return;
-        const alongX = maps.grid[k - 1] === 1 || maps.grid[k + 1] === 1,
-          alongZ = maps.grid[k - w] === 1 || maps.grid[k + w] === 1;
+        // (the other half of a door 2 tiles wide is floor beside it, but it is a door)
+        const open = (t: number) => maps.grid[t] === 1 && !maps.door![t],
+          alongX = open(k - 1) || open(k + 1),
+          alongZ = open(k - w) || open(k + w);
         expect(alongX && alongZ, `seed ${seed} floor ${floor} door ${k}`).toBe(false);
       });
     });
+  }
+});
+test('building: a sector with corridors 2 wide has doors 2 tiles wide, so a room that can be shut (a lockdown)', () => {
+  const city = BIOMES.find(x => x.gen.corridorW === 2)!;
+  for (const seed of [31, 62, 93]) {
+    const b = makeBuilding(city, city.bosses[0]!, seed);
+    expect(b.lockdown, `seed ${seed}`).not.toBeNull();
+    const p = b.plans[b.lockdown!.floor]!,
+      door = p.gen.maps.door!,
+      doors = roomDoors(p.gen, b.lockdown!.room).doors;
+    // every door tile of the room has its other half beside it, or is a door 1 wide (the corridor to the boss room)
+    for (const k of doors)
+      expect([k - 1, k + 1, k - p.gen.W, k + p.gen.W].filter(t => door[t]).length, `door ${k}`).toBeLessThanOrEqual(1);
   }
 });
 test('building: the same seed gives the same three floors, joined at the same places, the boss room lowest', () => {
@@ -1998,7 +2013,11 @@ test('building: the same seed gives the same three floors, joined at the same pl
         const door = p.gen.maps.door;
         door?.forEach((v, k) => {
           if (!v) return;
-          for (const step of [1, p.gen.W]) for (const n of [1, 2]) expect(door[k + step * n], at).toBeFalsy();
+          // along the corridor: the axis with floor that is not door on it (the other half of a door 2 tiles wide
+          // is beside it, across the corridor)
+          const grid = p.gen.maps.grid,
+            step = [1, p.gen.W].find(st => [k - st, k + st].some(t => grid[t] === 1 && !door[t]))!;
+          for (const n of [1, 2]) expect(door[k + step * n], at).toBeFalsy();
         });
       });
       expect(last.gen.maps.door![last.hall!.door], at).toBe(1);

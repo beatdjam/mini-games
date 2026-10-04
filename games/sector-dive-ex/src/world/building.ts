@@ -122,18 +122,26 @@ export function roomDoors(d: GeneratedLevel, room: number): { doors: number[]; c
 }
 
 // Two rooms joined by a very short corridor would have a door at each end of it, one right after the other. Of such
-// a pair the second goes (the boss room's door always stays), so there is one door to wait for, not two
+// a pair the second goes (the boss room's door always stays), so there is one door to wait for, not two. In a corridor
+// 2 wide a door is two tiles side by side: they are one door, and go or stay together
 function thinDoorPairs(d: TileMapData) {
   const door = d.maps.door;
   if (!door) return;
-  const keep = d.hall?.door ?? -1;
-  for (let k = 0; k < door.length; k++)
-    for (const step of [1, d.W])
-      for (let n = 1; n <= DOOR_PAIR_REACH && door[k]; n++) {
-        const other = k + step * n;
-        if (!door[other]) continue;
-        door[other === keep ? k : other] = 0;
-      }
+  const keep = d.hall?.door ?? -1,
+    // the step along the corridor a door stands across: the one with floor that is not door on it
+    along = (k: number): number => [1, d.W].find(s => [k - s, k + s].some(t => d.maps.grid[t] === 1 && !door[t])) ?? 1,
+    remove = (k: number) => {
+      const across = along(k) === 1 ? d.W : 1;
+      for (const t of [k, k - across, k + across]) door[t] = 0;
+    };
+  for (let k = 0; k < door.length; k++) {
+    if (!door[k]) continue;
+    const step = along(k);
+    for (let n = 1; n <= DOOR_PAIR_REACH && door[k]; n++) {
+      const other = k + step * n;
+      if (door[other]) remove(other === keep ? k : other);
+    }
+  }
 }
 
 // ---- stairwells and lifts ----
