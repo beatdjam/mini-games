@@ -280,8 +280,9 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
     boxes.instanceMatrix.needsUpdate = true;
     group.add(boxes);
   }
-  if (biome.gen.neon) addNeonSigns(walls, group, rng);
+  // a sector with a look brings its own signs; the plain neon bars are for the sectors without one
   if (look) look.props(plan, group, rng);
+  else if (biome.gen.neon) addNeonSigns(walls, group, rng);
 }
 
 // The three.js part of a level: floor, walls, decks, ramps, cover, hazard floor, ceiling and neon signs. Reads the
