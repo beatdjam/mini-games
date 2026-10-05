@@ -7,7 +7,7 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, shootAtPoint } from '../world/entities.ts';
 import { player } from './player.ts';
 import { damagePlayer, detonate } from './combat.ts';
-import { bossPauseTick } from './bosses/common.ts';
+import { bossPauseTick, poseBossPool } from './bosses/common.ts';
 import { setLaser } from '../world/models.ts';
 import { COLOR } from '../data/colors.ts';
 import type { EnemyAnim } from '../world/enemyLooks.ts';
@@ -46,6 +46,7 @@ export function updateEnemy(e: Enemy, dt: number) {
   if (e.boss) {
     if (e.spawnT > 0) bossPauseTick(e, dt);
     else e.behave(e, dt);
+    poseBossPool(e);
     return;
   }
 

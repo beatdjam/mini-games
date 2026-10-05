@@ -1,3 +1,5 @@
+import { watcherLook } from '../../world/bossLooks.ts';
+import { plainLooks } from '../../world/looks.ts';
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { t } from '@engine/core/i18n.ts';
@@ -29,10 +31,15 @@ export function spawnWatcher() {
   const g = new THREE.Group(),
     geo = new THREE.IcosahedronGeometry(2.1, 0);
   const mat = bossMaterial(0x0f151c, COLOR.cyan);
-  g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.cyan));
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: COLOR.mag }));
-  eye.position.z = 1.75;
-  g.add(eye);
+  if (plainLooks()) {
+    g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.cyan));
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.7, 16, 12),
+      new THREE.MeshBasicMaterial({ color: COLOR.mag }),
+    );
+    eye.position.z = 1.75;
+    g.add(eye);
+  } else g.add(watcherLook(mat));
   bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
   toast(t('boss.watcherHint'), 3800);
 }

@@ -1,3 +1,5 @@
+import { coreLook } from '../../world/bossLooks.ts';
+import { plainLooks } from '../../world/looks.ts';
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { pick, rand } from '@engine/core/util.ts';
@@ -35,8 +37,10 @@ export function spawnCore() {
     geo = new THREE.TorusKnotGeometry(1.3, 0.38, 72, 8);
   const mat = bossMaterial(0x140c20, COLOR.violet);
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  const knot = new THREE.Mesh(geo, mat);
-  g.add(knot, core);
+  const look = plainLooks() ? null : coreLook(mat),
+    knot = look ? look.knot : new THREE.Mesh(geo, mat);
+  if (look) g.add(look.g);
+  else g.add(knot, core);
   const beams: CoreBoss['beams'] = [];
   const e = bossBase('core', g, mat, updCore, { knot, beams, ba: 0, bdir: 1 });
   e.x = e.cx;

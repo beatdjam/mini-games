@@ -1,3 +1,5 @@
+import { bossHullMat, crusherLook } from '../../world/bossLooks.ts';
+import { plainLooks } from '../../world/looks.ts';
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp } from '@engine/core/util.ts';
@@ -22,13 +24,14 @@ type CrusherBoss = Boss & { st: string; cdx: number; cdz: number; hitP: boolean;
 export function spawnCrusher() {
   const g = new THREE.Group(),
     geo = new THREE.BoxGeometry(3.2, 3.2, 3.2);
-  const mat = bossMaterial(0x1c0f09, COLOR.orange);
+  const mat = plainLooks() ? bossMaterial(0x1c0f09, COLOR.orange) : bossHullMat(COLOR.orange);
   const plate = new THREE.Mesh(
     new THREE.BoxGeometry(2.6, 0.5, 0.2),
     new THREE.MeshBasicMaterial({ color: COLOR.amber }),
   );
   plate.position.set(0, 0.5, 1.65);
-  g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.orange), plate);
+  if (plainLooks()) g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.orange), plate);
+  else g.add(crusherLook(mat));
   const e = bossBase('crusher', g, mat, updCrusher, { st: 'idle', cdx: 0, cdz: 0, hitP: false, second: 0 });
   e.timer = 2;
   toast(t('boss.crusherHint'), 4200);

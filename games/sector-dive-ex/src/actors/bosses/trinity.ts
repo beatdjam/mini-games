@@ -1,3 +1,5 @@
+import { trinityBodyLook } from '../../world/bossLooks.ts';
+import { plainLooks } from '../../world/looks.ts';
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { distXZ, randi } from '@engine/core/util.ts';
@@ -30,8 +32,8 @@ export function spawnTrinity() {
   const geo = new THREE.OctahedronGeometry(1.2, 0),
     cols = [COLOR.mag, COLOR.amber, COLOR.cyan];
   const bodies = cols.map(c => {
-    const b = new THREE.Group();
-    b.add(new THREE.Mesh(geo, mat), wireOutline(geo, c));
+    const b = plainLooks() ? new THREE.Group() : trinityBodyLook(mat, c);
+    if (plainLooks()) b.add(new THREE.Mesh(geo, mat), wireOutline(geo, c));
     dynGroup.add(b);
     return b;
   });
@@ -46,7 +48,7 @@ export function spawnTrinity() {
   });
   e.x = e.cx;
   e.z = e.cz;
-  e.extra = bodies;
+  e.extra = [...(e.extra ?? []), ...bodies]; // (with its pool of light, when it has a look)
   e.parts = bodies.map(b => ({ p: b.position, r: 1.4 }));
   updTrinity(e, 0);
   toast(t('boss.trinityHint'), 3800);

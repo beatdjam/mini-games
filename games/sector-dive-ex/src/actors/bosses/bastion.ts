@@ -1,3 +1,5 @@
+import { bastionLook } from '../../world/bossLooks.ts';
+import { plainLooks } from '../../world/looks.ts';
 import type { Boss, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { rand } from '@engine/core/util.ts';
@@ -29,12 +31,14 @@ export function spawnBastion() {
   base.position.y = -1.6;
   const baseEdge = wireOutline(baseGeo, 0xffb347);
   baseEdge.position.y = -1.6;
-  const core = new THREE.Mesh(coreGeo, mat);
+  const look = plainLooks() ? null : bastionLook(mat, 0xffb347),
+    core = look ? look.core : new THREE.Mesh(coreGeo, mat);
   const shieldM = new THREE.Mesh(
     new THREE.SphereGeometry(2.6, 20, 14),
     new THREE.MeshBasicMaterial({ color: COLOR.shield, transparent: true, opacity: 0.25, depthWrite: false }),
   );
-  g.add(base, baseEdge, core, shieldM);
+  if (look) g.add(look.g, shieldM);
+  else g.add(base, baseEdge, core, shieldM);
   const e = bossBase('bastion', g, mat, updBastion, {
     core,
     shield: shieldM,

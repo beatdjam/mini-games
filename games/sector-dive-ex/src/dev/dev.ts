@@ -218,12 +218,37 @@ if (location.hash === '#view-keys' || location.hash === '#view-keys-wait')
     document.querySelector<HTMLElement>('[data-settings="base"] [data-action="keys"]')?.click();
     if (location.hash.endsWith('-wait')) document.querySelector<HTMLElement>('[data-key-action="reload"]')?.click();
   }, 300);
+const LOOK_FROM = 7.5; // how far from a boss #boss-<kind>-look stands (m)
+const LOOK_TURN = 0.65; // how far a boss is turned for #boss-<kind>-look (rad)
 // dev view: #boss-phantom etc. starts boss practice against that boss
-// optional depth: #boss-phantom-3 = DEPTH 3 strength
+// optional depth: #boss-phantom-3 = DEPTH 3 strength; #boss-phantom-look = up close
 if (location.hash.startsWith('#boss-'))
   setTimeout(() => {
     const [k, d] = location.hash.slice(6).split('-');
-    if (BOSS_META[k]) startPractice(k, d ? Math.max(0, +d - 1) : 0);
+    if (!k || !BOSS_META[k]) return;
+    // #boss-phantom-look: the boss up close, once it has finished coming in (for screenshots of how it looks)
+    if (d === 'look') {
+      startPractice(k, 0);
+      // (the boss comes a moment after the arena: wait for it, then run its entrance on by hand)
+      const wait = setInterval(() => {
+        const b = enemies.find(e => e.boss);
+        if (!b) return;
+        clearInterval(wait);
+        player.hp = 1e6;
+        player.maxHp = 1e6;
+        for (let n = 0; n < 150; n++) update(1 / 60);
+        player.x = b.mesh.position.x;
+        player.z = b.mesh.position.z + LOOK_FROM;
+        player.yaw = 0;
+        player.pitch = Math.atan2(b.mesh.position.y - 1.6, LOOK_FROM) * 0.6;
+        for (let n = 0; n < 2; n++) update(1 / 60);
+        // it stands still from here, turned a little to one side so its flank shows too
+        if (b.boss) b.behave = () => {};
+        b.mesh.rotation.y += LOOK_TURN;
+      }, 200);
+      return;
+    }
+    startPractice(k, d ? Math.max(0, +d - 1) : 0);
   }, 300);
 // dev view: #view-items stands in front of a row of the things that lie on the floor: the five weapons (in the three
 // rarities), a kit, a chip and some bits (for screenshots of how they look). ?sector=KWLN picks the sector
