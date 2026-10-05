@@ -4,7 +4,7 @@ import { V3, basicMat, dynGroup, lineMat } from '@engine/render/render.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { COLOR } from '../data/colors.ts';
 import { edges, geoCache } from './render.ts';
-import { LOOK_GLOW, enemyLook, lookBodyMat } from './enemyLooks.ts';
+import { LOOK_GLOW, enemyLook, lightPool, lookBodyMat } from './enemyLooks.ts';
 import type { EnemyAnim } from './enemyLooks.ts';
 import { plainLooks } from './looks.ts';
 // ================= models =================
@@ -68,6 +68,7 @@ export function buildEnemyMesh(def: EnemyDef): EnemyMesh {
     if (def.humanoid) {
       const mat = lookBodyMat(def),
         h = buildHumanoid(def, mat, false);
+      h.g.add(lightPool(def));
       return { g: h.g, mat, body: h.body, glow: LOOK_GLOW };
     }
     const look = enemyLook(def);
