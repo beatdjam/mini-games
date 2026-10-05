@@ -16,6 +16,7 @@ import type { Paint } from './looks/common.ts';
 const POOL_DROP = 0.82; // the pool hangs this far under the model's middle (it floats 1 m up and bobs 0.12)
 const POOL_SIDE = { kit: 2.2, chip: 2.4, weapon: 2.6 }; // the pool's side (m)
 const GUN_SCALE = 2.1; // a gun on the floor against the same gun in hand (it has to be seen from a way off)
+const RARE_BAR = { w: 0.5, h: 0.04, d: 0.1, gap: 0.09 }; // the bar in the rarity's colour under a gun, and its gap (m)
 const RARE_GROW = 0.12; // a rarer weapon is this much bigger per step, as the plain one was
 
 // a medical case: off-white, a green cross, a dark seam where it opens, two latches
@@ -118,15 +119,26 @@ export function pickupLook(kind: PickupKind, w?: Weapon): THREE.Object3D | null 
     // the gun itself, lying on its side across the view, over a bar and a pool in its rarity's colour
     const gun = gunLook(w.id, WEAPONS[w.id]!.color),
       rare = RARITY[w.r]!.hex,
-      box = new THREE.Box3().setFromObject(gun),
-      mid = box.getCenter(new THREE.Vector3());
+      scale = GUN_SCALE * (1 + w.r * RARE_GROW);
+    // (not the muzzle flash or the muzzle's marker: they are for the gun in hand, and the flash's planes would
+    // push the middle of the model off the gun)
+    gun.remove(gun.userData.flash, gun.userData.tip);
     gun.userData = {};
+    const box = new THREE.Box3().setFromObject(gun),
+      mid = box.getCenter(new THREE.Vector3()),
+      size = box.getSize(new THREE.Vector3());
     gun.position.copy(mid).multiplyScalar(-1);
     const turned = new THREE.Group();
     turned.add(gun);
     turned.rotation.y = Math.PI / 2;
-    turned.scale.setScalar(GUN_SCALE * (1 + w.r * RARE_GROW));
-    g.add(turned, part(boxGeo(0.9, 0.04, 0.12), basicMat(rare), 0, -0.5, 0), pool(rare, POOL_SIDE.weapon));
+    turned.scale.setScalar(scale);
+    // the bar: right under the middle of the gun, a little shorter than the gun is long
+    const under = -(size.y * scale) / 2 - RARE_BAR.gap;
+    g.add(
+      turned,
+      part(boxGeo(RARE_BAR.w, RARE_BAR.h, RARE_BAR.d), basicMat(rare), 0, under, 0),
+      pool(rare, POOL_SIDE.weapon),
+    );
   }
   return g;
 }
