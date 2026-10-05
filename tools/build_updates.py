@@ -96,7 +96,7 @@ def render(es):
     if not days:
         return ''
     flat = [it for items in days.values() for it in items]
-    out = ['  <h2 class="day">最新</h2>\n  <div class="list">\n    <section class="release latest" id="latest">\n      <ul>\n',
+    out = [f'  <h2 class="day">最新（最終更新 {next(iter(days))}）</h2>\n  <div class="list">\n    <section class="release latest" id="latest">\n      <ul>\n',
            ul(flat[:LATEST]), '      </ul>\n    </section>\n  </div>\n']
     for d, items in days.items():
         out += [f'  <h2 class="day">{d}</h2>\n  <div class="list">\n    <section class="release" id="u{d.replace("-", "")}">\n      <ul>\n',
