@@ -7,6 +7,7 @@ import { basicMat, disposeTree, dynGroup, shared } from './render.ts';
 // - fireball(x, y, z, radius, color): a flash that grows to `radius` and fades in 0.5 s
 // - clearFx(): remove everything (when a level is torn down)
 // FX.particles / FX.fireballs are the systems; set their .modes to the game's mode names (default: every mode).
+// FX.partMat lets a game draw the particles its own way (see FX below).
 const PART_POOL = 300; // particle cubes made up front and reused in a ring
 const PART_GRAVITY = 14; // default downward pull of a particle (m/s^2)
 const PART_LIFE = 0.6; // default particle life when burst() gets none (s)
@@ -55,7 +56,7 @@ export function burst(
   for (let k = 0; k < n; k++) {
     partIdx = (partIdx + 1) % parts.length;
     const p = parts[partIdx];
-    p.mesh.material = basicMat(color);
+    p.mesh.material = FX.partMat ? FX.partMat(color, grav !== undefined && grav < 0) : basicMat(color);
     p.mesh.visible = true;
     p.mesh.position.set(x, y, z);
     const a = Math.random() * Math.PI * 2,
@@ -132,7 +133,15 @@ export function clearFx() {
     p.mesh.visible = false;
   });
 }
-export const FX = {
+// partMat: a game's own material for a particle of a colour (rising = it is smoke: burst() got a gravity below 0);
+// unset, a particle is a flat cube of the colour. A game may also give the particles another shape: `parts` are the
+// meshes (set their geometry once, to a shared one)
+export const FX: {
+  fireballs: ReturnType<typeof addSystem>;
+  particles: ReturnType<typeof addSystem>;
+  partMat: ((color: number, rising: boolean) => THREE.MeshBasicMaterial) | null;
+} = {
   fireballs: addSystem({ name: 'fireballs', order: 40, update: updateBalls }),
   particles: addSystem({ name: 'particles', order: 41, update: updateParts }),
+  partMat: null,
 };

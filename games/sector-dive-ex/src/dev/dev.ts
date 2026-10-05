@@ -11,6 +11,7 @@ import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { devPlainLooks } from '../world/looks.ts';
+import { useSparkLooks } from '../world/sparkLooks.ts';
 import { setHazardClock } from '../world/hazards.ts';
 import { devPlainGuns } from '../actors/viewmodel.ts';
 import { makePortal } from '../world/portals.ts';
@@ -37,6 +38,7 @@ import { update } from '../flow/update.ts';
 if (new URLSearchParams(location.search).has('plain')) {
   devPlainLooks(true);
   devPlainGuns();
+  useSparkLooks();
 }
 // dev: ?hazon keeps the hazard floors live (to look at them lit)
 if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHazardClock(0.5), 50);
