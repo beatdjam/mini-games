@@ -24,6 +24,7 @@ import { rebootMul } from '../core/rules.ts';
 import { geoCache } from './render.ts';
 import { level } from './level.ts';
 import { plainLooks } from './looks.ts';
+import { dressEBullet } from './ebulletLooks.ts';
 const TRACER_HOT = 0xfff0c4; // a tracer's colour
 const ROCKET_STEEL = 0x6f777f; // a rocket's body
 
@@ -148,6 +149,7 @@ function spawnEBullet(
   b.mesh.scale.setScalar(b.size);
   b.mesh.visible = true;
   b.mesh.position.set(x, y, z);
+  dressEBullet(b, color || COLOR.mag);
 }
 export function shootAngle(
   x: number,

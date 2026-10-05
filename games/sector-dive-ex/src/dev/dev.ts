@@ -12,11 +12,12 @@ import { devSeed, level } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { devPlainLooks } from '../world/looks.ts';
 import { setHazardClock } from '../world/hazards.ts';
+import { devEBulletStyle } from '../world/ebulletLooks.ts';
 import { devPlainGuns } from '../actors/viewmodel.ts';
 import { makePortal } from '../world/portals.ts';
 import { COLOR } from '../data/colors.ts';
 import { setFireHeld } from '@engine/ui/input.ts';
-import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
+import { addPickup, enemies, fanAt, removeEnemyMesh, ring, shootAtPoint, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
 import { damagePlayer } from '../actors/combat.ts';
 import { magSize, newWeapon } from '../actors/weapons.ts';
@@ -38,6 +39,9 @@ if (new URLSearchParams(location.search).has('plain')) {
   devPlainLooks(true);
   devPlainGuns();
 }
+// dev: ?ebullet=a / ?ebullet=b shows the enemies' bullets in a trial look (world/ebulletLooks.ts)
+const ebullet = new URLSearchParams(location.search).get('ebullet');
+if (ebullet === 'a' || ebullet === 'b') devEBulletStyle(ebullet);
 // dev: ?hazon keeps the hazard floors live (to look at them lit)
 if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHazardClock(0.5), 50);
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
@@ -261,6 +265,42 @@ if (location.hash.startsWith('#view-pick'))
     setState('play');
     addPickup('weapon', player.x + 0.3, player.z, { w: newWeapon('shotgun', 1, false, 2, ['rate']) });
     for (let k = 0; k < 10; k++) update(1 / 60);
+  }, 300);
+// dev view: #view-ebullets stands in the start room while enemy bullets come: rings (as a boss fires), fans aimed
+// at the player and a big slow one, from a point ahead (for screenshots of how the bullets look). ?sector= as above
+if (location.hash === '#view-ebullets')
+  setTimeout(() => {
+    startRun();
+    const sector = BIOMES.findIndex(x => x.code === new URLSearchParams(location.search).get('sector'));
+    if (sector >= 0) {
+      run.route = [sector];
+      run.bld = undefined;
+      startStage();
+    }
+    show(null);
+    setState('play');
+    player.hp = 1e6;
+    player.maxHp = 1e6;
+    enemies.forEach(e => {
+      e.dead = true;
+      removeEnemyMesh(e);
+    });
+    const from = (d: number, side: number): [number, number] => [
+      player.x - Math.sin(player.yaw) * d + Math.cos(player.yaw) * side,
+      player.z - Math.cos(player.yaw) * d - Math.sin(player.yaw) * side,
+    ];
+    // a few volleys, the game run on by hand between them (a screenshot's clock hardly moves the game's own)
+    for (let frame = 0; frame < 80; frame++) {
+      if (frame % 36 === 0) {
+        const [x, z] = from(11, 0),
+          [fx, fz] = from(10, -5),
+          [bx, bz] = from(10, 5);
+        ring(x, 1.4, z, 16, 5, frame * 0.01, 1, COLOR.mag);
+        fanAt(fx, 1.6, fz, 5, 0.5, 5, 1, COLOR.yellow);
+        shootAtPoint(bx, 1.6, bz, player.x, 1.4, player.z, 4, 1, COLOR.orange, 2);
+      }
+      update(1 / 60);
+    }
   }, 300);
 // dev view: #view-fx-<weapon> stands in the start room with that weapon, the trigger held (its muzzle flash and its
 // bullets in the air), a gate of each kind ahead (for screenshots of the effects). ?sector=KWLN picks the sector
