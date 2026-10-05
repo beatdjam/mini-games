@@ -30,6 +30,7 @@ import { FLOOR_H } from './building.ts';
 import type { Building } from './building.ts';
 import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import { lookOf } from './looks.ts';
+import { liftPaint, paint } from './looks/common.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import type { Portal } from './portals.ts';
@@ -218,6 +219,9 @@ function setFloorWorld(plan: FloorPlan) {
   });
 }
 const LIFT_PAD = { side: T * 0.92, thick: 0.16 }; // a lift's platform (m)
+const LIFT_SIDE = 0x2b2f34; // the platform's edge under its picture
+const LIFT_SEED = 77; // the picture's seed (the same platform every time)
+let liftTop: THREE.CanvasTexture | null = null; // the picture on a lift's platform, made once
 const HALL_NEAR = 14; // this close to the boss room's door counts as at the boss room (m)
 const NEIGHBOUR_SHOW_R = 40; // the floors above and below are drawn within this of a stairwell or lift, or the fog's end if nearer (m)
 // Draws the other floors only while the player is near a stairwell or lift of this floor: the floors it leads to and
@@ -264,13 +268,21 @@ export function showBuilding(b: Building) {
     all.add(g);
     floorGroups.push(g);
   });
-  const w = b.plans[0]!.gen.W;
+  const w = b.plans[0]!.gen.W,
+    look = lookOf(b.biome);
   b.links.forEach((l, n) => {
     if (l.kind !== 'elevator') return;
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(LIFT_PAD.side, LIFT_PAD.thick, LIFT_PAD.side),
-      new THREE.MeshBasicMaterial({ color: COLOR.violet }),
-    );
+    // a sector with a look has the platform's picture on top (the same in every sector); else it is plain violet
+    const side = new THREE.MeshBasicMaterial({ color: look ? LIFT_SIDE : COLOR.violet }),
+      top = look ? new THREE.MeshBasicMaterial({ map: (liftTop ??= paint(LIFT_SEED, liftPaint)) }) : side,
+      mesh = new THREE.Mesh(new THREE.BoxGeometry(LIFT_PAD.side, LIFT_PAD.thick, LIFT_PAD.side), [
+        side,
+        side,
+        top,
+        side,
+        side,
+        side,
+      ]);
     mesh.position.set(tileCenter(l.a % w), -LIFT_PAD.thick / 2 + 0.02, tileCenter(Math.floor(l.a / w)));
     all.add(mesh);
     liftPads.push({ link: n, mesh });
