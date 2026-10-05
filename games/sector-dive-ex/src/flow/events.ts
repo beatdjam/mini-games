@@ -182,13 +182,8 @@ function roomsLeft(): number {
   return b.plans.reduce(
     (sum, p, floor) =>
       sum +
-      p.gen.rooms.filter(
-        (_, idx) =>
-          idx !== p.gen.startIdx &&
-          idx !== p.hall?.room &&
-          !(b.quiet && b.quiet.floor === floor && b.quiet.room === idx) &&
-          !done[floor]!.includes(idx),
-      ).length,
+      p.gen.rooms.filter((_, idx) => idx !== p.gen.startIdx && idx !== p.hall?.room && !done[floor]!.includes(idx))
+        .length,
     0,
   );
 }

@@ -264,10 +264,7 @@ function placePlayerOnFloor(st: BuildingState) {
 function populateFloor(b: Biome, tier: number, plan: FloorPlan, st: BuildingState) {
   const diff = difficultyAt(run.stage),
     done = st.cleared[st.floor]!,
-    quiet = building!.quiet,
-    isQuiet = (idx: number) => !!quiet && quiet.floor === st.floor && quiet.room === idx,
-    hasEnemies = (idx: number) =>
-      idx !== plan.gen.startIdx && idx !== plan.hall?.room && !isQuiet(idx) && !done.includes(idx);
+    hasEnemies = (idx: number) => idx !== plan.gen.startIdx && idx !== plan.hall?.room && !done.includes(idx);
   level.rooms.forEach((r, idx) => {
     if (!hasEnemies(idx)) return;
     const n = roomEnemyCount(r, b);
