@@ -26,6 +26,7 @@ import {
   cover,
   floorY,
   grid,
+  hasLOS,
   hgt,
   isSolid,
   moveCircle,
@@ -43,6 +44,7 @@ import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlay
 import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
 import { EYE, PLAT_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
+import { gunLook, hasGunLook } from '../src/actors/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
@@ -72,7 +74,17 @@ import {
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import { buildFixedLevel, buildLevel, floorDrawn, level, roomSpot } from '../src/world/level.ts';
+import {
+  buildFixedLevel,
+  buildLevel,
+  floorDrawn,
+  followersOnTheWay,
+  level,
+  reveal,
+  roomSpot,
+  showNeighbourFloors,
+  stashedRoomCount,
+} from '../src/world/level.ts';
 import { hazardState } from '../src/world/hazards.ts';
 import { generateLevel } from '../src/world/levelGen.ts';
 import type { GeneratedLevel } from '../src/world/levelGen.ts';
@@ -95,7 +107,7 @@ import { critChance, fillMag, rollWeapon, magSize, newWeapon, weaponStats } from
 import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/combat.ts';
 import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { RUNNING_SPREAD, findTarget, fire, shotId } from '../src/actors/firing.ts';
-import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
+import { arenaRoom, bossDifficulty, minionCount, spawnBoss, spawnMinion } from '../src/actors/bosses/common.ts';
 import { KEY_ACTIONS } from '../src/data/controls.ts';
 import { setKeyBindings } from '../src/core/progress.ts';
 import { applyKeyBindings, controlState, equipNearby, stowNearby } from '../src/ui/input.ts';
@@ -110,6 +122,7 @@ import {
   startRun,
   startStage,
   useLink,
+  crossToFloor,
 } from '../src/flow/run.ts';
 import {
   FLOORS_RANGE,
@@ -130,7 +143,8 @@ import { pause, statsHTML } from '../src/screens/pause.ts';
 import { renderBase, showTab, weaponStatText } from '../src/screens/base.ts';
 import { shareData, shareText } from '../src/ui/share.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
-import { update, updatePickups } from '../src/flow/update.ts';
+import { time, update, updatePickups } from '../src/flow/update.ts';
+import { LOOP, runSystems } from '@engine/core/loop.ts';
 import { TRACK_LOG } from '@engine/core/analytics.ts';
 import { FEEDBACK_FORM } from '@engine/core/feedback.ts';
 import { COLOR } from '../src/data/colors.ts';
@@ -563,6 +577,40 @@ test('viewmodels: no two parts have a flat face in the same place (it would flic
             if (Math.abs(bs[a][side][ax] - bs[b][side][ax]) > 1e-9) continue;
             const others = [0, 1, 2].filter(k => k !== ax);
             if (others.every(k => Math.min(bs[a].hi[k], bs[b].hi[k]) - Math.max(bs[a].lo[k], bs[b].lo[k]) > 1e-9))
+              clash.push(`${id} parts ${a}/${b} ${'xyz'[ax]} ${side}`);
+          }
+        }
+  }
+  expect(clash).toEqual([]);
+});
+test('gun looks: every weapon has one, and no two of its parts have a flat face in the same place', () => {
+  const clash: string[] = [];
+  for (const id of WEAPON_ORDER) {
+    expect(hasGunLook(id), id).toBe(true);
+    const g = gunLook(id, 0xffffff);
+    expect(g.userData.tip && g.userData.flash && g.userData.pos, `${id}: what the game reads from a gun`).toBeTruthy();
+    // each part as an axis-aligned box; a cylinder only counts by its end caps (along z); tilted parts are left out
+    const bs = g.children.flatMap(c => {
+      const geo = (c as THREE.Mesh).geometry as THREE.BufferGeometry & { parameters?: Record<string, number> },
+        q = geo?.parameters,
+        at = c.position;
+      if (!q || geo.type === 'SphereGeometry') return [];
+      const cyl = geo.type === 'CylinderGeometry';
+      if (!cyl && c.rotation.x !== 0) return [];
+      const half = cyl ? [q.radiusTop!, q.radiusTop!, q.height! / 2] : [q.width! / 2, q.height! / 2, q.depth! / 2],
+        mid = [at.x, at.y, at.z];
+      return [{ cyl, lo: mid.map((v, k) => v - half[k]!), hi: mid.map((v, k) => v + half[k]!) }];
+    });
+    for (let a = 0; a < bs.length; a++)
+      for (let b = a + 1; b < bs.length; b++)
+        for (let ax = 0; ax < 3; ax++) {
+          if ((bs[a]!.cyl || bs[b]!.cyl) && ax !== 2) continue;
+          for (const side of ['lo', 'hi'] as const) {
+            if (Math.abs(bs[a]![side][ax]! - bs[b]![side][ax]!) > 1e-9) continue;
+            const others = [0, 1, 2].filter(k => k !== ax);
+            if (
+              others.every(k => Math.min(bs[a]!.hi[k]!, bs[b]!.hi[k]!) - Math.max(bs[a]!.lo[k]!, bs[b]!.lo[k]!) > 1e-9)
+            )
               clash.push(`${id} parts ${a}/${b} ${'xyz'[ax]} ${side}`);
           }
         }
@@ -1889,6 +1937,36 @@ function putOnTile(k: number) {
   player.fy = floorY(player.x, player.z);
   player.vy = 0;
 }
+test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
+  // a door stands across a corridor: floor before and behind it, wall on its two sides
+  for (let seed = 1; seed <= 40; seed++) {
+    const b = makeBuilding(BIOMES[seed % BIOMES.length]!, 'watcher', seed);
+    b.plans.forEach((p, floor) => {
+      const { W: w, maps } = p.gen;
+      maps.door?.forEach((v, k) => {
+        if (!v) return;
+        // (the other half of a door 2 tiles wide is floor beside it, but it is a door)
+        const open = (t: number) => maps.grid[t] === 1 && !maps.door![t],
+          alongX = open(k - 1) || open(k + 1),
+          alongZ = open(k - w) || open(k + w);
+        expect(alongX && alongZ, `seed ${seed} floor ${floor} door ${k}`).toBe(false);
+      });
+    });
+  }
+});
+test('building: a sector with corridors 2 wide has doors 2 tiles wide, so a room that can be shut (a lockdown)', () => {
+  const city = BIOMES.find(x => x.gen.corridorW === 2)!;
+  for (const seed of [31, 62, 93]) {
+    const b = makeBuilding(city, city.bosses[0]!, seed);
+    expect(b.lockdown, `seed ${seed}`).not.toBeNull();
+    const p = b.plans[b.lockdown!.floor]!,
+      door = p.gen.maps.door!,
+      doors = roomDoors(p.gen, b.lockdown!.room).doors;
+    // every door tile of the room has its other half beside it, or is a door 1 wide (the corridor to the boss room)
+    for (const k of doors)
+      expect([k - 1, k + 1, k - p.gen.W, k + p.gen.W].filter(t => door[t]).length, `door ${k}`).toBeLessThanOrEqual(1);
+  }
+});
 test('building: the same seed gives the same three floors, joined at the same places, the boss room lowest', () => {
   const a = makeBuilding(BIOMES[0]!, 'watcher', 1234),
     b = makeBuilding(BIOMES[0]!, 'watcher', 1234),
@@ -1917,8 +1995,8 @@ test('building: the same seed gives the same three floors, joined at the same pl
         last = bld.plans[bld.plans.length - 1]!,
         hall = last.gen.rooms[last.hall!.room]!;
       expect(`${hall.w}x${hall.h}`, at).toBe('12x12');
-      expect(last.gen.rooms.length - 1, at).toBeGreaterThanOrEqual(2);
-      expect(last.gen.rooms.length - 1, at).toBeLessThanOrEqual(3);
+      expect(last.gen.rooms.length - 1, at).toBeGreaterThanOrEqual(3);
+      expect(last.gen.rooms.length - 1, at).toBeLessThanOrEqual(4);
       // the boss's pillars stand where they do in a boss arena (2 tiles in from the corners)
       expect(last.gen.maps.grid[(hall.y + 2) * last.gen.W + hall.x + 2], at).toBe(BOSS_META[kind]!.pillars ? 0 : 1);
       // the route: every floor once, from the top to the lowest, never more than two floors at a step
@@ -1973,7 +2051,11 @@ test('building: the same seed gives the same three floors, joined at the same pl
         const door = p.gen.maps.door;
         door?.forEach((v, k) => {
           if (!v) return;
-          for (const step of [1, p.gen.W]) for (const n of [1, 2]) expect(door[k + step * n], at).toBeFalsy();
+          // along the corridor: the axis with floor that is not door on it (the other half of a door 2 tiles wide
+          // is beside it, across the corridor)
+          const grid = p.gen.maps.grid,
+            step = [1, p.gen.W].find(st => [k - st, k + st].some(t => grid[t] === 1 && !door[t]))!;
+          for (const n of [1, 2]) expect(door[k + step * n], at).toBeFalsy();
         });
       });
       expect(last.gen.maps.door![last.hall!.door], at).toBe(1);
@@ -1994,9 +2076,18 @@ test('building: the same seed gives the same three floors, joined at the same pl
     }
 });
 test('building run: a cleared room stays empty across floors and a resume; the checkpoint follows the floor', () => {
-  goBase();
-  startRun();
-  tick(5);
+  // a building whose top floor has at least two ordinary rooms with enemies (one to empty, one to wound an enemy in):
+  // on a small top floor the lockdown room can leave fewer
+  const plainRooms = () => {
+    const ld0 = building!.lockdown;
+    return level.roomCount.filter((n, idx) => n > 0 && !(ld0 && ld0.floor === 0 && ld0.room === idx)).length;
+  };
+  for (let k = 0; k < 40; k++) {
+    goBase();
+    startRun();
+    tick(5);
+    if (plainRooms() >= 2) break;
+  }
   player.hp = 1e6;
   player.maxHp = 1e6;
   expect(level.floor).toBe(0);
@@ -2025,6 +2116,8 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   expect(level.floor).toBe(next);
   expect(run.bld!.step, 'the second floor of the route, whichever floor that is').toBe(1);
   expect(stageLabel(run.stage)).toBe(`D${run.bld!.tier + 1} 2/${run.bld!.floors}`);
+  // the top-left label also says which floor of the building this is, counted from the top
+  expect(el('#stageLbl').textContent).toContain(` ${next + 1}F`);
   expect(progressOf(run.stage), 'the strength follows the route').toBeCloseTo(run.bld!.tier * 5 + 4 / run.bld!.floors);
   expect(tileIndex(player.x, player.z), 'the player stands where the link ends on this floor').toBe(arrive.b);
   // at the top of a stairwell that is a floor above this floor's ground; on a lift's platform it is the ground
@@ -2237,6 +2330,144 @@ test('running: the dash held on after a dash keeps the player fast and drains st
   startRun();
   tick(2);
 });
+test('map: what lies behind a wall stays off the map until the player has a line to it', () => {
+  const b = building!,
+    mid = (k: number): [number, number] => [((k % W) + 0.5) * T, (Math.floor(k / W) + 0.5) * T];
+  let checked = 0;
+  b.plans.forEach((plan, floor) => {
+    goToFloor(floor);
+    // a corridor tile to stand on, and a floor tile inside the map's reveal circle (4 tiles) with a wall between the
+    // two. (From a corridor: standing in a room opens the whole room, whatever is in the way.) Any floor has such a
+    // pair: wherever two corridors, or a corridor and a room, lie a wall apart
+    let from = -1,
+      hidden = -1;
+    for (let q = 0; q < W * H && hidden < 0; q++) {
+      if (grid[q] !== 1 || level.roomOf[q]! >= 0) continue;
+      for (let dj = -4; dj <= 4 && hidden < 0; dj++)
+        for (let di = -4; di <= 4 && hidden < 0; di++) {
+          const k = q + dj * W + di;
+          if (di * di + dj * dj > 16 || k < 0 || k >= W * H || grid[k] !== 1) continue;
+          if (hasLOS(...mid(q), ...mid(k))) continue;
+          from = q;
+          hidden = k;
+        }
+    }
+    if (hidden < 0) return;
+    checked++;
+    plan.seen.fill(0);
+    reveal(from % W, Math.floor(from / W));
+    expect(plan.seen[from], 'the tile stood on is on the map').toBe(1);
+    expect(plan.seen[hidden], `floor ${floor}: the tile behind the wall is not`).toBe(0);
+    reveal(hidden % W, Math.floor(hidden / W));
+    expect(plan.seen[hidden], 'standing on it puts it on the map').toBe(1);
+  });
+  expect(checked, 'every floor has a wall with floor on both sides').toBe(b.plans.length);
+  goToFloor(0);
+});
+test('dash: in long frames (20 fps) a dash still goes up a stairwell', () => {
+  const b = building!,
+    stairs = b.links.find(l => l.kind === 'stairs');
+  if (!stairs) return; // a building without a stairwell: nothing to climb
+  goToFloor(stairs.lower);
+  const step = stairs.strip[1]! - stairs.strip[0]!,
+    di = Math.abs(step) === 1 ? step : 0,
+    dj = Math.abs(step) === 1 ? 0 : Math.sign(step);
+  putOnTile(stairs.strip[0]!);
+  const from = { x: player.x, z: player.z };
+  player.dashT = TUNE.dashTime;
+  player.ddx = di;
+  player.ddz = dj;
+  for (let k = 0; k < 4; k++) runSystems(0.05);
+  // 0.2 s of dash is about 4.9 m; stopped at the first metre of the ramp it would be about 2.4 m
+  expect(Math.hypot(player.x - from.x, player.z - from.z), 'how far the dash went').toBeGreaterThan(4);
+  expect(player.fy, 'and it climbed').toBeGreaterThan(1);
+  goToFloor(0);
+});
+test('followers: an awake enemy close behind comes down the stairwell after the player and still counts for its room', () => {
+  const b = building!,
+    l = b.links.find(x => x.kind === 'stairs');
+  if (!l) return; // a building without a stairwell: nobody can follow
+  goToFloor(l.upper);
+  // nobody else on the floor (twice over: a splitter leaves its halves, awake)
+  for (let k = 0; k < 3; k++) enemies.slice().forEach(e => hurtEnemy(e, 1e6, false));
+  tick(1);
+  expect(enemies.filter(e => !e.dead).length).toBe(0);
+  const l1 = l.strip[l.strip.length - 2]!,
+    l2 = l.strip[l.strip.length - 1]!,
+    behind = l2 + (l2 - l1), // the upper floor's corridor, one tile past the landing
+    // (not the lockdown room: cleared from another floor before its lockdown, it is not marked cleared)
+    room = level.rooms.findIndex(
+      (_, r) => r !== level.startIdx && !(b.lockdown?.floor === l.upper && b.lockdown.room === r),
+    );
+  putOnTile(l2);
+  tick(2);
+  // the last enemy of a room of this floor, awake, two tiles behind the player
+  const e = spawnEnemy('crawler', ((behind % W) + 0.5) * T, (Math.floor(behind / W) + 0.5) * T, room, 1);
+  e.active = true;
+  level.roomCount[room] = 1;
+  run.bld!.cleared[l.upper] = run.bld!.cleared[l.upper]!.filter(r => r !== room);
+  putOnTile(l1);
+  tick(1);
+  expect(level.floor, 'the player is on the floor below').toBe(l.lower);
+  expect(enemies.includes(e), 'the enemy is off the field, on its way').toBe(false);
+  expect(followersOnTheWay()).toBe(1);
+  expect(stashedRoomCount(l.upper)![room], 'its room is not cleared yet').toBe(1);
+  tick(150);
+  expect(enemies.includes(e), 'it came out on this floor').toBe(true);
+  expect(followersOnTheWay()).toBe(0);
+  expect(e.floor, 'it still belongs to the floor above').toBe(l.upper);
+  const pickups = query('pickup').length;
+  hurtEnemy(e, 1e6, false);
+  expect(stashedRoomCount(l.upper)![room], 'killed here, its room above is cleared').toBe(0);
+  expect(run.bld!.cleared[l.upper]).toContain(room);
+  expect(query('pickup').length, 'and the reward dropped here').toBeGreaterThan(pickups);
+  // a lift leaves the enemies behind
+  const lift = b.links.find(x => x.kind === 'elevator');
+  if (lift) {
+    goToFloor(lift.upper);
+    const near = spawnEnemy('crawler', player.x + 1, player.z, -1, 1);
+    near.active = true;
+    tick(1);
+    crossToFloor(b.links.indexOf(lift), lift.lower);
+    expect(followersOnTheWay(), 'nobody follows a lift').toBe(0);
+  }
+  goToFloor(0);
+});
+test("boss room: only the enemies in it count as the boss's minions, and it is the room the boss calls them into", () => {
+  const b = building!,
+    last = b.plans.length - 1;
+  goToFloor(last);
+  const hall = level.rooms[level.hall!.room]!;
+  // the floor's other rooms have their enemies: none of them is a minion
+  expect(enemies.filter(e => !e.dead).length, 'enemies on the floor').toBeGreaterThan(0);
+  expect(minionCount(), 'none of them in the boss room').toBe(0);
+  expect(arenaRoom(), 'the room the boss fights in is the boss room, not the first room of the floor').toBe(hall);
+  // one called into the boss room is counted
+  const m = spawnMinion('drone', (hall.x + hall.w / 2) * T, (hall.y + hall.h / 2) * T);
+  expect(minionCount()).toBe(1);
+  hurtEnemy(m, 1e6, false);
+  goToFloor(0);
+});
+test('boss room: in it and at its door only its own floor is drawn (the room is higher than a floor)', () => {
+  const b = building!,
+    last = b.plans.length - 1,
+    hall = b.plans[last]!.hall!,
+    r = b.plans[last]!.gen.rooms[hall.room]!,
+    drawn = () => b.plans.map((_, m) => floorDrawn(m)).join(),
+    own = b.plans.map((_, m) => m === last).join();
+  goToFloor(last);
+  // the stairwell or lift that comes down to this floor: next to it the floors above are drawn
+  const link = b.links.find(l => l.lower === last)!;
+  putOnTile(link.strip[0]!);
+  showNeighbourFloors(b, player.x, player.z);
+  expect(floorDrawn(link.upper), 'by the way down, the floor above shows').toBe(true);
+  for (const k of [(r.y + 1) * W + r.x + 1, hall.door]) {
+    putOnTile(k);
+    showNeighbourFloors(b, player.x, player.z);
+    expect(drawn(), 'in the boss room and on its door').toBe(own);
+  }
+  goToFloor(0);
+});
 test('big map: the map key opens and closes it, the 3D map key turns to the 3D page, a tap cycles', () => {
   goToFloor(0);
   const flat = el<HTMLCanvasElement>('#bigmap'),
@@ -2252,6 +2483,26 @@ test('big map: the map key opens and closes it, the 3D map key turns to the 3D p
   tick(2);
   expect(pages(), 'the 3D page lies over the 2D one').toEqual([false, false]);
   expect(map3dWanted()).toBe(true);
+  // the game stands still while the 3D map is up: the loop is in the map's own mode, where no system of the dive runs
+  expect(LOOP.mode()).toBe('map');
+  const clock = time,
+    enemyAt = enemies
+      .filter(e => !e.dead)
+      .map(e => `${e.x},${e.z}`)
+      .join();
+  enemies.forEach(e => {
+    e.active = true;
+  });
+  for (let k = 0; k < 30; k++) runSystems(1 / 60);
+  expect(time, 'the dive clock has not moved').toBe(clock);
+  expect(
+    enemies
+      .filter(e => !e.dead)
+      .map(e => `${e.x},${e.z}`)
+      .join(),
+    'nor has any enemy',
+  ).toBe(enemyAt);
+  expect(solid.hidden, 'the map is still drawn').toBe(false);
   // while the 3D page is up the move keys turn the map: the player stands still
   const at = [player.x, player.z].join();
   joy.y = -1;
@@ -2269,6 +2520,7 @@ test('big map: the map key opens and closes it, the 3D map key turns to the 3D p
   tick(2);
   expect(pages(), 'the map key closes it from the 3D page too').toEqual([true, true]);
   expect(map3dWanted()).toBe(false);
+  expect(LOOP.mode(), 'the game runs again').toBe('play');
   // straight to the 3D page from closed
   toggleMap3D();
   tick(2);
@@ -2463,6 +2715,27 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
   expect(locked(), 'open again').toBe(false);
   expect(doors.some(k => isDoorLocked(world, k))).toBe(false);
   expect(run.bld!.cleared[ld.floor]).toContain(ld.room);
-  expect(chips(), 'a chip to pick up').toBe(chipsWas + 1);
+  // the reward: two chips (one whose choices are all rare) and a weapon of the second rarity or better
+  const reward = query<Pickup>('pickup');
+  expect(chips(), 'two chips to pick up').toBe(chipsWas + 2);
+  expect(reward.filter(q => q.kind === 'chip' && q.rare).length).toBe(1);
+  expect(
+    reward.some(q => q.kind === 'weapon' && q.w!.r >= 1),
+    'and a weapon',
+  ).toBe(true);
+  openPerk('test', undefined, undefined, 1, true);
+  const cards = [...document.querySelectorAll('#perkList .perk')];
+  expect(cards.length > 0 && cards.every(c => c.classList.contains('rare')), 'an all-rare pick').toBe(true);
+  show(null);
+  setState('play');
+  // every other room of the building has its enemies: a lockdown takes no ordinary fight away (the room before the
+  // boss and the start room aside)
+  building!.plans.forEach((p, floor) => {
+    goToFloor(floor);
+    p.gen.rooms.forEach((_, room) => {
+      const empty = room === p.gen.startIdx || room === p.hall?.room || run.bld!.cleared[floor]!.includes(room);
+      expect(level.roomCount[room]! > 0, `floor ${floor} room ${room}`).toBe(!empty);
+    });
+  });
   goBase();
 });

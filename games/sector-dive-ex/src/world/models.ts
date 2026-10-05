@@ -4,20 +4,29 @@ import { V3, basicMat, dynGroup, lineMat } from '@engine/render/render.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { COLOR } from '../data/colors.ts';
 import { edges, geoCache } from './render.ts';
+import { LOOK_GLOW, dressTrooper, enemyHullMat, enemyLook, lightPool } from './enemyLooks.ts';
+import type { EnemyAnim } from './enemyLooks.ts';
+import { plainLooks } from './looks.ts';
+import { pickupLook } from './itemLooks.ts';
 // ================= models =================
 // the three.js models of enemies and pickups, and the aimed laser line; entities.ts makes the entity objects around them
 
 // The trooper: boxes on joints. The group's origin is at the hips (def.y above the feet) and it faces +z like the others.
 // rig = the joints its walk / aim animation turns (poseHumanoid in src/actors/enemies.ts); body = the upper body (it looks
 // around while idle)
-function buildHumanoid(def: EnemyDef, mat: THREE.Material) {
+// outline = the glowing edges of the plain look (a look's trooper is armour plate without them, with its armour and
+// kit put on the joints: dressTrooper in world/enemyLooks.ts)
+function buildHumanoid(def: EnemyDef, mat: THREE.Material, outline = true) {
   const g = new THREE.Group();
   const part = (key: string, parent: THREE.Object3D, x: number, y: number, z: number, m: THREE.Material = mat) => {
-    const o = new THREE.Mesh(geoCache[key], m),
-      l = new THREE.LineSegments(edges(key), lineMat(def.color));
+    const o = new THREE.Mesh(geoCache[key], m);
     o.position.set(x, y, z);
-    l.position.copy(o.position);
-    parent.add(o, l);
+    parent.add(o);
+    if (outline) {
+      const l = new THREE.LineSegments(edges(key), lineMat(def.color));
+      l.position.copy(o.position);
+      parent.add(l);
+    }
     return o;
   };
   const joint = (parent: THREE.Object3D, x: number, y: number, z: number) => {
@@ -45,11 +54,33 @@ function buildHumanoid(def: EnemyDef, mat: THREE.Material) {
   g.userData.rig = { upper, neck, armL, armR, legL, legR };
   return { g, body: upper };
 }
-export function buildEnemyMesh(def: EnemyDef) {
-  const mat = new THREE.MeshLambertMaterial({ color: 0x10161d, emissive: def.color, emissiveIntensity: 0.4 });
+// g = the model, mat = the body material (it flashes when hit), body = the part the plain animation turns, glow = the
+// body's own glow (emissive intensity) when it is not flashing; anim = how a look's parts move (world/enemyLooks.ts)
+interface EnemyMesh {
+  g: THREE.Group;
+  mat: THREE.MeshLambertMaterial;
+  body: THREE.Object3D;
+  glow: number;
+  anim?: EnemyAnim;
+}
+const PLAIN_GLOW = 0.4;
+export function buildEnemyMesh(def: EnemyDef): EnemyMesh {
+  // a machine in armour plate (world/enemyLooks.ts), unless the plain looks are on (dev) or the type has none
+  if (!plainLooks()) {
+    if (def.humanoid) {
+      const mat = enemyHullMat(def),
+        h = buildHumanoid(def, mat, false);
+      dressTrooper(h.g.userData.rig, mat, def.color);
+      h.g.add(lightPool(def));
+      return { g: h.g, mat, body: h.body, glow: LOOK_GLOW };
+    }
+    const look = enemyLook(def);
+    if (look) return { ...look, glow: LOOK_GLOW };
+  }
+  const mat = new THREE.MeshLambertMaterial({ color: 0x10161d, emissive: def.color, emissiveIntensity: PLAIN_GLOW });
   if (def.humanoid) {
     const h = buildHumanoid(def, mat);
-    return { g: h.g, mat, body: h.body };
+    return { g: h.g, mat, body: h.body, glow: PLAIN_GLOW };
   }
   const g = new THREE.Group();
   const body = new THREE.Mesh(geoCache[def.geo], mat);
@@ -73,10 +104,13 @@ export function buildEnemyMesh(def: EnemyDef) {
     eye.position.set(0, 0.7, 0.25);
     g.add(eye);
   }
-  return { g, mat, body };
+  return { g, mat, body, glow: PLAIN_GLOW };
 }
 // the model of a pickup (a weapon drop takes the weapon `w`); the caller places it
 export function buildPickupMesh(kind: PickupKind, w?: Weapon): THREE.Object3D {
+  // the thing itself (world/itemLooks.ts), unless the plain looks are on (dev) or it has no look
+  const look = plainLooks() ? null : pickupLook(kind, w);
+  if (look) return look;
   let mesh: THREE.Object3D;
   if (kind === 'bit') mesh = new THREE.Mesh(geoCache.bit, basicMat(COLOR.amber));
   else if (kind === 'kit') {

@@ -149,13 +149,15 @@ interface EnemyBase extends WorldObject {
   maxHp: number;
   dmg: number;
   room: number;
+  floor?: number; // in a building: the floor its room is on (it may have followed the player to another one)
   active: boolean;
   t: number;
   flash: number; // room: -1 = not tied to a room; t: animation clock
   update?(dt: number): void;
   parts?: HitSphere[]; // trooper, Trinity
   laser?: Laser | null; // sniper, Phantom (null once removed)
-  extra?: THREE.Object3D[]; // meshes removed with it (Trinity's bodies)
+  extra?: THREE.Object3D[]; // meshes removed with it (Trinity's bodies, a boss's pool of light)
+  pool?: THREE.Object3D; // a boss with a look: the pool of its colour on the ground under it
   stunMul?: number; // bosses: damage multiplier while stunned or open
   invuln?: boolean;
   hinted?: boolean; // Bastion: shielded; whether the hint toast was shown
@@ -205,7 +207,7 @@ export type Trooper = RegularEnemy & {
   kick: number;
   parts: HitSphere[];
 };
-interface HumanoidRig {
+export interface HumanoidRig {
   upper: THREE.Object3D;
   neck: THREE.Object3D;
   armL: THREE.Object3D;
@@ -423,6 +425,7 @@ export interface Pickup extends WorldObject {
   dead: boolean;
   value?: number;
   w?: Weapon;
+  rare?: boolean; // a chip whose choices are all the rare version (a lockdown's reward)
 }
 // a ground shockwave ring (engine world tag 'wave'): grows to max radius, hurts the player once when the ring passes
 export interface Wave extends WorldObject {

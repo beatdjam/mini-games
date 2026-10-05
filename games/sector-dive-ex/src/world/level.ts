@@ -8,7 +8,9 @@ import {
   T,
   W,
   computeFlow,
+  floorY,
   flow,
+  hasLOS,
   inBounds,
   setTileWorld,
   tileCenter,
@@ -20,7 +22,7 @@ import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { COLOR } from '../data/colors.ts';
-import type { Biome, Enemy, Pickup } from '../data/types.ts';
+import type { Biome, Enemy, Pickup, RegularEnemy } from '../data/types.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear, setTarget } from './entities.ts';
 import { clearHazards } from './hazards.ts';
 import { ARENA_FROM, generateLevel } from './levelGen.ts';
@@ -28,6 +30,8 @@ import type { FloorPlan } from './building.ts';
 import { FLOOR_H } from './building.ts';
 import type { Building } from './building.ts';
 import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
+import { lookOf } from './looks.ts';
+import { liftPaint, paint } from './looks/common.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import type { Portal } from './portals.ts';
@@ -81,6 +85,7 @@ let buildingGroup: THREE.Group | null = null;
 let floorGroups: THREE.Group[] = [];
 let shown: Building | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
+let hallTop: THREE.Group | null = null; // the part of the boss room above WALL_H (levelMesh.ts buildFloorMeshes)
 export let liftPads: { link: number; mesh: THREE.Mesh }[] = [];
 export const buildingShown = (b: Building | null): boolean => !!b && shown === b;
 // What was left on the floors of the building on screen when the player went on to another floor: the enemies still
@@ -132,8 +137,76 @@ export function restoreFloor(): boolean {
   level.roomCount = s.roomCount;
   return true;
 }
+// the enemies-left-per-room counts kept for a floor that is not being played (undefined when nothing is kept)
+export const stashedRoomCount = (floor: number): number[] | undefined => floorStash.get(floor)?.roomCount;
+
+// ---- enemies that follow the player up or down a stairwell ----
+// When the player crosses to another floor by a stairwell, the awake enemies close behind are not left on the floor:
+// each comes out on the new floor, at the tile the player crossed on, after the time it needs to walk there. (Only
+// the floor being played is simulated, so on the way they are off the field: not drawn, not hit.) They keep their own
+// strength and still count for their own room. An enemy that stands still, a boss, and anything far away stay behind.
+const FOLLOW_TILES = 10; // followers are at most this many tiles of walking from the player when they cross
+const FOLLOW_GAP = 0.6; // seconds between two followers coming out, so that they do not come out on top of each other
+interface Follower {
+  e: Enemy;
+  from: number; // the floor it left (it goes back there if the player moves on before it arrives)
+  t: number; // seconds until it comes out
+  tile: number; // where it comes out
+}
+let followers: Follower[] = [];
+// Call right after stashFloor, with the tile the player crossed on and the flow distances of the floor just left
+// (tiles of walking to the player, by tile; negative = no way): takes the followers out of what was kept
+export function takeFollowers(from: number, tile: number, dist: (e: Enemy) => number) {
+  const s = floorStash.get(from);
+  if (!s) return;
+  const going: Follower[] = [];
+  s.enemies = s.enemies.filter(e => {
+    const d = dist(e),
+      speed = e.boss ? 0 : e.def.speed;
+    if (!e.active || e.dead || speed <= 0 || d < 0 || d > FOLLOW_TILES) return true;
+    going.push({ e, from, t: (d * T) / speed, tile });
+    return false;
+  });
+  // nearest first, and never two at once
+  going.sort((a, b) => a.t - b.t);
+  going.forEach((f, n) => {
+    f.t = Math.max(f.t, (going[n - 1]?.t ?? -FOLLOW_GAP) + FOLLOW_GAP);
+  });
+  followers.push(...going);
+}
+// The player is leaving the floor the followers were coming to: those still on the way go back to the floor they
+// left (kept there like the rest of its enemies). Call before stashFloor
+export function recallFollowers() {
+  for (const f of followers) floorStash.get(f.from)?.enemies.push(f.e);
+  followers = [];
+}
+// every frame on a building floor: the followers whose time has come walk out onto this floor
+export function updateFollowers(dt: number) {
+  if (!followers.length) return;
+  const left: Follower[] = [];
+  for (const f of followers) {
+    f.t -= dt;
+    if (f.t > 0) {
+      left.push(f);
+      continue;
+    }
+    const e = f.e as RegularEnemy;
+    e.x = tileCenter(f.tile % W);
+    e.z = tileCenter(Math.floor(f.tile / W));
+    e.fy = floorY(e.x, e.z);
+    e.mesh.position.set(e.x, e.fy + e.y, e.z);
+    dynGroup.add(e.mesh);
+    if (e.laser) dynGroup.add(e.laser);
+    spawn(e);
+  }
+  followers = left;
+}
+export const followersOnTheWay = (): number => followers.length; // tests
+
 // the building is gone: so is everything kept for its floors
 function dropFloorStash() {
+  followers.forEach(f => removeEnemyMesh(f.e));
+  followers = [];
   floorStash.forEach(s => {
     s.enemies.forEach(removeEnemyMesh);
     s.pickups.forEach(p => disposeTree(p.mesh));
@@ -148,6 +221,7 @@ function clearLevel() {
     buildingGroup = null;
     floorGroups = [];
     liftPads = [];
+    hallTop = null;
     shown = null;
     dropFloorStash();
     resetDoorMeshes();
@@ -214,6 +288,10 @@ function setFloorWorld(plan: FloorPlan) {
   });
 }
 const LIFT_PAD = { side: T * 0.92, thick: 0.16 }; // a lift's platform (m)
+const LIFT_SIDE = 0x2b2f34; // the platform's edge under its picture
+const LIFT_SEED = 77; // the picture's seed (the same platform every time)
+let liftTop: THREE.CanvasTexture | null = null; // the picture on a lift's platform, made once
+const HALL_NEAR = 14; // this close to the boss room's door counts as at the boss room (m)
 const NEIGHBOUR_SHOW_R = 40; // the floors above and below are drawn within this of a stairwell or lift, or the fog's end if nearer (m)
 // Draws the other floors only while the player is near a stairwell or lift of this floor: the floors it leads to and
 // passes (that is the only place they can be seen from). The rest of the time only this floor is drawn. Called every
@@ -231,9 +309,18 @@ export function showNeighbourFloors(b: Building, x: number, z: number) {
           m <= l.lower &&
           l.strip.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach),
       );
+  // In the boss room, and in front of its door, only this floor is drawn: the room is higher than a floor (HALL_H),
+  // so its top stands where the floor above is, and the two must not show together
+  const hall = level.hall,
+    atHall =
+      !!hall &&
+      (level.roomOf[tileIndex(x, z)] === hall.room ||
+        Math.hypot(tileCenter(hall.door % w) - x, tileCenter(Math.floor(hall.door / w)) - z) < HALL_NEAR);
   floorGroups.forEach((g, m) => {
-    g.visible = m === n || near(m);
+    g.visible = m === n || (!atHall && near(m));
   });
+  // the top of the boss room shows while its floor is the one played (from another floor it would stand in the way)
+  if (hallTop) hallTop.visible = !!hall;
 }
 export const floorDrawn = (m: number): boolean => !!floorGroups[m]?.visible;
 // Puts the whole building (world/building.ts) on screen: the meshes and doors of every floor, each in a group of its
@@ -244,18 +331,27 @@ export function showBuilding(b: Building) {
   b.plans.forEach((plan, n) => {
     setFloorWorld(plan);
     const g = new THREE.Group();
-    buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9));
+    const top = buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9));
+    if (top) hallTop = top;
     buildDoorMeshes(b.biome, g, plan.hall ? plan.hall.door : -1, n);
     all.add(g);
     floorGroups.push(g);
   });
-  const w = b.plans[0]!.gen.W;
+  const w = b.plans[0]!.gen.W,
+    look = lookOf(b.biome);
   b.links.forEach((l, n) => {
     if (l.kind !== 'elevator') return;
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(LIFT_PAD.side, LIFT_PAD.thick, LIFT_PAD.side),
-      new THREE.MeshBasicMaterial({ color: COLOR.violet }),
-    );
+    // a sector with a look has the platform's picture on top (the same in every sector); else it is plain violet
+    const side = new THREE.MeshBasicMaterial({ color: look ? LIFT_SIDE : COLOR.violet }),
+      top = look ? new THREE.MeshBasicMaterial({ map: (liftTop ??= paint(LIFT_SEED, liftPaint)) }) : side,
+      mesh = new THREE.Mesh(new THREE.BoxGeometry(LIFT_PAD.side, LIFT_PAD.thick, LIFT_PAD.side), [
+        side,
+        side,
+        top,
+        side,
+        side,
+        side,
+      ]);
     mesh.position.set(tileCenter(l.a % w), -LIFT_PAD.thick / 2 + 0.02, tileCenter(Math.floor(l.a / w)));
     all.add(mesh);
     liftPads.push({ link: n, mesh });
@@ -263,8 +359,10 @@ export function showBuilding(b: Building) {
   scene.add(all);
   buildingGroup = all;
   shown = b;
-  (scene.fog as THREE.Fog).color.setHex(b.biome.fog);
-  (scene.background as THREE.Color).setHex(b.biome.fog);
+  // a sector with its own look fades to that look's colour
+  const fog = lookOf(b.biome)?.fog ?? b.biome.fog;
+  (scene.fog as THREE.Fog).color.setHex(fog);
+  (scene.background as THREE.Color).setHex(fog);
 }
 // Makes floor n of the building on screen the one being played: its maps in the tile world, a new Level for it, and
 // the floors placed so that this one stands at height 0 (the ones above it higher, the ones below lower). What lived
@@ -406,17 +504,21 @@ export function reveal(ti: number, tj: number) {
     level.seen.fill(1);
     return;
   }
+  const show = (i: number, j: number) => {
+    if (inBounds(i, j)) level.seen[j * W + i] = 1;
+  };
+  // the circle round the player opens only where there is a clear line from the tile stood on: nothing on the far
+  // side of a wall (a stairwell next door, the room behind a locked door) is given away before it is found
+  const inSight = (i: number, j: number): boolean =>
+    hasLOS(tileCenter(ti), tileCenter(tj), tileCenter(i), tileCenter(j));
   for (let dj = -REVEAL_BOX; dj <= REVEAL_BOX; dj++)
     for (let di = -REVEAL_BOX; di <= REVEAL_BOX; di++) {
       if (di * di + dj * dj > REVEAL_R2) continue;
-      const i = ti + di,
-        j = tj + dj;
-      if (inBounds(i, j)) level.seen[j * W + i] = 1;
+      if (inBounds(ti + di, tj + dj) && inSight(ti + di, tj + dj)) show(ti + di, tj + dj);
     }
   const r = level.roomOf[tj * W + ti];
   if (r >= 0) {
     const R = level.rooms[r];
-    for (let j = R.y - 1; j <= R.y + R.h; j++)
-      for (let i = R.x - 1; i <= R.x + R.w; i++) if (inBounds(i, j)) level.seen[j * W + i] = 1;
+    for (let j = R.y - 1; j <= R.y + R.h; j++) for (let i = R.x - 1; i <= R.x + R.w; i++) show(i, j);
   }
 }

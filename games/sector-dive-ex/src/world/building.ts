@@ -25,15 +25,15 @@ import type { GeneratedLevel } from './levelGen.ts';
 // ---- tuning numbers used only here ----
 export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
 // ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with
-// enemies as a Sector Dive depth (12 to 15) however many floors it has. null = the sector's own numbers
-const ROOMS_BY_FLOORS: Record<number, [number, number] | null> = { 3: null, 4: [3, 4], 5: [3, 3] };
+// enemies as a Sector Dive depth (about 13.6 on average) however many floors it has. null = the sector's own numbers
+const ROOMS_BY_FLOORS: Record<number, [number, number] | null> = { 3: null, 4: [4, 4], 5: [3, 3] };
 const LIFT_REACH = 2; // a lift goes at most this many floors
 const STAIRS_CHANCE = 0.5; // a step of one floor is a stairwell this often, a lift otherwise
 export const FLOOR_H = 8; // from the ground of one floor to the ground of the next (m)
 const RAMPS = FLOOR_H / RISE; // ramp tiles of a stairwell
 export const STRIP = RAMPS + 3; // tiles of a stairwell: E, the ramps, L1, L2
 const BOSS_HALL = 12; // side of the boss room (tiles), the same as the floor of a boss arena
-const LAST_FLOOR_ROOMS: [number, number] = [2, 3]; // ordinary rooms on the lowest floor, next to the boss room
+const LAST_FLOOR_ROOMS: [number, number] = [3, 4]; // ordinary rooms on the lowest floor, next to the boss room
 const PLACE_TRIES = 600; // random places tried for one stairwell or lift
 const SEED_TRIES = 30; // seeds tried until a building has room for its stairwells and every floor is reached
 const SEED_STEP = 7919; // added to the seed for the next try
@@ -119,18 +119,26 @@ export function roomDoors(d: GeneratedLevel, room: number): { doors: number[]; c
 }
 
 // Two rooms joined by a very short corridor would have a door at each end of it, one right after the other. Of such
-// a pair the second goes (the boss room's door always stays), so there is one door to wait for, not two
+// a pair the second goes (the boss room's door always stays), so there is one door to wait for, not two. In a corridor
+// 2 wide a door is two tiles side by side: they are one door, and go or stay together
 function thinDoorPairs(d: TileMapData) {
   const door = d.maps.door;
   if (!door) return;
-  const keep = d.hall?.door ?? -1;
-  for (let k = 0; k < door.length; k++)
-    for (const step of [1, d.W])
-      for (let n = 1; n <= DOOR_PAIR_REACH && door[k]; n++) {
-        const other = k + step * n;
-        if (!door[other]) continue;
-        door[other === keep ? k : other] = 0;
-      }
+  const keep = d.hall?.door ?? -1,
+    // the step along the corridor a door stands across: the one with floor that is not door on it
+    along = (k: number): number => [1, d.W].find(s => [k - s, k + s].some(t => d.maps.grid[t] === 1 && !door[t])) ?? 1,
+    remove = (k: number) => {
+      const across = along(k) === 1 ? d.W : 1;
+      for (const t of [k, k - across, k + across]) door[t] = 0;
+    };
+  for (let k = 0; k < door.length; k++) {
+    if (!door[k]) continue;
+    const step = along(k);
+    for (let n = 1; n <= DOOR_PAIR_REACH && door[k]; n++) {
+      const other = k + step * n;
+      if (door[other]) remove(other === keep ? k : other);
+    }
+  }
 }
 
 // ---- stairwells and lifts ----
@@ -341,6 +349,13 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     keepOut = maps.map(d => {
       const out = new Uint8Array(size);
       if (d.hall) markAround(out, W, roomTiles(d, d.hall.room));
+      // nor past a door: a corridor carved beside a door tile would open a way round it, and the door would stand
+      // along that corridor instead of across its own
+      const doors: number[] = [];
+      d.maps.door?.forEach((v, k) => {
+        if (v) doors.push(k);
+      });
+      markAround(out, W, doors);
       return out;
     }),
     links: BuildingLink[] = [];
@@ -418,7 +433,8 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
         fits.push({ floor, room });
     }),
   );
-  return { seed, biome, plans, route, links, lockdown: fits.length ? rng.pick(fits) : null };
+  const lockdown = fits.length ? rng.pick(fits) : null;
+  return { seed, biome, plans, route, links, lockdown };
 }
 // The same seed, sector and boss give the same building. A seed whose floors leave no room for a stairwell or lift is
 // passed over for the next one (seed + SEED_STEP, ...), the same way every time; the building keeps the seed it was

@@ -7,7 +7,7 @@ import { sfx, unlockAudio } from '@engine/audio/audio.ts';
 import { setMusic } from '@engine/audio/music.ts';
 import { camera, gun } from '@engine/render/render.ts';
 import { FX } from '@engine/render/fx.ts';
-import { T, computeFlow, floorY, moveCircle, tileIndex } from '@engine/world/tiles.ts';
+import { STEP, T, computeFlow, floorY, moveCircle, tileIndex } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { fire2Held, fireHeld, joy, mouseFire } from '@engine/ui/input.ts';
 import { actionDown } from '@engine/ui/keymap.ts';
@@ -16,7 +16,7 @@ import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
 import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
-import { level, reveal, showNeighbourFloors } from '../world/level.ts';
+import { level, reveal, showNeighbourFloors, updateFollowers } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { updateHazards } from '../world/hazards.ts';
 import { ENEMY_GROUP, enemies, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
@@ -29,7 +29,18 @@ import { findTarget, shotId, tryFire } from '../actors/firing.ts';
 import { magSize, weaponOptCount } from '../actors/weapons.ts';
 import { controlState } from '../ui/input.ts';
 import { drawMap } from '../ui/minimap.ts';
-import { screenFx, bctx, bigmap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
+import {
+  screenFx,
+  bctx,
+  bigmap,
+  hitm,
+  map3dWanted,
+  mctx,
+  mini,
+  updateHitDirs,
+  updateHud,
+  weaponHud,
+} from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
 import { onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
@@ -39,13 +50,15 @@ import { openPerk } from '../screens/perk.ts';
 import { renderBase } from '../screens/base.ts';
 import { updateEBullets, updatePBullets } from '../actors/bullets.ts';
 // Per-frame systems of Sector Dive Extended, run by the engine loop (engine/src/core/loop.ts) in this order
-LOOP.mode = () => state;
+// while the 3D map is up the game stands still: no system of the dive runs, only the map's own (mode 'map')
+LOOP.mode = () => (state === 'play' && map3dWanted() ? 'map' : state);
 // ---- tuning numbers used only here ----
 const STICK_DASH_PUSH = 0.97; // stick pushed this far (0-1) counts as "at the rim" for the stick dash
 const STICK_DASH_HOLD = 0.3; // seconds held at the rim before the stick dash fires
 const STICK_DASH_REARM = 0.8; // the stick must come back below this before it can dash again
 const MOVE_EPS = 0.1; // move input / speed below this counts as standing still
 const STAMINA_WARN_TIME = 0.3; // seconds the stamina bar flashes when a dash is refused
+const MOVE_STEP = 0.3; // the player moves at most this far at a time (m); see movePlayer
 const RUN_LATCH_HOLD = 0.25; // touch: the dash button held this long keeps the run on after it is let go (s)
 const RUN_LATCH_STICK = 0.5; // ... while the stick stays pushed further than this (0-1)
 const GRAVITY = 26; // m/s^2, falling after a ledge or a drop
@@ -208,7 +221,16 @@ function applyDash(dt: number, moveDir: Vec2): Vec2 {
 function movePlayer(dt: number, dir: Vec2) {
   if (ridingY() !== null) return; // riding a lift: the platform carries the player
   const speed = player.baseSpeed * player.spdMul * (1 + SPEED_OPT_PER_LEVEL * weaponOptCount('speed'));
-  moveCircle(player, dir.x * speed * dt, dir.z * speed * dt, player.r);
+  // In short steps, climbing as it goes: a ramp rises under a fast mover, and the whole move at once (a dash in a
+  // long frame) would end more than a STEP above the feet, which reads as a wall and stops the dash on the ramp
+  const dx = dir.x * speed * dt,
+    dz = dir.z * speed * dt,
+    steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / MOVE_STEP));
+  for (let n = 0; n < steps; n++) {
+    moveCircle(player, dx / steps, dz / steps, player.r);
+    const ground = floorY(player.x, player.z);
+    if (ground > player.fy && ground <= player.fy + STEP) player.fy = ground;
+  }
 }
 
 // falls after a ledge or a drop, otherwise stays on the floor
@@ -334,6 +356,7 @@ function updateBuildingFloor(dt: number) {
   });
   updateDoorMeshes(movers, dt);
   updateFloorEvents(dt);
+  updateFollowers(dt);
   if (building) showNeighbourFloors(building, player.x, player.z);
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
@@ -429,7 +452,7 @@ function collectKit(p: Pickup) {
 function collectChip(p: Pickup) {
   p.dead = true;
   sfx('chip');
-  openPerk(t('perk.title'));
+  openPerk(t('perk.title'), undefined, undefined, 1, !!p.rare);
 }
 export function updatePickup(p: Pickup, dt: number) {
   p.t += dt;
@@ -450,7 +473,8 @@ export function updatePickup(p: Pickup, dt: number) {
   if (p.dead) return;
   p.mesh.position.set(p.x, p.y + Math.sin(p.t * 3) * 0.12, p.z);
   p.mesh.rotation.y += dt * 2;
-  if (p.kind === 'chip') p.mesh.rotation.x += dt;
+  // a chip tumbles too (with a look, only its board: the pool of light under it stays level)
+  if (p.kind === 'chip') (p.mesh.userData.tumble ?? p.mesh).rotation.x += dt;
 }
 export function updateWave(w: Wave, dt: number) {
   w.r += w.speed * dt;
@@ -495,6 +519,16 @@ export function boot() {
   addSystem({ name: 'portals', order: 70, modes: PLAY, update: updatePortals });
   addSystem({ name: 'screenFx', order: 90, modes: PLAY, update: updateScreenFx });
   addSystem({ name: 'attract', order: 0, modes: ['base'], update: attract });
+  // the 3D map, while it is up: drawn, and turned by the move keys
+  addSystem({
+    name: 'map3d',
+    order: 0,
+    modes: ['map'],
+    update: dt => {
+      updateMap3D(true);
+      keysTurnMap3D(dt);
+    },
+  });
 
   renderBase();
   buildAttract();

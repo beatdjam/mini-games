@@ -7,7 +7,7 @@ import { setMusic } from '@engine/audio/music.ts';
 import { dynGroup } from '@engine/render/render.ts';
 import { burst, fireball } from '@engine/render/fx.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
-import { tileIndex } from '@engine/world/tiles.ts';
+import { floorY, tileIndex } from '@engine/world/tiles.ts';
 import { query } from '@engine/core/world.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
@@ -16,6 +16,10 @@ import { persist, save } from '../../core/save.ts';
 import { openShortcut, recordBossKill, recordBossSeen, recordPeak, unlockReboot } from '../../core/progress.ts';
 import { rebootMul, progressOf } from '../../core/rules.ts';
 import { arenaCenter, level } from '../../world/level.ts';
+import { groundPool } from '../../world/enemyLooks.ts';
+import { BOSS_POOL_SIDE } from '../../world/bossLooks.ts';
+import { bossHullMat } from '../../world/machine.ts';
+import { plainLooks } from '../../world/looks.ts';
 import { onBossDown } from '../../flow/events.ts';
 import { makePortal } from '../../world/portals.ts';
 import {
@@ -74,7 +78,9 @@ export function bossDifficulty() {
   );
 }
 // the body material of a boss: a near-black base colour that glows in the boss's own colour (at rest: BOSS_GLOW)
+// (with the looks on: a machine's hull plate with a little of that colour in it, world/machine.ts)
 export function bossMaterial(dark: number, emissive: number): THREE.MeshLambertMaterial {
+  if (!plainLooks()) return bossHullMat(emissive);
   return new THREE.MeshLambertMaterial({ color: dark, emissive, emissiveIntensity: BOSS_GLOW });
 }
 // the edge lines drawn over a body mesh
@@ -105,7 +111,7 @@ export function bossBase<S extends object>(
     name,
     mesh,
     mat,
-    baseEI: BOSS_GLOW,
+    baseEI: mat.userData.glow ?? BOSS_GLOW, // (a look's body glows less: world/bossLooks.ts)
     x: cx,
     z: cz - BOSS_START_OFFSET_Z,
     y,
@@ -134,6 +140,14 @@ export function bossBase<S extends object>(
     ...state,
   };
   mesh.position.set(e.x, y, e.z);
+  // a look's boss stands in a pool of its colour on the ground (kept under it by updateEnemy; it goes with the boss)
+  if (mat.userData.pool !== undefined) {
+    const pool = groundPool(mat.userData.pool, BOSS_POOL_SIDE);
+    dynGroup.add(pool);
+    e.pool = pool;
+    e.extra = [pool];
+    poseBossPool(e);
+  }
   spawnEnemyObj(e);
   setBoss(e);
   el('#bossName').textContent = name;
@@ -155,6 +169,12 @@ export function bossPauseTick(e: Boss, dt: number) {
     e.intro = false;
   }
 }
+// keeps a boss's pool of light on the ground under its body (the body floats, bobs and jumps)
+const BOSS_POOL_Y = 0.08; // above the ground, and above the enemies' pools and the bullets'
+export function poseBossPool(e: Boss) {
+  const at = e.mesh.position;
+  e.pool?.position.set(at.x, floorY(at.x, at.z) + BOSS_POOL_Y, at.z);
+}
 // below half health: the boss uses its enraged numbers (*Enr in BOSS_META tune); bossPhase fires at the same point
 export function isEnraged(e: Boss): boolean {
   return e.hp < e.maxHp * BOSS_PHASE_HP;
@@ -172,10 +192,13 @@ export function spawnMinion(type: string, x: number, z: number): RegularEnemy {
   m.active = true;
   return m;
 }
-// how many minions are alive (the boss itself doesn't count)
+// how many minions are alive (the boss itself doesn't count). In a building only the enemies in the boss room count:
+// the ones left in the other rooms of the floor are not the boss's, and must not fill its cap
 export function minionCount(): number {
-  return enemies.filter(o => !o.boss && !o.dead).length;
+  return enemies.filter(o => !o.boss && !o.dead && inArena(o)).length;
 }
+// the room the boss fights in: the boss room of a building floor, the one room of a boss arena
+export const arenaRoom = () => level.rooms[level.hall ? level.hall.room : 0]!;
 // drop below half health: short invulnerable burst, then the boss's enraged patterns take over
 export function bossPhase(e: Boss) {
   e.phased = true;

@@ -23,6 +23,31 @@ import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
 import { rebootMul } from '../core/rules.ts';
 import { geoCache } from './render.ts';
 import { level } from './level.ts';
+import { plainLooks } from './looks.ts';
+import { dressEBullet } from './ebulletLooks.ts';
+const WAVE_FRONT_OPACITY = 1; // a shockwave with the looks on (its picture already fades it out upward)
+// the picture on a shockwave's wall: from the floor up, a white-hot line, then light that thins out to nothing
+let waveTex: THREE.CanvasTexture | null = null;
+function waveFront(): THREE.CanvasTexture {
+  if (waveTex) return waveTex;
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 128;
+  const g = c.getContext('2d')!,
+    up = g.createLinearGradient(0, 128, 0, 0);
+  up.addColorStop(0, 'rgba(255,255,255,1)');
+  up.addColorStop(0.1, 'rgba(255,255,255,.95)');
+  up.addColorStop(0.22, 'rgba(255,255,255,.5)');
+  up.addColorStop(0.6, 'rgba(255,255,255,.16)');
+  up.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = up;
+  g.fillRect(0, 0, 4, 128);
+  waveTex = new THREE.CanvasTexture(c);
+  return waveTex;
+}
+const TRACER_HOT = 0xfff0c4; // a tracer's colour
+const ROCKET_STEEL = 0x6f777f; // a rocket's body
+
 import { player, run } from '../actors/player.ts';
 import { damageScaleAt } from '../core/stages.ts';
 import { buildEnemyMesh, buildPickupMesh, makeLaser } from './models.ts';
@@ -103,8 +128,11 @@ export function spawnPBullet(
   b.kb = o.kb || 0;
   b.rail = !!o.rail;
   b.shot = o.shot || 0;
-  b.mesh.geometry = blast ? geoCache.rocket : geoCache.pbullet;
-  b.mesh.material = basicMat(blast ? 0xd8dde3 : color);
+  // With the looks on, a bullet is a tracer: a short white-hot streak, whatever the weapon (a rail round stays a long
+  // bolt in the weapon's colour: it is not a bullet). A rocket is dark steel
+  const tracer = !plainLooks() && !blast && !o.rail;
+  b.mesh.geometry = blast ? geoCache.rocket : tracer ? geoCache.tracer! : geoCache.pbullet;
+  b.mesh.material = basicMat(blast ? (plainLooks() ? 0xd8dde3 : ROCKET_STEEL) : tracer ? TRACER_HOT : color);
   b.mesh.visible = true;
   b.mesh.position.set(b.x, b.y, b.z);
   b.mesh.lookAt(b.x + dir.x, b.y + dir.y, b.z + dir.z);
@@ -141,6 +169,7 @@ function spawnEBullet(
   b.mesh.scale.setScalar(b.size);
   b.mesh.visible = true;
   b.mesh.position.set(x, y, z);
+  dressEBullet(b, color || COLOR.mag);
 }
 export function shootAngle(
   x: number,
@@ -238,13 +267,14 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     fy = floorY(x, z);
   m.g.position.set(x, fy + def.y, z);
   dynGroup.add(m.g);
+  m.g.userData.anim = m.anim; // how a look's parts move (actors/enemies.ts); undefined for a plain model
   const e: RegularEnemy = {
     type,
     def,
     mesh: m.g,
     body: m.body,
     mat: m.mat,
-    baseEI: 0.4, // group, spinning body, body material, normal glow
+    baseEI: m.glow, // group, spinning body, body material, normal glow
     x,
     z,
     fy, // position on the floor and feet height
@@ -255,6 +285,7 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     maxHp: def.hp * diff,
     dmg: def.dmg * ENEMY_TUNE.dmgMul * (run ? damageScaleAt(run.stage) : rebootMul()),
     room, // room index (-1 = not tied to a room, e.g. boss minions)
+    floor: level.floor, // the building floor the room is on (-1 outside a building)
     active: false, // wakes up when the player comes near (see wakeCheck)
     cd: rand(0.8, 1.8), // ranged / sniper cooldown
     mcd: 0, // melee cooldown
@@ -335,7 +366,12 @@ function clearOfPortals(x: number, z: number): [number, number] {
   }
   return [x, z];
 }
-export function addPickup(kind: PickupKind, x: number, z: number, extra?: { value?: number; w?: Weapon }): Pickup {
+export function addPickup(
+  kind: PickupKind,
+  x: number,
+  z: number,
+  extra?: { value?: number; w?: Weapon; rare?: boolean },
+): Pickup {
   const [px, pz] = clearOfPortals(x, z);
   const mesh = buildPickupMesh(kind, extra?.w);
   const baseY = (kind === 'bit' ? 0.5 : 1.0) + floorY(px, pz);
@@ -354,12 +390,16 @@ export function dropBits(x: number, z: number, total: number) {
   for (let k = 0; k < n; k++) addPickup('bit', x + rand(-0.9, 0.9), z + rand(-0.9, 0.9), { value: per });
 }
 export function spawnWave(x: number, z: number, speed: number, max: number, dmg: number, color: number) {
+  // With the looks on, a shockwave is a front of fire along the ground: white-hot at the floor, its colour above
+  // that, gone by the top (a picture on the ring's wall, added to what is behind it). The plain one is a flat band
+  const front = plainLooks() ? null : waveFront();
   const mat = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.7,
+    opacity: front ? WAVE_FRONT_OPACITY : 0.7,
     side: THREE.DoubleSide,
     depthWrite: false,
+    ...(front ? { map: front, blending: THREE.AdditiveBlending } : {}),
   });
   const m = new THREE.Mesh(geoCache.wave, mat);
   m.position.set(x, floorY(x, z) + 0.55, z);

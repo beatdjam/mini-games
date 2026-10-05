@@ -1,3 +1,5 @@
+import { phantomLook } from '../../world/bossLooks.ts';
+import { plainLooks } from '../../world/looks.ts';
 import type { Boss, Laser } from '../../data/types.ts';
 import * as THREE from 'three';
 import { pick, rand } from '@engine/core/util.ts';
@@ -7,10 +9,19 @@ import { burst } from '@engine/render/fx.ts';
 import { T } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { arenaShift, level, randomTileIn } from '../../world/level.ts';
+import { arenaShift, randomTileIn } from '../../world/level.ts';
 import { ring, shootAtPoint } from '../../world/entities.ts';
 import { player } from '../player.ts';
-import { RING_Y, bossBase, bossMaterial, isEnraged, minionCount, spawnMinion, wireOutline } from './common.ts';
+import {
+  RING_Y,
+  arenaRoom,
+  bossBase,
+  bossMaterial,
+  isEnraged,
+  minionCount,
+  spawnMinion,
+  wireOutline,
+} from './common.ts';
 import { makeLaser, setLaser } from '../../world/models.ts';
 import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
@@ -30,7 +41,8 @@ export function spawnPhantom() {
     new THREE.MeshBasicMaterial({ color: COLOR.mag }),
   );
   lens.position.set(0, 0.5, 0.75);
-  g.add(body, edge, lens);
+  if (plainLooks()) g.add(body, edge, lens);
+  else g.add(phantomLook(mat, 0x9fe7ff));
   const e = bossBase('phantom', g, mat, updPhantom, {
     st: 'idle',
     laser: makeLaser(COLOR.mag),
@@ -117,7 +129,7 @@ function updPhantom(e: PhantomBoss, dt: number) {
       e.cycle++;
       if (e.cycle % K.droneEvery === 0 && minionCount() < K.droneCap)
         for (let k = 0; k < K.drones; k++) {
-          const [x, z] = randomTileIn(level.rooms[0]);
+          const [x, z] = randomTileIn(arenaRoom());
           spawnMinion('drone', x, z);
         }
     }

@@ -1,6 +1,7 @@
-// Level dimensions in metres (a tile is T = 4 wide, engine/src/world/tiles.ts): wall height, the player's eye height,
+// Level dimensions in metres (a tile is T = 4 wide, engine/src/world/tiles.ts): wall height, the boss room's height, the player's eye height,
 // raised platform height, and the height of waist-high cover (bullets fly over it, you can't climb it)
 export const WALL_H = 6,
+  HALL_H = 12, // the boss room of a building: twice as high, for the boss that jumps (CRUSHER rises to about 8)
   EYE = 1.6,
   PLAT_H = 2,
   COVER_H = 1.2;

@@ -73,9 +73,12 @@ body.touch .kithud{display:none}
 #mapHint{position:absolute;z-index:6;left:50%;top:calc(50% + min(41vmin,300px) + 8px);transform:translateX(-50%);font-size:12px;color:var(--dim);white-space:nowrap;background:rgba(5,8,12,.78);padding:3px 10px}
 .icon{pointer-events:auto;min-width:38px;height:36px;padding:0 8px;border:1px solid var(--line);background:rgba(10,17,25,.8);font-family:var(--disp);font-weight:700;letter-spacing:.1em;font-size:12px}
 #bossBar{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 12px);width:min(400px,44vw);display:grid;gap:4px;text-align:center}
-/* below about 1170px the centred bar runs into the HP block (left) or the bits and buttons (right): it drops under
-   the top row, below the banner. On a tall screen it goes under the minimap (top block ~82px + the minimap), narrow enough to miss the heal button */
-@media (max-width:1170px){#bossBar{top:calc(env(safe-area-inset-top,0px) + 108px)}}
+/* The bar stays in the top row, between the HP block (left) and the bits and buttons (right): below about 1170px it
+   gets narrower to fit between them (each takes up to ~278px of the row). Below 780px there is no room left for a
+   bar worth reading, and it drops under the top row. On a tall screen it goes under the minimap (top block ~82px +
+   the minimap), narrow enough to miss the heal button */
+@media (max-width:1170px){#bossBar{width:min(400px,calc(100vw - 556px))}}
+@media (max-width:779px){#bossBar{top:calc(env(safe-area-inset-top,0px) + 108px);width:min(400px,44vw)}}
 @media (max-aspect-ratio:1/1){#bossBar{top:calc(env(safe-area-inset-top,0px) + 94px + clamp(120px,24vmin,176px));width:50vw}}
 .bname{font-family:var(--disp);font-size:12px;letter-spacing:.2em;color:var(--mag)}
 .bbar{height:6px;background:#1a0a12;border:1px solid #4a1a2c;position:relative;overflow:hidden}

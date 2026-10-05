@@ -19,16 +19,20 @@ const perkCard = (o: Perk, v: number, rare: boolean, times: number): string => {
   return `<span class="pn">${name}</span><span class="pd">${o.desc(v)}</span><span class="pcur">${cur}</span>`;
 };
 // times: the chosen chip is applied that many times (shortcut supply), stopping early once it is maxed
-export function openPerk(title: string, eyebrow?: string, done?: () => void, times = 1) {
+// allRare: every choice is the rare version (only the chips that have one are offered)
+export function openPerk(title: string, eyebrow?: string, done?: () => void, times = 1, allRare = false) {
   setState('perk');
   releaseInputs();
   exitLock();
   bigmap.hidden = true;
   el('#perkTitle').textContent = title;
   el('#perkEyebrow').textContent = eyebrow || 'chip acquired';
-  const opts = shuffle(PERKS.filter(o => !(o.maxed && o.maxed(player)) && !(times > 1 && o.noSupply)))
+  const offered = PERKS.filter(
+    o => !(o.maxed && o.maxed(player)) && !(times > 1 && o.noSupply) && !(allRare && o.rv === undefined),
+  );
+  const opts = shuffle(offered)
     .slice(0, 3 + save.pres.up.choice)
-    .map(o => ({ o, rare: o.rv !== undefined && Math.random() < TUNE.rareChipChance }));
+    .map(o => ({ o, rare: o.rv !== undefined && (allRare || Math.random() < TUNE.rareChipChance) }));
   const list = el('#perkList');
   list.innerHTML = '';
   list.style.setProperty('--n', String(opts.length)); // one row, however many options

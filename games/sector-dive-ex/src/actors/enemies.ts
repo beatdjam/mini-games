@@ -7,9 +7,18 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, shootAtPoint } from '../world/entities.ts';
 import { player } from './player.ts';
 import { damagePlayer, detonate } from './combat.ts';
-import { bossPauseTick } from './bosses/common.ts';
+import { bossPauseTick, poseBossPool } from './bosses/common.ts';
 import { setLaser } from '../world/models.ts';
 import { COLOR } from '../data/colors.ts';
+import type { EnemyAnim } from '../world/enemyLooks.ts';
+// how a look's parts move (world/enemyLooks.ts); undefined for a plain model, which is turned by its shape instead
+const lookAnim = (e: RegularEnemy): EnemyAnim | undefined => e.mesh.userData.anim;
+const ROLL_RATE = 8; // a wheel's turn while it runs (rad/s)
+// the wheels roll while the machine moves; the rotors and the like whirl all the time
+function turnParts(anim: EnemyAnim, dt: number, moving: boolean) {
+  if (moving) anim.roll?.forEach(o => (o.rotation.x += dt * ROLL_RATE));
+  anim.whirl?.forEach(w => (w.part.rotation.y += dt * w.rate));
+}
 // ================= enemy behaviour (per frame) =================
 // Fields on an enemy object are listed in spawnEnemy (src/world/entities.ts).
 
@@ -37,6 +46,7 @@ export function updateEnemy(e: Enemy, dt: number) {
   if (e.boss) {
     if (e.spawnT > 0) bossPauseTick(e, dt);
     else e.behave(e, dt);
+    poseBossPool(e);
     return;
   }
 
@@ -111,6 +121,12 @@ function wakeCheck(e: RegularEnemy, eyeY: number, py: number, dt: number) {
     // stands on its feet and looks around
     e.body.rotation.y = Math.sin(e.t * 0.7) * 0.7;
     poseHumanoid(e, dt, false);
+  } else if (lookAnim(e)) {
+    // a machine with a look: one that flies bobs, one on the ground stands still; a head looks about
+    const anim = lookAnim(e)!;
+    e.mesh.position.y = eyeY + (anim.hover ? Math.sin(e.t * 2) * 0.12 : 0);
+    if (anim.scan) anim.scan.rotation.y = Math.sin(e.t * 0.6) * 0.8;
+    turnParts(anim, dt, false);
   } else {
     e.mesh.position.y = eyeY + Math.sin(e.t * 2) * 0.12;
     e.body.rotation.y += dt * 0.5;
@@ -184,8 +200,14 @@ function poseEnemy(e: RegularEnemy, dt: number, dx: number, dz: number) {
     e.face = want;
   }
   e.mesh.rotation.y = e.face;
-  if (def.geo === 'tetra' || def.geo === 'tetraS') e.body.rotation.x += dt * 8;
-  if (def.geo === 'octa' || def.geo === 'ico') e.body.rotation.y += dt * 3;
+  const anim = lookAnim(e);
+  if (anim) {
+    if (anim.scan) anim.scan.rotation.y *= Math.max(0, 1 - dt * 6); // the head comes round to face its target
+    turnParts(anim, dt, true);
+  } else {
+    if (def.geo === 'tetra' || def.geo === 'tetraS') e.body.rotation.x += dt * 8;
+    if (def.geo === 'octa' || def.geo === 'ico') e.body.rotation.y += dt * 3;
+  }
   if (isTrooper(e)) {
     e.body.rotation.y *= Math.max(0, 1 - dt * 6);
     poseHumanoid(e, dt, true);

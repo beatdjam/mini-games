@@ -1,3 +1,5 @@
+import { watcherLook } from '../../world/bossLooks.ts';
+import { plainLooks } from '../../world/looks.ts';
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { t } from '@engine/core/i18n.ts';
@@ -5,7 +7,7 @@ import { sfx } from '@engine/audio/audio.ts';
 import { blocked } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { level, randomTileIn } from '../../world/level.ts';
+import { randomTileIn } from '../../world/level.ts';
 import { fanAt, ring, shootAngle } from '../../world/entities.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
 import { player } from '../player.ts';
@@ -16,6 +18,7 @@ import {
   bossMaterial,
   isEnraged,
   nextPattern,
+  arenaRoom,
   spawnMinion,
   wireOutline,
 } from './common.ts';
@@ -28,10 +31,15 @@ export function spawnWatcher() {
   const g = new THREE.Group(),
     geo = new THREE.IcosahedronGeometry(2.1, 0);
   const mat = bossMaterial(0x0f151c, COLOR.cyan);
-  g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.cyan));
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: COLOR.mag }));
-  eye.position.z = 1.75;
-  g.add(eye);
+  if (plainLooks()) {
+    g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.cyan));
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.7, 16, 12),
+      new THREE.MeshBasicMaterial({ color: COLOR.mag }),
+    );
+    eye.position.z = 1.75;
+    g.add(eye);
+  } else g.add(watcherLook(mat));
   bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
   toast(t('boss.watcherHint'), 3800);
 }
@@ -52,7 +60,7 @@ function updWatcher(e: WatcherBoss, dt: number) {
     for (let k = 0; k < n; k++) {
       let x = e.x + Math.cos(k * 2.1) * 4,
         z = e.z + Math.sin(k * 2.1) * 4;
-      if (blocked(x, z, 0.6)) [x, z] = randomTileIn(level.rooms[0]);
+      if (blocked(x, z, 0.6)) [x, z] = randomTileIn(arenaRoom());
       spawnMinion('drone', x, z);
     }
     toast(t('boss.watcherDrones'));
