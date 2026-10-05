@@ -573,7 +573,9 @@ function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     instances(mesh);
   }
   // lamps (not where the ceiling is open): a bright plate on the ceiling
-  const lamps = of('lamp').filter(s => !plan.noCeil[s.j * d.W + s.i]);
+  // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
+  const bossRoom = plan.hall?.room ?? -1;
+  const lamps = of('lamp').filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom);
   if (lamps.length) {
     const plates = new THREE.InstancedMesh(
         new THREE.BoxGeometry(0.9, 0.08, 0.3),

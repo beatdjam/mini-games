@@ -800,7 +800,9 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
 
   // roof lamps (not where the ceiling is open): a shade on a rod, the lit bulb seen from below
-  const lamps = of('lamp').filter(s => !plan.noCeil[s.j * d.W + s.i]),
+  // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
+  const bossRoom = plan.hall?.room ?? -1;
+  const lamps = of('lamp').filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom),
     rod: THREE.Matrix4[] = [],
     shade: THREE.Matrix4[] = [],
     bulb: THREE.Matrix4[] = [],
