@@ -7,6 +7,7 @@ import { edges, geoCache } from './render.ts';
 import { LOOK_GLOW, enemyLook, lightPool, lookBodyMat } from './enemyLooks.ts';
 import type { EnemyAnim } from './enemyLooks.ts';
 import { plainLooks } from './looks.ts';
+import { pickupLook } from './itemLooks.ts';
 // ================= models =================
 // the three.js models of enemies and pickups, and the aimed laser line; entities.ts makes the entity objects around them
 
@@ -105,6 +106,9 @@ export function buildEnemyMesh(def: EnemyDef): EnemyMesh {
 }
 // the model of a pickup (a weapon drop takes the weapon `w`); the caller places it
 export function buildPickupMesh(kind: PickupKind, w?: Weapon): THREE.Object3D {
+  // the thing itself (world/itemLooks.ts), unless the plain looks are on (dev) or it has no look
+  const look = plainLooks() ? null : pickupLook(kind, w);
+  if (look) return look;
   let mesh: THREE.Object3D;
   if (kind === 'bit') mesh = new THREE.Mesh(geoCache.bit, basicMat(COLOR.amber));
   else if (kind === 'kit') {

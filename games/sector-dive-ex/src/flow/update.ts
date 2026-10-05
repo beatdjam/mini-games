@@ -473,7 +473,8 @@ export function updatePickup(p: Pickup, dt: number) {
   if (p.dead) return;
   p.mesh.position.set(p.x, p.y + Math.sin(p.t * 3) * 0.12, p.z);
   p.mesh.rotation.y += dt * 2;
-  if (p.kind === 'chip') p.mesh.rotation.x += dt;
+  // a chip tumbles too (with a look, only its board: the pool of light under it stays level)
+  if (p.kind === 'chip') (p.mesh.userData.tumble ?? p.mesh).rotation.x += dt;
 }
 export function updateWave(w: Wave, dt: number) {
   w.r += w.speed * dt;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { shared } from '@engine/render/render.ts';
 import { TEX, grain, paint } from '../world/looks/common.ts';
 import type { Paint } from '../world/looks/common.ts';
 // The gun in hand, one look per weapon: each in its own shape (a pistol's slide and raked grip, a pump shotgun's
@@ -98,14 +99,15 @@ interface GunMats {
   copper: THREE.Material;
 }
 let mats: GunMats | null = null;
-const shared = (): GunMats =>
+const gunMats = (): GunMats =>
   (mats ??= {
-    steel: new THREE.MeshLambertMaterial({ map: paint(2001, steelPaint) }),
-    polymer: new THREE.MeshLambertMaterial({ map: paint(2002, polymerPaint) }),
-    wood: new THREE.MeshLambertMaterial({ map: paint(2003, woodPaint) }),
-    tube: new THREE.MeshLambertMaterial({ map: paint(2004, tubePaint) }),
-    black: new THREE.MeshLambertMaterial({ color: 0x0c0d0f }),
-    copper: new THREE.MeshLambertMaterial({ color: 0x9a6233 }),
+    // (shared: a gun lying on the floor is thrown away with its pickup, and these must outlive it)
+    steel: shared(new THREE.MeshLambertMaterial({ map: paint(2001, steelPaint) })),
+    polymer: shared(new THREE.MeshLambertMaterial({ map: paint(2002, polymerPaint) })),
+    wood: shared(new THREE.MeshLambertMaterial({ map: paint(2003, woodPaint) })),
+    tube: shared(new THREE.MeshLambertMaterial({ map: paint(2004, tubePaint) })),
+    black: shared(new THREE.MeshLambertMaterial({ color: 0x0c0d0f })),
+    copper: shared(new THREE.MeshLambertMaterial({ color: 0x9a6233 })),
   });
 // a box; tilt = turned about x (a raked grip)
 const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, tilt = 0) => {
@@ -233,7 +235,7 @@ const GUNS: Record<string, GunLook> = {
 export function gunLook(id: string, acc: number): THREE.Group {
   const def = GUNS[id]!,
     g = new THREE.Group();
-  g.add(...def.parts(shared(), new THREE.MeshBasicMaterial({ color: acc })));
+  g.add(...def.parts(gunMats(), new THREE.MeshBasicMaterial({ color: acc })));
   const tip = new THREE.Object3D();
   tip.position.set(...def.tip);
   g.add(tip);
