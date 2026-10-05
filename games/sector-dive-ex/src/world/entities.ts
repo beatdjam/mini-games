@@ -238,13 +238,14 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     fy = floorY(x, z);
   m.g.position.set(x, fy + def.y, z);
   dynGroup.add(m.g);
+  m.g.userData.anim = m.anim; // how a look's parts move (actors/enemies.ts); undefined for a plain model
   const e: RegularEnemy = {
     type,
     def,
     mesh: m.g,
     body: m.body,
     mat: m.mat,
-    baseEI: 0.4, // group, spinning body, body material, normal glow
+    baseEI: m.glow, // group, spinning body, body material, normal glow
     x,
     z,
     fy, // position on the floor and feet height
