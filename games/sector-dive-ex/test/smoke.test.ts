@@ -44,6 +44,7 @@ import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlay
 import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
 import { EYE, PLAT_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
+import { gunLook, hasGunLook } from '../src/actors/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
@@ -576,6 +577,40 @@ test('viewmodels: no two parts have a flat face in the same place (it would flic
             if (Math.abs(bs[a][side][ax] - bs[b][side][ax]) > 1e-9) continue;
             const others = [0, 1, 2].filter(k => k !== ax);
             if (others.every(k => Math.min(bs[a].hi[k], bs[b].hi[k]) - Math.max(bs[a].lo[k], bs[b].lo[k]) > 1e-9))
+              clash.push(`${id} parts ${a}/${b} ${'xyz'[ax]} ${side}`);
+          }
+        }
+  }
+  expect(clash).toEqual([]);
+});
+test('gun looks: every weapon has one, and no two of its parts have a flat face in the same place', () => {
+  const clash: string[] = [];
+  for (const id of WEAPON_ORDER) {
+    expect(hasGunLook(id), id).toBe(true);
+    const g = gunLook(id, 0xffffff);
+    expect(g.userData.tip && g.userData.flash && g.userData.pos, `${id}: what the game reads from a gun`).toBeTruthy();
+    // each part as an axis-aligned box; a cylinder only counts by its end caps (along z); tilted parts are left out
+    const bs = g.children.flatMap(c => {
+      const geo = (c as THREE.Mesh).geometry as THREE.BufferGeometry & { parameters?: Record<string, number> },
+        q = geo?.parameters,
+        at = c.position;
+      if (!q || geo.type === 'SphereGeometry') return [];
+      const cyl = geo.type === 'CylinderGeometry';
+      if (!cyl && c.rotation.x !== 0) return [];
+      const half = cyl ? [q.radiusTop!, q.radiusTop!, q.height! / 2] : [q.width! / 2, q.height! / 2, q.depth! / 2],
+        mid = [at.x, at.y, at.z];
+      return [{ cyl, lo: mid.map((v, k) => v - half[k]!), hi: mid.map((v, k) => v + half[k]!) }];
+    });
+    for (let a = 0; a < bs.length; a++)
+      for (let b = a + 1; b < bs.length; b++)
+        for (let ax = 0; ax < 3; ax++) {
+          if ((bs[a]!.cyl || bs[b]!.cyl) && ax !== 2) continue;
+          for (const side of ['lo', 'hi'] as const) {
+            if (Math.abs(bs[a]![side][ax]! - bs[b]![side][ax]!) > 1e-9) continue;
+            const others = [0, 1, 2].filter(k => k !== ax);
+            if (
+              others.every(k => Math.min(bs[a]!.hi[k]!, bs[b]!.hi[k]!) - Math.max(bs[a]!.lo[k]!, bs[b]!.lo[k]!) > 1e-9)
+            )
               clash.push(`${id} parts ${a}/${b} ${'xyz'[ax]} ${side}`);
           }
         }
@@ -2359,7 +2394,10 @@ test('followers: an awake enemy close behind comes down the stairwell after the 
   const l1 = l.strip[l.strip.length - 2]!,
     l2 = l.strip[l.strip.length - 1]!,
     behind = l2 + (l2 - l1), // the upper floor's corridor, one tile past the landing
-    room = level.rooms.findIndex((_, r) => r !== level.startIdx);
+    // (not the lockdown room: cleared from another floor before its lockdown, it is not marked cleared)
+    room = level.rooms.findIndex(
+      (_, r) => r !== level.startIdx && !(b.lockdown?.floor === l.upper && b.lockdown.room === r),
+    );
   putOnTile(l2);
   tick(2);
   // the last enemy of a room of this floor, awake, two tiles behind the player
