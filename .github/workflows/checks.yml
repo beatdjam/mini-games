@@ -2,6 +2,9 @@ name: Checks
 
 # PR ごとに、公開ジョブ（pages.yml）と同じ確認を流す。マージしてから公開ジョブで落ちて公開が止まる、を防ぐため。
 # 公開ジョブでも同じ確認をもう一度流す（PR どうしの組み合わせで master が壊れたときに、公開しないため）
+# テストだけは、PR が変えたファイルに合わせて絞る（tools/test_scope.js）: 1つのゲームの中だけを変えた PR は、
+# そのゲームのテストだけ。engine・道具・設定などを変えた PR は全部。文書（*.md）だけの PR はテストなし。
+# 公開ジョブは、いつも全部のテストを流す
 on:
   pull_request:
 
@@ -18,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # テストの範囲を決めるのに、PR の元のコミットとの差分を見る
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
@@ -32,7 +37,16 @@ jobs:
         env:
           CHROME: /usr/bin/google-chrome
         run: |
-          npm test
+          scope="$(node tools/test_scope.js "${{ github.event.pull_request.base.sha }}")"
+          echo "テストの範囲: $scope" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$scope" = none ]; then exit 0; fi
+          if [ "$scope" = all ]; then
+            npm test
+          else
+            projects=""
+            for game in $scope; do projects="$projects --project $game"; done
+            npx vitest run $projects
+          fi
           npm run test:build
       - name: テストのレポートを保存（失敗したときも）
         if: always()
