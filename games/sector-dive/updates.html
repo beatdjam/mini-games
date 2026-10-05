@@ -32,9 +32,6 @@ header p{margin:0;color:var(--dim);font-size:14px}
 .list{display:grid;gap:10px}
 .release{display:grid;gap:6px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line)}
 .release.latest{border-left-color:var(--cyan)}
-.rhead{display:flex;gap:12px;align-items:baseline}
-.date{font-family:var(--disp);font-size:15px;color:var(--cyan);font-variant-numeric:tabular-nums}
-.sha{font-family:ui-monospace,monospace;font-size:11px;color:var(--dim)}
 .release ul{margin:0;padding-left:1.2em;display:grid;gap:4px}
 .release li::marker{color:var(--dim)}
 .tag{display:inline-block;font-size:11px;padding:0 6px;margin-right:6px;border:1px solid var(--line);color:var(--dim);vertical-align:1px}
@@ -50,253 +47,98 @@ footer{font-size:12px;color:var(--dim)}
   <header>
     <p class="eyebrow">update log</p>
     <h1>SECTOR<span>/</span>DIVE 更新履歴</h1>
-    <p>公開（push）ごと、新しい順。<span class="tag new">追加</span>新機能 <span class="tag bal">調整</span>バランスや見た目の変更 <span class="tag fix">修正</span>不具合の修正</p>
+    <p>最新の5件と、日付ごとのまとめ。<span class="tag new">追加</span>新機能 <span class="tag bal">調整</span>バランスや見た目の変更 <span class="tag fix">修正</span>不具合の修正</p>
   </header>
 
   <!-- updates:start（tools/build_updates.py が生成。手で編集しない） -->
-  <h2 class="day">2026-09-27</h2>
+  <h2 class="day">最新（最終更新 2026-09-27）</h2>
   <div class="list">
-    <section class="release latest" id="u20260927-2235">
-      <div class="rhead"><span class="date">22:35</span><span class="sha">39fbb54</span></div>
+    <section class="release latest" id="latest">
       <ul>
         <li><span class="tag new">追加</span>更新履歴ページ（このページ）。トップページのカードと拠点画面からリンク</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-2227">
-      <div class="rhead"><span class="date">22:27</span><span class="sha">f292af9</span></div>
-      <ul>
         <li><span class="tag bal">調整</span>武器のレアリティ表示を「★標準 / ★★改良 / ★★★試作」に統一。拠点から持ち出した武器は、バッグと出撃装備に「拠点の武器（失わない）」と表示</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-2222">
-      <div class="rhead"><span class="date">22:22</span><span class="sha">8927fc8</span></div>
-      <ul>
-        <li><span class="tag new">追加</span>チップ選択のカードに、そのチップに関係する今の値を表示。「現在の性能を見る」で性能一覧も開ける</li>
-        <li><span class="tag fix">修正</span>持ち込みチップの選択画面でマウスがロックされたままになり、操作できないことがあった（Firefox で起きやすかった）</li>
-        <li><span class="tag fix">修正</span>危険床が手に持った武器より手前に描かれていた</li>
         <li><span class="tag fix">修正</span>危険床の上に武器や敵が出ることがあった</li>
+        <li><span class="tag fix">修正</span>危険床が手に持った武器より手前に描かれていた</li>
+        <li><span class="tag fix">修正</span>持ち込みチップの選択画面でマウスがロックされたままになり、操作できないことがあった（Firefox で起きやすかった）</li>
       </ul>
     </section>
-    <section class="release" id="u20260927-2205">
-      <div class="rhead"><span class="date">22:05</span><span class="sha">58ef138</span></div>
+  </div>
+  <h2 class="day">2026-09-27</h2>
+  <div class="list">
+    <section class="release" id="u20260927">
       <ul>
-        <li><span class="tag bal">調整</span>中断を「区画やボス部屋に入った時点のチェックポイント」に一本化。入るたびに自動で保存され、潜行が終わると消える</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-2201">
-      <div class="rhead"><span class="date">22:01</span><span class="sha">df5be3b</span></div>
-      <ul>
+        <li><span class="tag new">追加</span>更新履歴ページ（このページ）。トップページのカードと拠点画面からリンク</li>
+        <li><span class="tag new">追加</span>チップ選択のカードに、そのチップに関係する今の値を表示。「現在の性能を見る」で性能一覧も開ける</li>
         <li><span class="tag new">追加</span>潜行中に画面が裏に回ったら自動で中断データを保存。アプリが終了されても再開できる</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0712">
-      <div class="rhead"><span class="date">07:12</span><span class="sha">7a145df</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>ハンドガンの射撃音を軽く、切れよく</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0702">
-      <div class="rhead"><span class="date">07:02</span><span class="sha">37532b0</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>BGM を暗くサイバー寄りに作り直し、敵と戦っている間だけ緊張感のある層が重なるように</li>
-        <li><span class="tag bal">調整</span>射撃音・着弾・爆発・リロードの効果音を作り直した。ショットガンはポンプ音、レールガンは電気の音</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0642">
-      <div class="rhead"><span class="date">06:42</span><span class="sha">a08d394</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>ボス戦を長く、印象的に。ボスの体力を上げ、2秒かけて現れる登場演出と、体力半分での「第二段階」演出を追加</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0621">
-      <div class="rhead"><span class="date">06:21</span><span class="sha">f35e9ba</span></div>
-      <ul>
-        <li><span class="tag new">追加</span>BGM。セクターごとに曲調が違い、ボス戦はそのセクターの曲の激しいアレンジ</li>
         <li><span class="tag new">追加</span>設定に BGM と効果音の音量スライダー</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0610">
-      <div class="rhead"><span class="date">06:10</span><span class="sha">24feabc</span></div>
-      <ul>
-        <li><span class="tag fix">修正</span>スプリッターが連鎖爆破やロケットに巻き込まれて、分裂する前に消えていた</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0557">
-      <div class="rhead"><span class="date">05:57</span><span class="sha">b59157b</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>中盤で強くなりすぎるのを抑えた。貫通チップは+3まで、レアチップは12%、雑魚の体力は深度ごとに1.55倍</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0541">
-      <div class="rhead"><span class="date">05:41</span><span class="sha">74cc78f</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>潜行中はまた全種類の武器が落ちるように戻した</li>
+        <li><span class="tag new">追加</span>BGM。セクターごとに曲調が違い、ボス戦はそのセクターの曲の激しいアレンジ</li>
         <li><span class="tag new">追加</span>PC では回復キットの所持数を HP の下に表示</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0523">
-      <div class="rhead"><span class="date">05:23</span><span class="sha">9520b8f</span></div>
-      <ul>
         <li><span class="tag new">追加</span>拠点で、解放した武器の+値とレアリティを改造できるように</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0504">
-      <div class="rhead"><span class="date">05:04</span><span class="sha">a76b0b5</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>ショットガンの押し返しは1発につき1回に</li>
-        <li><span class="tag bal">調整</span>ランチャーは弾倉チップの効果が半分、貫通は爆発半径に置き換え。爆発にも会心が出るように</li>
-        <li><span class="tag bal">調整</span>連鎖爆破のダメージが深度に合わせて伸びるように</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0501">
-      <div class="rhead"><span class="date">05:01</span><span class="sha">063c3fe</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>自動射撃とエイム補正は、霧で見える距離の敵だけを狙うように</li>
-        <li><span class="tag bal">調整</span>上限に達したチップは選択肢に出ないように</li>
-        <li><span class="tag bal">調整</span>分裂弾は「合計ダメージ+20%を弾数で分け合う」に。単発の武器で強すぎた</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0440">
-      <div class="rhead"><span class="date">04:40</span><span class="sha">6b4308f</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>チップの出る確率を50%に。選択肢の一部で、効果が大きい金色のレアチップが出る</li>
-        <li><span class="tag bal">調整</span>深く潜るほど厄介な敵が増える。1部屋の敵は11体まで</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0437">
-      <div class="rhead"><span class="date">04:37</span><span class="sha">35cc6a3</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>ショットガンの距離・全弾ボーナスを削除して、1粒の威力を上げた</li>
-        <li><span class="tag bal">調整</span>会心率は40%まで。リロードと装弾数のチップも足し算で重なり、上限あり</li>
-        <li><span class="tag bal">調整</span>火力表示に会心を含めた</li>
-        <li><span class="tag bal">調整</span>雑魚の体力を上げた</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0417">
-      <div class="rhead"><span class="date">04:17</span><span class="sha">020700e</span></div>
-      <ul>
-        <li><span class="tag fix">修正</span>古いページがキャッシュに残って新しい機能が出ないことがあった。起動時に最新版へ切り替える</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0405">
-      <div class="rhead"><span class="date">04:05</span><span class="sha">7387a58</span></div>
-      <ul>
         <li><span class="tag new">追加</span>武器を拾う前に、手持ちとの差（火力・1発・弾倉）を表示。バッグにも火力を表示</li>
-        <li><span class="tag bal">調整</span>雑魚を硬く、怖く。攻撃力・射撃頻度を上げ、気付く距離を伸ばした</li>
-        <li><span class="tag bal">調整</span>連鎖爆破が連鎖しなくなり、範囲も狭く</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0348">
-      <div class="rhead"><span class="date">03:48</span><span class="sha">2590c2b</span></div>
-      <ul>
         <li><span class="tag new">追加</span>武器を拾うとき「持ち替え」か「バッグへ」を選べるように</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0339">
-      <div class="rhead"><span class="date">03:39</span><span class="sha">dae2080</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>火力・連射・移動速度のチップを足し算で重なるように。敵とボスの体力は深度ごとに掛け算で伸びる</li>
         <li><span class="tag new">追加</span>ボス練習で深度（強さ）を選べるように</li>
-        <li><span class="tag bal">調整</span>監視体の子機が早めに、2段階で出る</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0314">
-      <div class="rhead"><span class="date">03:14</span><span class="sha">b4ab177</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>1深度を「区画3つ＋ボス」に短縮（強さの伸びは深度ごとに同じ）。チップの出る確率を上げた</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0304">
-      <div class="rhead"><span class="date">03:04</span><span class="sha">63e497c</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>狙撃体の戦闘が長引きすぎないように。撃てる時間を延ばし、ワープ先を近く</li>
-        <li><span class="tag bal">調整</span>要塞核の無防備な時間を延ばし、砲台を弱く、少なく</li>
-        <li><span class="tag fix">修正</span>ボス練習で戦ったボスが「遭遇済み」になっていた</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0239">
-      <div class="rhead"><span class="date">02:39</span><span class="sha">3daead4</span></div>
-      <ul>
         <li><span class="tag new">追加</span>ボス練習。拠点から好きなボスと戦える（報酬もロストもなし）</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0223">
-      <div class="rhead"><span class="date">02:23</span><span class="sha">75f721a</span></div>
-      <ul>
-        <li><span class="tag fix">修正</span>段差を降りると体が埋まって動けなくなることがあった</li>
-        <li><span class="tag bal">調整</span>九龍城を迷路から「部屋＋細い通路」の構成に</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0217">
-      <div class="rhead"><span class="date">02:17</span><span class="sha">b9d0b62</span></div>
-      <ul>
-        <li><span class="tag bal">調整</span>盾持ちの向き直りを遅くして、撃ち続けると盾が壊れるように</li>
-        <li><span class="tag bal">調整</span>九龍城の脇道と敵の密度を減らした</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0201">
-      <div class="rhead"><span class="date">02:01</span><span class="sha">882f483</span></div>
-      <ul>
-        <li><span class="tag fix">修正</span>更新直後に古いファイルと新しいファイルが混ざって動かないことがあった</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0155">
-      <div class="rhead"><span class="date">01:55</span><span class="sha">1dca5ee</span></div>
-      <ul>
         <li><span class="tag new">追加</span>セーブデータの完全消去（警告ダイアログ付き）</li>
-        <li><span class="tag bal">調整</span>武器のレアリティを★と色で区別</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0147">
-      <div class="rhead"><span class="date">01:47</span><span class="sha">c4ef5da</span></div>
-      <ul>
-        <li><span class="tag new">追加</span>セクターを6種類に（廃墟街・九龍城・旧市街ビル群を追加）。潜るたびに順番が変わる</li>
-        <li><span class="tag new">追加</span>ボスを6体に（狙撃体・三連体・要塞核を追加）</li>
-        <li><span class="tag new">追加</span>高台、高架通路、瓦礫、危険床など、高低差とギミックのある地形</li>
-        <li><span class="tag new">追加</span>新しい敵: 狙撃手、盾持ち、ボマー、スプリッター</li>
         <li><span class="tag new">追加</span>「中断して拠点へ」</li>
-        <li><span class="tag bal">調整</span>武器ごとの個性を強化（レールガンは遠距離、SMG は連射、ランチャーは爆心）</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0108">
-      <div class="rhead"><span class="date">01:08</span><span class="sha">b2b54fd</span></div>
-      <ul>
-        <li><span class="tag new">追加</span>持久力の強化、一時停止画面の性能一覧</li>
+        <li><span class="tag new">追加</span>新しい敵: 狙撃手、盾持ち、ボマー、スプリッター</li>
+        <li><span class="tag new">追加</span>高台、高架通路、瓦礫、危険床など、高低差とギミックのある地形</li>
+        <li><span class="tag new">追加</span>ボスを6体に（狙撃体・三連体・要塞核を追加）</li>
+        <li><span class="tag new">追加</span>セクターを6種類に（廃墟街・九龍城・旧市街ビル群を追加）。潜るたびに順番が変わる</li>
         <li><span class="tag new">追加</span>+値とオプション付きの武器。+値は深く潜るほど上がり、階層を超える+値はまれ</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260927-0011">
-      <div class="rhead"><span class="date">00:11</span><span class="sha">52c7155</span></div>
-      <ul>
+        <li><span class="tag new">追加</span>持久力の強化、一時停止画面の性能一覧</li>
         <li><span class="tag new">追加</span>CoD モバイル風のボタン配置、左手側の射撃ボタン、スティックを倒し切るとダッシュ、ボタン配置の編集</li>
+        <li><span class="tag bal">調整</span>武器のレアリティ表示を「★標準 / ★★改良 / ★★★試作」に統一。拠点から持ち出した武器は、バッグと出撃装備に「拠点の武器（失わない）」と表示</li>
+        <li><span class="tag bal">調整</span>中断を「区画やボス部屋に入った時点のチェックポイント」に一本化。入るたびに自動で保存され、潜行が終わると消える</li>
+        <li><span class="tag bal">調整</span>ハンドガンの射撃音を軽く、切れよく</li>
+        <li><span class="tag bal">調整</span>射撃音・着弾・爆発・リロードの効果音を作り直した。ショットガンはポンプ音、レールガンは電気の音</li>
+        <li><span class="tag bal">調整</span>BGM を暗くサイバー寄りに作り直し、敵と戦っている間だけ緊張感のある層が重なるように</li>
+        <li><span class="tag bal">調整</span>ボス戦を長く、印象的に。ボスの体力を上げ、2秒かけて現れる登場演出と、体力半分での「第二段階」演出を追加</li>
+        <li><span class="tag bal">調整</span>中盤で強くなりすぎるのを抑えた。貫通チップは+3まで、レアチップは12%、雑魚の体力は深度ごとに1.55倍</li>
+        <li><span class="tag bal">調整</span>潜行中はまた全種類の武器が落ちるように戻した</li>
+        <li><span class="tag bal">調整</span>連鎖爆破のダメージが深度に合わせて伸びるように</li>
+        <li><span class="tag bal">調整</span>ランチャーは弾倉チップの効果が半分、貫通は爆発半径に置き換え。爆発にも会心が出るように</li>
+        <li><span class="tag bal">調整</span>ショットガンの押し返しは1発につき1回に</li>
+        <li><span class="tag bal">調整</span>分裂弾は「合計ダメージ+20%を弾数で分け合う」に。単発の武器で強すぎた</li>
+        <li><span class="tag bal">調整</span>上限に達したチップは選択肢に出ないように</li>
+        <li><span class="tag bal">調整</span>自動射撃とエイム補正は、霧で見える距離の敵だけを狙うように</li>
+        <li><span class="tag bal">調整</span>深く潜るほど厄介な敵が増える。1部屋の敵は11体まで</li>
+        <li><span class="tag bal">調整</span>チップの出る確率を50%に。選択肢の一部で、効果が大きい金色のレアチップが出る</li>
+        <li><span class="tag bal">調整</span>雑魚の体力を上げた</li>
+        <li><span class="tag bal">調整</span>火力表示に会心を含めた</li>
+        <li><span class="tag bal">調整</span>会心率は40%まで。リロードと装弾数のチップも足し算で重なり、上限あり</li>
+        <li><span class="tag bal">調整</span>ショットガンの距離・全弾ボーナスを削除して、1粒の威力を上げた</li>
+        <li><span class="tag bal">調整</span>連鎖爆破が連鎖しなくなり、範囲も狭く</li>
+        <li><span class="tag bal">調整</span>雑魚を硬く、怖く。攻撃力・射撃頻度を上げ、気付く距離を伸ばした</li>
+        <li><span class="tag bal">調整</span>監視体の子機が早めに、2段階で出る</li>
+        <li><span class="tag bal">調整</span>火力・連射・移動速度のチップを足し算で重なるように。敵とボスの体力は深度ごとに掛け算で伸びる</li>
+        <li><span class="tag bal">調整</span>1深度を「区画3つ＋ボス」に短縮（強さの伸びは深度ごとに同じ）。チップの出る確率を上げた</li>
+        <li><span class="tag bal">調整</span>要塞核の無防備な時間を延ばし、砲台を弱く、少なく</li>
+        <li><span class="tag bal">調整</span>狙撃体の戦闘が長引きすぎないように。撃てる時間を延ばし、ワープ先を近く</li>
+        <li><span class="tag bal">調整</span>九龍城を迷路から「部屋＋細い通路」の構成に</li>
+        <li><span class="tag bal">調整</span>九龍城の脇道と敵の密度を減らした</li>
+        <li><span class="tag bal">調整</span>盾持ちの向き直りを遅くして、撃ち続けると盾が壊れるように</li>
+        <li><span class="tag bal">調整</span>武器のレアリティを★と色で区別</li>
+        <li><span class="tag bal">調整</span>武器ごとの個性を強化（レールガンは遠距離、SMG は連射、ランチャーは爆心）</li>
+        <li><span class="tag fix">修正</span>危険床の上に武器や敵が出ることがあった</li>
+        <li><span class="tag fix">修正</span>危険床が手に持った武器より手前に描かれていた</li>
+        <li><span class="tag fix">修正</span>持ち込みチップの選択画面でマウスがロックされたままになり、操作できないことがあった（Firefox で起きやすかった）</li>
+        <li><span class="tag fix">修正</span>スプリッターが連鎖爆破やロケットに巻き込まれて、分裂する前に消えていた</li>
+        <li><span class="tag fix">修正</span>古いページがキャッシュに残って新しい機能が出ないことがあった。起動時に最新版へ切り替える</li>
+        <li><span class="tag fix">修正</span>ボス練習で戦ったボスが「遭遇済み」になっていた</li>
+        <li><span class="tag fix">修正</span>段差を降りると体が埋まって動けなくなることがあった</li>
+        <li><span class="tag fix">修正</span>更新直後に古いファイルと新しいファイルが混ざって動かないことがあった</li>
         <li><span class="tag fix">修正</span>アイテムがゲートに重なって拾えないことがあった</li>
       </ul>
     </section>
   </div>
   <h2 class="day">2026-09-26</h2>
   <div class="list">
-    <section class="release" id="u20260926-2339">
-      <div class="rhead"><span class="date">23:39</span><span class="sha">cd5a7e9</span></div>
+    <section class="release" id="u20260926">
       <ul>
         <li><span class="tag new">追加</span>全画面ボタン。ホーム画面に追加すると全画面で起動</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260926-2337">
-      <div class="rhead"><span class="date">23:37</span><span class="sha">1c4e662</span></div>
-      <ul>
-        <li><span class="tag fix">修正</span>スマホで画面表示とボタンが重なっていた。背の低い横画面向けに配置を調整</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260926-2333">
-      <div class="rhead"><span class="date">23:33</span><span class="sha">50cb4ff</span></div>
-      <ul>
         <li><span class="tag new">追加</span>再起動（進行をリセットして永続ボーナスを得る）</li>
-      </ul>
-    </section>
-    <section class="release" id="u20260926-2318">
-      <div class="rhead"><span class="date">23:18</span><span class="sha">c09f18f</span></div>
-      <ul>
         <li><span class="tag new">追加</span>公開。ランダム生成の区画を潜るローグライトFPS。3セクター・3ボス・5種の武器、チップ、バッグと倉庫、帰還とロスト、ショートカット、拠点強化</li>
+        <li><span class="tag fix">修正</span>スマホで画面表示とボタンが重なっていた。背の低い横画面向けに配置を調整</li>
       </ul>
     </section>
   </div>

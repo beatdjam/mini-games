@@ -78,25 +78,29 @@ def entries(game_path, deps):
     return new[::-1] + rel
 
 
+ORDER = list(TAGS)  # 日ごとのまとめの中の並び: 追加 → 調整 → 修正
+LATEST = 5  # ページの頭に出す、いちばん新しい項目の数
+
+
+def ul(items):
+    return ''.join(f'        <li><span class="tag {TAGS[tag]}">{tag}</span>{html.escape(text, quote=False)}</li>\n'
+                   for tag, text in items)
+
+
 def render(es):
-    out, day = [], None
-    for i, e in enumerate(es):
-        d, hm = e['time'].split()
-        if d != day:
-            if day:
-                out.append('  </div>\n')
-            out.append(f'  <h2 class="day">{d}</h2>\n  <div class="list">\n')
-            day = d
-        cls = ' latest' if i == 0 else ''
-        eid = 'u' + d.replace('-', '') + '-' + hm.replace(':', '')
-        out.append(f'    <section class="release{cls}" id="{eid}">\n'
-                   f'      <div class="rhead"><span class="date">{hm}</span><span class="sha">{e["sha"]}</span></div>\n'
-                   '      <ul>\n')
-        for tag, text in e['items']:
-            out.append(f'        <li><span class="tag {TAGS[tag]}">{tag}</span>{html.escape(text, quote=False)}</li>\n')
-        out.append('      </ul>\n    </section>\n')
-    if day:
-        out.append('  </div>\n')
+    """頭に最新 LATEST 項目、その下に日付ごとのまとめ（追加 → 調整 → 修正、その中は新しい順）。"""
+    days = {}  # 日付 → 項目（新しい順）
+    for e in es:
+        # 1回の公開の中はコミットの古い順なので、逆にして全体を新しい順にそろえる
+        days.setdefault(e['time'].split()[0], []).extend(e['items'][::-1])
+    if not days:
+        return ''
+    flat = [it for items in days.values() for it in items]
+    out = [f'  <h2 class="day">最新（最終更新 {next(iter(days))}）</h2>\n  <div class="list">\n    <section class="release latest" id="latest">\n      <ul>\n',
+           ul(flat[:LATEST]), '      </ul>\n    </section>\n  </div>\n']
+    for d, items in days.items():
+        out += [f'  <h2 class="day">{d}</h2>\n  <div class="list">\n    <section class="release" id="u{d.replace("-", "")}">\n      <ul>\n',
+                ul(sorted(items, key=lambda it: ORDER.index(it[0]))), '      </ul>\n    </section>\n  </div>\n']
     return ''.join(out)
 
 
