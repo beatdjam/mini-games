@@ -12,6 +12,7 @@ import type { Paint } from './looks/common.ts';
 // ---- the gate's frame (with the looks on): two posts and a beam of dark steel, black and yellow at the posts' feet,
 // a lamp on each post and a strip under the beam in the gate's colour, a steel plate on the ground ----
 const GATE = { halfW: 1.78, post: 0.3, top: 1.9, beam: 0.3, plate: 2.15 }; // m, about the gate's middle (1.7 m up)
+const GATE_LABEL_GAP = 0.75; // from the top of the beam to the middle of the gate's label (m)
 const framePaint: Paint = (g, rand) => {
   const base = g.createLinearGradient(0, 0, TEX, 0);
   base.addColorStop(0, '#2c3035');
@@ -108,7 +109,8 @@ export function makePortal(x: number, z: number, color: number, kind: PortalKind
   if (!framed) g.add(base);
   if (label) {
     const s = textSprite(label, '#' + color.toString(16).padStart(6, '0'));
-    s.position.y = 2.4;
+    // (over the frame's beam, clear of it: at the plain gate's height the beam would stand in front of the words)
+    s.position.y = framed ? GATE.top + GATE.beam + GATE_LABEL_GAP : 2.4;
     g.add(s);
   }
   g.position.set(x, floorY(x, z) + PORTAL.centerY, z);
