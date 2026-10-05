@@ -10,8 +10,8 @@ import { LEECH_OPT_HP } from '../data/weapons.ts';
 import { TUNE, enemyGrowth } from '../data/progress.ts';
 import { progressOf } from '../core/rules.ts';
 import { STAGES_PER_GROWTH_DEPTH, damageScaleAt, difficultyAt } from '../core/stages.ts';
-import { level, roomSpot } from '../world/level.ts';
-import { onRoomCleared } from '../flow/events.ts';
+import { level, roomSpot, stashedRoomCount } from '../world/level.ts';
+import { lockdownAhead, markClearedOn, onRoomCleared } from '../flow/events.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
 import { bossDown, bossPhase, isEnraged } from './bosses/common.ts';
 import { screenFx, hitDirection, hitMark } from '../ui/hud.ts';
@@ -95,7 +95,7 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
     e.active = true;
     if (e.room >= 0)
       enemies.forEach(o => {
-        if (o.room === e.room) o.active = true;
+        if (o.room === e.room && o.floor === e.floor) o.active = true;
       });
   }
   hitMark(isCrit);
@@ -221,8 +221,9 @@ function splitIntoMinis(e: RegularEnemy) {
       difficultyAt(run.stage),
     );
     m.active = true;
+    m.floor = e.floor;
   }
-  if (e.room >= 0) level.roomCount[e.room] += SPLIT_KIDS;
+  if (e.room >= 0) roomCountOf(e)[e.room]! += SPLIT_KIDS;
 }
 function killEnemy(e: Enemy, noReward?: boolean) {
   e.dead = true;
@@ -245,11 +246,27 @@ function killEnemy(e: Enemy, noReward?: boolean) {
   }
   // splitter: the halves appear after any blast from this kill, so they aren't wiped out by it
   splitIntoMinis(e);
-  if (e.room >= 0 && --level.roomCount[e.room] === 0) roomCleared(e.room);
+  if (e.room < 0 || --roomCountOf(e)[e.room]! !== 0) return;
+  if (isAway(e)) {
+    // the last enemy of a room on another floor, killed here after it followed the player: that room is cleared, and
+    // its reward drops where the enemy fell
+    // (not the lockdown room before its lockdown: that one still shuts when the player walks in)
+    if (lockdownAhead(e.floor!, e.room)) return;
+    markClearedOn(e.floor!, e.room);
+    roomReward(e.x, e.z);
+  } else roomCleared(e.room);
 }
+// an enemy of a building that is not on the floor its room is on (it followed the player by a stairwell)
+const isAway = (e: Enemy): boolean => level.floor >= 0 && e.floor !== undefined && e.floor !== level.floor;
+// the enemies-left-per-room counts of the floor an enemy belongs to
+const roomCountOf = (e: Enemy): number[] => (isAway(e) ? (stashedRoomCount(e.floor!) ?? []) : level.roomCount);
 function roomCleared(idx: number) {
   if (onRoomCleared(idx)) return; // a lockdown wave, or the lockdown's own reward
   const [x, z] = roomSpot(level.rooms[idx]);
+  roomReward(x, z);
+}
+// what a cleared room gives, at (x, z)
+function roomReward(x: number, z: number) {
   // (once the pre-boss supply has been given, the building's rooms drop no chips: flow/events.ts)
   if (!run.bld?.supplied && Math.random() < TUNE.chipChance) {
     addPickup('chip', x, z);

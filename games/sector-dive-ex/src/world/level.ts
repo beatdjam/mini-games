@@ -8,6 +8,7 @@ import {
   T,
   W,
   computeFlow,
+  floorY,
   flow,
   hasLOS,
   inBounds,
@@ -21,7 +22,7 @@ import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { COLOR } from '../data/colors.ts';
-import type { Biome, Enemy, Pickup } from '../data/types.ts';
+import type { Biome, Enemy, Pickup, RegularEnemy } from '../data/types.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear, setTarget } from './entities.ts';
 import { clearHazards } from './hazards.ts';
 import { ARENA_FROM, generateLevel } from './levelGen.ts';
@@ -136,8 +137,76 @@ export function restoreFloor(): boolean {
   level.roomCount = s.roomCount;
   return true;
 }
+// the enemies-left-per-room counts kept for a floor that is not being played (undefined when nothing is kept)
+export const stashedRoomCount = (floor: number): number[] | undefined => floorStash.get(floor)?.roomCount;
+
+// ---- enemies that follow the player up or down a stairwell ----
+// When the player crosses to another floor by a stairwell, the awake enemies close behind are not left on the floor:
+// each comes out on the new floor, at the tile the player crossed on, after the time it needs to walk there. (Only
+// the floor being played is simulated, so on the way they are off the field: not drawn, not hit.) They keep their own
+// strength and still count for their own room. An enemy that stands still, a boss, and anything far away stay behind.
+const FOLLOW_TILES = 10; // followers are at most this many tiles of walking from the player when they cross
+const FOLLOW_GAP = 0.6; // seconds between two followers coming out, so that they do not come out on top of each other
+interface Follower {
+  e: Enemy;
+  from: number; // the floor it left (it goes back there if the player moves on before it arrives)
+  t: number; // seconds until it comes out
+  tile: number; // where it comes out
+}
+let followers: Follower[] = [];
+// Call right after stashFloor, with the tile the player crossed on and the flow distances of the floor just left
+// (tiles of walking to the player, by tile; negative = no way): takes the followers out of what was kept
+export function takeFollowers(from: number, tile: number, dist: (e: Enemy) => number) {
+  const s = floorStash.get(from);
+  if (!s) return;
+  const going: Follower[] = [];
+  s.enemies = s.enemies.filter(e => {
+    const d = dist(e),
+      speed = e.boss ? 0 : e.def.speed;
+    if (!e.active || e.dead || speed <= 0 || d < 0 || d > FOLLOW_TILES) return true;
+    going.push({ e, from, t: (d * T) / speed, tile });
+    return false;
+  });
+  // nearest first, and never two at once
+  going.sort((a, b) => a.t - b.t);
+  going.forEach((f, n) => {
+    f.t = Math.max(f.t, (going[n - 1]?.t ?? -FOLLOW_GAP) + FOLLOW_GAP);
+  });
+  followers.push(...going);
+}
+// The player is leaving the floor the followers were coming to: those still on the way go back to the floor they
+// left (kept there like the rest of its enemies). Call before stashFloor
+export function recallFollowers() {
+  for (const f of followers) floorStash.get(f.from)?.enemies.push(f.e);
+  followers = [];
+}
+// every frame on a building floor: the followers whose time has come walk out onto this floor
+export function updateFollowers(dt: number) {
+  if (!followers.length) return;
+  const left: Follower[] = [];
+  for (const f of followers) {
+    f.t -= dt;
+    if (f.t > 0) {
+      left.push(f);
+      continue;
+    }
+    const e = f.e as RegularEnemy;
+    e.x = tileCenter(f.tile % W);
+    e.z = tileCenter(Math.floor(f.tile / W));
+    e.fy = floorY(e.x, e.z);
+    e.mesh.position.set(e.x, e.fy + e.y, e.z);
+    dynGroup.add(e.mesh);
+    if (e.laser) dynGroup.add(e.laser);
+    spawn(e);
+  }
+  followers = left;
+}
+export const followersOnTheWay = (): number => followers.length; // tests
+
 // the building is gone: so is everything kept for its floors
 function dropFloorStash() {
+  followers.forEach(f => removeEnemyMesh(f.e));
+  followers = [];
   floorStash.forEach(s => {
     s.enemies.forEach(removeEnemyMesh);
     s.pickups.forEach(p => disposeTree(p.mesh));
