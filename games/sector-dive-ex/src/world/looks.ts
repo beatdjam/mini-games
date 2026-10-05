@@ -20,6 +20,8 @@ let plain = false;
 export function devPlainLooks(on: boolean) {
   plain = on;
 }
+// are the plain looks on (dev): the enemies are drawn the plain way too (world/models.ts)
+export const plainLooks = (): boolean => plain;
 
 // the looks, made the first time a sector is drawn (the pictures stay for the life of the page)
 const MAKERS: Record<string, () => Look> = {

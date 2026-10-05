@@ -144,6 +144,41 @@ if (location.hash.startsWith('#view-')) {
     for (let k = 0; k < 20; k++) update(1 / 60);
   }, 300);
 }
+// dev view: #view-enemies-<type>,<type>... stands in front of a row of enemies of those types, asleep (for
+// screenshots of how they look), e.g. #view-enemies-crawler,drone,turret. ?sector=KWLN picks the sector
+if (location.hash.startsWith('#view-enemies-'))
+  setTimeout(() => {
+    startRun();
+    const sector = BIOMES.findIndex(x => x.code === new URLSearchParams(location.search).get('sector'));
+    if (sector >= 0) {
+      run.route = [sector];
+      run.bld = undefined;
+      startStage();
+    }
+    show(null);
+    setState('play');
+    player.hp = 1e6;
+    player.maxHp = 1e6;
+    enemies.forEach(e => {
+      e.dead = true;
+      removeEnemyMesh(e);
+    });
+    const types = location.hash.slice('#view-enemies-'.length).split(',');
+    types.forEach((type, n) => {
+      const side = (n - (types.length - 1) / 2) * 2.6,
+        d = 6.5;
+      spawnEnemy(
+        type,
+        player.x - Math.sin(player.yaw) * d + Math.cos(player.yaw) * side,
+        player.z - Math.cos(player.yaw) * d - Math.sin(player.yaw) * side,
+        -1,
+        1,
+      ).face = player.yaw; // (asleep, they keep the way the model was made: turned to face the player)
+    });
+    enemies.forEach(e => {
+      e.mesh.rotation.y = player.yaw;
+    });
+  }, 300);
 // dev view: #view-trooper stands in front of three troopers (the humanoid soldier): one walking, two aiming
 if (location.hash === '#view-trooper')
   setTimeout(() => {
