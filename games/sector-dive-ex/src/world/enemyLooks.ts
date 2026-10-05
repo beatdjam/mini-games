@@ -113,21 +113,21 @@ const textures = () =>
   (tex ??= { plate: paint(3001, platePaint), tread: paint(3002, treadPaint), shield: paint(3003, shieldPaint) });
 // geometries and the materials every enemy of a kind can share are made once and kept (shared: disposeTree leaves them)
 const geos: Record<string, THREE.BufferGeometry> = {};
-const boxGeo = (w: number, h: number, d: number) =>
+export const boxGeo = (w: number, h: number, d: number) =>
   (geos[`b${w},${h},${d}`] ??= shared(new THREE.BoxGeometry(w, h, d)));
-const cylGeo = (rt: number, rb: number, len: number, seg = 14) =>
+export const cylGeo = (rt: number, rb: number, len: number, seg = 14) =>
   (geos[`c${rt},${rb},${len},${seg}`] ??= shared(new THREE.CylinderGeometry(rt, rb, len, seg)));
 // a faceted ball (flat faces: armour, not a toy ball)
-const ballGeo = (r: number, detail = 1) =>
+export const ballGeo = (r: number, detail = 1) =>
   (geos[`s${r},${detail}`] ??= shared(new THREE.IcosahedronGeometry(r, detail)));
 const mats: Record<string, THREE.Material> = {};
-const darkMat = () => (mats.dark ??= shared(new THREE.MeshLambertMaterial({ color: 0x17191c })));
-const steelMat = () => (mats.steel ??= shared(new THREE.MeshLambertMaterial({ color: 0x3b4046 })));
+export const darkMat = () => (mats.dark ??= shared(new THREE.MeshLambertMaterial({ color: 0x17191c })));
+export const steelMat = () => (mats.steel ??= shared(new THREE.MeshLambertMaterial({ color: 0x3b4046 })));
 const treadMat = () => (mats.tread ??= shared(new THREE.MeshLambertMaterial({ map: textures().tread })));
-const bladeMat = () => (mats.blade ??= shared(new THREE.MeshLambertMaterial({ map: textures().shield })));
+export const bladeMat = () => (mats.blade ??= shared(new THREE.MeshLambertMaterial({ map: textures().shield })));
 type Axis = 'x' | 'y' | 'z';
 // a mesh at (x, y, z); a cylinder's own axis is y: `along` lays it along x or z instead
-function at(geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, along: Axis = 'y') {
+export function at(geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, along: Axis = 'y') {
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
   if (along === 'x') m.rotation.z = Math.PI / 2;
@@ -348,5 +348,5 @@ export function lightPool(def: EnemyDef): THREE.Mesh {
 export const groundPool = (color: number, side: number): THREE.Mesh => new THREE.Mesh(poolGeo(side), poolMat(color));
 const POOL_Y = 0.06; // above the ground (and above a hazard floor's two layers)
 // an enemy's own body material: armour plate with a little of the type's colour in it (more while it flashes)
-export const lookBodyMat = (def: EnemyDef): THREE.MeshLambertMaterial =>
+export const lookBodyMat = (def: { color: number }): THREE.MeshLambertMaterial =>
   new THREE.MeshLambertMaterial({ map: textures().plate, emissive: def.color, emissiveIntensity: LOOK_GLOW });

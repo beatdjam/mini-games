@@ -156,7 +156,8 @@ interface EnemyBase extends WorldObject {
   update?(dt: number): void;
   parts?: HitSphere[]; // trooper, Trinity
   laser?: Laser | null; // sniper, Phantom (null once removed)
-  extra?: THREE.Object3D[]; // meshes removed with it (Trinity's bodies)
+  extra?: THREE.Object3D[]; // meshes removed with it (Trinity's bodies, a boss's pool of light)
+  pool?: THREE.Object3D; // a boss with a look: the pool of its colour on the ground under it
   stunMul?: number; // bosses: damage multiplier while stunned or open
   invuln?: boolean;
   hinted?: boolean; // Bastion: shielded; whether the hint toast was shown

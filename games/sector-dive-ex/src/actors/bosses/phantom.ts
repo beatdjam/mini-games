@@ -1,3 +1,5 @@
+import { phantomLook } from '../../world/bossLooks.ts';
+import { plainLooks } from '../../world/looks.ts';
 import type { Boss, Laser } from '../../data/types.ts';
 import * as THREE from 'three';
 import { pick, rand } from '@engine/core/util.ts';
@@ -39,7 +41,8 @@ export function spawnPhantom() {
     new THREE.MeshBasicMaterial({ color: COLOR.mag }),
   );
   lens.position.set(0, 0.5, 0.75);
-  g.add(body, edge, lens);
+  if (plainLooks()) g.add(body, edge, lens);
+  else g.add(phantomLook(mat, 0x9fe7ff));
   const e = bossBase('phantom', g, mat, updPhantom, {
     st: 'idle',
     laser: makeLaser(COLOR.mag),
