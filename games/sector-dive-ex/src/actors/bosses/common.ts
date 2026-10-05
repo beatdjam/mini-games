@@ -17,7 +17,8 @@ import { openShortcut, recordBossKill, recordBossSeen, recordPeak, unlockReboot 
 import { rebootMul, progressOf } from '../../core/rules.ts';
 import { arenaCenter, level } from '../../world/level.ts';
 import { groundPool } from '../../world/enemyLooks.ts';
-import { BOSS_POOL_SIDE, bossBodyMat } from '../../world/bossLooks.ts';
+import { BOSS_POOL_SIDE } from '../../world/bossLooks.ts';
+import { bossHullMat } from '../../world/machine.ts';
 import { plainLooks } from '../../world/looks.ts';
 import { onBossDown } from '../../flow/events.ts';
 import { makePortal } from '../../world/portals.ts';
@@ -77,9 +78,9 @@ export function bossDifficulty() {
   );
 }
 // the body material of a boss: a near-black base colour that glows in the boss's own colour (at rest: BOSS_GLOW)
-// (with the looks on: armour plate with a little of that colour in it, world/bossLooks.ts)
+// (with the looks on: a machine's hull plate with a little of that colour in it, world/machine.ts)
 export function bossMaterial(dark: number, emissive: number): THREE.MeshLambertMaterial {
-  if (!plainLooks()) return bossBodyMat(emissive);
+  if (!plainLooks()) return bossHullMat(emissive);
   return new THREE.MeshLambertMaterial({ color: dark, emissive, emissiveIntensity: BOSS_GLOW });
 }
 // the edge lines drawn over a body mesh
