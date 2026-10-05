@@ -207,7 +207,7 @@ export type Trooper = RegularEnemy & {
   kick: number;
   parts: HitSphere[];
 };
-interface HumanoidRig {
+export interface HumanoidRig {
   upper: THREE.Object3D;
   neck: THREE.Object3D;
   armL: THREE.Object3D;

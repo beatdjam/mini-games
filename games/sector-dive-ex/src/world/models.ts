@@ -4,7 +4,7 @@ import { V3, basicMat, dynGroup, lineMat } from '@engine/render/render.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { COLOR } from '../data/colors.ts';
 import { edges, geoCache } from './render.ts';
-import { LOOK_GLOW, enemyLook, lightPool, lookBodyMat } from './enemyLooks.ts';
+import { LOOK_GLOW, dressTrooper, enemyHullMat, enemyLook, lightPool } from './enemyLooks.ts';
 import type { EnemyAnim } from './enemyLooks.ts';
 import { plainLooks } from './looks.ts';
 import { pickupLook } from './itemLooks.ts';
@@ -14,7 +14,8 @@ import { pickupLook } from './itemLooks.ts';
 // The trooper: boxes on joints. The group's origin is at the hips (def.y above the feet) and it faces +z like the others.
 // rig = the joints its walk / aim animation turns (poseHumanoid in src/actors/enemies.ts); body = the upper body (it looks
 // around while idle)
-// outline = the glowing edges of the plain look (a look's trooper is armour plate without them)
+// outline = the glowing edges of the plain look (a look's trooper is armour plate without them, with its armour and
+// kit put on the joints: dressTrooper in world/enemyLooks.ts)
 function buildHumanoid(def: EnemyDef, mat: THREE.Material, outline = true) {
   const g = new THREE.Group();
   const part = (key: string, parent: THREE.Object3D, x: number, y: number, z: number, m: THREE.Material = mat) => {
@@ -67,8 +68,9 @@ export function buildEnemyMesh(def: EnemyDef): EnemyMesh {
   // a machine in armour plate (world/enemyLooks.ts), unless the plain looks are on (dev) or the type has none
   if (!plainLooks()) {
     if (def.humanoid) {
-      const mat = lookBodyMat(def),
+      const mat = enemyHullMat(def),
         h = buildHumanoid(def, mat, false);
+      dressTrooper(h.g.userData.rig, mat, def.color);
       h.g.add(lightPool(def));
       return { g: h.g, mat, body: h.body, glow: LOOK_GLOW };
     }
