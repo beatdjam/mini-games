@@ -40,7 +40,7 @@ export const TUNE = {
   kitHealPct: 0.25,
   kitStart: 1, // kits at the start of a run (first-aid upgrade adds 1 per level)
   kitDropChance: 0.06, // chance an enemy drops a kit
-  chipChance: 0.5, // chance a cleared room gives a chip (otherwise a kit + bits); about 8 chips per depth incl. the boss
+  chipChance: 0.3, // chance a cleared room gives a chip (otherwise a kit + bits); 4 or 5 chips from the rooms of a building
   rareChipChance: 0.12, // chance each offered chip is the rare (gold, stronger) version
   supplyTimes: 5, // a shortcut supply pick (one per skipped depth) gives the chosen chip this many times
   // what the supply picks are worth in the start-depth readiness: exp(a * picks ^ b). Chips of different kinds multiply

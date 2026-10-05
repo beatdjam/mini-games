@@ -37,9 +37,9 @@ const BOSS_DOOR_HOLD = 1.2; // ... for this long (s)
 const BOSS_DOOR_TOAST_MS = 4200;
 const BOSS_SPAWN_DELAY_MS = 1200; // the boss arrives this long after the player walks into its room
 // The pre-boss supply: walking into the boss room gives chips for the rooms left uncleared, about 60% of what clearing
-// them would have brought (a cleared room is a chip half the time), so skipping rooms is not a dead end and clearing
+// them would have brought (a cleared room is a chip 30% of the time), so skipping rooms is not a dead end and clearing
 // them is still better. The same idea as Sector Dive's shortcut supply
-const SUPPLY_PER_ROOM = 0.3; // chips per room with enemies left, rounded to a whole number over the building
+const SUPPLY_PER_ROOM = 0.18; // chips per room with enemies left, rounded to a whole number over the building
 const LIFT_R = 1.2; // standing within this of the middle of a lift's platform calls it (m)
 const LIFT_WAIT = 0.45; // ... for this long (s)
 const LIFT_TIME = 2.2; // a ride takes this long per floor travelled (s)
@@ -131,13 +131,12 @@ function endLockdown(room: number) {
   run.bld!.ld = 1;
   lockdownDoors(room).forEach(k => lockDoor(world(), k, false));
   markCleared(room);
-  // the reward: two chips (the choices of one are all rare) and a weapon of at least the second rarity, in a row
+  // the reward: a chip whose choices are all rare and a weapon of at least the second rarity, side by side
   // across the room's middle. After the pre-boss supply the building's rooms drop no chips: kits in their place
   const [x, z] = roomSpot(level.rooms[room]!),
     chips = !run.bld!.supplied;
-  addPickup(chips ? 'chip' : 'kit', x - LOCKDOWN_REWARD_GAP, z, chips ? { rare: true } : undefined);
-  addPickup(chips ? 'chip' : 'kit', x, z);
-  addPickup('weapon', x + LOCKDOWN_REWARD_GAP, z, {
+  addPickup(chips ? 'chip' : 'kit', x - LOCKDOWN_REWARD_GAP / 2, z, chips ? { rare: true } : undefined);
+  addPickup('weapon', x + LOCKDOWN_REWARD_GAP / 2, z, {
     w: rollWeapon(progressOf(run.stage), LOCKDOWN_WEAPON_MIN_RARITY),
   });
   sfx('chip');
