@@ -7,6 +7,7 @@ import { floorY } from '@engine/world/tiles.ts';
 import { projHitsTerrain, steerToward, stepProjectile } from '@engine/world/projectiles.ts';
 import { WALL_H } from '../data/level.ts';
 import { eBullets, enemies, isShielded, pBullets } from '../world/entities.ts';
+import { poseEBullet } from '../world/ebulletLooks.ts';
 import { CRIT_MUL, critChance } from './weapons.ts';
 import { player } from './player.ts';
 import { damagePlayer, explode, hurtEnemy, knockAway } from './combat.ts';
@@ -135,7 +136,10 @@ function damageFromBullet(b: PBullet, e: Enemy) {
 
 export function updateEBullets(dt: number) {
   for (const b of eBullets) {
-    if (!b.alive) continue;
+    if (!b.alive) {
+      poseEBullet(b); // (a look's pool of light goes with its bullet)
+      continue;
+    }
     b.life -= dt;
     if (b.homing > 0) steerHoming(b, dt);
     const hitR = EBULLET_HIT_R + EBULLET_HIT_R_PER_SIZE * b.size;
@@ -162,9 +166,11 @@ export function updateEBullets(dt: number) {
     if (gone) {
       b.alive = false;
       b.mesh.visible = false;
+      poseEBullet(b);
       continue;
     }
     b.mesh.position.set(b.x, b.y, b.z);
+    poseEBullet(b);
   }
 }
 
