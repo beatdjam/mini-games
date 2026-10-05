@@ -1,25 +1,24 @@
 import { WEAPON_ORDER, WEAPONS } from '../data/weapons.ts';
 import { VIEWMODELS, VM_COLORS } from '../data/viewmodels.ts';
 import { buildViewmodel, gun } from '@engine/render/render.ts';
-import { pistolLook } from './gunLooks.ts';
+import { gunLook, hasGunLook } from './gunLooks.ts';
 
-// the gun in hand per weapon, from src/data/viewmodels.ts
+// the gun in hand per weapon: its own look (actors/gunLooks.ts), or the plain one from src/data/viewmodels.ts for a
+// weapon without a look
+const plainGun = (id: string): THREE.Group =>
+  buildViewmodel(VIEWMODELS[id]!, Object.assign({ acc: WEAPONS[id]!.color }, VM_COLORS));
 const viewmodelGroups: Record<string, THREE.Group> = {};
-WEAPON_ORDER.forEach(id => {
-  const g = buildViewmodel(VIEWMODELS[id], Object.assign({ acc: WEAPONS[id].color }, VM_COLORS));
-  g.visible = false;
+function setGroup(id: string, g: THREE.Group) {
+  const old = viewmodelGroups[id];
+  g.visible = !!old?.visible;
+  if (old) gun.remove(old);
   gun.add(g);
   viewmodelGroups[id] = g;
-});
-// dev only (?gun=a / ?gun=b, src/dev/dev.ts): the handgun in one of the trial looks (actors/gunLooks.ts)
-export function devGunLook(kind: 'a' | 'b') {
-  const old = viewmodelGroups.pistol!,
-    g = pistolLook(kind, WEAPONS.pistol!.color);
-  g.visible = old.visible;
-  gun.remove(old);
-  gun.add(g);
-  viewmodelGroups.pistol = g;
-  if (curVM === old) curVM = g;
+  if (old && curVM === old) curVM = g;
+}
+// dev only (?plain, src/dev/dev.ts): every gun the plain way, to compare a look with what was there before
+export function devPlainGuns() {
+  WEAPON_ORDER.forEach(id => setGroup(id, plainGun(id)));
 }
 // the gun in hand: recoil and muzzle flash timers
 export const GUNFX = { gunKick: 0, flashT: 0 };
@@ -30,7 +29,8 @@ export function setVM(id: string) {
     curVM.visible = false;
     curVM.userData.flash.visible = false;
   }
-  const vm = viewmodelGroups[id];
+  const vm = viewmodelGroups[id]!;
   curVM = vm;
   vm.visible = true;
 }
+WEAPON_ORDER.forEach(id => setGroup(id, hasGunLook(id) ? gunLook(id, WEAPONS[id]!.color) : plainGun(id)));

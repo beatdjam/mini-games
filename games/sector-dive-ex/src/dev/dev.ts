@@ -12,7 +12,7 @@ import { devSeed, level } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { devPlainLooks } from '../world/looks.ts';
 import { setHazardClock } from '../world/hazards.ts';
-import { devGunLook } from '../actors/viewmodel.ts';
+import { devPlainGuns } from '../actors/viewmodel.ts';
 import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
 import { damagePlayer } from '../actors/combat.ts';
@@ -31,10 +31,10 @@ import { update } from '../flow/update.ts';
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
 // dev: ?plain draws every sector the plain way (no sector's own look), to compare with what was there before
-if (new URLSearchParams(location.search).has('plain')) devPlainLooks(true);
-// dev: ?gun=a / ?gun=b shows the handgun in a trial look (actors/gunLooks.ts)
-const gunLook = new URLSearchParams(location.search).get('gun');
-if (gunLook === 'a' || gunLook === 'b') devGunLook(gunLook);
+if (new URLSearchParams(location.search).has('plain')) {
+  devPlainLooks(true);
+  devPlainGuns();
+}
 // dev: ?hazon keeps the hazard floors live (to look at them lit)
 if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHazardClock(0.5), 50);
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)

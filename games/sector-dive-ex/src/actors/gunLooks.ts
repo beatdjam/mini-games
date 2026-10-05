@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { TEX, grain, paint } from '../world/looks/common.ts';
 import type { Paint } from '../world/looks/common.ts';
-// A trial of how real the gun in hand should look (dev only, ?gun=a / ?gun=b; src/dev/dev.ts): the handgun built two
-// ways, to set beside the plain one (boxes in the body colours with a glowing strip, src/data/viewmodels.ts).
-//   a: a pistol's own shape (slide, frame, raked grip, trigger guard, sights) in steel and polymer, nothing glowing
-//      but the dots on the sights
-//   b: the plain one's shape, with the steel and polymer on it and the glowing strip made thin
-// Sizes and positions are in metres in camera space (-z is forward), as in src/data/viewmodels.ts.
+// The gun in hand, one look per weapon: each in its own shape (a pistol's slide and raked grip, a pump shotgun's
+// two tubes and wooden forend ...) in steel, polymer and wood painted on canvases, as the sectors are (world/looks/).
+// Nothing glows but small marks in the weapon's colour (the dots on the sights, a charge lamp), so a weapon can
+// still be told by its colour. The plain guns (boxes in the body colours with a glowing strip, data/viewmodels.ts)
+// are still there for comparing (dev: ?plain).
+// Sizes and positions are in metres in camera space (-z is forward), as in data/viewmodels.ts. The gun sits low on
+// the right of the screen, so what shows is its top, its back and its left side.
 
 // brushed gunmetal: fine lines along the gun, worn bright at the edges, grip cuts at the back end
 const steelPaint: Paint = (g, rand) => {
@@ -47,64 +48,203 @@ const polymerPaint: Paint = (g, rand) => {
     }
   grain(g, rand, 10);
 };
-let mats: { steel: THREE.Material; polymer: THREE.Material; black: THREE.Material } | null = null;
-const shared = () =>
+// oiled walnut: long dark streaks of grain
+const woodPaint: Paint = (g, rand) => {
+  const base = g.createLinearGradient(0, 0, 0, TEX);
+  base.addColorStop(0, '#6a4226');
+  base.addColorStop(1, '#4a2c18');
+  g.fillStyle = base;
+  g.fillRect(0, 0, TEX, TEX);
+  for (let n = 0; n < 70; n++) {
+    g.strokeStyle = `rgba(${rand() < 0.5 ? '30,15,6' : '150,100,60'},${0.12 + rand() * 0.2})`;
+    g.lineWidth = 1 + rand() * 2.5;
+    const y = rand() * TEX;
+    g.beginPath();
+    g.moveTo(0, y);
+    g.bezierCurveTo(
+      TEX * 0.3,
+      y + (rand() - 0.5) * 14,
+      TEX * 0.7,
+      y + (rand() - 0.5) * 14,
+      TEX,
+      y + (rand() - 0.5) * 8,
+    );
+    g.stroke();
+  }
+  grain(g, rand, 12);
+};
+// a launch tube's olive paint: chipped to the metal here and there, a yellow band round it
+const tubePaint: Paint = (g, rand) => {
+  g.fillStyle = '#4a5136';
+  g.fillRect(0, 0, TEX, TEX);
+  for (let n = 0; n < 120; n++) {
+    g.fillStyle = rand() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.12)';
+    g.fillRect(rand() * TEX, rand() * TEX, 6 + rand() * 40, 2 + rand() * 6);
+  }
+  for (let n = 0; n < 18; n++) {
+    g.fillStyle = 'rgba(160,166,170,.5)';
+    g.fillRect(rand() * TEX, rand() * TEX, 2 + rand() * 7, 1 + rand() * 3);
+  }
+  g.fillStyle = '#b89a2c';
+  g.fillRect(0, TEX * 0.2, TEX, 6);
+  grain(g, rand, 12);
+};
+interface GunMats {
+  steel: THREE.Material;
+  polymer: THREE.Material;
+  wood: THREE.Material;
+  tube: THREE.Material;
+  black: THREE.Material;
+  copper: THREE.Material;
+}
+let mats: GunMats | null = null;
+const shared = (): GunMats =>
   (mats ??= {
     steel: new THREE.MeshLambertMaterial({ map: paint(2001, steelPaint) }),
     polymer: new THREE.MeshLambertMaterial({ map: paint(2002, polymerPaint) }),
+    wood: new THREE.MeshLambertMaterial({ map: paint(2003, woodPaint) }),
+    tube: new THREE.MeshLambertMaterial({ map: paint(2004, tubePaint) }),
     black: new THREE.MeshLambertMaterial({ color: 0x0c0d0f }),
+    copper: new THREE.MeshLambertMaterial({ color: 0x9a6233 }),
   });
+// a box; tilt = turned about x (a raked grip)
 const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, tilt = 0) => {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
   m.rotation.x = tilt;
   return m;
 };
-// the group buildViewmodel (engine) would return: the parts, and userData { tip, flash, pos }
-function finish(g: THREE.Group, tip: [number, number, number], pos: [number, number, number]): THREE.Group {
-  const at = new THREE.Object3D();
-  at.position.set(...tip);
-  g.add(at);
-  const flash = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  flash.position.copy(at.position);
+// a cylinder along the barrel
+const cyl = (r: number, len: number, mat: THREE.Material, x: number, y: number, z: number) => {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 14), mat);
+  m.rotation.x = Math.PI / 2;
+  m.position.set(x, y, z);
+  return m;
+};
+type V3 = [number, number, number];
+// one gun: its parts (given the materials and the glowing one), the muzzle, where it sits on screen, the flash's size
+interface GunLook {
+  tip: V3;
+  pos: V3;
+  flash: number;
+  parts: (m: GunMats, glow: THREE.Material) => THREE.Object3D[];
+}
+const GUNS: Record<string, GunLook> = {
+  pistol: {
+    tip: [0, 0.048, -0.23],
+    pos: [0.26, -0.26, -0.55],
+    flash: 0.08,
+    parts: (m, glow) => [
+      box(0.066, 0.06, 0.38, m.steel, 0, 0.048, -0.01), // the slide
+      box(0.06, 0.05, 0.3, m.polymer, 0, -0.004, 0), // the frame under it
+      cyl(0.017, 0.03, m.black, 0, 0.048, -0.205), // the muzzle
+      box(0.058, 0.21, 0.105, m.polymer, 0, -0.125, 0.105, 0.22), // the grip, raked back
+      box(0.05, 0.03, 0.07, m.black, 0, -0.235, 0.135, 0.22), // the magazine's base plate
+      box(0.03, 0.012, 0.1, m.polymer, 0, -0.082, -0.035), // the trigger guard: under ...
+      box(0.028, 0.058, 0.012, m.polymer, 0, -0.055, -0.085), // ... and in front (a hair narrower: no shared face)
+      box(0.012, 0.042, 0.014, m.black, 0, -0.05, -0.02, -0.3), // the trigger
+      box(0.014, 0.016, 0.022, m.black, 0.02, 0.086, 0.15), // the rear sight's two posts
+      box(0.014, 0.016, 0.022, m.black, -0.02, 0.086, 0.15),
+      box(0.012, 0.016, 0.024, m.black, 0, 0.086, -0.18), // the front sight
+      box(0.007, 0.007, 0.004, glow, 0.02, 0.087, 0.162), // the dots on the sights
+      box(0.007, 0.007, 0.004, glow, -0.02, 0.087, 0.162),
+      box(0.006, 0.007, 0.004, glow, 0, 0.087, -0.167),
+      box(0.05, 0.05, 0.012, m.black, 0, 0.046, 0.183), // the back plate of the slide
+    ],
+  },
+  // a compact submachine gun: a boxy receiver, a long magazine ahead of the grip, a stub of a stock
+  smg: {
+    tip: [0, 0.03, -0.42],
+    pos: [0.29, -0.29, -0.6],
+    flash: 0.08,
+    parts: (m, glow) => [
+      box(0.072, 0.092, 0.42, m.steel, 0, 0.022, 0), // the receiver
+      box(0.064, 0.07, 0.15, m.polymer, 0, 0.012, -0.275), // the handguard
+      cyl(0.016, 0.1, m.black, 0, 0.03, -0.37), // the barrel
+      box(0.04, 0.24, 0.058, m.black, 0, -0.135, -0.1, -0.1), // the magazine
+      box(0.054, 0.16, 0.074, m.polymer, 0, -0.095, 0.115, 0.22), // the grip
+      box(0.03, 0.012, 0.11, m.polymer, 0, -0.045, 0.01), // the trigger guard
+      box(0.046, 0.05, 0.16, m.polymer, 0, 0.012, 0.285), // the stock's stub
+      box(0.03, 0.014, 0.34, m.black, 0, 0.075, -0.02), // the rail on top
+      box(0.034, 0.03, 0.014, m.black, 0, 0.097, 0.11), // the rear sight
+      box(0.012, 0.03, 0.014, m.black, 0, 0.097, -0.17), // the front sight
+      box(0.007, 0.007, 0.004, glow, 0, 0.104, -0.161), // its dot
+      box(0.02, 0.004, 0.05, glow, 0, 0.084, 0.03), // the lamp on the rail
+    ],
+  },
+  // a pump-action shotgun: the barrel over the magazine tube, a wooden forend to pump and a wooden grip
+  shotgun: {
+    tip: [0, 0.034, -0.72],
+    pos: [0.3, -0.3, -0.55],
+    flash: 0.08,
+    parts: (m, glow) => [
+      box(0.076, 0.096, 0.3, m.steel, 0, 0.004, 0.08), // the receiver
+      box(0.08, 0.032, 0.09, m.black, 0, 0.016, 0.06), // the ejection port, a hair proud of it
+      cyl(0.022, 0.64, m.black, 0, 0.034, -0.39), // the barrel
+      cyl(0.019, 0.5, m.steel, 0, -0.014, -0.32), // the magazine tube under it
+      box(0.072, 0.066, 0.2, m.wood, 0, -0.018, -0.3), // the forend
+      box(0.056, 0.17, 0.092, m.wood, 0, -0.105, 0.245, 0.5), // the grip
+      box(0.03, 0.012, 0.1, m.steel, 0, -0.058, 0.13), // the trigger guard
+      box(0.008, 0.008, 0.008, glow, 0, 0.06, -0.69), // the bead at the muzzle
+      box(0.012, 0.004, 0.026, glow, 0, 0.054, 0.12), // the lamp on the receiver
+    ],
+  },
+  // a railgun: two bare rails out in front of the body, copper coils round them, a scope, a charge lamp
+  rail: {
+    tip: [0, 0.03, -0.7],
+    pos: [0.3, -0.3, -0.6],
+    flash: 0.08,
+    parts: (m, glow) => [
+      box(0.076, 0.1, 0.5, m.steel, 0, 0.004, 0.06), // the body
+      box(0.016, 0.03, 0.56, m.black, 0.028, 0.03, -0.44), // the rails
+      box(0.016, 0.03, 0.56, m.black, -0.028, 0.03, -0.44),
+      box(0.1, 0.084, 0.03, m.copper, 0, 0.03, -0.26), // the coils
+      box(0.1, 0.084, 0.03, m.copper, 0, 0.03, -0.42),
+      box(0.1, 0.084, 0.03, m.copper, 0, 0.03, -0.58),
+      box(0.09, 0.07, 0.15, m.polymer, 0, -0.078, -0.03), // the capacitor under the body
+      box(0.052, 0.16, 0.072, m.polymer, 0, -0.115, 0.2, 0.22), // the grip
+      cyl(0.024, 0.22, m.black, 0, 0.092, 0.08), // the scope
+      box(0.03, 0.03, 0.03, m.black, 0, 0.066, 0.02), // its mounts
+      box(0.03, 0.03, 0.03, m.black, 0, 0.066, 0.14),
+      box(0.014, 0.004, 0.05, glow, 0, 0.057, 0.25), // the charge lamp, on top behind the scope
+      box(0.012, 0.012, 0.5, glow, 0, 0.03, -0.44), // the glow between the rails
+    ],
+  },
+  // a shoulder-fired launcher: an olive tube flared at both ends, a sight on its left, a grip under it
+  launcher: {
+    tip: [0, 0, -0.6],
+    pos: [0.32, -0.25, -0.5],
+    flash: 0.16,
+    parts: (m, glow) => [
+      cyl(0.11, 0.95, m.tube, 0, 0, -0.05), // the tube
+      cyl(0.126, 0.08, m.black, 0, 0, -0.5), // the collar at the muzzle
+      cyl(0.126, 0.06, m.black, 0, 0, 0.4), // ... and at the back
+      box(0.06, 0.05, 0.3, m.steel, 0, -0.125, -0.02), // the trigger housing
+      box(0.062, 0.18, 0.08, m.polymer, 0, -0.2, 0.09, 0.2), // the grip
+      box(0.05, 0.14, 0.06, m.polymer, 0, -0.185, -0.2, -0.1), // the fore grip
+      box(0.04, 0.1, 0.14, m.black, -0.13, 0.11, -0.1), // the sight
+      box(0.03, 0.004, 0.06, glow, -0.13, 0.163, -0.1), // its lamp
+      box(0.014, 0.004, 0.03, glow, 0, 0.112, 0.02), // the armed lamp, on top
+    ],
+  },
+};
+// The gun in hand for a weapon, as buildViewmodel (engine) would return it: the parts in a group whose userData has
+// tip (an Object3D at the muzzle), flash (the hidden muzzle-flash mesh) and pos. acc = the weapon's colour
+export function gunLook(id: string, acc: number): THREE.Group {
+  const def = GUNS[id]!,
+    g = new THREE.Group();
+  g.add(...def.parts(shared(), new THREE.MeshBasicMaterial({ color: acc })));
+  const tip = new THREE.Object3D();
+  tip.position.set(...def.tip);
+  g.add(tip);
+  const flash = new THREE.Mesh(
+    new THREE.SphereGeometry(def.flash, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+  );
+  flash.position.copy(tip.position);
   flash.visible = false;
   g.add(flash);
-  g.userData = { tip: at, flash, pos };
+  g.userData = { tip, flash, pos: def.pos };
   return g;
 }
-// acc = the weapon's colour (the dots on the sights of `a`, the strip of `b`)
-export function pistolLook(kind: 'a' | 'b', acc: number): THREE.Group {
-  const m = shared(),
-    glow = new THREE.MeshBasicMaterial({ color: acc }),
-    g = new THREE.Group();
-  if (kind === 'b') {
-    g.add(
-      box(0.1, 0.13, 0.34, m.steel, 0, 0, 0),
-      box(0.104, 0.012, 0.3, glow, 0, 0.05, 0),
-      box(0.05, 0.05, 0.12, m.black, 0, 0.01, -0.22),
-      box(0.08, 0.2, 0.09, m.polymer, 0, -0.13, 0.1),
-    );
-    return finish(g, [0, 0.01, -0.3], [0.28, -0.28, -0.55]);
-  }
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.03, 12), m.black);
-  barrel.rotation.x = Math.PI / 2;
-  barrel.position.set(0, 0.048, -0.205);
-  g.add(
-    box(0.066, 0.06, 0.38, m.steel, 0, 0.048, -0.01), // the slide
-    box(0.06, 0.05, 0.3, m.polymer, 0, -0.004, 0.0), // the frame under it
-    barrel,
-    box(0.058, 0.21, 0.105, m.polymer, 0, -0.125, 0.105, 0.22), // the grip, raked back
-    box(0.05, 0.03, 0.07, m.black, 0, -0.235, 0.135, 0.22), // the magazine's base plate
-    box(0.03, 0.012, 0.1, m.polymer, 0, -0.082, -0.035), // the trigger guard: under ...
-    box(0.03, 0.058, 0.012, m.polymer, 0, -0.055, -0.085), // ... and in front
-    box(0.012, 0.042, 0.014, m.black, 0, -0.05, -0.02, -0.3), // the trigger
-    box(0.014, 0.016, 0.022, m.black, 0.02, 0.086, 0.15), // the rear sight's two posts
-    box(0.014, 0.016, 0.022, m.black, -0.02, 0.086, 0.15),
-    box(0.012, 0.016, 0.024, m.black, 0, 0.086, -0.18), // the front sight
-    box(0.007, 0.007, 0.004, glow, 0.02, 0.087, 0.162), // the dots on the sights, in the weapon's colour
-    box(0.007, 0.007, 0.004, glow, -0.02, 0.087, 0.162),
-    box(0.006, 0.007, 0.004, glow, 0, 0.087, -0.167),
-    box(0.05, 0.05, 0.012, m.black, 0, 0.046, 0.183), // the back plate of the slide
-  );
-  return finish(g, [0, 0.048, -0.23], [0.26, -0.26, -0.55]);
-}
+export const hasGunLook = (id: string): boolean => !!GUNS[id];
