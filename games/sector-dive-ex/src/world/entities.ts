@@ -23,6 +23,10 @@ import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
 import { rebootMul } from '../core/rules.ts';
 import { geoCache } from './render.ts';
 import { level } from './level.ts';
+import { plainLooks } from './looks.ts';
+const TRACER_HOT = 0xfff0c4; // a tracer's colour
+const ROCKET_STEEL = 0x6f777f; // a rocket's body
+
 import { player, run } from '../actors/player.ts';
 import { damageScaleAt } from '../core/stages.ts';
 import { buildEnemyMesh, buildPickupMesh, makeLaser } from './models.ts';
@@ -103,8 +107,11 @@ export function spawnPBullet(
   b.kb = o.kb || 0;
   b.rail = !!o.rail;
   b.shot = o.shot || 0;
-  b.mesh.geometry = blast ? geoCache.rocket : geoCache.pbullet;
-  b.mesh.material = basicMat(blast ? 0xd8dde3 : color);
+  // With the looks on, a bullet is a tracer: a short white-hot streak, whatever the weapon (a rail round stays a long
+  // bolt in the weapon's colour: it is not a bullet). A rocket is dark steel
+  const tracer = !plainLooks() && !blast && !o.rail;
+  b.mesh.geometry = blast ? geoCache.rocket : tracer ? geoCache.tracer! : geoCache.pbullet;
+  b.mesh.material = basicMat(blast ? (plainLooks() ? 0xd8dde3 : ROCKET_STEEL) : tracer ? TRACER_HOT : color);
   b.mesh.visible = true;
   b.mesh.position.set(b.x, b.y, b.z);
   b.mesh.lookAt(b.x + dir.x, b.y + dir.y, b.z + dir.z);

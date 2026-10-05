@@ -123,6 +123,46 @@ const cyl = (r: number, len: number, mat: THREE.Material, x: number, y: number, 
   m.position.set(x, y, z);
   return m;
 };
+// the muzzle flash, in multiples of the gun's flash size: the burst across the barrel, the tongue's length and width
+const FLASH = { across: 5, along: 6, wide: 2.6 };
+// a ragged star of fire: white-hot in the middle, orange out to the points
+const flashPaint: Paint = (g, rand) => {
+  g.clearRect(0, 0, TEX, TEX);
+  const c = TEX / 2;
+  g.translate(c, c);
+  for (let n = 0; n < 9; n++) {
+    const a = (n / 9) * Math.PI * 2 + rand() * 0.4,
+      len = c * (0.55 + rand() * 0.45),
+      half = 0.16 + rand() * 0.1,
+      ray = g.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len);
+    ray.addColorStop(0, 'rgba(255,244,214,1)');
+    ray.addColorStop(0.45, 'rgba(255,186,84,.85)');
+    ray.addColorStop(1, 'rgba(255,120,30,0)');
+    g.fillStyle = ray;
+    g.beginPath();
+    g.moveTo(Math.cos(a - half) * c * 0.2, Math.sin(a - half) * c * 0.2);
+    g.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+    g.lineTo(Math.cos(a + half) * c * 0.2, Math.sin(a + half) * c * 0.2);
+    g.fill();
+  }
+  const core = g.createRadialGradient(0, 0, 2, 0, 0, c * 0.42);
+  core.addColorStop(0, 'rgba(255,255,255,1)');
+  core.addColorStop(1, 'rgba(255,214,140,0)');
+  g.fillStyle = core;
+  g.fillRect(-c, -c, TEX, TEX);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+};
+let fireMat: THREE.Material | null = null;
+const flashMat = () =>
+  (fireMat ??= shared(
+    new THREE.MeshBasicMaterial({
+      map: paint(2005, flashPaint),
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  ));
 type V3 = [number, number, number];
 // one gun: its parts (given the materials and the glowing one), the muzzle, where it sits on screen, the flash's size
 interface GunLook {
@@ -239,10 +279,16 @@ export function gunLook(id: string, acc: number): THREE.Group {
   const tip = new THREE.Object3D();
   tip.position.set(...def.tip);
   g.add(tip);
-  const flash = new THREE.Mesh(
-    new THREE.SphereGeometry(def.flash, 8, 6),
-    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-  );
+  // the muzzle flash: a burst of fire seen from behind (a plane across the barrel) and its tongue along the barrel
+  const flash = new THREE.Group(),
+    fire = flashMat(),
+    across = new THREE.Mesh(new THREE.PlaneGeometry(def.flash * FLASH.across, def.flash * FLASH.across), fire),
+    along = new THREE.Mesh(new THREE.PlaneGeometry(def.flash * FLASH.along, def.flash * FLASH.wide), fire);
+  along.rotation.y = Math.PI / 2;
+  along.position.z = (-def.flash * FLASH.along) / 2;
+  const flat = along.clone();
+  flat.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+  flash.add(across, along, flat);
   flash.position.copy(tip.position);
   flash.visible = false;
   g.add(flash);

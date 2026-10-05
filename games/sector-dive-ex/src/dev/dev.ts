@@ -13,6 +13,9 @@ import { building } from '../world/building.ts';
 import { devPlainLooks } from '../world/looks.ts';
 import { setHazardClock } from '../world/hazards.ts';
 import { devPlainGuns } from '../actors/viewmodel.ts';
+import { makePortal } from '../world/portals.ts';
+import { COLOR } from '../data/colors.ts';
+import { setFireHeld } from '@engine/ui/input.ts';
 import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
 import { damagePlayer } from '../actors/combat.ts';
@@ -258,6 +261,42 @@ if (location.hash.startsWith('#view-pick'))
     setState('play');
     addPickup('weapon', player.x + 0.3, player.z, { w: newWeapon('shotgun', 1, false, 2, ['rate']) });
     for (let k = 0; k < 10; k++) update(1 / 60);
+  }, 300);
+// dev view: #view-fx-<weapon> stands in the start room with that weapon, the trigger held (its muzzle flash and its
+// bullets in the air), a gate of each kind ahead (for screenshots of the effects). ?sector=KWLN picks the sector
+if (location.hash.startsWith('#view-fx'))
+  setTimeout(() => {
+    startRun();
+    const sector = BIOMES.findIndex(x => x.code === new URLSearchParams(location.search).get('sector'));
+    if (sector >= 0) {
+      run.route = [sector];
+      run.bld = undefined;
+      startStage();
+    }
+    show(null);
+    setState('play');
+    player.hp = 1e6;
+    player.maxHp = 1e6;
+    enemies.forEach(e => {
+      e.dead = true;
+      removeEnemyMesh(e);
+    });
+    const wid = location.hash.split('-')[2] ?? 'pistol';
+    if (WEAPONS[wid]) {
+      const w0 = basicW(wid) as Weapon;
+      w0.mag = magSize(w0);
+      player.weapons[0] = w0;
+      player.cur = 0;
+      normalizeWeapons();
+      weaponHud();
+    }
+    const at = (d: number, side: number): [number, number] => [
+      player.x - Math.sin(player.yaw) * d + Math.cos(player.yaw) * side,
+      player.z - Math.cos(player.yaw) * d - Math.sin(player.yaw) * side,
+    ];
+    makePortal(...at(8, -3), COLOR.amber, 'next', t('boss.forward'));
+    makePortal(...at(8, 3), COLOR.cyan, 'extract', t('boss.extract'));
+    setFireHeld(true);
   }, 300);
 // dev view: #view-haz[-<weapon>] stands on a lit hazard tile (checks the gun is drawn over it); #view-perk opens the chip screen
 if (location.hash.startsWith('#view-haz'))

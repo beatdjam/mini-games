@@ -7,6 +7,7 @@ rocketGeo.rotateX(Math.PI / 2);
 export const geoCache: Record<string, THREE.BufferGeometry> = {
   pbullet: shared(new THREE.BoxGeometry(0.07, 0.07, 1.1)),
   rocket: shared(rocketGeo),
+  tracer: shared(new THREE.BoxGeometry(0.035, 0.035, 0.8)), // a bullet with the looks on (world/entities.ts)
   ebullet: shared(new THREE.SphereGeometry(0.22, 8, 6)),
   bit: shared(new THREE.OctahedronGeometry(0.22)),
   tetra: shared(new THREE.TetrahedronGeometry(0.8)),
