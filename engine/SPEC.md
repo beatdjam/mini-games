@@ -177,7 +177,7 @@
 
 - `render.ts`: レンダラー（`<canvas id="gl">`）、シーン、カメラ、画面サイズへの追従。`shared()` を付けたジオメトリとマテリアルは `disposeTree` で破棄しない
 - **手に持つ銃**: 専用のシーン（`gunScene`）に置き、世界を描いたあと奥行きをリセットしてから描く（`renderGun`）。壁や半透明の床に隠れず、銃の部品どうしは奥行きで正しく重なる。形は部品の一覧を `buildViewmodel` に渡して組み立てる
-- `fx.ts`: パーティクルと爆発の光。engine がシステムとして自分で更新する（`FX.particles` / `FX.fireballs` の `modes` で動くモードを決める）
+- `fx.ts`: パーティクルと爆発の光。engine がシステムとして自分で更新する（`FX.particles` / `FX.fireballs` の `modes` で動くモードを決める）。粒は既定では色のついた小さな立方体。ゲームが `FX.partMat = (色, 上へ昇る粒か) => マテリアル` を入れると、粒のマテリアルをゲームが決められる（形を変えるなら、`parts` の各メッシュのジオメトリを共有のものに差し替える）
 - `materials.ts`: ステージと敵で共通の、名前で引くテクスチャとマテリアル、部品から組む模型
   - `defineTexture(name, { src, size?, repeat? })`: `src` は描く関数（2D コンテキストと一辺の px を受けて1回だけ描く。一辺は既定 128）か、画像ファイルの URL。描いたものと画像は混ぜて使える。`repeat` は既定 true（面に敷き詰める）
   - `defineMaterial(name, { color?, map?, glow?, emissive?, emissiveIntensity?, lit?, opacity? })`: `map` は表面のテクスチャ名、`glow` は光る部分（目・通気口・ライン）のテクスチャ名。`glow` があると既定で白く光る。`emissiveIntensity` を上げると光る部分が強く光る（敵の被弾の光り方と同じ）。`lit: false` はライトの影響を受けない（Basic）。`opacity` が 1 未満なら半透明
