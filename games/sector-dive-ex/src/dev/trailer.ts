@@ -7,11 +7,15 @@ import { lockDoor } from '@engine/world/doors.ts';
 import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
+import { ENEMY_TUNE } from '../data/enemies.ts';
 import { save } from '../core/save.ts';
 import { building, makeBuilding, roomDoors } from '../world/building.ts';
 import type { BuildingLink } from '../world/building.ts';
 import { devSeed, level } from '../world/level.ts';
-import { boss, enemies } from '../world/entities.ts';
+import { boss, enemies, spawnEnemy } from '../world/entities.ts';
+import { devPlainLooks } from '../world/looks.ts';
+import { useSparkLooks } from '../world/sparkLooks.ts';
+import { devPlainGuns } from '../actors/viewmodel.ts';
 import { player, run } from '../actors/player.ts';
 import { controlState } from '../ui/input.ts';
 import { cycleMap } from '../ui/hud.ts';
@@ -38,15 +42,35 @@ interface TrailerWindow {
   __audioAck?: () => void;
 }
 const w = window as unknown as TrailerWindow;
-const SC = { stairs: 0, lift: 3.4, map: 9.6, lock: 12.6, boss: 17.8, end: 23.8, total: 27.0 };
+// old: the plain looks (what Sector Dive looks like); fresh: the same room and enemies with the looks; sec1-3: a
+// second each in three more sectors; then what the building adds
+const LEAD = 8.2; // the seconds the looks take before the scenes of the building
+const SC = {
+  old: 0,
+  fresh: 2.3,
+  sec1: 5.2,
+  sec2: 6.2,
+  sec3: 7.2,
+  stairs: LEAD,
+  lift: LEAD + 3.4,
+  map: LEAD + 9.6,
+  lock: LEAD + 12.6,
+  boss: LEAD + 17.8,
+  end: LEAD + 23.8,
+  total: LEAD + 27.0,
+};
+const SHOW_SEED = 7; // the building the looks are shown in
+const TOUR = ['FORGE', 'DATA', 'CITY']; // the sectors of sec1-3
 const SECTOR = 4; // the neon walled city
 const BOSS = 'watcher';
 const CAPS: [number, string][] = [
-  [SC.stairs, '階段でつながる、3〜5階の建物'],
-  [SC.lift, 'エレベーターは階を飛ばす'],
-  [SC.map, '建物全体の立体マップ'],
-  [SC.lock, 'ロックダウン ― 閉じ込められて、敵が湧く'],
-  [SC.boss, '最下階のボス部屋'],
+  [SC.old, 'これまでの Sector Dive'],
+  [SC.fresh, '見た目を一新'],
+  [SC.sec1, 'セクターごとに違う景色'],
+  [SC.stairs, '上下につながるステージ'],
+  [SC.map, '建物まるごとの立体マップ'],
+  [SC.lock, '閉じ込められて戦う部屋'],
+  [SC.boss, '最下階にボス'],
 ];
 
 // ---- the building ----
@@ -104,15 +128,81 @@ const beside = (k: number, ok: (t: number) => boolean = () => true): number =>
   [1, -1, W, -W].find(d => grid[k + d] === 1 && ok(k + d))!;
 
 // ---- the scenes ----
-let stairs: BuildingLink, lift: BuildingLink;
-let liftFrom = 0; // the tile the player steps onto the lift from
-let fightRoom = -1;
-function sceneStairs() {
+// a row of sleeping enemies in front of the player, facing them
+function lineUp(types: string[]) {
+  types.forEach((type, n) => {
+    const side = (n - (types.length - 1) / 2) * 2.5,
+      d = 6,
+      e = spawnEnemy(
+        type,
+        player.x - Math.sin(player.yaw) * d + Math.cos(player.yaw) * side,
+        player.z - Math.cos(player.yaw) * d - Math.sin(player.yaw) * side,
+        -1,
+        1,
+      );
+    e.face = player.yaw;
+    e.mesh.rotation.y = player.yaw;
+  });
+}
+const SHOWN = ['crawler', 'drone', 'turret', 'trooper'];
+function settle() {
   save.settings.autofire = true;
   save.settings.assist = 'strong';
   save.startTier = 0;
   save.up.chip = 0;
   save.loadout = loadout.map(x => ({ ...x }));
+}
+// a new building of a sector (the same one for the same sector, by the seed), the player in its start room
+function inSector(code: string) {
+  run.route = [BIOMES.findIndex(b => b.code === code)];
+  run.bld = undefined;
+  startStage();
+}
+const plainAll = (on: boolean) => {
+  devPlainLooks(on);
+  devPlainGuns(on);
+  useSparkLooks();
+};
+// the scenes of the looks: nobody fires or wakes, and the game's own banner (the floor's name, across the middle) is
+// out of the way
+const WAKE_TILES = ENEMY_TUNE.wakeTiles;
+function showOnly(on: boolean) {
+  save.settings.autofire = !on;
+  (ENEMY_TUNE as { wakeTiles: number }).wakeTiles = on ? -1 : WAKE_TILES;
+  el('#banner').style.visibility = on ? 'hidden' : '';
+}
+function sceneOld() {
+  settle();
+  showOnly(true);
+  plainAll(true);
+  devSeed(SHOW_SEED);
+  startRun();
+  inSector(BIOMES[SECTOR]!.code);
+  lineUp(SHOWN);
+}
+function sceneFresh() {
+  const { x, z, yaw } = player;
+  plainAll(false);
+  inSector(BIOMES[SECTOR]!.code);
+  player.x = x;
+  player.z = z;
+  player.yaw = yaw;
+  lineUp(SHOWN);
+}
+const sceneTour = (n: number) => () => {
+  inSector(TOUR[n]!);
+  lineUp(
+    BIOMES.find(b => b.code === TOUR[n])!
+      .enemies.filter((t, i, all) => t !== 'shield' && all.indexOf(t) === i) // (its shield would fill the picture)
+      .slice(0, 3),
+  );
+};
+let stairs: BuildingLink, lift: BuildingLink;
+let liftFrom = 0; // the tile the player steps onto the lift from
+let fightRoom = -1;
+function sceneStairs() {
+  settle();
+  showOnly(false);
   devSeed(pickSeed());
   startRun();
   // the same building, in the sector the trailer is filmed in
@@ -139,6 +229,7 @@ function sceneMap() {
   cycleMap();
   cycleMap(); // closed -> 2D -> 3D
 }
+let lockFrom: number[] = [0, 0]; // the middle of the door the player walks in through
 function sceneLock() {
   if (!el('#bigmap').hidden) cycleMap();
   const ld = building!.lockdown!;
@@ -147,6 +238,7 @@ function sceneLock() {
   const door = roomDoors(building!.plans[ld.floor]!.gen, ld.room).doors[0]!,
     inward = beside(door, t => level.roomOf[t] === ld.room);
   put(door - inward, inward); // in the corridor, facing the room's door
+  lockFrom = mid(door);
   enemies.forEach(e => {
     if (e.room === ld.room) e.active = true;
   });
@@ -171,7 +263,7 @@ function sceneEnd() {
     'position:fixed;inset:0;z-index:9999;display:grid;place-items:center;align-content:center;gap:14px;text-align:center;opacity:0;' +
     'background:radial-gradient(ellipse at 50% 45%,rgba(52,40,16,.92),rgba(5,8,12,.97) 65%)';
   o.innerHTML = `<div id="teLogo" style="font-family:var(--disp);font-weight:700;font-size:74px;letter-spacing:.5em;color:#d5e4ee;text-shadow:0 0 24px rgba(255,194,74,.35)">SECTOR<span style="color:#54e8ff">/</span>DIVE <span style="color:#ffc24a">EX</span></div>
-    <div id="teTag" style="font-size:24px;color:#d5e4ee;opacity:0">階を降りて、建物の底のボスへ。</div>
+    <div id="teTag" style="font-size:24px;color:#d5e4ee;opacity:0">最下階のボスを倒しに降りる</div>
     <div id="teSub" style="font-size:15px;color:#7f94a6;letter-spacing:.08em;opacity:0">Sector Dive の実験的な拡張版 ／ ブラウザで無料プレイ・スマホ対応</div>
     <div id="teUrl" style="font-family:var(--disp);font-size:17px;color:#ffc24a;letter-spacing:.1em;margin-top:6px;opacity:0">beatdjam.github.io/mini-games</div>`;
   document.body.appendChild(o);
@@ -228,7 +320,16 @@ function hands(s: number, dt: number) {
   }
   player.hp = player.maxHp;
   player.inv = Math.max(player.inv, 0.2);
-  if (at(SC.stairs, SC.lift)) {
+  if (at(SC.old, SC.sec1)) {
+    // standing in front of the row, the head turning slowly along it (the same turn before and after the change)
+    still();
+    player.yaw += Math.sin((s - SC.old) * 1.1) * 0.22 * dt;
+  } else if (at(SC.sec1, SC.stairs)) {
+    // a few steps toward the row in each sector
+    setFireHeld(false);
+    joy.x = 0;
+    joy.y = -0.5;
+  } else if (at(SC.stairs, SC.lift)) {
     // a dash, held on: running down the stairs and out onto the floor below, the head coming level
     const k = s - SC.stairs;
     setFireHeld(false);
@@ -257,8 +358,9 @@ function hands(s: number, dt: number) {
   } else if (at(SC.lock, SC.boss)) {
     const k = s - SC.lock,
       r = level.rooms[fightRoom]!;
-    if (k < 0.9) {
-      // through the door into the room
+    if (k < 2.5 && Math.hypot(player.x - lockFrom[0]!, player.z - lockFrom[1]!) < 2.5 * T) {
+      // through the door and well into the room (the door shuts behind on the first step in: turning to fight
+      // any nearer to it, the player is left on its doorstep)
       joy.x = 0;
       joy.y = -1;
       setFireHeld(false);
@@ -300,6 +402,11 @@ function hands(s: number, dt: number) {
 
 // ---- the frame loop ----
 const sceneAt: [number, () => void][] = [
+  [SC.old, sceneOld],
+  [SC.fresh, sceneFresh],
+  [SC.sec1, sceneTour(0)],
+  [SC.sec2, sceneTour(1)],
+  [SC.sec3, sceneTour(2)],
   [SC.stairs, sceneStairs],
   [SC.lift, sceneLift],
   [SC.map, sceneMap],
@@ -317,6 +424,10 @@ function uiScript(s: number) {
     k = s - from;
   cap.textContent = text;
   cap.style.opacity = s >= SC.end ? '0' : String(Math.min(ease((k - 0.15) / 0.4), ease((until - s) / 0.3)));
+  // the change of looks: a white flash over the cut
+  const fl = el('#trailerFlash'),
+    f = s - SC.fresh;
+  fl.style.opacity = String(f < -0.08 || f > 0.7 ? 0 : f < 0 ? (f + 0.08) / 0.08 : 1 - ease(f / 0.7));
   // the lockdown's red frame pulses by the film's clock (the page's own animation runs on real time)
   const alarm = el('#alarm');
   alarm.style.animation = 'none';
@@ -351,6 +462,10 @@ export async function runTrailer(musicOnly: boolean) {
     'position:fixed;z-index:9000;left:50%;top:62px;transform:translateX(-50%);padding:6px 18px;white-space:nowrap;opacity:0;' +
     'font-size:22px;letter-spacing:.08em;color:#fff3d6;background:rgba(5,8,12,.72);border-left:3px solid #ffc24a';
   document.body.appendChild(cap);
+  const flash = document.createElement('div');
+  flash.id = 'trailerFlash';
+  flash.style.cssText = 'position:fixed;inset:0;z-index:8999;pointer-events:none;background:#fff6e0;opacity:0';
+  document.body.appendChild(flash);
   audioInit();
   setVolumes(musicOnly ? 0 : 1, musicOnly ? 1 : 0);
   applySfxVolume();

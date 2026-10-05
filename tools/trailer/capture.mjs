@@ -59,7 +59,7 @@ const SHIM = `(() => {
   Math.random = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   // sound: one OfflineAudioContext long enough for the whole trailer. The game sees it through a proxy that always
   // reports 'running' (it is suspended between frames, and the music skips its tick while not running)
-  window.__audioSeconds = 34;
+  window.__audioSeconds = 36;
   const Make = () => {
     if (!window.__off) {
       const off = window.__off = new OfflineAudioContext(2, Math.round(48000 * window.__audioSeconds), 48000);

@@ -17,8 +17,9 @@ function setGroup(id: string, g: THREE.Group) {
   if (old && curVM === old) curVM = g;
 }
 // dev only (?plain, src/dev/dev.ts): every gun the plain way, to compare a look with what was there before
-export function devPlainGuns() {
-  WEAPON_ORDER.forEach(id => setGroup(id, plainGun(id)));
+// (on = false puts the looks back: the trailer shows both)
+export function devPlainGuns(on = true) {
+  WEAPON_ORDER.forEach(id => setGroup(id, !on && hasGunLook(id) ? gunLook(id, WEAPONS[id]!.color) : plainGun(id)));
 }
 // the gun in hand: recoil and muzzle flash timers
 export const GUNFX = { gunKick: 0, flashT: 0 };

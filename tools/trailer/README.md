@@ -6,9 +6,9 @@
 
 ## できるもの
 
-27秒、1920×864（スマホ横向き 20:9）、30fps の mp4。日本語表示・タッチ操作の画面。Sector Dive から変わった所だけを見せる。
+35秒、1920×864（スマホ横向き 20:9）、30fps の mp4。日本語表示・タッチ操作の画面。Sector Dive から変わった所だけを見せる。
 
-階段を走って降りる（上の階から下の階へ、切り替えなし）→ 階を飛ばすエレベーター → 建物全体の立体マップ → ロックダウン → ボス部屋のドアが開いてボスが出る → 白フラッシュでタイトルカード。場面ごとに、上に字幕が出る。
+Sector Dive の見た目の九龍城に敵を並べる → 白フラッシュで、同じ部屋・敵・銃が今の見た目に変わる → 製鉄所・サーバールーム・オフィスを1秒ずつ → 階段を走って降りる（上の階から下の階へ、切り替えなし）→ 階を飛ばすエレベーター → 建物全体の立体マップ → ロックダウン → ボス部屋のドアが開いてボスが出る → 白フラッシュでタイトルカード。場面ごとに、上に字幕が出る。
 
 音は、ゲーム自身の効果音と、BGM（九龍城のボス戦アレンジ）を、映像と同期して書き出したもの。
 
@@ -19,7 +19,7 @@ git checkout claude/trailer-ex && git merge origin/master   # 最新のゲーム
 npx tsc --noEmit                        # ゲームの変更で台本が壊れていないか
 npm run dev &                           # 開発サーバー（8765番。もう動いていれば不要）
 export CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" GL=metal   # Mac。GPU で描く
-node tools/trailer/capture.mjs out video   # コマ（out/f00000.jpg…）と効果音（out/sfx.wav）。Mac の GPU で約45秒
+node tools/trailer/capture.mjs out video   # コマ（out/f00000.jpg…）と効果音（out/sfx.wav）。Mac の GPU で約70秒
 node tools/trailer/capture.mjs out music   # BGM（out/music.wav）。数秒
 tools/trailer/encode.sh out                # out/trailer.mp4
 ```
