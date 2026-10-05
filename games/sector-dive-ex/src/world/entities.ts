@@ -25,6 +25,26 @@ import { geoCache } from './render.ts';
 import { level } from './level.ts';
 import { plainLooks } from './looks.ts';
 import { dressEBullet } from './ebulletLooks.ts';
+const WAVE_FRONT_OPACITY = 1; // a shockwave with the looks on (its picture already fades it out upward)
+// the picture on a shockwave's wall: from the floor up, a white-hot line, then light that thins out to nothing
+let waveTex: THREE.CanvasTexture | null = null;
+function waveFront(): THREE.CanvasTexture {
+  if (waveTex) return waveTex;
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 128;
+  const g = c.getContext('2d')!,
+    up = g.createLinearGradient(0, 128, 0, 0);
+  up.addColorStop(0, 'rgba(255,255,255,1)');
+  up.addColorStop(0.1, 'rgba(255,255,255,.95)');
+  up.addColorStop(0.22, 'rgba(255,255,255,.5)');
+  up.addColorStop(0.6, 'rgba(255,255,255,.16)');
+  up.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = up;
+  g.fillRect(0, 0, 4, 128);
+  waveTex = new THREE.CanvasTexture(c);
+  return waveTex;
+}
 const TRACER_HOT = 0xfff0c4; // a tracer's colour
 const ROCKET_STEEL = 0x6f777f; // a rocket's body
 
@@ -370,12 +390,16 @@ export function dropBits(x: number, z: number, total: number) {
   for (let k = 0; k < n; k++) addPickup('bit', x + rand(-0.9, 0.9), z + rand(-0.9, 0.9), { value: per });
 }
 export function spawnWave(x: number, z: number, speed: number, max: number, dmg: number, color: number) {
+  // With the looks on, a shockwave is a front of fire along the ground: white-hot at the floor, its colour above
+  // that, gone by the top (a picture on the ring's wall, added to what is behind it). The plain one is a flat band
+  const front = plainLooks() ? null : waveFront();
   const mat = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.7,
+    opacity: front ? WAVE_FRONT_OPACITY : 0.7,
     side: THREE.DoubleSide,
     depthWrite: false,
+    ...(front ? { map: front, blending: THREE.AdditiveBlending } : {}),
   });
   const m = new THREE.Mesh(geoCache.wave, mat);
   m.position.set(x, floorY(x, z) + 0.55, z);
