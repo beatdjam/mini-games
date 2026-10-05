@@ -50,7 +50,7 @@ function gateFrame(color: number): THREE.Group {
     emissive: 0xffffff,
     emissiveIntensity: 0.18,
   });
-  plateMat ??= new THREE.MeshLambertMaterial({ color: 0x2a2e33 });
+  plateMat ??= new THREE.MeshLambertMaterial({ color: 0x292d31 });
   const f = new THREE.Group(),
     glow = new THREE.MeshBasicMaterial({ color }),
     box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z = 0) => {
