@@ -172,10 +172,13 @@ export function spawnMinion(type: string, x: number, z: number): RegularEnemy {
   m.active = true;
   return m;
 }
-// how many minions are alive (the boss itself doesn't count)
+// how many minions are alive (the boss itself doesn't count). In a building only the enemies in the boss room count:
+// the ones left in the other rooms of the floor are not the boss's, and must not fill its cap
 export function minionCount(): number {
-  return enemies.filter(o => !o.boss && !o.dead).length;
+  return enemies.filter(o => !o.boss && !o.dead && inArena(o)).length;
 }
+// the room the boss fights in: the boss room of a building floor, the one room of a boss arena
+export const arenaRoom = () => level.rooms[level.hall ? level.hall.room : 0]!;
 // drop below half health: short invulnerable burst, then the boss's enraged patterns take over
 export function bossPhase(e: Boss) {
   e.phased = true;
