@@ -2335,32 +2335,38 @@ test('running: the dash held on after a dash keeps the player fast and drains st
   startRun();
   tick(2);
 });
-test('map: what lies behind a wall (a stairwell, a lift) stays off the map until the player has a line to it', () => {
+test('map: what lies behind a wall stays off the map until the player has a line to it', () => {
   const b = building!,
     mid = (k: number): [number, number] => [((k % W) + 0.5) * T, (Math.floor(k / W) + 0.5) * T];
   let checked = 0;
   b.plans.forEach((plan, floor) => {
     goToFloor(floor);
-    for (const l of b.links) {
-      if (l.upper !== floor && l.lower !== floor) continue;
-      const k = l.a,
-        // a floor tile inside the map's reveal circle (4 tiles) with a wall between it and the link's tile
-        from = Array.from(grid.keys()).find(q => {
-          const di = (q % W) - (k % W),
-            dj = Math.floor(q / W) - Math.floor(k / W);
-          return grid[q] === 1 && !l.strip.includes(q) && di * di + dj * dj <= 16 && !hasLOS(...mid(q), ...mid(k));
-        });
-      if (from === undefined) continue;
-      checked++;
-      plan.seen.fill(0);
-      reveal(from % W, Math.floor(from / W));
-      expect(plan.seen[from], 'the tile stood on is on the map').toBe(1);
-      expect(plan.seen[k], `floor ${floor}: the ${l.kind} behind the wall is not`).toBe(0);
-      reveal(k % W, Math.floor(k / W));
-      expect(plan.seen[k], 'standing on it puts it on the map').toBe(1);
+    // a corridor tile to stand on, and a floor tile inside the map's reveal circle (4 tiles) with a wall between the
+    // two. (From a corridor: standing in a room opens the whole room, whatever is in the way.) Any floor has such a
+    // pair: wherever two corridors, or a corridor and a room, lie a wall apart
+    let from = -1,
+      hidden = -1;
+    for (let q = 0; q < W * H && hidden < 0; q++) {
+      if (grid[q] !== 1 || level.roomOf[q]! >= 0) continue;
+      for (let dj = -4; dj <= 4 && hidden < 0; dj++)
+        for (let di = -4; di <= 4 && hidden < 0; di++) {
+          const k = q + dj * W + di;
+          if (di * di + dj * dj > 16 || k < 0 || k >= W * H || grid[k] !== 1) continue;
+          if (hasLOS(...mid(q), ...mid(k))) continue;
+          from = q;
+          hidden = k;
+        }
     }
+    if (hidden < 0) return;
+    checked++;
+    plan.seen.fill(0);
+    reveal(from % W, Math.floor(from / W));
+    expect(plan.seen[from], 'the tile stood on is on the map').toBe(1);
+    expect(plan.seen[hidden], `floor ${floor}: the tile behind the wall is not`).toBe(0);
+    reveal(hidden % W, Math.floor(hidden / W));
+    expect(plan.seen[hidden], 'standing on it puts it on the map').toBe(1);
   });
-  expect(checked, 'at least one link had a wall near it').toBeGreaterThan(0);
+  expect(checked, 'every floor has a wall with floor on both sides').toBe(b.plans.length);
   goToFloor(0);
 });
 test('dash: in long frames (20 fps) a dash still goes up a stairwell', () => {
