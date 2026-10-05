@@ -68,9 +68,6 @@ export interface Building {
   route: number[]; // the floors in the order they are visited: route[0] = 0 (the top), the last = the lowest floor
   links: BuildingLink[]; // step by step along the route: links[n] joins route[n] and route[n + 1]
   lockdown: { floor: number; room: number } | null; // the room where the lockdown happens (none when no room fits)
-  // A building with a lockdown has one room with no enemies in it: a lockdown is about three rooms' worth of
-  // fighting, so one ordinary room gives way (null without a lockdown)
-  quiet: { floor: number; room: number } | null;
 }
 // the building of the depth being played; replaced as a whole by setBuilding
 export let building: Building | null = null;
@@ -325,7 +322,7 @@ export function roomTiles(d: { W: number; rooms: TileMapData['rooms'] }, room: n
 
 // One try at a building from this exact seed. The random numbers are drawn in this order: the number of floors, the
 // route, the floors, then step by step along the route its stairwell or lift, floor by floor the hazard floors, the
-// start room, the lockdown room, the quiet room.
+// start room, the lockdown room.
 // Returns null when a stairwell or lift finds no place, or a floor tile ends up cut off
 function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | null {
   const rng = createRng(seed);
@@ -437,19 +434,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     }),
   );
   const lockdown = fits.length ? rng.pick(fits) : null;
-  // the quiet room: on the lockdown's floor when that floor has another room with enemies, else on any floor
-  const others: { floor: number; room: number }[] = [];
-  if (lockdown)
-    plans.forEach((p, floor) =>
-      p.gen.rooms.forEach((_, room) => {
-        const taken =
-          room === p.gen.startIdx || room === p.hall?.room || (floor === lockdown.floor && room === lockdown.room);
-        if (!taken) others.push({ floor, room });
-      }),
-    );
-  const near = others.filter(o => o.floor === lockdown?.floor),
-    quiet = others.length ? rng.pick(near.length ? near : others) : null;
-  return { seed, biome, plans, route, links, lockdown, quiet };
+  return { seed, biome, plans, route, links, lockdown };
 }
 // The same seed, sector and boss give the same building. A seed whose floors leave no room for a stairwell or lift is
 // passed over for the next one (seed + SEED_STEP, ...), the same way every time; the building keeps the seed it was

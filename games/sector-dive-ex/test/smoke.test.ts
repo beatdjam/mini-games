@@ -2069,12 +2069,7 @@ test('building: the same seed gives the same three floors, joined at the same pl
         for (const k of l.strip) for (const n of [l.upper, l.lower]) expect(bld.plans[n]!.gen.hazard[k], at).toBe(0);
       // the lockdown room can be shut, and is not the start room or the boss room
       const ld = bld.lockdown;
-      expect(!!bld.quiet, `${at}: a quiet room exactly when there is a lockdown`).toBe(!!ld);
       if (!ld) continue;
-      const q = bld.quiet!,
-        qp = bld.plans[q.floor]!;
-      expect(q.room !== qp.gen.startIdx && q.room !== qp.hall?.room, at).toBe(true);
-      expect(q.floor !== ld.floor || q.room !== ld.room, at).toBe(true);
       const plan = bld.plans[ld.floor]!;
       expect(roomDoors(plan.gen, ld.room).closable, at).toBe(true);
       expect(ld.room !== plan.gen.startIdx && ld.room !== plan.hall?.room, at).toBe(true);
@@ -2082,7 +2077,7 @@ test('building: the same seed gives the same three floors, joined at the same pl
 });
 test('building run: a cleared room stays empty across floors and a resume; the checkpoint follows the floor', () => {
   // a building whose top floor has at least two ordinary rooms with enemies (one to empty, one to wound an enemy in):
-  // on a small top floor the lockdown room and the quiet room can leave fewer
+  // on a small top floor the lockdown room can leave fewer
   const plainRooms = () => {
     const ld0 = building!.lockdown;
     return level.roomCount.filter((n, idx) => n > 0 && !(ld0 && ld0.floor === 0 && ld0.room === idx)).length;
@@ -2733,12 +2728,14 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
   expect(cards.length > 0 && cards.every(c => c.classList.contains('rare')), 'an all-rare pick').toBe(true);
   show(null);
   setState('play');
-  // the building has one room with no enemies to make up for the lockdown
-  const quiet = building!.quiet!;
-  expect(quiet.floor !== ld.floor || quiet.room !== ld.room).toBe(true);
-  goToFloor(quiet.floor);
-  expect(level.roomCount[quiet.room], 'no enemy in the quiet room').toBe(0);
-  expect(enemies.some(e => e.room === quiet.room)).toBe(false);
-  expect(run.bld!.cleared[quiet.floor], 'and it is not a cleared room either').not.toContain(quiet.room);
+  // every other room of the building has its enemies: a lockdown takes no ordinary fight away (the room before the
+  // boss and the start room aside)
+  building!.plans.forEach((p, floor) => {
+    goToFloor(floor);
+    p.gen.rooms.forEach((_, room) => {
+      const empty = room === p.gen.startIdx || room === p.hall?.room || run.bld!.cleared[floor]!.includes(room);
+      expect(level.roomCount[room]! > 0, `floor ${floor} room ${room}`).toBe(!empty);
+    });
+  });
   goBase();
 });
