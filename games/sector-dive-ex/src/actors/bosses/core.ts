@@ -23,6 +23,7 @@ import {
   spawnMinion,
 } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
+const BEAM_CORE = 0.16; // a live beam's white-hot line (m across); the beam itself is 0.45
 // NOISE CORE: rotating beams, bullet rings, summons
 
 // knot: the spinning mesh; beams: the three beam meshes; ba / bdir: beam angle and spin direction
@@ -54,6 +55,14 @@ export function spawnCore() {
       new THREE.MeshBasicMaterial({ color: COLOR.mag, transparent: true, opacity: 0.25, depthWrite: false }),
     );
     bm.position.set(e.cx, 1.2, e.cz);
+    // with the looks on, a beam is light: its colour added to what is behind it, and (once it is live) a white-hot
+    // line down its middle
+    if (!plainLooks()) {
+      bm.material.blending = THREE.AdditiveBlending;
+      const hot = new THREE.BoxGeometry(34, BEAM_CORE, BEAM_CORE);
+      hot.translate(17, 0, 0);
+      bm.add(new THREE.Mesh(hot, new THREE.MeshBasicMaterial({ color: 0xffffff })));
+    }
     bm.visible = false;
     level.group!.add(bm);
     e.beams.push(bm);
@@ -93,6 +102,7 @@ function updCore(e: CoreBoss, dt: number) {
       b.rotation.y = a;
       b.material.opacity = live ? 0.95 : 0.22 + Math.sin(e.t * 30) * 0.08;
       b.scale.set(1, live ? 1 : 0.35, live ? 1 : 0.35);
+      if (b.children[0]) b.children[0].visible = live; // the white-hot line: only once the beam burns
       if (live) {
         const df = Math.atan2(Math.sin(pa - a), Math.cos(pa - a));
         if (Math.cos(df) > 0 && pd * Math.abs(Math.sin(df)) < K.beamWidth)
