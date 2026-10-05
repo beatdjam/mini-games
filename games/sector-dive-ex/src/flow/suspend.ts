@@ -115,7 +115,7 @@ export function renderSuspend() {
   const tier = Math.floor(sn.run.stage / PER),
     b = BIOMES[sn.run.route[tier % sn.run.route.length]];
   const info = t('susp.info', {
-    where: stageLabel(sn.run.stage),
+    where: stageLabel(sn.run.stage, sn.run.bld),
     biome: b.name,
     hp: Math.ceil(sn.P.hp),
     maxHp: sn.P.maxHp,
