@@ -36,6 +36,12 @@ export function keysTurnMap3D(dt: number): boolean {
   map.pitch = Math.min(MAP_PITCH[1], Math.max(MAP_PITCH[0], map.pitch + tilt * MAP_KEY_TURN * dt));
   return true;
 }
+// dev (the trailer): turns the map by hand, as a drag would
+export function turnMap3D(yaw: number, pitch: number) {
+  if (!map) return;
+  map.yaw += yaw;
+  map.pitch = Math.min(MAP_PITCH[1], Math.max(MAP_PITCH[0], map.pitch + pitch));
+}
 // is the 3D page on screen right now
 export const map3dOpen = (): boolean => !canvas.hidden;
 // The engine draws floor n at height n, so the building goes in upside down: its lowest floor is floor 0 of the map

@@ -31,6 +31,9 @@ import { openPerk } from '../screens/perk.ts';
 import { showTab } from '../screens/base.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { update } from '../flow/update.ts';
+// #trailer / #trailer-music: the scripted trailer (tools/trailer/capture.mjs drives it frame by frame)
+if (location.hash.startsWith('#trailer'))
+  import('./trailer.ts').then(m => m.runTrailer(location.hash.startsWith('#trailer-music')));
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
