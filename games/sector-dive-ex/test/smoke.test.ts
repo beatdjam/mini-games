@@ -2616,7 +2616,7 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   tick(90);
   expect(isDoorLocked(world, hall.door), 'it opens after the wait').toBe(false);
   expect(run.bld!.step, 'still the last floor of the route').toBe(run.bld!.floors - 1);
-  // the rooms of the other floors were never cleared: walking in gives the pre-boss supply for them, about 0.3 chips
+  // the rooms of the other floors were never cleared: walking in gives the pre-boss supply for them, about 0.18 chips
   // a room, one pick after another
   const owed = supplyChips(),
     chipsHad = run.perks.length;
@@ -2715,9 +2715,9 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
   expect(locked(), 'open again').toBe(false);
   expect(doors.some(k => isDoorLocked(world, k))).toBe(false);
   expect(run.bld!.cleared[ld.floor]).toContain(ld.room);
-  // the reward: two chips (one whose choices are all rare) and a weapon of the second rarity or better
+  // the reward: a chip whose choices are all rare and a weapon of the second rarity or better
   const reward = query<Pickup>('pickup');
-  expect(chips(), 'two chips to pick up').toBe(chipsWas + 2);
+  expect(chips(), 'one chip to pick up').toBe(chipsWas + 1);
   expect(reward.filter(q => q.kind === 'chip' && q.rare).length).toBe(1);
   expect(
     reward.some(q => q.kind === 'weapon' && q.w!.r >= 1),
