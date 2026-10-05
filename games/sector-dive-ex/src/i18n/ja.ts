@@ -79,7 +79,7 @@ LANG.ja = {
 
     // ---- base ----
     'base.lead':
-      '区画を3つ抜けるとボス。倒したら帰還して戦利品を持ち帰るか、さらに潜るか。死ぬとバッグの中身と持ち出した武器を失い、ビットは半分になる。',
+      '建物の階を下りていき、最下階のボス部屋を目指す。倒したら帰還して戦利品を持ち帰るか、さらに潜るか。死ぬとバッグの中身と持ち出した武器を失い、ビットは半分になる。',
     'base.bits': '所持ビット',
     'base.best': '最深到達',
     'base.runs': '出撃回数',
@@ -173,7 +173,7 @@ LANG.ja = {
     // ---- suspended run ----
     'susp.info': '中断中の潜行: <b>{where}</b>　{biome}（HP {hp} / {maxHp}、ビット {bits}）',
     'susp.resume': 'RESUME',
-    'susp.resumeSub': 'この区画の最初から再開',
+    'susp.resumeSub': '最後に移った階から再開',
     'susp.discardGo': '本当に破棄する（死亡扱い）',
     'susp.discard': '破棄…',
     'susp.resumed': '中断した潜行を再開した',
@@ -257,7 +257,7 @@ LANG.ja = {
     'pause.settings': '設定',
     'pause.resume': '再開',
     'pause.suspend': '中断して拠点へ',
-    'pause.suspendSub': 'この区画の開始時点に戻る',
+    'pause.suspendSub': 'この階に着いた時点に戻る',
     'pause.abandon': '潜行を放棄',
     'pause.abandonSub': '死亡と同じ扱い',
 
@@ -266,7 +266,7 @@ LANG.ja = {
     'res.extract': '帰還完了',
     'res.abandon': '潜行放棄',
     'res.back': '拠点へ戻る',
-    'res.reached': '到達区画',
+    'res.reached': '到達地点',
     'res.kills': '撃破数',
     'res.bits': 'ビット',
     'res.bitsLost': '+{kept}（{lost} を失った）',
@@ -328,8 +328,8 @@ LANG.ja = {
     'run.bossDoorOpen': 'ボス部屋のドアが開いた',
     'run.bossDoorSupply':
       '。入ると、制圧していない部屋のぶんの補給（チップ {n}枚）を受け取る。そのあとは、この建物の部屋からチップが出ない',
-    'run.cleared': '区画制圧',
-    'run.clearedChip': '区画制圧 — チップを回収できる',
+    'run.cleared': '部屋を制圧',
+    'run.clearedChip': '部屋を制圧 — チップを回収できる',
     'run.shielded': 'シールド中。周りの砲台を先に壊す',
     'run.noKit': '回復キットがない',
     'run.hpFull': 'HPは満タン',

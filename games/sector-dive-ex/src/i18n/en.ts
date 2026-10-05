@@ -78,7 +78,7 @@ LANG.en = {
 
     // ---- base ----
     'base.lead':
-      'Clear three areas to reach the boss. Beat it, then extract with your loot or dive deeper. If you die, you lose your bag and the weapons you took, and half your bits.',
+      'Work your way down the floors of a building to the boss room on the lowest. Beat the boss, then extract with your loot or dive deeper. If you die, you lose your bag and the weapons you took, and half your bits.',
     'base.bits': 'Bits',
     'base.best': 'Deepest',
     'base.runs': 'Dives',
@@ -176,7 +176,7 @@ LANG.en = {
     // ---- suspended run ----
     'susp.info': 'Suspended dive: <b>{where}</b>  {biome} (HP {hp} / {maxHp}, {bits} bits)',
     'susp.resume': 'RESUME',
-    'susp.resumeSub': 'Restart from the start of this area',
+    'susp.resumeSub': 'Resume from the floor you last moved to',
     'susp.discardGo': 'Really discard (counts as death)',
     'susp.discard': 'Discard…',
     'susp.resumed': 'Resumed your suspended dive',
@@ -260,7 +260,7 @@ LANG.en = {
     'pause.settings': 'Settings',
     'pause.resume': 'Resume',
     'pause.suspend': 'Suspend and go to base',
-    'pause.suspendSub': 'Back to the start of this area',
+    'pause.suspendSub': 'Back to when you reached this floor',
     'pause.abandon': 'Abandon dive',
     'pause.abandonSub': 'Counts as death',
 
@@ -331,8 +331,8 @@ LANG.en = {
     'run.bossDoorOpen': 'The boss door is open',
     'run.bossDoorSupply':
       '. Walking in gives a supply for the rooms left uncleared ({n} chips); after that the rooms of this building drop no chips',
-    'run.cleared': 'Area cleared',
-    'run.clearedChip': 'Area cleared — a chip is waiting',
+    'run.cleared': 'Room cleared',
+    'run.clearedChip': 'Room cleared — a chip is waiting',
     'run.shielded': 'Shielded. Destroy the turrets around it first',
     'run.noKit': 'No med kits',
     'run.hpFull': 'HP is full',
