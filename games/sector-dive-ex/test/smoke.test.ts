@@ -77,10 +77,12 @@ import {
   buildFixedLevel,
   buildLevel,
   floorDrawn,
+  followersOnTheWay,
   level,
   reveal,
   roomSpot,
   showNeighbourFloors,
+  stashedRoomCount,
 } from '../src/world/level.ts';
 import { hazardState } from '../src/world/hazards.ts';
 import { generateLevel } from '../src/world/levelGen.ts';
@@ -119,6 +121,7 @@ import {
   startRun,
   startStage,
   useLink,
+  crossToFloor,
 } from '../src/flow/run.ts';
 import {
   FLOORS_RANGE,
@@ -2342,6 +2345,53 @@ test('dash: in long frames (20 fps) a dash still goes up a stairwell', () => {
   // 0.2 s of dash is about 4.9 m; stopped at the first metre of the ramp it would be about 2.4 m
   expect(Math.hypot(player.x - from.x, player.z - from.z), 'how far the dash went').toBeGreaterThan(4);
   expect(player.fy, 'and it climbed').toBeGreaterThan(1);
+  goToFloor(0);
+});
+test('followers: an awake enemy close behind comes down the stairwell after the player and still counts for its room', () => {
+  const b = building!,
+    l = b.links.find(x => x.kind === 'stairs');
+  if (!l) return; // a building without a stairwell: nobody can follow
+  goToFloor(l.upper);
+  // nobody else on the floor (twice over: a splitter leaves its halves, awake)
+  for (let k = 0; k < 3; k++) enemies.slice().forEach(e => hurtEnemy(e, 1e6, false));
+  tick(1);
+  expect(enemies.filter(e => !e.dead).length).toBe(0);
+  const l1 = l.strip[l.strip.length - 2]!,
+    l2 = l.strip[l.strip.length - 1]!,
+    behind = l2 + (l2 - l1), // the upper floor's corridor, one tile past the landing
+    room = level.rooms.findIndex((_, r) => r !== level.startIdx);
+  putOnTile(l2);
+  tick(2);
+  // the last enemy of a room of this floor, awake, two tiles behind the player
+  const e = spawnEnemy('crawler', ((behind % W) + 0.5) * T, (Math.floor(behind / W) + 0.5) * T, room, 1);
+  e.active = true;
+  level.roomCount[room] = 1;
+  run.bld!.cleared[l.upper] = run.bld!.cleared[l.upper]!.filter(r => r !== room);
+  putOnTile(l1);
+  tick(1);
+  expect(level.floor, 'the player is on the floor below').toBe(l.lower);
+  expect(enemies.includes(e), 'the enemy is off the field, on its way').toBe(false);
+  expect(followersOnTheWay()).toBe(1);
+  expect(stashedRoomCount(l.upper)![room], 'its room is not cleared yet').toBe(1);
+  tick(150);
+  expect(enemies.includes(e), 'it came out on this floor').toBe(true);
+  expect(followersOnTheWay()).toBe(0);
+  expect(e.floor, 'it still belongs to the floor above').toBe(l.upper);
+  const pickups = query('pickup').length;
+  hurtEnemy(e, 1e6, false);
+  expect(stashedRoomCount(l.upper)![room], 'killed here, its room above is cleared').toBe(0);
+  expect(run.bld!.cleared[l.upper]).toContain(room);
+  expect(query('pickup').length, 'and the reward dropped here').toBeGreaterThan(pickups);
+  // a lift leaves the enemies behind
+  const lift = b.links.find(x => x.kind === 'elevator');
+  if (lift) {
+    goToFloor(lift.upper);
+    const near = spawnEnemy('crawler', player.x + 1, player.z, -1, 1);
+    near.active = true;
+    tick(1);
+    crossToFloor(b.links.indexOf(lift), lift.lower);
+    expect(followersOnTheWay(), 'nobody follows a lift').toBe(0);
+  }
   goToFloor(0);
 });
 test('boss room: in it and at its door only its own floor is drawn (the room is higher than a floor)', () => {

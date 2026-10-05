@@ -144,8 +144,18 @@ function endLockdown(room: number) {
   toast(t(run.bld!.supplied ? 'run.cleared' : 'run.lockdownClear'), LOCKDOWN_TOAST_MS);
 }
 function markCleared(room: number) {
-  const done = run.bld?.cleared[level.floor];
+  markClearedOn(level.floor, room);
+}
+// a room of a floor of the building has no enemy left (the floor being played, or another one whose last enemy
+// followed the player here)
+export function markClearedOn(floor: number, room: number) {
+  const done = run.bld?.cleared[floor];
   if (done && !done.includes(room)) done.push(room);
+}
+// is this the building's lockdown room, with its lockdown still to come
+export function lockdownAhead(floor: number, room: number): boolean {
+  const ld = building?.lockdown;
+  return !!ld && !!run.bld && !run.bld.ld && ld.floor === floor && ld.room === room;
 }
 
 // A room of a building floor has no enemy left. Returns true when the lockdown took the event (a wave came, or it

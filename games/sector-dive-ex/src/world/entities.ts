@@ -255,6 +255,7 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     maxHp: def.hp * diff,
     dmg: def.dmg * ENEMY_TUNE.dmgMul * (run ? damageScaleAt(run.stage) : rebootMul()),
     room, // room index (-1 = not tied to a room, e.g. boss minions)
+    floor: level.floor, // the building floor the room is on (-1 outside a building)
     active: false, // wakes up when the player comes near (see wakeCheck)
     cd: rand(0.8, 1.8), // ranged / sniper cooldown
     mcd: 0, // melee cooldown

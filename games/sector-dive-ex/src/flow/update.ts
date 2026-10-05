@@ -16,7 +16,7 @@ import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
 import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
-import { level, reveal, showNeighbourFloors } from '../world/level.ts';
+import { level, reveal, showNeighbourFloors, updateFollowers } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { updateHazards } from '../world/hazards.ts';
 import { ENEMY_GROUP, enemies, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
@@ -356,6 +356,7 @@ function updateBuildingFloor(dt: number) {
   });
   updateDoorMeshes(movers, dt);
   updateFloorEvents(dt);
+  updateFollowers(dt);
   if (building) showNeighbourFloors(building, player.x, player.z);
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----

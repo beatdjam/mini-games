@@ -149,6 +149,7 @@ interface EnemyBase extends WorldObject {
   maxHp: number;
   dmg: number;
   room: number;
+  floor?: number; // in a building: the floor its room is on (it may have followed the player to another one)
   active: boolean;
   t: number;
   flash: number; // room: -1 = not tied to a room; t: animation clock

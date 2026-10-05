@@ -3,7 +3,7 @@ import { clamp, el, isTouch, pick, randi, shuffle } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { musicVolume, setMusic } from '@engine/audio/music.ts';
-import { T, W, computeFlow, floorY, tileCenter, tileCoord, tileIndex } from '@engine/world/tiles.ts';
+import { T, W, computeFlow, floorY, flowAt, tileCenter, tileCoord, tileIndex } from '@engine/world/tiles.ts';
 import type { Room } from '@engine/world/dungeon.ts';
 import { banner, enterFs, isFullscreen, keepAwake, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
@@ -30,16 +30,18 @@ import {
   level,
   newSeed,
   randomTileIn,
+  recallFollowers,
   restoreFloor,
   reveal,
   roomSpot,
   showBuilding,
   stashFloor,
+  takeFollowers,
 } from '../world/level.ts';
 import { FLOOR_H, building, makeBuilding, setBuilding, unpackSeen } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal } from '../world/portals.ts';
-import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
+import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import {
   buildingStage,
@@ -297,7 +299,13 @@ export function crossToFloor(n: number, to: number) {
   st.at = n;
   recordBest(run.stage);
   persist();
+  // by a stairwell the awake enemies close behind come along (world/level.ts takeFollowers); a lift leaves them
+  const from = level.floor,
+    tile = tileIndex(player.x, player.z),
+    walk = new Map(enemies.map(e => [e, flowAt(e.x, e.z)]));
+  recallFollowers();
   stashFloor();
+  if (b.links[n]!.kind === 'stairs') takeFollowers(from, tile, e => walk.get(e) ?? -1);
   enterFloor(b, to);
   resetFloorEvents();
   if (!restoreFloor()) populateFloor(b.biome, st.tier, b.plans[to]!, st);
