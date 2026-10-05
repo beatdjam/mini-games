@@ -237,14 +237,19 @@ if (location.hash.startsWith('#boss-'))
         player.hp = 1e6;
         player.maxHp = 1e6;
         for (let n = 0; n < 150; n++) update(1 / 60);
-        player.x = b.mesh.position.x;
-        player.z = b.mesh.position.z + LOOK_FROM;
+        // (a boss of several bodies, Trinity: its first body. They keep turning, so no turn is added)
+        const at = (b.boss && b.parts?.[0]?.p) || b.mesh.position;
+        player.x = at.x;
+        player.z = at.z + LOOK_FROM;
         player.yaw = 0;
-        player.pitch = Math.atan2(b.mesh.position.y - 1.6, LOOK_FROM) * 0.6;
+        player.pitch = Math.atan2(at.y - 1.6, LOOK_FROM) * 0.6;
         for (let n = 0; n < 2; n++) update(1 / 60);
         // it stands still from here, turned a little to one side so its flank shows too
         if (b.boss) b.behave = () => {};
         b.mesh.rotation.y += LOOK_TURN;
+        // (its name, up big across the middle of the screen, would cover it)
+        const name = document.querySelector<HTMLElement>('#banner');
+        if (name) name.style.visibility = 'hidden';
       }, 200);
       return;
     }
