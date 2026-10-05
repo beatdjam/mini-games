@@ -218,6 +218,8 @@ if (location.hash === '#view-keys' || location.hash === '#view-keys-wait')
     document.querySelector<HTMLElement>('[data-settings="base"] [data-action="keys"]')?.click();
     if (location.hash.endsWith('-wait')) document.querySelector<HTMLElement>('[data-key-action="reload"]')?.click();
   }, 300);
+const LOOK_FROM = 7.5; // how far from a boss #boss-<kind>-look stands (m)
+const LOOK_TURN = 0.65; // how far a boss is turned for #boss-<kind>-look (rad)
 // dev view: #boss-phantom etc. starts boss practice against that boss
 // optional depth: #boss-phantom-3 = DEPTH 3 strength; #boss-phantom-look = up close
 if (location.hash.startsWith('#boss-'))
@@ -236,10 +238,13 @@ if (location.hash.startsWith('#boss-'))
         player.maxHp = 1e6;
         for (let n = 0; n < 150; n++) update(1 / 60);
         player.x = b.mesh.position.x;
-        player.z = b.mesh.position.z + 10;
+        player.z = b.mesh.position.z + LOOK_FROM;
         player.yaw = 0;
-        player.pitch = Math.atan2(b.mesh.position.y - 1.6, 10) * 0.6;
+        player.pitch = Math.atan2(b.mesh.position.y - 1.6, LOOK_FROM) * 0.6;
         for (let n = 0; n < 2; n++) update(1 / 60);
+        // it stands still from here, turned a little to one side so its flank shows too
+        if (b.boss) b.behave = () => {};
+        b.mesh.rotation.y += LOOK_TURN;
       }, 200);
       return;
     }
