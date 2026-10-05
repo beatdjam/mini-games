@@ -43,7 +43,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - `npm run test:build`: 公開用のビルドを `dist-test/` へ作り、全ゲームについて、版番号が `version.json` と合うこと、GA のタグが入っていること、Chromium でページを開いてエラーが出ず拠点画面が出ることを確かめる（`tools/build.test.ts`）
 - 確認用のコード（各ゲームの `src/dev/`：`#view-…` などのフック）は、開発サーバーにだけ入る。公開用のビルド（`npm run build`）には入らない
 - アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）。GA の利用規約に沿って、`privacy.html`（プライバシーポリシー）をトップと各ゲームの設定から開けるようにしておく。送る内容の種類を増やしたら、この文面も見直す
-- PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト（`npm test` と `npm run test:build`）・ビルドを流す。マージの前に、ここが通っていることを確かめる。テストの結果は Actions の実行画面のサマリに出て、JUnit と HTML のレポート（`test-results/`）は実行結果の Artifacts（`test-report`）からダウンロードできる
+- PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト・ビルドを流す。テストは、PR が変えたファイルに合わせて絞る（`tools/test_scope.js`）: 1つのゲームの中だけを変えた PR は、そのゲームのスモークテストとビルドのテストだけ。engine・`tools/`・設定・ワークフローなどを変えた PR は全部（`npm test` と `npm run test:build`）。文書（`*.md`）だけの PR はテストなし。master への公開ジョブ（`pages.yml`）は、いつも全部のテストを流す。マージの前に、ここが通っていることを確かめる。テストの結果は Actions の実行画面のサマリに出て、JUnit と HTML のレポート（`test-results/`）は実行結果の Artifacts（`test-report`）からダウンロードできる
 - 公開: master に push すると、Actions が同じ確認をもう一度してから GitHub Pages に出す（どれかが失敗すれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
 
 ## 更新履歴のルール
