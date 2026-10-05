@@ -339,10 +339,13 @@ const poolMat = (color: number) =>
     }),
   ));
 export function lightPool(def: EnemyDef): THREE.Mesh {
-  const m = new THREE.Mesh(poolGeo(def.r * POOL.size), poolMat(def.color));
+  const m = groundPool(def.color, def.r * POOL.size);
   m.position.y = -def.y + POOL_Y;
   return m;
 }
+// a pool of light of a colour, `side` metres across, lying flat (the caller puts it at the ground): for the enemies,
+// and for the things lying on the floor (world/itemLooks.ts)
+export const groundPool = (color: number, side: number): THREE.Mesh => new THREE.Mesh(poolGeo(side), poolMat(color));
 const POOL_Y = 0.06; // above the ground (and above a hazard floor's two layers)
 // an enemy's own body material: armour plate with a little of the type's colour in it (more while it flashes)
 export const lookBodyMat = (def: EnemyDef): THREE.MeshLambertMaterial =>
