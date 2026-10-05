@@ -7,10 +7,19 @@ import { burst } from '@engine/render/fx.ts';
 import { T } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { arenaShift, level, randomTileIn } from '../../world/level.ts';
+import { arenaShift, randomTileIn } from '../../world/level.ts';
 import { ring, shootAtPoint } from '../../world/entities.ts';
 import { player } from '../player.ts';
-import { RING_Y, bossBase, bossMaterial, isEnraged, minionCount, spawnMinion, wireOutline } from './common.ts';
+import {
+  RING_Y,
+  arenaRoom,
+  bossBase,
+  bossMaterial,
+  isEnraged,
+  minionCount,
+  spawnMinion,
+  wireOutline,
+} from './common.ts';
 import { makeLaser, setLaser } from '../../world/models.ts';
 import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
@@ -117,7 +126,7 @@ function updPhantom(e: PhantomBoss, dt: number) {
       e.cycle++;
       if (e.cycle % K.droneEvery === 0 && minionCount() < K.droneCap)
         for (let k = 0; k < K.drones; k++) {
-          const [x, z] = randomTileIn(level.rooms[0]);
+          const [x, z] = randomTileIn(arenaRoom());
           spawnMinion('drone', x, z);
         }
     }

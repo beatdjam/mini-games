@@ -107,7 +107,7 @@ import { critChance, fillMag, rollWeapon, magSize, newWeapon, weaponStats } from
 import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/combat.ts';
 import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { RUNNING_SPREAD, findTarget, fire, shotId } from '../src/actors/firing.ts';
-import { bossDifficulty, spawnBoss } from '../src/actors/bosses/common.ts';
+import { arenaRoom, bossDifficulty, minionCount, spawnBoss, spawnMinion } from '../src/actors/bosses/common.ts';
 import { KEY_ACTIONS } from '../src/data/controls.ts';
 import { setKeyBindings } from '../src/core/progress.ts';
 import { applyKeyBindings, controlState, equipNearby, stowNearby } from '../src/ui/input.ts';
@@ -2436,6 +2436,21 @@ test('followers: an awake enemy close behind comes down the stairwell after the 
     crossToFloor(b.links.indexOf(lift), lift.lower);
     expect(followersOnTheWay(), 'nobody follows a lift').toBe(0);
   }
+  goToFloor(0);
+});
+test("boss room: only the enemies in it count as the boss's minions, and it is the room the boss calls them into", () => {
+  const b = building!,
+    last = b.plans.length - 1;
+  goToFloor(last);
+  const hall = level.rooms[level.hall!.room]!;
+  // the floor's other rooms have their enemies: none of them is a minion
+  expect(enemies.filter(e => !e.dead).length, 'enemies on the floor').toBeGreaterThan(0);
+  expect(minionCount(), 'none of them in the boss room').toBe(0);
+  expect(arenaRoom(), 'the room the boss fights in is the boss room, not the first room of the floor').toBe(hall);
+  // one called into the boss room is counted
+  const m = spawnMinion('drone', (hall.x + hall.w / 2) * T, (hall.y + hall.h / 2) * T);
+  expect(minionCount()).toBe(1);
+  hurtEnemy(m, 1e6, false);
   goToFloor(0);
 });
 test('boss room: in it and at its door only its own floor is drawn (the room is higher than a floor)', () => {
