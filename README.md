@@ -58,7 +58,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 
   種類は `追加` / `調整` / `修正` のどれか。リファクタ・テスト・開発用など遊ぶ人に関係しない変更には `Changelog: なし` と書く（更新履歴には載らない）
 - 書き忘れは PR の CI（`.github/workflows/changelog.yml` → `tools/check_changelog.py`）で止まる。ゲームのフォルダ（`games/<game-id>/`）を触ったコミットに、どちらの行もなければ失敗する。開発用のコード（`src/dev/`）と Markdown だけのコミットは対象外
-- 生成スクリプト（`tools/build_updates.py`）は、`updates.html` に `<!-- updates:start` の目印があるゲームを全部処理する。Actions の実行履歴から公開の時刻（JST）と head のコミットを取り、`Changelog:` 行を push ごとにまとめる。対象はそのゲームのフォルダを触ったコミットだけ
+- 生成スクリプト（`tools/build_updates.py`）は、`updates.html` に `<!-- updates:start` の目印があるゲームを全部処理する。Actions の実行履歴から公開の時刻（JST）と head のコミットを取り、`Changelog:` 行を拾う。ページには、頭に最新の5件、その下に日付ごとのまとめ（追加 → 調整 → 修正の順）を出す。対象はそのゲームのフォルダを触ったコミットだけ
 - 2026-09-27 22:35 までの分は `updates-archive.json` に手書きで固定してある
 - 生成に失敗しても公開は止めない（コミット済みのページがそのまま出る）
 - 手元で `python3 tools/build_updates.py` を実行すると過去分だけで作る（`GITHUB_TOKEN` を渡すと実行履歴も読む）

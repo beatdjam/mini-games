@@ -32,9 +32,6 @@ header p{margin:0;color:var(--dim);font-size:14px}
 .list{display:grid;gap:10px}
 .release{display:grid;gap:6px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line)}
 .release.latest{border-left-color:var(--cyan)}
-.rhead{display:flex;gap:12px;align-items:baseline}
-.date{font-family:var(--disp);font-size:15px;color:var(--cyan);font-variant-numeric:tabular-nums}
-.sha{font-family:ui-monospace,monospace;font-size:11px;color:var(--dim)}
 .release ul{margin:0;padding-left:1.2em;display:grid;gap:4px}
 .release li::marker{color:var(--dim)}
 .tag{display:inline-block;font-size:11px;padding:0 6px;margin-right:6px;border:1px solid var(--line);color:var(--dim);vertical-align:1px}
@@ -50,7 +47,7 @@ footer{font-size:12px;color:var(--dim)}
   <header>
     <p class="eyebrow">update log</p>
     <h1>SECTOR<span>/</span>DIVE <span>EX</span> 更新履歴</h1>
-    <p>公開（push）ごと、新しい順。<span class="tag new">追加</span>新機能 <span class="tag bal">調整</span>バランスや見た目の変更 <span class="tag fix">修正</span>不具合の修正</p>
+    <p>最新の5件と、日付ごとのまとめ。<span class="tag new">追加</span>新機能 <span class="tag bal">調整</span>バランスや見た目の変更 <span class="tag fix">修正</span>不具合の修正</p>
   </header>
 
   <!-- updates:start（tools/build_updates.py が生成。手で編集しない） -->
