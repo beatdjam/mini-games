@@ -618,6 +618,99 @@ function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   }
 }
 
+// The live floor: the steel cover of a cable trench, wet, with a cable lying broken across it. `glow` is what lights up
+// while it is live: the bare ends of the cable arcing, and the water on the plate
+const kwlnHazard: Paint = (g, rand) => {
+  const plate = g.createLinearGradient(0, 0, TEX, TEX);
+  plate.addColorStop(0, '#4d5450');
+  plate.addColorStop(1, '#3a403d');
+  g.fillStyle = plate;
+  g.fillRect(0, 0, TEX, TEX);
+  grime(g, rand, 90, '#6f7873', '#161a18');
+  // the seam down the middle and the bolts along the rim
+  g.fillStyle = 'rgba(0,0,0,.5)';
+  g.fillRect(TEX / 2 - 2, 0, 4, TEX);
+  for (let n = 18; n < TEX; n += 44)
+    for (const [x, y] of [
+      [n, 12],
+      [n, TEX - 12],
+      [12, n],
+      [TEX - 12, n],
+    ] as const) {
+      g.fillStyle = 'rgba(0,0,0,.55)';
+      g.fillRect(x - 4, y - 4, 8, 8);
+      g.fillStyle = 'rgba(255,255,255,.18)';
+      g.fillRect(x - 3, y - 3, 3, 3);
+    }
+  // a film of water, darker and glossy
+  g.fillStyle = 'rgba(12,20,22,.5)';
+  g.beginPath();
+  g.ellipse(TEX * 0.56, TEX * 0.58, TEX * 0.34, TEX * 0.24, 0.4, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = 'rgba(190,220,215,.2)';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.ellipse(TEX * 0.56, TEX * 0.58, TEX * 0.3, TEX * 0.2, 0.4, 3.4, 5.2);
+  g.stroke();
+  // the cable: two ends that do not meet
+  g.lineCap = 'round';
+  for (const pts of KWLN_CABLE) {
+    g.strokeStyle = '#0d0f0e';
+    g.lineWidth = 13;
+    g.beginPath();
+    g.moveTo(pts[0] * TEX, pts[1] * TEX);
+    g.bezierCurveTo(pts[2] * TEX, pts[3] * TEX, pts[4] * TEX, pts[5] * TEX, pts[6] * TEX, pts[7] * TEX);
+    g.stroke();
+    // the copper showing at the broken end
+    g.strokeStyle = '#b0703a';
+    g.lineWidth = 5;
+    g.beginPath();
+    g.moveTo(pts[6] * TEX, pts[7] * TEX);
+    g.lineTo((pts[6] + (pts[6] - pts[4]) * 0.12) * TEX, (pts[7] + (pts[7] - pts[5]) * 0.12) * TEX);
+    g.stroke();
+  }
+  grain(g, rand, 18);
+};
+// the two halves of the broken cable, each a curve from the rim to its bare end (as shares of the picture)
+const KWLN_CABLE: number[][] = [
+  [0, 0.2, 0.2, 0.22, 0.26, 0.4, 0.4, 0.46],
+  [1, 0.86, 0.8, 0.9, 0.7, 0.66, 0.58, 0.6],
+];
+const kwlnHazardGlow: Paint = (g, rand) => {
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, TEX, TEX);
+  // the water lights up
+  const pool = g.createRadialGradient(TEX * 0.56, TEX * 0.58, 6, TEX * 0.56, TEX * 0.58, TEX * 0.46);
+  // (the whole plate is lit, not only the water: a live tile must be plain to see from across a room)
+  pool.addColorStop(0, 'rgba(255,255,255,1)');
+  pool.addColorStop(0.6, 'rgba(255,255,255,.75)');
+  pool.addColorStop(1, 'rgba(255,255,255,.5)');
+  g.fillStyle = pool;
+  g.fillRect(0, 0, TEX, TEX);
+  // arcs between the two bare ends and out over the water: jagged, bright
+  const [a, b] = [KWLN_CABLE[0]!, KWLN_CABLE[1]!],
+    ends: [number, number][] = [
+      [a[6]! * TEX, a[7]! * TEX],
+      [b[6]! * TEX, b[7]! * TEX],
+    ];
+  g.strokeStyle = '#fff';
+  g.shadowColor = '#fff';
+  g.shadowBlur = 12;
+  g.lineJoin = 'round';
+  for (let n = 0; n < 7; n++) {
+    const [x0, y0] = ends[n % 2]!,
+      // the first two join the ends; the rest strike out over the plate
+      [x1, y1] = n < 2 ? ends[1 - (n % 2)]! : [x0 + (rand() - 0.5) * TEX * 0.9, y0 + (rand() - 0.5) * TEX * 0.9];
+    g.lineWidth = n < 2 ? 4 : 2.5;
+    g.beginPath();
+    g.moveTo(x0, y0);
+    for (let t = 1; t <= 6; t++)
+      g.lineTo(x0 + ((x1 - x0) * t) / 6 + (rand() - 0.5) * 22, y0 + ((y1 - y0) * t) / 6 + (rand() - 0.5) * 22);
+    g.stroke();
+  }
+  g.shadowBlur = 0;
+};
+
 const KWLN_WALLS = 5; // the wall pictures (see kwlnWall)
 // the walled city's look (world/looks.ts makes it the first time the sector is drawn)
 export function kwlnLook(): Look {
@@ -629,6 +722,7 @@ export function kwlnLook(): Look {
     door: paint(500, kwlnDoor(false)),
     bossDoor: paint(501, kwlnDoor(true)),
     fog: 0x12100f,
+    hazard: { base: paint(510, kwlnHazard), glow: paint(511, kwlnHazardGlow) },
     props: kwlnProps,
   };
 }

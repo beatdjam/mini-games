@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { renderer } from '@engine/render/render.ts';
 import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
+import { CSS_COLOR } from '../../data/colors.ts';
 import type { FloorPlan } from '../building.ts';
 // What every sector's look is made with: the shape of a look, the painters' tools (pictures painted on canvases from
 // a seed, so a floor looks the same every time), which picture a tile gets, and where things go on a wall. The looks
@@ -18,6 +19,10 @@ export interface Look {
   door: THREE.CanvasTexture; // one leaf of a door (a leaf is half a tile wide and a wall high)
   bossDoor: THREE.CanvasTexture; // ... of the boss room's door
   fog: number; // the colour things fade to in the distance (the sector's own is for the plain look)
+  // The hazard floor of a sector that has one: `base` is what the tile is (always shown, so the tile can be told
+  // from the floor round it), `glow` is what lights up in the hazard's colour while it is live (world/hazards.ts).
+  // Without it the hazard floor is the plain glowing square
+  hazard?: { base: THREE.CanvasTexture; glow: THREE.CanvasTexture };
   props: (plan: FloorPlan, group: THREE.Group, rng: Rng) => void;
 }
 export type Paint = (g: CanvasRenderingContext2D, rand: () => number) => void;
@@ -97,6 +102,46 @@ export function variantOf(k: number, count: number, plainShare: number): number 
 }
 export const WALL_PLAIN_SHARE = 0.4; // share of the wall tiles that get the plain picture
 export const FLOOR_PLAIN_SHARE = 0.6; // ... of the floor tiles
+
+// The top of a lift's platform, the same in every sector with a look (a lift must be known at a glance): a steel
+// plate with studs, a lit strip round its rim and an arrow up and one down, both in the lift's colour (violet, as on
+// the map)
+export const liftPaint: Paint = (g, rand) => {
+  const steel = g.createLinearGradient(0, 0, TEX, TEX);
+  steel.addColorStop(0, '#5c6269');
+  steel.addColorStop(1, '#474c53');
+  g.fillStyle = steel;
+  g.fillRect(0, 0, TEX, TEX);
+  grime(g, rand, 60, '#7c838b', '#22262a');
+  // studs, so it reads as a plate to stand on
+  g.fillStyle = 'rgba(255,255,255,.13)';
+  for (let y = 22; y < TEX; y += 18)
+    for (let x = 22 + ((y / 18) % 2) * 9; x < TEX - 14; x += 18) g.fillRect(x, y, 6, 2);
+  // the frame and the lit strip inside it
+  g.strokeStyle = '#24282c';
+  g.lineWidth = 14;
+  g.strokeRect(7, 7, TEX - 14, TEX - 14);
+  g.strokeStyle = CSS_COLOR.violet;
+  g.shadowColor = CSS_COLOR.violet;
+  g.shadowBlur = 10;
+  g.lineWidth = 4;
+  g.strokeRect(20, 20, TEX - 40, TEX - 40);
+  // the arrows: one up, one down
+  g.fillStyle = CSS_COLOR.violet;
+  for (const [cy, dir] of [
+    [TEX * 0.36, -1],
+    [TEX * 0.64, 1],
+  ] as const) {
+    g.beginPath();
+    g.moveTo(TEX / 2, cy + dir * 26);
+    g.lineTo(TEX / 2 - 30, cy - dir * 12);
+    g.lineTo(TEX / 2 + 30, cy - dir * 12);
+    g.closePath();
+    g.fill();
+  }
+  g.shadowBlur = 0;
+  grain(g, rand, 14);
+};
 
 // ---- things fixed to a wall (a wall slot of placeProps: the floor tile and the side its wall is on) ----
 export type WallSlot = { i: number; j: number; side?: number };

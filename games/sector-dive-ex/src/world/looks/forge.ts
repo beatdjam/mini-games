@@ -843,6 +843,55 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
 }
 
+// The molten floor: an iron grating over a casting channel. `glow` is what lights up while it is live: the metal
+// running in the channel, seen between the bars
+const GRATE = { bars: 7, bar: 0.5 }; // bars across the picture, and the share of each pitch that is iron
+const forgeHazard: Paint = (g, rand) => {
+  // the channel below: dull, cooling
+  g.fillStyle = '#2a1512';
+  g.fillRect(0, 0, TEX, TEX);
+  for (let n = 0; n < 40; n++) {
+    g.fillStyle = `rgba(120,48,24,${0.15 + rand() * 0.25})`;
+    g.fillRect(rand() * TEX, rand() * TEX, 10 + rand() * 40, 4 + rand() * 12);
+  }
+  // the bars, and the frame they sit in
+  const pitch = TEX / GRATE.bars;
+  for (let n = 0; n < GRATE.bars; n++) {
+    const x = n * pitch + (pitch * (1 - GRATE.bar)) / 2,
+      w = pitch * GRATE.bar,
+      iron = g.createLinearGradient(x, 0, x + w, 0);
+    iron.addColorStop(0, '#1a1715');
+    iron.addColorStop(0.45, '#3b3531');
+    iron.addColorStop(1, '#131110');
+    g.fillStyle = iron;
+    g.fillRect(x, 0, w, TEX);
+  }
+  g.fillStyle = '#1d1a18';
+  for (const y of [0, TEX * 0.48, TEX - 16]) g.fillRect(0, y, TEX, 16);
+  g.fillRect(0, 0, 16, TEX);
+  g.fillRect(TEX - 16, 0, 16, TEX);
+  soot(g, rand, 26);
+  grain(g, rand, 16);
+};
+const forgeHazardGlow: Paint = (g, rand) => {
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, TEX, TEX);
+  // the metal in the channel: bright, with brighter streams in it
+  g.fillStyle = 'rgba(255,255,255,.7)';
+  g.fillRect(0, 0, TEX, TEX);
+  for (let n = 0; n < 26; n++) {
+    g.fillStyle = `rgba(255,255,255,${0.3 + rand() * 0.5})`;
+    g.fillRect(rand() * TEX, rand() * TEX, 20 + rand() * 70, 5 + rand() * 12);
+  }
+  // the bars and the frame stay dark (a little light spills on their edges)
+  const pitch = TEX / GRATE.bars;
+  g.fillStyle = 'rgba(0,0,0,.86)';
+  for (let n = 0; n < GRATE.bars; n++) g.fillRect(n * pitch + (pitch * (1 - GRATE.bar)) / 2, 0, pitch * GRATE.bar, TEX);
+  for (const y of [0, TEX * 0.48, TEX - 16]) g.fillRect(0, y, TEX, 16);
+  g.fillRect(0, 0, 16, TEX);
+  g.fillRect(TEX - 16, 0, 16, TEX);
+};
+
 // the smelter block's look (world/looks.ts makes it the first time the sector is drawn)
 export function forgeLook(): Look {
   return {
@@ -853,6 +902,7 @@ export function forgeLook(): Look {
     door: paint(1000, forgeDoor(false)),
     bossDoor: paint(1001, forgeDoor(true)),
     fog: 0x150e0b,
+    hazard: { base: paint(1010, forgeHazard), glow: paint(1011, forgeHazardGlow) },
     props: forgeProps,
   };
 }

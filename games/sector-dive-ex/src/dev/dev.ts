@@ -31,6 +31,8 @@ import { update } from '../flow/update.ts';
 
 // dev: ?plain draws every sector the plain way (no sector's own look), to compare with what was there before
 if (new URLSearchParams(location.search).has('plain')) devPlainLooks(true);
+// dev: ?hazon keeps the hazard floors live (to look at them lit)
+if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHazardClock(0.5), 50);
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
