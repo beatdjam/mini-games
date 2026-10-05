@@ -676,9 +676,13 @@ test('shortcut supply: 2 picks at DEPTH 3, chips applied supplyTimes times', () 
     }
     const regen = player.stRegen - r0,
       range = player.magnet;
+    // the stamina regen stops at its cap (without one, a dash was back in a moment and the player dashed without end)
+    for (let k = 0; k < 20; k++) sp.apply(player, sp.rv!);
+    const capped = player.stRegen === TUNE.staminaRegenCap && sp.maxed!(player);
     setPlayer(keep);
     if (Math.abs(regen - 5 * sp.v * TUNE.staminaRegen) > 1e-9 || Math.abs(range - 5) > 1e-9)
       throw new Error('additive chips ' + regen + ' ' + range);
+    if (!capped) throw new Error('the stamina regen has a cap');
   }
   // deep drops: rarer on the whole, but not all ★★★
   {

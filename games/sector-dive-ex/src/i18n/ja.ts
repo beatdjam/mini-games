@@ -451,7 +451,11 @@ LANG.ja = {
         desc: v => `会心率 +${pct(v)}（2倍ダメージ、上限40%）`,
         curText: c => `会心率 ${pct(c)}`,
       },
-      sprint: { name: '瞬発回路', desc: v => `スタミナ回復 +${pct(v)}`, curText: c => `スタミナ回復 毎秒${c}` },
+      sprint: {
+        name: '瞬発回路',
+        desc: v => `スタミナ回復 +${pct(v)}（最大 毎秒102）`,
+        curText: c => `スタミナ回復 毎秒${c}`,
+      },
       chain: { name: '連鎖爆破', desc: v => `撃破した敵が周囲を巻き込んで爆発（Lv +${v}）`, curText: c => `Lv ${c}` },
       magnet: { name: '磁力', desc: () => 'ビット回収範囲 +80%、獲得 +10%', curText: c => `回収範囲 ×${c}` },
       reload: {

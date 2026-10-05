@@ -457,7 +457,11 @@ LANG.en = {
         desc: v => `Crit chance +${pct(v)} (2× damage, max 40%)`,
         curText: c => `Crit ${pct(c)}`,
       },
-      sprint: { name: 'Burst Circuit', desc: v => `Stamina regen +${pct(v)}`, curText: c => `Stamina regen ${c}/s` },
+      sprint: {
+        name: 'Burst Circuit',
+        desc: v => `Stamina regen +${pct(v)} (max 102/s)`,
+        curText: c => `Stamina regen ${c}/s`,
+      },
       chain: {
         name: 'Chain Blast',
         desc: v => `Kills explode and catch enemies nearby (Lv +${v})`,

@@ -102,8 +102,9 @@ export const PERKS = withLang<Perk, 'name' | 'desc' | 'curText'>(
       v: 0.35,
       rv: 0.6,
       apply: (p, v) => {
-        p.stRegen += TUNE.staminaRegen * v;
+        p.stRegen = Math.min(TUNE.staminaRegenCap, p.stRegen + TUNE.staminaRegen * v);
       },
+      maxed: p => p.stRegen >= TUNE.staminaRegenCap,
       cur: p => Math.round(p.stRegen),
     },
     {

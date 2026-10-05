@@ -28,6 +28,7 @@ export const TUNE = {
   moveSpeed: 7.4, // base move speed (m/s)
   stamina: 100, // base max stamina (endurance upgrade adds 20 per level)
   staminaRegen: 34, // stamina per second (cooling upgrade adds 12% per level)
+  staminaRegenCap: 102, // the chips can't take the regen above this (3x the base: a dash is back in about a second)
   staminaDelay: 0.5, // seconds after a dash before stamina refills
   dashCost: 45,
   dashTime: 0.2, // seconds
