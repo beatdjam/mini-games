@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { placeProps } from '@engine/world/slots.ts';
-import type { Placement, PropRule, Slot } from '@engine/world/slots.ts';
+import type { PropRule, Slot } from '@engine/world/slots.ts';
 import type { TileMapData } from '@engine/world/dungeon.ts';
 import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
 import type { FloorPlan } from '../building.ts';
@@ -55,7 +55,6 @@ export interface Light {
 }
 export interface PropTools {
   d: TileMapData; // the floor's map
-  placed: Placement[]; // every place handed out, as placeProps gave them
   wallOf: (s: WallSlot) => number; // the wall tile a wall slot is on
   // the places handed to the props with this id (no wall is drawn where a stairwell comes up from below: nothing
   // hangs there)
@@ -94,7 +93,6 @@ export function propTools(plan: FloorPlan, group: THREE.Group, rules: PropRule[]
   };
   return {
     d,
-    placed,
     wallOf,
     of: id =>
       placed

@@ -1,6 +1,8 @@
 // Smoke test for Sector Dive Extended: boots the game page (setup.ts) and runs its parts through the real loop by hand.
 // The tests share one game state and run in order; some checks depend on how many random numbers the earlier ones used.
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { Group, Matrix4, Vector3 } from 'three';
+import type { InstancedMesh } from 'three';
 import type { Boss, GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
 import { createRng, distXZ, el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
@@ -49,6 +51,7 @@ import { gunLook, hasGunLook } from '../src/actors/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
+import { lookOf } from '../src/world/looks.ts';
 import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, REBOOT_ENDLESS, REBOOT_UP, TUNE } from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
 import {
@@ -2006,6 +2009,43 @@ test('building: no door has floor beside it (a corridor to a stairwell or lift n
       });
     });
   }
+});
+test('building: nothing hangs on a wall that is not drawn (open down to a stairwell), in any sector', () => {
+  // seeds whose buildings hand a wall prop a place on such a wall (in the walled city, floors 2, 0 and 1)
+  for (const biome of BIOMES)
+    for (const seed of [1, 3, 14]) {
+      const b = makeBuilding(biome, biome.bosses[0]!, seed);
+      b.plans.forEach((plan, floor) => {
+        const g = new Group(),
+          W = plan.gen.W,
+          m = new Matrix4(),
+          p = new Vector3();
+        lookOf(biome)!.props(plan, g, createRng(seed + floor));
+        g.children.forEach(c => {
+          const mesh = c as InstancedMesh;
+          for (let n = 0; n < mesh.count; n++) {
+            mesh.getMatrixAt(n, m);
+            p.setFromMatrixPosition(m);
+            // the tile the thing is over, and how far it is from the tile's middle: a thing on a wall is pushed out
+            // to within half a metre of that wall, a thing on the ceiling or a light on the ground is not. (A long
+            // thing's end may be as far along its wall as that, so it counts as hanging on either wall: one of
+            // them must be drawn)
+            const i = Math.floor(p.x / T),
+              j = Math.floor(p.z / T),
+              dx = p.x - (i + 0.5) * T,
+              dz = p.z - (j + 0.5) * T,
+              walls: number[] = [];
+            if (Math.abs(dx) >= T / 2 - 0.5) walls.push(j * W + i + Math.sign(dx));
+            if (Math.abs(dz) >= T / 2 - 0.5) walls.push((j + Math.sign(dz)) * W + i);
+            if (p.y < 0.1 || !walls.length) continue;
+            expect(
+              walls.every(k => plan.voids[k]),
+              `${biome.code} seed ${seed} floor ${floor} tile ${i},${j}`,
+            ).toBe(false);
+          }
+        });
+      });
+    }
 });
 test('building: a sector with corridors 2 wide has doors 2 tiles wide, so a room that can be shut (a lockdown)', () => {
   const city = BIOMES.find(x => x.gen.corridorW === 2)!;
