@@ -3,7 +3,7 @@ import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { setMusic } from '@engine/audio/music.ts';
 import { burst } from '@engine/render/fx.ts';
-import { activeTileGrid, tileCenter } from '@engine/world/tiles.ts';
+import { T, activeTileGrid, tileCenter, tileIndex } from '@engine/world/tiles.ts';
 import { lockDoor } from '@engine/world/doors.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
 import { PER } from '../data/progress.ts';
@@ -284,16 +284,32 @@ function crossStairs(tile: number): boolean {
 
 // the player stepped onto a new tile of a building floor
 export function onPlayerTile(tile: number) {
-  if (level.floor < 0 || crossStairs(tile)) return;
-  const room = level.roomOf[tile]!; // -1 = a corridor or a door
-  if (room < 0) return;
-  if (isLockdownRoom(room) && !ev.ldActive) startLockdown(room);
-  if (level.hall && room === level.hall.room && !ev.bossStarted) startBossFight();
+  if (level.floor < 0) return;
+  crossStairs(tile);
 }
 
-// every frame on a building floor: the lifts, and waiting in front of the locked boss door opens it
+// A room that shuts behind the player (the lockdown room, the boss room) shuts once they are inside it and clear of
+// its doorways. A door does not shut on someone standing in it (engine/src/world/doors.ts), so a player who had only
+// just stepped in could walk back out, and would be left outside a room that never opens, with lifts that do not run
+function clearOfDoors(doors: number[]): boolean {
+  const W = world().W,
+    reach = T / 2 + player.r; // nearer than this to a door tile's middle (along x and along z) is in its doorway
+  return !doors.some(
+    k => Math.abs(player.x - tileCenter(k % W)) < reach && Math.abs(player.z - tileCenter(Math.floor(k / W))) < reach,
+  );
+}
+function shutBehindPlayer() {
+  const room = level.roomOf[tileIndex(player.x, player.z)] ?? -1;
+  if (room < 0) return;
+  if (isLockdownRoom(room) && !ev.ldActive && clearOfDoors(lockdownDoors(room))) startLockdown(room);
+  const hall = level.hall;
+  if (hall && room === hall.room && !ev.bossStarted && clearOfDoors([hall.door])) startBossFight();
+}
+
+// every frame on a building floor: the lockdown, the lifts, and waiting in front of the locked boss door opens it
 export function updateFloorEvents(dt: number) {
   if (level.floor < 0) return;
+  shutBehindPlayer();
   if (ev.ldActive) {
     ev.alarmT -= dt;
     if (ev.alarmT <= 0) {
