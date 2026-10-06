@@ -2,16 +2,23 @@ import { addSystem } from '@engine/core/loop.ts';
 import { OPPOSITE_SIDE, SIDE_STEP, activeTileGrid, hasLOS, tileCenter, tileIndex } from '@engine/world/tiles.ts';
 import { camera } from '@engine/render/render.ts';
 import { joy, setFireHeld } from '@engine/ui/input.ts';
-import type { Enemy } from '../data/types.ts';
+import { query } from '@engine/core/world.ts';
+import type { Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
+import { KIT_MAX, TUNE } from '../data/progress.ts';
+import { EYE, PORTAL } from '../data/level.ts';
+import { stageInfo } from '../core/stages.ts';
 import { save } from '../core/save.ts';
 import { toggleSetting } from '../core/progress.ts';
 import { player, run } from '../actors/player.ts';
 import { spheres } from '../actors/firing.ts';
-import { boss, enemies } from '../world/entities.ts';
+import { boss, eBullets, enemies, nearPickup } from '../world/entities.ts';
+import { hazardState } from '../world/hazards.ts';
+import { weaponStats } from '../actors/weapons.ts';
+import { kitHealAmount } from '../actors/combat.ts';
 import { building } from '../world/building.ts';
 import { level } from '../world/level.ts';
 import { state } from '../flow/state.ts';
-import { useKit } from '../ui/input.ts';
+import { controlState, equipNearby, normalizeWeapons, useKit } from '../ui/input.ts';
 // ================= a player that plays by itself (dev) =================
 // For looking at the balance without playing by hand: a bot that walks the building's route, fights what it sees and
 // takes the boss, through the same inputs a person uses (the stick, where the player looks, the fire button). It
@@ -27,18 +34,46 @@ export interface BotStyle {
   aimError: number; // how far off its aim wanders (rad)
   fightRange: number; // it stops to fight what it sees within this (m)
   after: 'extract' | 'next'; // the gate it takes when the boss is down
+  avoidHazards: boolean; // it goes round the hazard floors, and does not step onto one that is live or about to be
+  dodge: number; // the share of the shots and shockwaves coming at it that it dashes clear of (0 = it never dashes)
+  healBelow: number; // it uses a kit under this share of its health (when none of the kit's healing would be wasted)
+  explore: boolean; // it clears every room of a floor before going on (else it follows the route and fights what it meets)
+  loot: number; // it goes out of its way for a weapon, a kit or a chip within this (m; 0 = only what it walks over)
 }
-export const BOT_STYLES: Record<string, BotStyle> = {
-  // goes straight along the route, aims well
-  rusher: { name: 'rusher', autofire: true, turn: 9, aimError: 0.015, fightRange: 22, after: 'extract' },
+// someone who plays well: quick, accurate aim, dashes clear of most shots, minds the hazard floors
+const SKILLED = { turn: 9, aimError: 0.015, fightRange: 22, avoidHazards: true, dodge: 0.8, healBelow: 0.5 };
+const KINDS: Record<string, Omit<BotStyle, 'name' | 'autofire'>> = {
+  // new to it: slow, loose aim, seldom dashes, walks onto hazard floors, heals late, takes only what lies near
+  beginner: {
+    turn: 3.5,
+    aimError: 0.07,
+    fightRange: 14,
+    avoidHazards: false,
+    dodge: 0.15,
+    healBelow: 0.3,
+    explore: false,
+    loot: 5,
+    after: 'next',
+  },
+  // plays well and looks everywhere: clears every room, goes a long way for a pickup
+  explorer: { ...SKILLED, explore: true, loot: 40, after: 'next' },
+  // plays well and presses on: follows the route, takes what lies near it
+  rusher: { ...SKILLED, explore: false, loot: 12, after: 'next' },
 };
+// each kind with the game's auto-fire on (the name alone) and off (`-manual`: it pulls the trigger itself)
+export const BOT_STYLES: Record<string, BotStyle> = Object.fromEntries(
+  Object.entries(KINDS).flatMap(([name, kind]) => [
+    [name, { name, autofire: true, ...kind }],
+    [`${name}-manual`, { name: `${name}-manual`, autofire: false, ...kind }],
+  ]),
+);
 
 // ---- tuning numbers used only here ----
 const KEEP_FAR = 16; // in a fight it closes in from beyond this (m)
 const KEEP_NEAR = 6; // ... and backs off inside this
 const STRAFE_FLIP = 0.9; // it changes the side it strafes to this often (s)
 const AIM_WANDER = 0.35; // its aim error is drawn again this often (s)
-const KIT_BELOW = 0.4; // it uses a kit under this share of its health
+const KIT_ANYWAY = 0.2; // under this share of its health it uses a kit even if some of the healing is wasted
 const STUCK_AFTER = 1.5; // not having moved for this long while walking counts as stuck (s)
 const STUCK_MOVED = 0.4; // ... less than this far (m)
 const UNSTICK_FOR = 0.5; // it then sidesteps for this long (s)
@@ -49,6 +84,17 @@ const REPATH_FRAMES = 30; // the way is worked out again this often (doors lock 
 const IDLE_AFTER = 8; // getting nowhere for this long (no ground covered, nothing killed), it roams (s)
 const IDLE_MOVED = 1.5; // ... less ground than this (m)
 const ROAM_FOR = 2.5; // it then walks some other way for this long (s)
+const HAZARD_COST = 8; // a hazard floor tile counts as this many tiles of walking: it goes round when that is shorter
+const LOOK_AHEAD = 1.7; // it will not walk onto a live hazard floor this near ahead (m)
+const BETTER_BY = 1.1; // a weapon on the floor is taken when it does this many times the damage of the worse one held
+const DODGE_TIME = 0.3; // it dashes when a shot would reach it within this (s)
+const DODGE_MARGIN = 0.45; // ... passing this near its body (m)
+const DODGE_REACH_Y = 2.2; // a shot this far above or below its middle goes by (m)
+const WAVE_NEAR = 1.6; // it dashes through a shockwave when the ring is this near (m)
+const NO_HIT_AFTER = 1.2; // shooting at a foe this long without hurting it, it closes in (s)
+const PUSH_IN_FOR = 1.5; // ... for this long (s)
+const LOOT_GIVE_UP = 12; // a thing on the floor it has not got to in this long is left (s)
+const LOOT_REACH_Y = 2.5; // a thing this far above or below its feet is on another level: left alone (m)
 
 // what a run came to, for the tables (sim/bot.sim.ts)
 export interface BotStats {
@@ -56,6 +102,10 @@ export interface BotStats {
   damage: number; // health lost, kits and regeneration aside
   minHp: number; // the lowest its health went, as a share of the most
   kits: number; // kits used
+  hazard: number; // seconds stood on a live hazard floor
+  picked: number; // weapons taken from the floor
+  dashes: number; // dashes made to get clear of a shot or a shockwave
+  depth: number; // the deepest depth it played (1 = the first)
   floors: number; // floors of the building it reached
   bossAt: number; // the frame the boss appeared at (-1 = it never did)
   bossHp: number; // the share of the boss's health left (1 = not fought)
@@ -78,6 +128,10 @@ export function createBot(style: BotStyle) {
     damage: 0,
     minHp: 1,
     kits: 0,
+    hazard: 0,
+    picked: 0,
+    dashes: 0,
+    depth: 1,
     floors: 1,
     bossAt: -1,
     bossHp: 1,
@@ -103,6 +157,7 @@ export function createBot(style: BotStyle) {
   let idleAt = { x: 0, z: 0, kills: 0, foeHp: 0 };
   let roamT = 0;
   let roam = { x: 0, z: 0 }; // the way it roams
+  let shotAt: { e: Enemy | null; hp: number; t: number } = { e: null, hp: 0, t: 0 }; // the foe under fire, its health when a shot last told, seconds since
 
   // the steps from every tile to tile `goal`, walking as a person walks (ramps and decks count; a locked door is
   // walked up to, not through)
@@ -114,6 +169,36 @@ export function createBot(style: BotStyle) {
     dist = new Int32Array(W * H).fill(-1);
     const queue = [goal];
     dist[goal] = 0;
+    // (tiles are taken again when a shorter way to them turns up: a hazard floor costs more than a plain one)
+    for (let h = 0; h < queue.length; h++) {
+      const c = queue[h]!,
+        ci = c % W,
+        cj = Math.floor(c / W),
+        cost = dist[c]! + (style.avoidHazards && level.hazardTiles[c] ? HAZARD_COST : 1);
+      SIDE_STEP.forEach(([a, b], side) => {
+        if (!grid.inBounds(ci + a, cj + b)) return;
+        const n = c + a + b * W;
+        if (floor[n] !== 1 || (dist[n]! >= 0 && dist[n]! <= cost)) return;
+        // (walking n -> c; the goal itself may be a locked door: its neighbours still lead to it)
+        if (!grid.passable(n, c, OPPOSITE_SIDE[side]!) && !(c === goal && grid.world.door?.[c])) return;
+        dist[n] = cost;
+        queue.push(n);
+      });
+    }
+  }
+  // The steps from where it stands to every tile it can walk to (-1 = it cannot): what it goes for (a thing on the
+  // floor, an enemy the map shows) must be somewhere it can get to, or it would stand under a deck for ever
+  let reach: Int32Array = new Int32Array(0);
+  let reachKey = '';
+  function reachFromHere(key: string) {
+    if (reachKey === key) return;
+    reachKey = key;
+    const grid = activeTileGrid(),
+      { W, H, grid: floor } = grid.world,
+      start = tileIndex(player.x, player.z);
+    reach = new Int32Array(W * H).fill(-1);
+    const queue = [start];
+    reach[start] = 0;
     for (let h = 0; h < queue.length; h++) {
       const c = queue[h]!,
         ci = c % W,
@@ -121,17 +206,28 @@ export function createBot(style: BotStyle) {
       SIDE_STEP.forEach(([a, b], side) => {
         if (!grid.inBounds(ci + a, cj + b)) return;
         const n = c + a + b * W;
-        if (floor[n] !== 1 || dist[n]! >= 0) return;
-        // (walking n -> c; the goal itself may be a locked door: its neighbours still lead to it)
-        if (c !== goal && !grid.passable(n, c, OPPOSITE_SIDE[side]!)) return;
-        if (c === goal && !grid.passable(n, c, OPPOSITE_SIDE[side]!) && !grid.world.door?.[c]) return;
-        dist[n] = dist[c]! + 1;
+        if (floor[n] !== 1 || reach[n]! >= 0 || !grid.passable(c, n, side)) return;
+        reach[n] = reach[c]! + 1;
         queue.push(n);
       });
     }
   }
+  const stepsTo = (o: { x: number; z: number }): number => reach[tileIndex(o.x, o.z)] ?? -1;
+  // the nearest enemy it can walk to (the map shows where they are), the boss or not
+  function nearestEnemy(bossToo: boolean): Enemy | null {
+    let near: Enemy | null = null,
+      best = Infinity;
+    for (const e of enemies) {
+      const d = e.dead || (e.boss && !bossToo) ? -1 : stepsTo(e);
+      if (d >= 0 && d < best) {
+        near = e;
+        best = d;
+      }
+    }
+    return near;
+  }
   // the way to walk now to get nearer the goal (a unit vector), or null when there is no way from here
-  function wayToGoal(): { x: number; z: number } | null {
+  function wayToGoal(at?: { x: number; z: number }): { x: number; z: number } | null {
     const grid = activeTileGrid(),
       { W } = grid.world,
       here = tileIndex(player.x, player.z),
@@ -151,13 +247,23 @@ export function createBot(style: BotStyle) {
         }
       });
     }
-    const dx = tileCenter(next % W) - player.x,
-      dz = tileCenter(Math.floor(next / W)) - player.z,
+    // (on the goal's own tile: to the thing itself, which may lie well off the tile's middle)
+    const end = next === here && d === 0 ? at : undefined,
+      dx = (end ? end.x : tileCenter(next % W)) - player.x,
+      dz = (end ? end.z : tileCenter(Math.floor(next / W))) - player.z,
       len = Math.hypot(dx, dz);
     return len < 0.05 ? { x: 0, z: 0 } : { x: dx / len, z: dz / len };
   }
-  // walks along (x, z) in the world, whichever way it is looking
+  const hazardAt = (x: number, z: number): boolean => !!level.hazardTiles[tileIndex(x, z)];
+  // would walking along (x, z) take it onto a hazard floor that is live or about to be (from a tile that is not one)
+  function intoHazard(x: number, z: number): boolean {
+    if (!style.avoidHazards || hazardState() === 'off' || hazardAt(player.x, player.z)) return false;
+    const len = Math.hypot(x, z);
+    return len > 0.01 && hazardAt(player.x + (x / len) * LOOK_AHEAD, player.z + (z / len) * LOOK_AHEAD);
+  }
+  // walks along (x, z) in the world, whichever way it is looking (it waits rather than step onto a live hazard floor)
   function walk(x: number, z: number) {
+    if (intoHazard(x, z)) return;
     const fx = -Math.sin(player.yaw),
       fz = -Math.cos(player.yaw),
       rx = Math.cos(player.yaw),
@@ -174,7 +280,9 @@ export function createBot(style: BotStyle) {
       if (e.dead) continue;
       for (const s of spheres(e)) {
         const d = Math.hypot(s.p.x - cp.x, s.p.z - cp.z);
-        if (d > style.fightRange || (best && d >= best.d)) continue;
+        // (what stands with a boss goes first: some bosses cannot be hurt while their turrets stand)
+        const sooner = best && !!best.e.boss !== !!e.boss ? !e.boss : !best || d < best.d;
+        if (d > style.fightRange || !sooner) continue;
         if (!hasLOS(cp.x, cp.z, s.p.x, s.p.z, cp.y, s.p.y)) continue;
         best = { e, x: s.p.x, y: s.p.y, z: s.p.z, d };
       }
@@ -192,12 +300,128 @@ export function createBot(style: BotStyle) {
     return Math.abs(turnToward(player.yaw, wantYaw, Math.PI) - player.yaw);
   }
 
-  // where it is going on this floor: the goal tile, and what to call it
-  function goal(): { tile: number; what: string } | null {
+  // ---- things on the floor ----
+  const dpsOf = (w: Weapon | null): number => (w ? weaponStats(w).dps : 0);
+  const worstHeld = (): number => Math.min(dpsOf(player.weapons[0] ?? null), dpsOf(player.weapons[1] ?? null));
+  // is a thing on the floor worth walking to: a chip always, a kit when there is room or health to gain, a weapon
+  // when it is clearly better than the worse of the two held (or a slot is empty)
+  function wanted(p: Pickup): boolean {
+    if (p.dead || p.kind === 'bit') return false;
+    if (p.kind === 'chip') return true;
+    if (p.kind === 'kit') return player.kits < KIT_MAX || player.hp < player.maxHp;
+    return dpsOf(p.w!) > worstHeld() * BETTER_BY;
+  }
+  // The nearest wanted thing it can walk to within the range it goes out of its way for. Once it has set out for
+  // one it stays with it (or it would turn back and forth between two); one it cannot get in LOOT_GIVE_UP seconds is
+  // left for good
+  let lootFor: Pickup | null = null;
+  let lootT = 0;
+  const lootLeft = new Set<Pickup>();
+  function lootNear(dt: number): Pickup | null {
+    const ok = (p: Pickup) => wanted(p) && !lootLeft.has(p) && stepsTo(p) >= 0;
+    if (lootFor && ok(lootFor)) {
+      lootT += dt;
+      if (lootT < LOOT_GIVE_UP) return lootFor;
+      lootLeft.add(lootFor);
+    }
+    lootFor = null;
+    lootT = 0;
+    let bestD = style.loot;
+    for (const p of query<Pickup>('pickup')) {
+      if (!ok(p) || Math.abs(p.y - player.fy) > LOOT_REACH_Y) continue;
+      const d = Math.hypot(p.x - player.x, p.z - player.z);
+      if (d < bestD) {
+        lootFor = p;
+        bestD = d;
+      }
+    }
+    return lootFor;
+  }
+  // a weapon in reach: take it into the empty slot, or in place of the worse one; then hold the better of the two
+  function takeWeapons() {
+    const p = nearPickup;
+    if (!p || !wanted(p)) return;
+    // (the one in hand is the one swapped out: the worse of the two)
+    if (player.weapons[1] && dpsOf(player.weapons[player.cur] ?? null) > worstHeld()) player.cur ^= 1;
+    normalizeWeapons();
+    equipNearby();
+    stats.picked++;
+    const better = dpsOf(player.weapons[1] ?? null) > dpsOf(player.weapons[0] ?? null) ? 1 : 0;
+    if (player.cur !== better) {
+      player.cur = better;
+      normalizeWeapons();
+    }
+  }
+
+  // ---- getting clear of what is coming ----
+  const judged = new Map<object, number>(); // shots and waves it has made its mind up about (and which life of theirs)
+  // does it react to this one (decided once per shot: `dodge` of them)
+  function reactsTo(o: object, life: number): boolean {
+    if (judged.get(o) === life) return false;
+    judged.set(o, life);
+    return Math.random() < style.dodge;
+  }
+  // the way to dash to get clear of a shot about to hit or a shockwave about to pass (null = nothing to dodge, or
+  // no stamina for it)
+  function dodgeWay(): { x: number; z: number } | null {
+    if (style.dodge <= 0 || player.st < TUNE.dashCost || player.dashT > 0 || player.inv > 0) return null;
+    for (const b of eBullets) {
+      if (!b.alive || Math.abs(b.y - (player.fy + EYE / 2)) > DODGE_REACH_Y) continue;
+      const rx = player.x - b.x,
+        rz = player.z - b.z,
+        v2 = b.vx * b.vx + b.vz * b.vz;
+      if (v2 < 0.01) continue;
+      const t = (rx * b.vx + rz * b.vz) / v2; // seconds to where it passes nearest
+      if (t <= 0 || t > DODGE_TIME) continue;
+      const mx = rx - b.vx * t,
+        mz = rz - b.vz * t; // from that nearest point to the player
+      if (Math.hypot(mx, mz) > player.r + DODGE_MARGIN) continue;
+      if (!reactsTo(b, b.born ?? 0)) continue;
+      // across its path, to the side the player is already on
+      const v = Math.sqrt(v2),
+        side = b.vx * rz - b.vz * rx >= 0 ? 1 : -1;
+      return { x: (-b.vz / v) * side, z: (b.vx / v) * side };
+    }
+    for (const w of query<Wave>('wave')) {
+      if (w.dead || w.hit) continue;
+      const dx = w.x - player.x,
+        dz = w.z - player.z,
+        d = Math.hypot(dx, dz),
+        gap = d - w.r; // the ring is this far short of the player
+      if (gap <= 0 || gap > WAVE_NEAR || d < 0.01) continue;
+      if (!reactsTo(w, 0)) continue;
+      return { x: dx / d, z: dz / d }; // through the ring, toward its middle
+    }
+    return null;
+  }
+
+  const distTo = (o: { x: number; z: number }): number => Math.hypot(o.x - player.x, o.z - player.z);
+  // a point a few metres from `o`, on the far side of the player
+  function awayFrom(o: { x: number; z: number }): { x: number; z: number } {
+    const d = Math.max(distTo(o), 0.01),
+      ux = d < 0.02 ? 1 : (player.x - o.x) / d,
+      uz = d < 0.02 ? 0 : (player.z - o.z) / d;
+    return { x: o.x + ux * (PORTAL.clearR + 1), z: o.z + uz * (PORTAL.clearR + 1) };
+  }
+  // where it is going on this floor: the goal tile (and the very spot, when it matters), and what to call it
+  function goal(dt: number): { tile: number; what: string; at?: { x: number; z: number } } | null {
     const { W } = activeTileGrid().world,
       tileAt = (x: number, z: number) => tileIndex(x, z);
+    const loot = lootNear(dt);
+    if (loot) return { tile: tileAt(loot.x, loot.z), what: `pick up a ${loot.kind}`, at: loot };
     const gate = level.portals.find(p => p.kind === style.after) ?? level.portals[0];
-    if (gate) return { tile: tileAt(gate.x, gate.z), what: `gate ${gate.kind}` };
+    if (gate) {
+      // (a gate that opened underfoot works only once it has been stepped away from: data/level.ts PORTAL)
+      if (!gate.clear) return { tile: tileIndex(player.x, player.z), what: 'step off the gate', at: awayFrom(gate) };
+      return { tile: tileAt(gate.x, gate.z), what: `gate ${gate.kind}`, at: gate };
+    }
+    // a boss out of sight (the map shows where it is): go to it
+    if (boss && stepsTo(boss) >= 0) return { tile: tileAt(boss.x, boss.z), what: `find ${boss.kind}` };
+    // the enemies left on the floor, for the kind that clears every floor: the nearest it can walk to
+    if (style.explore && !boss) {
+      const near = nearestEnemy(false);
+      if (near) return { tile: tileAt(near.x, near.z), what: 'clear the floor' };
+    }
     const st = run.bld,
       b = building;
     if (!st || !b || level.floor < 0) return null;
@@ -241,12 +465,17 @@ export function createBot(style: BotStyle) {
     if (lastHp >= 0 && player.hp < lastHp) stats.damage += lastHp - player.hp;
     lastHp = player.hp;
     stats.minHp = Math.min(stats.minHp, player.hp / player.maxHp);
+    stats.depth = Math.max(stats.depth, stageInfo(run.stage).tier + 1);
     if (run.bld) stats.floors = Math.max(stats.floors, building ? building.route.indexOf(run.bld.floor) + 1 : 1);
     if (boss) {
       if (stats.bossAt < 0) stats.bossAt = stats.frames;
       stats.bossHp = Math.max(0, boss.hp / boss.maxHp);
     } else if (stats.bossAt >= 0 && level.portals.length) stats.bossHp = 0;
-    if (player.hp < player.maxHp * KIT_BELOW && player.kits > 0) {
+    if (hazardState() === 'on' && hazardAt(player.x, player.z)) stats.hazard += dt;
+    takeWeapons();
+    const share = player.hp / player.maxHp,
+      wasted = player.hp + kitHealAmount() > player.maxHp;
+    if (player.kits > 0 && (share < KIT_ANYWAY || (share < style.healBelow && !wasted))) {
       useKit();
       stats.kits++;
     }
@@ -262,19 +491,20 @@ export function createBot(style: BotStyle) {
       strafe = -strafe;
     }
 
-    let g = goal();
+    const clear = dodgeWay();
+    if (clear) {
+      walk(clear.x, clear.z);
+      controlState.dashReq = true;
+      stats.dashes++;
+    }
     const again = Math.floor(stats.frames / REPATH_FRAMES);
+    reachFromHere(`${level.floor}:${tileIndex(player.x, player.z)}:${again}`);
+    let g = goal(dt);
     if (g) pathTo(g.tile, `${level.floor}:${g.tile}:${again}`);
-    let way = g ? wayToGoal() : null;
+    let way = g ? wayToGoal(g.at) : null;
     if (!way) {
-      // shut in (a lockdown), or no way on: go for the nearest enemy of the floor
-      let near: Enemy | null = null;
-      for (const e of enemies)
-        if (
-          !e.dead &&
-          (!near || Math.hypot(e.x - player.x, e.z - player.z) < Math.hypot(near.x - player.x, near.z - player.z))
-        )
-          near = e;
+      // shut in (a lockdown), or no way on: go for the nearest enemy it can walk to
+      const near = nearestEnemy(true);
       if (near) {
         g = { tile: tileIndex(near.x, near.z), what: 'the nearest enemy' };
         pathTo(g.tile, `${level.floor}:${g.tile}:${again}`);
@@ -284,7 +514,7 @@ export function createBot(style: BotStyle) {
     let foe = pickEnemy();
     // getting nowhere (waiting on a lift that will not come, shooting at what it cannot hit): roam a little
     idleT += dt;
-    if (idleT >= IDLE_AFTER) {
+    if (idleT >= IDLE_AFTER && !level.portals.length) {
       const foeHp = foe ? foe.e.hp : -1;
       if (
         Math.hypot(player.x - idleAt.x, player.z - idleAt.z) < IDLE_MOVED &&
@@ -323,8 +553,18 @@ export function createBot(style: BotStyle) {
       setFireHeld(!style.autofire && off < FIRE_CONE);
       const dx = (foe.x - player.x) / Math.max(foe.d, 0.01),
         dz = (foe.z - player.z) / Math.max(foe.d, 0.01),
-        along = foe.d > KEEP_FAR ? 1 : foe.d < KEEP_NEAR ? -1 : 0;
-      walk(dx * along + -dz * strafe, dz * along + dx * strafe);
+        keep = foe.d > KEEP_FAR ? 1 : foe.d < KEEP_NEAR ? -1 : 0;
+      // Shooting and not hurting it (the shots go into the edge of the deck it stands on: the muzzle is lower than
+      // the eye; or into a shield): after a moment it closes in instead of strafing, until a shot tells
+      const hp = foe.e.hp + (foe.e.boss ? 0 : (foe.e.shieldHp ?? 0));
+      if (foe.e !== shotAt.e || hp < shotAt.hp) shotAt = { e: foe.e, hp, t: 0 };
+      else shotAt.t += dt;
+      const pushIn = shotAt.t > NO_HIT_AFTER && shotAt.t < NO_HIT_AFTER + PUSH_IN_FOR;
+      if (shotAt.t >= NO_HIT_AFTER + PUSH_IN_FOR) shotAt.t = 0;
+      const along = pushIn ? 1 : keep,
+        across = pushIn ? 0 : strafe;
+      if (intoHazard(dx * along + -dz * across, dz * along + dx * across)) strafe = -strafe;
+      walk(dx * along + -dz * across, dz * along + dx * across);
       stats.doing = `fight ${foe.e.boss ? foe.e.kind : foe.e.type}`;
       stuckT = 0;
       return;

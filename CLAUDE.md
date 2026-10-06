@@ -5,6 +5,7 @@
 - **更新履歴**: ゲームのフォルダ（`games/<game-id>/`）を触るコミットには、末尾に `Changelog: 追加|調整|修正 | 本文`（遊ぶ人に関係しない変更は `Changelog: なし`）を書く。書き方は README「更新履歴のルール」。`python3 tools/check_changelog.py origin/master HEAD` で確かめられる
 - **仕様書**: 数値・ルール・操作・表示を変えたら、同じコミットで `games/<game-id>/SPEC.md` も直す
 - **確認**: `npm run typecheck`、`npm run lint`（スタイルと文言）、`npm test`（Chrome は `CHROME=` で指定）を通してから push する
+- **バランスの調整**（敵・ボス・武器・チップの数値、体力や被ダメージに関わる変更）: 変える前と後に `npm run sim`（ボットによる試行。`games/sector-dive-ex/sim/README.md`）を同じシードで流し、プレイヤーの型ごとの差を PR の説明に書く。数字そのものではなく、前後の差と、狙っていない型への影響を見る
 - **PR**: 1つの修正・調整につき1本。PR の CI（Checks・Changelog）が通ってから、マージをユーザーに頼む
 
 ## 作業の進め方（サブエージェントへの振り分け）
