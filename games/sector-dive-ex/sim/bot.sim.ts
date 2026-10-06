@@ -18,7 +18,10 @@ declare const __SIM_SEEDS__: string;
 declare const __SIM_STYLE__: string;
 
 const DT = 1 / 60;
-const MAX_FRAMES = 60 * 60 * 90; // a run is given up after this much game time (90 minutes)
+// A run goes on for as long as the bot gets anywhere: it is given up only when nothing has moved on for a while (no
+// kill, no new floor or depth, no hurt boss), which is a bot that is stuck and not a game that is hard
+const STALL_FRAMES = 60 * 60 * 8; // ... for this much game time (8 minutes)
+const MAX_FRAMES = 60 * 60 * 60 * 12; // and, to be safe, after this much (12 hours)
 const YIELD_EVERY = 600; // frames between letting the page breathe (its timers run then)
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const stateNow = () => state as string; // a call, so TypeScript does not keep the narrowing of an earlier check
@@ -73,7 +76,14 @@ test.each(styles)(`bot %s: seeds ${__SIM_SEEDS__}`, async name => {
     setBot(bot);
     let frames = 0,
       end = 'gave up';
+    let moved = '',
+      movedAt = 0;
     for (; frames < MAX_FRAMES; frames++) {
+      const now = `${run.kills}:${run.stage}:${run.bld?.floor}:${boss ? Math.round(boss.hp) : ''}:${level.portals.length}`;
+      if (now !== moved) {
+        moved = now;
+        movedAt = frames;
+      } else if (frames - movedAt > STALL_FRAMES) break;
       update(DT);
       if (stateNow() === 'result' || stateNow() === 'base') {
         end = player.hp <= 0 ? 'died' : 'extract';

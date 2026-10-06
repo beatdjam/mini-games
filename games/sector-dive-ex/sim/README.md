@@ -30,7 +30,7 @@ SIM_SEEDS=1-20 SIM_STYLE=beginner,rusher npm run sim                   # 型と�
 | `depthMean`・`depthMedian`・`depthMax` | 到達した深度（1 = 最初の深度） |
 | `bossesMean` | 倒したボスの数の平均 |
 | `minutesMean` | 1潜行の長さの平均（ゲーム内の時間） |
-| `died`・`gaveUp` | 倒れた本数、上限（ゲーム内90分）まで終わらなかった本数 |
+| `died`・`gaveUp` | 倒れた本数、進まなくなって打ち切った本数（下の「打ち切り」） |
 | `diedAtDepth1` | 深度1で倒れた本数 |
 | `killedBy` | 倒れたとき戦っていた相手の上位 |
 
@@ -38,7 +38,7 @@ SIM_SEEDS=1-20 SIM_STYLE=beginner,rusher npm run sim                   # 型と�
 
 | 列 | 意味 |
 |---|---|
-| `end` | `died`（倒れた）・`extract`（帰還）・`gave up`（上限まで終わらなかった） |
+| `end` | `died`（倒れた）・`extract`（帰還）・`gave up`（進まなくなって打ち切った） |
 | `seconds` | 潜行の長さ（ゲーム内の秒） |
 | `depth`・`bosses` | 到達した深度と、倒したボス（順に） |
 | `toBoss`・`bossHp` | 最初のボスが出るまでの秒と、最後に戦ったボスの残り体力 |
@@ -46,6 +46,10 @@ SIM_SEEDS=1-20 SIM_STYLE=beginner,rusher npm run sim                   # 型と�
 | `damage`・`minHp`・`kits` | 受けたダメージの合計、体力がいちばん減ったときの割合、使った回復キット |
 | `hazard`・`dashes`・`picked` | 有効な危険床の上にいた秒、回避のダッシュの回数、拾った武器の数 |
 | `stuck`・`last` | 詰まってうろついた回数、最後にしていたこと |
+
+### 打ち切り
+
+潜行は、ボットが倒れるまで続ける（時間の上限で切らない）。打ち切るのは、ゲーム内で8分のあいだ何も進まなかったとき（敵を倒していない、階も深度も変わらない、ボスの体力も減らない）だけ。これはゲームが難しいのではなく、ボットがどこかで詰まっている印なので、`gaveUp` が出たら行動の記録（`traces/`）を見て、ボットの側を直す。念のための上限は、ゲーム内12時間。
 
 ## ボットの作り
 
