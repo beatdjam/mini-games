@@ -48,7 +48,11 @@ if (uiParam === 'a' || uiParam === 'b' || uiParam === 'c') {
   document.body.classList.add('ui-' + uiParam);
   import('./uiproto.css');
   // (one request per family, so a family the server doesn't know costs only itself)
-  for (const family of ['Barlow+Condensed:wght@500;600;700', 'Saira+Stencil+One', 'Zen+Kaku+Gothic+New:wght@500;700']) {
+  for (const family of [
+    'Barlow+Condensed:wght@400;500;600;700',
+    'Saira+Stencil+One',
+    'Zen+Kaku+Gothic+New:wght@400;500;700',
+  ]) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = `https://fonts.googleapis.com/css2?family=${family}&display=swap`;

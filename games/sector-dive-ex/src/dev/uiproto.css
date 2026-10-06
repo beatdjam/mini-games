@@ -680,3 +680,45 @@ body.ui-c .perk.rare:is(:hover, :focus-visible) {
   outline-offset: -4px;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
 }
+/* c: lighter strokes. The type a weight or two down (regular for what is read, medium for names, the numbers
+   semi-bold), and the lines one pixel where they were two or three */
+body.ui-c {
+  font-weight: 400;
+}
+body.ui-c :is(.kithud, .stage, .stage b, .slot, .bname, #toast, #banner .sub) {
+  font-weight: 500;
+}
+body.ui-c :is(.hplabel b, .bits, #ammo) {
+  font-weight: 600;
+}
+body.ui-c #mini {
+  outline-width: 1px;
+  outline-offset: -1px;
+}
+body.ui-c .icon {
+  border-width: 1px;
+}
+body.ui-c .tl .bar {
+  border-left-width: 2px;
+}
+body.ui-c .slot {
+  border-bottom-width: 2px;
+}
+body.ui-c #scrPerk .card {
+  border-color: #3d4143;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
+}
+body.ui-c #scrPerk h2,
+body.ui-c .perk .pn {
+  font-weight: 500;
+}
+body.ui-c .perk .pd {
+  font-weight: 400;
+}
+body.ui-c .perk .pcur {
+  font-weight: 500;
+}
+body.ui-c .perk.rare {
+  outline-width: 1px;
+  outline-offset: -1px;
+}
