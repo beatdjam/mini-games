@@ -11,6 +11,7 @@
     "test:build": "vitest run --config vitest.build.config.ts",
     "lint": "prettier --check . && eslint . && node tools/check_style.js && for g in games/*/; do node tools/check_i18n.js \"$g\" || exit 1; done",
     "test:engine": "vitest run --project engine",
+    "sim": "vitest run --config vitest.sim.config.ts",
     "format": "prettier --write ."
   },
   "dependencies": {

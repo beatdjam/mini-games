@@ -41,6 +41,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - `npm test`: engine のテストと、各ゲームのスモークテスト（`games/<game-id>/test/`）を Vitest で流す。Chromium の中で動かし、テスト1件ずつが結果に出る。どれか失敗すると終了コード1。Chrome の場所は `CHROME=...` で指定する（無ければ Playwright のもの）
 - `npm run test:engine`: engine のテストだけ（`vitest run --project engine`。`npx vitest` なら変更を見張って流し直す）
 - `npm run test:build`: 公開用のビルドを `dist-test/` へ作り、全ゲームについて、版番号が `version.json` と合うこと、GA のタグが入っていること、Chromium でページを開いてエラーが出ず拠点画面が出ることを確かめる（`tools/build.test.ts`）
+- `npm run sim`: ボット（自動で遊ぶプレイヤー）に潜行を遊ばせて、結果を表にする（バランスを見るための道具。テストではなく、CI では流さない）。Chromium の中で、画面を描かずに実時間の数百倍で回す。`SIM_SEEDS=1-20`（建物のシード。`3,7,9` の形でもよい）と `SIM_STYLE=rusher`（プレイヤーの型）で指定し、結果は `sim-results/`（コミットしない）に、表（.tsv）と1本ごとの行動の記録（.trace.txt）で出る。今あるのは Sector Dive Extended（`games/sector-dive-ex/sim/`、ボットは `src/dev/bot.ts`）
 - 確認用のコード（各ゲームの `src/dev/`：`#view-…` などのフック）は、開発サーバーにだけ入る。公開用のビルド（`npm run build`）には入らない
 - アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）。GA の利用規約に沿って、`privacy.html`（プライバシーポリシー）をトップと各ゲームの設定から開けるようにしておく。送る内容の種類を増やしたら、この文面も見直す
 - PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト・ビルドを流す。テストは、PR が変えたファイルに合わせて絞る（`tools/test_scope.js`）: 1つのゲームの中だけを変えた PR は、そのゲームのスモークテストとビルドのテストだけ。engine・`tools/`・設定・ワークフローなどを変えた PR は全部（`npm test` と `npm run test:build`）。文書（`*.md`）だけの PR はテストなし。master への公開ジョブ（`pages.yml`）は、いつも全部のテストを流す。マージの前に、ここが通っていることを確かめる。テストの結果は Actions の実行画面のサマリに出て、JUnit と HTML のレポート（`test-results/`）は実行結果の Artifacts（`test-report`）からダウンロードできる
