@@ -7,8 +7,8 @@ import type { PortalKind } from '../data/types.ts';
 import { player } from '../actors/player.ts';
 import { level } from './level.ts';
 import { plainLooks } from './looks.ts';
-import { TEX, grain, paint } from './looks/common.ts';
-import type { Paint } from './looks/common.ts';
+import { TEX, grain, paint } from './looks/paint.ts';
+import type { Paint } from './looks/paint.ts';
 // ---- the gate's frame (with the looks on): two posts and a beam of dark steel, black and yellow at the posts' feet,
 // a lamp on each post and a strip under the beam in the gate's colour, a steel plate on the ground ----
 const GATE = { halfW: 1.78, post: 0.3, top: 1.9, beam: 0.3, plate: 2.15 }; // m, about the gate's middle (1.7 m up)

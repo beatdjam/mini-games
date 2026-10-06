@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { shared } from '@engine/render/render.ts';
 import { LOOK_GLOW, cylGeo } from './enemyLooks.ts';
-import { TEX, grain, paint } from './looks/common.ts';
-import type { Paint } from './looks/common.ts';
+import { TEX, grain, paint } from './looks/paint.ts';
+import type { Paint } from './looks/paint.ts';
 // What a machine built to be believed is made with, for the bosses (world/bossLooks.ts) and the enemies
 // (world/enemyLooks.ts): hull plate with panel lines, a vent and a stencilled mark on it, steel that takes the light,
 // and parts a machine would need (a hydraulic ram between two points). A model made with these should show what the

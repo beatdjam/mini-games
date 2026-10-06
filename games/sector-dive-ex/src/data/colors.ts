@@ -1,6 +1,7 @@
 // Shared colours. The first six names match the CSS variables in index.html (:root).
 // COLOR is for three.js (number), CSS_COLOR is for canvas / CSS (string); both come from the same value.
-const css = (n: number) => '#' + n.toString(16).padStart(6, '0');
+// a three.js colour (number) as a canvas / CSS one (string)
+export const css = (n: number) => '#' + n.toString(16).padStart(6, '0');
 
 export const COLOR = {
   cyan: 0x54e8ff, // extract portal, pistol

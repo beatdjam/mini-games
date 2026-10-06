@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { basicMat, lineMat, shared } from '@engine/render/render.ts';
 import { COLOR } from '../data/colors.ts';
 import { edges, geoCache } from './render.ts';
-import { TEX, grain, paint, poolPaint } from './looks/common.ts';
-import type { Paint } from './looks/common.ts';
+import { TEX, grain, paint, poolTex } from './looks/paint.ts';
+import type { Paint } from './looks/paint.ts';
 import { V, bossHullMat, machine, piston } from './machine.ts';
 // The enemies as machines, to go with the sectors' looks (world/looks/) and the guns (actors/gunLooks.ts): each type
 // in the shape of what it is (a wheel that runs at you, a quadcopter, a sentry gun on a post ...), in painted armour
@@ -520,13 +520,12 @@ export function dressTrooper(rig: HumanoidRig, body: THREE.Material, color: numb
 }
 // the pool of light on the ground under an enemy, in its colour (under a flying one too: it shows where it is)
 const poolMats: Record<number, THREE.Material> = {};
-let poolTex: THREE.CanvasTexture | null = null;
 const poolGeo = (side: number) =>
   (geos[`p${side}`] ??= shared(new THREE.PlaneGeometry(side, side).rotateX(-Math.PI / 2)));
 const poolMat = (color: number) =>
   (poolMats[color] ??= shared(
     new THREE.MeshBasicMaterial({
-      map: (poolTex ??= paint(3004, poolPaint)),
+      map: poolTex(),
       color,
       transparent: true,
       opacity: POOL.opacity,

@@ -1,33 +1,34 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
-import { placeProps } from '@engine/world/slots.ts';
+import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { HALL_H, WALL_H } from '../../data/level.ts';
 import { NOISE_DANGER, NOISE_ON_AIR, NOISE_PLATE_QUIET, NOISE_PLATE_STAFF } from '../../i18n/signs.ts';
 import type { FloorPlan } from '../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
+import type { Look } from './common.ts';
 import {
-  LAMP_POOL,
+  DOOR_ASPECT,
+  SIGN_FONT,
   TEX,
-  WALL_PLAIN_SHARE,
+  WALL_ASPECT,
   canvasTex,
-  facing,
   grain,
   grime,
-  onWall,
+  oval,
   paint,
-  poolPaint,
-  variantOf,
-} from './common.ts';
-import type { Look, Paint, WallSlot } from './common.ts';
+  poolTex,
+  rowOf,
+  smudge,
+  stripes,
+} from './paint.ts';
+import type { Paint } from './paint.ts';
+import { facing, lightMat, onWall, pose, propTools } from './props.ts';
+import type { Light, WallSlot } from './props.ts';
 // The deep noise (NOISE): a broadcasting station far underground, left as it was. Sound-absorbing walls gone grey
 // and violet with dust, racks of old gear, monitors that still show static, worn carpet, studio doors. The fog is
-// close here, so the pictures are kept light enough to read from near by. world/looks.ts lists it among the looks;
-// that file and this one import each other, so nothing here may use a value of looks.ts while the file is being
-// loaded (inside functions only).
+// close here, so the pictures are kept light enough to read from near by.
 // ---- tuning numbers used only here ----
-const WALL_ASPECT = T / WALL_H; // a wall picture is stretched over a face this wide for its height: circles are painted this flat
-const DOOR_ASPECT = T / 2 / WALL_H; // ... and a door leaf's picture
 const POOL_OPACITY = 0.42; // the light a lamp throws on the ground (pale: it must not be taken for a pick-up)
 const SCREEN = { w: 0.62, h: 0.48, y: 1.82, opacity: 0.55, every: 90 }; // the moving static on a monitor (m, m, m, -, ms a frame)
 const SCREEN_POOL = 0.45; // the pool of light before a monitor, as a share of a lamp's
@@ -48,19 +49,10 @@ const WALL_KINDS = [
 type WallKind = (typeof WALL_KINDS)[number];
 const QUIET_WALLS: WallKind[] = ['board', 'foam', 'cloth']; // the walls plain enough to hang cables on
 const NOISE_FLOORS = 5; // 0 worn carpet, 1 carpet torn away, 2 the lid of a floor box, 3 a stain, 4 tape marks
-// the plates are written in Japanese, with whatever face the device has
-const PLATE_FONT = '"Hiragino Sans","Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif';
 const LAMP_FONT = '"Helvetica Neue","Arial",sans-serif';
 
-// the picture row of a height on a wall or a door (m above the floor)
-const rowOf = (m: number) => TEX * (1 - m / WALL_H);
 const FIELD_TOP = rowOf(4.9); // the walls are lined between these two rows; above is bare, below is the dado
 const FIELD_FOOT = rowOf(1.0);
-function oval(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number) {
-  g.beginPath();
-  g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-  g.fill();
-}
 // a flat box with a shadow under it and a light top edge: a panel, a plate, a unit of gear
 function slab(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
   g.fillStyle = 'rgba(8,6,12,.45)';
@@ -477,7 +469,7 @@ function wordPlate(
   g.save();
   g.translate(x + w / 2, y + h / 2 + 0.5);
   g.scale(1, WALL_ASPECT);
-  g.font = `900 ${Math.floor(Math.min((w - 14) / words.length, (h - 8) / WALL_ASPECT))}px ${PLATE_FONT}`;
+  g.font = `900 ${Math.floor(Math.min((w - 14) / words.length, (h - 8) / WALL_ASPECT))}px ${SIGN_FONT}`;
   g.fillText(words, 0, 0, w - 12);
   g.restore();
   // rust creeping in from a corner
@@ -505,21 +497,6 @@ const noiseWall =
     grain(g, rand, 18);
   };
 
-// a soft patch, drawn again one picture over on every side so that it runs on into the next tile
-function smudge(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, rgb: string, a: number) {
-  for (const ox of [-TEX, 0, TEX])
-    for (const oy of [-TEX, 0, TEX]) {
-      g.save();
-      g.translate(x + ox, y + oy);
-      g.scale(1, ry / rx);
-      const s = g.createRadialGradient(0, 0, 0, 0, 0, rx);
-      s.addColorStop(0, `rgba(${rgb},${a})`);
-      s.addColorStop(1, `rgba(${rgb},0)`);
-      g.fillStyle = s;
-      g.fillRect(-rx, -rx, rx * 2, rx * 2);
-      g.restore();
-    }
-}
 // The ground: the same carpet under every variant (the painter is given the same seed for all of them), worn pale
 // where people walked and dark where things were spilt, in soft patches that run on across the picture's edge. So
 // the floor reads as one surface and not as tiles; what a variant adds stays clear of the edge
@@ -726,31 +703,6 @@ const noiseCeiling: Paint = (g, rand) => {
   grain(g, rand, 14);
 };
 
-// black and a colour in slanted stripes, in a band
-function stripes(
-  g: CanvasRenderingContext2D,
-  [x, y, w, h]: [number, number, number, number],
-  pitch: number,
-  light: string,
-  dark: string,
-) {
-  g.save();
-  g.beginPath();
-  g.rect(x, y, w, h);
-  g.clip();
-  g.fillStyle = light;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = dark;
-  for (let sx = x - h - pitch; sx < x + w + pitch; sx += pitch) {
-    g.beginPath();
-    g.moveTo(sx, y + h);
-    g.lineTo(sx + pitch * 0.9, y);
-    g.lineTo(sx + pitch * 1.4, y);
-    g.lineTo(sx + pitch * 0.5, y + h);
-    g.fill();
-  }
-  g.restore();
-}
 // One leaf of a studio's soundproof door (a leaf is 2 m wide and a wall high, so its picture is stretched three
 // times as tall): thick, padded in buttoned leatherette the colour of sand, with a round window at eye height, a
 // push bar and a steel kick plate. The boss room's is the door of the transmitter hall: bare dark steel between red
@@ -840,7 +792,7 @@ const noiseDoor =
       g.lineWidth = 5;
       g.strokeRect(59, ptop + 2.4, TEX - 118, pfoot - ptop - 4.8);
       g.fillStyle = '#17141b';
-      g.font = `900 62px ${PLATE_FONT}`;
+      g.font = `900 62px ${SIGN_FONT}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.save();
@@ -929,7 +881,6 @@ function staticTex(): THREE.CanvasTexture {
   return t;
 }
 interface NoiseShared {
-  pool: THREE.CanvasTexture;
   snow: THREE.CanvasTexture;
   onAir: [THREE.CanvasTexture, THREE.CanvasTexture]; // dead, lit
 }
@@ -938,48 +889,14 @@ let noiseShared: NoiseShared | null = null;
 // the walls and spare cable coiled on hooks; "ON AIR" lamp signs, most of them dead; tube lamps on the ceiling with
 // a pale pool of light under each
 function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
-  noiseShared ??= { pool: paint(31, poolPaint), snow: staticTex(), onAir: [onAirTex(false), onAirTex(true)] };
+  noiseShared ??= { snow: staticTex(), onAir: [onAirTex(false), onAirTex(true)] };
   const shared = noiseShared,
-    d = { W: plan.gen.W, H: plan.gen.H, maps: plan.gen.maps, rooms: plan.gen.rooms },
-    placed = placeProps(d, NOISE_PROPS, rng),
-    one = new THREE.Vector3(1, 1, 1),
-    up = new THREE.Vector3(0, 1, 0);
-  // the wall tile a wall slot is on, and the picture on it
-  const wallOf = (s: WallSlot) => {
-    const [di, dj] = SIDE_STEP[s.side ?? 0]!;
-    return (s.j + dj) * d.W + s.i + di;
-  };
+    { d, wallOf, of, add, pools } = propTools(plan, group, NOISE_PROPS, rng);
+  // the picture on a wall tile
   const kindOf = (wall: number) => WALL_KINDS[variantOf(wall, WALL_KINDS.length, WALL_PLAIN_SHARE)]!;
-  // (no wall is drawn where a stairwell comes up from below: nothing hangs there)
-  const of = (id: string) =>
-    placed
-      .filter(p => p.id === id)
-      .map(p => p.slot)
-      .filter(s => s.kind !== 'wall' || !plan.voids[wallOf(s)]);
   const quiet = (s: WallSlot) => QUIET_WALLS.includes(kindOf(wallOf(s)));
-  const at = (pos: THREE.Vector3, turn = 0, scale = one) =>
-    new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromAxisAngle(up, turn), scale);
-  // one instanced mesh for all the copies of a part
-  const add = (
-    geo: THREE.BufferGeometry,
-    mat: THREE.Material | THREE.Material[],
-    where: THREE.Matrix4[],
-    colors?: number[],
-  ): THREE.InstancedMesh | null => {
-    if (!where.length) return null;
-    const mesh = new THREE.InstancedMesh(geo, mat, where.length),
-      color = new THREE.Color();
-    where.forEach((mx, n) => {
-      mesh.setMatrixAt(n, mx);
-      if (colors) mesh.setColorAt(n, color.setHex(colors[n]!));
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    group.add(mesh);
-    return mesh;
-  };
   const fixing = new THREE.MeshBasicMaterial({ color: FIXING }),
-    lights: { x: number; z: number; color: number; size: number }[] = [];
+    lights: Light[] = [];
 
   // the monitors: every face of a monitor wall that looks onto a floor tile gets the moving static
   const screens: THREE.Matrix4[] = [];
@@ -991,7 +908,7 @@ function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         if (d.maps.grid[wall] || plan.voids[wall] || kindOf(wall) !== 'monitor') return;
         const s = { i, j, side },
           p = onWall(s, 0, 0.02, SCREEN.y);
-        screens.push(at(p, facing(s)));
+        screens.push(pose(p, facing(s)));
         const pool = onWall(s, 0, 1.2, 0);
         lights.push({ x: pool.x, z: pool.z, color: SCREEN_COLOR, size: SCREEN_POOL });
       });
@@ -1021,10 +938,10 @@ function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-1.4, 1.4),
       turn = facing(s);
     for (let n = 0; n < 3; n++) {
-      cable.push(at(onWall(s, off + (n - 1) * FEEDER.gap, FEEDER.out, WALL_H / 2), turn));
+      cable.push(pose(onWall(s, off + (n - 1) * FEEDER.gap, FEEDER.out, WALL_H / 2), turn));
       cableColors.push(rng.pick(CABLE_TONES));
     }
-    for (const y of FEEDER.clamps) clamp.push(at(onWall(s, off, FEEDER.out, y), turn));
+    for (const y of FEEDER.clamps) clamp.push(pose(onWall(s, off, FEEDER.out, y), turn));
   });
   add(
     new THREE.CylinderGeometry(FEEDER.r, FEEDER.r, WALL_H, 6),
@@ -1046,7 +963,7 @@ function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     for (let n = 0; n < 3; n++) {
       // each turn of the coil a little off the last
       ring.push(
-        at(
+        pose(
           onWall(s, off + rng.rand(-0.03, 0.03), COIL.out + n * 0.035, COIL.y - COIL.r * 0.75 + rng.rand(-0.03, 0.03)),
           turn,
           new THREE.Vector3(1 - n * 0.06, 1.25, 1),
@@ -1054,7 +971,7 @@ function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       );
       ringColors.push(tone);
     }
-    hook.push(at(onWall(s, off, COIL.out, COIL.y + COIL.r * 0.2), turn));
+    hook.push(pose(onWall(s, off, COIL.out, COIL.y + COIL.r * 0.2), turn));
   });
   add(
     new THREE.TorusGeometry(COIL.r, COIL.tube, 6, 20),
@@ -1073,8 +990,8 @@ function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-0.9, 0.9),
       turn = facing(s),
       on = rng.next() < ON_AIR.litShare;
-    (on ? lit : dead).push(at(onWall(s, off, ON_AIR.thick / 2, ON_AIR.y), turn));
-    if (on) glow.push(at(onWall(s, off, 0.03, ON_AIR.y), turn));
+    (on ? lit : dead).push(pose(onWall(s, off, ON_AIR.thick / 2, ON_AIR.y), turn));
+    if (on) glow.push(pose(onWall(s, off, 0.03, ON_AIR.y), turn));
   });
   const signBox = new THREE.BoxGeometry(ON_AIR.w, ON_AIR.h, ON_AIR.thick);
   shared.onAir.forEach((map, n) => {
@@ -1083,14 +1000,7 @@ function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   });
   add(
     new THREE.PlaneGeometry(ON_AIR.glow, ON_AIR.glow * 0.7),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      color: ON_AIR_RED,
-      transparent: true,
-      opacity: ON_AIR.glowOpacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
+    lightMat(poolTex(), ON_AIR.glowOpacity, ON_AIR_RED),
     glow,
   );
 
@@ -1107,8 +1017,8 @@ function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       z = tileCenter(s.j),
       y = ceilingAt(s.i, s.j),
       c = rng.pick(LAMP_COLORS);
-    tray.push(at(new THREE.Vector3(x, y - LAMP.drop / 2, z)));
-    tube.push(at(new THREE.Vector3(x, y - LAMP.drop - 0.03, z)));
+    tray.push(pose(new THREE.Vector3(x, y - LAMP.drop / 2, z)));
+    tube.push(pose(new THREE.Vector3(x, y - LAMP.drop - 0.03, z)));
     tubeColors.push(c);
     lights.push({ x, z, color: c, size: 1 });
   });
@@ -1121,18 +1031,7 @@ function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
 
   // the light the lamps and the monitors throw on the ground: a soft pool of their colour
-  add(
-    new THREE.PlaneGeometry(LAMP_POOL, LAMP_POOL).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      transparent: true,
-      opacity: POOL_OPACITY,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-    lights.map(l => at(new THREE.Vector3(l.x, 0.05, l.z), 0, new THREE.Vector3(l.size, 1, l.size))),
-    lights.map(l => l.color),
-  );
+  pools(lights, POOL_OPACITY);
 }
 
 // the deep noise's look (world/looks.ts makes it the first time the sector is drawn)
