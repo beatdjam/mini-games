@@ -4,7 +4,7 @@ import { basicMat, shared } from '@engine/render/render.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { COLOR } from '../data/colors.ts';
 import { gunLook, hasGunLook } from '../actors/gunLooks.ts';
-import { groundPool } from './enemyLooks.ts';
+import { at, boxGeo, groundPool } from './machine.ts';
 import { TEX, grain, paint } from './looks/paint.ts';
 import type { Paint } from './looks/paint.ts';
 // The things lying on the floor as what they are, to go with the sectors, the guns and the enemies: a weapon is
@@ -74,15 +74,8 @@ const shares = () =>
     dark: shared(new THREE.MeshLambertMaterial({ color: 0x1a1c1f })),
   });
 const geos: Record<string, THREE.BufferGeometry> = {};
-const boxGeo = (w: number, h: number, d: number) =>
-  (geos[`b${w},${h},${d}`] ??= shared(new THREE.BoxGeometry(w, h, d)));
 const coinGeo = () => (geos.coin ??= shared(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 6).rotateX(Math.PI / 2)));
 const rimGeo = () => (geos.rim ??= shared(new THREE.CylinderGeometry(0.23, 0.23, 0.03, 6).rotateX(Math.PI / 2)));
-const part = (geo: THREE.BufferGeometry, mat: THREE.Material, x = 0, y = 0, z = 0) => {
-  const m = new THREE.Mesh(geo, mat);
-  m.position.set(x, y, z);
-  return m;
-};
 // the pool under a model whose middle floats `drop` over where the pool should hang
 const pool = (color: number, side: number) => {
   const p = groundPool(color, side);
@@ -96,21 +89,21 @@ export function pickupLook(kind: PickupKind, w?: Weapon): THREE.Object3D | null 
     g = new THREE.Group();
   if (kind === 'bit') {
     // a coin of light in a dark rim; no pool (bits come by the handful)
-    g.add(part(coinGeo(), basicMat(COLOR.amber)), part(rimGeo(), m.dark));
+    g.add(at(coinGeo(), basicMat(COLOR.amber)), at(rimGeo(), m.dark));
   } else if (kind === 'kit') {
     g.add(
-      part(boxGeo(0.62, 0.46, 0.24), m.kit),
-      part(boxGeo(0.22, 0.05, 0.06), m.dark, 0, 0.255, 0), // the handle
-      part(boxGeo(0.5, 0.03, 0.25), basicMat(COLOR.lime), 0, -0.1, 0), // the lit band round it
+      at(boxGeo(0.62, 0.46, 0.24), m.kit),
+      at(boxGeo(0.22, 0.05, 0.06), m.dark, 0, 0.255, 0), // the handle
+      at(boxGeo(0.5, 0.03, 0.25), basicMat(COLOR.lime), 0, -0.1, 0), // the lit band round it
       pool(COLOR.lime, POOL_SIDE.kit),
     );
   } else if (kind === 'chip') {
     const board = new THREE.Group();
     board.add(
-      part(boxGeo(0.72, 0.72, 0.05), m.board),
-      part(boxGeo(0.2, 0.2, 0.07), basicMat(COLOR.amber)), // the core, lit
-      part(boxGeo(0.76, 0.03, 0.06), basicMat(COLOR.amber), 0, 0.37, 0), // the lit edges
-      part(boxGeo(0.76, 0.03, 0.06), basicMat(COLOR.amber), 0, -0.37, 0),
+      at(boxGeo(0.72, 0.72, 0.05), m.board),
+      at(boxGeo(0.2, 0.2, 0.07), basicMat(COLOR.amber)), // the core, lit
+      at(boxGeo(0.76, 0.03, 0.06), basicMat(COLOR.amber), 0, 0.37, 0), // the lit edges
+      at(boxGeo(0.76, 0.03, 0.06), basicMat(COLOR.amber), 0, -0.37, 0),
     );
     g.add(board, pool(COLOR.amber, POOL_SIDE.chip));
     g.userData.tumble = board;
@@ -136,7 +129,7 @@ export function pickupLook(kind: PickupKind, w?: Weapon): THREE.Object3D | null 
     const under = -(size.y * scale) / 2 - RARE_BAR.gap;
     g.add(
       turned,
-      part(boxGeo(RARE_BAR.w, RARE_BAR.h, RARE_BAR.d), basicMat(rare), 0, under, 0),
+      at(boxGeo(RARE_BAR.w, RARE_BAR.h, RARE_BAR.d), basicMat(rare), 0, under, 0),
       pool(rare, POOL_SIDE.weapon),
     );
   }

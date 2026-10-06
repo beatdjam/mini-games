@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { basicMat, shared } from '@engine/render/render.ts';
 import { COLOR } from '../data/colors.ts';
-import { at, bladeMat, boxGeo, cylGeo } from './enemyLooks.ts';
-import { V, machine, piston } from './machine.ts';
+import { bladeMat } from './enemyLooks.ts';
+import { V, at, boxGeo, cylGeo, machine, piston } from './machine.ts';
 // The bosses as machines, as the enemies are (world/enemyLooks.ts): dark hull plate (world/machine.ts), what glows
 // kept to slits, bands and lenses in the boss's own colour, a pool of that colour on the ground under it
 // (actors/bosses/common.ts bossBase). Each is built of the parts its fight would need (how it stays up, what it
