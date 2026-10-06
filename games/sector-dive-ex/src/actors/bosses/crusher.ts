@@ -8,19 +8,32 @@ import { sfx } from '@engine/audio/audio.ts';
 import { burst } from '@engine/render/fx.ts';
 import { moveCircle } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
+import { query } from '@engine/core/world.ts';
 import { BOSS_META } from '../../data/bosses.ts';
-import { shootHoming, spawnWave } from '../../world/entities.ts';
+import { fanAt, shootHoming, spawnWave } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
 import { bossBase, bossMaterial, isEnraged, wireOutline } from './common.ts';
 import { screenFx } from '../../ui/hud.ts';
 import { COLOR } from '../../data/colors.ts';
-// CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys
+// CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys; it fires fans as it walks between them.
+// Enraged, a charge that ends is followed by a second one, and only that one ends in the stun
 
 const AFTER_STUN_WAIT = 1.0; // idle wait after a stun ends when it doesn't go straight into a slam (s)
 
+const FIRE_Y = 2.4; // the walking fans leave from this height (the launchers on its shoulders) (m)
+
 // st: state machine; cdx / cdz: charge direction; hitP: the charge has hit the player; second: delay of the enraged second wave
-type CrusherBoss = Boss & { st: string; cdx: number; cdz: number; hitP: boolean; second: number };
+// fireT: time to the next fan while it walks; chained: this charge is the second of an enraged pair
+type CrusherBoss = Boss & {
+  st: string;
+  cdx: number;
+  cdz: number;
+  hitP: boolean;
+  second: number;
+  fireT: number;
+  chained: boolean;
+};
 export function spawnCrusher() {
   const g = new THREE.Group(),
     geo = new THREE.BoxGeometry(3.2, 3.2, 3.2);
@@ -32,7 +45,15 @@ export function spawnCrusher() {
   plate.position.set(0, 0.5, 1.65);
   if (plainLooks()) g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.orange), plate);
   else g.add(crusherLook(mat));
-  const e = bossBase('crusher', g, mat, updCrusher, { st: 'idle', cdx: 0, cdz: 0, hitP: false, second: 0 });
+  const e = bossBase('crusher', g, mat, updCrusher, {
+    st: 'idle',
+    cdx: 0,
+    cdz: 0,
+    hitP: false,
+    second: 0,
+    fireT: BOSS_META.crusher.tune.walkFireFirst,
+    chained: false,
+  });
   e.timer = 2;
   toast(t('boss.crusherHint'), 4200);
 }
@@ -48,7 +69,15 @@ function updCrusher(e: CrusherBoss, dt: number) {
   if (e.st === 'idle') {
     moveCircle(e, (dx / d) * K.walk * dt, (dz / d) * K.walk * dt, 1.8);
     e.mesh.rotation.y = Math.atan2(dx, dz);
+    // it shoots as it walks, so the time between its attacks isn't free and keeping away from it isn't safe.
+    // Not while a shockwave is spreading: a wave and a fan to dodge at once is more than two dashes can answer
+    if (!query('wave').some(w => !w.dead)) e.fireT -= dt;
+    if (e.fireT <= 0) {
+      fanAt(e.x, FIRE_Y, e.z, K.walkFan[0], K.walkFan[1], K.walkFan[2], e.dmg, COLOR.fire);
+      e.fireT = enr ? K.walkFireEnr : K.walkFire;
+    }
     if (e.timer <= 0) {
+      e.fireT = K.walkFireFirst;
       const r = Math.random();
       if (r < K.pick[0]) {
         e.st = 'tele';
@@ -80,7 +109,15 @@ function updCrusher(e: CrusherBoss, dt: number) {
       damagePlayer(e.dmg * K.chargeDmg, e);
       moveCircle(player, e.cdx * K.chargeKnock, e.cdz * K.chargeKnock, player.r);
     }
-    if (hit || e.timer <= 0) {
+    if ((hit || e.timer <= 0) && enr && !e.chained) {
+      // enraged: the first charge only shakes the room; it turns round and charges again
+      e.chained = true;
+      e.st = 'tele';
+      e.timer = K.chainTele;
+      screenFx.shake = Math.max(screenFx.shake, 0.25);
+      sfx('boom');
+    } else if (hit || e.timer <= 0) {
+      e.chained = false;
       e.st = 'stun';
       e.timer = K.stun;
       e.stunMul = K.stunMul;

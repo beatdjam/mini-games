@@ -1,7 +1,7 @@
 // Smoke test for Sector Dive Extended: boots the game page (setup.ts) and runs its parts through the real loop by hand.
 // The tests share one game state and run in order; some checks depend on how many random numbers the earlier ones used.
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import type { GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
+import type { Boss, GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
 import { createRng, distXZ, el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
 import { lang, t } from '@engine/core/i18n.ts';
@@ -16,6 +16,7 @@ import {
   setMusicMix,
 } from '@engine/audio/music.ts';
 import { V3, camera, scene } from '@engine/render/render.ts';
+import { clearPool } from '@engine/world/projectiles.ts';
 import {
   H,
   STEP,
@@ -92,6 +93,7 @@ import { makePortal } from '../src/world/portals.ts';
 import {
   addPickup,
   boss,
+  eBullets,
   enemies,
   isShielded,
   nearPickup,
@@ -413,6 +415,53 @@ test('watcher: drones at 75% and 40%', () => {
   tick(2);
   const a2 = drones();
   if (a1 !== 2 || a2 !== 5) throw new Error('watcher drones ' + a1 + ' ' + a2);
+  endRun('abandon');
+});
+test('crusher: fires fans as it walks; enraged, a second charge follows the first and only that one stuns', () => {
+  startPractice('crusher');
+  tick(10);
+  if (!boss) spawnBoss('crusher');
+  const K = BOSS_META.crusher.tune,
+    c = boss as Boss & { st: string; fireT: number; chained: boolean },
+    shots = () => eBullets.filter(b => b.alive).length;
+  c.spawnT = 0;
+  c.phased = true;
+  // walking: one fan after walkFireFirst, the next walkFire later
+  c.st = 'idle';
+  c.timer = 10;
+  c.fireT = K.walkFireFirst;
+  clearPool(eBullets);
+  tick(Math.ceil(K.walkFireFirst * 60) + 2);
+  expect(shots(), 'the first fan').toBe(K.walkFan[0]);
+  tick(Math.ceil(K.walkFire * 60));
+  expect(shots(), 'the second fan').toBe(K.walkFan[0] * 2);
+  // while a shockwave spreads it holds its fire
+  clearPool(eBullets);
+  c.fireT = 0.01;
+  spawnWave(c.x, c.z, 0.01, 50, 0, COLOR.amber);
+  tick(30);
+  expect(shots(), 'no fan while a wave spreads').toBe(0);
+  query('wave').forEach(w => {
+    w.dead = true;
+  });
+  tick(3);
+  expect(shots(), 'the fan once the wave is gone').toBe(K.walkFan[0]);
+  // not enraged: the charge ends in the stun
+  const charge = () => {
+    c.st = 'charge';
+    c.timer = 0;
+    tick(1);
+  };
+  charge();
+  expect(c.st, 'a charge ends in the stun').toBe('stun');
+  // enraged: the first charge is followed by a second (no stun), and that one ends in the stun
+  c.hp = c.maxHp * 0.4;
+  charge();
+  expect([c.st, c.chained], 'the first of the pair turns round').toEqual(['tele', true]);
+  tick(Math.ceil(K.chainTele * 60) + 2);
+  expect(c.st, 'and charges again').toBe('charge');
+  charge();
+  expect([c.st, c.chained], 'the second ends in the stun').toEqual(['stun', false]);
   endRun('abandon');
 });
 test('scaling: additive damage chips, compounding health, practice depth', () => {
