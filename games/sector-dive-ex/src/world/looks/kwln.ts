@@ -16,8 +16,6 @@ import type { Light, WallSlot } from './props.ts';
 const LAMP_POOL_OPACITY = 0.7;
 
 // ---- the walled city (KWLN): an alley of shuttered shops under signboards and neon; worn concrete, wet ground ----
-// the wall pictures: 0 bare concrete, 1 a rolled shutter, 2 an iron gate, 3 a lit window, 4 posters
-const KWLN_SHUTTER = 1;
 // stains running down a wall from the top
 function stains(g: CanvasRenderingContext2D, rand: () => number, n: number) {
   for (let k = 0; k < n; k++) {
@@ -30,8 +28,127 @@ function stains(g: CanvasRenderingContext2D, rand: () => number, n: number) {
     g.fillRect(x, 0, 2 + rand() * 9, len);
   }
 }
+// a rolled steel shutter in a frame, a strip of painted wall above it for the shop's sign
+const shutter: Paint = (g, rand) => {
+  const x = 22,
+    y = 74,
+    w = TEX - 44,
+    h = TEX - y;
+  g.fillStyle = '#2b2622';
+  g.fillRect(x - 8, y - 8, w + 16, h + 8);
+  const steel = g.createLinearGradient(0, y, 0, y + h);
+  steel.addColorStop(0, '#4f6a5c');
+  steel.addColorStop(1, '#31463c');
+  g.fillStyle = steel;
+  g.fillRect(x, y, w, h);
+  for (let sy = y; sy < y + h; sy += 9) {
+    g.fillStyle = 'rgba(0,0,0,.42)';
+    g.fillRect(x, sy, w, 2);
+    g.fillStyle = 'rgba(190,220,200,.16)';
+    g.fillRect(x, sy + 2, w, 1.5);
+  }
+  // rust at the foot, a handle, a few pasted bills
+  const rust = g.createLinearGradient(0, TEX - 46, 0, TEX);
+  rust.addColorStop(0, 'rgba(120,60,30,0)');
+  rust.addColorStop(1, 'rgba(120,60,30,.55)');
+  g.fillStyle = rust;
+  g.fillRect(x, TEX - 46, w, 46);
+  g.fillStyle = '#1b1815';
+  g.fillRect(TEX / 2 - 14, TEX - 30, 28, 7);
+  for (let k = 0; k < 3; k++) {
+    g.fillStyle = ['#d8cfb8', '#c9b79a', '#b9443a'][k]!;
+    g.globalAlpha = 0.75;
+    g.fillRect(x + 12 + rand() * (w - 50), y + 20 + rand() * 80, 20 + rand() * 14, 26 + rand() * 12);
+  }
+  g.globalAlpha = 1;
+};
+// an iron gate over a dark doorway, tiled surround
+const ironGate: Paint = g => {
+  g.fillStyle = '#6f6a58';
+  g.fillRect(40, 44, TEX - 80, TEX - 44);
+  for (let ty = 44; ty < TEX; ty += 14) {
+    g.fillStyle = 'rgba(0,0,0,.3)';
+    g.fillRect(40, ty, TEX - 80, 1.5);
+  }
+  for (let tx = 40; tx < TEX - 40; tx += 14) g.fillRect(tx, 44, 1.5, TEX - 44);
+  g.fillStyle = '#0d0b0a';
+  g.fillRect(72, 70, TEX - 144, TEX - 70);
+  g.strokeStyle = '#3a3630';
+  g.lineWidth = 3;
+  for (let bx = 72; bx <= TEX - 72; bx += 14) {
+    g.beginPath();
+    g.moveTo(bx, 70);
+    g.lineTo(bx, TEX);
+    g.stroke();
+  }
+  for (let by = 84; by < TEX; by += 34) {
+    g.beginPath();
+    g.moveTo(72, by);
+    g.lineTo(TEX - 72, by);
+    g.stroke();
+  }
+  g.lineWidth = 2;
+  for (let by = 84; by < TEX - 34; by += 34)
+    for (let bx = 72; bx < TEX - 72; bx += 28) {
+      g.beginPath();
+      g.moveTo(bx, by);
+      g.lineTo(bx + 14, by + 17);
+      g.lineTo(bx + 28, by);
+      g.moveTo(bx, by + 34);
+      g.lineTo(bx + 14, by + 17);
+      g.lineTo(bx + 28, by + 34);
+      g.stroke();
+    }
+};
+// a barred window with a light on behind it, an awning's shadow above
+const barredWindow: Paint = g => {
+  const x = 60,
+    y = 52,
+    w = 136,
+    h = 92;
+  g.fillStyle = '#1c1916';
+  g.fillRect(x - 7, y - 7, w + 14, h + 14);
+  const lit = g.createLinearGradient(0, y, 0, y + h);
+  lit.addColorStop(0, '#f3d79a');
+  lit.addColorStop(1, '#b8793d');
+  g.fillStyle = lit;
+  g.fillRect(x, y, w, h);
+  g.fillStyle = 'rgba(60,30,20,.5)';
+  g.fillRect(x, y, w * 0.4, h);
+  g.fillStyle = '#1c1916';
+  for (let b = 1; b < 6; b++) g.fillRect(x + (w / 6) * b - 2, y, 4, h);
+  g.fillRect(x, y + h / 2 - 2, w, 4);
+  const drip = g.createLinearGradient(0, y + h, 0, TEX);
+  drip.addColorStop(0, 'rgba(10,8,6,.55)');
+  drip.addColorStop(1, 'rgba(10,8,6,0)');
+  g.fillStyle = drip;
+  g.fillRect(x + 8, y + h + 7, w - 16, TEX - y - h);
+};
+// layers of bills and posters, half torn off
+const posters: Paint = (g, rand) => {
+  const paper = ['#cfc6b0', '#b3a586', '#8c4a40', '#b3a15c', '#7d8a82'];
+  for (let k = 0; k < 9; k++) {
+    const x = 16 + rand() * 190,
+      y = 96 + rand() * 96,
+      w = 18 + rand() * 20,
+      h = 24 + rand() * 22;
+    g.globalAlpha = 0.45 + rand() * 0.3;
+    g.fillStyle = paper[Math.floor(rand() * paper.length)]!;
+    g.fillRect(x, y, w, h);
+    g.globalAlpha = 0.65;
+    g.fillStyle = '#2a211c';
+    for (let l = 0; l < 3; l++) g.fillRect(x + 3, y + 5 + l * 6, (w - 6) * (0.4 + rand() * 0.6), 2);
+    g.fillStyle = '#463e36';
+    g.fillRect(x + w - 6 - rand() * 6, y + h - 6 - rand() * 6, 14, 14); // a torn corner
+  }
+  g.globalAlpha = 1;
+};
+// The wall pictures: what is on the concrete of each (nothing on the first, which is the plainest and comes up most:
+// variantOf)
+const KWLN_WALL_PICS: (Paint | null)[] = [null, shutter, ironGate, barredWindow, posters];
+const KWLN_SHUTTER = 1; // (a shop's board hangs over each shutter: kwlnProps)
 const kwlnWall =
-  (variant: number): Paint =>
+  (on: Paint | null): Paint =>
   (g, rand) => {
     // worn concrete, darker toward the ground
     const bg = g.createLinearGradient(0, 0, 0, TEX);
@@ -46,118 +163,7 @@ const kwlnWall =
     g.fillRect(0, TEX * 0.36, TEX, 2);
     g.fillRect(0, TEX * 0.7, TEX, 2);
     stains(g, rand, 10);
-    if (variant === KWLN_SHUTTER) {
-      // a rolled steel shutter in a frame, a strip of painted wall above it for the shop's sign
-      const x = 22,
-        y = 74,
-        w = TEX - 44,
-        h = TEX - y;
-      g.fillStyle = '#2b2622';
-      g.fillRect(x - 8, y - 8, w + 16, h + 8);
-      const steel = g.createLinearGradient(0, y, 0, y + h);
-      steel.addColorStop(0, '#4f6a5c');
-      steel.addColorStop(1, '#31463c');
-      g.fillStyle = steel;
-      g.fillRect(x, y, w, h);
-      for (let sy = y; sy < y + h; sy += 9) {
-        g.fillStyle = 'rgba(0,0,0,.42)';
-        g.fillRect(x, sy, w, 2);
-        g.fillStyle = 'rgba(190,220,200,.16)';
-        g.fillRect(x, sy + 2, w, 1.5);
-      }
-      // rust at the foot, a handle, a few pasted bills
-      const rust = g.createLinearGradient(0, TEX - 46, 0, TEX);
-      rust.addColorStop(0, 'rgba(120,60,30,0)');
-      rust.addColorStop(1, 'rgba(120,60,30,.55)');
-      g.fillStyle = rust;
-      g.fillRect(x, TEX - 46, w, 46);
-      g.fillStyle = '#1b1815';
-      g.fillRect(TEX / 2 - 14, TEX - 30, 28, 7);
-      for (let k = 0; k < 3; k++) {
-        g.fillStyle = ['#d8cfb8', '#c9b79a', '#b9443a'][k]!;
-        g.globalAlpha = 0.75;
-        g.fillRect(x + 12 + rand() * (w - 50), y + 20 + rand() * 80, 20 + rand() * 14, 26 + rand() * 12);
-      }
-      g.globalAlpha = 1;
-    } else if (variant === 2) {
-      // an iron gate over a dark doorway, tiled surround
-      g.fillStyle = '#6f6a58';
-      g.fillRect(40, 44, TEX - 80, TEX - 44);
-      for (let ty = 44; ty < TEX; ty += 14) {
-        g.fillStyle = 'rgba(0,0,0,.3)';
-        g.fillRect(40, ty, TEX - 80, 1.5);
-      }
-      for (let tx = 40; tx < TEX - 40; tx += 14) g.fillRect(tx, 44, 1.5, TEX - 44);
-      g.fillStyle = '#0d0b0a';
-      g.fillRect(72, 70, TEX - 144, TEX - 70);
-      g.strokeStyle = '#3a3630';
-      g.lineWidth = 3;
-      for (let bx = 72; bx <= TEX - 72; bx += 14) {
-        g.beginPath();
-        g.moveTo(bx, 70);
-        g.lineTo(bx, TEX);
-        g.stroke();
-      }
-      for (let by = 84; by < TEX; by += 34) {
-        g.beginPath();
-        g.moveTo(72, by);
-        g.lineTo(TEX - 72, by);
-        g.stroke();
-      }
-      g.lineWidth = 2;
-      for (let by = 84; by < TEX - 34; by += 34)
-        for (let bx = 72; bx < TEX - 72; bx += 28) {
-          g.beginPath();
-          g.moveTo(bx, by);
-          g.lineTo(bx + 14, by + 17);
-          g.lineTo(bx + 28, by);
-          g.moveTo(bx, by + 34);
-          g.lineTo(bx + 14, by + 17);
-          g.lineTo(bx + 28, by + 34);
-          g.stroke();
-        }
-    } else if (variant === 3) {
-      // a barred window with a light on behind it, an awning's shadow above
-      const x = 60,
-        y = 52,
-        w = 136,
-        h = 92;
-      g.fillStyle = '#1c1916';
-      g.fillRect(x - 7, y - 7, w + 14, h + 14);
-      const lit = g.createLinearGradient(0, y, 0, y + h);
-      lit.addColorStop(0, '#f3d79a');
-      lit.addColorStop(1, '#b8793d');
-      g.fillStyle = lit;
-      g.fillRect(x, y, w, h);
-      g.fillStyle = 'rgba(60,30,20,.5)';
-      g.fillRect(x, y, w * 0.4, h);
-      g.fillStyle = '#1c1916';
-      for (let b = 1; b < 6; b++) g.fillRect(x + (w / 6) * b - 2, y, 4, h);
-      g.fillRect(x, y + h / 2 - 2, w, 4);
-      const drip = g.createLinearGradient(0, y + h, 0, TEX);
-      drip.addColorStop(0, 'rgba(10,8,6,.55)');
-      drip.addColorStop(1, 'rgba(10,8,6,0)');
-      g.fillStyle = drip;
-      g.fillRect(x + 8, y + h + 7, w - 16, TEX - y - h);
-    } else if (variant === 4) {
-      // layers of bills and posters, half torn off
-      const paper = ['#cfc6b0', '#b3a586', '#8c4a40', '#b3a15c', '#7d8a82'];
-      for (let k = 0; k < 9; k++) {
-        const x = 16 + rand() * 190,
-          y = 96 + rand() * 96,
-          w = 18 + rand() * 20,
-          h = 24 + rand() * 22;
-        g.globalAlpha = 0.45 + rand() * 0.3;
-        g.fillStyle = paper[Math.floor(rand() * paper.length)]!;
-        g.fillRect(x, y, w, h);
-        g.globalAlpha = 0.65;
-        g.fillStyle = '#2a211c';
-        for (let l = 0; l < 3; l++) g.fillRect(x + 3, y + 5 + l * 6, (w - 6) * (0.4 + rand() * 0.6), 2);
-        g.fillStyle = '#463e36';
-        g.fillRect(x + w - 6 - rand() * 6, y + h - 6 - rand() * 6, 14, 14); // a torn corner
-      }
-      g.globalAlpha = 1;
-    }
+    on?.(g, rand);
     // the foot of the wall is the dirtiest
     const foot = g.createLinearGradient(0, TEX * 0.82, 0, TEX);
     foot.addColorStop(0, 'rgba(8,6,5,0)');
@@ -472,7 +478,7 @@ function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
         if (d.maps.grid[wall] || plan.voids[wall]) return;
-        if (variantOf(wall, KWLN_WALLS, WALL_PLAIN_SHARE) === KWLN_SHUTTER && rng.next() < BOARD.chance)
+        if (variantOf(wall, KWLN_WALL_PICS.length, WALL_PLAIN_SHARE) === KWLN_SHUTTER && rng.next() < BOARD.chance)
           fronts.push({ i, j, side });
       });
     }
@@ -643,11 +649,10 @@ const kwlnHazardGlow: Paint = (g, rand) => {
   g.shadowBlur = 0;
 };
 
-const KWLN_WALLS = 5; // the wall pictures (see kwlnWall)
 // the walled city's look (world/looks.ts makes it the first time the sector is drawn)
 export function kwlnLook(): Look {
   return {
-    walls: Array.from({ length: KWLN_WALLS }, (_, v) => paint(100 + v, kwlnWall(v))),
+    walls: KWLN_WALL_PICS.map((on, v) => paint(100 + v, kwlnWall(on))),
     floors: [0, 1, 2].map(v => paint(200 + v, kwlnFloor(v))), // bare, a puddle, a drain
     deck: paint(300, kwlnDeck),
     ceiling: paint(400, kwlnCeiling),

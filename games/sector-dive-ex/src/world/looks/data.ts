@@ -232,137 +232,148 @@ function racks(g: CanvasRenderingContext2D, rand: () => number, pic: WallPic) {
     );
   }
 }
+// the grille of the air return, low on the wall, grey with dust; a thermostat beside it
+const ventGrille: Paint = g => {
+  const x = 54,
+    w = 132,
+    y = rowOf(1.75),
+    h = rowOf(0.42) - y;
+  g.fillStyle = '#4a535b';
+  g.fillRect(x - 5, y - 3.5, w + 10, h + 7);
+  g.fillStyle = '#161b20';
+  g.fillRect(x, y, w, h);
+  for (let sy = y + 1; sy < y + h - 2; sy += 4.4) {
+    g.fillStyle = '#808b93';
+    g.fillRect(x, sy, w, 2.2);
+    g.fillStyle = 'rgba(255,255,255,.2)';
+    g.fillRect(x, sy, w, 0.8);
+  }
+  g.fillStyle = '#4a535b';
+  g.fillRect(x + w / 2 - 2, y, 4, h);
+  const dust = g.createLinearGradient(0, y + h, 0, y + h + 22);
+  dust.addColorStop(0, 'rgba(34,42,50,.35)');
+  dust.addColorStop(1, 'rgba(34,42,50,0)');
+  g.fillStyle = dust;
+  g.fillRect(x, y + h + 3, w, 22);
+  g.fillStyle = '#b3bcc2';
+  g.fillRect(212, rowOf(1.72), 15, 9);
+  g.fillStyle = '#39424a';
+  g.fillRect(215, rowOf(1.72) + 2.2, 9, 2.6);
+};
+// plastic trunking along the wall, a drop from it to a socket box near the floor
+const trunking: Paint = g => {
+  const y = rowOf(3.05);
+  g.fillStyle = 'rgba(16,24,32,.3)';
+  g.fillRect(0, y + 7, TEX, 3);
+  g.fillStyle = '#a9b2b9';
+  g.fillRect(0, y, TEX, 7);
+  g.fillStyle = 'rgba(255,255,255,.3)';
+  g.fillRect(0, y, TEX, 1.3);
+  g.fillStyle = 'rgba(16,24,32,.3)';
+  g.fillRect(176, y + 7, 3, rowOf(0.75) - y - 7);
+  g.fillStyle = '#a9b2b9';
+  g.fillRect(167, y + 7, 9, rowOf(0.75) - y - 7);
+  g.fillStyle = '#5c666e';
+  g.fillRect(159, rowOf(0.78), 25, 13);
+  g.fillStyle = '#171c21';
+  for (const sx of [163.5, 173.5]) g.fillRect(sx, rowOf(0.78) + 3.5, 6, 6);
+  for (const jx of [60, 196]) joint(g, jx, y, 7, true, 0.3);
+};
+// the zone's plate at eye height: its code on a blue band, a caution under it; a small maker's plate below
+const zonePlate: Paint = g => {
+  const x = 80,
+    w = 96,
+    y = rowOf(2.85),
+    h = rowOf(1.8) - y,
+    band = h * 0.42;
+  g.fillStyle = 'rgba(12,18,24,.4)';
+  g.fillRect(x + 2, y + 2, w, h);
+  g.fillStyle = '#cdd4d9';
+  g.fillRect(x, y, w, h);
+  g.fillStyle = '#2f5a84';
+  g.fillRect(x, y, w, band);
+  g.fillStyle = '#e4e9ec';
+  words(g, DATA_PLATE_ZONE, x + w / 2, y + band / 2 + 0.5, 21, WALL_ASPECT);
+  g.fillStyle = '#22303d';
+  words(g, DATA_PLATE_CAUTION, x + w / 2, y + band + (h - band) / 2 + 0.5, 16, WALL_ASPECT);
+  g.fillStyle = 'rgba(40,48,56,.28)'; // dusty at the foot, a corner peeling
+  g.fillRect(x, y + h - 5, w, 5);
+  g.fillStyle = '#7f8a92';
+  g.beginPath();
+  g.moveTo(x + w, y);
+  g.lineTo(x + w - 9, y);
+  g.lineTo(x + w, y + 6);
+  g.fill();
+  g.fillStyle = '#4c555d';
+  g.fillRect(x + 28, rowOf(1.45), 40, 9);
+  g.fillStyle = 'rgba(214,222,228,.5)';
+  for (let n = 0; n < 3; n++) g.fillRect(x + 32, rowOf(1.45) + 2 + n * 2.3, 32 - n * 9, 0.9);
+};
+// a monitor on a bracket, dead, its glass cracked; a shelf with a keyboard under it
+const deadMonitor: Paint = (g, rand) => {
+  const x = 78,
+    w = 100,
+    y = rowOf(2.9),
+    h = rowOf(1.75) - y;
+  g.fillStyle = '#39424a';
+  g.fillRect(TEX / 2 - 3, y + h, 6, rowOf(0.28) - y - h); // its cable duct down to the skirting
+  g.fillStyle = 'rgba(12,18,24,.4)';
+  g.fillRect(x + 3, y + 3, w, h);
+  g.fillStyle = '#23292f';
+  g.fillRect(x, y, w, h);
+  const glass = g.createLinearGradient(x, y, x + w, y + h);
+  glass.addColorStop(0, '#18212a');
+  glass.addColorStop(0.5, '#0d1318');
+  glass.addColorStop(1, '#141c24');
+  g.fillStyle = glass;
+  g.fillRect(x + 4, y + 3, w - 8, h - 8);
+  g.save();
+  g.beginPath();
+  g.rect(x + 4, y + 3, w - 8, h - 8);
+  g.clip();
+  g.fillStyle = 'rgba(190,210,225,.07)'; // the room in the glass
+  g.beginPath();
+  g.moveTo(x + 14, y);
+  g.lineTo(x + 40, y);
+  g.lineTo(x + 18, y + h);
+  g.lineTo(x - 8, y + h);
+  g.fill();
+  const cx = x + w * 0.66,
+    cy = y + h * 0.4;
+  g.strokeStyle = 'rgba(196,210,220,.6)';
+  g.lineWidth = 0.9;
+  for (let n = 0; n < 9; n++) {
+    const a = (n / 9) * Math.PI * 2 + rand() * 0.5,
+      len = 14 + rand() * 46;
+    g.beginPath();
+    g.moveTo(cx, cy);
+    g.lineTo(cx + Math.cos(a) * len * 0.5 + (rand() - 0.5) * 6, cy + Math.sin(a) * len * 0.5 * WALL_ASPECT);
+    g.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len * WALL_ASPECT + (rand() - 0.5) * 4);
+    g.stroke();
+  }
+  g.fillStyle = 'rgba(196,210,220,.5)';
+  oval(g, cx, cy, 2.5, 2.5 * WALL_ASPECT);
+  g.restore();
+  g.fillStyle = '#4a535b';
+  g.fillRect(x + 8, rowOf(1.3), w - 16, 4);
+  g.fillStyle = '#2b3239';
+  g.fillRect(x + 20, rowOf(1.3) - 3, w - 44, 3);
+  g.fillStyle = 'rgba(12,18,24,.35)';
+  g.fillRect(x + 8, rowOf(1.3) + 4, w - 16, 3);
+};
+// what is on the walls that are not a row of racks (nothing on a bare panel)
+const DATA_WALL_ON: Partial<Record<WallPic, Paint>> = {
+  vent: ventGrille,
+  trunk: trunking,
+  plate: zonePlate,
+  monitor: deadMonitor,
+};
 const dataWall =
   (pic: WallPic): Paint =>
   (g, rand) => {
     panels(g, rand);
     if (RACK_PICS.includes(pic)) racks(g, rand, pic);
-    else if (pic === 'vent') {
-      // the grille of the air return, low on the wall, grey with dust; a thermostat beside it
-      const x = 54,
-        w = 132,
-        y = rowOf(1.75),
-        h = rowOf(0.42) - y;
-      g.fillStyle = '#4a535b';
-      g.fillRect(x - 5, y - 3.5, w + 10, h + 7);
-      g.fillStyle = '#161b20';
-      g.fillRect(x, y, w, h);
-      for (let sy = y + 1; sy < y + h - 2; sy += 4.4) {
-        g.fillStyle = '#808b93';
-        g.fillRect(x, sy, w, 2.2);
-        g.fillStyle = 'rgba(255,255,255,.2)';
-        g.fillRect(x, sy, w, 0.8);
-      }
-      g.fillStyle = '#4a535b';
-      g.fillRect(x + w / 2 - 2, y, 4, h);
-      const dust = g.createLinearGradient(0, y + h, 0, y + h + 22);
-      dust.addColorStop(0, 'rgba(34,42,50,.35)');
-      dust.addColorStop(1, 'rgba(34,42,50,0)');
-      g.fillStyle = dust;
-      g.fillRect(x, y + h + 3, w, 22);
-      g.fillStyle = '#b3bcc2';
-      g.fillRect(212, rowOf(1.72), 15, 9);
-      g.fillStyle = '#39424a';
-      g.fillRect(215, rowOf(1.72) + 2.2, 9, 2.6);
-    } else if (pic === 'trunk') {
-      // plastic trunking along the wall, a drop from it to a socket box near the floor
-      const y = rowOf(3.05);
-      g.fillStyle = 'rgba(16,24,32,.3)';
-      g.fillRect(0, y + 7, TEX, 3);
-      g.fillStyle = '#a9b2b9';
-      g.fillRect(0, y, TEX, 7);
-      g.fillStyle = 'rgba(255,255,255,.3)';
-      g.fillRect(0, y, TEX, 1.3);
-      g.fillStyle = 'rgba(16,24,32,.3)';
-      g.fillRect(176, y + 7, 3, rowOf(0.75) - y - 7);
-      g.fillStyle = '#a9b2b9';
-      g.fillRect(167, y + 7, 9, rowOf(0.75) - y - 7);
-      g.fillStyle = '#5c666e';
-      g.fillRect(159, rowOf(0.78), 25, 13);
-      g.fillStyle = '#171c21';
-      for (const sx of [163.5, 173.5]) g.fillRect(sx, rowOf(0.78) + 3.5, 6, 6);
-      for (const jx of [60, 196]) joint(g, jx, y, 7, true, 0.3);
-    } else if (pic === 'plate') {
-      // the zone's plate at eye height: its code on a blue band, a caution under it; a small maker's plate below
-      const x = 80,
-        w = 96,
-        y = rowOf(2.85),
-        h = rowOf(1.8) - y,
-        band = h * 0.42;
-      g.fillStyle = 'rgba(12,18,24,.4)';
-      g.fillRect(x + 2, y + 2, w, h);
-      g.fillStyle = '#cdd4d9';
-      g.fillRect(x, y, w, h);
-      g.fillStyle = '#2f5a84';
-      g.fillRect(x, y, w, band);
-      g.fillStyle = '#e4e9ec';
-      words(g, DATA_PLATE_ZONE, x + w / 2, y + band / 2 + 0.5, 21, WALL_ASPECT);
-      g.fillStyle = '#22303d';
-      words(g, DATA_PLATE_CAUTION, x + w / 2, y + band + (h - band) / 2 + 0.5, 16, WALL_ASPECT);
-      g.fillStyle = 'rgba(40,48,56,.28)'; // dusty at the foot, a corner peeling
-      g.fillRect(x, y + h - 5, w, 5);
-      g.fillStyle = '#7f8a92';
-      g.beginPath();
-      g.moveTo(x + w, y);
-      g.lineTo(x + w - 9, y);
-      g.lineTo(x + w, y + 6);
-      g.fill();
-      g.fillStyle = '#4c555d';
-      g.fillRect(x + 28, rowOf(1.45), 40, 9);
-      g.fillStyle = 'rgba(214,222,228,.5)';
-      for (let n = 0; n < 3; n++) g.fillRect(x + 32, rowOf(1.45) + 2 + n * 2.3, 32 - n * 9, 0.9);
-    } else if (pic === 'monitor') {
-      // a monitor on a bracket, dead, its glass cracked; a shelf with a keyboard under it
-      const x = 78,
-        w = 100,
-        y = rowOf(2.9),
-        h = rowOf(1.75) - y;
-      g.fillStyle = '#39424a';
-      g.fillRect(TEX / 2 - 3, y + h, 6, rowOf(0.28) - y - h); // its cable duct down to the skirting
-      g.fillStyle = 'rgba(12,18,24,.4)';
-      g.fillRect(x + 3, y + 3, w, h);
-      g.fillStyle = '#23292f';
-      g.fillRect(x, y, w, h);
-      const glass = g.createLinearGradient(x, y, x + w, y + h);
-      glass.addColorStop(0, '#18212a');
-      glass.addColorStop(0.5, '#0d1318');
-      glass.addColorStop(1, '#141c24');
-      g.fillStyle = glass;
-      g.fillRect(x + 4, y + 3, w - 8, h - 8);
-      g.save();
-      g.beginPath();
-      g.rect(x + 4, y + 3, w - 8, h - 8);
-      g.clip();
-      g.fillStyle = 'rgba(190,210,225,.07)'; // the room in the glass
-      g.beginPath();
-      g.moveTo(x + 14, y);
-      g.lineTo(x + 40, y);
-      g.lineTo(x + 18, y + h);
-      g.lineTo(x - 8, y + h);
-      g.fill();
-      const cx = x + w * 0.66,
-        cy = y + h * 0.4;
-      g.strokeStyle = 'rgba(196,210,220,.6)';
-      g.lineWidth = 0.9;
-      for (let n = 0; n < 9; n++) {
-        const a = (n / 9) * Math.PI * 2 + rand() * 0.5,
-          len = 14 + rand() * 46;
-        g.beginPath();
-        g.moveTo(cx, cy);
-        g.lineTo(cx + Math.cos(a) * len * 0.5 + (rand() - 0.5) * 6, cy + Math.sin(a) * len * 0.5 * WALL_ASPECT);
-        g.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len * WALL_ASPECT + (rand() - 0.5) * 4);
-        g.stroke();
-      }
-      g.fillStyle = 'rgba(196,210,220,.5)';
-      oval(g, cx, cy, 2.5, 2.5 * WALL_ASPECT);
-      g.restore();
-      g.fillStyle = '#4a535b';
-      g.fillRect(x + 8, rowOf(1.3), w - 16, 4);
-      g.fillStyle = '#2b3239';
-      g.fillRect(x + 20, rowOf(1.3) - 3, w - 44, 3);
-      g.fillStyle = 'rgba(12,18,24,.35)';
-      g.fillRect(x + 8, rowOf(1.3) + 4, w - 16, 3);
-    }
+    else DATA_WALL_ON[pic]?.(g, rand);
     // the ceiling's shadow at the top, the floor's at the foot
     const shade = g.createLinearGradient(0, 0, 0, TEX);
     shade.addColorStop(0, 'rgba(10,16,22,.4)');
