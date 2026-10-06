@@ -76,7 +76,7 @@ import './ui/share.ts';
 import './ui/feedback.ts';
 import './actors/enemies.ts';
 import './actors/bullets.ts';
-import './world/sparkLooks.ts';
+import './world/models/sparkLooks.ts';
 import { boot } from './flow/update.ts';
 
 ANALYTICS.game = 'sector-dive-ex'; // sent with every analytics event

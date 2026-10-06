@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { shared } from '@engine/render/render.ts';
-import { TEX, grain, paint, poolTex } from './looks/paint.ts';
-import type { Paint } from './looks/paint.ts';
-// What a machine built to be believed is made with, for the bosses (world/bossLooks.ts) and the enemies
-// (world/enemyLooks.ts): hull plate with panel lines, a vent and a stencilled mark on it, steel that takes the light,
+import { TEX, grain, paint, poolTex } from '../looks/paint.ts';
+import type { Paint } from '../looks/paint.ts';
+// What a machine built to be believed is made with, for the bosses (world/models/bossLooks.ts) and the enemies
+// (world/models/enemyLooks.ts): hull plate with panel lines, a vent and a stencilled mark on it, steel that takes the light,
 // and parts a machine would need (a hydraulic ram between two points). A model made with these should show what the
 // machine does: how it moves (tracks, wheels, jets, legs on rams), what it fights with (barrels, launchers, rams,
 // blades), how it sees (a slit, lenses, aerials), and where its heat goes (stacks, radiators).
-// The parts the other models are put together from are here too (the pickups, world/itemLooks.ts; the enemies' shots,
-// world/ebulletLooks.ts): boxes and cylinders made once per size, and the pool of light on the ground under a thing.
+// The parts the other models are put together from are here too (the pickups, world/models/itemLooks.ts; the enemies' shots,
+// world/models/ebulletLooks.ts): boxes and cylinders made once per size, and the pool of light on the ground under a thing.
 export const LOOK_GLOW = 0.05; // a machine's own glow in its colour (the plain enemies are at 0.4: they are all glow)
 const POOL_OPACITY = 0.55; // how strong a pool of light on the ground is
 

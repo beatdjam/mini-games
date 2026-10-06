@@ -11,7 +11,7 @@ import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { devPlainLooks } from '../world/looks.ts';
-import { useSparkLooks } from '../world/sparkLooks.ts';
+import { useSparkLooks } from '../world/models/sparkLooks.ts';
 import { setHazardClock } from '../world/hazards.ts';
 import { devPlainGuns } from '../actors/viewmodel.ts';
 import { makePortal } from '../world/portals.ts';

@@ -1,4 +1,4 @@
-import { phantomLook } from '../../world/bossLooks.ts';
+import { phantomLook } from '../../world/models/bossLooks.ts';
 import { plainLooks } from '../../world/looks.ts';
 import type { Boss, Laser } from '../../data/types.ts';
 import * as THREE from 'three';

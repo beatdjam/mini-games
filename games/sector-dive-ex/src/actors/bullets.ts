@@ -7,7 +7,7 @@ import { floorY } from '@engine/world/tiles.ts';
 import { projHitsTerrain, steerToward, stepProjectile } from '@engine/world/projectiles.ts';
 import { WALL_H } from '../data/level.ts';
 import { eBullets, enemies, isShielded, pBullets } from '../world/entities.ts';
-import { poseEBullet } from '../world/ebulletLooks.ts';
+import { poseEBullet } from '../world/models/ebulletLooks.ts';
 import { CRIT_MUL, critChance } from './weapons.ts';
 import { player } from './player.ts';
 import { damagePlayer, explode, hurtEnemy, knockAway } from './combat.ts';

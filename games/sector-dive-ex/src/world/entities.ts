@@ -24,7 +24,7 @@ import { rebootMul } from '../core/rules.ts';
 import { geoCache } from './render.ts';
 import { level } from './level.ts';
 import { plainLooks } from './looks.ts';
-import { dressEBullet } from './ebulletLooks.ts';
+import { dressEBullet } from './models/ebulletLooks.ts';
 const WAVE_FRONT_OPACITY = 1; // a shockwave with the looks on (its picture already fades it out upward)
 // the picture on a shockwave's wall: from the floor up, a white-hot line, then light that thins out to nothing
 let waveTex: THREE.CanvasTexture | null = null;

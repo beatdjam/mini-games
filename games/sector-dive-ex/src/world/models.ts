@@ -4,19 +4,23 @@ import { V3, basicMat, dynGroup, lineMat } from '@engine/render/render.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { COLOR } from '../data/colors.ts';
 import { edges, geoCache } from './render.ts';
-import { dressTrooper, enemyHullMat, enemyLook, lightPool } from './enemyLooks.ts';
-import { LOOK_GLOW } from './machine.ts';
-import type { EnemyAnim } from './enemyLooks.ts';
+import { dressTrooper, enemyHullMat, enemyLook, lightPool } from './models/enemyLooks.ts';
+import { LOOK_GLOW } from './models/machine.ts';
+import type { EnemyAnim } from './models/enemyLooks.ts';
 import { plainLooks } from './looks.ts';
-import { pickupLook } from './itemLooks.ts';
+import { pickupLook } from './models/itemLooks.ts';
 // ================= models =================
 // the three.js models of enemies and pickups, and the aimed laser line; entities.ts makes the entity objects around them
+// The looks of the models are in world/models/, one file per kind of thing (enemyLooks.ts, bossLooks.ts, itemLooks.ts,
+// gunLooks.ts, ebulletLooks.ts for the enemies' shots, sparkLooks.ts for the particles); the parts they share (boxes
+// and cylinders made once per size, the hull plate, the pool of light under a thing) are in world/models/machine.ts.
+// What is built here without them is the plain look (glowing solids with outlines; dev: ?plain).
 
 // The trooper: boxes on joints. The group's origin is at the hips (def.y above the feet) and it faces +z like the others.
 // rig = the joints its walk / aim animation turns (poseHumanoid in src/actors/enemies.ts); body = the upper body (it looks
 // around while idle)
 // outline = the glowing edges of the plain look (a look's trooper is armour plate without them, with its armour and
-// kit put on the joints: dressTrooper in world/enemyLooks.ts)
+// kit put on the joints: dressTrooper in world/models/enemyLooks.ts)
 function buildHumanoid(def: EnemyDef, mat: THREE.Material, outline = true) {
   const g = new THREE.Group();
   const part = (key: string, parent: THREE.Object3D, x: number, y: number, z: number, m: THREE.Material = mat) => {
@@ -56,7 +60,7 @@ function buildHumanoid(def: EnemyDef, mat: THREE.Material, outline = true) {
   return { g, body: upper };
 }
 // g = the model, mat = the body material (it flashes when hit), body = the part the plain animation turns, glow = the
-// body's own glow (emissive intensity) when it is not flashing; anim = how a look's parts move (world/enemyLooks.ts)
+// body's own glow (emissive intensity) when it is not flashing; anim = how a look's parts move (world/models/enemyLooks.ts)
 interface EnemyMesh {
   g: THREE.Group;
   mat: THREE.MeshLambertMaterial;
@@ -66,7 +70,7 @@ interface EnemyMesh {
 }
 const PLAIN_GLOW = 0.4;
 export function buildEnemyMesh(def: EnemyDef): EnemyMesh {
-  // a machine in armour plate (world/enemyLooks.ts), unless the plain looks are on (dev) or the type has none
+  // a machine in armour plate (world/models/enemyLooks.ts), unless the plain looks are on (dev) or the type has none
   if (!plainLooks()) {
     if (def.humanoid) {
       const mat = enemyHullMat(def),
@@ -109,7 +113,7 @@ export function buildEnemyMesh(def: EnemyDef): EnemyMesh {
 }
 // the model of a pickup (a weapon drop takes the weapon `w`); the caller places it
 export function buildPickupMesh(kind: PickupKind, w?: Weapon): THREE.Object3D {
-  // the thing itself (world/itemLooks.ts), unless the plain looks are on (dev) or it has no look
+  // the thing itself (world/models/itemLooks.ts), unless the plain looks are on (dev) or it has no look
   const look = plainLooks() ? null : pickupLook(kind, w);
   if (look) return look;
   let mesh: THREE.Object3D;

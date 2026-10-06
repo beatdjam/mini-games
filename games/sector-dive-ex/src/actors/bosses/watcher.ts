@@ -1,4 +1,4 @@
-import { watcherLook } from '../../world/bossLooks.ts';
+import { watcherLook } from '../../world/models/bossLooks.ts';
 import { plainLooks } from '../../world/looks.ts';
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
