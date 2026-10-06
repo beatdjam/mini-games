@@ -6,7 +6,8 @@ import { commands } from 'vitest/browser';
 import { createRng } from '@engine/core/util.ts';
 import { isBossStage } from '../src/core/stages.ts';
 import { defaultSave, setSave } from '../src/core/save.ts';
-import { boss } from '../src/world/entities.ts';
+import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
+import { boss, enemies } from '../src/world/entities.ts';
 import { devSeed, level } from '../src/world/level.ts';
 import { player, run } from '../src/actors/player.ts';
 import { goBase, startRun } from '../src/flow/run.ts';
@@ -94,6 +95,23 @@ test.each(styles)(`bot %s: seeds ${__SIM_SEEDS__}`, async name => {
       else if (frames % YIELD_EVERY === 0) await sleep(0);
     }
     const s = bot.stats;
+    // a run that was given up: what the floor looked like, to find where the bot went wrong
+    if (end === 'gave up') {
+      const w = activeTileGrid().world,
+        k = tileIndex(player.x, player.z),
+        at = (t: number) => `${t % w.W},${Math.floor(t / w.W)}`;
+      s.trace.push(
+        `-- gave up at tile ${at(k)} room ${level.roomOf[k]} floor ${level.floor} (lockdown done: ${run.bld?.ld})`,
+        `   enemies left per room: ${level.roomCount.join(' ')}`,
+        `   locked doors: ${[...(w.doorLock ?? [])].flatMap((v, t) => (v ? [at(t)] : [])).join(' ') || 'none'}`,
+        ...enemies
+          .filter(e => !e.dead)
+          .map(
+            e =>
+              `   ${e.boss ? e.kind : e.type} room ${e.room} tile ${at(tileIndex(e.x, e.z))} y ${e.y.toFixed(1)} hp ${Math.round(e.hp)} active ${e.active}`,
+          ),
+      );
+    }
     rows.push({
       seed,
       sector: level.biome.code,
