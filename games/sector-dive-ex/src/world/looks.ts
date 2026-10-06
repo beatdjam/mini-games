@@ -1,25 +1,25 @@
 import type { Biome } from '../data/types.ts';
 import type { Look } from './looks/common.ts';
-import { cityPictures } from './looks/city.ts';
-import { cityProps } from './looks/cityProps.ts';
-import { dataPictures } from './looks/data.ts';
-import { dataProps } from './looks/dataProps.ts';
-import { forgePictures } from './looks/forge.ts';
-import { forgeProps } from './looks/forgeProps.ts';
-import { kwlnPictures } from './looks/kwln.ts';
-import { kwlnProps } from './looks/kwlnProps.ts';
-import { noisePictures } from './looks/noise.ts';
-import { noiseProps } from './looks/noiseProps.ts';
-import { ruinPictures } from './looks/ruin.ts';
-import { ruinProps } from './looks/ruinProps.ts';
+import { cityPictures } from './looks/city/pictures.ts';
+import { cityProps } from './looks/city/props.ts';
+import { dataPictures } from './looks/data/pictures.ts';
+import { dataProps } from './looks/data/props.ts';
+import { forgePictures } from './looks/forge/pictures.ts';
+import { forgeProps } from './looks/forge/props.ts';
+import { kwlnPictures } from './looks/kwln/pictures.ts';
+import { kwlnProps } from './looks/kwln/props.ts';
+import { noisePictures } from './looks/noise/pictures.ts';
+import { noiseProps } from './looks/noise/props.ts';
+import { ruinPictures } from './looks/ruin/pictures.ts';
+import { ruinProps } from './looks/ruin/props.ts';
 // A sector's own look: its wall, floor, deck and ceiling pictures (painted on canvases, a few variants each so the
 // same picture is not on every tile) and the things fixed to its walls and ceilings (props; none of them is in the
 // way, so the tile world is not touched). A sector without a look is drawn with the plain line pattern in its colours
 // (world/render.ts). The pictures and the props are drawn from a seed, so a floor looks the same every time.
-// Each look is in two files in world/looks/: its pictures (<sector>.ts) and its props (<sector>Props.ts). What they
-// share is next to them: the shape of a look and which picture a tile gets (common.ts), the painters' tools
-// (paint.ts), the tools for the props (props.ts). To add one: write the two files, add its line to MAKERS here, put
-// its words in i18n/signs.ts and describe it in SPEC.md.
+// Each look is in a folder of its own in world/looks/, in two files: its pictures (pictures.ts) and its props
+// (props.ts). What they share is in world/looks/ itself: the shape of a look and which picture a tile gets
+// (common.ts), the painters' tools (paint.ts), the tools for the props (props.ts). To add one: make its folder and
+// write the two files, add its line to MAKERS here, put its words in i18n/signs.ts and describe it in SPEC.md.
 export type { Look } from './looks/common.ts';
 export { FLOOR_PLAIN_SHARE, WALL_PLAIN_SHARE, variantOf } from './looks/common.ts';
 

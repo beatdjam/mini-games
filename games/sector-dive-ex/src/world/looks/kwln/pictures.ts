@@ -1,7 +1,7 @@
-import { KWLN_DANGER } from '../../i18n/signs.ts';
-import type { Pictures } from './common.ts';
-import { TEX, grain, grime, paint } from './paint.ts';
-import type { Paint } from './paint.ts';
+import { KWLN_DANGER } from '../../../i18n/signs.ts';
+import type { Pictures } from '../common.ts';
+import { TEX, grain, grime, paint } from '../paint.ts';
+import type { Paint } from '../paint.ts';
 // ---- tuning numbers used only here ----
 
 // ---- the walled city (KWLN): an alley of shuttered shops under signboards and neon; worn concrete, wet ground ----

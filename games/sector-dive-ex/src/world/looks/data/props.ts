@@ -2,16 +2,17 @@ import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
-import { WALL_H } from '../../data/level.ts';
-import type { FloorPlan } from '../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
-import { poolTex } from './paint.ts';
-import { facing, lightMat, onWall, pose, propTools } from './props.ts';
-import type { Light, WallSlot } from './props.ts';
-import { CABLES, DATA_WALLS, RACK, RACK_PICS } from './data.ts';
-import type { WallPic } from './data.ts';
-// The props of the discarded data layer (DATA): the things fixed to its walls and ceilings, and the light they throw. They go by the
-// pictures on the walls (data.ts), which are painted there. world/looks.ts puts the two together.
+import { WALL_H } from '../../../data/level.ts';
+import type { FloorPlan } from '../../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { poolTex } from '../paint.ts';
+import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
+import type { Light, WallSlot } from '../props.ts';
+import { CABLES, DATA_WALLS, RACK, RACK_PICS } from './pictures.ts';
+import type { WallPic } from './pictures.ts';
+// The props of the discarded data layer (DATA): the things fixed to its walls and ceilings, and the light they throw.
+// They go by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts
+// the two together.
 // ---- tuning numbers used only here ----
 const POOL_OPACITY = 0.38; // the light a tube throws on the ground (the floor is pale already)
 const CEILING_GLOW = { size: 5, opacity: 0.4 }; // ... and on the ceiling round its fitting (m)

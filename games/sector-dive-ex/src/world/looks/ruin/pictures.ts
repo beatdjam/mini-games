@@ -1,7 +1,7 @@
-import { RUIN_KEEP_OUT, RUIN_NOTICE_BOARD } from '../../i18n/signs.ts';
-import type { Pictures } from './common.ts';
-import { DOOR_ASPECT, SIGN_FONT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge } from './paint.ts';
-import type { Paint } from './paint.ts';
+import { RUIN_KEEP_OUT, RUIN_NOTICE_BOARD } from '../../../i18n/signs.ts';
+import type { Pictures } from '../common.ts';
+import { DOOR_ASPECT, SIGN_FONT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge } from '../paint.ts';
+import type { Paint } from '../paint.ts';
 // The ruined streets (RUIN): the inside of a housing block that fell in long ago. Pale cracked mortar gone green at
 // the foot, faded wallpaper, broken windows with the grey daylight behind them, ivy and grass, and what the people
 // who lived here left. Nothing is lit: the only light is the day's, through the windows and the holes in the ceiling.

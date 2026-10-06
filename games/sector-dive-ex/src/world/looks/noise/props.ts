@@ -2,17 +2,18 @@ import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
-import { HALL_H, WALL_H } from '../../data/level.ts';
-import type { FloorPlan } from '../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
-import { canvasTex, poolTex } from './paint.ts';
-import { facing, lightMat, onWall, pose, propTools } from './props.ts';
-import type { Light, WallSlot } from './props.ts';
-import { NOISE_ON_AIR } from '../../i18n/signs.ts';
-import { FRAME_BLACK, SCREEN, WALL_KINDS } from './noise.ts';
-import type { WallKind } from './noise.ts';
-// The props of the deep noise (NOISE): the things fixed to its walls and ceilings, and the light they throw. They go by the
-// pictures on the walls (noise.ts), which are painted there. world/looks.ts puts the two together.
+import { HALL_H, WALL_H } from '../../../data/level.ts';
+import type { FloorPlan } from '../../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { canvasTex, poolTex } from '../paint.ts';
+import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
+import type { Light, WallSlot } from '../props.ts';
+import { NOISE_ON_AIR } from '../../../i18n/signs.ts';
+import { FRAME_BLACK, SCREEN, WALL_KINDS } from './pictures.ts';
+import type { WallKind } from './pictures.ts';
+// The props of the deep noise (NOISE): the things fixed to its walls and ceilings, and the light they throw. They go
+// by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
+// together.
 // ---- tuning numbers used only here ----
 const POOL_OPACITY = 0.42; // the light a lamp throws on the ground (pale: it must not be taken for a pick-up)
 const SCREEN_POOL = 0.45; // the pool of light before a monitor, as a share of a lamp's

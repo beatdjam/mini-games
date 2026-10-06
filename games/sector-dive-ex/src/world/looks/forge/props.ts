@@ -2,16 +2,17 @@ import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
-import { WALL_H } from '../../data/level.ts';
-import type { FloorPlan } from '../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
-import { TEX, grain, paint, poolTex } from './paint.ts';
-import type { Paint } from './paint.ts';
-import { facing, lightMat, onWall, pose, propTools } from './props.ts';
-import type { Light } from './props.ts';
-import { FORGE_WALL_PICS } from './forge.ts';
-// The props of the smelter block (FORGE): the things fixed to its walls and ceilings, and the light they throw. They go by the
-// pictures on the walls (forge.ts), which are painted there. world/looks.ts puts the two together.
+import { WALL_H } from '../../../data/level.ts';
+import type { FloorPlan } from '../../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { TEX, grain, paint, poolTex } from '../paint.ts';
+import type { Paint } from '../paint.ts';
+import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
+import type { Light } from '../props.ts';
+import { FORGE_WALL_PICS } from './pictures.ts';
+// The props of the smelter block (FORGE): the things fixed to its walls and ceilings, and the light they throw. They
+// go by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the
+// two together.
 // ---- tuning numbers used only here ----
 const WALL_SHEET = 6;
 const POOL_OPACITY = 0.5; // the light a lamp throws on the ground (paler than the molten floor, which must stand out)

@@ -1,8 +1,8 @@
-import { css } from '../../data/colors.ts';
-import { DATA_PLATE_CAUTION, DATA_PLATE_ZONE, DATA_RACK_IDS, DATA_SEALED } from '../../i18n/signs.ts';
-import type { Pictures } from './common.ts';
-import { DOOR_ASPECT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge, stripes, words } from './paint.ts';
-import type { Paint } from './paint.ts';
+import { css } from '../../../data/colors.ts';
+import { DATA_PLATE_CAUTION, DATA_PLATE_ZONE, DATA_RACK_IDS, DATA_SEALED } from '../../../i18n/signs.ts';
+import type { Pictures } from '../common.ts';
+import { DOOR_ASPECT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge, stripes, words } from '../paint.ts';
+import type { Paint } from '../paint.ts';
 // The discarded data layer (DATA): a server room nobody has entered for years. Pale wall panels and rows of racks in
 // grey metal and plastic, a raised floor, cable ladders and a duct overhead, and the cold white of the few tubes that
 // still burn. The lights of the scenery are small and dull, so that the enemies, the shots and the pickups (which

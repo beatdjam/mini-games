@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
-import { WALL_H } from '../../data/level.ts';
-import type { FloorPlan } from '../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
-import { TEX, grime, paint, poolTex } from './paint.ts';
-import type { Paint } from './paint.ts';
-import { FULL_SIZE, LAMP_POOL, facing, lightMat, onWall, pose, propTools } from './props.ts';
-import type { WallSlot } from './props.ts';
+import { WALL_H } from '../../../data/level.ts';
+import type { FloorPlan } from '../../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { TEX, grime, paint, poolTex } from '../paint.ts';
+import type { Paint } from '../paint.ts';
+import { FULL_SIZE, LAMP_POOL, facing, lightMat, onWall, pose, propTools } from '../props.ts';
+import type { WallSlot } from '../props.ts';
 import {
   RUIN_WALLS,
   WALL_BLOCKS,
@@ -20,9 +20,10 @@ import {
   creeper,
   leaf,
   ragged,
-} from './ruin.ts';
-// The props of the ruined streets (RUIN): the things fixed to its walls and ceilings, and the light they throw. They go by the
-// pictures on the walls (ruin.ts), which are painted there. world/looks.ts puts the two together.
+} from './pictures.ts';
+// The props of the ruined streets (RUIN): the things fixed to its walls and ceilings, and the light they throw. They
+// go by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the
+// two together.
 // ---- tuning numbers used only here ----
 const DAY_POOL_OPACITY = 0.34; // the daylight on the ground under a window or a hole (kept faint: shots and pickups must stand out)
 const WINDOW_POOL = { out: 1.9, wide: 0.42, deep: 0.56 }; // ... under a window: how far from the wall (m), its size (of LAMP_POOL)

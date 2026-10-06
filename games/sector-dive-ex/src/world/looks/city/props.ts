@@ -2,15 +2,16 @@ import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
-import { WALL_H } from '../../data/level.ts';
-import type { FloorPlan } from '../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
-import { SIGN_FONT, canvasTex, oval, poolTex } from './paint.ts';
-import { LAMP_POOL, facing, lightMat, onWall, pose, propTools } from './props.ts';
-import { CITY_EXTINGUISHER, CITY_GUIDE } from '../../i18n/signs.ts';
-import { BARRIER_RED, BARRIER_WHITE, CITY_WALL_PICS } from './city.ts';
-// The props of the old downtown (CITY): the things fixed to its walls and ceilings, and the light they throw. They go by the
-// pictures on the walls (city.ts), which are painted there. world/looks.ts puts the two together.
+import { WALL_H } from '../../../data/level.ts';
+import type { FloorPlan } from '../../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { SIGN_FONT, canvasTex, oval, poolTex } from '../paint.ts';
+import { LAMP_POOL, facing, lightMat, onWall, pose, propTools } from '../props.ts';
+import { CITY_EXTINGUISHER, CITY_GUIDE } from '../../../i18n/signs.ts';
+import { BARRIER_RED, BARRIER_WHITE, CITY_WALL_PICS } from './pictures.ts';
+// The props of the old downtown (CITY): the things fixed to its walls and ceilings, and the light they throw. They go
+// by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
+// together.
 // ---- tuning numbers used only here ----
 const POOL_OPACITY = 0.26; // the light a ceiling lamp throws on the floor (soft: the room is seen from far away)
 const SUN_OPACITY = 0.42; // the sunlight a window throws on the floor

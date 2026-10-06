@@ -1,5 +1,5 @@
-import { FORGE_DANGER, FORGE_PLATE_HEAT, FORGE_PLATE_SAFETY } from '../../i18n/signs.ts';
-import type { Pictures } from './common.ts';
+import { FORGE_DANGER, FORGE_PLATE_HEAT, FORGE_PLATE_SAFETY } from '../../../i18n/signs.ts';
+import type { Pictures } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -12,8 +12,8 @@ import {
   rowOf,
   smudge,
   stripes,
-} from './paint.ts';
-import type { Paint } from './paint.ts';
+} from '../paint.ts';
+import type { Paint } from '../paint.ts';
 // The smelter block (FORGE): a steelworks. Sooty riveted iron and firebrick, girders overhead, thick pipes on the
 // walls, and the orange of the furnaces thrown back by everything.
 // ---- tuning numbers used only here ----

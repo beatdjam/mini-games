@@ -1,5 +1,5 @@
-import { CITY_EXIT, CITY_KEEP_OUT } from '../../i18n/signs.ts';
-import type { Pictures } from './common.ts';
+import { CITY_EXIT, CITY_KEEP_OUT } from '../../../i18n/signs.ts';
+import type { Pictures } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -13,8 +13,8 @@ import {
   smudge,
   stripes,
   words,
-} from './paint.ts';
-import type { Paint } from './paint.ts';
+} from '../paint.ts';
+import type { Paint } from '../paint.ts';
 // The old downtown (CITY): a wide floor of an old office building late in the afternoon. Beige wall panels and grey
 // carpet, a hung ceiling with its lamps mostly off, and the low sun coming amber through the blinds. The sector is
 // seen from far away (its fog starts late), so most of the walls are plain and the lights are kept soft: the enemies

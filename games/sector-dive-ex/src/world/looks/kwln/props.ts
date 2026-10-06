@@ -2,18 +2,19 @@ import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
-import { WALL_H } from '../../data/level.ts';
-import { COLOR, css } from '../../data/colors.ts';
-import type { FloorPlan } from '../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
-import { TEX, canvasTex, grime, paint } from './paint.ts';
-import type { Paint } from './paint.ts';
-import { facing, onWall, pose, propTools } from './props.ts';
-import type { Light, WallSlot } from './props.ts';
-import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../i18n/signs.ts';
-import { KWLN_FONT, KWLN_WALL_PICS } from './kwln.ts';
-// The props of the walled city (KWLN): the things fixed to its walls and ceilings, and the light they throw. They go by the
-// pictures on the walls (kwln.ts), which are painted there. world/looks.ts puts the two together.
+import { WALL_H } from '../../../data/level.ts';
+import { COLOR, css } from '../../../data/colors.ts';
+import type { FloorPlan } from '../../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { TEX, canvasTex, grime, paint } from '../paint.ts';
+import type { Paint } from '../paint.ts';
+import { facing, onWall, pose, propTools } from '../props.ts';
+import type { Light, WallSlot } from '../props.ts';
+import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
+import { KWLN_FONT, KWLN_WALL_PICS } from './pictures.ts';
+// The props of the walled city (KWLN): the things fixed to its walls and ceilings, and the light they throw. They go
+// by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
+// together.
 // ---- tuning numbers used only here ----
 const LAMP_POOL_OPACITY = 0.7;
 const KWLN_SHUTTER = 1; // (a shop's board hangs over each shutter: kwlnProps)

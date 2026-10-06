@@ -22,7 +22,7 @@ export interface Look {
   hazard?: { base: THREE.CanvasTexture; glow: THREE.CanvasTexture };
   props: (plan: FloorPlan, group: THREE.Group, rng: Rng) => void;
 }
-// a look's pictures (the props are built in a file of their own, <sector>Props.ts)
+// a look's pictures (the props are built in the file next to them, <sector>/props.ts)
 export type Pictures = Omit<Look, 'props'>;
 // which picture a tile gets: the same one every time, scattered so that neighbours differ. The first picture is the
 // plainest and comes up most (`plainShare` of the tiles)

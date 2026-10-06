@@ -1,5 +1,5 @@
-import { NOISE_DANGER, NOISE_PLATE_QUIET, NOISE_PLATE_STAFF } from '../../i18n/signs.ts';
-import type { Pictures } from './common.ts';
+import { NOISE_DANGER, NOISE_PLATE_QUIET, NOISE_PLATE_STAFF } from '../../../i18n/signs.ts';
+import type { Pictures } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -12,8 +12,8 @@ import {
   rowOf,
   smudge,
   stripes,
-} from './paint.ts';
-import type { Paint } from './paint.ts';
+} from '../paint.ts';
+import type { Paint } from '../paint.ts';
 // The deep noise (NOISE): a broadcasting station far underground, left as it was. Sound-absorbing walls gone grey
 // and violet with dust, racks of old gear, monitors that still show static, worn carpet, studio doors. The fog is
 // close here, so the pictures are kept light enough to read from near by.
