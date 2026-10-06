@@ -3,7 +3,8 @@ import { OPPOSITE_SIDE, SIDE_STEP, activeTileGrid, hasLOS, tileCenter, tileIndex
 import { camera } from '@engine/render/render.ts';
 import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { query } from '@engine/core/world.ts';
-import type { Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
+import type { Boss, Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
+import { BOSS_META } from '../data/bosses.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { EYE, PORTAL } from '../data/level.ts';
 import { stageInfo } from '../core/stages.ts';
@@ -37,11 +38,20 @@ export interface BotStyle {
   avoidHazards: boolean; // it goes round the hazard floors, and does not step onto one that is live or about to be
   dodge: number; // the share of the shots and shockwaves coming at it that it dashes clear of (0 = it never dashes)
   healBelow: number; // it uses a kit under this share of its health (when none of the kit's healing would be wasted)
+  knowsBosses: boolean; // it fights each boss the way that boss asks for (BOSS_PLAYS), not only as any enemy
   explore: boolean; // it clears every room of a floor before going on (else it follows the route and fights what it meets)
   loot: number; // it goes out of its way for a weapon, a kit or a chip within this (m; 0 = only what it walks over)
 }
 // someone who plays well: quick, accurate aim, dashes clear of most shots, minds the hazard floors
-const SKILLED = { turn: 9, aimError: 0.015, fightRange: 22, avoidHazards: true, dodge: 0.8, healBelow: 0.5 };
+const SKILLED = {
+  turn: 9,
+  aimError: 0.015,
+  fightRange: 22,
+  avoidHazards: true,
+  dodge: 0.8,
+  healBelow: 0.5,
+  knowsBosses: true,
+};
 const KINDS: Record<string, Omit<BotStyle, 'name' | 'autofire'>> = {
   // new to it: slow, loose aim, seldom dashes, walks onto hazard floors, heals late, takes only what lies near
   beginner: {
@@ -51,6 +61,7 @@ const KINDS: Record<string, Omit<BotStyle, 'name' | 'autofire'>> = {
     avoidHazards: false,
     dodge: 0.15,
     healBelow: 0.3,
+    knowsBosses: false,
     explore: false,
     loot: 5,
     after: 'next',
@@ -68,7 +79,80 @@ export const BOT_STYLES: Record<string, BotStyle> = Object.fromEntries(
   ]),
 );
 
+// ---- what it knows about each boss ----
+// How a boss is fought, as someone who has met it a few times would: the distance to keep, and the moment to dash
+// and which way. (Shots and shockwaves are dodged the same way for every enemy; a Bastion's turrets go first because
+// what stands with a boss always does.) The states read here are each boss's own (actors/bosses/<kind>.ts).
+interface BossPlay {
+  near?: number; // the distance to keep (m), in place of KEEP_NEAR / KEEP_FAR
+  far?: number;
+  dash?: { x: number; z: number }; // get clear now, this way
+  chase?: boolean; // out of sight, it is run down with dashes (keeping enough stamina to dodge once)
+}
+type Vec = { x: number; z: number };
+const unit = (x: number, z: number): Vec => {
+  const l = Math.hypot(x, z) || 1;
+  return { x: x / l, z: z / l };
+};
+const BOSS_PLAYS: Record<string, (b: Boss, me: Vec) => BossPlay> = {
+  // CRUSHER: keep well away; step out of the line of a charge; while it is stunned on a wall, close in and shoot
+  crusher: (b, me) => {
+    // (the boss's own state; its type is private to actors/bosses/crusher.ts)
+    const c = b as Boss & { st: string; cdx: number; cdz: number };
+    if (c.st === 'stun') return { near: 4, far: 9 };
+    const play: BossPlay = { near: 10, far: 20 };
+    if (c.st !== 'charge') return play;
+    const rx = me.x - b.x,
+      rz = me.z - b.z,
+      ahead = rx * c.cdx + rz * c.cdz, // how far along its charge the player is
+      aside = rx * c.cdz - rz * c.cdx; // ... and how far to one side of it
+    if (ahead > 0 && ahead < CHARGE_REACH && Math.abs(aside) < CHARGE_WIDTH) {
+      const side = aside >= 0 ? 1 : -1;
+      play.dash = { x: c.cdz * side, z: -c.cdx * side };
+    }
+    return play;
+  },
+  // NOISE CORE: its beams sweep round the middle: dash through one that is about to reach it, against the spin
+  core: (b, me) => {
+    const c = b as Boss & { ba: number; bdir: number; beams: { visible: boolean }[] };
+    const n = c.beams.filter(m => m.visible).length;
+    if (b.pat !== 0 || !n || b.pt < BOSS_META.core!.tune.beamWarm - BEAM_EARLY) return {};
+    const pd = Math.hypot(me.x - b.cx, me.z - b.cz),
+      pa = Math.atan2(-(me.z - b.cz), me.x - b.cx);
+    for (let k = 0; k < n; k++) {
+      const a = c.ba + (k / n) * Math.PI * 2,
+        df = Math.atan2(Math.sin(pa - a), Math.cos(pa - a)) * c.bdir; // the beam is this far behind the player (rad)
+      if (df > 0 && df < Math.PI / 2 && pd * Math.sin(df) < BEAM_NEAR)
+        // (round the middle, the way the beam came from)
+        return { dash: { x: Math.sin(pa) * c.bdir, z: Math.cos(pa) * c.bdir } };
+    }
+    return {};
+  },
+  // PHANTOM: it warps behind the pillars: run it down with dashes when it is out of sight. Its laser locks a moment
+  // before the shot: dash aside then
+  phantom: (b, me) => {
+    const c = b as Boss & { st: string; lock: number[] };
+    if (c.st !== 'aim' || b.timer > PHANTOM_LOCKED || Math.hypot(c.lock[0]! - me.x, c.lock[2]! - me.z) > 1.5)
+      return { chase: true };
+    const away = unit(me.x - b.x, me.z - b.z);
+    return { chase: true, dash: { x: -away.z, z: away.x } };
+  },
+  // TRINITY: one body lunges at where the player stood: get off that spot
+  trinity: (b, me) => {
+    const r = (b as Boss & { ram: { t: number; dur: number; tx: number; tz: number } | null }).ram;
+    if (!r || r.t > r.dur / 2 || Math.hypot(me.x - r.tx, me.z - r.tz) > RAM_NEAR) return {};
+    const away = unit(me.x - b.cx, me.z - b.cz);
+    return { dash: { x: -away.z, z: away.x } };
+  },
+};
+
 // ---- tuning numbers used only here ----
+const CHARGE_REACH = 30; // a Crusher's charge is stepped out of when it is coming from within this (m)
+const CHARGE_WIDTH = 3.4; // ... and would pass this near (m; it hits within 2.5)
+const BEAM_EARLY = 0.3; // a Core's beams are minded from this long before they burn (s)
+const BEAM_NEAR = 2.4; // ... and dashed through when one is this near (m)
+const PHANTOM_LOCKED = 0.3; // a Phantom's laser stops following this long before the shot (s)
+const RAM_NEAR = 2.8; // a Trinity's lunge is dodged when it is aimed within this of the player (m)
 const KEEP_FAR = 16; // in a fight it closes in from beyond this (m)
 const KEEP_NEAR = 6; // ... and backs off inside this
 const STRAFE_FLIP = 0.9; // it changes the side it strafes to this often (s)
@@ -167,6 +251,9 @@ export function createBot(style: BotStyle) {
     const grid = activeTileGrid(),
       { W, H, grid: floor } = grid.world;
     dist = new Int32Array(W * H).fill(-1);
+    // (the gate it does not mean to take is walked round: stepping near it would end the run or the depth)
+    const wants = level.portals.some(pt => pt.kind === style.after),
+      shut = new Set(level.portals.filter(pt => wants && pt.kind !== style.after).map(pt => tileIndex(pt.x, pt.z)));
     const queue = [goal];
     dist[goal] = 0;
     // (tiles are taken again when a shorter way to them turns up: a hazard floor costs more than a plain one)
@@ -178,7 +265,7 @@ export function createBot(style: BotStyle) {
       SIDE_STEP.forEach(([a, b], side) => {
         if (!grid.inBounds(ci + a, cj + b)) return;
         const n = c + a + b * W;
-        if (floor[n] !== 1 || (dist[n]! >= 0 && dist[n]! <= cost)) return;
+        if (floor[n] !== 1 || shut.has(n) || (dist[n]! >= 0 && dist[n]! <= cost)) return;
         // (walking n -> c; the goal itself may be a locked door: its neighbours still lead to it)
         if (!grid.passable(n, c, OPPOSITE_SIDE[side]!) && !(c === goal && grid.world.door?.[c])) return;
         dist[n] = cost;
@@ -361,10 +448,11 @@ export function createBot(style: BotStyle) {
     judged.set(o, life);
     return Math.random() < style.dodge;
   }
+  const canDash = (): boolean => player.st >= TUNE.dashCost && player.dashT <= 0 && player.inv <= 0;
   // the way to dash to get clear of a shot about to hit or a shockwave about to pass (null = nothing to dodge, or
   // no stamina for it)
   function dodgeWay(): { x: number; z: number } | null {
-    if (style.dodge <= 0 || player.st < TUNE.dashCost || player.dashT > 0 || player.inv > 0) return null;
+    if (style.dodge <= 0 || !canDash()) return null;
     for (const b of eBullets) {
       if (!b.alive || Math.abs(b.y - (player.fy + EYE / 2)) > DODGE_REACH_Y) continue;
       const rx = player.x - b.x,
@@ -491,11 +579,15 @@ export function createBot(style: BotStyle) {
       strafe = -strafe;
     }
 
-    const clear = dodgeWay();
+    // getting clear comes first: of a shot or a shockwave, or of what this boss is about to do
+    const play = style.knowsBosses && boss ? (BOSS_PLAYS[boss.kind]?.(boss, player) ?? {}) : {},
+      clear = dodgeWay() ?? (play.dash && canDash() ? play.dash : null);
     if (clear) {
       walk(clear.x, clear.z);
       controlState.dashReq = true;
       stats.dashes++;
+      stats.doing = 'dash';
+      return;
     }
     const again = Math.floor(stats.frames / REPATH_FRAMES);
     reachFromHere(`${level.floor}:${tileIndex(player.x, player.z)}:${again}`);
@@ -553,7 +645,8 @@ export function createBot(style: BotStyle) {
       setFireHeld(!style.autofire && off < FIRE_CONE);
       const dx = (foe.x - player.x) / Math.max(foe.d, 0.01),
         dz = (foe.z - player.z) / Math.max(foe.d, 0.01),
-        keep = foe.d > KEEP_FAR ? 1 : foe.d < KEEP_NEAR ? -1 : 0;
+        ofBoss = foe.e.boss ? play : {},
+        keep = foe.d > (ofBoss.far ?? KEEP_FAR) ? 1 : foe.d < (ofBoss.near ?? KEEP_NEAR) ? -1 : 0;
       // Shooting and not hurting it (the shots go into the edge of the deck it stands on: the muzzle is lower than
       // the eye; or into a shield): after a moment it closes in instead of strafing, until a shot tells
       const hp = foe.e.hp + (foe.e.boss ? 0 : (foe.e.shieldHp ?? 0));
@@ -575,6 +668,12 @@ export function createBot(style: BotStyle) {
       return;
     }
     stats.doing = `to ${g!.what}`;
+    // a boss that hides is run down: a dash along the way to it, with a dash's worth of stamina kept for dodging
+    if (play.chase && boss && g!.what.startsWith('find ') && canDash() && player.st >= TUNE.dashCost * 2) {
+      walk(way.x, way.z);
+      controlState.dashReq = true;
+      return;
+    }
     // on its way: look where it walks
     if (way.x || way.z) {
       player.yaw = turnToward(player.yaw, angleTo(way.x, way.z), style.turn * dt);
