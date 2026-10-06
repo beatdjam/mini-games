@@ -10,7 +10,8 @@ import { ruinLook } from './looks/ruin.ts';
 // same picture is not on every tile) and the things fixed to its walls and ceilings (props; none of them is in the
 // way, so the tile world is not touched). A sector without a look is drawn with the plain line pattern in its colours
 // (world/render.ts). The pictures and the props are drawn from a seed, so a floor looks the same every time.
-// Each look is in a file of its own in world/looks/ (the tools they share are in world/looks/common.ts). To add one:
+// Each look is in a file of its own in world/looks/. What they share is next to them: the shape of a look and which
+// picture a tile gets (common.ts), the painters' tools (paint.ts), the tools for the props (props.ts). To add one:
 // write the file, add its line to MAKERS here, put its words in i18n/signs.ts and describe it in SPEC.md.
 export type { Look } from './looks/common.ts';
 export { FLOOR_PLAIN_SHARE, WALL_PLAIN_SHARE, variantOf } from './looks/common.ts';

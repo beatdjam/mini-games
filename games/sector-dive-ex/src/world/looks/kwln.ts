@@ -1,26 +1,17 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
-import { placeProps } from '@engine/world/slots.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../data/level.ts';
-import { COLOR } from '../../data/colors.ts';
+import { COLOR, css } from '../../data/colors.ts';
 import { KWLN_DANGER, KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../i18n/signs.ts';
 import type { FloorPlan } from '../building.ts';
-import {
-  LAMP_POOL,
-  TEX,
-  WALL_PLAIN_SHARE,
-  canvasTex,
-  facing,
-  grain,
-  grime,
-  onWall,
-  paint,
-  poolPaint,
-  variantOf,
-} from './common.ts';
-import type { Look, Paint, WallSlot } from './common.ts';
+import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
+import type { Look } from './common.ts';
+import { TEX, canvasTex, grain, grime, paint } from './paint.ts';
+import type { Paint } from './paint.ts';
+import { facing, onWall, pose, propTools } from './props.ts';
+import type { Light, WallSlot } from './props.ts';
 // ---- tuning numbers used only here ----
 const LAMP_POOL_OPACITY = 0.7;
 
@@ -396,7 +387,6 @@ const NEON_TUBES = [
   COLOR.neonSky,
 ];
 const NEONS = KWLN_NEON_WORDS.map((words, n): [string, number] => [words, NEON_TUBES[n % NEON_TUBES.length]!]);
-const hex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
 function boardTex([name, ink, board]: [string, string, string]): THREE.CanvasTexture {
   return canvasTex(512, 128, g => {
     g.fillStyle = board;
@@ -424,8 +414,8 @@ function neonTex([words, color]: [string, number]): THREE.CanvasTexture {
   return canvasTex(w, h, g => {
     g.fillStyle = '#0d0b0c';
     g.fillRect(0, 0, w, h);
-    g.strokeStyle = hex(color);
-    g.shadowColor = hex(color);
+    g.strokeStyle = css(color);
+    g.shadowColor = css(color);
     g.shadowBlur = 16;
     g.lineWidth = 5;
     g.strokeRect(10, 10, w - 20, h - 20);
@@ -437,7 +427,7 @@ function neonTex([words, color]: [string, number]): THREE.CanvasTexture {
     [...words].forEach((ch, n) => {
       const y = 30 + step * (n + 0.5);
       g.shadowBlur = 26;
-      g.fillStyle = hex(color);
+      g.fillStyle = css(color);
       g.fillText(ch, w / 2, y);
       g.shadowBlur = 6;
       g.fillStyle = 'rgba(255,255,255,.75)';
@@ -456,7 +446,6 @@ const KWLN_PROPS: PropRule[] = [
 const BOARD = { w: 3.5, h: 0.9, y: 4.75, out: 0.07, tilt: 0.1, chance: 0.8 }; // a shop's board (m, m, m, m, rad)
 const NEON = { thick: 0.12, h: 2.5, out: 0.85, y: 4.2 }; // a neon sign standing out from a wall (m)
 interface KwlnShared {
-  pool: THREE.CanvasTexture;
   ac: THREE.CanvasTexture;
   boards: THREE.CanvasTexture[];
   neons: THREE.CanvasTexture[];
@@ -466,25 +455,15 @@ let kwlnShared: KwlnShared | null = null;
 // air conditioners on the walls, bare lamps on the ceiling
 function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   kwlnShared ??= {
-    pool: paint(11, poolPaint),
     ac: paint(12, acPaint),
     boards: BOARDS.map(boardTex),
     neons: NEONS.map(neonTex),
   };
   const shared = kwlnShared,
-    d = { W: plan.gen.W, H: plan.gen.H, maps: plan.gen.maps, rooms: plan.gen.rooms },
-    placed = placeProps(d, KWLN_PROPS, rng),
+    { d, placed, add, pools } = propTools(plan, group, KWLN_PROPS, rng),
     of = (id: string) => placed.filter(p => p.id === id).map(p => p.slot),
-    m = new THREE.Matrix4(),
-    q = new THREE.Quaternion(),
     one = new THREE.Vector3(1, 1, 1),
-    up = new THREE.Vector3(0, 1, 0);
-  const lights: { x: number; z: number; color: number }[] = [];
-  const instances = (mesh: THREE.InstancedMesh) => {
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    group.add(mesh);
-  };
+    lights: Light[] = [];
 
   // a board over every shutter that faces a floor tile (most of them): the shop's name
   const fronts: WallSlot[] = [];
@@ -498,126 +477,78 @@ function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
           fronts.push({ i, j, side });
       });
     }
-  shared.boards.forEach((map, b) => {
-    const mine = fronts.filter((_, n) => n % shared.boards.length === b);
-    if (!mine.length) return;
-    const mesh = new THREE.InstancedMesh(
+  // tipped a little toward the street, as boards hang
+  const hung = (s: WallSlot) =>
+    new THREE.Matrix4().compose(
+      onWall(s, 0, BOARD.out, BOARD.y),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(BOARD.tilt, facing(s), 0, 'YXZ')),
+      one,
+    );
+  shared.boards.forEach((map, b) =>
+    add(
       new THREE.PlaneGeometry(BOARD.w, BOARD.h),
       new THREE.MeshBasicMaterial({ map }),
-      mine.length,
-    );
-    mine.forEach((s, n) => {
-      // tipped a little toward the street, as boards hang
-      q.setFromEuler(new THREE.Euler(BOARD.tilt, facing(s), 0, 'YXZ'));
-      m.compose(onWall(s, 0, BOARD.out, BOARD.y), q, one);
-      mesh.setMatrixAt(n, m);
-    });
-    instances(mesh);
-  });
+      fronts.filter((_, n) => n % shared.boards.length === b).map(hung),
+    ),
+  );
 
   // neon signs: a thin box standing out from the wall, its two broad faces lit, read along the street
   const neons = of('neon').filter(s => !plan.noCeil[s.j * d.W + s.i]);
   shared.neons.forEach((map, b) => {
-    const mine = neons.filter((_, n) => n % shared.neons.length === b);
-    if (!mine.length) return;
     const lit = new THREE.MeshBasicMaterial({ map }),
       edge = new THREE.MeshBasicMaterial({ color: 0x15121a }),
-      mesh = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(NEON.thick, NEON.h, NEON.out),
-        [lit, lit, edge, edge, edge, edge],
-        mine.length,
-      );
-    mine.forEach((s, n) => {
-      const off = rng.rand(-1.2, 1.2),
-        at = onWall(s, off, NEON.out / 2 + 0.05, NEON.y + rng.rand(-0.4, 0.3));
-      q.setFromAxisAngle(up, facing(s));
-      m.compose(at, q, one);
-      mesh.setMatrixAt(n, m);
-      lights.push({ x: at.x, z: at.z, color: NEONS[b]![1] });
-    });
-    instances(mesh);
+      where = neons
+        .filter((_, n) => n % shared.neons.length === b)
+        .map(s => {
+          const off = rng.rand(-1.2, 1.2),
+            pos = onWall(s, off, NEON.out / 2 + 0.05, NEON.y + rng.rand(-0.4, 0.3));
+          lights.push({ x: pos.x, z: pos.z, color: NEONS[b]![1], size: 1 });
+          return pose(pos, facing(s));
+        });
+    add(new THREE.BoxGeometry(NEON.thick, NEON.h, NEON.out), [lit, lit, edge, edge, edge, edge], where);
   });
 
   // pipes: a thick and a thin one side by side, floor to ceiling
-  const pipes = of('pipes');
-  if (pipes.length) {
-    const mesh = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(0.1, 0.1, WALL_H, 8),
-      new THREE.MeshBasicMaterial({ color: 0x55504a }),
-      pipes.length * 2,
-    );
-    pipes.forEach((s, n) => {
+  add(
+    new THREE.CylinderGeometry(0.1, 0.1, WALL_H, 8),
+    new THREE.MeshBasicMaterial({ color: 0x55504a }),
+    of('pipes').flatMap(s => {
       const off = rng.rand(-1.3, 1.3);
-      m.compose(onWall(s, off, 0.14, WALL_H / 2), q.identity(), one);
-      mesh.setMatrixAt(n * 2, m);
-      m.compose(onWall(s, off + 0.3, 0.1, WALL_H / 2), q.identity(), new THREE.Vector3(0.55, 1, 0.55));
-      mesh.setMatrixAt(n * 2 + 1, m);
-    });
-    instances(mesh);
-  }
+      return [
+        pose(onWall(s, off, 0.14, WALL_H / 2)),
+        pose(onWall(s, off + 0.3, 0.1, WALL_H / 2), 0, new THREE.Vector3(0.55, 1, 0.55)),
+      ];
+    }),
+  );
   // air conditioners: a box high on the wall, its front toward the street
-  const acs = of('ac');
-  if (acs.length) {
-    const front = new THREE.MeshBasicMaterial({ map: shared.ac }),
-      body = new THREE.MeshBasicMaterial({ color: 0x4d4c49 }),
-      mesh = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(1.3, 0.8, 0.5),
-        [body, body, body, body, front, front],
-        acs.length,
-      );
-    acs.forEach((s, n) => {
-      q.setFromAxisAngle(up, facing(s));
-      m.compose(onWall(s, rng.rand(-1, 1), 0.26, rng.rand(2.9, 3.6)), q, one);
-      mesh.setMatrixAt(n, m);
-    });
-    instances(mesh);
-  }
+  const front = new THREE.MeshBasicMaterial({ map: shared.ac }),
+    body = new THREE.MeshBasicMaterial({ color: 0x4d4c49 });
+  add(
+    new THREE.BoxGeometry(1.3, 0.8, 0.5),
+    [body, body, body, body, front, front],
+    of('ac').map(s => pose(onWall(s, rng.rand(-1, 1), 0.26, rng.rand(2.9, 3.6)), facing(s))),
+  );
   // lamps (not where the ceiling is open): a bright plate on the ceiling
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
-  const bossRoom = plan.hall?.room ?? -1;
-  const lamps = of('lamp').filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom);
-  if (lamps.length) {
-    const plates = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(0.9, 0.08, 0.3),
-        new THREE.MeshBasicMaterial({ color: 0xffffff }),
-        lamps.length,
-      ),
-      color = new THREE.Color();
-    lamps.forEach((s, n) => {
-      const x = tileCenter(s.i),
-        z = tileCenter(s.j),
-        c = rng.pick(LAMP_COLORS);
-      q.setFromAxisAngle(up, rng.pick([0, Math.PI / 2]));
-      m.compose(new THREE.Vector3(x, WALL_H - 0.06, z), q, one);
-      plates.setMatrixAt(n, m);
-      plates.setColorAt(n, color.setHex(c));
-      lights.push({ x, z, color: c });
-    });
-    instances(plates);
-  }
+  const bossRoom = plan.hall?.room ?? -1,
+    plateColors: number[] = [];
+  add(
+    new THREE.BoxGeometry(0.9, 0.08, 0.3),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }), // takes each copy's own colour
+    of('lamp')
+      .filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom)
+      .map(s => {
+        const x = tileCenter(s.i),
+          z = tileCenter(s.j),
+          c = rng.pick(LAMP_COLORS);
+        plateColors.push(c);
+        lights.push({ x, z, color: c, size: 1 });
+        return pose(new THREE.Vector3(x, WALL_H - 0.06, z), rng.pick([0, Math.PI / 2]));
+      }),
+    plateColors,
+  );
   // the light the lamps and the neon throw on the ground: a soft pool of their colour
-  if (lights.length) {
-    const geo = new THREE.PlaneGeometry(LAMP_POOL, LAMP_POOL);
-    geo.rotateX(-Math.PI / 2);
-    const pools = new THREE.InstancedMesh(
-        geo,
-        new THREE.MeshBasicMaterial({
-          map: shared.pool,
-          transparent: true,
-          opacity: LAMP_POOL_OPACITY,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        }),
-        lights.length,
-      ),
-      color = new THREE.Color();
-    lights.forEach((l, n) => {
-      m.compose(new THREE.Vector3(l.x, 0.05, l.z), q.identity(), one);
-      pools.setMatrixAt(n, m);
-      pools.setColorAt(n, color.setHex(l.color));
-    });
-    instances(pools);
-  }
+  pools(lights, LAMP_POOL_OPACITY);
 }
 
 // The live floor: the steel cover of a cable trench, wet, with a cable lying broken across it. `glow` is what lights up

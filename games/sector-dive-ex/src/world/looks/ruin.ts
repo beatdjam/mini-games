@@ -1,32 +1,32 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
-import { placeProps } from '@engine/world/slots.ts';
+import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../data/level.ts';
 import { RUIN_KEEP_OUT, RUIN_NOTICE_BOARD } from '../../i18n/signs.ts';
 import type { FloorPlan } from '../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
+import type { Look } from './common.ts';
 import {
-  LAMP_POOL,
+  DOOR_ASPECT,
+  SIGN_FONT,
   TEX,
-  WALL_PLAIN_SHARE,
-  facing,
+  WALL_ASPECT,
   grain,
   grime,
-  onWall,
+  oval,
   paint,
-  poolPaint,
-  variantOf,
-} from './common.ts';
-import type { Look, Paint, WallSlot } from './common.ts';
+  poolTex,
+  rowOf,
+  smudge,
+} from './paint.ts';
+import type { Paint } from './paint.ts';
+import { FULL_SIZE, LAMP_POOL, facing, lightMat, onWall, pose, propTools } from './props.ts';
+import type { WallSlot } from './props.ts';
 // The ruined streets (RUIN): the inside of a housing block that fell in long ago. Pale cracked mortar gone green at
 // the foot, faded wallpaper, broken windows with the grey daylight behind them, ivy and grass, and what the people
 // who lived here left. Nothing is lit: the only light is the day's, through the windows and the holes in the ceiling.
-// world/looks.ts lists it among the looks; that file and this one import each other, so nothing here may use a value
-// of looks.ts while the file is being loaded (inside functions only).
 // ---- tuning numbers used only here ----
-const WALL_ASPECT = T / WALL_H; // a wall picture is stretched over a face this wide for its height: round things are painted this flat
-const DOOR_ASPECT = T / 2 / WALL_H; // ... and a door leaf's picture
 const DAY_POOL_OPACITY = 0.34; // the daylight on the ground under a window or a hole (kept faint: shots and pickups must stand out)
 const WINDOW_POOL = { out: 1.9, wide: 0.42, deep: 0.56 }; // ... under a window: how far from the wall (m), its size (of LAMP_POOL)
 const HOLE_POOL = 0.6; // ... under a hole in the ceiling (of LAMP_POOL)
@@ -44,22 +44,13 @@ const WALL_REBAR = 8; // a hole down to the reinforcing bars
 const WALL_NOTICES = 9; // the residents' notice board
 const QUIET_WALLS = [0, WALL_STAINED, WALL_BLOCKS, WALL_PAPER, WALL_PAPER_BLUE]; // the walls a shelf or a lamp may hang on
 const RUIN_FLOORS = 6; // 0 bare, 1 what is left of the tiles, 2 ... of the floorboards, 3 grass in a crack, 4 a puddle, 5 crumbs of rubble
-// the notice board and the boss door are written in Japanese, with whatever face the device has
-const NOTICE_FONT = '"Hiragino Sans","Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif';
 const LEAVES = ['#4f6d3b', '#5f7f47', '#3f5b31', '#718d55'];
 const RUST = '#7c4a2b';
 const TAPE_YELLOW = '#c7a52e';
 const TAPE_BLACK = '#1d1f1a';
 const DAYLIGHT = 0xd3e0c8; // the colour of the light the day throws on the ground
 
-// the picture row of a height on a wall or a door (m above the floor)
-const rowOf = (m: number) => TEX * (1 - m / WALL_H);
 const pick = <V>(rand: () => number, list: V[]): V => list[Math.floor(rand() * list.length)]!;
-function oval(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number) {
-  g.beginPath();
-  g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-  g.fill();
-}
 // adds a ragged closed outline to the path being built (a hole, a patch, a stain)
 function ragged(
   g: CanvasRenderingContext2D | Path2D,
@@ -463,7 +454,7 @@ function noticeBoard(g: CanvasRenderingContext2D, rand: () => number) {
   g.save();
   g.translate(x + w / 2, y + 7.5);
   g.scale(1, WALL_ASPECT);
-  g.font = `900 13px ${NOTICE_FONT}`;
+  g.font = `900 13px ${SIGN_FONT}`;
   g.fillText(RUIN_NOTICE_BOARD, 0, 0, 60);
   g.restore();
   // the sheets: lines of writing nobody reads, a corner curled or torn off
@@ -537,21 +528,6 @@ const ruinWall =
     grain(g, rand, 20);
   };
 
-// a soft patch, drawn again one picture over on every side so that it runs on into the next tile
-function smudge(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, rgb: string, a: number) {
-  for (const ox of [-TEX, 0, TEX])
-    for (const oy of [-TEX, 0, TEX]) {
-      g.save();
-      g.translate(x + ox, y + oy);
-      g.scale(1, ry / rx);
-      const s = g.createRadialGradient(0, 0, 0, 0, 0, rx);
-      s.addColorStop(0, `rgba(${rgb},${a})`);
-      s.addColorStop(1, `rgba(${rgb},0)`);
-      g.fillStyle = s;
-      g.fillRect(-rx, -rx, rx * 2, rx * 2);
-      g.restore();
-    }
-}
 // a tuft of grass seen from above: blades out from a point
 function tuft(g: CanvasRenderingContext2D, rand: () => number, x: number, y: number, size: number) {
   g.lineCap = 'round';
@@ -929,7 +905,7 @@ const ruinDoor =
       g.lineWidth = 5;
       g.strokeRect(x + 6, top + 2.5, w - 12, foot - top - 5);
       g.fillStyle = '#9f2a1e';
-      g.font = `900 62px ${NOTICE_FONT}`;
+      g.font = `900 62px ${SIGN_FONT}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.save();
@@ -1072,7 +1048,6 @@ const WIRE_DARK = 0x23261f;
 const LAMP_BODY = 0x6b7164;
 const LAMP_TUBE = 0x8f978a; // a dead tube: grey glass, not lit
 interface RuinShared {
-  pool: THREE.CanvasTexture;
   vine: THREE.CanvasTexture;
   hole: THREE.CanvasTexture;
   plank: THREE.CanvasTexture;
@@ -1083,43 +1058,20 @@ let ruinShared: RuinShared | null = null;
 // the ground
 function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   ruinShared ??= {
-    pool: paint(1121, poolPaint),
     vine: paint(1122, vinePaint),
     hole: paint(1123, holePaint),
     plank: paint(1124, plankPaint),
   };
   const shared = ruinShared,
-    d = { W: plan.gen.W, H: plan.gen.H, maps: plan.gen.maps, rooms: plan.gen.rooms },
-    placed = placeProps(d, RUIN_PROPS, rng),
-    one = new THREE.Vector3(1, 1, 1);
-  // the wall tile a wall slot is on, and its picture
-  const wallOf = (s: WallSlot) => {
-    const [di, dj] = SIDE_STEP[s.side ?? 0]!;
-    return (s.j + dj) * d.W + s.i + di;
-  };
+    tools = propTools(plan, group, RUIN_PROPS, rng),
+    { d, wallOf, add } = tools;
+  // the picture on the wall a wall slot is on
   const pictureOf = (s: WallSlot) => variantOf(wallOf(s), RUIN_WALLS, WALL_PLAIN_SHARE);
-  // (no wall is drawn where a stairwell comes up from below: nothing hangs there. The boss room's ceiling is higher
-  // than the others, so nothing hangs from it)
+  // (nothing hangs where the ceiling is open, nor from the boss room's ceiling: it is higher than the others)
   const of = (id: string) =>
-    placed
-      .filter(p => p.id === id)
-      .map(p => p.slot)
-      .filter(s =>
-        s.kind === 'wall'
-          ? !plan.voids[wallOf(s)]
-          : !plan.noCeil[s.j * d.W + s.i] && s.room !== (plan.hall?.room ?? -1),
-      );
-  // a place and a turn about the upright; `roll` then tips the thing along its wall
-  const at = (pos: THREE.Vector3, turn = 0, scale = one, roll = 0) =>
-    new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromEuler(new THREE.Euler(0, turn, roll, 'YXZ')), scale);
-  // one instanced mesh for all the copies of a part
-  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, where: THREE.Matrix4[]) => {
-    if (!where.length) return;
-    const mesh = new THREE.InstancedMesh(geo, mat, where.length);
-    where.forEach((mx, n) => mesh.setMatrixAt(n, mx));
-    mesh.instanceMatrix.needsUpdate = true;
-    group.add(mesh);
-  };
+    tools
+      .of(id)
+      .filter(s => s.kind === 'wall' || (!plan.noCeil[s.j * d.W + s.i] && s.room !== (plan.hall?.room ?? -1)));
   const daylight: THREE.Matrix4[] = [];
 
   // ivy: a sheet of leaves hanging from the top of the wall, a little in front of it (not over a window or the board)
@@ -1129,7 +1081,7 @@ function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     new THREE.MeshBasicMaterial({ map: shared.vine, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
     vines.map(s => {
       const flip = rng.next() < 0.5 ? -1 : 1;
-      return at(
+      return pose(
         onWall(s, rng.rand(-1.1, 1.1), VINE.out, WALL_H - VINE.h / 2),
         facing(s),
         new THREE.Vector3(flip, 1, 1),
@@ -1146,8 +1098,8 @@ function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       y = rng.rand(SHELF.y[0]!, SHELF.y[1]!),
       roll = rng.rand(SHELF.tilt[0]!, SHELF.tilt[1]!) * (rng.next() < 0.5 ? -1 : 1),
       turn = facing(s);
-    plank.push(at(onWall(s, off, SHELF.deep / 2 + 0.02, y), turn, one, roll));
-    bracket.push(at(onWall(s, off, SHELF.deep / 2 + 0.02, y - 0.14), turn));
+    plank.push(pose(onWall(s, off, SHELF.deep / 2 + 0.02, y), turn, FULL_SIZE, roll));
+    bracket.push(pose(onWall(s, off, SHELF.deep / 2 + 0.02, y - 0.14), turn));
   });
   add(
     new THREE.BoxGeometry(SHELF.w, SHELF.thick, SHELF.deep),
@@ -1167,9 +1119,9 @@ function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       y = rng.rand(LAMP.y[0]!, LAMP.y[1]!),
       roll = rng.rand(LAMP.tilt[0]!, LAMP.tilt[1]!) * (rng.next() < 0.5 ? -1 : 1),
       turn = facing(s);
-    plate.push(at(onWall(s, off, 0.03, y), turn));
-    body.push(at(onWall(s, off, 0.1, y), turn, one, roll));
-    tube.push(at(onWall(s, off, 0.19, y), turn, one, roll));
+    plate.push(pose(onWall(s, off, 0.03, y), turn));
+    body.push(pose(onWall(s, off, 0.1, y), turn, FULL_SIZE, roll));
+    tube.push(pose(onWall(s, off, 0.19, y), turn, FULL_SIZE, roll));
   });
   add(new THREE.BoxGeometry(LAMP.w, 0.16, 0.03), dark, plate);
   add(new THREE.BoxGeometry(LAMP.w, 0.13, 0.1), new THREE.MeshBasicMaterial({ color: LAMP_BODY }), body);
@@ -1189,8 +1141,8 @@ function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       const len = n ? rng.rand(WIRES.len[0]!, WIRES.len[1]! * 0.7) : rng.rand(WIRES.len[1]! * 0.6, WIRES.len[1]!),
         wx = x + rng.rand(-WIRES.spread, WIRES.spread),
         wz = z + rng.rand(-WIRES.spread, WIRES.spread);
-      strand.push(at(new THREE.Vector3(wx, WALL_H - len / 2, wz), 0, new THREE.Vector3(1, len, 1)));
-      if (!n) holder.push(at(new THREE.Vector3(wx, WALL_H - len - 0.06, wz)));
+      strand.push(pose(new THREE.Vector3(wx, WALL_H - len / 2, wz), 0, new THREE.Vector3(1, len, 1)));
+      if (!n) holder.push(pose(new THREE.Vector3(wx, WALL_H - len - 0.06, wz)));
     }
   });
   add(new THREE.CylinderGeometry(WIRES.r, WIRES.r, 1, 5), dark, strand);
@@ -1202,12 +1154,12 @@ function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     new THREE.PlaneGeometry(HOLE, HOLE).rotateX(Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: shared.hole, transparent: true, alphaTest: 0.5 }),
     holes.map(s =>
-      at(new THREE.Vector3(tileCenter(s.i), WALL_H - 0.04, tileCenter(s.j)), rng.pick([0, 1, 2, 3]) * (Math.PI / 2)),
+      pose(new THREE.Vector3(tileCenter(s.i), WALL_H - 0.04, tileCenter(s.j)), rng.pick([0, 1, 2, 3]) * (Math.PI / 2)),
     ),
   );
   holes.forEach(s =>
     daylight.push(
-      at(new THREE.Vector3(tileCenter(s.i), 0.05, tileCenter(s.j)), 0, new THREE.Vector3(HOLE_POOL, 1, HOLE_POOL)),
+      pose(new THREE.Vector3(tileCenter(s.i), 0.05, tileCenter(s.j)), 0, new THREE.Vector3(HOLE_POOL, 1, HOLE_POOL)),
     ),
   );
 
@@ -1222,20 +1174,17 @@ function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         if (variantOf(wall, RUIN_WALLS, WALL_PLAIN_SHARE) !== WALL_WINDOW) return;
         const s = { i, j, side };
         daylight.push(
-          at(onWall(s, 0, WINDOW_POOL.out, 0.05), facing(s), new THREE.Vector3(WINDOW_POOL.wide, 1, WINDOW_POOL.deep)),
+          pose(
+            onWall(s, 0, WINDOW_POOL.out, 0.05),
+            facing(s),
+            new THREE.Vector3(WINDOW_POOL.wide, 1, WINDOW_POOL.deep),
+          ),
         );
       });
     }
   add(
     new THREE.PlaneGeometry(LAMP_POOL, LAMP_POOL).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      color: DAYLIGHT,
-      transparent: true,
-      opacity: DAY_POOL_OPACITY,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
+    lightMat(poolTex(), DAY_POOL_OPACITY, DAYLIGHT),
     daylight,
   );
 }

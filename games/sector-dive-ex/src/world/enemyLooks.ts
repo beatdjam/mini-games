@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import { basicMat, lineMat, shared } from '@engine/render/render.ts';
 import { COLOR } from '../data/colors.ts';
 import { edges, geoCache } from './render.ts';
-import { TEX, grain, paint, poolPaint } from './looks/common.ts';
-import type { Paint } from './looks/common.ts';
-import { V, bossHullMat, machine, piston } from './machine.ts';
+import { TEX, grain, paint } from './looks/paint.ts';
+import type { Paint } from './looks/paint.ts';
+import { V, at, ballGeo, bossHullMat, boxGeo, cylGeo, groundPool, machine, piston } from './machine.ts';
 // The enemies as machines, to go with the sectors' looks (world/looks/) and the guns (actors/gunLooks.ts): each type
 // in the shape of what it is (a wheel that runs at you, a quadcopter, a sentry gun on a post ...), in painted armour
 // plate, rubber and steel. What glows is small and in the type's own colour (an eye, a lamp), so a type can still be
@@ -23,10 +23,9 @@ export interface EnemyAnim {
   scan?: THREE.Object3D;
   hover?: boolean;
 }
-export const LOOK_GLOW = 0.05; // the body's own glow in its colour (the plain enemies are at 0.4: they are all glow)
 // A dark machine is lost against a dark wall, so every enemy stands in a pool of light of its own colour on the
 // ground under it (as the sectors' lamps throw one), and its lamps are big enough to read from across a room
-const POOL = { size: 3.2, opacity: 0.55 }; // side of the pool as a multiple of the type's radius; how strong
+const POOL_SIZE = 3.2; // side of the pool as a multiple of the type's radius
 
 // armour plate: dark gunmetal, a few seams, scratches worn bright (kept plain: busy panels and rivets read as a toy)
 const platePaint: Paint = (g, rand) => {
@@ -112,29 +111,11 @@ const shieldPaint: Paint = (g, rand) => {
 let tex: { plate: THREE.CanvasTexture; tread: THREE.CanvasTexture; shield: THREE.CanvasTexture } | null = null;
 const textures = () =>
   (tex ??= { plate: paint(3001, platePaint), tread: paint(3002, treadPaint), shield: paint(3003, shieldPaint) });
-// geometries and the materials every enemy of a kind can share are made once and kept (shared: disposeTree leaves them)
-const geos: Record<string, THREE.BufferGeometry> = {};
-export const boxGeo = (w: number, h: number, d: number) =>
-  (geos[`b${w},${h},${d}`] ??= shared(new THREE.BoxGeometry(w, h, d)));
-export const cylGeo = (rt: number, rb: number, len: number, seg = 14) =>
-  (geos[`c${rt},${rb},${len},${seg}`] ??= shared(new THREE.CylinderGeometry(rt, rb, len, seg)));
-// a faceted ball (flat faces: armour, not a toy ball)
-export const ballGeo = (r: number, detail = 1) =>
-  (geos[`s${r},${detail}`] ??= shared(new THREE.IcosahedronGeometry(r, detail)));
+// the materials every enemy of a kind can share are made once and kept (shared: disposeTree leaves them)
 const mats: Record<string, THREE.Material> = {};
-export const darkMat = () => (mats.dark ??= shared(new THREE.MeshLambertMaterial({ color: 0x17191c })));
-export const steelMat = () => (mats.steel ??= shared(new THREE.MeshLambertMaterial({ color: 0x3b4046 })));
+const steelMat = () => (mats.steel ??= shared(new THREE.MeshLambertMaterial({ color: 0x3b4046 })));
 const treadMat = () => (mats.tread ??= shared(new THREE.MeshLambertMaterial({ map: textures().tread })));
 export const bladeMat = () => (mats.blade ??= shared(new THREE.MeshLambertMaterial({ map: textures().shield })));
-type Axis = 'x' | 'y' | 'z';
-// a mesh at (x, y, z); a cylinder's own axis is y: `along` lays it along x or z instead
-export function at(geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, along: Axis = 'y') {
-  const m = new THREE.Mesh(geo, mat);
-  m.position.set(x, y, z);
-  if (along === 'x') m.rotation.z = Math.PI / 2;
-  if (along === 'z') m.rotation.x = Math.PI / 2;
-  return m;
-}
 interface Built {
   g: THREE.Group;
   body: THREE.Object3D;
@@ -519,30 +500,9 @@ export function dressTrooper(rig: HumanoidRig, body: THREE.Material, color: numb
     );
 }
 // the pool of light on the ground under an enemy, in its colour (under a flying one too: it shows where it is)
-const poolMats: Record<number, THREE.Material> = {};
-let poolTex: THREE.CanvasTexture | null = null;
-const poolGeo = (side: number) =>
-  (geos[`p${side}`] ??= shared(new THREE.PlaneGeometry(side, side).rotateX(-Math.PI / 2)));
-const poolMat = (color: number) =>
-  (poolMats[color] ??= shared(
-    new THREE.MeshBasicMaterial({
-      map: (poolTex ??= paint(3004, poolPaint)),
-      color,
-      transparent: true,
-      opacity: POOL.opacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  ));
 export function lightPool(def: EnemyDef): THREE.Mesh {
-  const m = groundPool(def.color, def.r * POOL.size);
+  const m = groundPool(def.color, def.r * POOL_SIZE);
   m.position.y = -def.y + POOL_Y;
   return m;
 }
-// a pool of light of a colour, `side` metres across, lying flat (the caller puts it at the ground): for the enemies,
-// and for the things lying on the floor (world/itemLooks.ts)
-export const groundPool = (color: number, side: number): THREE.Mesh => new THREE.Mesh(poolGeo(side), poolMat(color));
 const POOL_Y = 0.06; // above the ground (and above a hazard floor's two layers)
-// an enemy's own body material: armour plate with a little of the type's colour in it (more while it flashes)
-export const lookBodyMat = (def: { color: number }): THREE.MeshLambertMaterial =>
-  new THREE.MeshLambertMaterial({ map: textures().plate, emissive: def.color, emissiveIntensity: LOOK_GLOW });

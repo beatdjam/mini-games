@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { shared } from '@engine/render/render.ts';
-import { TEX, grain, paint } from '../world/looks/common.ts';
-import type { Paint } from '../world/looks/common.ts';
+import { TEX, grain, paint } from '../world/looks/paint.ts';
+import type { Paint } from '../world/looks/paint.ts';
 // The gun in hand, one look per weapon: each in its own shape (a pistol's slide and raked grip, a pump shotgun's
 // two tubes and wooden forend ...) in steel, polymer and wood painted on canvases, as the sectors are (world/looks/).
 // Nothing glows but small marks in the weapon's colour (the dots on the sights, a charge lamp), so a weapon can

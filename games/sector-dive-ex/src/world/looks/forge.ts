@@ -1,31 +1,32 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
-import { placeProps } from '@engine/world/slots.ts';
+import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../data/level.ts';
 import { FORGE_DANGER, FORGE_PLATE_HEAT, FORGE_PLATE_SAFETY } from '../../i18n/signs.ts';
 import type { FloorPlan } from '../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
+import type { Look } from './common.ts';
 import {
-  LAMP_POOL,
+  DOOR_ASPECT,
+  SIGN_FONT,
   TEX,
-  WALL_PLAIN_SHARE,
-  facing,
+  WALL_ASPECT,
   grain,
   grime,
-  onWall,
+  oval,
   paint,
-  poolPaint,
-  variantOf,
-} from './common.ts';
-import type { Look, Paint, WallSlot } from './common.ts';
+  poolTex,
+  rowOf,
+  smudge,
+  stripes,
+} from './paint.ts';
+import type { Paint } from './paint.ts';
+import { facing, lightMat, onWall, pose, propTools } from './props.ts';
+import type { Light } from './props.ts';
 // The smelter block (FORGE): a steelworks. Sooty riveted iron and firebrick, girders overhead, thick pipes on the
-// walls, and the orange of the furnaces thrown back by everything. world/looks.ts lists it among the looks; that file
-// and this one import each other, so nothing here may use a value of looks.ts while the file is being loaded (inside
-// functions only).
+// walls, and the orange of the furnaces thrown back by everything.
 // ---- tuning numbers used only here ----
-const WALL_ASPECT = T / WALL_H; // a wall picture is stretched over a face this wide for its height: circles are painted this flat
-const DOOR_ASPECT = T / 2 / WALL_H; // ... and a door leaf's picture
 const POOL_OPACITY = 0.5; // the light a lamp throws on the ground (paler than the molten floor, which must stand out)
 const WALL_GLOW = { size: 3.4, opacity: 0.5 }; // the light a wall lamp throws on its wall (m)
 // the wall pictures: 0 riveted iron plate, 1 firebrick, 2 warning plates, 3 a furnace hatch, 4 a switchboard on
@@ -33,18 +34,12 @@ const WALL_GLOW = { size: 3.4, opacity: 0.5 }; // the light a wall lamp throws o
 const FORGE_WALLS = 7;
 const WALL_SHEET = 6;
 const FORGE_FLOORS = 4; // 0 bare concrete, 1 a chequer-plate cover, 2 oil and soot, 3 a grating
-// the plates are written in Japanese, with whatever face the device has
-const PLATE_FONT = '"Hiragino Sans","Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif';
 const SAFETY_YELLOW = '#d6a419';
 const STRIPE_BLACK = '#1b1714';
+// black and yellow warning stripes in a band, worn
+const warning = (g: CanvasRenderingContext2D, band: [number, number, number, number], pitch: number) =>
+  stripes(g, band, pitch, SAFETY_YELLOW, STRIPE_BLACK, 'rgba(20,14,10,.25)');
 
-// the picture row of a height on a wall or a door (m above the floor)
-const rowOf = (m: number) => TEX * (1 - m / WALL_H);
-function oval(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number) {
-  g.beginPath();
-  g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-  g.fill();
-}
 // a rivet head: round on the wall, so painted flat by `aspect`
 function rivet(g: CanvasRenderingContext2D, x: number, y: number, aspect: number, r = 2.6) {
   g.fillStyle = 'rgba(0,0,0,.55)';
@@ -91,27 +86,6 @@ function heat(g: CanvasRenderingContext2D, from = 0.55, strength = 0.3) {
   g.fillStyle = glow;
   g.fillRect(0, TEX * from, TEX, TEX * (1 - from));
   g.globalCompositeOperation = 'source-over';
-}
-// black and yellow warning stripes in a band
-function stripes(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, pitch: number) {
-  g.save();
-  g.beginPath();
-  g.rect(x, y, w, h);
-  g.clip();
-  g.fillStyle = SAFETY_YELLOW;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = STRIPE_BLACK;
-  for (let sx = x - h - pitch; sx < x + w + pitch; sx += pitch) {
-    g.beginPath();
-    g.moveTo(sx, y + h);
-    g.lineTo(sx + pitch * 0.9, y);
-    g.lineTo(sx + pitch * 1.4, y);
-    g.lineTo(sx + pitch * 0.5, y + h);
-    g.fill();
-  }
-  g.fillStyle = 'rgba(20,14,10,.25)'; // worn
-  g.fillRect(x, y + h * 0.6, w, h * 0.4);
-  g.restore();
 }
 // sooty iron plate over the whole picture
 function iron(g: CanvasRenderingContext2D, rand: () => number) {
@@ -189,7 +163,7 @@ function wordPlate(
   g.save();
   g.translate(x + left + (w - left) / 2, y + h / 2 + 1);
   g.scale(1, WALL_ASPECT);
-  g.font = `900 ${Math.floor((w - left - 14) / words.length)}px ${PLATE_FONT}`;
+  g.font = `900 ${Math.floor((w - left - 14) / words.length)}px ${SIGN_FONT}`;
   g.fillText(words, 0, 0, w - left - 12);
   g.restore();
   // chipped and rusty at the edges
@@ -224,7 +198,7 @@ const forgeWall =
       g.fillRect(cx - 2.5, top + 13, 5, 11);
       oval(g, cx, foot - 5.5, 3, 3 * WALL_ASPECT);
       wordPlate(g, [cx - 58, rowOf(1.85), 116, 24], SAFETY_YELLOW, STRIPE_BLACK, FORGE_PLATE_HEAT);
-      stripes(g, 0, rowOf(0.95), TEX, 13, 22);
+      warning(g, [0, rowOf(0.95), TEX, 13], 22);
     } else if (variant === 3) {
       // a cast iron hatch in the brickwork, the fire showing through its spy hole and round its edge
       const x = 70,
@@ -342,21 +316,6 @@ const forgeWall =
     grain(g, rand, 20);
   };
 
-// a soft dark patch, drawn again one picture over on every side so that it runs on into the next tile
-function smudge(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, rgb: string, a: number) {
-  for (const ox of [-TEX, 0, TEX])
-    for (const oy of [-TEX, 0, TEX]) {
-      g.save();
-      g.translate(x + ox, y + oy);
-      g.scale(1, ry / rx);
-      const s = g.createRadialGradient(0, 0, 0, 0, 0, rx);
-      s.addColorStop(0, `rgba(${rgb},${a})`);
-      s.addColorStop(1, `rgba(${rgb},0)`);
-      g.fillStyle = s;
-      g.fillRect(-rx, -rx, rx * 2, rx * 2);
-      g.restore();
-    }
-}
 // the raised pattern of chequer plate, inside a rectangle
 function tread(g: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number) {
   g.save();
@@ -469,14 +428,14 @@ const forgeDeck: Paint = (g, rand) => {
   grime(g, rand, 70, '#7c746b', '#1f1a17');
   tread(g, 0, 0, TEX, TEX);
   const band = 12;
-  stripes(g, 0, 0, TEX, band, 24);
-  stripes(g, 0, TEX - band, TEX, band, 24);
+  warning(g, [0, 0, TEX, band], 24);
+  warning(g, [0, TEX - band, TEX, band], 24);
   g.save();
   g.translate(TEX / 2, TEX / 2);
   g.rotate(Math.PI / 2);
   g.translate(-TEX / 2, -TEX / 2);
-  stripes(g, band, 0, TEX - band * 2, band, 24);
-  stripes(g, band, TEX - band, TEX - band * 2, band, 24);
+  warning(g, [band, 0, TEX - band * 2, band], 24);
+  warning(g, [band, TEX - band, TEX - band * 2, band], 24);
   g.restore();
   grain(g, rand, 18);
 };
@@ -558,7 +517,7 @@ const forgeDoor =
       oval(g, x, 9, 14, 14 * DOOR_ASPECT);
     }
     if (boss) {
-      stripes(g, 16, rowOf(5.75), TEX - 32, rowOf(5.3) - rowOf(5.75), 46);
+      warning(g, [16, rowOf(5.75), TEX - 32, rowOf(5.3) - rowOf(5.75)], 46);
       // the slits: white hot inside, their light on the plate round them
       const sy = rowOf(5.12),
         sh = rowOf(4.78) - sy;
@@ -589,7 +548,7 @@ const forgeDoor =
       g.lineWidth = 6;
       g.strokeRect(49, top + 3, TEX - 98, foot - top - 6);
       g.fillStyle = '#f2e6cf';
-      g.font = `900 108px ${PLATE_FONT}`;
+      g.font = `900 108px ${SIGN_FONT}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.save();
@@ -597,7 +556,7 @@ const forgeDoor =
       const step = (foot - top) / FORGE_DANGER.length;
       [...FORGE_DANGER].forEach((ch, n) => g.fillText(ch, TEX / 2, (top + step * (n + 0.5)) / DOOR_ASPECT + 6));
       g.restore();
-      stripes(g, 16, rowOf(0.85), TEX - 32, rowOf(0.15) - rowOf(0.85), 46);
+      warning(g, [16, rowOf(0.85), TEX - 32, rowOf(0.15) - rowOf(0.85)], 46);
     } else {
       // a wired window at eye height: dark glass with the works' fires in it
       const wx = 62,
@@ -628,7 +587,7 @@ const forgeDoor =
       // a pull handle, and the striped kick plate
       g.fillStyle = '#1c1918';
       g.fillRect(TEX / 2 - 44, rowOf(1.25), 88, 3.5);
-      stripes(g, 16, rowOf(0.75), TEX - 32, rowOf(0.2) - rowOf(0.75), 46);
+      warning(g, [16, rowOf(0.75), TEX - 32, rowOf(0.2) - rowOf(0.75)], 46);
     }
     const dirt = g.createLinearGradient(0, 0, 0, TEX * 0.3);
     dirt.addColorStop(0, 'rgba(12,9,7,.5)');
@@ -673,48 +632,18 @@ const WALL_LAMP_COLOR = 0xffb46e;
 const VALVE_RED = 0xa8351f;
 const PIPE_DARK = 0x3a332e; // flanges, brackets, lamp housings
 interface ForgeShared {
-  pool: THREE.CanvasTexture;
   pipe: THREE.CanvasTexture;
 }
 let forgeShared: ForgeShared | null = null;
 // Thick pipes along the walls and up them (flanged, the risers with a valve wheel), caged lamps on the walls with
 // their glow on the wall, shaded lamps hanging from the roof with a pool of light under each
 function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
-  forgeShared ??= { pool: paint(21, poolPaint), pipe: paint(22, pipePaint) };
+  forgeShared ??= { pipe: paint(22, pipePaint) };
   const shared = forgeShared,
-    d = { W: plan.gen.W, H: plan.gen.H, maps: plan.gen.maps, rooms: plan.gen.rooms },
-    placed = placeProps(d, FORGE_PROPS, rng),
-    one = new THREE.Vector3(1, 1, 1),
-    up = new THREE.Vector3(0, 1, 0);
-  // the wall tile a wall slot is on
-  const wallOf = (s: WallSlot) => {
-    const [di, dj] = SIDE_STEP[s.side ?? 0]!;
-    return (s.j + dj) * d.W + s.i + di;
-  };
-  // (no wall is drawn where a stairwell comes up from below: nothing hangs there)
-  const of = (id: string) =>
-    placed
-      .filter(p => p.id === id)
-      .map(p => p.slot)
-      .filter(s => s.kind !== 'wall' || !plan.voids[wallOf(s)]);
-  const at = (pos: THREE.Vector3, turn = 0, scale = one) =>
-    new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromAxisAngle(up, turn), scale);
-  // one instanced mesh for all the copies of a part
-  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, where: THREE.Matrix4[], colors?: number[]) => {
-    if (!where.length) return;
-    const mesh = new THREE.InstancedMesh(geo, mat, where.length),
-      color = new THREE.Color();
-    where.forEach((mx, n) => {
-      mesh.setMatrixAt(n, mx);
-      if (colors) mesh.setColorAt(n, color.setHex(colors[n]!));
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    group.add(mesh);
-  };
+    { d, wallOf, of, add, pools } = propTools(plan, group, FORGE_PROPS, rng);
   const skin = new THREE.MeshBasicMaterial({ map: shared.pipe }),
     dark = new THREE.MeshBasicMaterial({ color: PIPE_DARK }),
-    lights: { x: number; z: number; color: number; size: number }[] = [];
+    lights: Light[] = [];
 
   // mains: a thick pipe along the wall under the roof, turning into the wall at both ends
   const mains = of('main'),
@@ -725,11 +654,11 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   mains.forEach(s => {
     const turn = facing(s),
       y = MAIN.y + rng.rand(-0.25, 0.25);
-    run.push(at(onWall(s, 0, MAIN.out, y), turn));
+    run.push(pose(onWall(s, 0, MAIN.out, y), turn));
     for (const end of [-1, 1]) {
-      bend.push(at(onWall(s, (end * MAIN.len) / 2, MAIN.out, y), turn));
-      stub.push(at(onWall(s, (end * MAIN.len) / 2, MAIN.out / 2, y), turn));
-      collar.push(at(onWall(s, end * MAIN.len * 0.22, MAIN.out, y), turn));
+      bend.push(pose(onWall(s, (end * MAIN.len) / 2, MAIN.out, y), turn));
+      stub.push(pose(onWall(s, (end * MAIN.len) / 2, MAIN.out / 2, y), turn));
+      collar.push(pose(onWall(s, end * MAIN.len * 0.22, MAIN.out, y), turn));
     }
   });
   const along = (r: number, len: number) => new THREE.CylinderGeometry(r, r, len, 12).rotateZ(Math.PI / 2);
@@ -753,12 +682,12 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-1.3, 1.3),
       turn = facing(s),
       valveOut = RISER.out + RISER.r + 0.2;
-    pipe.push(at(onWall(s, off, RISER.out, WALL_H / 2), turn));
-    thin.push(at(onWall(s, off + 0.38, RISER.thin + 0.03, WALL_H / 2), turn));
-    for (const y of [0.9, 4.1, 5.5]) flange.push(at(onWall(s, off, RISER.out, y), turn));
-    body.push(at(onWall(s, off, RISER.out, RISER.valveY), turn));
-    stem.push(at(onWall(s, off, (RISER.out + valveOut) / 2, RISER.valveY), turn));
-    wheel.push(at(onWall(s, off, valveOut, RISER.valveY), turn));
+    pipe.push(pose(onWall(s, off, RISER.out, WALL_H / 2), turn));
+    thin.push(pose(onWall(s, off + 0.38, RISER.thin + 0.03, WALL_H / 2), turn));
+    for (const y of [0.9, 4.1, 5.5]) flange.push(pose(onWall(s, off, RISER.out, y), turn));
+    body.push(pose(onWall(s, off, RISER.out, RISER.valveY), turn));
+    stem.push(pose(onWall(s, off, (RISER.out + valveOut) / 2, RISER.valveY), turn));
+    wheel.push(pose(onWall(s, off, valveOut, RISER.valveY), turn));
   });
   add(new THREE.CylinderGeometry(RISER.r, RISER.r, WALL_H, 12), skin, pipe);
   add(new THREE.CylinderGeometry(RISER.thin, RISER.thin, WALL_H, 8), skin, thin);
@@ -779,23 +708,16 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-1, 1),
       turn = facing(s),
       p = onWall(s, off, 0.12, WALL_LAMP_Y);
-    box.push(at(onWall(s, off, 0.05, WALL_LAMP_Y), turn));
-    lens.push(at(p, turn));
-    glow.push(at(onWall(s, off, 0.03, WALL_LAMP_Y), turn));
+    box.push(pose(onWall(s, off, 0.05, WALL_LAMP_Y), turn));
+    lens.push(pose(p, turn));
+    glow.push(pose(onWall(s, off, 0.03, WALL_LAMP_Y), turn));
     lights.push({ x: p.x, z: p.z, color: WALL_LAMP_COLOR, size: 0.7 });
   });
   add(new THREE.BoxGeometry(0.62, 0.4, 0.1), dark, box);
   add(new THREE.BoxGeometry(0.46, 0.24, 0.16), new THREE.MeshBasicMaterial({ color: WALL_LAMP_COLOR }), lens);
   add(
     new THREE.PlaneGeometry(WALL_GLOW.size, WALL_GLOW.size),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      color: WALL_LAMP_COLOR,
-      transparent: true,
-      opacity: WALL_GLOW.opacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
+    lightMat(poolTex(), WALL_GLOW.opacity, WALL_LAMP_COLOR),
     glow,
   );
 
@@ -811,9 +733,9 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const x = tileCenter(s.i),
       z = tileCenter(s.j),
       c = rng.pick(LAMP_COLORS);
-    rod.push(at(new THREE.Vector3(x, WALL_H - SHADE.drop / 2, z)));
-    shade.push(at(new THREE.Vector3(x, WALL_H - SHADE.drop - SHADE.h / 2, z)));
-    bulb.push(at(new THREE.Vector3(x, WALL_H - SHADE.drop - SHADE.h + 0.04, z)));
+    rod.push(pose(new THREE.Vector3(x, WALL_H - SHADE.drop / 2, z)));
+    shade.push(pose(new THREE.Vector3(x, WALL_H - SHADE.drop - SHADE.h / 2, z)));
+    bulb.push(pose(new THREE.Vector3(x, WALL_H - SHADE.drop - SHADE.h + 0.04, z)));
     bulbColors.push(c);
     lights.push({ x, z, color: c, size: 1 });
   });
@@ -831,18 +753,7 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
 
   // the light the lamps throw on the ground: a soft pool of their colour
-  add(
-    new THREE.PlaneGeometry(LAMP_POOL, LAMP_POOL).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      transparent: true,
-      opacity: POOL_OPACITY,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-    lights.map(l => at(new THREE.Vector3(l.x, 0.05, l.z), 0, new THREE.Vector3(l.size, 1, l.size))),
-    lights.map(l => l.color),
-  );
+  pools(lights, POOL_OPACITY);
 }
 
 // The molten floor: an iron grating over a casting channel. `glow` is what lights up while it is live: the metal

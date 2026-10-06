@@ -1,32 +1,35 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
-import { placeProps } from '@engine/world/slots.ts';
+import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../data/level.ts';
 import { CITY_EXIT, CITY_EXTINGUISHER, CITY_GUIDE, CITY_KEEP_OUT } from '../../i18n/signs.ts';
 import type { FloorPlan } from '../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
+import type { Look } from './common.ts';
 import {
-  LAMP_POOL,
+  DOOR_ASPECT,
+  SIGN_FONT,
   TEX,
-  WALL_PLAIN_SHARE,
+  WALL_ASPECT,
   canvasTex,
-  facing,
   grain,
   grime,
-  onWall,
+  oval,
   paint,
-  poolPaint,
-  variantOf,
-} from './common.ts';
-import type { Look, Paint, WallSlot } from './common.ts';
+  poolTex,
+  rowOf,
+  smudge,
+  stripes,
+  words,
+} from './paint.ts';
+import type { Paint } from './paint.ts';
+import { LAMP_POOL, facing, lightMat, onWall, pose, propTools } from './props.ts';
 // The old downtown (CITY): a wide floor of an old office building late in the afternoon. Beige wall panels and grey
 // carpet, a hung ceiling with its lamps mostly off, and the low sun coming amber through the blinds. The sector is
 // seen from far away (its fog starts late), so most of the walls are plain and the lights are kept soft: the enemies
 // and the snipers' lasers must stand out from the room.
 // ---- tuning numbers used only here ----
-const WALL_ASPECT = T / WALL_H; // a wall picture is stretched over a face this wide for its height: circles are painted this flat
-const DOOR_ASPECT = T / 2 / WALL_H; // ... and a door leaf's picture
 const POOL_OPACITY = 0.26; // the light a ceiling lamp throws on the floor (soft: the room is seen from far away)
 const SUN_OPACITY = 0.42; // the sunlight a window throws on the floor
 // the wall pictures: 0 plain panels, 1 cloth panels, 2 panels with a vent and a switch, 3 a window with its blind
@@ -40,20 +43,13 @@ const PLAIN_WALLS = [0, 1, 2]; // the walls that take a clock, a board or an ext
 const CITY_FLOORS = 6; // 0 carpet, 1 a stain, 2 a floor box, 3 carpet gone (old vinyl tiles), 4 newer carpet tiles, 5 papers
 const CARPET = 32; // side of a carpet tile in the picture (px): half a metre
 const CARPET_SHIFT = 16; // the carpet's joints are moved this far, so none of them lies on the picture's edge (px)
-const SIGN_FONT = '"Hiragino Sans","Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif';
 const FRAME = '#5b564c'; // aluminium frames gone dull
 const SKIRTING = '#433b30';
 const EXIT_GREEN = '#1d8651';
 const BARRIER_RED = '#b02a22';
 const BARRIER_WHITE = '#e4dccb';
+const BARRIER_WORN = 'rgba(30,18,12,.2)'; // the dirt over the lower part of a barrier's stripes
 
-// the picture row of a height on a wall or a door (m above the floor)
-const rowOf = (m: number) => TEX * (1 - m / WALL_H);
-function oval(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number) {
-  g.beginPath();
-  g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-  g.fill();
-}
 // warm light added to a part of the picture: the low sun, or what a window throws on the wall round it
 function warm(g: CanvasRenderingContext2D, x: number, y: number, r: number, strength: number) {
   const glow = g.createRadialGradient(x, y, r * 0.1, x, y, r);
@@ -74,25 +70,6 @@ function box(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: nu
   g.fillRect(x, y, w, 1.5);
   g.fillStyle = 'rgba(0,0,0,.22)';
   g.fillRect(x, y + h - 1.5, w, 1.5);
-}
-// words on a wall or a door, drawn round (the picture is stretched, so they are painted flat by `aspect`)
-function words(
-  g: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  size: number,
-  aspect: number,
-  maxW?: number,
-) {
-  g.save();
-  g.translate(x, y);
-  g.scale(1, aspect);
-  g.font = `900 ${size}px ${SIGN_FONT}`;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(text, 0, 0, maxW);
-  g.restore();
 }
 // The office wall under every picture: panels to the picture rail, painted plaster above it, a dark skirting board.
 // `cloth`: the panels are covered in ribbed cloth
@@ -378,7 +355,7 @@ const cityWall =
       g.restore();
       g.lineCap = 'butt';
       g.fillStyle = EXIT_GREEN;
-      words(g, CITY_EXIT, sx + 62, sy + sh / 2 + 0.5, 20, WALL_ASPECT, 60);
+      words(g, CITY_EXIT, sx + 62, sy + sh / 2 + 0.5, 20, WALL_ASPECT, SIGN_FONT, 60);
     } else if (variant === 8) {
       // stone facing, as round the lifts: slabs with their veins, a dark plinth
       const foot = rowOf(0.3);
@@ -548,21 +525,6 @@ const cityWall =
     grain(g, rand, 12);
   };
 
-// a soft patch, drawn again one picture over on every side so that it runs on into the next tile
-function smudge(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, rgb: string, a: number) {
-  for (const ox of [-TEX, 0, TEX])
-    for (const oy of [-TEX, 0, TEX]) {
-      g.save();
-      g.translate(x + ox, y + oy);
-      g.scale(1, ry / rx);
-      const s = g.createRadialGradient(0, 0, 0, 0, 0, rx);
-      s.addColorStop(0, `rgba(${rgb},${a})`);
-      s.addColorStop(1, `rgba(${rgb},0)`);
-      g.fillStyle = s;
-      g.fillRect(-rx, -rx, rx * 2, rx * 2);
-      g.restore();
-    }
-}
 // The floor: the same carpet under every variant (the painter is given the same seed for all of them). Its tiles are
 // half a metre and laid turn about; their joints are faint and none of them lies on the picture's edge, and the worn
 // patches run on across that edge, so the floor reads as one carpet and not as squares of four metres
@@ -778,27 +740,6 @@ const cityCeiling: Paint = (g, rand) => {
   oval(g, s, s * 3.5, 3.5, 3.5);
   grain(g, rand, 10);
 };
-// warning stripes, red and white, in a band
-function barrier(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, pitch: number) {
-  g.save();
-  g.beginPath();
-  g.rect(x, y, w, h);
-  g.clip();
-  g.fillStyle = BARRIER_WHITE;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = BARRIER_RED;
-  for (let sx = x - h - pitch; sx < x + w + pitch; sx += pitch) {
-    g.beginPath();
-    g.moveTo(sx, y + h);
-    g.lineTo(sx + pitch * 0.9, y);
-    g.lineTo(sx + pitch * 1.4, y);
-    g.lineTo(sx + pitch * 0.5, y + h);
-    g.fill();
-  }
-  g.fillStyle = 'rgba(30,18,12,.2)';
-  g.fillRect(x, y + h * 0.6, w, h * 0.4);
-  g.restore();
-}
 // One leaf of a door (a leaf is 2 m wide and a wall high, so its picture is stretched three times as tall). The
 // office's door is bronze aluminium with a tall pane of frosted glass, a push bar across it and a plain panel over
 // it up to the ceiling. The boss room's is the fire shutter come down: dark steel slats between red and white
@@ -826,7 +767,7 @@ const cityDoor =
       g.fillStyle = '#26221f';
       g.fillRect(0, 0, 12, TEX);
       g.fillRect(TEX - 12, 0, 12, TEX);
-      barrier(g, 12, rowOf(5.75), TEX - 24, rowOf(5.3) - rowOf(5.75), 46);
+      stripes(g, [12, rowOf(5.75), TEX - 24, rowOf(5.3) - rowOf(5.75)], 46, BARRIER_WHITE, BARRIER_RED, BARRIER_WORN);
       // two red lamps, their light on the slats round them
       const ly = rowOf(4.95);
       for (const lx of [TEX * 0.3, TEX * 0.7]) {
@@ -859,7 +800,7 @@ const cityDoor =
       g.fillStyle = BARRIER_WHITE;
       const step = (foot - top - 8) / CITY_KEEP_OUT.length;
       [...CITY_KEEP_OUT].forEach((ch, n) => words(g, ch, TEX / 2, top + 4 + step * (n + 0.5) + 1, 50, DOOR_ASPECT));
-      barrier(g, 12, rowOf(0.85), TEX - 24, rowOf(0.15) - rowOf(0.85), 46);
+      stripes(g, [12, rowOf(0.85), TEX - 24, rowOf(0.15) - rowOf(0.85)], 46, BARRIER_WHITE, BARRIER_RED, BARRIER_WORN);
       const dirt = g.createLinearGradient(0, 0, 0, TEX * 0.25);
       dirt.addColorStop(0, 'rgba(10,8,7,.5)');
       dirt.addColorStop(1, 'rgba(10,8,7,0)');
@@ -934,7 +875,6 @@ const CLOCK = { r: 0.34, y: 3.25 }; // m
 const GUIDE = { w: 1.0, h: 1.4, y: 2.75 }; // a floor guide board (m)
 const EXTINGUISHER = { r: 0.085, h: 0.46, out: 0.16, plateY: 1.75, color: 0xa8281c }; // m
 interface CityShared {
-  pool: THREE.CanvasTexture;
   sun: THREE.CanvasTexture;
   clock: THREE.CanvasTexture;
   guide: THREE.CanvasTexture;
@@ -1050,46 +990,18 @@ function plateTex(): THREE.CanvasTexture {
 // and on the plainer walls clocks, floor guides and fire extinguishers
 function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   cityShared ??= {
-    pool: paint(31, poolPaint),
     sun: sunTex(),
     clock: clockTex(),
     guide: guideTex(),
     plate: plateTex(),
   };
   const shared = cityShared,
-    d = { W: plan.gen.W, H: plan.gen.H, maps: plan.gen.maps, rooms: plan.gen.rooms },
-    M = d.maps,
-    placed = placeProps(d, CITY_PROPS, rng),
-    one = new THREE.Vector3(1, 1, 1),
-    up = new THREE.Vector3(0, 1, 0);
-  // the wall tile a wall slot is on
-  const wallOf = (s: WallSlot) => {
-    const [di, dj] = SIDE_STEP[s.side ?? 0]!;
-    return (s.j + dj) * d.W + s.i + di;
-  };
+    tools = propTools(plan, group, CITY_PROPS, rng),
+    { d, wallOf, add } = tools,
+    M = d.maps;
   const pictureOf = (wall: number) => variantOf(wall, CITY_WALLS, WALL_PLAIN_SHARE);
-  // (no wall is drawn where a stairwell comes up from below: nothing hangs there. The things on the walls go on the
-  // plain pictures only, clear of the windows, boards and cabinets)
-  const of = (id: string) =>
-    placed
-      .filter(p => p.id === id)
-      .map(p => p.slot)
-      .filter(s => s.kind !== 'wall' || (!plan.voids[wallOf(s)] && PLAIN_WALLS.includes(pictureOf(wallOf(s)))));
-  const at = (pos: THREE.Vector3, turn = 0, scale = one) =>
-    new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromAxisAngle(up, turn), scale);
-  // one instanced mesh for all the copies of a part
-  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, where: THREE.Matrix4[], colors?: number[]) => {
-    if (!where.length) return;
-    const mesh = new THREE.InstancedMesh(geo, mat, where.length),
-      color = new THREE.Color();
-    where.forEach((mx, n) => {
-      mesh.setMatrixAt(n, mx);
-      if (colors) mesh.setColorAt(n, color.setHex(colors[n]!));
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    group.add(mesh);
-  };
+  // (the things on the walls go on the plain pictures only, clear of the windows, boards and cabinets)
+  const of = (id: string) => tools.of(id).filter(s => s.kind !== 'wall' || PLAIN_WALLS.includes(pictureOf(wallOf(s))));
 
   // lit fittings (not where the ceiling is open): over the painted fitting of the tile, so they run the same way
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
@@ -1102,9 +1014,9 @@ function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   tubes.forEach(s => {
     const x = tileCenter(s.i),
       z = tileCenter(s.j);
-    housing.push(at(new THREE.Vector3(x, WALL_H - TUBE.drop / 2, z)));
-    lit.push(at(new THREE.Vector3(x, WALL_H - TUBE.drop - 0.01, z)));
-    pools.push(at(new THREE.Vector3(x, 0.05, z)));
+    housing.push(pose(new THREE.Vector3(x, WALL_H - TUBE.drop / 2, z)));
+    lit.push(pose(new THREE.Vector3(x, WALL_H - TUBE.drop - 0.01, z)));
+    pools.push(pose(new THREE.Vector3(x, 0.05, z)));
     tubeColors.push(rng.pick(TUBE_COLORS));
   });
   add(
@@ -1120,13 +1032,7 @@ function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
   add(
     new THREE.PlaneGeometry(LAMP_POOL, LAMP_POOL).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      transparent: true,
-      opacity: POOL_OPACITY,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
+    lightMat(poolTex(), POOL_OPACITY),
     pools,
     tubeColors,
   );
@@ -1148,32 +1054,21 @@ function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         const picture = pictureOf(wall);
         if (picture !== WALL_BLIND && picture !== WALL_BLIND_RAISED) return;
         const s = { i, j, side };
-        sun.push(at(onWall(s, 0, SUN.len / 2 + 0.05, 0.06), facing(s)));
+        sun.push(pose(onWall(s, 0, SUN.len / 2 + 0.05, 0.06), facing(s)));
       });
     }
-  add(
-    new THREE.PlaneGeometry(SUN.w, SUN.len).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      map: shared.sun,
-      color: SUN.color,
-      transparent: true,
-      opacity: SUN_OPACITY,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-    sun,
-  );
+  add(new THREE.PlaneGeometry(SUN.w, SUN.len).rotateX(-Math.PI / 2), lightMat(shared.sun, SUN_OPACITY, SUN.color), sun);
 
   // clocks and floor guides, flat on the wall
   add(
     new THREE.CircleGeometry(CLOCK.r, 20),
     new THREE.MeshBasicMaterial({ map: shared.clock }),
-    of('clock').map(s => at(onWall(s, rng.rand(-1, 1), 0.03, CLOCK.y), facing(s))),
+    of('clock').map(s => pose(onWall(s, rng.rand(-1, 1), 0.03, CLOCK.y), facing(s))),
   );
   add(
     new THREE.PlaneGeometry(GUIDE.w, GUIDE.h),
     new THREE.MeshBasicMaterial({ map: shared.guide }),
-    of('guide').map(s => at(onWall(s, rng.rand(-0.8, 0.8), 0.03, GUIDE.y), facing(s))),
+    of('guide').map(s => pose(onWall(s, rng.rand(-0.8, 0.8), 0.03, GUIDE.y), facing(s))),
   );
 
   // fire extinguishers: the red bottle at the foot of the wall with its black head, the plate above it
@@ -1183,9 +1078,9 @@ function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   of('extinguisher').forEach(s => {
     const off = rng.rand(-1.4, 1.4),
       turn = facing(s);
-    bottle.push(at(onWall(s, off, EXTINGUISHER.out, EXTINGUISHER.h / 2), turn));
-    head.push(at(onWall(s, off, EXTINGUISHER.out, EXTINGUISHER.h + 0.06), turn));
-    plate.push(at(onWall(s, off, 0.03, EXTINGUISHER.plateY), turn));
+    bottle.push(pose(onWall(s, off, EXTINGUISHER.out, EXTINGUISHER.h / 2), turn));
+    head.push(pose(onWall(s, off, EXTINGUISHER.out, EXTINGUISHER.h + 0.06), turn));
+    plate.push(pose(onWall(s, off, 0.03, EXTINGUISHER.plateY), turn));
   });
   add(
     new THREE.CylinderGeometry(EXTINGUISHER.r, EXTINGUISHER.r, EXTINGUISHER.h, 10),

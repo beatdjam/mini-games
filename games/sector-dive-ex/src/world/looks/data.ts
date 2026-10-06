@@ -1,32 +1,35 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
-import { placeProps } from '@engine/world/slots.ts';
+import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../data/level.ts';
+import { css } from '../../data/colors.ts';
 import { DATA_PLATE_CAUTION, DATA_PLATE_ZONE, DATA_RACK_IDS, DATA_SEALED } from '../../i18n/signs.ts';
 import type { FloorPlan } from '../building.ts';
+import { WALL_PLAIN_SHARE, variantOf } from './common.ts';
+import type { Look } from './common.ts';
 import {
-  LAMP_POOL,
+  DOOR_ASPECT,
   TEX,
-  WALL_PLAIN_SHARE,
-  facing,
+  WALL_ASPECT,
   grain,
   grime,
-  onWall,
+  oval,
   paint,
-  poolPaint,
-  variantOf,
-} from './common.ts';
-import type { Look, Paint, WallSlot } from './common.ts';
+  poolTex,
+  rowOf,
+  smudge,
+  stripes,
+  words,
+} from './paint.ts';
+import type { Paint } from './paint.ts';
+import { facing, lightMat, onWall, pose, propTools } from './props.ts';
+import type { Light, WallSlot } from './props.ts';
 // The discarded data layer (DATA): a server room nobody has entered for years. Pale wall panels and rows of racks in
 // grey metal and plastic, a raised floor, cable ladders and a duct overhead, and the cold white of the few tubes that
 // still burn. The lights of the scenery are small and dull, so that the enemies, the shots and the pickups (which
-// glow) stand out from it. world/looks.ts lists it among the looks; that file and this one import each other, so
-// nothing here may use a value of looks.ts while the file is being loaded (inside functions only).
+// glow) stand out from it.
 // ---- tuning numbers used only here ----
-const WALL_ASPECT = T / WALL_H; // a wall picture is stretched over a face this wide for its height: circles are painted this flat
-const DOOR_ASPECT = T / 2 / WALL_H; // ... and a door leaf's picture
 const POOL_OPACITY = 0.38; // the light a tube throws on the ground (the floor is pale already)
 const CEILING_GLOW = { size: 5, opacity: 0.4 }; // ... and on the ceiling round its fitting (m)
 const WALL_GLOW = { size: 2.4, opacity: 0.3 }; // the light an emergency lamp throws on its wall (m)
@@ -39,21 +42,12 @@ const RACK_PICS: WallPic[] = ['mesh', 'blank', 'cable']; // the walls that are a
 const BARE_PICS: WallPic[] = ['panel', 'trunk']; // the walls with room for cables up them
 const DATA_FLOORS = 5; // 0 bare panels, 1 perforated panels, 2 a cable cut-out, 3 dust and scraps, 4 a leak
 const RACK = { top: 3.3, foot: 0.12, n: 3 }; // a row of racks on a wall: its top and its plinth (m), racks per tile
-const SIGN_FONT = '"Hiragino Sans","Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif';
 // patch cables, dulled by dust: grey, blue, yellow, red, black (the pictures and the props use the same ones)
 const CABLES = [0x7b838a, 0x3f587a, 0x8a7a3c, 0x633a36, 0x2c3136];
 const LEDS = ['#63c98a', '#63c98a', '#d7a23f', '#c9503f']; // the lamps of a rack: mostly green
 const HAZARD_RED = '#b8261f';
 const HAZARD_WHITE = '#d9dee2';
 
-const css = (n: number): string => '#' + n.toString(16).padStart(6, '0');
-// the picture row of a height on a wall or a door (m above the floor)
-const rowOf = (m: number) => TEX * (1 - m / WALL_H);
-function oval(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number) {
-  g.beginPath();
-  g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-  g.fill();
-}
 // a thin joint between two panels (across the picture, or down it): a dark line with a light one beside it
 function joint(g: CanvasRenderingContext2D, x: number, y: number, len: number, down: boolean, dark = 0.4) {
   g.fillStyle = `rgba(16,24,32,${dark})`;
@@ -68,25 +62,6 @@ function led(g: CanvasRenderingContext2D, x: number, y: number, color: string) {
   oval(g, x, y, 4, 4 * WALL_ASPECT);
   g.globalAlpha = 1;
   g.fillRect(x - 1.1, y - 0.8, 2.2, 1.6);
-}
-// words painted on a wall or a door, drawn as wide as they are high there (`aspect`: how flat the picture is painted)
-function words(
-  g: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  px: number,
-  aspect: number,
-  font = 'sans-serif',
-) {
-  g.save();
-  g.translate(x, y);
-  g.scale(1, aspect);
-  g.font = `900 ${px}px ${font}`;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(text, 0, 0);
-  g.restore();
 }
 // pale wall panels over the whole picture: their joints stay clear of the picture's edges, a dark skirting at the foot
 function panels(g: CanvasRenderingContext2D, rand: () => number) {
@@ -246,7 +221,15 @@ function racks(g: CanvasRenderingContext2D, rand: () => number, pic: WallPic) {
     g.fillStyle = '#c3cbd1';
     g.fillRect(x + w / 2 - 15, top + 3.5, 30, 7);
     g.fillStyle = '#20262c';
-    words(g, DATA_RACK_IDS[Math.floor(rand() * DATA_RACK_IDS.length)]!, x + w / 2, top + 7.3, 8.5, WALL_ASPECT);
+    words(
+      g,
+      DATA_RACK_IDS[Math.floor(rand() * DATA_RACK_IDS.length)]!,
+      x + w / 2,
+      top + 7.3,
+      8.5,
+      WALL_ASPECT,
+      'sans-serif',
+    );
   }
 }
 const dataWall =
@@ -313,9 +296,9 @@ const dataWall =
       g.fillStyle = '#2f5a84';
       g.fillRect(x, y, w, band);
       g.fillStyle = '#e4e9ec';
-      words(g, DATA_PLATE_ZONE, x + w / 2, y + band / 2 + 0.5, 21, WALL_ASPECT, SIGN_FONT);
+      words(g, DATA_PLATE_ZONE, x + w / 2, y + band / 2 + 0.5, 21, WALL_ASPECT);
       g.fillStyle = '#22303d';
-      words(g, DATA_PLATE_CAUTION, x + w / 2, y + band + (h - band) / 2 + 0.5, 16, WALL_ASPECT, SIGN_FONT);
+      words(g, DATA_PLATE_CAUTION, x + w / 2, y + band + (h - band) / 2 + 0.5, 16, WALL_ASPECT);
       g.fillStyle = 'rgba(40,48,56,.28)'; // dusty at the foot, a corner peeling
       g.fillRect(x, y + h - 5, w, 5);
       g.fillStyle = '#7f8a92';
@@ -391,21 +374,6 @@ const dataWall =
     grain(g, rand, 16);
   };
 
-// a soft patch, drawn again one picture over on every side so that it runs on into the next tile
-function blot(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, rgb: string, a: number) {
-  for (const ox of [-TEX, 0, TEX])
-    for (const oy of [-TEX, 0, TEX]) {
-      g.save();
-      g.translate(x + ox, y + oy);
-      g.scale(1, ry / rx);
-      const s = g.createRadialGradient(0, 0, 0, 0, 0, rx);
-      s.addColorStop(0, `rgba(${rgb},${a})`);
-      s.addColorStop(1, `rgba(${rgb},0)`);
-      g.fillStyle = s;
-      g.fillRect(-rx, -rx, rx * 2, rx * 2);
-      g.restore();
-    }
-}
 const FLOOR_PANEL = TEX / 8; // a panel of the raised floor is half a metre (px)
 // a cable lying on the floor: its shadow, then the cable
 function floorCable(g: CanvasRenderingContext2D, pts: [number, number][], color: string, width: number) {
@@ -446,7 +414,7 @@ const dataFloor =
       }
     for (let k = 0; k < 40; k++) {
       const dark = rand() < 0.55;
-      blot(
+      smudge(
         g,
         rand() * TEX,
         rand() * TEX,
@@ -515,7 +483,7 @@ const dataFloor =
     } else if (variant === 3) {
       // dust drifted into heaps, and scraps of paper
       for (let k = 0; k < 9; k++)
-        blot(g, 60 + rand() * 136, 60 + rand() * 136, 16 + rand() * 30, 10 + rand() * 18, '176,184,190', 0.28);
+        smudge(g, 60 + rand() * 136, 60 + rand() * 136, 16 + rand() * 30, 10 + rand() * 18, '176,184,190', 0.28);
       for (let k = 0; k < 5; k++) {
         g.save();
         g.translate(50 + rand() * 156, 50 + rand() * 156);
@@ -536,8 +504,8 @@ const dataFloor =
         const px = cx + (rand() - 0.5) * 64,
           py = cy + (rand() - 0.5) * 64,
           r = 18 + rand() * 26;
-        blot(g, px, py, r + 5, (r + 5) * 0.7, '168,178,186', 0.18);
-        blot(g, px, py, r, r * 0.7, '22,28,34', 0.6);
+        smudge(g, px, py, r + 5, (r + 5) * 0.7, '168,178,186', 0.18);
+        smudge(g, px, py, r, r * 0.7, '22,28,34', 0.6);
       }
     }
     grain(g, rand, 14);
@@ -622,25 +590,6 @@ const dataCeiling: Paint = (g, rand) => {
   g.fillRect(0, ly + lh - 3, TEX, 3);
   grain(g, rand, 12);
 };
-// red and white warning stripes in a band
-function stripes(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, pitch: number) {
-  g.save();
-  g.beginPath();
-  g.rect(x, y, w, h);
-  g.clip();
-  g.fillStyle = HAZARD_WHITE;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = HAZARD_RED;
-  for (let sx = x - h - pitch; sx < x + w + pitch; sx += pitch) {
-    g.beginPath();
-    g.moveTo(sx, y + h);
-    g.lineTo(sx + pitch * 0.9, y);
-    g.lineTo(sx + pitch * 1.4, y);
-    g.lineTo(sx + pitch * 0.5, y + h);
-    g.fill();
-  }
-  g.restore();
-}
 // One leaf of a server room door (a leaf is 2 m wide and a wall high, so its picture is stretched three times as
 // tall): pale grey steel with a narrow window, a card reader, a push bar and a kick plate, louvres over head height.
 // The boss room's is dark steel between red and white bands, red lamps in slits near the top, and the word "sealed"
@@ -664,7 +613,7 @@ const dataDoor =
     g.fillRect(0, rowOf(boss ? 2.95 : 2.4) - 3, TEX, 6);
     if (boss) {
       g.fillRect(0, rowOf(4.55) - 3, TEX, 6);
-      stripes(g, 12, rowOf(5.75), TEX - 24, rowOf(5.3) - rowOf(5.75), 46);
+      stripes(g, [12, rowOf(5.75), TEX - 24, rowOf(5.3) - rowOf(5.75)], 46, HAZARD_WHITE, HAZARD_RED);
       // the slits: red lamps behind them, their light on the plate round them
       const sy = rowOf(5.12),
         sh = rowOf(4.78) - sy;
@@ -696,10 +645,8 @@ const dataDoor =
       g.strokeRect(49, top + 3, TEX - 98, foot - top - 6);
       g.fillStyle = HAZARD_WHITE;
       const step = (foot - top) / DATA_SEALED.length;
-      [...DATA_SEALED].forEach((ch, n) =>
-        words(g, ch, TEX / 2, top + step * (n + 0.5) + 2, 108, DOOR_ASPECT, SIGN_FONT),
-      );
-      stripes(g, 12, rowOf(0.85), TEX - 24, rowOf(0.15) - rowOf(0.85), 46);
+      [...DATA_SEALED].forEach((ch, n) => words(g, ch, TEX / 2, top + step * (n + 0.5) + 2, 108, DOOR_ASPECT));
+      stripes(g, [12, rowOf(0.85), TEX - 24, rowOf(0.15) - rowOf(0.85)], 46, HAZARD_WHITE, HAZARD_RED);
       // heavy bolts down both edges
       for (let y = 10; y < TEX; y += 14)
         for (const x of [6, TEX - 6]) {
@@ -793,51 +740,18 @@ const EMERGENCY_COLOR = 0xd9b77c;
 const STATUS_LAMPS = [0x4fae74, 0xc2913a, 0xa8443a]; // an alarm unit's three lamps
 const METAL = 0x89939b; // ladders, fittings
 const HOUSING = 0x2a3036; // boxes, brackets
-interface DataShared {
-  pool: THREE.CanvasTexture;
-}
-let dataShared: DataShared | null = null;
 // Cable ladders along the walls under the ceiling, bundles of cables up the bare walls, a small alarm unit over some
 // rack rows, emergency lamps on the walls with their glow, and tube fittings on the ceiling with a pool of light
 // under each
 function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
-  dataShared ??= { pool: paint(31, poolPaint) };
-  const shared = dataShared,
-    d = { W: plan.gen.W, H: plan.gen.H, maps: plan.gen.maps, rooms: plan.gen.rooms },
-    placed = placeProps(d, DATA_PROPS, rng),
-    one = new THREE.Vector3(1, 1, 1),
+  const { d, wallOf, of, add, pools } = propTools(plan, group, DATA_PROPS, rng),
     up = new THREE.Vector3(0, 1, 0);
-  // the wall tile a wall slot is on, and its picture
-  const wallOf = (s: WallSlot) => {
-    const [di, dj] = SIDE_STEP[s.side ?? 0]!;
-    return (s.j + dj) * d.W + s.i + di;
-  };
+  // the picture on the wall a wall slot is on
   const picOf = (s: WallSlot) => DATA_WALLS[variantOf(wallOf(s), DATA_WALLS.length, WALL_PLAIN_SHARE)]!;
-  // (no wall is drawn where a stairwell comes up from below: nothing hangs there)
-  const of = (id: string) =>
-    placed
-      .filter(p => p.id === id)
-      .map(p => p.slot)
-      .filter(s => s.kind !== 'wall' || !plan.voids[wallOf(s)]);
-  const at = (pos: THREE.Vector3, turn = 0, scale = one) =>
-    new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromAxisAngle(up, turn), scale);
-  // one instanced mesh for all the copies of a part
-  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, where: THREE.Matrix4[], colors?: number[]) => {
-    if (!where.length) return;
-    const mesh = new THREE.InstancedMesh(geo, mat, where.length),
-      color = new THREE.Color();
-    where.forEach((mx, n) => {
-      mesh.setMatrixAt(n, mx);
-      if (colors) mesh.setColorAt(n, color.setHex(colors[n]!));
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    group.add(mesh);
-  };
   const metal = new THREE.MeshBasicMaterial({ color: METAL }),
     housing = new THREE.MeshBasicMaterial({ color: HOUSING }),
     tinted = new THREE.MeshBasicMaterial({ color: 0xffffff }), // takes each copy's own colour
-    lights: { x: number; z: number; color: number; size: number }[] = [];
+    lights: Light[] = [];
 
   // cable ladders: two rails and their rungs on brackets, the cables lying on them, a box at each end where the
   // cables go into the wall
@@ -851,14 +765,14 @@ function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const turn = facing(s),
       y = TRAY.y + rng.rand(-0.2, 0.2);
     for (const side of [-1, 1]) {
-      rail.push(at(onWall(s, 0, TRAY.out + (side * TRAY.w) / 2, y), turn));
-      bracket.push(at(onWall(s, side * TRAY.len * 0.3, (TRAY.out + TRAY.w / 2) / 2, y - 0.07), turn));
-      endBox.push(at(onWall(s, (side * TRAY.len) / 2, TRAY.out / 2 + 0.14, y + 0.03), turn));
+      rail.push(pose(onWall(s, 0, TRAY.out + (side * TRAY.w) / 2, y), turn));
+      bracket.push(pose(onWall(s, side * TRAY.len * 0.3, (TRAY.out + TRAY.w / 2) / 2, y - 0.07), turn));
+      endBox.push(pose(onWall(s, (side * TRAY.len) / 2, TRAY.out / 2 + 0.14, y + 0.03), turn));
     }
     for (let n = 0; n < TRAY.rungs; n++)
-      rung.push(at(onWall(s, (n / (TRAY.rungs - 1) - 0.5) * (TRAY.len - 0.3), TRAY.out, y - 0.02), turn));
+      rung.push(pose(onWall(s, (n / (TRAY.rungs - 1) - 0.5) * (TRAY.len - 0.3), TRAY.out, y - 0.02), turn));
     CABLES.forEach((c, n) => {
-      cable.push(at(onWall(s, 0, TRAY.out + (n / (CABLES.length - 1) - 0.5) * (TRAY.w - 0.14), y + 0.05), turn));
+      cable.push(pose(onWall(s, 0, TRAY.out + (n / (CABLES.length - 1) - 0.5) * (TRAY.w - 0.14), y + 0.05), turn));
       cableColors.push(c);
     });
   });
@@ -879,12 +793,12 @@ function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         turn = facing(s),
         count = rng.randi(3, 5);
       for (let n = 0; n < count; n++) {
-        strand.push(at(onWall(s, off + n * BUNDLE.pitch, BUNDLE.out, WALL_H / 2), turn));
+        strand.push(pose(onWall(s, off + n * BUNDLE.pitch, BUNDLE.out, WALL_H / 2), turn));
         strandColors.push(rng.pick(CABLES));
       }
       for (const y of BUNDLE.ties)
         tie.push(
-          at(
+          pose(
             onWall(s, off + ((count - 1) * BUNDLE.pitch) / 2, BUNDLE.out, y),
             turn,
             new THREE.Vector3(count * BUNDLE.pitch + 0.08, 1, 1),
@@ -903,10 +817,10 @@ function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     .forEach(s => {
       const off = rng.rand(-1.2, 1.2),
         turn = facing(s);
-      unit.push(at(onWall(s, off, 0.04, STATUS_Y), turn));
+      unit.push(pose(onWall(s, off, 0.04, STATUS_Y), turn));
       STATUS_LAMPS.forEach((c, n) => {
         if (rng.next() < 0.3) return; // out
-        lamp.push(at(onWall(s, off + (n - 1) * 0.13, 0.09, STATUS_Y), turn));
+        lamp.push(pose(onWall(s, off + (n - 1) * 0.13, 0.09, STATUS_Y), turn));
         lampColors.push(c);
       });
     });
@@ -921,23 +835,16 @@ function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-1, 1),
       turn = facing(s),
       p = onWall(s, off, 0.11, EMERGENCY_Y);
-    box.push(at(onWall(s, off, 0.05, EMERGENCY_Y), turn));
-    lens.push(at(p, turn));
-    glow.push(at(onWall(s, off, 0.03, EMERGENCY_Y), turn));
+    box.push(pose(onWall(s, off, 0.05, EMERGENCY_Y), turn));
+    lens.push(pose(p, turn));
+    glow.push(pose(onWall(s, off, 0.03, EMERGENCY_Y), turn));
     lights.push({ x: p.x, z: p.z, color: EMERGENCY_COLOR, size: 0.5 });
   });
   add(new THREE.BoxGeometry(0.6, 0.3, 0.1), housing, box);
   add(new THREE.BoxGeometry(0.46, 0.16, 0.14), new THREE.MeshBasicMaterial({ color: EMERGENCY_COLOR }), lens);
   add(
     new THREE.PlaneGeometry(WALL_GLOW.size, WALL_GLOW.size),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      color: EMERGENCY_COLOR,
-      transparent: true,
-      opacity: WALL_GLOW.opacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
+    lightMat(poolTex(), WALL_GLOW.opacity, EMERGENCY_COLOR),
     glow,
   );
 
@@ -957,12 +864,12 @@ function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         turn = rng.pick([0, Math.PI / 2]);
       lights.push({ x, z, color: c, size: 1 });
       if (plan.hall && s.room === plan.hall.room) return;
-      fitting.push(at(new THREE.Vector3(x, WALL_H - 0.03, z), turn));
-      halo.push(at(new THREE.Vector3(x, WALL_H - 0.01, z)));
+      fitting.push(pose(new THREE.Vector3(x, WALL_H - 0.03, z), turn));
+      halo.push(pose(new THREE.Vector3(x, WALL_H - 0.01, z)));
       haloColors.push(c);
       for (const side of [-1, 1]) {
         const out = new THREE.Vector3(0, 0, side * 0.1).applyAxisAngle(up, turn);
-        tube.push(at(new THREE.Vector3(x + out.x, WALL_H - TUBE.drop, z + out.z), turn));
+        tube.push(pose(new THREE.Vector3(x + out.x, WALL_H - TUBE.drop, z + out.z), turn));
         tubeColors.push(c);
       }
     });
@@ -970,30 +877,13 @@ function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   add(new THREE.BoxGeometry(TUBE.len, 0.06, 0.08), tinted, tube, tubeColors);
   add(
     new THREE.PlaneGeometry(CEILING_GLOW.size, CEILING_GLOW.size).rotateX(Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      transparent: true,
-      opacity: CEILING_GLOW.opacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
+    lightMat(poolTex(), CEILING_GLOW.opacity),
     halo,
     haloColors,
   );
 
   // the light the lamps throw on the ground: a soft pool of their colour
-  add(
-    new THREE.PlaneGeometry(LAMP_POOL, LAMP_POOL).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({
-      map: shared.pool,
-      transparent: true,
-      opacity: POOL_OPACITY,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-    lights.map(l => at(new THREE.Vector3(l.x, 0.05, l.z), 0, new THREE.Vector3(l.size, 1, l.size))),
-    lights.map(l => l.color),
-  );
+  pools(lights, POOL_OPACITY);
 }
 
 // the discarded data layer's look (world/looks.ts makes it the first time the sector is drawn)
