@@ -65,7 +65,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc'>
         slamMove: 7,
         slamWave: [12, 24, 1.5],
         secondDelay: 0.45,
-        secondWave: [9, 24, 1.5],
+        secondWave: [6, 24, 1.5],
         afterSlam: 1.3,
         volleyN: 6,
         volleyNEnr: 9,
