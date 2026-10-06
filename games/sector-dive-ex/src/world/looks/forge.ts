@@ -29,10 +29,6 @@ import type { Light } from './props.ts';
 // ---- tuning numbers used only here ----
 const POOL_OPACITY = 0.5; // the light a lamp throws on the ground (paler than the molten floor, which must stand out)
 const WALL_GLOW = { size: 3.4, opacity: 0.5 }; // the light a wall lamp throws on its wall (m)
-// the wall pictures: 0 riveted iron plate, 1 firebrick, 2 warning plates, 3 a furnace hatch, 4 a switchboard on
-// corrugated sheet, 5 the safety board, 6 bare corrugated sheet
-const FORGE_WALLS = 7;
-const WALL_SHEET = 6;
 const FORGE_FLOORS = 4; // 0 bare concrete, 1 a chequer-plate cover, 2 oil and soot, 3 a grating
 const SAFETY_YELLOW = '#d6a419';
 const STRIPE_BLACK = '#1b1714';
@@ -171,147 +167,170 @@ function wordPlate(
   g.fillRect(x, y + h - 3, w * 0.3, 3);
   g.fillRect(x + w - 5, y, 5, h * 0.35);
 }
+// a warning triangle and the plate under it at eye height, a striped band low down
+const warningPlates: Paint = g => {
+  const cx = TEX * 0.5,
+    top = rowOf(2.75),
+    foot = rowOf(1.95);
+  g.fillStyle = STRIPE_BLACK;
+  g.beginPath();
+  g.moveTo(cx, top - 3);
+  g.lineTo(cx + 32, foot + 2);
+  g.lineTo(cx - 32, foot + 2);
+  g.fill();
+  g.fillStyle = SAFETY_YELLOW;
+  g.beginPath();
+  g.moveTo(cx, top + 4);
+  g.lineTo(cx + 25, foot - 1.5);
+  g.lineTo(cx - 25, foot - 1.5);
+  g.fill();
+  g.fillStyle = STRIPE_BLACK;
+  g.fillRect(cx - 2.5, top + 13, 5, 11);
+  oval(g, cx, foot - 5.5, 3, 3 * WALL_ASPECT);
+  wordPlate(g, [cx - 58, rowOf(1.85), 116, 24], SAFETY_YELLOW, STRIPE_BLACK, FORGE_PLATE_HEAT);
+  warning(g, [0, rowOf(0.95), TEX, 13], 22);
+};
+// a cast iron hatch in the brickwork, the fire showing through its spy hole and round its edge
+const furnaceHatch: Paint = g => {
+  const x = 70,
+    w = TEX - 140,
+    y = rowOf(2.5),
+    h = rowOf(0.9) - y,
+    cx = TEX / 2,
+    cy = y + h * 0.42;
+  g.globalCompositeOperation = 'lighter';
+  const wash = g.createRadialGradient(cx, cy, 20, cx, cy, 120);
+  wash.addColorStop(0, 'rgba(255,120,40,.5)');
+  wash.addColorStop(1, 'rgba(255,120,40,0)');
+  g.fillStyle = wash;
+  g.fillRect(0, 0, TEX, TEX);
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = '#ffb057'; // the gap round the hatch
+  g.fillRect(x - 3, y - 2, w + 6, h + 4);
+  const plate = g.createLinearGradient(0, y, 0, y + h);
+  plate.addColorStop(0, '#3a3431');
+  plate.addColorStop(1, '#2a2523');
+  g.fillStyle = plate;
+  g.fillRect(x, y, w, h);
+  g.fillStyle = 'rgba(255,225,200,.12)';
+  g.fillRect(x, y, w, 2);
+  g.strokeStyle = 'rgba(0,0,0,.5)';
+  g.lineWidth = 2;
+  g.strokeRect(x + 8, y + 5, w - 16, h - 10);
+  for (const [rx, ry] of [
+    [x + 5, y + 4],
+    [x + w - 5, y + 4],
+    [x + 5, y + h - 4],
+    [x + w - 5, y + h - 4],
+    [cx, y + 4],
+    [cx, y + h - 4],
+  ] as [number, number][])
+    rivet(g, rx, ry, WALL_ASPECT, 2.4);
+  // the spy hole: white hot in the middle
+  const fire = g.createRadialGradient(cx, cy, 1, cx, cy, 20);
+  fire.addColorStop(0, '#fff3cf');
+  fire.addColorStop(0.45, '#ffb24c');
+  fire.addColorStop(1, '#d9480f');
+  g.fillStyle = STRIPE_BLACK;
+  oval(g, cx, cy, 24, 24 * WALL_ASPECT);
+  g.fillStyle = fire;
+  oval(g, cx, cy, 18, 18 * WALL_ASPECT);
+  g.fillStyle = STRIPE_BLACK;
+  g.fillRect(cx - 18, cy - 1, 36, 2);
+  // hinges on one side, a latch bar on the other
+  g.fillStyle = '#211d1b';
+  g.fillRect(x - 9, y + 6, 16, 6);
+  g.fillRect(x - 9, y + h - 12, 16, 6);
+  g.fillRect(x + w - 22, cy + 14, 30, 5);
+};
+// corrugated sheet, a rail across it
+const corrugated = (g: CanvasRenderingContext2D) => {
+  for (let x = 0; x < TEX; x += 8) {
+    g.fillStyle = 'rgba(0,0,0,.26)';
+    g.fillRect(x, 0, 3, TEX);
+    g.fillStyle = 'rgba(255,232,210,.09)';
+    g.fillRect(x + 4, 0, 2, TEX);
+  }
+  seam(g, 0, rowOf(3.4), TEX, false, WALL_ASPECT);
+};
+// a switchboard with its gauges and lamps, a conduit up to the roof
+const switchboard: Paint = (g, rand) => {
+  const x = 78,
+    w = 100,
+    y = rowOf(2.6),
+    h = rowOf(1.0) - y;
+  g.fillStyle = '#2b2725';
+  g.fillRect(x + w / 2 - 5, 0, 10, y);
+  g.fillStyle = 'rgba(0,0,0,.5)';
+  g.fillRect(x + 3, y + 3, w, h);
+  g.fillStyle = '#5c675f';
+  g.fillRect(x, y, w, h);
+  g.fillStyle = 'rgba(255,255,255,.14)';
+  g.fillRect(x, y, w, 2);
+  g.strokeStyle = 'rgba(0,0,0,.45)';
+  g.lineWidth = 2;
+  g.strokeRect(x + 5, y + 4, w - 10, h - 8);
+  for (const gx of [x + 28, x + w - 28]) {
+    g.fillStyle = '#181513';
+    oval(g, gx, y + 20, 16, 16 * WALL_ASPECT);
+    g.fillStyle = '#d9d2c0';
+    oval(g, gx, y + 20, 13, 13 * WALL_ASPECT);
+    g.strokeStyle = '#8c1f14';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(gx, y + 20);
+    g.lineTo(gx + 7 - rand() * 14, y + 14);
+    g.stroke();
+  }
+  ['#e0452b', '#e9a23b', '#6fcf6a'].forEach((c, n) => {
+    g.fillStyle = '#181513';
+    oval(g, x + 26 + n * 24, y + 42, 6, 6 * WALL_ASPECT);
+    g.fillStyle = c;
+    oval(g, x + 26 + n * 24, y + 42, 4.2, 4.2 * WALL_ASPECT);
+  });
+  g.fillStyle = '#2b2725';
+  for (let n = 0; n < 4; n++) g.fillRect(x + 16 + n * 19, y + 52, 10, 8);
+};
+// the works' safety board: a green cross and the words
+const safetyBoard: Paint = g => {
+  const x = 38,
+    w = TEX - 76,
+    y = rowOf(3.1),
+    h = 32;
+  wordPlate(g, [x, y, w, h], '#ddd6c2', '#1f6a3c', FORGE_PLATE_SAFETY, 34);
+  g.fillStyle = '#1f6a3c';
+  g.fillRect(x + 18, y + 7, 8, h - 14);
+  g.fillRect(x + 9, y + h / 2 - 2.7, 26, 5.4);
+  g.fillStyle = 'rgba(20,14,10,.22)';
+  g.fillRect(x, y, w, h);
+};
+// The wall pictures: what each wall is made of (iron plate, bare or with riveted plating over it; firebrick;
+// corrugated sheet) and what is on it. The first is the plainest and comes up most (variantOf)
+interface ForgeWall {
+  made: 'iron' | 'plated' | 'brick' | 'sheet';
+  on?: Paint;
+  soot?: number; // how many streaks of soot (8 when not given)
+}
+const FORGE_WALL_PICS: ForgeWall[] = [
+  { made: 'plated', soot: 12 }, // riveted iron plate
+  { made: 'brick' },
+  { made: 'plated', on: warningPlates },
+  { made: 'brick', on: furnaceHatch },
+  { made: 'sheet', on: switchboard },
+  { made: 'plated', on: safetyBoard },
+  { made: 'sheet' }, // (WALL_SHEET)
+];
+const WALL_SHEET = 6;
+const BARE_WALLS = [0, 1, WALL_SHEET]; // the walls with nothing on them
 const forgeWall =
-  (variant: number): Paint =>
+  (pic: ForgeWall): Paint =>
   (g, rand) => {
-    if (variant === 1 || variant === 3) firebrick(g, rand);
+    if (pic.made === 'brick') firebrick(g, rand);
     else iron(g, rand);
-    if (variant === 0 || variant === 2 || variant === 5) plating(g);
-    if (variant === 2) {
-      // a warning triangle and the plate under it at eye height, a striped band low down
-      const cx = TEX * 0.5,
-        top = rowOf(2.75),
-        foot = rowOf(1.95);
-      g.fillStyle = STRIPE_BLACK;
-      g.beginPath();
-      g.moveTo(cx, top - 3);
-      g.lineTo(cx + 32, foot + 2);
-      g.lineTo(cx - 32, foot + 2);
-      g.fill();
-      g.fillStyle = SAFETY_YELLOW;
-      g.beginPath();
-      g.moveTo(cx, top + 4);
-      g.lineTo(cx + 25, foot - 1.5);
-      g.lineTo(cx - 25, foot - 1.5);
-      g.fill();
-      g.fillStyle = STRIPE_BLACK;
-      g.fillRect(cx - 2.5, top + 13, 5, 11);
-      oval(g, cx, foot - 5.5, 3, 3 * WALL_ASPECT);
-      wordPlate(g, [cx - 58, rowOf(1.85), 116, 24], SAFETY_YELLOW, STRIPE_BLACK, FORGE_PLATE_HEAT);
-      warning(g, [0, rowOf(0.95), TEX, 13], 22);
-    } else if (variant === 3) {
-      // a cast iron hatch in the brickwork, the fire showing through its spy hole and round its edge
-      const x = 70,
-        w = TEX - 140,
-        y = rowOf(2.5),
-        h = rowOf(0.9) - y,
-        cx = TEX / 2,
-        cy = y + h * 0.42;
-      g.globalCompositeOperation = 'lighter';
-      const wash = g.createRadialGradient(cx, cy, 20, cx, cy, 120);
-      wash.addColorStop(0, 'rgba(255,120,40,.5)');
-      wash.addColorStop(1, 'rgba(255,120,40,0)');
-      g.fillStyle = wash;
-      g.fillRect(0, 0, TEX, TEX);
-      g.globalCompositeOperation = 'source-over';
-      g.fillStyle = '#ffb057'; // the gap round the hatch
-      g.fillRect(x - 3, y - 2, w + 6, h + 4);
-      const plate = g.createLinearGradient(0, y, 0, y + h);
-      plate.addColorStop(0, '#3a3431');
-      plate.addColorStop(1, '#2a2523');
-      g.fillStyle = plate;
-      g.fillRect(x, y, w, h);
-      g.fillStyle = 'rgba(255,225,200,.12)';
-      g.fillRect(x, y, w, 2);
-      g.strokeStyle = 'rgba(0,0,0,.5)';
-      g.lineWidth = 2;
-      g.strokeRect(x + 8, y + 5, w - 16, h - 10);
-      for (const [rx, ry] of [
-        [x + 5, y + 4],
-        [x + w - 5, y + 4],
-        [x + 5, y + h - 4],
-        [x + w - 5, y + h - 4],
-        [cx, y + 4],
-        [cx, y + h - 4],
-      ] as [number, number][])
-        rivet(g, rx, ry, WALL_ASPECT, 2.4);
-      // the spy hole: white hot in the middle
-      const fire = g.createRadialGradient(cx, cy, 1, cx, cy, 20);
-      fire.addColorStop(0, '#fff3cf');
-      fire.addColorStop(0.45, '#ffb24c');
-      fire.addColorStop(1, '#d9480f');
-      g.fillStyle = STRIPE_BLACK;
-      oval(g, cx, cy, 24, 24 * WALL_ASPECT);
-      g.fillStyle = fire;
-      oval(g, cx, cy, 18, 18 * WALL_ASPECT);
-      g.fillStyle = STRIPE_BLACK;
-      g.fillRect(cx - 18, cy - 1, 36, 2);
-      // hinges on one side, a latch bar on the other
-      g.fillStyle = '#211d1b';
-      g.fillRect(x - 9, y + 6, 16, 6);
-      g.fillRect(x - 9, y + h - 12, 16, 6);
-      g.fillRect(x + w - 22, cy + 14, 30, 5);
-    } else if (variant === 4 || variant === WALL_SHEET) {
-      // corrugated sheet, a rail across it
-      for (let x = 0; x < TEX; x += 8) {
-        g.fillStyle = 'rgba(0,0,0,.26)';
-        g.fillRect(x, 0, 3, TEX);
-        g.fillStyle = 'rgba(255,232,210,.09)';
-        g.fillRect(x + 4, 0, 2, TEX);
-      }
-      seam(g, 0, rowOf(3.4), TEX, false, WALL_ASPECT);
-    }
-    if (variant === 4) {
-      // a switchboard with its gauges and lamps, a conduit up to the roof
-      const x = 78,
-        w = 100,
-        y = rowOf(2.6),
-        h = rowOf(1.0) - y;
-      g.fillStyle = '#2b2725';
-      g.fillRect(x + w / 2 - 5, 0, 10, y);
-      g.fillStyle = 'rgba(0,0,0,.5)';
-      g.fillRect(x + 3, y + 3, w, h);
-      g.fillStyle = '#5c675f';
-      g.fillRect(x, y, w, h);
-      g.fillStyle = 'rgba(255,255,255,.14)';
-      g.fillRect(x, y, w, 2);
-      g.strokeStyle = 'rgba(0,0,0,.45)';
-      g.lineWidth = 2;
-      g.strokeRect(x + 5, y + 4, w - 10, h - 8);
-      for (const gx of [x + 28, x + w - 28]) {
-        g.fillStyle = '#181513';
-        oval(g, gx, y + 20, 16, 16 * WALL_ASPECT);
-        g.fillStyle = '#d9d2c0';
-        oval(g, gx, y + 20, 13, 13 * WALL_ASPECT);
-        g.strokeStyle = '#8c1f14';
-        g.lineWidth = 1.5;
-        g.beginPath();
-        g.moveTo(gx, y + 20);
-        g.lineTo(gx + 7 - rand() * 14, y + 14);
-        g.stroke();
-      }
-      ['#e0452b', '#e9a23b', '#6fcf6a'].forEach((c, n) => {
-        g.fillStyle = '#181513';
-        oval(g, x + 26 + n * 24, y + 42, 6, 6 * WALL_ASPECT);
-        g.fillStyle = c;
-        oval(g, x + 26 + n * 24, y + 42, 4.2, 4.2 * WALL_ASPECT);
-      });
-      g.fillStyle = '#2b2725';
-      for (let n = 0; n < 4; n++) g.fillRect(x + 16 + n * 19, y + 52, 10, 8);
-    } else if (variant === 5) {
-      // the works' safety board: a green cross and the words
-      const x = 38,
-        w = TEX - 76,
-        y = rowOf(3.1),
-        h = 32;
-      wordPlate(g, [x, y, w, h], '#ddd6c2', '#1f6a3c', FORGE_PLATE_SAFETY, 34);
-      g.fillStyle = '#1f6a3c';
-      g.fillRect(x + 18, y + 7, 8, h - 14);
-      g.fillRect(x + 9, y + h / 2 - 2.7, 26, 5.4);
-      g.fillStyle = 'rgba(20,14,10,.22)';
-      g.fillRect(x, y, w, h);
-    }
-    soot(g, rand, variant === 0 ? 12 : 8);
+    if (pic.made === 'plated') plating(g);
+    if (pic.made === 'sheet') corrugated(g);
+    pic.on?.(g, rand);
+    soot(g, rand, pic.soot ?? 8);
     heat(g);
     grain(g, rand, 20);
   };
@@ -670,7 +689,7 @@ function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // risers: a pipe up the wall with flanges and a red valve wheel, a thin pipe beside it. Only on the plainer walls
   // (the hatches, plates and boards stay clear)
   const risers = of('riser').filter(s =>
-      [0, 1, WALL_SHEET].includes(variantOf(wallOf(s), FORGE_WALLS, WALL_PLAIN_SHARE)),
+      BARE_WALLS.includes(variantOf(wallOf(s), FORGE_WALL_PICS.length, WALL_PLAIN_SHARE)),
     ),
     pipe: THREE.Matrix4[] = [],
     thin: THREE.Matrix4[] = [],
@@ -808,7 +827,7 @@ const forgeHazardGlow: Paint = (g, rand) => {
 // the smelter block's look (world/looks.ts makes it the first time the sector is drawn)
 export function forgeLook(): Look {
   return {
-    walls: Array.from({ length: FORGE_WALLS }, (_, v) => paint(600 + v, forgeWall(v))),
+    walls: FORGE_WALL_PICS.map((pic, v) => paint(600 + v, forgeWall(pic))),
     floors: Array.from({ length: FORGE_FLOORS }, (_, v) => paint(700, forgeFloor(v))),
     deck: paint(800, forgeDeck),
     ceiling: paint(900, forgeCeiling),

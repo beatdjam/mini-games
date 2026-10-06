@@ -32,11 +32,8 @@ import { LAMP_POOL, facing, lightMat, onWall, pose, propTools } from './props.ts
 // ---- tuning numbers used only here ----
 const POOL_OPACITY = 0.26; // the light a ceiling lamp throws on the floor (soft: the room is seen from far away)
 const SUN_OPACITY = 0.42; // the sunlight a window throws on the floor
-// the wall pictures: 0 plain panels, 1 cloth panels, 2 panels with a vent and a switch, 3 a window with its blind
-// down, 4 a window with the blind part raised, 5 a frosted glass partition, 6 a notice board, 7 an emergency exit,
-// 8 stone facing, 9 a vending machine, 10 filing cabinets, 11 a whiteboard, 12 a pilaster (the casing of a column)
-// (thirteen of them: with twelve, variantOf gives every second tile along a row the same picture)
-const CITY_WALLS = 13;
+// (the wall pictures by number: CITY_WALL_PICS)
+const WALL_CLOTH = 1;
 const WALL_BLIND = 3;
 const WALL_BLIND_RAISED = 4;
 const PLAIN_WALLS = [0, 1, 2]; // the walls that take a clock, a board or an extinguisher
@@ -222,306 +219,331 @@ function sheet(g: CanvasRenderingContext2D, rand: () => number, w: number, h: nu
     g.fillRect(-w / 2 + 2, ly, (w - 4) * (0.5 + rand() * 0.5), 0.8);
 }
 const PAPERS = ['#cfc9b8', '#d6cfae', '#b9c4c6', '#cdb9b0', '#c2c9b0'];
-const cityWall =
-  (variant: number): Paint =>
-  (g, rand) => {
-    panels(g, rand, variant === 1);
-    if (variant === 2) {
-      // an air grille under the ceiling, a switch plate and a thermostat by the panel joint
-      const y = rowOf(5.15);
-      box(g, 92, y, 72, 19, '#6f6a5f');
-      g.fillStyle = 'rgba(20,16,12,.6)';
-      for (let sy = y + 3; sy < y + 17; sy += 3.2) g.fillRect(96, sy, 64, 1.6);
-      box(g, 198, rowOf(1.45), 12, 8, '#c4bca6');
-      g.fillStyle = 'rgba(60,54,44,.7)';
-      g.fillRect(200.5, rowOf(1.45) + 2, 3, 4);
-      g.fillRect(205, rowOf(1.45) + 2, 3, 4);
-      box(g, 174, rowOf(1.5), 11, 9, '#b8b2a2');
-    } else if (variant === WALL_BLIND || variant === WALL_BLIND_RAISED) {
-      blindWindow(g, rand, variant === WALL_BLIND_RAISED ? 0.3 : 0);
-    } else if (variant === 5) {
-      // a partition of frosted glass in an aluminium frame, a room in the last of the sun behind it
-      const y = rowOf(4.6),
-        foot = rowOf(0.95),
-        h = foot - y;
-      g.fillStyle = FRAME;
-      g.fillRect(0, y - 4, TEX, rowOf(0.2) - y + 4);
-      box(g, 4, foot + 3, TEX - 8, rowOf(0.2) - foot - 4, '#7c776b');
-      for (let p = 0; p < 3; p++) {
-        const x = 5 + p * 83,
-          w = 80;
-        const glass = g.createLinearGradient(0, y, 0, foot);
-        glass.addColorStop(0, '#8d9388');
-        glass.addColorStop(0.55, '#a3a595');
-        glass.addColorStop(1, '#8a8a7b');
-        g.fillStyle = glass;
-        g.fillRect(x, y, w, h);
-        // what stands behind the glass: only its shape, soft
-        g.save();
-        g.beginPath();
-        g.rect(x, y, w, h);
-        g.clip();
-        for (let k = 0; k < 3; k++) {
-          const sw = 18 + rand() * 30,
-            sh = 14 + rand() * 34;
-          g.fillStyle = 'rgba(58,50,40,.16)';
-          for (let b = 0; b < 4; b++) g.fillRect(x + rand() * (w - sw) - b, foot - sh - b, sw + b * 2, sh + b);
-        }
-        g.restore();
-        g.fillStyle = 'rgba(255,255,244,.14)'; // a band left clear, at eye height
-        for (let b = 0; b < 4; b++) g.fillRect(x, rowOf(1.75) + b * 2.4, w, 1);
-      }
-      warm(g, TEX * 0.6, y + h * 0.45, 120, 0.22);
-    } else if (variant === 6) {
-      // a notice board: cork in a frame, sheets pinned to it at all angles
-      const x = 40,
-        w = TEX - 80,
-        y = rowOf(3.0),
-        h = rowOf(1.25) - y;
-      box(g, x - 4, y - 3, w + 8, h + 6, FRAME);
-      g.fillStyle = '#93744d';
-      g.fillRect(x, y, w, h);
-      for (let k = 0; k < 220; k++) {
-        g.fillStyle = rand() < 0.5 ? 'rgba(60,40,20,.25)' : 'rgba(190,160,110,.25)';
-        g.fillRect(x + rand() * w, y + rand() * h, 1.5, 1);
-      }
+// an air grille under the ceiling, a switch plate and a thermostat by the panel joint
+const ventAndSwitch: Paint = g => {
+  const y = rowOf(5.15);
+  box(g, 92, y, 72, 19, '#6f6a5f');
+  g.fillStyle = 'rgba(20,16,12,.6)';
+  for (let sy = y + 3; sy < y + 17; sy += 3.2) g.fillRect(96, sy, 64, 1.6);
+  box(g, 198, rowOf(1.45), 12, 8, '#c4bca6');
+  g.fillStyle = 'rgba(60,54,44,.7)';
+  g.fillRect(200.5, rowOf(1.45) + 2, 3, 4);
+  g.fillRect(205, rowOf(1.45) + 2, 3, 4);
+  box(g, 174, rowOf(1.5), 11, 9, '#b8b2a2');
+};
+// a partition of frosted glass in an aluminium frame, a room in the last of the sun behind it
+const glassPartition: Paint = (g, rand) => {
+  const y = rowOf(4.6),
+    foot = rowOf(0.95),
+    h = foot - y;
+  g.fillStyle = FRAME;
+  g.fillRect(0, y - 4, TEX, rowOf(0.2) - y + 4);
+  box(g, 4, foot + 3, TEX - 8, rowOf(0.2) - foot - 4, '#7c776b');
+  for (let p = 0; p < 3; p++) {
+    const x = 5 + p * 83,
+      w = 80;
+    const glass = g.createLinearGradient(0, y, 0, foot);
+    glass.addColorStop(0, '#8d9388');
+    glass.addColorStop(0.55, '#a3a595');
+    glass.addColorStop(1, '#8a8a7b');
+    g.fillStyle = glass;
+    g.fillRect(x, y, w, h);
+    // what stands behind the glass: only its shape, soft
+    g.save();
+    g.beginPath();
+    g.rect(x, y, w, h);
+    g.clip();
+    for (let k = 0; k < 3; k++) {
+      const sw = 18 + rand() * 30,
+        sh = 14 + rand() * 34;
+      g.fillStyle = 'rgba(58,50,40,.16)';
+      for (let b = 0; b < 4; b++) g.fillRect(x + rand() * (w - sw) - b, foot - sh - b, sw + b * 2, sh + b);
+    }
+    g.restore();
+    g.fillStyle = 'rgba(255,255,244,.14)'; // a band left clear, at eye height
+    for (let b = 0; b < 4; b++) g.fillRect(x, rowOf(1.75) + b * 2.4, w, 1);
+  }
+  warm(g, TEX * 0.6, y + h * 0.45, 120, 0.22);
+};
+// a notice board: cork in a frame, sheets pinned to it at all angles
+const noticeBoard: Paint = (g, rand) => {
+  const x = 40,
+    w = TEX - 80,
+    y = rowOf(3.0),
+    h = rowOf(1.25) - y;
+  box(g, x - 4, y - 3, w + 8, h + 6, FRAME);
+  g.fillStyle = '#93744d';
+  g.fillRect(x, y, w, h);
+  for (let k = 0; k < 220; k++) {
+    g.fillStyle = rand() < 0.5 ? 'rgba(60,40,20,.25)' : 'rgba(190,160,110,.25)';
+    g.fillRect(x + rand() * w, y + rand() * h, 1.5, 1);
+  }
+  g.save();
+  g.beginPath();
+  g.rect(x, y, w, h);
+  g.clip();
+  for (let k = 0; k < 9; k++) {
+    const px = x + 18 + (k % 5) * 35 + rand() * 8,
+      py = y + (k < 5 ? h * 0.3 : h * 0.72) + (rand() - 0.5) * 8;
+    g.save();
+    g.translate(px, py);
+    g.rotate((rand() - 0.5) * 0.3);
+    sheet(g, rand, 24 + rand() * 8, 22 + rand() * 6, PAPERS[Math.floor(rand() * PAPERS.length)]!);
+    g.fillStyle = rand() < 0.5 ? '#a53a2c' : '#3d5f8a';
+    oval(g, 0, -9, 1.5, 1.5 * WALL_ASPECT);
+    g.restore();
+  }
+  g.restore();
+};
+// an emergency exit: a flush steel door with a push bar, the green sign over it
+const emergencyExit: Paint = g => {
+  const x = 86,
+    w = 84,
+    y = rowOf(2.2),
+    foot = rowOf(0.02);
+  g.fillStyle = FRAME;
+  g.fillRect(x - 5, y - 4, w + 10, foot - y + 4);
+  const steel = g.createLinearGradient(x, 0, x + w, 0);
+  steel.addColorStop(0, '#7d8479');
+  steel.addColorStop(0.5, '#8d9488');
+  steel.addColorStop(1, '#757c72');
+  g.fillStyle = steel;
+  g.fillRect(x, y, w, foot - y);
+  g.fillStyle = 'rgba(20,18,14,.3)';
+  g.fillRect(x, foot - 9, w, 9);
+  g.fillStyle = '#3f3e39';
+  g.fillRect(x + 8, rowOf(1.05), w - 16, 3.5);
+  g.fillStyle = 'rgba(255,255,240,.3)';
+  g.fillRect(x + 8, rowOf(1.05), w - 16, 1);
+  g.fillStyle = '#4c5a58'; // a small wired pane
+  g.fillRect(x + w / 2 - 9, rowOf(1.85), 18, 16);
+  const sy = rowOf(2.85),
+    sh = rowOf(2.4) - sy,
+    sx = 80;
+  warm(g, TEX / 2, sy + sh / 2, 40, 0.1);
+  box(g, sx, sy, 96, sh, '#d5d8c8');
+  g.fillStyle = EXIT_GREEN;
+  g.fillRect(sx + 2, sy + 2, 26, sh - 4);
+  // the running figure, white on green
+  g.strokeStyle = '#e9eede';
+  g.fillStyle = '#e9eede';
+  g.lineWidth = 2;
+  g.lineCap = 'round';
+  g.save();
+  g.translate(sx + 15, sy + sh / 2);
+  g.scale(1, WALL_ASPECT);
+  oval(g, 2, -9, 2.6, 2.6);
+  g.beginPath();
+  g.moveTo(2, -5);
+  g.lineTo(-1, 2);
+  g.lineTo(4, 6);
+  g.lineTo(3, 11);
+  g.moveTo(-1, 2);
+  g.lineTo(-6, 5);
+  g.lineTo(-9, 10);
+  g.moveTo(1, -3);
+  g.lineTo(7, -1);
+  g.moveTo(1, -3);
+  g.lineTo(-6, -3);
+  g.stroke();
+  g.restore();
+  g.lineCap = 'butt';
+  g.fillStyle = EXIT_GREEN;
+  words(g, CITY_EXIT, sx + 62, sy + sh / 2 + 0.5, 20, WALL_ASPECT, SIGN_FONT, 60);
+};
+// stone facing, as round the lifts: slabs with their veins, a dark plinth
+const stoneFacing: Paint = (g, rand) => {
+  const foot = rowOf(0.3);
+  for (let r = 0; r < 4; r++)
+    for (let c = 0; c < 2; c++) {
+      const sx = c * (TEX / 2),
+        sy = (foot / 4) * r;
+      g.fillStyle = ['#8c8371', '#847b69', '#928876', '#877c68'][Math.floor(rand() * 4)]!;
+      g.fillRect(sx, sy, TEX / 2, foot / 4);
       g.save();
       g.beginPath();
-      g.rect(x, y, w, h);
+      g.rect(sx, sy, TEX / 2, foot / 4);
       g.clip();
-      for (let k = 0; k < 9; k++) {
-        const px = x + 18 + (k % 5) * 35 + rand() * 8,
-          py = y + (k < 5 ? h * 0.3 : h * 0.72) + (rand() - 0.5) * 8;
-        g.save();
-        g.translate(px, py);
-        g.rotate((rand() - 0.5) * 0.3);
-        sheet(g, rand, 24 + rand() * 8, 22 + rand() * 6, PAPERS[Math.floor(rand() * PAPERS.length)]!);
-        g.fillStyle = rand() < 0.5 ? '#a53a2c' : '#3d5f8a';
-        oval(g, 0, -9, 1.5, 1.5 * WALL_ASPECT);
-        g.restore();
-      }
-      g.restore();
-    } else if (variant === 7) {
-      // an emergency exit: a flush steel door with a push bar, the green sign over it
-      const x = 86,
-        w = 84,
-        y = rowOf(2.2),
-        foot = rowOf(0.02);
-      g.fillStyle = FRAME;
-      g.fillRect(x - 5, y - 4, w + 10, foot - y + 4);
-      const steel = g.createLinearGradient(x, 0, x + w, 0);
-      steel.addColorStop(0, '#7d8479');
-      steel.addColorStop(0.5, '#8d9488');
-      steel.addColorStop(1, '#757c72');
-      g.fillStyle = steel;
-      g.fillRect(x, y, w, foot - y);
-      g.fillStyle = 'rgba(20,18,14,.3)';
-      g.fillRect(x, foot - 9, w, 9);
-      g.fillStyle = '#3f3e39';
-      g.fillRect(x + 8, rowOf(1.05), w - 16, 3.5);
-      g.fillStyle = 'rgba(255,255,240,.3)';
-      g.fillRect(x + 8, rowOf(1.05), w - 16, 1);
-      g.fillStyle = '#4c5a58'; // a small wired pane
-      g.fillRect(x + w / 2 - 9, rowOf(1.85), 18, 16);
-      const sy = rowOf(2.85),
-        sh = rowOf(2.4) - sy,
-        sx = 80;
-      warm(g, TEX / 2, sy + sh / 2, 40, 0.1);
-      box(g, sx, sy, 96, sh, '#d5d8c8');
-      g.fillStyle = EXIT_GREEN;
-      g.fillRect(sx + 2, sy + 2, 26, sh - 4);
-      // the running figure, white on green
-      g.strokeStyle = '#e9eede';
-      g.fillStyle = '#e9eede';
-      g.lineWidth = 2;
-      g.lineCap = 'round';
-      g.save();
-      g.translate(sx + 15, sy + sh / 2);
-      g.scale(1, WALL_ASPECT);
-      oval(g, 2, -9, 2.6, 2.6);
-      g.beginPath();
-      g.moveTo(2, -5);
-      g.lineTo(-1, 2);
-      g.lineTo(4, 6);
-      g.lineTo(3, 11);
-      g.moveTo(-1, 2);
-      g.lineTo(-6, 5);
-      g.lineTo(-9, 10);
-      g.moveTo(1, -3);
-      g.lineTo(7, -1);
-      g.moveTo(1, -3);
-      g.lineTo(-6, -3);
-      g.stroke();
-      g.restore();
-      g.lineCap = 'butt';
-      g.fillStyle = EXIT_GREEN;
-      words(g, CITY_EXIT, sx + 62, sy + sh / 2 + 0.5, 20, WALL_ASPECT, SIGN_FONT, 60);
-    } else if (variant === 8) {
-      // stone facing, as round the lifts: slabs with their veins, a dark plinth
-      const foot = rowOf(0.3);
-      for (let r = 0; r < 4; r++)
-        for (let c = 0; c < 2; c++) {
-          const sx = c * (TEX / 2),
-            sy = (foot / 4) * r;
-          g.fillStyle = ['#8c8371', '#847b69', '#928876', '#877c68'][Math.floor(rand() * 4)]!;
-          g.fillRect(sx, sy, TEX / 2, foot / 4);
-          g.save();
-          g.beginPath();
-          g.rect(sx, sy, TEX / 2, foot / 4);
-          g.clip();
-          for (let v = 0; v < 5; v++) {
-            g.strokeStyle = rand() < 0.5 ? 'rgba(232,224,204,.3)' : 'rgba(84,72,58,.26)';
-            g.lineWidth = 0.6 + rand() * 1.4;
-            let vx = sx + rand() * (TEX / 2),
-              vy = sy;
-            g.beginPath();
-            g.moveTo(vx, vy);
-            while (vy < sy + foot / 4) {
-              vx += (rand() - 0.5) * 26;
-              vy += 4 + rand() * 12;
-              g.lineTo(vx, vy);
-            }
-            g.stroke();
-          }
-          g.restore();
-          g.fillStyle = 'rgba(40,32,24,.4)';
-          g.fillRect(sx, sy, TEX / 2, 1);
-          g.fillRect(sx, sy, 1, foot / 4);
-        }
-      // the polish catches the light
-      const sheen = g.createLinearGradient(0, 0, TEX, TEX * 0.6);
-      sheen.addColorStop(0.3, 'rgba(255,236,200,0)');
-      sheen.addColorStop(0.5, 'rgba(255,236,200,.14)');
-      sheen.addColorStop(0.7, 'rgba(255,236,200,0)');
-      g.fillStyle = sheen;
-      g.fillRect(0, 0, TEX, foot);
-      g.fillStyle = '#463e34';
-      g.fillRect(0, foot, TEX, TEX - foot);
-      g.fillStyle = 'rgba(255,240,215,.2)';
-      g.fillRect(0, foot, TEX, 1);
-    } else if (variant === 9) {
-      // an old vending machine, switched off, and the bin for its cans
-      const x = 70,
-        w = 86,
-        y = rowOf(1.95),
-        foot = rowOf(0.04),
-        h = foot - y;
-      box(g, x, y, w, h, '#96937f');
-      g.fillStyle = '#7e5546'; // the faded band along its top
-      g.fillRect(x, y, w, 8);
-      g.fillStyle = '#2d302c';
-      g.fillRect(x + 6, y + 12, w - 12, 34);
-      for (let r = 0; r < 2; r++)
-        for (let c = 0; c < 7; c++) {
-          g.fillStyle = ['#7c4a3c', '#4f6a78', '#87783f', '#56705a', '#84807a'][Math.floor(rand() * 5)]!;
-          g.fillRect(x + 9 + c * 10, y + 15 + r * 16, 7, 10);
-          g.fillStyle = 'rgba(214,208,190,.7)';
-          g.fillRect(x + 9 + c * 10, y + 26.5 + r * 16, 7, 2);
-        }
-      g.fillStyle = 'rgba(255,244,220,.1)'; // the glass
-      g.fillRect(x + 6, y + 12, (w - 12) * 0.4, 34);
-      g.fillStyle = '#6c6b61';
-      g.fillRect(x + w - 22, y + 50, 16, 14);
-      g.fillStyle = '#23241f';
-      g.fillRect(x + w - 18, y + 53, 8, 2);
-      g.fillRect(x + 8, y + h - 16, w - 34, 9);
-      g.fillStyle = 'rgba(30,24,18,.3)';
-      g.fillRect(x, y + h - 3, w, 3);
-      const bx = 170,
-        by = rowOf(0.85);
-      box(g, bx, by, 28, foot - by, '#5f6d70');
-      g.fillStyle = '#22272a';
-      oval(g, bx + 14, by + 8, 6, 6 * WALL_ASPECT);
-    } else if (variant === 10) {
-      // filing cabinets in a row, boxes left on top of them
-      const y = rowOf(1.9),
-        foot = rowOf(0.06),
-        h = foot - y;
-      for (let c = 0; c < 3; c++) {
-        const x = 20 + c * 72,
-          w = 70;
-        box(g, x, y, w, h, c === 1 ? '#7b8274' : '#828878');
-        if (c === 1) {
-          // two doors
-          g.fillStyle = 'rgba(20,18,14,.45)';
-          g.fillRect(x + w / 2 - 0.6, y + 3, 1.2, h - 6);
-          g.fillStyle = '#3b3c36';
-          g.fillRect(x + w / 2 - 6, y + h * 0.45, 3, 7);
-          g.fillRect(x + w / 2 + 3, y + h * 0.45, 3, 7);
-        } else
-          for (let d = 0; d < 4; d++) {
-            const dy = y + 2 + (d * (h - 4)) / 4;
-            g.fillStyle = 'rgba(20,18,14,.45)';
-            g.fillRect(x + 2, dy + (h - 4) / 4 - 1, w - 4, 1);
-            g.fillStyle = '#3b3c36';
-            g.fillRect(x + w / 2 - 9, dy + 9, 18, 2);
-            g.fillStyle = '#c9c3ae';
-            g.fillRect(x + w / 2 - 7, dy + 3.5, 14, 3.5);
-          }
-      }
-      box(g, 30, y - 13, 40, 13, '#93744f');
-      box(g, 74, y - 9, 30, 9, '#8a6c49');
-      box(g, 176, y - 15, 44, 15, '#93744f');
-      g.fillStyle = 'rgba(214,204,180,.6)';
-      g.fillRect(44, y - 9, 12, 4);
-      g.fillRect(190, y - 10, 14, 4);
-    } else if (variant === 11) {
-      // a whiteboard: what was written on it half wiped off
-      const x = 34,
-        w = TEX - 68,
-        y = rowOf(3.0),
-        h = rowOf(1.2) - y;
-      box(g, x - 3, y - 2.5, w + 6, h + 5, '#7a766c');
-      g.fillStyle = '#a3a295';
-      g.fillRect(x, y, w, h);
-      g.save();
-      g.beginPath();
-      g.rect(x, y, w, h);
-      g.clip();
-      for (let k = 0; k < 16; k++) {
-        g.strokeStyle = ['rgba(40,52,96,.4)', 'rgba(120,40,34,.36)', 'rgba(34,34,36,.4)'][k % 3]!;
-        g.lineWidth = 1;
-        let lx = x + 10 + rand() * (w - 70);
-        const ly = y + 8 + rand() * (h - 16);
+      for (let v = 0; v < 5; v++) {
+        g.strokeStyle = rand() < 0.5 ? 'rgba(232,224,204,.3)' : 'rgba(84,72,58,.26)';
+        g.lineWidth = 0.6 + rand() * 1.4;
+        let vx = sx + rand() * (TEX / 2),
+          vy = sy;
         g.beginPath();
-        g.moveTo(lx, ly);
-        for (let s = 0; s < 8; s++) {
-          lx += 3 + rand() * 6;
-          g.lineTo(lx, ly + (rand() - 0.5) * 3.5);
+        g.moveTo(vx, vy);
+        while (vy < sy + foot / 4) {
+          vx += (rand() - 0.5) * 26;
+          vy += 4 + rand() * 12;
+          g.lineTo(vx, vy);
         }
         g.stroke();
       }
-      for (let k = 0; k < 5; k++) {
-        g.fillStyle = 'rgba(172,171,158,.5)'; // where a hand has wiped
-        oval(g, x + rand() * w, y + rand() * h, 18 + rand() * 20, 5 + rand() * 6);
-      }
       g.restore();
-      box(g, x + 8, y + h + 2.5, w - 16, 3, '#6b675e');
-      g.fillStyle = '#34322e';
-      g.fillRect(x + 40, y + h + 0.5, 14, 2.5);
-    } else if (variant === 12) {
-      // the casing of a column standing a little out from the wall: lit on one side, a stone foot, a guard on its edges
-      const x = 92,
-        w = 72,
-        foot = rowOf(0.2);
-      g.fillStyle = 'rgba(20,14,8,.3)';
-      g.fillRect(x + w, 0, 7, foot);
-      const face = g.createLinearGradient(x, 0, x + w, 0);
-      face.addColorStop(0, 'rgba(255,214,150,.2)');
-      face.addColorStop(0.5, 'rgba(255,214,150,.07)');
-      face.addColorStop(1, 'rgba(20,14,8,.12)');
-      g.fillStyle = face;
-      g.fillRect(x, 0, w, foot);
-      g.fillStyle = 'rgba(255,246,226,.3)';
-      g.fillRect(x, 0, 1.2, foot);
-      g.fillStyle = 'rgba(30,22,14,.4)';
-      g.fillRect(x + w - 1.2, 0, 1.2, foot);
-      for (const gx of [x, x + w - 3]) {
-        g.fillStyle = 'rgba(120,112,98,.8)';
-        g.fillRect(gx, rowOf(1.3), 3, foot - rowOf(1.3));
-      }
-      box(g, x - 3, rowOf(0.42), w + 6, TEX - rowOf(0.42), '#4b4338');
+      g.fillStyle = 'rgba(40,32,24,.4)';
+      g.fillRect(sx, sy, TEX / 2, 1);
+      g.fillRect(sx, sy, 1, foot / 4);
     }
+  // the polish catches the light
+  const sheen = g.createLinearGradient(0, 0, TEX, TEX * 0.6);
+  sheen.addColorStop(0.3, 'rgba(255,236,200,0)');
+  sheen.addColorStop(0.5, 'rgba(255,236,200,.14)');
+  sheen.addColorStop(0.7, 'rgba(255,236,200,0)');
+  g.fillStyle = sheen;
+  g.fillRect(0, 0, TEX, foot);
+  g.fillStyle = '#463e34';
+  g.fillRect(0, foot, TEX, TEX - foot);
+  g.fillStyle = 'rgba(255,240,215,.2)';
+  g.fillRect(0, foot, TEX, 1);
+};
+// an old vending machine, switched off, and the bin for its cans
+const vendingMachine: Paint = (g, rand) => {
+  const x = 70,
+    w = 86,
+    y = rowOf(1.95),
+    foot = rowOf(0.04),
+    h = foot - y;
+  box(g, x, y, w, h, '#96937f');
+  g.fillStyle = '#7e5546'; // the faded band along its top
+  g.fillRect(x, y, w, 8);
+  g.fillStyle = '#2d302c';
+  g.fillRect(x + 6, y + 12, w - 12, 34);
+  for (let r = 0; r < 2; r++)
+    for (let c = 0; c < 7; c++) {
+      g.fillStyle = ['#7c4a3c', '#4f6a78', '#87783f', '#56705a', '#84807a'][Math.floor(rand() * 5)]!;
+      g.fillRect(x + 9 + c * 10, y + 15 + r * 16, 7, 10);
+      g.fillStyle = 'rgba(214,208,190,.7)';
+      g.fillRect(x + 9 + c * 10, y + 26.5 + r * 16, 7, 2);
+    }
+  g.fillStyle = 'rgba(255,244,220,.1)'; // the glass
+  g.fillRect(x + 6, y + 12, (w - 12) * 0.4, 34);
+  g.fillStyle = '#6c6b61';
+  g.fillRect(x + w - 22, y + 50, 16, 14);
+  g.fillStyle = '#23241f';
+  g.fillRect(x + w - 18, y + 53, 8, 2);
+  g.fillRect(x + 8, y + h - 16, w - 34, 9);
+  g.fillStyle = 'rgba(30,24,18,.3)';
+  g.fillRect(x, y + h - 3, w, 3);
+  const bx = 170,
+    by = rowOf(0.85);
+  box(g, bx, by, 28, foot - by, '#5f6d70');
+  g.fillStyle = '#22272a';
+  oval(g, bx + 14, by + 8, 6, 6 * WALL_ASPECT);
+};
+// filing cabinets in a row, boxes left on top of them
+const filingCabinets: Paint = g => {
+  const y = rowOf(1.9),
+    foot = rowOf(0.06),
+    h = foot - y;
+  for (let c = 0; c < 3; c++) {
+    const x = 20 + c * 72,
+      w = 70;
+    box(g, x, y, w, h, c === 1 ? '#7b8274' : '#828878');
+    if (c === 1) {
+      // two doors
+      g.fillStyle = 'rgba(20,18,14,.45)';
+      g.fillRect(x + w / 2 - 0.6, y + 3, 1.2, h - 6);
+      g.fillStyle = '#3b3c36';
+      g.fillRect(x + w / 2 - 6, y + h * 0.45, 3, 7);
+      g.fillRect(x + w / 2 + 3, y + h * 0.45, 3, 7);
+    } else
+      for (let d = 0; d < 4; d++) {
+        const dy = y + 2 + (d * (h - 4)) / 4;
+        g.fillStyle = 'rgba(20,18,14,.45)';
+        g.fillRect(x + 2, dy + (h - 4) / 4 - 1, w - 4, 1);
+        g.fillStyle = '#3b3c36';
+        g.fillRect(x + w / 2 - 9, dy + 9, 18, 2);
+        g.fillStyle = '#c9c3ae';
+        g.fillRect(x + w / 2 - 7, dy + 3.5, 14, 3.5);
+      }
+  }
+  box(g, 30, y - 13, 40, 13, '#93744f');
+  box(g, 74, y - 9, 30, 9, '#8a6c49');
+  box(g, 176, y - 15, 44, 15, '#93744f');
+  g.fillStyle = 'rgba(214,204,180,.6)';
+  g.fillRect(44, y - 9, 12, 4);
+  g.fillRect(190, y - 10, 14, 4);
+};
+// a whiteboard: what was written on it half wiped off
+const whiteboard: Paint = (g, rand) => {
+  const x = 34,
+    w = TEX - 68,
+    y = rowOf(3.0),
+    h = rowOf(1.2) - y;
+  box(g, x - 3, y - 2.5, w + 6, h + 5, '#7a766c');
+  g.fillStyle = '#a3a295';
+  g.fillRect(x, y, w, h);
+  g.save();
+  g.beginPath();
+  g.rect(x, y, w, h);
+  g.clip();
+  for (let k = 0; k < 16; k++) {
+    g.strokeStyle = ['rgba(40,52,96,.4)', 'rgba(120,40,34,.36)', 'rgba(34,34,36,.4)'][k % 3]!;
+    g.lineWidth = 1;
+    let lx = x + 10 + rand() * (w - 70);
+    const ly = y + 8 + rand() * (h - 16);
+    g.beginPath();
+    g.moveTo(lx, ly);
+    for (let s = 0; s < 8; s++) {
+      lx += 3 + rand() * 6;
+      g.lineTo(lx, ly + (rand() - 0.5) * 3.5);
+    }
+    g.stroke();
+  }
+  for (let k = 0; k < 5; k++) {
+    g.fillStyle = 'rgba(172,171,158,.5)'; // where a hand has wiped
+    oval(g, x + rand() * w, y + rand() * h, 18 + rand() * 20, 5 + rand() * 6);
+  }
+  g.restore();
+  box(g, x + 8, y + h + 2.5, w - 16, 3, '#6b675e');
+  g.fillStyle = '#34322e';
+  g.fillRect(x + 40, y + h + 0.5, 14, 2.5);
+};
+// the casing of a column standing a little out from the wall: lit on one side, a stone foot, a guard on its edges
+const pilaster: Paint = g => {
+  const x = 92,
+    w = 72,
+    foot = rowOf(0.2);
+  g.fillStyle = 'rgba(20,14,8,.3)';
+  g.fillRect(x + w, 0, 7, foot);
+  const face = g.createLinearGradient(x, 0, x + w, 0);
+  face.addColorStop(0, 'rgba(255,214,150,.2)');
+  face.addColorStop(0.5, 'rgba(255,214,150,.07)');
+  face.addColorStop(1, 'rgba(20,14,8,.12)');
+  g.fillStyle = face;
+  g.fillRect(x, 0, w, foot);
+  g.fillStyle = 'rgba(255,246,226,.3)';
+  g.fillRect(x, 0, 1.2, foot);
+  g.fillStyle = 'rgba(30,22,14,.4)';
+  g.fillRect(x + w - 1.2, 0, 1.2, foot);
+  for (const gx of [x, x + w - 3]) {
+    g.fillStyle = 'rgba(120,112,98,.8)';
+    g.fillRect(gx, rowOf(1.3), 3, foot - rowOf(1.3));
+  }
+  box(g, x - 3, rowOf(0.42), w + 6, TEX - rowOf(0.42), '#4b4338');
+};
+// The wall pictures: what is on the panels of each (nothing on the first two; the second has cloth panels). The first
+// is the plainest and comes up most (variantOf).
+// (thirteen of them: with twelve, variantOf gives every second tile along a row the same picture)
+const CITY_WALL_PICS: (Paint | null)[] = [
+  null, // plain panels
+  null, // cloth panels (WALL_CLOTH)
+  ventAndSwitch,
+  (g, rand) => blindWindow(g, rand, 0), // a window with its blind down (WALL_BLIND)
+  (g, rand) => blindWindow(g, rand, 0.3), // ... with the blind part raised (WALL_BLIND_RAISED)
+  glassPartition,
+  noticeBoard,
+  emergencyExit,
+  stoneFacing,
+  vendingMachine,
+  filingCabinets,
+  whiteboard,
+  pilaster,
+];
+const cityWall =
+  (variant: number): Paint =>
+  (g, rand) => {
+    panels(g, rand, variant === WALL_CLOTH);
+    CITY_WALL_PICS[variant]?.(g, rand);
     grain(g, rand, 12);
   };
 
@@ -999,7 +1021,7 @@ function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tools = propTools(plan, group, CITY_PROPS, rng),
     { d, wallOf, add } = tools,
     M = d.maps;
-  const pictureOf = (wall: number) => variantOf(wall, CITY_WALLS, WALL_PLAIN_SHARE);
+  const pictureOf = (wall: number) => variantOf(wall, CITY_WALL_PICS.length, WALL_PLAIN_SHARE);
   // (the things on the walls go on the plain pictures only, clear of the windows, boards and cabinets)
   const of = (id: string) => tools.of(id).filter(s => s.kind !== 'wall' || PLAIN_WALLS.includes(pictureOf(wallOf(s))));
 
@@ -1094,7 +1116,7 @@ function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
 // the old downtown's look (world/looks.ts makes it the first time the sector is drawn)
 export function cityLook(): Look {
   return {
-    walls: Array.from({ length: CITY_WALLS }, (_, v) => paint(1100 + v, cityWall(v))),
+    walls: CITY_WALL_PICS.map((_, v) => paint(1100 + v, cityWall(v))),
     floors: Array.from({ length: CITY_FLOORS }, (_, v) => paint(1200, cityFloor(v))),
     deck: paint(1300, cityDeck),
     ceiling: paint(1400, cityCeiling),
