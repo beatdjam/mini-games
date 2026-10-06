@@ -21,6 +21,7 @@ import { V3, camera, scene } from '@engine/render/render.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
 import {
   H,
+  SIDE_STEP,
   STEP,
   T,
   W,
@@ -2765,6 +2766,39 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   expect(level.floor).toBe(0);
   expect(run.bld!.seed).not.toBe(seedWas);
   expect(run.bld!.tier).toBe(tier + 1);
+});
+test('lockdown: the room does not shut on a player still in its doorway (they could walk back out of it)', () => {
+  // runs until a building has a lockdown room (most do)
+  for (let k = 0; k < 20; k++) {
+    goBase();
+    startRun();
+    tick(2);
+    if (building!.lockdown) break;
+  }
+  const ld = building!.lockdown!;
+  goToFloor(ld.floor);
+  const world = activeTileGrid().world,
+    doors = roomDoors(building!.plans[ld.floor]!.gen, ld.room).doors,
+    locked = () => doors.some(k => isDoorLocked(world, k));
+  // the room's tile just inside one of its doors, and the way from that tile to the door
+  const door = doors[0]!,
+    [di, dj] = SIDE_STEP.find(([a, b]) => level.roomOf[door + a + b * W] === ld.room)!,
+    inside = door + di + dj * W,
+    stand = (fromDoor: number) => {
+      // (fromDoor = metres into the room from the edge of the door's tile)
+      player.x = ((door % W) + 0.5) * T + di * (T / 2 + fromDoor);
+      player.z = (Math.floor(door / W) + 0.5) * T + dj * (T / 2 + fromDoor);
+      player.fy = floorY(player.x, player.z);
+    };
+  stand(0.2);
+  tick(3);
+  expect(level.roomOf[tileIndex(player.x, player.z)], 'on a tile of the room').toBe(ld.room);
+  expect(tileIndex(player.x, player.z)).toBe(inside);
+  expect(locked(), 'not shut: the player is still in the doorway').toBe(false);
+  stand(T / 2);
+  tick(3);
+  expect(locked(), 'shut once the player is clear of the door').toBe(true);
+  goBase();
 });
 test('lockdown: the room shuts, two waves come, then it opens and leaves a chip', () => {
   // runs until a building has a lockdown room (most do)
