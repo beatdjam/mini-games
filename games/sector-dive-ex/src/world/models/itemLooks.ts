@@ -1,12 +1,12 @@
-import type { PickupKind, Weapon } from '../data/types.ts';
+import type { PickupKind, Weapon } from '../../data/types.ts';
 import * as THREE from 'three';
 import { basicMat, shared } from '@engine/render/render.ts';
-import { RARITY, WEAPONS } from '../data/weapons.ts';
-import { COLOR } from '../data/colors.ts';
-import { gunLook, hasGunLook } from '../actors/gunLooks.ts';
+import { RARITY, WEAPONS } from '../../data/weapons.ts';
+import { COLOR } from '../../data/colors.ts';
+import { gunLook, hasGunLook } from './gunLooks.ts';
 import { at, boxGeo, groundPool } from './machine.ts';
-import { TEX, grain, paint } from './looks/paint.ts';
-import type { Paint } from './looks/paint.ts';
+import { TEX, grain, paint } from '../looks/paint.ts';
+import type { Paint } from '../looks/paint.ts';
 // The things lying on the floor as what they are, to go with the sectors, the guns and the enemies: a weapon is
 // the gun itself, a kit is a medical case, a chip is a circuit board, a bit is a coin of light. Each stands over a
 // pool of light in its own colour (a weapon's is its rarity's), so it is seen from across a room on any floor.

@@ -10,8 +10,8 @@ import { damagePlayer, detonate } from './combat.ts';
 import { bossPauseTick, poseBossPool } from './bosses/common.ts';
 import { setLaser } from '../world/models.ts';
 import { COLOR } from '../data/colors.ts';
-import type { EnemyAnim } from '../world/enemyLooks.ts';
-// how a look's parts move (world/enemyLooks.ts); undefined for a plain model, which is turned by its shape instead
+import type { EnemyAnim } from '../world/models/enemyLooks.ts';
+// how a look's parts move (world/models/enemyLooks.ts); undefined for a plain model, which is turned by its shape instead
 const lookAnim = (e: RegularEnemy): EnemyAnim | undefined => e.mesh.userData.anim;
 const ROLL_RATE = 8; // a wheel's turn while it runs (rad/s)
 // the wheels roll while the machine moves; the rotors and the like whirl all the time

@@ -47,7 +47,7 @@ import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlay
 import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
 import { EYE, PLAT_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
-import { gunLook, hasGunLook } from '../src/actors/gunLooks.ts';
+import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';

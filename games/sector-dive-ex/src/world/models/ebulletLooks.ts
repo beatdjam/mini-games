@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { basicMat, dynGroup, shared } from '@engine/render/render.ts';
 import { floorY } from '@engine/world/tiles.ts';
 import { groundPool } from './machine.ts';
-import { plainLooks } from './looks.ts';
-import { geoCache } from './render.ts';
+import { plainLooks } from '../looks.ts';
+import { geoCache } from '../render.ts';
 // The enemies' bullets as tracers, to go with the guns and the player's own tracers: a white-hot streak along the
 // bullet's flight, in a glow of the bullet's colour, and a small pool of that colour on the ground under it (as
 // the enemies have): where it is and how high. The colour is light, see-through and added to what is behind it (a

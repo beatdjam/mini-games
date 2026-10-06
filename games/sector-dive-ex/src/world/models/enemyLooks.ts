@@ -1,12 +1,12 @@
-import type { EnemyDef, HumanoidRig } from '../data/types.ts';
+import type { EnemyDef, HumanoidRig } from '../../data/types.ts';
 import * as THREE from 'three';
 import { basicMat, lineMat, shared } from '@engine/render/render.ts';
-import { COLOR } from '../data/colors.ts';
-import { edges, geoCache } from './render.ts';
-import { TEX, grain, paint } from './looks/paint.ts';
-import type { Paint } from './looks/paint.ts';
+import { COLOR } from '../../data/colors.ts';
+import { edges, geoCache } from '../render.ts';
+import { TEX, grain, paint } from '../looks/paint.ts';
+import type { Paint } from '../looks/paint.ts';
 import { V, at, ballGeo, bossHullMat, boxGeo, cylGeo, groundPool, machine, piston } from './machine.ts';
-// The enemies as machines, to go with the sectors' looks (world/looks/) and the guns (actors/gunLooks.ts): each type
+// The enemies as machines, to go with the sectors' looks (world/looks/) and the guns (world/models/gunLooks.ts): each type
 // in the shape of what it is (a wheel that runs at you, a quadcopter, a sentry gun on a post ...), in painted armour
 // plate, rubber and steel. What glows is small and in the type's own colour (an eye, a lamp), so a type can still be
 // told by its colour; the whole body flashes in that colour when it is hit (the body material's emissive, as before).
@@ -450,7 +450,7 @@ export function enemyLook(def: EnemyDef): (Built & { mat: THREE.MeshLambertMater
   return { ...built, mat };
 }
 // An enemy's own body material as a machine's: hull plate that takes the light, a little of the type's colour in it
-// (more while it flashes). The same as a boss's (world/machine.ts). unmarked = without the panels and the stencilled
+// (more while it flashes). The same as a boss's (world/models/machine.ts). unmarked = without the panels and the stencilled
 // mark: for a faceted shell, where they would lie askew across the faces
 export function enemyHullMat(def: { color: number }, unmarked = false): THREE.MeshLambertMaterial {
   const m = bossHullMat(def.color);

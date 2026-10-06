@@ -1,9 +1,9 @@
 import { WEAPON_ORDER, WEAPONS } from '../data/weapons.ts';
 import { VIEWMODELS, VM_COLORS } from '../data/viewmodels.ts';
 import { buildViewmodel, gun } from '@engine/render/render.ts';
-import { gunLook, hasGunLook } from './gunLooks.ts';
+import { gunLook, hasGunLook } from '../world/models/gunLooks.ts';
 
-// the gun in hand per weapon: its own look (actors/gunLooks.ts), or the plain one from src/data/viewmodels.ts for a
+// the gun in hand per weapon: its own look (world/models/gunLooks.ts), or the plain one from src/data/viewmodels.ts for a
 // weapon without a look
 const plainGun = (id: string): THREE.Group =>
   buildViewmodel(VIEWMODELS[id]!, Object.assign({ acc: WEAPONS[id]!.color }, VM_COLORS));
