@@ -647,3 +647,36 @@ body.ui-c #toast {
   color: var(--paint);
   font-weight: 700;
 }
+/* c: the chip screen, quieter than a's. Black plates in white paint only; no stripes. Yellow means one thing here,
+   a rare chip: its frame, its name and its text. The CHIP ACQUIRED tab is a painted outline, not a yellow label */
+body.ui-c #scrPerk .eyebrow {
+  padding: 0 9px;
+  background: none;
+  border: 1px solid var(--paint2);
+  color: var(--paint);
+}
+body.ui-c .perk .pd {
+  color: var(--paint);
+}
+body.ui-c .perk .pcur {
+  color: var(--paint2);
+}
+/* (an outline, so the frame runs over the name's bar at the top too) */
+body.ui-c .perk.rare {
+  outline: 2px solid var(--safety);
+  outline-offset: -2px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+body.ui-c .perk.rare .pn {
+  padding-top: 8px;
+  background: #2b2e2f;
+  color: var(--safety);
+}
+body.ui-c .perk.rare :is(.pd, .pcur) {
+  color: var(--safety);
+}
+body.ui-c .perk.rare:is(:hover, :focus-visible) {
+  outline-width: 4px;
+  outline-offset: -4px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
