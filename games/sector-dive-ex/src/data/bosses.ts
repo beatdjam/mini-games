@@ -43,6 +43,10 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc'>
       hitR: 2.4,
       tune: {
         walk: 3.2,
+        walkFan: [3, 0.14, 14],
+        walkFireFirst: 0.5,
+        walkFire: 1.1,
+        walkFireEnr: 0.8,
         pick: [0.5, 0.8],
         tele: 0.8,
         teleEnr: 0.5,
@@ -53,6 +57,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc'>
         chargeHitR: 2.5,
         chargeDmg: 2.2,
         chargeKnock: 3,
+        chainTele: 0.6,
         stun: 1.6,
         stunMul: 1.5,
         hitWave: [11, 18, 1.4],
