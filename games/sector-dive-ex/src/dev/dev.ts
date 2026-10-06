@@ -41,9 +41,10 @@ if (new URLSearchParams(location.search).has('plain')) {
   useSparkLooks();
 }
 // dev: ?ui=a / ?ui=b puts one of the two trial looks on the HUD and the chip screen (src/dev/uiproto.css): a = bolted
-// steel nameplates, b = paint in play and paper tags on the chip screen. Without it the UI is the one in index.html
+// steel nameplates, b = paint in play and paper tags on the chip screen, c = the two put together (a's tone, b's
+// see-through HUD, a's striped boss bar). Without it the UI is the one in index.html
 const uiParam = new URLSearchParams(location.search).get('ui');
-if (uiParam === 'a' || uiParam === 'b') {
+if (uiParam === 'a' || uiParam === 'b' || uiParam === 'c') {
   document.body.classList.add('ui-' + uiParam);
   import('./uiproto.css');
   // (one request per family, so a family the server doesn't know costs only itself)

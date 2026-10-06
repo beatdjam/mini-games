@@ -1,10 +1,13 @@
-/* dev only (?ui=a / ?ui=b): two trial looks for the HUD and the chip screen, to pick a direction from.
+/* dev only (?ui=a / ?ui=b / ?ui=c): trial looks for the HUD and the chip screen, to pick a direction from.
    Nothing here is loaded in the built pages (src/dev/dev.ts adds the class and this sheet).
-   a: bolted steel nameplates.  b: paint on the visor in play, paper slips and tags on the chip screen. */
+   a: bolted steel nameplates.  b: paint on the visor in play, paper slips and tags on the chip screen.
+   c: the two put together, as chosen after looking at them: a's tone and chip screen, b's see-through HUD (no
+      plates in play), a's striped boss bar; stripes on the big names only when they warn; a MAP tab on the minimap */
 
 /* ---------- shared: the type and the paints ---------- */
 body.ui-a,
-body.ui-b {
+body.ui-b,
+body.ui-c {
   --disp: 'Barlow Condensed', 'Zen Kaku Gothic New', 'Hiragino Sans', system-ui, sans-serif;
   --jp: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
   --sten: 'Saira Stencil One', 'Barlow Condensed', 'Hiragino Sans', sans-serif;
@@ -15,127 +18,128 @@ body.ui-b {
   --stripe: repeating-linear-gradient(-45deg, var(--safety) 0 7px, #151515 7px 14px);
 }
 html[lang='en'] body.ui-a,
-html[lang='en'] body.ui-b {
+html[lang='en'] body.ui-b,
+html[lang='en'] body.ui-c {
   --jp: 'Barlow Condensed', 'Hiragino Sans', system-ui, sans-serif;
 }
 /* no glow anywhere on the trial HUDs: what must stand out stands on something dark instead */
-body:is(.ui-a, .ui-b) #hud :is(#hpBar i, .bbar i) {
+body:is(.ui-a, .ui-b, .ui-c) #hud :is(#hpBar i, .bbar i) {
   box-shadow: none;
 }
-body:is(.ui-a, .ui-b) #hud .bar::after,
-body:is(.ui-a, .ui-b) #hud .bbar::after {
+body:is(.ui-a, .ui-b, .ui-c) #hud .bar::after,
+body:is(.ui-a, .ui-b, .ui-c) #hud .bbar::after {
   content: '';
   position: absolute;
   inset: 0;
   background: repeating-linear-gradient(90deg, transparent 0 10px, rgba(0, 0, 0, 0.6) 10px 11px);
 }
-body:is(.ui-a, .ui-b) #hpBar i {
+body:is(.ui-a, .ui-b, .ui-c) #hpBar i {
   background: var(--paint);
 }
-body:is(.ui-a, .ui-b) #hpBar.low i {
+body:is(.ui-a, .ui-b, .ui-c) #hpBar.low i {
   background: var(--stop);
 }
-body:is(.ui-a, .ui-b) #stBar i {
+body:is(.ui-a, .ui-b, .ui-c) #stBar i {
   background: var(--safety);
 }
-body:is(.ui-a, .ui-b) #stBar.short i {
+body:is(.ui-a, .ui-b, .ui-c) #stBar.short i {
   background: #7a6420;
 }
-body:is(.ui-a, .ui-b) #stBar.warn {
+body:is(.ui-a, .ui-b, .ui-c) #stBar.warn {
   border-color: var(--stop);
 }
-body:is(.ui-a, .ui-b) .hplabel span,
-body:is(.ui-a, .ui-b) .bits span,
-body:is(.ui-a, .ui-b) #reload span {
+body:is(.ui-a, .ui-b, .ui-c) .hplabel span,
+body:is(.ui-a, .ui-b, .ui-c) .bits span,
+body:is(.ui-a, .ui-b, .ui-c) #reload span {
   font-family: var(--sten);
   letter-spacing: 0.08em;
   color: var(--paint2);
 }
-body:is(.ui-a, .ui-b) .hplabel b {
+body:is(.ui-a, .ui-b, .ui-c) .hplabel b {
   font-size: 24px;
   line-height: 0.9;
   font-weight: 700;
   color: var(--paint);
 }
-body:is(.ui-a, .ui-b) .bits {
+body:is(.ui-a, .ui-b, .ui-c) .bits {
   color: var(--paint);
   font-size: 20px;
   font-weight: 700;
 }
-body:is(.ui-a, .ui-b) .bits span {
+body:is(.ui-a, .ui-b, .ui-c) .bits span {
   font-size: 12px;
   color: var(--safety);
 }
-body:is(.ui-a, .ui-b) .kithud {
+body:is(.ui-a, .ui-b, .ui-c) .kithud {
   color: var(--paint);
   font-weight: 700;
 }
-body:is(.ui-a, .ui-b) .kithud.none {
+body:is(.ui-a, .ui-b, .ui-c) .kithud.none {
   color: var(--paint2);
 }
-body:is(.ui-a, .ui-b) .stage {
+body:is(.ui-a, .ui-b, .ui-c) .stage {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--paint2);
 }
-body:is(.ui-a, .ui-b) .stage b {
+body:is(.ui-a, .ui-b, .ui-c) .stage b {
   color: var(--paint);
   font-weight: 700;
 }
-body:is(.ui-a, .ui-b) #ammo {
+body:is(.ui-a, .ui-b, .ui-c) #ammo {
   font-size: 40px;
   font-weight: 700;
   color: var(--paint);
 }
-body:is(.ui-a, .ui-b) #ammo small {
+body:is(.ui-a, .ui-b, .ui-c) #ammo small {
   font-size: 18px;
   color: var(--paint2);
 }
-body:is(.ui-a, .ui-b) #ammo.empty {
+body:is(.ui-a, .ui-b, .ui-c) #ammo.empty {
   color: var(--stop);
 }
-body:is(.ui-a, .ui-b) .slot {
+body:is(.ui-a, .ui-b, .ui-c) .slot {
   font-weight: 700;
   font-size: 13px;
   color: var(--paint2);
 }
-body:is(.ui-a, .ui-b) .slot.on {
+body:is(.ui-a, .ui-b, .ui-c) .slot.on {
   color: var(--paint);
 }
-body:is(.ui-a, .ui-b) #reload {
+body:is(.ui-a, .ui-b, .ui-c) #reload {
   color: var(--safety);
 }
-body:is(.ui-a, .ui-b) #reload .bar i {
+body:is(.ui-a, .ui-b, .ui-c) #reload .bar i {
   background: var(--safety);
 }
-body:is(.ui-a, .ui-b) .bname {
+body:is(.ui-a, .ui-b, .ui-c) .bname {
   font-family: var(--jp);
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.08em;
   color: var(--paint);
 }
-body:is(.ui-a, .ui-b) .bbar i {
+body:is(.ui-a, .ui-b, .ui-c) .bbar i {
   background: var(--stop);
 }
-body:is(.ui-a, .ui-b) #banner .code {
+body:is(.ui-a, .ui-b, .ui-c) #banner .code {
   font-family: var(--sten);
   font-weight: 400;
   letter-spacing: 0.1em;
   color: var(--paint);
   text-shadow: none;
 }
-body:is(.ui-a, .ui-b) #banner .sub {
+body:is(.ui-a, .ui-b, .ui-c) #banner .sub {
   font-weight: 700;
   color: var(--safety);
   letter-spacing: 0.3em;
 }
-body:is(.ui-a, .ui-b) #banner.alert .code {
+body:is(.ui-a, .ui-b, .ui-c) #banner.alert .code {
   color: var(--stop);
   text-shadow: none;
 }
-body:is(.ui-a, .ui-b) #alarmText {
+body:is(.ui-a, .ui-b, .ui-c) #alarmText {
   font-family: var(--sten);
   font-size: 16px;
   letter-spacing: 0.16em;
@@ -146,7 +150,7 @@ body:is(.ui-a, .ui-b) #alarmText {
 /* =====================================================================================
    a: nameplates. Every block of the HUD is a dark steel plate, bolted at its corners
    ===================================================================================== */
-body.ui-a {
+body:is(.ui-a, .ui-c) {
   --bolt: radial-gradient(
     circle,
     #0c0d0d 0 1.2px,
@@ -225,7 +229,7 @@ body.ui-a .slot.on {
   border-color: #000;
   border-left-color: var(--safety);
 }
-body.ui-a #bossBar {
+body:is(.ui-a, .ui-c) #bossBar {
   padding: 5px 26px 7px;
   gap: 5px;
   background:
@@ -235,7 +239,7 @@ body.ui-a #bossBar {
   border: var(--plate-edge);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.55);
 }
-body.ui-a .bbar {
+body:is(.ui-a, .ui-c) .bbar {
   height: 9px;
   background: #0b0c0c;
   border: 1px solid #000;
@@ -254,7 +258,7 @@ body.ui-a #banner {
     var(--stripe) bottom / 100% 5px no-repeat,
     rgba(14, 15, 15, 0.9);
 }
-body.ui-a #alarmText {
+body:is(.ui-a, .ui-c) #alarmText {
   justify-self: center;
   left: 50%;
   right: auto;
@@ -265,10 +269,10 @@ body.ui-a #alarmText {
 }
 
 /* a: the chip screen. One big plate; each chip is a part's nameplate */
-body.ui-a #scrPerk {
+body:is(.ui-a, .ui-c) #scrPerk {
   background: rgba(6, 7, 7, 0.86);
 }
-body.ui-a #scrPerk .card {
+body:is(.ui-a, .ui-c) #scrPerk .card {
   padding: 26px 24px 22px;
   background: var(--plate);
   background-size:
@@ -282,7 +286,7 @@ body.ui-a #scrPerk .card {
     0 0 0 4px #121314,
     0 14px 30px rgba(0, 0, 0, 0.6);
 }
-body.ui-a #scrPerk .eyebrow {
+body:is(.ui-a, .ui-c) #scrPerk .eyebrow {
   justify-self: start;
   padding: 1px 10px 0;
   background: var(--safety);
@@ -291,16 +295,16 @@ body.ui-a #scrPerk .eyebrow {
   font-size: 13px;
   letter-spacing: 0.1em;
 }
-body.ui-a #scrPerk h2 {
+body:is(.ui-a, .ui-c) #scrPerk h2 {
   font-weight: 700;
   font-size: 24px;
   color: var(--paint);
 }
-body.ui-a #scrPerk .chips,
-body.ui-a .perkmore summary {
+body:is(.ui-a, .ui-c) #scrPerk .chips,
+body:is(.ui-a, .ui-c) .perkmore summary {
   color: var(--paint2);
 }
-body.ui-a .perk {
+body:is(.ui-a, .ui-c) .perk {
   gap: 8px;
   padding: 0 0 12px;
   background: linear-gradient(180deg, #1a1c1d, #111213);
@@ -309,10 +313,10 @@ body.ui-a .perk {
     inset 0 0 0 1px #3d4143,
     0 2px 0 rgba(0, 0, 0, 0.5);
 }
-body.ui-a .perk > span {
+body:is(.ui-a, .ui-c) .perk > span {
   padding-inline: 14px;
 }
-body.ui-a .perk .pn {
+body:is(.ui-a, .ui-c) .perk .pn {
   padding-block: 8px 7px;
   background: #2b2e2f;
   border-bottom: 1px solid #000;
@@ -320,11 +324,11 @@ body.ui-a .perk .pn {
   font-weight: 700;
   font-size: 17px;
 }
-body.ui-a .perk .pd {
+body:is(.ui-a, .ui-c) .perk .pd {
   color: #c4c1b6;
   font-size: 14px;
 }
-body.ui-a .perk .pcur {
+body:is(.ui-a, .ui-c) .perk .pcur {
   margin: 2px 14px 0;
   padding: 3px 8px;
   background: #070808;
@@ -335,20 +339,20 @@ body.ui-a .perk .pcur {
   font-weight: 600;
   font-size: 14px;
 }
-body.ui-a .perk:hover,
-body.ui-a .perk:focus-visible {
+body:is(.ui-a, .ui-c) .perk:hover,
+body:is(.ui-a, .ui-c) .perk:focus-visible {
   border-color: #000;
   box-shadow:
     inset 0 0 0 2px var(--paint),
     0 2px 0 rgba(0, 0, 0, 0.5);
 }
-body.ui-a .perk.rare {
+body:is(.ui-a, .ui-c) .perk.rare {
   background: linear-gradient(180deg, #1a1c1d, #111213);
   box-shadow:
     inset 0 0 0 1px var(--safety),
     0 2px 0 rgba(0, 0, 0, 0.5);
 }
-body.ui-a .perk.rare .pn {
+body:is(.ui-a, .ui-c) .perk.rare .pn {
   padding-top: 15px;
   background:
     var(--stripe) top / 100% 7px no-repeat,
@@ -360,16 +364,16 @@ body.ui-a .perk.rare .pn {
    b: paint and paper. In play the HUD is stencilled paint over thin dark strips (no plates);
       the chip screen is a clipboard of paper tags
    ===================================================================================== */
-body.ui-b #hud :is(.hplabel, .stage, .kithud, .bits, #ammo, .slot, .bname, #reload) {
+body:is(.ui-b, .ui-c) #hud :is(.hplabel, .stage, .kithud, .bits, #ammo, .slot, .bname, #reload) {
   text-shadow:
     0 1px 0 #000,
     0 0 3px #000;
 }
-body.ui-b .tl {
+body:is(.ui-b, .ui-c) .tl {
   width: min(230px, 42vw);
   gap: 5px;
 }
-body.ui-b .tl::before {
+body:is(.ui-b, .ui-c) .tl::before {
   content: '';
   position: absolute;
   z-index: -1;
@@ -379,33 +383,33 @@ body.ui-b .tl::before {
   height: 100px;
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.62) 55%, transparent);
 }
-body.ui-b .tl .bar {
+body:is(.ui-b, .ui-c) .tl .bar {
   height: 9px;
   background: rgba(0, 0, 0, 0.6);
   border: 0;
   border-left: 3px solid var(--paint);
 }
-body.ui-b .tl #stBar {
+body:is(.ui-b, .ui-c) .tl #stBar {
   height: 5px;
   border-left-color: var(--safety);
 }
-body.ui-b .hplabel span {
+body:is(.ui-b, .ui-c) .hplabel span {
   font-size: 15px;
   color: var(--paint);
 }
-body.ui-b #mini {
+body:is(.ui-b, .ui-c) #mini {
   margin-top: 8px;
   border: 0;
   outline: 2px solid var(--paint);
   outline-offset: -2px;
   background: rgba(0, 0, 0, 0.55);
 }
-body.ui-b .trrow {
+body:is(.ui-b, .ui-c) .trrow {
   padding: 4px 4px 4px 26px;
   margin: -4px -4px 0 0;
   background: linear-gradient(270deg, rgba(0, 0, 0, 0.62) 60%, transparent);
 }
-body.ui-b .icon {
+body:is(.ui-b, .ui-c) .icon {
   background: none;
   border: 2px solid var(--paint);
   color: var(--paint);
@@ -413,17 +417,17 @@ body.ui-b .icon {
   font-weight: 400;
   font-size: 13px;
 }
-body.ui-b #bottom {
+body:is(.ui-b, .ui-c) #bottom {
   padding: 6px 40px 4px;
   background: radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0.6), transparent 70%);
 }
-body.ui-b .slot {
+body:is(.ui-b, .ui-c) .slot {
   background: none;
   border: 0;
   border-bottom: 3px solid transparent;
   padding: 2px 6px;
 }
-body.ui-b .slot.on {
+body:is(.ui-b, .ui-c) .slot.on {
   border-bottom-color: var(--safety);
 }
 body.ui-b #bossBar {
@@ -440,18 +444,18 @@ body.ui-b .bbar {
   border: 0;
   border-inline: 3px solid var(--paint);
 }
-body.ui-b #toast {
+body:is(.ui-b, .ui-c) #toast {
   background: var(--paint);
   border: 0;
   color: #17160f;
   font-weight: 700;
 }
-body.ui-b #banner .code {
+body:is(.ui-b, .ui-c) #banner .code {
   text-shadow:
     0 2px 0 #000,
     0 0 12px rgba(0, 0, 0, 0.9);
 }
-body.ui-b #banner .sub {
+body:is(.ui-b, .ui-c) #banner .sub {
   text-shadow: 0 1px 0 #000;
 }
 body.ui-b #alarmText {
@@ -599,4 +603,47 @@ body.ui-b .perk.rare {
   background:
     var(--stripe) bottom / 100% 9px no-repeat,
     #f6f1e1;
+}
+
+/* =====================================================================================
+   c: a's tone with b's see-through HUD. What is always on the screen stays light; what warns is heavy
+   ===================================================================================== */
+/* the big name across the screen: plain paint for a floor's name, a striped band when it warns (a boss has come:
+   its bar is up; a lockdown: .alert) */
+body.ui-c #bossBar:not([hidden]) ~ #banner,
+body.ui-c #banner.alert {
+  padding: 9px 0 10px;
+  background:
+    var(--stripe) top / 100% 5px no-repeat,
+    var(--stripe) bottom / 100% 5px no-repeat,
+    rgba(14, 15, 15, 0.9);
+}
+body.ui-c #bossBar:not([hidden]) ~ #banner .code,
+body.ui-c #banner.alert .code {
+  text-shadow: none;
+}
+/* the minimap: a small MAP tab on its top edge */
+body.ui-c #mini {
+  margin-top: 20px;
+}
+body.ui-c .tl::after {
+  content: 'MAP';
+  position: absolute;
+  left: 0;
+  bottom: clamp(120px, 24vmin, 176px);
+  padding: 0 7px 0 6px;
+  background: var(--paint);
+  color: #151515;
+  font-family: var(--sten);
+  font-size: 11px;
+  line-height: 15px;
+  letter-spacing: 0.12em;
+}
+/* the one-line notice: paint on a see-through dark strip like the rest of the HUD, a's yellow bar at its left */
+body.ui-c #toast {
+  background: rgba(0, 0, 0, 0.66);
+  border: 0;
+  border-left: 5px solid var(--safety);
+  color: var(--paint);
+  font-weight: 700;
 }
