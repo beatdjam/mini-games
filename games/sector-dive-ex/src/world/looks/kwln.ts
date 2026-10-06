@@ -460,8 +460,7 @@ function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     neons: NEONS.map(neonTex),
   };
   const shared = kwlnShared,
-    { d, placed, add, pools } = propTools(plan, group, KWLN_PROPS, rng),
-    of = (id: string) => placed.filter(p => p.id === id).map(p => p.slot),
+    { d, of, add, pools } = propTools(plan, group, KWLN_PROPS, rng),
     one = new THREE.Vector3(1, 1, 1),
     lights: Light[] = [];
 
