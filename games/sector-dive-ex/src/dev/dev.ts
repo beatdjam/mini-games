@@ -1,5 +1,6 @@
 import type { RunEnd, Weapon } from '../data/types.ts';
 import { el, shuffle } from '@engine/core/util.ts';
+import { devHook } from '@engine/core/dev.ts';
 import { LANG, lang, t } from '@engine/core/i18n.ts';
 import { T, W, floorY } from '@engine/world/tiles.ts';
 import { WEAPONS } from '../data/weapons.ts';
@@ -31,6 +32,7 @@ import { openPerk } from '../screens/perk.ts';
 import { showTab } from '../screens/base.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { update } from '../flow/update.ts';
+import { BOT_STYLES, createBot, setBot } from './bot.ts';
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
@@ -479,3 +481,19 @@ if (location.hash === '#view-hitdir')
     damagePlayer(1, { x: player.x - 8, z: player.z });
     updateHitDirs(0.05);
   }, 300);
+
+// dev: #bot (or #bot-<style>, src/dev/bot.ts) starts a run played by the bot, to watch it. What it is doing is shown
+// in the corner
+devHook('bot', rest => {
+  const bot = createBot(BOT_STYLES[rest.slice(1)] ?? BOT_STYLES.rusher!);
+  startRun();
+  setBot(bot);
+  const note = document.createElement('div');
+  note.style.cssText =
+    'position:fixed;left:8px;bottom:8px;z-index:99;font:12px monospace;color:#8cff6a;white-space:pre';
+  document.body.appendChild(note);
+  setInterval(() => {
+    const s = bot.stats;
+    note.textContent = `bot ${bot.style.name}: ${s.doing}\n${(s.frames / 60).toFixed(0)}s  floor ${s.floors}  damage ${s.damage.toFixed(0)}  stuck ${s.stuck}`;
+  }, 200);
+});
