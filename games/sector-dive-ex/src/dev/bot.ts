@@ -248,12 +248,19 @@ export function createBot(style: BotStyle) {
   function pathTo(goal: number, key: string) {
     if (goalKey === key) return;
     goalKey = key;
+    spread(goal, true);
+    // (when the only way lies past the gate it does not want, it goes that way all the same)
+    if ((dist[tileIndex(player.x, player.z)] ?? -1) < 0) spread(goal, false);
+  }
+  function spread(goal: number, roundGates: boolean) {
     const grid = activeTileGrid(),
       { W, H, grid: floor } = grid.world;
     dist = new Int32Array(W * H).fill(-1);
     // (the gate it does not mean to take is walked round: stepping near it would end the run or the depth)
     const wants = level.portals.some(pt => pt.kind === style.after),
-      shut = new Set(level.portals.filter(pt => wants && pt.kind !== style.after).map(pt => tileIndex(pt.x, pt.z)));
+      shut = new Set(
+        level.portals.filter(pt => roundGates && wants && pt.kind !== style.after).map(pt => tileIndex(pt.x, pt.z)),
+      );
     const queue = [goal];
     dist[goal] = 0;
     // (tiles are taken again when a shorter way to them turns up: a hazard floor costs more than a plain one)
