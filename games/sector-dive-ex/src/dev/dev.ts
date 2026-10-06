@@ -59,6 +59,25 @@ if (uiParam === 'a' || uiParam === 'b' || uiParam === 'c') {
     document.head.append(link);
   }
 }
+// dev: ?font=maru / pen / klee / dot on top of ?ui=… swaps the trial look's type for a less rigid one, to compare
+// (maru: rounded gothic, as engraved nameplates and site signs are set. pen: a marker's handwriting. klee: a pencil's
+// textbook hand. dot: the dot face the UI has now)
+const FONT_TRIALS: Record<string, string[]> = {
+  maru: ['Zen+Maru+Gothic:wght@400;500;700'],
+  pen: ['Yusei+Magic', 'Zen+Kurenaido'],
+  klee: ['Klee+One:wght@400;600'],
+  dot: [],
+};
+const fontParam = new URLSearchParams(location.search).get('font');
+if (uiParam && fontParam && FONT_TRIALS[fontParam]) {
+  document.body.classList.add('font-' + fontParam);
+  for (const family of FONT_TRIALS[fontParam]) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${family}&display=swap`;
+    document.head.append(link);
+  }
+}
 // dev view: #view-perk opens the chip screen over the start room, the second chip a rare one (for screenshots)
 if (location.hash === '#view-perk')
   setTimeout(() => {

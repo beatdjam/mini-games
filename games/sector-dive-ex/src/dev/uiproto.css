@@ -722,3 +722,27 @@ body.ui-c .perk.rare {
   outline-width: 1px;
   outline-offset: -1px;
 }
+
+/* ---------- ?font=…: the type swapped for a less rigid one (the stencil labels stay) ---------- */
+body.font-maru {
+  --jp: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', system-ui, sans-serif;
+  --disp: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', system-ui, sans-serif;
+}
+body.font-pen {
+  --jp: 'Zen Kurenaido', 'Yusei Magic', system-ui, sans-serif;
+  --disp: 'Yusei Magic', 'Zen Kurenaido', system-ui, sans-serif;
+}
+body.font-pen :is(#scrPerk h2, .perk .pn, .bname) {
+  font-family: 'Yusei Magic', 'Zen Kurenaido', system-ui, sans-serif;
+}
+body.font-klee {
+  --jp: 'Klee One', 'Hiragino Sans', system-ui, sans-serif;
+  --disp: 'Klee One', 'Hiragino Sans', system-ui, sans-serif;
+}
+body.font-klee :is(#scrPerk h2, .perk .pn, .bname, .hplabel b, .bits, #ammo) {
+  font-weight: 600;
+}
+body.font-dot {
+  --jp: 'DotGothic16', 'Hiragino Sans', system-ui, sans-serif;
+  --disp: 'Chakra Petch', 'DotGothic16', 'Hiragino Sans', system-ui, sans-serif;
+}
