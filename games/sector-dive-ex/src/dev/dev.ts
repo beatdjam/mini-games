@@ -40,6 +40,30 @@ if (new URLSearchParams(location.search).has('plain')) {
   devPlainGuns();
   useSparkLooks();
 }
+// dev: ?ui=a / ?ui=b puts one of the two trial looks on the HUD and the chip screen (src/dev/uiproto.css): a = bolted
+// steel nameplates, b = paint in play and paper tags on the chip screen. Without it the UI is the one in index.html
+const uiParam = new URLSearchParams(location.search).get('ui');
+if (uiParam === 'a' || uiParam === 'b') {
+  document.body.classList.add('ui-' + uiParam);
+  import('./uiproto.css');
+  // (one request per family, so a family the server doesn't know costs only itself)
+  for (const family of ['Barlow+Condensed:wght@500;600;700', 'Saira+Stencil+One', 'Zen+Kaku+Gothic+New:wght@500;700']) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${family}&display=swap`;
+    document.head.append(link);
+  }
+}
+// dev view: #view-perk opens the chip screen over the start room, the second chip a rare one (for screenshots)
+if (location.hash === '#view-perk')
+  setTimeout(() => {
+    startRun();
+    show(null);
+    setState('play');
+    for (let k = 0; k < 10; k++) update(1 / 60);
+    openPerk(t('perk.title'));
+    setTimeout(() => document.querySelectorAll('#perkList .perk')[1]?.classList.add('rare'), 100);
+  }, 300);
 // dev: ?hazon keeps the hazard floors live (to look at them lit)
 if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHazardClock(0.5), 50);
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
