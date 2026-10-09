@@ -217,8 +217,14 @@ function addTilePlanes(tiles: number[], y: number, up: boolean, mat: THREE.Mater
 // the balcony's open side
 const RAIL_H = 1.15,
   RAIL_T = 0.08; // the rail's height and thickness (m)
-const SKYLIGHT = 0xdfe9f2, // the sky seen through the roof: pale, a little cold against the sector's amber
-  SKY_POOL_OPACITY = 0.16;
+// the light an atrium's skylight lets in, by sector (and how strong it lies on the ground): the pale evening sky of
+// the old downtown, the furnaces' glow under a sooted roof, a studio's violet work lights, a machine hall's cold white
+const SKYLIGHTS: Record<string, [number, number]> = {
+  CITY: [0xdfe9f2, 0.16],
+  FORGE: [0xffa868, 0.14],
+  NOISE: [0xc9b4ff, 0.13],
+  DATA: [0xe6f1ff, 0.18],
+};
 // a run of rail `len` long, centred on (x, z), along x (alongX) or along z
 function addRail(x: number, z: number, len: number, alongX: boolean, group: THREE.Group) {
   const steel = new THREE.MeshBasicMaterial({ color: 0x2c3136 }),
@@ -237,8 +243,9 @@ function addRail(x: number, z: number, len: number, alongX: boolean, group: THRE
     group.add(post);
   }
 }
-function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group) {
-  const is = court.tiles.map(k => k % W),
+function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group, sector: string) {
+  const [SKYLIGHT, SKY_POOL_OPACITY] = SKYLIGHTS[sector] ?? SKYLIGHTS.CITY!,
+    is = court.tiles.map(k => k % W),
     js = court.tiles.map(k => (k / W) | 0),
     i0 = Math.min(...is),
     i1 = Math.max(...is) + 1,
@@ -312,8 +319,65 @@ function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group) {
 const YARD_ABOVE = 2,
   YARD_BELOW = 3; // storeys of wall above the top floor the yard passes and below the lowest
 const YARD_SKIN = 0.05; // the outer wall's picture stands this far inside the yard (m)
-const FACADE_LIT = 0.18,
-  FACADE_SCREEN = 0.06; // share of the windows that are lit warm / by a screen
+// how a sector's yard looks: its walls, how many of the windows are lit (warm / by a screen), whether every tile
+// has a window or every other one, what else is on the wall, the sky and the ground
+interface YardTheme {
+  wall: [string, string]; // top and bottom of a storey
+  joint: string;
+  pane: [string, string];
+  glint: string; // what the sky leaves on the glass
+  sill: string;
+  dense: boolean;
+  lit: number;
+  screen: number;
+  extra: 'none' | 'units' | 'ivy'; // air conditioners and pipes; ivy and cracks
+  sky: [string, string, string];
+  ground: [string, string, string]; // the ground, its paths, its beds
+}
+const YARDS: Record<string, YardTheme> = {
+  // the old downtown: plastered office blocks in the evening, most rooms dark
+  CITY: {
+    wall: ['#8d7f78', '#75686a'],
+    joint: 'rgba(40,30,38,0.18)',
+    pane: ['#5b5870', '#2c2a3a'],
+    glint: 'rgba(255,190,140,0.10)',
+    sill: '#a3958c',
+    dense: false,
+    lit: 0.18,
+    screen: 0.06,
+    extra: 'none',
+    sky: ['#c98a6c', '#8f7a94', '#4a4a6e'],
+    ground: ['#2a2630', '#3a3640', '#1f1c25'],
+  },
+  // the walled city: a lightwell at night, every flat with its window on it, many lit, air conditioners and pipes
+  KWLN: {
+    wall: ['#5f5c58', '#45423f'],
+    joint: 'rgba(15,12,14,0.3)',
+    pane: ['#2b3038', '#16181d'],
+    glint: 'rgba(255,90,140,0.08)',
+    sill: '#6f6a64',
+    dense: true,
+    lit: 0.34,
+    screen: 0.12,
+    extra: 'units',
+    sky: ['#4a2f52', '#2c2238', '#15121c'],
+    ground: ['#17161a', '#22202a', '#101014'],
+  },
+  // the ruins: housing blocks left to the weather, almost no light, ivy up the walls, the yard overgrown
+  RUIN: {
+    wall: ['#827c70', '#625d54'],
+    joint: 'rgba(30,28,24,0.25)',
+    pane: ['#34383a', '#191c1d'],
+    glint: 'rgba(200,215,215,0.08)',
+    sill: '#8b8578',
+    dense: false,
+    lit: 0.03,
+    screen: 0,
+    extra: 'ivy',
+    sky: ['#a9afae', '#8a9192', '#6c7476'],
+    ground: ['#2c3626', '#3a4031', '#222b1e'],
+  },
+};
 function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = w;
@@ -325,18 +389,43 @@ function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => 
 // The same picture for every tile, so the wall is one colour all over; a lit window is a pane of its own put over
 // the glass (paneTex)
 const PANE = { x: 29, y: 104, w: 70, h: 82 }; // the glass in that picture (px)
-function facadeTex(window: boolean): THREE.CanvasTexture {
+function facadeTex(th: YardTheme, window: boolean): THREE.CanvasTexture {
   return canvasTex(128, 256, g => {
     // the wall in the evening: a warm grey plaster, darker toward the ground, with the stains rain leaves
     const wall = g.createLinearGradient(0, 0, 0, 256);
-    wall.addColorStop(0, '#8d7f78');
-    wall.addColorStop(1, '#75686a');
+    wall.addColorStop(0, th.wall[0]);
+    wall.addColorStop(1, th.wall[1]);
     g.fillStyle = wall;
     g.fillRect(0, 0, 128, 256);
-    g.fillStyle = 'rgba(40,30,38,0.18)';
+    g.fillStyle = th.joint;
     g.fillRect(0, 60, 128, 4); // the joint under the slab
     g.fillRect(0, 0, 2, 256); // the joint between two panels
     g.fillStyle = 'rgba(30,22,30,0.10)';
+    if (th.extra === 'ivy') {
+      // ivy climbing from the ground, and a crack across the plaster
+      g.fillStyle = 'rgba(52,84,44,0.55)';
+      for (const [x, w, h] of [
+        [4, 14, 150],
+        [16, 9, 96],
+        [110, 12, 190],
+      ] as const)
+        g.fillRect(x, 256 - h, w, h);
+      g.strokeStyle = 'rgba(25,22,20,0.45)';
+      g.beginPath();
+      g.moveTo(70, 0);
+      g.lineTo(82, 30);
+      g.lineTo(76, 58);
+      g.stroke();
+    }
+    if (th.extra === 'units') {
+      // a pipe down the wall, and an air conditioner on its bracket under the window
+      g.fillStyle = '#2f2c2b';
+      g.fillRect(112, 0, 5, 256);
+      g.fillStyle = '#8c8a84';
+      g.fillRect(8, 206, 30, 22);
+      g.fillStyle = '#3a3836';
+      g.fillRect(12, 210, 22, 14);
+    }
     if (!window) return;
     for (const x of [38, 52, 88]) g.fillRect(x, 190, 3, 46); // streaks under the sill
     // the window: a dark frame, the pane, a sill
@@ -344,15 +433,15 @@ function facadeTex(window: boolean): THREE.CanvasTexture {
     g.fillStyle = '#1d191d';
     g.fillRect(x - 4, y - 4, w + 8, h + 8);
     const pane = g.createLinearGradient(x, y, x + w, y + h);
-    pane.addColorStop(0, '#5b5870');
-    pane.addColorStop(1, '#2c2a3a');
+    pane.addColorStop(0, th.pane[0]);
+    pane.addColorStop(1, th.pane[1]);
     g.fillStyle = pane;
     g.fillRect(x, y, w, h);
-    g.fillStyle = 'rgba(255,190,140,0.10)'; // what is left of the sunset, on the glass
+    g.fillStyle = th.glint; // what the sky leaves on the glass
     g.fillRect(x, y, w, 22);
     g.fillStyle = '#1d191d';
     g.fillRect(x + w / 2 - 1, y, 2, h); // the mullion
-    g.fillStyle = '#a3958c';
+    g.fillStyle = th.sill;
     g.fillRect(x - 8, y + h + 4, w + 16, 5); // the sill
   });
 }
@@ -377,24 +466,24 @@ function paneTex(kind: 'lit' | 'screen'): THREE.CanvasTexture {
     g.fillRect(w / 2 - 1, 0, 2, h); // the mullion
   });
 }
-function yardSkyTex(): THREE.CanvasTexture {
+function yardSkyTex(th: YardTheme): THREE.CanvasTexture {
   return canvasTex(64, 64, g => {
     const sky = g.createLinearGradient(0, 0, 64, 64);
-    sky.addColorStop(0, '#c98a6c');
-    sky.addColorStop(0.5, '#8f7a94');
-    sky.addColorStop(1, '#4a4a6e');
+    sky.addColorStop(0, th.sky[0]);
+    sky.addColorStop(0.5, th.sky[1]);
+    sky.addColorStop(1, th.sky[2]);
     g.fillStyle = sky;
     g.fillRect(0, 0, 64, 64);
   });
 }
-function yardGroundTex(): THREE.CanvasTexture {
+function yardGroundTex(th: YardTheme): THREE.CanvasTexture {
   return canvasTex(128, 128, g => {
-    g.fillStyle = '#2a2630';
+    g.fillStyle = th.ground[0];
     g.fillRect(0, 0, 128, 128);
-    g.fillStyle = '#3a3640'; // the paths between the beds
+    g.fillStyle = th.ground[1]; // the paths between the beds
     g.fillRect(56, 0, 16, 128);
     g.fillRect(0, 56, 128, 16);
-    g.fillStyle = '#1f1c25'; // the beds
+    g.fillStyle = th.ground[2]; // the beds
     for (const [x, y] of [
       [10, 10],
       [82, 10],
@@ -411,8 +500,9 @@ const yardDice = (a: number, b: number, c: number): number => {
 };
 // The yard of a building, in the building's own frame: floor 0's ground is at height 0, floor n's at -n * storey.
 // `w`: tiles across the map. Where a floor has its balcony, the wall has an opening (no facade tile)
-export function buildYardShell(court: Court, w: number, storey: number): THREE.Group {
-  const group = new THREE.Group(),
+export function buildYardShell(court: Court, w: number, storey: number, sector: string): THREE.Group {
+  const th = YARDS[sector] ?? YARDS.CITY!,
+    group = new THREE.Group(),
     is = court.tiles.map(k => k % w),
     js = court.tiles.map(k => (k / w) | 0),
     i0 = Math.min(...is),
@@ -430,8 +520,8 @@ export function buildYardShell(court: Court, w: number, storey: number): THREE.G
       put = (x: number, z: number, turn: number, behind: number, n: number) => {
         if (open.has(`${s}:${behind}`)) return;
         // a window on every other tile of a wall (the same columns on every storey), bare wall between
-        const d = n % 2 ? yardDice(s, n, turn) : -1;
-        spots.push({ x, y, z, turn, kind: d < 0 ? -1 : d < FACADE_LIT ? 1 : d < FACADE_LIT + FACADE_SCREEN ? 2 : 0 });
+        const d = th.dense || n % 2 ? yardDice(s, n, turn) : -1;
+        spots.push({ x, y, z, turn, kind: d < 0 ? -1 : d < th.lit ? 1 : d < th.lit + th.screen ? 2 : 0 });
       };
     for (let i = i0; i < i1; i++) {
       put(tileCenter(i), j0 * T, 0, (j0 - 1) * w + i, i - i0); // the wall on the low-z side faces +z
@@ -460,7 +550,7 @@ export function buildYardShell(court: Court, w: number, storey: number): THREE.G
     place(
       new THREE.InstancedMesh(
         new THREE.PlaneGeometry(T, storey),
-        new THREE.MeshBasicMaterial({ map: facadeTex(window) }),
+        new THREE.MeshBasicMaterial({ map: facadeTex(th, window) }),
         mine.length,
       ),
       mine,
@@ -489,9 +579,12 @@ export function buildYardShell(court: Court, w: number, storey: number): THREE.G
     deep = (j1 - j0) * T,
     sky = new THREE.Mesh(
       new THREE.PlaneGeometry(wide, deep),
-      new THREE.MeshBasicMaterial({ map: yardSkyTex(), fog: false }),
+      new THREE.MeshBasicMaterial({ map: yardSkyTex(th), fog: false }),
     ),
-    ground = new THREE.Mesh(new THREE.PlaneGeometry(wide, deep), new THREE.MeshBasicMaterial({ map: yardGroundTex() }));
+    ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(wide, deep),
+      new THREE.MeshBasicMaterial({ map: yardGroundTex(th) }),
+    );
   sky.rotation.x = Math.PI / 2;
   sky.position.set(cx, -top * storey + storey, cz);
   ground.rotation.x = -Math.PI / 2;
@@ -646,7 +739,7 @@ export function buildFloorMeshes(
     boxes.instanceMatrix.needsUpdate = true;
     into.add(boxes);
   }
-  if (plan.court) addCourt(plan.court, courtGroup ?? group);
+  if (plan.court) addCourt(plan.court, courtGroup ?? group, biome.code);
   // a sector with a look brings its own signs; the plain neon bars are for the sectors without one
   if (look) look.props(plan, group, rng);
   else if (biome.gen.neon) addNeonSigns(walls, group, rng);

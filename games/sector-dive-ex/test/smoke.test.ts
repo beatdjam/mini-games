@@ -2049,7 +2049,7 @@ test('building: rooms lie between where one stairwell or lift lets you off and t
   }
   expect(counts.filter(c => c >= 2).length / counts.length, '2 rooms or more').toBeGreaterThan(0.85);
 });
-test('building: a courtyard in the old downtown only: an atrium with galleries, or a yard seen from balconies', () => {
+test('building: a courtyard, an atrium with galleries or a yard seen from balconies (both in the old downtown)', () => {
   const city = BIOMES.find(x => x.code === 'CITY')!;
   for (const open of [false, true]) {
     devCourtOpen(open);
@@ -2090,9 +2090,13 @@ test('building: a courtyard in the old downtown only: an atrium with galleries, 
     }
   }
   devCourtOpen(null);
-  // the other sectors have none
+  // the other sectors have the one kind that fits them
+  const kinds: Record<string, boolean> = { KWLN: true, RUIN: true, FORGE: false, NOISE: false, DATA: false };
   for (const biome of BIOMES.filter(x => x.code !== 'CITY'))
-    expect(makeBuilding(biome, biome.bosses[0]!, 3).court, biome.code).toBeNull();
+    for (let seed = 1; seed <= 20; seed++) {
+      const c = makeBuilding(biome, biome.bosses[0]!, seed).court;
+      if (c) expect(c.open, `${biome.code} seed ${seed}`).toBe(kinds[biome.code]);
+    }
 });
 test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
   // a door stands across a corridor: floor before and behind it, wall on its two sides

@@ -46,7 +46,17 @@ const SEED_STEP = 7919; // added to the seed for the next try
 // levelMesh.ts buildYardShell, not walked in), COURT_YARD tiles a side or COURT_YARD_WIDE where there is room. Each
 // floor it passes looks out on it from a balcony: BALCONY tiles of the wall round it, floor instead of wall, with a
 // rail. Neither kind is crossed between floors
-const COURT_SECTORS = ['CITY']; // the sectors whose buildings get one (when there is room)
+// which kinds a sector's buildings get (when there is room): what fits the place. A yard needs an outside to look at
+// (the old downtown, the walled city's lightwells, the housing blocks of the ruins); an atrium is a hall inside (the
+// furnace hall, a studio, a machine hall)
+const COURT_KINDS: Record<string, 'both' | 'yard' | 'atrium'> = {
+  CITY: 'both',
+  KWLN: 'yard',
+  RUIN: 'yard',
+  FORGE: 'atrium',
+  NOISE: 'atrium',
+  DATA: 'atrium',
+};
 const COURT_ROOFED = 3,
   COURT_YARD = 5,
   COURT_YARD_WIDE = 7; // side of the open middle (tiles)
@@ -424,10 +434,15 @@ function courtPlaces(maps: TileMapData[], keepOut: Uint8Array[], side: number) {
 // at least; never the lowest floor, whose boss room stands higher than a floor). On each of them a gallery is carved
 // round the open middle, with a corridor to the rest of the floor; on the lowest the middle is floor too. Returns
 // null (and leaves the maps as they were) when no place fits
-function addCourt(maps: TileMapData[], keepOut: Uint8Array[], rng: Rng): Court | null {
+function addCourt(
+  maps: TileMapData[],
+  keepOut: Uint8Array[],
+  kinds: 'both' | 'yard' | 'atrium',
+  rng: Rng,
+): Court | null {
   const W = maps[0]!.W,
     dice = rng.next() < COURT_OPEN_CHANCE,
-    open = courtKind ?? dice,
+    open = kinds === 'both' ? (courtKind ?? dice) : kinds === 'yard',
     // the square: an atrium's middle, its gallery and the wall round that; a yard's middle and the wall round it
     small = courtPlaces(maps, keepOut, open ? COURT_YARD + 2 : COURT_ROOFED + 4),
     wide = open ? courtPlaces(maps, keepOut, COURT_YARD_WIDE + 2) : null,
@@ -578,7 +593,8 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
   }
   // (after the stairwells and lifts, which need their places more; only in the sectors that have one, so the other
   // sectors' buildings draw the same random numbers as before)
-  const court = COURT_SECTORS.includes(biome.code) ? addCourt(maps, keepOut, rng) : null;
+  const kinds = COURT_KINDS[biome.code],
+    court = kinds ? addCourt(maps, keepOut, kinds, rng) : null;
   const plans: FloorPlan[] = maps.map((d, floor) => {
     const hazard = new Uint8Array(size);
     if (biome.gen.hazard) addHazards(d, hazard, biome.gen.hazard.count, rng);

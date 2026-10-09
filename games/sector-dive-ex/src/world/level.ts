@@ -361,7 +361,7 @@ export function showBuilding(b: Building) {
   const w = b.plans[0]!.gen.W,
     look = lookOf(b.biome);
   if (b.court?.open) {
-    yardShell = buildYardShell(b.court, w, FLOOR_H);
+    yardShell = buildYardShell(b.court, w, FLOOR_H, b.biome.code);
     all.add(yardShell);
   }
   b.links.forEach((l, n) => {
