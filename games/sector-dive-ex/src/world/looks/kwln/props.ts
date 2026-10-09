@@ -373,11 +373,12 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       wash: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.42 && high[n]! < 0.6),
       duct: faces.filter(f => rng.next() < (inLane(f) ? 0.85 : 0.5)),
       bundle: some(faces, 0.9),
-      tube: faces.filter(f => rng.next() < (inLane(f) ? 0.3 : 0.09)),
+      tube: faces.filter(f => rng.next() < (inLane(f) ? 0.14 : 0.05)),
       // (an alley is roofed with cables: nearly every tile of it has a bundle across, low enough to be seen)
       span: [...some(lanes, 0.92), ...some(halls, 0.42)],
       hangsign: [...some(lanes, 0.2), ...some(halls, 0.035)],
-      bulb: some(lanes, 0.5), // a bare bulb on its cord down the middle of an alley
+      bulb: some(lanes, 0.3), // a bare bulb on its cord down the middle of an alley
+      roof: lanes, // the alleys are roofed over (see below)
       sign: faces.filter(f => inLane(f) && bare(f) && rng.next() < 0.4), // a shop's board flat on an alley's wall
     };
   const flatMat = (color: number) => new THREE.MeshBasicMaterial({ color }),
@@ -444,7 +445,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     x: tileCenter(s.i),
     z: tileCenter(s.j),
     turn: rng.pick([0, Math.PI / 2]),
-    y: rng.rand(4.1, 4.6),
+    y: s.room < 0 ? rng.rand(3.4, 3.8) : rng.rand(4.1, 4.6),
     n,
   }));
   shared.hangs.forEach((map, v) =>
@@ -496,7 +497,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // a bundle slung across from wall to wall sags: two halves, each dropping to the middle
   for (const s of spot.span.filter(under)) {
     const turn = rng.pick([0, Math.PI / 2]),
-      y = s.room < 0 ? rng.rand(3.7, 4.7) : rng.rand(4.6, 5.4),
+      y = s.room < 0 ? rng.rand(3.5, 4.05) : rng.rand(4.6, 5.4),
       sag = rng.rand(0.08, 0.2),
       n = rng.randi(3, 6);
     for (let k = 0; k < n; k++) {
@@ -541,7 +542,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     flatMat(TUBE_WHITE),
     tubeSlots.map((s, n) => pose(tubes[n]!, facing(s))),
   );
-  tubes.forEach(pos => lights.push({ x: pos.x, z: pos.z, color: TUBE_WHITE, size: 0.75 }));
+  tubes.forEach(pos => lights.push({ x: pos.x, z: pos.z, color: TUBE_WHITE, size: 0.6 }));
   // ---- the painted set pieces (cutouts.ts) ----
   const cutout = (map: THREE.Texture) =>
     new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
@@ -556,7 +557,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
   stallAt.forEach(a => {
     const out = onWall(a.s, 0, 1.6, 0);
-    lights.push({ x: out.x, z: out.z, color: 0xffc98a, size: 0.7 });
+    if (rng.next() < 0.5) lights.push({ x: out.x, z: out.z, color: 0xffc98a, size: 0.55 });
   });
   // Flat pictures alone read as paper from the side, so each has something solid to it. A stall: a counter of
   // crates in front, two shelf boards standing out of the picture, a post at each end. A heap: real crates stacked
@@ -623,11 +624,40 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     ),
   );
   // ---- the alleys ----
+  // An alley is roofed over, wall to wall, a little over the height of a shop front: sheets of tin on a beam at
+  // every tile. That is what makes it an alley and not a slot between two high walls; what is above the roof is
+  // dark. A sheet is left out here and there, and where a neon sign stands up through it
+  const roofed = spot.roof.filter(
+      c => under(c) && rng.next() < 0.86 && !SIDE_STEP.some((_, side) => neonOn.has(`${c.i}:${c.j}:${side}`)),
+    ),
+    LANE_ROOF = 4.35;
+  shared.tins.forEach((map, v) =>
+    add(
+      new THREE.PlaneGeometry(4, 4).rotateX(Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map, color: 0x8a8580, side: THREE.DoubleSide }),
+      roofed
+        .filter((_, n) => n % shared.tins.length === v)
+        .map(c =>
+          pose(
+            new THREE.Vector3(tileCenter(c.i), LANE_ROOF + rng.rand(0, 0.12), tileCenter(c.j)),
+            rng.pick([0, Math.PI / 2]),
+          ),
+        ),
+    ),
+  );
+  add(
+    new THREE.BoxGeometry(4, 0.16, 0.16),
+    flatMat(0x241b14),
+    roofed.flatMap(c => {
+      const alongX = d.maps.grid[c.j * d.W + c.i - 1] === 1 || d.maps.grid[c.j * d.W + c.i + 1] === 1;
+      return [pose(new THREE.Vector3(tileCenter(c.i), LANE_ROOF - 0.1, tileCenter(c.j)), alongX ? Math.PI / 2 : 0)];
+    }),
+  );
   // bare bulbs on their cords down the middle, each with its warm light on the ground
   const bulbs = spot.bulb.filter(under).map(c => ({
     x: tileCenter(c.i) + rng.rand(-0.7, 0.7),
     z: tileCenter(c.j) + rng.rand(-0.7, 0.7),
-    y: rng.rand(3, 3.6),
+    y: rng.rand(2.9, 3.4),
   }));
   add(
     new THREE.BoxGeometry(0.025, 1, 0.025),
@@ -639,7 +669,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     flatMat(0xfff0cf),
     bulbs.map(b => pose(new THREE.Vector3(b.x, b.y, b.z))),
   );
-  bulbs.forEach(b => lights.push({ x: b.x, z: b.z, color: 0xffd9a0, size: 0.85 }));
+  bulbs.forEach(b => lights.push({ x: b.x, z: b.z, color: 0xffd9a0, size: 0.7 }));
   // shops' boards flat on the walls, a little over head height
   shared.boards.forEach((map, b) =>
     add(
