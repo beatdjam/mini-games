@@ -13,7 +13,7 @@ import type { Light, WallSlot } from '../props.ts';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
 import { KWLN_FONT, KWLN_WALL_PICS } from './pictures.ts';
 import { cageTex, neonTex as hangNeonTex, tinTex } from '../../yardProps.ts';
-import { heapTex, stallTex, washingTex } from './cutouts.ts';
+import { crateFaceTex, heapTex, stallTex, washingTex } from './cutouts.ts';
 // The props of the walled city (KWLN): the things fixed to its walls and ceilings, and the light they throw. They go
 // by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
 // together.
@@ -189,6 +189,7 @@ const BOARD = { w: 3.5, h: 0.9, y: 4.75, out: 0.07, tilt: 0.1, chance: 0.8 }; //
 const NEON = { thick: 0.12, h: 2.5, out: 0.85, y: 4.2 }; // a neon sign standing out from a wall (m)
 interface KwlnShared {
   stalls: THREE.CanvasTexture[];
+  crates: THREE.CanvasTexture[];
   heaps: THREE.CanvasTexture[];
   washing: THREE.CanvasTexture[];
   meterBoard: THREE.CanvasTexture;
@@ -206,6 +207,7 @@ let kwlnShared: KwlnShared | null = null;
 export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   kwlnShared ??= {
     stalls: [21, 22, 23, 24].map(stallTex),
+    crates: [50, 51, 52, 53].map(crateFaceTex),
     heaps: [31, 32, 33, 34, 35].map(heapTex),
     washing: [41, 42, 43].map(washingTex),
     meterBoard: paint(31, meterBoard),
@@ -330,27 +332,53 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const byDoor = (f: { i: number; j: number }): boolean =>
       [[0, 0], ...SIDE_STEP].some(([di, dj]) => !!d.maps.door?.[(f.j + dj!) * d.W + f.i + di!]),
     inLane = (f: { room: number }): boolean => f.room < 0,
+    // (a neon sign stands out from its wall at the height of the awnings: nothing else hangs on that face)
+    neonOn = new Set(
+      // (nor on the faces next to it along the wall: an awning is nearly a tile wide)
+      of('neon').flatMap(s =>
+        [
+          [0, 0],
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ].map(([a, b]) => `${s.i + a!}:${s.j + b!}:${s.side}`),
+      ),
+    ),
+    clear = (f: WallSlot): boolean => !neonOn.has(`${f.i}:${f.j}:${f.side}`),
     some = <T>(list: T[], share: number): T[] => list.filter(() => rng.next() < share),
     low = faces.map(() => rng.next()), // what is let into the wall: a stall, a board of meters, or nothing
     high = faces.map(() => rng.next()), // what hangs over it: an awning, a cage, washing, or nothing
     // (an alley's walls are busier at eye height than a hall's: more meters and lamps, fewer whole stalls)
-    stalls = faces.filter((f, n) => !byDoor(f) && low[n]! < (inLane(f) ? 0.18 : 0.3)),
+    // (what is let into a wall goes on bare concrete or over posters, not over a window, a gate or a shutter painted
+    // there)
+    bare = (f: WallSlot): boolean => {
+      const [di, dj] = SIDE_STEP[f.side ?? 0]!,
+        v = variantOf((f.j + dj) * d.W + f.i + di, KWLN_WALL_PICS.length, WALL_PLAIN_SHARE);
+      return v === 0 || v === KWLN_WALL_PICS.length - 1;
+    },
+    stalls = faces.filter((f, n) => bare(f) && !byDoor(f) && low[n]! < (inLane(f) ? 0.18 : 0.3)),
     lanes = ceilings.filter(c => c.room < 0),
     halls = ceilings.filter(c => c.room >= 0),
     spot = {
       stall: stalls,
-      board: faces.filter((f, n) => low[n]! >= 0.3 && low[n]! < (inLane(f) ? 0.62 : 0.48)),
-      meter: faces.filter((f, n) => low[n]! >= (inLane(f) ? 0.62 : 0.48) && low[n]! < (inLane(f) ? 0.8 : 0.6)),
+      board: faces.filter((f, n) => bare(f) && low[n]! >= 0.3 && low[n]! < (inLane(f) ? 0.62 : 0.48)),
+      meter: faces.filter(
+        (f, n) => bare(f) && low[n]! >= (inLane(f) ? 0.62 : 0.48) && low[n]! < (inLane(f) ? 0.8 : 0.6),
+      ),
       heap: faces.filter(f => !byDoor(f) && rng.next() < (inLane(f) ? 0.8 : 0.62)),
       // (over most stalls, and over a bare wall now and then)
-      awning: faces.filter((_, n) => (low[n]! < 0.3 ? high[n]! < 0.8 : high[n]! < 0.12)),
-      cage: faces.filter((_, n) => low[n]! >= 0.3 && high[n]! >= 0.12 && high[n]! < 0.42),
-      wash: faces.filter((_, n) => low[n]! >= 0.3 && high[n]! >= 0.42 && high[n]! < 0.6),
+      awning: faces.filter((f, n) => clear(f) && (low[n]! < 0.3 ? high[n]! < 0.8 : high[n]! < 0.12)),
+      cage: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.12 && high[n]! < 0.42),
+      wash: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.42 && high[n]! < 0.6),
       duct: faces.filter(f => rng.next() < (inLane(f) ? 0.85 : 0.5)),
       bundle: some(faces, 0.9),
       tube: faces.filter(f => rng.next() < (inLane(f) ? 0.3 : 0.09)),
-      span: some(ceilings, 0.42),
-      hangsign: [...some(lanes, 0.12), ...some(halls, 0.035)],
+      // (an alley is roofed with cables: nearly every tile of it has a bundle across, low enough to be seen)
+      span: [...some(lanes, 0.92), ...some(halls, 0.42)],
+      hangsign: [...some(lanes, 0.2), ...some(halls, 0.035)],
+      bulb: some(lanes, 0.5), // a bare bulb on its cord down the middle of an alley
+      sign: faces.filter(f => inLane(f) && bare(f) && rng.next() < 0.4), // a shop's board flat on an alley's wall
     };
   const flatMat = (color: number) => new THREE.MeshBasicMaterial({ color }),
     tipped = (pos: THREE.Vector3, turn: number, tip: number) =>
@@ -468,7 +496,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // a bundle slung across from wall to wall sags: two halves, each dropping to the middle
   for (const s of spot.span.filter(under)) {
     const turn = rng.pick([0, Math.PI / 2]),
-      y = rng.rand(4.6, 5.4),
+      y = s.room < 0 ? rng.rand(3.7, 4.7) : rng.rand(4.6, 5.4),
       sag = rng.rand(0.08, 0.2),
       n = rng.randi(3, 6);
     for (let k = 0; k < n; k++) {
@@ -530,23 +558,58 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const out = onWall(a.s, 0, 1.6, 0);
     lights.push({ x: out.x, z: out.z, color: 0xffc98a, size: 0.7 });
   });
-  // heaps along the foot of the walls, two deep here and there
+  // Flat pictures alone read as paper from the side, so each has something solid to it. A stall: a counter of
+  // crates in front, two shelf boards standing out of the picture, a post at each end. A heap: real crates stacked
+  // against the wall, with the picture of smaller things stood in front of them
+  const solid: THREE.Matrix4[][] = shared.crates.map(() => []),
+    crate = (pos: THREE.Vector3, turn: number, w: number, h: number, deep: number) =>
+      solid[rng.randi(0, solid.length - 1)]!.push(pose(pos, turn, new THREE.Vector3(w, h, deep)));
+  for (const a of stallAt) {
+    const turn = facing(a.s);
+    for (let off = -1.4; off < 1.5; off += 0.95) {
+      const h = rng.rand(0.55, 0.9);
+      crate(onWall(a.s, off + rng.rand(-0.05, 0.05), 0.36, h / 2), turn + rng.rand(-0.06, 0.06), 0.9, h, 0.46);
+    }
+  }
+  add(
+    new THREE.BoxGeometry(3.6, 0.05, 0.3),
+    flatMat(0x2e2218),
+    stallAt.flatMap(a => [1.5, 2.12].map(y => pose(onWall(a.s, 0, 0.24, y), facing(a.s)))),
+  );
+  add(
+    new THREE.BoxGeometry(0.09, 2.84, 0.09),
+    flatMat(0x241b14),
+    stallAt.flatMap(a => [-1.8, 1.8].map(off => pose(onWall(a.s, off, 0.52, 1.42), facing(a.s)))),
+  );
+  const heapAt = spot.heap.map(s => ({ s, off: rng.rand(-0.3, 0.3) }));
+  for (const h of heapAt) {
+    const turn = facing(h.s);
+    for (let k = 0, n = rng.randi(2, 4); k < n; k++) {
+      const w = rng.rand(0.55, 0.95),
+        tall = rng.rand(0.4, 0.75),
+        off = h.off + rng.rand(-1.3, 1.3);
+      crate(onWall(h.s, off, 0.27, tall / 2), turn + rng.rand(-0.1, 0.1), w, tall, 0.45);
+      if (rng.next() < 0.4)
+        crate(
+          onWall(h.s, off + rng.rand(-0.1, 0.1), 0.27, tall + 0.25),
+          turn + rng.rand(-0.15, 0.15),
+          w * 0.8,
+          0.5,
+          0.4,
+        );
+    }
+  }
+  shared.crates.forEach((map, v) =>
+    add(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ map }), solid[v]!),
+  );
+  // ... and the picture of the smaller things in front of the crates
   shared.heaps.forEach((map, v) =>
     add(
       new THREE.PlaneGeometry(3.5, 1.75),
       cutout(map),
-      spot.heap
+      heapAt
         .filter((_, n) => n % shared.heaps.length === v)
-        .flatMap(s => {
-          const off = rng.rand(-0.3, 0.3),
-            turn = facing(s);
-          return rng.next() < 0.45
-            ? [
-                pose(onWall(s, off, 0.16, 0.86), turn),
-                pose(onWall(s, off + rng.rand(-0.9, 0.9), 0.42, 0.7), turn, new THREE.Vector3(0.8, 0.8, 1)),
-              ]
-            : [pose(onWall(s, off, 0.2, 0.86), turn)];
-        }),
+        .map(h => pose(onWall(h.s, h.off, 0.56, 0.78), facing(h.s), new THREE.Vector3(1, 0.9, 1))),
     ),
   );
   // lines of washing out from the walls, above head height
@@ -557,6 +620,34 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       spot.wash
         .filter((_, n) => n % shared.washing.length === v)
         .map(s => pose(onWall(s, 0, rng.rand(0.5, 1.1), rng.rand(3.6, 4.5)), facing(s))),
+    ),
+  );
+  // ---- the alleys ----
+  // bare bulbs on their cords down the middle, each with its warm light on the ground
+  const bulbs = spot.bulb.filter(under).map(c => ({
+    x: tileCenter(c.i) + rng.rand(-0.7, 0.7),
+    z: tileCenter(c.j) + rng.rand(-0.7, 0.7),
+    y: rng.rand(3, 3.6),
+  }));
+  add(
+    new THREE.BoxGeometry(0.025, 1, 0.025),
+    flatMat(0x0f0d0e),
+    bulbs.map(b => pose(new THREE.Vector3(b.x, (b.y + WALL_H) / 2, b.z), 0, new THREE.Vector3(1, WALL_H - b.y, 1))),
+  );
+  add(
+    new THREE.SphereGeometry(0.09, 8, 6),
+    flatMat(0xfff0cf),
+    bulbs.map(b => pose(new THREE.Vector3(b.x, b.y, b.z))),
+  );
+  bulbs.forEach(b => lights.push({ x: b.x, z: b.z, color: 0xffd9a0, size: 0.85 }));
+  // shops' boards flat on the walls, a little over head height
+  shared.boards.forEach((map, b) =>
+    add(
+      new THREE.PlaneGeometry(BOARD.w * 0.8, BOARD.h * 0.8),
+      new THREE.MeshBasicMaterial({ map }),
+      spot.sign
+        .filter((_, n) => n % shared.boards.length === b)
+        .map(s => pose(onWall(s, rng.rand(-0.3, 0.3), 0.05, rng.rand(2.5, 3.1)), facing(s))),
     ),
   );
   // the light the lamps and the neon throw on the ground: a soft pool of their colour

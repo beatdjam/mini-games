@@ -315,3 +315,30 @@ export function wireMatTex(seed: number): THREE.CanvasTexture {
     }
   });
 }
+
+// One face of a crate or a carton, the whole picture (not a cut-out): the solid things a heap is built round
+export function crateFaceTex(seed: number): THREE.CanvasTexture {
+  const rand = seeded(seed),
+    S = 128;
+  return canvasTex(S, S, g => {
+    const wood = seed % 2 === 0;
+    g.fillStyle = wood ? '#5f4a30' : pick(rand, CARD);
+    g.fillRect(0, 0, S, S);
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    if (wood) {
+      for (let k = 1; k < 5; k++) g.fillRect(0, (S / 5) * k - 2, S, 4);
+      g.fillRect(0, 0, 8, S);
+      g.fillRect(S - 8, 0, 8, S);
+    } else {
+      g.fillRect(S * 0.44, 0, S * 0.12, S);
+      g.fillStyle = 'rgba(150,30,24,0.75)';
+      g.fillRect(12, S * 0.56, S * 0.34, S * 0.22);
+    }
+    const shade = g.createLinearGradient(0, 0, S, S);
+    shade.addColorStop(0, 'rgba(255,255,255,0.1)');
+    shade.addColorStop(1, 'rgba(0,0,0,0.4)');
+    g.fillStyle = shade;
+    g.fillRect(0, 0, S, S);
+    soil(g, rand, S, S, S * 0.3);
+  });
+}
