@@ -47,6 +47,25 @@ if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHaza
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
+// dev: ?fps shows the frames drawn in the last second, top middle (for looking at how heavy a place is on a phone)
+if (new URLSearchParams(location.search).has('fps')) {
+  const box = document.createElement('div');
+  box.style.cssText =
+    'position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:99;padding:2px 8px;background:#000a;color:#fff;font:14px monospace';
+  document.body.append(box);
+  let frames = 0,
+    since = performance.now();
+  const count = (now: number) => {
+    frames++;
+    if (now - since >= 1000) {
+      box.textContent = `${Math.round((frames * 1000) / (now - since))} fps`;
+      frames = 0;
+      since = now;
+    }
+    requestAnimationFrame(count);
+  };
+  requestAnimationFrame(count);
+}
 // dev: ?court=open / ?court=roof makes every courtyard a yard open to the sky / a roofed atrium
 const courtParam = new URLSearchParams(location.search).get('court');
 if (courtParam === 'open' || courtParam === 'roof') devCourtOpen(courtParam === 'open');
@@ -116,15 +135,26 @@ if (location.hash.startsWith('#bld-'))
       run.bld!.supplied = true; // no supply screen over the view
       player.hp = 1e6;
     } else if (what.startsWith('court') && b.court) {
-      // the courtyard (?sector=CITY, and a seed whose building has one): court = on its ground, looking up;
-      // courttop = on the gallery of its top floor, looking down; courtmid = on a gallery between (or the top one)
+      // the courtyard (?sector=CITY; ?court=open for a yard, ?court=roof for an atrium): court = from its lowest
+      // floor, looking up; courttop = from its top floor, looking down; courtmid = from a floor between
       const c = b.court,
-        edge = c.tiles[1]!; // the middle tile of the open middle's first row
-      if (what === 'court') {
-        stand(c.lower, edge, W);
+        floor =
+          what === 'court'
+            ? c.lower
+            : what === 'courttop'
+              ? c.upper
+              : Math.min(c.upper + 1, Math.max(c.upper, c.lower - 1));
+      if (c.open) {
+        // a yard: on that floor's balcony, facing the yard
+        const mid = c.balconies[floor - c.upper]![1]!,
+          out = [1, -1, W, -W].find(o => c.tiles.includes(mid + o))!;
+        stand(floor, mid, out);
+        player.pitch = what === 'court' ? 0.3 : what === 'courttop' ? -0.3 : 0;
+      } else if (what === 'court') {
+        stand(c.lower, c.tiles[1]!, W);
         player.pitch = 0.75;
       } else {
-        stand(what === 'courttop' ? c.upper : Math.min(c.upper + 1, c.lower - 1), edge - W, W);
+        stand(floor, c.tiles[1]! - W, W);
         player.pitch = -0.55;
       }
     } else if (what === 'boss') {
