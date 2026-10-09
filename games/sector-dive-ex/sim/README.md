@@ -12,6 +12,7 @@ SIM_SEEDS=1-20 SIM_STYLE=beginner,rusher npm run sim                   # 型と�
 
 - `SIM_SEEDS`: 建物のシード。`1-20` か `3,7,9` の形（既定は `1-10`）
 - `SIM_STYLE`: プレイヤーの型。コンマ区切りで複数、`all` で全部（既定は `all`）
+- `SIM_WEAPON`: 武器を1種類に固定して比べる。`pistol,shotgun` のようにコンマ区切り、`all` で5種類全部（既定は指定なしで、ふだんのゲームのまま）。その武器1本だけで始まり、その潜行のドロップは全部その武器になる（レア度・＋・オプションの出方は同じなので、武器の種類だけの差を見られる）。型 × 武器の組み合わせぶん回るので、型を絞って使う
 - Chromium の中で、画面を描かずにゲームのループを手で進める。実時間の数百倍で回る（1本あたり数秒〜数十秒。深く潜る型ほど長い）
 - テストではない。`npm test` にも CI にも入らない
 
@@ -27,6 +28,7 @@ SIM_SEEDS=1-20 SIM_STYLE=beginner,rusher npm run sim                   # 型と�
 
 | 列 | 意味 |
 |---|---|
+| `weapon` | 固定した武器（`SIM_WEAPON`。指定なしは `-`） |
 | `depthMean`・`depthMedian`・`depthMax` | 到達した深度（1 = 最初の深度） |
 | `bossesMean` | 倒したボスの数の平均 |
 | `minutesMean` | 1潜行の長さの平均（ゲーム内の時間） |
