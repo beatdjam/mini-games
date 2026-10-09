@@ -143,6 +143,7 @@ import {
 } from '../src/world/building.ts';
 import { ridingY, supplyChips } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
+import { DOOR_PASS } from '@engine/world/tiles.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { openPerk } from '../src/screens/perk.ts';
@@ -2817,6 +2818,46 @@ test('lockdown: the room does not shut on a player still in its doorway (they co
   stand(T / 2);
   tick(3);
   expect(locked(), 'shut once the player is clear of the door').toBe(true);
+  goBase();
+});
+test('lockdown: a player who gets out past an enemy holding a door open is not left outside', () => {
+  for (let k = 0; k < 20; k++) {
+    goBase();
+    startRun();
+    tick(2);
+    if (building!.lockdown) break;
+  }
+  const ld = building!.lockdown!;
+  goToFloor(ld.floor);
+  const world = activeTileGrid().world,
+    doors = roomDoors(building!.plans[ld.floor]!.gen, ld.room).doors,
+    locked = () => doors.some(k => isDoorLocked(world, k)),
+    door = doors[0]!,
+    [di, dj] = SIDE_STEP.find(([a, b]) => level.roomOf[door + a + b * W] === ld.room)!,
+    at = (k: number): [number, number] => [((k % W) + 0.5) * T, (Math.floor(k / W) + 0.5) * T],
+    put = (x: number, z: number) => {
+      player.x = x;
+      player.z = z;
+      player.fy = floorY(x, z);
+    };
+  // an awake enemy stands in the doorway (one that does not move), so the door is open when the room shuts
+  const guard = spawnEnemy('turret', ...at(door), ld.room, 1);
+  guard.active = true;
+  level.roomCount[ld.room]!++;
+  tick(30);
+  expect(world.doorOpen![door], 'the enemy has opened the door').toBe(1);
+  put(...roomSpot(level.rooms[ld.room]!));
+  tick(30);
+  expect(locked(), 'shut with the player inside').toBe(true);
+  expect(world.doorOpen![door], 'the door cannot shut on the enemy in it').toBeGreaterThanOrEqual(DOOR_PASS);
+  // the player walks out through it, two tiles down the corridor
+  put(...at(door - 2 * (di + dj * W)));
+  tick(3);
+  expect(locked(), 'outside: the room is open again').toBe(false);
+  expect(el('#alarm').classList.contains('on'), 'the lockdown goes on').toBe(true);
+  put(...roomSpot(level.rooms[ld.room]!));
+  tick(3);
+  expect(locked(), 'back inside: shut again').toBe(true);
   goBase();
 });
 test('lockdown: the room shuts, two waves come, then it opens and leaves a chip', () => {

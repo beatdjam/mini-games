@@ -52,6 +52,7 @@ const ev = {
   wavesLeft: 0,
   alarmT: 0, // seconds until the siren sounds again
   bossStarted: false, // the player has walked into the boss room
+  bossOver: false, // the boss is down
   bossDoorT: 0, // seconds the player has waited at the boss door
   bossDoorHint: false, // the hint at the boss door has been shown
   liftArmed: false, // the player has been off the lifts' platforms since arriving (so a ride does not start at once)
@@ -74,6 +75,7 @@ export function resetFloorEvents() {
   ev.wavesLeft = 0;
   showAlarm(false);
   ev.bossStarted = false;
+  ev.bossOver = false;
   ev.bossDoorT = 0;
   ev.bossDoorHint = false;
   ev.liftArmed = false;
@@ -219,6 +221,7 @@ function startBossFight() {
 }
 // the boss is down: the way back up opens again
 export function onBossDown() {
+  ev.bossOver = true;
   if (level.hall) lockDoor(world(), level.hall.door, false);
 }
 
@@ -300,10 +303,24 @@ function clearOfDoors(doors: number[]): boolean {
 }
 function shutBehindPlayer() {
   const room = level.roomOf[tileIndex(player.x, player.z)] ?? -1;
+  shutOnlyWithPlayerIn(room);
   if (room < 0) return;
   if (isLockdownRoom(room) && !ev.ldActive && clearOfDoors(lockdownDoors(room))) startLockdown(room);
   const hall = level.hall;
   if (hall && room === hall.room && !ev.bossStarted && clearOfDoors([hall.door])) startBossFight();
+}
+// While a lockdown or the boss fight is on, the room is shut only with the player in it. They can get out: a locked
+// door does not shut on an enemy standing in it either, and stays open for as long as one does. Outside, they would
+// be left in front of a room that never opens, with lifts that do not run; so its doors open again until they are
+// back inside (in a doorway, the doors stay as they are)
+function shutOnlyWithPlayerIn(room: number) {
+  const keep = (doors: number[], of: number) => {
+    if (!clearOfDoors(doors)) return;
+    doors.forEach(k => lockDoor(world(), k, room === of));
+  };
+  if (ev.ldActive) keep(lockdownDoors(building!.lockdown!.room), building!.lockdown!.room);
+  const hall = level.hall;
+  if (hall && ev.bossStarted && !ev.bossOver) keep([hall.door], hall.room);
 }
 
 // every frame on a building floor: the lockdown, the lifts, and waiting in front of the locked boss door opens it
