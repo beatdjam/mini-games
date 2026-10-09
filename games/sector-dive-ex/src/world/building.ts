@@ -39,6 +39,12 @@ const ROOMS_BETWEEN = 2; // rooms on the shortest way from where one stairwell o
 const LINK_TRIES = 24; // a stairwell or lift is put somewhere else this often to get them; see placeLink
 const SEED_TRIES = 30; // seeds tried until a building has room for its stairwells and every floor is reached
 const SEED_STEP = 7919; // added to the seed for the next try
+// A courtyard: a well of COURT x COURT tiles open through several floors, with a gallery one tile wide round it on
+// every floor it passes and its ground on the lowest of them. Looked into and up from, never crossed between floors
+const COURT_SECTORS = ['CITY']; // the sectors whose buildings get one (when there is room)
+const COURT = 3; // side of the open middle (tiles)
+const COURT_SIDE = COURT + 4; // ... with the gallery and the wall round that: this square is wall on every floor it takes
+const COURT_TRIES = 12; // places tried
 const DOOR_PAIR_REACH = 2; // of two doors this many tiles apart or closer along a corridor, only one stays
 
 // A way between two floors: a stairwell joins neighbouring floors, a lift may pass one floor on its way. upper is the
@@ -62,6 +68,16 @@ export interface FloorPlan {
   noCeil: Uint8Array; // no ceiling: the stairwell and the lift's shaft go up through it
   shaft: Uint8Array; // round a stairwell or shaft going up: the gap between this ceiling and the next floor is walled
   shaftWall: Uint8Array; // round the open part of a stairwell coming up from below: a wall is drawn here
+  // the courtyard's open middle on this floor (null = none here): `top` has the skylight over it, `ground` is the
+  // floor one walks on (elsewhere it is a hole with a rail round it)
+  court: { tiles: number[]; top: boolean; ground: boolean } | null;
+}
+// the courtyard of a building: the floors it is open through (upper = the top one, with the skylight; lower = the
+// one its ground is on) and the tiles of its open middle (the same on every floor)
+export interface Court {
+  upper: number;
+  lower: number;
+  tiles: number[];
 }
 export interface Building {
   seed: number; // what makeBuilding was given
@@ -70,6 +86,7 @@ export interface Building {
   route: number[]; // the floors in the order they are visited: route[0] = 0 (the top), the last = the lowest floor
   links: BuildingLink[]; // step by step along the route: links[n] joins route[n] and route[n + 1]
   lockdown: { floor: number; room: number } | null; // the room where the lockdown happens (none when no room fits)
+  court: Court | null; // the courtyard (none in most sectors, or when no place fits)
 }
 // the building of the depth being played; replaced as a whole by setBuilding
 export let building: Building | null = null;
@@ -357,6 +374,75 @@ function placeLink(
   }
 }
 
+// Puts a courtyard where a square of COURT_SIDE tiles is wall on as many floors next to each other as possible (two
+// at least; never the lowest floor, whose boss room stands higher than a floor). On each of them a gallery is carved
+// round the open middle, with a corridor to the rest of the floor; on the lowest the middle is floor too. Returns
+// null (and leaves the maps as they were) when no place fits
+function addCourt(maps: TileMapData[], keepOut: Uint8Array[], rng: Rng): Court | null {
+  const { W, H } = maps[0]!,
+    last = maps.length - 2, // the lowest floor a courtyard may reach
+    free = (f: number, i: number, j: number): boolean => {
+      for (let b = 0; b < COURT_SIDE; b++)
+        for (let a = 0; a < COURT_SIDE; a++) {
+          const k = (j + b) * W + i + a;
+          if (maps[f]!.maps.grid[k] || keepOut[f]![k]) return false;
+        }
+      return true;
+    };
+  // every place with the run of floors it is free on, the longest runs first
+  let best = 2;
+  let places: { i: number; j: number; upper: number; lower: number }[] = [];
+  for (let j = 1; j + COURT_SIDE < H; j++)
+    for (let i = 1; i + COURT_SIDE < W; i++)
+      for (let upper = 0; upper + best - 1 <= last; upper++) {
+        let lower = upper;
+        while (lower <= last && free(lower, i, j)) lower++;
+        const n = lower - upper;
+        if (n < best) continue;
+        if (n > best) {
+          best = n;
+          places = [];
+        }
+        places.push({ i, j, upper, lower: lower - 1 });
+      }
+  for (let t = 0; t < COURT_TRIES && places.length; t++) {
+    const at = places.splice(rng.randi(0, places.length - 1), 1)[0]!,
+      kept = maps.map((m, n) => ({ grid: m.maps.grid.slice(), out: keepOut[n]!.slice() })),
+      tile = (a: number, b: number) => (at.j + b) * W + at.i + a,
+      tiles: number[] = [];
+    for (let b = 2; b < 2 + COURT; b++) for (let a = 2; a < 2 + COURT; a++) tiles.push(tile(a, b));
+    let ok = true;
+    for (let f = at.upper; f <= at.lower && ok; f++) {
+      const d = maps[f]!,
+        out = keepOut[f]!;
+      for (let b = 0; b < COURT_SIDE; b++)
+        for (let a = 0; a < COURT_SIDE; a++) {
+          const k = tile(a, b),
+            ring = a >= 1 && b >= 1 && a <= COURT_SIDE - 2 && b <= COURT_SIDE - 2,
+            open = tiles.includes(k);
+          out[k] = 1;
+          if (ring && (!open || f === at.lower)) d.maps.grid[k] = 1;
+        }
+      // the way in: from the middle of one side of the wall round the gallery, whichever finds a way
+      const mid = (COURT_SIDE - 1) / 2,
+        gates = [tile(mid, 0), tile(mid, COURT_SIDE - 1), tile(0, mid), tile(COURT_SIDE - 1, mid)];
+      ok = false;
+      for (let n = rng.randi(0, 3), tries = 0; tries < 4 && !ok; n = (n + 1) % 4, tries++) {
+        const gate = gates[n]!;
+        out[gate] = 0;
+        ok = carveCorridorFrom(d, gate, out);
+        out[gate] = 1;
+      }
+    }
+    if (ok) return { upper: at.upper, lower: at.lower, tiles };
+    kept.forEach((k, n) => {
+      maps[n]!.maps.grid.set(k.grid);
+      keepOut[n]!.set(k.out);
+    });
+  }
+  return null;
+}
+
 // is every floor tile of the building walked to from the start room, taking the stairs and lifts (cover tiles aside)
 function allReached(maps: TileMapData[], links: BuildingLink[], startIdx: number): boolean {
   const W = maps[0]!.W,
@@ -445,7 +531,10 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     if (!link) return null;
     links.push(link);
   }
-  const plans: FloorPlan[] = maps.map(d => {
+  // (after the stairwells and lifts, which need their places more; only in the sectors that have one, so the other
+  // sectors' buildings draw the same random numbers as before)
+  const court = COURT_SECTORS.includes(biome.code) ? addCourt(maps, keepOut, rng) : null;
+  const plans: FloorPlan[] = maps.map((d, floor) => {
     const hazard = new Uint8Array(size);
     if (biome.gen.hazard) addHazards(d, hazard, biome.gen.hazard.count, rng);
     return {
@@ -457,8 +546,26 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
       noCeil: new Uint8Array(size),
       shaft: new Uint8Array(size),
       shaftWall: new Uint8Array(size),
+      court:
+        court && floor >= court.upper && floor <= court.lower
+          ? { tiles: court.tiles, top: floor === court.upper, ground: floor === court.lower }
+          : null,
     };
   });
+  // the courtyard: open upward on every floor but its top one, a hole on every floor but its lowest, and the gap to
+  // the next floor walled over the galleries. No hazard floor in it
+  if (court)
+    for (let n = court.upper; n <= court.lower; n++) {
+      const p = plans[n]!;
+      for (const k of court.tiles) {
+        if (n > court.upper) p.noCeil[k] = 1;
+        if (n < court.lower) p.voids[k] = 1;
+        for (const t of around(W, k)) {
+          p.gen.hazard[t] = 0;
+          if (n > court.upper && !court.tiles.includes(t)) p.shaft[t] = 1;
+        }
+      }
+    }
   // how each floor is drawn round its stairwells and lifts, and no hazard floor there
   for (const l of links) {
     const up = plans[l.upper]!,
@@ -512,7 +619,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     }),
   );
   const lockdown = fits.length ? rng.pick(fits) : null;
-  return { seed, biome, plans, route, links, lockdown };
+  return { seed, biome, plans, route, links, lockdown, court };
 }
 // The same seed, sector and boss give the same building. A seed whose floors leave no room for a stairwell or lift is
 // passed over for the next one (seed + SEED_STEP, ...), the same way every time; the building keeps the seed it was

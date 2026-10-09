@@ -309,7 +309,14 @@ export function showNeighbourFloors(b: Building, x: number, z: number) {
           m >= l.upper &&
           m <= l.lower &&
           l.strip.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach),
-      );
+      ) ||
+      // ... and the floors the courtyard is open through, near it
+      (!!b.court &&
+        n >= b.court.upper &&
+        n <= b.court.lower &&
+        m >= b.court.upper &&
+        m <= b.court.lower &&
+        b.court.tiles.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach));
   // In the boss room, and in front of its door, only this floor is drawn: the room is higher than a floor (HALL_H),
   // so its top stands where the floor above is, and the two must not show together
   const hall = level.hall,

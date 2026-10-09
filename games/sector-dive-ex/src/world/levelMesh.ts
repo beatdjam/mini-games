@@ -211,6 +211,83 @@ function addTilePlanes(tiles: number[], y: number, up: boolean, mat: THREE.Mater
   mesh.instanceMatrix.needsUpdate = true;
   group.add(mesh);
 }
+// The courtyard's open middle on one floor (world/building.ts): where it is a hole, a rail of glass round it (a
+// steel top rail and posts, a pane under it; the tile world keeps the player out, the rail shows why); on its top
+// floor a skylight in the ceiling, and on its ground the light that falls through it
+const RAIL_H = 1.15,
+  RAIL_T = 0.08; // the rail's height and thickness (m)
+const SKYLIGHT = 0xdfe9f2, // the sky seen through the roof: pale, a little cold against the sector's amber
+  SKY_POOL_OPACITY = 0.16;
+function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group) {
+  const is = court.tiles.map(k => k % W),
+    js = court.tiles.map(k => (k / W) | 0),
+    i0 = Math.min(...is),
+    i1 = Math.max(...is) + 1,
+    j0 = Math.min(...js),
+    j1 = Math.max(...js) + 1,
+    cx = ((i0 + i1) / 2) * T,
+    cz = ((j0 + j1) / 2) * T,
+    wide = (i1 - i0) * T,
+    deep = (j1 - j0) * T;
+  if (!court.ground) {
+    const steel = new THREE.MeshBasicMaterial({ color: 0x2c3136 }),
+      glass = new THREE.MeshBasicMaterial({ color: 0x9fb6c4, transparent: true, opacity: 0.16, depthWrite: false });
+    // (one run along each side of the hole; the middle is a plain rectangle)
+    const side = (x: number, z: number, lenX: number, lenZ: number) => {
+      const top = new THREE.Mesh(new THREE.BoxGeometry(lenX || RAIL_T, RAIL_T, lenZ || RAIL_T), steel);
+      top.position.set(x, RAIL_H, z);
+      const pane = new THREE.Mesh(new THREE.BoxGeometry(lenX || RAIL_T / 2, RAIL_H - 0.12, lenZ || RAIL_T / 2), glass);
+      pane.position.set(x, (RAIL_H - 0.12) / 2 + 0.06, z);
+      group.add(top, pane);
+      const n = Math.round((lenX || lenZ) / T);
+      for (let p = 0; p <= n; p++) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(RAIL_T, RAIL_H, RAIL_T), steel);
+        post.position.set(lenX ? x - lenX / 2 + p * T : x, RAIL_H / 2, lenZ ? z - lenZ / 2 + p * T : z);
+        group.add(post);
+      }
+    };
+    side(cx, j0 * T, wide, 0);
+    side(cx, j1 * T, wide, 0);
+    side(i0 * T, cz, 0, deep);
+    side(i1 * T, cz, 0, deep);
+  }
+  if (court.top) {
+    // the skylight: a bright pane a little under the ceiling, framed by steel bars
+    const sky = new THREE.Mesh(
+      new THREE.PlaneGeometry(wide - 0.6, deep - 0.6),
+      new THREE.MeshBasicMaterial({ color: SKYLIGHT }),
+    );
+    sky.rotation.x = Math.PI / 2;
+    sky.position.set(cx, WALL_H - 0.03, cz);
+    group.add(sky);
+    const bar = new THREE.MeshBasicMaterial({ color: 0x1b1e21 });
+    for (let n = 1; n < i1 - i0; n++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, deep - 0.6), bar);
+      m.position.set(i0 * T + n * T, WALL_H - 0.08, cz);
+      group.add(m);
+    }
+    for (let n = 1; n < j1 - j0; n++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(wide - 0.6, 0.1, 0.12), bar);
+      m.position.set(cx, WALL_H - 0.08, j0 * T + n * T);
+      group.add(m);
+    }
+  }
+  if (court.ground) {
+    const pool = new THREE.Mesh(
+      new THREE.PlaneGeometry(wide, deep),
+      new THREE.MeshBasicMaterial({
+        color: SKYLIGHT,
+        transparent: true,
+        opacity: SKY_POOL_OPACITY,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(cx, 0.03, cz);
+    group.add(pool);
+  }
+}
 // The three.js part of one floor of the building (world/building.ts). Reads the tile world (set to this floor first).
 // Unlike a level on its own it has a ceiling, and it is open where the plan says so: no wall over the stairwell that
 // comes up from the floor below, no floor on a landing or a lift's shaft, no ceiling where a stairwell or shaft goes
@@ -323,6 +400,7 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
     boxes.instanceMatrix.needsUpdate = true;
     group.add(boxes);
   }
+  if (plan.court) addCourt(plan.court, group);
   // a sector with a look brings its own signs; the plain neon bars are for the sectors without one
   if (look) look.props(plan, group, rng);
   else if (biome.gen.neon) addNeonSigns(walls, group, rng);

@@ -51,7 +51,8 @@ if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>>
 // dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
-// lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building)
+// lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
+// court / courttop / courtmid (the courtyard, from its ground and from its galleries)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -111,6 +112,18 @@ if (location.hash.startsWith('#bld-'))
       player.pitch = 0.45;
       run.bld!.supplied = true; // no supply screen over the view
       player.hp = 1e6;
+    } else if (what.startsWith('court') && b.court) {
+      // the courtyard (?sector=CITY, and a seed whose building has one): court = on its ground, looking up;
+      // courttop = on the gallery of its top floor, looking down; courtmid = on a gallery between (or the top one)
+      const c = b.court,
+        edge = c.tiles[1]!; // the middle tile of the open middle's first row
+      if (what === 'court') {
+        stand(c.lower, edge, W);
+        player.pitch = 0.75;
+      } else {
+        stand(what === 'courttop' ? c.upper : Math.min(c.upper + 1, c.lower - 1), edge - W, W);
+        player.pitch = -0.55;
+      }
     } else if (what === 'boss') {
       const hall = b.plans[b.plans.length - 1]!.hall!,
         grid = b.plans[b.plans.length - 1]!.gen.maps.grid,
