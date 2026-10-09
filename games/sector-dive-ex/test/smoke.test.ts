@@ -135,6 +135,7 @@ import {
   FLOOR_H,
   STRIP,
   building,
+  devCourtOpen,
   makeBuilding,
   makeRoute,
   packSeen,
@@ -2047,6 +2048,51 @@ test('building: rooms lie between where one stairwell or lift lets you off and t
     });
   }
   expect(counts.filter(c => c >= 2).length / counts.length, '2 rooms or more').toBeGreaterThan(0.85);
+});
+test('building: a courtyard in the old downtown only: an atrium with galleries, or a yard seen from balconies', () => {
+  const city = BIOMES.find(x => x.code === 'CITY')!;
+  for (const open of [false, true]) {
+    devCourtOpen(open);
+    for (let seed = 1; seed <= 20; seed++) {
+      const b = makeBuilding(city, city.bosses[0]!, seed),
+        c = b.court!,
+        at = `${open ? 'yard' : 'atrium'} seed ${seed}`;
+      expect(c, at).not.toBeNull();
+      expect(c.open, at).toBe(open);
+      expect(c.lower - c.upper, `${at}: through two floors or more`).toBeGreaterThanOrEqual(1);
+      expect(c.lower, `${at}: not on the lowest floor (the boss room is higher than a floor)`).toBeLessThan(
+        b.plans.length - 1,
+      );
+      b.plans.forEach((p, floor) => {
+        const on = floor >= c.upper && floor <= c.lower,
+          { W: w, maps } = p.gen;
+        expect(!!p.court, `${at} floor ${floor}`).toBe(on);
+        if (!on) return;
+        // the open middle is walked on only on an atrium's lowest floor; everywhere else it is a hole (solid)
+        const ground = !open && floor === c.lower;
+        for (const k of c.tiles) {
+          expect(maps.grid[k], `${at} floor ${floor} tile ${k}`).toBe(ground ? 1 : 0);
+          expect(p.voids[k], `${at} floor ${floor}: nothing drawn in the hole`).toBe(ground ? 0 : 1);
+        }
+        if (open) {
+          // a balcony: floor tiles right beside the yard
+          expect(p.court!.balcony.length).toBe(3);
+          for (const k of p.court!.balcony) {
+            expect(maps.grid[k], `${at} floor ${floor} balcony ${k}`).toBe(1);
+            expect([k - 1, k + 1, k - w, k + w].some(t => c.tiles.includes(t))).toBe(true);
+          }
+        } else {
+          // a gallery all round the hole
+          const ring = new Set(c.tiles.flatMap(k => [k - 1, k + 1, k - w, k + w]).filter(k => !c.tiles.includes(k)));
+          for (const k of ring) expect(maps.grid[k], `${at} floor ${floor} gallery ${k}`).toBe(1);
+        }
+      });
+    }
+  }
+  devCourtOpen(null);
+  // the other sectors have none
+  for (const biome of BIOMES.filter(x => x.code !== 'CITY'))
+    expect(makeBuilding(biome, biome.bosses[0]!, 3).court, biome.code).toBeNull();
 });
 test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
   // a door stands across a corridor: floor before and behind it, wall on its two sides
