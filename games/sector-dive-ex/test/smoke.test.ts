@@ -136,6 +136,7 @@ import {
   STRIP,
   building,
   makeBuilding,
+  makeRoute,
   packSeen,
   roomDoors,
   setBuilding,
@@ -2077,6 +2078,10 @@ test('building: the same seed gives the same three floors, joined at the same pl
     many.some(b => b.route.some((f, n) => n > 0 && f < b.route[n - 1]!)),
     'a route that climbs',
   ).toBe(true);
+  // 5 floors: the three floors between are taken in any order (a lift goes up to 3 floors)
+  const five = new Set(Array.from({ length: 200 }, (_, n) => makeRoute(5, createRng(n + 1)).join('')));
+  expect([...five].sort()).toEqual(['01234', '01324', '02134', '02314', '03124', '03214']);
+  expect(new Set(Array.from({ length: 50 }, (_, n) => makeRoute(4, createRng(n + 1)).join(''))).size).toBe(2);
   expect(
     many.some(b => b.links.some(l => l.lower - l.upper === 2)),
     'a lift past a floor',
@@ -2102,7 +2107,7 @@ test('building: the same seed gives the same three floors, joined at the same pl
       expect(bld.links.length, at).toBe(F - 1);
       bld.links.forEach((l, n) => {
         expect([l.upper, l.lower].join(), at).toBe([bld.route[n]!, bld.route[n + 1]!].sort().join());
-        expect(l.lower - l.upper, at).toBeLessThanOrEqual(l.kind === 'stairs' ? 1 : 2);
+        expect(l.lower - l.upper, at).toBeLessThanOrEqual(l.kind === 'stairs' ? 1 : 3);
       });
       for (const l of bld.links) {
         const up = bld.plans[l.upper]!.gen.maps,

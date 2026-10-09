@@ -27,7 +27,7 @@ export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
 // ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with
 // enemies as a Sector Dive depth (about 13.6 on average) however many floors it has. null = the sector's own numbers
 const ROOMS_BY_FLOORS: Record<number, [number, number] | null> = { 3: null, 4: [4, 4], 5: [3, 3] };
-const LIFT_REACH = 2; // a lift goes at most this many floors
+const LIFT_REACH = 3; // a lift goes at most this many floors
 const STAIRS_CHANCE = 0.5; // a step of one floor is a stairwell this often, a lift otherwise
 export const FLOOR_H = 8; // from the ground of one floor to the ground of the next (m)
 const RAMPS = FLOOR_H / RISE; // ramp tiles of a stairwell
@@ -199,7 +199,8 @@ function markAround(keepOut: Uint8Array, W: number, tiles: number[]) {
 }
 
 // A route through `floors` floors: from the top floor to the lowest, every floor once, never more than LIFT_REACH
-// floors at a step (so 3 floors have one route, 4 have two, 5 have three). Draws one random number
+// floors at a step (so 3 floors have one route, 4 have two, 5 have six: every order of the three floors between).
+// Draws one random number
 export function makeRoute(floors: number, rng: Rng): number[] {
   const between = Array.from({ length: floors - 2 }, (_, n) => n + 1),
     routes: number[][] = [];
