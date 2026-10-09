@@ -181,6 +181,35 @@ export function recallFollowers() {
   for (const f of followers) floorStash.get(f.from)?.enemies.push(f.e);
   followers = [];
 }
+// The player has left the floor `from`: the enemies kept there that belong to another floor (they followed the player
+// to `from` and were left there) go back to their own room, asleep, as if they had walked home. Left where they were,
+// their room would stay empty and never count as cleared until the player came back for them. Call after
+// takeFollowers (the ones close behind the player come along instead)
+export function sendStragglersHome(b: Building, from: number) {
+  const s = floorStash.get(from);
+  if (!s) return;
+  s.enemies = s.enemies.filter(e => {
+    const home = e.floor === undefined || e.floor === from ? undefined : floorStash.get(e.floor);
+    if (!home || e.boss || e.dead || e.room < 0) return true;
+    const { W: w, maps, rooms } = b.plans[e.floor!]!.gen,
+      r = rooms[e.room]!,
+      free: number[] = [];
+    for (let j = r.y; j < r.y + r.h; j++)
+      for (let i = r.x; i < r.x + r.w; i++) {
+        const k = j * w + i;
+        if (maps.grid[k] === 1 && !maps.cover[k] && maps.ramp[k]! < 0) free.push(k);
+      }
+    if (!free.length) return true;
+    const k = free[randi(0, free.length - 1)]!;
+    e.x = tileCenter(k % w);
+    e.z = tileCenter(Math.floor(k / w));
+    e.fy = maps.hgt[k]!;
+    e.mesh.position.set(e.x, e.fy + e.y, e.z);
+    e.active = false;
+    home.enemies.push(e);
+    return false;
+  });
+}
 // every frame on a building floor: the followers whose time has come walk out onto this floor
 export function updateFollowers(dt: number) {
   if (!followers.length) return;

@@ -34,6 +34,7 @@ import {
   restoreFloor,
   reveal,
   roomSpot,
+  sendStragglersHome,
   showBuilding,
   stashFloor,
   takeFollowers,
@@ -303,6 +304,7 @@ export function crossToFloor(n: number, to: number) {
   recallFollowers();
   stashFloor();
   if (b.links[n]!.kind === 'stairs') takeFollowers(from, tile, e => walk.get(e) ?? -1);
+  sendStragglersHome(b, from);
   enterFloor(b, to);
   resetFloorEvents();
   if (!restoreFloor()) populateFloor(b.biome, st.tier, b.plans[to]!, st);
