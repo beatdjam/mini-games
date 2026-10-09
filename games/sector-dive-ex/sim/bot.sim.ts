@@ -5,6 +5,10 @@ import { beforeAll, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
 import { createRng } from '@engine/core/util.ts';
 import { isBossStage } from '../src/core/stages.ts';
+import { setDropOnly } from '../src/core/rules.ts';
+import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
+import { fillMag, newWeapon } from '../src/actors/weapons.ts';
+import { normalizeWeapons } from '../src/ui/input.ts';
 import { defaultSave, setSave } from '../src/core/save.ts';
 import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
 import { boss, enemies } from '../src/world/entities.ts';
@@ -17,6 +21,7 @@ import { BOT_STYLES, createBot, setBot } from '../src/dev/bot.ts';
 
 declare const __SIM_SEEDS__: string;
 declare const __SIM_STYLE__: string;
+declare const __SIM_WEAPON__: string;
 
 const DT = 1 / 60;
 // A run goes on for as long as the bot gets anywhere: it is given up only when nothing has moved on for a while (no
@@ -42,6 +47,17 @@ beforeAll(async () => {
 
 // the kinds of player to run: "all", or names of BOT_STYLES with commas between
 const styles = __SIM_STYLE__ === 'all' ? Object.keys(BOT_STYLES) : __SIM_STYLE__.split(',');
+// One weapon at a time (SIM_WEAPON: names of WEAPONS with commas between, or "all"): the player starts with that
+// weapon alone and every drop of the run is that weapon, so the weapons are compared with the same luck in rarity
+// and upgrades. Not set: the game as it is
+const only: (string | null)[] = !__SIM_WEAPON__
+  ? [null]
+  : __SIM_WEAPON__ === 'all'
+    ? WEAPON_ORDER
+    : __SIM_WEAPON__.split(',');
+const cases = styles.flatMap(style =>
+  only.map(weapon => ({ style, weapon, name: weapon ? `${style}@${weapon}` : style })),
+);
 type Row = Record<string, string | number>;
 const summary: Row[] = [];
 const tsv = (rows: Row[]): string => {
@@ -61,9 +77,10 @@ function tally(words: string[], top: number): string {
     .join(' ');
 }
 
-test.each(styles)(`bot %s: seeds ${__SIM_SEEDS__}`, async name => {
-  const style = BOT_STYLES[name];
-  expect(style, `no such style: ${name}`).toBeTruthy();
+test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName, weapon, name }) => {
+  const style = BOT_STYLES[styleName];
+  expect(style, `no such style: ${styleName}`).toBeTruthy();
+  if (weapon) expect(WEAPONS[weapon], `no such weapon: ${weapon}`).toBeTruthy();
   const rows: Row[] = [];
   for (const seed of seedsOf(__SIM_SEEDS__)) {
     // every run starts from a new save: what one run brings home (weapons, bits, upgrades) must not help the next
@@ -73,7 +90,13 @@ test.each(styles)(`bot %s: seeds ${__SIM_SEEDS__}`, async name => {
     // every kind of player up to where they play differently
     Math.random = createRng(seed).next;
     const bot = createBot(style!);
+    setDropOnly(weapon);
     startRun();
+    if (weapon) {
+      player.weapons = [fillMag(newWeapon(weapon, 0, true)), null];
+      player.cur = 0;
+      normalizeWeapons();
+    }
     setBot(bot);
     let frames = 0,
       end = 'gave up';
@@ -138,6 +161,7 @@ test.each(styles)(`bot %s: seeds ${__SIM_SEEDS__}`, async name => {
     });
     await commands.writeFile(`sim-results/traces/sector-dive-ex-${name}-${seed}.trace.txt`, s.trace.join('\n') + '\n');
     setBot(null);
+    setDropOnly(null);
     if (stateNow() !== 'base') goBase();
     await sleep(0);
   }
@@ -146,7 +170,8 @@ test.each(styles)(`bot %s: seeds ${__SIM_SEEDS__}`, async name => {
   const depth = rows.map(r => r.depth as number),
     dead = rows.filter(r => r.end === 'died');
   summary.push({
-    style: name,
+    style: styleName,
+    weapon: weapon ?? '-',
     runs: rows.length,
     depthMean: mean(depth).toFixed(2),
     depthMedian: median(depth),

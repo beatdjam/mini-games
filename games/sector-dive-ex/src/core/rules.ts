@@ -34,7 +34,16 @@ export const rebootCost = (u: RebootUpgrade, level: number): number => u.cost + 
 export const startMaxHp = (upHp: number): number =>
   Math.round((TUNE.hp + upHp * 15 + save.pres.up.hp * 10) * (1 + REBOOT_ENDLESS.vit * (save.pres.up.vit || 0)));
 export const startDmgMul = (upDmg: number): number => 1 + upDmg * 0.08 + REBOOT_ENDLESS.dmg * (save.pres.up.dmg || 0);
-export const pickDrop = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
+// (dev: with setDropOnly every drop is that one weapon, for the trials that look at one weapon at a time,
+// sim/bot.sim.ts; the die is thrown all the same, so the rest of the run's dice do not shift)
+let dropOnly: string | null = null;
+export function setDropOnly(id: string | null) {
+  dropOnly = id;
+}
+export const pickDrop = () => {
+  const id = DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
+  return dropOnly ?? id;
+};
 // the deepest DEPTH opened since the last reboot, and the + cap for modding base weapons that it gives
 export const peakDepth = (): number => Math.max(save.peak || 0, save.shortcut) + 1;
 export const modPlusCap = (): number => Math.max(MOD_PLUS_MAX, Math.round(peakDepth() * MOD_CAP_PER_DEPTH));

@@ -16,6 +16,7 @@ export default defineConfig({
       define: {
         __SIM_SEEDS__: JSON.stringify(process.env.SIM_SEEDS ?? '1-10'),
         __SIM_STYLE__: JSON.stringify(process.env.SIM_STYLE ?? 'all'),
+        __SIM_WEAPON__: JSON.stringify(process.env.SIM_WEAPON ?? ''),
       },
       test: {
         name: id,
