@@ -7,9 +7,9 @@ import { moveCircle } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { LEECH_OPT_HP } from '../data/weapons.ts';
-import { TUNE, enemyGrowth } from '../data/progress.ts';
+import { TUNE } from '../data/progress.ts';
 import { progressOf } from '../core/rules.ts';
-import { STAGES_PER_GROWTH_DEPTH, damageScaleAt, difficultyAt } from '../core/stages.ts';
+import { damageScaleAt, difficultyAt } from '../core/stages.ts';
 import { level, roomSpot, stashedRoomCount } from '../world/level.ts';
 import { lockdownAhead, markClearedOn, onRoomCleared } from '../flow/events.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
@@ -52,7 +52,7 @@ const KILL_BITS_PER_PROG = 0.05; // more bits per progress
 const KIT_DROP_SPREAD = 0.5; // a dropped kit lands this far from the enemy (m)
 const CHAIN_R_BASE = 2.5,
   CHAIN_R_PER = 0.5; // chain blast radius: base + per chip (m)
-const CHAIN_DMG = 18; // chain blast damage per chip
+const CHAIN_SHARE = 0.5; // chain blast damage per chip: this share of the health the dead enemy had when whole
 const SPLIT_KIDS = 2; // enemies a splitter breaks into
 const SPLIT_OFFSET = 0.6; // the halves appear this far to each side (m)
 const ROOM_KIT_OFFSET = 0.8; // a cleared room puts the kit / bits this far to each side of its centre (m)
@@ -197,14 +197,15 @@ function chainBlast(e: RegularEnemy) {
   if (!player.chain || inChainBlast) return;
   inChainBlast = true;
   const pos = e.mesh.position;
-  // damage grows with depth at the same rate as enemy health, so the chip stays useful deep down
-  const depthScale = enemyGrowth(progressOf(run.stage) / STAGES_PER_GROWTH_DEPTH);
+  // The blast is as big as what blew up: a share of the dead enemy's full health, so a small one going off does not
+  // take the big ones round it along. That health grows with depth, so the chip stays useful deep down; the player's
+  // damage chips do not count (they made every blast kill what it touched)
   explode(
     pos.x,
     pos.y,
     pos.z,
     CHAIN_R_BASE + player.chain * CHAIN_R_PER,
-    CHAIN_DMG * player.chain * player.dmgMul * depthScale,
+    CHAIN_SHARE * player.chain * e.maxHp,
     COLOR.amber,
   );
   inChainBlast = false;

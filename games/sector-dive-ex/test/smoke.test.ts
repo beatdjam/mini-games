@@ -139,10 +139,12 @@ import {
   makeRoute,
   packSeen,
   roomDoors,
+  roomsOnWay,
   setBuilding,
 } from '../src/world/building.ts';
 import { ridingY, supplyChips } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
+import { DOOR_PASS } from '@engine/world/tiles.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { openPerk } from '../src/screens/perk.ts';
@@ -680,12 +682,45 @@ test('chain blast: one kill in a tight cluster does not cascade', () => {
   });
   clearWorld('enemy');
   player.chain = 3;
-  player.dmgMul = 10; // blasts strong enough to kill anything they touch
   const [cx, cz] = roomSpot(level.rooms[level.startIdx]);
   const line = [0, 2.8, 5.6, 8.4].map(dx => spawnEnemy('crawler', cx + dx, cz, -1, 1)); // each 2.8m apart, blast radius 4
+  line.forEach(e => (e.hp = 1)); // any blast that touches one kills it
   hurtEnemy(line[0], 1e6, false);
   const alive = line.filter(e => !e.dead).length;
   if (alive !== 2) throw new Error('chain cascade: alive ' + alive);
+  endRun('abandon');
+});
+test('chain blast: as big as the enemy that blew up, whatever the damage chips', () => {
+  startRun();
+  tick(3);
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
+  player.chain = 1;
+  const [cx, cz] = roomSpot(level.rooms[level.startIdx]);
+  // what a brute beside it loses when this one is killed (a blast may crit: the smallest of a few)
+  const lossBy = (type: string): number => {
+    const losses: number[] = [];
+    for (let n = 0; n < 8; n++) {
+      const small = spawnEnemy(type, cx, cz, -1, 1),
+        big = spawnEnemy('brute', cx + 0.5, cz, -1, 1);
+      hurtEnemy(small, 1e6, false);
+      losses.push((big.maxHp - big.hp) / small.maxHp);
+      big.hp = 1e9; // (not blown up in turn by the next kill)
+      [small, big].forEach(e => {
+        e.dead = true;
+        removeEnemyMesh(e);
+      });
+      clearWorld('enemy');
+    }
+    return Math.min(...losses);
+  };
+  expect(lossBy('crawler'), 'half the health of the one killed').toBeCloseTo(0.5, 5);
+  expect(lossBy('brute')).toBeCloseTo(0.5, 5);
+  player.dmgMul = 10;
+  expect(lossBy('crawler'), 'damage chips do not count').toBeCloseTo(0.5, 5);
   endRun('abandon');
 });
 test('shortcut supply: 2 picks at DEPTH 3, chips applied supplyTimes times', () => {
@@ -1995,6 +2030,24 @@ function putOnTile(k: number) {
   player.fy = floorY(player.x, player.z);
   player.vy = 0;
 }
+test('building: rooms lie between where one stairwell or lift lets you off and the next', () => {
+  // (from the start room for the first one; the shortest way goes through 2 rooms, or 1 where no place gives more)
+  const counts: number[] = [];
+  for (let seed = 1; seed <= 40; seed++) {
+    const b = makeBuilding(BIOMES[seed % BIOMES.length]!, 'watcher', seed);
+    b.links.forEach((l, n) => {
+      const floor = b.route[n]!,
+        d = b.plans[floor]!.gen,
+        on = (x: typeof l) => (floor === x.upper ? x.a : x.b),
+        r = d.rooms[d.startIdx],
+        from = n ? on(b.links[n - 1]!) : Math.floor(r!.y + r!.h / 2) * d.W + Math.floor(r!.x + r!.w / 2),
+        rooms = roomsOnWay(d, from, on(l), n ? -1 : d.startIdx);
+      expect(rooms, `seed ${seed} link ${n}`).toBeGreaterThanOrEqual(1);
+      counts.push(rooms);
+    });
+  }
+  expect(counts.filter(c => c >= 2).length / counts.length, '2 rooms or more').toBeGreaterThan(0.85);
+});
 test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
   // a door stands across a corridor: floor before and behind it, wall on its two sides
   for (let seed = 1; seed <= 40; seed++) {
@@ -2803,6 +2856,46 @@ test('lockdown: the room does not shut on a player still in its doorway (they co
   stand(T / 2);
   tick(3);
   expect(locked(), 'shut once the player is clear of the door').toBe(true);
+  goBase();
+});
+test('lockdown: a player who gets out past an enemy holding a door open is not left outside', () => {
+  for (let k = 0; k < 20; k++) {
+    goBase();
+    startRun();
+    tick(2);
+    if (building!.lockdown) break;
+  }
+  const ld = building!.lockdown!;
+  goToFloor(ld.floor);
+  const world = activeTileGrid().world,
+    doors = roomDoors(building!.plans[ld.floor]!.gen, ld.room).doors,
+    locked = () => doors.some(k => isDoorLocked(world, k)),
+    door = doors[0]!,
+    [di, dj] = SIDE_STEP.find(([a, b]) => level.roomOf[door + a + b * W] === ld.room)!,
+    at = (k: number): [number, number] => [((k % W) + 0.5) * T, (Math.floor(k / W) + 0.5) * T],
+    put = (x: number, z: number) => {
+      player.x = x;
+      player.z = z;
+      player.fy = floorY(x, z);
+    };
+  // an awake enemy stands in the doorway (one that does not move), so the door is open when the room shuts
+  const guard = spawnEnemy('turret', ...at(door), ld.room, 1);
+  guard.active = true;
+  level.roomCount[ld.room]!++;
+  tick(30);
+  expect(world.doorOpen![door], 'the enemy has opened the door').toBe(1);
+  put(...roomSpot(level.rooms[ld.room]!));
+  tick(30);
+  expect(locked(), 'shut with the player inside').toBe(true);
+  expect(world.doorOpen![door], 'the door cannot shut on the enemy in it').toBeGreaterThanOrEqual(DOOR_PASS);
+  // the player walks out through it, two tiles down the corridor
+  put(...at(door - 2 * (di + dj * W)));
+  tick(3);
+  expect(locked(), 'outside: the room is open again').toBe(false);
+  expect(el('#alarm').classList.contains('on'), 'the lockdown goes on').toBe(true);
+  put(...roomSpot(level.rooms[ld.room]!));
+  tick(3);
+  expect(locked(), 'back inside: shut again').toBe(true);
   goBase();
 });
 test('lockdown: the room shuts, two waves come, then it opens and leaves a chip', () => {
