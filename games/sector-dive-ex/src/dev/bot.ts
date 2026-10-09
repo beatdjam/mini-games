@@ -11,7 +11,7 @@ import { stageInfo } from '../core/stages.ts';
 import { save } from '../core/save.ts';
 import { toggleSetting } from '../core/progress.ts';
 import { player, run } from '../actors/player.ts';
-import { spheres } from '../actors/firing.ts';
+import { spheres, startReload } from '../actors/firing.ts';
 import { boss, eBullets, enemies, nearPickup } from '../world/entities.ts';
 import { hazardState } from '../world/hazards.ts';
 import { weaponStats } from '../actors/weapons.ts';
@@ -178,7 +178,8 @@ const WAVE_NEAR = 1.6; // it dashes through a shockwave when the ring is this ne
 const NO_HIT_AFTER = 1.2; // shooting at a foe this long without hurting it, it closes in (s)
 const PUSH_IN_FOR = 1.5; // ... for this long (s)
 const LOOT_GIVE_UP = 12; // a thing on the floor it has not got to in this long is left (s)
-const LOOT_REACH_Y = 2.5; // a thing this far above or below its feet is on another level: left alone (m)
+const LOOT_REACH_Y = 3.5; // a thing this far above or below its feet is on another floor: left alone (m; one on a deck
+// floats 3 m up, the next floor is 8 m away)
 
 // what a run came to, for the tables (sim/bot.sim.ts)
 export interface BotStats {
@@ -670,6 +671,8 @@ export function createBot(style: BotStyle) {
       return;
     }
     setFireHeld(false);
+    // nobody to shoot at: a magazine that is not full is filled on the way
+    startReload();
     if (!way) {
       stats.doing = g ? `no way to ${g.what}` : 'nowhere to go';
       return;
