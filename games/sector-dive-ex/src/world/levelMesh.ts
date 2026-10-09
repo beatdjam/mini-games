@@ -25,6 +25,7 @@ import type { GeneratedLevel } from './levelGen.ts';
 import { FLOOR_H } from './building.ts';
 import { FLOOR_PLAIN_SHARE, WALL_PLAIN_SHARE, lookOf, variantOf } from './looks.ts';
 import type { Court, FloorPlan } from './building.ts';
+import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
 const NEON_COUNT = 90; // neon signs per level
 const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall colour times this
 const SHAFT_FILL_GAP = 0.03; // the wall between a ceiling and the next floor stops this short of both (m)
@@ -418,13 +419,20 @@ function facadeTex(th: YardTheme, window: boolean): THREE.CanvasTexture {
       g.stroke();
     }
     if (th.extra === 'units') {
-      // a pipe down the wall, and an air conditioner on its bracket under the window
+      // pipes down the wall, a cable sagging across it, an air conditioner on its bracket, the stains under it
       g.fillStyle = '#2f2c2b';
       g.fillRect(112, 0, 5, 256);
+      g.fillRect(120, 0, 3, 256);
+      g.fillStyle = '#26221f';
+      g.fillRect(0, 74, 128, 2);
+      g.fillRect(0, 232, 128, 3);
       g.fillStyle = '#8c8a84';
       g.fillRect(8, 206, 30, 22);
       g.fillStyle = '#3a3836';
       g.fillRect(12, 210, 22, 14);
+      g.fillStyle = 'rgba(20,16,14,0.35)';
+      g.fillRect(14, 228, 6, 28);
+      g.fillRect(96, 64, 5, 40);
     }
     if (!window) return;
     for (const x of [38, 52, 88]) g.fillRect(x, 190, 3, 46); // streaks under the sill
@@ -443,6 +451,22 @@ function facadeTex(th: YardTheme, window: boolean): THREE.CanvasTexture {
     g.fillRect(x + w / 2 - 1, y, 2, h); // the mullion
     g.fillStyle = th.sill;
     g.fillRect(x - 8, y + h + 4, w + 16, 5); // the sill
+    if (th.extra === 'units') {
+      // a tin awning over the window, and the cage of bars built out round it (every flat has one)
+      g.fillStyle = '#4b4a48';
+      g.fillRect(x - 12, y - 16, w + 24, 9);
+      g.fillStyle = 'rgba(20,18,18,0.5)';
+      for (let ax = x - 12; ax < x + w + 12; ax += 6) g.fillRect(ax, y - 16, 2, 9);
+      g.strokeStyle = 'rgba(18,16,16,0.85)';
+      g.lineWidth = 2;
+      g.strokeRect(x - 9, y + 24, w + 18, h - 12);
+      for (let bx = x - 3; bx < x + w + 9; bx += 8) {
+        g.beginPath();
+        g.moveTo(bx, y + 24);
+        g.lineTo(bx, y + h + 12);
+        g.stroke();
+      }
+    }
   });
 }
 // the glass of a lit window: a warm room behind a curtain, or a dark room with a screen on
@@ -492,6 +516,103 @@ function yardGroundTex(th: YardTheme): THREE.CanvasTexture {
     ] as const)
       g.fillRect(x, y, 36, 36);
   });
+}
+// ---- what crowds a walled-city yard: neon signs standing out from the walls, shop boards on them, cables across ----
+const SIGN_FONT = '"Noto Sans TC", "PingFang TC", "Hiragino Sans", sans-serif';
+const NEON_COLORS = ['#ff3b4e', '#ff5fa8', '#3dffb0', '#ffd24a'];
+// a neon sign read downward: the tubes of the characters in one colour on a dark board, with their glow
+function neonTex(text: string, color: string): THREE.CanvasTexture {
+  const n = text.length;
+  return canvasTex(64, 64 * n + 16, g => {
+    g.fillStyle = '#0d0b0e';
+    g.fillRect(0, 0, 64, 64 * n + 16);
+    g.strokeStyle = color;
+    g.lineWidth = 2;
+    g.strokeRect(3, 3, 58, 64 * n + 10);
+    g.font = `700 46px ${SIGN_FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.shadowColor = color;
+    g.shadowBlur = 10;
+    g.fillStyle = color;
+    [...text].forEach((ch, k) => g.fillText(ch, 32, 40 + 64 * k));
+  });
+}
+// a shop's board, lit from inside: red characters on a yellowed panel
+function boardTex(text: string): THREE.CanvasTexture {
+  return canvasTex(256, 56, g => {
+    g.fillStyle = '#d9c58a';
+    g.fillRect(0, 0, 256, 56);
+    g.fillStyle = 'rgba(120,80,30,0.25)';
+    g.fillRect(0, 44, 256, 12);
+    g.strokeStyle = '#5a1614';
+    g.lineWidth = 3;
+    g.strokeRect(2, 2, 252, 52);
+    g.font = `900 38px ${SIGN_FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#a81e1a';
+    g.fillText(text, 128, 30);
+  });
+}
+// `spots`: the wall tiles of the yard (where, which way they face); `span`: the yard's size and middle
+function addYardClutter(
+  group: THREE.Group,
+  spots: { x: number; y: number; z: number; turn: number }[],
+  span: { cx: number; cz: number; wide: number; deep: number; top: number; bottom: number },
+  storey: number,
+) {
+  const dice = (p: { x: number; y: number; z: number }, salt: number) => yardDice(p.x + salt, p.y, p.z),
+    neons = KWLN_NEON_WORDS.flatMap(w => NEON_COLORS.map(c => ({ w, c }))),
+    made = new Map<string, THREE.Material>(),
+    mat = (key: string, tex: () => THREE.CanvasTexture) => {
+      let m = made.get(key);
+      if (!m) {
+        m = new THREE.MeshBasicMaterial({ map: tex(), fog: false });
+        made.set(key, m);
+      }
+      return m;
+    };
+  for (const p of spots) {
+    const nx = Math.sin(p.turn),
+      nz = Math.cos(p.turn);
+    // a neon sign on its bracket, edge on to the wall, on about one tile in four
+    if (dice(p, 1) < 0.26) {
+      const pick = neons[Math.floor(dice(p, 2) * neons.length)]!,
+        h = 0.9 * pick.w.length + 0.3,
+        sign = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.9, h),
+          mat(`n${pick.w}${pick.c}`, () => neonTex(pick.w, pick.c)),
+        );
+      sign.position.set(p.x + nx * 0.75, p.y - 0.6 + (dice(p, 3) - 0.5) * 2.4, p.z + nz * 0.75);
+      sign.rotation.y = p.turn + Math.PI / 2;
+      // (read from both sides: a second face turned round, or the characters would be mirrored from behind)
+      const back = sign.clone();
+      back.rotation.y += Math.PI;
+      group.add(sign, back);
+    }
+    // a shop's board flat on the wall over the slab's band, on about one tile in five
+    if (dice(p, 4) < 0.2) {
+      const name = KWLN_SHOP_NAMES[Math.floor(dice(p, 5) * KWLN_SHOP_NAMES.length)]!,
+        board = new THREE.Mesh(
+          new THREE.PlaneGeometry(3.4, 0.75),
+          mat(`b${name}`, () => boardTex(name)),
+        );
+      board.position.set(p.x + nx * (YARD_SKIN * 3), p.y + storey / 2 - 1.1, p.z + nz * (YARD_SKIN * 3));
+      board.rotation.y = p.turn;
+      group.add(board);
+    }
+  }
+  // cables strung across the yard, a few on every storey, from wall to wall
+  const cable = new THREE.MeshBasicMaterial({ color: 0x0c0b0c });
+  for (let y = -span.bottom * storey + 3; y < -span.top * storey + storey; y += storey / 2) {
+    const d = yardDice(y, span.cx, span.cz),
+      alongX = d < 0.5,
+      off = (yardDice(y, span.cz, 7) - 0.5) * 0.8,
+      wire = new THREE.Mesh(new THREE.BoxGeometry(alongX ? span.wide : 0.05, 0.05, alongX ? 0.05 : span.deep), cable);
+    wire.position.set(span.cx + (alongX ? 0 : off * span.wide), y + d * 2, span.cz + (alongX ? off * span.deep : 0));
+    group.add(wire);
+  }
 }
 // a number in 0..1 that is the same every time for the same place (which window is lit)
 const yardDice = (a: number, b: number, c: number): number => {
@@ -585,6 +706,7 @@ export function buildYardShell(court: Court, w: number, storey: number, sector: 
       new THREE.PlaneGeometry(wide, deep),
       new THREE.MeshBasicMaterial({ map: yardGroundTex(th) }),
     );
+  if (th.extra === 'units') addYardClutter(group, spots, { cx, cz, wide, deep, top, bottom }, storey);
   sky.rotation.x = Math.PI / 2;
   sky.position.set(cx, -top * storey + storey, cz);
   ground.rotation.x = -Math.PI / 2;
