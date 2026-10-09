@@ -25,7 +25,9 @@ import type { GeneratedLevel } from './levelGen.ts';
 import { FLOOR_H } from './building.ts';
 import { FLOOR_PLAIN_SHARE, WALL_PLAIN_SHARE, lookOf, variantOf } from './looks.ts';
 import type { Court, FloorPlan } from './building.ts';
-import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
+import { dressAtrium, dressYard, yardDice } from './yardProps.ts';
+import { TEX, canvasTex, grain, grime, paint, poolTex } from './looks/paint.ts';
+import type { YardDress } from './yardProps.ts';
 const NEON_COUNT = 90; // neon signs per level
 const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall colour times this
 const SHAFT_FILL_GAP = 0.03; // the wall between a ceiling and the next floor stops this short of both (m)
@@ -331,7 +333,17 @@ interface YardTheme {
   dense: boolean;
   lit: number;
   screen: number;
-  extra: 'none' | 'units' | 'ivy'; // air conditioners and pipes; ivy and cracks
+  extra: 'none' | 'units' | 'ivy'; // painted on the wall: air conditioners and pipes; ivy and cracks
+  dress: YardDress; // the things on the walls and across the well (yardProps.ts)
+  // which of the sector's wall pictures (its look's walls, by number) stand on a bare tile of the outer wall and on
+  // one with a window; one named twice comes up twice as often
+  walls: number[];
+  windows: number[];
+  band: [string, string]; // the slab's band between two storeys: its colour, and the dirt on it
+  // The walls do not fade into the sector's fog (across the well they would be black): they are dimmed by this
+  // instead, all alike. And the colour of the light from the lit rooms
+  shade: number;
+  glow: number;
   sky: [string, string, string];
   ground: [string, string, string]; // the ground, its paths, its beds
 }
@@ -347,6 +359,12 @@ const YARDS: Record<string, YardTheme> = {
     lit: 0.18,
     screen: 0.06,
     extra: 'none',
+    dress: 'downtown',
+    walls: [0, 0, 8], // panels, stone facing
+    windows: [3, 3, 4], // a window with its blind down, or part raised
+    band: ['#6f675c', 'rgba(30,24,20,0.35)'],
+    shade: 0x9a938d,
+    glow: 0xffc27a,
     sky: ['#c98a6c', '#8f7a94', '#4a4a6e'],
     ground: ['#2a2630', '#3a3640', '#1f1c25'],
   },
@@ -361,6 +379,12 @@ const YARDS: Record<string, YardTheme> = {
     lit: 0.34,
     screen: 0.12,
     extra: 'units',
+    dress: 'walledCity',
+    walls: [0, 0, 4, 4, 1], // concrete, posters, a shutter
+    windows: [3, 3, 3, 2], // a barred window, an iron gate
+    band: ['#4a433a', 'rgba(15,12,10,0.45)'],
+    shade: 0x5c5860,
+    glow: 0xffb060,
     sky: ['#4a2f52', '#2c2238', '#15121c'],
     ground: ['#17161a', '#22202a', '#101014'],
   },
@@ -375,16 +399,28 @@ const YARDS: Record<string, YardTheme> = {
     lit: 0.03,
     screen: 0,
     extra: 'ivy',
+    dress: 'ruins',
+    walls: [0, 1, 1, 2, 6, 6, 8], // mortar, damp, bare blocks, ivy, a hole to the bars
+    windows: [5], // a broken window
+    band: ['#77705f', 'rgba(35,40,28,0.4)'],
+    shade: 0x878d87,
+    glow: 0xffd9a0,
     sky: ['#a9afae', '#8a9192', '#6c7476'],
     ground: ['#2c3626', '#3a4031', '#222b1e'],
   },
 };
-function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  draw(c.getContext('2d')!);
-  return new THREE.CanvasTexture(c);
+// the slab between two storeys, seen from the yard: a band of concrete with the dirt that runs down from it
+function slabBandTex(th: YardTheme): THREE.CanvasTexture {
+  return paint(0x51ab, (g, rand) => {
+    g.fillStyle = th.band[0];
+    g.fillRect(0, 0, TEX, TEX);
+    grime(g, rand, 26, 'rgba(255,255,255,0.05)', th.band[1]);
+    g.fillStyle = th.band[1];
+    g.fillRect(0, 0, TEX, 10);
+    g.fillRect(0, TEX - 22, TEX, 22);
+    for (let k = 0; k < 9; k++) g.fillRect(rand() * TEX, TEX * 0.3, 3 + rand() * 5, TEX * 0.7);
+    grain(g, rand, 0.05);
+  });
 }
 // one tile of the outer wall, 128 x 256 for a tile by a storey: the slab's band at the top, a dark window under it.
 // The same picture for every tile, so the wall is one colour all over; a lit window is a pane of its own put over
@@ -517,112 +553,10 @@ function yardGroundTex(th: YardTheme): THREE.CanvasTexture {
       g.fillRect(x, y, 36, 36);
   });
 }
-// ---- what crowds a walled-city yard: neon signs standing out from the walls, shop boards on them, cables across ----
-const SIGN_FONT = '"Noto Sans TC", "PingFang TC", "Hiragino Sans", sans-serif';
-const NEON_COLORS = ['#ff3b4e', '#ff5fa8', '#3dffb0', '#ffd24a'];
-// a neon sign read downward: the tubes of the characters in one colour on a dark board, with their glow
-function neonTex(text: string, color: string): THREE.CanvasTexture {
-  const n = text.length;
-  return canvasTex(64, 64 * n + 16, g => {
-    g.fillStyle = '#0d0b0e';
-    g.fillRect(0, 0, 64, 64 * n + 16);
-    g.strokeStyle = color;
-    g.lineWidth = 2;
-    g.strokeRect(3, 3, 58, 64 * n + 10);
-    g.font = `700 46px ${SIGN_FONT}`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.shadowColor = color;
-    g.shadowBlur = 10;
-    g.fillStyle = color;
-    [...text].forEach((ch, k) => g.fillText(ch, 32, 40 + 64 * k));
-  });
-}
-// a shop's board, lit from inside: red characters on a yellowed panel
-function boardTex(text: string): THREE.CanvasTexture {
-  return canvasTex(256, 56, g => {
-    g.fillStyle = '#d9c58a';
-    g.fillRect(0, 0, 256, 56);
-    g.fillStyle = 'rgba(120,80,30,0.25)';
-    g.fillRect(0, 44, 256, 12);
-    g.strokeStyle = '#5a1614';
-    g.lineWidth = 3;
-    g.strokeRect(2, 2, 252, 52);
-    g.font = `900 38px ${SIGN_FONT}`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillStyle = '#a81e1a';
-    g.fillText(text, 128, 30);
-  });
-}
-// `spots`: the wall tiles of the yard (where, which way they face); `span`: the yard's size and middle
-function addYardClutter(
-  group: THREE.Group,
-  spots: { x: number; y: number; z: number; turn: number }[],
-  span: { cx: number; cz: number; wide: number; deep: number; top: number; bottom: number },
-  storey: number,
-) {
-  const dice = (p: { x: number; y: number; z: number }, salt: number) => yardDice(p.x + salt, p.y, p.z),
-    neons = KWLN_NEON_WORDS.flatMap(w => NEON_COLORS.map(c => ({ w, c }))),
-    made = new Map<string, THREE.Material>(),
-    mat = (key: string, tex: () => THREE.CanvasTexture) => {
-      let m = made.get(key);
-      if (!m) {
-        m = new THREE.MeshBasicMaterial({ map: tex(), fog: false });
-        made.set(key, m);
-      }
-      return m;
-    };
-  for (const p of spots) {
-    const nx = Math.sin(p.turn),
-      nz = Math.cos(p.turn);
-    // a neon sign on its bracket, edge on to the wall, on about one tile in four
-    if (dice(p, 1) < 0.26) {
-      const pick = neons[Math.floor(dice(p, 2) * neons.length)]!,
-        h = 0.9 * pick.w.length + 0.3,
-        sign = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.9, h),
-          mat(`n${pick.w}${pick.c}`, () => neonTex(pick.w, pick.c)),
-        );
-      sign.position.set(p.x + nx * 0.75, p.y - 0.6 + (dice(p, 3) - 0.5) * 2.4, p.z + nz * 0.75);
-      sign.rotation.y = p.turn + Math.PI / 2;
-      // (read from both sides: a second face turned round, or the characters would be mirrored from behind)
-      const back = sign.clone();
-      back.rotation.y += Math.PI;
-      group.add(sign, back);
-    }
-    // a shop's board flat on the wall over the slab's band, on about one tile in five
-    if (dice(p, 4) < 0.2) {
-      const name = KWLN_SHOP_NAMES[Math.floor(dice(p, 5) * KWLN_SHOP_NAMES.length)]!,
-        board = new THREE.Mesh(
-          new THREE.PlaneGeometry(3.4, 0.75),
-          mat(`b${name}`, () => boardTex(name)),
-        );
-      board.position.set(p.x + nx * (YARD_SKIN * 3), p.y + storey / 2 - 1.1, p.z + nz * (YARD_SKIN * 3));
-      board.rotation.y = p.turn;
-      group.add(board);
-    }
-  }
-  // cables strung across the yard, a few on every storey, from wall to wall
-  const cable = new THREE.MeshBasicMaterial({ color: 0x0c0b0c });
-  for (let y = -span.bottom * storey + 3; y < -span.top * storey + storey; y += storey / 2) {
-    const d = yardDice(y, span.cx, span.cz),
-      alongX = d < 0.5,
-      off = (yardDice(y, span.cz, 7) - 0.5) * 0.8,
-      wire = new THREE.Mesh(new THREE.BoxGeometry(alongX ? span.wide : 0.05, 0.05, alongX ? 0.05 : span.deep), cable);
-    wire.position.set(span.cx + (alongX ? 0 : off * span.wide), y + d * 2, span.cz + (alongX ? off * span.deep : 0));
-    group.add(wire);
-  }
-}
-// a number in 0..1 that is the same every time for the same place (which window is lit)
-const yardDice = (a: number, b: number, c: number): number => {
-  const n = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453;
-  return n - Math.floor(n);
-};
 // The yard of a building, in the building's own frame: floor 0's ground is at height 0, floor n's at -n * storey.
 // `w`: tiles across the map. Where a floor has its balcony, the wall has an opening (no facade tile)
-export function buildYardShell(court: Court, w: number, storey: number, sector: string): THREE.Group {
-  const th = YARDS[sector] ?? YARDS.CITY!,
+export function buildYardShell(court: Court, w: number, storey: number, biome: Biome): THREE.Group {
+  const th = YARDS[biome.code] ?? YARDS.CITY!,
     group = new THREE.Group(),
     is = court.tiles.map(k => k % w),
     js = court.tiles.map(k => (k / w) | 0),
@@ -666,7 +600,60 @@ export function buildYardShell(court: Court, w: number, storey: number, sector: 
       mesh.instanceMatrix.needsUpdate = true;
       group.add(mesh);
     };
-  for (const window of [true, false]) {
+  // The wall itself. A sector with a look: its own wall pictures (the ones that can be an outer wall: YardTheme
+  // walls / windows), a wall high, and over each the band of the slab, so the yard is painted as richly as the rooms.
+  // The plain look: one flat picture a storey high, the lit panes over it
+  const look = lookOf(biome);
+  if (look) {
+    const pic = spots.map(p => {
+      const from = p.kind >= 0 ? th.windows : th.walls;
+      return from[Math.floor(yardDice(p.x + p.turn, p.y, p.z) * from.length)]! % look.walls.length;
+    });
+    for (const v of new Set(pic)) {
+      const mine = spots.filter((_, n) => pic[n] === v);
+      place(
+        new THREE.InstancedMesh(
+          new THREE.PlaneGeometry(T, WALL_H),
+          new THREE.MeshBasicMaterial({ map: look.walls[v]!, fog: false, color: th.shade }),
+          mine.length,
+        ),
+        mine,
+        YARD_SKIN,
+        (WALL_H - storey) / 2,
+      );
+    }
+    // the light of the rooms that are lit, spilling out round their windows (the pictures' own windows are dark)
+    const lit = spots.filter(p => p.kind >= 0 && yardDice(p.z, p.y, p.x + p.turn) < th.lit + th.screen);
+    place(
+      new THREE.InstancedMesh(
+        new THREE.PlaneGeometry(3.4, 3.4),
+        new THREE.MeshBasicMaterial({
+          map: poolTex(),
+          color: th.glow,
+          transparent: true,
+          opacity: 0.4,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          fog: false,
+        }),
+        lit.length,
+      ),
+      lit,
+      YARD_SKIN * 2,
+      -1.1,
+    );
+    place(
+      new THREE.InstancedMesh(
+        new THREE.PlaneGeometry(T, storey - WALL_H),
+        new THREE.MeshBasicMaterial({ map: slabBandTex(th), fog: false, color: th.shade }),
+        spots.length,
+      ),
+      spots,
+      YARD_SKIN,
+      WALL_H / 2,
+    );
+  }
+  for (const window of look ? [] : [true, false]) {
     const mine = spots.filter(p => p.kind >= 0 === window);
     place(
       new THREE.InstancedMesh(
@@ -681,7 +668,7 @@ export function buildYardShell(court: Court, w: number, storey: number, sector: 
   }
   // (the lit panes keep their light in the fog: a lit window is seen from far off)
   (['lit', 'screen'] as const).forEach((kind, v) => {
-    const mine = spots.filter(p => p.kind === v + 1);
+    const mine = look ? [] : spots.filter(p => p.kind === v + 1);
     if (!mine.length) return;
     place(
       new THREE.InstancedMesh(
@@ -704,9 +691,16 @@ export function buildYardShell(court: Court, w: number, storey: number, sector: 
     ),
     ground = new THREE.Mesh(
       new THREE.PlaneGeometry(wide, deep),
-      new THREE.MeshBasicMaterial({ map: yardGroundTex(th) }),
+      new THREE.MeshBasicMaterial({ map: yardGroundTex(th), fog: false, color: th.shade }),
     );
-  if (th.extra === 'units') addYardClutter(group, spots, { cx, cz, wide, deep, top, bottom }, storey);
+  dressYard(
+    group,
+    th.dress,
+    spots.map(p => ({ ...p, window: p.kind >= 0 })),
+    { cx, cz, wide, deep, ground: -bottom * storey, sky: -top * storey + storey },
+    storey,
+    th.shade,
+  );
   sky.rotation.x = Math.PI / 2;
   sky.position.set(cx, -top * storey + storey, cz);
   ground.rotation.x = -Math.PI / 2;
@@ -881,4 +875,24 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
   // sectors with gen.ceiling / gen.neon
   if (biome.gen.ceiling && !isArena) addCeiling(biome, group);
   if (biome.gen.neon && !isArena) addNeonSigns(walls, group, rng);
+}
+
+// what hangs in an atrium, in the building's own frame (see buildYardShell): from under its skylight to its ground
+export function buildAtriumProps(court: Court, w: number, storey: number, biome: Biome): THREE.Group {
+  const group = new THREE.Group(),
+    is = court.tiles.map(k => k % w),
+    js = court.tiles.map(k => (k / w) | 0),
+    i0 = Math.min(...is),
+    i1 = Math.max(...is) + 1,
+    j0 = Math.min(...js),
+    j1 = Math.max(...js) + 1;
+  dressAtrium(group, biome.code, {
+    cx: ((i0 + i1) / 2) * T,
+    cz: ((j0 + j1) / 2) * T,
+    wide: (i1 - i0) * T,
+    deep: (j1 - j0) * T,
+    ground: -court.lower * storey,
+    sky: -court.upper * storey + WALL_H,
+  });
+  return group;
 }

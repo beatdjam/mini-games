@@ -34,7 +34,7 @@ import { lookOf } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { paint } from './looks/paint.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
-import { buildFloorMeshes, buildLevelMeshes, buildYardShell } from './levelMesh.ts';
+import { buildAtriumProps, buildFloorMeshes, buildLevelMeshes, buildYardShell } from './levelMesh.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const ARENA_FOG_NEAR = 6; // fog start in boss arenas (m)
@@ -87,7 +87,9 @@ let floorGroups: THREE.Group[] = [];
 // per floor: what stands in and round the courtyard (null on a floor it does not pass); drawn from the other floors
 // it passes without the rest of the floor
 let courtGroups: (THREE.Group | null)[] = [];
-let yardShell: THREE.Group | null = null; // a yard's outer walls, sky and ground (levelMesh.ts buildYardShell)
+// a yard's outer walls, sky, ground and what is on them, or what hangs in an atrium (levelMesh.ts buildYardShell,
+// buildAtriumProps)
+let yardShell: THREE.Group | null = null;
 let shown: Building | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
 let hallTop: THREE.Group | null = null; // the part of the boss room above WALL_H (levelMesh.ts buildFloorMeshes)
@@ -360,8 +362,8 @@ export function showBuilding(b: Building) {
   });
   const w = b.plans[0]!.gen.W,
     look = lookOf(b.biome);
-  if (b.court?.open) {
-    yardShell = buildYardShell(b.court, w, FLOOR_H, b.biome.code);
+  if (b.court) {
+    yardShell = (b.court.open ? buildYardShell : buildAtriumProps)(b.court, w, FLOOR_H, b.biome);
     all.add(yardShell);
   }
   b.links.forEach((l, n) => {

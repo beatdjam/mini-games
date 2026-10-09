@@ -438,6 +438,7 @@ function addCourt(
   maps: TileMapData[],
   keepOut: Uint8Array[],
   kinds: 'both' | 'yard' | 'atrium',
+  wideToo: boolean,
   rng: Rng,
 ): Court | null {
   const W = maps[0]!.W,
@@ -445,7 +446,7 @@ function addCourt(
     open = kinds === 'both' ? (courtKind ?? dice) : kinds === 'yard',
     // the square: an atrium's middle, its gallery and the wall round that; a yard's middle and the wall round it
     small = courtPlaces(maps, keepOut, open ? COURT_YARD + 2 : COURT_ROOFED + 4),
-    wide = open ? courtPlaces(maps, keepOut, COURT_YARD_WIDE + 2) : null,
+    wide = open && wideToo ? courtPlaces(maps, keepOut, COURT_YARD_WIDE + 2) : null,
     // (a yard takes the wider square unless that costs it more than one floor)
     roomy = !!wide && wide.floors >= 2 && wide.floors >= small.floors - 1,
     COURT = !open ? COURT_ROOFED : roomy ? COURT_YARD_WIDE : COURT_YARD,
@@ -594,7 +595,8 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
   // (after the stairwells and lifts, which need their places more; only in the sectors that have one, so the other
   // sectors' buildings draw the same random numbers as before)
   const kinds = COURT_KINDS[biome.code],
-    court = kinds ? addCourt(maps, keepOut, kinds, rng) : null;
+    // (in the ruins the fog is near: across a wide yard the far wall would not be seen)
+    court = kinds ? addCourt(maps, keepOut, kinds, biome.code !== 'RUIN', rng) : null;
   const plans: FloorPlan[] = maps.map((d, floor) => {
     const hazard = new Uint8Array(size);
     if (biome.gen.hazard) addHazards(d, hazard, biome.gen.hazard.count, rng);
