@@ -681,12 +681,45 @@ test('chain blast: one kill in a tight cluster does not cascade', () => {
   });
   clearWorld('enemy');
   player.chain = 3;
-  player.dmgMul = 10; // blasts strong enough to kill anything they touch
   const [cx, cz] = roomSpot(level.rooms[level.startIdx]);
   const line = [0, 2.8, 5.6, 8.4].map(dx => spawnEnemy('crawler', cx + dx, cz, -1, 1)); // each 2.8m apart, blast radius 4
+  line.forEach(e => (e.hp = 1)); // any blast that touches one kills it
   hurtEnemy(line[0], 1e6, false);
   const alive = line.filter(e => !e.dead).length;
   if (alive !== 2) throw new Error('chain cascade: alive ' + alive);
+  endRun('abandon');
+});
+test('chain blast: as big as the enemy that blew up, whatever the damage chips', () => {
+  startRun();
+  tick(3);
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
+  player.chain = 1;
+  const [cx, cz] = roomSpot(level.rooms[level.startIdx]);
+  // what a brute beside it loses when this one is killed (a blast may crit: the smallest of a few)
+  const lossBy = (type: string): number => {
+    const losses: number[] = [];
+    for (let n = 0; n < 8; n++) {
+      const small = spawnEnemy(type, cx, cz, -1, 1),
+        big = spawnEnemy('brute', cx + 0.5, cz, -1, 1);
+      hurtEnemy(small, 1e6, false);
+      losses.push((big.maxHp - big.hp) / small.maxHp);
+      big.hp = 1e9; // (not blown up in turn by the next kill)
+      [small, big].forEach(e => {
+        e.dead = true;
+        removeEnemyMesh(e);
+      });
+      clearWorld('enemy');
+    }
+    return Math.min(...losses);
+  };
+  expect(lossBy('crawler'), 'half the health of the one killed').toBeCloseTo(0.5, 5);
+  expect(lossBy('brute')).toBeCloseTo(0.5, 5);
+  player.dmgMul = 10;
+  expect(lossBy('crawler'), 'damage chips do not count').toBeCloseTo(0.5, 5);
   endRun('abandon');
 });
 test('shortcut supply: 2 picks at DEPTH 3, chips applied supplyTimes times', () => {
