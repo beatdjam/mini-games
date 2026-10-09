@@ -81,7 +81,7 @@ const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 const SIGN_FONT = '"Noto Sans TC", "PingFang TC", "Hiragino Sans", sans-serif';
 const NEON_COLORS = ['#ff3b4e', '#ff5fa8', '#3dffb0', '#ffd24a', '#58c8ff'];
 // a neon sign: the tubes of the characters in one colour on a dark board, with their glow. Read downward, or across
-function neonTex(text: string, color: string, across: boolean): THREE.CanvasTexture {
+export function neonTex(text: string, color: string, across: boolean): THREE.CanvasTexture {
   const n = text.length,
     w = across ? 64 * n + 16 : 64,
     h = across ? 64 : 64 * n + 16;
@@ -118,7 +118,7 @@ function boardTex(text: string): THREE.CanvasTexture {
   });
 }
 // a strip of tin, ribbed, in a paint that has seen weather (an awning)
-function tinTex(color: string): THREE.CanvasTexture {
+export function tinTex(color: string): THREE.CanvasTexture {
   return canvasTex(64, 32, g => {
     g.fillStyle = color;
     g.fillRect(0, 0, 64, 32);
@@ -129,7 +129,7 @@ function tinTex(color: string): THREE.CanvasTexture {
   });
 }
 // the bars of a cage built out round a window, with what is kept in it (boxes, a plant, washing)
-function cageTex(seed: number): THREE.CanvasTexture {
+export function cageTex(seed: number): THREE.CanvasTexture {
   return canvasTex(96, 64, g => {
     g.fillStyle = '#1a1716';
     g.fillRect(0, 0, 96, 64);
