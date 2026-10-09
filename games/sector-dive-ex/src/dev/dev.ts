@@ -10,7 +10,7 @@ import { PER } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
-import { building } from '../world/building.ts';
+import { building, devCourtOpen } from '../world/building.ts';
 import { devPlainLooks } from '../world/looks.ts';
 import { useSparkLooks } from '../world/models/sparkLooks.ts';
 import { setHazardClock } from '../world/hazards.ts';
@@ -47,6 +47,9 @@ if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHaza
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
+// dev: ?court=open / ?court=roof makes every courtyard a yard open to the sky / a roofed atrium
+const courtParam = new URLSearchParams(location.search).get('court');
+if (courtParam === 'open' || courtParam === 'roof') devCourtOpen(courtParam === 'open');
 
 // dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to

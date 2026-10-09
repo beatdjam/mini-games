@@ -42,8 +42,11 @@ const SEED_STEP = 7919; // added to the seed for the next try
 // A courtyard: a well of COURT x COURT tiles open through several floors, with a gallery one tile wide round it on
 // every floor it passes and its ground on the lowest of them. Looked into and up from, never crossed between floors
 const COURT_SECTORS = ['CITY']; // the sectors whose buildings get one (when there is room)
-const COURT = 3; // side of the open middle (tiles)
-const COURT_SIDE = COURT + 4; // ... with the gallery and the wall round that: this square is wall on every floor it takes
+// Two kinds: an atrium (roofed, a skylight over it, COURT_ROOFED tiles a side) and a yard (open to the sky, COURT_OPEN
+// tiles a side when a place that large goes through nearly as many floors, else the atrium's size)
+const COURT_ROOFED = 3,
+  COURT_OPEN = 5; // side of the open middle (tiles)
+const COURT_OPEN_CHANCE = 0.5; // a courtyard is a yard open to the sky this often
 const COURT_TRIES = 12; // places tried
 const DOOR_PAIR_REACH = 2; // of two doors this many tiles apart or closer along a corridor, only one stays
 
@@ -70,7 +73,7 @@ export interface FloorPlan {
   shaftWall: Uint8Array; // round the open part of a stairwell coming up from below: a wall is drawn here
   // the courtyard's open middle on this floor (null = none here): `top` has the skylight over it, `ground` is the
   // floor one walks on (elsewhere it is a hole with a rail round it)
-  court: { tiles: number[]; top: boolean; ground: boolean } | null;
+  court: { tiles: number[]; top: boolean; ground: boolean; open: boolean } | null;
 }
 // the courtyard of a building: the floors it is open through (upper = the top one, with the skylight; lower = the
 // one its ground is on) and the tiles of its open middle (the same on every floor)
@@ -78,6 +81,12 @@ export interface Court {
   upper: number;
   lower: number;
   tiles: number[];
+  open: boolean; // open to the sky (a yard); else roofed, with a skylight (an atrium)
+}
+// dev: every courtyard is of this kind (null = by the building's own dice)
+let courtKind: boolean | null = null;
+export function devCourtOpen(open: boolean | null) {
+  courtKind = open;
 }
 export interface Building {
   seed: number; // what makeBuilding was given
@@ -374,37 +383,52 @@ function placeLink(
   }
 }
 
-// Puts a courtyard where a square of COURT_SIDE tiles is wall on as many floors next to each other as possible (two
-// at least; never the lowest floor, whose boss room stands higher than a floor). On each of them a gallery is carved
-// round the open middle, with a corridor to the rest of the floor; on the lowest the middle is floor too. Returns
-// null (and leaves the maps as they were) when no place fits
-function addCourt(maps: TileMapData[], keepOut: Uint8Array[], rng: Rng): Court | null {
+// The places for a courtyard whose open middle is `size` tiles a side (see addCourt): where the square it needs is
+// wall on the most floors next to each other (two at least), and how many floors that is
+function courtPlaces(maps: TileMapData[], keepOut: Uint8Array[], size: number) {
   const { W, H } = maps[0]!,
+    side = size + 4,
     last = maps.length - 2, // the lowest floor a courtyard may reach
     free = (f: number, i: number, j: number): boolean => {
-      for (let b = 0; b < COURT_SIDE; b++)
-        for (let a = 0; a < COURT_SIDE; a++) {
+      for (let b = 0; b < side; b++)
+        for (let a = 0; a < side; a++) {
           const k = (j + b) * W + i + a;
           if (maps[f]!.maps.grid[k] || keepOut[f]![k]) return false;
         }
       return true;
     };
-  // every place with the run of floors it is free on, the longest runs first
-  let best = 2;
+  let floors = 2;
   let places: { i: number; j: number; upper: number; lower: number }[] = [];
-  for (let j = 1; j + COURT_SIDE < H; j++)
-    for (let i = 1; i + COURT_SIDE < W; i++)
-      for (let upper = 0; upper + best - 1 <= last; upper++) {
+  for (let j = 1; j + side < H; j++)
+    for (let i = 1; i + side < W; i++)
+      for (let upper = 0; upper + floors - 1 <= last; upper++) {
         let lower = upper;
         while (lower <= last && free(lower, i, j)) lower++;
         const n = lower - upper;
-        if (n < best) continue;
-        if (n > best) {
-          best = n;
+        if (n < floors) continue;
+        if (n > floors) {
+          floors = n;
           places = [];
         }
         places.push({ i, j, upper, lower: lower - 1 });
       }
+  return { places, floors: places.length ? floors : 0 };
+}
+// Puts a courtyard where a square of its side (the open middle, the gallery and the wall round that) is wall on as many floors next to each other as possible (two
+// at least; never the lowest floor, whose boss room stands higher than a floor). On each of them a gallery is carved
+// round the open middle, with a corridor to the rest of the floor; on the lowest the middle is floor too. Returns
+// null (and leaves the maps as they were) when no place fits
+function addCourt(maps: TileMapData[], keepOut: Uint8Array[], rng: Rng): Court | null {
+  const W = maps[0]!.W,
+    dice = rng.next() < COURT_OPEN_CHANCE,
+    open = courtKind ?? dice,
+    small = courtPlaces(maps, keepOut, COURT_ROOFED),
+    large = open ? courtPlaces(maps, keepOut, COURT_OPEN) : null,
+    // (a yard takes the larger square unless that costs it more than one floor)
+    roomy = !!large && large.floors >= 2 && large.floors >= small.floors - 1,
+    COURT = roomy ? COURT_OPEN : COURT_ROOFED,
+    COURT_SIDE = COURT + 4,
+    places = roomy ? large!.places : small.places;
   for (let t = 0; t < COURT_TRIES && places.length; t++) {
     const at = places.splice(rng.randi(0, places.length - 1), 1)[0]!,
       kept = maps.map((m, n) => ({ grid: m.maps.grid.slice(), out: keepOut[n]!.slice() })),
@@ -434,7 +458,7 @@ function addCourt(maps: TileMapData[], keepOut: Uint8Array[], rng: Rng): Court |
         out[gate] = 1;
       }
     }
-    if (ok) return { upper: at.upper, lower: at.lower, tiles };
+    if (ok) return { upper: at.upper, lower: at.lower, tiles, open };
     kept.forEach((k, n) => {
       maps[n]!.maps.grid.set(k.grid);
       keepOut[n]!.set(k.out);
@@ -548,21 +572,22 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
       shaftWall: new Uint8Array(size),
       court:
         court && floor >= court.upper && floor <= court.lower
-          ? { tiles: court.tiles, top: floor === court.upper, ground: floor === court.lower }
+          ? { tiles: court.tiles, top: floor === court.upper, ground: floor === court.lower, open: court.open }
           : null,
     };
   });
-  // the courtyard: open upward on every floor but its top one, a hole on every floor but its lowest, and the gap to
-  // the next floor walled over the galleries. No hazard floor in it
+  // the courtyard: open upward on every floor but its top one (a yard: on that one too), a hole on every floor but
+  // its lowest, and the gap to the next floor walled over the galleries (a yard: over the top one too, up to the
+  // roof's edge). No hazard floor in it
   if (court)
     for (let n = court.upper; n <= court.lower; n++) {
       const p = plans[n]!;
       for (const k of court.tiles) {
-        if (n > court.upper) p.noCeil[k] = 1;
+        if (n > court.upper || court.open) p.noCeil[k] = 1;
         if (n < court.lower) p.voids[k] = 1;
         for (const t of around(W, k)) {
           p.gen.hazard[t] = 0;
-          if (n > court.upper && !court.tiles.includes(t)) p.shaft[t] = 1;
+          if ((n > court.upper || court.open) && !court.tiles.includes(t)) p.shaft[t] = 1;
         }
       }
     }

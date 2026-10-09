@@ -218,6 +218,38 @@ const RAIL_H = 1.15,
   RAIL_T = 0.08; // the rail's height and thickness (m)
 const SKYLIGHT = 0xdfe9f2, // the sky seen through the roof: pale, a little cold against the sector's amber
   SKY_POOL_OPACITY = 0.16;
+const EVENING_LIGHT = 0xffb86a, // what the low sun leaves on the ground of a yard
+  EVENING_POOL_OPACITY = 0.12;
+// the sky over a yard, seen from below: the evening, amber at one edge going over to a dusky blue, a few thin clouds
+let skyTex: THREE.CanvasTexture | null = null;
+function eveningSky(): THREE.CanvasTexture {
+  if (skyTex) return skyTex;
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext('2d')!,
+    grad = g.createLinearGradient(0, 0, 256, 256);
+  grad.addColorStop(0, '#f2a65a');
+  grad.addColorStop(0.35, '#d98a6a');
+  grad.addColorStop(0.7, '#7d7f9e');
+  grad.addColorStop(1, '#3e4a6b');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 256);
+  g.globalAlpha = 0.22;
+  g.fillStyle = '#ffe2c4';
+  for (const [x, y, w, h] of [
+    [30, 70, 150, 10],
+    [90, 120, 140, 8],
+    [10, 170, 110, 7],
+    [130, 200, 120, 9],
+  ] as const) {
+    g.beginPath();
+    g.ellipse(x + w / 2, y, w / 2, h, -0.5, 0, Math.PI * 2);
+    g.fill();
+  }
+  skyTex = new THREE.CanvasTexture(c);
+  return skyTex;
+}
 function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group) {
   const is = court.tiles.map(k => k % W),
     js = court.tiles.map(k => (k / W) | 0),
@@ -252,21 +284,24 @@ function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group) {
     side(i1 * T, cz, 0, deep);
   }
   if (court.top) {
-    // the skylight: a bright pane a little under the ceiling, framed by steel bars
+    // the sky over the yard: it is open at the top, with the wall round it going up to the roof's edge
     const sky = new THREE.Mesh(
-      new THREE.PlaneGeometry(wide - 0.6, deep - 0.6),
-      new THREE.MeshBasicMaterial({ color: SKYLIGHT }),
+      new THREE.PlaneGeometry(court.open ? wide : wide - 0.6, court.open ? deep : deep - 0.6),
+      court.open
+        ? new THREE.MeshBasicMaterial({ map: eveningSky(), fog: false })
+        : new THREE.MeshBasicMaterial({ color: SKYLIGHT }),
     );
     sky.rotation.x = Math.PI / 2;
-    sky.position.set(cx, WALL_H - 0.03, cz);
+    // (a yard: at the roof's edge, a floor's height up; an atrium: a pane a little under the ceiling, framed by bars)
+    sky.position.set(cx, court.open ? FLOOR_H - 0.05 : WALL_H - 0.03, cz);
     group.add(sky);
     const bar = new THREE.MeshBasicMaterial({ color: 0x1b1e21 });
-    for (let n = 1; n < i1 - i0; n++) {
+    for (let n = 1; !court.open && n < i1 - i0; n++) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, deep - 0.6), bar);
       m.position.set(i0 * T + n * T, WALL_H - 0.08, cz);
       group.add(m);
     }
-    for (let n = 1; n < j1 - j0; n++) {
+    for (let n = 1; !court.open && n < j1 - j0; n++) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(wide - 0.6, 0.1, 0.12), bar);
       m.position.set(cx, WALL_H - 0.08, j0 * T + n * T);
       group.add(m);
@@ -276,9 +311,9 @@ function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group) {
     const pool = new THREE.Mesh(
       new THREE.PlaneGeometry(wide, deep),
       new THREE.MeshBasicMaterial({
-        color: SKYLIGHT,
+        color: court.open ? EVENING_LIGHT : SKYLIGHT,
         transparent: true,
-        opacity: SKY_POOL_OPACITY,
+        opacity: court.open ? EVENING_POOL_OPACITY : SKY_POOL_OPACITY,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
@@ -295,7 +330,15 @@ function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group) {
 // The boss room is HALL_H high, not WALL_H (the boss that jumps needs the room): its ceiling and the walls above
 // WALL_H go in a group of their own, which is returned (null on a floor without a boss room). They stand where the
 // floor above is, so the caller shows them only while that floor is not drawn (world/level.ts showNeighbourFloors)
-export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Group, rng: Rng): THREE.Group | null {
+// `courtGroup`: on a floor the courtyard passes, what stands in and round it (its galleries, their walls and ceilings,
+// the rail) goes into this group and not into `group`, so that it can be drawn alone from the other floors
+export function buildFloorMeshes(
+  biome: Biome,
+  plan: FloorPlan,
+  group: THREE.Group,
+  rng: Rng,
+  courtGroup?: THREE.Group,
+): THREE.Group | null {
   // the sector's own look when it has one (world/looks.ts): pictures in a few variants, scattered over the tiles
   const look = lookOf(biome),
     plainTex = biomeTex(biome),
@@ -306,6 +349,38 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
     if (v) wallSet.add(k);
   });
   const walls = [...wallSet].filter(k => !plan.voids[k]).map(k => [k % W, (k / W) | 0] as [number, number]);
+  // the courtyard's square (its open middle, the gallery and the wall round that): those tiles go to courtGroup
+  const cis = plan.court && courtGroup ? plan.court.tiles.map(k => k % W) : [],
+    cjs = plan.court && courtGroup ? plan.court.tiles.map(k => (k / W) | 0) : [],
+    ci0 = Math.min(...cis) - 2,
+    ci1 = Math.max(...cis) + 2,
+    cj0 = Math.min(...cjs) - 2,
+    cj1 = Math.max(...cjs) + 2,
+    atCourt = (i: number, j: number): boolean => cis.length > 0 && i >= ci0 && i <= ci1 && j >= cj0 && j <= cj1,
+    inCourt = (k: number): boolean => atCourt(k % W, (k / W) | 0),
+    planes = (tiles: number[], y: number, up: boolean, mat: THREE.Material) => {
+      addTilePlanes(
+        tiles.filter(k => !inCourt(k)),
+        y,
+        up,
+        mat,
+        group,
+      );
+      if (courtGroup) addTilePlanes(tiles.filter(inCourt), y, up, mat, courtGroup);
+    },
+    wallBoxes = (map: THREE.Texture, tiles: [number, number][]) => {
+      addWalls(
+        map,
+        tiles.filter(([i, j]) => !atCourt(i, j)),
+        group,
+      );
+      if (courtGroup)
+        addWalls(
+          map,
+          tiles.filter(([i, j]) => atCourt(i, j)),
+          courtGroup,
+        );
+    };
   const floorTiles = all.filter(k => grid[k] === 1 && !plan.noFloor[k]);
   // the boss room's tiles and the ring of tiles round it (its walls and its door)
   const hallRoom = plan.hall ? plan.gen.rooms[plan.hall.room]! : null,
@@ -322,25 +397,23 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
     };
   if (look) {
     look.floors.forEach((map, v) =>
-      addTilePlanes(
+      planes(
         floorTiles.filter(k => variantOf(k, look.floors.length, FLOOR_PLAIN_SHARE) === v),
         0,
         true,
         new THREE.MeshBasicMaterial({ map }),
-        group,
       ),
     );
     look.walls.forEach((map, v) =>
-      addWalls(
+      wallBoxes(
         map,
         walls.filter(([i, j]) => variantOf(j * W + i, look.walls.length, WALL_PLAIN_SHARE) === v),
-        group,
       ),
     );
   } else {
     tex.floor.repeat.set(1, 1);
-    addTilePlanes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }), group);
-    addWalls(tex.wall, walls, group);
+    planes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }));
+    wallBoxes(tex.wall, walls);
   }
   addDecks(tex, group);
   addRamps(tex, group);
@@ -348,13 +421,12 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
   const dark = look
     ? new THREE.MeshBasicMaterial({ map: look.ceiling })
     : new THREE.MeshBasicMaterial({ color: new THREE.Color(biome.wall).multiplyScalar(CEILING_SHADE) });
-  addTilePlanes(
+  planes(
     // not over the boss room, nor over its door (the wall above the door is that tile's ceiling)
     all.filter(k => (grid[k] === 1 || plan.voids[k]) && !plan.noCeil[k] && !hallAt(k, 1)),
     WALL_H,
     false,
     dark,
-    group,
   );
   let hallTop: THREE.Group | null = null;
   if (hallRoom) {
@@ -383,8 +455,12 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
     group.add(hallTop);
   }
   // between this floor's ceiling and the next floor's ground, round a stairwell or shaft that goes up
-  const fill = all.filter(k => plan.shaft[k] && !plan.noCeil[k]);
-  if (fill.length) {
+  const fills = all.filter(k => plan.shaft[k] && !plan.noCeil[k]);
+  for (const [fill, into] of [
+    [fills.filter(k => !inCourt(k)), group],
+    [courtGroup ? fills.filter(inCourt) : [], courtGroup ?? group],
+  ] as [number[], THREE.Group][]) {
+    if (!fill.length) continue;
     const boxes = new THREE.InstancedMesh(
         // a little short at both ends: its top would lie in the plane of the next floor's ground and its bottom in the
         // plane of this floor's ceiling, and two faces in one plane flicker
@@ -398,9 +474,9 @@ export function buildFloorMeshes(biome: Biome, plan: FloorPlan, group: THREE.Gro
       boxes.setMatrixAt(n, matrix);
     });
     boxes.instanceMatrix.needsUpdate = true;
-    group.add(boxes);
+    into.add(boxes);
   }
-  if (plan.court) addCourt(plan.court, group);
+  if (plan.court) addCourt(plan.court, courtGroup ?? group);
   // a sector with a look brings its own signs; the plain neon bars are for the sectors without one
   if (look) look.props(plan, group, rng);
   else if (biome.gen.neon) addNeonSigns(walls, group, rng);
