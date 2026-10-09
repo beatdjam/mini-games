@@ -2585,6 +2585,44 @@ test('followers: an awake enemy close behind comes down the stairwell after the 
   }
   goToFloor(0);
 });
+test('followers: one left behind on another floor goes back to its own room when the player leaves that floor', () => {
+  const b = building!,
+    l = b.links.find(x => x.kind === 'stairs');
+  if (!l) return;
+  goToFloor(l.upper);
+  for (let k = 0; k < 3; k++) enemies.slice().forEach(e => hurtEnemy(e, 1e6, false));
+  tick(1);
+  const l1 = l.strip[l.strip.length - 2]!,
+    l2 = l.strip[l.strip.length - 1]!,
+    behind = l2 + (l2 - l1),
+    room = level.rooms.findIndex(
+      (_, r) => r !== level.startIdx && !(b.lockdown?.floor === l.upper && b.lockdown.room === r),
+    );
+  putOnTile(l2);
+  tick(2);
+  const e = spawnEnemy('crawler', ((behind % W) + 0.5) * T, (Math.floor(behind / W) + 0.5) * T, room, 1);
+  e.active = true;
+  level.roomCount[room] = 1;
+  run.bld!.cleared[l.upper] = run.bld!.cleared[l.upper]!.filter(r => r !== room);
+  putOnTile(l1);
+  tick(150);
+  expect(level.floor).toBe(l.lower);
+  expect(enemies.includes(e), 'it followed the player down').toBe(true);
+  // the player shakes it off (it is no longer close behind) and goes back up
+  e.active = false;
+  crossToFloor(b.links.indexOf(l), l.upper);
+  tick(1);
+  expect(level.floor).toBe(l.upper);
+  expect(enemies.includes(e), 'it is back on its own floor').toBe(true);
+  expect(level.roomOf[tileIndex(e.x, e.z)], 'in its own room').toBe(room);
+  expect(e.active, 'asleep').toBe(false);
+  expect(level.roomCount[room]).toBe(1);
+  const pickups = query('pickup').length;
+  hurtEnemy(e, 1e6, false);
+  expect(run.bld!.cleared[l.upper], 'killed there, the room is cleared as usual').toContain(room);
+  expect(query('pickup').length).toBeGreaterThan(pickups);
+  goToFloor(0);
+});
 test("boss room: only the enemies in it count as the boss's minions, and it is the room the boss calls them into", () => {
   const b = building!,
     last = b.plans.length - 1;
