@@ -326,24 +326,29 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         if (!d.maps.grid[wall] && !plan.voids[wall]) faces.push({ i, j, side, room });
       });
     }
-  const some = <T>(list: T[], share: number): T[] => list.filter(() => rng.next() < share),
+  // (nothing stands at the foot of a wall by a door: it would be in the doorway)
+  const byDoor = (f: { i: number; j: number }): boolean =>
+      [[0, 0], ...SIDE_STEP].some(([di, dj]) => !!d.maps.door?.[(f.j + dj!) * d.W + f.i + di!]),
+    inLane = (f: { room: number }): boolean => f.room < 0,
+    some = <T>(list: T[], share: number): T[] => list.filter(() => rng.next() < share),
     low = faces.map(() => rng.next()), // what is let into the wall: a stall, a board of meters, or nothing
     high = faces.map(() => rng.next()), // what hangs over it: an awning, a cage, washing, or nothing
-    stalls = faces.filter((_, n) => low[n]! < 0.3),
+    // (an alley's walls are busier at eye height than a hall's: more meters and lamps, fewer whole stalls)
+    stalls = faces.filter((f, n) => !byDoor(f) && low[n]! < (inLane(f) ? 0.18 : 0.3)),
     lanes = ceilings.filter(c => c.room < 0),
     halls = ceilings.filter(c => c.room >= 0),
     spot = {
       stall: stalls,
-      board: faces.filter((_, n) => low[n]! >= 0.3 && low[n]! < 0.48),
-      meter: faces.filter((_, n) => low[n]! >= 0.48 && low[n]! < 0.6),
-      heap: some(faces, 0.62),
+      board: faces.filter((f, n) => low[n]! >= 0.3 && low[n]! < (inLane(f) ? 0.62 : 0.48)),
+      meter: faces.filter((f, n) => low[n]! >= (inLane(f) ? 0.62 : 0.48) && low[n]! < (inLane(f) ? 0.8 : 0.6)),
+      heap: faces.filter(f => !byDoor(f) && rng.next() < (inLane(f) ? 0.8 : 0.62)),
       // (over most stalls, and over a bare wall now and then)
       awning: faces.filter((_, n) => (low[n]! < 0.3 ? high[n]! < 0.8 : high[n]! < 0.12)),
       cage: faces.filter((_, n) => low[n]! >= 0.3 && high[n]! >= 0.12 && high[n]! < 0.42),
       wash: faces.filter((_, n) => low[n]! >= 0.3 && high[n]! >= 0.42 && high[n]! < 0.6),
-      duct: some(faces, 0.5),
+      duct: faces.filter(f => rng.next() < (inLane(f) ? 0.85 : 0.5)),
       bundle: some(faces, 0.9),
-      tube: some(faces, 0.1),
+      tube: faces.filter(f => rng.next() < (inLane(f) ? 0.3 : 0.09)),
       span: some(ceilings, 0.42),
       hangsign: [...some(lanes, 0.12), ...some(halls, 0.035)],
     };
@@ -384,7 +389,8 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     new THREE.CylinderGeometry(0.07, 0.07, 4, 6),
     flatMat(0x3d3a37),
     spot.duct.flatMap(s => {
-      const y = rng.rand(5, 5.6);
+      // (in an alley they run lower, where they are seen)
+      const y = (s as Face).room < 0 ? rng.rand(3.2, 4.4) : rng.rand(5, 5.6);
       return [
         pose(onWall(s, 0, 0.12, y), facing(s), undefined, Math.PI / 2),
         pose(onWall(s, 0, 0.12, y - 0.22), facing(s), new THREE.Vector3(0.6, 1, 0.6), Math.PI / 2),
