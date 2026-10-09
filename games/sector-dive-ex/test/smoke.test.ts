@@ -138,6 +138,7 @@ import {
   makeBuilding,
   packSeen,
   roomDoors,
+  roomsOnWay,
   setBuilding,
 } from '../src/world/building.ts';
 import { ridingY, supplyChips } from '../src/flow/events.ts';
@@ -1994,6 +1995,24 @@ function putOnTile(k: number) {
   player.fy = floorY(player.x, player.z);
   player.vy = 0;
 }
+test('building: rooms lie between where one stairwell or lift lets you off and the next', () => {
+  // (from the start room for the first one; the shortest way goes through 2 rooms, or 1 where no place gives more)
+  const counts: number[] = [];
+  for (let seed = 1; seed <= 40; seed++) {
+    const b = makeBuilding(BIOMES[seed % BIOMES.length]!, 'watcher', seed);
+    b.links.forEach((l, n) => {
+      const floor = b.route[n]!,
+        d = b.plans[floor]!.gen,
+        on = (x: typeof l) => (floor === x.upper ? x.a : x.b),
+        r = d.rooms[d.startIdx],
+        from = n ? on(b.links[n - 1]!) : Math.floor(r!.y + r!.h / 2) * d.W + Math.floor(r!.x + r!.w / 2),
+        rooms = roomsOnWay(d, from, on(l), n ? -1 : d.startIdx);
+      expect(rooms, `seed ${seed} link ${n}`).toBeGreaterThanOrEqual(1);
+      counts.push(rooms);
+    });
+  }
+  expect(counts.filter(c => c >= 2).length / counts.length, '2 rooms or more').toBeGreaterThan(0.85);
+});
 test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
   // a door stands across a corridor: floor before and behind it, wall on its two sides
   for (let seed = 1; seed <= 40; seed++) {

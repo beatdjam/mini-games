@@ -35,6 +35,8 @@ export const STRIP = RAMPS + 3; // tiles of a stairwell: E, the ramps, L1, L2
 const BOSS_HALL = 12; // side of the boss room (tiles), the same as the floor of a boss arena
 const LAST_FLOOR_ROOMS: [number, number] = [3, 4]; // ordinary rooms on the lowest floor, next to the boss room
 const PLACE_TRIES = 600; // random places tried for one stairwell or lift
+const ROOMS_BETWEEN = 2; // rooms on the shortest way from where one stairwell or lift lets you off to the next
+const LINK_TRIES = 24; // a stairwell or lift is put somewhere else this often to get them; see placeLink
 const SEED_TRIES = 30; // seeds tried until a building has room for its stairwells and every floor is reached
 const SEED_STEP = 7919; // added to the seed for the next try
 const DOOR_PAIR_REACH = 2; // of two doors this many tiles apart or closer along a corridor, only one stays
@@ -289,6 +291,71 @@ function addLift(maps: TileMapData[], keepOut: Uint8Array[], up: number, lo: num
   return null;
 }
 
+// The rooms the shortest way from tile `from` to tile `to` goes through (over floor tiles; heights and doors aside),
+// the room `skip` not counted
+export function roomsOnWay(d: TileMapData, from: number, to: number, skip: number): number {
+  const { W, H, maps: M, rooms } = d,
+    prev = new Int32Array(W * H).fill(-1),
+    queue = [from];
+  prev[from] = from;
+  for (let n = 0; n < queue.length && prev[to]! < 0; n++) {
+    const c = queue[n]!;
+    for (const [a, b] of SIDE_STEP) {
+      const i = (c % W) + a,
+        j = Math.floor(c / W) + b,
+        k = j * W + i;
+      if (i < 0 || j < 0 || i >= W || j >= H || prev[k]! >= 0 || M.grid[k] !== 1) continue;
+      prev[k] = c;
+      queue.push(k);
+    }
+  }
+  if (prev[to]! < 0) return 0;
+  const on = new Set<number>();
+  for (let k = to; k !== from; k = prev[k]!) {
+    const i = k % W,
+      j = Math.floor(k / W),
+      room = rooms.findIndex(r => i >= r.x && i < r.x + r.w && j >= r.y && j < r.y + r.h);
+    if (room >= 0 && room !== skip) on.add(room);
+  }
+  return on.size;
+}
+// The stairwell or lift of one step of the route, between the floors `up` and `lo`, with rooms between it and
+// `from`: the tile on the floor `floor` where the player comes from (where the link before lets them off, or the
+// middle of the start room), `skip` the room there that does not count (the start room, or -1). A place whose
+// shortest way from there goes through fewer than ROOMS_BETWEEN rooms (or all the floor has, when fewer) is taken
+// back and another drawn; after two thirds of LINK_TRIES one room is enough, and the last try stands as it is.
+// Without this, half the links stood one room or none away, and a floor was over before it began
+function placeLink(
+  maps: TileMapData[],
+  keepOut: Uint8Array[],
+  stairs: boolean,
+  up: number,
+  lo: number,
+  at: { floor: number; from: number; skip: number },
+  rng: Rng,
+): BuildingLink | null {
+  const d = maps[at.floor]!,
+    most = d.rooms.length - (at.skip >= 0 ? 1 : 0);
+  for (let t = 0; ; t++) {
+    const kept = maps.map((m, n) => ({
+      grid: m.maps.grid.slice(),
+      ramp: m.maps.ramp.slice(),
+      hgt: m.maps.hgt.slice(),
+      out: keepOut[n]!.slice(),
+    }));
+    const link = stairs ? addStairs(maps, keepOut, up, rng) : addLift(maps, keepOut, up, lo, rng);
+    if (!link || t === LINK_TRIES - 1) return link;
+    const want = Math.min(most, t < (LINK_TRIES * 2) / 3 ? ROOMS_BETWEEN : 1);
+    if (roomsOnWay(d, at.from, at.floor === link.upper ? link.a : link.b, at.skip) >= want) return link;
+    kept.forEach((k, n) => {
+      maps[n]!.maps.grid.set(k.grid);
+      maps[n]!.maps.ramp.set(k.ramp);
+      maps[n]!.maps.hgt.set(k.hgt);
+      keepOut[n]!.set(k.out);
+    });
+  }
+}
+
 // is every floor tile of the building walked to from the start room, taking the stairs and lifts (cover tiles aside)
 function allReached(maps: TileMapData[], links: BuildingLink[], startIdx: number): boolean {
   const W = maps[0]!.W,
@@ -321,8 +388,8 @@ export function roomTiles(d: { W: number; rooms: TileMapData['rooms'] }, room: n
 }
 
 // One try at a building from this exact seed. The random numbers are drawn in this order: the number of floors, the
-// route, the floors, then step by step along the route its stairwell or lift, floor by floor the hazard floors, the
-// start room, the lockdown room.
+// route, the floors, the start room, then step by step along the route its stairwell or lift, floor by floor the
+// hazard floors, the lockdown room.
 // Returns null when a stairwell or lift finds no place, or a floor tile ends up cut off
 function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | null {
   const rng = createRng(seed);
@@ -358,12 +425,22 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
       markAround(out, W, doors);
       return out;
     }),
-    links: BuildingLink[] = [];
+    links: BuildingLink[] = [],
+    // the start room, on the top floor
+    startIdx = rng.randi(0, maps[0]!.rooms.length - 1),
+    startRoom = maps[0]!.rooms[startIdx]!;
   for (let n = 0; n + 1 < route.length; n++) {
-    const up = Math.min(route[n]!, route[n + 1]!),
-      lo = Math.max(route[n]!, route[n + 1]!),
+    const floor = route[n]!,
+      up = Math.min(floor, route[n + 1]!),
+      lo = Math.max(floor, route[n + 1]!),
       stairs = lo - up === 1 && rng.next() < STAIRS_CHANCE,
-      link = stairs ? addStairs(maps, keepOut, up, rng) : addLift(maps, keepOut, up, lo, rng);
+      before = links[n - 1],
+      from = before
+        ? floor === before.upper
+          ? before.a
+          : before.b
+        : Math.floor(startRoom.y + startRoom.h / 2) * W + Math.floor(startRoom.x + startRoom.w / 2),
+      link = placeLink(maps, keepOut, stairs, up, lo, { floor, from, skip: before ? -1 : startIdx }, rng);
     if (!link) return null;
     links.push(link);
   }
@@ -407,9 +484,9 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     for (const k of open) up.voids[k] = 1;
     for (const k of open) for (const t of around(W, k)) if (!up.gen.maps.grid[t] && !up.voids[t]) up.shaftWall[t] = 1;
   }
-  // the start room, on the top floor: no hazard floor in it or its doorways (as in a Sector Dive area)
+  // the start room: no hazard floor in it or its doorways (as in a Sector Dive area)
   const top = plans[0]!;
-  top.gen.startIdx = rng.randi(0, top.gen.rooms.length - 1);
+  top.gen.startIdx = startIdx;
   clearHazardsAround(top, roomTiles(top.gen, top.gen.startIdx));
   plans.forEach(p => {
     // nor on the doors, or in the boss room
