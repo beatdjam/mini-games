@@ -68,6 +68,17 @@ import {
 import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
 import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, isDoorLocked, lockDoor, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
+import {
+  STAIRWELL_DEFAULTS,
+  allReached,
+  makeRoute,
+  markLinkOpenings,
+  noOpenings,
+  placeLink,
+  roomDoors,
+  stripOf,
+  thinDoorPairs,
+} from '../src/world/stairwells.ts';
 import { type PropRule, type Slot, placeProps, slotsOf } from '../src/world/slots.ts';
 import {
   type FloorLink,
@@ -2301,6 +2312,48 @@ test('slots: slotsOf finds wall faces, corners, middles, room floor, corridors a
     slotsOf(deck).every(s => deck.maps.hgt[s.j * deck.W + s.i] === 0 && deck.maps.ramp[s.j * deck.W + s.i] < 0),
     'flat tiles only',
   );
+});
+test('stairwells: floors made apart are joined by a stairwell and a lift, every floor reached, drawn open round them', () => {
+  expect(new Set(Array.from({ length: 100 }, (_, n) => makeRoute(5, createRng(n)).join(''))).size).toBe(6);
+  expect(makeRoute(3, createRng(1))).toEqual([0, 1, 2]);
+  const STRIP = stripOf();
+  expect(STRIP).toBe(STAIRWELL_DEFAULTS.floorH / RISE + 3);
+  let done = 0;
+  for (let seed = 1; seed <= 6; seed++) {
+    const rng = createRng(seed),
+      opts = { map: 48, countMin: 4, countMax: 5 },
+      maps = [0, 1, 2].map(() => generateDungeon(opts, rng)),
+      W = maps[0]!.W,
+      keepOut = maps.map(() => new Uint8Array(W * maps[0]!.H)),
+      r = maps[0]!.rooms[0]!,
+      start = Math.floor(r.y + r.h / 2) * W + Math.floor(r.x + r.w / 2),
+      stairs = placeLink(maps, keepOut, true, 0, 1, { floor: 0, from: start, skip: 0 }, rng),
+      lift = stairs && placeLink(maps, keepOut, false, 1, 2, { floor: 1, from: stairs.b, skip: -1 }, rng);
+    if (!stairs || !lift) continue;
+    done++;
+    expect(stairs.strip.length).toBe(STRIP);
+    // the lower floor: the strip is floor, rising to floorH; the upper floor: only the landing
+    expect(stairs.strip.every(k => maps[1]!.maps.grid[k] === 1)).toBe(true);
+    expect(maps[1]!.maps.hgt[stairs.strip[STRIP - 1]!]).toBe(STAIRWELL_DEFAULTS.floorH);
+    expect(stairs.strip.map(k => maps[0]!.maps.grid[k])).toEqual([...Array(STRIP - 2).fill(0), 1, 1]);
+    expect(maps[1]!.maps.grid[lift.a] === 1 && maps[2]!.maps.grid[lift.a] === 1).toBe(true);
+    expect(allReached(maps, [stairs, lift], 0), `seed ${seed}`).toBe(true);
+    const open = maps.map(m => noOpenings(m.W * m.H));
+    markLinkOpenings(open, maps, [stairs, lift]);
+    expect(open[0]!.noFloor[stairs.a]).toBe(1);
+    expect(open[0]!.voids[stairs.strip[0]!], 'over the foot of the stairs: a hole').toBe(1);
+    expect(open[1]!.noCeil[stairs.strip[0]!]).toBe(1);
+    expect(open[2]!.noCeil[lift.a]).toBe(1);
+  }
+  expect(done, 'most seeds have room for both').toBeGreaterThan(3);
+});
+test('stairwells: two doors close along a corridor become one; a room shut only by doors is closable', () => {
+  const d = tileMapFromRows(['#######', '#.....#', '#.....#', '###+###', '###.###', '###+###', '#.....#', '#######']);
+  thinDoorPairs(d);
+  const doors = Array.from(d.maps.door!).flatMap((v, k) => (v ? [k] : []));
+  expect(doors.length, 'the second of the pair goes').toBe(1);
+  const room = tileMapFromRows(['#####', '#AAA#', '#AAA#', '##+##', '##.##']);
+  expect(roomDoors(room, 0)).toEqual({ doors: [3 * 5 + 2], closable: true });
 });
 test('slots: placeProps keeps blocking props out of the way, and the same seed repeats', () => {
   const rules: PropRule[] = [
