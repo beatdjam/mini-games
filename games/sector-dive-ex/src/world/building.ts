@@ -43,7 +43,7 @@ const SEED_STEP = 7919; // added to the seed for the next try
 // An atrium: a well COURT_ROOFED tiles a side, roofed with a skylight, open through several floors, with a gallery one
 // tile wide round it on every floor it passes and its ground on the lowest of them. Looked into and up from. The
 // gallery has a way in on one side and, where one is found, on the far side too; above the ground a bridge may join
-// the two straight across the well (ATRIUM_BRIDGE_CHANCE).
+// the two straight across the well (ATRIUM_BRIDGE_CHANCE). The ground and the gallery round it are a room.
 // A yard: an outdoor well between the building's own outer walls (rows of windows, storey over storey; drawn by
 // levelMesh.ts buildYardShell, not walked in), COURT_YARD tiles a side or COURT_YARD_WIDE where there is room. Each
 // floor it passes looks out on it from a balcony: BALCONY tiles of the wall round it, floor instead of wall, with a
@@ -553,7 +553,18 @@ function addCourt(
         bridges.push(bridge);
       }
     }
-    if (ok) return { upper: at.upper, lower: at.lower, tiles, open, balconies, bridges };
+    if (ok) {
+      // an atrium's ground (the middle and the gallery round it) is a room of its floor: enemies wait there, and it
+      // counts with the floor's other rooms (the last of them, so the rooms before keep their numbers)
+      if (!open) {
+        const d = maps[at.lower]!,
+          room = { x: at.i + 1, y: at.j + 1, w: SIDE - 2, h: SIDE - 2 };
+        for (let b = 0; b < room.h; b++)
+          for (let a = 0; a < room.w; a++) d.maps.roomOf[tile(a + 1, b + 1)] = d.rooms.length;
+        d.rooms.push(room);
+      }
+      return { upper: at.upper, lower: at.lower, tiles, open, balconies, bridges };
+    }
     kept.forEach((k, n) => {
       maps[n]!.maps.grid.set(k.grid);
       keepOut[n]!.set(k.out);
