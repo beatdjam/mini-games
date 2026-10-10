@@ -27,7 +27,7 @@ interface Row {
 const ROWS: Row[] = [
   { top: [-50, -20], wide: [60, 140], gap: [10, 60], base: [120, 128, 116], haze: 0.7, cell: [5, 6] },
   { top: [-74, -28], wide: [70, 160], gap: [30, 120], base: [104, 110, 100], haze: 0.45, cell: [6, 7] },
-  { top: [-120, -50], wide: [90, 190], gap: [120, 320], base: [96, 100, 90], haze: 0.15, cell: [9, 11] },
+  // (no near row: the band goes with the eye, and what is near must shift as one walks. See city/backdrop.ts)
 ];
 
 export function ruinView(): OutsideView {

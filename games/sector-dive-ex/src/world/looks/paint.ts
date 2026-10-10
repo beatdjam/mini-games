@@ -62,7 +62,7 @@ export const BACKDROP_R = 110, // m (inside the camera's far plane, 140 m, even 
 // horizon: clear out to `clear`, from there going into the haze (half of the way in `fade` more); a picture of it
 // GROUND_PX a side is `tile` metres of the ground. It is the street the building stands on: the ground of its lowest
 // floor (level.ts)
-export const BACKDROP_GROUND = { clear: 40, fade: 140, tile: 64 },
+export const BACKDROP_GROUND = { clear: 20, fade: 90, tile: 64 },
   GROUND_PX = 1024;
 // the buildings across the street (looks/outside.ts): a picture of a face FACADE_PX a side is FACADE_M metres across
 // and up (4 bays of 4 m, 4 storeys of 3.5 m), one of a roof ROOF_M metres a side; they go into the haze the way the
