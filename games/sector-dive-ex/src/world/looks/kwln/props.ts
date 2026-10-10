@@ -8,7 +8,7 @@ import type { FloorPlan } from '../../building.ts';
 import { wallPic } from '../common.ts';
 import { TEX, canvasTex, grime, paint } from '../paint.ts';
 import type { Paint } from '../paint.ts';
-import { spanLines } from '../dress.ts';
+import { RUN_LEN, runAlong, spanLines, wallLines } from '../dress.ts';
 import { facing, floorNear, onWall, overHead, pose, propTools, raised } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
@@ -381,8 +381,6 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       awning: faces.filter((f, n) => clear(f) && !besideOpen(f) && (low[n]! < 0.3 ? high[n]! < 0.8 : high[n]! < 0.12)),
       cage: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.12 && high[n]! < 0.42),
       wash: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.42 && high[n]! < 0.6),
-      duct: faces.filter(f => rng.next() < (inLane(f) ? 0.85 : 0.5)),
-      bundle: some(faces, 0.9),
       tube: faces.filter(f => !raised(d, f) && rng.next() < (inLane(f) ? 0.14 : 0.05)),
       // (an alley is roofed with cables: nearly every tile of it has a bundle across, low enough to be seen)
       span: spanLines(ceilings, { lane: 0.92, hall: 0.42 }, rng),
@@ -424,17 +422,19 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     ),
   );
   // conduits run along the walls under the ceiling, two together
+  // (line by line along the walls, each line at one height from end to end: dress.ts wallLines)
+  const lines = wallLines(faces, d),
+    round = new THREE.CylinderGeometry(1, 1, RUN_LEN, 6);
   add(
-    new THREE.CylinderGeometry(0.07, 0.07, 4, 6),
+    round,
     flatMat(0x3d3a37),
-    spot.duct.flatMap(s => {
-      // (in an alley they run lower, where they are seen)
-      const y = (s as Face).room < 0 ? rng.rand(3.2, 4.4) : rng.rand(5, 5.6);
-      return [
-        pose(onWall(s, 0, 0.12, y), facing(s), undefined, Math.PI / 2),
-        pose(onWall(s, 0, 0.12, y - 0.22), facing(s), new THREE.Vector3(0.6, 1, 0.6), Math.PI / 2),
-      ];
-    }),
+    lines
+      .filter(l => rng.next() < (inLane(l.faces[0]!) ? 0.85 : 0.5))
+      .flatMap(l => {
+        // (in an alley they run lower, where they are seen)
+        const y = inLane(l.faces[0]!) ? rng.rand(3.2, 4.4) : rng.rand(5, 5.6);
+        return [...runAlong(l, y, 0.12, 0.07), ...runAlong(l, y - 0.22, 0.12, 0.042)];
+      }),
   );
   // electricity meters in a row, with the conduit that feeds them
   const meters = spot.meter.map(s => ({ s, off: rng.rand(-1, 0.4), y: rng.rand(1.5, 1.9) }));
@@ -484,25 +484,24 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   hung2.forEach(h => lights.push({ x: h.x, z: h.z, color: HANG_COLORS[h.n % HANG_COLORS.length]![1], size: 0.9 }));
   // ---- cables ----
   // Round cables of several thicknesses, in bundles (thin flat lines read as scratches on the picture, not as
-  // cables). A bundle runs the length of its tile along the wall, on brackets under the ceiling: tile after tile they
-  // make runs. Each cable its own grey
+  // cables). A bundle runs the length of its line of wall (wallLines), under the ceiling. Each cable its own grey
   const cableColors: number[] = [],
     cableAt: THREE.Matrix4[] = [],
     CABLE = [0x121011, 0x1d1a19, PAINT.soot7, PAINT.soot11, 0x6f675a];
-  for (const s of spot.bundle) {
+  for (const l of lines.filter(() => rng.next() < 0.9)) {
     const y = rng.rand(4.5, 5.5),
       n = rng.randi(4, 8);
     for (let k = 0; k < n; k++) {
-      const thick = rng.rand(0.6, 1.7);
-      cableColors.push(rng.pick(CABLE));
-      cableAt.push(
-        pose(
-          onWall(s, 0, 0.1 + (k % 4) * 0.085, y - Math.floor(k / 4) * 0.1 + rng.rand(-0.02, 0.02)),
-          facing(s),
-          new THREE.Vector3(thick, 1, thick),
-          Math.PI / 2 + rng.rand(-0.012, 0.012),
-        ),
-      );
+      const color = rng.pick(CABLE);
+      for (const m of runAlong(
+        l,
+        y - Math.floor(k / 4) * 0.1 + rng.rand(-0.02, 0.02),
+        0.1 + (k % 4) * 0.085,
+        0.035 * rng.rand(0.6, 1.7),
+      )) {
+        cableAt.push(m);
+        cableColors.push(color);
+      }
     }
   }
   // a bundle slung across from wall to wall sags: two halves, each dropping to the middle
@@ -514,7 +513,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       y = overHead(high - sag * 1.1 - 0.1, Math.max(...tiles.map(s => floorNear(d, s.i, s.j)))) + sag * 1.1 + 0.1,
       n = rng.randi(3, 6);
     for (let k = 0; k < n; k++) {
-      const thick = rng.rand(0.7, 1.9),
+      const thick = 0.035 * rng.rand(0.7, 1.9),
         side = (k - n / 2) * 0.09,
         color = rng.pick(CABLE);
       for (const s of tiles.filter(under))
@@ -535,12 +534,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         }
     }
   }
-  add(
-    new THREE.CylinderGeometry(0.035, 0.035, 4.05, 6),
-    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-    cableAt,
-    cableColors,
-  );
+  add(round, new THREE.MeshBasicMaterial({ color: 0xffffff }), cableAt, cableColors);
   // ---- on the walls ----
   // boards of electricity meters with their wires, at eye height
   add(

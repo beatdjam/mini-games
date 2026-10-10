@@ -2,7 +2,7 @@ import { PAINT } from '../../data/colors.ts';
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import type { TileMapData } from '@engine/world/dungeon.ts';
-import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
+import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
 import { WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
 import { wallPic } from './common.ts';
@@ -45,6 +45,79 @@ export function spanLines<T extends { i: number; j: number; room: number }>(
   for (const [key, tiles] of inRooms)
     if (rng.next() < share.hall / 2) lines.push({ tiles, turn: key.includes('x') ? 0 : Math.PI / 2 });
   return lines;
+}
+// The wall faces in straight lines: the faces on one side of a room (or of an alley), tile after tile along the wall
+// (faces in the order of the wall's run, `along` = (dj, di) of the side, onWall's `off`). A line ends where the wall
+// does: at a doorway or where the wall turns. A run of pipe or cable along the walls is decided line by line, one
+// piece from end to end at one height: decided face by face, the pieces stood at every height, each ending in the air.
+// `open`: per end (the start, the end), whether the wall stops there with floor beyond it (a doorway, an outer
+// corner); there a run turns into the wall. Where it does not (an inner corner) the run ends against the wall across
+export interface WallLine<F extends WallSlot> {
+  faces: F[];
+  open: [boolean, boolean];
+}
+export function wallLines<F extends WallSlot & { room: number }>(faces: F[], d: TileMapData): WallLine<F>[] {
+  const at = new Map(faces.map(f => [`${f.side}:${f.i}:${f.j}`, f])),
+    seen = new Set<F>(),
+    lines: WallLine<F>[] = [];
+  for (const f of faces) {
+    if (seen.has(f)) continue;
+    const [di, dj] = SIDE_STEP[f.side ?? 0]!,
+      next = (g: F, k: number) => {
+        const n = at.get(`${g.side}:${g.i + dj * k}:${g.j + di * k}`);
+        return n && n.room === g.room && !seen.has(n) ? n : undefined;
+      };
+    let first = f;
+    for (let p = next(first, -1); p; p = next(first, -1)) first = p;
+    const line: F[] = [];
+    for (let g: F | undefined = first; g; g = next(g, 1)) {
+      seen.add(g);
+      line.push(g);
+    }
+    const last = line[line.length - 1]!,
+      floorAt = (i: number, j: number) => d.maps.grid[j * d.W + i] === 1;
+    lines.push({ faces: line, open: [floorAt(first.i - dj, first.j - di), floorAt(last.i + dj, last.j + di)] });
+  }
+  return lines;
+}
+const TURN_IN = 0.25; // a run turns into the wall this far short of where the wall stops (m)
+export const RUN_LEN = 4.05; // a run's piece over one face: the tile and a little, so the pieces meet (m; the geometry's length)
+// The pieces of a run along a line, `out` from the wall at height y, `thick` its radius: one per face, and at each
+// open end the piece cut short and a stub from there into the wall. (For a cylinder RUN_LEN long and 1 round)
+export function runAlong<F extends WallSlot>(
+  line: WallLine<F>,
+  y: number,
+  out: number,
+  thick: number,
+): THREE.Matrix4[] {
+  const pieces: THREE.Matrix4[] = [],
+    n = line.faces.length;
+  line.faces.forEach((f, k) => {
+    const cutStart = k === 0 && line.open[0] ? TURN_IN : 0,
+      cutEnd = k === n - 1 && line.open[1] ? TURN_IN : 0,
+      len = RUN_LEN - cutStart - cutEnd;
+    pieces.push(
+      pose(
+        onWall(f, (cutStart - cutEnd) / 2, out, y),
+        facing(f),
+        new THREE.Vector3(thick, len / RUN_LEN, thick),
+        Math.PI / 2,
+      ),
+    );
+    for (const [cut, end] of [
+      [cutStart, -1],
+      [cutEnd, 1],
+    ] as [number, number][])
+      if (cut)
+        pieces.push(
+          new THREE.Matrix4().compose(
+            onWall(f, end * (RUN_LEN / 2 - TURN_IN), out / 2, y),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, facing(f), 0, 'YXZ')),
+            new THREE.Vector3(thick, (out + thick) / RUN_LEN, thick),
+          ),
+        );
+  });
+  return pieces;
 }
 export interface WallKit {
   pics: number; // how many wall pictures the sector has, and
@@ -244,23 +317,27 @@ export function dressWalls(
     );
   }
   // ---- runs along the walls and across ----
-  const round = new THREE.CylinderGeometry(1, 1, 4.05, 6),
+  const round = new THREE.CylinderGeometry(1, 1, RUN_LEN, 6),
     runAt: THREE.Matrix4[] = [],
-    runColor: number[] = [];
+    runColor: number[] = [],
+    lines = wallLines(faces, d);
   for (const r of kit.runs ? [kit.runs].flat() : [])
-    for (const f of some(faces, r)) {
+    for (const line of lines) {
+      const f = line.faces[0]!;
+      if (rng.next() >= of(r, f)) continue;
       const y = lane(f) ? rng.rand(r.laneY[0], r.laneY[1]) : rng.rand(r.y[0], r.y[1]);
       for (let k = 0, n = rng.randi(r.n[0], r.n[1]); k < n; k++) {
-        const thick = r.r * rng.rand(0.6, 1.7);
-        runColor.push(rng.pick(r.colors));
-        runAt.push(
-          pose(
-            onWall(f, 0, r.r * 2.5 + (k % 4) * r.r * 2.4, y - Math.floor(k / 4) * r.r * 2.8),
-            facing(f),
-            new THREE.Vector3(thick, 1, thick),
-            Math.PI / 2 + rng.rand(-0.012, 0.012),
-          ),
+        const pieces = runAlong(
+          line,
+          y - Math.floor(k / 4) * r.r * 2.8,
+          r.r * 2.5 + (k % 4) * r.r * 2.4,
+          r.r * rng.rand(0.6, 1.7),
         );
+        const color = rng.pick(r.colors);
+        pieces.forEach(m => {
+          runAt.push(m);
+          runColor.push(color);
+        });
       }
     }
   const sp = kit.spans;
@@ -298,7 +375,18 @@ export function dressWalls(
   add(round, runMat(), runAt, runColor);
   const rs = kit.risers;
   if (rs) {
-    const at = some(faces, rs).map(f => ({ f, off: rng.rand(-1.5, 1.5), thick: rs.r * rng.rand(0.7, 1.5) })),
+    // (at an end of a line of wall, by the corner or the doorway: where the runs along it turn, a pipe takes them up
+    // and down; not anywhere along a wall, where it met nothing)
+    const at = lines
+        .filter(l => rng.next() < of(rs, l.faces[0]!))
+        .map(l => {
+          const end = rng.next() < 0.5 ? 0 : 1;
+          return {
+            f: l.faces[end ? l.faces.length - 1 : 0]!,
+            off: (end ? 1 : -1) * (T / 2 - TURN_IN - 0.1),
+            thick: rs.r * rng.rand(0.7, 1.5),
+          };
+        }),
       colors = at.map(() => rng.pick(rs.colors));
     add(
       new THREE.CylinderGeometry(1, 1, WALL_H, 8),
