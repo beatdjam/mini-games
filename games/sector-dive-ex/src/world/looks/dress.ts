@@ -1,3 +1,4 @@
+import { PAINT } from '../../data/colors.ts';
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import type { TileMapData } from '@engine/world/dungeon.ts';
@@ -272,7 +273,7 @@ export function dressWalls(
     );
     add(
       new THREE.CylinderGeometry(1, 1, 0.12, 8),
-      flat(0x1c1612),
+      flat(PAINT.ink8),
       at.flatMap(a =>
         [1.4, 3.6].map(y =>
           pose(
@@ -321,7 +322,7 @@ export function dressWalls(
       }));
     add(
       new THREE.BoxGeometry(0.025, 1, 0.025),
-      flat(0x0f0d0e),
+      flat(PAINT.ink3),
       bulbs.map(b => pose(new THREE.Vector3(b.x, (b.y + WALL_H) / 2, b.z), 0, new THREE.Vector3(1, WALL_H - b.y, 1))),
     );
     add(

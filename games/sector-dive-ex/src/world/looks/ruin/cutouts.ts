@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import type * as THREE from 'three';
 import { canvasTex } from '../paint.ts';
 import { block, pick, seeded, soil } from '../cutoutTools.ts';
@@ -7,7 +8,7 @@ import type { G } from '../cutoutTools.ts';
 // the foot of the walls: broken chairs, folded mattresses, crates, buckets, lumps of fallen wall. Overhead: rags on a
 // line.
 
-const WOOD = ['#5a4632', '#6a5238', '#4a3a2a', '#7a6244'];
+const WOOD = ['#5a4632', '#6a5238', '#4a3a2a', css(PAINT.clay1)];
 const CLOTH = ['#8a8472', '#6f5a4a', '#5a6a72', '#9a8a6a', '#7a4a42'];
 
 // folded bedding: a pile of quilts, each a band with its fold
@@ -25,7 +26,7 @@ function bedding(g: G, rand: () => number, x: number, foot: number, w: number, n
 }
 // a lump of fallen wall: a grey block with a broken edge
 function lump(g: G, rand: () => number, x: number, foot: number, w: number, h: number) {
-  g.fillStyle = pick(rand, ['#7a766c', '#6a665c', '#8a8478']);
+  g.fillStyle = pick(rand, [css(PAINT.grey6), '#6a665c', css(PAINT.grey7)]);
   g.beginPath();
   g.moveTo(x, foot);
   g.lineTo(x + w * 0.1, foot - h * (0.6 + rand() * 0.4));
@@ -46,7 +47,7 @@ export function flatTex(seed: number): THREE.CanvasTexture {
     H = 400,
     kind = seed % 4;
   return canvasTex(W, H, g => {
-    g.fillStyle = '#3a342c';
+    g.fillStyle = css(PAINT.soot10);
     g.fillRect(0, 0, W, H);
     if (kind === 0) {
       block(g, 10, 20, 230, H - 24, pick(rand, WOOD));
@@ -56,7 +57,7 @@ export function flatTex(seed: number): THREE.CanvasTexture {
         g.fillStyle = pick(rand, CLOTH);
         g.fillRect(34 + k * 20, 60, 14, 150 + rand() * 60);
       }
-      g.fillStyle = '#2a2420';
+      g.fillStyle = css(PAINT.soot3);
       g.fillRect(28, 50, 90, 4);
       block(g, 270, 170, 230, H - 174, pick(rand, WOOD));
       for (let k = 0; k < 4; k++) {
@@ -75,7 +76,7 @@ export function flatTex(seed: number): THREE.CanvasTexture {
       bedding(g, rand, 30, 194, 200, 7);
       bedding(g, rand, 270, 194, 190, 4);
       bedding(g, rand, 40, 392, 180, 5);
-      for (let x = 260; x < W - 80; x += 74) block(g, x, 330 - rand() * 50, 64, 62 + rand() * 50, '#8a6a44');
+      for (let x = 260; x < W - 80; x += 74) block(g, x, 330 - rand() * 50, 64, 62 + rand() * 50, css(PAINT.clay2));
       // one sliding door left, hanging off its track
       g.save();
       g.translate(380, 110);
@@ -87,10 +88,10 @@ export function flatTex(seed: number): THREE.CanvasTexture {
       g.strokeRect(-10, -92, 130, 190);
       g.restore();
     } else if (kind === 2) {
-      g.fillStyle = '#8f8a7c';
+      g.fillStyle = css(PAINT.grey9);
       g.fillRect(0, 0, W, H);
       for (let x = 6; x < W - 10; x += 126) block(g, x, 10, 118, 100, '#7a7466');
-      g.fillStyle = '#9a9890';
+      g.fillStyle = css(PAINT.grey11);
       g.fillRect(0, 226, W, 14);
       for (let x = 6; x < W - 10; x += 126) block(g, x, 242, 118, 150, '#6f6a5c');
       g.fillStyle = '#5a5f62';
@@ -98,7 +99,7 @@ export function flatTex(seed: number): THREE.CanvasTexture {
       g.fillRect(104, 160, 8, 48);
       for (let x = 230; x < W - 60; x += 56 + rand() * 30) {
         // a pot or a kettle on the counter
-        g.fillStyle = pick(rand, ['#3a3836', '#7a7672', '#8a4a34']);
+        g.fillStyle = pick(rand, [css(PAINT.soot13), '#7a7672', '#8a4a34']);
         g.beginPath();
         g.ellipse(x + 20, 210, 20, 16, 0, 0, Math.PI * 2);
         g.fill();
@@ -195,7 +196,7 @@ export function flatBoxTex(seed: number): THREE.CanvasTexture {
       g.fillStyle = '#a89a78';
       for (let k = 0; k < 3; k++) g.fillRect(S / 2 - 12, (S / 3) * k + 18, 24, 5);
     } else {
-      g.fillStyle = '#77736a';
+      g.fillStyle = css(PAINT.grey5);
       g.fillRect(0, 0, S, S);
       g.strokeStyle = 'rgba(20,18,16,0.6)';
       g.lineWidth = 2;
@@ -224,7 +225,7 @@ export function ragsTex(seed: number): THREE.CanvasTexture {
     W = 384,
     H = 160;
   return canvasTex(W, H, g => {
-    g.strokeStyle = '#2a2622';
+    g.strokeStyle = css(PAINT.soot6);
     g.lineWidth = 2;
     g.beginPath();
     g.moveTo(0, 6);
@@ -234,7 +235,7 @@ export function ragsTex(seed: number): THREE.CanvasTexture {
       const w = 34 + rand() * 40,
         h = 50 + rand() * 80,
         top = 10 + Math.sin((x / W) * Math.PI) * 10;
-      g.fillStyle = pick(rand, ['#8a8678', '#6f6a5e', '#7a7062', '#5c5a52']);
+      g.fillStyle = pick(rand, ['#8a8678', css(PAINT.grey3), '#7a7062', '#5c5a52']);
       g.beginPath();
       g.moveTo(x, top);
       g.lineTo(x + w, top);
@@ -256,7 +257,7 @@ export function slabDeckTex(): THREE.CanvasTexture {
     W = 256,
     H = 128;
   return canvasTex(W, H, g => {
-    g.fillStyle = '#77736a';
+    g.fillStyle = css(PAINT.grey5);
     g.fillRect(0, 0, W, H);
     g.fillStyle = '#5c5850';
     g.fillRect(0, 0, W, 18);

@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import type * as THREE from 'three';
 import { canvasTex } from '../paint.ts';
 import { block, pick, seeded, soil } from '../cutoutTools.ts';
@@ -6,8 +7,8 @@ import type { G } from '../cutoutTools.ts';
 // walls: control panels with their gauges and lamps, boards of tools, valve manifolds, lockers. Along the foot of
 // the walls: oil drums, gas cylinders, stacked ingots, pallets, tool boxes. Overhead: chains and hooks.
 
-const PAINT = ['#4f5a4a', '#5a5348', '#3f4a52', '#5c4a34']; // the paints of the plant's cabinets
-const DRUM = ['#7a3a22', '#2f5a7a', '#b08a22', '#3a3f44', '#5a2a22'];
+const COATS = ['#4f5a4a', '#5a5348', '#3f4a52', '#5c4a34']; // the paints of the plant's cabinets
+const DRUM = ['#7a3a22', '#2f5a7a', '#b08a22', css(PAINT.soot14), '#5a2a22'];
 
 // a round gauge: the case, the white face, the needle
 function gauge(g: G, rand: () => number, x: number, y: number, r: number) {
@@ -15,7 +16,7 @@ function gauge(g: G, rand: () => number, x: number, y: number, r: number) {
   g.beginPath();
   g.arc(x, y, r + 3, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = '#d8d2c0';
+  g.fillStyle = css(PAINT.glow1);
   g.beginPath();
   g.arc(x, y, r, 0, Math.PI * 2);
   g.fill();
@@ -40,7 +41,7 @@ function lamp(g: G, rand: () => number, x: number, y: number) {
     g.fillRect(x - 16, y - 16, 32, 32);
     g.globalCompositeOperation = 'source-over';
   }
-  g.fillStyle = lit ? color : '#3a2a22';
+  g.fillStyle = lit ? color : css(PAINT.umber1);
   g.beginPath();
   g.arc(x, y, 4.5, 0, Math.PI * 2);
   g.fill();
@@ -74,7 +75,7 @@ function cylinder(g: G, rand: () => number, x: number, foot: number, h: number) 
   g.beginPath();
   g.arc(x + 10, foot - h, 10, Math.PI, 0);
   g.fill();
-  g.fillStyle = '#2a2826';
+  g.fillStyle = css(PAINT.soot8);
   g.fillRect(x + 6, foot - h - 16, 8, 8);
   const shade = g.createLinearGradient(x, 0, x + 20, 0);
   shade.addColorStop(0, 'rgba(255,255,255,0.18)');
@@ -91,20 +92,20 @@ export function plantTex(seed: number): THREE.CanvasTexture {
     H = 400,
     kind = seed % 4;
   return canvasTex(W, H, g => {
-    g.fillStyle = '#2c2420';
+    g.fillStyle = css(PAINT.soot5);
     g.fillRect(0, 0, W, H);
     if (kind === 0) {
       // three cabinets of a control panel: gauges on top, rows of lamps and switches, a mimic of pipes
       for (let x = 4; x < W - 20; x += 170) {
-        block(g, x, 8, 162, H - 14, pick(rand, PAINT));
+        block(g, x, 8, 162, H - 14, pick(rand, COATS));
         for (let k = 0; k < 3; k++) gauge(g, rand, x + 34 + k * 47, 54, 17);
         g.fillStyle = '#1a1816';
         g.fillRect(x + 12, 96, 138, 86);
         for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) lamp(g, rand, x + 26 + c * 22, 112 + r * 26);
         for (let c = 0; c < 5; c++) {
-          g.fillStyle = '#b8b0a0';
+          g.fillStyle = css(PAINT.clay4);
           g.fillRect(x + 22 + c * 27, 206, 12, 22);
-          g.fillStyle = '#2a2826';
+          g.fillStyle = css(PAINT.soot8);
           g.fillRect(x + 25 + c * 27, 200 + (rand() < 0.5 ? 0 : 14), 6, 12);
         }
         g.fillStyle = '#d2c9a8';
@@ -116,7 +117,7 @@ export function plantTex(seed: number): THREE.CanvasTexture {
       // a board of tools, each on its hooks, over a bench with a vice
       g.fillStyle = '#6a4f30';
       g.fillRect(10, 10, W - 20, 200);
-      g.fillStyle = '#1c1a18';
+      g.fillStyle = css(PAINT.ink9);
       for (let x = 30; x < W - 40; x += 34 + rand() * 20) {
         const len = 50 + rand() * 110;
         g.fillRect(x, 26, 7, len);
@@ -124,10 +125,10 @@ export function plantTex(seed: number): THREE.CanvasTexture {
         else g.fillRect(x - 5, 26 + len - 12, 17, 12);
       }
       block(g, 0, 230, W, 26, '#7a5a34');
-      block(g, 10, 256, W - 20, H - 260, '#4a4038');
+      block(g, 10, 256, W - 20, H - 260, css(PAINT.soot15));
       block(g, 60, 196, 70, 36, '#3a4a55');
       for (let x = 180; x < W - 60; x += 60 + rand() * 40)
-        block(g, x, 206, 40 + rand() * 20, 26, pick(rand, ['#a02a22', '#3a3f44', '#b08a22']));
+        block(g, x, 206, 40 + rand() * 20, 26, pick(rand, ['#a02a22', css(PAINT.soot14), '#b08a22']));
     } else if (kind === 2) {
       // a manifold: pipes across, a valve with its red wheel on each, drips under them
       for (let y = 40; y < H - 60; y += 80) {
@@ -138,7 +139,7 @@ export function plantTex(seed: number): THREE.CanvasTexture {
         g.fillStyle = 'rgba(0,0,0,0.35)';
         g.fillRect(0, y + 19, W, 7);
         for (let x = 50 + rand() * 40; x < W - 40; x += 120 + rand() * 60) {
-          g.fillStyle = '#3a3028';
+          g.fillStyle = css(PAINT.umber2);
           g.fillRect(x - 12, y - 6, 24, 38);
           g.strokeStyle = '#b02a20';
           g.lineWidth = 6;
@@ -152,16 +153,16 @@ export function plantTex(seed: number): THREE.CanvasTexture {
     } else {
       // lockers, each with its plate, helmets and gloves on top
       for (let x = 2; x < W - 10; x += 73) {
-        block(g, x, 70, 69, H - 74, pick(rand, PAINT));
+        block(g, x, 70, 69, H - 74, pick(rand, COATS));
         g.fillStyle = 'rgba(0,0,0,0.35)';
         for (let k = 0; k < 4; k++) g.fillRect(x + 14, 86 + k * 7, 42, 3);
-        g.fillStyle = '#d8d2c0';
+        g.fillStyle = css(PAINT.glow1);
         g.fillRect(x + 18, 130, 34, 14);
-        g.fillStyle = '#2a2826';
+        g.fillStyle = css(PAINT.soot8);
         g.fillRect(x + 56, 220, 5, 20);
       }
       for (let x = 20; x < W - 60; x += 70 + rand() * 50) {
-        g.fillStyle = pick(rand, ['#d9a02a', '#e8e2d0', '#b02a20']);
+        g.fillStyle = pick(rand, [css(PAINT.amber1), css(PAINT.glow4), '#b02a20']);
         g.beginPath();
         g.arc(x + 22, 68, 22, Math.PI, 0);
         g.fill();
@@ -210,7 +211,7 @@ export function plantHeapTex(seed: number): THREE.CanvasTexture {
         x += 120 + rand() * 20;
       } else {
         block(g, x, foot - 34, 70, 34, pick(rand, ['#a02a22', '#3a4a55', '#b08a22']));
-        g.fillStyle = '#1c1a18';
+        g.fillStyle = css(PAINT.ink9);
         g.fillRect(x + 22, foot - 42, 26, 8);
         x += 80 + rand() * 30;
       }
@@ -230,7 +231,7 @@ export function plantBoxTex(seed: number): THREE.CanvasTexture {
     S = 128;
   return canvasTex(S, S, g => {
     if (seed % 2) {
-      g.fillStyle = pick(rand, PAINT);
+      g.fillStyle = pick(rand, COATS);
       g.fillRect(0, 0, S, S);
       g.fillStyle = 'rgba(0,0,0,0.3)';
       g.fillRect(0, S / 2 - 2, S, 4);
@@ -260,7 +261,7 @@ export function chainsTex(seed: number): THREE.CanvasTexture {
     for (let k = 0, n = 2 + Math.floor(rand() * 3); k < n; k++) {
       const x = 20 + rand() * (W - 40),
         len = 90 + rand() * 140;
-      g.strokeStyle = '#1c1a18';
+      g.strokeStyle = css(PAINT.ink9);
       g.lineWidth = 2;
       for (let y = 0; y < len; y += 9) {
         g.beginPath();
@@ -273,7 +274,7 @@ export function chainsTex(seed: number): THREE.CanvasTexture {
         g.beginPath();
         g.arc(x, len + 12, 10, -Math.PI / 2, Math.PI * 0.9);
         g.stroke();
-      } else block(g, x - 10, len, 20, 18, '#3a3f44');
+      } else block(g, x - 10, len, 20, 18, css(PAINT.soot14));
     }
   });
 }
@@ -288,9 +289,9 @@ export function pipeRackTex(seed: number): THREE.CanvasTexture {
     for (let x = 6; x < S - 10;) {
       const w = 12 + rand() * 26,
         pipe = g.createLinearGradient(x, 0, x + w, 0);
-      pipe.addColorStop(0, '#2a221c');
+      pipe.addColorStop(0, css(PAINT.soot2));
       pipe.addColorStop(0.4, pick(rand, ['#7a5a40', '#5a4f48', '#6a4a30']));
-      pipe.addColorStop(1, '#1c1612');
+      pipe.addColorStop(1, css(PAINT.ink8));
       g.fillStyle = pipe;
       g.fillRect(x, 0, w, S);
       g.fillStyle = 'rgba(0,0,0,0.4)';
@@ -309,14 +310,14 @@ export function plantDeckTex(): THREE.CanvasTexture {
     H = 128;
   return canvasTex(W, H, g => {
     const steel = g.createLinearGradient(0, 0, 0, H);
-    steel.addColorStop(0, '#4a4038');
+    steel.addColorStop(0, css(PAINT.soot15));
     steel.addColorStop(1, '#2c2622');
     g.fillStyle = steel;
     g.fillRect(0, 0, W, H);
     for (let x = 0; x < W; x += 64) {
       g.fillStyle = 'rgba(0,0,0,0.4)';
       g.fillRect(x, 16, 2, H);
-      g.fillStyle = '#17120f';
+      g.fillStyle = css(PAINT.ink5);
       for (let y = 30; y < H; y += 26) {
         g.fillRect(x + 6, y, 4, 4);
         g.fillRect(x + 54, y, 4, 4);
@@ -332,7 +333,7 @@ export function plantDeckTex(): THREE.CanvasTexture {
       g.lineTo(x + 32, 0);
       g.lineTo(x + 16, 16);
       g.fill();
-      g.fillStyle = '#17120f';
+      g.fillStyle = css(PAINT.ink5);
       g.beginPath();
       g.moveTo(x + 16, 16);
       g.lineTo(x + 32, 0);

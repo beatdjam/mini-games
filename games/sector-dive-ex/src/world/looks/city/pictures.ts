@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import { CITY_EXIT, CITY_KEEP_OUT } from '../../../i18n/signs.ts';
 import type { Pictures } from '../common.ts';
 import {
@@ -214,7 +215,7 @@ const ventAndSwitch: Paint = g => {
   g.fillStyle = 'rgba(60,54,44,.7)';
   g.fillRect(200.5, rowOf(1.45) + 2, 3, 4);
   g.fillRect(205, rowOf(1.45) + 2, 3, 4);
-  box(g, 174, rowOf(1.5), 11, 9, '#b8b2a2');
+  box(g, 174, rowOf(1.5), 11, 9, css(PAINT.chalk));
 };
 // a partition of frosted glass in an aluminium frame, a room in the last of the sun behind it
 const glassPartition: Paint = (g, rand) => {
@@ -454,7 +455,7 @@ const whiteboard: Paint = (g, rand) => {
     w = TEX - 68,
     y = rowOf(3.0),
     h = rowOf(1.2) - y;
-  box(g, x - 3, y - 2.5, w + 6, h + 5, '#7a766c');
+  box(g, x - 3, y - 2.5, w + 6, h + 5, css(PAINT.grey6));
   g.fillStyle = '#a3a295';
   g.fillRect(x, y, w, h);
   g.save();
@@ -774,7 +775,7 @@ const cityDoor =
         g.fillRect(0, y + 1.2, TEX, 1);
       }
       // the guide rails at the sides
-      g.fillStyle = '#26221f';
+      g.fillStyle = css(PAINT.soot1);
       g.fillRect(0, 0, 12, TEX);
       g.fillRect(TEX - 12, 0, 12, TEX);
       stripes(g, [12, rowOf(5.75), TEX - 24, rowOf(5.3) - rowOf(5.75)], 46, BARRIER_WHITE, BARRIER_RED, BARRIER_WORN);

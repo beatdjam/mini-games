@@ -1,3 +1,4 @@
+import { PAINT } from '../../../data/colors.ts';
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
@@ -32,7 +33,7 @@ const CITY_PROPS: PropRule[] = [
   { id: 'extinguisher', slots: ['wall'], blocks: false, count: [14, 18], gap: 4 },
 ];
 const TUBE = { w: 0.86, len: 1.9, drop: 0.07 }; // a lit lamp fitting on the ceiling (m)
-const TUBE_COLORS = [0xfff0d0, 0xfff0d0, 0xffe6b8, 0xf2f1e2]; // warm white tubes, an older yellower one, a colder new one
+const TUBE_COLORS = [PAINT.glow6, PAINT.glow6, 0xffe6b8, 0xf2f1e2]; // warm white tubes, an older yellower one, a colder new one
 const TUBE_HOUSING = 0x4b4842;
 const SUN = { w: 3.3, len: 3.5, color: 0xffb968 }; // the patch of sun under a window (m)
 const CLOCK = { r: 0.34, y: 3.25 }; // m
@@ -187,7 +188,7 @@ const makeCityKit = (): WallKit => ({
     },
   ],
   runs: {
-    colors: [0x2a2826, 0x4a4844, 0x6f6a60, 0x1c1a18],
+    colors: [PAINT.soot8, 0x4a4844, PAINT.grey4, PAINT.ink9],
     r: 0.03,
     n: [2, 5],
     hall: 0.35,

@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import type * as THREE from 'three';
 import { canvasTex } from '../paint.ts';
 import { block, pick, seeded, soil } from '../cutoutTools.ts';
@@ -7,9 +8,9 @@ import type { G } from '../cutoutTools.ts';
 // units. Along the foot of the walls: drums of cable, chassis pulled out and left, cartons of parts, floor tiles
 // lifted and stacked. Overhead: loops of cable let down from the ladders.
 
-const CORD = ['#3d8de0', '#e0b83d', '#d9d6cc', '#e0553d', '#3de08a', '#8a5ad0'];
-const CASE = ['#5c6670', '#4a525a', '#6f7880', '#3a4046'];
-const LED = ['#4de0ff', '#58ff9a', '#ffb347', '#ff5a4a'];
+const CORD = [css(PAINT.blue), css(PAINT.amber2), css(PAINT.glow2), css(PAINT.red2), '#3de08a', '#8a5ad0'];
+const CASE = [css(PAINT.grey2), '#4a525a', '#6f7880', '#3a4046'];
+const LED = [css(PAINT.cyan), css(PAINT.mint2), css(PAINT.amber3), '#ff5a4a'];
 
 // a small light on a panel: lit ones glow
 function led(g: G, rand: () => number, x: number, y: number) {
@@ -35,7 +36,7 @@ function chassis(g: G, rand: () => number, x: number, y: number, w: number, h: n
 }
 // a drum of cable: the two cheeks and the cable wound between them
 function spool(g: G, rand: () => number, x: number, foot: number, r: number) {
-  g.fillStyle = '#7a6244';
+  g.fillStyle = css(PAINT.clay1);
   g.beginPath();
   g.arc(x, foot - r, r, 0, Math.PI * 2);
   g.fill();
@@ -95,13 +96,13 @@ export function hallTex(seed: number): THREE.CanvasTexture {
       g.fillRect(0, 0, W, H);
       for (let row = 0; row < 5; row++) {
         const foot = 76 + row * 78;
-        g.fillStyle = '#12161a';
+        g.fillStyle = css(PAINT.ink6);
         g.fillRect(6, foot - 66, W - 12, 66);
         for (let x = 12; x < W - 50;) {
           const w = 30 + rand() * 40,
             h = 22 + rand() * 38;
           if (rand() < 0.5) chassis(g, rand, x, foot - h, w, h);
-          else block(g, x, foot - h, w, h, pick(rand, ['#9a7b52', '#8a6a44', '#c9c2b0']));
+          else block(g, x, foot - h, w, h, pick(rand, [css(PAINT.clay3), css(PAINT.clay2), css(PAINT.clay6)]));
           x += w + 3 + rand() * 10;
         }
         g.fillStyle = '#6f7880';
@@ -115,13 +116,13 @@ export function hallTex(seed: number): THREE.CanvasTexture {
         g.fillStyle = k === 1 ? '#0f2a2e' : '#0c1014';
         g.fillRect(x + 10, 50, 130, 112);
         if (k === 1) {
-          g.fillStyle = '#4de0ff';
+          g.fillStyle = css(PAINT.cyan);
           for (let row = 0; row < 9; row++) g.fillRect(x + 18, 60 + row * 11, 30 + rand() * 80, 3);
         }
       }
       block(g, 0, 214, W, 30, '#4a525a');
       for (let x = 20; x < W - 20; x += 12) {
-        g.fillStyle = rand() < 0.1 ? '#e0b83d' : '#1c2228';
+        g.fillStyle = rand() < 0.1 ? css(PAINT.amber2) : '#1c2228';
         g.fillRect(x, 220, 8, 8);
         g.fillRect(x, 232, 8, 8);
       }
@@ -133,15 +134,15 @@ export function hallTex(seed: number): THREE.CanvasTexture {
         block(g, x, 6, 121, H - 10, pick(rand, CASE));
         g.fillStyle = '#0c1014';
         g.fillRect(x + 20, 30, 80, 44);
-        g.fillStyle = '#58ff9a';
+        g.fillStyle = css(PAINT.mint2);
         g.fillRect(x + 28, 44, 20 + rand() * 50, 8);
         for (let k = 0; k < 6; k++) {
           g.fillStyle = '#1c2228';
           g.fillRect(x + 16 + k * 15, 100, 10, 30);
-          g.fillStyle = rand() < 0.75 ? '#c9c2b0' : '#ff5a4a';
+          g.fillStyle = rand() < 0.75 ? css(PAINT.clay6) : '#ff5a4a';
           g.fillRect(x + 18 + k * 15, rand() < 0.75 ? 102 : 116, 6, 12);
         }
-        g.fillStyle = '#e0b83d';
+        g.fillStyle = css(PAINT.amber2);
         g.fillRect(x + 34, 160, 52, 40);
         g.fillStyle = '#1c2228';
         g.fillRect(x + 56, 168, 8, 16);
@@ -190,7 +191,7 @@ export function hallHeapTex(seed: number): THREE.CanvasTexture {
         x += 96 + rand() * 20;
       } else {
         const h = 36 + rand() * 30;
-        block(g, x, foot - h, 64, h, pick(rand, ['#9a7b52', '#8a6a44']));
+        block(g, x, foot - h, 64, h, pick(rand, [css(PAINT.clay3), css(PAINT.clay2)]));
         x += 72 + rand() * 24;
       }
     }
@@ -225,7 +226,7 @@ export function hallBoxTex(seed: number): THREE.CanvasTexture {
         for (let k = 0; k < 4; k++) led(g, rand, 10 + k * 10, y + 13);
       }
     } else {
-      g.fillStyle = pick(rand, ['#9a7b52', '#8a6a44']);
+      g.fillStyle = pick(rand, [css(PAINT.clay3), css(PAINT.clay2)]);
       g.fillRect(0, 0, S, S);
       g.fillStyle = 'rgba(60,40,20,0.35)';
       g.fillRect(S * 0.44, 0, S * 0.12, S);
@@ -251,7 +252,7 @@ export function loopsTex(seed: number): THREE.CanvasTexture {
     for (let k = 0; k < 9; k++) {
       const x1 = 10 + rand() * (W - 20),
         x2 = 10 + rand() * (W - 20);
-      g.strokeStyle = pick(rand, ['#15171a', '#22262b', ...CORD]);
+      g.strokeStyle = pick(rand, [css(PAINT.ink7), css(PAINT.soot4), ...CORD]);
       g.lineWidth = 3 + rand() * 5;
       g.beginPath();
       g.moveTo(x1, 0);

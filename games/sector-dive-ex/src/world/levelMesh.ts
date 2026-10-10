@@ -17,7 +17,7 @@ import {
 } from '@engine/world/tiles.ts';
 import { HALL_H, WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
-import { COLOR } from '../data/colors.ts';
+import { COLOR, PAINT, css } from '../data/colors.ts';
 import { biomeTex } from './render.ts';
 import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
@@ -230,7 +230,7 @@ const SKYLIGHTS: Record<string, [number, number]> = {
 };
 // a run of rail `len` long, centred on (x, z), along x (alongX) or along z
 function addRail(x: number, z: number, len: number, alongX: boolean, group: THREE.Group) {
-  const steel = new THREE.MeshBasicMaterial({ color: 0x2c3136 }),
+  const steel = new THREE.MeshBasicMaterial({ color: PAINT.soot9 }),
     glass = new THREE.MeshBasicMaterial({ color: 0x9fb6c4, transparent: true, opacity: 0.16, depthWrite: false }),
     box = (along: number, h: number, across: number) =>
       new THREE.BoxGeometry(alongX ? along : across, h, alongX ? across : along);
@@ -285,7 +285,7 @@ function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group, se
     sky.rotation.x = Math.PI / 2;
     sky.position.set(cx, WALL_H - 0.03, cz);
     group.add(sky);
-    const bar = new THREE.MeshBasicMaterial({ color: 0x1b1e21 });
+    const bar = new THREE.MeshBasicMaterial({ color: PAINT.ink11 });
     for (let n = 1; n < i1 - i0; n++) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, deep - 0.6), bar);
       m.position.set(i0 * T + n * T, WALL_H - 0.08, cz);
@@ -384,7 +384,7 @@ const YARDS: Record<string, YardTheme> = {
     windows: [3, 3, 3, 2], // a barred window, an iron gate
     band: ['#4a433a', 'rgba(15,12,10,0.45)'],
     shade: 0x5c5860,
-    glow: 0xffb060,
+    glow: PAINT.amber4,
     sky: ['#4a2f52', '#2c2238', '#15121c'],
     ground: ['#17161a', '#22202a', '#101014'],
   },
@@ -404,7 +404,7 @@ const YARDS: Record<string, YardTheme> = {
     windows: [5], // a broken window
     band: ['#77705f', 'rgba(35,40,28,0.4)'],
     shade: 0x878d87,
-    glow: 0xffd9a0,
+    glow: PAINT.glow3,
     sky: ['#a9afae', '#8a9192', '#6c7476'],
     ground: ['#2c3626', '#3a4031', '#222b1e'],
   },
@@ -459,12 +459,12 @@ function facadeTex(th: YardTheme, window: boolean): THREE.CanvasTexture {
       g.fillStyle = '#2f2c2b';
       g.fillRect(112, 0, 5, 256);
       g.fillRect(120, 0, 3, 256);
-      g.fillStyle = '#26221f';
+      g.fillStyle = css(PAINT.soot1);
       g.fillRect(0, 74, 128, 2);
       g.fillRect(0, 232, 128, 3);
       g.fillStyle = '#8c8a84';
       g.fillRect(8, 206, 30, 22);
-      g.fillStyle = '#3a3836';
+      g.fillStyle = css(PAINT.soot13);
       g.fillRect(12, 210, 22, 14);
       g.fillStyle = 'rgba(20,16,14,0.35)';
       g.fillRect(14, 228, 6, 28);
@@ -489,7 +489,7 @@ function facadeTex(th: YardTheme, window: boolean): THREE.CanvasTexture {
     g.fillRect(x - 8, y + h + 4, w + 16, 5); // the sill
     if (th.extra === 'units') {
       // a tin awning over the window, and the cage of bars built out round it (every flat has one)
-      g.fillStyle = '#4b4a48';
+      g.fillStyle = css(PAINT.soot17);
       g.fillRect(x - 12, y - 16, w + 24, 9);
       g.fillStyle = 'rgba(20,18,18,0.5)';
       for (let ax = x - 12; ax < x + w + 12; ax += 6) g.fillRect(ax, y - 16, 2, 9);

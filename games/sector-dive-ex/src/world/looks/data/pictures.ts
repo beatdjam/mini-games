@@ -1,4 +1,4 @@
-import { css } from '../../../data/colors.ts';
+import { PAINT, css } from '../../../data/colors.ts';
 import { DATA_PLATE_CAUTION, DATA_PLATE_ZONE, DATA_RACK_IDS, DATA_SEALED } from '../../../i18n/signs.ts';
 import type { Pictures } from '../common.ts';
 import { DOOR_ASPECT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge, stripes, words } from '../paint.ts';
@@ -28,7 +28,7 @@ export const RACK_PICS: WallPic[] = ['mesh', 'blank', 'cable']; // the walls tha
 const DATA_FLOORS = 5; // 0 bare panels, 1 perforated panels, 2 a cable cut-out, 3 dust and scraps, 4 a leak
 export const RACK = { top: 3.3, foot: 0.12, n: 3 }; // a row of racks on a wall: its top and its plinth (m), racks per tile
 // patch cables, dulled by dust: grey, blue, yellow, red, black (the pictures and the props use the same ones)
-export const CABLES = [0x7b838a, 0x3f587a, 0x8a7a3c, 0x633a36, 0x2c3136];
+export const CABLES = [0x7b838a, 0x3f587a, 0x8a7a3c, 0x633a36, PAINT.soot9];
 const LEDS = ['#63c98a', '#63c98a', '#d7a23f', '#c9503f']; // the lamps of a rack: mostly green
 const HAZARD_RED = '#b8261f';
 const HAZARD_WHITE = '#d9dee2';
@@ -99,7 +99,7 @@ function meshDoor(g: CanvasRenderingContext2D, rand: () => number, x: number, y:
 }
 // the two rails of an open rack, with their rows of holes
 function rails(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-  g.fillStyle = '#12161a';
+  g.fillStyle = css(PAINT.ink6);
   g.fillRect(x, y, w, h);
   for (const rx of [x, x + w - 4.5]) {
     g.fillStyle = '#515a62';

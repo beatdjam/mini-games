@@ -1,3 +1,4 @@
+import { PAINT } from '../../../data/colors.ts';
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { tileCenter } from '@engine/world/tiles.ts';
@@ -82,7 +83,7 @@ const makeDataKit = (): WallKit => ({
   ],
   runs: [
     {
-      colors: [0x3d8de0, 0xe0b83d, 0xd9d6cc, 0x22262b, 0x15171a, 0xe0553d],
+      colors: [PAINT.blue, PAINT.amber2, PAINT.glow2, PAINT.soot4, PAINT.ink7, PAINT.red2],
       r: 0.025,
       n: [4, 8],
       hall: 0.4,
@@ -91,7 +92,7 @@ const makeDataKit = (): WallKit => ({
       laneY: [3.6, 4.6],
     },
     {
-      colors: [0x22262b, 0x15171a, 0x3d8de0],
+      colors: [PAINT.soot4, PAINT.ink7, PAINT.blue],
       r: 0.03,
       n: [2, 4],
       hall: 0.1,

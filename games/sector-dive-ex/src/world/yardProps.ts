@@ -1,3 +1,4 @@
+import { PAINT, css } from '../data/colors.ts';
 import * as THREE from 'three';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
 import { canvasTex } from './looks/paint.ts';
@@ -79,7 +80,7 @@ const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 
 // ---- signs ----
 const SIGN_FONT = '"Noto Sans TC", "PingFang TC", "Hiragino Sans", sans-serif';
-const NEON_COLORS = ['#ff3b4e', '#ff5fa8', '#3dffb0', '#ffd24a', '#58c8ff'];
+const NEON_COLORS = [css(PAINT.red1), css(PAINT.pink), css(PAINT.mint1), css(PAINT.amber5), '#58c8ff'];
 // a neon sign: the tubes of the characters in one colour on a dark board, with their glow. Read downward, or across
 export function neonTex(text: string, color: string, across: boolean): THREE.CanvasTexture {
   const n = text.length,
@@ -133,7 +134,7 @@ export function cageTex(seed: number): THREE.CanvasTexture {
   return canvasTex(96, 64, g => {
     g.fillStyle = '#1a1716';
     g.fillRect(0, 0, 96, 64);
-    const stuff = ['#7a5a3a', '#3f6a4a', '#8a8f96', '#a04a3a', '#c9c2a8'];
+    const stuff = ['#7a5a3a', '#3f6a4a', css(PAINT.grey10), '#a04a3a', css(PAINT.clay5)];
     for (let k = 0; k < 5; k++) {
       g.fillStyle = stuff[Math.floor(yardDice(seed, k, 1) * stuff.length)]!;
       g.fillRect(6 + k * 17, 30 + yardDice(seed, k, 2) * 14, 13, 30);
@@ -236,7 +237,7 @@ function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: 
       // a tin awning over it, hanging forward
       if (d(9) < 0.4) {
         const v = Math.floor(d(10) * 4),
-          tin = ['#7a4a35', '#3f6a66', '#8f8a7c', '#5a5f3e'][v]!;
+          tin = [css(PAINT.rust2), css(PAINT.teal), css(PAINT.grey9), css(PAINT.olive)][v]!;
         b.put(
           `awning${v}`,
           () => [
@@ -269,7 +270,7 @@ function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: 
           () => [
             plane(0.55, 0.8),
             new THREE.MeshBasicMaterial({
-              color: new THREE.Color([0xc9c2b4, 0x7a2f2f, 0x3b5d8a, 0xb8a04a, 0x4d6b55][c]!).multiply(dim),
+              color: new THREE.Color([0xc9c2b4, PAINT.rust1, 0x3b5d8a, 0xb8a04a, 0x4d6b55][c]!).multiply(dim),
               side: THREE.DoubleSide,
               fog: false,
             }),
@@ -327,7 +328,7 @@ function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: 
   }
   // the stalls at the bottom: pools of warm light on the ground
   const glow = new THREE.MeshBasicMaterial({
-    color: 0xffb060,
+    color: PAINT.amber4,
     transparent: true,
     opacity: 0.22,
     blending: THREE.AdditiveBlending,
@@ -438,7 +439,7 @@ function dressRuins(b: Batch, spots: WallSpot[], well: Well) {
     if (d(4) < 0.18)
       b.put(
         'pole',
-        () => [box(0.04, 0.04, 2), flat(0x77736a)],
+        () => [box(0.04, 0.04, 2), flat(PAINT.grey5)],
         p.x + nx * 1 - tx * 1.2,
         wy - 1.5,
         p.z + nz * 1 - tz * 1.2,
@@ -534,10 +535,10 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
         0,
         [1, h * 0.44, 1],
       );
-    b.put('hook', () => [box(0.7, 0.9, 0.35), flat(0xd9a02a)], well.cx + 1.2, well.sky - 2.3 - h * 0.44, well.cz);
+    b.put('hook', () => [box(0.7, 0.9, 0.35), flat(PAINT.amber1)], well.cx + 1.2, well.sky - 2.3 - h * 0.44, well.cz);
     for (let k = 0; k < 4; k++) {
       const [x, z] = corner(k);
-      b.put('hotpipe', () => [box(0.35, 1, 0.35), flat(0x3a2a22)], x, well.ground + h / 2, z, 0, 0, [1, h, 1]);
+      b.put('hotpipe', () => [box(0.35, 1, 0.35), flat(PAINT.umber1)], x, well.ground + h / 2, z, 0, 0, [1, h, 1]);
       for (let y = well.ground + 2; y < well.sky - 1; y += 4)
         b.put('glowband', () => [box(0.4, 0.3, 0.4), flat(0xff7a2a, true)], x, y, z);
     }
@@ -565,7 +566,7 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
       b.put('can', () => [new THREE.CylinderGeometry(0.22, 0.3, 0.6, 10), flat(0x15141a)], x, well.sky - 1.9, z);
       b.put(
         'canlight',
-        () => [new THREE.CircleGeometry(0.26, 10), flat(k % 3 ? 0xc9a8ff : 0xfff0d0, true)],
+        () => [new THREE.CircleGeometry(0.26, 10), flat(k % 3 ? PAINT.pale : PAINT.glow6, true)],
         x,
         well.sky - 2.21,
         z,
@@ -576,7 +577,7 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
     for (let k = 0; k < 5; k++)
       b.put(
         'cable',
-        () => [box(0.05, 1, 0.05), flat(0x0c0b10)],
+        () => [box(0.05, 1, 0.05), flat(PAINT.ink2)],
         well.cx + (yardDice(k, 1, 9) - 0.5) * well.wide * 0.7,
         well.sky - 1.5 - h * 0.2,
         well.cz + (yardDice(k, 2, 9) - 0.5) * well.deep * 0.7,
@@ -586,7 +587,7 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
       );
   } else if (sector === 'DATA') {
     for (let y = well.ground + 5, n = 0; y < well.sky - 1; y += 5, n++) {
-      b.put('tray', () => [box(1, 0.12, 0.6), flat(0x5c6670)], well.cx, y, well.cz + (n % 2 ? 1.5 : -1.5), 0, 0, [
+      b.put('tray', () => [box(1, 0.12, 0.6), flat(PAINT.grey2)], well.cx, y, well.cz + (n % 2 ? 1.5 : -1.5), 0, 0, [
         well.wide,
         1,
         1,
@@ -608,7 +609,7 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
       for (let y = well.ground + 1; y < well.sky - 1; y += 0.9)
         b.put(
           `led${(k + Math.round(y)) % 3}`,
-          () => [box(0.34, 0.08, 0.34), flat([0x4de0ff, 0x58ff9a, 0xffb347][(k + Math.round(y)) % 3]!, true)],
+          () => [box(0.34, 0.08, 0.34), flat([PAINT.cyan, PAINT.mint2, PAINT.amber3][(k + Math.round(y)) % 3]!, true)],
           x,
           y,
           z,
@@ -620,8 +621,8 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
       const x = well.cx + (yardDice(k, 1, 4) - 0.5) * well.wide * 0.6,
         z = well.cz + (yardDice(k, 2, 4) - 0.5) * well.deep * 0.6,
         drop = 2 + yardDice(k, 3, 4) * h * 0.45;
-      b.put('rod', () => [box(0.03, 1, 0.03), flat(0x1b1e21)], x, well.sky - drop / 2, z, 0, 0, [1, drop, 1]);
-      b.put('globe', () => [new THREE.SphereGeometry(0.28, 10, 8), flat(0xffe2b0, true)], x, well.sky - drop, z);
+      b.put('rod', () => [box(0.03, 1, 0.03), flat(PAINT.ink11)], x, well.sky - drop / 2, z, 0, 0, [1, drop, 1]);
+      b.put('globe', () => [new THREE.SphereGeometry(0.28, 10, 8), flat(PAINT.glow5, true)], x, well.sky - drop, z);
     }
   }
   b.done();

@@ -1,3 +1,4 @@
+import { PAINT } from '../../../data/colors.ts';
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
@@ -95,7 +96,7 @@ const makeNoiseKit = (): WallKit => ({
     hall: 0.3,
     lane: 0.22,
     counter: [0, 1, 2, 3].map(n => studioBoxTex(2720 + n)),
-    light: 0xc9a8ff,
+    light: PAINT.pale,
   },
   heaps: {
     maps: [0, 1, 2, 3, 4, 5].map(n => studioHeapTex(2740 + n)),
@@ -118,7 +119,7 @@ const makeNoiseKit = (): WallKit => ({
   ],
   runs: [
     {
-      colors: [0x0e0d11, 0x1c1a20, 0x2e2a38, 0x4a4458],
+      colors: [PAINT.ink4, PAINT.ink10, PAINT.plum, PAINT.grey1],
       r: 0.04,
       n: [3, 6],
       hall: 0.35,
@@ -127,7 +128,7 @@ const makeNoiseKit = (): WallKit => ({
       laneY: [3.8, 4.7],
     },
     {
-      colors: [0x0e0d11, 0x1c1a20, 0x2e2a38],
+      colors: [PAINT.ink4, PAINT.ink10, PAINT.plum],
       r: 0.035,
       n: [2, 4],
       hall: 0.15,

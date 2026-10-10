@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import { KWLN_DANGER } from '../../../i18n/signs.ts';
 import type { Pictures } from '../common.ts';
 import { TEX, grain, grime, paint } from '../paint.ts';
@@ -62,7 +63,7 @@ const ironGate: Paint = g => {
   for (let tx = 40; tx < TEX - 40; tx += 14) g.fillRect(tx, 44, 1.5, TEX - 44);
   g.fillStyle = '#0d0b0a';
   g.fillRect(72, 70, TEX - 144, TEX - 70);
-  g.strokeStyle = '#3a3630';
+  g.strokeStyle = css(PAINT.soot12);
   g.lineWidth = 3;
   for (let bx = 72; bx <= TEX - 72; bx += 14) {
     g.beginPath();
@@ -214,7 +215,7 @@ const kwlnFloor =
     grain(g, rand, 20);
   };
 const kwlnDeck: Paint = (g, rand) => {
-  g.fillStyle = '#4b4a48';
+  g.fillStyle = css(PAINT.soot17);
   g.fillRect(0, 0, TEX, TEX);
   grime(g, rand, 70, '#6a6865', '#1a1918');
   // chequer plate
@@ -239,10 +240,10 @@ const kwlnCeiling: Paint = (g, rand) => {
   grime(g, rand, 90, '#3a3530', '#0a0908');
   // pipes and cables running under the slab
   for (const [y, w, c] of [
-    [34, 14, '#4a443c'],
-    [60, 7, '#3a352f'],
+    [34, 14, css(PAINT.soot16)],
+    [60, 7, css(PAINT.soot11)],
     [150, 16, '#514a41'],
-    [182, 6, '#3a352f'],
+    [182, 6, css(PAINT.soot11)],
   ] as [number, number, string][]) {
     g.fillStyle = c;
     g.fillRect(0, y, TEX, w);

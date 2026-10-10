@@ -2,7 +2,7 @@ import type { PickupKind, Weapon } from '../../data/types.ts';
 import * as THREE from 'three';
 import { basicMat, shared } from '@engine/render/render.ts';
 import { RARITY, WEAPONS } from '../../data/weapons.ts';
-import { COLOR } from '../../data/colors.ts';
+import { COLOR, PAINT, css } from '../../data/colors.ts';
 import { gunLook, hasGunLook } from './gunLooks.ts';
 import { at, boxGeo, groundPool } from './machine.ts';
 import { TEX, grain, paint } from '../looks/paint.ts';
@@ -32,7 +32,7 @@ const kitPaint: Paint = (g, rand) => {
   g.fillRect(TEX * 0.22, TEX * 0.42, TEX * 0.56, TEX * 0.16);
   g.fillStyle = 'rgba(0,0,0,.5)';
   g.fillRect(0, TEX * 0.1, TEX, 5);
-  g.fillStyle = '#3a3f44';
+  g.fillStyle = css(PAINT.soot14);
   for (const x of [TEX * 0.16, TEX * 0.76]) g.fillRect(x, TEX * 0.05, TEX * 0.08, TEX * 0.11);
   g.strokeStyle = 'rgba(0,0,0,.45)';
   g.lineWidth = 6;

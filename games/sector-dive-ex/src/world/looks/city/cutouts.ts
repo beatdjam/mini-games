@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import type * as THREE from 'three';
 import { canvasTex } from '../paint.ts';
 import { block, pick, seeded, soil } from '../cutoutTools.ts';
@@ -7,9 +8,9 @@ import type { G } from '../cutoutTools.ts';
 // the foot of the walls: cartons, stacks of paper, old monitors and computers, bins, a dead plant. Overhead: ceiling
 // panels come down, their cables hanging.
 
-const SPINES = ['#2f4f7a', '#7a2f2f', '#2f6a4a', '#c9c2a8', '#33312e', '#a87a2c', '#5a5f66'];
+const SPINES = ['#2f4f7a', css(PAINT.rust1), '#2f6a4a', css(PAINT.clay5), '#33312e', '#a87a2c', '#5a5f66'];
 const STEEL = ['#8d9093', '#7c8286', '#9a988f', '#6f757a'];
-const CARTON = ['#9a7b52', '#8a6a44', '#a88a5e'];
+const CARTON = [css(PAINT.clay3), css(PAINT.clay2), '#a88a5e'];
 
 // a row of binders and files on a shelf: spines of several colours, a few leaning, a gap here and there
 function binders(g: G, rand: () => number, x: number, foot: number, w: number, h: number) {
@@ -68,7 +69,7 @@ export function officeTex(seed: number): THREE.CanvasTexture {
     g.fillRect(0, 0, W, H);
     if (kind === 0) {
       // steel shelving, five shelves of binders, cartons on top
-      g.fillStyle = '#6f6a60';
+      g.fillStyle = css(PAINT.grey4);
       g.fillRect(0, 0, W, H);
       for (let row = 0; row < 5; row++) {
         const foot = 96 + row * 72;
@@ -86,7 +87,7 @@ export function officeTex(seed: number): THREE.CanvasTexture {
       g.fillStyle = '#7b6a4c';
       g.fillRect(40, 30, W - 80, 130);
       for (let k = 0; k < 16; k++) {
-        g.fillStyle = pick(rand, ['#e8e2d0', '#d8d2c0', '#e6d9a8', '#c9d6de']);
+        g.fillStyle = pick(rand, [css(PAINT.glow4), css(PAINT.glow1), '#e6d9a8', '#c9d6de']);
         g.fillRect(50 + rand() * (W - 150), 38 + rand() * 90, 26 + rand() * 30, 22 + rand() * 24);
       }
       g.fillStyle = '#8f8a7e';
@@ -96,7 +97,7 @@ export function officeTex(seed: number): THREE.CanvasTexture {
       for (let x = 10; x < W - 20; x += 126) {
         g.fillStyle = '#77726a';
         g.fillRect(x, 276, 112, 112);
-        g.fillStyle = '#3a3630';
+        g.fillStyle = css(PAINT.soot12);
         for (let dy = 0; dy < 3; dy++) g.fillRect(x + 30, 292 + dy * 34, 52, 5);
       }
       for (let x = 30; x < W - 100; x += 150 + rand() * 30) {
@@ -127,10 +128,10 @@ export function officeTex(seed: number): THREE.CanvasTexture {
         block(g, x, 60, 98, H - 64, pick(rand, STEEL));
         g.fillStyle = 'rgba(0,0,0,0.3)';
         g.fillRect(x + 48, 66, 2, H - 76);
-        g.fillStyle = '#e8e2d0';
+        g.fillStyle = css(PAINT.glow4);
         g.fillRect(x + 12, 96, 30, 16);
         g.fillRect(x + 58, 96, 30, 16);
-        g.fillStyle = '#2a2826';
+        g.fillStyle = css(PAINT.soot8);
         g.fillRect(x + 38, 200, 6, 22);
         g.fillRect(x + 54, 200, 6, 22);
       }
@@ -178,8 +179,8 @@ export function officeHeapTex(seed: number): THREE.CanvasTexture {
       if (kind < 0.35) paper(g, rand, x, foot, w, 14 + rand() * 40);
       else if (kind < 0.55) {
         // a computer's case on its side
-        block(g, x, foot - 26, w + 20, 26, '#c9c2b0');
-        g.fillStyle = '#3a3836';
+        block(g, x, foot - 26, w + 20, 26, css(PAINT.clay6));
+        g.fillStyle = css(PAINT.soot13);
         g.fillRect(x + 6, foot - 18, 22, 5);
       } else if (kind < 0.75) {
         // a waste bin
@@ -225,7 +226,7 @@ export function officeBoxTex(seed: number): THREE.CanvasTexture {
       g.fillRect(0, 0, S, S);
       g.fillStyle = 'rgba(0,0,0,0.3)';
       for (let k = 1; k < 3; k++) g.fillRect(0, (S / 3) * k - 1, S, 3);
-      g.fillStyle = '#2a2826';
+      g.fillStyle = css(PAINT.soot8);
       for (let k = 0; k < 3; k++) g.fillRect(S / 2 - 16, (S / 3) * k + 16, 32, 5);
     } else {
       g.fillStyle = pick(rand, CARTON);
@@ -264,7 +265,7 @@ export function fallenPanelTex(seed: number): THREE.CanvasTexture {
     g.save();
     g.translate(W / 2, 70);
     g.rotate(0.35 + rand() * 0.3);
-    g.fillStyle = '#b8b2a2';
+    g.fillStyle = css(PAINT.chalk);
     g.fillRect(-90, -8, 180, 16);
     g.fillStyle = 'rgba(0,0,0,0.25)';
     for (let x = -80; x < 90; x += 12) g.fillRect(x, -6, 2, 12);
@@ -288,11 +289,11 @@ export function officeDeckTex(): THREE.CanvasTexture {
       g.fillStyle = 'rgba(255,255,255,0.1)';
       g.fillRect(x + 2, 0, 2, H);
     }
-    g.fillStyle = '#9a9890';
+    g.fillStyle = css(PAINT.grey11);
     g.fillRect(0, 0, W, 9);
     g.fillStyle = 'rgba(255,255,255,0.3)';
     g.fillRect(0, 0, W, 2);
-    g.fillStyle = '#3a342c';
+    g.fillStyle = css(PAINT.soot10);
     g.fillRect(0, H - 14, W, 14);
     const shade = g.createLinearGradient(0, 0, 0, H);
     shade.addColorStop(0, 'rgba(0,0,0,0)');

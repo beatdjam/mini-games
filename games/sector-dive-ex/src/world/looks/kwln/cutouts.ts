@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import type * as THREE from 'three';
 import { canvasTex } from '../paint.ts';
 import { block, pick, seeded, soil } from '../cutoutTools.ts';
@@ -10,7 +11,7 @@ import { KWLN_FONT } from './pictures.ts';
 // Painted from a seed, so a picture is the same every time.
 
 const PLASTIC = ['#b5442e', '#c9702c', '#2f6aa8', '#3d7d5c', '#b9a23c', '#8d3a52'];
-const CARD = ['#8a6a44', '#7a5c3a', '#9a7b52'];
+const CARD = [css(PAINT.clay2), '#7a5c3a', css(PAINT.clay3)];
 // a plastic tub or pail, its rim an ellipse; `stack` more of them nested in it
 function tub(g: G, rand: () => number, x: number, foot: number, w: number, h: number) {
   const color = pick(rand, PLASTIC);
@@ -67,7 +68,7 @@ function basket(g: G, x: number, foot: number, w: number, h: number) {
 }
 // an old television set or a radio: the cabinet, the tube, the knobs
 function oldSet(g: G, rand: () => number, x: number, y: number, w: number, h: number) {
-  block(g, x, y, w, h, pick(rand, ['#2a2622', '#3a3028', '#44403a', '#5a4a36']));
+  block(g, x, y, w, h, pick(rand, [css(PAINT.soot6), css(PAINT.umber2), '#44403a', '#5a4a36']));
   const tube = g.createLinearGradient(x, y, x + w, y + h);
   tube.addColorStop(0, '#62706c');
   tube.addColorStop(1, '#26302e');
@@ -75,7 +76,7 @@ function oldSet(g: G, rand: () => number, x: number, y: number, w: number, h: nu
   g.fillRect(x + 5, y + 5, w * 0.66, h - 10);
   g.fillStyle = 'rgba(255,255,255,0.14)';
   g.fillRect(x + 8, y + 8, w * 0.25, h * 0.2);
-  g.fillStyle = '#b8b0a0';
+  g.fillStyle = css(PAINT.clay4);
   for (let k = 0; k < 3; k++) g.fillRect(x + w * 0.78, y + 7 + k * (h / 3.4), w * 0.14, h * 0.13);
 }
 // a cardboard box or a wooden crate, with its tape or slats
@@ -143,7 +144,7 @@ export function stallTex(seed: number): THREE.CanvasTexture {
     W = 512,
     H = 400;
   return canvasTex(W, H, g => {
-    g.fillStyle = '#17120f';
+    g.fillStyle = css(PAINT.ink5);
     g.fillRect(0, 0, W, H);
     // the board over the stall, and a strip of awning under it
     g.fillStyle = '#d2bd80';
@@ -160,7 +161,7 @@ export function stallTex(seed: number): THREE.CanvasTexture {
       g.fillRect(x, 60, 28, 16);
     }
     // the shelves and what is on them: jars, tins, packets, each with its label
-    const goods = ['#b8402c', '#d09a2c', '#2e6c9a', '#4a8a5a', '#d8d0bc', '#7a3a5a', '#c86a2a', '#8a8f96'];
+    const goods = ['#b8402c', '#d09a2c', '#2e6c9a', '#4a8a5a', '#d8d0bc', '#7a3a5a', '#c86a2a', css(PAINT.grey10)];
     for (let row = 0; row < 4; row++) {
       const y = 96 + row * 62;
       g.fillStyle = '#3a2a1c';
@@ -179,7 +180,7 @@ export function stallTex(seed: number): THREE.CanvasTexture {
     // things hung along the top: bags, strings of packets, a ladle
     for (let x = 20; x < W - 20; x += 30 + rand() * 40) {
       const len = 30 + rand() * 70;
-      g.strokeStyle = '#0c0a09';
+      g.strokeStyle = css(PAINT.ink1);
       g.lineWidth = 1.5;
       g.beginPath();
       g.moveTo(x, 76);
@@ -219,9 +220,18 @@ export function washingTex(seed: number): THREE.CanvasTexture {
     W = 512,
     H = 200;
   return canvasTex(W, H, g => {
-    g.fillStyle = '#6f6a5e';
+    g.fillStyle = css(PAINT.grey3);
     g.fillRect(0, 8, W, 4);
-    const cloths = ['#c9c2b0', '#7c2e2c', '#3a5c88', '#b59c48', '#4c6a54', '#8a8f96', '#d8cfc0', '#5a3a5c'];
+    const cloths = [
+      css(PAINT.clay6),
+      '#7c2e2c',
+      '#3a5c88',
+      '#b59c48',
+      '#4c6a54',
+      css(PAINT.grey10),
+      '#d8cfc0',
+      '#5a3a5c',
+    ];
     for (let x = 10; x < W - 50;) {
       const w = 44 + rand() * 40,
         h = 90 + rand() * 80,
@@ -255,7 +265,7 @@ export function washingTex(seed: number): THREE.CanvasTexture {
 export function wireMatTex(seed: number): THREE.CanvasTexture {
   const rand = seeded(seed),
     S = 256,
-    wires = ['#0d0b0b', '#161312', '#2a2420', '#3b332b', '#7d7364'];
+    wires = ['#0d0b0b', '#161312', css(PAINT.soot3), '#3b332b', '#7d7364'];
   return canvasTex(S, S, g => {
     g.lineCap = 'round';
     for (let k = 0; k < 120; k++) {
@@ -323,7 +333,7 @@ export function shopDeckTex(): THREE.CanvasTexture {
     }
     g.fillStyle = '#8a2a22';
     g.fillRect(0, 0, W, 10);
-    g.fillStyle = '#4a443c';
+    g.fillStyle = css(PAINT.soot16);
     g.fillRect(0, H - 22, W, 22);
     soil(g, rand, W, H, H * 0.25);
   });

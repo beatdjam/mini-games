@@ -1,3 +1,4 @@
+import { PAINT } from '../../data/colors.ts';
 import * as THREE from 'three';
 import { shared } from '@engine/render/render.ts';
 import { TEX, grain, paint, poolTex } from '../looks/paint.ts';
@@ -123,8 +124,8 @@ export const machine = () =>
   (machineMats ??= {
     hull: paint(6001, hullPaint),
     steel: shared(new THREE.MeshPhongMaterial({ color: 0x4d535a, specular: 0xaab2ba, shininess: 60 })),
-    black: shared(new THREE.MeshPhongMaterial({ color: 0x15171a, specular: 0x555b62, shininess: 30 })),
-    jet: shared(new THREE.MeshBasicMaterial({ color: 0xffd9a0 })),
+    black: shared(new THREE.MeshPhongMaterial({ color: PAINT.ink7, specular: 0x555b62, shininess: 30 })),
+    jet: shared(new THREE.MeshBasicMaterial({ color: PAINT.glow3 })),
   });
 // a boss's hull material with the looks of a machine: hull plate that takes the light. (A Phong material where the
 // boss's code names a Lambert one: the two share what that code touches, the emissive colour and its strength)

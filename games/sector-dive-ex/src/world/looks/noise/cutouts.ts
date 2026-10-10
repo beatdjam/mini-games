@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import type * as THREE from 'three';
 import { canvasTex } from '../paint.ts';
 import { block, pick, seeded, soil } from '../cutoutTools.ts';
@@ -7,9 +8,9 @@ import type { G } from '../cutoutTools.ts';
 // road cases stacked to the wall. Along the foot of the walls: road cases, loudspeakers, drums of cable, lamps off
 // their stands. Overhead: microphones and headphones left hanging on their leads.
 
-const GEAR = ['#26242e', '#2e2a38', '#3a3644', '#1e1c26'];
-const TAPE = ['#c9c2b0', '#b8a888', '#8a2f3a', '#2f4a7a', '#d8cfa8', '#4a4458'];
-const GLOW = '#c9a8ff';
+const GEAR = ['#26242e', css(PAINT.plum), '#3a3644', '#1e1c26'];
+const TAPE = [css(PAINT.clay6), '#b8a888', '#8a2f3a', '#2f4a7a', '#d8cfa8', css(PAINT.grey1)];
+const GLOW = css(PAINT.pale);
 
 // a meter with its needle, lit from behind
 function meter(g: G, rand: () => number, x: number, y: number, w: number, h: number) {
@@ -31,7 +32,7 @@ function reel(g: G, x: number, y: number, r: number) {
   g.beginPath();
   g.arc(x, y, r, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = '#3a2a22';
+  g.fillStyle = css(PAINT.umber1);
   g.beginPath();
   g.arc(x, y, r * 0.7, 0, Math.PI * 2);
   g.fill();
@@ -50,7 +51,7 @@ function reel(g: G, x: number, y: number, r: number) {
 }
 // a road case: black board, bright metal edges and corners, a stencil or a sticker
 function roadCase(g: G, rand: () => number, x: number, y: number, w: number, h: number) {
-  block(g, x, y, w, h, '#1c1a20');
+  block(g, x, y, w, h, css(PAINT.ink10));
   g.strokeStyle = '#a8a8ac';
   g.lineWidth = 3;
   g.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
@@ -64,7 +65,7 @@ function roadCase(g: G, rand: () => number, x: number, y: number, w: number, h: 
     g.fillRect(cx, cy, 9, 9);
   g.fillRect(x + w / 2 - 8, y + h / 2 - 4, 16, 8);
   if (rand() < 0.6) {
-    g.fillStyle = pick(rand, ['#d8cfa8', '#8a2f3a', '#c9a8ff']);
+    g.fillStyle = pick(rand, ['#d8cfa8', '#8a2f3a', css(PAINT.pale)]);
     g.fillRect(x + 10 + rand() * (w - 50), y + 10 + rand() * (h - 30), 24 + rand() * 14, 12);
   }
 }
@@ -75,7 +76,7 @@ function speaker(g: G, x: number, y: number, w: number, h: number) {
     [y + h * 0.3, w * 0.22],
     [y + h * 0.68, w * 0.34],
   ] as const) {
-    g.fillStyle = '#0e0d11';
+    g.fillStyle = css(PAINT.ink4);
     g.beginPath();
     g.arc(x + w / 2, cy, r, 0, Math.PI * 2);
     g.fill();
@@ -113,7 +114,7 @@ export function studioTex(seed: number): THREE.CanvasTexture {
             meter(g, rand, x + 66, y + 4, 42, 24);
             y += 38;
           } else {
-            g.fillStyle = '#0e0d11';
+            g.fillStyle = css(PAINT.ink4);
             g.fillRect(x + 8, y, 105, 22);
             for (let k = 0; k < 8; k++) {
               g.fillStyle = rand() < 0.3 ? GLOW : '#8a8890';
@@ -149,7 +150,7 @@ export function studioTex(seed: number): THREE.CanvasTexture {
       for (let k = 0; k < 4; k++) {
         const x = 14 + k * 124;
         block(g, x, 24, 112, 96, '#1e1c26');
-        g.fillStyle = k === 2 ? '#3a3448' : '#0c0b10';
+        g.fillStyle = k === 2 ? '#3a3448' : css(PAINT.ink2);
         g.fillRect(x + 8, 32, 96, 74);
         if (k === 2)
           for (let n = 0; n < 500; n++) {
@@ -157,11 +158,11 @@ export function studioTex(seed: number): THREE.CanvasTexture {
             g.fillRect(x + 8 + rand() * 94, 32 + rand() * 72, 2, 2);
           }
       }
-      block(g, 0, 180, W, 80, '#2e2a38');
+      block(g, 0, 180, W, 80, css(PAINT.plum));
       for (let x = 14; x < W - 14; x += 16) {
-        g.fillStyle = '#0e0d11';
+        g.fillStyle = css(PAINT.ink4);
         g.fillRect(x + 5, 190, 3, 58);
-        g.fillStyle = pick(rand, ['#d8d2c0', '#c9a8ff', '#a02a30']);
+        g.fillStyle = pick(rand, [css(PAINT.glow1), css(PAINT.pale), '#a02a30']);
         g.fillRect(x, 196 + rand() * 40, 13, 9);
       }
       block(g, 10, 260, W - 20, H - 264, '#26242e');
@@ -216,15 +217,15 @@ export function studioHeapTex(seed: number): THREE.CanvasTexture {
       } else if (kind < 0.85) {
         // a drum of cable on its side
         const r = 26 + rand() * 12;
-        g.fillStyle = '#4a4458';
+        g.fillStyle = css(PAINT.grey1);
         g.beginPath();
         g.arc(x + r, foot - r, r, 0, Math.PI * 2);
         g.fill();
-        g.fillStyle = '#0e0d11';
+        g.fillStyle = css(PAINT.ink4);
         g.beginPath();
         g.arc(x + r, foot - r, r * 0.7, 0, Math.PI * 2);
         g.fill();
-        g.fillStyle = '#4a4458';
+        g.fillStyle = css(PAINT.grey1);
         g.beginPath();
         g.arc(x + r, foot - r, r * 0.2, 0, Math.PI * 2);
         g.fill();
@@ -251,7 +252,7 @@ export function studioBoxTex(seed: number): THREE.CanvasTexture {
   const rand = seeded(seed),
     S = 128;
   return canvasTex(S, S, g => {
-    g.fillStyle = '#1c1a20';
+    g.fillStyle = css(PAINT.ink10);
     g.fillRect(0, 0, S, S);
     if (seed % 2) roadCase(g, rand, 0, 0, S, S);
     else speaker(g, 0, 0, S, S);
@@ -268,7 +269,7 @@ export function hangingTex(seed: number): THREE.CanvasTexture {
     for (let k = 0, n = 2 + Math.floor(rand() * 3); k < n; k++) {
       const x = 24 + rand() * (W - 48),
         len = 80 + rand() * 130;
-      g.strokeStyle = '#0e0d11';
+      g.strokeStyle = css(PAINT.ink4);
       g.lineWidth = 2;
       g.beginPath();
       g.moveTo(x, 0);
@@ -287,7 +288,7 @@ export function hangingTex(seed: number): THREE.CanvasTexture {
         g.beginPath();
         g.arc(x, len + 14, 14, Math.PI, 0);
         g.stroke();
-        g.fillStyle = '#1c1a20';
+        g.fillStyle = css(PAINT.ink10);
         g.fillRect(x - 19, len + 12, 10, 16);
         g.fillRect(x + 9, len + 12, 10, 16);
       }
@@ -308,12 +309,12 @@ export function stageDeckTex(): THREE.CanvasTexture {
     for (let x = 0; x < W; x += 9) g.fillRect(x, 14, 3, H);
     g.fillStyle = '#3a3644';
     g.fillRect(0, 0, W, 12);
-    g.fillStyle = '#d8d2c0';
+    g.fillStyle = css(PAINT.glow1);
     g.fillRect(0, 12, W, 4);
     for (let x = 20; x < W; x += 46) {
-      g.fillStyle = '#0e0d11';
+      g.fillStyle = css(PAINT.ink4);
       g.fillRect(x, 24, 14, 10);
-      g.fillStyle = rand() < 0.4 ? GLOW : '#4a4458';
+      g.fillStyle = rand() < 0.4 ? GLOW : css(PAINT.grey1);
       g.fillRect(x + 4, 27, 6, 4);
     }
     soil(g, rand, W, H, H * 0.5);

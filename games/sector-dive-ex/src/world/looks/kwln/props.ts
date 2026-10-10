@@ -3,7 +3,7 @@ import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
-import { COLOR, css } from '../../../data/colors.ts';
+import { COLOR, PAINT, css } from '../../../data/colors.ts';
 import type { FloorPlan } from '../../building.ts';
 import { wallPic } from '../common.ts';
 import { TEX, canvasTex, grime, paint } from '../paint.ts';
@@ -119,7 +119,7 @@ function neonTex([words, color]: [string, number]): THREE.CanvasTexture {
   });
 }
 
-const LAMP_COLORS = [0xffe2b0, 0xffe2b0, 0xdff3ff]; // bare bulbs and a cold tube now and then
+const LAMP_COLORS = [PAINT.glow5, PAINT.glow5, 0xdff3ff]; // bare bulbs and a cold tube now and then
 // (the first four were there before the alleys were crowded: their order is kept, so they stay where they were)
 const KWLN_PROPS: PropRule[] = [
   { id: 'neon', slots: ['wall'], blocks: false, count: [14, 20], gap: 2 },
@@ -131,7 +131,7 @@ const KWLN_PROPS: PropRule[] = [
   // cables as cables: bundles run along the walls under the ceiling, and bundles slung across from wall to wall
   // painted set pieces (cutouts.ts): stalls, heaps along the walls, lines of washing
 ];
-const WIRES = ['#0f0d0e', '#1b1816', '#3a332c', '#8f8576', '#5a4a3a']; // the colours of the wires overhead
+const WIRES = [css(PAINT.ink3), '#1b1816', '#3a332c', '#8f8576', '#5a4a3a']; // the colours of the wires overhead
 const TUBE_WHITE = 0xe8f1ff; // a bare fluorescent tube
 // a board of electricity meters with the wires that run to them (a share of a wall, about 2.2 m by 1.7 m)
 const meterBoard: Paint = (g, rand) => {
@@ -169,21 +169,21 @@ const meterBoard: Paint = (g, rand) => {
 };
 // an old television set's face: the tube, dark, and its knobs
 const tvFace: Paint = (g, rand) => {
-  g.fillStyle = '#2a2622';
+  g.fillStyle = css(PAINT.soot6);
   g.fillRect(0, 0, TEX, TEX);
   g.fillStyle = '#3d4a47';
   g.fillRect(18, 22, TEX - 90, TEX - 44);
   g.fillStyle = 'rgba(255,255,255,0.08)';
   g.fillRect(26, 30, 60, 30);
-  g.fillStyle = '#8a8478';
+  g.fillStyle = css(PAINT.grey7);
   for (let k = 0; k < 3; k++) g.fillRect(TEX - 54, 40 + k * 56 + rand() * 6, 34, 34);
 };
-const TINS = ['#7a4a35', '#3f6a66', '#8f8a7c', '#5a5f3e']; // the paints of the tin awnings
+const TINS = [css(PAINT.rust2), css(PAINT.teal), css(PAINT.grey9), css(PAINT.olive)]; // the paints of the tin awnings
 const HANG_COLORS: [string, number][] = [
-  ['#ff3b4e', 0xff3b4e],
-  ['#ff5fa8', 0xff5fa8],
-  ['#3dffb0', 0x3dffb0],
-  ['#ffd24a', 0xffd24a],
+  [css(PAINT.red1), PAINT.red1],
+  [css(PAINT.pink), PAINT.pink],
+  [css(PAINT.mint1), PAINT.mint1],
+  [css(PAINT.amber5), PAINT.amber5],
 ];
 const BOARD = { w: 3.5, h: 0.9, y: 4.75, out: 0.07, tilt: 0.1, chance: 0.8 }; // a shop's board (m, m, m, m, rad)
 const NEON = { thick: 0.12, h: 2.5, out: 0.85, y: 4.2 }; // a neon sign standing out from a wall (m)
@@ -459,7 +459,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
   add(
     new THREE.BoxGeometry(0.03, 1, 0.03),
-    flatMat(0x0f0d0e),
+    flatMat(PAINT.ink3),
     hung2.flatMap(h =>
       [-1.2, 1.2].map(k =>
         pose(
@@ -477,7 +477,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // make runs. Each cable its own grey
   const cableColors: number[] = [],
     cableAt: THREE.Matrix4[] = [],
-    CABLE = [0x121011, 0x1d1a19, 0x2c2723, 0x3a352f, 0x6f675a];
+    CABLE = [0x121011, 0x1d1a19, PAINT.soot7, PAINT.soot11, 0x6f675a];
   for (const s of spot.bundle) {
     const y = rng.rand(4.5, 5.5),
       n = rng.randi(4, 8);
@@ -557,7 +557,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
   stallAt.forEach(a => {
     const out = onWall(a.s, 0, 1.6, 0);
-    if (rng.next() < 0.5) lights.push({ x: out.x, z: out.z, color: 0xffc98a, size: 0.55 });
+    if (rng.next() < 0.5) lights.push({ x: out.x, z: out.z, color: PAINT.amber6, size: 0.55 });
   });
   // Flat pictures alone read as paper from the side, so each has something solid to it. A stall: a counter of
   // crates in front, two shelf boards standing out of the picture, a post at each end. A heap: real crates stacked
@@ -652,7 +652,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   shared.tins.forEach((map, v) =>
     add(
       new THREE.PlaneGeometry(4, 4).rotateX(Math.PI / 2),
-      new THREE.MeshBasicMaterial({ map, color: 0x8a8580, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({ map, color: PAINT.grey8, side: THREE.DoubleSide }),
       roofed
         .filter((_, n) => n % shared.tins.length === v)
         .map(c =>
@@ -679,7 +679,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   }));
   add(
     new THREE.BoxGeometry(0.025, 1, 0.025),
-    flatMat(0x0f0d0e),
+    flatMat(PAINT.ink3),
     bulbs.map(b => pose(new THREE.Vector3(b.x, (b.y + WALL_H) / 2, b.z), 0, new THREE.Vector3(1, WALL_H - b.y, 1))),
   );
   add(
@@ -687,7 +687,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     flatMat(0xfff0cf),
     bulbs.map(b => pose(new THREE.Vector3(b.x, b.y, b.z))),
   );
-  bulbs.forEach(b => lights.push({ x: b.x, z: b.z, color: 0xffd9a0, size: 0.7 }));
+  bulbs.forEach(b => lights.push({ x: b.x, z: b.z, color: PAINT.glow3, size: 0.7 }));
   // shops' boards flat on the walls, a little over head height
   shared.boards.forEach((map, b) =>
     add(

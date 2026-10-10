@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import { FORGE_DANGER, FORGE_PLATE_HEAT, FORGE_PLATE_SAFETY } from '../../../i18n/signs.ts';
 import type { Pictures } from '../common.ts';
 import {
@@ -101,7 +102,7 @@ const BRICKS = ['#8b6247', '#7a5540', '#977158', '#6c4b3a', '#85583d', '#a07a5c'
 function firebrick(g: CanvasRenderingContext2D, rand: () => number) {
   const bw = 32,
     bh = 9;
-  g.fillStyle = '#2c2420';
+  g.fillStyle = css(PAINT.soot5);
   g.fillRect(0, 0, TEX, TEX);
   for (let row = 0, y = 0; y < TEX; row++, y += bh)
     for (let x = row % 2 ? -bw / 2 : 0; x < TEX; x += bw) {
@@ -459,7 +460,7 @@ function girder(g: CanvasRenderingContext2D, at: number, width: number, down: bo
 }
 // the roof from below: corrugated sheet on purlins, carried by girders that run on from tile to tile both ways
 const forgeCeiling: Paint = (g, rand) => {
-  g.fillStyle = '#2c2723';
+  g.fillStyle = css(PAINT.soot7);
   g.fillRect(0, 0, TEX, TEX);
   for (let x = 0; x < TEX; x += 16) {
     g.fillStyle = 'rgba(0,0,0,.35)';
@@ -467,7 +468,7 @@ const forgeCeiling: Paint = (g, rand) => {
     g.fillStyle = 'rgba(255,214,176,.07)';
     g.fillRect(x + 9, 0, 3, TEX);
   }
-  grime(g, rand, 60, '#4a4038', '#0c0a09');
+  grime(g, rand, 60, css(PAINT.soot15), css(PAINT.ink1));
   girder(g, TEX * 0.25, 9, false);
   girder(g, TEX * 0.75, 9, false);
   girder(g, TEX / 2, 26, true);
@@ -518,7 +519,7 @@ const forgeDoor =
     for (const x of [TEX * 0.25, TEX * 0.75]) {
       g.fillStyle = '#1c1918';
       g.fillRect(x - 12, 9, 24, 7);
-      g.fillStyle = '#8a8580';
+      g.fillStyle = css(PAINT.grey8);
       oval(g, x, 9, 14, 14 * DOOR_ASPECT);
     }
     if (boss) {

@@ -1,3 +1,4 @@
+import { PAINT } from '../../../data/colors.ts';
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { tileCenter } from '@engine/world/tiles.ts';
@@ -50,7 +51,7 @@ const MAIN = { r: 0.3, len: 3, y: 4.7, out: 0.4 }; // a thick pipe along a wall,
 const RISER = { r: 0.2, out: 0.24, thin: 0.08, valveY: 2.5, wheel: 0.24 }; // a pipe up a wall, with its valve (m)
 const WALL_LAMP_Y = 3.4; // m
 const SHADE = { drop: 0.75, r: 0.55, h: 0.36 }; // a ceiling lamp's shade: how far it hangs, its radius and height (m)
-const LAMP_COLORS = [0xffc98a, 0xffc98a, 0xffe9c4]; // sodium lamps, and a white-hot bulb now and then
+const LAMP_COLORS = [PAINT.amber6, PAINT.amber6, 0xffe9c4]; // sodium lamps, and a white-hot bulb now and then
 const WALL_LAMP_COLOR = 0xffb46e;
 const VALVE_RED = 0xa8351f;
 const PIPE_DARK = 0x3a332e; // flanges, brackets, lamp housings
@@ -108,7 +109,7 @@ const makeForgeKit = (pipe: THREE.Texture): WallKit => ({
   ],
   risers: { colors: PIPES, r: 0.08, hall: 0.2, lane: 0.35 },
   spans: { colors: PIPES, r: 0.05, n: [2, 3], hall: 0.06, lane: 0.25, y: [4.8, 5.4], laneY: [3.8, 4.25] },
-  roof: { maps: [0, 1, 2].map(n => pipeRackTex(790 + n)), y: 4.5, tint: 0xffffff, beam: 0x2a221c, share: 0.95 },
+  roof: { maps: [0, 1, 2].map(n => pipeRackTex(790 + n)), y: 4.5, tint: 0xffffff, beam: PAINT.soot2, share: 0.95 },
   bulbs: { share: 0.25, color: 0xffb070, y: [3, 3.5] },
 });
 export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
