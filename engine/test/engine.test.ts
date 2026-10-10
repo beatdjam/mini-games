@@ -119,6 +119,7 @@ import { onDataClick, rowsHTML } from '../src/ui/dom.ts';
 import { withLang } from '../src/core/langslots.ts';
 import { facesToward, floorSides, wallSide } from '../src/world/walls.ts';
 import { WINDOW_ORDER, buildBackdrop, buildOutsideBlocks, buildWindowPanes } from '../src/render/windows.ts';
+import { mergeParts } from '../src/render/merge.ts';
 import { hideInFog } from '../src/render/fogcull.ts';
 import { mergeFlat } from '../src/render/mergeflat.ts';
 import {
@@ -2881,6 +2882,36 @@ test('paint: the same seed paints the same picture; the strokes cover the canvas
   expect(Array.from(pg.getImageData(20, 20, 1, 1).data), 'outside: as painted').toEqual([128, 128, 128, 255]);
 });
 
+test('merge: the parts that move together become one mesh per material; what is kept moves on its own', () => {
+  const red = new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+    blue = new THREE.MeshBasicMaterial({ color: 0x0000ff }),
+    box = new THREE.BoxGeometry(1, 1, 1),
+    part = (mat: THREE.Material, x: number) => {
+      const m = new THREE.Mesh(box, mat);
+      m.position.x = x;
+      return m;
+    },
+    root = new THREE.Group(),
+    group = new THREE.Group(), // a group of parts, moved: its parts join the root's
+    arm = new THREE.Group(), // kept: turned by an animation
+    line = new THREE.LineSegments(new THREE.EdgesGeometry(box)); // not a plain mesh: left as it is
+  group.position.y = 2;
+  group.add(part(red, 0), part(blue, 1));
+  arm.add(part(red, 0), part(red, 1));
+  root.add(part(red, 3), part(blue, 4), group, arm, line);
+  const box0 = new THREE.Box3().setFromObject(root);
+  mergeParts(root, [arm]);
+  const meshes = root.children.filter(c => (c as THREE.Mesh).isMesh) as THREE.Mesh[];
+  expect(
+    meshes.map(m => m.material).sort((a, b) => (a === red ? -1 : b === red ? 1 : 0)),
+    'one per material',
+  ).toEqual([red, blue]);
+  expect(root.children).toContain(arm);
+  expect(root.children).toContain(line);
+  expect(arm.children.length, 'under the kept arm, its own parts joined').toBe(1);
+  expect(new THREE.Box3().setFromObject(root).equals(box0), 'the same shape where it was').toBe(true);
+  expect(box.attributes.position!.count, "the parts' shared shape untouched").toBe(24);
+});
 test('fogcull: a thing past the fog (and its reach) is hidden, one in it shown; without a fog all are shown', () => {
   const at = (x: number) => {
       const mesh = new THREE.Group();
