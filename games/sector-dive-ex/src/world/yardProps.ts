@@ -72,8 +72,9 @@ function batcher(group: THREE.Group) {
 type Batch = ReturnType<typeof batcher>;
 // (nothing in a well fades into the sector's fog: across it the far side would be black. `lit` only says the thing
 // gives light)
-// The well is dim: what gives no light of its own is darkened by `dim` (the yard's shade, set by dressYard);
-// what is lit keeps its colour, so the signs and lamps stand out of the gloom
+// A yard is dim: what gives no light of its own is darkened by `dim` (the yard's shade, set by dressYard); what is
+// lit keeps its colour, so the signs and lamps stand out of the gloom. An atrium is not darkened (dressAtrium sets it
+// back: it must not keep the shade of a yard built before it)
 let dim = new THREE.Color(0xffffff);
 const flat = (color: number, lit = false): THREE.Material =>
   new THREE.MeshBasicMaterial({ color: lit ? color : new THREE.Color(color).multiply(dim), fog: false });
@@ -545,6 +546,7 @@ export function dressYard(
 // and hot pipes up the corners; the broadcasting house's lighting truss with its lamps, and hanging cables; the data
 // floor's cable trays across the well and columns of status lights
 export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
+  dim = new THREE.Color(0xffffff);
   const b = batcher(group),
     h = well.sky - well.ground,
     corner = (k: number): [number, number] => [
