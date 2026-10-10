@@ -147,6 +147,8 @@ import {
 import { ridingY, supplyChips } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
 import { tileMapFromRows } from '@engine/world/tilemap.ts';
+import * as THREE from 'three';
+import { dressAtrium, dressYard } from '../src/world/yardProps.ts';
 import { DOOR_PASS } from '@engine/world/tiles.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
@@ -3208,4 +3210,20 @@ test("wall pictures: a window only on the building's outside wall, a glass parti
     for (const v of Object.keys(look?.outside?.panes ?? {}))
       expect(look!.wallSides?.outer, `${biome.code} picture ${v}`).toContain(Number(v));
   }
+});
+test('courtyard: what hangs in an atrium has the same colours whatever yard was dressed before it', () => {
+  const well = { cx: 20, cz: 20, wide: 12, deep: 12, ground: -16, sky: 0, decks: [] },
+    colours = (g: THREE.Group) =>
+      g.children.flatMap(o =>
+        o instanceof THREE.Mesh && o.material instanceof THREE.MeshBasicMaterial ? [o.material.color.getHex()] : [],
+      ),
+    dressed = () => {
+      const g = new THREE.Group();
+      dressAtrium(g, 'FORGE', well);
+      return colours(g);
+    };
+  const fresh = dressed();
+  expect(fresh.length).toBeGreaterThan(0);
+  dressYard(new THREE.Group(), 'downtown', [], well, 8, 0x404040); // a dark yard's shade
+  expect(dressed()).toEqual(fresh);
 });
