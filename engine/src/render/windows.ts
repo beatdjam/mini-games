@@ -8,6 +8,9 @@ import { canvasTex } from './paint.ts';
 // so it is seen through them as if it were as far away as the sky. They are drawn after everything solid, so what
 // stands in front of a window hides it. Needs a renderer with a stencil buffer (three.js has one by default)
 export const WINDOW_ORDER = 900; // the panes' renderOrder; the backdrop's is the next
+// (after the view out, the backdrop and the buildings out there: WINDOW_ORDER + 1 to + 3, the panes give the depth
+// back to the wall: buildWindowPanes)
+const WINDOW_SEAL_ORDER = WINDOW_ORDER + 4;
 // a face of a wall tile with windows on it: the tile (i, j), the step (di, dj) from it toward the floor it is seen
 // from, and its panes as rectangles of the face: left, top, right, bottom, each 0..1 from the face's top left as seen
 // from that floor
@@ -20,7 +23,8 @@ export interface WindowFace {
 }
 const GLASS_FILM = 0.3; // how much of the glass's tint lies over the whole pane (0..1)
 const PANE_OUT = 0.02; // the panes stand this far in front of the face (m)
-let paneMat: THREE.MeshBasicMaterial | null = null;
+let paneMat: THREE.MeshBasicMaterial | null = null,
+  sealMat: THREE.MeshBasicMaterial | null = null;
 // where the panes of the faces stand (a unit plane each, scaled to its rectangle); the faces are wallH high
 function paneMatrices(faces: WindowFace[], wallH: number): THREE.Matrix4[] {
   const matrices: THREE.Matrix4[] = [],
@@ -63,7 +67,21 @@ export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.Inst
     stencilFunc: THREE.AlwaysStencilFunc,
     stencilZPass: THREE.ReplaceStencilOp,
   });
-  return instanced(matrices, paneMat, WINDOW_ORDER);
+  const panes = instanced(matrices, paneMat, WINDOW_ORDER);
+  // ... and once the view out is drawn, the same panes again, leaving only their depth: the view out leaves its own,
+  // far off, and what is drawn after it (the glass, and the see-through things of the floor: cut-out pictures, pools
+  // of light) would be seen in the window from behind the wall. With the wall's depth back, only what stands in front
+  // of the window is drawn over it
+  sealMat ??= new THREE.MeshBasicMaterial({
+    colorWrite: false,
+    depthWrite: true,
+    depthFunc: THREE.AlwaysDepth,
+    stencilWrite: true,
+    stencilRef: 1,
+    stencilFunc: THREE.EqualStencilFunc,
+  });
+  panes.add(instanced(matrices, sealMat, WINDOW_SEAL_ORDER));
+  return panes;
 }
 // The glass in those panes: a picture with alpha (windowGlassTex) over each, drawn after all that is seen through
 // them. Without it the view out is as clear as through a hole, sharper and brighter than the room one stands in; the

@@ -2728,6 +2728,18 @@ test('windows: panes on the faces mark the stencil, the backdrop is drawn only t
   expect(p.z, 'the left pane').toBeCloseTo(3.5 * T + T / 4);
   const pm = panes.material as THREE.MeshBasicMaterial;
   expect([pm.colorWrite, pm.stencilWrite, pm.stencilZPass]).toEqual([false, true, THREE.ReplaceStencilOp]);
+  // the same panes again once the view out is drawn: only their depth, where the stencil is marked, so what is drawn
+  // after (the see-through things of the floor) is not seen in the window from behind the wall
+  const seal = panes.children[0] as THREE.InstancedMesh,
+    sm = seal.material as THREE.MeshBasicMaterial;
+  expect(seal.count).toBe(panes.count);
+  expect(seal.renderOrder).toBeGreaterThan(WINDOW_ORDER + 3);
+  expect([sm.colorWrite, sm.depthWrite, sm.depthFunc, sm.stencilFunc]).toEqual([
+    false,
+    true,
+    THREE.AlwaysDepth,
+    THREE.EqualStencilFunc,
+  ]);
   const cam = new THREE.PerspectiveCamera();
   cam.position.set(7, 2, -5);
   cam.updateMatrixWorld();
