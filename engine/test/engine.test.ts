@@ -120,6 +120,7 @@ import { withLang } from '../src/core/langslots.ts';
 import { facesToward, floorSides, wallSide } from '../src/world/walls.ts';
 import { WINDOW_ORDER, buildBackdrop, buildOutsideBlocks, buildWindowPanes } from '../src/render/windows.ts';
 import { mergeParts } from '../src/render/merge.ts';
+import { hideInFog } from '../src/render/fogcull.ts';
 import {
   block,
   canvasTex,
@@ -2909,4 +2910,19 @@ test('merge: the parts that move together become one mesh per material; what is 
   expect(arm.children.length, 'under the kept arm, its own parts joined').toBe(1);
   expect(new THREE.Box3().setFromObject(root).equals(box0), 'the same shape where it was').toBe(true);
   expect(box.attributes.position!.count, "the parts' shared shape untouched").toBe(24);
+});
+test('fogcull: a thing past the fog (and its reach) is hidden, one in it shown; without a fog all are shown', () => {
+  const at = (x: number) => {
+      const mesh = new THREE.Group();
+      mesh.position.set(x, 0, 0);
+      return { mesh };
+    },
+    near = at(10),
+    edge = at(42),
+    far = at(60),
+    eye = new THREE.Vector3(0, 1.6, 0);
+  hideInFog([near, edge, far], eye, new THREE.Fog(0, 4, 40), 3);
+  expect([near.mesh.visible, edge.mesh.visible, far.mesh.visible]).toEqual([true, true, false]);
+  hideInFog([near, edge, far], eye, null, 3);
+  expect(far.mesh.visible, 'no fog: shown again').toBe(true);
 });

@@ -1233,6 +1233,9 @@ test('suspend -> resume -> suspend -> discard', () => {
   // the lowest floor of the building (stage 2 of the depth), reached by one of its stairs or lifts
   run.route = [0];
   run.stage = 0;
+  // (a building of its own: one left by an earlier test is of another sector, and built again from its seed for this
+  // one it may come out with another number of floors than its state has)
+  run.bld = undefined;
   startStage();
   goToFloor(building!.plans.length - 1);
   tick(30);
