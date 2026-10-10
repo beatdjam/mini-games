@@ -1,17 +1,22 @@
 import type * as THREE from 'three';
 import { createRng } from '@engine/core/util.ts';
-import { BACKDROP_EYE, BACKDROP_H, BACKDROP_W, canvasTex } from '../paint.ts';
+import { BACKDROP_EYE, BACKDROP_H, BACKDROP_W, FACADE_PX, GROUND_PX, canvasTex, hazeUnder } from '../paint.ts';
+import type { OutsideView } from '../common.ts';
+import type { BlockStyle } from '../outside.ts';
 // What the old downtown's windows look out on (Look.outside): the city at dusk all round, painted on a band that is
 // wrapped round the player (world/level.ts). The sun is low in the west (the -x side, a quarter of the band before
 // its end: facesWest in common.ts), the sky glowing amber round it and going grey toward the east.
 // Buildings in three rows, each with its storeys of windows (dark glass, a few lit), the lines of its floors and
 // what stands on its roof (a water tank, plant, an aerial): the far row pale in the haze, the near row with big
 // office blocks whose window frames can be made out. Toward the sun they stand dark against the glow; away from it
-// their faces take the low sun, warm. Below the eye, the roofs of lower blocks and the streets with their lamps.
+// their faces take the low sun, warm. Under the horizon, laid flat (cityGround), the street, going into the dusk
+// haze far off; on it, across the street, the nearer blocks stand as boxes (cityFacades, cityRoofs).
 // ---- tuning numbers used only here ----
 const SUN_U = 0.75; // where the sun is along the band (the band starts at +z and goes round through +x: 0.75 is -x)
 const HORIZON = BACKDROP_EYE + 6; // the row of the far ground, a little under the eye (px)
 const SEED = 1900;
+const SKY_TOP = 0x1f2230; // the sky straight up (the band's top row)
+const HAZE = 0x3e3430; // the dusk haze over the ground far off
 type RGB = [number, number, number];
 interface Row {
   top: [number, number]; // the rows of the roofs, from the horizon (px)
@@ -59,7 +64,23 @@ const ROWS: Row[] = [
   },
 ];
 
-export function cityBackdrop(): THREE.CanvasTexture {
+export function cityView(): OutsideView {
+  return {
+    backdrop: cityBackdrop(),
+    sky: SKY_TOP,
+    ground: cityGround(),
+    haze: HAZE,
+    blocks: {
+      style: CITY_BLOCKS,
+      facades: cityFacades(),
+      roofs: cityRoofs(),
+      light: CITY_LIGHT,
+      roofLight: [1, 0.92, 0.9],
+    },
+  };
+}
+
+function cityBackdrop(): THREE.CanvasTexture {
   return canvasTex(BACKDROP_W, BACKDROP_H, g => {
     const rand = createRng(SEED).next,
       sunX = BACKDROP_W * SUN_U,
@@ -71,7 +92,7 @@ export function cityBackdrop(): THREE.CanvasTexture {
     // the sky: grey high up, toward the roofs dusk, amber round the sun
     for (let x = 0; x < BACKDROP_W; x += 8) {
       const sky = g.createLinearGradient(0, 0, 0, HORIZON);
-      sky.addColorStop(0, '#1f2230');
+      sky.addColorStop(0, `#${SKY_TOP.toString(16).padStart(6, '0')}`);
       sky.addColorStop(0.55, rgb(mix([69, 68, 79], skyAt(x), 0.35)));
       sky.addColorStop(1, rgb(skyAt(x)));
       g.fillStyle = sky;
@@ -149,28 +170,188 @@ export function cityBackdrop(): THREE.CanvasTexture {
         x += w + row.gap[0] + rand() * (row.gap[1] - row.gap[0]);
       }
 
-    // below the eye: the roofs of the lower blocks, seen from above, and between them the streets in the dusk
-    const ground = g.createLinearGradient(0, HORIZON + 8, 0, BACKDROP_H);
-    ground.addColorStop(0, '#3a302b');
-    ground.addColorStop(1, '#1d1712');
-    g.fillStyle = ground;
-    g.fillRect(0, HORIZON + 8, BACKDROP_W, BACKDROP_H - HORIZON - 8);
-    for (let y = HORIZON + 10; y < BACKDROP_H; y += 14 + rand() * 18)
-      for (let x = rand() * 40; x < BACKDROP_W;) {
-        const w = 30 + rand() * 90,
-          h = 8 + rand() * 12,
-          roof = mix([78, 70, 66], skyAt(x), 0.12 * Math.max(0, -toSun(x)));
-        g.fillStyle = rgb(mix(roof, [30, 26, 22], (y - HORIZON) / (BACKDROP_H - HORIZON)));
-        g.fillRect(x, y, w, h);
-        g.fillStyle = 'rgba(0,0,0,.35)';
-        g.fillRect(x, y + h, w, 2); // its edge, in shadow
-        g.fillStyle = 'rgba(20,16,14,.6)';
-        if (rand() < 0.6) g.fillRect(x + rand() * (w - 8), y + 2, 6, 4); // plant on it
-        x += w + 6 + rand() * 20;
-      }
-    for (let n = 0; n < 380; n++) {
-      g.fillStyle = `rgba(240,196,120,${0.25 + rand() * 0.45})`;
-      g.fillRect(rand() * BACKDROP_W, HORIZON + 12 + rand() * 200, 2, 2);
+    // under the horizon: the haze the ground goes into (the ground itself is cityGround, laid flat)
+    hazeUnder(g, HAZE);
+  });
+}
+
+// The street under the windows, seen from above at dusk, a picture that wraps (GROUND_PX a side, 64 m): worn tarmac
+// in patches, the lids of manholes, and the pools of light of the street lamps. (The buildings stand on it as boxes,
+// cityBlocks, wherever they are: so nothing on it lines up with them, no kerbs and no lines down the middle)
+function cityGround(): THREE.CanvasTexture {
+  return canvasTex(GROUND_PX, GROUND_PX, g => {
+    const rand = createRng(SEED + 1).next,
+      S = GROUND_PX,
+      margin = 60; // (nothing crosses the picture's edge)
+    g.fillStyle = '#26221f';
+    g.fillRect(0, 0, S, S);
+    for (let n = 0; n < 500; n++) {
+      g.fillStyle = `rgba(${rand() < 0.5 ? '255,240,220' : '0,0,0'},${0.03 + rand() * 0.05})`;
+      g.fillRect(
+        margin + rand() * (S - 2 * margin),
+        margin + rand() * (S - 2 * margin),
+        10 + rand() * 50,
+        10 + rand() * 50,
+      );
+    }
+    for (let n = 0; n < 6; n++) {
+      g.fillStyle = '#3a3530';
+      g.beginPath();
+      g.arc(margin + rand() * (S - 2 * margin), margin + rand() * (S - 2 * margin), 9, 0, Math.PI * 2);
+      g.fill();
+    }
+    for (let n = 0; n < 9; n++) {
+      const x = margin + rand() * (S - 2 * margin),
+        y = margin + rand() * (S - 2 * margin),
+        pool = g.createRadialGradient(x, y, 2, x, y, 56);
+      pool.addColorStop(0, 'rgba(255,210,140,0.42)');
+      pool.addColorStop(1, 'rgba(255,190,120,0)');
+      g.fillStyle = pool;
+      g.fillRect(x - 56, y - 56, 112, 112);
     }
   });
+}
+
+// ---- the buildings across the street (looks/outside.ts) ----
+// The near row like the band's: office blocks and flats from 4 storeys up to 17, the row behind taller. The sun is
+// low in the west: a face looking west (toward -x: side 1) takes it, warm; one looking east is in its own shadow;
+// the others between
+const CITY_BLOCKS: BlockStyle = {
+  high: [
+    [14, 60],
+    [30, 95],
+  ],
+  facades: 3,
+  roofs: 2,
+};
+// (by side: looking east, west, south, north)
+const CITY_LIGHT: [number, number, number][] = [
+  [0.5, 0.48, 0.56],
+  [1.3, 1.05, 0.82],
+  [0.85, 0.8, 0.82],
+  [0.85, 0.8, 0.82],
+];
+const BAY = FACADE_PX / 4, // px: a bay is 4 m, a storey 3.5 m (FACADE_M), four of each on a picture
+  STOREY = FACADE_PX / 4;
+// the windows of a facade: one per bay per storey, at (x, y) w by h px in its cell; lit ones warm, the others glass
+// with the dusk in it, some with the blind part down
+function windowGrid(
+  g: CanvasRenderingContext2D,
+  rand: () => number,
+  [x, y, w, h]: [number, number, number, number],
+  lit: number,
+  frame: string,
+) {
+  for (let by = 0; by < 4; by++)
+    for (let bx = 0; bx < 4; bx++) {
+      const wx = bx * BAY + x,
+        wy = by * STOREY + y;
+      g.fillStyle = frame;
+      g.fillRect(wx - 3, wy - 3, w + 6, h + 6);
+      if (rand() < lit) {
+        g.fillStyle = `rgb(${226 + rand() * 24},${178 + rand() * 30},${104 + rand() * 30})`;
+        g.fillRect(wx, wy, w, h);
+      } else {
+        const glass = g.createLinearGradient(0, wy, 0, wy + h);
+        glass.addColorStop(0, '#5c5a66');
+        glass.addColorStop(1, '#2a2a33');
+        g.fillStyle = glass;
+        g.fillRect(wx, wy, w, h);
+        if (rand() < 0.3) {
+          g.fillStyle = 'rgba(200,190,170,0.55)';
+          g.fillRect(wx, wy, w, h * (0.2 + rand() * 0.5));
+        }
+      }
+    }
+}
+function cityFacades(): THREE.CanvasTexture[] {
+  const S = FACADE_PX;
+  return [
+    // an office block: bands of grey stone at each floor, glass between them split by mullions
+    canvasTex(S, S, g => {
+      const rand = createRng(SEED + 10).next;
+      g.fillStyle = '#6e6862';
+      g.fillRect(0, 0, S, S);
+      for (let by = 0; by < 4; by++) {
+        const y = by * STOREY + 34;
+        for (let x = 0; x < S; x += BAY / 2) {
+          const on = rand() < 0.14,
+            glass = g.createLinearGradient(0, y, 0, y + 86);
+          glass.addColorStop(0, on ? '#f0c886' : '#5a5e6c');
+          glass.addColorStop(1, on ? '#d8a868' : '#282a34');
+          g.fillStyle = glass;
+          g.fillRect(x + 3, y, BAY / 2 - 6, 86);
+        }
+      }
+      g.fillStyle = 'rgba(0,0,0,0.25)';
+      for (let x = 0; x < S; x += BAY / 2) g.fillRect(x, 0, 3, S);
+    }),
+    // flats: tiled walls, a window per room with its frame, an air conditioner beside some, a balcony rail along
+    // each floor
+    canvasTex(S, S, g => {
+      const rand = createRng(SEED + 11).next;
+      g.fillStyle = '#9c9284';
+      g.fillRect(0, 0, S, S);
+      for (let n = 0; n < 120; n++) {
+        g.fillStyle = `rgba(40,32,28,${0.04 + rand() * 0.06})`;
+        g.fillRect(rand() * S, rand() * S, 4 + rand() * 30, 20 + rand() * 80);
+      }
+      windowGrid(g, rand, [28, 26, 72, 62], 0.22, '#d8d2c4');
+      for (let by = 0; by < 4; by++) {
+        const y = by * STOREY + 100;
+        g.fillStyle = 'rgba(30,26,24,0.75)';
+        g.fillRect(0, y, S, 4);
+        g.fillRect(0, y + 22, S, 3);
+        for (let x = 0; x < S; x += 10) g.fillRect(x, y, 2, 24);
+        for (let bx = 0; bx < 4; bx++)
+          if (rand() < 0.5) {
+            g.fillStyle = '#c9c4b8';
+            g.fillRect(bx * BAY + 104, by * STOREY + 70, 20, 16);
+          }
+      }
+    }),
+    // an older block in brick, the windows tall with white frames and stone sills
+    canvasTex(S, S, g => {
+      const rand = createRng(SEED + 12).next;
+      g.fillStyle = '#7a4a3a';
+      g.fillRect(0, 0, S, S);
+      for (let y = 0; y < S; y += 8)
+        for (let x = (y / 8) % 2 ? -10 : 0; x < S; x += 20) {
+          g.fillStyle = `rgba(${rand() < 0.5 ? '255,220,200' : '20,10,8'},${0.05 + rand() * 0.08})`;
+          g.fillRect(x + 1, y + 1, 18, 6);
+        }
+      windowGrid(g, rand, [40, 22, 48, 78], 0.16, '#d6d0c6');
+      g.fillStyle = '#b8b0a2';
+      for (let by = 0; by < 4; by++) for (let bx = 0; bx < 4; bx++) g.fillRect(bx * BAY + 32, by * STOREY + 103, 64, 6);
+    }),
+  ];
+}
+// roofs: grey asphalt and concrete in squares, stained, with plant and a vent or two on one of them
+function cityRoofs(): THREE.CanvasTexture[] {
+  const S = FACADE_PX;
+  return [0, 1].map(v =>
+    canvasTex(S, S, g => {
+      const rand = createRng(SEED + 20 + v).next;
+      g.fillStyle = v ? '#5e5852' : '#6a645c';
+      g.fillRect(0, 0, S, S);
+      g.fillStyle = 'rgba(0,0,0,0.18)';
+      for (let k = 0; k < S; k += 64) {
+        g.fillRect(k, 0, 2, S);
+        g.fillRect(0, k, S, 2);
+      }
+      for (let n = 0; n < 40; n++) {
+        g.fillStyle = `rgba(20,16,14,${0.06 + rand() * 0.1})`;
+        g.fillRect(rand() * S, rand() * S, 20 + rand() * 60, 20 + rand() * 60);
+      }
+      if (v)
+        for (let n = 0; n < 4; n++) {
+          const x = 40 + rand() * (S - 140),
+            y = 40 + rand() * (S - 120);
+          g.fillStyle = 'rgba(0,0,0,0.4)';
+          g.fillRect(x + 8, y + 6, 80, 50);
+          g.fillStyle = '#8a8378';
+          g.fillRect(x, y, 80, 50);
+        }
+    }),
+  );
 }

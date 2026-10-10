@@ -81,7 +81,8 @@ if (courtParam === 'open' || courtParam === 'roof')
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
 // lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
 // court / courttop / courtmid (the courtyard, from its ground and from its galleries), courtalong (along a yard's
-// balcony), window (two tiles in front of a window one sees out of, facing it: Look.outside)
+// balcony), window (two tiles in front of a window one sees out of, facing it: Look.outside), windowdown / windowup
+// (right up at that window, looking down out of it / up out of it)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -167,7 +168,7 @@ if (location.hash.startsWith('#bld-'))
         stand(floor, c.tiles[1]! - W, W);
         player.pitch = -0.55;
       }
-    } else if (what === 'window') {
+    } else if (what === 'window' || what === 'windowdown' || what === 'windowup') {
       // the first window seen through, floor by floor, with two floor tiles in front of it
       const look = lookOf(b.biome);
       for (let floor = 0; floor < b.plans.length && look?.outside; floor++) {
@@ -182,6 +183,13 @@ if (location.hash.startsWith('#bld-'))
         if (k < 0) continue;
         const o = [1, -1, W, -W].find(o => grid[k + o] === 1 && grid[k + 2 * o] === 1)!;
         stand(floor, k + 2 * o, -o);
+        if (what !== 'window') {
+          // half a metre from the window's face
+          const [dx, dz] = dirOf(-o);
+          player.x = ((k % W) + 0.5) * T - dx * (T / 2 + 0.5);
+          player.z = (Math.floor(k / W) + 0.5) * T - dz * (T / 2 + 0.5);
+          player.pitch = what === 'windowdown' ? -0.85 : 0.85;
+        }
         break;
       }
     } else if (what === 'boss') {

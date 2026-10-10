@@ -118,7 +118,7 @@ import { banner, keepAwake, toast } from '../src/ui/ui.ts';
 import { onDataClick, rowsHTML } from '../src/ui/dom.ts';
 import { withLang } from '../src/core/langslots.ts';
 import { facesToward, floorSides, wallSide } from '../src/world/walls.ts';
-import { WINDOW_ORDER, buildBackdrop, buildWindowPanes } from '../src/render/windows.ts';
+import { WINDOW_ORDER, buildBackdrop, buildOutsideBlocks, buildWindowPanes } from '../src/render/windows.ts';
 import {
   block,
   canvasTex,
@@ -2728,22 +2728,105 @@ test('windows: panes on the faces mark the stencil, the backdrop is drawn only t
   expect(p.z, 'the left pane').toBeCloseTo(3.5 * T + T / 4);
   const pm = panes.material as THREE.MeshBasicMaterial;
   expect([pm.colorWrite, pm.stencilWrite, pm.stencilZPass]).toEqual([false, true, THREE.ReplaceStencilOp]);
-  const back = buildBackdrop(new THREE.Texture(), 100, 80),
-    bm = back.material as THREE.MeshBasicMaterial;
-  expect(back.renderOrder).toBe(WINDOW_ORDER + 1);
-  expect([bm.depthTest, bm.stencilFunc, bm.fog]).toEqual([false, THREE.EqualStencilFunc, false]);
   const cam = new THREE.PerspectiveCamera();
   cam.position.set(7, 2, -5);
   cam.updateMatrixWorld();
-  back.onBeforeRender(
-    {} as THREE.WebGLRenderer,
-    new THREE.Scene(),
-    cam,
-    back.geometry,
-    back.material as THREE.Material,
-    {} as THREE.Group,
-  );
-  expect(back.position.toArray()).toEqual([7, 2, -5]);
+  // (where a part of it goes, the eye being at cam)
+  const placed = (m: THREE.Mesh) => {
+    m.onBeforeRender(
+      {} as THREE.WebGLRenderer,
+      new THREE.Scene(),
+      cam,
+      m.geometry,
+      m.material as THREE.Material,
+      {} as THREE.Group,
+    );
+    return m.position.toArray();
+  };
+  // the band alone: one cylinder round the eye
+  const bare = buildBackdrop(new THREE.Texture(), 100, 80).children as THREE.Mesh[];
+  expect(bare.length, 'the band and the floor under it (depth only)').toBe(2);
+  expect((bare[1]!.material as THREE.Material).colorWrite).toBe(false);
+  const back = bare[0]!,
+    bm = back.material as THREE.MeshBasicMaterial;
+  expect(back.renderOrder).toBe(WINDOW_ORDER + 1);
+  expect([bm.depthFunc, bm.stencilFunc, bm.fog]).toEqual([THREE.AlwaysDepth, THREE.EqualStencilFunc, false]);
+  expect(placed(back)).toEqual([7, 2, -5]);
+  // closed above and below: a lid at the band's top edge, and the ground at groundY, drawn over the band
+  const ground = new THREE.Texture(),
+    closed = buildBackdrop(new THREE.Texture(), 100, 80, {
+      sky: 0x112233,
+      ground: { map: ground, tile: 64, clear: 30, fade: 150, haze: 0x445566 },
+    }),
+    [band, lid, , floor] = closed.children as THREE.Mesh[];
+  closed.groundY = -22; // (24 m under the eye)
+  expect(placed(band!)).toEqual([7, 2, -5]);
+  const bandMat = band!.material as THREE.Material;
+  expect([bandMat.depthTest, bandMat.depthFunc, bandMat.depthWrite], 'the band leaves its depth').toEqual([
+    true,
+    THREE.AlwaysDepth,
+    true,
+  ]);
+  expect(placed(lid!)).toEqual([7, 42, -5]);
+  expect((lid!.material as THREE.MeshBasicMaterial).color.getHex()).toBe(0x112233);
+  expect(floor!.renderOrder).toBe(WINDOW_ORDER + 2);
+  const fm = floor!.material as THREE.ShaderMaterial;
+  expect([fm.depthTest, fm.depthWrite, fm.stencilFunc]).toEqual([false, false, THREE.EqualStencilFunc]);
+  // drawn shrunk toward the eye: its edge as far as the band, just under the horizon; the picture by the true metres
+  const [fx, fy, fz] = placed(floor!),
+    out = fm.uniforms.reachOut!.value as number,
+    shrink = floor!.scale.x / out;
+  expect([fx, fz]).toEqual([7, -5]);
+  expect(fy).toBeCloseTo(2 - 24 * shrink);
+  expect(Math.hypot(out, 24) * shrink).toBeCloseTo(100);
+  expect((Math.atan2(24, out) * 180) / Math.PI).toBeLessThan(1);
+  expect([fm.uniforms.tile!.value, fm.uniforms.clear!.value, fm.uniforms.fade!.value]).toEqual([64, 30, 150]);
+  expect(ground.wrapS, 'the ground repeats').toBe(THREE.RepeatWrapping);
+});
+test('windows: the buildings out there are only the faces asked for and the roof, each face in its own light', () => {
+  const facade = new THREE.Texture(),
+    roof = new THREE.Texture(),
+    group = buildOutsideBlocks(
+      [{ x0: 0, z0: 0, x1: 16, z1: 16, top: 28, sides: [1, 3], facade: 0, roof: 0 }],
+      {
+        facades: [facade],
+        storey: [16, 14],
+        roofs: [roof],
+        roofTile: 16,
+        light: [
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1],
+          [1, 1, 1],
+        ],
+        roofLight: [0.5, 0.5, 0.5],
+        haze: 0x445566,
+        clear: 40,
+        fade: 140,
+        reach: 400,
+      },
+      100,
+    );
+  const [walls, top] = group.children as THREE.Mesh[],
+    pos = walls!.geometry.getAttribute('position'),
+    uv = walls!.geometry.getAttribute('uv'),
+    tint = walls!.geometry.getAttribute('tint');
+  expect(pos.count, 'two faces of two triangles').toBe(12);
+  expect(top!.geometry.getAttribute('position').count, 'the roof').toBe(6);
+  // the first face asked for: side 1, at x = x0, in side 1's light; the picture repeats 16 m across, 14 m up
+  expect([pos.getX(0), pos.getX(2)]).toEqual([0, 0]);
+  expect([tint.getX(0), tint.getY(0), tint.getZ(0)]).toEqual([0, 1, 0]);
+  expect(Math.max(...Array.from({ length: 6 }, (_, k) => uv.getY(k)))).toBeCloseTo(2);
+  expect(Math.max(...Array.from({ length: 6 }, (_, k) => uv.getX(k)))).toBeCloseTo(1);
+  // the second: side 3, at z = z0
+  expect([pos.getZ(6), pos.getZ(8)]).toEqual([0, 0]);
+  expect(top!.geometry.getAttribute('position').getY(0)).toBe(28);
+  const m = walls!.material as THREE.ShaderMaterial;
+  expect(walls!.renderOrder).toBe(WINDOW_ORDER + 3);
+  expect([m.depthTest, m.depthWrite, m.stencilFunc]).toEqual([true, true, THREE.EqualStencilFunc]);
+  // drawn shrunk toward the eye: a block `reach` away comes inside the band
+  expect(m.uniforms.shrink!.value * 400).toBeLessThan(100);
+  expect(facade.wrapS).toBe(THREE.RepeatWrapping);
 });
 test('paint: the same seed paints the same picture; the strokes cover the canvas or the size given', () => {
   const pixels = (t: THREE.CanvasTexture) => {

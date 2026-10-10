@@ -150,6 +150,7 @@ import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import * as THREE from 'three';
 import { dressAtrium, dressYard } from '../src/world/yardProps.ts';
 import { DOOR_PASS } from '@engine/world/tiles.ts';
+import { outsideBlocks } from '../src/world/looks/outside.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { openPerk } from '../src/screens/perk.ts';
@@ -3210,6 +3211,41 @@ test("wall pictures: a window only on the building's outside wall, a glass parti
     for (const v of Object.keys(look?.outside?.panes ?? {}))
       expect(look!.wallSides?.outer, `${biome.code} picture ${v}`).toContain(Number(v));
   }
+});
+test('outside: the buildings across the street stand clear of the building, and only faces that can be seen', () => {
+  // a building 10 by 8 tiles in the middle of a 30-tile map
+  const w = 30,
+    h = 30,
+    inside = new Uint8Array(w * h).map((_, k) =>
+      k % w >= 10 && k % w < 20 && ((k / w) | 0) >= 11 && ((k / w) | 0) < 19 ? 1 : 0,
+    ),
+    style = {
+      high: [
+        [14, 30],
+        [40, 60],
+      ] as [[number, number], [number, number]],
+      facades: 3,
+      roofs: 2,
+    },
+    blocks = outsideBlocks(inside, w, h, style, createRng(7));
+  expect(blocks.length).toBeGreaterThan(20);
+  expect(outsideBlocks(inside, w, h, style, createRng(7)), 'the same rng, the same blocks').toEqual(blocks);
+  const [bx0, bx1, bz0, bz1] = [10 * T, 20 * T, 11 * T, 19 * T];
+  for (const b of blocks) {
+    // the street: no block nearer the building than 5 tiles
+    const gap = Math.max(bx0 - b.x1, b.x0 - bx1, bz0 - b.z1, b.z0 - bz1);
+    expect(gap).toBeGreaterThanOrEqual(5 * T - 1e-6);
+    expect(b.top).toBeGreaterThanOrEqual(14);
+    expect(b.top).toBeLessThanOrEqual(60);
+    // no face turned away from the building: a block wholly east of it has no face looking east (side 0)
+    if (b.x0 >= bx1) expect(b.sides).not.toContain(0);
+    if (b.x1 <= bx0) expect(b.sides).not.toContain(1);
+    if (b.z0 >= bz1) expect(b.sides).not.toContain(2);
+    if (b.z1 <= bz0) expect(b.sides).not.toContain(3);
+  }
+  // a block straight across the street to the west shows the building its east face
+  const across = blocks.find(b => b.x1 <= bx0 && b.x1 > bx0 - 6 * T && b.z0 >= bz0 && b.z1 <= bz1);
+  if (across) expect(across.sides).toContain(0);
 });
 test('courtyard: what hangs in an atrium has the same colours whatever yard was dressed before it', () => {
   const well = { cx: 20, cz: 20, wide: 12, deep: 12, ground: -16, sky: 0, decks: [] },
