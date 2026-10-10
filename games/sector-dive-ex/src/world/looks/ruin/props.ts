@@ -8,7 +8,10 @@ import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
 import { TEX, grime, paint, poolTex } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { FULL_SIZE, LAMP_POOL, facing, lightMat, onWall, pose, propTools } from '../props.ts';
-import type { WallSlot } from '../props.ts';
+import type { Light, WallSlot } from '../props.ts';
+import { dressWalls } from '../dress.ts';
+import type { WallKit } from '../dress.ts';
+import { flatBoxTex, flatHeapTex, flatTex, ragsTex } from './cutouts.ts';
 import {
   RUIN_WALLS,
   WALL_BLOCKS,
@@ -100,6 +103,40 @@ let ruinShared: RuinShared | null = null;
 // Ivy hanging down the walls, shelves and dead strip lights that have half come off them, wires hanging from the
 // ceiling, holes in it with the sky behind, and the pale daylight that the holes and the broken windows let fall on
 // the ground
+// what the flats' walls are dressed with (looks/dress.ts): wardrobes, bedding cupboards, kitchen units and bookcases
+// let into them, fallen wall and broken furniture along their feet, rags on a line
+let ruinKit: WallKit | null = null;
+const makeRuinKit = (): WallKit => ({
+  pics: RUIN_WALLS,
+  bare: [0, 1, 2],
+  units: {
+    maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => flatTex(1200 + n)),
+    w: 3.7,
+    h: 2.84,
+    hall: 0.26,
+    lane: 0.12,
+    counter: [0, 1, 2, 3].map(n => flatBoxTex(1220 + n)),
+  },
+  heaps: {
+    maps: [0, 1, 2, 3, 4, 5].map(n => flatHeapTex(1240 + n)),
+    solid: [0, 1, 2, 3, 4, 5].map(n => flatBoxTex(1260 + n)),
+    w: 3.5,
+    h: 1.75,
+    hall: 0.6,
+    lane: 0.75,
+  },
+  high: [
+    {
+      maps: [0, 1, 2].map(n => ragsTex(1280 + n)),
+      w: 3.4,
+      h: 1.4,
+      y: [3.4, 4.3],
+      out: [0.5, 1.2],
+      hall: 0.14,
+      lane: 0.2,
+    },
+  ],
+});
 export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   ruinShared ??= {
     vine: paint(1122, vinePaint),
@@ -231,4 +268,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     lightMat(poolTex(), DAY_POOL_OPACITY, DAYLIGHT),
     daylight,
   );
+  // what was left in the flats, wall by wall (looks/dress.ts)
+  const dressLights: Light[] = [];
+  dressWalls({ add }, d, plan, rng, (ruinKit ??= makeRuinKit()), dressLights);
 }

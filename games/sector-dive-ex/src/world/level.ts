@@ -34,7 +34,7 @@ import { lookOf } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { paint } from './looks/paint.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
-import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
+import { buildAtriumProps, buildFloorMeshes, buildLevelMeshes, buildYardShell } from './levelMesh.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const ARENA_FOG_NEAR = 6; // fog start in boss arenas (m)
@@ -84,6 +84,12 @@ export let level: Level = emptyLevel();
 // the building on screen: every floor's meshes, stacked (see showBuilding). The level's group is one of floorGroups then
 let buildingGroup: THREE.Group | null = null;
 let floorGroups: THREE.Group[] = [];
+// per floor: what stands in and round the courtyard (null on a floor it does not pass); drawn from the other floors
+// it passes without the rest of the floor
+let courtGroups: (THREE.Group | null)[] = [];
+// a yard's outer walls, sky, ground and what is on them, or what hangs in an atrium (levelMesh.ts buildYardShell,
+// buildAtriumProps)
+let yardShell: THREE.Group | null = null;
 let shown: Building | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
 let hallTop: THREE.Group | null = null; // the part of the boss room above WALL_H (levelMesh.ts buildFloorMeshes)
@@ -250,6 +256,8 @@ function clearLevel() {
     scene.remove(buildingGroup);
     buildingGroup = null;
     floorGroups = [];
+    courtGroups = [];
+    yardShell = null;
     liftPads = [];
     hallTop = null;
     shown = null;
@@ -338,7 +346,15 @@ export function showNeighbourFloors(b: Building, x: number, z: number) {
           m >= l.upper &&
           m <= l.lower &&
           l.strip.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach),
-      );
+      ),
+    // near the courtyard, on a floor it passes: its galleries on the other floors are seen across it (not the rest
+    // of those floors)
+    c = b.court,
+    atCourt =
+      !!c &&
+      n >= c.upper &&
+      n <= c.lower &&
+      c.tiles.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach);
   // In the boss room, and in front of its door, only this floor is drawn: the room is higher than a floor (HALL_H),
   // so its top stands where the floor above is, and the two must not show together
   const hall = level.hall,
@@ -348,7 +364,10 @@ export function showNeighbourFloors(b: Building, x: number, z: number) {
         Math.hypot(tileCenter(hall.door % w) - x, tileCenter(Math.floor(hall.door / w)) - z) < HALL_NEAR);
   floorGroups.forEach((g, m) => {
     g.visible = m === n || (!atHall && near(m));
+    const cg = courtGroups[m];
+    if (cg) cg.visible = g.visible || atCourt;
   });
+  if (yardShell) yardShell.visible = atCourt;
   // the top of the boss room shows while its floor is the one played (from another floor it would stand in the way)
   if (hallTop) hallTop.visible = !!hall;
 }
@@ -361,14 +380,21 @@ export function showBuilding(b: Building) {
   b.plans.forEach((plan, n) => {
     setFloorWorld(plan);
     const g = new THREE.Group();
-    const top = buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9));
+    const cg = plan.court ? new THREE.Group() : null,
+      top = buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9), cg ?? undefined);
     if (top) hallTop = top;
     buildDoorMeshes(b.biome, g, plan.hall ? plan.hall.door : -1, n);
     all.add(g);
     floorGroups.push(g);
+    if (cg) all.add(cg);
+    courtGroups.push(cg);
   });
   const w = b.plans[0]!.gen.W,
     look = lookOf(b.biome);
+  if (b.court) {
+    yardShell = (b.court.open ? buildYardShell : buildAtriumProps)(b.court, w, FLOOR_H, b.biome);
+    all.add(yardShell);
+  }
   b.links.forEach((l, n) => {
     if (l.kind !== 'elevator') return;
     // a sector with a look has the platform's picture on top (the same in every sector); else it is plain violet
@@ -420,7 +446,9 @@ export function enterFloor(b: Building, n: number) {
   };
   floorGroups.forEach((g, m) => {
     g.position.y = (n - m) * FLOOR_H;
+    courtGroups[m]?.position.setY(g.position.y);
   });
+  yardShell?.position.setY(n * FLOOR_H);
   liftPads.forEach(p => {
     const l = b.links[p.link]!;
     p.mesh.visible = n === l.upper || n === l.lower;

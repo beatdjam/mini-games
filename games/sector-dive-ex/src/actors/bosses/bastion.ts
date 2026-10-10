@@ -10,7 +10,7 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { ring, shootHoming } from '../../world/entities.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
 import { RING_Y, bossBase, bossMaterial, isEnraged, spawnMinion, wireOutline } from './common.ts';
-import { COLOR } from '../../data/colors.ts';
+import { COLOR, PAINT } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
 // invuln: shielded; core / shield: meshes; turrets: the shield generators still standing; openT: seconds left open; ringT: ring timer
@@ -24,14 +24,14 @@ type BastionBoss = Boss & {
 };
 export function spawnBastion() {
   const g = new THREE.Group();
-  const mat = bossMaterial(0x1b1408, 0xffb347);
+  const mat = bossMaterial(0x1b1408, PAINT.amber3);
   const baseGeo = new THREE.CylinderGeometry(2.4, 3, 1.6, 8),
     coreGeo = new THREE.IcosahedronGeometry(1.3, 1);
   const base = new THREE.Mesh(baseGeo, mat);
   base.position.y = -1.6;
-  const baseEdge = wireOutline(baseGeo, 0xffb347);
+  const baseEdge = wireOutline(baseGeo, PAINT.amber3);
   baseEdge.position.y = -1.6;
-  const look = plainLooks() ? null : bastionLook(mat, 0xffb347),
+  const look = plainLooks() ? null : bastionLook(mat, PAINT.amber3),
     core = look ? look.core : new THREE.Mesh(coreGeo, mat);
   const shieldM = new THREE.Mesh(
     new THREE.SphereGeometry(2.6, 20, 14),
@@ -96,7 +96,7 @@ function updBastion(e: BastionBoss, dt: number) {
       e.invuln ? K.ring[1] : K.ringOpen[1],
       e.t,
       e.dmg,
-      0xffb347,
+      PAINT.amber3,
     );
     if (enr)
       for (let k = 0; k < K.enrShots; k++) {

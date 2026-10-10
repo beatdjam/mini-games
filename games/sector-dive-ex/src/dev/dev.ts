@@ -10,7 +10,7 @@ import { PER } from '../data/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
-import { building } from '../world/building.ts';
+import { building, devCourtOpen } from '../world/building.ts';
 import { devPlainLooks } from '../world/looks.ts';
 import { useSparkLooks } from '../world/models/sparkLooks.ts';
 import { setHazardClock } from '../world/hazards.ts';
@@ -47,11 +47,34 @@ if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHaza
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
+// dev: ?fps shows the frames drawn in the last second, top middle (for looking at how heavy a place is on a phone)
+if (new URLSearchParams(location.search).has('fps')) {
+  const box = document.createElement('div');
+  box.style.cssText =
+    'position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:99;padding:2px 8px;background:#000a;color:#fff;font:14px monospace';
+  document.body.append(box);
+  let frames = 0,
+    since = performance.now();
+  const count = (now: number) => {
+    frames++;
+    if (now - since >= 1000) {
+      box.textContent = `${Math.round((frames * 1000) / (now - since))} fps`;
+      frames = 0;
+      since = now;
+    }
+    requestAnimationFrame(count);
+  };
+  requestAnimationFrame(count);
+}
+// dev: ?court=open / ?court=roof makes every courtyard a yard open to the sky / a roofed atrium
+const courtParam = new URLSearchParams(location.search).get('court');
+if (courtParam === 'open' || courtParam === 'roof') devCourtOpen(courtParam === 'open');
 
 // dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
-// lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building)
+// lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
+// court / courttop / courtmid (the courtyard, from its ground and from its galleries)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -111,6 +134,29 @@ if (location.hash.startsWith('#bld-'))
       player.pitch = 0.45;
       run.bld!.supplied = true; // no supply screen over the view
       player.hp = 1e6;
+    } else if (what.startsWith('court') && b.court) {
+      // the courtyard (?sector=CITY; ?court=open for a yard, ?court=roof for an atrium): court = from its lowest
+      // floor, looking up; courttop = from its top floor, looking down; courtmid = from a floor between
+      const c = b.court,
+        floor =
+          what === 'court'
+            ? c.lower
+            : what === 'courttop'
+              ? c.upper
+              : Math.min(c.upper + 1, Math.max(c.upper, c.lower - 1));
+      if (c.open) {
+        // a yard: on that floor's balcony, facing the yard
+        const mid = c.balconies[floor - c.upper]![1]!,
+          out = [1, -1, W, -W].find(o => c.tiles.includes(mid + o))!;
+        stand(floor, mid, out);
+        player.pitch = what === 'court' ? 0.3 : what === 'courttop' ? -0.3 : 0;
+      } else if (what === 'court') {
+        stand(c.lower, c.tiles[1]!, W);
+        player.pitch = 0.75;
+      } else {
+        stand(floor, c.tiles[1]! - W, W);
+        player.pitch = -0.55;
+      }
     } else if (what === 'boss') {
       const hall = b.plans[b.plans.length - 1]!.hall!,
         grid = b.plans[b.plans.length - 1]!.gen.maps.grid,

@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import { NOISE_DANGER, NOISE_PLATE_QUIET, NOISE_PLATE_STAFF } from '../../../i18n/signs.ts';
 import type { Pictures } from '../common.ts';
 import {
@@ -209,7 +210,7 @@ function meter(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: 
   g.fillRect(x + w * 0.68, y + h * 0.25, w * 0.22, 1);
   g.fillStyle = 'rgba(40,34,30,.8)';
   g.fillRect(x + w * 0.1, y + h * 0.25, w * 0.58, 1);
-  g.strokeStyle = '#2a2420';
+  g.strokeStyle = css(PAINT.soot3);
   g.lineWidth = 0.8;
   g.beginPath();
   g.moveTo(x + w / 2, y + h);

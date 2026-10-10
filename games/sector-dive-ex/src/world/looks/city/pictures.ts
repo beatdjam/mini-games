@@ -1,3 +1,4 @@
+import { PAINT, css } from '../../../data/colors.ts';
 import { CITY_EXIT, CITY_KEEP_OUT } from '../../../i18n/signs.ts';
 import type { Pictures } from '../common.ts';
 import {
@@ -214,7 +215,7 @@ const ventAndSwitch: Paint = g => {
   g.fillStyle = 'rgba(60,54,44,.7)';
   g.fillRect(200.5, rowOf(1.45) + 2, 3, 4);
   g.fillRect(205, rowOf(1.45) + 2, 3, 4);
-  box(g, 174, rowOf(1.5), 11, 9, '#b8b2a2');
+  box(g, 174, rowOf(1.5), 11, 9, css(PAINT.chalk));
 };
 // a partition of frosted glass in an aluminium frame, a room in the last of the sun behind it
 const glassPartition: Paint = (g, rand) => {
@@ -454,7 +455,7 @@ const whiteboard: Paint = (g, rand) => {
     w = TEX - 68,
     y = rowOf(3.0),
     h = rowOf(1.2) - y;
-  box(g, x - 3, y - 2.5, w + 6, h + 5, '#7a766c');
+  box(g, x - 3, y - 2.5, w + 6, h + 5, css(PAINT.grey6));
   g.fillStyle = '#a3a295';
   g.fillRect(x, y, w, h);
   g.save();
@@ -509,6 +510,9 @@ const pilaster: Paint = g => {
 // The wall pictures: what is on the panels of each (nothing on the first two; the second has cloth panels). The first
 // is the plainest and comes up most (variantOf).
 // (thirteen of them: with twelve, variantOf gives every second tile along a row the same picture)
+// along a corridor, in place of the plain panels: glass partitions, notice boards, cabinets, a vending machine, an
+// emergency exit, a whiteboard (no windows: those are on the rooms' walls)
+export const CITY_LANE_WALLS = [5, 6, 10, 5, 9, 11, 7, 10];
 export const CITY_WALL_PICS: (Paint | null)[] = [
   null, // plain panels
   null, // cloth panels (WALL_CLOTH)
@@ -771,7 +775,7 @@ const cityDoor =
         g.fillRect(0, y + 1.2, TEX, 1);
       }
       // the guide rails at the sides
-      g.fillStyle = '#26221f';
+      g.fillStyle = css(PAINT.soot1);
       g.fillRect(0, 0, 12, TEX);
       g.fillRect(TEX - 12, 0, 12, TEX);
       stripes(g, [12, rowOf(5.75), TEX - 24, rowOf(5.3) - rowOf(5.75)], 46, BARRIER_WHITE, BARRIER_RED, BARRIER_WORN);
@@ -869,6 +873,7 @@ const cityDoor =
 export function cityPictures(): Pictures {
   return {
     walls: CITY_WALL_PICS.map((_, v) => paint(1100 + v, cityWall(v))),
+    laneWalls: CITY_LANE_WALLS,
     floors: Array.from({ length: CITY_FLOORS }, (_, v) => paint(1200, cityFloor(v))),
     deck: paint(1300, cityDeck),
     ceiling: paint(1400, cityCeiling),

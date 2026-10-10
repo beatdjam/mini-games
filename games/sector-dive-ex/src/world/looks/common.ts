@@ -20,6 +20,13 @@ export interface Look {
   // from the floor round it), `glow` is what lights up in the hazard's colour while it is live (world/hazards.ts).
   // Without it the hazard floor is the plain glowing square
   hazard?: { base: THREE.CanvasTexture; glow: THREE.CanvasTexture };
+  // The pictures (by number) that take the plain picture's place on a wall along an alley (a wall that has a
+  // corridor tile beside it): an alley's walls are all shop fronts, windows and gates, none of them bare. Without
+  // it an alley's walls are painted like any other
+  laneWalls?: number[];
+  // the sides of the raised decks (a picture a tile wide and a deck high). Without it they have the plain wall's
+  // picture pressed down to their height, which reads as a lump of wall and not as a thing built there
+  deckSide?: THREE.CanvasTexture;
   props: (plan: FloorPlan, group: THREE.Group, rng: Rng) => void;
 }
 // a look's pictures (the props are built in the file next to them, <sector>/props.ts)
@@ -29,6 +36,23 @@ export type Pictures = Omit<Look, 'props'>;
 export function variantOf(k: number, count: number, plainShare: number): number {
   const h = (Math.imul(k + 1, 2654435761) >>> 0) / 4294967296;
   return h < plainShare ? 0 : 1 + (Math.floor((h - plainShare) * 9973) % (count - 1));
+}
+// is a corridor tile (floor that is in no room) beside this wall tile
+export function byLane(
+  d: { W: number; maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
+  k: number,
+): boolean {
+  return [k - 1, k + 1, k - d.W, k + d.W].some(t => d.maps.grid[t] === 1 && d.maps.roomOf[t]! < 0);
+}
+// which picture a wall tile gets: variantOf, but along an alley the plain one gives way to one of `laneWalls`
+export function wallPic(
+  d: { W: number; maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
+  k: number,
+  count: number,
+  laneWalls?: number[],
+): number {
+  const v = variantOf(k, count, WALL_PLAIN_SHARE);
+  return v === 0 && laneWalls && byLane(d, k) ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v;
 }
 export const WALL_PLAIN_SHARE = 0.4; // share of the wall tiles that get the plain picture
 export const FLOOR_PLAIN_SHARE = 0.6; // ... of the floor tiles

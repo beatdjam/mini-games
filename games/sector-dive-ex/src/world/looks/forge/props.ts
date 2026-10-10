@@ -1,3 +1,4 @@
+import { PAINT } from '../../../data/colors.ts';
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { tileCenter } from '@engine/world/tiles.ts';
@@ -9,6 +10,9 @@ import { TEX, grain, paint, poolTex } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
 import type { Light } from '../props.ts';
+import { dressWalls } from '../dress.ts';
+import type { WallKit } from '../dress.ts';
+import { chainsTex, pipeRackTex, plantBoxTex, plantHeapTex, plantTex } from './cutouts.ts';
 import { FORGE_WALL_PICS } from './pictures.ts';
 // The props of the smelter block (FORGE): the things fixed to its walls and ceilings, and the light they throw. They
 // go by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the
@@ -47,7 +51,7 @@ const MAIN = { r: 0.3, len: 3, y: 4.7, out: 0.4 }; // a thick pipe along a wall,
 const RISER = { r: 0.2, out: 0.24, thin: 0.08, valveY: 2.5, wheel: 0.24 }; // a pipe up a wall, with its valve (m)
 const WALL_LAMP_Y = 3.4; // m
 const SHADE = { drop: 0.75, r: 0.55, h: 0.36 }; // a ceiling lamp's shade: how far it hangs, its radius and height (m)
-const LAMP_COLORS = [0xffc98a, 0xffc98a, 0xffe9c4]; // sodium lamps, and a white-hot bulb now and then
+const LAMP_COLORS = [PAINT.amber6, PAINT.amber6, 0xffe9c4]; // sodium lamps, and a white-hot bulb now and then
 const WALL_LAMP_COLOR = 0xffb46e;
 const VALVE_RED = 0xa8351f;
 const PIPE_DARK = 0x3a332e; // flanges, brackets, lamp housings
@@ -57,6 +61,57 @@ interface ForgeShared {
 let forgeShared: ForgeShared | null = null;
 // Thick pipes along the walls and up them (flanged, the risers with a valve wheel), caged lamps on the walls with
 // their glow on the wall, shaded lamps hanging from the roof with a pool of light under each
+// what the walls of the plant are dressed with (looks/dress.ts): control panels, tool boards, manifolds and lockers
+// let into them, drums and cylinders and ingots along their feet, chains from the roof steel, pipes run under the
+// ceiling, and over the alleys a rack of pipes
+// the tints of the pipes (over the pipe's own picture): bare, sooted, warm, dark, and one in five red-leaded
+const PIPES = [0xffffff, 0xb8aea4, 0xe8d2b8, 0x8a8078, 0xd88a70];
+let forgeKit: WallKit | null = null;
+const makeForgeKit = (pipe: THREE.Texture): WallKit => ({
+  runMap: pipe,
+  pics: FORGE_WALL_PICS.length,
+  bare: BARE_WALLS,
+  units: {
+    maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => plantTex(700 + n)),
+    w: 3.7,
+    h: 2.84,
+    hall: 0.28,
+    lane: 0.2,
+    counter: [0, 1, 2, 3].map(n => plantBoxTex(720 + n)),
+    light: 0xff8a3d,
+  },
+  heaps: {
+    maps: [0, 1, 2, 3, 4, 5].map(n => plantHeapTex(740 + n)),
+    solid: [0, 1, 2, 3, 4, 5].map(n => plantBoxTex(760 + n)),
+    w: 3.5,
+    h: 1.75,
+    hall: 0.55,
+    lane: 0.7,
+  },
+  high: [
+    {
+      maps: [0, 1, 2].map(n => chainsTex(780 + n)),
+      w: 1.6,
+      h: 2.6,
+      y: [4.3, 4.7],
+      out: [0.6, 1.6],
+      hall: 0.2,
+      lane: 0.1,
+    },
+  ],
+  // pipes: under the roof everywhere; along an alley also at the shoulder, at the waist and along the ground, so
+  // that its walls are all pipe
+  runs: [
+    { colors: PIPES, r: 0.06, n: [2, 4], hall: 0.5, lane: 0.95, y: [5, 5.6], laneY: [3.5, 4.2] },
+    { colors: PIPES, r: 0.06, n: [2, 3], hall: 0, lane: 0.7, y: [2.4, 3], laneY: [2.5, 3.1] },
+    { colors: PIPES, r: 0.04, n: [3, 6], hall: 0.15, lane: 0.6, y: [1.2, 1.9], laneY: [1.1, 1.9] },
+    { colors: PIPES, r: 0.08, n: [1, 2], hall: 0.2, lane: 0.7, y: [0.12, 0.25], laneY: [0.12, 0.25] },
+  ],
+  risers: { colors: PIPES, r: 0.08, hall: 0.2, lane: 0.35 },
+  spans: { colors: PIPES, r: 0.05, n: [2, 3], hall: 0.06, lane: 0.25, y: [4.8, 5.4], laneY: [3.8, 4.25] },
+  roof: { maps: [0, 1, 2].map(n => pipeRackTex(790 + n)), y: 4.5, tint: 0xffffff, beam: PAINT.soot2, share: 0.95 },
+  bulbs: { share: 0.25, color: 0xffb070, y: [3, 3.5] },
+});
 export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   forgeShared ??= { pipe: paint(22, pipePaint) };
   const shared = forgeShared,
@@ -173,5 +228,7 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
 
   // the light the lamps throw on the ground: a soft pool of their colour
+  // the working floor's clutter, wall by wall (looks/dress.ts)
+  dressWalls({ add }, d, plan, rng, (forgeKit ??= makeForgeKit(shared.pipe)), lights);
   pools(lights, POOL_OPACITY);
 }
