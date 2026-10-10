@@ -8,6 +8,7 @@ import type { FloorPlan } from '../../building.ts';
 import { wallPic } from '../common.ts';
 import { TEX, canvasTex, grime, paint } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import { spanLines } from '../dress.ts';
 import { facing, onWall, pose, propTools } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
@@ -375,7 +376,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       bundle: some(faces, 0.9),
       tube: faces.filter(f => rng.next() < (inLane(f) ? 0.14 : 0.05)),
       // (an alley is roofed with cables: nearly every tile of it has a bundle across, low enough to be seen)
-      span: [...some(lanes, 0.92), ...some(halls, 0.42)],
+      span: spanLines(ceilings, { lane: 0.92, hall: 0.42 }, rng),
       hangsign: [...some(lanes, 0.2), ...some(halls, 0.035)],
       bulb: some(lanes, 0.3), // a bare bulb on its cord down the middle of an alley
       roof: lanes, // the alleys are roofed over (see below)
@@ -495,30 +496,31 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     }
   }
   // a bundle slung across from wall to wall sags: two halves, each dropping to the middle
-  for (const s of spot.span.filter(under)) {
-    const turn = rng.pick([0, Math.PI / 2]),
-      y = s.room < 0 ? rng.rand(3.5, 4.05) : rng.rand(4.6, 5.4),
+  // (in a room one bundle goes the whole way from wall to wall: see spanLines)
+  for (const { tiles, turn } of spot.span) {
+    const y = tiles[0]!.room < 0 ? rng.rand(3.5, 4.05) : rng.rand(4.6, 5.4),
       sag = rng.rand(0.08, 0.2),
       n = rng.randi(3, 6);
     for (let k = 0; k < n; k++) {
       const thick = rng.rand(0.7, 1.9),
         side = (k - n / 2) * 0.09,
         color = rng.pick(CABLE);
-      for (const half of [-1, 1]) {
-        cableColors.push(color);
-        cableAt.push(
-          pose(
-            new THREE.Vector3(
-              tileCenter(s.i) + Math.cos(turn) * half + Math.sin(turn) * side,
-              y - sag * 1.1,
-              tileCenter(s.j) - Math.sin(turn) * half + Math.cos(turn) * side,
+      for (const s of tiles.filter(under))
+        for (const half of [-1, 1]) {
+          cableColors.push(color);
+          cableAt.push(
+            pose(
+              new THREE.Vector3(
+                tileCenter(s.i) + Math.cos(turn) * half + Math.sin(turn) * side,
+                y - sag * 1.1,
+                tileCenter(s.j) - Math.sin(turn) * half + Math.cos(turn) * side,
+              ),
+              turn,
+              new THREE.Vector3(thick, 0.52, thick),
+              Math.PI / 2 + half * sag,
             ),
-            turn,
-            new THREE.Vector3(thick, 0.52, thick),
-            Math.PI / 2 + half * sag,
-          ),
-        );
-      }
+          );
+        }
     }
   }
   add(

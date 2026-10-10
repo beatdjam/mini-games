@@ -21,6 +21,31 @@ import type { Light, PropTools, WallSlot } from './props.ts';
 // room, and along an alley).
 
 type Share = { hall: number; lane: number };
+// The tiles under a ceiling that get a bundle slung across, line by line (`turn` 0: the bundle runs along x). In an
+// alley every tile throws its own dice. In a room whole rows and columns of its tiles are taken (a row or a column
+// `share.hall` / 2 of the time, so about that share of the tiles), and a bundle goes from wall to wall: thrown tile by
+// tile, they hung there as loose ends, each its own way, joined to nothing
+export function spanLines<T extends { i: number; j: number; room: number }>(
+  ceilings: T[],
+  share: Share,
+  rng: Rng,
+): { tiles: T[]; turn: number }[] {
+  const lines: { tiles: T[]; turn: number }[] = [],
+    inRooms = new Map<string, T[]>();
+  for (const c of ceilings) {
+    if (c.room < 0) {
+      if (rng.next() < share.lane) lines.push({ tiles: [c], turn: rng.pick([0, Math.PI / 2]) });
+      continue;
+    }
+    for (const key of [`${c.room}x${c.j}`, `${c.room}z${c.i}`]) {
+      if (!inRooms.has(key)) inRooms.set(key, []);
+      inRooms.get(key)!.push(c);
+    }
+  }
+  for (const [key, tiles] of inRooms)
+    if (rng.next() < share.hall / 2) lines.push({ tiles, turn: key.includes('x') ? 0 : Math.PI / 2 });
+  return lines;
+}
 export interface WallKit {
   pics: number; // how many wall pictures the sector has, and
   laneWalls?: number[]; // ... what an alley's walls get in place of the plain one (common.ts wallPic)
@@ -235,30 +260,31 @@ export function dressWalls(
     }
   const sp = kit.spans;
   if (sp)
-    for (const c of some(ceilings, sp)) {
-      const turn = rng.pick([0, Math.PI / 2]),
-        y = lane(c) ? rng.rand(sp.laneY[0], sp.laneY[1]) : rng.rand(sp.y[0], sp.y[1]),
+    for (const { tiles, turn } of spanLines(ceilings, sp, rng)) {
+      // (one bundle the whole line long: the same cables at the same height over every tile of it)
+      const y = lane(tiles[0]!) ? rng.rand(sp.laneY[0], sp.laneY[1]) : rng.rand(sp.y[0], sp.y[1]),
         sag = rng.rand(0.08, 0.2),
         n = rng.randi(sp.n[0], sp.n[1]);
       for (let k = 0; k < n; k++) {
         const thick = sp.r * rng.rand(0.7, 1.9),
           side = (k - n / 2) * sp.r * 2.6,
           color = rng.pick(sp.colors);
-        for (const half of [-1, 1]) {
-          runColor.push(color);
-          runAt.push(
-            pose(
-              new THREE.Vector3(
-                tileCenter(c.i) + Math.cos(turn) * half + Math.sin(turn) * side,
-                y - sag * 1.1,
-                tileCenter(c.j) - Math.sin(turn) * half + Math.cos(turn) * side,
+        for (const c of tiles)
+          for (const half of [-1, 1]) {
+            runColor.push(color);
+            runAt.push(
+              pose(
+                new THREE.Vector3(
+                  tileCenter(c.i) + Math.cos(turn) * half + Math.sin(turn) * side,
+                  y - sag * 1.1,
+                  tileCenter(c.j) - Math.sin(turn) * half + Math.cos(turn) * side,
+                ),
+                turn,
+                new THREE.Vector3(thick, 0.52, thick),
+                Math.PI / 2 + half * sag,
               ),
-              turn,
-              new THREE.Vector3(thick, 0.52, thick),
-              Math.PI / 2 + half * sag,
-            ),
-          );
-        }
+            );
+          }
       }
     }
   const runMat = () => new THREE.MeshBasicMaterial({ color: 0xffffff, map: kit.runMap ?? null });
