@@ -82,7 +82,8 @@ if (courtParam === 'open' || courtParam === 'roof')
 // lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
 // court / courttop / courtmid (the courtyard, from its ground and from its galleries), courtalong (along a yard's
 // balcony), window (two tiles in front of a window one sees out of, facing it: Look.outside), windowdown / windowup
-// (right up at that window, looking down out of it / up out of it)
+// (right up at that window, looking down out of it / up out of it), ramp (two tiles to the side of the first ramp up
+// to a deck, facing its side)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -190,6 +191,22 @@ if (location.hash.startsWith('#bld-'))
           player.z = (Math.floor(k / W) + 0.5) * T - dz * (T / 2 + 0.5);
           player.pitch = what === 'windowdown' ? -0.85 : 0.85;
         }
+        break;
+      }
+    } else if (what === 'ramp') {
+      // the first ramp on the ground up to a deck, floor by floor, with two flat floor tiles beside it
+      for (let floor = 0; floor < b.plans.length; floor++) {
+        const m = b.plans[floor]!.gen.maps,
+          flat = (k: number) => m.grid[k] === 1 && m.ramp[k]! < 0 && m.hgt[k] === 0,
+          // across the ramp: ±z for a ramp along x, ±x for one along z
+          across = (k: number) => (m.ramp[k]! < 2 ? [W, -W] : [1, -1]),
+          k = m.grid.findIndex(
+            (v, k) =>
+              v === 1 && m.ramp[k]! >= 0 && m.hgt[k] === 0 && across(k).some(o => flat(k + o) && flat(k + 2 * o)),
+          );
+        if (k < 0) continue;
+        const o = across(k).find(o => flat(k + o) && flat(k + 2 * o))!;
+        stand(floor, k + 2 * o, -o);
         break;
       }
     } else if (what === 'boss') {
