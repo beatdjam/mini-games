@@ -135,6 +135,8 @@ const posters: Paint = (g, rand) => {
 // The wall pictures: what is on the concrete of each (nothing on the first, which is the plainest and comes up most:
 // variantOf)
 export const KWLN_WALL_PICS: (Paint | null)[] = [null, shutter, ironGate, barredWindow, posters];
+// along an alley, in place of bare concrete: shutters and barred windows most, then posters and gates
+export const KWLN_LANE_WALLS = [1, 3, 4, 1, 3, 2];
 const kwlnWall =
   (on: Paint | null): Paint =>
   (g, rand) => {
@@ -428,6 +430,7 @@ const kwlnHazardGlow: Paint = (g, rand) => {
 export function kwlnPictures(): Pictures {
   return {
     walls: KWLN_WALL_PICS.map((on, v) => paint(100 + v, kwlnWall(on))),
+    laneWalls: KWLN_LANE_WALLS,
     floors: [0, 1, 2].map(v => paint(200 + v, kwlnFloor(v))), // bare, a puddle, a drain
     deck: paint(300, kwlnDeck),
     ceiling: paint(400, kwlnCeiling),

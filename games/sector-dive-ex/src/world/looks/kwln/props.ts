@@ -5,13 +5,13 @@ import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import { COLOR, css } from '../../../data/colors.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { wallPic } from '../common.ts';
 import { TEX, canvasTex, grime, paint } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { facing, onWall, pose, propTools } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
-import { KWLN_FONT, KWLN_WALL_PICS } from './pictures.ts';
+import { KWLN_FONT, KWLN_LANE_WALLS, KWLN_WALL_PICS } from './pictures.ts';
 import { cageTex, neonTex as hangNeonTex, tinTex } from '../../yardProps.ts';
 import { crateFaceTex, heapTex, stallTex, washingTex } from './cutouts.ts';
 // The props of the walled city (KWLN): the things fixed to its walls and ceilings, and the light they throw. They go
@@ -206,9 +206,9 @@ let kwlnShared: KwlnShared | null = null;
 // air conditioners on the walls, bare lamps on the ceiling
 export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   kwlnShared ??= {
-    stalls: [21, 22, 23, 24].map(stallTex),
-    crates: [50, 51, 52, 53].map(crateFaceTex),
-    heaps: [31, 32, 33, 34, 35].map(heapTex),
+    stalls: [21, 22, 23, 24, 25, 26, 27, 28].map(stallTex),
+    crates: [50, 51, 52, 53, 54, 55].map(crateFaceTex),
+    heaps: [31, 32, 33, 34, 35, 36, 37, 38].map(heapTex),
     washing: [41, 42, 43].map(washingTex),
     meterBoard: paint(31, meterBoard),
     tv: paint(32, tvFace),
@@ -232,7 +232,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
         if (d.maps.grid[wall] || plan.voids[wall]) return;
-        if (variantOf(wall, KWLN_WALL_PICS.length, WALL_PLAIN_SHARE) === KWLN_SHUTTER && rng.next() < BOARD.chance)
+        if (wallPic(d, wall, KWLN_WALL_PICS.length, KWLN_LANE_WALLS) === KWLN_SHUTTER && rng.next() < BOARD.chance)
           fronts.push({ i, j, side });
       });
     }
@@ -354,7 +354,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     // there)
     bare = (f: WallSlot): boolean => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!,
-        v = variantOf((f.j + dj) * d.W + f.i + di, KWLN_WALL_PICS.length, WALL_PLAIN_SHARE);
+        v = wallPic(d, (f.j + dj) * d.W + f.i + di, KWLN_WALL_PICS.length, KWLN_LANE_WALLS);
       return v === 0 || v === KWLN_WALL_PICS.length - 1;
     },
     stalls = faces.filter((f, n) => bare(f) && !byDoor(f) && low[n]! < (inLane(f) ? 0.18 : 0.3)),

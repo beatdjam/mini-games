@@ -21,7 +21,7 @@ import { ruinProps } from './looks/ruin/props.ts';
 // (common.ts), the painters' tools (paint.ts), the tools for the props (props.ts). To add one: make its folder and
 // write the two files, add its line to MAKERS here, put its words in i18n/signs.ts and describe it in SPEC.md.
 export type { Look } from './looks/common.ts';
-export { FLOOR_PLAIN_SHARE, WALL_PLAIN_SHARE, variantOf } from './looks/common.ts';
+export { FLOOR_PLAIN_SHARE, WALL_PLAIN_SHARE, variantOf, wallPic } from './looks/common.ts';
 
 // dev only (?plain): every sector drawn the plain way, to compare a look with what was there before
 let plain = false;

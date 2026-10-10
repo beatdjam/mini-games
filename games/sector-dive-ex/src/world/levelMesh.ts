@@ -23,7 +23,7 @@ import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 import { FLOOR_H } from './building.ts';
-import { FLOOR_PLAIN_SHARE, WALL_PLAIN_SHARE, lookOf, variantOf } from './looks.ts';
+import { FLOOR_PLAIN_SHARE, lookOf, variantOf, wallPic } from './looks.ts';
 import type { Court, FloorPlan } from './building.ts';
 import { dressAtrium, dressYard, yardDice } from './yardProps.ts';
 import { TEX, canvasTex, grain, grime, paint, poolTex } from './looks/paint.ts';
@@ -786,7 +786,7 @@ export function buildFloorMeshes(
     look.walls.forEach((map, v) =>
       wallBoxes(
         map,
-        walls.filter(([i, j]) => variantOf(j * W + i, look.walls.length, WALL_PLAIN_SHARE) === v),
+        walls.filter(([i, j]) => wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls) === v),
       ),
     );
   } else {
