@@ -120,6 +120,7 @@ import { withLang } from '../src/core/langslots.ts';
 import { facesToward, floorSides, wallSide } from '../src/world/walls.ts';
 import { WINDOW_ORDER, buildBackdrop, buildOutsideBlocks, buildWindowPanes } from '../src/render/windows.ts';
 import { hideInFog } from '../src/render/fogcull.ts';
+import { mergeFlat } from '../src/render/mergeflat.ts';
 import {
   block,
   canvasTex,
@@ -2894,4 +2895,36 @@ test('fogcull: a thing past the fog (and its reach) is hidden, one in it shown; 
   expect([near.mesh.visible, edge.mesh.visible, far.mesh.visible]).toEqual([true, true, false]);
   hideInFog([near, edge, far], eye, null, 3);
   expect(far.mesh.visible, 'no fog: shown again').toBe(true);
+});
+
+test('mergeflat: coloured things that stand still become one mesh per group; textured or see-through ones stay', () => {
+  const box = new THREE.BoxGeometry(1, 1, 1),
+    inst = (mat: THREE.Material, n: number, x: number) => {
+      const m = new THREE.InstancedMesh(box, mat, n);
+      for (let k = 0; k < n; k++) m.setMatrixAt(k, new THREE.Matrix4().makeTranslation(x, k * 2, 0));
+      return m;
+    },
+    root = new THREE.Group(),
+    sub = new THREE.Group(), // shown and hidden by itself: what is under it is joined under it
+    red = inst(new THREE.MeshBasicMaterial({ color: 0xff0000 }), 3, 0),
+    blue = inst(new THREE.MeshBasicMaterial({ color: 0x0000ff }), 2, 5),
+    pic = inst(new THREE.MeshBasicMaterial({ map: new THREE.Texture() }), 2, 9),
+    glass = inst(new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5 }), 2, 12);
+  // (every copy its own colour, as three.js wants once one has: white, grey, white)
+  [0xffffff, 0x808080, 0xffffff].forEach((c, k) => red.setColorAt(k, new THREE.Color(c)));
+  sub.add(inst(new THREE.MeshBasicMaterial({ color: 0x00ff00 }), 1, 0), inst(new THREE.MeshBasicMaterial(), 1, 2));
+  root.add(red, blue, pic, glass, sub);
+  mergeFlat(root);
+  const joined = root.children.find(
+    c => !(c as THREE.InstancedMesh).isInstancedMesh && (c as THREE.Mesh).isMesh,
+  ) as THREE.Mesh;
+  expect(root.children).toContain(pic);
+  expect(root.children).toContain(glass);
+  expect(root.children).not.toContain(red);
+  expect((joined.material as THREE.MeshBasicMaterial).vertexColors).toBe(true);
+  expect(joined.geometry.getAttribute('position').count, 'all five copies').toBe(5 * 36);
+  const col = joined.geometry.getAttribute('color');
+  expect([col.getX(0), col.getZ(0)], 'red').toEqual([1, 0]);
+  expect(col.getX(36), "the second red, times its copy's colour").toBeCloseTo(new THREE.Color(0x808080).r);
+  expect(sub.children.length, 'joined under the group they were in').toBe(1);
 });
