@@ -51,7 +51,7 @@ import { renderSettings } from '@engine/ui/settings.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
 import { startPractice, startRun } from '../flow/run.ts';
 import { renderSuspend } from '../flow/suspend.ts';
-import { onDataClick, type DataClick } from './rows.ts';
+import { onDataClick, type DataClick } from '@engine/ui/dom.ts';
 
 // transient state of the base screen
 export const baseUI = {

@@ -14,6 +14,7 @@
 | `src/core/world.ts` | 振る舞いを持つオブジェクト（Unity の MonoBehaviour に近い）。`spawn(obj)` で毎フレーム `obj.update(dt)`、`obj.dead = true` で片付け（`onRemove` と、画面に残っているメッシュの破棄）、`query(tag)`, `clearWorld(tag)`。`worldGroup(tag, order)` でタグごとに更新の順番を分けられる（リストは同じ配列のまま使い続けられる） | 各グループの `.system.modes` に動くモード。オブジェクトに `tag`, `update`, `mesh` |
 | `src/core/util.ts` | `el`, `rand`, `randi`, `pick`, `clamp`, `shuffle`, `createRng(seed)`（同じシードなら同じ並びになる乱数。`rand`・`randi`・`pick`・`shuffle` を持つ）, `pct`, `distXZ`（x-z 平面の距離）, `isTouch`（body に `touch` / `desk` クラスを付ける） | — |
 | `src/core/i18n.ts` | `LANG`, `lang`, `t(key, values)`, `setLang(code)`, `setI18nHook(fn)`, `fillData`, `applyStaticText`, `defaultLang` | `LANG.<code>` を登録する言語ファイル（`ja` は必須で、キーが無いときの予備）。定義に名前を流し込むなら `setI18nHook(fn)` で関数を登録 |
+| `src/core/langslots.ts` | `withLang(table, blank)`（定義の表の各項目に、言語ファイルが入れる項目（名前・説明）の空の値を先に入れる。配列でもオブジェクトでもよい。何も import しないので、データのファイルが読み込み時に呼べる） | 言語ファイルが入れる項目の空の値。中身は `setLang` のときに `fillData` で入れる |
 | `src/core/store.ts` | `encodeStore` / `decodeStore`（セーブを端末間で移す1行のコード。暗号化ではなく、読みにくく・書き換えにくくするだけ）、`loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `prefGet` / `prefSet`（タブの記憶など小さな値） | 既定値を返す関数。古い版からの変換は `raw` を見てゲーム側でやる |
 | `src/core/stale.ts` | 古いページ検出。キャッシュに残った古いページなら、最新版の URL へ1回だけ切り替える | `<meta name="build" content="dev">`（ビルドが版番号に書き換え、`version.json` も出す。このファイルはページに埋め込まれる） |
 | `src/core/feedback.ts` | `openFeedback(info)`（全ゲーム共通の Google フォームを、ゲーム名・ビルド・`info` を記入済みで開く）、`feedbackReady()`、`FEEDBACK.game`、`FEEDBACK_FORM` | 起動時に `FEEDBACK.game` へゲームID。`feedbackReady()` のときだけ送信ボタンを出し、押されたら今の状況をテキストにして `openFeedback` に渡す |
@@ -35,6 +36,7 @@
 | `src/audio/audio.ts` | 効果音の合成（`tone`, `noiseBurst`, `sweepTone`, `gunshot`）、`sfx(name)`、`audioInit`, `sfxVolume` | `Object.assign(SFX, { 名前: () => {...} })` で効果音のレシピを入れる。音量は `setVolumes(sfx, bgm)`（0〜1） |
 | `src/audio/music.ts` | BGM の再生（`setMusic(name, boss)`, `setMusicMix(kind)`, `musicVolume(duck)`, `musicTick`）、`SCALES` | `MUSIC_STYLES`（曲調）と `LAYER_MIX`（層の混ぜ方）に `Object.assign` で中身を入れる。名前の扱いは `MUSIC`（`fallback`: 予備の曲の名前、`mixOf(name, boss)`: 混ぜ方の選び方、`fadeOf(mix)`: その混ぜ方に切り替わる速さ）にも `Object.assign` で渡す（SPEC「音」） |
 | `src/ui/ui.ts` | `toast(msg, ms)`, `banner(code, sub)`, 全画面（`enterFs`, `exitFs`, `toggleFs`, `isFullscreen`）, `keepAwake(on)`（画面のスリープを止める Screen Wake Lock。on の間は、ページが裏に回って外れても、見えるようになったときに取り直す。`navigator.wakeLock` が無い環境や取得の失敗では何もしない） | `#toast`, `#banner`（`#bannerCode`, `#bannerSub`）。遊んでいる間だけ `keepAwake(true)`、終わったら `keepAwake(false)` |
+| `src/ui/dom.ts` | HTML の文字列で組む画面の小さな部品。`rowsHTML(rows)`（ラベルと値の組を `<dl>` の中身にする）, `onDataClick(root, ...table)`（`[data-属性]` の付いた要素のクリックを、表の最初に当たった属性の関数へ値つきで渡す。型 `DataClick`） | `<dl>` の見た目と、`data-` 属性を付けた HTML |
 | `src/ui/hitdir.ts` | 被弾方向の表示。`createHitDirs({ container, view, camera, time, max?, className? })` が `{ show(x, z), update(dt), list }` を返す。視界の外から当たったときだけ、攻撃元を指す弧を出し、振り向きに合わせて向きを追って薄れる | `container`（照準の中心に置いた幅0・高さ0の要素。Sector Dive は `#hitDirs`）、`view()`（`x`・`z`・`yaw`。yaw は左が正）、`camera`、表示時間 `time`（秒）、弧の見た目の CSS（`className`、既定 `hdir`）。被弾で `show`、毎フレーム `update` |
 | `src/ui/minimap.ts` | 上から見たタイルの地図。`drawTileMap(canvas, ctx, { tile, overlay?, markers, viewer, viewerColor? })` が、タイル（`tile(k)` が色と濃さを返したものだけ）→ 重ね塗り → 印（`square`・`ring`・`dot`、ラベル付きも可）→ 見ている人の向きの矢印、の順に描く。大きさの単位はキャンバスの幅の 1/160 | どのタイルを何色で描くか（見た場所だけ、など）と、印の一覧（位置はワールドの x・z） |
 | `src/ui/floormap3d.ts` | 3D の詳細マップ。`createFloorMap3D(canvas)` → `{ build(floors, style, tileSize), draw(view), yaw, pitch, dispose() }`。全部の階をタイルの板として重ね、リンクを線、自分を矢印で描く。1本指のドラッグで回し、2本指でズームと移動（マウスはホイールと右ドラッグ）。自分の WebGL レンダラーで描く | 表示するタイルと色（`style.tile(floor, k)`）、リンクの色（`style.link(l)`）、階の間隔 `gap`、自分の階と位置・向き、印 |
@@ -61,7 +63,7 @@
 - `rooms` を渡したときは、その長方形の中のタイルに `roomOf` を入れる（文字の目印は使わない）
 
 - engine のファイルは、ゲーム固有の名前を読み込み時に使わない（実行時に使うものは上の表の右列だけ）
-- engine を変えたら、使っている全ゲームで確認する。今のところ使っているのは Sector Dive だけ
+- engine を変えたら、使っている全ゲームで確認する。今のところ使っているのは Sector Dive と Sector Dive Extended
 
 ## まだ切り出していないもの
 

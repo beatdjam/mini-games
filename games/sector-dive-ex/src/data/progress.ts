@@ -1,5 +1,5 @@
 import type { Upgrade, RebootUpgrade } from './types.ts';
-import { withLang } from './langslots.ts';
+import { withLang } from '@engine/core/langslots.ts';
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.

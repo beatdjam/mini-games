@@ -104,6 +104,8 @@ import {
 } from '../src/world/projectiles.ts';
 import { steerChase } from '../src/world/steer.ts';
 import { banner, keepAwake, toast } from '../src/ui/ui.ts';
+import { onDataClick, rowsHTML } from '../src/ui/dom.ts';
+import { withLang } from '../src/core/langslots.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
@@ -2576,4 +2578,31 @@ test('floormap3d: floors as slabs of the tiles that show, links as lines, the vi
   eq(map.scene.children[0].children.length, 3, 'all three floors, no links drawn');
   map.dispose();
   c.remove();
+});
+
+test('langslots: withLang puts the blank language fields in every entry first, the entry wins', () => {
+  type Def = { hp: number; name: string; desc: string };
+  const table = withLang<Def, 'name' | 'desc'>({ a: { hp: 1 }, b: { hp: 2 } }, { name: '', desc: '' });
+  expect(table.a).toEqual({ hp: 1, name: '', desc: '' });
+  expect(table.b!.hp).toBe(2);
+  const list = withLang<Def, 'name' | 'desc'>([{ hp: 3 }], { name: '-', desc: '' });
+  expect(list).toEqual([{ hp: 3, name: '-', desc: '' }]);
+});
+test('dom: rowsHTML makes the rows of a <dl>, onDataClick hands the nearest data attribute to the first match', () => {
+  expect(
+    rowsHTML([
+      ['HP', 10],
+      ['Name', 'x'],
+    ]),
+  ).toBe('<div><dt>HP</dt><dd>10</dd></div><div><dt>Name</dt><dd>x</dd></div>');
+  const root = document.createElement('div');
+  root.innerHTML = '<div data-tab="b"><span data-buy="7"><i id="leaf">x</i></span></div><p id="none">-</p>';
+  document.body.appendChild(root);
+  const got: string[] = [];
+  onDataClick(root, ['buy', v => got.push(`buy ${v}`)], ['tab', v => got.push(`tab ${v}`)]);
+  root.querySelector<HTMLElement>('#leaf')!.click();
+  root.querySelector<HTMLElement>('[data-tab]')!.click();
+  root.querySelector<HTMLElement>('#none')!.click();
+  expect(got, 'the first entry that matches only; nothing for a plain element').toEqual(['buy 7', 'tab b']);
+  root.remove();
 });

@@ -13,7 +13,7 @@ import { bigmap, weaponHud } from '../ui/hud.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { statsHTML } from './pause.ts';
 import { weaponReachText } from './base.ts';
-import { onDataClick } from './rows.ts';
+import { onDataClick } from '@engine/ui/dom.ts';
 
 // transient state of the bag screen
 const bagUI: { sel: { where: string; i: number } | null } = {

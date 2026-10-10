@@ -1,5 +1,5 @@
 import type { Perk } from './types.ts';
-import { withLang } from './langslots.ts';
+import { withLang } from '@engine/core/langslots.ts';
 import { TUNE } from './progress.ts';
 import { SPLIT_MAX } from './weapons.ts';
 // Chips offered during a run

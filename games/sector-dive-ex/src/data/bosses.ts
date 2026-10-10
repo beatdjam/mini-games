@@ -1,5 +1,5 @@
 import type { BossMeta } from './types.ts';
-import { withLang } from './langslots.ts';
+import { withLang } from '@engine/core/langslots.ts';
 // Bosses: names, order, tuning (each boss's behaviour is in src/actors/bosses/)
 // pillars: arena has pillars. hp: health at difficulty 1 (times bossDifficulty). y: body height. hitR: hit radius.
 // tune: the numbers each boss's attacks use (src/actors/bosses/<name>.ts). *Enr = the value once below half health (enraged).
