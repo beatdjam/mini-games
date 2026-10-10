@@ -106,6 +106,8 @@ import { steerChase } from '../src/world/steer.ts';
 import { banner, keepAwake, toast } from '../src/ui/ui.ts';
 import { onDataClick, rowsHTML } from '../src/ui/dom.ts';
 import { withLang } from '../src/core/langslots.ts';
+import { facesToward, floorSides, wallSide } from '../src/world/walls.ts';
+import { WINDOW_ORDER, buildBackdrop, buildWindowPanes } from '../src/render/windows.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
@@ -2605,4 +2607,75 @@ test('dom: rowsHTML makes the rows of a <dl>, onDataClick hands the nearest data
   root.querySelector<HTMLElement>('#none')!.click();
   expect(got, 'the first entry that matches only; nothing for a plain element').toEqual(['buy 7', 'tab b']);
   root.remove();
+});
+test("walls: a wall's faces, the outside wall and a thin wall, which way a face looks", () => {
+  const d = tileMapFromRows(['#######', '#..#..#', '#######', '#######', '#.....#', '#######']),
+    at = (i: number, j: number) => j * d.W + i;
+  expect(floorSides(d, at(3, 1)), 'floor on both sides').toEqual([
+    [1, 0],
+    [-1, 0],
+  ]);
+  expect(floorSides(d, at(3, 2)), 'seen from no floor').toEqual([]);
+  expect(wallSide(d, at(0, 1)), 'the map edge behind it').toBe('outer');
+  expect(wallSide(d, at(1, 0)), 'the map edge behind it').toBe('outer');
+  expect(wallSide(d, at(3, 1)), 'floor right behind it, on both sides').toBe('inner');
+  expect(wallSide(d, at(1, 2)), 'floor further behind it').toBeNull();
+  expect(wallSide(d, at(3, 2)), 'seen from no floor').toBeNull();
+  // the wall on a room's -x side looks toward -x (its floor is on the +x side)
+  expect(facesToward(d, at(0, 1), [-1, 0])).toBe(true);
+  expect(facesToward(d, at(6, 1), [-1, 0])).toBe(false);
+  expect(facesToward(d, at(6, 1), [1, 0])).toBe(true);
+  expect(facesToward(d, at(1, 0), [0, -1]), 'the top wall looks toward -z').toBe(true);
+});
+test('windows: panes on the faces mark the stencil, the backdrop is drawn only there and stays round the eye', () => {
+  expect(buildWindowPanes([], 6)).toBeNull();
+  // two panes on the -x face of tile (2, 3), seen from the floor at (3, 3)
+  const panes = buildWindowPanes(
+    [
+      {
+        i: 2,
+        j: 3,
+        di: 1,
+        dj: 0,
+        rects: [
+          [0, 0.5, 0.5, 1],
+          [0.5, 0.5, 1, 1],
+        ],
+      },
+    ],
+    6,
+  )!;
+  expect(panes.count).toBe(2);
+  expect(panes.renderOrder).toBe(WINDOW_ORDER);
+  const m = new THREE.Matrix4(),
+    p = new THREE.Vector3(),
+    q = new THREE.Quaternion(),
+    s = new THREE.Vector3();
+  panes.getMatrixAt(0, m);
+  m.decompose(p, q, s);
+  expect(p.x, 'just in front of the face, toward the floor').toBeCloseTo(3 * T + 0.02);
+  expect(p.y, 'the lower half of the face').toBeCloseTo(1.5);
+  expect(s.x).toBeCloseTo(T / 2);
+  expect(s.y).toBeCloseTo(3);
+  // its front toward the floor (+x); the face's left as seen from there is toward +z
+  expect(new THREE.Vector3(0, 0, 1).applyQuaternion(q).x).toBeCloseTo(1);
+  expect(p.z, 'the left pane').toBeCloseTo(3.5 * T + T / 4);
+  const pm = panes.material as THREE.MeshBasicMaterial;
+  expect([pm.colorWrite, pm.stencilWrite, pm.stencilZPass]).toEqual([false, true, THREE.ReplaceStencilOp]);
+  const back = buildBackdrop(new THREE.Texture(), 100, 80),
+    bm = back.material as THREE.MeshBasicMaterial;
+  expect(back.renderOrder).toBe(WINDOW_ORDER + 1);
+  expect([bm.depthTest, bm.stencilFunc, bm.fog]).toEqual([false, THREE.EqualStencilFunc, false]);
+  const cam = new THREE.PerspectiveCamera();
+  cam.position.set(7, 2, -5);
+  cam.updateMatrixWorld();
+  back.onBeforeRender(
+    {} as THREE.WebGLRenderer,
+    new THREE.Scene(),
+    cam,
+    back.geometry,
+    back.material as THREE.Material,
+    {} as THREE.Group,
+  );
+  expect(back.position.toArray()).toEqual([7, 2, -5]);
 });

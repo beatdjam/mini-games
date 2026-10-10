@@ -52,7 +52,8 @@ import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
-import { facesWest, lookOf, variantOf, wallPic, wallSide, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
+import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
+import { wallSide } from '@engine/world/walls.ts';
 import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, REBOOT_ENDLESS, REBOOT_UP, TUNE } from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
 import {

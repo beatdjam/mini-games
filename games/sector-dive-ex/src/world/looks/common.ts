@@ -1,5 +1,7 @@
 import type * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
+import { facesToward, wallSide } from '@engine/world/walls.ts';
+import type { WallMap } from '@engine/world/walls.ts';
 import { CSS_COLOR } from '../../data/colors.ts';
 import type { FloorPlan } from '../building.ts';
 import { TEX, grain, grime } from './paint.ts';
@@ -54,55 +56,22 @@ export function byLane(
 ): boolean {
   return [k - 1, k + 1, k - d.W, k + d.W].some(t => d.maps.grid[t] === 1 && d.maps.roomOf[t]! < 0);
 }
-// The pictures (by number) that go only on some walls; on any other wall the plain picture stands in their place.
-// `outer`: only on the building's outside wall, where nothing of the floor lies behind the wall out to the map's edge
+// The pictures (by number) that go only on some walls (engine/src/world/walls.ts wallSide); on any other wall the
+// plain picture stands in their place. `outer`: only on the building's outside wall, where nothing of the floor lies behind the wall out to the map's edge
 // (a window with the evening outside, a fire exit). `inner`: only on a thin wall, with floor right behind it (a glass
 // partition, with the next room or the corridor beyond it)
 export interface WallSides {
   outer?: number[];
   inner?: number[];
 }
-// how a wall tile stands: 'outer' when behind every face of it (looking away from the floor that face is seen from)
-// there is no floor out to the map's edge, 'inner' when right behind every face there is floor, else null (a wall
-// with more of the building some way behind it, or one that no floor sees)
-export function wallSide(
-  d: { W: number; H?: number; maps: { grid: ArrayLike<number> } },
-  k: number,
-): 'outer' | 'inner' | null {
-  const { W } = d,
-    H = d.H ?? Math.floor(d.maps.grid.length / W),
-    i = k % W,
-    j = Math.floor(k / W);
-  let faces = 0,
-    outer = true,
-    inner = true;
-  for (const [di, dj] of [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ] as const) {
-    if (d.maps.grid[(j + dj) * W + i + di] !== 1) continue;
-    faces++;
-    // from the wall, away from that floor
-    let n = 1;
-    while (i - di * n >= 0 && j - dj * n >= 0 && i - di * n < W && j - dj * n < H) {
-      if (d.maps.grid[(j - dj * n) * W + i - di * n] === 1) break;
-      n++;
-    }
-    const open = i - di * n < 0 || j - dj * n < 0 || i - di * n >= W || j - dj * n >= H;
-    if (!open) outer = false;
-    if (n !== 1) inner = false;
-  }
-  return !faces ? null : outer ? 'outer' : inner ? 'inner' : null;
-}
 // The evening sun is in the west, which is toward -x on every map: a wall tile faces west when the floor it is seen
 // from lies east of it (a window there looks out at the sun and lets it in)
-export const facesWest = (d: { maps: { grid: ArrayLike<number> } }, k: number): boolean => d.maps.grid[k + 1] === 1;
+const WEST = [-1, 0] as const;
+export const facesWest = (d: WallMap, k: number): boolean => facesToward(d, k, WEST);
 // which picture a wall tile gets: variantOf, but along an alley the plain one gives way to one of `laneWalls`; a
 // picture of `sides` on a wall it may not go on gives way to the plain one
 export function wallPic(
-  d: { W: number; H?: number; maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
+  d: WallMap & { maps: { roomOf: ArrayLike<number> } },
   k: number,
   count: number,
   laneWalls?: number[],

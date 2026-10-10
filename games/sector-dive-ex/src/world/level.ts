@@ -32,9 +32,10 @@ import type { Building } from './building.ts';
 import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import { lookOf } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
-import { paint } from './looks/paint.ts';
+import { BACKDROP_R, BACKDROP_TALL, paint } from './looks/paint.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
-import { buildAtriumProps, buildBackdrop, buildFloorMeshes, buildLevelMeshes, buildYardShell } from './levelMesh.ts';
+import { buildAtriumProps, buildFloorMeshes, buildLevelMeshes, buildYardShell } from './levelMesh.ts';
+import { buildBackdrop } from '@engine/render/windows.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const ARENA_FOG_NEAR = 6; // fog start in boss arenas (m)
@@ -396,7 +397,7 @@ export function showBuilding(b: Building) {
     all.add(yardShell);
   }
   // what its windows look out on (a sector with windows one sees out of: Look.outside)
-  if (look?.outside) all.add(buildBackdrop(look.outside.backdrop));
+  if (look?.outside) all.add(buildBackdrop(look.outside.backdrop, BACKDROP_R, BACKDROP_TALL));
   b.links.forEach((l, n) => {
     if (l.kind !== 'elevator') return;
     // a sector with a look has the platform's picture on top (the same in every sector); else it is plain violet
