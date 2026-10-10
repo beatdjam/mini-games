@@ -16,6 +16,7 @@ import {
   words,
 } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import { cityBackdrop } from './backdrop.ts';
 // The old downtown (CITY): a wide floor of an old office building late in the afternoon. Beige wall panels and grey
 // carpet, a hung ceiling with its lamps mostly off, and the low sun coming amber through the blinds. The sector is
 // seen from far away (its fog starts late), so most of the walls are plain and the lights are kept soft: the enemies
@@ -532,17 +533,28 @@ export const CITY_LANE_WALLS = [5, 6, 10, 5, 9, 11, 7, 10];
 // the windows (the evening outside) and the fire exit only on the building's outside wall, a glass partition only on
 // a thin wall between two rooms or a room and a corridor (common.ts WallSides)
 export const CITY_WALL_SIDES: WallSides = { outer: [3, 4, 7], inner: [5] };
+// the window with its blind part raised is seen through (Look.outside): its two panes under the blind, either side
+// of the bar in the middle
+const BLIND_RAISED = 0.55; // the share of the pane under the blind
+const blindPanes = (raised: number): [number, number, number, number][] => {
+  const top = rowOf(4.5) + (rowOf(1.05) - rowOf(4.5)) * (1 - raised),
+    bottom = rowOf(1.05);
+  return [
+    [28, top, TEX / 2 - 2.5, bottom],
+    [TEX / 2 + 2.5, top, TEX - 28, bottom],
+  ];
+};
 // the windows as they are where the evening sun does not come in (a window not facing west: Look.shadedWalls)
 const CITY_DUSK_PICS: Record<number, Paint> = {
   3: (g, rand) => blindWindow(g, rand, 0, false),
-  4: (g, rand) => blindWindow(g, rand, 0.3, false),
+  4: (g, rand) => blindWindow(g, rand, BLIND_RAISED, false),
 };
 export const CITY_WALL_PICS: (Paint | null)[] = [
   null, // plain panels
   null, // cloth panels (WALL_CLOTH)
   ventAndSwitch,
   (g, rand) => blindWindow(g, rand, 0), // a window with its blind down (WALL_BLIND)
-  (g, rand) => blindWindow(g, rand, 0.3), // ... with the blind part raised (WALL_BLIND_RAISED)
+  (g, rand) => blindWindow(g, rand, BLIND_RAISED), // ... with the blind part raised, seen through (Look.outside)
   glassPartition,
   noticeBoard,
   emergencyExit,
@@ -900,6 +912,7 @@ export function cityPictures(): Pictures {
     laneWalls: CITY_LANE_WALLS,
     wallSides: CITY_WALL_SIDES,
     // (the same seed as the lit one: the same panels, only the window differs)
+    outside: { panes: { 4: blindPanes(BLIND_RAISED) }, backdrop: cityBackdrop() },
     shadedWalls: Object.fromEntries(
       Object.keys(CITY_DUSK_PICS).map(v => [v, paint(1100 + Number(v), cityWall(Number(v), true))]),
     ),

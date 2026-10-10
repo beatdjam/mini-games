@@ -63,6 +63,13 @@ export const poolTex = (): THREE.CanvasTexture =>
 // ---- strokes ----
 // the picture row of a height on a wall or a door (m above the floor)
 export const rowOf = (m: number) => TEX * (1 - m / WALL_H);
+// the view out of the windows (Look.outside): a band this many pixels round and high, wrapped round the player on a
+// cylinder BACKDROP_R from the eye and BACKDROP_TALL high, its middle row (BACKDROP_EYE) at the eye's height
+export const BACKDROP_W = 2048,
+  BACKDROP_H = 512,
+  BACKDROP_EYE = BACKDROP_H / 2;
+export const BACKDROP_R = 110, // m (inside the camera's far plane, 140 m, even at the band's top and bottom)
+  BACKDROP_TALL = 120; // m
 // speckles and blotches over the whole picture: dirt
 export function grime(g: CanvasRenderingContext2D, rand: () => number, n: number, light: string, dark: string) {
   for (let k = 0; k < n; k++) {

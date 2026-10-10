@@ -11,7 +11,7 @@ import { PERKS } from '../data/perks.ts';
 import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
 import { building, devCourtOpen } from '../world/building.ts';
-import { devPlainLooks } from '../world/looks.ts';
+import { devPlainLooks, lookOf, wallPic } from '../world/looks.ts';
 import { useSparkLooks } from '../world/models/sparkLooks.ts';
 import { setHazardClock } from '../world/hazards.ts';
 import { devPlainGuns } from '../actors/viewmodel.ts';
@@ -81,7 +81,7 @@ if (courtParam === 'open' || courtParam === 'roof')
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
 // lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
 // court / courttop / courtmid (the courtyard, from its ground and from its galleries), courtalong (along a yard's
-// balcony)
+// balcony), window (two tiles in front of a window one sees out of, facing it: Look.outside)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -166,6 +166,23 @@ if (location.hash.startsWith('#bld-'))
       } else {
         stand(floor, c.tiles[1]! - W, W);
         player.pitch = -0.55;
+      }
+    } else if (what === 'window') {
+      // the first window seen through, floor by floor, with two floor tiles in front of it
+      const look = lookOf(b.biome);
+      for (let floor = 0; floor < b.plans.length && look?.outside; floor++) {
+        const d = b.plans[floor]!.gen,
+          grid = d.maps.grid,
+          k = grid.findIndex(
+            (v, k) =>
+              !v &&
+              !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)] &&
+              [1, -1, W, -W].some(o => grid[k + o] === 1 && grid[k + 2 * o] === 1),
+          );
+        if (k < 0) continue;
+        const o = [1, -1, W, -W].find(o => grid[k + o] === 1 && grid[k + 2 * o] === 1)!;
+        stand(floor, k + 2 * o, -o);
+        break;
       }
     } else if (what === 'boss') {
       const hall = b.plans[b.plans.length - 1]!.hall!,
