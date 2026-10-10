@@ -34,7 +34,8 @@ import { lookOf } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { BACKDROP_R, BACKDROP_TALL, paint } from './looks/paint.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
-import { buildAtriumProps, buildFloorMeshes, buildLevelMeshes, buildYardShell } from './levelMesh.ts';
+import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
+import { buildAtriumProps, buildYardShell } from './courtMesh.ts';
 import { buildBackdrop } from '@engine/render/windows.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
@@ -88,7 +89,7 @@ let floorGroups: THREE.Group[] = [];
 // per floor: what stands in and round the courtyard (null on a floor it does not pass); drawn from the other floors
 // it passes without the rest of the floor
 let courtGroups: (THREE.Group | null)[] = [];
-// a yard's outer walls, sky, ground and what is on them, or what hangs in an atrium (levelMesh.ts buildYardShell,
+// a yard's outer walls, sky, ground and what is on them, or what hangs in an atrium (courtMesh.ts buildYardShell,
 // buildAtriumProps)
 let yardShell: THREE.Group | null = null;
 let shown: Building | null = null;
