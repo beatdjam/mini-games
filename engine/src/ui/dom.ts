@@ -1,4 +1,5 @@
-// a label / value list for the <dl class="reslist"> panels (stats, result)
+// Small helpers for a game's panels built from HTML strings.
+// a label / value list for a <dl>: one <div><dt>label</dt><dd>value</dd></div> per row
 export const rowsHTML = (rows: [string, string | number][]): string =>
   rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
 // click handling by data attribute: the first entry of `table` whose `[data-attr]` is on the clicked element (or the

@@ -1,5 +1,5 @@
 import type { WeaponDef, Rarity, Affix } from './types.ts';
-import { withLang } from './langslots.ts';
+import { withLang } from '@engine/core/langslots.ts';
 import { COLOR, CSS_COLOR } from './colors.ts';
 // Weapons: types, rarity, options, drop pool, base-side modding costs
 export const WEAPONS = withLang<WeaponDef, 'name' | 'desc'>(

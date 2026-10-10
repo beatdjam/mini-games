@@ -8,7 +8,7 @@ import { stageInfo } from '../core/stages.ts';
 import { hideShare, prepShare } from '../ui/share.ts';
 import { prepFeedback } from '../ui/feedback.ts';
 import { setPlayUI, show } from '../flow/state.ts';
-import { rowsHTML } from './rows.ts';
+import { rowsHTML } from '@engine/ui/dom.ts';
 
 // the result screen comes up at once, or after the death moment
 const DEAD_DELAY = 700; // ms

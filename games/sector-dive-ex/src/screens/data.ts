@@ -6,7 +6,7 @@ import { applyLayout } from '@engine/ui/touchlayout.ts';
 import { saveFile } from '@engine/ui/share.ts';
 import { SAVE_KEY, defaultSave, exportSave, importSave, importSaveCheck, persist, setSave } from '../core/save.ts';
 import { baseUI, renderBase } from './base.ts';
-import { onDataClick } from './rows.ts';
+import { onDataClick } from '@engine/ui/dom.ts';
 import { refreshKeyTexts } from './keys.ts';
 import { applyKeyBindings } from '../ui/input.ts';
 

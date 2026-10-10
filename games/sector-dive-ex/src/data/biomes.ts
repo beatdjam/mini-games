@@ -1,5 +1,5 @@
 import type { Biome } from './types.ts';
-import { withLang } from './langslots.ts';
+import { withLang } from '@engine/core/langslots.ts';
 // Sectors: look, level generation parameters, boss candidates
 // sectors: each run visits them in a shuffled order. gen = level generator settings, bosses = candidates for the sector's boss
 export const BIOMES = withLang<Biome, 'name'>(

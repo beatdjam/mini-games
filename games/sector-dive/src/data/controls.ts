@@ -1,5 +1,5 @@
 import type { KeyActionDef } from './types.ts';
-import { withLang } from './langslots.ts';
+import { withLang } from '@engine/core/langslots.ts';
 // Touch button layout, the PC key actions and the controls guide
 // touch button layout: x/y are the centre as a fraction of the screen, b is the base size in px
 export const LAYOUT_DEF = {

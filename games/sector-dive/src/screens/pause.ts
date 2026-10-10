@@ -24,7 +24,7 @@ import { renderSettings } from '@engine/ui/settings.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { endRun } from '../flow/run.ts';
 import { suspendRun } from '../flow/suspend.ts';
-import { rowsHTML } from './rows.ts';
+import { rowsHTML } from '@engine/ui/dom.ts';
 
 // the run's own text that was written out in the old language (the language can be switched from the pause screen)
 export function refreshRunText() {

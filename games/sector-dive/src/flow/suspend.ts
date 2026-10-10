@@ -11,7 +11,7 @@ import { setSuspend } from '../core/progress.ts';
 import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
-import { onDataClick } from '../screens/rows.ts';
+import { onDataClick } from '@engine/ui/dom.ts';
 import { beginDive, endRun, enterDive, goBase } from './run.ts';
 
 // ---- suspend / resume ----
