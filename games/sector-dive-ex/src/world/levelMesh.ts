@@ -246,11 +246,13 @@ function addRail(x: number, z: number, len: number, alongX: boolean, group: THRE
     group.add(post);
   }
 }
-// A bridge across a yard, from under: the slab it is walked on (the floor's own tiles lie on top of it), two steel
-// girders along it and a cross beam under every joint
+// A bridge across a yard or an atrium, from under: the slab it is walked on (the floor's own tiles lie on top of it),
+// two steel girders along it and a cross beam under every joint. Under an atrium's roof the slab's underside is the
+// floor's ceiling picture (`under`; a plain dark slab read as a black board from below); under a yard's sky it stays
+// plain (an office ceiling out of doors would be out of place)
 const BRIDGE_SLAB = 0.3,
   BRIDGE_GIRDER = 0.5; // how thick the slab is and how deep the girders under it (m)
-function addBridge(tiles: number[], group: THREE.Group) {
+function addBridge(tiles: number[], group: THREE.Group, under: THREE.Material | null) {
   if (!tiles.length) return;
   const is = tiles.map(k => k % W),
     js = tiles.map(k => (k / W) | 0),
@@ -264,13 +266,15 @@ function addBridge(tiles: number[], group: THREE.Group) {
       m.position.set(cx + (alongX ? at : off), y, cz + (alongX ? off : at));
       group.add(m);
     };
-  // (its top a little under the floor's tiles: two faces in one plane flicker)
-  box(len, BRIDGE_SLAB, T, -BRIDGE_SLAB / 2 - 0.02, 0, 0, new THREE.MeshBasicMaterial({ color: PAINT.ink11 }));
+  // (its top a little under the floor's tiles and its bottom a little over the underside's: two faces in one plane
+  // flicker)
+  box(len, BRIDGE_SLAB - 0.02, T, -BRIDGE_SLAB / 2 - 0.02, 0, 0, new THREE.MeshBasicMaterial({ color: PAINT.ink11 }));
+  if (under) addTilePlanes(tiles, -BRIDGE_SLAB - 0.02, false, under, group);
   for (const side of [-1, 1]) box(len, BRIDGE_GIRDER, 0.3, -BRIDGE_SLAB - BRIDGE_GIRDER / 2, side * (T / 2 - 0.15));
   for (let n = 0; n <= tiles.length; n++)
     box(0.25, BRIDGE_GIRDER * 0.7, T - 0.6, -BRIDGE_SLAB - 0.2, 0, -len / 2 + n * T);
 }
-function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group, sector: string) {
+function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group, sector: string, ceiling: THREE.Material) {
   const [SKYLIGHT, SKY_POOL_OPACITY] = SKYLIGHTS[sector] ?? SKYLIGHTS.CITY!,
     is = court.tiles.map(k => k % W),
     js = court.tiles.map(k => (k / W) | 0),
@@ -292,7 +296,7 @@ function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group, se
         if (stood.has(t) || (!court.open && !court.tiles.includes(t)))
           addRail(tileCenter(k % W) + (di * T) / 2, tileCenter((k / W) | 0) + (dj * T) / 2, T, dj !== 0, group);
       }
-    addBridge(court.bridge, group);
+    addBridge(court.bridge, group, court.open ? null : ceiling);
   }
   if (court.open) return;
   if (court.top) {
@@ -882,7 +886,7 @@ export function buildFloorMeshes(
     boxes.instanceMatrix.needsUpdate = true;
     into.add(boxes);
   }
-  if (plan.court) addCourt(plan.court, courtGroup ?? group, biome.code);
+  if (plan.court) addCourt(plan.court, courtGroup ?? group, biome.code, dark);
   // a sector with a look brings its own signs; the plain neon bars are for the sectors without one
   if (look) look.props(plan, group, rng);
   else if (biome.gen.neon) addNeonSigns(walls, group, rng);
