@@ -4,7 +4,7 @@ import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { wallPic } from '../common.ts';
 import { SIGN_FONT, canvasTex, oval, poolTex } from '../paint.ts';
 import { LAMP_POOL, facing, lightMat, onWall, pose, propTools } from '../props.ts';
 import type { Light } from '../props.ts';
@@ -12,7 +12,7 @@ import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { fallenPanelTex, officeBoxTex, officeHeapTex, officeTex } from './cutouts.ts';
 import { CITY_EXTINGUISHER, CITY_GUIDE } from '../../../i18n/signs.ts';
-import { BARRIER_RED, BARRIER_WHITE, CITY_WALL_PICS } from './pictures.ts';
+import { BARRIER_RED, BARRIER_WHITE, CITY_LANE_WALLS, CITY_WALL_PICS } from './pictures.ts';
 // The props of the old downtown (CITY): the things fixed to its walls and ceilings, and the light they throw. They go
 // by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
 // together.
@@ -157,6 +157,7 @@ function plateTex(): THREE.CanvasTexture {
 let cityKit: WallKit | null = null;
 const makeCityKit = (): WallKit => ({
   pics: CITY_WALL_PICS.length,
+  laneWalls: CITY_LANE_WALLS,
   bare: PLAIN_WALLS,
   units: {
     maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => officeTex(800 + n)),
@@ -172,7 +173,7 @@ const makeCityKit = (): WallKit => ({
     w: 3.5,
     h: 1.75,
     hall: 0.5,
-    lane: 0.6,
+    lane: 0.8,
   },
   high: [
     {
@@ -206,7 +207,7 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tools = propTools(plan, group, CITY_PROPS, rng),
     { d, wallOf, add } = tools,
     M = d.maps;
-  const pictureOf = (wall: number) => variantOf(wall, CITY_WALL_PICS.length, WALL_PLAIN_SHARE);
+  const pictureOf = (wall: number) => wallPic(d, wall, CITY_WALL_PICS.length, CITY_LANE_WALLS);
   // (the things on the walls go on the plain pictures only, clear of the windows, boards and cabinets)
   const of = (id: string) => tools.of(id).filter(s => s.kind !== 'wall' || PLAIN_WALLS.includes(pictureOf(wallOf(s))));
 

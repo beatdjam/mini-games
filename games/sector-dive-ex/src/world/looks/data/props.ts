@@ -8,6 +8,9 @@ import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
 import { poolTex } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
+import { dressWalls } from '../dress.ts';
+import type { WallKit } from '../dress.ts';
+import { hallBoxTex, hallHeapTex, hallTex, loopsTex } from './cutouts.ts';
 import { CABLES, DATA_WALLS, RACK, RACK_PICS } from './pictures.ts';
 import type { WallPic } from './pictures.ts';
 // The props of the discarded data layer (DATA): the things fixed to its walls and ceilings, and the light they throw.
@@ -42,6 +45,62 @@ const HOUSING = 0x2a3036; // boxes, brackets
 // Cable ladders along the walls under the ceiling, bundles of cables up the bare walls, a small alarm unit over some
 // rack rows, emergency lamps on the walls with their glow, and tube fittings on the ceiling with a pool of light
 // under each
+// what the hall's walls are dressed with (looks/dress.ts): patch bays, shelves of parts, consoles and power units let
+// into them, drums of cable and pulled chassis along their feet, loops of cable let down, coloured cords run along
+// the walls
+let dataKit: WallKit | null = null;
+const makeDataKit = (): WallKit => ({
+  pics: DATA_WALLS.length,
+  bare: DATA_WALLS.flatMap((pic, n) => (pic === 'panel' || pic === 'blank' ? [n] : [])),
+  units: {
+    maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => hallTex(400 + n)),
+    w: 3.7,
+    h: 2.84,
+    hall: 0.3,
+    lane: 0.25,
+    counter: [0, 1, 2, 3].map(n => hallBoxTex(420 + n)),
+    light: 0x7fd8ff,
+  },
+  heaps: {
+    maps: [0, 1, 2, 3, 4, 5].map(n => hallHeapTex(440 + n)),
+    solid: [0, 1, 2, 3, 4, 5].map(n => hallBoxTex(460 + n)),
+    w: 3.5,
+    h: 1.75,
+    hall: 0.5,
+    lane: 0.65,
+  },
+  high: [
+    {
+      maps: [0, 1, 2].map(n => loopsTex(480 + n)),
+      w: 2.6,
+      h: 2,
+      y: [4.4, 4.9],
+      out: [0.5, 1.5],
+      hall: 0.16,
+      lane: 0.3,
+    },
+  ],
+  runs: [
+    {
+      colors: [0x3d8de0, 0xe0b83d, 0xd9d6cc, 0x22262b, 0x15171a, 0xe0553d],
+      r: 0.025,
+      n: [4, 8],
+      hall: 0.4,
+      lane: 0.9,
+      y: [5, 5.5],
+      laneY: [3.6, 4.6],
+    },
+    {
+      colors: [0x22262b, 0x15171a, 0x3d8de0],
+      r: 0.03,
+      n: [2, 4],
+      hall: 0.1,
+      lane: 0.6,
+      y: [0.1, 0.2],
+      laneY: [0.1, 0.2],
+    },
+  ],
+});
 export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const { d, wallOf, of, add, pools } = propTools(plan, group, DATA_PROPS, rng),
     up = new THREE.Vector3(0, 1, 0);
@@ -182,5 +241,7 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
 
   // the light the lamps throw on the ground: a soft pool of their colour
+  // the hall's clutter, wall by wall (looks/dress.ts)
+  dressWalls({ add }, d, plan, rng, (dataKit ??= makeDataKit()), lights);
   pools(lights, POOL_OPACITY);
 }

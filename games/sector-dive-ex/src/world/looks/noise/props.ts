@@ -8,6 +8,9 @@ import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
 import { canvasTex, poolTex } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
+import { dressWalls } from '../dress.ts';
+import type { WallKit } from '../dress.ts';
+import { hangingTex, studioBoxTex, studioHeapTex, studioTex } from './cutouts.ts';
 import { NOISE_ON_AIR } from '../../../i18n/signs.ts';
 import { FRAME_BLACK, SCREEN, WALL_KINDS } from './pictures.ts';
 import type { WallKind } from './pictures.ts';
@@ -79,6 +82,61 @@ let noiseShared: NoiseShared | null = null;
 // Static moving on the monitors that still work, with its faint light on the floor before them; aerial feeders up
 // the walls and spare cable coiled on hooks; "ON AIR" lamp signs, most of them dead; tube lamps on the ceiling with
 // a pale pool of light under each
+// what the studios' walls are dressed with (looks/dress.ts): racks of gear, shelves of tape, mixing desks and stacked
+// road cases let into them, cases and loudspeakers along their feet, microphones left hanging, looms of cable
+let noiseKit: WallKit | null = null;
+const makeNoiseKit = (): WallKit => ({
+  pics: WALL_KINDS.length,
+  bare: WALL_KINDS.flatMap((kind, n) => (kind === 'board' || kind === 'foam' || kind === 'cloth' ? [n] : [])),
+  units: {
+    maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => studioTex(2700 + n)),
+    w: 3.7,
+    h: 2.84,
+    hall: 0.3,
+    lane: 0.22,
+    counter: [0, 1, 2, 3].map(n => studioBoxTex(2720 + n)),
+    light: 0xc9a8ff,
+  },
+  heaps: {
+    maps: [0, 1, 2, 3, 4, 5].map(n => studioHeapTex(2740 + n)),
+    solid: [0, 1, 2, 3, 4, 5].map(n => studioBoxTex(2760 + n)),
+    w: 3.5,
+    h: 1.75,
+    hall: 0.5,
+    lane: 0.65,
+  },
+  high: [
+    {
+      maps: [0, 1, 2].map(n => hangingTex(2780 + n)),
+      w: 2,
+      h: 2.4,
+      y: [4.3, 4.7],
+      out: [0.6, 1.6],
+      hall: 0.14,
+      lane: 0.22,
+    },
+  ],
+  runs: [
+    {
+      colors: [0x0e0d11, 0x1c1a20, 0x2e2a38, 0x4a4458],
+      r: 0.04,
+      n: [3, 6],
+      hall: 0.35,
+      lane: 0.85,
+      y: [5, 5.5],
+      laneY: [3.8, 4.7],
+    },
+    {
+      colors: [0x0e0d11, 0x1c1a20, 0x2e2a38],
+      r: 0.035,
+      n: [2, 4],
+      hall: 0.15,
+      lane: 0.6,
+      y: [0.1, 0.2],
+      laneY: [0.1, 0.2],
+    },
+  ],
+});
 export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   noiseShared ??= { snow: staticTex(), onAir: [onAirTex(false), onAirTex(true)] };
   const shared = noiseShared,
@@ -222,5 +280,7 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
 
   // the light the lamps and the monitors throw on the ground: a soft pool of their colour
+  // the studios' clutter, wall by wall (looks/dress.ts)
+  dressWalls({ add }, d, plan, rng, (noiseKit ??= makeNoiseKit()), lights);
   pools(lights, POOL_OPACITY);
 }

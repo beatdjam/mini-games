@@ -582,7 +582,25 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     flatMat(0x241b14),
     stallAt.flatMap(a => [-1.8, 1.8].map(off => pose(onWall(a.s, off, 0.52, 1.42), facing(a.s)))),
   );
-  const heapAt = spot.heap.map(s => ({ s, off: rng.rand(-0.3, 0.3) }));
+  // (and against the sides of the raised decks: things pile up there as they do along a wall)
+  const deckFeet: Face[] = [];
+  for (let j = 1; j < d.H - 1; j++)
+    for (let i = 1; i < d.W - 1; i++) {
+      const k = j * d.W + i;
+      if (d.maps.grid[k] !== 1 || d.maps.hgt[k]! > 0 || d.maps.ramp[k]! >= 0) continue;
+      SIDE_STEP.forEach(([di, dj], side) => {
+        const n = (j + dj) * d.W + i + di;
+        if (
+          d.maps.grid[n] === 1 &&
+          d.maps.ramp[n]! < 0 &&
+          d.maps.hgt[n]! >= 1.5 &&
+          !d.maps.cover[n] &&
+          rng.next() < 0.5
+        )
+          deckFeet.push({ i, j, side, room: roomAt(i, j) });
+      });
+    }
+  const heapAt = [...spot.heap, ...deckFeet].map(s => ({ s, off: rng.rand(-0.3, 0.3) }));
   for (const h of heapAt) {
     const turn = facing(h.s);
     for (let k = 0, n = rng.randi(2, 4); k < n; k++) {
