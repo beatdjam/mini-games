@@ -76,14 +76,15 @@ if (courtParam === 'open' || courtParam === 'roof')
     yardParam === 'balcony' || yardParam === 'walk' || yardParam === 'bridge' ? yardParam : null,
   );
 
-// dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
+// dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots; ?pitch=
+// to look up or down):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
 // lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
 // court / courttop / courtmid (the courtyard, from its ground and from its galleries), courtalong (along a yard's
 // balcony), window (two tiles in front of a window one sees out of, facing it: Look.outside), windowdown / windowup
 // (right up at that window, looking down out of it / up out of it), ramp (two tiles to the side of the first ramp up
-// to a deck, facing its side)
+// to a deck, facing its side), walkway (on a raised walkway along an alley, at its start, looking along it)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -209,6 +210,17 @@ if (location.hash.startsWith('#bld-'))
         stand(floor, k + 2 * o, -o);
         break;
       }
+    } else if (what === 'walkway') {
+      // the first ramp up to a walkway (a raised run of an alley, not a deck in a room), floor by floor from the
+      // bottom one up
+      for (let floor = b.plans.length - 1; floor >= 0; floor--) {
+        const m = b.plans[floor]!.gen.maps,
+          stepOf = (k: number) => [1, -1, W, -W][m.ramp[k]!]!,
+          k = m.grid.findIndex((v, k) => v === 1 && m.ramp[k]! >= 0 && m.roomOf[k]! < 0 && m.hgt[k + stepOf(k)]! > 0);
+        if (k < 0) continue;
+        stand(floor, k + stepOf(k), stepOf(k));
+        break;
+      }
     } else if (what === 'boss') {
       const hall = b.plans[b.plans.length - 1]!.hall!,
         grid = b.plans[b.plans.length - 1]!.gen.maps.grid,
@@ -216,6 +228,9 @@ if (location.hash.startsWith('#bld-'))
         out = [1, -1, W, -W].find(o => grid[hall.door + o] === 1 && roomOf[hall.door + o] !== hall.room)!;
       stand(b.plans.length - 1, hall.door + out * 2, -out);
     }
+    // (?pitch=0.3: look up or down that much instead)
+    const pitch = new URLSearchParams(location.search).get('pitch');
+    if (pitch) player.pitch = Number(pitch);
     show(null);
     setState('play');
     for (let k = 0; k < 20; k++) update(1 / 60);

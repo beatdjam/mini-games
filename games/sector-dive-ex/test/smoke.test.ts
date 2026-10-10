@@ -46,7 +46,7 @@ import { encodeStore } from '@engine/core/store.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
 import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
-import { EYE, PLAT_H } from '../src/data/level.ts';
+import { EYE, PLAT_H, WALL_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
 import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
@@ -151,6 +151,8 @@ import * as THREE from 'three';
 import { dressAtrium, dressYard } from '../src/world/yardProps.ts';
 import { DOOR_PASS } from '@engine/world/tiles.ts';
 import { outsideBlocks } from '../src/world/looks/outside.ts';
+import type { TileMapData } from '@engine/world/dungeon.ts';
+import { floorNear, overHead, raised } from '../src/world/looks/props.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { openPerk } from '../src/screens/perk.ts';
@@ -3246,6 +3248,25 @@ test('outside: the buildings across the street stand clear of the building, and 
   // a block straight across the street to the west shows the building its east face
   const across = blocks.find(b => b.x1 <= bx0 && b.x1 > bx0 - 6 * T && b.z0 >= bz0 && b.z1 <= bz1);
   if (across) expect(across.sides).toContain(0);
+});
+test('props: what hangs overhead clears the head of someone on a raised floor under it or next to it', () => {
+  // a 4 by 3 map: ground, a ramp up toward +x, a walkway 2 m up, ground; the row under it walls
+  const d = {
+    W: 4,
+    H: 2,
+    maps: {
+      grid: new Uint8Array([1, 1, 1, 1, 0, 0, 0, 0]),
+      hgt: new Float32Array([0, 0, 2, 0, 0, 0, 0, 0]),
+      ramp: new Int8Array([-1, 0, -1, -1, -1, -1, -1, -1]),
+    },
+  } as unknown as TileMapData;
+  expect(floorNear(d, 0, 0), 'next to the ramp: its top end').toBe(2);
+  expect(floorNear(d, 2, 0)).toBe(2);
+  expect(floorNear(d, 3, 0), 'next to the walkway').toBe(2);
+  expect(overHead(3.5, 0), 'over the ground: where it was').toBe(3.5);
+  expect(overHead(3.5, 2), 'a metre over the eye on the walkway').toBeCloseTo(2 + EYE + 1);
+  expect(overHead(5.9, 2), 'never up into the ceiling').toBeLessThan(WALL_H);
+  expect(raised(d, { i: 1, j: 0 }) && raised(d, { i: 2, j: 0 }) && !raised(d, { i: 3, j: 0 })).toBe(true);
 });
 test('courtyard: what hangs in an atrium has the same colours whatever yard was dressed before it', () => {
   const well = { cx: 20, cz: 20, wide: 12, deep: 12, ground: -16, sky: 0, decks: [] },

@@ -7,7 +7,7 @@ import { WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
 import { wallPic } from './common.ts';
 import type { WallSides } from './common.ts';
-import { facing, onWall, pose } from './props.ts';
+import { facing, floorNear, onWall, overHead, pose, raised } from './props.ts';
 import type { Light, PropTools, WallSlot } from './props.ts';
 // Dressing a sector's walls in layers. placeProps hands a slot to one prop, and a floor gets so many of each: that
 // is for the few things that matter where they stand. A lived-in place needs every wall full, one thing over
@@ -113,9 +113,12 @@ export function dressWalls(
     // (nothing stands at the foot of a wall by a door: it would be in the doorway)
     byDoor = (f: WallSlot): boolean =>
       [[0, 0], ...SIDE_STEP].some(([di, dj]) => !!d.maps.door?.[(f.j + dj!) * d.W + f.i + di!]),
+    // (nor by a deck or a walkway: what stands on the ground there would be half in it)
     bare = (f: WallSlot): boolean => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!;
-      return kit.bare.includes(wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls, kit.sides));
+      return (
+        kit.bare.includes(wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls, kit.sides)) && !raised(d, f)
+      );
     },
     flat = (color: number) => new THREE.MeshBasicMaterial({ color }),
     cutout = (map: THREE.Texture) =>
@@ -192,7 +195,7 @@ export function dressWalls(
       }
     const at = [
       ...some(
-        faces.filter(f => !byDoor(f)),
+        faces.filter(f => !byDoor(f) && !raised(d, f)),
         hp,
       ),
       ...decks.filter(() => rng.next() < 0.45),
@@ -227,7 +230,8 @@ export function dressWalls(
   // ---- high on the walls ----
   for (const hi of kit.high ?? []) {
     const at = some(
-      faces.filter(f => !taken(f)),
+      // (not over a deck or a walkway: there it would stand out from the wall at the eye)
+      faces.filter(f => !taken(f) && !raised(d, f)),
       hi,
     );
     each(hi.maps, at, (map, mine) =>
@@ -262,8 +266,10 @@ export function dressWalls(
   if (sp)
     for (const { tiles, turn } of spanLines(ceilings, sp, rng)) {
       // (one bundle the whole line long: the same cables at the same height over every tile of it)
-      const y = lane(tiles[0]!) ? rng.rand(sp.laneY[0], sp.laneY[1]) : rng.rand(sp.y[0], sp.y[1]),
+      const high = lane(tiles[0]!) ? rng.rand(sp.laneY[0], sp.laneY[1]) : rng.rand(sp.y[0], sp.y[1]),
         sag = rng.rand(0.08, 0.2),
+        // (where it sags lowest, over the head of someone on a deck under or next to any tile of the line)
+        y = overHead(high - sag * 1.1 - 0.1, Math.max(...tiles.map(c => floorNear(d, c.i, c.j)))) + sag * 1.1 + 0.1,
         n = rng.randi(sp.n[0], sp.n[1]);
       for (let k = 0; k < n; k++) {
         const thick = sp.r * rng.rand(0.7, 1.9),
@@ -317,14 +323,16 @@ export function dressWalls(
   const lanes = ceilings.filter(lane),
     roof = kit.roof;
   if (roof) {
-    const roofed = lanes.filter(c => rng.next() < roof.share && !SIDE_STEP.some((_, side) => taken({ ...c, side })));
+    const roofed = lanes.filter(c => rng.next() < roof.share && !SIDE_STEP.some((_, side) => taken({ ...c, side }))),
+      // (its beam's underside, over the head of someone on a walkway there)
+      roofY = (c: { i: number; j: number }) => overHead(roof.y - 0.18, floorNear(d, c.i, c.j)) + 0.18;
     each(roof.maps, roofed, (map, mine) =>
       add(
         new THREE.PlaneGeometry(4, 4).rotateX(Math.PI / 2),
         new THREE.MeshBasicMaterial({ map, color: roof.tint, side: THREE.DoubleSide }),
         mine.map(c =>
           pose(
-            new THREE.Vector3(tileCenter(c.i), roof.y + rng.rand(0, 0.12), tileCenter(c.j)),
+            new THREE.Vector3(tileCenter(c.i), roofY(c) + rng.rand(0, 0.12), tileCenter(c.j)),
             rng.pick([0, Math.PI / 2]),
           ),
         ),
@@ -335,7 +343,7 @@ export function dressWalls(
       flat(roof.beam),
       roofed.map(c => {
         const alongX = d.maps.grid[c.j * d.W + c.i - 1] === 1 || d.maps.grid[c.j * d.W + c.i + 1] === 1;
-        return pose(new THREE.Vector3(tileCenter(c.i), roof.y - 0.1, tileCenter(c.j)), alongX ? Math.PI / 2 : 0);
+        return pose(new THREE.Vector3(tileCenter(c.i), roofY(c) - 0.1, tileCenter(c.j)), alongX ? Math.PI / 2 : 0);
       }),
     );
   }
@@ -346,7 +354,7 @@ export function dressWalls(
       .map(c => ({
         x: tileCenter(c.i) + rng.rand(-0.7, 0.7),
         z: tileCenter(c.j) + rng.rand(-0.7, 0.7),
-        y: rng.rand(bl.y[0], bl.y[1]),
+        y: overHead(rng.rand(bl.y[0], bl.y[1]) - 0.1, floorNear(d, c.i, c.j)) + 0.1,
       }));
     add(
       new THREE.BoxGeometry(0.025, 1, 0.025),

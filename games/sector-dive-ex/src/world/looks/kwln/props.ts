@@ -9,7 +9,7 @@ import { wallPic } from '../common.ts';
 import { TEX, canvasTex, grime, paint } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { spanLines } from '../dress.ts';
-import { facing, onWall, pose, propTools } from '../props.ts';
+import { facing, floorNear, onWall, overHead, pose, propTools, raised } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
 import { KWLN_FONT, KWLN_LANE_WALLS, KWLN_WALL_PICS } from './pictures.ts';
@@ -346,17 +346,19 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         ].map(([a, b]) => `${s.i + a!}:${s.j + b!}:${s.side}`),
       ),
     ),
-    clear = (f: WallSlot): boolean => !neonOn.has(`${f.i}:${f.j}:${f.side}`),
+    // (nor over a deck or a walkway: there they would stand out from the wall at the eye)
+    clear = (f: WallSlot): boolean => !neonOn.has(`${f.i}:${f.j}:${f.side}`) && !raised(d, f),
     some = <T>(list: T[], share: number): T[] => list.filter(() => rng.next() < share),
     low = faces.map(() => rng.next()), // what is let into the wall: a stall, a board of meters, or nothing
     high = faces.map(() => rng.next()), // what hangs over it: an awning, a cage, washing, or nothing
     // (an alley's walls are busier at eye height than a hall's: more meters and lamps, fewer whole stalls)
     // (what is let into a wall goes on bare concrete or over posters, not over a window, a gate or a shutter painted
     // there)
+    // (nor by a deck or a walkway: what stands on the ground there would be half in it)
     bare = (f: WallSlot): boolean => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!,
         v = wallPic(d, (f.j + dj) * d.W + f.i + di, KWLN_WALL_PICS.length, KWLN_LANE_WALLS);
-      return v === 0 || v === KWLN_WALL_PICS.length - 1;
+      return (v === 0 || v === KWLN_WALL_PICS.length - 1) && !raised(d, f);
     },
     stalls = faces.filter((f, n) => bare(f) && !byDoor(f) && low[n]! < (inLane(f) ? 0.18 : 0.3)),
     lanes = ceilings.filter(c => c.room < 0),
@@ -367,14 +369,14 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       meter: faces.filter(
         (f, n) => bare(f) && low[n]! >= (inLane(f) ? 0.62 : 0.48) && low[n]! < (inLane(f) ? 0.8 : 0.6),
       ),
-      heap: faces.filter(f => !byDoor(f) && rng.next() < (inLane(f) ? 0.8 : 0.62)),
+      heap: faces.filter(f => !byDoor(f) && !raised(d, f) && rng.next() < (inLane(f) ? 0.8 : 0.62)),
       // (over most stalls, and over a bare wall now and then)
       awning: faces.filter((f, n) => clear(f) && (low[n]! < 0.3 ? high[n]! < 0.8 : high[n]! < 0.12)),
       cage: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.12 && high[n]! < 0.42),
       wash: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.42 && high[n]! < 0.6),
       duct: faces.filter(f => rng.next() < (inLane(f) ? 0.85 : 0.5)),
       bundle: some(faces, 0.9),
-      tube: faces.filter(f => rng.next() < (inLane(f) ? 0.14 : 0.05)),
+      tube: faces.filter(f => !raised(d, f) && rng.next() < (inLane(f) ? 0.14 : 0.05)),
       // (an alley is roofed with cables: nearly every tile of it has a bundle across, low enough to be seen)
       span: spanLines(ceilings, { lane: 0.92, hall: 0.42 }, rng),
       hangsign: [...some(lanes, 0.2), ...some(halls, 0.035)],
@@ -446,7 +448,8 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     x: tileCenter(s.i),
     z: tileCenter(s.j),
     turn: rng.pick([0, Math.PI / 2]),
-    y: s.room < 0 ? rng.rand(3.4, 3.8) : rng.rand(4.1, 4.6),
+    // (its bottom, 0.36 under its middle, over the head of someone on a deck there)
+    y: overHead((s.room < 0 ? rng.rand(3.4, 3.8) : rng.rand(4.1, 4.6)) - 0.36, floorNear(d, s.i, s.j)) + 0.36,
     n,
   }));
   shared.hangs.forEach((map, v) =>
@@ -498,8 +501,10 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // a bundle slung across from wall to wall sags: two halves, each dropping to the middle
   // (in a room one bundle goes the whole way from wall to wall: see spanLines)
   for (const { tiles, turn } of spot.span) {
-    const y = tiles[0]!.room < 0 ? rng.rand(3.5, 4.05) : rng.rand(4.6, 5.4),
+    const high = tiles[0]!.room < 0 ? rng.rand(3.5, 4.05) : rng.rand(4.6, 5.4),
       sag = rng.rand(0.08, 0.2),
+      // (where it sags lowest, over the head of someone on a deck under or next to any tile of the line)
+      y = overHead(high - sag * 1.1 - 0.1, Math.max(...tiles.map(s => floorNear(d, s.i, s.j)))) + sag * 1.1 + 0.1,
       n = rng.randi(3, 6);
     for (let k = 0; k < n; k++) {
       const thick = rng.rand(0.7, 1.9),
@@ -650,7 +655,9 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const roofed = spot.roof.filter(
       c => under(c) && rng.next() < 0.86 && !SIDE_STEP.some((_, side) => neonOn.has(`${c.i}:${c.j}:${side}`)),
     ),
-    LANE_ROOF = 4.35;
+    LANE_ROOF = 4.35,
+    // (its beam's underside, over the head of someone on a walkway there)
+    roofY = (c: { i: number; j: number }) => overHead(LANE_ROOF - 0.18, floorNear(d, c.i, c.j)) + 0.18;
   shared.tins.forEach((map, v) =>
     add(
       new THREE.PlaneGeometry(4, 4).rotateX(Math.PI / 2),
@@ -659,7 +666,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         .filter((_, n) => n % shared.tins.length === v)
         .map(c =>
           pose(
-            new THREE.Vector3(tileCenter(c.i), LANE_ROOF + rng.rand(0, 0.12), tileCenter(c.j)),
+            new THREE.Vector3(tileCenter(c.i), roofY(c) + rng.rand(0, 0.12), tileCenter(c.j)),
             rng.pick([0, Math.PI / 2]),
           ),
         ),
@@ -670,14 +677,14 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     flatMat(0x241b14),
     roofed.flatMap(c => {
       const alongX = d.maps.grid[c.j * d.W + c.i - 1] === 1 || d.maps.grid[c.j * d.W + c.i + 1] === 1;
-      return [pose(new THREE.Vector3(tileCenter(c.i), LANE_ROOF - 0.1, tileCenter(c.j)), alongX ? Math.PI / 2 : 0)];
+      return [pose(new THREE.Vector3(tileCenter(c.i), roofY(c) - 0.1, tileCenter(c.j)), alongX ? Math.PI / 2 : 0)];
     }),
   );
   // bare bulbs on their cords down the middle, each with its warm light on the ground
   const bulbs = spot.bulb.filter(under).map(c => ({
     x: tileCenter(c.i) + rng.rand(-0.7, 0.7),
     z: tileCenter(c.j) + rng.rand(-0.7, 0.7),
-    y: rng.rand(2.9, 3.4),
+    y: overHead(rng.rand(2.9, 3.4) - 0.1, floorNear(d, c.i, c.j)) + 0.1,
   }));
   add(
     new THREE.BoxGeometry(0.025, 1, 0.025),
