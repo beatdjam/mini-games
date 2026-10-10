@@ -3,7 +3,8 @@ import type { Rng } from '@engine/core/util.ts';
 import { placeProps } from '@engine/world/slots.ts';
 import type { PropRule, Slot } from '@engine/world/slots.ts';
 import type { TileMapData } from '@engine/world/dungeon.ts';
-import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
+import { RISE, SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
+import { EYE, WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
 import { poolTex } from './paint.ts';
 // The tools for the things fixed to a sector's walls and ceilings (its props): where a thing goes on a wall, the
@@ -28,6 +29,31 @@ export function facing(s: WallSlot): number {
   const [di, dj] = SIDE_STEP[s.side ?? 0]!;
   return Math.atan2(-di, -dj);
 }
+// ---- what hangs overhead, over a raised floor ----
+// Overhead things (cables slung across, a roof over an alley, a lamp on its cord, a sign hung out) are at heights
+// for someone on the ground. On a deck or a walkway (2 m up) they would be at the eye, a fence across the view: so
+// over such a floor, and next to it (one looks across from there), they go up to HEAD_CLEAR over the eye of someone
+// standing on it, but no higher than CEIL_GAP under the ceiling
+const HEAD_CLEAR = 1; // m
+const CEIL_GAP = 0.25; // m
+// the highest floor on tile (i, j) or the 8 round it (m; a ramp counts its top end)
+export function floorNear(d: TileMapData, i: number, j: number): number {
+  let top = 0;
+  for (let dj = -1; dj <= 1; dj++)
+    for (let di = -1; di <= 1; di++) {
+      const k = (j + dj) * d.W + i + di;
+      if (i + di < 0 || j + dj < 0 || i + di >= d.W || j + dj >= d.H || d.maps.grid[k] !== 1) continue;
+      top = Math.max(top, d.maps.hgt[k]! + (d.maps.ramp[k]! >= 0 ? RISE : 0));
+    }
+  return top;
+}
+// where the bottom of a thing hung at `bottom` goes over a floor `floor` high (floorNear): the same over the ground
+export const overHead = (bottom: number, floor: number): number =>
+  floor > 0 ? Math.min(WALL_H - CEIL_GAP, Math.max(bottom, floor + EYE + HEAD_CLEAR)) : bottom;
+// is the floor of a wall slot's tile raised (a deck, a walkway, a ramp): what stands out from its wall at head height
+// would be at the eye there
+export const raised = (d: TileMapData, s: WallSlot): boolean =>
+  d.maps.hgt[s.j * d.W + s.i]! > 0 || d.maps.ramp[s.j * d.W + s.i]! >= 0;
 export const FULL_SIZE = new THREE.Vector3(1, 1, 1); // a copy that is not scaled
 // one copy of a part: a place, a turn about the upright and a scale; `roll` then tips the thing along its wall
 export const pose = (pos: THREE.Vector3, turn = 0, scale = FULL_SIZE, roll = 0): THREE.Matrix4 =>
