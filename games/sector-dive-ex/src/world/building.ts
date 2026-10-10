@@ -42,8 +42,9 @@ const SEED_STEP = 7919; // added to the seed for the next try
 // A courtyard, in two kinds.
 // An atrium: a well COURT_ROOFED tiles a side, roofed with a skylight, open through several floors, with a gallery one
 // tile wide round it on every floor it passes and its ground on the lowest of them. Looked into and up from. The
-// gallery has a way in on one side and, where one is found, on the far side too; above the ground a bridge may join
-// the two straight across the well (ATRIUM_BRIDGE_CHANCE). The ground and the gallery round it are a room.
+// gallery has two ways in: one on one side, the other on the far side or, where none is found there, round the corner;
+// above the ground a bridge may join two on the far sides straight across the well (ATRIUM_BRIDGE_CHANCE). The ground
+// and the gallery round it are a room.
 // A yard: an outdoor well between the building's own outer walls (rows of windows, storey over storey; drawn by
 // levelMesh.ts buildYardShell, not walked in), COURT_YARD tiles a side or COURT_YARD_WIDE where there is room. Each
 // floor it passes looks out on it from a balcony: BALCONY tiles of the wall round it, floor instead of wall, with a
@@ -519,13 +520,24 @@ function addCourt(
         let balcony: number[],
           bridge: number[] = [];
         if (!open) {
-          // An atrium: a second way in on the far side when one is found, so the gallery is passed through and not
-          // only come to; and, on a floor where the middle is a hole, now and then a bridge straight between the two
+          // An atrium: a second way in, so the gallery is passed through and not only come to: on the far side when
+          // one is found, else on a side round the corner; and, on a floor where the middle is a hole, now and then a
+          // bridge straight between the two on the far sides
+          const before = d.maps.grid.slice();
           if (!way(gate)) continue;
           ok = true;
-          const through = way(gate + (SIDE - 1) * into),
+          // (the second way does not run into the first: it would only loop back to where the first one goes)
+          const first: number[] = [];
+          before.forEach((v, k) => {
+            if (!v && d.maps.grid[k]) first.push(k);
+          });
+          for (const k of first) out[k] = 1;
+          const far = gate + (SIDE - 1) * into,
+            through = way(far),
             bridged =
               through && f < at.lower && (yardShape ? yardShape === 'bridge' : rng.next() < ATRIUM_BRIDGE_CHANCE);
+          if (!through) for (const s of sides) if (s.gate !== gate && s.gate !== far && way(s.gate)) break;
+          for (const k of first) out[k] = 0;
           if (bridged) bridge = Array.from({ length: COURT }, (_, m) => gate + (edge + m) * into);
           for (const k of bridge) d.maps.grid[k] = 1;
           balconies.push([]);

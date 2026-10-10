@@ -2146,7 +2146,8 @@ test('building: a yard is looked at from a balcony, walked along on one side, or
 test('building: an atrium is passed through, and above its ground a bridge may cross it', () => {
   const city = BIOMES.find(x => x.code === 'CITY')!;
   let bridges = 0,
-    floors = 0;
+    floors = 0,
+    deadEnds = 0;
   devCourtOpen(false);
   for (let seed = 1; seed <= 30; seed++) {
     const b = makeBuilding(city, city.bosses[0]!, seed),
@@ -2155,8 +2156,17 @@ test('building: an atrium is passed through, and above its ground a bridge may c
       const p = b.plans[floor]!,
         { W: w, maps } = p.gen,
         { bridge } = p.court!,
-        at = `seed ${seed} floor ${floor}`;
+        at = `seed ${seed} floor ${floor}`,
+        // the ways in: floor in the wall round the gallery (the ring of tiles two out from the hole)
+        i0 = (c.tiles[0]! % w) - 2,
+        j0 = Math.floor(c.tiles[0]! / w) - 2,
+        ring = Array.from({ length: 49 }, (_, n) => (j0 + Math.floor(n / 7)) * w + i0 + (n % 7)).filter(
+          (_, n) => n % 7 === 0 || n % 7 === 6 || n < 7 || n >= 42,
+        ),
+        ways = ring.filter(k => maps.grid[k] === 1).length;
       floors++;
+      expect(ways, `${at}: a way in`).toBeGreaterThanOrEqual(1);
+      if (ways < 2) deadEnds++;
       if (!bridge.length) continue;
       bridges++;
       expect(floor, `${at}: not on the ground`).toBeLessThan(c.lower);
@@ -2174,6 +2184,8 @@ test('building: an atrium is passed through, and above its ground a bridge may c
   devCourtOpen(null);
   expect(bridges, 'some floors have a bridge').toBeGreaterThan(5);
   expect(bridges, 'not every floor').toBeLessThan(floors);
+  // a second way in, on the far side or round the corner, nearly always found
+  expect(deadEnds / floors, 'galleries with one way in only').toBeLessThan(0.05);
 });
 test("building: an atrium's ground is a room of its floor, with enemies in it", () => {
   const city = BIOMES.find(x => x.code === 'CITY')!;
