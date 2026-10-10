@@ -38,6 +38,7 @@ import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import { buildAtriumProps, buildYardShell } from './courtMesh.ts';
 import { buildBackdrop, buildOutsideBlocks } from '@engine/render/windows.ts';
+import { mergeFlat } from '@engine/render/mergeflat.ts';
 import type { Backdrop, OutsideLook } from '@engine/render/windows.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
@@ -392,6 +393,9 @@ export function showBuilding(b: Building) {
     const cg = plan.court ? new THREE.Group() : null,
       top = buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9), cg ?? undefined);
     if (top) hallTop = top;
+    // what stands still and is only coloured, drawn as one per group (engine/src/render/mergeflat.ts)
+    mergeFlat(g);
+    if (cg) mergeFlat(cg);
     buildDoorMeshes(b.biome, g, plan.hall ? plan.hall.door : -1, n);
     all.add(g);
     floorGroups.push(g);
