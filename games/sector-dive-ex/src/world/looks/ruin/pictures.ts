@@ -1,5 +1,5 @@
 import { RUIN_KEEP_OUT, RUIN_NOTICE_BOARD } from '../../../i18n/signs.ts';
-import type { Pictures } from '../common.ts';
+import type { Pictures, WallSides } from '../common.ts';
 import { DOOR_ASPECT, SIGN_FONT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 // The ruined streets (RUIN): the inside of a housing block that fell in long ago. Pale cracked mortar gone green at
@@ -18,6 +18,8 @@ const WALL_IVY = 6; // ivy up the wall
 const WALL_GRAFFITI = 7; // spray paint
 const WALL_REBAR = 8; // a hole down to the reinforcing bars
 export const WALL_NOTICES = 9; // the residents' notice board
+// a broken window (the street outside) only on the building's outside wall (common.ts WallSides)
+export const RUIN_WALL_SIDES: WallSides = { outer: [WALL_WINDOW] };
 const RUIN_FLOORS = 6; // 0 bare, 1 what is left of the tiles, 2 ... of the floorboards, 3 grass in a crack, 4 a puddle, 5 crumbs of rubble
 const LEAVES = ['#4f6d3b', '#5f7f47', '#3f5b31', '#718d55'];
 const RUST = '#7c4a2b';
@@ -971,6 +973,7 @@ const ruinDoor =
 export function ruinPictures(): Pictures {
   return {
     walls: Array.from({ length: RUIN_WALLS }, (_, v) => paint(1100 + v, ruinWall(v))),
+    wallSides: RUIN_WALL_SIDES,
     floors: Array.from({ length: RUIN_FLOORS }, (_, v) => paint(1200, ruinFloor(v))),
     deck: paint(1300, ruinDeck),
     ceiling: paint(1400, ruinCeiling),

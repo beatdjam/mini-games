@@ -1,6 +1,6 @@
 import { PAINT, css } from '../../../data/colors.ts';
 import { CITY_EXIT, CITY_KEEP_OUT } from '../../../i18n/signs.ts';
-import type { Pictures } from '../common.ts';
+import type { Pictures, WallSides } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -513,6 +513,9 @@ const pilaster: Paint = g => {
 // along a corridor, in place of the plain panels: glass partitions, notice boards, cabinets, a vending machine, an
 // emergency exit, a whiteboard (no windows: those are on the rooms' walls)
 export const CITY_LANE_WALLS = [5, 6, 10, 5, 9, 11, 7, 10];
+// the windows (the evening outside) and the fire exit only on the building's outside wall, a glass partition only on
+// a thin wall between two rooms or a room and a corridor (common.ts WallSides)
+export const CITY_WALL_SIDES: WallSides = { outer: [3, 4, 7], inner: [5] };
 export const CITY_WALL_PICS: (Paint | null)[] = [
   null, // plain panels
   null, // cloth panels (WALL_CLOTH)
@@ -874,6 +877,7 @@ export function cityPictures(): Pictures {
   return {
     walls: CITY_WALL_PICS.map((_, v) => paint(1100 + v, cityWall(v))),
     laneWalls: CITY_LANE_WALLS,
+    wallSides: CITY_WALL_SIDES,
     floors: Array.from({ length: CITY_FLOORS }, (_, v) => paint(1200, cityFloor(v))),
     deck: paint(1300, cityDeck),
     ceiling: paint(1400, cityCeiling),

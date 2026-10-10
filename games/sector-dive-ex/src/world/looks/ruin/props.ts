@@ -4,7 +4,7 @@ import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { wallPic } from '../common.ts';
 import { TEX, grime, paint, poolTex } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { FULL_SIZE, LAMP_POOL, facing, lightMat, onWall, pose, propTools } from '../props.ts';
@@ -14,6 +14,7 @@ import type { WallKit } from '../dress.ts';
 import { flatBoxTex, flatHeapTex, flatTex, ragsTex } from './cutouts.ts';
 import {
   RUIN_WALLS,
+  RUIN_WALL_SIDES,
   WALL_BLOCKS,
   WALL_NOTICES,
   WALL_PAPER,
@@ -108,6 +109,7 @@ let ruinShared: RuinShared | null = null;
 let ruinKit: WallKit | null = null;
 const makeRuinKit = (): WallKit => ({
   pics: RUIN_WALLS,
+  sides: RUIN_WALL_SIDES,
   bare: [0, 1, 2],
   units: {
     maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => flatTex(1200 + n)),
@@ -147,7 +149,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tools = propTools(plan, group, RUIN_PROPS, rng),
     { d, wallOf, add } = tools;
   // the picture on the wall a wall slot is on
-  const pictureOf = (s: WallSlot) => variantOf(wallOf(s), RUIN_WALLS, WALL_PLAIN_SHARE);
+  const pictureOf = (s: WallSlot) => wallPic(d, wallOf(s), RUIN_WALLS, undefined, RUIN_WALL_SIDES);
   // (nothing hangs where the ceiling is open, nor from the boss room's ceiling: it is higher than the others)
   const of = (id: string) =>
     tools
@@ -252,7 +254,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
         if (d.maps.grid[wall] || plan.voids[wall]) return;
-        if (variantOf(wall, RUIN_WALLS, WALL_PLAIN_SHARE) !== WALL_WINDOW) return;
+        if (wallPic(d, wall, RUIN_WALLS, undefined, RUIN_WALL_SIDES) !== WALL_WINDOW) return;
         const s = { i, j, side };
         daylight.push(
           pose(
