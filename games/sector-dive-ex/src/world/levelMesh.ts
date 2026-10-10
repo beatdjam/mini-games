@@ -139,7 +139,7 @@ export function buildFloorMeshes(
     wallBoxes(tex.wall, walls);
   }
   addDecks(tex, group, look?.deckSide);
-  addRamps(tex, group);
+  addRamps(tex, group, look?.deckSide);
   buildHazardMesh(biome, plan.gen.hazard, group);
   const dark = look
     ? new THREE.MeshBasicMaterial({ map: look.ceiling })

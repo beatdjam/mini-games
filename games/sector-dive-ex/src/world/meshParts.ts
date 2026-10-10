@@ -23,7 +23,10 @@ import type { BiomeTextures } from './render.ts';
 // decks and ramps, the ceiling, the neon signs, and one flat square per tile. They read the tile world being built
 const NEON_COUNT = 90; // neon signs per level
 
-// wedge rising toward +x across one tile; rotated per ramp direction
+// wedge rising toward +x across one tile; rotated per ramp direction. Its sides take a deck's side picture the way a
+// deck does, the top of the picture along the slope: they are cut into slices across, each with the picture's full
+// height (so where a ramp meets the deck it climbs to, the two sides are the same)
+const WEDGE_SLICES = 8;
 export function wedgeGeo() {
   type P3 = [number, number, number];
   const a = T / 2,
@@ -31,28 +34,30 @@ export function wedgeGeo() {
     pos: number[] = [],
     uv: number[] = [],
     idx: number[] = [];
-  const quad = (p0: P3, p1: P3, p2: P3, p3: P3) => {
+  const quad = (p0: P3, p1: P3, p2: P3, p3: P3, u0 = 0, u1 = 1) => {
     const b = pos.length / 3;
     pos.push(...p0, ...p1, ...p2, ...p3);
-    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    uv.push(u0, 0, u1, 0, u1, 1, u0, 1);
     idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
-  };
-  const tri = (p0: P3, p1: P3, p2: P3) => {
-    const b = pos.length / 3;
-    pos.push(...p0, ...p1, ...p2);
-    uv.push(0, 0, 1, 0, 1, 1);
-    idx.push(b, b + 1, b + 2);
   };
   quad([-a, 0, -a], [a, r, -a], [a, r, a], [-a, 0, a]);
   quad([a, 0, -a], [a, 0, a], [a, r, a], [a, r, -a]);
-  tri([-a, 0, -a], [a, 0, -a], [a, r, -a]);
-  tri([-a, 0, a], [a, r, a], [a, 0, a]);
+  // the two sides, slice by slice (the first slice's quad is a triangle: its low edge has no height)
+  for (let n = 0; n < WEDGE_SLICES; n++) {
+    const f0 = n / WEDGE_SLICES,
+      f1 = (n + 1) / WEDGE_SLICES,
+      x0 = -a + f0 * T,
+      x1 = -a + f1 * T;
+    // (each side read from outside: the picture's left edge on the left)
+    quad([x1, 0, -a], [x0, 0, -a], [x0, r * f0, -a], [x1, r * f1, -a], 1 - f1, 1 - f0);
+    quad([x0, 0, a], [x1, 0, a], [x1, r * f1, a], [x0, r * f0, a], f0, f1);
+  }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx);
   g.addGroup(0, 6, 0);
-  g.addGroup(6, 12, 1);
+  g.addGroup(6, idx.length - 6, 1);
   return g;
 }
 const RAMP_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
@@ -132,9 +137,10 @@ export function addDecks(tex: BiomeTextures, group: THREE.Group, side?: THREE.Te
   });
 }
 
-export function addRamps(tex: BiomeTextures, group: THREE.Group) {
+// ramps; their sides in the same picture as the decks' (`side`, or the wall's)
+export function addRamps(tex: BiomeTextures, group: THREE.Group, side?: THREE.Texture) {
   const topMat = new THREE.MeshBasicMaterial({ map: tex.tile, side: THREE.DoubleSide }),
-    sideMat = new THREE.MeshBasicMaterial({ map: tex.wall, side: THREE.DoubleSide });
+    sideMat = new THREE.MeshBasicMaterial({ map: side ?? tex.wall, side: THREE.DoubleSide });
   const geo = wedgeGeo();
   for (let k = 0; k < W * H; k++) {
     if (grid[k] !== 1 || ramp[k] < 0) continue;
