@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { UP } from '@engine/render/render.ts';
+import { buildWindowPanes } from '@engine/render/windows.ts';
+import type { WindowFace } from '@engine/render/windows.ts';
+import { floorSides } from '@engine/world/walls.ts';
 import {
   H,
   RISE,
@@ -26,7 +29,7 @@ import { FLOOR_H } from './building.ts';
 import { FLOOR_PLAIN_SHARE, facesWest, lookOf, variantOf, wallPic } from './looks.ts';
 import type { Court, FloorPlan } from './building.ts';
 import { dressAtrium, dressYard, yardDice } from './yardProps.ts';
-import { BACKDROP_R, BACKDROP_TALL, TEX, canvasTex, grain, grime, paint, poolTex } from './looks/paint.ts';
+import { TEX, canvasTex, grain, grime, paint, poolTex } from './looks/paint.ts';
 import type { YardDress } from './yardProps.ts';
 const NEON_COUNT = 90; // neon signs per level
 const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall colour times this
@@ -197,87 +200,6 @@ function addNeonSigns(tiles: [number, number][], group: THREE.Group, rng: Rng) {
   signs.instanceMatrix.needsUpdate = true;
   if (signs.instanceColor) signs.instanceColor.needsUpdate = true;
   group.add(signs);
-}
-
-// ---- the view out of the windows (Look.outside) ----
-// The panes of a window one sees out of: flat on the wall's face, over the picture's panes. They draw nothing but
-// mark the stencil where they are seen, and the backdrop drawn right after them (buildBackdrop) is drawn only there,
-// so it is seen through them as if it were as far away as the sky. Drawn after everything solid, so what stands in
-// front of a window hides it. The wall is not opened (a hole through a wall a tile thick would be a tunnel)
-const PANE_ORDER = 900;
-let paneMat: THREE.MeshBasicMaterial | null = null;
-function addPanes(
-  tiles: [number, number][],
-  rectsOf: (k: number) => [number, number, number, number][] | undefined,
-  group: THREE.Group,
-) {
-  const matrices: THREE.Matrix4[] = [],
-    turn = new THREE.Quaternion(),
-    at = new THREE.Vector3(),
-    size = new THREE.Vector3();
-  for (const [i, j] of tiles) {
-    const k = j * W + i,
-      rects = rectsOf(k);
-    if (!rects) continue;
-    // on every face of the tile that a floor tile looks at
-    for (const [di, dj] of SIDE_STEP) {
-      if (grid[k + dj * W + di] !== 1) continue;
-      const yaw = Math.atan2(di, dj);
-      turn.setFromAxisAngle(UP, yaw);
-      for (const [l, t, r, b] of rects) {
-        const along = ((l + r) / 2 / TEX - 0.5) * T,
-          out = T / 2 + 0.02; // a little in front of the face
-        at.set(
-          tileCenter(i) + di * out + Math.cos(yaw) * along,
-          WALL_H * (1 - (t + b) / 2 / TEX),
-          tileCenter(j) + dj * out - Math.sin(yaw) * along,
-        );
-        size.set(((r - l) / TEX) * T, ((b - t) / TEX) * WALL_H, 1);
-        matrices.push(new THREE.Matrix4().compose(at, turn, size));
-      }
-    }
-  }
-  if (!matrices.length) return;
-  paneMat ??= new THREE.MeshBasicMaterial({
-    colorWrite: false,
-    depthWrite: false,
-    stencilWrite: true,
-    stencilRef: 1,
-    stencilFunc: THREE.AlwaysStencilFunc,
-    stencilZPass: THREE.ReplaceStencilOp,
-  });
-  const panes = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), paneMat, matrices.length);
-  matrices.forEach((m, n) => panes.setMatrixAt(n, m));
-  panes.instanceMatrix.needsUpdate = true;
-  panes.renderOrder = PANE_ORDER;
-  group.add(panes);
-}
-// The backdrop: the view all round painted on the inside of a cylinder that stays round the eye wherever it goes (as
-// far as the sky: it never comes nearer). Drawn right after the panes, over everything but only where a pane marked
-// the stencil
-export function buildBackdrop(map: THREE.Texture): THREE.Mesh {
-  const m = new THREE.Mesh(
-      new THREE.CylinderGeometry(BACKDROP_R, BACKDROP_R, BACKDROP_TALL, 48, 1, true),
-      new THREE.MeshBasicMaterial({
-        map,
-        side: THREE.BackSide,
-        fog: false,
-        depthTest: false,
-        depthWrite: false,
-        stencilWrite: true,
-        stencilRef: 1,
-        stencilFunc: THREE.EqualStencilFunc,
-      }),
-    ),
-    eye = new THREE.Vector3();
-  m.renderOrder = PANE_ORDER + 1;
-  m.frustumCulled = false;
-  // (its parent, the building's group, stays where it is: the cylinder's own place is where the eye is)
-  m.onBeforeRender = (_r, _s, cam) => {
-    m.position.copy(eye.setFromMatrixPosition(cam.matrixWorld));
-    m.updateMatrixWorld();
-  };
-  return m;
 }
 
 // ---- a floor of the building: drawn tile by tile, so it can be open where a stairwell or a lift passes ----
@@ -915,13 +837,20 @@ export function buildFloorMeshes(
           mine.filter(([i, j]) => !facesWest(plan.gen, j * W + i)),
         );
     });
+    // the windows one sees out of: their panes on every face of theirs a floor looks at (engine/src/render/windows.ts)
     const outside = look.outside;
-    if (outside)
-      addPanes(
-        walls,
-        k => outside.panes[wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides)],
-        group,
-      );
+    if (outside) {
+      const faces: WindowFace[] = [];
+      for (const [i, j] of walls) {
+        const k = j * W + i,
+          rects = outside.panes[wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides)];
+        if (!rects) continue;
+        for (const [di, dj] of floorSides(plan.gen, k))
+          faces.push({ i, j, di, dj, rects: rects.map(r => r.map(v => v / TEX) as [number, number, number, number]) });
+      }
+      const panes = buildWindowPanes(faces, WALL_H);
+      if (panes) group.add(panes);
+    }
   } else {
     tex.floor.repeat.set(1, 1);
     planes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }));
