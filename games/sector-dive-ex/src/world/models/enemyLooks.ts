@@ -458,45 +458,81 @@ export function enemyHullMat(def: { color: number }, unmarked = false): THREE.Me
   return m;
 }
 const FACETED = ['ico', 'dodeca']; // the shapes (def.geo) whose body is a faceted shell
-// The trooper as a soldier machine: armour and kit on the jointed doll (buildHumanoid in world/models.ts). Every part
-// goes on a joint, so it moves with the walk and the aim (poseHumanoid in actors/enemies.ts). body = its body
-// material, color = its type's colour
+// The trooper as a soldier machine, built on the jointed doll's joints (buildHumanoid in world/models.ts, without its
+// boxes): a frame of steel ball joints and dark limbs, with armour plate over it, so it reads as a machine put
+// together like the others and not as boxes stacked up. Every part goes on a joint, so it moves with the walk and
+// the aim (poseHumanoid in actors/enemies.ts). The limbs keep the doll's lengths (the hit spheres follow the joints).
+// body = its body material, color = its type's colour
 export function dressTrooper(rig: HumanoidRig, body: THREE.Material, color: number) {
   const k = machine(),
-    glow = basicMat(color);
+    glow = basicMat(color),
+    joint = (r: number, y: number) => at(ballGeo(r, 0), k.steel, 0, y, 0),
+    tilt = (m: THREE.Mesh, x: number, z = 0) => {
+      m.rotation.set(x, 0, z);
+      return m;
+    },
+    helmet = at(ballGeo(0.2, 1), body, 0, 0.18, -0.01);
+  helmet.scale.set(1, 0.92, 1.08);
   rig.upper.add(
-    at(boxGeo(0.5, 0.3, 0.06), body, 0, 0.55, 0.2), // the chest plate
-    at(boxGeo(0.3, 0.04, 0.02), glow, 0, 0.33, 0.2), // the lamp under it
-    at(boxGeo(0.64, 0.07, 0.4), k.black, 0, 0.14, 0), // the belt
-    at(boxGeo(0.3, 0.06, 0.3), k.black, 0, 0.77, 0), // the collar
-    at(boxGeo(0.44, 0.44, 0.16), body, 0, 0.46, -0.27), // the pack on its back,
-    at(cylGeo(0.05, 0.05, 0.3, 8), k.black, 0.13, 0.74, -0.27), // its stacks
-    at(cylGeo(0.05, 0.05, 0.3, 8), k.black, -0.13, 0.74, -0.27),
-    at(boxGeo(0.46, 0.04, 0.02), glow, 0, 0.3, -0.355), // and the lamp across it (seen from behind)
+    at(boxGeo(0.34, 0.14, 0.24), k.black, 0, 0.0, 0), // the pelvis
+    at(cylGeo(0.12, 0.15, 0.3, 8), k.black, 0, 0.2, 0), // the waist: the spine in its sleeve
+    at(cylGeo(0.155, 0.155, 0.03, 8), k.steel, 0, 0.13, 0), // a ring round it
+    at(boxGeo(0.42, 0.1, 0.28), k.black, 0, 0.33, 0), // the ribs under the chest, narrower
+    at(boxGeo(0.54, 0.32, 0.34), body, 0, 0.54, 0), // the chest
+    tilt(at(boxGeo(0.46, 0.24, 0.06), body, 0, 0.56, 0.19), -0.22), // the chest plate, sloped
+    at(boxGeo(0.3, 0.04, 0.02), glow, 0, 0.4, 0.175), // the lamp under it
+    at(boxGeo(0.44, 0.06, 0.3), k.black, 0, 0.07, 0), // the belt
+    at(boxGeo(0.3, 0.06, 0.3), k.black, 0, 0.73, 0), // the collar
+    // the shoulder sockets: from the chest's sides out to the shoulders' balls (the arms turn on the doll's joints there)
+    at(boxGeo(0.14, 0.18, 0.22), k.black, -0.31, 0.66, 0),
+    at(boxGeo(0.14, 0.18, 0.22), k.black, 0.31, 0.66, 0),
+    at(cylGeo(0.045, 0.045, 0.84, 8), k.steel, 0, 0.68, 0, 'x'),
+    at(boxGeo(0.42, 0.42, 0.16), body, 0, 0.5, -0.26), // the pack on its back,
+    at(cylGeo(0.05, 0.05, 0.3, 8), k.black, 0.13, 0.76, -0.26), // its stacks
+    at(cylGeo(0.05, 0.05, 0.3, 8), k.black, -0.13, 0.76, -0.26),
+    at(boxGeo(0.44, 0.04, 0.02), glow, 0, 0.34, -0.345), // and the lamp across it (seen from behind)
   );
   rig.neck.add(
-    at(boxGeo(0.36, 0.07, 0.12), k.black, 0, 0.265, 0.14), // the helmet's brow over the visor
-    at(boxGeo(0.1, 0.06, 0.3), body, 0, 0.345, -0.02), // its crest
-    at(cylGeo(0.05, 0.05, 0.06, 8), k.steel, -0.19, 0.14, 0, 'x'), // the radio on its ear
-    aerial(-0.2, 0.16, -0.04, 0.4),
+    at(cylGeo(0.07, 0.08, 0.12, 8), k.steel, 0, 0.04, 0), // the neck
+    helmet,
+    at(boxGeo(0.27, 0.07, 0.06), basicMat(COLOR.mag), 0, 0.17, 0.19), // the visor
+    at(boxGeo(0.34, 0.06, 0.1), k.black, 0, 0.24, 0.15), // the helmet's brow over the visor
+    at(boxGeo(0.22, 0.08, 0.1), k.black, 0, 0.06, 0.12), // the jaw guard
+    at(boxGeo(0.08, 0.05, 0.3), body, 0, 0.36, -0.03), // its crest
+    at(cylGeo(0.05, 0.05, 0.06, 8), k.steel, -0.2, 0.15, 0, 'x'), // the radio on its ear
+    aerial(-0.21, 0.17, -0.04, 0.4),
   );
   for (const [arm, sx] of [
     [rig.armL, -1],
     [rig.armR, 1],
-  ] as const)
+  ] as const) {
     arm.add(
-      at(boxGeo(0.22, 0.16, 0.26), body, sx * 0.02, 0.0, 0), // a shoulder guard
-      at(boxGeo(0.19, 0.07, 0.21), k.black, 0, -0.32, 0), // an elbow
+      joint(0.1, 0), // the shoulder
+      tilt(at(boxGeo(0.24, 0.15, 0.28), body, sx * 0.04, 0.05, 0), 0, -sx * 0.3), // a shoulder guard, sloped off
+      at(cylGeo(0.055, 0.055, 0.24, 8), k.black, 0, -0.17, 0), // the upper arm
+      joint(0.075, -0.32), // the elbow
+      at(cylGeo(0.085, 0.065, 0.28, 8), body, 0, -0.47, 0), // the forearm's guard
     );
-  // the rifle along the forearm (it points forward when the arm is raised): barrel, magazine ahead of the hand
+    if (sx < 0) arm.add(at(boxGeo(0.09, 0.1, 0.11), k.black, 0, -0.65, 0)); // the free hand
+  }
+  // the rifle along the gun arm's forearm (it points forward when the arm is raised): the receiver under the hand,
+  // its magazine, the handguard and the barrel ahead
   rig.armR.add(
+    at(boxGeo(0.08, 0.34, 0.12), k.black, 0, -0.7, 0.1),
+    at(boxGeo(0.06, 0.14, 0.12), k.black, 0, -0.74, -0.02),
+    at(cylGeo(0.04, 0.04, 0.2, 8), k.steel, 0, -0.9, 0.1),
     at(cylGeo(0.022, 0.022, 0.28, 6), k.black, 0, -1.06, 0.1),
-    at(boxGeo(0.06, 0.14, 0.12), k.black, 0, -0.76, -0.02),
   );
   for (const leg of [rig.legL, rig.legR])
     leg.add(
-      at(boxGeo(0.24, 0.16, 0.1), body, 0, -0.47, 0.11), // a knee guard
-      at(boxGeo(0.24, 0.1, 0.36), k.black, 0, -0.95, 0.05), // a foot
+      joint(0.1, 0), // the hip
+      at(cylGeo(0.085, 0.065, 0.38, 8), k.black, 0, -0.24, 0), // the thigh
+      at(boxGeo(0.19, 0.3, 0.07), body, 0, -0.23, 0.08), // its plate
+      joint(0.08, -0.47), // the knee
+      tilt(at(boxGeo(0.18, 0.14, 0.08), body, 0, -0.47, 0.1), 0.2), // the knee guard
+      at(cylGeo(0.1, 0.07, 0.36, 8), body, 0, -0.7, 0.01), // the shin's guard
+      piston(V(0, -0.55, -0.09), V(0, -0.88, -0.07), 0.025), // the ram behind the shin
+      at(boxGeo(0.2, 0.09, 0.34), k.black, 0, -0.95, 0.05), // the foot
     );
 }
 // the pool of light on the ground under an enemy, in its colour (under a flying one too: it shows where it is)
