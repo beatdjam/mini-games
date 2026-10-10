@@ -5,7 +5,8 @@ import { WORLD, query, sweepWorld } from '@engine/core/world.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx, unlockAudio } from '@engine/audio/audio.ts';
 import { setMusic } from '@engine/audio/music.ts';
-import { camera, gun } from '@engine/render/render.ts';
+import { camera, gun, scene } from '@engine/render/render.ts';
+import { hideInFog } from '@engine/render/fogcull.ts';
 import { FX } from '@engine/render/fx.ts';
 import { STEP, T, computeFlow, floorY, moveCircle, tileIndex } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
@@ -57,6 +58,7 @@ const STICK_DASH_PUSH = 0.97; // stick pushed this far (0-1) counts as "at the r
 const STICK_DASH_HOLD = 0.3; // seconds held at the rim before the stick dash fires
 const STICK_DASH_REARM = 0.8; // the stick must come back below this before it can dash again
 const MOVE_EPS = 0.1; // move input / speed below this counts as standing still
+const FOG_CULL_REACH = 3; // an enemy is hidden this far past the fog's far (m: the size of the biggest)
 const STAMINA_WARN_TIME = 0.3; // seconds the stamina bar flashes when a dash is refused
 const MOVE_STEP = 0.3; // the player moves at most this far at a time (m); see movePlayer
 const RUN_LATCH_HOLD = 0.25; // touch: the dash button held this long keeps the run on after it is let go (s)
@@ -518,6 +520,20 @@ export function boot() {
   });
   addSystem({ name: 'portals', order: 70, modes: PLAY, update: updatePortals });
   addSystem({ name: 'screenFx', order: 90, modes: PLAY, update: updateScreenFx });
+  // enemies out in the fog are not drawn (each costs a draw per part; engine/src/render/fogcull.ts). Not the bosses:
+  // they fight in their own room, and their beams and glows are drawn without the fog
+  addSystem({
+    name: 'fogCull',
+    order: 95,
+    modes: PLAY,
+    update: () =>
+      hideInFog(
+        enemies.filter(e => !e.boss),
+        camera.position,
+        scene.fog,
+        FOG_CULL_REACH,
+      ),
+  });
   addSystem({ name: 'attract', order: 0, modes: ['base'], update: attract });
   // the 3D map, while it is up: drawn, and turned by the move keys
   addSystem({
