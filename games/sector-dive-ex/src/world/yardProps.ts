@@ -2,6 +2,7 @@ import { PAINT, css } from '../data/colors.ts';
 import * as THREE from 'three';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
 import { canvasTex } from './looks/paint.ts';
+import { T } from '@engine/world/tiles.ts';
 // What crowds a courtyard (world/courtMesh.ts buildYardShell, buildAtriumProps): the things on the outer walls of a
 // yard and across it, and the things that hang in an atrium. All of it is looked at, never touched: nothing here is
 // in the tile world. Many small things, so they are drawn as instanced meshes, one per kind of thing (batcher)
@@ -168,6 +169,7 @@ function ivyTex(): THREE.CanvasTexture {
 const ESCAPE_RUN = 2.6,
   ESCAPE_LANDING = 0.7,
   ESCAPE_TREADS = 12;
+const RISER_IN = 0.3; // what runs up a corner of an atrium's gallery stands this far from both its walls (m)
 const DECK_CLEAR = 4.5; // nothing is strung across a yard this far over a bridge's deck (m)
 const WINDOW_DROP = 1.2; // a window's middle is about this far under the middle of its storey's wall tile (m)
 
@@ -549,9 +551,12 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
   dim = new THREE.Color(0xffffff);
   const b = batcher(group),
     h = well.sky - well.ground,
-    corner = (k: number): [number, number] => [
-      well.cx + (k & 1 ? 1 : -1) * (well.wide / 2 - 0.25),
-      well.cz + (k & 2 ? 1 : -1) * (well.deep / 2 - 0.25),
+    // the corners of the walls round the gallery (a tile out from the well): what runs from the ground up
+    // to the skylight stands there, against the walls, through the gallery floor by floor (not in the air over the
+    // well, where it would cross the view up and down it)
+    wallCorner = (k: number): [number, number] => [
+      well.cx + (k & 1 ? 1 : -1) * (well.wide / 2 + T - RISER_IN),
+      well.cz + (k & 2 ? 1 : -1) * (well.deep / 2 + T - RISER_IN),
     ],
     // A well with a bridge: a bridge goes through the middle third of it, along x or along z, so what hangs down
     // in it hangs in the four corner thirds. `off`: a place this far from the middle (-0.5..0.5 of the well's side)
@@ -572,7 +577,7 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
       ]);
     b.put('hook', () => [box(0.7, 0.9, 0.35), flat(PAINT.amber1)], hx, well.sky - 2.3 - h * 0.44, hz);
     for (let k = 0; k < 4; k++) {
-      const [x, z] = corner(k);
+      const [x, z] = wallCorner(k);
       b.put('hotpipe', () => [box(0.35, 1, 0.35), flat(PAINT.umber1)], x, well.ground + h / 2, z, 0, 0, [1, h, 1]);
       for (let y = well.ground + 2; y < well.sky - 1; y += 4)
         b.put('glowband', () => [box(0.4, 0.3, 0.4), flat(0xff7a2a, true)], x, y, z);
@@ -641,7 +646,7 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
       );
     }
     for (let k = 0; k < 4; k++) {
-      const [x, z] = corner(k);
+      const [x, z] = wallCorner(k);
       b.put('riser', () => [box(0.3, 1, 0.3), flat(0x2a323b)], x, well.ground + h / 2, z, 0, 0, [1, h, 1]);
       for (let y = well.ground + 1; y < well.sky - 1; y += 0.9)
         b.put(
