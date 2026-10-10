@@ -2146,7 +2146,8 @@ test('building: a yard is looked at from a balcony, walked along on one side, or
 test('building: an atrium is passed through, and above its ground a bridge may cross it', () => {
   const city = BIOMES.find(x => x.code === 'CITY')!;
   let bridges = 0,
-    floors = 0;
+    floors = 0,
+    deadEnds = 0;
   devCourtOpen(false);
   for (let seed = 1; seed <= 30; seed++) {
     const b = makeBuilding(city, city.bosses[0]!, seed),
@@ -2155,8 +2156,17 @@ test('building: an atrium is passed through, and above its ground a bridge may c
       const p = b.plans[floor]!,
         { W: w, maps } = p.gen,
         { bridge } = p.court!,
-        at = `seed ${seed} floor ${floor}`;
+        at = `seed ${seed} floor ${floor}`,
+        // the ways in: floor in the wall round the gallery (the ring of tiles two out from the hole)
+        i0 = (c.tiles[0]! % w) - 2,
+        j0 = Math.floor(c.tiles[0]! / w) - 2,
+        ring = Array.from({ length: 49 }, (_, n) => (j0 + Math.floor(n / 7)) * w + i0 + (n % 7)).filter(
+          (_, n) => n % 7 === 0 || n % 7 === 6 || n < 7 || n >= 42,
+        ),
+        ways = ring.filter(k => maps.grid[k] === 1).length;
       floors++;
+      expect(ways, `${at}: a way in`).toBeGreaterThanOrEqual(1);
+      if (ways < 2) deadEnds++;
       if (!bridge.length) continue;
       bridges++;
       expect(floor, `${at}: not on the ground`).toBeLessThan(c.lower);
@@ -2174,6 +2184,44 @@ test('building: an atrium is passed through, and above its ground a bridge may c
   devCourtOpen(null);
   expect(bridges, 'some floors have a bridge').toBeGreaterThan(5);
   expect(bridges, 'not every floor').toBeLessThan(floors);
+  // a second way in, on the far side or round the corner, nearly always found
+  expect(deadEnds / floors, 'galleries with one way in only').toBeLessThan(0.05);
+});
+test("building: an atrium's ground is a room of its floor, with enemies in it", () => {
+  const city = BIOMES.find(x => x.code === 'CITY')!;
+  devCourtOpen(false);
+  for (let seed = 1; seed <= 20; seed++) {
+    const b = makeBuilding(city, city.bosses[0]!, seed),
+      c = b.court!,
+      d = b.plans[c.lower]!.gen,
+      w = d.W,
+      room = d.rooms.length - 1,
+      at = `seed ${seed}`,
+      // the middle and the gallery round it
+      ground = new Set(c.tiles.flatMap(k => [-w - 1, -w, -w + 1, -1, 0, 1, w - 1, w, w + 1].map(o => k + o)));
+    expect(d.rooms[room]!.w * d.rooms[room]!.h, at).toBe(ground.size);
+    for (const k of ground) expect(d.maps.roomOf[k], `${at} tile ${k}`).toBe(room);
+    // its ways in are corridors, not doors: never the lockdown room
+    expect(roomDoors(d, room).closable, at).toBe(false);
+    // on the floors above, the gallery is no room
+    for (let floor = c.upper; floor < c.lower; floor++)
+      for (const k of ground) expect(b.plans[floor]!.gen.maps.roomOf[k], `${at} floor ${floor}`).toBe(-1);
+  }
+  // in a run, enemies wait there as in any other room
+  // (a building of the old downtown has one when a place fits, as nearly all do)
+  for (let k = 0; k < 10; k++) {
+    goBase();
+    startRun();
+    run.route = [BIOMES.indexOf(city)];
+    run.bld = undefined;
+    startStage();
+    if (building!.court) break;
+  }
+  goToFloor(building!.court!.lower);
+  const room = level.rooms.length - 1;
+  expect(level.roomCount[room]).toBeGreaterThan(0);
+  expect(enemies.filter(e => e.room === room && !e.dead).length).toBe(level.roomCount[room]);
+  devCourtOpen(null);
 });
 test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
   // a door stands across a corridor: floor before and behind it, wall on its two sides
