@@ -1,51 +1,13 @@
 import type * as THREE from 'three';
 import { canvasTex } from '../paint.ts';
+import { block, pick, seeded, soil } from '../cutoutTools.ts';
+import type { G } from '../cutoutTools.ts';
 import { KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
 import { KWLN_FONT } from './pictures.ts';
 // The walled city's painted set pieces: pictures of whole heaps of things, stood against the walls as flat cut-outs
 // (the picture is clear where there is nothing). One painted picture holds what dozens of plain boxes could not: the
 // goods on a stall's shelves, a heap of tubs and baskets and old sets, a line of washing, a mat of wires overhead.
 // Painted from a seed, so a picture is the same every time.
-
-type G = CanvasRenderingContext2D;
-// random numbers from a seed (0..1), the same row every time
-function seeded(seed: number): () => number {
-  let s = seed >>> 0 || 1;
-  return () => {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
-}
-const pick = <T>(rand: () => number, of: readonly T[]): T => of[Math.floor(rand() * of.length)]!;
-// a block lit from the upper left: its colour, a lighter top edge, a shadow down its right side and under it
-function block(g: G, x: number, y: number, w: number, h: number, color: string) {
-  g.fillStyle = 'rgba(0,0,0,0.35)';
-  g.fillRect(x + 3, y + 4, w, h);
-  g.fillStyle = color;
-  g.fillRect(x, y, w, h);
-  const shade = g.createLinearGradient(x, y, x + w, y + h);
-  shade.addColorStop(0, 'rgba(255,255,255,0.14)');
-  shade.addColorStop(0.5, 'rgba(0,0,0,0)');
-  shade.addColorStop(1, 'rgba(0,0,0,0.45)');
-  g.fillStyle = shade;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = 'rgba(255,255,255,0.12)';
-  g.fillRect(x, y, w, 2);
-}
-// dirt over the lower part of everything, and specks
-function soil(g: G, rand: () => number, w: number, h: number, from: number) {
-  g.globalCompositeOperation = 'source-atop';
-  const dirt = g.createLinearGradient(0, from, 0, h);
-  dirt.addColorStop(0, 'rgba(20,14,10,0)');
-  dirt.addColorStop(1, 'rgba(20,14,10,0.55)');
-  g.fillStyle = dirt;
-  g.fillRect(0, 0, w, h);
-  for (let k = 0; k < 500; k++) {
-    g.fillStyle = rand() < 0.5 ? 'rgba(0,0,0,0.22)' : 'rgba(255,240,210,0.07)';
-    g.fillRect(rand() * w, rand() * h, 1 + rand() * 2, 1 + rand() * 2);
-  }
-  g.globalCompositeOperation = 'source-over';
-}
 
 const PLASTIC = ['#b5442e', '#c9702c', '#2f6aa8', '#3d7d5c', '#b9a23c', '#8d3a52'];
 const CARD = ['#8a6a44', '#7a5c3a', '#9a7b52'];

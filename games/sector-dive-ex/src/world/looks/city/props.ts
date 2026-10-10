@@ -7,6 +7,10 @@ import type { FloorPlan } from '../../building.ts';
 import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
 import { SIGN_FONT, canvasTex, oval, poolTex } from '../paint.ts';
 import { LAMP_POOL, facing, lightMat, onWall, pose, propTools } from '../props.ts';
+import type { Light } from '../props.ts';
+import { dressWalls } from '../dress.ts';
+import type { WallKit } from '../dress.ts';
+import { fallenPanelTex, officeBoxTex, officeHeapTex, officeTex } from './cutouts.ts';
 import { CITY_EXTINGUISHER, CITY_GUIDE } from '../../../i18n/signs.ts';
 import { BARRIER_RED, BARRIER_WHITE, CITY_WALL_PICS } from './pictures.ts';
 // The props of the old downtown (CITY): the things fixed to its walls and ceilings, and the light they throw. They go
@@ -148,6 +152,49 @@ function plateTex(): THREE.CanvasTexture {
 }
 // Lit lamp fittings on the ceiling with a soft pool of light under each, the sun on the floor under the windows,
 // and on the plainer walls clocks, floor guides and fire extinguishers
+// what the office's walls are dressed with (looks/dress.ts): shelves, desks, a pantry and cabinets let into them,
+// cartons and paper and old sets along their feet, ceiling panels come down, cables run under the ceiling
+let cityKit: WallKit | null = null;
+const makeCityKit = (): WallKit => ({
+  pics: CITY_WALL_PICS.length,
+  bare: PLAIN_WALLS,
+  units: {
+    maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => officeTex(800 + n)),
+    w: 3.7,
+    h: 2.84,
+    hall: 0.3,
+    lane: 0.14,
+    counter: [0, 1, 2, 3].map(n => officeBoxTex(820 + n)),
+  },
+  heaps: {
+    maps: [0, 1, 2, 3, 4, 5].map(n => officeHeapTex(840 + n)),
+    solid: [0, 1, 2, 3, 4, 5].map(n => officeBoxTex(860 + n)),
+    w: 3.5,
+    h: 1.75,
+    hall: 0.5,
+    lane: 0.6,
+  },
+  high: [
+    {
+      maps: [0, 1, 2].map(n => fallenPanelTex(880 + n)),
+      w: 2.4,
+      h: 1.8,
+      y: [4.7, 5.1],
+      out: [0.9, 1.7],
+      hall: 0.12,
+      lane: 0.16,
+    },
+  ],
+  runs: {
+    colors: [0x2a2826, 0x4a4844, 0x6f6a60, 0x1c1a18],
+    r: 0.03,
+    n: [2, 5],
+    hall: 0.35,
+    lane: 0.6,
+    y: [5.2, 5.6],
+    laneY: [4.7, 5.3],
+  },
+});
 export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   cityShared ??= {
     sun: sunTex(),
@@ -249,4 +296,8 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
   add(new THREE.BoxGeometry(0.1, 0.12, 0.16), new THREE.MeshBasicMaterial({ color: 0x1f1c1a }), head);
   add(new THREE.PlaneGeometry(0.2, 0.6), new THREE.MeshBasicMaterial({ map: shared.plate }), plate);
+  // what the office was left full of, wall by wall (looks/dress.ts)
+  const lights: Light[] = [];
+  dressWalls({ add }, d, plan, rng, (cityKit ??= makeCityKit()), lights);
+  tools.pools(lights, 0.5);
 }
