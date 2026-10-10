@@ -2,6 +2,9 @@ import type { Biome } from '../data/types.ts';
 import type { Look } from './looks/common.ts';
 import { cityPictures } from './looks/city/pictures.ts';
 import { cityProps } from './looks/city/props.ts';
+import { officeDeckTex } from './looks/city/cutouts.ts';
+import { plantDeckTex } from './looks/forge/cutouts.ts';
+import { shopDeckTex } from './looks/kwln/cutouts.ts';
 import { dataPictures } from './looks/data/pictures.ts';
 import { dataProps } from './looks/data/props.ts';
 import { forgePictures } from './looks/forge/pictures.ts';
@@ -34,11 +37,11 @@ export const plainLooks = (): boolean => plain;
 // the looks, made the first time a sector is drawn (the pictures stay for the life of the page)
 const MAKERS: Record<string, () => Look> = {
   DATA: () => ({ ...dataPictures(), props: dataProps }),
-  KWLN: () => soot({ ...kwlnPictures(), props: kwlnProps }),
-  FORGE: () => ({ ...forgePictures(), props: forgeProps }),
+  KWLN: () => soot({ ...kwlnPictures(), deckSide: shopDeckTex(), props: kwlnProps }),
+  FORGE: () => ({ ...forgePictures(), deckSide: plantDeckTex(), props: forgeProps }),
   NOISE: () => ({ ...noisePictures(), props: noiseProps }),
   RUIN: () => ({ ...ruinPictures(), props: ruinProps }),
-  CITY: () => ({ ...cityPictures(), props: cityProps }),
+  CITY: () => ({ ...cityPictures(), deckSide: officeDeckTex(), props: cityProps }),
 };
 // The walled city is a canyon: bright where people walk, black overhead. Its walls are darkened toward their tops
 // and its ceiling nearly put out, once, when the look is made; the signs, lamps and cables stand out against that

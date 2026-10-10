@@ -300,3 +300,46 @@ export function pipeRackTex(seed: number): THREE.CanvasTexture {
     soil(g, rand, S, S, 0);
   });
 }
+
+// The side of a raised deck of the plant, a tile wide and a deck high: a casting platform's steel, riveted plates
+// under a yellow and black edge, rust running down from the seams
+export function plantDeckTex(): THREE.CanvasTexture {
+  const rand = seeded(771),
+    W = 256,
+    H = 128;
+  return canvasTex(W, H, g => {
+    const steel = g.createLinearGradient(0, 0, 0, H);
+    steel.addColorStop(0, '#4a4038');
+    steel.addColorStop(1, '#2c2622');
+    g.fillStyle = steel;
+    g.fillRect(0, 0, W, H);
+    for (let x = 0; x < W; x += 64) {
+      g.fillStyle = 'rgba(0,0,0,0.4)';
+      g.fillRect(x, 16, 2, H);
+      g.fillStyle = '#17120f';
+      for (let y = 30; y < H; y += 26) {
+        g.fillRect(x + 6, y, 4, 4);
+        g.fillRect(x + 54, y, 4, 4);
+      }
+      g.fillStyle = 'rgba(110,50,20,0.4)';
+      g.fillRect(x + 2 + rand() * 50, 20, 5, 30 + rand() * 70);
+    }
+    for (let x = -16; x < W; x += 32) {
+      g.fillStyle = '#d9a41e';
+      g.beginPath();
+      g.moveTo(x, 16);
+      g.lineTo(x + 16, 0);
+      g.lineTo(x + 32, 0);
+      g.lineTo(x + 16, 16);
+      g.fill();
+      g.fillStyle = '#17120f';
+      g.beginPath();
+      g.moveTo(x + 16, 16);
+      g.lineTo(x + 32, 0);
+      g.lineTo(x + 48, 0);
+      g.lineTo(x + 32, 16);
+      g.fill();
+    }
+    soil(g, rand, W, H, H * 0.3);
+  });
+}

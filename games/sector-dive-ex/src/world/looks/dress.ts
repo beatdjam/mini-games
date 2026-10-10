@@ -38,7 +38,11 @@ export interface WallKit {
   // cut-outs high on the walls (a sign, washing, something hanging): between the heights `y`, `out` from the wall
   high?: (Share & { maps: THREE.Texture[]; w: number; h: number; y: [number, number]; out: [number, number] })[];
   // runs along the walls (pipes, cables): `n` of them together, radius `r`, each its own colour of `colors`
-  runs?: Share & { colors: number[]; r: number; n: [number, number]; y: [number, number]; laneY: [number, number] };
+  // (several bands may be given: under the ceiling, at the waist, along the ground)
+  runs?: Run | Run[];
+  runMap?: THREE.Texture; // the picture on the runs, risers and spans (each tinted its own colour); none: plain
+  // pipes up the walls, floor to ceiling, a flange on each
+  risers?: Share & { colors: number[]; r: number };
   // the same slung across from wall to wall, sagging
   spans?: Share & { colors: number[]; r: number; n: [number, number]; y: [number, number]; laneY: [number, number] };
   // an alley roofed over at height `y` (sheets with these pictures, a beam of colour `beam` at every tile)
@@ -46,6 +50,7 @@ export interface WallKit {
   // lamps hung down the middle of the alleys: a cord and a small light of this colour
   bulbs?: { share: number; color: number; y: [number, number] };
 }
+type Run = Share & { colors: number[]; r: number; n: [number, number]; y: [number, number]; laneY: [number, number] };
 export type Face = WallSlot & { room: number };
 
 // Dresses the floor by `kit`. `taken`: wall faces to leave alone above head height (where the sector's own props
@@ -145,10 +150,25 @@ export function dressWalls(
   // ---- heaps along the foot of the walls ----
   const hp = kit.heaps;
   if (hp) {
-    const at = some(
-      faces.filter(f => !byDoor(f)),
-      hp,
-    ).map(f => ({ f, off: rng.rand(-0.3, 0.3) }));
+    // (and against the sides of the raised decks: things pile up there as they do along a wall)
+    const decks: Face[] = [];
+    for (let j = 1; j < d.H - 1; j++)
+      for (let i = 1; i < d.W - 1; i++) {
+        const k = j * d.W + i;
+        if (d.maps.grid[k] !== 1 || d.maps.hgt[k]! > 0 || d.maps.ramp[k]! >= 0) continue;
+        SIDE_STEP.forEach(([di, dj], side) => {
+          const n = (j + dj) * d.W + i + di;
+          if (d.maps.grid[n] === 1 && d.maps.ramp[n]! < 0 && d.maps.hgt[n]! >= 1.5 && !d.maps.cover[n])
+            decks.push({ i, j, side, room: d.maps.roomOf[k]! });
+        });
+      }
+    const at = [
+      ...some(
+        faces.filter(f => !byDoor(f)),
+        hp,
+      ),
+      ...decks.filter(() => rng.next() < 0.45),
+    ].map(f => ({ f, off: rng.rand(-0.3, 0.3) }));
     for (const a of at) {
       const turn = facing(a.f);
       for (let k = 0, n = rng.randi(2, 4); k < n; k++) {
@@ -194,8 +214,7 @@ export function dressWalls(
   const round = new THREE.CylinderGeometry(1, 1, 4.05, 6),
     runAt: THREE.Matrix4[] = [],
     runColor: number[] = [];
-  const r = kit.runs;
-  if (r)
+  for (const r of kit.runs ? [kit.runs].flat() : [])
     for (const f of some(faces, r)) {
       const y = lane(f) ? rng.rand(r.laneY[0], r.laneY[1]) : rng.rand(r.y[0], r.y[1]);
       for (let k = 0, n = rng.randi(r.n[0], r.n[1]); k < n; k++) {
@@ -239,7 +258,32 @@ export function dressWalls(
         }
       }
     }
-  add(round, new THREE.MeshBasicMaterial({ color: 0xffffff }), runAt, runColor);
+  const runMat = () => new THREE.MeshBasicMaterial({ color: 0xffffff, map: kit.runMap ?? null });
+  add(round, runMat(), runAt, runColor);
+  const rs = kit.risers;
+  if (rs) {
+    const at = some(faces, rs).map(f => ({ f, off: rng.rand(-1.5, 1.5), thick: rs.r * rng.rand(0.7, 1.5) })),
+      colors = at.map(() => rng.pick(rs.colors));
+    add(
+      new THREE.CylinderGeometry(1, 1, WALL_H, 8),
+      runMat(),
+      at.map(a => pose(onWall(a.f, a.off, a.thick + 0.03, WALL_H / 2), 0, new THREE.Vector3(a.thick, 1, a.thick))),
+      colors,
+    );
+    add(
+      new THREE.CylinderGeometry(1, 1, 0.12, 8),
+      flat(0x1c1612),
+      at.flatMap(a =>
+        [1.4, 3.6].map(y =>
+          pose(
+            onWall(a.f, a.off, a.thick + 0.03, y + rng.rand(-0.3, 0.3)),
+            0,
+            new THREE.Vector3(a.thick * 1.5, 1, a.thick * 1.5),
+          ),
+        ),
+      ),
+    );
+  }
   // ---- the alleys: a roof over them, lamps down their middle ----
   const lanes = ceilings.filter(lane),
     roof = kit.roof;

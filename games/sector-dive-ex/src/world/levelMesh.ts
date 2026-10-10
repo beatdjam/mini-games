@@ -114,11 +114,11 @@ function addWalls(wallTex: THREE.Texture, tiles: [number, number][], group: THRE
 }
 
 // raised decks, walkways and cover (not ramps): one box per tile, scaled to the tile height
-function addDecks(tex: BiomeTextures, group: THREE.Group) {
+function addDecks(tex: BiomeTextures, group: THREE.Group, side?: THREE.Texture) {
   const matrix = new THREE.Matrix4();
   const raised: number[] = [];
   for (let k = 0; k < W * H; k++) if (grid[k] === 1 && ramp[k] < 0 && hgt[k] > 0) raised.push(k);
-  const sideMat = new THREE.MeshBasicMaterial({ map: tex.wall }),
+  const sideMat = new THREE.MeshBasicMaterial({ map: side ?? tex.wall }),
     topMat = new THREE.MeshBasicMaterial({ map: tex.tile });
   const coverSideMat = new THREE.MeshBasicMaterial({ map: tex.wall, color: 0x9a9a9a });
   (
@@ -794,7 +794,7 @@ export function buildFloorMeshes(
     planes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }));
     wallBoxes(tex.wall, walls);
   }
-  addDecks(tex, group);
+  addDecks(tex, group, look?.deckSide);
   addRamps(tex, group);
   buildHazardMesh(biome, plan.gen.hazard, group);
   const dark = look

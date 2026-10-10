@@ -24,6 +24,9 @@ export interface Look {
   // corridor tile beside it): an alley's walls are all shop fronts, windows and gates, none of them bare. Without
   // it an alley's walls are painted like any other
   laneWalls?: number[];
+  // the sides of the raised decks (a picture a tile wide and a deck high). Without it they have the plain wall's
+  // picture pressed down to their height, which reads as a lump of wall and not as a thing built there
+  deckSide?: THREE.CanvasTexture;
   props: (plan: FloorPlan, group: THREE.Group, rng: Rng) => void;
 }
 // a look's pictures (the props are built in the file next to them, <sector>/props.ts)

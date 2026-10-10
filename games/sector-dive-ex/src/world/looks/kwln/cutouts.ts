@@ -304,3 +304,27 @@ export function crateFaceTex(seed: number): THREE.CanvasTexture {
     soil(g, rand, S, S, S * 0.3);
   });
 }
+
+// The side of a raised deck of the walled city, a tile wide and a deck high: a shop's platform, small white tiles
+// gone grey over a concrete foot, a red-painted edge along its top
+export function shopDeckTex(): THREE.CanvasTexture {
+  const rand = seeded(71),
+    W = 256,
+    H = 128;
+  return canvasTex(W, H, g => {
+    g.fillStyle = '#b9b6aa';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(40,36,32,0.5)';
+    for (let x = 0; x < W; x += 16) g.fillRect(x, 0, 1.5, H);
+    for (let y = 0; y < H; y += 16) g.fillRect(0, y, W, 1.5);
+    for (let k = 0; k < 14; k++) {
+      g.fillStyle = 'rgba(60,54,46,0.5)';
+      g.fillRect(Math.floor(rand() * 16) * 16 + 1.5, Math.floor(rand() * 6) * 16 + 1.5, 14.5, 14.5);
+    }
+    g.fillStyle = '#8a2a22';
+    g.fillRect(0, 0, W, 10);
+    g.fillStyle = '#4a443c';
+    g.fillRect(0, H - 22, W, 22);
+    soil(g, rand, W, H, H * 0.25);
+  });
+}

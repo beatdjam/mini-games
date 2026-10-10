@@ -272,3 +272,33 @@ export function fallenPanelTex(seed: number): THREE.CanvasTexture {
     soil(g, rand, W, H, 0);
   });
 }
+
+// The side of a raised deck of the office, a tile wide and a deck high: a mezzanine built of partition panels, an
+// aluminium edge along its top, a dark skirting at its foot
+export function officeDeckTex(): THREE.CanvasTexture {
+  const rand = seeded(871),
+    W = 256,
+    H = 128;
+  return canvasTex(W, H, g => {
+    g.fillStyle = '#b8ad96';
+    g.fillRect(0, 0, W, H);
+    for (let x = 0; x < W; x += 64) {
+      g.fillStyle = 'rgba(0,0,0,0.22)';
+      g.fillRect(x, 0, 2, H);
+      g.fillStyle = 'rgba(255,255,255,0.1)';
+      g.fillRect(x + 2, 0, 2, H);
+    }
+    g.fillStyle = '#9a9890';
+    g.fillRect(0, 0, W, 9);
+    g.fillStyle = 'rgba(255,255,255,0.3)';
+    g.fillRect(0, 0, W, 2);
+    g.fillStyle = '#3a342c';
+    g.fillRect(0, H - 14, W, 14);
+    const shade = g.createLinearGradient(0, 0, 0, H);
+    shade.addColorStop(0, 'rgba(0,0,0,0)');
+    shade.addColorStop(1, 'rgba(0,0,0,0.25)');
+    g.fillStyle = shade;
+    g.fillRect(0, 0, W, H);
+    soil(g, rand, W, H, H * 0.5);
+  });
+}
