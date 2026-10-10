@@ -2,7 +2,7 @@ import { PAINT, css } from '../data/colors.ts';
 import * as THREE from 'three';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
 import { canvasTex } from './looks/paint.ts';
-// What crowds a courtyard (world/levelMesh.ts buildYardShell, buildAtriumProps): the things on the outer walls of a
+// What crowds a courtyard (world/courtMesh.ts buildYardShell, buildAtriumProps): the things on the outer walls of a
 // yard and across it, and the things that hang in an atrium. All of it is looked at, never touched: nothing here is
 // in the tile world. Many small things, so they are drawn as instanced meshes, one per kind of thing (batcher)
 
@@ -522,7 +522,7 @@ function dressRuins(b: Batch, spots: WallSpot[], well: Well) {
     );
 }
 
-// what a sector's yard is dressed with (levelMesh.ts YARDS[...].dress)
+// what a sector's yard is dressed with (courtMesh.ts YARDS[...].dress)
 export type YardDress = 'downtown' | 'walledCity' | 'ruins';
 export function dressYard(
   group: THREE.Group,
