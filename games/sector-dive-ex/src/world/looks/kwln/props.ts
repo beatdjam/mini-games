@@ -354,10 +354,11 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     // (an alley's walls are busier at eye height than a hall's: more meters and lamps, fewer whole stalls)
     // (what is let into a wall goes on bare concrete or over posters, not over a window, a gate or a shutter painted
     // there)
+    // (nor by a deck or a walkway: what stands on the ground there would be half in it)
     bare = (f: WallSlot): boolean => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!,
         v = wallPic(d, (f.j + dj) * d.W + f.i + di, KWLN_WALL_PICS.length, KWLN_LANE_WALLS);
-      return v === 0 || v === KWLN_WALL_PICS.length - 1;
+      return (v === 0 || v === KWLN_WALL_PICS.length - 1) && !raised(d, f);
     },
     stalls = faces.filter((f, n) => bare(f) && !byDoor(f) && low[n]! < (inLane(f) ? 0.18 : 0.3)),
     lanes = ceilings.filter(c => c.room < 0),
@@ -368,14 +369,14 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       meter: faces.filter(
         (f, n) => bare(f) && low[n]! >= (inLane(f) ? 0.62 : 0.48) && low[n]! < (inLane(f) ? 0.8 : 0.6),
       ),
-      heap: faces.filter(f => !byDoor(f) && rng.next() < (inLane(f) ? 0.8 : 0.62)),
+      heap: faces.filter(f => !byDoor(f) && !raised(d, f) && rng.next() < (inLane(f) ? 0.8 : 0.62)),
       // (over most stalls, and over a bare wall now and then)
       awning: faces.filter((f, n) => clear(f) && (low[n]! < 0.3 ? high[n]! < 0.8 : high[n]! < 0.12)),
       cage: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.12 && high[n]! < 0.42),
       wash: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.42 && high[n]! < 0.6),
       duct: faces.filter(f => rng.next() < (inLane(f) ? 0.85 : 0.5)),
       bundle: some(faces, 0.9),
-      tube: faces.filter(f => rng.next() < (inLane(f) ? 0.14 : 0.05)),
+      tube: faces.filter(f => !raised(d, f) && rng.next() < (inLane(f) ? 0.14 : 0.05)),
       // (an alley is roofed with cables: nearly every tile of it has a bundle across, low enough to be seen)
       span: spanLines(ceilings, { lane: 0.92, hall: 0.42 }, rng),
       hangsign: [...some(lanes, 0.2), ...some(halls, 0.035)],

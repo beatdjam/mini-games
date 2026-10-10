@@ -113,9 +113,12 @@ export function dressWalls(
     // (nothing stands at the foot of a wall by a door: it would be in the doorway)
     byDoor = (f: WallSlot): boolean =>
       [[0, 0], ...SIDE_STEP].some(([di, dj]) => !!d.maps.door?.[(f.j + dj!) * d.W + f.i + di!]),
+    // (nor by a deck or a walkway: what stands on the ground there would be half in it)
     bare = (f: WallSlot): boolean => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!;
-      return kit.bare.includes(wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls, kit.sides));
+      return (
+        kit.bare.includes(wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls, kit.sides)) && !raised(d, f)
+      );
     },
     flat = (color: number) => new THREE.MeshBasicMaterial({ color }),
     cutout = (map: THREE.Texture) =>
@@ -192,7 +195,7 @@ export function dressWalls(
       }
     const at = [
       ...some(
-        faces.filter(f => !byDoor(f)),
+        faces.filter(f => !byDoor(f) && !raised(d, f)),
         hp,
       ),
       ...decks.filter(() => rng.next() < 0.45),
