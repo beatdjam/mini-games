@@ -66,15 +66,22 @@ if (new URLSearchParams(location.search).has('fps')) {
   };
   requestAnimationFrame(count);
 }
-// dev: ?court=open / ?court=roof makes every courtyard a yard open to the sky / a roofed atrium
-const courtParam = new URLSearchParams(location.search).get('court');
-if (courtParam === 'open' || courtParam === 'roof') devCourtOpen(courtParam === 'open');
+// dev: ?court=open / ?court=roof makes every courtyard a yard open to the sky / a roofed atrium; with ?court=open,
+// ?yard=balcony / walk / bridge gives every floor of a yard that shape
+const courtParam = new URLSearchParams(location.search).get('court'),
+  yardParam = new URLSearchParams(location.search).get('yard');
+if (courtParam === 'open' || courtParam === 'roof')
+  devCourtOpen(
+    courtParam === 'open',
+    yardParam === 'balcony' || yardParam === 'walk' || yardParam === 'bridge' ? yardParam : null,
+  );
 
 // dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
 // lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
-// court / courttop / courtmid (the courtyard, from its ground and from its galleries)
+// court / courttop / courtmid (the courtyard, from its ground and from its galleries), courtalong (along a yard's
+// balcony)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -146,9 +153,12 @@ if (location.hash.startsWith('#bld-'))
               : Math.min(c.upper + 1, Math.max(c.upper, c.lower - 1));
       if (c.open) {
         // a yard: on that floor's balcony, facing the yard
-        const mid = c.balconies[floor - c.upper]![1]!,
+        const row = c.balconies[floor - c.upper]!,
+          mid = row[1]!,
           out = [1, -1, W, -W].find(o => c.tiles.includes(mid + o))!;
-        stand(floor, mid, out);
+        // (courtalong: from the balcony's end, along it)
+        if (what === 'courtalong') stand(floor, row[0]!, mid - row[0]!);
+        else stand(floor, mid, out);
         player.pitch = what === 'court' ? 0.3 : what === 'courttop' ? -0.3 : 0;
       } else if (what === 'court') {
         stand(c.lower, c.tiles[1]!, W);

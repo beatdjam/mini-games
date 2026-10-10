@@ -162,11 +162,16 @@ function ivyTex(): THREE.CanvasTexture {
 }
 
 // ---- the three yards ----
+// the old downtown's fire escape: how far a flight runs along the wall, how long a landing is (m), treads to a flight
+const ESCAPE_RUN = 2.6,
+  ESCAPE_LANDING = 0.7,
+  ESCAPE_TREADS = 12;
+const DECK_CLEAR = 4.5; // nothing is strung across a yard this far over a bridge's deck (m)
 const WINDOW_DROP = 1.2; // a window's middle is about this far under the middle of its storey's wall tile (m)
 
 // The walled city: neon on brackets and across the well, shop boards, caged balconies with what people keep in them,
 // tin awnings, washing on poles, air conditioners, cables with lanterns, the light of the stalls on the ground
-function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: Well) {
+function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: Well, decks: number[]) {
   const neons = KWLN_NEON_WORDS.flatMap(w => NEON_COLORS.map(c => ({ w, c })));
   const plane = (w: number, h: number) => new THREE.PlaneGeometry(w, h);
   for (const p of spots) {
@@ -296,6 +301,8 @@ function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: 
   // cables strung across the well on every storey, some hung with red lanterns, and a few big signs hung out over
   // the middle of it
   for (let y = well.ground + 3, n = 0; y < well.sky - 1; y += 2.6, n++) {
+    // (none where a bridge is walked: from its deck to over the head of whoever crosses it)
+    if (decks.some(deck => y > deck - 1 && y < deck + DECK_CLEAR)) continue;
     const d = yardDice(y, well.cx, well.cz),
       alongX = d < 0.5,
       off = (yardDice(y, well.cz, 7) - 0.5) * 0.8,
@@ -347,10 +354,10 @@ function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: 
   }
 }
 
-// The old downtown: air conditioners under the windows, drain pipes, a fire escape up one wall (a landing on every
-// storey, a stair between), a lit exit lamp by it, a water tank's pipes
+// The old downtown: air conditioners under the windows, drain pipes, a fire escape up one wall, a lit exit lamp by it, a water tank's pipes
 function dressDowntown(b: Batch, spots: WallSpot[], well: Well, storey: number) {
   const steel = (): THREE.Material => flat(0x33373b);
+  const grate = (): THREE.Material => flat(0x565b60);
   for (const p of spots) {
     const nx = Math.sin(p.turn),
       nz = Math.cos(p.turn),
@@ -390,24 +397,50 @@ function dressDowntown(b: Batch, spots: WallSpot[], well: Well, storey: number) 
         p.turn,
       );
   }
-  // the fire escape: against the low-x wall, in its middle, all the way up
+  // The fire escape: against the low-x wall, in its corner (clear of a lookout in the wall's middle), all the way up.
+  // Two flights to a storey, turning on a landing at each end; every flight has its treads, a stringer on each side
+  // and a handrail with a second rail under it on the open side, every landing its own rail, and two posts stand
+  // from the ground to the top so that the whole of it is one frame
   const x = well.cx - well.wide / 2 + 0.75,
-    z = well.cz;
-  for (let y = well.ground; y < well.sky - storey / 2; y += storey / 2) {
-    const flip = Math.round((y - well.ground) / (storey / 2)) % 2 ? 1 : -1;
-    b.put('landing', () => [box(1.4, 0.08, 1.6), steel()], x, y + 0.04, z + flip * 2.6);
-    b.put('flight', () => [box(1.1, 0.08, 6.6), steel()], x, y + storey / 4, z, 0, -flip * Math.atan2(storey / 2, 5.2));
-    b.put(
-      'escaperail',
-      () => [box(0.05, 1.0, 6.6), steel()],
-      x + 0.6,
-      y + storey / 4 + 0.5,
-      z,
-      0,
-      -flip * Math.atan2(storey / 2, 5.2),
-    );
-    b.put('exitlamp', () => [box(0.1, 0.3, 0.7), flat(0x49e08a, true)], x - 0.6, y + 2.3, z + flip * 2.6);
+    z = well.cz - well.deep / 2 + ESCAPE_RUN / 2 + ESCAPE_LANDING + 0.1,
+    rise = storey / 2,
+    slope = Math.atan2(rise, ESCAPE_RUN),
+    len = Math.hypot(rise, ESCAPE_RUN),
+    out = x + 0.58, // the open side
+    endZ = ESCAPE_RUN / 2 + ESCAPE_LANDING,
+    top = well.sky - rise,
+    bar = (l: number) => (): [THREE.BufferGeometry, THREE.Material] => [box(0.05, 0.05, l), steel()];
+  for (let y = well.ground, n = 0; y < top; y += rise, n++) {
+    // (the flight goes up from the landing at this end to the one at the other)
+    const flip = n % 2 ? 1 : -1,
+      tilt = flip * slope,
+      mid = y + rise / 2;
+    for (let k = 0; k < ESCAPE_TREADS; k++) {
+      const t = (k + 0.5) / ESCAPE_TREADS;
+      b.put('tread', () => [box(1.0, 0.05, 0.3), grate()], x, y + rise * t, z + flip * ESCAPE_RUN * (0.5 - t));
+    }
+    for (const side of [-0.52, 0.52])
+      b.put('stringer', () => [box(0.06, 0.22, len), steel()], x + side, mid - 0.08, z, 0, tilt);
+    b.put('handrail', bar(len), out, mid + 1.0, z, 0, tilt);
+    b.put('midrail', bar(len), out, mid + 0.5, z, 0, tilt);
+    // the landing this flight starts from, railed on its open side and across its end
+    const lz = z + flip * (ESCAPE_RUN / 2 + ESCAPE_LANDING / 2);
+    b.put('landing', () => [box(1.2, 0.07, ESCAPE_LANDING), grate()], x, y - 0.03, lz);
+    for (const h of [0.5, 1.0]) {
+      b.put('landrail', bar(ESCAPE_LANDING), out, y + h, lz);
+      b.put('endrail', () => [box(1.2, 0.05, 0.05), steel()], x, y + h, z + flip * endZ);
+    }
+    // a lit exit sign on the wall at every storey's own landing
+    if (n % 2 === 0) b.put('exitlamp', () => [box(0.1, 0.3, 0.7), flat(0x49e08a, true)], x - 0.6, y + 2.3, lz);
   }
+  const high = top - well.ground + 1;
+  for (const side of [-1, 1])
+    for (const px of [x - 0.58, out])
+      b.put('escapepost', () => [box(0.09, 1, 0.09), steel()], px, well.ground + high / 2, z + side * endZ, 0, 0, [
+        1,
+        high,
+        1,
+      ]);
 }
 
 // The ruins: ivy over the walls, dead air conditioners, bare poles, a slab of balcony left here and there, and on the
@@ -497,10 +530,11 @@ export function dressYard(
   well: Well,
   storey: number,
   shade: number,
+  decks: number[], // the heights of the bridges across the yard
 ) {
   dim = new THREE.Color(shade);
   const b = batcher(group);
-  if (dress === 'walledCity') dressWalledCity(b, group, spots, well);
+  if (dress === 'walledCity') dressWalledCity(b, group, spots, well, decks);
   else if (dress === 'ruins') dressRuins(b, spots, well);
   else dressDowntown(b, spots, well, storey);
   b.done();
