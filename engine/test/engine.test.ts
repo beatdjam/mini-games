@@ -108,6 +108,19 @@ import { onDataClick, rowsHTML } from '../src/ui/dom.ts';
 import { withLang } from '../src/core/langslots.ts';
 import { facesToward, floorSides, wallSide } from '../src/world/walls.ts';
 import { WINDOW_ORDER, buildBackdrop, buildWindowPanes } from '../src/render/windows.ts';
+import {
+  block,
+  canvasTex,
+  grain,
+  grime,
+  paintRand,
+  paintTex,
+  poolTex,
+  smudge,
+  soil,
+  stripes,
+  words,
+} from '../src/render/paint.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
@@ -2678,4 +2691,42 @@ test('windows: panes on the faces mark the stencil, the backdrop is drawn only t
     {} as THREE.Group,
   );
   expect(back.position.toArray()).toEqual([7, 2, -5]);
+});
+test('paint: the same seed paints the same picture; the strokes cover the canvas or the size given', () => {
+  const pixels = (t: THREE.CanvasTexture) => {
+    const c = t.image as HTMLCanvasElement;
+    return Array.from(c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data);
+  };
+  const art = (g: CanvasRenderingContext2D, rand: () => number) => {
+    g.fillStyle = '#556677';
+    g.fillRect(0, 0, 64, 64);
+    grime(g, rand, 20, '#fff', '#000');
+    grain(g, rand, 30);
+    stripes(g, [0, 40, 64, 10], 8, '#ff0', '#000', 'rgba(0,0,0,.3)');
+    block(g, 4, 4, 20, 12, '#884422');
+    soil(g, rand, 64, 64, 32);
+    words(g, 'A', 32, 20, 10, 0.5);
+  };
+  const a = paintTex(7, art, 64),
+    b = paintTex(7, art, 64),
+    c = paintTex(8, art, 64);
+  expect((a.image as HTMLCanvasElement).width).toBe(64);
+  expect(pixels(a)).toEqual(pixels(b));
+  expect(pixels(a)).not.toEqual(pixels(c));
+  expect(paintRand(3)()).toBe(paintRand(3)());
+  expect(paintTex(1, () => {}, 32, true).wrapS).toBe(THREE.RepeatWrapping);
+  expect((canvasTex(80, 20, () => {}).image as HTMLCanvasElement).height).toBe(20);
+  expect(poolTex(), 'one picture for all the pools').toBe(poolTex());
+  // a smudge near one edge runs on round the other edge (the next tile)
+  const wrap = canvasTex(32, 32, g => smudge(g, 1, 16, 6, 6, '255,0,0', 1)),
+    edge = (wrap.image as HTMLCanvasElement).getContext('2d')!.getImageData(31, 16, 1, 1).data;
+  expect(edge[3]).toBeGreaterThan(0);
+  // grain only over the size given
+  const part = canvasTex(32, 32, g => {
+      g.fillStyle = '#808080';
+      g.fillRect(0, 0, 32, 32);
+      grain(g, paintRand(1), 80, 16, 16);
+    }),
+    pg = (part.image as HTMLCanvasElement).getContext('2d')!;
+  expect(Array.from(pg.getImageData(20, 20, 1, 1).data), 'outside: as painted').toEqual([128, 128, 128, 255]);
 });
