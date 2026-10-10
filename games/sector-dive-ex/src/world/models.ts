@@ -1,6 +1,7 @@
 import type { EnemyDef, Laser, PickupKind, Weapon } from '../data/types.ts';
 import * as THREE from 'three';
 import { V3, basicMat, dynGroup, lineMat } from '@engine/render/render.ts';
+import { mergeParts } from '@engine/render/merge.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { COLOR } from '../data/colors.ts';
 import { edges, geoCache } from './render.ts';
@@ -72,7 +73,24 @@ interface EnemyMesh {
   anim?: EnemyAnim;
 }
 const PLAIN_GLOW = 0.4;
+// the model of an enemy, its parts that move together joined into one mesh per material (engine/src/render/merge.ts):
+// a model of 26 to 31 parts was as many draws. What moves on its own stays apart: the body the plain animation turns,
+// what the look's animation turns, a trooper's joints, the shield that falls off when broken
 export function buildEnemyMesh(def: EnemyDef): EnemyMesh {
+  const m = buildEnemyParts(def),
+    rig = m.g.userData.rig as Record<string, THREE.Object3D> | undefined,
+    shield = m.g.userData.shield as THREE.Object3D[] | undefined;
+  mergeParts(m.g, [
+    m.body,
+    ...(m.anim?.roll ?? []),
+    ...(m.anim?.whirl ?? []).map(w => w.part),
+    m.anim?.scan,
+    ...Object.values(rig ?? {}),
+    ...(shield ?? []),
+  ]);
+  return m;
+}
+function buildEnemyParts(def: EnemyDef): EnemyMesh {
   // a machine in armour plate (world/models/enemyLooks.ts), unless the plain looks are on (dev) or the type has none
   if (!plainLooks()) {
     if (def.humanoid) {
