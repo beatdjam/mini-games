@@ -41,11 +41,16 @@ const SEED_TRIES = 30; // seeds tried until a building has room for its stairwel
 const SEED_STEP = 7919; // added to the seed for the next try
 // A courtyard, in two kinds.
 // An atrium: a well COURT_ROOFED tiles a side, roofed with a skylight, open through several floors, with a gallery one
-// tile wide round it on every floor it passes and its ground on the lowest of them. Looked into and up from.
+// tile wide round it on every floor it passes and its ground on the lowest of them. Looked into and up from. The
+// gallery has a way in on one side and, where one is found, on the far side too; above the ground a bridge may join
+// the two straight across the well (ATRIUM_BRIDGE_CHANCE).
 // A yard: an outdoor well between the building's own outer walls (rows of windows, storey over storey; drawn by
 // levelMesh.ts buildYardShell, not walked in), COURT_YARD tiles a side or COURT_YARD_WIDE where there is room. Each
 // floor it passes looks out on it from a balcony: BALCONY tiles of the wall round it, floor instead of wall, with a
-// rail. Neither kind is crossed between floors
+// rail. A floor's balcony has one of three shapes (YARD_SHAPES): the lookout alone; a walk, the whole of one side of
+// the yard, joined to the floor at its ends (a corridor with the yard on one side); or a bridge from the lookout
+// straight across the yard to a second one on the far side, which has its own way on into the floor. Neither kind of
+// courtyard is crossed between floors
 // which kinds a sector's buildings get (when there is room): what fits the place. A yard needs an outside to look at
 // (the old downtown, the walled city's lightwells, the housing blocks of the ruins); an atrium is a hall inside (the
 // furnace hall, a studio, a machine hall)
@@ -62,6 +67,11 @@ const COURT_ROOFED = 3,
   COURT_YARD_WIDE = 7; // side of the open middle (tiles)
 const COURT_OPEN_CHANCE = 0.5; // a courtyard is a yard this often
 const BALCONY = 3; // tiles of a balcony along the yard
+const ATRIUM_BRIDGE_CHANCE = 0.6; // a floor of an atrium that has a way in on both sides gets a bridge this often
+export type YardShape = 'balcony' | 'walk' | 'bridge';
+// the shapes of a yard's balconies, floor by floor, in this order from a random one on (so two floors next to each
+// other never have the same)
+const YARD_SHAPES: YardShape[] = ['bridge', 'walk', 'balcony'];
 const COURT_TRIES = 12; // places tried
 const DOOR_PAIR_REACH = 2; // of two doors this many tiles apart or closer along a corridor, only one stays
 
@@ -88,8 +98,15 @@ export interface FloorPlan {
   shaftWall: Uint8Array; // round the open part of a stairwell coming up from below: a wall is drawn here
   // the courtyard's open middle on this floor (null = none here). An atrium (`open` false): `top` has the skylight
   // over it, `ground` is the floor one walks on (elsewhere it is a hole with a rail round it). A yard (`open`):
-  // `balcony` are this floor's tiles that look out on it
-  court: { tiles: number[]; top: boolean; ground: boolean; open: boolean; balcony: number[] } | null;
+  // `balcony` are this floor's tiles that look out on it, `bridge` the tiles of the middle that are floor here
+  court: {
+    tiles: number[];
+    top: boolean;
+    ground: boolean;
+    open: boolean;
+    balcony: number[];
+    bridge: number[];
+  } | null;
 }
 // the courtyard of a building: the floors it is open through (upper = the top one, with the skylight; lower = the
 // one its ground is on) and the tiles of its open middle (the same on every floor)
@@ -99,11 +116,14 @@ export interface Court {
   tiles: number[];
   open: boolean; // a yard, open to the sky; else an atrium, roofed
   balconies: number[][]; // a yard: per floor it passes (upper first), the tiles of that floor's balcony
+  bridges: number[][]; // per floor it passes, the tiles of its middle that are a bridge there (mostly none)
 }
-// dev: every courtyard is of this kind (null = by the building's own dice)
-let courtKind: boolean | null = null;
-export function devCourtOpen(open: boolean | null) {
+// dev: every courtyard is of this kind (null = by the building's own dice), every balcony of a yard of this shape
+let courtKind: boolean | null = null,
+  yardShape: YardShape | null = null;
+export function devCourtOpen(open: boolean | null, shape: YardShape | null = null) {
   courtKind = open;
+  yardShape = shape;
 }
 export interface Building {
   seed: number; // what makeBuilding was given
@@ -452,13 +472,15 @@ function addCourt(
     COURT = !open ? COURT_ROOFED : roomy ? COURT_YARD_WIDE : COURT_YARD,
     edge = open ? 1 : 2, // tiles between the square's side and the open middle
     SIDE = COURT + 2 * edge,
-    places = roomy ? wide!.places : small.places;
+    places = roomy ? wide!.places : small.places,
+    firstShape = rng.randi(0, YARD_SHAPES.length - 1);
   for (let t = 0; t < COURT_TRIES && places.length; t++) {
     const at = places.splice(rng.randi(0, places.length - 1), 1)[0]!,
       kept = maps.map((m, n) => ({ grid: m.maps.grid.slice(), out: keepOut[n]!.slice() })),
       tile = (a: number, b: number) => (at.j + b) * W + at.i + a,
       tiles: number[] = [],
-      balconies: number[][] = [];
+      balconies: number[][] = [],
+      bridges: number[][] = [];
     for (let b = edge; b < edge + COURT; b++) for (let a = edge; a < edge + COURT; a++) tiles.push(tile(a, b));
     let ok = true;
     for (let f = at.upper; f <= at.lower && ok; f++) {
@@ -474,28 +496,64 @@ function addCourt(
           if (!open && ring && (!tiles.includes(k) || f === at.lower)) d.maps.grid[k] = 1;
         }
       // the way in, from the middle of one side, whichever finds a way: an atrium's goes through the wall round the
-      // gallery; a yard's starts at the balcony itself (BALCONY tiles of the wall, side by side)
-      const sides: { gate: number; along: number }[] = [
-        { gate: tile(mid, 0), along: 1 },
-        { gate: tile(mid, SIDE - 1), along: 1 },
-        { gate: tile(0, mid), along: W },
-        { gate: tile(SIDE - 1, mid), along: W },
-      ];
+      // gallery; a yard's starts at the balcony itself (BALCONY tiles of the wall, side by side). `into`: the step
+      // from the gate into the yard
+      const sides: { gate: number; along: number; into: number }[] = [
+          { gate: tile(mid, 0), along: 1, into: W },
+          { gate: tile(mid, SIDE - 1), along: 1, into: -W },
+          { gate: tile(0, mid), along: W, into: 1 },
+          { gate: tile(SIDE - 1, mid), along: W, into: -1 },
+        ],
+        shape = yardShape ?? YARD_SHAPES[(f - at.upper + firstShape) % YARD_SHAPES.length]!,
+        way = (from: number): boolean => {
+          out[from] = 0;
+          const found = carveCorridorFrom(d, from, out);
+          out[from] = 1;
+          return found;
+        },
+        run = (middle: number, along: number, n: number) =>
+          Array.from({ length: n }, (_, m) => middle + (m - (n - 1) / 2) * along);
       ok = false;
       for (let n = rng.randi(0, 3), tries = 0; tries < 4 && !ok; n = (n + 1) % 4, tries++) {
-        const { gate, along } = sides[n]!;
-        out[gate] = 0;
-        ok = carveCorridorFrom(d, gate, out);
-        out[gate] = 1;
-        if (!ok || !open) continue;
-        const balcony = Array.from({ length: BALCONY }, (_, m) => gate + (m - (BALCONY - 1) / 2) * along);
-        balcony.forEach(k => {
-          d.maps.grid[k] = 1;
-        });
+        const { gate, along, into } = sides[n]!;
+        let balcony: number[],
+          bridge: number[] = [];
+        if (!open) {
+          // An atrium: a second way in on the far side when one is found, so the gallery is passed through and not
+          // only come to; and, on a floor where the middle is a hole, now and then a bridge straight between the two
+          if (!way(gate)) continue;
+          ok = true;
+          const through = way(gate + (SIDE - 1) * into),
+            bridged =
+              through && f < at.lower && (yardShape ? yardShape === 'bridge' : rng.next() < ATRIUM_BRIDGE_CHANCE);
+          if (bridged) bridge = Array.from({ length: COURT }, (_, m) => gate + (edge + m) * into);
+          for (const k of bridge) d.maps.grid[k] = 1;
+          balconies.push([]);
+          bridges.push(bridge);
+          continue;
+        }
+        if (shape === 'walk') {
+          // the whole side, and of its two corners those that find a way on into the floor (one at least)
+          const ends = [gate - mid * along, gate + mid * along].filter(way);
+          if (!ends.length) continue;
+          balcony = [...run(gate, along, COURT), ...ends];
+        } else {
+          if (!way(gate)) continue;
+          balcony = run(gate, along, BALCONY);
+          // (a bridge needs a way on at its far end: without one this floor keeps the lookout alone)
+          const far = gate + (SIDE - 1) * into;
+          if (shape === 'bridge' && way(far)) {
+            bridge = Array.from({ length: COURT }, (_, m) => gate + (m + 1) * into);
+            balcony.push(...run(far, along, BALCONY));
+          }
+        }
+        ok = true;
+        for (const k of [...balcony, ...bridge]) d.maps.grid[k] = 1;
         balconies.push(balcony);
+        bridges.push(bridge);
       }
     }
-    if (ok) return { upper: at.upper, lower: at.lower, tiles, open, balconies };
+    if (ok) return { upper: at.upper, lower: at.lower, tiles, open, balconies, bridges };
     kept.forEach((k, n) => {
       maps[n]!.maps.grid.set(k.grid);
       keepOut[n]!.set(k.out);
@@ -617,19 +675,20 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
               ground: !court.open && floor === court.lower,
               open: court.open,
               balcony: court.balconies[floor - court.upper] ?? [],
+              bridge: court.bridges[floor - court.upper] ?? [],
             }
           : null,
     };
   });
   // An atrium: open upward on every floor but its top one, a hole on every floor but its lowest, and the gap to
-  // the next floor walled over the galleries. A yard: a hole with no ceiling on every floor, and that gap walled over
-  // the balconies. No hazard floor in either
+  // the next floor walled over the galleries. A yard: a hole with no ceiling on every floor (but for a bridge, which
+  // is floor under the open sky), and that gap walled over the balconies. No hazard floor in either
   if (court)
     for (let n = court.upper; n <= court.lower; n++) {
       const p = plans[n]!;
       for (const k of court.tiles) {
         if (court.open || n > court.upper) p.noCeil[k] = 1;
-        if (court.open || n < court.lower) p.voids[k] = 1;
+        if ((court.open || n < court.lower) && !p.court!.bridge.includes(k)) p.voids[k] = 1;
         for (const t of around(W, k)) {
           p.gen.hazard[t] = 0;
           if (!court.open && n > court.upper && !court.tiles.includes(t)) p.shaft[t] = 1;

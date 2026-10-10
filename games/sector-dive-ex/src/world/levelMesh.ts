@@ -246,6 +246,30 @@ function addRail(x: number, z: number, len: number, alongX: boolean, group: THRE
     group.add(post);
   }
 }
+// A bridge across a yard, from under: the slab it is walked on (the floor's own tiles lie on top of it), two steel
+// girders along it and a cross beam under every joint
+const BRIDGE_SLAB = 0.3,
+  BRIDGE_GIRDER = 0.5; // how thick the slab is and how deep the girders under it (m)
+function addBridge(tiles: number[], group: THREE.Group) {
+  if (!tiles.length) return;
+  const is = tiles.map(k => k % W),
+    js = tiles.map(k => (k / W) | 0),
+    alongX = js[0] === js[1],
+    len = tiles.length * T,
+    cx = ((Math.min(...is) + Math.max(...is) + 1) / 2) * T,
+    cz = ((Math.min(...js) + Math.max(...js) + 1) / 2) * T,
+    steel = new THREE.MeshBasicMaterial({ color: PAINT.soot9 }),
+    box = (along: number, h: number, across: number, y: number, off: number, at = 0, mat: THREE.Material = steel) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(alongX ? along : across, h, alongX ? across : along), mat);
+      m.position.set(cx + (alongX ? at : off), y, cz + (alongX ? off : at));
+      group.add(m);
+    };
+  // (its top a little under the floor's tiles: two faces in one plane flicker)
+  box(len, BRIDGE_SLAB, T, -BRIDGE_SLAB / 2 - 0.02, 0, 0, new THREE.MeshBasicMaterial({ color: PAINT.ink11 }));
+  for (const side of [-1, 1]) box(len, BRIDGE_GIRDER, 0.3, -BRIDGE_SLAB - BRIDGE_GIRDER / 2, side * (T / 2 - 0.15));
+  for (let n = 0; n <= tiles.length; n++)
+    box(0.25, BRIDGE_GIRDER * 0.7, T - 0.6, -BRIDGE_SLAB - 0.2, 0, -len / 2 + n * T);
+}
 function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group, sector: string) {
   const [SKYLIGHT, SKY_POOL_OPACITY] = SKYLIGHTS[sector] ?? SKYLIGHTS.CITY!,
     is = court.tiles.map(k => k % W),
@@ -258,24 +282,19 @@ function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group, se
     cz = ((j0 + j1) / 2) * T,
     wide = (i1 - i0) * T,
     deep = (j1 - j0) * T;
-  if (court.open) {
-    // a yard: the rail on the balcony's side of the yard, one tile's worth per balcony tile
-    for (const k of court.balcony) {
-      const i = k % W,
-        j = (k / W) | 0;
-      if (j === j0 - 1) addRail(tileCenter(i), j0 * T, T, true, group);
-      else if (j === j1) addRail(tileCenter(i), j1 * T, T, true, group);
-      else if (i === i0 - 1) addRail(i0 * T, tileCenter(j), T, false, group);
-      else if (i === i1) addRail(i1 * T, tileCenter(j), T, false, group);
-    }
-    return;
-  }
+  // a rail wherever the hole has a tile one stands on beside it: a yard's balcony, an atrium's gallery, a bridge
   if (!court.ground) {
-    addRail(cx, j0 * T, wide, true, group);
-    addRail(cx, j1 * T, wide, true, group);
-    addRail(i0 * T, cz, deep, false, group);
-    addRail(i1 * T, cz, deep, false, group);
+    const hole = new Set(court.tiles.filter(k => !court.bridge.includes(k))),
+      stood = new Set([...court.balcony, ...court.bridge]);
+    for (const k of hole)
+      for (const [di, dj] of SIDE_STEP) {
+        const t = k + dj * W + di;
+        if (stood.has(t) || (!court.open && !court.tiles.includes(t)))
+          addRail(tileCenter(k % W) + (di * T) / 2, tileCenter((k / W) | 0) + (dj * T) / 2, T, dj !== 0, group);
+      }
+    addBridge(court.bridge, group);
   }
+  if (court.open) return;
   if (court.top) {
     // the skylight: a bright pane a little under the ceiling, framed by steel bars
     const sky = new THREE.Mesh(
@@ -697,7 +716,15 @@ export function buildYardShell(court: Court, w: number, storey: number, biome: B
     group,
     th.dress,
     spots.map(p => ({ ...p, window: p.kind >= 0 })),
-    { cx, cz, wide, deep, ground: -bottom * storey, sky: -top * storey + storey },
+    {
+      cx,
+      cz,
+      wide,
+      deep,
+      ground: -bottom * storey,
+      sky: -top * storey + storey,
+      decks: court.bridges.flatMap((tiles, n) => (tiles.length ? [-(court.upper + n) * storey] : [])),
+    },
     storey,
     th.shade,
   );
@@ -893,6 +920,7 @@ export function buildAtriumProps(court: Court, w: number, storey: number, biome:
     deep: (j1 - j0) * T,
     ground: -court.lower * storey,
     sky: -court.upper * storey + WALL_H,
+    decks: court.bridges.flatMap((tiles, n) => (tiles.length ? [-(court.upper + n) * storey] : [])),
   });
   return group;
 }

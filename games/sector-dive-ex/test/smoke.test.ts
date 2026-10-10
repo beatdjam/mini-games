@@ -2070,17 +2070,14 @@ test('building: a courtyard, an atrium with galleries or a yard seen from balcon
         if (!on) return;
         // the open middle is walked on only on an atrium's lowest floor; everywhere else it is a hole (solid)
         const ground = !open && floor === c.lower;
+        // (a yard's bridge aside: see the next test)
         for (const k of c.tiles) {
-          expect(maps.grid[k], `${at} floor ${floor} tile ${k}`).toBe(ground ? 1 : 0);
-          expect(p.voids[k], `${at} floor ${floor}: nothing drawn in the hole`).toBe(ground ? 0 : 1);
+          const walked = ground || p.court!.bridge.includes(k);
+          expect(maps.grid[k], `${at} floor ${floor} tile ${k}`).toBe(walked ? 1 : 0);
+          expect(p.voids[k], `${at} floor ${floor}: nothing drawn in the hole`).toBe(walked ? 0 : 1);
         }
         if (open) {
-          // a balcony: floor tiles right beside the yard
-          expect(p.court!.balcony.length).toBe(3);
-          for (const k of p.court!.balcony) {
-            expect(maps.grid[k], `${at} floor ${floor} balcony ${k}`).toBe(1);
-            expect([k - 1, k + 1, k - w, k + w].some(t => c.tiles.includes(t))).toBe(true);
-          }
+          for (const k of p.court!.balcony) expect(maps.grid[k], `${at} floor ${floor} balcony ${k}`).toBe(1);
         } else {
           // a gallery all round the hole
           const ring = new Set(c.tiles.flatMap(k => [k - 1, k + 1, k - w, k + w]).filter(k => !c.tiles.includes(k)));
@@ -2097,6 +2094,86 @@ test('building: a courtyard, an atrium with galleries or a yard seen from balcon
       const c = makeBuilding(biome, biome.bosses[0]!, seed).court;
       if (c) expect(c.open, `${biome.code} seed ${seed}`).toBe(kinds[biome.code]);
     }
+});
+test('building: a yard is looked at from a balcony, walked along on one side, or crossed by a bridge', () => {
+  const city = BIOMES.find(x => x.code === 'CITY')!,
+    seen = { balcony: 0, walk: 0, bridge: 0 };
+  for (const shape of ['balcony', 'walk', 'bridge', null] as const) {
+    devCourtOpen(true, shape);
+    for (let seed = 1; seed <= 20; seed++) {
+      const b = makeBuilding(city, city.bosses[0]!, seed),
+        c = b.court!,
+        side = Math.sqrt(c.tiles.length);
+      for (let floor = c.upper; floor <= c.lower; floor++) {
+        const p = b.plans[floor]!,
+          { W: w, maps } = p.gen,
+          { balcony, bridge } = p.court!,
+          at = `${shape} seed ${seed} floor ${floor}`,
+          beside = (k: number) => [k - 1, k + 1, k - w, k + w].some(t => c.tiles.includes(t)),
+          // which shape this floor got: a bridge's far end may find no way on, and the floor keeps the lookout
+          got = bridge.length ? 'bridge' : balcony.length > 3 ? 'walk' : 'balcony';
+        if (shape === null) seen[got]++;
+        else if (shape !== 'bridge') expect(got, at).toBe(shape);
+        else expect(got, at).not.toBe('walk');
+        if (got === 'walk') {
+          // the whole of one side, and one of its corners or both (where the floor goes on)
+          expect(balcony.filter(beside).length, at).toBe(side);
+          expect(balcony.length - side, `${at}: corners`).toBeGreaterThanOrEqual(1);
+          const line = new Set(
+            balcony.map(k => (Math.abs(balcony[1]! - balcony[0]!) === 1 ? Math.floor(k / w) : k % w)),
+          );
+          expect(line.size, `${at}: a straight walk`).toBe(1);
+        } else {
+          expect(balcony.length, at).toBe(got === 'bridge' ? 6 : 3);
+          for (const k of balcony) expect(beside(k), `${at} balcony ${k}`).toBe(true);
+        }
+        if (got === 'bridge') {
+          // straight across, from one lookout's middle to the other's; walked on under the open sky
+          expect(bridge.length, at).toBe(side);
+          const step = bridge[1]! - bridge[0]!;
+          expect([1, w], at).toContain(Math.abs(step));
+          bridge.forEach((k, n) => expect(k, at).toBe(bridge[0]! + n * step));
+          expect(bridge[0]! - step, at).toBe(balcony[1]);
+          expect(bridge[side - 1]! + step, at).toBe(balcony[4]);
+          for (const k of bridge) expect(maps.grid[k] === 1 && p.noCeil[k] === 1 && !p.voids[k], at).toBe(true);
+        }
+      }
+    }
+  }
+  devCourtOpen(null);
+  for (const [shape, n] of Object.entries(seen)) expect(n, `${shape} by the dice`).toBeGreaterThan(5);
+});
+test('building: an atrium is passed through, and above its ground a bridge may cross it', () => {
+  const city = BIOMES.find(x => x.code === 'CITY')!;
+  let bridges = 0,
+    floors = 0;
+  devCourtOpen(false);
+  for (let seed = 1; seed <= 30; seed++) {
+    const b = makeBuilding(city, city.bosses[0]!, seed),
+      c = b.court!;
+    for (let floor = c.upper; floor <= c.lower; floor++) {
+      const p = b.plans[floor]!,
+        { W: w, maps } = p.gen,
+        { bridge } = p.court!,
+        at = `seed ${seed} floor ${floor}`;
+      floors++;
+      if (!bridge.length) continue;
+      bridges++;
+      expect(floor, `${at}: not on the ground`).toBeLessThan(c.lower);
+      // straight through the middle of the well, from the gallery to the gallery
+      expect(bridge.length, at).toBe(3);
+      const step = bridge[1]! - bridge[0]!;
+      expect([1, w], at).toContain(Math.abs(step));
+      expect(bridge[2], at).toBe(bridge[0]! + 2 * step);
+      expect(bridge[1], `${at}: the middle tile`).toBe(c.tiles[4]);
+      for (const k of [bridge[0]! - step, ...bridge, bridge[2]! + step])
+        expect(maps.grid[k], `${at} tile ${k}`).toBe(1);
+      for (const k of bridge) expect(p.voids[k], at).toBe(0);
+    }
+  }
+  devCourtOpen(null);
+  expect(bridges, 'some floors have a bridge').toBeGreaterThan(5);
+  expect(bridges, 'not every floor').toBeLessThan(floors);
 });
 test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
   // a door stands across a corridor: floor before and behind it, wall on its two sides
