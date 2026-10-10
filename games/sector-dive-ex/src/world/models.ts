@@ -19,11 +19,12 @@ import { pickupLook } from './models/itemLooks.ts';
 // The trooper: boxes on joints. The group's origin is at the hips (def.y above the feet) and it faces +z like the others.
 // rig = the joints its walk / aim animation turns (poseHumanoid in src/actors/enemies.ts); body = the upper body (it looks
 // around while idle)
-// outline = the glowing edges of the plain look (a look's trooper is armour plate without them, with its armour and
-// kit put on the joints: dressTrooper in world/models/enemyLooks.ts)
-function buildHumanoid(def: EnemyDef, mat: THREE.Material, outline = true) {
+// outline = the glowing edges of the plain look; boxes = the boxes of the plain look (a look's trooper has neither:
+// its frame, armour and kit are put on the joints by dressTrooper in world/models/enemyLooks.ts)
+function buildHumanoid(def: EnemyDef, mat: THREE.Material, outline = true, boxes = true) {
   const g = new THREE.Group();
   const part = (key: string, parent: THREE.Object3D, x: number, y: number, z: number, m: THREE.Material = mat) => {
+    if (!boxes) return;
     const o = new THREE.Mesh(geoCache[key], m);
     o.position.set(x, y, z);
     parent.add(o);
@@ -44,9 +45,11 @@ function buildHumanoid(def: EnemyDef, mat: THREE.Material, outline = true) {
   part('hTorso', upper, 0, 0.4, 0);
   const neck = joint(upper, 0, 0.78, 0);
   part('hHead', neck, 0, 0.16, 0);
-  const visor = new THREE.Mesh(geoCache.hVisor, basicMat(COLOR.mag));
-  visor.position.set(0, 0.18, 0.18);
-  neck.add(visor);
+  if (boxes) {
+    const visor = new THREE.Mesh(geoCache.hVisor, basicMat(COLOR.mag));
+    visor.position.set(0, 0.18, 0.18);
+    neck.add(visor);
+  }
   const armL = joint(upper, -0.42, 0.68, 0),
     armR = joint(upper, 0.42, 0.68, 0);
   part('hArm', armL, 0, -0.3, 0);
@@ -74,7 +77,7 @@ export function buildEnemyMesh(def: EnemyDef): EnemyMesh {
   if (!plainLooks()) {
     if (def.humanoid) {
       const mat = enemyHullMat(def),
-        h = buildHumanoid(def, mat, false);
+        h = buildHumanoid(def, mat, false, false);
       dressTrooper(h.g.userData.rig, mat, def.color);
       h.g.add(lightPool(def));
       return { g: h.g, mat, body: h.body, glow: LOOK_GLOW };
