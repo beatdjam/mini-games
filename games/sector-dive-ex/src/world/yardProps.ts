@@ -27,6 +27,7 @@ export interface Well {
   deep: number;
   ground: number;
   sky: number;
+  decks: number[]; // the heights of the bridges across it
 }
 
 // Collects boxes and planes by kind and adds each kind as one instanced mesh. put: where (the middle), turned by
@@ -171,7 +172,7 @@ const WINDOW_DROP = 1.2; // a window's middle is about this far under the middle
 
 // The walled city: neon on brackets and across the well, shop boards, caged balconies with what people keep in them,
 // tin awnings, washing on poles, air conditioners, cables with lanterns, the light of the stalls on the ground
-function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: Well, decks: number[]) {
+function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: Well) {
   const neons = KWLN_NEON_WORDS.flatMap(w => NEON_COLORS.map(c => ({ w, c })));
   const plane = (w: number, h: number) => new THREE.PlaneGeometry(w, h);
   for (const p of spots) {
@@ -302,7 +303,7 @@ function dressWalledCity(b: Batch, group: THREE.Group, spots: WallSpot[], well: 
   // the middle of it
   for (let y = well.ground + 3, n = 0; y < well.sky - 1; y += 2.6, n++) {
     // (none where a bridge is walked: from its deck to over the head of whoever crosses it)
-    if (decks.some(deck => y > deck - 1 && y < deck + DECK_CLEAR)) continue;
+    if (well.decks.some(deck => y > deck - 1 && y < deck + DECK_CLEAR)) continue;
     const d = yardDice(y, well.cx, well.cz),
       alongX = d < 0.5,
       off = (yardDice(y, well.cz, 7) - 0.5) * 0.8,
@@ -530,11 +531,10 @@ export function dressYard(
   well: Well,
   storey: number,
   shade: number,
-  decks: number[], // the heights of the bridges across the yard
 ) {
   dim = new THREE.Color(shade);
   const b = batcher(group);
-  if (dress === 'walledCity') dressWalledCity(b, group, spots, well, decks);
+  if (dress === 'walledCity') dressWalledCity(b, group, spots, well);
   else if (dress === 'ruins') dressRuins(b, spots, well);
   else dressDowntown(b, spots, well, storey);
   b.done();
@@ -550,26 +550,25 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
     corner = (k: number): [number, number] => [
       well.cx + (k & 1 ? 1 : -1) * (well.wide / 2 - 0.25),
       well.cz + (k & 2 ? 1 : -1) * (well.deep / 2 - 0.25),
-    ];
+    ],
+    // A well with a bridge: a bridge goes through the middle third of it, along x or along z, so what hangs down
+    // in it hangs in the four corner thirds. `off`: a place this far from the middle (-0.5..0.5 of the well's side)
+    // is moved out of the middle third; `side`: how far from the middle a thing that hung there hangs now
+    bridged = well.decks.length > 0,
+    off = (v: number, size: number) => (bridged ? Math.sign(v || 1) * (1 / 6 + 0.06 + Math.abs(v) * 0.5) : v) * size,
+    side = bridged ? well.wide / 3 : 0;
   if (sector === 'FORGE') {
-    b.put('girder', () => [box(1, 0.5, 0.4), flat(0x4a3a2c)], well.cx, well.sky - 1.2, well.cz, 0, 0, [
-      well.wide,
-      1,
-      1,
-    ]);
-    b.put('trolley', () => [box(1, 0.5, 0.9), flat(0x6a4a22)], well.cx + 1.2, well.sky - 1.7, well.cz);
+    const hx = well.cx + (bridged ? side : 1.2),
+      hz = well.cz + side;
+    b.put('girder', () => [box(1, 0.5, 0.4), flat(0x4a3a2c)], well.cx, well.sky - 1.2, hz, 0, 0, [well.wide, 1, 1]);
+    b.put('trolley', () => [box(1, 0.5, 0.9), flat(0x6a4a22)], hx, well.sky - 1.7, hz);
     for (const dx of [-0.25, 0.25])
-      b.put(
-        'chain',
-        () => [box(0.06, 1, 0.06), flat(0x1c1a19)],
-        well.cx + 1.2 + dx,
-        well.sky - 1.9 - h * 0.22,
-        well.cz,
-        0,
-        0,
-        [1, h * 0.44, 1],
-      );
-    b.put('hook', () => [box(0.7, 0.9, 0.35), flat(PAINT.amber1)], well.cx + 1.2, well.sky - 2.3 - h * 0.44, well.cz);
+      b.put('chain', () => [box(0.06, 1, 0.06), flat(0x1c1a19)], hx + dx, well.sky - 1.9 - h * 0.22, hz, 0, 0, [
+        1,
+        h * 0.44,
+        1,
+      ]);
+    b.put('hook', () => [box(0.7, 0.9, 0.35), flat(PAINT.amber1)], hx, well.sky - 2.3 - h * 0.44, hz);
     for (let k = 0; k < 4; k++) {
       const [x, z] = corner(k);
       b.put('hotpipe', () => [box(0.35, 1, 0.35), flat(PAINT.umber1)], x, well.ground + h / 2, z, 0, 0, [1, h, 1]);
@@ -612,15 +611,17 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
       b.put(
         'cable',
         () => [box(0.05, 1, 0.05), flat(PAINT.ink2)],
-        well.cx + (yardDice(k, 1, 9) - 0.5) * well.wide * 0.7,
+        well.cx + off((yardDice(k, 1, 9) - 0.5) * 0.7, well.wide),
         well.sky - 1.5 - h * 0.2,
-        well.cz + (yardDice(k, 2, 9) - 0.5) * well.deep * 0.7,
+        well.cz + off((yardDice(k, 2, 9) - 0.5) * 0.7, well.deep),
         0,
         0,
         [1, h * (0.2 + yardDice(k, 3, 9) * 0.3), 1],
       );
   } else if (sector === 'DATA') {
     for (let y = well.ground + 5, n = 0; y < well.sky - 1; y += 5, n++) {
+      // (a tray goes from wall to wall: none where it would cross a bridge at the height of who walks on it)
+      if (well.decks.some(deck => y > deck - 1 && y < deck + DECK_CLEAR)) continue;
       b.put('tray', () => [box(1, 0.12, 0.6), flat(PAINT.grey2)], well.cx, y, well.cz + (n % 2 ? 1.5 : -1.5), 0, 0, [
         well.wide,
         1,
@@ -652,8 +653,8 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
   } else {
     // pendant lamps: a thin rod from the roof, a warm globe at its end, at different heights
     for (let k = 0; k < 7; k++) {
-      const x = well.cx + (yardDice(k, 1, 4) - 0.5) * well.wide * 0.6,
-        z = well.cz + (yardDice(k, 2, 4) - 0.5) * well.deep * 0.6,
+      const x = well.cx + off((yardDice(k, 1, 4) - 0.5) * 0.6, well.wide),
+        z = well.cz + off((yardDice(k, 2, 4) - 0.5) * 0.6, well.deep),
         drop = 2 + yardDice(k, 3, 4) * h * 0.45;
       b.put('rod', () => [box(0.03, 1, 0.03), flat(PAINT.ink11)], x, well.sky - drop / 2, z, 0, 0, [1, drop, 1]);
       b.put('globe', () => [new THREE.SphereGeometry(0.28, 10, 8), flat(PAINT.glow5, true)], x, well.sky - drop, z);

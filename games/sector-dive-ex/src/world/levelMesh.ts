@@ -282,22 +282,19 @@ function addCourt(court: NonNullable<FloorPlan['court']>, group: THREE.Group, se
     cz = ((j0 + j1) / 2) * T,
     wide = (i1 - i0) * T,
     deep = (j1 - j0) * T;
-  if (court.open) {
-    // a yard: a rail wherever a tile one stands on (a balcony's, a bridge's) has the open yard beside it
-    const hole = new Set(court.tiles.filter(k => !court.bridge.includes(k)));
-    for (const k of [...court.balcony, ...court.bridge])
-      for (const [di, dj] of SIDE_STEP)
-        if (hole.has(k + dj * W + di))
-          addRail(tileCenter(k % W) + (di * T) / 2, tileCenter((k / W) | 0) + (dj * T) / 2, T, dj !== 0, group);
-    addBridge(court.bridge, group);
-    return;
-  }
+  // a rail wherever the hole has a tile one stands on beside it: a yard's balcony, an atrium's gallery, a bridge
   if (!court.ground) {
-    addRail(cx, j0 * T, wide, true, group);
-    addRail(cx, j1 * T, wide, true, group);
-    addRail(i0 * T, cz, deep, false, group);
-    addRail(i1 * T, cz, deep, false, group);
+    const hole = new Set(court.tiles.filter(k => !court.bridge.includes(k))),
+      stood = new Set([...court.balcony, ...court.bridge]);
+    for (const k of hole)
+      for (const [di, dj] of SIDE_STEP) {
+        const t = k + dj * W + di;
+        if (stood.has(t) || (!court.open && !court.tiles.includes(t)))
+          addRail(tileCenter(k % W) + (di * T) / 2, tileCenter((k / W) | 0) + (dj * T) / 2, T, dj !== 0, group);
+      }
+    addBridge(court.bridge, group);
   }
+  if (court.open) return;
   if (court.top) {
     // the skylight: a bright pane a little under the ceiling, framed by steel bars
     const sky = new THREE.Mesh(
@@ -719,10 +716,17 @@ export function buildYardShell(court: Court, w: number, storey: number, biome: B
     group,
     th.dress,
     spots.map(p => ({ ...p, window: p.kind >= 0 })),
-    { cx, cz, wide, deep, ground: -bottom * storey, sky: -top * storey + storey },
+    {
+      cx,
+      cz,
+      wide,
+      deep,
+      ground: -bottom * storey,
+      sky: -top * storey + storey,
+      decks: court.bridges.flatMap((tiles, n) => (tiles.length ? [-(court.upper + n) * storey] : [])),
+    },
     storey,
     th.shade,
-    court.bridges.flatMap((tiles, n) => (tiles.length ? [-(court.upper + n) * storey] : [])),
   );
   sky.rotation.x = Math.PI / 2;
   sky.position.set(cx, -top * storey + storey, cz);
@@ -916,6 +920,7 @@ export function buildAtriumProps(court: Court, w: number, storey: number, biome:
     deep: (j1 - j0) * T,
     ground: -court.lower * storey,
     sky: -court.upper * storey + WALL_H,
+    decks: court.bridges.flatMap((tiles, n) => (tiles.length ? [-(court.upper + n) * storey] : [])),
   });
   return group;
 }

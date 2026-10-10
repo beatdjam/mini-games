@@ -41,7 +41,9 @@ const SEED_TRIES = 30; // seeds tried until a building has room for its stairwel
 const SEED_STEP = 7919; // added to the seed for the next try
 // A courtyard, in two kinds.
 // An atrium: a well COURT_ROOFED tiles a side, roofed with a skylight, open through several floors, with a gallery one
-// tile wide round it on every floor it passes and its ground on the lowest of them. Looked into and up from.
+// tile wide round it on every floor it passes and its ground on the lowest of them. Looked into and up from. The
+// gallery has a way in on one side and, where one is found, on the far side too; above the ground a bridge may join
+// the two straight across the well (ATRIUM_BRIDGE_CHANCE).
 // A yard: an outdoor well between the building's own outer walls (rows of windows, storey over storey; drawn by
 // levelMesh.ts buildYardShell, not walked in), COURT_YARD tiles a side or COURT_YARD_WIDE where there is room. Each
 // floor it passes looks out on it from a balcony: BALCONY tiles of the wall round it, floor instead of wall, with a
@@ -65,6 +67,7 @@ const COURT_ROOFED = 3,
   COURT_YARD_WIDE = 7; // side of the open middle (tiles)
 const COURT_OPEN_CHANCE = 0.5; // a courtyard is a yard this often
 const BALCONY = 3; // tiles of a balcony along the yard
+const ATRIUM_BRIDGE_CHANCE = 0.6; // a floor of an atrium that has a way in on both sides gets a bridge this often
 export type YardShape = 'balcony' | 'walk' | 'bridge';
 // the shapes of a yard's balconies, floor by floor, in this order from a random one on (so two floors next to each
 // other never have the same)
@@ -113,7 +116,7 @@ export interface Court {
   tiles: number[];
   open: boolean; // a yard, open to the sky; else an atrium, roofed
   balconies: number[][]; // a yard: per floor it passes (upper first), the tiles of that floor's balcony
-  bridges: number[][]; // a yard: per floor it passes, the tiles of its middle that are a bridge there (mostly none)
+  bridges: number[][]; // per floor it passes, the tiles of its middle that are a bridge there (mostly none)
 }
 // dev: every courtyard is of this kind (null = by the building's own dice), every balcony of a yard of this shape
 let courtKind: boolean | null = null,
@@ -516,7 +519,17 @@ function addCourt(
         let balcony: number[],
           bridge: number[] = [];
         if (!open) {
-          ok = way(gate);
+          // An atrium: a second way in on the far side when one is found, so the gallery is passed through and not
+          // only come to; and, on a floor where the middle is a hole, now and then a bridge straight between the two
+          if (!way(gate)) continue;
+          ok = true;
+          const through = way(gate + (SIDE - 1) * into),
+            bridged =
+              through && f < at.lower && (yardShape ? yardShape === 'bridge' : rng.next() < ATRIUM_BRIDGE_CHANCE);
+          if (bridged) bridge = Array.from({ length: COURT }, (_, m) => gate + (edge + m) * into);
+          for (const k of bridge) d.maps.grid[k] = 1;
+          balconies.push([]);
+          bridges.push(bridge);
           continue;
         }
         if (shape === 'walk') {
