@@ -93,7 +93,8 @@ export function dressWalls(
   taken: (f: WallSlot) => boolean = () => false,
 ) {
   const { add } = tools,
-    arena = plan.hall?.room ?? -1,
+    // (null on a floor without one: -1, the number the alleys have, would leave them all out)
+    arena = plan.hall ? plan.hall.room : null,
     faces: Face[] = [],
     ceilings: { i: number; j: number; room: number }[] = [];
   for (let j = 1; j < d.H - 1; j++)

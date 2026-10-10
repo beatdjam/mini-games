@@ -154,7 +154,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const of = (id: string) =>
     tools
       .of(id)
-      .filter(s => s.kind === 'wall' || (!plan.noCeil[s.j * d.W + s.i] && s.room !== (plan.hall?.room ?? -1)));
+      .filter(s => s.kind === 'wall' || (!plan.noCeil[s.j * d.W + s.i] && (!plan.hall || s.room !== plan.hall.room)));
   const daylight: THREE.Matrix4[] = [];
 
   // ivy: a sheet of leaves hanging from the top of the wall, a little in front of it (not over a window or the board)

@@ -215,7 +215,8 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
 
   // lit fittings (not where the ceiling is open): over the painted fitting of the tile, so they run the same way
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
-  const bossRoom = plan.hall?.room ?? -1;
+  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
+  const bossRoom = plan.hall ? plan.hall.room : null;
   const tubes = of('tube').filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom),
     housing: THREE.Matrix4[] = [],
     lit: THREE.Matrix4[] = [],

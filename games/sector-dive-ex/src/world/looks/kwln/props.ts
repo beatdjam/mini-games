@@ -290,7 +290,8 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
   // lamps (not where the ceiling is open): a bright plate on the ceiling
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
-  const bossRoom = plan.hall?.room ?? -1,
+  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
+  const bossRoom = plan.hall ? plan.hall.room : null,
     plateColors: number[] = [];
   add(
     new THREE.BoxGeometry(0.9, 0.08, 0.3),
@@ -315,7 +316,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // shop's neon hung out
   type Face = WallSlot & { room: number };
   const roomAt = (i: number, j: number): number => plan.gen.maps.roomOf?.[j * d.W + i] ?? -1,
-    arena = plan.hall?.room ?? -1,
+    arena = bossRoom,
     faces: Face[] = [],
     ceilings: { i: number; j: number; room: number }[] = [];
   for (let j = 1; j < d.H - 1; j++)
@@ -349,6 +350,10 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     // (nor over a deck or a walkway: there they would stand out from the wall at the eye)
     clear = (f: WallSlot): boolean => !neonOn.has(`${f.i}:${f.j}:${f.side}`) && !raised(d, f),
     some = <T>(list: T[], share: number): T[] => list.filter(() => rng.next() < share),
+    besideOpen = (f: WallSlot): boolean => {
+      const [di, dj] = SIDE_STEP[f.side ?? 0]!;
+      return [1, -1].some(k => !!plan.voids[(f.j + di * k) * d.W + f.i + dj * k]);
+    },
     low = faces.map(() => rng.next()), // what is let into the wall: a stall, a board of meters, or nothing
     high = faces.map(() => rng.next()), // what hangs over it: an awning, a cage, washing, or nothing
     // (an alley's walls are busier at eye height than a hall's: more meters and lamps, fewer whole stalls)
@@ -371,7 +376,9 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       ),
       heap: faces.filter(f => !byDoor(f) && !raised(d, f) && rng.next() < (inLane(f) ? 0.8 : 0.62)),
       // (over most stalls, and over a bare wall now and then)
-      awning: faces.filter((f, n) => clear(f) && (low[n]! < 0.3 ? high[n]! < 0.8 : high[n]! < 0.12)),
+      // (not where the wall beside it is open down to a stairwell: an awning is nearly a tile wide, and its braces would
+      // stand out over the opening)
+      awning: faces.filter((f, n) => clear(f) && !besideOpen(f) && (low[n]! < 0.3 ? high[n]! < 0.8 : high[n]! < 0.12)),
       cage: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.12 && high[n]! < 0.42),
       wash: faces.filter((f, n) => clear(f) && low[n]! >= 0.3 && high[n]! >= 0.42 && high[n]! < 0.6),
       duct: faces.filter(f => rng.next() < (inLane(f) ? 0.85 : 0.5)),
