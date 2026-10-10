@@ -112,15 +112,31 @@ function panels(g: CanvasRenderingContext2D, rand: () => number, cloth: boolean)
   g.fillStyle = 'rgba(255,240,215,.18)';
   g.fillRect(0, foot, TEX, 1);
 }
-// A window with a slatted blind, the low sun behind it. `raised`: this share of the pane shows under the blind (the
-// roofs of the old downtown against the sky)
-function blindWindow(g: CanvasRenderingContext2D, rand: () => number, raised: number) {
+// the colours of a blind window: with the low sun behind it (a window facing west), or the dusk sky only
+const BLIND_LIT = {
+  sky: ['#d9b377', '#e2a961', '#c98447'],
+  roofs: ['#8f6a4c', '#57422f'],
+  slat: '#b89668',
+  slatLit: 'rgba(255,226,170,.3)',
+  gap: 'rgba(244,200,130,.75)',
+};
+const BLIND_DUSK = {
+  sky: ['#7d8290', '#958f8c', '#a68d78'],
+  roofs: ['#4b4645', '#302d2c'],
+  slat: '#8a8174',
+  slatLit: 'rgba(225,220,210,.12)',
+  gap: 'rgba(160,158,160,.6)',
+};
+// A window with a slatted blind. `raised`: this share of the pane shows under the blind (the roofs of the old
+// downtown against the sky). `sun`: the low sun is behind it (a window facing west); else only the dusk sky
+function blindWindow(g: CanvasRenderingContext2D, rand: () => number, raised: number, sun = true) {
   const x = 28,
     w = TEX - 56,
     y = rowOf(4.5),
     h = rowOf(1.05) - y,
-    open = y + h * (1 - raised);
-  warm(g, TEX / 2, y + h / 2, 150, 0.2);
+    open = y + h * (1 - raised),
+    c = sun ? BLIND_LIT : BLIND_DUSK;
+  if (sun) warm(g, TEX / 2, y + h / 2, 150, 0.2);
   g.fillStyle = FRAME;
   g.fillRect(x - 5, y - 4, w + 10, h + 8);
   g.save();
@@ -128,17 +144,17 @@ function blindWindow(g: CanvasRenderingContext2D, rand: () => number, raised: nu
   g.rect(x, y, w, h);
   g.clip();
   const sky = g.createLinearGradient(0, y, 0, y + h);
-  sky.addColorStop(0, '#d9b377');
-  sky.addColorStop(0.7, '#e2a961');
-  sky.addColorStop(1, '#c98447');
+  sky.addColorStop(0, c.sky[0]!);
+  sky.addColorStop(0.7, c.sky[1]!);
+  sky.addColorStop(1, c.sky[2]!);
   g.fillStyle = sky;
   g.fillRect(x, y, w, h);
   if (raised) {
     // the sun low between the buildings, then two rows of roofs, the nearer one darker
-    warm(g, x + w * 0.62, open + (y + h - open) * 0.45, 46, 0.5);
+    if (sun) warm(g, x + w * 0.62, open + (y + h - open) * 0.45, 46, 0.5);
     for (const [shade, low, high] of [
-      ['#8f6a4c', 6, 20],
-      ['#57422f', 2, 12],
+      [c.roofs[0]!, 6, 20],
+      [c.roofs[1]!, 2, 12],
     ] as [string, number, number][]) {
       g.fillStyle = shade;
       for (let bx = x - 4; bx < x + w;) {
@@ -152,9 +168,9 @@ function blindWindow(g: CanvasRenderingContext2D, rand: () => number, raised: nu
   }
   // the slats: each one lit from behind, a line of sky between two of them
   for (let sy = y; sy < open - 3; sy += 5) {
-    g.fillStyle = '#b89668';
+    g.fillStyle = c.slat;
     g.fillRect(x, sy, w, 4);
-    g.fillStyle = 'rgba(255,226,170,.3)';
+    g.fillStyle = c.slatLit;
     g.fillRect(x, sy, w, 1.2);
     g.fillStyle = 'rgba(70,46,22,.32)';
     g.fillRect(x, sy + 3, w, 1);
@@ -163,7 +179,7 @@ function blindWindow(g: CanvasRenderingContext2D, rand: () => number, raised: nu
   for (let k = 0; k < 4; k++) {
     const sy = y + 5 * Math.floor((rand() * (open - y - 10)) / 5),
       sx = x + rand() * (w - 50);
-    g.fillStyle = 'rgba(244,200,130,.75)';
+    g.fillStyle = c.gap;
     g.fillRect(sx, sy + 2.6, 18 + rand() * 30, 2.2);
   }
   // brighter in the middle of the blind than at its edges
@@ -516,6 +532,11 @@ export const CITY_LANE_WALLS = [5, 6, 10, 5, 9, 11, 7, 10];
 // the windows (the evening outside) and the fire exit only on the building's outside wall, a glass partition only on
 // a thin wall between two rooms or a room and a corridor (common.ts WallSides)
 export const CITY_WALL_SIDES: WallSides = { outer: [3, 4, 7], inner: [5] };
+// the windows as they are where the evening sun does not come in (a window not facing west: Look.shadedWalls)
+const CITY_DUSK_PICS: Record<number, Paint> = {
+  3: (g, rand) => blindWindow(g, rand, 0, false),
+  4: (g, rand) => blindWindow(g, rand, 0.3, false),
+};
 export const CITY_WALL_PICS: (Paint | null)[] = [
   null, // plain panels
   null, // cloth panels (WALL_CLOTH)
@@ -532,10 +553,10 @@ export const CITY_WALL_PICS: (Paint | null)[] = [
   pilaster,
 ];
 const cityWall =
-  (variant: number): Paint =>
+  (variant: number, dusk = false): Paint =>
   (g, rand) => {
     panels(g, rand, variant === WALL_CLOTH);
-    CITY_WALL_PICS[variant]?.(g, rand);
+    (dusk ? CITY_DUSK_PICS : CITY_WALL_PICS)[variant]?.(g, rand);
     grain(g, rand, 12);
   };
 
@@ -878,6 +899,10 @@ export function cityPictures(): Pictures {
     walls: CITY_WALL_PICS.map((_, v) => paint(1100 + v, cityWall(v))),
     laneWalls: CITY_LANE_WALLS,
     wallSides: CITY_WALL_SIDES,
+    // (the same seed as the lit one: the same panels, only the window differs)
+    shadedWalls: Object.fromEntries(
+      Object.keys(CITY_DUSK_PICS).map(v => [v, paint(1100 + Number(v), cityWall(Number(v), true))]),
+    ),
     floors: Array.from({ length: CITY_FLOORS }, (_, v) => paint(1200, cityFloor(v))),
     deck: paint(1300, cityDeck),
     ceiling: paint(1400, cityCeiling),

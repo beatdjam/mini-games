@@ -26,6 +26,9 @@ export interface Look {
   laneWalls?: number[];
   // the pictures that go only on some walls (WallSides). Without it any picture goes on any wall
   wallSides?: WallSides;
+  // pictures (by number) as they are on a wall that does not face west, where the evening sun does not come in (a
+  // window with only the dusk sky in it: facesWest). Without it a picture is the same whichever way it faces
+  shadedWalls?: Record<number, THREE.CanvasTexture>;
   // the sides of the raised decks (a picture a tile wide and a deck high). Without it they have the plain wall's
   // picture pressed down to their height, which reads as a lump of wall and not as a thing built there
   deckSide?: THREE.CanvasTexture;
@@ -88,6 +91,9 @@ export function wallSide(
   }
   return !faces ? null : outer ? 'outer' : inner ? 'inner' : null;
 }
+// The evening sun is in the west, which is toward -x on every map: a wall tile faces west when the floor it is seen
+// from lies east of it (a window there looks out at the sun and lets it in)
+export const facesWest = (d: { maps: { grid: ArrayLike<number> } }, k: number): boolean => d.maps.grid[k + 1] === 1;
 // which picture a wall tile gets: variantOf, but along an alley the plain one gives way to one of `laneWalls`; a
 // picture of `sides` on a wall it may not go on gives way to the plain one
 export function wallPic(

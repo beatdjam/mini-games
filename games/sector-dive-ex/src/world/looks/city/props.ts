@@ -247,8 +247,9 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tubeColors,
   );
 
-  // the sun under the windows: on every flat floor tile that has a window wall beside it (a window is only on the
-  // building's outside wall, CITY_WALL_SIDES: never on a pillar or a wall with a room behind it)
+  // the sun under the windows: on every flat floor tile that has a window wall beside it, on its west side (the
+  // evening sun comes in only through a window facing west: facesWest. A window is only on the building's outside
+  // wall, CITY_WALL_SIDES: never on a pillar or a wall with a room behind it)
   const sun: THREE.Matrix4[] = [];
   for (let j = 1; j < d.H - 1; j++)
     for (let i = 1; i < d.W - 1; i++) {
@@ -256,7 +257,7 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       if (M.grid[k] !== 1 || M.hgt[k] !== 0 || M.ramp[k]! >= 0 || M.cover[k] || plan.noFloor[k]) continue;
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = k + dj * d.W + di;
-        if (M.grid[wall] === 1 || plan.voids[wall]) return;
+        if (di !== -1 || M.grid[wall] === 1 || plan.voids[wall]) return;
         const picture = pictureOf(wall);
         if (picture !== WALL_BLIND && picture !== WALL_BLIND_RAISED) return;
         const s = { i, j, side };
