@@ -1,4 +1,5 @@
 import type * as THREE from 'three';
+import type { BlockStyle } from './outside.ts';
 import type { Rng } from '@engine/core/util.ts';
 import { facesToward, wallSide } from '@engine/world/walls.ts';
 import type { WallMap } from '@engine/world/walls.ts';
@@ -35,7 +36,7 @@ export interface Look {
   // left, top, right, bottom); there the backdrop is seen instead of the picture, as far away as the sky
   // (levelMesh.ts buildFloorMeshes and engine/src/render/windows.ts, level.ts). The backdrop is the view all round (paint.ts BACKDROP_W). Only where the
   // picture may stand on the building's outside wall (WallSides outer). Without it no window is seen through
-  outside?: { panes: Record<number, [number, number, number, number][]>; backdrop: THREE.CanvasTexture };
+  outside?: { panes: Record<number, [number, number, number, number][]> } & OutsideView;
   // the sides of the raised decks (a picture a tile wide and a deck high). Without it they have the plain wall's
   // picture pressed down to their height, which reads as a lump of wall and not as a thing built there
   deckSide?: THREE.CanvasTexture;
@@ -60,6 +61,24 @@ export function byLane(
 // plain picture stands in their place. `outer`: only on the building's outside wall, where nothing of the floor lies behind the wall out to the map's edge
 // (a window with the evening outside, a fire exit). `inner`: only on a thin wall, with floor right behind it (a glass
 // partition, with the next room or the corridor beyond it)
+// what is seen out of the windows (Look.outside): the band all round (backdrop), the sky straight up in one colour
+// (the band's top row's), the ground below it, seen from above (a picture that wraps), going into the haze toward the
+// horizon (the band's colour under the horizon), and the buildings across the street (outside.ts: how high they
+// stand, the pictures of their faces and roofs, FACADE_M and ROOF_M a repeat, and the light on them). Painted in
+// <sector>/backdrop.ts
+export interface OutsideView {
+  backdrop: THREE.CanvasTexture;
+  sky: number;
+  ground: THREE.CanvasTexture;
+  haze: number;
+  blocks: {
+    style: BlockStyle;
+    facades: THREE.CanvasTexture[];
+    roofs: THREE.CanvasTexture[];
+    light: [number, number, number][]; // on a face looking toward each side (0: +x ... 3: -z, as in world/tiles.ts)
+    roofLight: [number, number, number];
+  };
+}
 export interface WallSides {
   outer?: number[];
   inner?: number[];

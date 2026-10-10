@@ -16,7 +16,7 @@ import {
   words,
 } from '../paint.ts';
 import type { Paint } from '../paint.ts';
-import { cityBackdrop } from './backdrop.ts';
+import { cityView } from './backdrop.ts';
 // The old downtown (CITY): a wide floor of an old office building late in the afternoon. Beige wall panels and grey
 // carpet, a hung ceiling with its lamps mostly off, and the low sun coming amber through the blinds. The sector is
 // seen from far away (its fog starts late), so most of the walls are plain and the lights are kept soft: the enemies
@@ -912,7 +912,7 @@ export function cityPictures(): Pictures {
     laneWalls: CITY_LANE_WALLS,
     wallSides: CITY_WALL_SIDES,
     // (the same seed as the lit one: the same panels, only the window differs)
-    outside: { panes: { 4: blindPanes(BLIND_RAISED) }, backdrop: cityBackdrop() },
+    outside: { panes: { 4: blindPanes(BLIND_RAISED) }, ...cityView() },
     shadedWalls: Object.fromEntries(
       Object.keys(CITY_DUSK_PICS).map(v => [v, paint(1100 + Number(v), cityWall(Number(v), true))]),
     ),

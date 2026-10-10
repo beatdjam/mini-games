@@ -32,11 +32,13 @@ import type { Building } from './building.ts';
 import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import { lookOf } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
-import { BACKDROP_R, BACKDROP_TALL, paint } from './looks/paint.ts';
+import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF_M, paint } from './looks/paint.ts';
+import { outsideBlocks } from './looks/outside.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import { buildAtriumProps, buildYardShell } from './courtMesh.ts';
-import { buildBackdrop } from '@engine/render/windows.ts';
+import { buildBackdrop, buildOutsideBlocks } from '@engine/render/windows.ts';
+import type { Backdrop, OutsideLook } from '@engine/render/windows.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const ARENA_FOG_NEAR = 6; // fog start in boss arenas (m)
@@ -92,6 +94,10 @@ let courtGroups: (THREE.Group | null)[] = [];
 // a yard's outer walls, sky, ground and what is on them, or what hangs in an atrium (courtMesh.ts buildYardShell,
 // buildAtriumProps)
 let yardShell: THREE.Group | null = null;
+// what the windows look out on (Look.outside): the backdrop, and the buildings across the street (per floor). They
+// stand on the street, the ground of the lowest floor (moved with the floors: enterFloor)
+let outside: { band: Backdrop; across: THREE.Group[] } | null = null;
+const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings across the street
 let shown: Building | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
 let hallTop: THREE.Group | null = null; // the part of the boss room above WALL_H (levelMesh.ts buildFloorMeshes)
@@ -260,6 +266,7 @@ function clearLevel() {
     floorGroups = [];
     courtGroups = [];
     yardShell = null;
+    outside = null;
     liftPads = [];
     hallTop = null;
     shown = null;
@@ -398,7 +405,38 @@ export function showBuilding(b: Building) {
     all.add(yardShell);
   }
   // what its windows look out on (a sector with windows one sees out of: Look.outside)
-  if (look?.outside) all.add(buildBackdrop(look.outside.backdrop, BACKDROP_R, BACKDROP_TALL));
+  if (look?.outside) {
+    const { backdrop, sky, ground, haze, blocks } = look.outside,
+      band = buildBackdrop(backdrop, BACKDROP_R, BACKDROP_TALL, {
+        sky,
+        ground: { map: ground, haze, ...BACKDROP_GROUND },
+      }),
+      h = b.plans[0]!.gen.H,
+      look3: OutsideLook = {
+        facades: blocks.facades,
+        roofs: blocks.roofs,
+        storey: FACADE_M,
+        roofTile: ROOF_M,
+        light: blocks.light,
+        roofLight: blocks.roofLight,
+        haze,
+        clear: BACKDROP_GROUND.clear,
+        fade: BACKDROP_GROUND.fade,
+        reach: BLOCK_REACH,
+      },
+      // the blocks round each floor, by its own outline (floors differ: what one floor looks out on, the floor under
+      // it may still cover); only the floor played shows its own (enterFloor)
+      across = b.plans.map((p, n) => {
+        const inside = new Uint8Array(w * h).map((_, k) => (p.gen.maps.grid[k] === 1 || p.voids[k] ? 1 : 0));
+        return buildOutsideBlocks(
+          outsideBlocks(inside, w, h, blocks.style, createRng((b.seed + n) ^ OUTSIDE_SEED)),
+          look3,
+          BACKDROP_R,
+        );
+      });
+    all.add(band, ...across);
+    outside = { band, across };
+  }
   b.links.forEach((l, n) => {
     if (l.kind !== 'elevator') return;
     // a sector with a look has the platform's picture on top (the same in every sector); else it is plain violet
@@ -453,6 +491,14 @@ export function enterFloor(b: Building, n: number) {
     courtGroups[m]?.position.setY(g.position.y);
   });
   yardShell?.position.setY(n * FLOOR_H);
+  if (outside) {
+    const street = -(b.plans.length - 1 - n) * FLOOR_H;
+    outside.band.groundY = street;
+    outside.across.forEach((g, m) => {
+      g.visible = m === n;
+      g.position.y = street;
+    });
+  }
   liftPads.forEach(p => {
     const l = b.links[p.link]!;
     p.mesh.visible = n === l.upper || n === l.lower;
