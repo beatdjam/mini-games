@@ -34,7 +34,7 @@ export interface Look {
   shadedWalls?: Record<number, THREE.CanvasTexture>;
   // windows one sees out of: for a wall picture (by number), the rectangles of its panes (in the picture's pixels,
   // left, top, right, bottom); there the backdrop is seen instead of the picture, as far away as the sky
-  // (levelMesh.ts addPanes, level.ts). The backdrop is the view all round (paint.ts BACKDROP_W). Only where the
+  // (levelMesh.ts buildFloorMeshes and engine/src/render/windows.ts, level.ts). The backdrop is the view all round (paint.ts BACKDROP_W). Only where the
   // picture may stand on the building's outside wall (WallSides outer). Without it no window is seen through
   outside?: { panes: Record<number, [number, number, number, number][]> } & OutsideView;
   // the sides of the raised decks (a picture a tile wide and a deck high). Without it they have the plain wall's
