@@ -23,7 +23,7 @@ import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 import { FLOOR_H } from './building.ts';
-import { FLOOR_PLAIN_SHARE, lookOf, variantOf, wallPic } from './looks.ts';
+import { FLOOR_PLAIN_SHARE, facesWest, lookOf, variantOf, wallPic } from './looks.ts';
 import type { Court, FloorPlan } from './building.ts';
 import { dressAtrium, dressYard, yardDice } from './yardProps.ts';
 import { TEX, canvasTex, grain, grime, paint, poolTex } from './looks/paint.ts';
@@ -628,16 +628,23 @@ export function buildYardShell(court: Court, w: number, storey: number, biome: B
   // The plain look: one flat picture a storey high, the lit panes over it
   const look = lookOf(biome);
   if (look) {
+    // (the picture's shaded one, Look.shadedWalls, on the three walls that do not face west: only the yard's east
+    // wall, facing west, gets the evening sun; its picture is keyed with a minus sign)
     const pic = spots.map(p => {
-      const from = p.kind >= 0 ? th.windows : th.walls;
-      return from[Math.floor(yardDice(p.x + p.turn, p.y, p.z) * from.length)]! % look.walls.length;
+      const from = p.kind >= 0 ? th.windows : th.walls,
+        v = from[Math.floor(yardDice(p.x + p.turn, p.y, p.z) * from.length)]! % look.walls.length;
+      return look.shadedWalls?.[v] && p.turn !== -Math.PI / 2 ? -1 - v : v;
     });
     for (const v of new Set(pic)) {
       const mine = spots.filter((_, n) => pic[n] === v);
       place(
         new THREE.InstancedMesh(
           new THREE.PlaneGeometry(T, WALL_H),
-          new THREE.MeshBasicMaterial({ map: look.walls[v]!, fog: false, color: th.shade }),
+          new THREE.MeshBasicMaterial({
+            map: v < 0 ? look.shadedWalls![-1 - v]! : look.walls[v]!,
+            fog: false,
+            color: th.shade,
+          }),
           mine.length,
         ),
         mine,
@@ -814,12 +821,19 @@ export function buildFloorMeshes(
         new THREE.MeshBasicMaterial({ map }),
       ),
     );
-    look.walls.forEach((map, v) =>
-      wallBoxes(
-        map,
-        walls.filter(([i, j]) => wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls, look.wallSides) === v),
-      ),
-    );
+    look.walls.forEach((map, v) => {
+      const mine = walls.filter(
+          ([i, j]) => wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls, look.wallSides) === v,
+        ),
+        dusk = look.shadedWalls?.[v];
+      // (a picture with a shaded one: as it is where it faces west, the shaded one elsewhere)
+      wallBoxes(map, dusk ? mine.filter(([i, j]) => facesWest(plan.gen, j * W + i)) : mine);
+      if (dusk)
+        wallBoxes(
+          dusk,
+          mine.filter(([i, j]) => !facesWest(plan.gen, j * W + i)),
+        );
+    });
   } else {
     tex.floor.repeat.set(1, 1);
     planes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }));
