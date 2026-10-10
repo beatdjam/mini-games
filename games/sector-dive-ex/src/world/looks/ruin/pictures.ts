@@ -2,6 +2,7 @@ import { RUIN_KEEP_OUT, RUIN_NOTICE_BOARD } from '../../../i18n/signs.ts';
 import type { Pictures, WallSides } from '../common.ts';
 import { DOOR_ASPECT, SIGN_FONT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import { ruinBackdrop } from './backdrop.ts';
 // The ruined streets (RUIN): the inside of a housing block that fell in long ago. Pale cracked mortar gone green at
 // the foot, faded wallpaper, broken windows with the grey daylight behind them, ivy and grass, and what the people
 // who lived here left. Nothing is lit: the only light is the day's, through the windows and the holes in the ceiling.
@@ -20,6 +21,19 @@ const WALL_REBAR = 8; // a hole down to the reinforcing bars
 export const WALL_NOTICES = 9; // the residents' notice board
 // a broken window (the street outside) only on the building's outside wall (common.ts WallSides)
 export const RUIN_WALL_SIDES: WallSides = { outer: [WALL_WINDOW] };
+// the broken window is seen through (Look.outside): its three panes with the glass gone, round the cross of its bars
+// (the fourth, the top left, is whole and dirty). The same box as brokenWindow paints
+const brokenPanes = (): [number, number, number, number][] => {
+  const x = 52,
+    w = TEX - 104,
+    y = rowOf(3.7),
+    h = rowOf(1.35) - y;
+  return [
+    [x + w / 2 + 3, y, x + w, y + h / 2 - 2],
+    [x, y + h / 2 + 2, x + w / 2 - 3, y + h],
+    [x + w / 2 + 3, y + h / 2 + 2, x + w, y + h],
+  ];
+};
 const RUIN_FLOORS = 6; // 0 bare, 1 what is left of the tiles, 2 ... of the floorboards, 3 grass in a crack, 4 a puddle, 5 crumbs of rubble
 const LEAVES = ['#4f6d3b', '#5f7f47', '#3f5b31', '#718d55'];
 const RUST = '#7c4a2b';
@@ -974,6 +988,7 @@ export function ruinPictures(): Pictures {
   return {
     walls: Array.from({ length: RUIN_WALLS }, (_, v) => paint(1100 + v, ruinWall(v))),
     wallSides: RUIN_WALL_SIDES,
+    outside: { panes: { [WALL_WINDOW]: brokenPanes() }, backdrop: ruinBackdrop() },
     floors: Array.from({ length: RUIN_FLOORS }, (_, v) => paint(1200, ruinFloor(v))),
     deck: paint(1300, ruinDeck),
     ceiling: paint(1400, ruinCeiling),

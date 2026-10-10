@@ -3200,4 +3200,11 @@ test("wall pictures: a window only on the building's outside wall, a glass parti
   expect(facesWest(d, at(0, 1))).toBe(true);
   expect(facesWest(d, at(6, 1))).toBe(false);
   expect(facesWest(d, at(1, 0))).toBe(false);
+  // a window one sees out of is only ever on the building's outside wall (what is behind any other wall is the
+  // building, not the view)
+  for (const biome of BIOMES) {
+    const look = lookOf(biome);
+    for (const v of Object.keys(look?.outside?.panes ?? {}))
+      expect(look!.wallSides?.outer, `${biome.code} picture ${v}`).toContain(Number(v));
+  }
 });
