@@ -195,7 +195,7 @@ function cityGround(): THREE.CanvasTexture {
       );
     }
     for (let n = 0; n < 6; n++) {
-      g.fillStyle = '#3a3530';
+      g.fillStyle = '#3b352f';
       g.beginPath();
       g.arc(margin + rand() * (S - 2 * margin), margin + rand() * (S - 2 * margin), 9, 0, Math.PI * 2);
       g.fill();
@@ -313,7 +313,7 @@ function cityFacades(): THREE.CanvasTexture[] {
     // an older block in brick, the windows tall with white frames and stone sills
     canvasTex(S, S, g => {
       const rand = createRng(SEED + 12).next;
-      g.fillStyle = '#7a4a3a';
+      g.fillStyle = '#7c4b39';
       g.fillRect(0, 0, S, S);
       for (let y = 0; y < S; y += 8)
         for (let x = (y / 8) % 2 ? -10 : 0; x < S; x += 20) {
