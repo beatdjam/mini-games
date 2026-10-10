@@ -6,9 +6,10 @@ import type { BlockStyle } from '../outside.ts';
 // What the old downtown's windows look out on (Look.outside): the city at dusk all round, painted on a band that is
 // wrapped round the player (world/level.ts). The sun is low in the west (the -x side, a quarter of the band before
 // its end: facesWest in common.ts), the sky glowing amber round it and going grey toward the east.
-// Buildings in three rows, each with its storeys of windows (dark glass, a few lit), the lines of its floors and
-// what stands on its roof (a water tank, plant, an aerial): the far row pale in the haze, the near row with big
-// office blocks whose window frames can be made out. Toward the sun they stand dark against the glow; away from it
+// Buildings in two rows, both far off and pale in the haze, each with its storeys of windows (dark glass, a few lit)
+// and what stands on its roof (a water tank, plant, an aerial). Nothing near is painted here: the band goes with
+// the eye, so what is on it never shifts as one walks, which is right only for what is far away (a row of big clear
+// blocks stood here once, and read as near buildings that did not move). The near ones are the boxes below. Toward the sun they stand dark against the glow; away from it
 // their faces take the low sun, warm. Under the horizon, laid flat (cityGround), the street, going into the dusk
 // haze far off; on it, across the street, the nearer blocks stand as boxes (cityFacades, cityRoofs).
 // ---- tuning numbers used only here ----
@@ -46,21 +47,10 @@ const ROWS: Row[] = [
     wide: [26, 64],
     gap: [2, 10],
     base: [70, 62, 62],
-    haze: 0.25,
+    haze: 0.4,
     cell: [5, 6],
     lit: 0.08,
     detail: false,
-  },
-  // near: big blocks across the way, with gaps between them
-  {
-    top: [-150, -60],
-    wide: [70, 150],
-    gap: [60, 220],
-    base: [82, 72, 66],
-    haze: 0,
-    cell: [9, 11],
-    lit: 0.12,
-    detail: true,
   },
 ];
 

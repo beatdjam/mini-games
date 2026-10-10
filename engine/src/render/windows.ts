@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { T, tileCenter } from '../world/tiles.ts';
 import { UP } from './render.ts';
+import { canvasTex } from './paint.ts';
 // Windows one sees out of, in a world of wall tiles. The wall is not opened (a hole through a wall a tile thick would
 // be a tunnel): the panes are flat on the wall's face and draw nothing, but mark the stencil where they are seen;
 // then the backdrop (the view all round, on the inside of a cylinder that stays round the eye) is drawn only there,
@@ -17,10 +18,11 @@ export interface WindowFace {
   dj: number;
   rects: [number, number, number, number][];
 }
+const GLASS_FILM = 0.3; // how much of the glass's tint lies over the whole pane (0..1)
 const PANE_OUT = 0.02; // the panes stand this far in front of the face (m)
 let paneMat: THREE.MeshBasicMaterial | null = null;
-// the panes of all the faces in one mesh (null when there are none); the faces are wallH high
-export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.InstancedMesh | null {
+// where the panes of the faces stand (a unit plane each, scaled to its rectangle); the faces are wallH high
+function paneMatrices(faces: WindowFace[], wallH: number): THREE.Matrix4[] {
   const matrices: THREE.Matrix4[] = [],
     turn = new THREE.Quaternion(),
     at = new THREE.Vector3(),
@@ -40,6 +42,18 @@ export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.Inst
       matrices.push(new THREE.Matrix4().compose(at, turn, size));
     }
   }
+  return matrices;
+}
+const instanced = (matrices: THREE.Matrix4[], mat: THREE.Material, order: number): THREE.InstancedMesh => {
+  const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), mat, matrices.length);
+  matrices.forEach((m, n) => mesh.setMatrixAt(n, m));
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.renderOrder = order;
+  return mesh;
+};
+// the panes of all the faces in one mesh (null when there are none)
+export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.InstancedMesh | null {
+  const matrices = paneMatrices(faces, wallH);
   if (!matrices.length) return null;
   paneMat ??= new THREE.MeshBasicMaterial({
     colorWrite: false,
@@ -49,11 +63,54 @@ export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.Inst
     stencilFunc: THREE.AlwaysStencilFunc,
     stencilZPass: THREE.ReplaceStencilOp,
   });
-  const panes = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), paneMat, matrices.length);
-  matrices.forEach((m, n) => panes.setMatrixAt(n, m));
-  panes.instanceMatrix.needsUpdate = true;
-  panes.renderOrder = WINDOW_ORDER;
-  return panes;
+  return instanced(matrices, paneMat, WINDOW_ORDER);
+}
+// The glass in those panes: a picture with alpha (windowGlassTex) over each, drawn after all that is seen through
+// them. Without it the view out is as clear as through a hole, sharper and brighter than the room one stands in; the
+// glass takes it toward its own tint, and its dirt is a thing near the eye that the view lies behind
+export function buildWindowGlass(faces: WindowFace[], wallH: number, map: THREE.Texture): THREE.InstancedMesh | null {
+  const matrices = paneMatrices(faces, wallH);
+  if (!matrices.length) return null;
+  return instanced(
+    matrices,
+    new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, fog: false }),
+    WINDOW_ORDER + 4,
+  );
+}
+// a pane of old glass: a film of `tint` all over, thicker toward the frame and along the sill, rain streaks down it
+// and specks of dirt
+export function windowGlassTex(tint: THREE.Color | string | number, seed = 7): THREE.CanvasTexture {
+  const S = 128,
+    c = new THREE.Color(tint),
+    rgba = (a: number, lift = 0) =>
+      `rgba(${[c.r, c.g, c.b].map(v => Math.round(Math.min(1, v + lift) * 255)).join(',')},${a})`;
+  let r = seed;
+  const rand = () => (r = (Math.imul(r, 1103515245) + 12345) >>> 0) / 4294967296;
+  return canvasTex(S, S, g => {
+    g.fillStyle = rgba(GLASS_FILM);
+    g.fillRect(0, 0, S, S);
+    // thicker toward the frame, most along the sill
+    for (const [x0, y0, x1, y1, a] of [
+      [0, S, 0, S * 0.55, 0.42],
+      [0, 0, 0, S * 0.18, 0.22],
+      [0, 0, S * 0.14, 0, 0.2],
+      [S, 0, S * 0.86, 0, 0.2],
+    ] as const) {
+      const edge = g.createLinearGradient(x0, y0, x1, y1);
+      edge.addColorStop(0, rgba(a));
+      edge.addColorStop(1, rgba(0));
+      g.fillStyle = edge;
+      g.fillRect(0, 0, S, S);
+    }
+    for (let n = 0; n < 26; n++) {
+      g.fillStyle = rgba(0.05 + rand() * 0.1, 0.25);
+      g.fillRect(rand() * S, rand() * S * 0.4, 1 + rand() * 2, S * (0.3 + rand() * 0.7));
+    }
+    for (let n = 0; n < 90; n++) {
+      g.fillStyle = rgba(0.1 + rand() * 0.25, rand() < 0.5 ? 0.2 : -0.1);
+      g.fillRect(rand() * S, rand() * S, 1 + rand() * 2, 1 + rand() * 2);
+    }
+  });
 }
 // What closes the backdrop above and below, so that it is whole whichever way one looks out (right up at a window,
 // looking up or down): `sky`, a lid over the band's top edge in one colour (the band's top row's), and `ground`, a

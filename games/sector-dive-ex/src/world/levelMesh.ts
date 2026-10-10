@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { buildWindowPanes } from '@engine/render/windows.ts';
+import { buildWindowGlass, buildWindowPanes, windowGlassTex } from '@engine/render/windows.ts';
 import type { WindowFace } from '@engine/render/windows.ts';
 import { floorSides } from '@engine/world/walls.ts';
 import { H, T, W, grid, tileCenter } from '@engine/world/tiles.ts';
@@ -29,6 +29,8 @@ import { TEX } from './looks/paint.ts';
 // building (buildFloorMeshes: drawn tile by tile, so it can be open where a stairwell or a lift passes, in the
 // sector's look when it has one) and a level of its own (buildLevelMeshes: a boss arena, a fixed map)
 const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall colour times this
+// the glass of the windows one sees out of, by sector (its tint is the sector's haze outside)
+const glassTex: Record<string, THREE.Texture> = {};
 const SHAFT_FILL_GAP = 0.03; // the wall between a ceiling and the next floor stops this short of both (m)
 
 // `courtGroup`: on a floor the courtyard passes, what stands in and round it (its galleries, their walls and ceilings,
@@ -130,8 +132,10 @@ export function buildFloorMeshes(
         for (const [di, dj] of floorSides(plan.gen, k))
           faces.push({ i, j, di, dj, rects: rects.map(r => r.map(v => v / TEX) as [number, number, number, number]) });
       }
-      const panes = buildWindowPanes(faces, WALL_H);
-      if (panes) group.add(panes);
+      const panes = buildWindowPanes(faces, WALL_H),
+        // (the glass has the colour of the haze out there: the view through it goes the way the far ground does)
+        glass = buildWindowGlass(faces, WALL_H, (glassTex[biome.code] ??= windowGlassTex(outside.haze)));
+      if (panes && glass) group.add(panes, glass);
     }
   } else {
     tex.floor.repeat.set(1, 1);
