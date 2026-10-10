@@ -817,7 +817,7 @@ export function buildFloorMeshes(
     look.walls.forEach((map, v) =>
       wallBoxes(
         map,
-        walls.filter(([i, j]) => wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls) === v),
+        walls.filter(([i, j]) => wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls, look.wallSides) === v),
       ),
     );
   } else {

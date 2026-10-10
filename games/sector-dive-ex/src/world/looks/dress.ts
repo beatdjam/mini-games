@@ -6,6 +6,7 @@ import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import { WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
 import { wallPic } from './common.ts';
+import type { WallSides } from './common.ts';
 import { facing, onWall, pose } from './props.ts';
 import type { Light, PropTools, WallSlot } from './props.ts';
 // Dressing a sector's walls in layers. placeProps hands a slot to one prop, and a floor gets so many of each: that
@@ -23,6 +24,7 @@ type Share = { hall: number; lane: number };
 export interface WallKit {
   pics: number; // how many wall pictures the sector has, and
   laneWalls?: number[]; // ... what an alley's walls get in place of the plain one (common.ts wallPic)
+  sides?: WallSides; // ... the pictures that go only on some walls
   bare: number[]; // the wall pictures a unit may stand in front of (not a window or a door painted there)
   // what is let into a wall at ground level: a painted front, `w` by `h` metres, with boxes in front of it (their
   // faces from `counter`) and a post at each end when `posts`. `light`: the colour of the light it throws
@@ -88,7 +90,7 @@ export function dressWalls(
       [[0, 0], ...SIDE_STEP].some(([di, dj]) => !!d.maps.door?.[(f.j + dj!) * d.W + f.i + di!]),
     bare = (f: WallSlot): boolean => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!;
-      return kit.bare.includes(wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls));
+      return kit.bare.includes(wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls, kit.sides));
     },
     flat = (color: number) => new THREE.MeshBasicMaterial({ color }),
     cutout = (map: THREE.Texture) =>

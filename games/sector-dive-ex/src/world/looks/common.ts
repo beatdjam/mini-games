@@ -24,6 +24,8 @@ export interface Look {
   // corridor tile beside it): an alley's walls are all shop fronts, windows and gates, none of them bare. Without
   // it an alley's walls are painted like any other
   laneWalls?: number[];
+  // the pictures that go only on some walls (WallSides). Without it any picture goes on any wall
+  wallSides?: WallSides;
   // the sides of the raised decks (a picture a tile wide and a deck high). Without it they have the plain wall's
   // picture pressed down to their height, which reads as a lump of wall and not as a thing built there
   deckSide?: THREE.CanvasTexture;
@@ -44,15 +46,62 @@ export function byLane(
 ): boolean {
   return [k - 1, k + 1, k - d.W, k + d.W].some(t => d.maps.grid[t] === 1 && d.maps.roomOf[t]! < 0);
 }
-// which picture a wall tile gets: variantOf, but along an alley the plain one gives way to one of `laneWalls`
+// The pictures (by number) that go only on some walls; on any other wall the plain picture stands in their place.
+// `outer`: only on the building's outside wall, where nothing of the floor lies behind the wall out to the map's edge
+// (a window with the evening outside, a fire exit). `inner`: only on a thin wall, with floor right behind it (a glass
+// partition, with the next room or the corridor beyond it)
+export interface WallSides {
+  outer?: number[];
+  inner?: number[];
+}
+// how a wall tile stands: 'outer' when behind every face of it (looking away from the floor that face is seen from)
+// there is no floor out to the map's edge, 'inner' when right behind every face there is floor, else null (a wall
+// with more of the building some way behind it, or one that no floor sees)
+export function wallSide(
+  d: { W: number; H?: number; maps: { grid: ArrayLike<number> } },
+  k: number,
+): 'outer' | 'inner' | null {
+  const { W } = d,
+    H = d.H ?? Math.floor(d.maps.grid.length / W),
+    i = k % W,
+    j = Math.floor(k / W);
+  let faces = 0,
+    outer = true,
+    inner = true;
+  for (const [di, dj] of [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const) {
+    if (d.maps.grid[(j + dj) * W + i + di] !== 1) continue;
+    faces++;
+    // from the wall, away from that floor
+    let n = 1;
+    while (i - di * n >= 0 && j - dj * n >= 0 && i - di * n < W && j - dj * n < H) {
+      if (d.maps.grid[(j - dj * n) * W + i - di * n] === 1) break;
+      n++;
+    }
+    const open = i - di * n < 0 || j - dj * n < 0 || i - di * n >= W || j - dj * n >= H;
+    if (!open) outer = false;
+    if (n !== 1) inner = false;
+  }
+  return !faces ? null : outer ? 'outer' : inner ? 'inner' : null;
+}
+// which picture a wall tile gets: variantOf, but along an alley the plain one gives way to one of `laneWalls`; a
+// picture of `sides` on a wall it may not go on gives way to the plain one
 export function wallPic(
-  d: { W: number; maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
+  d: { W: number; H?: number; maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
   k: number,
   count: number,
   laneWalls?: number[],
+  sides?: WallSides,
 ): number {
-  const v = variantOf(k, count, WALL_PLAIN_SHARE);
-  return v === 0 && laneWalls && byLane(d, k) ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v;
+  const v0 = variantOf(k, count, WALL_PLAIN_SHARE),
+    v = v0 === 0 && laneWalls && byLane(d, k) ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v0;
+  if (!sides || (!sides.outer?.includes(v) && !sides.inner?.includes(v))) return v;
+  const side = wallSide(d, k);
+  return (sides.outer?.includes(v) && side === 'outer') || (sides.inner?.includes(v) && side === 'inner') ? v : 0;
 }
 export const WALL_PLAIN_SHARE = 0.4; // share of the wall tiles that get the plain picture
 export const FLOOR_PLAIN_SHARE = 0.6; // ... of the floor tiles

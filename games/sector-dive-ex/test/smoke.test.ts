@@ -52,7 +52,7 @@ import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
-import { lookOf } from '../src/world/looks.ts';
+import { lookOf, variantOf, wallPic, wallSide, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
 import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, REBOOT_ENDLESS, REBOOT_UP, TUNE } from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
 import {
@@ -145,6 +145,7 @@ import {
 } from '../src/world/building.ts';
 import { ridingY, supplyChips } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
+import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import { DOOR_PASS } from '@engine/world/tiles.ts';
 import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
@@ -3176,4 +3177,23 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
     });
   });
   goBase();
+});
+test("wall pictures: a window only on the building's outside wall, a glass partition only on a thin wall", () => {
+  const d = tileMapFromRows(['#######', '#..#..#', '#######', '#######', '#.....#', '#######']),
+    at = (i: number, j: number) => j * d.W + i;
+  expect(wallSide(d, at(0, 1)), 'the map edge behind it').toBe('outer');
+  expect(wallSide(d, at(1, 0)), 'the map edge behind it').toBe('outer');
+  expect(wallSide(d, at(3, 1)), 'a room right behind it, on both sides').toBe('inner');
+  expect(wallSide(d, at(1, 2)), 'a room further behind it').toBeNull();
+  expect(wallSide(d, at(3, 2)), 'seen from no floor').toBeNull();
+  // a picture of `outer` on any other wall, and one of `inner` on any other wall, gives way to the plain one
+  const all = Array.from({ length: 12 }, (_, n) => n + 1),
+    pic = (k: number, sides: { outer?: number[]; inner?: number[] }) => wallPic(d, k, 13, undefined, sides);
+  for (const k of [at(0, 1), at(1, 0), at(3, 1), at(1, 2)]) {
+    const v = variantOf(k, 13, WALL_PLAIN_SHARE),
+      side = wallSide(d, k);
+    expect(pic(k, { outer: all }), `tile ${k}`).toBe(side === 'outer' ? v : 0);
+    expect(pic(k, { inner: all }), `tile ${k}`).toBe(side === 'inner' ? v : 0);
+    expect(pic(k, {}), `tile ${k}: no sides, as it was`).toBe(v);
+  }
 });

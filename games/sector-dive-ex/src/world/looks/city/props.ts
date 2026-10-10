@@ -13,7 +13,7 @@ import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { fallenPanelTex, officeBoxTex, officeHeapTex, officeTex } from './cutouts.ts';
 import { CITY_EXTINGUISHER, CITY_GUIDE } from '../../../i18n/signs.ts';
-import { BARRIER_RED, BARRIER_WHITE, CITY_LANE_WALLS, CITY_WALL_PICS } from './pictures.ts';
+import { BARRIER_RED, BARRIER_WHITE, CITY_LANE_WALLS, CITY_WALL_PICS, CITY_WALL_SIDES } from './pictures.ts';
 // The props of the old downtown (CITY): the things fixed to its walls and ceilings, and the light they throw. They go
 // by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
 // together.
@@ -159,6 +159,7 @@ let cityKit: WallKit | null = null;
 const makeCityKit = (): WallKit => ({
   pics: CITY_WALL_PICS.length,
   laneWalls: CITY_LANE_WALLS,
+  sides: CITY_WALL_SIDES,
   bare: PLAIN_WALLS,
   units: {
     maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => officeTex(800 + n)),
@@ -208,7 +209,7 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tools = propTools(plan, group, CITY_PROPS, rng),
     { d, wallOf, add } = tools,
     M = d.maps;
-  const pictureOf = (wall: number) => wallPic(d, wall, CITY_WALL_PICS.length, CITY_LANE_WALLS);
+  const pictureOf = (wall: number) => wallPic(d, wall, CITY_WALL_PICS.length, CITY_LANE_WALLS, CITY_WALL_SIDES);
   // (the things on the walls go on the plain pictures only, clear of the windows, boards and cabinets)
   const of = (id: string) => tools.of(id).filter(s => s.kind !== 'wall' || PLAIN_WALLS.includes(pictureOf(wallOf(s))));
 
@@ -246,20 +247,16 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tubeColors,
   );
 
-  // the sun under the windows: on every flat floor tile that has a window wall beside it. Not from a wall only one
-  // tile thick (a pillar, or a wall with a room behind it: the sun cannot come through there)
+  // the sun under the windows: on every flat floor tile that has a window wall beside it (a window is only on the
+  // building's outside wall, CITY_WALL_SIDES: never on a pillar or a wall with a room behind it)
   const sun: THREE.Matrix4[] = [];
   for (let j = 1; j < d.H - 1; j++)
     for (let i = 1; i < d.W - 1; i++) {
       const k = j * d.W + i;
       if (M.grid[k] !== 1 || M.hgt[k] !== 0 || M.ramp[k]! >= 0 || M.cover[k] || plan.noFloor[k]) continue;
       SIDE_STEP.forEach(([di, dj], side) => {
-        const wall = k + dj * d.W + di,
-          behind = wall + dj * d.W + di,
-          bi = i + di * 2,
-          bj = j + dj * 2;
+        const wall = k + dj * d.W + di;
         if (M.grid[wall] === 1 || plan.voids[wall]) return;
-        if (bi >= 0 && bj >= 0 && bi < d.W && bj < d.H && M.grid[behind] === 1) return;
         const picture = pictureOf(wall);
         if (picture !== WALL_BLIND && picture !== WALL_BLIND_RAISED) return;
         const s = { i, j, side };
