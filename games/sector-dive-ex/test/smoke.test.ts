@@ -88,6 +88,8 @@ import {
   level,
   reveal,
   roomSpot,
+  enterFloor,
+  showBuilding,
   showNeighbourFloors,
   stashedRoomCount,
 } from '../src/world/level.ts';
@@ -144,6 +146,8 @@ import {
   roomsOnWay,
   setBuilding,
 } from '../src/world/building.ts';
+import type { Building } from '../src/world/building.ts';
+import { WINDOW_ORDER } from '@engine/render/windows.ts';
 import { ridingY, supplyChips } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
 import { tileMapFromRows } from '@engine/world/tilemap.ts';
@@ -3303,6 +3307,68 @@ test('outside: a window one sees out of looks past the whole building, or on to 
   }
   devCourtOpen(null);
   expect(windows).toBeGreaterThan(0);
+});
+test('outside: a window on a yard shows the yard itself, a tile nearer, and only while one is in sight', () => {
+  const city = BIOMES.find(x => x.code === 'CITY')!,
+    look = lookOf(city)!;
+  // a building with a window one sees out of right on its yard: the wall tile, the step from it to the floor
+  let found: { b: Building; floor: number; k: number; o: number } | null = null;
+  for (let seed = 1; seed < 300 && !found; seed++) {
+    const b = makeBuilding(city, city.bosses[0]!, seed),
+      c = b.court;
+    if (!c?.open) continue;
+    b.plans.forEach((p, floor) => {
+      const d = p.gen,
+        g = d.maps.grid;
+      g.forEach((v, k) => {
+        if (found || v || p.voids[k]) return;
+        if (!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)]) return;
+        const o = [1, -1, d.W, -d.W].find(o => g[k + o] === 1 && c.tiles.includes(k - o));
+        if (o !== undefined) found = { b, floor, k, o };
+      });
+    });
+  }
+  expect(found, 'such a window in some building').not.toBeNull();
+  const { b, floor, k, o } = found!,
+    W = b.plans[0]!.gen.W,
+    [di, dj] = Math.abs(o) === 1 ? [o, 0] : [0, Math.sign(o)];
+  showBuilding(b);
+  enterFloor(b, floor);
+  const copies: THREE.Mesh[] = [];
+  scene.traverse(m => {
+    if (
+      (m as THREE.Mesh).isMesh &&
+      m.renderOrder > WINDOW_ORDER &&
+      m.renderOrder < WINDOW_ORDER + 1 &&
+      !(m as THREE.InstancedMesh).isInstancedMesh
+    )
+      copies.push(m as THREE.Mesh);
+  });
+  expect(copies.length, 'the yard is copied for its windows').toBeGreaterThan(0);
+  const shown = () =>
+    copies.some(m => {
+      for (let q: THREE.Object3D | null = m; q; q = q.parent) if (!q.visible) return false;
+      return true;
+    });
+  // standing in front of the window, looking at it, then away
+  const x = ((k % W) + 0.5 + di) * T,
+    z = (Math.floor(k / W) + 0.5 + dj) * T;
+  camera.position.set(x, EYE, z);
+  camera.rotation.set(0, Math.atan2(di, dj), 0);
+  showNeighbourFloors(b, x, z);
+  expect(shown(), 'looking at it').toBe(true);
+  camera.rotation.set(0, Math.atan2(-di, -dj), 0);
+  showNeighbourFloors(b, x, z);
+  expect(shown(), 'looking away').toBe(false);
+  // a tile nearer: each copy (of the yard, of what stands round it on a floor) stands a tile toward the floor
+  const moved = new Set(
+    copies.map(m => {
+      let q: THREE.Object3D = m;
+      while (q.parent!.parent!.parent !== scene) q = q.parent!;
+      return `${Math.round(q.position.x * 100) / 100},${Math.round(q.position.z * 100) / 100}`;
+    }),
+  );
+  expect(moved.has(`${di * T},${dj * T}`)).toBe(true);
 });
 test('props: what hangs overhead clears the head of someone on a raised floor under it or next to it', () => {
   // a 4 by 3 map: ground, a ramp up toward +x, a walkway 2 m up, ground; the row under it walls

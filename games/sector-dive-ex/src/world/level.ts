@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createRng, rand, randi } from '@engine/core/util.ts';
 import { clearWorld, groupOf, spawn, sweepWorld } from '@engine/core/world.ts';
-import { disposeTree, dynGroup, scene } from '@engine/render/render.ts';
+import { camera, disposeTree, dynGroup, scene } from '@engine/render/render.ts';
 import { clearFx } from '@engine/render/fx.ts';
 import {
   H,
@@ -28,6 +28,7 @@ import { clearHazards } from './hazards.ts';
 import { ARENA_FROM, generateLevel } from './levelGen.ts';
 import type { FloorPlan } from './building.ts';
 import { FLOOR_H } from './building.ts';
+import { WALL_H } from '../data/level.ts';
 import type { Building } from './building.ts';
 import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import { lookOf } from './looks.ts';
@@ -35,9 +36,9 @@ import { liftPaint } from './looks/common.ts';
 import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF_M, paint } from './looks/paint.ts';
 import { buildingShell, outsideBlocks, shellOf } from './looks/outside.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
-import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
+import { YARD_INTO, buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import { buildAtriumProps, buildYardShell, yardFacades } from './courtMesh.ts';
-import { buildBackdrop, buildOutsideBlocks } from '@engine/render/windows.ts';
+import { buildBackdrop, buildOutsideBlocks, keepOutOfPanes, seenThrough } from '@engine/render/windows.ts';
 import { mergeFlat } from '@engine/render/mergeflat.ts';
 import type { Backdrop, OutsideLook } from '@engine/render/windows.ts';
 import type { Portal } from './portals.ts';
@@ -95,9 +96,23 @@ let courtGroups: (THREE.Group | null)[] = [];
 // a yard's outer walls, sky, ground and what is on them, or what hangs in an atrium (courtMesh.ts buildYardShell,
 // buildAtriumProps)
 let yardShell: THREE.Group | null = null;
+// The yard as the windows on it show it (levelMesh.ts YARD_INTO): per way they face, a copy of the yard and of what
+// stands round it on every floor, a tile nearer that way, drawn only through those windows (engine windows.ts
+// seenThrough). Drawn only while one of those windows of the floor played is in sight (it costs as many draws as the
+// yard itself)
+const sight = new THREE.Frustum(),
+  sightBox = new THREE.Box3(),
+  sightM = new THREE.Matrix4();
+let yardCopies: {
+  into: number;
+  root: THREE.Group;
+  parts: [THREE.Object3D, THREE.Object3D][];
+  step: THREE.Vector3;
+}[] = [];
 // what the windows look out on (Look.outside): the backdrop, the building's own outside walls and the buildings across
 // the street. They stand on the street, the ground of the lowest floor (moved with the floors: enterFloor)
 let outside: { band: Backdrop; across: THREE.Group } | null = null;
+const YARD_GLASS_CLEAR = 0.5; // through a window on a yard, nothing of the yard is drawn this near the glass (m)
 const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings across the street
 const SHELL_STOREYS = 2; // the facade's picture (4 storeys) over this many floors of the building's own walls: two storeys a floor, so its windows keep their shape
 let shown: Building | null = null;
@@ -267,6 +282,7 @@ function clearLevel() {
     buildingGroup = null;
     floorGroups = [];
     courtGroups = [];
+    yardCopies = [];
     yardShell = null;
     outside = null;
     liftPads = [];
@@ -379,6 +395,23 @@ export function showNeighbourFloors(b: Building, x: number, z: number) {
     if (cg) cg.visible = g.visible || atCourt;
   });
   if (yardShell) yardShell.visible = atCourt;
+  if (yardCopies.length) {
+    camera.updateMatrixWorld();
+    sight.setFromProjectionMatrix(sightM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    const panes = floorGroups[n]!.userData.yardPanes as Record<number, [number, number, number, number]> | undefined;
+    for (const y of yardCopies) {
+      const at = panes?.[y.into];
+      y.root.visible =
+        atCourt &&
+        !!at &&
+        sight.intersectsBox(
+          sightBox.set(
+            new THREE.Vector3(at[0] * T, 0, at[1] * T),
+            new THREE.Vector3((at[2] + 1) * T, WALL_H, (at[3] + 1) * T),
+          ),
+        );
+    }
+  }
   // the top of the boss room shows while its floor is the one played (from another floor it would stand in the way)
   if (hallTop) hallTop.visible = !!hall;
 }
@@ -408,6 +441,33 @@ export function showBuilding(b: Building) {
   if (b.court) {
     yardShell = (b.court.open ? buildYardShell : buildAtriumProps)(b.court, w, FLOOR_H, b.biome);
     all.add(yardShell);
+  }
+  if (b.court?.open && yardShell) {
+    const yard = [yardShell, ...courtGroups.filter(g => !!g)],
+      is = b.court.tiles.map(k => k % w),
+      js = b.court.tiles.map(k => Math.floor(k / w));
+    YARD_INTO.forEach(([di, dj], v) => {
+      if (!floorGroups.some(g => (g.userData.yardPanes as Record<number, unknown> | undefined)?.[v + 1])) return;
+      // the windows' plane (the yard's wall on their side, a tile nearer): what is on that wall (lamps, signs) is not
+      // drawn, it would stand right at the glass
+      const away = new THREE.Vector3(-di, 0, -dj),
+        glass = new THREE.Vector3(
+          di > 0 ? (Math.max(...is) + 2) * T : di < 0 ? (Math.min(...is) - 1) * T : 0,
+          0,
+          dj > 0 ? (Math.max(...js) + 2) * T : dj < 0 ? (Math.min(...js) - 1) * T : 0,
+        ),
+        clip = new THREE.Plane().setFromNormalAndCoplanarPoint(away, glass.addScaledVector(away, YARD_GLASS_CLEAR)),
+        root = new THREE.Group(),
+        parts = yard.map((src): [THREE.Object3D, THREE.Object3D] => {
+          const c = seenThrough(src, v + 1, clip);
+          c.visible = true;
+          root.add(c);
+          return [src, c];
+        });
+      all.add(root);
+      yardCopies.push({ into: v + 1, root, parts, step: new THREE.Vector3(di * T, 0, dj * T) });
+    });
+    yard.forEach(keepOutOfPanes);
   }
   // what its windows look out on (a sector with windows one sees out of: Look.outside)
   if (look?.outside) {
@@ -518,6 +578,7 @@ export function enterFloor(b: Building, n: number) {
     courtGroups[m]?.position.setY(g.position.y);
   });
   yardShell?.position.setY(n * FLOOR_H);
+  for (const y of yardCopies) for (const [src, c] of y.parts) c.position.copy(src.position).add(y.step);
   if (outside) {
     const street = -(b.plans.length - 1 - n) * FLOOR_H;
     outside.band.groundY = street;
