@@ -256,37 +256,55 @@ function blocks(g: CanvasRenderingContext2D, rand: () => number) {
   g.lineWidth = 2;
   g.stroke(bare);
 }
-// A broken window: the grey day outside and the block across the street, what is left of the glass, a rusty frame
-function brokenWindow(g: CanvasRenderingContext2D, rand: () => number) {
+// A broken window: the grey day outside and the block across the street, what is left of the glass, a rusty frame.
+// `inside`: seen from outside the building (a yard's wall), the dark room behind it instead
+function brokenWindow(g: CanvasRenderingContext2D, rand: () => number, inside = false) {
   const x = 52,
     w = TEX - 104,
     y = rowOf(3.7),
     h = rowOf(1.35) - y;
-  // the daylight on the wall round it
-  g.globalCompositeOperation = 'lighter';
-  const spill = g.createRadialGradient(TEX / 2, y + h / 2, 30, TEX / 2, y + h / 2, 150);
-  spill.addColorStop(0, 'rgba(190,206,176,.22)');
-  spill.addColorStop(1, 'rgba(190,206,176,0)');
-  g.fillStyle = spill;
-  g.fillRect(0, 0, TEX, TEX);
-  g.globalCompositeOperation = 'source-over';
+  // the daylight on the wall round it (from inside the room)
+  if (!inside) {
+    g.globalCompositeOperation = 'lighter';
+    const spill = g.createRadialGradient(TEX / 2, y + h / 2, 30, TEX / 2, y + h / 2, 150);
+    spill.addColorStop(0, 'rgba(190,206,176,.22)');
+    spill.addColorStop(1, 'rgba(190,206,176,0)');
+    g.fillStyle = spill;
+    g.fillRect(0, 0, TEX, TEX);
+    g.globalCompositeOperation = 'source-over';
+  }
   g.fillStyle = '#3f4339';
   g.fillRect(x - 7, y - 5, w + 14, h + 10);
-  const sky = g.createLinearGradient(0, y, 0, y + h);
-  sky.addColorStop(0, '#b9c5b0');
-  sky.addColorStop(0.6, '#a3b29c');
-  sky.addColorStop(1, '#8c9b86');
-  g.fillStyle = sky;
-  g.fillRect(x, y, w, h);
-  // the block across the street, its own windows empty, and the trees that have come up in front of it
-  g.fillStyle = '#7d8a7a';
-  g.fillRect(x + 18, y + h * 0.3, 62, h * 0.7);
-  g.fillRect(x + 96, y + h * 0.48, 56, h * 0.52);
-  g.fillStyle = 'rgba(56,66,56,.6)';
-  for (let wy = y + h * 0.36; wy < y + h - 8; wy += 11)
-    for (let wx = x + 25; wx < x + 76; wx += 14) g.fillRect(wx, wy, 7, 5);
-  g.fillStyle = '#5d7155';
-  for (let k = 0; k < 9; k++) oval(g, x + rand() * w, y + h - rand() * 12, 12 + rand() * 20, 6 + rand() * 9);
+  if (inside) {
+    // the room: no light of its own, a little of the day from its other windows on the back wall, a doorway darker
+    const room = g.createLinearGradient(0, y, 0, y + h);
+    room.addColorStop(0, '#1f231f');
+    room.addColorStop(0.7, '#292d27');
+    room.addColorStop(1, '#343931');
+    g.fillStyle = room;
+    g.fillRect(x, y, w, h);
+    g.fillStyle = 'rgba(160,176,150,.1)';
+    g.fillRect(x + w * 0.1, y + h * 0.18, w * 0.32, h * 0.36);
+    g.fillStyle = 'rgba(8,10,8,.55)';
+    g.fillRect(x + w * 0.6, y + h * 0.22, w * 0.2, h * 0.78);
+  } else {
+    // the day outside
+    const sky = g.createLinearGradient(0, y, 0, y + h);
+    sky.addColorStop(0, '#b9c5b0');
+    sky.addColorStop(0.6, '#a3b29c');
+    sky.addColorStop(1, '#8c9b86');
+    g.fillStyle = sky;
+    g.fillRect(x, y, w, h);
+    // the block across the street, its own windows empty, and the trees that have come up in front of it
+    g.fillStyle = '#7d8a7a';
+    g.fillRect(x + 18, y + h * 0.3, 62, h * 0.7);
+    g.fillRect(x + 96, y + h * 0.48, 56, h * 0.52);
+    g.fillStyle = 'rgba(56,66,56,.6)';
+    for (let wy = y + h * 0.36; wy < y + h - 8; wy += 11)
+      for (let wx = x + 25; wx < x + 76; wx += 14) g.fillRect(wx, wy, 7, 5);
+    g.fillStyle = '#5d7155';
+    for (let k = 0; k < 9; k++) oval(g, x + rand() * w, y + h - rand() * 12, 12 + rand() * 20, 6 + rand() * 9);
+  }
   // the glass that is left: dirty panes, with the shards standing in the frame
   g.save();
   g.beginPath();
@@ -490,8 +508,9 @@ function noticeBoard(g: CanvasRenderingContext2D, rand: () => number) {
   g.fillRect(-14, 0, 28, 24);
   g.restore();
 }
+// (`inside`: the picture as seen from outside the building, for a window: brokenWindow)
 const ruinWall =
-  (variant: number): Paint =>
+  (variant: number, inside = false): Paint =>
   (g, rand) => {
     mortar(g, rand);
     damp(g, rand, variant === WALL_STAINED ? 16 : 7);
@@ -511,7 +530,7 @@ const ruinWall =
       }
     } else if (variant === WALL_BLOCKS) blocks(g, rand);
     else if (variant === WALL_PAPER || variant === WALL_PAPER_BLUE) wallpaper(g, rand, variant === WALL_PAPER_BLUE);
-    else if (variant === WALL_WINDOW) brokenWindow(g, rand);
+    else if (variant === WALL_WINDOW) brokenWindow(g, rand, inside);
     else if (variant === WALL_IVY) {
       // up from the ground and down from the top, thickest low down
       for (let k = 0; k < 9; k++)
@@ -989,6 +1008,7 @@ export function ruinPictures(): Pictures {
     walls: Array.from({ length: RUIN_WALLS }, (_, v) => paint(1100 + v, ruinWall(v))),
     wallSides: RUIN_WALL_SIDES,
     outside: { panes: { [WALL_WINDOW]: brokenPanes() }, ...ruinView() },
+    innerWalls: { [WALL_WINDOW]: paint(1100 + WALL_WINDOW, ruinWall(WALL_WINDOW, true)) },
     floors: Array.from({ length: RUIN_FLOORS }, (_, v) => paint(1200, ruinFloor(v))),
     deck: paint(1300, ruinDeck),
     ceiling: paint(1400, ruinCeiling),

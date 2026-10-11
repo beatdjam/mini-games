@@ -9,6 +9,7 @@ import { addTilePlanes } from './meshParts.ts';
 import { dressAtrium, dressYard, yardDice } from './yardProps.ts';
 import { TEX, canvasTex, grain, grime, paint, poolTex } from './looks/paint.ts';
 import type { YardDress } from './yardProps.ts';
+import type { Look } from './looks/common.ts';
 // The courtyard's meshes (world/building.ts makes the courtyard): on each floor it passes, what stands round its hole
 // (rails, a bridge, the skylight); for a yard, the building's own outer walls round it, its sky and ground; for an
 // atrium, what hangs in it
@@ -237,6 +238,12 @@ const YARDS: Record<string, YardTheme> = {
     ground: ['#2c3626', '#3a4031', '#222b1e'],
   },
 };
+// Wall picture v as it is seen from outside the building, on a wall that faces west or not: the room behind a window
+// (Look.innerWalls), the picture out of the evening sun (Look.shadedWalls, on a wall that does not face west), or the
+// picture itself
+function wallOutside(look: Look, v: number, west: boolean): THREE.CanvasTexture {
+  return look.innerWalls?.[v] ?? ((!west && look.shadedWalls?.[v]) || look.walls[v]!);
+}
 // the slab between two storeys, seen from the yard: a band of concrete with the dirt that runs down from it
 function slabBandTex(th: YardTheme): THREE.CanvasTexture {
   return paint(0x51ab, (g, rand) => {
@@ -433,20 +440,20 @@ export function buildYardShell(court: Court, w: number, storey: number, biome: B
   // The plain look: one flat picture a storey high, the lit panes over it
   const look = lookOf(biome);
   if (look) {
-    // (the picture's shaded one, Look.shadedWalls, on the three walls that do not face west: only the yard's east
-    // wall, facing west, gets the evening sun; its picture is keyed with a minus sign)
+    // (the picture as seen from outside the building: wallOutside. Only the yard's east wall, facing west, gets the
+    // evening sun)
     const pic = spots.map(p => {
       const from = p.kind >= 0 ? th.windows : th.walls,
         v = from[Math.floor(yardDice(p.x + p.turn, p.y, p.z) * from.length)]! % look.walls.length;
-      return look.shadedWalls?.[v] && p.turn !== -Math.PI / 2 ? -1 - v : v;
+      return wallOutside(look, v, p.turn === -Math.PI / 2);
     });
-    for (const v of new Set(pic)) {
-      const mine = spots.filter((_, n) => pic[n] === v);
+    for (const map of new Set(pic)) {
+      const mine = spots.filter((_, n) => pic[n] === map);
       place(
         new THREE.InstancedMesh(
           new THREE.PlaneGeometry(T, WALL_H),
           new THREE.MeshBasicMaterial({
-            map: v < 0 ? look.shadedWalls![-1 - v]! : look.walls[v]!,
+            map,
             fog: false,
             color: th.shade,
           }),
@@ -593,10 +600,10 @@ export function yardFacades(
     facades: THREE.CanvasTexture[] = [],
     index = new Map<string, number>(),
     of = (v: number, west: boolean): number => {
-      const shaded = !west && !!look.shadedWalls?.[v],
-        key = `${v}:${shaded}`;
+      const pic = wallOutside(look, v, west),
+        key = pic.uuid;
       if (!index.has(key)) {
-        const wall = (shaded ? look.shadedWalls![v]! : look.walls[v]!).image as HTMLCanvasElement;
+        const wall = pic.image as HTMLCanvasElement;
         index.set(key, facades.length);
         facades.push(
           canvasTex(TEX, h, g => {
