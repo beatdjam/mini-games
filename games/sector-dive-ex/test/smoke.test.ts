@@ -53,7 +53,7 @@ import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
-import { wallSide } from '@engine/world/walls.ts';
+import { floorSides, wallSide } from '@engine/world/walls.ts';
 import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, REBOOT_ENDLESS, REBOOT_UP, TUNE } from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
 import {
@@ -3209,8 +3209,8 @@ test("wall pictures: a window only on the building's outside wall, a glass parti
   expect(facesWest(d, at(0, 1))).toBe(true);
   expect(facesWest(d, at(6, 1))).toBe(false);
   expect(facesWest(d, at(1, 0))).toBe(false);
-  // a window one sees out of is only ever on the building's outside wall (what is behind any other wall is the
-  // building, not the view)
+  // a window one sees out of is only ever on the building's outside wall or on a yard (what is behind any other wall
+  // is the building, not the view)
   for (const biome of BIOMES) {
     const look = lookOf(biome);
     for (const v of Object.keys(look?.outside?.panes ?? {}))
@@ -3270,6 +3270,39 @@ test("outside: the building's own walls, floor by floor: faces on its outline, a
   expect(of(0, 0)!.noRoof).toBe(false);
   // a tile with nothing to show is not built (inside the outline, covered, held up)
   expect(boxes.filter(b => b.bottom === 0 && b.x0 === 2 * T && !b.sides.length && b.noRoof && !b.under)).toEqual([]);
+});
+test('outside: a window one sees out of looks past the whole building, or on to a yard', () => {
+  const city = BIOMES.find(x => x.code === 'CITY')!,
+    look = lookOf(city)!;
+  devCourtOpen(true);
+  let windows = 0;
+  for (const seed of [3, 6, 9]) {
+    const b = makeBuilding(city, city.bosses[0]!, seed),
+      W = b.plans[0]!.gen.W,
+      H = b.plans[0]!.gen.H,
+      anyFloor = (k: number) => b.plans.some(p => p.gen.maps.grid[k] === 1 || !!p.voids[k]);
+    b.plans.forEach((p, floor) => {
+      const d = p.gen,
+        yard = b.court?.open && floor <= b.court.lower ? new Set(b.court.tiles) : new Set<number>();
+      d.maps.grid.forEach((v, k) => {
+        if (v || p.voids[k] || !look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)])
+          return;
+        windows++;
+        // straight out from each floor that sees it: no floor of any floor before the edge, unless a yard comes first
+        for (const [di, dj] of floorSides(d, k)) {
+          let i = (k % W) - di,
+            j = Math.floor(k / W) - dj;
+          for (; i >= 0 && j >= 0 && i < W && j < H; i -= di, j -= dj) {
+            const t = j * W + i;
+            if (yard.has(t)) break;
+            expect(anyFloor(t), `seed ${seed} floor ${floor} wall ${k}`).toBe(false);
+          }
+        }
+      });
+    });
+  }
+  devCourtOpen(null);
+  expect(windows).toBeGreaterThan(0);
 });
 test('props: what hangs overhead clears the head of someone on a raised floor under it or next to it', () => {
   // a 4 by 3 map: ground, a ramp up toward +x, a walkway 2 m up, ground; the row under it walls

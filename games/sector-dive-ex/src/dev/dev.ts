@@ -77,13 +77,13 @@ if (courtParam === 'open' || courtParam === 'roof')
   );
 
 // dev view: #bld-<place> starts a run and stands at a place of the building, looking at it (for screenshots; ?pitch=
-// to look up or down):
+// to look up or down, ?yaw= to turn that much to the left):
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
 // lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
 // court / courttop / courtmid (the courtyard, from its ground and from its galleries), courtalong (along a yard's
 // balcony), window (two tiles in front of a window one sees out of, facing it: Look.outside), windowdown / windowup
-// (right up at that window, looking down out of it / up out of it), ramp (two tiles to the side of the first ramp up
+// (right up at that window, looking down out of it / up out of it), yardwindow (in front of a window on a yard), ramp (two tiles to the side of the first ramp up
 // to a deck, facing its side), walkway (on a raised walkway along an alley, at its start, looking along it)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
@@ -170,6 +170,27 @@ if (location.hash.startsWith('#bld-'))
         stand(floor, c.tiles[1]! - W, W);
         player.pitch = -0.55;
       }
+    } else if (what === 'yardwindow' && b.court?.open) {
+      // a window one sees out of with the yard behind it (?court=open makes the courtyard a yard), floor by floor
+      const look = lookOf(b.biome),
+        c = b.court;
+      for (let floor = c.upper; floor <= c.lower && look?.outside; floor++) {
+        const d = b.plans[floor]!.gen,
+          grid = d.maps.grid,
+          seen = (k: number) =>
+            !grid[k] &&
+            !b.plans[floor]!.voids[k] &&
+            !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)],
+          k = grid.findIndex(
+            (_, k) =>
+              seen(k) &&
+              [1, -1, W, -W].some(o => grid[k + o] === 1 && [1, 2, 3].some(t => c.tiles.includes(k - t * o))),
+          );
+        if (k < 0) continue;
+        const o = [1, -1, W, -W].find(o => grid[k + o] === 1 && [1, 2, 3].some(t => c.tiles.includes(k - t * o)))!;
+        stand(floor, k + o, -o);
+        break;
+      }
     } else if (what === 'window' || what === 'windowdown' || what === 'windowup') {
       // the first window seen through, floor by floor, with two floor tiles in front of it
       const look = lookOf(b.biome);
@@ -179,6 +200,7 @@ if (location.hash.startsWith('#bld-'))
           k = grid.findIndex(
             (v, k) =>
               !v &&
+              !b.plans[floor]!.voids[k] &&
               !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)] &&
               [1, -1, W, -W].some(o => grid[k + o] === 1 && grid[k + 2 * o] === 1),
           );
@@ -229,8 +251,10 @@ if (location.hash.startsWith('#bld-'))
       stand(b.plans.length - 1, hall.door + out * 2, -out);
     }
     // (?pitch=0.3: look up or down that much instead)
-    const pitch = new URLSearchParams(location.search).get('pitch');
+    const pitch = new URLSearchParams(location.search).get('pitch'),
+      yaw = new URLSearchParams(location.search).get('yaw');
     if (pitch) player.pitch = Number(pitch);
+    if (yaw) player.yaw += Number(yaw);
     show(null);
     setState('play');
     for (let k = 0; k < 20; k++) update(1 / 60);

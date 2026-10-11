@@ -24,6 +24,7 @@ import { COVER_H, PLAT_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import type { Biome } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
+import { wallBeyond } from './looks/common.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 // One depth is one building: 3 to 5 floors stacked FLOOR_H apart, with the boss room (a hall with a single door,
 // engine/src/world/dungeon.ts) on the lowest floor. Floor 0 is the top, where the run starts. The floors are visited
@@ -451,6 +452,15 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     clearHazardsAround(plans[l.lower]!, l.strip);
   }
   markLinkOpenings(plans, maps, links, CFG);
+  // what the floors' walls look out on (looks/common.ts wallBeyond): the floors of the whole building count as floor,
+  // a yard's middle as the outside, on the floors it passes and over them (it is open to the sky)
+  const mass = new Uint8Array(size);
+  plans.forEach(p => p.gen.maps.grid.forEach((v, k) => (mass[k] ||= v === 1 || p.voids[k] ? 1 : 0)));
+  plans.forEach((p, n) => {
+    const beyond = Uint8Array.from(mass);
+    if (court?.open && n <= court.lower) for (const k of court.tiles) beyond[k] = 2;
+    wallBeyond.set(p.gen.maps.grid, beyond);
+  });
   // the start room: no hazard floor in it or its doorways (as in a Sector Dive area)
   const top = plans[0]!;
   top.gen.startIdx = startIdx;

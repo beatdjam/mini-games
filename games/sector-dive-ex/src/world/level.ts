@@ -36,7 +36,7 @@ import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF
 import { buildingShell, outsideBlocks, shellOf } from './looks/outside.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
-import { buildAtriumProps, buildYardShell } from './courtMesh.ts';
+import { buildAtriumProps, buildYardShell, yardFacades } from './courtMesh.ts';
 import { buildBackdrop, buildOutsideBlocks } from '@engine/render/windows.ts';
 import { mergeFlat } from '@engine/render/mergeflat.ts';
 import type { Backdrop, OutsideLook } from '@engine/render/windows.ts';
@@ -429,16 +429,35 @@ export function showBuilding(b: Building) {
         fade: BACKDROP_GROUND.fade,
         reach: BLOCK_REACH,
       },
-      // each floor's outline (shellOf): the building's own walls seen from its windows (buildingShell), with the
-      // storeys of its facade a floor apart; and the blocks across the street round all of them together
-      insides = b.plans.map(p => shellOf(k => p.gen.maps.grid[k] === 1 || !!p.voids[k], w, h)),
-      all1 = insides.reduce((u, f) => u.map((v, k) => v | f[k]!), new Uint8Array(w * h)),
+      // The building as one straight mass: the floors of all its floors together (with the walls round them for
+      // where the street begins: shellOf), from the street to its roof, with a yard open through it (on the floors it
+      // passes and over them). Seen from the windows (buildingShell) its outside is at the window, as if every wall
+      // were as thin as its glass: a look out at a slant through a wall a tile thick would go through the thickness
+      // into the building. (So from a window on a yard the yard's walls stand a tile further back than they do seen
+      // from its balconies.) Painted as a yard (courtMesh.ts yardFacades); the blocks across the street stand round it
+      floors = b.plans
+        .map(p => Uint8Array.from(p.gen.maps.grid, (v, k) => (v === 1 || p.voids[k] ? 1 : 0)))
+        .reduce((u, f) => u.map((v, k) => v | f[k]!), new Uint8Array(w * h)),
+      mass = shellOf(k => !!floors[k], w, h),
+      insides = b.plans.map((_, m) => {
+        const f = Uint8Array.from(floors);
+        if (b.court?.open && m <= b.court.lower) for (const k of b.court.tiles) f[k] = 0;
+        return f;
+      }),
+      walls = yardFacades(b.biome, FLOOR_H),
       across = new THREE.Group();
     across.add(
-      buildOutsideBlocks(outsideBlocks(all1, w, h, blocks.style, createRng(b.seed ^ OUTSIDE_SEED)), look3, BACKDROP_R),
+      buildOutsideBlocks(outsideBlocks(mass, w, h, blocks.style, createRng(b.seed ^ OUTSIDE_SEED)), look3, BACKDROP_R),
       buildOutsideBlocks(
-        buildingShell(insides, w, h, FLOOR_H),
-        { ...look3, storey: [FACADE_M[0], FLOOR_H * SHELL_STOREYS] },
+        buildingShell(insides, w, h, FLOOR_H, (i, j, m, sides) => walls?.pick(i, j, m, sides.includes(1)) ?? 0),
+        walls
+          ? {
+              ...look3,
+              facades: walls.facades,
+              storey: [T, FLOOR_H],
+              light: [0, 1, 2, 3].map(() => new THREE.Color(walls.shade).toArray() as [number, number, number]),
+            }
+          : { ...look3, storey: [FACADE_M[0], FLOOR_H * SHELL_STOREYS] },
         BACKDROP_R,
       ),
     );

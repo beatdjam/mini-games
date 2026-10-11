@@ -569,3 +569,49 @@ export function buildAtriumProps(court: Court, w: number, storey: number, biome:
   });
   return group;
 }
+
+// The building's outside walls in the same pictures as a yard's (buildingShell in looks/outside.ts, seen from the
+// windows): each a picture a floor high, the sector's wall picture under the band of the slab, as a yard's wall is
+// painted. `pick`: the picture for the tile (i, j) of floor m, on a face looking west (the evening sun) or not; every
+// other tile has a window, as in a yard. Null for a sector without a look
+export function yardFacades(
+  biome: Biome,
+  storey: number,
+): {
+  facades: THREE.CanvasTexture[];
+  shade: number;
+  pick: (i: number, j: number, m: number, west: boolean) => number;
+} | null {
+  const look = lookOf(biome);
+  if (!look) return null;
+  const th = YARDS[biome.code] ?? YARDS.CITY!,
+    band = slabBandTex(th).image as HTMLCanvasElement,
+    h = Math.round((TEX * storey) / WALL_H),
+    top = h - TEX,
+    facades: THREE.CanvasTexture[] = [],
+    index = new Map<string, number>(),
+    of = (v: number, west: boolean): number => {
+      const shaded = !west && !!look.shadedWalls?.[v],
+        key = `${v}:${shaded}`;
+      if (!index.has(key)) {
+        const wall = (shaded ? look.shadedWalls![v]! : look.walls[v]!).image as HTMLCanvasElement;
+        index.set(key, facades.length);
+        facades.push(
+          canvasTex(TEX, h, g => {
+            g.drawImage(band, 0, 0, TEX, top);
+            g.drawImage(wall, 0, top, TEX, TEX);
+          }),
+        );
+      }
+      return index.get(key)!;
+    };
+  return {
+    facades,
+    shade: th.shade,
+    pick: (i, j, m, west) => {
+      const window = th.dense || (i + j) % 2 === 1,
+        from = window ? th.windows : th.walls;
+      return of(from[Math.floor(yardDice(i + 0.5, m, j) * from.length)]! % look.walls.length, west);
+    },
+  };
+}
