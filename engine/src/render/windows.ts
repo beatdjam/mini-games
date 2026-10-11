@@ -274,11 +274,13 @@ export function buildBackdrop(map: THREE.Texture, radius: number, height: number
   return group;
 }
 
-// Buildings out there, in front of the backdrop (across the street from the windows): boxes standing on the ground
-// (y 0 in their group's frame), each its footprint x0..x1 by z0..z1 and `top` high. Only what can be seen from inside
-// is built: the roof, and of the upright faces those in `sides` (numbered as in world/tiles.ts: 0 the face looking
+// Buildings out there, in front of the backdrop (across the street from the windows, and the building's own walls
+// seen from its windows): boxes, each its footprint x0..x1 by z0..z1, from `bottom` (0: the ground, y 0 in their
+// group's frame) up to `top`. Only what can be seen from inside is built: the roof (unless `noRoof`), the underside
+// when `under`, and of the upright faces those in `sides` (numbered as in world/tiles.ts: 0 the face looking
 // toward +x, at x1 ...). Each face a picture repeated over it (`look.facades[facade]`, `look.storey` metres across
-// and up a repeat; the roof `look.roofs[roof]`, `look.roofTile` metres a repeat), times the light on that side
+// and up a repeat, from the ground up, so that the storeys of boxes stacked one on another meet; the roof
+// `look.roofs[roof]`, `look.roofTile` metres a repeat), times the light on that side
 // (`look.light[side]`, `look.roofLight` on the roof: [r, g, b], more than 1 to brighten). Seen through the panes
 // only, after the backdrop (they hide it, and each other, by depth). They go into `look.haze` with the distance the
 // way the ground does (clear out to `look.clear`, half of the way in `look.fade` more). They are drawn shrunk toward
@@ -295,6 +297,9 @@ export interface OutsideBlock {
   sides: number[];
   facade: number;
   roof: number;
+  bottom?: number; // where it stands (0 when not given): a box may stand on another, or hang over the street
+  noRoof?: boolean; // no roof (another box stands on it)
+  under?: boolean; // its underside is built too (it hangs out over the street)
 }
 export interface OutsideLook {
   facades: THREE.Texture[];
@@ -347,7 +352,8 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
     // a quad: four corners in order round it, their (u, v), one light
     quad = (map: THREE.Texture, ps: number[][], uvs: number[][], tint: number[]) => {
       const b = bin(map);
-      for (const k of [0, 1, 2, 0, 2, 3]) {
+      // (turned so that the face's front is outward: drawn from the front only)
+      for (const k of [0, 2, 1, 0, 3, 2]) {
         b.pos.push(...ps[k]!);
         b.uv.push(...uvs[k]!);
         b.tint.push(...tint);
@@ -364,20 +370,21 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
         [k.x1, k.z1, k.x0, k.z1],
         [k.x0, k.z0, k.x1, k.z0],
       ];
+    const y0 = k.bottom ?? 0;
     for (const side of k.sides) {
       const [ax, az, bx, bz] = faces[side]!,
         len = Math.hypot(bx - ax, bz - az);
       quad(
         front,
         [
-          [ax, 0, az],
-          [bx, 0, bz],
+          [ax, y0, az],
+          [bx, y0, bz],
           [bx, k.top, bz],
           [ax, k.top, az],
         ],
         [
-          [0, 0],
-          [len / sx, 0],
+          [0, y0 / sy],
+          [len / sx, y0 / sy],
           [len / sx, k.top / sy],
           [0, k.top / sy],
         ],
@@ -385,22 +392,40 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
       );
     }
     const rt = look.roofTile;
-    quad(
-      look.roofs[k.roof]!,
-      [
-        [k.x0, k.top, k.z0],
-        [k.x1, k.top, k.z0],
-        [k.x1, k.top, k.z1],
-        [k.x0, k.top, k.z1],
-      ],
-      [
-        [k.x0 / rt, -k.z0 / rt],
-        [k.x1 / rt, -k.z0 / rt],
-        [k.x1 / rt, -k.z1 / rt],
-        [k.x0 / rt, -k.z1 / rt],
-      ],
-      look.roofLight,
-    );
+    if (k.under)
+      quad(
+        look.roofs[k.roof]!,
+        [
+          [k.x0, y0, k.z1],
+          [k.x1, y0, k.z1],
+          [k.x1, y0, k.z0],
+          [k.x0, y0, k.z0],
+        ],
+        [
+          [k.x0 / rt, k.z1 / rt],
+          [k.x1 / rt, k.z1 / rt],
+          [k.x1 / rt, k.z0 / rt],
+          [k.x0 / rt, k.z0 / rt],
+        ],
+        look.light[0]!.map(v => v * 0.5),
+      );
+    if (!k.noRoof)
+      quad(
+        look.roofs[k.roof]!,
+        [
+          [k.x0, k.top, k.z0],
+          [k.x1, k.top, k.z0],
+          [k.x1, k.top, k.z1],
+          [k.x0, k.top, k.z1],
+        ],
+        [
+          [k.x0 / rt, -k.z0 / rt],
+          [k.x1 / rt, -k.z0 / rt],
+          [k.x1 / rt, -k.z1 / rt],
+          [k.x0 / rt, -k.z1 / rt],
+        ],
+        look.roofLight,
+      );
   }
   for (const [map, b] of bins) {
     map.wrapS = THREE.RepeatWrapping;
@@ -422,7 +447,6 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
         },
         vertexShader: BLOCK_VERT,
         fragmentShader: BLOCK_FRAG,
-        side: THREE.DoubleSide,
         stencilWrite: true,
         stencilRef: 1,
         stencilFunc: THREE.EqualStencilFunc,

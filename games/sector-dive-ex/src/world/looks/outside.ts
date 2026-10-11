@@ -108,3 +108,55 @@ export function outsideBlocks(inside: Uint8Array, w: number, h: number, style: B
     }
   return out;
 }
+
+// The building's own outside, as seen from its windows (from one wing across to another, down on to the roof of a
+// floor that stands out further below, up at one that hangs out over the window): floor by floor, its outline as
+// boxes a tile on a side and a floor high, in the same frame as the blocks (y 0: the lowest floor's ground). A floor's
+// outline is its floor, open or not, and the walls round it (`shellOf`); the face of a box is built where the next
+// tile out is not of the floor (the outside of the outer wall), its roof where the floor above does not cover it,
+// its underside where the floor below does not hold it up. `insides[0]` is the top floor; `storey`: from one floor's
+// ground to the next.
+export function buildingShell(insides: Uint8Array[], w: number, h: number, storey: number): OutsideBlock[] {
+  const out: OutsideBlock[] = [],
+    floors = insides.length,
+    at = (m: number, i: number, j: number) =>
+      m >= 0 && m < floors && i >= 0 && j >= 0 && i < w && j < h && !!insides[m]![j * w + i];
+  insides.forEach((inside, m) => {
+    const bottom = (floors - 1 - m) * storey;
+    for (let j = 0; j < h; j++)
+      for (let i = 0; i < w; i++) {
+        if (!inside[j * w + i]) continue;
+        const sides = SIDE_STEP.flatMap(([di, dj], side) => (at(m, i + di, j + dj) ? [] : [side])),
+          noRoof = at(m - 1, i, j),
+          under = m < floors - 1 && !at(m + 1, i, j);
+        if (!sides.length && noRoof && !under) continue;
+        out.push({
+          x0: i * T,
+          z0: j * T,
+          x1: (i + 1) * T,
+          z1: (j + 1) * T,
+          bottom,
+          top: bottom + storey,
+          sides,
+          noRoof,
+          under,
+          facade: 0,
+          roof: 0,
+        });
+      }
+  });
+  return out;
+}
+// a floor's outline for buildingShell and outsideBlocks: its floor tiles and its open tiles (a stairwell's, a
+// courtyard's), and the walls next to them (the 8 round): the walls beyond those are not drawn, and stand for nothing
+export function shellOf(floor: (k: number) => boolean, w: number, h: number): Uint8Array {
+  const out = new Uint8Array(w * h);
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++) {
+      if (!floor(j * w + i)) continue;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++)
+          if (i + di >= 0 && j + dj >= 0 && i + di < w && j + dj < h) out[(j + dj) * w + i + di] = 1;
+    }
+  return out;
+}
