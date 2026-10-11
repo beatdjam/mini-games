@@ -10,6 +10,7 @@
 
 | ファイル | 中身 | ゲームに用意してもらうもの |
 |---|---|---|
+| `src/trailer/script.ts`, `src/trailer/film.ts` | トレイラーの台本を読む `parseScript(text)`, `setting`, `sceneAt`。台本から1コマずつ撮る `runTrailer(game, musicOnly)`（開発時だけ。`npm run trailer` が動かす。tools/trailer/README.md） | `TrailerGame`: 台本の言葉のチェック、場面の始まり、毎コマの手の動き、BGM、タイトルの見た目 |
 | `src/core/loop.ts` | メインループ。`requestAnimationFrame`、dt の上限、システムの実行、描画（`renderer.render` と手の銃）。`addSystem({ name, order, modes, update })`, `stopFrame()`, `runSystems(dt, mode)`, `startLoop()` | `LOOP.mode = () => 今のモード名`。動かしたいものを `addSystem` で登録し、最後に `startLoop()` |
 | `src/core/world.ts` | 振る舞いを持つオブジェクト（Unity の MonoBehaviour に近い）。`spawn(obj)` で毎フレーム `obj.update(dt)`、`obj.dead = true` で片付け（`onRemove` と、画面に残っているメッシュの破棄）、`query(tag)`, `clearWorld(tag)`。`worldGroup(tag, order)` でタグごとに更新の順番を分けられる（リストは同じ配列のまま使い続けられる） | 各グループの `.system.modes` に動くモード。オブジェクトに `tag`, `update`, `mesh` |
 | `src/core/util.ts` | `el`, `rand`, `randi`, `pick`, `clamp`, `shuffle`, `createRng(seed)`（同じシードなら同じ並びになる乱数。`rand`・`randi`・`pick`・`shuffle` を持つ）, `pct`, `distXZ`（x-z 平面の距離）, `isTouch`（body に `touch` / `desk` クラスを付ける） | — |
