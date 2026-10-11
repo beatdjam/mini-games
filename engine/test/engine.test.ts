@@ -118,7 +118,14 @@ import { banner, keepAwake, toast } from '../src/ui/ui.ts';
 import { onDataClick, rowsHTML } from '../src/ui/dom.ts';
 import { withLang } from '../src/core/langslots.ts';
 import { facesToward, floorSides, wallSide } from '../src/world/walls.ts';
-import { WINDOW_ORDER, buildBackdrop, buildOutsideBlocks, buildWindowPanes } from '../src/render/windows.ts';
+import {
+  WINDOW_ORDER,
+  buildBackdrop,
+  buildOutsideBlocks,
+  buildWindowPanes,
+  keepOutOfPanes,
+  seenThrough,
+} from '../src/render/windows.ts';
 import { parseScript, sceneAt, setting } from '../src/trailer/script.ts';
 import { mergeParts } from '../src/render/merge.ts';
 import { hideInFog } from '../src/render/fogcull.ts';
@@ -2705,6 +2712,63 @@ test("walls: a wall's faces, the outside wall and a thin wall, which way a face 
   expect(facesToward(d, at(6, 1), [-1, 0])).toBe(false);
   expect(facesToward(d, at(6, 1), [1, 0])).toBe(true);
   expect(facesToward(d, at(1, 0), [0, -1]), 'the top wall looks toward -z').toBe(true);
+});
+test('windows: a pane into a place marks its own value, puts the far depth back there, and the place is copied to it', () => {
+  const face = { i: 2, j: 3, di: 1, dj: 0, rects: [[0, 0.5, 1, 1]] as [number, number, number, number][] },
+    [mark, far, seal] = buildWindowPanes([{ ...face, into: 3 }], 6)!.children as THREE.InstancedMesh[],
+    view = (buildWindowPanes([face], 6)!.children[0] as THREE.InstancedMesh).material as THREE.MeshBasicMaterial,
+    mm = mark!.material as THREE.MeshBasicMaterial,
+    fm = far!.material as THREE.ShaderMaterial,
+    sm = seal!.material as THREE.MeshBasicMaterial;
+  expect(mm.stencilRef).not.toBe(view.stencilRef);
+  expect(mm.stencilRef & 3, 'none of the bits of the view out: the backdrop is not drawn there').toBe(0);
+  expect([fm.colorWrite, fm.depthWrite, fm.depthFunc, fm.stencilFunc, fm.stencilRef]).toEqual([
+    false,
+    true,
+    THREE.AlwaysDepth,
+    THREE.EqualStencilFunc,
+    mm.stencilRef,
+  ]);
+  expect(far!.renderOrder).toBeGreaterThan(mark!.renderOrder);
+  expect(far!.renderOrder).toBeLessThan(WINDOW_ORDER + 1);
+  expect(sm.stencilRef, 'not sealed: the see-through things of the copy come after').not.toBe(mm.stencilRef);
+  // the copy of a place: the same geometry and pictures, drawn only there, after the far depth, in the same order
+  const tex = new THREE.Texture(),
+    src = new THREE.Group(),
+    wall = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({ map: tex })),
+    glass = new THREE.Mesh(new THREE.PlaneGeometry(), new THREE.MeshBasicMaterial({ transparent: true })),
+    many = new THREE.InstancedMesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial(), 4),
+    clip = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
+  wall.position.set(1, 2, 3);
+  wall.renderOrder = 1;
+  src.add(wall, glass, new THREE.Line(), many);
+  const copy = seenThrough(src, 3, clip),
+    [cw, cg, cm] = copy.children as THREE.Mesh[],
+    cwm = cw!.material as THREE.MeshBasicMaterial;
+  expect(copy.children.length, 'meshes only').toBe(3);
+  expect(cw!.geometry).toBe(wall.geometry);
+  expect(cwm).not.toBe(wall.material);
+  expect(cwm.map).toBe(tex);
+  expect(cw!.position.toArray()).toEqual([1, 2, 3]);
+  expect([cwm.stencilWrite, cwm.stencilFunc, cwm.stencilRef]).toEqual([true, THREE.EqualStencilFunc, mm.stencilRef]);
+  expect(cwm.clippingPlanes).toEqual([clip]);
+  expect(cw!.renderOrder).toBeGreaterThan(far!.renderOrder);
+  expect(cw!.renderOrder).toBeLessThan(WINDOW_ORDER + 1);
+  expect(cw!.renderOrder, 'their order kept').toBeGreaterThan(cg!.renderOrder);
+  expect((cm as THREE.InstancedMesh).count).toBe(4);
+  expect((cm as THREE.InstancedMesh).instanceMatrix).toBe(many.instanceMatrix);
+  expect((wall.material as THREE.MeshBasicMaterial).stencilWrite, 'the place itself as it was').toBe(false);
+  // the place's own see-through things are not drawn there (behind the wall, they would be seen over the copy)
+  keepOutOfPanes(src);
+  const gm = glass.material as THREE.MeshBasicMaterial;
+  expect([gm.stencilWrite, gm.stencilFunc, gm.stencilRef, gm.stencilFuncMask & mm.stencilRef]).toEqual([
+    true,
+    THREE.EqualStencilFunc,
+    0,
+    mm.stencilRef,
+  ]);
+  expect(gm.stencilFuncMask & view.stencilRef, 'still drawn in the view out').toBe(0);
+  expect((wall.material as THREE.MeshBasicMaterial).stencilWrite, 'solid things are drawn over').toBe(false);
 });
 test('windows: panes on the faces mark the stencil, the backdrop is drawn only there and stays round the eye', () => {
   expect(buildWindowPanes([], 6)).toBeNull();

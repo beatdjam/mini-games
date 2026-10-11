@@ -31,6 +31,17 @@ import { TEX } from './looks/paint.ts';
 const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall colour times this
 // the glass of the windows one sees out of, by sector (its tint is the sector's haze outside)
 const glassTex: Record<string, THREE.Texture> = {};
+// A window on a yard looks into it (engine/src/render/windows.ts WindowFace.into), marked by the way it faces (the
+// step from the wall toward the floor): the yard seen through it is a copy a tile nearer that way (level.ts), as if
+// the wall were as thin as its glass. The floor's group has where its windows on the yard are, per way
+// (userData.yardPanes)
+export const YARD_INTO: [number, number][] = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+const yardInto = (di: number, dj: number): number => YARD_INTO.findIndex(([a, b]) => a === di && b === dj) + 1;
 const SHAFT_FILL_GAP = 0.03; // the wall between a ceiling and the next floor stops this short of both (m)
 
 // `courtGroup`: on a floor the courtyard passes, what stands in and round it (its galleries, their walls and ceilings,
@@ -129,9 +140,26 @@ export function buildFloorMeshes(
         const k = j * W + i,
           rects = outside.panes[wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides)];
         if (!rects) continue;
-        for (const [di, dj] of floorSides(plan.gen, k))
-          faces.push({ i, j, di, dj, rects: rects.map(r => r.map(v => v / TEX) as [number, number, number, number]) });
+        for (const [di, dj] of floorSides(plan.gen, k)) {
+          const into = plan.court?.open && plan.court.tiles.includes((j - dj) * W + i - di) ? yardInto(di, dj) : 0;
+          faces.push({
+            i,
+            j,
+            di,
+            dj,
+            rects: rects.map(r => r.map(v => v / TEX) as [number, number, number, number]),
+            ...(into && { into }),
+          });
+        }
       }
+      // (and where they are, per way: the box of their walls, i0, j0, i1, j1 in tiles)
+      const yardPanes: Record<number, [number, number, number, number]> = {};
+      for (const { i, j, into } of faces) {
+        if (!into) continue;
+        const b = yardPanes[into] ?? [i, j, i, j];
+        yardPanes[into] = [Math.min(b[0], i), Math.min(b[1], j), Math.max(b[2], i), Math.max(b[3], j)];
+      }
+      group.userData.yardPanes = yardPanes;
       const panes = buildWindowPanes(faces, WALL_H),
         // (the glass has the colour of the haze out there: the view through it goes the way the far ground does)
         glass = buildWindowGlass(faces, WALL_H, (glassTex[biome.code] ??= windowGlassTex(outside.haze)));
