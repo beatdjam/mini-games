@@ -308,6 +308,9 @@
 ## 15. 確認用フックとテスト
 
 - `core/dev.ts`: `devHook('view-x', fn)` は URL の `#view-x…` で動く確認用の入口
+- `trailer/`: テキストの台本からトレイラーを撮る（`npm run trailer`。使い方と台本の書き方は tools/trailer/README.md）
+  - `script.ts`: 台本を読む。`parseScript(text)` は設定（左端の `key 値…`）、場面（`scene <秒> <字幕>`。字幕 `^` は前の字幕を続ける）、タイトルカード（`end <秒>`。中身は title・line・sub・url）と、字下げした中身の行（`key 語… 名前=値…`）を返し、間違いは「line N: …」で集める。`in cut|flash|fade [秒]` は場面への切り替わりとしてここで読む。`#` から行末はコメント。ページも three.js も使わない
+  - `film.ts`: `runTrailer(game, musicOnly)` は、tools/trailer/capture.mjs が差し込んだ台本（`window.__trailerScript`）と仮想時計で、1コマずつ撮る。場面の最初のコマで `game.scene`、毎コマ `game.frame`（手の動き）を呼び、字幕・切り替わり（白い光、暗転）・タイトルカード（タイトルの字が寄る、行が順に出る）を重ねる。音は `OfflineAudioContext` に流し、最後に WAV で返す。ゲームは `TrailerGame`（`check` で自分の言葉の間違い、`begin`、`scene`、`frame`、`paint`、`music`、`title`、`cardBackground`）を渡す。`?tframes`・`?tfrom`・`?tevery`・`?tscene` で一部だけ撮る
 - **engine のテスト**: `engine/test/*.test.ts`（Vitest のブラウザモードで Chromium の中で動かす。`npm run test:engine`）。engine が前提にする画面の要素は `engine/test/setup.ts` が作る
   - engine を変えたら、engine のテストと、engine を使う全ゲームのスモークテストを流す（`npm test` が両方を流す。README「開発」）
 - 確認用のコードは公開版に入れない: ゲームは入口で `if (import.meta.env.DEV) import('./src/dev/dev.ts')` のように読み込む。テスト（engine の `test/`、各ゲームの `test/`）はビルドには入らない（Vitest が直接動かす）

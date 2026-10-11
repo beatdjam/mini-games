@@ -204,7 +204,7 @@
 
 定義場所: 階の出入りは `startStage`・`crossToFloor`（src/flow/run.ts）、建物全体の描画と今いる階の切り替えは `showBuilding`・`enterFloor`（src/world/level.ts）と `buildFloorMeshes`（src/world/levelMesh.ts）、階段室・エレベーター・ロックダウン・ボス部屋の動きは src/flow/events.ts。建物の状態は `run.bld`（`BuildingState` in src/data/types.ts）で、チェックポイントに入る。
 
-確認用フック（開発サーバーだけ）: `#bld-foot`（最初の階段室の下から見上げる）、`#bld-mid`（階段の途中）、`#bld-top`（階段室の上から見下ろす）、`#bld-lift`（最上階のエレベーターの横）、`#bld-liftlow`（同じエレベーターを下の階から）、`#bld-boss`（ボス部屋のドアの前）、`#bld-lockdown`（ロックダウンの部屋の中。ロックダウンが始まる）、`#bld-map3d`（建物を全部見た状態で 3D のマップを開く）、`#bld-window`（外が見える窓の前に立つ。`?sector=CITY` か `?sector=RUIN`）
+確認用フック（開発サーバーだけ）: `#bld-foot`（最初の階段室の下から見上げる）、`#bld-mid`（階段の途中）、`#bld-top`（階段室の上から見下ろす）、`#bld-lift`（最上階のエレベーターの横）、`#bld-liftlow`（同じエレベーターを下の階から）、`#bld-boss`（ボス部屋のドアの前）、`#bld-lockdown`（ロックダウンの部屋の中。ロックダウンが始まる）、`#bld-map3d`（建物を全部見た状態で 3D のマップを開く）、`#bld-window`（外が見える窓の前に立つ。`?sector=CITY` か `?sector=RUIN`）。`#trailer` / `#trailer-music` はトレイラーの撮影用（tools/trailer/capture.mjs が台本を渡して開く。言葉は src/dev/trailer.ts、台本の例は trailers/2026-10-05.txt、使い方は tools/trailer/README.md）
 
 ボット（自動で遊ぶプレイヤー。バランスを見るための道具で、公開版には入らない。`src/dev/bot.ts`）: 開発サーバーで `#bot`（または `#bot-<型>`）を開くと、ボットが潜行を遊ぶのを画面つきで眺められる（左下に今していることが出る。`?seed=<n>` で同じ建物になる）。画面なしで何本も回して表にするのは `npm run sim`。ボットは人と同じ入力で動き、プレイヤーの型は6つ（初心者・探索型・速攻型に、それぞれ自動射撃あり・なし）。使い方、型の中身、表の読み方は [sim/README.md](sim/README.md)
 

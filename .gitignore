@@ -7,3 +7,4 @@ dist-test/
 test-results/
 .vitest/
 sim-results/
+out/

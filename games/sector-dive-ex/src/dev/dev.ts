@@ -33,6 +33,9 @@ import { showTab } from '../screens/base.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { update } from '../flow/update.ts';
 import { BOT_STYLES, createBot, setBot } from './bot.ts';
+// #trailer / #trailer-music: films the trailer from the script tools/trailer/capture.mjs hands the page (trailer.ts)
+if (location.hash.startsWith('#trailer'))
+  void import('./trailer.ts').then(m => m.filmTrailer(location.hash.startsWith('#trailer-music')));
 // ================= dev hooks =================
 // URL hash hooks for checking the game without playing it by hand. See SPEC.md, chapter 10.
 
