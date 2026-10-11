@@ -31,9 +31,14 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 
 ## 開発
 
+### 環境
+
 - TypeScript の ES モジュール（import / export）＋ Vite。three.js は npm の `three`（0.128.0 に固定、型は `@types/three`）
 - Node は 24（`.nvmrc`。CI も同じ版を使う）。22.12 以上なら動く（`package.json` の `engines`）
 - 最初に `npm install`
+
+### コマンド
+
 - `npm run dev`: 開発サーバー（http://localhost:8765/）。ファイルを保存すればブラウザに反映される
 - `npm run typecheck`: 型チェック（`tsconfig.json` の1本でリポジトリ全体を見る。型の決まりは STYLE.md）。Vite は型を取り除いて動かすだけなので、型の間違いはこれで見つける
 - `npm run lint`: コードの書式（Prettier。`npm run format` で整える）と、ESLint（`eslint.config.js`。変えない値は `const`、1つの文で代入は1つ、引数へ代入しない）と、STYLE.md の決まりのうち機械で確かめられるもの（`tools/check_style.js`）と、全ゲームの文言キーの照合（`tools/check_i18n.js`）
@@ -43,8 +48,14 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - `npm run test:build`: 公開用のビルドを `dist-test/` へ作り、全ゲームについて、版番号が `version.json` と合うこと、GA のタグが入っていること、Chromium でページを開いてエラーが出ず拠点画面が出ることを確かめる（`tools/build.test.ts`）
 - `npm run sim`: ボット（自動で遊ぶプレイヤー）に潜行を遊ばせて、結果を表にする（バランスを見るための道具。テストではなく、CI では流さない）。Chromium の中で、画面を描かずに実時間の数百倍で回す。プレイヤーの型（初心者・探索型・速攻型 × 自動射撃あり・なし）ごとの集計が `sim-results/`（コミットしない）に出る。今あるのは Sector Dive Extended。使い方・型・表の読み方は `games/sector-dive-ex/sim/README.md`
 - `npm run trailer -- <台本>`: テキストの台本からトレイラー動画（mp4）を撮る（`out/`。コミットしない）。台本は場面ごとに、場所・動き・秒数・字幕・切り替わりを書く。今あるのは Sector Dive Extended（`games/sector-dive-ex/trailers/`）。使い方と台本の書き方は `tools/trailer/README.md`
+
+### 確認用のコードとアクセス解析
+
 - 確認用のコード（各ゲームの `src/dev/`：`#view-…` などのフック）は、開発サーバーにだけ入る。公開用のビルド（`npm run build`）には入らない
 - アクセス解析: 公開したページには、ビルドが GA4 のタグを入れる（`vite.config.js` の `GA_ID`。公開先のホストで開いたときだけ動く）。ゲーム内の出来事は engine の `track()` で送る（engine/SPEC.md「アクセス解析」）。GA の利用規約に沿って、`privacy.html`（プライバシーポリシー）をトップと各ゲームの設定から開けるようにしておく。送る内容の種類を増やしたら、この文面も見直す
+
+### CI と公開
+
 - PR を作ると、Actions（`checks.yml`）が型チェック・lint・テスト・ビルドを流す。テストは、PR が変えたファイルに合わせて絞る（`tools/test_scope.js`）: 1つのゲームの中だけを変えた PR は、そのゲームのスモークテストとビルドのテストだけ。engine・`tools/`・設定・ワークフローなどを変えた PR は全部（`npm test` と `npm run test:build`）。文書（`*.md`）だけの PR はテストなし。master への公開ジョブ（`pages.yml`）は、いつも全部のテストを流す。マージの前に、ここが通っていることを確かめる。テストの結果は Actions の実行画面のサマリに出て、JUnit と HTML のレポート（`test-results/`）は実行結果の Artifacts（`test-report`）からダウンロードできる
 - 公開: master に push すると、Actions が同じ確認をもう一度してから GitHub Pages に出す（どれかが失敗すれば公開しない）。ビルドのたびに版番号が付き、キャッシュに残った古いページは最新版に切り替わる（engine/SPEC.md「キャッシュ対策」）
 

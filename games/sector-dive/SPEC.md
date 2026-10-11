@@ -390,32 +390,16 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 
 ここにはこのゲーム固有のことだけを書く。共通のコアは [engine/SPEC.md](../../engine/SPEC.md)、開発のコマンドはリポジトリの README、コードの書き方は STYLE.md。
 
-- 更新履歴: `updates.html`（生成の仕組みは README「更新履歴のルール」）。拠点画面の設定タブとトップページのカードからリンク
-- アクセス解析のイベント（`track`、仕組みとパラメータ名の決まりは engine/SPEC.md「アクセス解析」）。全イベントに `game: 'sector-dive'` が付く（`src/main.ts` で `ANALYTICS.game` を設定）。練習中は `level_start` を送らない
-
-  | イベント | いつ | パラメータ |
-  |---|---|---|
-  | `dive_start` | 出撃 | `start_level`（出撃する深度）, `item_name`（装備1の武器） |
-  | `dive_resume` | 中断からの再開 | `level` |
-  | `level_start` | 区画・ボス部屋の開始 | `level`（深度）, `stage`（深度の中の何番目か。今は1〜3が区画、4がボス部屋）, `stage_type`（セクター）, `stage_role`（`normal` 区画 / `boss` ボス部屋）, `target`（ボス部屋のボス） |
-  | `boss_defeated` | ボス撃破（練習を除く） | `target`（ボス）, `level` |
-  | `level_end` | 潜行の終わり | `result`（extract / dead / abandon）, `level`, `stage`, `stage_type`, `stage_role`, `count`（撃破数）, `upgrades`（チップの枚数）, `value`＋`virtual_currency_name: 'bits'`（持ち帰ったビット） |
-  | `practice_start` / `practice_end` | ボス練習の開始・終わり | `target`, `level`, 終わりは `result`（won / dead / abandon）と `duration_sec` |
-  | `reboot` | 再起動 | `count`（再起動の回数） |
-  | `share` | シェアの操作 | `method`（native / panel / copy / save / x） |
-  | `feedback` | 感想フォームを開いた | `method`（result 結果画面 / base 拠点画面） |
+### 11.1 構成とファイル
 
 - 構成: `index.html`（HTML・CSS）＋ 入口の `src/main.ts` ＋ `src/` 以下のモジュール。`src/main.ts` が全部を読み込んだあと、言語・音量・拠点画面・システムの登録とループの開始（`boot`）を行う（決まりは engine/SPEC.md の「基本」）
-- 多言語化: 文言は `src/i18n/`（`ja` と `en`）。武器・チップ・セクターなどの名前と説明は `src/i18n/text.ts` が定義に流し込む。言語は設定タブで切り替え、`save.settings.lang` に保存する。英語のときは本文のフォントを Chakra Petch にする
-- 確認用に `?lang=en` を付けると英語で開く
-- 潜行中に一時停止画面で言語を切り替えると、「現在の性能」・左上の区画名・ボス名も書き直す（`refreshRunText` in src/screens/pause.ts）
 
 ゲームの `src/` は関心ごとにフォルダを分けている: `data/`（定義）、`i18n/`（言語ファイルと、それを定義に流し込む処理）、`core/`（セーブ・計算式）、`world/`（地形の生成と、生成まわり）、`actors/`（プレイヤー・敵・弾・ボスの振る舞い）、`flow/`（潜行の流れ、毎フレームのシステムの登録、BGM の切り替え）、`screens/`（画面ごとの表示と操作）、`ui/`（HUD・入力の割り当て・シェア・感想フォーム）、`dev/`（確認用フック）。テストは `src/` の外の `test/` に置く。
 
 | ファイル | 中身 |
 |----------|------|
 | `@engine/<フォルダ>/*.ts`（実体は `engine/src/`） | ゲームをまたいで使うコア。一覧は [engine/README.md](../../engine/README.md)、仕様は [engine/SPEC.md](../../engine/SPEC.md) |
-| `src/data/*.ts` | **定義だけ**（ロジックを持たない）。`weapons`（武器・レアリティ・オプション・改造費）、`enemies`（敵と調整値）、`bosses`（ボスの体力・大きさ・攻撃パターンの数値 `tune`）、`viewmodels`（構えている銃の形）、`level`（壁・目線・台・遮蔽物の高さ）、`biomes`（セクター）、`progress`（区画数・`TUNE`・拠点強化・再起動）、`perks`（チップ）、`controls`（ボタン配置、PC のキー操作と既定のキー、操作一覧）、`sfx`（効果音のレシピ）、`music`（曲調）、`colors`（共通の色。`COLOR` は three.js 用の数値、`CSS_COLOR` は canvas 用の文字列） |
+| `src/data/*.ts` | **定義だけ**（ロジックを持たない）。中身は表の下の補足 |
 | `src/i18n/<言語>.ts` | 文言。`ui`（画面の文言）と `data`（武器・チップ・セクターなどの名前と説明）。今は `ja`（基準）と `en` |
 | `src/core/save.ts` | セーブの既定値、読み込みと旧版の変換、保存 |
 | `src/core/progress.ts` | セーブを変える操作（`spendBits`・`equipWeapon`・`recordBossKill` など。セーブを書き換えるのは `src/core/` の中だけ） |
@@ -453,7 +437,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/screens/data.ts` | セーブのコードの書き出し・読み込み、データ消去 |
 | `src/screens/keys.ts` | キー設定のダイアログ（キーの待ち受けと割り当て、既定に戻す） |
 | `src/ui/hud.ts` | HUD、被弾方向の表示（部品は `engine/ui/hitdir.ts`） |
-| `src/ui/settings.ts` | 設定の項目（言語・全画面・オート射撃・エイム補助・感度・音量・タッチ用の項目）と、変えたときの保存・反映。言語の切り替え、全画面ボタン、タッチボタンの設定（`TOUCH_LAYOUT`）、PC 用の「キー設定」ボタン、遊び方の一覧もここ。遊び方の PC の表は、言語ファイルの文（`{dash}`＝その操作の今のキー、`{forward.0}`＝最初のキーだけ）に今の割り当てを入れて作る（`renderGuide`）。パネルは `engine/ui/settings.ts` |
+| `src/ui/settings.ts` | 設定の項目（言語・全画面・オート射撃・エイム補助・感度・音量・タッチ用の項目）と、変えたときの保存・反映。パネルは `engine/ui/settings.ts`。細かい中身は表の下の補足 |
 | `src/ui/minimap.ts` | ミニマップと大きなマップに何をどの色で出すか（`drawMap`。描くのは `engine/ui/minimap.ts`） |
 | `src/ui/input.ts` | キーとボタンの割り当て（`INPUT`。キーは操作の名前で引く）、持ち替え・拾う・回復、保存した割り当ての読み込み（`applyKeyBindings`）、画面に出すキーの文字（`keyText`） |
 | `src/ui/share.ts` | 結果のシェア（結果カードの画像と投稿文、パネル。共有・コピー・保存・X 投稿の部品は `engine/ui/share.ts`） |
@@ -461,9 +445,42 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/dev/dev.ts` | 開発用フック（`#view-…` など） |
 | `test/*.ts` | スモークテスト（`smoke.test.ts`）と、テストのためにページの要素と CSS を用意する `setup.ts` |
 
+ファイルの表の補足:
+
+- `src/data/*.ts` の中身: `weapons`（武器・レアリティ・オプション・改造費）、`enemies`（敵と調整値）、`bosses`（ボスの体力・大きさ・攻撃パターンの数値 `tune`）、`viewmodels`（構えている銃の形）、`level`（壁・目線・台・遮蔽物の高さ）、`biomes`（セクター）、`progress`（区画数・`TUNE`・拠点強化・再起動）、`perks`（チップ）、`controls`（ボタン配置、PC のキー操作と既定のキー、操作一覧）、`sfx`（効果音のレシピ）、`music`（曲調）、`colors`（共通の色。`COLOR` は three.js 用の数値、`CSS_COLOR` は canvas 用の文字列）
+- `src/ui/settings.ts`: 言語の切り替え、全画面ボタン、タッチボタンの設定（`TOUCH_LAYOUT`）、PC 用の「キー設定」ボタン、遊び方の一覧もここ。遊び方の PC の表は、言語ファイルの文（`{dash}`＝その操作の今のキー、`{forward.0}`＝最初のキーだけ）に今の割り当てを入れて作る（`renderGuide`）
 - プレイヤー側の調整値（HP、スタミナ、ダッシュ、回復キット、チップ率、死亡時のビット）は `src/data/progress.ts` の `TUNE` にまとめてある
 - 描画: 3Dモデルや画像は使わず、図形と Canvas で作ったテクスチャだけで描く
+
+### 11.2 多言語化
+
+- 多言語化: 文言は `src/i18n/`（`ja` と `en`）。武器・チップ・セクターなどの名前と説明は `src/i18n/text.ts` が定義に流し込む。言語は設定タブで切り替え、`save.settings.lang` に保存する。英語のときは本文のフォントを Chakra Petch にする
+- 確認用に `?lang=en` を付けると英語で開く
+- 潜行中に一時停止画面で言語を切り替えると、「現在の性能」・左上の区画名・ボス名も書き直す（`refreshRunText` in src/screens/pause.ts）
+
+### 11.3 セーブと更新履歴
+
 - セーブ: localStorage の `sector-dive-v1`（読み書きは engine の `loadStore`）。1深度が4区画だった頃のセーブ（`stageV` なし）は、最深記録と中断データのステージ番号を3区画の数え方に変換する
+- 更新履歴: `updates.html`（生成の仕組みは README「更新履歴のルール」）。拠点画面の設定タブとトップページのカードからリンク
+
+### 11.4 アクセス解析のイベント
+
+アクセス解析のイベント（`track`、仕組みとパラメータ名の決まりは engine/SPEC.md「アクセス解析」）。全イベントに `game: 'sector-dive'` が付く（`src/main.ts` で `ANALYTICS.game` を設定）。練習中は `level_start` を送らない
+
+| イベント | いつ | パラメータ |
+|---|---|---|
+| `dive_start` | 出撃 | `start_level`（出撃する深度）, `item_name`（装備1の武器） |
+| `dive_resume` | 中断からの再開 | `level` |
+| `level_start` | 区画・ボス部屋の開始 | `level`（深度）, `stage`（深度の中の何番目か。今は1〜3が区画、4がボス部屋）, `stage_type`（セクター）, `stage_role`（`normal` 区画 / `boss` ボス部屋）, `target`（ボス部屋のボス） |
+| `boss_defeated` | ボス撃破（練習を除く） | `target`（ボス）, `level` |
+| `level_end` | 潜行の終わり | `result`（extract / dead / abandon）, `level`, `stage`, `stage_type`, `stage_role`, `count`（撃破数）, `upgrades`（チップの枚数）, `value`＋`virtual_currency_name: 'bits'`（持ち帰ったビット） |
+| `practice_start` / `practice_end` | ボス練習の開始・終わり | `target`, `level`, 終わりは `result`（won / dead / abandon）と `duration_sec` |
+| `reboot` | 再起動 | `count`（再起動の回数） |
+| `share` | シェアの操作 | `method`（native / panel / copy / save / x） |
+| `feedback` | 感想フォームを開いた | `method`（result 結果画面 / base 拠点画面） |
+
+### 11.5 テストと開発用フック
+
 - スモークテスト: `test/smoke.test.ts`（`npm test` が Vitest で流す）。ゲームのページを用意して `src/main.ts` を読み込み、確認を1件ずつのテストにして順に流す。全セクターの区画と全ボス、段差から降りたときの詰まり（固定マップ）、同じシードで同じ地形になること（地形の指紋を固定）、進行度、盾、ボス練習（セーブが変わらないこと）、中断→再開→破棄、データ消去などを確かめ、各セクター25回ずつ生成して全部屋に行き来できるかを調べる。ほかのテストの結果に影響するので、順番を入れ替えるときは乱数の使われ方に気をつける
 - 開発用フック（URL の末尾に付ける。`src/dev/dev.ts`。公開版では使えない。どれも末尾に `-touch` を足すとタッチ端末として開く。実機で特定の状態を見たいときは、セーブのコード（9.7）を読み込む）
   - `?seed=<数>`（`#` の前、検索部分）: その後に作るステージをすべてそのシードで生成する（同じ地形を何度でも開ける）
