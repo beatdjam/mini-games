@@ -187,7 +187,9 @@ const YARDS: Record<string, YardTheme> = {
     extra: 'none',
     dress: 'downtown',
     walls: [0, 0, 8], // panels, stone facing
-    windows: [3, 3, 4], // a window with its blind down, or part raised
+    // a window with its blind down (not the one part raised: the evening outside is painted under its blind, and on a
+    // yard's wall, with rooms behind it, that is the outside seen through the building)
+    windows: [3],
     band: ['#6f675c', 'rgba(30,24,20,0.35)'],
     shade: 0x9a938d,
     glow: 0xffc27a,

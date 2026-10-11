@@ -32,9 +32,10 @@ const PANE_OUT = 0.02; // the panes stand this far in front of the face (m)
 const VIEW = 2,
   THROUGH_FACE = 1;
 // A pane that looks into a place (WindowFace.into) marks into << INTO_SHIFT instead: the depth there goes back to as
-// far as it can be (the wall's own is in the way), and the copy of the place (seenThrough) is drawn there, in front of
-// the far depth as solid things are. (The view out is not drawn there, and those panes are not sealed: the place's
-// see-through things are drawn after everything solid, the seal's turn, and they would not show)
+// far as it can be (the wall's own is in the way) and the colour to the fog's, and the copy of the place (seenThrough)
+// is drawn there, in front of the far depth as solid things are. (The view out is not drawn there, and those panes are
+// not sealed: the place's see-through things are drawn after everything solid, the seal's turn, and they would not
+// show)
 const INTO_SHIFT = 2,
   INTO_MASK = 0xfc,
   INTO_ORDER = WINDOW_ORDER + 0.7; // the copies (the far depth goes back at WINDOW_ORDER + 0.6)
@@ -43,7 +44,9 @@ let paneMat: THREE.MeshBasicMaterial | null = null,
   backMat: THREE.MeshBasicMaterial | null = null,
   sealMat: THREE.MeshBasicMaterial | null = null;
 const intoMats = new Map<number, [THREE.MeshBasicMaterial, THREE.ShaderMaterial]>();
-// (the far depth, written wherever it is drawn: the plane's points pushed onto the far plane)
+// (the far depth, written wherever it is drawn: the plane's points pushed onto the far plane; and the fog's colour,
+// what is seen where the copy of the place has nothing, as where nothing is drawn: through an opening in the place
+// to a part that is not copied)
 const FAR_VERT = `
 void main() {
   gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
@@ -123,8 +126,9 @@ export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.Grou
             mark(ref),
             new THREE.ShaderMaterial({
               vertexShader: FAR_VERT,
-              fragmentShader: 'void main() { gl_FragColor = vec4(0.0); }',
-              colorWrite: false,
+              fragmentShader: 'uniform vec3 fogColor;\nvoid main() { gl_FragColor = vec4(fogColor, 1.0); }',
+              uniforms: THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
+              fog: true,
               depthWrite: true,
               depthFunc: THREE.AlwaysDepth,
               stencilWrite: true,
