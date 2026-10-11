@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { T, tileCenter } from '../world/tiles.ts';
-import { UP } from './render.ts';
+import { UP, renderer } from './render.ts';
 import { canvasTex } from './paint.ts';
 // Windows one sees out of, in a world of wall tiles. The wall is not opened (a hole through a wall a tile thick would
 // be a tunnel): the panes are flat on the wall's face and draw nothing, but mark the stencil where they are seen;
@@ -22,6 +22,7 @@ export interface WindowFace {
   rects: [number, number, number, number][];
   deep?: number; // the wall is this thick behind the face (m), and it is seen through only straight through that
   // (a deep window: a look in at a slant meets the wall's sides. Out of a wall a tile thick that is a tunnel)
+  into?: number; // 1..63: it looks into a place of the world instead of out (what seenThrough(..., into) copied)
 }
 const GLASS_FILM = 0.3; // how much of the glass's tint lies over the whole pane (0..1)
 const PANE_OUT = 0.02; // the panes stand this far in front of the face (m)
@@ -30,10 +31,24 @@ const PANE_OUT = 0.02; // the panes stand this far in front of the face (m)
 // it is seen too: a look in at a slant meets the wall's sides there, and sees the window's picture
 const VIEW = 2,
   THROUGH_FACE = 1;
+// A pane that looks into a place (WindowFace.into) marks into << INTO_SHIFT instead: the depth there goes back to as
+// far as it can be (the wall's own is in the way), and the copy of the place (seenThrough) is drawn there, in front of
+// the far depth as solid things are. (The view out is not drawn there, and those panes are not sealed: the place's
+// see-through things are drawn after everything solid, the seal's turn, and they would not show)
+const INTO_SHIFT = 2,
+  INTO_MASK = 0xfc,
+  INTO_ORDER = WINDOW_ORDER + 0.7; // the copies (the far depth goes back at WINDOW_ORDER + 0.6)
 let paneMat: THREE.MeshBasicMaterial | null = null,
   deepMat: THREE.MeshBasicMaterial | null = null,
   backMat: THREE.MeshBasicMaterial | null = null,
   sealMat: THREE.MeshBasicMaterial | null = null;
+const intoMats = new Map<number, [THREE.MeshBasicMaterial, THREE.ShaderMaterial]>();
+// (the far depth, written wherever it is drawn: the plane's points pushed onto the far plane)
+const FAR_VERT = `
+void main() {
+  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  gl_Position.z = gl_Position.w * 0.99999;
+}`;
 // where the panes of the faces stand (a unit plane each, scaled to its rectangle); the faces are wallH high. `back`:
 // at the wall's far side instead (its opening there, for a deep wall)
 function paneMatrices(faces: WindowFace[], wallH: number, back = false): THREE.Matrix4[] {
@@ -79,8 +94,8 @@ export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.Grou
         stencilZPass: THREE.ReplaceStencilOp,
       }),
     group = new THREE.Group(),
-    thin = faces.filter(f => !f.deep),
-    deep = faces.filter(f => f.deep);
+    thin = faces.filter(f => !f.deep && !f.into),
+    deep = faces.filter(f => f.deep && !f.into);
   paneMat ??= mark(VIEW);
   deepMat ??= mark(THROUGH_FACE);
   if (thin.length) group.add(instanced(paneMatrices(thin, wallH), paneMat, WINDOW_ORDER));
@@ -98,6 +113,31 @@ export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.Grou
       stencilZPass: THREE.IncrementStencilOp,
     });
     group.add(instanced(paneMatrices(deep, wallH, true), backMat, WINDOW_ORDER + 0.5));
+  }
+  for (const into of new Set(faces.flatMap(f => (f.into ? [f.into] : [])))) {
+    const ref = into << INTO_SHIFT,
+      [mark1, far] =
+        intoMats.get(into) ??
+        intoMats
+          .set(into, [
+            mark(ref),
+            new THREE.ShaderMaterial({
+              vertexShader: FAR_VERT,
+              fragmentShader: 'void main() { gl_FragColor = vec4(0.0); }',
+              colorWrite: false,
+              depthWrite: true,
+              depthFunc: THREE.AlwaysDepth,
+              stencilWrite: true,
+              stencilRef: ref,
+              stencilFunc: THREE.EqualStencilFunc,
+            }),
+          ])
+          .get(into)!,
+      mine = paneMatrices(
+        faces.filter(f => f.into === into),
+        wallH,
+      );
+    group.add(instanced(mine, mark1, WINDOW_ORDER), instanced(mine, far, WINDOW_ORDER + 0.6));
   }
   // ... and once the view out is drawn, the same panes again, leaving only their depth: the view out leaves its own,
   // far off, and what is drawn after it (the glass, and the see-through things of the floor: cut-out pictures, pools
@@ -125,6 +165,82 @@ export function buildWindowGlass(faces: WindowFace[], wallH: number, map: THREE.
     new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, fog: false }),
     WINDOW_ORDER + 4,
   );
+}
+// A copy of `src` drawn only through the panes that look into `into` (WindowFace.into), over the wall they are on: a
+// place of the world seen through a window as it is (the caller puts the copy where the window should show it). It
+// shares the meshes' geometry, pictures and shader uniforms; their order among themselves is kept. Meshes only (lines,
+// points and sprites are left out). Hide what should not be seen there from the place itself with keepOutOfPanes.
+// `clip`: only what is on its front side is drawn (in the world's coordinates: what of the place would come right up
+// to the glass)
+export function seenThrough(src: THREE.Object3D, into: number, clip?: THREE.Plane): THREE.Object3D {
+  if (clip) renderer.localClippingEnabled = true;
+  const mats = new Map<THREE.Material, THREE.Material>(),
+    through = (m: THREE.Material): THREE.Material => {
+      let c = mats.get(m);
+      if (!c) {
+        c = m.clone();
+        // (a clone copies the uniforms' values: shared, the copy follows what the game does to them)
+        if ((m as THREE.ShaderMaterial).isShaderMaterial)
+          (c as THREE.ShaderMaterial).uniforms = (m as THREE.ShaderMaterial).uniforms;
+        Object.assign(c, {
+          stencilWrite: true,
+          stencilRef: into << INTO_SHIFT,
+          stencilFunc: THREE.EqualStencilFunc,
+          stencilFuncMask: 0xff,
+          stencilFail: THREE.KeepStencilOp,
+          stencilZFail: THREE.KeepStencilOp,
+          stencilZPass: THREE.KeepStencilOp,
+          clippingPlanes: clip ? [clip] : null,
+        });
+        mats.set(m, c);
+      }
+      return c;
+    },
+    matOf = (m: THREE.Material | THREE.Material[]) => (Array.isArray(m) ? m.map(through) : through(m)),
+    copy = (o: THREE.Object3D): THREE.Object3D | null => {
+      let c: THREE.Object3D;
+      if ((o as THREE.InstancedMesh).isInstancedMesh) {
+        const s = o as THREE.InstancedMesh,
+          m = new THREE.InstancedMesh(s.geometry, matOf(s.material), s.count);
+        m.instanceMatrix = s.instanceMatrix;
+        m.instanceColor = s.instanceColor;
+        c = m;
+      } else if ((o as THREE.Mesh).isMesh) {
+        const s = o as THREE.Mesh;
+        c = new THREE.Mesh(s.geometry, matOf(s.material));
+      } else if ((o as THREE.Line).isLine || (o as THREE.Points).isPoints || (o as THREE.Sprite).isSprite) return null;
+      else c = new THREE.Group();
+      if ((o as THREE.Mesh).isMesh) {
+        c.renderOrder = INTO_ORDER + o.renderOrder * 0.001;
+        c.frustumCulled = o.frustumCulled;
+        c.onBeforeRender = o.onBeforeRender;
+      }
+      c.position.copy(o.position);
+      c.quaternion.copy(o.quaternion);
+      c.scale.copy(o.scale);
+      c.visible = o.visible;
+      for (const child of o.children) {
+        const x = copy(child);
+        if (x) c.add(x);
+      }
+      return c;
+    };
+  return copy(src) ?? new THREE.Group();
+}
+// The see-through things of `src` (drawn after everything solid) are not drawn in the panes that look into a place:
+// what is there is the place's copy (seenThrough), and the place itself, behind the wall, would show over it
+export function keepOutOfPanes(src: THREE.Object3D) {
+  src.traverse(o => {
+    const m = (o as THREE.Mesh).material;
+    for (const x of Array.isArray(m) ? m : m ? [m] : [])
+      if (x.transparent)
+        Object.assign(x, {
+          stencilWrite: true,
+          stencilRef: 0,
+          stencilFunc: THREE.EqualStencilFunc,
+          stencilFuncMask: INTO_MASK,
+        });
+  });
 }
 // a pane of old glass: a film of `tint` all over, thicker toward the frame and along the sill, rain streaks down it
 // and specks of dirt
