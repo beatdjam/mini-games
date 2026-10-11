@@ -3411,7 +3411,7 @@ test('courtyard: what hangs in an atrium has the same colours whatever yard was 
 test('trailer: the sample script reads with the game words; a word the game does not have is named by its line', () => {
   const { script, errors } = parseScript(sampleTrailer);
   expect([...errors, ...trailerGame.check(script)]).toEqual([]);
-  expect(script.total, 'the 35 s trailer of 2026-10-05').toBeCloseTo(35.2);
+  expect(script.total, 'the trailer of 2026-10-05, with the boss beaten').toBeCloseTo(36.2);
   const bad = parseScript(
     [
       'music NOPE',

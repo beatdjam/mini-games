@@ -145,6 +145,7 @@ let liftFrom = 0; // the tile the player steps onto the lift from
 let fightRoom = -1;
 let lockFrom: [number, number] | null = null; // the middle of the door the player walks into the lockdown room by
 let target: Enemy | null = null;
+let bossFought = false; // the boss of the scene has come out (once it is beaten, the hands rest)
 
 // the player's guns and chips, from the settings
 function settle() {
@@ -310,6 +311,7 @@ function scene(sc: ScriptScene) {
   closeMap();
   el('#alarm').classList.remove('on');
   target = null;
+  bossFought = false;
   const looks = lineOf(sc, 'looks'),
     at = lineOf(sc, 'at'),
     row = lineOf(sc, 'enemies');
@@ -422,15 +424,20 @@ const HANDS: Record<string, (t: number, dt: number, s: number) => void> = {
     setFireHeld(!!target && offAim(target.x, target.z) < 0.25);
     if (Math.round(t * 30) === 72 || Math.round(t * 30) === 123) controlState.dashReq = true;
   },
-  // a look at the locked boss door, it opens, in through it; then the fight
+  // a look at the locked boss door, it opens, in through it; then the fight, and standing still once it is beaten
   boss: (t, dt) => {
     const hall = level.hall!,
       b = boss;
     if (Math.round(t * 30) === 21) lockDoor(activeTileGrid().world, hall.door, false);
+    if (bossFought && (!b || b.dead)) {
+      still();
+      return;
+    }
     if (b && !b.dead) {
+      bossFought = true;
       aimAt(b.x, b.mesh.position.y, b.z, dt, 6);
       const d = Math.hypot(b.x - player.x, b.z - player.z);
-      joy.x = 0.9;
+      joy.x = Math.sin(t * 1.3) * 0.9; // (side to side: circling one way, the player ends up behind a pillar)
       joy.y = clamp((8.5 - d) * 0.15, -0.6, 0.6);
       setFireHeld(!b.spawnT || b.spawnT <= 0);
     } else {

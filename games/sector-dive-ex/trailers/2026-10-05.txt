@@ -1,4 +1,4 @@
-# SECTOR/DIVE EX のトレイラー（2026-10-05 版、35秒）
+# SECTOR/DIVE EX のトレイラー（2026-10-05 版。ボスを倒しきるまでの 1 秒を足して 36.2 秒）
 # 撮り方と書き方: tools/trailer/README.md
 #   npm run trailer -- games/sector-dive-ex/trailers/2026-10-05.txt
 
@@ -51,7 +51,7 @@ scene 5.2  閉じ込められて戦う部屋
   at      lockdown            # ロックダウンの部屋の扉の前
   do      fight               # 部屋に入って、自動で狙って撃つ
 
-scene 6.0  最下階にボス
+scene 7.0  最下階にボス        # ボスが出るまで約3秒、倒すまで約2秒
   at      boss                # ボス部屋の扉の前
   do      boss                # 扉が開く → 入る → ボス戦
 
