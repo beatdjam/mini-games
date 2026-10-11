@@ -2959,3 +2959,44 @@ test('mergeflat: coloured things that stand still become one mesh per group; tex
   expect(col.getX(36), "the second red, times its copy's colour").toBeCloseTo(new THREE.Color(0x808080).r);
   expect(sub.children.length, 'joined under the group they were in').toBe(1);
 });
+
+test('windows: a box out there may stand on another (bottom), go without its roof, show its underside; faces turned out', () => {
+  const tex = new THREE.Texture(),
+    group = buildOutsideBlocks(
+      [{ x0: 0, z0: 0, x1: 4, z1: 4, bottom: 8, top: 16, sides: [0], facade: 0, roof: 0, noRoof: true, under: true }],
+      {
+        facades: [tex],
+        storey: [16, 32],
+        roofs: [tex],
+        roofTile: 16,
+        light: [
+          [1, 1, 1],
+          [1, 1, 1],
+          [1, 1, 1],
+          [1, 1, 1],
+        ],
+        roofLight: [1, 1, 1],
+        haze: 0,
+        clear: 20,
+        fade: 140,
+        reach: 400,
+      },
+      100,
+    );
+  const mesh = group.children[0] as THREE.Mesh,
+    pos = mesh.geometry.getAttribute('position'),
+    uv = mesh.geometry.getAttribute('uv');
+  expect(pos.count, 'one face and the underside, no roof').toBe(12);
+  const ys = Array.from({ length: pos.count }, (_, k) => pos.getY(k));
+  expect([Math.min(...ys), Math.max(...ys)]).toEqual([8, 16]);
+  // the storeys go from the ground up: the face starts a quarter of the way up the picture
+  expect(Math.min(...Array.from({ length: 6 }, (_, k) => uv.getY(k)))).toBeCloseTo(8 / 32);
+  // each triangle's front is outward: the face toward +x, the underside down
+  const normal = (t: number) => {
+    const [a, b, c] = [0, 1, 2].map(n => new THREE.Vector3().fromBufferAttribute(pos, t * 3 + n));
+    return new THREE.Vector3().crossVectors(b!.clone().sub(a!), c!.clone().sub(a!)).normalize();
+  };
+  expect(normal(0).x).toBeCloseTo(1);
+  expect(normal(2).y).toBeCloseTo(-1);
+  expect((mesh.material as THREE.Material).side).toBe(THREE.FrontSide);
+});

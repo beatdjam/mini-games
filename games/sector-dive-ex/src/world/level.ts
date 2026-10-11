@@ -33,7 +33,7 @@ import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import { lookOf } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF_M, paint } from './looks/paint.ts';
-import { outsideBlocks } from './looks/outside.ts';
+import { buildingShell, outsideBlocks, shellOf } from './looks/outside.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import { buildAtriumProps, buildYardShell } from './courtMesh.ts';
@@ -95,10 +95,11 @@ let courtGroups: (THREE.Group | null)[] = [];
 // a yard's outer walls, sky, ground and what is on them, or what hangs in an atrium (courtMesh.ts buildYardShell,
 // buildAtriumProps)
 let yardShell: THREE.Group | null = null;
-// what the windows look out on (Look.outside): the backdrop, and the buildings across the street (per floor). They
-// stand on the street, the ground of the lowest floor (moved with the floors: enterFloor)
-let outside: { band: Backdrop; across: THREE.Group[] } | null = null;
+// what the windows look out on (Look.outside): the backdrop, the building's own outside walls and the buildings across
+// the street. They stand on the street, the ground of the lowest floor (moved with the floors: enterFloor)
+let outside: { band: Backdrop; across: THREE.Group } | null = null;
 const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings across the street
+const SHELL_STOREYS = 2; // the facade's picture (4 storeys) over this many floors of the building's own walls: two storeys a floor, so its windows keep their shape
 let shown: Building | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
 let hallTop: THREE.Group | null = null; // the part of the boss room above WALL_H (levelMesh.ts buildFloorMeshes)
@@ -428,17 +429,20 @@ export function showBuilding(b: Building) {
         fade: BACKDROP_GROUND.fade,
         reach: BLOCK_REACH,
       },
-      // the blocks round each floor, by its own outline (floors differ: what one floor looks out on, the floor under
-      // it may still cover); only the floor played shows its own (enterFloor)
-      across = b.plans.map((p, n) => {
-        const inside = new Uint8Array(w * h).map((_, k) => (p.gen.maps.grid[k] === 1 || p.voids[k] ? 1 : 0));
-        return buildOutsideBlocks(
-          outsideBlocks(inside, w, h, blocks.style, createRng((b.seed + n) ^ OUTSIDE_SEED)),
-          look3,
-          BACKDROP_R,
-        );
-      });
-    all.add(band, ...across);
+      // each floor's outline (shellOf): the building's own walls seen from its windows (buildingShell), with the
+      // storeys of its facade a floor apart; and the blocks across the street round all of them together
+      insides = b.plans.map(p => shellOf(k => p.gen.maps.grid[k] === 1 || !!p.voids[k], w, h)),
+      all1 = insides.reduce((u, f) => u.map((v, k) => v | f[k]!), new Uint8Array(w * h)),
+      across = new THREE.Group();
+    across.add(
+      buildOutsideBlocks(outsideBlocks(all1, w, h, blocks.style, createRng(b.seed ^ OUTSIDE_SEED)), look3, BACKDROP_R),
+      buildOutsideBlocks(
+        buildingShell(insides, w, h, FLOOR_H),
+        { ...look3, storey: [FACADE_M[0], FLOOR_H * SHELL_STOREYS] },
+        BACKDROP_R,
+      ),
+    );
+    all.add(band, across);
     outside = { band, across };
   }
   b.links.forEach((l, n) => {
@@ -498,10 +502,7 @@ export function enterFloor(b: Building, n: number) {
   if (outside) {
     const street = -(b.plans.length - 1 - n) * FLOOR_H;
     outside.band.groundY = street;
-    outside.across.forEach((g, m) => {
-      g.visible = m === n;
-      g.position.y = street;
-    });
+    outside.across.position.y = street;
   }
   liftPads.forEach(p => {
     const l = b.links[p.link]!;

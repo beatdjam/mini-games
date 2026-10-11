@@ -150,7 +150,7 @@ import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import * as THREE from 'three';
 import { dressAtrium, dressYard } from '../src/world/yardProps.ts';
 import { DOOR_PASS } from '@engine/world/tiles.ts';
-import { outsideBlocks } from '../src/world/looks/outside.ts';
+import { buildingShell, outsideBlocks, shellOf } from '../src/world/looks/outside.ts';
 import type { TileMapData } from '@engine/world/dungeon.ts';
 import { floorNear, overHead, raised } from '../src/world/looks/props.ts';
 import { setState, show, state } from '../src/flow/state.ts';
@@ -3251,6 +3251,25 @@ test('outside: the buildings across the street stand clear of the building, and 
   // a block straight across the street to the west shows the building its east face
   const across = blocks.find(b => b.x1 <= bx0 && b.x1 > bx0 - 6 * T && b.z0 >= bz0 && b.z1 <= bz1);
   if (across) expect(across.sides).toContain(0);
+});
+test("outside: the building's own walls, floor by floor: faces on its outline, a roof where the floor above leaves off", () => {
+  // a 6 by 1 strip of tiles: the top floor the middle two, the floor under it all six (it stands out on both sides)
+  const w = 6,
+    h = 1,
+    top = shellOf(k => k === 2 || k === 3, w, h),
+    low = shellOf(() => true, w, h),
+    boxes = buildingShell([top, low], w, h, 8),
+    of = (floorBottom: number, i: number) => boxes.find(b => b.bottom === floorBottom && b.x0 === i * T);
+  expect(Array.from(top), 'with the walls round it').toEqual([0, 1, 1, 1, 1, 0]);
+  // the top floor (bottom 8): a face out at its ends, a roof everywhere, no underside where the floor under holds it
+  expect(of(8, 1)!.sides).toContain(1);
+  expect(of(8, 1)!.noRoof).toBe(false);
+  expect(of(8, 1)!.under).toBe(false);
+  // the floor under it (bottom 0): no roof under the top floor, a roof (a terrace) beyond it
+  expect(of(0, 2)!.noRoof).toBe(true);
+  expect(of(0, 0)!.noRoof).toBe(false);
+  // a tile with nothing to show is not built (inside the outline, covered, held up)
+  expect(boxes.filter(b => b.bottom === 0 && b.x0 === 2 * T && !b.sides.length && b.noRoof && !b.under)).toEqual([]);
 });
 test('props: what hangs overhead clears the head of someone on a raised floor under it or next to it', () => {
   // a 4 by 3 map: ground, a ramp up toward +x, a walkway 2 m up, ground; the row under it walls
