@@ -14,8 +14,10 @@ export function floorSides(d: WallMap, k: number): [number, number][] {
 }
 // 'outer' when behind every face of the wall tile (looking away from the floor that face is seen from) there is no
 // floor out to the map's edge: the outside wall. 'inner' when right behind every face there is floor: a wall one
-// tile thick between two places. Else null (more of the map some way behind it, or no floor sees it)
-export function wallSide(d: WallMap, k: number): 'outer' | 'inner' | null {
+// tile thick between two places. Else null (more of the map some way behind it, or no floor sees it).
+// `beyond` (by tile) changes what the look out meets: 1, as good as floor (the floor of another level of a building,
+// whose outside wall is further out); 2, as good as the map's edge (a courtyard open to the sky)
+export function wallSide(d: WallMap, k: number, beyond?: ArrayLike<number>): 'outer' | 'inner' | null {
   const { W, H } = d,
     i = k % W,
     j = Math.floor(k / W),
@@ -24,15 +26,20 @@ export function wallSide(d: WallMap, k: number): 'outer' | 'inner' | null {
   let outer = true,
     inner = true;
   for (const [di, dj] of sides) {
-    // from the wall, away from that floor, until floor or the edge
-    let n = 1;
+    // from the wall, away from that floor, until floor (or what counts as floor or as the edge) or the edge
+    let n = 1,
+      out = false;
     while (i - di * n >= 0 && j - dj * n >= 0 && i - di * n < W && j - dj * n < H) {
-      if (d.maps.grid[(j - dj * n) * W + i - di * n] === 1) break;
+      const t = (j - dj * n) * W + i - di * n;
+      if (beyond?.[t] === 2) {
+        out = true;
+        break;
+      }
+      if (d.maps.grid[t] === 1 || beyond?.[t] === 1) break;
       n++;
     }
-    const edge = i - di * n < 0 || j - dj * n < 0 || i - di * n >= W || j - dj * n >= H;
-    if (!edge) outer = false;
-    if (n !== 1) inner = false;
+    if (!out && i - di * n >= 0 && j - dj * n >= 0 && i - di * n < W && j - dj * n < H) outer = false;
+    if (n !== 1 || out) inner = false;
   }
   return outer ? 'outer' : inner ? 'inner' : null;
 }

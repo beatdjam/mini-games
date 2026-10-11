@@ -2690,6 +2690,15 @@ test("walls: a wall's faces, the outside wall and a thin wall, which way a face 
   expect(wallSide(d, at(3, 1)), 'floor right behind it, on both sides').toBe('inner');
   expect(wallSide(d, at(1, 2)), 'floor further behind it').toBeNull();
   expect(wallSide(d, at(3, 2)), 'seen from no floor').toBeNull();
+  // what lies beyond: 1 counts as floor (another level's floor further out), 2 as the edge (a yard open to the sky)
+  const wide = tileMapFromRows(['#######', '#.....#', '#######', '#######', '#######']),
+    w = (i: number, j: number) => j * wide.W + i,
+    far = new Uint8Array(wide.W * wide.H);
+  expect(wallSide(wide, w(2, 2)), 'nothing to the edge').toBe('outer');
+  far[w(2, 4)] = 1;
+  expect(wallSide(wide, w(2, 2), far), "another level's floor further out").toBeNull();
+  far[w(2, 3)] = 2;
+  expect(wallSide(wide, w(2, 2), far), 'a yard before it').toBe('outer');
   // the wall on a room's -x side looks toward -x (its floor is on the +x side)
   expect(facesToward(d, at(0, 1), [-1, 0])).toBe(true);
   expect(facesToward(d, at(6, 1), [-1, 0])).toBe(false);
@@ -2699,28 +2708,24 @@ test("walls: a wall's faces, the outside wall and a thin wall, which way a face 
 test('windows: panes on the faces mark the stencil, the backdrop is drawn only there and stays round the eye', () => {
   expect(buildWindowPanes([], 6)).toBeNull();
   // two panes on the -x face of tile (2, 3), seen from the floor at (3, 3)
-  const panes = buildWindowPanes(
-    [
-      {
-        i: 2,
-        j: 3,
-        di: 1,
-        dj: 0,
-        rects: [
-          [0, 0.5, 0.5, 1],
-          [0.5, 0.5, 1, 1],
-        ],
-      },
-    ],
-    6,
-  )!;
-  expect(panes.count).toBe(2);
-  expect(panes.renderOrder).toBe(WINDOW_ORDER);
+  const face = {
+      i: 2,
+      j: 3,
+      di: 1,
+      dj: 0,
+      rects: [
+        [0, 0.5, 0.5, 1],
+        [0.5, 0.5, 1, 1],
+      ] as [number, number, number, number][],
+    },
+    [panes, seal] = buildWindowPanes([face], 6)!.children as THREE.InstancedMesh[];
+  expect(panes!.count).toBe(2);
+  expect(panes!.renderOrder).toBe(WINDOW_ORDER);
   const m = new THREE.Matrix4(),
     p = new THREE.Vector3(),
     q = new THREE.Quaternion(),
     s = new THREE.Vector3();
-  panes.getMatrixAt(0, m);
+  panes!.getMatrixAt(0, m);
   m.decompose(p, q, s);
   expect(p.x, 'just in front of the face, toward the floor').toBeCloseTo(3 * T + 0.02);
   expect(p.y, 'the lower half of the face').toBeCloseTo(1.5);
@@ -2729,20 +2734,38 @@ test('windows: panes on the faces mark the stencil, the backdrop is drawn only t
   // its front toward the floor (+x); the face's left as seen from there is toward +z
   expect(new THREE.Vector3(0, 0, 1).applyQuaternion(q).x).toBeCloseTo(1);
   expect(p.z, 'the left pane').toBeCloseTo(3.5 * T + T / 4);
-  const pm = panes.material as THREE.MeshBasicMaterial;
+  const pm = panes!.material as THREE.MeshBasicMaterial;
   expect([pm.colorWrite, pm.stencilWrite, pm.stencilZPass]).toEqual([false, true, THREE.ReplaceStencilOp]);
   // the same panes again once the view out is drawn: only their depth, where the stencil is marked, so what is drawn
   // after (the see-through things of the floor) is not seen in the window from behind the wall
-  const seal = panes.children[0] as THREE.InstancedMesh,
-    sm = seal.material as THREE.MeshBasicMaterial;
-  expect(seal.count).toBe(panes.count);
-  expect(seal.renderOrder).toBeGreaterThan(WINDOW_ORDER + 3);
+  const sm = seal!.material as THREE.MeshBasicMaterial;
+  expect(seal!.count).toBe(panes!.count);
+  expect(seal!.renderOrder).toBeGreaterThan(WINDOW_ORDER + 3);
   expect([sm.colorWrite, sm.depthWrite, sm.depthFunc, sm.stencilFunc]).toEqual([
     false,
     true,
     THREE.AlwaysDepth,
     THREE.EqualStencilFunc,
   ]);
+  expect(sm.stencilRef, 'the seal and the view out keep to what the panes mark for the view').toBe(pm.stencilRef);
+  // a pane in a deep wall marks another value; its opening on the wall's far side, a tile back, turns that into the
+  // view's (drawn over all, after the panes), so only a look straight through the wall sees out
+  const [deepPane, opening] = buildWindowPanes([{ ...face, deep: T }], 6)!.children as THREE.InstancedMesh[],
+    dm = deepPane!.material as THREE.MeshBasicMaterial,
+    om = opening!.material as THREE.MeshBasicMaterial;
+  expect(dm.stencilRef).not.toBe(pm.stencilRef);
+  expect([om.stencilFunc, om.stencilRef, om.stencilZPass, om.depthTest]).toEqual([
+    THREE.EqualStencilFunc,
+    dm.stencilRef,
+    THREE.IncrementStencilOp,
+    false,
+  ]);
+  expect(dm.stencilRef + 1).toBe(pm.stencilRef);
+  opening!.getMatrixAt(0, m);
+  m.decompose(p, q, s);
+  expect(p.x, "the wall's far face").toBeCloseTo(2 * T + 0.02);
+  expect(opening!.renderOrder).toBeGreaterThan(WINDOW_ORDER);
+  expect(opening!.renderOrder).toBeLessThan(WINDOW_ORDER + 1);
   const cam = new THREE.PerspectiveCamera();
   cam.position.set(7, 2, -5);
   cam.updateMatrixWorld();

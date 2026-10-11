@@ -115,8 +115,14 @@ export function outsideBlocks(inside: Uint8Array, w: number, h: number, style: B
 // outline is its floor, open or not, and the walls round it (`shellOf`); the face of a box is built where the next
 // tile out is not of the floor (the outside of the outer wall), its roof where the floor above does not cover it,
 // its underside where the floor below does not hold it up. `insides[0]` is the top floor; `storey`: from one floor's
-// ground to the next.
-export function buildingShell(insides: Uint8Array[], w: number, h: number, storey: number): OutsideBlock[] {
+// ground to the next; `facadeOf`: which facade picture a tile's box of floor m takes (its faces: `sides`).
+export function buildingShell(
+  insides: Uint8Array[],
+  w: number,
+  h: number,
+  storey: number,
+  facadeOf: (i: number, j: number, m: number, sides: number[]) => number = () => 0,
+): OutsideBlock[] {
   const out: OutsideBlock[] = [],
     floors = insides.length,
     at = (m: number, i: number, j: number) =>
@@ -140,7 +146,7 @@ export function buildingShell(insides: Uint8Array[], w: number, h: number, store
           sides,
           noRoof,
           under,
-          facade: 0,
+          facade: facadeOf(i, j, m, sides),
           roof: 0,
         });
       }

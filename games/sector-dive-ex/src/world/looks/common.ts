@@ -99,9 +99,13 @@ export function wallPic(
   const v0 = variantOf(k, count, WALL_PLAIN_SHARE),
     v = v0 === 0 && laneWalls && byLane(d, k) ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v0;
   if (!sides || (!sides.outer?.includes(v) && !sides.inner?.includes(v))) return v;
-  const side = wallSide(d, k);
+  const side = wallSide(d, k, wallBeyond.get(d.maps.grid));
   return (sides.outer?.includes(v) && side === 'outer') || (sides.inner?.includes(v) && side === 'inner') ? v : 0;
 }
+// What a building's wall looks out on (engine wallSide's `beyond`), registered by the floor's grid (world/building.ts):
+// another floor's floor counts as floor (so a wall is outside only where the building as a whole ends, and a window
+// there sees out past its own straight walls), a courtyard open to the sky as outside (a window on it sees the yard)
+export const wallBeyond = new WeakMap<ArrayLike<number>, ArrayLike<number>>();
 export const WALL_PLAIN_SHARE = 0.4; // share of the wall tiles that get the plain picture
 export const FLOOR_PLAIN_SHARE = 0.6; // ... of the floor tiles
 

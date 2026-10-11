@@ -20,20 +20,30 @@ export interface WindowFace {
   di: number;
   dj: number;
   rects: [number, number, number, number][];
+  deep?: number; // the wall is this thick behind the face (m), and it is seen through only straight through that
+  // (a deep window: a look in at a slant meets the wall's sides. Out of a wall a tile thick that is a tunnel)
 }
 const GLASS_FILM = 0.3; // how much of the glass's tint lies over the whole pane (0..1)
 const PANE_OUT = 0.02; // the panes stand this far in front of the face (m)
+// The stencil: a pane marks VIEW where the view out is seen through it. A pane of a deep wall (WindowFace.deep) marks
+// THROUGH_FACE, and its opening on the wall's far side, drawn after it over everything, makes that VIEW only where
+// it is seen too: a look in at a slant meets the wall's sides there, and sees the window's picture
+const VIEW = 2,
+  THROUGH_FACE = 1;
 let paneMat: THREE.MeshBasicMaterial | null = null,
+  deepMat: THREE.MeshBasicMaterial | null = null,
+  backMat: THREE.MeshBasicMaterial | null = null,
   sealMat: THREE.MeshBasicMaterial | null = null;
-// where the panes of the faces stand (a unit plane each, scaled to its rectangle); the faces are wallH high
-function paneMatrices(faces: WindowFace[], wallH: number): THREE.Matrix4[] {
+// where the panes of the faces stand (a unit plane each, scaled to its rectangle); the faces are wallH high. `back`:
+// at the wall's far side instead (its opening there, for a deep wall)
+function paneMatrices(faces: WindowFace[], wallH: number, back = false): THREE.Matrix4[] {
   const matrices: THREE.Matrix4[] = [],
     turn = new THREE.Quaternion(),
     at = new THREE.Vector3(),
     size = new THREE.Vector3();
-  for (const { i, j, di, dj, rects } of faces) {
+  for (const { i, j, di, dj, rects, deep } of faces) {
     const yaw = Math.atan2(di, dj), // the plane's front (+z) turned toward the floor
-      out = T / 2 + PANE_OUT;
+      out = T / 2 + PANE_OUT - (back ? (deep ?? 0) : 0);
     turn.setFromAxisAngle(UP, yaw);
     for (const [l, t, r, b] of rects) {
       const along = ((l + r) / 2 - 0.5) * T; // along the face, to the right as seen from the floor
@@ -55,19 +65,40 @@ const instanced = (matrices: THREE.Matrix4[], mat: THREE.Material, order: number
   mesh.renderOrder = order;
   return mesh;
 };
-// the panes of all the faces in one mesh (null when there are none)
-export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.InstancedMesh | null {
-  const matrices = paneMatrices(faces, wallH);
-  if (!matrices.length) return null;
-  paneMat ??= new THREE.MeshBasicMaterial({
-    colorWrite: false,
-    depthWrite: false,
-    stencilWrite: true,
-    stencilRef: 1,
-    stencilFunc: THREE.AlwaysStencilFunc,
-    stencilZPass: THREE.ReplaceStencilOp,
-  });
-  const panes = instanced(matrices, paneMat, WINDOW_ORDER);
+// the panes of all the faces (null when there are none): a group of instanced meshes
+export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.Group | null {
+  const all = paneMatrices(faces, wallH);
+  if (!all.length) return null;
+  const mark = (ref: number) =>
+      new THREE.MeshBasicMaterial({
+        colorWrite: false,
+        depthWrite: false,
+        stencilWrite: true,
+        stencilRef: ref,
+        stencilFunc: THREE.AlwaysStencilFunc,
+        stencilZPass: THREE.ReplaceStencilOp,
+      }),
+    group = new THREE.Group(),
+    thin = faces.filter(f => !f.deep),
+    deep = faces.filter(f => f.deep);
+  paneMat ??= mark(VIEW);
+  deepMat ??= mark(THROUGH_FACE);
+  if (thin.length) group.add(instanced(paneMatrices(thin, wallH), paneMat, WINDOW_ORDER));
+  if (deep.length) {
+    group.add(instanced(paneMatrices(deep, wallH), deepMat, WINDOW_ORDER));
+    // (over everything, behind the wall as it is: only where the pane in front marked the stencil)
+    backMat ??= new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      depthWrite: false,
+      depthTest: false,
+      side: THREE.DoubleSide,
+      stencilWrite: true,
+      stencilRef: THROUGH_FACE,
+      stencilFunc: THREE.EqualStencilFunc,
+      stencilZPass: THREE.IncrementStencilOp,
+    });
+    group.add(instanced(paneMatrices(deep, wallH, true), backMat, WINDOW_ORDER + 0.5));
+  }
   // ... and once the view out is drawn, the same panes again, leaving only their depth: the view out leaves its own,
   // far off, and what is drawn after it (the glass, and the see-through things of the floor: cut-out pictures, pools
   // of light) would be seen in the window from behind the wall. With the wall's depth back, only what stands in front
@@ -77,11 +108,11 @@ export function buildWindowPanes(faces: WindowFace[], wallH: number): THREE.Inst
     depthWrite: true,
     depthFunc: THREE.AlwaysDepth,
     stencilWrite: true,
-    stencilRef: 1,
+    stencilRef: VIEW,
     stencilFunc: THREE.EqualStencilFunc,
   });
-  panes.add(instanced(matrices, sealMat, WINDOW_SEAL_ORDER));
-  return panes;
+  group.add(instanced(all, sealMat, WINDOW_SEAL_ORDER));
+  return group;
 }
 // The glass in those panes: a picture with alpha (windowGlassTex) over each, drawn after all that is seen through
 // them. Without it the view out is as clear as through a hole, sharper and brighter than the room one stands in; the
@@ -154,7 +185,7 @@ const throughPanes = {
   depthTest: false,
   depthWrite: false,
   stencilWrite: true,
-  stencilRef: 1,
+  stencilRef: VIEW,
   stencilFunc: THREE.EqualStencilFunc,
 } as const;
 // (with the depth test off, nothing is written to the depth either: so the test is on, and always passes)
@@ -448,7 +479,7 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
         vertexShader: BLOCK_VERT,
         fragmentShader: BLOCK_FRAG,
         stencilWrite: true,
-        stencilRef: 1,
+        stencilRef: VIEW,
         stencilFunc: THREE.EqualStencilFunc,
       }),
     );
