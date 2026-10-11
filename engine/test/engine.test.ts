@@ -2721,13 +2721,10 @@ test('windows: a pane into a place marks its own value, puts the far depth back 
     sm = seal!.material as THREE.MeshBasicMaterial;
   expect(mm.stencilRef).not.toBe(view.stencilRef);
   expect(mm.stencilRef & 3, 'none of the bits of the view out: the backdrop is not drawn there').toBe(0);
-  expect([fm.colorWrite, fm.depthWrite, fm.depthFunc, fm.stencilFunc, fm.stencilRef]).toEqual([
-    false,
-    true,
-    THREE.AlwaysDepth,
-    THREE.EqualStencilFunc,
-    mm.stencilRef,
-  ]);
+  expect(
+    [fm.colorWrite, fm.fog, fm.depthWrite, fm.depthFunc, fm.stencilFunc, fm.stencilRef],
+    'the fog colour where the copy has nothing',
+  ).toEqual([true, true, true, THREE.AlwaysDepth, THREE.EqualStencilFunc, mm.stencilRef]);
   expect(far!.renderOrder).toBeGreaterThan(mark!.renderOrder);
   expect(far!.renderOrder).toBeLessThan(WINDOW_ORDER + 1);
   expect(sm.stencilRef, 'not sealed: the see-through things of the copy come after').not.toBe(mm.stencilRef);
