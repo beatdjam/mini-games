@@ -53,7 +53,7 @@ export function spheres(e: Enemy): HitSphere[] {
   return e.parts || [{ p: e.mesh.position, r: e.hitR }];
 }
 // how far you can actually make enemies out: 60% of the way into the fog
-const visibleRange = () => {
+export const visibleRange = () => {
   const fog = scene.fog as THREE.Fog; // scene.fog is typed Fog | FogExp2 | null, but the game only ever sets a linear Fog
   return Math.min(VISIBLE_RANGE_MAX, fog.near + (fog.far - fog.near) * FOG_VISIBLE_SHARE);
 };

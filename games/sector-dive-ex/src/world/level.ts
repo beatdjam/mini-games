@@ -49,6 +49,8 @@ const SPOT_JITTER = 1; // random spots in a room scatter this far from the tile 
 const SPOT_TRIES = 40; // attempts to find a free random spot
 const REVEAL_R2 = 18; // map reveal radius around the player, squared (tiles)
 const REVEAL_BOX = 4; // ... searched in this many tiles each way
+const DOOR_SIGHT_CONE = 0.6; // the boss door is looked at when it is within this of the way the player faces (rad)
+const DOOR_SIGHT_OUT = T / 2 + 0.5; // the line of sight goes to a point this far out from the door's middle (m)
 // the level being played: built as a whole by buildLevel, replaced (never patched field by field) on the next one
 interface Level {
   biome: Biome; // sector of this level
@@ -714,4 +716,20 @@ export function reveal(ti: number, tj: number) {
     const R = level.rooms[r];
     for (let j = R.y - 1; j <= R.y + R.h; j++) for (let i = R.x - 1; i <= R.x + R.w; i++) show(i, j);
   }
+}
+// The boss door goes on the map as soon as the player looks at it: in front of them, no farther than `range` (how far
+// things can be made out in the fog, m), with a clear line to the corridor just outside it. (reveal does not open it
+// from the corridor: a shut door's tile is solid, so no line reaches its middle.) Called every frame on a building floor
+export function sightHallDoor(x: number, z: number, yaw: number, range: number) {
+  const hall = level.hall;
+  if (!hall || level.seen[hall.door]) return;
+  const into = [1, -1, W, -W].find(d => level.roomOf[hall.door + d] === hall.room);
+  if (into === undefined) return;
+  const out = Math.abs(into) === 1 ? [-into, 0] : [0, -Math.sign(into)],
+    dx = tileCenter(hall.door % W) + out[0]! * DOOR_SIGHT_OUT - x,
+    dz = tileCenter(Math.floor(hall.door / W)) + out[1]! * DOOR_SIGHT_OUT - z;
+  if (Math.hypot(dx, dz) > range) return;
+  const off = Math.atan2(-dx, -dz) - yaw; // (yaw 0 faces -z)
+  if (Math.abs(Math.atan2(Math.sin(off), Math.cos(off))) > DOOR_SIGHT_CONE) return;
+  if (hasLOS(x, z, x + dx, z + dz)) level.seen[hall.door] = 1;
 }
