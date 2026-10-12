@@ -17,7 +17,7 @@ import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
 import { save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
-import { level, reveal, showNeighbourFloors, updateFollowers } from '../world/level.ts';
+import { level, reveal, showNeighbourFloors, sightHallDoor, updateFollowers } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { updateHazards } from '../world/hazards.ts';
 import { ENEMY_GROUP, enemies, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
@@ -26,7 +26,7 @@ import type { DoorMover } from '@engine/world/doors.ts';
 import { GUNFX, curVM } from '../actors/viewmodel.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
 import { damagePlayer, kitHealAmount } from '../actors/combat.ts';
-import { findTarget, shotId, tryFire } from '../actors/firing.ts';
+import { findTarget, shotId, tryFire, visibleRange } from '../actors/firing.ts';
 import { magSize, weaponOptCount } from '../actors/weapons.ts';
 import { controlState } from '../ui/input.ts';
 import { drawMap } from '../ui/minimap.ts';
@@ -360,6 +360,7 @@ function updateBuildingFloor(dt: number) {
   updateFloorEvents(dt);
   updateFollowers(dt);
   if (building) showNeighbourFloors(building, player.x, player.z);
+  sightHallDoor(player.x, player.z, player.yaw, visibleRange());
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
 function updatePortals(dt: number) {
