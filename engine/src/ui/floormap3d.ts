@@ -29,6 +29,7 @@ const LABEL_PX = 64; // ... and of its picture (px)
 const LABEL_FONT = '700 48px ui-monospace, Menlo, Consolas, monospace';
 const VOLUME_SIDE_OPACITY = 0.1; // a volume's faces
 const VOLUME_EDGE_OPACITY = 0.85; // ... and its edges
+const QUIET_EDGE_OPACITY = 0.4; // the edges of a quiet volume (it has no faces)
 const VIEW_DIST = 2; // camera distance as a multiple of the map's largest side
 const DRAG_TURN = 0.008; // radians per pixel dragged
 const PITCH_MIN = 0.15; // how low and how high the camera can tilt (radians above the horizon)
@@ -54,6 +55,7 @@ export interface FloorMapVolume {
   w: number;
   h: number;
   color: string;
+  quiet?: boolean; // only its edges, and those faint: a space that is there but not where one is going
 }
 export interface FloorMapStyle {
   tile: (floor: number, k: number) => TileStyle | null; // null leaves the tile out (alpha is not used: floors dim as a whole)
@@ -241,7 +243,8 @@ export function createFloorMap3D(canvas: HTMLCanvasElement): FloorMap3D {
             }
           });
       }
-      // the tall spaces: a box each, its faces faint and its edges bright, drawn after the floors
+      // the tall spaces: a box each, its faces faint and its edges bright (a quiet one: faint edges only), drawn after
+      // the floors
       for (const v of style.volumes ?? []) {
         const box = keep(new THREE.BoxGeometry(v.w, v.floors * gap, v.h)),
           at = new THREE.Vector3(v.i + v.w / 2, (v.floor + v.floors / 2) * gap, v.j + v.h / 2),
@@ -263,12 +266,12 @@ export function createFloorMap3D(canvas: HTMLCanvasElement): FloorMap3D {
               new THREE.LineBasicMaterial({
                 color: v.color,
                 transparent: true,
-                opacity: VOLUME_EDGE_OPACITY,
+                opacity: v.quiet ? QUIET_EDGE_OPACITY : VOLUME_EDGE_OPACITY,
                 depthWrite: false,
               }),
             ),
           );
-        for (const o of [sides, edges]) {
+        for (const o of v.quiet ? [edges] : [sides, edges]) {
           o.position.copy(at);
           o.renderOrder = f.grids.length + 1;
           o.userData.volume = true;

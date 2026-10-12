@@ -15,7 +15,7 @@ import type { Building } from '../world/building.ts';
 import { level } from '../world/level.ts';
 import { player } from '../actors/player.ts';
 import { CSS_COLOR } from '../data/colors.ts';
-import { HALL_H, WALL_H } from '../data/level.ts';
+import { HALL_H } from '../data/level.ts';
 
 const canvas = el<HTMLCanvasElement>('#bigmap3d');
 // the 3D page is the one showing while the big map is open (set by toggleMap)
@@ -63,7 +63,8 @@ function floorsOf(b: Building): Floors {
     b.links.map(l => ({ kind: l.kind, a: spot(l.upper, l.a), b: spot(l.lower, l.strip[0]!) })),
   );
 }
-// The tall spaces of the building as boxes: the courtyard through the floors it is open through, once a tile of it or
+// The tall spaces of the building as boxes: the courtyard through the floors it is open through (a faint frame: it is
+// no place to go), once a tile of it or
 // next to it has been seen on any of them (its gallery, a balcony; the hole itself is no floor, so it is never seen),
 // and the boss room, as high as it is against a floor, once the player has been in it
 function volumesOf(b: Building): FloorMapVolume[] {
@@ -85,12 +86,13 @@ function volumesOf(b: Building): FloorMapVolume[] {
     if (found)
       out.push({
         floor: mapFloor(b, c.lower),
-        floors: c.lower - c.upper + WALL_H / FLOOR_H, // (up to the ceiling of its top floor)
+        floors: c.lower - c.upper, // (up to the floor of its top floor: a box standing above the building says too much)
         i,
         j,
         w,
         h,
-        color: CSS_COLOR.text, // (no sector's own colour, so it stands out from the tiles in all of them)
+        color: CSS_COLOR.dim,
+        quiet: true,
       });
   }
   const r = last.hall ? last.gen.rooms[last.hall.room] : undefined;

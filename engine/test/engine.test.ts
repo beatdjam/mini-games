@@ -2676,7 +2676,10 @@ test('floormap3d: the outline and name of every floor, tall spaces as boxes, a r
       link: l => (l.kind === 'stairs' ? { color: '#00ff00', width: 1, flat: true } : { color: '#ff00ff', width: 0.5 }),
       frame: '#888888',
       label: floor => (floor === 2 ? null : `${floor + 1}F`),
-      volumes: [{ floor: 0, floors: 1.5, i: 1, j: 1, w: 2, h: 1, color: '#ff0000' }],
+      volumes: [
+        { floor: 0, floors: 1.5, i: 1, j: 1, w: 2, h: 1, color: '#ff0000' },
+        { floor: 0, floors: 1, i: 4, j: 1, w: 1, h: 1, color: '#888888', quiet: true },
+      ],
     },
     T,
   );
@@ -2694,7 +2697,8 @@ test('floormap3d: the outline and name of every floor, tall spaces as boxes, a r
   );
   eq(labels.map(o => o.userData.label).join(), '0,1', 'a name where the style gives one');
   ok(labels[0].position.x < 1 && labels[0].position.y === 0, 'outside the outline, on its floor');
-  eq(volume.length, 2, 'a volume: its faces and its edges');
+  eq(volume.length, 3, 'a volume: its faces and its edges; a quiet one: its edges only');
+  ok(volume[2] instanceof THREE.LineSegments && volume[2].position.y === 4);
   eq(volume[0].position.toArray().join(), '2,6,1.5', 'over its tiles, from its floor up one and a half floor gaps');
   const size = (m: THREE.Mesh) => {
     const q = (m.geometry as THREE.BoxGeometry).parameters;
