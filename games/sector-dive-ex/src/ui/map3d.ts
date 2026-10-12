@@ -10,12 +10,11 @@ import { createFloors } from '@engine/world/floors.ts';
 import type { Floors } from '@engine/world/floors.ts';
 import { createFloorMap3D } from '@engine/ui/floormap3d.ts';
 import type { FloorMap3D, FloorMapMarker, FloorMapVolume } from '@engine/ui/floormap3d.ts';
-import { FLOOR_H, building } from '../world/building.ts';
+import { building } from '../world/building.ts';
 import type { Building } from '../world/building.ts';
 import { level } from '../world/level.ts';
 import { player } from '../actors/player.ts';
 import { CSS_COLOR } from '../data/colors.ts';
-import { HALL_H } from '../data/level.ts';
 
 const canvas = el<HTMLCanvasElement>('#bigmap3d');
 // the 3D page is the one showing while the big map is open (set by toggleMap)
@@ -32,6 +31,9 @@ const MAP_PITCH: [number, number] = [0.15, 1.45]; // the tilt the engine's own d
 const MAP_KEY_TURN = 1.6; // radians per second while a move key is held
 const STAIRS_W = 1.2; // a stairwell's ramp and a lift's post on the map: how wide (tiles)
 const LIFT_W = 0.4;
+// The boss room's box on the map, in floor gaps. The room itself is one and a half floors high (HALL_H against
+// FLOOR_H) and stands into the floor above; drawn so, the box cuts through that floor's tiles. So it stops short of it
+const HALL_BOX = 0.85;
 export function keysTurnMap3D(dt: number): boolean {
   if (isTouch || canvas.hidden || !map) return false;
   const turn = (actionDown('right') ? 1 : 0) - (actionDown('left') ? 1 : 0),
@@ -66,7 +68,7 @@ function floorsOf(b: Building): Floors {
 // The tall spaces of the building as boxes: the courtyard through the floors it is open through (a faint box: it is
 // no place to go), once a tile of it or
 // next to it has been seen on any of them (its gallery, a balcony; the hole itself is no floor, so it is never seen),
-// and the boss room, as high as it is against a floor, once the player has been in it
+// and the boss room (HALL_BOX), once the player has been in it
 function volumesOf(b: Building): FloorMapVolume[] {
   const W = b.plans[0]!.gen.W,
     out: FloorMapVolume[] = [],
@@ -97,7 +99,7 @@ function volumesOf(b: Building): FloorMapVolume[] {
   }
   const r = last.hall ? last.gen.rooms[last.hall.room] : undefined;
   if (r && last.seen[r.y * W + r.x])
-    out.push({ floor: 0, floors: HALL_H / FLOOR_H, i: r.x, j: r.y, w: r.w, h: r.h, color: CSS_COLOR.mag });
+    out.push({ floor: 0, floors: HALL_BOX, i: r.x, j: r.y, w: r.w, h: r.h, color: CSS_COLOR.mag });
   return out;
 }
 // Called every frame of play. Shows the 3D canvas only while the big map is open on its 3D page in a building, makes
