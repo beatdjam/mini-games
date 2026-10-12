@@ -249,8 +249,8 @@ const plainAll = (on: boolean) => {
 function place(at: ScriptLine) {
   const [where, what] = at.args;
   if (what === 'start') {
-    showOnly(true);
     start();
+    showOnly(true); // (after start: its settle turns auto-fire on)
     if (at.named.seed) devSeed(+at.named.seed);
     sector = codeOf(where!);
     inSector(sector);
