@@ -126,12 +126,16 @@ export function propTools(plan: FloorPlan, group: THREE.Group, rules: PropRule[]
         .map(p => p.slot)
         .filter(s => s.kind !== 'wall' || !plan.voids[wallOf(s)]),
     add,
-    pools: (lights, opacity) =>
+    pools: (lights, opacity) => {
+      // No pool over a tile with no floor of its own (a lift's shaft: only the platform is there). The pools are added
+      // to the picture, and the lights of a dead end stand close together: lying on the platform, they turned it white
+      const on = lights.filter(l => !plan.noFloor[Math.floor(l.z / T) * d.W + Math.floor(l.x / T)]);
       add(
         new THREE.PlaneGeometry(LAMP_POOL, LAMP_POOL).rotateX(-Math.PI / 2),
         lightMat(poolTex(), opacity),
-        lights.map(l => pose(new THREE.Vector3(l.x, POOL_Y, l.z), 0, new THREE.Vector3(l.size, 1, l.size))),
-        lights.map(l => l.color),
-      ),
+        on.map(l => pose(new THREE.Vector3(l.x, POOL_Y, l.z), 0, new THREE.Vector3(l.size, 1, l.size))),
+        on.map(l => l.color),
+      );
+    },
   };
 }
