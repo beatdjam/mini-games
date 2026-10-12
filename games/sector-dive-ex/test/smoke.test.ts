@@ -2973,6 +2973,24 @@ test('lift: standing on the platform rides to its other floor and back, past a f
     expect(player.fy).toBeCloseTo(0);
   }
 });
+test('boss room: its door goes on the map when the player looks at it from the corridor, not before', () => {
+  goToFloor(building!.plans.length - 1);
+  const hall = level.hall!,
+    step = [1, -1, W, -W].find(d => level.roomOf[hall.door + d] === hall.room)!,
+    from = hall.door - step; // the corridor tile in front of the door
+  player.x = ((from % W) + 0.5) * T;
+  player.z = (Math.floor(from / W) + 0.5) * T;
+  player.fy = floorY(player.x, player.z);
+  // (yaw 0 faces -z)
+  const facing = Math.abs(step) === 1 ? Math.atan2(-step, 0) : Math.atan2(0, -Math.sign(step));
+  player.yaw = facing + Math.PI;
+  level.seen[hall.door] = 0; // (it may have been in sight where the floor starts)
+  tick(2);
+  expect(level.seen[hall.door], 'standing at it with the back turned').toBe(0);
+  player.yaw = facing;
+  tick(1);
+  expect(level.seen[hall.door], 'looking at it').toBe(1);
+});
 test('boss room: its door opens for a player who waits at it; walking in starts the boss stage', () => {
   goToFloor(building!.plans.length - 1);
   const hall = level.hall!,
