@@ -97,7 +97,7 @@
   - ゲーム側: `container`（照準の中心に置いた幅0・高さ0の要素。Sector Dive は `#hitDirs`）、`view()`（`x`・`z`・`yaw`。yaw は左が正）、`camera`、表示時間 `time`（秒）、弧の見た目の CSS（`className`、既定 `hdir`）。被弾で `show`、毎フレーム `update`
 - `src/ui/minimap.ts`: 上から見たタイルの地図。`drawTileMap(canvas, ctx, { tile, overlay?, markers, viewer, viewerColor? })` が、タイル（`tile(k)` が色と濃さを返したものだけ）→ 重ね塗り → 印（`square`・`ring`・`dot`、ラベル付きも可）→ 見ている人の向きの矢印、の順に描く。大きさの単位はキャンバスの幅の 1/160
   - ゲーム側: どのタイルを何色で描くか（見た場所だけ、など）と、印の一覧（位置はワールドの x・z）
-- `src/ui/floormap3d.ts`: 3D の詳細マップ。`createFloorMap3D(canvas)` → `{ build(floors, style, tileSize), draw(view), yaw, pitch, dispose() }`。全部の階をタイルの板として重ね、リンクを線、自分を矢印で描く。1本指のドラッグで回し、2本指でズームと移動（マウスはホイールと右ドラッグ）。自分の WebGL レンダラーで描く
+- `src/ui/floormap3d.ts`: 3D の詳細マップ。`createFloorMap3D(canvas)` → `{ build(floors, style, tileSize), draw(view), yaw, pitch, dispose() }`。全部の階をタイルの板として重ね、リンクを角柱（か坂の板）、高さのある空間を箱、自分を矢印で描く。階ごとに建物の外周と階の名前も出せる。1本指のドラッグで回し、2本指でズームと移動（マウスはホイールと右ドラッグ）。自分の WebGL レンダラーで描く
   - ゲーム側: 表示するタイルと色（`style.tile(floor, k)`）、リンクの色（`style.link(l)`）、階の間隔 `gap`、自分の階と位置・向き、印
 - `src/ui/settings.ts`: 設定パネル。`SETTINGS.items` に並べた設定を、ページの `[data-settings="<場所>"]` の要素すべてに描き、どれかで変えると全部を描き直す（スライダーは動かしている間、ほかのパネルのつまみと値だけを追わせる）。種類は `toggle`（オン・オフ）・`choice`（切り替えボタン）・`range`（スライダー。`format` を渡すと値も出す）・`button`。`show()` が false の項目は出さない。言語と全画面は `languageSetting(label, change)`・`fullscreenSetting(label)` で作れる。`renderSettings()`
   - ゲーム側: `SETTINGS.items`（ラベル・値の読み書き）、`SETTINGS.onOff`（オン・オフの文言）、`SETTINGS.onChange(key)`（保存や反映）。見た目はゲームの CSS（`.toggle`・`.seg`・`.sens`）

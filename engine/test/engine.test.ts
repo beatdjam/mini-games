@@ -2544,7 +2544,7 @@ test('materials: buildParts makes a model of parts, sharing geometry, with its o
 });
 
 // ---- the 3D detail map ----
-test('floormap3d: floors as slabs of the tiles that show, links as lines, the viewer on its floor, drag to turn', () => {
+test('floormap3d: floors as slabs of the tiles that show, links as posts, the viewer on its floor, drag to turn', () => {
   const { f } = crossFloors(),
     c = document.createElement('canvas');
   c.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px';
@@ -2560,6 +2560,7 @@ test('floormap3d: floors as slabs of the tiles that show, links as lines, the vi
     link: (l: FloorLink) => (l.kind === 'stairs' ? '#ffff00' : null),
   };
   map.build(f, style, T);
+  eq(map.scene.children[0].children.length, 3, 'two slab meshes and the links: no outline, label or volume unasked');
   const slabs = map.scene.children[0].children.filter(o => o instanceof THREE.InstancedMesh) as THREE.InstancedMesh[];
   eq(
     slabs.map(m => `${m.userData.floor}:${m.count}`).join(),
@@ -2574,8 +2575,12 @@ test('floormap3d: floors as slabs of the tiles that show, links as lines, the vi
   slabs[1].getMatrixAt(0, at);
   p.setFromMatrixPosition(at);
   eq([p.x, p.y, p.z].join(), '1.5,8,1.5', 'floor 1, tile (1, 1): one floor gap up');
-  const lines = map.scene.children[0].children.find(o => o.userData.links) as THREE.LineSegments;
-  eq(lines.geometry.getAttribute('position').count, 2, 'the stairs only: one line, two ends');
+  const links = map.scene.children[0].children.find(o => o.userData.links) as THREE.Group;
+  eq(links.children.length, 1, 'the stairs only: one post');
+  const post = links.children[0] as THREE.Mesh;
+  // (from tile (5, 1) of floor 0 to tile (1, 1) of floor 1)
+  eq([post.position.x, post.position.z].join(), '3.5,1.5', 'half way between its ends');
+  near(post.position.y, 4.12, 1e-9, 'and between the two floors');
   map.draw({
     floor: 1,
     viewer: { x: 3.5 * T, z: 1.5 * T, yaw: 0.5 },
@@ -2655,6 +2660,70 @@ test('floormap3d: floors as slabs of the tiles that show, links as lines, the vi
   // building again replaces the slabs
   map.build(f, { tile: (floor, k) => (f.grids[floor].world.grid[k] ? { color: '#ffffff', alpha: 1 } : null) }, T);
   eq(map.scene.children[0].children.length, 3, 'all three floors, no links drawn');
+  map.dispose();
+  c.remove();
+});
+test('floormap3d: the outline and name of every floor, tall spaces as boxes, a ramp, a beacon, far floors dimmer', () => {
+  const { f } = crossFloors(),
+    c = document.createElement('canvas');
+  c.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px';
+  document.body.appendChild(c);
+  const map = createFloorMap3D(c);
+  map.build(
+    f,
+    {
+      tile: (floor, k) => (f.grids[floor].world.grid[k] ? { color: '#ffffff', alpha: 1 } : null),
+      link: l => (l.kind === 'stairs' ? { color: '#00ff00', width: 1, flat: true } : { color: '#ff00ff', width: 0.5 }),
+      frame: '#888888',
+      label: floor => (floor === 2 ? null : `${floor + 1}F`),
+      volumes: [{ floor: 0, floors: 1.5, i: 1, j: 1, w: 2, h: 1, color: '#ff0000' }],
+    },
+    T,
+  );
+  const made = map.scene.children[0].children,
+    frames = made.filter(o => o.userData.frame !== undefined) as THREE.LineLoop[],
+    labels = made.filter(o => o.userData.label !== undefined) as THREE.Sprite[],
+    volume = made.filter(o => o.userData.volume),
+    links = (made.find(o => o.userData.links) as THREE.Group).children as THREE.Mesh[];
+  eq(frames.length, 3, 'an outline on every floor');
+  // the floor tiles of all the floors: columns 1 to 5, rows 1 to 3 (floor 1 is the largest)
+  eq(
+    Array.from(frames[1].geometry.getAttribute('position').array).join(),
+    '1,8,1,6,8,1,6,8,4,1,8,4',
+    'the same box on each, at the height of its floor',
+  );
+  eq(labels.map(o => o.userData.label).join(), '0,1', 'a name where the style gives one');
+  ok(labels[0].position.x < 1 && labels[0].position.y === 0, 'outside the outline, on its floor');
+  eq(volume.length, 2, 'a volume: its faces and its edges');
+  eq(volume[0].position.toArray().join(), '2,6,1.5', 'over its tiles, from its floor up one and a half floor gaps');
+  const size = (m: THREE.Mesh) => {
+    const q = (m.geometry as THREE.BoxGeometry).parameters;
+    return [q.width, q.height, q.depth].map(v => +v.toFixed(3)).join();
+  };
+  eq(links.length, 2);
+  // the stairs (4 tiles along, 8 up): a plate of its width lying along the way; the lift (4 along, 2 across, 8 up): a post
+  eq(size(links[0]), `1,0.12,${+Math.hypot(4, 8).toFixed(3)}`, 'flat: a ramp');
+  eq(size(links[1]), `0.5,0.5,${+Math.hypot(4, 2, 8).toFixed(3)}`, 'a post');
+  map.draw({
+    floor: 0,
+    viewer: { x: T, z: T, yaw: 0 },
+    markers: [
+      { floor: 0, x: 1.5 * T, z: 1.5 * T, color: '#00ffff', beacon: true },
+      { floor: 0, x: 2.5 * T, z: 1.5 * T, color: '#00ffff' },
+    ],
+  });
+  const opac = (made.filter(o => o instanceof THREE.InstancedMesh) as THREE.InstancedMesh[]).map(
+    m => (m.material as THREE.MeshBasicMaterial).opacity,
+  );
+  ok(opac[0] > opac[1] && opac[1] > opac[2], `the further from the viewer's floor, the dimmer (${opac.join()})`);
+  ok(
+    (frames[0].material as THREE.Material).opacity > (frames[2].material as THREE.Material).opacity &&
+      labels[0].material.opacity > labels[1].material.opacity,
+    'the outlines and names dim with their floors',
+  );
+  const [, mark, dot] = map.scene.children[1].children as THREE.Mesh[];
+  ok(mark.position.y > dot.position.y, 'a beacon stands above the floor');
+  ok(!(mark.material as THREE.Material).depthTest, 'and shows through the floors');
   map.dispose();
   c.remove();
 });

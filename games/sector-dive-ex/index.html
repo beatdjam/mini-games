@@ -67,7 +67,8 @@ body.touch .kithud{display:none}
 #bigmap,#bigmap3d{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(82vmin,600px);height:min(82vmin,600px);border:1px solid var(--line);pointer-events:auto}
 #bigmap{z-index:4;background:rgba(5,8,12,.82);cursor:pointer}
 /* #bigmap3d: the 3D page of the big map, over the 2D one; it goes away with it (the sibling rule) */
-#bigmap3d{z-index:5;cursor:grab;touch-action:none;background:#05080c}
+/* (wider than the 2D page where the screen is: up to the minimap on the left, and as much left free on the right) */
+#bigmap3d{z-index:5;cursor:grab;touch-action:none;background:#05080c;width:max(min(82vmin,600px),min(100vw - 440px,1000px))}
 #bigmap[hidden]+#bigmap3d,#bigmap[hidden]~#mapHint{display:none}
 /* what the keys do while the big map is open, under the map */
 #mapHint{position:absolute;z-index:6;left:50%;top:calc(50% + min(41vmin,300px) + 8px);transform:translateX(-50%);font-size:12px;color:var(--dim);white-space:nowrap;background:rgba(5,8,12,.78);padding:3px 10px}

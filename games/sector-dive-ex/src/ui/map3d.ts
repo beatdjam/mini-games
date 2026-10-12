@@ -1,6 +1,7 @@
-// The 3D map of the building: every floor as a slab of the tiles seen so far, the stairwells and lifts as lines between
-// them, the player as an arrow. It is the second page of the big map (hud.ts toggleMap: closed, 2D, 3D, closed). The
-// drawing and the dragging are the engine's (engine/src/ui/floormap3d.ts); this file says what to show.
+// The 3D map of the building: every floor as a slab of the tiles seen so far, the stairwells as ramps and the lifts as
+// posts between them, the courtyard and the boss room as boxes, the player as an arrow. It is the second page of the
+// big map (hud.ts toggleMap: closed, 2D, 3D, closed). The drawing and the dragging are the engine's
+// (engine/src/ui/floormap3d.ts); this file says what to show.
 import { el, isTouch } from '@engine/core/util.ts';
 import { actionDown } from '@engine/ui/keymap.ts';
 import { T, tileCenter } from '@engine/world/tiles.ts';
@@ -8,12 +9,13 @@ import { tileWorldOf } from '@engine/world/dungeon.ts';
 import { createFloors } from '@engine/world/floors.ts';
 import type { Floors } from '@engine/world/floors.ts';
 import { createFloorMap3D } from '@engine/ui/floormap3d.ts';
-import type { FloorMap3D, FloorMapMarker } from '@engine/ui/floormap3d.ts';
-import { building } from '../world/building.ts';
+import type { FloorMap3D, FloorMapMarker, FloorMapVolume } from '@engine/ui/floormap3d.ts';
+import { FLOOR_H, building } from '../world/building.ts';
 import type { Building } from '../world/building.ts';
 import { level } from '../world/level.ts';
 import { player } from '../actors/player.ts';
 import { CSS_COLOR } from '../data/colors.ts';
+import { HALL_H, WALL_H } from '../data/level.ts';
 
 const canvas = el<HTMLCanvasElement>('#bigmap3d');
 // the 3D page is the one showing while the big map is open (set by toggleMap)
@@ -28,6 +30,8 @@ let seenShown = -1; // how many tiles were seen when the slabs were last made
 // Returns true when the keys were taken (the caller gives the player no move input then)
 const MAP_PITCH: [number, number] = [0.15, 1.45]; // the tilt the engine's own dragging allows (radians)
 const MAP_KEY_TURN = 1.6; // radians per second while a move key is held
+const STAIRS_W = 1.2; // a stairwell's ramp and a lift's post on the map: how wide (tiles)
+const LIFT_W = 0.4;
 export function keysTurnMap3D(dt: number): boolean {
   if (isTouch || canvas.hidden || !map) return false;
   const turn = (actionDown('right') ? 1 : 0) - (actionDown('left') ? 1 : 0),
@@ -59,6 +63,41 @@ function floorsOf(b: Building): Floors {
     b.links.map(l => ({ kind: l.kind, a: spot(l.upper, l.a), b: spot(l.lower, l.strip[0]!) })),
   );
 }
+// The tall spaces of the building as boxes: the courtyard through the floors it is open through, once a tile of it or
+// next to it has been seen on any of them (its gallery, a balcony; the hole itself is no floor, so it is never seen),
+// and the boss room, as high as it is against a floor, once the player has been in it
+function volumesOf(b: Building): FloorMapVolume[] {
+  const W = b.plans[0]!.gen.W,
+    out: FloorMapVolume[] = [],
+    c = b.court,
+    last = b.plans[b.plans.length - 1]!;
+  if (c) {
+    const is = c.tiles.map(k => k % W),
+      js = c.tiles.map(k => Math.floor(k / W)),
+      i = Math.min(...is),
+      j = Math.min(...js),
+      w = Math.max(...is) + 1 - i,
+      h = Math.max(...js) + 1 - j;
+    let found = false;
+    for (let n = c.upper; n <= c.lower && !found; n++)
+      for (let y = j - 1; y <= j + h && !found; y++)
+        for (let x = i - 1; x <= i + w; x++) if (b.plans[n]!.seen[y * W + x]) found = true;
+    if (found)
+      out.push({
+        floor: mapFloor(b, c.lower),
+        floors: c.lower - c.upper + WALL_H / FLOOR_H, // (up to the ceiling of its top floor)
+        i,
+        j,
+        w,
+        h,
+        color: CSS_COLOR.text, // (no sector's own colour, so it stands out from the tiles in all of them)
+      });
+  }
+  const r = last.hall ? last.gen.rooms[last.hall.room] : undefined;
+  if (r && last.seen[r.y * W + r.x])
+    out.push({ floor: 0, floors: HALL_H / FLOOR_H, i: r.x, j: r.y, w: r.w, h: r.h, color: CSS_COLOR.mag });
+  return out;
+}
 // Called every frame of play. Shows the 3D canvas only while the big map is open on its 3D page in a building, makes
 // the slabs again when more of the building has been seen, and draws
 export function updateMap3D(bigmapOpen: boolean) {
@@ -87,8 +126,13 @@ export function updateMap3D(bigmapOpen: boolean) {
         link: l => {
           const seenAt = (s: typeof l.a) => b.plans[mapFloor(b, s.floor)]!.seen[s.j * W + s.i];
           if (!seenAt(l.a) && !seenAt(l.b)) return null;
-          return l.kind === 'stairs' ? CSS_COLOR.lime : CSS_COLOR.violet;
+          return l.kind === 'stairs'
+            ? { color: CSS_COLOR.lime, width: STAIRS_W, flat: true }
+            : { color: CSS_COLOR.violet, width: LIFT_W };
         },
+        frame: CSS_COLOR.dim,
+        label: floor => `${mapFloor(b, floor) + 1}F`, // (as on the HUD: the top floor is 1F)
+        volumes: volumesOf(b),
       },
       T,
     );
@@ -102,6 +146,7 @@ export function updateMap3D(bigmapOpen: boolean) {
       x: tileCenter(last.hall.door % W),
       z: tileCenter(Math.floor(last.hall.door / W)),
       color: CSS_COLOR.mag,
+      beacon: true,
     });
   map.draw({
     floor: mapFloor(b, level.floor),
