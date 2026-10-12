@@ -2697,8 +2697,14 @@ test('floormap3d: the outline and name of every floor, tall spaces as boxes, a r
   );
   eq(labels.map(o => o.userData.label).join(), '0,1', 'a name where the style gives one');
   ok(labels[0].position.x < 1 && labels[0].position.y === 0, 'outside the outline, on its floor');
-  eq(volume.length, 3, 'a volume: its faces and its edges; a quiet one: its edges only');
-  ok(volume[2] instanceof THREE.LineSegments && volume[2].position.y === 4);
+  eq(volume.length, 4, 'two volumes: the faces and the edges of each');
+  ok(
+    ((volume[2] as THREE.Mesh).material as THREE.Material).opacity <
+      ((volume[0] as THREE.Mesh).material as THREE.Material).opacity &&
+      ((volume[3] as THREE.LineSegments).material as THREE.Material).opacity <
+        ((volume[1] as THREE.LineSegments).material as THREE.Material).opacity,
+    'a quiet one is fainter, faces and edges',
+  );
   eq(volume[0].position.toArray().join(), '2,6,1.5', 'over its tiles, from its floor up one and a half floor gaps');
   const size = (m: THREE.Mesh) => {
     const q = (m.geometry as THREE.BoxGeometry).parameters;

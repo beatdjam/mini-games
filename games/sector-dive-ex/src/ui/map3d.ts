@@ -63,7 +63,7 @@ function floorsOf(b: Building): Floors {
     b.links.map(l => ({ kind: l.kind, a: spot(l.upper, l.a), b: spot(l.lower, l.strip[0]!) })),
   );
 }
-// The tall spaces of the building as boxes: the courtyard through the floors it is open through (a faint frame: it is
+// The tall spaces of the building as boxes: the courtyard through the floors it is open through (a faint box: it is
 // no place to go), once a tile of it or
 // next to it has been seen on any of them (its gallery, a balcony; the hole itself is no floor, so it is never seen),
 // and the boss room, as high as it is against a floor, once the player has been in it
