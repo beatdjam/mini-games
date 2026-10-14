@@ -353,6 +353,22 @@ if (location.hash === '#view-trooper')
     });
     for (let k = 0; k < 40; k++) update(1 / 60);
   }, 300);
+// dev view: #view-gltf stands in front of a crowd of one glTF model, to see how humans as model files would look and
+// what they cost (an experiment; gltf.ts). Loaded only for this hook, so the loader stays out of the other views
+if (location.hash === '#view-gltf')
+  setTimeout(() => {
+    startRun();
+    show(null);
+    setState('play');
+    player.hp = 1e6;
+    player.maxHp = 1e6;
+    enemies.forEach(e => {
+      e.dead = true;
+      removeEnemyMesh(e);
+    });
+    for (let k = 0; k < 20; k++) update(1 / 60);
+    void import('./gltf.ts').then(m => m.showGltfCrowd());
+  }, 300);
 // dev view: #view-wipe opens the data wipe dialog on the base screen (for screenshots)
 if (location.hash === '#view-wipe') setTimeout(() => el('#btnWipe').click(), 300);
 // dev view: #view-keys opens the key settings dialog on the base screen; #view-keys-wait also clicks the reload key
