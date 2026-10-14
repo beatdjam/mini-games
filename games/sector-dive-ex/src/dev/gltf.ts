@@ -2,7 +2,8 @@
 // jointed boxes. It stands in the start room in front of a crowd of one model, all playing a clip, and shows what it
 // costs: the file's size, the time to load it, the triangles drawn and the time the animation takes each frame.
 // Not part of the game: nothing here reaches the enemies, the hit spheres or the published build.
-//   ?model=<url>: the model to load (default: src/dev/models/soldier.glb, a local file left out of git)
+//   ?model=<url>: the model to load (default: src/dev/assets/human-quaternius.glb, a CC0 human; assets/README.md).
+//   Other models to try can go in src/dev/models/, which git leaves out
 //   ?n=<count>: how many (default 20)   ?clip=<name>: the clip to play (default: the first with "walk" in its name)
 // Add ?fps to see the frame rate next to it.
 import * as THREE from 'three';
@@ -18,7 +19,7 @@ const ROW = 5, // models in a row
 
 export async function showGltfCrowd() {
   const q = new URLSearchParams(location.search),
-    url = q.get('model') ?? new URL('./models/soldier.glb', import.meta.url).href,
+    url = q.get('model') ?? new URL('./assets/human-quaternius.glb', import.meta.url).href,
     n = Math.max(1, Number(q.get('n') ?? 20) || 20);
   const box = document.createElement('div');
   box.style.cssText =
@@ -29,7 +30,7 @@ export async function showGltfCrowd() {
   const t0 = performance.now();
   const res = await fetch(url);
   if (!res.ok) {
-    box.textContent = `${res.status}: ${url}\nPut a model at src/dev/models/soldier.glb, or give ?model=<url>`;
+    box.textContent = `${res.status}: ${url}\nGive a model with ?model=<url>`;
     return;
   }
   const bytes = await res.arrayBuffer();
