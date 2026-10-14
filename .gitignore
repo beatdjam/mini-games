@@ -8,3 +8,4 @@ test-results/
 .vitest/
 sim-results/
 out/
+games/*/src/dev/models/
