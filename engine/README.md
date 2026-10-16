@@ -23,7 +23,7 @@
   - ゲーム側: `LANG.<code>` を登録する言語ファイル（`ja` は必須で、キーが無いときの予備）。定義に名前を流し込むなら `setI18nHook(fn)` で関数を登録
 - `src/core/langslots.ts`: `withLang(table, blank)`（定義の表の各項目に、言語ファイルが入れる項目（名前・説明）の空の値を先に入れる。配列でもオブジェクトでもよい。何も import しないので、データのファイルが読み込み時に呼べる）
   - ゲーム側: 言語ファイルが入れる項目の空の値。中身は `setLang` のときに `fillData` で入れる
-- `src/core/store.ts`: `encodeStore` / `decodeStore`（セーブを端末間で移す1行のコード。暗号化ではなく、読みにくく・書き換えにくくするだけ）、`loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `prefGet` / `prefSet`（タブの記憶など小さな値）
+- `src/core/store.ts`: `encodeStore` / `decodeStore`（セーブを端末間で移す1行のコード。暗号化ではなく、読みにくく・書き換えにくくするだけ）、`loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `packBits` / `unpackBits`（オン・オフの並びを1つ1ビットの短い文字列に。探索済みのマップのタイルなど）, `prefGet` / `prefSet`（タブの記憶など小さな値）
   - ゲーム側: 既定値を返す関数。古い版からの変換は `raw` を見てゲーム側でやる
 - `src/core/stale.ts`: 古いページ検出。キャッシュに残った古いページなら、最新版の URL へ1回だけ切り替える
   - ゲーム側: `<meta name="build" content="dev">`（ビルドが版番号に書き換え、`version.json` も出す。このファイルはページに埋め込まれる）
