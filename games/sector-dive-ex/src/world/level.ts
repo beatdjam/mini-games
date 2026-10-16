@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createRng, rand, randi } from '@engine/core/util.ts';
+import { createRng, rand, randi, wrapAngle, yawToward } from '@engine/core/util.ts';
 import { clearWorld, groupOf, spawn, sweepWorld } from '@engine/core/world.ts';
 import { camera, disposeTree, dynGroup, scene } from '@engine/render/render.ts';
 import { clearFx } from '@engine/render/fx.ts';
@@ -729,7 +729,6 @@ export function sightHallDoor(x: number, z: number, yaw: number, range: number) 
     dx = tileCenter(hall.door % W) + out[0]! * DOOR_SIGHT_OUT - x,
     dz = tileCenter(Math.floor(hall.door / W)) + out[1]! * DOOR_SIGHT_OUT - z;
   if (Math.hypot(dx, dz) > range) return;
-  const off = Math.atan2(-dx, -dz) - yaw; // (yaw 0 faces -z)
-  if (Math.abs(Math.atan2(Math.sin(off), Math.cos(off))) > DOOR_SIGHT_CONE) return;
+  if (Math.abs(wrapAngle(yawToward(dx, dz) - yaw)) > DOOR_SIGHT_CONE) return;
   if (hasLOS(x, z, x + dx, z + dz)) level.seen[hall.door] = 1;
 }

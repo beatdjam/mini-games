@@ -3,9 +3,11 @@ import * as THREE from 'three';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
 import { canvasTex } from './looks/paint.ts';
 import { T } from '@engine/world/tiles.ts';
+import { batcher } from '@engine/render/batch.ts';
+import type { Batch } from '@engine/render/batch.ts';
 // What crowds a courtyard (world/courtMesh.ts buildYardShell, buildAtriumProps): the things on the outer walls of a
 // yard and across it, and the things that hang in an atrium. All of it is looked at, never touched: nothing here is
-// in the tile world. Many small things, so they are drawn as instanced meshes, one per kind of thing (batcher)
+// in the tile world. Many small things, so they are drawn as instanced meshes, one per kind of thing (engine/src/render/batch.ts batcher)
 
 // a number in 0..1 that is the same every time for the same place (which window is lit, where a sign hangs)
 export const yardDice = (a: number, b: number, c: number): number => {
@@ -31,46 +33,6 @@ export interface Well {
   decks: number[]; // the heights of the bridges across it
 }
 
-// Collects boxes and planes by kind and adds each kind as one instanced mesh. put: where (the middle), turned by
-// `ry` about y and then tilted by `rx` about its own x, scaled
-function batcher(group: THREE.Group) {
-  const at = new THREE.Object3D(),
-    lots = new Map<string, { geo: THREE.BufferGeometry; mat: THREE.Material; m: THREE.Matrix4[] }>();
-  at.rotation.order = 'YXZ';
-  return {
-    put(
-      key: string,
-      make: () => [THREE.BufferGeometry, THREE.Material],
-      x: number,
-      y: number,
-      z: number,
-      ry = 0,
-      rx = 0,
-      scale: [number, number, number] = [1, 1, 1],
-    ) {
-      let lot = lots.get(key);
-      if (!lot) {
-        const [geo, mat] = make();
-        lot = { geo, mat, m: [] };
-        lots.set(key, lot);
-      }
-      at.position.set(x, y, z);
-      at.rotation.set(rx, ry, 0);
-      at.scale.set(...scale);
-      at.updateMatrix();
-      lot.m.push(at.matrix.clone());
-    },
-    done() {
-      for (const lot of lots.values()) {
-        const mesh = new THREE.InstancedMesh(lot.geo, lot.mat, lot.m.length);
-        lot.m.forEach((m, n) => mesh.setMatrixAt(n, m));
-        mesh.instanceMatrix.needsUpdate = true;
-        group.add(mesh);
-      }
-    },
-  };
-}
-type Batch = ReturnType<typeof batcher>;
 // (nothing in a well fades into the sector's fog: across it the far side would be black. `lit` only says the thing
 // gives light)
 // A yard is dim: what gives no light of its own is darkened by `dim` (the yard's shade, set by dressYard); what is

@@ -1,5 +1,5 @@
 import type { Enemy, WeaponItem } from '../data/types.ts';
-import { clamp, el } from '@engine/core/util.ts';
+import { clamp, el, wrapAngle, yawToward } from '@engine/core/util.ts';
 import { setMusic, setMusicMix } from '@engine/audio/music.ts';
 import { T, W, activeTileGrid, floorY, grid, hasLOS } from '@engine/world/tiles.ts';
 import { lockDoor } from '@engine/world/doors.ts';
@@ -128,7 +128,7 @@ function put(tile: number, look: number, pitch = 0) {
   player.fy = floorY(player.x, player.z);
   player.vy = 0;
   const [dx, dz] = dirOf(look);
-  player.yaw = Math.atan2(-dx, -dz);
+  player.yaw = yawToward(dx, dz);
   player.pitch = pitch;
   player.tile = -1;
   player.sprint = false;
@@ -328,8 +328,7 @@ const inSight = (e: Enemy) =>
   Math.hypot(e.x - player.x, e.z - player.z) < 30 &&
   hasLOS(player.x, player.z, e.x, e.z, player.fy + 1.6, e.mesh.position.y);
 function offAim(x: number, z: number) {
-  const want = Math.atan2(-(x - player.x), -(z - player.z));
-  return Math.abs(Math.atan2(Math.sin(want - player.yaw), Math.cos(want - player.yaw)));
+  return Math.abs(wrapAngle(yawToward(x - player.x, z - player.z) - player.yaw));
 }
 const FRONT = 1.1;
 function nearest(): Enemy | null {
@@ -347,8 +346,7 @@ function nearest(): Enemy | null {
 }
 // turn smoothly toward a point, like a thumb on the right side of the screen
 function aimAt(x: number, y: number, z: number, dt: number, rate: number) {
-  const want = Math.atan2(-(x - player.x), -(z - player.z));
-  const diff = Math.atan2(Math.sin(want - player.yaw), Math.cos(want - player.yaw));
+  const diff = wrapAngle(yawToward(x - player.x, z - player.z) - player.yaw);
   player.yaw += clamp(diff, -rate * dt, rate * dt) * Math.min(1, 0.35 + Math.abs(diff) * 2);
   const wantP = Math.atan2(y - (player.fy + 1.6), Math.hypot(x - player.x, z - player.z));
   player.pitch += (clamp(wantP, -0.5, 0.6) - player.pitch) * Math.min(1, dt * 8);

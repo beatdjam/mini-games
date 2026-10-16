@@ -18,7 +18,7 @@
   - ゲーム側: `LOOP.mode = () => 今のモード名`。動かしたいものを `addSystem` で登録し、最後に `startLoop()`
 - `src/core/world.ts`: 振る舞いを持つオブジェクト（Unity の MonoBehaviour に近い）。`spawn(obj)` で毎フレーム `obj.update(dt)`、`obj.dead = true` で片付け（`onRemove` と、画面に残っているメッシュの破棄）、`query(tag)`, `clearWorld(tag)`。`worldGroup(tag, order)` でタグごとに更新の順番を分けられる（リストは同じ配列のまま使い続けられる）
   - ゲーム側: 各グループの `.system.modes` に動くモード。オブジェクトに `tag`, `update`, `mesh`
-- `src/core/util.ts`: `el`, `rand`, `randi`, `pick`, `clamp`, `shuffle`, `createRng(seed)`（同じシードなら同じ並びになる乱数。`rand`・`randi`・`pick`・`shuffle` を持つ）, `pct`, `distXZ`（x-z 平面の距離）, `isTouch`（body に `touch` / `desk` クラスを付ける）
+- `src/core/util.ts`: `el`, `rand`, `randi`, `pick`, `clamp`, `shuffle`, `createRng(seed)`（同じシードなら同じ並びになる乱数。`rand`・`randi`・`pick`・`shuffle` を持つ）, `pct`, `distXZ`（x-z 平面の距離）, `yawToward`（(dx, dz) を向く yaw。0 が -z、左回りが正）, `wrapAngle`（角度を -π〜π に収める）, `turnToward`（近いほうへ最大 max だけ向きを変える）, `isTouch`（body に `touch` / `desk` クラスを付ける）
 - `src/core/i18n.ts`: `LANG`, `lang`, `t(key, values)`, `setLang(code)`, `setI18nHook(fn)`, `fillData`, `applyStaticText`, `defaultLang`
   - ゲーム側: `LANG.<code>` を登録する言語ファイル（`ja` は必須で、キーが無いときの予備）。定義に名前を流し込むなら `setI18nHook(fn)` で関数を登録
 - `src/core/langslots.ts`: `withLang(table, blank)`（定義の表の各項目に、言語ファイルが入れる項目（名前・説明）の空の値を先に入れる。配列でもオブジェクトでもよい。何も import しないので、データのファイルが読み込み時に呼べる）
@@ -48,6 +48,7 @@
   - ゲーム側: テーマのテクスチャ（描き方か画像）とマテリアルの定義、敵や小物の部品の並び
 - `src/render/merge.ts`: 部品の多い模型を、少ない回数で描く。`mergeParts(root, keep)`（一緒に動く部品を、材質ごとに1つのメッシュにまとめる。見た目は変わらない）
   - ゲーム側: 動く部品とコードが触る部品を `keep` に渡す。模型を作った直後、描く前に一度呼ぶ
+- `src/render/batch.ts`: 小さな物をたくさん置くとき、種類ごとに1つのインスタンスメッシュで描く。`batcher(group)` が `put(種類, 作り方, x, y, z, ry, rx, scale)` と `done()` を返す（作り方は種類ごとに最初の1回だけ呼ぶ）
 - `src/render/tilemesh.ts`: タイルで組んだステージのメッシュ。`wallTiles`（見えている壁のタイル）、`addFloor`・`addWalls`・`addDecks`・`addRamps`・`addCeiling`・`addTilePlanes`。絵・壁の高さ・天井の色はゲームから渡す。坂の形は `wedgeGeo(slices)`（0 は横が三角形1枚、n は n 枚に切って段差の横と同じ絵の貼り方）
 - `src/render/mergeflat.ts`: 動かない、色だけの物をまとめて描く。`mergeFlat(root)`（照明を受けない・絵を貼らない・不透明な材質のインスタンスメッシュを、1つのメッシュにまとめる）
   - ゲーム側: 小物を作り終えたあとに一度呼ぶ。動かす・色を変える・あとで数える物には使わない

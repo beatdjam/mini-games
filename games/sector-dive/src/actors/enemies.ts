@@ -1,5 +1,5 @@
 import type { Enemy, RegularEnemy, Sniper, Trooper } from '../data/types.ts';
-import { clamp, distXZ, rand } from '@engine/core/util.ts';
+import { clamp, distXZ, rand, turnToward } from '@engine/core/util.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { flowAt, hasLOS } from '@engine/world/tiles.ts';
 import { steerChase } from '@engine/world/steer.ts';
@@ -178,8 +178,7 @@ function poseEnemy(e: RegularEnemy, dt: number, dx: number, dz: number) {
   e.mesh.position.set(e.x, e.fy + def.y + bob, e.z);
   const want = Math.atan2(dx, dz);
   if (def.turn) {
-    const diff = Math.atan2(Math.sin(want - e.face), Math.cos(want - e.face));
-    e.face += clamp(diff, -def.turn * dt, def.turn * dt);
+    e.face = turnToward(e.face, want, def.turn * dt);
   } else {
     e.face = want;
   }

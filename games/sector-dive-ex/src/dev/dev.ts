@@ -1,5 +1,5 @@
 import type { RunEnd, Weapon } from '../data/types.ts';
-import { el, shuffle } from '@engine/core/util.ts';
+import { el, shuffle, yawToward } from '@engine/core/util.ts';
 import { devHook } from '@engine/core/dev.ts';
 import { LANG, lang, t } from '@engine/core/i18n.ts';
 import { T, W, floorY } from '@engine/world/tiles.ts';
@@ -121,7 +121,7 @@ if (location.hash.startsWith('#bld-'))
         player.z = (Math.floor(tile / W) + 0.5) * T;
         player.fy = floorY(player.x, player.z);
         const [dx, dz] = dirOf(look);
-        player.yaw = Math.atan2(-dx, -dz);
+        player.yaw = yawToward(dx, dz);
         player.pitch = what === 'top' ? -0.35 : what === 'foot' ? 0.3 : 0;
       };
     if (what === 'foot' && stairs) stand(stairs.lower, stairs.strip[0]! - step, step);
@@ -283,7 +283,7 @@ if (location.hash.startsWith('#view-')) {
       player.x = (r.x + 0.6) * T;
       player.z = (r.y + 0.6) * T;
       player.fy = floorY(player.x, player.z);
-      player.yaw = Math.atan2(-(r.w - 1.2), -(r.h - 1.2)); // toward the far corner
+      player.yaw = yawToward(r.w - 1.2, r.h - 1.2); // toward the far corner
       player.pitch = 0.05;
     }
     show(null);

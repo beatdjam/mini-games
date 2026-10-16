@@ -1,5 +1,5 @@
 import type { Biome, RunEnd, Weapon, WeaponItem } from '../data/types.ts';
-import { clamp, el, isTouch, pick, randi, shuffle } from '@engine/core/util.ts';
+import { clamp, el, isTouch, pick, randi, shuffle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { musicVolume, setMusic } from '@engine/audio/music.ts';
@@ -159,7 +159,7 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
   player.x = sx;
   player.z = sz;
   const [ex, ez] = roomSpot(level.rooms[level.exitIdx]);
-  player.yaw = Math.atan2(-(ex - sx), -(ez - sz));
+  player.yaw = yawToward(ex - sx, ez - sz);
   player.pitch = 0;
   makePortal(ex, ez, COLOR.amber, 'next', t(si.sub === PER - 2 ? 'run.toBoss' : 'run.nextArea'));
   level.rooms.forEach((r, idx) => {

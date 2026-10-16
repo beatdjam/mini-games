@@ -1,6 +1,6 @@
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
-import { pick, rand } from '@engine/core/util.ts';
+import { pick, rand, wrapAngle } from '@engine/core/util.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
@@ -90,7 +90,7 @@ function updCore(e: CoreBoss, dt: number) {
       b.material.opacity = live ? 0.95 : 0.22 + Math.sin(e.t * 30) * 0.08;
       b.scale.set(1, live ? 1 : 0.35, live ? 1 : 0.35);
       if (live) {
-        const df = Math.atan2(Math.sin(pa - a), Math.cos(pa - a));
+        const df = wrapAngle(pa - a);
         if (Math.cos(df) > 0 && pd * Math.abs(Math.sin(df)) < K.beamWidth)
           damagePlayer(e.dmg * K.beamDmg, { x: e.cx, z: e.cz });
       }

@@ -1,6 +1,17 @@
 import { expect, test, vi } from 'vitest';
 import * as THREE from 'three';
-import { clamp, createRng, distXZ, el, pct, randi, shuffle } from '../src/core/util.ts';
+import {
+  clamp,
+  createRng,
+  distXZ,
+  el,
+  pct,
+  randi,
+  shuffle,
+  turnToward,
+  wrapAngle,
+  yawToward,
+} from '../src/core/util.ts';
 import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../src/core/store.ts';
 import { addSystem, runSystems, stopFrame } from '../src/core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.ts';
@@ -131,6 +142,7 @@ import { parseScript, sceneAt, setting } from '../src/trailer/script.ts';
 import { mergeParts } from '../src/render/merge.ts';
 import { hideInFog } from '../src/render/fogcull.ts';
 import { mergeFlat } from '../src/render/mergeflat.ts';
+import { batcher } from '../src/render/batch.ts';
 import {
   block,
   canvasTex,
@@ -244,6 +256,18 @@ test('feedback: no form, no link; with one, the game, build and info are filled 
 test('util: distXZ ignores y', () => {
   near(distXZ({ x: 1, z: 2 }, { x: 4, z: 6 }), 5);
   near(distXZ({ x: 0, z: 0, y: 9 } as { x: number; z: number }, { x: 0, z: 0 }), 0);
+});
+test('util: yawToward / wrapAngle / turnToward', () => {
+  near(yawToward(0, -1), 0); // straight ahead is -z
+  near(yawToward(-1, 0), Math.PI / 2); // left is positive
+  near(yawToward(1, 0), -Math.PI / 2);
+  near(Math.abs(yawToward(0, 1)), Math.PI);
+  near(wrapAngle(Math.PI * 2 + 0.25), 0.25);
+  near(wrapAngle(-Math.PI * 1.5), Math.PI / 2);
+  // the shorter way round, never more than max
+  near(turnToward(0, 0.3, 0.1), 0.1);
+  near(turnToward(0, -0.05, 0.1), -0.05);
+  near(turnToward(Math.PI - 0.1, -Math.PI + 0.1, 0.5), Math.PI + 0.1); // across ±π, not back through 0
 });
 test('util: clamp / randi / shuffle', () => {
   eq(clamp(5, 0, 3), 3);
@@ -3115,6 +3139,32 @@ test('fogcull: a thing past the fog (and its reach) is hidden, one in it shown; 
   expect(far.mesh.visible, 'no fog: shown again').toBe(true);
 });
 
+test('batch: one instanced mesh per kind, each thing where it was put', () => {
+  const group = new THREE.Group(),
+    b = batcher(group);
+  let made = 0;
+  const box = (): [THREE.BufferGeometry, THREE.Material] => {
+    made++;
+    return [new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial()];
+  };
+  b.put('box', box, 1, 2, 3);
+  b.put('box', box, 4, 0, 0, Math.PI / 2);
+  b.put('box', box, 0, 0, 0, 0, 0, [2, 1, 1]);
+  b.put('plane', () => [new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial()], 0, 5, 0);
+  b.done();
+  expect(made, 'make runs once per kind').toBe(1);
+  const meshes = group.children as THREE.InstancedMesh[];
+  expect(meshes.map(m => m.count)).toEqual([3, 1]);
+  const m = new THREE.Matrix4(),
+    p = new THREE.Vector3(),
+    q = new THREE.Quaternion(),
+    sc = new THREE.Vector3();
+  meshes[0]!.getMatrixAt(0, m);
+  expect(p.setFromMatrixPosition(m).toArray()).toEqual([1, 2, 3]);
+  meshes[0]!.getMatrixAt(2, m);
+  m.decompose(p, q, sc);
+  expect(sc.x).toBeCloseTo(2);
+});
 test('mergeflat: coloured things that stand still become one mesh per group; textured or see-through ones stay', () => {
   const box = new THREE.BoxGeometry(1, 1, 1),
     inst = (mat: THREE.Material, n: number, x: number) => {
