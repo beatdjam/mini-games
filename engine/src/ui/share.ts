@@ -39,3 +39,29 @@ export function saveFile(blob: Blob, filename: string) {
 export function openXPost(text: string) {
   window.open(X_INTENT_URL + encodeURIComponent(text), '_blank', 'noopener');
 }
+
+// ---- drawing a share card on a canvas ----
+// the text that fits in max px, with "…" where it is cut, measured with the context's current font
+export function fitText(g: CanvasRenderingContext2D, s: string, max: number): string {
+  if (g.measureText(s).width <= max) return s;
+  let cut = s;
+  while (cut && g.measureText(cut + '…').width > max) cut = cut.slice(0, -1);
+  return cut + '…';
+}
+// a grid of 1px lines every `step` px over a w x h card, in `color` (the 0.5 puts a 1px line on whole pixels)
+export function drawGrid(g: CanvasRenderingContext2D, w: number, h: number, step: number, color: string) {
+  g.strokeStyle = color;
+  g.lineWidth = 1;
+  for (let p = 0; p <= w; p += step) {
+    g.beginPath();
+    g.moveTo(p + 0.5, 0);
+    g.lineTo(p + 0.5, h);
+    g.stroke();
+  }
+  for (let p = 0; p <= h; p += step) {
+    g.beginPath();
+    g.moveTo(0, p + 0.5);
+    g.lineTo(w, p + 0.5);
+    g.stroke();
+  }
+}
