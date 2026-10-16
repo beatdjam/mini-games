@@ -66,6 +66,16 @@ export default defineConfig(({ command, isPreview }) => ({
   resolve: { alias: { '@engine': resolve('engine/src') } },
   server: { port: 8765, strictPort: true },
   // three.js alone is ~550 kB, so the vendor chunk is always over the default 500 kB warning
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 800, rolldownOptions: { input: pages } },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 800,
+    // a minified build drops licence comments by default (Vite turns rolldown's comments.legal off, and the minifier
+    // has its own switch): keep both on, so three.js's MIT notice goes with its code, at the end of each file
+    rolldownOptions: {
+      input: pages,
+      output: { comments: { legal: true }, minify: { codegen: { legalComments: 'eof' } } },
+    },
+  },
   plugins: [buildStamp(), analytics()],
 }));

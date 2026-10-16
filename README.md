@@ -34,6 +34,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 ### 環境
 
 - TypeScript の ES モジュール（import / export）＋ Vite。three.js は npm の `three`（0.128.0 に固定、型は `@types/three`）
+- 公開版に入る外部のコードは three.js（MIT）だけ。ビルドは、ライセンスのコメント（`@license`）を消さずに残す（`vite.config.js` の `rolldownOptions.output`）。フォントは Google Fonts から読み込み、同梱しない。音はコードで鳴らす。外部の素材やコードを同梱するときは、ライセンスの表記の要る・要らないを確かめる
 - Node は 24（`.nvmrc`。CI も同じ版を使う）。22.12 以上なら動く（`package.json` の `engines`）
 - 最初に `npm install`
 
