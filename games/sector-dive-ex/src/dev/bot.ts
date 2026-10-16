@@ -20,6 +20,7 @@ import { building } from '../world/building.ts';
 import { level } from '../world/level.ts';
 import { state } from '../flow/state.ts';
 import { controlState, equipNearby, normalizeWeapons, useKit } from '../ui/input.ts';
+import { yawToward, wrapAngle, turnToward } from '@engine/core/util.ts';
 // ================= a player that plays by itself (dev) =================
 // For looking at the balance without playing by hand: a bot that walks the building's route, fights what it sees and
 // takes the boss, through the same inputs a person uses (the stick, where the player looks, the fire button). It
@@ -121,7 +122,7 @@ const BOSS_PLAYS: Record<string, (b: Boss, me: Vec) => BossPlay> = {
       pa = Math.atan2(-(me.z - b.cz), me.x - b.cx);
     for (let k = 0; k < n; k++) {
       const a = c.ba + (k / n) * Math.PI * 2,
-        df = Math.atan2(Math.sin(pa - a), Math.cos(pa - a)) * c.bdir; // the beam is this far behind the player (rad)
+        df = wrapAngle(pa - a) * c.bdir; // the beam is this far behind the player (rad)
       if (df > 0 && df < Math.PI / 2 && pd * Math.sin(df) < BEAM_NEAR)
         // (round the middle, the way the beam came from)
         return { dash: { x: Math.sin(pa) * c.bdir, z: Math.cos(pa) * c.bdir } };
@@ -198,14 +199,6 @@ export interface BotStats {
   stuck: number; // times it had to shake itself loose
   doing: string; // what it is doing now (for the picture and for a run that never ends)
   trace: string[]; // what it did, in order: `<second> <floor> <what>` each time that changed
-}
-
-const angleTo = (dx: number, dz: number) => Math.atan2(-dx, -dz); // the yaw that looks along (dx, dz)
-function turnToward(from: number, to: number, max: number): number {
-  let d = (to - from) % (Math.PI * 2);
-  if (d > Math.PI) d -= Math.PI * 2;
-  if (d < -Math.PI) d += Math.PI * 2;
-  return from + Math.max(-max, Math.min(max, d));
 }
 
 export function createBot(style: BotStyle) {
@@ -399,7 +392,7 @@ export function createBot(style: BotStyle) {
     const cp = camera.position,
       dx = x - cp.x,
       dz = z - cp.z,
-      wantYaw = angleTo(dx, dz) + errYaw,
+      wantYaw = yawToward(dx, dz) + errYaw,
       wantPitch = Math.atan2(y - cp.y, Math.hypot(dx, dz)) + errPitch;
     player.yaw = turnToward(player.yaw, wantYaw, style.turn * dt);
     player.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, turnToward(player.pitch, wantPitch, style.turn * dt)));
@@ -645,7 +638,7 @@ export function createBot(style: BotStyle) {
     if (roamT > 0) {
       roamT -= dt;
       setFireHeld(false);
-      player.yaw = turnToward(player.yaw, angleTo(roam.x, roam.z), style.turn * dt);
+      player.yaw = turnToward(player.yaw, yawToward(roam.x, roam.z), style.turn * dt);
       walk(roam.x, roam.z);
       stats.doing = 'roam';
       return;
@@ -699,7 +692,7 @@ export function createBot(style: BotStyle) {
     }
     // on its way: look where it walks
     if (way.x || way.z) {
-      player.yaw = turnToward(player.yaw, angleTo(way.x, way.z), style.turn * dt);
+      player.yaw = turnToward(player.yaw, yawToward(way.x, way.z), style.turn * dt);
       player.pitch = turnToward(player.pitch, 0, style.turn * dt);
     }
     // stuck against something (a corner, a crate): sidestep for a moment

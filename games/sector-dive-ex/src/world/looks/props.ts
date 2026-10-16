@@ -7,6 +7,7 @@ import { RISE, SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
 import { EYE, WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
 import { poolTex } from './paint.ts';
+import { yawToward } from '@engine/core/util.ts';
 // The tools for the things fixed to a sector's walls and ceilings (its props): where a thing goes on a wall, the
 // places the engine hands out (placeProps), one instanced mesh for all the copies of a part, and the light the lamps
 // throw on the ground.
@@ -27,7 +28,7 @@ export function onWall(s: WallSlot, off: number, out: number, y: number): THREE.
 // the turn that makes a thing's +z look away from the wall (its +x then runs along the wall)
 export function facing(s: WallSlot): number {
   const [di, dj] = SIDE_STEP[s.side ?? 0]!;
-  return Math.atan2(-di, -dj);
+  return yawToward(di, dj);
 }
 // ---- what hangs overhead, over a raised floor ----
 // Overhead things (cables slung across, a roof over an alley, a lamp on its cord, a sign hung out) are at heights

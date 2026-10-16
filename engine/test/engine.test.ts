@@ -1,6 +1,17 @@
 import { expect, test, vi } from 'vitest';
 import * as THREE from 'three';
-import { clamp, createRng, distXZ, el, pct, randi, shuffle } from '../src/core/util.ts';
+import {
+  clamp,
+  createRng,
+  distXZ,
+  el,
+  pct,
+  randi,
+  shuffle,
+  turnToward,
+  wrapAngle,
+  yawToward,
+} from '../src/core/util.ts';
 import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../src/core/store.ts';
 import { addSystem, runSystems, stopFrame } from '../src/core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.ts';
@@ -243,6 +254,18 @@ test('feedback: no form, no link; with one, the game, build and info are filled 
 test('util: distXZ ignores y', () => {
   near(distXZ({ x: 1, z: 2 }, { x: 4, z: 6 }), 5);
   near(distXZ({ x: 0, z: 0, y: 9 } as { x: number; z: number }, { x: 0, z: 0 }), 0);
+});
+test('util: yawToward / wrapAngle / turnToward', () => {
+  near(yawToward(0, -1), 0); // straight ahead is -z
+  near(yawToward(-1, 0), Math.PI / 2); // left is positive
+  near(yawToward(1, 0), -Math.PI / 2);
+  near(Math.abs(yawToward(0, 1)), Math.PI);
+  near(wrapAngle(Math.PI * 2 + 0.25), 0.25);
+  near(wrapAngle(-Math.PI * 1.5), Math.PI / 2);
+  // the shorter way round, never more than max
+  near(turnToward(0, 0.3, 0.1), 0.1);
+  near(turnToward(0, -0.05, 0.1), -0.05);
+  near(turnToward(Math.PI - 0.1, -Math.PI + 0.1, 0.5), Math.PI + 0.1); // across ±π, not back through 0
 });
 test('util: clamp / randi / shuffle', () => {
   eq(clamp(5, 0, 3), 3);
