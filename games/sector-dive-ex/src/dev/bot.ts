@@ -1,5 +1,5 @@
 import { addSystem } from '@engine/core/loop.ts';
-import { OPPOSITE_SIDE, SIDE_STEP, activeTileGrid, hasLOS, tileCenter, tileIndex } from '@engine/world/tiles.ts';
+import { OPPOSITE_SIDE, SIDE_STEP, T, activeTileGrid, hasLOS, tileCenter, tileIndex } from '@engine/world/tiles.ts';
 import { camera } from '@engine/render/render.ts';
 import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { query } from '@engine/core/world.ts';
@@ -168,6 +168,7 @@ const REPATH_FRAMES = 30; // the way is worked out again this often (doors lock 
 const IDLE_AFTER = 8; // getting nowhere for this long (no ground covered, nothing killed), it roams (s)
 const IDLE_MOVED = 1.5; // ... less ground than this (m)
 const ROAM_FOR = 2.5; // it then walks some other way for this long (s)
+const GATE_KEEP = PORTAL.enterR + 0.6; // metres kept from a gate it does not mean to take (data/level.ts PORTAL)
 const HAZARD_COST = 8; // a hazard floor tile counts as this many tiles of walking: it goes round when that is shorter
 const LOOK_AHEAD = 1.7; // it will not walk onto a live hazard floor this near ahead (m)
 const BETTER_BY = 1.1; // a weapon on the floor is taken when it does this many times the damage of the worse one held
@@ -253,15 +254,25 @@ export function createBot(style: BotStyle) {
     // (when the only way lies past the gate it does not want, it goes that way all the same)
     if ((dist[tileIndex(player.x, player.z)] ?? -1) < 0) spread(goal, false);
   }
+  // the gates it keeps away from: the ones other than the gate it means to take, once that one is open
+  const gatesToShun = () =>
+    level.portals.some(pt => pt.kind === style.after) ? level.portals.filter(pt => pt.kind !== style.after) : [];
   function spread(goal: number, roundGates: boolean) {
     const grid = activeTileGrid(),
       { W, H, grid: floor } = grid.world;
     dist = new Int32Array(W * H).fill(-1);
-    // (the gate it does not mean to take is walked round: stepping near it would end the run or the depth)
-    const wants = level.portals.some(pt => pt.kind === style.after),
-      shut = new Set(
-        level.portals.filter(pt => roundGates && wants && pt.kind !== style.after).map(pt => tileIndex(pt.x, pt.z)),
-      );
+    // (the gate it does not mean to take is walked round: stepping near it would end the run or the depth. Every tile
+    // whose middle is within GATE_KEEP of it is kept off, not only the gate's own tile)
+    const shut = new Set<number>();
+    if (roundGates)
+      for (const pt of gatesToShun()) {
+        const gi = Math.floor(pt.x / T),
+          gj = Math.floor(pt.z / T);
+        for (let j = gj - 2; j <= gj + 2; j++)
+          for (let i = gi - 2; i <= gi + 2; i++)
+            if (grid.inBounds(i, j) && Math.hypot(tileCenter(i) - pt.x, tileCenter(j) - pt.z) < GATE_KEEP)
+              shut.add(i + j * W);
+      }
     const queue = [goal];
     dist[goal] = 0;
     // (tiles are taken again when a shorter way to them turns up: a hazard floor costs more than a plain one)
@@ -413,7 +424,9 @@ export function createBot(style: BotStyle) {
   let lootT = 0;
   const lootLeft = new Set<Pickup>();
   function lootNear(dt: number): Pickup | null {
-    const ok = (p: Pickup) => wanted(p) && !lootLeft.has(p) && stepsTo(p) >= 0;
+    // (a thing lying by the gate it does not mean to take is left there: picking it up would walk into the gate)
+    const byGate = (p: Pickup) => gatesToShun().some(pt => Math.hypot(p.x - pt.x, p.z - pt.z) < GATE_KEEP);
+    const ok = (p: Pickup) => wanted(p) && !lootLeft.has(p) && !byGate(p) && stepsTo(p) >= 0;
     if (lootFor && ok(lootFor)) {
       lootT += dt;
       if (lootT < LOOT_GIVE_UP) return lootFor;
