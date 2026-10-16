@@ -51,8 +51,9 @@ const KILL_BITS_MUL = 0.6; // share of an enemy's bits dropped
 const KILL_BITS_PER_PROG = 0.05; // more bits per progress
 const KIT_DROP_SPREAD = 0.5; // a dropped kit lands this far from the enemy (m)
 const CHAIN_R_BASE = 2.5,
-  CHAIN_R_PER = 0.5; // chain blast radius: base + per chip (m)
-const CHAIN_SHARE = 0.5; // chain blast damage per chip: this share of the health the dead enemy had when whole
+  CHAIN_R_PER = 0.5, // chain blast radius: base + per chip (m)
+  CHAIN_R_MAX = 4.5; // ... and no wider (4 chips): stacked chips make it hit harder, not take in the whole room
+const CHAIN_SHARE = 0.3; // chain blast damage per chip: this share of the health the dead enemy had when whole
 const SPLIT_KIDS = 2; // enemies a splitter breaks into
 const SPLIT_OFFSET = 0.6; // the halves appear this far to each side (m)
 const ROOM_KIT_OFFSET = 0.8; // a cleared room puts the kit / bits this far to each side of its centre (m)
@@ -204,7 +205,7 @@ function chainBlast(e: RegularEnemy) {
     pos.x,
     pos.y,
     pos.z,
-    CHAIN_R_BASE + player.chain * CHAIN_R_PER,
+    Math.min(CHAIN_R_MAX, CHAIN_R_BASE + player.chain * CHAIN_R_PER),
     CHAIN_SHARE * player.chain * e.maxHp,
     COLOR.amber,
   );

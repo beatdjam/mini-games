@@ -734,7 +734,7 @@ test('chain blast: one kill in a tight cluster does not cascade', () => {
   if (alive !== 2) throw new Error('chain cascade: alive ' + alive);
   endRun('abandon');
 });
-test('chain blast: as big as the enemy that blew up, whatever the damage chips', () => {
+test('chain blast: as big as the enemy that blew up, whatever the damage chips; no wider than 4.5 m', () => {
   startRun();
   tick(3);
   enemies.slice().forEach(e => {
@@ -761,10 +761,22 @@ test('chain blast: as big as the enemy that blew up, whatever the damage chips',
     }
     return Math.min(...losses);
   };
-  expect(lossBy('crawler'), 'half the health of the one killed').toBeCloseTo(0.5, 5);
-  expect(lossBy('brute')).toBeCloseTo(0.5, 5);
+  expect(lossBy('crawler'), 'a share of the health of the one killed').toBeCloseTo(0.3, 5);
+  expect(lossBy('brute')).toBeCloseTo(0.3, 5);
   player.dmgMul = 10;
-  expect(lossBy('crawler'), 'damage chips do not count').toBeCloseTo(0.5, 5);
+  expect(lossBy('crawler'), 'damage chips do not count').toBeCloseTo(0.3, 5);
+  // the radius stops growing at 4.5 m: with many chips, an enemy 6.5 m off is not touched, one 3.5 m off is
+  player.dmgMul = 1;
+  player.chain = 20;
+  const dead = spawnEnemy('crawler', cx, cz, -1, 1),
+    near = spawnEnemy('brute', cx + 3.5, cz, -1, 1),
+    far = spawnEnemy('brute', cx, cz + 6.5, -1, 1);
+  [near, far].forEach(e => {
+    e.maxHp = 1e9;
+    e.hp = 1e9;
+  });
+  hurtEnemy(dead, 1e6, false);
+  expect(near.hp < near.maxHp && far.hp === far.maxHp).toBe(true);
   endRun('abandon');
 });
 test('shortcut supply: 2 picks at DEPTH 3, chips applied supplyTimes times', () => {
