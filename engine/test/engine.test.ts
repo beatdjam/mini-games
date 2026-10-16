@@ -307,11 +307,11 @@ test('feedback: no form, no link; with one, the game, build and info are filled 
 });
 test('dev: showFps counts the frames drawn and shows them after a second', async () => {
   const before = document.body.children.length;
-  showFps();
+  showFps(() => 'more');
   const box = document.body.lastElementChild as HTMLElement;
   expect(document.body.children.length).toBe(before + 1);
   await new Promise(r => setTimeout(r, 1200));
-  expect(box.textContent).toMatch(/^\d+ fps$/);
+  expect(box.textContent).toMatch(/^\d+ fps {2}more$/);
   box.remove();
 });
 test('util: distXZ ignores y', () => {

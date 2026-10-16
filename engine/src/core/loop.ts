@@ -48,6 +48,7 @@ export function loopFrame(now: number) {
   const dt = Math.min(LOOP.maxDt, (now - loopLast) / 1000);
   loopLast = now;
   runSystems(dt);
+  renderer.info.reset(); // (render.ts: the counts add up over this frame's passes)
   renderer.render(scene, camera);
   renderGun();
 }

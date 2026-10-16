@@ -15,6 +15,8 @@ function addLights(target: THREE.Scene, sunPos: [number, number, number]): THREE
 export const canvas = el<HTMLCanvasElement>('#gl');
 export const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
+// the draw counts (drawStats) add up over a frame's passes (the scene, then the gun): core/loop.ts clears them per frame
+renderer.info.autoReset = false;
 export const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(BG_COLOR, 4, 44);
 scene.background = new THREE.Color(BG_COLOR);
@@ -160,3 +162,6 @@ export function buildViewmodel(
   g.userData = { tip, flash, pos: def.pos };
   return g;
 }
+// what the last frame drew, all its passes: draw calls and triangles, for showing how heavy a place is
+export const drawStats = (): string =>
+  `${renderer.info.render.calls} calls ${Math.round(renderer.info.render.triangles / 1000)}k tris`;
