@@ -25,8 +25,8 @@ function tileStyle(k: number): TileStyle | null {
 }
 const seenAt = (x: number, z: number) => !!level.seen[tileIndex(x, z)];
 
-// what is on the map, in drawing order: pickups (not bits), gates (named on the big map), awake enemies and bosses
-function markers(big: boolean): MapMarker[] {
+// what is on the map, in drawing order: pickups (not bits), gates (named on the big map), enemies and bosses
+export function markers(big: boolean): MapMarker[] {
   const out: MapMarker[] = [];
   query<Pickup>('pickup').forEach(p => {
     if (p.kind === 'bit' || !seenAt(p.x, p.z)) return;
@@ -82,7 +82,9 @@ function markers(big: boolean): MapMarker[] {
     }
   }
   enemies.forEach(e => {
-    if (!e.dead && (e.active || e.boss) && seenAt(e.x, e.z))
+    // asleep or awake: an enemy on a seen tile is there to be found (a room is all seen once it is entered, so the one
+    // behind a pillar shows too; from outside, only what a line of sight reaches is seen)
+    if (!e.dead && seenAt(e.x, e.z))
       out.push({ x: e.x, z: e.z, shape: 'dot', color: CSS_COLOR.mag, size: e.boss ? 5 : 2.2 });
   });
   return out;

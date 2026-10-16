@@ -165,6 +165,7 @@ import { setState, show, state } from '../src/flow/state.ts';
 import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { openPerk } from '../src/screens/perk.ts';
 import { pause, statsHTML } from '../src/screens/pause.ts';
+import { markers } from '../src/ui/minimap.ts';
 import { renderBase, showTab, weaponStatText } from '../src/screens/base.ts';
 import { shareData, shareText } from '../src/ui/share.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
@@ -716,6 +717,24 @@ test('gun looks: every weapon has one, and no two of its parts have a flat face 
         }
   }
   expect(clash).toEqual([]);
+});
+test('map: an enemy on a seen tile shows, asleep or awake; one on a tile not seen does not', () => {
+  startRun();
+  tick(3);
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
+  const [cx, cz] = roomSpot(level.rooms[level.startIdx]);
+  const e = spawnEnemy('crawler', cx, cz, -1, 1),
+    shown = () => markers(false).some(m => m.shape === 'dot' && m.x === e.x && m.z === e.z);
+  e.active = false; // asleep
+  level.seen[tileIndex(e.x, e.z)] = 1;
+  expect(shown(), 'asleep on a seen tile').toBe(true);
+  level.seen[tileIndex(e.x, e.z)] = 0;
+  expect(shown(), 'on a tile not seen').toBe(false);
+  endRun('abandon');
 });
 test('chain blast: one kill in a tight cluster does not cascade', () => {
   startRun();
