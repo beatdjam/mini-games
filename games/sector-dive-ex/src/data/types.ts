@@ -362,6 +362,7 @@ export interface BuildingState {
   visited: boolean[]; // per floor: entered before (the weapon caches are put down on the first visit)
   supplied?: boolean; // the pre-boss supply has been given: the rooms of this building drop no more chips
   seen?: string[]; // per floor: the tiles shown on the map, packed (packSeen); written when the checkpoint is saved
+  v?: number; // the BUILDING_V the building was laid out with (none: saved before there was one)
 }
 export interface RunState {
   stage: number;

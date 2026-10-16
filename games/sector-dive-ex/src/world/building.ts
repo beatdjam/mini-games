@@ -22,7 +22,7 @@ export { makeRoute, roomDoors, roomsOnWay, roomTiles } from '@engine/world/stair
 export type { BuildingLink } from '@engine/world/stairwells.ts';
 import { COVER_H, PLAT_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
-import type { Biome } from '../data/types.ts';
+import type { Biome, BuildingState } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
 import { wallBeyond } from './looks/common.ts';
 import type { GeneratedLevel } from './levelGen.ts';
@@ -39,6 +39,10 @@ import type { GeneratedLevel } from './levelGen.ts';
 //   on the upper floor only L1 and L2 are floor (on its ground, the same height in the world); the rest is open
 // The player is on the lower floor's tile world up to L1 and on the upper floor's from L2 on (flow/events.ts).
 // A lift is one tile S that is floor on both floors; standing on it rides to the other one.
+// The version of how makeBuilding lays a building out from its seed. Raise it with any change that gives a seed another
+// building (rooms, stairwells and lifts, the route, courtyards): a run suspended before then is fitted onto the new
+// building when it is resumed (fitBuildingState). A test in test/smoke.test.ts fails when the layout changes
+export const BUILDING_V = 1;
 // ---- tuning numbers used only here ----
 export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
 // ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with
@@ -173,6 +177,24 @@ export function unpackSeen(b: Building, packed: string[] | undefined) {
     }
     for (let k = 0; k < p.seen.length; k++) p.seen[k] = (text.charCodeAt(k >> 3) >> (k & 7)) & 1 ? 1 : 0;
   });
+}
+// A run suspended on a building of an older BUILDING_V: its seed gives another building now, so what was saved by
+// floor and room number would point at other places. The state is put onto building b instead: the player goes on at
+// the same step of the route, where its stairwell or lift lets them off (the start room at the first step). The floors
+// before it on the route count as done (no enemies, no weapon caches, the lockdown over if it was there), so their chips
+// are not dropped twice; the floors from it on are not entered yet. The map starts unexplored
+export function fitBuildingState(st: BuildingState, b: Building) {
+  const step = Math.min(Math.max(st.step, 0), b.plans.length - 1),
+    done = b.route.slice(0, step);
+  st.v = BUILDING_V;
+  st.floors = b.plans.length;
+  st.step = step;
+  st.floor = b.route[step]!;
+  st.at = step - 1;
+  st.cleared = b.plans.map((p, floor) => (done.includes(floor) ? p.gen.rooms.map((_, idx) => idx) : []));
+  st.visited = b.plans.map((_, floor) => done.includes(floor));
+  if (b.lockdown && done.includes(b.lockdown.floor)) st.ld = 1;
+  delete st.seen;
 }
 
 // The places for a courtyard that needs a square of `side` tiles (see addCourt): where that square is

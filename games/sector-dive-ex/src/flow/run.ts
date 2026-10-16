@@ -39,7 +39,15 @@ import {
   stashFloor,
   takeFollowers,
 } from '../world/level.ts';
-import { FLOOR_H, building, makeBuilding, setBuilding, unpackSeen } from '../world/building.ts';
+import {
+  BUILDING_V,
+  FLOOR_H,
+  building,
+  fitBuildingState,
+  makeBuilding,
+  setBuilding,
+  unpackSeen,
+} from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal } from '../world/portals.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
@@ -226,13 +234,16 @@ function ensureBuilding(tier: number, b: Biome): BuildingState {
       cleared: made.plans.map(() => []),
       ld: 0,
       visited: [],
+      v: BUILDING_V,
     };
   }
   const st = run.bld;
   if (!building || building.seed !== st.seed || building.biome !== b) {
-    // a resumed run: the same building from its seed, with the map as far as it was explored at the checkpoint
+    // a resumed run: the same building from its seed, with the map as far as it was explored at the checkpoint. A run
+    // saved on a building laid out another way is fitted onto the one the seed gives now
     const made = makeBuilding(b, st.boss, st.seed);
-    unpackSeen(made, st.seen);
+    if (st.v === BUILDING_V) unpackSeen(made, st.seen);
+    else fitBuildingState(st, made);
     setBuilding(made);
   }
   return st;
