@@ -1,4 +1,5 @@
 import { createRng } from '@engine/core/util.ts';
+import { packBits, unpackBits } from '@engine/core/store.ts';
 import { generateDungeon } from '@engine/world/dungeon.ts';
 import {
   allReached,
@@ -94,30 +95,12 @@ export function setBuilding(b: Building | null) {
   building = b;
 }
 
-// The explored map of every floor as text, for the checkpoint: one bit per tile, 8 tiles to a character code, base64.
-// A resumed run gets its map back with unpackSeen (the building is rebuilt from its seed, the map is not)
-export function packSeen(b: Building): string[] {
-  return b.plans.map(p => {
-    let text = '';
-    for (let k = 0; k < p.seen.length; k += 8) {
-      let byte = 0;
-      for (let n = 0; n < 8; n++) if (p.seen[k + n]) byte |= 1 << n;
-      text += String.fromCharCode(byte);
-    }
-    return btoa(text);
-  });
-}
+// The explored map of every floor as text, for the checkpoint (engine packBits: one bit per tile). A resumed run gets
+// its map back with unpackSeen (the building is rebuilt from its seed, the map is not)
+export const packSeen = (b: Building): string[] => b.plans.map(p => packBits(p.seen));
 // puts a packed map back on the building's floors; a floor without one (or with a broken one) stays unexplored
 export function unpackSeen(b: Building, packed: string[] | undefined) {
-  b.plans.forEach((p, floor) => {
-    let text = '';
-    try {
-      text = atob(packed?.[floor] ?? '');
-    } catch (err) {
-      return;
-    }
-    for (let k = 0; k < p.seen.length; k++) p.seen[k] = (text.charCodeAt(k >> 3) >> (k & 7)) & 1 ? 1 : 0;
-  });
+  b.plans.forEach((p, floor) => unpackBits(packed?.[floor] ?? '', p.seen));
 }
 // A run suspended on a building of an older BUILDING_V: its seed gives another building now, so what was saved by
 // floor and room number would point at other places. The state is put onto building b instead: the player goes on at

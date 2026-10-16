@@ -12,7 +12,17 @@ import {
   wrapAngle,
   yawToward,
 } from '../src/core/util.ts';
-import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../src/core/store.ts';
+import {
+  clearStore,
+  decodeStore,
+  encodeStore,
+  loadStore,
+  packBits,
+  prefGet,
+  prefSet,
+  saveStore,
+  unpackBits,
+} from '../src/core/store.ts';
 import { addSystem, runSystems, stopFrame } from '../src/core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.ts';
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../src/core/i18n.ts';
@@ -303,6 +313,20 @@ test('util: createRng repeats for the same seed and stays in range', () => {
   eq(createRng(9).pick(['x']), 'x', 'pick from one');
 });
 
+test('store: flags packed to text and back, a broken text leaving them as they were', () => {
+  const bits = Uint8Array.from({ length: 21 }, (_, k) => (k % 3 === 0 || k === 20 ? 1 : 0)),
+    back = new Uint8Array(21);
+  const text = packBits(bits);
+  expect(text.length, '21 flags take 3 characters, then base64').toBe(4);
+  expect(unpackBits(text, back)).toBe(true);
+  expect(Array.from(back)).toEqual(Array.from(bits));
+  const kept = Uint8Array.from([1, 0, 1]);
+  expect(unpackBits('not base64 !', kept)).toBe(false);
+  expect(Array.from(kept)).toEqual([1, 0, 1]);
+  // nothing saved: every flag off
+  expect(unpackBits('', kept)).toBe(true);
+  expect(Array.from(kept)).toEqual([0, 0, 0]);
+});
 test('store: saved values merge deeply over defaults', () => {
   const key = 'engine-test-store';
   saveStore(key, { a: 2, nested: { x: 9 }, list: [7] });
