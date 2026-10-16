@@ -53,6 +53,14 @@ export const isTouch =
 document.body.classList.add(isTouch ? 'touch' : 'desk');
 
 export const pct = (v: number): string => `${Math.round(v * 100)}%`;
+// Angles in radians. The yaw of a look on the ground plane: 0 looks toward -z, and it grows turning left (toward -x)
+// the yaw that looks along (dx, dz)
+export const yawToward = (dx: number, dz: number): number => Math.atan2(-dx, -dz);
+// the same angle within -π..π: the shorter way round from 0 (so the difference of two angles never goes the long way)
+export const wrapAngle = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
+// `from` turned toward `to` by at most `max`, the shorter way round
+export const turnToward = (from: number, to: number, max: number): number =>
+  from + clamp(wrapAngle(to - from), -max, max);
 // distance between two points on the ground plane (ignores y)
 export function distXZ(a: { x: number; z: number }, b: { x: number; z: number }): number {
   return Math.hypot(a.x - b.x, a.z - b.z);

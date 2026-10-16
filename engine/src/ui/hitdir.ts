@@ -1,4 +1,5 @@
 import type * as THREE from 'three';
+import { yawToward, wrapAngle } from '../core/util.ts';
 // ---- where a hit came from: an arc around the crosshair, only when the attacker is outside the view ----
 // hits from in front need no arc (you can see them); the arc keeps pointing at the spot while you turn, then fades
 const MAX_ARCS = 4; // arcs shown at once by default (the oldest is reused when all are busy)
@@ -23,8 +24,7 @@ export function createHitDirs(opts: HitDirOptions) {
   // angle of a point from the view direction: 0 = straight ahead, positive = to the left
   const relAngle = (x: number, z: number) => {
     const v = opts.view();
-    const a = Math.atan2(-(x - v.x), -(z - v.z)) - v.yaw;
-    return Math.atan2(Math.sin(a), Math.cos(a));
+    return wrapAngle(yawToward(x - v.x, z - v.z) - v.yaw);
   };
   function show(x: number, z: number) {
     const cam = opts.camera;

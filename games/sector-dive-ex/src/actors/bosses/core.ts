@@ -2,7 +2,7 @@ import { coreLook } from '../../world/models/bossLooks.ts';
 import { plainLooks } from '../../world/looks.ts';
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
-import { pick, rand } from '@engine/core/util.ts';
+import { pick, rand, wrapAngle } from '@engine/core/util.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { BOSS_META } from '../../data/bosses.ts';
@@ -103,7 +103,7 @@ function updCore(e: CoreBoss, dt: number) {
       b.scale.set(1, live ? 1 : 0.35, live ? 1 : 0.35);
       if (b.children[0]) b.children[0].visible = live; // the white-hot line: only once the beam burns
       if (live) {
-        const df = Math.atan2(Math.sin(pa - a), Math.cos(pa - a));
+        const df = wrapAngle(pa - a);
         if (Math.cos(df) > 0 && pd * Math.abs(Math.sin(df)) < K.beamWidth)
           damagePlayer(e.dmg * K.beamDmg, { x: e.cx, z: e.cz });
       }

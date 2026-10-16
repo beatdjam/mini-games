@@ -1,4 +1,4 @@
-import { pick } from '@engine/core/util.ts';
+import { pick, yawToward } from '@engine/core/util.ts';
 import { camera } from '@engine/render/render.ts';
 import { floorY } from '@engine/world/tiles.ts';
 import { EYE } from '../data/level.ts';
@@ -23,7 +23,7 @@ export function buildAttract() {
   });
   attractPos = roomSpot(level.rooms[level.startIdx]);
   const [ex, ez] = roomSpot(level.rooms[level.exitIdx]);
-  attractYaw = Math.atan2(-(ex - attractPos[0]), -(ez - attractPos[1]));
+  attractYaw = yawToward(ex - attractPos[0], ez - attractPos[1]);
   makePortal(ex, ez, COLOR.amber, 'next', '');
   level.seen.fill(1);
 }
