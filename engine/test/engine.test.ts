@@ -79,6 +79,7 @@ import {
 import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
 import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, isDoorLocked, lockDoor, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
+import { addDecks, addRamps, addWalls, wallTiles, wedgeGeo } from '../src/render/tilemesh.ts';
 import {
   STAIRWELL_DEFAULTS,
   allReached,
@@ -520,6 +521,28 @@ function worldFromRows(rows: string[], deckH?: number): TileWorld {
     doorOpen: m.maps.doorOpen,
   };
 }
+test('tilemesh: walls round the floor, one box per deck and per cover tile, a wedge per ramp', () => {
+  const was = activeTileGrid().world;
+  // a ring of wall round a floor with a deck (=), a ramp (>) and a cover tile (c)
+  setTileWorld(worldFromRows(['#####', '#.=>#', '#c..#', '#####']));
+  try {
+    const tex = new THREE.Texture(),
+      group = new THREE.Group();
+    expect(wallTiles().length, 'every wall tile touches the floor here').toBe(14);
+    addWalls(tex, wallTiles(), 6, group);
+    addDecks({ top: tex, side: tex, cover: tex, coverTint: 0x808080 }, group);
+    addRamps(tex, tex, 0, group);
+    const [walls, decks, cover, wedge] = group.children as THREE.InstancedMesh[];
+    expect([walls!.count, decks!.count, cover!.count]).toEqual([14, 1, 1]);
+    expect(group.children.length, 'the ramp is one mesh').toBe(4);
+    expect(wedge!.isInstancedMesh).toBeFalsy();
+  } finally {
+    setTileWorld(was);
+  }
+  // the slope and the end (two quads), then the sides: one triangle each, or two quads a slice
+  expect(wedgeGeo(0).index!.count).toBe(6 + 6 + 3 + 3);
+  expect(wedgeGeo(8).index!.count).toBe(6 + 6 + 8 * 2 * 6);
+});
 test('tiles: two tile grids keep their own terrain, collision, sight and flow', () => {
   // A: a flat corridor. B: the same size, with a 2 m deck at the right end and a wall in the middle
   const a = createTileGrid(worldFromRows(['######', '#....#', '######'])),
