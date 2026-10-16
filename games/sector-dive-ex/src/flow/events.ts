@@ -226,6 +226,8 @@ export function onBossDown() {
 }
 
 // ---- between floors ----
+// the lift being ridden (its link), null when no ride is on
+export const liftRiding = (): number | null => ev.ride?.link ?? null;
 // The height of a lift rider's feet above the ground of the floor being played while a ride is on (null otherwise):
 // 0 to -FLOOR_H going down, 0 to FLOOR_H going up, easing in and out. The player's update keeps them there
 export function ridingY(): number | null {
