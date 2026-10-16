@@ -12,7 +12,17 @@ import {
   wrapAngle,
   yawToward,
 } from '../src/core/util.ts';
-import { clearStore, decodeStore, encodeStore, loadStore, prefGet, prefSet, saveStore } from '../src/core/store.ts';
+import {
+  clearStore,
+  decodeStore,
+  encodeStore,
+  loadStore,
+  packBits,
+  prefGet,
+  prefSet,
+  saveStore,
+  unpackBits,
+} from '../src/core/store.ts';
 import { addSystem, runSystems, stopFrame } from '../src/core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.ts';
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../src/core/i18n.ts';
@@ -79,6 +89,7 @@ import {
 import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
 import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, isDoorLocked, lockDoor, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
+import { showFps } from '../src/core/dev.ts';
 import { addDecks, addRamps, addWalls, wallTiles, wedgeGeo } from '../src/render/tilemesh.ts';
 import {
   STAIRWELL_DEFAULTS,
@@ -157,6 +168,7 @@ import {
   words,
 } from '../src/render/paint.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
+import { createHitMark } from '../src/ui/hitmark.ts';
 import { canCopyImage, drawGrid, fitText, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
 import { drawTileMap } from '../src/ui/minimap.ts';
@@ -220,6 +232,20 @@ test('share: text cut to fit with an ellipsis, a grid of lines on whole pixels',
   ]);
   expect((fake as unknown as { strokeStyle: string }).strokeStyle).toBe('#123');
 });
+test('hitmark: shows on a hit, marks a crit, goes after its time', () => {
+  const mark = document.createElement('div'),
+    hm = createHitMark(mark, 0.09);
+  hm.show(true);
+  expect(mark.classList.contains('on') && mark.classList.contains('crit')).toBe(true);
+  hm.update(0.05);
+  expect(mark.classList.contains('on'), 'still up').toBe(true);
+  hm.show();
+  expect(mark.classList.contains('crit'), 'a plain hit is not a crit').toBe(false);
+  hm.update(0.05);
+  expect(mark.classList.contains('on'), 'the second hit starts the time again').toBe(true);
+  hm.update(0.05);
+  expect(mark.classList.contains('on')).toBe(false);
+});
 test('store: save codes round-trip, reject edits, other tags and cut-off codes', () => {
   const obj = { bits: 1234, name: 'テスト', list: [1, null, { a: true }] };
   const code = encodeStore('T1', obj);
@@ -279,6 +305,15 @@ test('feedback: no form, no link; with one, the game, build and info are filled 
   ok(long.endsWith('…'), 'cut is marked');
   ok(!new URL(feedbackUrl('', form)!).searchParams.has('entry.33'), 'empty info left out');
 });
+test('dev: showFps counts the frames drawn and shows them after a second', async () => {
+  const before = document.body.children.length;
+  showFps();
+  const box = document.body.lastElementChild as HTMLElement;
+  expect(document.body.children.length).toBe(before + 1);
+  await new Promise(r => setTimeout(r, 1200));
+  expect(box.textContent).toMatch(/^\d+ fps$/);
+  box.remove();
+});
 test('util: distXZ ignores y', () => {
   near(distXZ({ x: 1, z: 2 }, { x: 4, z: 6 }), 5);
   near(distXZ({ x: 0, z: 0, y: 9 } as { x: number; z: number }, { x: 0, z: 0 }), 0);
@@ -329,6 +364,20 @@ test('util: createRng repeats for the same seed and stays in range', () => {
   eq(createRng(9).pick(['x']), 'x', 'pick from one');
 });
 
+test('store: flags packed to text and back, a broken text leaving them as they were', () => {
+  const bits = Uint8Array.from({ length: 21 }, (_, k) => (k % 3 === 0 || k === 20 ? 1 : 0)),
+    back = new Uint8Array(21);
+  const text = packBits(bits);
+  expect(text.length, '21 flags take 3 characters, then base64').toBe(4);
+  expect(unpackBits(text, back)).toBe(true);
+  expect(Array.from(back)).toEqual(Array.from(bits));
+  const kept = Uint8Array.from([1, 0, 1]);
+  expect(unpackBits('not base64 !', kept)).toBe(false);
+  expect(Array.from(kept)).toEqual([1, 0, 1]);
+  // nothing saved: every flag off
+  expect(unpackBits('', kept)).toBe(true);
+  expect(Array.from(kept)).toEqual([0, 0, 0]);
+});
 test('store: saved values merge deeply over defaults', () => {
   const key = 'engine-test-store';
   saveStore(key, { a: 2, nested: { x: 9 }, list: [7] });

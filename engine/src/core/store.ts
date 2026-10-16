@@ -91,3 +91,27 @@ export function decodeStore(tag: string, code: string): unknown {
     return null;
   }
 }
+
+// Flags as short text, for a save: one bit per entry (0 or not), 8 to a character code, base64. For things like the
+// explored tiles of a map, which are many and only on or off
+export function packBits(bits: ArrayLike<number>): string {
+  let text = '';
+  for (let k = 0; k < bits.length; k += 8) {
+    let byte = 0;
+    for (let n = 0; n < 8; n++) if (bits[k + n]) byte |= 1 << n;
+    text += String.fromCharCode(byte);
+  }
+  return btoa(text);
+}
+// puts packed flags back into `into` (1 or 0 per entry, as many as it holds). Returns false and leaves `into` as it
+// was when the text is not base64 (a broken save); a text too short leaves the entries past its end at 0
+export function unpackBits(packed: string, into: Uint8Array): boolean {
+  let text = '';
+  try {
+    text = atob(packed);
+  } catch (err) {
+    return false;
+  }
+  for (let k = 0; k < into.length; k++) into[k] = (text.charCodeAt(k >> 3) >> (k & 7)) & 1 ? 1 : 0;
+  return true;
+}

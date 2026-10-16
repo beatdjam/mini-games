@@ -23,7 +23,7 @@
   - ゲーム側: `LANG.<code>` を登録する言語ファイル（`ja` は必須で、キーが無いときの予備）。定義に名前を流し込むなら `setI18nHook(fn)` で関数を登録
 - `src/core/langslots.ts`: `withLang(table, blank)`（定義の表の各項目に、言語ファイルが入れる項目（名前・説明）の空の値を先に入れる。配列でもオブジェクトでもよい。何も import しないので、データのファイルが読み込み時に呼べる）
   - ゲーム側: 言語ファイルが入れる項目の空の値。中身は `setLang` のときに `fillData` で入れる
-- `src/core/store.ts`: `encodeStore` / `decodeStore`（セーブを端末間で移す1行のコード。暗号化ではなく、読みにくく・書き換えにくくするだけ）、`loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `prefGet` / `prefSet`（タブの記憶など小さな値）
+- `src/core/store.ts`: `encodeStore` / `decodeStore`（セーブを端末間で移す1行のコード。暗号化ではなく、読みにくく・書き換えにくくするだけ）、`loadStore(key, defaults)`（保存済みの値を既定値に深く重ねて `{ data, raw }` を返す）, `saveStore`, `clearStore`, `packBits` / `unpackBits`（オン・オフの並びを1つ1ビットの短い文字列に。探索済みのマップのタイルなど）, `prefGet` / `prefSet`（タブの記憶など小さな値）
   - ゲーム側: 既定値を返す関数。古い版からの変換は `raw` を見てゲーム側でやる
 - `src/core/stale.ts`: 古いページ検出。キャッシュに残った古いページなら、最新版の URL へ1回だけ切り替える
   - ゲーム側: `<meta name="build" content="dev">`（ビルドが版番号に書き換え、`version.json` も出す。このファイルはページに埋め込まれる）
@@ -31,7 +31,7 @@
   - ゲーム側: 起動時に `FEEDBACK.game` へゲームID。`feedbackReady()` のときだけ送信ボタンを出し、押されたら今の状況をテキストにして `openFeedback` に渡す
 - `src/core/analytics.ts`: `track(name, params)`（GA4 のイベントを送る。タグの無いページでは記録だけ）、`TRACK_LOG`（直近50件）、`ANALYTICS.game`
   - ゲーム側: 起動時に `ANALYTICS.game` へゲームID。送りたい出来事で `track` を呼ぶ。タグはビルドが入れる（`vite.config.js` の `GA_ID`）
-- `src/core/dev.ts`: `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）
+- `src/core/dev.ts`: `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`showFps()`（直近1秒に描いたフレーム数を画面の上の真ん中に出す。重さを見るとき）
   - ゲーム側: テストの中身
 
 ### render/
@@ -97,6 +97,8 @@
   - ゲーム側: `<dl>` の見た目と、`data-` 属性を付けた HTML
 - `src/ui/hitdir.ts`: 被弾方向の表示。`createHitDirs({ container, view, camera, time, max?, className? })` が `{ show(x, z), update(dt), list }` を返す。視界の外から当たったときだけ、攻撃元を指す弧を出し、振り向きに合わせて向きを追って薄れる
   - ゲーム側: `container`（照準の中心に置いた幅0・高さ0の要素。Sector Dive は `#hitDirs`）、`view()`（`x`・`z`・`yaw`。yaw は左が正）、`camera`、表示時間 `time`（秒）、弧の見た目の CSS（`className`、既定 `hdir`）。被弾で `show`、毎フレーム `update`
+- `src/ui/hitmark.ts`: ヒットマーカー（撃った弾が当たったとき、照準の上に少しだけ出る印）。`createHitMark(要素, 秒)` が `show(crit?)` と `update(dt)` を返す
+  - ゲーム側: 要素と見た目（CSS。クラス `on` の間は見える、会心では `crit` が付く）を用意する。当たったら `show`、毎フレーム `update`
 - `src/ui/minimap.ts`: 上から見たタイルの地図。`drawTileMap(canvas, ctx, { tile, overlay?, markers, viewer, viewerColor? })` が、タイル（`tile(k)` が色と濃さを返したものだけ）→ 重ね塗り → 印（`square`・`ring`・`dot`、ラベル付きも可）→ 見ている人の向きの矢印、の順に描く。大きさの単位はキャンバスの幅の 1/160
   - ゲーム側: どのタイルを何色で描くか（見た場所だけ、など）と、印の一覧（位置はワールドの x・z）
 - `src/ui/floormap3d.ts`: 3D の詳細マップ。`createFloorMap3D(canvas)` → `{ build(floors, style, tileSize), draw(view), yaw, pitch, dispose() }`。全部の階をタイルの板として重ね、リンクを角柱（か坂の板）、高さのある空間を箱、自分を矢印で描く。階ごとに建物の外周と階の名前も出せる。1本指のドラッグで回し、2本指でズームと移動（マウスはホイールと右ドラッグ）。自分の WebGL レンダラーで描く

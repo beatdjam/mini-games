@@ -34,11 +34,11 @@ import {
   screenFx,
   bctx,
   bigmap,
-  hitm,
   map3dWanted,
   mctx,
   mini,
   updateHitDirs,
+  updateHitMark,
   updateHud,
   weaponHud,
 } from '../ui/hud.ts';
@@ -390,8 +390,7 @@ function updatePortals(dt: number) {
 }
 function updateScreenFx(dt: number) {
   updateHitDirs(dt);
-  screenFx.hitTimer -= dt;
-  if (screenFx.hitTimer <= 0) hitm.classList.remove('on');
+  updateHitMark(dt);
   screenFx.vig = Math.max(0, screenFx.vig - dt * VIGNETTE_DECAY);
   if (state === 'play') updateHud();
   screenFx.miniT -= dt;
