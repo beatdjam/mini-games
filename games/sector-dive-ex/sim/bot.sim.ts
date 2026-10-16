@@ -28,9 +28,18 @@ const DT = 1 / 60;
 // kill, no new floor or depth, no hurt boss), which is a bot that is stuck and not a game that is hard
 const STALL_FRAMES = 60 * 60 * 8; // ... for this much game time (8 minutes)
 const MAX_FRAMES = 60 * 60 * 60 * 12; // and, to be safe, after this much (12 hours)
-const YIELD_EVERY = 600; // frames between letting the page breathe (its timers run then)
+// The page is let breathe (its timers run, the test runner hears from it) every YIELD_EVERY frames, and sooner when
+// that many frames take longer than YIELD_MS: deep down a frame costs much more, and a page that does not answer for
+// long loses its connection to the runner
+const YIELD_EVERY = 120;
+const YIELD_MS = 250;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const stateNow = () => state as string; // a call, so TypeScript does not keep the narrowing of an earlier check
+// the page's JS heap in MB (Chromium only: performance.memory is not in the standard, hence the cast); -1 elsewhere
+const heapMB = (): number => {
+  const mem = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+  return mem ? Math.round(mem.usedJSHeapSize / 1e6) : -1;
+};
 
 // "1-20" or "3,7,9"
 function seedsOf(text: string): number[] {
@@ -102,6 +111,9 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
       end = 'gave up';
     let moved = '',
       movedAt = 0;
+    const wall0 = performance.now();
+    let since = wall0, // when the page was last let breathe
+      maxBlock = 0; // the longest the page went without (ms)
     for (; frames < MAX_FRAMES; frames++) {
       const now = `${run.kills}:${run.stage}:${run.bld?.floor}:${boss ? Math.round(boss.hp) : ''}:${level.portals.length}`;
       if (now !== moved) {
@@ -114,8 +126,14 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
         break;
       }
       // the boss comes on a timer of the page, not of the game: wait for it in real time
-      if (isBossStage(run.stage) && !boss && !level.portals.length) await sleep(30);
-      else if (frames % YIELD_EVERY === 0) await sleep(0);
+      if (isBossStage(run.stage) && !boss && !level.portals.length) {
+        await sleep(30);
+        since = performance.now();
+      } else if (frames % YIELD_EVERY === 0 || performance.now() - since > YIELD_MS) {
+        maxBlock = Math.max(maxBlock, performance.now() - since);
+        await sleep(0);
+        since = performance.now();
+      }
     }
     const s = bot.stats;
     // a run that was given up: what the floor looked like, to find where the bot went wrong
@@ -157,15 +175,19 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
       dashes: s.dashes,
       picked: s.picked,
       stuck: s.stuck,
+      wallSec: Math.round((performance.now() - wall0) / 1000),
+      blockMs: Math.round(maxBlock),
+      heapMB: heapMB(),
       last: s.doing,
     });
     await commands.writeFile(`sim-results/traces/sector-dive-ex-${name}-${seed}.trace.txt`, s.trace.join('\n') + '\n');
+    // the table so far after every run, so a run that dies with the browser costs only itself
+    await commands.writeFile(`sim-results/sector-dive-ex-${name}.tsv`, tsv(rows));
     setBot(null);
     setDropOnly(null);
     if (stateNow() !== 'base') goBase();
     await sleep(0);
   }
-  await commands.writeFile(`sim-results/sector-dive-ex-${name}.tsv`, tsv(rows));
   // one line per kind of player, for comparing them (and a change against what was there before)
   const depth = rows.map(r => r.depth as number),
     dead = rows.filter(r => r.end === 'died');
