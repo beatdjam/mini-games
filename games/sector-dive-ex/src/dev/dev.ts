@@ -233,8 +233,11 @@ if (location.hash.startsWith('#bld-'))
       const hall = b.plans[b.plans.length - 1]!.hall!,
         grid = b.plans[b.plans.length - 1]!.gen.maps.grid,
         roomOf = b.plans[b.plans.length - 1]!.gen.maps.roomOf,
-        out = [1, -1, W, -W].find(o => grid[hall.door + o] === 1 && roomOf[hall.door + o] !== hall.room)!;
-      stand(b.plans.length - 1, hall.door + out * 2, -out);
+        out = [1, -1, W, -W].find(o => grid[hall.door + o] === 1 && roomOf[hall.door + o] !== hall.room)!,
+        // two tiles out from the door, or one where the corridor turns right outside it (two would be in the wall)
+        two = hall.door + out * 2,
+        at = grid[two] === 1 && roomOf[two] !== hall.room ? two : hall.door + out;
+      stand(b.plans.length - 1, at, -out);
     }
     // (?pitch=0.3: look up or down that much instead)
     const pitch = new URLSearchParams(location.search).get('pitch'),
