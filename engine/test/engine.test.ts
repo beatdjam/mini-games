@@ -157,6 +157,7 @@ import {
   words,
 } from '../src/render/paint.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
+import { createHitMark } from '../src/ui/hitmark.ts';
 import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
 import { drawTileMap } from '../src/ui/minimap.ts';
@@ -194,6 +195,20 @@ const near = (a: number, b: number, eps = 1e-9, what?: string) =>
 const ok = (cond: unknown, what?: string) => expect(cond, what).toBeTruthy();
 
 // ---------- core ----------
+test('hitmark: shows on a hit, marks a crit, goes after its time', () => {
+  const mark = document.createElement('div'),
+    hm = createHitMark(mark, 0.09);
+  hm.show(true);
+  expect(mark.classList.contains('on') && mark.classList.contains('crit')).toBe(true);
+  hm.update(0.05);
+  expect(mark.classList.contains('on'), 'still up').toBe(true);
+  hm.show();
+  expect(mark.classList.contains('crit'), 'a plain hit is not a crit').toBe(false);
+  hm.update(0.05);
+  expect(mark.classList.contains('on'), 'the second hit starts the time again').toBe(true);
+  hm.update(0.05);
+  expect(mark.classList.contains('on')).toBe(false);
+});
 test('store: save codes round-trip, reject edits, other tags and cut-off codes', () => {
   const obj = { bits: 1234, name: 'テスト', list: [1, null, { a: true }] };
   const code = encodeStore('T1', obj);

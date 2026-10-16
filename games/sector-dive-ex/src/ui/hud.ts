@@ -4,6 +4,7 @@ import { t } from '@engine/core/i18n.ts';
 import { camera } from '@engine/render/render.ts';
 import { exitLock, locked, requestLock } from '@engine/ui/input.ts';
 import { createHitDirs } from '@engine/ui/hitdir.ts';
+import { createHitMark } from '@engine/ui/hitmark.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { boss, nearPickup, target } from '../world/entities.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
@@ -20,7 +21,8 @@ const hpFill = el('#hpFill'),
   stBar = el('#stBar'),
   bitNum = el('#bitNum');
 const cross = el('#cross');
-export const hitm = el('#hitm');
+const HIT_MARK_TIME = 0.09; // seconds the hit marker stays up
+const hitm = el('#hitm');
 const ammoEl = el('#ammo'),
   reloadEl = el('#reload'),
   rFill = el('#rFill');
@@ -39,7 +41,7 @@ const btnDash = el('#btnDash'),
   hintEl = el('#hint');
 const LOW_HP_FRAC = 0.3; // below this share of max HP the HP bar turns red and the screen edge pulses
 // screen effects shared by several files: hit marker, damage vignette, camera shake, minimap redraw, stamina warning
-export const screenFx = { hitTimer: 0, vig: 0, shake: 0, miniT: 0, stWarn: 0 };
+export const screenFx = { vig: 0, shake: 0, miniT: 0, stWarn: 0 };
 // where a hit came from: a red arc around the crosshair, only when the attacker is outside the view (engine/ui/hitdir.ts)
 const hitDirUi = createHitDirs({
   container: el('#hitDirs'),
@@ -50,11 +52,10 @@ const hitDirUi = createHitDirs({
 export const hitDirs = hitDirUi.list;
 export const hitDirection = hitDirUi.show;
 export const updateHitDirs = hitDirUi.update;
-export function hitMark(crit?: boolean) {
-  hitm.classList.add('on');
-  hitm.classList.toggle('crit', !!crit);
-  screenFx.hitTimer = 0.09;
-}
+// the mark over the crosshair when a shot lands (engine/src/ui/hitmark.ts)
+const hitMarkUi = createHitMark(hitm, HIT_MARK_TIME);
+export const hitMark = hitMarkUi.show;
+export const updateHitMark = hitMarkUi.update;
 // ---- the big map: the 2D map of this floor, and (in a building) a second page with the 3D map of the building ----
 const mapHint = el('#mapHint');
 // is the 3D page the one asked for (it is on screen from the next frame: ui/map3d.ts)

@@ -26,7 +26,7 @@ import { findTarget, shotId, tryFire } from '../actors/firing.ts';
 import { magSize, weaponOptCount } from '../actors/weapons.ts';
 import { controlState } from '../ui/input.ts';
 import { drawMap } from '../ui/minimap.ts';
-import { screenFx, bctx, bigmap, hitm, mctx, mini, updateHitDirs, updateHud, weaponHud } from '../ui/hud.ts';
+import { screenFx, bctx, bigmap, mctx, mini, updateHitDirs, updateHitMark, updateHud, weaponHud } from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
 import { state } from './state.ts';
@@ -309,8 +309,7 @@ function updatePortals(dt: number) {
 }
 function updateScreenFx(dt: number) {
   updateHitDirs(dt);
-  screenFx.hitTimer -= dt;
-  if (screenFx.hitTimer <= 0) hitm.classList.remove('on');
+  updateHitMark(dt);
   screenFx.vig = Math.max(0, screenFx.vig - dt * VIGNETTE_DECAY);
   if (state === 'play') updateHud();
   screenFx.miniT -= dt;
