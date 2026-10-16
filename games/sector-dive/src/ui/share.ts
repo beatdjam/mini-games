@@ -1,7 +1,16 @@
 import { el, isTouch } from '@engine/core/util.ts';
 import { lang, t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
-import { canCopyImage, canShareFile, copyImage, openXPost, saveFile, shareNative } from '@engine/ui/share.ts';
+import {
+  canCopyImage,
+  canShareFile,
+  copyImage,
+  drawGrid,
+  fitText,
+  openXPost,
+  saveFile,
+  shareNative,
+} from '@engine/ui/share.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { RUN_END, countBy, parsePerk, perkName } from '../core/rules.ts';
@@ -104,40 +113,9 @@ export function shareText(d: ShareCard) {
   return t('share.text', { ...d, bosses: bossSummary(d.bosses), nBoss: d.bosses.length }) + '\n' + SHARE_URL;
 }
 
-// the text that fits in max px with "…" cut in, measured with the ctx's current font
-function fitText(g: CanvasRenderingContext2D, s: string, max: number) {
-  if (g.measureText(s).width <= max) return s;
-  let cut = s;
-  while (cut && g.measureText(cut + '…').width > max) cut = cut.slice(0, -1);
-  return cut + '…';
-}
-
 function drawBackground(g: CanvasRenderingContext2D) {
   g.fillStyle = BG_COLOR;
   g.fillRect(0, 0, CARD_W, CARD_H);
-}
-
-// vertical lines, then horizontal ones. The 0.5 puts a 1px line on whole pixels
-function drawGridLines(g: CanvasRenderingContext2D, dir: 'vertical' | 'horizontal') {
-  const length = dir === 'vertical' ? CARD_W : CARD_H;
-  for (let p = 0; p <= length; p += GRID_STEP) {
-    g.beginPath();
-    if (dir === 'vertical') {
-      g.moveTo(p + 0.5, 0);
-      g.lineTo(p + 0.5, CARD_H);
-    } else {
-      g.moveTo(0, p + 0.5);
-      g.lineTo(CARD_W, p + 0.5);
-    }
-    g.stroke();
-  }
-}
-
-function drawGrid(g: CanvasRenderingContext2D) {
-  g.strokeStyle = GRID_COLOR;
-  g.lineWidth = 1;
-  drawGridLines(g, 'vertical');
-  drawGridLines(g, 'horizontal');
 }
 
 function drawAccentBar(g: CanvasRenderingContext2D, acc: string) {
@@ -232,7 +210,7 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   };
   const acc = d.kind === 'extract' ? CSS_COLOR.cyan : CSS_COLOR.mag;
   drawBackground(g);
-  drawGrid(g);
+  drawGrid(g, CARD_W, CARD_H, GRID_STEP, GRID_COLOR);
   drawAccentBar(g, acc);
   drawHeader(g, d, fonts);
   drawHeadline(g, d, acc, fonts);

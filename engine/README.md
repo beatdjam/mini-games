@@ -105,7 +105,7 @@
   - ゲーム側: 表示するタイルと色（`style.tile(floor, k)`）、リンクの色（`style.link(l)`）、階の間隔 `gap`、自分の階と位置・向き、印
 - `src/ui/settings.ts`: 設定パネル。`SETTINGS.items` に並べた設定を、ページの `[data-settings="<場所>"]` の要素すべてに描き、どれかで変えると全部を描き直す（スライダーは動かしている間、ほかのパネルのつまみと値だけを追わせる）。種類は `toggle`（オン・オフ）・`choice`（切り替えボタン）・`range`（スライダー。`format` を渡すと値も出す）・`button`。`show()` が false の項目は出さない。言語と全画面は `languageSetting(label, change)`・`fullscreenSetting(label)` で作れる。`renderSettings()`
   - ゲーム側: `SETTINGS.items`（ラベル・値の読み書き）、`SETTINGS.onOff`（オン・オフの文言）、`SETTINGS.onChange(key)`（保存や反映）。見た目はゲームの CSS（`.toggle`・`.seg`・`.sens`）
-- `src/ui/share.ts`: 画像のシェアのブラウザ側の部品。`canShareFile(file)`, `shareNative(file, text)`（`'shared'`・`'cancelled'`・`'failed'`）, `canCopyImage()`, `copyImage(blob)`（成功したか）, `saveFile(blob, filename)`（画像に限らず Blob をファイルとして保存）, `openXPost(text)`（X の投稿画面を開く）
+- `src/ui/share.ts`: 画像のシェアのブラウザ側の部品。`canShareFile(file)`, `shareNative(file, text)`（`'shared'`・`'cancelled'`・`'failed'`）, `canCopyImage()`, `copyImage(blob)`（成功したか）, `saveFile(blob, filename)`（画像に限らず Blob をファイルとして保存）, `openXPost(text)`（X の投稿画面を開く）。カードを描く補助: `fitText(ctx, 文字, 幅)`（収まらなければ「…」で切る）、`drawGrid(ctx, w, h, 間隔, 色)`（1px の格子）
   - ゲーム側: 画像（`Blob`）と投稿文、ファイル名。パネルの要素・文言・解析イベントはゲームが持つ（スマホは `shareNative`、失敗したらパネル、PC はコピー・保存・X 投稿のボタン）
 - `src/ui/input.ts`: キー（`keys`。右の Shift などは左のキーとして入る。`normalizeCode`）、マウスとポインタロック（`requestLock`, `exitLock`, `locked`, `mouseFire`）、タッチの移動スティック（`joy`）と視点ドラッグ、押しっぱなしの射撃ボタン（`fireHeld`, `fire2Held`）、`tapBtn(btn, fn)`, `releaseInputs`
   - ゲーム側: `INPUT` に `active`, `look`, `sens`, `key`, `pause`, `lockChanged` を入れる。`#touch`, `#joyBase`, `#joyKnob`, `#btnFire`, `#btnFire2`, `<canvas id="gl">`

@@ -169,7 +169,7 @@ import {
 } from '../src/render/paint.ts';
 import { createHitDirs } from '../src/ui/hitdir.ts';
 import { createHitMark } from '../src/ui/hitmark.ts';
-import { canCopyImage, openXPost, saveFile } from '../src/ui/share.ts';
+import { canCopyImage, drawGrid, fitText, openXPost, saveFile } from '../src/ui/share.ts';
 import { SETTINGS, renderSettings } from '../src/ui/settings.ts';
 import { drawTileMap } from '../src/ui/minimap.ts';
 import { createFloorMap3D } from '../src/ui/floormap3d.ts';
@@ -206,6 +206,32 @@ const near = (a: number, b: number, eps = 1e-9, what?: string) =>
 const ok = (cond: unknown, what?: string) => expect(cond, what).toBeTruthy();
 
 // ---------- core ----------
+test('share: text cut to fit with an ellipsis, a grid of lines on whole pixels', () => {
+  const g = document.createElement('canvas').getContext('2d')!;
+  g.font = '20px sans-serif';
+  expect(fitText(g, 'short', 1000)).toBe('short');
+  const cut = fitText(g, 'a rather long line of text for a small box', 80);
+  expect(cut.endsWith('…') && g.measureText(cut).width <= 80).toBe(true);
+  const lines: number[][] = [];
+  const fake = {
+    beginPath() {},
+    stroke() {},
+    moveTo(x: number, y: number) {
+      lines.push([x, y]);
+    },
+    lineTo() {},
+  } as unknown as CanvasRenderingContext2D; // (only the calls drawGrid makes)
+  drawGrid(fake, 100, 50, 50, '#123');
+  // 3 lines across x (0, 50, 100) and 2 down y (0, 50), each half a pixel in
+  expect(lines).toEqual([
+    [0.5, 0],
+    [50.5, 0],
+    [100.5, 0],
+    [0, 0.5],
+    [0, 50.5],
+  ]);
+  expect((fake as unknown as { strokeStyle: string }).strokeStyle).toBe('#123');
+});
 test('hitmark: shows on a hit, marks a crit, goes after its time', () => {
   const mark = document.createElement('div'),
     hm = createHitMark(mark, 0.09);
