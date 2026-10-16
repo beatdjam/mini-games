@@ -3019,14 +3019,37 @@ test('boss room: in it and at its door only its own floor is drawn (the room is 
   // the stairwell or lift that comes down to this floor: next to it the floors above are drawn
   const link = b.links.find(l => l.lower === last)!;
   putOnTile(link.strip[0]!);
-  showNeighbourFloors(b, player.x, player.z);
+  // (a lift's other floors show only while it is ridden)
+  showNeighbourFloors(b, player.x, player.z, link.kind === 'elevator' ? b.links.indexOf(link) : null);
   expect(floorDrawn(link.upper), 'by the way down, the floor above shows').toBe(true);
   for (const k of [(r.y + 1) * W + r.x + 1, hall.door]) {
     putOnTile(k);
-    showNeighbourFloors(b, player.x, player.z);
+    showNeighbourFloors(b, player.x, player.z, null);
     expect(drawn(), 'in the boss room and on its door').toBe(own);
   }
   goToFloor(0);
+});
+test('neighbour floors: by a stairwell they show; by a lift only while it is ridden', () => {
+  const b = building!,
+    n = level.floor,
+    lift = b.links.findIndex(l => l.kind === 'elevator' && (l.upper === n || l.lower === n)),
+    stairs = b.links.findIndex(l => l.kind === 'stairs' && (l.upper === n || l.lower === n));
+  if (lift >= 0) {
+    const l = b.links[lift]!,
+      other = l.upper === n ? l.lower : l.upper;
+    putOnTile(l.strip[0]!);
+    showNeighbourFloors(b, player.x, player.z, null);
+    expect(floorDrawn(other), 'standing by the lift: its shaft is walled in').toBe(false);
+    showNeighbourFloors(b, player.x, player.z, lift);
+    expect(floorDrawn(other), 'riding it').toBe(true);
+  }
+  if (stairs >= 0) {
+    const l = b.links[stairs]!;
+    putOnTile(l.strip[0]!);
+    showNeighbourFloors(b, player.x, player.z, null);
+    expect(floorDrawn(l.upper === n ? l.lower : l.upper), 'by the stairwell').toBe(true);
+  }
+  expect(lift >= 0 || stairs >= 0, 'this floor has a way on').toBe(true);
 });
 test('big map: the map key opens and closes it, the 3D map key turns to the 3D page, a tap cycles', () => {
   goToFloor(0);
@@ -3554,10 +3577,10 @@ test('outside: a window on a yard shows the yard itself, a tile nearer, and only
     z = (Math.floor(k / W) + 0.5 + dj) * T;
   camera.position.set(x, EYE, z);
   camera.rotation.set(0, Math.atan2(di, dj), 0);
-  showNeighbourFloors(b, x, z);
+  showNeighbourFloors(b, x, z, null);
   expect(shown(), 'looking at it').toBe(true);
   camera.rotation.set(0, Math.atan2(-di, -dj), 0);
-  showNeighbourFloors(b, x, z);
+  showNeighbourFloors(b, x, z, null);
   expect(shown(), 'looking away').toBe(false);
   // a tile nearer: each copy (of the yard, of what stands round it on a floor) stands a tile toward the floor
   const moved = new Set(

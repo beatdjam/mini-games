@@ -360,17 +360,19 @@ const LIFT_SEED = 77; // the picture's seed (the same platform every time)
 let liftTop: THREE.CanvasTexture | null = null; // the picture on a lift's platform, made once
 const HALL_NEAR = 14; // this close to the boss room's door counts as at the boss room (m)
 const NEIGHBOUR_SHOW_R = 40; // the floors above and below are drawn within this of a stairwell or lift, or the fog's end if nearer (m)
-// Draws the other floors only while the player is near a stairwell or lift of this floor: the floors it leads to and
-// passes (that is the only place they can be seen from). The rest of the time only this floor is drawn. Called every
-// frame on a building floor
-export function showNeighbourFloors(b: Building, x: number, z: number) {
+// Draws the other floors only while the player is near a stairwell of this floor (the floors it leads to: that is the
+// only place they can be seen from) or rides a lift (`riding`: its link; the floors it joins and passes). Standing by a
+// lift shows nothing of the other floors: its shaft is walled in. The rest of the time only this floor is drawn. Called
+// every frame on a building floor
+export function showNeighbourFloors(b: Building, x: number, z: number, riding: number | null) {
   const n = level.floor,
     w = b.plans[0]!.gen.W,
     reach = Math.min(NEIGHBOUR_SHOW_R, b.biome.fogFar),
     // a link of this floor that the player is near: the floors it joins and passes are seen along it
     near = (m: number) =>
       b.links.some(
-        l =>
+        (l, k) =>
+          (l.kind === 'stairs' || k === riding) &&
           (l.upper === n || l.lower === n) &&
           m >= l.upper &&
           m <= l.lower &&

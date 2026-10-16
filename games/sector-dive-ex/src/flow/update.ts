@@ -44,7 +44,7 @@ import {
 } from '../ui/hud.ts';
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
-import { onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
+import { liftRiding, onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
 import { keysTurnMap3D, updateMap3D } from '../ui/map3d.ts';
 import { state } from './state.ts';
 import { openPerk } from '../screens/perk.ts';
@@ -359,7 +359,7 @@ function updateBuildingFloor(dt: number) {
   updateDoorMeshes(movers, dt);
   updateFloorEvents(dt);
   updateFollowers(dt);
-  if (building) showNeighbourFloors(building, player.x, player.z);
+  if (building) showNeighbourFloors(building, player.x, player.z, liftRiding());
   sightHallDoor(player.x, player.z, player.yaw, visibleRange());
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
