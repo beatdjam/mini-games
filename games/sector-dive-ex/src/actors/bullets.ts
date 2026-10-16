@@ -66,6 +66,8 @@ function pBulletStep(b: PBullet) {
     if (e.dead || b.hit.has(e) || !bulletTouches(b, e)) continue;
     b.hit.add(e);
     if (b.blast) {
+      // a direct hit: the enemy struck takes its extra before the blast (the blast's crit roll is its own)
+      if (b.direct) hurtEnemy(e, b.dmg * b.direct, false);
       explode(b.x, b.y, b.z, b.blast, b.dmg, b.color, true);
       return true;
     }

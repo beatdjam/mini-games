@@ -5,7 +5,7 @@ import { COLOR, CSS_COLOR } from './colors.ts';
 export const WEAPONS = withLang<WeaponDef, 'name' | 'desc'>(
   {
     pistol: {
-      dmg: 16,
+      dmg: 28,
       rate: 0.26,
       spread: 0.012,
       pellets: 1,
@@ -17,7 +17,7 @@ export const WEAPONS = withLang<WeaponDef, 'name' | 'desc'>(
     },
     // SMG: light rounds, very fast, big magazine, no extra spread while moving
     smg: {
-      dmg: 6,
+      dmg: 8,
       rate: 0.062,
       spread: 0.05,
       pellets: 1,
@@ -30,7 +30,7 @@ export const WEAPONS = withLang<WeaponDef, 'name' | 'desc'>(
     },
     // shotgun: 8 pellets; the closer you are, the more of them land
     shotgun: {
-      dmg: 13,
+      dmg: 12,
       rate: 0.7,
       spread: 0.065,
       pellets: 8,
@@ -43,7 +43,7 @@ export const WEAPONS = withLang<WeaponDef, 'name' | 'desc'>(
     },
     // rail: one heavy piercing round, stronger the farther it travels
     rail: {
-      dmg: 90,
+      dmg: 125,
       rate: 1.1,
       spread: 0,
       pellets: 1,
@@ -57,14 +57,16 @@ export const WEAPONS = withLang<WeaponDef, 'name' | 'desc'>(
       color: COLOR.violet,
       cost: 520,
     },
-    // launcher: slow rocket, full damage near the centre of the blast, nudges enemies back
+    // launcher: slow rocket, full damage near the centre of the blast, nudges enemies back; the enemy it hits takes
+    // half as much again
     launcher: {
-      dmg: 70,
+      dmg: 110,
       rate: 1.15,
       spread: 0.008,
       pellets: 1,
       speed: 28,
-      mag: 2,
+      mag: 3,
+      direct: 0.5,
       reload: 2.4,
       maxShots: 3,
       blast: 5,

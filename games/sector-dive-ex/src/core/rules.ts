@@ -73,6 +73,9 @@ function bareDps(w: WeaponItem): number {
 // score = the geometric mean of the two, where 1 = DEPTH 1 with a plain handgun and no upgrades.
 // Returns 0 (easy) .. 4 (reckless) by READY_CUTS.
 const READY_CUTS = [1.5, 1.15, 0.85, 0.6];
+// the yardstick of the offence: the damage per second of a plain handgun as it was when READY_CUTS were set (16 a
+// round). Fixed, so a stronger handgun reads as a better start instead of moving the yardstick with it
+const READY_REF_DPS = 45.5;
 const READY_BOSS_WEIGHT = 0.75;
 // what the readiness is computed from: the loadout weapons, the damage upgrade level, max HP and the reboot multiplier
 interface ReadyState {
@@ -98,13 +101,12 @@ export const readyAfterReboot = (): ReadyState => ({
 const supplyGain = (picks: number): number =>
   picks > 0 ? Math.exp(TUNE.supplyCurve[0]! * Math.pow(picks, TUNE.supplyCurve[1]!)) : 1;
 export function readinessScore(tier: number, s: ReadyState = readyNow()): number {
-  const ref = bareDps({ id: 'pistol', r: 0, basic: true });
   const best = Math.max(0, ...s.weapons.map(bareDps));
   const bossWall = Math.pow(
     hpGrowth(tier, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(tier),
     READY_BOSS_WEIGHT,
   );
-  const off = ((best / ref) * s.dmg * supplyGain(tier)) / (enemyGrowth(tier) * bossWall * s.rebootMul);
+  const off = ((best / READY_REF_DPS) * s.dmg * supplyGain(tier)) / (enemyGrowth(tier) * bossWall * s.rebootMul);
   const def = s.hp / TUNE.hp / ((1 + DMG_SCALE_PER_PROG * 5 * tier) * s.rebootMul);
   return Math.sqrt(off * def);
 }
