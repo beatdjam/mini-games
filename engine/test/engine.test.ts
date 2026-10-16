@@ -89,6 +89,7 @@ import {
 import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
 import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, isDoorLocked, lockDoor, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
+import { showFps } from '../src/core/dev.ts';
 import { addDecks, addRamps, addWalls, wallTiles, wedgeGeo } from '../src/render/tilemesh.ts';
 import {
   STAIRWELL_DEFAULTS,
@@ -277,6 +278,15 @@ test('feedback: no form, no link; with one, the game, build and info are filled 
   eq(long.length, FEEDBACK_INFO_MAX, 'info cut');
   ok(long.endsWith('…'), 'cut is marked');
   ok(!new URL(feedbackUrl('', form)!).searchParams.has('entry.33'), 'empty info left out');
+});
+test('dev: showFps counts the frames drawn and shows them after a second', async () => {
+  const before = document.body.children.length;
+  showFps();
+  const box = document.body.lastElementChild as HTMLElement;
+  expect(document.body.children.length).toBe(before + 1);
+  await new Promise(r => setTimeout(r, 1200));
+  expect(box.textContent).toMatch(/^\d+ fps$/);
+  box.remove();
 });
 test('util: distXZ ignores y', () => {
   near(distXZ({ x: 1, z: 2 }, { x: 4, z: 6 }), 5);

@@ -31,7 +31,7 @@
   - ゲーム側: 起動時に `FEEDBACK.game` へゲームID。`feedbackReady()` のときだけ送信ボタンを出し、押されたら今の状況をテキストにして `openFeedback` に渡す
 - `src/core/analytics.ts`: `track(name, params)`（GA4 のイベントを送る。タグの無いページでは記録だけ）、`TRACK_LOG`（直近50件）、`ANALYTICS.game`
   - ゲーム側: 起動時に `ANALYTICS.game` へゲームID。送りたい出来事で `track` を呼ぶ。タグはビルドが入れる（`vite.config.js` の `GA_ID`）
-- `src/core/dev.ts`: `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）
+- `src/core/dev.ts`: `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`showFps()`（直近1秒に描いたフレーム数を画面の上の真ん中に出す。重さを見るとき）
   - ゲーム側: テストの中身
 
 ### render/
