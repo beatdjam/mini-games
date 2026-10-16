@@ -4,15 +4,7 @@ import { prefGet, prefSet } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { track } from '@engine/core/analytics.ts';
-import {
-  MOD_CAP_PER_DEPTH,
-  MOD_PLUS_MAX,
-  MOD_RARITY_COST,
-  RARITY,
-  WEAPONS,
-  WEAPON_ORDER,
-  modPlusCost,
-} from '../data/weapons.ts';
+import { MOD_RARITY_COST, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
 import { REBOOT_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { BASE_TAB_KEY, basicW, persist, save } from '../core/save.ts';
@@ -34,7 +26,6 @@ import {
   basicNow,
   weaponModOf,
   modPlusCap,
-  peakDepth,
   REBOOT_DIFF_CAP,
   REBOOT_DIFF_PER,
   rebootCost,
@@ -204,12 +195,7 @@ export function renderBase() {
   el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
   el('#loadout').innerHTML = [0, 1].map(loadoutSlot).join('');
-  el('#modCap').textContent = t('base.modCap', {
-    cap: modPlusCap(),
-    depth: peakDepth(),
-    per: MOD_CAP_PER_DEPTH,
-    min: MOD_PLUS_MAX,
-  });
+  el('#modCap').textContent = t('base.modCap', { cap: modPlusCap() });
   el('#wgrid').innerHTML = WEAPON_ORDER.map(id =>
     id === 'pistol' || save.unlocked[id] ? weaponCard(id) : lockedCard(id),
   ).join('');

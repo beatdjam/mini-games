@@ -9,7 +9,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { ring, shootHoming } from '../../world/entities.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
-import { RING_Y, bossBase, bossMaterial, isEnraged, spawnMinion, wireOutline } from './common.ts';
+import { bossBase, bossHint, bossMaterial, isEnraged, RING_Y, spawnMinion, wireOutline } from './common.ts';
 import { COLOR, PAINT } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
@@ -50,7 +50,7 @@ export function spawnBastion() {
   e.x = e.cx;
   e.z = e.cz;
   bastionTurrets(e, BOSS_META.bastion.tune.turretsFirst);
-  toast(t('boss.bastionHint'), 4600);
+  bossHint('boss.bastionHint', 4600);
 }
 function bastionTurrets(e: BastionBoss, n: number) {
   const off = rand(0, Math.PI);

@@ -222,14 +222,21 @@ const BOSS_SPAWNERS: Record<string, () => void> = {
   trinity: () => spawnTrinity(),
   bastion: () => spawnBastion(),
 };
+// the boss being spawned is met for the first time, or in boss practice (there to learn it): its hint is shown
+let hintDue = false;
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in src/actors/bosses/<name>.ts
 export function spawnBoss(kind: string) {
+  hintDue = !!run.practice || !save.bossSeen[kind];
   if (!run.practice && !save.bossSeen[kind]) {
     recordBossSeen(kind);
     persist();
   } // practice doesn't count as an encounter
   BOSS_SPAWNERS[kind]!();
   setMusic(level.biome.code, true); // boss arrangement of this sector's theme
+}
+// a boss's hint on how to fight it (a toast): only when the boss is met for the first time, and in boss practice
+export function bossHint(key: string, ms: number) {
+  if (hintDue) toast(t(key), ms);
 }
 // is the enemy in the boss's arena: anywhere in a boss arena, inside the boss room on a building floor (the enemies
 // in the floor's other rooms have nothing to do with the fight)

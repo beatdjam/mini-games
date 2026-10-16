@@ -1261,6 +1261,52 @@ test('suspend -> resume -> suspend -> discard', () => {
   discardSuspended();
   if (save.suspend || !stateIs('result')) throw new Error('discard failed');
 });
+test('pause: abandoning the dive asks once', () => {
+  goBase();
+  startRun();
+  tick(5);
+  pause();
+  const btn = el<HTMLButtonElement>('#btnAbandon');
+  expect(btn.textContent).toBe(t('pause.abandon'));
+  btn.click();
+  expect(stateIs('pause'), 'the first click only asks').toBe(true);
+  expect(btn.textContent).toBe(t('pause.abandonGo'));
+  // leaving the pause screen and coming back starts over
+  show(null);
+  setState('play');
+  pause();
+  expect(btn.textContent).toBe(t('pause.abandon'));
+  btn.click();
+  btn.click();
+  expect(stateIs('result')).toBe(true);
+});
+test('boss hints: shown when the boss is met for the first time, and in practice', () => {
+  const shown = () => el('#toast').textContent === t('boss.crusherHint');
+  goBase();
+  startRun();
+  tick(5);
+  delete save.bossSeen.crusher;
+  el('#toast').textContent = '';
+  spawnBoss('crusher');
+  expect(shown(), 'the first time').toBe(true);
+  endRun('abandon');
+  goBase();
+  startRun();
+  tick(5);
+  el('#toast').textContent = '';
+  spawnBoss('crusher');
+  expect(shown(), 'met before').toBe(false);
+  endRun('abandon');
+  goBase();
+  startPractice('crusher');
+  tick(120);
+  if (!boss) {
+    el('#toast').textContent = '';
+    spawnBoss('crusher');
+  }
+  expect(shown(), 'in practice').toBe(true);
+  endRun('abandon');
+});
 test('wipe: data wipe resets the save', () => {
   goBase();
   save.bits = 999;

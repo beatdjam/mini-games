@@ -4,15 +4,13 @@ import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { distXZ, randi } from '@engine/core/util.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
-import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { dynGroup } from '@engine/render/render.ts';
-import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, ring } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { RING_Y, bossBase, bossMaterial, isEnraged, wireOutline } from './common.ts';
+import { bossBase, bossHint, bossMaterial, isEnraged, RING_Y, wireOutline } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // TRINITY: three bodies orbiting the centre on one shared health pool
 
@@ -51,7 +49,7 @@ export function spawnTrinity() {
   e.extra = [...(e.extra ?? []), ...bodies]; // (with its pool of light, when it has a look)
   e.parts = bodies.map(b => ({ p: b.position, r: 1.4 }));
   updTrinity(e, 0);
-  toast(t('boss.trinityHint'), 3800);
+  bossHint('boss.trinityHint', 3800);
 }
 function updTrinity(e: TrinityBoss, dt: number) {
   const K = BOSS_META.trinity.tune;

@@ -4,22 +4,21 @@ import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { pick, rand } from '@engine/core/util.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
-import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
-import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { level } from '../../world/level.ts';
 import { fanAt, ring, shootHoming } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
 import {
-  FIRST_SHOT_DELAY,
-  RING_Y,
   bossBase,
+  bossHint,
   bossMaterial,
+  FIRST_SHOT_DELAY,
   isEnraged,
   minionCount,
   nextPattern,
+  RING_Y,
   spawnMinion,
 } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
@@ -67,7 +66,7 @@ export function spawnCore() {
     level.group!.add(bm);
     e.beams.push(bm);
   }
-  toast(t('boss.coreHint'), 3800);
+  bossHint('boss.coreHint', 3800);
 }
 function updCore(e: CoreBoss, dt: number) {
   const K = BOSS_META.core.tune;
