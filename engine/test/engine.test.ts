@@ -130,6 +130,7 @@ import { parseScript, sceneAt, setting } from '../src/trailer/script.ts';
 import { mergeParts } from '../src/render/merge.ts';
 import { hideInFog } from '../src/render/fogcull.ts';
 import { mergeFlat } from '../src/render/mergeflat.ts';
+import { batcher } from '../src/render/batch.ts';
 import {
   block,
   canvasTex,
@@ -3092,6 +3093,32 @@ test('fogcull: a thing past the fog (and its reach) is hidden, one in it shown; 
   expect(far.mesh.visible, 'no fog: shown again').toBe(true);
 });
 
+test('batch: one instanced mesh per kind, each thing where it was put', () => {
+  const group = new THREE.Group(),
+    b = batcher(group);
+  let made = 0;
+  const box = (): [THREE.BufferGeometry, THREE.Material] => {
+    made++;
+    return [new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial()];
+  };
+  b.put('box', box, 1, 2, 3);
+  b.put('box', box, 4, 0, 0, Math.PI / 2);
+  b.put('box', box, 0, 0, 0, 0, 0, [2, 1, 1]);
+  b.put('plane', () => [new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial()], 0, 5, 0);
+  b.done();
+  expect(made, 'make runs once per kind').toBe(1);
+  const meshes = group.children as THREE.InstancedMesh[];
+  expect(meshes.map(m => m.count)).toEqual([3, 1]);
+  const m = new THREE.Matrix4(),
+    p = new THREE.Vector3(),
+    q = new THREE.Quaternion(),
+    sc = new THREE.Vector3();
+  meshes[0]!.getMatrixAt(0, m);
+  expect(p.setFromMatrixPosition(m).toArray()).toEqual([1, 2, 3]);
+  meshes[0]!.getMatrixAt(2, m);
+  m.decompose(p, q, sc);
+  expect(sc.x).toBeCloseTo(2);
+});
 test('mergeflat: coloured things that stand still become one mesh per group; textured or see-through ones stay', () => {
   const box = new THREE.BoxGeometry(1, 1, 1),
     inst = (mat: THREE.Material, n: number, x: number) => {
