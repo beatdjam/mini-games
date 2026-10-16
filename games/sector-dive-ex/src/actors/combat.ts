@@ -101,7 +101,7 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
   hitMark(isCrit);
   sfx('hit', 45);
   if (e.hp <= 0) killEnemy(e);
-  else if (e.boss && !e.phased && isEnraged(e)) bossPhase(e);
+  else if (e.boss && !e.phased && !e.aloft && isEnraged(e)) bossPhase(e);
 }
 // push an enemy dist metres straight away from (fromX, fromZ), stopping at walls
 export function knockAway(e: Enemy, fromX: number, fromZ: number, dist: number) {
