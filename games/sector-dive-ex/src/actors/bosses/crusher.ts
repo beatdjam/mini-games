@@ -162,5 +162,6 @@ function updCrusher(e: CrusherBoss, dt: number) {
     e.second -= dt;
     if (e.second <= 0) spawnWave(e.x, e.z, K.secondWave[0], K.secondWave[1], e.dmg * K.secondWave[2], COLOR.amber);
   }
+  e.aloft = e.st === 'slam'; // in its jump
   e.mesh.position.set(e.x, y, e.z);
 }

@@ -7,7 +7,7 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, shootAtPoint } from '../world/entities.ts';
 import { player } from './player.ts';
 import { damagePlayer, detonate } from './combat.ts';
-import { bossPauseTick, poseBossPool } from './bosses/common.ts';
+import { bossPauseTick, bossPhase, isEnraged, poseBossPool } from './bosses/common.ts';
 import { setLaser } from '../world/models.ts';
 import { COLOR } from '../data/colors.ts';
 import type { EnemyAnim } from '../world/models/enemyLooks.ts';
@@ -46,6 +46,8 @@ export function updateEnemy(e: Enemy, dt: number) {
   if (e.boss) {
     if (e.spawnT > 0) bossPauseTick(e, dt);
     else e.behave(e, dt);
+    // a phase change put off while the boss was in the air (combat.ts hurtEnemy) comes once it is down
+    if (!e.phased && !e.aloft && e.hp > 0 && isEnraged(e)) bossPhase(e);
     poseBossPool(e);
     return;
   }

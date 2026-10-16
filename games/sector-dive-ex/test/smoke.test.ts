@@ -468,6 +468,24 @@ test('watcher: drones at 75% and 40%', () => {
   if (a1 !== 2 || a2 !== 5) throw new Error('watcher drones ' + a1 + ' ' + a2);
   endRun('abandon');
 });
+test('crusher: hurt below half in its jump, it changes phase once it is down, not in the air', () => {
+  startPractice('crusher');
+  tick(10);
+  if (!boss) spawnBoss('crusher');
+  const K = BOSS_META.crusher.tune,
+    c = boss as Boss & { st: string };
+  c.spawnT = 0;
+  c.st = 'slam';
+  c.timer = K.slamTime;
+  tick(Math.ceil(K.slamTime * 20)); // a third of the way up
+  expect(c.mesh.position.y, 'in the air').toBeGreaterThan(1);
+  hurtEnemy(c, c.hp - c.maxHp * 0.4, false);
+  expect(c.phased, 'not while in the air').toBeFalsy();
+  tick(Math.ceil(K.slamTime * 60) + 2);
+  expect(c.phased, 'once it has landed').toBe(true);
+  expect(c.spawnT, 'the burst runs on the ground').toBeGreaterThan(0);
+  endRun('abandon');
+});
 test('crusher: fires fans as it walks; enraged, a second charge follows the first and only that one stuns', () => {
   startPractice('crusher');
   tick(10);
