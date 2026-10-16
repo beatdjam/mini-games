@@ -12,13 +12,14 @@ import { fanAt, ring, shootAngle } from '../../world/entities.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
 import { player } from '../player.ts';
 import {
-  FIRST_SHOT_DELAY,
-  RING_Y,
+  arenaRoom,
   bossBase,
+  bossHint,
   bossMaterial,
+  FIRST_SHOT_DELAY,
   isEnraged,
   nextPattern,
-  arenaRoom,
+  RING_Y,
   spawnMinion,
   wireOutline,
 } from './common.ts';
@@ -41,7 +42,7 @@ export function spawnWatcher() {
     g.add(eye);
   } else g.add(watcherLook(mat));
   bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
-  toast(t('boss.watcherHint'), 3800);
+  bossHint('boss.watcherHint', 3800);
 }
 function updWatcher(e: WatcherBoss, dt: number) {
   const K = BOSS_META.watcher.tune;

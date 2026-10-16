@@ -13,7 +13,7 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, shootHoming, spawnWave } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { bossBase, bossMaterial, isEnraged, wireOutline } from './common.ts';
+import { bossBase, bossHint, bossMaterial, isEnraged, wireOutline } from './common.ts';
 import { screenFx } from '../../ui/hud.ts';
 import { COLOR } from '../../data/colors.ts';
 // CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys; it fires fans as it walks between them.
@@ -55,7 +55,7 @@ export function spawnCrusher() {
     chained: false,
   });
   e.timer = 2;
-  toast(t('boss.crusherHint'), 4200);
+  bossHint('boss.crusherHint', 4200);
 }
 function updCrusher(e: CrusherBoss, dt: number) {
   const K = BOSS_META.crusher.tune;

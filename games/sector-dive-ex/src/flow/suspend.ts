@@ -121,7 +121,7 @@ export function renderSuspend() {
     maxHp: sn.P.maxHp,
     bits: Math.floor(sn.run.bits),
   });
-  const resume = `<button class="primary" data-susp="resume">${t('susp.resume')}<small>${t('susp.resumeSub')}</small></button>`;
+  const resume = `<button class="primary" data-susp="resume">${t('susp.resume')}</button>`;
   box.innerHTML = `<p class="eyebrow">suspended</p>
     <div>${info}</div>
     <div class="row">${resume}

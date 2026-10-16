@@ -44,6 +44,7 @@ export function pause() {
   musicVolume(0.4);
   renderSettings();
   el('#btnSuspend').hidden = !!run.practice;
+  armAbandon(false);
   el('#pauseChips').innerHTML = statsHTML();
   show('#scrPause');
 }
@@ -53,7 +54,20 @@ el('#btnResume').addEventListener('click', () => {
   musicVolume(1);
   requestLock();
 });
-el('#btnAbandon').addEventListener('click', () => endRun('abandon'));
+// the abandon button asks once: the first click arms it (its label then says what abandoning means), the second ends
+// the run. The label goes through data-i18n, so a language switch on the pause screen keeps it
+let abandonArmed = false;
+function armAbandon(on: boolean) {
+  abandonArmed = on;
+  const b = el('#btnAbandon'),
+    key = on ? 'pause.abandonGo' : 'pause.abandon';
+  b.dataset.i18n = key;
+  b.textContent = t(key);
+}
+el('#btnAbandon').addEventListener('click', () => {
+  if (abandonArmed) endRun('abandon');
+  else armAbandon(true);
+});
 el('#btnSuspend').addEventListener('click', suspendRun);
 
 // ---- stats panel ----
