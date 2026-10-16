@@ -1,6 +1,7 @@
 import type { RunEnd, Weapon } from '../data/types.ts';
 import { el, shuffle, yawToward } from '@engine/core/util.ts';
 import { devHook, showFps } from '@engine/core/dev.ts';
+import { drawStats } from '@engine/render/render.ts';
 import { LANG, lang, t } from '@engine/core/i18n.ts';
 import { T, W, floorY } from '@engine/world/tiles.ts';
 import { WEAPONS } from '../data/weapons.ts';
@@ -50,8 +51,11 @@ if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHaza
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
-// dev: ?fps shows the frames drawn in the last second, top middle (engine showFps)
-if (new URLSearchParams(location.search).has('fps')) showFps();
+// dev: ?fps shows the frames drawn in the last second, top middle, and what the last frame drew (engine showFps)
+if (new URLSearchParams(location.search).has('fps')) showFps(drawStats);
+// dev: ?stats writes what the last frame drew into the page's title, ten times a second (to read it from a headless
+// browser, which draws too slowly for ?fps to count a second of frames)
+if (new URLSearchParams(location.search).has('stats')) setInterval(() => (document.title = drawStats()), 100);
 // dev: ?court=open / ?court=roof makes every courtyard a yard open to the sky / a roofed atrium; with ?court=open,
 // ?yard=balcony / walk / bridge gives every floor of a yard that shape
 const courtParam = new URLSearchParams(location.search).get('court'),

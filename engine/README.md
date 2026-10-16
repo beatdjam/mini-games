@@ -31,12 +31,12 @@
   - ゲーム側: 起動時に `FEEDBACK.game` へゲームID。`feedbackReady()` のときだけ送信ボタンを出し、押されたら今の状況をテキストにして `openFeedback` に渡す
 - `src/core/analytics.ts`: `track(name, params)`（GA4 のイベントを送る。タグの無いページでは記録だけ）、`TRACK_LOG`（直近50件）、`ANALYTICS.game`
   - ゲーム側: 起動時に `ANALYTICS.game` へゲームID。送りたい出来事で `track` を呼ぶ。タグはビルドが入れる（`vite.config.js` の `GA_ID`）
-- `src/core/dev.ts`: `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`showFps()`（直近1秒に描いたフレーム数を画面の上の真ん中に出す。重さを見るとき）
+- `src/core/dev.ts`: `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`showFps(more?)`（直近1秒に描いたフレーム数を画面の上の真ん中に出す。重さを見るとき。`more` を渡すと、その文字も並べて出す）
   - ゲーム側: テストの中身
 
 ### render/
 
-- `src/render/render.ts`: `canvas`（`#gl`）, `renderer`, `scene`, `camera`, `dynGroup`, `resize`, `shared`, `basicMat`, `lineMat`, `disposeTree`, `textSprite`、手に持つ銃（部品の一覧から組み立てる `buildViewmodel` と、別パスで描く `gunScene`, `gun`, `renderGun`）
+- `src/render/render.ts`: `canvas`（`#gl`）, `renderer`, `scene`, `camera`, `dynGroup`, `resize`, `shared`, `basicMat`, `lineMat`, `disposeTree`, `textSprite`、手に持つ銃（部品の一覧から組み立てる `buildViewmodel` と、別パスで描く `gunScene`, `gun`, `renderGun`）。`drawStats()`（直前のフレームで描いた回数と三角形の数。シーンと手に持つ銃の両方の分を足したもの）
   - ゲーム側: `<canvas id="gl">`。毎フレーム `renderer.render(scene, camera)` のあとに `renderGun()`
 - `src/render/paint.ts`: 絵を描く道具。`paintTex(seed, fn, size?, repeat?)`（シードから描く正方形の絵のテクスチャ。同じシードなら同じ絵）, `paintRand(seed)`（その乱数）, `canvasTex(w, h, fn)`（好きな大きさの絵）, `poolTex()`（白い柔らかい光だまり。色はマテリアルで付ける）、筆づかい `grime`（汚れ）, `grain`（細かい粒）, `oval`, `smudge`（隣のタイルへ続くぼかし）, `stripes`（斜めの警告の縞）, `words`（引き伸ばされる面に書く文字）, `block`（左上から照らした箱）, `soil`（下の方の汚れと点）、型 `Paint`、`PAINT_SIZE`（256）
   - ゲーム側: 描く関数（2D コンテキストと乱数を受ける）とシード、絵の大きさ。全体を覆う筆づかいは、渡さなければキャンバスの大きさを使う
