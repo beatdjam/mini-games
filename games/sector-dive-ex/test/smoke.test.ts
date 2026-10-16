@@ -134,6 +134,7 @@ import {
   crossToFloor,
 } from '../src/flow/run.ts';
 import {
+  BUILDING_V,
   FLOORS_RANGE,
   FLOOR_H,
   STRIP,
@@ -2505,6 +2506,59 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   tick(5);
   expect(Array.from(grid).join('')).toBe(gridWas);
   expect(level.roomCount[room]).toBe(0);
+});
+test('building: the layout a seed gives is that of BUILDING_V', () => {
+  // A few buildings of every sector, as one number. When this fails, the same seed gives another building now: raise
+  // BUILDING_V in src/world/building.ts (a run suspended before is then fitted onto the new building), and put the new
+  // version and number here
+  devCourtOpen(null);
+  let h = 2166136261; // FNV-1a
+  const mix = (text: string) => {
+    for (let k = 0; k < text.length; k++) h = Math.imul(h ^ text.charCodeAt(k), 16777619) >>> 0;
+  };
+  for (const biome of BIOMES)
+    for (const seed of [1, 2, 3]) {
+      const b = makeBuilding(biome, biome.bosses[0]!, seed);
+      b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('')));
+      mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
+    }
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v1 7e1b4c1b');
+});
+test('resume: a run saved on a building laid out another way goes on at the same step of the route', () => {
+  goBase();
+  startRun();
+  tick(5);
+  useLink(0);
+  tick(5);
+  const route = building!.route,
+    arrive = building!.links[0]!;
+  expect(run.bld!.step).toBe(1);
+  // the checkpoint as an older layout left it: no version, the stairwell or lift it came by and the rooms out of range
+  const saved = (save.suspend as Snapshot | null)!.run.bld!;
+  delete saved.v;
+  saved.at = 99;
+  saved.cleared = saved.cleared.map(() => [98, 99]);
+  saved.seen = ['broken'];
+  suspendRun();
+  setBuilding(null);
+  resumeRun();
+  tick(5);
+  const st = run.bld!;
+  expect(st.v).toBe(BUILDING_V);
+  expect([st.step, st.floor, level.floor]).toEqual([1, route[1], route[1]]);
+  expect(tileIndex(player.x, player.z), 'where the first step of the route lets the player off').toBe(arrive.b);
+  // the top floor counts as done: every room, so its rooms give no chips again; the floor played now is not entered yet
+  expect(st.cleared[0]!.length).toBe(building!.plans[0]!.gen.rooms.length);
+  expect(st.visited[0]).toBe(true);
+  expect(st.cleared[route[1]!]).toEqual([]);
+  expect(
+    level.roomCount.some(n => n > 0),
+    'the floor has its enemies',
+  ).toBe(true);
+  expect(
+    building!.plans.filter((_, floor) => floor !== route[1]).every(p => p.seen.every(v => v === 0)),
+    'the map starts unexplored (but where the player stands now)',
+  ).toBe(true);
 });
 test('stairwell: walking over the landing changes the floor without moving the player in the world', () => {
   // a run whose building has a stairwell (about half the steps of a route are one)
