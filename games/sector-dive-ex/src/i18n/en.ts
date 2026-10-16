@@ -370,7 +370,7 @@ LANG.en = {
       rail: { name: 'Railgun', desc: 'A heavy piercing round. 1.5× damage beyond 15 m. Always accurate.' },
       launcher: {
         name: 'Launcher',
-        desc: 'A slow rocket. Hits every enemy in the blast, with full damage near the centre. Fire it up close and you get caught too.',
+        desc: 'A slow rocket. Hits every enemy in the blast, with full damage near the centre, and 1.5× on the one it strikes. Fire it up close and you get caught too.',
       },
     },
     rarity: { 0: { name: 'Standard' }, 1: { name: 'Improved' }, 2: { name: 'Prototype' } },

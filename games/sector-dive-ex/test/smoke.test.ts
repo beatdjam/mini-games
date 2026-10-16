@@ -337,6 +337,34 @@ test('shield: front wears the shield, back hurts, then it breaks', () => {
   removeEnemyMesh(e);
   clearWorld('enemy');
 });
+test('rocket: the enemy it strikes takes its direct share on top of the blast', () => {
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
+  const was = { crit: player.crit, hp: player.hp, maxHp: player.maxHp };
+  player.crit = 0;
+  player.hp = 1e6;
+  player.maxHp = 1e6;
+  const [sx, sz] = roomSpot(level.rooms[level.startIdx]);
+  const e = spawnEnemy('brute', sx, sz, -1, 1);
+  e.hp = 1e6;
+  // a rocket of 10 from 2.5 m in front, with and without the direct share; what the blast does is the same both times
+  const hit = (direct: number) => {
+    const hp0 = e.hp;
+    spawnPBullet(new V3(sx, e.fy! + 1.2, sz + 2.5), new V3(0, 0, -1), 60, 10, 0, 5, 0xffffff, 0, { direct });
+    updatePBullets(0.1);
+    return hp0 - e.hp;
+  };
+  const plain = hit(0),
+    struck = hit(0.5);
+  expect(plain, 'the blast hurts').toBeGreaterThan(0);
+  expect(struck - plain).toBeCloseTo(5);
+  removeEnemyMesh(e);
+  clearWorld('enemy');
+  Object.assign(player, was);
+});
 test('split-shot fan squeezes into SPLIT_FAN.max', () => {
   pBullets.forEach(b => {
     b.alive = false;
@@ -891,7 +919,7 @@ test('shotgun knockback once per shot; launcher gets half the magazine chips', (
   const pushed = z0 - e.z;
   if (!(pushed > 0.5 && pushed < WEAPONS.shotgun!.kb! + 0.05)) throw new Error('knockback ' + pushed);
   player.magMul = 2.5;
-  if (magSize(newWeapon('launcher', 0)) > 4 || magSize(newWeapon('smg', 0)) < 110)
+  if (magSize(newWeapon('launcher', 0)) > 5 || magSize(newWeapon('smg', 0)) < 110)
     throw new Error('mag chips ' + magSize(newWeapon('launcher', 0)));
   endRun('abandon');
 });
@@ -1147,7 +1175,7 @@ test('current stats: rarity damage, real magazine, chips counted', () => {
   player.magMul = 1;
   if (
     dmg !== pc(player.dmgMul * 1.55 - 1) ||
-    mag !== pc(4 / 2 - 1) /* 2 rounds x (1 + 1.5 x 0.5) = 3.5 -> 4, not +150% */ ||
+    mag !== pc(5 / 3 - 1) /* 3 rounds x (1 + 1.5 x 0.5) = 5.25 -> 5, not +150% */ ||
     !html.includes(t('common.countRare', { name: perkName('mag'), n: 3, r: 1 }))
   )
     throw new Error('stats ' + [dmg, mag]);
@@ -1370,9 +1398,10 @@ test('save codes: round trip, a bad code is refused', () => {
   el('#btnWipe').click();
   el('#btnWipeGo').click();
 });
-test('readiness: fair at DEPTH 1, harder deeper; upgrades and mods make it easier', () => {
+test('readiness: easy at DEPTH 1, harder deeper; upgrades and mods make it easier', () => {
+  // (a plain handgun reads 1.75 against the fixed yardstick READY_REF_DPS: DEPTH 1 is "comfortable")
   const fresh = [0, 1, 2, 4].map(n => readiness(n));
-  if (fresh[0] !== 2 || fresh.some((r, i) => i && r < fresh[i - 1]!)) throw new Error('readiness fresh ' + fresh);
+  if (fresh[0] !== 1 || fresh.some((r, i) => i && r < fresh[i - 1]!)) throw new Error('readiness fresh ' + fresh);
   const s0 = readinessScore(2);
   save.up.dmg = 6;
   save.up.hp = 6;

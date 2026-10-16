@@ -84,9 +84,11 @@ export function setNear(w: Pickup | null, d?: number) {
 export const pBullets: PBullet[] = [],
   eBullets: EBullet[] = [];
 // far / farMul: rail damage bonus past `far` metres; kb: knockback; rail: punches through shields; shot: id of the trigger pull
+// direct: the rocket's extra on the enemy it hits
 interface ShotOptions {
   far?: number;
   farMul?: number;
+  direct?: number;
   kb?: number;
   rail?: boolean;
   shot?: number;
@@ -125,6 +127,7 @@ export function spawnPBullet(
   const o: ShotOptions = opt || {};
   b.far = o.far || 0;
   b.farMul = o.farMul || 1; // rail gun: bonus beyond `far` metres
+  b.direct = o.direct || 0;
   b.kb = o.kb || 0;
   b.rail = !!o.rail;
   b.shot = o.shot || 0;

@@ -24,6 +24,7 @@ export interface WeaponDef {
   pierce?: number;
   far?: number;
   farMul?: number;
+  direct?: number; // launcher: the enemy the rocket hits takes this many times its damage on top of the blast
   blast?: number;
   grav?: number;
   chipMag?: number;
@@ -246,6 +247,7 @@ interface Bullet extends Projectile {
   oz: number;
 }
 // the player's: pierce = enemies it can still pass through, blast = explosion radius (rockets), far / farMul = rail range bonus,
+// direct = rocket's extra on the enemy it hits,
 // kb = knockback, rail = punches through shields, shot = id of the trigger pull, color
 export interface PBullet extends Bullet {
   pierce: number;
@@ -253,6 +255,7 @@ export interface PBullet extends Bullet {
   color: number;
   far: number;
   farMul: number;
+  direct: number;
   kb: number;
   rail: boolean;
   shot: number;

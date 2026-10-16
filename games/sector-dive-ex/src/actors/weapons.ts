@@ -119,7 +119,8 @@ export const reloadTime = (def: WeaponDef, w?: WeaponItem): number =>
 export const shotDamage = (def: WeaponDef, w: WeaponItem): number =>
   def.dmg * wDmgMul(w) * player.dmgMul * splitMul(def);
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
-// dps = sustained damage per second on one target, including reloads and average crits. What it leaves out is given
+// dps = sustained damage per second on one target, including reloads, average crits and a rocket's direct hit. What it
+// leaves out is given
 // apart: farDps = the rail's dps on targets past `far` metres; blast = the rocket's blast radius (every enemy caught
 // in it takes the hit, up to full damage near the centre).
 export function weaponStats(w: WeaponItem) {
@@ -129,7 +130,7 @@ export function weaponStats(w: WeaponItem) {
   const interval = fireInterval(def, w);
   const mag = magSize(w);
   const reload = reloadTime(def, w);
-  const dps = ((perHit * hits * mag) / (mag * interval + reload)) * (1 + critChance(w));
+  const dps = ((perHit * (1 + (def.direct ?? 0)) * hits * mag) / (mag * interval + reload)) * (1 + critChance(w));
   return {
     perHit,
     hits,

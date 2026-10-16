@@ -148,6 +148,7 @@ function spawnShots(w: Weapon, def: WeaponDef, mz: THREE.Vector3, base: THREE.Ve
       {
         far: def.far,
         farMul: def.farMul,
+        direct: def.direct,
         kb: def.kb,
         rail: !!def.pierce,
         shot: shotId,
