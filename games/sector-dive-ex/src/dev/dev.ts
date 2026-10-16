@@ -1,6 +1,6 @@
 import type { RunEnd, Weapon } from '../data/types.ts';
 import { el, shuffle, yawToward } from '@engine/core/util.ts';
-import { devHook } from '@engine/core/dev.ts';
+import { devHook, showFps } from '@engine/core/dev.ts';
 import { LANG, lang, t } from '@engine/core/i18n.ts';
 import { T, W, floorY } from '@engine/world/tiles.ts';
 import { WEAPONS } from '../data/weapons.ts';
@@ -50,25 +50,8 @@ if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHaza
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
-// dev: ?fps shows the frames drawn in the last second, top middle (for looking at how heavy a place is on a phone)
-if (new URLSearchParams(location.search).has('fps')) {
-  const box = document.createElement('div');
-  box.style.cssText =
-    'position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:99;padding:2px 8px;background:#000a;color:#fff;font:14px monospace';
-  document.body.append(box);
-  let frames = 0,
-    since = performance.now();
-  const count = (now: number) => {
-    frames++;
-    if (now - since >= 1000) {
-      box.textContent = `${Math.round((frames * 1000) / (now - since))} fps`;
-      frames = 0;
-      since = now;
-    }
-    requestAnimationFrame(count);
-  };
-  requestAnimationFrame(count);
-}
+// dev: ?fps shows the frames drawn in the last second, top middle (engine showFps)
+if (new URLSearchParams(location.search).has('fps')) showFps();
 // dev: ?court=open / ?court=roof makes every courtyard a yard open to the sky / a roofed atrium; with ?court=open,
 // ?yard=balcony / walk / bridge gives every floor of a yard that shape
 const courtParam = new URLSearchParams(location.search).get('court'),
