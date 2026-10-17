@@ -27,6 +27,7 @@ import { showBaseFeedback } from '../ui/feedback.ts';
 import { startPractice, startRun } from '../flow/run.ts';
 import { renderSuspend } from '../flow/suspend.ts';
 import { onDataClick, type DataClick } from '@engine/ui/dom.ts';
+import { hud2 } from '../ui/hud2.ts';
 
 // transient state of the base screen
 export const baseUI = {
@@ -63,14 +64,19 @@ export function weaponStatText(w: WeaponItem) {
   }
 }
 // base menu tabs
+// (with the new layout, ui/hud2.ts, the home page is the dive and the level side by side: 'sortie' and 'up' are one
+// page; practice and settings are pages of their own, opened from the icons at the top right)
 export function showTab(name: string) {
-  const tab = document.querySelector(`[data-pane="${name}"]`) ? name : 'sortie';
+  let tab = document.querySelector(`[data-pane="${name}"]`) ? name : 'sortie';
+  if (hud2 && tab === 'up') tab = 'sortie';
   baseUI.tab = tab;
+  el('.base').dataset.tab = tab;
+  const home = (pane: string | undefined) => hud2 && tab === 'sortie' && pane === 'up';
   document
     .querySelectorAll<HTMLElement>('.tabs [data-tab]')
     .forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
   document.querySelectorAll<HTMLElement>('[data-pane]').forEach(p => {
-    p.hidden = p.dataset.pane !== tab;
+    p.hidden = p.dataset.pane !== tab && !home(p.dataset.pane);
   });
   prefSet(BASE_TAB_KEY, tab);
 }

@@ -343,3 +343,171 @@ body.hud2 #hint {
   color: var(--paint2);
   text-shadow: 0 1px 0 #000;
 }
+
+/* ======== the base: one page (2026-10-17). The next dive in the middle (where from, what to take, DIVE), the level
+   on the left; boss practice and settings are pages of their own behind the icons at the top right. Dark steel and
+   white paint as in the fight; DIVE in safety yellow, the one thing that stands out ======== */
+body.hud2 #scrBase {
+  background: radial-gradient(ellipse at 50% 30%, rgba(10, 11, 11, 0.55), rgba(6, 7, 7, 0.9));
+  color: var(--paint);
+}
+body.hud2 .base {
+  position: relative;
+  max-width: 1120px;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  grid-template-areas:
+    'head head'
+    'stats sortie'
+    'up sortie'
+    'start start';
+  align-items: start;
+  column-gap: 20px;
+}
+body.hud2 .head {
+  grid-area: head;
+  padding-right: 170px;
+}
+body.hud2 .head h1 {
+  font-size: clamp(24px, 4vw, 36px);
+  text-shadow: none;
+  color: var(--paint);
+}
+body.hud2 .head h1 span {
+  color: var(--safety);
+}
+body.hud2 .head .lead {
+  color: var(--paint2);
+  font-size: 13px;
+}
+body.hud2 .stats {
+  grid-area: stats;
+  grid-template-columns: 1fr 1fr;
+}
+body.hud2 [data-pane='up'] {
+  grid-area: up;
+}
+body.hud2 [data-pane='sortie'] {
+  grid-area: sortie;
+}
+body.hud2 .startbar {
+  grid-area: start;
+}
+/* (practice and settings take the whole page under the title) */
+body.hud2 .base:is([data-tab='practice'], [data-tab='settings']) :is(.stats, .startbar) {
+  display: none;
+}
+body.hud2 :is([data-pane='practice'], [data-pane='settings']) {
+  grid-column: 1 / -1;
+  grid-row: 2 / 5;
+}
+/* the tabs: three pictures at the top right (home, practice, settings); the level has no tab, it is on the home page */
+body.hud2 .tabs {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  border: 0;
+  background: none;
+}
+body.hud2 .tabs [data-tab='up'] {
+  display: none;
+}
+body.hud2 .tabs button {
+  flex: none;
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--paint2);
+  color: var(--paint2);
+}
+body.hud2 .tabs button svg {
+  width: 20px;
+  height: 20px;
+}
+body.hud2 .tabs button[aria-selected='true'] {
+  border-color: var(--paint);
+  color: var(--paint);
+  background: rgba(235, 231, 218, 0.1);
+}
+@media (max-width: 760px) {
+  body.hud2 .base {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'head' 'stats' 'sortie' 'up' 'start';
+  }
+  body.hud2 .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  body.hud2 .head {
+    padding-right: 150px;
+  }
+}
+
+/* ---- the plates and the words ---- */
+body.hud2 #scrBase :is(.stats div, .wcard, .lslot, .urow, .tier) {
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border-color: #3d4143;
+  color: var(--paint);
+}
+body.hud2 #scrBase :is(.stats, .ulist) {
+  background: #000;
+  border-color: #3d4143;
+}
+body.hud2 #scrBase :is(.eyebrow, .sec h2 small, .sec h3 small, .wcard .wd, .wcard .ws, .urow .ud, .tier small, .help) {
+  color: var(--paint2);
+}
+body.hud2 #scrBase .stats .amber b,
+body.hud2 #scrBase .levelrow span {
+  color: var(--safety);
+}
+body.hud2 #scrBase .sec h2 {
+  font-family: var(--sten);
+  letter-spacing: 0.06em;
+}
+body.hud2 #scrBase .pips i {
+  background: #2b2e2f;
+}
+body.hud2 #scrBase .pips i.on {
+  background: var(--paint);
+}
+body.hud2 #scrBase .buy {
+  border-color: var(--safety);
+  color: var(--safety);
+}
+body.hud2 #scrBase .buy:disabled {
+  border-color: #3d4143;
+  color: #5b5e5f;
+}
+body.hud2 #scrBase :is(.lslot.sel, .tier[aria-pressed='true']) {
+  border-color: var(--paint);
+  box-shadow: inset 3px 0 0 var(--safety);
+  background: linear-gradient(180deg, #2b2e2f, #1d1f20);
+}
+body.hud2 #scrBase .mini-btn.amber,
+body.hud2 #scrBase .wcard .wf {
+  color: var(--safety);
+  border-color: var(--safety);
+}
+/* DIVE: a safety-yellow plate, black stencil letters */
+body.hud2 #btnStart {
+  background: var(--safety);
+  border: 0;
+  color: #151515;
+  font-family: var(--sten);
+  font-size: 30px;
+  letter-spacing: 0.16em;
+  box-shadow: 0 3px 0 #000;
+  text-shadow: none;
+}
+body.hud2 #btnStart small {
+  color: #3a3220;
+  font-family: var(--disp);
+  letter-spacing: 0.04em;
+}
+/* (DIVE stays at the foot of the screen, the whole width, as the page scrolls) */
+body.hud2 .startbar {
+  background: linear-gradient(180deg, rgba(6, 7, 7, 0), rgba(6, 7, 7, 0.92) 12px);
+}
