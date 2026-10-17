@@ -11,9 +11,11 @@ import { floorY, tileIndex } from '@engine/world/tiles.ts';
 import { query } from '@engine/core/world.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
-import { hpGrowth } from '../../data/progress.ts';
+import { hpGrowth, isMilestone } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
 import { openShortcut, recordBossKill, recordBossSeen, recordPeak } from '../../core/progress.ts';
+import { openLevelUp } from '../../screens/levelup.ts';
+import { state } from '../../flow/state.ts';
 import { progressOf } from '../../core/rules.ts';
 import { arenaCenter, level } from '../../world/level.ts';
 import { BOSS_POOL_SIDE } from '../../world/models/bossLooks.ts';
@@ -274,6 +276,7 @@ function giveBossRewards(e: Boss, tier: number, progress: number) {
   makePortal(e.cx + 6, e.cz - 2, COLOR.amber, 'next', t('boss.forward'));
   makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
 }
+const LEVEL_UP_DELAY = 1800; // the milestone's level-up opens this long after the kill (ms), once the boss's end has played
 // the kill counts toward the save: deepest depth, the next shortcut
 function recordBossProgress(tier: number) {
   recordBossKill();
@@ -297,6 +300,8 @@ export function bossDown(e: Boss) {
   }
   const tier = stageInfo(run.stage).tier;
   giveBossRewards(e, tier, progressOf(run.stage));
+  // the way on is into a milestone: the dive's bits can buy levels here (screens/levelup.ts)
+  if (isMilestone(tier + 1)) setTimeout(() => state === 'play' && openLevelUp(), LEVEL_UP_DELAY);
   onBossDown();
   hideBossBar();
   recordBossProgress(tier);

@@ -20,7 +20,7 @@ import { building } from '../world/building.ts';
 import { level } from '../world/level.ts';
 import { state } from '../flow/state.ts';
 import { controlState, equipNearby, normalizeWeapons, useKit } from '../ui/input.ts';
-import { yawToward, wrapAngle, turnToward } from '@engine/core/util.ts';
+import { el, yawToward, wrapAngle, turnToward } from '@engine/core/util.ts';
 // ================= a player that plays by itself (dev) =================
 // For looking at the balance without playing by hand: a bot that walks the building's route, fights what it sees and
 // takes the boss, through the same inputs a person uses (the stick, where the player looks, the fire button). It
@@ -191,6 +191,7 @@ export interface BotStats {
   kits: number; // kits used
   hazard: number; // seconds stood on a live hazard floor
   picked: number; // weapons taken from the floor
+  levels: number; // levels bought at the milestones
   dashes: number; // dashes made to get clear of a shot or a shockwave
   depth: number; // the deepest depth it played (1 = the first)
   floors: number; // floors of the building it reached
@@ -201,6 +202,24 @@ export interface BotStats {
   trace: string[]; // what it did, in order: `<second> <floor> <what>` each time that changed
 }
 
+// ---- the milestones' level-ups ----
+// whether the bot buys levels at a milestone (the sim's SIM_LEVEL=off turns it off, to compare)
+let botLevels = true;
+export function setBotLevels(on: boolean) {
+  botLevels = on;
+}
+// the point to buy next, as a player who has thought about it would: the med kits and the fourth chip first (cheap for
+// what they give), then output and armour by turns (whichever has fewer points). Null when none can be bought. Never a
+// starting chip (it is a pick of its own, at the base)
+function levelPick(): HTMLButtonElement | null {
+  const can = (id: string) => {
+    const b = document.querySelector<HTMLButtonElement>(`#perkList [data-level="${id}"]`);
+    return b && !b.disabled ? b : null;
+  };
+  return (
+    can('kit') ?? can('choice') ?? ((save.up.dmg || 0) <= (save.up.hp || 0) ? can('dmg') : can('hp')) ?? can('dmg')
+  );
+}
 export function createBot(style: BotStyle) {
   const stats: BotStats = {
     frames: 0,
@@ -209,6 +228,7 @@ export function createBot(style: BotStyle) {
     kits: 0,
     hazard: 0,
     picked: 0,
+    levels: 0,
     dashes: 0,
     depth: 1,
     floors: 1,
@@ -557,6 +577,19 @@ export function createBot(style: BotStyle) {
   }
   function play(dt: number) {
     if (save.settings.autofire !== style.autofire) toggleSetting('autofire');
+    if (state === 'perk' && el('#scrPerk').dataset.mode === 'level') {
+      // a milestone's level-up: spend the dive's bits (botLevels), then go on
+      if (botLevels) {
+        const pick = levelPick();
+        if (pick) {
+          pick.click();
+          stats.levels++;
+          return;
+        }
+      }
+      el('#perkDone').click();
+      return;
+    }
     if (state === 'perk') {
       // a chip to choose: the first one offered
       document.querySelector<HTMLButtonElement>('#perkList button')?.click();

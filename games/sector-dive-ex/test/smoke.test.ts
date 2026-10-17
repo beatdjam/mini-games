@@ -58,12 +58,14 @@ import {
   DEPTH_HP_GROWTH,
   DEPTH_HP_LATE,
   KIT_MAX,
+  isMilestone,
   PER,
   TUNE,
   UPGRADES,
   levelCost,
   milestoneBelow,
 } from '../src/data/progress.ts';
+import { openLevelUp } from '../src/screens/levelup.ts';
 import { PERKS } from '../src/data/perks.ts';
 import {
   SAVE_KEY,
@@ -1510,6 +1512,28 @@ test('level: none while a dive is suspended; the chip offers keep the count the 
   renderBase();
   if (set !== (keepUp.choice || 0) || live !== set || !off || hp !== keepUp.hp)
     throw new Error('suspended level ' + [set, live, off, hp]);
+});
+test("level: a milestone level-up spends the dive's bits, counts at once, and keeps the save's bits", () => {
+  const keepUp = { ...save.up },
+    keepBits = save.bits;
+  goBase();
+  startRun();
+  tick(2);
+  run.bits = 1000;
+  const hp0 = player.maxHp,
+    cost = nextLevelCost();
+  openLevelUp();
+  const open = stateIs('perk') && el('#scrPerk').dataset.mode === 'level';
+  document.querySelector<HTMLButtonElement>('#perkList [data-level="hp"]')!.click();
+  const got = [player.maxHp - hp0, 1000 - run.bits, save.up.hp! - (keepUp.hp || 0), save.bits === keepBits];
+  el('#perkDone').click();
+  const closed = stateIs('play');
+  endRun('abandon');
+  Object.assign(save.up, keepUp);
+  save.bits = keepBits;
+  persist();
+  if (!open || !closed || got.join() !== [15, cost, 1, true].join()) throw new Error('milestone level ' + got);
+  if (![4, 9, 14].every(isMilestone) || isMilestone(5) || isMilestone(0)) throw new Error('isMilestone');
 });
 test('level: a save from before it has the reboot folded into its points', () => {
   const old = {

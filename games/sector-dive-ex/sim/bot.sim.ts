@@ -18,11 +18,12 @@ import { player, run } from '../src/actors/player.ts';
 import { goBase, startRun } from '../src/flow/run.ts';
 import { state } from '../src/flow/state.ts';
 import { update } from '../src/flow/update.ts';
-import { BOT_STYLES, createBot, setBot } from '../src/dev/bot.ts';
+import { BOT_STYLES, createBot, setBot, setBotLevels } from '../src/dev/bot.ts';
 
 declare const __SIM_SEEDS__: string;
 declare const __SIM_STYLE__: string;
 declare const __SIM_WEAPON__: string;
+declare const __SIM_LEVEL__: string;
 
 const DT = 1 / 60;
 // A run goes on for as long as the bot gets anywhere: it is given up only when nothing has moved on for a while (no
@@ -107,6 +108,8 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
     // every kind of player up to where they play differently
     Math.random = createRng(seed).next;
     const bot = createBot(style!);
+    // (SIM_LEVEL=off: no levels bought at the milestones, the game as before them, to compare)
+    setBotLevels(__SIM_LEVEL__ !== 'off');
     setDropOnly(weapon);
     startRun();
     if (weapon) {
@@ -197,6 +200,7 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
       heapMB: heapMB(),
       last: s.doing,
       bits: Math.floor(run?.bits ?? 0),
+      bought: s.levels,
       // (how many levels the run's bits would buy from level 0: data/progress.ts levelCost)
       levels: levelsFor(Math.floor(run?.bits ?? 0)),
       bitsAt: bitsAt.join(' ') || '-',

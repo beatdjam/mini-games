@@ -1,0 +1,71 @@
+# SECTOR/DIVE EX のトレイラー（2026-10-05 版。ボスを倒しきるまでの 1 秒を足して 36.2 秒）
+# 撮り方と書き方: tools/trailer/README.md
+#   npm run trailer -- games/sector-dive-ex/trailers/2026-10-05.txt
+
+size     1280x576 @1.5        # 書き出しは 1920x864（スマホ横向き）
+lang     ja
+input    mouse                # スマホの画面（タッチのボタン）
+music    KWLN boss            # 九龍城の曲の、ボス戦のアレンジ
+build    strong               # 慣れたプレイヤー相当のチップ
+guns     shotgun:rate rail:pierce
+building KWLN boss=watcher    # 下の場所がそろう建物を自動で探す
+
+scene 2.3  これまでの Sector Dive
+  at      KWLN start seed=7
+  looks   old                 # Sector Dive の見た目
+  enemies crawler drone turret trooper
+  do      look-around
+
+scene 2.9  見た目を一新
+  in      flash
+  at      same                # 同じ場所・同じ向き
+  looks   new
+  enemies crawler drone turret trooper
+  do      look-around
+
+scene 1.0  セクターごとに違う景色
+  at      FORGE start
+  enemies 3
+  do      look-around
+scene 1.0  ^                  # ^ は前の字幕を続ける
+  at      DATA start
+  enemies 3
+  do      look-around
+scene 1.0  ^
+  at      CITY start
+  enemies 3
+  do      look-around
+scene 1.0  ^
+  at      RUIN	 start
+  enemies 3
+  do      look-around
+scene 1.0  ^
+  at      NOISE start
+  enemies 3
+  do      look-around
+
+scene 3.4  上下につながるステージ
+  at      stairs              # 階段室の上から見下ろす
+  do      run                 # ダッシュで駆け下りて、視線を水平に戻す
+scene 6.2  ^
+  at      lift skip=2         # 階を2つ飛ばすエレベーターの横
+  do      ride                # 乗って、開口から階が過ぎるのを見る
+
+scene 3.0  建物まるごとの立体マップ
+  at      map3d
+  do      turn-map
+
+scene 5.2  閉じ込められて戦う部屋
+  at      lockdown            # ロックダウンの部屋の扉の前
+  do      fight               # 部屋に入って、自動で狙って撃つ
+
+scene 7.0  最下階にボス        # ボスが出るまで約3秒、倒すまで約2秒
+  at      boss                # ボス部屋の扉の前
+  do      boss                # 扉が開く → 入る → ボス戦
+
+end 3.2
+  in      flash
+  title   SECTOR/DIVE EX
+  line    最下階のボスを倒しに降りる
+  sub     Sector Dive の実験的な拡張版 ／ ブラウザで無料プレイ・スマホ対応
+  url     beatdjam.github.io/mini-games

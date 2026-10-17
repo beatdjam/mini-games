@@ -1,5 +1,5 @@
 import type { Player, RunState, Weapon, WeaponItem } from '../data/types.ts';
-import { TUNE, BAG_MAX } from '../data/progress.ts';
+import { DMG_PER_POINT, HP_PER_POINT, KIT_MAX, TUNE, BAG_MAX } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { basicNow, startDmgMul, startMaxHp } from '../core/rules.ts';
 import { fillMag, newWeapon } from './weapons.ts';
@@ -76,3 +76,20 @@ export function newPlayer(loadout: (WeaponItem | null)[], tier = 0): Player {
 
 // the weapon in hand; during a run there always is one (normalizeWeapons keeps slot 0 filled)
 export const currentWeapon = (): Weapon => player.weapons[player.cur]!;
+// one level's point put into upgrade `id` during a dive (a milestone's level-up, screens/levelup.ts): what it adds to
+// the player as it is, chips and all, on top of what the dive set out with (newPlayer). 'chip' is a chip to pick and is
+// handled by the caller
+export function applyLevelPoint(p: Player, id: string) {
+  if (id === 'hp') {
+    p.maxHp += HP_PER_POINT;
+    p.hp += HP_PER_POINT;
+  } else if (id === 'dmg') p.dmgMul += DMG_PER_POINT;
+  else if (id === 'spd') p.spdMul += SPD_UP_PER_LEVEL;
+  else if (id === 'dash') p.stRegen += TUNE.staminaRegen * REGEN_UP_PER_LEVEL;
+  else if (id === 'gain') p.gainMul += GAIN_UP_PER_LEVEL;
+  else if (id === 'stam') {
+    p.stMax += STAM_UP_PER_LEVEL;
+    p.st += STAM_UP_PER_LEVEL;
+  } else if (id === 'kit') p.kits = Math.min(KIT_MAX, p.kits + 1);
+  else if (id === 'choice') run.choice = (run.choice ?? 0) + 1;
+}

@@ -32,6 +32,10 @@ export function sellFromStash(i: number) {
 }
 
 // ---- the level ----
+// one more level bought with a dive's bits (at a milestone): its point put into upgrade `id`, the save's bits untouched
+export function addLevelPoint(id: string) {
+  save.up[id] = (save.up[id] || 0) + 1;
+}
 // one more level for `cost` bits, its point put into upgrade `id`
 export function buyUpgrade(id: string, cost: number) {
   save.bits -= cost;
