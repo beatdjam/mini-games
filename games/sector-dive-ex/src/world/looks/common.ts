@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { BlockStyle } from './outside.ts';
 import type { Rng } from '@engine/core/util.ts';
-import { facesToward, wallSide } from '@engine/world/walls.ts';
+import { alongOpen, facesToward, wallSide } from '@engine/world/walls.ts';
 import type { WallMap } from '@engine/world/walls.ts';
 import { CSS_COLOR } from '../../data/colors.ts';
 import type { FloorPlan } from '../building.ts';
@@ -36,7 +36,8 @@ export interface Look {
   // left, top, right, bottom); there the backdrop is seen instead of the picture, as far away as the sky
   // (levelMesh.ts buildFloorMeshes and engine/src/render/windows.ts, level.ts). The backdrop is the view all round (paint.ts BACKDROP_W). Only where the
   // picture may stand on the building's outside wall (WallSides outer). Without it no window is seen through
-  outside?: { panes: Record<number, [number, number, number, number][]> } & OutsideView;
+  // `frame`: the colour of the frames round them, standing out of the wall (engine windows.ts buildWindowFrames)
+  outside?: { panes: Record<number, [number, number, number, number][]>; frame: number } & OutsideView;
   // pictures (by number) as they are seen from outside the building, on a wall with rooms behind it (a yard's walls,
   // the building's own outside: courtMesh.ts): a window seen through has the dark room behind its glass, not the
   // outside (which there would be seen through the building). Without it such a wall has the picture as it is
@@ -86,7 +87,14 @@ export interface OutsideView {
 export interface WallSides {
   outer?: number[];
   inner?: number[];
+  // the window on a wall that faces a courtyard open to the sky, on every other tile (YARD_WINDOW_EVERY), the same
+  // columns as the yard's own windows (courtMesh.ts buildYardShell); the tiles between have none of `outer`. Without
+  // it such a wall is painted like any outside wall
+  yard?: number;
 }
+// a wall on a yard has a window on every this many tiles (where its place along the wall is odd)
+export const YARD_WINDOW_EVERY = 2;
+export const yardWindowAt = (along: number): boolean => along % YARD_WINDOW_EVERY === 1;
 // The evening sun is in the west, which is toward -x on every map: a wall tile faces west when the floor it is seen
 // from lies east of it (a window there looks out at the sun and lets it in)
 const WEST = [-1, 0] as const;
@@ -102,8 +110,15 @@ export function wallPic(
 ): number {
   const v0 = variantOf(k, count, WALL_PLAIN_SHARE),
     v = v0 === 0 && laneWalls && byLane(d, k) ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v0;
+  const beyond = wallBeyond.get(d.maps.grid);
+  if (sides?.yard !== undefined) {
+    // (only an outside wall: one that a floor sees from another side too is left as it is)
+    const along = alongOpen(d, k, beyond);
+    if (along !== null && wallSide(d, k, beyond) === 'outer')
+      return yardWindowAt(along) ? sides.yard : sides.outer?.includes(v) ? 0 : v;
+  }
   if (!sides || (!sides.outer?.includes(v) && !sides.inner?.includes(v))) return v;
-  const side = wallSide(d, k, wallBeyond.get(d.maps.grid));
+  const side = wallSide(d, k, beyond);
   return (sides.outer?.includes(v) && side === 'outer') || (sides.inner?.includes(v) && side === 'inner') ? v : 0;
 }
 // What a building's wall looks out on (engine wallSide's `beyond`), registered by the floor's grid (world/building.ts):

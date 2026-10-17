@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { SIDE_STEP, T, W, tileCenter } from '@engine/world/tiles.ts';
+import { facadePicture } from '@engine/world/walls.ts';
 import { WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
 import { PAINT, css } from '../data/colors.ts';
 import { lookOf } from './looks.ts';
+import { yardWindowAt } from './looks/common.ts';
 import type { Court, FloorPlan } from './building.ts';
 import { addTilePlanes } from './meshParts.ts';
 import { dressAtrium, dressYard, yardDice } from './yardProps.ts';
@@ -390,7 +392,15 @@ function yardGroundTex(th: YardTheme): THREE.CanvasTexture {
 }
 // The yard of a building, in the building's own frame: floor 0's ground is at height 0, floor n's at -n * storey.
 // `w`: tiles across the map. Where a floor has its balcony, the wall has an opening (no facade tile)
-export function buildYardShell(court: Court, w: number, storey: number, biome: Biome): THREE.Group {
+// `inside(storey, k)`: the picture on the inner face of wall tile k on that storey, where the building has a floor (the
+// facade agrees with it: engine facadePicture), else null
+export function buildYardShell(
+  court: Court,
+  w: number,
+  storey: number,
+  biome: Biome,
+  inside: (storey: number, k: number) => number | null = () => null,
+): THREE.Group {
   const th = YARDS[biome.code] ?? YARDS.CITY!,
     group = new THREE.Group(),
     is = court.tiles.map(k => k % w),
@@ -404,22 +414,41 @@ export function buildYardShell(court: Court, w: number, storey: number, biome: B
     open = new Set<string>();
   court.balconies.forEach((tiles, n) => tiles.forEach(k => open.add(`${court.upper + n}:${k}`)));
   // every tile of the four walls on every storey: where it stands, which way it faces, the wall tile behind it
-  const spots: { x: number; y: number; z: number; turn: number; kind: number }[] = [];
+  // (`pic`: its wall picture, where the floor's own wall decides it)
+  const spots: { x: number; y: number; z: number; turn: number; kind: number; pic?: number }[] = [],
+    look = lookOf(biome),
+    lightOf = (d: number) => (d < th.lit ? 1 : d < th.lit + th.screen ? 2 : 0);
   for (let s = top; s <= bottom; s++) {
     const y = -s * storey + storey / 2,
       put = (x: number, z: number, turn: number, behind: number, n: number) => {
         if (open.has(`${s}:${behind}`)) return;
-        // a window on every other tile of a wall (the same columns on every storey), bare wall between
-        const d = th.dense || n % 2 ? yardDice(s, n, turn) : -1;
-        spots.push({ x, y, z, turn, kind: d < 0 ? -1 : d < th.lit ? 1 : d < th.lit + th.screen ? 2 : 0 });
+        const v = look ? inside(s, behind) : null;
+        if (look && v !== null) {
+          // a storey with a floor: a window where the room has one, a bare wall where it has none
+          const { pic, window } = facadePicture(
+            v,
+            u => th.windows.includes(u) || !!look.outside?.panes[u],
+            u => (th.windows.includes(u) || look.innerWalls?.[u] ? u : null),
+            win => {
+              const from = win ? th.windows : th.walls;
+              return from[Math.floor(yardDice(x + turn, y, z) * from.length)]! % look.walls.length;
+            },
+          );
+          spots.push({ x, y, z, turn, kind: window ? lightOf(yardDice(s, n, turn)) : -1, pic });
+          return;
+        }
+        // a window on every other tile of a wall (the same columns on every storey, and as the floors count them:
+        // yardWindowAt), bare wall between
+        const d = th.dense || yardWindowAt(n) ? yardDice(s, n, turn) : -1;
+        spots.push({ x, y, z, turn, kind: d < 0 ? -1 : lightOf(d) });
       };
     for (let i = i0; i < i1; i++) {
-      put(tileCenter(i), j0 * T, 0, (j0 - 1) * w + i, i - i0); // the wall on the low-z side faces +z
-      put(tileCenter(i), j1 * T, Math.PI, j1 * w + i, i - i0);
+      put(tileCenter(i), j0 * T, 0, (j0 - 1) * w + i, i); // the wall on the low-z side faces +z
+      put(tileCenter(i), j1 * T, Math.PI, j1 * w + i, i);
     }
     for (let j = j0; j < j1; j++) {
-      put(i0 * T, tileCenter(j), Math.PI / 2, j * w + i0 - 1, j - j0);
-      put(i1 * T, tileCenter(j), -Math.PI / 2, j * w + i1, j - j0);
+      put(i0 * T, tileCenter(j), Math.PI / 2, j * w + i0 - 1, j);
+      put(i1 * T, tileCenter(j), -Math.PI / 2, j * w + i1, j);
     }
   }
   // The wall stands YARD_SKIN inside the yard: in the plane of the tiles' own faces it would flicker against the
@@ -433,18 +462,19 @@ export function buildYardShell(court: Court, w: number, storey: number, biome: B
         mesh.setMatrixAt(n, at.matrix);
       });
       mesh.instanceMatrix.needsUpdate = true;
+      // (flat on the wall: seen through a window on the yard, drawn up to just past the glass: level.ts)
+      mesh.userData.yardWall = true;
       group.add(mesh);
     };
   // The wall itself. A sector with a look: its own wall pictures (the ones that can be an outer wall: YardTheme
   // walls / windows), a wall high, and over each the band of the slab, so the yard is painted as richly as the rooms.
   // The plain look: one flat picture a storey high, the lit panes over it
-  const look = lookOf(biome);
   if (look) {
     // (the picture as seen from outside the building: wallOutside. Only the yard's east wall, facing west, gets the
     // evening sun)
     const pic = spots.map(p => {
       const from = p.kind >= 0 ? th.windows : th.walls,
-        v = from[Math.floor(yardDice(p.x + p.turn, p.y, p.z) * from.length)]! % look.walls.length;
+        v = p.pic ?? from[Math.floor(yardDice(p.x + p.turn, p.y, p.z) * from.length)]! % look.walls.length;
       return wallOutside(look, v, p.turn === -Math.PI / 2);
     });
     for (const map of new Set(pic)) {

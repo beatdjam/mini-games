@@ -31,7 +31,7 @@ import { FLOOR_H } from './building.ts';
 import { WALL_H } from '../data/level.ts';
 import type { Building } from './building.ts';
 import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
-import { lookOf } from './looks.ts';
+import { lookOf, wallPic } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF_M, paint } from './looks/paint.ts';
 import { buildingShell, outsideBlocks, shellOf } from './looks/outside.ts';
@@ -118,6 +118,9 @@ let yardCopies: {
 // the street. They stand on the street, the ground of the lowest floor (moved with the floors: enterFloor)
 let outside: { band: Backdrop; across: THREE.Group } | null = null;
 const YARD_GLASS_CLEAR = 0.5; // through a window on a yard, nothing of the yard is drawn this near the glass (m)
+const YARD_WALL_CLEAR = 0.15; // ... but its outer walls' faces are, up to this near: past the wall the window is in
+// (its picture and lit panes stand up to 0.1 m in front of it: courtMesh.ts YARD_SKIN), so the walls that run away
+// from the glass reach the corner
 const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings across the street
 const SHELL_STOREYS = 2; // the facade's picture (4 storeys) over this many floors of the building's own walls: two storeys a floor, so its windows keep their shape
 let shown: Building | null = null;
@@ -425,10 +428,18 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     sight.setFromProjectionMatrix(sightM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     const panes = floorGroups[n]!.userData.yardPanes as Record<number, [number, number, number, number]> | undefined;
     for (const y of yardCopies) {
-      const at = panes?.[y.into];
+      const at = panes?.[y.into],
+        // (the panes are seen only from the floor's side of their wall, the way `step` goes: from the yard and its
+        // balconies, or a room on another side of the yard, they are the back of the wall. Their walls are not all in
+        // one line (the end of a balcony or a bridge has one too), so: on the floor's side of any of them, the nearest)
+        front =
+          !!at &&
+          (y.step.x > 0 ? x > (at[0] + 1) * T : y.step.x < 0 ? x < at[2] * T : true) &&
+          (y.step.z > 0 ? z > (at[1] + 1) * T : y.step.z < 0 ? z < at[3] * T : true);
       y.root.visible =
         atCourt &&
         !!at &&
+        front &&
         sight.intersectsBox(
           sightBox.set(
             new THREE.Vector3(at[0] * T, 0, at[1] * T),
@@ -466,7 +477,15 @@ export function showBuilding(b: Building) {
   const w = b.plans[0]!.gen.W,
     look = lookOf(b.biome);
   if (b.court) {
-    yardShell = (b.court.open ? buildYardShell : buildAtriumProps)(b.court, w, FLOOR_H, b.biome);
+    yardShell = b.court.open
+      ? // (the yard's walls agree with the floors' own, in a sector whose rooms have windows on a yard: WallSides yard)
+        buildYardShell(b.court, w, FLOOR_H, b.biome, (s, k) => {
+          const gen = b.plans[s]?.gen;
+          return look?.wallSides?.yard !== undefined && gen && !gen.maps.grid[k]
+            ? wallPic(gen, k, look.walls.length, look.laneWalls, look.wallSides)
+            : null;
+        })
+      : buildAtriumProps(b.court, w, FLOOR_H, b.biome);
     all.add(yardShell);
   }
   if (b.court?.open && yardShell) {
@@ -483,7 +502,12 @@ export function showBuilding(b: Building) {
           0,
           dj > 0 ? (Math.max(...js) + 2) * T : dj < 0 ? (Math.min(...js) - 1) * T : 0,
         ),
-        clip = new THREE.Plane().setFromNormalAndCoplanarPoint(away, glass.addScaledVector(away, YARD_GLASS_CLEAR)),
+        near = new THREE.Plane().setFromNormalAndCoplanarPoint(
+          away,
+          glass.clone().addScaledVector(away, YARD_WALL_CLEAR),
+        ),
+        far = new THREE.Plane().setFromNormalAndCoplanarPoint(away, glass.addScaledVector(away, YARD_GLASS_CLEAR)),
+        clip = (o: THREE.Object3D) => (o.userData.yardWall ? near : far),
         root = new THREE.Group(),
         parts = yard.map((src): [THREE.Object3D, THREE.Object3D] => {
           const c = seenThrough(src, v + 1, clip);
@@ -494,7 +518,8 @@ export function showBuilding(b: Building) {
       all.add(root);
       yardCopies.push({ into: v + 1, root, parts, step: new THREE.Vector3(di * T, 0, dj * T) });
     });
-    yard.forEach(keepOutOfPanes);
+    // (and the floors' own: a room round the corner of the yard is behind the wall of a window on it, seen at a slant)
+    [...yard, ...floorGroups].forEach(keepOutOfPanes);
   }
   // what its windows look out on (a sector with windows one sees out of: Look.outside)
   if (look?.outside) {

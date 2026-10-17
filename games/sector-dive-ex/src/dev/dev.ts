@@ -26,7 +26,7 @@ import { magSize, newWeapon } from '../actors/weapons.ts';
 import { normalizeWeapons } from '../ui/input.ts';
 import { toggleMap3D, updateHitDirs, weaponHud } from '../ui/hud.ts';
 import { changeLang } from '../ui/settings.ts';
-import { endRun, startPractice, startRun, startStage } from '../flow/run.ts';
+import { devFirstSector, endRun, startPractice, startRun, startStage } from '../flow/run.ts';
 import { setState, show } from '../flow/state.ts';
 import { suspendRun } from '../flow/suspend.ts';
 import { openPerk } from '../screens/perk.ts';
@@ -49,6 +49,9 @@ if (new URLSearchParams(location.search).has('plain')) {
 // dev: ?hazon keeps the hazard floors live (to look at them lit)
 if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHazardClock(0.5), 50);
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
+// ?sector=KWLN etc.: a dive started as usual (from the base) begins in that sector. The dev views below (#bld-…,
+// #view-enemies-…) read it too, for the building they stand in
+devFirstSector(BIOMES.findIndex(x => x.code === new URLSearchParams(location.search).get('sector')));
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
 // dev: ?fps shows the frames drawn in the last second, top middle, and what the last frame drew (engine showFps)
@@ -179,6 +182,29 @@ if (location.hash.startsWith('#bld-'))
         if (k < 0) continue;
         const o = [1, -1, W, -W].find(o => grid[k + o] === 1 && [1, 2, 3].some(t => c.tiles.includes(k - t * o)))!;
         stand(floor, k + o, -o);
+        break;
+      }
+    } else if (what === 'yardcorner' && b.court?.open) {
+      // in the corner of a room round the corner of the yard, with a window on it on each of the two walls, looking
+      // into the corner between them
+      const look = lookOf(b.biome),
+        c = b.court;
+      for (let floor = c.upper; floor <= c.lower && look?.outside; floor++) {
+        const d = b.plans[floor]!.gen,
+          grid = d.maps.grid,
+          onYard = (k: number) =>
+            !grid[k] &&
+            !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)] &&
+            [1, -1, W, -W].some(o => [1, 2, 3].some(t => c.tiles.includes(k + t * o))),
+          corner = (f: number) =>
+            [1, -1]
+              .flatMap(di => [W, -W].map(dj => [di, dj] as const))
+              .find(([di, dj]) => onYard(f + di) && onYard(f + dj)),
+          f = grid.findIndex((v, f) => v === 1 && !!corner(f));
+        if (f < 0) continue;
+        const [di, dj] = corner(f)!;
+        stand(floor, f, di);
+        player.yaw = yawToward(di, Math.sign(dj));
         break;
       }
     } else if (what === 'window' || what === 'windowdown' || what === 'windowup') {
