@@ -462,6 +462,8 @@ export function buildYardShell(
         mesh.setMatrixAt(n, at.matrix);
       });
       mesh.instanceMatrix.needsUpdate = true;
+      // (flat on the wall: seen through a window on the yard, drawn up to just past the glass: level.ts)
+      mesh.userData.yardWall = true;
       group.add(mesh);
     };
   // The wall itself. A sector with a look: its own wall pictures (the ones that can be an outer wall: YardTheme

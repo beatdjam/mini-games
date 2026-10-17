@@ -246,12 +246,19 @@ export function buildWindowFrames(
 // shares the meshes' geometry, pictures and shader uniforms; their order among themselves is kept. Meshes only (lines,
 // points and sprites are left out). Hide what should not be seen there from the place itself with keepOutOfPanes.
 // `clip`: only what is on its front side is drawn (in the world's coordinates: what of the place would come right up
-// to the glass)
-export function seenThrough(src: THREE.Object3D, into: number, clip?: THREE.Plane): THREE.Object3D {
+// to the glass). Or a plane for each mesh (none: all of it): a wall of the place that runs away from the glass is
+// cut only just past the glass, or it would end short of the corner it makes with the wall the window is in, and
+// leave a gap there, while what stands out of the walls is cut further off
+export function seenThrough(
+  src: THREE.Object3D,
+  into: number,
+  clip?: THREE.Plane | ((o: THREE.Object3D) => THREE.Plane | undefined),
+): THREE.Object3D {
   if (clip) renderer.localClippingEnabled = true;
-  const mats = new Map<THREE.Material, THREE.Material>(),
-    through = (m: THREE.Material): THREE.Material => {
-      let c = mats.get(m);
+  const mats = new Map<THREE.Material, Map<THREE.Plane | undefined, THREE.Material>>(),
+    through = (m: THREE.Material, plane: THREE.Plane | undefined): THREE.Material => {
+      const mine = mats.get(m) ?? mats.set(m, new Map()).get(m)!;
+      let c = mine.get(plane);
       if (!c) {
         c = m.clone();
         // (a clone copies the uniforms' values: shared, the copy follows what the game does to them)
@@ -265,24 +272,28 @@ export function seenThrough(src: THREE.Object3D, into: number, clip?: THREE.Plan
           stencilFail: THREE.KeepStencilOp,
           stencilZFail: THREE.KeepStencilOp,
           stencilZPass: THREE.KeepStencilOp,
-          clippingPlanes: clip ? [clip] : null,
+          clippingPlanes: plane ? [plane] : null,
         });
-        mats.set(m, c);
+        mine.set(plane, c);
       }
       return c;
     },
-    matOf = (m: THREE.Material | THREE.Material[]) => (Array.isArray(m) ? m.map(through) : through(m)),
+    planeOf = (o: THREE.Object3D) => (typeof clip === 'function' ? clip(o) : clip),
+    matOf = (o: THREE.Object3D, m: THREE.Material | THREE.Material[]) => {
+      const plane = planeOf(o);
+      return Array.isArray(m) ? m.map(x => through(x, plane)) : through(m, plane);
+    },
     copy = (o: THREE.Object3D): THREE.Object3D | null => {
       let c: THREE.Object3D;
       if ((o as THREE.InstancedMesh).isInstancedMesh) {
         const s = o as THREE.InstancedMesh,
-          m = new THREE.InstancedMesh(s.geometry, matOf(s.material), s.count);
+          m = new THREE.InstancedMesh(s.geometry, matOf(s, s.material), s.count);
         m.instanceMatrix = s.instanceMatrix;
         m.instanceColor = s.instanceColor;
         c = m;
       } else if ((o as THREE.Mesh).isMesh) {
         const s = o as THREE.Mesh;
-        c = new THREE.Mesh(s.geometry, matOf(s.material));
+        c = new THREE.Mesh(s.geometry, matOf(s, s.material));
       } else if ((o as THREE.Line).isLine || (o as THREE.Points).isPoints || (o as THREE.Sprite).isSprite) return null;
       else c = new THREE.Group();
       if ((o as THREE.Mesh).isMesh) {
@@ -303,9 +314,12 @@ export function seenThrough(src: THREE.Object3D, into: number, clip?: THREE.Plan
   return copy(src) ?? new THREE.Group();
 }
 // The see-through things of `src` (drawn after everything solid) are not drawn in the panes that look into a place:
-// what is there is the place's copy (seenThrough), and the place itself, behind the wall, would show over it
+// what is there is the place's copy (seenThrough), and the place itself, behind the wall, would show over it. So
+// would any other see-through thing behind the wall (a room round a corner, seen at a slant through the pane): give
+// it the floors too. The windows' own parts (their glass: WINDOW_ORDER and after) are left as they are
 export function keepOutOfPanes(src: THREE.Object3D) {
   src.traverse(o => {
+    if (o.renderOrder >= WINDOW_ORDER) return;
     const m = (o as THREE.Mesh).material;
     for (const x of Array.isArray(m) ? m : m ? [m] : [])
       if (x.transparent)

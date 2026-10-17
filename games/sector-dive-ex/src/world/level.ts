@@ -118,6 +118,9 @@ let yardCopies: {
 // the street. They stand on the street, the ground of the lowest floor (moved with the floors: enterFloor)
 let outside: { band: Backdrop; across: THREE.Group } | null = null;
 const YARD_GLASS_CLEAR = 0.5; // through a window on a yard, nothing of the yard is drawn this near the glass (m)
+const YARD_WALL_CLEAR = 0.15; // ... but its outer walls' faces are, up to this near: past the wall the window is in
+// (its picture and lit panes stand up to 0.1 m in front of it: courtMesh.ts YARD_SKIN), so the walls that run away
+// from the glass reach the corner
 const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings across the street
 const SHELL_STOREYS = 2; // the facade's picture (4 storeys) over this many floors of the building's own walls: two storeys a floor, so its windows keep their shape
 let shown: Building | null = null;
@@ -491,7 +494,12 @@ export function showBuilding(b: Building) {
           0,
           dj > 0 ? (Math.max(...js) + 2) * T : dj < 0 ? (Math.min(...js) - 1) * T : 0,
         ),
-        clip = new THREE.Plane().setFromNormalAndCoplanarPoint(away, glass.addScaledVector(away, YARD_GLASS_CLEAR)),
+        near = new THREE.Plane().setFromNormalAndCoplanarPoint(
+          away,
+          glass.clone().addScaledVector(away, YARD_WALL_CLEAR),
+        ),
+        far = new THREE.Plane().setFromNormalAndCoplanarPoint(away, glass.addScaledVector(away, YARD_GLASS_CLEAR)),
+        clip = (o: THREE.Object3D) => (o.userData.yardWall ? near : far),
         root = new THREE.Group(),
         parts = yard.map((src): [THREE.Object3D, THREE.Object3D] => {
           const c = seenThrough(src, v + 1, clip);
@@ -502,7 +510,8 @@ export function showBuilding(b: Building) {
       all.add(root);
       yardCopies.push({ into: v + 1, root, parts, step: new THREE.Vector3(di * T, 0, dj * T) });
     });
-    yard.forEach(keepOutOfPanes);
+    // (and the floors' own: a room round the corner of the yard is behind the wall of a window on it, seen at a slant)
+    [...yard, ...floorGroups].forEach(keepOutOfPanes);
   }
   // what its windows look out on (a sector with windows one sees out of: Look.outside)
   if (look?.outside) {

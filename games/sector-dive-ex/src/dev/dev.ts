@@ -184,6 +184,29 @@ if (location.hash.startsWith('#bld-'))
         stand(floor, k + o, -o);
         break;
       }
+    } else if (what === 'yardcorner' && b.court?.open) {
+      // in the corner of a room round the corner of the yard, with a window on it on each of the two walls, looking
+      // into the corner between them
+      const look = lookOf(b.biome),
+        c = b.court;
+      for (let floor = c.upper; floor <= c.lower && look?.outside; floor++) {
+        const d = b.plans[floor]!.gen,
+          grid = d.maps.grid,
+          onYard = (k: number) =>
+            !grid[k] &&
+            !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)] &&
+            [1, -1, W, -W].some(o => [1, 2, 3].some(t => c.tiles.includes(k + t * o))),
+          corner = (f: number) =>
+            [1, -1]
+              .flatMap(di => [W, -W].map(dj => [di, dj] as const))
+              .find(([di, dj]) => onYard(f + di) && onYard(f + dj)),
+          f = grid.findIndex((v, f) => v === 1 && !!corner(f));
+        if (f < 0) continue;
+        const [di, dj] = corner(f)!;
+        stand(floor, f, di);
+        player.yaw = yawToward(di, Math.sign(dj));
+        break;
+      }
     } else if (what === 'window' || what === 'windowdown' || what === 'windowup') {
       // the first window seen through, floor by floor, with two floor tiles in front of it
       const look = lookOf(b.biome);
