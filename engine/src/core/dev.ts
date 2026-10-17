@@ -1,3 +1,4 @@
+import { framesDrawn } from './loop.ts';
 // engine: Checks without playing by hand, driven by the URL hash.
 // devHook('view-x', rest => ...) runs when the hash starts with #view-x (rest = what follows, e.g. '-dead').
 export function devHook(prefix: string, fn: (rest: string) => void, delay?: number) {
@@ -12,13 +13,14 @@ export function showFps(more?: () => string) {
   box.style.cssText =
     'position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:99;padding:2px 8px;background:#000a;color:#fff;font:14px monospace';
   document.body.append(box);
-  let frames = 0,
+  // (the frames the loop drew, not the screen's: with LOOP.maxFps it skips some)
+  let from = framesDrawn(),
     since = performance.now();
   const count = (now: number) => {
-    frames++;
     if (now - since >= 1000) {
-      box.textContent = `${Math.round((frames * 1000) / (now - since))} fps` + (more ? `  ${more()}` : '');
-      frames = 0;
+      box.textContent =
+        `${Math.round(((framesDrawn() - from) * 1000) / (now - since))} fps` + (more ? `  ${more()}` : '');
+      from = framesDrawn();
       since = now;
     }
     requestAnimationFrame(count);

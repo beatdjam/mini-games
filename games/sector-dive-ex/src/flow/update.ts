@@ -1,5 +1,5 @@
 import type { Pickup, Wave } from '../data/types.ts';
-import { distXZ, rand } from '@engine/core/util.ts';
+import { distXZ, isTouch, rand } from '@engine/core/util.ts';
 import { LOOP, addSystem, runSystems, startLoop, stopFrame } from '@engine/core/loop.ts';
 import { WORLD, query, sweepWorld } from '@engine/core/world.ts';
 import { t } from '@engine/core/i18n.ts';
@@ -54,6 +54,7 @@ import { updateEBullets, updatePBullets } from '../actors/bullets.ts';
 // while the 3D map is up the game stands still: no system of the dive runs, only the map's own (mode 'map')
 LOOP.mode = () => (state === 'play' && map3dWanted() ? 'map' : state);
 // ---- tuning numbers used only here ----
+const TOUCH_MAX_FPS = 60; // a phone's frames a second at most (engine LOOP.maxFps)
 const STICK_DASH_PUSH = 0.97; // stick pushed this far (0-1) counts as "at the rim" for the stick dash
 const STICK_DASH_HOLD = 0.3; // seconds held at the rim before the stick dash fires
 const STICK_DASH_REARM = 0.8; // the stick must come back below this before it can dash again
@@ -550,5 +551,8 @@ export function boot() {
   buildAttract();
   setMusic('BASE'); // starts once the first tap/click unlocks audio
   unlockAudio();
+  // a phone draws at most 60 frames a second: at 120 its frames came and went with how heavy the place was, and a
+  // fight felt different in a heavy place. ?fps120 lifts it (as many as the screen shows)
+  LOOP.maxFps = isTouch && !new URLSearchParams(location.search).has('fps120') ? TOUCH_MAX_FPS : 0;
   startLoop();
 }

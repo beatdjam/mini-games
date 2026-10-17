@@ -23,7 +23,7 @@ import {
   saveStore,
   unpackBits,
 } from '../src/core/store.ts';
-import { addSystem, runSystems, stopFrame } from '../src/core/loop.ts';
+import { LOOP, addSystem, frameDue, runSystems, stopFrame } from '../src/core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.ts';
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../src/core/i18n.ts';
 import { ANALYTICS, TRACK_LOG, track } from '../src/core/analytics.ts';
@@ -305,6 +305,18 @@ test('feedback: no form, no link; with one, the game, build and info are filled 
   eq(long.length, FEEDBACK_INFO_MAX, 'info cut');
   ok(long.endsWith('…'), 'cut is marked');
   ok(!new URL(feedbackUrl('', form)!).searchParams.has('entry.33'), 'empty info left out');
+});
+test('loop: LOOP.maxFps draws every other frame of a 120 Hz screen, and about 60 a second of a 90 Hz one', () => {
+  // (a screen's frames from `from` ms on: each run starts later than the one before)
+  const at = (from: number, hz: number, n: number) => Array.from({ length: n }, (_, k) => from + (k * 1000) / hz),
+    count = (times: number[]) => times.filter(frameDue).length;
+  LOOP.maxFps = 60;
+  expect(count(at(1e6, 120, 120))).toBe(60);
+  expect(Math.abs(count(at(2e6, 90, 90)) - 60)).toBeLessThanOrEqual(1);
+  // after a stall, it starts again from then (not a burst of the frames it missed)
+  expect(count([9e6, 9e6 + 8.3, 9e6 + 16.7])).toBe(2);
+  LOOP.maxFps = 0;
+  expect(count(at(1e7, 144, 10))).toBe(10);
 });
 test('dev: showFps counts the frames drawn and shows them after a second', async () => {
   const before = document.body.children.length;
