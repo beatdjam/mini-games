@@ -2,6 +2,7 @@ import { el } from '@engine/core/util.ts';
 import type { WeaponItem } from '../data/types.ts';
 import { RARITY } from '../data/weapons.ts';
 import './hud2.css';
+import { paintBaseBackdrop } from './baseBackdrop.ts';
 // The fight's screen as laid out since 2026-10-17 (body.hud2): the map alone at the top left, HP and stamina at the
 // bottom middle with the weapons under them, the buttons as pictures instead of words (a player of a shooter knows
 // them by their pictures; words on every button read as a game explaining itself). ?hud1 brings back the old layout
@@ -18,6 +19,12 @@ export const ICON = {
   kit: line('<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>'),
   bag: line('<path d="M6 8h12l1 13H5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'),
   pause: line('<path d="M9 5v14M15 5v14"/>'),
+  home: line('<path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/>'),
+  level: line('<path d="M5 20h14"/><path d="M12 16V5M7 10l5-5 5 5"/>'),
+  practice: line('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/>'),
+  settings: line(
+    '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+  ),
   fs: line('<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>'),
   fsOff: line('<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/>'),
 };
@@ -67,6 +74,22 @@ if (hud2) {
   picture('btnDash', ICON.dash);
   picture('btnBag', ICON.bag);
   picture('btnPause', ICON.pause);
+  // the base's tabs: the home page (the dive and the level), boss practice and settings as pictures at the top right
+  for (const [tab, icon] of [
+    ['sortie', ICON.home],
+    ['up', ICON.level],
+    ['practice', ICON.practice],
+    ['settings', ICON.settings],
+  ] as const) {
+    const b = el(`.tabs [data-tab="${tab}"]`);
+    b.dataset.i18nAria = b.dataset.i18n!;
+    b.removeAttribute('data-i18n');
+    b.innerHTML = icon;
+  }
+  // the suspended dive goes where the start depth is chosen: while there is one, it is what DIVE would carry on
+  el('#tiers').before(el('#suspendBox'));
+  // the base's backdrop: the site office's wall, painted once (ui/baseBackdrop.ts), darkened under the panels (hud2.css)
+  el('#scrBase').style.setProperty('--base-wall', `url(${paintBaseBackdrop()})`);
   // the kit button keeps its count under the picture
   const kit = el('#btnKit');
   kit.innerHTML = `${ICON.kit}<span id="kitBtnN">1</span>`;

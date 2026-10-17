@@ -344,3 +344,347 @@ body.hud2 #hint {
   color: var(--paint2);
   text-shadow: 0 1px 0 #000;
 }
+
+/* ======== the base: one page (2026-10-17). The next dive in the middle (where from, what to take, DIVE), the level
+   on the left; boss practice and settings are pages of their own behind the icons at the top right. Dark steel and
+   white paint as in the fight; DIVE in safety yellow, the one thing that stands out ======== */
+body.hud2 #scrBase {
+  background:
+    linear-gradient(90deg, rgba(6, 7, 7, 0.55), rgba(6, 7, 7, 0.82) 22% 78%, rgba(6, 7, 7, 0.55)),
+    var(--base-wall, none) center / cover no-repeat,
+    #0a0b0b;
+  color: var(--paint);
+}
+body.hud2 .base {
+  position: relative;
+  max-width: 1120px;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  grid-template-areas:
+    'head head'
+    'card sortie'
+    'start start';
+  align-items: start;
+  column-gap: 20px;
+}
+body.hud2 .head {
+  grid-area: head;
+  padding-right: 60px;
+}
+body.hud2 .head h1 {
+  font-size: clamp(24px, 4vw, 36px);
+  text-shadow: none;
+  color: var(--paint);
+}
+body.hud2 .head h1 span {
+  color: var(--safety);
+}
+body.hud2 .head .lead {
+  color: var(--paint2);
+  font-size: 13px;
+}
+/* (the records are the old layout's: the bits are on the level's card) */
+body.hud2 .stats {
+  display: none;
+}
+body.hud2 [data-pane='sortie'] {
+  grid-area: sortie;
+}
+body.hud2 .startbar {
+  grid-area: start;
+}
+/* (the level, practice and settings take the whole page under the title; DIVE and the level's card are the home page's) */
+body.hud2 .base:not([data-tab='sortie']) :is(.startbar, .side) {
+  display: none;
+}
+/* the home page's left column: the level's card, then a card for each of the other pages (what it is, in a line) */
+body.hud2 .side {
+  grid-area: card;
+  display: grid;
+  gap: 8px;
+}
+body.hud2 .pagecard {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border: 1px solid #3d4143;
+  color: var(--paint);
+}
+body.hud2 .pagecard b {
+  font-size: 16px;
+  font-weight: 500;
+}
+body.hud2 .pagecard small {
+  font-size: 12px;
+  color: var(--paint2);
+}
+body.hud2 :is(.pagecard, .levelcard):hover {
+  border-color: var(--paint2);
+}
+body.hud2 :is([data-pane='up'], [data-pane='practice'], [data-pane='settings']) {
+  grid-column: 1 / -1;
+  grid-row: 2 / 4;
+}
+/* the level's card: the level, the bits, the next level's price; LEVEL UP lights in safety yellow when it can be bought */
+body.hud2 .levelcard {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border: 1px solid #3d4143;
+  color: var(--paint);
+}
+body.hud2 .levelcard .lc-lv {
+  font-family: var(--disp);
+  font-size: 30px;
+  font-weight: 600;
+}
+body.hud2 .levelcard .lc-bits {
+  font-family: var(--disp);
+  font-size: 18px;
+  color: var(--safety);
+}
+body.hud2 .levelcard .lc-next {
+  font-size: 12px;
+  color: var(--paint2);
+}
+body.hud2 .levelcard .lc-go {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--paint2);
+  color: var(--paint2);
+  font-family: var(--sten);
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+body.hud2 .levelcard.ready .lc-go {
+  border-color: var(--safety);
+  background: var(--safety);
+  color: #151515;
+}
+/* the tabs: three pictures at the top right (home, practice, settings); the level has no tab, it is on the home page */
+body.hud2 .tabs {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  border: 0;
+  background: none;
+}
+body.hud2 .base[data-tab='sortie'] .tabs,
+body.hud2 .tabs button:not([data-tab='sortie']) {
+  display: none;
+}
+body.hud2 .tabs button {
+  flex: none;
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--paint2);
+  color: var(--paint2);
+}
+body.hud2 .tabs button svg {
+  width: 20px;
+  height: 20px;
+}
+body.hud2 .tabs button[aria-selected='true'] {
+  border-color: var(--paint);
+  color: var(--paint);
+  background: rgba(235, 231, 218, 0.1);
+}
+@media (max-width: 760px) {
+  body.hud2 .base {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'head' 'card' 'sortie' 'start';
+  }
+  body.hud2 .head {
+    padding-right: 60px;
+  }
+}
+
+/* ---- the plates and the words ---- */
+body.hud2 #scrBase :is(.stats div, .wcard, .lslot, .urow, .tier) {
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border-color: #3d4143;
+  color: var(--paint);
+}
+body.hud2 #scrBase :is(.stats, .ulist) {
+  background: #000;
+  border-color: #3d4143;
+}
+body.hud2 #scrBase :is(.eyebrow, .sec h2 small, .sec h3 small, .wcard .wd, .wcard .ws, .urow .ud, .tier small, .help) {
+  color: var(--paint2);
+}
+body.hud2 #scrBase .stats .amber b,
+body.hud2 #scrBase .levelrow span {
+  color: var(--safety);
+}
+body.hud2 #scrBase .sec h2 {
+  font-family: var(--sten);
+  letter-spacing: 0.06em;
+}
+body.hud2 #scrBase .pips i {
+  background: #2b2e2f;
+}
+body.hud2 #scrBase .pips i.on {
+  background: var(--paint);
+}
+body.hud2 #scrBase .buy {
+  border-color: var(--safety);
+  color: var(--safety);
+}
+body.hud2 #scrBase .buy:disabled {
+  border-color: #3d4143;
+  color: #5b5e5f;
+}
+body.hud2 #scrBase :is(.lslot.sel, .tier[aria-pressed='true']) {
+  border-color: var(--paint);
+  box-shadow: inset 3px 0 0 var(--safety);
+  background: linear-gradient(180deg, #2b2e2f, #1d1f20);
+}
+body.hud2 #scrBase .mini-btn.amber,
+body.hud2 #scrBase .wcard .wf {
+  color: var(--safety);
+  border-color: var(--safety);
+}
+/* DIVE: a safety-yellow plate, black stencil letters */
+body.hud2 #btnStart {
+  background: var(--safety);
+  border: 0;
+  color: #151515;
+  font-family: var(--sten);
+  font-size: 30px;
+  letter-spacing: 0.16em;
+  box-shadow: 0 3px 0 #000;
+  text-shadow: none;
+}
+body.hud2 #btnStart small {
+  color: #3a3220;
+  font-family: var(--disp);
+  letter-spacing: 0.04em;
+}
+/* (DIVE stays at the foot of the screen, the whole width, as the page scrolls) */
+body.hud2 .startbar {
+  background: linear-gradient(180deg, rgba(6, 7, 7, 0), rgba(6, 7, 7, 0.92) 12px);
+}
+
+/* ---- fewer words: the page says what each part is by its title alone (the notes, the lead and the weapons' blurbs are
+   the old layout's). The weapons to choose from stay folded until a loadout slot is picked (.choosing) ---- */
+body.hud2 #scrBase :is(.head .eyebrow, .head .lead, .sec h2 small, .sec h3 small, .wcard .wd, .lslot .eyebrow) {
+  display: none;
+}
+body.hud2 [data-pane='sortie']:not(.choosing) :is(h3, .wgrid) {
+  display: none;
+}
+body.hud2 [data-pane='sortie'].choosing .lslot:not(.sel) {
+  opacity: 0.55;
+}
+/* ---- the suspended dive: a steel plate, RESUME in safety yellow like DIVE ---- */
+body.hud2 #scrBase .suspend {
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border: 1px solid #3d4143;
+  border-left: 4px solid var(--safety);
+  color: var(--paint);
+}
+body.hud2 #scrBase .suspend .primary {
+  background: var(--safety);
+  border: 0;
+  color: #151515;
+  font-family: var(--sten);
+  box-shadow: 0 2px 0 #000;
+}
+body.hud2 #scrBase .suspend :is(.ghost, .mini-btn, button:not(.primary)) {
+  background: none;
+  border-color: var(--paint2);
+  color: var(--paint);
+}
+/* (a section packs its rows at the top: the page's columns are as tall as the tallest, and its rows would spread) */
+body.hud2 #scrBase .sec {
+  align-content: start;
+}
+/* a loadout slot says what picking it does: the weapons to put in open under it */
+/* (the slot a column, the mark at its foot: the two slots' marks line up whatever is written above them) */
+body.hud2 .lslot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+body.hud2 .lslot .lchange {
+  display: block;
+  margin-top: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--paint2);
+  color: var(--paint);
+  font-size: 12px;
+}
+body.hud2 .lslot.sel .lchange {
+  border-color: var(--safety);
+  color: var(--safety);
+}
+/* a suspended dive takes the start depth's place (moved there by hud2.ts), and the loadout is not shown: resuming
+   carries on with the dive's own depth and weapons. RESUME as big as DIVE */
+body.hud2 .base.susp :is(#tiers, [data-pane='sortie'] .sec + .sec, .startbar) {
+  display: none;
+}
+body.hud2 #scrBase .suspend .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+body.hud2 #scrBase .suspend .primary {
+  padding: 14px 18px;
+  font-size: 26px;
+  letter-spacing: 0.16em;
+}
+/* ---- the settings page in the same paints: plates in steel, what is on in white paint, sliders in safety yellow ---- */
+body.hud2 #scrBase :is(.seg, .toggle, .sens, .mini-btn, .savepanel textarea) {
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border-color: #3d4143;
+  color: var(--paint);
+}
+body.hud2 #scrBase .seg button {
+  border-left-color: #3d4143;
+  color: var(--paint2);
+}
+body.hud2 #scrBase .seg button[aria-pressed='true'] {
+  color: #151515;
+  background: var(--paint);
+}
+body.hud2 #scrBase .toggle b {
+  color: var(--paint2);
+}
+body.hud2 #scrBase .toggle[aria-pressed='true'] b {
+  color: var(--safety);
+}
+body.hud2 #scrBase input[type='range'] {
+  accent-color: var(--safety);
+}
+body.hud2 #scrBase .back {
+  color: var(--paint2);
+  border-bottom-color: #3d4143;
+}
+body.hud2 #scrBase .back:hover {
+  color: var(--paint);
+}
+body.hud2 #scrBase .danger-ghost {
+  background: none;
+  border-color: var(--stop);
+  color: var(--stop);
+}
+/* (the readiness of a start depth: worn paint to yellow to red, instead of the old layout's neon) */
+body.hud2 #scrBase :is(.rd0, .rd1, .rd2) {
+  color: var(--paint) !important;
+}
+body.hud2 #scrBase .rd3 {
+  color: var(--safety) !important;
+}
+body.hud2 #scrBase .rd4 {
+  color: var(--stop) !important;
+}

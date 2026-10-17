@@ -33,6 +33,7 @@ export const baseUI = {
   selSlot: 0, // loadout slot (0 / 1) that the next weapon assignment goes to
   tab: prefGet(BASE_TAB_KEY, 'sortie'), // open tab; the last one opened is remembered in this browser
   practiceTier: 0, // boss practice depth chosen (0-based)
+  choosing: false, // (new layout) the weapons to choose from are open under the loadout: a slot was picked
 };
 // a weapon's numbers as it would be right after diving: the level's points in, no chips, its own options
 // in (so weapons in the base can be compared; player may still be the last run's player, chips and all)
@@ -63,9 +64,12 @@ export function weaponStatText(w: WeaponItem) {
   }
 }
 // base menu tabs
+// (with the new layout, ui/hud2.ts, the tabs are pictures at the top right, and the home page carries the level's card
+// that opens the level's page: .base[data-tab] sets which parts of the page show, hud2.css)
 export function showTab(name: string) {
   const tab = document.querySelector(`[data-pane="${name}"]`) ? name : 'sortie';
   baseUI.tab = tab;
+  el('.base').dataset.tab = tab;
   document
     .querySelectorAll<HTMLElement>('.tabs [data-tab]')
     .forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
@@ -74,6 +78,14 @@ export function showTab(name: string) {
   });
   prefSet(BASE_TAB_KEY, tab);
 }
+// the home page's cards (new layout): the level, boss practice, settings
+onDataClick(el('#sideCards'), [
+  'go',
+  name => {
+    showTab(name);
+    el('#scrBase').scrollTop = 0;
+  },
+]);
 onDataClick(el('.tabs'), [
   'tab',
   name => {
@@ -105,7 +117,7 @@ const loadoutSlot = (k: number): string => {
     k === 1 && w ? `<span class="mini-btn" data-unequip="1" role="button">${t('base.unequip')}</span>` : '';
   return `<button class="lslot ${on ? 'sel' : ''}" data-slot="${k}"><span class="eyebrow">${t('base.slot', { n: k + 1 })}${on ? t('base.slotTarget') : ''}</span>
       <span class="wn">${name}</span>${note}
-      ${unequip}</button>`;
+      ${unequip}<span class="lchange">${t(on && baseUI.choosing ? 'base.changeClose' : 'base.change')}</span></button>`;
 };
 const lockedCard = (id: string): string => {
   const def = WEAPONS[id];
@@ -163,6 +175,7 @@ export function renderBase() {
   el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
   el('#loadout').innerHTML = [0, 1].map(loadoutSlot).join('');
+  el('[data-pane="sortie"]').classList.toggle('choosing', baseUI.choosing);
   el('#wgrid').innerHTML = WEAPON_ORDER.map(id =>
     id === 'pistol' || save.unlocked[id] ? weaponCard(id) : lockedCard(id),
   ).join('');
@@ -170,6 +183,11 @@ export function renderBase() {
   el('#stash').innerHTML = save.stash.length
     ? save.stash.map(stashCard).join('')
     : `<div class="empty">${t('base.stashEmpty')}</div>`;
+  // (the level's card on the home page of the new layout: it stands out when the next level can be bought)
+  el('#lcLv').textContent = t('base.level', { n: levelOf() });
+  el('#lcBits').textContent = t('base.bitsHave', { n: save.bits });
+  el('#lcNext').textContent = t('base.levelNext', { cost: nextLevelCost() });
+  el('#levelCard').classList.toggle('ready', save.bits >= nextLevelCost());
   el('#levelNow').textContent = t('base.level', { n: levelOf() });
   el('#levelNext').textContent = t('base.levelNext', { cost: nextLevelCost() });
   el('#ulist').innerHTML = upgradeRows();
@@ -181,6 +199,7 @@ export function renderBase() {
 
 function assignLoadout(item: WeaponItem | null) {
   equipWeapon(baseUI.selSlot, item);
+  baseUI.choosing = false;
 }
 // what the click handler does after an action: 'save' saves and redraws the base, 'redraw' only redraws it,
 // 'none' does neither (the action did what it needed itself, or it did not apply)
@@ -198,7 +217,10 @@ const unequipSecond = (): After => {
   baseUI.selSlot = 1;
   return 'save';
 };
+// (with the new layout a slot is picked to fill it: the weapons open under the loadout, and close when one is put in,
+// or when the same slot is picked again)
 const selectSlot = (slot: string): After => {
+  baseUI.choosing = !(baseUI.choosing && baseUI.selSlot === +slot);
   baseUI.selSlot = +slot;
   return 'save';
 };

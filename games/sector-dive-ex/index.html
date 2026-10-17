@@ -256,6 +256,8 @@ body.desk.nolock .tbtn{display:grid}
 .ulist{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
 /* a milestone among the start depths (data/progress.ts isMilestone): a dive that dies starts again from the last one */
 .tier.mile b::after{content:' ◆';color:var(--amber);font-size:.8em}
+/* the level's card and the loadout slots' change mark are the new layout's (src/ui/hud2.css) */
+.levelcard,.lslot .lchange{display:none}
 .levelrow{display:flex;align-items:baseline;gap:12px;margin:0 0 8px}
 .levelrow b{font-family:var(--disp);font-size:22px;color:var(--text)}
 .levelrow span{color:var(--amber);font-family:var(--disp)}
@@ -443,6 +445,11 @@ body.desk.nolock .tbtn{display:grid}
         <div><span class="eyebrow" data-i18n="base.best"></span><b id="sBest">—</b></div>
         <div><span class="eyebrow" data-i18n="base.runs"></span><b id="sRuns">0</b></div>
         <div><span class="eyebrow" data-i18n="base.bossKills"></span><b id="sBoss">0</b></div>
+      </div>
+      <div class="side" id="sideCards">
+        <button id="levelCard" class="levelcard" type="button" data-go="up"><span class="lc-lv" id="lcLv"></span><span class="lc-bits" id="lcBits"></span><span class="lc-next" id="lcNext"></span><span class="lc-go" data-i18n="base.levelUp"></span></button>
+        <button class="pagecard" type="button" data-go="practice"><b data-i18n="base.practice"></b><small data-i18n="base.practiceCard"></small></button>
+        <button class="pagecard" type="button" data-go="settings"><b data-i18n="base.settings"></b><small data-i18n="base.settingsCard"></small></button>
       </div>
       <nav class="tabs" role="tablist" data-i18n-aria="base.menu">
         <button role="tab" data-tab="sortie" data-i18n="tab.sortie"></button><button role="tab" data-tab="up" data-i18n="tab.up"></button><button role="tab" data-tab="practice" data-i18n="tab.practice"></button><button role="tab" data-tab="settings" data-i18n="tab.settings"></button>

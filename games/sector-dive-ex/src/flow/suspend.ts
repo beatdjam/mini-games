@@ -111,6 +111,8 @@ export function renderSuspend() {
     sn = save.suspend;
   box.hidden = !sn;
   el('#btnStart').hidden = !!sn;
+  // (the new layout puts the suspended dive where the start depth is, and hides the loadout: ui/hud2.css)
+  el('.base').classList.toggle('susp', !!sn);
   if (!sn) return;
   const tier = Math.floor(sn.run.stage / PER),
     b = BIOMES[sn.run.route[tier % sn.run.route.length]];

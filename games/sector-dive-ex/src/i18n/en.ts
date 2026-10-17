@@ -108,6 +108,12 @@ LANG.en = {
     'base.upgradesNote': 'Spend bits on a level, then put its point into one of these. From your next dive.',
     'base.level': 'Lv {n}',
     'base.levelNext': 'Next {cost} BIT',
+    'base.levelUp': 'Level up',
+    'base.change': 'Change weapon ▾',
+    'base.changeClose': 'Close ▴',
+    'base.practiceCard': 'Fight one boss at a time',
+    'base.settingsCard': 'Controls, sound, data',
+    'base.bitsHave': '{n} BIT',
     'base.practice': 'Boss practice',
     'base.practiceNote':
       'Fight one boss at the strength of the chosen depth, with your current loadout and no chips. No rewards, no losses, no records.',
