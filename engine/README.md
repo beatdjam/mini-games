@@ -14,7 +14,7 @@
 
 ### core/
 
-- `src/core/loop.ts`: メインループ。`requestAnimationFrame`、dt の上限、システムの実行、描画（`renderer.render` と手の銃）。`addSystem({ name, order, modes, update })`, `stopFrame()`, `runSystems(dt, mode)`, `startLoop()`
+- `src/core/loop.ts`: メインループ。`requestAnimationFrame`、dt の上限、システムの実行、描画（`renderer.render` と手の銃）。`addSystem({ name, order, modes, update })`, `stopFrame()`, `runSystems(dt, mode)`, `startLoop()`, `LOOP.maxFps`（1秒に描くフレーム数の上限。0 で画面のまま。速い画面ではあいだのフレームを飛ばす。判定は `frameDue(now)`）, `framesDrawn()`（描いたフレームの数）
   - ゲーム側: `LOOP.mode = () => 今のモード名`。動かしたいものを `addSystem` で登録し、最後に `startLoop()`
 - `src/core/world.ts`: 振る舞いを持つオブジェクト（Unity の MonoBehaviour に近い）。`spawn(obj)` で毎フレーム `obj.update(dt)`、`obj.dead = true` で片付け（`onRemove` と、画面に残っているメッシュの破棄）、`query(tag)`, `clearWorld(tag)`。`worldGroup(tag, order)` でタグごとに更新の順番を分けられる（リストは同じ配列のまま使い続けられる）
   - ゲーム側: 各グループの `.system.modes` に動くモード。オブジェクトに `tag`, `update`, `mesh`
@@ -31,7 +31,7 @@
   - ゲーム側: 起動時に `FEEDBACK.game` へゲームID。`feedbackReady()` のときだけ送信ボタンを出し、押されたら今の状況をテキストにして `openFeedback` に渡す
 - `src/core/analytics.ts`: `track(name, params)`（GA4 のイベントを送る。タグの無いページでは記録だけ）、`TRACK_LOG`（直近50件）、`ANALYTICS.game`
   - ゲーム側: 起動時に `ANALYTICS.game` へゲームID。送りたい出来事で `track` を呼ぶ。タグはビルドが入れる（`vite.config.js` の `GA_ID`）
-- `src/core/dev.ts`: `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`showFps(more?)`（直近1秒に描いたフレーム数を画面の上の真ん中に出す。重さを見るとき。`more` を渡すと、その文字も並べて出す）
+- `src/core/dev.ts`: `devHook('view-x', rest => ...)`（URL の `#view-x…` で動く確認用の入口）、`showFps(more?)`（直近1秒に描いたフレーム数を画面の上の真ん中に出す。`LOOP.maxFps` で飛ばしたフレームは数えない。重さを見るとき。`more` を渡すと、その文字も並べて出す）
   - ゲーム側: テストの中身
 
 ### render/
