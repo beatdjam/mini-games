@@ -7,6 +7,7 @@ import { createRng } from '@engine/core/util.ts';
 import { isBossStage } from '../src/core/stages.ts';
 import { setDropOnly } from '../src/core/rules.ts';
 import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
+import { PER, levelCost } from '../src/data/progress.ts';
 import { fillMag, newWeapon } from '../src/actors/weapons.ts';
 import { normalizeWeapons } from '../src/ui/input.ts';
 import { defaultSave, setSave } from '../src/core/save.ts';
@@ -41,6 +42,12 @@ const heapMB = (): number => {
   return mem ? Math.round(mem.usedJSHeapSize / 1e6) : -1;
 };
 
+// how many levels `bits` buys from level 0
+function levelsFor(bits: number): number {
+  let l = 0;
+  while (bits >= levelCost(l)) bits -= levelCost(l++);
+  return l;
+}
 // "1-20" or "3,7,9"
 function seedsOf(text: string): number[] {
   return text.split(',').flatMap(part => {
@@ -111,6 +118,10 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
       end = 'gave up';
     let moved = '',
       movedAt = 0;
+    // the bits picked up so far, as each depth is reached (1-based depth: bits): how fast levels could be bought in a
+    // dive (for the levels at the milestones, 2026-10-18)
+    const bitsAt: string[] = [];
+    let tierSeen = 0;
     const wall0 = performance.now();
     let since = wall0, // when the page was last let breathe
       maxBlock = 0; // the longest the page went without (ms)
@@ -121,6 +132,11 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
         movedAt = frames;
       } else if (frames - movedAt > STALL_FRAMES) break;
       update(DT);
+      const tier = Math.floor(run.stage / PER);
+      if (tier !== tierSeen) {
+        tierSeen = tier;
+        bitsAt.push(`${tier + 1}:${Math.floor(run.bits)}`);
+      }
       if (stateNow() === 'result' || stateNow() === 'base') {
         end = player.hp <= 0 ? 'died' : 'extract';
         break;
@@ -179,6 +195,10 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
       blockMs: Math.round(maxBlock),
       heapMB: heapMB(),
       last: s.doing,
+      bits: Math.floor(run?.bits ?? 0),
+      // (how many levels the run's bits would buy from level 0: data/progress.ts levelCost)
+      levels: levelsFor(Math.floor(run?.bits ?? 0)),
+      bitsAt: bitsAt.join(' ') || '-',
     });
     await commands.writeFile(`sim-results/traces/sector-dive-ex-${name}-${seed}.trace.txt`, s.trace.join('\n') + '\n');
     // the table so far after every run, so a run that dies with the browser costs only itself
