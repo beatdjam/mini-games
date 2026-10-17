@@ -163,6 +163,35 @@ body.touch #bottom{z-index:4}
 body.touch .slot{pointer-events:auto;padding:7px 12px;font-size:13px}
 body.touch #mini{width:clamp(80px,22vmin,140px);height:clamp(80px,22vmin,140px)}
 body.desk .tbtn{display:none}
+/* the fight's screen since 2026-10-17 (src/ui/hud2.ts; ?hud1 for the old one): the map alone at the top left, HP and
+   stamina at the bottom middle over the weapons, pictures on the buttons. The weapon in hand framed in amber */
+body.hud2 #bottom{gap:6px}
+body.hud2 #status{display:grid;gap:4px;width:min(300px,46vw)}
+body.hud2 #weapRow{display:flex;align-items:center;justify-content:center;gap:10px}
+body.hud2 #ammo{font-size:22px;min-width:3.6em;text-align:right}
+body.hud2 .kithud{display:flex;align-items:center;gap:4px;justify-self:start}
+body.hud2 .kithud svg{width:13px;height:13px}
+body.hud2 .kithud small{margin-left:4px;color:var(--dim);font-size:11px}
+body.hud2.touch .kithud{display:none}
+body.hud2 .slot{display:flex;align-items:center;gap:3px;min-width:76px;height:34px;justify-content:center;padding:0 8px}
+body.hud2 .slot.on{border-color:var(--amber)}
+body.hud2 .slot .wico{display:flex}
+body.hud2 .slot svg{width:56px;height:21px}
+body.hud2 .slot:not(.on) .wico{opacity:.55}
+body.hud2 .slot em{font-size:11px;margin-left:0;color:var(--text)}
+body.hud2 .slot .wnum{color:var(--dim);font-size:12px}
+body.hud2 .slot{position:relative}
+body.hud2 .slot .wrar{position:absolute;left:6px;right:6px;bottom:3px;height:2px;opacity:.85}
+body.hud2 .slot .wopts{font-style:normal;font-size:10px;letter-spacing:1px;color:var(--text);align-self:flex-start;margin-top:5px}
+body.hud2 .tbtn svg{width:24px;height:24px}
+body.hud2 #btnFire svg{width:28px;height:28px}
+body.hud2 #btnKit{grid-template-rows:auto auto;align-content:center;gap:0}
+body.hud2 #btnKit svg{width:18px;height:18px}
+body.hud2 #btnKit span{font-size:11px}
+body.hud2 .icon svg{width:18px;height:18px;display:block}
+body.hud2 .icon{display:grid;place-items:center}
+body.hud2 #pickRow{bottom:calc(env(safe-area-inset-bottom,0px) + 132px)}
+body.hud2 #hint{bottom:calc(env(safe-area-inset-bottom,0px) + 132px)}
 body.desk.nolock .tbtn{display:grid}
 #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);font-size:12px;color:var(--amber);white-space:nowrap}
 
