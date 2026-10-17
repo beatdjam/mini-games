@@ -46,3 +46,32 @@ export function wallSide(d: WallMap, k: number, beyond?: ArrayLike<number>): 'ou
 // does a face of wall tile k look toward (dx, dz) (one of SIDE_STEP): is the floor it is seen from on the other side
 export const facesToward = (d: WallMap, k: number, [dx, dz]: readonly [number, number]): boolean =>
   d.maps.grid[k - dz * d.W - dx] === 1;
+// What a wall tile shows on its other face, seen from outside the building (a courtyard now; later a street one walks
+// in, round a building one can go into): it agrees with what is on the inside, so a window seen from a room is a
+// window seen from outside too, at the same tile, and a bare wall inside is a bare wall outside. Without it the two
+// sides are chosen apart, and from one window the window next to it round a corner is a blank wall.
+// `inside`: the picture on the wall's inner face; `isWindow`: whether a picture is a window; `outer`: the picture to
+// show outside for an inner window, when it has one fit to be seen from outside (a window seen through from inside
+// shows the dark room behind its glass, not the view through the building), else null; `pick(window)`: a picture of
+// the outside's own, a window or a bare wall
+export function facadePicture(
+  inside: number,
+  isWindow: (v: number) => boolean,
+  outer: (v: number) => number | null,
+  pick: (window: boolean) => number,
+): { pic: number; window: boolean } {
+  const window = isWindow(inside);
+  return { pic: window ? (outer(inside) ?? pick(true)) : pick(false), window };
+}
+// Where wall tile k faces an open place outside the building (marked 2 in `beyond`, as wallSide reads it: a courtyard
+// open to the sky) right behind it, not floor of its own: its place along that wall, the tile's column (i) on a wall
+// that runs along x, its row (j) on one along z; else null. Both sides of the wall count windows by it (facadePicture),
+// so a window seen from a room and the one seen from the yard are the same column on every floor
+export function alongOpen(d: WallMap, k: number, beyond?: ArrayLike<number>): number | null {
+  if (!beyond) return null;
+  for (const [di, dj] of SIDE_STEP) {
+    const t = k + dj * d.W + di;
+    if (beyond[t] === 2 && d.maps.grid[t] !== 1) return dj ? k % d.W : (k / d.W) | 0;
+  }
+  return null;
+}

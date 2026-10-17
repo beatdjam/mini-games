@@ -532,7 +532,7 @@ const pilaster: Paint = g => {
 export const CITY_LANE_WALLS = [5, 6, 10, 5, 9, 11, 7, 10];
 // the windows (the evening outside) and the fire exit only on the building's outside wall, a glass partition only on
 // a thin wall between two rooms or a room and a corridor (common.ts WallSides)
-export const CITY_WALL_SIDES: WallSides = { outer: [3, 4, 7], inner: [5] };
+export const CITY_WALL_SIDES: WallSides = { outer: [3, 4, 7], inner: [5], yard: 4 };
 // the window with its blind part raised is seen through (Look.outside): its two panes under the blind, either side
 // of the bar in the middle
 const BLIND_RAISED = 0.55; // the share of the pane under the blind

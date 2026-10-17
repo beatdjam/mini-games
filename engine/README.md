@@ -40,7 +40,7 @@
   - ゲーム側: `<canvas id="gl">`。毎フレーム `renderer.render(scene, camera)` のあとに `renderGun()`
 - `src/render/paint.ts`: 絵を描く道具。`paintTex(seed, fn, size?, repeat?)`（シードから描く正方形の絵のテクスチャ。同じシードなら同じ絵）, `paintRand(seed)`（その乱数）, `canvasTex(w, h, fn)`（好きな大きさの絵）, `poolTex()`（白い柔らかい光だまり。色はマテリアルで付ける）、筆づかい `grime`（汚れ）, `grain`（細かい粒）, `oval`, `smudge`（隣のタイルへ続くぼかし）, `stripes`（斜めの警告の縞）, `words`（引き伸ばされる面に書く文字）, `block`（左上から照らした箱）, `soil`（下の方の汚れと点）、型 `Paint`、`PAINT_SIZE`（256）
   - ゲーム側: 描く関数（2D コンテキストと乱数を受ける）とシード、絵の大きさ。全体を覆う筆づかいは、渡さなければキャンバスの大きさを使う
-- `src/render/windows.ts`: 外が見える窓。`buildWindowPanes(faces, wallH)`（窓のガラスに、ステンシルに印を付ける板を置く。型 `WindowFace`）, `buildBackdrop(map, radius, height)`（目のまわりの円筒の遠景を、印の所にだけ描く）, `seenThrough(src, into, clip?)`（`WindowFace.into` の窓の所にだけ、世界の中の場所の複製を描く）, `keepOutOfPanes(src)`, `WINDOW_ORDER`。壁に穴は開けない
+- `src/render/windows.ts`: 外が見える窓。`buildWindowPanes(faces, wallH)`（窓のガラスに、ステンシルに印を付ける板を置く。型 `WindowFace`）, `buildBackdrop(map, radius, height)`（目のまわりの円筒の遠景を、印の所にだけ描く）, `seenThrough(src, into, clip?)`（`WindowFace.into` の窓の所にだけ、世界の中の場所の複製を描く）, `keepOutOfPanes(src)`, `buildWindowFrames(faces, wallH, color)`（窓のまわりと桟に、壁から出っ張った枠を立てる。斜めから見たときに、外の景色が壁に貼り付いて見えないように）, `WINDOW_ORDER`。壁に穴は開けない
   - ゲーム側: 窓のある面とガラスの長方形（面の 0〜1）、遠景の絵（円筒に巻く横長の絵）と円筒の大きさ。遠景は、動かないグループに入れる
 - `src/render/fx.ts`: パーティクル（`burst`）と爆発の光（`fireball`）、`clearFx()`。システム `FX.particles` / `FX.fireballs` をエンジンが登録する
   - ゲーム側: 動かすモードを `FX.particles.modes` などに入れる（入れなければ全モードで動く）
@@ -69,7 +69,7 @@
   - ゲーム側: 階ごとの `TileWorld` と `baseY`、リンクの一覧。リンクの `kind`（'stairs' など）はゲームが決める文字列で、engine は読まない。どのリンクを使うか（`use`）と、いつ渡るか（踏んだらすぐ、エレベーターが動き終わったら、など）はゲームが決める
 - `src/world/floorgen.ts`: 複数階のランダム生成。`generateFloors(o, rng)` → `{ maps, links, floors }`（階ごとの `generateDungeon` を、隣り合う階どうし階段（既定 1本。0 の組はエレベーターだけでつなぐ）とエレベーターでつなぐ。`liftRooms` でエレベーターでしか行けない部屋も掘る。リンクの端は部屋の中の平らな床）。既定値 `FLOOR_H`, `STAIRS_KIND`, `LIFT_KIND`, `LIFT_ROOM_SIZE`
   - ゲーム側: `FloorGenOptions`（階の数、階ごとの `DungeonOptions`、組ごとの階段・エレベーターの数、エレベーター専用の部屋の数と大きさ、階の高さ、リンクの `kind`）と乱数
-- `src/world/walls.ts`: 壁のタイルの向きと外壁。`floorSides(d, k)`（床から見える面の向き）, `wallSide(d, k)`（`'outer'` 外壁・`'inner'` 1タイルの厚さの間の壁・`null`）, `facesToward(d, k, [dx, dz])`（その向きを見る面があるか）、型 `WallMap`（`W`・`H`・`maps.grid`）。乱数なし
+- `src/world/walls.ts`: 壁のタイルの向きと外壁。`floorSides(d, k)`（床から見える面の向き）, `wallSide(d, k)`（`'outer'` 外壁・`'inner'` 1タイルの厚さの間の壁・`null`）, `facesToward(d, k, [dx, dz])`（その向きを見る面があるか）, `alongOpen(d, k, beyond)`（空に開いた中庭に面した壁の、壁ぞいの位置。内と外で窓の列をそろえるのに使う）, `facadePicture(inside, isWindow, outer, pick)`（壁の外側の面の絵を、内側の絵にそろえて選ぶ。内に窓があれば外も窓）、型 `WallMap`（`W`・`H`・`maps.grid`）。乱数なし
   - ゲーム側: どの絵をどの壁に出すか（窓は外壁だけ、など）と、どの向きを何と見るか（夕日の向きなど）
 - `src/world/stairwells.ts`: 別々に作った階を、あとから階段室とエレベーターでつないで建物にする。`makeRoute(floors, rng, reach?)`（最上階から最下階まで全部の階を1回ずつ回る順番）, `placeLink(maps, keepOut, stairs, up, lo, at, rng, cfg?)`（1歩ぶんの階段室かエレベーターを、直前に着いた所から部屋を `roomsBetween` 個はさむ場所に置く。中で `addStairs`・`addLift`）, `allReached(maps, links, startIdx, floorH?)`（開始部屋から全部の床へ行けるか）, `markLinkOpenings(floors, maps, links, cfg?)`（各階の、リンクのまわりの描き分け `FloorOpenings`: 床の穴・床を描かない・天井なし・すき間を埋める壁）、`noOpenings(size)`、部品 `carveCorridorFrom`（いちばん近い床まで幅1の通路を掘る）, `allSolid`, `markAround`, `around`, `roomsOnWay`, `roomDoors`, `roomTiles`, `thinDoorPairs`（短い通路の両端のドアを1つにする）、`stripOf(cfg)`、型 `BuildingLink`・`StairwellConfig`、既定値 `STAIRWELL_DEFAULTS`。乱数は渡した `Rng` だけ
   - ゲーム側: 階の数と、階ごとの `generateDungeon` の結果、`keepOut`（通路を通さないタイル。階ごと）、順路のどの1歩を階段室にするか。階の上の物（ボス部屋・危険床など）はゲームが決める

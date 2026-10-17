@@ -20,7 +20,7 @@ const WALL_GRAFFITI = 7; // spray paint
 const WALL_REBAR = 8; // a hole down to the reinforcing bars
 export const WALL_NOTICES = 9; // the residents' notice board
 // a broken window (the street outside) only on the building's outside wall (common.ts WallSides)
-export const RUIN_WALL_SIDES: WallSides = { outer: [WALL_WINDOW] };
+export const RUIN_WALL_SIDES: WallSides = { outer: [WALL_WINDOW], yard: WALL_WINDOW };
 // the broken window is seen through (Look.outside): its three panes with the glass gone, round the cross of its bars
 // (the fourth, the top left, is whole and dirty). The same box as brokenWindow paints
 const brokenPanes = (): [number, number, number, number][] => {

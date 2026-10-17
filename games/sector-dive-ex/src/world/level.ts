@@ -31,7 +31,7 @@ import { FLOOR_H } from './building.ts';
 import { WALL_H } from '../data/level.ts';
 import type { Building } from './building.ts';
 import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
-import { lookOf } from './looks.ts';
+import { lookOf, wallPic } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF_M, paint } from './looks/paint.ts';
 import { buildingShell, outsideBlocks, shellOf } from './looks/outside.ts';
@@ -466,7 +466,15 @@ export function showBuilding(b: Building) {
   const w = b.plans[0]!.gen.W,
     look = lookOf(b.biome);
   if (b.court) {
-    yardShell = (b.court.open ? buildYardShell : buildAtriumProps)(b.court, w, FLOOR_H, b.biome);
+    yardShell = b.court.open
+      ? // (the yard's walls agree with the floors' own, in a sector whose rooms have windows on a yard: WallSides yard)
+        buildYardShell(b.court, w, FLOOR_H, b.biome, (s, k) => {
+          const gen = b.plans[s]?.gen;
+          return look?.wallSides?.yard !== undefined && gen && !gen.maps.grid[k]
+            ? wallPic(gen, k, look.walls.length, look.laneWalls, look.wallSides)
+            : null;
+        })
+      : buildAtriumProps(b.court, w, FLOOR_H, b.biome);
     all.add(yardShell);
   }
   if (b.court?.open && yardShell) {
