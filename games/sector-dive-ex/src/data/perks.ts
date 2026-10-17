@@ -3,6 +3,7 @@ import { withLang } from '@engine/core/langslots.ts';
 import { TUNE } from './progress.ts';
 import { SPLIT_MAX } from './weapons.ts';
 // Chips offered during a run
+export const MAGNET_GAIN_MAX = 5; // magnet chips that add to the bits gained (the range grows with every one)
 // Chips. v = normal amount, rv = amount on the rare (gold) version; chips without rv never come as rare.
 // maxed(p) = true once the chip can't do anything more (it is then left out of the offer). cur(p) = the current value;
 // the language file's curText(c) turns it into the line on the card. Names and descriptions are in src/i18n/.
@@ -119,9 +120,11 @@ export const PERKS = withLang<Perk, 'name' | 'desc' | 'curText'>(
     {
       id: 'magnet',
       v: 1,
+      // (the bits only from the first MAGNET_GAIN_MAX: bits buy levels in a dive, 2026-10-18, and without a cap the gain
+      // multiplied on with every one; the range goes on growing)
       apply: p => {
+        if (p.magnet < 1 + 0.8 * MAGNET_GAIN_MAX) p.gainMul *= 1.1;
         p.magnet += 0.8;
-        p.gainMul *= 1.1;
       },
       cur: p => p.magnet.toFixed(1),
     },

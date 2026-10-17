@@ -183,7 +183,7 @@ export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', '
 export const BOSS_TUNE = {
   hpMul: 1.3,
   growth: 1.85,
-  lateGrowth: 1.24,
+  lateGrowth: 1.27, // (1.24 before the levels at the milestones, 2026-10-18: as DEPTH_HP_LATE)
   introTime: 2.0, // seconds a boss takes to appear (invulnerable, name shown)
   phaseTime: 1.2, // seconds of invulnerability when it drops below half health
 };
