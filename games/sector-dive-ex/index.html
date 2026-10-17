@@ -259,6 +259,10 @@ body.desk.nolock .tbtn{display:grid}
 /* while the scripts start (main.ts takes it off): the page as written here is the old layout's, and the new one
    (src/ui/hud2.ts) moves and repaints it; shown before that, it would flash the old screen for a moment */
 body.booting #app{visibility:hidden}
+/* the chip screen as a milestone's level-up (src/screens/levelup.ts): its own words in place of the chips' */
+#scrPerk[data-mode="level"] [data-i18n="perk.note"]{display:none}
+#scrPerk[data-mode="level"] .perks{grid-template-columns:repeat(3,minmax(0,1fr))}
+#scrPerk .perk:disabled{opacity:.45;cursor:default}
 /* the level's card and the loadout slots' change mark are the new layout's (src/ui/hud2.css) */
 .levelcard,.lslot .lchange{display:none}
 .levelrow{display:flex;align-items:baseline;gap:12px;margin:0 0 8px}
@@ -544,7 +548,9 @@ body.booting #app{visibility:hidden}
       <p class="eyebrow" id="perkEyebrow">chip acquired</p>
       <h2 id="perkTitle"></h2>
       <p class="chips" data-i18n="perk.note"></p>
+      <p class="chips" id="levelNote" hidden></p>
       <div class="perks" id="perkList"></div>
+      <button id="perkDone" class="primary" data-i18n="level.done" hidden></button>
       <details class="perkmore"><summary data-i18n="perk.stats"></summary><div class="statbox" id="perkStats"></div></details>
     </div>
   </section>
