@@ -1,0 +1,345 @@
+/* The fight's screen's look (body.hud2, src/ui/hud2.ts; ?hud1 for the old one): the field kit of a worker going into an
+   abandoned site. Dark steel and white paint, safety yellow the one colour that stands out; no glow: what must be read
+   stands on a see-through shadow instead. What is always on the screen stays light; what warns is heavy (black and
+   yellow stripes only on a boss and a lockdown). The type stays the dot faces; the stencil is for the small labels.
+   Chosen from the trials of 2026-10-06 (#153, look C) */
+body.hud2 {
+  --sten: 'Saira Stencil One', var(--disp);
+  --paint: #ebe7da; /* off-white paint */
+  --paint2: #a09d92; /* the same, worn */
+  --safety: #f2b705; /* safety yellow */
+  --stop: #d8402f; /* warning red */
+  --shade: rgba(0, 0, 0, 0.62); /* the see-through shadow under what is read */
+  --stripe: repeating-linear-gradient(-45deg, var(--safety) 0 7px, #151515 7px 14px);
+  --steel: linear-gradient(180deg, #2d3031, #1d1f20 55%, #17191a);
+  --steel-edge: 1px solid #45494b;
+}
+body.hud2 #hud :is(.hplabel, .stage, .kithud, .bits, #ammo, .slot, .bname, #reload) {
+  text-shadow:
+    0 1px 0 #000,
+    0 0 3px #000;
+}
+
+/* ---- the bars: paint on a dark strip, ticked every 10 px; no glow ---- */
+body.hud2 #hud :is(#hpBar i, .bbar i) {
+  box-shadow: none;
+}
+body.hud2 #hud :is(.bar, .bbar)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 10px, rgba(0, 0, 0, 0.6) 10px 11px);
+}
+body.hud2 #status .bar {
+  height: 9px;
+  background: var(--shade);
+  border: 0;
+  border-left: 2px solid var(--paint);
+}
+body.hud2 #status #stBar {
+  height: 5px;
+  border-left-color: var(--safety);
+}
+body.hud2 #hpBar i {
+  background: var(--paint);
+}
+body.hud2 #hpBar.low i {
+  background: var(--stop);
+}
+body.hud2 #stBar i {
+  background: var(--safety);
+}
+body.hud2 #stBar.short i {
+  background: #7a6420;
+}
+body.hud2 #stBar.warn {
+  border-color: var(--stop);
+}
+
+/* ---- the words and numbers ---- */
+body.hud2 :is(.hplabel span, .bits span, #reload span) {
+  font-family: var(--sten);
+  letter-spacing: 0.08em;
+  color: var(--paint2);
+}
+body.hud2 .hplabel span {
+  font-size: 13px;
+  color: var(--paint);
+}
+body.hud2 .hplabel b {
+  font-size: 20px;
+  line-height: 0.9;
+  font-weight: 600;
+  color: var(--paint);
+}
+body.hud2 .bits {
+  color: var(--paint);
+  font-size: 18px;
+  font-weight: 600;
+}
+body.hud2 .bits span {
+  font-size: 12px;
+  color: var(--safety);
+}
+body.hud2 .kithud {
+  color: var(--paint);
+}
+body.hud2 .kithud.none {
+  color: var(--paint2);
+}
+body.hud2 #ammo {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--paint);
+}
+body.hud2 #ammo small {
+  font-size: 15px;
+  color: var(--paint2);
+}
+body.hud2 #ammo.empty {
+  color: var(--stop);
+}
+body.hud2 #reload {
+  color: var(--safety);
+}
+body.hud2 #reload .bar {
+  border-color: #000;
+}
+body.hud2 #reload .bar i {
+  background: var(--safety);
+}
+
+/* ---- the bottom: a soft shadow under the bars and the weapons; the slots are marks, not boxes ---- */
+body.hud2 #bottom {
+  padding: 6px 40px 4px;
+  background: radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0.6), transparent 70%);
+}
+body.hud2 .slot {
+  background: var(--shade);
+  border: 0;
+  color: var(--paint2);
+}
+body.hud2 .slot.on {
+  outline: 1px solid var(--safety);
+  outline-offset: -1px;
+  color: var(--paint);
+}
+
+/* ---- the top: the map in a painted frame, the buttons as painted outlines over a shadow ---- */
+body.hud2 #mini {
+  border: 0;
+  outline: 1px solid var(--paint);
+  outline-offset: -1px;
+  background: rgba(0, 0, 0, 0.55);
+}
+body.hud2 .trrow {
+  padding: 4px 4px 4px 26px;
+  margin: -4px -4px 0 0;
+  background: linear-gradient(270deg, var(--shade) 60%, transparent);
+}
+body.hud2 .icon {
+  background: none;
+  border: 1px solid var(--paint);
+  color: var(--paint);
+}
+
+/* ---- the touch buttons: dark see-through discs ringed in paint; the trigger in safety yellow ---- */
+body.hud2 .tbtn {
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(235, 231, 218, 0.55);
+  color: var(--paint);
+}
+body.hud2 :is(#btnFire, #btnFire2, #btnDash, #btnKit) {
+  background: rgba(0, 0, 0, 0.42);
+}
+body.hud2 #btnFire {
+  border: 2px solid var(--safety);
+  color: var(--safety);
+}
+body.hud2 #btnFire2 {
+  border-color: rgba(242, 183, 5, 0.6);
+  color: var(--safety);
+}
+body.hud2 :is(#btnDash, #btnKit) {
+  border-color: rgba(235, 231, 218, 0.55);
+}
+body.hud2 :is(.tbtn.down, .tbtn:active) {
+  background: rgba(235, 231, 218, 0.22);
+  border-color: var(--paint);
+}
+
+/* ---- what is said on the screen: the one-line notice, the big name, the alarm, the boss ---- */
+body.hud2 #toast {
+  background: var(--shade);
+  border: 0;
+  border-left: 5px solid var(--safety);
+  color: var(--paint);
+}
+body.hud2 #banner .code {
+  font-family: var(--sten);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--paint);
+  text-shadow:
+    0 2px 0 #000,
+    0 0 12px rgba(0, 0, 0, 0.9);
+}
+body.hud2 #banner .sub {
+  color: var(--safety);
+  letter-spacing: 0.3em;
+  text-shadow: 0 1px 0 #000;
+}
+body.hud2 #banner.alert .code {
+  color: var(--stop);
+}
+/* (a striped band only when the big name warns: a boss has come, its bar is up; a lockdown) */
+body.hud2 #bossBar:not([hidden]) ~ #banner,
+body.hud2 #banner.alert {
+  padding: 9px 0 10px;
+  background:
+    var(--stripe) top / 100% 5px no-repeat,
+    var(--stripe) bottom / 100% 5px no-repeat,
+    rgba(14, 15, 15, 0.9);
+}
+body.hud2 #bossBar:not([hidden]) ~ #banner .code,
+body.hud2 #banner.alert .code {
+  text-shadow: none;
+}
+body.hud2 #alarmText {
+  justify-self: center;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  padding: 2px 18px;
+  background: var(--stop);
+  color: #fff;
+  font-family: var(--sten);
+  font-size: 16px;
+  letter-spacing: 0.16em;
+  text-shadow: none;
+}
+body.hud2 #bossBar {
+  padding: 5px 26px 7px;
+  gap: 5px;
+  background:
+    var(--stripe) left / 14px 100% no-repeat,
+    var(--stripe) right / 14px 100% no-repeat,
+    var(--steel);
+  border: var(--steel-edge);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.55);
+}
+body.hud2 .bname {
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--paint);
+}
+body.hud2 .bbar {
+  height: 9px;
+  background: #0b0c0c;
+  border: 1px solid #000;
+}
+body.hud2 .bbar i {
+  background: var(--stop);
+}
+
+/* ---- the chip screen: one dark steel plate; each chip a black plate in white paint. Yellow means one thing here, a
+   rare chip: its frame, its name and its words. No stripes ---- */
+body.hud2 #scrPerk {
+  background: rgba(6, 7, 7, 0.86);
+}
+body.hud2 #scrPerk .card {
+  padding: 26px 24px 22px;
+  background: var(--steel);
+  border: 1px solid #3d4143;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
+}
+body.hud2 #scrPerk .eyebrow {
+  justify-self: start;
+  padding: 0 9px;
+  background: none;
+  border: 1px solid var(--paint2);
+  color: var(--paint);
+  font-family: var(--sten);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+body.hud2 #scrPerk h2 {
+  font-weight: 500;
+  font-size: 24px;
+  color: var(--paint);
+}
+body.hud2 :is(#scrPerk .chips, .perkmore summary) {
+  color: var(--paint2);
+}
+body.hud2 .perk {
+  gap: 8px;
+  padding: 0 0 12px;
+  background: linear-gradient(180deg, #1a1c1d, #111213);
+  border: 1px solid #000;
+  box-shadow:
+    inset 0 0 0 1px #3d4143,
+    0 2px 0 rgba(0, 0, 0, 0.5);
+}
+body.hud2 .perk > span {
+  padding-inline: 14px;
+}
+body.hud2 .perk .pn {
+  padding-block: 8px 7px;
+  background: #2b2e2f;
+  border-bottom: 1px solid #000;
+  color: var(--paint);
+  font-weight: 500;
+  font-size: 17px;
+}
+body.hud2 .perk .pd {
+  color: var(--paint);
+  font-size: 14px;
+}
+body.hud2 .perk .pcur {
+  margin: 2px 14px 0;
+  padding: 3px 8px;
+  background: #070808;
+  border: 1px solid #000;
+  box-shadow: 0 1px 0 #3d4143;
+  color: var(--paint2);
+  font-family: var(--disp);
+  font-weight: 500;
+  font-size: 14px;
+}
+body.hud2 :is(.perk:hover, .perk:focus-visible) {
+  border-color: #000;
+  box-shadow:
+    inset 0 0 0 2px var(--paint),
+    0 2px 0 rgba(0, 0, 0, 0.5);
+}
+/* (an outline, so the frame runs over the name's bar at the top too) */
+body.hud2 .perk.rare {
+  background: linear-gradient(180deg, #1a1c1d, #111213);
+  outline: 1px solid var(--safety);
+  outline-offset: -1px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+body.hud2 .perk.rare .pn {
+  color: var(--safety);
+}
+body.hud2 .perk.rare :is(.pd, .pcur) {
+  color: var(--safety);
+}
+body.hud2 .perk.rare:is(:hover, :focus-visible) {
+  outline-width: 4px;
+  outline-offset: -4px;
+}
+
+/* ---- the crosshair: paint, and warning red when it is on an enemy; the hint line in worn paint ---- */
+body.hud2 #cross i {
+  background: var(--paint);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+body.hud2 #cross.lock i {
+  background: var(--stop);
+}
+body.hud2 #hint {
+  color: var(--paint2);
+  text-shadow: 0 1px 0 #000;
+}
