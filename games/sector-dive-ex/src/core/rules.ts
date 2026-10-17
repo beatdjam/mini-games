@@ -4,9 +4,11 @@ import {
   CRIT_OPT_PER_LEVEL,
   DROP_POOL,
   MAG_OPT_PER_LEVEL,
-  MOD_CAP_PER_DEPTH,
-  MOD_PLUS_MAX,
+  PLUS_BELOW_MAX,
   PLUS_DMG,
+  PLUS_FROM_STAGE,
+  PLUS_PER_STAGE,
+  PLUS_STAGE_OFFSET,
   RARITY,
   RATE_OPT_MUL,
   RELOAD_OPT_MUL,
@@ -22,7 +24,6 @@ import {
   hpGrowth,
   levelCost,
 } from '../data/progress.ts';
-import type {} from '../data/types.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
 import { PERKS } from '../data/perks.ts';
 import { save } from './save.ts';
@@ -48,14 +49,14 @@ export const pickDrop = () => {
   const id = DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
   return dropOnly ?? id;
 };
-// the deepest DEPTH opened since the last reboot, and the + cap for modding base weapons that it gives
-export const peakDepth = (): number => Math.max(save.peak || 0, save.shortcut) + 1;
-export const modPlusCap = (): number => Math.max(MOD_PLUS_MAX, Math.round(peakDepth() * MOD_CAP_PER_DEPTH));
-export const weaponModOf = (id: string): { plus: number; r: number } =>
-  (save.mods && save.mods[id]) || { plus: 0, r: 0 };
-// a basic weapon as it currently stands after modding (non-basic weapons pass through)
-export const basicNow = <W extends WeaponItem | null>(w: W): W =>
-  w && w.basic ? Object.assign({}, w, { plus: weaponModOf(w.id).plus, r: weaponModOf(w.id).r }) : w;
+// the + value a base weapon is handed out with for a dive starting at `stage` (progress): what the weapons dropped there
+// usually have, less PLUS_BELOW_MAX, so the first one found is a step up
+export const supplyPlus = (stage: number): number =>
+  stage >= PLUS_FROM_STAGE ? Math.max(0, Math.floor((stage - PLUS_STAGE_OFFSET) * PLUS_PER_STAGE) - PLUS_BELOW_MAX) : 0;
+// a base weapon as it is handed out for a dive from `tier` (0-based start depth): the + value of that depth's drops a
+// little under them (supplyPlus), plain rarity. A found weapon as it is
+export const basicNow = <W extends WeaponItem | null>(w: W, tier = 0): W =>
+  w && w.basic ? Object.assign({}, w, { plus: supplyPlus(progressOf(tier * PER)), r: 0 }) : w;
 // sustained damage per second of a weapon before any chips: the same sum as weaponStats (src/actors/weapons.ts)
 // with every chip-driven value at its start, so it works on the base screen where there is no player
 function bareDps(w: WeaponItem): number {
@@ -87,15 +88,15 @@ interface ReadyState {
   dmg: number;
   hp: number;
 } // dmg: the damage multiplier (startDmgMul)
-const readyNow = (): ReadyState => ({
-  weapons: save.loadout.map(basicNow).filter((w): w is WeaponItem => !!w),
+const readyNow = (tier: number): ReadyState => ({
+  weapons: save.loadout.map(w => basicNow(w, tier)).filter((w): w is WeaponItem => !!w),
   dmg: startDmgMul(save.up.dmg),
   hp: startMaxHp(save.up.hp),
 });
 // what `picks` shortcut supply picks multiply the offence by
 const supplyGain = (picks: number): number =>
   picks > 0 ? Math.exp(TUNE.supplyCurve[0]! * Math.pow(picks, TUNE.supplyCurve[1]!)) : 1;
-export function readinessScore(tier: number, s: ReadyState = readyNow()): number {
+export function readinessScore(tier: number, s: ReadyState = readyNow(tier)): number {
   const best = Math.max(0, ...s.weapons.map(bareDps));
   const bossWall = Math.pow(
     hpGrowth(tier, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(tier),

@@ -391,6 +391,7 @@ export interface SaveData {
   stageV: number;
   mods: Record<string, { plus: number; r: number }>;
   levelV?: number; // 1: the reboot has been folded into the level (core/save.ts)
+  supplyV?: number; // 1: the base weapons' mods have been paid back (core/save.ts)
   // (from before the level, 2026-10-17: read once to fold the reboot's bonuses into save.up, then left alone)
   canReboot?: boolean;
   pres?: { count: number; pts: number; up: Record<string, number> };

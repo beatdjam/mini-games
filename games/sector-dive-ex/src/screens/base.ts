@@ -3,9 +3,9 @@ import { el, isTouch } from '@engine/core/util.ts';
 import { prefGet, prefSet } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
-import { MOD_RARITY_COST, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
+import { RARITY, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
-import { STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
+import { STASH_MAX, TUNE, UPGRADES, isMilestone } from '../data/progress.ts';
 import { BASE_TAB_KEY, basicW, persist, save } from '../core/save.ts';
 import { keyText } from '../ui/input.ts';
 import {
@@ -14,12 +14,11 @@ import {
   equipWeapon,
   sellFromStash,
   setStartTier,
-  setWeaponMod,
   spendBits,
   takeFromStash,
   unlockWeapon,
 } from '../core/progress.ts';
-import { basicNow, weaponModOf, modPlusCap, levelOf, nextLevelCost, readiness, sellValue } from '../core/rules.ts';
+import { basicNow, levelOf, nextLevelCost, readiness, sellValue } from '../core/rules.ts';
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
@@ -88,14 +87,14 @@ const tierButton = (n: number): string => {
   const sub = n === 0 ? t('base.tierFirst') : t('base.tierChips', { n, times: TUNE.supplyTimes });
   const ready = readiness(n);
   return (
-    `<button class="tier" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b>` +
+    `<button class="tier${isMilestone(n) ? ' mile' : ''}" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b>` +
     `<small>${sub}</small><small class="rd rd${ready}">${t(`base.ready${ready}`)}</small></button>`
   );
 };
 const loadoutSlot = (k: number): string => {
   const w = save.loadout[k],
     on = baseUI.selSlot === k;
-  const name = w ? weaponName(basicNow(w)) : t('base.empty');
+  const name = w ? weaponName(basicNow(w, save.startTier)) : t('base.empty');
   const note =
     w && !w.basic
       ? `<span class="risk">${t('base.stashRisk')}</span>`
@@ -114,30 +113,12 @@ const lockedCard = (id: string): string => {
       <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText({ id, r: 0 })}</span>
       <span class="wf">${t('base.unlock', { cost: def.cost })}</span></button>`;
 };
-// the buttons that raise a base weapon's + value and rarity
-const modButtons = (id: string): string => {
-  const m = weaponModOf(id),
-    pc = modPlusCost(m.plus),
-    rc = MOD_RARITY_COST[m.r];
-  const plusBtn =
-    m.plus >= modPlusCap()
-      ? `<button class="mini-btn" disabled>${t('base.plusMax')}</button>`
-      : `<button class="mini-btn amber" data-modplus="${id}" ${save.bits < pc ? 'disabled' : ''}>${t('base.modPlus', { n: m.plus + 1, cost: pc })}</button>`;
-  const next = RARITY[m.r + 1];
-  const rarBtn =
-    rc === undefined
-      ? `<button class="mini-btn" disabled>${t('base.rarMax')}</button>`
-      : `<button class="mini-btn amber" data-modrar="${id}" ${save.bits < rc ? 'disabled' : ''}>${t('base.modRar', { stars: next.stars, name: next.name, cost: rc })}</button>`;
-  return plusBtn + rarBtn;
-};
 const weaponCard = (id: string): string => {
   const def = WEAPONS[id],
-    w = basicNow(basicW(id)),
-    m = weaponModOf(id);
-  const edge = m.r ? RARITY[m.r].css : 'var(--line)';
-  return `<div class="wcard" style="border-left:3px solid ${edge}">
+    w = basicNow(basicW(id), save.startTier);
+  return `<div class="wcard" style="border-left:3px solid var(--line)">
       <span class="wn">${weaponName(w)}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText(w)}</span>
-      <span class="acts"><button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: baseUI.selSlot + 1 })}</button>${modButtons(id)}</span></div>`;
+      <span class="acts"><button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: baseUI.selSlot + 1 })}</button></span></div>`;
 };
 const stashCard = (w: WeaponItem, i: number): string => {
   const assign = `<button class="mini-btn amber" data-stash="${i}">${t('base.stashAssign', { n: baseUI.selSlot + 1 })}</button>`;
@@ -182,7 +163,6 @@ export function renderBase() {
   el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
   el('#loadout').innerHTML = [0, 1].map(loadoutSlot).join('');
-  el('#modCap').textContent = t('base.modCap', { cap: modPlusCap() });
   el('#wgrid').innerHTML = WEAPON_ORDER.map(id =>
     id === 'pistol' || save.unlocked[id] ? weaponCard(id) : lockedCard(id),
   ).join('');
@@ -209,19 +189,6 @@ const startBossPractice = (boss: string): After => {
   startPractice(boss, baseUI.practiceTier);
   return 'none';
 };
-// raise a base weapon's + value or rarity by one step
-function buyWeaponMod(id: string, kind: 'plus' | 'rar'): After {
-  const m = Object.assign({ plus: 0, r: 0 }, weaponModOf(id));
-  const cost = kind === 'plus' ? modPlusCost(m.plus) : MOD_RARITY_COST[m.r];
-  if (cost === undefined || save.bits < cost || (kind === 'plus' && m.plus >= modPlusCap())) return 'none';
-  spendBits(cost);
-  if (kind === 'plus') m.plus++;
-  else m.r++;
-  setWeaponMod(id, m);
-  audioInit();
-  sfx('chip');
-  return 'save';
-}
 const pickPracticeTier = (tier: string): After => {
   baseUI.practiceTier = +tier;
   return 'redraw';
@@ -286,8 +253,6 @@ const baseAction = (attr: string, run: (value: string) => After): DataClick => [
 onDataClick(
   el('#scrBase'),
   baseAction('practice', startBossPractice),
-  baseAction('modplus', id => buyWeaponMod(id, 'plus')),
-  baseAction('modrar', id => buyWeaponMod(id, 'rar')),
   baseAction('ptier', pickPracticeTier),
   baseAction('unequip', unequipSecond),
   baseAction('slot', selectSlot),

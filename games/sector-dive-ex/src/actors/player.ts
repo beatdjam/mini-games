@@ -22,11 +22,14 @@ export function setPlayer(p: Player | null) {
 export function setRun(r: RunState | null) {
   run = r as RunState;
 }
-export function newPlayer(loadout: (WeaponItem | null)[]): Player {
+// (`tier`: the depth the dive starts from, which the base weapons are handed out for: core/rules.ts basicNow)
+export function newPlayer(loadout: (WeaponItem | null)[], tier = 0): Player {
   const u = save.up,
     hp = startMaxHp(u.hp);
   // the dive starts with full magazines (options count; there are no chips yet)
-  const ws = loadout.map(basicNow).map(w => (w ? fillMag(newWeapon(w.id, w.r, w.basic, w.plus, w.opts), 1) : null));
+  const ws = loadout
+    .map(w => basicNow(w, tier))
+    .map(w => (w ? fillMag(newWeapon(w.id, w.r, w.basic, w.plus, w.opts), 1) : null));
   return {
     x: 0,
     z: 0,
