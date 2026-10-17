@@ -256,6 +256,9 @@ body.desk.nolock .tbtn{display:grid}
 .ulist{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
 /* a milestone among the start depths (data/progress.ts isMilestone): a dive that dies starts again from the last one */
 .tier.mile b::after{content:' ◆';color:var(--amber);font-size:.8em}
+/* while the scripts start (main.ts takes it off): the page as written here is the old layout's, and the new one
+   (src/ui/hud2.ts) moves and repaints it; shown before that, it would flash the old screen for a moment */
+body.booting #app{visibility:hidden}
 /* the level's card and the loadout slots' change mark are the new layout's (src/ui/hud2.css) */
 .levelcard,.lslot .lchange{display:none}
 .levelrow{display:flex;align-items:baseline;gap:12px;margin:0 0 8px}
@@ -376,7 +379,7 @@ body.desk.nolock .tbtn{display:grid}
 @media (prefers-reduced-motion:reduce){#toast,#banner,#fade{transition:none}}
 </style>
 </head>
-<body>
+<body class="booting">
 
 <div id="app">
   <canvas id="gl"></canvas>

@@ -89,6 +89,8 @@ applyKeyBindings();
 renderGuide();
 showTab(baseUI.tab);
 boot();
+// everything is in place (the new layout's moves and pictures, the base drawn): show the page (index.html body.booting)
+document.body.classList.remove('booting');
 // checks and screenshot hooks (#view-…): only on the dev server, never in the built pages. The dev module sets up
 // its hooks with timers, so loading it after boot() is fine
 if (import.meta.env.DEV) import('./dev/dev.ts');

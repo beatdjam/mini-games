@@ -109,6 +109,7 @@ LANG.ja = {
     'base.level': 'Lv {n}',
     'base.levelNext': '次 {cost} BIT',
     'base.levelUp': 'レベルアップ',
+    'base.levelSuspended': '中断中の潜行が終わるまで上げられない',
     'base.change': '武器を変える ▾',
     'base.changeClose': '閉じる ▴',
     'base.practiceCard': 'ボスと1体ずつ戦う',

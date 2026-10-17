@@ -146,12 +146,14 @@ const upgradeRow = (name: string, desc: string, pips: string, buy: string): stri
       ${buy}</div>`;
 // what a level's point can go to: each row's button buys the next level and puts its point there (the price is the same
 // on every row: nextLevelCost). A row with no cap has no pips: its description says how far it has come
+// (none while a dive is suspended: the level is what a dive sets out with, and that one has set out)
 const upgradeRows = (): string => {
-  const cost = nextLevelCost();
+  const cost = nextLevelCost(),
+    locked = !!save.suspend;
   return UPGRADES.map(u => {
     const l = save.up[u.id] || 0,
       maxed = l >= u.max;
-    const buy = `<button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? t('base.max') : '+1'}</button>`;
+    const buy = `<button class="buy" data-up="${u.id}" ${maxed || locked || save.bits < cost ? 'disabled' : ''}>${maxed ? t('base.max') : '+1'}</button>`;
     return upgradeRow(u.name, u.desc(l), isFinite(u.max) ? pipsHTML(u.max, l) : '', buy);
   }).join('');
 };
@@ -187,9 +189,11 @@ export function renderBase() {
   el('#lcLv').textContent = t('base.level', { n: levelOf() });
   el('#lcBits').textContent = t('base.bitsHave', { n: save.bits });
   el('#lcNext').textContent = t('base.levelNext', { cost: nextLevelCost() });
-  el('#levelCard').classList.toggle('ready', save.bits >= nextLevelCost());
+  el('#levelCard').classList.toggle('ready', !save.suspend && save.bits >= nextLevelCost());
   el('#levelNow').textContent = t('base.level', { n: levelOf() });
-  el('#levelNext').textContent = t('base.levelNext', { cost: nextLevelCost() });
+  el('#levelNext').textContent = save.suspend
+    ? t('base.levelSuspended')
+    : t('base.levelNext', { cost: nextLevelCost() });
   el('#ulist').innerHTML = upgradeRows();
   el('#practiceTier').innerHTML = practiceTierButtons();
   el('#bossList').innerHTML = BOSS_ORDER.map(bossButton).join('');
@@ -256,7 +260,7 @@ function buyBaseUpgrade(id: string): After {
   const def = UPGRADES.find(x => x.id === id)!,
     l = save.up[def.id] || 0,
     cost = nextLevelCost();
-  if (l < def.max && save.bits >= cost) {
+  if (l < def.max && save.bits >= cost && !save.suspend) {
     buyUpgrade(def.id, cost);
     audioInit();
     sfx('pick');
