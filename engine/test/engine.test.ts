@@ -154,6 +154,7 @@ import { mergeParts } from '../src/render/merge.ts';
 import { hideInFog } from '../src/render/fogcull.ts';
 import { mergeFlat } from '../src/render/mergeflat.ts';
 import { batcher } from '../src/render/batch.ts';
+import { chunkInstances, cullChunks } from '../src/render/chunks.ts';
 import {
   block,
   canvasTex,
@@ -3214,6 +3215,38 @@ test('fogcull: a thing past the fog (and its reach) is hidden, one in it shown; 
   expect(far.mesh.visible, 'no fog: shown again').toBe(true);
 });
 
+test('chunks: copies split by where they stand; only chunks in view and short of `far` are shown', () => {
+  const group = new THREE.Group(),
+    m = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial(), 4),
+    at = new THREE.Matrix4(),
+    kept = new THREE.Group();
+  // two copies in the chunk at the origin, one 20 m along x, one 100 m along x (chunks of 10 m)
+  [1, 3, 21, 101].forEach((x, n) => m.setMatrixAt(n, at.makeTranslation(x, 0, 1)));
+  group.add(m, kept);
+  const chunks = chunkInstances(group, 10);
+  expect(chunks.length).toBe(3);
+  expect(chunks.map(c => (c.root.children[0] as THREE.InstancedMesh).count).sort()).toEqual([1, 1, 2]);
+  expect(group.children.includes(m), 'the whole mesh is gone').toBe(false);
+  expect(group.children.includes(kept), 'what is not an instanced mesh stays').toBe(true);
+  const first = chunks.find(c => c.box.min.x < 5)!;
+  expect([first.box.min.x, first.box.max.x]).toEqual([0.5, 3.5]);
+  // a camera at x 10 looking along +x: the chunk behind it is hidden, and the one 100 m off is past `far`
+  const cam = new THREE.PerspectiveCamera(70, 1, 0.1, 500);
+  cam.position.set(10, 0, 1);
+  cam.lookAt(200, 0, 1);
+  cullChunks(chunks, group, cam, 50);
+  const shown = (x: number) => chunks.find(c => c.box.min.x <= x && c.box.max.x >= x)!.root.visible;
+  expect([shown(2), shown(21), shown(101)]).toEqual([false, true, false]);
+  // `keep` can hide one more
+  cullChunks(chunks, group, cam, 500, box => box.min.x < 50);
+  expect([shown(21), shown(101)]).toEqual([true, false]); // a light mesh (fewer triangles in all than minTris) is left whole
+  const g2 = new THREE.Group(),
+    light = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial(), 2);
+  [1, 21].forEach((x, n) => light.setMatrixAt(n, at.makeTranslation(x, 0, 1)));
+  g2.add(light);
+  expect(chunkInstances(g2, 10, 5).length, '4 triangles: not split').toBe(0);
+  expect(g2.children.includes(light)).toBe(true);
+});
 test('batch: one instanced mesh per kind, each thing where it was put', () => {
   const group = new THREE.Group(),
     b = batcher(group);

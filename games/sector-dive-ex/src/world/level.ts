@@ -40,6 +40,8 @@ import { YARD_INTO, buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import { buildAtriumProps, buildYardShell, yardFacades } from './courtMesh.ts';
 import { buildBackdrop, buildOutsideBlocks, keepOutOfPanes, seenThrough } from '@engine/render/windows.ts';
 import { mergeFlat } from '@engine/render/mergeflat.ts';
+import { chunkInstances, cullChunks } from '@engine/render/chunks.ts';
+import type { Chunk } from '@engine/render/chunks.ts';
 import type { Backdrop, OutsideLook } from '@engine/render/windows.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
@@ -92,6 +94,7 @@ export let level: Level = emptyLevel();
 // the building on screen: every floor's meshes, stacked (see showBuilding). The level's group is one of floorGroups then
 let buildingGroup: THREE.Group | null = null;
 let floorGroups: THREE.Group[] = [];
+let floorChunks: Chunk[][] = []; // per floor: its things in chunks (showBuilding), shown by showNeighbourFloors
 // per floor: what stands in and round the courtyard (null on a floor it does not pass); drawn from the other floors
 // it passes without the rest of the floor
 let courtGroups: (THREE.Group | null)[] = [];
@@ -283,6 +286,7 @@ function clearLevel() {
     scene.remove(buildingGroup);
     buildingGroup = null;
     floorGroups = [];
+    floorChunks = [];
     courtGroups = [];
     yardCopies = [];
     yardShell = null;
@@ -360,6 +364,18 @@ const LIFT_SEED = 77; // the picture's seed (the same platform every time)
 let liftTop: THREE.CanvasTexture | null = null; // the picture on a lift's platform, made once
 const HALL_NEAR = 14; // this close to the boss room's door counts as at the boss room (m)
 const NEIGHBOUR_SHOW_R = 40; // the floors above and below are drawn within this of a stairwell or lift, or the fog's end if nearer (m)
+const CHUNK_M = 8 * T; // side of a chunk of a floor's things (m): only the chunks in view and short of the fog are drawn
+const CHUNK_MIN_TRIS = 3000; // only a kind of thing with this many triangles in all on a floor is cut into chunks
+const STAIR_SEEN_R = 16; // of another floor seen down or up a stairwell, only the chunks this near the stairwell (m)
+// of floor m seen from floor n down or up their stairwells: whether a chunk (its box, in the world) stands near one
+function stairsSeen(b: Building, n: number, m: number): (box: THREE.Box3) => boolean {
+  const w = b.plans[0]!.gen.W,
+    at = new THREE.Vector3(),
+    spots = b.links
+      .filter(l => l.kind === 'stairs' && (l.upper === n || l.lower === n) && m >= l.upper && m <= l.lower)
+      .flatMap(l => l.strip.map(k => [tileCenter(k % w), tileCenter(Math.floor(k / w))] as const));
+  return box => spots.some(([x, z]) => box.distanceToPoint(at.set(x, box.min.y, z)) < STAIR_SEEN_R);
+}
 // Draws the other floors only while the player is near a stairwell of this floor (the floors it leads to: that is the
 // only place they can be seen from) or rides a lift (`riding`: its link; the floors it joins and passes). Standing by a
 // lift shows nothing of the other floors: its shaft is walled in. The rest of the time only this floor is drawn. Called
@@ -397,6 +413,11 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     g.visible = m === n || (!atHall && near(m));
     const cg = courtGroups[m];
     if (cg) cg.visible = g.visible || atCourt;
+    if (!g.visible || !floorChunks[m]) return;
+    // in view and short of the fog; of another floor seen along a stairwell, only round the stairwell (riding a lift,
+    // the whole of the floors it passes)
+    const by = m === n || riding !== null ? undefined : stairsSeen(b, n, m);
+    cullChunks(floorChunks[m]!, g, camera, b.biome.fogFar, by);
   });
   if (yardShell) yardShell.visible = atCourt;
   if (yardCopies.length) {
@@ -431,7 +452,9 @@ export function showBuilding(b: Building) {
     const cg = plan.court ? new THREE.Group() : null,
       top = buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9), cg ?? undefined);
     if (top) hallTop = top;
-    // what stands still and is only coloured, drawn as one per group (engine/src/render/mergeflat.ts)
+    // the floor's things in chunks, so only those in view are drawn (engine/src/render/chunks.ts); then what stands
+    // still and is only coloured, drawn as one per chunk (engine/src/render/mergeflat.ts)
+    floorChunks.push(chunkInstances(g, CHUNK_M, CHUNK_MIN_TRIS));
     mergeFlat(g);
     if (cg) mergeFlat(cg);
     buildDoorMeshes(b.biome, g, plan.hall ? plan.hall.door : -1, n);
