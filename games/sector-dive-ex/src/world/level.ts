@@ -111,9 +111,13 @@ const sight = new THREE.Frustum(),
 let yardCopies: {
   into: number;
   root: THREE.Group;
-  parts: [THREE.Object3D, THREE.Object3D][];
+  parts: [THREE.Object3D, THREE.Object3D, number][]; // what is copied, its copy, and its floor (-1: the yard's walls)
   step: THREE.Vector3;
 }[] = [];
+// through a window on a yard, the things of the floors (balconies, rails, bridges) are drawn this many floors above and
+// below the one played and no further: across the yard (5 to 7 tiles) the window shows about that much of its height
+const YARD_COPY_FLOORS = 2;
+const YARD_NEAR = 1.5 * T; // the yard is drawn within this of a tile out on it, wherever one looks (m)
 // what the windows look out on (Look.outside): the backdrop, the building's own outside walls and the buildings across
 // the street. They stand on the street, the ground of the lowest floor (moved with the floors: enterFloor)
 let outside: { band: Backdrop; across: THREE.Group } | null = null;
@@ -383,6 +387,19 @@ function stairsSeen(b: Building, n: number, m: number): (box: THREE.Box3) => boo
 // only place they can be seen from) or rides a lift (`riding`: its link; the floors it joins and passes). Standing by a
 // lift shows nothing of the other floors: its shaft is walled in. The rest of the time only this floor is drawn. Called
 // every frame on a building floor
+// is a yard seen from (x, z) on floor n: one of the floor's tiles out on it (balcony, bridge, ground) within
+// YARD_NEAR, or in sight (not through a wall)
+function seesYard(b: Building, n: number, x: number, z: number): boolean {
+  const cf = b.plans[n]?.court,
+    w = b.plans[0]!.gen.W;
+  if (!cf) return false;
+  const out = [...cf.balcony, ...cf.bridge, ...(cf.ground ? cf.tiles : [])];
+  return out.some(k => {
+    const tx = tileCenter(k % w),
+      tz = tileCenter(Math.floor(k / w));
+    return Math.hypot(tx - x, tz - z) < YARD_NEAR || hasLOS(x, z, tx, tz);
+  });
+}
 export function showNeighbourFloors(b: Building, x: number, z: number, riding: number | null) {
   const n = level.floor,
     w = b.plans[0]!.gen.W,
@@ -404,7 +421,11 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
       !!c &&
       n >= c.upper &&
       n <= c.lower &&
-      c.tiles.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach);
+      c.tiles.some(k => Math.hypot(tileCenter(k % w) - x, tileCenter(Math.floor(k / w)) - z) < reach),
+    // ... and the yard itself is seen from here: one of this floor's tiles out on it (a balcony, a bridge, the ground)
+    // is right by or in sight. From a room the yard's walls stand in the way (it is seen through the windows on it,
+    // their own copies of it), and drawn there it would be all of it, behind the walls
+    yardSeen = atCourt && seesYard(b, n, x, z);
   // In the boss room, and in front of its door, only this floor is drawn: the room is higher than a floor (HALL_H),
   // so its top stands where the floor above is, and the two must not show together
   const hall = level.hall,
@@ -415,14 +436,14 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
   floorGroups.forEach((g, m) => {
     g.visible = m === n || (!atHall && near(m));
     const cg = courtGroups[m];
-    if (cg) cg.visible = g.visible || atCourt;
+    if (cg) cg.visible = g.visible || (b.court?.open ? yardSeen : atCourt);
     if (!g.visible || !floorChunks[m]) return;
     // in view and short of the fog; of another floor seen along a stairwell, only round the stairwell (riding a lift,
     // the whole of the floors it passes)
     const by = m === n || riding !== null ? undefined : stairsSeen(b, n, m);
     cullChunks(floorChunks[m]!, g, camera, b.biome.fogFar, by);
   });
-  if (yardShell) yardShell.visible = atCourt;
+  if (yardShell) yardShell.visible = !!b.court?.open ? yardSeen : atCourt;
   if (yardCopies.length) {
     camera.updateMatrixWorld();
     sight.setFromProjectionMatrix(sightM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -446,6 +467,7 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
             new THREE.Vector3((at[2] + 1) * T, WALL_H, (at[3] + 1) * T),
           ),
         );
+      if (y.root.visible) for (const [, c, m] of y.parts) c.visible = m < 0 || Math.abs(m - n) <= YARD_COPY_FLOORS;
     }
   }
   // the top of the boss room shows while its floor is the one played (from another floor it would stand in the way)
@@ -486,10 +508,15 @@ export function showBuilding(b: Building) {
             : null;
         })
       : buildAtriumProps(b.court, w, FLOOR_H, b.biome);
+    // (its walls' things, only coloured, drawn as one: before it is copied into the windows on it)
+    mergeFlat(yardShell);
     all.add(yardShell);
   }
   if (b.court?.open && yardShell) {
-    const yard = [yardShell, ...courtGroups.filter(g => !!g)],
+    const yard: [THREE.Object3D, number][] = [
+        [yardShell, -1],
+        ...courtGroups.flatMap((g, m): [THREE.Object3D, number][] => (g ? [[g, m]] : [])),
+      ],
       is = b.court.tiles.map(k => k % w),
       js = b.court.tiles.map(k => Math.floor(k / w));
     YARD_INTO.forEach(([di, dj], v) => {
@@ -509,17 +536,17 @@ export function showBuilding(b: Building) {
         far = new THREE.Plane().setFromNormalAndCoplanarPoint(away, glass.addScaledVector(away, YARD_GLASS_CLEAR)),
         clip = (o: THREE.Object3D) => (o.userData.yardWall ? near : far),
         root = new THREE.Group(),
-        parts = yard.map((src): [THREE.Object3D, THREE.Object3D] => {
+        parts = yard.map(([src, m]): [THREE.Object3D, THREE.Object3D, number] => {
           const c = seenThrough(src, v + 1, clip);
           c.visible = true;
           root.add(c);
-          return [src, c];
+          return [src, c, m];
         });
       all.add(root);
       yardCopies.push({ into: v + 1, root, parts, step: new THREE.Vector3(di * T, 0, dj * T) });
     });
     // (and the floors' own: a room round the corner of the yard is behind the wall of a window on it, seen at a slant)
-    [...yard, ...floorGroups].forEach(keepOutOfPanes);
+    [...yard.map(([src]) => src), ...floorGroups].forEach(keepOutOfPanes);
   }
   // what its windows look out on (a sector with windows one sees out of: Look.outside)
   if (look?.outside) {
