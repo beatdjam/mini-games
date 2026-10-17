@@ -608,10 +608,16 @@ body.hud2 #scrBase .sec {
   align-content: start;
 }
 /* a loadout slot says what picking it does: the weapons to put in open under it */
+/* (the slot a column, the mark at its foot: the two slots' marks line up whatever is written above them) */
+body.hud2 .lslot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
 body.hud2 .lslot .lchange {
   display: block;
-  justify-self: start;
-  margin-top: 6px;
+  margin-top: auto;
   padding: 3px 10px;
   border: 1px solid var(--paint2);
   color: var(--paint);
