@@ -284,10 +284,12 @@ body.hud2 .perk {
 body.hud2 .perk > span {
   padding-inline: 14px;
 }
+/* (the name on its own bar, framed in white paint: in yellow on a rare chip) */
 body.hud2 .perk .pn {
   padding-block: 8px 7px;
   background: #2b2e2f;
   border-bottom: 1px solid #000;
+  box-shadow: inset 0 0 0 1px var(--paint);
   color: var(--paint);
   font-weight: 500;
   font-size: 17px;
@@ -322,6 +324,7 @@ body.hud2 .perk.rare {
 }
 body.hud2 .perk.rare .pn {
   color: var(--safety);
+  box-shadow: inset 0 0 0 1px var(--safety);
 }
 body.hud2 .perk.rare :is(.pd, .pcur) {
   color: var(--safety);
