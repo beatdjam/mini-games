@@ -1460,7 +1460,7 @@ test('readiness: easy at DEPTH 1, harder deeper; levels make it easier', () => {
 test('level: one price for every point, a little more each level; armour and output have no cap', () => {
   const keepUp = { ...save.up },
     keepBits = save.bits;
-  if (levelCost(0) !== 80 || !(levelCost(1) > levelCost(0)) || levelCost(10) !== Math.round(80 * 1.08 ** 10))
+  if (levelCost(0) !== 80 || !(levelCost(1) > levelCost(0)) || levelCost(10) !== Math.round(80 * 1.2 ** 10))
     throw new Error('level cost');
   for (const id of ['hp', 'dmg']) if (isFinite(UPGRADES.find(u => u.id === id)!.max)) throw new Error('capped ' + id);
   // two levels from the base: the same price on any row, the next one dearer; the points go where they were put

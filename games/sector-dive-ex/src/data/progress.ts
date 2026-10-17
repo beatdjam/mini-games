@@ -69,9 +69,11 @@ export const UPGRADES = withLang<Upgrade, 'name' | 'desc'>(
   ],
   { name: '', desc: () => '' },
 );
-// what level `l` (the levels bought so far) costs: 80 bits, 8% more each level. The first 33 levels (as many as the
-// old base upgrades had) come to about what all of those cost (12,000 bits)
-export const levelCost = (l: number): number => Math.round(80 * Math.pow(1.08, l));
+// what level `l` (the levels bought so far) costs: 80 bits, 20% more each level. The bits a dive brings in grow about 1.3
+// to 1.6 times a depth (sim, 2026-10-18: some 2,500 by DEPTH 5, 25,000 by 10, 330,000 by 20), so a level's price must
+// climb with them: at 8% a level, half of a dive to DEPTH 20 bought 66 levels, twice the old base upgrades all bought.
+// At 20% it buys 32 (about the old ones all bought); a whole dive, 10 levels by DEPTH 5, 22 by 10, 36 by 20
+export const levelCost = (l: number): number => Math.round(80 * Math.pow(1.2, l));
 // The milestones of the depths: DEPTH 5, 10, 15, ... (0-based tiers 4, 9, 14, ...). A dive that dies starts again from
 // the last one passed (milestoneBelow); one that comes back starts where it left off. DEPTH 1 is where it all begins
 export const MILESTONE_EVERY = 5;

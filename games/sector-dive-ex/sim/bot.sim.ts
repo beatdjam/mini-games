@@ -44,8 +44,9 @@ const heapMB = (): number => {
 
 // how many levels `bits` buys from level 0
 function levelsFor(bits: number): number {
-  let l = 0;
-  while (bits >= levelCost(l)) bits -= levelCost(l++);
+  let l = 0,
+    left = bits;
+  while (left >= levelCost(l)) left -= levelCost(l++);
   return l;
 }
 // "1-20" or "3,7,9"
