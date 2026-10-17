@@ -163,6 +163,7 @@ export function startRun() {
     bosses: [],
     startTier: tier,
     route: newRoute(tier),
+    choice: save.up.choice || 0,
   });
   recordRunStart();
   persist();

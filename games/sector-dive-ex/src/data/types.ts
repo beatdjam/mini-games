@@ -364,6 +364,7 @@ export interface RunState {
   startTier: number;
   route: number[];
   perks: string[]; // chip ids taken, '+' for the rare version
+  choice?: number; // chip offers show 3 + this many cards: the level's point as it was when the dive set out
   bosses?: string[]; // bosses defeated
   bld?: BuildingState; // not in boss practice
   cleared?: boolean;

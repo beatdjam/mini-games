@@ -1483,6 +1483,34 @@ test('level: one price for every point, a little more each level; armour and out
   renderBase();
   if (got.join() !== [1, 1, 2, 1000 - c0 - c1].join() || !(c1 > c0) || !full) throw new Error('level buy ' + got);
 });
+test('level: none while a dive is suspended; the chip offers keep the count the dive set out with', () => {
+  const keepUp = { ...save.up },
+    keepBits = save.bits;
+  goBase();
+  startRun();
+  const set = run.choice;
+  save.up.choice = 1; // as if bought at the base while this dive was out
+  const live = run.choice;
+  endRun('abandon');
+  save.up.choice = keepUp.choice;
+  // a suspended dive: the rows cannot be bought, and a click does nothing
+  save.bits = 1000;
+  save.suspend = { run: { stage: 0, route: [0] }, P: {} } as unknown as typeof save.suspend;
+  goBase();
+  showTab('up');
+  renderBase();
+  const btn = document.querySelector<HTMLButtonElement>('[data-up="hp"]')!,
+    off = btn.disabled;
+  btn.disabled = false;
+  btn.click();
+  const hp = save.up.hp;
+  save.suspend = null;
+  Object.assign(save.up, keepUp);
+  save.bits = keepBits;
+  renderBase();
+  if (set !== (keepUp.choice || 0) || live !== set || !off || hp !== keepUp.hp)
+    throw new Error('suspended level ' + [set, live, off, hp]);
+});
 test('level: a save from before it has the reboot folded into its points', () => {
   const old = {
     ...defaultSave(),
