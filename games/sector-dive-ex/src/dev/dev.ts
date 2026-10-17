@@ -26,7 +26,7 @@ import { magSize, newWeapon } from '../actors/weapons.ts';
 import { normalizeWeapons } from '../ui/input.ts';
 import { toggleMap3D, updateHitDirs, weaponHud } from '../ui/hud.ts';
 import { changeLang } from '../ui/settings.ts';
-import { endRun, startPractice, startRun, startStage } from '../flow/run.ts';
+import { devFirstSector, endRun, startPractice, startRun, startStage } from '../flow/run.ts';
 import { setState, show } from '../flow/state.ts';
 import { suspendRun } from '../flow/suspend.ts';
 import { openPerk } from '../screens/perk.ts';
@@ -49,6 +49,9 @@ if (new URLSearchParams(location.search).has('plain')) {
 // dev: ?hazon keeps the hazard floors live (to look at them lit)
 if (new URLSearchParams(location.search).has('hazon')) setInterval(() => setHazardClock(0.5), 50);
 // dev seed: ?seed=<n> builds every level from that seed (the same level each time)
+// ?sector=KWLN etc.: a dive started as usual (from the base) begins in that sector. The dev views below (#bld-…,
+// #view-enemies-…) read it too, for the building they stand in
+devFirstSector(BIOMES.findIndex(x => x.code === new URLSearchParams(location.search).get('sector')));
 const seedParam = new URLSearchParams(location.search).get('seed');
 if (seedParam !== null && /^\d+$/.test(seedParam)) devSeed(Number(seedParam) >>> 0);
 // dev: ?fps shows the frames drawn in the last second, top middle, and what the last frame drew (engine showFps)

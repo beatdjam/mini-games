@@ -135,6 +135,19 @@ export function beginDive() {
   weaponHud();
   startStage();
 }
+// dev only (src/dev/dev.ts, ?sector=): the sector a dive starts in, instead of the shuffled route's
+let forcedSector = -1;
+export function devFirstSector(n: number) {
+  forcedSector = n;
+}
+// the sectors in the order a dive visits them, depth by depth from `tier` (the forced one first: devFirstSector)
+function newRoute(tier: number): number[] {
+  const route = shuffle(BIOMES.map((_, i) => i)),
+    at = tier % route.length,
+    k = route.indexOf(forcedSector);
+  if (k >= 0) [route[at], route[k]] = [route[k]!, route[at]!];
+  return route;
+}
 export function startRun() {
   enterDive();
   const tier = clamp(save.startTier, 0, save.shortcut);
@@ -149,7 +162,7 @@ export function startRun() {
     perks: [],
     bosses: [],
     startTier: tier,
-    route: shuffle(BIOMES.map((_, i) => i)),
+    route: newRoute(tier),
   });
   recordRunStart();
   persist();

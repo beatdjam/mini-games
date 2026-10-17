@@ -285,7 +285,7 @@
   - 建物: `#bld-foot`（最初の階段室の下から見上げる）、`#bld-mid`（階段の途中）、`#bld-top`（階段室の上から見下ろす）、`#bld-lift`（最上階のエレベーターの横）、`#bld-liftlow`（同じエレベーターを下の階から）、`#bld-boss`（ボス部屋のドアの前）、`#bld-lockdown`（ロックダウンの部屋の中。ロックダウンが始まる）、`#bld-map3d`（建物を全部見た状態で 3D のマップを開く）、`#bld-window`（外が見える窓の前に立つ。`?sector=CITY` か `?sector=RUIN`）。`#trailer` / `#trailer-music` はトレイラーの撮影用（tools/trailer/capture.mjs が台本を渡して開く。言葉は src/dev/trailer.ts、台本の例は trailers/2026-10-05.txt、使い方は tools/trailer/README.md）
   - ボス部屋: `#bld-hall` でボス部屋の中に立つ
   - 中庭: `?court=open` / `?court=roof` でどちらかに固定（`?court=open` に `&yard=balcony|walk|bridge` を足すと、全部の階のベランダをその形にする）、`#bld-court`・`#bld-courtmid`・`#bld-courttop` でその場に立つ、`#bld-courtalong` でベランダの端から縦に見る、`?fps` でフレーム数を出す
-  - セクターの見た目: 開発サーバーで `?plain` を付けると、全部のセクターを専用の見た目なしで描く（見比べ用）。`#view-KWLN-b`・`-c`・`-d` で、最初の階のほかの部屋に立つ。`#bld-boss` などの確認用の入口は、`?sector=KWLN` でセクターを選べる
+  - セクターの見た目: 開発サーバーで `?plain` を付けると、全部のセクターを専用の見た目なしで描く（見比べ用）。`#view-KWLN-b`・`-c`・`-d` で、最初の階のほかの部屋に立つ。`?sector=KWLN` を付けると、拠点からふつうに出撃した潜行もそのセクターから始まる。`#bld-boss` などの確認用の入口も、`?sector=` でセクターを選べる
   - ダメージ床: 開発サーバーで `?hazon` を付けると、ダメージ床が光ったままになる
   - 手に持つ銃: 開発サーバーで `?plain` を付けると、銃も Sector Dive と同じ見た目（箱と光る帯。src/data/viewmodels.ts）になる。`#view-haz-<武器>`（pistol・smg・shotgun・rail・launcher）で、その武器を持って立つ
   - 敵とボス: 開発サーバーで `?plain` を付けると、敵も Sector Dive と同じ見た目（光る立体）になる。`#boss-<ボス>-look`（watcher・phantom・crusher・trinity・core・bastion）で、ボス練習のボスを近くで見る（TRINITY は1機目を見る。画面中央の大きな名前は出さない）。`#view-enemies-crawler,drone,turret` のように種類を並べると、その敵が目の前に並ぶ（`?sector=KWLN` でセクターを選べる）
