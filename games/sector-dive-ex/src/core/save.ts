@@ -22,6 +22,7 @@ export const defaultSave = (): SaveData => ({
   stageV: 2,
   mods: {},
   levelV: 1,
+  supplyV: 1,
   suspend: null,
   settings: {
     lang: null,
@@ -65,6 +66,19 @@ function loadSave(): SaveData {
     delete out.pres;
     delete out.canReboot;
     out.levelV = 1;
+  }
+  // supplyV 1 (2026-10-17): base weapons are no longer modded (they are issued for the start depth). The bits spent on
+  // their + values and rarities come back, to spend on levels (the prices as they were: 50 x 1.5 a step up to +10, 1.2
+  // a step after it; 300 to the 2nd rarity, 900 more to the 3rd)
+  if (s.supplyV !== 1) {
+    const plusCost = (p: number) =>
+      Math.round(50 * Math.pow(1.5, Math.min(p, 10)) * Math.pow(1.2, Math.max(0, p - 10)));
+    for (const m of Object.values(out.mods || {})) {
+      for (let p = 0; p < (m.plus || 0); p++) out.bits += plusCost(p);
+      out.bits += [0, 300, 1200][m.r || 0] ?? 0;
+    }
+    out.mods = {};
+    out.supplyV = 1;
   }
   return out;
 }

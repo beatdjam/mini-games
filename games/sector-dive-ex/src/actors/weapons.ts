@@ -5,7 +5,11 @@ import {
   AFFIX,
   CRIT_OPT_PER_LEVEL,
   MAG_OPT_PER_LEVEL,
+  PLUS_BELOW_MAX,
   PLUS_DMG,
+  PLUS_FROM_STAGE,
+  PLUS_PER_STAGE,
+  PLUS_STAGE_OFFSET,
   RARITY,
   RATE_OPT_MUL,
   RELOAD_OPT_MUL,
@@ -22,12 +26,8 @@ const RARITY_STAGE_BONUS = 0.025; // rarity roll bonus per stage (deeper drops l
 const RARITY_BONUS_MAX = 0.6; // ... up to this
 const RARITY_3_AT = 1.05; // roll above this gives rarity 2 (3 stars)
 const RARITY_2_AT = 0.68; // roll above this gives rarity 1 (2 stars)
-const PLUS_FROM_STAGE = 2.5; // weapons start getting a + value from this stage
-const PLUS_STAGE_OFFSET = 2; // stages before the + level starts climbing
-const PLUS_PER_STAGE = 0.6; // + level climbs this much per stage
 const PLUS_OVER_CHANCE = 0.15; // chance of a + above that level
 const PLUS_OVER_MORE = 0.3; // chance of each further step above it
-const PLUS_BELOW_MAX = 2; // otherwise up to this many below it
 const AFFIX1_FROM_STAGE = 5,
   AFFIX1_BASE = 0.35,
   AFFIX1_PER_STAGE = 0.04; // first option: from this stage, chance, chance per stage after

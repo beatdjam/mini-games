@@ -72,6 +72,12 @@ export const UPGRADES = withLang<Upgrade, 'name' | 'desc'>(
 // what level `l` (the levels bought so far) costs: 80 bits, 8% more each level. The first 33 levels (as many as the
 // old base upgrades had) come to about what all of those cost (12,000 bits)
 export const levelCost = (l: number): number => Math.round(80 * Math.pow(1.08, l));
+// The milestones of the depths: DEPTH 5, 10, 15, ... (0-based tiers 4, 9, 14, ...). A dive that dies starts again from
+// the last one passed (milestoneBelow); one that comes back starts where it left off. DEPTH 1 is where it all begins
+export const MILESTONE_EVERY = 5;
+export const milestoneBelow = (tier: number): number =>
+  tier < MILESTONE_EVERY - 1 ? 0 : tier - ((tier - (MILESTONE_EVERY - 1)) % MILESTONE_EVERY);
+export const isMilestone = (tier: number): boolean => tier > 0 && milestoneBelow(tier) === tier;
 export const HP_PER_POINT = 15, // max HP per point in armour
   DMG_PER_POINT = 0.08; // damage per point in output
 export const STASH_MAX = 12,

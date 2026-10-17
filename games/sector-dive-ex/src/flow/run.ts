@@ -15,7 +15,7 @@ import { COLOR } from '../data/colors.ts';
 import { persist, save } from '../core/save.ts';
 import { progressOf } from '../core/rules.ts';
 import {
-  closeShortcut,
+  fallBackToMilestone,
   earnBits,
   recordBest,
   recordRunStart,
@@ -151,7 +151,7 @@ function newRoute(tier: number): number[] {
 export function startRun() {
   enterDive();
   const tier = clamp(save.startTier, 0, save.shortcut);
-  setPlayer(newPlayer(save.loadout));
+  setPlayer(newPlayer(save.loadout, tier));
   const risked = save.loadout.filter(w => w && !w.basic).length;
   // non-basic weapons leave the base: they come back only on extraction
   riskLoadout();
@@ -431,7 +431,7 @@ export function startPractice(kind: string, tier?: number) {
   const depth = tier || 0;
   enterDive();
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
-  setPlayer(newPlayer(save.loadout));
+  setPlayer(newPlayer(save.loadout, depth));
   setRun({
     stage: depth * PER + PER - 1,
     kills: 0,
@@ -503,7 +503,7 @@ export function endRun(kind: RunEnd) {
   let shortcutMsg = '';
   if (dead) {
     rows.push([t('res.lostWeapons'), foundText]);
-    if (closeShortcut()) shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut + 1) });
+    if (fallBackToMilestone()) shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut) });
   } else {
     const sold = storeWeapons(
       [strip(player.weapons[0]), strip(player.weapons[1])],

@@ -1,6 +1,6 @@
 import type { SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
-import { STASH_MAX } from '../data/progress.ts';
+import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
 import { basicW, save } from './save.ts';
 import { sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
@@ -30,9 +30,6 @@ export function sellFromStash(i: number) {
   save.bits += sellValue(save.stash[i]);
   save.stash.splice(i, 1);
 }
-export const setWeaponMod = (id: string, mod: { plus: number; r: number }) => {
-  save.mods = Object.assign({}, save.mods, { [id]: mod });
-};
 
 // ---- the level ----
 // one more level for `cost` bits, its point put into upgrade `id`
@@ -78,12 +75,14 @@ export function storeWeapons(equipped: (WeaponItem | null)[], bag: WeaponItem[])
   if (sold) save.bits += sold;
   return sold;
 }
-// dying closes the deepest shortcut (if any open) and the start depth follows. Returns whether one closed
-export function closeShortcut(): boolean {
-  const closed = save.shortcut > 0;
-  if (closed) save.shortcut--;
+// dying sends the start back to the last milestone passed (data/progress.ts milestoneBelow) and the start depth follows.
+// Returns whether it went back
+export function fallBackToMilestone(): boolean {
+  const to = milestoneBelow(save.shortcut),
+    back = to < save.shortcut;
+  save.shortcut = to;
   save.startTier = Math.min(save.startTier, save.shortcut);
-  return closed;
+  return back;
 }
 // the checkpoint of a run in progress (null: none)
 export const setSuspend = (snapshot: Snapshot | null) => {

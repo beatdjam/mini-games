@@ -133,12 +133,9 @@ export const SPLIT_FAN = { step: 0.05, max: 0.15 };
 // split-shot chips stop being offered at this many
 export const SPLIT_MAX = 7;
 // base-side modding of basic weapons: persistent +value / rarity per weapon type (kept on death)
-// the + cap rises with the deepest depth opened in this reboot cycle (modPlusCap in src/core/rules.ts): at least
-// MOD_PLUS_MAX, else that depth x MOD_CAP_PER_DEPTH. That keeps a base weapon a little behind the drops found that
-// deep, so after a death you can climb back from a depth or two shallower (not from the same one)
-export const MOD_PLUS_MAX = 10,
-  MOD_CAP_PER_DEPTH = 1.5;
-// x1.5 per level up to +10, then only x1.2 per level so the raised cap stays within reach
-export const modPlusCost = (plus: number): number =>
-  Math.round(50 * Math.pow(1.5, Math.min(plus, MOD_PLUS_MAX)) * Math.pow(1.2, Math.max(0, plus - MOD_PLUS_MAX)));
-export const MOD_RARITY_COST = [300, 900]; // to ★★ and to ★★★
+// the + value of a dropped weapon by progress (actors/weapons.ts rollWeapon): none before PLUS_FROM_STAGE, then a level
+// that climbs PLUS_PER_STAGE a stage from PLUS_STAGE_OFFSET; usually at that level or up to PLUS_BELOW_MAX under it
+export const PLUS_FROM_STAGE = 2.5,
+  PLUS_STAGE_OFFSET = 2,
+  PLUS_PER_STAGE = 0.6,
+  PLUS_BELOW_MAX = 2;

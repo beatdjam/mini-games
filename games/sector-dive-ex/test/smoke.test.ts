@@ -45,7 +45,7 @@ import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBind
 import { encodeStore } from '@engine/core/store.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
-import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
+import { SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
 import { EYE, PLAT_H, WALL_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
 import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
@@ -54,7 +54,16 @@ import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
 import { floorSides, wallSide } from '@engine/world/walls.ts';
-import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, TUNE, UPGRADES, levelCost } from '../src/data/progress.ts';
+import {
+  DEPTH_HP_GROWTH,
+  DEPTH_HP_LATE,
+  KIT_MAX,
+  PER,
+  TUNE,
+  UPGRADES,
+  levelCost,
+  milestoneBelow,
+} from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
 import {
   SAVE_KEY,
@@ -67,8 +76,7 @@ import {
   save,
 } from '../src/core/save.ts';
 import {
-  weaponModOf,
-  modPlusCap,
+  supplyPlus,
   perkName,
   pickDrop,
   levelOf,
@@ -965,59 +973,57 @@ test('shotgun knockback once per shot; launcher gets half the magazine chips', (
     throw new Error('mag chips ' + magSize(newWeapon('launcher', 0)));
   endRun('abandon');
 });
-test('every type drops regardless of unlocks; modded basic weapons start modded', () => {
+test('every type drops regardless of unlocks; base weapons are issued for the start depth', () => {
   const keepU = save.unlocked,
-    keepM = save.mods,
-    keepL = save.loadout;
+    keepL = save.loadout,
+    keepS = [save.shortcut, save.startTier];
   save.unlocked = { pistol: true };
   const ids = new Set();
   for (let k = 0; k < 400; k++) ids.add(pickDrop());
   if (ids.size !== WEAPON_ORDER.length) throw new Error('drop pool should have every type: ' + [...ids]);
-  save.mods = { rail: { plus: 3, r: 2 } };
   save.loadout = [basicW('rail'), null];
-  startRun();
-  tick(2);
-  const w = player.weapons[0]!;
-  if (w.id !== 'rail' || w.plus !== 3 || w.r !== 2 || !w.basic) throw new Error('modded basic ' + JSON.stringify(w));
-  endRun('abandon');
+  const got: number[] = [];
+  for (const tier of [0, 9]) {
+    save.shortcut = tier;
+    save.startTier = tier;
+    startRun();
+    tick(2);
+    const w = player.weapons[0]!;
+    if (w.id !== 'rail' || w.r !== 0 || !w.basic) throw new Error('issued basic ' + JSON.stringify(w));
+    got.push(w.plus || 0);
+    endRun('abandon');
+  }
   save.unlocked = keepU;
-  save.mods = keepM;
   save.loadout = keepL;
+  [save.shortcut, save.startTier] = keepS;
   persist();
+  // (DEPTH 10: what drops there, a little under it)
+  if (got[0] !== 0 || got[1] !== supplyPlus(progressOf(9 * PER)) || !(got[1]! > 5)) throw new Error('issued + ' + got);
 });
-test('mod + cap follows the deepest depth; past +10 each level costs x1.2', () => {
-  const keepS = [save.shortcut, save.peak, save.bits],
-    keepMods = save.mods;
-  save.shortcut = 0;
-  save.peak = 0;
-  const c0 = modPlusCap();
-  save.shortcut = 13;
-  save.peak = 13;
-  const c1 = modPlusCap();
+test('milestones: dying goes back to the last one passed, coming back keeps the depth; old mods are paid back', () => {
+  if ([0, 3, 4, 8, 9, 13, 14].map(milestoneBelow).join() !== '0,0,4,4,9,9,14') throw new Error('milestones');
+  const keepS = [save.shortcut, save.startTier];
   save.shortcut = 12;
-  const c2 = modPlusCap(); // died once: the shortcut closed a step, the cap stays
-  if (c0 !== MOD_PLUS_MAX || c1 !== 21 || c2 !== 21) throw new Error('mod cap ' + [c0, c1, c2]);
-  if (
-    Math.abs(modPlusCost(11) / modPlusCost(10) - 1.2) > 0.01 ||
-    Math.abs(modPlusCost(10) / modPlusCost(9) - 1.5) > 0.01
-  )
-    throw new Error('mod cost');
-  save.mods = { pistol: { plus: 10, r: 0 } };
-  save.bits = 1e7;
+  save.startTier = 12;
+  startRun();
+  endRun('dead');
+  const dead = [save.shortcut, save.startTier];
+  save.shortcut = 12;
+  save.startTier = 12;
+  startRun();
+  endRun('extract');
+  const back = save.shortcut;
+  [save.shortcut, save.startTier] = keepS;
   goBase();
-  showTab('sortie');
-  renderBase();
-  document.querySelector<HTMLButtonElement>('[data-modplus="pistol"]')!.click();
-  const raised = weaponModOf('pistol').plus;
-  save.peak = 0;
-  save.shortcut = 0;
-  renderBase();
-  const capped = !document.querySelector('[data-modplus="pistol"]');
-  [save.shortcut, save.peak, save.bits] = keepS;
-  save.mods = keepMods;
-  renderBase();
-  persist();
-  if (raised !== 11 || !capped) throw new Error('mod past +10 ' + raised + ' ' + capped);
+  if (dead.join() !== '9,9' || back !== 12) throw new Error('milestone ' + dead + ' ' + back);
+  // a save from before the issue: its base weapons' mods come back as bits (+1 50, +2 75, ★★ 300)
+  const old = { ...defaultSave(), bits: 5, mods: { pistol: { plus: 2, r: 1 } } } as Record<string, unknown>;
+  delete old.supplyV;
+  if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code');
+  const paid = [save.bits, Object.keys(save.mods).length];
+  el('#btnWipe').click();
+  el('#btnWipeGo').click();
+  if (paid.join() !== [5 + 50 + 75 + 300, 0].join()) throw new Error('mods paid back ' + paid);
 });
 test('splitter killed by a chain blast or a rocket: both halves survive', () => {
   startRun();
@@ -1440,14 +1446,13 @@ test('save codes: round trip, a bad code is refused', () => {
   el('#btnWipe').click();
   el('#btnWipeGo').click();
 });
-test('readiness: easy at DEPTH 1, harder deeper; upgrades and mods make it easier', () => {
+test('readiness: easy at DEPTH 1, harder deeper; levels make it easier', () => {
   // (a plain handgun reads 1.75 against the fixed yardstick READY_REF_DPS: DEPTH 1 is "comfortable")
   const fresh = [0, 1, 2, 4].map(n => readiness(n));
   if (fresh[0] !== 1 || fresh.some((r, i) => i && r < fresh[i - 1]!)) throw new Error('readiness fresh ' + fresh);
   const s0 = readinessScore(2);
   save.up.dmg = 6;
   save.up.hp = 6;
-  save.mods = { rail: { plus: 10, r: 2 } };
   save.loadout = [basicW('rail'), null];
   const s1 = readinessScore(2);
   if (!(s1 > s0)) throw new Error('readiness upgrades ' + s0 + ' ' + s1);
