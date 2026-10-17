@@ -2,6 +2,7 @@ import { el } from '@engine/core/util.ts';
 import type { WeaponItem } from '../data/types.ts';
 import { RARITY } from '../data/weapons.ts';
 import './hud2.css';
+import { paintBaseBackdrop } from './baseBackdrop.ts';
 // The fight's screen as laid out since 2026-10-17 (body.hud2): the map alone at the top left, HP and stamina at the
 // bottom middle with the weapons under them, the buttons as pictures instead of words (a player of a shooter knows
 // them by their pictures; words on every button read as a game explaining itself). ?hud1 brings back the old layout
@@ -83,6 +84,8 @@ if (hud2) {
     b.removeAttribute('data-i18n');
     b.innerHTML = icon;
   }
+  // the base's backdrop: the site office's wall, painted once (ui/baseBackdrop.ts), darkened under the panels (hud2.css)
+  el('#scrBase').style.setProperty('--base-wall', `url(${paintBaseBackdrop()})`);
   // the kit button keeps its count under the picture
   const kit = el('#btnKit');
   kit.innerHTML = `${ICON.kit}<span id="kitBtnN">1</span>`;

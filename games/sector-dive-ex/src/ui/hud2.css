@@ -348,7 +348,10 @@ body.hud2 #hint {
    on the left; boss practice and settings are pages of their own behind the icons at the top right. Dark steel and
    white paint as in the fight; DIVE in safety yellow, the one thing that stands out ======== */
 body.hud2 #scrBase {
-  background: radial-gradient(ellipse at 50% 30%, rgba(10, 11, 11, 0.55), rgba(6, 7, 7, 0.9));
+  background:
+    linear-gradient(90deg, rgba(6, 7, 7, 0.55), rgba(6, 7, 7, 0.82) 22% 78%, rgba(6, 7, 7, 0.55)),
+    var(--base-wall, none) center / cover no-repeat,
+    #0a0b0b;
   color: var(--paint);
 }
 body.hud2 .base {
