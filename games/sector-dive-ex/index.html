@@ -192,6 +192,10 @@ body.hud2 .icon svg{width:18px;height:18px;display:block}
 body.hud2 .icon{display:grid;place-items:center}
 body.hud2 #pickRow{bottom:calc(env(safe-area-inset-bottom,0px) + 132px)}
 body.hud2 #hint{bottom:calc(env(safe-area-inset-bottom,0px) + 132px)}
+/* the floor's name as a plate on the map's top edge: dark under it, so it reads on a bright wall too */
+body.hud2 .tl{gap:0;width:auto}
+body.hud2 .stage{background:rgba(5,8,12,.78);border:1px solid var(--line);border-bottom:0;padding:3px 7px;color:#b8c4cc;line-height:1.35;width:clamp(120px,24vmin,176px);box-sizing:border-box}
+body.hud2.touch .stage{width:clamp(80px,22vmin,140px);font-size:11px}
 body.desk.nolock .tbtn{display:grid}
 #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);font-size:12px;color:var(--amber);white-space:nowrap}
 
