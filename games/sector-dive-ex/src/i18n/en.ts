@@ -109,7 +109,7 @@ LANG.en = {
     'base.level': 'Lv {n}',
     'base.levelNext': 'Next {cost} BIT',
     'base.levelUp': 'Level up',
-    'base.levelSuspended': 'Resume or discard your suspended dive to level up',
+    'base.levelSuspended': 'Locked until your suspended dive ends',
     'base.change': 'Change weapon ▾',
     'base.changeClose': 'Close ▴',
     'base.practiceCard': 'Fight one boss at a time',
