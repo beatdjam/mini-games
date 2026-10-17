@@ -4,7 +4,8 @@ import { SIGN_FONT } from '../world/looks/paint.ts';
 // The base's backdrop (the new layout, ui/hud2.ts): the wall of the site office the workers set out from. A row of
 // steel lockers on the left, the notice board and the plates in the middle, a workbench and its pegboard of tools on
 // the right, a strip light over it all; one picture, painted once, laid behind the base and darkened there
-// (hud2.css), so that it gives the place without taking the eye from the panels
+// (hud2.css), so that it gives the place without taking the eye from the panels. Shaded, stained and grained, a little
+// out of focus, so that it reads as a real room behind the panels rather than as a drawing
 const W = 1920,
   H = 1080,
   FLOOR = 900; // where the wall meets the floor (px)
@@ -45,8 +46,31 @@ export function paintBaseBackdrop(): string {
   for (let k = 0; k < 6; k++) {
     const x = 60 + k * 112,
       y = 300;
-    g.fillStyle = k % 3 === 1 ? '#46524a' : '#4b574f';
+    // (lit from the strip light above: brighter at the top, a soft edge down each side, a shadow on the wall behind)
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,0.6)';
+    g.shadowBlur = 24;
+    g.shadowOffsetX = 6;
+    const door = g.createLinearGradient(x, y, x + 104, y);
+    door.addColorStop(0, '#39423c');
+    door.addColorStop(0.2, k % 3 === 1 ? '#46524a' : '#4b574f');
+    door.addColorStop(0.85, k % 3 === 1 ? '#424d46' : '#46524a');
+    door.addColorStop(1, '#2f3732');
+    g.fillStyle = door;
     g.fillRect(x, y, 104, FLOOR - y);
+    g.restore();
+    const fall = g.createLinearGradient(0, y, 0, FLOOR);
+    fall.addColorStop(0, 'rgba(255,255,255,0.06)');
+    fall.addColorStop(1, 'rgba(0,0,0,0.35)');
+    g.fillStyle = fall;
+    g.fillRect(x, y, 104, FLOOR - y);
+    // (dents and scuffs, rust bleeding from the vents)
+    for (let d = 0; d < 6; d++) {
+      g.fillStyle = `rgba(0,0,0,${0.08 + rand() * 0.12})`;
+      g.fillRect(x + rand() * 90, y + 140 + rand() * 400, 6 + rand() * 14, 2 + rand() * 6);
+    }
+    g.fillStyle = 'rgba(110,60,30,0.22)';
+    g.fillRect(x + 22 + rand() * 50, y + 90, 3, 30 + rand() * 80);
     g.fillStyle = 'rgba(0,0,0,0.35)';
     for (let v = 0; v < 5; v++) g.fillRect(x + 20, y + 30 + v * 12, 64, 4);
     g.fillRect(x + 84, y + 260, 6, 60);
@@ -58,8 +82,13 @@ export function paintBaseBackdrop(): string {
   // the notice board: cork in a timber frame, papers pinned at angles, its head painted on
   const bx = 820,
     by = 230;
+  g.save();
+  g.shadowColor = 'rgba(0,0,0,0.6)';
+  g.shadowBlur = 30;
+  g.shadowOffsetY = 10;
   g.fillStyle = '#5a4630';
   g.fillRect(bx - 12, by - 12, 424, 304);
+  g.restore();
   g.fillStyle = '#8a6a44';
   g.fillRect(bx, by, 400, 280);
   for (let k = 0; k < 9; k++) {
@@ -97,8 +126,13 @@ export function paintBaseBackdrop(): string {
   g.fillText(BASE_CHECK, bx + 40, 722);
   // the workbench: a steel bench, a vice on it, the pegboard of tools above
   const wx = 1340;
+  g.save();
+  g.shadowColor = 'rgba(0,0,0,0.55)';
+  g.shadowBlur = 28;
+  g.shadowOffsetY = 8;
   g.fillStyle = '#2f3331';
   g.fillRect(wx, 260, 500, 330);
+  g.restore();
   g.fillStyle = 'rgba(0,0,0,0.4)';
   for (let y = 280; y < 580; y += 24) for (let x = wx + 20; x < wx + 500; x += 24) g.fillRect(x, y, 3, 3);
   g.fillStyle = '#9a968a';
@@ -116,5 +150,38 @@ export function paintBaseBackdrop(): string {
   g.fillRect(wx + 60, 600, 90, 40);
   g.fillStyle = '#7a3a2a';
   g.fillRect(wx + 300, 610, 120, 30);
-  return c.toDataURL('image/jpeg', 0.82);
+  // water stains run down the wall from the ceiling, and the corners fall into shadow
+  for (let k = 0; k < 40; k++) {
+    const x = rand() * W,
+      len = 120 + rand() * 500,
+      st = g.createLinearGradient(0, 0, 0, len);
+    st.addColorStop(0, `rgba(20,22,18,${0.12 + rand() * 0.15})`);
+    st.addColorStop(1, 'rgba(20,22,18,0)');
+    g.fillStyle = st;
+    g.fillRect(x, 0, 4 + rand() * 18, len);
+  }
+  const corners = g.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H * 0.45, W * 0.7);
+  corners.addColorStop(0, 'rgba(0,0,0,0)');
+  corners.addColorStop(1, 'rgba(0,0,0,0.6)');
+  g.fillStyle = corners;
+  g.fillRect(0, 0, W, H);
+  // as a camera sees it with the panels in focus: the wall a little out of focus and the colour drained a little, then
+  // the grain of the picture over it all (this keeps the painted shapes from reading as flat cut-outs)
+  const out = document.createElement('canvas');
+  out.width = W;
+  out.height = H;
+  const o = out.getContext('2d')!;
+  o.filter = 'blur(3px) saturate(0.55) contrast(1.05)';
+  o.drawImage(c, 0, 0);
+  o.filter = 'none';
+  const grain = o.getImageData(0, 0, W, H),
+    px = grain.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const n = (rand() - 0.5) * 18;
+    px[i] = px[i]! + n;
+    px[i + 1] = px[i + 1]! + n;
+    px[i + 2] = px[i + 2]! + n;
+  }
+  o.putImageData(grain, 0, 0);
+  return out.toDataURL('image/jpeg', 0.82);
 }
