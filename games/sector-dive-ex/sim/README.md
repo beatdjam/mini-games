@@ -8,9 +8,11 @@
 ```sh
 CHROME="/path/to/chrome" npm run sim                                   # 全部の型 × シード 1〜10
 SIM_SEEDS=1-20 SIM_STYLE=beginner,rusher npm run sim                   # 型とシードを選ぶ
+SIM_SEEDS=1-20 SIM_STYLE=explorer SIM_JOBS=3 npm run sim:split           # シードを3つに分けて並べて回す（tools/sim_split.js）
 ```
 
 - `SIM_SEEDS`: 建物のシード。`1-20` か `3,7,9` の形（既定は `1-10`）
+- `SIM_JOBS`: `npm run sim:split` で並べて回す数（既定は 2）。それぞれ Playwright の Chromium を別に立てる（`CHROME` は使わない）。結果は `sim-results/sector-dive-ex-part<n>-…` に分けて書き、最後に型ごとの表を1つにまとめる（まとめの `summary.tsv` は部分ごとのまま）。手元の Mac で、短い4本を2つに分けて 75秒 → 59秒。1本のブラウザがもう複数のコアを使っているので、本数ぶん速くはならない
 - `SIM_LEVEL`: 節目でレベルを買うか（既定は `on`。`off` で買わない。節目での強化の前と比べるため）
 - `SIM_STYLE`: プレイヤーの型。コンマ区切りで複数、`all` で全部（既定は `all`）
 - `SIM_WEAPON`: 武器を1種類に固定して比べる。`pistol,shotgun` のようにコンマ区切り、`all` で5種類全部（既定は指定なしで、ふだんのゲームのまま）。その武器1本だけで始まり、その潜行のドロップは全部その武器になる（レア度・＋・オプションの出方は同じなので、武器の種類だけの差を見られる）。型 × 武器の組み合わせぶん回るので、型を絞って使う

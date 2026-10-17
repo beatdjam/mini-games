@@ -24,6 +24,7 @@ declare const __SIM_SEEDS__: string;
 declare const __SIM_STYLE__: string;
 declare const __SIM_WEAPON__: string;
 declare const __SIM_LEVEL__: string;
+declare const __SIM_TAG__: string;
 
 const DT = 1 / 60;
 // A run goes on for as long as the bot gets anywhere: it is given up only when nothing has moved on for a while (no
@@ -205,9 +206,12 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
       levels: levelsFor(Math.floor(run?.bits ?? 0)),
       bitsAt: bitsAt.join(' ') || '-',
     });
-    await commands.writeFile(`sim-results/traces/sector-dive-ex-${name}-${seed}.trace.txt`, s.trace.join('\n') + '\n');
+    await commands.writeFile(
+      `sim-results/traces/sector-dive-ex-${__SIM_TAG__}${name}-${seed}.trace.txt`,
+      s.trace.join('\n') + '\n',
+    );
     // the table so far after every run, so a run that dies with the browser costs only itself
-    await commands.writeFile(`sim-results/sector-dive-ex-${name}.tsv`, tsv(rows));
+    await commands.writeFile(`sim-results/sector-dive-ex-${__SIM_TAG__}${name}.tsv`, tsv(rows));
     setBot(null);
     setDropOnly(null);
     if (stateNow() !== 'base') goBase();
@@ -233,6 +237,6 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
       4,
     ),
   });
-  await commands.writeFile('sim-results/sector-dive-ex-summary.tsv', tsv(summary));
+  await commands.writeFile(`sim-results/sector-dive-ex-${__SIM_TAG__}summary.tsv`, tsv(summary));
   expect(rows.length).toBeGreaterThan(0);
 });

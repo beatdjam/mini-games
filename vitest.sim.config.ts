@@ -18,6 +18,8 @@ export default defineConfig({
         __SIM_STYLE__: JSON.stringify(process.env.SIM_STYLE ?? 'all'),
         __SIM_WEAPON__: JSON.stringify(process.env.SIM_WEAPON ?? ''),
         __SIM_LEVEL__: JSON.stringify(process.env.SIM_LEVEL ?? 'on'),
+        // (put before the output files' names: tools/sim_split.js runs several at once, each with its own)
+        __SIM_TAG__: JSON.stringify(process.env.SIM_TAG ?? ''),
       },
       test: {
         name: id,
@@ -26,6 +28,8 @@ export default defineConfig({
         testTimeout: 30 * 60 * 1000,
         browser: {
           enabled: true,
+          // (SIM_PORT: a port of its own for each sim run at the same time, tools/sim_split.js)
+          ...(process.env.SIM_PORT && { api: { port: Number(process.env.SIM_PORT) } }),
           headless: true,
           provider: playwright({ launchOptions: process.env.CHROME ? { executablePath: process.env.CHROME } : {} }),
           instances: [{ browser: 'chromium' as const }],
