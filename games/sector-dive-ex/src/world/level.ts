@@ -430,11 +430,12 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     for (const y of yardCopies) {
       const at = panes?.[y.into],
         // (the panes are seen only from the floor's side of their wall, the way `step` goes: from the yard and its
-        // balconies, or a room on another side of the yard, they are the back of the wall)
+        // balconies, or a room on another side of the yard, they are the back of the wall. Their walls are not all in
+        // one line (the end of a balcony or a bridge has one too), so: on the floor's side of any of them, the nearest)
         front =
           !!at &&
-          (y.step.x > 0 ? x > (at[2] + 1) * T : y.step.x < 0 ? x < at[0] * T : true) &&
-          (y.step.z > 0 ? z > (at[3] + 1) * T : y.step.z < 0 ? z < at[1] * T : true);
+          (y.step.x > 0 ? x > (at[0] + 1) * T : y.step.x < 0 ? x < at[2] * T : true) &&
+          (y.step.z > 0 ? z > (at[1] + 1) * T : y.step.z < 0 ? z < at[3] * T : true);
       y.root.visible =
         atCourt &&
         !!at &&
