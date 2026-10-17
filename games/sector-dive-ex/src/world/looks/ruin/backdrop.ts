@@ -2,7 +2,7 @@ import type * as THREE from 'three';
 import { createRng } from '@engine/core/util.ts';
 import { BACKDROP_EYE, BACKDROP_H, BACKDROP_W, FACADE_PX, GROUND_PX, canvasTex, hazeUnder } from '../paint.ts';
 import type { OutsideView } from '../common.ts';
-import type { BlockStyle } from '../outside.ts';
+import type { BlockStyle, StreetThing } from '../outside.ts';
 // What the ruined blocks' broken windows look out on (Look.outside): the other blocks of the estate under a white
 // overcast sky, all round (no sun: the light is the same everywhere). Housing blocks in three rows, long and plain,
 // with the storeys of their window holes dark and empty, here and there a top fallen in; trees and scrub grown up
@@ -48,7 +48,70 @@ export function ruinView(): OutsideView {
       ],
       roofLight: [1.05, 1.1, 1.05],
     },
+    street: { things: RUIN_STREET, pics: [ruinTree(), ruinScrub(), ruinWeeds()], light: [0.95, 1, 0.95] },
   };
+}
+
+// ---- what stands on the street (looks/outside.ts outsideStreet) ----
+// Nobody has cut anything here for years: trees grown up out of the cracks, scrub and tall weeds all over the street
+// and the empty lots, thinning toward the far blocks
+const RUIN_STREET: StreetThing[] = [
+  { pic: 0, h: [7, 11], wide: 0.75, out: [2, 12], every: 0, chance: 0.06 },
+  { pic: 1, h: [1.5, 2.5], wide: 1.6, out: [1, 12], every: 0, chance: 0.12 },
+  { pic: 2, h: [0.8, 1.3], wide: 1.33, out: [1, 8], every: 0, chance: 0.25 },
+];
+const LEAF: string[] = ['#3f5b31', '#4f6d3b', '#5f7f47', '#344d29'];
+// a tree come up wild: a leaning grey trunk, a big ragged crown
+function ruinTree(): THREE.CanvasTexture {
+  return canvasTex(192, 256, g => {
+    const rand = createRng(SEED + 7).next;
+    g.strokeStyle = '#4a4a40';
+    g.lineWidth = 10;
+    g.beginPath();
+    g.moveTo(96, 256);
+    g.quadraticCurveTo(90, 180, 104, 110);
+    g.stroke();
+    for (let n = 0; n < 80; n++) {
+      const x = 20 + rand() * 152,
+        y = 14 + rand() * 130,
+        r = 10 + rand() * 22;
+      g.fillStyle = LEAF[Math.floor(rand() * LEAF.length)]!;
+      g.beginPath();
+      g.ellipse(x, y, r, r * 0.8, rand() * 3, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+}
+// scrub: a low tangle of bushes
+function ruinScrub(): THREE.CanvasTexture {
+  return canvasTex(256, 160, g => {
+    const rand = createRng(SEED + 8).next;
+    for (let n = 0; n < 70; n++) {
+      const x = 16 + rand() * 224,
+        r = 10 + rand() * 24,
+        y = 160 - r * 0.6 - rand() * 70;
+      g.fillStyle = LEAF[Math.floor(rand() * LEAF.length)]!;
+      g.beginPath();
+      g.ellipse(x, y, r, r * 0.75, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+}
+// tall weeds: blades and stalks, some gone yellow
+function ruinWeeds(): THREE.CanvasTexture {
+  return canvasTex(128, 96, g => {
+    const rand = createRng(SEED + 9).next;
+    g.lineWidth = 3;
+    for (let n = 0; n < 70; n++) {
+      const x = 6 + rand() * 116,
+        tall = 30 + rand() * 64;
+      g.strokeStyle = rand() < 0.25 ? '#8f8a56' : LEAF[Math.floor(rand() * LEAF.length)]!;
+      g.beginPath();
+      g.moveTo(x, 96);
+      g.quadraticCurveTo(x + (rand() - 0.5) * 20, 96 - tall * 0.6, x + (rand() - 0.5) * 30, 96 - tall);
+      g.stroke();
+    }
+  });
 }
 
 function ruinBackdrop(): THREE.CanvasTexture {

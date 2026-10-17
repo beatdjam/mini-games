@@ -40,7 +40,7 @@
   - ゲーム側: `<canvas id="gl">`。毎フレーム `renderer.render(scene, camera)` のあとに `renderGun()`
 - `src/render/paint.ts`: 絵を描く道具。`paintTex(seed, fn, size?, repeat?)`（シードから描く正方形の絵のテクスチャ。同じシードなら同じ絵）, `paintRand(seed)`（その乱数）, `canvasTex(w, h, fn)`（好きな大きさの絵）, `poolTex()`（白い柔らかい光だまり。色はマテリアルで付ける）、筆づかい `grime`（汚れ）, `grain`（細かい粒）, `oval`, `smudge`（隣のタイルへ続くぼかし）, `stripes`（斜めの警告の縞）, `words`（引き伸ばされる面に書く文字）, `block`（左上から照らした箱）, `soil`（下の方の汚れと点）、型 `Paint`、`PAINT_SIZE`（256）
   - ゲーム側: 描く関数（2D コンテキストと乱数を受ける）とシード、絵の大きさ。全体を覆う筆づかいは、渡さなければキャンバスの大きさを使う
-- `src/render/windows.ts`: 外が見える窓。`buildWindowPanes(faces, wallH)`（窓のガラスに、ステンシルに印を付ける板を置く。型 `WindowFace`）, `buildBackdrop(map, radius, height)`（目のまわりの円筒の遠景を、印の所にだけ描く）, `seenThrough(src, into, clip?)`（`WindowFace.into` の窓の所にだけ、世界の中の場所の複製を描く）, `keepOutOfPanes(src)`, `buildWindowFrames(faces, wallH, color)`（窓のまわりと桟に、壁から出っ張った枠を立てる。斜めから見たときに、外の景色が壁に貼り付いて見えないように）, `WINDOW_ORDER`。壁に穴は開けない
+- `src/render/windows.ts`: 外が見える窓。`buildWindowPanes(faces, wallH)`（窓のガラスに、ステンシルに印を付ける板を置く。型 `WindowFace`）, `buildBackdrop(map, radius, height)`（目のまわりの円筒の遠景を、印の所にだけ描く）, `seenThrough(src, into, clip?)`（`WindowFace.into` の窓の所にだけ、世界の中の場所の複製を描く）, `keepOutOfPanes(src)`, `buildOutsideCards(cards, look, bandRadius)`（窓の外の通りに立つ物。抜けのある絵を十字に組んだ板。型 `OutsideCard`）, `buildWindowFrames(faces, wallH, color)`（窓のまわりと桟に、壁から出っ張った枠を立てる。斜めから見たときに、外の景色が壁に貼り付いて見えないように）, `WINDOW_ORDER`。壁に穴は開けない
   - ゲーム側: 窓のある面とガラスの長方形（面の 0〜1）、遠景の絵（円筒に巻く横長の絵）と円筒の大きさ。遠景は、動かないグループに入れる
 - `src/render/fx.ts`: パーティクル（`burst`）と爆発の光（`fireball`）、`clearFx()`。システム `FX.particles` / `FX.fireballs` をエンジンが登録する
   - ゲーム側: 動かすモードを `FX.particles.modes` などに入れる（入れなければ全モードで動く）

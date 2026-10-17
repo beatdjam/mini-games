@@ -34,11 +34,17 @@ import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import { lookOf, wallPic } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF_M, paint } from './looks/paint.ts';
-import { buildingShell, outsideBlocks, shellOf } from './looks/outside.ts';
+import { buildingShell, outsideBlocks, outsideStreet, shellOf } from './looks/outside.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { YARD_INTO, buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import { buildAtriumProps, buildYardShell, yardFacades } from './courtMesh.ts';
-import { buildBackdrop, buildOutsideBlocks, keepOutOfPanes, seenThrough } from '@engine/render/windows.ts';
+import {
+  buildBackdrop,
+  buildOutsideBlocks,
+  buildOutsideCards,
+  keepOutOfPanes,
+  seenThrough,
+} from '@engine/render/windows.ts';
 import { mergeFlat } from '@engine/render/mergeflat.ts';
 import { chunkInstances, cullChunks } from '@engine/render/chunks.ts';
 import type { Chunk } from '@engine/render/chunks.ts';
@@ -585,8 +591,20 @@ export function showBuilding(b: Building) {
       }),
       walls = yardFacades(b.biome, FLOOR_H),
       across = new THREE.Group();
+    const rng = createRng(b.seed ^ OUTSIDE_SEED),
+      round = outsideBlocks(mass, w, h, blocks.style, rng),
+      street = look.outside.street;
+    // (and what stands on the street among them: trees, lamps, poles)
+    if (street)
+      across.add(
+        buildOutsideCards(
+          outsideStreet(mass, w, h, round, street.things, rng),
+          { haze, clear: BACKDROP_GROUND.clear, fade: BACKDROP_GROUND.fade, reach: BLOCK_REACH, ...street },
+          BACKDROP_R,
+        ),
+      );
     across.add(
-      buildOutsideBlocks(outsideBlocks(mass, w, h, blocks.style, createRng(b.seed ^ OUTSIDE_SEED)), look3, BACKDROP_R),
+      buildOutsideBlocks(round, look3, BACKDROP_R),
       buildOutsideBlocks(
         buildingShell(insides, w, h, FLOOR_H, (i, j, m, sides) => walls?.pick(i, j, m, sides.includes(1)) ?? 0),
         walls

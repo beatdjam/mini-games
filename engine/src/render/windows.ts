@@ -694,3 +694,95 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
   }
   return group;
 }
+// Things that stand on the street out there, among the blocks (trees, lamps, poles): each a picture with a clear
+// background, stood upright twice, crossed, so that it has a body from every side and stands out of the flat ground
+// as one walks past the window. Drawn the way the blocks are (seen through the panes only, shrunk toward the eye,
+// into the haze), `pics` by number; a card is `w` wide and `h` high (m) with its foot's middle at (x, z), turned
+// `turn` (radians) round its upright.
+export interface OutsideCard {
+  x: number;
+  z: number;
+  w: number;
+  h: number;
+  pic: number;
+  turn: number;
+}
+const CARD_FRAG = `
+uniform sampler2D map;
+uniform vec3 haze;
+uniform float clear;
+uniform float fade;
+varying vec3 vTint;
+varying vec2 vUv;
+varying float vFar;
+void main() {
+  vec4 c = texture2D(map, vUv);
+  if (c.a < 0.5) discard;
+  float far = 1.0 - exp2(-max(vFar - clear, 0.0) / fade);
+  gl_FragColor = vec4(mix(c.rgb * vTint, haze, far), 1.0);
+}`;
+export function buildOutsideCards(
+  cards: OutsideCard[],
+  look: Pick<OutsideLook, 'haze' | 'clear' | 'fade' | 'reach'> & {
+    pics: THREE.Texture[];
+    light: [number, number, number];
+  },
+  bandRadius: number,
+): THREE.Group {
+  const group = new THREE.Group(),
+    haze = new THREE.Color(look.haze),
+    bins = new Map<number, { pos: number[]; uv: number[]; tint: number[] }>();
+  for (const c of cards) {
+    let b = bins.get(c.pic);
+    if (!b) bins.set(c.pic, (b = { pos: [], uv: [], tint: [] }));
+    for (const a of [c.turn, c.turn + Math.PI / 2]) {
+      const dx = (Math.cos(a) * c.w) / 2,
+        dz = (Math.sin(a) * c.w) / 2,
+        ps = [
+          [c.x - dx, 0, c.z - dz],
+          [c.x + dx, 0, c.z + dz],
+          [c.x + dx, c.h, c.z + dz],
+          [c.x - dx, c.h, c.z - dz],
+        ],
+        uvs = [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+        ];
+      for (const k of [0, 1, 2, 0, 2, 3]) {
+        b.pos.push(...ps[k]!);
+        b.uv.push(...uvs[k]!);
+        b.tint.push(...look.light);
+      }
+    }
+  }
+  for (const [pic, b] of bins) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(b.pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2));
+    geo.setAttribute('tint', new THREE.Float32BufferAttribute(b.tint, 3));
+    const m = new THREE.Mesh(
+      geo,
+      new THREE.ShaderMaterial({
+        uniforms: {
+          map: { value: look.pics[pic]! },
+          haze: { value: haze },
+          clear: { value: look.clear },
+          fade: { value: look.fade },
+          shrink: { value: (bandRadius * BLOCK_FIT) / look.reach },
+        },
+        vertexShader: BLOCK_VERT,
+        fragmentShader: CARD_FRAG,
+        side: THREE.DoubleSide,
+        stencilWrite: true,
+        stencilRef: VIEW,
+        stencilFunc: THREE.EqualStencilFunc,
+      }),
+    );
+    m.renderOrder = WINDOW_ORDER + 3;
+    m.frustumCulled = false;
+    group.add(m);
+  }
+  return group;
+}

@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { BlockStyle } from './outside.ts';
+import type { BlockStyle, StreetThing } from './outside.ts';
 import type { Rng } from '@engine/core/util.ts';
 import { alongOpen, facesToward, wallSide } from '@engine/world/walls.ts';
 import type { WallMap } from '@engine/world/walls.ts';
@@ -83,6 +83,9 @@ export interface OutsideView {
     light: [number, number, number][]; // on a face looking toward each side (0: +x ... 3: -z, as in world/tiles.ts)
     roofLight: [number, number, number];
   };
+  // what stands on the street among them (outside.ts outsideStreet: trees, lamps, poles), its pictures (with a clear
+  // background, the thing's foot at the bottom middle) and the light on them. Without it the street is bare
+  street?: { things: StreetThing[]; pics: THREE.CanvasTexture[]; light: [number, number, number] };
 }
 export interface WallSides {
   outer?: number[];
