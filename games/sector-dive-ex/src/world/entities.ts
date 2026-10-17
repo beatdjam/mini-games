@@ -20,7 +20,6 @@ import { basicMat, disposeTree, dynGroup } from '@engine/render/render.ts';
 import { blocked, floorY, tileIndex, walkable } from '@engine/world/tiles.ts';
 import { aimFan, ringAngles, takeFromPool } from '@engine/world/projectiles.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
-import { rebootMul } from '../core/rules.ts';
 import { geoCache } from './render.ts';
 import { level } from './level.ts';
 import { plainLooks } from './looks.ts';
@@ -286,7 +285,7 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     hitR: def.hitR, // collision radius, hit sphere radius
     hp: def.hp * diff,
     maxHp: def.hp * diff,
-    dmg: def.dmg * ENEMY_TUNE.dmgMul * (run ? damageScaleAt(run.stage) : rebootMul()),
+    dmg: def.dmg * ENEMY_TUNE.dmgMul * (run ? damageScaleAt(run.stage) : 1),
     room, // room index (-1 = not tied to a room, e.g. boss minions)
     floor: level.floor, // the building floor the room is on (-1 outside a building)
     active: false, // wakes up when the player comes near (see wakeCheck)

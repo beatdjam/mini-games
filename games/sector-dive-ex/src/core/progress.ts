@@ -1,8 +1,8 @@
 import type { SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
 import { STASH_MAX } from '../data/progress.ts';
-import { basicW, defaultSave, save } from './save.ts';
-import { pickDrop, sellValue } from './rules.ts';
+import { basicW, save } from './save.ts';
+import { sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
 // callers read it, call one of these, and persist() themselves.
 
@@ -34,31 +34,12 @@ export const setWeaponMod = (id: string, mod: { plus: number; r: number }) => {
   save.mods = Object.assign({}, save.mods, { [id]: mod });
 };
 
-// ---- base upgrades and reboot ----
-// one more level of a base upgrade for `cost` bits
+// ---- the level ----
+// one more level for `cost` bits, its point put into upgrade `id`
 export function buyUpgrade(id: string, cost: number) {
   save.bits -= cost;
   save.up[id] = (save.up[id] || 0) + 1;
 }
-// one more level of a reboot bonus for `cost` points
-export function buyRebootUpgrade(id: string, cost: number) {
-  save.pres.pts -= cost;
-  save.pres.up[id] = (save.pres.up[id] || 0) + 1;
-}
-// the reboot: `gain` points in, the base starts over (best, runs, boss kills and settings stay; the reboot bonuses
-// give starting bits and relic weapons). Returns the reboot count
-export function applyReboot(gain: number): number {
-  const pr = save.pres,
-    keep = { best: save.best, runs: save.runs, bossKills: save.bossKills, settings: save.settings };
-  pr.pts += gain;
-  pr.count++;
-  const count = pr.count;
-  Object.assign(save, defaultSave(), keep, { pres: pr });
-  save.bits = pr.up.funds * 150;
-  for (let k = 0; k < pr.up.relic; k++) save.stash.push({ id: pickDrop(), r: 2, basic: false });
-  return count;
-}
-
 // ---- start depth ----
 export const setStartTier = (n: number) => {
   save.startTier = n;
@@ -116,10 +97,7 @@ export const recordBossSeen = (kind: string) => {
 export const recordBossKill = () => {
   save.bossKills++;
 };
-export const unlockReboot = () => {
-  save.canReboot = true;
-};
-// the deepest shortcut opened since the last reboot
+// the deepest shortcut opened
 export const recordPeak = (tier: number) => {
   save.peak = Math.max(save.peak || 0, tier);
 };

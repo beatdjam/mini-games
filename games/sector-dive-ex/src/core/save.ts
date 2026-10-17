@@ -8,7 +8,7 @@ export const BASE_TAB_KEY = 'sdx-base-tab'; // the base tab last opened (a prefe
 export const basicW = (id: string): WeaponItem => ({ id, r: 0, basic: true });
 export const defaultSave = (): SaveData => ({
   bits: 0,
-  up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 },
+  up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0, choice: 0 },
   unlocked: { pistol: true },
   loadout: [basicW('pistol'), null],
   stash: [],
@@ -21,8 +21,7 @@ export const defaultSave = (): SaveData => ({
   bossSeen: {},
   stageV: 2,
   mods: {},
-  canReboot: false,
-  pres: { count: 0, pts: 0, up: { gain: 0, hp: 0, funds: 0, relic: 0, choice: 0, dmg: 0, vit: 0 } },
+  levelV: 1,
   suspend: null,
   settings: {
     lang: null,
@@ -52,6 +51,20 @@ function loadSave(): SaveData {
     if (out.best) out.best = conv(out.best - 1) + 1;
     if (out.suspend && out.suspend.run) out.suspend.run.stage = conv(out.suspend.run.stage);
     out.stageV = 2;
+  }
+  // levelV 1 (2026-10-17): the base upgrades and the reboot became the level. The points in the base upgrades stay as
+  // they were; the reboot's bonuses become points of what they were like (its +10 max HP a level, two thirds of an
+  // armour point; its +5% max HP a level, about the same; its +5% damage, five eighths of an output point; the wider
+  // chip choice as it was). Its starting bits, relic weapons and bit gain, and the points not spent, are dropped.
+  // Enemies are no longer stronger after a reboot
+  if (s.levelV !== 1) {
+    const pu = out.pres?.up ?? {};
+    out.up.hp = (out.up.hp || 0) + Math.round(((pu.hp || 0) * 10) / 15 + (pu.vit || 0) * 0.67);
+    out.up.dmg = (out.up.dmg || 0) + Math.round(((pu.dmg || 0) * 5) / 8);
+    out.up.choice = Math.max(out.up.choice || 0, pu.choice || 0);
+    delete out.pres;
+    delete out.canReboot;
+    out.levelV = 1;
   }
   return out;
 }

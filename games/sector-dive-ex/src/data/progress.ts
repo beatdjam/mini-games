@@ -1,4 +1,4 @@
-import type { Upgrade, RebootUpgrade } from './types.ts';
+import type { Upgrade } from './types.ts';
 import { withLang } from '@engine/core/langslots.ts';
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
@@ -51,35 +51,29 @@ export const TUNE = {
   hitDirTime: 0.6, // seconds the red arc pointing at an off-screen attacker stays up (ui/hud.ts hitDirection)
   deathBitsKeep: 0.5, // share of the run's bits kept on death / abandon
 };
+// The level: bits buy one level at a time, and each level is a point put into one of these (save.up holds the points).
+// A level costs the same whatever it goes to, more for each level already bought (levelCost). Armour and output have
+// no cap (something to spend on however far one has come); the rest stop where more would break the game's feel
+// (Infinity: no cap). Replaced the base upgrades with their own prices and the reboot (2026-10-17)
 export const UPGRADES = withLang<Upgrade, 'name' | 'desc'>(
   [
-    { id: 'hp', max: 6, cost: l => Math.round(80 * Math.pow(1.6, l)) },
-    { id: 'dmg', max: 6, cost: l => Math.round(100 * Math.pow(1.6, l)) },
-    { id: 'spd', max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)) },
-    { id: 'dash', max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)) },
-    { id: 'gain', max: 5, cost: l => Math.round(150 * Math.pow(1.7, l)) },
-    { id: 'stam', max: 4, cost: l => Math.round(90 * Math.pow(1.7, l)) },
-    { id: 'kit', max: 2, cost: l => Math.round(220 * Math.pow(2, l)) },
-    { id: 'chip', max: 2, cost: l => Math.round(450 * Math.pow(2.2, l)) },
+    { id: 'hp', max: Infinity },
+    { id: 'dmg', max: Infinity },
+    { id: 'spd', max: 4 },
+    { id: 'dash', max: 4 },
+    { id: 'gain', max: 5 },
+    { id: 'stam', max: 4 },
+    { id: 'kit', max: 2 },
+    { id: 'chip', max: 2 },
+    { id: 'choice', max: 1 },
   ],
   { name: '', desc: () => '' },
 );
-export const REBOOT_UP = withLang<RebootUpgrade, 'name' | 'desc'>(
-  [
-    { id: 'gain', max: 5, cost: 1 },
-    { id: 'hp', max: 5, cost: 1 },
-    { id: 'funds', max: 3, cost: 1 },
-    { id: 'relic', max: 2, cost: 2 },
-    { id: 'choice', max: 1, cost: 3 },
-    // no cap: something to spend points on once the rest is bought, so every reboot still makes you stronger.
-    // The cost climbs by 1 pt per level (1, 2, 3, ...), so it grows slowly
-    { id: 'dmg', max: Infinity, cost: 1, step: 1 },
-    { id: 'vit', max: Infinity, cost: 1, step: 1 },
-  ],
-  { name: '', desc: () => '' },
-);
-// per level of the uncapped reboot bonuses: damage +5% (added to the base "output" upgrade), max HP +5% (multiplied)
-export const REBOOT_ENDLESS = { dmg: 0.05, vit: 0.05 };
+// what level `l` (the levels bought so far) costs: 80 bits, 8% more each level. The first 33 levels (as many as the
+// old base upgrades had) come to about what all of those cost (12,000 bits)
+export const levelCost = (l: number): number => Math.round(80 * Math.pow(1.08, l));
+export const HP_PER_POINT = 15, // max HP per point in armour
+  DMG_PER_POINT = 0.08; // damage per point in output
 export const STASH_MAX = 12,
   BAG_MAX = 4,
   KIT_MAX = 3;

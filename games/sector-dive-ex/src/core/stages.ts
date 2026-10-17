@@ -2,7 +2,7 @@ import type { Biome } from '../data/types.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { DMG_SCALE_PER_PROG, PER, enemyGrowth } from '../data/progress.ts';
-import { progressOf, rebootMul } from './rules.ts';
+import { progressOf } from './rules.ts';
 import { run } from '../actors/player.ts';
 
 // ---- tuning numbers used only here ----
@@ -34,6 +34,6 @@ export function tierLabel(t: number): string {
   return `DEPTH ${t + 1}`;
 }
 export const difficultyAt = (s: number): number =>
-  ENEMY_TUNE.hpMul * enemyGrowth(progressOf(s) / STAGES_PER_GROWTH_DEPTH) * rebootMul();
+  ENEMY_TUNE.hpMul * enemyGrowth(progressOf(s) / STAGES_PER_GROWTH_DEPTH);
 // how much harder things hit at stage s: enemies, bosses, hazard floors and your own rockets all grow by this
-export const damageScaleAt = (s: number): number => (1 + progressOf(s) * DMG_SCALE_PER_PROG) * rebootMul();
+export const damageScaleAt = (s: number): number => 1 + progressOf(s) * DMG_SCALE_PER_PROG;

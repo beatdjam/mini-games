@@ -3,15 +3,12 @@ import { el, isTouch } from '@engine/core/util.ts';
 import { prefGet, prefSet } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
-import { track } from '@engine/core/analytics.ts';
 import { MOD_RARITY_COST, RARITY, WEAPONS, WEAPON_ORDER, modPlusCost } from '../data/weapons.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
-import { REBOOT_UP, STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
+import { STASH_MAX, TUNE, UPGRADES } from '../data/progress.ts';
 import { BASE_TAB_KEY, basicW, persist, save } from '../core/save.ts';
 import { keyText } from '../ui/input.ts';
 import {
-  applyReboot,
-  buyRebootUpgrade,
   buyUpgrade,
   clampStartTier,
   equipWeapon,
@@ -22,19 +19,7 @@ import {
   takeFromStash,
   unlockWeapon,
 } from '../core/progress.ts';
-import {
-  basicNow,
-  weaponModOf,
-  modPlusCap,
-  REBOOT_DIFF_CAP,
-  REBOOT_DIFF_PER,
-  rebootCost,
-  rebootMul,
-  rebootMulOf,
-  readiness,
-  readyAfterReboot,
-  sellValue,
-} from '../core/rules.ts';
+import { basicNow, weaponModOf, modPlusCap, levelOf, nextLevelCost, readiness, sellValue } from '../core/rules.ts';
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
@@ -48,10 +33,9 @@ import { onDataClick, type DataClick } from '@engine/ui/dom.ts';
 export const baseUI = {
   selSlot: 0, // loadout slot (0 / 1) that the next weapon assignment goes to
   tab: prefGet(BASE_TAB_KEY, 'sortie'), // open tab; the last one opened is remembered in this browser
-  rebootArm: false, // the reboot row shows its confirmation
   practiceTier: 0, // boss practice depth chosen (0-based)
 };
-// a weapon's numbers as it would be right after diving: base upgrades and reboot bonuses in, no chips, its own options
+// a weapon's numbers as it would be right after diving: the level's points in, no chips, its own options
 // in (so weapons in the base can be compared; player may still be the last run's player, chips and all)
 // what the one-target DPS leaves out: the rail's damage past `far` metres, the rocket's blast radius
 export const weaponReachText = (s: ReturnType<typeof weaponStats>): string =>
@@ -167,14 +151,17 @@ const pipsHTML = (max: number, level: number): string =>
 const upgradeRow = (name: string, desc: string, pips: string, buy: string): string =>
   `<div class="urow"><div><div class="un">${name}</div><div class="ud">${desc}</div><div class="pips">${pips}</div></div>
       ${buy}</div>`;
-const upgradeRows = (): string =>
-  UPGRADES.map(u => {
+// what a level's point can go to: each row's button buys the next level and puts its point there (the price is the same
+// on every row: nextLevelCost). A row with no cap has no pips: its description says how far it has come
+const upgradeRows = (): string => {
+  const cost = nextLevelCost();
+  return UPGRADES.map(u => {
     const l = save.up[u.id] || 0,
-      maxed = l >= u.max,
-      cost = u.cost(l);
-    const buy = `<button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' BIT'}</button>`;
-    return upgradeRow(u.name, u.desc(l), pipsHTML(u.max, l), buy);
+      maxed = l >= u.max;
+    const buy = `<button class="buy" data-up="${u.id}" ${maxed || save.bits < cost ? 'disabled' : ''}>${maxed ? t('base.max') : '+1'}</button>`;
+    return upgradeRow(u.name, u.desc(l), isFinite(u.max) ? pipsHTML(u.max, l) : '', buy);
   }).join('');
+};
 const practiceTierButtons = (): string =>
   `<span>${t('base.practiceTierLabel')}</span>` +
   [0, 1, 2, 4]
@@ -203,63 +190,15 @@ export function renderBase() {
   el('#stash').innerHTML = save.stash.length
     ? save.stash.map(stashCard).join('')
     : `<div class="empty">${t('base.stashEmpty')}</div>`;
+  el('#levelNow').textContent = t('base.level', { n: levelOf() });
+  el('#levelNext').textContent = t('base.levelNext', { cost: nextLevelCost() });
   el('#ulist').innerHTML = upgradeRows();
-  renderReboot();
   el('#practiceTier').innerHTML = practiceTierButtons();
   el('#bossList').innerHTML = BOSS_ORDER.map(bossButton).join('');
   renderSettings();
   el('#help').innerHTML = isTouch ? t('base.helpTouch') : t('base.helpDesk', { pause: keyText('pause', 0) });
 }
 
-// ---- reboot (prestige) ----
-const rebootGain = () => 2 + Math.max(0, save.shortcut - 3);
-// the reboot row: info + arm button, or the confirmation
-function rebootRowHTML(): string {
-  if (save.suspend) return `<p class="help">${t('reboot.suspended')}</p>`;
-  if (!save.canReboot) return `<p class="help">${t('reboot.locked')}</p>`;
-  if (!baseUI.rebootArm) {
-    return `<p class="help">${t('reboot.info', { pts: rebootGain() })}</p><button class="buy" data-reboot="arm">${t('reboot.arm')}</button>`;
-  }
-  const after = t('reboot.after', {
-    diff: Math.round((rebootMulOf(save.pres.count + 1) - 1) * 100),
-    cap: Math.round(REBOOT_DIFF_CAP * REBOOT_DIFF_PER * 100),
-    ready: t(`base.ready${readiness(0, readyAfterReboot())}`),
-  });
-  return (
-    `<p class="help">${t('reboot.confirm')}<br>${after}</p>
-       <button class="buy" data-reboot="go">${t('reboot.go', { pts: rebootGain() })}</button>` +
-    `<button class="mini-btn" data-reboot="cancel">${t('common.cancel')}</button>`
-  );
-}
-function renderReboot() {
-  const pr = save.pres,
-    sec = el('#rebootSec');
-  sec.hidden = !(save.canReboot || pr.count > 0);
-  if (sec.hidden) return;
-  el('#rebootNote').textContent = t('reboot.note', {
-    count: pr.count,
-    diff: Math.round((rebootMul() - 1) * 100),
-    pts: pr.pts,
-  });
-  el('#presList').innerHTML = REBOOT_UP.map(u => {
-    const l = pr.up[u.id] || 0,
-      maxed = l >= u.max,
-      cost = rebootCost(u, l);
-    // uncapped bonuses show their level instead of a row of pips
-    const pips = isFinite(u.max) ? pipsHTML(u.max, l) : `<small>${t('pres.level', { n: l })}</small>`;
-    const buy = `<button class="buy" data-pres="${u.id}" ${maxed || pr.pts < cost ? 'disabled' : ''}>${maxed ? t('base.max') : cost + ' pt'}</button>`;
-    return upgradeRow(u.name, u.desc(l), pips, buy);
-  }).join('');
-  el('#rebootRow').innerHTML = rebootRowHTML();
-}
-function doReboot() {
-  track('reboot', { count: applyReboot(rebootGain()) });
-  baseUI.rebootArm = false;
-  persist();
-  renderBase();
-  audioInit();
-  sfx('portal');
-}
 function assignLoadout(item: WeaponItem | null) {
   equipWeapon(baseUI.selSlot, item);
 }
@@ -287,28 +226,6 @@ const pickPracticeTier = (tier: string): After => {
   baseUI.practiceTier = +tier;
   return 'redraw';
 };
-// arm / cancel / go of the reboot row; arm and cancel only redraw that row, go saves and redraws by itself
-function onRebootButton(action: string): After {
-  if (action === 'go') {
-    doReboot();
-    return 'none';
-  }
-  baseUI.rebootArm = action === 'arm';
-  renderReboot();
-  return 'none';
-}
-// saves and redraws even when the bonus cannot be bought
-function buyRebootBonus(id: string): After {
-  const def = REBOOT_UP.find(x => x.id === id)!,
-    l = save.pres.up[def.id] || 0;
-  const cost = rebootCost(def, l);
-  if (l < def.max && save.pres.pts >= cost) {
-    buyRebootUpgrade(def.id, cost);
-    audioInit();
-    sfx('chip');
-  }
-  return 'save';
-}
 const unequipSecond = (): After => {
   equipWeapon(1, null);
   baseUI.selSlot = 1;
@@ -349,7 +266,7 @@ const sellStashItem = (index: string): After => {
 function buyBaseUpgrade(id: string): After {
   const def = UPGRADES.find(x => x.id === id)!,
     l = save.up[def.id] || 0,
-    cost = def.cost(l);
+    cost = nextLevelCost();
   if (l < def.max && save.bits >= cost) {
     buyUpgrade(def.id, cost);
     audioInit();
@@ -372,8 +289,6 @@ onDataClick(
   baseAction('modplus', id => buyWeaponMod(id, 'plus')),
   baseAction('modrar', id => buyWeaponMod(id, 'rar')),
   baseAction('ptier', pickPracticeTier),
-  baseAction('reboot', onRebootButton),
-  baseAction('pres', buyRebootBonus),
   baseAction('unequip', unequipSecond),
   baseAction('slot', selectSlot),
   baseAction('tier', chooseStartTier),
