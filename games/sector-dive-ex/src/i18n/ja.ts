@@ -451,7 +451,11 @@ LANG.ja = {
         curText: c => `スタミナ回復 毎秒${c}`,
       },
       chain: { name: '連鎖爆破', desc: v => `撃破した敵が周囲を巻き込んで爆発（Lv +${v}）`, curText: c => `Lv ${c}` },
-      magnet: { name: '磁力', desc: () => 'ビット回収範囲 +80%、獲得 +10%', curText: c => `回収範囲 ×${c}` },
+      magnet: {
+        name: '磁力',
+        desc: () => 'ビット回収範囲 +80%、獲得 +10%（獲得は5枚まで）',
+        curText: c => `回収範囲 ×${c}`,
+      },
       reload: {
         name: '高速装填',
         desc: v => `リロード時間 -${pct(v)}（最大 -60%）`,

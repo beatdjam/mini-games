@@ -461,7 +461,7 @@ LANG.en = {
       },
       magnet: {
         name: 'Magnet',
-        desc: () => 'Bit pickup range +80%, bit gain +10%',
+        desc: () => 'Bit pickup range +80%, bit gain +10% (gain from the first 5)',
         curText: c => `Pickup range ×${c}`,
       },
       reload: {

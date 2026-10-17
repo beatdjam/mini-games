@@ -6,9 +6,10 @@ export const PER = 4; // 3 floors + boss per depth
 // The player's own growth (additive chips, +8% per weapon +) slows down gradually, to about 1.3x per depth deep down,
 // so the per-depth factor slides the same way: `rate` up to GROWTH_SLIDE[0] depths in, then (geometrically) down to
 // the *_LATE factor by GROWTH_SLIDE[1], `late` after that. A sudden switch made the depths just past it easier than
-// the one before it.
+// the one before it. The late factor went from 1.22 to 1.25 (2026-10-18) when levels came to be bought in a dive (at
+// the milestones): the sim's dives went from 25 depths (median) to 29
 export const DEPTH_HP_GROWTH = 1.55,
-  DEPTH_HP_LATE = 1.22;
+  DEPTH_HP_LATE = 1.25;
 const GROWTH_SLIDE = [2, 11];
 // health factor after `depths` depths (the log of the per-depth factor moves in a straight line across the slide)
 export function hpGrowth(depths: number, rate: number, late: number): number {
