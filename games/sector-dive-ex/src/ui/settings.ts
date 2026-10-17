@@ -2,6 +2,7 @@
 // on the pause screen. A change is saved at once; volumes and the touch layout are applied right away too. Also here:
 // the other things that follow from settings — the language switch, the fullscreen button, the touch button layout
 // and the how-to-play list.
+import { ICON, hud2 } from './hud2.ts';
 import { el, isTouch } from '@engine/core/util.ts';
 import { setLang, t } from '@engine/core/i18n.ts';
 import { applySfxVolume, audioInit } from '@engine/audio/audio.ts';
@@ -26,7 +27,13 @@ import '../i18n/ja.ts';
 import '../i18n/en.ts';
 
 export function fsLabel() {
-  el('#btnFs').textContent = t(isFullscreen() ? 'hud.fsOff' : 'hud.fs');
+  const b = el('#btnFs'),
+    name = t(isFullscreen() ? 'hud.fsOff' : 'hud.fs');
+  // (with the new layout, a picture with the words as its name: ui/hud2.ts)
+  if (hud2) {
+    b.innerHTML = isFullscreen() ? ICON.fsOff : ICON.fs;
+    b.setAttribute('aria-label', name);
+  } else b.textContent = name;
 }
 el('#btnFs').hidden = !fsSupported || isStandalone;
 el('#btnFs').addEventListener('click', toggleFs);

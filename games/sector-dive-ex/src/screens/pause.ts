@@ -31,7 +31,10 @@ export function refreshRunText() {
   if (!run || !player) return;
   const b = stageInfo(run.stage).biome;
   // the step along the route, the floor of the building it is on, the sector
-  el('#stageLbl').innerHTML = `<b>${stageLabel(run.stage)}</b> ${floorLabel()}　${b.name}`;
+  // (in two parts: the old layout runs them on one line, the new one puts the sector on a line of its own: hud2.ts)
+  el('#stageLbl').innerHTML =
+    `<span class="sdepth"><b>${stageLabel(run.stage)}</b> ${floorLabel()}</span>` +
+    `<span class="sname">${b.name}</span>`;
   if (boss && boss.kind) el('#bossName').textContent = BOSS_META[boss.kind]!.title ?? boss.kind;
   if (state === 'pause') el('#pauseChips').innerHTML = statsHTML();
 }

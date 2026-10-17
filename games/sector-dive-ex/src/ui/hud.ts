@@ -14,6 +14,7 @@ import { level } from '../world/level.ts';
 import { map3d } from './map3d.ts';
 import { time } from '../flow/update.ts';
 import { keyText, moveKeysText } from './input.ts';
+import { ICON, hud2, slotHtml } from './hud2.ts';
 const hpFill = el('#hpFill'),
   hpNum = el('#hpNum'),
   hpBar = el('#hpBar'),
@@ -102,11 +103,18 @@ export function weaponHud() {
     const slot = el('#w' + k),
       w = player.weapons[k];
     slot.classList.toggle('on', k === player.cur);
-    slot.innerHTML = w ? t('hud.slot', { n: k + 1, name: weaponName(w) }) : t('hud.slotEmpty', { n: k + 1 });
+    if (hud2) {
+      slot.innerHTML = slotHtml(w, k + 1);
+      slot.setAttribute(
+        'aria-label',
+        w ? t('hud.slot', { n: k + 1, name: weaponName(w) }) : t('hud.slotEmpty', { n: k + 1 }),
+      );
+    } else slot.innerHTML = w ? t('hud.slot', { n: k + 1, name: weaponName(w) }) : t('hud.slotEmpty', { n: k + 1 });
   });
   el('#kitBtnN').textContent = String(player.kits);
   const kh = el('#kitHud');
-  kh.textContent = t('hud.kits', { n: player.kits, max: KIT_MAX, key: keyText('kit', 0) });
+  if (hud2) kh.innerHTML = `${ICON.kit}${player.kits}/${KIT_MAX}<small>${keyText('kit', 0)}</small>`;
+  else kh.textContent = t('hud.kits', { n: player.kits, max: KIT_MAX, key: keyText('kit', 0) });
   kh.classList.toggle('none', player.kits <= 0);
   el('#btnKit').classList.toggle('off', player.kits <= 0);
 }
