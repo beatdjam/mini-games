@@ -1,6 +1,7 @@
 import { el } from '@engine/core/util.ts';
 import type { WeaponItem } from '../data/types.ts';
 import { RARITY } from '../data/weapons.ts';
+import './hud2.css';
 // The fight's screen as laid out since 2026-10-17 (body.hud2): the map alone at the top left, HP and stamina at the
 // bottom middle with the weapons under them, the buttons as pictures instead of words (a player of a shooter knows
 // them by their pictures; words on every button read as a game explaining itself). ?hud1 brings back the old layout
