@@ -1007,7 +1007,7 @@ export function ruinPictures(): Pictures {
   return {
     walls: Array.from({ length: RUIN_WALLS }, (_, v) => paint(1100 + v, ruinWall(v))),
     wallSides: RUIN_WALL_SIDES,
-    outside: { panes: { [WALL_WINDOW]: brokenPanes() }, ...ruinView() },
+    outside: { panes: { [WALL_WINDOW]: brokenPanes() }, frame: 0x4a4e43, ...ruinView() },
     innerWalls: { [WALL_WINDOW]: paint(1100 + WALL_WINDOW, ruinWall(WALL_WINDOW, true)) },
     floors: Array.from({ length: RUIN_FLOORS }, (_, v) => paint(1200, ruinFloor(v))),
     deck: paint(1300, ruinDeck),

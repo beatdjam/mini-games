@@ -170,6 +170,77 @@ export function buildWindowGlass(faces: WindowFace[], wallH: number, map: THREE.
     WINDOW_ORDER + 4,
   );
 }
+// The frames round those panes, standing out of the wall's face toward the floor: without them the view out lies
+// flat on the face, and along the wall at a slant it reads as a picture stuck on it. A frame in front hides some of
+// the view behind it and moves against it as one walks, which is what a window in a wall does. Round the panes of a
+// face all together a frame `width` wide, and round each pane a bar `bar` wide (the bars between panes); all of them
+// `depth` out of the face (m). One instanced mesh of boxes (null when there are none), shaded by the side a box shows
+// (no light is needed: its front as `color`, its sides and underside darker)
+export function buildWindowFrames(
+  faces: WindowFace[],
+  wallH: number,
+  color: THREE.Color | string | number,
+  { width = 0.1, bar = 0.06, depth = 0.12 } = {},
+): THREE.InstancedMesh | null {
+  const matrices: THREE.Matrix4[] = [],
+    turn = new THREE.Quaternion(),
+    at = new THREE.Vector3(),
+    size = new THREE.Vector3();
+  for (const { i, j, di, dj, rects } of faces) {
+    if (!rects.length) continue;
+    const yaw = Math.atan2(di, dj),
+      out = T / 2 + depth / 2,
+      // a box along the face: its middle `x` to the right of the face's middle and `y` up, `w` wide and `h` high
+      box = (x: number, y: number, w: number, h: number) => {
+        at.set(tileCenter(i) + di * out + Math.cos(yaw) * x, y, tileCenter(j) + dj * out - Math.sin(yaw) * x);
+        size.set(w, h, depth);
+        matrices.push(new THREE.Matrix4().compose(at, turn, size));
+      },
+      // a rectangle's left, top, right and bottom in m: left and right from the face's middle, top and bottom up
+      // from the floor
+      edges = ([l, t, r, b]: [number, number, number, number]) =>
+        [(l - 0.5) * T, wallH * (1 - t), (r - 0.5) * T, wallH * (1 - b)] as const,
+      // a frame `f` wide round a rectangle
+      round = ([x0, y0, x1, y1]: readonly [number, number, number, number], f: number) => {
+        box(x0 - f / 2, (y0 + y1) / 2, f, y0 - y1 + 2 * f);
+        box(x1 + f / 2, (y0 + y1) / 2, f, y0 - y1 + 2 * f);
+        box((x0 + x1) / 2, y0 + f / 2, x1 - x0, f);
+        box((x0 + x1) / 2, y1 - f / 2, x1 - x0, f);
+      };
+    turn.setFromAxisAngle(UP, yaw);
+    const all = rects.map(edges);
+    round(
+      [
+        Math.min(...all.map(e => e[0])),
+        Math.max(...all.map(e => e[1])),
+        Math.max(...all.map(e => e[2])),
+        Math.min(...all.map(e => e[3])),
+      ],
+      width,
+    );
+    if (rects.length > 1) for (const e of all) round(e, bar);
+  }
+  if (!matrices.length) return null;
+  // a unit box, its faces' shade in its vertex colours: the front (+z, toward the floor) as it is, the sides
+  // darker, the top a little lighter than the sides (the light comes in from above), the underside darkest
+  const geo = new THREE.BoxGeometry(1, 1, 1),
+    normal = geo.getAttribute('normal'),
+    shade = (y: number, z: number) => (z > 0.5 ? 1 : y > 0.5 ? 0.82 : y < -0.5 ? 0.5 : 0.66),
+    colors: number[] = [];
+  for (let n = 0; n < normal.count; n++) {
+    const s = shade(normal.getY(n), normal.getZ(n));
+    colors.push(s, s, s);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const mesh = new THREE.InstancedMesh(
+    geo,
+    new THREE.MeshBasicMaterial({ color, vertexColors: true }),
+    matrices.length,
+  );
+  matrices.forEach((m, n) => mesh.setMatrixAt(n, m));
+  mesh.instanceMatrix.needsUpdate = true;
+  return mesh;
+}
 // A copy of `src` drawn only through the panes that look into `into` (WindowFace.into), over the wall they are on: a
 // place of the world seen through a window as it is (the caller puts the copy where the window should show it). It
 // shares the meshes' geometry, pictures and shader uniforms; their order among themselves is kept. Meshes only (lines,

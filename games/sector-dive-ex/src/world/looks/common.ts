@@ -36,7 +36,8 @@ export interface Look {
   // left, top, right, bottom); there the backdrop is seen instead of the picture, as far away as the sky
   // (levelMesh.ts buildFloorMeshes and engine/src/render/windows.ts, level.ts). The backdrop is the view all round (paint.ts BACKDROP_W). Only where the
   // picture may stand on the building's outside wall (WallSides outer). Without it no window is seen through
-  outside?: { panes: Record<number, [number, number, number, number][]> } & OutsideView;
+  // `frame`: the colour of the frames round them, standing out of the wall (engine windows.ts buildWindowFrames)
+  outside?: { panes: Record<number, [number, number, number, number][]>; frame: number } & OutsideView;
   // pictures (by number) as they are seen from outside the building, on a wall with rooms behind it (a yard's walls,
   // the building's own outside: courtMesh.ts): a window seen through has the dark room behind its glass, not the
   // outside (which there would be seen through the building). Without it such a wall has the picture as it is

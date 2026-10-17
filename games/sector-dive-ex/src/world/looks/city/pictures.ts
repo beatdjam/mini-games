@@ -912,7 +912,7 @@ export function cityPictures(): Pictures {
     laneWalls: CITY_LANE_WALLS,
     wallSides: CITY_WALL_SIDES,
     // (the same seed as the lit one: the same panels, only the window differs)
-    outside: { panes: { 4: blindPanes(BLIND_RAISED) }, ...cityView() },
+    outside: { panes: { 4: blindPanes(BLIND_RAISED) }, frame: 0x5b564c, ...cityView() },
     shadedWalls: Object.fromEntries(
       Object.keys(CITY_DUSK_PICS).map(v => [v, paint(1100 + Number(v), cityWall(Number(v), true))]),
     ),

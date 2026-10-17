@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { buildWindowGlass, buildWindowPanes, windowGlassTex } from '@engine/render/windows.ts';
+import { buildWindowFrames, buildWindowGlass, buildWindowPanes, windowGlassTex } from '@engine/render/windows.ts';
 import type { WindowFace } from '@engine/render/windows.ts';
 import { floorSides } from '@engine/world/walls.ts';
 import { H, T, W, grid, tileCenter } from '@engine/world/tiles.ts';
@@ -164,6 +164,8 @@ export function buildFloorMeshes(
         // (the glass has the colour of the haze out there: the view through it goes the way the far ground does)
         glass = buildWindowGlass(faces, WALL_H, (glassTex[biome.code] ??= windowGlassTex(outside.haze)));
       if (panes && glass) group.add(panes, glass);
+      const frames = buildWindowFrames(faces, WALL_H, outside.frame);
+      if (frames) group.add(frames);
     }
   } else {
     tex.floor.repeat.set(1, 1);
