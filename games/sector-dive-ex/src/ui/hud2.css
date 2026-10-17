@@ -360,15 +360,14 @@ body.hud2 .base {
   grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
   grid-template-areas:
     'head head'
-    'stats sortie'
-    'up sortie'
+    'card sortie'
     'start start';
   align-items: start;
   column-gap: 20px;
 }
 body.hud2 .head {
   grid-area: head;
-  padding-right: 170px;
+  padding-right: 60px;
 }
 body.hud2 .head h1 {
   font-size: clamp(24px, 4vw, 36px);
@@ -382,12 +381,9 @@ body.hud2 .head .lead {
   color: var(--paint2);
   font-size: 13px;
 }
+/* (the records are the old layout's: the bits are on the level's card) */
 body.hud2 .stats {
-  grid-area: stats;
-  grid-template-columns: 1fr 1fr;
-}
-body.hud2 [data-pane='up'] {
-  grid-area: up;
+  display: none;
 }
 body.hud2 [data-pane='sortie'] {
   grid-area: sortie;
@@ -395,13 +391,77 @@ body.hud2 [data-pane='sortie'] {
 body.hud2 .startbar {
   grid-area: start;
 }
-/* (practice and settings take the whole page under the title) */
-body.hud2 .base:is([data-tab='practice'], [data-tab='settings']) :is(.stats, .startbar) {
+/* (the level, practice and settings take the whole page under the title; DIVE and the level's card are the home page's) */
+body.hud2 .base:not([data-tab='sortie']) :is(.startbar, .side) {
   display: none;
 }
-body.hud2 :is([data-pane='practice'], [data-pane='settings']) {
+/* the home page's left column: the level's card, then a card for each of the other pages (what it is, in a line) */
+body.hud2 .side {
+  grid-area: card;
+  display: grid;
+  gap: 8px;
+}
+body.hud2 .pagecard {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border: 1px solid #3d4143;
+  color: var(--paint);
+}
+body.hud2 .pagecard b {
+  font-size: 16px;
+  font-weight: 500;
+}
+body.hud2 .pagecard small {
+  font-size: 12px;
+  color: var(--paint2);
+}
+body.hud2 :is(.pagecard, .levelcard):hover {
+  border-color: var(--paint2);
+}
+body.hud2 :is([data-pane='up'], [data-pane='practice'], [data-pane='settings']) {
   grid-column: 1 / -1;
-  grid-row: 2 / 5;
+  grid-row: 2 / 4;
+}
+/* the level's card: the level, the bits, the next level's price; LEVEL UP lights in safety yellow when it can be bought */
+body.hud2 .levelcard {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border: 1px solid #3d4143;
+  color: var(--paint);
+}
+body.hud2 .levelcard .lc-lv {
+  font-family: var(--disp);
+  font-size: 30px;
+  font-weight: 600;
+}
+body.hud2 .levelcard .lc-bits {
+  font-family: var(--disp);
+  font-size: 18px;
+  color: var(--safety);
+}
+body.hud2 .levelcard .lc-next {
+  font-size: 12px;
+  color: var(--paint2);
+}
+body.hud2 .levelcard .lc-go {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--paint2);
+  color: var(--paint2);
+  font-family: var(--sten);
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+body.hud2 .levelcard.ready .lc-go {
+  border-color: var(--safety);
+  background: var(--safety);
+  color: #151515;
 }
 /* the tabs: three pictures at the top right (home, practice, settings); the level has no tab, it is on the home page */
 body.hud2 .tabs {
@@ -414,7 +474,8 @@ body.hud2 .tabs {
   border: 0;
   background: none;
 }
-body.hud2 .tabs [data-tab='up'] {
+body.hud2 .base[data-tab='sortie'] .tabs,
+body.hud2 .tabs button:not([data-tab='sortie']) {
   display: none;
 }
 body.hud2 .tabs button {
@@ -439,13 +500,10 @@ body.hud2 .tabs button[aria-selected='true'] {
 @media (max-width: 760px) {
   body.hud2 .base {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'head' 'stats' 'sortie' 'up' 'start';
-  }
-  body.hud2 .stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas: 'head' 'card' 'sortie' 'start';
   }
   body.hud2 .head {
-    padding-right: 150px;
+    padding-right: 60px;
   }
 }
 
@@ -513,4 +571,53 @@ body.hud2 #btnStart small {
 /* (DIVE stays at the foot of the screen, the whole width, as the page scrolls) */
 body.hud2 .startbar {
   background: linear-gradient(180deg, rgba(6, 7, 7, 0), rgba(6, 7, 7, 0.92) 12px);
+}
+
+/* ---- fewer words: the page says what each part is by its title alone (the notes, the lead and the weapons' blurbs are
+   the old layout's). The weapons to choose from stay folded until a loadout slot is picked (.choosing) ---- */
+body.hud2 #scrBase :is(.head .eyebrow, .head .lead, .sec h2 small, .sec h3 small, .wcard .wd, .lslot .eyebrow) {
+  display: none;
+}
+body.hud2 [data-pane='sortie']:not(.choosing) :is(h3, .wgrid) {
+  display: none;
+}
+body.hud2 [data-pane='sortie'].choosing .lslot:not(.sel) {
+  opacity: 0.55;
+}
+/* ---- the suspended dive: a steel plate, RESUME in safety yellow like DIVE ---- */
+body.hud2 #scrBase .suspend {
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border: 1px solid #3d4143;
+  border-left: 4px solid var(--safety);
+  color: var(--paint);
+}
+body.hud2 #scrBase .suspend .primary {
+  background: var(--safety);
+  border: 0;
+  color: #151515;
+  font-family: var(--sten);
+  box-shadow: 0 2px 0 #000;
+}
+body.hud2 #scrBase .suspend :is(.ghost, .mini-btn, button:not(.primary)) {
+  background: none;
+  border-color: var(--paint2);
+  color: var(--paint);
+}
+/* (a section packs its rows at the top: the page's columns are as tall as the tallest, and its rows would spread) */
+body.hud2 #scrBase .sec {
+  align-content: start;
+}
+/* a loadout slot says what picking it does: the weapons to put in open under it */
+body.hud2 .lslot .lchange {
+  display: block;
+  justify-self: start;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--paint2);
+  color: var(--paint);
+  font-size: 12px;
+}
+body.hud2 .lslot.sel .lchange {
+  border-color: var(--safety);
+  color: var(--safety);
 }

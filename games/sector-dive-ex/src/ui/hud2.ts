@@ -20,6 +20,7 @@ export const ICON = {
   bag: line('<path d="M6 8h12l1 13H5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'),
   pause: line('<path d="M9 5v14M15 5v14"/>'),
   home: line('<path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/>'),
+  level: line('<path d="M5 20h14"/><path d="M12 16V5M7 10l5-5 5 5"/>'),
   practice: line('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5"/>'),
   settings: line(
     '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
@@ -76,6 +77,7 @@ if (hud2) {
   // the base's tabs: the home page (the dive and the level), boss practice and settings as pictures at the top right
   for (const [tab, icon] of [
     ['sortie', ICON.home],
+    ['up', ICON.level],
     ['practice', ICON.practice],
     ['settings', ICON.settings],
   ] as const) {

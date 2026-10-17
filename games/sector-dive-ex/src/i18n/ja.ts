@@ -108,6 +108,12 @@ LANG.ja = {
     'base.upgradesNote': 'ビットでレベルを上げ、1点を選んで振る。次の潜行から効く',
     'base.level': 'Lv {n}',
     'base.levelNext': '次 {cost} BIT',
+    'base.levelUp': 'レベルアップ',
+    'base.change': '武器を変える ▾',
+    'base.changeClose': '閉じる ▴',
+    'base.practiceCard': 'ボスと1体ずつ戦う',
+    'base.settingsCard': '操作・音量・データ',
+    'base.bitsHave': '{n} BIT',
     'base.practice': 'ボス練習',
     'base.practiceNote':
       '選んだ深度のボス相当の強さで1体と戦う。今の出撃装備を使うが、チップはなし。報酬もロストもなく記録にも残らない',
