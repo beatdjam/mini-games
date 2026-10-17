@@ -3,6 +3,7 @@ import type { Pictures, WallSides } from '../common.ts';
 import { DOOR_ASPECT, SIGN_FONT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { ruinView } from './backdrop.ts';
+import { PAINT, css } from '../../../data/colors.ts';
 // The ruined streets (RUIN): the inside of a housing block that fell in long ago. Pale cracked mortar gone green at
 // the foot, faded wallpaper, broken windows with the grey daylight behind them, ivy and grass, and what the people
 // who lived here left. Nothing is lit: the only light is the day's, through the windows and the holes in the ceiling.
@@ -35,7 +36,7 @@ const brokenPanes = (): [number, number, number, number][] => {
   ];
 };
 const RUIN_FLOORS = 6; // 0 bare, 1 what is left of the tiles, 2 ... of the floorboards, 3 grass in a crack, 4 a puddle, 5 crumbs of rubble
-const LEAVES = ['#4f6d3b', '#5f7f47', '#3f5b31', '#718d55'];
+const LEAVES = [PAINT.leaf2, PAINT.leaf3, PAINT.leaf1, PAINT.leaf4].map(css);
 const RUST = '#7c4a2b';
 const TAPE_YELLOW = '#c7a52e';
 const TAPE_BLACK = '#1d1f1a';

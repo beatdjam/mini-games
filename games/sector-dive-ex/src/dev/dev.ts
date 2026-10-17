@@ -208,9 +208,13 @@ if (location.hash.startsWith('#bld-'))
         break;
       }
     } else if (what === 'window' || what === 'windowdown' || what === 'windowup') {
-      // the first window seen through, floor by floor, with two floor tiles in front of it
-      const look = lookOf(b.biome);
-      for (let floor = 0; floor < b.plans.length && look?.outside; floor++) {
+      // the first window seen through, floor by floor (from the bottom one up with ?low), with two floor tiles in
+      // front of it
+      const look = lookOf(b.biome),
+        low = new URLSearchParams(location.search).has('low'),
+        order = b.plans.map((_, m) => (low ? b.plans.length - 1 - m : m));
+      for (const floor of order) {
+        if (!look?.outside) break;
         const d = b.plans[floor]!.gen,
           grid = d.maps.grid,
           k = grid.findIndex(

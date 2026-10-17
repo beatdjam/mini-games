@@ -1,4 +1,4 @@
-import type { OutsideBlock } from '@engine/render/windows.ts';
+import type { OutsideBlock, OutsideCard } from '@engine/render/windows.ts';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, T } from '@engine/world/tiles.ts';
 // The buildings across the street from the windows one sees out of (Look.outside.blocks). They stand round the
@@ -26,10 +26,9 @@ export interface BlockStyle {
   roofs: number;
 }
 
-// the blocks round a building on a map w by h tiles whose floors are on the tiles of `inside` (1: floor or open on
-// some floor); the same rng gives the same blocks
-export function outsideBlocks(inside: Uint8Array, w: number, h: number, style: BlockStyle, rng: Rng): OutsideBlock[] {
-  // how far each tile of the map and round it is from the building (tiles, the 8 neighbours one step)
+// how far each tile of the map and round it (MARGIN tiles more on every side: ew by eh) is from the building (tiles,
+// the 8 neighbours one step)
+function farFrom(inside: Uint8Array, w: number, h: number): { far: Uint16Array; ew: number; eh: number } {
   const ew = w + 2 * MARGIN,
     eh = h + 2 * MARGIN,
     far = new Uint16Array(ew * eh).fill(0xffff),
@@ -55,6 +54,13 @@ export function outsideBlocks(inside: Uint8Array, w: number, h: number, style: B
         queue.push(n);
       }
   }
+  return { far, ew, eh };
+}
+
+// the blocks round a building on a map w by h tiles whose floors are on the tiles of `inside` (1: floor or open on
+// some floor); the same rng gives the same blocks
+export function outsideBlocks(inside: Uint8Array, w: number, h: number, style: BlockStyle, rng: Rng): OutsideBlock[] {
+  const { far, ew, eh } = farFrom(inside, w, h);
   // the building's extent (m)
   const box = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity };
   inside.forEach((v, k) => {
@@ -164,5 +170,51 @@ export function shellOf(floor: (k: number) => boolean, w: number, h: number): Ui
         for (let di = -1; di <= 1; di++)
           if (i + di >= 0 && j + dj >= 0 && i + di < w && j + dj < h) out[(j + dj) * w + i + di] = 1;
     }
+  return out;
+}
+
+// What stands on the street round the building, among the blocks (buildOutsideCards): of each kind, on the tiles
+// `out` (tiles from the building, as the blocks are measured) and not under a block. `every`: one on every so many
+// tiles along it, in a row (a lamp at the kerb), as the tile's place along the street; or 0, then each tile has one
+// by `chance`, set anywhere on the tile (trees grown up where they would). How high it stands (m) by the rng, as wide
+// as its picture is for that (`wide`: its width over its height). `flat`: laid on the ground over the whole tile
+// instead (paving: `h`, `wide` unused), turned a quarter at a time so that its picture does not repeat in step
+export interface StreetThing {
+  pic: number;
+  h: [number, number];
+  wide: number;
+  out: [number, number];
+  every: number;
+  chance: number;
+  flat?: boolean;
+}
+export function outsideStreet(
+  inside: Uint8Array,
+  w: number,
+  h: number,
+  blocks: OutsideBlock[],
+  things: StreetThing[],
+  rng: Rng,
+): OutsideCard[] {
+  const { far, ew, eh } = farFrom(inside, w, h),
+    under = (x: number, z: number) => blocks.some(b => x > b.x0 - 1 && x < b.x1 + 1 && z > b.z0 - 1 && z < b.z1 + 1),
+    out: OutsideCard[] = [];
+  for (const t of things)
+    for (let j = 0; j < eh; j++)
+      for (let i = 0; i < ew; i++) {
+        const d = far[j * ew + i]!;
+        if (d < t.out[0] || d > t.out[1]) continue;
+        if (t.every ? (i + j) % t.every : rng.next() >= t.chance) continue;
+        const loose = t.every ? 0 : 0.35,
+          x = (i - MARGIN + 0.5 + rng.rand(-loose, loose)) * T,
+          z = (j - MARGIN + 0.5 + rng.rand(-loose, loose)) * T;
+        if (under(x, z)) continue;
+        if (t.flat) {
+          out.push({ x, z, w: T, h: 0, pic: t.pic, turn: rng.randi(0, 3) * (Math.PI / 2), flat: true });
+          continue;
+        }
+        const tall = rng.rand(...t.h);
+        out.push({ x, z, w: tall * t.wide, h: tall, pic: t.pic, turn: rng.rand(0, Math.PI) });
+      }
   return out;
 }

@@ -2,7 +2,7 @@ import type * as THREE from 'three';
 import { createRng } from '@engine/core/util.ts';
 import { BACKDROP_EYE, BACKDROP_H, BACKDROP_W, FACADE_PX, GROUND_PX, canvasTex, hazeUnder } from '../paint.ts';
 import type { OutsideView } from '../common.ts';
-import type { BlockStyle } from '../outside.ts';
+import type { BlockStyle, StreetThing } from '../outside.ts';
 // What the old downtown's windows look out on (Look.outside): the city at dusk all round, painted on a band that is
 // wrapped round the player (world/level.ts). The sun is low in the west (the -x side, a quarter of the band before
 // its end: facesWest in common.ts), the sky glowing amber round it and going grey toward the east.
@@ -67,7 +67,99 @@ export function cityView(): OutsideView {
       light: CITY_LIGHT,
       roofLight: [1, 0.92, 0.9],
     },
+    street: {
+      things: CITY_STREET,
+      pics: [cityLamp(), cityPole(), cityTree(), cityPaving()],
+      light: [0.95, 0.88, 0.82],
+    },
   };
+}
+
+// ---- what stands on the street (looks/outside.ts outsideStreet) ----
+// The pavement along the building (two tiles) and along the far side of the street (one), paved, the road between
+// them left as the ground's asphalt. Its lamps, lit for the evening, one every three tiles along the building; the
+// far kerb its concrete poles; a few trees along the pavement and in the empty lots between the blocks
+const CITY_STREET: StreetThing[] = [
+  { pic: 3, h: [0, 0], wide: 1, out: [1, 2], every: 1, chance: 0, flat: true },
+  { pic: 3, h: [0, 0], wide: 1, out: [5, 5], every: 1, chance: 0, flat: true },
+  { pic: 0, h: [5.5, 6.5], wide: 0.25, out: [2, 2], every: 3, chance: 0 },
+  { pic: 1, h: [9, 11], wide: 0.2, out: [5, 5], every: 4, chance: 0 },
+  { pic: 2, h: [5, 7], wide: 0.75, out: [2, 2], every: 7, chance: 0 },
+  { pic: 2, h: [5, 8], wide: 0.75, out: [6, 12], every: 0, chance: 0.06 },
+];
+// the pavement: a tile of concrete slabs (a metre each), worn and stained, the joints dark
+function cityPaving(): THREE.CanvasTexture {
+  return canvasTex(128, 128, g => {
+    const rand = createRng(SEED + 9).next;
+    g.fillStyle = '#4a433d';
+    g.fillRect(0, 0, 128, 128);
+    for (let j = 0; j < 4; j++)
+      for (let i = 0; i < 4; i++) {
+        const v = Math.round(rand() * 14);
+        g.fillStyle = `rgb(${92 + v},${84 + v},${76 + v})`;
+        g.fillRect(i * 32 + 1, j * 32 + 1, 30, 30);
+        if (rand() < 0.3) {
+          g.fillStyle = 'rgba(30,24,20,0.25)';
+          g.fillRect(i * 32 + 4 + rand() * 12, j * 32 + 4 + rand() * 12, 6 + rand() * 12, 4 + rand() * 10);
+        }
+      }
+  });
+}
+// a street lamp: a dark pole, its arm out over the street and the lamp lit warm under it
+function cityLamp(): THREE.CanvasTexture {
+  return canvasTex(64, 256, g => {
+    g.fillStyle = '#2a2827';
+    g.fillRect(29, 24, 6, 232);
+    g.fillRect(26, 232, 12, 24); // its foot
+    g.fillRect(29, 20, 26, 5); // the arm
+    g.fillStyle = '#3a3634';
+    g.fillRect(44, 22, 16, 9); // the lamp's hood
+    g.fillStyle = '#ffd9a0';
+    g.fillRect(46, 31, 12, 5);
+  });
+}
+// a concrete pole: tapering up, the crossarm at the top with its insulators, a transformer hung on it, the bolts one
+// climbs by
+function cityPole(): THREE.CanvasTexture {
+  return canvasTex(64, 320, g => {
+    const rand = createRng(SEED + 7).next;
+    g.fillStyle = '#6e6861';
+    g.beginPath();
+    g.moveTo(27, 6);
+    g.lineTo(37, 6);
+    g.lineTo(39, 320);
+    g.lineTo(25, 320);
+    g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.fillRect(33, 6, 5, 314);
+    g.fillStyle = '#4f4a45';
+    g.fillRect(2, 20, 60, 5); // the crossarm
+    g.fillRect(10, 52, 44, 4);
+    g.fillStyle = '#d8d2c8';
+    for (const x of [5, 18, 44, 57]) g.fillRect(x - 2, 14, 4, 6);
+    g.fillStyle = '#59544e';
+    g.fillRect(36, 70, 18, 30); // the transformer
+    g.fillStyle = '#3d3934';
+    for (let y = 120; y < 300; y += 14 + rand() * 4) g.fillRect(rand() < 0.5 ? 22 : 38, y, 4, 2);
+  });
+}
+// a street tree: a slim trunk, a crown of dark leaves lit warm on its western side
+function cityTree(): THREE.CanvasTexture {
+  return canvasTex(192, 256, g => {
+    const rand = createRng(SEED + 8).next;
+    g.fillStyle = '#3b2f26';
+    g.fillRect(90, 120, 12, 136);
+    for (let n = 0; n < 60; n++) {
+      const x = 30 + rand() * 132,
+        y = 20 + rand() * 120,
+        r = 12 + rand() * 18,
+        lit = x < 96 ? 0.6 : 0.2;
+      g.fillStyle = rand() < lit ? '#4f5a2e' : rand() < 0.5 ? '#2c3a22' : '#36442a';
+      g.beginPath();
+      g.ellipse(x, y, r, r * 0.85, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
 }
 
 function cityBackdrop(): THREE.CanvasTexture {
