@@ -628,3 +628,63 @@ body.hud2 .lslot.sel .lchange {
   border-color: var(--safety);
   color: var(--safety);
 }
+/* a suspended dive takes the start depth's place (moved there by hud2.ts), and the loadout is not shown: resuming
+   carries on with the dive's own depth and weapons. RESUME as big as DIVE */
+body.hud2 .base.susp :is(#tiers, [data-pane='sortie'] .sec + .sec, .startbar) {
+  display: none;
+}
+body.hud2 #scrBase .suspend .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+body.hud2 #scrBase .suspend .primary {
+  padding: 14px 18px;
+  font-size: 26px;
+  letter-spacing: 0.16em;
+}
+/* ---- the settings page in the same paints: plates in steel, what is on in white paint, sliders in safety yellow ---- */
+body.hud2 #scrBase :is(.seg, .toggle, .sens, .mini-btn, .savepanel textarea) {
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border-color: #3d4143;
+  color: var(--paint);
+}
+body.hud2 #scrBase .seg button {
+  border-left-color: #3d4143;
+  color: var(--paint2);
+}
+body.hud2 #scrBase .seg button[aria-pressed='true'] {
+  color: #151515;
+  background: var(--paint);
+}
+body.hud2 #scrBase .toggle b {
+  color: var(--paint2);
+}
+body.hud2 #scrBase .toggle[aria-pressed='true'] b {
+  color: var(--safety);
+}
+body.hud2 #scrBase input[type='range'] {
+  accent-color: var(--safety);
+}
+body.hud2 #scrBase .back {
+  color: var(--paint2);
+  border-bottom-color: #3d4143;
+}
+body.hud2 #scrBase .back:hover {
+  color: var(--paint);
+}
+body.hud2 #scrBase .danger-ghost {
+  background: none;
+  border-color: var(--stop);
+  color: var(--stop);
+}
+/* (the readiness of a start depth: worn paint to yellow to red, instead of the old layout's neon) */
+body.hud2 #scrBase :is(.rd0, .rd1, .rd2) {
+  color: var(--paint) !important;
+}
+body.hud2 #scrBase .rd3 {
+  color: var(--safety) !important;
+}
+body.hud2 #scrBase .rd4 {
+  color: var(--stop) !important;
+}

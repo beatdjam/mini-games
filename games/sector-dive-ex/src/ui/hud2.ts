@@ -86,6 +86,8 @@ if (hud2) {
     b.removeAttribute('data-i18n');
     b.innerHTML = icon;
   }
+  // the suspended dive goes where the start depth is chosen: while there is one, it is what DIVE would carry on
+  el('#tiers').before(el('#suspendBox'));
   // the base's backdrop: the site office's wall, painted once (ui/baseBackdrop.ts), darkened under the panels (hud2.css)
   el('#scrBase').style.setProperty('--base-wall', `url(${paintBaseBackdrop()})`);
   // the kit button keeps its count under the picture
