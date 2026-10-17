@@ -48,6 +48,8 @@
   - ゲーム側: テーマのテクスチャ（描き方か画像）とマテリアルの定義、敵や小物の部品の並び
 - `src/render/merge.ts`: 部品の多い模型を、少ない回数で描く。`mergeParts(root, keep)`（一緒に動く部品を、材質ごとに1つのメッシュにまとめる。見た目は変わらない）
   - ゲーム側: 動く部品とコードが触る部品を `keep` に渡す。模型を作った直後、描く前に一度呼ぶ
+- `src/render/chunks.ts`: 区画ごとに描く。`chunkInstances(group, 大きさ)`（直下の InstancedMesh を、置いた位置で区画ごとのまとまりに分け直し、区画と範囲の箱を返す）、`cullChunks(区画, 元のまとまり, カメラ, 距離, 残す条件?)`（画面に入っていて、距離より近い区画だけを見せる）。three.js r128 は InstancedMesh を画面外でも描くので、そのかわり
+  - ゲーム側: レベルを作ったあと、`mergeFlat` の前に一度 `chunkInstances`。毎フレーム、カメラが動いたあとに `cullChunks`
 - `src/render/batch.ts`: 小さな物をたくさん置くとき、種類ごとに1つのインスタンスメッシュで描く。`batcher(group)` が `put(種類, 作り方, x, y, z, ry, rx, scale)` と `done()` を返す（作り方は種類ごとに最初の1回だけ呼ぶ）
 - `src/render/tilemesh.ts`: タイルで組んだステージのメッシュ。`wallTiles`（見えている壁のタイル）、`addFloor`・`addWalls`・`addDecks`・`addRamps`・`addCeiling`・`addTilePlanes`。絵・壁の高さ・天井の色はゲームから渡す。坂の形は `wedgeGeo(slices)`（0 は横が三角形1枚、n は n 枚に切って段差の横と同じ絵の貼り方）
 - `src/render/mergeflat.ts`: 動かない、色だけの物をまとめて描く。`mergeFlat(root)`（照明を受けない・絵を貼らない・不透明な材質のインスタンスメッシュを、1つのメッシュにまとめる）
