@@ -428,10 +428,17 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     sight.setFromProjectionMatrix(sightM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     const panes = floorGroups[n]!.userData.yardPanes as Record<number, [number, number, number, number]> | undefined;
     for (const y of yardCopies) {
-      const at = panes?.[y.into];
+      const at = panes?.[y.into],
+        // (the panes are seen only from the floor's side of their wall, the way `step` goes: from the yard and its
+        // balconies, or a room on another side of the yard, they are the back of the wall)
+        front =
+          !!at &&
+          (y.step.x > 0 ? x > (at[2] + 1) * T : y.step.x < 0 ? x < at[0] * T : true) &&
+          (y.step.z > 0 ? z > (at[3] + 1) * T : y.step.z < 0 ? z < at[1] * T : true);
       y.root.visible =
         atCourt &&
         !!at &&
+        front &&
         sight.intersectsBox(
           sightBox.set(
             new THREE.Vector3(at[0] * T, 0, at[1] * T),
