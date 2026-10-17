@@ -254,6 +254,9 @@ body.desk.nolock .tbtn{display:grid}
 .lslot .wn em{font-size:12px;margin-left:6px}
 .risk{font-size:12px;color:var(--mag)}
 .ulist{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+.levelrow{display:flex;align-items:baseline;gap:12px;margin:0 0 8px}
+.levelrow b{font-family:var(--disp);font-size:22px;color:var(--text)}
+.levelrow span{color:var(--amber);font-family:var(--disp)}
 .urow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--panel);padding:10px 12px}
 .urow .un{font-size:14px}
 .urow .ud{font-size:12px;color:var(--dim);margin-top:2px}
@@ -460,12 +463,8 @@ body.desk.nolock .tbtn{display:grid}
       <div class="pane" data-pane="up" role="tabpanel" hidden>
         <div class="sec">
           <h2><span data-i18n="base.upgrades"></span><small data-i18n="base.upgradesNote"></small></h2>
+          <div class="levelrow"><b id="levelNow"></b><span id="levelNext"></span></div>
           <div class="ulist" id="ulist"></div>
-        </div>
-        <div class="sec" id="rebootSec" hidden>
-          <h2><span data-i18n="base.reboot"></span><small id="rebootNote"></small></h2>
-          <div class="ulist" id="presList"></div>
-          <div class="setrow" id="rebootRow"></div>
         </div>
       </div>
       <div class="pane" data-pane="practice" role="tabpanel" hidden>

@@ -13,8 +13,8 @@ import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { hpGrowth } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
-import { openShortcut, recordBossKill, recordBossSeen, recordPeak, unlockReboot } from '../../core/progress.ts';
-import { rebootMul, progressOf } from '../../core/rules.ts';
+import { openShortcut, recordBossKill, recordBossSeen, recordPeak } from '../../core/progress.ts';
+import { progressOf } from '../../core/rules.ts';
 import { arenaCenter, level } from '../../world/level.ts';
 import { BOSS_POOL_SIDE } from '../../world/models/bossLooks.ts';
 import { bossHullMat, groundPool } from '../../world/models/machine.ts';
@@ -63,18 +63,10 @@ const BOSS_WEAPON_LUCKY_ABOVE = 0.9; // a lucky roll above this raises the weapo
 const BOSS_WEAPON_MIN_RARITY = 1; // minimum rarity of the weapon (index into RARITY: 1 = ★★)
 const BOSS_WEAPON_LUCKY_RARITY = 2; // minimum rarity on a lucky roll (★★★)
 const BOSS_WEAPON_PROGRESS_BONUS = 2; // the weapon is rolled as if this many progress points deeper
-const REBOOT_UNLOCK_TIER = 2; // beating the boss of this depth (0-based tier, 2 = DEPTH 3) unlocks the reboot
-const REBOOT_TOAST_DELAY = 4400; // the reboot-unlocked toast appears this long after the kill (ms)
-const REBOOT_TOAST_MS = 4200; // how long the reboot-unlocked toast stays (ms)
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
 // sliding down to x lateGrowth per depth deeper in (hpGrowth in src/data/progress.ts)
 export function bossDifficulty() {
-  return (
-    1.33 *
-    BOSS_TUNE.hpMul *
-    hpGrowth((progressOf(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) *
-    rebootMul()
-  );
+  return 1.33 * BOSS_TUNE.hpMul * hpGrowth((progressOf(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth);
 }
 // the body material of a boss: a near-black base colour that glows in the boss's own colour (at rest: BOSS_GLOW)
 // (with the looks on: a machine's hull plate with a little of that colour in it, world/models/machine.ts)
@@ -282,13 +274,9 @@ function giveBossRewards(e: Boss, tier: number, progress: number) {
   makePortal(e.cx + 6, e.cz - 2, COLOR.amber, 'next', t('boss.forward'));
   makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
 }
-// the kill counts toward the save: reboot unlock, deepest depth, the next shortcut
+// the kill counts toward the save: deepest depth, the next shortcut
 function recordBossProgress(tier: number) {
   recordBossKill();
-  if (tier >= REBOOT_UNLOCK_TIER && !save.canReboot) {
-    unlockReboot();
-    setTimeout(() => toast(t('boss.rebootUnlocked'), REBOOT_TOAST_MS), REBOOT_TOAST_DELAY);
-  }
   const newTier = tier + 1;
   recordPeak(newTier);
   if (newTier > save.shortcut) {

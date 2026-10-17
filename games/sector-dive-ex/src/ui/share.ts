@@ -13,12 +13,11 @@ import {
 } from '@engine/ui/share.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
-import { RUN_END, countBy, parsePerk, perkName } from '../core/rules.ts';
+import { RUN_END, countBy, levelOf, parsePerk, perkName } from '../core/rules.ts';
 import { player, run } from '../actors/player.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
 import { weaponText } from '../actors/weapons.ts';
 import { track } from '@engine/core/analytics.ts';
-import { save } from '../core/save.ts';
 import { CSS_COLOR } from '../data/colors.ts';
 import type { RunEnd } from '../data/types.ts';
 // ---- sharing a run's result: a card image + a short text with #SectorDiveEX ----
@@ -61,7 +60,7 @@ interface ShareCard {
   wr: number;
   chips: string[];
   nChips: number;
-  reboots: number; // reboot (prestige) count, shown next to the result label when above 0
+  level: number; // the player's level, shown next to the result label
 }
 export let shareData: ShareCard | null = null; // the card for the result on screen
 let shareBlob: Blob | null = null; // its image, drawn on first use
@@ -91,7 +90,7 @@ export function prepShare(kind: RunEnd) {
     wr: w ? w.r : 0,
     chips,
     nChips: run.perks.length,
-    reboots: save.pres.count,
+    level: levelOf(),
   };
   shareBlob = null;
   drawShareCard(shareData)
@@ -123,7 +122,7 @@ function drawAccentBar(g: CanvasRenderingContext2D, acc: string) {
   g.fillRect(0, 0, ACCENT_BAR_W, CARD_H);
 }
 
-// the logo on the left, the result badge (with the reboot count) on the right. Leaves textAlign at 'left'
+// the logo on the left, the result badge (with the level) on the right. Leaves textAlign at 'left'
 function drawHeader(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts) {
   let x = MARGIN_X;
   g.font = `700 34px ${fonts.disp}`;
@@ -140,7 +139,7 @@ function drawHeader(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts)
   g.font = `500 20px ${fonts.disp}`;
   g.fillStyle = CSS_COLOR.dim;
   g.textAlign = 'right';
-  g.fillText(RUN_END[d.kind].badge + (d.reboots ? `  ·  REBOOT ×${d.reboots}` : ''), CARD_W - MARGIN_X, BADGE_Y);
+  g.fillText(RUN_END[d.kind].badge + (d.level ? `  ·  LV ${d.level}` : ''), CARD_W - MARGIN_X, BADGE_Y);
   g.textAlign = 'left';
 }
 

@@ -8,7 +8,6 @@ import { fillMag, newWeapon } from './weapons.ts';
 const PLAYER_R = 0.45; // body radius (m)
 const SPD_UP_PER_LEVEL = 0.05; // move speed per speed upgrade level
 const GAIN_UP_PER_LEVEL = 0.15; // bits per gain upgrade level
-const REBOOT_GAIN_PER_LEVEL = 0.1; // bits per reboot gain level
 const STAM_UP_PER_LEVEL = 20; // max stamina per endurance upgrade level
 const REGEN_UP_PER_LEVEL = 0.12; // stamina regen per cooling upgrade level
 // The player and the run exist only during a run; on the base screen they are null (setPlayer(null) / setRun(null)).
@@ -25,7 +24,6 @@ export function setRun(r: RunState | null) {
 }
 export function newPlayer(loadout: (WeaponItem | null)[]): Player {
   const u = save.up,
-    pu = save.pres.up,
     hp = startMaxHp(u.hp);
   // the dive starts with full magazines (options count; there are no chips yet)
   const ws = loadout.map(basicNow).map(w => (w ? fillMag(newWeapon(w.id, w.r, w.basic, w.plus, w.opts), 1) : null));
@@ -41,7 +39,7 @@ export function newPlayer(loadout: (WeaponItem | null)[]): Player {
     spdMul: 1 + u.spd * SPD_UP_PER_LEVEL,
     dmgMul: startDmgMul(u.dmg),
     fireRate: 1,
-    gainMul: (1 + u.gain * GAIN_UP_PER_LEVEL) * (1 + pu.gain * REBOOT_GAIN_PER_LEVEL),
+    gainMul: 1 + u.gain * GAIN_UP_PER_LEVEL,
     leech: 0,
     pierce: 0,
     extra: 0,

@@ -590,7 +590,6 @@ if (location.hash.startsWith('#view-share'))
           'rapid+': 1,
         }).flatMap(([id, n]) => Array(n).fill(id)),
       );
-    if (location.hash.includes('reboot')) save.pres.count = 3;
     player.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
     const kind: RunEnd = location.hash.includes('dead') ? 'dead' : 'extract';
     endRun(kind);
@@ -610,7 +609,7 @@ if (location.hash.startsWith('#view-perk'))
   setTimeout(() => {
     startRun();
     PERKS[0].apply(player, 0.2);
-    if (location.hash.includes('perk4')) save.pres.up.choice = 1;
+    if (location.hash.includes('perk4')) save.up.choice = 1;
     openPerk(t('perk.title'));
   }, 300); // #view-perk4: four options
 // dev view: #tab-<sortie|up|practice|settings>[-touch] opens that base tab

@@ -54,7 +54,7 @@ import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
 import { floorSides, wallSide } from '@engine/world/walls.ts';
-import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, REBOOT_ENDLESS, REBOOT_UP, TUNE } from '../src/data/progress.ts';
+import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, KIT_MAX, PER, TUNE, UPGRADES, levelCost } from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
 import {
   SAVE_KEY,
@@ -71,14 +71,11 @@ import {
   modPlusCap,
   perkName,
   pickDrop,
-  REBOOT_DIFF_CAP,
-  rebootCost,
-  rebootMul,
-  rebootMulOf,
+  levelOf,
+  nextLevelCost,
   progressOf,
   readiness,
   readinessScore,
-  readyAfterReboot,
 } from '../src/core/rules.ts';
 import {
   buildFixedLevel,
@@ -581,13 +578,9 @@ test('scaling: additive damage chips, compounding health, practice depth', () =>
   const b1 = bossDifficulty();
   setRun({ stage: 2 * PER + PER - 1, route: [0] } as RunState);
   const b3 = bossDifficulty();
-  if (
-    Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul * rebootMul()) > 1e-9 ||
-    Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6
-  )
+  if (Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul) > 1e-9 || Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6)
     throw new Error('boss scaling ' + b1 + ' ' + b3);
-  if (Math.abs(difficultyAt(0) - ENEMY_TUNE.hpMul * rebootMul()) > 1e-9)
-    throw new Error('enemy hp base ' + difficultyAt(0));
+  if (Math.abs(difficultyAt(0) - ENEMY_TUNE.hpMul) > 1e-9) throw new Error('enemy hp base ' + difficultyAt(0));
   // the per-depth factor slides from the early rate down to the late one (GROWTH_SLIDE) and never goes back up
   const bossAt = (d: number) => {
     setRun({ stage: (d - 1) * PER + PER - 1, route: [0] } as RunState);
@@ -605,7 +598,7 @@ test('scaling: additive damage chips, compounding health, practice depth', () =>
   // values that grow with depth: hazard floors and your own rockets hit like enemies do (damageScaleAt),
   // a med kit heals a share of max HP once that is more than kitHeal
   setRun({ stage: 13 * PER, route: [0] } as RunState);
-  if (Math.abs(damageScaleAt(0) - rebootMul()) > 1e-9 || !(damageScaleAt(13 * PER) > 3 * rebootMul()))
+  if (Math.abs(damageScaleAt(0) - 1) > 1e-9 || !(damageScaleAt(13 * PER) > 3))
     throw new Error('damage scale ' + damageScaleAt(13 * PER));
   {
     const keep = player;
@@ -1458,45 +1451,48 @@ test('readiness: easy at DEPTH 1, harder deeper; upgrades and mods make it easie
   save.loadout = [basicW('rail'), null];
   const s1 = readinessScore(2);
   if (!(s1 > s0)) throw new Error('readiness upgrades ' + s0 + ' ' + s1);
-  // reboot difficulty stops growing at REBOOT_DIFF_CAP reboots; the rating after the next reboot is worse than now
-  if (rebootMulOf(REBOOT_DIFF_CAP + 5) !== rebootMulOf(REBOOT_DIFF_CAP) || !(rebootMulOf(1) > rebootMulOf(0)))
-    throw new Error('reboot cap');
-  if (!(readinessScore(0, readyAfterReboot()) < readinessScore(0))) throw new Error('readiness after reboot');
 });
-test('reboot bonuses: uncapped, cost climbs, reach the player and the readiness', () => {
-  const dmgU = REBOOT_UP.find(u => u.id === 'dmg')!,
-    keepUp = { ...save.pres.up };
-  if ([0, 1, 4].map(l => rebootCost(dmgU, l)).join() !== '1,2,5' || isFinite(dmgU.max))
-    throw new Error('reboot bonus cost');
-  const s0 = readinessScore(5),
-    p0 = newPlayer(save.loadout);
-  save.pres.up.dmg = 4;
-  save.pres.up.vit = 2;
-  const p1 = newPlayer(save.loadout),
-    s1 = readinessScore(5);
-  Object.assign(save.pres.up, keepUp);
-  if (
-    Math.abs(p1.dmgMul - p0.dmgMul - 4 * REBOOT_ENDLESS.dmg) > 1e-9 ||
-    p1.maxHp !== Math.round(p0.maxHp * (1 + 2 * REBOOT_ENDLESS.vit)) ||
-    !(s1 > s0)
-  )
-    throw new Error('reboot bonus effect ' + [p1.dmgMul, p1.maxHp, s0, s1]);
-  const keepCan = save.canReboot;
+test('level: one price for every point, a little more each level; armour and output have no cap', () => {
+  const keepUp = { ...save.up },
+    keepBits = save.bits;
+  if (levelCost(0) !== 80 || !(levelCost(1) > levelCost(0)) || levelCost(10) !== Math.round(80 * 1.08 ** 10))
+    throw new Error('level cost');
+  for (const id of ['hp', 'dmg']) if (isFinite(UPGRADES.find(u => u.id === id)!.max)) throw new Error('capped ' + id);
+  // two levels from the base: the same price on any row, the next one dearer; the points go where they were put
+  for (const k of Object.keys(save.up)) save.up[k] = 0;
+  save.bits = 1000;
   goBase();
   showTab('up');
-  save.pres.pts = 3;
-  save.canReboot = true;
   renderBase();
-  const buy = () => document.querySelector<HTMLButtonElement>('[data-pres="dmg"]')!.click();
-  buy();
-  buy(); // 1 pt, then 2 pt
-  const got = save.pres.up.dmg,
-    left = save.pres.pts;
-  Object.assign(save.pres.up, keepUp);
-  save.pres.pts = 0;
-  save.canReboot = keepCan;
+  const c0 = nextLevelCost();
+  document.querySelector<HTMLButtonElement>('[data-up="hp"]')!.click();
+  const c1 = nextLevelCost();
+  document.querySelector<HTMLButtonElement>('[data-up="dmg"]')!.click();
+  const got = [save.up.hp, save.up.dmg, levelOf(), save.bits];
+  // a point with a cap reached cannot be bought
+  save.up.choice = 1;
   renderBase();
-  if (got !== 2 || left !== 0) throw new Error('reboot bonus buy ' + got + ' ' + left);
+  const full = document.querySelector<HTMLButtonElement>('[data-up="choice"]')!.disabled;
+  Object.assign(save.up, keepUp);
+  save.bits = keepBits;
+  renderBase();
+  if (got.join() !== [1, 1, 2, 1000 - c0 - c1].join() || !(c1 > c0) || !full) throw new Error('level buy ' + got);
+});
+test('level: a save from before it has the reboot folded into its points', () => {
+  const old = {
+    ...defaultSave(),
+    up: { hp: 2, dmg: 1, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 },
+    pres: { count: 3, pts: 2, up: { gain: 1, hp: 3, funds: 1, relic: 0, choice: 1, dmg: 8, vit: 0 } },
+    canReboot: true,
+    bits: 5,
+  } as Record<string, unknown>;
+  delete old.levelV;
+  if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code');
+  const got = [save.up.hp, save.up.dmg, save.up.choice, save.levelV, 'pres' in save, save.bits];
+  el('#btnWipe').click();
+  el('#btnWipeGo').click();
+  // (armour 2 + its +10 HP x 3 = 2 points; output 1 + its +5% x 8 = 5 points)
+  if (got.join() !== [4, 6, 1, 1, false, 5].join()) throw new Error('old save ' + got);
 });
 test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
   goBase();
@@ -1547,7 +1543,7 @@ test('hazard floors: none in the start room, off at the start of an area', () =>
   goBase();
 });
 test('readiness: a strong loadout still gets harder the deeper you start', () => {
-  const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmg: 1.48, hp: 200, rebootMul: 1.45 };
+  const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmg: 1.48, hp: 200 };
   const deep = [6, 9, 13, 19].map(n => readinessScore(n, strong));
   if (deep.some((v, i) => i && v >= deep[i - 1]!)) throw new Error('readiness deep ' + deep.map(v => v.toFixed(2)));
   el('#btnWipe').click();

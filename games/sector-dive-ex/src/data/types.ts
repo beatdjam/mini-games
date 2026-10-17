@@ -80,20 +80,10 @@ export interface Perk {
   desc(v: number): string;
   curText(c: any): string; // (lang)
 }
-// base upgrades cost bits by level; reboot upgrades cost a fixed number of points
+// what a level's point can go to (data/progress.ts UPGRADES): its cap (Infinity: none)
 export interface Upgrade {
   id: string;
   max: number;
-  cost(level: number): number;
-  name: string;
-  desc(level: number): string; /* (lang) */
-}
-// max may be Infinity; step: the cost goes up by this much per level already taken (rebootCost in src/core/rules.ts)
-export interface RebootUpgrade {
-  id: string;
-  max: number;
-  cost: number;
-  step?: number;
   name: string;
   desc(level: number): string; /* (lang) */
 }
@@ -276,7 +266,6 @@ export interface LangData {
   bosses: Record<string, { name: string; title: string; short: string; desc: string }>;
   perks: Record<string, { name: string; desc(v: number): string; curText(c: any): string }>;
   upgrades: Record<string, { name: string; desc(level: number): string }>;
-  pres: Record<string, { name: string; desc(level: number): string }>;
   layout: Record<string, { name: string }>;
   keyActions: Record<string, { name: string }>;
   guideDesk: [string, string][];
@@ -401,8 +390,10 @@ export interface SaveData {
   bossSeen: Record<string, boolean>;
   stageV: number;
   mods: Record<string, { plus: number; r: number }>;
-  canReboot: boolean;
-  pres: { count: number; pts: number; up: Record<string, number> };
+  levelV?: number; // 1: the reboot has been folded into the level (core/save.ts)
+  // (from before the level, 2026-10-17: read once to fold the reboot's bonuses into save.up, then left alone)
+  canReboot?: boolean;
+  pres?: { count: number; pts: number; up: Record<string, number> };
   suspend: Snapshot | null; // the checkpoint of a run in progress (src/flow/suspend.ts makeSnapshot)
   settings: {
     lang: string | null;

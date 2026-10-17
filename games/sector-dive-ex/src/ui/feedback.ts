@@ -6,7 +6,7 @@ import { track } from '@engine/core/analytics.ts';
 import { player, run } from '../actors/player.ts';
 import { stageLabel } from '../core/stages.ts';
 import { save } from '../core/save.ts';
-import { countBy } from '../core/rules.ts';
+import { countBy, levelOf } from '../core/rules.ts';
 // ---- sending feedback: the shared form (engine/src/core/feedback.ts) opens with the player's situation filled in ----
 // the situation is written with ids, not display names, so answers read the same whatever the language.
 // From the result screen it describes the run that just ended; from the base screen, the save.
@@ -15,7 +15,7 @@ import { countBy } from '../core/rules.ts';
 const wInfo = (w: WeaponItem | null | undefined) =>
   w ? `${w.id}${w.plus ? '+' + w.plus : ''} r${w.r}${w.opts && w.opts.length ? ` [${w.opts.join(',')}]` : ''}` : '';
 const common = () => [
-  `reboots=${save.pres.count}`,
+  `level=${levelOf()}`,
   `shortcut=D${save.shortcut + 1}`,
   `runs=${save.runs}`,
   `lang=${lang}`,

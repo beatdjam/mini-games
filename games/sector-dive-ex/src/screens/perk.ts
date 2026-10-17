@@ -31,7 +31,7 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
     o => !(o.maxed && o.maxed(player)) && !(times > 1 && o.noSupply) && !(allRare && o.rv === undefined),
   );
   const opts = shuffle(offered)
-    .slice(0, 3 + save.pres.up.choice)
+    .slice(0, 3 + (save.up.choice || 0))
     .map(o => ({ o, rare: o.rv !== undefined && (allRare || Math.random() < TUNE.rareChipChance) }));
   const list = el('#perkList');
   list.innerHTML = '';
