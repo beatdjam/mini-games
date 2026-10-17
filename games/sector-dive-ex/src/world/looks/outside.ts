@@ -177,7 +177,8 @@ export function shellOf(floor: (k: number) => boolean, w: number, h: number): Ui
 // `out` (tiles from the building, as the blocks are measured) and not under a block. `every`: one on every so many
 // tiles along it, in a row (a lamp at the kerb), as the tile's place along the street; or 0, then each tile has one
 // by `chance`, set anywhere on the tile (trees grown up where they would). How high it stands (m) by the rng, as wide
-// as its picture is for that (`wide`: its width over its height)
+// as its picture is for that (`wide`: its width over its height). `flat`: laid on the ground over the whole tile
+// instead (paving: `h`, `wide` unused), turned a quarter at a time so that its picture does not repeat in step
 export interface StreetThing {
   pic: number;
   h: [number, number];
@@ -185,6 +186,7 @@ export interface StreetThing {
   out: [number, number];
   every: number;
   chance: number;
+  flat?: boolean;
 }
 export function outsideStreet(
   inside: Uint8Array,
@@ -207,6 +209,10 @@ export function outsideStreet(
           x = (i - MARGIN + 0.5 + rng.rand(-loose, loose)) * T,
           z = (j - MARGIN + 0.5 + rng.rand(-loose, loose)) * T;
         if (under(x, z)) continue;
+        if (t.flat) {
+          out.push({ x, z, w: T, h: 0, pic: t.pic, turn: rng.randi(0, 3) * (Math.PI / 2), flat: true });
+          continue;
+        }
         const tall = rng.rand(...t.h);
         out.push({ x, z, w: tall * t.wide, h: tall, pic: t.pic, turn: rng.rand(0, Math.PI) });
       }

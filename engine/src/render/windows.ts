@@ -698,7 +698,8 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
 // background, stood upright twice, crossed, so that it has a body from every side and stands out of the flat ground
 // as one walks past the window. Drawn the way the blocks are (seen through the panes only, shrunk toward the eye,
 // into the haze), `pics` by number; a card is `w` wide and `h` high (m) with its foot's middle at (x, z), turned
-// `turn` (radians) round its upright.
+// `turn` (radians) round its upright. `flat`: laid on the ground instead, a square `w` a side (a paving stone, a
+// patch of the street that is not the ground's own picture), `h` unused.
 export interface OutsideCard {
   x: number;
   z: number;
@@ -706,7 +707,9 @@ export interface OutsideCard {
   h: number;
   pic: number;
   turn: number;
+  flat?: boolean;
 }
+const FLAT_LIFT = 0.03; // a card laid flat stands this far over the ground (m)
 const CARD_FRAG = `
 uniform sampler2D map;
 uniform vec3 haze;
@@ -735,6 +738,29 @@ export function buildOutsideCards(
   for (const c of cards) {
     let b = bins.get(c.pic);
     if (!b) bins.set(c.pic, (b = { pos: [], uv: [], tint: [] }));
+    if (c.flat) {
+      const r = c.w / 2,
+        cs = Math.cos(c.turn) * r,
+        sn = Math.sin(c.turn) * r,
+        ps = [
+          [c.x - cs + sn, FLAT_LIFT, c.z - sn - cs],
+          [c.x + cs + sn, FLAT_LIFT, c.z + sn - cs],
+          [c.x + cs - sn, FLAT_LIFT, c.z + sn + cs],
+          [c.x - cs - sn, FLAT_LIFT, c.z - sn + cs],
+        ],
+        uvs = [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+        ];
+      for (const k of [0, 1, 2, 0, 2, 3]) {
+        b.pos.push(...ps[k]!);
+        b.uv.push(...uvs[k]!);
+        b.tint.push(...look.light);
+      }
+      continue;
+    }
     for (const a of [c.turn, c.turn + Math.PI / 2]) {
       const dx = (Math.cos(a) * c.w) / 2,
         dz = (Math.sin(a) * c.w) / 2,

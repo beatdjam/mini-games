@@ -2,6 +2,7 @@ import type * as THREE from 'three';
 import { createRng } from '@engine/core/util.ts';
 import { BACKDROP_EYE, BACKDROP_H, BACKDROP_W, FACADE_PX, GROUND_PX, canvasTex, hazeUnder } from '../paint.ts';
 import type { OutsideView } from '../common.ts';
+import { PAINT, css } from '../../../data/colors.ts';
 import type { BlockStyle, StreetThing } from '../outside.ts';
 // What the ruined blocks' broken windows look out on (Look.outside): the other blocks of the estate under a white
 // overcast sky, all round (no sun: the light is the same everywhere). Housing blocks in three rows, long and plain,
@@ -60,7 +61,7 @@ const RUIN_STREET: StreetThing[] = [
   { pic: 1, h: [1.5, 2.5], wide: 1.6, out: [1, 12], every: 0, chance: 0.12 },
   { pic: 2, h: [0.8, 1.3], wide: 1.33, out: [1, 8], every: 0, chance: 0.25 },
 ];
-const LEAF: string[] = ['#3f5b31', '#4f6d3b', '#5f7f47', '#344d29'];
+const LEAF: string[] = [...[PAINT.leaf1, PAINT.leaf2, PAINT.leaf3].map(css), '#344d29'];
 // a tree come up wild: a leaning grey trunk, a big ragged crown
 function ruinTree(): THREE.CanvasTexture {
   return canvasTex(192, 256, g => {

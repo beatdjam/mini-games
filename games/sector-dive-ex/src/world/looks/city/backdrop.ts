@@ -67,19 +67,44 @@ export function cityView(): OutsideView {
       light: CITY_LIGHT,
       roofLight: [1, 0.92, 0.9],
     },
-    street: { things: CITY_STREET, pics: [cityLamp(), cityPole(), cityTree()], light: [0.95, 0.88, 0.82] },
+    street: {
+      things: CITY_STREET,
+      pics: [cityLamp(), cityPole(), cityTree(), cityPaving()],
+      light: [0.95, 0.88, 0.82],
+    },
   };
 }
 
 // ---- what stands on the street (looks/outside.ts outsideStreet) ----
-// The pavement along the building has its lamps, lit for the evening, one every three tiles; the far kerb its
-// concrete poles; a few trees along the pavement and in the empty lots between the blocks
+// The pavement along the building (two tiles) and along the far side of the street (one), paved, the road between
+// them left as the ground's asphalt. Its lamps, lit for the evening, one every three tiles along the building; the
+// far kerb its concrete poles; a few trees along the pavement and in the empty lots between the blocks
 const CITY_STREET: StreetThing[] = [
+  { pic: 3, h: [0, 0], wide: 1, out: [1, 2], every: 1, chance: 0, flat: true },
+  { pic: 3, h: [0, 0], wide: 1, out: [5, 5], every: 1, chance: 0, flat: true },
   { pic: 0, h: [5.5, 6.5], wide: 0.25, out: [2, 2], every: 3, chance: 0 },
   { pic: 1, h: [9, 11], wide: 0.2, out: [5, 5], every: 4, chance: 0 },
   { pic: 2, h: [5, 7], wide: 0.75, out: [2, 2], every: 7, chance: 0 },
   { pic: 2, h: [5, 8], wide: 0.75, out: [6, 12], every: 0, chance: 0.06 },
 ];
+// the pavement: a tile of concrete slabs (a metre each), worn and stained, the joints dark
+function cityPaving(): THREE.CanvasTexture {
+  return canvasTex(128, 128, g => {
+    const rand = createRng(SEED + 9).next;
+    g.fillStyle = '#4a433d';
+    g.fillRect(0, 0, 128, 128);
+    for (let j = 0; j < 4; j++)
+      for (let i = 0; i < 4; i++) {
+        const v = Math.round(rand() * 14);
+        g.fillStyle = `rgb(${92 + v},${84 + v},${76 + v})`;
+        g.fillRect(i * 32 + 1, j * 32 + 1, 30, 30);
+        if (rand() < 0.3) {
+          g.fillStyle = 'rgba(30,24,20,0.25)';
+          g.fillRect(i * 32 + 4 + rand() * 12, j * 32 + 4 + rand() * 12, 6 + rand() * 12, 4 + rand() * 10);
+        }
+      }
+  });
+}
 // a street lamp: a dark pole, its arm out over the street and the lamp lit warm under it
 function cityLamp(): THREE.CanvasTexture {
   return canvasTex(64, 256, g => {
