@@ -96,7 +96,7 @@ body.hud2 #ammo small {
   font-size: 15px;
   color: var(--paint2);
 }
-body.hud2 #ammo.empty {
+body.hud2 #ammo.dry {
   color: var(--stop);
 }
 body.hud2 #reload {

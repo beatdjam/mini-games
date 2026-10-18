@@ -140,7 +140,8 @@ function updateAmmo() {
   if (ammoEl.dataset.v !== at) {
     ammoEl.innerHTML = at;
     ammoEl.dataset.v = at;
-    ammoEl.classList.toggle('empty', w.mag === 0);
+    // (not 'empty': that is the box of an empty list, index.html, and would put its dashed frame round the count)
+    ammoEl.classList.toggle('dry', w.mag === 0);
   }
   reloadEl.hidden = !(player.reloadT > 0);
   if (player.reloadT > 0) rFill.style.transform = `scaleX(${1 - player.reloadT / player.reloadMax})`;
