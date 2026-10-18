@@ -142,6 +142,7 @@ function selectSlot(k: number) {
   player.cur = k;
   player.reloadT = 0;
   player.fireCd = Math.max(player.fireCd, 0.2);
+  sfx('equip', 80);
   GUNFX.gunKick = 0.15;
   setVM(currentWeapon().id);
   weaponHud();
@@ -182,7 +183,7 @@ function takeNearby() {
   p.dead = true;
   p.mesh.visible = false; // the engine world disposes it
   setNear(null);
-  sfx('pick');
+  sfx('equip');
   GUNFX.gunKick = 0.12;
   return p.w;
 }

@@ -1,7 +1,15 @@
 import { rand } from '@engine/core/util.ts';
 import { SFX, audioNow, gunshot, noiseBurst, sweepTone, tone } from '@engine/audio/audio.ts';
 // Sound effect recipes, added to the engine's SFX table (the synth is engine/src/audio/audio.ts)
-Object.assign(SFX, {
+
+// ---- the sounds of the field kit (2026-10-18): the beeps and little tunes of the old set were a game's sounds, out of
+// place in an abandoned site. What the player handles sounds like hardware (clicks, latches, a slide racked, a hiss),
+// what happens around them like the building (a door slamming shut, a low hum). The guns, the blasts, the dash, the
+// beam and the dry fire stay as they were. ?sfx1 plays the old set (dev: to compare); #sfx lists them all (src/dev/dev.ts)
+export const sfxOld = new URLSearchParams(location.search).has('sfx1');
+
+// the same in both sets
+const SHARED: Record<string, () => void> = {
   // pistol: snappy — bright short body, light thump, short bright tail
   pistol: () =>
     gunshot({
@@ -60,17 +68,6 @@ Object.assign(SFX, {
     noiseBurst(t, 0.45, 0.35, 'bandpass', 500, 2500, 1.5); // rising whoosh
     noiseBurst(t, 0.06, 0.3, 'highpass', 3000, 2000);
   },
-  hit: () => {
-    const t = audioNow();
-    noiseBurst(t, 0.03, 0.12, 'bandpass', 3200 * rand(0.9, 1.1), 2000, 4);
-    sweepTone(t, 'square', 1400, 900, 0.03, 0.03);
-  },
-  kill: () => {
-    const t = audioNow();
-    noiseBurst(t, 0.18, 0.3, 'bandpass', 900, 250, 2);
-    sweepTone(t, 'square', 420, 90, 0.16, 0.1);
-    noiseBurst(t, 0.05, 0.15, 'highpass', 4000, 2500);
-  },
   boom: () => {
     const t = audioNow();
     sweepTone(t, 'sine', 90, 30, 0.5, 0.6);
@@ -83,6 +80,35 @@ Object.assign(SFX, {
     noiseBurst(t, 1.2, 0.7, 'lowpass', 1800, 80);
     noiseBurst(t, 0.1, 0.4, 'highpass', 3500, 1500);
     noiseBurst(t + 0.15, 0.9, 0.15, 'bandpass', 2500, 600, 2); // debris
+  },
+  dash: () => {
+    const t = audioNow();
+    noiseBurst(t, 0.22, 0.28, 'bandpass', 800, 3500, 1.2);
+    sweepTone(t, 'sine', 200, 90, 0.15, 0.12);
+  },
+  empty: () => {
+    const t = audioNow();
+    noiseBurst(t, 0.025, 0.2, 'bandpass', 2800, 2600, 6);
+  },
+  beam: () => {
+    const t = audioNow();
+    sweepTone(t, 'sawtooth', 70, 140, 0.6, 0.12, 0.3);
+    noiseBurst(t, 0.6, 0.08, 'bandpass', 400, 1600, 6);
+  },
+};
+
+// the old set (Sector Dive's): ?sfx1
+export const SFX_OLD: Record<string, () => void> = {
+  hit: () => {
+    const t = audioNow();
+    noiseBurst(t, 0.03, 0.12, 'bandpass', 3200 * rand(0.9, 1.1), 2000, 4);
+    sweepTone(t, 'square', 1400, 900, 0.03, 0.03);
+  },
+  kill: () => {
+    const t = audioNow();
+    noiseBurst(t, 0.18, 0.3, 'bandpass', 900, 250, 2);
+    sweepTone(t, 'square', 420, 90, 0.16, 0.1);
+    noiseBurst(t, 0.05, 0.15, 'highpass', 4000, 2500);
   },
   hurt: () => {
     const t = audioNow();
@@ -104,15 +130,6 @@ Object.assign(SFX, {
     sweepTone(t, 'square', 520 * rand(0.9, 1.1), 180, 0.12, 0.05);
     noiseBurst(t, 0.06, 0.06, 'bandpass', 1500, 700, 2);
   },
-  dash: () => {
-    const t = audioNow();
-    noiseBurst(t, 0.22, 0.28, 'bandpass', 800, 3500, 1.2);
-    sweepTone(t, 'sine', 200, 90, 0.15, 0.12);
-  },
-  empty: () => {
-    const t = audioNow();
-    noiseBurst(t, 0.025, 0.2, 'bandpass', 2800, 2600, 6);
-  },
   reload: () => {
     const t = audioNow();
     noiseBurst(t, 0.05, 0.25, 'bandpass', 1200, 800, 4);
@@ -130,13 +147,150 @@ Object.assign(SFX, {
     tone(520, 0.22, 'square', 0.09, 1.5);
     tone(520, 0.22, 'square', 0.09, 1.5, 0.3);
   },
-  beam: () => {
-    const t = audioNow();
-    sweepTone(t, 'sawtooth', 70, 140, 0.6, 0.12, 0.3);
-    noiseBurst(t, 0.6, 0.08, 'bandpass', 400, 1600, 6);
-  },
   heal: () => {
     tone(500, 0.12, 'sine', 0.2, 1.5);
     tone(750, 0.2, 'sine', 0.2, 1.3, 0.1);
   },
+};
+// (what the old set played for the sounds the new one split off, or nothing where it had none)
+const none = () => {};
+Object.assign(SFX_OLD, {
+  bit: SFX_OLD.pick,
+  kit: SFX_OLD.pick,
+  equip: none,
+  slam: none,
+  unlock: none,
+  terminal: none,
 });
+
+// a click: a very short knock of filtered noise (a latch, a switch, a part seating)
+const click = (t: number, f: number, vol: number, q = 6) => noiseBurst(t, 0.018, vol, 'bandpass', f, f * 0.8, q);
+// a metal ring: a few short partials that do not sit on one note (a struck plate or a dropped part)
+const clink = (t: number, f: number, vol: number, dur = 0.09) =>
+  [1, 1.47, 2.09].forEach((m, i) =>
+    sweepTone(t + i * 0.004, 'triangle', f * m, f * m * 0.98, dur / (1 + i * 0.4), vol),
+  );
+
+export const SFX_NEW: Record<string, () => void> = {
+  // a round finding metal: a dull tick and a short ring
+  hit: () => {
+    const t = audioNow(),
+      r = rand(0.9, 1.1);
+    click(t, 3600 * r, 0.16, 5);
+    clink(t, 2300 * r, 0.025, 0.05);
+  },
+  // a machine going down: a crunch, parts ringing as they fall, a thud
+  kill: () => {
+    const t = audioNow(),
+      r = rand(0.92, 1.08);
+    noiseBurst(t, 0.2, 0.3, 'bandpass', 1800 * r, 500, 2.5);
+    sweepTone(t, 'sine', 140, 45, 0.18, 0.28);
+    clink(t + 0.02, 1150 * r, 0.05, 0.12);
+    clink(t + 0.09, 1720 * r, 0.035, 0.1);
+    click(t + 0.14, 2600 * r, 0.12, 4);
+  },
+  // hit: a heavy blow on the suit, no tone
+  hurt: () => {
+    const t = audioNow();
+    sweepTone(t, 'sine', 130, 50, 0.25, 0.5);
+    noiseBurst(t, 0.2, 0.35, 'lowpass', 900, 200);
+    noiseBurst(t, 0.06, 0.2, 'bandpass', 700, 400, 2);
+  },
+  // the menus: a dry switch
+  pick: () => click(audioNow(), 3000, 0.2, 5),
+  // a bit drawn in: the smallest metallic tick (they come many at a time)
+  bit: () => {
+    const t = audioNow(),
+      r = rand(0.9, 1.15);
+    click(t, 6200 * r, 0.1, 8);
+    sweepTone(t, 'triangle', 3400 * r, 3300 * r, 0.035, 0.025);
+  },
+  // a med kit into the belt: the case's two latches and a soft knock
+  kit: () => {
+    const t = audioNow();
+    click(t, 2200, 0.22);
+    click(t + 0.06, 2800, 0.22);
+    sweepTone(t + 0.06, 'sine', 170, 90, 0.07, 0.18);
+  },
+  // a weapon taken up or drawn: the slide pulled back and let go
+  equip: () => {
+    const t = audioNow();
+    noiseBurst(t, 0.05, 0.28, 'bandpass', 1500, 900, 3);
+    noiseBurst(t + 0.08, 0.04, 0.38, 'bandpass', 2600, 1700, 4);
+    clink(t + 0.08, 2100, 0.03, 0.06);
+    sweepTone(t + 0.08, 'sine', 210, 110, 0.05, 0.16);
+  },
+  // a chip seated in the kit: it clicks in, a small motor turns, it locks
+  chip: () => {
+    const t = audioNow();
+    click(t, 3400, 0.24);
+    sweepTone(t + 0.03, 'triangle', 380, 520, 0.14, 0.05, 0.02);
+    click(t + 0.17, 4200, 0.2, 7);
+  },
+  // an enemy's shot: muffled and lower than the player's guns, no tone
+  eshot: () => {
+    const t = audioNow(),
+      r = rand(0.9, 1.1);
+    noiseBurst(t, 0.08, 0.1, 'bandpass', 1400 * r, 600, 2);
+    sweepTone(t, 'sine', 320 * r, 120, 0.06, 0.06);
+  },
+  // mag out: a latch and the magazine sliding free
+  reload: () => {
+    const t = audioNow();
+    click(t, 2000, 0.25, 5);
+    noiseBurst(t + 0.02, 0.06, 0.2, 'bandpass', 1100, 700, 3);
+    clink(t + 0.03, 1500, 0.025, 0.06);
+  },
+  // mag in, slide forward
+  reloaded: () => {
+    const t = audioNow();
+    noiseBurst(t, 0.04, 0.3, 'bandpass', 1800, 1400, 5);
+    click(t + 0.07, 2600, 0.35, 5);
+    clink(t + 0.07, 2000, 0.03, 0.06);
+    sweepTone(t + 0.07, 'sine', 220, 120, 0.05, 0.12);
+  },
+  // a gate taken: a deep hum swelling and dying away
+  portal: () => {
+    const t = audioNow();
+    sweepTone(t, 'sine', 58, 44, 1.0, 0.32, 0.15);
+    sweepTone(t, 'triangle', 116, 92, 0.9, 0.07, 0.2);
+    noiseBurst(t, 0.8, 0.12, 'lowpass', 700, 180);
+  },
+  // the lockdown siren: one rise and fall
+  alarm: () => {
+    const t = audioNow();
+    sweepTone(t, 'sawtooth', 480, 860, 0.32, 0.05, 0.05);
+    sweepTone(t + 0.32, 'sawtooth', 860, 480, 0.32, 0.05, 0.02);
+  },
+  // a heal: the injector's click and its hiss
+  heal: () => {
+    const t = audioNow();
+    click(t, 2400, 0.22);
+    noiseBurst(t + 0.02, 0.28, 0.2, 'highpass', 5200, 2800);
+    noiseBurst(t + 0.02, 0.1, 0.08, 'bandpass', 1300, 900, 2);
+  },
+  // the lockdown's doors slamming shut: a heavy metal blow
+  slam: () => {
+    const t = audioNow();
+    sweepTone(t, 'sine', 72, 34, 0.5, 0.6);
+    noiseBurst(t, 0.45, 0.45, 'lowpass', 900, 100);
+    noiseBurst(t, 0.14, 0.25, 'bandpass', 1500, 500, 2);
+    clink(t + 0.01, 620, 0.05, 0.3);
+  },
+  // ... and opening again: a bolt drawn and the air let out
+  unlock: () => {
+    const t = audioNow();
+    noiseBurst(t, 0.1, 0.3, 'bandpass', 620, 380, 2);
+    sweepTone(t, 'sine', 120, 70, 0.1, 0.25);
+    noiseBurst(t + 0.08, 0.45, 0.12, 'highpass', 3200, 1500);
+  },
+  // a milestone's terminal waking: a switch, then two short tones (a screen is the one thing here that beeps)
+  terminal: () => {
+    const t = audioNow();
+    click(t, 2800, 0.2);
+    sweepTone(t + 0.06, 'sine', 880, 880, 0.07, 0.07);
+    sweepTone(t + 0.15, 'sine', 1320, 1320, 0.09, 0.06);
+  },
+};
+
+Object.assign(SFX, SHARED, sfxOld ? SFX_OLD : SFX_NEW);

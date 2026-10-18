@@ -117,6 +117,7 @@ function startLockdown(room: number) {
   ev.ldActive = true;
   ev.wavesLeft = LOCKDOWN_WAVES;
   lockdownDoors(room).forEach(k => lockDoor(world(), k));
+  sfx('slam');
   sfx('alarm');
   ev.alarmT = ALARM_EVERY;
   banner(t('run.lockdownTitle'), t('run.lockdown'));
@@ -132,6 +133,7 @@ function endLockdown(room: number) {
   setMusic(level.biome.code);
   run.bld!.ld = 1;
   lockdownDoors(room).forEach(k => lockDoor(world(), k, false));
+  sfx('unlock');
   markCleared(room);
   // the reward: a chip whose choices are all rare and a weapon of at least the second rarity, side by side
   // across the room's middle. After the pre-boss supply the building's rooms drop no chips: kits in their place
