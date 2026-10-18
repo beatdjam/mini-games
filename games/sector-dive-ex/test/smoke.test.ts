@@ -3551,12 +3551,18 @@ test("outside: the building's own walls, floor by floor: faces on its outline, a
   expect(boxes.filter(b => b.bottom === 0 && b.x0 === 2 * T && !b.sides.length && b.noRoof && !b.under)).toEqual([]);
 });
 test('outside: a window one sees out of looks past the whole building, or on to a yard', () => {
-  const city = BIOMES.find(x => x.code === 'CITY')!,
-    look = lookOf(city)!;
   devCourtOpen(true);
   let windows = 0;
-  for (const seed of [3, 6, 9]) {
-    const b = makeBuilding(city, city.bosses[0]!, seed),
+  // (the ruins' one: a window was on the tile at a balcony's end, seen from the balcony)
+  for (const [code, seed, boss] of [
+    ['CITY', 3],
+    ['CITY', 6],
+    ['CITY', 9],
+    ['RUIN', 1128278361, 'phantom'],
+  ] as const) {
+    const biome = BIOMES.find(x => x.code === code)!,
+      look = lookOf(biome)!,
+      b = makeBuilding(biome, boss ?? biome.bosses[0]!, seed),
       W = b.plans[0]!.gen.W,
       H = b.plans[0]!.gen.H,
       anyFloor = (k: number) => b.plans.some(p => p.gen.maps.grid[k] === 1 || !!p.voids[k]);
@@ -3567,8 +3573,11 @@ test('outside: a window one sees out of looks past the whole building, or on to 
         if (v || p.voids[k] || !look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)])
           return;
         windows++;
-        // straight out from each floor that sees it: no floor of any floor before the edge, unless a yard comes first
+        // straight out from each floor that sees it: no floor of any floor before the edge, unless a yard comes first.
+        // On the yard's edge, the yard right behind each face (not the tile at a balcony's end, seen along the yard)
+        const onYard = [1, -1, W, -W].some(o => yard.has(k + o));
         for (const [di, dj] of floorSides(d, k)) {
+          if (onYard) expect(yard.has(k - dj * W - di), `seed ${seed} floor ${floor} wall ${k} on the yard`).toBe(true);
           let i = (k % W) - di,
             j = Math.floor(k / W) - dj;
           for (; i >= 0 && j >= 0 && i < W && j < H; i -= di, j -= dj) {

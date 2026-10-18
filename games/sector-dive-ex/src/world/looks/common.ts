@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { BlockStyle, StreetThing } from './outside.ts';
 import type { Rng } from '@engine/core/util.ts';
-import { alongOpen, facesToward, wallSide } from '@engine/world/walls.ts';
+import { alongOpen, facesToward, floorSides, wallSide } from '@engine/world/walls.ts';
 import type { WallMap } from '@engine/world/walls.ts';
 import { CSS_COLOR } from '../../data/colors.ts';
 import type { FloorPlan } from '../building.ts';
@@ -115,10 +115,17 @@ export function wallPic(
     v = v0 === 0 && laneWalls && byLane(d, k) ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v0;
   const beyond = wallBeyond.get(d.maps.grid);
   if (sides?.yard !== undefined) {
-    // (only an outside wall: one that a floor sees from another side too is left as it is)
+    // (only an outside wall: one that a floor sees from another side too is left as it is. A window only where every
+    // face a floor sees looks across the yard: the tile at the end of a balcony is seen from the balcony too, at right
+    // angles to the yard, and a window there would look into the building)
     const along = alongOpen(d, k, beyond);
-    if (along !== null && wallSide(d, k, beyond) === 'outer')
-      return yardWindowAt(along) ? sides.yard : sides.outer?.includes(v) ? 0 : v;
+    if (along !== null && wallSide(d, k, beyond) === 'outer') {
+      const across = floorSides(d, k).every(([di, dj]) => {
+        const t = k - dj * d.W - di;
+        return beyond?.[t] === 2 && d.maps.grid[t] !== 1;
+      });
+      return across && yardWindowAt(along) ? sides.yard : sides.outer?.includes(v) ? 0 : v;
+    }
   }
   if (!sides || (!sides.outer?.includes(v) && !sides.inner?.includes(v))) return v;
   const side = wallSide(d, k, beyond);
