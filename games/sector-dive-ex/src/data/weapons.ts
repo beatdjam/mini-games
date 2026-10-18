@@ -139,3 +139,9 @@ export const PLUS_FROM_STAGE = 2.5,
   PLUS_STAGE_OFFSET = 2,
   PLUS_PER_STAGE = 0.6,
   PLUS_BELOW_MAX = 2;
+// A base weapon is handed out for a dive's start depth (core/rules.ts basicNow): its + value SUPPLY_PLUS_BELOW under the
+// drops' level there (about what they average), its rarity ★★ from the depth SUPPLY_RARITY_AT[0] (0-based) and ★★★
+// from SUPPLY_RARITY_AT[1] (most drops that deep are). Was 2 under and plain rarity: a dive started again from a milestone
+// after a death got stuck at its first boss, a weapon and some chips short of the dive that got there (sim, 2026-10-18)
+export const SUPPLY_PLUS_BELOW = 1,
+  SUPPLY_RARITY_AT = [9, 19];
