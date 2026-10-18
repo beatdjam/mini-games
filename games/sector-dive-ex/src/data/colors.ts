@@ -37,6 +37,20 @@ export const CSS_COLOR = {
   neonSky: css(COLOR.neonSky),
 };
 
+// The field kit's look (body.hud2, src/ui/hud2.css), for what is drawn on a canvas in it (the share card): white paint
+// and the same worn, safety yellow, warning red, the steel plate from light to dark
+export const KIT = {
+  paint: '#ebe7da',
+  paint2: '#a09d92',
+  safety: '#f2b705',
+  stop: '#d8402f',
+  steel1: '#2d3031',
+  steel2: '#1d1f20',
+  steel3: '#17191a',
+  edge: '#3d4143',
+  strip: '#141516',
+};
+
 // The painters' box: the colours more than one file paints with (the scenery's pictures, set pieces and props). Named
 // by family and from dark to light (ink1 is the darkest ink), not by what they are used for: the same grey is a
 // cabinet in one picture and a shadow in the next. A colour that only one file uses stays in that file
