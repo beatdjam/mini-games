@@ -3607,6 +3607,8 @@ test('outside: a window one sees out of looks past the whole building, or on to 
         // straight out from each floor that sees it: no floor of any floor before the edge, unless a yard comes first.
         // On the yard's edge, the yard right behind each face (not the tile at a balcony's end, seen along the yard)
         const onYard = [1, -1, W, -W].some(o => yard.has(k + o));
+        // (and not on a tile that is floor on another floor: under or over it, the building runs out past the window)
+        if (!onYard) expect(anyFloor(k), `seed ${seed} floor ${floor} wall ${k} under a floor`).toBe(false);
         for (const [di, dj] of floorSides(d, k)) {
           if (onYard) expect(yard.has(k - dj * W - di), `seed ${seed} floor ${floor} wall ${k} on the yard`).toBe(true);
           let i = (k % W) - di,
