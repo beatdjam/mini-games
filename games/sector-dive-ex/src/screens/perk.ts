@@ -40,6 +40,7 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
     const v = rare ? o.rv! : o.v;
     const b = document.createElement('button');
     b.className = 'perk' + (rare ? ' rare' : '');
+    b.dataset.perk = o.id; // (for the bot: src/dev/bot.ts)
     b.innerHTML = perkCard(o, v, rare, times);
     b.addEventListener('click', () => {
       for (let k = 0; k < times && !(k && o.maxed && o.maxed(player)); k++) {

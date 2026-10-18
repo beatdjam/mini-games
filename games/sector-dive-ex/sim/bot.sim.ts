@@ -5,12 +5,13 @@ import { beforeAll, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
 import { createRng } from '@engine/core/util.ts';
 import { isBossStage } from '../src/core/stages.ts';
-import { setDropOnly } from '../src/core/rules.ts';
+import { levelOf, nextLevelCost, setDropOnly } from '../src/core/rules.ts';
 import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
-import { PER, levelCost } from '../src/data/progress.ts';
+import { PER, UPGRADES, levelCost } from '../src/data/progress.ts';
 import { fillMag, newWeapon } from '../src/actors/weapons.ts';
 import { normalizeWeapons } from '../src/ui/input.ts';
-import { defaultSave, setSave } from '../src/core/save.ts';
+import { defaultSave, save, setSave } from '../src/core/save.ts';
+import { buyUpgrade, setStartTier } from '../src/core/progress.ts';
 import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { devSeed, level } from '../src/world/level.ts';
@@ -18,9 +19,10 @@ import { player, run } from '../src/actors/player.ts';
 import { goBase, startRun } from '../src/flow/run.ts';
 import { state } from '../src/flow/state.ts';
 import { update } from '../src/flow/update.ts';
-import { BOT_STYLES, createBot, setBot, setBotLevels } from '../src/dev/bot.ts';
+import { BOT_STYLES, createBot, nextPoint, setBot, setBotLevels } from '../src/dev/bot.ts';
 
 declare const __SIM_SEEDS__: string;
+declare const __SIM_DIVES__: string;
 declare const __SIM_STYLE__: string;
 declare const __SIM_WEAPON__: string;
 declare const __SIM_LEVEL__: string;
@@ -77,6 +79,18 @@ const only: (string | null)[] = !__SIM_WEAPON__
 const cases = styles.flatMap(style =>
   only.map(weapon => ({ style, weapon, name: weapon ? `${style}@${weapon}` : style })),
 );
+// Dives in a row (SIM_DIVES=n): each seed keeps one save for n dives, as a player who dies and goes again from the last
+// milestone passed. Between dives the save's bits go on levels at the base (the same picks as at the terminals:
+// nextPoint) and the dive starts from the deepest start open. Not set (1): every dive from a new save
+const DIVES = Math.max(1, Number(__SIM_DIVES__) || 1);
+function buyAtBase(collect: boolean) {
+  for (;;) {
+    const cost = nextLevelCost(),
+      id = nextPoint(collect, id => save.bits >= cost && (save.up[id] || 0) < UPGRADES.find(u => u.id === id)!.max);
+    if (!id) return;
+    buyUpgrade(id, cost);
+  }
+}
 type Row = Record<string, string | number>;
 const summary: Row[] = [];
 const tsv = (rows: Row[]): string => {
@@ -96,148 +110,174 @@ function tally(words: string[], top: number): string {
     .join(' ');
 }
 
-test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName, weapon, name }) => {
-  const style = BOT_STYLES[styleName];
-  expect(style, `no such style: ${styleName}`).toBeTruthy();
-  if (weapon) expect(WEAPONS[weapon], `no such weapon: ${weapon}`).toBeTruthy();
-  const rows: Row[] = [];
-  for (const seed of seedsOf(__SIM_SEEDS__)) {
-    // every run starts from a new save: what one run brings home (weapons, bits, upgrades) must not help the next
-    setSave(defaultSave());
-    devSeed(seed);
-    // the game's own dice too (the sectors' order, the chips offered, the drops), so a seed is the same run for
-    // every kind of player up to where they play differently
-    Math.random = createRng(seed).next;
-    const bot = createBot(style!);
-    // (SIM_LEVEL=off: the milestones' terminals are not used, the game as before them, to compare)
-    setBotLevels(__SIM_LEVEL__ !== 'off');
-    setDropOnly(weapon);
-    startRun();
-    if (weapon) {
-      player.weapons = [fillMag(newWeapon(weapon, 0, true)), null];
-      player.cur = 0;
-      normalizeWeapons();
-    }
-    setBot(bot);
-    let frames = 0,
-      end = 'gave up';
-    let moved = '',
-      movedAt = 0;
-    // the bits picked up so far, as each depth is reached (1-based depth: bits): how fast levels could be bought in a
-    // dive (for the levels at the milestones, 2026-10-18)
-    const bitsAt: string[] = [];
-    let tierSeen = 0;
-    const wall0 = performance.now();
-    let since = wall0, // when the page was last let breathe
-      maxBlock = 0; // the longest the page went without (ms)
-    for (; frames < MAX_FRAMES; frames++) {
-      const now = `${run.kills}:${run.stage}:${run.bld?.floor}:${boss ? Math.round(boss.hp) : ''}:${level.portals.length}`;
-      if (now !== moved) {
-        moved = now;
-        movedAt = frames;
-      } else if (frames - movedAt > STALL_FRAMES) break;
-      update(DT);
-      const tier = Math.floor(run.stage / PER);
-      if (tier !== tierSeen) {
-        tierSeen = tier;
-        bitsAt.push(`${tier + 1}:${Math.floor(run.bits)}`);
-      }
-      if (stateNow() === 'result' || stateNow() === 'base') {
-        end = player.hp <= 0 ? 'died' : 'extract';
-        break;
-      }
-      // the boss comes on a timer of the page, not of the game: wait for it in real time
-      if (isBossStage(run.stage) && !boss && !level.portals.length) {
-        await sleep(30);
-        since = performance.now();
-      } else if (frames % YIELD_EVERY === 0 || performance.now() - since > YIELD_MS) {
-        maxBlock = Math.max(maxBlock, performance.now() - since);
+test.each(cases)(
+  `bot $name: seeds ${__SIM_SEEDS__}`,
+  async ({ style: styleName, weapon, name }) => {
+    const style = BOT_STYLES[styleName];
+    expect(style, `no such style: ${styleName}`).toBeTruthy();
+    if (weapon) expect(WEAPONS[weapon], `no such weapon: ${weapon}`).toBeTruthy();
+    const rows: Row[] = [];
+    for (const seed of seedsOf(__SIM_SEEDS__))
+      for (let dive = 1; dive <= DIVES; dive++) {
+        // every seed starts from a new save: what one run brings home (weapons, bits, upgrades) must not help the next
+        // (with SIM_DIVES, the dives of one seed share it)
+        if (dive === 1) setSave(defaultSave());
+        else {
+          buyAtBase(style!.collect);
+          setStartTier(save.shortcut);
+        }
+        const start = save.startTier,
+          lv = levelOf();
+        // (a seed's first dive is the same with SIM_DIVES as without; the later ones have buildings of their own)
+        const diveSeed = seed + 1000 * (dive - 1);
+        devSeed(diveSeed);
+        // the game's own dice too (the sectors' order, the chips offered, the drops), so a seed is the same run for
+        // every kind of player up to where they play differently
+        Math.random = createRng(diveSeed).next;
+        const bot = createBot(style!);
+        // (SIM_LEVEL=off: the milestones' terminals are not used, the game as before them, to compare)
+        setBotLevels(__SIM_LEVEL__ !== 'off');
+        setDropOnly(weapon);
+        startRun();
+        if (weapon) {
+          player.weapons = [fillMag(newWeapon(weapon, 0, true)), null];
+          player.cur = 0;
+          normalizeWeapons();
+        }
+        setBot(bot);
+        let frames = 0,
+          end = 'gave up';
+        let moved = '',
+          movedAt = 0;
+        // the bits picked up so far, as each depth is reached (1-based depth: bits): how fast levels could be bought in a
+        // dive (for the levels at the milestones, 2026-10-18)
+        const bitsAt: string[] = [];
+        let tierSeen = 0;
+        const wall0 = performance.now();
+        let since = wall0, // when the page was last let breathe
+          maxBlock = 0; // the longest the page went without (ms)
+        for (; frames < MAX_FRAMES; frames++) {
+          const now = `${run.kills}:${run.stage}:${run.bld?.floor}:${boss ? Math.round(boss.hp) : ''}:${level.portals.length}`;
+          if (now !== moved) {
+            moved = now;
+            movedAt = frames;
+          } else if (frames - movedAt > STALL_FRAMES) break;
+          update(DT);
+          const tier = Math.floor(run.stage / PER);
+          if (tier !== tierSeen) {
+            tierSeen = tier;
+            bitsAt.push(`${tier + 1}:${Math.floor(run.bits)}`);
+          }
+          if (stateNow() === 'result' || stateNow() === 'base') {
+            end = player.hp <= 0 ? 'died' : 'extract';
+            break;
+          }
+          // the boss comes on a timer of the page, not of the game: wait for it in real time
+          if (isBossStage(run.stage) && !boss && !level.portals.length) {
+            await sleep(30);
+            since = performance.now();
+          } else if (frames % YIELD_EVERY === 0 || performance.now() - since > YIELD_MS) {
+            maxBlock = Math.max(maxBlock, performance.now() - since);
+            await sleep(0);
+            since = performance.now();
+          }
+        }
+        const s = bot.stats;
+        // a run that was given up: what the floor looked like, to find where the bot went wrong
+        if (end === 'gave up') {
+          const w = activeTileGrid().world,
+            k = tileIndex(player.x, player.z),
+            at = (t: number) => `${t % w.W},${Math.floor(t / w.W)}`;
+          s.trace.push(
+            `-- gave up at tile ${at(k)} room ${level.roomOf[k]} floor ${level.floor} (lockdown done: ${run.bld?.ld})`,
+            `   enemies left per room: ${level.roomCount.join(' ')}`,
+            `   locked doors: ${[...(w.doorLock ?? [])].flatMap((v, t) => (v ? [at(t)] : [])).join(' ') || 'none'}`,
+            ...enemies
+              .filter(e => !e.dead)
+              .map(
+                e =>
+                  `   ${e.boss ? e.kind : e.type} room ${e.room} tile ${at(tileIndex(e.x, e.z))} y ${e.y.toFixed(1)} hp ${Math.round(e.hp)} active ${e.active}`,
+              ),
+          );
+        }
+        rows.push({
+          seed,
+          // (SIM_DIVES: which dive of the seed, the depth it started from, the level it went in with)
+          ...(DIVES > 1 && { dive, start: start + 1, lv }),
+          sector: level.biome.code,
+          end,
+          seconds: Math.round(s.frames / 60),
+          depth: s.depth,
+          bosses: (run?.bosses ?? []).join('>') || '-',
+          toBoss: s.bossAt < 0 ? '-' : Math.round(s.bossAt / 60),
+          bossHp: Math.round(s.bossHp * 100) + '%',
+          weapons: player.weapons
+            .map(w => (w ? `${w.id}${w.r}` : ''))
+            .filter(Boolean)
+            .join('+'),
+          chips: run?.perks.length ?? 0,
+          kills: run?.kills ?? 0,
+          damage: Math.round(s.damage),
+          minHp: Math.round(s.minHp * 100) + '%',
+          kits: s.kits,
+          hazard: s.hazard.toFixed(1),
+          dashes: s.dashes,
+          picked: s.picked,
+          stuck: s.stuck,
+          wallSec: Math.round((performance.now() - wall0) / 1000),
+          blockMs: Math.round(maxBlock),
+          heapMB: heapMB(),
+          last: s.doing,
+          bits: Math.floor(run?.bits ?? 0),
+          bought: s.levels,
+          sold: s.sold,
+          // (how many levels the run's bits would buy from level 0: data/progress.ts levelCost)
+          levels: levelsFor(Math.floor(run?.bits ?? 0)),
+          bitsAt: bitsAt.join(' ') || '-',
+        });
+        await commands.writeFile(
+          `sim-results/traces/sector-dive-ex-${__SIM_TAG__}${name}-${seed}${DIVES > 1 ? `-${dive}` : ''}.trace.txt`,
+          s.trace.join('\n') + '\n',
+        );
+        // the table so far after every run, so a run that dies with the browser costs only itself
+        await commands.writeFile(`sim-results/sector-dive-ex-${__SIM_TAG__}${name}.tsv`, tsv(rows));
+        setBot(null);
+        setDropOnly(null);
+        if (stateNow() !== 'base') goBase();
         await sleep(0);
-        since = performance.now();
       }
+    // one line per kind of player, for comparing them (and a change against what was there before); with SIM_DIVES, one
+    // per dive of the seeds (the 1st dives, the 2nd, ...), to see how far each go gets
+    for (let dive = 1; dive <= DIVES; dive++) summarize(DIVES > 1 ? rows.filter(r => r.dive === dive) : rows, dive);
+    function summarize(rows: Row[], dive: number) {
+      const depth = rows.map(r => r.depth as number),
+        dead = rows.filter(r => r.end === 'died');
+      summary.push({
+        style: styleName,
+        weapon: weapon ?? '-',
+        ...(DIVES > 1 && {
+          dive,
+          startMean: mean(rows.map(r => r.start as number)).toFixed(2),
+          lvMean: mean(rows.map(r => r.lv as number)).toFixed(1),
+        }),
+        runs: rows.length,
+        depthMean: mean(depth).toFixed(2),
+        depthMedian: median(depth),
+        depthMax: Math.max(...depth),
+        bossesMean: mean(rows.map(r => (r.bosses === '-' ? 0 : String(r.bosses).split('>').length))).toFixed(2),
+        minutesMean: (mean(rows.map(r => r.seconds as number)) / 60).toFixed(1),
+        died: dead.length,
+        gaveUp: rows.filter(r => r.end === 'gave up').length,
+        diedAtDepth1: dead.filter(r => r.depth === 1).length,
+        killedBy: tally(
+          dead.map(r => String(r.last).replace(/^fight /, '')),
+          4,
+        ),
+      });
     }
-    const s = bot.stats;
-    // a run that was given up: what the floor looked like, to find where the bot went wrong
-    if (end === 'gave up') {
-      const w = activeTileGrid().world,
-        k = tileIndex(player.x, player.z),
-        at = (t: number) => `${t % w.W},${Math.floor(t / w.W)}`;
-      s.trace.push(
-        `-- gave up at tile ${at(k)} room ${level.roomOf[k]} floor ${level.floor} (lockdown done: ${run.bld?.ld})`,
-        `   enemies left per room: ${level.roomCount.join(' ')}`,
-        `   locked doors: ${[...(w.doorLock ?? [])].flatMap((v, t) => (v ? [at(t)] : [])).join(' ') || 'none'}`,
-        ...enemies
-          .filter(e => !e.dead)
-          .map(
-            e =>
-              `   ${e.boss ? e.kind : e.type} room ${e.room} tile ${at(tileIndex(e.x, e.z))} y ${e.y.toFixed(1)} hp ${Math.round(e.hp)} active ${e.active}`,
-          ),
-      );
-    }
-    rows.push({
-      seed,
-      sector: level.biome.code,
-      end,
-      seconds: Math.round(s.frames / 60),
-      depth: s.depth,
-      bosses: (run?.bosses ?? []).join('>') || '-',
-      toBoss: s.bossAt < 0 ? '-' : Math.round(s.bossAt / 60),
-      bossHp: Math.round(s.bossHp * 100) + '%',
-      weapons: player.weapons
-        .map(w => (w ? `${w.id}${w.r}` : ''))
-        .filter(Boolean)
-        .join('+'),
-      chips: run?.perks.length ?? 0,
-      kills: run?.kills ?? 0,
-      damage: Math.round(s.damage),
-      minHp: Math.round(s.minHp * 100) + '%',
-      kits: s.kits,
-      hazard: s.hazard.toFixed(1),
-      dashes: s.dashes,
-      picked: s.picked,
-      stuck: s.stuck,
-      wallSec: Math.round((performance.now() - wall0) / 1000),
-      blockMs: Math.round(maxBlock),
-      heapMB: heapMB(),
-      last: s.doing,
-      bits: Math.floor(run?.bits ?? 0),
-      bought: s.levels,
-      sold: s.sold,
-      // (how many levels the run's bits would buy from level 0: data/progress.ts levelCost)
-      levels: levelsFor(Math.floor(run?.bits ?? 0)),
-      bitsAt: bitsAt.join(' ') || '-',
-    });
-    await commands.writeFile(
-      `sim-results/traces/sector-dive-ex-${__SIM_TAG__}${name}-${seed}.trace.txt`,
-      s.trace.join('\n') + '\n',
-    );
-    // the table so far after every run, so a run that dies with the browser costs only itself
-    await commands.writeFile(`sim-results/sector-dive-ex-${__SIM_TAG__}${name}.tsv`, tsv(rows));
-    setBot(null);
-    setDropOnly(null);
-    if (stateNow() !== 'base') goBase();
-    await sleep(0);
-  }
-  // one line per kind of player, for comparing them (and a change against what was there before)
-  const depth = rows.map(r => r.depth as number),
-    dead = rows.filter(r => r.end === 'died');
-  summary.push({
-    style: styleName,
-    weapon: weapon ?? '-',
-    runs: rows.length,
-    depthMean: mean(depth).toFixed(2),
-    depthMedian: median(depth),
-    depthMax: Math.max(...depth),
-    bossesMean: mean(rows.map(r => (r.bosses === '-' ? 0 : String(r.bosses).split('>').length))).toFixed(2),
-    minutesMean: (mean(rows.map(r => r.seconds as number)) / 60).toFixed(1),
-    died: dead.length,
-    gaveUp: rows.filter(r => r.end === 'gave up').length,
-    diedAtDepth1: dead.filter(r => r.depth === 1).length,
-    killedBy: tally(
-      dead.map(r => String(r.last).replace(/^fight /, '')),
-      4,
-    ),
-  });
-  await commands.writeFile(`sim-results/sector-dive-ex-${__SIM_TAG__}summary.tsv`, tsv(summary));
-  expect(rows.length).toBeGreaterThan(0);
-});
+    await commands.writeFile(`sim-results/sector-dive-ex-${__SIM_TAG__}summary.tsv`, tsv(summary));
+    expect(rows.length).toBeGreaterThan(0);
+    // (dives in a row take that many times as long)
+  },
+  30 * 60 * 1000 * DIVES,
+);

@@ -5,6 +5,7 @@ import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { query } from '@engine/core/world.ts';
 import type { Boss, Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
 import { BOSS_META } from '../data/bosses.ts';
+import { MAGNET_GAIN_MAX } from '../data/perks.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { EYE, PORTAL } from '../data/level.ts';
 import { stageInfo } from '../core/stages.ts';
@@ -42,6 +43,7 @@ export interface BotStyle {
   knowsBosses: boolean; // it fights each boss the way that boss asks for (BOSS_PLAYS), not only as any enemy
   explore: boolean; // it clears every room of a floor before going on (else it follows the route and fights what it meets)
   loot: number; // it goes out of its way for a weapon, a kit or a chip within this (m; 0 = only what it walks over)
+  collect: boolean; // it is after bits: the gain is the first point it buys, and it takes a magnet chip while that adds to the gain
 }
 // someone who plays well: quick, accurate aim, dashes clear of most shots, minds the hazard floors
 const SKILLED = {
@@ -66,11 +68,14 @@ const KINDS: Record<string, Omit<BotStyle, 'name' | 'autofire'>> = {
     explore: false,
     loot: 5,
     after: 'next',
+    collect: false,
   },
   // plays well and looks everywhere: clears every room, goes a long way for a pickup
-  explorer: { ...SKILLED, explore: true, loot: 40, after: 'next' },
+  explorer: { ...SKILLED, explore: true, loot: 40, after: 'next', collect: false },
   // plays well and presses on: follows the route, takes what lies near it
-  rusher: { ...SKILLED, explore: false, loot: 12, after: 'next' },
+  rusher: { ...SKILLED, explore: false, loot: 12, after: 'next', collect: false },
+  // the explorer after bits: buys the gain first and takes the magnet chips
+  collector: { ...SKILLED, explore: true, loot: 40, after: 'next', collect: true },
 };
 // each kind with the game's auto-fire on (the name alone) and off (`-manual`: it pulls the trigger itself)
 export const BOT_STYLES: Record<string, BotStyle> = Object.fromEntries(
@@ -210,16 +215,22 @@ export function setBotLevels(on: boolean) {
   botLevels = on;
 }
 // the point to buy next, as a player who has thought about it would: the med kits and the fourth chip first (cheap for
-// what they give), then output and armour by turns (whichever has fewer points). Null when none can be bought. Never a
-// starting chip (it is a pick of its own, at the base)
-function levelPick(): HTMLButtonElement | null {
-  const can = (id: string) => {
-    const b = document.querySelector<HTMLButtonElement>(`#perkList [data-level="${id}"]`);
-    return b && !b.disabled ? b : null;
-  };
-  return (
-    can('kit') ?? can('choice') ?? ((save.up.dmg || 0) <= (save.up.hp || 0) ? can('dmg') : can('hp')) ?? can('dmg')
-  );
+// what they give), then output and armour by turns (whichever has fewer points); one after bits (collect) puts the gain
+// before all of them. Null when none of them can be bought (`can`). Never a starting chip (it is a pick of its own, at
+// the base). The sim's dives in a row buy at the base with it too
+export function nextPoint(collect: boolean, can: (id: string) => boolean): string | null {
+  const order = [
+    ...(collect ? ['gain'] : []),
+    'kit',
+    'choice',
+    ...((save.up.dmg || 0) <= (save.up.hp || 0) ? ['dmg', 'hp'] : ['hp', 'dmg']),
+  ];
+  return order.find(can) ?? null;
+}
+function levelPick(collect: boolean): HTMLButtonElement | null {
+  const button = (id: string) => document.querySelector<HTMLButtonElement>(`#perkList [data-level="${id}"]`);
+  const id = nextPoint(collect, id => !!button(id) && !button(id)!.disabled);
+  return id ? button(id) : null;
 }
 export function createBot(style: BotStyle) {
   const stats: BotStats = {
@@ -601,7 +612,7 @@ export function createBot(style: BotStyle) {
           stats.sold++;
           return;
         }
-        const pick = levelPick();
+        const pick = levelPick(style.collect);
         if (pick) {
           pick.click();
           stats.levels++;
@@ -613,8 +624,12 @@ export function createBot(style: BotStyle) {
       return;
     }
     if (state === 'perk') {
-      // a chip to choose: the first one offered
-      document.querySelector<HTMLButtonElement>('#perkList button')?.click();
+      // a chip to choose: the first one offered (after bits: a magnet while it still adds to the gain)
+      const magnet =
+        style.collect && player && player.magnet < 1 + 0.8 * MAGNET_GAIN_MAX
+          ? document.querySelector<HTMLButtonElement>('#perkList [data-perk="magnet"]')
+          : null;
+      (magnet ?? document.querySelector<HTMLButtonElement>('#perkList button'))?.click();
       return;
     }
     if (state !== 'play' || !player) return;
