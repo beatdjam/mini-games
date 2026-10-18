@@ -105,6 +105,7 @@ export function openLevelUp(done?: () => void) {
   exitLock();
   bigmap.hidden = true;
   el('#scrPerk').dataset.mode = 'level';
+  sfx('terminal');
   el('#perkEyebrow').textContent = 'terminal';
   el('#levelNote').hidden = false;
   el('#perkDone').hidden = false;

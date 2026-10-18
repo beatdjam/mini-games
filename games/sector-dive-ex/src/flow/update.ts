@@ -440,13 +440,13 @@ function pullBit(p: Pickup, d: number, dt: number) {
 function collectBit(p: Pickup) {
   p.dead = true;
   run.bits += p.value! * player.gainMul * (1 + GAIN_OPT_PER_LEVEL * weaponOptCount('gain'));
-  sfx('pick', 30);
+  sfx('bit', 30);
 }
 function collectKit(p: Pickup) {
   if (player.kits < KIT_MAX) {
     p.dead = true;
     player.kits++;
-    sfx('pick');
+    sfx('kit');
     toast(t('run.kitPlus', { n: player.kits, max: KIT_MAX }), 1200);
     weaponHud();
   }
