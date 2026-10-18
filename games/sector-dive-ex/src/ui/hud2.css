@@ -627,7 +627,7 @@ body.hud2 .lslot.sel .lchange {
 }
 /* a suspended dive takes the start depth's place (moved there by hud2.ts), and the loadout is not shown: resuming
    carries on with the dive's own depth and weapons. RESUME as big as DIVE */
-body.hud2 .base.susp :is(#tiers, [data-pane='sortie'] .sec + .sec, .startbar) {
+body.hud2 .base.susp :is(#depthPath, [data-pane='sortie'] .sec + .sec, .startbar) {
   display: none;
 }
 body.hud2 #scrBase .suspend .row {
@@ -684,4 +684,116 @@ body.hud2 #scrBase .rd3 {
 }
 body.hud2 #scrBase .rd4 {
   color: var(--stop) !important;
+}
+/* ---- the way down (in place of the start depths' buttons): a line of marks to the next milestone. Open depths in
+   white paint, the ones not yet open in dark steel on a dashed line, the milestones as diamonds (solid once passed),
+   the depth chosen in safety yellow; its line (supply picks, readiness) under the marks ---- */
+body.hud2 #tiers {
+  display: none;
+}
+body.hud2 .dpath {
+  display: grid;
+  gap: 6px;
+}
+body.hud2 .dp-line {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(26px, 1fr));
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #3d4143 transparent;
+  padding: 4px 0 2px;
+}
+body.hud2 .dp {
+  position: relative;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  color: var(--paint);
+}
+/* (the line from the mark before to this one) */
+body.hud2 .dp + .dp::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  right: 50%;
+  width: 100%;
+  border-top: 2px solid var(--paint2);
+}
+body.hud2 .dp.off::before {
+  border-top: 2px dashed #3d4143;
+}
+body.hud2 .dp i {
+  position: relative;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--paint);
+}
+body.hud2 .dp.mile i {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 0;
+  transform: rotate(45deg);
+  background: var(--safety);
+}
+body.hud2 .dp.off i {
+  background: #3d4143;
+}
+body.hud2 .dp.mile.off i {
+  background: #0a0b0b;
+  border: 2px solid var(--safety);
+}
+body.hud2 .dp[aria-pressed='true'] i {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  background: var(--safety);
+  box-shadow:
+    0 0 0 3px #0a0b0b,
+    0 0 0 5px var(--safety);
+}
+body.hud2 .dp.mile[aria-pressed='true'] i {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+}
+body.hud2 .dp em {
+  margin-top: 6px;
+  font-style: normal;
+  font-family: var(--disp);
+  font-size: 11px;
+  color: var(--paint2);
+}
+body.hud2 .dp[aria-pressed='true'] em {
+  color: var(--safety);
+}
+body.hud2 button.dp:hover i {
+  outline: 1px solid var(--paint);
+  outline-offset: 3px;
+}
+body.hud2 .dp-now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--paint2);
+}
+body.hud2 .dp-now b {
+  font-family: var(--disp);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--paint);
+}
+body.hud2 .dp-now .rd {
+  font-family: var(--disp);
+  letter-spacing: 0.06em;
 }

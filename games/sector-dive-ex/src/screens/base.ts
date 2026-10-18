@@ -103,6 +103,28 @@ const tierButton = (n: number): string => {
     `<small>${sub}</small><small class="rd rd${ready}">${t(`base.ready${ready}`)}</small></button>`
   );
 };
+// (new layout) the way down, in place of the start depths' buttons: a mark for each depth as far as the next milestone,
+// the milestones as diamonds (filled once passed), the depths open to start from as buttons and the one chosen in safety
+// yellow. Numbers only under the first depth, the milestones and the one chosen; that one's line underneath
+const depthPath = (): string => {
+  const open = save.shortcut,
+    at = save.startTier;
+  let goal = open + 1;
+  while (!isMilestone(goal)) goal++;
+  const marks = Array.from({ length: goal + 1 }, (_, n) => {
+    const cls = `dp${isMilestone(n) ? ' mile' : ''}${n > open ? ' off' : ''}`,
+      num = n === 0 || n === at || isMilestone(n) ? `<em>${n + 1}</em>` : '';
+    return n > open
+      ? `<span class="${cls}"><i></i>${num}</span>`
+      : `<button class="${cls}" data-tier="${n}" aria-pressed="${n === at}" aria-label="${tierLabel(n)}"><i></i>${num}</button>`;
+  }).join('');
+  const sub = at === 0 ? t('base.tierFirst') : t('base.tierChips', { n: at, times: TUNE.supplyTimes }),
+    ready = readiness(at);
+  return (
+    `<div class="dp-line" style="--n:${goal + 1}">${marks}</div>` +
+    `<p class="dp-now"><b>${tierLabel(at)}</b><span>${sub}</span><span class="rd rd${ready}">${t(`base.ready${ready}`)}</span></p>`
+  );
+};
 const loadoutSlot = (k: number): string => {
   const w = save.loadout[k],
     on = baseUI.selSlot === k;
@@ -174,6 +196,12 @@ export function renderBase() {
   el('#sBoss').textContent = String(save.bossKills);
   clampStartTier();
   el('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, n) => tierButton(n)).join('');
+  el('#depthPath').innerHTML = depthPath();
+  // (a long way down scrolls sideways: the depth chosen in sight)
+  const line = el('#depthPath .dp-line'),
+    sel = line.querySelector<HTMLElement>('[aria-pressed="true"]');
+  if (sel && line.scrollWidth > line.clientWidth)
+    line.scrollLeft = sel.offsetLeft - line.offsetLeft - line.clientWidth / 2;
   el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
   renderSuspend();
   el('#loadout').innerHTML = [0, 1].map(loadoutSlot).join('');

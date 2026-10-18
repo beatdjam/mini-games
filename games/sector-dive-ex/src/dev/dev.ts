@@ -30,7 +30,7 @@ import { devFirstSector, endRun, startPractice, startRun, startStage } from '../
 import { setState, show } from '../flow/state.ts';
 import { suspendRun } from '../flow/suspend.ts';
 import { openPerk } from '../screens/perk.ts';
-import { showTab } from '../screens/base.ts';
+import { renderBase, showTab } from '../screens/base.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { update } from '../flow/update.ts';
 import { BOT_STYLES, createBot, setBot } from './bot.ts';
@@ -612,6 +612,18 @@ if (location.hash.startsWith('#view-perk'))
     if (location.hash.includes('perk4')) save.up.choice = 1;
     openPerk(t('perk.title'));
   }, 300); // #view-perk4: four options
+// dev: ?shortcut=<n>[&start=<n>] opens the start depths up to DEPTH n (and starts from DEPTH start), for the way down on
+// the base screen (1-based, as on the screen)
+{
+  const q = new URLSearchParams(location.search),
+    sc = Number(q.get('shortcut'));
+  if (sc > 0)
+    setTimeout(() => {
+      save.shortcut = sc - 1;
+      save.startTier = Math.min(Number(q.get('start') || sc) - 1, save.shortcut);
+      renderBase();
+    }, 0);
+}
 // dev view: #tab-<sortie|up|practice|settings>[-touch] opens that base tab
 if (location.hash.startsWith('#tab-')) setTimeout(() => showTab(location.hash.slice(5).replace(/-touch$/, '')), 0);
 // dev view: #view-susp[-touch] leaves a suspended run and returns to the base

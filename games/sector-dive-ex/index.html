@@ -264,7 +264,7 @@ body.booting #app{visibility:hidden}
 #scrPerk[data-mode="level"] .perks{grid-template-columns:repeat(3,minmax(0,1fr))}
 #scrPerk .perk:disabled{opacity:.45;cursor:default}
 /* the level's card and the loadout slots' change mark are the new layout's (src/ui/hud2.css) */
-.levelcard,.lslot .lchange{display:none}
+.levelcard,.lslot .lchange,.dpath{display:none}
 .levelrow{display:flex;align-items:baseline;gap:12px;margin:0 0 8px}
 .levelrow b{font-family:var(--disp);font-size:22px;color:var(--text)}
 .levelrow span{color:var(--amber);font-family:var(--disp)}
@@ -464,7 +464,7 @@ body.booting #app{visibility:hidden}
       <div class="pane" data-pane="sortie" role="tabpanel">
         <div class="sec">
           <h2><span data-i18n="base.tiers"></span><small data-i18n="base.tiersNote"></small></h2>
-          <div class="setrow" id="tiers"></div>
+          <div class="setrow" id="tiers"></div><div class="dpath" id="depthPath"></div>
         </div>
         <div class="sec">
           <h2><span data-i18n="base.loadout"></span><small data-i18n="base.loadoutNote"></small></h2>
