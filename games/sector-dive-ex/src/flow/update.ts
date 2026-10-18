@@ -48,6 +48,7 @@ import { liftRiding, onPlayerTile, ridingY, updateFloorEvents } from './events.t
 import { keysTurnMap3D, updateMap3D } from '../ui/map3d.ts';
 import { state } from './state.ts';
 import { openPerk } from '../screens/perk.ts';
+import { openLevelUp } from '../screens/levelup.ts';
 import { renderBase } from '../screens/base.ts';
 import { updateEBullets, updatePBullets } from '../actors/bullets.ts';
 // Per-frame systems of Sector Dive Extended, run by the engine loop (engine/src/core/loop.ts) in this order
@@ -363,7 +364,7 @@ function updateBuildingFloor(dt: number) {
   if (building) showNeighbourFloors(building, player.x, player.z, liftRiding());
   sightHallDoor(player.x, player.z, player.yaw, visibleRange());
 }
-// ---- gates: stepping into one moves on (the rest of the frame is skipped) ----
+// ---- gates: stepping into one moves on (the rest of the frame is skipped); a terminal opens its screen ----
 function updatePortals(dt: number) {
   for (const pt of level.portals) {
     // arming (data/level.ts PORTAL): dim and still until it works, then bright and turning
@@ -380,6 +381,12 @@ function updatePortals(dt: number) {
       d < PORTAL.enterR &&
       Math.abs(player.fy + PORTAL.centerY - pt.g.position.y) < PORTAL.reachY
     ) {
+      // the milestone's terminal: its screen, and again only once stepped off (it is not a way out)
+      if (pt.kind === 'terminal') {
+        pt.clear = false;
+        openLevelUp();
+        continue;
+      }
       if (pt.kind === 'extract') {
         sfx('portal');
         endRun('extract');

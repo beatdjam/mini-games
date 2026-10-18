@@ -86,6 +86,7 @@ import {
   progressOf,
   readiness,
   readinessScore,
+  sellValue,
 } from '../src/core/rules.ts';
 import {
   buildFixedLevel,
@@ -103,7 +104,7 @@ import {
 import { hazardState } from '../src/world/hazards.ts';
 import { generateLevel } from '../src/world/levelGen.ts';
 import type { GeneratedLevel } from '../src/world/levelGen.ts';
-import { makePortal } from '../src/world/portals.ts';
+import { makePortal, makeTerminal } from '../src/world/portals.ts';
 import {
   addPickup,
   boss,
@@ -1534,6 +1535,32 @@ test("level: a milestone level-up spends the dive's bits, counts at once, and ke
   persist();
   if (!open || !closed || got.join() !== [15, cost, 1, true].join()) throw new Error('milestone level ' + got);
   if (![4, 9, 14].every(isMilestone) || isMilestone(5) || isMilestone(0)) throw new Error('isMilestone');
+});
+test("level: a milestone's terminal opens on stepping onto it, sells the bag's weapons, and not again until stepped off", () => {
+  goBase();
+  startRun();
+  tick(5);
+  const bits0 = run.bits;
+  const w = newWeapon('smg', 0);
+  player.bag[0] = w;
+  makeTerminal(player.x, player.z, 0xffffff, '');
+  tick(90);
+  const underfoot = stateIs('play');
+  player.x += 3;
+  tick(2);
+  player.x -= 3;
+  update(1 / 60);
+  const open = stateIs('perk') && el('#scrPerk').dataset.mode === 'level' && !el('#sellList').hidden;
+  document.querySelector<HTMLButtonElement>('#sellList [data-sell="0"]')!.click();
+  const sold = [run.bits - bits0 === sellValue(w), player.bag[0] === null, el('#sellList').hidden];
+  el('#perkDone').click();
+  update(1 / 60);
+  const stays = stateIs('play');
+  endRun('abandon');
+  if (!underfoot) throw new Error('terminal opened underfoot');
+  if (!open) throw new Error('terminal did not open');
+  if (sold.join() !== [true, true, true].join()) throw new Error('terminal sell ' + sold);
+  if (!stays) throw new Error('terminal opened again without stepping off');
 });
 test('level: a save from before it has the reboot folded into its points', () => {
   const old = {
@@ -3306,6 +3333,10 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   hurtEnemy(boss!, boss!.hp + 1, false);
   tick(2);
   expect(level.portals.map(p => p.kind).sort()).toEqual(expect.arrayContaining(['extract', 'next']));
+  expect(
+    level.portals.some(p => p.kind === 'terminal'),
+    "a milestone's boss leaves a terminal",
+  ).toBe(isMilestone(tier));
   expect(isDoorLocked(world, hall.door), 'the way back opens again').toBe(false);
   expect(bystander.dead, 'the enemies in the other rooms are still there').toBeFalsy();
   // after the supply the rooms of this building drop no chips, however often one is cleared

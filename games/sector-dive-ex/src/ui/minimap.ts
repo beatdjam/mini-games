@@ -38,9 +38,11 @@ export function markers(big: boolean): MapMarker[] {
     const name =
       pt.kind === 'extract'
         ? 'map.extract'
-        : pt.kind === 'next' && (level.arena || level.hall)
-          ? 'map.next'
-          : 'map.exit';
+        : pt.kind === 'terminal'
+          ? 'map.terminal'
+          : pt.kind === 'next' && (level.arena || level.hall)
+            ? 'map.next'
+            : 'map.exit';
     const color = '#' + pt.color.toString(16).padStart(6, '0');
     out.push({ x: pt.x, z: pt.z, shape: 'ring', color, size: 5, label: big ? t(name) : undefined, font: LABEL_FONT });
   });
