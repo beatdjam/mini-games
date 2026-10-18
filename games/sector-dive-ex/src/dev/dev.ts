@@ -22,7 +22,7 @@ import { setFireHeld } from '@engine/ui/input.ts';
 import { addPickup, enemies, fanAt, removeEnemyMesh, ring, shootAtPoint, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
 import { damagePlayer } from '../actors/combat.ts';
-import { magSize, newWeapon } from '../actors/weapons.ts';
+import { fillMag, magSize, newWeapon } from '../actors/weapons.ts';
 import { normalizeWeapons } from '../ui/input.ts';
 import { toggleMap3D, updateHitDirs, weaponHud } from '../ui/hud.ts';
 import { changeLang } from '../ui/settings.ts';
@@ -30,6 +30,9 @@ import { devFirstSector, endRun, startPractice, startRun, startStage } from '../
 import { setState, show } from '../flow/state.ts';
 import { suspendRun } from '../flow/suspend.ts';
 import { openPerk } from '../screens/perk.ts';
+import { openBag } from '../screens/bag.ts';
+import { pause } from '../screens/pause.ts';
+import { openLevelUp } from '../screens/levelup.ts';
 import { renderBase, showTab } from '../screens/base.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { update } from '../flow/update.ts';
@@ -624,6 +627,24 @@ if (location.hash.startsWith('#view-perk'))
       renderBase();
     }, 0);
 }
+// dev view: #view-scr-<bag|pause|term> opens the bag, the pause screen or a milestone's terminal in a sample dive
+// (two weapons held, two in the bag, some chips and bits), for screenshots
+if (location.hash.startsWith('#view-scr-'))
+  setTimeout(() => {
+    startRun();
+    run.stage = 4 * PER + PER - 1;
+    run.bits = 5200;
+    run.perks = ['overload', 'overload', 'rapid+', 'crit', 'reload', 'light', 'magnet', 'split'];
+    player.kits = 2;
+    player.weapons = [fillMag(newWeapon('rail', 2, false, 9, ['crit', 'mag'])), fillMag(newWeapon('smg', 1, false, 7))];
+    player.bag = [newWeapon('shotgun', 1, false, 6, ['rate']), newWeapon('launcher', 0, false, 5), null, null];
+    normalizeWeapons();
+    weaponHud();
+    const what = location.hash.slice('#view-scr-'.length);
+    if (what === 'bag') openBag();
+    else if (what === 'pause') pause();
+    else if (what === 'term') openLevelUp();
+  }, 300);
 // dev view: #tab-<sortie|up|practice|settings>[-touch] opens that base tab
 if (location.hash.startsWith('#tab-')) setTimeout(() => showTab(location.hash.slice(5).replace(/-touch$/, '')), 0);
 // dev view: #view-susp[-touch] leaves a suspended run and returns to the base

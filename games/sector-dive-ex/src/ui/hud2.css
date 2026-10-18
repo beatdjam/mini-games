@@ -241,17 +241,18 @@ body.hud2 .bbar i {
 }
 
 /* ---- the chip screen: one dark steel plate; each chip a black plate in white paint. Yellow means one thing here, a
-   rare chip: its frame, its name and its words. No stripes ---- */
-body.hud2 #scrPerk {
+   rare chip: its frame, its name and its words. No stripes. The bag, the pause screen and the result are the same
+   plate (2026-10-18) ---- */
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) {
   background: rgba(6, 7, 7, 0.86);
 }
-body.hud2 #scrPerk .card {
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) .card {
   padding: 26px 24px 22px;
   background: var(--steel);
   border: 1px solid #3d4143;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
 }
-body.hud2 #scrPerk .eyebrow {
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) .eyebrow {
   justify-self: start;
   padding: 0 9px;
   background: none;
@@ -261,12 +262,12 @@ body.hud2 #scrPerk .eyebrow {
   font-size: 13px;
   letter-spacing: 0.1em;
 }
-body.hud2 #scrPerk h2 {
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) h2 {
   font-weight: 500;
   font-size: 24px;
   color: var(--paint);
 }
-body.hud2 :is(#scrPerk .chips, .perkmore summary) {
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(.chips, .perkmore summary) {
   color: var(--paint2);
 }
 body.hud2 .perk {
@@ -327,6 +328,154 @@ body.hud2 .perk.rare :is(.pd, .pcur) {
 body.hud2 .perk.rare:is(:hover, :focus-visible) {
   outline-width: 4px;
   outline-offset: -4px;
+}
+
+/* ---- the screens on the steel plate (chips, terminal, bag, pause, result): the headings in the stencil, the rows of
+   figures as black strips with the words in worn paint and the figures in white, the one thing to do next in safety
+   yellow and the rest outlined in paint ---- */
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) .card {
+  color: var(--paint);
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) h3 {
+  font-family: var(--sten);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--paint2);
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(h3 small, .statbox h3) {
+  font-family: var(--disp);
+  letter-spacing: 0;
+  color: var(--paint2);
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(.reslist, .guide) {
+  background: #000;
+  border-color: #000;
+  box-shadow: 0 1px 0 #3d4143;
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(.reslist div, .guide dt, .guide dd) {
+  background: #141516;
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(.reslist dt, .guide dt) {
+  color: var(--paint2);
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(.reslist dd, .guide dd) {
+  color: var(--paint);
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) .primary {
+  background: var(--safety);
+  border: 0;
+  color: #151515;
+  font-family: var(--sten);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  box-shadow: 0 3px 0 #000;
+  text-shadow: none;
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(.ghost, .mini-btn, .buy) {
+  background: none;
+  border: 1px solid var(--paint2);
+  color: var(--paint);
+  box-shadow: none;
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(.ghost, .mini-btn, .buy):is(:hover, :focus-visible) {
+  border-color: var(--paint);
+  background: rgba(235, 231, 218, 0.08);
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) .mini-btn.amber {
+  border-color: var(--safety);
+  color: var(--safety);
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) :is(.mini-btn, .buy):disabled {
+  border-color: #3d4143;
+  color: #5b5e5f;
+  background: none;
+}
+body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) .sharebtn {
+  color: var(--paint2);
+}
+/* (a level that cannot be bought: the plate stays, dimmed) */
+body.hud2 .perk:disabled {
+  opacity: 0.45;
+}
+/* the terminal: the bits and the next level's price in a line, the weapons to sell as plates with their outlines,
+   DONE outlined in paint (buying is the thing to do here) */
+body.hud2 #scrPerk[data-mode='level'] #levelNote {
+  color: var(--paint);
+  font-family: var(--disp);
+  font-size: 14px;
+}
+body.hud2 #scrPerk[data-mode='level'] #perkDone {
+  background: none;
+  border: 1px solid var(--paint2);
+  color: var(--paint);
+  box-shadow: none;
+  font-size: 16px;
+}
+body.hud2 :is(.perk, .item) .wico {
+  display: block;
+  width: 64px;
+  height: 24px;
+}
+body.hud2 :is(.perk, .item) .wico svg {
+  width: 100%;
+  height: 100%;
+}
+/* (a weapon to sell: its outline on top, where a chip has its name's bar) */
+body.hud2 .perk .wico {
+  margin: 10px 14px 0;
+}
+body.hud2 .perk:has(> .wico) .pn {
+  background: none;
+  border-bottom: 0;
+  padding-block: 0;
+  font-size: 15px;
+}
+/* the bag: each weapon a black plate with its outline in its rarity's colour (the left edge in that colour as well),
+   the one picked framed in paint; an empty place a dashed outline */
+body.hud2 #scrBag .item {
+  gap: 4px;
+  background: linear-gradient(180deg, #1a1c1d, #111213);
+  border: 1px solid #000;
+  box-shadow:
+    inset 0 0 0 1px #3d4143,
+    0 2px 0 rgba(0, 0, 0, 0.5);
+  color: var(--paint);
+}
+body.hud2 #scrBag .item .ws {
+  color: var(--paint2);
+}
+/* (the rarity is told by the outline, the left edge and the stars: the name and the options stay in paint) */
+body.hud2 #scrBag .item .wn > span {
+  color: var(--paint) !important;
+}
+body.hud2 #scrBag .item .wopt {
+  color: var(--paint2);
+}
+body.hud2 #scrBag .item.sel {
+  outline: 2px solid var(--paint);
+  outline-offset: -2px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+body.hud2 #scrBag .item.none {
+  background: none;
+  border: 1px dashed #3d4143;
+  box-shadow: none;
+  color: #5b5e5f;
+}
+body.hud2 #scrBag :is(.invact, .invrow) {
+  color: var(--paint2);
+}
+body.hud2 #scrBag .invrow {
+  background: #141516;
+  border-color: #000;
+  box-shadow: 0 1px 0 #3d4143;
+}
+body.hud2 #scrBag .invrow b {
+  color: var(--paint);
+}
+/* the result: the report's rows; the eyebrow says how it ended */
+body.hud2 #scrResult .reslist div {
+  padding: 10px 14px;
 }
 
 /* ---- the crosshair: paint, and warning red when it is on an enemy; the hint line in worn paint ---- */
@@ -641,26 +790,26 @@ body.hud2 #scrBase .suspend .primary {
   letter-spacing: 0.16em;
 }
 /* ---- the settings page in the same paints: plates in steel, what is on in white paint, sliders in safety yellow ---- */
-body.hud2 #scrBase :is(.seg, .toggle, .sens, .mini-btn, .savepanel textarea) {
+body.hud2 :is(#scrBase, #scrPause) :is(.seg, .toggle, .sens, .mini-btn, .savepanel textarea) {
   background: linear-gradient(180deg, #1f2122, #161718);
   border-color: #3d4143;
   color: var(--paint);
 }
-body.hud2 #scrBase .seg button {
+body.hud2 :is(#scrBase, #scrPause) .seg button {
   border-left-color: #3d4143;
   color: var(--paint2);
 }
-body.hud2 #scrBase .seg button[aria-pressed='true'] {
+body.hud2 :is(#scrBase, #scrPause) .seg button[aria-pressed='true'] {
   color: #151515;
   background: var(--paint);
 }
-body.hud2 #scrBase .toggle b {
+body.hud2 :is(#scrBase, #scrPause) .toggle b {
   color: var(--paint2);
 }
-body.hud2 #scrBase .toggle[aria-pressed='true'] b {
+body.hud2 :is(#scrBase, #scrPause) .toggle[aria-pressed='true'] b {
   color: var(--safety);
 }
-body.hud2 #scrBase input[type='range'] {
+body.hud2 :is(#scrBase, #scrPause) input[type='range'] {
   accent-color: var(--safety);
 }
 body.hud2 #scrBase .back {
