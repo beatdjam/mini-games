@@ -192,18 +192,15 @@ body.hud2 #banner .sub {
 body.hud2 #banner.alert .code {
   color: var(--stop);
 }
-/* (a striped band only when the big name warns: a boss has come, its bar is up; a lockdown) */
+/* (a striped band only when the big name warns: a boss has come, its bar is up; a lockdown. It is thin and the room
+   shows through it, as the fight goes on behind it; the words keep their shadow to stay readable) */
 body.hud2 #bossBar:not([hidden]) ~ #banner,
 body.hud2 #banner.alert {
-  padding: 9px 0 10px;
+  padding: 6px 0 7px;
   background:
-    var(--stripe) top / 100% 5px no-repeat,
-    var(--stripe) bottom / 100% 5px no-repeat,
-    rgba(14, 15, 15, 0.9);
-}
-body.hud2 #bossBar:not([hidden]) ~ #banner .code,
-body.hud2 #banner.alert .code {
-  text-shadow: none;
+    var(--stripe) top / 100% 3px no-repeat,
+    var(--stripe) bottom / 100% 3px no-repeat,
+    rgba(14, 15, 15, 0.35);
 }
 body.hud2 #alarmText {
   justify-self: center;
