@@ -128,8 +128,13 @@ export function wallPic(
     }
   }
   if (!sides || (!sides.outer?.includes(v) && !sides.inner?.includes(v))) return v;
-  const side = wallSide(d, k, beyond);
-  return (sides.outer?.includes(v) && side === 'outer') || (sides.inner?.includes(v) && side === 'inner') ? v : 0;
+  const side = wallSide(d, k, beyond),
+    // (the tile is floor on another floor: the building runs out past this wall above or below it, and its outside,
+    // one straight mass, takes that floor in: a window here would look out from inside it, past its walls)
+    under = beyond?.[k] === 1;
+  return (sides.outer?.includes(v) && side === 'outer' && !under) || (sides.inner?.includes(v) && side === 'inner')
+    ? v
+    : 0;
 }
 // What a building's wall looks out on (engine wallSide's `beyond`), registered by the floor's grid (world/building.ts):
 // another floor's floor counts as floor (so a wall is outside only where the building as a whole ends, and a window
