@@ -7,6 +7,8 @@ import { persist, save } from '../core/save.ts';
 import { addLevelPoint } from '../core/progress.ts';
 import { levelOf, nextLevelCost, sellValue } from '../core/rules.ts';
 import { weaponText } from '../actors/weapons.ts';
+import { RARITY } from '../data/weapons.ts';
+import { weaponIcon } from '../ui/hud2.ts';
 import { applyLevelPoint, player, run } from '../actors/player.ts';
 import { bigmap, weaponHud } from '../ui/hud.ts';
 import { setState, show } from '../flow/state.ts';
@@ -52,7 +54,7 @@ function renderSell() {
     const b = document.createElement('button');
     b.className = 'perk';
     b.dataset.sell = String(i);
-    b.innerHTML = `<span class="pn">${weaponText(w)}</span><span class="pcur">${t('level.sellFor', { v: sellValue(w) })}</span>`;
+    b.innerHTML = `<span class="wico" style="color:${RARITY[w.r].css}">${weaponIcon(w.id)}</span><span class="pn">${weaponText(w)}</span><span class="pcur">${t('level.sellFor', { v: sellValue(w) })}</span>`;
     b.addEventListener('click', () => sell(i));
     list.appendChild(b);
   });

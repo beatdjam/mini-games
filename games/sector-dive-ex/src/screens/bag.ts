@@ -10,6 +10,7 @@ import { kitHealAmount } from '../actors/combat.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
 import { normalizeWeapons, useKit } from '../ui/input.ts';
 import { bigmap, weaponHud } from '../ui/hud.ts';
+import { weaponIcon } from '../ui/hud2.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { statsHTML } from './pause.ts';
 import { weaponReachText } from './base.ts';
@@ -61,6 +62,7 @@ function itemCard(w: WeaponItem | null, where: string, i: number) {
       ? `<span class="ws">${t('bag.slotN', { n: i + 1 })}${i === player.cur ? t('bag.inHand') : ''}</span>`
       : '';
   return `<button class="item ${sel ? 'sel' : ''}" ${attrs} style="border-left:3px solid ${edge}">
+    <span class="wico" style="color:${RARITY[w.r].css}">${weaponIcon(w.id)}</span>
     <span class="wn">${weaponName(w)}</span>
     <span class="ws">${nums}</span>${weaponOptsHTML(w)}
     ${keep}
