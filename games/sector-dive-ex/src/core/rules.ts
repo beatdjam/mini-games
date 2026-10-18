@@ -4,7 +4,6 @@ import {
   CRIT_OPT_PER_LEVEL,
   DROP_POOL,
   MAG_OPT_PER_LEVEL,
-  PLUS_BELOW_MAX,
   PLUS_DMG,
   PLUS_FROM_STAGE,
   PLUS_PER_STAGE,
@@ -12,6 +11,8 @@ import {
   RARITY,
   RATE_OPT_MUL,
   RELOAD_OPT_MUL,
+  SUPPLY_PLUS_BELOW,
+  SUPPLY_RARITY_AT,
   WEAPONS,
 } from '../data/weapons.ts';
 import {
@@ -49,14 +50,18 @@ export const pickDrop = () => {
   const id = DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
   return dropOnly ?? id;
 };
-// the + value a base weapon is handed out with for a dive starting at `stage` (progress): what the weapons dropped there
-// usually have, less PLUS_BELOW_MAX, so the first one found is a step up
+// the + value a base weapon is handed out with for a dive starting at `stage` (progress): the level of the weapons
+// dropped there, less SUPPLY_PLUS_BELOW (about what they average)
 export const supplyPlus = (stage: number): number =>
-  stage >= PLUS_FROM_STAGE ? Math.max(0, Math.floor((stage - PLUS_STAGE_OFFSET) * PLUS_PER_STAGE) - PLUS_BELOW_MAX) : 0;
-// a base weapon as it is handed out for a dive from `tier` (0-based start depth): the + value of that depth's drops a
-// little under them (supplyPlus), plain rarity. A found weapon as it is
+  stage >= PLUS_FROM_STAGE
+    ? Math.max(0, Math.floor((stage - PLUS_STAGE_OFFSET) * PLUS_PER_STAGE) - SUPPLY_PLUS_BELOW)
+    : 0;
+// the rarity a base weapon is handed out with for a dive from `tier` (0-based start depth)
+export const supplyRarity = (tier: number): number => SUPPLY_RARITY_AT.filter(at => tier >= at).length;
+// a base weapon as it is handed out for a dive from `tier` (0-based start depth): the + value (supplyPlus) and rarity
+// (supplyRarity) of that depth. A found weapon as it is
 export const basicNow = <W extends WeaponItem | null>(w: W, tier = 0): W =>
-  w && w.basic ? Object.assign({}, w, { plus: supplyPlus(progressOf(tier * PER)), r: 0 }) : w;
+  w && w.basic ? Object.assign({}, w, { plus: supplyPlus(progressOf(tier * PER)), r: supplyRarity(tier) }) : w;
 // sustained damage per second of a weapon before any chips: the same sum as weaponStats (src/actors/weapons.ts)
 // with every chip-driven value at its start, so it works on the base screen where there is no player
 function bareDps(w: WeaponItem): number {
@@ -93,9 +98,13 @@ const readyNow = (tier: number): ReadyState => ({
   dmg: startDmgMul(save.up.dmg),
   hp: startMaxHp(save.up.hp),
 });
-// what `picks` shortcut supply picks multiply the offence by
+// what `picks` shortcut supply picks multiply the offence by (the curve was fitted to picks worth 5 chips each: more
+// a pick counts as that many more picks)
 const supplyGain = (picks: number): number =>
-  picks > 0 ? Math.exp(TUNE.supplyCurve[0]! * Math.pow(picks, TUNE.supplyCurve[1]!)) : 1;
+  picks > 0
+    ? Math.exp(TUNE.supplyCurve[0]! * Math.pow((picks * TUNE.supplyTimes) / SUPPLY_CURVE_TIMES, TUNE.supplyCurve[1]!))
+    : 1;
+const SUPPLY_CURVE_TIMES = 5;
 export function readinessScore(tier: number, s: ReadyState = readyNow(tier)): number {
   const best = Math.max(0, ...s.weapons.map(bareDps));
   const bossWall = Math.pow(

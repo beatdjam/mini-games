@@ -44,7 +44,8 @@ export const TUNE = {
   kitDropChance: 0.06, // chance an enemy drops a kit
   chipChance: 0.3, // chance a cleared room gives a chip (otherwise a kit + bits); 4 or 5 chips from the rooms of a building
   rareChipChance: 0.12, // chance each offered chip is the rare (gold, stronger) version
-  supplyTimes: 5, // a shortcut supply pick (one per skipped depth) gives the chosen chip this many times
+  supplyTimes: 7, // a shortcut supply pick (one per skipped depth) gives the chosen chip this many times (5 until
+  // 2026-10-18: a dive started again from a milestone had some 110 chips where the dive that got there had 165 to 180)
   // what the supply picks are worth in the start-depth readiness: exp(a * picks ^ b). Chips of different kinds multiply
   // but the same kind only adds up, so each further pick is worth a little less (fitted to a deep run's chip mix, split-shot capped at SPLIT_MAX)
   supplyCurve: [0.6, 0.69],

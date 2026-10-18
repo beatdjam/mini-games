@@ -79,6 +79,7 @@ import {
 } from '../src/core/save.ts';
 import {
   supplyPlus,
+  supplyRarity,
   perkName,
   pickDrop,
   levelOf,
@@ -992,7 +993,9 @@ test('every type drops regardless of unlocks; base weapons are issued for the st
     startRun();
     tick(2);
     const w = player.weapons[0]!;
-    if (w.id !== 'rail' || w.r !== 0 || !w.basic) throw new Error('issued basic ' + JSON.stringify(w));
+    // (★ at DEPTH 1, ★★ at DEPTH 10: supplyRarity)
+    if (w.id !== 'rail' || w.r !== supplyRarity(tier) || w.r !== (tier ? 1 : 0) || !w.basic)
+      throw new Error('issued basic ' + JSON.stringify(w));
     got.push(w.plus || 0);
     endRun('abandon');
   }
