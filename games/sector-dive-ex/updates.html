@@ -7,11 +7,16 @@
 <title>Sector Dive Extended 更新履歴</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=DotGothic16&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=DotGothic16&family=Saira+Stencil+One&display=swap">
 <style>
+/* the field kit's look, as in the game (src/ui/hud2.css, 2026-10-18): dark steel and white paint, safety yellow the one
+   colour that stands out; the labels in the stencil. The kinds of change are small marks: added in yellow, fixed in
+   warning red, changed (most of the list) in worn paint, so the other two stand out */
 :root{
   color-scheme:dark;
-  --bg:#05080c; --panel:#0a1119; --line:#1b2a38; --text:#d5e4ee; --dim:#7f94a6; --cyan:#54e8ff; --amber:#ffc24a; --lime:#8cff6a; --mag:#ff4d8d;
+  --bg:#0a0b0b; --text:#ebe7da; --dim:#a09d92; --edge:#3d4143; --safety:#f2b705; --stop:#d8402f;
+  --steel:linear-gradient(180deg,#1f2122,#161718);
+  --sten:"Saira Stencil One","Chakra Petch",sans-serif;
   --disp:"Chakra Petch","DotGothic16","Hiragino Sans",system-ui,sans-serif;
   --jp:"DotGothic16","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
 }
@@ -21,24 +26,26 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--jp);font-
   padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
 main{max-width:760px;margin:0 auto;padding-block:32px 64px;display:grid;gap:28px}
 nav{display:flex;gap:16px;flex-wrap:wrap;font-size:13px}
-nav a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line)}
-nav a:hover{color:var(--text)}
-header{display:grid;gap:6px}
-.eyebrow{margin:0;font-family:var(--disp);font-size:12px;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
-h1{margin:0;font-family:var(--disp);font-weight:700;font-size:clamp(28px,6vw,44px);letter-spacing:.1em;line-height:1.1}
-h1 span{color:var(--cyan)}
+nav a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--edge)}
+nav a:hover{color:var(--text);border-bottom-color:var(--text)}
+header{display:grid;gap:10px}
+.eyebrow{justify-self:start;margin:0;padding:0 9px;border:1px solid var(--dim);font-family:var(--sten);font-size:13px;letter-spacing:.1em;color:var(--text);text-transform:uppercase}
+h1{margin:0;font-family:var(--sten);font-weight:400;font-size:clamp(28px,6vw,44px);letter-spacing:.06em;line-height:1.1}
+h1 span{color:var(--safety)}
+h1 small{display:block;margin-top:6px;font-family:var(--jp);font-size:16px;letter-spacing:0;color:var(--dim)}
 header p{margin:0;color:var(--dim);font-size:14px}
-.day{margin:8px 0 -12px;font-family:var(--disp);font-size:14px;font-weight:500;letter-spacing:.14em;color:var(--dim)}
+.day{margin:8px 0 -12px;font-family:var(--sten);font-size:15px;font-weight:400;letter-spacing:.08em;color:var(--dim)}
 .list{display:grid;gap:10px}
-.release{display:grid;gap:6px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line)}
-.release.latest{border-left-color:var(--cyan)}
+.release{display:grid;gap:6px;padding:12px 16px;background:var(--steel);border:1px solid var(--edge);box-shadow:0 2px 0 rgba(0,0,0,.5)}
+.release.latest{box-shadow:inset 4px 0 0 var(--safety),0 2px 0 rgba(0,0,0,.5);border-color:var(--text)}
 .release ul{margin:0;padding-left:1.2em;display:grid;gap:4px}
-.release li::marker{color:var(--dim)}
-.tag{display:inline-block;font-size:11px;padding:0 6px;margin-right:6px;border:1px solid var(--line);color:var(--dim);vertical-align:1px}
-.tag.new{color:var(--lime);border-color:#35602a}
-.tag.fix{color:var(--mag);border-color:#5a2238}
-.tag.bal{color:var(--amber);border-color:#5a4418}
+.release li::marker{color:var(--edge)}
+.tag{display:inline-block;font-size:11px;padding:0 6px;margin-right:8px;border:1px solid var(--dim);color:var(--dim);vertical-align:1px;line-height:1.6}
+.tag.new{color:var(--safety);border-color:var(--safety)}
+.tag.fix{color:var(--stop);border-color:var(--stop)}
+.tag.bal{color:var(--dim);border-color:var(--dim)}
 footer{font-size:12px;color:var(--dim)}
+footer a{color:inherit}
 </style>
 </head>
 <body>
@@ -46,14 +53,14 @@ footer{font-size:12px;color:var(--dim)}
   <nav><a href="./">← ゲームへ</a><a href="../../">ゲーム一覧</a></nav>
   <header>
     <p class="eyebrow">update log</p>
-    <h1>SECTOR<span>/</span>DIVE <span>EX</span> 更新履歴</h1>
+    <h1>SECTOR<span>/</span>DIVE <span>EX</span><small>更新履歴</small></h1>
     <p>最新の5件と、日付ごとのまとめ。<span class="tag new">追加</span>新機能 <span class="tag bal">調整</span>バランスや見た目の変更 <span class="tag fix">修正</span>不具合の修正</p>
   </header>
 
   <!-- updates:start（tools/build_updates.py が生成。手で編集しない） -->
   <!-- updates:end -->
 
-  <footer>細かい仕様は <a href="https://github.com/beatdjam/mini-games/blob/master/games/sector-dive-ex/SPEC.md" style="color:inherit">SPEC.md</a> にまとめてある。</footer>
+  <footer>細かい仕様は <a href="https://github.com/beatdjam/mini-games/blob/master/games/sector-dive-ex/SPEC.md">SPEC.md</a> にまとめてある。</footer>
 </main>
 </body>
 </html>
