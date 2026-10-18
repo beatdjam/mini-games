@@ -14,15 +14,13 @@ import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { hpGrowth, isMilestone } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
 import { openShortcut, recordBossKill, recordBossSeen, recordPeak } from '../../core/progress.ts';
-import { openLevelUp } from '../../screens/levelup.ts';
-import { state } from '../../flow/state.ts';
 import { progressOf } from '../../core/rules.ts';
 import { arenaCenter, level } from '../../world/level.ts';
 import { BOSS_POOL_SIDE } from '../../world/models/bossLooks.ts';
 import { bossHullMat, groundPool } from '../../world/models/machine.ts';
 import { plainLooks } from '../../world/looks.ts';
 import { onBossDown } from '../../flow/events.ts';
-import { makePortal } from '../../world/portals.ts';
+import { makePortal, makeTerminal } from '../../world/portals.ts';
 import {
   addPickup,
   dropBits,
@@ -275,8 +273,9 @@ function giveBossRewards(e: Boss, tier: number, progress: number) {
   addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(progress + BOSS_WEAPON_PROGRESS_BONUS, minRarity) });
   makePortal(e.cx + 6, e.cz - 2, COLOR.amber, 'next', t('boss.forward'));
   makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
+  // a milestone's boss: a terminal between the gates, where the dive's bits buy levels (screens/levelup.ts)
+  if (isMilestone(tier)) makeTerminal(e.cx, e.cz - 2, COLOR.lime, t('boss.terminal'));
 }
-const LEVEL_UP_DELAY = 1800; // the milestone's level-up opens this long after the kill (ms), once the boss's end has played
 // the kill counts toward the save: deepest depth, the next shortcut
 function recordBossProgress(tier: number) {
   recordBossKill();
@@ -300,8 +299,6 @@ export function bossDown(e: Boss) {
   }
   const tier = stageInfo(run.stage).tier;
   giveBossRewards(e, tier, progressOf(run.stage));
-  // the way on is into a milestone: the dive's bits can buy levels here (screens/levelup.ts)
-  if (isMilestone(tier + 1)) setTimeout(() => state === 'play' && openLevelUp(), LEVEL_UP_DELAY);
   onBossDown();
   hideBossBar();
   recordBossProgress(tier);

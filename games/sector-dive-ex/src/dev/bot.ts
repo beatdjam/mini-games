@@ -19,7 +19,7 @@ import { kitHealAmount } from '../actors/combat.ts';
 import { building } from '../world/building.ts';
 import { level } from '../world/level.ts';
 import { state } from '../flow/state.ts';
-import { controlState, equipNearby, normalizeWeapons, useKit } from '../ui/input.ts';
+import { controlState, equipNearby, normalizeWeapons, stowNearby, useKit } from '../ui/input.ts';
 import { el, yawToward, wrapAngle, turnToward } from '@engine/core/util.ts';
 // ================= a player that plays by itself (dev) =================
 // For looking at the balance without playing by hand: a bot that walks the building's route, fights what it sees and
@@ -191,7 +191,8 @@ export interface BotStats {
   kits: number; // kits used
   hazard: number; // seconds stood on a live hazard floor
   picked: number; // weapons taken from the floor
-  levels: number; // levels bought at the milestones
+  levels: number; // levels bought at the milestones' terminals
+  sold: number; // weapons sold there
   dashes: number; // dashes made to get clear of a shot or a shockwave
   depth: number; // the deepest depth it played (1 = the first)
   floors: number; // floors of the building it reached
@@ -202,8 +203,8 @@ export interface BotStats {
   trace: string[]; // what it did, in order: `<second> <floor> <what>` each time that changed
 }
 
-// ---- the milestones' level-ups ----
-// whether the bot buys levels at a milestone (the sim's SIM_LEVEL=off turns it off, to compare)
+// ---- the milestones' terminals ----
+// whether the bot uses a milestone's terminal: stows the weapons it does not want, sells them there and buys levels (the sim's SIM_LEVEL=off turns it off, to compare)
 let botLevels = true;
 export function setBotLevels(on: boolean) {
   botLevels = on;
@@ -229,6 +230,7 @@ export function createBot(style: BotStyle) {
     hazard: 0,
     picked: 0,
     levels: 0,
+    sold: 0,
     dashes: 0,
     depth: 1,
     floors: 1,
@@ -268,8 +270,11 @@ export function createBot(style: BotStyle) {
     if ((dist[tileIndex(player.x, player.z)] ?? -1) < 0) spread(goal, false);
   }
   // the gates it keeps away from: the ones other than the gate it means to take, once that one is open
+  // (a terminal is not a way out: it is never kept away from)
   const gatesToShun = () =>
-    level.portals.some(pt => pt.kind === style.after) ? level.portals.filter(pt => pt.kind !== style.after) : [];
+    level.portals.some(pt => pt.kind === style.after)
+      ? level.portals.filter(pt => pt.kind !== style.after && pt.kind !== 'terminal')
+      : [];
   function spread(goal: number, roundGates: boolean) {
     const grid = activeTileGrid(),
       { W, H, grid: floor } = grid.world;
@@ -433,6 +438,8 @@ export function createBot(style: BotStyle) {
   // The nearest wanted thing it can walk to within the range it goes out of its way for. Once it has set out for
   // one it stays with it (or it would turn back and forth between two); one it cannot get in LOOT_GIVE_UP seconds is
   // left for good
+  // the terminals it has been to (one a level: world/portals.ts makeTerminal)
+  const termsUsed = new WeakSet<object>();
   let lootFor: Pickup | null = null;
   let lootT = 0;
   const lootLeft = new Set<Pickup>();
@@ -459,9 +466,14 @@ export function createBot(style: BotStyle) {
     return lootFor;
   }
   // a weapon in reach: take it into the empty slot, or in place of the worse one; then hold the better of the two
+  // (one it does not want goes into the bag while there is room, to be sold at a milestone's terminal)
   function takeWeapons() {
     const p = nearPickup;
-    if (!p || !wanted(p)) return;
+    if (!p) return;
+    if (!wanted(p)) {
+      if (botLevels && player.bag.includes(null)) stowNearby();
+      return;
+    }
     // (the one in hand is the one swapped out: the worse of the two)
     if (player.weapons[1] && dpsOf(player.weapons[player.cur] ?? null) > worstHeld()) player.cur ^= 1;
     normalizeWeapons();
@@ -531,6 +543,9 @@ export function createBot(style: BotStyle) {
       tileAt = (x: number, z: number) => tileIndex(x, z);
     const loot = lootNear(dt);
     if (loot) return { tile: tileAt(loot.x, loot.z), what: `pick up a ${loot.kind}`, at: loot };
+    // a milestone's terminal, once (botLevels)
+    const term = botLevels ? level.portals.find(p => p.kind === 'terminal' && !termsUsed.has(p)) : undefined;
+    if (term) return { tile: tileAt(term.x, term.z), what: 'terminal', at: term };
     const gate = level.portals.find(p => p.kind === style.after) ?? level.portals[0];
     if (gate) {
       // (a gate that opened underfoot works only once it has been stepped away from: data/level.ts PORTAL)
@@ -578,8 +593,14 @@ export function createBot(style: BotStyle) {
   function play(dt: number) {
     if (save.settings.autofire !== style.autofire) toggleSetting('autofire');
     if (state === 'perk' && el('#scrPerk').dataset.mode === 'level') {
-      // a milestone's level-up: spend the dive's bits (botLevels), then go on
+      // a milestone's terminal: sell what is in the bag, spend the dive's bits (botLevels), then go on
       if (botLevels) {
+        const sell = document.querySelector<HTMLButtonElement>('#sellList [data-sell]');
+        if (sell) {
+          sell.click();
+          stats.sold++;
+          return;
+        }
         const pick = levelPick();
         if (pick) {
           pick.click();
@@ -587,6 +608,7 @@ export function createBot(style: BotStyle) {
           return;
         }
       }
+      level.portals.forEach(pt => pt.kind === 'terminal' && termsUsed.add(pt));
       el('#perkDone').click();
       return;
     }

@@ -72,7 +72,7 @@ function gateFrame(color: number): THREE.Group {
   f.add(plate);
   return f;
 }
-// a gate: kind 'next' (on to the next area) or 'extract' (back to base)
+// a gate: kind 'next' (on to the next area) or 'extract' (back to base), or a milestone's terminal (makeTerminal)
 // t: seconds since it appeared; clear: the player has been away from it since then (both needed before it works)
 export interface Portal {
   x: number;
@@ -117,4 +117,37 @@ export function makePortal(x: number, z: number, color: number, kind: PortalKind
   level.group!.add(g); // gates are made after the level is built
   const clear = !player || distXZ(player, { x, z }) >= PORTAL.clearR; // opened underfoot: wait until the player steps off
   level.portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear });
+}
+// ---- the milestone's terminal (screens/levelup.ts): a console on a ring on the floor. It is a gate of kind 'terminal'
+// to flow/update.ts (stepping onto the ring opens it, and it opens again only once stepped off), but it is not a way
+// out: the ring lies on the floor and turns there ----
+const TERMINAL = { w: 0.9, h: 1.2, d: 0.5, ringR: 1.4 }; // the console (m) and the ring round it on the floor (m)
+export function makeTerminal(x: number, z: number, color: number, label: string) {
+  const g = new THREE.Group(),
+    foot = -PORTAL.centerY; // the ground, seen from the group's middle
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(TERMINAL.w, TERMINAL.h, TERMINAL.d),
+    new THREE.MeshLambertMaterial({ color: 0x2c3035 }),
+  );
+  body.position.y = foot + TERMINAL.h / 2;
+  // the screen: what shows whether it works yet (flow/update.ts, as a gate's disc)
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(0.32, 24),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  disc.position.set(0, foot + TERMINAL.h * 0.72, TERMINAL.d / 2 + 0.01);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(TERMINAL.ringR, 0.05, 6, 40),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35 }),
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = foot + 0.05;
+  g.add(body, disc, ring);
+  const s = textSprite(label, '#' + color.toString(16).padStart(6, '0'));
+  s.position.y = foot + TERMINAL.h + GATE_LABEL_GAP;
+  g.add(s);
+  g.position.set(x, floorY(x, z) + PORTAL.centerY, z);
+  level.group!.add(g); // made after the level is built, as the gates
+  const clear = !player || distXZ(player, { x, z }) >= PORTAL.clearR;
+  level.portals.push({ x, z, g, ring, disc, kind: 'terminal', color, t: 0, clear });
 }

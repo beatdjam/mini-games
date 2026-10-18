@@ -109,7 +109,7 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
     // every kind of player up to where they play differently
     Math.random = createRng(seed).next;
     const bot = createBot(style!);
-    // (SIM_LEVEL=off: no levels bought at the milestones, the game as before them, to compare)
+    // (SIM_LEVEL=off: the milestones' terminals are not used, the game as before them, to compare)
     setBotLevels(__SIM_LEVEL__ !== 'off');
     setDropOnly(weapon);
     startRun();
@@ -202,6 +202,7 @@ test.each(cases)(`bot $name: seeds ${__SIM_SEEDS__}`, async ({ style: styleName,
       last: s.doing,
       bits: Math.floor(run?.bits ?? 0),
       bought: s.levels,
+      sold: s.sold,
       // (how many levels the run's bits would buy from level 0: data/progress.ts levelCost)
       levels: levelsFor(Math.floor(run?.bits ?? 0)),
       bitsAt: bitsAt.join(' ') || '-',
