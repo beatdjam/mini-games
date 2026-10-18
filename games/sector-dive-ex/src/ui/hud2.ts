@@ -36,6 +36,8 @@ const WEAPON_PATH: Record<string, string> = {
   rail: 'M2 8h56l4 2-4 2H40v3H28l-3 6h-7l3-6H8l-3 2H2z',
   launcher: 'M4 5h52v10H38l-2 3h-5l-1 4h-6l1-4h-4v-3H4z',
 };
+// a weapon's outline as a path on the 64 x 24 box (the share card draws it on a canvas)
+export const weaponPath = (id: string): string => WEAPON_PATH[id] ?? WEAPON_PATH.pistol!;
 export const weaponIcon = (id: string) =>
   `<svg viewBox="0 0 64 24" aria-hidden="true"><path fill="currentColor" d="${WEAPON_PATH[id] ?? WEAPON_PATH.pistol}"/></svg>`;
 // a slot: the weapon's outline in its rarity's colour and a line of that colour under it, its +value small after it,

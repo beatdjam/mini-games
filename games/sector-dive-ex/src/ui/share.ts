@@ -18,7 +18,8 @@ import { player, run } from '../actors/player.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
 import { weaponText } from '../actors/weapons.ts';
 import { track } from '@engine/core/analytics.ts';
-import { CSS_COLOR } from '../data/colors.ts';
+import { CSS_COLOR, KIT } from '../data/colors.ts';
+import { hud2, weaponPath } from './hud2.ts';
 import type { RunEnd } from '../data/types.ts';
 // ---- sharing a run's result: a card image + a short text with #SectorDiveEX ----
 // phones get the share sheet with the image attached. PCs get a small panel instead (a desktop share sheet rarely has X):
@@ -47,6 +48,7 @@ const ROW_LABEL_W = 140; // width of the label column; the value starts after it
 const FOOTER_BOTTOM = 36; // footer baseline, up from the bottom edge
 
 interface CardFonts {
+  sten: string; // the stencil, for the logo and the labels (the field kit's card)
   disp: string; // headings, numbers
   jp: string; // body text, in the language's font
 }
@@ -57,6 +59,7 @@ interface ShareCard {
   kills: number;
   bosses: string[];
   weapon: string;
+  wid: string; // the weapon's kind, for its outline on the card
   wr: number;
   chips: string[];
   nChips: number;
@@ -87,6 +90,7 @@ export function prepShare(kind: RunEnd) {
     kills: run.kills,
     bosses: (run.bosses || []).map(bossShort),
     weapon: w ? weaponText(w) : '',
+    wid: w ? w.id : '',
     wr: w ? w.r : 0,
     chips,
     nChips: run.perks.length,
@@ -194,9 +198,168 @@ function drawFooter(g: CanvasRenderingContext2D, fonts: CardFonts) {
   g.textAlign = 'left';
 }
 
+// ---- the card in the field kit's look (body.hud2, 2026-10-18): a steel plate with a bolt in each corner, the logo and the
+// labels in the stencil, white paint for what is read, the rows as black strips like the result screen's. Yellow marks
+// a run that came back, red one that died: the edge on the left and the title. ?hud1 draws the old card above ----
+const KIT_INSET = 22; // the plate's inner rule, in from the edge
+const BOLT_R = 6; // the bolts in the plate's corners
+const BOLT_IN = 40; // ... their centres, in from the edge
+// (the dot face is drawn on a 16 px grid: at 32 and 48 px its dots stay square, between them they blur and it reads as
+// another face. So the Japanese words are 32 or 48 px)
+const KIT_TITLE_Y = 172;
+const KIT_WHERE_Y = 258;
+const KIT_ROWS_TOP = 292; // the first strip's top
+const KIT_ROW_H = 52; // a strip's height
+const KIT_ROW_GAP = 4; // the black between two strips
+const KIT_ROW_BASE = 38; // the text's baseline, down from a strip's top
+const KIT_ICON_W = 56; // the weapon's outline in its row (the 64 x 24 path, scaled)
+const KIT_ICON_GAP = 14; // ... and the gap after it
+const TAG_PAD = 12; // the result tag's padding left and right
+const TAG_H = 34; // ... and its height
+
+function drawPlate(g: CanvasRenderingContext2D, acc: string) {
+  const bg = g.createLinearGradient(0, 0, 0, CARD_H);
+  bg.addColorStop(0, KIT.steel1);
+  bg.addColorStop(0.55, KIT.steel2);
+  bg.addColorStop(1, KIT.steel3);
+  g.fillStyle = bg;
+  g.fillRect(0, 0, CARD_W, CARD_H);
+  g.strokeStyle = KIT.edge;
+  g.lineWidth = 1;
+  g.strokeRect(KIT_INSET + 0.5, KIT_INSET + 0.5, CARD_W - KIT_INSET * 2 - 1, CARD_H - KIT_INSET * 2 - 1);
+  for (const [x, y] of [
+    [BOLT_IN, BOLT_IN],
+    [CARD_W - BOLT_IN, BOLT_IN],
+    [BOLT_IN, CARD_H - BOLT_IN],
+    [CARD_W - BOLT_IN, CARD_H - BOLT_IN],
+  ] as const) {
+    g.beginPath();
+    g.arc(x, y, BOLT_R, 0, Math.PI * 2);
+    g.fillStyle = KIT.steel3;
+    g.fill();
+    g.strokeStyle = KIT.edge;
+    g.stroke();
+  }
+  g.fillStyle = acc;
+  g.fillRect(0, 0, ACCENT_BAR_W, CARD_H);
+}
+// the logo in the stencil (the slash and EX in safety yellow), the result and the level in an outlined tag on the right
+function drawKitHeader(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts) {
+  let x = MARGIN_X + 12;
+  g.font = `36px ${fonts.sten}`;
+  [
+    ['SECTOR', KIT.paint],
+    ['/', KIT.safety],
+    ['DIVE', KIT.paint],
+    [' EX', KIT.safety],
+  ].forEach(([s, col]) => {
+    g.fillStyle = col!;
+    g.fillText(s!, x, LOGO_Y + 4);
+    x += g.measureText(s!).width;
+  });
+  const tag = RUN_END[d.kind].badge + (d.level ? `  ·  LV ${d.level}` : '');
+  g.font = `20px ${fonts.sten}`;
+  const w = g.measureText(tag).width + TAG_PAD * 2,
+    right = CARD_W - MARGIN_X - 12;
+  g.strokeStyle = KIT.paint2;
+  g.strokeRect(right - w + 0.5, LOGO_Y - TAG_H + 8.5, w - 1, TAG_H - 1);
+  g.fillStyle = KIT.paint;
+  g.fillText(tag, right - w + TAG_PAD, LOGO_Y);
+}
+function drawKitHeadline(g: CanvasRenderingContext2D, d: ShareCard, acc: string, fonts: CardFonts) {
+  const left = MARGIN_X + 12;
+  g.font = `48px ${fonts.jp}`;
+  g.fillStyle = acc;
+  g.fillText(RUN_END[d.kind].title(), left, KIT_TITLE_Y);
+  g.font = `700 72px ${fonts.disp}`;
+  g.fillStyle = KIT.paint;
+  g.fillText(d.where, left, KIT_WHERE_Y);
+  const whereW = g.measureText(d.where).width;
+  g.font = `32px ${fonts.jp}`;
+  g.fillStyle = KIT.paint2;
+  g.fillText(
+    fitText(g, d.biome, CONTENT_W - 24 - whereW - WHERE_BIOME_GAP),
+    left + whereW + WHERE_BIOME_GAP,
+    KIT_WHERE_Y,
+  );
+}
+// the rows as black strips: the label in worn paint, the value in white; the weapon with its outline in its rarity's colour
+function drawKitRows(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts) {
+  const left = MARGIN_X + 12,
+    width = CONTENT_W - 24;
+  // [label, value, the weapon's kind for its outline, a tail kept whole when the value is cut short (the chips' count)]
+  const rows: [string, string, string | null, string][] = [
+    [t('share.kills'), t('share.killsV', { n: d.kills }), null, ''],
+    [t('share.bosses'), d.bosses.length ? bossSummary(d.bosses) : t('common.none'), null, ''],
+    [t('share.weapon'), d.weapon || t('common.none'), d.wid || null, ''],
+    [
+      t('share.chips'),
+      d.nChips ? d.chips.join(t('share.join')) : t('common.none'),
+      null,
+      d.nChips > d.chips.length ? t('share.chipsMore', { n: d.nChips }) : '',
+    ],
+  ];
+  g.fillStyle = '#000';
+  g.fillRect(left, KIT_ROWS_TOP - KIT_ROW_GAP, width, rows.length * (KIT_ROW_H + KIT_ROW_GAP) + KIT_ROW_GAP);
+  rows.forEach(([k, v, wid, tail], i) => {
+    const top = KIT_ROWS_TOP + i * (KIT_ROW_H + KIT_ROW_GAP),
+      y = top + KIT_ROW_BASE;
+    g.fillStyle = KIT.strip;
+    g.fillRect(left, top, width, KIT_ROW_H);
+    g.font = `32px ${fonts.jp}`;
+    g.fillStyle = KIT.paint2;
+    g.fillText(k, left + 16, y);
+    let x = left + 16 + ROW_LABEL_W;
+    if (wid) {
+      const s = KIT_ICON_W / 64;
+      g.save();
+      g.translate(x, top + (KIT_ROW_H - 24 * s) / 2);
+      g.scale(s, s);
+      g.fillStyle = RARITY[d.wr] ? RARITY[d.wr].css : KIT.paint;
+      g.fill(new Path2D(weaponPath(wid)));
+      g.restore();
+      x += KIT_ICON_W + KIT_ICON_GAP;
+    }
+    g.font = `32px ${fonts.jp}`;
+    g.fillStyle = KIT.paint;
+    const room = left + width - 16 - x - (tail ? g.measureText(tail).width : 0);
+    g.fillText(fitText(g, v, room) + tail, x, y);
+  });
+}
+function drawKitFooter(g: CanvasRenderingContext2D, fonts: CardFonts) {
+  const y = CARD_H - FOOTER_BOTTOM - 14;
+  g.font = `500 22px ${fonts.disp}`;
+  g.fillStyle = KIT.paint2;
+  g.fillText('#SectorDiveEX', MARGIN_X + 12, y);
+  g.textAlign = 'right';
+  g.font = `500 20px ${fonts.disp}`;
+  g.fillText(SHARE_URL.replace('https://', ''), CARD_W - MARGIN_X - 12, y);
+  g.textAlign = 'left';
+}
+
 export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
+  // (with the words the card says: a Japanese web font comes in pieces by character, and only the pieces holding the
+  // given text are fetched. Without it, a character the page had not shown yet was drawn in the fallback font)
+  const words = [
+    RUN_END[d.kind].title(),
+    d.biome,
+    d.weapon,
+    bossSummary(d.bosses),
+    d.chips.join(t('share.join')),
+    t('share.chipsMore', { n: d.nChips }),
+    t('share.killsV', { n: d.kills }),
+    t('share.kills'),
+    t('share.bosses'),
+    t('share.weapon'),
+    t('share.chips'),
+    t('common.none'),
+  ].join('');
   try {
-    await Promise.all([document.fonts.load('700 40px "Chakra Petch"'), document.fonts.load('30px "DotGothic16"')]);
+    await Promise.all([
+      document.fonts.load('700 40px "Chakra Petch"'),
+      document.fonts.load('30px "DotGothic16"', words),
+      document.fonts.load('30px "Saira Stencil One"'),
+    ]);
   } catch {
     // the fonts are only for looks: if loading fails, the card is still drawn with the fallback fonts
   }
@@ -205,9 +368,19 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
   c.height = CARD_H;
   const g = c.getContext('2d')!;
   const fonts: CardFonts = {
+    sten: '"Saira Stencil One","Chakra Petch",sans-serif',
     disp: '"Chakra Petch","DotGothic16",sans-serif',
     jp: lang === 'en' ? '"Chakra Petch",sans-serif' : '"DotGothic16","Hiragino Sans","Noto Sans JP",sans-serif',
   };
+  if (hud2) {
+    const acc = d.kind === 'extract' ? KIT.safety : KIT.stop;
+    drawPlate(g, acc);
+    drawKitHeader(g, d, fonts);
+    drawKitHeadline(g, d, acc, fonts);
+    drawKitRows(g, d, fonts);
+    drawKitFooter(g, fonts);
+    return new Promise<Blob | null>(r => c.toBlob(r, 'image/png'));
+  }
   const acc = d.kind === 'extract' ? CSS_COLOR.cyan : CSS_COLOR.mag;
   drawBackground(g);
   drawGrid(g, CARD_W, CARD_H, GRID_STEP, GRID_COLOR);
