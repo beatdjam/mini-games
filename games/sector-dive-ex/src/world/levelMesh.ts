@@ -32,8 +32,8 @@ const CEILING_SHADE = 0.5; // a building floor's ceiling is the sector's wall co
 // the glass of the windows one sees out of, by sector (its tint is the sector's haze outside)
 const glassTex: Record<string, THREE.Texture> = {};
 // A window on a yard looks into it (engine/src/render/windows.ts WindowFace.into), marked by the way it faces (the
-// step from the wall toward the floor): the yard seen through it is a copy a tile nearer that way (level.ts), as if
-// the wall were as thin as its glass. The floor's group has where its windows on the yard are, per way
+// step from the wall toward the floor): the yard seen through it is a copy whose walls reach a tile further that way,
+// out to the glass (level.ts), as if the wall were as thin as its glass. The floor's group has where its windows on the yard are, per way
 // (userData.yardPanes)
 export const YARD_INTO: [number, number][] = [
   [1, 0],

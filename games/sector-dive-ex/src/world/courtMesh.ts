@@ -585,6 +585,8 @@ export function buildYardShell(
   sky.position.set(cx, -top * storey + storey, cz);
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(cx, -bottom * storey, cz);
+  // (flat across the yard as its walls are flat on it: seen through a window, drawn up to just past the glass)
+  for (const m of [sky, ground]) m.userData.yardWall = true;
   group.add(sky, ground);
   return group;
 }

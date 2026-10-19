@@ -2714,6 +2714,26 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   expect(Array.from(grid).join('')).toBe(gridWas);
   expect(level.roomCount[room]).toBe(0);
 });
+test('building: a yard is open to the sky (no floor above it has floor over it)', () => {
+  devCourtOpen(true);
+  for (const biome of BIOMES)
+    for (let seed = 1; seed <= 20; seed++) {
+      const b = makeBuilding(biome, biome.bosses[0]!, seed),
+        c = b.court;
+      if (!c?.open) continue;
+      const W = b.plans[0]!.gen.W,
+        is = c.tiles.map(k => k % W),
+        js = c.tiles.map(k => Math.floor(k / W));
+      // (the open middle and the wall round it)
+      for (let f = 0; f < c.upper; f++)
+        for (let j = Math.min(...js) - 1; j <= Math.max(...js) + 1; j++)
+          for (let i = Math.min(...is) - 1; i <= Math.max(...is) + 1; i++)
+            expect(b.plans[f]!.gen.maps.grid[j * W + i], `${biome.code} seed ${seed} floor ${f} tile ${i},${j}`).toBe(
+              0,
+            );
+    }
+  devCourtOpen(null);
+});
 test('building: the layout a seed gives is that of BUILDING_V', () => {
   // A few buildings of every sector, as one number. When this fails, the same seed gives another building now: raise
   // BUILDING_V in src/world/building.ts (a run suspended before is then fitted onto the new building), and put the new
@@ -2729,7 +2749,7 @@ test('building: the layout a seed gives is that of BUILDING_V', () => {
       b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('')));
       mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
     }
-  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v1 7e1b4c1b');
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v2 746c62e0');
 });
 test('resume: a run saved on a building laid out another way goes on at the same step of the route', () => {
   goBase();
@@ -3628,7 +3648,7 @@ test('outside: a window one sees out of looks past the whole building, or on to 
   devCourtOpen(null);
   expect(windows).toBeGreaterThan(0);
 });
-test('outside: a window on a yard shows the yard itself, a tile nearer, and only while one is in sight', () => {
+test('outside: a window on a yard shows the yard itself, its walls out to the glass, and only while one is in sight', () => {
   const city = BIOMES.find(x => x.code === 'CITY')!,
     look = lookOf(city)!;
   // a building with a window one sees out of right on its yard: the wall tile, the step from it to the floor
@@ -3680,7 +3700,9 @@ test('outside: a window on a yard shows the yard itself, a tile nearer, and only
   camera.rotation.set(0, Math.atan2(-di, -dj), 0);
   showNeighbourFloors(b, x, z, null);
   expect(shown(), 'looking away').toBe(false);
-  // a tile nearer: each copy (of the yard, of what stands round it on a floor) stands a tile toward the floor
+  // the copies stand where the yard and what stands round it do (not moved: the walls that run away from the glass
+  // keep their windows where the rooms behind them have theirs), but the yard's ground reaches a tile further toward
+  // the floor, out to the glass
   const moved = new Set(
     copies.map(m => {
       let q: THREE.Object3D = m;
@@ -3688,7 +3710,16 @@ test('outside: a window on a yard shows the yard itself, a tile nearer, and only
       return `${Math.round(q.position.x * 100) / 100},${Math.round(q.position.z * 100) / 100}`;
     }),
   );
-  expect(moved.has(`${di * T},${dj * T}`)).toBe(true);
+  expect([...moved]).toEqual(['0,0']);
+  const side = Math.sqrt(b.court!.tiles.length) * T,
+    longer = di ? [side + T, side] : [side, side + T];
+  expect(
+    copies.some(m => {
+      const p = (m.geometry as THREE.PlaneGeometry).parameters;
+      return p?.width === longer[0] && p?.height === longer[1];
+    }),
+    'the ground a tile longer toward the window',
+  ).toBe(true);
 });
 test('props: what hangs overhead clears the head of someone on a raised floor under it or next to it', () => {
   // a 4 by 3 map: ground, a ramp up toward +x, a walkway 2 m up, ground; the row under it walls

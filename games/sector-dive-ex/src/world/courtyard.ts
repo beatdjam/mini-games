@@ -71,16 +71,22 @@ export function devCourtOpen(open: boolean | null, shape: YardShape | null = nul
 }
 
 // The places for a courtyard that needs a square of `side` tiles (see carveCourt): where that square is
-// wall on the most floors next to each other (two at least), and how many floors that is
-function courtPlaces(maps: TileMapData[], keepOut: Uint8Array[], side: number) {
+// wall on the most floors next to each other (two at least), and how many floors that is. `open`: a yard, open to the
+// sky, so the square has no floor on the floors above it either (they are not carved, only looked at)
+function courtPlaces(maps: TileMapData[], keepOut: Uint8Array[], side: number, open: boolean) {
   const { W, H } = maps[0]!,
     last = maps.length - 2, // the lowest floor a courtyard may reach
-    free = (f: number, i: number, j: number): boolean => {
+    free = (f: number, i: number, j: number, carved = true): boolean => {
       for (let b = 0; b < side; b++)
         for (let a = 0; a < side; a++) {
           const k = (j + b) * W + i + a;
-          if (maps[f]!.maps.grid[k] || keepOut[f]![k]) return false;
+          if (maps[f]!.maps.grid[k] || (carved && keepOut[f]![k])) return false;
         }
+      return true;
+    },
+    // (going down from the top floor, the first floor with floor on the square: a yard starts no higher than that)
+    clearAbove = (i: number, j: number, upper: number): boolean => {
+      for (let f = 0; f < upper; f++) if (!free(f, i, j, false)) return false;
       return true;
     };
   let floors = 2;
@@ -88,6 +94,7 @@ function courtPlaces(maps: TileMapData[], keepOut: Uint8Array[], side: number) {
   for (let j = 1; j + side < H; j++)
     for (let i = 1; i + side < W; i++)
       for (let upper = 0; upper + floors - 1 <= last; upper++) {
+        if (open && !clearAbove(i, j, upper)) break;
         let lower = upper;
         while (lower <= last && free(lower, i, j)) lower++;
         const n = lower - upper;
@@ -101,7 +108,8 @@ function courtPlaces(maps: TileMapData[], keepOut: Uint8Array[], side: number) {
   return { places, floors: places.length ? floors : 0 };
 }
 // Puts a courtyard where a square of its side (the open middle, the gallery and the wall round that) is wall on as many floors next to each other as possible (two
-// at least; never the lowest floor, whose boss room stands higher than a floor). On each of them a gallery is carved
+// at least; never the lowest floor, whose boss room stands higher than a floor); a yard only where no floor above has
+// floor on the square (it is open to the sky: a corridor of a floor above would run over it). On each of them a gallery is carved
 // round the open middle, with a corridor to the rest of the floor; on the lowest the middle is floor too. Returns
 // null (and leaves the maps as they were) when no place fits
 function carveCourt(
@@ -115,8 +123,8 @@ function carveCourt(
     dice = rng.next() < COURT_OPEN_CHANCE,
     open = kinds === 'both' ? (courtKind ?? dice) : kinds === 'yard',
     // the square: an atrium's middle, its gallery and the wall round that; a yard's middle and the wall round it
-    small = courtPlaces(maps, keepOut, open ? COURT_YARD + 2 : COURT_ROOFED + 4),
-    wide = open && wideToo ? courtPlaces(maps, keepOut, COURT_YARD_WIDE + 2) : null,
+    small = courtPlaces(maps, keepOut, open ? COURT_YARD + 2 : COURT_ROOFED + 4, open),
+    wide = open && wideToo ? courtPlaces(maps, keepOut, COURT_YARD_WIDE + 2, true) : null,
     // (a yard takes the wider square unless that costs it more than one floor)
     roomy = !!wide && wide.floors >= 2 && wide.floors >= small.floors - 1,
     COURT = !open ? COURT_ROOFED : roomy ? COURT_YARD_WIDE : COURT_YARD,
