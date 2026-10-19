@@ -173,6 +173,58 @@ export function shellOf(floor: (k: number) => boolean, w: number, h: number): Ui
   return out;
 }
 
+// The building's straight mass from its floors (1: floor or open on some floor, of all its floors together), with the
+// gaps and notches between its parts up to 2 * CLOSE tiles across filled in (grown CLOSE tiles, the 8 round one step,
+// then shrunk back as much), and what is still a tile thin widened by its walls. Left as the floors are, a corridor of
+// one floor that runs out alone would stand from the street to the roof as a tower a tile thin, and the windows next to
+// it would see it as a building of its own
+const CLOSE = 3;
+export function massOf(floors: Uint8Array, w: number, h: number): Uint8Array {
+  // how far each tile is (the 8 round one step) from the tiles `from` gives a distance to, out to CLOSE + 1
+  const reach = (from: (k: number) => number) => {
+    const far = new Uint8Array(w * h).fill(CLOSE + 1),
+      queue: number[] = [];
+    for (let k = 0; k < w * h; k++) far[k] = Math.min(CLOSE + 1, from(k));
+    // (nearest first: the tiles by their own distance)
+    for (let d = 0; d <= CLOSE; d++) for (let k = 0; k < w * h; k++) if (far[k] === d) queue.push(k);
+    for (let q = 0; q < queue.length; q++) {
+      const k = queue[q]!,
+        i = k % w,
+        j = (k / w) | 0;
+      if (far[k]! >= CLOSE) continue;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const n = (j + dj) * w + i + di;
+          if (i + di < 0 || j + dj < 0 || i + di >= w || j + dj >= h || far[n]! <= far[k]! + 1) continue;
+          far[n] = far[k]! + 1;
+          queue.push(n);
+        }
+    }
+    return far;
+  };
+  // grown: within CLOSE of the floors; shrunk back: what is not within CLOSE of a tile that is not grown (past the
+  // map's edge nothing is)
+  const grown = reach(k => (floors[k] ? 0 : CLOSE + 1)),
+    out = reach(k => {
+      const i = k % w,
+        j = (k / w) | 0;
+      return grown[k]! > CLOSE ? 0 : Math.min(i, j, w - 1 - i, h - 1 - j) + 1;
+    });
+  const mass = Uint8Array.from(floors, (v, k) => (v || out[k]! > CLOSE ? 1 : 0)),
+    at = (i: number, j: number) => i >= 0 && j >= 0 && i < w && j < h && !!mass[j * w + i],
+    wide = Uint8Array.from(mass);
+  // what is still a tile thin (a corridor that runs out far from the rest) takes in its walls on both sides
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++) {
+      if (!at(i, j)) continue;
+      if (!at(i - 1, j) && !at(i + 1, j))
+        for (const di of [-1, 1]) if (i + di >= 0 && i + di < w) wide[j * w + i + di] = 1;
+      if (!at(i, j - 1) && !at(i, j + 1))
+        for (const dj of [-1, 1]) if (j + dj >= 0 && j + dj < h) wide[(j + dj) * w + i] = 1;
+    }
+  return wide;
+}
+
 // What stands on the street round the building, among the blocks (buildOutsideCards): of each kind, on the tiles
 // `out` (tiles from the building, as the blocks are measured) and not under a block. `every`: one on every so many
 // tiles along it, in a row (a lamp at the kerb), as the tile's place along the street; or 0, then each tile has one

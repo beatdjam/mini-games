@@ -34,7 +34,7 @@ import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import { lookOf, wallPic } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF_M, paint } from './looks/paint.ts';
-import { buildingShell, outsideBlocks, outsideStreet, shellOf } from './looks/outside.ts';
+import { buildingShell, massOf, outsideBlocks, outsideStreet, shellOf } from './looks/outside.ts';
 import type { GeneratedLevel, Room } from './levelGen.ts';
 import { YARD_INTO, buildFloorMeshes, buildLevelMeshes } from './levelMesh.ts';
 import { buildAtriumProps, buildYardShell, yardFacades } from './courtMesh.ts';
@@ -574,15 +574,20 @@ export function showBuilding(b: Building) {
         fade: BACKDROP_GROUND.fade,
         reach: BLOCK_REACH,
       },
-      // The building as one straight mass: the floors of all its floors together (with the walls round them for
-      // where the street begins: shellOf), from the street to its roof, with a yard open through it (on the floors it
-      // passes and over them). Seen from the windows (buildingShell) its outside is at the window, as if every wall
+      // The building as one straight mass: the floors of all its floors together, the narrow gaps between them filled
+      // in (massOf), (with the walls round them for where the street begins: shellOf), from the street to its roof,
+      // with a yard open through it (on the floors it passes and over them). Seen from the windows (buildingShell) its
+      // outside is at the window, as if every wall
       // were as thin as its glass: a look out at a slant through a wall a tile thick would go through the thickness
       // into the building. (So from a window on a yard the yard's walls stand a tile further back than they do seen
       // from its balconies.) Painted as a yard (courtMesh.ts yardFacades); the blocks across the street stand round it
-      floors = b.plans
-        .map(p => Uint8Array.from(p.gen.maps.grid, (v, k) => (v === 1 || p.voids[k] ? 1 : 0)))
-        .reduce((u, f) => u.map((v, k) => v | f[k]!), new Uint8Array(w * h)),
+      floors = massOf(
+        b.plans
+          .map(p => Uint8Array.from(p.gen.maps.grid, (v, k) => (v === 1 || p.voids[k] ? 1 : 0)))
+          .reduce((u, f) => u.map((v, k) => v | f[k]!), new Uint8Array(w * h)),
+        w,
+        h,
+      ),
       mass = shellOf(k => !!floors[k], w, h),
       insides = b.plans.map((_, m) => {
         const f = Uint8Array.from(floors);

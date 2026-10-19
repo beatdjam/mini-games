@@ -23,6 +23,7 @@ import { BOSS_META } from '../data/bosses.ts';
 import type { Biome, BuildingState } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
 import { wallBeyond } from './looks/common.ts';
+import { massOf } from './looks/outside.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 import { courtFloor, openCourt, placeCourt } from './courtyard.ts';
 import type { Court, CourtFloor } from './courtyard.ts';
@@ -208,9 +209,11 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
   }
   markLinkOpenings(plans, maps, links, CFG);
   // what the floors' walls look out on (looks/common.ts wallBeyond): the floors of the whole building count as floor,
-  // a yard's middle as the outside, on the floors it passes and over them (it is open to the sky)
-  const mass = new Uint8Array(size);
-  plans.forEach(p => p.gen.maps.grid.forEach((v, k) => (mass[k] ||= v === 1 || p.voids[k] ? 1 : 0)));
+  // a yard's middle as the outside, on the floors it passes and over them (it is open to the sky), and the narrow gaps
+  // and notches between the floors as floor too (looks/outside.ts massOf: the building's outside fills them)
+  const floors = new Uint8Array(size);
+  plans.forEach(p => p.gen.maps.grid.forEach((v, k) => (floors[k] ||= v === 1 || p.voids[k] ? 1 : 0)));
+  const mass = massOf(floors, W, maps[0]!.H);
   plans.forEach((p, n) => {
     const beyond = Uint8Array.from(mass);
     if (court?.open && n <= court.lower) for (const k of court.tiles) beyond[k] = 2;
