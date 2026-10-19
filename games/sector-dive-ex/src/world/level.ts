@@ -107,18 +107,19 @@ let courtGroups: (THREE.Group | null)[] = [];
 // a yard's outer walls, sky, ground and what is on them, or what hangs in an atrium (courtMesh.ts buildYardShell,
 // buildAtriumProps)
 let yardShell: THREE.Group | null = null;
-// The yard as the windows on it show it (levelMesh.ts YARD_INTO): per way they face, a copy of the yard and of what
-// stands round it on every floor, a tile nearer that way, drawn only through those windows (engine windows.ts
-// seenThrough). Drawn only while one of those windows of the floor played is in sight (it costs as many draws as the
-// yard itself)
+// The yard as the windows on it show it (levelMesh.ts YARD_INTO): per way they face, a copy of what stands round it on
+// every floor, and its walls, sky and ground a tile longer that way (out to the glass), drawn only through those
+// windows (engine windows.ts seenThrough). Drawn only while one of those windows of the floor played is in sight (it
+// costs as many draws as the yard itself)
 const sight = new THREE.Frustum(),
   sightBox = new THREE.Box3(),
   sightM = new THREE.Matrix4();
 let yardCopies: {
   into: number;
   root: THREE.Group;
-  parts: [THREE.Object3D, THREE.Object3D, number][]; // what is copied, its copy, and its floor (-1: the yard's walls)
-  step: THREE.Vector3;
+  // what the copy stands with (it takes its place), the copy, and its floor (-1: the yard's walls)
+  parts: [THREE.Object3D, THREE.Object3D, number][];
+  way: [number, number]; // the way the windows face (from their wall toward the floor)
 }[] = [];
 // through a window on a yard, the things of the floors (balconies, rails, bridges) are drawn this many floors above and
 // below the one played and no further: across the yard (5 to 7 tiles) the window shows about that much of its height
@@ -127,10 +128,12 @@ const YARD_NEAR = 1.5 * T; // the yard is drawn within this of a tile out on it,
 // what the windows look out on (Look.outside): the backdrop, the building's own outside walls and the buildings across
 // the street. They stand on the street, the ground of the lowest floor (moved with the floors: enterFloor)
 let outside: { band: Backdrop; across: THREE.Group } | null = null;
-const YARD_GLASS_CLEAR = 0.5; // through a window on a yard, nothing of the yard is drawn this near the glass (m)
-const YARD_WALL_CLEAR = 0.15; // ... but its outer walls' faces are, up to this near: past the wall the window is in
-// (its picture and lit panes stand up to 0.1 m in front of it: courtMesh.ts YARD_SKIN), so the walls that run away
-// from the glass reach the corner
+// through a window on a yard, nothing that stands in the yard is drawn this near the wall the window is in (m)
+const YARD_GLASS_CLEAR = 0.5;
+// ... but its walls, sky and ground are, up to this near the glass (m): they are drawn a tile longer, out to the glass
+// (their picture and lit panes stand up to 0.1 m in front of the walls: courtMesh.ts YARD_SKIN), so the walls that
+// run away from the glass reach it
+const YARD_WALL_CLEAR = 0.15;
 const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings across the street
 const SHELL_STOREYS = 2; // the facade's picture (4 storeys) over this many floors of the building's own walls: two storeys a floor, so its windows keep their shape
 let shown: Building | null = null;
@@ -456,13 +459,13 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     const panes = floorGroups[n]!.userData.yardPanes as Record<number, [number, number, number, number]> | undefined;
     for (const y of yardCopies) {
       const at = panes?.[y.into],
-        // (the panes are seen only from the floor's side of their wall, the way `step` goes: from the yard and its
+        // (the panes are seen only from the floor's side of their wall, the way `way` goes: from the yard and its
         // balconies, or a room on another side of the yard, they are the back of the wall. Their walls are not all in
         // one line (the end of a balcony or a bridge has one too), so: on the floor's side of any of them, the nearest)
         front =
           !!at &&
-          (y.step.x > 0 ? x > (at[0] + 1) * T : y.step.x < 0 ? x < at[2] * T : true) &&
-          (y.step.z > 0 ? z > (at[1] + 1) * T : y.step.z < 0 ? z < at[3] * T : true);
+          (y.way[0] > 0 ? x > (at[0] + 1) * T : y.way[0] < 0 ? x < at[2] * T : true) &&
+          (y.way[1] > 0 ? z > (at[1] + 1) * T : y.way[1] < 0 ? z < at[3] * T : true);
       y.root.visible =
         atCourt &&
         !!at &&
@@ -504,55 +507,68 @@ export function showBuilding(b: Building) {
   });
   const w = b.plans[0]!.gen.W,
     look = lookOf(b.biome);
+  // (a yard's walls agree with the floors' own, in a sector whose rooms have windows on a yard: WallSides yard)
+  const yardPicture = (s: number, k: number): number | null => {
+    const gen = b.plans[s]?.gen;
+    return look?.wallSides?.yard !== undefined && gen && !gen.maps.grid[k]
+      ? wallPic(gen, k, look.walls.length, look.laneWalls, look.wallSides)
+      : null;
+  };
   if (b.court) {
     yardShell = b.court.open
-      ? // (the yard's walls agree with the floors' own, in a sector whose rooms have windows on a yard: WallSides yard)
-        buildYardShell(b.court, w, FLOOR_H, b.biome, (s, k) => {
-          const gen = b.plans[s]?.gen;
-          return look?.wallSides?.yard !== undefined && gen && !gen.maps.grid[k]
-            ? wallPic(gen, k, look.walls.length, look.laneWalls, look.wallSides)
-            : null;
-        })
+      ? buildYardShell(b.court, w, FLOOR_H, b.biome, yardPicture)
       : buildAtriumProps(b.court, w, FLOOR_H, b.biome);
     // (its walls' things, only coloured, drawn as one: before it is copied into the windows on it)
     mergeFlat(yardShell);
     all.add(yardShell);
   }
   if (b.court?.open && yardShell) {
-    const yard: [THREE.Object3D, number][] = [
-        [yardShell, -1],
-        ...courtGroups.flatMap((g, m): [THREE.Object3D, number][] => (g ? [[g, m]] : [])),
-      ],
-      is = b.court.tiles.map(k => k % w),
-      js = b.court.tiles.map(k => Math.floor(k / w));
+    const court = b.court,
+      shell = yardShell,
+      is = court.tiles.map(k => k % w),
+      js = court.tiles.map(k => Math.floor(k / w)),
+      [i0, i1, j0, j1] = [Math.min(...is), Math.max(...is), Math.min(...js), Math.max(...js)];
     YARD_INTO.forEach(([di, dj], v) => {
       if (!floorGroups.some(g => (g.userData.yardPanes as Record<number, unknown> | undefined)?.[v + 1])) return;
-      // the windows' plane (the yard's wall on their side, a tile nearer): what is on that wall (lamps, signs) is not
-      // drawn, it would stand right at the glass
+      // The yard's walls, sky and ground a tile longer on the windows' side, out to their glass: the wall the windows
+      // are in, a tile thick, is taken as thin as its glass. Only that way: the walls that run away from the glass keep
+      // their places, and their windows stand where the rooms behind them have theirs
+      const longer = [...court.tiles];
+      if (di) for (let j = j0; j <= j1; j++) longer.push(j * w + (di > 0 ? i1 + 1 : i0 - 1));
+      else for (let i = i0; i <= i1; i++) longer.push((dj > 0 ? j1 + 1 : j0 - 1) * w + i);
+      const walls = buildYardShell({ ...court, tiles: longer }, w, FLOOR_H, b.biome, yardPicture);
+      mergeFlat(walls);
+      // the windows' plane; what stands in the yard is drawn only past the wall they are in (the balconies of other
+      // floors on that side are in it), and not right up to that wall (its lamps and signs would stand at the glass)
       const away = new THREE.Vector3(-di, 0, -dj),
         glass = new THREE.Vector3(
-          di > 0 ? (Math.max(...is) + 2) * T : di < 0 ? (Math.min(...is) - 1) * T : 0,
+          di > 0 ? (i1 + 2) * T : di < 0 ? (i0 - 1) * T : 0,
           0,
-          dj > 0 ? (Math.max(...js) + 2) * T : dj < 0 ? (Math.min(...js) - 1) * T : 0,
+          dj > 0 ? (j1 + 2) * T : dj < 0 ? (j0 - 1) * T : 0,
         ),
         near = new THREE.Plane().setFromNormalAndCoplanarPoint(
           away,
           glass.clone().addScaledVector(away, YARD_WALL_CLEAR),
         ),
-        far = new THREE.Plane().setFromNormalAndCoplanarPoint(away, glass.addScaledVector(away, YARD_GLASS_CLEAR)),
+        far = new THREE.Plane().setFromNormalAndCoplanarPoint(away, glass.addScaledVector(away, T + YARD_GLASS_CLEAR)),
         clip = (o: THREE.Object3D) => (o.userData.yardWall ? near : far),
         root = new THREE.Group(),
-        parts = yard.map(([src, m]): [THREE.Object3D, THREE.Object3D, number] => {
-          const c = seenThrough(src, v + 1, clip);
+        // (the longer walls follow the yard's own, which the floors move: enterFloor)
+        yard: [THREE.Object3D, THREE.Object3D, number][] = [
+          [shell, walls, -1],
+          ...courtGroups.flatMap((g, m): [THREE.Object3D, THREE.Object3D, number][] => (g ? [[g, g, m]] : [])),
+        ],
+        parts = yard.map(([src, from, m]): [THREE.Object3D, THREE.Object3D, number] => {
+          const c = seenThrough(from, v + 1, clip);
           c.visible = true;
           root.add(c);
           return [src, c, m];
         });
       all.add(root);
-      yardCopies.push({ into: v + 1, root, parts, step: new THREE.Vector3(di * T, 0, dj * T) });
+      yardCopies.push({ into: v + 1, root, parts, way: [di, dj] });
     });
     // (and the floors' own: a room round the corner of the yard is behind the wall of a window on it, seen at a slant)
-    [...yard.map(([src]) => src), ...floorGroups].forEach(keepOutOfPanes);
+    [shell, ...courtGroups.flatMap(g => (g ? [g] : [])), ...floorGroups].forEach(keepOutOfPanes);
   }
   // what its windows look out on (a sector with windows one sees out of: Look.outside)
   if (look?.outside) {
@@ -680,7 +696,7 @@ export function enterFloor(b: Building, n: number) {
     courtGroups[m]?.position.setY(g.position.y);
   });
   yardShell?.position.setY(n * FLOOR_H);
-  for (const y of yardCopies) for (const [src, c] of y.parts) c.position.copy(src.position).add(y.step);
+  for (const y of yardCopies) for (const [src, c] of y.parts) c.position.copy(src.position);
   if (outside) {
     const street = -(b.plans.length - 1 - n) * FLOOR_H;
     outside.band.groundY = street;
