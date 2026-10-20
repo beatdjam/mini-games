@@ -16,6 +16,11 @@ import { save } from '../core/save.ts';
 import { building, makeBuilding, roomDoors } from '../world/building.ts';
 import type { Building, BuildingLink } from '../world/building.ts';
 import { devSeed, level } from '../world/level.ts';
+import { lookOf } from '../world/looks.ts';
+import { wallPic } from '../world/looks/common.ts';
+import { makeTerminal } from '../world/portals.ts';
+import { COLOR } from '../data/colors.ts';
+import { t as say } from '@engine/core/i18n.ts';
 import { boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { devPlainLooks } from '../world/looks.ts';
 import { useSparkLooks } from '../world/models/sparkLooks.ts';
@@ -31,14 +36,15 @@ import { state } from '../flow/state.ts';
 // Dev only: the words of Sector Dive Extended's trailer scripts (engine/src/trailer; how to write one and film it:
 // tools/trailer/README.md), opened by tools/trailer/capture.mjs as #trailer / #trailer-music. A scene puts the
 // player somewhere (`at`), in the old or new looks (`looks`), with a row of enemies in front (`enemies`), and moves
-// their hands (`do`). The building places (stairs, lift, lockdown, boss, map3d) are all in one building of the
-// `building` setting, one the script's places all fit in
+// their hands (`do`). The building places (stairs, lift, court, lockdown, boss, terminal, map3d) are all in one
+// building of the `building` setting, one the script's places all fit in. `at window <SECTOR>` is in a building of
+// its own, as a start room
 
 // ---- the words ----
 const SETTINGS = ['music', 'build', 'guns', 'building'];
 const SCENE_KEYS = ['at', 'looks', 'enemies', 'do'];
 // where a scene can be: a sector's start room, where the scene before was, or a place of the building
-const BUILDING_PLACES = ['stairs', 'lift', 'lockdown', 'boss', 'map3d'];
+const BUILDING_PLACES = ['stairs', 'lift', 'court', 'lockdown', 'boss', 'terminal', 'map3d'];
 // what the hands do, and the place each needs in the same scene (none: anywhere)
 const ACTIONS: Record<string, string | null> = {
   stand: null,
@@ -82,8 +88,17 @@ function check(script: Script): string[] {
         const [where = '', what] = l.args;
         if (what === 'start') {
           if (codeOf(where) < 0) no(l, `no sector "${where}"`);
+        } else if (where === 'window') {
+          const n = codeOf(what ?? '');
+          if (n < 0 || !lookOf(BIOMES[n]!)?.outside)
+            no(
+              l,
+              `window takes a sector with windows to see out of (${BIOMES.filter(b => lookOf(b)?.outside)
+                .map(b => b.code)
+                .join(', ')})`,
+            );
         } else if (where !== 'same' && !BUILDING_PLACES.includes(where))
-          no(l, `no place "${l.text}" (<SECTOR> start, same, ${BUILDING_PLACES.join(', ')})`);
+          no(l, `no place "${l.text}" (<SECTOR> start, window <SECTOR>, same, ${BUILDING_PLACES.join(', ')})`);
         else if (BUILDING_PLACES.includes(where) && !setting(script, 'building'))
           no(l, `${where} is a place of the building: the script needs a building setting`);
       } else if (l.key === 'looks' && !['old', 'new'].includes(l.args[0] ?? '')) no(l, 'looks takes old or new');
@@ -93,6 +108,8 @@ function check(script: Script): string[] {
         const need = ACTIONS[l.args[0] ?? ''];
         if (need === undefined) no(l, `no action "${l.args[0] ?? ''}" (${Object.keys(ACTIONS).join(', ')})`);
         else if (need && placeOf(sc) !== need) no(l, `${l.args[0]} needs "at ${need}" in its scene`);
+        else if (l.named.hp !== undefined && (l.args[0] !== 'boss' || !(+l.named.hp > 0)))
+          no(l, 'hp= goes with do boss, as a number above 0');
       }
     }
   });
@@ -101,7 +118,7 @@ function check(script: Script): string[] {
 
 // ---- the building ----
 // a building of the `building` setting that has the places the script uses: a stairwell, a lift that passes as many
-// floors as asked, a lockdown room that is not on the bottom floor
+// floors as asked, a lockdown room that is not on the bottom floor, a courtyard open to the sky with balconies
 function pickSeed(script: Script, b: ScriptLine): number {
   if (b.named.seed) return +b.named.seed;
   const biome = BIOMES[codeOf(b.args[0]!)]!,
@@ -113,7 +130,8 @@ function pickSeed(script: Script, b: ScriptLine): number {
     if (
       (!used.some(l => l.args[0] === 'stairs') || m.links[0]!.kind === 'stairs') &&
       (!lift || m.links.some(l => l.kind === 'elevator' && (!skip || l.lower - l.upper === skip))) &&
-      (!used.some(l => l.args[0] === 'lockdown') || (m.lockdown && m.lockdown.floor !== m.plans.length - 1))
+      (!used.some(l => l.args[0] === 'lockdown') || (m.lockdown && m.lockdown.floor !== m.plans.length - 1)) &&
+      (!used.some(l => l.args[0] === 'court') || (!!m.court?.open && m.court.lower - m.court.upper >= 1))
     )
       return seed;
   }
@@ -146,6 +164,7 @@ let fightRoom = -1;
 let lockFrom: [number, number] | null = null; // the middle of the door the player walks into the lockdown room by
 let target: Enemy | null = null;
 let bossFought = false; // the boss of the scene has come out (once it is beaten, the hands rest)
+let bossHp = 1; // do boss hp=4: the boss's health that many times (a longer fight than a practised build's two seconds)
 
 // the player's guns and chips, from the settings
 function settle() {
@@ -248,7 +267,30 @@ const plainAll = (on: boolean) => {
 // ---- the scenes ----
 function place(at: ScriptLine) {
   const [where, what] = at.args;
-  if (what === 'start') {
+  if (where === 'window') {
+    // a building of the sector's own, two or three tiles in front of the first window one sees out of, facing it
+    start();
+    showOnly(true);
+    sector = codeOf(what!);
+    inSector(sector);
+    shown = null;
+    const b = building!,
+      look = lookOf(b.biome)!;
+    for (let floor = 0; floor < b.plans.length; floor++) {
+      const d = b.plans[floor]!.gen,
+        g = d.maps.grid,
+        pane = (k: number) =>
+          !g[k] &&
+          !b.plans[floor]!.voids[k] &&
+          !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)],
+        k = g.findIndex((_, k) => pane(k) && [1, -1, W, -W].some(o => g[k + o] === 1 && g[k + 2 * o] === 1));
+      if (k < 0) continue;
+      const o = [1, -1, W, -W].find(o => g[k + o] === 1 && g[k + 2 * o] === 1)!;
+      if (floor) goFloor(floor);
+      put(g[k + 3 * o] === 1 ? k + 3 * o : k + 2 * o, -o);
+      break;
+    }
+  } else if (what === 'start') {
     start();
     showOnly(true); // (after start: its settle turns auto-fire on)
     if (at.named.seed) devSeed(+at.named.seed);
@@ -283,6 +325,39 @@ function place(at: ScriptLine) {
     }
     cycleMap();
     cycleMap(); // closed -> 2D -> 3D
+  } else if (where === 'court') {
+    // on the balcony of a floor between the yard's top and bottom, facing across the yard
+    upBuilding();
+    const c = shown!.court!,
+      floor = Math.min(c.upper + 1, c.lower),
+      row = c.balconies[floor - c.upper]!,
+      at = row[1] ?? row[0]!;
+    goFloor(floor);
+    put(
+      at,
+      [1, -1, W, -W].find(o => c.tiles.includes(at + o))!,
+    );
+    enemies.forEach(e => (e.active = false));
+    el('#banner').style.visibility = 'hidden'; // the floor's name would cover the middle of the yard
+  } else if (where === 'terminal') {
+    // the milestone's terminal in the boss room (after the boss scene: where the player is), a few steps in front
+    upBuilding();
+    if (
+      level.floor !== shown!.plans.length - 1 ||
+      level.roomOf[Math.floor(player.z / T) * W + Math.floor(player.x / T)] !== level.hall!.room
+    ) {
+      goFloor(shown!.plans.length - 1);
+      enemies.slice().forEach(e => (e.active = false));
+    }
+    const r = level.rooms[level.hall!.room]!,
+      x = (r.x + r.w / 2) * T,
+      z = (r.y + r.h / 2) * T - 2;
+    makeTerminal(x, z, COLOR.lime, say('boss.terminal'));
+    player.x = x;
+    player.z = z + 4.5;
+    player.fy = floorY(player.x, player.z);
+    player.yaw = yawToward(0, -1);
+    player.pitch = 0.05;
   } else if (where === 'lockdown') {
     upBuilding();
     const ld = shown!.lockdown!;
@@ -312,6 +387,7 @@ function scene(sc: ScriptScene) {
   el('#alarm').classList.remove('on');
   target = null;
   bossFought = false;
+  bossHp = +(lineOf(sc, 'do')?.named.hp ?? 1);
   const looks = lineOf(sc, 'looks'),
     at = lineOf(sc, 'at'),
     row = lineOf(sc, 'enemies');
@@ -432,7 +508,12 @@ const HANDS: Record<string, (t: number, dt: number, s: number) => void> = {
       return;
     }
     if (b && !b.dead) {
+      if (!bossFought) {
+        b.maxHp *= bossHp;
+        b.hp = b.maxHp;
+      }
       bossFought = true;
+      if (Math.round(t * 30) % 48 === 0) controlState.dashReq = true; // a dash now and then, out of the boss's fire
       aimAt(b.x, b.mesh.position.y, b.z, dt, 6);
       const d = Math.hypot(b.x - player.x, b.z - player.z);
       joy.x = Math.sin(t * 1.3) * 0.9; // (side to side: circling one way, the player ends up behind a pillar)
