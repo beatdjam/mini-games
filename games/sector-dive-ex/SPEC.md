@@ -302,6 +302,7 @@
   - ダメージ床: 開発サーバーで `?hazon` を付けると、ダメージ床が光ったままになる
   - 手に持つ銃: 開発サーバーで `?plain` を付けると、銃も Sector Dive と同じ見た目（箱と光る帯。src/data/viewmodels.ts）になる。`#view-haz-<武器>`（pistol・smg・shotgun・rail・launcher）で、その武器を持って立つ
   - 敵とボス: 開発サーバーで `?plain` を付けると、敵も Sector Dive と同じ見た目（光る立体）になる。`#boss-<ボス>-look`（watcher・phantom・crusher・trinity・core・bastion）で、ボス練習のボスを近くで見る（TRINITY は1機目を見る。画面中央の大きな名前は出さない）。`#view-enemies-crawler,drone,turret` のように種類を並べると、その敵が目の前に並ぶ（`?sector=KWLN` でセクターを選べる）
+  - 人型をモデルファイルで描く実験: `#view-gltf` で、glTF のモデル（骨とアニメーションつき）が最初の部屋に並ぶ。ゲームの敵や当たり判定には入らない。モデルは既定で `src/dev/assets/human-quaternius.glb`（CC0 の人型。出典は同じフォルダの README.md）。ほかのモデルは `src/dev/models/`（git に入れない）に置いて `?model=<URL>` で読む、数は `?n=`（既定 20）、再生する動きは `?clip=`（既定は名前に walk を含むもの）。画面上に、ファイルの大きさ・読み込みの時間・描く三角形の数・アニメーションに毎フレームかかる時間が出る。`?fps` と一緒に使う
   - 拾い物: 開発サーバーで `?plain` を付けると、拾い物も Sector Dive と同じ見た目（光る箱）になる。`#view-items` で、5種の武器・キット・チップ・ビットが目の前に並ぶ
   - 弾・発砲の光・ゲート: 開発サーバーで `?plain` を付けると、どれも Sector Dive と同じ見た目になる。`#view-fx-<武器>` で、その武器を撃ち続けた状態で、2種類のゲートの前に立つ。`#view-ebullets` で、敵の弾（輪・扇・大きい弾）が飛んでくる場面に立つ
 
