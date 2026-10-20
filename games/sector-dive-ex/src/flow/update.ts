@@ -273,16 +273,22 @@ function updatePlayerTile() {
   }
 }
 
+// the camera at the player's eye with head bob, moved by (sx, sy, sz) of shake
+function aimCamera(sx = 0, sy = 0, sz = 0) {
+  camera.position.set(player.x + sx, player.fy + EYE + Math.sin(player.bob) * 0.05 + sy, player.z + sz);
+  camera.rotation.set(player.pitch, player.yaw, 0);
+}
 // camera: head bob and screen shake (shake draws 3 random numbers per frame, in x, y, z order)
 function updateCamera(dt: number) {
   screenFx.shake = Math.max(0, screenFx.shake - dt * SHAKE_DECAY);
   const shakeRange = screenFx.shake * screenFx.shake;
-  camera.position.set(
-    player.x + rand(-shakeRange, shakeRange),
-    player.fy + EYE + Math.sin(player.bob) * 0.05 + rand(-shakeRange, shakeRange),
-    player.z + rand(-shakeRange, shakeRange),
-  );
-  camera.rotation.set(player.pitch, player.yaw, 0);
+  aimCamera(rand(-shakeRange, shakeRange), rand(-shakeRange, shakeRange), rand(-shakeRange, shakeRange));
+}
+// the camera and the gun in hand put on the player at once, for a stage just set up: the play systems that move them
+// do not run while the start chips are picked (state 'perk'), and the camera was still where the base's backdrop left it
+export function placeView() {
+  aimCamera();
+  updateGunView(0);
 }
 
 // 0 -> 1 -> 0 over a reload (how far the gun is lowered and tilted); 0 when not reloading

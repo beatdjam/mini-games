@@ -880,6 +880,22 @@ test('shortcut supply: 2 picks at DEPTH 3, chips applied supplyTimes times', () 
   endRun('abandon');
   goBase();
 });
+test("the start chips' pick: the camera is already on the player, not where the base's backdrop left it", () => {
+  const keep = save.up.chip;
+  save.up.chip = 1;
+  goBase();
+  // where the backdrop could have left the camera (flow/attract.ts)
+  camera.position.set(-50, 1, -50);
+  camera.rotation.set(-0.05, 2, 0);
+  startRun();
+  save.up.chip = keep;
+  expect(stateIs('perk')).toBe(true);
+  expect(Math.hypot(camera.position.x - player.x, camera.position.z - player.z)).toBeLessThan(1e-6);
+  expect(camera.rotation.y).toBeCloseTo(player.yaw);
+  document.querySelector<HTMLElement>('#perkList .perk')!.click();
+  endRun('abandon');
+  goBase();
+});
 test('rare chips show up gold; deep sectors favour tougher enemy types', () => {
   startRun();
   tick(3);
