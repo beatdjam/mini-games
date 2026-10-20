@@ -275,8 +275,8 @@ function place(at: ScriptLine) {
     inSector(sector);
     shown = null;
     const b = building!,
-      look = lookOf(b.biome)!;
-    for (let floor = 0; floor < b.plans.length; floor++) {
+      look = lookOf(b.biome); // (none in the old looks: no window to see out of, so the start room)
+    for (let floor = 0; floor < b.plans.length && look?.outside; floor++) {
       const d = b.plans[floor]!.gen,
         g = d.maps.grid,
         pane = (k: number) =>
