@@ -3402,6 +3402,25 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
     hurtEnemy(again, 1e6, false);
   }
   expect(chipsLying(), 'no chip from a room after the supply').toBe(lying);
+  // up to the floor above and back: the boss stays down, the room open with its gates, and forward still leads on
+  const last = run.bld!.floor,
+    down = building!.links.findIndex(l => l.lower === last),
+    up = building!.links[down]!.upper;
+  crossToFloor(down, up);
+  tick(2);
+  expect(stageInfo(run.stage).sub, 'up a floor: no longer the boss stage').not.toBe(PER - 1);
+  crossToFloor(down, last);
+  tick(2);
+  expect(run.stage, 'back: the boss stage again').toBe(tier * PER + PER - 1);
+  expect(isDoorLocked(activeTileGrid().world, hall.door), 'the door is open').toBe(false);
+  expect(level.portals.map(p => p.kind).sort()).toEqual(expect.arrayContaining(['extract', 'next']));
+  expect(
+    level.portals.some(p => p.kind === 'terminal'),
+    "a milestone's terminal stands again too",
+  ).toBe(isMilestone(tier));
+  put(hall.door + step * 2);
+  tick(200);
+  expect(boss, 'walking into the room brings no boss').toBeFalsy();
   // onward: the next depth is a new building, from its top floor
   const seedWas = run.bld!.seed;
   nextStage();

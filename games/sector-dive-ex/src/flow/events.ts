@@ -10,11 +10,11 @@ import { PER } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
 import { building, roomDoors } from '../world/building.ts';
 import type { BuildingLink } from '../world/building.ts';
-import { arenaFog, level, liftPads, randomTileIn, roomSpot } from '../world/level.ts';
+import { arenaCenter, arenaFog, level, liftPads, randomTileIn, roomSpot } from '../world/level.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
 import { difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
-import { spawnBoss } from '../actors/bosses/common.ts';
+import { putBossGates, spawnBoss } from '../actors/bosses/common.ts';
 import { rollWeapon } from '../actors/weapons.ts';
 import { progressOf } from '../core/rules.ts';
 import { refreshRunText } from '../screens/pause.ts';
@@ -69,7 +69,9 @@ function isLockdownRoom(room: number): boolean {
 }
 const lockdownDoors = (room: number): number[] => roomDoors(building!.plans[level.floor]!.gen, room).doors;
 
-// called when a building floor has been built: nothing running, the boss door locked
+// called when a building floor has been built: nothing running, the boss door locked. Back on the lowest floor after
+// its boss is down (the player went up a floor and came back), the fight is over instead: the door open, the gates
+// standing again, and the stage the boss's, so the gate forward leads to the next depth
 export function resetFloorEvents() {
   ev.ldActive = false;
   ev.ldPending = false;
@@ -82,7 +84,17 @@ export function resetFloorEvents() {
   ev.liftArmed = false;
   ev.liftT = 0;
   ev.ride = null;
-  if (level.hall) lockDoor(world(), level.hall.door);
+  if (!level.hall) return;
+  if (!run.bld?.beaten) {
+    lockDoor(world(), level.hall.door);
+    return;
+  }
+  ev.bossStarted = true;
+  ev.bossOver = true;
+  lockDoor(world(), level.hall.door, false);
+  run.stage = stageInfo(run.stage).tier * PER + PER - 1;
+  const [cx, cz] = arenaCenter();
+  putBossGates(cx, cz, run.bld.tier);
 }
 
 // the lockdown's look: the red frame and the wave count (step i of n: the room's own enemies, then the waves)
@@ -225,6 +237,7 @@ function startBossFight() {
 // the boss is down: the way back up opens again
 export function onBossDown() {
   ev.bossOver = true;
+  if (run.bld) run.bld.beaten = true;
   if (level.hall) lockDoor(world(), level.hall.door, false);
 }
 
