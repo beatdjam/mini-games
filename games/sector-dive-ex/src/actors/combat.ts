@@ -104,8 +104,10 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
   if (e.hp <= 0) killEnemy(e);
   else if (e.boss && !e.phased && !e.aloft && isEnraged(e)) bossPhase(e);
 }
-// push an enemy dist metres straight away from (fromX, fromZ), stopping at walls
+// push an enemy dist metres straight away from (fromX, fromZ), stopping at walls. One that never moves (a turret,
+// BASTION's turrets: bolted to the floor) stays where it is
 export function knockAway(e: Enemy, fromX: number, fromZ: number, dist: number) {
+  if (e.boss || e.def.speed <= 0) return;
   const kx = e.x - fromX,
     kz = e.z - fromZ,
     kl = Math.hypot(kx, kz) || 1;

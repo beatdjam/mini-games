@@ -1074,6 +1074,31 @@ test('splitter killed by a chain blast or a rocket: both halves survive', () => 
   if (a1 !== 2 || a2 !== 4) throw new Error('splitter halves ' + a1 + ' ' + a2);
   endRun('abandon');
 });
+test('knockback: a rocket pushes what walks away, never a turret bolted to the floor', () => {
+  startRun();
+  tick(3);
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
+  grid.fill(1);
+  hgt.fill(0);
+  ramp.fill(-1);
+  cover.fill(0);
+  activeTileGrid().world.door?.fill(0);
+  const cx = (W * T) / 2,
+    cz = (H * T) / 2,
+    // the blast between them, 2 m from each
+    walker = spawnEnemy('brute', cx - 2, cz, -1, 1),
+    turret = spawnEnemy('turret', cx + 2, cz, -1, 1),
+    bastions = spawnEnemy('bturret', cx, cz + 2, -1, 1);
+  explode(cx, 1, cz, 5, 1, COLOR.fire, true);
+  expect(walker.x, 'the brute is pushed').toBeLessThan(cx - 2.5);
+  expect([turret.x, turret.z], 'the turret stays').toEqual([cx + 2, cz]);
+  expect([bastions.x, bastions.z], "BASTION's turret stays").toEqual([cx, cz + 2]);
+  endRun('abandon');
+});
 test('music: every style and its boss arrangement can be scheduled', () => {
   audioInit();
   musicInit();
