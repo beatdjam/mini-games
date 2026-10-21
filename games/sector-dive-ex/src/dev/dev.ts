@@ -95,7 +95,9 @@ if (location.hash.startsWith('#bld-'))
     }
     const what = location.hash.slice(5),
       b = building!,
-      stairs = b.links.find(l => l.kind === 'stairs'), // a building may have none: the stairs hooks do nothing then
+      // a building may have none: the stairs hooks do nothing then. ?last: the stairwell down to the lowest floor
+      last = new URLSearchParams(location.search).has('last'),
+      stairs = b.links.find(l => l.kind === 'stairs' && (!last || l.lower === b.plans.length - 1)),
       lift = b.links.find(l => l.kind === 'elevator'),
       step = stairs ? stairs.strip[1]! - stairs.strip[0]! : 1, // one tile up the stairs
       dirOf = (d: number): [number, number] => [Math.abs(d) === 1 ? d : 0, Math.abs(d) === 1 ? 0 : Math.sign(d)],

@@ -10,7 +10,6 @@ import { biomeTex } from './render.ts';
 import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
-import { FLOOR_H } from './building.ts';
 import { FLOOR_PLAIN_SHARE, facesWest, lookOf, variantOf, wallPic } from './looks.ts';
 import type { FloorPlan } from './building.ts';
 import {
@@ -52,7 +51,7 @@ export function buildFloorMeshes(
   group: THREE.Group,
   rng: Rng,
   courtGroup?: THREE.Group,
-): THREE.Group | null {
+) {
   // the sector's own look when it has one (world/looks.ts): pictures in a few variants, scattered over the tiles
   const look = lookOf(biome),
     plainTex = biomeTex(biome),
@@ -185,9 +184,9 @@ export function buildFloorMeshes(
     false,
     dark,
   );
-  let hallTop: THREE.Group | null = null;
+  // the boss room goes on up to HALL_H (the floor above stands LAST_GAP over this one: building.ts)
   if (hallRoom) {
-    hallTop = new THREE.Group();
+    const hallTop = new THREE.Group();
     addTilePlanes(
       all.filter(k => hallAt(k, 0)),
       HALL_H,
@@ -221,13 +220,13 @@ export function buildFloorMeshes(
     const boxes = new THREE.InstancedMesh(
         // a little short at both ends: its top would lie in the plane of the next floor's ground and its bottom in the
         // plane of this floor's ceiling, and two faces in one plane flicker
-        new THREE.BoxGeometry(T, FLOOR_H - WALL_H - 2 * SHAFT_FILL_GAP, T),
+        new THREE.BoxGeometry(T, plan.above - WALL_H - 2 * SHAFT_FILL_GAP, T),
         new THREE.MeshBasicMaterial({ map: tex.wall }),
         fill.length,
       ),
       matrix = new THREE.Matrix4();
     fill.forEach((k, n) => {
-      matrix.makeTranslation(tileCenter(k % W), (WALL_H + FLOOR_H) / 2, tileCenter((k / W) | 0));
+      matrix.makeTranslation(tileCenter(k % W), (WALL_H + plan.above) / 2, tileCenter((k / W) | 0));
       boxes.setMatrixAt(n, matrix);
     });
     boxes.instanceMatrix.needsUpdate = true;
@@ -237,7 +236,6 @@ export function buildFloorMeshes(
   // a sector with a look brings its own signs; the plain neon bars are for the sectors without one
   if (look) look.props(plan, group, rng);
   else if (biome.gen.neon) addNeonSigns(walls, group, rng);
-  return hallTop;
 }
 
 // The three.js part of a level: floor, walls, decks, ramps, cover, hazard floor, ceiling and neon signs. Reads the

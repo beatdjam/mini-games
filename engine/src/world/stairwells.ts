@@ -3,19 +3,23 @@ import { RISE, SIDE_STEP } from './tiles.ts';
 import { tileWorldOf } from './dungeon.ts';
 import type { TileMapData } from './dungeon.ts';
 import { createFloors, unreachableFloorTiles } from './floors.ts';
-// A building: floors made each on its own (generateDungeon), stacked floorH apart, joined by stairwells and lifts
+// A building: floors made each on its own (generateDungeon), stacked floorH apart (or by `gaps`), joined by stairwells and lifts
 // placed afterward where the floors are solid, with a corridor carved from each end to the nearest floor. Floor 0 is
 // the top. The game decides how many floors, the order they are visited in (makeRoute gives one), what is on them and
 // when a link is a stairwell or a lift; this places and checks the links and says how each floor is to be drawn round
 // them. Random numbers come only from the Rng given, so the same seed gives the same building.
 //
-// A stairwell is a straight strip of stripOf(cfg) tiles: E (the foot), the ramps (floorH / RISE of them), then the
-// landing L1 and L2.
-//   on the lower floor the whole strip is floor: E on the ground, the ramps rising to floorH, L1 and L2 at floorH
+// A stairwell is a straight strip of stripOf(cfg, up) tiles: E (the foot), the ramps (the gap / RISE of them), then the
+// landing L1 and L2. The gap between two floors is floorH, or what `gaps` gives for them, so a taller gap has a longer
+// stairwell.
+//   on the lower floor the whole strip is floor: E on the ground, the ramps rising to the gap, L1 and L2 at the gap
 //   on the upper floor only L1 and L2 are floor (on its ground, the same height in the world); the rest is open
 // A lift is one tile S that is floor on both floors.
 export interface StairwellConfig {
   floorH: number; // from the ground of one floor to the ground of the next (m; a whole number of RISE)
+  // the gaps that are not floorH: gaps[n] from the ground of floor n + 1 to that of floor n (the one above it). A floor
+  // not in it (or every floor, when there is none) is floorH below the one above
+  gaps?: number[];
   liftReach: number; // a lift goes at most this many floors (makeRoute)
   placeTries: number; // random places tried for one stairwell or lift
   roomsBetween: number; // rooms on the shortest way from where one link lets you off to the next (placeLink)
@@ -28,8 +32,17 @@ export const STAIRWELL_DEFAULTS: StairwellConfig = {
   roomsBetween: 2,
   linkTries: 24,
 };
-// tiles of a stairwell: E, the ramps, L1, L2
-export const stripOf = (cfg: StairwellConfig = STAIRWELL_DEFAULTS): number => cfg.floorH / RISE + 3;
+// the gap from the ground of floor up + 1 to that of floor up (m)
+export const gapOf = (cfg: StairwellConfig, up: number): number => cfg.gaps?.[up] ?? cfg.floorH;
+// the height of each of `floors` floors' ground, floor 0 (the top) at 0 and the ones below it lower (m)
+export function groundsOf(cfg: StairwellConfig, floors: number): number[] {
+  const out = [0];
+  for (let n = 1; n < floors; n++) out.push(out[n - 1]! - gapOf(cfg, n - 1));
+  return out;
+}
+// tiles of a stairwell down from floor `up` (to the one below): E, the ramps, L1, L2. Without `up`, of one floorH high
+export const stripOf = (cfg: StairwellConfig = STAIRWELL_DEFAULTS, up = -1): number =>
+  (up < 0 ? cfg.floorH : gapOf(cfg, up)) / RISE + 3;
 const DOOR_PAIR_REACH = 2; // of two doors this many tiles apart or closer along a corridor, only one stays
 
 // A way between two floors: a stairwell joins neighbouring floors, a lift may pass one floor on its way. upper is the
@@ -173,8 +186,9 @@ export function addStairs(
   rng: Rng,
   cfg: StairwellConfig = STAIRWELL_DEFAULTS,
 ): BuildingLink | null {
-  const STRIP = stripOf(cfg),
+  const STRIP = stripOf(cfg, up),
     RAMPS = STRIP - 3,
+    GAP = gapOf(cfg, up),
     U = maps[up]!,
     L = maps[up + 1]!,
     W = U.W,
@@ -199,7 +213,7 @@ export function addStairs(
       if (n >= 1 && n <= RAMPS) {
         L.maps.ramp[k] = sd;
         L.maps.hgt[k] = (n - 1) * RISE;
-      } else if (n > RAMPS) L.maps.hgt[k] = cfg.floorH;
+      } else if (n > RAMPS) L.maps.hgt[k] = GAP;
     });
     // the upper floor: the landing
     U.maps.grid[strip[STRIP - 2]!] = 1;
@@ -319,14 +333,14 @@ export function allReached(
   maps: TileMapData[],
   links: BuildingLink[],
   startIdx: number,
-  floorH = STAIRWELL_DEFAULTS.floorH,
+  cfg: StairwellConfig = STAIRWELL_DEFAULTS,
 ): boolean {
   const W = maps[0]!.W,
     spot = (floor: number, k: number) => ({ floor, i: k % W, j: Math.floor(k / W) }),
     top = (l: BuildingLink) => l.strip[l.strip.length - 1]!, // L2 (or S): a floor tile on both floors at one height
     f = createFloors(
       maps.map(tileWorldOf),
-      maps.map((_, n) => -n * floorH),
+      groundsOf(cfg, maps.length),
       links.map(l => ({ kind: l.kind, a: spot(l.upper, top(l)), b: spot(l.lower, top(l)) })),
     ),
     r = maps[0]!.rooms[startIdx]!,
@@ -357,14 +371,8 @@ export const noOpenings = (size: number): FloorOpenings => ({
   shaftWall: new Uint8Array(size),
 });
 // marks on each floor's openings (`floors`, floor by floor like `maps`) how it is drawn round the links
-export function markLinkOpenings(
-  floors: FloorOpenings[],
-  maps: TileMapData[],
-  links: BuildingLink[],
-  cfg: StairwellConfig = STAIRWELL_DEFAULTS,
-) {
-  const W = maps[0]!.W,
-    STRIP = stripOf(cfg);
+export function markLinkOpenings(floors: FloorOpenings[], maps: TileMapData[], links: BuildingLink[]) {
+  const W = maps[0]!.W;
   for (const l of links) {
     const up = floors[l.upper]!,
       upGrid = maps[l.upper]!.maps.grid;
@@ -384,7 +392,7 @@ export function markLinkOpenings(
     up.noFloor[l.a] = 1;
     if (l.kind === 'elevator') continue;
     up.noFloor[l.b] = 1;
-    const open = l.strip.slice(0, STRIP - 2); // E and the ramps: nothing of the upper floor stands here
+    const open = l.strip.slice(0, l.strip.length - 2); // E and the ramps: nothing of the upper floor stands here
     for (const k of open) up.voids[k] = 1;
     for (const k of open) for (const t of around(W, k)) if (!upGrid[t] && !up.voids[t]) up.shaftWall[t] = 1;
   }

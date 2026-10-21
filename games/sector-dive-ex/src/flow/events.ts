@@ -8,7 +8,8 @@ import { lockDoor } from '@engine/world/doors.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
 import { PER } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
-import { FLOOR_H, building, roomDoors } from '../world/building.ts';
+import { building, roomDoors } from '../world/building.ts';
+import type { BuildingLink } from '../world/building.ts';
 import { arenaFog, level, liftPads, randomTileIn, roomSpot } from '../world/level.ts';
 import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
@@ -228,10 +229,13 @@ export function onBossDown() {
 }
 
 // ---- between floors ----
+// how far a link goes down, from the upper floor's ground to the lower's (m)
+const liftDrop = (l: BuildingLink): number => building!.grounds[l.upper]! - building!.grounds[l.lower]!;
 // the lift being ridden (its link), null when no ride is on
 export const liftRiding = (): number | null => ev.ride?.link ?? null;
 // The height of a lift rider's feet above the ground of the floor being played while a ride is on (null otherwise):
-// 0 to -FLOOR_H going down, 0 to FLOOR_H going up, easing in and out. The player's update keeps them there
+// 0 down to the lower floor's ground going down, 0 up to the upper floor's going up, easing in and out. The player's
+// update keeps them there
 export function ridingY(): number | null {
   const r = ev.ride;
   if (!r) return null;
@@ -239,7 +243,7 @@ export function ridingY(): number | null {
     span = l.lower - l.upper, // floors the lift travels
     u = Math.min(1, r.t / (LIFT_TIME * span)),
     ease = u * u * (3 - 2 * u);
-  return -r.dir * FLOOR_H * span * ease;
+  return -r.dir * liftDrop(l) * ease;
 }
 // a lift: standing on its platform for a moment starts the ride; at its end the next floor is the one being played
 function updateLift(dt: number) {
@@ -255,7 +259,7 @@ function updateLift(dt: number) {
     const pad = liftPads.find(p => p.link === r.link);
     if (pad) pad.mesh.position.y = ridingY()! - 0.06;
     if (r.t < LIFT_TIME * (l.lower - l.upper)) return;
-    player.fy = -r.dir * FLOOR_H * (l.lower - l.upper);
+    player.fy = -r.dir * liftDrop(l);
     crossToFloor(r.link, r.dir > 0 ? l.lower : l.upper); // resets these events: the ride is over
     return;
   }

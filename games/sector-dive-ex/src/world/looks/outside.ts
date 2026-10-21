@@ -121,20 +121,27 @@ export function outsideBlocks(inside: Uint8Array, w: number, h: number, style: B
 // outline is its floor, open or not, and the walls round it (`shellOf`); the face of a box is built where the next
 // tile out is not of the floor (the outside of the outer wall), its roof where the floor above does not cover it,
 // its underside where the floor below does not hold it up. `insides[0]` is the top floor; `storey`: from one floor's
-// ground to the next; `facadeOf`: which facade picture a tile's box of floor m takes (its faces: `sides`).
+// ground to the next; `facadeOf`: which facade picture a tile's box of floor m takes (its faces: `sides`). `grounds`:
+// each floor's ground over the lowest one's, when they are not `storey` apart (Building.grounds); a floor taller than
+// `storey` still shows one storey of the picture, stretched (OutsideBlock.paint), so the ones over it keep theirs
 export function buildingShell(
   insides: Uint8Array[],
   w: number,
   h: number,
   storey: number,
   facadeOf: (i: number, j: number, m: number, sides: number[]) => number = () => 0,
+  grounds?: number[],
 ): OutsideBlock[] {
   const out: OutsideBlock[] = [],
     floors = insides.length,
     at = (m: number, i: number, j: number) =>
       m >= 0 && m < floors && i >= 0 && j >= 0 && i < w && j < h && !!insides[m]![j * w + i];
   insides.forEach((inside, m) => {
-    const bottom = (floors - 1 - m) * storey;
+    const laid = (floors - 1 - m) * storey,
+      bottom = grounds?.[m] ?? laid,
+      top = m && grounds ? grounds[m - 1]! : bottom + storey,
+      paint: [number, number] | undefined =
+        top - bottom === storey && bottom === laid ? undefined : [laid, laid + storey];
     for (let j = 0; j < h; j++)
       for (let i = 0; i < w; i++) {
         if (!inside[j * w + i]) continue;
@@ -148,7 +155,8 @@ export function buildingShell(
           x1: (i + 1) * T,
           z1: (j + 1) * T,
           bottom,
-          top: bottom + storey,
+          top,
+          ...(paint ? { paint } : {}),
           sides,
           noRoof,
           under,

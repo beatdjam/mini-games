@@ -4,6 +4,7 @@ import { generateDungeon } from '@engine/world/dungeon.ts';
 import {
   allReached,
   around,
+  groundsOf,
   makeRoute,
   markAround,
   markLinkOpenings,
@@ -11,14 +12,13 @@ import {
   placeLink,
   roomDoors,
   roomTiles,
-  stripOf,
   thinDoorPairs,
 } from '@engine/world/stairwells.ts';
 import type { BuildingLink, FloorOpenings, StairwellConfig } from '@engine/world/stairwells.ts';
 // (what the game's other files and the tests take from here)
 export { makeRoute, roomDoors, roomsOnWay, roomTiles } from '@engine/world/stairwells.ts';
 export type { BuildingLink } from '@engine/world/stairwells.ts';
-import { COVER_H, PLAT_H } from '../data/level.ts';
+import { COVER_H, HALL_H, PLAT_H, WALL_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import type { Biome, BuildingState } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
@@ -30,7 +30,7 @@ import type { Court, CourtFloor } from './courtyard.ts';
 // (what the game's other files and the tests take from here)
 export { devCourtOpen } from './courtyard.ts';
 export type { Court, YardShape } from './courtyard.ts';
-// One depth is one building: 3 to 5 floors stacked FLOOR_H apart, with the boss room (a hall with a single door,
+// One depth is one building: 3 to 5 floors stacked FLOOR_H apart (the lowest LAST_GAP under the one above it), with the boss room (a hall with a single door,
 // engine/src/world/dungeon.ts) on the lowest floor. Floor 0 is the top, where the run starts. The floors are visited
 // in the order of the building's route (it starts on the top floor and ends on the lowest, but may go down two floors
 // and back up one in between); each step of the route is one stairwell or one lift, at the same place on the floors
@@ -38,15 +38,16 @@ export type { Court, YardShape } from './courtyard.ts';
 // the same building again (resuming a suspended run rebuilds it).
 // No three.js and no tile world here: only the plans. world/level.ts draws them and makes one floor the active one.
 //
-// A stairwell is a straight strip of STRIP tiles: E (the foot), RAMPS ramp tiles, then the landing L1 and L2.
-//   on the lower floor the whole strip is floor: E on the ground, the ramps rising to FLOOR_H, L1 and L2 at FLOOR_H
+// A stairwell is a straight strip of tiles: E (the foot), a ramp tile for every RISE of the gap between its floors (4
+// for FLOOR_H, 7 for LAST_GAP), then the landing L1 and L2.
+//   on the lower floor the whole strip is floor: E on the ground, the ramps rising to the gap, L1 and L2 at the gap
 //   on the upper floor only L1 and L2 are floor (on its ground, the same height in the world); the rest is open
 // The player is on the lower floor's tile world up to L1 and on the upper floor's from L2 on (flow/events.ts).
 // A lift is one tile S that is floor on both floors; standing on it rides to the other one.
 // The version of how makeBuilding lays a building out from its seed. Raise it with any change that gives a seed another
 // building (rooms, stairwells and lifts, the route, courtyards): a run suspended before then is fitted onto the new
 // building when it is resumed (fitBuildingState). A test in test/smoke.test.ts fails when the layout changes
-export const BUILDING_V = 2;
+export const BUILDING_V = 3;
 // ---- tuning numbers used only here ----
 export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
 // ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with
@@ -55,6 +56,9 @@ const ROOMS_BY_FLOORS: Record<number, [number, number] | null> = { 3: null, 4: [
 const LIFT_REACH = 3; // a lift goes at most this many floors
 const STAIRS_CHANCE = 0.5; // a step of one floor is a stairwell this often, a lift otherwise
 export const FLOOR_H = 8; // from the ground of one floor to the ground of the next (m)
+// ... but from the lowest floor's to the one above it: its boss room is HALL_H high, and the floor above stands over it
+// as far as the others stand over their WALL_H, so the room stays under it (with FLOOR_H its top stood in that floor)
+export const LAST_GAP = HALL_H + FLOOR_H - WALL_H;
 const BOSS_HALL = 12; // side of the boss room (tiles), the same as the floor of a boss arena
 const LAST_FLOOR_ROOMS: [number, number] = [3, 4]; // ordinary rooms on the lowest floor, next to the boss room
 const PLACE_TRIES = 600; // random places tried for one stairwell or lift
@@ -70,7 +74,12 @@ const CFG: StairwellConfig = {
   roomsBetween: ROOMS_BETWEEN,
   linkTries: LINK_TRIES,
 };
-export const STRIP = stripOf(CFG); // tiles of a stairwell: E, the ramps, L1, L2
+// ... in a building of `floors` floors: the gap over the lowest is LAST_GAP
+function cfgOf(floors: number): StairwellConfig {
+  const gaps: number[] = [];
+  gaps[floors - 2] = LAST_GAP;
+  return { ...CFG, gaps };
+}
 
 // one floor of the building, as generated
 // (how the floor is drawn where it meets the floors above and below: FloorOpenings, engine/src/world/stairwells.ts)
@@ -80,6 +89,7 @@ export interface FloorPlan extends FloorOpenings {
   seen: Uint8Array; // per tile: shown on the map; kept while the building lives, so a floor stays explored
   // the courtyard's open middle on this floor (null = none here; world/courtyard.ts)
   court: CourtFloor | null;
+  above: number; // from its ground to the ground of the floor above (m; the top floor: FLOOR_H)
 }
 export interface Building {
   seed: number; // what makeBuilding was given
@@ -89,6 +99,7 @@ export interface Building {
   links: BuildingLink[]; // step by step along the route: links[n] joins route[n] and route[n + 1]
   lockdown: { floor: number; room: number } | null; // the room where the lockdown happens (none when no room fits)
   court: Court | null; // the courtyard (none in most sectors, or when no place fits)
+  grounds: number[]; // the height of each floor's ground (m): the top floor at 0, the ones below it lower
 }
 // the building of the depth being played; replaced as a whole by setBuilding
 export let building: Building | null = null;
@@ -138,7 +149,9 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
   const rng = createRng(seed);
   const FLOORS = rng.randi(FLOORS_RANGE[0], FLOORS_RANGE[1]),
     route = makeRoute(FLOORS, rng, LIFT_REACH),
-    rooms = ROOMS_BY_FLOORS[FLOORS];
+    rooms = ROOMS_BY_FLOORS[FLOORS],
+    cfg = cfgOf(FLOORS),
+    grounds = groundsOf(cfg, FLOORS);
   const base = {
     ...biome.gen,
     ...(rooms ? { countMin: rooms[0], countMax: rooms[1] } : {}),
@@ -183,7 +196,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
           ? before.a
           : before.b
         : Math.floor(startRoom.y + startRoom.h / 2) * W + Math.floor(startRoom.x + startRoom.w / 2),
-      link = placeLink(maps, keepOut, stairs, up, lo, { floor, from, skip: before ? -1 : startIdx }, rng, CFG);
+      link = placeLink(maps, keepOut, stairs, up, lo, { floor, from, skip: before ? -1 : startIdx }, rng, cfg);
     if (!link) return null;
     links.push(link);
   }
@@ -199,6 +212,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
       seen: new Uint8Array(size),
       ...noOpenings(size),
       court: courtFloor(court, floor),
+      above: floor ? grounds[floor - 1]! - grounds[floor]! : FLOOR_H,
     };
   });
   if (court) openCourt(plans, court, W);
@@ -207,7 +221,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     clearHazardsAround(plans[l.upper]!, l.strip);
     clearHazardsAround(plans[l.lower]!, l.strip);
   }
-  markLinkOpenings(plans, maps, links, CFG);
+  markLinkOpenings(plans, maps, links);
   // what the floors' walls look out on (looks/common.ts wallBeyond): the floors of the whole building count as floor,
   // a yard's middle as the outside, on the floors it passes and over them (it is open to the sky), and the narrow gaps
   // and notches between the floors as floor too (looks/outside.ts massOf: the building's outside fills them)
@@ -236,7 +250,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
       for (const [pi, pj] of ARENA_PILLARS)
         p.gen.maps.grid[(hall.y + pj - ARENA_FROM) * W + hall.x + pi - ARENA_FROM] = 0;
   });
-  if (!allReached(maps, links, top.gen.startIdx, FLOOR_H)) return null;
+  if (!allReached(maps, links, top.gen.startIdx, cfg)) return null;
   // the lockdown room: one that can be shut (every opening is a door), with enemies in it
   const fits: { floor: number; room: number }[] = [];
   plans.forEach((p, floor) =>
@@ -246,7 +260,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     }),
   );
   const lockdown = fits.length ? rng.pick(fits) : null;
-  return { seed, biome, plans, route, links, lockdown, court };
+  return { seed, biome, plans, route, links, lockdown, court, grounds };
 }
 // The same seed, sector and boss give the same building. A seed whose floors leave no room for a stairwell or lift is
 // passed over for the next one (seed + SEED_STEP, ...), the same way every time; the building keeps the seed it was

@@ -536,6 +536,9 @@ export interface OutsideBlock {
   bottom?: number; // where it stands (0 when not given): a box may stand on another, or hang over the street
   noRoof?: boolean; // no roof (another box stands on it)
   under?: boolean; // its underside is built too (it hangs out over the street)
+  // the heights (m) of the picture laid on its bottom and top edge, when not `bottom` and `top`: a box taller than its
+  // storey that should still show one (a floor higher than the others) has its picture stretched over it so
+  paint?: [number, number];
 }
 export interface OutsideLook {
   facades: THREE.Texture[];
@@ -606,7 +609,8 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
         [k.x1, k.z1, k.x0, k.z1],
         [k.x0, k.z0, k.x1, k.z0],
       ];
-    const y0 = k.bottom ?? 0;
+    const y0 = k.bottom ?? 0,
+      [v0, v1] = (k.paint ?? [y0, k.top]).map(y => y / sy) as [number, number];
     for (const side of k.sides) {
       const [ax, az, bx, bz] = faces[side]!,
         len = Math.hypot(bx - ax, bz - az);
@@ -619,10 +623,10 @@ export function buildOutsideBlocks(blocks: OutsideBlock[], look: OutsideLook, ba
           [ax, k.top, az],
         ],
         [
-          [0, y0 / sy],
-          [len / sx, y0 / sy],
-          [len / sx, k.top / sy],
-          [0, k.top / sy],
+          [0, v0],
+          [len / sx, v0],
+          [len / sx, v1],
+          [0, v1],
         ],
         look.light[side]!,
       );

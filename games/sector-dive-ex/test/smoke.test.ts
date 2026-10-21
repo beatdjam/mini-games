@@ -146,7 +146,7 @@ import {
   BUILDING_V,
   FLOORS_RANGE,
   FLOOR_H,
-  STRIP,
+  LAST_GAP,
   building,
   devCourtOpen,
   makeBuilding,
@@ -2574,6 +2574,14 @@ test('building: the same seed gives the same three floors, joined at the same pl
       expect(bld.route[0] === 0 && bld.route[F - 1] === F - 1, at).toBe(true);
       // one stairwell or lift per step of the route, joining exactly those two floors
       expect(bld.links.length, at).toBe(F - 1);
+      // the floors FLOOR_H apart, but the lowest LAST_GAP under the one above it (its boss room is taller)
+      expect(
+        bld.grounds
+          .slice(1)
+          .map((g, n) => bld.grounds[n]! - g)
+          .join(),
+        at,
+      ).toBe([...Array(F - 2).fill(FLOOR_H), LAST_GAP].join());
       bld.links.forEach((l, n) => {
         expect([l.upper, l.lower].join(), at).toBe([bld.route[n]!, bld.route[n + 1]!].sort().join());
         expect(l.lower - l.upper, at).toBeLessThanOrEqual(l.kind === 'stairs' ? 1 : 3);
@@ -2590,16 +2598,21 @@ test('building: the same seed gives the same three floors, joined at the same pl
           }
           continue;
         }
-        // the lower floor: the foot on the ground, ramps one RISE after the other, the landing at the next floor
-        expect(l.strip.length, at).toBe(STRIP);
+        // the lower floor: the foot on the ground, ramps one RISE after the other (as many as the gap needs), the
+        // landing at the next floor
+        const gap = bld.grounds[l.upper]! - bld.grounds[l.lower]!,
+          ramps = gap / 2;
+        expect(l.strip.length, at).toBe(ramps + 3);
         expect(
           l.strip.every(k => lo.grid[k] === 1),
           at,
         ).toBe(true);
-        expect(l.strip.map(k => lo.hgt[k]).join(), at).toBe(`0,0,2,4,6,${FLOOR_H},${FLOOR_H}`);
-        expect(l.strip.map(k => (lo.ramp[k]! >= 0 ? 1 : 0)).join(), at).toBe('0,1,1,1,1,0,0');
+        expect(l.strip.map(k => lo.hgt[k]).join(), at).toBe(
+          [0, ...Array.from({ length: ramps }, (_, n) => n * 2), gap, gap].join(),
+        );
+        expect(l.strip.map(k => (lo.ramp[k]! >= 0 ? 1 : 0)).join(), at).toBe([0, ...Array(ramps).fill(1), 0, 0].join());
         // the upper floor: only the landing is floor, on its ground; the same two tiles
-        expect(l.strip.map(k => up.grid[k]).join(), at).toBe('0,0,0,0,0,1,1');
+        expect(l.strip.map(k => up.grid[k]).join(), at).toBe([...Array(ramps + 1).fill(0), 1, 1].join());
         expect(up.hgt[l.a] === 0 && up.hgt[l.b] === 0, at).toBe(true);
         expect([l.b, l.a].join(), at).toBe(l.strip.slice(-2).join());
         // drawn open: no wall over the stairs on the upper floor, no ceiling over them on the lower floor
@@ -2689,7 +2702,7 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   expect(progressOf(run.stage), 'the strength follows the route').toBeCloseTo(run.bld!.tier * 5 + 4 / run.bld!.floors);
   expect(tileIndex(player.x, player.z), 'the player stands where the link ends on this floor').toBe(arrive.b);
   // at the top of a stairwell that is a floor above this floor's ground; on a lift's platform it is the ground
-  expect(player.fy).toBeCloseTo(arrive.kind === 'stairs' ? FLOOR_H : 0);
+  expect(player.fy).toBeCloseTo(arrive.kind === 'stairs' ? building!.grounds[0]! - building!.grounds[next]! : 0);
   expect((save.suspend as Snapshot | null)?.run.bld?.floor, 'the checkpoint is on the new floor').toBe(next);
   expect(level.startIdx, 'no start room down here').toBe(-1);
   tick(120);
@@ -2765,7 +2778,7 @@ test('building: the layout a seed gives is that of BUILDING_V', () => {
       b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('')));
       mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
     }
-  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v2 746c62e0');
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v3 b36a4418');
 });
 test('resume: a run saved on a building laid out another way goes on at the same step of the route', () => {
   goBase();
@@ -2814,7 +2827,9 @@ test('stairwell: walking over the landing changes the floor without moving the p
     stepOf = (floor: number) => building!.route.indexOf(floor);
   goToFloor(l.upper);
   enemies.slice().forEach(e => hurtEnemy(e, 1e6, false));
-  const [foot, , , , top, l1, l2] = l.strip as [number, number, number, number, number, number, number];
+  const S = l.strip,
+    [foot, top, l1, l2] = [S[0]!, S[S.length - 3]!, S[S.length - 2]!, S[S.length - 1]!],
+    gap = building!.grounds[l.upper]! - building!.grounds[l.lower]!;
   // on the upper floor the far landing tile changes nothing
   putOnTile(l2);
   tick(2);
@@ -2823,18 +2838,18 @@ test('stairwell: walking over the landing changes the floor without moving the p
   // (another stairwell or lift of this floor may be near too, so the other floors are not checked)
   expect(floorDrawn(l.upper) && floorDrawn(l.lower)).toBe(true);
   expect(player.fy).toBeCloseTo(0);
-  // the tile nearer the stairs is the lower floor's: its ground is a floor below, so the player is FLOOR_H above it
+  // the tile nearer the stairs is the lower floor's: its ground is a floor below, so the player is the gap above it
   putOnTile(l1);
   tick(2);
   expect(level.floor).toBe(l.lower);
-  expect(player.fy, 'the same height in the world').toBeCloseTo(FLOOR_H);
-  expect(floorY(player.x, player.z)).toBeCloseTo(FLOOR_H);
+  expect(player.fy, 'the same height in the world').toBeCloseTo(gap);
+  expect(floorY(player.x, player.z)).toBeCloseTo(gap);
   expect(run.bld!.step).toBe(stepOf(l.lower));
   // down the ramps to the foot
   putOnTile(top);
   tick(2);
-  expect(player.fy).toBeGreaterThan(FLOOR_H - 2.01);
-  expect(player.fy).toBeLessThan(FLOOR_H);
+  expect(player.fy).toBeGreaterThan(gap - 2.01);
+  expect(player.fy).toBeLessThan(gap);
   putOnTile(foot);
   tick(2);
   expect(level.floor).toBe(l.lower);
