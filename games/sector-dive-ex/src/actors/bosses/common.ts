@@ -271,10 +271,15 @@ function giveBossRewards(e: Boss, tier: number, progress: number) {
   const roll = Math.random() + progress * BOSS_WEAPON_ROLL_PER_PROGRESS;
   const minRarity = roll > BOSS_WEAPON_LUCKY_ABOVE ? BOSS_WEAPON_LUCKY_RARITY : BOSS_WEAPON_MIN_RARITY;
   addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(progress + BOSS_WEAPON_PROGRESS_BONUS, minRarity) });
-  makePortal(e.cx + 6, e.cz - 2, COLOR.amber, 'next', t('boss.forward'));
-  makePortal(e.cx - 6, e.cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
-  // a milestone's boss: a terminal between the gates, where the dive's bits buy levels (screens/levelup.ts)
-  if (isMilestone(tier)) makeTerminal(e.cx, e.cz - 2, COLOR.lime, t('boss.terminal'));
+  putBossGates(e.cx, e.cz, tier);
+}
+// the gates round (cx, cz), the middle of the arena, once the boss of depth `tier` is down: forward and back to base,
+// and at a milestone a terminal between them, where the dive's bits buy levels (screens/levelup.ts). Also when the
+// player comes back to the boss room's floor after the fight (flow/events.ts resetFloorEvents)
+export function putBossGates(cx: number, cz: number, tier: number) {
+  makePortal(cx + 6, cz - 2, COLOR.amber, 'next', t('boss.forward'));
+  makePortal(cx - 6, cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
+  if (isMilestone(tier)) makeTerminal(cx, cz - 2, COLOR.lime, t('boss.terminal'));
 }
 // the kill counts toward the save: deepest depth, the next shortcut
 function recordBossProgress(tier: number) {
