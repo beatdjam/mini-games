@@ -46,7 +46,7 @@ import { encodeStore } from '@engine/core/store.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
 import { SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
-import { EYE, PLAT_H, WALL_H } from '../src/data/level.ts';
+import { EYE, HALL_H, PLAT_H, WALL_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
 import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
@@ -3142,13 +3142,13 @@ test("boss room: only the enemies in it count as the boss's minions, and it is t
   hurtEnemy(m, 1e6, false);
   goToFloor(0);
 });
-test('boss room: in it and at its door only its own floor is drawn (the room is higher than a floor)', () => {
+test('boss room: the floor above stands over its top, so the floors are drawn there as anywhere else', () => {
   const b = building!,
     last = b.plans.length - 1,
     hall = b.plans[last]!.hall!,
-    r = b.plans[last]!.gen.rooms[hall.room]!,
-    drawn = () => b.plans.map((_, m) => floorDrawn(m)).join(),
-    own = b.plans.map((_, m) => m === last).join();
+    r = b.plans[last]!.gen.rooms[hall.room]!;
+  // the room is HALL_H high, and the floor above stands a floor's thickness over it, as it does over WALL_H elsewhere
+  expect(b.grounds[last - 1]! - b.grounds[last]! - HALL_H).toBe(FLOOR_H - WALL_H);
   goToFloor(last);
   // the stairwell or lift that comes down to this floor: next to it the floors above are drawn
   const link = b.links.find(l => l.lower === last)!;
@@ -3156,11 +3156,10 @@ test('boss room: in it and at its door only its own floor is drawn (the room is 
   // (a lift's other floors show only while it is ridden)
   showNeighbourFloors(b, player.x, player.z, link.kind === 'elevator' ? b.links.indexOf(link) : null);
   expect(floorDrawn(link.upper), 'by the way down, the floor above shows').toBe(true);
-  for (const k of [(r.y + 1) * W + r.x + 1, hall.door]) {
-    putOnTile(k);
-    showNeighbourFloors(b, player.x, player.z, null);
-    expect(drawn(), 'in the boss room and on its door').toBe(own);
-  }
+  // in the boss room its own floor is drawn, the same as in any room (no floor is hidden for it any more)
+  putOnTile((r.y + 1) * W + r.x + 1);
+  showNeighbourFloors(b, player.x, player.z, null);
+  expect(floorDrawn(last)).toBe(true);
   goToFloor(0);
 });
 test('neighbour floors: by a stairwell they show; by a lift only while it is ridden', () => {
