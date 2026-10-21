@@ -39,15 +39,7 @@ import {
   stashFloor,
   takeFollowers,
 } from '../world/level.ts';
-import {
-  BUILDING_V,
-  FLOOR_H,
-  building,
-  fitBuildingState,
-  makeBuilding,
-  setBuilding,
-  unpackSeen,
-} from '../world/building.ts';
+import { BUILDING_V, building, fitBuildingState, makeBuilding, setBuilding, unpackSeen } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal } from '../world/portals.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
@@ -314,11 +306,11 @@ function populateFloor(b: Biome, tier: number, plan: FloorPlan, st: BuildingStat
 }
 // The player has walked (or ridden) from one floor of the building onto the next by link n, without a cut: the floor
 // they are on now becomes the one being played. The world does not move: the player's height is re-read against the
-// new floor's ground (dy = how far the new floor's ground is below the old one's, FLOOR_H going down, -FLOOR_H up)
+// new floor's ground (dy = how far the new floor's ground is below the old one's: Building.grounds)
 export function crossToFloor(n: number, to: number) {
   const st = run.bld!,
     b = building!,
-    dy = (to - st.floor) * FLOOR_H;
+    dy = b.grounds[st.floor]! - b.grounds[to]!;
   setFloor(st, to);
   st.at = n;
   recordBest(run.stage);

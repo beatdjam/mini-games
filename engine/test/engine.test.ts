@@ -94,6 +94,8 @@ import { addDecks, addRamps, addWalls, wallTiles, wedgeGeo } from '../src/render
 import {
   STAIRWELL_DEFAULTS,
   allReached,
+  gapOf,
+  groundsOf,
   makeRoute,
   markLinkOpenings,
   noOpenings,
@@ -2503,6 +2505,38 @@ test('stairwells: floors made apart are joined by a stairwell and a lift, every 
     expect(open[0]!.voids[stairs.strip[0]!], 'over the foot of the stairs: a hole').toBe(1);
     expect(open[1]!.noCeil[stairs.strip[0]!]).toBe(1);
     expect(open[2]!.noCeil[lift.a]).toBe(1);
+  }
+  expect(done, 'most seeds have room for both').toBeGreaterThan(3);
+});
+test('stairwells: a taller gap between two floors has a longer stairwell, rising to that gap', () => {
+  // (only the gap under floor 1 given: the one under floor 0 stays floorH)
+  const gaps: number[] = [];
+  gaps[1] = 14;
+  const cfg = { ...STAIRWELL_DEFAULTS, gaps };
+  expect(gapOf(cfg, 0)).toBe(STAIRWELL_DEFAULTS.floorH);
+  expect(gapOf(cfg, 1)).toBe(14);
+  expect(groundsOf(cfg, 3)).toEqual([0, -STAIRWELL_DEFAULTS.floorH, -STAIRWELL_DEFAULTS.floorH - 14]);
+  expect(stripOf(cfg, 1)).toBe(14 / RISE + 3);
+  let done = 0;
+  for (let seed = 1; seed <= 6; seed++) {
+    const rng = createRng(seed),
+      opts = { map: 48, countMin: 4, countMax: 5 },
+      maps = [0, 1, 2].map(() => generateDungeon(opts, rng)),
+      W = maps[0]!.W,
+      keepOut = maps.map(() => new Uint8Array(W * maps[0]!.H)),
+      r = maps[0]!.rooms[0]!,
+      start = Math.floor(r.y + r.h / 2) * W + Math.floor(r.x + r.w / 2),
+      lift = placeLink(maps, keepOut, false, 0, 1, { floor: 0, from: start, skip: 0 }, rng, cfg),
+      stairs = lift && placeLink(maps, keepOut, true, 1, 2, { floor: 1, from: lift.b, skip: -1 }, rng, cfg);
+    if (!stairs || !lift) continue;
+    done++;
+    const STRIP = stripOf(cfg, 1);
+    expect(stairs.strip.length).toBe(STRIP);
+    expect(stairs.strip.map(k => maps[2]!.maps.hgt[k])).toEqual([0, 0, 2, 4, 6, 8, 10, 12, 14, 14]);
+    expect(allReached(maps, [lift, stairs], 0, cfg), `seed ${seed}`).toBe(true);
+    const open = maps.map(m => noOpenings(m.W * m.H));
+    markLinkOpenings(open, maps, [lift, stairs]);
+    expect(stairs.strip.map(k => open[1]!.voids[k])).toEqual([...Array(STRIP - 2).fill(1), 0, 0]);
   }
   expect(done, 'most seeds have room for both').toBeGreaterThan(3);
 });

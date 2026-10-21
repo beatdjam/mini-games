@@ -138,7 +138,6 @@ const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings
 const SHELL_STOREYS = 2; // the facade's picture (4 storeys) over this many floors of the building's own walls: two storeys a floor, so its windows keep their shape
 let shown: Building | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
-let hallTop: THREE.Group | null = null; // the part of the boss room above WALL_H (levelMesh.ts buildFloorMeshes)
 export let liftPads: { link: number; mesh: THREE.Mesh }[] = [];
 export const buildingShown = (b: Building | null): boolean => !!b && shown === b;
 // What was left on the floors of the building on screen when the player went on to another floor: the enemies still
@@ -308,7 +307,6 @@ function clearLevel() {
     yardShell = null;
     outside = null;
     liftPads = [];
-    hallTop = null;
     shown = null;
     dropFloorStash();
     resetDoorMeshes();
@@ -378,7 +376,6 @@ const LIFT_PAD = { side: T * 0.92, thick: 0.16 }; // a lift's platform (m)
 const LIFT_SIDE = 0x2b2f34; // the platform's edge under its picture
 const LIFT_SEED = 77; // the picture's seed (the same platform every time)
 let liftTop: THREE.CanvasTexture | null = null; // the picture on a lift's platform, made once
-const HALL_NEAR = 14; // this close to the boss room's door counts as at the boss room (m)
 const NEIGHBOUR_SHOW_R = 40; // the floors above and below are drawn within this of a stairwell or lift, or the fog's end if nearer (m)
 const CHUNK_M = 8 * T; // side of a chunk of a floor's things (m): only the chunks in view and short of the fog are drawn
 const CHUNK_MIN_TRIS = 3000; // only a kind of thing with this many triangles in all on a floor is cut into chunks
@@ -435,15 +432,8 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     // is right by or in sight. From a room the yard's walls stand in the way (it is seen through the windows on it,
     // their own copies of it), and drawn there it would be all of it, behind the walls
     yardSeen = atCourt && seesYard(b, n, x, z);
-  // In the boss room, and in front of its door, only this floor is drawn: the room is higher than a floor (HALL_H),
-  // so its top stands where the floor above is, and the two must not show together
-  const hall = level.hall,
-    atHall =
-      !!hall &&
-      (level.roomOf[tileIndex(x, z)] === hall.room ||
-        Math.hypot(tileCenter(hall.door % w) - x, tileCenter(Math.floor(hall.door / w)) - z) < HALL_NEAR);
   floorGroups.forEach((g, m) => {
-    g.visible = m === n || (!atHall && near(m));
+    g.visible = m === n || near(m);
     const cg = courtGroups[m];
     if (cg) cg.visible = g.visible || (b.court?.open ? yardSeen : atCourt);
     if (!g.visible || !floorChunks[m]) return;
@@ -479,8 +469,6 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
       if (y.root.visible) for (const [, c, m] of y.parts) c.visible = m < 0 || Math.abs(m - n) <= YARD_COPY_FLOORS;
     }
   }
-  // the top of the boss room shows while its floor is the one played (from another floor it would stand in the way)
-  if (hallTop) hallTop.visible = !!hall;
 }
 export const floorDrawn = (m: number): boolean => !!floorGroups[m]?.visible;
 // Puts the whole building (world/building.ts) on screen: the meshes and doors of every floor, each in a group of its
@@ -491,9 +479,8 @@ export function showBuilding(b: Building) {
   b.plans.forEach((plan, n) => {
     setFloorWorld(plan);
     const g = new THREE.Group();
-    const cg = plan.court ? new THREE.Group() : null,
-      top = buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9), cg ?? undefined);
-    if (top) hallTop = top;
+    const cg = plan.court ? new THREE.Group() : null;
+    buildFloorMeshes(b.biome, plan, g, createRng((b.seed + n) ^ 0x9e3779b9), cg ?? undefined);
     // the floor's things in chunks, so only those in view are drawn (engine/src/render/chunks.ts); then what stands
     // still and is only coloured, drawn as one per chunk (engine/src/render/mergeflat.ts)
     floorChunks.push(chunkInstances(g, CHUNK_M, CHUNK_MIN_TRIS));
@@ -627,7 +614,14 @@ export function showBuilding(b: Building) {
     across.add(
       buildOutsideBlocks(round, look3, BACKDROP_R),
       buildOutsideBlocks(
-        buildingShell(insides, w, h, FLOOR_H, (i, j, m, sides) => walls?.pick(i, j, m, sides.includes(1)) ?? 0),
+        buildingShell(
+          insides,
+          w,
+          h,
+          FLOOR_H,
+          (i, j, m, sides) => walls?.pick(i, j, m, sides.includes(1)) ?? 0,
+          b.grounds.map(g => g - b.grounds[b.grounds.length - 1]!),
+        ),
         walls
           ? {
               ...look3,
@@ -692,13 +686,13 @@ export function enterFloor(b: Building, n: number) {
     hall: plan.hall,
   };
   floorGroups.forEach((g, m) => {
-    g.position.y = (n - m) * FLOOR_H;
+    g.position.y = b.grounds[m]! - b.grounds[n]!;
     courtGroups[m]?.position.setY(g.position.y);
   });
-  yardShell?.position.setY(n * FLOOR_H);
+  yardShell?.position.setY(-b.grounds[n]!);
   for (const y of yardCopies) for (const [src, c] of y.parts) c.position.copy(src.position);
   if (outside) {
-    const street = -(b.plans.length - 1 - n) * FLOOR_H;
+    const street = b.grounds[b.grounds.length - 1]! - b.grounds[n]!;
     outside.band.groundY = street;
     outside.across.position.y = street;
   }
