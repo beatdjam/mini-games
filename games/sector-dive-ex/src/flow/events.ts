@@ -49,6 +49,7 @@ const LIFT_INVULN = 0.2; // the rider cannot be hurt (refreshed every frame of t
 // the state of the floor being played; reset when a floor is built (resetFloorEvents)
 const ev = {
   ldActive: false, // the lockdown is running
+  ldShutting: false, // the lockdown room's doors are locked and closing: the lockdown starts once they are shut
   ldPending: false, // the lockdown room was emptied from outside: the waves start when the player walks in
   wavesLeft: 0,
   alarmT: 0, // seconds until the siren sounds again
@@ -74,6 +75,7 @@ const lockdownDoors = (room: number): number[] => roomDoors(building!.plans[leve
 // standing again, and the stage the boss's, so the gate forward leads to the next depth
 export function resetFloorEvents() {
   ev.ldActive = false;
+  ev.ldShutting = false;
   ev.ldPending = false;
   ev.wavesLeft = 0;
   showAlarm(false);
@@ -129,7 +131,6 @@ function spawnWave(room: number) {
 function startLockdown(room: number) {
   ev.ldActive = true;
   ev.wavesLeft = LOCKDOWN_WAVES;
-  lockdownDoors(room).forEach(k => lockDoor(world(), k));
   sfx('slam');
   sfx('alarm');
   ev.alarmT = ALARM_EVERY;
@@ -325,10 +326,30 @@ function clearOfDoors(doors: number[]): boolean {
 function shutBehindPlayer() {
   const room = level.roomOf[tileIndex(player.x, player.z)] ?? -1;
   shutOnlyWithPlayerIn(room);
+  if (ev.ldShutting) shutLockdown(room);
   if (room < 0) return;
-  if (isLockdownRoom(room) && !ev.ldActive && clearOfDoors(lockdownDoors(room))) startLockdown(room);
+  if (isLockdownRoom(room) && !ev.ldActive && !ev.ldShutting && clearOfDoors(lockdownDoors(room))) {
+    ev.ldShutting = true;
+    lockdownDoors(room).forEach(k => lockDoor(world(), k));
+  }
   const hall = level.hall;
   if (hall && room === hall.room && !ev.bossStarted && clearOfDoors([hall.door])) startBossFight();
+}
+// The lockdown room's doors are locked and closing. The lockdown starts once every one of them is shut: an awake enemy
+// in a doorway holds its door open, and the banner and the siren with the room still open would be a lie. A player who
+// gets out past that enemy finds the doors unlocked again, so as not to be left outside (in a doorway, they wait)
+function shutLockdown(room: number) {
+  const ld = building!.lockdown!.room,
+    doors = lockdownDoors(ld);
+  if (room !== ld) {
+    if (!clearOfDoors(doors)) return;
+    ev.ldShutting = false;
+    doors.forEach(k => lockDoor(world(), k, false));
+    return;
+  }
+  if (doors.some(k => world().doorOpen![k]! > 0)) return;
+  ev.ldShutting = false;
+  startLockdown(ld);
 }
 // While a lockdown or the boss fight is on, the room is shut only with the player in it. They can get out: a locked
 // door does not shut on an enemy standing in it either, and stays open for as long as one does. Outside, they would

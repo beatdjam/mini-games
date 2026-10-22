@@ -3488,7 +3488,7 @@ test('lockdown: the room does not shut on a player still in its doorway (they co
   expect(locked(), 'shut once the player is clear of the door').toBe(true);
   goBase();
 });
-test('lockdown: a player who gets out past an enemy holding a door open is not left outside', () => {
+test('lockdown: it waits for an enemy holding a door open, and a player who gets out past it is not left outside', () => {
   for (let k = 0; k < 20; k++) {
     goBase();
     startRun();
@@ -3500,6 +3500,7 @@ test('lockdown: a player who gets out past an enemy holding a door open is not l
   const world = activeTileGrid().world,
     doors = roomDoors(building!.plans[ld.floor]!.gen, ld.room).doors,
     locked = () => doors.some(k => isDoorLocked(world, k)),
+    alarm = () => el('#alarm').classList.contains('on'),
     door = doors[0]!,
     [di, dj] = SIDE_STEP.find(([a, b]) => level.roomOf[door + a + b * W] === ld.room)!,
     at = (k: number): [number, number] => [((k % W) + 0.5) * T, (Math.floor(k / W) + 0.5) * T],
@@ -3516,16 +3517,24 @@ test('lockdown: a player who gets out past an enemy holding a door open is not l
   expect(world.doorOpen![door], 'the enemy has opened the door').toBe(1);
   put(...roomSpot(level.rooms[ld.room]!));
   tick(30);
-  expect(locked(), 'shut with the player inside').toBe(true);
+  expect(locked(), 'locked with the player inside').toBe(true);
   expect(world.doorOpen![door], 'the door cannot shut on the enemy in it').toBeGreaterThanOrEqual(DOOR_PASS);
+  expect(alarm(), 'no lockdown while a door is open').toBe(false);
   // the player walks out through it, two tiles down the corridor
   put(...at(door - 2 * (di + dj * W)));
   tick(3);
   expect(locked(), 'outside: the room is open again').toBe(false);
-  expect(el('#alarm').classList.contains('on'), 'the lockdown goes on').toBe(true);
+  // the enemy is gone; back inside, the doors shut and then the lockdown starts
+  guard.dead = true;
+  level.roomCount[ld.room]!--;
   put(...roomSpot(level.rooms[ld.room]!));
-  tick(3);
+  tick(30);
   expect(locked(), 'back inside: shut again').toBe(true);
+  expect(
+    doors.every(k => world.doorOpen![k] === 0),
+    'every door is shut',
+  ).toBe(true);
+  expect(alarm(), 'the lockdown is on').toBe(true);
   goBase();
 });
 test('lockdown: the room shuts, two waves come, then it opens and leaves a chip', () => {
