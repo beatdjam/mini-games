@@ -148,12 +148,17 @@ export function bossBase<S extends object>(
   sfx('beam');
   return e;
 }
-// while a boss is appearing or switching phase it can't be hurt and doesn't act
+// while a boss is appearing or switching phase it can't be hurt and doesn't act. It appears where it will start to
+// move: its own spawn may put it somewhere else than bossBase did (the arena's middle, a warp spot, its flight path),
+// and its body would jump there on the first frame it acts
 export function bossPauseTick(e: Boss, dt: number) {
   e.spawnT -= dt;
   const k = clamp(1 - e.spawnT / e.spawnMax, 0, 1);
-  if (e.intro) e.mesh.scale.setScalar(0.25 + 0.75 * k);
-  else e.mesh.scale.setScalar(1 + Math.sin(k * Math.PI * 6) * 0.08);
+  if (e.intro) {
+    e.mesh.scale.setScalar(0.25 + 0.75 * k);
+    e.mesh.position.x = e.x;
+    e.mesh.position.z = e.z;
+  } else e.mesh.scale.setScalar(1 + Math.sin(k * Math.PI * 6) * 0.08);
   e.flash = Math.sin(e.t * 30 + k * 20) > 0 ? 0.05 : 0;
   if (e.spawnT <= 0) {
     e.mesh.scale.setScalar(1);
