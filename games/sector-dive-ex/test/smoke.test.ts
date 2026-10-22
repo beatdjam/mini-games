@@ -1136,6 +1136,22 @@ test('boss entrance and phase change: invulnerable while appearing and in the bu
   if (boss!.hp !== hp1) throw new Error('hurt during phase change');
   endRun('abandon');
 });
+test('boss entrance: every boss appears where it starts to move (no jump once it acts)', () => {
+  BOSS_ORDER.forEach(kind => {
+    startPractice(kind);
+    tick(3);
+    if (!boss) spawnBoss(kind);
+    const b = boss!;
+    expect(b.intro, kind).toBe(true);
+    tick(2);
+    const a = b.mesh.position.clone();
+    while (b.spawnT > 0) tick(1);
+    tick(1);
+    const moved = Math.hypot(b.mesh.position.x - a.x, b.mesh.position.z - a.z);
+    expect(moved, `${kind}: from where it appeared to where it first acts (m)`).toBeLessThan(0.5);
+    endRun('abandon');
+  });
+});
 test('boss practice: fight, win, go home; the save does not change', () => {
   const before = JSON.stringify(save);
   BOSS_ORDER.forEach(kind => {
