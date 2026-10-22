@@ -13,7 +13,7 @@ import { damageScaleAt, difficultyAt } from '../core/stages.ts';
 import { level, roomSpot, stashedRoomCount } from '../world/level.ts';
 import { lockdownAhead, markClearedOn, onRoomCleared } from '../flow/events.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
-import { bossDown, bossPhase, isEnraged } from './bosses/common.ts';
+import { BOSS_BITS, BOSS_BITS_KEPT, bossDifficulty, bossDown, bossPhase, isEnraged } from './bosses/common.ts';
 import { screenFx, hitDirection, hitMark } from '../ui/hud.ts';
 import { endRun } from '../flow/run.ts';
 import { state } from '../flow/state.ts';
@@ -49,6 +49,14 @@ const BOMBER_DEATH_DMG = 0.6; // share of its damage when a bomber is shot dead
 // kills and rewards
 const KILL_BITS_MUL = 0.6; // share of an enemy's bits dropped
 const KILL_BITS_PER_PROG = 0.05; // more bits per progress
+// the share of the boss's bits its depth's enemies drop (bosses/common.ts BOSS_BITS_KEPT): spread over about the kills
+// of a depth walked room by room (sim, explorer: some 175), each enemy by its own `bits` against the average one's
+const KILLS_PER_DEPTH = 175,
+  AVG_ENEMY_BITS = 5;
+const killBits = (e: RegularEnemy): number =>
+  e.def.bits *
+  (KILL_BITS_MUL * (1 + progressOf(run.stage) * KILL_BITS_PER_PROG) +
+    ((1 - BOSS_BITS_KEPT) * BOSS_BITS * bossDifficulty()) / (KILLS_PER_DEPTH * AVG_ENEMY_BITS));
 const KIT_DROP_SPREAD = 0.5; // a dropped kit lands this far from the enemy (m)
 const CHAIN_R_BASE = 2.5,
   CHAIN_R_PER = 0.5, // chain blast radius: base + per chip (m)
@@ -187,7 +195,7 @@ export function detonate(e: RegularEnemy) {
 }
 // bits, a kit (chance) and leech healing for a kill
 function dropKillRewards(e: RegularEnemy) {
-  dropBits(e.x, e.z, e.def.bits * KILL_BITS_MUL * (1 + progressOf(run.stage) * KILL_BITS_PER_PROG));
+  dropBits(e.x, e.z, killBits(e));
   if (Math.random() < TUNE.kitDropChance)
     addPickup('kit', e.x + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD), e.z + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD));
   const lh = player.leech + LEECH_OPT_HP * weaponOptCount('leech');

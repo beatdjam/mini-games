@@ -470,7 +470,7 @@ LANG.ja = {
     },
     upgrades: {
       hp: { name: '装甲', desc: l => `最大HP +15（今 +${l * 15}）` },
-      dmg: { name: '出力', desc: l => `与ダメージ +8%（今 +${l * 8}%）` },
+      dmg: { name: '出力', desc: l => `与ダメージ ×1.03。チップとは別に掛かる（今 ×${Math.pow(1.03, l).toFixed(2)}）` },
       spd: { name: '駆動系', desc: l => `移動速度 +5%（今 +${l * 5}%）` },
       dash: { name: '冷却', desc: l => `スタミナ回復 +12%（今 +${l * 12}%）` },
       gain: { name: '回収効率', desc: l => `ビット獲得 +15%（今 +${l * 15}%）` },

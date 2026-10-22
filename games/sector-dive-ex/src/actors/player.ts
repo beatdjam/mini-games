@@ -1,5 +1,5 @@
 import type { Player, RunState, Weapon, WeaponItem } from '../data/types.ts';
-import { DMG_PER_POINT, HP_PER_POINT, KIT_MAX, TUNE, BAG_MAX } from '../data/progress.ts';
+import { HP_PER_POINT, KIT_MAX, LEVEL_DMG_MUL, TUNE, BAG_MAX } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { basicNow, startDmgMul, startMaxHp } from '../core/rules.ts';
 import { fillMag, newWeapon } from './weapons.ts';
@@ -40,7 +40,8 @@ export function newPlayer(loadout: (WeaponItem | null)[], tier = 0): Player {
     r: PLAYER_R,
     baseSpeed: TUNE.moveSpeed,
     spdMul: 1 + u.spd * SPD_UP_PER_LEVEL,
-    dmgMul: startDmgMul(u.dmg),
+    dmgMul: 1,
+    lvlDmg: startDmgMul(u.dmg),
     fireRate: 1,
     gainMul: 1 + u.gain * GAIN_UP_PER_LEVEL,
     leech: 0,
@@ -83,7 +84,7 @@ export function applyLevelPoint(p: Player, id: string) {
   if (id === 'hp') {
     p.maxHp += HP_PER_POINT;
     p.hp += HP_PER_POINT;
-  } else if (id === 'dmg') p.dmgMul += DMG_PER_POINT;
+  } else if (id === 'dmg') p.lvlDmg *= LEVEL_DMG_MUL;
   else if (id === 'spd') p.spdMul += SPD_UP_PER_LEVEL;
   else if (id === 'dash') p.stRegen += TUNE.staminaRegen * REGEN_UP_PER_LEVEL;
   else if (id === 'gain') p.gainMul += GAIN_UP_PER_LEVEL;

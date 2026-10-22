@@ -16,9 +16,9 @@ import {
   WEAPONS,
 } from '../data/weapons.ts';
 import {
-  DMG_PER_POINT,
   DMG_SCALE_PER_PROG,
   HP_PER_POINT,
+  LEVEL_DMG_MUL,
   PER,
   TUNE,
   enemyGrowth,
@@ -39,7 +39,7 @@ export const levelOf = (): number => Object.values(save.up).reduce((n, v) => n +
 export const nextLevelCost = (): number => levelCost(levelOf());
 // max HP and damage multiplier at the start of a dive, from the points in armour and output (given)
 export const startMaxHp = (upHp: number): number => Math.round(TUNE.hp + upHp * HP_PER_POINT);
-export const startDmgMul = (upDmg: number): number => 1 + upDmg * DMG_PER_POINT;
+export const startDmgMul = (upDmg: number): number => Math.pow(LEVEL_DMG_MUL, upDmg);
 // (dev: with setDropOnly every drop is that one weapon, for the trials that look at one weapon at a time,
 // sim/bot.sim.ts; the die is thrown all the same, so the rest of the run's dice do not shift)
 let dropOnly: string | null = null;

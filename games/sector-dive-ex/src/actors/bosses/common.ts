@@ -57,7 +57,11 @@ const BOSS_GLOW = 0.3; // emissive intensity of the body at rest (baseEI)
 const BOSS_FIRST_TIMER = 2.2; // starting value of the pattern timer (s); bosses that need another set it in their spawn
 const BOSS_BASE_DMG = 10; // attack damage before damageScaleAt
 // what a boss drops when it goes down (bossDown)
-const BOSS_BITS = 45; // bits dropped before the bossDifficulty multiplier
+// bits a boss is worth before the bossDifficulty multiplier. It drops BOSS_BITS_KEPT of them; the rest come from the
+// enemies of its depth (actors/combat.ts killBits), so a dive that falls before the boss still brings something in
+// (2026-10-23: deep down nearly all of a depth's bits were the boss's, and a dive stuck at a milestone bought no level)
+export const BOSS_BITS = 45,
+  BOSS_BITS_KEPT = 0.4;
 const BOSS_WEAPON_ROLL_PER_PROGRESS = 0.03; // added to the weapon's lucky roll for each point of progress
 const BOSS_WEAPON_LUCKY_ABOVE = 0.9; // a lucky roll above this raises the weapon's minimum rarity
 const BOSS_WEAPON_MIN_RARITY = 1; // minimum rarity of the weapon (index into RARITY: 1 = ★★)
@@ -270,7 +274,7 @@ function giveBossRewards(e: Boss, tier: number, progress: number) {
   run.bosses = run.bosses || [];
   run.bosses.push(e.kind);
   track('boss_defeated', { target: e.kind, level: tier + 1 });
-  dropBits(e.x, e.z, BOSS_BITS * bossDifficulty());
+  dropBits(e.x, e.z, BOSS_BITS * BOSS_BITS_KEPT * bossDifficulty());
   addPickup('chip', e.cx, e.cz + 4);
   addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + progress * BOSS_WEAPON_ROLL_PER_PROGRESS;
