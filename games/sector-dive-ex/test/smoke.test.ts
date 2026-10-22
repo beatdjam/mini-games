@@ -3575,6 +3575,9 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
   player.fy = floorY(x, z);
   tick(2);
   expect(locked(), 'shut with the player inside').toBe(true);
+  // the lockdown starts once the doors are shut: one left open (an enemy near it, the player's own way in) takes
+  // 0.4 s to close
+  tick(30);
   expect(el('#alarm').classList.contains('on'), 'the red frame is up').toBe(true);
   expect(el('#alarmText').textContent).toContain('1/3');
   // the room's own enemies, then two waves: after each of the first three clears there are enemies again
