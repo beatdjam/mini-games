@@ -117,7 +117,7 @@ export const reloadTime = (def: WeaponDef, w?: WeaponItem): number =>
   def.reload * player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload', w));
 // damage of one projectile
 export const shotDamage = (def: WeaponDef, w: WeaponItem): number =>
-  def.dmg * wDmgMul(w) * player.dmgMul * splitMul(def);
+  def.dmg * wDmgMul(w) * player.dmgMul * player.lvlDmg * splitMul(def);
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
 // dps = sustained damage per second on one target, including reloads, average crits and a rocket's direct hit. What it
 // leaves out is given

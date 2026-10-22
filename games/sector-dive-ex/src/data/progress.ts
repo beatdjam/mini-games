@@ -82,8 +82,12 @@ export const MILESTONE_EVERY = 5;
 export const milestoneBelow = (tier: number): number =>
   tier < MILESTONE_EVERY - 1 ? 0 : tier - ((tier - (MILESTONE_EVERY - 1)) % MILESTONE_EVERY);
 export const isMilestone = (tier: number): boolean => tier > 0 && milestoneBelow(tier) === tier;
+// A point in output multiplies the damage by LEVEL_DMG_MUL, apart from the chips (theirs add up in Player.dmgMul).
+// At +8% added to the chips' sum (until 2026-10-23), a level was worth less the more chips a dive had, and next to
+// nothing deep down: a dive that died and came back with the bits' levels hit the same wall as strong as before.
+// The enemies' health compounds, so the levels compound too, and grinding levels can take a dive past a wall
 export const HP_PER_POINT = 15, // max HP per point in armour
-  DMG_PER_POINT = 0.08; // damage per point in output
+  LEVEL_DMG_MUL = 1.03; // damage multiplier per point in output
 export const STASH_MAX = 12,
   BAG_MAX = 4,
   KIT_MAX = 3;

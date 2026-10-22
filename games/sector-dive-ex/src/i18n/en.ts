@@ -478,7 +478,7 @@ LANG.en = {
     },
     upgrades: {
       hp: { name: 'Plating', desc: l => `Max HP +15 (now +${l * 15})` },
-      dmg: { name: 'Output', desc: l => `Damage +8% (now +${l * 8}%)` },
+      dmg: { name: 'Output', desc: l => `Damage x1.03, on top of the chips (now x${Math.pow(1.03, l).toFixed(2)})` },
       spd: { name: 'Drive', desc: l => `Move speed +5% (now +${l * 5}%)` },
       dash: { name: 'Cooling', desc: l => `Stamina regen +12% (now +${l * 12}%)` },
       gain: { name: 'Salvage', desc: l => `Bit gain +15% (now +${l * 15}%)` },

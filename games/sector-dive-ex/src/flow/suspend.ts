@@ -73,7 +73,11 @@ export function suspendRun() {
   discardArm = false;
   goBase();
 }
+// the levels in output were added to the chips' damage (+8% each) until 2026-10-23; a dive suspended before that
+// has them in dmgMul, and gets them back as a multiplier of their own (lvlDmg, from save.up as newPlayer sets it)
+const OLD_DMG_PER_POINT = 0.08;
 function restoreSnapshot(sn: Snapshot) {
+  if (sn.P.lvlDmg === undefined) sn.P.dmgMul -= OLD_DMG_PER_POINT * (save.up.dmg || 0);
   setPlayer(Object.assign(newPlayer([basicW('pistol'), null]), sn.P));
   setRun(Object.assign({}, sn.run));
   run.perks = (run.perks || []).map(perkIdOf);

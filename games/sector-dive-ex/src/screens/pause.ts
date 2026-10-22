@@ -85,7 +85,7 @@ function baseStatRows(w: ReturnType<typeof currentWeapon>): [string, string | nu
   const crit = `${Math.round(critChance() * 100)}%${player.crit + CRIT_OPT_PER_LEVEL * weaponOptCount('crit') > TUNE.critCap ? t('stats.capped') : ''}`;
   return [
     [t('stats.maxHp'), player.maxHp],
-    [t('stats.dmg'), pct(player.dmgMul * wDmgMul(w) - 1)], // chips and upgrades x the weapon's rarity and +value
+    [t('stats.dmg'), pct(player.dmgMul * player.lvlDmg * wDmgMul(w) - 1)], // chips x levels x the weapon's rarity and +value
     [t('stats.rate'), pct(player.fireRate / Math.pow(RATE_OPT_MUL, weaponOptCount('rate')) - 1)],
     [t('stats.speed'), pct(player.spdMul * (1 + SPEED_OPT_PER_LEVEL * weaponOptCount('speed')) - 1)],
     [t('stats.stamina'), stamina],

@@ -322,6 +322,7 @@ export interface Player {
   baseSpeed: number;
   spdMul: number;
   dmgMul: number;
+  lvlDmg: number; // damage multiplier of the levels in output (apart from the chips' dmgMul)
   fireRate: number;
   gainMul: number;
   reloadMul: number;

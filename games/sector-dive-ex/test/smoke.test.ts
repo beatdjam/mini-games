@@ -58,6 +58,7 @@ import {
   DEPTH_HP_GROWTH,
   DEPTH_HP_LATE,
   KIT_MAX,
+  LEVEL_DMG_MUL,
   isMilestone,
   PER,
   TUNE,
@@ -88,6 +89,7 @@ import {
   readiness,
   readinessScore,
   sellValue,
+  startDmgMul,
 } from '../src/core/rules.ts';
 import {
   buildFixedLevel,
@@ -120,8 +122,8 @@ import {
   spawnPBullet,
   spawnWave,
 } from '../src/world/entities.ts';
-import { player, newPlayer, run, setPlayer, setRun } from '../src/actors/player.ts';
-import { critChance, fillMag, rollWeapon, magSize, newWeapon, weaponStats } from '../src/actors/weapons.ts';
+import { applyLevelPoint, currentWeapon, player, newPlayer, run, setPlayer, setRun } from '../src/actors/player.ts';
+import { critChance, fillMag, rollWeapon, magSize, newWeapon, shotDamage, weaponStats } from '../src/actors/weapons.ts';
 import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/combat.ts';
 import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { RUNNING_SPREAD, findTarget, fire, shotId } from '../src/actors/firing.ts';
@@ -1285,7 +1287,7 @@ test('current stats: rarity damage, real magazine, chips counted', () => {
   player.weapons[player.cur] = keep;
   player.magMul = 1;
   if (
-    dmg !== pc(player.dmgMul * 1.55 - 1) ||
+    dmg !== pc(player.dmgMul * player.lvlDmg * 1.55 - 1) ||
     mag !== pc(5 / 3 - 1) /* 3 rounds x (1 + 1.5 x 0.5) = 5.25 -> 5, not +150% */ ||
     !html.includes(t('common.countRare', { name: perkName('mag'), n: 3, r: 1 }))
   )
@@ -1595,6 +1597,26 @@ test("level: a milestone level-up spends the dive's bits, counts at once, and ke
   persist();
   if (!open || !closed || got.join() !== [15, cost, 1, true].join()) throw new Error('milestone level ' + got);
   if (![4, 9, 14].every(isMilestone) || isMilestone(5) || isMilestone(0)) throw new Error('isMilestone');
+});
+test('level: a point in output multiplies the damage, apart from the chips (so it counts as much with many chips)', () => {
+  const keepUp = { ...save.up };
+  goBase();
+  startRun();
+  tick(2);
+  const w = currentWeapon(),
+    def = WEAPONS[w.id]!,
+    dmg0 = shotDamage(def, w);
+  applyLevelPoint(player, 'dmg');
+  const one = shotDamage(def, w) / dmg0;
+  player.dmgMul += 10; // a deep dive's chips
+  const many = shotDamage(def, w);
+  applyLevelPoint(player, 'dmg');
+  const oneMore = shotDamage(def, w) / many;
+  endRun('abandon');
+  Object.assign(save.up, keepUp);
+  expect(one).toBeCloseTo(LEVEL_DMG_MUL, 9);
+  expect(oneMore, 'with chips, a point is worth the same').toBeCloseTo(LEVEL_DMG_MUL, 9);
+  expect(startDmgMul(10)).toBeCloseTo(Math.pow(LEVEL_DMG_MUL, 10), 9);
 });
 test("level: a milestone's terminal opens on stepping onto it, sells the bag's weapons, and not again until stepped off", () => {
   goBase();
