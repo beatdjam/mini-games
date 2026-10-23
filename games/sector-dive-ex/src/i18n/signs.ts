@@ -87,6 +87,10 @@ export const MALL_EXIT = '非常口';
 export const MALL_NOTICE = 'お知らせ';
 export const MALL_PUSH = '押';
 export const MALL_ATM = 'ATM';
+// the mall's loading dock (its boss room): the plates high on its walls
+export const MALL_DOCK = '搬入口';
+export const MALL_DOCK_YARD = '荷捌き場';
+export const MALL_FORKLIFT = ['フォークリフト', '通行注意'];
 export const MALL_DIRECTIONS = ['↑ 階段・エレベーター', '← 駐車場', 'お手洗い →', 'インフォメーション →'];
 // what the closed mall left along its walls: the plate over the coin lockers, the sign on a shuttered sales wagon, the
 // photo booth's and the massage chairs' headers, the stand sign that fell over, and the paper pops torn down from the

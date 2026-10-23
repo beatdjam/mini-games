@@ -43,6 +43,16 @@ import {
 import { ROOM_FLOOR_PICS } from './floors.ts';
 import { mallRoomKinds } from './rooms.ts';
 import { GROUND_PICS, SHOP_PICS } from './shops.ts';
+import {
+  DOCK_BAYS,
+  DOCK_FLOOR_PICS,
+  DOCK_RACK_WALLS,
+  DOCK_SIGNS,
+  DOCK_WALL_MAP,
+  DOCK_WALL_PICS,
+  dockCeiling,
+  dockUpper,
+} from './dock.ts';
 // The shopping mall (MALL): a closed suburban mall at night. Ivory wall panels and cream floor tiles, shutters pulled
 // down over the shops, and what light there is comes from the emergency lamps and the moon through the glass roof.
 // Like the old downtown it is seen from far away, so the walls are mostly plain and the lights are kept soft: the
@@ -741,7 +751,13 @@ const [
 const kinds = Array.from({ length: SHOP_KINDS }, (_, n) => n);
 const FRONT_PICS: Paint[] = [...kinds.map(shutter), ...kinds.map(darkWindow), ...kinds.map(closedWindow), salePoster];
 const SALE = COMMON_PICS.length + FRONT_PICS.length - 1;
-export const MALL_WALL_PICS: (Paint | null)[] = [...COMMON_PICS, ...FRONT_PICS, ...SHOP_PICS.flat(), ...GROUND_PICS];
+export const MALL_WALL_PICS: (Paint | null)[] = [
+  ...COMMON_PICS,
+  ...FRONT_PICS,
+  ...SHOP_PICS.flat(),
+  ...GROUND_PICS,
+  ...DOCK_WALL_PICS,
+];
 // What the walls that no shop owns (the walls of the start room, the boss room and the atrium, and of a corridor with no
 // room behind it) are made of. 40% are the plain wall, the rest are shared out in twentieths, the empty tenancies
 // the most; the things that stand out (the toilets, the cash machine, the mural) come up once each, so together
@@ -783,6 +799,11 @@ export const MALL_LIFT_WALLS = [LIFT_FACE, LIFT_BUTTONS];
 let next = COMMON_PICS.length + FRONT_PICS.length;
 const shopWalls = SHOP_PICS.map(set => set.map(() => next++)),
   groundWalls = GROUND_PICS.map(() => next++);
+// the loading dock's walls (the boss room's) come last: the number of the first one is `next` here
+const dockFirst = next;
+export const MALL_DOCK_BAYS = DOCK_BAYS.map(n => dockFirst + n); // the roll-up shutters
+export const MALL_DOCK_SIGNS = DOCK_SIGNS.map(n => dockFirst + n); // the plates high on the wall
+export const MALL_DOCK_RACK_WALLS = DOCK_RACK_WALLS.map(n => dockFirst + n); // where a rack may stand
 export const MALL_ROOM_WALLS: RoomWalls = {
   plain: COMMON_PICS.length + FRONT_PICS.length,
   common: COMMON_MAP,
@@ -793,6 +814,7 @@ export const MALL_ROOM_WALLS: RoomWalls = {
     COMMON_PICS.length + SHOP_KINDS + n,
     COMMON_PICS.length + 2 * SHOP_KINDS + n,
   ]),
+  hall: DOCK_WALL_MAP.map(n => dockFirst + n),
 };
 // the walls along the concourse that belong to a shop: its fronts (shutter, dark window, closed window) and the plain wall
 // of its kind beside them. A narrow unit may stand at an end of such a face, clear of the glass in the middle
@@ -804,6 +826,8 @@ export const MALL_WALL_SIDES: WallSides = { outer: [WALL_EXIT] };
 export const MALL_ROOM_FLOORS: RoomFloors = {
   plain: MALL_FLOORS,
   shops: kinds.map(n => [MALL_FLOORS + 2 * n, MALL_FLOORS + 2 * n + 1]),
+  // the loading dock's, after the shops' (the first is the plain one)
+  hall: DOCK_FLOOR_PICS.map((_, n) => MALL_FLOORS + ROOM_FLOOR_PICS.length + n),
 };
 const mallWall =
   (variant: number): Paint =>
@@ -1174,7 +1198,9 @@ export function mallPictures(): Pictures {
     floors: [
       ...Array.from({ length: MALL_FLOORS }, (_, v) => paint(3200, mallFloor(v))),
       ...ROOM_FLOOR_PICS.map((fn, v) => paint(3210 + (v >> 1), fn)),
+      ...DOCK_FLOOR_PICS.map((fn, v) => paint(3220 + v, fn)),
     ],
+    hall: { upper: paint(3600, dockUpper), ceiling: paint(3601, dockCeiling) },
     deck: paint(3300, mallDeck),
     ceiling: paint(3400, mallCeiling),
     door: paint(3500, mallDoor(false)),

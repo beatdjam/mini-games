@@ -16,6 +16,7 @@ import type { Light, WallSlot } from '../props.ts';
 import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { mallBoxTex, mallEdgeTex, mallHeapTex, mallPopTex, mallTileTex, mallUnitTex } from './cutouts.ts';
+import { dockProps } from './dockProps.ts';
 import { mallShopHeaps } from './shopHeaps.ts';
 import { MALL_DIRECTIONS, MALL_LIFT, MALL_SHOP_NAMES } from '../../../i18n/signs.ts';
 import {
@@ -442,5 +443,7 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     lights,
     f => hung.has(key(f)) || !!plan.noCeil[tileOf(f)],
   );
+  // the boss room is the loading dock: its own things (after the rest, so the random numbers of the others go on as they did)
+  dockProps(plan, tools, rng, lights);
   tools.pools(lights, POOL_OPACITY);
 }

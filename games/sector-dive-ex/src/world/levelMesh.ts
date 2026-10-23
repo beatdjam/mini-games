@@ -10,7 +10,7 @@ import { biomeTex } from './render.ts';
 import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
-import { facesWest, floorPic, lookOf, wallKinds, wallPic } from './looks.ts';
+import { facesWest, floorPic, lookOf, wallHall, wallKinds, wallPic } from './looks.ts';
 import type { FloorPlan } from './building.ts';
 import {
   addCeiling,
@@ -125,6 +125,7 @@ export function buildFloorMeshes(
   if (look) {
     // (what kind each room is, for the walls and floors of a look whose rooms have kinds)
     if (look.roomKinds) wallKinds.set(plan.gen.maps.grid, look.roomKinds(plan));
+    if (plan.hall) wallHall.set(plan.gen.maps.grid, plan.hall.room);
     look.floors.forEach((map, v) =>
       floorPlanes(
         floorTiles.filter(k => floorPic(plan.gen, k, look.floors.length, look.roomFloors) === v),
@@ -226,14 +227,14 @@ export function buildFloorMeshes(
       all.filter(k => hallAt(k, 0)),
       HALL_H,
       false,
-      dark,
+      look?.hall ? new THREE.MeshBasicMaterial({ map: look.hall.ceiling }) : dark,
       hallTop,
     );
     // the walls go on up: over the ring round the room (its door too) and over the pillars in it
     const upper = all.filter(k => hallAt(k, 1) && (!hallAt(k, 0) || grid[k] !== 1)),
       boxes = new THREE.InstancedMesh(
         new THREE.BoxGeometry(T, HALL_H - WALL_H, T),
-        new THREE.MeshBasicMaterial({ map: tex.wall }),
+        new THREE.MeshBasicMaterial({ map: look?.hall?.upper ?? tex.wall }),
         upper.length,
       ),
       matrix = new THREE.Matrix4();
