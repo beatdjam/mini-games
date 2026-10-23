@@ -108,3 +108,7 @@ export const DATA_SEALED = '封鎖';
 export const BASE_SAFETY = '安全第一';
 export const BASE_CHECK = '作業前点検';
 export const BASE_BOARD = '連絡事項';
+// HOIST, the loading dock's overhead crane: the plates on its girder (rated load, unit number) and its caution card
+export const HOIST_RATING = '定格荷重 10t';
+export const HOIST_UNIT = 'HOIST-07';
+export const HOIST_CAUTION = '吊り荷注意';

@@ -1163,6 +1163,136 @@ test('mortar: a round puts a ring where the player stood, then hurts only whoeve
   expect(hit.lost, 'standing in the ring').toBe(hit.dmg);
   expect(lands(MORTAR_BLAST_R + 0.5).lost, 'outside the ring').toBe(0);
 });
+// HOIST in the boss arena: the boss ready to act, its trolley over the middle, nothing else in the arena
+type HoistTest = Boss & {
+  st: string;
+  cargo: { x: number; fill: { material: { opacity: number } } } | null;
+};
+function hoistReady(): HoistTest {
+  startPractice('hoist');
+  tick(10);
+  if (!boss) spawnBoss('hoist');
+  const h = boss as HoistTest;
+  h.spawnT = 0;
+  h.phased = true; // (the phase change has its own test)
+  h.timer = 1e6;
+  h.x = h.cx;
+  h.z = h.cz;
+  joy.x = 0;
+  joy.y = 0;
+  setFireHeld(false);
+  player.maxHp = 1e6;
+  player.hp = 1e6;
+  player.inv = 0;
+  return h;
+}
+test('hoist: the trolley trails the player at a steady speed along each axis', () => {
+  const K = BOSS_META.hoist.tune,
+    h = hoistReady();
+  player.x = h.cx + 15;
+  player.z = h.cz - 12;
+  h.st = 'chase';
+  const frames = 60;
+  for (let k = 0; k < frames; k++) update(1 / 60);
+  expect(h.x - h.cx, 'x: a second of chase').toBeCloseTo(K.chase, 0);
+  expect(h.cz - h.z, 'z: the same').toBeCloseTo(K.chase, 0);
+  expect(h.mesh.position.y, 'the magnet hangs 4 to 5 m up').toBeGreaterThan(4);
+  expect(h.mesh.position.y).toBeLessThan(5);
+  endRun('abandon');
+});
+test('hoist: a load hangs over the player with a shadow that fills, then falls and hurts only whoever is in the ring', () => {
+  const K = BOSS_META.hoist.tune;
+  const drop = (stepOut: number) => {
+    const h = hoistReady();
+    player.x = h.cx + 6;
+    player.z = h.cz + 6;
+    h.x = player.x;
+    h.z = player.z;
+    h.st = 'approach';
+    h.timer = K.approachMax;
+    update(1 / 60);
+    expect(h.st, 'the load is up').toBe('hang');
+    expect(h.cargo, 'with its shadow').toBeTruthy();
+    const faint = h.cargo!.fill.material.opacity,
+      hp0 = player.hp;
+    for (let k = 0; k < (K.warn * 60) / 2; k++) update(1 / 60);
+    expect(h.cargo!.fill.material.opacity, 'the shadow fills').toBeGreaterThan(faint);
+    expect(player.hp, 'nothing falls yet').toBe(hp0);
+    player.x += stepOut;
+    for (let k = 0; k < 180 && h.st !== 'chase'; k++) update(1 / 60);
+    expect(h.st, 'it fell and landed').toBe('chase');
+    expect(h.cargo, 'the load is gone').toBeNull();
+    const lost = hp0 - player.hp,
+      dmg = h.dmg * K.dropDmg;
+    endRun('abandon');
+    return { lost, dmg };
+  };
+  const hit = drop(0);
+  expect(hit.lost, 'standing in the ring').toBeCloseTo(hit.dmg, 6);
+  expect(drop(K.shadowR + 0.5).lost, 'outside the ring').toBe(0);
+});
+test('hoist: the magnet drags the player toward the point under it, and the load falls there', () => {
+  const K = BOSS_META.hoist.tune,
+    h = hoistReady();
+  player.x = h.cx - 12;
+  player.z = h.cz;
+  h.st = 'wind';
+  h.timer = K.pullWind;
+  const d0 = distXZ(player, h);
+  for (let k = 0; k < Math.ceil((K.pullWind + 1) * 60); k++) update(1 / 60);
+  expect(h.st, 'a second into the pull').toBe('pull');
+  expect(d0 - distXZ(player, h), 'dragged about pullSpeed metres').toBeGreaterThan(K.pullSpeed * 0.8);
+  expect(player.x, 'toward the magnet').toBeGreaterThan(h.cx - 12);
+  for (let k = 0; k < 4 * 60 && h.st !== 'hang'; k++) update(1 / 60);
+  expect(h.st, 'then the load').toBe('hang');
+  expect(h.cargo!.x, 'under the magnet').toBe(h.x);
+  expect(distXZ(player, h), 'and the player is under it').toBeLessThan(K.shadowR);
+  endRun('abandon');
+});
+test('hoist: below half health a load that breaks lets crawlers out, up to the cap of minions', () => {
+  const K = BOSS_META.hoist.tune;
+  const land = (hpShare: number, others: number) => {
+    const h = hoistReady(),
+      crawlers = () => enemies.filter(o => !o.boss && !o.dead && o.type === 'crawler').length;
+    h.hp = h.maxHp * hpShare;
+    player.x = h.cx + 10;
+    player.z = h.cz - 10;
+    for (let k = 0; k < others; k++) spawnMinion('crawler', h.cx - 10 - k, h.cz + 10);
+    const before = crawlers();
+    h.st = 'approach';
+    h.timer = 0;
+    for (let k = 0; k < 240 && !(h.st === 'chase' && !h.cargo); k++) update(1 / 60);
+    const out = crawlers() - before;
+    endRun('abandon');
+    return out;
+  };
+  expect(land(0.4, 0), 'two out').toBe(K.crawlers);
+  expect(land(0.4, K.minionCap - 1), 'room for one').toBe(1);
+  expect(land(0.4, K.minionCap), 'at the cap').toBe(0);
+  expect(land(1, 0), 'healthy: a load is just a load').toBe(0);
+});
+test('hoist: when it goes down the load and the pull are gone, the magnet falls and the crane stays where it stopped', () => {
+  const h = hoistReady();
+  player.x = h.cx + 5;
+  player.z = h.cz + 5;
+  h.x = player.x;
+  h.z = player.z;
+  h.st = 'approach';
+  h.timer = 0;
+  update(1 / 60);
+  expect(h.st, 'a load is up').toBe('hang');
+  hurtEnemy(h, h.hp + 1, false);
+  const crane = query('crane');
+  expect(crane.length, 'the crane and the fallen magnet').toBe(2);
+  const magnet = crane[1]!.mesh as Group,
+    from = magnet.position.y;
+  for (let k = 0; k < 90; k++) update(1 / 60);
+  expect(magnet.position.y, 'the magnet came down').toBeLessThan(from - 2);
+  expect(magnet.position.y, 'and lies on the floor').toBeLessThan(floorY(h.x, h.z) + 1.5);
+  expect(query('crane').length, 'the crane is still there').toBe(2);
+  expect(level.portals.length, 'practice: the way home').toBe(1);
+  endRun('extract');
+});
 test('music: every style and its boss arrangement can be scheduled', () => {
   audioInit();
   musicInit();
@@ -1881,6 +2011,7 @@ test('generation is pinned: the same seed gives the same level', () => {
     MALL: '2c496622',
     'arena watcher': 'b566d42b',
     'arena crusher': 'b566d42b',
+    'arena hoist': 'dc3f981b', // (no pillars, as TRINITY's)
     'arena core': 'dc3f981b',
     'arena phantom': 'b566d42b',
     'arena trinity': 'dc3f981b',

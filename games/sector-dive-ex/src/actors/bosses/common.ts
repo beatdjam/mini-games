@@ -40,6 +40,7 @@ import { spawnCore } from './core.ts';
 import { spawnPhantom } from './phantom.ts';
 import { spawnTrinity } from './trinity.ts';
 import { spawnBastion } from './bastion.ts';
+import { spawnHoist } from './hoist.ts';
 import { screenFx } from '../../ui/hud.ts';
 import { track } from '@engine/core/analytics.ts';
 import { COLOR } from '../../data/colors.ts';
@@ -222,6 +223,7 @@ const BOSS_SPAWNERS: Record<string, () => void> = {
   phantom: () => spawnPhantom(),
   trinity: () => spawnTrinity(),
   bastion: () => spawnBastion(),
+  hoist: () => spawnHoist(),
 };
 // the boss being spawned is met for the first time, or in boss practice (there to learn it): its hint is shown
 let hintDue = false;
@@ -302,6 +304,7 @@ function recordBossProgress(tier: number) {
   persist();
 }
 export function bossDown(e: Boss) {
+  e.onDown?.();
   clearBattle(e);
   if (run.practice) {
     // practice: no rewards, no progress; just a way home

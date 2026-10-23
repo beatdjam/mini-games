@@ -150,6 +150,17 @@ const BOSS_PLAYS: Record<string, (b: Boss, me: Vec) => BossPlay> = {
     const away = unit(me.x - b.cx, me.z - b.cz);
     return { dash: { x: -away.z, z: away.x } };
   },
+  // HOIST: out of the shadow ring of a load that is up, and (just before it falls) a dash out of it; while the magnet
+  // pulls, away from it, with a dash whenever there is one
+  hoist: (b, me) => {
+    const h = b as Boss & { st: string; cargo: { x: number; z: number } | null },
+      away = unit(me.x - b.x, me.z - b.z);
+    if (h.st === 'pull') return { near: PULL_AWAY, dash: away };
+    if (!h.cargo) return {};
+    const ring = BOSS_META.hoist!.tune.shadowR;
+    if (Math.hypot(me.x - h.cargo.x, me.z - h.cargo.z) > ring + SHADOW_MARGIN) return {};
+    return { near: ring + SHADOW_MARGIN * 2, ...(b.timer < SHADOW_LATE ? { dash: away } : {}) };
+  },
 };
 
 // ---- tuning numbers used only here ----
@@ -159,6 +170,9 @@ const BEAM_EARLY = 0.3; // a Core's beams are minded from this long before they 
 const BEAM_NEAR = 2.4; // ... and dashed through when one is this near (m)
 const PHANTOM_LOCKED = 0.3; // a Phantom's laser stops following this long before the shot (s)
 const RAM_NEAR = 2.8; // a Trinity's lunge is dodged when it is aimed within this of the player (m)
+const PULL_AWAY = 40; // a Hoist's magnet pulls: it keeps this far from it, so it runs away the whole time (m)
+const SHADOW_MARGIN = 0.8; // a Hoist's load is stepped away from when the player is within its ring plus this (m)
+const SHADOW_LATE = 0.5; // ... and a dash is spent on it when the load is about to fall (s left)
 const KEEP_FAR = 16; // in a fight it closes in from beyond this (m)
 const KEEP_NEAR = 6; // ... and backs off inside this
 const STRAFE_FLIP = 0.9; // it changes the side it strafes to this often (s)

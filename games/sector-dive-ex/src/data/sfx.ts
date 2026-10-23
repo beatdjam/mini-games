@@ -95,6 +95,13 @@ const SHARED: Record<string, () => void> = {
     sweepTone(t, 'sawtooth', 70, 140, 0.6, 0.12, 0.3);
     noiseBurst(t, 0.6, 0.08, 'bandpass', 400, 1600, 6);
   },
+  // HOIST's magnet pulling: a low hum that swells and a thin whine over it
+  hum: () => {
+    const t = audioNow();
+    sweepTone(t, 'sawtooth', 55, 72, 0.9, 0.1, 0.3);
+    sweepTone(t, 'sine', 110, 140, 0.9, 0.08, 0.3);
+    noiseBurst(t, 0.8, 0.05, 'bandpass', 300, 500, 3);
+  },
 };
 
 // the old set (Sector Dive's): ?sfx1

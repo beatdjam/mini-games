@@ -226,8 +226,9 @@ export interface Boss extends EnemyBase {
   spawnMax: number;
   intro: boolean;
   phased?: boolean; // entrance / phase change (bossPauseTick, bossPhase)
-  aloft?: boolean; // off the ground (CRUSHER's jump): the phase change waits until it is down (it stops the boss where it is)
+  aloft?: boolean; // off the ground (CRUSHER's jump), or mid-attack (HOIST's load): the phase change waits until it is over (it stops the boss where it is)
   beams?: THREE.Object3D[]; // Noise Core's beams (hidden when it dies)
+  onDown?(): void; // called when the boss goes down, after its meshes are removed (HOIST: its magnet falls)
 }
 export type Enemy = RegularEnemy | Boss;
 

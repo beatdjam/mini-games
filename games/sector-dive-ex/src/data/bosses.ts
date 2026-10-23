@@ -174,10 +174,34 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc'>
         enrSpeed: 5,
       },
     },
+    hoist: {
+      pillars: false,
+      hp: 1500,
+      y: 4.8, // the magnet's middle above the floor
+      hitR: 1.9,
+      tune: {
+        chase: 5, // the trolley closes on the player this fast along each axis (m/s)
+        approach: 7, // ... and this fast when it goes to drop a load
+        approachMax: 1.3, // it stops after this long even if it has not caught up (s)
+        stopNear: 1, // ... or when it is this near (m)
+        first: 2.4, // the first attack comes this long after the fight starts (s)
+        gap: 3.4, // chasing time between attacks (s)
+        gapEnr: 2.4,
+        shadowR: 2.2, // the ring on the floor, and what the load crushes (m)
+        warn: 1.2, // seconds from the load hanging to its fall
+        fallG: 35, // the load's fall (m/s^2)
+        dropDmg: 2.2, // multiplier on the boss's damage
+        pullWind: 0.7, // the magnet lights and hums this long before it pulls (s)
+        pullTime: 2, // seconds it pulls
+        pullSpeed: 9, // metres per second the player is moved toward the magnet (walking is 7.4, running 11.1)
+        minionCap: 4, // minions alive at once, counting the crawlers a load lets out
+        crawlers: 2,
+      },
+    },
   },
   { name: '', title: '', short: '', desc: '' },
 );
-export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion'];
+export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion', 'hoist'];
 // bosses: health at the D1 boss (x1.33 base) times hpMul, growing by `growth` per depth after that
 // (sliding down to `lateGrowth` across GROWTH_SLIDE in src/data/progress.ts)
 export const BOSS_TUNE = {
