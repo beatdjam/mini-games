@@ -3,17 +3,18 @@ import { TEX, grime, rowOf } from '../paint.ts';
 // and the frieze of the shops.
 // colours shared with props.ts
 export const BRASS = '#a78d4e';
+export const SIGN_WORDS = '#e7d5a6'; // the pale lettering of the mall's signs
 export const HAZARD_YELLOW = '#b99a2c';
 export const HAZARD_BLACK = '#262421';
 export const SIGN_RED = '#a3322a';
 export const PAPER = '#cfc9b6';
 export const PAPERS = [PAPER, '#d4cdad', '#b6c0c2', '#cbb7ae', '#c1c8af'];
-const WALL_TOP = '#7d7663'; // in the ceiling's shade
-const WALL_MID = '#9a8f76';
-const WALL_FOOT = '#8c8470';
-const WAINSCOT = '#4d3622'; // the dark wood panelling along the foot of every wall
+export const WALL_TOP = '#7d7663'; // in the ceiling's shade
+export const WALL_MID = '#9a8f76';
+export const WALL_FOOT = '#8c8470';
+export const WAINSCOT = '#4d3622'; // the dark wood panelling along the foot of every wall
 const WAINSCOT_TOP = 1.05; // m
-const SKIRTING = '#33241a';
+export const SKIRTING = '#33241a';
 // The kinds of shop (the order of MALL_SHOP_NAMES in i18n/signs.ts): the colour of the board over its front
 export const SHOP_SIGNS = ['#6b3a52', '#5b3f2c', '#2f5440', '#2f4b6a', '#46484f', '#2f6b5b', '#7b5022'];
 export const SHOP_KINDS = SHOP_SIGNS.length;

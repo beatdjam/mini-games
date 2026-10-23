@@ -5,8 +5,8 @@ import type { TileMapData } from '@engine/world/dungeon.ts';
 import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
 import { WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
-import { wallPic } from './common.ts';
-import type { WallSides } from './common.ts';
+import { roomKindOf, wallPic } from './common.ts';
+import type { RoomWalls, WallSides } from './common.ts';
 import { facing, floorNear, onWall, overHead, pose, raised } from './props.ts';
 import type { Light, PropTools, WallSlot } from './props.ts';
 // Dressing a sector's walls in layers. placeProps hands a slot to one prop, and a floor gets so many of each: that
@@ -123,7 +123,12 @@ export interface WallKit {
   pics: number; // how many wall pictures the sector has, and
   laneWalls?: number[]; // ... what an alley's walls get in place of the plain one (common.ts wallPic)
   sides?: WallSides; // ... the pictures that go only on some walls
+  rooms?: RoomWalls; // ... the pictures of the rooms' walls (a sector whose rooms are shops of their own)
+  liftWalls?: number[]; // ... the walls round a lift
   bare: number[]; // the wall pictures a unit may stand in front of (not a window or a door painted there)
+  // the wall faces that get no unit and no heap (a lift's car, a sunk floor, cover that is drawn as a piece of its own
+  // that fills the tile): the sector's own things stand there
+  leave?: (f: WallSlot) => boolean;
   // what is let into a wall at ground level: a painted front, `w` by `h` metres, with boxes in front of it (their
   // faces from `counter`) and a post at each end when `posts`. `light`: the colour of the light it throws
   units?: Share & {
@@ -134,8 +139,20 @@ export interface WallKit {
     posts?: number;
     light?: number;
   };
-  // heaps along the foot of the walls: a cut-out picture `w` by `h` metres in front of boxes with `solid` faces
-  heaps?: Share & { maps: THREE.Texture[]; solid: THREE.Texture[]; w: number; h: number };
+  // a narrow unit at one end of a wall face, for walls that a whole unit would hide (a shop's front, its glass and
+  // shutter): a box `w` by `h` by `deep` metres with a picture on its front and the colour `side` on the others. It
+  // stands on the faces whose picture is in `on`, but not on one in `taken` (where a name board hangs)
+  edges?: Share & { on: number[]; maps: THREE.Texture[]; w: number; h: number; deep: number; side: number };
+  // heaps along the foot of the walls: a cut-out picture `w` by `h` metres in front of boxes with `solid` faces.
+  // `shops`: in a room of a kind of shop (Look.roomKinds), the pictures of that kind in place of `maps` (a kind with
+  // none keeps `maps`)
+  heaps?: Share & {
+    maps: THREE.Texture[];
+    solid: THREE.Texture[];
+    w: number;
+    h: number;
+    shops?: THREE.Texture[][];
+  };
   // cut-outs high on the walls (a sign, washing, something hanging): between the heights `y`, `out` from the wall
   high?: (Share & { maps: THREE.Texture[]; w: number; h: number; y: [number, number]; out: [number, number] })[];
   // runs along the walls (pipes, cables): `n` of them together, radius `r`, each its own colour of `colors`
@@ -187,13 +204,14 @@ export function dressWalls(
     // (nothing stands at the foot of a wall by a door: it would be in the doorway)
     byDoor = (f: WallSlot): boolean =>
       [[0, 0], ...SIDE_STEP].some(([di, dj]) => !!d.maps.door?.[(f.j + dj!) * d.W + f.i + di!]),
-    // (nor by a deck or a walkway: what stands on the ground there would be half in it)
-    bare = (f: WallSlot): boolean => {
+    // (the picture on the wall of a face)
+    pictureOf = (f: WallSlot): number => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!;
-      return (
-        kit.bare.includes(wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls, kit.sides)) && !raised(d, f)
-      );
+      return wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls, kit.sides, kit.rooms, kit.liftWalls);
     },
+    // (not by a deck or a walkway: what stands on the ground there would be half in it)
+    bare = (f: WallSlot): boolean => kit.bare.includes(pictureOf(f)) && !raised(d, f),
+    left = (f: WallSlot): boolean => !!kit.leave?.(f),
     flat = (color: number) => new THREE.MeshBasicMaterial({ color }),
     cutout = (map: THREE.Texture) =>
       new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide }),
@@ -216,7 +234,7 @@ export function dressWalls(
   const u = kit.units;
   if (u) {
     const at = some(
-      faces.filter(f => bare(f) && !byDoor(f)),
+      faces.filter(f => bare(f) && !byDoor(f) && !left(f)),
       u,
     );
     each(u.maps, at, (map, mine) =>
@@ -252,6 +270,28 @@ export function dressWalls(
         at.flatMap(f => [-u.w / 2 + 0.05, u.w / 2 - 0.05].map(off => pose(onWall(f, off, 0.52, u.h / 2), facing(f)))),
       );
   }
+  // ---- units at the ends of the faces a whole unit would hide ----
+  const ed = kit.edges,
+    edged = new Set<Face>();
+  if (ed) {
+    // (at one end or the other of the face, clear of the post of the face next to it)
+    const at = some(
+      faces.filter(f => ed.on.includes(pictureOf(f)) && !raised(d, f) && !byDoor(f) && !left(f) && !taken(f)),
+      ed,
+    ).map(f => ({ f, off: (rng.next() < 0.5 ? -1 : 1) * (T / 2 - ed.w / 2 - 0.1) }));
+    at.forEach(a => edged.add(a.f));
+    const side = flat(ed.side);
+    each(ed.maps, at, (map, mine) => {
+      const face = new THREE.MeshBasicMaterial({ map });
+      add(
+        new THREE.BoxGeometry(1, 1, 1),
+        [side, side, side, side, face, face],
+        mine.map(a =>
+          pose(onWall(a.f, a.off, ed.deep / 2, ed.h / 2), facing(a.f), new THREE.Vector3(ed.w, ed.h, ed.deep)),
+        ),
+      );
+    });
+  }
   // ---- heaps along the foot of the walls ----
   const hp = kit.heaps;
   if (hp) {
@@ -269,10 +309,10 @@ export function dressWalls(
       }
     const at = [
       ...some(
-        faces.filter(f => !byDoor(f) && !raised(d, f)),
+        faces.filter(f => !byDoor(f) && !raised(d, f) && !left(f) && !edged.has(f)),
         hp,
       ),
-      ...decks.filter(() => rng.next() < 0.45),
+      ...decks.filter(f => !left(f) && rng.next() < 0.45),
     ].map(f => ({ f, off: rng.rand(-0.3, 0.3) }));
     for (const a of at) {
       const turn = facing(a.f);
@@ -292,11 +332,20 @@ export function dressWalls(
           );
       }
     }
-    each(hp.maps, at, (map, mine) =>
-      add(
-        new THREE.PlaneGeometry(hp.w, hp.h),
-        cutout(map),
-        mine.map(a => pose(onWall(a.f, a.off, 0.56, (hp.h * 0.9) / 2), facing(a.f), new THREE.Vector3(1, 0.9, 1))),
+    // (the pictures by the kind of shop the face is in; the rest, and a kind with none, take `hp.maps`)
+    const sets = new Map<THREE.Texture[], typeof at>();
+    for (const a of at) {
+      const own = hp.shops?.[roomKindOf(d.maps.grid, a.f.room)],
+        maps = own?.length ? own : hp.maps;
+      (sets.get(maps) ?? sets.set(maps, []).get(maps)!).push(a);
+    }
+    sets.forEach((list, maps) =>
+      each(maps, list, (map, mine) =>
+        add(
+          new THREE.PlaneGeometry(hp.w, hp.h),
+          cutout(map),
+          mine.map(a => pose(onWall(a.f, a.off, 0.56, (hp.h * 0.9) / 2), facing(a.f), new THREE.Vector3(1, 0.9, 1))),
+        ),
       ),
     );
   }

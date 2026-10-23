@@ -773,6 +773,8 @@ const COMMON_MAP = [
 // along a concourse, in the places of the plain wall, on the walls that no shop owns: mostly the empty tenancies and
 // the plain wall, now and then the poster
 export const MALL_LANE_WALLS = [VACANT_A, 0, VACANT_B, 0, VACANT_C, 0, VACANT_A, 0, VACANT_B, SALE, 0, VACANT_C];
+// the walls that something may stand in front of (looks/dress.ts): the plain wall and the empty tenancies
+export const MALL_BARE_WALLS = [0, VACANT_A, VACANT_B, VACANT_C];
 // the pictures of the walls round a lift: the face of a wall and the one with the buttons
 export const MALL_LIFT_WALLS = [LIFT_FACE, LIFT_BUTTONS];
 // a room's kind of shop and the pictures of its walls (common.ts RoomWalls): the shops' own pictures, then the bare
@@ -792,6 +794,10 @@ export const MALL_ROOM_WALLS: RoomWalls = {
     COMMON_PICS.length + 2 * SHOP_KINDS + n,
   ]),
 };
+// the walls along the concourse that belong to a shop: its fronts (shutter, dark window, closed window) and the plain wall
+// of its kind beside them. A narrow unit may stand at an end of such a face, clear of the glass in the middle
+// (looks/dress.ts `edges`)
+export const MALL_EDGE_WALLS = [...MALL_ROOM_WALLS.fronts.flat(), ...MALL_ROOM_WALLS.ground];
 // the fire exit only on the building's outside wall (common.ts WallSides). There are no windows to the outside
 export const MALL_WALL_SIDES: WallSides = { outer: [WALL_EXIT] };
 // the floors of the shop rooms, two to a kind, after the concourse's own (common.ts RoomFloors)

@@ -88,6 +88,16 @@ export const MALL_NOTICE = 'お知らせ';
 export const MALL_PUSH = '押';
 export const MALL_ATM = 'ATM';
 export const MALL_DIRECTIONS = ['↑ 階段・エレベーター', '← 駐車場', 'お手洗い →', 'インフォメーション →'];
+// what the closed mall left along its walls: the plate over the coin lockers, the sign on a shuttered sales wagon, the
+// photo booth's and the massage chairs' headers, the stand sign that fell over, and the paper pops torn down from the
+// ceiling
+export const MALL_LOCKERS = 'コインロッカー';
+export const MALL_WAGON = '準備中';
+export const MALL_PHOTO = 'フォトブース';
+export const MALL_MASSAGE = 'マッサージ';
+export const MALL_GACHA = 'ガチャ';
+export const MALL_STAND_SALE = 'SALE';
+export const MALL_POPS = ['本日限り', '特価', '在庫一掃'];
 // The discarded data layer: the numbers on the racks, the zone's plate on a wall (its code, and "mind the static"),
 // and the word painted down each leaf of the boss room's door ("sealed")
 export const DATA_RACK_IDS = ['A-01', 'A-02', 'A-03', 'B-07', 'B-08', 'C-12'];

@@ -12,10 +12,22 @@ import { tactileLine } from './tactile.ts';
 import { boardTex, shopFronts } from './fronts.ts';
 import { KIND_FOOD } from './rooms.ts';
 import { liftPlate } from './lift.ts';
-import type { Light } from '../props.ts';
+import type { Light, WallSlot } from '../props.ts';
+import { dressWalls } from '../dress.ts';
+import type { WallKit } from '../dress.ts';
+import { mallBoxTex, mallEdgeTex, mallHeapTex, mallPopTex, mallTileTex, mallUnitTex } from './cutouts.ts';
+import { mallShopHeaps } from './shopHeaps.ts';
 import { MALL_DIRECTIONS, MALL_LIFT, MALL_SHOP_NAMES } from '../../../i18n/signs.ts';
-import { MALL_LANE_WALLS, MALL_LIFT_WALLS, MALL_ROOM_WALLS, MALL_WALL_PICS, MALL_WALL_SIDES } from './pictures.ts';
-import { BRASS } from './shared.ts';
+import {
+  MALL_BARE_WALLS,
+  MALL_EDGE_WALLS,
+  MALL_LANE_WALLS,
+  MALL_LIFT_WALLS,
+  MALL_ROOM_WALLS,
+  MALL_WALL_PICS,
+  MALL_WALL_SIDES,
+} from './pictures.ts';
+import { BRASS, SIGN_WORDS } from './shared.ts';
 // The props of the shopping mall (MALL): the things fixed to its walls and ceilings, and the light they throw. They go
 // by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
 // together.
@@ -49,7 +61,6 @@ const BANNER_COLORS = [0x8aa7a3, 0xb08c7e, 0x9aa07c, 0x8b8fb0, 0xb7a174]; // clo
 const FITTING = 0x8b887c; // trims and mounts
 const DARK_GLASS = 0x2c2c2e;
 const SIGN_BOARD = '#4d3626'; // a board of dark wood
-const SIGN_WORDS = '#e7d5a6';
 const SIGN_W = 340,
   SIGN_H = 110; // px of a direction sign's picture
 
@@ -107,6 +118,64 @@ function bannerTex(): THREE.CanvasTexture {
     g.fillRect(0, 0, w * 0.4, h);
   });
 }
+// what the closed mall was left full of (looks/dress.ts): vending machines, coin lockers, a shuttered wagon, photo
+// booths and massage chairs let into the concourse's walls (hardly any in the rooms: their walls are the shops' own),
+// a vending machine, coin lockers or capsule toys at an end of a shop's front, cartons, a toppled rack, stacked chairs,
+// rolls of carpet, bags of rubbish and a fallen sign along the foot of the walls (in a shop's room, the shop's own
+// goods and fittings instead), ceiling tiles and paper pops come down, a few cables under the ceiling (a mall that was
+// kept tidy)
+let mallKit: WallKit | null = null;
+const makeMallKit = (): WallKit => ({
+  pics: MALL_WALL_PICS.length,
+  laneWalls: MALL_LANE_WALLS,
+  sides: MALL_WALL_SIDES,
+  rooms: MALL_ROOM_WALLS,
+  liftWalls: MALL_LIFT_WALLS,
+  bare: MALL_BARE_WALLS,
+  units: { maps: [0, 1, 2, 3, 4, 5].map(mallUnitTex), w: 3.7, h: 2.84, hall: 0.03, lane: 0.35 },
+  // a vending machine, coin lockers or capsule toys at one end of a shop's front (not in the rooms: their walls are the
+  // shops' own)
+  edges: {
+    on: MALL_EDGE_WALLS,
+    maps: [0, 1, 2, 3, 4, 5].map(mallEdgeTex),
+    w: 1.2,
+    h: 2,
+    deep: 0.5,
+    side: 0x35383a,
+    hall: 0,
+    lane: 0.8,
+  },
+  heaps: {
+    maps: [0, 1, 2, 3, 4, 5].map(mallHeapTex),
+    solid: [0, 1, 2, 3].map(mallBoxTex),
+    shops: mallShopHeaps(),
+    w: 3.5,
+    h: 1.75,
+    hall: 0.45,
+    lane: 0.75,
+  },
+  high: [
+    {
+      maps: [0, 1].map(n => mallTileTex(1600 + n)),
+      w: 2.4,
+      h: 1.8,
+      y: [4.7, 5.1],
+      out: [0.9, 1.7],
+      hall: 0.05,
+      lane: 0.08,
+    },
+    { maps: [0, 1].map(mallPopTex), w: 1.8, h: 1.6, y: [4.9, 5.2], out: [0.9, 1.7], hall: 0.06, lane: 0.1 },
+  ],
+  runs: {
+    colors: [0x544f49, 0x6b655a, 0x4d4942],
+    r: 0.025,
+    n: [1, 3],
+    hall: 0.1,
+    lane: 0.2,
+    y: [5.2, 5.6],
+    laneY: [4.9, 5.4],
+  },
+});
 // Direction signs hung over the concourse and the rooms, dome cameras and speakers under the ceiling, a few
 // downlights that are still on, cloth banners from the ceilings of the rooms, and emergency lamps on the walls, each
 // glowing a little on the wall round it
@@ -346,5 +415,32 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
 
   tactileLine(plan, tools.add);
+
+  // what was left along the walls: not on a face that has a shop's name board or an emergency lamp (above the eye),
+  // not under the open sky, and not at the foot of a face with a potted plant; no units and no heaps in a lift's car,
+  // on the sunk floor of the food court, or where a piece of cover stands (it fills the tile)
+  const key = (f: WallSlot) => `${f.side}:${f.i}:${f.j}`,
+    hung = new Set([...shopFronts(plan).map(f => key(f)), ...tools.of('exitLamp').map(key)]),
+    potted = new Set(tools.of('plant').map(key)),
+    lifts = wallLinks.get(d.maps.grid)?.lifts ?? new Set<number>(),
+    tileOf = (f: WallSlot) => f.j * d.W + f.i;
+  dressWalls(
+    { add },
+    d,
+    plan,
+    rng,
+    {
+      ...(mallKit ??= makeMallKit()),
+      leave: f =>
+        potted.has(key(f)) ||
+        lifts.has(tileOf(f)) ||
+        !!d.maps.cover[tileOf(f)] ||
+        d.maps.hgt[tileOf(f)]! < 0 ||
+        !!plan.noFloor[tileOf(f)] ||
+        !!plan.shaft[tileOf(f)],
+    },
+    lights,
+    f => hung.has(key(f)) || !!plan.noCeil[tileOf(f)],
+  );
   tools.pools(lights, POOL_OPACITY);
 }
