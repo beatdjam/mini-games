@@ -5,12 +5,14 @@ import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { wallPic } from '../common.ts';
+import { roomKindOf, wallPic } from '../common.ts';
 import { SIGN_FONT, canvasTex, poolTex } from '../paint.ts';
 import { FULL_SIZE, facing, floorNear, lightMat, onWall, overHead, pose, propTools } from '../props.ts';
 import { tactileLine } from './tactile.ts';
+import { boardTex, shopFronts } from './fronts.ts';
+import { KIND_FOOD } from './rooms.ts';
 import type { Light } from '../props.ts';
-import { MALL_DIRECTIONS } from '../../../i18n/signs.ts';
+import { MALL_DIRECTIONS, MALL_SHOP_NAMES } from '../../../i18n/signs.ts';
 import { MALL_LANE_WALLS, MALL_ROOM_WALLS, MALL_WALL_PICS, MALL_WALL_SIDES } from './pictures.ts';
 import { BRASS } from './shared.ts';
 // The props of the shopping mall (MALL): the things fixed to its walls and ceilings, and the light they throw. They go
@@ -39,6 +41,8 @@ const SPEAKER = { r: 0.14, h: 0.06, grille: 0.1 }; // a ceiling speaker (m)
 const BANNER = { w: 0.95, len: [2.0, 2.5] as const, bottom: 3.3, bar: 0.05 }; // a cloth banner from the ceiling (m)
 const DOWNLIGHT = { r: 0.2, color: PAINT.amber6, size: 0.8 }; // a downlight that is still on (m; size of its pool)
 const EXIT_LAMP = { w: 0.5, h: 0.16, thick: 0.12, y: 4.2, color: 0xe6e8c6, glow: 2.2, size: 0.5 }; // an emergency lamp on a wall (m)
+const SHOP_BOARD = { w: 3.0, h: 0.5, y: 4.25, out: 0.04 }; // a shop's name board on its front (m)
+const FOOD_SIGN = { w: 4.4, h: 1.2, thick: 0.1, bottom: 4.0 }; // the food court's hanging sign (m)
 const PLANT = { potR: 0.26, potH: 0.42, out: 0.36, twigH: 1.0, color: 0x7a5b41, dry: 0x5e4b33, leaf: 0x80703f }; // a dead plant in a pot (m)
 const BANNER_COLORS = [0x8aa7a3, 0xb08c7e, 0x9aa07c, 0x8b8fb0, 0xb7a174]; // cloth gone pale
 const FITTING = 0x8b887c; // trims and mounts
@@ -119,26 +123,28 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     lights: Light[] = [];
 
   // direction signs: a board on two rods, one of the sorts at random, across or along the way. Over a deck they are
-  // moved up out of the eye (overHead)
+  // moved up out of the eye (overHead). Only over the concourse (not in a shop: a sign to the toilets in a cafe reads wrong)
   const signs: THREE.Matrix4[][] = shared.directions.map(() => []),
     rods: THREE.Matrix4[] = [];
-  overhead('direction').forEach(s => {
-    const x = tileCenter(s.i),
-      z = tileCenter(s.j),
-      bottom = overHead(DIRECTION.bottom, floorNear(d, s.i, s.j)),
-      turn = rng.next() < 0.5 ? 0 : Math.PI / 2,
-      rodLen = WALL_H - bottom - DIRECTION.h;
-    signs[rng.randi(0, signs.length - 1)]!.push(pose(new THREE.Vector3(x, bottom + DIRECTION.h / 2, z), turn));
-    if (rodLen <= 0) return;
-    for (const dx of [-DIRECTION.w * 0.35, DIRECTION.w * 0.35])
-      rods.push(
-        pose(
-          new THREE.Vector3(x + Math.cos(turn) * dx, bottom + DIRECTION.h + rodLen / 2, z - Math.sin(turn) * dx),
-          0,
-          new THREE.Vector3(1, rodLen, 1),
-        ),
-      );
-  });
+  overhead('direction')
+    .filter(s => s.room < 0)
+    .forEach(s => {
+      const x = tileCenter(s.i),
+        z = tileCenter(s.j),
+        bottom = overHead(DIRECTION.bottom, floorNear(d, s.i, s.j)),
+        turn = rng.next() < 0.5 ? 0 : Math.PI / 2,
+        rodLen = WALL_H - bottom - DIRECTION.h;
+      signs[rng.randi(0, signs.length - 1)]!.push(pose(new THREE.Vector3(x, bottom + DIRECTION.h / 2, z), turn));
+      if (rodLen <= 0) return;
+      for (const dx of [-DIRECTION.w * 0.35, DIRECTION.w * 0.35])
+        rods.push(
+          pose(
+            new THREE.Vector3(x + Math.cos(turn) * dx, bottom + DIRECTION.h + rodLen / 2, z - Math.sin(turn) * dx),
+            0,
+            new THREE.Vector3(1, rodLen, 1),
+          ),
+        );
+    });
   const fitting = new THREE.MeshBasicMaterial({ color: FITTING });
   const board = new THREE.BoxGeometry(DIRECTION.w, DIRECTION.h, DIRECTION.thick);
   signs.forEach((where, n) => {
@@ -288,6 +294,47 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   );
   add(new THREE.BoxGeometry(0.035, PLANT.twigH, 0.035), new THREE.MeshBasicMaterial({ color: PLANT.dry }), twigs);
   add(new THREE.BoxGeometry(0.28, 0.05, 0.16), new THREE.MeshBasicMaterial({ color: PLANT.leaf }), leaves);
+
+  // the name board of each shop on its front, at the middle of its longest stretch along the concourse
+  const boardsOf = new Map<THREE.CanvasTexture, THREE.Matrix4[]>();
+  for (const f of shopFronts(plan)) {
+    const s = { i: f.i, j: f.j, side: f.side },
+      tex = boardTex(f.kind, f.name);
+    (boardsOf.get(tex) ?? boardsOf.set(tex, []).get(tex)!).push(
+      pose(onWall(s, 0, SHOP_BOARD.out, SHOP_BOARD.y), facing(s)),
+    );
+  }
+  for (const [tex, where] of boardsOf)
+    add(new THREE.PlaneGeometry(SHOP_BOARD.w, SHOP_BOARD.h), new THREE.MeshBasicMaterial({ map: tex }), where);
+
+  // the food court's big sign, hung from the ceiling over the middle of its room
+  const court: THREE.Matrix4[] = [],
+    courtRods: THREE.Matrix4[] = [];
+  d.rooms.forEach((r, n) => {
+    if (roomKindOf(d.maps.grid, n) !== KIND_FOOD || n === bossRoom) return;
+    const i = Math.floor(r.x + r.w / 2),
+      j = Math.floor(r.y + r.h / 2);
+    if (plan.noCeil[j * d.W + i]) return;
+    const bottom = overHead(FOOD_SIGN.bottom, floorNear(d, i, j)),
+      rodLen = WALL_H - bottom - FOOD_SIGN.h;
+    court.push(pose(new THREE.Vector3(tileCenter(i), bottom + FOOD_SIGN.h / 2, tileCenter(j))));
+    if (rodLen > 0)
+      for (const dx of [-FOOD_SIGN.w * 0.4, FOOD_SIGN.w * 0.4])
+        courtRods.push(
+          pose(
+            new THREE.Vector3(tileCenter(i) + dx, bottom + FOOD_SIGN.h + rodLen / 2, tileCenter(j)),
+            0,
+            new THREE.Vector3(1, rodLen, 1),
+          ),
+        );
+  });
+  const foodFace = new THREE.MeshBasicMaterial({ map: boardTex(KIND_FOOD, MALL_SHOP_NAMES[KIND_FOOD]![0]!) });
+  add(
+    new THREE.BoxGeometry(FOOD_SIGN.w, FOOD_SIGN.h, FOOD_SIGN.thick),
+    [fitting, fitting, fitting, fitting, foodFace, foodFace],
+    court,
+  );
+  add(new THREE.BoxGeometry(DIRECTION.rod, 1, DIRECTION.rod), fitting, courtRods);
 
   tactileLine(plan, tools.add);
   tools.pools(lights, POOL_OPACITY);

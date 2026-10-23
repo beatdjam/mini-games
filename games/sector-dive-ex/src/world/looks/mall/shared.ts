@@ -1,7 +1,6 @@
-import { MALL_SHOP_NAMES } from '../../../i18n/signs.ts';
-import { SIGN_FONT, TEX, WALL_ASPECT, grime, rowOf, words } from '../paint.ts';
+import { TEX, grime, rowOf } from '../paint.ts';
 // What the mall's wall pictures (pictures.ts, shops.ts) and its props share: the colours, the wall under every picture
-// and the sign bands of the shops.
+// and the frieze of the shops.
 // colours shared with props.ts
 export const BRASS = '#a78d4e';
 export const HAZARD_YELLOW = '#b99a2c';
@@ -50,24 +49,71 @@ export function moon(g: CanvasRenderingContext2D, x: number, y: number, r: numbe
   g.fillRect(x - r, y - r, r * 2, r * 2);
   g.globalCompositeOperation = 'source-over';
 }
-// The wall under every picture: warm cream painted panels a metre wide with a fine joint between them, dark wood
-// panelling along the foot with a brass rail on top of it, the dirt of years and a water mark or two
-export function panels(g: CanvasRenderingContext2D, rand: () => number) {
-  const bg = g.createLinearGradient(0, 0, 0, TEX);
-  bg.addColorStop(0, WALL_TOP);
-  bg.addColorStop(0.22, WALL_MID);
-  bg.addColorStop(0.8, WALL_MID);
-  bg.addColorStop(1, WALL_FOOT);
+// The wall of a kind of shop under its pictures (the kinds in the order of MALL_SHOP_NAMES): the colours of the wall
+// from the ceiling down, the colour of the panelling at its foot, and how the wall above it is laid
+interface Ground {
+  top: string;
+  mid: string;
+  foot: string;
+  wood: string;
+  laid: 'plain' | 'brick' | 'boards' | 'tile';
+}
+const GROUNDS: Ground[] = [
+  { top: '#a39c8e', mid: '#b5aea0', foot: '#a69f90', wood: '#a98d68', laid: 'plain' }, // clothes: white, light wood
+  { top: '#7a4b3b', mid: '#855441', foot: '#774a3a', wood: '#5c3e26', laid: 'brick' }, // cafe: brick and wood
+  { top: '#2e4535', mid: '#37513f', foot: '#304a38', wood: '#3a2616', laid: 'plain' }, // books: deep green, dark wood
+  { top: '#96989a', mid: '#a5a7a4', foot: '#9a9c9a', wood: '#b9b8b0', laid: 'plain' }, // glasses: light grey and white
+  { top: '#4a4c50', mid: '#56585c', foot: '#4e5054', wood: '#202022', laid: 'boards' }, // electronics: grey boards, black
+  { top: '#aeada2', mid: '#bdbcb0', foot: '#b2b1a5', wood: '#aaa89c', laid: 'plain' }, // drugstore: white, bright
+  { top: '#8c6038', mid: '#a06f44', foot: '#936438', wood: '#7a4c2c', laid: 'tile' }, // food court: warm tiles
+];
+const DEFAULT_GROUND: Ground = { top: WALL_TOP, mid: WALL_MID, foot: WALL_FOOT, wood: WAINSCOT, laid: 'plain' };
+// The wall under every picture: painted panels a metre wide with a fine joint between them (or, for a shop room, the
+// kind's own wall), panelling along the foot with a brass rail on top of it, the dirt of years and a water mark or two
+export function panels(g: CanvasRenderingContext2D, rand: () => number, kind = -1) {
+  const ground = GROUNDS[kind] ?? DEFAULT_GROUND,
+    bg = g.createLinearGradient(0, 0, 0, TEX);
+  bg.addColorStop(0, ground.top);
+  bg.addColorStop(0.22, ground.mid);
+  bg.addColorStop(0.8, ground.mid);
+  bg.addColorStop(1, ground.foot);
   g.fillStyle = bg;
   g.fillRect(0, 0, TEX, TEX);
   grime(g, rand, 70, '#aa9f86', '#4f4636');
   const foot = rowOf(0.15),
     rail = rowOf(WAINSCOT_TOP);
-  for (let x = 0; x < TEX; x += TEX / 4) {
-    g.fillStyle = 'rgba(30,26,20,.3)';
-    g.fillRect(x - 0.6, 0, 1.2, rail);
-    g.fillStyle = 'rgba(255,250,236,.14)';
-    g.fillRect(x + 0.6, 0, 0.8, rail);
+  if (ground.laid === 'plain')
+    for (let x = 0; x < TEX; x += TEX / 4) {
+      g.fillStyle = 'rgba(30,26,20,.3)';
+      g.fillRect(x - 0.6, 0, 1.2, rail);
+      g.fillStyle = 'rgba(255,250,236,.14)';
+      g.fillRect(x + 0.6, 0, 0.8, rail);
+    }
+  else if (ground.laid === 'brick') {
+    // courses of bricks, each course shifted half a brick
+    for (let row = 0, y = 0; y < rail; row++, y += 3.4) {
+      g.fillStyle = 'rgba(214,196,176,.26)';
+      g.fillRect(0, y, TEX, 0.9);
+      for (let x = (row % 2) * 7; x < TEX; x += 14) g.fillRect(x, y, 0.9, 3.4);
+      if (rand() < 0.2) {
+        g.fillStyle = 'rgba(0,0,0,.14)';
+        g.fillRect(rand() * TEX, y, 14, 3.4);
+      }
+    }
+  } else if (ground.laid === 'boards') {
+    // boards of a metre by half, the joints dark
+    for (let y = 0; y < rail; y += 21.3) {
+      g.fillStyle = 'rgba(0,0,0,.34)';
+      g.fillRect(0, y, TEX, 1);
+      for (let x = (((y / 21.3) | 0) % 2) * 32; x < TEX; x += 64) g.fillRect(x, y, 1, 21.3);
+    }
+  } else {
+    // wall tiles
+    g.fillStyle = 'rgba(40,24,10,.3)';
+    for (let y = 0; y < rail; y += 8) g.fillRect(0, y, TEX, 0.8);
+    for (let x = 0; x < TEX; x += 12) g.fillRect(x, 0, 0.8, rail);
+    g.fillStyle = 'rgba(255,230,190,.08)';
+    for (let y = 0; y < rail; y += 8) g.fillRect(0, y + 0.8, TEX, 1);
   }
   for (let k = 0; k < 3; k++) {
     const len = 20 + rand() * 50,
@@ -79,7 +125,7 @@ export function panels(g: CanvasRenderingContext2D, rand: () => number) {
   }
   moon(g, TEX * 0.5, rowOf(5.4), 150, 0.05);
   // the panelling: boards a quarter metre wide, a lighter edge on each, scuffed
-  g.fillStyle = WAINSCOT;
+  g.fillStyle = ground.wood;
   g.fillRect(0, rail, TEX, foot - rail);
   for (let x = 0; x < TEX; x += 16) {
     g.fillStyle = 'rgba(0,0,0,.28)';
@@ -99,20 +145,6 @@ export function panels(g: CanvasRenderingContext2D, rand: () => number) {
   g.fillRect(0, foot, TEX, TEX - foot);
   g.fillStyle = 'rgba(255,246,226,.12)';
   g.fillRect(0, foot, TEX, 1);
-}
-// A shop's sign band over its front: a board in the shop's colour with a brass rim and the shop's name, unlit.
-// `which`: the name on a room's walls (0) or on a shop front (1)
-export function signBand(g: CanvasRenderingContext2D, kind: number, which: number) {
-  const x = 16,
-    w = TEX - 32,
-    y = rowOf(5.0),
-    h = rowOf(4.0) - y;
-  box(g, x, y, w, h, SHOP_SIGNS[kind]!);
-  g.strokeStyle = BRASS;
-  g.lineWidth = 1.6;
-  g.strokeRect(x + 3, y + 3, w - 6, h - 6);
-  g.fillStyle = '#cdbd8e';
-  words(g, MALL_SHOP_NAMES[kind]![which]!, TEX / 2, y + h / 2 + 1, 22, WALL_ASPECT, SIGN_FONT, w - 24);
 }
 // The band along the top of a shop room's wall: the kind's colour with a brass rim and no words (the shop's name is
 // only on its front, on the concourse), a plain frieze over the goods

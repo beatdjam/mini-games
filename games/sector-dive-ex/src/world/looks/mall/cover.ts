@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { tileCenter } from '@engine/world/tiles.ts';
 import type { FloorPlan } from '../../building.ts';
+import { roomKindOf } from '../common.ts';
+import { KIND_FOOD } from './rooms.ts';
 // The mall's waist-high cover, drawn as the things that stand in a mall (Look.cover): a lounge of two sofas round a low
 // table, benches back to back with a planter between, a big tiled planter with a dead plant, a pair of sales wagons,
 // a stand of capsule toys. Each fills about the tile it stands on, and its top is the height of the cover (a back, a
@@ -112,6 +114,41 @@ const PIECE_MAKERS: ((p: ReturnType<typeof piece>, h: number) => void)[] = [
       }
   },
 ];
+// ---- the food court: tables and chairs ----
+const CHAIRS = [0xb4693c, 0x4f8a8c, 0xc2a346];
+const TABLE_TOP = 0xa68a62;
+// a chair at (x, z) with its back toward `back` (0: +x, 1: -x, 2: +z, 3: -z)
+function chair(p: ReturnType<typeof piece>, color: number, x: number, z: number, back: number) {
+  const out = [
+    [0.2, 0],
+    [-0.2, 0],
+    [0, 0.2],
+    [0, -0.2],
+  ][back]!;
+  p.box(0x3d3c39, x, z, 0, 0.1, 0.42, 0.1);
+  p.box(color, x, z, 0.42, 0.46, 0.08, 0.46);
+  p.box(color, x + out[0]!, z + out[1]!, 0.5, out[0] ? 0.06 : 0.46, 0.5, out[1] ? 0.06 : 0.46);
+}
+const FOOD_MAKERS: ((p: ReturnType<typeof piece>, h: number) => void)[] = [
+  // a table for four, a chair on each side
+  (p, h) => {
+    p.box(0x3d3c39, 0, 0, 0, 0.22, 0.7, 0.22);
+    p.box(TABLE_TOP, 0, 0, 0.7, 1.9, 0.08, 1.9);
+    chair(p, CHAIRS[h % 3]!, 1.35, 0, 0);
+    chair(p, CHAIRS[(h + 1) % 3]!, -1.35, 0, 1);
+    chair(p, CHAIRS[(h + 2) % 3]!, 0, 1.35, 2);
+    chair(p, CHAIRS[h % 3]!, 0, -1.35, 3);
+  },
+  // two tables for two, side by side
+  (p, h) => {
+    for (const z of [-1.0, 1.0]) {
+      p.box(0x3d3c39, 0, z, 0, 0.2, 0.7, 0.2);
+      p.box(TABLE_TOP, 0, z, 0.7, 1.5, 0.08, 0.95);
+      chair(p, CHAIRS[(h + (z > 0 ? 1 : 0)) % 3]!, -1.05, z, 1);
+      chair(p, CHAIRS[(h + (z > 0 ? 2 : 1)) % 3]!, 1.05, z, 0);
+    }
+  },
+];
 // draws the cover tiles `tiles` (indexes into the floor's map) into `group`
 export function mallCover(tiles: number[], plan: FloorPlan, group: THREE.Group) {
   if (!tiles.length) return;
@@ -121,7 +158,9 @@ export function mallCover(tiles: number[], plan: FloorPlan, group: THREE.Group) 
     // (the same piece on a tile every time: by the tile's number)
     const h = Math.imul(k + 1, 2654435761) >>> 0,
       p = piece(parts, tileCenter(k % W), tileCenter((k / W) | 0), (h >>> 8) % 2 === 1);
-    PIECE_MAKERS[(h >>> 12) % PIECE_MAKERS.length]!(p, (h >>> 20) % 7);
+    // (in the food court: tables and chairs)
+    const makers = roomKindOf(plan.gen.maps.grid, plan.gen.maps.roomOf[k]!) === KIND_FOOD ? FOOD_MAKERS : PIECE_MAKERS;
+    makers[(h >>> 12) % makers.length]!(p, (h >>> 20) % 7);
   }
   const box = new THREE.BoxGeometry(1, 1, 1),
     sphere = new THREE.SphereGeometry(1, 10, 7, 0, Math.PI * 2, 0, Math.PI / 2),

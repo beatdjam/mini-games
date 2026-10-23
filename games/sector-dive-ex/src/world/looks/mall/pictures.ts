@@ -10,7 +10,7 @@ import {
   MALL_STAFF_ONLY,
   MALL_TOILET,
 } from '../../../i18n/signs.ts';
-import type { Pictures, RoomWalls, WallSides } from '../common.ts';
+import type { Pictures, RoomFloors, RoomWalls, WallSides } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -34,12 +34,14 @@ import {
   SHOP_KINDS,
   SIGN_RED,
   box,
+  frieze,
   moon,
   panels,
   sheet,
-  signBand,
 } from './shared.ts';
-import { SHOP_PICS } from './shops.ts';
+import { ROOM_FLOOR_PICS } from './floors.ts';
+import { mallRoomKinds } from './rooms.ts';
+import { GROUND_PICS, SHOP_PICS } from './shops.ts';
 // The shopping mall (MALL): a closed suburban mall at night. Ivory wall panels and cream floor tiles, shutters pulled
 // down over the shops, and what light there is comes from the emergency lamps and the moon through the glass roof.
 // Like the old downtown it is seen from far away, so the walls are mostly plain and the lights are kept soft: the
@@ -50,7 +52,7 @@ const FLOOR_TILES = 7; // tiles across one floor picture: a tile is about 60 cm 
 const SHUTTER_SLAT = 4; // height of a shutter's slat (px)
 const BOSS_PLATE_LINES = 2; // the boss door's plate is written in two lines
 const BOSS_PLATE_W = 152; // its width in the leaf's picture (px)
-const BOSS_PLATE_PAD = 12; // room between the plate's edge and the words (px)
+const BOSS_PLATE_PAD = 22; // room between the plate's edge and the words (px)
 // the wall pictures by number (MALL_WALL_PICS)
 const FRAME = '#4a3b2d'; // bronze frames, gone dull
 const EXIT_GREEN = '#1c8a58';
@@ -63,7 +65,7 @@ const shutter =
       w = TEX - 28,
       y = rowOf(3.7),
       foot = rowOf(0.12);
-    signBand(g, kind, 1);
+    frieze(g, kind);
     g.fillStyle = '#3b2c20'; // the rails: a dark wood surround
 
     g.fillRect(x - 4, y - 4, w + 8, foot - y + 4);
@@ -133,7 +135,7 @@ function glassShine(g: CanvasRenderingContext2D, x: number, y: number, w: number
 const darkWindow =
   (kind: number): Paint =>
   (g, rand) => {
-    signBand(g, kind, 0);
+    frieze(g, kind);
     const { x, y, w, h, foot } = showWindow(g, ['#1f2427', '#111416']);
     g.save();
     g.beginPath();
@@ -167,7 +169,7 @@ const darkWindow =
 const closedWindow =
   (kind: number): Paint =>
   (g, rand) => {
-    signBand(g, kind, 1);
+    frieze(g, kind);
     const { x, y, w, h, foot } = showWindow(g, ['#2f3436', '#1d2123']);
     g.save();
     g.beginPath();
@@ -601,35 +603,45 @@ const COMMON_PICS: (Paint | null)[] = [
   noticeBoard,
   emergencyExit, // WALL_EXIT
 ];
-const WALL_EXIT = 8;
+const [, GUIDE, RESTROOM, HYDRANT, , ATM, MURAL, NOTICE] = COMMON_PICS.map((_, n) => n),
+  WALL_EXIT = 8;
 const kinds = Array.from({ length: SHOP_KINDS }, (_, n) => n);
 const FRONT_PICS: Paint[] = [...kinds.map(shutter), ...kinds.map(darkWindow), ...kinds.map(closedWindow), salePoster];
 const SALE = COMMON_PICS.length + FRONT_PICS.length - 1;
-export const MALL_WALL_PICS: (Paint | null)[] = [...COMMON_PICS, ...FRONT_PICS, ...SHOP_PICS.flat()];
-// along a concourse, in place of the plain panels: the shop fronts, none of them bare. Shutter n, then the window of
-// another kind of shop than the shutter before it, then a closed one of a third, and a poster now and then
-export const MALL_LANE_WALLS = [
-  ...kinds.flatMap(n => [
-    COMMON_PICS.length + n,
-    COMMON_PICS.length + SHOP_KINDS + ((n + 2) % SHOP_KINDS),
-    COMMON_PICS.length + 2 * SHOP_KINDS + ((n + 4) % SHOP_KINDS),
-  ]),
-  SALE,
-  SALE,
-];
-// a room's kind of shop and the pictures of its walls (common.ts RoomWalls): from the first picture of the shops on
+export const MALL_WALL_PICS: (Paint | null)[] = [...COMMON_PICS, ...FRONT_PICS, ...SHOP_PICS.flat(), ...GROUND_PICS];
+// along a concourse, in place of the plain panels, on the walls that no shop owns (the walls of the start room, the
+// boss room and the atrium, and of a corridor with no room behind it): the sale poster and the things of a concourse.
+// A shop's front is only on the wall of its own room, where its name board hangs (Look.roomWalls)
+export const MALL_LANE_WALLS = [SALE, GUIDE, HYDRANT, SALE, ATM, MURAL, NOTICE, RESTROOM];
+// a room's kind of shop and the pictures of its walls (common.ts RoomWalls): the shops' own pictures, then the bare
+// walls, numbered from the end of the shop fronts on; the fronts of a kind are its shutter, its dark window and its
+// closed window
 let next = COMMON_PICS.length + FRONT_PICS.length;
+const shopWalls = SHOP_PICS.map(set => set.map(() => next++)),
+  groundWalls = GROUND_PICS.map(() => next++);
 export const MALL_ROOM_WALLS: RoomWalls = {
-  plain: next,
+  plain: COMMON_PICS.length + FRONT_PICS.length,
   common: COMMON_PICS.length,
-  shops: SHOP_PICS.map(set => set.map(() => next++)),
+  shops: shopWalls,
+  ground: groundWalls,
+  fronts: kinds.map(n => [
+    COMMON_PICS.length + n,
+    COMMON_PICS.length + SHOP_KINDS + n,
+    COMMON_PICS.length + 2 * SHOP_KINDS + n,
+  ]),
 };
 // the fire exit only on the building's outside wall (common.ts WallSides). There are no windows to the outside
 export const MALL_WALL_SIDES: WallSides = { outer: [WALL_EXIT] };
+// the floors of the shop rooms, two to a kind, after the concourse's own (common.ts RoomFloors)
+export const MALL_ROOM_FLOORS: RoomFloors = {
+  plain: MALL_FLOORS,
+  shops: kinds.map(n => [MALL_FLOORS + 2 * n, MALL_FLOORS + 2 * n + 1]),
+};
 const mallWall =
   (variant: number): Paint =>
   (g, rand) => {
-    panels(g, rand);
+    // (the pictures of the shop rooms paint the wall of their kind themselves)
+    if (variant < MALL_ROOM_WALLS.plain) panels(g, rand);
     MALL_WALL_PICS[variant]?.(g, rand);
     grain(g, rand, 12);
   };
@@ -988,7 +1000,12 @@ export function mallPictures(): Pictures {
     laneWalls: MALL_LANE_WALLS,
     wallSides: MALL_WALL_SIDES,
     roomWalls: MALL_ROOM_WALLS,
-    floors: Array.from({ length: MALL_FLOORS }, (_, v) => paint(3200, mallFloor(v))),
+    roomFloors: MALL_ROOM_FLOORS,
+    roomKinds: mallRoomKinds,
+    floors: [
+      ...Array.from({ length: MALL_FLOORS }, (_, v) => paint(3200, mallFloor(v))),
+      ...ROOM_FLOOR_PICS.map((fn, v) => paint(3210 + (v >> 1), fn)),
+    ],
     deck: paint(3300, mallDeck),
     ceiling: paint(3400, mallCeiling),
     door: paint(3500, mallDoor(false)),

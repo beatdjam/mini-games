@@ -48,6 +48,13 @@ export interface Look {
   // Walls by room: a room gets one kind of picture (a shop of one kind), so its walls agree. Without it the walls are
   // scattered over the whole tile world the way they always were
   roomWalls?: RoomWalls;
+  // The floors of the rooms, by the kind of room (the same kinds as roomWalls): the pictures of a room's floor, picked
+  // like the default floors (the first of a kind's set is the plain one, and comes up most). Without it every floor
+  // tile is scattered over all the floors
+  roomFloors?: RoomFloors;
+  // Which kind each room of a floor is (by room number; -1 = none of them), worked out when the floor is drawn: the
+  // kinds roomWalls and roomFloors use
+  roomKinds?: (plan: FloorPlan) => number[];
   // The waist-high cover drawn the sector's own way (a sofa, a bench ...) in place of the plain box: given the tiles
   // that are cover (the tile world's collision and height are not touched, this is only what one sees). Without it
   // cover is a box with the wall's picture on its sides
@@ -94,28 +101,59 @@ export interface OutsideView {
   // background, the thing's foot at the bottom middle) and the light on them. Without it the street is bare
   street?: { things: StreetThing[]; pics: THREE.CanvasTexture[]; light: [number, number, number] };
 }
-// The pictures of a sector whose rooms have a kind each (Look.roomWalls). `plain`: the pictures 0 .. plain - 1 are the
-// ones scattered over the walls that no room owns (they take laneWalls too); `common`: of those, the first `common` are
-// the ones that stand in rooms as well, among the room's own; `shops`: for each kind of room, its own pictures (all
-// numbered from `plain` up). A room's kind is drawn from its number and its floor; ROOM_OWN_SHARE of its wall tiles
-// get one of its own pictures
+// The pictures of a sector whose rooms have a kind each (Look.roomWalls; the kind of each room is in wallKinds).
+// `plain`: the pictures 0 .. plain - 1 are painted on the sector's own wall, the others on the kind's; `common`: the
+// first `common` of them are the ones scattered over every wall that no shop room owns (they take laneWalls too); `shops`: for
+// each kind, the pictures of its room's inside walls (ROOM_OWN_SHARE of the wall tiles); `ground`: for each kind, the
+// bare wall the rest of them have; `fronts`: for each kind, the pictures of the wall where it meets a corridor, its
+// shop front (FRONT_SHARE of those tiles, the rest the ground)
 export interface RoomWalls {
   plain: number;
   common: number;
   shops: number[][];
+  ground: number[];
+  fronts: number[][];
 }
 export const ROOM_OWN_SHARE = 0.6;
+export const FRONT_SHARE = 0.85;
+// the floors by kind of room (Look.roomFloors): `plain` floors are the default ones (0 .. plain - 1); `shops`: for each
+// kind, its set (two at least: the first is the plain one)
+export interface RoomFloors {
+  plain: number;
+  shops: number[][];
+}
+// the kind of each room of a floor, by the floor's grid (Look.roomKinds, set when the floor is drawn)
+export const wallKinds = new WeakMap<ArrayLike<number>, number[]>();
+export const roomKindOf = (grid: ArrayLike<number>, room: number): number =>
+  room >= 0 ? (wallKinds.get(grid)?.[room] ?? -1) : -1;
 // a hash of k in 0..1, by multiplier `mul`
 const unit = (k: number, mul: number): number => (Math.imul(k + 1, mul) >>> 0) / 4294967296;
 // the room a wall tile belongs to (the lowest number of the rooms whose floor lies beside it), or -1 when only
 // corridor floor (or none) does
-function roomBeside(d: { W: number; maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } }, k: number): number {
+export function roomBeside(
+  d: { W: number; maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
+  k: number,
+): number {
   let room = -1;
   for (const t of [k - 1, k + 1, k - d.W, k + d.W]) {
     const r = d.maps.grid[t] === 1 ? d.maps.roomOf[t]! : -1;
     if (r >= 0 && (room < 0 || r < room)) room = r;
   }
   return room;
+}
+// which floor picture a floor tile gets (Look.roomFloors): the tile of a room of a kind has its kind's, any other the
+// default scattering over `floors` pictures
+export function floorPic(
+  d: { maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
+  k: number,
+  floors: number,
+  rooms?: RoomFloors,
+): number {
+  if (!rooms) return variantOf(k, floors, FLOOR_PLAIN_SHARE);
+  const kind = roomKindOf(d.maps.grid, d.maps.roomOf[k]!);
+  if (kind < 0) return variantOf(k, rooms.plain, FLOOR_PLAIN_SHARE);
+  const set = rooms.shops[kind]!;
+  return set[variantOf(k, set.length, FLOOR_PLAIN_SHARE)]!;
 }
 export interface WallSides {
   outer?: number[];
@@ -142,21 +180,18 @@ export function wallPic(
   sides?: WallSides,
   rooms?: RoomWalls,
 ): number {
-  const v0 = variantOf(k, rooms ? rooms.plain : count, WALL_PLAIN_SHARE),
+  const v0 = variantOf(k, rooms ? rooms.common : count, WALL_PLAIN_SHARE),
     room = rooms ? roomBeside(d, k) : -1,
-    own =
-      rooms && room >= 0
-        ? rooms.shops[
-            Math.floor(unit(room * 7919 + (wallFloor.get(d.maps.grid) ?? 0) * 104729, 2246822519) * rooms.shops.length)
-          ]!
-        : null,
-    v = own
-      ? unit(k, 2654435769) < ROOM_OWN_SHARE
-        ? own[Math.floor(unit(k + 977, 3266489917) * own.length)]!
-        : variantOf(k, rooms!.common, WALL_PLAIN_SHARE)
-      : v0 === 0 && laneWalls && byLane(d, k)
-        ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]!
-        : v0;
+    kind = roomKindOf(d.maps.grid, room),
+    lane = byLane(d, k);
+  let v: number;
+  if (rooms && kind >= 0) {
+    // a shop's wall: its front where it meets the corridor, its inside walls elsewhere
+    const own = lane ? rooms.fronts[kind]! : rooms.shops[kind]!,
+      share = lane ? FRONT_SHARE : ROOM_OWN_SHARE;
+    v = unit(k, 2654435769) < share ? own[Math.floor(unit(k + 977, 3266489917) * own.length)]! : rooms.ground[kind]!;
+  } else if (rooms && room >= 0 && !lane) v = variantOf(k, rooms.common, WALL_PLAIN_SHARE);
+  else v = v0 === 0 && laneWalls && lane ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v0;
   const beyond = wallBeyond.get(d.maps.grid);
   if (sides?.yard !== undefined) {
     // (only an outside wall: one that a floor sees from another side too is left as it is. A window only where every

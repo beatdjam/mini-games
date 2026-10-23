@@ -1,7 +1,14 @@
-import { MALL_FITTING, MALL_MENU, MALL_PHARMACY, MALL_TRAY_RETURN } from '../../../i18n/signs.ts';
+import {
+  MALL_FITTING,
+  MALL_MENU,
+  MALL_PHARMACY,
+  MALL_STALLS,
+  MALL_TRAY_RETURN,
+  MALL_WATER,
+} from '../../../i18n/signs.ts';
 import { SIGN_FONT, TEX, WALL_ASPECT, oval, rowOf, words } from '../paint.ts';
 import type { Paint } from '../paint.ts';
-import { BRASS, SIGN_RED, box, frieze } from './shared.ts';
+import { BRASS, SHOP_KINDS, SIGN_RED, box, frieze, panels } from './shared.ts';
 // The pictures on the walls of the mall's shop rooms (Look.roomWalls): seven kinds of shop, two pictures each. Every
 // one has a plain frieze in the kind's colour over it (shared.ts frieze), and the shop's goods below.
 type G = CanvasRenderingContext2D;
@@ -22,10 +29,11 @@ const COUNTER_TOP = '#8d6a46';
 const CHALK = '#c9c8b8';
 const STEEL = '#8d9293';
 
-// a shop's picture: the frieze in its colour (no name: that is on the shop front), then what `body` paints
+// a shop's picture: the wall of its kind, the frieze in its colour (no name: that is on the shop front), then what `body` paints
 const shop =
   (kind: number, body: (g: G, rand: () => number) => void): Paint =>
   (g, rand) => {
+    panels(g, rand, kind);
     frieze(g, kind);
     body(g, rand);
   };
@@ -323,23 +331,50 @@ const pharmacy: Paint = shop(SHOP_DRUGSTORE, (g, rand) => {
 });
 
 // ---- food court ----
-// a stall's counter with its menu in a band of lit photographs over it (dark now), a shutter half down behind
-const foodCounter: Paint = shop(SHOP_FOOD, (g, rand) => {
-  for (let n = 0; n < 6; n++) {
-    const x = 26 + n * 36;
-    box(g, x, rowOf(3.65), 32, rowOf(2.6) - rowOf(3.65), '#26231f');
-    g.fillStyle = ['#8a5030', '#7a6a38', '#6a3a30'][Math.floor(rand() * 3)]!;
-    oval(g, x + 16, rowOf(3.15), 10, 10 * WALL_ASPECT);
-    g.fillStyle = 'rgba(190,200,220,.08)';
-    g.fillRect(x, rowOf(3.65), 14, rowOf(2.6) - rowOf(3.65));
+// the stalls' counters, two to a picture: over each its menu in a band of lit photographs (dark now) in the stall's own
+// colour with its small name, a counter and the hatch where the orders come out
+const STALL_COLORS = ['#7b3b2c', '#2f4f6a', '#6a5a22', '#3e5e3a', '#6a3b52', '#4a4a52'];
+const foodCounter = (variant: number): Paint =>
+  shop(SHOP_FOOD, (g, rand) => {
+    for (let n = 0; n < 2; n++) {
+      const stall = (variant * 2 + n) % MALL_STALLS.length,
+        x = 14 + n * 120,
+        w = 108;
+      box(g, x, rowOf(3.65), w, rowOf(3.1) - rowOf(3.65), STALL_COLORS[stall]!);
+      g.fillStyle = '#d8c9a0';
+      words(g, MALL_STALLS[stall]!, x + w / 2, rowOf(3.38), 11, WALL_ASPECT, SIGN_FONT, w - 10);
+      for (let p = 0; p < 3; p++) {
+        box(g, x + 4 + p * 34, rowOf(3.02), 30, rowOf(2.45) - rowOf(3.02), '#26231f');
+        g.fillStyle = ['#8a5030', '#7a6a38', '#6a3a30'][Math.floor(rand() * 3)]!;
+        oval(g, x + 19 + p * 34, rowOf(2.74), 9, 9 * WALL_ASPECT);
+        g.fillStyle = 'rgba(190,200,220,.08)';
+        g.fillRect(x + 4 + p * 34, rowOf(3.02), 12, rowOf(2.45) - rowOf(3.02));
+      }
+      g.fillStyle = '#44413b'; // the hatch, its shutter half down
+      g.fillRect(x + 8, rowOf(2.1), w - 16, rowOf(1.15) - rowOf(2.1));
+      for (let y = rowOf(2.1); y < rowOf(1.5); y += 4) {
+        g.fillStyle = 'rgba(0,0,0,.25)';
+        g.fillRect(x + 8, y, w - 16, 1);
+      }
+      counter(g, x - 4, w + 8, 1.15);
+    }
+  });
+// a stand with a water server on it: the big bottle, two taps, a stack of cups, a bin beside
+const waterServer: Paint = shop(SHOP_FOOD, (g, rand) => {
+  counter(g, 70, 116, 1.0);
+  box(g, 100, rowOf(2.2), 40, rowOf(1.0) - rowOf(2.2) - 3, '#8a8f90');
+  g.fillStyle = '#6a8fa0';
+  oval(g, 120, rowOf(2.55), 15, 15 * WALL_ASPECT * 1.4);
+  g.fillStyle = '#2a2a2c';
+  for (const tx of [110, 130]) g.fillRect(tx, rowOf(1.55), 5, 5);
+  for (let n = 0; n < 5; n++) {
+    g.fillStyle = rand() < 0.5 ? '#cfc6ae' : '#b9b09a';
+    g.fillRect(150, rowOf(1.0) - 4 - n * 3.2, 11, 3);
   }
-  g.fillStyle = '#4d4a46';
-  g.fillRect(40, rowOf(2.2), TEX - 80, rowOf(1.15) - rowOf(2.2));
-  for (let y = rowOf(2.2); y < rowOf(1.15); y += 4) {
-    g.fillStyle = 'rgba(0,0,0,.25)';
-    g.fillRect(40, y, TEX - 80, 1);
-  }
-  counter(g, 20, TEX - 40, 1.15);
+  box(g, 196, rowOf(0.9), 24, rowOf(0.15) - rowOf(0.9), '#3a3a3c');
+  box(g, TEX / 2 - 20, rowOf(3.2), 40, 12, '#cfc6a4');
+  g.fillStyle = '#2e5160';
+  words(g, MALL_WATER, TEX / 2, rowOf(3.2) + 7, 9, WALL_ASPECT, SIGN_FONT, 34);
 });
 // the tray return: a steel hatch in the wall with a conveyor shelf, stacks of brown trays, the word on a plate over it
 const trayReturn: Paint = shop(SHOP_FOOD, (g, rand) => {
@@ -365,5 +400,7 @@ export const SHOP_PICS: Paint[][] = [
   [glassesWall, eyeChart],
   [deadScreens, phoneCases],
   [popShelves, pharmacy],
-  [foodCounter, trayReturn],
+  [foodCounter(0), foodCounter(1), foodCounter(2), trayReturn, waterServer],
 ];
+// The bare wall of each kind (the rest of the wall tiles of its room): its own wall and frieze, nothing on it
+export const GROUND_PICS: Paint[] = Array.from({ length: SHOP_KINDS }, (_, kind) => shop(kind, () => undefined));

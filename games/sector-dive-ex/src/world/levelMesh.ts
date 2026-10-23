@@ -10,7 +10,7 @@ import { biomeTex } from './render.ts';
 import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
-import { FLOOR_PLAIN_SHARE, facesWest, lookOf, variantOf, wallPic } from './looks.ts';
+import { facesWest, floorPic, lookOf, wallKinds, wallPic } from './looks.ts';
 import type { FloorPlan } from './building.ts';
 import {
   addCeiling,
@@ -110,9 +110,11 @@ export function buildFloorMeshes(
       );
     };
   if (look) {
+    // (what kind each room is, for the walls and floors of a look whose rooms have kinds)
+    if (look.roomKinds) wallKinds.set(plan.gen.maps.grid, look.roomKinds(plan));
     look.floors.forEach((map, v) =>
       planes(
-        floorTiles.filter(k => variantOf(k, look.floors.length, FLOOR_PLAIN_SHARE) === v),
+        floorTiles.filter(k => floorPic(plan.gen, k, look.floors.length, look.roomFloors) === v),
         0,
         true,
         new THREE.MeshBasicMaterial({ map }),
