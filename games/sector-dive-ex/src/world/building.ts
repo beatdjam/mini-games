@@ -47,7 +47,7 @@ export type { Court, YardShape } from './courtyard.ts';
 // The version of how makeBuilding lays a building out from its seed. Raise it with any change that gives a seed another
 // building (rooms, stairwells and lifts, the route, courtyards): a run suspended before then is fitted onto the new
 // building when it is resumed (fitBuildingState). A test in test/smoke.test.ts fails when the layout changes
-export const BUILDING_V = 3;
+export const BUILDING_V = 4;
 // ---- tuning numbers used only here ----
 export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
 // ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with

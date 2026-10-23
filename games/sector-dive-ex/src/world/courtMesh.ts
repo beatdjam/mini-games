@@ -76,6 +76,64 @@ function addBridge(tiles: number[], group: THREE.Group, under: THREE.Material | 
   for (let n = 0; n <= tiles.length; n++)
     box(0.25, BRIDGE_GIRDER * 0.7, T - 0.6, -BRIDGE_SLAB - 0.2, 0, -len / 2 + n * T);
 }
+// A galleria's skylight: a barrel vault of pale glass over the hole, its crown at the ceiling and its edges VAULT_RISE
+// lower, along the hole's length. Steel ribs stand across it at every tile line, and VAULT_PURLINS bars run along it
+const VAULT_RISE = 1.8, // how far the vault's edges are under its crown (m)
+  VAULT_PURLINS = 7,
+  VAULT_GLASS = 0.2, // how much of the light the glass holds back (its opacity)
+  VAULT_RIB = 0.09; // the thickness of a rib (m)
+function addVault(
+  group: THREE.Group,
+  cx: number,
+  cz: number,
+  wide: number,
+  deep: number,
+  color: number,
+  steel: THREE.Material,
+) {
+  // built across x and along z, then turned to lie along x where the hole does
+  const alongZ = deep > wide,
+    span = Math.min(wide, deep) - 0.6,
+    length = Math.max(wide, deep),
+    half = span / 2,
+    radius = (half * half + VAULT_RISE * VAULT_RISE) / (2 * VAULT_RISE),
+    crown = WALL_H - 0.05,
+    centre = crown - radius,
+    arc = 2 * Math.asin(half / radius),
+    heightAt = (x: number) => centre + Math.sqrt(radius * radius - x * x),
+    vault = new THREE.Group(),
+    glass = new THREE.PlaneGeometry(span, length - 0.2, 16, 1),
+    pos = glass.getAttribute('position');
+  for (let n = 0; n < pos.count; n++) pos.setXYZ(n, pos.getX(n), heightAt(pos.getX(n)), pos.getY(n));
+  vault.add(
+    new THREE.Mesh(
+      glass,
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: VAULT_GLASS,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    ),
+  );
+  const ribs = Math.round(length / T);
+  for (let n = 0; n <= ribs; n++) {
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(radius, VAULT_RIB / 2, 4, 24, arc), steel);
+    rib.rotation.z = (Math.PI - arc) / 2;
+    rib.position.set(0, centre, -length / 2 + n * T);
+    vault.add(rib);
+  }
+  for (let n = 0; n < VAULT_PURLINS; n++) {
+    const x = -half + (n * span) / (VAULT_PURLINS - 1),
+      bar = new THREE.Mesh(new THREE.BoxGeometry(VAULT_RIB, VAULT_RIB, length), steel);
+    bar.position.set(x, heightAt(x) - 0.02, 0);
+    vault.add(bar);
+  }
+  vault.position.set(cx, 0, cz);
+  if (!alongZ) vault.rotation.y = Math.PI / 2;
+  group.add(vault);
+}
 export function addCourt(
   court: NonNullable<FloorPlan['court']>,
   group: THREE.Group,
@@ -116,15 +174,20 @@ export function addCourt(
     sky.position.set(cx, WALL_H - 0.03, cz);
     group.add(sky);
     const bar = new THREE.MeshBasicMaterial({ color: PAINT.ink11 });
-    for (let n = 1; n < i1 - i0; n++) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, deep - 0.6), bar);
-      m.position.set(i0 * T + n * T, WALL_H - 0.08, cz);
-      group.add(m);
-    }
-    for (let n = 1; n < j1 - j0; n++) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(wide - 0.6, 0.1, 0.12), bar);
-      m.position.set(cx, WALL_H - 0.08, j0 * T + n * T);
-      group.add(m);
+    if (wide !== deep) {
+      // a long atrium (a galleria): the glass is a barrel vault under the pane, on steel ribs
+      addVault(group, cx, cz, wide, deep, SKYLIGHT, bar);
+    } else {
+      for (let n = 1; n < i1 - i0; n++) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, deep - 0.6), bar);
+        m.position.set(i0 * T + n * T, WALL_H - 0.08, cz);
+        group.add(m);
+      }
+      for (let n = 1; n < j1 - j0; n++) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(wide - 0.6, 0.1, 0.12), bar);
+        m.position.set(cx, WALL_H - 0.08, j0 * T + n * T);
+        group.add(m);
+      }
     }
   }
   if (court.ground) {
@@ -599,7 +662,8 @@ export function buildAtriumProps(court: Court, w: number, storey: number, biome:
     i0 = Math.min(...is),
     i1 = Math.max(...is) + 1,
     j0 = Math.min(...js),
-    j1 = Math.max(...js) + 1;
+    j1 = Math.max(...js) + 1,
+    floors = court.bridges.flatMap((tiles, n) => (tiles.length ? [{ tiles, n }] : []));
   dressAtrium(group, biome.code, {
     cx: ((i0 + i1) / 2) * T,
     cz: ((j0 + j1) / 2) * T,
@@ -607,7 +671,14 @@ export function buildAtriumProps(court: Court, w: number, storey: number, biome:
     deep: (j1 - j0) * T,
     ground: -court.lower * storey,
     sky: -court.upper * storey + WALL_H,
-    decks: court.bridges.flatMap((tiles, n) => (tiles.length ? [-(court.upper + n) * storey] : [])),
+    decks: floors.map(f => -(court.upper + f.n) * storey),
+    // (a bridge crosses the well the short way: where along its length it is, from the middle of the bridge's tiles)
+    deckAt: floors.map(f => {
+      const along = f.tiles.map(k => (i1 - i0 > j1 - j0 ? k % w : Math.floor(k / w))),
+        from = i1 - i0 > j1 - j0 ? i0 : j0,
+        size = Math.max(i1 - i0, j1 - j0);
+      return ((Math.min(...along) + Math.max(...along) + 1) / 2 - from - size / 2) * T;
+    }),
   });
   return group;
 }
