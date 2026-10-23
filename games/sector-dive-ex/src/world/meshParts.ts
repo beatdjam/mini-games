@@ -6,10 +6,12 @@ import {
   addDecks as addPlainDecks,
   addFloor as addPlainFloor,
   addRamps as addPlainRamps,
+  addSunkSides as addPlainSunkSides,
   addWalls as addPlainWalls,
 } from '@engine/render/tilemesh.ts';
+import type { TileMaps } from '@engine/world/dungeon.ts';
 import { SIDE_STEP, T, isSolid } from '@engine/world/tiles.ts';
-import { WALL_H } from '../data/level.ts';
+import { COVER_H, WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
 import { COLOR } from '../data/colors.ts';
 import type { BiomeTextures } from './render.ts';
@@ -36,6 +38,16 @@ export function addDecks(tex: BiomeTextures, group: THREE.Group, side?: THREE.Te
 // ramps; their sides in the same picture as the decks' (`side`, or the wall's)
 export function addRamps(tex: BiomeTextures, group: THREE.Group, side?: THREE.Texture) {
   addPlainRamps(tex.tile, side ?? tex.wall, WEDGE_SLICES, group);
+}
+// the height of the floor itself on tile k: the ground (0), or a sunk floor (below 0); under a deck it is the ground,
+// under cover (whose height is that of its top) the floor the cover stands on
+export const groundOf =
+  (maps: TileMaps) =>
+  (k: number): number =>
+    maps.cover[k] ? maps.hgt[k]! - COVER_H : Math.min(maps.hgt[k]!, 0);
+// the steps down into sunk floors (engine addSunkSides), in `side`'s picture (or the wall's)
+export function addSunkSides(tex: BiomeTextures, maps: TileMaps, group: THREE.Group, side?: THREE.Texture) {
+  addPlainSunkSides(side ?? tex.wall, groundOf(maps), group);
 }
 export function addCeiling(biome: Biome, group: THREE.Group) {
   addPlainCeiling(new THREE.Color(biome.wall).multiplyScalar(0.7), WALL_H, group);

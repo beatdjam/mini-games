@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { H, RISE, T, W, cover, grid, hgt, inBounds, ramp, tileCenter } from '../world/tiles.ts';
+import { H, RISE, SIDE_STEP, T, W, cover, grid, hgt, inBounds, ramp, tileCenter } from '../world/tiles.ts';
 // engine: The meshes of a level built of tiles (engine/src/world/tiles.ts: the tile world being built): the floor, the
 // walls that can be seen, the raised decks and the ramps, a flat ceiling, and flat squares on chosen tiles. What they
 // look like (the pictures, the height of the walls, the ceiling's colour) comes from the game
@@ -138,6 +138,45 @@ export function addDecks(look: DeckLook, group: THREE.Group) {
     decks.instanceMatrix.needsUpdate = true;
     group.add(decks);
   });
+}
+
+// The steps of sunk floor (dungeon.ts sinkRect): a tile whose ground (`ground(k)`: its floor, under any cover) is lower
+// than that of a flat floor tile beside it gets that side drawn, from its ground up to the other's, facing in. The
+// picture spans the side (its top along the top edge). One mesh, each side its own quad. Nothing is drawn when no tile
+// is sunk. (The floor itself is drawn by the game at ground(k): addTilePlanes)
+export function addSunkSides(side: THREE.Texture, ground: (k: number) => number, group: THREE.Group) {
+  const pos: number[] = [],
+    uv: number[] = [],
+    idx: number[] = [],
+    a = T / 2;
+  for (let k = 0; k < W * H; k++) {
+    if (grid[k] !== 1 || ramp[k] >= 0) continue;
+    const g = ground(k),
+      i = k % W,
+      j = (k / W) | 0;
+    for (const [di, dj] of SIDE_STEP) {
+      if (!inBounds(i + di, j + dj)) continue;
+      const n = (j + dj) * W + i + di;
+      if (grid[n] !== 1 || ramp[n] >= 0) continue;
+      const top = ground(n);
+      if (top <= g) continue;
+      // the side's two ends along the edge between the tiles
+      const x = tileCenter(i) + di * a,
+        z = tileCenter(j) + dj * a,
+        ex = dj * a,
+        ez = di * a,
+        b = pos.length / 3;
+      pos.push(x - ex, g, z - ez, x + ex, g, z + ez, x + ex, top, z + ez, x - ex, top, z - ez);
+      uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+      idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+  }
+  if (!idx.length) return;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: side, side: THREE.DoubleSide })));
 }
 
 // the ramps: a wedge (wedgeGeo, cut into `slices`) on each ramp tile, its slope in `top` and its sides in `side`

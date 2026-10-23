@@ -12,6 +12,7 @@ import { player, run } from '../actors/player.ts';
 import { CSS_COLOR } from '../data/colors.ts';
 
 const COVER_COLOR = '#5b6168'; // cover tiles are grey
+const SUNK_ALPHA = 0.3; // a sunk floor is dimmer than the room's floor
 const HAZARD_TINT: TileStyle = { color: '#ff4d4d', alpha: 0.45 }; // over hazard floor tiles
 const LABEL_FONT = (u: number) => `${7 * u}px "DotGothic16",sans-serif`;
 const LINK_FONT = (u: number) => `${9 * u}px sans-serif`; // the ▲ ▼ of a stairwell or lift (shown on the small map too)
@@ -20,7 +21,7 @@ const LINK_FONT = (u: number) => `${9 * u}px sans-serif`; // the ▲ ▼ of a st
 function tileStyle(k: number): TileStyle | null {
   if (!level.seen[k] || grid[k] !== 1) return null;
   if (cover[k]) return { color: COVER_COLOR, alpha: 0.8 };
-  const alpha = ramp[k] >= 0 ? 0.8 : hgt[k] > 0 ? 1 : level.roomOf[k] >= 0 ? 0.55 : 0.4;
+  const alpha = ramp[k] >= 0 ? 0.8 : hgt[k] > 0 ? 1 : hgt[k] < 0 ? SUNK_ALPHA : level.roomOf[k] >= 0 ? 0.55 : 0.4;
   return { color: level.biome.line, alpha };
 }
 const seenAt = (x: number, z: number) => !!level.seen[tileIndex(x, z)];

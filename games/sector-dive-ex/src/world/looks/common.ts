@@ -46,6 +46,9 @@ export interface Look {
   // the sides of the raised decks (a picture a tile wide and a deck high). Without it they have the plain wall's
   // picture pressed down to their height, which reads as a lump of wall and not as a thing built there
   deckSide?: THREE.CanvasTexture;
+  // the sides of the steps down into a sunk floor (a picture a tile wide and a step high, its top edge along the top)
+  // Without it they have the plain wall's picture
+  sunkSide?: THREE.CanvasTexture;
   // Walls by room: a room gets one kind of picture (a shop of one kind), so its walls agree. Without it the walls are
   // scattered over the whole tile world the way they always were
   roomWalls?: RoomWalls;

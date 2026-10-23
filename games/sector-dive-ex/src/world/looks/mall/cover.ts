@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { tileCenter } from '@engine/world/tiles.ts';
+import { groundOf } from '../../meshParts.ts';
 import type { FloorPlan } from '../../building.ts';
 import { roomKindOf } from '../common.ts';
 import { KIND_FOOD } from './rooms.ts';
@@ -7,7 +8,7 @@ import { KIND_FOOD } from './rooms.ts';
 // table, benches back to back with a planter between, a big tiled planter with a dead plant, a pair of sales wagons,
 // a stand of capsule toys. Each fills about the tile it stands on, and its top is the height of the cover (a back, a
 // twig or a dome may stand a little over it); it is only what one sees: the tile world's cover (its shape for bullets
-// and for walking, its height) is as it was.
+// and for walking, its height) is as it was. In the sunk food court the pieces stand on the floor there.
 // ---- tuning numbers used only here ----
 const HALF = 1.7; // the pieces fill a tile to this far from its middle (m)
 const SIDE_SHADE = 0.78; // the sides of a part are this much of the colour of its top (nothing lights them)
@@ -23,8 +24,8 @@ interface Parts {
   boxes: Map<number, THREE.Matrix4[]>;
   domes: Map<number, THREE.Matrix4[]>;
 }
-// a piece being made: parts placed about the tile's middle, the whole piece turned a quarter or not
-function piece(parts: Parts, cx: number, cz: number, quarter: boolean) {
+// a piece being made: parts placed about the tile's middle (its floor at height cy), the whole piece turned a quarter or not
+function piece(parts: Parts, cx: number, cy: number, cz: number, quarter: boolean) {
   const at = new THREE.Matrix4(),
     turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), quarter ? Math.PI / 2 : 0);
   const place = (x: number, z: number): [number, number] => (quarter ? [z, -x] : [x, z]);
@@ -32,12 +33,12 @@ function piece(parts: Parts, cx: number, cz: number, quarter: boolean) {
     // a box: its middle at (x, z), its foot at y0, w across and d along (before the piece is turned)
     box(color: number, x: number, z: number, y0: number, w: number, h: number, d: number) {
       const [px, pz] = place(x, z);
-      at.compose(new THREE.Vector3(cx + px, y0 + h / 2, cz + pz), turn, new THREE.Vector3(w, h, d));
+      at.compose(new THREE.Vector3(cx + px, cy + y0 + h / 2, cz + pz), turn, new THREE.Vector3(w, h, d));
       (parts.boxes.get(color) ?? parts.boxes.set(color, []).get(color)!).push(at.clone());
     },
     dome(color: number, x: number, z: number, y: number, r: number) {
       const [px, pz] = place(x, z);
-      at.compose(new THREE.Vector3(cx + px, y, cz + pz), turn, new THREE.Vector3(r, r, r));
+      at.compose(new THREE.Vector3(cx + px, cy + y, cz + pz), turn, new THREE.Vector3(r, r, r));
       (parts.domes.get(color) ?? parts.domes.set(color, []).get(color)!).push(at.clone());
     },
   };
@@ -153,11 +154,12 @@ const FOOD_MAKERS: ((p: ReturnType<typeof piece>, h: number) => void)[] = [
 export function mallCover(tiles: number[], plan: FloorPlan, group: THREE.Group) {
   if (!tiles.length) return;
   const W = plan.gen.W,
+    ground = groundOf(plan.gen.maps),
     parts: Parts = { boxes: new Map(), domes: new Map() };
   for (const k of tiles) {
     // (the same piece on a tile every time: by the tile's number)
     const h = Math.imul(k + 1, 2654435761) >>> 0,
-      p = piece(parts, tileCenter(k % W), tileCenter((k / W) | 0), (h >>> 8) % 2 === 1);
+      p = piece(parts, tileCenter(k % W), ground(k), tileCenter((k / W) | 0), (h >>> 8) % 2 === 1);
     // (in the food court: tables and chairs)
     const makers = roomKindOf(plan.gen.maps.grid, plan.gen.maps.roomOf[k]!) === KIND_FOOD ? FOOD_MAKERS : PIECE_MAKERS;
     makers[(h >>> 12) % makers.length]!(p, (h >>> 20) % 7);

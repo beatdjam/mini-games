@@ -18,7 +18,9 @@ import {
   addFloor,
   addNeonSigns,
   addRamps,
+  addSunkSides,
   addTilePlanes,
+  groundOf,
   addWalls,
   wallTiles,
 } from './meshParts.ts';
@@ -95,7 +97,18 @@ export function buildFloorMeshes(
           courtGroup,
         );
     };
-  const floorTiles = all.filter(k => grid[k] === 1 && !plan.noFloor[k]);
+  const floorTiles = all.filter(k => grid[k] === 1 && !plan.noFloor[k]),
+    // a floor picture on the tiles, each at the height of its floor (a sunk floor is below the ground)
+    floorPlanes = (tiles: number[], mat: THREE.Material) => {
+      const ground = groundOf(plan.gen.maps);
+      for (const y of new Set(tiles.map(ground)))
+        planes(
+          tiles.filter(k => ground(k) === y),
+          y,
+          true,
+          mat,
+        );
+    };
   // the boss room's tiles and the ring of tiles round it (its walls and its door)
   const hallRoom = plan.hall ? plan.gen.rooms[plan.hall.room]! : null,
     hallAt = (k: number, ring: number): boolean => {
@@ -113,10 +126,8 @@ export function buildFloorMeshes(
     // (what kind each room is, for the walls and floors of a look whose rooms have kinds)
     if (look.roomKinds) wallKinds.set(plan.gen.maps.grid, look.roomKinds(plan));
     look.floors.forEach((map, v) =>
-      planes(
+      floorPlanes(
         floorTiles.filter(k => floorPic(plan.gen, k, look.floors.length, look.roomFloors) === v),
-        0,
-        true,
         new THREE.MeshBasicMaterial({ map }),
       ),
     );
@@ -182,7 +193,7 @@ export function buildFloorMeshes(
     }
   } else {
     tex.floor.repeat.set(1, 1);
-    planes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }));
+    floorPlanes(floorTiles, new THREE.MeshBasicMaterial({ map: tex.floor }));
     wallBoxes(tex.wall, walls);
   }
   // (cover a look draws itself: its tiles are left out of the decks)
@@ -196,6 +207,7 @@ export function buildFloorMeshes(
     );
   }
   addRamps(tex, group, look?.deckSide);
+  addSunkSides(tex, plan.gen.maps, group, look?.sunkSide);
   buildHazardMesh(biome, plan.gen.hazard, group);
   const dark = look
     ? new THREE.MeshBasicMaterial({ map: look.ceiling })

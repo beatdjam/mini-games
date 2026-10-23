@@ -8,7 +8,7 @@ import { shopDeckTex } from './looks/kwln/cutouts.ts';
 import { floorDeckTex } from './looks/data/cutouts.ts';
 import { stageDeckTex } from './looks/noise/cutouts.ts';
 import { slabDeckTex } from './looks/ruin/cutouts.ts';
-import { mallDeckTex } from './looks/mall/cutouts.ts';
+import { mallDeckTex, mallSunkTex } from './looks/mall/cutouts.ts';
 import { mallCover } from './looks/mall/cover.ts';
 import { dataPictures } from './looks/data/pictures.ts';
 import { dataProps } from './looks/data/props.ts';
@@ -58,7 +58,13 @@ const MAKERS: Record<string, () => Look> = {
   NOISE: () => ({ ...noisePictures(), deckSide: stageDeckTex(), props: noiseProps }),
   RUIN: () => ({ ...ruinPictures(), deckSide: slabDeckTex(), props: ruinProps }),
   CITY: () => ({ ...cityPictures(), deckSide: officeDeckTex(), props: cityProps }),
-  MALL: () => ({ ...mallPictures(), deckSide: mallDeckTex(), cover: mallCover, props: mallProps }),
+  MALL: () => ({
+    ...mallPictures(),
+    deckSide: mallDeckTex(),
+    sunkSide: mallSunkTex(),
+    cover: mallCover,
+    props: mallProps,
+  }),
 };
 // The walled city is a canyon: bright where people walk, black overhead. Its walls are darkened toward their tops
 // and its ceiling nearly put out, once, when the look is made; the signs, lamps and cables stand out against that

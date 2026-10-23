@@ -24,6 +24,7 @@ import type { Biome, BuildingState } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
 import { wallBeyond, wallFloor, wallLinks } from './looks/common.ts';
 import { massOf } from './looks/outside.ts';
+import { sinkFoodCourt } from './looks/mall/sunken.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 import { courtFloor, openCourt, placeCourt } from './courtyard.ts';
 import type { Court, CourtFloor } from './courtyard.ts';
@@ -47,7 +48,7 @@ export type { Court, YardShape } from './courtyard.ts';
 // The version of how makeBuilding lays a building out from its seed. Raise it with any change that gives a seed another
 // building (rooms, stairwells and lifts, the route, courtyards): a run suspended before then is fitted onto the new
 // building when it is resumed (fitBuildingState). A test in test/smoke.test.ts fails when the layout changes
-export const BUILDING_V = 4;
+export const BUILDING_V = 5;
 // ---- tuning numbers used only here ----
 export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
 // ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with
@@ -258,6 +259,8 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
         p.gen.maps.grid[(hall.y + pj - ARENA_FROM) * W + hall.x + pi - ARENA_FROM] = 0;
   });
   if (!allReached(maps, links, top.gen.startIdx, cfg)) return null;
+  // the mall's food court is a plaza a step or two below its aisle (no random numbers: the rest is as it was)
+  if (biome.code === 'MALL') plans.forEach(p => sinkFoodCourt(p));
   // the lockdown room: one that can be shut (every opening is a door), with enemies in it
   const fits: { floor: number; room: number }[] = [];
   plans.forEach((p, floor) =>
