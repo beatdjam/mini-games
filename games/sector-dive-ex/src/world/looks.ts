@@ -38,6 +38,7 @@ export {
   floorPic,
   roomKindOf,
   variantOf,
+  wallHall,
   wallKinds,
   wallPic,
 } from './looks/common.ts';
