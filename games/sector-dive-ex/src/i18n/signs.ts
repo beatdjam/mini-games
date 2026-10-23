@@ -58,6 +58,9 @@ export const MALL_STALLS = [
   '定食 おふくろ',
 ];
 export const MALL_WATER = 'お水';
+// an empty tenancy's notice, and the plate over a lift's way in
+export const MALL_VACANT = 'テナント募集';
+export const MALL_LIFT = 'エレベーター';
 // the words in the shops' rooms: the cafe's menu board, the food court's tray return, the optician's eye chart is
 // letters only
 export const MALL_MENU = 'メニュー';

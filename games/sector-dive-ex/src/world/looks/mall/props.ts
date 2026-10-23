@@ -5,15 +5,16 @@ import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { roomKindOf, wallPic } from '../common.ts';
+import { roomKindOf, wallFloor, wallLinks, wallPic } from '../common.ts';
 import { SIGN_FONT, canvasTex, poolTex } from '../paint.ts';
 import { FULL_SIZE, facing, floorNear, lightMat, onWall, overHead, pose, propTools } from '../props.ts';
 import { tactileLine } from './tactile.ts';
 import { boardTex, shopFronts } from './fronts.ts';
 import { KIND_FOOD } from './rooms.ts';
+import { liftPlate } from './lift.ts';
 import type { Light } from '../props.ts';
-import { MALL_DIRECTIONS, MALL_SHOP_NAMES } from '../../../i18n/signs.ts';
-import { MALL_LANE_WALLS, MALL_ROOM_WALLS, MALL_WALL_PICS, MALL_WALL_SIDES } from './pictures.ts';
+import { MALL_DIRECTIONS, MALL_LIFT, MALL_SHOP_NAMES } from '../../../i18n/signs.ts';
+import { MALL_LANE_WALLS, MALL_LIFT_WALLS, MALL_ROOM_WALLS, MALL_WALL_PICS, MALL_WALL_SIDES } from './pictures.ts';
 import { BRASS } from './shared.ts';
 // The props of the shopping mall (MALL): the things fixed to its walls and ceilings, and the light they throw. They go
 // by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
@@ -115,7 +116,7 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tools = propTools(plan, group, MALL_PROPS, rng),
     { d, wallOf, add } = tools,
     pictureOf = (wall: number) =>
-      wallPic(d, wall, MALL_WALL_PICS.length, MALL_LANE_WALLS, MALL_WALL_SIDES, MALL_ROOM_WALLS);
+      wallPic(d, wall, MALL_WALL_PICS.length, MALL_LANE_WALLS, MALL_WALL_SIDES, MALL_ROOM_WALLS, MALL_LIFT_WALLS);
   // (no ceiling where it is open to the sky; none in the boss room: its ceiling is twice as high, and a fitting at the
   // usual height would hang in the air)
   const bossRoom = plan.hall ? plan.hall.room : null,
@@ -335,6 +336,14 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     court,
   );
   add(new THREE.BoxGeometry(DIRECTION.rod, 1, DIRECTION.rod), fitting, courtRods);
+
+  liftPlate(
+    plan,
+    tools.add,
+    wallLinks.get(d.maps.grid)?.lifts ?? new Set(),
+    wallFloor.get(d.maps.grid) ?? 0,
+    MALL_LIFT,
+  );
 
   tactileLine(plan, tools.add);
   tools.pools(lights, POOL_OPACITY);

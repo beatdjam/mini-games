@@ -344,7 +344,7 @@ const foodCounter = (variant: number): Paint =>
       g.fillStyle = '#d8c9a0';
       words(g, MALL_STALLS[stall]!, x + w / 2, rowOf(3.38), 11, WALL_ASPECT, SIGN_FONT, w - 10);
       for (let p = 0; p < 3; p++) {
-        box(g, x + 4 + p * 34, rowOf(3.02), 30, rowOf(2.45) - rowOf(3.02), '#26231f');
+        box(g, x + 4 + p * 34, rowOf(3.02), 30, rowOf(2.45) - rowOf(3.02), '#262521');
         g.fillStyle = ['#8a5030', '#7a6a38', '#6a3a30'][Math.floor(rand() * 3)]!;
         oval(g, x + 19 + p * 34, rowOf(2.74), 9, 9 * WALL_ASPECT);
         g.fillStyle = 'rgba(190,200,220,.08)';

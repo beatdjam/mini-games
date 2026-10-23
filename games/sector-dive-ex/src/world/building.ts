@@ -22,7 +22,7 @@ import { COVER_H, HALL_H, PLAT_H, WALL_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import type { Biome, BuildingState } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
-import { wallBeyond, wallFloor } from './looks/common.ts';
+import { wallBeyond, wallFloor, wallLinks } from './looks/common.ts';
 import { massOf } from './looks/outside.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 import { courtFloor, openCourt, placeCourt } from './courtyard.ts';
@@ -233,6 +233,12 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     if (court?.open && n <= court.lower) for (const k of court.tiles) beyond[k] = 2;
     wallBeyond.set(p.gen.maps.grid, beyond);
     wallFloor.set(p.gen.maps.grid, n);
+    // (the lifts and stairwells that stop on this floor, for what is drawn round them: looks/common.ts wallLinks)
+    const here = links.filter(l => n >= l.upper && n <= l.lower);
+    wallLinks.set(p.gen.maps.grid, {
+      lifts: new Set(here.filter(l => l.kind === 'elevator').map(l => l.strip[0]!)),
+      strips: new Set(here.flatMap(l => l.strip)),
+    });
   });
   // the start room: no hazard floor in it or its doorways (as in a Sector Dive area)
   const top = plans[0]!;
