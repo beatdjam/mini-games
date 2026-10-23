@@ -358,6 +358,7 @@ LANG.en = {
     'boss.watcherHint': 'Slip through the gaps in the rings',
     'boss.watcherDrones': 'The Watcher deployed drones',
     'boss.phantomHint': 'It fires when the warning laser blinks',
+    'boss.hoistHint': "Dash to break the magnet's pull",
   },
   data: {
     weapons: {
@@ -429,6 +430,12 @@ LANG.en = {
         title: 'BASTION',
         short: 'Bastion',
         desc: 'Destroy every turret around it to leave it open for a while',
+      },
+      hoist: {
+        name: 'HOIST',
+        title: 'HOIST',
+        short: 'Hoist',
+        desc: 'Drops loads to crush you. Its magnet drags you under them',
       },
     },
     perks: {

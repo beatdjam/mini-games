@@ -356,6 +356,7 @@ LANG.ja = {
     'boss.watcherHint': '弾の輪は隙間を抜ける',
     'boss.watcherDrones': '監視体が子機を展開した',
     'boss.phantomHint': '予告レーザーが点滅したら撃ってくる',
+    'boss.hoistHint': '磁石の引き寄せは、ダッシュで抜ける',
   },
   data: {
     weapons: {
@@ -424,6 +425,12 @@ LANG.ja = {
         title: 'BASTION — 要塞核',
         short: '要塞核',
         desc: '周りの砲台を全部壊すとしばらく無防備',
+      },
+      hoist: {
+        name: 'HOIST 吊り荷機',
+        title: 'HOIST — 吊り荷機',
+        short: '吊り荷機',
+        desc: '荷を落として押し潰す。磁石で引き寄せてから落とす',
       },
     },
     // desc(v): v is the chip's amount. curText(c): c is what the chip's cur(p) returns

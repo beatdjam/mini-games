@@ -1,4 +1,4 @@
-import type { RunEnd, Weapon } from '../data/types.ts';
+import type { Boss, Enemy, RunEnd, Weapon } from '../data/types.ts';
 import { el, shuffle, yawToward } from '@engine/core/util.ts';
 import { devHook, showFps } from '@engine/core/dev.ts';
 import { drawStats } from '@engine/render/render.ts';
@@ -40,6 +40,7 @@ import { renderBase, showTab } from '../screens/base.ts';
 import { drawShareCard, shareData, shareText } from '../ui/share.ts';
 import { update } from '../flow/update.ts';
 import { BOT_STYLES, createBot, setBot } from './bot.ts';
+import { spawnBoss } from '../actors/bosses/common.ts';
 // #trailer / #trailer-music: films the trailer from the script tools/trailer/capture.mjs hands the page (trailer.ts)
 if (location.hash.startsWith('#trailer'))
   void import('./trailer.ts').then(m => m.filmTrailer(location.hash.startsWith('#trailer-music')));
@@ -87,7 +88,7 @@ if (courtParam === 'open' || courtParam === 'roof')
 // to a deck, facing its side), walkway (on a raised walkway along an alley, at its start, looking along it),
 // foodcourt (?sector=MALL: on the ground by the edge of the sunk food court, looking down into it), foodcourtin (the same
 // room from its floor, looking across to the steps up), island (?sector=MALL: from two tiles west of the first island of cover in a
-// big room, looking at it; ?kind=<n> for the first one in a shop of that kind)
+// big room, looking at it; ?kind=<n> for the first one in a shop of that kind), hoist (HOIST in the boss room: ?pose=wide, drop or pull)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -149,6 +150,15 @@ if (location.hash.startsWith('#bld-'))
       player.pitch = 0.45;
       run.bld!.supplied = true; // no supply screen over the view
       player.hp = 1e6;
+    } else if (what === 'hoist') {
+      // HOIST in the boss room (see hoistView; ?pose= picks the view)
+      const last = b.plans.length - 1,
+        r = b.plans[last]!.gen.rooms[b.plans[last]!.hall!.room]!;
+      stand(last, (r.y + 1) * W + r.x + 1, W + 1);
+      run.bld!.supplied = true;
+      spawnBoss('hoist');
+      const made = enemies.find(e => e.boss);
+      if (made) hoistView(made, new URLSearchParams(location.search).get('pose') ?? 'wide');
     } else if (what.startsWith('court') && b.court) {
       // the courtyard (?sector=CITY; ?court=open for a yard, ?court=roof for an atrium): court = from its lowest
       // floor, looking up; courttop = from its top floor, looking down; courtmid = from a floor between
@@ -462,6 +472,49 @@ if (location.hash === '#view-keys' || location.hash === '#view-keys-wait')
   }, 300);
 const LOOK_FROM = 7.5; // how far from a boss #boss-<kind>-look stands (m)
 const LOOK_TURN = 0.65; // how far a boss is turned for #boss-<kind>-look (rad)
+const HOIST_VIEW_BACK = 20; // the 'wide' view of HOIST stands this far behind the middle of the room (m)...
+const HOIST_VIEW_PITCH = 0.42; // ... looking up at this angle (rad)...
+const HOIST_VIEW_SIDE = -3; // ... with the trolley this far off to one side (m)
+const HOIST_VIEW_NEAR = 9; // the 'drop' and 'pull' views stand this far from the magnet (m)
+const HOIST_VIEW_WARN = 0.5; // 'drop' is taken this long before the load falls (s)
+const HOIST_VIEW_PULL_PITCH = 0.3; // 'pull' looks up at the magnet at this angle (rad)
+const HOIST_VIEW_PULL = 18; // 'pull' is taken this many frames into the pull
+// HOIST's views (for screenshots), once it is in the room: wide (the whole crane from the back of the room), drop (a
+// load hanging with its shadow half filled), pull (the magnet pulling). The boss stands still from there.
+// #boss-hoist-<view>: in the boss arena; #bld-hoist (?sector=MALL, ?pose=<view>): in a building's boss room
+function hoistView(b: Enemy, view: string) {
+  if (!b.boss) return;
+  const h = b as Boss & { st: string; cargo: unknown };
+  player.hp = 1e6;
+  player.maxHp = 1e6;
+  for (let n = 0; n < 150; n++) update(1 / 60);
+  player.yaw = 0;
+  player.x = b.cx;
+  player.z = b.cz + HOIST_VIEW_BACK;
+  player.pitch = HOIST_VIEW_PITCH;
+  if (view === 'drop' || view === 'pull') {
+    h.x = b.cx;
+    h.z = b.cz;
+    player.z = b.cz + HOIST_VIEW_NEAR;
+    player.pitch = view === 'pull' ? HOIST_VIEW_PULL_PITCH : 0;
+  }
+  if (view === 'wide') {
+    h.x = b.cx + HOIST_VIEW_SIDE;
+    h.z = b.cz - HOIST_VIEW_SIDE;
+  } else if (view === 'drop') {
+    h.st = 'approach';
+    h.timer = 0;
+    while (!h.cargo || b.timer > HOIST_VIEW_WARN) update(1 / 60);
+  } else {
+    h.st = 'wind';
+    b.timer = 0.01;
+    for (let n = 0; n < HOIST_VIEW_PULL; n++) update(1 / 60);
+  }
+  for (let n = 0; n < 2; n++) update(1 / 60);
+  b.behave = () => {};
+  const name = document.querySelector<HTMLElement>('#banner');
+  if (name) name.style.visibility = 'hidden';
+}
 // dev view: #boss-phantom etc. starts boss practice against that boss
 // optional depth: #boss-phantom-3 = DEPTH 3 strength; #boss-phantom-look = up close
 if (location.hash.startsWith('#boss-'))
@@ -492,6 +545,17 @@ if (location.hash.startsWith('#boss-'))
         // (its name, up big across the middle of the screen, would cover it)
         const name = document.querySelector<HTMLElement>('#banner');
         if (name) name.style.visibility = 'hidden';
+      }, 200);
+      return;
+    }
+    // #boss-hoist-wide / -drop / -pull: see hoistView
+    if (k === 'hoist' && (d === 'wide' || d === 'drop' || d === 'pull')) {
+      startPractice(k, 0);
+      const wait = setInterval(() => {
+        const b = enemies.find(e => e.boss);
+        if (!b) return;
+        clearInterval(wait);
+        hoistView(b, d);
       }, 200);
       return;
     }
