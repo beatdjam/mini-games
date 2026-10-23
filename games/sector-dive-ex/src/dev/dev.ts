@@ -475,6 +475,12 @@ const LOOK_TURN = 0.65; // how far a boss is turned for #boss-<kind>-look (rad)
 const HOIST_VIEW_BACK = 20; // the 'wide' view of HOIST stands this far behind the middle of the room (m)...
 const HOIST_VIEW_PITCH = 0.42; // ... looking up at this angle (rad)...
 const HOIST_VIEW_SIDE = -3; // ... with the trolley this far off to one side (m)
+const HOIST_CLOSE_X = 9; // the 'close' view stands this far to one side of the middle (m)...
+const HOIST_CLOSE_Z = 7; // ... this far in front of the girder (m)...
+const HOIST_CLOSE_PITCH = 0.55; // ... looking up at this angle (rad)
+const HOIST_ALARM_X = 17; // the 'alarm' view stands this far to one side, under a beacon (m)...
+const HOIST_ALARM_Z = 4; // ... this far in front of the girder (m)...
+const HOIST_ALARM_PITCH = 1.05; // ... looking up at it (rad)
 const HOIST_VIEW_NEAR = 9; // the 'drop' and 'pull' views stand this far from the magnet (m)
 const HOIST_VIEW_WARN = 0.5; // 'drop' is taken this long before the load falls (s)
 const HOIST_VIEW_PULL_PITCH = 0.3; // 'pull' looks up at the magnet at this angle (rad)
@@ -492,19 +498,31 @@ function hoistView(b: Enemy, view: string) {
   player.x = b.cx;
   player.z = b.cz + HOIST_VIEW_BACK;
   player.pitch = HOIST_VIEW_PITCH;
-  if (view === 'drop' || view === 'pull') {
+  if (view === 'drop' || view === 'alarm' || view === 'pull') {
     h.x = b.cx;
     h.z = b.cz;
     player.z = b.cz + HOIST_VIEW_NEAR;
     player.pitch = view === 'pull' ? HOIST_VIEW_PULL_PITCH : 0;
   }
-  if (view === 'wide') {
+  if (view === 'wide' || view === 'close') {
     h.x = b.cx + HOIST_VIEW_SIDE;
     h.z = b.cz - HOIST_VIEW_SIDE;
-  } else if (view === 'drop') {
+    // close: under the girder's one end, looking up at its plates, cab and cable (for the dressing)
+    if (view === 'close') {
+      player.x = b.cx - HOIST_CLOSE_X;
+      player.z = h.z + HOIST_CLOSE_Z;
+      player.pitch = HOIST_CLOSE_PITCH;
+    }
+  } else if (view === 'drop' || view === 'alarm') {
     h.st = 'approach';
     h.timer = 0;
     while (!h.cargo || b.timer > HOIST_VIEW_WARN) update(1 / 60);
+    // alarm: the same moment, seen from under the girder's end, where a beacon blinks red
+    if (view === 'alarm') {
+      player.x = b.cx - HOIST_ALARM_X;
+      player.z = b.cz + HOIST_ALARM_Z;
+      player.pitch = HOIST_ALARM_PITCH;
+    }
   } else {
     h.st = 'wind';
     b.timer = 0.01;

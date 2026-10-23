@@ -53,6 +53,7 @@ const LAND_DY = 1.5; // the load crushes a player whose feet are this close to t
 const CRAWLER_OUT = 1.6; // the crawlers come out this far from where the load broke (m)
 const PULL_STOP = 0.5; // the pull stops this near the magnet (m)
 const PULL_SHAKE = 0.1; // the screen shakes this much while it pulls
+const REEL_SPEED = 1.5; // the drum's turn while it winds or pays out (rad/s; it is for the eye: the magnet hangs at one height)
 const HUM_EVERY = 0.9; // seconds between the magnet's hums while it pulls
 const GLOW_FADE = 2; // the magnet's glow dies down at this rate per second
 const MAGNET_GLOW = 0.8; // the body's glow at full pull, on top of its glow at rest
@@ -114,7 +115,7 @@ const additive = (color: number, opacity: number): THREE.MeshBasicMaterial =>
   });
 // the magnet's body, with the looks or without
 function magnetBody(mat: THREE.MeshLambertMaterial, coil: THREE.Material): THREE.Group {
-  if (!plainLooks()) return hoistMagnet(mat, coil);
+  if (!plainLooks()) return hoistMagnet(mat, coil, level.biome.code === 'MALL' ? 'mall' : 'forge');
   const g = new THREE.Group(),
     geo = new THREE.BoxGeometry(3, 1.6, 3);
   g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.shield));
@@ -340,6 +341,10 @@ function updHoist(e: HoistBoss, dt: number) {
   e.aloft = e.st !== 'chase' && e.st !== 'approach'; // a phase change waits for the attack to end
   e.mesh.position.set(e.x, floorY(e.cx, e.cz) + e.y, e.z);
   e.frame.wire.visible = true;
+  // the beacons warn from the load going up until it lands, and while the magnet pulls; the drum winds while it pulls
+  // and pays out as the load falls
+  const warning = e.st === 'wind' || e.st === 'pull' || e.st === 'hang';
+  e.frame.tick(dt, e.t, warning, e.st === 'fall' ? -REEL_SPEED : warning ? REEL_SPEED : 0);
   e.frame.pose(e.x - e.cx, e.z - e.cz, e.mesh.position.y + HOIST_HOOK_TOP);
 }
 // the magnet falls to the floor and the trolley stops where it is (the rest of the crane stays as it was)
@@ -349,6 +354,7 @@ function hoistDown(e: HoistBoss) {
     mat = bossMaterial(0x14181c, COLOR.shield),
     g = magnetBody(mat, new THREE.MeshBasicMaterial({ color: COIL_DIM }));
   e.frame.wire.visible = false;
+  e.frame.stop();
   g.position.copy(at);
   dynGroup.add(g);
   let vy = 0;
