@@ -1,6 +1,7 @@
 import type * as THREE from 'three';
 import type { BlockStyle, StreetThing } from './outside.ts';
 import type { Rng } from '@engine/core/util.ts';
+import { SIDE_STEP } from '@engine/world/tiles.ts';
 import { alongOpen, facesToward, floorSides, wallSide } from '@engine/world/walls.ts';
 import type { WallMap } from '@engine/world/walls.ts';
 import { CSS_COLOR } from '../../data/colors.ts';
@@ -48,6 +49,10 @@ export interface Look {
   // Walls by room: a room gets one kind of picture (a shop of one kind), so its walls agree. Without it the walls are
   // scattered over the whole tile world the way they always were
   roomWalls?: RoomWalls;
+  // The pictures of the walls round a lift (the tile with the lift's platform, a dead end): the first is the face of a
+  // wall, the second (if any) goes on the one side wall that is the control panel's. Without it these walls are
+  // painted like any other
+  liftWalls?: number[];
   // The floors of the rooms, by the kind of room (the same kinds as roomWalls): the pictures of a room's floor, picked
   // like the default floors (the first of a kind's set is the plain one, and comes up most). Without it every floor
   // tile is scattered over all the floors
@@ -109,18 +114,39 @@ export interface OutsideView {
 // shop front (FRONT_SHARE of those tiles, the rest the ground)
 export interface RoomWalls {
   plain: number;
-  common: number;
+  common: number[];
   shops: number[][];
   ground: number[];
   fronts: number[][];
 }
-export const ROOM_OWN_SHARE = 0.6;
+export const ROOM_OWN_SHARE = 0.85;
 export const FRONT_SHARE = 0.85;
 // the floors by kind of room (Look.roomFloors): `plain` floors are the default ones (0 .. plain - 1); `shops`: for each
 // kind, its set (two at least: the first is the plain one)
 export interface RoomFloors {
   plain: number;
   shops: number[][];
+}
+// The lifts and stairwells of a floor, by the floor's grid (world/building.ts): `lifts` the tiles of lift platforms,
+// `strips` every tile of every stairwell and lift on it (what the floor is marked on)
+export interface FloorLinks {
+  lifts: Set<number>;
+  strips: Set<number>;
+}
+export const wallLinks = new WeakMap<ArrayLike<number>, FloorLinks>();
+// the picture of a wall tile that a lift's platform stands beside (Look.liftWalls), or null
+function liftWallPic(d: WallMap, k: number, liftWalls: number[]): number | null {
+  const lifts = wallLinks.get(d.maps.grid)?.lifts;
+  if (!lifts?.size) return null;
+  for (const [di, dj] of SIDE_STEP) {
+    const t = k + dj! * d.W + di!;
+    if (d.maps.grid[t] !== 1 || !lifts.has(t)) continue;
+    // the way in is the side of the lift's tile that has floor; the control panel is on the side wall with the lower number
+    const open = SIDE_STEP.flatMap(([ei, ej], s) => (d.maps.grid[t + ej! * d.W + ei!] === 1 ? [s] : [])),
+      side = SIDE_STEP.findIndex(([ei, ej]) => t + ej! * d.W + ei! === k);
+    return open.length === 1 && liftWalls.length > 1 && side === (open[0]! < 2 ? 2 : 0) ? liftWalls[1]! : liftWalls[0]!;
+  }
+  return null;
 }
 // the kind of each room of a floor, by the floor's grid (Look.roomKinds, set when the floor is drawn)
 export const wallKinds = new WeakMap<ArrayLike<number>, number[]>();
@@ -179,8 +205,11 @@ export function wallPic(
   laneWalls?: number[],
   sides?: WallSides,
   rooms?: RoomWalls,
+  liftWalls?: number[],
 ): number {
-  const v0 = variantOf(k, rooms ? rooms.common : count, WALL_PLAIN_SHARE),
+  const v0 = rooms
+      ? rooms.common[variantOf(k, rooms.common.length, WALL_PLAIN_SHARE)]!
+      : variantOf(k, count, WALL_PLAIN_SHARE),
     room = rooms ? roomBeside(d, k) : -1,
     kind = roomKindOf(d.maps.grid, room),
     lane = byLane(d, k);
@@ -190,8 +219,9 @@ export function wallPic(
     const own = lane ? rooms.fronts[kind]! : rooms.shops[kind]!,
       share = lane ? FRONT_SHARE : ROOM_OWN_SHARE;
     v = unit(k, 2654435769) < share ? own[Math.floor(unit(k + 977, 3266489917) * own.length)]! : rooms.ground[kind]!;
-  } else if (rooms && room >= 0 && !lane) v = variantOf(k, rooms.common, WALL_PLAIN_SHARE);
+  } else if (rooms && room >= 0 && !lane) v = v0;
   else v = v0 === 0 && laneWalls && lane ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v0;
+  if (liftWalls) v = liftWallPic(d, k, liftWalls) ?? v;
   const beyond = wallBeyond.get(d.maps.grid);
   if (sides?.yard !== undefined) {
     // (only an outside wall: one that a floor sees from another side too is left as it is. A window only where every

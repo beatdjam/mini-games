@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { T } from '@engine/world/tiles.ts';
 import type { FloorPlan } from '../../building.ts';
+import { wallLinks } from '../common.ts';
 import { pose } from '../props.ts';
 import type { PropTools } from '../props.ts';
 // The mall's tactile paving: one yellow line laid on the concourse (the corridor floor that belongs to no room), joined
@@ -20,7 +21,8 @@ interface Seg {
 // the line's segments, from tile centres and seams (null when the floor has no concourse)
 function lineOf(plan: FloorPlan): Seg[] {
   const { W, H, maps: M } = plan.gen,
-    court = new Set<number>();
+    court = new Set<number>(),
+    strips = wallLinks.get(M.grid)?.strips; // (the tiles marked on the floor for a lift or a stairwell: the line stops short of them)
   // (an atrium's gallery and middle are not the concourse: no line there)
   if (plan.court)
     for (const k of plan.court.tiles)
@@ -37,7 +39,8 @@ function lineOf(plan: FloorPlan): Seg[] {
       !M.door?.[k] &&
       !plan.noFloor[k] &&
       !plan.voids[k] &&
-      !court.has(k)
+      !court.has(k) &&
+      !strips?.has(k)
     );
   };
   // the run of lane tiles through (i, j) along x (dx 1) or z (dz 1): its first tile and its last

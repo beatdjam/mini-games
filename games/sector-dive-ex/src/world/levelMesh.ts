@@ -123,7 +123,15 @@ export function buildFloorMeshes(
     look.walls.forEach((map, v) => {
       const mine = walls.filter(
           ([i, j]) =>
-            wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls, look.wallSides, look.roomWalls) === v,
+            wallPic(
+              plan.gen,
+              j * W + i,
+              look.walls.length,
+              look.laneWalls,
+              look.wallSides,
+              look.roomWalls,
+              look.liftWalls,
+            ) === v,
         ),
         dusk = look.shadedWalls?.[v];
       // (a picture with a shaded one: as it is where it faces west, the shaded one elsewhere)
@@ -141,7 +149,9 @@ export function buildFloorMeshes(
       for (const [i, j] of walls) {
         const k = j * W + i,
           rects =
-            outside.panes[wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides, look.roomWalls)];
+            outside.panes[
+              wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides, look.roomWalls, look.liftWalls)
+            ];
         if (!rects) continue;
         for (const [di, dj] of floorSides(plan.gen, k)) {
           const into = plan.court?.open && plan.court.tiles.includes((j - dj) * W + i - di) ? yardInto(di, dj) : 0;

@@ -8,6 +8,7 @@ import {
   MALL_PUSH,
   MALL_SALE,
   MALL_STAFF_ONLY,
+  MALL_VACANT,
   MALL_TOILET,
 } from '../../../i18n/signs.ts';
 import type { Pictures, RoomFloors, RoomWalls, WallSides } from '../common.ts';
@@ -58,40 +59,43 @@ const FRAME = '#4a3b2d'; // bronze frames, gone dull
 const EXIT_GREEN = '#1c8a58';
 
 // a shop's rolling shutter, pulled down: ribbed steel in two guide rails, a bar with a lock at its foot, the sign above
+function shutterBody(g: CanvasRenderingContext2D, rand: () => number) {
+  const x = 14,
+    w = TEX - 28,
+    y = rowOf(3.7),
+    foot = rowOf(0.12);
+  g.fillStyle = '#3b2c20'; // the rails: a dark wood surround
+
+  g.fillRect(x - 4, y - 4, w + 8, foot - y + 4);
+  const steel = g.createLinearGradient(x, 0, x + w, 0);
+  steel.addColorStop(0, '#68645e');
+  steel.addColorStop(0.5, '#7b766f');
+  steel.addColorStop(1, '#5f5b55');
+  g.fillStyle = steel;
+  g.fillRect(x, y, w, foot - y);
+  for (let sy = y; sy < foot - 8; sy += SHUTTER_SLAT) {
+    g.fillStyle = 'rgba(0,0,0,.3)';
+    g.fillRect(x, sy + SHUTTER_SLAT - 1.2, w, 1.2);
+    g.fillStyle = 'rgba(255,250,236,.08)';
+    g.fillRect(x, sy, w, 1);
+  }
+  g.fillStyle = '#3d4044'; // the bar at the foot, and its lock
+  g.fillRect(x, foot - 9, w, 9);
+  g.fillStyle = '#7d7a6e';
+  g.fillRect(x + w * 0.5 - 4, foot - 7, 8, 5);
+  grime(g, rand, 40, '#8a8f93', '#25272a');
+  for (let k = 0; k < 4; k++) {
+    // dust gathered along the slats, and a dent
+    g.fillStyle = 'rgba(190,184,164,.1)';
+    g.fillRect(x + rand() * w * 0.8, y + rand() * (foot - y - 20), 20 + rand() * 50, 3);
+  }
+  moon(g, TEX * 0.35, y + 40, 90, 0.06);
+}
 const shutter =
   (kind: number): Paint =>
   (g, rand) => {
-    const x = 14,
-      w = TEX - 28,
-      y = rowOf(3.7),
-      foot = rowOf(0.12);
     frieze(g, kind);
-    g.fillStyle = '#3b2c20'; // the rails: a dark wood surround
-
-    g.fillRect(x - 4, y - 4, w + 8, foot - y + 4);
-    const steel = g.createLinearGradient(x, 0, x + w, 0);
-    steel.addColorStop(0, '#68645e');
-    steel.addColorStop(0.5, '#7b766f');
-    steel.addColorStop(1, '#5f5b55');
-    g.fillStyle = steel;
-    g.fillRect(x, y, w, foot - y);
-    for (let sy = y; sy < foot - 8; sy += SHUTTER_SLAT) {
-      g.fillStyle = 'rgba(0,0,0,.3)';
-      g.fillRect(x, sy + SHUTTER_SLAT - 1.2, w, 1.2);
-      g.fillStyle = 'rgba(255,250,236,.08)';
-      g.fillRect(x, sy, w, 1);
-    }
-    g.fillStyle = '#3d4044'; // the bar at the foot, and its lock
-    g.fillRect(x, foot - 9, w, 9);
-    g.fillStyle = '#7d7a6e';
-    g.fillRect(x + w * 0.5 - 4, foot - 7, 8, 5);
-    grime(g, rand, 40, '#8a8f93', '#25272a');
-    for (let k = 0; k < 4; k++) {
-      // dust gathered along the slats, and a dent
-      g.fillStyle = 'rgba(190,184,164,.1)';
-      g.fillRect(x + rand() * w * 0.8, y + rand() * (foot - y - 20), 20 + rand() * 50, 3);
-    }
-    moon(g, TEX * 0.35, y + 40, 90, 0.06);
+    shutterBody(g, rand);
   };
 // the glass of a shop window in its frame: `shade` darkest to lightest down it, with the reflections of the roof
 function showWindow(g: CanvasRenderingContext2D, shades: [string, string]) {
@@ -587,6 +591,116 @@ const emergencyExit: Paint = g => {
   g.fillStyle = EXIT_GREEN;
   words(g, MALL_EXIT, sx + 62, sy + sh / 2 + 0.5, 20, WALL_ASPECT, SIGN_FONT, 60);
 };
+// ---- the empty tenancies: what the walls that no shop owns are mostly made of ----
+// the place where a shop's sign hung: a brighter patch of wall with the bolt holes, a cable hanging from it
+function signScar(g: CanvasRenderingContext2D, rand: () => number, cable: boolean) {
+  const x = 22,
+    w = TEX - 44,
+    y = rowOf(4.9),
+    h = rowOf(4.1) - y;
+  g.fillStyle = 'rgba(236,228,206,.16)';
+  g.fillRect(x, y, w, h);
+  g.fillStyle = 'rgba(40,32,22,.5)';
+  for (const bx of [x + 6, x + w * 0.5, x + w - 6]) for (const by of [y + 5, y + h - 5]) oval(g, bx, by, 1.8, 1.8);
+  if (cable) {
+    g.strokeStyle = 'rgba(20,18,16,.75)';
+    g.lineWidth = 1.4;
+    g.beginPath();
+    g.moveTo(x + w * 0.7, y + h - 4);
+    g.bezierCurveTo(x + w * 0.7 + 6, y + h + 12, x + w * 0.7 - 10, y + h + 20, x + w * 0.7 + rand() * 8, y + h + 30);
+    g.stroke();
+  }
+}
+// the paper taped up on an empty shop: a red head with the words, lines for the rest, a telephone number
+function vacantPaper(g: CanvasRenderingContext2D, rand: () => number, cx: number, cy: number) {
+  const w = 60,
+    h = 78;
+  g.fillStyle = 'rgba(0,0,0,.25)';
+  g.fillRect(cx - w / 2 + 2, cy - h / 2 + 2, w, h);
+  g.fillStyle = '#c2bca8';
+  g.fillRect(cx - w / 2, cy - h / 2, w, h);
+  g.fillStyle = SIGN_RED;
+  g.fillRect(cx - w / 2, cy - h / 2, w, 20);
+  g.fillStyle = '#e1d9c0';
+  words(g, MALL_VACANT, cx, cy - h / 2 + 11, 11, WALL_ASPECT, SIGN_FONT, w - 6);
+  g.fillStyle = 'rgba(40,40,46,.5)';
+  for (let ly = cy - h / 2 + 28; ly < cy + h / 2 - 20; ly += 4)
+    g.fillRect(cx - w / 2 + 5, ly, (w - 10) * (0.5 + rand() * 0.5), 1);
+  g.fillStyle = 'rgba(30,30,36,.7)';
+  g.fillRect(cx - w / 2 + 8, cy + h / 2 - 12, w - 16, 5);
+  g.fillStyle = 'rgba(214,204,160,.55)';
+  g.fillRect(cx - 5, cy - h / 2 - 2, 10, 4);
+  g.fillRect(cx - w / 2 - 3, cy + 6, 6, 9);
+}
+// an empty tenancy behind a shutter, the paper high on the left
+const vacantShutter: Paint = (g, rand) => {
+  signScar(g, rand, false);
+  shutterBody(g, rand);
+  vacantPaper(g, rand, 72, rowOf(2.5));
+};
+// an empty tenancy behind dark glass, the paper on the right, the glass bare behind it
+const vacantGlass: Paint = (g, rand) => {
+  signScar(g, rand, true);
+  const { x, y, w, h } = showWindow(g, ['#222628', '#121415']);
+  glassShine(g, x, y, w, h);
+  vacantPaper(g, rand, x + w * 0.72, y + h * 0.5);
+};
+// an empty tenancy behind a shutter, the paper low in the middle, the scar of the sign with its cable
+const vacantShutterLow: Paint = (g, rand) => {
+  signScar(g, rand, true);
+  shutterBody(g, rand);
+  vacantPaper(g, rand, TEX / 2, rowOf(1.5));
+};
+// ---- the inside of a lift's car: brushed steel panels, a handrail; one wall has the panel of buttons ----
+const liftFace: Paint = (g, rand) => {
+  const foot = rowOf(0.15),
+    steel = g.createLinearGradient(0, 0, TEX, 0);
+  steel.addColorStop(0, '#8a8780');
+  steel.addColorStop(0.5, '#9d9a92');
+  steel.addColorStop(1, '#86837c');
+  g.fillStyle = steel;
+  g.fillRect(0, 0, TEX, foot);
+  for (let x = 0; x < TEX; x += TEX / 4) {
+    g.fillStyle = 'rgba(20,18,14,.4)';
+    g.fillRect(x - 0.7, 0, 1.4, foot);
+    g.fillStyle = 'rgba(255,250,236,.14)';
+    g.fillRect(x + 0.7, 0, 1, foot);
+  }
+  for (let k = 0; k < 160; k++) {
+    g.fillStyle = rand() < 0.5 ? 'rgba(255,250,236,.07)' : 'rgba(20,18,14,.07)';
+    g.fillRect(rand() * TEX, 0, 0.8, foot * (0.3 + rand() * 0.7));
+  }
+  // the handrail along the wall, on two posts at each panel joint
+  g.fillStyle = '#b7aa86';
+  g.fillRect(0, rowOf(1.0), TEX, 4);
+  g.fillStyle = 'rgba(0,0,0,.3)';
+  g.fillRect(0, rowOf(1.0) + 4, TEX, 2);
+  g.fillStyle = '#6f6b5d';
+  for (let x = TEX / 8; x < TEX; x += TEX / 4) g.fillRect(x - 2, rowOf(1.0), 4, 9);
+  // the dark skirting and the light of the ceiling's edge
+  g.fillStyle = '#3a342c';
+  g.fillRect(0, foot - 8, TEX, 8);
+  grime(g, rand, 40, '#aaa294', '#3a342c');
+};
+const liftButtons: Paint = (g, rand) => {
+  liftFace(g, rand);
+  const x = 150,
+    w = 46,
+    y = rowOf(2.2),
+    h = rowOf(1.1) - y;
+  box(g, x, y, w, h, '#2e2a24');
+  g.fillStyle = '#18140f';
+  g.fillRect(x + 6, y + 6, w - 12, 12);
+  g.fillStyle = '#b46a2a'; // the display, the floor in dim orange
+  g.fillRect(x + 12, y + 9, 10, 6);
+  for (let r = 0; r < 5; r++)
+    for (let c = 0; c < 2; c++) {
+      g.fillStyle = '#b7aa86';
+      oval(g, x + 14 + c * 18, y + 28 + r * 12, 4.2, 4.2 * WALL_ASPECT);
+      g.fillStyle = '#4a4338';
+      oval(g, x + 14 + c * 18, y + 28 + r * 12, 2.4, 2.4 * WALL_ASPECT);
+    }
+};
 // The wall pictures, by number. First those that stand in any room and on any wall (nothing on the first, which is the
 // plainest and comes up most: variantOf), then those only along the concourse (the shop fronts: a shutter, a dark
 // window and a window of a closed shop for each kind of shop, and the sale poster), then the shops' own, in the order
@@ -602,17 +716,65 @@ const COMMON_PICS: (Paint | null)[] = [
   mural,
   noticeBoard,
   emergencyExit, // WALL_EXIT
+  vacantShutter,
+  vacantGlass,
+  vacantShutterLow,
+  liftFace,
+  liftButtons,
 ];
-const [, GUIDE, RESTROOM, HYDRANT, , ATM, MURAL, NOTICE] = COMMON_PICS.map((_, n) => n),
-  WALL_EXIT = 8;
+const [
+  ,
+  GUIDE,
+  RESTROOM,
+  HYDRANT,
+  PILLAR,
+  ATM,
+  MURAL,
+  NOTICE,
+  WALL_EXIT,
+  VACANT_A,
+  VACANT_B,
+  VACANT_C,
+  LIFT_FACE,
+  LIFT_BUTTONS,
+] = COMMON_PICS.map((_, n) => n);
 const kinds = Array.from({ length: SHOP_KINDS }, (_, n) => n);
 const FRONT_PICS: Paint[] = [...kinds.map(shutter), ...kinds.map(darkWindow), ...kinds.map(closedWindow), salePoster];
 const SALE = COMMON_PICS.length + FRONT_PICS.length - 1;
 export const MALL_WALL_PICS: (Paint | null)[] = [...COMMON_PICS, ...FRONT_PICS, ...SHOP_PICS.flat(), ...GROUND_PICS];
-// along a concourse, in place of the plain panels, on the walls that no shop owns (the walls of the start room, the
-// boss room and the atrium, and of a corridor with no room behind it): the sale poster and the things of a concourse.
-// A shop's front is only on the wall of its own room, where its name board hangs (Look.roomWalls)
-export const MALL_LANE_WALLS = [SALE, GUIDE, HYDRANT, SALE, ATM, MURAL, NOTICE, RESTROOM];
+// What the walls that no shop owns (the walls of the start room, the boss room and the atrium, and of a corridor with no
+// room behind it) are made of. 40% are the plain wall, the rest are shared out in twentieths, the empty tenancies
+// the most; the things that stand out (the toilets, the cash machine, the mural) come up once each, so together
+// they are about a tenth of the walls. A picture in the list more than once comes up that many twentieths. A shop's
+// front is only on the wall of its own room, where its name board hangs (Look.roomWalls)
+const COMMON_MAP = [
+  0,
+  VACANT_A,
+  VACANT_A,
+  VACANT_A,
+  VACANT_B,
+  VACANT_B,
+  VACANT_B,
+  VACANT_C,
+  VACANT_C,
+  HYDRANT,
+  HYDRANT,
+  NOTICE,
+  NOTICE,
+  PILLAR,
+  PILLAR,
+  GUIDE,
+  SALE,
+  RESTROOM,
+  ATM,
+  MURAL,
+  WALL_EXIT,
+];
+// along a concourse, in the places of the plain wall, on the walls that no shop owns: mostly the empty tenancies and
+// the plain wall, now and then the poster
+export const MALL_LANE_WALLS = [VACANT_A, 0, VACANT_B, 0, VACANT_C, 0, VACANT_A, 0, VACANT_B, SALE, 0, VACANT_C];
+// the pictures of the walls round a lift: the face of a wall and the one with the buttons
+export const MALL_LIFT_WALLS = [LIFT_FACE, LIFT_BUTTONS];
 // a room's kind of shop and the pictures of its walls (common.ts RoomWalls): the shops' own pictures, then the bare
 // walls, numbered from the end of the shop fronts on; the fronts of a kind are its shutter, its dark window and its
 // closed window
@@ -621,7 +783,7 @@ const shopWalls = SHOP_PICS.map(set => set.map(() => next++)),
   groundWalls = GROUND_PICS.map(() => next++);
 export const MALL_ROOM_WALLS: RoomWalls = {
   plain: COMMON_PICS.length + FRONT_PICS.length,
-  common: COMMON_PICS.length,
+  common: COMMON_MAP,
   shops: shopWalls,
   ground: groundWalls,
   fronts: kinds.map(n => [
@@ -1000,6 +1162,7 @@ export function mallPictures(): Pictures {
     laneWalls: MALL_LANE_WALLS,
     wallSides: MALL_WALL_SIDES,
     roomWalls: MALL_ROOM_WALLS,
+    liftWalls: MALL_LIFT_WALLS,
     roomFloors: MALL_ROOM_FLOORS,
     roomKinds: mallRoomKinds,
     floors: [
