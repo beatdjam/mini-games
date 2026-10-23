@@ -15,7 +15,7 @@ import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
 import { building, devCourtOpen } from '../world/building.ts';
 import { devPlainLooks, lookOf, wallPic } from '../world/looks.ts';
-import { foodCourtRoom } from '../world/looks/mall/rooms.ts';
+import { foodCourtRoom, mallRoomKinds } from '../world/looks/mall/rooms.ts';
 import { useSparkLooks } from '../world/models/sparkLooks.ts';
 import { setHazardClock } from '../world/hazards.ts';
 import { devPlainGuns } from '../actors/viewmodel.ts';
@@ -86,7 +86,8 @@ if (courtParam === 'open' || courtParam === 'roof')
 // (right up at that window, looking down out of it / up out of it), yardwindow (in front of a window on a yard), ramp (two tiles to the side of the first ramp up
 // to a deck, facing its side), walkway (on a raised walkway along an alley, at its start, looking along it),
 // foodcourt (?sector=MALL: on the ground by the edge of the sunk food court, looking down into it), foodcourtin (the same
-// room from its floor, looking across to the steps up)
+// room from its floor, looking across to the steps up), island (?sector=MALL: from two tiles west of the first island of cover in a
+// big room, looking at it; ?kind=<n> for the first one in a shop of that kind)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -301,6 +302,18 @@ if (location.hash.startsWith('#bld-'))
         stand(food.floor, food.row[0]!, 1);
         player.pitch = -0.25;
       } else if (food) stand(food.floor, food.row.filter(k => food.m.hgt[k] === SINK_FLOOR).pop()!, -1);
+    } else if (what === 'island') {
+      // the first island of the mall (?kind=2: the first in a room of that kind of shop, the order of MALL_SHOP_NAMES), floor by floor, from
+      // two tiles to its west, looking east at it
+      const want = new URLSearchParams(location.search).get('kind');
+      for (let floor = 0; floor < b.plans.length; floor++) {
+        const p = b.plans[floor]!,
+          kinds = mallRoomKinds(p),
+          s = p.islands.find(s => want === null || kinds[p.gen.maps.roomOf[s.j * W + s.i]!] === Number(want));
+        if (!s) continue;
+        stand(floor, s.j * W + s.i - 2, 1);
+        break;
+      }
     } else if (what === 'boss') {
       const hall = b.plans[b.plans.length - 1]!.hall!,
         grid = b.plans[b.plans.length - 1]!.gen.maps.grid,

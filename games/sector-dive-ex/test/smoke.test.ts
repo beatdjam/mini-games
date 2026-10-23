@@ -51,13 +51,14 @@ import { encodeStore } from '@engine/core/store.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
 import { SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
-import { EYE, HALL_H, PLAT_H, WALL_H } from '../src/data/level.ts';
+import { COVER_H, EYE, HALL_H, PLAT_H, WALL_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
 import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { foodCourtRoom } from '../src/world/looks/mall/rooms.ts';
+import { ISLAND_MIN_AREA } from '../src/world/looks/mall/islands.ts';
 import { groundOf } from '../src/world/meshParts.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
 import { floorSides, wallSide } from '@engine/world/walls.ts';
@@ -3065,7 +3066,80 @@ test('building: the layout a seed gives is that of BUILDING_V', () => {
       b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('') + Array.from(p.gen.maps.hgt).join()));
       mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
     }
-  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v5 555583ba');
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v6 479e8722');
+});
+test('mall: the big rooms have islands of cover, and one can still walk to every doorway of the room', () => {
+  devCourtOpen(null);
+  const mall = BIOMES.find(b => b.code === 'MALL')!;
+  let islands = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    const b = makeBuilding(mall, mall.bosses[0]!, seed);
+    b.plans.forEach((p, floor) => {
+      const { W, maps, rooms } = p.gen,
+        food = foodCourtRoom(p),
+        at = `seed ${seed} floor ${floor}`;
+      rooms.forEach((r, n) => {
+        const mine = p.islands.filter(s => s.i >= r.x && s.i < r.x + r.w && s.j >= r.y && s.j < r.y + r.h);
+        islands += mine.length;
+        if (!mine.length) return;
+        // (only a big room with nothing special in it, and 1 to 3 islands, two tiles from the walls, each of waist-high cover)
+        expect(r.w * r.h, `${at} room ${n}`).toBeGreaterThanOrEqual(ISLAND_MIN_AREA);
+        expect([r.plat, n === p.gen.startIdx, n === p.hall?.room, n === food], `${at} room ${n}`).toEqual([
+          undefined,
+          false,
+          false,
+          false,
+        ]);
+        expect(mine.length).toBeLessThanOrEqual(3);
+        for (const s of mine) {
+          expect(s.w * s.h).toBeGreaterThanOrEqual(2);
+          expect(s.w * s.h).toBeLessThanOrEqual(4);
+          expect(s.i - r.x, `${at} room ${n}`).toBeGreaterThanOrEqual(2);
+          expect(s.j - r.y, `${at} room ${n}`).toBeGreaterThanOrEqual(2);
+          expect(r.x + r.w - (s.i + s.w), `${at} room ${n}`).toBeGreaterThanOrEqual(2);
+          expect(r.y + r.h - (s.j + s.h), `${at} room ${n}`).toBeGreaterThanOrEqual(2);
+          for (let j = s.j; j < s.j + s.h; j++)
+            for (let i = s.i; i < s.i + s.w; i++) {
+              expect([maps.cover[j * W + i], maps.hgt[j * W + i]], `${at} room ${n}`).toEqual([
+                1,
+                Math.fround(COVER_H),
+              ]);
+              expect(p.gen.hazard[j * W + i]).toBe(0);
+            }
+        }
+        // the doorways of the room (the room's floor tiles with a floor tile outside the room next to them) are all joined
+        // by walking over the room's tiles that are not cover
+        const inside = (k: number) =>
+            k % W >= r.x && k % W < r.x + r.w && ((k / W) | 0) >= r.y && ((k / W) | 0) < r.y + r.h,
+          free = (k: number) => inside(k) && maps.grid[k] === 1 && !maps.cover[k],
+          doorways: number[] = [];
+        for (let j = r.y; j < r.y + r.h; j++)
+          for (let i = r.x; i < r.x + r.w; i++) {
+            const k = j * W + i;
+            if (free(k) && [1, -1, W, -W].some(o => !inside(k + o) && maps.grid[k + o] === 1)) doorways.push(k);
+          }
+        expect(doorways.length, `${at} room ${n}`).toBeGreaterThan(0);
+        const seen = new Set<number>(doorways.slice(0, 1)),
+          queue = doorways.slice(0, 1);
+        for (let q = 0; q < queue.length; q++)
+          for (const o of [1, -1, W, -W]) {
+            const k = queue[q]! + o;
+            if (free(k) && !seen.has(k)) {
+              seen.add(k);
+              queue.push(k);
+            }
+          }
+        expect(
+          doorways.every(k => seen.has(k)),
+          `${at} room ${n}: the doorways are not all joined`,
+        ).toBe(true);
+      });
+    });
+  }
+  expect(islands).toBeGreaterThan(30);
+  // (the other sectors have none)
+  for (const biome of BIOMES.filter(x => x.code !== 'MALL'))
+    expect(makeBuilding(biome, biome.bosses[0]!, 1).plans.every(p => !p.islands.length)).toBe(true);
 });
 test('resume: a run saved on a building laid out another way goes on at the same step of the route', () => {
   goBase();
