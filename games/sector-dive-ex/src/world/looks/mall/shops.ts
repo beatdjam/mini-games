@@ -20,14 +20,14 @@ export const SHOP_CLOTHES = 0,
   SHOP_ELECTRONICS = 4,
   SHOP_DRUGSTORE = 5,
   SHOP_FOOD = 6;
-const GARMENTS = ['#7a4a52', '#4d6672', '#8a7a52', '#5a6e52', '#6a5a7a', '#8a5a3a', '#55555c', '#a09078'];
-const SPINES = ['#7a3a32', '#4a5a42', '#6a5230', '#3f4a62', '#8a7448', '#5a3a4a', '#3a5a58', '#8a6a52'];
+export const GARMENTS = ['#7a4a52', '#4d6672', '#8a7a52', '#5a6e52', '#6a5a7a', '#8a5a3a', '#55555c', '#a09078'];
+export const SPINES = ['#7a3a32', '#4a5a42', '#6a5230', '#3f4a62', '#8a7448', '#5a3a4a', '#3a5a58', '#8a6a52'];
 const SPINES_COOL = ['#3f5670', '#4e6a6a', '#5e5a72', '#7a8a8a', '#445260', '#6a7a60', '#8a8272', '#35404e'];
 const GOODS = ['#a8503c', '#4a7a8a', '#c0a040', '#5a8a5a', '#8a5a8a', '#c0c0b0', '#6a6a9a'];
 const COUNTER = '#5b3f28';
 const COUNTER_TOP = '#8d6a46';
 const CHALK = '#c9c8b8';
-const STEEL = '#8d9293';
+export const STEEL = '#8d9293';
 
 // a shop's picture: the wall of its kind, the frieze in its colour (no name: that is on the shop front), then what `body` paints
 const shop =
@@ -74,7 +74,7 @@ function bookcase(g: G, rand: () => number, palette: string[], x: number, w: num
   }
 }
 // a flat television (or a screen): a dark glass in a frame with a slanting glare
-function screen(g: G, x: number, y: number, w: number, h: number) {
+export function screen(g: G, x: number, y: number, w: number, h: number) {
   box(g, x, y, w, h, '#1b1c1e');
   g.fillStyle = '#0d1113';
   g.fillRect(x + 2, y + 2, w - 4, h - 4);
