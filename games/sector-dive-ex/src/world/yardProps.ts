@@ -1,6 +1,6 @@
 import { PAINT, css } from '../data/colors.ts';
 import * as THREE from 'three';
-import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../i18n/signs.ts';
+import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES, MALL_BANNERS } from '../i18n/signs.ts';
 import { canvasTex } from './looks/paint.ts';
 import { T } from '@engine/world/tiles.ts';
 import { batcher } from '@engine/render/batch.ts';
@@ -31,6 +31,7 @@ export interface Well {
   ground: number;
   sky: number;
   decks: number[]; // the heights of the bridges across it
+  deckAt?: number[]; // ... and how far along a long well's length each is from its middle (m; none: the middle)
 }
 
 // (nothing in a well fades into the sector's fog: across it the far side would be black. `lit` only says the thing
@@ -135,7 +136,28 @@ const RISER_IN = 0.3; // what runs up a corner of an atrium's gallery stands thi
 const FOUNTAIN_R = 2.3; // the drained fountain in the middle of a mall's atrium: the radius of its rim (m)
 const FOUNTAIN_RIM_H = 0.5; // ... and how high the rim stands (m)
 const BANNER_LEN = [2.5, 4.5] as const; // how far a banner hangs down from the roof (m; short of the deck of a bridge across the well)
-const BANNER_CLOTH = [0x7d9692, 0x9c7f72, 0x8a906f, 0x7d809f, 0xa09068]; // an atrium's banners: cloth gone pale
+const BANNER_W = 140,
+  BANNER_H = 320; // a banner's picture (px)
+const BANNER_WIDTH = 1.4; // how wide a banner hangs (m)
+// an atrium's banners: cloth gone pale (ground, lettering, the mark above the words)
+const BANNER_TONES = [
+  ['#b0594c', '#efe3c8', '#d9ac4a'],
+  ['#d3b45a', '#2e3b5e', '#a4493d'],
+  ['#c58049', '#f2e8d2', '#2f3c5d'],
+  ['#41507a', '#e8dcc2', '#d6a443'],
+  ['#d6cbad', '#a4493d', '#41507a'],
+];
+const GALLERIA_BANNER_GAP = 4.5; // a long atrium has a banner about every this far along it (m)
+const BANNER_BRIDGE_BAND = 6; // a banner this near (along the well, m) to a bridge across it does not hang down to it
+const DECK_HEAD = 2.4; // ... but ends this far over its deck (m)
+const PLANTER = { w: 1.3, h: 0.5, len: 2.4 }; // a planter on the ground of a long atrium: its width, height and length (m)
+// where the planters stand along a long atrium and to which side (fractions of its length from the middle, and metres from its middle line)
+const PLANTER_SPOTS: [number, number][] = [
+  [-0.34, 3.2],
+  [0.3, -3.2],
+  [0.12, 3.2],
+];
+const PLANT_WOOD = [0x4f432e, 0x5d4f36, 0x40382a]; // a dead plant's stalks
 const DECK_CLEAR = 4.5; // nothing is strung across a yard this far over a bridge's deck (m)
 const WINDOW_DROP = 1.2; // a window's middle is about this far under the middle of its storey's wall tile (m)
 
@@ -509,6 +531,142 @@ export function dressYard(
   b.done();
 }
 
+// A banner of an atrium: pale cloth with a mark over its words (written downward), a pole at the top and the bottom, and
+// the sun's fading and the dirt of years on it
+function bannerTex(n: number): THREE.CanvasTexture {
+  const words = MALL_BANNERS[n % MALL_BANNERS.length]!,
+    [ground, ink, accent] = BANNER_TONES[n % BANNER_TONES.length]!,
+    cols = words.length,
+    top = 96,
+    room = BANNER_H - top - 24,
+    fs = Math.min(cols > 1 ? 36 : 46, room / Math.max(...words.map(w => w.length)));
+  return canvasTex(BANNER_W, BANNER_H, g => {
+    g.fillStyle = ground!;
+    g.fillRect(0, 0, BANNER_W, BANNER_H);
+    g.fillStyle = 'rgba(0,0,0,0.16)';
+    g.fillRect(0, 0, 5, BANNER_H);
+    g.fillRect(BANNER_W - 5, 0, 5, BANNER_H);
+    // the mark: a disc, a star, a diamond or a burst
+    const cx = BANNER_W / 2,
+      cy = 52,
+      shape = n % 4;
+    g.fillStyle = accent!;
+    g.strokeStyle = ink!;
+    g.lineWidth = 3;
+    g.beginPath();
+    if (shape === 0) g.arc(cx, cy, 24, 0, Math.PI * 2);
+    else if (shape === 1)
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2 - Math.PI / 2,
+          r = k % 2 ? 11 : 27;
+        g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      }
+    else if (shape === 2) g.rect(cx - 19, cy - 19, 38, 38);
+    else
+      for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * Math.PI * 2,
+          r = k % 2 ? 17 : 27;
+        g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      }
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.font = `900 ${fs}px ${SIGN_FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = ink!;
+    words.forEach((word, c) => {
+      const x = cols > 1 ? BANNER_W * (c ? 0.3 : 0.7) : cx;
+      [...word].forEach((ch, r) => g.fillText(ch, x, top + fs * (r + 0.5)));
+    });
+    // the poles, the sun's fading, the grime gathered low and the streaks the rain left
+    g.fillStyle = '#3b3027';
+    g.fillRect(0, 0, BANNER_W, 9);
+    g.fillRect(0, BANNER_H - 9, BANNER_W, 9);
+    g.fillStyle = 'rgba(214,204,184,0.2)';
+    g.fillRect(0, 0, BANNER_W, BANNER_H);
+    const grime = g.createLinearGradient(0, BANNER_H * 0.5, 0, BANNER_H);
+    grime.addColorStop(0, 'rgba(50,38,26,0)');
+    grime.addColorStop(1, 'rgba(50,38,26,0.38)');
+    g.fillStyle = grime;
+    g.fillRect(0, 0, BANNER_W, BANNER_H);
+    for (let k = 0; k < 14; k++) {
+      g.fillStyle = `rgba(50,38,26,${0.07 + yardDice(n, k, 21) * 0.1})`;
+      g.fillRect(yardDice(n, k, 22) * BANNER_W, 9, 1 + yardDice(n, k, 23) * 3, 60 + yardDice(n, k, 24) * 200);
+    }
+  });
+}
+// one banner of an atrium: picture number `n` (so the ones side by side differ), `len` long, hanging from `top`
+function putBanner(b: Batch, n: number, x: number, top: number, z: number, turn: number, len: number) {
+  b.put(
+    `banner${n % MALL_BANNERS.length}`,
+    () => [
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: bannerTex(n), side: THREE.DoubleSide, fog: false }),
+    ],
+    x,
+    top - len / 2,
+    z,
+    turn,
+    0,
+    [BANNER_WIDTH, len, 1],
+  );
+}
+// A long atrium (a mall's galleria): cloth banners in a row down the length of the glass roof, alternately short and
+// long and to one side and the other, and dead plants in planters along the ground. A banner near a bridge across
+// the well ends well over its deck. Nothing here is walked into
+function dressGalleria(b: Batch, well: Well) {
+  const alongZ = well.deep > well.wide,
+    length = alongZ ? well.deep : well.wide,
+    // the point `t` m along the well from its middle and `s` m to the side of the middle line
+    at = (t: number, s: number): [number, number] => (alongZ ? [well.cx + s, well.cz + t] : [well.cx + t, well.cz + s]),
+    turn = alongZ ? 0 : Math.PI / 2,
+    count = Math.floor(length / GALLERIA_BANNER_GAP),
+    top = well.sky - 0.4;
+  for (let k = 0; k < count; k++) {
+    const t = -length / 2 + ((k + 0.5) * length) / count;
+    let len = BANNER_LEN[k % 2]! + (yardDice(k, 3, 7) - 0.5) * 0.6;
+    (well.deckAt ?? []).forEach((along, n) => {
+      if (Math.abs(t - along) < BANNER_BRIDGE_BAND) len = Math.min(len, top - (well.decks[n]! + DECK_HEAD));
+    });
+    if (len < 1.2) continue;
+    const [x, z] = at(t, k % 2 ? 1.6 : -1.6);
+    putBanner(b, k, x, top, z, turn, len);
+  }
+  // (a short well has room for two)
+  const planters = PLANTER_SPOTS.slice(0, length >= 9 * T ? 3 : 2);
+  planters.forEach(([along, side], n) => {
+    const t = along * length,
+      [x, z] = at(t, side),
+      rim = well.ground + PLANTER.h;
+    b.put(
+      'planter',
+      () => [box(PLANTER.w, PLANTER.h, PLANTER.len), flat(0x76705f)],
+      x,
+      well.ground + PLANTER.h / 2,
+      z,
+      turn,
+    );
+    b.put('soil', () => [box(PLANTER.w - 0.2, 0.05, PLANTER.len - 0.2), flat(0x2b2420)], x, rim + 0.01, z, turn);
+    // the stalks of what grew there: bare, leaning every way
+    for (let k = 0; k < 7; k++) {
+      const h = 0.7 + yardDice(n, k, 8) * 1,
+        lean = (yardDice(n, k, 9) - 0.5) * 0.9,
+        [px, pz] = at(t + (yardDice(n, k, 10) - 0.5) * (PLANTER.len - 0.6), side + (yardDice(n, k, 11) - 0.5) * 0.7);
+      b.put(
+        `stalk${k % PLANT_WOOD.length}`,
+        () => [box(0.05, 1, 0.05), flat(PLANT_WOOD[k % PLANT_WOOD.length]!)],
+        px,
+        rim + (h / 2) * Math.cos(lean),
+        pz,
+        yardDice(n, k, 12) * Math.PI * 2,
+        lean,
+        [1, h, 1],
+      );
+    }
+  });
+}
+
 // ---- what hangs in an atrium ----
 // By sector: the old downtown's pendant lamps at different heights; the smelter's crane girder, its chains and hook,
 // and hot pipes up the corners; the broadcasting house's lighting truss with its lamps, and hanging cables; the data
@@ -626,20 +784,22 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
     }
   } else if (sector === 'MALL') {
     // faded cloth banners hung from the glass roof, high over the heads (and clear of a bridge across the well), and
-    // on the ground at the middle the rim of a fountain that has been drained: low and flat, nothing to walk round
-    for (let k = 0; k < 5; k++) {
-      const len = BANNER_LEN[0] + yardDice(k, 3, 6) * (BANNER_LEN[1] - BANNER_LEN[0]);
-      b.put(
-        'banner',
-        () => [box(0.9, 1, 0.03), flat(BANNER_CLOTH[k % BANNER_CLOTH.length]!)],
-        well.cx + off((yardDice(k, 1, 6) - 0.5) * 0.7, well.wide),
-        well.sky - 0.4 - len / 2,
-        well.cz + off((yardDice(k, 2, 6) - 0.5) * 0.7, well.deep),
-        yardDice(k, 4, 6) * Math.PI,
-        0,
-        [1, len, 1],
-      );
-    }
+    // on the ground at the middle the rim of a fountain that has been drained: low and flat, nothing to walk round.
+    // In a long atrium the banners hang in a row down its length, and dead plants stand in planters along it
+    if (well.wide !== well.deep) dressGalleria(b, well);
+    else
+      for (let k = 0; k < 5; k++) {
+        const len = BANNER_LEN[0] + yardDice(k, 3, 6) * (BANNER_LEN[1] - BANNER_LEN[0]);
+        putBanner(
+          b,
+          k,
+          well.cx + off((yardDice(k, 1, 6) - 0.5) * 0.7, well.wide),
+          well.sky - 0.4,
+          well.cz + off((yardDice(k, 2, 6) - 0.5) * 0.7, well.deep),
+          yardDice(k, 4, 6) * Math.PI,
+          len,
+        );
+      }
     b.put(
       'fountainRim',
       () => [new THREE.TorusGeometry(FOUNTAIN_R, 0.2, 6, 28), flat(0x8d8878)],

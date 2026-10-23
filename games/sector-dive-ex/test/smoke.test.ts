@@ -2537,6 +2537,79 @@ test("building: an atrium's ground is a room of its floor, with enemies in it", 
   expect(enemies.filter(e => e.room === room && !e.dead).length).toBe(level.roomCount[room]);
   devCourtOpen(null);
 });
+test('building: the mall has a galleria, a long atrium with a gallery round it, ways in, bridges and a room on its ground', () => {
+  const mall = BIOMES.find(x => x.code === 'MALL')!;
+  let galleries = 0,
+    floors = 0,
+    single = 0,
+    bridges = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const b = makeBuilding(mall, mall.bosses[0]!, seed),
+      c = b.court;
+    // (where no long place fits it is the square atrium: rare in the mall)
+    if (!c || c.w === c.h) continue;
+    galleries++;
+    const at = `seed ${seed}`,
+      W = b.plans[0]!.gen.W,
+      is = c.tiles.map(k => k % W),
+      js = c.tiles.map(k => Math.floor(k / W)),
+      i0 = Math.min(...is),
+      j0 = Math.min(...js),
+      alongZ = c.h > c.w,
+      length = Math.max(c.w, c.h);
+    expect(Math.min(c.w, c.h), `${at}: 3 wide`).toBe(3);
+    expect(length, `${at}: 7 or 9 long`).toBeGreaterThanOrEqual(7);
+    expect(c.tiles.length, at).toBe(c.w * c.h);
+    expect(Math.max(...is) - i0 + 1, at).toBe(c.w);
+    expect(Math.max(...js) - j0 + 1, at).toBe(c.h);
+    expect(c.open, at).toBe(false);
+    expect(c.lower, `${at}: not on the lowest floor`).toBeLessThan(b.plans.length - 1);
+    for (let floor = c.upper; floor <= c.lower; floor++) {
+      const p = b.plans[floor]!,
+        { maps } = p.gen,
+        where = `${at} floor ${floor}`;
+      // a gallery all round the hole, and the hole is a hole but on the ground
+      for (let j = j0 - 1; j <= j0 + c.h; j++)
+        for (let i = i0 - 1; i <= i0 + c.w; i++) {
+          const k = j * W + i,
+            hole = c.tiles.includes(k);
+          if (!hole) expect(maps.grid[k], `${where} gallery ${i},${j}`).toBe(1);
+          else if (floor < c.lower && !p.court!.bridge.includes(k))
+            expect(maps.grid[k], `${where} hole ${i},${j}`).toBe(0);
+        }
+      // the ways in: floor in the wall round the gallery
+      let ways = 0;
+      for (let j = j0 - 2; j <= j0 + c.h + 1; j++)
+        for (let i = i0 - 2; i <= i0 + c.w + 1; i++)
+          if ((i < i0 - 1 || i > i0 + c.w || j < j0 - 1 || j > j0 + c.h) && maps.grid[j * W + i] === 1) ways++;
+      floors++;
+      expect(ways, `${where}: a way in`).toBeGreaterThanOrEqual(1);
+      if (ways < 2) single++;
+      const { bridge } = p.court!;
+      if (!bridge.length) continue;
+      bridges++;
+      expect(floor, `${where}: not on the ground`).toBeLessThan(c.lower);
+      // across the short way, from gallery to gallery, near the middle of the length
+      expect(bridge.length, where).toBe(3);
+      const along = bridge.map(k => (alongZ ? Math.floor(k / W) - j0 : (k % W) - i0));
+      expect(new Set(along).size, `${where}: straight across`).toBe(1);
+      expect(Math.abs(along[0]! - (length - 1) / 2), `${where}: near the middle`).toBeLessThanOrEqual(
+        Math.floor(length / 4),
+      );
+      for (const k of bridge) expect(p.voids[k], where).toBe(0);
+    }
+    // the ground (the hole and the gallery round it) is a room with enemies
+    const d = b.plans[c.lower]!.gen,
+      room = d.rooms.length - 1;
+    expect(d.rooms[room]!.w * d.rooms[room]!.h, at).toBe((c.w + 2) * (c.h + 2));
+    for (let j = j0 - 1; j <= j0 + c.h; j++)
+      for (let i = i0 - 1; i <= i0 + c.w; i++) expect(d.maps.roomOf[j * W + i], `${at} ground ${i},${j}`).toBe(room);
+    expect(roomDoors(d, room).closable, at).toBe(false);
+  }
+  expect(galleries, 'nearly every mall building has one').toBeGreaterThan(30);
+  expect(bridges, 'some floors have a bridge').toBeGreaterThan(5);
+  expect(single / floors, 'galleries with one way in only').toBeLessThan(0.1);
+});
 test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
   // a door stands across a corridor: floor before and behind it, wall on its two sides
   for (let seed = 1; seed <= 40; seed++) {
@@ -2851,7 +2924,7 @@ test('building: the layout a seed gives is that of BUILDING_V', () => {
       b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('')));
       mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
     }
-  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v3 af5809e7');
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v4 758a316e');
 });
 test('resume: a run saved on a building laid out another way goes on at the same step of the route', () => {
   goBase();

@@ -57,6 +57,16 @@ export const MALL_STALLS = [
   'たこ焼き まるまる',
   '定食 おふくろ',
 ];
+// the cloth banners hung in the mall's atrium, one picture each: its words in one or two columns, written downward
+// (the first column on the right; the long-vowel mark is 丨 there, as it is written downward)
+export const MALL_BANNERS = [
+  ['閉店セ丨ル'],
+  ['毎月10日は', 'ポイント5倍'],
+  ['夏の大感謝祭'],
+  ['全品半額'],
+  ['ご愛顧', '感謝セール'],
+  ['お買い得', '最終週'],
+];
 export const MALL_WATER = 'お水';
 // an empty tenancy's notice, and the plate over a lift's way in
 export const MALL_VACANT = 'テナント募集';

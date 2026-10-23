@@ -79,7 +79,8 @@ if (courtParam === 'open' || courtParam === 'roof')
 // foot (below the first stairwell, looking up it), mid (half way up), top (above it, looking down), lift (next to
 // the first lift on the top floor), liftlow (the same lift from the floor below), boss (in front of the boss door),
 // lockdown (in the lockdown room, which shuts), hall (inside the boss room), map3d (the 3D map of the whole building),
-// court / courttop / courtmid (the courtyard, from its ground and from its galleries), courtalong (along a yard's
+// court / courttop / courtmid (the courtyard, from its ground and from its galleries; courtbridge, courtplaza: a galleria from the floor with its first bridge, from the level
+// of its ground), courtalong (along a yard's
 // balcony), window (two tiles in front of a window one sees out of, facing it: Look.outside), windowdown / windowup
 // (right up at that window, looking down out of it / up out of it), yardwindow (in front of a window on a yard), ramp (two tiles to the side of the first ramp up
 // to a deck, facing its side), walkway (on a raised walkway along an alley, at its start, looking along it)
@@ -163,6 +164,16 @@ if (location.hash.startsWith('#bld-'))
         if (what === 'courtalong') stand(floor, row[0]!, mid - row[0]!);
         else stand(floor, mid, out);
         player.pitch = what === 'court' ? 0.3 : what === 'courttop' ? -0.3 : 0;
+      } else if (c.w !== c.h) {
+        // a galleria (a long atrium): from the gallery at one end of the hole, looking along it. court: on its ground,
+        // looking up a little; courtplaza: on its ground, at the end of the hole, level; courtbridge: on the first floor with a bridge,
+        // from the gallery by its end
+        const step = c.h > c.w ? W : 1,
+          end = c.h > c.w ? c.tiles[(c.w - 1) / 2]! - W : c.tiles[((c.h - 1) / 2) * c.w]! - 1,
+          bridged = c.bridges.findIndex(row => row.length > 0);
+        if (what === 'courtplaza') stand(c.lower, end + step, step);
+        else stand(what === 'courtbridge' ? c.upper + Math.max(bridged, 0) : floor, end, step);
+        player.pitch = what === 'court' ? 0.35 : what === 'courttop' ? -0.3 : 0;
       } else if (what === 'court') {
         stand(c.lower, c.tiles[1]!, W);
         player.pitch = 0.75;
