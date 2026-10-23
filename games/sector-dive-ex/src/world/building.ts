@@ -22,7 +22,7 @@ import { COVER_H, HALL_H, PLAT_H, WALL_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import type { Biome, BuildingState } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
-import { wallBeyond } from './looks/common.ts';
+import { wallBeyond, wallFloor } from './looks/common.ts';
 import { massOf } from './looks/outside.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 import { courtFloor, openCourt, placeCourt } from './courtyard.ts';
@@ -232,6 +232,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     const beyond = Uint8Array.from(mass);
     if (court?.open && n <= court.lower) for (const k of court.tiles) beyond[k] = 2;
     wallBeyond.set(p.gen.maps.grid, beyond);
+    wallFloor.set(p.gen.maps.grid, n);
   });
   // the start room: no hazard floor in it or its doorways (as in a Sector Dive area)
   const top = plans[0]!;

@@ -10,7 +10,7 @@ import { biomeTex } from './render.ts';
 import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
-import { FLOOR_PLAIN_SHARE, facesWest, lookOf, variantOf, wallPic } from './looks.ts';
+import { facesWest, floorPic, lookOf, wallKinds, wallPic } from './looks.ts';
 import type { FloorPlan } from './building.ts';
 import {
   addCeiling,
@@ -110,9 +110,11 @@ export function buildFloorMeshes(
       );
     };
   if (look) {
+    // (what kind each room is, for the walls and floors of a look whose rooms have kinds)
+    if (look.roomKinds) wallKinds.set(plan.gen.maps.grid, look.roomKinds(plan));
     look.floors.forEach((map, v) =>
       planes(
-        floorTiles.filter(k => variantOf(k, look.floors.length, FLOOR_PLAIN_SHARE) === v),
+        floorTiles.filter(k => floorPic(plan.gen, k, look.floors.length, look.roomFloors) === v),
         0,
         true,
         new THREE.MeshBasicMaterial({ map }),
@@ -120,7 +122,8 @@ export function buildFloorMeshes(
     );
     look.walls.forEach((map, v) => {
       const mine = walls.filter(
-          ([i, j]) => wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls, look.wallSides) === v,
+          ([i, j]) =>
+            wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls, look.wallSides, look.roomWalls) === v,
         ),
         dusk = look.shadedWalls?.[v];
       // (a picture with a shaded one: as it is where it faces west, the shaded one elsewhere)
@@ -137,7 +140,8 @@ export function buildFloorMeshes(
       const faces: WindowFace[] = [];
       for (const [i, j] of walls) {
         const k = j * W + i,
-          rects = outside.panes[wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides)];
+          rects =
+            outside.panes[wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides, look.roomWalls)];
         if (!rects) continue;
         for (const [di, dj] of floorSides(plan.gen, k)) {
           const into = plan.court?.open && plan.court.tiles.includes((j - dj) * W + i - di) ? yardInto(di, dj) : 0;
@@ -171,7 +175,16 @@ export function buildFloorMeshes(
     planes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }));
     wallBoxes(tex.wall, walls);
   }
-  addDecks(tex, group, look?.deckSide);
+  // (cover a look draws itself: its tiles are left out of the decks)
+  addDecks(tex, group, look?.deckSide, !!look?.cover);
+  if (look?.cover) {
+    const { cover: isCover } = plan.gen.maps;
+    look.cover(
+      all.filter(k => grid[k] === 1 && isCover[k]),
+      plan,
+      group,
+    );
+  }
   addRamps(tex, group, look?.deckSide);
   buildHazardMesh(biome, plan.gen.hazard, group);
   const dark = look

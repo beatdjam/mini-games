@@ -29,9 +29,9 @@ export function addFloor(tex: BiomeTextures, group: THREE.Group) {
 export function addWalls(wallTex: THREE.Texture, tiles: [number, number][], group: THREE.Group) {
   addPlainWalls(wallTex, tiles, WALL_H, group);
 }
-// raised decks, walkways and cover: their sides in `side` (or the wall's picture)
-export function addDecks(tex: BiomeTextures, group: THREE.Group, side?: THREE.Texture) {
-  addPlainDecks({ top: tex.tile, side: side ?? tex.wall, cover: tex.wall, coverTint: COVER_TINT }, group);
+// raised decks, walkways and cover: their sides in `side` (or the wall's picture); `skipCover`: no cover (the look draws it)
+export function addDecks(tex: BiomeTextures, group: THREE.Group, side?: THREE.Texture, skipCover = false) {
+  addPlainDecks({ top: tex.tile, side: side ?? tex.wall, cover: tex.wall, coverTint: COVER_TINT, skipCover }, group);
 }
 // ramps; their sides in the same picture as the decks' (`side`, or the wall's)
 export function addRamps(tex: BiomeTextures, group: THREE.Group, side?: THREE.Texture) {

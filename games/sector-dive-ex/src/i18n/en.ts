@@ -391,6 +391,7 @@ LANG.en = {
       RUIN: { name: 'Ruined Streets', hint: 'Rubble is waist-high. Bullets go over it, you cannot climb it' },
       KWLN: { name: 'Walled City', hint: 'Green glowing floor is live. Stay off it while it glows' },
       CITY: { name: 'Old Downtown', hint: "Long sightlines. Watch for the snipers' lasers" },
+      MALL: { name: 'Shopping Mall', hint: 'The gallery round the atrium sees far. Expect crossfire' },
     },
     bosses: {
       watcher: {

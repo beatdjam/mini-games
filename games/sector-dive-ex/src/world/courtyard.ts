@@ -20,7 +20,7 @@ import type { FloorPlan } from './building.ts';
 // courtyard is crossed between floors
 // which kinds a sector's buildings get (when there is room): what fits the place. A yard needs an outside to look at
 // (the old downtown, the walled city's lightwells, the housing blocks of the ruins); an atrium is a hall inside (the
-// furnace hall, a studio, a machine hall)
+// furnace hall, a studio, a machine hall, a mall's atrium)
 const COURT_KINDS: Record<string, 'both' | 'yard' | 'atrium'> = {
   CITY: 'both',
   KWLN: 'yard',
@@ -28,6 +28,7 @@ const COURT_KINDS: Record<string, 'both' | 'yard' | 'atrium'> = {
   FORGE: 'atrium',
   NOISE: 'atrium',
   DATA: 'atrium',
+  MALL: 'atrium',
 };
 const COURT_ROOFED = 3,
   COURT_YARD = 5,
