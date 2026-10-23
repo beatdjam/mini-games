@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { tileCenter } from '@engine/world/tiles.ts';
+import { T, tileCenter } from '@engine/world/tiles.ts';
 import { groundOf } from '../../meshParts.ts';
 import type { FloorPlan } from '../../building.ts';
+import type { Island } from './islands.ts';
 import { roomKindOf } from '../common.ts';
 import { KIND_FOOD } from './rooms.ts';
 // The mall's waist-high cover, drawn as the things that stand in a mall (Look.cover): a lounge of two sofas round a low
@@ -150,13 +151,211 @@ const FOOD_MAKERS: ((p: ReturnType<typeof piece>, h: number) => void)[] = [
     }
   },
 ];
+// ---- the islands (islands.ts): one piece for the shop's kind, over the whole 1 x 2 or 2 x 2 tiles ----
+const ISLAND_PAD = 0.3; // the piece stops this far short of the edge of its tiles on every side (m)
+const DARK = 0x3d3b38;
+const DEEP_WOOD = 0x4a3624;
+const MARBLE = 0xcfc8b4;
+const SHOWCASE = 0x2f4a4c;
+const STEEL = 0x8b9091;
+const CARTON = 0xb08a58;
+const SCREENS = [0x4f7a9c, 0x4f8a8c];
+const GONDOLA = 0xa7a8a2;
+const BOOKS = [0xa4553c, 0x4f7a8c, 0x5f8f5d, 0x8b5f92, 0xc2a346, 0x6c6ea0, 0xcfc8b4, 0x7b4b3b];
+// A piece of an island: `p` has the island's middle as its middle, its long side along x; the piece is L long and D deep
+// (before it is turned) and nothing of it stands higher than the cover (a little over for an edge or a tip)
+type IslandPiece = ReturnType<typeof piece>;
+type IslandMaker = (p: IslandPiece, h: number, L: number, D: number) => void;
+// a sales wagon along x at depth z, goods heaped on it
+function wagon(p: IslandPiece, h: number, L: number, z: number, d: number) {
+  p.box(WOODS[h % WOODS.length]!, 0, z, 0.12, L, 0.68, d);
+  p.box(DARK, 0, z, 0, L - 0.4, 0.12, d - 0.3);
+  const n = Math.floor((L - 0.4) / 0.45);
+  for (let k = 0; k < n; k++)
+    p.box(
+      GOODS[(h + k) % GOODS.length]!,
+      (k - (n - 1) / 2) * 0.45,
+      z + (k % 2 ? 0.2 : -0.2),
+      0.8,
+      0.34,
+      0.2 + (k % 3) * 0.1,
+      0.34,
+    );
+}
+// a gondola (a low shelf with goods on both sides) along x at depth z, d deep
+function gondola(p: IslandPiece, h: number, L: number, z: number, d: number) {
+  const side = (d - 0.2) / 2;
+  p.box(GONDOLA, 0, z, 0, L, 0.2, d);
+  p.box(GONDOLA, 0, z, 0.2, L, 1.0, 0.1);
+  const n = Math.floor((L - 0.2) / 0.5);
+  for (const s of [-1, 1])
+    for (const [lv, y] of [0.2, 0.55, 0.9].entries()) {
+      p.box(STEEL, 0, z + (s * side) / 2, y, L, 0.05, side);
+      for (let k = 0; k < n; k++)
+        p.box(
+          GOODS[(h + k + lv * 2 + (s > 0 ? 3 : 0)) % GOODS.length]!,
+          (k - (n - 1) / 2) * 0.5,
+          z + (s * side) / 2,
+          y + 0.05,
+          0.34,
+          0.2 + ((k + s + h) % 3) * 0.04,
+          side - 0.3,
+        );
+    }
+}
+const ISLAND_MAKERS: Record<number, IslandMaker> = {
+  // clothes: a table of folded stacks; or racks of hanging clothes on a low plinth
+  0: (p, h, L, D) => {
+    if (D < 5) {
+      p.box(DARK, 0, 0, 0, L - 0.8, 0.55, D - 0.6);
+      p.box(WOODS[h % WOODS.length]!, 0, 0, 0.55, L, 0.1, D);
+      const n = 9;
+      for (const z of [-0.75, 0.75])
+        for (let k = 0; k < n; k++)
+          p.box(
+            GOODS[(h + k + (z > 0 ? 2 : 0)) % GOODS.length]!,
+            (k - (n - 1) / 2) * ((L - 0.8) / n),
+            z,
+            0.65,
+            0.6,
+            0.08 * (2 + ((k + (z > 0 ? 1 : 0)) % 4)),
+            0.7,
+          );
+      return;
+    }
+    p.box(DARK, 0, 0, 0, L, 0.25, D);
+    for (const z of [-D / 3, 0, D / 3]) {
+      for (const x of [-L / 2 + 0.25, L / 2 - 0.25]) p.box(STEEL, x, z, 0.25, 0.08, 0.9, 0.08);
+      p.box(STEEL, 0, z, 1.12, L - 0.4, 0.06, 0.06);
+      const n = Math.floor((L - 0.8) / 0.5);
+      for (let k = 0; k < n; k++)
+        p.box(
+          [...FABRICS, ...GOODS][(h + k + (z > 0 ? 3 : z < 0 ? 5 : 0)) % (FABRICS.length + GOODS.length)]!,
+          (k - (n - 1) / 2) * 0.5,
+          z,
+          0.4,
+          0.4,
+          0.7,
+          0.22,
+        );
+    }
+  },
+  // a cafe: a counter with a marble top, cups and a cake case on it; a square one has a well inside
+  1: (p, h, L, D) => {
+    const slab = (x: number, z: number, w: number, d: number) => {
+      p.box(DEEP_WOOD, x, z, 0, w, 1.0, d);
+      p.box(MARBLE, x, z, 1.0, w + 0.1, 0.08, d + 0.1);
+    };
+    if (D < 5) slab(0, 0, L, D);
+    else {
+      slab(0, -D / 2 + 0.65, L, 1.3);
+      slab(0, D / 2 - 0.65, L, 1.3);
+      for (const x of [-L / 2 + 0.65, L / 2 - 0.65]) slab(x, 0, 1.3, D - 2.6);
+      p.box(DEEP_WOOD, 0, 0, 0, L - 2.6, 0.5, D - 2.6);
+      p.box(STEEL, 0, 0, 0.5, L - 3, 0.06, D - 3);
+    }
+    const z0 = D < 5 ? 0 : -D / 2 + 0.65;
+    p.box(0xd8d4c6, -L / 4, z0, 1.08, 1.4, 0.1, 0.6);
+    for (let k = 0; k < 5; k++)
+      p.box(CHAIRS[(h + k) % 3]!, 0.3 + k * 0.5, z0 + (k % 2 ? 0.15 : -0.15), 1.08, 0.2, 0.1, 0.2);
+  },
+  // a bookstore: a low table with stacks of books laid flat, higher in the middle
+  2: (p, h, L, D) => {
+    const rows = D < 5 ? 2 : 4,
+      cols = 8;
+    p.box(DARK, 0, 0, 0, L - 0.8, 0.45, D - 0.6);
+    p.box(WOODS[h % WOODS.length]!, 0, 0, 0.45, L, 0.1, D);
+    for (let r = 0; r < rows; r++)
+      for (let k = 0; k < cols; k++) {
+        const mid = 1 - Math.abs(k - (cols - 1) / 2) / (cols / 2);
+        p.box(
+          BOOKS[(h + k * 3 + r) % BOOKS.length]!,
+          (k - (cols - 1) / 2) * ((L - 0.7) / cols),
+          (r - (rows - 1) / 2) * ((D - 0.9) / rows),
+          0.55,
+          0.7,
+          0.15 + mid * 0.3 + ((k + r) % 2) * 0.1,
+          0.62,
+        );
+      }
+  },
+  // glasses: a showcase, the frames laid inside, a glass lid drawn as posts and rails
+  3: (p, h, L, D) => {
+    p.box(SHOWCASE, 0, 0, 0, L - 0.2, 0.8, D - 0.2);
+    p.box(MARBLE, 0, 0, 0.8, L, 0.06, D);
+    for (const x of [-L / 2 + 0.06, L / 2 - 0.06])
+      for (const z of [-D / 2 + 0.06, D / 2 - 0.06]) p.box(STEEL, x, z, 0.86, 0.1, 0.34, 0.1);
+    for (const z of [-D / 2 + 0.06, D / 2 - 0.06]) p.box(STEEL, 0, z, 1.16, L, 0.04, 0.08);
+    for (const x of [-L / 2 + 0.06, L / 2 - 0.06]) p.box(STEEL, x, 0, 1.16, 0.08, 0.04, D);
+    const rows = D < 5 ? 2 : 4;
+    for (let r = 0; r < rows; r++)
+      for (let k = 0; k < 6; k++)
+        p.box(
+          (h + k + r) % 3 ? DARK : DEEP_WOOD,
+          (k - 2.5) * ((L - 1) / 6),
+          (r - (rows - 1) / 2) * ((D - 1.2) / rows),
+          0.86,
+          0.5,
+          0.08,
+          0.2,
+        );
+  },
+  // electronics: screens back to back on a black plinth, cartons between the rows
+  4: (p, h, L, D) => {
+    p.box(DARK, 0, 0, 0, L, 0.45, D);
+    const rows = D < 5 ? [0] : [-D / 4 - 0.2, D / 4 + 0.2],
+      n = Math.floor((L - 0.4) / 1.5);
+    rows.forEach((z, r) => {
+      for (let k = 0; k < n; k++) {
+        const x = (k - (n - 1) / 2) * 1.5;
+        p.box(DARK, x, z, 0.45, 1.3, 0.7, 0.2);
+        p.box(SCREENS[(h + k + r) % 2]!, x, z, 0.52, 1.15, 0.56, 0.24);
+      }
+    });
+    if (D >= 5) for (let k = 0; k < 5; k++) p.box(CARTON, (k - 2) * 1.3, 0, 0.45, 1.0, 0.5 + ((k + h) % 2) * 0.35, 0.8);
+  },
+  // a drugstore: a gondola with goods on both sides (a square island: two of them)
+  5: (p, h, L, D) => {
+    if (D < 5) gondola(p, h, L, 0, D);
+    else for (const z of [-D / 2 + 1.7, D / 2 - 1.7]) gondola(p, h + (z > 0 ? 1 : 0), L, z, 3.4);
+  },
+};
+// (a room that is no shop: a sales wagon, or two)
+const ISLAND_WAGON: IslandMaker = (p, h, L, D) => {
+  if (D < 5) wagon(p, h, L, 0, D);
+  else for (const z of [-D / 2 + 1.7, D / 2 - 1.7]) wagon(p, h + (z > 0 ? 1 : 0), L, z, 3.4 - 0.4);
+};
+// the island's piece: its middle, and turned a quarter when it stands along z
+function islandPiece(parts: Parts, plan: FloorPlan, ground: (k: number) => number, island: Island) {
+  const W = plan.gen.W,
+    { i, j, w, h } = island,
+    room = plan.gen.maps.roomOf[j * W + i]!,
+    kind = roomKindOf(plan.gen.maps.grid, room),
+    side = (n: number) => n * T - 2 * ISLAND_PAD,
+    quarter = w < h,
+    hash = Math.imul(j * W + i + 1, 2654435761) >>> 0,
+    p = piece(
+      parts,
+      (tileCenter(i) + tileCenter(i + w - 1)) / 2,
+      ground(j * W + i),
+      (tileCenter(j) + tileCenter(j + h - 1)) / 2,
+      quarter,
+    );
+  (ISLAND_MAKERS[kind] ?? ISLAND_WAGON)(p, (hash >>> 12) % 7, side(Math.max(w, h)), side(Math.min(w, h)));
+}
 // draws the cover tiles `tiles` (indexes into the floor's map) into `group`
 export function mallCover(tiles: number[], plan: FloorPlan, group: THREE.Group) {
   if (!tiles.length) return;
   const W = plan.gen.W,
     ground = groundOf(plan.gen.maps),
-    parts: Parts = { boxes: new Map(), domes: new Map() };
+    parts: Parts = { boxes: new Map(), domes: new Map() },
+    onIsland = new Set<number>();
+  for (const s of plan.islands) {
+    for (let j = s.j; j < s.j + s.h; j++) for (let i = s.i; i < s.i + s.w; i++) onIsland.add(j * W + i);
+    islandPiece(parts, plan, ground, s);
+  }
   for (const k of tiles) {
+    if (onIsland.has(k)) continue;
     // (the same piece on a tile every time: by the tile's number)
     const h = Math.imul(k + 1, 2654435761) >>> 0,
       p = piece(parts, tileCenter(k % W), ground(k), tileCenter((k / W) | 0), (h >>> 8) % 2 === 1);
