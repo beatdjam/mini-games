@@ -113,6 +113,7 @@ export interface EnemyDef {
   ranged?: RangedDef;
   muzzle?: number; // muzzle: height of the muzzle above the body
   sniper?: boolean;
+  mortar?: boolean; // lobs a shell onto the player's feet (src/actors/mortar.ts)
   bomber?: boolean;
   split?: boolean;
   humanoid?: boolean;
@@ -426,6 +427,24 @@ export interface Pickup extends WorldObject {
   value?: number;
   w?: Weapon;
   rare?: boolean; // a chip whose choices are all the rare version (a lockdown's reward)
+}
+// a mortar round in the air (engine world tag 'shell'): flies an arc from the muzzle to (tx, tz), lands after its flight time and
+// hurts the player within the blast radius then. The picture is the round, and on the floor a ring that fills up (fill)
+export interface MortarShell extends WorldObject {
+  tag: 'shell';
+  t: number; // seconds in the air
+  x0: number;
+  y0: number;
+  z0: number; // where it left the muzzle
+  tx: number;
+  ty: number;
+  tz: number; // where it lands (ty: the floor there)
+  vy: number; // upward speed at the muzzle (m/s)
+  g: number; // the arc's own gravity (m/s^2)
+  dmg: number;
+  round: THREE.Mesh;
+  fill: THREE.Mesh;
+  mesh: THREE.Group;
 }
 // a ground shockwave ring (engine world tag 'wave'): grows to max radius, hurts the player once when the ring passes
 export interface Wave extends WorldObject {

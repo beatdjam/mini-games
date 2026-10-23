@@ -83,6 +83,22 @@ export const ENEMY: Record<string, EnemyDef> = {
     color: 0x8cc8ff,
     geo: 'slab',
   },
+  // keeps its distance and lobs a shell onto your feet: a red ring marks the spot, the shell lands about 1.4 s later
+  // (src/actors/mortar.ts). The round has its own damage (dmg); it passes over cover and can't be shot down
+  mortar: {
+    hp: 55,
+    speed: 2.0,
+    r: 0.7,
+    y: 0.55,
+    hitR: 1.0,
+    dmg: 20,
+    keep: 16,
+    mortar: true,
+    bits: 6,
+    color: 0xb5523b,
+    geo: 'mortar',
+    muzzle: 1.14,
+  },
   // rushes in and detonates; also blows up when shot, hurting nearby enemies too
   bomber: {
     hp: 16,
@@ -153,4 +169,4 @@ export const ENEMY_TUNE = {
   trooperChance: 0.06, // chance any spawn in any sector is a trooper (the humanoid soldier) instead
 };
 // tougher enemy types, favoured more the deeper you go
-export const ELITE_TYPES = ['sniper', 'shield', 'brute', 'bomber', 'splitter', 'turret'];
+export const ELITE_TYPES = ['sniper', 'shield', 'brute', 'bomber', 'splitter', 'turret', 'mortar'];

@@ -153,6 +153,7 @@ const floorStash = new Map<number, FloorStash>();
 // them for the floor. Call before enterFloor moves on
 export function stashFloor() {
   if (level.floor < 0 || !shown) return;
+  clearWorld('shell'); // a round in the air would land on the next floor
   sweepWorld();
   const kept = enemies.filter(e => !e.boss),
     others = groupOf('pickup').list,

@@ -7,6 +7,7 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, shootAtPoint } from '../world/entities.ts';
 import { player } from './player.ts';
 import { damagePlayer, detonate } from './combat.ts';
+import { fireMortar } from './mortar.ts';
 import { bossPauseTick, bossPhase, isEnraged, poseBossPool } from './bosses/common.ts';
 import { setLaser } from '../world/models.ts';
 import { COLOR } from '../data/colors.ts';
@@ -38,6 +39,9 @@ const SNIPER_AIM_TIME = 1.1; // seconds of laser before the shot
 const SNIPER_LOCK_TIME = 0.25; // the laser stops tracking for the last this-many seconds
 const SNIPER_COOLDOWN: [number, number] = [2.6, 3.4]; // seconds between shots (x fireInterval)
 const SNIPER_BULLET_SPEED = 60; // m/s
+const MORTAR_RANGE = 24; // a mortar fires only inside this (m)
+const MORTAR_INTERVAL = 3.5; // seconds between its rounds (x fireInterval)
+const MORTAR_MUZZLE_FWD = 0.43; // the tube's mouth is this far ahead of the body's middle (m): see mortarGun in enemyLooks.ts
 // one enemy for one frame (engine world group 'enemy', order 10)
 export function updateEnemy(e: Enemy, dt: number) {
   const py = player.fy + CHEST_Y; // player chest height, used for line of sight
@@ -90,6 +94,16 @@ export function updateEnemy(e: Enemy, dt: number) {
       e.burstN = r.burst - 1;
       e.burstT = r.burstGap!;
     } // burstGap goes with burst
+  }
+  // a mortar fires over cover: it needs only the walls out of the way, not a clear line to your chest
+  if (def.mortar && dist < MORTAR_RANGE && e.cd <= 0 && hasLOS(e.x, e.z, player.x, player.z)) {
+    e.cd = MORTAR_INTERVAL * ENEMY_TUNE.fireInterval * rand(FIRE_JITTER[0], FIRE_JITTER[1]);
+    fireMortar(
+      e,
+      e.x + Math.sin(e.face) * MORTAR_MUZZLE_FWD,
+      e.mesh.position.y + def.muzzle!, // a mortar has its muzzle height set
+      e.z + Math.cos(e.face) * MORTAR_MUZZLE_FWD,
+    );
   }
   // the rest of a burst: one round every burstGap while the player stays in sight
   if (e.burstN > 0 && (e.burstT -= dt) <= 0) {
