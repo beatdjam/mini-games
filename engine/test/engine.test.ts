@@ -44,11 +44,15 @@ import {
   DECK_H,
   DOOR_PASS,
   RISE,
+  SINK_EDGE,
+  SINK_FLOOR,
+  STEP,
   T,
   W,
   type TileWorld,
   activeTileGrid,
   computeFlow,
+  cover,
   createTileGrid,
   edgeH,
   floorY,
@@ -84,13 +88,14 @@ import {
   generateArena,
   generateDungeon,
   setDoor,
+  sinkRect,
   tileWorldOf,
 } from '../src/world/dungeon.ts';
 import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
 import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, isDoorLocked, lockDoor, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
 import { showFps } from '../src/core/dev.ts';
-import { addDecks, addRamps, addWalls, wallTiles, wedgeGeo } from '../src/render/tilemesh.ts';
+import { addDecks, addRamps, addSunkSides, addWalls, wallTiles, wedgeGeo } from '../src/render/tilemesh.ts';
 import {
   STAIRWELL_DEFAULTS,
   allReached,
@@ -792,6 +797,83 @@ test('dungeon: an arena is a floor square with the pillars as walls', () => {
   );
   eq(a.maps.grid[6 * 20 + 6], 0, 'pillar');
   eq(JSON.stringify(a.rooms), JSON.stringify([{ x: 4, y: 4, w: 12, h: 12 }]));
+});
+test('dungeon: sinkRect sinks a square one in from the walls, in steps that can be walked down and up', () => {
+  // a room 9 wide and 7 high (x 1 to 9, y 1 to 7) with a cover tile (c), a deck (=) and a door (+) in it
+  const rows = [
+    '###########',
+    '#.........#',
+    '#.........#',
+    '#...c.....#',
+    '#.........+',
+    '#.....=...#',
+    '#.........#',
+    '#.........#',
+    '###########',
+  ];
+  const m = tileMapFromRows(rows, {}, [{ x: 1, y: 1, w: 9, h: 7 }]),
+    w = m.W,
+    at = (i: number, j: number) => j * w + i;
+  const sunk = sinkRect(m.maps, w, m.rooms[0]!);
+  eq(m.maps.hgt[at(1, 1)], 0, 'the tile by the wall stays on the ground');
+  eq(m.maps.hgt[at(9, 4)], 0, 'and by the door');
+  eq(m.maps.hgt[at(2, 2)], SINK_EDGE, 'the next ring is the edge');
+  eq(m.maps.hgt[at(3, 3)], SINK_FLOOR, 'inside it the bottom');
+  eq(m.maps.hgt[at(6, 5)], DECK_H, 'a deck does not sink');
+  eq(m.maps.hgt[at(5, 4)], SINK_EDGE, 'next to the deck: the edge');
+  near(m.maps.hgt[at(4, 3)]!, SINK_FLOOR + COVER_H, 1e-6, 'cover keeps its height over the bottom');
+  ok(!sunk.includes(at(6, 5)) && sunk.includes(at(4, 3)), 'the tiles returned');
+  // no two neighbouring floor tiles (corners too) differ by more than a step, except at the deck and the cover
+  for (let j = 1; j < m.H - 1; j++)
+    for (let i = 1; i < w - 1; i++) {
+      const k = at(i, j);
+      if (m.maps.grid[k] !== 1 || m.maps.cover[k] || m.maps.hgt[k] === DECK_H) continue;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const n = at(i + di, j + dj);
+          if (m.maps.grid[n] !== 1 || m.maps.cover[n] || m.maps.hgt[n] === DECK_H) continue;
+          ok(Math.abs(m.maps.hgt[n]! - m.maps.hgt[k]!) <= -SINK_EDGE, `step at ${i},${j}`);
+        }
+    }
+  eq(SINK_FLOOR - SINK_EDGE, SINK_EDGE - 0, 'the two steps are the same height');
+  ok(-SINK_EDGE <= STEP, 'a step is one that can be climbed');
+  const was = activeTileGrid().world;
+  setTileWorld({
+    W: w,
+    H: m.H,
+    grid: m.maps.grid,
+    hgt: m.maps.hgt,
+    ramp: m.maps.ramp,
+    cover: m.maps.cover,
+    flow: new Int16Array(w * m.H),
+    flowQ: new Int32Array(w * m.H),
+  });
+  try {
+    // down to the bottom and back up the same way
+    computeFlow(4, 5);
+    ok(flowAt(tileCenter(1), tileCenter(1)) > 0, 'one can go down from the aisle to the bottom');
+    computeFlow(1, 1);
+    ok(flowAt(tileCenter(4), tileCenter(5)) > 0, 'and up again');
+    // walking: from the bottom up to the aisle, one step at a time
+    const o = { x: tileCenter(3), z: tileCenter(5), fy: SINK_FLOOR };
+    for (let n = 0; n < 200; n++) {
+      moveCircle(o, 0, 0.1, 0.4);
+      o.fy = floorY(o.x, o.z);
+    }
+    eq(o.fy, 0, 'walked up to the ground in two steps');
+    // the bottom does not lead to the ground straight: a bottom tile by a ground tile cannot be climbed
+    hgt[at(3, 6)] = 0;
+    ok(!passable(at(3, 5), at(3, 6), SIDE_PZ), 'from the bottom to the ground is more than a step');
+    ok(passable(at(3, 6), at(3, 5), SIDE_NZ), 'down it is allowed');
+    hgt[at(3, 6)] = SINK_EDGE;
+    ok(passable(at(3, 5), at(3, 6), SIDE_PZ), 'from the bottom to the edge is one step');
+    // the sides of the steps are drawn on the lower tile's edge, toward the higher
+    const group = new THREE.Group();
+    addSunkSides(new THREE.Texture(), k => (cover[k] ? hgt[k]! - COVER_H : Math.min(hgt[k]!, 0)), group);
+    ok(group.children.length === 1, 'one mesh');
+  } finally {
+    setTileWorld(was);
+  }
 });
 test('dungeon: forEachRoomTile visits every tile of a room once, row by row', () => {
   const seen: string[] = [];

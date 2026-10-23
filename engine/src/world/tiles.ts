@@ -11,6 +11,10 @@ export const T = 4,
 // ramp up to it is level at the top) and waist-high cover
 export const DECK_H = 2,
   COVER_H = 1.2;
+// the floor heights of a sunk square (dungeon.ts sinkRect, hgt below 0): its edge one step down from the ground, its
+// bottom two. A step is at most STEP, so one walks down and up each of them
+export const SINK_EDGE = -0.5,
+  SINK_FLOOR = -1;
 // the four sides of a tile, numbered the same way as the ramp directions
 export const SIDE_PX = 0, // +x
   SIDE_NX = 1, // -x

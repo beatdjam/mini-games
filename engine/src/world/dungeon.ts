@@ -1,5 +1,5 @@
 import type { Rng } from '../core/util.ts';
-import { COVER_H, DECK_H, SIDE_NX, SIDE_NZ, SIDE_PX, SIDE_PZ, SIDE_STEP } from './tiles.ts';
+import { COVER_H, DECK_H, SINK_EDGE, SINK_FLOOR, SIDE_NX, SIDE_NZ, SIDE_PX, SIDE_PZ, SIDE_STEP } from './tiles.ts';
 import type { TileWorld } from './tiles.ts';
 // engine: Grid dungeon generation: rooms joined by corridors, then optional passes (raised decks, rubble, bridges).
 // Everything random draws from the rng you pass, so the same seed gives the same dungeon. No three.js, no DOM.
@@ -417,6 +417,38 @@ export function addPlatform(maps: TileMaps, w: number, r: Room, deckH = DECK_H) 
   maps.ramp[k] = SIDE_PZ;
   maps.hgt[k] = 0;
   r.plat = true;
+}
+// A square sunk into the room's floor: the room's tiles one in from its walls (so the walls keep a ground-level aisle,
+// and every doorway still opens on it), the outer ring of those at SINK_EDGE and the tiles inside it at SINK_FLOOR. No
+// SINK_FLOOR tile touches (even at a corner) a tile that is not sunk, so every neighbour differs by one step at most.
+// Only plain floor and cover sink (a cover tile keeps its height over the sunk floor); a door, a ramp, a deck and the
+// tiles `skip` says no to (the game's own: a stairwell, a hazard floor) stay, and the sunk tiles round them are edge.
+// Returns the sunk tiles (indexes). No random numbers
+export function sinkRect(
+  maps: TileMaps,
+  w: number,
+  r: Room,
+  skip?: (k: number) => boolean,
+  coverH = COVER_H,
+): number[] {
+  const ok = new Set<number>();
+  for (let j = r.y + 1; j <= r.y + r.h - 2; j++)
+    for (let i = r.x + 1; i <= r.x + r.w - 2; i++) {
+      const k = j * w + i;
+      // (hgt is single precision: the cover height as stored)
+      const plain = maps.hgt[k] === 0 || (maps.cover[k] && maps.hgt[k] === Math.fround(coverH));
+      if (maps.grid[k] === 1 && plain && maps.ramp[k] < 0 && !maps.door?.[k] && !skip?.(k)) ok.add(k);
+    }
+  const sunk = [...ok];
+  const level = (k: number) => {
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if (!ok.has(k + dj * w + di)) return SINK_EDGE;
+    return SINK_FLOOR;
+  };
+  const levels = sunk.map(level);
+  sunk.forEach((k, n) => {
+    maps.hgt[k] = levels[n]! + (maps.cover[k] ? coverH : 0);
+  });
+  return sunk;
 }
 // waist-high cover scattered in the room (rate = chance per tile); never on the middle, next to other cover or on a deck
 export function addRubble(maps: TileMaps, w: number, r: Room, rate: number, rng: Rng, coverH = COVER_H) {

@@ -26,9 +26,13 @@ import {
   T,
   W,
   activeTileGrid,
+  SINK_EDGE,
+  SINK_FLOOR,
   blocked,
+  computeFlow,
   cover,
   floorY,
+  flowDir,
   grid,
   hasLOS,
   hgt,
@@ -36,6 +40,7 @@ import {
   moveCircle,
   passable,
   ramp,
+  tileCenter,
   tileIndex,
   walkable,
 } from '@engine/world/tiles.ts';
@@ -52,6 +57,8 @@ import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
+import { foodCourtRoom } from '../src/world/looks/mall/rooms.ts';
+import { groundOf } from '../src/world/meshParts.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
 import { floorSides, wallSide } from '@engine/world/walls.ts';
 import {
@@ -2610,6 +2617,86 @@ test('building: the mall has a galleria, a long atrium with a gallery round it, 
   expect(bridges, 'some floors have a bridge').toBeGreaterThan(5);
   expect(single / floors, 'galleries with one way in only').toBeLessThan(0.1);
 });
+test('building: the mall food court is a plaza two steps down inside an aisle of ground, and one walks down and up', () => {
+  const mall = BIOMES.find(x => x.code === 'MALL')!;
+  let courts = 0,
+    bottoms = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const b = makeBuilding(mall, mall.bosses[0]!, seed);
+    b.plans.forEach((p, floor) => {
+      const room = foodCourtRoom(p);
+      if (room < 0) return;
+      courts++;
+      const { maps, W: w, hazard } = p.gen,
+        r = p.gen.rooms[room]!,
+        ground = groundOf(maps),
+        where = `seed ${seed} floor ${floor}`;
+      expect(r.plat, `${where}: no deck in the food court`).toBeFalsy();
+      for (let j = r.y; j < r.y + r.h; j++)
+        for (let i = r.x; i < r.x + r.w; i++) {
+          const k = j * w + i;
+          if (maps.grid[k] !== 1) continue;
+          const rim = i === r.x || j === r.y || i === r.x + r.w - 1 || j === r.y + r.h - 1;
+          if (rim) expect(ground(k), `${where}: ${i},${j} by the wall stays on the ground`).toBeGreaterThanOrEqual(0);
+          if (ground(k) >= 0) continue;
+          // (a sunk tile is plain floor or cover: no door, ramp, hazard floor or link tile)
+          expect([maps.door?.[k] ?? 0, maps.ramp[k]! >= 0 ? 1 : 0, hazard[k], p.noFloor[k], p.voids[k]], where).toEqual(
+            [0, 0, 0, 0, 0],
+          );
+          if (ground(k) === SINK_FLOOR) bottoms++;
+          // every neighbour (corners too) is a step away at most, so the bottom never meets the ground
+          for (const o of [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1])
+            if (maps.grid[k + o] === 1 && maps.ramp[k + o]! < 0)
+              expect(Math.abs(ground(k + o) - ground(k)), `${where}: ${i},${j} + ${o}`).toBeLessThanOrEqual(
+                -SINK_EDGE + 1e-6,
+              );
+        }
+    });
+  }
+  expect(courts, 'a food court on most floors').toBeGreaterThan(40);
+  expect(bottoms, 'with a bottom').toBeGreaterThan(300);
+  // in a run: from the aisle down to the bottom and up again, on the legs and by the flow field
+  const room = { floor: -1, aisle: -1, bottom: -1 };
+  for (let tries = 0; tries < 10 && room.floor < 0; tries++) {
+    goBase();
+    startRun();
+    run.route = [BIOMES.indexOf(mall)];
+    run.bld = undefined;
+    startStage();
+    building!.plans.forEach((p, floor) => {
+      const n = foodCourtRoom(p);
+      if (room.floor >= 0 || n < 0) return;
+      const { maps, W: w } = p.gen,
+        r = p.gen.rooms[n]!,
+        bottom = maps.hgt.findIndex((h, k) => h === SINK_FLOOR && maps.roomOf[k] === n);
+      if (bottom < 0) return;
+      // the aisle: a ground tile of the room's rim, floor all the way to the first step in
+      const aisle = (r.y + 1) * w + r.x;
+      if (maps.hgt[aisle] === 0 && maps.grid[aisle] === 1) Object.assign(room, { floor, aisle, bottom });
+    });
+  }
+  expect(room.floor, 'a food court to walk in').toBeGreaterThanOrEqual(0);
+  goToFloor(room.floor);
+  const walk = (from: number, to: number) => {
+    const o = {
+      x: tileCenter(from % W),
+      z: tileCenter(Math.floor(from / W)),
+      fy: floorY(tileCenter(from % W), tileCenter(Math.floor(from / W))),
+    };
+    computeFlow(to % W, Math.floor(to / W));
+    for (let n = 0; n < 600 && tileIndex(o.x, o.z) !== to; n++) {
+      const d = flowDir(o.x, o.z);
+      expect(d, 'a way on').not.toBeNull();
+      moveCircle(o, d![0] * 0.2, d![1] * 0.2, 0.4);
+      o.fy = floorY(o.x, o.z);
+    }
+    return o;
+  };
+  const down = walk(room.aisle, room.bottom);
+  expect([tileIndex(down.x, down.z), down.fy]).toEqual([room.bottom, SINK_FLOOR]);
+  const up = walk(room.bottom, room.aisle);
+  expect([tileIndex(up.x, up.z), up.fy]).toEqual([room.aisle, 0]);
+});
 test('building: no door has floor beside it (a corridor to a stairwell or lift never passes a door)', () => {
   // a door stands across a corridor: floor before and behind it, wall on its two sides
   for (let seed = 1; seed <= 40; seed++) {
@@ -2910,7 +2997,7 @@ test('building: a yard is open to the sky (no floor above it has floor over it)'
   devCourtOpen(null);
 });
 test('building: the layout a seed gives is that of BUILDING_V', () => {
-  // A few buildings of every sector, as one number. When this fails, the same seed gives another building now: raise
+  // A few buildings of every sector (the maps and the floor heights), as one number. When this fails, the same seed gives another building now: raise
   // BUILDING_V in src/world/building.ts (a run suspended before is then fitted onto the new building), and put the new
   // version and number here
   devCourtOpen(null);
@@ -2921,10 +3008,10 @@ test('building: the layout a seed gives is that of BUILDING_V', () => {
   for (const biome of BIOMES)
     for (const seed of [1, 2, 3]) {
       const b = makeBuilding(biome, biome.bosses[0]!, seed);
-      b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('')));
+      b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('') + Array.from(p.gen.maps.hgt).join()));
       mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
     }
-  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v4 758a316e');
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v5 555583ba');
 });
 test('resume: a run saved on a building laid out another way goes on at the same step of the route', () => {
   goBase();

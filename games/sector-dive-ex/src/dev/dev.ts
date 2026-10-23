@@ -3,7 +3,7 @@ import { el, shuffle, yawToward } from '@engine/core/util.ts';
 import { devHook, showFps } from '@engine/core/dev.ts';
 import { drawStats } from '@engine/render/render.ts';
 import { LANG, lang, t } from '@engine/core/i18n.ts';
-import { T, W, floorY } from '@engine/world/tiles.ts';
+import { SINK_FLOOR, T, W, floorY } from '@engine/world/tiles.ts';
 import { WEAPONS } from '../data/weapons.ts';
 import { SFX_NEW, SFX_OLD } from '../data/sfx.ts';
 import { SFX, audioInit } from '@engine/audio/audio.ts';
@@ -15,6 +15,7 @@ import { basicW, save } from '../core/save.ts';
 import { devSeed, level } from '../world/level.ts';
 import { building, devCourtOpen } from '../world/building.ts';
 import { devPlainLooks, lookOf, wallPic } from '../world/looks.ts';
+import { foodCourtRoom } from '../world/looks/mall/rooms.ts';
 import { useSparkLooks } from '../world/models/sparkLooks.ts';
 import { setHazardClock } from '../world/hazards.ts';
 import { devPlainGuns } from '../actors/viewmodel.ts';
@@ -83,7 +84,9 @@ if (courtParam === 'open' || courtParam === 'roof')
 // of its ground), courtalong (along a yard's
 // balcony), window (two tiles in front of a window one sees out of, facing it: Look.outside), windowdown / windowup
 // (right up at that window, looking down out of it / up out of it), yardwindow (in front of a window on a yard), ramp (two tiles to the side of the first ramp up
-// to a deck, facing its side), walkway (on a raised walkway along an alley, at its start, looking along it)
+// to a deck, facing its side), walkway (on a raised walkway along an alley, at its start, looking along it),
+// foodcourt (?sector=MALL: on the ground by the edge of the sunk food court, looking down into it), foodcourtin (the same
+// room from its floor, looking across to the steps up)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -281,6 +284,23 @@ if (location.hash.startsWith('#bld-'))
         stand(floor, k + stepOf(k), stepOf(k));
         break;
       }
+    } else if (what === 'foodcourt' || what === 'foodcourtin') {
+      // the first food court with a sunk floor, floor by floor, in the row at the middle of its west side: from the
+      // ground by the west edge, looking east into it (foodcourtin: from the east end of the bottom, looking west)
+      const rows = b.plans.flatMap((p, floor) => {
+        const n = foodCourtRoom(p);
+        if (n < 0) return [];
+        const m = p.gen.maps,
+          r = p.gen.rooms[n]!,
+          j = r.y + Math.floor(r.h / 2),
+          row = Array.from({ length: r.w }, (_, i) => j * W + r.x + i);
+        return m.hgt[row[0]!] === 0 && row.some(k => m.hgt[k] === SINK_FLOOR) ? [{ floor, row, m }] : [];
+      });
+      const food = rows[0];
+      if (food && what === 'foodcourt') {
+        stand(food.floor, food.row[0]!, 1);
+        player.pitch = -0.25;
+      } else if (food) stand(food.floor, food.row.filter(k => food.m.hgt[k] === SINK_FLOOR).pop()!, -1);
     } else if (what === 'boss') {
       const hall = b.plans[b.plans.length - 1]!.hall!,
         grid = b.plans[b.plans.length - 1]!.gen.maps.grid,
