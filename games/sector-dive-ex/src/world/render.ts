@@ -21,6 +21,7 @@ export const geoCache: Record<string, THREE.BufferGeometry> = {
   cross2: shared(new THREE.BoxGeometry(0.2, 0.6, 0.2)),
   wave: shared(new THREE.CylinderGeometry(1, 1, 1.1, 56, 1, true)),
   rod: shared(new THREE.BoxGeometry(0.45, 1.9, 0.45)),
+  mortar: shared(new THREE.BoxGeometry(1.5, 1.0, 1.5)),
   slab: shared(new THREE.BoxGeometry(1.1, 1.8, 0.9)),
   ico: shared(new THREE.IcosahedronGeometry(0.55)),
   dodeca: shared(new THREE.DodecahedronGeometry(0.8)),

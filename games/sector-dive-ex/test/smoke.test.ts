@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { Group, Matrix4, Vector3 } from 'three';
 import type { InstancedMesh } from 'three';
-import type { Boss, GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
+import type { Boss, GameState, MortarShell, Pickup, RunState, Snapshot } from '../src/data/types.ts';
 import { createRng, distXZ, el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
 import { lang, t } from '@engine/core/i18n.ts';
@@ -132,6 +132,7 @@ import {
 import { applyLevelPoint, currentWeapon, player, newPlayer, run, setPlayer, setRun } from '../src/actors/player.ts';
 import { critChance, fillMag, rollWeapon, magSize, newWeapon, shotDamage, weaponStats } from '../src/actors/weapons.ts';
 import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/combat.ts';
+import { MORTAR_BLAST_R } from '../src/actors/mortar.ts';
 import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { RUNNING_SPREAD, findTarget, fire, shotId } from '../src/actors/firing.ts';
 import { arenaRoom, bossDifficulty, minionCount, spawnBoss, spawnMinion } from '../src/actors/bosses/common.ts';
@@ -1107,6 +1108,59 @@ test('knockback: a rocket pushes what walks away, never a turret bolted to the f
   expect([turret.x, turret.z], 'the turret stays').toEqual([cx + 2, cz]);
   expect([bastions.x, bastions.z], "BASTION's turret stays").toEqual([cx, cz + 2]);
   endRun('abandon');
+});
+test('mortar: a round puts a ring where the player stood, then hurts only whoever is still in it', () => {
+  // two rounds on an open floor: in the first the player stays put, in the second steps out of the ring
+  const lands = (stepOut: number) => {
+    startRun();
+    tick(3);
+    enemies.slice().forEach(e => {
+      e.dead = true;
+      removeEnemyMesh(e);
+    });
+    clearWorld('enemy');
+    clearWorld('shell');
+    grid.fill(1);
+    hgt.fill(0);
+    ramp.fill(-1);
+    cover.fill(0);
+    activeTileGrid().world.door?.fill(0);
+    const cx = (W * T) / 2,
+      cz = (H * T) / 2;
+    player.x = cx;
+    player.z = cz;
+    player.fy = floorY(cx, cz);
+    const m = spawnEnemy('mortar', cx, cz + 12, -1, 1);
+    m.active = true;
+    m.cd = 0;
+    for (let k = 0; k < 30 && !m.shots; k++) update(1 / 60);
+    expect(m.shots, 'the mortar fired').toBe(1);
+    const shell = query<MortarShell>('shell')[0]!;
+    expect(shell, 'a round is in the air').toBeTruthy();
+    expect([shell.tx, shell.tz], "aimed at the player's feet").toEqual([cx, cz]);
+    expect(shell.mesh.children.length, 'the round, the ring and its fill').toBe(3);
+    expect(shell.fill.scale.x, 'the ring has barely begun to fill').toBeLessThan(0.5);
+    // the mortar dies; the round still falls
+    m.dead = true;
+    removeEnemyMesh(m);
+    clearWorld('enemy');
+    player.x += stepOut;
+    player.hp = 1e6;
+    player.maxHp = 1e6;
+    player.inv = 0;
+    const hp0 = player.hp;
+    update(0.7);
+    expect(shell.dead, 'still flying halfway').toBeFalsy();
+    expect(shell.fill.scale.x, 'the ring is about half full').toBeGreaterThan(MORTAR_BLAST_R * 0.3);
+    for (let k = 0; k < 60 && !shell.dead; k++) update(1 / 60);
+    expect(shell.dead, 'it landed').toBe(true);
+    const lost = hp0 - player.hp;
+    endRun('abandon');
+    return { lost, dmg: shell.dmg };
+  };
+  const hit = lands(0);
+  expect(hit.lost, 'standing in the ring').toBe(hit.dmg);
+  expect(lands(MORTAR_BLAST_R + 0.5).lost, 'outside the ring').toBe(0);
 });
 test('music: every style and its boss arrangement can be scheduled', () => {
   audioInit();

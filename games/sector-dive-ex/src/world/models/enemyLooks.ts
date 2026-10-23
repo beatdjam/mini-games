@@ -428,7 +428,45 @@ const carrier: Make = (body, glow) => {
   }
   return { g, body: g, anim: { hover: true } };
 };
+// the mortar: a gun that lobs its rounds over the cover. A low base plate on four bolts, a box of a body with a lit
+// strip, a thick tube tilted up on an axle between two cheeks (the lit band at its foot, a black collar at the muzzle),
+// two struts bracing the tube to the base, a crate of shells behind (MORTAR_TILT and the muzzle's place, def.muzzle,
+// go together: the shell leaves the tube's mouth)
+const MORTAR_TILT = 0.55; // the tube's lean from upright toward the front (rad)
+const mortarGun: Make = (body, glow) => {
+  const g = new THREE.Group(),
+    k = machine(),
+    tube = new THREE.Group();
+  tube.position.set(0, 0.2, -0.15);
+  tube.rotation.x = MORTAR_TILT;
+  tube.add(
+    at(cylGeo(0.2, 0.2, 1.1, 10), k.steel, 0, 0.55, 0), // the tube
+    at(cylGeo(0.215, 0.215, 0.1, 10), glow, 0, 0.18, 0), // the lit band at its foot
+    at(cylGeo(0.27, 0.27, 0.14, 10), k.black, 0, 1.03, 0), // the collar at the muzzle
+    at(cylGeo(0.14, 0.14, 0.02, 8), k.black, 0, 1.1, 0), // the dark mouth
+  );
+  g.add(
+    at(boxGeo(1.5, 0.3, 1.5), k.black, 0, -0.4, 0), // the base plate
+    at(boxGeo(1.2, 0.5, 1.1), body, 0, 0, 0), // the body
+    at(boxGeo(1.22, 0.06, 1.12), glow, 0, -0.18, 0), // the lit strip round it
+    at(boxGeo(0.5, 0.3, 0.4), k.black, -0.3, 0.4, -0.4), // the crate of shells
+    at(cylGeo(0.07, 0.07, 0.28, 8), k.steel, -0.42, 0.62, -0.4), // two shells standing in it
+    at(cylGeo(0.07, 0.07, 0.28, 8), k.steel, -0.18, 0.62, -0.4),
+    at(cylGeo(0.06, 0.06, 0.7, 8), k.steel, 0, 0.2, -0.15, 'x'), // the axle the tube turns on
+    aerial(0.42, 0.25, -0.45, 0.5),
+    tube,
+  );
+  for (const sx of [-1, 1])
+    g.add(
+      at(boxGeo(0.12, 0.4, 0.4), k.steel, sx * 0.3, 0.3, -0.15), // a cheek holding the axle
+      piston(V(sx * 0.15, 0.71, 0.16), V(sx * 0.55, -0.25, 0.55), 0.035), // a strut from the tube to the base
+      at(cylGeo(0.07, 0.07, 0.1, 6), k.steel, sx * 0.62, -0.2, 0.62), // a bolt at the front corner
+      at(cylGeo(0.07, 0.07, 0.1, 6), k.steel, sx * 0.62, -0.2, -0.62), // and at the back
+    );
+  return { g, body: g, anim: {} };
+};
 const MAKERS: Record<string, Make> = {
+  mortar: mortarGun,
   tetra: runner(1),
   tetraS: runner(0.66, true),
   octa: copter,

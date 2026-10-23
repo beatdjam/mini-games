@@ -384,6 +384,33 @@ if (location.hash.startsWith('#view-enemies-'))
       e.mesh.rotation.y = player.yaw;
     });
   }, 300);
+// dev view: #view-mortar stands in front of a mortar that has just fired (the round in the air, the ring on the floor
+// where the player stood), the player stepped back from it. ?sector= as above
+if (location.hash === '#view-mortar')
+  setTimeout(() => {
+    startRun();
+    const sector = BIOMES.findIndex(x => x.code === new URLSearchParams(location.search).get('sector'));
+    if (sector >= 0) {
+      run.route = [sector];
+      run.bld = undefined;
+      startStage();
+    }
+    show(null);
+    setState('play');
+    player.hp = 1e6;
+    player.maxHp = 1e6;
+    enemies.forEach(e => {
+      e.dead = true;
+      removeEnemyMesh(e);
+    });
+    const m = spawnEnemy('mortar', player.x - Math.sin(player.yaw) * 9, player.z - Math.cos(player.yaw) * 9, -1, 1);
+    m.active = true;
+    m.cd = 0;
+    for (let k = 0; k < 20 && !m.shots; k++) update(1 / 60);
+    player.x += Math.sin(player.yaw) * 5;
+    player.z += Math.cos(player.yaw) * 5;
+    for (let k = 0; k < 40; k++) update(1 / 60);
+  }, 300);
 // dev view: #view-trooper stands in front of three troopers (the humanoid soldier): one walking, two aiming
 if (location.hash === '#view-trooper')
   setTimeout(() => {

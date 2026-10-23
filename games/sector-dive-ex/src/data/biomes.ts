@@ -92,7 +92,7 @@ export const BIOMES = withLang<Biome, 'name'>(
       wall: '#221a0e',
       wallLine: '#ffb347',
       gen: { kind: 'rooms', map: 44, roomMin: 6, roomMax: 9, corridorW: 2, platform: 0.8, rubble: 0.06 },
-      enemies: ['sniper', 'drone', 'shield', 'turret', 'crawler', 'sniper'],
+      enemies: ['sniper', 'drone', 'shield', 'mortar', 'crawler', 'sniper'],
       bosses: ['bastion', 'phantom'],
     },
     {
@@ -106,8 +106,8 @@ export const BIOMES = withLang<Biome, 'name'>(
       wallLine: '#e8d7a8',
       // the wide corridors are the concourse and the rooms are the tenants' units; the cover is sofas, benches and planters
       gen: { kind: 'rooms', map: 44, roomMin: 6, roomMax: 9, corridorW: 2, platform: 0.3, rubble: 0.07, bridges: 2 },
-      enemies: ['crawler', 'drone', 'shield', 'turret', 'crawler', 'drone'],
-      // placeholders: the sector's own bosses are to come (a mortar enemy too), until then these two
+      enemies: ['crawler', 'drone', 'shield', 'mortar', 'crawler', 'drone'],
+      // placeholders: the sector's own bosses are to come, until then these two
       bosses: ['trinity', 'crusher'],
     },
   ],
