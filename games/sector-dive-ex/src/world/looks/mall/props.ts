@@ -1,0 +1,294 @@
+import { PAINT } from '../../../data/colors.ts';
+import * as THREE from 'three';
+import type { Rng } from '@engine/core/util.ts';
+import { tileCenter } from '@engine/world/tiles.ts';
+import type { PropRule } from '@engine/world/slots.ts';
+import { WALL_H } from '../../../data/level.ts';
+import type { FloorPlan } from '../../building.ts';
+import { wallPic } from '../common.ts';
+import { SIGN_FONT, canvasTex, poolTex } from '../paint.ts';
+import { FULL_SIZE, facing, floorNear, lightMat, onWall, overHead, pose, propTools } from '../props.ts';
+import { tactileLine } from './tactile.ts';
+import type { Light } from '../props.ts';
+import { MALL_DIRECTIONS } from '../../../i18n/signs.ts';
+import { MALL_LANE_WALLS, MALL_ROOM_WALLS, MALL_WALL_PICS, MALL_WALL_SIDES } from './pictures.ts';
+import { BRASS } from './shared.ts';
+// The props of the shopping mall (MALL): the things fixed to its walls and ceilings, and the light they throw. They go
+// by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
+// together.
+// ---- tuning numbers used only here ----
+const POOL_OPACITY = 0.22; // the light a downlight or an emergency lamp throws on the floor (faint: nothing may be lost in it)
+const GLOW_OPACITY = 0.26; // ... an emergency lamp on its wall
+const PLAIN_WALLS = [0, 3, 4, 5, 6, 7]; // the walls that take an emergency lamp (clear of the signs and windows)
+const POTTED_WALLS = [0, 1, 4, 6, 7]; // ... a dead plant (clear of the doors, cases and machines)
+// ---- the things on the walls and ceilings ----
+// (everything hangs above head height, EYE in src/data/level.ts, or lies flat on a wall or the ceiling; none of it has a
+// body in the tile world)
+const MALL_PROPS: PropRule[] = [
+  { id: 'direction', slots: ['corridor', 'center'], blocks: false, count: [4, 6], gap: 6 },
+  { id: 'camera', slots: ['floor', 'center', 'corridor'], blocks: false, count: [10, 14], gap: 5 },
+  { id: 'speaker', slots: ['floor', 'center', 'corridor'], blocks: false, count: [12, 16], gap: 4 },
+  { id: 'banner', slots: ['floor', 'center'], blocks: false, count: [5, 8], gap: 5 },
+  { id: 'downlight', slots: ['floor', 'center', 'corridor'], blocks: false, count: [8, 12], gap: 5 },
+  { id: 'exitLamp', slots: ['wall'], blocks: false, count: [10, 14], gap: 4 },
+  { id: 'plant', slots: ['wall'], blocks: false, count: [9, 13], gap: 4 },
+];
+const DIRECTION = { w: 1.7, h: 0.55, thick: 0.08, bottom: 4.3, rod: 0.025 }; // a direction sign hung from the ceiling (m)
+const CAMERA = { r: 0.17, baseR: 0.2, baseH: 0.04 }; // a dome camera under the ceiling (m)
+const SPEAKER = { r: 0.14, h: 0.06, grille: 0.1 }; // a ceiling speaker (m)
+const BANNER = { w: 0.95, len: [2.0, 2.5] as const, bottom: 3.3, bar: 0.05 }; // a cloth banner from the ceiling (m)
+const DOWNLIGHT = { r: 0.2, color: PAINT.amber6, size: 0.8 }; // a downlight that is still on (m; size of its pool)
+const EXIT_LAMP = { w: 0.5, h: 0.16, thick: 0.12, y: 4.2, color: 0xe6e8c6, glow: 2.2, size: 0.5 }; // an emergency lamp on a wall (m)
+const PLANT = { potR: 0.26, potH: 0.42, out: 0.36, twigH: 1.0, color: 0x7a5b41, dry: 0x5e4b33, leaf: 0x80703f }; // a dead plant in a pot (m)
+const BANNER_COLORS = [0x8aa7a3, 0xb08c7e, 0x9aa07c, 0x8b8fb0, 0xb7a174]; // cloth gone pale
+const FITTING = 0x8b887c; // trims and mounts
+const DARK_GLASS = 0x2c2c2e;
+const SIGN_BOARD = '#4d3626'; // a board of dark wood
+const SIGN_WORDS = '#e7d5a6';
+const SIGN_W = 340,
+  SIGN_H = 110; // px of a direction sign's picture
+
+interface MallShared {
+  directions: THREE.CanvasTexture[];
+  banner: THREE.CanvasTexture;
+}
+let mallShared: MallShared | null = null;
+// a direction sign: a dark blue board with a brass rim and where it points, in pale letters
+function directionTex(text: string): THREE.CanvasTexture {
+  return canvasTex(SIGN_W, SIGN_H, g => {
+    g.fillStyle = SIGN_BOARD;
+    g.fillRect(0, 0, SIGN_W, SIGN_H);
+    g.strokeStyle = BRASS;
+    g.lineWidth = 5;
+    g.strokeRect(5, 5, SIGN_W - 10, SIGN_H - 10);
+    g.fillStyle = SIGN_WORDS;
+    g.font = `700 46px ${SIGN_FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(text, SIGN_W / 2, SIGN_H / 2 + 2, SIGN_W - 40);
+    g.fillStyle = 'rgba(14,12,10,.22)';
+    g.fillRect(0, 0, SIGN_W, SIGN_H);
+  });
+}
+// a banner of cloth, a pale ground that each copy tints in its own colour: a stripe at its head and foot, a ring and
+// a pennant between them, creases and stains
+function bannerTex(): THREE.CanvasTexture {
+  const w = 96,
+    h = 256;
+  return canvasTex(w, h, g => {
+    g.fillStyle = '#d9d6cc';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(40,36,30,.35)';
+    g.fillRect(0, 0, w, 16);
+    g.fillRect(0, h - 22, w, 22);
+    g.strokeStyle = 'rgba(40,36,30,.4)';
+    g.lineWidth = 5;
+    g.beginPath();
+    g.arc(w / 2, h * 0.36, 22, 0, Math.PI * 2);
+    g.stroke();
+    g.fillStyle = 'rgba(40,36,30,.3)';
+    g.beginPath();
+    g.moveTo(14, h * 0.58);
+    g.lineTo(w - 14, h * 0.58);
+    g.lineTo(w / 2, h * 0.58 + 52);
+    g.fill();
+    g.fillStyle = 'rgba(60,50,36,.16)';
+    for (let x = 12; x < w; x += 22) g.fillRect(x, 16, 2, h - 40);
+    g.fillStyle = 'rgba(76,60,40,.2)';
+    g.beginPath();
+    g.ellipse(w * 0.3, h * 0.82, 16, 22, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = 'rgba(210,214,222,.14)';
+    g.fillRect(0, 0, w * 0.4, h);
+  });
+}
+// Direction signs hung over the concourse and the rooms, dome cameras and speakers under the ceiling, a few
+// downlights that are still on, cloth banners from the ceilings of the rooms, and emergency lamps on the walls, each
+// glowing a little on the wall round it
+export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
+  mallShared ??= { directions: MALL_DIRECTIONS.map(directionTex), banner: bannerTex() };
+  const shared = mallShared,
+    tools = propTools(plan, group, MALL_PROPS, rng),
+    { d, wallOf, add } = tools,
+    pictureOf = (wall: number) =>
+      wallPic(d, wall, MALL_WALL_PICS.length, MALL_LANE_WALLS, MALL_WALL_SIDES, MALL_ROOM_WALLS);
+  // (no ceiling where it is open to the sky; none in the boss room: its ceiling is twice as high, and a fitting at the
+  // usual height would hang in the air)
+  const bossRoom = plan.hall ? plan.hall.room : null,
+    overhead = (id: string) => tools.of(id).filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom),
+    lights: Light[] = [];
+
+  // direction signs: a board on two rods, one of the sorts at random, across or along the way. Over a deck they are
+  // moved up out of the eye (overHead)
+  const signs: THREE.Matrix4[][] = shared.directions.map(() => []),
+    rods: THREE.Matrix4[] = [];
+  overhead('direction').forEach(s => {
+    const x = tileCenter(s.i),
+      z = tileCenter(s.j),
+      bottom = overHead(DIRECTION.bottom, floorNear(d, s.i, s.j)),
+      turn = rng.next() < 0.5 ? 0 : Math.PI / 2,
+      rodLen = WALL_H - bottom - DIRECTION.h;
+    signs[rng.randi(0, signs.length - 1)]!.push(pose(new THREE.Vector3(x, bottom + DIRECTION.h / 2, z), turn));
+    if (rodLen <= 0) return;
+    for (const dx of [-DIRECTION.w * 0.35, DIRECTION.w * 0.35])
+      rods.push(
+        pose(
+          new THREE.Vector3(x + Math.cos(turn) * dx, bottom + DIRECTION.h + rodLen / 2, z - Math.sin(turn) * dx),
+          0,
+          new THREE.Vector3(1, rodLen, 1),
+        ),
+      );
+  });
+  const fitting = new THREE.MeshBasicMaterial({ color: FITTING });
+  const board = new THREE.BoxGeometry(DIRECTION.w, DIRECTION.h, DIRECTION.thick);
+  signs.forEach((where, n) => {
+    const face = new THREE.MeshBasicMaterial({ map: shared.directions[n]! });
+    add(board, [fitting, fitting, fitting, fitting, face, face], where);
+  });
+  add(new THREE.BoxGeometry(DIRECTION.rod, 1, DIRECTION.rod), fitting, rods);
+
+  // dome cameras: a pale mount and a smoked dome under it
+  const mounts: THREE.Matrix4[] = [],
+    domes: THREE.Matrix4[] = [];
+  overhead('camera').forEach(s => {
+    const x = tileCenter(s.i) + rng.rand(-1, 1),
+      z = tileCenter(s.j) + rng.rand(-1, 1);
+    mounts.push(pose(new THREE.Vector3(x, WALL_H - CAMERA.baseH / 2, z)));
+    domes.push(pose(new THREE.Vector3(x, WALL_H - CAMERA.baseH, z)));
+  });
+  add(new THREE.CylinderGeometry(CAMERA.baseR, CAMERA.baseR, CAMERA.baseH, 12), fitting, mounts);
+  add(
+    new THREE.SphereGeometry(CAMERA.r, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI),
+    new THREE.MeshBasicMaterial({ color: 0x3a3b40 }),
+    domes,
+  );
+
+  // ceiling speakers: a round case with a dark grille
+  const cases: THREE.Matrix4[] = [],
+    grilles: THREE.Matrix4[] = [];
+  overhead('speaker').forEach(s => {
+    const x = tileCenter(s.i) + rng.rand(-1.2, 1.2),
+      z = tileCenter(s.j) + rng.rand(-1.2, 1.2);
+    cases.push(pose(new THREE.Vector3(x, WALL_H - SPEAKER.h / 2, z)));
+    grilles.push(pose(new THREE.Vector3(x, WALL_H - SPEAKER.h - 0.004, z)));
+  });
+  add(new THREE.CylinderGeometry(SPEAKER.r, SPEAKER.r, SPEAKER.h, 12), fitting, cases);
+  add(
+    new THREE.CircleGeometry(SPEAKER.grille, 12).rotateX(Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: DARK_GLASS }),
+    grilles,
+  );
+
+  // downlights still on: over the painted one of the tile (the middle of the tile, as painted), with a faint warm pool
+  // of light on the floor under it
+  const rims: THREE.Matrix4[] = [],
+    lit: THREE.Matrix4[] = [];
+  overhead('downlight').forEach(s => {
+    const x = tileCenter(s.i),
+      z = tileCenter(s.j);
+    rims.push(pose(new THREE.Vector3(x, WALL_H - 0.012, z)));
+    lit.push(pose(new THREE.Vector3(x, WALL_H - 0.02, z)));
+    lights.push({ x, z, color: DOWNLIGHT.color, size: DOWNLIGHT.size });
+  });
+  add(new THREE.CircleGeometry(DOWNLIGHT.r + 0.04, 16).rotateX(Math.PI / 2), fitting, rims);
+  add(
+    new THREE.CircleGeometry(DOWNLIGHT.r, 16).rotateX(Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: DOWNLIGHT.color }),
+    lit,
+  );
+
+  // banners: a cloth on a bar, hung from the ceiling of a room; over a deck it hangs higher (overHead), shorter
+  const cloths: THREE.Matrix4[] = [],
+    clothColors: number[] = [],
+    bars: THREE.Matrix4[] = [];
+  overhead('banner').forEach(s => {
+    const x = tileCenter(s.i) + rng.rand(-1, 1),
+      z = tileCenter(s.j) + rng.rand(-1, 1),
+      turn = rng.rand(0, Math.PI),
+      bottom = overHead(BANNER.bottom, floorNear(d, s.i, s.j)),
+      top = WALL_H - 0.05,
+      len = Math.min(rng.rand(BANNER.len[0], BANNER.len[1]), top - bottom);
+    if (len < 0.8) return;
+    cloths.push(pose(new THREE.Vector3(x, top - len / 2, z), turn, new THREE.Vector3(1, len, 1)));
+    clothColors.push(rng.pick(BANNER_COLORS));
+    bars.push(pose(new THREE.Vector3(x, top, z), turn));
+  });
+  add(
+    new THREE.PlaneGeometry(BANNER.w, 1),
+    new THREE.MeshBasicMaterial({ map: shared.banner, side: THREE.DoubleSide }),
+    cloths,
+    clothColors,
+  );
+  add(new THREE.BoxGeometry(BANNER.w + 0.1, BANNER.bar, BANNER.bar), fitting, bars);
+
+  // emergency lamps: a pale lit box on a plain wall above the eye, its glow on the wall round it and a faint pool on
+  // the floor before it
+  const lampBox: THREE.Matrix4[] = [],
+    lampFace: THREE.Matrix4[] = [],
+    glow: THREE.Matrix4[] = [];
+  tools
+    .of('exitLamp')
+    .filter(s => PLAIN_WALLS.includes(pictureOf(wallOf(s))))
+    .forEach(s => {
+      const off = rng.rand(-1.2, 1.2),
+        turn = facing(s),
+        floor = onWall(s, off, 1.2, 0);
+      lampBox.push(pose(onWall(s, off, EXIT_LAMP.thick / 2, EXIT_LAMP.y), turn));
+      lampFace.push(pose(onWall(s, off, EXIT_LAMP.thick + 0.006, EXIT_LAMP.y), turn));
+      glow.push(pose(onWall(s, off, 0.03, EXIT_LAMP.y), turn));
+      lights.push({ x: floor.x, z: floor.z, color: EXIT_LAMP.color, size: EXIT_LAMP.size });
+    });
+  add(new THREE.BoxGeometry(EXIT_LAMP.w, EXIT_LAMP.h, EXIT_LAMP.thick), fitting, lampBox);
+  add(
+    new THREE.PlaneGeometry(EXIT_LAMP.w - 0.08, EXIT_LAMP.h - 0.06),
+    new THREE.MeshBasicMaterial({ color: EXIT_LAMP.color }),
+    lampFace,
+  );
+  add(
+    new THREE.PlaneGeometry(EXIT_LAMP.glow, EXIT_LAMP.glow * 0.7),
+    lightMat(poolTex(), GLOW_OPACITY, EXIT_LAMP.color),
+    glow,
+  );
+
+  // dead plants in pots, at the foot of a plain wall: a pot, bare twigs leaning out of it, a few dry leaves
+  const pots: THREE.Matrix4[] = [],
+    twigs: THREE.Matrix4[] = [],
+    leaves: THREE.Matrix4[] = [];
+  tools
+    .of('plant')
+    .filter(s => POTTED_WALLS.includes(pictureOf(wallOf(s))))
+    .forEach(s => {
+      const off = rng.rand(-1.4, 1.4),
+        turn = facing(s);
+      pots.push(pose(onWall(s, off, PLANT.out, PLANT.potH / 2), turn));
+      for (const lean of [-0.45, 0.05, 0.4]) {
+        const tip = lean + rng.rand(-0.1, 0.1);
+        twigs.push(
+          pose(
+            onWall(s, off + Math.sin(tip) * 0.2, PLANT.out, PLANT.potH + PLANT.twigH / 2 - 0.05),
+            turn,
+            FULL_SIZE,
+            -tip,
+          ),
+        );
+        leaves.push(
+          pose(
+            onWall(s, off + Math.sin(tip) * (0.2 + PLANT.twigH * 0.5), PLANT.out, PLANT.potH + PLANT.twigH * 0.85),
+            turn,
+            FULL_SIZE,
+            -tip,
+          ),
+        );
+      }
+    });
+  add(
+    new THREE.CylinderGeometry(PLANT.potR, PLANT.potR * 0.75, PLANT.potH, 10),
+    new THREE.MeshBasicMaterial({ color: PLANT.color }),
+    pots,
+  );
+  add(new THREE.BoxGeometry(0.035, PLANT.twigH, 0.035), new THREE.MeshBasicMaterial({ color: PLANT.dry }), twigs);
+  add(new THREE.BoxGeometry(0.28, 0.05, 0.16), new THREE.MeshBasicMaterial({ color: PLANT.leaf }), leaves);
+
+  tactileLine(plan, tools.add);
+  tools.pools(lights, POOL_OPACITY);
+}

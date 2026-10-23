@@ -132,6 +132,10 @@ const ESCAPE_RUN = 2.6,
   ESCAPE_LANDING = 0.7,
   ESCAPE_TREADS = 12;
 const RISER_IN = 0.3; // what runs up a corner of an atrium's gallery stands this far from both its walls (m)
+const FOUNTAIN_R = 2.3; // the drained fountain in the middle of a mall's atrium: the radius of its rim (m)
+const FOUNTAIN_RIM_H = 0.5; // ... and how high the rim stands (m)
+const BANNER_LEN = [2.5, 4.5] as const; // how far a banner hangs down from the roof (m; short of the deck of a bridge across the well)
+const BANNER_CLOTH = [0x7d9692, 0x9c7f72, 0x8a906f, 0x7d809f, 0xa09068]; // an atrium's banners: cloth gone pale
 const DECK_CLEAR = 4.5; // nothing is strung across a yard this far over a bridge's deck (m)
 const WINDOW_DROP = 1.2; // a window's middle is about this far under the middle of its storey's wall tile (m)
 
@@ -508,7 +512,8 @@ export function dressYard(
 // ---- what hangs in an atrium ----
 // By sector: the old downtown's pendant lamps at different heights; the smelter's crane girder, its chains and hook,
 // and hot pipes up the corners; the broadcasting house's lighting truss with its lamps, and hanging cables; the data
-// floor's cable trays across the well and columns of status lights
+// floor's cable trays across the well and columns of status lights; the mall's cloth banners from the roof and the rim
+// of a drained fountain on the ground
 export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
   dim = new THREE.Color(0xffffff);
   const b = batcher(group),
@@ -619,6 +624,32 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
           z,
         );
     }
+  } else if (sector === 'MALL') {
+    // faded cloth banners hung from the glass roof, high over the heads (and clear of a bridge across the well), and
+    // on the ground at the middle the rim of a fountain that has been drained: low and flat, nothing to walk round
+    for (let k = 0; k < 5; k++) {
+      const len = BANNER_LEN[0] + yardDice(k, 3, 6) * (BANNER_LEN[1] - BANNER_LEN[0]);
+      b.put(
+        'banner',
+        () => [box(0.9, 1, 0.03), flat(BANNER_CLOTH[k % BANNER_CLOTH.length]!)],
+        well.cx + off((yardDice(k, 1, 6) - 0.5) * 0.7, well.wide),
+        well.sky - 0.4 - len / 2,
+        well.cz + off((yardDice(k, 2, 6) - 0.5) * 0.7, well.deep),
+        yardDice(k, 4, 6) * Math.PI,
+        0,
+        [1, len, 1],
+      );
+    }
+    b.put(
+      'fountainRim',
+      () => [new THREE.TorusGeometry(FOUNTAIN_R, 0.2, 6, 28), flat(0x8d8878)],
+      well.cx,
+      well.ground + FOUNTAIN_RIM_H / 2,
+      well.cz,
+      0,
+      Math.PI / 2,
+      [1, 1, FOUNTAIN_RIM_H / 0.4],
+    );
   } else {
     // pendant lamps: a thin rod from the roof, a warm globe at its end, at different heights
     for (let k = 0; k < 7; k++) {

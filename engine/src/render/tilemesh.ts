@@ -110,6 +110,7 @@ export interface DeckLook {
   side: THREE.Texture;
   cover: THREE.Texture;
   coverTint: number;
+  skipCover?: boolean; // the cover tiles are not drawn here (the game draws them its own way)
 }
 // raised decks, walkways and cover (not ramps): one box per tile, scaled to the tile's height
 export function addDecks(look: DeckLook, group: THREE.Group) {
@@ -122,7 +123,7 @@ export function addDecks(look: DeckLook, group: THREE.Group) {
   (
     [
       [raised.filter(k => !cover[k]), sideMat],
-      [raised.filter(k => cover[k]), coverSideMat],
+      [look.skipCover ? [] : raised.filter(k => cover[k]), coverSideMat],
     ] as [number[], THREE.Material][]
   ).forEach(([tiles, mat]) => {
     if (!tiles.length) return;

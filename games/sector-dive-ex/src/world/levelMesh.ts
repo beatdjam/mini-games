@@ -120,7 +120,8 @@ export function buildFloorMeshes(
     );
     look.walls.forEach((map, v) => {
       const mine = walls.filter(
-          ([i, j]) => wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls, look.wallSides) === v,
+          ([i, j]) =>
+            wallPic(plan.gen, j * W + i, look.walls.length, look.laneWalls, look.wallSides, look.roomWalls) === v,
         ),
         dusk = look.shadedWalls?.[v];
       // (a picture with a shaded one: as it is where it faces west, the shaded one elsewhere)
@@ -137,7 +138,8 @@ export function buildFloorMeshes(
       const faces: WindowFace[] = [];
       for (const [i, j] of walls) {
         const k = j * W + i,
-          rects = outside.panes[wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides)];
+          rects =
+            outside.panes[wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides, look.roomWalls)];
         if (!rects) continue;
         for (const [di, dj] of floorSides(plan.gen, k)) {
           const into = plan.court?.open && plan.court.tiles.includes((j - dj) * W + i - di) ? yardInto(di, dj) : 0;
@@ -171,7 +173,16 @@ export function buildFloorMeshes(
     planes(floorTiles, 0, true, new THREE.MeshBasicMaterial({ map: tex.floor }));
     wallBoxes(tex.wall, walls);
   }
-  addDecks(tex, group, look?.deckSide);
+  // (cover a look draws itself: its tiles are left out of the decks)
+  addDecks(tex, group, look?.deckSide, !!look?.cover);
+  if (look?.cover) {
+    const { cover: isCover } = plan.gen.maps;
+    look.cover(
+      all.filter(k => grid[k] === 1 && isCover[k]),
+      plan,
+      group,
+    );
+  }
   addRamps(tex, group, look?.deckSide);
   buildHazardMesh(biome, plan.gen.hazard, group);
   const dark = look

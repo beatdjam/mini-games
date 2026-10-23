@@ -27,6 +27,37 @@ export const CITY_EXIT = '非常口';
 export const CITY_GUIDE = 'フロア案内';
 export const CITY_EXTINGUISHER = '消火器';
 export const CITY_KEEP_OUT = '立入禁止';
+// The shopping mall: made-up shop names (the shutters of the closed shops), the plates and notices of a Japanese
+// mall (floor guide, closing sale, closed, toilets, fire hydrant), the places the hanging direction signs point to,
+// and the warning ("staff only") on the boss room's loading-bay shutter
+// (by kind of shop: a clothes shop, a cafe, a bookshop, an optician's, an electronics shop, a drugstore, a food court;
+// the first name is on the room's walls, the second on a shop front)
+export const MALL_SHOP_NAMES = [
+  ['ルナ・ブティック', 'ファッション ミドリ'],
+  ['カフェ ソレイユ', '喫茶 みなと'],
+  ['ほんのいずみ', '書店 あおぞら'],
+  ['メガネのミツイ', 'めがね ひかり'],
+  ['デンキのサクラ', 'スマホ館'],
+  ['くすりの こもれび', 'ドラッグ ミナモ'],
+  ['フードコート', 'うどん 山彦'],
+];
+// the words in the shops' rooms: the cafe's menu board, the food court's tray return, the optician's eye chart is
+// letters only
+export const MALL_MENU = 'メニュー';
+export const MALL_TRAY_RETURN = '返却口';
+export const MALL_PHARMACY = '調剤薬局';
+export const MALL_FITTING = '試着室';
+export const MALL_GUIDE = 'フロアガイド';
+export const MALL_SALE = '閉店セール';
+export const MALL_CLOSED = '閉店しました';
+export const MALL_TOILET = 'お手洗い';
+export const MALL_HYDRANT = '消火栓';
+export const MALL_STAFF_ONLY = '関係者以外立入禁止';
+export const MALL_EXIT = '非常口';
+export const MALL_NOTICE = 'お知らせ';
+export const MALL_PUSH = '押';
+export const MALL_ATM = 'ATM';
+export const MALL_DIRECTIONS = ['↑ フードコート', '← 駐車場', 'お手洗い →', 'インフォメーション →'];
 // The discarded data layer: the numbers on the racks, the zone's plate on a wall (its code, and "mind the static"),
 // and the word painted down each leaf of the boss room's door ("sealed")
 export const DATA_RACK_IDS = ['A-01', 'A-02', 'A-03', 'B-07', 'B-08', 'C-12'];

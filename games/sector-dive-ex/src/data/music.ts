@@ -112,6 +112,19 @@ Object.assign(MUSIC_STYLES, {
     snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
     hat: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
   },
+  // closed shopping mall: the in-store music still playing to nobody, warped; soft sine pad, a syncopated plinking arp
+  MALL: {
+    bpm: 88,
+    root: 46,
+    scale: 'minor',
+    prog: [0, 1, 3, 4],
+    padWave: 'sine',
+    padCut: 1500,
+    arp: { wave: 'triangle', cut: 2200, echo: true, pat: [0, _, _, 2, _, 1, _, _, 3, _, _, 2, _, _, 4, _] },
+    bass: { wave: 'triangle', cut: 340, pat: [1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0] },
+    kick: [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+    hat: [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+  },
 });
 // layer levels per situation
 // tension: combat-only layer (pulsing 16th ostinato with a rising filter, busy hats, a dissonant stab)
