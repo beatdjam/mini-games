@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
+import { T, tileCenter } from '@engine/world/tiles.ts';
 import { HALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
 import { wallPic } from '../common.ts';
+import { hallSurround } from '../hallFaces.ts';
+import type { HallFace } from '../hallFaces.ts';
 import { canvasTex } from '../paint.ts';
 import { facing, onWall, pose } from '../props.ts';
-import type { Light, PropTools, WallSlot } from '../props.ts';
+import type { Light, PropTools } from '../props.ts';
 import { mallBoxTex } from './cutouts.ts';
 import {
   MALL_DOCK_BAYS,
@@ -123,8 +125,6 @@ const oilTex = () =>
     g.stroke();
   });
 
-type Face = WallSlot & { side: number; edge: boolean };
-
 export function dockProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd'>, rng: Rng, lights: Light[]) {
   if (!plan.hall) return;
   shared ??= {
@@ -137,42 +137,9 @@ export function dockProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd'>, 
   };
   const tex = shared,
     { add, d } = tools,
-    room = d.rooms[plan.hall.room]!,
-    inside = (i: number, j: number): boolean =>
-      i >= room.x && i < room.x + room.w && j >= room.y && j < room.y + room.h,
-    // (a tile of the room with nothing special about its floor: no deck, ramp, cover, hole)
-    plain = (k: number): boolean =>
-      d.maps.grid[k] === 1 &&
-      d.maps.roomOf[k] === plan.hall!.room &&
-      d.maps.hgt[k] === 0 &&
-      d.maps.ramp[k]! < 0 &&
-      !d.maps.cover[k] &&
-      !plan.noFloor[k],
-    // (nothing stands by a door: it would be in the doorway)
-    byDoor = (f: WallSlot): boolean =>
-      [[0, 0], ...SIDE_STEP].some(([di, dj]) => !!d.maps.door?.[(f.j + dj!) * d.W + f.i + di!]),
-    pictureOf = (f: WallSlot): number => {
-      const [di, dj] = SIDE_STEP[f.side ?? 0]!;
-      return wallPic(
-        d,
-        (f.j + dj) * d.W + f.i + di,
-        MALL_WALL_PICS.length,
-        MALL_LANE_WALLS,
-        MALL_WALL_SIDES,
-        MALL_ROOM_WALLS,
-        MALL_LIFT_WALLS,
-      );
-    },
-    faces: Face[] = [];
-  for (let j = room.y; j < room.y + room.h; j++)
-    for (let i = room.x; i < room.x + room.w; i++) {
-      if (!plain(j * d.W + i)) continue;
-      SIDE_STEP.forEach(([di, dj], side) => {
-        const wall = (j + dj) * d.W + i + di;
-        if (!d.maps.grid[wall] && !plan.voids[wall]) faces.push({ i, j, side, edge: !inside(i + di, j + dj) });
-      });
-    }
-  const open = faces.filter(f => !byDoor(f)),
+    { room, plain, open, pictureOf } = hallSurround(plan, d, wall =>
+      wallPic(d, wall, MALL_WALL_PICS.length, MALL_LANE_WALLS, MALL_WALL_SIDES, MALL_ROOM_WALLS, MALL_LIFT_WALLS),
+    ),
     flat = (color: number) => new THREE.MeshBasicMaterial({ color }),
     cartonsOf = new Map<THREE.Texture, THREE.Matrix4[]>(),
     carton = (pos: THREE.Vector3, turn: number, w: number, h: number, deep: number) => {
@@ -219,7 +186,7 @@ export function dockProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd'>, 
 
   // ---- pallet racks, cage trolleys, wrapped pallets and stacks of empty pallets along the walls ----
   const edges = open.filter(f => f.edge),
-    racked = new Set<Face>(),
+    racked = new Set<HallFace>(),
     posts: THREE.Matrix4[] = [],
     beams: THREE.Matrix4[] = [],
     decks: THREE.Matrix4[] = [];

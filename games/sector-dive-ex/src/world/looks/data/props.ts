@@ -5,15 +5,17 @@ import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { WALL_PLAIN_SHARE, variantOf, wallPic } from '../common.ts';
 import { poolTex } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
 import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { hallBoxTex, hallHeapTex, hallTex, loopsTex } from './cutouts.ts';
-import { CABLES, DATA_WALLS, RACK, RACK_PICS } from './pictures.ts';
+import { DATA_ALL_WALLS, DATA_ROOM_WALLS, DATA_WALLS, RACK, RACK_PICS } from './pictures.ts';
 import type { WallPic } from './pictures.ts';
+import { hallProps } from './hallProps.ts';
+import { CABLES } from './strokes.ts';
 // The props of the discarded data layer (DATA): the things fixed to its walls and ceilings, and the light they throw.
 // They go by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts
 // the two together.
@@ -51,7 +53,8 @@ const HOUSING = 0x2a3036; // boxes, brackets
 // the walls
 let dataKit: WallKit | null = null;
 const makeDataKit = (): WallKit => ({
-  pics: DATA_WALLS.length,
+  pics: DATA_ALL_WALLS,
+  rooms: DATA_ROOM_WALLS,
   bare: DATA_WALLS.flatMap((pic, n) => (pic === 'panel' || pic === 'blank' ? [n] : [])),
   units: {
     maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => hallTex(400 + n)),
@@ -111,6 +114,14 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     housing = new THREE.MeshBasicMaterial({ color: HOUSING }),
     tinted = new THREE.MeshBasicMaterial({ color: 0xffffff }), // takes each copy's own colour
     lights: Light[] = [];
+  // The server hall (the boss room) has its own things (hallProps.ts), so what is fixed to its walls here is left out:
+  // on the walls of the room, and on the side of them that the corridor behind sees (the hall's pictures are on both
+  // sides). The dice are thrown all the same, so the rest of the floor comes out as it did
+  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
+  const bossRoom = plan.hall ? plan.hall.room : null,
+    inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
+      s.room === bossRoom ||
+      wallPic(d, wallOf(s), DATA_ALL_WALLS, undefined, undefined, DATA_ROOM_WALLS) >= DATA_WALLS.length;
 
   // cable ladders: two rails and their rungs on brackets, the cables lying on them, a box at each end where the
   // cables go into the wall
@@ -123,6 +134,7 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   of('tray').forEach(s => {
     const turn = facing(s),
       y = TRAY.y + rng.rand(-0.2, 0.2);
+    if (inHall(s)) return;
     for (const side of [-1, 1]) {
       rail.push(pose(onWall(s, 0, TRAY.out + (side * TRAY.w) / 2, y), turn));
       bracket.push(pose(onWall(s, side * TRAY.len * 0.3, (TRAY.out + TRAY.w / 2) / 2, y - 0.07), turn));
@@ -150,11 +162,15 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     .forEach(s => {
       const off = rng.rand(-1.3, 1.3),
         turn = facing(s),
-        count = rng.randi(3, 5);
+        count = rng.randi(3, 5),
+        hidden = inHall(s);
       for (let n = 0; n < count; n++) {
+        const color = rng.pick(CABLES);
+        if (hidden) continue;
         strand.push(pose(onWall(s, off + n * BUNDLE.pitch, BUNDLE.out, WALL_H / 2), turn));
-        strandColors.push(rng.pick(CABLES));
+        strandColors.push(color);
       }
+      if (hidden) return;
       for (const y of BUNDLE.ties)
         tie.push(
           pose(
@@ -175,10 +191,11 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     .filter(s => RACK_PICS.includes(picOf(s)))
     .forEach(s => {
       const off = rng.rand(-1.2, 1.2),
-        turn = facing(s);
-      unit.push(pose(onWall(s, off, 0.04, STATUS_Y), turn));
+        turn = facing(s),
+        hidden = inHall(s);
+      if (!hidden) unit.push(pose(onWall(s, off, 0.04, STATUS_Y), turn));
       STATUS_LAMPS.forEach((c, n) => {
-        if (rng.next() < 0.3) return; // out
+        if (rng.next() < 0.3 || hidden) return; // out
         lamp.push(pose(onWall(s, off + (n - 1) * 0.13, 0.09, STATUS_Y), turn));
         lampColors.push(c);
       });
@@ -194,6 +211,7 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-1, 1),
       turn = facing(s),
       p = onWall(s, off, 0.11, EMERGENCY_Y);
+    if (inHall(s)) return;
     box.push(pose(onWall(s, off, 0.05, EMERGENCY_Y), turn));
     lens.push(pose(p, turn));
     glow.push(pose(onWall(s, off, 0.03, EMERGENCY_Y), turn));
@@ -245,4 +263,6 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // the hall's clutter, wall by wall (looks/dress.ts)
   dressWalls({ add }, d, plan, rng, (dataKit ??= makeDataKit()), lights);
   pools(lights, POOL_OPACITY);
+  // the boss room is the server hall: its own things (after the rest, so the random numbers of the others go on as they did)
+  hallProps(plan, { add, d, pools }, rng);
 }
