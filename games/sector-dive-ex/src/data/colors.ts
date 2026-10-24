@@ -16,6 +16,7 @@ export const COLOR = {
   shield: 0x8cc8ff, // shield enemy, blocked-hit sparks, bastion barrier
   yellow: 0xffe14a, // drone
   bomber: 0xffb13d, // bomber and its blast
+  repair: 0x7dffc0, // the repair drone's beam and the sparks on what it mends
   // the neon of the walled city: its signs, lamps, conduits and posters
   neonPink: 0xff3d8a,
   neonMint: 0x3dffb4,

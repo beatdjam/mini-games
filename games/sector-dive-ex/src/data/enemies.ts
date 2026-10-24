@@ -99,6 +99,22 @@ export const ENEMY: Record<string, EnemyDef> = {
     geo: 'mortar',
     muzzle: 1.14,
   },
+  // the repair drone: never attacks. Flies away from you and mends the most worn enemy near it with a green beam
+  // (src/actors/medic.ts)
+  medic: {
+    hp: 36,
+    speed: 4.2,
+    r: 0.5,
+    y: 2.1,
+    hitR: 0.85,
+    dmg: 0,
+    fly: true,
+    keep: 14,
+    medic: true,
+    bits: 5,
+    color: COLOR.repair,
+    geo: 'medic',
+  },
   // rushes in and detonates; also blows up when shot, hurting nearby enemies too
   bomber: {
     hp: 16,

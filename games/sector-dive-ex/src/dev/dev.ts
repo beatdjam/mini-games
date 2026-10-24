@@ -436,6 +436,37 @@ if (location.hash.startsWith('#view-enemies-'))
       e.mesh.rotation.y = player.yaw;
     });
   }, 300);
+// dev view: #view-medic stands in front of a repair drone mending a worn brute (held where it is) with its beam.
+// ?sector= as above
+if (location.hash === '#view-medic')
+  setTimeout(() => {
+    startRun();
+    const sector = BIOMES.findIndex(x => x.code === new URLSearchParams(location.search).get('sector'));
+    if (sector >= 0) {
+      run.route = [sector];
+      run.bld = undefined;
+      startStage();
+    }
+    show(null);
+    setState('play');
+    player.hp = 1e6;
+    player.maxHp = 1e6;
+    enemies.forEach(e => {
+      e.dead = true;
+      removeEnemyMesh(e);
+    });
+    const ahead = (d: number, side: number): [number, number] => [
+        player.x - Math.sin(player.yaw) * d + Math.cos(player.yaw) * side,
+        player.z - Math.cos(player.yaw) * d - Math.sin(player.yaw) * side,
+      ],
+      b = spawnEnemy('brute', ...ahead(9, -1.5), -1, 1),
+      m = spawnEnemy('medic', ...ahead(11, 2), -1, 1);
+    b.active = true;
+    b.stun = 1e6;
+    b.hp = b.maxHp * 0.3;
+    m.active = true;
+    for (let k = 0; k < 40; k++) update(1 / 60);
+  }, 300);
 // dev view: #view-mortar stands in front of a mortar that has just fired (the round in the air, the ring on the floor
 // where the player stood), the player stepped back from it. ?sector= as above
 if (location.hash === '#view-mortar')

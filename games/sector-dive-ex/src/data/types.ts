@@ -114,6 +114,7 @@ export interface EnemyDef {
   muzzle?: number; // muzzle: height of the muzzle above the body
   sniper?: boolean;
   mortar?: boolean; // lobs a shell onto the player's feet (src/actors/mortar.ts)
+  medic?: boolean; // never attacks: keeps away and mends the enemies near it (src/actors/medic.ts)
   bomber?: boolean;
   split?: boolean;
   humanoid?: boolean;
@@ -182,6 +183,8 @@ export interface RegularEnemy extends EnemyBase {
   pz?: number;
   kick?: number; // trooper
   shots?: number; // ranged: rounds fired (the smoke test counts a burst)
+  patient?: RegularEnemy | null;
+  pickT?: number; // repair drone: the enemy it mends now, seconds to choosing again
 }
 // shield: the plate breaks at shieldHp 0; sniper: aim = seconds of aiming left, lock = where the laser locked; trooper: rig = joints,
 // walk = walk cycle, px / pz = last position, kick = gun recoil, parts = head, chest and legs
@@ -191,6 +194,7 @@ export type Shielded = RegularEnemy & {
   def: EnemyDef & { shieldHp: number };
 };
 export type Sniper = RegularEnemy & { aim: number; lock: number[]; laser: Laser };
+export type Medic = RegularEnemy & { patient: RegularEnemy | null; pickT: number; laser: Laser };
 export type Trooper = RegularEnemy & {
   rig: HumanoidRig;
   walk: number;

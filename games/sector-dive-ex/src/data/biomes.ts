@@ -27,7 +27,7 @@ export const BIOMES = withLang<Biome, 'name'>(
       wall: '#2a1209',
       wallLine: '#ff8a3d',
       gen: { kind: 'rooms', platform: 0.3, bridges: 2, hazard: { count: 12, color: 0xff5a1f } },
-      enemies: ['crawler', 'crawler', 'drone', 'turret', 'brute', 'bomber'],
+      enemies: ['crawler', 'medic', 'drone', 'turret', 'brute', 'bomber'],
       bosses: ['crusher', 'hoist'],
     },
     {
@@ -132,8 +132,8 @@ export const BIOMES = withLang<Biome, 'name'>(
         rubble: 0.08,
         bridges: 1,
       },
-      // placeholders: the repair drone is to come, and the sector's own boss (SURGEON) in place of these two
-      enemies: ['crawler', 'drone', 'shield', 'splitter', 'crawler', 'sniper'],
+      enemies: ['crawler', 'medic', 'shield', 'splitter', 'crawler', 'sniper'],
+      // placeholders: the sector's own boss (SURGEON) is to come in place of these two
       bosses: ['watcher', 'bastion'],
     },
   ],
