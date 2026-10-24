@@ -92,7 +92,7 @@ export interface FloorPlan extends FloorOpenings {
   seen: Uint8Array; // per tile: shown on the map; kept while the building lives, so a floor stays explored
   // the courtyard's open middle on this floor (null = none here; world/courtyard.ts)
   court: CourtFloor | null;
-  islands: Island[]; // the mall's islands of waist-high cover in the middle of its big rooms (none in the other sectors)
+  islands: Island[]; // the mall's and the hospital's islands of waist-high cover in the middle of their big rooms (none in the other sectors)
   above: number; // from its ground to the ground of the floor above (m; the top floor: FLOOR_H)
 }
 export interface Building {
@@ -267,6 +267,8 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
   if (biome.code === 'MALL') plans.forEach(p => sinkFoodCourt(p));
   // ... and its big rooms get islands of cover in the middle (from a generator of their own, so the building's random numbers go on as they did)
   if (biome.code === 'MALL') plans.forEach((p, floor) => placeIslands(p, seed, floor));
+  // ... and so do the hospital's (the wards' beds, the waiting hall's benches), none of its rooms being sunk
+  if (biome.code === 'HOSP') plans.forEach((p, floor) => placeIslands(p, seed, floor, -1));
   // the lockdown room: one that can be shut (every opening is a door), with enemies in it
   const fits: { floor: number; room: number }[] = [];
   plans.forEach((p, floor) =>

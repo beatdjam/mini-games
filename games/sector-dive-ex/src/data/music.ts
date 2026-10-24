@@ -125,6 +125,21 @@ Object.assign(MUSIC_STYLES, {
     kick: [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
     hat: [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
   },
+  // closed hospital: quiet and uneasy; a thin sine pad, short high blips like a heart monitor's beep over a slow
+  // two-beat pulse (a heartbeat), no snare
+  HOSP: {
+    bpm: 72,
+    root: 43,
+    scale: 'minor',
+    prog: [0, 5, 3, 4],
+    padWave: 'sine',
+    padCut: 1100,
+    drone: true,
+    arp: { wave: 'sine', cut: 3200, echo: true, pat: [3, _, _, _, _, _, _, _, 3, _, _, _, 5, _, _, _] },
+    bass: { wave: 'sine', cut: 260, pat: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0] },
+    kick: [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    hat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  },
 });
 // layer levels per situation
 // tension: combat-only layer (pulsing 16th ostinato with a rising filter, busy hats, a dissonant stab)

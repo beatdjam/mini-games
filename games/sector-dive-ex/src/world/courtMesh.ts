@@ -22,13 +22,14 @@ import type { Look } from './looks/common.ts';
 const RAIL_H = 1.15,
   RAIL_T = 0.08; // the rail's height and thickness (m)
 // the light an atrium's skylight lets in, by sector (and how strong it lies on the ground): the pale evening sky of
-// the old downtown, the furnaces' glow under a sooted roof, a studio's violet work lights, a machine hall's cold white, a mall's glass roof by moonlight
+// the old downtown, the furnaces' glow under a sooted roof, a studio's violet work lights, a machine hall's cold white, a mall's glass roof by moonlight, a hospital's light well in the evening sun
 const SKYLIGHTS: Record<string, [number, number]> = {
   CITY: [0xdfe9f2, 0.16],
   FORGE: [0xffa868, 0.14],
   NOISE: [0xc9b4ff, 0.13],
   DATA: [0xe6f1ff, 0.18],
   MALL: [0xcfdcf2, 0.17],
+  HOSP: [0xffd9a8, 0.16], // a hospital's light well: the last of the evening sun, warm
 };
 // a run of rail `len` long, centred on (x, z), along x (alongX) or along z
 function addRail(x: number, z: number, len: number, alongX: boolean, group: THREE.Group) {

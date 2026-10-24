@@ -19,8 +19,9 @@ export interface Front {
   kind: number;
   name: string;
 }
-// the shop rooms' fronts on the floor, one for each room: kind, name, and where
-export function shopFronts(plan: FloorPlan): Front[] {
+// the shop rooms' fronts on the floor, one for each room: kind, name (from the kind's list in `names`: the hospital
+// draws its rooms' department boards the same way), and where
+export function shopFronts(plan: FloorPlan, names: string[][] = MALL_SHOP_NAMES): Front[] {
   const { W, H, maps: M } = plan.gen,
     floor = wallFloor.get(M.grid) ?? 0,
     // for each (room, side, line) the corridor tiles along it, by their place along the line
@@ -57,14 +58,14 @@ export function shopFronts(plan: FloorPlan): Front[] {
   }
   return [...best].map(([room, { mid, side }]) => {
     const kind = roomKindOf(M.grid, room),
-      names = MALL_SHOP_NAMES[kind]!;
+      list = names[kind]!;
     return {
       i: mid[0],
       j: mid[1],
       side,
       kind,
-      name: names[
-        Math.floor(((Math.imul(room * 2971 + floor * 55511 + 3, 3266489917) >>> 0) / 4294967296) * names.length)
+      name: list[
+        Math.floor(((Math.imul(room * 2971 + floor * 55511 + 3, 3266489917) >>> 0) / 4294967296) * list.length)
       ]!,
     };
   });

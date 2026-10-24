@@ -109,6 +109,33 @@ export const BIOMES = withLang<Biome, 'name'>(
       enemies: ['crawler', 'drone', 'shield', 'mortar', 'crawler', 'drone'],
       bosses: ['hoist', 'trinity'],
     },
+    {
+      code: 'HOSP',
+      fog: 0x0b100d,
+      fogNear: 5,
+      fogFar: 50,
+      floor: '#16201a',
+      line: '#6f9a82',
+      wall: '#1a261f',
+      wallLine: '#b8e0c8',
+      // long corridors with the wards, consulting rooms and stores opening off them; the cover is beds, stretchers,
+      // wheelchairs and waiting-room benches
+      gen: {
+        kind: 'rooms',
+        map: 44,
+        countMin: 8,
+        countMax: 10,
+        roomMin: 5,
+        roomMax: 8,
+        corridorW: 2,
+        platform: 0.1,
+        rubble: 0.08,
+        bridges: 1,
+      },
+      // placeholders: the repair drone is to come, and the sector's own boss (SURGEON) in place of these two
+      enemies: ['crawler', 'drone', 'shield', 'splitter', 'crawler', 'sniper'],
+      bosses: ['watcher', 'bastion'],
+    },
   ],
   { name: '' },
 );

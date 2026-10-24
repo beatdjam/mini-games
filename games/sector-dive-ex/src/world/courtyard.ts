@@ -34,6 +34,7 @@ const COURT_KINDS: Record<string, CourtKind> = {
   NOISE: 'atrium',
   DATA: 'atrium',
   MALL: 'galleria',
+  HOSP: 'atrium', // a hospital's light well, roofed in glass
 };
 const COURT_ROOFED = 3,
   COURT_YARD = 5,

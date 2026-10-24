@@ -21,12 +21,13 @@ const BRASS_RIM = 0xa88f50;
 const SOIL = 0x2b2219;
 const TWIG = 0x5f4c34;
 
-interface Parts {
+export interface Parts {
   boxes: Map<number, THREE.Matrix4[]>;
   domes: Map<number, THREE.Matrix4[]>;
 }
 // a piece being made: parts placed about the tile's middle (its floor at height cy), the whole piece turned a quarter or not
-function piece(parts: Parts, cx: number, cy: number, cz: number, quarter: boolean) {
+// (the hospital's cover is made the same way: looks/hosp/cover.ts)
+export function piece(parts: Parts, cx: number, cy: number, cz: number, quarter: boolean) {
   const at = new THREE.Matrix4(),
     turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), quarter ? Math.PI / 2 : 0);
   const place = (x: number, z: number): [number, number] => (quarter ? [z, -x] : [x, z]);
@@ -363,6 +364,11 @@ export function mallCover(tiles: number[], plan: FloorPlan, group: THREE.Group) 
     const makers = roomKindOf(plan.gen.maps.grid, plan.gen.maps.roomOf[k]!) === KIND_FOOD ? FOOD_MAKERS : PIECE_MAKERS;
     makers[(h >>> 12) % makers.length]!(p, (h >>> 20) % 7);
   }
+  drawParts(parts, group);
+}
+// the parts of the pieces made, one instanced mesh for all the boxes of a colour (the sides a shade darker than the top) and
+// one for the domes of a colour
+export function drawParts(parts: Parts, group: THREE.Group) {
   const box = new THREE.BoxGeometry(1, 1, 1),
     sphere = new THREE.SphereGeometry(1, 10, 7, 0, Math.PI * 2, 0, Math.PI / 2),
     mats = (color: number) => {
