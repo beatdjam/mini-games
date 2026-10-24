@@ -1,11 +1,11 @@
-import { PAINT } from '../../../data/colors.ts';
+import { PAINT, css } from '../../../data/colors.ts';
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
 import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { HALL_H, WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { WALL_PLAIN_SHARE, variantOf, wallPic } from '../common.ts';
 import { canvasTex, poolTex } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
@@ -13,7 +13,9 @@ import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { hangingTex, studioBoxTex, studioHeapTex, studioTex } from './cutouts.ts';
 import { NOISE_ON_AIR } from '../../../i18n/signs.ts';
-import { FRAME_BLACK, SCREEN, WALL_KINDS } from './pictures.ts';
+import { FRAME_BLACK, NOISE_ALL_WALLS, NOISE_ROOM_WALLS, SCREEN, WALL_KINDS } from './pictures.ts';
+import { hallProps } from './hallProps.ts';
+import { CABLE_TONES, HALL_ON_AIR_DARK } from './strokes.ts';
 import type { WallKind } from './pictures.ts';
 // The props of the deep noise (NOISE): the things fixed to its walls and ceilings, and the light they throw. They go
 // by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
@@ -39,11 +41,10 @@ const LAMP = { len: 1.5, w: 0.26, drop: 0.05 }; // a ceiling lamp: a tube in a t
 const LAMP_COLORS = [0xe4dcff, 0xe4dcff, 0xfff0dc]; // tired white tubes, mostly gone violet
 const SCREEN_COLOR = 0xc4c6ea;
 const ON_AIR_RED = '#ff5b3a';
-const CABLE_TONES = [0x2c2734, 0x4d4759, 0x89826f];
 const FIXING = 0x3a3544; // clamps, hooks, lamp trays
 function onAirTex(lit: boolean): THREE.CanvasTexture {
   return canvasTex(256, 88, g => {
-    g.fillStyle = lit ? '#3a1210' : '#2b2731';
+    g.fillStyle = lit ? css(HALL_ON_AIR_DARK) : '#2b2731';
     g.fillRect(0, 0, 256, 88);
     g.strokeStyle = FRAME_BLACK;
     g.lineWidth = 8;
@@ -87,7 +88,8 @@ let noiseShared: NoiseShared | null = null;
 // road cases let into them, cases and loudspeakers along their feet, microphones left hanging, looms of cable
 let noiseKit: WallKit | null = null;
 const makeNoiseKit = (): WallKit => ({
-  pics: WALL_KINDS.length,
+  pics: NOISE_ALL_WALLS,
+  rooms: NOISE_ROOM_WALLS,
   bare: WALL_KINDS.flatMap((kind, n) => (kind === 'board' || kind === 'foam' || kind === 'cloth' ? [n] : [])),
   units: {
     maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => studioTex(2700 + n)),
@@ -145,6 +147,15 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // the picture on a wall tile
   const kindOf = (wall: number) => WALL_KINDS[variantOf(wall, WALL_KINDS.length, WALL_PLAIN_SHARE)]!;
   const quiet = (s: WallSlot) => QUIET_WALLS.includes(kindOf(wallOf(s)));
+  // The big studio (the boss room) has its own things (hallProps.ts), so what is fixed to its walls here is left out:
+  // on the walls of the room, and on the side of them that the corridor behind sees (the hall's pictures are on both
+  // sides). The dice are thrown all the same, so the rest of the floor comes out as it did
+  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
+  const bossRoom = plan.hall ? plan.hall.room : null,
+    inHallWall = (wall: number): boolean =>
+      wallPic(d, wall, NOISE_ALL_WALLS, undefined, undefined, NOISE_ROOM_WALLS) >= WALL_KINDS.length,
+    inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
+      s.room === bossRoom || inHallWall(wallOf(s));
   const fixing = new THREE.MeshBasicMaterial({ color: FIXING }),
     lights: Light[] = [];
 
@@ -155,7 +166,7 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       if (d.maps.grid[j * d.W + i] !== 1) continue;
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
-        if (d.maps.grid[wall] || plan.voids[wall] || kindOf(wall) !== 'monitor') return;
+        if (d.maps.grid[wall] || plan.voids[wall] || kindOf(wall) !== 'monitor' || inHallWall(wall)) return;
         const s = { i, j, side },
           p = onWall(s, 0, 0.02, SCREEN.y);
         screens.push(pose(p, facing(s)));
@@ -186,11 +197,15 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     clamp: THREE.Matrix4[] = [];
   feeders.forEach(s => {
     const off = rng.rand(-1.4, 1.4),
-      turn = facing(s);
+      turn = facing(s),
+      hidden = inHall(s);
     for (let n = 0; n < 3; n++) {
+      const tone = rng.pick(CABLE_TONES);
+      if (hidden) continue;
       cable.push(pose(onWall(s, off + (n - 1) * FEEDER.gap, FEEDER.out, WALL_H / 2), turn));
-      cableColors.push(rng.pick(CABLE_TONES));
+      cableColors.push(tone);
     }
+    if (hidden) return;
     for (const y of FEEDER.clamps) clamp.push(pose(onWall(s, off, FEEDER.out, y), turn));
   });
   add(
@@ -209,19 +224,20 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   coils.forEach(s => {
     const off = rng.rand(-1.2, 1.2),
       turn = facing(s),
-      tone = rng.pick(CABLE_TONES);
+      tone = rng.pick(CABLE_TONES),
+      hidden = inHall(s);
     for (let n = 0; n < 3; n++) {
       // each turn of the coil a little off the last
-      ring.push(
-        pose(
-          onWall(s, off + rng.rand(-0.03, 0.03), COIL.out + n * 0.035, COIL.y - COIL.r * 0.75 + rng.rand(-0.03, 0.03)),
-          turn,
-          new THREE.Vector3(1 - n * 0.06, 1.25, 1),
-        ),
+      const turned = pose(
+        onWall(s, off + rng.rand(-0.03, 0.03), COIL.out + n * 0.035, COIL.y - COIL.r * 0.75 + rng.rand(-0.03, 0.03)),
+        turn,
+        new THREE.Vector3(1 - n * 0.06, 1.25, 1),
       );
+      if (hidden) continue;
+      ring.push(turned);
       ringColors.push(tone);
     }
-    hook.push(pose(onWall(s, off, COIL.out, COIL.y + COIL.r * 0.2), turn));
+    if (!hidden) hook.push(pose(onWall(s, off, COIL.out, COIL.y + COIL.r * 0.2), turn));
   });
   add(
     new THREE.TorusGeometry(COIL.r, COIL.tube, 6, 20),
@@ -240,6 +256,7 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-0.9, 0.9),
       turn = facing(s),
       on = rng.next() < ON_AIR.litShare;
+    if (inHall(s)) return;
     (on ? lit : dead).push(pose(onWall(s, off, ON_AIR.thick / 2, ON_AIR.y), turn));
     if (on) glow.push(pose(onWall(s, off, 0.03, ON_AIR.y), turn));
   });
@@ -284,4 +301,6 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // the studios' clutter, wall by wall (looks/dress.ts)
   dressWalls({ add }, d, plan, rng, (noiseKit ??= makeNoiseKit()), lights);
   pools(lights, POOL_OPACITY);
+  // the boss room is the big studio: its own things (after the rest, so the random numbers of the others go on as they did)
+  hallProps(plan, { add, d, pools }, rng);
 }
