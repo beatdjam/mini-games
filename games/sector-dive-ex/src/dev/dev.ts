@@ -88,7 +88,9 @@ if (courtParam === 'open' || courtParam === 'roof')
 // to a deck, facing its side), walkway (on a raised walkway along an alley, at its start, looking along it),
 // foodcourt (?sector=MALL: on the ground by the edge of the sunk food court, looking down into it), foodcourtin (the same
 // room from its floor, looking across to the steps up), island (?sector=MALL: from two tiles west of the first island of cover in a
-// big room, looking at it; ?kind=<n> for the first one in a shop of that kind), hoist (HOIST in the boss room: ?pose=wide, drop or pull)
+// big room, looking at it; ?kind=<n> for the first one in a shop of that kind), room (the first room that has a kind, from a
+// corner of it looking across; ?kind=<n> for the first room of that kind: the hospital's wards, consulting rooms ...),
+// hoist (HOIST in the boss room: ?pose=wide, drop or pull)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -322,6 +324,33 @@ if (location.hash.startsWith('#bld-'))
           s = p.islands.find(s => want === null || kinds[p.gen.maps.roomOf[s.j * W + s.i]!] === Number(want));
         if (!s) continue;
         stand(floor, s.j * W + s.i - 2, 1);
+        break;
+      }
+    } else if (what === 'room') {
+      // the first room of a kind (?kind=2: the third kind of the sector's rooms, e.g. the hospital's examination room; none:
+      // any room that has a kind), floor by floor, from a corner of it, looking across to the far corner
+      const want = new URLSearchParams(location.search).get('kind'),
+        look = lookOf(b.biome);
+      for (let floor = 0; floor < b.plans.length; floor++) {
+        const p = b.plans[floor]!,
+          kinds = look?.roomKinds?.(p) ?? [],
+          n = kinds.findIndex(
+            (kind, room) => room !== p.hall?.room && (want === null ? kind >= 0 : kind === Number(want)),
+          );
+        if (n < 0) continue;
+        const r = p.gen.rooms[n]!;
+        let at = -1;
+        for (let j = r.y; j < r.y + r.h && at < 0; j++)
+          for (let i = r.x; i < r.x + r.w && at < 0; i++) {
+            const k = j * W + i;
+            if (p.gen.maps.grid[k] === 1 && !p.gen.maps.cover[k] && p.gen.maps.hgt[k] === 0) at = k;
+          }
+        if (at < 0) continue;
+        stand(floor, at, 1);
+        player.x = (r.x + 0.6) * T;
+        player.z = (r.y + 0.6) * T;
+        player.fy = floorY(player.x, player.z);
+        player.yaw = yawToward(r.w - 1.2, r.h - 1.2);
         break;
       }
     } else if (what === 'boss') {

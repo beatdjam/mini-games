@@ -107,18 +107,21 @@ function lineOf(plan: FloorPlan): Seg[] {
   return [...segs.values()];
 }
 
-// lays the line on a floor's concourse (`add`: PropTools.add)
-export function tactileLine(plan: FloorPlan, add: PropTools['add']) {
+// the line's width and thickness, its height over the floor (m), colour
+export type LineLook = typeof LINE;
+// lays the line on a floor's concourse (`add`: PropTools.add); `look`: the line's own width and colour (the hospital lays
+// its coloured guide lines the same way)
+export function tactileLine(plan: FloorPlan, add: PropTools['add'], look: LineLook = LINE) {
   const along: THREE.Matrix4[] = [],
     across: THREE.Matrix4[] = [];
   for (const s of lineOf(plan)) {
     const horizontal = Math.abs(s.z1 - s.z2) < 0.01,
-      len = (horizontal ? Math.abs(s.x2 - s.x1) : Math.abs(s.z2 - s.z1)) + LINE.w,
-      at = new THREE.Vector3((s.x1 + s.x2) / 2, LINE.y, (s.z1 + s.z2) / 2);
+      len = (horizontal ? Math.abs(s.x2 - s.x1) : Math.abs(s.z2 - s.z1)) + look.w,
+      at = new THREE.Vector3((s.x1 + s.x2) / 2, look.y, (s.z1 + s.z2) / 2);
     (horizontal ? along : across).push(pose(at, horizontal ? 0 : Math.PI / 2, new THREE.Vector3(len, 1, 1)));
   }
-  const slab = new THREE.BoxGeometry(1, LINE.thick, LINE.w),
-    mat = new THREE.MeshBasicMaterial({ color: LINE.color });
+  const slab = new THREE.BoxGeometry(1, look.thick, look.w),
+    mat = new THREE.MeshBasicMaterial({ color: look.color });
   add(slab, mat, along);
   add(slab, mat, across);
 }

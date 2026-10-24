@@ -59,6 +59,8 @@ import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { foodCourtRoom } from '../src/world/looks/mall/rooms.ts';
 import { ISLAND_MIN_AREA } from '../src/world/looks/mall/islands.ts';
+import { hospRoomKinds, waitingRoom } from '../src/world/looks/hosp/rooms.ts';
+import { HOSP_KINDS, KIND_WAITING } from '../src/world/looks/hosp/shared.ts';
 import { groundOf } from '../src/world/meshParts.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
 import { floorSides, wallSide } from '@engine/world/walls.ts';
@@ -2009,6 +2011,7 @@ test('generation is pinned: the same seed gives the same level', () => {
     KWLN: '9b86bedd',
     CITY: 'd1432964',
     MALL: '2c496622',
+    HOSP: 'c933e16e',
     'arena watcher': 'b566d42b',
     'arena crusher': 'b566d42b',
     'arena hoist': 'dc3f981b', // (no pillars, as TRINITY's)
@@ -2595,6 +2598,7 @@ test('building: a courtyard, an atrium with galleries or a yard seen from balcon
     NOISE: false,
     DATA: false,
     MALL: false,
+    HOSP: false,
   };
   for (const biome of BIOMES.filter(x => x.code !== 'CITY'))
     for (let seed = 1; seed <= 20; seed++) {
@@ -3197,7 +3201,7 @@ test('building: the layout a seed gives is that of BUILDING_V', () => {
       b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('') + Array.from(p.gen.maps.hgt).join()));
       mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
     }
-  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v6 479e8722');
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v6 38e80132');
 });
 test('mall: the big rooms have islands of cover, and one can still walk to every doorway of the room', () => {
   devCourtOpen(null);
@@ -3268,9 +3272,68 @@ test('mall: the big rooms have islands of cover, and one can still walk to every
     });
   }
   expect(islands).toBeGreaterThan(30);
-  // (the other sectors have none)
-  for (const biome of BIOMES.filter(x => x.code !== 'MALL'))
+  // (the other sectors have none; the hospital's are tested below)
+  for (const biome of BIOMES.filter(x => x.code !== 'MALL' && x.code !== 'HOSP'))
     expect(makeBuilding(biome, biome.bosses[0]!, 1).plans.every(p => !p.islands.length)).toBe(true);
+});
+test('hospital: the rooms have kinds, the biggest is the waiting hall, and the islands leave the room walkable', () => {
+  devCourtOpen(null);
+  const hosp = BIOMES.find(b => b.code === 'HOSP')!,
+    kindsSeen = new Set<number>();
+  let islands = 0,
+    halls = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    const b = makeBuilding(hosp, hosp.bosses[0]!, seed);
+    b.plans.forEach((p, floor) => {
+      const { W, maps, rooms } = p.gen,
+        kinds = hospRoomKinds(p),
+        waiting = waitingRoom(p),
+        at = `seed ${seed} floor ${floor}`;
+      expect(kinds.length).toBe(rooms.length);
+      kinds.forEach((kind, n) => {
+        kindsSeen.add(kind);
+        expect(kind, `${at} room ${n}`).toBeGreaterThanOrEqual(-1);
+        expect(kind, `${at} room ${n}`).toBeLessThan(HOSP_KINDS);
+        // (the start room and the operating theatre have no kind)
+        if (n === p.gen.startIdx || n === p.hall?.room) expect(kind, `${at} room ${n}`).toBe(-1);
+        if (kind === KIND_WAITING) expect(n, `${at} room ${n}`).toBe(waiting);
+      });
+      if (waiting >= 0) {
+        halls++;
+        const r = rooms[waiting]!;
+        expect(r.w * r.h).toBeGreaterThanOrEqual(48);
+        expect(rooms.every((o, n) => n === waiting || kinds[n] === -1 || o.plat || o.w * o.h <= r.w * r.h)).toBe(true);
+      }
+      p.islands.forEach(s => {
+        islands++;
+        const n = maps.roomOf[s.j * W + s.i]!;
+        expect(kinds[n], `${at} room ${n}`).toBeGreaterThanOrEqual(0);
+      });
+      // one can walk from any free tile of a room that has islands to every other
+      rooms.forEach((r, n) => {
+        if (!p.islands.some(s => maps.roomOf[s.j * W + s.i] === n)) return;
+        const free: number[] = [];
+        for (let j = r.y; j < r.y + r.h; j++)
+          for (let i = r.x; i < r.x + r.w; i++)
+            if (maps.grid[j * W + i] === 1 && !maps.cover[j * W + i]) free.push(j * W + i);
+        const reached = new Set<number>(free.slice(0, 1)),
+          queue = free.slice(0, 1);
+        for (let q = 0; q < queue.length; q++)
+          for (const o of [1, -1, W, -W]) {
+            const k = queue[q]! + o;
+            if (free.includes(k) && !reached.has(k)) {
+              reached.add(k);
+              queue.push(k);
+            }
+          }
+        expect(reached.size, `${at} room ${n}: the free floor is cut in two`).toBe(free.length);
+      });
+    });
+  }
+  expect(islands).toBeGreaterThan(10);
+  expect(halls).toBeGreaterThan(10);
+  // (every kind comes up somewhere)
+  for (let kind = 0; kind < HOSP_KINDS; kind++) expect(kindsSeen.has(kind), `kind ${kind}`).toBe(true);
 });
 test('resume: a run saved on a building laid out another way goes on at the same step of the route', () => {
   goBase();

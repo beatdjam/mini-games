@@ -105,6 +105,49 @@ export const MALL_MASSAGE = 'マッサージ';
 export const MALL_GACHA = 'ガチャ';
 export const MALL_STAND_SALE = 'SALE';
 export const MALL_POPS = ['本日限り', '特価', '在庫一掃'];
+// The closed hospital: the department boards over the rooms' doors (by kind of room: a ward, a consulting room, an
+// examination room, the pharmacy, the linen room and stores, the waiting hall; a room draws its name from its kind's
+// list), the plates and notices of a Japanese general hospital, the signs hung in the corridors and the words on the
+// operating theatre's doors (its boss room)
+export const HOSP_DEPARTMENTS = [
+  ['3階東病棟', '内科病棟', '外科病棟', '小児科病棟', '4階西病棟', '整形外科病棟'],
+  ['内科', '外科', '小児科', '整形外科', '耳鼻咽喉科', '眼科'],
+  ['放射線科', 'CT検査室', 'X線撮影室', '検体検査', '超音波検査', '内視鏡室'],
+  ['薬剤部', '調剤室', '薬局', 'お薬の受け渡し'],
+  ['リネン室', '中央倉庫', '物品庫', '材料室', '洗濯物収集'],
+  ['外来待合', '総合受付', '会計・待合'],
+];
+export const HOSP_LIFT = 'エレベーター';
+export const HOSP_GUIDE = '院内案内';
+export const HOSP_DEPT_GUIDE = '診療科のご案内';
+export const HOSP_DEPT_LIST = ['内科', '外科', '小児科', '放射線科', '薬局'];
+export const HOSP_TOILET = 'お手洗い';
+export const HOSP_HYDRANT = '消火栓';
+export const HOSP_NOTICE = '掲示板';
+export const HOSP_EXIT = '非常口';
+export const HOSP_AED = 'AED';
+export const HOSP_SANITIZER = '手指消毒';
+export const HOSP_RECEPTION = '受付';
+export const HOSP_CALLING = '診察番号';
+export const HOSP_PHARMACY_WINDOW = 'お薬の受け渡し';
+export const HOSP_PAYMENT = '自動精算機';
+export const HOSP_PHONE = '公衆電話';
+export const HOSP_LOCKER = 'ロッカー';
+export const HOSP_RADIATION = '放射線管理区域';
+export const HOSP_NO_ENTRY = '関係者以外立入禁止';
+export const HOSP_NURSE_CALL = 'ナースコール';
+export const HOSP_BED_LIFT = 'ベッド・ストレッチャー用';
+export const HOSP_POSTERS = ['手洗いの徹底を', '面会は午後から', 'マスクの着用を'];
+export const HOSP_DIRECTIONS = ['↑ 外来・受付', '← 病棟', '放射線科 →', '手術室 →', '薬局 →', '↑ 階段・エレベーター'];
+// the operating theatre (the boss room): the lamp over its doors
+export const HOSP_SURGERY = '手術室';
+export const HOSP_IN_SURGERY = '手術中';
+// what the closed hospital left along its walls: the label of the medicine cabinet, of the stretcher bay, of the
+// boxes of charts and of the bags of linen
+export const HOSP_MEDICINE = '薬品庫';
+export const HOSP_STRETCHER = '救急搬送用';
+export const HOSP_CHART = 'カルテ';
+export const HOSP_LINEN = 'リネン';
 // The discarded data layer: the numbers on the racks, the zone's plate on a wall (its code, and "mind the static"),
 // and the word painted down each leaf of the boss room's door ("sealed")
 export const DATA_RACK_IDS = ['A-01', 'A-02', 'A-03', 'B-07', 'B-08', 'C-12'];

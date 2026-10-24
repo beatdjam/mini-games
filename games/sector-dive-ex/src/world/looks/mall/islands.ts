@@ -30,11 +30,11 @@ export interface Island {
 }
 
 // puts the islands of the floor into the cover map (and into plan.islands); `seed` is the building's seed, `floor` the floor's number
-export function placeIslands(plan: FloorPlan, seed: number, floor: number) {
+// `sunk`: the room that has a sunken floor and gets none (the food court; the hospital has no such room: -1)
+export function placeIslands(plan: FloorPlan, seed: number, floor: number, sunk = foodCourtRoom(plan)) {
   const d = plan.gen,
     { W, maps } = d,
     rng = createRng((seed ^ SEED_MIX) + Math.imul(floor + 1, FLOOR_MIX)),
-    food = foodCourtRoom(plan),
     strips = wallLinks.get(maps.grid)?.strips,
     // tiles that no island may stand on or next to
     taboo = new Set<number>(),
@@ -55,7 +55,7 @@ export function placeIslands(plan: FloorPlan, seed: number, floor: number) {
     !!plan.noCeil[k] ||
     !!plan.shaft[k];
   d.rooms.forEach((r, room) => {
-    if (r.plat || room === d.startIdx || room === plan.hall?.room || room === food) return;
+    if (r.plat || room === d.startIdx || room === plan.hall?.room || room === sunk) return;
     const area = r.w * r.h;
     if (area < ISLAND_MIN_AREA) return;
     const want = area >= ISLAND_THREE_AREA ? 3 : area >= ISLAND_TWO_AREA ? 2 : 1,

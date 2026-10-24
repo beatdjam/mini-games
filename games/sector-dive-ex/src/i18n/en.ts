@@ -393,6 +393,7 @@ LANG.en = {
       KWLN: { name: 'Walled City', hint: 'Green glowing floor is live. Stay off it while it glows' },
       CITY: { name: 'Old Downtown', hint: "Long sightlines. Watch for the snipers' lasers" },
       MALL: { name: 'Shopping Mall', hint: 'The gallery round the atrium sees far. Expect crossfire' },
+      HOSP: { name: 'Closed Hospital', hint: 'The long corridors see far. Use the beds and benches for cover' },
     },
     bosses: {
       watcher: {

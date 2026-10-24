@@ -10,6 +10,10 @@ import { stageDeckTex } from './looks/noise/cutouts.ts';
 import { slabDeckTex } from './looks/ruin/cutouts.ts';
 import { mallDeckTex, mallSunkTex } from './looks/mall/cutouts.ts';
 import { mallCover } from './looks/mall/cover.ts';
+import { hospDeckTex } from './looks/hosp/cutouts.ts';
+import { hospCover } from './looks/hosp/cover.ts';
+import { hospPictures } from './looks/hosp/pictures.ts';
+import { hospProps } from './looks/hosp/props.ts';
 import { dataPictures } from './looks/data/pictures.ts';
 import { dataProps } from './looks/data/props.ts';
 import { forgePictures } from './looks/forge/pictures.ts';
@@ -66,6 +70,7 @@ const MAKERS: Record<string, () => Look> = {
     cover: mallCover,
     props: mallProps,
   }),
+  HOSP: () => ({ ...hospPictures(), deckSide: hospDeckTex(), cover: hospCover, props: hospProps }),
 };
 // The walled city is a canyon: bright where people walk, black overhead. Its walls are darkened toward their tops
 // and its ceiling nearly put out, once, when the look is made; the signs, lamps and cables stand out against that
