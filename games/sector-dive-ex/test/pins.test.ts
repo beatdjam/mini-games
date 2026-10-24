@@ -5,36 +5,20 @@
 // differ between machines), so a texture counts only by its size.
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import * as THREE from 'three';
-import { createRng } from '@engine/core/util.ts';
-import { clearWorld } from '@engine/core/world.ts';
-import { systems } from '@engine/core/loop.ts';
 import { scene } from '@engine/render/render.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { BOSS_ORDER } from '../src/data/bosses.ts';
 import { ENEMY } from '../src/data/enemies.ts';
-import { PER } from '../src/data/progress.ts';
 import { WEAPON_ORDER } from '../src/data/weapons.ts';
-import { run, player } from '../src/actors/player.ts';
+import { player } from '../src/actors/player.ts';
 import { rollWeapon } from '../src/actors/weapons.ts';
 import { spawnBoss } from '../src/actors/bosses/common.ts';
-import { startRun, startStage } from '../src/flow/run.ts';
-import { building } from '../src/world/building.ts';
-import { boss, enemies, removeEnemyMesh, setBoss } from '../src/world/entities.ts';
-import { devSeed } from '../src/world/level.ts';
+import { boss, enemies } from '../src/world/entities.ts';
 import { devPlainLooks } from '../src/world/looks.ts';
 import { buildEnemyMesh, buildPickupMesh } from '../src/world/models.ts';
 import { gunLook } from '../src/world/models/gunLooks.ts';
 import type { PickupKind } from '../src/data/types.ts';
-
-const SEED = 1234;
-const random = Math.random;
-// the game's dice from a fixed seed. three.js throws Math.random for the id of every object it makes, and how many it
-// makes before a floor is filled can differ from one page to the next; those throws stay on the real dice, so that they
-// do not shift the game's
-function seedDice() {
-  const next = createRng(SEED).next;
-  Math.random = () => ((new Error().stack ?? '').includes('generateUUID') ? random() : next());
-}
+import { bootFixed, clearEnemies, enterSector, seedDice, unbootFixed } from './fixed.ts';
 
 // FNV-1a of a string, as hex
 function fnv(text: string): string {
@@ -100,48 +84,8 @@ const hashEnemies = (): string =>
   ':' +
   fnv(enemies.map(e => `${e.boss ? e.kind : e.type},${Math.round(e.x * 100)},${Math.round(e.z * 100)}`).join('|'));
 
-function clearEnemies() {
-  setBoss(null);
-  enemies.slice().forEach(e => {
-    e.dead = true;
-    removeEnemyMesh(e);
-  });
-  clearWorld('enemy');
-}
-// the building of a sector from the fixed seed (and the fixed dice for the enemies and drops), on the given floor
-function enterSector(bi: number, floor: number | 'last') {
-  seedDice();
-  run.route = [bi];
-  run.stage = bi * PER;
-  run.bld = undefined;
-  startStage();
-  if (floor !== 0) {
-    const f = floor === 'last' ? building!.plans.length - 1 : floor;
-    run.bld!.floor = f;
-    run.bld!.at = building!.links.findIndex(l => l.upper === f || l.lower === f);
-    startStage();
-  }
-}
-
-beforeAll(async () => {
-  await import('../src/main.ts');
-  await new Promise(r => setTimeout(r, 300)); // the start-up timers
-  devSeed(SEED);
-  seedDice();
-  startRun();
-  // the page's own loop keeps running between the tests: with its systems on, the enemies would move, throw the dice
-  // and flash their materials there, and the run could end
-  systems.forEach(s => {
-    s.enabled = false;
-  });
-});
-afterAll(() => {
-  systems.forEach(s => {
-    s.enabled = true;
-  });
-  Math.random = random;
-  devSeed(null);
-});
+beforeAll(bootFixed);
+afterAll(unbootFixed);
 
 BIOMES.forEach((b, bi) => {
   test(`sector ${b.code}`, () => {
