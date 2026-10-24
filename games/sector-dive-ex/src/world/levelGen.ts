@@ -3,7 +3,7 @@ import { generateArena, generateDungeon } from '@engine/world/dungeon.ts';
 import type { Room, TileMapData, TileMaps } from '@engine/world/dungeon.ts';
 import { COVER_H, PLAT_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
-import type { Biome } from '../data/types.ts';
+import type { Biome, BossKind } from '../data/types.ts';
 // The room-and-corridor generator (rooms, decks, rubble, bridges) is the engine's (world/dungeon.ts); this file adds
 // the game's parts: the biome's settings, hazard floors, the boss arena's pillars and the start room.
 export type { Room, TileMaps };
@@ -46,7 +46,7 @@ export function addHazards(gen: TileMapData, hazard: Uint8Array, count: number, 
 export function generateLevel(
   biome: Biome,
   isArena: boolean,
-  bossKind: string | null | undefined,
+  bossKind: BossKind | null | undefined,
   rng: Rng,
 ): GeneratedLevel {
   const gen = isArena

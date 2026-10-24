@@ -53,7 +53,7 @@ export interface Biome {
   wallLine: string;
   gen: Record<string, any>; // level generator settings (src/world/level.ts)
   enemies: string[];
-  bosses: string[];
+  bosses: BossKind[];
   name: string;
   hint?: string; // (lang; hint only on some sectors)
 }
@@ -212,10 +212,13 @@ export interface HumanoidRig {
   legL: THREE.Object3D;
   legR: THREE.Object3D;
 }
+// the bosses (BOSS_ORDER in src/data/bosses.ts): a new one is added here first, and then every table of the bosses
+// (BOSS_META, the spawners, the names in both languages) misses it until it has its line
+export type BossKind = 'watcher' | 'crusher' | 'core' | 'phantom' | 'trinity' | 'bastion' | 'hoist' | 'surgeon';
 // a boss (bossBase in src/actors/bosses/common.ts). Each boss adds its own state on top of this (the types are in src/actors/bosses/<name>.ts)
 export interface Boss extends EnemyBase {
   boss: true;
-  kind: string;
+  kind: BossKind;
   name: string;
   def: { r: number };
   behave(e: Boss, dt: number): void; // the boss's own behaviour, once it has appeared
@@ -270,7 +273,7 @@ export interface LangData {
   rarity: Record<number, { name: string }>;
   affix: Record<string, { name: string; text: string }>;
   biomes: Record<string, { name: string; hint?: string }>;
-  bosses: Record<string, { name: string; title: string; short: string; desc: string }>;
+  bosses: Record<BossKind, { name: string; title: string; short: string; desc: string }>;
   perks: Record<string, { name: string; desc(v: number): string; curText(c: any): string }>;
   upgrades: Record<string, { name: string; desc(level: number): string }>;
   layout: Record<string, { name: string }>;
@@ -353,7 +356,7 @@ export interface Player {
 export interface BuildingState {
   tier: number; // the depth this building is (0-based)
   seed: number; // makeBuilding's seed
-  boss: string; // the boss in its boss room
+  boss: BossKind; // the boss in its boss room
   floor: number; // the floor the player is on (0 = top)
   floors: number; // how many floors the building has (the stage number and its label need it)
   step: number; // how far along the building's route that floor is (0 = the first; enemies get stronger by this)
@@ -378,7 +381,7 @@ export interface RunState {
   bld?: BuildingState; // not in boss practice
   cleared?: boolean;
   practice?: boolean;
-  forceBoss?: string;
+  forceBoss?: BossKind;
   t0?: number;
 }
 export interface Snapshot {

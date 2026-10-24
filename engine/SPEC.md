@@ -299,7 +299,7 @@
 - HTML は `data-i18n="キー"`（中身の文字）、`data-i18n-aria` / `-alt` / `-content`（属性）で引く。`setLang` のたびに書き換える
 - `setLang(code)` は、ゲームが `setI18nHook(fn)` で登録した関数があれば `fn(data)` を呼ぶ（定義に名前と説明を流し込むため）。`fillData` は ID・キー・添字で対応させて上書きする
 - `defaultLang()`: ブラウザの言語が日本語なら `ja`、それ以外は `en`
-- `withLang(table, blank)`（core/langslots.ts）: 定義の表（配列かオブジェクト）の各項目に `blank` の項目を先に入れ、項目の上書きは定義の側が勝つ。言語が決まる前に読んでも `undefined` にならない（`''` など `blank` の値）。何も import しない
+- `withLang(table, blank)`（core/langslots.ts）: 定義の表（配列かオブジェクト）の各項目に `blank` の項目を先に入れ、項目の上書きは定義の側が勝つ。言語が決まる前に読んでも `undefined` にならない（`''` など `blank` の値）。何も import しない。オブジェクトの表は、3つ目の型引数でキーの型を決められる（`withLang<T, K, Id>`。返す表は `Record<Id, T>` になり、キーの足りない表は型エラーになる。省略すると `string`）
 
 ## 11. セーブ（core/store.ts）
 

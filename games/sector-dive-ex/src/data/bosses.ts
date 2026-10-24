@@ -1,10 +1,10 @@
-import type { BossMeta } from './types.ts';
+import type { BossKind, BossMeta } from './types.ts';
 import { withLang } from '@engine/core/langslots.ts';
 // Bosses: names, order, tuning (each boss's behaviour is in src/actors/bosses/)
 // pillars: arena has pillars. hp: health at difficulty 1 (times bossDifficulty). y: body height. hitR: hit radius.
 // tune: the numbers each boss's attacks use (src/actors/bosses/<name>.ts). *Enr = the value once below half health (enraged).
 // Shots: [count, spread, speed] for fans, [count, speed] for rings, waves: [radius, speed, damage multiplier]. Times in seconds.
-export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc'>(
+export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc', BossKind>(
   {
     watcher: {
       pillars: true,
@@ -249,7 +249,9 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc'>
   },
   { name: '', title: '', short: '', desc: '' },
 );
-export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion', 'hoist', 'surgeon'];
+// the bosses in the order BOSS_META lists them (the base's practice list, the dev views). (Object.keys gives strings:
+// they are the keys of a Record<BossKind, ...>)
+export const BOSS_ORDER = Object.keys(BOSS_META) as BossKind[];
 // bosses: health at the D1 boss (x1.33 base) times hpMul, growing by `growth` per depth after that
 // (sliding down to `lateGrowth` across GROWTH_SLIDE in src/data/progress.ts)
 export const BOSS_TUNE = {

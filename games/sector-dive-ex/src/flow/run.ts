@@ -1,4 +1,4 @@
-import type { Biome, BuildingState, RunEnd, Weapon, WeaponItem } from '../data/types.ts';
+import type { Biome, BossKind, BuildingState, RunEnd, Weapon, WeaponItem } from '../data/types.ts';
 import { clamp, el, isTouch, pick, randi, shuffle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
@@ -174,7 +174,7 @@ export function startRun() {
   if (risked) setTimeout(() => toast(t('run.risked'), RISKED_TOAST_MS), total ? 0 : RISKED_TOAST_DELAY_MS);
 }
 // the boss room: the player starts at the south end, the boss comes after a moment
-function setupArena(bossKind: string | null) {
+function setupArena(bossKind: BossKind | null) {
   player.x = (W * T) / 2;
   player.z = ARENA_START_Z * T;
   player.yaw = 0;
@@ -422,7 +422,7 @@ export function nextStage() {
 }
 
 // ---- boss practice: fight one boss at a chosen depth's strength; nothing is gained or lost ----
-export function startPractice(kind: string, tier?: number) {
+export function startPractice(kind: BossKind, tier?: number) {
   const depth = tier || 0;
   enterDive();
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));

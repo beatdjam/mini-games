@@ -1,4 +1,5 @@
-import type { RunEnd, WeaponItem } from '../data/types.ts';
+import type { BossKind, RunEnd, WeaponItem } from '../data/types.ts';
+import { BOSS_ORDER } from '../data/bosses.ts';
 import { LANG, t } from '@engine/core/i18n.ts';
 import {
   CRIT_OPT_PER_LEVEL,
@@ -177,3 +178,5 @@ export const RUN_END: Record<RunEnd, { eyebrow: string; title: () => string; bad
   abandon: { eyebrow: 'abandoned', title: () => t('res.abandon'), badge: 'ABANDONED' },
   dead: { eyebrow: 'signal lost', title: () => t('res.dead'), badge: 'SIGNAL LOST' },
 };
+// is a name from outside the code (a dev entry's hash, a button's data attribute, a trailer script) one of the bosses
+export const isBossKind = (k: string | undefined): k is BossKind => (BOSS_ORDER as (string | undefined)[]).includes(k);
