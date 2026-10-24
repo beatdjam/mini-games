@@ -5,7 +5,7 @@ import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
+import { WALL_PLAIN_SHARE, variantOf, wallPic } from '../common.ts';
 import { TEX, grain, paint, poolTex } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
@@ -13,7 +13,9 @@ import type { Light } from '../props.ts';
 import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { chainsTex, pipeRackTex, plantBoxTex, plantHeapTex, plantTex } from './cutouts.ts';
-import { FORGE_WALL_PICS } from './pictures.ts';
+import { hallProps } from './hallProps.ts';
+import { FORGE_ALL_WALLS, FORGE_ROOM_WALLS, FORGE_WALL_PICS } from './pictures.ts';
+import { VALVE_RED } from './strokes.ts';
 // The props of the smelter block (FORGE): the things fixed to its walls and ceilings, and the light they throw. They
 // go by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the
 // two together.
@@ -53,7 +55,6 @@ const WALL_LAMP_Y = 3.4; // m
 const SHADE = { drop: 0.75, r: 0.55, h: 0.36 }; // a ceiling lamp's shade: how far it hangs, its radius and height (m)
 const LAMP_COLORS = [PAINT.amber6, PAINT.amber6, 0xffe9c4]; // sodium lamps, and a white-hot bulb now and then
 const WALL_LAMP_COLOR = 0xffb46e;
-const VALVE_RED = 0xa8351f;
 const PIPE_DARK = 0x3a332e; // flanges, brackets, lamp housings
 interface ForgeShared {
   pipe: THREE.CanvasTexture;
@@ -69,7 +70,8 @@ const PIPES = [0xffffff, 0xb8aea4, 0xe8d2b8, 0x8a8078, 0xd88a70];
 let forgeKit: WallKit | null = null;
 const makeForgeKit = (pipe: THREE.Texture): WallKit => ({
   runMap: pipe,
-  pics: FORGE_WALL_PICS.length,
+  pics: FORGE_ALL_WALLS,
+  rooms: FORGE_ROOM_WALLS,
   bare: BARE_WALLS,
   units: {
     maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => plantTex(700 + n)),
@@ -119,6 +121,14 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const skin = new THREE.MeshBasicMaterial({ map: shared.pipe }),
     dark = new THREE.MeshBasicMaterial({ color: PIPE_DARK }),
     lights: Light[] = [];
+  // The casting hall (the boss room) has its own things (hallProps.ts), so what is fixed to its walls here is left out:
+  // on the walls of the room, and on the side of them that the corridor behind sees (the hall's pictures are on both
+  // sides). The dice are thrown all the same, so the rest of the floor comes out as it did
+  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
+  const bossRoom = plan.hall ? plan.hall.room : null,
+    inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
+      s.room === bossRoom ||
+      wallPic(d, wallOf(s), FORGE_ALL_WALLS, undefined, undefined, FORGE_ROOM_WALLS) >= FORGE_WALL_PICS.length;
 
   // mains: a thick pipe along the wall under the roof, turning into the wall at both ends
   const mains = of('main'),
@@ -129,6 +139,7 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   mains.forEach(s => {
     const turn = facing(s),
       y = MAIN.y + rng.rand(-0.25, 0.25);
+    if (inHall(s)) return;
     run.push(pose(onWall(s, 0, MAIN.out, y), turn));
     for (const end of [-1, 1]) {
       bend.push(pose(onWall(s, (end * MAIN.len) / 2, MAIN.out, y), turn));
@@ -157,6 +168,7 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-1.3, 1.3),
       turn = facing(s),
       valveOut = RISER.out + RISER.r + 0.2;
+    if (inHall(s)) return;
     pipe.push(pose(onWall(s, off, RISER.out, WALL_H / 2), turn));
     thin.push(pose(onWall(s, off + 0.38, RISER.thin + 0.03, WALL_H / 2), turn));
     for (const y of [0.9, 4.1, 5.5]) flange.push(pose(onWall(s, off, RISER.out, y), turn));
@@ -183,6 +195,7 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     const off = rng.rand(-1, 1),
       turn = facing(s),
       p = onWall(s, off, 0.12, WALL_LAMP_Y);
+    if (inHall(s)) return;
     box.push(pose(onWall(s, off, 0.05, WALL_LAMP_Y), turn));
     lens.push(pose(p, turn));
     glow.push(pose(onWall(s, off, 0.03, WALL_LAMP_Y), turn));
@@ -198,8 +211,6 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
 
   // roof lamps (not where the ceiling is open): a shade on a rod, the lit bulb seen from below
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
-  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
-  const bossRoom = plan.hall ? plan.hall.room : null;
   const lamps = of('lamp').filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom),
     rod: THREE.Matrix4[] = [],
     shade: THREE.Matrix4[] = [],
@@ -232,4 +243,6 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // the working floor's clutter, wall by wall (looks/dress.ts)
   dressWalls({ add }, d, plan, rng, (forgeKit ??= makeForgeKit(shared.pipe)), lights);
   pools(lights, POOL_OPACITY);
+  // the casting hall's own things (after the rest, so the random numbers of the others go on as they did)
+  hallProps(plan, { add, d, pools }, rng);
 }

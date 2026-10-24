@@ -11,6 +11,9 @@ export const KWLN_NEON_WORDS = ['冰室', '旅館', '酒家', '麻雀', '理髮'
 export const FORGE_PLATE_HEAT = '高温注意';
 export const FORGE_PLATE_SAFETY = '安全第一';
 export const FORGE_DANGER = '危険';
+// the smelter block's casting hall (its boss room): the plates high on its walls ("mind the heat" is FORGE_PLATE_HEAT)
+export const FORGE_HALL_MOLTEN = '溶湯';
+export const FORGE_HALL_KEEP_OUT = '立入禁止';
 // The deep noise: the plates of a Japanese broadcasting station ("quiet", "staff only"), the lamp sign over a studio,
 // and the warning ("high voltage") painted down each leaf of the boss room's door
 export const NOISE_PLATE_QUIET = '静粛';

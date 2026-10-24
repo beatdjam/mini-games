@@ -8,7 +8,7 @@ import type { G } from '../cutoutTools.ts';
 // the walls: oil drums, gas cylinders, stacked ingots, pallets, tool boxes. Overhead: chains and hooks.
 
 const COATS = ['#4f5a4a', '#5a5348', '#3f4a52', '#5c4a34']; // the paints of the plant's cabinets
-const DRUM = ['#7a3a22', '#2f5a7a', '#b08a22', css(PAINT.soot14), '#5a2a22'];
+export const DRUM = ['#7a3a22', '#2f5a7a', '#b08a22', css(PAINT.soot14), '#5a2a22'];
 
 // a round gauge: the case, the white face, the needle
 function gauge(g: G, rand: () => number, x: number, y: number, r: number) {
