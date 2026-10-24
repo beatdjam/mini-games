@@ -4,7 +4,7 @@ import { canvasTex } from '../paint.ts';
 import { block, pick, seeded, soil } from '../cutoutTools.ts';
 import type { G } from '../cutoutTools.ts';
 import { KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
-import { KWLN_FONT } from './pictures.ts';
+import { KWLN_FONT } from './strokes.ts';
 // The walled city's painted set pieces: pictures of whole heaps of things, stood against the walls as flat cut-outs
 // (the picture is clear where there is nothing). One painted picture holds what dozens of plain boxes could not: the
 // goods on a stall's shelves, a heap of tubs and baskets and old sets, a line of washing, a mat of wires overhead.

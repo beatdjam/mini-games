@@ -6,6 +6,11 @@ export const KWLN_SHOP_NAMES = ['永興麵家', '福記茶餐廳', '榮華藥房
 // painted down each leaf of the boss room's door
 export const KWLN_DANGER = '危險';
 export const KWLN_NEON_WORDS = ['冰室', '旅館', '酒家', '麻雀', '理髮', '茶樓', '押', '藥'];
+// the square of the temple (the boss room): the plaque over the temple's door ("Tin Hau temple"), the plate with the
+// character for good fortune, and the neighbourhood association's board
+export const KWLN_HALL_TEMPLE = '天后廟';
+export const KWLN_HALL_FORTUNE = '福';
+export const KWLN_HALL_KAIFONG = '街坊會';
 // The smelter block: the enamel plates of a Japanese steelworks ("mind the heat", "safety first"), and the warning
 // painted down each leaf of the boss room's door
 export const FORGE_PLATE_HEAT = '高温注意';
