@@ -1,4 +1,4 @@
-import type { SaveData, Snapshot, WeaponItem } from '../data/types.ts';
+import type { BossKind, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
 import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
 import { basicW, save } from './save.ts';
@@ -94,7 +94,7 @@ export const setSuspend = (snapshot: Snapshot | null) => {
 };
 
 // ---- bosses ----
-export const recordBossSeen = (kind: string) => {
+export const recordBossSeen = (kind: BossKind) => {
   save.bossSeen[kind] = true;
 };
 export const recordBossKill = () => {

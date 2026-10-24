@@ -22,7 +22,7 @@ import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import { clearPool } from '@engine/world/projectiles.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { COLOR } from '../data/colors.ts';
-import type { Biome, Enemy, Pickup, RegularEnemy } from '../data/types.ts';
+import type { Biome, BossKind, Enemy, Pickup, RegularEnemy } from '../data/types.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear, setTarget } from './entities.ts';
 import { clearHazards } from './hazards.ts';
 import { ARENA_FROM, generateLevel } from './levelGen.ts';
@@ -340,7 +340,7 @@ export function devSeed(seed: number | null) {
 // a seed for something new to generate: the forced one (dev) or a random one
 export const newSeed = (): number => forcedSeed ?? (Math.random() * 2 ** 32) >>> 0;
 // the seed makes the generated level (and its signs) reproducible; tests can build a fixed level with it
-export function buildLevel(biome: Biome, isArena: boolean, bossKind?: string | null, seed?: number) {
+export function buildLevel(biome: Biome, isArena: boolean, bossKind?: BossKind | null, seed?: number) {
   const useSeed = seed ?? forcedSeed ?? (Math.random() * 2 ** 32) >>> 0;
   useLevel(biome, isArena, generateLevel(biome, isArena, bossKind, createRng(useSeed)), useSeed);
   if (isArena) return;

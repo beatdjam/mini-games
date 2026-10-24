@@ -1,4 +1,4 @@
-import type { Boss, Enemy, RegularEnemy } from '../../data/types.ts';
+import type { Boss, BossKind, Enemy, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp, el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
@@ -88,13 +88,13 @@ export function wireOutline(geo: THREE.BufferGeometry, color: number): THREE.Lin
 // behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared
 // state: the fields only this boss has (its type S is in src/actors/bosses/<name>.ts); they're put on the boss as it's made
 export function bossBase<S extends object>(
-  kind: string,
+  kind: BossKind,
   mesh: THREE.Object3D,
   mat: THREE.MeshLambertMaterial,
   behave: (e: Boss & S, dt: number) => void,
   state: S,
 ): Boss & S {
-  const meta = BOSS_META[kind]!,
+  const meta = BOSS_META[kind],
     name = meta.title ?? kind,
     hp = meta.hp * bossDifficulty(),
     y = meta.y,
@@ -217,7 +217,7 @@ export function bossPhase(e: Boss) {
 }
 // the lookup wraps each call (not the function itself): the boss files import this one, so at load time
 // their exports may not exist yet
-const BOSS_SPAWNERS: Record<string, () => void> = {
+const BOSS_SPAWNERS: Record<BossKind, () => void> = {
   watcher: () => spawnWatcher(),
   crusher: () => spawnCrusher(),
   core: () => spawnCore(),
@@ -230,13 +230,13 @@ const BOSS_SPAWNERS: Record<string, () => void> = {
 // the boss being spawned is met for the first time, or in boss practice (there to learn it): its hint is shown
 let hintDue = false;
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in src/actors/bosses/<name>.ts
-export function spawnBoss(kind: string) {
+export function spawnBoss(kind: BossKind) {
   hintDue = !!run.practice || !save.bossSeen[kind];
   if (!run.practice && !save.bossSeen[kind]) {
     recordBossSeen(kind);
     persist();
   } // practice doesn't count as an encounter
-  BOSS_SPAWNERS[kind]!();
+  BOSS_SPAWNERS[kind]();
   setMusic(level.biome.code, true); // boss arrangement of this sector's theme
 }
 // a boss's hint on how to fight it (a toast): only when the boss is met for the first time, and in boss practice

@@ -20,7 +20,7 @@ export { makeRoute, roomDoors, roomsOnWay, roomTiles } from '@engine/world/stair
 export type { BuildingLink } from '@engine/world/stairwells.ts';
 import { COVER_H, HALL_H, PLAT_H, WALL_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
-import type { Biome, BuildingState } from '../data/types.ts';
+import type { Biome, BossKind, BuildingState } from '../data/types.ts';
 import { ARENA_FROM, ARENA_PILLARS, addHazards } from './levelGen.ts';
 import { wallBeyond, wallFloor, wallLinks } from './looks/common.ts';
 import { massOf } from './looks/outside.ts';
@@ -149,7 +149,7 @@ function clearHazardsAround(plan: FloorPlan, tiles: number[]) {
 // route, the floors, the start room, then step by step along the route its stairwell or lift, floor by floor the
 // hazard floors, the lockdown room.
 // Returns null when a stairwell or lift finds no place, or a floor tile ends up cut off
-function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | null {
+function tryBuilding(biome: Biome, bossKind: BossKind, seed: number): Building | null {
   const rng = createRng(seed);
   const FLOORS = rng.randi(FLOORS_RANGE[0], FLOORS_RANGE[1]),
     route = makeRoute(FLOORS, rng, LIFT_REACH),
@@ -258,7 +258,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
     const hall = p.gen.rooms[p.hall.room]!;
     clearHazardsAround(p, roomTiles(p.gen, p.hall.room));
     // the boss's pillars, at the same places as in a boss arena
-    if (BOSS_META[bossKind]?.pillars)
+    if (BOSS_META[bossKind].pillars)
       for (const [pi, pj] of ARENA_PILLARS)
         p.gen.maps.grid[(hall.y + pj - ARENA_FROM) * W + hall.x + pi - ARENA_FROM] = 0;
   });
@@ -283,7 +283,7 @@ function tryBuilding(biome: Biome, bossKind: string, seed: number): Building | n
 // The same seed, sector and boss give the same building. A seed whose floors leave no room for a stairwell or lift is
 // passed over for the next one (seed + SEED_STEP, ...), the same way every time; the building keeps the seed it was
 // asked for. Throws when SEED_TRIES seeds in a row fail
-export function makeBuilding(biome: Biome, bossKind: string, seed: number): Building {
+export function makeBuilding(biome: Biome, bossKind: BossKind, seed: number): Building {
   for (let n = 0; n < SEED_TRIES; n++) {
     const b = tryBuilding(biome, bossKind, (seed + n * SEED_STEP) >>> 0);
     if (b) return { ...b, seed };

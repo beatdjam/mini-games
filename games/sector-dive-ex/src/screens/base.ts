@@ -1,4 +1,4 @@
-import type { WeaponItem } from '../data/types.ts';
+import type { BossKind, WeaponItem } from '../data/types.ts';
 import { el, isTouch } from '@engine/core/util.ts';
 import { prefGet, prefSet } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
@@ -18,7 +18,7 @@ import {
   takeFromStash,
   unlockWeapon,
 } from '../core/progress.ts';
-import { basicNow, levelOf, nextLevelCost, readiness, sellValue } from '../core/rules.ts';
+import { basicNow, isBossKind, levelOf, nextLevelCost, readiness, sellValue } from '../core/rules.ts';
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
@@ -184,7 +184,7 @@ const practiceTierButtons = (): string =>
   [0, 1, 2, 4]
     .map(n => `<button data-ptier="${n}" aria-pressed="${baseUI.practiceTier === n}">D${n + 1}</button>`)
     .join('');
-const bossButton = (k: string): string =>
+const bossButton = (k: BossKind): string =>
   `<button class="wcard" data-practice="${k}"><span class="wn">${BOSS_META[k].name}</span>
     <span class="wd">${BOSS_META[k].desc}</span><span class="wf">${t(save.bossSeen[k] ? 'base.practiceGo' : 'base.practiceGoNew')}</span></button>`;
 
@@ -237,7 +237,7 @@ function assignLoadout(item: WeaponItem | null) {
 // 'none' does neither (the action did what it needed itself, or it did not apply)
 type After = 'save' | 'redraw' | 'none';
 const startBossPractice = (boss: string): After => {
-  startPractice(boss, baseUI.practiceTier);
+  if (isBossKind(boss)) startPractice(boss, baseUI.practiceTier);
   return 'none';
 };
 const pickPracticeTier = (tier: string): After => {

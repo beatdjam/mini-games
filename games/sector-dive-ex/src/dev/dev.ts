@@ -1,4 +1,5 @@
 import type { Boss, Enemy, RunEnd, Weapon } from '../data/types.ts';
+import { isBossKind } from '../core/rules.ts';
 import { el, shuffle, yawToward } from '@engine/core/util.ts';
 import { devHook, showFps } from '@engine/core/dev.ts';
 import { drawStats } from '@engine/render/render.ts';
@@ -656,7 +657,7 @@ function surgeonView(b: Enemy, view: string) {
 if (location.hash.startsWith('#boss-'))
   setTimeout(() => {
     const [k, d] = location.hash.slice(6).split('-');
-    if (!k || !BOSS_META[k]) return;
+    if (!isBossKind(k)) return;
     // #boss-phantom-look: the boss up close, once it has finished coming in (for screenshots of how it looks)
     if (d === 'look') {
       startPractice(k, 0);

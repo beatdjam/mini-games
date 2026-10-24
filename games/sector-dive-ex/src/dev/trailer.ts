@@ -1,4 +1,4 @@
-import type { Enemy, WeaponItem } from '../data/types.ts';
+import type { BossKind, Enemy, WeaponItem } from '../data/types.ts';
 import { clamp, el, wrapAngle, yawToward } from '@engine/core/util.ts';
 import { setMusic, setMusicMix } from '@engine/audio/music.ts';
 import { T, W, activeTileGrid, floorY, grid, hasLOS } from '@engine/world/tiles.ts';
@@ -8,6 +8,7 @@ import { runTrailer } from '@engine/trailer/film.ts';
 import type { TrailerGame } from '@engine/trailer/film.ts';
 import { FILM_SETTINGS, setting } from '@engine/trailer/script.ts';
 import type { Script, ScriptLine, ScriptScene } from '@engine/trailer/script.ts';
+import { isBossKind } from '../core/rules.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
@@ -33,6 +34,8 @@ import { changeLang } from '../ui/settings.ts';
 import { ridingY } from '../flow/events.ts';
 import { startRun, startStage } from '../flow/run.ts';
 import { state } from '../flow/state.ts';
+// the boss a `building` line names (boss=...), if it is one
+const namedBoss = (l: ScriptLine): BossKind | undefined => (isBossKind(l.named.boss) ? l.named.boss : undefined);
 // Dev only: the words of Sector Dive Extended's trailer scripts (engine/src/trailer; how to write one and film it:
 // tools/trailer/README.md), opened by tools/trailer/capture.mjs as #trailer / #trailer-music. A scene puts the
 // player somewhere (`at`), in the old or new looks (`looks`), with a row of enemies in front (`enemies`), and moves
@@ -73,7 +76,7 @@ function check(script: Script): string[] {
       no(l, `no sector "${l.args[0] ?? ''}" (${BIOMES.map(b => b.code).join(', ')})`);
     else if (l.key === 'music' && l.args[1] !== undefined && l.args[1] !== 'boss')
       no(l, 'music takes a sector and boss');
-    else if (l.key === 'building' && l.named.boss && !BIOMES[codeOf(l.args[0]!)]!.bosses.includes(l.named.boss))
+    else if (l.key === 'building' && l.named.boss && !BIOMES[codeOf(l.args[0]!)]!.bosses.some(k => k === l.named.boss))
       no(l, `no boss "${l.named.boss}" in ${l.args[0]} (${BIOMES[codeOf(l.args[0]!)]!.bosses.join(', ')})`);
     else if (l.key === 'build' && !['strong', 'plain'].includes(l.args[0] ?? '')) no(l, 'build takes strong or plain');
     else if (l.key === 'guns')
@@ -126,7 +129,7 @@ function pickSeed(script: Script, b: ScriptLine): number {
     lift = used.find(l => l.args[0] === 'lift'),
     skip = lift?.named.skip ? +lift.named.skip : 0;
   for (let seed = 1; seed < 4000; seed++) {
-    const m = makeBuilding(biome, b.named.boss ?? biome.bosses[0]!, seed);
+    const m = makeBuilding(biome, namedBoss(b) ?? biome.bosses[0]!, seed);
     if (
       (!used.some(l => l.args[0] === 'stairs') || m.links[0]!.kind === 'stairs') &&
       (!lift || m.links.some(l => l.kind === 'elevator' && (!skip || l.lower - l.upper === skip))) &&
@@ -229,7 +232,7 @@ function upBuilding() {
   started = true;
   run.route = [n];
   run.bld = undefined;
-  run.forceBoss = b.named.boss ?? BIOMES[n]!.bosses[0]!;
+  run.forceBoss = namedBoss(b) ?? BIOMES[n]!.bosses[0]!;
   startStage();
   run.forceBoss = undefined;
   run.bld!.supplied = true; // no supply picks at the boss door: the clip goes straight into the fight

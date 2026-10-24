@@ -13,7 +13,7 @@ import {
 } from '@engine/ui/share.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
-import { RUN_END, countBy, levelOf, parsePerk, perkName } from '../core/rules.ts';
+import { RUN_END, countBy, isBossKind, levelOf, parsePerk, perkName } from '../core/rules.ts';
 import { player, run } from '../actors/player.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
 import { weaponText } from '../actors/weapons.ts';
@@ -68,7 +68,7 @@ interface ShareCard {
 export let shareData: ShareCard | null = null; // the card for the result on screen
 let shareBlob: Blob | null = null; // its image, drawn on first use
 
-const bossShort = (k: string) => BOSS_META[k]?.short ?? k;
+const bossShort = (k: string) => (isBossKind(k) ? BOSS_META[k].short : k); // (a run saved before a boss was renamed)
 // the bosses of a run, each kind once with a count, in the order first met ("監視体×3・圧壊機"): a deep run beats a
 // dozen bosses or more, and the full list pushed the post past X's length limit
 function bossSummary(bosses: string[]): string {
