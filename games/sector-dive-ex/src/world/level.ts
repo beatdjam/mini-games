@@ -192,6 +192,8 @@ export function restoreFloor(): boolean {
 }
 // the enemies-left-per-room counts kept for a floor that is not being played (undefined when nothing is kept)
 export const stashedRoomCount = (floor: number): number[] | undefined => floorStash.get(floor)?.roomCount;
+// the enemies kept for the floors not being played (some may have followed the player there from another floor)
+export const stashedEnemies = (): Enemy[] => [...floorStash.values()].flatMap(s => s.enemies);
 
 // ---- enemies that follow the player up or down a stairwell ----
 // When the player crosses to another floor by a stairwell, the awake enemies close behind are not left on the floor:
