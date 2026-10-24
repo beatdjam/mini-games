@@ -1,8 +1,19 @@
 import { PAINT, css } from '../../../data/colors.ts';
 import { KWLN_DANGER } from '../../../i18n/signs.ts';
-import type { Pictures } from '../common.ts';
+import type { Pictures, RoomFloors, RoomWalls } from '../common.ts';
 import { TEX, grain, grime, paint } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import {
+  KWLN_HALL_FLOORS,
+  KWLN_HALL_HANGING,
+  KWLN_HALL_MAP,
+  KWLN_HALL_SHRINE,
+  KWLN_HALL_SIGNED,
+  KWLN_HALL_WALLS,
+  kwlnHallCeiling,
+  kwlnHallUpper,
+} from './hall.ts';
+import { KWLN_FONT } from './strokes.ts';
 // ---- tuning numbers used only here ----
 
 // ---- the walled city (KWLN): an alley of shuttered shops under signboards and neon; worn concrete, wet ground ----
@@ -263,9 +274,6 @@ const kwlnCeiling: Paint = (g, rand) => {
   }
   grain(g, rand, 14);
 };
-// the signs and the painted words are drawn with whatever CJK face the device has (the words: src/i18n/signs.ts)
-export const KWLN_FONT =
-  '"PingFang HK","PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Hiragino Sans",sans-serif';
 // One leaf of a sliding steel door: ribbed plate, cross bars, a warning band low down, rust at the foot. The boss
 // room's is red, with the warning painted down it
 const kwlnDoor =
@@ -427,12 +435,44 @@ const kwlnHazardGlow: Paint = (g, rand) => {
   g.shadowBlur = 0;
 };
 
+// The temple square (the boss room; hall.ts) has its own walls and floors, numbered after the sector's: the walls beside
+// the room take them (`RoomWalls.hall`), the rest of the sector's walls and floors are picked as they were
+const HALL_WALL_FIRST = KWLN_WALL_PICS.length;
+const KWLN_FLOORS = 3; // bare, a puddle, a drain
+export const KWLN_ROOM_WALLS: RoomWalls = {
+  plain: HALL_WALL_FIRST,
+  common: KWLN_WALL_PICS.map((_, n) => n),
+  shops: [],
+  ground: [],
+  fronts: [],
+  hall: KWLN_HALL_MAP.map(n => HALL_WALL_FIRST + n),
+};
+export const KWLN_ROOM_FLOORS: RoomFloors = {
+  plain: KWLN_FLOORS,
+  shops: [],
+  hall: KWLN_HALL_FLOORS.map((_, n) => KWLN_FLOORS + n),
+};
+// what is set up by the hall's walls (hallProps.ts)
+export const KWLN_HALL_SHRINE_WALLS = KWLN_HALL_SHRINE.map(n => HALL_WALL_FIRST + n); // where incense is burnt
+export const KWLN_HALL_SIGNED_WALLS = KWLN_HALL_SIGNED.map(n => HALL_WALL_FIRST + n); // where a neon sign stands out
+export const KWLN_HALL_HANGING_WALLS = KWLN_HALL_HANGING.map(n => HALL_WALL_FIRST + n); // where washing is hung
+export const KWLN_ALL_WALLS = HALL_WALL_FIRST + KWLN_HALL_WALLS.length; // every wall picture of the look
 // the walled city's look (world/looks.ts makes it the first time the sector is drawn)
 export function kwlnPictures(): Pictures {
   return {
-    walls: KWLN_WALL_PICS.map((on, v) => paint(100 + v, kwlnWall(on))),
+    walls: [
+      ...KWLN_WALL_PICS.map((on, v) => paint(100 + v, kwlnWall(on))),
+      ...KWLN_HALL_WALLS.map((fn, v) => paint(600 + v, fn)),
+    ],
     laneWalls: KWLN_LANE_WALLS,
-    floors: [0, 1, 2].map(v => paint(200 + v, kwlnFloor(v))), // bare, a puddle, a drain
+    floors: [
+      ...Array.from({ length: KWLN_FLOORS }, (_, v) => paint(200 + v, kwlnFloor(v))),
+      // (one seed for all: the wear runs on across the picture's edge)
+      ...KWLN_HALL_FLOORS.map(fn => paint(700, fn)),
+    ],
+    roomWalls: KWLN_ROOM_WALLS,
+    roomFloors: KWLN_ROOM_FLOORS,
+    hall: { upper: paint(710, kwlnHallUpper), ceiling: paint(711, kwlnHallCeiling) },
     deck: paint(300, kwlnDeck),
     ceiling: paint(400, kwlnCeiling),
     door: paint(500, kwlnDoor(false)),

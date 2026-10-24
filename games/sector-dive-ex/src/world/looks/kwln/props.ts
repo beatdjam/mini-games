@@ -12,9 +12,11 @@ import { RUN_LEN, runAlong, spanLines, wallLines } from '../dress.ts';
 import { facing, floorNear, onWall, overHead, pose, propTools, raised } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES } from '../../../i18n/signs.ts';
-import { KWLN_FONT, KWLN_LANE_WALLS, KWLN_WALL_PICS } from './pictures.ts';
+import { KWLN_ALL_WALLS, KWLN_LANE_WALLS, KWLN_ROOM_WALLS, KWLN_WALL_PICS } from './pictures.ts';
+import { KWLN_FONT } from './strokes.ts';
 import { cageTex, neonTex as hangNeonTex, tinTex } from '../../yardProps.ts';
 import { crateFaceTex, heapTex, stallTex, washingTex } from './cutouts.ts';
+import { hallProps } from './hallProps.ts';
 // The props of the walled city (KWLN): the things fixed to its walls and ceilings, and the light they throw. They go
 // by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
 // together.
@@ -221,9 +223,17 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     neons: NEONS.map(neonTex),
   };
   const shared = kwlnShared,
-    { d, of, add, pools } = propTools(plan, group, KWLN_PROPS, rng),
+    { d, wallOf, of, add, pools } = propTools(plan, group, KWLN_PROPS, rng),
     one = new THREE.Vector3(1, 1, 1),
     lights: Light[] = [];
+  // The temple square (the boss room) has its own things (hallProps.ts), so what is fixed to its walls here is left out:
+  // on the walls of the room, and on the side of them that the alley behind sees (the hall's pictures are on both
+  // sides). The dice are thrown all the same, so the rest of the floor comes out as it did
+  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
+  const bossRoom = plan.hall ? plan.hall.room : null,
+    inHallWall = (wall: number): boolean =>
+      wallPic(d, wall, KWLN_ALL_WALLS, KWLN_LANE_WALLS, undefined, KWLN_ROOM_WALLS) >= KWLN_WALL_PICS.length,
+    hidden = (s: WallSlot & { room?: number }): boolean => s.room === bossRoom || inHallWall(wallOf(s));
 
   // a board over every shutter that faces a floor tile (most of them): the shop's name
   const fronts: WallSlot[] = [];
@@ -233,7 +243,11 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
         if (d.maps.grid[wall] || plan.voids[wall]) return;
-        if (wallPic(d, wall, KWLN_WALL_PICS.length, KWLN_LANE_WALLS) === KWLN_SHUTTER && rng.next() < BOARD.chance)
+        if (
+          wallPic(d, wall, KWLN_WALL_PICS.length, KWLN_LANE_WALLS) === KWLN_SHUTTER &&
+          rng.next() < BOARD.chance &&
+          !inHallWall(wall)
+        )
           fronts.push({ i, j, side });
       });
     }
@@ -259,11 +273,12 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       edge = new THREE.MeshBasicMaterial({ color: 0x15121a }),
       where = neons
         .filter((_, n) => n % shared.neons.length === b)
-        .map(s => {
+        .flatMap(s => {
           const off = rng.rand(-1.2, 1.2),
             pos = onWall(s, off, NEON.out / 2 + 0.05, NEON.y + rng.rand(-0.4, 0.3));
+          if (hidden(s)) return [];
           lights.push({ x: pos.x, z: pos.z, color: NEONS[b]![1], size: 1 });
-          return pose(pos, facing(s));
+          return [pose(pos, facing(s))];
         });
     add(new THREE.BoxGeometry(NEON.thick, NEON.h, NEON.out), [lit, lit, edge, edge, edge, edge], where);
   });
@@ -274,6 +289,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     new THREE.MeshBasicMaterial({ color: 0x55504a }),
     of('pipes').flatMap(s => {
       const off = rng.rand(-1.3, 1.3);
+      if (hidden(s)) return [];
       return [
         pose(onWall(s, off, 0.14, WALL_H / 2)),
         pose(onWall(s, off + 0.3, 0.1, WALL_H / 2), 0, new THREE.Vector3(0.55, 1, 0.55)),
@@ -286,13 +302,14 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   add(
     new THREE.BoxGeometry(1.3, 0.8, 0.5),
     [body, body, body, body, front, front],
-    of('ac').map(s => pose(onWall(s, rng.rand(-1, 1), 0.26, rng.rand(2.9, 3.6)), facing(s))),
+    of('ac').flatMap(s => {
+      const at = onWall(s, rng.rand(-1, 1), 0.26, rng.rand(2.9, 3.6));
+      return hidden(s) ? [] : [pose(at, facing(s))];
+    }),
   );
   // lamps (not where the ceiling is open): a bright plate on the ceiling
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
-  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
-  const bossRoom = plan.hall ? plan.hall.room : null,
-    plateColors: number[] = [];
+  const plateColors: number[] = [];
   add(
     new THREE.BoxGeometry(0.9, 0.08, 0.3),
     new THREE.MeshBasicMaterial({ color: 0xffffff }), // takes each copy's own colour
@@ -314,7 +331,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // ground up: a heap at its foot, a stall or a board of meters let into it, an awning or a cage or a line of washing
   // over that, conduits and a bundle of cables under the ceiling. Overhead: cables slung across, sheets of tin, a
   // shop's neon hung out
-  type Face = WallSlot & { room: number };
+  type Face = WallSlot & { room: number; hall: boolean }; // `hall`: the wall is one of the temple square's
   const roomAt = (i: number, j: number): number => plan.gen.maps.roomOf?.[j * d.W + i] ?? -1,
     arena = bossRoom,
     faces: Face[] = [],
@@ -327,7 +344,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       if (!plan.noCeil[k]) ceilings.push({ i, j, room });
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
-        if (!d.maps.grid[wall] && !plan.voids[wall]) faces.push({ i, j, side, room });
+        if (!d.maps.grid[wall] && !plan.voids[wall]) faces.push({ i, j, side, room, hall: inHallWall(wall) });
       });
     }
   // (nothing stands at the foot of a wall by a door: it would be in the doorway)
@@ -402,14 +419,16 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       new THREE.PlaneGeometry(3.9, 1.5),
       new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide }),
       roofs
-        .filter((_, n) => n % shared.tins.length === v)
+        .filter((r, n) => n % shared.tins.length === v && !r.s.hall)
         .map(r => tipped(onWall(r.s, 0, 0.66, r.y), facing(r.s), -1.15)),
     ),
   );
   add(
     new THREE.BoxGeometry(0.05, 0.05, 1.25),
     flatMat(0x2a2624),
-    roofs.flatMap(r => [-1.7, 1.7].map(off => tipped(onWall(r.s, off, 0.6, r.y - 0.42), facing(r.s), 0.62))),
+    roofs
+      .filter(r => !r.s.hall)
+      .flatMap(r => [-1.7, 1.7].map(off => tipped(onWall(r.s, off, 0.6, r.y - 0.42), facing(r.s), 0.62))),
   );
   // the cages built out round the windows upstairs, full of what people keep in them
   shared.cages.forEach((map, v) =>
@@ -418,7 +437,10 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       new THREE.MeshBasicMaterial({ map }),
       spot.cage
         .filter((_, n) => n % shared.cages.length === v)
-        .map(s => pose(onWall(s, rng.rand(-0.5, 0.5), 0.45, rng.rand(4.1, 4.8)), facing(s))),
+        .flatMap(s => {
+          const at = onWall(s, rng.rand(-0.5, 0.5), 0.45, rng.rand(4.1, 4.8));
+          return s.hall ? [] : [pose(at, facing(s))];
+        }),
     ),
   );
   // conduits run along the walls under the ceiling, two together
@@ -433,6 +455,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       .flatMap(l => {
         // (in an alley they run lower, where they are seen)
         const y = inLane(l.faces[0]!) ? rng.rand(3.2, 4.4) : rng.rand(5, 5.6);
+        if (l.faces.every(f => f.hall)) return [];
         return [...runAlong(l, y, 0.12, 0.07), ...runAlong(l, y - 0.22, 0.12, 0.042)];
       }),
   );
@@ -441,14 +464,18 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   add(
     new THREE.BoxGeometry(0.34, 0.46, 0.14),
     flatMat(0x7c7a72),
-    meters.flatMap(m => [0, 0.42, 0.84].map(k => pose(onWall(m.s, m.off + k, 0.08, m.y), facing(m.s)))),
+    meters
+      .filter(m => !m.s.hall)
+      .flatMap(m => [0, 0.42, 0.84].map(k => pose(onWall(m.s, m.off + k, 0.08, m.y), facing(m.s)))),
   );
   add(
     new THREE.BoxGeometry(0.05, 1, 0.05),
     flatMat(0x2c2a28),
-    meters.map(m =>
-      pose(onWall(m.s, m.off + 0.42, 0.05, (m.y + WALL_H) / 2 + 0.2), 0, new THREE.Vector3(1, WALL_H - m.y - 0.4, 1)),
-    ),
+    meters
+      .filter(m => !m.s.hall)
+      .map(m =>
+        pose(onWall(m.s, m.off + 0.42, 0.05, (m.y + WALL_H) / 2 + 0.2), 0, new THREE.Vector3(1, WALL_H - m.y - 0.4, 1)),
+      ),
   );
   // a shop's neon hung out over the alley on two rods, read from both ways
   const hung2 = spot.hangsign.filter(under).map((s, n) => ({
@@ -499,6 +526,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         0.1 + (k % 4) * 0.085,
         0.035 * rng.rand(0.6, 1.7),
       )) {
+        if (l.faces.every(f => f.hall)) continue;
         cableAt.push(m);
         cableColors.push(color);
       }
@@ -540,7 +568,10 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   add(
     new THREE.PlaneGeometry(2.3, 1.8),
     new THREE.MeshBasicMaterial({ map: shared.meterBoard, transparent: true, alphaTest: 0.35 }),
-    spot.board.map(s => pose(onWall(s, rng.rand(-0.7, 0.7), 0.06, rng.rand(1.8, 2.3)), facing(s))),
+    spot.board.flatMap(s => {
+      const at = onWall(s, rng.rand(-0.7, 0.7), 0.06, rng.rand(1.8, 2.3));
+      return s.hall ? [] : [pose(at, facing(s))];
+    }),
   );
   // bare fluorescent tubes on the walls: a hard white light under each
   const tubeSlots = spot.tube,
@@ -548,9 +579,11 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   add(
     new THREE.BoxGeometry(1.25, 0.07, 0.07),
     flatMat(TUBE_WHITE),
-    tubeSlots.map((s, n) => pose(tubes[n]!, facing(s))),
+    tubeSlots.flatMap((s, n) => (s.hall ? [] : [pose(tubes[n]!, facing(s))])),
   );
-  tubes.forEach(pos => lights.push({ x: pos.x, z: pos.z, color: TUBE_WHITE, size: 0.6 }));
+  tubes.forEach((pos, n) => {
+    if (!tubeSlots[n]!.hall) lights.push({ x: pos.x, z: pos.z, color: TUBE_WHITE, size: 0.6 });
+  });
   // ---- the painted set pieces (cutouts.ts) ----
   const cutout = (map: THREE.Texture) =>
     new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
@@ -560,35 +593,46 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     add(
       new THREE.PlaneGeometry(3.7, 2.84),
       new THREE.MeshBasicMaterial({ map }),
-      stallAt.filter((_, n) => n % shared.stalls.length === v).map(a => pose(a.pos, facing(a.s))),
+      stallAt.filter((a, n) => n % shared.stalls.length === v && !a.s.hall).map(a => pose(a.pos, facing(a.s))),
     ),
   );
   stallAt.forEach(a => {
     const out = onWall(a.s, 0, 1.6, 0);
-    if (rng.next() < 0.5) lights.push({ x: out.x, z: out.z, color: PAINT.amber6, size: 0.55 });
+    if (rng.next() < 0.5 && !a.s.hall) lights.push({ x: out.x, z: out.z, color: PAINT.amber6, size: 0.55 });
   });
   // Flat pictures alone read as paper from the side, so each has something solid to it. A stall: a counter of
   // crates in front, two shelf boards standing out of the picture, a post at each end. A heap: real crates stacked
   // against the wall, with the picture of smaller things stood in front of them
   const solid: THREE.Matrix4[][] = shared.crates.map(() => []),
-    crate = (pos: THREE.Vector3, turn: number, w: number, h: number, deep: number) =>
-      solid[rng.randi(0, solid.length - 1)]!.push(pose(pos, turn, new THREE.Vector3(w, h, deep)));
+    crate = (pos: THREE.Vector3, turn: number, w: number, h: number, deep: number, shown: boolean) => {
+      const into = solid[rng.randi(0, solid.length - 1)]!;
+      if (shown) into.push(pose(pos, turn, new THREE.Vector3(w, h, deep)));
+    };
   for (const a of stallAt) {
     const turn = facing(a.s);
     for (let off = -1.4; off < 1.5; off += 0.95) {
       const h = rng.rand(0.55, 0.9);
-      crate(onWall(a.s, off + rng.rand(-0.05, 0.05), 0.36, h / 2), turn + rng.rand(-0.06, 0.06), 0.9, h, 0.46);
+      crate(
+        onWall(a.s, off + rng.rand(-0.05, 0.05), 0.36, h / 2),
+        turn + rng.rand(-0.06, 0.06),
+        0.9,
+        h,
+        0.46,
+        !a.s.hall,
+      );
     }
   }
   add(
     new THREE.BoxGeometry(3.6, 0.05, 0.3),
     flatMat(0x2e2218),
-    stallAt.flatMap(a => [1.5, 2.12].map(y => pose(onWall(a.s, 0, 0.24, y), facing(a.s)))),
+    stallAt.filter(a => !a.s.hall).flatMap(a => [1.5, 2.12].map(y => pose(onWall(a.s, 0, 0.24, y), facing(a.s)))),
   );
   add(
     new THREE.BoxGeometry(0.09, 2.84, 0.09),
     flatMat(0x241b14),
-    stallAt.flatMap(a => [-1.8, 1.8].map(off => pose(onWall(a.s, off, 0.52, 1.42), facing(a.s)))),
+    stallAt
+      .filter(a => !a.s.hall)
+      .flatMap(a => [-1.8, 1.8].map(off => pose(onWall(a.s, off, 0.52, 1.42), facing(a.s)))),
   );
   // (and against the sides of the raised decks: things pile up there as they do along a wall)
   const deckFeet: Face[] = [];
@@ -605,7 +649,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
           !d.maps.cover[n] &&
           rng.next() < 0.5
         )
-          deckFeet.push({ i, j, side, room: roomAt(i, j) });
+          deckFeet.push({ i, j, side, room: roomAt(i, j), hall: false });
       });
     }
   const heapAt = [...spot.heap, ...deckFeet].map(s => ({ s, off: rng.rand(-0.3, 0.3) }));
@@ -615,7 +659,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       const w = rng.rand(0.55, 0.95),
         tall = rng.rand(0.4, 0.75),
         off = h.off + rng.rand(-1.3, 1.3);
-      crate(onWall(h.s, off, 0.27, tall / 2), turn + rng.rand(-0.1, 0.1), w, tall, 0.45);
+      crate(onWall(h.s, off, 0.27, tall / 2), turn + rng.rand(-0.1, 0.1), w, tall, 0.45, !h.s.hall);
       if (rng.next() < 0.4)
         crate(
           onWall(h.s, off + rng.rand(-0.1, 0.1), 0.27, tall + 0.25),
@@ -623,6 +667,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
           w * 0.8,
           0.5,
           0.4,
+          !h.s.hall,
         );
     }
   }
@@ -635,7 +680,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       new THREE.PlaneGeometry(3.5, 1.75),
       cutout(map),
       heapAt
-        .filter((_, n) => n % shared.heaps.length === v)
+        .filter((h, n) => n % shared.heaps.length === v && !h.s.hall)
         .map(h => pose(onWall(h.s, h.off, 0.56, 0.78), facing(h.s), new THREE.Vector3(1, 0.9, 1))),
     ),
   );
@@ -646,7 +691,10 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       cutout(map),
       spot.wash
         .filter((_, n) => n % shared.washing.length === v)
-        .map(s => pose(onWall(s, 0, rng.rand(0.5, 1.1), rng.rand(3.6, 4.5)), facing(s))),
+        .flatMap(s => {
+          const at = onWall(s, 0, rng.rand(0.5, 1.1), rng.rand(3.6, 4.5));
+          return s.hall ? [] : [pose(at, facing(s))];
+        }),
     ),
   );
   // ---- the alleys ----
@@ -705,9 +753,15 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       new THREE.MeshBasicMaterial({ map }),
       spot.sign
         .filter((_, n) => n % shared.boards.length === b)
-        .map(s => pose(onWall(s, rng.rand(-0.3, 0.3), 0.05, rng.rand(2.5, 3.1)), facing(s))),
+        .flatMap(s => {
+          const at = onWall(s, rng.rand(-0.3, 0.3), 0.05, rng.rand(2.5, 3.1));
+          return s.hall ? [] : [pose(at, facing(s))];
+        }),
     ),
   );
   // the light the lamps and the neon throw on the ground: a soft pool of their colour
   pools(lights, LAMP_POOL_OPACITY);
+  // the boss room is the temple's square: its own things (after the rest, so the random numbers of the others go on as
+  // they did)
+  hallProps(plan, { add, d, pools }, rng);
 }
