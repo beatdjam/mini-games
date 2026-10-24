@@ -21,7 +21,7 @@ import {
 } from './hoistDeco.ts';
 // The bosses as machines, as the enemies are (world/models/enemyLooks.ts): dark hull plate (world/models/machine.ts), what glows
 // kept to slits, bands and lenses in the boss's own colour, a pool of that colour on the ground under it
-// (actors/bosses/common.ts bossBase). Each is built of the parts its fight would need (how it stays up, what it
+// (actors/bosses/common.ts createBoss, from each boss's <name>Visual). Each is built of the parts its fight would need (how it stays up, what it
 // shoots with, how it sees, where its heat goes), and keeps the size and the parts its code moves (data/bosses.ts,
 // actors/bosses/<name>.ts). The plain bosses (glowing solids with outlines) are in the bosses' own files (dev: ?plain).
 // A boss's origin is the middle of its body and it faces +z.

@@ -13,7 +13,8 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, shootHoming, spawnWave } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { bossBase, bossHint, bossMaterial, isEnraged, wireOutline } from './common.ts';
+import { bossMaterial, createBoss, isEnraged, wireOutline } from './common.ts';
+import type { BossVisual } from './common.ts';
 import { screenFx } from '../../ui/hud.ts';
 import { COLOR } from '../../data/colors.ts';
 // CRUSHER: charges (stuns itself on walls), jump-slam shockwaves, homing volleys; it fires fans as it walks between them.
@@ -34,7 +35,8 @@ type CrusherBoss = Boss & {
   fireT: number;
   chained: boolean;
 };
-export function spawnCrusher() {
+// how CRUSHER looks (common.ts BossVisual)
+export function crusherVisual(): BossVisual {
   const g = new THREE.Group(),
     geo = new THREE.BoxGeometry(3.2, 3.2, 3.2);
   const mat = bossMaterial(0x1c0f09, COLOR.orange);
@@ -45,17 +47,25 @@ export function spawnCrusher() {
   plate.position.set(0, 0.5, 1.65);
   if (plainLooks()) g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.orange), plate);
   else g.add(crusherLook(mat));
-  const e = bossBase('crusher', g, mat, updCrusher, {
-    st: 'idle',
-    cdx: 0,
-    cdz: 0,
-    hitP: false,
-    second: 0,
-    fireT: BOSS_META.crusher.tune.walkFireFirst,
-    chained: false,
+  return { mesh: g, mat };
+}
+export function spawnCrusher() {
+  createBoss({
+    kind: 'crusher',
+    look: crusherVisual(),
+    behave: updCrusher,
+    state: {
+      st: 'idle',
+      cdx: 0,
+      cdz: 0,
+      hitP: false,
+      second: 0,
+      fireT: BOSS_META.crusher.tune.walkFireFirst,
+      chained: false,
+    },
+    timer: 2,
+    hint: ['boss.crusherHint', 4200],
   });
-  e.timer = 2;
-  bossHint('boss.crusherHint', 4200);
 }
 function updCrusher(e: CrusherBoss, dt: number) {
   const K = BOSS_META.crusher.tune;

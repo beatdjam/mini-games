@@ -215,7 +215,7 @@ export interface HumanoidRig {
 // the bosses (BOSS_ORDER in src/data/bosses.ts): a new one is added here first, and then every table of the bosses
 // (BOSS_META, the spawners, the names in both languages) misses it until it has its line
 export type BossKind = 'watcher' | 'crusher' | 'core' | 'phantom' | 'trinity' | 'bastion' | 'hoist' | 'surgeon';
-// a boss (bossBase in src/actors/bosses/common.ts). Each boss adds its own state on top of this (the types are in src/actors/bosses/<name>.ts)
+// a boss (createBoss in src/actors/bosses/common.ts). Each boss adds its own state on top of this (the types are in src/actors/bosses/<name>.ts)
 export interface Boss extends EnemyBase {
   boss: true;
   kind: BossKind;
