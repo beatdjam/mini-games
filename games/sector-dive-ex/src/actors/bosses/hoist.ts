@@ -22,6 +22,7 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { HALL_H } from '../../data/level.ts';
 import { COLOR, PAINT } from '../../data/colors.ts';
 import { level } from '../../world/level.ts';
+import { fanAt } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
 import {
@@ -39,7 +40,8 @@ import { screenFx } from '../../ui/hud.ts';
 // HOIST: the loading dock's overhead crane. A trolley on a bridge on two rails trails the player along the ceiling, and
 // the magnet on its wire is what is shot. Two attacks: it hangs a load over the spot and lets it fall after a shadow
 // has told where (the shadow is black, the mortar's ring is red); or its coil lights and drags the player toward it for
-// a while, and the load falls on the spot the player was dragged to. Below half health a load that breaks lets out crawlers.
+// a while, and the load falls on the spot the player was dragged to. A load that breaks lets out a crawler (two below half
+// health), and between the attacks the guns under the magnet fire fans at the player.
 
 const RAIL_MARGIN = 2; // the rails run this far inside the walls (m)
 const TROLLEY_MARGIN = 4; // the trolley stays this far from the walls (m)
@@ -104,6 +106,7 @@ type HoistBoss = Boss & {
   beam: Fill;
   rings: Fill[];
   humT: number;
+  gunT: number;
 };
 const additive = (color: number, opacity: number): THREE.MeshBasicMaterial =>
   new THREE.MeshBasicMaterial({
@@ -154,11 +157,13 @@ export function spawnHoist() {
     beam,
     rings,
     humT: 0,
+    gunT: 0,
   });
   e.restEI = e.baseEI;
   e.x = e.cx;
   e.z = e.cz;
   e.timer = K.first;
+  e.gunT = K.first;
   e.extra = [...(e.extra ?? []), beam, ...rings];
   e.onDown = () => hoistDown(e);
   // the crane stays after the magnet is gone: a world object of its own (cleared with the level)
@@ -245,13 +250,13 @@ function updateFall(e: HoistBoss, dt: number, enr: boolean) {
   release(e, c.g);
   release(e, c.shadow);
   e.cargo = null;
-  if (enr) {
-    const n = Math.min(K.crawlers, K.minionCap - minionCount()),
-      a0 = rand(0, Math.PI * 2);
-    for (let k = 0; k < n; k++) {
-      const a = a0 + (k / K.crawlers) * Math.PI * 2;
-      spawnMinion('crawler', c.x + Math.cos(a) * CRAWLER_OUT, c.z + Math.sin(a) * CRAWLER_OUT);
-    }
+  // crawlers out of the broken load: one, or two below half health, while the room has room for them
+  const out = enr ? K.crawlers : K.crawlers1,
+    n = Math.min(out, K.minionCap - minionCount()),
+    a0 = rand(0, Math.PI * 2);
+  for (let k = 0; k < n; k++) {
+    const a = a0 + (k / out) * Math.PI * 2;
+    spawnMinion('crawler', c.x + Math.cos(a) * CRAWLER_OUT, c.z + Math.sin(a) * CRAWLER_OUT);
   }
   e.st = 'chase';
   e.timer = enr ? K.gapEnr : K.gap;
@@ -303,6 +308,21 @@ function updHoist(e: HoistBoss, dt: number) {
   e.t += dt;
   e.timer -= dt;
   const enr = isEnraged(e);
+  // the guns under the magnet fire while the trolley trails the player and goes to drop a load
+  if ((e.st === 'chase' || e.st === 'approach') && (e.gunT -= dt) <= 0) {
+    e.gunT = enr ? K.gunEveryEnr : K.gunEvery;
+    fanAt(
+      e.x,
+      e.mesh.position.y - HOIST_FACE,
+      e.z,
+      enr ? K.gunNEnr : K.gunN,
+      K.gunSpread,
+      K.gunSpeed,
+      e.dmg,
+      COLOR.amber,
+    );
+    sfx('eshot', 60);
+  }
   if (e.st === 'chase') {
     follow(e, player.x, player.z, K.chase, dt);
     if (e.timer <= 0) {

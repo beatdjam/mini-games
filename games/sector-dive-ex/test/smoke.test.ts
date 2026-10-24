@@ -1219,6 +1219,7 @@ test('repair drone: mends the most worn enemy near it, then the next, and flies 
 // HOIST in the boss arena: the boss ready to act, its trolley over the middle, nothing else in the arena
 type HoistTest = Boss & {
   st: string;
+  gunT: number;
   cargo: { x: number; fill: { material: { opacity: number } } } | null;
 };
 function hoistReady(): HoistTest {
@@ -1229,6 +1230,7 @@ function hoistReady(): HoistTest {
   h.spawnT = 0;
   h.phased = true; // (the phase change has its own test)
   h.timer = 1e6;
+  h.gunT = 1e6; // (the guns have their own test)
   h.x = h.cx;
   h.z = h.cz;
   joy.x = 0;
@@ -1302,7 +1304,7 @@ test('hoist: the magnet drags the player toward the point under it, and the load
   expect(distXZ(player, h), 'and the player is under it').toBeLessThan(K.shadowR);
   endRun('abandon');
 });
-test('hoist: below half health a load that breaks lets crawlers out, up to the cap of minions', () => {
+test('hoist: a load that breaks lets a crawler out, two below half health, up to the cap of minions', () => {
   const K = BOSS_META.hoist.tune;
   const land = (hpShare: number, others: number) => {
     const h = hoistReady(),
@@ -1322,7 +1324,37 @@ test('hoist: below half health a load that breaks lets crawlers out, up to the c
   expect(land(0.4, 0), 'two out').toBe(K.crawlers);
   expect(land(0.4, K.minionCap - 1), 'room for one').toBe(1);
   expect(land(0.4, K.minionCap), 'at the cap').toBe(0);
-  expect(land(1, 0), 'healthy: a load is just a load').toBe(0);
+  expect(land(1, 0), 'above half health: one').toBe(K.crawlers1);
+});
+test('hoist: the guns under the magnet fire a fan at the player while it trails, a wider one below half health', () => {
+  const K = BOSS_META.hoist.tune;
+  const fan = (hpShare: number) => {
+    const h = hoistReady();
+    h.hp = h.maxHp * hpShare;
+    player.x = h.cx + 10;
+    player.z = h.cz;
+    clearPool(eBullets);
+    const alive = () => eBullets.filter(b => b.alive).length;
+    h.st = 'chase';
+    h.gunT = 0.5;
+    for (let k = 0; k < 20; k++) update(1 / 60);
+    const early = alive();
+    for (let k = 0; k < 20; k++) update(1 / 60);
+    const n = alive();
+    h.st = 'wind'; // (the magnet lights to pull: the guns hold their fire)
+    h.timer = 1;
+    h.gunT = 0;
+    const before = alive();
+    update(1 / 60);
+    const quiet = alive() - before;
+    endRun('abandon');
+    return { early, n, quiet };
+  };
+  const calm = fan(1);
+  expect(calm.early, 'not before its time').toBe(0);
+  expect(calm.n, 'one fan').toBe(K.gunN);
+  expect(calm.quiet, 'not while it pulls').toBe(0);
+  expect(fan(0.4).n, 'a wider one below half health').toBe(K.gunNEnr);
 });
 test('hoist: when it goes down the load and the pull are gone, the magnet falls and the crane stays where it stopped', () => {
   const h = hoistReady();

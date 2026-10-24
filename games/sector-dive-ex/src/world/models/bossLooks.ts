@@ -608,6 +608,22 @@ export function hoistMagnet(mat: THREE.Material, coil: THREE.Material, scrap: 'm
         piston(V(sx * 0.9, 1.4, sz * 0.9), V(sx * 0.3, 1.75, sz * 0.3), 0.06), // the chains
         at(boxGeo(0.25, 0.25, 0.25), lamp, sx * 1.5, 0.55, sz * 1.5),
       );
+  // two guns slung under the plate at opposite corners (actors/bosses/hoist.ts fires its fans from under the magnet):
+  // a box with twin barrels pointing down and out, an ammunition can on its side
+  for (const s of [-1, 1]) {
+    const gun = new THREE.Group();
+    gun.position.set(s * 1.25, -1.15, s * 1.25);
+    gun.rotation.y = s > 0 ? Math.PI / 4 : (-3 * Math.PI) / 4;
+    gun.rotation.x = 0.5;
+    gun.add(
+      at(boxGeo(0.4, 0.3, 0.5), k.black, 0, 0, 0),
+      at(cylGeo(0.05, 0.05, 0.6, 8), k.steel, -0.09, 0, 0.5, 'z'),
+      at(cylGeo(0.05, 0.05, 0.6, 8), k.steel, 0.09, 0, 0.5, 'z'),
+      at(boxGeo(0.18, 0.22, 0.3), mat, 0.3, 0, -0.05),
+      at(boxGeo(0.3, 0.06, 0.06), lamp, 0, 0.18, 0.1),
+    );
+    g.add(gun);
+  }
   return g;
 }
 // a load for the magnet to drop: a shipping container (kind 0) or a pallet of crates (1); its middle is its origin
