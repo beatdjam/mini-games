@@ -1284,7 +1284,8 @@ test('hoist: a load hangs over the player with a shadow that fills, then falls a
   };
   const hit = drop(0);
   expect(hit.lost, 'standing in the ring').toBeCloseTo(hit.dmg, 6);
-  expect(drop(K.shadowR + 0.5).lost, 'outside the ring').toBe(0);
+  // (well outside: the crawler that the broken load lets out lands 1.6 m from its middle, any way round)
+  expect(drop(K.shadowR + 2.5).lost, 'outside the ring').toBe(0);
 });
 test('hoist: the magnet drags the player toward the point under it, and the load falls there', () => {
   const K = BOSS_META.hoist.tune,
