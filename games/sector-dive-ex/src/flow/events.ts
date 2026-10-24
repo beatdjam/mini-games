@@ -10,8 +10,9 @@ import { PER } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
 import { building, roomDoors } from '../world/building.ts';
 import type { BuildingLink } from '../world/building.ts';
-import { arenaCenter, arenaFog, level, liftPads, randomTileIn, roomSpot } from '../world/level.ts';
-import { addPickup, boss, spawnEnemy } from '../world/entities.ts';
+import { arenaCenter, arenaFog, level, liftPads, randomTileIn, roomSpot, stashedEnemies } from '../world/level.ts';
+import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
+import type { Enemy } from '../data/types.ts';
 import { player, run } from '../actors/player.ts';
 import { difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
 import { putBossGates, spawnBoss } from '../actors/bosses/common.ts';
@@ -139,7 +140,29 @@ function startLockdown(room: number) {
   setTimeout(() => el('#banner').classList.remove('alert'), ALERT_BANNER_MS);
   showAlarm(true);
   setMusic(level.biome.code, true); // the sector's boss arrangement while the room is shut
+  releaseStrays(room);
   if (ev.ldPending || level.roomCount[room] === 0) spawnWave(room);
+}
+// The lockdown room's own enemies that are not in it while its doors are shut (they chased the player out, or followed
+// them to another floor by a stairwell) no longer count toward it: shut out, they could not be beaten in there, and
+// the room would never clear. They stay where they are, as enemies of no room. True when that leaves the room empty
+function releaseStrays(room: number): boolean {
+  if (!level.roomCount[room]) return false;
+  const own = (e: Enemy) => !e.dead && !e.boss && e.room === room && e.floor === level.floor,
+    strays = [
+      ...enemies.filter(e => own(e) && level.roomOf[tileIndex(e.x, e.z)] !== room),
+      ...stashedEnemies().filter(own),
+    ];
+  if (!strays.length) return false;
+  strays.forEach(e => {
+    e.room = -1;
+  });
+  level.roomCount[room] = Math.max(0, level.roomCount[room]! - strays.length);
+  return level.roomCount[room] === 0;
+}
+// the lockdown room is shut with the player in it: every door closed
+function lockdownShut(room: number): boolean {
+  return level.roomOf[tileIndex(player.x, player.z)] === room && lockdownDoors(room).every(k => !world().doorOpen![k]);
 }
 function endLockdown(room: number) {
   ev.ldActive = false;
@@ -370,6 +393,10 @@ export function updateFloorEvents(dt: number) {
   if (level.floor < 0) return;
   shutBehindPlayer();
   if (ev.ldActive) {
+    // the player went out during the lockdown and came back in: an enemy of the room that came out after them and
+    // stayed out is shut out now
+    const ld = building!.lockdown!.room;
+    if (lockdownShut(ld) && releaseStrays(ld)) onRoomCleared(ld);
     ev.alarmT -= dt;
     if (ev.alarmT <= 0) {
       ev.alarmT = ALARM_EVERY;
