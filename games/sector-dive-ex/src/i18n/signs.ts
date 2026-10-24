@@ -20,6 +20,10 @@ export const NOISE_PLATE_QUIET = '静粛';
 export const NOISE_PLATE_STAFF = '関係者以外立入禁止';
 export const NOISE_ON_AIR = 'ON AIR';
 export const NOISE_DANGER = '高電圧';
+// the big studio (the boss room): the plates high on its walls ("studio 1", "transmitter room", "high voltage, danger")
+export const NOISE_HALL_STUDIO = '第1スタジオ';
+export const NOISE_HALL_TX = '送信機室';
+export const NOISE_HALL_DANGER = ['高電圧', '危険'];
 // The ruined streets: the head of the residents' notice board ("notice board"), and the plate on the boss room's door
 // ("keep out")
 export const RUIN_NOTICE_BOARD = '掲示板';

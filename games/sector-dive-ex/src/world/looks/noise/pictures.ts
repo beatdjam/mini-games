@@ -1,6 +1,5 @@
-import { PAINT, css } from '../../../data/colors.ts';
 import { NOISE_DANGER, NOISE_PLATE_QUIET, NOISE_PLATE_STAFF } from '../../../i18n/signs.ts';
-import type { Pictures } from '../common.ts';
+import type { Pictures, RoomFloors, RoomWalls } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -15,6 +14,16 @@ import {
   stripes,
 } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import {
+  NOISE_HALL_CABINETS,
+  NOISE_HALL_FLOORS,
+  NOISE_HALL_MAP,
+  NOISE_HALL_PLAIN,
+  NOISE_HALL_WALLS,
+  noiseHallCeiling,
+  noiseHallUpper,
+} from './hall.ts';
+import { crt, knob, meter, slab } from './strokes.ts';
 // The deep noise (NOISE): a broadcasting station far underground, left as it was. Sound-absorbing walls gone grey
 // and violet with dust, racks of old gear, monitors that still show static, worn carpet, studio doors. The fog is
 // close here, so the pictures are kept light enough to read from near by.
@@ -40,15 +49,6 @@ const NOISE_FLOORS = 5; // 0 worn carpet, 1 carpet torn away, 2 the lid of a flo
 
 const FIELD_TOP = rowOf(4.9); // the walls are lined between these two rows; above is bare, below is the dado
 const FIELD_FOOT = rowOf(1.0);
-// a flat box with a shadow under it and a light top edge: a panel, a plate, a unit of gear
-function slab(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
-  g.fillStyle = 'rgba(8,6,12,.45)';
-  g.fillRect(x + 1.5, y + 1.5, w, h);
-  g.fillStyle = color;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = 'rgba(255,250,255,.16)';
-  g.fillRect(x, y, w, 1.2);
-}
 // What every wall has: painted board, a bare band and a cable duct under the ceiling, a dado and a skirting at the
 // foot. They run on from one picture to the next
 function shell(g: CanvasRenderingContext2D, rand: () => number) {
@@ -187,36 +187,6 @@ function cloth(g: CanvasRenderingContext2D, rand: () => number) {
     }
   }
 }
-// a round dial knob with its pointer
-function knob(g: CanvasRenderingContext2D, x: number, y: number, r: number, turn: number) {
-  g.fillStyle = 'rgba(8,6,12,.6)';
-  oval(g, x + 0.7, y + 0.5, r, r * WALL_ASPECT);
-  g.fillStyle = '#2a2632';
-  oval(g, x, y, r * 0.9, r * 0.9 * WALL_ASPECT);
-  g.strokeStyle = '#d6d0de';
-  g.lineWidth = 0.9;
-  g.beginPath();
-  g.moveTo(x, y);
-  g.lineTo(x + Math.cos(turn) * r * 0.9, y + Math.sin(turn) * r * 0.9 * WALL_ASPECT);
-  g.stroke();
-}
-// a meter: a cream face, a scale and a needle
-function meter(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, lean: number) {
-  g.fillStyle = '#1e1b25';
-  g.fillRect(x - 1, y - 1, w + 2, h + 2);
-  g.fillStyle = '#cfc8b0';
-  g.fillRect(x, y, w, h);
-  g.fillStyle = 'rgba(150,60,40,.8)'; // the red end of the scale
-  g.fillRect(x + w * 0.68, y + h * 0.25, w * 0.22, 1);
-  g.fillStyle = 'rgba(40,34,30,.8)';
-  g.fillRect(x + w * 0.1, y + h * 0.25, w * 0.58, 1);
-  g.strokeStyle = css(PAINT.soot3);
-  g.lineWidth = 0.8;
-  g.beginPath();
-  g.moveTo(x + w / 2, y + h);
-  g.lineTo(x + w / 2 + lean * w * 0.4, y + h * 0.3);
-  g.stroke();
-}
 // three racks of gear standing against the wall, their cables going up to the duct
 function racks(g: CanvasRenderingContext2D, rand: () => number) {
   const w = 44,
@@ -274,49 +244,6 @@ function racks(g: CanvasRenderingContext2D, rand: () => number) {
       y += h + 1.5;
     }
   }
-}
-// static: grey specks, bright and dark, inside a rectangle
-function snow(g: CanvasRenderingContext2D, rand: () => number, x: number, y: number, w: number, h: number) {
-  for (let py = y; py < y + h; py += 1)
-    for (let px = x; px < x + w; px += 1.5) {
-      const v = Math.floor(70 + rand() * 150);
-      g.fillStyle = `rgb(${v - 8},${v - 6},${v + 10})`;
-      g.fillRect(px, py, 1.5, 1);
-    }
-}
-// a monitor: a deep box, a dark bezel, glass that bulges (lit: showing static)
-function crt(
-  g: CanvasRenderingContext2D,
-  rand: () => number,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  lit: boolean,
-) {
-  slab(g, x, y, w, h, '#4b4657');
-  const sx = x + w * 0.1,
-    sy = y + h * 0.12,
-    sw = w * 0.8,
-    sh = h * 0.68;
-  g.fillStyle = '#17141d';
-  g.fillRect(sx - 2, sy - 1.4, sw + 4, sh + 2.8);
-  if (lit) snow(g, rand, sx, sy, sw, sh);
-  else {
-    g.fillStyle = '#2b2a35';
-    g.fillRect(sx, sy, sw, sh);
-    g.fillStyle = 'rgba(190,186,214,.12)'; // the room in the glass
-    g.fillRect(sx + sw * 0.1, sy + sh * 0.12, sw * 0.3, sh * 0.2);
-  }
-  const bulge = g.createRadialGradient(sx + sw / 2, sy + sh / 2, 2, sx + sw / 2, sy + sh / 2, sw * 0.7);
-  bulge.addColorStop(0, 'rgba(10,8,16,0)');
-  bulge.addColorStop(1, 'rgba(10,8,16,.5)');
-  g.fillStyle = bulge;
-  g.fillRect(sx, sy, sw, sh);
-  // two knobs under the glass
-  g.fillStyle = '#1c1922';
-  oval(g, x + w * 0.78, y + h * 0.9, 1.6, 1.6 * WALL_ASPECT);
-  oval(g, x + w * 0.88, y + h * 0.9, 1.6, 1.6 * WALL_ASPECT);
 }
 // A bank of monitors on a desk: only the middle one still shows static. Its screen is in the middle of the picture
 // at SCREEN.y (the moving static of noiseProps goes over it)
@@ -815,11 +742,42 @@ const noiseDoor =
     grain(g, rand, 18);
   };
 
+// The big studio (the boss room; hall.ts) has its own walls and floors, numbered after the sector's: the walls beside
+// the room take them (`RoomWalls.hall`), the rest of the sector's walls and floors are picked as they were
+const HALL_WALL_FIRST = WALL_KINDS.length;
+export const NOISE_ROOM_WALLS: RoomWalls = {
+  plain: HALL_WALL_FIRST,
+  common: WALL_KINDS.map((_, n) => n),
+  shops: [],
+  ground: [],
+  fronts: [],
+  hall: NOISE_HALL_MAP.map(n => HALL_WALL_FIRST + n),
+};
+export const NOISE_ROOM_FLOORS: RoomFloors = {
+  plain: NOISE_FLOORS,
+  shops: [],
+  hall: NOISE_HALL_FLOORS.map((_, n) => NOISE_FLOORS + n),
+};
+// what is set up by the hall's walls (hallProps.ts)
+export const NOISE_HALL_CABINET_WALLS = NOISE_HALL_CABINETS.map(n => HALL_WALL_FIRST + n); // the transmitter's cabinets
+export const NOISE_HALL_PLAIN_WALLS = NOISE_HALL_PLAIN.map(n => HALL_WALL_FIRST + n); // where a lamp box may hang
+export const NOISE_ALL_WALLS = HALL_WALL_FIRST + NOISE_HALL_WALLS.length; // every wall picture of the look
+
 // the deep noise's look (world/looks.ts makes it the first time the sector is drawn)
 export function noisePictures(): Pictures {
   return {
-    walls: WALL_KINDS.map((kind, v) => paint(2600 + v, noiseWall(kind))),
-    floors: Array.from({ length: NOISE_FLOORS }, (_, v) => paint(2700, noiseFloor(v))),
+    walls: [
+      ...WALL_KINDS.map((kind, v) => paint(2600 + v, noiseWall(kind))),
+      ...NOISE_HALL_WALLS.map((fn, v) => paint(3100 + v, fn)),
+    ],
+    floors: [
+      ...Array.from({ length: NOISE_FLOORS }, (_, v) => paint(2700, noiseFloor(v))),
+      // (one seed for all: the wear runs on across the picture's edge)
+      ...NOISE_HALL_FLOORS.map(fn => paint(3200, fn)),
+    ],
+    roomWalls: NOISE_ROOM_WALLS,
+    roomFloors: NOISE_ROOM_FLOORS,
+    hall: { upper: paint(3300, noiseHallUpper), ceiling: paint(3301, noiseHallCeiling) },
     deck: paint(2800, noiseDeck),
     ceiling: paint(2900, noiseCeiling),
     door: paint(3000, noiseDoor(false)),
