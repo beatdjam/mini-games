@@ -447,7 +447,7 @@ export interface MortarShell extends WorldObject {
   vy: number; // upward speed at the muzzle (m/s)
   g: number; // the arc's own gravity (m/s^2)
   dmg: number;
-  round: THREE.Mesh;
+  round: THREE.Object3D; // the bomb (a plain ball with ?plain), turned along its flight
   fill: THREE.Mesh;
   mesh: THREE.Group;
 }

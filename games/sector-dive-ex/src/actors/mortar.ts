@@ -9,6 +9,8 @@ import { floorY } from '@engine/world/tiles.ts';
 import { WALL_H } from '../data/level.ts';
 import { COLOR } from '../data/colors.ts';
 import { geoCache } from '../world/render.ts';
+import { plainLooks } from '../world/looks.ts';
+import { mortarRound } from '../world/models/ebulletLooks.ts';
 import { player } from './player.ts';
 import { damagePlayer } from './combat.ts';
 // ================= the mortar's round =================
@@ -22,7 +24,7 @@ const MORTAR_FLIGHT = 1.4; // seconds from the muzzle to the floor
 const MORTAR_ARC = 4; // the arc's top is this far above the higher of the muzzle and the landing spot (m)
 const MORTAR_CEIL_GAP = 0.3; // ... and stays this far under the ceiling (m)
 const MORTAR_BLAST_DY = 1.5; // the blast reaches a player whose feet are this close to the floor it lands on (m)
-const ROUND_SCALE = 1.6; // the round's size as a multiple of an enemy bullet
+const ROUND_SCALE = 1.6; // the plain round's size as a multiple of an enemy bullet (?plain)
 const RING_LIFT = 0.06; // the ring floats this far above the floor (m)
 const RING_OPACITY = 0.9,
   FILL_OPACITY = 0.38;
@@ -32,6 +34,8 @@ const ROUND_SMOKE = 0x78808a;
 const MUZZLE_SMOKE_N = 8; // puffs at the muzzle when it fires
 const FLASH_R = 1.4; // the fireball of the blast (m)
 
+const UP = new THREE.Vector3(0, 1, 0),
+  aim = new THREE.Vector3(); // (reused each frame)
 const ringGeo = shared(new THREE.RingGeometry(0.93, 1, 48).rotateX(-Math.PI / 2));
 const discGeo = shared(new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2));
 
@@ -46,7 +50,7 @@ export function fireMortar(e: RegularEnemy, x: number, y: number, z: number) {
     // y(t) = y + vy t - g t^2 / 2 with its top at `top` and the floor reached at t = MORTAR_FLIGHT
     vy = ((2 * h) / MORTAR_FLIGHT) * (1 + Math.sqrt(1 - d / h)),
     g = (vy * vy) / (2 * h);
-  const round = new THREE.Mesh(geoCache.ebullet, basicMat(ROUND_COLOR)),
+  const round = plainLooks() ? new THREE.Mesh(geoCache.ebullet, basicMat(ROUND_COLOR)) : mortarRound(),
     fill = new THREE.Mesh(
       discGeo,
       new THREE.MeshBasicMaterial({ color: RING_COLOR, transparent: true, opacity: FILL_OPACITY, depthWrite: false }),
@@ -56,7 +60,7 @@ export function fireMortar(e: RegularEnemy, x: number, y: number, z: number) {
       new THREE.MeshBasicMaterial({ color: RING_COLOR, transparent: true, opacity: RING_OPACITY, depthWrite: false }),
     ),
     mesh = new THREE.Group();
-  round.scale.setScalar(ROUND_SCALE);
+  if (plainLooks()) round.scale.setScalar(ROUND_SCALE);
   round.position.set(x, y, z);
   for (const o of [fill, ring]) {
     o.position.set(tx, ty + RING_LIFT, tz);
@@ -95,6 +99,9 @@ function updateShell(s: MortarShell, dt: number) {
     z = s.z0 + (s.tz - s.z0) * k,
     y = s.y0 + s.vy * s.t - 0.5 * s.g * s.t * s.t;
   s.round.position.set(x, y, z);
+  // nose first, along the arc: the way it moves now
+  aim.set((s.tx - s.x0) / MORTAR_FLIGHT, s.vy - s.g * s.t, (s.tz - s.z0) / MORTAR_FLIGHT).normalize();
+  s.round.quaternion.setFromUnitVectors(UP, aim);
   s.fill.scale.set(Math.max(k, 0.001) * MORTAR_BLAST_R, 1, Math.max(k, 0.001) * MORTAR_BLAST_R);
   burst(x, y, z, ROUND_SMOKE, 1, 0.6, 0.5, -1.5);
   if (s.t < MORTAR_FLIGHT) return;
