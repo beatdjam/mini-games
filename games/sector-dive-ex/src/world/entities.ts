@@ -151,6 +151,7 @@ function spawnEBullet(
   color: number,
   size?: number,
   homing?: number,
+  needle?: boolean,
 ) {
   const b = takeFromPool(eBullets, geoCache.ebullet, 360);
   if (!b) return;
@@ -172,7 +173,7 @@ function spawnEBullet(
   b.mesh.scale.setScalar(b.size);
   b.mesh.visible = true;
   b.mesh.position.set(x, y, z);
-  dressEBullet(b, color || COLOR.mag);
+  dressEBullet(b, color || COLOR.mag, needle);
 }
 export function shootAngle(
   x: number,
@@ -218,7 +219,7 @@ export function fanAt(
   );
   sfx('eshot', 60);
 }
-// one bullet from (x, y, z) straight at the point (tx, ty, tz)
+// one bullet from (x, y, z) straight at the point (tx, ty, tz); needle: drawn as a thin needle (SURGEON's)
 export function shootAtPoint(
   x: number,
   y: number,
@@ -230,12 +231,13 @@ export function shootAtPoint(
   dmg: number,
   color: number,
   size?: number,
+  needle?: boolean,
 ) {
   const vx = tx - x,
     vy = ty - y,
     vz = tz - z;
   const l = Math.hypot(vx, vy, vz) || 1;
-  spawnEBullet(x, y, z, (vx / l) * speed, (vy / l) * speed, (vz / l) * speed, dmg, color, size);
+  spawnEBullet(x, y, z, (vx / l) * speed, (vy / l) * speed, (vz / l) * speed, dmg, color, size, undefined, needle);
 }
 // a homing bullet flying out sideways at angle ang from `reach` m off (x, z); rise: its climb (m/s); homing: how hard it turns toward the player
 export function shootHoming(

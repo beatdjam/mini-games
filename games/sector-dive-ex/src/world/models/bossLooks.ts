@@ -28,7 +28,7 @@ import {
 
 export const BOSS_POOL_SIDE = 9; // the pool of light under a boss (m)
 const torusGeos: Record<string, THREE.BufferGeometry> = {};
-const torusGeo = (r: number, tube: number) =>
+export const torusGeo = (r: number, tube: number) =>
   (torusGeos[`${r},${tube}`] ??= shared(new THREE.TorusGeometry(r, tube, 8, 28)));
 // a prism (or a frustum: rt = radius at the top, rb = at the bottom) with flat faces, where cylGeo's are shaded round.
 // The hull's picture goes across `per` faces, so it is not stretched all the way round
@@ -65,7 +65,7 @@ function plateBallGeo(r: number): THREE.BufferGeometry {
   return geo;
 }
 // a mesh turned (radians about x, y, z)
-function turned<T extends THREE.Object3D>(m: T, x: number, y: number, z: number): T {
+export function turned<T extends THREE.Object3D>(m: T, x: number, y: number, z: number): T {
   m.rotation.set(x, y, z);
   return m;
 }
@@ -74,7 +74,7 @@ const laid = (geo: THREE.BufferGeometry, mat: THREE.Material, y: number, z: numb
   turned(at(geo, mat, 0, y, z), Math.PI / 2, Math.PI / seg, 0);
 // n groups turned evenly about the upright axis, the first by `off`: what `build` puts at +x in one stands out from
 // the middle (for parts set round a body)
-function spokes(n: number, off: number, build: (s: THREE.Group, k: number) => void): THREE.Group[] {
+export function spokes(n: number, off: number, build: (s: THREE.Group, k: number) => void): THREE.Group[] {
   return Array.from({ length: n }, (_, k) => {
     const s = new THREE.Group();
     s.rotation.y = off + (k / n) * Math.PI * 2;
@@ -82,7 +82,7 @@ function spokes(n: number, off: number, build: (s: THREE.Group, k: number) => vo
     return s;
   });
 }
-const HALF = Math.PI / 2;
+export const HALF = Math.PI / 2;
 
 // WATCHER: a hovering surveillance platform. An eight-sided fuselage with one great camera lens under a hood in its
 // nose; a lift jet on a pylon at each side and a thruster behind; under its belly the gun ring its rings of shots come

@@ -56,6 +56,7 @@ export function updateEnemy(e: Enemy, dt: number) {
     poseBossPool(e);
     return;
   }
+  if (e.def.anchored) return; // its boss places it
 
   const def = e.def;
   const dx = player.x - e.x,

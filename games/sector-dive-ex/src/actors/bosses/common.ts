@@ -41,6 +41,7 @@ import { spawnPhantom } from './phantom.ts';
 import { spawnTrinity } from './trinity.ts';
 import { spawnBastion } from './bastion.ts';
 import { spawnHoist } from './hoist.ts';
+import { spawnSurgeon } from './surgeon.ts';
 import { screenFx } from '../../ui/hud.ts';
 import { track } from '@engine/core/analytics.ts';
 import { COLOR } from '../../data/colors.ts';
@@ -224,6 +225,7 @@ const BOSS_SPAWNERS: Record<string, () => void> = {
   trinity: () => spawnTrinity(),
   bastion: () => spawnBastion(),
   hoist: () => spawnHoist(),
+  surgeon: () => spawnSurgeon(),
 };
 // the boss being spawned is met for the first time, or in boss practice (there to learn it): its hint is shown
 let hintDue = false;

@@ -90,7 +90,8 @@ if (courtParam === 'open' || courtParam === 'roof')
 // room from its floor, looking across to the steps up), island (?sector=MALL: from two tiles west of the first island of cover in a
 // big room, looking at it; ?kind=<n> for the first one in a shop of that kind), room (the first room that has a kind, from a
 // corner of it looking across; ?kind=<n> for the first room of that kind: the hospital's wards, consulting rooms ...),
-// hoist (HOIST in the boss room: ?pose=wide, drop or pull)
+// hoist (HOIST in the boss room: ?pose=wide, drop or pull), surgeon (SURGEON in the boss room: ?pose=wide, scalpel,
+// needle or clamp)
 if (location.hash.startsWith('#bld-'))
   setTimeout(() => {
     startRun();
@@ -161,6 +162,15 @@ if (location.hash.startsWith('#bld-'))
       spawnBoss('hoist');
       const made = enemies.find(e => e.boss);
       if (made) hoistView(made, new URLSearchParams(location.search).get('pose') ?? 'wide');
+    } else if (what === 'surgeon') {
+      // SURGEON in the boss room (see surgeonView; ?pose= picks the view)
+      const last = b.plans.length - 1,
+        r = b.plans[last]!.gen.rooms[b.plans[last]!.hall!.room]!;
+      stand(last, (r.y + 1) * W + r.x + 1, W + 1);
+      run.bld!.supplied = true;
+      spawnBoss('surgeon');
+      const made = enemies.find(e => e.boss);
+      if (made) surgeonView(made, new URLSearchParams(location.search).get('pose') ?? 'wide');
     } else if (what.startsWith('court') && b.court) {
       // the courtyard (?sector=CITY; ?court=open for a yard, ?court=roof for an atrium): court = from its lowest
       // floor, looking up; courttop = from its top floor, looking down; courtmid = from a floor between
@@ -593,6 +603,54 @@ function hoistView(b: Enemy, view: string) {
   const name = document.querySelector<HTMLElement>('#banner');
   if (name) name.style.visibility = 'hidden';
 }
+const SURGEON_VIEW_BACK = 16; // SURGEON's views stand this far from the middle of the room (m)...
+const SURGEON_VIEW_SIDE = 7; // ... and this far to one side (m)
+const SURGEON_VIEW_STEP = 9; // 'scalpel' and 'clamp' step this far to one side once the line and the ring stop following (m)
+const SURGEON_VIEW_PITCH = 0.3; // ... looking up at this angle (rad)
+const SURGEON_VIEW_FRAMES = 150; // the views wait this many frames for the arms to appear
+const SURGEON_VIEW_SCALPEL = 0.4; // 'scalpel' is taken this long into the sweep (s)
+const SURGEON_VIEW_CLAMP = 0.7; // 'clamp' is taken this long into the ring's filling (s)
+const SURGEON_VIEW_NEEDLE = 0.2; // 'needle' is taken this long after the fan (s)
+// SURGEON's views (for screenshots), once it is in the room: wide (the body and its arms at rest), scalpel (the beam
+// crossing the floor), needle (the fan just after it is fired), clamp (the ring half filled, the clamp over it). The
+// boss stands still from there. #boss-surgeon-<view>: in the boss arena; #bld-surgeon (?sector=HOSP, ?pose=<view>): in
+// a building's boss room
+function surgeonView(b: Enemy, view: string) {
+  if (!b.boss) return;
+  const s = b as Boss & { atk: { t: number; fired: boolean } | null };
+  player.hp = 1e6;
+  player.maxHp = 1e6;
+  for (let n = 0; n < SURGEON_VIEW_FRAMES; n++) update(1 / 60);
+  // (to one side, so that the beam and the ring do not pass through the eye)
+  player.x = b.cx + SURGEON_VIEW_SIDE;
+  player.z = b.cz + SURGEON_VIEW_BACK;
+  player.yaw = yawToward(b.cx - player.x, b.cz - player.z);
+  player.pitch = SURGEON_VIEW_PITCH;
+  const kinds = ['scalpel', 'needle', 'clamp'];
+  if (kinds.includes(view)) {
+    b.timer = 0;
+    b.patIdx = kinds.indexOf(view);
+    update(1 / 60);
+    // (the line and the ring follow the player until just before they act: then the player steps to one side)
+    const K = BOSS_META.surgeon!.tune,
+      lock = view === 'scalpel' ? K.scalpelWarn - K.scalpelLock : K.clampTrack;
+    if (view !== 'needle') {
+      while (s.atk && s.atk.t < lock + 0.05) update(1 / 60);
+      player.x += SURGEON_VIEW_STEP;
+      player.yaw = yawToward(b.cx - player.x, b.cz - player.z);
+    }
+    const until = () =>
+      !s.atk ||
+      (view === 'scalpel' ? s.atk.t > K.scalpelWarn + SURGEON_VIEW_SCALPEL : false) ||
+      (view === 'clamp' ? s.atk.t > SURGEON_VIEW_CLAMP : false) ||
+      (view === 'needle' ? s.atk.fired : false);
+    for (let n = 0; n < SURGEON_VIEW_FRAMES * 2 && !until(); n++) update(1 / 60);
+    if (view === 'needle') for (let n = 0; n < SURGEON_VIEW_NEEDLE * 60; n++) update(1 / 60);
+  }
+  b.behave = () => {};
+  const name = document.querySelector<HTMLElement>('#banner');
+  if (name) name.style.visibility = 'hidden';
+}
 // dev view: #boss-phantom etc. starts boss practice against that boss
 // optional depth: #boss-phantom-3 = DEPTH 3 strength; #boss-phantom-look = up close
 if (location.hash.startsWith('#boss-'))
@@ -634,6 +692,16 @@ if (location.hash.startsWith('#boss-'))
         if (!b) return;
         clearInterval(wait);
         hoistView(b, d);
+      }, 200);
+      return;
+    }
+    if (k === 'surgeon' && (d === 'wide' || d === 'scalpel' || d === 'needle' || d === 'clamp')) {
+      startPractice(k, 0);
+      const wait = setInterval(() => {
+        const b = enemies.find(e => e.boss);
+        if (!b) return;
+        clearInterval(wait);
+        surgeonView(b, d);
       }, 200);
       return;
     }

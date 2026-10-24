@@ -357,6 +357,7 @@ LANG.ja = {
     'boss.watcherDrones': '監視体が子機を展開した',
     'boss.phantomHint': '予告レーザーが点滅したら撃ってくる',
     'boss.hoistHint': '磁石の引き寄せは、ダッシュで抜ける',
+    'boss.surgeonHint': '腕を撃ち落とすと、その攻撃が止まる',
   },
   data: {
     weapons: {
@@ -432,6 +433,12 @@ LANG.ja = {
         title: 'HOIST — 吊り荷機',
         short: '吊り荷機',
         desc: '荷を落として押し潰す。磁石で引き寄せてから落とす',
+      },
+      surgeon: {
+        name: 'SURGEON 手術ロボ',
+        title: 'SURGEON — 手術ロボ',
+        short: '手術ロボ',
+        desc: '3本の腕で切り、刺し、挟む。腕を撃ち落とすと、その攻撃が止まる',
       },
     },
     // desc(v): v is the chip's amount. curText(c): c is what the chip's cur(p) returns

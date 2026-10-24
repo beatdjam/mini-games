@@ -161,6 +161,29 @@ const BOSS_PLAYS: Record<string, (b: Boss, me: Vec) => BossPlay> = {
     if (Math.hypot(me.x - h.cargo.x, me.z - h.cargo.z) > ring + SHADOW_MARGIN) return {};
     return { near: ring + SHADOW_MARGIN * 2, ...(b.timer < SHADOW_LATE ? { dash: away } : {}) };
   },
+  // SURGEON: the arms are shot first (what stands with a boss always goes first). A clamp's ring that is about to slam:
+  // dash out of it. The scalpel's beam that is about to reach the player: dash through it, against the way it turns
+  surgeon: (b, me) => {
+    const K = BOSS_META.surgeon!.tune,
+      s = b as Boss & {
+        atk: { t: number } | null;
+        sweep: { a: number; dir: number; len: number; live: boolean } | null;
+        clamp: { x: number; z: number; slammed: boolean } | null;
+      };
+    if (s.clamp && !s.clamp.slammed && s.atk && s.atk.t > K.clampWarn - CLAMP_LATE) {
+      if (Math.hypot(me.x - s.clamp.x, me.z - s.clamp.z) < K.clampR + CLAMP_MARGIN)
+        return { dash: unit(me.x - s.clamp.x, me.z - s.clamp.z) };
+    }
+    if (s.sweep?.live) {
+      const dx = me.x - b.cx,
+        dz = me.z - b.cz,
+        pa = Math.atan2(dz, dx),
+        ahead = wrapAngle(pa - s.sweep.a) * s.sweep.dir; // the beam is this far behind the player (rad)
+      if (ahead > 0 && ahead < Math.PI / 2 && Math.hypot(dx, dz) * Math.sin(ahead) < BEAM_NEAR)
+        return { dash: { x: Math.sin(pa) * s.sweep.dir, z: -Math.cos(pa) * s.sweep.dir } };
+    }
+    return {};
+  },
 };
 
 // ---- tuning numbers used only here ----
@@ -173,6 +196,8 @@ const RAM_NEAR = 2.8; // a Trinity's lunge is dodged when it is aimed within thi
 const PULL_AWAY = 40; // a Hoist's magnet pulls: it keeps this far from it, so it runs away the whole time (m)
 const SHADOW_MARGIN = 0.8; // a Hoist's load is stepped away from when the player is within its ring plus this (m)
 const SHADOW_LATE = 0.5; // ... and a dash is spent on it when the load is about to fall (s left)
+const CLAMP_LATE = 0.5; // a Surgeon's clamp is dashed out of when it is about to slam (s left)
+const CLAMP_MARGIN = 0.8; // ... and the player is within its ring plus this (m)
 const KEEP_FAR = 16; // in a fight it closes in from beyond this (m)
 const KEEP_NEAR = 6; // ... and backs off inside this
 const STRAFE_FLIP = 0.9; // it changes the side it strafes to this often (s)

@@ -171,6 +171,20 @@ export const ENEMY: Record<string, EnemyDef> = {
     geo: 'cyl',
     ranged: { rate: 1.7, speed: 13, count: 3, spread: 0.16 },
   },
+  // SURGEON's arms (boss minion only): the boss holds each one where it wants it. Its hit points are set by the boss
+  // (a share of its own), and the look is the boss's
+  sarm: {
+    hp: 150,
+    speed: 0,
+    r: 0.3,
+    y: 0,
+    hitR: 1.0,
+    dmg: 0,
+    bits: 2,
+    color: COLOR.repair,
+    geo: 'tetraS',
+    anchored: true,
+  },
   mini: { hp: 16, speed: 7.2, r: 0.4, y: 0.4, hitR: 0.6, dmg: 6, melee: true, bits: 1, color: 0x7dffcf, geo: 'tetraS' },
 };
 // regular enemies (not bosses): overall knobs on top of the per-type numbers in ENEMY

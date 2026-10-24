@@ -17,6 +17,9 @@ const along = (g: THREE.BufferGeometry) => shared(g.rotateX(Math.PI / 2)); // a 
 const GEO = {
   glow: along(new THREE.CylinderGeometry(0.13, 0.13, 0.95, 10)),
   core: along(new THREE.CylinderGeometry(0.05, 0.05, 0.82, 8)),
+  // SURGEON's needle: long and thin, sharp at the front (+z)
+  needle: along(new THREE.CylinderGeometry(0.01, 0.07, 2.4, 8)),
+  needleCore: along(new THREE.CylinderGeometry(0.004, 0.028, 2.2, 6)),
 };
 const CORE = 0xfff4dc; // white-hot
 const GLOW = 0.75; // how strong the colour round the core is
@@ -47,8 +50,8 @@ interface Dressed {
   alive: boolean;
 }
 const extrasOf = (b: Dressed): Extras | undefined => b.mesh.userData.extras;
-// a bullet has just been fired (its mesh has its colour and its size): makes it a tracer
-export function dressEBullet(b: Dressed, color: number) {
+// a bullet has just been fired (its mesh has its colour and its size): makes it a tracer (or, `needle`, a needle)
+export function dressEBullet(b: Dressed, color: number, needle = false) {
   let x = extrasOf(b);
   if (plainLooks()) {
     // (a mesh that was a tracer before goes back to the plain ball)
@@ -62,7 +65,8 @@ export function dressEBullet(b: Dressed, color: number) {
     dynGroup.add(x.pool);
     b.mesh.userData.extras = x;
   }
-  b.mesh.geometry = GEO.glow;
+  b.mesh.geometry = needle ? GEO.needle : GEO.glow;
+  x.core.geometry = needle ? GEO.needleCore : GEO.core;
   b.mesh.material = glowMat(color);
   x.core.visible = true;
   x.pool.material = groundPool(color, POOL_SIDE).material;
