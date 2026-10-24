@@ -1,6 +1,6 @@
 import { PAINT, css } from '../../../data/colors.ts';
 import { FORGE_DANGER, FORGE_PLATE_HEAT, FORGE_PLATE_SAFETY } from '../../../i18n/signs.ts';
-import type { Pictures } from '../common.ts';
+import type { Pictures, RoomFloors, RoomWalls } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -15,63 +15,26 @@ import {
   stripes,
 } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import {
+  FORGE_HALL_FLOORS,
+  FORGE_HALL_MAP,
+  FORGE_HALL_MOUTHS,
+  FORGE_HALL_PLAIN,
+  FORGE_HALL_STORES,
+  FORGE_HALL_TAPS,
+  FORGE_HALL_WALLS,
+  forgeHallCeiling,
+  forgeHallUpper,
+} from './hall.ts';
+import { SAFETY_YELLOW, STRIPE_BLACK, heat, rivet, seam, soot, tread } from './strokes.ts';
 // The smelter block (FORGE): a steelworks. Sooty riveted iron and firebrick, girders overhead, thick pipes on the
 // walls, and the orange of the furnaces thrown back by everything.
 // ---- tuning numbers used only here ----
 const FORGE_FLOORS = 4; // 0 bare concrete, 1 a chequer-plate cover, 2 oil and soot, 3 a grating
-const SAFETY_YELLOW = '#d6a419';
-const STRIPE_BLACK = '#1b1714';
 // black and yellow warning stripes in a band, worn
 const warning = (g: CanvasRenderingContext2D, band: [number, number, number, number], pitch: number) =>
   stripes(g, band, pitch, SAFETY_YELLOW, STRIPE_BLACK, 'rgba(20,14,10,.25)');
 
-// a rivet head: round on the wall, so painted flat by `aspect`
-function rivet(g: CanvasRenderingContext2D, x: number, y: number, aspect: number, r = 2.6) {
-  g.fillStyle = 'rgba(0,0,0,.55)';
-  oval(g, x + 0.9, y + 0.9 * aspect, r, r * aspect);
-  g.fillStyle = 'rgba(150,136,124,.9)';
-  oval(g, x, y, r * 0.82, r * 0.82 * aspect);
-  g.fillStyle = 'rgba(255,236,214,.5)';
-  oval(g, x - 0.7, y - 0.7 * aspect, r * 0.36, r * 0.36 * aspect);
-}
-// a joint between two plates, with its row of rivets (across the picture, or down it)
-function seam(g: CanvasRenderingContext2D, x: number, y: number, len: number, down: boolean, aspect: number) {
-  g.fillStyle = 'rgba(0,0,0,.5)';
-  g.fillRect(x, y, down ? 2 : len, down ? len : 2);
-  g.fillStyle = 'rgba(255,230,205,.13)';
-  g.fillRect(down ? x + 2 : x, down ? y : y + 2, down ? 1.5 : len, down ? len : 1.5);
-  const step = down ? 16 * aspect : 16;
-  for (let p = step / 2; p < len; p += step) {
-    if (down) rivet(g, x - 6, y + p, aspect);
-    else rivet(g, x + p, y - 6 * aspect, aspect);
-  }
-}
-// soot: black running down from the top, and a dark cloud over the upper part
-function soot(g: CanvasRenderingContext2D, rand: () => number, n: number, x0 = 0, w = TEX) {
-  const cloud = g.createLinearGradient(0, 0, 0, TEX * 0.5);
-  cloud.addColorStop(0, 'rgba(12,9,7,.5)');
-  cloud.addColorStop(1, 'rgba(12,9,7,0)');
-  g.fillStyle = cloud;
-  g.fillRect(x0, 0, w, TEX * 0.5);
-  for (let k = 0; k < n; k++) {
-    const len = 40 + rand() * 150,
-      st = g.createLinearGradient(0, 0, 0, len);
-    st.addColorStop(0, 'rgba(12,9,7,.5)');
-    st.addColorStop(1, 'rgba(12,9,7,0)');
-    g.fillStyle = st;
-    g.fillRect(x0 + rand() * (w - 12), 0, 3 + rand() * 12, len);
-  }
-}
-// the light of the furnaces thrown back by the foot of a wall or a door
-function heat(g: CanvasRenderingContext2D, from = 0.55, strength = 0.3) {
-  const glow = g.createLinearGradient(0, TEX * from, 0, TEX);
-  glow.addColorStop(0, 'rgba(255,112,36,0)');
-  glow.addColorStop(1, `rgba(255,112,36,${strength})`);
-  g.globalCompositeOperation = 'lighter';
-  g.fillStyle = glow;
-  g.fillRect(0, TEX * from, TEX, TEX * (1 - from));
-  g.globalCompositeOperation = 'source-over';
-}
 // sooty iron plate over the whole picture
 function iron(g: CanvasRenderingContext2D, rand: () => number) {
   const bg = g.createLinearGradient(0, 0, 0, TEX);
@@ -322,25 +285,6 @@ const forgeWall =
     grain(g, rand, 20);
   };
 
-// the raised pattern of chequer plate, inside a rectangle
-function tread(g: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number) {
-  g.save();
-  g.beginPath();
-  g.rect(x0, y0, w, h);
-  g.clip();
-  for (let y = y0, row = 0; y < y0 + h + 12; y += 12, row++)
-    for (let x = x0 + (row % 2 ? 9 : 0), col = 0; x < x0 + w + 18; x += 18, col++) {
-      g.save();
-      g.translate(x, y);
-      g.rotate((row + col) % 2 ? 0.75 : -0.75);
-      g.fillStyle = 'rgba(0,0,0,.4)';
-      g.fillRect(-5.5, -0.5, 12, 3);
-      g.fillStyle = 'rgba(214,204,192,.34)';
-      g.fillRect(-6, -1.5, 12, 3);
-      g.restore();
-    }
-  g.restore();
-}
 // The ground: the same concrete under every variant (the painter is given the same seed for all of them), with soft
 // patches that run on across the picture's edge, so the floor reads as one surface and not as tiles
 const forgeFloor =
@@ -653,11 +597,44 @@ const forgeHazardGlow: Paint = (g, rand) => {
   g.fillRect(TEX - 16, 0, 16, TEX);
 };
 
+// The casting hall (the boss room; hall.ts) has its own walls and floors, numbered after the plant's: the walls beside
+// the room take them (`RoomWalls.hall`), the rest of the plant's walls and floors are picked as they were
+const HALL_WALL_FIRST = FORGE_WALL_PICS.length;
+export const FORGE_ROOM_WALLS: RoomWalls = {
+  plain: HALL_WALL_FIRST,
+  common: FORGE_WALL_PICS.map((_, n) => n),
+  shops: [],
+  ground: [],
+  fronts: [],
+  hall: FORGE_HALL_MAP.map(n => HALL_WALL_FIRST + n),
+};
+export const FORGE_ROOM_FLOORS: RoomFloors = {
+  plain: FORGE_FLOORS,
+  shops: [],
+  hall: FORGE_HALL_FLOORS.map((_, n) => FORGE_FLOORS + n),
+};
+// what is set up by the hall's walls (hallProps.ts)
+export const FORGE_HALL_MOUTH_WALLS = FORGE_HALL_MOUTHS.map(n => HALL_WALL_FIRST + n); // furnace mouths
+export const FORGE_HALL_TAP_WALLS = FORGE_HALL_TAPS.map(n => HALL_WALL_FIRST + n); // the tapping spout
+export const FORGE_HALL_PLAIN_WALLS = FORGE_HALL_PLAIN.map(n => HALL_WALL_FIRST + n); // pipes and chains go on these
+export const FORGE_HALL_STORE_WALLS = FORGE_HALL_STORES.map(n => HALL_WALL_FIRST + n); // where stores may stand
+export const FORGE_ALL_WALLS = HALL_WALL_FIRST + FORGE_HALL_WALLS.length; // every wall picture of the look
+
 // the smelter block's look (world/looks.ts makes it the first time the sector is drawn)
 export function forgePictures(): Pictures {
   return {
-    walls: FORGE_WALL_PICS.map((pic, v) => paint(600 + v, forgeWall(pic))),
-    floors: Array.from({ length: FORGE_FLOORS }, (_, v) => paint(700, forgeFloor(v))),
+    walls: [
+      ...FORGE_WALL_PICS.map((pic, v) => paint(600 + v, forgeWall(pic))),
+      ...FORGE_HALL_WALLS.map((fn, v) => paint(1100 + v, fn)),
+    ],
+    floors: [
+      ...Array.from({ length: FORGE_FLOORS }, (_, v) => paint(700, forgeFloor(v))),
+      // (one seed for all: the marks run on across the picture's edge)
+      ...FORGE_HALL_FLOORS.map(fn => paint(1200, fn)),
+    ],
+    roomWalls: FORGE_ROOM_WALLS,
+    roomFloors: FORGE_ROOM_FLOORS,
+    hall: { upper: paint(1300, forgeHallUpper), ceiling: paint(1301, forgeHallCeiling) },
     deck: paint(800, forgeDeck),
     ceiling: paint(900, forgeCeiling),
     door: paint(1000, forgeDoor(false)),
