@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP, T } from '@engine/world/tiles.ts';
+import { T } from '@engine/world/tiles.ts';
 import { PAINT, css } from '../../../data/colors.ts';
 import { HALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
 import { wallPic } from '../common.ts';
+import { hallSurround } from '../hallFaces.ts';
 import { canvasTex } from '../paint.ts';
 import { facing, onWall, pose } from '../props.ts';
-import type { Light, PropTools, WallSlot } from '../props.ts';
+import type { Light, PropTools } from '../props.ts';
 import { seeded } from '../cutoutTools.ts';
 import { DRUM as DRUM_PAINTS, chainsTex } from './cutouts.ts';
 import {
@@ -140,8 +141,6 @@ const sparkTex = (seed: number) =>
     for (let k = 0; k < 6; k++) g.fillRect(8 + rand() * 112, 8 + rand() * 112, 2, 2);
   });
 
-type Face = WallSlot & { side: number; edge: boolean };
-
 export function hallProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd' | 'pools'>, rng: Rng) {
   if (!plan.hall) return;
   shared ??= {
@@ -152,43 +151,10 @@ export function hallProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd' | 
   };
   const tex = shared,
     { add, d, pools } = tools,
-    room = d.rooms[plan.hall.room]!,
     lights: Light[] = [],
-    inside = (i: number, j: number): boolean =>
-      i >= room.x && i < room.x + room.w && j >= room.y && j < room.y + room.h,
-    // (a tile of the room with nothing special about its floor: no deck, ramp, cover, hole)
-    plain = (k: number): boolean =>
-      d.maps.grid[k] === 1 &&
-      d.maps.roomOf[k] === plan.hall!.room &&
-      d.maps.hgt[k] === 0 &&
-      d.maps.ramp[k]! < 0 &&
-      !d.maps.cover[k] &&
-      !plan.noFloor[k],
-    // (nothing stands by a door: it would be in the doorway)
-    byDoor = (f: WallSlot): boolean =>
-      [[0, 0], ...SIDE_STEP].some(([di, dj]) => !!d.maps.door?.[(f.j + dj!) * d.W + f.i + di!]),
-    pictureOf = (f: WallSlot): number => {
-      const [di, dj] = SIDE_STEP[f.side ?? 0]!;
-      return wallPic(
-        d,
-        (f.j + dj) * d.W + f.i + di,
-        FORGE_ALL_WALLS,
-        undefined,
-        undefined,
-        FORGE_ROOM_WALLS,
-        undefined,
-      );
-    },
-    faces: Face[] = [];
-  for (let j = room.y; j < room.y + room.h; j++)
-    for (let i = room.x; i < room.x + room.w; i++) {
-      if (!plain(j * d.W + i)) continue;
-      SIDE_STEP.forEach(([di, dj], side) => {
-        const wall = (j + dj) * d.W + i + di;
-        if (!d.maps.grid[wall] && !plan.voids[wall]) faces.push({ i, j, side, edge: !inside(i + di, j + dj) });
-      });
-    }
-  const open = faces.filter(f => !byDoor(f)),
+    { open, pictureOf } = hallSurround(plan, d, wall =>
+      wallPic(d, wall, FORGE_ALL_WALLS, undefined, undefined, FORGE_ROOM_WALLS, undefined),
+    ),
     edges = open.filter(f => f.edge),
     mouths = edges.filter(f => FORGE_HALL_MOUTH_WALLS.includes(pictureOf(f))),
     taps = edges.filter(f => FORGE_HALL_TAP_WALLS.includes(pictureOf(f))),

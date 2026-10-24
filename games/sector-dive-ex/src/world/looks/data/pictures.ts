@@ -1,8 +1,18 @@
 import { PAINT, css } from '../../../data/colors.ts';
 import { DATA_PLATE_CAUTION, DATA_PLATE_ZONE, DATA_RACK_IDS, DATA_SEALED } from '../../../i18n/signs.ts';
-import type { Pictures } from '../common.ts';
+import type { Pictures, RoomFloors, RoomWalls } from '../common.ts';
 import { DOOR_ASPECT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge, stripes, words } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import {
+  DATA_HALL_FLOORS,
+  DATA_HALL_MAP,
+  DATA_HALL_PLAIN,
+  DATA_HALL_RACKS,
+  DATA_HALL_WALLS,
+  dataHallCeiling,
+  dataHallUpper,
+} from './hall.ts';
+import { CABLES, LEDS, joint, led } from './strokes.ts';
 // The discarded data layer (DATA): a server room nobody has entered for years. Pale wall panels and rows of racks in
 // grey metal and plastic, a raised floor, cable ladders and a duct overhead, and the cold white of the few tubes that
 // still burn. The lights of the scenery are small and dull, so that the enemies, the shots and the pickups (which
@@ -27,27 +37,9 @@ export const DATA_WALLS: WallPic[] = [
 export const RACK_PICS: WallPic[] = ['mesh', 'blank', 'cable']; // the walls that are a row of racks
 const DATA_FLOORS = 5; // 0 bare panels, 1 perforated panels, 2 a cable cut-out, 3 dust and scraps, 4 a leak
 export const RACK = { top: 3.3, foot: 0.12, n: 3 }; // a row of racks on a wall: its top and its plinth (m), racks per tile
-// patch cables, dulled by dust: grey, blue, yellow, red, black (the pictures and the props use the same ones)
-export const CABLES = [0x7b838a, 0x3f587a, 0x8a7a3c, 0x633a36, PAINT.soot9];
-const LEDS = ['#63c98a', '#63c98a', '#d7a23f', '#c9503f']; // the lamps of a rack: mostly green
 const HAZARD_RED = '#b8261f';
 const HAZARD_WHITE = '#d9dee2';
 
-// a thin joint between two panels (across the picture, or down it): a dark line with a light one beside it
-function joint(g: CanvasRenderingContext2D, x: number, y: number, len: number, down: boolean, dark = 0.4) {
-  g.fillStyle = `rgba(16,24,32,${dark})`;
-  g.fillRect(x, y, down ? 1.5 : len, down ? len : 1.5);
-  g.fillStyle = `rgba(255,255,255,${dark * 0.3})`;
-  g.fillRect(down ? x + 1.5 : x, down ? y : y + 1.5, down ? 1 : len, down ? len : 1);
-}
-// a small lamp behind a rack's door: a dot and a faint halo
-function led(g: CanvasRenderingContext2D, x: number, y: number, color: string) {
-  g.globalAlpha = 0.22;
-  g.fillStyle = color;
-  oval(g, x, y, 4, 4 * WALL_ASPECT);
-  g.globalAlpha = 1;
-  g.fillRect(x - 1.1, y - 0.8, 2.2, 1.6);
-}
 // pale wall panels over the whole picture: their joints stay clear of the picture's edges, a dark skirting at the foot
 function panels(g: CanvasRenderingContext2D, rand: () => number) {
   const bg = g.createLinearGradient(0, 0, 0, TEX);
@@ -715,11 +707,42 @@ const dataDoor =
     grain(g, rand, 16);
   };
 
+// The server hall (the boss room; hall.ts) has its own walls and floors, numbered after the layer's: the walls beside
+// the room take them (`RoomWalls.hall`), the rest of the layer's walls and floors are picked as they were
+const HALL_WALL_FIRST = DATA_WALLS.length;
+export const DATA_ROOM_WALLS: RoomWalls = {
+  plain: HALL_WALL_FIRST,
+  common: DATA_WALLS.map((_, n) => n),
+  shops: [],
+  ground: [],
+  fronts: [],
+  hall: DATA_HALL_MAP.map(n => HALL_WALL_FIRST + n),
+};
+export const DATA_ROOM_FLOORS: RoomFloors = {
+  plain: DATA_FLOORS,
+  shops: [],
+  hall: DATA_HALL_FLOORS.map((_, n) => DATA_FLOORS + n),
+};
+// what is set up by the hall's walls (hallProps.ts)
+export const DATA_HALL_RACK_WALLS = DATA_HALL_RACKS.map(n => HALL_WALL_FIRST + n); // the rows of racks
+export const DATA_HALL_PLAIN_WALLS = DATA_HALL_PLAIN.map(n => HALL_WALL_FIRST + n); // where an air-conditioning unit may stand
+export const DATA_ALL_WALLS = HALL_WALL_FIRST + DATA_HALL_WALLS.length; // every wall picture of the look
+
 // the discarded data layer's look (world/looks.ts makes it the first time the sector is drawn)
 export function dataPictures(): Pictures {
   return {
-    walls: DATA_WALLS.map((pic, v) => paint(1100 + v, dataWall(pic))),
-    floors: Array.from({ length: DATA_FLOORS }, (_, v) => paint(1200, dataFloor(v))),
+    walls: [
+      ...DATA_WALLS.map((pic, v) => paint(1100 + v, dataWall(pic))),
+      ...DATA_HALL_WALLS.map((fn, v) => paint(1600 + v, fn)),
+    ],
+    floors: [
+      ...Array.from({ length: DATA_FLOORS }, (_, v) => paint(1200, dataFloor(v))),
+      // (one seed for all: the marks run on across the picture's edge)
+      ...DATA_HALL_FLOORS.map(fn => paint(1700, fn)),
+    ],
+    roomWalls: DATA_ROOM_WALLS,
+    roomFloors: DATA_ROOM_FLOORS,
+    hall: { upper: paint(1800, dataHallUpper), ceiling: paint(1801, dataHallCeiling) },
     deck: paint(1300, dataDeck),
     ceiling: paint(1400, dataCeiling),
     door: paint(1500, dataDoor(false)),
