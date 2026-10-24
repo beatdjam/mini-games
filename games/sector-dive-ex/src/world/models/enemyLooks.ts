@@ -465,8 +465,43 @@ const mortarGun: Make = (body, glow) => {
     );
   return { g, body: g, anim: {} };
 };
+// the repair drone: a round hull on three ducted fans, a lit band round it and a lamp on top; under it an arm folded
+// forward with the beam's nozzle at its tip (actors/medic.ts starts the beam at MEDIC_NOZZLE), a box of spare parts
+// at its back
+export const MEDIC_NOZZLE = { y: -0.44, fwd: 0.5 }; // the nozzle's tip below the body's middle and ahead of it (m)
+const medicDrone: Make = (body, glow) => {
+  const g = new THREE.Group(),
+    k = machine(),
+    whirl: EnemyAnim['whirl'] = [];
+  g.add(
+    at(cylGeo(0.32, 0.36, 0.3, 14), body, 0, 0, 0), // the hull
+    at(cylGeo(0.37, 0.37, 0.05, 14), glow, 0, -0.06, 0), // the lit band
+    at(cylGeo(0.22, 0.28, 0.08, 14), k.black, 0, 0.19, 0), // the cap on top
+    at(ballGeo(0.07), glow, 0, 0.26, 0), // the lamp
+    at(boxGeo(0.26, 0.16, 0.14), k.black, 0, 0, -0.4), // the box of spare parts
+    at(boxGeo(0.06, 0.3, 0.06), k.steel, 0, -0.29, 0.12), // the arm: down from the belly,
+    at(boxGeo(0.06, 0.06, 0.28), k.steel, 0, MEDIC_NOZZLE.y, 0.24), // then forward
+    at(cylGeo(0.03, 0.05, 0.12, 8), k.black, 0, MEDIC_NOZZLE.y, MEDIC_NOZZLE.fwd - 0.08, 'z'), // the nozzle
+    at(ballGeo(0.045), glow, 0, MEDIC_NOZZLE.y, MEDIC_NOZZLE.fwd), // its lit tip
+    aerial(0.14, 0.15, -0.14, 0.3),
+  );
+  for (let i = 0; i < 3; i++) {
+    const a = (i * 2 * Math.PI) / 3 + Math.PI / 3, // the fans at the sides and the back, none in front of the arm
+      sx = Math.sin(a),
+      sz = Math.cos(a),
+      strut = at(boxGeo(0.05, 0.04, 0.3), k.black, sx * 0.47, 0.04, sz * 0.47),
+      rotor = new THREE.Group();
+    strut.rotation.y = a;
+    rotor.position.set(sx * 0.66, 0.08, sz * 0.66);
+    rotor.add(at(boxGeo(0.34, 0.012, 0.05), k.steel, 0, 0, 0), at(cylGeo(0.03, 0.03, 0.04, 6), k.black, 0, 0.01, 0));
+    g.add(strut, at(cylGeo(0.2, 0.2, 0.1, 14), k.black, sx * 0.66, 0.06, sz * 0.66), rotor); // the duct, the fan
+    whirl.push({ part: rotor, rate: 36 * (i % 2 ? 1 : -1) });
+  }
+  return { g, body: g, anim: { whirl, hover: true } };
+};
 const MAKERS: Record<string, Make> = {
   mortar: mortarGun,
+  medic: medicDrone,
   tetra: runner(1),
   tetraS: runner(0.66, true),
   octa: copter,

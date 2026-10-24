@@ -6,6 +6,7 @@ import type {
   Pickup,
   PickupKind,
   RegularEnemy,
+  Medic,
   Shielded,
   Sniper,
   Trooper,
@@ -309,6 +310,11 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
     e.aim = 0;
     e.lock = [0, 0, 0];
   }
+  if (def.medic) {
+    e.laser = makeLaser(COLOR.repair); // the repair beam
+    e.patient = null;
+    e.pickT = 0;
+  }
   if (def.humanoid) {
     // head, chest and legs are hit separately (kept in place by poseHumanoid); walk cycle state
     e.rig = m.g.userData.rig;
@@ -325,10 +331,11 @@ export function spawnEnemy(type: string, x: number, z: number, room: number, dif
   return spawnEnemyObj(e);
 }
 // joins the enemy group; each frame the engine calls updateEnemy (src/actors/enemies.ts)
-// type guards: the fields of a shield / sniper / trooper are set by spawnEnemy for exactly those types
+// type guards: the fields of a shield / sniper / trooper / repair drone are set by spawnEnemy for exactly those types
 export const isShielded = (e: Enemy): e is Shielded => !e.boss && !!e.def.shield;
 export const isSniper = (e: Enemy): e is Sniper => !e.boss && !!e.def.sniper;
 export const isTrooper = (e: Enemy): e is Trooper => !e.boss && !!e.def.humanoid;
+export const isMedic = (e: Enemy): e is Medic => !e.boss && !!e.def.medic;
 export function spawnEnemyObj<T extends Enemy>(e: T): T {
   e.tag = 'enemy';
   e.update = (dt: number) => updateEnemy(e, dt);

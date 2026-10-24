@@ -1165,6 +1165,57 @@ test('mortar: a round puts a ring where the player stood, then hurts only whoeve
   expect(hit.lost, 'standing in the ring').toBe(hit.dmg);
   expect(lands(MORTAR_BLAST_R + 0.5).lost, 'outside the ring').toBe(0);
 });
+test('repair drone: mends the most worn enemy near it, then the next, and flies off from the player', () => {
+  // on an open floor: a worn brute and a slightly worn shield, both held where they are, and a repair drone by them
+  startRun();
+  tick(3);
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
+  grid.fill(1);
+  hgt.fill(0);
+  ramp.fill(-1);
+  cover.fill(0);
+  activeTileGrid().world.door?.fill(0);
+  const cx = (W * T) / 2,
+    cz = (H * T) / 2;
+  player.x = cx;
+  player.z = cz;
+  player.fy = floorY(cx, cz);
+  player.hp = 1e6;
+  player.maxHp = 1e6;
+  const b = spawnEnemy('brute', cx, cz + 20, -1, 1),
+    s = spawnEnemy('shield', cx + 4, cz + 20, -1, 1),
+    m = spawnEnemy('medic', cx, cz + 25, -1, 1);
+  for (const e of [b, s, m]) e.active = true;
+  b.stun = 1e6;
+  s.stun = 1e6;
+  b.hp = b.maxHp * 0.4;
+  s.hp = s.maxHp * 0.9;
+  tick(12);
+  expect(m.patient, 'the brute is the more worn').toBe(b);
+  expect(m.laser!.visible, 'the beam is on').toBe(true);
+  const hp0 = b.hp;
+  tick(60);
+  expect((b.hp - hp0) / b.maxHp, 'about a tenth of its hit points a second').toBeGreaterThan(0.08);
+  expect((b.hp - hp0) / b.maxHp).toBeLessThan(0.12);
+  b.hp = b.maxHp;
+  tick(42);
+  expect(m.patient, 'the brute is whole: on to the shield').toBe(s);
+  s.hp = s.maxHp;
+  tick(42);
+  expect(m.patient, 'nothing left to mend').toBeNull();
+  expect(m.laser!.visible, 'the beam is off').toBe(false);
+  player.x = m.x;
+  player.z = m.z - 4;
+  const d0 = distXZ(player, m);
+  tick(30);
+  expect(distXZ(player, m), 'it flies away from the player').toBeGreaterThan(d0 + 1);
+  expect(m.hp, 'it was never hurt').toBe(m.maxHp);
+  endRun('abandon');
+});
 // HOIST in the boss arena: the boss ready to act, its trolley over the middle, nothing else in the arena
 type HoistTest = Boss & {
   st: string;

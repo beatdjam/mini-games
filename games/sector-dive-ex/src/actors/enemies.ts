@@ -4,10 +4,11 @@ import { sfx } from '@engine/audio/audio.ts';
 import { flowAt, hasLOS } from '@engine/world/tiles.ts';
 import { steerChase } from '@engine/world/steer.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
-import { enemies, fanAt, isSniper, isTrooper, shootAtPoint } from '../world/entities.ts';
+import { enemies, fanAt, isMedic, isSniper, isTrooper, shootAtPoint } from '../world/entities.ts';
 import { player } from './player.ts';
 import { damagePlayer, detonate } from './combat.ts';
 import { fireMortar } from './mortar.ts';
+import { updateMedic } from './medic.ts';
 import { bossPauseTick, bossPhase, isEnraged, poseBossPool } from './bosses/common.ts';
 import { setLaser } from '../world/models.ts';
 import { COLOR } from '../data/colors.ts';
@@ -80,7 +81,9 @@ export function updateEnemy(e: Enemy, dt: number) {
     if (r) still = true;
   }
   if (isSniper(e) && updateSniper(e, dt, los, py)) still = true;
-  if (def.speed > 0 && !still) steerEnemy(e, dt, dx, dz, dist, los);
+  if (isMedic(e))
+    updateMedic(e, dt, dx, dz, dist, los, still); // its own way of moving, and the repair beam
+  else if (def.speed > 0 && !still) steerEnemy(e, dt, dx, dz, dist, los);
 
   if (def.melee && dist < e.r + player.r + MELEE_REACH && Math.abs(player.fy - e.fy!) < MELEE_REACH_Y && e.mcd <= 0) {
     e.mcd = MELEE_INTERVAL;
@@ -208,7 +211,9 @@ function poseEnemy(e: RegularEnemy, dt: number, dx: number, dz: number) {
   const def = e.def;
   const bob = def.fly ? Math.sin(e.t * 3) * 0.3 : 0;
   e.mesh.position.set(e.x, e.fy + def.y + bob, e.z);
-  const want = Math.atan2(dx, dz);
+  // a repair drone faces the enemy it mends, the rest face the player
+  const p = isMedic(e) ? e.patient : null,
+    want = p ? Math.atan2(p.x - e.x, p.z - e.z) : Math.atan2(dx, dz);
   if (def.turn) {
     e.face = turnToward(e.face, want, def.turn * dt);
   } else {
