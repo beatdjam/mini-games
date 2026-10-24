@@ -103,7 +103,7 @@ export const ENEMY: Record<string, EnemyDef> = {
   // (src/actors/medic.ts)
   medic: {
     hp: 36,
-    speed: 4.2,
+    speed: 6.0,
     r: 0.5,
     y: 2.1,
     hitR: 0.85,

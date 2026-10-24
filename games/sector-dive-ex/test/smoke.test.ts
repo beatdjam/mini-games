@@ -1199,8 +1199,8 @@ test('repair drone: mends the most worn enemy near it, then the next, and flies 
   expect(m.laser!.visible, 'the beam is on').toBe(true);
   const hp0 = b.hp;
   tick(60);
-  expect((b.hp - hp0) / b.maxHp, 'about a tenth of its hit points a second').toBeGreaterThan(0.08);
-  expect((b.hp - hp0) / b.maxHp).toBeLessThan(0.12);
+  expect((b.hp - hp0) / b.maxHp, 'about a fifth of its hit points a second').toBeGreaterThan(0.18);
+  expect((b.hp - hp0) / b.maxHp).toBeLessThan(0.22);
   b.hp = b.maxHp;
   tick(42);
   expect(m.patient, 'the brute is whole: on to the shield').toBe(s);
