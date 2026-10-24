@@ -1,9 +1,32 @@
 import { RUIN_KEEP_OUT, RUIN_NOTICE_BOARD } from '../../../i18n/signs.ts';
-import type { Pictures, WallSides } from '../common.ts';
+import type { Pictures, RoomFloors, RoomWalls, WallSides } from '../common.ts';
 import { DOOR_ASPECT, SIGN_FONT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { ruinView } from './backdrop.ts';
-import { PAINT, css } from '../../../data/colors.ts';
+import {
+  RUIN_HALL_FLOORS,
+  RUIN_HALL_LIT,
+  RUIN_HALL_MAP,
+  RUIN_HALL_STAGE,
+  RUIN_HALL_WALLS,
+  ruinHallCeiling,
+  ruinHallUpper,
+} from './hall.ts';
+import {
+  RUST,
+  chunk,
+  crack,
+  crackLines,
+  creeper,
+  damp,
+  moss,
+  mortar,
+  pick,
+  ragged,
+  rounded,
+  rustPatch,
+  tuft,
+} from './strokes.ts';
 // The ruined streets (RUIN): the inside of a housing block that fell in long ago. Pale cracked mortar gone green at
 // the foot, faded wallpaper, broken windows with the grey daylight behind them, ivy and grass, and what the people
 // who lived here left. Nothing is lit: the only light is the day's, through the windows and the holes in the ceiling.
@@ -36,169 +59,9 @@ const brokenPanes = (): [number, number, number, number][] => {
   ];
 };
 const RUIN_FLOORS = 6; // 0 bare, 1 what is left of the tiles, 2 ... of the floorboards, 3 grass in a crack, 4 a puddle, 5 crumbs of rubble
-const LEAVES = [PAINT.leaf2, PAINT.leaf3, PAINT.leaf1, PAINT.leaf4].map(css);
-const RUST = '#7c4a2b';
 const TAPE_YELLOW = '#c7a52e';
 const TAPE_BLACK = '#1d1f1a';
 
-const pick = <V>(rand: () => number, list: V[]): V => list[Math.floor(rand() * list.length)]!;
-// adds a ragged closed outline to the path being built (a hole, a patch, a stain)
-export function ragged(
-  g: CanvasRenderingContext2D | Path2D,
-  rand: () => number,
-  x: number,
-  y: number,
-  rx: number,
-  ry: number,
-) {
-  const n = 13;
-  for (let k = 0; k < n; k++) {
-    const a = (k / n) * Math.PI * 2,
-      r = 0.68 + rand() * 0.42;
-    if (k) g.lineTo(x + Math.cos(a) * rx * r, y + Math.sin(a) * ry * r);
-    else g.moveTo(x + Math.cos(a) * rx * r, y + Math.sin(a) * ry * r);
-  }
-  g.closePath();
-}
-// ... a rounded one (standing water)
-function rounded(g: CanvasRenderingContext2D, rand: () => number, x: number, y: number, rx: number, ry: number) {
-  const n = 9,
-    at = Array.from({ length: n }, (_, k): [number, number] => {
-      const a = (k / n) * Math.PI * 2,
-        r = 0.74 + rand() * 0.34;
-      return [x + Math.cos(a) * rx * r, y + Math.sin(a) * ry * r];
-    }),
-    mid = (k: number): [number, number] => [
-      (at[k % n]![0] + at[(k + 1) % n]![0]) / 2,
-      (at[k % n]![1] + at[(k + 1) % n]![1]) / 2,
-    ];
-  g.moveTo(...mid(0));
-  for (let k = 1; k <= n; k++) g.quadraticCurveTo(...at[k % n]!, ...mid(k));
-  g.closePath();
-}
-// a crack: a jagged line that wanders on from (x, y), with a branch or two
-function crack(
-  g: CanvasRenderingContext2D,
-  rand: () => number,
-  x: number,
-  y: number,
-  steps: number,
-  dx: number,
-  dy: number,
-) {
-  const branches: [number, number][] = [];
-  const line = (sx: number, sy: number, n: number, bx: number, by: number, w: number) => {
-    let cx = sx,
-      cy = sy;
-    g.lineWidth = w;
-    g.beginPath();
-    g.moveTo(cx, cy);
-    for (let s = 0; s < n; s++) {
-      cx += bx + (rand() - 0.5) * 12;
-      cy += by + (rand() - 0.5) * 12;
-      g.lineTo(cx, cy);
-      if (w > 1 && rand() < 0.3) branches.push([cx, cy]);
-    }
-    g.stroke();
-  };
-  g.strokeStyle = 'rgba(28,32,24,.7)';
-  line(x, y, steps, dx, dy, 1.6);
-  branches.forEach(([bx, by]) => line(bx, by, 3, dy * 0.8 + dx * 0.4, dx * 0.8 + dy * 0.4, 0.9));
-}
-// one ivy leaf (round things on a wall or a door are painted flat by `aspect`)
-export function leaf(
-  g: CanvasRenderingContext2D,
-  rand: () => number,
-  x: number,
-  y: number,
-  size: number,
-  aspect: number,
-) {
-  g.save();
-  g.translate(x, y);
-  g.scale(1, aspect);
-  g.rotate(rand() * Math.PI * 2);
-  for (const [o, c] of [
-    [1.4, 'rgba(18,26,14,.45)'],
-    [0, pick(rand, LEAVES)],
-  ] as [number, string][]) {
-    g.fillStyle = c;
-    g.beginPath();
-    g.moveTo(o, -size + o);
-    g.quadraticCurveTo(size * 1.1 + o, -size * 0.3 + o, o, size + o);
-    g.quadraticCurveTo(-size * 1.1 + o, -size * 0.3 + o, o, -size + o);
-    g.fill();
-  }
-  g.strokeStyle = 'rgba(190,210,160,.3)';
-  g.lineWidth = 0.7;
-  g.beginPath();
-  g.moveTo(0, -size * 0.8);
-  g.lineTo(0, size * 0.8);
-  g.stroke();
-  g.restore();
-}
-// a strand of ivy from (x, y), `steps` leaves long, growing by (dx, dy) a step: the stem first, then its leaves
-export function creeper(
-  g: CanvasRenderingContext2D,
-  rand: () => number,
-  [x, y]: [number, number],
-  steps: number,
-  [dx, dy]: [number, number],
-  size: number,
-  aspect: number,
-) {
-  const at: [number, number][] = [[x, y]];
-  for (let s = 0; s < steps; s++) {
-    const [px, py] = at[at.length - 1]!;
-    at.push([px + dx + (rand() - 0.5) * size * 1.6, py + dy + (rand() - 0.5) * size * 0.6 * aspect]);
-  }
-  g.strokeStyle = 'rgba(52,44,30,.8)';
-  g.lineWidth = 1.3;
-  g.beginPath();
-  at.forEach(([px, py], n) => (n ? g.lineTo(px, py) : g.moveTo(px, py)));
-  g.stroke();
-  at.forEach(([px, py], n) => {
-    const s = size * (1 - (n / at.length) * 0.35);
-    leaf(g, rand, px + (rand() - 0.5) * size * 1.7, py + (rand() - 0.5) * size * aspect, s, aspect);
-    if (rand() < 0.55)
-      leaf(g, rand, px + (rand() - 0.5) * size * 2.4, py + (rand() - 0.5) * size * aspect, s * 0.8, aspect);
-  });
-}
-// damp running down a wall or a door from the top
-function damp(g: CanvasRenderingContext2D, rand: () => number, n: number) {
-  for (let k = 0; k < n; k++) {
-    const len = 50 + rand() * 170,
-      st = g.createLinearGradient(0, 0, 0, len);
-    st.addColorStop(0, 'rgba(38,48,34,.42)');
-    st.addColorStop(1, 'rgba(38,48,34,0)');
-    g.fillStyle = st;
-    g.fillRect(rand() * TEX, 0, 3 + rand() * 12, len);
-  }
-}
-// moss and dirt at the foot of a wall or a door
-function moss(g: CanvasRenderingContext2D, rand: () => number, from: number, strength: number) {
-  const band = g.createLinearGradient(0, TEX * from, 0, TEX);
-  band.addColorStop(0, 'rgba(58,78,44,0)');
-  band.addColorStop(0.7, `rgba(58,78,44,${strength})`);
-  band.addColorStop(1, `rgba(30,38,24,${strength + 0.2})`);
-  g.fillStyle = band;
-  g.fillRect(0, TEX * from, TEX, TEX * (1 - from));
-  for (let k = 0; k < 90; k++) {
-    g.fillStyle = rand() < 0.6 ? 'rgba(84,110,60,.5)' : 'rgba(34,46,28,.5)';
-    const y = TEX - rand() * rand() * TEX * (1 - from);
-    g.fillRect(rand() * TEX, y, 2 + rand() * 7, 1 + rand() * 2.5);
-  }
-}
-// pale cracked mortar over the whole picture
-function mortar(g: CanvasRenderingContext2D, rand: () => number) {
-  const bg = g.createLinearGradient(0, 0, 0, TEX);
-  bg.addColorStop(0, '#858c7b');
-  bg.addColorStop(0.7, '#7b8272');
-  bg.addColorStop(1, '#666d5d');
-  g.fillStyle = bg;
-  g.fillRect(0, 0, TEX, TEX);
-  grime(g, rand, 150, '#9da492', '#3d4337');
-}
 // faded wallpaper from the ceiling down to the skirting, torn away in places (the mortar shows there)
 function wallpaper(g: CanvasRenderingContext2D, rand: () => number, blue: boolean) {
   const top = 0,
@@ -348,17 +211,6 @@ function brokenWindow(g: CanvasRenderingContext2D, rand: () => number, inside = 
     g.fillRect(sx, y + h + 10, 3 + rand() * 8, len);
   }
   creeper(g, rand, [x + w + 2, y + h + 6], 9, [-5, -9], 6, WALL_ASPECT);
-}
-// the cracks of a pane of glass: lines out from a point
-function crackLines(g: CanvasRenderingContext2D, rand: () => number, x: number, y: number, n: number, len: number) {
-  for (let k = 0; k < n; k++) {
-    const a = rand() * Math.PI * 2;
-    g.beginPath();
-    g.moveTo(x, y);
-    g.lineTo(x + Math.cos(a) * len * 0.5, y + Math.sin(a) * len * 0.4);
-    g.lineTo(x + Math.cos(a + 0.2) * len, y + Math.sin(a + 0.2) * len * 0.7);
-    g.stroke();
-  }
 }
 // spray paint: loops and scrawls, no words
 function graffiti(g: CanvasRenderingContext2D, rand: () => number) {
@@ -545,42 +397,6 @@ const ruinWall =
     grain(g, rand, 20);
   };
 
-// a tuft of grass seen from above: blades out from a point
-function tuft(g: CanvasRenderingContext2D, rand: () => number, x: number, y: number, size: number) {
-  g.lineCap = 'round';
-  for (let k = 0; k < 11; k++) {
-    const a = rand() * Math.PI * 2,
-      len = size * (0.5 + rand() * 0.6);
-    g.strokeStyle = pick(rand, LEAVES);
-    g.lineWidth = 1.2 + rand() * 0.8;
-    g.beginPath();
-    g.moveTo(x, y);
-    g.quadraticCurveTo(
-      x + Math.cos(a) * len * 0.6,
-      y + Math.sin(a) * len * 0.6 - 2,
-      x + Math.cos(a + 0.4) * len,
-      y + Math.sin(a + 0.4) * len,
-    );
-    g.stroke();
-  }
-  g.lineCap = 'butt';
-}
-// a broken bit of concrete lying on the ground, with its shadow
-function chunk(g: CanvasRenderingContext2D, rand: () => number, x: number, y: number, r: number) {
-  const v = 104 + Math.floor(rand() * 44);
-  g.fillStyle = 'rgba(20,22,18,.5)';
-  g.beginPath();
-  ragged(g, rand, x + r * 0.25, y + r * 0.3, r, r * 0.8);
-  g.fill();
-  g.fillStyle = `rgb(${v},${v + 2},${v - 10})`;
-  g.beginPath();
-  ragged(g, rand, x, y, r, r * 0.8);
-  g.fill();
-  g.fillStyle = 'rgba(232,236,214,.2)';
-  g.beginPath();
-  ragged(g, rand, x - r * 0.2, y - r * 0.2, r * 0.5, r * 0.4);
-  g.fill();
-}
 // The ground: the same dusty slab under every variant (the painter is given the same seed for all of them), with
 // soft patches that run on across the picture's edge, so the floor reads as one surface and not as tiles. What a
 // variant adds stays clear of the edge
@@ -814,19 +630,6 @@ const ruinCeiling: Paint = (g, rand) => {
   g.fillRect(0, at + 27, TEX, 3);
   grain(g, rand, 14);
 };
-// a patch of rust, and what has run down from it
-function rustPatch(g: CanvasRenderingContext2D, rand: () => number, x: number, y: number, r: number) {
-  g.fillStyle = `rgba(112,72,46,${0.3 + rand() * 0.3})`;
-  g.beginPath();
-  ragged(g, rand, x, y, r, r * (0.2 + rand() * 0.5));
-  g.fill();
-  const len = 14 + rand() * 30,
-    st = g.createLinearGradient(0, y, 0, y + len);
-  st.addColorStop(0, 'rgba(124,74,43,.5)');
-  st.addColorStop(1, 'rgba(124,74,43,0)');
-  g.fillStyle = st;
-  g.fillRect(x - r * 0.5, y, r, len);
-}
 // warning tape between two points: black and yellow
 function tape(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, half: number) {
   g.save();
@@ -1003,14 +806,43 @@ const ruinDoor =
     grain(g, rand, 20);
   };
 
+// The collapsed hall (the boss room; hall.ts) has its own walls and floors, numbered after the sector's: the walls beside
+// the room take them (`RoomWalls.hall`), the rest of the sector's walls and floors are picked as they were
+export const RUIN_ALL_WALLS = RUIN_WALLS + RUIN_HALL_WALLS.length; // every wall picture of the look
+export const RUIN_ROOM_WALLS: RoomWalls = {
+  plain: RUIN_WALLS,
+  common: Array.from({ length: RUIN_WALLS }, (_, n) => n),
+  shops: [],
+  ground: [],
+  fronts: [],
+  hall: RUIN_HALL_MAP.map(n => RUIN_WALLS + n),
+};
+export const RUIN_ROOM_FLOORS: RoomFloors = {
+  plain: RUIN_FLOORS,
+  shops: [],
+  hall: RUIN_HALL_FLOORS.map((_, n) => RUIN_FLOORS + n),
+};
+// what is set up by the hall's walls (hallProps.ts)
+export const RUIN_HALL_STAGE_WALLS = RUIN_HALL_STAGE.map(n => RUIN_WALLS + n); // where the lectern stands
+export const RUIN_HALL_LIT_WALLS = RUIN_HALL_LIT.map(n => RUIN_WALLS + n); // where the day comes in and weeds grow
 // the ruined streets' look (world/looks.ts makes it the first time the sector is drawn)
 export function ruinPictures(): Pictures {
   return {
-    walls: Array.from({ length: RUIN_WALLS }, (_, v) => paint(1100 + v, ruinWall(v))),
+    walls: [
+      ...Array.from({ length: RUIN_WALLS }, (_, v) => paint(1100 + v, ruinWall(v))),
+      ...RUIN_HALL_WALLS.map((fn, v) => paint(1700 + v, fn)),
+    ],
     wallSides: RUIN_WALL_SIDES,
     outside: { panes: { [WALL_WINDOW]: brokenPanes() }, frame: 0x4a4e43, ...ruinView() },
     innerWalls: { [WALL_WINDOW]: paint(1100 + WALL_WINDOW, ruinWall(WALL_WINDOW, true)) },
-    floors: Array.from({ length: RUIN_FLOORS }, (_, v) => paint(1200, ruinFloor(v))),
+    floors: [
+      ...Array.from({ length: RUIN_FLOORS }, (_, v) => paint(1200, ruinFloor(v))),
+      // (one seed for all: the wear runs on across the picture's edge)
+      ...RUIN_HALL_FLOORS.map(fn => paint(1800, fn)),
+    ],
+    roomWalls: RUIN_ROOM_WALLS,
+    roomFloors: RUIN_ROOM_FLOORS,
+    hall: { upper: paint(1810, ruinHallUpper), ceiling: paint(1811, ruinHallCeiling) },
     deck: paint(1300, ruinDeck),
     ceiling: paint(1400, ruinCeiling),
     door: paint(1500, ruinDoor(false)),
