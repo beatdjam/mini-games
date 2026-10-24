@@ -13,12 +13,12 @@ import { MEDIC_NOZZLE } from '../world/models/enemyLooks.ts';
 // other repair drones aren't mended. Shoot it first, or the room takes longer.
 
 // ---- tuning numbers used only here ----
-const HEAL_RANGE = 9; // it mends an enemy within this, with no wall between (m)
-const HEAL_RATE = 0.1; // share of the patient's max hit points (and its shield's) mended per second
+const HEAL_RANGE = 12; // it mends an enemy within this, with no wall between (m)
+const HEAL_RATE = 0.2; // share of the patient's max hit points (and its shield's) mended per second
 const HEAL_NEAR = 4; // it closes in on its patient to this (m)
-const FLEE_DIST = 8; // the player closer than this and in sight sends it away (m)
+const FLEE_DIST = 6; // the player closer than this and in sight sends it away (m)
 const PICK_EVERY = 0.5; // seconds between choosing a patient
-const SPARK_EVERY = 0.15; // seconds between the sparks on the patient
+const SPARK_EVERY = 0.08; // seconds between the sparks on the patient
 
 // how worn an enemy is: 0 = like new, up to 2 (hit points and shield both gone)
 function wear(o: RegularEnemy) {
@@ -83,5 +83,5 @@ function mend(e: Medic, dt: number) {
     [to.x, to.y, to.z],
     0.55 + 0.3 * Math.sin(e.t * 24),
   );
-  if (e.t % SPARK_EVERY < dt) burst(to.x, to.y, to.z, COLOR.repair, 2, 2, 0.3, -1);
+  if (e.t % SPARK_EVERY < dt) burst(to.x, to.y, to.z, COLOR.repair, 4, 3, 0.4, -1);
 }
