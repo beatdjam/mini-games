@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { Group, Matrix4, Vector3 } from 'three';
 import type { InstancedMesh } from 'three';
-import type { Boss, GameState, MortarShell, Pickup, RunState, Snapshot } from '../src/data/types.ts';
+import type { Boss, Enemy, GameState, MortarShell, Pickup, RunState, Snapshot } from '../src/data/types.ts';
 import { createRng, distXZ, el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
 import { lang, t } from '@engine/core/i18n.ts';
@@ -3187,8 +3187,11 @@ test('building run: a cleared room stays empty across floors and a resume; the c
     room = level.roomCount.findIndex((n, idx) => n > 0 && !(ld && ld.floor === 0 && ld.room === idx));
   for (let k = 0; k < 6 && level.roomCount[room]! > 0; k++) killRoom(room);
   expect(run.bld!.cleared[0]).toContain(room);
-  // a wounded enemy and a dropped kit are left behind on this floor
-  const hurt = enemies.find(e => !e.dead && e.room !== room && e.hp > 2)!,
+  // a wounded enemy and a dropped kit are left behind on this floor (in a room with no repair drone: hurting it wakes
+  // its room, and a drone there would mend it)
+  const mended = (e: Enemy) =>
+      enemies.some(o => !o.dead && !o.boss && o.def.medic && o.room === e.room && o.floor === e.floor),
+    hurt = enemies.find(e => !e.dead && e.room !== room && e.hp > 2 && !mended(e))!,
     hpLeft = hurt.hp - 1;
   hurtEnemy(hurt, 1, false);
   const [kx, kz] = roomSpot(level.rooms[level.startIdx]!),
