@@ -13,6 +13,8 @@ import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { flatBoxTex, flatHeapTex, flatTex, ragsTex } from './cutouts.ts';
 import {
+  RUIN_ALL_WALLS,
+  RUIN_ROOM_WALLS,
   RUIN_WALLS,
   RUIN_WALL_SIDES,
   WALL_BLOCKS,
@@ -21,10 +23,9 @@ import {
   WALL_PAPER_BLUE,
   WALL_STAINED,
   WALL_WINDOW,
-  creeper,
-  leaf,
-  ragged,
 } from './pictures.ts';
+import { DAYLIGHT, creeper, leaf, ragged } from './strokes.ts';
+import { hallProps } from './hallProps.ts';
 // The props of the ruined streets (RUIN): the things fixed to its walls and ceilings, and the light they throw. They
 // go by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the
 // two together.
@@ -33,7 +34,6 @@ const DAY_POOL_OPACITY = 0.34; // the daylight on the ground under a window or a
 const WINDOW_POOL = { out: 1.9, wide: 0.42, deep: 0.56 }; // ... under a window: how far from the wall (m), its size (of LAMP_POOL)
 const HOLE_POOL = 0.6; // ... under a hole in the ceiling (of LAMP_POOL)
 const QUIET_WALLS = [0, WALL_STAINED, WALL_BLOCKS, WALL_PAPER, WALL_PAPER_BLUE]; // the walls a shelf or a lamp may hang on
-const DAYLIGHT = 0xd3e0c8; // the colour of the light the day throws on the ground
 // ivy hanging from the top of a wall: strands of leaves on nothing (the rest of the picture is clear)
 const vinePaint: Paint = (g, rand) => {
   for (let k = 0; k < 11; k++)
@@ -150,6 +150,11 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     { d, wallOf, add } = tools;
   // the picture on the wall a wall slot is on
   const pictureOf = (s: WallSlot) => wallPic(d, wallOf(s), RUIN_WALLS, undefined, RUIN_WALL_SIDES);
+  // The collapsed hall (the boss room) has its own things (hallProps.ts), so what hangs on the walls here is left out on
+  // the walls that have the hall's pictures (on both sides of them). The dice are thrown all the same, so the rest of the
+  // floor comes out as it did
+  const inHall = (s: WallSlot): boolean =>
+    wallPic(d, wallOf(s), RUIN_ALL_WALLS, undefined, RUIN_WALL_SIDES, RUIN_ROOM_WALLS) >= RUIN_WALLS;
   // (nothing hangs where the ceiling is open, nor from the boss room's ceiling: it is higher than the others)
   const of = (id: string) =>
     tools
@@ -162,13 +167,10 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   add(
     new THREE.PlaneGeometry(VINE.w, VINE.h),
     new THREE.MeshBasicMaterial({ map: shared.vine, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    vines.map(s => {
-      const flip = rng.next() < 0.5 ? -1 : 1;
-      return pose(
-        onWall(s, rng.rand(-1.1, 1.1), VINE.out, WALL_H - VINE.h / 2),
-        facing(s),
-        new THREE.Vector3(flip, 1, 1),
-      );
+    vines.flatMap(s => {
+      const flip = rng.next() < 0.5 ? -1 : 1,
+        at = onWall(s, rng.rand(-1.1, 1.1), VINE.out, WALL_H - VINE.h / 2);
+      return inHall(s) ? [] : [pose(at, facing(s), new THREE.Vector3(flip, 1, 1))];
     }),
   );
 
@@ -181,6 +183,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       y = rng.rand(SHELF.y[0]!, SHELF.y[1]!),
       roll = rng.rand(SHELF.tilt[0]!, SHELF.tilt[1]!) * (rng.next() < 0.5 ? -1 : 1),
       turn = facing(s);
+    if (inHall(s)) return;
     plank.push(pose(onWall(s, off, SHELF.deep / 2 + 0.02, y), turn, FULL_SIZE, roll));
     bracket.push(pose(onWall(s, off, SHELF.deep / 2 + 0.02, y - 0.14), turn));
   });
@@ -202,6 +205,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       y = rng.rand(LAMP.y[0]!, LAMP.y[1]!),
       roll = rng.rand(LAMP.tilt[0]!, LAMP.tilt[1]!) * (rng.next() < 0.5 ? -1 : 1),
       turn = facing(s);
+    if (inHall(s)) return;
     plate.push(pose(onWall(s, off, 0.03, y), turn));
     body.push(pose(onWall(s, off, 0.1, y), turn, FULL_SIZE, roll));
     tube.push(pose(onWall(s, off, 0.19, y), turn, FULL_SIZE, roll));
@@ -254,7 +258,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
         if (d.maps.grid[wall] || plan.voids[wall]) return;
-        if (wallPic(d, wall, RUIN_WALLS, undefined, RUIN_WALL_SIDES) !== WALL_WINDOW) return;
+        if (wallPic(d, wall, RUIN_ALL_WALLS, undefined, RUIN_WALL_SIDES, RUIN_ROOM_WALLS) !== WALL_WINDOW) return;
         const s = { i, j, side };
         daylight.push(
           pose(
@@ -273,4 +277,6 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // what was left in the flats, wall by wall (looks/dress.ts)
   const dressLights: Light[] = [];
   dressWalls({ add }, d, plan, rng, (ruinKit ??= makeRuinKit()), dressLights);
+  // the boss room is the collapsed hall: its own things (after the rest, so the random numbers of the others go on as they did)
+  hallProps(plan, tools, rng, shared.vine);
 }

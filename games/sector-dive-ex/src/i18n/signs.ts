@@ -33,6 +33,13 @@ export const NOISE_HALL_DANGER = ['高電圧', '危険'];
 // ("keep out")
 export const RUIN_NOTICE_BOARD = '掲示板';
 export const RUIN_KEEP_OUT = '立入禁止';
+// the collapsed hall (the boss room): the banner over its stage ("summer festival"), the head of its timetable sheet
+// ("hall bookings"), and the plates high on its walls ("meeting hall", "disaster drill", "neighbourhood association")
+export const RUIN_HALL_BANNER = '夏祭り';
+export const RUIN_HALL_TIMETABLE = '利用予定表';
+export const RUIN_HALL_MEETING = '集会所';
+export const RUIN_HALL_DRILL = '防災訓練';
+export const RUIN_HALL_TOWN = '町内会';
 // The old downtown: the signs of a Japanese office building (the emergency exit, the floor guide, the plate over a
 // fire extinguisher), and "keep out" painted down each leaf of the boss room's door
 export const CITY_EXIT = '非常口';
