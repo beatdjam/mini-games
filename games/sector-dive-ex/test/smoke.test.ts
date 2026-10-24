@@ -1379,6 +1379,199 @@ test('hoist: when it goes down the load and the pull are gone, the magnet falls 
   expect(level.portals.length, 'practice: the way home').toBe(1);
   endRun('extract');
 });
+// SURGEON in the boss arena: the boss ready to act with its arms made, nothing else in the arena
+type SurgeonTest = Boss & {
+  arms: { kind: string; foe: { hp: number; maxHp: number; dead?: boolean } | null }[];
+  atk: { t: number; arm: { kind: string } } | null;
+  sweep: { ac: number; dir: number; live: boolean } | null;
+  clamp: { x: number; z: number; slammed: boolean } | null;
+  second: boolean;
+};
+function surgeonReady(): SurgeonTest {
+  startPractice('surgeon');
+  tick(10);
+  if (!boss) spawnBoss('surgeon');
+  const s = boss as SurgeonTest;
+  s.spawnT = 0;
+  s.phased = true; // (the phase change has its own test)
+  s.timer = 1e6;
+  joy.x = 0;
+  joy.y = 0;
+  setFireHeld(false);
+  player.maxHp = 1e6;
+  player.hp = 1e6;
+  player.inv = 0;
+  player.x = s.cx + 12;
+  player.z = s.cz + 12;
+  update(1 / 60); // the arms are made on its first act
+  clearPool(eBullets);
+  return s;
+}
+// the next attack begins now; returns the kind of arm that began it ('' when the body fires a ring instead)
+function surgeonAttack(s: SurgeonTest): string {
+  s.timer = 0;
+  update(1 / 60);
+  return s.atk ? s.atk.arm.kind : '';
+}
+// runs the attack on to its end
+function surgeonFinish(s: SurgeonTest) {
+  for (let k = 0; k < 600 && s.atk; k++) update(1 / 60);
+}
+const surgeonShoot = (s: SurgeonTest, kind: string) => {
+  const arm = s.arms.find(a => a.kind === kind)!;
+  hurtEnemy(arm.foe as unknown as Enemy, arm.foe!.hp + 1, false);
+  update(1 / 60);
+};
+test('surgeon: the arms attack in turn, scalpel, needle, clamp, and a shot-off arm is skipped', () => {
+  const s = surgeonReady();
+  expect(
+    s.arms.map(a => a.kind),
+    'three arms',
+  ).toEqual(['scalpel', 'needle', 'clamp']);
+  const order: string[] = [];
+  for (let k = 0; k < 4; k++) {
+    order.push(surgeonAttack(s));
+    surgeonFinish(s);
+  }
+  expect(order, 'in turn').toEqual(['scalpel', 'needle', 'clamp', 'scalpel']);
+  surgeonShoot(s, 'needle');
+  const rest: string[] = [];
+  for (let k = 0; k < 3; k++) {
+    rest.push(surgeonAttack(s));
+    surgeonFinish(s);
+  }
+  expect(rest, 'the needle arm is skipped').toEqual(['clamp', 'scalpel', 'clamp']);
+  endRun('abandon');
+});
+test('surgeon: damage to an arm does not hurt the boss, damage to the body does; an arm shot off falls', () => {
+  const s = surgeonReady(),
+    arm = s.arms[0]!,
+    armMax = arm.foe!.maxHp;
+  expect(armMax / s.maxHp, 'an arm is a tenth of the body').toBeCloseTo(BOSS_META.surgeon.tune.armHp, 6);
+  const hp0 = s.hp;
+  hurtEnemy(arm.foe as unknown as Enemy, armMax * 0.5, false);
+  expect(s.hp, 'the body is whole').toBe(hp0);
+  expect(arm.foe!.hp, 'the arm is hurt').toBeLessThan(armMax);
+  const wrecks = query('wreck').length;
+  surgeonShoot(s, 'scalpel');
+  expect(s.hp, 'a shot-off arm costs the body nothing').toBe(hp0);
+  expect(arm.foe, 'the arm is gone').toBeNull();
+  expect(query('wreck').length, 'its limb falls').toBe(wrecks + 1);
+  hurtEnemy(s, 100, false);
+  expect(s.hp, 'the body is hurt').toBe(hp0 - 100);
+  endRun('abandon');
+});
+test('surgeon: the scalpel line shows first, and the beam hurts only a player in its path', () => {
+  const K = BOSS_META.surgeon.tune;
+  const sweep = (off: number) => {
+    const s = surgeonReady();
+    player.x = s.cx + 10;
+    player.z = s.cz;
+    expect(surgeonAttack(s)).toBe('scalpel');
+    const hp0 = player.hp,
+      dist = 10;
+    // (the line follows the player until just before the beam: the player steps off it once it has stopped)
+    for (let k = 0; k < (K.scalpelWarn - K.scalpelLock) * 60 + 3; k++) update(1 / 60);
+    expect(s.sweep!.live, 'the beam waits').toBe(false);
+    const at = s.sweep!.ac + off;
+    player.x = s.cx + Math.cos(at) * dist;
+    player.z = s.cz + Math.sin(at) * dist;
+    expect(player.hp, 'nothing hurts during the warning').toBe(hp0);
+    for (let k = 0; k < 120 && s.atk; k++) update(1 / 60);
+    expect(s.atk, 'the sweep is over').toBeNull();
+    const lost = hp0 - player.hp,
+      dmg = s.dmg * K.scalpelDmg;
+    endRun('abandon');
+    return { lost, dmg };
+  };
+  const hit = sweep(0);
+  expect(hit.lost, 'in the path').toBeCloseTo(hit.dmg, 6);
+  expect(sweep(Math.PI).lost, 'behind the body').toBe(0);
+  expect(sweep(K.scalpelArc).lost, 'past the end of the arc').toBe(0);
+});
+test('surgeon: the clamp slams a ring that fills first, and hurts only a player inside it', () => {
+  const K = BOSS_META.surgeon.tune;
+  const slam = (stepOut: number) => {
+    const s = surgeonReady();
+    player.x = s.cx + 8;
+    player.z = s.cz + 8;
+    s.patIdx = 2;
+    expect(surgeonAttack(s)).toBe('clamp');
+    const hp0 = player.hp;
+    for (let k = 0; k < (K.clampWarn * 60) / 2; k++) update(1 / 60);
+    expect(s.clamp!.slammed, 'not yet').toBe(false);
+    expect(player.hp, 'nothing falls yet').toBe(hp0);
+    player.x += stepOut;
+    for (let k = 0; k < 120 && s.atk; k++) update(1 / 60);
+    expect(s.atk, 'the clamp is done').toBeNull();
+    const lost = hp0 - player.hp,
+      dmg = s.dmg * K.clampDmg;
+    endRun('abandon');
+    return { lost, dmg };
+  };
+  const hit = slam(0);
+  expect(hit.lost, 'standing in the ring').toBeCloseTo(hit.dmg, 6);
+  expect(slam(K.clampR + 2).lost, 'outside the ring').toBe(0);
+});
+test('surgeon: the needles are a fan aimed at the player, seven below half health', () => {
+  const K = BOSS_META.surgeon.tune;
+  const fan = (share: number) => {
+    const s = surgeonReady();
+    s.hp = s.maxHp * share;
+    s.patIdx = 1;
+    expect(surgeonAttack(s)).toBe('needle');
+    const alive = () => eBullets.filter(b => b.alive).length;
+    for (let k = 0; k < (K.needleWind * 60) / 2; k++) update(1 / 60);
+    const early = alive();
+    surgeonFinish(s);
+    const n = alive();
+    endRun('abandon');
+    return { early, n };
+  };
+  expect(fan(1).early, 'not before it takes aim').toBe(0);
+  expect(fan(1).n, 'a fan').toBe(K.needleN);
+  expect(fan(0.4).n, 'a wider one').toBe(K.needleNEnr);
+});
+test('surgeon: with no arm left the body fires a ring', () => {
+  const K = BOSS_META.surgeon.tune,
+    s = surgeonReady();
+  for (const kind of ['scalpel', 'needle', 'clamp']) surgeonShoot(s, kind);
+  expect(
+    s.arms.every(a => !a.foe),
+    'no arm',
+  ).toBe(true);
+  clearPool(eBullets);
+  expect(surgeonAttack(s), 'no arm to attack').toBe('');
+  expect(eBullets.filter(b => b.alive).length, 'a ring of bullets').toBe(K.ringN);
+  endRun('abandon');
+});
+test('surgeon: below half health the arms grow back once and two repair drones come, up to the cap', () => {
+  const K = BOSS_META.surgeon.tune;
+  const second = (others: number) => {
+    const s = surgeonReady(),
+      medics = () => enemies.filter(o => !o.boss && !o.dead && o.type === 'medic').length;
+    for (let k = 0; k < others; k++) spawnMinion('crawler', s.cx - 10 - k, s.cz + 10);
+    surgeonShoot(s, 'scalpel');
+    surgeonShoot(s, 'clamp');
+    s.hp = s.maxHp * 0.4;
+    const before = medics();
+    update(1 / 60);
+    const out = { medics: medics() - before, arms: s.arms.filter(a => a.foe).length, second: s.second };
+    // the arms are not shot off a second time: they do not grow back again
+    surgeonShoot(s, 'scalpel');
+    for (let k = 0; k < 10; k++) update(1 / 60);
+    const again = s.arms.filter(a => a.foe).length;
+    endRun('abandon');
+    return { ...out, again };
+  };
+  const first = second(0);
+  expect(first.second).toBe(true);
+  expect(first.arms, 'all three are back').toBe(3);
+  expect(first.medics, 'two drones').toBe(K.medics);
+  expect(first.again, 'only once').toBe(2);
+  expect(second(K.minionCap - 1).medics, 'room for one').toBe(1);
+  expect(second(K.minionCap).medics, 'at the cap').toBe(0);
+});
 test('music: every style and its boss arrangement can be scheduled', () => {
   audioInit();
   musicInit();
@@ -2099,6 +2292,7 @@ test('generation is pinned: the same seed gives the same level', () => {
     'arena watcher': 'b566d42b',
     'arena crusher': 'b566d42b',
     'arena hoist': 'dc3f981b', // (no pillars, as TRINITY's)
+    'arena surgeon': 'dc3f981b',
     'arena core': 'dc3f981b',
     'arena phantom': 'b566d42b',
     'arena trinity': 'dc3f981b',
@@ -3288,7 +3482,7 @@ test('building: the layout a seed gives is that of BUILDING_V', () => {
       b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('') + Array.from(p.gen.maps.hgt).join()));
       mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
     }
-  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v6 38e80132');
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v6 abb6236');
 });
 test('mall: the big rooms have islands of cover, and one can still walk to every doorway of the room', () => {
   devCourtOpen(null);

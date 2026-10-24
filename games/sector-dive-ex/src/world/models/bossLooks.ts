@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { basicMat, shared } from '@engine/render/render.ts';
 import { COLOR, PAINT, css } from '../../data/colors.ts';
-import { TEX, grain, paint, stripes } from '../looks/paint.ts';
+import { TEX, grain, grime, paint, stripes } from '../looks/paint.ts';
 import type { Paint } from '../looks/paint.ts';
 import { bladeMat } from './enemyLooks.ts';
-import { V, at, boxGeo, cylGeo, machine, piston } from './machine.ts';
+import { V, at, ballGeo, boxGeo, cylGeo, machine, piston } from './machine.ts';
 import {
   CARD_SIZE,
   RATING_SIZE,
@@ -307,7 +307,7 @@ export function trinityBodyLook(mat: THREE.Material, color: number): THREE.Group
     at(cylGeo(0.26, 0.34, 0.24, 10), k.black, 0, -1.1, 0), // the lift jet's bell
     at(cylGeo(0.26, 0.26, 0.04, 10), k.jet, 0, -1.21, 0), // its throat, hot
     // the guns: a mount on every other face, a barrel out of it
-    ...spokes(3, 0, s =>
+    ...spokes(3, SURGEON_SLOT_TURN, s =>
       s.add(
         at(boxGeo(0.3, 0.3, 0.36), k.black, 0.86, 0, 0),
         at(cylGeo(0.06, 0.06, 0.4, 8), k.black, 1.12, 0, 0, 'x'),
@@ -652,4 +652,179 @@ export function hoistCargo(kind: number): THREE.Group {
         at(boxGeo(1.39, 0.08, 1.39), k.black, sx * 0.72, 0.3, sz * 0.72), // its strap
       );
   return g;
+}
+// SURGEON: a multi-armed surgical robot hung from the ceiling of an operating theatre. White-and-pale-green enamel gone
+// grimy (surgeonHullMat), not the dark plate of the others. The body (surgeonBody) is a rounded shell with a belt of
+// lights, a lens in front and a hub under the belly for each arm; its neck meets the column (surgeonMount) that holds it
+// to the ceiling, and that column stays after the body is gone. Each arm (surgeonArm) is two segments and an elbow (posed
+// by actors/bosses/surgeon.ts) and a tool at the end: a scalpel with a red emitter, an injector of five barrels, a
+// two-jaw clamp. Each tool has a lit band in the boss's colour at the wrist, so the arms read as targets of their own
+export const SURGEON_NECK = 1.9; // the neck's top is this far above the body's middle (m)
+export const SURGEON_SHOULDER = { r: 1.3, y: -0.62 }; // the hub of arm 0 is this far out (in front) and down from the body's middle; the others turn round
+export const SURGEON_SLOT_TURN = Math.PI / 3; // the three arms are turned this far from the front (the lens is between two of them)
+export type SurgeonArmKind = 'scalpel' | 'needle' | 'clamp';
+export interface SurgeonArmLook {
+  end: THREE.Group; // the tool; its origin is its middle and it points along +z
+  limb: THREE.Group; // the two segments and the elbow, posed by the boss in world space
+  upper: THREE.Mesh; // the segments are 1 m long along y: the boss scales them to length
+  fore: THREE.Mesh;
+  elbow: THREE.Mesh;
+  jaws: THREE.Group[]; // a clamp's two jaws, turned about y to open and close
+  mat: THREE.MeshLambertMaterial; // the arm's own, so that it flashes alone
+}
+const SURGEON_GLOW = 0.14; // the enamel's glow in the boss's colour: it has to read in the dark theatre
+const surgeonPaint: Paint = (g, rand) => {
+  g.fillStyle = '#d8e3da';
+  g.fillRect(0, 0, TEX, TEX);
+  // panel seams, a green band, a cross
+  g.fillStyle = 'rgba(40,64,54,.4)';
+  g.fillRect(TEX / 2 - 1, 0, 2, TEX);
+  g.fillRect(0, TEX * 0.3, TEX, 2);
+  g.fillStyle = '#7fc9a4';
+  g.fillRect(0, TEX * 0.62, TEX, 14);
+  g.fillStyle = 'rgba(70,170,120,.75)';
+  g.fillRect(TEX * 0.7, TEX * 0.1, 34, 10);
+  g.fillRect(TEX * 0.7 + 12, TEX * 0.1 - 12, 10, 34);
+  // the grime of years: dirt in the seams, rust runs
+  grime(g, rand, 110, '#f4faf4', '#3a3828');
+  for (let n = 0; n < 14; n++) {
+    const len = 30 + rand() * 90,
+      st = g.createLinearGradient(0, 0, 0, len);
+    st.addColorStop(0, 'rgba(120,76,36,.35)');
+    st.addColorStop(1, 'rgba(120,76,36,0)');
+    g.fillStyle = st;
+    g.fillRect(rand() * TEX, rand() * TEX * 0.7, 2 + rand() * 6, len);
+  }
+  grain(g, rand, 12);
+};
+let surgeonMap: THREE.CanvasTexture | null = null;
+// the enamel as a material: one for the body and one for each arm (each flashes by itself when hit)
+export function surgeonHullMat(color: number): THREE.MeshLambertMaterial {
+  surgeonMap ??= paint(6010, surgeonPaint, true);
+  const m = new THREE.MeshPhongMaterial({
+    map: surgeonMap,
+    specular: 0x9aa8a0,
+    shininess: 55,
+    emissive: color,
+    emissiveIntensity: SURGEON_GLOW,
+  });
+  m.userData.glow = SURGEON_GLOW;
+  return m as unknown as THREE.MeshLambertMaterial; // (as bossHullMat: the code that flashes it touches only what the two share)
+}
+const shellGeos: Record<number, THREE.BufferGeometry> = {};
+const roundGeo = (r: number) => (shellGeos[r] ??= shared(new THREE.SphereGeometry(r, 28, 18)));
+// the body: `mat` its enamel, `color` the boss's colour (a dead one is built with a dark colour: its lights are out)
+export function surgeonBody(mat: THREE.Material, color: number): THREE.Group {
+  const g = new THREE.Group(),
+    k = machine(),
+    glow = basicMat(color),
+    shell = at(roundGeo(1.5), mat);
+  shell.scale.y = 0.85;
+  g.add(shell);
+  // the belt of lights round the middle
+  g.add(turned(at(torusGeo(1.5, 0.08), k.steel, 0, -0.05, 0), HALF, 0, 0));
+  g.add(...spokes(12, 0, s => s.add(at(boxGeo(0.12, 0.1, 0.14), glow, 0, -0.05, 1.56))));
+  // the lens in front under a brow, and a cross lit over it
+  g.add(
+    at(cylGeo(0.52, 0.58, 0.3, 18), k.black, 0, -0.15, 1.38, 'z'),
+    at(torusGeo(0.52, 0.05), k.steel, 0, -0.15, 1.53),
+    at(cylGeo(0.34, 0.34, 0.04, 18), glow, 0, -0.15, 1.54, 'z'),
+    at(cylGeo(0.12, 0.12, 0.04, 12), basicMat(0xffffff), 0, -0.15, 1.56, 'z'),
+    at(boxGeo(0.46, 0.12, 0.05), glow, 0, 0.62, 1.34),
+    at(boxGeo(0.12, 0.46, 0.05), glow, 0, 0.62, 1.34),
+  );
+  // the neck up to the column, with a collar; vents behind
+  g.add(
+    at(cylGeo(0.72, 0.9, 0.5, 14), mat, 0, 1.2, 0),
+    at(cylGeo(0.56, 0.6, 0.5, 14), k.black, 0, 1.65, 0),
+    at(torusGeo(0.62, 0.07), k.steel, 0, 1.45, 0),
+    at(boxGeo(1.1, 0.08, 0.05), k.black, 0, 0.1, -1.42),
+    at(boxGeo(1.1, 0.08, 0.05), k.black, 0, -0.1, -1.42),
+    at(boxGeo(1.1, 0.08, 0.05), k.black, 0, -0.3, -1.42),
+  );
+  // under the belly: a dark plate and a hub for each arm
+  g.add(at(cylGeo(0.95, 0.7, 0.16, 16), k.black, 0, -1.2, 0));
+  const hub = SURGEON_SHOULDER;
+  g.add(
+    ...spokes(3, 0, s =>
+      s.add(
+        at(ballGeo(0.34, 1), k.steel, 0, hub.y, hub.r),
+        at(boxGeo(0.42, 0.22, 0.5), mat, 0, hub.y + 0.3, hub.r - 0.1),
+        at(cylGeo(0.37, 0.37, 0.06, 12), glow, 0, hub.y + 0.1, hub.r),
+      ),
+    ),
+  );
+  return g;
+}
+// the column from the ceiling: its origin is its lower end (the neck's top); it stands `len` m up to a plate on the ceiling
+export function surgeonMount(len: number): THREE.Group {
+  const g = new THREE.Group(),
+    k = machine();
+  g.add(
+    at(cylGeo(0.42, 0.42, len, 14), k.steel, 0, len / 2, 0),
+    at(boxGeo(2.6, 0.24, 2.6), k.black, 0, len - 0.12, 0),
+    at(cylGeo(0.62, 0.62, 0.3, 14), k.black, 0, 0.15, 0),
+    turned(at(torusGeo(0.5, 0.08), k.black, 0, len * 0.4, 0), HALF, 0, 0),
+    turned(at(torusGeo(0.5, 0.08), k.black, 0, len * 0.75, 0), HALF, 0, 0),
+  );
+  for (const a of [0.6, 2.7, 4.5])
+    g.add(at(cylGeo(0.05, 0.05, len - 0.3, 6), k.black, Math.sin(a) * 0.5, len / 2, Math.cos(a) * 0.5));
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1]) g.add(at(cylGeo(0.07, 0.07, 0.1, 6), k.steel, sx * 1.1, len - 0.28, sz * 1.1));
+  return g;
+}
+// an arm: the segments in the enamel, a steel elbow; the tool on the wrist has the lit band
+export function surgeonArm(kind: SurgeonArmKind, color: number): SurgeonArmLook {
+  const mat = surgeonHullMat(color),
+    k = machine(),
+    glow = basicMat(color),
+    upper = new THREE.Mesh(cylGeo(0.17, 0.2, 1, 10), mat),
+    fore = new THREE.Mesh(cylGeo(0.12, 0.16, 1, 10), mat),
+    elbow = new THREE.Mesh(ballGeo(0.3, 1), k.steel),
+    limb = new THREE.Group(),
+    end = new THREE.Group(),
+    jaws: THREE.Group[] = [];
+  limb.add(upper, fore, elbow);
+  // the wrist: a collar with the band
+  end.add(
+    at(cylGeo(0.23, 0.23, 0.3, 12), k.steel, 0, 0, -0.45, 'z'),
+    at(cylGeo(0.245, 0.245, 0.07, 12), glow, 0, 0, -0.32, 'z'),
+  );
+  if (kind === 'scalpel') {
+    // a handle and a blade, edge lit red along its length, the emitter at its tip
+    end.add(
+      at(boxGeo(0.3, 0.3, 0.5), mat, 0, 0, -0.05),
+      at(boxGeo(0.05, 0.36, 0.9), k.steel, 0, 0, 0.62),
+      at(boxGeo(0.02, 0.03, 0.85), basicMat(PAINT.red1), 0, -0.18, 0.62),
+      at(ballGeo(0.11, 1), basicMat(PAINT.red1), 0, -0.18, 1.08),
+    );
+  } else if (kind === 'needle') {
+    // the injector: a case and five barrels in a ring, clamped
+    end.add(
+      at(boxGeo(0.5, 0.5, 0.7), mat, 0, 0, 0),
+      at(torusGeo(0.2, 0.04), k.steel, 0, 0, 0.62),
+      at(torusGeo(0.2, 0.04), k.steel, 0, 0, 0.9),
+      at(boxGeo(0.34, 0.06, 0.08), glow, 0, 0.27, 0.1),
+    );
+    for (let n = 0; n < 5; n++) {
+      const a = (n / 5) * Math.PI * 2;
+      end.add(at(cylGeo(0.035, 0.015, 1.0, 6), k.steel, Math.sin(a) * 0.14, Math.cos(a) * 0.14, 0.85, 'z'));
+    }
+  } else {
+    // the clamp: a hinge block and two jaws that close on the floor
+    end.add(at(boxGeo(0.7, 0.34, 0.34), mat, 0, 0, -0.05));
+    for (const s of [-1, 1]) {
+      const jaw = new THREE.Group();
+      jaw.position.set(s * 0.3, 0, 0.12);
+      jaw.rotation.y = s * 0.35;
+      jaw.add(
+        at(boxGeo(0.12, 0.26, 0.9), k.steel, s * -0.05, 0, 0.42),
+        at(boxGeo(0.1, 0.12, 0.12), k.black, s * -0.13, 0, 0.85),
+        at(boxGeo(0.1, 0.12, 0.12), k.black, s * -0.13, 0, 0.62),
+      );
+      end.add(jaw);
+      jaws.push(jaw);
+    }
+  }
+  return { end, limb, upper, fore, elbow, jaws, mat };
 }

@@ -205,10 +205,51 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc'>
         gunSpeed: 15, // m/s
       },
     },
+    surgeon: {
+      pillars: false,
+      hp: 1500,
+      y: 7, // the body's middle above the floor
+      hitR: 1.8,
+      tune: {
+        turn: 0.7, // the body turns toward the player this fast (rad/s)
+        first: 2.4, // the first attack comes this long after the fight starts (s)
+        gap: 2.4, // seconds from the start of one attack to the start of the next
+        gapEnr: 1.7,
+        armHp: 0.11, // an arm's hit points, as a share of the body's at the same depth
+        armR: 3.6, // an arm's end hangs this far from the body's axis at rest (m)...
+        armY: 4.4, // ... and this high above the floor
+        armEase: 7, // an arm's end closes on the place it is held to at this rate (per second)
+        armGrow: 0.4, // a new arm grows to size over this long (s)
+        scalpelWarn: 0.9, // seconds of the red line on the floor before the beam
+        scalpelSweep: 0.8, // seconds the beam takes to cross its arc
+        scalpelArc: 1.22, // the arc it crosses (rad: 70 degrees)
+        scalpelLock: 0.3, // the line stops following the player this long before the beam (s)
+        scalpelDmg: 1.4, // multiplier on the boss's damage
+        scalpelW: 0.6, // the beam hurts what is within this of its line (m)
+        scalpelReach: 5, // the line runs this far past the player (m)...
+        scalpelMin: 14, // ... but at least this long
+        needleN: 5, // needles in a fan
+        needleNEnr: 7,
+        needleStep: 0.09, // between two needles (rad)
+        needleSpeed: 22, // m/s
+        needleSize: 0.6, // a thin bullet
+        needleWind: 0.5, // the arm takes aim this long before it fires (s)
+        clampR: 2, // the ring on the floor, and what the clamp slams (m)
+        clampWarn: 1.0, // seconds from the ring appearing to the slam
+        clampTrack: 0.4, // the ring follows the player for this long, then stays (s)
+        clampDmg: 2, // multiplier on the boss's damage
+        clampHold: 0.4, // the clamp stays down this long (s)
+        ringN: 14, // bullets in the ring the body fires when it has no arm
+        ringSpeed: 8,
+        medics: 2, // repair drones called in the second phase
+        minionCap: 4, // minions alive at once, not counting the arms
+        wreckG: 35, // what falls when it is down falls at this (m/s^2)
+      },
+    },
   },
   { name: '', title: '', short: '', desc: '' },
 );
-export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion', 'hoist'];
+export const BOSS_ORDER = ['watcher', 'crusher', 'core', 'phantom', 'trinity', 'bastion', 'hoist', 'surgeon'];
 // bosses: health at the D1 boss (x1.33 base) times hpMul, growing by `growth` per depth after that
 // (sliding down to `lateGrowth` across GROWTH_SLIDE in src/data/progress.ts)
 export const BOSS_TUNE = {

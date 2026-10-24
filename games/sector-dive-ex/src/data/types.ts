@@ -121,6 +121,7 @@ export interface EnemyDef {
   shield?: boolean;
   shieldHp?: number;
   turn?: number; // turn: rad/s
+  anchored?: boolean; // its boss places it every frame: updateEnemy leaves its movement and pose alone (SURGEON's arms)
 }
 // a hit sphere (the head, chest and legs of a trooper, the bodies of Trinity): enemies without `parts` use their own mesh and hitR
 export interface HitSphere {

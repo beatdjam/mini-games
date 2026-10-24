@@ -359,6 +359,7 @@ LANG.en = {
     'boss.watcherDrones': 'The Watcher deployed drones',
     'boss.phantomHint': 'It fires when the warning laser blinks',
     'boss.hoistHint': "Dash to break the magnet's pull",
+    'boss.surgeonHint': 'Shoot off an arm to stop its attack',
   },
   data: {
     weapons: {
@@ -437,6 +438,12 @@ LANG.en = {
         title: 'HOIST',
         short: 'Hoist',
         desc: 'Drops loads to crush you. Its magnet drags you under them',
+      },
+      surgeon: {
+        name: 'SURGEON',
+        title: 'SURGEON',
+        short: 'Surgeon',
+        desc: 'Operates with three arms: a laser scalpel, needles and a clamp. Shoot an arm off to stop it',
       },
     },
     perks: {

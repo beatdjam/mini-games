@@ -59,6 +59,7 @@ import './actors/bosses/phantom.ts';
 import './actors/bosses/trinity.ts';
 import './actors/bosses/bastion.ts';
 import './actors/bosses/hoist.ts';
+import './actors/bosses/surgeon.ts';
 import './ui/input.ts';
 import './ui/hud.ts';
 import { fsLabel, renderGuide } from './ui/settings.ts';

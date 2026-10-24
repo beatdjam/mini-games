@@ -134,7 +134,7 @@ export const BIOMES = withLang<Biome, 'name'>(
       },
       enemies: ['crawler', 'medic', 'shield', 'splitter', 'crawler', 'sniper'],
       // placeholders: the sector's own boss (SURGEON) is to come in place of these two
-      bosses: ['watcher', 'bastion'],
+      bosses: ['surgeon', 'watcher'],
     },
   ],
   { name: '' },
