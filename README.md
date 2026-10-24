@@ -48,6 +48,7 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 - `npm run test:engine`: engine のテストだけ（`vitest run --project engine`。`npx vitest` なら変更を見張って流し直す）
 - `npm run test:build`: 公開用のビルドを `dist-test/` へ作り、全ゲームについて、版番号が `version.json` と合うこと、GA のタグが入っていること、Chromium でページを開いてエラーが出ず拠点画面が出ることを確かめる（`tools/build.test.ts`）
 - `npm run sim`: ボット（自動で遊ぶプレイヤー）に潜行を遊ばせて、結果を表にする（バランスを見るための道具。テストではなく、CI では流さない）。Chromium の中で、画面を描かずに実時間の数百倍で回す。プレイヤーの型（初心者・探索型・速攻型 × 自動射撃あり・なし）ごとの集計が `sim-results/`（コミットしない）に出る。今あるのは Sector Dive Extended。使い方・型・表の読み方は `games/sector-dive-ex/sim/README.md`
+- `npm run shots`: 決まったシードの場面（セクターごとの最初の階・部屋・ボス部屋、敵の列、拾い物、ボス）を撮って PNG にする（`out/shots/<ブランチ>/`。`SHOTS_OUT=<フォルダ>` で変えられ、`SHOTS_ONLY=boss-` のように名前で絞れる）。テストではなく、CI では流さない（描いた画素は機械によって違うため）。見た目を変えないはずのリファクタでは、前（master）と後を同じ機械で撮り、`node tools/shots_diff.js <前> <後>` で比べる（違う画素の数を出し、違う絵は `<後>/diff/` に赤で示す）。今あるのは Sector Dive Extended（`games/sector-dive-ex/shots/`）。描かずに確かめる方は、スモークテストと一緒に流れる `games/sector-dive-ex/test/pins.test.ts`（形・置き場所・マテリアルのハッシュ）
 - `npm run trailer -- <台本>`: テキストの台本からトレイラー動画（mp4）を撮る（`out/`。コミットしない）。台本は場面ごとに、場所・動き・秒数・字幕・切り替わりを書く。今あるのは Sector Dive Extended（`games/sector-dive-ex/trailers/`）。使い方と台本の書き方は `tools/trailer/README.md`
 
 ### 確認用のコードとアクセス解析
