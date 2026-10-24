@@ -1,0 +1,156 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`bosses 1`] = `
+{
+  "bastion": "81:5dafb823 1:e22feba9",
+  "core": "59:7a6c72d5 1:8741580a",
+  "crusher": "74:a43448bb 1:a6654697",
+  "hoist": "46:616a5fbe 1:1702d397 1:3df7c1ba 1:3df7c1ba 1:3df7c1ba",
+  "phantom": "50:ea720073 1:ec51cbb8",
+  "surgeon": "29:80a853cc 5:5415f2eb 1:ec4de736 1:bc1f4722 1:baa03194 1:c574796d 1:2e253ac1 1:ab657a21 1:35bba7cc",
+  "trinity": "0:811c9dc5 1:f4f1a7c3 26:3b344928 26:c617adde 26:c2370ae0",
+  "watcher": "63:4a28f644 1:ff578fb3",
+}
+`;
+
+exports[`enemies, guns and pickups 1`] = `
+{
+  "enemy bomber": "8:dec19290",
+  "enemy brute": "7:622e582b",
+  "enemy bturret": "8:49027b49",
+  "enemy crawler": "11:17fb696",
+  "enemy drone": "13:7614a5f1",
+  "enemy medic": "12:c5f0526",
+  "enemy mini": "11:42c1cd30",
+  "enemy mortar": "5:53707c1e",
+  "enemy sarm": "11:38efce36",
+  "enemy shield": "8:a264245d",
+  "enemy sniper": "6:89efee9",
+  "enemy splitter": "7:396edfcf",
+  "enemy trooper": "25:a9536322",
+  "enemy turret": "8:e327d6ab",
+  "gun launcher": "12:42c5090b",
+  "gun pistol": "18:84b2f730",
+  "gun rail": "16:70b79905",
+  "gun shotgun": "12:654900ea",
+  "gun smg": "15:eb628572",
+  "pickup bit": "2:8d47fac3",
+  "pickup chip": "5:70327ab8",
+  "pickup kit": "4:89b00ae3",
+  "pickup weapon launcher": "11:d100681e",
+  "pickup weapon pistol": "17:37e6dfc0",
+  "pickup weapon rail": "15:a2498871",
+  "pickup weapon shotgun": "11:bcf06eab",
+  "pickup weapon smg": "14:b995bc2b",
+  "plain enemy bomber": "2:84abe480",
+  "plain enemy brute": "2:28d4a12e",
+  "plain enemy bturret": "3:8fff10e9",
+  "plain enemy crawler": "2:8c7799c4",
+  "plain enemy drone": "2:11c1994",
+  "plain enemy medic": "2:1c48bfa5",
+  "plain enemy mini": "2:78926ccc",
+  "plain enemy mortar": "2:2363d128",
+  "plain enemy sarm": "2:26b4528",
+  "plain enemy shield": "4:fa58bcab",
+  "plain enemy sniper": "3:390f634",
+  "plain enemy splitter": "2:7941b438",
+  "plain enemy trooper": "15:9232ed84",
+  "plain enemy turret": "3:9fadf653",
+  "plain pickup bit": "1:35388230",
+  "plain pickup chip": "2:f856f5a1",
+  "plain pickup kit": "3:f99b4781",
+  "plain pickup weapon launcher": "2:42c38d86",
+  "plain pickup weapon pistol": "2:668930da",
+  "plain pickup weapon rail": "2:2f0813e5",
+  "plain pickup weapon shotgun": "2:731616ee",
+  "plain pickup weapon smg": "2:fae9e9cc",
+}
+`;
+
+exports[`sector CITY 1`] = `
+{
+  "first": {
+    "at": "94,54",
+    "enemies": "49:3a0d18a1",
+    "scene": "1132:fbfb6ae",
+  },
+  "last": "752:3cba2dcf",
+}
+`;
+
+exports[`sector DATA 1`] = `
+{
+  "first": {
+    "at": "126,122",
+    "enemies": "16:902604c9",
+    "scene": "915:14c1478c",
+  },
+  "last": "734:102093d2",
+}
+`;
+
+exports[`sector FORGE 1`] = `
+{
+  "first": {
+    "at": "126,122",
+    "enemies": "23:c73a320c",
+    "scene": "1007:87c4ddad",
+  },
+  "last": "769:b89597b6",
+}
+`;
+
+exports[`sector HOSP 1`] = `
+{
+  "first": {
+    "at": "38,38",
+    "enemies": "95:309609e",
+    "scene": "1859:7b95fb54",
+  },
+  "last": "1019:f9e4e31c",
+}
+`;
+
+exports[`sector KWLN 1`] = `
+{
+  "first": {
+    "at": "30,30",
+    "enemies": "44:b352a881",
+    "scene": "1107:2f5fa383",
+  },
+  "last": "703:4611db87",
+}
+`;
+
+exports[`sector MALL 1`] = `
+{
+  "first": {
+    "at": "38,38",
+    "enemies": "55:3cb002c4",
+    "scene": "1486:95274045",
+  },
+  "last": "984:642a9230",
+}
+`;
+
+exports[`sector NOISE 1`] = `
+{
+  "first": {
+    "at": "126,122",
+    "enemies": "30:bcdbd9e4",
+    "scene": "1014:c12bc51b",
+  },
+  "last": "740:68882bf2",
+}
+`;
+
+exports[`sector RUIN 1`] = `
+{
+  "first": {
+    "at": "26,122",
+    "enemies": "36:a497e16a",
+    "scene": "987:a8695f5a",
+  },
+  "last": "602:d4109185",
+}
+`;
