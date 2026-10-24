@@ -6,15 +6,15 @@ import {
   surgeonBody,
   surgeonHullMat,
   surgeonMount,
-} from '../../world/models/bossLooks.ts';
-import type { SurgeonArmKind, SurgeonArmLook } from '../../world/models/bossLooks.ts';
+} from '../../world/models/surgeonLooks.ts';
+import type { SurgeonArmKind, SurgeonArmLook, SurgeonBodyLook } from '../../world/models/surgeonLooks.ts';
 import { plainLooks } from '../../world/looks.ts';
 import type { Boss, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp, distXZ, rand, turnToward, wrapAngle } from '@engine/core/util.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { disposeTree, dynGroup, shared } from '@engine/render/render.ts';
-import { burst } from '@engine/render/fx.ts';
+import { burst, fireball } from '@engine/render/fx.ts';
 import { spawn } from '@engine/core/world.ts';
 import type { WorldObject } from '@engine/core/world.ts';
 import { floorY } from '@engine/world/tiles.ts';
@@ -54,13 +54,24 @@ const LINE_LIFT = 0.06; // the red line and the ring lie this far above the floo
 const LINE_W = 0.14; // the red line is this wide (m)
 const LINE_OPACITY = 0.9;
 const BEAM_CORE = 0.12; // the beam's bright core is this thick (m) ...
-const BEAM_GLOW = 0.55; // ... and the glow round it
+const BEAM_GLOW = 0.55; // ... the glow round it ...
+const BEAM_AURA = 1.3; // ... and the soft light round that
 const BEAM_GLOW_OPACITY = 0.45;
+const BEAM_AURA_OPACITY = 0.16;
+const BEAM_FLICKER = 0.15; // the glow flickers this much (rate: BEAM_FLICKER_RATE per second)
+const BEAM_FLICKER_RATE = 50;
+const SCORCH_W = 1.1; // the glow on the floor under the line and the beam is this wide (m)
+const SCORCH_WARN = 0.2; // ... and this strong under the line, this under the beam
+const SCORCH_BEAM = 0.5;
+const SPARK_ODDS = 0.8; // each frame the beam is on, the odds of sparks flying off the floor under it
+const EMIT_REACH = 2.05; // the scalpel's emitter is this far ahead of the tool's middle (m)
 const STUB_W = 0.08; // the thin beam from the emitter down to where the beam runs
 const NEEDLE_R = 3.8; // the injector goes out this far toward the player to fire (m)
 const NEEDLE_Y = 4; // ... this high above the floor
 const NEEDLE_TIP = 0.9; // the needles leave this far ahead of the injector's middle (m)
-const NEEDLE_END = 0.3; // the arm lowers again this long after it fires (s)
+const NEEDLE_END = 0.3; // the arm lowers again this long after it fires (s) (and the muzzle flares as long)
+const DRUM_IDLE = 1.5; // an injector's drum turns this fast at rest (rad/s) ...
+const DRUM_FIRE = 30; // ... and when it is about to fire
 const CLAMP_UP = 4.2; // the clamp hangs this high over its ring while it fills (m)
 const CLAMP_POISED = 1.8; // ... and this high in its last quarter
 const CLAMP_DOWN = 0.9; // the jaws' middle, when it is down
@@ -71,6 +82,16 @@ const LAND_DY = 1.5; // the clamp crushes a player whose feet are this close to 
 const RING_FILL: [number, number] = [0.1, 0.55]; // the ring's fill, from its appearing to the slam
 const RIM_OPACITY = 0.85;
 const RIM_BLINK = 0.75; // the rim blinks over the last quarter of the warning
+const PULSE_RATE = 9; // the ring's edge pulses this fast (rad/s) ...
+const PULSE_GROW = 0.1; // ... swelling this much of the radius
+const SHOCK_LIFE = 0.35; // the slam's ring of dust spreads for this long (s) ...
+const SHOCK_GROW = 2.2; // ... out to this many times the ring's radius
+const LENS_YAW = 0.5; // the body's main lens turns this far to follow the player (rad) ...
+const LENS_PITCH = 0.5;
+const LENS_EASE = 8; // ... and keeps up this closely (per second)
+const LAMP_IDLE = 0xdff3ea; // the operating light's colour at rest (an attack tints it)
+const LAMP_REST = 0.8; // ... and how bright it is at rest, and in an attack
+const LAMP_ATTACK = 0.8;
 const SEG_MIN = 2.6; // each arm segment is at least this long (m) ...
 const SEG_STRETCH = 0.55; // ... and, for a long reach, this share of the distance to the end
 const SWAY = 0.15; // an arm at rest sways this much (m)
@@ -80,12 +101,19 @@ const BOB = 0.12; // the body bobs this much (m)
 const BODY_REST = 1.3; // a fallen body's middle is this high above the floor (m)
 const LIMB_REST = 0.25; // a fallen arm lies this high above the floor (m)
 const WRECK_TILT = 0.15; // the fallen body lies this far over (rad)
+const BODY_HANG = 1.1; // the body hangs dead this long, sparking, before it drops (s) ...
+const BODY_SAG = 0.4; // ... sagging this far (m)
+const LIMB_HANG: [number, number] = [0.05, 0.3]; // a dead arm hangs this long (s) ...
+const LIMB_SPIN = 1.6; // ... and turns this fast as it falls (rad/s, either way)
+const SPARK_GAP = 0.09; // seconds between sparks off what is dying
+const LENS_DROOP = 0.6; // the dead body's lens hangs this far down (rad)
 const ARM_GLOW = 0.05; // an arm's glow at rest
 const DEAD_LIGHTS = 0x1a1f1c; // the lights of the fallen body
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 const UP = new THREE.Vector3(0, 1, 0);
 const boxUnit = shared(new THREE.BoxGeometry(1, 1, 1));
 const ringGeo = shared(new THREE.RingGeometry(0.93, 1, 48).rotateX(-Math.PI / 2));
+const innerGeo = shared(new THREE.RingGeometry(0.5, 0.54, 48).rotateX(-Math.PI / 2));
 const discGeo = shared(new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2));
 const plainSegGeo = shared(new THREE.CylinderGeometry(0.12, 0.12, 1, 6));
 const plainTipGeo = shared(new THREE.BoxGeometry(0.4, 0.4, 1.2));
@@ -94,7 +122,8 @@ const plainElbowGeo = shared(new THREE.IcosahedronGeometry(0.25, 0));
 type Fill = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
 // foe: the arm as an enemy (null once it is shot off); pos: its end now, where the hit sphere is; goal: where the boss
 // holds it; ease: how fast it closes on the goal (per second); dir: which way its tool points; open: a clamp's jaws;
-// age: seconds since it appeared; shoulder / elbow: where the segments meet, as last posed
+// age: seconds since it appeared; shoulder / elbow / pole: where the segments meet and which way they bend, as last
+// posed; drum / drumV: an injector's drum, its angle and its speed (rad, rad/s)
 interface Arm {
   kind: SurgeonArmKind;
   slot: number;
@@ -109,6 +138,9 @@ interface Arm {
   age: number;
   shoulder: THREE.Vector3;
   elbow: THREE.Vector3;
+  pole: THREE.Vector3;
+  drum: number;
+  drumV: number;
 }
 // the attack going on: arm / t (seconds since it began) / fired (the needles are away)
 interface Attack {
@@ -134,7 +166,10 @@ interface Clamp {
 }
 // arms: one per slot (kinds in ARM_KINDS); atk / sweep / clamp: the attack going on and what it shows; face: where the
 // body looks; made: the arms have been made (when the boss first acts); second: the second phase has begun;
-// floor: the floor under the body; line / beam / glow / stub / pad / padFill / padRim: what the attacks show
+// floor: the floor under the body; look: the body's picture; line / scorch / beam / glow / aura / stub: what the
+// scalpel shows (the line and the glow on the floor, the beam in three layers, the thin beam down from the blade);
+// padFill / padRim / padCore / padInner / padPulse: the clamp's ring (padFill's parent is the ring); shock: the dust
+// ring of a slam (t: seconds since, -1 when there is none; x / z where)
 type SurgeonBoss = Boss & {
   arms: Arm[];
   atk: Attack | null;
@@ -144,12 +179,19 @@ type SurgeonBoss = Boss & {
   made: boolean;
   second: boolean;
   floor: number;
+  look: SurgeonBodyLook;
   line: Fill;
+  scorch: Fill;
   beam: Fill;
   glow: Fill;
+  aura: Fill;
   stub: Fill;
   padFill: Fill;
   padRim: Fill;
+  padCore: Fill;
+  padInner: Fill;
+  padPulse: Fill;
+  shock: { mesh: Fill; t: number; x: number; z: number };
 };
 const additive = (color: number, opacity: number): THREE.MeshBasicMaterial =>
   new THREE.MeshBasicMaterial({
@@ -168,13 +210,16 @@ function bar(mat: THREE.MeshBasicMaterial): Fill {
   dynGroup.add(m);
   return m;
 }
+// the body's enamel: the boss's, or a dead body's (its glow is out)
+const bodyMat = (color: number): THREE.MeshLambertMaterial =>
+  plainLooks() ? bossMaterial(0xdfe9e2, color) : surgeonHullMat(color);
 // the body, with the looks or without
-function bodyModel(mat: THREE.MeshLambertMaterial, color: number): THREE.Group {
+function bodyModel(mat: THREE.MeshLambertMaterial, color: number): SurgeonBodyLook {
   if (!plainLooks()) return surgeonBody(mat, color);
   const g = new THREE.Group(),
     geo = new THREE.IcosahedronGeometry(1.6, 1);
   g.add(new THREE.Mesh(geo, mat), wireOutline(geo, color));
-  return g;
+  return { g, lens: null, light: () => undefined };
 }
 // an arm's picture, with the looks or without
 function armLook(kind: SurgeonArmKind): SurgeonArmLook {
@@ -187,23 +232,47 @@ function armLook(kind: SurgeonArmKind): SurgeonArmLook {
     end = new THREE.Group();
   limb.add(upper, fore, elbow);
   end.add(new THREE.Mesh(plainTipGeo, mat), wireOutline(plainTipGeo, COLOR.repair));
-  return { end, limb, upper, fore, elbow, jaws: [], mat };
+  return {
+    end,
+    limb,
+    mat,
+    pose(s, el, p, _pole, size) {
+      segment(upper, s, el, size);
+      segment(fore, el, p, size);
+      elbow.position.copy(el);
+      elbow.scale.setScalar(size);
+      end.position.copy(p);
+      end.scale.setScalar(size);
+      end.quaternion.setFromUnitVectors(Z_AXIS, _a.copy(p).sub(el).normalize());
+    },
+    open: () => undefined,
+    heat: () => undefined,
+    spin: () => undefined,
+  };
 }
 export function spawnSurgeon() {
   const K = BOSS_META.surgeon.tune,
     g = new THREE.Group(),
-    mat = plainLooks() ? bossMaterial(0xdfe9e2, COLOR.repair) : surgeonHullMat(COLOR.repair);
-  g.add(bodyModel(mat, COLOR.repair));
+    mat = bodyMat(COLOR.repair),
+    look = bodyModel(mat, COLOR.repair);
+  g.add(look.g);
   const pad = new THREE.Group(),
     padFill: Fill = new THREE.Mesh(discGeo, flat(COLOR.cyan, 0)),
     padRim: Fill = new THREE.Mesh(ringGeo, flat(COLOR.cyan, 0)),
+    padCore: Fill = new THREE.Mesh(discGeo, additive(COLOR.cyan, 0)),
+    padInner: Fill = new THREE.Mesh(innerGeo, flat(COLOR.cyan, 0)),
+    padPulse: Fill = new THREE.Mesh(ringGeo, additive(COLOR.cyan, 0)),
     line = bar(flat(PAINT.red1, LINE_OPACITY)),
+    scorch = bar(additive(PAINT.red1, 0)),
     beam = bar(additive(0xffe6e6, 1)),
     glow = bar(additive(PAINT.red1, BEAM_GLOW_OPACITY)),
-    stub = bar(additive(PAINT.red1, 0.8));
-  pad.add(padFill, padRim);
+    aura = bar(additive(PAINT.red1, BEAM_AURA_OPACITY)),
+    stub = bar(additive(PAINT.red1, 0.8)),
+    shockMesh: Fill = new THREE.Mesh(ringGeo, additive(COLOR.cyan, 0));
+  pad.add(padFill, padCore, padInner, padRim, padPulse);
   pad.visible = false;
-  dynGroup.add(pad);
+  shockMesh.visible = false;
+  dynGroup.add(pad, shockMesh);
   const e = bossBase('surgeon', g, mat, updSurgeon, {
     arms: [] as Arm[],
     atk: null,
@@ -213,19 +282,26 @@ export function spawnSurgeon() {
     made: false,
     second: false,
     floor: 0,
+    look,
     line,
+    scorch,
     beam,
     glow,
+    aura,
     stub,
     padFill,
     padRim,
+    padCore,
+    padInner,
+    padPulse,
+    shock: { mesh: shockMesh, t: -1, x: 0, z: 0 },
   });
   e.x = e.cx;
   e.z = e.cz;
   e.floor = floorY(e.cx, e.cz);
   e.timer = K.first;
   e.mesh.position.set(e.cx, e.floor + e.y, e.cz);
-  e.extra = [...(e.extra ?? []), pad, line, beam, glow, stub];
+  e.extra = [...(e.extra ?? []), pad, shockMesh, line, scorch, beam, glow, aura, stub];
   e.onDown = () => surgeonDown(e);
   // the column stays after the body is gone: a world object of its own (cleared with the level)
   const mount = surgeonMount(HALL_H - e.y - SURGEON_NECK);
@@ -276,6 +352,9 @@ function makeArm(e: SurgeonBoss, slot: number): Arm {
       age: 0,
       shoulder: new THREE.Vector3(),
       elbow: new THREE.Vector3(),
+      pole: new THREE.Vector3(0, 1, 0),
+      drum: 0,
+      drumV: DRUM_IDLE,
     };
   disposeTree(foe.mesh);
   dynGroup.remove(foe.mesh);
@@ -291,6 +370,7 @@ function makeArm(e: SurgeonBoss, slot: number): Arm {
 }
 const _a = new THREE.Vector3(),
   _b = new THREE.Vector3(),
+  _c = new THREE.Vector3(),
   _pole = new THREE.Vector3();
 // a bar of an arm between two points
 function segment(m: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3, size: number) {
@@ -311,16 +391,6 @@ function elbowOf(s: THREE.Vector3, p: THREE.Vector3, out: THREE.Vector3): THREE.
   _pole.normalize();
   return out.copy(s).add(p).multiplyScalar(0.5).addScaledVector(_pole, rise);
 }
-// lays an arm's picture along shoulder, elbow, end (`size`: how thick the segments are, 0 to 1)
-function poseLook(look: SurgeonArmLook, s: THREE.Vector3, el: THREE.Vector3, p: THREE.Vector3, size: number) {
-  segment(look.upper, s, el, size);
-  segment(look.fore, el, p, size);
-  look.elbow.position.copy(el);
-  look.elbow.scale.setScalar(size);
-  look.end.position.copy(p);
-  look.end.scale.setScalar(size);
-  look.end.quaternion.setFromUnitVectors(Z_AXIS, _a.copy(p).sub(el).normalize());
-}
 // one arm for one frame: it closes on its goal (the place the attack holds it to, else its rest place) and is laid out
 function poseArm(e: SurgeonBoss, arm: Arm, dt: number) {
   const K = BOSS_META.surgeon.tune,
@@ -334,13 +404,25 @@ function poseArm(e: SurgeonBoss, arm: Arm, dt: number) {
   arm.age += dt;
   arm.pos.lerp(arm.goal, 1 - Math.exp(-arm.ease * dt));
   arm.open += (arm.openGoal - arm.open) * Math.min(1, dt * 12);
-  arm.look.jaws.forEach((j, k) => {
-    j.rotation.y = (k ? 1 : -1) * arm.open;
-  });
   shoulderOf(e, arm.slot, arm.shoulder);
   elbowOf(arm.shoulder, arm.pos, arm.elbow);
+  arm.pole.copy(_pole);
   arm.dir.copy(arm.pos).sub(arm.elbow).normalize();
-  poseLook(arm.look, arm.shoulder, arm.elbow, arm.pos, Math.max(GRIP, Math.min(1, arm.age / K.armGrow)));
+  arm.look.open(arm.open);
+  arm.look.pose(arm.shoulder, arm.elbow, arm.pos, arm.pole, Math.max(GRIP, Math.min(1, arm.age / K.armGrow)));
+  // the tool shows what it is about to do: the scalpel's emitter heats, the injector's drum spins up and flares
+  const a = e.atk?.arm === arm ? e.atk : null;
+  let heat = 0,
+    spinTo = DRUM_IDLE;
+  if (a && arm.kind === 'scalpel') heat = a.t < K.scalpelWarn ? 0.3 + (0.7 * a.t) / K.scalpelWarn : 1;
+  if (a && arm.kind === 'needle') {
+    spinTo = DRUM_FIRE;
+    if (a.fired) heat = Math.max(0, 1 - (a.t - K.needleWind) / NEEDLE_END);
+  }
+  arm.drumV += (spinTo - arm.drumV) * Math.min(1, dt * 5);
+  arm.drum += arm.drumV * dt;
+  arm.look.heat(heat);
+  arm.look.spin(arm.drum);
   foe.x = arm.pos.x;
   foe.z = arm.pos.z;
   foe.mesh.position.copy(arm.pos);
@@ -355,31 +437,85 @@ function loseArm(e: SurgeonBoss, arm: Arm) {
   screenFx.shake = Math.max(screenFx.shake, 0.15);
   if (e.atk?.arm === arm) endAttack(e);
 }
-// a copy of the arm, as it was posed, falls to the floor
+// a copy of the arm, as it was posed, falls to the floor: it hangs a moment, sparking, then drops and turns as it goes
+// (its picture is in world places: it turns about a pivot over the tool)
 function dropArm(e: SurgeonBoss, arm: Arm) {
   const look = armLook(arm.kind),
+    pivot = new THREE.Group(),
     g = new THREE.Group();
-  poseLook(look, arm.shoulder, arm.elbow, arm.pos, 1);
+  look.open(arm.open);
+  look.pose(arm.shoulder, arm.elbow, arm.pos, arm.pole, 1);
   g.add(look.limb, look.end);
-  wreck(g, arm.pos.x, arm.pos.z, Math.min(arm.elbow.y, arm.pos.y) - e.floor - LIMB_REST, COLOR.repair);
+  g.position.set(-arm.pos.x, 0, -arm.pos.z);
+  pivot.position.set(arm.pos.x, 0, arm.pos.z);
+  pivot.add(g);
+  wreck(pivot, arm.pos.x, arm.pos.z, Math.min(arm.elbow.y, arm.pos.y) - e.floor - LIMB_REST, COLOR.repair, {
+    hang: rand(LIMB_HANG[0], LIMB_HANG[1]),
+    spin: rand(-LIMB_SPIN, LIMB_SPIN),
+    sparkY: arm.pos.y,
+  });
+}
+// how a thing that is shot down goes: hang (s) sparking, sagging, its lights flickering (dim(life), life from 1 to 0);
+// then fall; spin (rad/s) turns it as it falls; tilt (rad) is how far over it lies; sparkY is where its sparks come
+// from (m above the floor, as it hangs)
+interface Wreck {
+  tilt?: number;
+  hang?: number;
+  spin?: number;
+  sparkY?: number;
+  dim?: (life: number) => void;
 }
 // something falls `drop` m, lies there (dust and a thud at (x, z)), and stays with the level
-function wreck(g: THREE.Object3D, x: number, z: number, drop: number, color: number, tilt = 0) {
+function wreck(g: THREE.Object3D, x: number, z: number, drop: number, color: number, opt: Wreck = {}) {
   const K = BOSS_META.surgeon.tune,
-    floor = floorY(x, z);
+    floor = floorY(x, z),
+    hang = opt.hang ?? 0,
+    sag = Math.min(BODY_SAG, drop / 2),
+    y0 = g.position.y;
   dynGroup.add(g);
   let vy = 0,
-    fallen = 0;
+    fallen = 0,
+    t = 0,
+    sparkIn = 0,
+    dark = false;
   const w: WorldObject = spawn({
     tag: 'wreck' as const,
     mesh: g,
     update(dt: number) {
+      t += dt;
+      sparkIn -= dt;
+      if (sparkIn <= 0 && fallen < drop) {
+        sparkIn = SPARK_GAP;
+        burst(
+          x + rand(-0.4, 0.4),
+          (opt.sparkY ?? y0) + g.position.y - y0 + rand(-0.4, 0.4),
+          z + rand(-0.4, 0.4),
+          PAINT.amber3,
+          3,
+          5,
+          0.5,
+        );
+      }
+      if (t < hang) {
+        // hanging: sagging and shaking, the lights flickering out
+        const u = t / hang;
+        fallen = sag * u * u;
+        g.position.y = y0 - fallen;
+        g.rotation.z = Math.sin(t * 45) * 0.025 * (1 - u);
+        opt.dim?.(Math.random() < 1 - u ? 1 - u * 0.5 : 0.05);
+        return;
+      }
+      if (!dark) {
+        dark = true;
+        opt.dim?.(0);
+      }
       vy += K.wreckG * dt;
       const step = Math.min(vy * dt, Math.max(drop - fallen, 0));
       fallen += step;
       g.position.y -= step;
+      g.rotation.y += (opt.spin ?? 0) * dt;
+      g.rotation.z = (opt.tilt ?? 0) * Math.min(fallen / Math.max(drop, 0.01), 1);
       if (fallen < drop) return;
-      g.rotation.z = tilt;
       burst(x, floor + 0.3, z, PAINT.grey3, 12, 5, 1, -1);
       burst(x, floor + 0.6, z, color, 8, 6, 0.8);
       screenFx.shake = Math.max(screenFx.shake, 0.2);
@@ -388,14 +524,20 @@ function wreck(g: THREE.Object3D, x: number, z: number, drop: number, color: num
     },
   });
 }
-// the body falls to the floor with its lights out, and the arms still on it fall too; the column stays
+// the body hangs, sparking, with its lights flickering out, and drops to the floor; the arms still on it fall too; the
+// gantry stays
 function surgeonDown(e: SurgeonBoss) {
   e.arms.filter(alive).forEach(arm => dropArm(e, arm));
   const at = e.mesh.position,
-    body = bodyModel(bossMaterial(0xaab4ac, DEAD_LIGHTS), DEAD_LIGHTS);
-  body.position.copy(at);
-  body.rotation.y = e.face;
-  wreck(body, at.x, at.z, at.y - e.floor - BODY_REST, PAINT.grey3, WRECK_TILT);
+    look = bodyModel(bodyMat(DEAD_LIGHTS), COLOR.repair);
+  look.g.position.copy(at);
+  look.g.rotation.y = e.face;
+  if (look.lens && e.look.lens) look.lens.rotation.set(LENS_DROOP, e.look.lens.rotation.y, 0);
+  wreck(look.g, at.x, at.z, at.y - e.floor - BODY_REST, PAINT.grey3, {
+    tilt: WRECK_TILT,
+    hang: BODY_HANG,
+    dim: life => look.light(life, COLOR.repair, 1),
+  });
 }
 
 // ---- the fight ----
@@ -415,12 +557,60 @@ function layBar(e: SurgeonBoss, m: Fill, a: number, len: number, h: number, w: n
   m.rotation.y = -a;
   m.scale.set(len, tall, w);
 }
+// a thin bar from one point to another
+function layStub(m: Fill, from: THREE.Vector3, to: THREE.Vector3) {
+  m.position.copy(from).add(to).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(UP, _c.copy(to).sub(from).normalize());
+  m.scale.set(STUB_W, from.distanceTo(to), STUB_W);
+}
 function hideAttack(e: SurgeonBoss) {
   e.line.visible = false;
+  e.scorch.visible = false;
   e.beam.visible = false;
   e.glow.visible = false;
+  e.aura.visible = false;
   e.stub.visible = false;
   e.padFill.parent!.visible = false;
+}
+const LAMP_TINT: Record<SurgeonArmKind, number> = { scalpel: PAINT.red1, needle: COLOR.repair, clamp: COLOR.cyan };
+// the body's looks: the main lens follows the player, and the operating light shows the colour of the attack
+function dressBody(e: SurgeonBoss, dt: number) {
+  const lens = e.look.lens,
+    a = e.atk;
+  e.look.light(
+    1,
+    a ? LAMP_TINT[a.arm.kind] : LAMP_IDLE,
+    a ? LAMP_ATTACK + (1 - LAMP_ATTACK) * Math.sin(e.t * 16) : LAMP_REST,
+  );
+  if (!lens) return;
+  // where the player is, in the body's own frame
+  const at = e.mesh.position,
+    dx = player.x - at.x,
+    dz = player.z - at.z,
+    lx = dx * Math.cos(e.face) - dz * Math.sin(e.face),
+    lz = dx * Math.sin(e.face) + dz * Math.cos(e.face),
+    yaw = clamp(Math.atan2(lx, lz), -LENS_YAW, LENS_YAW),
+    pitch = clamp(Math.atan2(at.y - (player.fy + 1.2), Math.hypot(lx, lz)), -LENS_PITCH, LENS_PITCH),
+    k = Math.min(1, dt * LENS_EASE);
+  lens.rotation.order = 'YXZ';
+  lens.rotation.y += (yaw - lens.rotation.y) * k;
+  lens.rotation.x += (pitch - lens.rotation.x) * k;
+}
+// the slam's ring of dust spreads and fades
+function updShock(e: SurgeonBoss, dt: number) {
+  const s = e.shock;
+  if (s.t < 0) return;
+  s.t += dt;
+  const k = s.t / SHOCK_LIFE;
+  s.mesh.visible = k < 1;
+  if (k >= 1) {
+    s.t = -1;
+    return;
+  }
+  const r = BOSS_META.surgeon.tune.clampR * (1 + (SHOCK_GROW - 1) * k);
+  s.mesh.position.set(s.x, e.floor + LINE_LIFT + 0.02, s.z);
+  s.mesh.scale.set(r, 1, r);
+  s.mesh.material.opacity = 0.7 * (1 - k);
 }
 function endAttack(e: SurgeonBoss) {
   e.atk = null;
@@ -448,6 +638,8 @@ function updSurgeon(e: SurgeonBoss, dt: number) {
   if (e.atk) runAttack(e, dt, enr);
   e.aloft = !!e.atk; // a phase change waits for the attack to end
   e.arms.forEach(arm => poseArm(e, arm, dt));
+  dressBody(e, dt);
+  updShock(e, dt);
 }
 // the next arm in turn attacks (a shot-off one is skipped); with none left the body fires a ring
 function beginAttack(e: SurgeonBoss, enr: boolean) {
@@ -497,6 +689,8 @@ function scalpel(e: SurgeonBoss, a: Attack) {
     const blink = a.t > K.scalpelWarn - K.scalpelLock && Math.sin(a.t * 60) > 0;
     layBar(e, e.line, s.ac, s.len, LINE_LIFT, LINE_W, 0.03);
     e.line.material.opacity = blink ? 0.3 : LINE_OPACITY;
+    layBar(e, e.scorch, s.ac, s.len, LINE_LIFT - 0.01, SCORCH_W, 0.02);
+    e.scorch.material.opacity = blink ? 0.05 : SCORCH_WARN * (0.5 + (0.5 * a.t) / K.scalpelWarn);
     return;
   }
   const k = clamp((a.t - K.scalpelWarn) / K.scalpelSweep, 0, 1),
@@ -511,11 +705,22 @@ function scalpel(e: SurgeonBoss, a: Attack) {
   arm.ease = BEAM_EASE;
   layBar(e, e.beam, s.a, s.len, BEAM_Y, BEAM_CORE, BEAM_CORE);
   layBar(e, e.glow, s.a, s.len, BEAM_Y, BEAM_GLOW, BEAM_GLOW);
-  // the thin beam from the emitter down to where the beam runs
+  layBar(e, e.aura, s.a, s.len, BEAM_Y, BEAM_AURA, BEAM_AURA);
+  e.glow.material.opacity = BEAM_GLOW_OPACITY * (1 + BEAM_FLICKER * Math.sin(e.t * BEAM_FLICKER_RATE));
+  // the glow where the beam's light falls on the floor, and sparks off the floor under it
+  layBar(e, e.scorch, s.a, s.len, LINE_LIFT, SCORCH_W, 0.02);
+  e.scorch.material.opacity = SCORCH_BEAM;
+  if (Math.random() < SPARK_ODDS) {
+    const d = SC_R + rand(0.1, 1) * s.len;
+    burst(e.cx + Math.cos(s.a) * d, e.floor + 0.12, e.cz + Math.sin(s.a) * d, PAINT.amber3, 2, 5, 0.5);
+  }
+  // the thin beam from the emitter on the blade down to where the beam runs
   e.stub.visible = true;
-  e.stub.position.set(e.cx + Math.cos(s.a) * SC_R, e.floor + (BEAM_Y + SC_Y) / 2, e.cz + Math.sin(s.a) * SC_R);
-  e.stub.rotation.y = 0;
-  e.stub.scale.set(STUB_W, SC_Y - BEAM_Y, STUB_W);
+  layStub(
+    e.stub,
+    _a.copy(arm.pos).addScaledVector(arm.dir, EMIT_REACH),
+    _b.set(e.cx + Math.cos(s.a) * SC_R, e.floor + BEAM_Y, e.cz + Math.sin(s.a) * SC_R),
+  );
   if (!s.hit && beamTouches(e, before, s.a, s.len)) {
     s.hit = true;
     damagePlayer(e.dmg * K.scalpelDmg, { x: e.cx + Math.cos(s.a) * SC_R, z: e.cz + Math.sin(s.a) * SC_R });
@@ -565,6 +770,7 @@ function needles(e: SurgeonBoss, a: Attack, enr: boolean) {
         e.dmg,
         COLOR.repair,
         K.needleSize,
+        true,
       );
     }
     sfx('eshot', 60);
@@ -586,7 +792,15 @@ function clampDown(e: SurgeonBoss, a: Attack) {
     pad.position.set(c.x, e.floor + LINE_LIFT, c.z);
     pad.scale.set(K.clampR, 1, K.clampR);
     e.padFill.material.opacity = RING_FILL[0] + (RING_FILL[1] - RING_FILL[0]) * k;
-    e.padRim.material.opacity = k > RIM_BLINK && Math.sin(e.t * 40) > 0 ? 0 : RIM_OPACITY;
+    const blink = k > RIM_BLINK && Math.sin(e.t * 40) > 0;
+    e.padRim.material.opacity = blink ? 0 : RIM_OPACITY;
+    // the ring fills from its middle as the clamp comes, a thin ring inside it, and its edge pulses outward
+    e.padCore.scale.set(k, 1, k);
+    e.padCore.material.opacity = 0.45 * k;
+    e.padInner.material.opacity = blink ? 0 : 0.6;
+    const beat = 0.5 + 0.5 * Math.sin(e.t * PULSE_RATE);
+    e.padPulse.scale.set(1 + PULSE_GROW * beat, 1, 1 + PULSE_GROW * beat);
+    e.padPulse.material.opacity = blink ? 0 : (0.2 + 0.4 * k) * (1 - beat);
     arm.goal.set(c.x, e.floor + (k > RIM_BLINK ? CLAMP_POISED : CLAMP_UP), c.z);
     arm.ease = K.armEase;
     if (a.t >= K.clampWarn) {
@@ -598,8 +812,13 @@ function clampDown(e: SurgeonBoss, a: Attack) {
       const at = { x: c.x, z: c.z };
       if (distXZ(player, at) < K.clampR && Math.abs(player.fy - e.floor) < LAND_DY)
         damagePlayer(e.dmg * K.clampDmg, at);
-      burst(c.x, e.floor + 0.4, c.z, PAINT.grey3, 14, 5, 1, -1);
+      burst(c.x, e.floor + 0.4, c.z, PAINT.grey3, 20, 6, 1, -1);
       burst(c.x, e.floor + 0.8, c.z, COLOR.cyan, 14, 9, 0.8);
+      burst(c.x, e.floor + 0.3, c.z, PAINT.amber3, 12, 10, 0.6);
+      fireball(c.x, e.floor + 0.4, c.z, K.clampR * 0.8, COLOR.cyan);
+      e.shock.t = 0;
+      e.shock.x = c.x;
+      e.shock.z = c.z;
       screenFx.shake = Math.max(screenFx.shake, 0.35);
       sfx('slam');
     }
