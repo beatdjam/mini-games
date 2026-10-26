@@ -31,11 +31,12 @@
 
 ## OpenCode に実装を渡すとき
 
-`worker` の代わりに、実装を OpenCode に任せることがある。Claude はタスク票を書き、OpenCode は票だけを読んで作業する。OpenCode 側の決まりは AGENTS.md、権限（commit・push などを止める）は `opencode.json`。
+`worker` の代わりに、実装を OpenCode に任せることがある。Claude はタスク票を書き、OpenCode は票とコードだけを読んで作業する。OpenCode 側の決まりは `.opencode/rules.md`、モデルと権限（commit・push などを止める）は `opencode.json`。
 
-1. **票を書く**: 作業ブランチを切ってから、`.tasks/<ブランチ名>.md` に票を書く（`.tasks/` はコミットしない）。形は `tools/opencode-task-template.md` に合わせる
+1. **票を書く**: 作業ブランチを切ってから、`.tasks/<ブランチ名>.md` に票を書く（`.tasks/` はコミットしない）。形は `.opencode/task-template.md` に合わせる
    - OpenCode はこの会話を知らない。前提・触るファイル・変更内容・完了条件を票の中で完結させる
    - 読む範囲は、SPEC.md も含めてファイルと行範囲で指定する
+   - OpenCode は STYLE.md を読まない。このタスクに関わる決まりは、票の「守る書き方」に写す
    - 完了条件は、確認のコマンドの結果で判定できる形にする
 2. **渡す**: ユーザーが OpenCode に票を渡す。OpenCode は編集と確認だけを行い、commit・push はしない。結果は `.tasks/<ブランチ名>.result.md` に書く
 3. **レビュー**: result を読み、`git diff` と確認の実行で見る。直しが要るときは、票に「差し戻し」の節を足して渡し直すか、小さければメインで直す
