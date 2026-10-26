@@ -21,7 +21,7 @@ import { building } from '../world/building.ts';
 import { level } from '../world/level.ts';
 import { state } from '../flow/state.ts';
 import { controlState, equipNearby, normalizeWeapons, stowNearby, useKit } from '../ui/input.ts';
-import { el, yawToward, wrapAngle, turnToward } from '@engine/core/util.ts';
+import { distXZ, el, yawToward, wrapAngle, turnToward } from '@engine/core/util.ts';
 // ================= a player that plays by itself (dev) =================
 // For looking at the balance without playing by hand: a bot that walks the building's route, fights what it sees and
 // takes the boss, through the same inputs a person uses (the stick, where the player looks, the fire button). It
@@ -158,7 +158,7 @@ const BOSS_PLAYS: Record<string, (b: Boss, me: Vec) => BossPlay> = {
     if (h.st === 'pull') return { near: PULL_AWAY, dash: away };
     if (!h.cargo) return {};
     const ring = BOSS_META.hoist!.tune.shadowR;
-    if (Math.hypot(me.x - h.cargo.x, me.z - h.cargo.z) > ring + SHADOW_MARGIN) return {};
+    if (distXZ(me, h.cargo) > ring + SHADOW_MARGIN) return {};
     return { near: ring + SHADOW_MARGIN * 2, ...(b.timer < SHADOW_LATE ? { dash: away } : {}) };
   },
   // SURGEON: the arms are shot first (what stands with a boss always goes first). A clamp's ring that is about to slam:
@@ -171,8 +171,7 @@ const BOSS_PLAYS: Record<string, (b: Boss, me: Vec) => BossPlay> = {
         clamp: { x: number; z: number; slammed: boolean } | null;
       };
     if (s.clamp && !s.clamp.slammed && s.atk && s.atk.t > K.clampWarn - CLAMP_LATE) {
-      if (Math.hypot(me.x - s.clamp.x, me.z - s.clamp.z) < K.clampR + CLAMP_MARGIN)
-        return { dash: unit(me.x - s.clamp.x, me.z - s.clamp.z) };
+      if (distXZ(me, s.clamp) < K.clampR + CLAMP_MARGIN) return { dash: unit(me.x - s.clamp.x, me.z - s.clamp.z) };
     }
     if (s.sweep?.live) {
       const dx = me.x - b.cx,
@@ -453,7 +452,7 @@ export function createBot(style: BotStyle) {
     for (const e of enemies) {
       if (e.dead) continue;
       for (const s of spheres(e)) {
-        const d = Math.hypot(s.p.x - cp.x, s.p.z - cp.z);
+        const d = distXZ(s.p, cp);
         // (what stands with a boss goes first: some bosses cannot be hurt while their turrets stand)
         const sooner = best && !!best.e.boss !== !!e.boss ? !e.boss : !best || d < best.d;
         if (d > style.fightRange || !sooner) continue;
@@ -495,7 +494,7 @@ export function createBot(style: BotStyle) {
   const lootLeft = new Set<Pickup>();
   function lootNear(dt: number): Pickup | null {
     // (a thing lying by the gate it does not mean to take is left there: picking it up would walk into the gate)
-    const byGate = (p: Pickup) => gatesToShun().some(pt => Math.hypot(p.x - pt.x, p.z - pt.z) < GATE_KEEP);
+    const byGate = (p: Pickup) => gatesToShun().some(pt => distXZ(p, pt) < GATE_KEEP);
     const ok = (p: Pickup) => wanted(p) && !lootLeft.has(p) && !byGate(p) && stepsTo(p) >= 0;
     if (lootFor && ok(lootFor)) {
       lootT += dt;
@@ -507,7 +506,7 @@ export function createBot(style: BotStyle) {
     let bestD = style.loot;
     for (const p of query<Pickup>('pickup')) {
       if (!ok(p) || Math.abs(p.y - player.fy) > LOOT_REACH_Y) continue;
-      const d = Math.hypot(p.x - player.x, p.z - player.z);
+      const d = distXZ(p, player);
       if (d < bestD) {
         lootFor = p;
         bestD = d;
@@ -579,7 +578,7 @@ export function createBot(style: BotStyle) {
     return null;
   }
 
-  const distTo = (o: { x: number; z: number }): number => Math.hypot(o.x - player.x, o.z - player.z);
+  const distTo = (o: { x: number; z: number }): number => distXZ(o, player);
   // a point a few metres from `o`, on the far side of the player
   function awayFrom(o: { x: number; z: number }): { x: number; z: number } {
     const d = Math.max(distTo(o), 0.01),
@@ -731,11 +730,7 @@ export function createBot(style: BotStyle) {
     idleT += dt;
     if (idleT >= IDLE_AFTER && !level.portals.length) {
       const foeHp = foe ? foe.e.hp : -1;
-      if (
-        Math.hypot(player.x - idleAt.x, player.z - idleAt.z) < IDLE_MOVED &&
-        run.kills === idleAt.kills &&
-        foeHp === idleAt.foeHp
-      ) {
+      if (distXZ(player, idleAt) < IDLE_MOVED && run.kills === idleAt.kills && foeHp === idleAt.foeHp) {
         const turn = Math.random() * Math.PI * 2;
         roam = { x: Math.cos(turn), z: Math.sin(turn) };
         roamT = ROAM_FOR;
@@ -807,7 +802,7 @@ export function createBot(style: BotStyle) {
     // stuck against something (a corner, a crate): sidestep for a moment
     stuckT += dt;
     if (stuckT >= STUCK_AFTER) {
-      if (Math.hypot(player.x - stuckAt.x, player.z - stuckAt.z) < STUCK_MOVED && (way.x || way.z)) {
+      if (distXZ(player, stuckAt) < STUCK_MOVED && (way.x || way.z)) {
         unstickT = UNSTICK_FOR;
         unstickSide = -unstickSide;
         stats.stuck++;
