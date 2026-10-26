@@ -1,5 +1,5 @@
 import type { BossKind, Enemy, WeaponItem } from '../data/types.ts';
-import { clamp, el, wrapAngle, yawToward } from '@engine/core/util.ts';
+import { clamp, distXZ, el, wrapAngle, yawToward } from '@engine/core/util.ts';
 import { setMusic, setMusicMix } from '@engine/audio/music.ts';
 import { T, W, activeTileGrid, floorY, grid, hasLOS } from '@engine/world/tiles.ts';
 import { lockDoor } from '@engine/world/doors.ts';
@@ -404,7 +404,7 @@ function scene(sc: ScriptScene) {
 const inSight = (e: Enemy) =>
   !e.dead &&
   !e.boss &&
-  Math.hypot(e.x - player.x, e.z - player.z) < 30 &&
+  distXZ(e, player) < 30 &&
   hasLOS(player.x, player.z, e.x, e.z, player.fy + 1.6, e.mesh.position.y);
 function offAim(x: number, z: number) {
   return Math.abs(wrapAngle(yawToward(x - player.x, z - player.z) - player.yaw));
@@ -415,7 +415,7 @@ function nearest(): Enemy | null {
     bd = Infinity;
   for (const e of enemies) {
     if (!inSight(e) || offAim(e.x, e.z) > FRONT) continue;
-    const score = offAim(e.x, e.z) + Math.hypot(e.x - player.x, e.z - player.z) * 0.02;
+    const score = offAim(e.x, e.z) + distXZ(e, player) * 0.02;
     if (score < bd) {
       best = e;
       bd = score;
@@ -518,7 +518,7 @@ const HANDS: Record<string, (t: number, dt: number, s: number) => void> = {
       bossFought = true;
       if (Math.round(t * 30) % 48 === 0) controlState.dashReq = true; // a dash now and then, out of the boss's fire
       aimAt(b.x, b.mesh.position.y, b.z, dt, 6);
-      const d = Math.hypot(b.x - player.x, b.z - player.z);
+      const d = distXZ(b, player);
       joy.x = Math.sin(t * 1.3) * 0.9; // (side to side: circling one way, the player ends up behind a pillar)
       joy.y = clamp((8.5 - d) * 0.15, -0.6, 0.6);
       setFireHeld(!b.spawnT || b.spawnT <= 0);
