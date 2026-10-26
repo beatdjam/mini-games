@@ -31,7 +31,7 @@
 
 ## OpenCode に実装を渡すとき
 
-`worker` の代わりに、実装を OpenCode に任せることがある。Claude はタスク票を書き、OpenCode は票だけを読んで作業する。
+`worker` の代わりに、実装を OpenCode に任せることがある。Claude はタスク票を書き、OpenCode は票だけを読んで作業する。OpenCode 側の決まりは AGENTS.md、権限（commit・push などを止める）は `opencode.json`。
 
 1. **票を書く**: 作業ブランチを切ってから、`.tasks/<ブランチ名>.md` に票を書く（`.tasks/` はコミットしない）。形は `tools/opencode-task-template.md` に合わせる
    - OpenCode はこの会話を知らない。前提・触るファイル・変更内容・完了条件を票の中で完結させる

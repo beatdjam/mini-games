@@ -1,0 +1,20 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["STYLE.md"],
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "git commit*": "deny",
+      "git push*": "deny",
+      "git switch*": "deny",
+      "git checkout -b*": "deny",
+      "git rebase*": "deny",
+      "git reset --hard*": "deny",
+      "gh *": "deny",
+      "rm -rf*": "ask"
+    }
+  },
+  "watcher": {
+    "ignore": ["dist/**", "dist-test/**", "out/**", "sim-results/**", ".tmp-shots/**"]
+  }
+}
