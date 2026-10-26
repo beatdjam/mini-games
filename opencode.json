@@ -7,7 +7,7 @@
       "*": "allow",
       "git commit*": "deny",
       "git push*": "deny",
-      "git switch*": "deny",
+      "git switch -*": "deny",
       "git checkout*": "deny",
       "git rebase*": "deny",
       "git reset*": "deny",
