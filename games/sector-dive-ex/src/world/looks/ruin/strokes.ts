@@ -1,5 +1,5 @@
 import { PAINT, css } from '../../../data/colors.ts';
-import { TEX, grime } from '../paint.ts';
+import { TEX, grime, slabPainter } from '../paint.ts';
 // The strokes the ruined streets' pictures share (pictures.ts: the sector; hall.ts: its collapsed hall, which is the
 // boss room; props.ts and hallProps.ts: what stands in them).
 // ---- the collapsed hall's colours (the pictures in hall.ts and the props in hallProps.ts share them) ----
@@ -241,11 +241,4 @@ export function rustPatch(g: CanvasRenderingContext2D, rand: () => number, x: nu
   g.fillRect(x - r * 0.5, y, r, len);
 }
 // a flat box with a shadow under it and a light top edge: a board, a plate, a shelf
-export function slab(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
-  g.fillStyle = 'rgba(14,18,12,.45)';
-  g.fillRect(x + 1.5, y + 1.5, w, h);
-  g.fillStyle = color;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = 'rgba(236,240,220,.16)';
-  g.fillRect(x, y, w, 1.2);
-}
+export const slab = slabPainter('rgba(14,18,12,.45)', 'rgba(236,240,220,.16)');

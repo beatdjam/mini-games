@@ -1,4 +1,4 @@
-import { TEX, grime, rowOf, smudge } from '../paint.ts';
+import { TEX, boxPainter, grime, rowOf, smudge } from '../paint.ts';
 // What the hospital's wall pictures (pictures.ts, rooms.ts, surgery.ts) and its props share: the colours, the kinds of
 // room, and the wall under every picture. A wall picture is 4 m wide and 6 m high (TEX px a side), so a metre is
 // 64 px across and rowOf(1) px down.
@@ -35,16 +35,7 @@ export const HOSP_KINDS = 6;
 export const KIND_BAND = ['#6da593', '#c4a05e', '#6b97b3', '#86ad66', '#9b8bb5', '#cf9564'];
 
 // a box with a soft shadow under and beside it, lit from above
-export function box(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
-  g.fillStyle = 'rgba(14,16,12,.35)';
-  g.fillRect(x + 2.5, y + 2, w, h);
-  g.fillStyle = color;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = 'rgba(255,250,232,.2)';
-  g.fillRect(x, y, w, 1.5);
-  g.fillStyle = 'rgba(0,0,0,.22)';
-  g.fillRect(x, y + h - 1.5, w, 1.5);
-}
+export const box = boxPainter('rgba(14,16,12,.35)', 'rgba(255,250,232,.2)');
 // the evening sun's glow on a surface: a warm wash over a part of the picture
 export function glow(g: CanvasRenderingContext2D, x: number, y: number, r: number, strength: number) {
   const wash = g.createRadialGradient(x, y, r * 0.1, x, y, r);

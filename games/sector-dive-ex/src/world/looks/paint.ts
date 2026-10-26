@@ -86,3 +86,27 @@ export function hazeUnder(g: CanvasRenderingContext2D, haze: number) {
   g.fillStyle = `rgb(${c})`;
   g.fillRect(0, solid, BACKDROP_W, BACKDROP_H - solid);
 }
+// a maker of flat slabs: a shadow under and beside it, the body, a light top edge
+export const slabPainter =
+  (shade: string, lit: string) =>
+  (g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void => {
+    g.fillStyle = shade;
+    g.fillRect(x + 1.5, y + 1.5, w, h);
+    g.fillStyle = color;
+    g.fillRect(x, y, w, h);
+    g.fillStyle = lit;
+    g.fillRect(x, y, w, 1.2);
+  };
+// a maker of boxes: a soft shadow under and beside them, lit from above, a dark foot
+export const boxPainter =
+  (shade: string, lit: string) =>
+  (g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void => {
+    g.fillStyle = shade;
+    g.fillRect(x + 2.5, y + 2, w, h);
+    g.fillStyle = color;
+    g.fillRect(x, y, w, h);
+    g.fillStyle = lit;
+    g.fillRect(x, y, w, 1.5);
+    g.fillStyle = 'rgba(0,0,0,.22)';
+    g.fillRect(x, y + h - 1.5, w, 1.5);
+  };

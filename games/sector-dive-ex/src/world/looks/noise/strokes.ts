@@ -1,5 +1,5 @@
 import { PAINT, css } from '../../../data/colors.ts';
-import { WALL_ASPECT, oval } from '../paint.ts';
+import { WALL_ASPECT, oval, slabPainter } from '../paint.ts';
 // The strokes the deep noise's pictures share (pictures.ts: the sector; hall.ts: its big studio), and the colours that
 // the studio's pictures and its props (hallProps.ts) share.
 // ---- the studio's colours ----
@@ -14,14 +14,7 @@ export const HALL_ON_AIR_DARK = 0x3a1210; // the dark red behind the letters of 
 export const CABLE_TONES = [0x2c2734, 0x4d4759, 0x89826f]; // the cables that run about the sector
 
 // a flat box with a shadow under it and a light top edge: a panel, a plate, a unit of gear
-export function slab(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
-  g.fillStyle = 'rgba(8,6,12,.45)';
-  g.fillRect(x + 1.5, y + 1.5, w, h);
-  g.fillStyle = color;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = 'rgba(255,250,255,.16)';
-  g.fillRect(x, y, w, 1.2);
-}
+export const slab = slabPainter('rgba(8,6,12,.45)', 'rgba(255,250,255,.16)');
 // a round dial knob with its pointer
 export function knob(g: CanvasRenderingContext2D, x: number, y: number, r: number, turn: number) {
   g.fillStyle = 'rgba(8,6,12,.6)';

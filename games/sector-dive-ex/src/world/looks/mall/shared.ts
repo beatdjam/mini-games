@@ -1,4 +1,4 @@
-import { TEX, grime, rowOf } from '../paint.ts';
+import { TEX, boxPainter, grime, rowOf } from '../paint.ts';
 // What the mall's wall pictures (pictures.ts, shops.ts) and its props share: the colours, the wall under every picture
 // and the frieze of the shops.
 // colours shared with props.ts
@@ -20,16 +20,7 @@ export const SHOP_SIGNS = ['#6b3a52', '#5b3f2c', '#2f5440', '#2f4b6a', '#46484f'
 export const SHOP_KINDS = SHOP_SIGNS.length;
 
 // a box with a soft shadow under and beside it, lit from above
-export function box(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
-  g.fillStyle = 'rgba(14,12,10,.35)';
-  g.fillRect(x + 2.5, y + 2, w, h);
-  g.fillStyle = color;
-  g.fillRect(x, y, w, h);
-  g.fillStyle = 'rgba(255,248,230,.2)';
-  g.fillRect(x, y, w, 1.5);
-  g.fillStyle = 'rgba(0,0,0,.22)';
-  g.fillRect(x, y + h - 1.5, w, 1.5);
-}
+export const box = boxPainter('rgba(14,12,10,.35)', 'rgba(255,248,230,.2)');
 // a sheet of paper, a few lines of writing on it (drawn about its middle)
 export function sheet(g: CanvasRenderingContext2D, rand: () => number, w: number, h: number, color: string) {
   g.fillStyle = 'rgba(14,12,10,.3)';
