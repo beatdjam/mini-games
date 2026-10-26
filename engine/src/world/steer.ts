@@ -4,6 +4,7 @@ import { floorY, flowDir, moveCircle, type Mover } from './tiles.ts';
 //   e: the mover (x, z, r, fy; side = +1/-1 for which way it circles, flipped now and then)
 //   dt: seconds since the last step; speed: metres per second (CIRCLE_SPEED_MUL of it while circling)
 //   dx, dz, dist: vector and distance to the target; los: the target is in sight
+//   rng: where the chance of turning round comes from (random by default; createRng(seed).next for a run that repeats)
 //   In sight it heads straight at the target, or circles it at `keep` metres if closer than that (slower).
 //   Out of sight it follows the flow field (engine/src/world/tiles.ts computeFlow). Movers in `others` push each other
 //   apart (skipping dead ones and any for which ignore(o) is true). Moves with collision and updates e.fy.
@@ -28,9 +29,16 @@ function seekHeading(e: Chaser, dx: number, dz: number, dist: number, los: boole
   return [dx / dist, dz / dist];
 }
 // the unit heading sideways around the target (side +1 / -1), and now and then reverses e.side
-function circleHeading(e: Chaser, dt: number, dx: number, dz: number, dist: number): [number, number] {
+function circleHeading(
+  e: Chaser,
+  dt: number,
+  dx: number,
+  dz: number,
+  dist: number,
+  rng: () => number,
+): [number, number] {
   const side = e.side ?? 1;
-  if (Math.random() < dt * SIDE_FLIP_RATE) e.side = -side;
+  if (rng() < dt * SIDE_FLIP_RATE) e.side = -side;
   return [(-dz / dist) * side, (dx / dist) * side];
 }
 // the heading (tx, tz) with a push away from each neighbour in `others` that is too close added to it
@@ -77,9 +85,12 @@ export function steerChase<C extends Chaser>(
   keep: number | undefined,
   others: Iterable<C>,
   ignore?: ((o: C) => boolean) | null,
+  rng?: () => number,
 ) {
   const circling = los && !!keep && dist < keep;
-  const [tx, tz] = circling ? circleHeading(e, dt, dx, dz, dist) : seekHeading(e, dx, dz, dist, los);
+  const [tx, tz] = circling
+    ? circleHeading(e, dt, dx, dz, dist, rng ?? Math.random)
+    : seekHeading(e, dx, dz, dist, los);
   const [px, pz] = separationPush(e, tx, tz, others, ignore);
   moveAlong(e, px, pz, circling ? speed * CIRCLE_SPEED_MUL : speed, dt);
 }

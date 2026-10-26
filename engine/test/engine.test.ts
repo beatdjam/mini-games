@@ -1020,6 +1020,16 @@ test('steer: chase in sight, circle when close, push apart', () => {
   ok(f.x < 2 * T, 'pushed away from a neighbour');
 });
 
+test('steer: the circling side flips by the rng it is given', () => {
+  tinyWorld();
+  const e = { x: 1.5 * T, z: 1.5 * T, r: 0.5, fy: 0, side: 1 };
+  steerChase(e, 0.1, 1, 0, 1, true, 4, 3, [], null, () => 0);
+  eq(e.side, -1, 'flips when the rng is 0');
+  const f = { x: 1.5 * T, z: 1.5 * T, r: 0.5, fy: 0, side: 1 };
+  steerChase(f, 0.1, 1, 0, 1, true, 4, 3, [], null, () => 0.99);
+  eq(f.side, 1, 'stays when the rng is high');
+});
+
 // ---------- render / ui ----------
 test('render: viewmodel from parts, fx', () => {
   const g = buildViewmodel(

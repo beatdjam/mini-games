@@ -81,7 +81,7 @@
   - ゲーム側: どのリンクをエレベーターにするか、乗れるキャラ（`rider`）、`cfg`（`Partial<LiftConfig>`）。乗っている間の見せ方とキャラを止めるのはゲーム
 - `src/world/projectiles.ts`: 弾の汎用部分: プール（`takeFromPool`, `clearPool`）、細かく刻んだ移動（`stepProjectile`。刻むたびにゲームの判定を呼ぶ）、地形との当たり（`projHitsTerrain`）、追尾（`steerToward`）、弾幕の方向（`ringAngles`, `aimFan`）
   - ゲーム側: 弾の項目と、当たったときの処理（判定関数として渡す）
-- `src/world/steer.ts`: `steerChase`: 見えていれば近づく（近すぎたら回り込む）、見えなければ経路をたどる、仲間と押し合う
+- `src/world/steer.ts`: `steerChase`: 見えていれば近づく（近すぎたら回り込む）、見えなければ経路をたどる、仲間と押し合う。乱数の元を渡せる（省略すると `Math.random`）
   - ゲーム側: 速さ・保つ距離・押し合う相手のリスト
 
 ### audio/
