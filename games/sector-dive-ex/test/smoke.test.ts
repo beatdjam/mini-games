@@ -3358,17 +3358,27 @@ test('building: the same seed gives the same three floors, joined at the same pl
     }
 });
 test('building run: a cleared room stays empty across floors and a resume; the checkpoint follows the floor', () => {
-  // a building whose top floor has at least two ordinary rooms with enemies (one to empty, one to wound an enemy in):
-  // on a small top floor the lockdown room can leave fewer
+  // a building whose top floor has at least two ordinary rooms with enemies (one to empty, and one outside it to wound
+  // an enemy in): on a small top floor the lockdown room can leave fewer
   const plainRooms = () => {
-    const ld0 = building!.lockdown;
-    return level.roomCount.filter((n, idx) => n > 0 && !(ld0 && ld0.floor === 0 && ld0.room === idx)).length;
-  };
+      const ld0 = building!.lockdown;
+      return level.roomCount.filter((n, idx) => n > 0 && !(ld0 && ld0.floor === 0 && ld0.room === idx)).length;
+    },
+    // empty one room (not the lockdown room: that one sends waves)
+    roomToEmpty = () => {
+      const ld0 = building!.lockdown;
+      return level.roomCount.findIndex((n, idx) => n > 0 && !(ld0 && ld0.floor === 0 && ld0.room === idx));
+    },
+    mended = (e: Enemy) =>
+      enemies.some(o => !o.dead && !o.boss && o.def.medic && o.room === e.room && o.floor === e.floor),
+    // the enemy to wound once the room is empty: outside it, with hp to spare, and no repair drone in its room
+    // (hurting it wakes its room, and a drone there would mend it)
+    woundedOutside = (room: number) => enemies.find(e => !e.dead && e.room !== room && e.hp > 2 && !mended(e));
   for (let k = 0; k < 40; k++) {
     goBase();
     startRun();
     tick(5);
-    if (plainRooms() >= 2) break;
+    if (plainRooms() >= 2 && woundedOutside(roomToEmpty())) break;
   }
   player.hp = 1e6;
   player.maxHp = 1e6;
@@ -3377,16 +3387,15 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   expect(run.stage % PER).toBe(0);
   expect(level.portals.length, 'no gate: the floors are joined by stairwells and lifts').toBe(0);
   // empty one room (not the lockdown room: that one sends waves)
-  const ld = building!.lockdown,
-    room = level.roomCount.findIndex((n, idx) => n > 0 && !(ld && ld.floor === 0 && ld.room === idx));
+  const room = roomToEmpty();
+  expect(room, 'an ordinary room with enemies to empty (not the lockdown room)').toBeGreaterThanOrEqual(0);
   for (let k = 0; k < 6 && level.roomCount[room]! > 0; k++) killRoom(room);
   expect(run.bld!.cleared[0]).toContain(room);
   // a wounded enemy and a dropped kit are left behind on this floor (in a room with no repair drone: hurting it wakes
   // its room, and a drone there would mend it)
-  const mended = (e: Enemy) =>
-      enemies.some(o => !o.dead && !o.boss && o.def.medic && o.room === e.room && o.floor === e.floor),
-    hurt = enemies.find(e => !e.dead && e.room !== room && e.hp > 2 && !mended(e))!,
-    hpLeft = hurt.hp - 1;
+  const hurt = woundedOutside(room)!;
+  expect(hurt, 'a wounded enemy outside the emptied room, away from a repair drone').toBeTruthy();
+  const hpLeft = hurt.hp - 1;
   hurtEnemy(hurt, 1, false);
   const [kx, kz] = roomSpot(level.rooms[level.startIdx]!),
     kit = addPickup('kit', kx + 3, kz),
