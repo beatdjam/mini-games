@@ -4,6 +4,7 @@ OpenCode は、Claude が書いたタスク票（`.tasks/<番号>-<名前>.md`�
 
 ## 始めるとき
 
+- 票の下書きを作るよう頼まれたら、`.opencode/draft-guide.md` を読んで、それに従う（下の「始めるとき」「やること」は実装のときの決まり）
 - 票を指定されずに「次の票をやって」と頼まれたら、`.tasks/` の直下（`done/` は除く）で、result（`.result.md`）がまだ無い票のうち番号が一番小さいものを1つだけやる。1回に1枚
 - 票の「前提」にあるブランチに `git switch <branch>` で移る
 - 移る前に `git status --porcelain --untracked-files=no` を流す。出力があれば（前の作業の変更が残っていれば）移らずに止めて、result に書く
