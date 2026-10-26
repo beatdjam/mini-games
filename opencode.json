@@ -14,9 +14,22 @@
       "git clean*": "deny",
       "git stash*": "deny",
       "gh *": "deny",
-      "npm install*": "ask",
-      "npm i *": "ask",
-      "rm -rf*": "ask"
+      "sudo *": "deny",
+      "rm -rf*": "deny",
+      "curl *": "deny",
+      "wget *": "deny",
+      "npm install*": "deny",
+      "npm i *": "deny"
+    },
+    "read": {
+      "*": "allow",
+      "*.env*": "deny",
+      "*id_rsa*": "deny",
+      "*id_ed25519*": "deny"
+    },
+    "edit": {
+      "*": "allow",
+      "*.env*": "deny"
     },
     "external_directory": "deny",
     "webfetch": "deny",
