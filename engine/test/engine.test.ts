@@ -99,13 +99,17 @@ import { addDecks, addRamps, addSunkSides, addWalls, wallTiles, wedgeGeo } from 
 import {
   STAIRWELL_DEFAULTS,
   allReached,
+  allSolid,
   gapOf,
   groundsOf,
   makeRoute,
+  markAround,
   markLinkOpenings,
   noOpenings,
   placeLink,
   roomDoors,
+  roomTiles,
+  roomsOnWay,
   stripOf,
   thinDoorPairs,
 } from '../src/world/stairwells.ts';
@@ -2629,6 +2633,43 @@ test('stairwells: two doors close along a corridor become one; a room shut only 
   expect(doors.length, 'the second of the pair goes').toBe(1);
   const room = tileMapFromRows(['#####', '#AAA#', '#AAA#', '##+##', '##.##']);
   expect(roomDoors(room, 0)).toEqual({ doors: [3 * 5 + 2], closable: true });
+});
+test('stairwells: allSolid wants walls on both floors round each tile and keeps it off the edge', () => {
+  const solidRows = ['#######', '#######', '#######', '#######', '#######', '#######', '#######'],
+    holeRows = ['#######', '#######', '#######', '####.##', '#######', '#######', '#######'],
+    solid = tileMapFromRows(solidRows),
+    holed = tileMapFromRows(holeRows),
+    middle = 3 * 7 + 3; // (3, 3)
+  eq(allSolid(solid, solid, [middle]), true, 'all wall round the middle tile');
+  eq(allSolid(solid, holed, [middle]), false, 'a floor on the upper floor only');
+  eq(allSolid(holed, solid, [middle]), false, 'a floor on the lower floor only');
+  eq(allSolid(solid, solid, [middle + 1]), true, 'a tile next to the middle is still 2 from the edge');
+  eq(allSolid(solid, solid, [3 * 7 + 1]), false, 'one tile from the left edge');
+  eq(allSolid(solid, solid, [3 * 7 + 5]), false, 'one tile from the right edge');
+});
+test('stairwells: markAround keeps the tile and the 8 round it clear and leaves the rest', () => {
+  const keepOut = new Uint8Array(7 * 7);
+  markAround(keepOut, 7, [3 * 7 + 3]);
+  for (const k of [16, 17, 18, 23, 24, 25, 30, 31, 32]) eq(keepOut[k], 1, `tile ${k} is kept clear`);
+  eq(
+    keepOut.reduce((a, b) => a + b, 0),
+    9,
+    'nothing outside the 3x3 block is set',
+  );
+});
+test('stairwells: roomTiles lists a room row by row', () => {
+  const d = tileMapFromRows(['#######', '#AAA..#', '#AAA..#', '#######']);
+  expect(roomTiles(d, 0), 'room A is 3 wide and 2 high from (1, 1)').toEqual([8, 9, 10, 15, 16, 17]);
+});
+test('stairwells: roomsOnWay counts the rooms the shortest way crosses, skip aside', () => {
+  const d = tileMapFromRows(['#########', '#AAA#BBB#', '#AAA.BBB#', '#AAA#BBB#', '#########']),
+    fromA = 1 * 9 + 1, // (1, 1) in room A
+    inA = 2 * 9 + 3, // (3, 2) in room A
+    inB = 2 * 9 + 7; // (7, 2) in room B
+  eq(roomsOnWay(d, fromA, inB, -1), 2, 'the way from A to B crosses both rooms');
+  eq(roomsOnWay(d, fromA, inB, 1), 1, 'room B skipped');
+  eq(roomsOnWay(d, fromA, inB, 0), 1, 'room A skipped');
+  eq(roomsOnWay(d, fromA, inA, 0), 0, 'both tiles in room A, which is skipped');
 });
 test('slots: placeProps keeps blocking props out of the way, and the same seed repeats', () => {
   const rules: PropRule[] = [
