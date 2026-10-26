@@ -678,6 +678,33 @@ test('tiles: two tile grids keep their own terrain, collision, sight and flow', 
   eq(b.floorY(3.5 * T, 1.5 * T), 1);
   eq(a.floorY(3.5 * T, 1.5 * T), 0);
 });
+test('tiles: blockedDir and depenetrate treat a deck higher than STEP as a step up', () => {
+  // one 2 m deck at tile (3, 1), walls all round, floor on the rest
+  const g = createTileGrid(worldFromRows(['######', '#..=.#', '######'])),
+    r = 0.4;
+  // blockedDir: free floor, the deck's lip, walls only (fy undefined) and the deck itself
+  ok(!g.blockedDir(1.5 * T, 1.5 * T, r, 0, 1, 0), 'plain floor is free going +x');
+  ok(g.blockedDir(3 * T - 0.2, 1.5 * T, r, 0, 1, 0), 'the deck lip blocks at foot height 0');
+  ok(!g.blockedDir(3 * T - 0.2, 1.5 * T, r, undefined, 1, 0), 'no foot height checks walls only');
+  ok(!g.blockedDir(3 * T - 0.2, 1.5 * T, r, DECK_H, 1, 0), 'from the deck top it is level');
+  ok(g.blockedDir(1.5 * T, 1 * T + 0.2, r, 0, 0, -1), 'a wall blocks whatever the height');
+  // depenetrate: back off the lip on both sides, and stay put on or away from the deck
+  const lip = { x: 3 * T - 0.2, z: 1.5 * T, fy: 0 };
+  g.depenetrate(lip, r);
+  near(lip.x, 3 * T - r - 0.01, 1e-9, 'pushed back off the near lip');
+  eq(lip.z, 1.5 * T, 'z is untouched by an x push');
+  const far = { x: 4 * T + 0.2, z: 1.5 * T, fy: 0 };
+  g.depenetrate(far, r);
+  near(far.x, 4 * T + r + 0.01, 1e-9, 'pushed back off the far lip');
+  const onDeck = { x: 3.5 * T, z: 1.5 * T, fy: 0 };
+  g.depenetrate(onDeck, r);
+  near(onDeck.x, 3.5 * T, 1e-9, 'standing on the deck is left alone in x');
+  near(onDeck.z, 1.5 * T, 1e-9, 'standing on the deck is left alone in z');
+  const away = { x: 1.5 * T, z: 1.5 * T, fy: 0 };
+  g.depenetrate(away, r);
+  near(away.x, 1.5 * T, 1e-9, 'away from the deck nothing moves in x');
+  near(away.z, 1.5 * T, 1e-9, 'away from the deck nothing moves in z');
+});
 test('tiles: the module functions give what a tile grid made from the same maps gives', () => {
   const d = generateDungeon({ map: 40, roomMin: 6, roomMax: 8, platform: 1, rubble: 0.1, bridges: 2 }, createRng(7)),
     M = d.maps,
