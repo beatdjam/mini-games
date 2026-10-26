@@ -1,4 +1,4 @@
-import type { Snapshot } from '../data/types.ts';
+import type { RunState, Snapshot } from '../data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
@@ -36,6 +36,15 @@ const SNAP_SKIP = [
   'fireCd',
   'stDelay',
 ];
+// the optional run fields: only those can be left out of a checkpoint
+type RunSnapSkipped = { [K in keyof RunState]-?: undefined extends RunState[K] ? K : never }[keyof RunState];
+// run fields the checkpoint does not keep: a practice's own state and the flags a finished run sets
+const RUN_SNAP_SKIP: RunSnapSkipped[] = [
+  'practice', // boss practice is never checkpointed (checkpoint() returns early)
+  'forceBoss', // the boss a practice is for: practice is never checkpointed
+  't0', // when a practice began: practice is never checkpointed
+  'cleared', // set when a practice's boss goes down: practice is never checkpointed
+];
 let discardArm = false; // the discard button shows its confirmation
 // Checkpoint: the run is saved every time a stage (floor or boss room) starts, and deleted when the run ends.
 // If the page is killed (e.g. a phone closing a backgrounded browser) or the player suspends by hand,
@@ -47,17 +56,13 @@ function makeSnapshot() {
   Object.entries(player).forEach(([k, v]) => {
     if (!SNAP_SKIP.includes(k)) p[k] = v;
   });
+  // everything in the run that is not in RUN_SNAP_SKIP, so fields added later are saved without touching this
+  const r: RunState = { ...run };
+  for (const k of RUN_SNAP_SKIP) delete r[k];
+  // a run with no boss down yet may have no list: the checkpoint always carries one
+  if (!r.bosses) r.bosses = [];
   return {
-    run: {
-      stage: run.stage,
-      kills: run.kills,
-      bits: run.bits,
-      perks: run.perks,
-      bosses: run.bosses || [],
-      startTier: run.startTier,
-      route: run.route,
-      bld: run.bld,
-    },
+    run: r,
     P: JSON.parse(JSON.stringify(p)),
   };
 }
