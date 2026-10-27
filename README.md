@@ -93,3 +93,4 @@ STYLE.md                     コードと文書の書き方の決まり（型・
 |----|------|------|
 | sector-dive | Sector Dive | ランダム生成ローグライトFPS（three.js、スマホ対応）。仕様: [SPEC.md](games/sector-dive/SPEC.md) |
 | sector-dive-ex | Sector Dive Extended | Sector Dive を改造した実験作。1深度が3〜5階の建物で、階段とエレベーターで階を上下しながら、最下階のボス部屋を目指す。ロックダウン、ボス前の補給、建物の立体マップがある。セーブは Sector Dive とは別。仕様: [SPEC.md](games/sector-dive-ex/SPEC.md) |
+| tsume-vim | 詰めvim | Vimの操作を問題形式で練習するターミナル風パズル。10章193問＋エンドレス。仕様: [SPEC.md](games/tsume-vim/SPEC.md) |
