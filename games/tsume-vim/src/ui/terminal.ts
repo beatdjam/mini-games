@@ -21,6 +21,8 @@ interface State {
   progress: Progress;
   endless: Level;
   endlessSeed: number;
+  // the endless seed whose clear is already counted, so a retry does not count it again
+  clearedSeed: number | null;
   cleared: number;
   endlessBest: number;
   pressed: number;
@@ -44,7 +46,7 @@ const words = (level: Level): LevelText => (level.kind ? endlessText(level.kind)
 const randomSeed = (): number => Math.floor(Math.random() * 1_000_000_000);
 
 function endlessSeedFromHash(): number | null {
-  const match = /^#endless(?:-(\d+))?$/.exec(location.hash);
+  const match = /^#endless(?:-(\d{1,9}))?$/.exec(location.hash);
   if (!match) return null;
   return match[1] ? Number(match[1]) : randomSeed();
 }
@@ -74,6 +76,7 @@ export function startTerminal(): void {
     progress: loadProgress(),
     endless: LEVELS[0],
     endlessSeed: 0,
+    clearedSeed: null,
     cleared: 0,
     endlessBest: loadEndlessBest(),
     pressed: 0,
@@ -136,7 +139,8 @@ function bind(): void {
 }
 
 function onKeyDown(event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.isComposing) return;
+  // keyCode 229 is what many IMEs report while composing; the field is deprecated but still needed here.
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.key === 'Process') return;
   if (elements.helpDlg.open) return;
   if (event.metaKey || event.altKey) return;
   if (event.key === 'Tab') return;
@@ -148,6 +152,7 @@ function onKeyDown(event: KeyboardEvent): void {
   if (state.solved) {
     if (event.key === 'Enter') {
       event.preventDefault();
+      if (event.repeat) return;
       nextLevel();
     }
     return;
@@ -221,14 +226,18 @@ function nextLevel(): void {
 
 function checkSolved(): boolean {
   if (state.solved) return false;
+  if (state.editor.mode !== 'normal') return false;
   const level = current();
   if (!sameLines(state.editor.lines, level.target)) return false;
   if (level.targetCursor && !samePos(state.editor.cursor, level.targetCursor)) return false;
   state.solved = true;
   if (state.mode === 'endless') {
-    state.cleared++;
-    state.endlessBest = saveEndlessBest(state.cleared);
-    track('endless_clear', { cleared: state.cleared });
+    if (state.endlessSeed !== state.clearedSeed) {
+      state.clearedSeed = state.endlessSeed;
+      state.cleared++;
+      state.endlessBest = saveEndlessBest(state.cleared);
+      track('endless_clear', { cleared: state.cleared });
+    }
   } else {
     recordSolve(state.progress, level.id, state.pressed);
     track('level_clear', { level: level.id, keys: state.pressed });

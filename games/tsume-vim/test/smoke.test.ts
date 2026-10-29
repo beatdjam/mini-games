@@ -1,7 +1,21 @@
 import { expect, test } from 'vitest';
+import { generateLevel } from '../src/core/content/generate/index.ts';
 import '../src/main.ts';
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+
+const open = async (hash: string): Promise<void> => {
+  history.replaceState(null, '', hash);
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+  await tick();
+};
+
+const send = async (keys: string[]): Promise<void> => {
+  for (const key of keys) {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    await tick();
+  }
+};
 
 test('the terminal boots and solves the first puzzle', async () => {
   expect(document.getElementById('tvBuffer')).not.toBeNull();
@@ -34,4 +48,27 @@ test('the terminal boots and solves the first puzzle', async () => {
   expect((document.getElementById('tvSolution') as HTMLButtonElement).hidden).toBe(true);
   expect(document.getElementById('tvSolutionKeys')!.textContent).toBe('エンドレスでは手順を出さない。');
   expect(document.getElementById('tvProgress')!.textContent).toContain('クリア');
+});
+
+test('a retried endless puzzle does not count as a new clear', async () => {
+  const seed = 0;
+  await open(`#endless-${seed}`);
+  const level = generateLevel(seed, `endless-${seed}`, 0);
+  await send(level.solution);
+  expect(document.getElementById('tvProgress')!.textContent).toContain('クリア 1');
+
+  (document.getElementById('tvRetry') as HTMLButtonElement).click();
+  await tick();
+  await send(level.solution);
+  expect(document.getElementById('tvDone')!.hidden).toBe(false);
+  expect(document.getElementById('tvProgress')!.textContent).toContain('クリア 1');
+});
+
+test('insert mode waits for Escape before showing the solved panel', async () => {
+  await open('#e04');
+  await send(['i', 'l']);
+  expect(document.getElementById('tvDone')!.hidden).toBe(true);
+  await send(['Escape']);
+  expect(document.getElementById('tvDone')!.hidden).toBe(false);
+  expect(document.getElementById('tvDoneTitle')!.textContent).toContain('正解');
 });

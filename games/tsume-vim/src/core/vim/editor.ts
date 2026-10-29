@@ -33,6 +33,7 @@ import type { Find, Mode, Motion, Operator, Pending, Snapshot } from './types.ts
 
 const UNDO_LIMIT = 200;
 const INDENT = '  ';
+const MAX_COUNT = 9999;
 
 const MOTION_KEYS = new Set(['h', 'j', 'k', 'l', '0', '^', '$', 'w', 'b', 'e', 'W', 'B', 'E', 'G', 'H', 'M', 'L']);
 const JUMP_KEYS = new Set(['G', 'H', 'M', 'L', '{', '}', '%']);
@@ -191,7 +192,7 @@ export class Editor {
     }
     if (this.pending) return this.pendingKey(key);
     if (isDigit(key) && (key !== '0' || this.count > 0)) {
-      this.count = this.count * 10 + Number(key);
+      this.count = Math.min(MAX_COUNT, this.count * 10 + Number(key));
       return true;
     }
     if (key === 'd' || key === 'c' || key === 'y' || key === '>' || key === '<') {
@@ -341,7 +342,7 @@ export class Editor {
     }
     if (pending.kind === 'op') {
       if (isDigit(key) && !(key === '0' && pending.count2 === 0)) {
-        pending.count2 = pending.count2 * 10 + Number(key);
+        pending.count2 = Math.min(MAX_COUNT, pending.count2 * 10 + Number(key));
         return true;
       }
       if (key === pending.op) {
@@ -555,10 +556,10 @@ export class Editor {
       }
     } else {
       at = start > 0 ? text.lastIndexOf(pattern, start - 1) : -1;
-      while (at >= 0 && !boundary(at)) at = text.lastIndexOf(pattern, at - 1);
+      while (at >= 0 && !boundary(at)) at = at > 0 ? text.lastIndexOf(pattern, at - 1) : -1;
       if (at < 0) {
         at = text.lastIndexOf(pattern);
-        while (at >= 0 && !boundary(at)) at = text.lastIndexOf(pattern, at - 1);
+        while (at >= 0 && !boundary(at)) at = at > 0 ? text.lastIndexOf(pattern, at - 1) : -1;
       }
     }
     if (at < 0) return null;
@@ -766,7 +767,7 @@ export class Editor {
       return true;
     }
     if (isDigit(key) && (key !== '0' || this.count > 0)) {
-      this.count = this.count * 10 + Number(key);
+      this.count = Math.min(MAX_COUNT, this.count * 10 + Number(key));
       return true;
     }
     if (VISUAL_OPS.has(key)) {
@@ -955,7 +956,7 @@ export class Editor {
 
   private put(beforeCursor: boolean, count: number): void {
     const reg = this.registers.read();
-    if (!reg?.text) return;
+    if (!reg || (!reg.text && !reg.linewise)) return;
     this.pushUndo();
     for (let i = 0; i < count; i++) {
       if (reg.linewise) {

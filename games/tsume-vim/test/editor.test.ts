@@ -295,4 +295,26 @@ describe('editor', () => {
     type(lines, ['d', 'd', 'p']);
     expect(lines.lines).toEqual(['two', 'one']);
   });
+
+  test('# stops when the only candidates are not on word boundaries', () => {
+    const editor = new Editor(['foobar', 'foo'], { line: 1, col: 0 });
+    type(editor, ['#']);
+    expect(editor.cursor).toEqual({ line: 1, col: 0 });
+  });
+
+  test('huge counts stop at the cap', () => {
+    const del = new Editor(['abc'], { line: 0, col: 0 });
+    type(del, [...Array(20).fill('9'), 'x']);
+    expect(del.lines).toEqual(['']);
+    const put = new Editor(['x'], { line: 0, col: 0 });
+    type(put, ['y', 'y', ...Array(20).fill('9'), 'p']);
+    expect(put.lines.length).toBeLessThanOrEqual(1 + 9999);
+  });
+
+  test('yyp duplicates an empty line', () => {
+    const editor = new Editor(['', 'a'], { line: 0, col: 0 });
+    type(editor, ['y', 'y', 'p']);
+    expect(editor.lines).toEqual(['', '', 'a']);
+    expect(editor.cursor).toEqual({ line: 1, col: 0 });
+  });
 });
