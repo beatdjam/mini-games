@@ -1,5 +1,6 @@
 // The screen: course list, the two buffers, the status line, hints and the solved panel. Every key goes to one Editor.
 import { LEVELS } from '../core/content/catalog.ts';
+import { track } from '@engine/core/analytics.ts';
 import { Editor } from '../core/vim/editor.ts';
 import { generateLevel } from '../core/content/generate/index.ts';
 import { loadEndlessBest, loadProgress, recordSolve, saveEndlessBest, type Progress } from '../core/progress.ts';
@@ -108,6 +109,7 @@ function bind(): void {
   });
   elements.solution.addEventListener('click', () => {
     state.showSolution = !state.showSolution;
+    if (state.showSolution) track('solution_show', { level: current().id });
     renderHint();
     elements.solution.blur();
   });
@@ -226,8 +228,10 @@ function checkSolved(): boolean {
   if (state.mode === 'endless') {
     state.cleared++;
     state.endlessBest = saveEndlessBest(state.cleared);
+    track('endless_clear', { cleared: state.cleared });
   } else {
     recordSolve(state.progress, level.id, state.pressed);
+    track('level_clear', { level: level.id, keys: state.pressed });
   }
   return true;
 }
