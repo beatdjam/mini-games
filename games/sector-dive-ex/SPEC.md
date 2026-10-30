@@ -404,20 +404,52 @@
 
 ### 技術メモ
 
-- engine の仕組みで使うもの（[engine/SPEC.md](../../engine/SPEC.md)）: 複数階（4.2）、ドアとそのロック（4.3。ロックダウンとボス部屋のドアを閉めたままにする）、複数階の生成と、入口が1つだけの部屋 `hall`（4.5。ボス部屋を最下階に置く）、小物の置き場所（4.6）、3D の詳細マップ（9章）
+- engine の仕組みで使うもの（[engine/SPEC.md](../../engine/SPEC.md)）
+  - 複数階（4.2）
+  - ドアとそのロック（4.3。ロックダウンとボス部屋のドアを閉めたままにする）
+  - 複数階の生成と、入口が1つだけの部屋 `hall`（4.5。ボス部屋を最下階に置く）
+  - 小物の置き場所（4.6）
+  - 3D の詳細マップ（9章）
 - 見た目のコードの置き場所: セクター（壁・床・扉・小物）は src/world/looks/、モデル（敵・ボス・拾い物・手に持つ銃・敵の弾・粒）は src/world/models/。モデルが共通で使う部品（箱と円柱、装甲の絵、足元の光だまり）は src/world/models/machine.ts、絵を描く道具は、どちらも src/world/looks/paint.ts
 - セクターの絵は、engine の「名前で引くテクスチャとマテリアル」（engine/SPEC.md 7章の `materials.ts`）を使わず、ゲームの中（src/world/looks/）でキャンバスから作っている。武器・敵・拾い物の絵（src/world/models/）も同じ。【未決】engine の仕組みに乗せ替えるか
 - アクセス解析: `game` は `sector-dive-ex`。イベントは Sector Dive と同じ名前を使う。ロックダウンと補給のイベントは無い（【未決】足すか）
 - 更新履歴: `updates.html`。このフォルダを触ったコミットの `Changelog:` の行から作る
 - 確認用フック（開発サーバーだけ）
-  - 建物: `#bld-foot`（最初の階段室の下から見上げる。`#bld-foot`・`#bld-mid`・`#bld-top` に `?last` を付けると、最下階へ下りる階段室。建物にそれが無ければ何もしない）、`#bld-mid`（階段の途中）、`#bld-top`（階段室の上から見下ろす）、`#bld-lift`（最上階のエレベーターの横）、`#bld-liftlow`（同じエレベーターを下の階から）、`#bld-boss`（ボス部屋のドアの前）、`#bld-lockdown`（ロックダウンの部屋の中。ロックダウンが始まる）、`#bld-map3d`（建物を全部見た状態で 3D のマップを開く）、`#bld-window`（外が見える窓の前に立つ。`?sector=CITY` か `?sector=RUIN`。上の階から探す。`?low` で下の階から）、`#bld-foodcourt`（`?sector=MALL`。フードコートの西の通路から、一段下がった広場を見る）、`#bld-foodcourtin`（広場の底から、反対側の段を見上げる）。`#bld-island`（`?sector=MALL`。島の2マス西から島を見る。`?kind=2` のように店の種類（`MALL_SHOP_NAMES` の順）を付けると、その種類の部屋の島。上の階から探す）。`#bld-room`（部屋の隅から、部屋を見渡す。種類のある最初の部屋。`?kind=2` のように種類の番号を付けると、その種類の部屋。閉鎖病院なら `HOSP_DEPARTMENTS` の順）。`#trailer` / `#trailer-music` はトレイラーの撮影用（tools/trailer/capture.mjs が台本を渡して開く。言葉は src/dev/trailer.ts、台本の例は trailers/2026-10-05.txt、使い方は tools/trailer/README.md）
+  - 建物
+    - `#bld-foot`（最初の階段室の下から見上げる。`#bld-foot`・`#bld-mid`・`#bld-top` に `?last` を付けると、最下階へ下りる階段室。建物にそれが無ければ何もしない）
+    - `#bld-mid`（階段の途中）
+    - `#bld-top`（階段室の上から見下ろす）
+    - `#bld-lift`（最上階のエレベーターの横）
+    - `#bld-liftlow`（同じエレベーターを下の階から）
+    - `#bld-boss`（ボス部屋のドアの前）
+    - `#bld-lockdown`（ロックダウンの部屋の中。ロックダウンが始まる）
+    - `#bld-map3d`（建物を全部見た状態で 3D のマップを開く）
+    - `#bld-window`（外が見える窓の前に立つ。`?sector=CITY` か `?sector=RUIN`。上の階から探す。`?low` で下の階から）
+    - `#bld-foodcourt`（`?sector=MALL`。フードコートの西の通路から、一段下がった広場を見る）
+    - `#bld-foodcourtin`（広場の底から、反対側の段を見上げる）
+    - `#bld-island`（`?sector=MALL`。島の2マス西から島を見る。`?kind=2` のように店の種類（`MALL_SHOP_NAMES` の順）を付けると、その種類の部屋の島。上の階から探す）
+    - `#bld-room`（部屋の隅から、部屋を見渡す。種類のある最初の部屋。`?kind=2` のように種類の番号を付けると、その種類の部屋。閉鎖病院なら `HOSP_DEPARTMENTS` の順）
+    - `#trailer` / `#trailer-music`（トレイラーの撮影用。tools/trailer/capture.mjs が台本を渡して開く。言葉は src/dev/trailer.ts、台本の例は trailers/2026-10-05.txt、使い方は tools/trailer/README.md）
   - 拠点の深度の道のり: `?shortcut=12&start=8` で、DEPTH 12 まで開いて DEPTH 8 を選んだ拠点になる（セーブを書き換える）
   - ボス部屋: `#bld-hall` でボス部屋の中に立つ
-  - 中庭: `?court=open` / `?court=roof` でどちらかに固定（`?court=open` に `&yard=balcony|walk|bridge` を足すと、全部の階のベランダをその形にする）、`#bld-court`・`#bld-courtmid`・`#bld-courttop` でその場に立つ、`#bld-courtalong` でベランダの端から縦に見る、`#bld-courtbridge`・`#bld-courtplaza` でガレリアを橋のある階の端と広場の高さから長さ方向に見る、`?fps` でフレーム数を出す
+  - 中庭
+    - `?court=open` / `?court=roof`（どちらかに固定。`?court=open` に `&yard=balcony|walk|bridge` を足すと、全部の階のベランダをその形にする）
+    - `#bld-court`・`#bld-courtmid`・`#bld-courttop`（その場に立つ）
+    - `#bld-courtalong`（ベランダの端から縦に見る）
+    - `#bld-courtbridge`・`#bld-courtplaza`（ガレリアを橋のある階の端と広場の高さから長さ方向に見る）
+    - `?fps`（フレーム数を出す）
   - セクターの見た目: 開発サーバーで `?plain` を付けると、全部のセクターを専用の見た目なしで描く（見比べ用）。`#view-KWLN-b`・`-c`・`-d` で、最初の階のほかの部屋に立つ。`?sector=KWLN` を付けると、拠点からふつうに出撃した潜行もそのセクターから始まる。`#bld-boss` などの確認用の入口も、`?sector=` でセクターを選べる
   - ダメージ床: 開発サーバーで `?hazon` を付けると、ダメージ床が光ったままになる
   - 手に持つ銃: 開発サーバーで `?plain` を付けると、銃も Sector Dive と同じ見た目（箱と光る帯。src/data/viewmodels.ts）になる。`#view-haz-<武器>`（pistol・smg・shotgun・rail・launcher）で、その武器を持って立つ
-  - 敵とボス: 開発サーバーで `?plain` を付けると、敵も Sector Dive と同じ見た目（光る立体）になる。`#boss-<ボス>-look`（watcher・phantom・crusher・trinity・core・bastion・hoist・surgeon）で、ボス練習のボスを近くで見る（TRINITY は1機目を見る。画面中央の大きな名前は出さない）。`#boss-hoist-wide`・`#boss-hoist-drop`・`#boss-hoist-pull` は、HOIST の全体（部屋の奥から）、荷が吊られて影が半分濃くなった場面、磁石が引いている場面。`#bld-hoist`（`?sector=MALL` か `?sector=FORGE`、`?pose=wide`・`drop`・`pull`）は、同じ場面を建物のボス部屋で見る。`#boss-surgeon-wide`・`#boss-surgeon-scalpel`・`#boss-surgeon-needle`・`#boss-surgeon-clamp` は、SURGEON の全体と、メスのビームが回っている場面、針を撃った直後、鉗子の輪が半分濃くなった場面（メスと鉗子は、線と輪が止まってから横へ寄って見る）。`#bld-surgeon`（`?sector=HOSP`、`?pose=wide`・`scalpel`・`needle`・`clamp`）は、同じ場面を建物のボス部屋で見る。`#view-enemies-crawler,drone,turret` のように種類を並べると、その敵が目の前に並ぶ（`?sector=KWLN` でセクターを選べる）。`#view-mortar` で、迫撃砲が撃った直後（弾が空にあり、床に輪が出ている）の場面に立つ。`#view-medic` で、修理ドローンが傷んだ brute（その場に止めてある）をビームで直している場面に立つ
+  - 敵とボス: 開発サーバーで `?plain` を付けると、敵も Sector Dive と同じ見た目（光る立体）になる
+    - `#boss-<ボス>-look`（watcher・phantom・crusher・trinity・core・bastion・hoist・surgeon）: ボス練習のボスを近くで見る（TRINITY は1機目を見る。画面中央の大きな名前は出さない）
+    - `#boss-hoist-wide`・`#boss-hoist-drop`・`#boss-hoist-pull`: HOIST の全体（部屋の奥から）、荷が吊られて影が半分濃くなった場面、磁石が引いている場面
+    - `#bld-hoist`（`?sector=MALL` か `?sector=FORGE`、`?pose=wide`・`drop`・`pull`）: 同じ場面を建物のボス部屋で見る
+    - `#boss-surgeon-wide`・`#boss-surgeon-scalpel`・`#boss-surgeon-needle`・`#boss-surgeon-clamp`: SURGEON の全体と、メスのビームが回っている場面、針を撃った直後、鉗子の輪が半分濃くなった場面（メスと鉗子は、線と輪が止まってから横へ寄って見る）
+    - `#bld-surgeon`（`?sector=HOSP`、`?pose=wide`・`scalpel`・`needle`・`clamp`）: 同じ場面を建物のボス部屋で見る
+    - `#view-enemies-crawler,drone,turret` のように種類を並べる: その敵が目の前に並ぶ（`?sector=KWLN` でセクターを選べる）
+    - `#view-mortar`: 迫撃砲が撃った直後（弾が空にあり、床に輪が出ている）の場面に立つ
+    - `#view-medic`: 修理ドローンが傷んだ brute（その場に止めてある）をビームで直している場面に立つ
   - 拾い物: 開発サーバーで `?plain` を付けると、拾い物も Sector Dive と同じ見た目（光る箱）になる。`#view-items` で、5種の武器・キット・チップ・ビットが目の前に並ぶ
   - 弾・発砲の光・ゲート: 開発サーバーで `?plain` を付けると、どれも Sector Dive と同じ見た目になる。`#view-fx-<武器>` で、その武器を撃ち続けた状態で、2種類のゲートの前に立つ。`#view-ebullets` で、敵の弾（輪・扇・大きい弾）が飛んでくる場面に立つ
 
@@ -432,7 +464,10 @@
 - **種類を増やす**: セクターとボスを3つずつ、チップと敵を数種。武器は5種のまま
   - 【未決】セクターのテーマ、ギミック、主な敵、ボス候補。【案】複数階が生きるテーマ（縦に長い塔、吹き抜けのある施設、地下へ降りていく坑道、階層のある廃工場）。外の市街地や森も、今の仕組みで作れそう
   - 【未決】足すチップ。【案】新しい要素に絡むもの（自分が敵より高い所にいると与ダメージが上がる、など）
-  - チップを足すときの決まり: 同じ種類は足し算で重なる形にする。別枠の掛け算になる効果は、入れる前に試算する（Sector Dive の分裂弾は、別枠の倍率になって上限を付けることになった）。与ダメージに効く種類を増やすと、種類をまたいだ掛け算で深い潜行の伸びが大きくなるので、増やしたら難易度の伸びを試算し直す
+  - チップを足すときの決まり
+    - 同じ種類は足し算で重なる形にする
+    - 別枠の掛け算になる効果は、入れる前に試算する（Sector Dive の分裂弾は、別枠の倍率になって上限を付けることになった）
+    - 与ダメージに効く種類を増やすと、種類をまたいだ掛け算で深い潜行の伸びが大きくなるので、増やしたら難易度の伸びを試算し直す
   - 【未決】足す敵とボスの行動。【案】高い所から撃つ敵を、高台や塔の上に置く
 - **見た目の続き**: 画面（HUD・チップ選択など）、拠点の順に、セクターの絵に合わせる
   - 【未決】画面のどこをどう変えるか
