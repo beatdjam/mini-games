@@ -18,6 +18,7 @@ export type Pending =
   | { kind: 'op'; op: Operator; count: number; count2: number }
   | { kind: 'opFind'; op: Operator; count: number; dir: 1 | -1; till: boolean }
   | { kind: 'opG'; op: Operator; count: number }
+  | { kind: 'opMark'; op: Operator; linewise: boolean }
   | { kind: 'opText'; op: Operator; around: boolean }
   | { kind: 'visualText'; around: boolean }
   | { kind: 'register' }

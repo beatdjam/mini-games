@@ -38,6 +38,61 @@ const MAX_COUNT = 9999;
 const MOTION_KEYS = new Set(['h', 'j', 'k', 'l', '0', '^', '$', 'w', 'b', 'e', 'W', 'B', 'E', 'G', 'H', 'M', 'L']);
 const JUMP_KEYS = new Set(['G', 'H', 'M', 'L', '{', '}', '%']);
 const LINE_MOTION_KEYS = new Set(['+', '-', '_', '|', '{', '}', '%']);
+
+type MotionKind = 'linewise' | 'inclusive' | 'exclusive';
+
+// How each motion extends an operator. `;` and `,` depend on the direction of the last find.
+const MOTION_KINDS: Record<string, MotionKind> = {
+  j: 'linewise',
+  k: 'linewise',
+  '+': 'linewise',
+  '-': 'linewise',
+  _: 'linewise',
+  G: 'linewise',
+  gg: 'linewise',
+  Enter: 'linewise',
+  H: 'linewise',
+  M: 'linewise',
+  L: 'linewise',
+  "'": 'linewise',
+  e: 'inclusive',
+  E: 'inclusive',
+  ge: 'inclusive',
+  gE: 'inclusive',
+  $: 'inclusive',
+  g_: 'inclusive',
+  f: 'inclusive',
+  t: 'inclusive',
+  '%': 'inclusive',
+  h: 'exclusive',
+  l: 'exclusive',
+  w: 'exclusive',
+  b: 'exclusive',
+  W: 'exclusive',
+  B: 'exclusive',
+  '0': 'exclusive',
+  '^': 'exclusive',
+  '|': 'exclusive',
+  '{': 'exclusive',
+  '}': 'exclusive',
+  F: 'exclusive',
+  T: 'exclusive',
+  ';': 'exclusive',
+  ',': 'exclusive',
+  '/': 'exclusive',
+  '?': 'exclusive',
+  n: 'exclusive',
+  N: 'exclusive',
+  '*': 'exclusive',
+  '#': 'exclusive',
+  '`': 'exclusive',
+};
+
+const motionFlags = (kind: MotionKind): Pick<Motion, 'inclusive' | 'linewise'> => ({
+  inclusive: kind === 'inclusive',
+  linewise: kind === 'linewise',
+});
+
 const SIMPLE_EDIT_KEYS = new Set(['x', 'X', 'D', 'C', 's', 'S', 'Y']);
 const INSERT_KEYS = new Set(['i', 'a', 'I', 'A', 'o', 'O']);
 const VISUAL_OPS = new Set(['d', 'x', 'y', 'c', '>', '<', 'J']);
@@ -90,6 +145,8 @@ export class Editor {
   private lastSearch: { pattern: string; dir: 1 | -1; wholeWord: boolean } | null = null;
   // the mode to go back to after a search, so / in visual keeps the selection
   private searchReturn: Mode = 'normal';
+  // the operator waiting for the pattern after / or ?
+  private operatorSearch: { op: Operator; count: number } | null = null;
   private undoStack: Snapshot[] = [];
   private redoStack: Snapshot[] = [];
   // the keys of the change being recorded, and the keys of the last finished change (for `.`)
@@ -147,7 +204,7 @@ export class Editor {
     if (!pending) return '';
     if (pending.kind === 'register') return '"';
     if (pending.kind === 'op') return pending.op;
-    if (pending.kind === 'opFind' || pending.kind === 'opG') return pending.op;
+    if (pending.kind === 'opFind' || pending.kind === 'opG' || pending.kind === 'opMark') return pending.op;
     if (pending.kind === 'opText') return `${pending.op}${pending.around ? 'a' : 'i'}`;
     if (pending.kind === 'g') return 'g';
     if (pending.kind === 'find') return pending.till ? (pending.dir > 0 ? 't' : 'T') : pending.dir > 0 ? 'f' : 'F';
@@ -295,17 +352,17 @@ export class Editor {
     if (key === 'n' || key === 'N') {
       if (!this.lastSearch) return false;
       const count = this.takeCount() || 1;
-      const dir: 1 | -1 = key === 'n' ? this.lastSearch.dir : this.lastSearch.dir === 1 ? -1 : 1;
+      const to = this.repeatSearchTarget(key, count);
       this.lastJump = { ...this.cursor };
-      for (let i = 0; i < count; i++) {
-        const to = this.findPattern(this.lastSearch.pattern, dir, this.lastSearch.wholeWord);
-        if (!to) break;
-        this.moveTo(to);
-      }
+      if (to) this.moveTo(to);
       return true;
     }
     if (key === '*' || key === '#') {
-      return this.searchWordUnderCursor(key === '*' ? 1 : -1, this.takeCount() || 1);
+      if (!wordAt(this.lines, this.cursor)) return false;
+      const to = this.searchWordTarget(key === '*' ? 1 : -1, this.takeCount() || 1);
+      this.lastJump = { ...this.cursor };
+      if (to) this.moveTo(to);
+      return true;
     }
     if (key === 'Enter') {
       const count = this.takeCount() || 1;
@@ -348,8 +405,10 @@ export class Editor {
         pending.count2 = Math.min(MAX_COUNT, pending.count2 * 10 + Number(key));
         return true;
       }
+      const total = (pending.count || 1) * (pending.count2 || 1);
+      const explicit = pending.count > 0 || pending.count2 > 0;
       if (key === pending.op) {
-        this.applyLineOp(pending.op, (pending.count || 1) * (pending.count2 || 1));
+        this.applyLineOp(pending.op, total);
         this.pending = null;
         return true;
       }
@@ -357,10 +416,36 @@ export class Editor {
         this.pending = {
           kind: 'opFind',
           op: pending.op,
-          count: (pending.count || 1) * (pending.count2 || 1),
+          count: total,
           dir: key === 'f' || key === 't' ? 1 : -1,
           till: key === 't' || key === 'T',
         };
+        return true;
+      }
+      if (key === '/' || key === '?') {
+        this.operatorSearch = { op: pending.op, count: total };
+        this.pending = null;
+        this.searchReturn = 'normal';
+        this.mode = 'search';
+        this.searchText = '';
+        this.searchDirection = key === '/' ? 1 : -1;
+        return true;
+      }
+      if (key === 'n' || key === 'N') {
+        this.pending = null;
+        if (!this.lastSearch) return true;
+        const to = this.repeatSearchTarget(key, total);
+        if (to) this.applyOperator(pending.op, { to, inclusive: false, linewise: false });
+        return true;
+      }
+      if (key === '*' || key === '#') {
+        this.pending = null;
+        const to = this.searchWordTarget(key === '*' ? 1 : -1, total);
+        if (to) this.applyOperator(pending.op, { to, inclusive: false, linewise: false });
+        return true;
+      }
+      if (key === "'" || key === '`') {
+        this.pending = { kind: 'opMark', op: pending.op, linewise: key === "'" };
         return true;
       }
       if (key === 'i' || key === 'a') {
@@ -368,17 +453,18 @@ export class Editor {
         return true;
       }
       if (key === 'g') {
-        this.pending = {
-          kind: 'opG',
-          op: pending.op,
-          count: (pending.count || 1) * (pending.count2 || 1),
-        };
+        this.pending = { kind: 'opG', op: pending.op, count: total };
         return true;
       }
-      const total = (pending.count || 1) * (pending.count2 || 1);
-      const motionKey = this.changeMotionKey(pending.op, key);
-      const motion = this.resolveMotion(motionKey, total);
-      if (!motion) return false;
+      const motion = this.operatorMotion(pending.op, key, total, explicit);
+      if (!motion) {
+        // a motion that fails (dk on the first line, a missing df) does nothing
+        if (MOTION_KINDS[key]) {
+          this.pending = null;
+          return true;
+        }
+        return false;
+      }
       this.applyOperator(pending.op, motion);
       this.pending = null;
       return true;
@@ -393,13 +479,25 @@ export class Editor {
       // Vim remembers the character even when the search fails, for ; and ,
       this.lastFind = { char: key, dir: pending.dir, till: pending.till };
       if (!to) return true;
-      this.applyOperator(pending.op, { to, inclusive: true, linewise: false });
+      const kind: MotionKind = pending.dir === 1 ? 'inclusive' : 'exclusive';
+      this.applyOperator(pending.op, { to, ...motionFlags(kind) });
       return true;
     }
     if (pending.kind === 'opG') {
       this.pending = null;
       const motion = this.resolveGMotion(key, pending.count);
-      if (motion) this.applyOperator(pending.op, motion);
+      if (!motion) return true;
+      const moveKey = key === 'g' ? 'gg' : `g${key}`;
+      const kind = this.operatorMotionKind(moveKey, motion);
+      this.applyOperator(pending.op, { ...motion, ...motionFlags(kind) });
+      return true;
+    }
+    if (pending.kind === 'opMark') {
+      this.pending = null;
+      if (!/^[a-z]$/.test(key) || !this.marks[key]) return true;
+      const target = this.marks[key];
+      const to = pending.linewise ? { line: target.line, col: firstNonBlank(this.lines, target.line) } : { ...target };
+      this.applyOperator(pending.op, { to, inclusive: false, linewise: pending.linewise });
       return true;
     }
     if (pending.kind === 'opText') {
@@ -473,11 +571,27 @@ export class Editor {
 
   private searchKey(key: string): boolean {
     if (key === 'Escape') {
+      this.operatorSearch = null;
       this.mode = this.searchReturn;
       this.searchText = '';
       return true;
     }
     if (key === 'Enter') {
+      const operator = this.operatorSearch;
+      this.operatorSearch = null;
+      if (operator) {
+        if (this.searchText) {
+          const pattern = this.searchText;
+          this.lastSearch = { pattern, dir: this.searchDirection, wholeWord: false };
+          this.lastJump = { ...this.cursor };
+          const to = this.scanPattern(pattern, this.searchDirection, false, operator.count);
+          if (to) this.applyOperator(operator.op, { to, ...motionFlags('exclusive') });
+        }
+        // `c` starts INSERT; the other operators stay in NORMAL
+        if (this.mode === 'search') this.mode = 'normal';
+        this.searchText = '';
+        return true;
+      }
       if (this.searchText) this.search(this.searchText, this.searchDirection);
       this.mode = this.searchReturn;
       this.searchText = '';
@@ -504,24 +618,38 @@ export class Editor {
     return true;
   }
 
-  private searchWordUnderCursor(dir: 1 | -1, count: number): boolean {
+  // The end of a repeated search, without moving the cursor.
+  private repeatSearchTarget(key: 'n' | 'N', count: number): Pos | null {
+    if (!this.lastSearch) return null;
+    const dir: 1 | -1 = key === 'n' ? this.lastSearch.dir : this.lastSearch.dir === 1 ? -1 : 1;
+    return this.scanPattern(this.lastSearch.pattern, dir, this.lastSearch.wholeWord, count);
+  }
+
+  // The end of a `*` or `#`, without moving the cursor. It becomes the last search.
+  private searchWordTarget(dir: 1 | -1, count: number): Pos | null {
     const word = wordAt(this.lines, this.cursor);
-    if (!word) return false;
+    if (!word) return null;
     this.lastSearch = { pattern: word, dir, wholeWord: true };
-    this.lastJump = { ...this.cursor };
+    return this.scanPattern(word, dir, true, count);
+  }
+
+  private scanPattern(pattern: string, dir: 1 | -1, wholeWord: boolean, count: number): Pos | null {
+    let from = this.cursor;
+    let to: Pos | null = null;
     for (let i = 0; i < count; i++) {
-      const to = this.findPattern(word, dir, true);
-      if (!to) break;
-      this.cursor = this.normalizeNormal(to);
+      const found = this.findPattern(pattern, dir, wholeWord, from);
+      if (!found) break;
+      to = found;
+      from = found;
     }
-    return true;
+    return to;
   }
 
   // Finds a literal string. wholeWord keeps `*` and `#` on word boundaries, as Vim does (g* would not).
-  private findPattern(pattern: string, dir: 1 | -1, wholeWord = false): Pos | null {
+  private findPattern(pattern: string, dir: 1 | -1, wholeWord = false, from: Pos = this.cursor): Pos | null {
     if (!pattern) return null;
     const text = this.text;
-    const start = offsetOf(this.lines, this.cursor);
+    const start = offsetOf(this.lines, from);
     const wordChar = (at: number) => at >= 0 && at < text.length && /[A-Za-z0-9_]/.test(text[at]);
     const boundary = (at: number) => !wholeWord || (!wordChar(at - 1) && !wordChar(at + pattern.length));
     let at = -1;
@@ -626,13 +754,53 @@ export class Editor {
     this.count = 0;
   }
 
-  // `cw` behaves like `ce` (Vim's rule): change the word, not the space after it.
-  private changeMotionKey(op: Operator, key: string): string {
-    if (op !== 'c') return key;
+  // Builds the range an operator uses for a motion, with Vim's linewise/inclusive/exclusive rules.
+  private operatorMotion(op: Operator, key: string, count: number, explicit: boolean): Motion | null {
+    if (op === 'c' && (key === 'w' || key === 'W')) return this.changeWordMotion(key, count);
+    const motion = this.resolveMotion(key, count, explicit);
+    if (!motion) return null;
+    const adjusted = key === 'w' || key === 'W' ? this.stopWordAtLineEnd(motion) : motion;
+    const kind = this.operatorMotionKind(key, adjusted);
+    return { ...adjusted, ...motionFlags(kind) };
+  }
+
+  private operatorMotionKind(key: string, motion: Motion): MotionKind {
+    if (motion.linewise) return 'linewise';
+    if (key === ';' || key === ',') {
+      if (!this.lastFind) return 'exclusive';
+      const forward = key === ';' ? this.lastFind.dir === 1 : this.lastFind.dir === -1;
+      return forward ? 'inclusive' : 'exclusive';
+    }
+    // `}` includes the last character when it reaches the end of the file.
+    if (key === '}' && motion.inclusive) return 'inclusive';
+    return MOTION_KINDS[key] ?? (motion.inclusive ? 'inclusive' : 'exclusive');
+  }
+
+  // `cw` changes to the end of the word, but only the current character when it is the last one.
+  private changeWordMotion(key: 'w' | 'W', count: number): Motion {
+    const big = key === 'W';
     const ch = charAt(this.lines, this.cursor);
-    if (key === 'w' && !isBlank(ch) && charClass(ch, false) !== 0) return 'e';
-    if (key === 'W' && !isBlank(ch)) return 'E';
-    return key;
+    if (isBlank(ch)) {
+      const motion = this.resolveMotion(key, count, true);
+      return motion ?? { to: { ...this.cursor }, ...motionFlags('exclusive') };
+    }
+    const line = this.lines[this.cursor.line] ?? '';
+    const atEnd =
+      this.cursor.col >= line.length - 1 || charClass(line[this.cursor.col + 1], big) !== charClass(ch, big);
+    if (atEnd) {
+      if (count <= 1) return { to: { ...this.cursor }, ...motionFlags('inclusive') };
+      return { to: wordEnd(this.lines, this.cursor, count - 1, big), ...motionFlags('inclusive') };
+    }
+    return { to: wordEnd(this.lines, this.cursor, count, big), ...motionFlags('inclusive') };
+  }
+
+  // `dw` and `yw` stop at the end of the line when the last word they cross ends there.
+  private stopWordAtLineEnd(motion: Motion): Motion {
+    const to = motion.to;
+    if (to.line <= this.cursor.line || to.col !== firstNonBlank(this.lines, to.line)) return motion;
+    let line = to.line - 1;
+    while (line > this.cursor.line && this.lines[line].trim() === '') line--;
+    return { to: { line, col: this.lines[line].length }, ...motionFlags('exclusive') };
   }
 
   private insertKey(key: string): boolean {
@@ -928,7 +1096,7 @@ export class Editor {
       if (reg.linewise) {
         const at = this.cursor.line + (beforeCursor ? 0 : 1);
         this.lines.splice(at, 0, ...reg.text.split('\n'));
-        this.cursor = { line: at, col: 0 };
+        this.cursor = { line: at, col: firstNonBlank(this.lines, at) };
         continue;
       }
       const line = this.line;
@@ -937,11 +1105,11 @@ export class Editor {
       this.lines.splice(this.cursor.line, 1, ...parts);
       if (parts.length === 1) {
         this.cursor = { line: this.cursor.line, col: Math.max(0, at + reg.text.length - 1) };
+      } else if (beforeCursor) {
+        // P leaves the cursor on the first inserted character
+        this.cursor = { line: this.cursor.line, col: at };
       } else {
-        this.cursor = {
-          line: this.cursor.line + parts.length - 1,
-          col: Math.max(0, parts[parts.length - 1].length - 1),
-        };
+        this.cursor = { line: this.cursor.line, col: at + 1 };
       }
     }
     this.normalizeCursor();
@@ -950,7 +1118,7 @@ export class Editor {
   private applyLineOp(op: Operator, count: number): void {
     const from = this.cursor.line;
     const to = Math.min(this.lines.length - 1, from + Math.max(1, count) - 1);
-    this.linewiseOp(op, from, to);
+    this.linewiseOp(op, from, to, op === 'y');
   }
 
   private applyOperator(op: Operator, motion: Motion): void {
@@ -958,19 +1126,30 @@ export class Editor {
       const start = motion.from ?? this.cursor;
       const from = Math.min(start.line, motion.to.line);
       const to = Math.max(start.line, motion.to.line);
-      this.linewiseOp(op, from, to);
+      this.linewiseOp(op, from, to, op === 'y');
       return;
     }
     const start = motion.from ?? this.cursor;
-    const from = before(start, motion.to) ? start : motion.to;
-    const to = before(start, motion.to) ? motion.to : start;
-    this.charwiseOp(op, from, to, motion.inclusive);
+    const a = before(start, motion.to) ? start : motion.to;
+    let b = before(start, motion.to) ? motion.to : start;
+    let inclusive = motion.inclusive;
+    // An exclusive motion that ends in column 0 of a later line stops at the end of the previous
+    // line, and becomes linewise when the start is at or before the first non-blank.
+    if (!inclusive && b.col === 0 && b.line > a.line) {
+      b = { line: b.line - 1, col: Math.max(0, this.lines[b.line - 1].length - 1) };
+      inclusive = true;
+      if (a.col <= firstNonBlank(this.lines, a.line)) {
+        this.linewiseOp(op, a.line, b.line, op === 'y');
+        return;
+      }
+    }
+    this.charwiseOp(op, a, b, inclusive);
   }
 
-  private linewiseOp(op: Operator, from: number, to: number): void {
+  private linewiseOp(op: Operator, from: number, to: number, yankToFirstNonBlank = false): void {
     if (op === 'y') {
       this.yankLines(from, to);
-      this.cursor = { line: from, col: 0 };
+      this.cursor = { line: from, col: yankToFirstNonBlank ? firstNonBlank(this.lines, from) : 0 };
       return;
     }
     if (op === '>' || op === '<') {
@@ -983,9 +1162,14 @@ export class Editor {
     this.lines.splice(from, to - from + 1);
     if (!this.lines.length) this.lines = [''];
     if (op === 'c') {
-      const at = Math.min(from, this.lines.length);
-      this.lines.splice(at, 0, '');
-      this.cursor = { line: at, col: 0 };
+      // when every line was replaced the one empty line already stands in for them
+      if (!(from === 0 && this.lines.length === 1 && this.lines[0] === '')) {
+        const at = Math.min(from, this.lines.length);
+        this.lines.splice(at, 0, '');
+        this.cursor = { line: at, col: 0 };
+      } else {
+        this.cursor = { line: 0, col: 0 };
+      }
       this.mode = 'insert';
       return;
     }
@@ -1018,7 +1202,9 @@ export class Editor {
 
   private yankRange(from: Pos, to: Pos, inclusive: boolean): void {
     const start = offsetOf(this.lines, from);
-    const end = offsetOf(this.lines, to) + (inclusive ? 1 : 0);
+    let end = offsetOf(this.lines, to) + (inclusive ? 1 : 0);
+    if (!inclusive && to.col === 0 && to.line > from.line)
+      end = offsetOf(this.lines, { line: to.line - 1, col: this.lines[to.line - 1].length });
     this.registers.store(this.text.slice(start, end), false);
   }
 
@@ -1093,7 +1279,7 @@ export class Editor {
     return null;
   }
 
-  private resolveMotion(key: string, count: number): Motion | null {
+  private resolveMotion(key: string, count: number, explicit = count > 0): Motion | null {
     const n = count > 0 ? count : 1;
     const line = this.cursor.line;
     const col = this.cursor.col;
@@ -1107,6 +1293,8 @@ export class Editor {
     }
     if (key === 'j' || key === 'k') {
       const toLine = Math.max(0, Math.min(this.lines.length - 1, line + (key === 'j' ? n : -n)));
+      // a motion that does not move fails, so an operator does nothing (dk on the first line)
+      if (toLine === line) return null;
       return {
         to: { line: toLine, col: Math.min(col, Math.max(0, this.lines[toLine].length - 1)) },
         inclusive: false,
@@ -1123,7 +1311,7 @@ export class Editor {
     }
     if (key === '_') {
       const toLine = Math.min(this.lines.length - 1, line + n - 1);
-      return { to: { line: toLine, col: firstNonBlank(this.lines, toLine) }, inclusive: false, linewise: false };
+      return { to: { line: toLine, col: firstNonBlank(this.lines, toLine) }, inclusive: false, linewise: true };
     }
     if (key === '|') {
       const toCol = Math.max(0, Math.min(Math.max(0, this.line.length - 1), (count > 0 ? count : 1) - 1));
@@ -1132,10 +1320,16 @@ export class Editor {
     if (key === '{' || key === '}') {
       const to =
         key === '}' ? paragraphForward(this.lines, this.cursor, n) : paragraphBackward(this.lines, this.cursor, n);
-      return { to, inclusive: false, linewise: true };
+      // `}` includes the last character when no paragraph is left, so d} reaches the end of the file
+      const atEnd =
+        key === '}' &&
+        to.line === this.lines.length - 1 &&
+        this.lines[to.line].trim() !== '' &&
+        to.col === lastNonBlank(this.lines, to.line);
+      return { to, inclusive: atEnd, linewise: false };
     }
     if (key === '%') {
-      if (count > 0) {
+      if (explicit) {
         const toLine = Math.max(0, Math.min(this.lines.length - 1, Math.ceil((count / 100) * this.lines.length) - 1));
         return { to: { line: toLine, col: firstNonBlank(this.lines, toLine) }, inclusive: false, linewise: true };
       }
@@ -1163,7 +1357,12 @@ export class Editor {
       return { to, inclusive: lower === 'e', linewise: false };
     }
     if (key === 'G' || key === 'gg') {
-      const toLine = count > 0 ? Math.min(count - 1, this.lines.length - 1) : key === 'G' ? this.lines.length - 1 : 0;
+      const toLine = explicit ? Math.min(count - 1, this.lines.length - 1) : key === 'G' ? this.lines.length - 1 : 0;
+      return { to: { line: toLine, col: firstNonBlank(this.lines, toLine) }, inclusive: false, linewise: true };
+    }
+    if (key === 'Enter') {
+      const toLine = line + n;
+      if (toLine >= this.lines.length) return null;
       return { to: { line: toLine, col: firstNonBlank(this.lines, toLine) }, inclusive: false, linewise: true };
     }
     if (key === 'H' || key === 'M' || key === 'L') {

@@ -350,4 +350,69 @@ describe('editor', () => {
     type(editor, ['v', '$', 'd']);
     expect(editor.lines).toEqual(['cd']);
   });
+
+  test('operators take linewise motions by whole lines', () => {
+    const under = new Editor(['one', '  two', 'three'], { line: 0, col: 1 });
+    type(under, ['d', '_']);
+    expect(under.lines).toEqual(['  two', 'three']);
+    expect(under.cursor).toEqual({ line: 0, col: 2 });
+
+    const toEnd = new Editor(['one', 'two', 'three'], { line: 0, col: 1 });
+    type(toEnd, ['d', 'G']);
+    expect(toEnd.lines).toEqual(['']);
+
+    const change = new Editor(['one', 'two', 'three'], { line: 0, col: 0 });
+    type(change, ['c', 'j']);
+    expect(change.lines).toEqual(['', 'three']);
+    expect(change.mode).toBe('insert');
+  });
+
+  test('operators include or exclude the character the motion reaches', () => {
+    const bracket = new Editor(['foo (bar) baz'], { line: 0, col: 6 });
+    type(bracket, ['d', '%']);
+    expect(bracket.lines).toEqual(['foo r) baz']);
+    expect(bracket.cursor).toEqual({ line: 0, col: 4 });
+
+    const back = new Editor(['foo (bar) baz'], { line: 0, col: 6 });
+    type(back, ['d', 'F', 'o']);
+    expect(back.lines).toEqual(['foar) baz']);
+    expect(back.cursor).toEqual({ line: 0, col: 2 });
+  });
+
+  test('exclusive operator motions stop before their target', () => {
+    const lines = ['foo (bar) baz', '  qux "x y" end', '', 'one {two} three', 'last line 42'];
+    const paragraph = new Editor(lines, { line: 0, col: 6 });
+    type(paragraph, ['d', '}']);
+    expect(paragraph.lines).toEqual(['foo (b', '', 'one {two} three', 'last line 42']);
+    expect(paragraph.cursor).toEqual({ line: 0, col: 5 });
+
+    const search = new Editor(lines, { line: 0, col: 6 });
+    type(search, ['d', '/', 'e', 'Enter']);
+    expect(search.lines).toEqual(['foo (bend', '', 'one {two} three', 'last line 42']);
+    expect(search.cursor).toEqual({ line: 0, col: 6 });
+
+    const mark = new Editor(lines, { line: 0, col: 6 }, { a: { line: 3, col: 6 } });
+    type(mark, ['d', '`', 'a']);
+    expect(mark.lines).toEqual(['foo (bwo} three', 'last line 42']);
+    expect(mark.cursor).toEqual({ line: 0, col: 6 });
+  });
+
+  test('cw in a word and d3w at the end of a line stop where Vim stops', () => {
+    const change = new Editor(['hello world'], { line: 0, col: 1 });
+    type(change, ['c', 'w', 'X', 'Escape']);
+    expect(change.lines).toEqual(['hX world']);
+
+    const lines = ['foo (bar) baz', '  qux "x y" end', '', 'one {two} three', 'last line 42'];
+    const words = new Editor(lines, { line: 0, col: 6 });
+    type(words, ['d', '3', 'w']);
+    expect(words.lines).toEqual(['foo (b', '  qux "x y" end', '', 'one {two} three', 'last line 42']);
+    expect(words.cursor).toEqual({ line: 0, col: 5 });
+  });
+
+  test('dk on the first line does nothing', () => {
+    const editor = new Editor(['one', 'two'], { line: 0, col: 1 });
+    type(editor, ['d', 'k']);
+    expect(editor.lines).toEqual(['one', 'two']);
+    expect(editor.cursor).toEqual({ line: 0, col: 1 });
+  });
 });
