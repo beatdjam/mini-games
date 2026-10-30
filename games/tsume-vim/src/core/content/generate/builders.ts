@@ -257,7 +257,7 @@ export const BUILDERS: ((rng: Rng) => Generated)[] = [
     return puzzle('replaceCount', [line], ['XXX' + line.slice(3)], ['3', 'r', 'X']);
   },
   _rng => {
-    return puzzle('xCount', ['helloooo'], ['hello'], ['4', 'x'], { line: 0, col: 5 });
+    return puzzle('xCount', ['hellooooo'], ['hello'], ['4', 'x'], { line: 0, col: 5 });
   },
   rng => {
     const words = pickWords(rng, 3);

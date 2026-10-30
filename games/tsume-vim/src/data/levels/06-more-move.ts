@@ -245,17 +245,17 @@ export const MORE_MOVE_LEVELS: Level[] = [
   {
     id: 'r17',
     chapter: 6,
-    lines: ['todo', 'done todo', 'todo again'],
+    lines: ['todo', 'todo list', 'done todo'],
     cursor: {
       line: 0,
       col: 0,
     },
-    target: ['todo', 'done todo', 'todo again'],
+    target: ['todo', 'todo list', 'done todo'],
     targetCursor: {
-      line: 1,
+      line: 2,
       col: 5,
     },
-    solution: ['/', 't', 'o', 'd', 'o', 'Enter', 'n', 'N'],
+    solution: ['/', 't', 'o', 'd', 'o', 'Enter', 'n'],
   },
   {
     id: 'r18',

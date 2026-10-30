@@ -33,7 +33,7 @@ export const VISUAL_LEVELS: Level[] = [
       col: 0,
     },
     target: ['vimvim'],
-    solution: ['v', '$', 'y', '$', 'p'],
+    solution: ['v', 'e', 'y', '$', 'p'],
   },
   {
     id: 'v04',

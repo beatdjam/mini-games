@@ -27,7 +27,7 @@ export const EDIT_LEVELS: Level[] = [
   {
     id: 'e03',
     chapter: 2,
-    lines: ['helloooo'],
+    lines: ['hellooooo'],
     cursor: {
       line: 0,
       col: 5,
