@@ -9,6 +9,25 @@ describe('editor', () => {
     expect(editor.lines).toEqual(['good world']);
   });
 
+  test('ci" from the start of the line changes the string on the right', () => {
+    const editor = new Editor(['name = "vim"'], { line: 0, col: 0 });
+    type(editor, ['c', 'i', '"', 'X', 'Escape']);
+    expect(editor.lines).toEqual(['name = "X"']);
+  });
+
+  test('di( outside a block does nothing', () => {
+    const editor = new Editor(['foo (bar) baz', '  qux'], { line: 1, col: 4 });
+    type(editor, ['d', 'i', '(']);
+    expect(editor.lines).toEqual(['foo (bar) baz', '  qux']);
+    expect(editor.cursor).toEqual({ line: 1, col: 4 });
+  });
+
+  test('da" deletes the trailing space of the string', () => {
+    const editor = new Editor(['  qux "x y" end'], { line: 0, col: 4 });
+    type(editor, ['d', 'a', '"']);
+    expect(editor.lines).toEqual(['  qux end']);
+  });
+
   test('dw at the last word keeps the line', () => {
     const editor = new Editor(['one two'], { line: 0, col: 4 });
     type(editor, ['d', 'w']);

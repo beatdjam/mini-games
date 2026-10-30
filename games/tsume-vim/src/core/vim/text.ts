@@ -330,14 +330,21 @@ function quoteObject(lines: string[], from: Pos, quote: string, around: boolean)
   for (let col = 0; col < line.length; col++) if (line[col] === quote) quotes.push(col);
   const pairs: Array<[number, number]> = [];
   for (let pair = 0; pair + 1 < quotes.length; pair += 2) pairs.push([quotes[pair], quotes[pair + 1]]);
-  // inside the quotes first, then the next pair, then the last pair on the line
+  // the pair around the cursor, else the next pair on the line
   const chosen =
-    pairs.find(([left, right]) => from.col >= left && from.col <= right) ??
-    pairs.find(([left]) => left > from.col) ??
-    pairs[pairs.length - 1];
+    pairs.find(([left, right]) => from.col >= left && from.col <= right) ?? pairs.find(([left]) => left > from.col);
   if (!chosen) return null;
   const [left, right] = chosen;
-  if (around) return { from: { line: from.line, col: left }, to: { line: from.line, col: right }, inclusive: true };
+  if (around) {
+    let start = left;
+    let end = right;
+    if (end + 1 < line.length && /\s/.test(line[end + 1])) {
+      while (end + 1 < line.length && /\s/.test(line[end + 1])) end++;
+    } else {
+      while (start > 0 && /\s/.test(line[start - 1])) start--;
+    }
+    return { from: { line: from.line, col: start }, to: { line: from.line, col: end }, inclusive: true };
+  }
   if (right - left <= 1) {
     return { from: { line: from.line, col: left + 1 }, to: { line: from.line, col: left + 1 }, inclusive: false };
   }
@@ -366,11 +373,8 @@ function bracketObject(lines: string[], from: Pos, open: string, close: string, 
       }
     }
   }
-  if (openAt < 0) {
-    const next = text.indexOf(open, start);
-    const previous = text.lastIndexOf(open, start);
-    openAt = next >= 0 ? next : previous;
-  }
+  // Only the enclosing block counts; otherwise Vim looks forward for the next opening bracket.
+  if (openAt < 0) openAt = text.indexOf(open, start);
   if (openAt < 0) return null;
   let depth = 0;
   let closeAt = -1;

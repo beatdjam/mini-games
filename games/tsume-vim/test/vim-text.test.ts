@@ -62,6 +62,24 @@ describe('vim-text', () => {
     });
   });
 
+  test('a bracket object outside every block fails without looking back', () => {
+    expect(textObject(['foo (bar) baz', '  qux'], { line: 1, col: 4 }, '(', false)).toBeNull();
+    expect(textObject(['foo (bar) baz', '  qux'], { line: 1, col: 4 }, '(', true)).toBeNull();
+  });
+
+  test('a quote object takes the trailing space, or the leading one when none follows', () => {
+    expect(textObject(['  qux "x y" end'], { line: 0, col: 4 }, '"', true)).toEqual({
+      from: { line: 0, col: 6 },
+      to: { line: 0, col: 11 },
+      inclusive: true,
+    });
+    expect(textObject(['x "a"'], { line: 0, col: 2 }, '"', true)).toEqual({
+      from: { line: 0, col: 1 },
+      to: { line: 0, col: 4 },
+      inclusive: true,
+    });
+  });
+
   test('number adjustment and joining lines', () => {
     expect(adjustNumber('value = 007;', 8, 1, 1)).toEqual({ line: 'value = 008;', col: 8 });
     expect(adjustNumber('value = 7;', 9, 1, 1)).toBeNull();
