@@ -424,6 +424,14 @@ export function replaceAll(text: string, old: string, next: string): string {
   return text.split(old).join(next);
 }
 
+interface NumberMatch {
+  index: number;
+  length: number;
+  value: number;
+  raw: string;
+  hex: boolean;
+}
+
 // Ctrl-a / Ctrl-x: the number under the cursor, else the next one on the line.
 export function adjustNumber(
   line: string,
@@ -431,10 +439,18 @@ export function adjustNumber(
   delta: number,
   count: number,
 ): { line: string; col: number } | null {
-  let onNumber: { index: number; length: number; value: number; raw: string } | null = null;
-  let after: { index: number; length: number; value: number; raw: string } | null = null;
-  for (const match of line.matchAll(/-?\d+/g)) {
-    const found = { index: match.index, length: match[0].length, value: Number(match[0]), raw: match[0] };
+  let onNumber: NumberMatch | null = null;
+  let after: NumberMatch | null = null;
+  for (const match of line.matchAll(/0[xX][0-9a-fA-F]+|-?\d+/g)) {
+    const raw = match[0];
+    const hex = raw.startsWith('0x') || raw.startsWith('0X');
+    const found = {
+      index: match.index,
+      length: raw.length,
+      value: hex ? Number.parseInt(raw.slice(2), 16) : Number(raw),
+      raw,
+      hex,
+    };
     if (col >= found.index && col < found.index + found.length) {
       onNumber = found;
       break;
@@ -443,21 +459,40 @@ export function adjustNumber(
   }
   const target = onNumber ?? after;
   if (!target) return null;
-  let next = String(target.value + delta * count);
-  if (target.raw.replace('-', '').startsWith('0') && target.raw.length > 1) {
-    const width = target.raw.replace('-', '').length;
-    const sign = next.startsWith('-') ? '-' : '';
-    next = sign + next.replace('-', '').padStart(width, '0');
+  const value = target.value + delta * count;
+  let next: string;
+  if (target.hex) {
+    const prefix = target.raw.slice(0, 2);
+    const width = target.raw.length - 2;
+    const digits = Math.max(0, value).toString(16).padStart(width, '0');
+    // Vim keeps the case of the letters the number was written with
+    next = prefix + (/[A-F]/.test(target.raw.slice(2)) ? digits.toUpperCase() : digits);
+  } else {
+    next = String(value);
+    if (target.raw.replace('-', '').startsWith('0') && target.raw.length > 1) {
+      const width = target.raw.replace('-', '').length;
+      const sign = next.startsWith('-') ? '-' : '';
+      next = sign + next.replace('-', '').padStart(width, '0');
+    }
   }
-  return { line: line.slice(0, target.index) + next + line.slice(target.index + target.length), col: target.index };
+  const colAfter = target.index + next.length - 1;
+  return { line: line.slice(0, target.index) + next + line.slice(target.index + target.length), col: colAfter };
+}
+
+// Joins lines and returns the column where the last piece was added, for the cursor after J.
+export function joinLinesAt(lines: string[], from: number, to: number): { text: string; col: number } {
+  let out = lines[from];
+  let col = out.length;
+  for (let line = from + 1; line <= to; line++) {
+    const next = lines[line].replace(/^\s+/, '');
+    col = out.length;
+    if (!next) continue;
+    if (!out || /\s$/.test(out) || next.startsWith(')')) out += next;
+    else out += ` ${next}`;
+  }
+  return { text: out, col };
 }
 
 export function joinLinesText(lines: string[], from: number, to: number): string {
-  let out = lines[from].replace(/\s+$/, '');
-  for (let line = from + 1; line <= to; line++) {
-    const next = lines[line].replace(/^\s+/, '');
-    if (!next) continue;
-    out += out ? (next.startsWith(')') ? next : ` ${next}`) : next;
-  }
-  return out;
+  return joinLinesAt(lines, from, to).text;
 }

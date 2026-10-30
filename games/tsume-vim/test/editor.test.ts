@@ -500,4 +500,153 @@ describe('editor', () => {
     expect(editor.lines).toEqual(['one', 'two']);
     expect(editor.cursor).toEqual({ line: 0, col: 1 });
   });
+
+  test('~ leaves the cursor after the last character it swaps', () => {
+    const one = new Editor(['foo  '], { line: 0, col: 0 });
+    type(one, ['~']);
+    expect(one.lines).toEqual(['Foo  ']);
+    expect(one.cursor).toEqual({ line: 0, col: 1 });
+
+    const count = new Editor(['foo  '], { line: 0, col: 0 });
+    type(count, ['3', '~']);
+    expect(count.lines).toEqual(['FOO  ']);
+    expect(count.cursor).toEqual({ line: 0, col: 3 });
+
+    const twice = new Editor(['foo  '], { line: 0, col: 0 });
+    type(twice, ['~', '~']);
+    expect(twice.lines).toEqual(['FOo  ']);
+    expect(twice.cursor).toEqual({ line: 0, col: 2 });
+  });
+
+  test('J keeps trailing spaces and puts the cursor on the last join', () => {
+    const editor = new Editor(['foo  ', '  bar baz', ')qux'], { line: 0, col: 0 });
+    type(editor, ['J']);
+    expect(editor.lines).toEqual(['foo  bar baz', ')qux']);
+    expect(editor.cursor).toEqual({ line: 0, col: 5 });
+
+    const three = new Editor(['foo  ', '  bar baz', ')qux'], { line: 0, col: 0 });
+    type(three, ['3', 'J']);
+    expect(three.lines).toEqual(['foo  bar baz)qux']);
+    expect(three.cursor).toEqual({ line: 0, col: 12 });
+
+    const visual = new Editor(['foo  ', '  bar baz', ')qux'], { line: 0, col: 0 });
+    type(visual, ['V', 'j', 'j', 'J']);
+    expect(visual.lines).toEqual(['foo  bar baz)qux']);
+    expect(visual.cursor).toEqual({ line: 0, col: 12 });
+
+    const next = new Editor(['foo  ', '  bar baz', ')qux'], { line: 0, col: 0 });
+    type(next, ['J', 'x']);
+    expect(next.lines).toEqual(['foo  ar baz', ')qux']);
+  });
+
+  test('a count on insert repeats the typed text', () => {
+    const inside = new Editor(['foo  '], { line: 0, col: 0 });
+    type(inside, ['3', 'i', '#', 'Escape']);
+    expect(inside.lines).toEqual(['###foo  ']);
+    expect(inside.cursor).toEqual({ line: 0, col: 2 });
+
+    const after = new Editor(['foo  '], { line: 0, col: 0 });
+    type(after, ['3', 'a', '#', 'Escape']);
+    expect(after.lines).toEqual(['f###oo  ']);
+    expect(after.cursor).toEqual({ line: 0, col: 3 });
+
+    const open = new Editor(['foo  ', '  bar baz'], { line: 0, col: 0 });
+    type(open, ['3', 'o', '#', 'Escape']);
+    expect(open.lines).toEqual(['foo  ', '#', '#', '#', '  bar baz']);
+    expect(open.cursor).toEqual({ line: 3, col: 0 });
+  });
+
+  test('a count on put repeats the text at the same place', () => {
+    const word = new Editor(['foo  '], { line: 0, col: 0 });
+    type(word, ['y', 'i', 'w', '3', 'P']);
+    expect(word.lines).toEqual(['foofoofoofoo  ']);
+    expect(word.cursor).toEqual({ line: 0, col: 8 });
+
+    const line = new Editor(['foo  ', '  bar baz'], { line: 0, col: 0 });
+    type(line, ['y', 'y', '2', 'p']);
+    expect(line.lines).toEqual(['foo  ', 'foo  ', 'foo  ', '  bar baz']);
+    expect(line.cursor).toEqual({ line: 1, col: 0 });
+
+    const lines = new Editor(['foo  ', '  bar baz', ')qux'], { line: 0, col: 0 });
+    type(lines, ['y', 'j', '3', 'p']);
+    expect(lines.lines).toEqual([
+      'foo  ',
+      'foo  ',
+      '  bar baz',
+      'foo  ',
+      '  bar baz',
+      'foo  ',
+      '  bar baz',
+      '  bar baz',
+      ')qux',
+    ]);
+    expect(lines.cursor).toEqual({ line: 1, col: 0 });
+  });
+
+  test('D with a count deletes the whole following lines', () => {
+    const lines = ['foo  ', '  bar baz', ')qux', '', 'x 0x1f -5 Abc', 'last'];
+    const first = new Editor(lines, { line: 0, col: 0 });
+    type(first, ['2', 'D']);
+    expect(first.lines).toEqual([')qux', '', 'x 0x1f -5 Abc', 'last']);
+    expect(first.cursor).toEqual({ line: 0, col: 0 });
+
+    const partial = new Editor(lines, { line: 1, col: 4 });
+    type(partial, ['2', 'D']);
+    expect(partial.lines).toEqual(['foo  ', '  ba', '', 'x 0x1f -5 Abc', 'last']);
+    expect(partial.cursor).toEqual({ line: 1, col: 3 });
+  });
+
+  test('a count on . replaces the count of the recorded change', () => {
+    const editor = new Editor(['foo  ', '  bar baz'], { line: 1, col: 4 });
+    type(editor, ['3', 'x', '2', '.']);
+    expect(editor.lines).toEqual(['foo  ', '  ba']);
+    expect(editor.cursor).toEqual({ line: 1, col: 3 });
+    const next = new Editor(['abcdefghij'], { line: 0, col: 0 });
+    type(next, ['3', 'x', '2', '.', '.']);
+    expect(next.lines).toEqual(['hij']);
+  });
+
+  test('one u undoes a whole dot repeat, but not the change it repeats', () => {
+    const editor = new Editor(['foo  '], { line: 0, col: 0 });
+    type(editor, ['x', '3', '.', 'u']);
+    expect(editor.lines).toEqual(['oo  ']);
+    expect(editor.cursor).toEqual({ line: 0, col: 0 });
+  });
+
+  test('dw. repeats on the empty line and joins the next line up', () => {
+    const editor = new Editor(['foo  ', '  bar baz', ')qux'], { line: 0, col: 0 });
+    type(editor, ['d', 'w', '.']);
+    expect(editor.lines).toEqual(['  bar baz', ')qux']);
+    expect(editor.cursor).toEqual({ line: 0, col: 2 });
+  });
+
+  test('ddu leaves the cursor on the first non-blank of the restored line', () => {
+    const lines = ['foo  ', '  bar baz', ')qux', '', 'x 0x1f -5 Abc', 'last'];
+    const spaced = new Editor(lines, { line: 1, col: 4 });
+    type(spaced, ['d', 'd', 'u']);
+    expect(spaced.cursor).toEqual({ line: 1, col: 2 });
+
+    const start = new Editor(lines, { line: 4, col: 2 });
+    type(start, ['d', 'd', 'u']);
+    expect(start.cursor).toEqual({ line: 4, col: 0 });
+  });
+
+  test('Ctrl-a and Ctrl-x keep hexadecimal numbers in hex', () => {
+    const up = new Editor(['x 0x1f -5 Abc'], { line: 0, col: 2 });
+    type(up, ['C-a']);
+    expect(up.lines).toEqual(['x 0x20 -5 Abc']);
+    expect(up.cursor).toEqual({ line: 0, col: 5 });
+
+    const counted = new Editor(['x 0x1f -5 Abc'], { line: 0, col: 2 });
+    type(counted, ['3', 'C-a']);
+    expect(counted.lines).toEqual(['x 0x22 -5 Abc']);
+
+    const down = new Editor(['x 0x1f -5 Abc'], { line: 0, col: 2 });
+    type(down, ['C-x']);
+    expect(down.lines).toEqual(['x 0x1e -5 Abc']);
+
+    const many = new Editor(['x 0x1f -5 Abc'], { line: 0, col: 2 });
+    type(many, ['1', '2', 'C-x']);
+    expect(many.lines).toEqual(['x 0x13 -5 Abc']);
+  });
 });

@@ -81,9 +81,11 @@ describe('vim-text', () => {
   });
 
   test('number adjustment and joining lines', () => {
-    expect(adjustNumber('value = 007;', 8, 1, 1)).toEqual({ line: 'value = 008;', col: 8 });
+    expect(adjustNumber('value = 007;', 8, 1, 1)).toEqual({ line: 'value = 008;', col: 10 });
     expect(adjustNumber('value = 7;', 9, 1, 1)).toBeNull();
-    expect(adjustNumber('const x = 10;', 10, 1, 5)).toEqual({ line: 'const x = 15;', col: 10 });
+    expect(adjustNumber('const x = 10;', 10, 1, 5)).toEqual({ line: 'const x = 15;', col: 11 });
+    expect(adjustNumber('x 0x1f -5', 2, 1, 1)).toEqual({ line: 'x 0x20 -5', col: 5 });
+    expect(adjustNumber('x 0x0A y', 0, 1, 1)).toEqual({ line: 'x 0x0B y', col: 5 });
     expect(joinLinesText(['if (', ')'], 0, 1)).toBe('if ()');
     expect(joinLinesText(['one', 'two', 'three'], 0, 2)).toBe('one two three');
   });

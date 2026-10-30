@@ -9,7 +9,7 @@ import {
   findCharOnLine,
   firstNonBlank,
   isBlank,
-  joinLinesText,
+  joinLinesAt,
   lastNonBlank,
   matchBracket,
   offsetOf,
@@ -154,6 +154,12 @@ export class Editor {
   private recordText = '';
   private lastChange: string[] | null = null;
   private replaying = false;
+  private undoPushedForReplay = false;
+  // how many times the text typed in the current insert is repeated (3i#)
+  private insertRepeat = 1;
+  private insertStartLine = 0;
+  private insertStartOffset = 0;
+  private insertOpensLine = false;
 
   constructor(lines: string[], cursor: Pos, marks: Record<string, Pos> = {}) {
     this.lines = lines.length ? [...lines] : [''];
@@ -187,7 +193,9 @@ export class Editor {
       if (!handled) {
         this.record = null;
       } else if (this.pending === null && this.mode === 'normal') {
-        if (this.text !== this.recordText) this.lastChange = this.record;
+        if (this.text !== this.recordText) {
+          this.lastChange = this.record;
+        }
         this.record = null;
       }
     }
@@ -276,7 +284,7 @@ export class Editor {
     if (key === '.') {
       const count = this.takeCount();
       if (!this.lastChange) return false;
-      this.replayLastChange(count > 0 ? count : 1);
+      this.replayLastChange(count);
       return true;
     }
     if (key === 'C-a' || key === 'C-x') {
@@ -284,7 +292,7 @@ export class Editor {
       return true;
     }
     if (INSERT_KEYS.has(key)) {
-      this.startInsertCommand(key);
+      this.startInsertCommand(key, this.takeCount() || 1);
       return true;
     }
     if (SIMPLE_EDIT_KEYS.has(key)) {
@@ -748,20 +756,33 @@ export class Editor {
 
   private replayLastChange(count: number): void {
     if (!this.lastChange) return;
-    const keys = [...this.lastChange];
+    let keys = [...this.lastChange];
+    if (count > 0) {
+      // A count on `.` replaces the count the change was recorded with.
+      let at = 0;
+      while (at < keys.length && isDigit(keys[at])) at++;
+      keys = keys.slice(at);
+      this.count = count;
+    }
     this.replaying = true;
     this.record = null;
-    for (let i = 0; i < count; i++) {
-      for (const key of keys) this.handle(key);
-    }
+    this.undoPushedForReplay = false;
+    for (const key of keys) this.handle(key);
+    // the count given to `.` is kept for the next `.`, as Vim does
+    if (count > 0) this.lastChange = [...String(count), ...keys];
     this.replaying = false;
-    this.lastChange = keys;
+    this.undoPushedForReplay = false;
     this.pending = null;
     this.count = 0;
   }
 
   // Builds the range an operator uses for a motion, with Vim's linewise/inclusive/exclusive rules.
   private operatorMotion(op: Operator, key: string, count: number, explicit: boolean): Motion | null {
+    // dw on an empty line deletes that line, as Vim does.
+    if (op === 'd' && (key === 'w' || key === 'W') && !this.line.length) {
+      if (this.cursor.line >= this.lines.length - 1) return null;
+      return { to: { line: this.cursor.line, col: 0 }, ...motionFlags('linewise') };
+    }
     if (op === 'c' && (key === 'w' || key === 'W')) return this.changeWordMotion(key, count);
     const motion = this.resolveMotion(key, count, explicit);
     if (!motion) return null;
@@ -811,9 +832,7 @@ export class Editor {
 
   private insertKey(key: string): boolean {
     if (key === 'Escape') {
-      this.mode = 'normal';
-      this.anchor = null;
-      this.cursor = this.normalizeNormal({ line: this.cursor.line, col: Math.max(0, this.cursor.col - 1) });
+      this.finishInsert();
       return true;
     }
     if (key === 'Enter') {
@@ -874,6 +893,38 @@ export class Editor {
       return true;
     }
     return false;
+  }
+
+  // Escape repeats the typed text when the insert had a count, as Vim does.
+  private finishInsert(): void {
+    const repeat = this.insertRepeat;
+    const endLine = this.cursor.line;
+    const endCol = this.cursor.col;
+    if (repeat > 1 && this.insertOpensLine) {
+      const block = this.lines.slice(this.insertStartLine, endLine + 1);
+      const added = Array.from({ length: repeat - 1 }, () => block).flat();
+      this.lines.splice(endLine + 1, 0, ...added);
+      this.cursor = this.normalizeNormal({
+        line: endLine + (repeat - 1) * block.length,
+        col: Math.max(0, endCol - 1),
+      });
+    } else if (repeat > 1) {
+      const endOffset = offsetOf(this.lines, { line: endLine, col: endCol });
+      const typed = this.text.slice(this.insertStartOffset, endOffset);
+      if (!typed) {
+        this.cursor = this.normalizeNormal({ line: endLine, col: Math.max(0, endCol - 1) });
+      } else {
+        const extra = typed.repeat(repeat - 1);
+        this.insertText(extra, posAt(this.lines, endOffset));
+        this.cursor = this.normalizeNormal(posAt(this.lines, endOffset + extra.length - 1));
+      }
+    } else {
+      this.cursor = this.normalizeNormal({ line: endLine, col: Math.max(0, endCol - 1) });
+    }
+    this.mode = 'normal';
+    this.anchor = null;
+    this.insertRepeat = 1;
+    this.insertOpensLine = false;
   }
 
   private visualKey(key: string): boolean {
@@ -1006,11 +1057,11 @@ export class Editor {
       return;
     }
     if (key === 'D') {
-      this.deleteToEnd(false);
+      this.deleteToEnd(false, count);
       return;
     }
     if (key === 'C') {
-      this.deleteToEnd(true);
+      this.deleteToEnd(true, count);
       return;
     }
     if (key === 's') {
@@ -1041,18 +1092,30 @@ export class Editor {
     this.cursor = this.normalizeNormal({ line: this.cursor.line, col: start });
   }
 
-  private deleteToEnd(insert: boolean): void {
+  private deleteToEnd(insert: boolean, count = 1): void {
     if (!this.line.length) {
       if (insert) this.mode = 'insert';
       return;
     }
     this.pushUndo();
     const start = this.cursor.col;
-    this.registers.store(this.line.slice(start), false);
-    this.lines[this.cursor.line] = this.line.slice(0, start);
+    const n = Math.max(1, count);
+    const endLine = Math.min(this.lines.length - 1, this.cursor.line + n - 1);
+    const removed =
+      this.line.slice(start) +
+      (endLine > this.cursor.line ? '\n' + this.lines.slice(this.cursor.line + 1, endLine + 1).join('\n') : '');
+    this.registers.store(removed, false);
+    const head = this.line.slice(0, start);
+    if (n > 1 && !head) {
+      this.lines.splice(this.cursor.line, endLine - this.cursor.line + 1);
+      if (!this.lines.length) this.lines = [''];
+    } else {
+      this.lines.splice(this.cursor.line, endLine - this.cursor.line + 1, head);
+    }
+    const line = Math.min(this.cursor.line, this.lines.length - 1);
     this.cursor = insert
-      ? { line: this.cursor.line, col: Math.min(start, this.line.length) }
-      : this.normalizeNormal({ line: this.cursor.line, col: Math.max(0, start - 1) });
+      ? { line, col: Math.min(start, this.lines[line].length) }
+      : this.normalizeNormal({ line, col: Math.max(0, start - 1) });
     if (insert) this.mode = 'insert';
   }
 
@@ -1067,31 +1130,27 @@ export class Editor {
     this.mode = 'insert';
   }
 
-  private startInsertCommand(key: string): void {
+  private startInsertCommand(key: string, count = 1): void {
     this.pushUndo();
+    this.insertRepeat = count;
+    this.insertOpensLine = key === 'o' || key === 'O';
+    let pos: Pos;
     if (key === 'i') {
-      this.mode = 'insert';
-      this.cursor = this.normalizeInsert(this.cursor);
-      return;
+      pos = this.normalizeInsert(this.cursor);
+    } else if (key === 'a') {
+      pos = this.normalizeInsert({ line: this.cursor.line, col: this.cursor.col + 1 });
+    } else if (key === 'I') {
+      pos = { line: this.cursor.line, col: firstNonBlank(this.lines, this.cursor.line) };
+    } else if (key === 'A') {
+      pos = { line: this.cursor.line, col: this.line.length };
+    } else {
+      const line = key === 'o' ? this.cursor.line + 1 : this.cursor.line;
+      this.lines.splice(line, 0, '');
+      pos = { line, col: 0 };
     }
-    if (key === 'a') {
-      this.mode = 'insert';
-      this.cursor = this.normalizeInsert({ line: this.cursor.line, col: this.cursor.col + 1 });
-      return;
-    }
-    if (key === 'I') {
-      this.mode = 'insert';
-      this.cursor = { line: this.cursor.line, col: firstNonBlank(this.lines, this.cursor.line) };
-      return;
-    }
-    if (key === 'A') {
-      this.mode = 'insert';
-      this.cursor = { line: this.cursor.line, col: this.line.length };
-      return;
-    }
-    const line = key === 'o' ? this.cursor.line + 1 : this.cursor.line;
-    this.lines.splice(line, 0, '');
-    this.cursor = { line, col: 0 };
+    this.cursor = pos;
+    this.insertStartLine = pos.line;
+    this.insertStartOffset = offsetOf(this.lines, pos);
     this.mode = 'insert';
   }
 
@@ -1119,7 +1178,7 @@ export class Editor {
     const from = { ...this.cursor };
     const to = { line: this.cursor.line, col: this.cursor.col + n - 1 };
     this.toggleRange(from, to);
-    this.cursor = this.normalizeNormal({ line: from.line, col: from.col + n - 1 });
+    this.cursor = this.normalizeNormal({ line: from.line, col: from.col + n });
   }
 
   // Swaps the case of every character in the range, keeping newlines.
@@ -1137,45 +1196,45 @@ export class Editor {
   private joinLines(count: number): void {
     const start = this.cursor.line;
     if (start >= this.lines.length - 1) return;
-    this.pushUndo();
     const n = Math.min(Math.max(2, count), this.lines.length - start);
-    const end = start + n - 1;
-    const joined = joinLinesText(this.lines, start, end);
-    this.lines.splice(start, n, joined);
-    this.cursor = this.normalizeNormal({ line: start, col: joined.length });
+    this.joinRange(start, start + n - 1);
   }
 
   // Visual J always joins down: a one-line selection joins the next line too.
   private joinSelected(from: number, to: number): void {
     if (from >= this.lines.length - 1) return;
+    this.joinRange(from, Math.max(to, from + 1));
+  }
+
+  private joinRange(from: number, to: number): void {
     this.pushUndo();
-    const end = Math.max(to, from + 1);
-    const at = this.lines[from].replace(/\s+$/, '').length;
-    const joined = joinLinesText(this.lines, from, end);
-    this.lines.splice(from, end - from + 1, joined);
-    this.cursor = this.normalizeNormal({ line: from, col: at });
+    const end = Math.min(to, this.lines.length - 1);
+    const { text, col } = joinLinesAt(this.lines, from, end);
+    this.lines.splice(from, end - from + 1, text);
+    this.cursor = this.normalizeNormal({ line: from, col });
   }
 
   private put(beforeCursor: boolean, count: number): void {
     const reg = this.registers.read();
     if (!reg || (!reg.text && !reg.linewise)) return;
     this.pushUndo();
-    for (let i = 0; i < count; i++) {
-      if (reg.linewise) {
-        const at = this.cursor.line + (beforeCursor ? 0 : 1);
-        this.insertLines(reg.text, at);
-        this.cursor = { line: at, col: firstNonBlank(this.lines, at) };
-        continue;
-      }
-      const at = beforeCursor ? this.cursor.col : this.line.length === 0 ? 0 : this.cursor.col + 1;
-      const pos = { line: this.cursor.line, col: at };
-      this.insertText(reg.text, pos);
-      if (!reg.text.includes('\n')) {
-        this.cursor = { line: pos.line, col: Math.max(0, at + reg.text.length - 1) };
-      } else {
-        // a put that spans lines leaves the cursor on its first inserted character
-        this.cursor = { line: pos.line, col: at };
-      }
+    if (reg.linewise) {
+      const at = this.cursor.line + (beforeCursor ? 0 : 1);
+      const block = Array.from({ length: count }, () => reg.text).join('\n');
+      this.insertLines(block, at);
+      this.cursor = { line: at, col: firstNonBlank(this.lines, at) };
+      this.normalizeCursor();
+      return;
+    }
+    const at = beforeCursor ? this.cursor.col : this.line.length === 0 ? 0 : this.cursor.col + 1;
+    const text = reg.text.repeat(count);
+    const pos = { line: this.cursor.line, col: at };
+    this.insertText(text, pos);
+    if (!text.includes('\n')) {
+      this.cursor = { line: pos.line, col: Math.max(0, at + text.length - 1) };
+    } else {
+      // a put that spans lines leaves the cursor on its first inserted character
+      this.cursor = { line: pos.line, col: at };
     }
     this.normalizeCursor();
   }
@@ -1271,7 +1330,7 @@ export class Editor {
       this.indentLines(from, to, op === '>' ? 1 : -1);
       return;
     }
-    this.pushUndo();
+    this.pushUndo(op === 'd' ? { line: from, col: firstNonBlank(this.lines, from) } : undefined);
     const removed = this.lines.slice(from, to + 1);
     this.registers.store(removed.join('\n'), true);
     this.lines.splice(from, to - from + 1);
@@ -1372,10 +1431,12 @@ export class Editor {
     this.pending = null;
   }
 
-  private pushUndo(): void {
-    this.undoStack.push({ lines: [...this.lines], cursor: { ...this.cursor } });
+  private pushUndo(cursor: Pos = this.cursor): void {
+    if (this.replaying && this.undoPushedForReplay) return;
+    this.undoStack.push({ lines: [...this.lines], cursor: { ...cursor } });
     if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
     this.redoStack = [];
+    if (this.replaying) this.undoPushedForReplay = true;
   }
 
   // The motions that start with g. `gg` with a count goes to that line, as Vim does.
