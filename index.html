@@ -43,6 +43,7 @@ header p{margin:0;color:var(--dim);max-width:60ch}
 footer{font-size:12px;color:var(--dim)}
 footer a{color:inherit}
 @media (prefers-reduced-motion:reduce){.game{transition:none}.game:hover{transform:none}}
+@media (hover: none) and (pointer: coarse){.pc-only{display:none}}
 </style>
 </head>
 <body>
@@ -75,6 +76,16 @@ footer a{color:inherit}
         </div>
       </a>
       <a class="log" href="games/sector-dive-ex/updates.html">更新履歴</a>
+    </li>
+    <li class="pc-only">
+      <a class="game" href="games/tsume-vim/">
+        <div class="shot" style="background:radial-gradient(circle at 50% 20%,#173019,#050806 72%);color:#9fe870;font-family:ui-monospace,Menlo,monospace">tsume/vim</div>
+        <div class="body">
+          <span class="name">詰めvim</span>
+          <p class="desc">ターミナル風の画面でVimの操作を練習する。移動から入力、オペレータ、検索、ビジュアルモードまで、10章193問＋エンドレス。最終状態がお題と一致すれば正解で、解説が読める。</p>
+          <ul class="tags"><li>Vim</li><li>パズル</li><li>キーボード</li></ul>
+        </div>
+      </a>
     </li>
   </ul>
 
