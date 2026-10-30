@@ -96,6 +96,10 @@
   - `texturesReady()`: 画像の読み込み待ち
   - `buildParts(parts, { own? })`: 箱・円柱などの部品から模型を組む。ジオメトリは共有
   - ゲーム側: テーマのテクスチャ（描き方か画像）とマテリアルの定義、敵や小物の部品の並び
+- `src/render/parts.ts`: 模型の部品
+  - `boxGeo(w, h, d)`・`cylGeo(rt, rb, len, seg?)`・`ballGeo(r, detail?)`: 大きさごとに1つ作って共有する
+  - `at(geo, mat, x?, y?, z?, along?)`: メッシュをその位置に置く。`along` に `'x'`・`'z'` を渡すと、円柱の軸をそちらへ寝かせる
+  - ゲーム側: これで組む（部品の一覧から組む `materials.ts` の `buildParts` とは別の形）
 - `src/render/merge.ts`: 部品の多い模型を、少ない回数で描く。`mergeParts(root, keep)`（一緒に動く部品を、材質ごとに1つのメッシュにまとめる。見た目は変わらない）
   - ゲーム側: 動く部品とコードが触る部品を `keep` に渡す。模型を作った直後、描く前に一度呼ぶ
 - `src/render/chunks.ts`: 区画ごとに描く

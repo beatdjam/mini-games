@@ -29,6 +29,7 @@ import { LANG, fillData, lang, setI18nHook, setLang, t } from '../src/core/i18n.
 import { ANALYTICS, TRACK_LOG, track } from '../src/core/analytics.ts';
 import { FEEDBACK, FEEDBACK_INFO_MAX, feedbackReady, feedbackUrl } from '../src/core/feedback.ts';
 import { buildViewmodel, disposeTree } from '../src/render/render.ts';
+import { at, ballGeo, boxGeo, cylGeo } from '../src/render/parts.ts';
 import {
   buildParts,
   defineMaterial,
@@ -1061,6 +1062,31 @@ test('render: viewmodel from parts, fx', () => {
     parts.every(p => p.life <= 0),
     'clearFx',
   );
+});
+
+test('parts: box, cylinder and ball geometry are made once per size, at places and turns a mesh', () => {
+  const b = boxGeo(1, 2, 3);
+  eq(boxGeo(1, 2, 3), b, 'a box is kept per size');
+  ok(b.userData.shared, 'a kept box is shared');
+  ok(boxGeo(1, 2, 4) !== b, 'another size is another box');
+  const c = cylGeo(0.5, 0.5, 2, 8);
+  ok(c instanceof THREE.BufferGeometry, 'a cylinder is a geometry');
+  eq(cylGeo(0.5, 0.5, 2, 8), c, 'a cylinder is kept per size');
+  const s = ballGeo(1, 0);
+  ok(s instanceof THREE.BufferGeometry, 'a ball is a geometry');
+  eq(ballGeo(1, 0), s, 'a ball is kept per size');
+  const geo = boxGeo(1, 1, 1),
+    mat = new THREE.MeshBasicMaterial();
+  const m = at(geo, mat, 1, 2, 3);
+  eq(m.geometry, geo, 'the mesh has the geometry it was given');
+  near(m.position.x, 1, 1e-9, 'x');
+  near(m.position.y, 2, 1e-9, 'y');
+  near(m.position.z, 3, 1e-9, 'z');
+  eq(m.rotation.x, 0, 'no turn in x');
+  eq(m.rotation.y, 0, 'no turn in y');
+  eq(m.rotation.z, 0, 'no turn in z');
+  near(at(geo, mat, 0, 0, 0, 'x').rotation.z, Math.PI / 2, 1e-9, 'laid along x');
+  near(at(geo, mat, 0, 0, 0, 'z').rotation.x, Math.PI / 2, 1e-9, 'laid along z');
 });
 
 test('touchlayout: place, edit, reset', () => {
