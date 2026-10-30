@@ -32,8 +32,9 @@ import { ruinProps } from './looks/ruin/props.ts';
 // (world/render.ts). The pictures and the props are drawn from a seed, so a floor looks the same every time.
 // Each look is in a folder of its own in world/looks/, in two files: its pictures (pictures.ts) and its props
 // (props.ts). What they share is in world/looks/ itself: the shape of a look and which picture a tile gets
-// (common.ts), the painters' tools (paint.ts), the tools for the props (props.ts). To add one: make its folder and
-// write the two files, add its line to MAKERS here, put its words in i18n/signs.ts and describe it in SPEC.md.
+// (common.ts), the painters' tools (paint.ts), the tools for the props (props.ts), the numbers of the boss room's walls
+// and floors (hallWalls.ts). To add one: make its folder and write the two files, add its line to MAKERS here, put its
+// words in i18n/signs.ts and describe it in SPEC.md.
 export type { Look } from './looks/common.ts';
 export {
   FLOOR_PLAIN_SHARE,

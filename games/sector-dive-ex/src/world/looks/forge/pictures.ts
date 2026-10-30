@@ -1,6 +1,6 @@
 import { PAINT, css } from '../../../data/colors.ts';
 import { FORGE_DANGER, FORGE_PLATE_HEAT, FORGE_PLATE_SAFETY } from '../../../i18n/signs.ts';
-import type { Pictures, RoomFloors, RoomWalls } from '../common.ts';
+import type { Pictures } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -15,6 +15,7 @@ import {
   stripes,
 } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import { hallWallNumbers } from '../hallWalls.ts';
 import {
   FORGE_HALL_FLOORS,
   FORGE_HALL_MAP,
@@ -599,26 +600,21 @@ const forgeHazardGlow: Paint = (g, rand) => {
 
 // The casting hall (the boss room; hall.ts) has its own walls and floors, numbered after the plant's: the walls beside
 // the room take them (`RoomWalls.hall`), the rest of the plant's walls and floors are picked as they were
-const HALL_WALL_FIRST = FORGE_WALL_PICS.length;
-export const FORGE_ROOM_WALLS: RoomWalls = {
-  plain: HALL_WALL_FIRST,
-  common: FORGE_WALL_PICS.map((_, n) => n),
-  shops: [],
-  ground: [],
-  fronts: [],
-  hall: FORGE_HALL_MAP.map(n => HALL_WALL_FIRST + n),
-};
-export const FORGE_ROOM_FLOORS: RoomFloors = {
-  plain: FORGE_FLOORS,
-  shops: [],
-  hall: FORGE_HALL_FLOORS.map((_, n) => FORGE_FLOORS + n),
-};
+const HALL = hallWallNumbers({
+  first: FORGE_WALL_PICS.length,
+  walls: FORGE_HALL_WALLS.length,
+  map: FORGE_HALL_MAP,
+  floors: FORGE_FLOORS,
+  hallFloors: FORGE_HALL_FLOORS.length,
+});
+export const FORGE_ROOM_WALLS = HALL.roomWalls;
+export const FORGE_ROOM_FLOORS = HALL.roomFloors;
 // what is set up by the hall's walls (hallProps.ts)
-export const FORGE_HALL_MOUTH_WALLS = FORGE_HALL_MOUTHS.map(n => HALL_WALL_FIRST + n); // furnace mouths
-export const FORGE_HALL_TAP_WALLS = FORGE_HALL_TAPS.map(n => HALL_WALL_FIRST + n); // the tapping spout
-export const FORGE_HALL_PLAIN_WALLS = FORGE_HALL_PLAIN.map(n => HALL_WALL_FIRST + n); // pipes and chains go on these
-export const FORGE_HALL_STORE_WALLS = FORGE_HALL_STORES.map(n => HALL_WALL_FIRST + n); // where stores may stand
-export const FORGE_ALL_WALLS = HALL_WALL_FIRST + FORGE_HALL_WALLS.length; // every wall picture of the look
+export const FORGE_HALL_MOUTH_WALLS = FORGE_HALL_MOUTHS.map(HALL.wall); // furnace mouths
+export const FORGE_HALL_TAP_WALLS = FORGE_HALL_TAPS.map(HALL.wall); // the tapping spout
+export const FORGE_HALL_PLAIN_WALLS = FORGE_HALL_PLAIN.map(HALL.wall); // pipes and chains go on these
+export const FORGE_HALL_STORE_WALLS = FORGE_HALL_STORES.map(HALL.wall); // where stores may stand
+export const FORGE_ALL_WALLS = HALL.all; // every wall picture of the look
 
 // the smelter block's look (world/looks.ts makes it the first time the sector is drawn)
 export function forgePictures(): Pictures {

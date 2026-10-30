@@ -1,8 +1,9 @@
 import { PAINT, css } from '../../../data/colors.ts';
 import { KWLN_DANGER } from '../../../i18n/signs.ts';
-import type { Pictures, RoomFloors, RoomWalls } from '../common.ts';
+import type { Pictures } from '../common.ts';
 import { TEX, grain, grime, paint } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import { hallWallNumbers } from '../hallWalls.ts';
 import {
   KWLN_HALL_FLOORS,
   KWLN_HALL_HANGING,
@@ -437,26 +438,21 @@ const kwlnHazardGlow: Paint = (g, rand) => {
 
 // The temple square (the boss room; hall.ts) has its own walls and floors, numbered after the sector's: the walls beside
 // the room take them (`RoomWalls.hall`), the rest of the sector's walls and floors are picked as they were
-const HALL_WALL_FIRST = KWLN_WALL_PICS.length;
 const KWLN_FLOORS = 3; // bare, a puddle, a drain
-export const KWLN_ROOM_WALLS: RoomWalls = {
-  plain: HALL_WALL_FIRST,
-  common: KWLN_WALL_PICS.map((_, n) => n),
-  shops: [],
-  ground: [],
-  fronts: [],
-  hall: KWLN_HALL_MAP.map(n => HALL_WALL_FIRST + n),
-};
-export const KWLN_ROOM_FLOORS: RoomFloors = {
-  plain: KWLN_FLOORS,
-  shops: [],
-  hall: KWLN_HALL_FLOORS.map((_, n) => KWLN_FLOORS + n),
-};
+const HALL = hallWallNumbers({
+  first: KWLN_WALL_PICS.length,
+  walls: KWLN_HALL_WALLS.length,
+  map: KWLN_HALL_MAP,
+  floors: KWLN_FLOORS,
+  hallFloors: KWLN_HALL_FLOORS.length,
+});
+export const KWLN_ROOM_WALLS = HALL.roomWalls;
+export const KWLN_ROOM_FLOORS = HALL.roomFloors;
 // what is set up by the hall's walls (hallProps.ts)
-export const KWLN_HALL_SHRINE_WALLS = KWLN_HALL_SHRINE.map(n => HALL_WALL_FIRST + n); // where incense is burnt
-export const KWLN_HALL_SIGNED_WALLS = KWLN_HALL_SIGNED.map(n => HALL_WALL_FIRST + n); // where a neon sign stands out
-export const KWLN_HALL_HANGING_WALLS = KWLN_HALL_HANGING.map(n => HALL_WALL_FIRST + n); // where washing is hung
-export const KWLN_ALL_WALLS = HALL_WALL_FIRST + KWLN_HALL_WALLS.length; // every wall picture of the look
+export const KWLN_HALL_SHRINE_WALLS = KWLN_HALL_SHRINE.map(HALL.wall); // where incense is burnt
+export const KWLN_HALL_SIGNED_WALLS = KWLN_HALL_SIGNED.map(HALL.wall); // where a neon sign stands out
+export const KWLN_HALL_HANGING_WALLS = KWLN_HALL_HANGING.map(HALL.wall); // where washing is hung
+export const KWLN_ALL_WALLS = HALL.all; // every wall picture of the look
 // the walled city's look (world/looks.ts makes it the first time the sector is drawn)
 export function kwlnPictures(): Pictures {
   return {
