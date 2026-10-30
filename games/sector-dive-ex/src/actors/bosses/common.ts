@@ -16,7 +16,7 @@ import { persist, save } from '../../core/save.ts';
 import { openShortcut, recordBossKill, recordBossSeen, recordPeak } from '../../core/progress.ts';
 import { progressOf } from '../../core/rules.ts';
 import { arenaCenter, level } from '../../world/level.ts';
-import { BOSS_POOL_SIDE } from '../../world/models/bossLooks.ts';
+import { BOSS_POOL_SIDE } from '../../world/models/bosses/shared.ts';
 import { bossHullMat, groundPool } from '../../world/models/machine.ts';
 import { plainLooks } from '../../world/looks.ts';
 import { onBossDown } from '../../flow/events.ts';
@@ -124,7 +124,7 @@ export function createBoss<S extends object>(o: BossSpawn<S>): Boss & S {
     name,
     mesh,
     mat,
-    baseEI: mat.userData.glow ?? BOSS_GLOW, // (a look's body glows less: world/models/bossLooks.ts)
+    baseEI: mat.userData.glow ?? BOSS_GLOW, // (a look's body glows less: world/models/bosses/shared.ts)
     x: cx,
     z: cz - BOSS_START_OFFSET_Z,
     y,
