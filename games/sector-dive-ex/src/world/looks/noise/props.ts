@@ -5,7 +5,7 @@ import { SIDE_STEP, tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { HALL_H, WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf, wallPic } from '../common.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
 import { canvasTex, poolTex } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
@@ -143,19 +143,13 @@ const makeNoiseKit = (): WallKit => ({
 export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   noiseShared ??= { snow: staticTex(), onAir: [onAirTex(false), onAirTex(true)] };
   const shared = noiseShared,
-    { d, wallOf, of, add, pools } = propTools(plan, group, NOISE_PROPS, rng);
+    { d, wallOf, of, add, pools, inHall, hallWall } = propTools(plan, group, NOISE_PROPS, rng, {
+      first: NOISE_ROOM_WALLS.plain,
+      pics: { count: NOISE_ALL_WALLS, rooms: NOISE_ROOM_WALLS },
+    });
   // the picture on a wall tile
   const kindOf = (wall: number) => WALL_KINDS[variantOf(wall, WALL_KINDS.length, WALL_PLAIN_SHARE)]!;
   const quiet = (s: WallSlot) => QUIET_WALLS.includes(kindOf(wallOf(s)));
-  // The big studio (the boss room) has its own things (hallProps.ts), so what is fixed to its walls here is left out:
-  // on the walls of the room, and on the side of them that the corridor behind sees (the hall's pictures are on both
-  // sides). The dice are thrown all the same, so the rest of the floor comes out as it did
-  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
-  const bossRoom = plan.hall ? plan.hall.room : null,
-    inHallWall = (wall: number): boolean =>
-      wallPic(d, wall, { count: NOISE_ALL_WALLS, rooms: NOISE_ROOM_WALLS }) >= WALL_KINDS.length,
-    inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
-      s.room === bossRoom || inHallWall(wallOf(s));
   const fixing = new THREE.MeshBasicMaterial({ color: FIXING }),
     lights: Light[] = [];
 
@@ -166,7 +160,7 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       if (d.maps.grid[j * d.W + i] !== 1) continue;
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
-        if (d.maps.grid[wall] || plan.voids[wall] || kindOf(wall) !== 'monitor' || inHallWall(wall)) return;
+        if (d.maps.grid[wall] || plan.voids[wall] || kindOf(wall) !== 'monitor' || hallWall(wall)) return;
         const s = { i, j, side },
           p = onWall(s, 0, 0.02, SCREEN.y);
         screens.push(pose(p, facing(s)));

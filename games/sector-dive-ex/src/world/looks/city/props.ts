@@ -207,7 +207,7 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   };
   const shared = cityShared,
     tools = propTools(plan, group, CITY_PROPS, rng),
-    { d, wallOf, add } = tools,
+    { d, wallOf, add, inHallRoom } = tools,
     M = d.maps;
   const pictureOf = (wall: number) =>
     wallPic(d, wall, { count: CITY_WALL_PICS.length, laneWalls: CITY_LANE_WALLS, sides: CITY_WALL_SIDES });
@@ -216,9 +216,7 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
 
   // lit fittings (not where the ceiling is open): over the painted fitting of the tile, so they run the same way
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
-  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
-  const bossRoom = plan.hall ? plan.hall.room : null;
-  const tubes = of('tube').filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom),
+  const tubes = of('tube').filter(s => !plan.noCeil[s.j * d.W + s.i] && !inHallRoom(s)),
     housing: THREE.Matrix4[] = [],
     lit: THREE.Matrix4[] = [],
     pools: THREE.Matrix4[] = [],

@@ -228,7 +228,7 @@ export function hospProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   hospShared ??= { directions: HOSP_DIRECTIONS.map(directionTex), exit: exitTex(), clock: clockTex() };
   const shared = hospShared,
     tools = propTools(plan, group, HOSP_PROPS, rng),
-    { d, wallOf, add } = tools,
+    { d, wallOf, add, inHallRoom, hallRoom } = tools,
     pictureOf = (wall: number) =>
       wallPic(d, wall, {
         count: HOSP_WALL_PICS.length,
@@ -239,8 +239,7 @@ export function hospProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       });
   // (no ceiling where it is open to the sky; none in the boss room: its ceiling is twice as high, and a fitting at the usual
   // height would hang in the air)
-  const bossRoom = plan.hall ? plan.hall.room : null,
-    overhead = (id: string) => tools.of(id).filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom),
+  const overhead = (id: string) => tools.of(id).filter(s => !plan.noCeil[s.j * d.W + s.i] && !inHallRoom(s)),
     lights: Light[] = [],
     fitting = new THREE.MeshBasicMaterial({ color: FITTING });
 
@@ -401,7 +400,7 @@ export function hospProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const hall: THREE.Matrix4[] = [],
     hallRods: THREE.Matrix4[] = [];
   d.rooms.forEach((r, n) => {
-    if (roomKindOf(d.maps.grid, n) !== KIND_WAITING || n === bossRoom) return;
+    if (roomKindOf(d.maps.grid, n) !== KIND_WAITING || n === hallRoom) return;
     const i = Math.floor(r.x + r.w / 2),
       j = Math.floor(r.y + r.h / 2);
     if (plan.noCeil[j * d.W + i]) return;

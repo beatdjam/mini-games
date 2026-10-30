@@ -6,6 +6,8 @@ import type { TileMapData } from '@engine/world/dungeon.ts';
 import { RISE, SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
 import { EYE, WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
+import { wallPic } from './common.ts';
+import type { WallPics } from './common.ts';
 import { poolTex } from './paint.ts';
 import { yawToward } from '@engine/core/util.ts';
 // The tools for the things fixed to a sector's walls and ceilings (its props): where a thing goes on a wall, the
@@ -95,16 +97,37 @@ export interface PropTools {
   ) => THREE.InstancedMesh | null;
   // the light the lamps throw on the ground: a soft pool of each one's colour
   pools: (lights: Light[], opacity: number) => void;
+  // the room of the floor's boss room (null: the floor has none)
+  hallRoom: number | null;
+  // is the wall one of the boss room's (the hall's pictures are on both sides of those walls)?
+  hallWall: (wall: number) => boolean;
+  // is the slot on one of the boss room's walls?
+  inHallWall: (s: { i: number; j: number; side?: number }) => boolean;
+  // is the slot in the boss room, or on one of its walls? (the room has its own things: hallProps.ts)
+  inHall: (s: { room?: number; i: number; j: number; side?: number }) => boolean;
+  // is the slot in the boss room itself (not on its wall)? its ceiling is higher (HALL_H), so ceiling things go not there
+  inHallRoom: (s: { room?: number }) => boolean;
 }
 // places a floor's props by the sector's rules (the random numbers are drawn here, once) and gives the tools to
 // build them into `group`
-export function propTools(plan: FloorPlan, group: THREE.Group, rules: PropRule[], rng: Rng): PropTools {
+export function propTools(
+  plan: FloorPlan,
+  group: THREE.Group,
+  rules: PropRule[],
+  rng: Rng,
+  hall?: { first: number; pics: WallPics }, // the boss room's wall pictures: wallPic numbers from `first` up
+): PropTools {
   const d = { W: plan.gen.W, H: plan.gen.H, maps: plan.gen.maps, rooms: plan.gen.rooms },
     placed = placeProps(d, rules, rng);
   const wallOf = (s: WallSlot) => {
     const [di, dj] = SIDE_STEP[s.side ?? 0]!;
     return (s.j + dj) * d.W + s.i + di;
   };
+  const hallRoom = plan.hall ? plan.hall.room : null,
+    hallWall = (wall: number) => !!hall && wallPic(d, wall, hall.pics) >= hall.first,
+    inHallWall = (s: { i: number; j: number; side?: number }) => hallWall(wallOf(s)),
+    inHallRoom = (s: { room?: number }) => s.room === hallRoom,
+    inHall = (s: { room?: number; i: number; j: number; side?: number }) => inHallRoom(s) || inHallWall(s);
   const add: PropTools['add'] = (geo, mat, where, colors) => {
     if (!where.length) return null;
     const mesh = new THREE.InstancedMesh(geo, mat, where.length),
@@ -121,6 +144,11 @@ export function propTools(plan: FloorPlan, group: THREE.Group, rules: PropRule[]
   return {
     d,
     wallOf,
+    hallRoom,
+    hallWall,
+    inHallWall,
+    inHall,
+    inHallRoom,
     of: id =>
       placed
         .filter(p => p.id === id)
