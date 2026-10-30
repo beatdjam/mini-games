@@ -27,6 +27,17 @@ const SKY_LOW = '#efc690';
 const ROOFS = '#344447';
 const FRAME_WHITE = '#c9ccbd'; // aluminium window frames
 const CURTAIN_PLEAT = 8; // px across one fold of a curtain
+// the ward's big window: three columns of panes under a transom, a blind over the middle and a curtain drawn back
+const WARD_X = 30; // px: the glass's left edge
+const WARD_W = TEX - 60; // px: its width
+const WARD_Y = rowOf(3.7); // px: its top
+const WARD_FOOT = rowOf(1.1); // px: its foot
+const WARD_H = WARD_FOOT - WARD_Y; // px: its height
+const WARD_BAR = 4; // px: the mullions and the transom
+const WARD_TRANSOM = 0.42; // where the transom crosses, as a share of the height
+const WARD_BLIND_DOWN = 0.3; // share of the height the blind hangs over the middle column
+const WARD_CURTAIN_OUT = 6; // px the curtain hangs over the left edge of the glass
+const WARD_CURTAIN_W = 36; // px: the curtain's width
 const VIEWER_LIT = '#eef0d9'; // the light boxes' glass: a warm white, not the cold white of the data layer
 
 // the wash of a light box on the wall round it
@@ -125,11 +136,11 @@ const wardBeds: Paint = inKind(KIND_WARD, (g, rand) => {
 // a big window, the dusk in it: a sky going from blue-green to pale orange over the roofs, the mullions, a blind let
 // down in part, a curtain drawn back, the radiator under it, and the warmth of the sun on the wall round it
 const wardWindow: Paint = inKind(KIND_WARD, (g, rand) => {
-  const x = 30,
-    w = TEX - 60,
-    y = rowOf(3.7),
-    foot = rowOf(1.1),
-    h = foot - y;
+  const x = WARD_X,
+    w = WARD_W,
+    y = WARD_Y,
+    foot = WARD_FOOT,
+    h = WARD_H;
   glow(g, TEX / 2, y + h * 0.7, 160, 0.2);
   box(g, x - 6, y - 5, w + 12, h + 10, FRAME_WHITE);
   g.save();
@@ -158,22 +169,22 @@ const wardWindow: Paint = inKind(KIND_WARD, (g, rand) => {
   g.restore();
   // the mullions and the transom
   g.fillStyle = FRAME_WHITE;
-  g.fillRect(x + w / 3 - 2, y, 4, h);
-  g.fillRect(x + (w * 2) / 3 - 2, y, 4, h);
-  g.fillRect(x, y + h * 0.42, w, 4);
+  g.fillRect(x + w / 3 - WARD_BAR / 2, y, WARD_BAR, h);
+  g.fillRect(x + (w * 2) / 3 - WARD_BAR / 2, y, WARD_BAR, h);
+  g.fillRect(x, y + h * WARD_TRANSOM, w, WARD_BAR);
   g.fillStyle = 'rgba(0,0,0,.2)';
-  g.fillRect(x + w / 3 + 2, y, 1.4, h);
-  g.fillRect(x + (w * 2) / 3 + 2, y, 1.4, h);
+  g.fillRect(x + w / 3 + WARD_BAR / 2, y, 1.4, h);
+  g.fillRect(x + (w * 2) / 3 + WARD_BAR / 2, y, 1.4, h);
   // the blind, let down over the top of the window; one slat hangs crooked
   g.fillStyle = '#d6d1b6';
-  for (let sy = y; sy < y + h * 0.3; sy += 4) g.fillRect(x + w / 3 + 2, sy, w / 3 - 4, 3);
+  for (let sy = y; sy < y + h * WARD_BLIND_DOWN; sy += 4) g.fillRect(x + w / 3 + WARD_BAR / 2, sy, w / 3 - WARD_BAR, 3);
   g.fillStyle = '#b4af98';
   g.beginPath();
-  g.moveTo(x + w / 3 + 2, y + h * 0.3);
-  g.lineTo(x + w / 3 + 40, y + h * 0.3 + 3);
-  g.lineTo(x + w / 3 + 2, y + h * 0.3 + 12);
+  g.moveTo(x + w / 3 + 2, y + h * WARD_BLIND_DOWN);
+  g.lineTo(x + w / 3 + 40, y + h * WARD_BLIND_DOWN + 3);
+  g.lineTo(x + w / 3 + 2, y + h * WARD_BLIND_DOWN + 12);
   g.fill();
-  cloth(g, rand, x - 6, 36, y - 8, foot + 16, BLANKETS[1]!);
+  cloth(g, rand, x - WARD_CURTAIN_OUT, WARD_CURTAIN_W, y - 8, foot + 16, BLANKETS[1]!);
   // the sill and the radiator under it
   box(g, x - 10, foot + 4, w + 20, 6, '#d6d3c1');
   g.fillStyle = '#d9d8cb';
@@ -183,6 +194,29 @@ const wardWindow: Paint = inKind(KIND_WARD, (g, rand) => {
     g.fillRect(fx, rowOf(0.98) + 3, 1.6, rowOf(0.32) - rowOf(0.98) - 6);
   }
 });
+// The glass of the ward's big window, in the picture's pixels: three columns by two rows of panes, with the curtain's
+// strip off the left and the blind's share off the middle's top (Look.outside)
+export function wardWindowPanes(): [number, number, number, number][] {
+  const left = WARD_X - WARD_CURTAIN_OUT + WARD_CURTAIN_W,
+    right = WARD_X + WARD_W,
+    midTop = WARD_Y + WARD_H * WARD_BLIND_DOWN,
+    transom = WARD_Y + WARD_H * WARD_TRANSOM,
+    bar = WARD_BAR / 2,
+    col = [
+      WARD_X + WARD_W / 3 - bar,
+      WARD_X + WARD_W / 3 + bar,
+      WARD_X + (WARD_W * 2) / 3 - bar,
+      WARD_X + (WARD_W * 2) / 3 + bar,
+    ];
+  return [
+    [left, WARD_Y, col[0]!, transom],
+    [col[1]!, midTop, col[2]!, transom],
+    [col[3]!, WARD_Y, right, transom],
+    [left, transom + WARD_BAR, col[0]!, WARD_FOOT],
+    [col[1]!, transom + WARD_BAR, col[2]!, WARD_FOOT],
+    [col[3]!, transom + WARD_BAR, right, WARD_FOOT],
+  ];
+}
 // a privacy curtain drawn across: netting along the top, cloth below, two panels with a gap between them and a drip
 // stand standing in the gap
 const wardCurtain: Paint = inKind(KIND_WARD, (g, rand) => {

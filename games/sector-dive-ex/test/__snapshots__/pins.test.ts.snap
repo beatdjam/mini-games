@@ -105,9 +105,9 @@ exports[`sector HOSP 1`] = `
   "first": {
     "at": "38,38",
     "enemies": "95:309609e",
-    "scene": "1859:7b95fb54",
+    "scene": "1887:7ee48b8e",
   },
-  "last": "1019:f9e4e31c",
+  "last": "1047:7425e06f",
 }
 `;
 
