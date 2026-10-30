@@ -218,7 +218,9 @@ if (location.hash.startsWith('#bld-'))
           seen = (k: number) =>
             !grid[k] &&
             !b.plans[floor]!.voids[k] &&
-            !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)],
+            !!look.outside!.panes[
+              wallPic(d, k, { count: look.walls.length, laneWalls: look.laneWalls, sides: look.wallSides })
+            ],
           k = grid.findIndex(
             (_, k) =>
               seen(k) &&
@@ -239,7 +241,9 @@ if (location.hash.startsWith('#bld-'))
           grid = d.maps.grid,
           onYard = (k: number) =>
             !grid[k] &&
-            !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)] &&
+            !!look.outside!.panes[
+              wallPic(d, k, { count: look.walls.length, laneWalls: look.laneWalls, sides: look.wallSides })
+            ] &&
             [1, -1, W, -W].some(o => [1, 2, 3].some(t => c.tiles.includes(k + t * o))),
           corner = (f: number) =>
             [1, -1]
@@ -266,7 +270,9 @@ if (location.hash.startsWith('#bld-'))
             (v, k) =>
               !v &&
               !b.plans[floor]!.voids[k] &&
-              !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)] &&
+              !!look.outside!.panes[
+                wallPic(d, k, { count: look.walls.length, laneWalls: look.laneWalls, sides: look.wallSides })
+              ] &&
               [1, -1, W, -W].some(o => grid[k + o] === 1 && grid[k + 2 * o] === 1),
           );
         if (k < 0) continue;

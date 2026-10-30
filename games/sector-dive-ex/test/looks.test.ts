@@ -98,7 +98,7 @@ test("wall pictures: a window only on the building's outside wall, a glass parti
   expect(wallSide(d, at(3, 2)), 'seen from no floor').toBeNull();
   // a picture of `outer` on any other wall, and one of `inner` on any other wall, gives way to the plain one
   const all = Array.from({ length: 12 }, (_, n) => n + 1),
-    pic = (k: number, sides: { outer?: number[]; inner?: number[] }) => wallPic(d, k, 13, undefined, sides);
+    pic = (k: number, sides: { outer?: number[]; inner?: number[] }) => wallPic(d, k, { count: 13, sides });
   for (const k of [at(0, 1), at(1, 0), at(3, 1), at(1, 2)]) {
     const v = variantOf(k, 13, WALL_PLAIN_SHARE),
       side = wallSide(d, k);
@@ -192,7 +192,13 @@ test('outside: a window one sees out of looks past the whole building, or on to 
       const d = p.gen,
         yard = b.court?.open && floor <= b.court.lower ? new Set(b.court.tiles) : new Set<number>();
       d.maps.grid.forEach((v, k) => {
-        if (v || p.voids[k] || !look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)])
+        if (
+          v ||
+          p.voids[k] ||
+          !look.outside!.panes[
+            wallPic(d, k, { count: look.walls.length, laneWalls: look.laneWalls, sides: look.wallSides })
+          ]
+        )
           return;
         windows++;
         // straight out from each floor that sees it: no floor of any floor before the edge, unless a yard comes first.
@@ -230,7 +236,12 @@ test('outside: a window on a yard shows the yard itself, its walls out to the gl
         g = d.maps.grid;
       g.forEach((v, k) => {
         if (found || v || p.voids[k]) return;
-        if (!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)]) return;
+        if (
+          !look.outside!.panes[
+            wallPic(d, k, { count: look.walls.length, laneWalls: look.laneWalls, sides: look.wallSides })
+          ]
+        )
+          return;
         const o = [1, -1, d.W, -d.W].find(o => g[k + o] === 1 && c.tiles.includes(k - o));
         if (o !== undefined) found = { b, floor, k, o };
       });

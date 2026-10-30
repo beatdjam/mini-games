@@ -153,7 +153,7 @@ export function noiseProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // (null on a floor without one: -1, the number the alleys have, would leave them all out)
   const bossRoom = plan.hall ? plan.hall.room : null,
     inHallWall = (wall: number): boolean =>
-      wallPic(d, wall, NOISE_ALL_WALLS, undefined, undefined, NOISE_ROOM_WALLS) >= WALL_KINDS.length,
+      wallPic(d, wall, { count: NOISE_ALL_WALLS, rooms: NOISE_ROOM_WALLS }) >= WALL_KINDS.length,
     inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
       s.room === bossRoom || inHallWall(wallOf(s));
   const fixing = new THREE.MeshBasicMaterial({ color: FIXING }),

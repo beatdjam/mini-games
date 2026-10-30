@@ -285,7 +285,9 @@ function place(at: ScriptLine) {
         pane = (k: number) =>
           !g[k] &&
           !b.plans[floor]!.voids[k] &&
-          !!look.outside!.panes[wallPic(d, k, look.walls.length, look.laneWalls, look.wallSides)],
+          !!look.outside!.panes[
+            wallPic(d, k, { count: look.walls.length, laneWalls: look.laneWalls, sides: look.wallSides })
+          ],
         k = g.findIndex((_, k) => pane(k) && [1, -1, W, -W].some(o => g[k + o] === 1 && g[k + 2 * o] === 1));
       if (k < 0) continue;
       const o = [1, -1, W, -W].find(o => g[k + o] === 1 && g[k + 2 * o] === 1)!;

@@ -501,7 +501,7 @@ export function showBuilding(b: Building) {
   const yardPicture = (s: number, k: number): number | null => {
     const gen = b.plans[s]?.gen;
     return look?.wallSides?.yard !== undefined && gen && !gen.maps.grid[k]
-      ? wallPic(gen, k, look.walls.length, look.laneWalls, look.wallSides)
+      ? wallPic(gen, k, { count: look.walls.length, laneWalls: look.laneWalls, sides: look.wallSides })
       : null;
   };
   if (b.court) {

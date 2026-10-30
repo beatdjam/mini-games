@@ -209,7 +209,8 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tools = propTools(plan, group, CITY_PROPS, rng),
     { d, wallOf, add } = tools,
     M = d.maps;
-  const pictureOf = (wall: number) => wallPic(d, wall, CITY_WALL_PICS.length, CITY_LANE_WALLS, CITY_WALL_SIDES);
+  const pictureOf = (wall: number) =>
+    wallPic(d, wall, { count: CITY_WALL_PICS.length, laneWalls: CITY_LANE_WALLS, sides: CITY_WALL_SIDES });
   // (the things on the walls go on the plain pictures only, clear of the windows, boards and cabinets)
   const of = (id: string) => tools.of(id).filter(s => s.kind !== 'wall' || PLAIN_WALLS.includes(pictureOf(wallOf(s))));
 

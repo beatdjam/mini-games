@@ -126,7 +126,7 @@ export function hallProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd' | 
     { add, d, pools } = tools,
     lights: Light[] = [],
     { open, pictureOf } = hallSurround(plan, d, wall =>
-      wallPic(d, wall, DATA_ALL_WALLS, undefined, undefined, DATA_ROOM_WALLS),
+      wallPic(d, wall, { count: DATA_ALL_WALLS, rooms: DATA_ROOM_WALLS }),
     ),
     edges = open.filter(f => f.edge),
     racked = edges.filter(f => DATA_HALL_RACK_WALLS.includes(pictureOf(f))),

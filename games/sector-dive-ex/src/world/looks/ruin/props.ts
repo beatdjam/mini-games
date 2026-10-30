@@ -149,12 +149,12 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tools = propTools(plan, group, RUIN_PROPS, rng),
     { d, wallOf, add } = tools;
   // the picture on the wall a wall slot is on
-  const pictureOf = (s: WallSlot) => wallPic(d, wallOf(s), RUIN_WALLS, undefined, RUIN_WALL_SIDES);
+  const pictureOf = (s: WallSlot) => wallPic(d, wallOf(s), { count: RUIN_WALLS, sides: RUIN_WALL_SIDES });
   // The collapsed hall (the boss room) has its own things (hallProps.ts), so what hangs on the walls here is left out on
   // the walls that have the hall's pictures (on both sides of them). The dice are thrown all the same, so the rest of the
   // floor comes out as it did
   const inHall = (s: WallSlot): boolean =>
-    wallPic(d, wallOf(s), RUIN_ALL_WALLS, undefined, RUIN_WALL_SIDES, RUIN_ROOM_WALLS) >= RUIN_WALLS;
+    wallPic(d, wallOf(s), { count: RUIN_ALL_WALLS, sides: RUIN_WALL_SIDES, rooms: RUIN_ROOM_WALLS }) >= RUIN_WALLS;
   // (nothing hangs where the ceiling is open, nor from the boss room's ceiling: it is higher than the others)
   const of = (id: string) =>
     tools
@@ -258,7 +258,8 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       SIDE_STEP.forEach(([di, dj], side) => {
         const wall = (j + dj) * d.W + i + di;
         if (d.maps.grid[wall] || plan.voids[wall]) return;
-        if (wallPic(d, wall, RUIN_ALL_WALLS, undefined, RUIN_WALL_SIDES, RUIN_ROOM_WALLS) !== WALL_WINDOW) return;
+        if (wallPic(d, wall, { count: RUIN_ALL_WALLS, sides: RUIN_WALL_SIDES, rooms: RUIN_ROOM_WALLS }) !== WALL_WINDOW)
+          return;
         const s = { i, j, side };
         daylight.push(
           pose(

@@ -6,7 +6,7 @@ import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
 import { WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
 import { roomKindOf, wallPic } from './common.ts';
-import type { RoomWalls, WallSides } from './common.ts';
+import type { RoomWalls, WallPics, WallSides } from './common.ts';
 import { facing, floorNear, onWall, overHead, pose, raised } from './props.ts';
 import type { Light, PropTools, WallSlot } from './props.ts';
 // Dressing a sector's walls in layers. placeProps hands a slot to one prop, and a floor gets so many of each: that
@@ -198,6 +198,13 @@ export function dressWalls(
         if (!d.maps.grid[wall] && !plan.voids[wall]) faces.push({ i, j, side, room });
       });
     }
+  const pics: WallPics = {
+    count: kit.pics,
+    laneWalls: kit.laneWalls,
+    sides: kit.sides,
+    rooms: kit.rooms,
+    liftWalls: kit.liftWalls,
+  };
   const lane = (f: { room: number }) => f.room < 0,
     of = (s: Share, f: { room: number }) => (lane(f) ? s.lane : s.hall),
     some = <T extends { room: number }>(list: T[], s: Share): T[] => list.filter(f => rng.next() < of(s, f)),
@@ -207,7 +214,7 @@ export function dressWalls(
     // (the picture on the wall of a face)
     pictureOf = (f: WallSlot): number => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!;
-      return wallPic(d, (f.j + dj) * d.W + f.i + di, kit.pics, kit.laneWalls, kit.sides, kit.rooms, kit.liftWalls);
+      return wallPic(d, (f.j + dj) * d.W + f.i + di, pics);
     },
     // (not by a deck or a walkway: what stands on the ground there would be half in it)
     bare = (f: WallSlot): boolean => kit.bare.includes(pictureOf(f)) && !raised(d, f),

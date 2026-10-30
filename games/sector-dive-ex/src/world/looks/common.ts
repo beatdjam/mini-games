@@ -215,6 +215,15 @@ export interface WallSides {
   // it such a wall is painted like any outside wall
   yard?: number;
 }
+// which pictures a wall tile gets (wallPic): how many wall pictures the sector has, and the ones that take the
+// plain picture's place (alone or together; see each field)
+export interface WallPics {
+  count: number;
+  laneWalls?: number[]; // an alley's walls
+  sides?: WallSides; // the pictures that go only on some walls
+  rooms?: RoomWalls; // the pictures of the rooms' walls
+  liftWalls?: number[]; // the walls round a lift
+}
 // a wall on a yard has a window on every this many tiles (where its place along the wall is odd)
 export const YARD_WINDOW_EVERY = 2;
 export const yardWindowAt = (along: number): boolean => along % YARD_WINDOW_EVERY === 1;
@@ -222,36 +231,32 @@ export const yardWindowAt = (along: number): boolean => along % YARD_WINDOW_EVER
 // from lies east of it (a window there looks out at the sun and lets it in)
 const WEST = [-1, 0] as const;
 export const facesWest = (d: WallMap, k: number): boolean => facesToward(d, k, WEST);
-// which picture a wall tile gets: variantOf, but along an alley the plain one gives way to one of `laneWalls`; a
-// picture of `sides` on a wall it may not go on gives way to the plain one
-export function wallPic(
-  d: WallMap & { maps: { roomOf: ArrayLike<number> } },
-  k: number,
-  count: number,
-  laneWalls?: number[],
-  sides?: WallSides,
-  rooms?: RoomWalls,
-  liftWalls?: number[],
-): number {
-  const v0 = rooms
-      ? rooms.common[variantOf(k, rooms.common.length, WALL_PLAIN_SHARE)]!
-      : variantOf(k, count, WALL_PLAIN_SHARE),
-    room = rooms ? roomBeside(d, k) : -1,
+// which picture a wall tile gets (WallPics): variantOf, but along an alley the plain one gives way to one of the
+// lane's walls; a picture of `sides` on a wall it may not go on gives way to the plain one
+export function wallPic(d: WallMap & { maps: { roomOf: ArrayLike<number> } }, k: number, pics: WallPics): number {
+  const v0 = pics.rooms
+      ? pics.rooms.common[variantOf(k, pics.rooms.common.length, WALL_PLAIN_SHARE)]!
+      : variantOf(k, pics.count, WALL_PLAIN_SHARE),
+    room = pics.rooms ? roomBeside(d, k) : -1,
     kind = roomKindOf(d.maps.grid, room),
     lane = byLane(d, k);
   let v: number;
-  if (rooms && kind >= 0) {
+  if (pics.rooms && kind >= 0) {
     // a shop's wall: its front where it meets the corridor, its inside walls elsewhere
-    const own = lane ? rooms.fronts[kind]! : rooms.shops[kind]!,
+    const own = lane ? pics.rooms.fronts[kind]! : pics.rooms.shops[kind]!,
       share = lane ? FRONT_SHARE : ROOM_OWN_SHARE;
-    v = unit(k, 2654435769) < share ? own[Math.floor(unit(k + 977, 3266489917) * own.length)]! : rooms.ground[kind]!;
-  } else if (rooms && room >= 0 && !lane) v = v0;
-  else v = v0 === 0 && laneWalls && lane ? laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % laneWalls.length]! : v0;
+    v =
+      unit(k, 2654435769) < share ? own[Math.floor(unit(k + 977, 3266489917) * own.length)]! : pics.rooms.ground[kind]!;
+  } else if (pics.rooms && room >= 0 && !lane) v = v0;
+  else
+    v =
+      v0 === 0 && pics.laneWalls && lane ? pics.laneWalls[(k * 7 + ((k / d.W) | 0) * 3) % pics.laneWalls.length]! : v0;
   // (a wall with floor of the boss room beside it, seen from there and from the corridor behind it)
-  if (rooms?.hall && hallBeside(d, k)) v = rooms.hall[Math.floor(unit(k + 313, 2246822519) * rooms.hall.length)]!;
-  if (liftWalls) v = liftWallPic(d, k, liftWalls) ?? v;
+  if (pics.rooms?.hall && hallBeside(d, k))
+    v = pics.rooms.hall[Math.floor(unit(k + 313, 2246822519) * pics.rooms.hall.length)]!;
+  if (pics.liftWalls) v = liftWallPic(d, k, pics.liftWalls) ?? v;
   const beyond = wallBeyond.get(d.maps.grid);
-  if (sides?.yard !== undefined) {
+  if (pics.sides?.yard !== undefined) {
     // (only an outside wall: one that a floor sees from another side too is left as it is. A window only where every
     // face a floor sees looks across the yard: the tile at the end of a balcony is seen from the balcony too, at right
     // angles to the yard, and a window there would look into the building)
@@ -261,18 +266,27 @@ export function wallPic(
         const t = k - dj * d.W - di;
         return beyond?.[t] === 2 && d.maps.grid[t] !== 1;
       });
-      return across && yardWindowAt(along) ? sides.yard : sides.outer?.includes(v) ? 0 : v;
+      return across && yardWindowAt(along) ? pics.sides.yard : pics.sides.outer?.includes(v) ? 0 : v;
     }
   }
-  if (!sides || (!sides.outer?.includes(v) && !sides.inner?.includes(v))) return v;
+  if (!pics.sides || (!pics.sides.outer?.includes(v) && !pics.sides.inner?.includes(v))) return v;
   const side = wallSide(d, k, beyond),
     // (the tile is floor on another floor: the building runs out past this wall above or below it, and its outside,
     // one straight mass, takes that floor in: a window here would look out from inside it, past its walls)
     under = beyond?.[k] === 1;
-  return (sides.outer?.includes(v) && side === 'outer' && !under) || (sides.inner?.includes(v) && side === 'inner')
+  return (pics.sides.outer?.includes(v) && side === 'outer' && !under) ||
+    (pics.sides.inner?.includes(v) && side === 'inner')
     ? v
     : 0;
 }
+// the wall pictures a look asks for (levelMesh.ts, ...)
+export const wallPicsOf = (look: Look): WallPics => ({
+  count: look.walls.length,
+  laneWalls: look.laneWalls,
+  sides: look.wallSides,
+  rooms: look.roomWalls,
+  liftWalls: look.liftWalls,
+});
 // What a building's wall looks out on (engine wallSide's `beyond`), registered by the floor's grid (world/building.ts):
 // another floor's floor counts as floor (so a wall is outside only where the building as a whole ends, and a window
 // there sees out past its own straight walls), a courtyard open to the sky as outside (a window on it sees the yard)

@@ -69,7 +69,7 @@ export function hallProps(
   if (!plan.hall) return;
   const { add, d, pools } = tools,
     { open, plain, room, pictureOf } = hallSurround(plan, d, wall =>
-      wallPic(d, wall, RUIN_ALL_WALLS, undefined, RUIN_WALL_SIDES, RUIN_ROOM_WALLS),
+      wallPic(d, wall, { count: RUIN_ALL_WALLS, sides: RUIN_WALL_SIDES, rooms: RUIN_ROOM_WALLS }),
     ),
     edges = open.filter(f => f.edge),
     stage = edges.filter(f => RUIN_HALL_STAGE_WALLS.includes(pictureOf(f))),
