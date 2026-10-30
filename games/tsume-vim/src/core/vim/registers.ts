@@ -10,13 +10,6 @@ export class Registers {
   private active: string | null = null;
   private fresh = false;
 
-  reset(): void {
-    this.unnamed = empty();
-    this.named = {};
-    this.active = null;
-    this.fresh = false;
-  }
-
   select(name: string): void {
     this.active = name;
     this.fresh = true;

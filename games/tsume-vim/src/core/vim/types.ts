@@ -29,12 +29,20 @@ export type Pending =
   | { kind: 'find'; dir: 1 | -1; till: boolean; count: number }
   | { kind: 'replace'; count: number };
 
+export type MotionKind = 'linewise' | 'inclusive' | 'exclusive';
+
 export interface Motion {
   // text objects name both ends; ordinary motions start at the cursor
   from?: Pos;
   to: Pos;
   inclusive: boolean;
   linewise: boolean;
+}
+
+export interface Search {
+  pattern: string;
+  dir: 1 | -1;
+  wholeWord: boolean;
 }
 
 export interface Find {

@@ -4,8 +4,9 @@ import { track } from '@engine/core/analytics.ts';
 import { Editor } from '../core/vim/editor.ts';
 import { generateLevel } from '../core/content/generate/index.ts';
 import { loadEndlessBest, loadProgress, recordSolve, saveEndlessBest, type Progress } from '../core/progress.ts';
-import type { Level, LevelText, Pos } from '../data/types.ts';
-import { applyStaticText, t } from '../i18n/lang.ts';
+import { samePos } from '../core/vim/text.ts';
+import type { Level, LevelText } from '../data/types.ts';
+import { applyStaticText, t } from '@engine/core/i18n.ts';
 import { chapterText, endlessText, helpRows, levelText } from '../i18n/text.ts';
 import { charSpan, ensureCursorVisible, insertCursor, newLineRow } from './dom.ts';
 import { getElements, type Elements } from './elements.ts';
@@ -54,7 +55,8 @@ function endlessSeedFromHash(): number | null {
 const sameLines = (lines: string[], target: string[]): boolean =>
   lines.length === target.length && lines.every((line, index) => line === target[index]);
 
-const samePos = (a: Pos, b: Pos): boolean => a.line === b.line && a.col === b.col;
+// px kept above or below the active level when the list scrolls to it
+const LEVEL_SCROLL_MARGIN = 40;
 
 const allDone = (): boolean => LEVELS.every(level => state.progress.done[level.id] !== undefined);
 
@@ -311,9 +313,9 @@ function renderLevels(): void {
   if (active) {
     const top = active.offsetTop;
     const bottom = top + active.offsetHeight;
-    if (top < elements.levels.scrollTop) elements.levels.scrollTop = Math.max(0, top - 40);
+    if (top < elements.levels.scrollTop) elements.levels.scrollTop = Math.max(0, top - LEVEL_SCROLL_MARGIN);
     else if (bottom > elements.levels.scrollTop + elements.levels.clientHeight) {
-      elements.levels.scrollTop = bottom - elements.levels.clientHeight + 40;
+      elements.levels.scrollTop = bottom - elements.levels.clientHeight + LEVEL_SCROLL_MARGIN;
     }
   }
 }

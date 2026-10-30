@@ -39,14 +39,17 @@ export function insertCursor(): HTMLElement {
   return span;
 }
 
+// px kept above or below the cursor's line when the buffer scrolls to it
+const CURSOR_SCROLL_MARGIN = 24;
+
 export function ensureCursorVisible(buffer: HTMLElement): void {
   const row = buffer.querySelector<HTMLElement>('.curline');
   if (!row) return;
   const top = row.offsetTop;
   const bottom = top + row.offsetHeight;
   if (top < buffer.scrollTop) {
-    buffer.scrollTop = Math.max(0, top - 24);
+    buffer.scrollTop = Math.max(0, top - CURSOR_SCROLL_MARGIN);
   } else if (bottom > buffer.scrollTop + buffer.clientHeight) {
-    buffer.scrollTop = bottom - buffer.clientHeight + 24;
+    buffer.scrollTop = bottom - buffer.clientHeight + CURSOR_SCROLL_MARGIN;
   }
 }

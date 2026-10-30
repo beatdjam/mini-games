@@ -1,4 +1,4 @@
-import { LANG } from './lang.ts';
+import { LANG } from '@engine/core/i18n.ts';
 
 LANG.ja = {
   name: '日本語',

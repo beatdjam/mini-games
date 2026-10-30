@@ -129,19 +129,31 @@ Vim の操作を、ブラウザのターミナル風画面で問題形式に練�
 | ファイル | 役割 |
 |----------|------|
 | `src/main.ts` | 入口。日本語の文言を読み、画面を起動する |
-| `src/core/vim/editor.ts` | Vim の小さな実装。モード、動き、オペレータ、レジスタ、undo、ビジュアル |
+| `src/core/vim/editor.ts` | 画面とテストが使う Vim。外から使う読み取り（バッファ・カーソル・モード・検索など）とキー入力だけを出し、内部の状態は `core.ts` に隠す |
+| `src/core/vim/core.ts` | Vim の内部の状態（バッファ・カーソル・モード・保留・レジスタ・undo の器）を持ち、キーを役割ごとのファイルへ渡す |
+| `src/core/vim/context.ts` | 分けたファイルが共有する状態と操作の型（`EditorHost`）と、数の上限 |
+| `src/core/vim/normal.ts` | NORMAL モードのキー（数、保留の開始、動きへの振り分け） |
+| `src/core/vim/pending.ts` | 保留中のキーを種類（`Pending['kind']`）から引く表 |
+| `src/core/vim/motion.ts` | 動きの行き先と、オペレータに渡す範囲の種類（状態を持たない計算） |
+| `src/core/vim/operator.ts` | オペレータの範囲と、`d` `c` `y` `>` `<` の実行 |
+| `src/core/vim/editing.ts` | `x` `D` `put` `J` `~` などのバッファ編集と、範囲の削除・挿入 |
+| `src/core/vim/insert.ts` | INSERT モードの開始・入力・数の繰り返し |
+| `src/core/vim/visual.ts` | VISUAL / VISUAL LINE の選択と、選択への操作 |
+| `src/core/vim/search.ts` | `/` `?` `n` `N` `*` `#` の文字列検索 |
+| `src/core/vim/command.ts` | `:` の行番号移動と `:s` |
+| `src/core/vim/undo.ts` | undo / redo のスナップショット |
+| `src/core/vim/replay.ts` | `.` の記録と再生 |
 | `src/core/vim/text.ts` | 位置・単語・段落・括弧・テキストオブジェクト・数値の純粋な計算 |
 | `src/core/vim/types.ts` | モード・オペレータ・保留中の操作などの型 |
 | `src/core/vim/registers.ts` | 無名・名前付きレジスタの保持と選択 |
-| `src/core/progress.ts` | `localStorage` の読み書き |
+| `src/core/progress.ts` | engine の store で進み具合を読む・書く |
 | `src/data/levels/` | コース109問を章ごとに分けたファイル（`01-move.ts`〜`09-text-objects.ts`、`index.ts` で連結） |
 | `src/core/content/generate/` | シードからドリル／エンドレスの問題を作る（`base.ts`・`builders.ts`・`index.ts`、48種類） |
 | `src/core/content/drills.ts` | 生成した84問のドリル |
 | `src/core/content/catalog.ts` | コースとドリルを合わせた一覧 |
 | `src/data/types.ts` | 問題・文言の型 |
-| `src/i18n/lang.ts` | 文言の引き当て（engine は使わない） |
-| `src/i18n/ja.ts` | 画面の文言、章と問題の説明、キー一覧 |
-| `src/i18n/text.ts` | 文言データを型付きで読む |
+| `src/i18n/ja.ts` | 画面の文言、章と問題の説明、キー一覧（engine の `LANG.ja` に登録） |
+| `src/i18n/text.ts` | engine の `LANG` から文言データを型付きで読む |
 | `src/ui/terminal.ts` | 画面の状態、キー入力、判定、保存、画面遷移 |
 | `src/ui/elements.ts` | ページの要素の取得 |
 | `src/ui/dom.ts` | 行・文字・カーソルの DOM 部品 |
@@ -153,6 +165,7 @@ Vim の操作を、ブラウザのターミナル風画面で問題形式に練�
 
 - `games/tsume-vim/test/levels.test.ts`: 全193問の手本をエンジンに流し、お題（移動問題はカーソルも）に一致することを確認する。300シードの生成問題も同じように確かめる。
 - `games/tsume-vim/test/editor.test.ts`: オペレータ、undo、ビジュアル、検索、マーク、`.`、`Ctrl-a/x`、`:`、レジスタ、テキストオブジェクトの単体を確認する。
+- `games/tsume-vim/test/vim-golden.test.ts`: 本物の Vim 9.1 の結果（`test/vim-golden/cases.json`、1349通り）と、バッファとカーソルが一致することを確認する。作り直すときは Vim のある環境で `node games/tsume-vim/test/vim-golden/generate.mjs` を流す。
 - `games/tsume-vim/test/vim-text.test.ts`: 単語・段落・括弧・数値・行連結の純粋な計算を確認する。
 - `games/tsume-vim/test/keyboard.test.ts`: キーイベントの変換を確認する。
 - `games/tsume-vim/test/smoke.test.ts`: 画面が起動し、第1問を `h` で解くと正解パネルが出ることを確認する。
@@ -167,4 +180,4 @@ npm test
 
 - Vim の全機能ではない。正規表現検索、マクロ、数字レジスタ・特別なレジスタ、ウィンドウ、`Ctrl-d/u` のスクロールは扱わない（画面が固定で、バッファ全体が見えているため）。レジスタは無名と `a`-`z` / `A`-`Z` だけ。`H` `M` `L` は画面＝バッファ全体として扱う。テキストオブジェクトは単語・引用符・括弧だけで、タグ・文・段落は扱わない。
 - キーボードが必要。スマホでは物理キーボードをつなぐ。タッチだけの端末ではトップの一覧に出さず、ゲームの画面の上に PC 向けの一言を出す。
-- 文章は日本語だけ。`LANG.ja` だけを読み、言語の切り替えはない。
+- 文章は日本語だけ。engine の i18n に `LANG.ja` だけを登録し、言語の切り替えはない。

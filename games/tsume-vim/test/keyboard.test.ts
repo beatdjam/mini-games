@@ -19,6 +19,16 @@ describe('keyboard', () => {
     expect(keyOf(event('[', { ctrlKey: true }), 'normal')).toBe('Escape');
   });
 
+  test('alt and IME composition keys are passed through as they are', () => {
+    // the terminal ignores Alt presses before keyOf; keyOf itself only looks at event.key
+    expect(keyOf(event('a', { altKey: true }), 'normal')).toBe('a');
+    expect(keyOf(event('ArrowLeft', { altKey: true }), 'normal')).toBe('h');
+    expect(keyOf(event(' ', { altKey: true }), 'insert')).toBe(' ');
+    // an IME reports Process or its key while composing; the terminal skips those before keyOf
+    expect(keyOf(event('Process', { isComposing: true }), 'normal')).toBe('Process');
+    expect(keyOf(event('あ', { isComposing: true }), 'insert')).toBe('あ');
+  });
+
   test('key labels are readable in the status line', () => {
     expect(keyLabel(' ')).toBe('␣');
     expect(keyLabel('Escape')).toBe('Esc');
