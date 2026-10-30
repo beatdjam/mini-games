@@ -1,7 +1,8 @@
 import { RUIN_KEEP_OUT, RUIN_NOTICE_BOARD } from '../../../i18n/signs.ts';
-import type { Pictures, RoomFloors, RoomWalls, WallSides } from '../common.ts';
+import type { Pictures, WallSides } from '../common.ts';
 import { DOOR_ASPECT, SIGN_FONT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import { hallWallNumbers } from '../hallWalls.ts';
 import { ruinView } from './backdrop.ts';
 import {
   RUIN_HALL_FLOORS,
@@ -808,23 +809,19 @@ const ruinDoor =
 
 // The collapsed hall (the boss room; hall.ts) has its own walls and floors, numbered after the sector's: the walls beside
 // the room take them (`RoomWalls.hall`), the rest of the sector's walls and floors are picked as they were
-export const RUIN_ALL_WALLS = RUIN_WALLS + RUIN_HALL_WALLS.length; // every wall picture of the look
-export const RUIN_ROOM_WALLS: RoomWalls = {
-  plain: RUIN_WALLS,
-  common: Array.from({ length: RUIN_WALLS }, (_, n) => n),
-  shops: [],
-  ground: [],
-  fronts: [],
-  hall: RUIN_HALL_MAP.map(n => RUIN_WALLS + n),
-};
-export const RUIN_ROOM_FLOORS: RoomFloors = {
-  plain: RUIN_FLOORS,
-  shops: [],
-  hall: RUIN_HALL_FLOORS.map((_, n) => RUIN_FLOORS + n),
-};
+const HALL = hallWallNumbers({
+  first: RUIN_WALLS,
+  walls: RUIN_HALL_WALLS.length,
+  map: RUIN_HALL_MAP,
+  floors: RUIN_FLOORS,
+  hallFloors: RUIN_HALL_FLOORS.length,
+});
+export const RUIN_ROOM_WALLS = HALL.roomWalls;
+export const RUIN_ROOM_FLOORS = HALL.roomFloors;
 // what is set up by the hall's walls (hallProps.ts)
-export const RUIN_HALL_STAGE_WALLS = RUIN_HALL_STAGE.map(n => RUIN_WALLS + n); // where the lectern stands
-export const RUIN_HALL_LIT_WALLS = RUIN_HALL_LIT.map(n => RUIN_WALLS + n); // where the day comes in and weeds grow
+export const RUIN_HALL_STAGE_WALLS = RUIN_HALL_STAGE.map(HALL.wall); // where the lectern stands
+export const RUIN_HALL_LIT_WALLS = RUIN_HALL_LIT.map(HALL.wall); // where the day comes in and weeds grow
+export const RUIN_ALL_WALLS = HALL.all; // every wall picture of the look
 // the ruined streets' look (world/looks.ts makes it the first time the sector is drawn)
 export function ruinPictures(): Pictures {
   return {

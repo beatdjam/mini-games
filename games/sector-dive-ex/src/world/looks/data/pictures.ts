@@ -1,8 +1,9 @@
 import { PAINT, css } from '../../../data/colors.ts';
 import { DATA_PLATE_CAUTION, DATA_PLATE_ZONE, DATA_RACK_IDS, DATA_SEALED } from '../../../i18n/signs.ts';
-import type { Pictures, RoomFloors, RoomWalls } from '../common.ts';
+import type { Pictures } from '../common.ts';
 import { DOOR_ASPECT, TEX, WALL_ASPECT, grain, grime, oval, paint, rowOf, smudge, stripes, words } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import { hallWallNumbers } from '../hallWalls.ts';
 import {
   DATA_HALL_FLOORS,
   DATA_HALL_MAP,
@@ -709,24 +710,19 @@ const dataDoor =
 
 // The server hall (the boss room; hall.ts) has its own walls and floors, numbered after the layer's: the walls beside
 // the room take them (`RoomWalls.hall`), the rest of the layer's walls and floors are picked as they were
-const HALL_WALL_FIRST = DATA_WALLS.length;
-export const DATA_ROOM_WALLS: RoomWalls = {
-  plain: HALL_WALL_FIRST,
-  common: DATA_WALLS.map((_, n) => n),
-  shops: [],
-  ground: [],
-  fronts: [],
-  hall: DATA_HALL_MAP.map(n => HALL_WALL_FIRST + n),
-};
-export const DATA_ROOM_FLOORS: RoomFloors = {
-  plain: DATA_FLOORS,
-  shops: [],
-  hall: DATA_HALL_FLOORS.map((_, n) => DATA_FLOORS + n),
-};
+const HALL = hallWallNumbers({
+  first: DATA_WALLS.length,
+  walls: DATA_HALL_WALLS.length,
+  map: DATA_HALL_MAP,
+  floors: DATA_FLOORS,
+  hallFloors: DATA_HALL_FLOORS.length,
+});
+export const DATA_ROOM_WALLS = HALL.roomWalls;
+export const DATA_ROOM_FLOORS = HALL.roomFloors;
 // what is set up by the hall's walls (hallProps.ts)
-export const DATA_HALL_RACK_WALLS = DATA_HALL_RACKS.map(n => HALL_WALL_FIRST + n); // the rows of racks
-export const DATA_HALL_PLAIN_WALLS = DATA_HALL_PLAIN.map(n => HALL_WALL_FIRST + n); // where an air-conditioning unit may stand
-export const DATA_ALL_WALLS = HALL_WALL_FIRST + DATA_HALL_WALLS.length; // every wall picture of the look
+export const DATA_HALL_RACK_WALLS = DATA_HALL_RACKS.map(HALL.wall); // the rows of racks
+export const DATA_HALL_PLAIN_WALLS = DATA_HALL_PLAIN.map(HALL.wall); // where an air-conditioning unit may stand
+export const DATA_ALL_WALLS = HALL.all; // every wall picture of the look
 
 // the discarded data layer's look (world/looks.ts makes it the first time the sector is drawn)
 export function dataPictures(): Pictures {
