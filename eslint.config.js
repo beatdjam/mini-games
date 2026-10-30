@@ -20,7 +20,19 @@ const SAVE_WRITES = [
 ];
 
 export default tseslint.config(
-  { ignores: ['dist/', 'dist-test/', 'test-results/', '.vitest/', 'node_modules/', 'public/', '.claude/'] },
+  {
+    ignores: [
+      'dist/',
+      'dist-test/',
+      'test-results/',
+      '.vitest/',
+      'node_modules/',
+      'public/',
+      '.claude/',
+      '.tasks/',
+      '.wt/',
+    ],
+  },
   {
     files: ['**/*.ts'],
     languageOptions: { parser: tseslint.parser },
