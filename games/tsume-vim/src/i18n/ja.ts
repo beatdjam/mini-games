@@ -44,7 +44,7 @@ LANG.ja = {
     'mode.visual': 'VISUAL',
     'mode.visualLine': 'VISUAL LINE',
     'mode.search': 'SEARCH',
-    'touch.notice': '物理キーボードをつなぐと遊べる。',
+    'touch.note': 'このゲームは PC のキーボード向け。スマホでは物理キーボードをつなぐと遊べる。',
     'nav.endless': 'エンドレス',
     'nav.course': 'コース',
     'mode.command': 'COMMAND',

@@ -143,8 +143,8 @@ kbd{display:inline-block;min-width:1.6em;padding:1px 5px;border:1px solid var(--
 #tvApp.endless .shell{grid-template-columns:1fr}
 #tvApp.endless #tvLevelsToggle{display:none}
 
-#tvTouch{display:none}
-@media (pointer:coarse){#tvTouch{display:inline;color:var(--amber)}}
+.touch-note{display:none;margin:0;padding:5px 14px;font-family:var(--jp);font-size:12px;line-height:1.6;color:var(--amber);background:var(--panel2);border-bottom:1px solid var(--line)}
+@media (hover: none) and (pointer: coarse){.touch-note{display:block}#tvApp{grid-template-rows:auto auto minmax(0,1fr)}}
 
 @media (max-width:1000px){
   .topbar{height:auto;min-height:48px;padding:7px 10px;flex-wrap:wrap}
@@ -174,6 +174,7 @@ kbd{display:inline-block;min-width:1.6em;padding:1px 5px;border:1px solid var(--
 </head>
 <body>
 <div id="tvApp">
+  <p class="touch-note" data-i18n="touch.note">このゲームは PC のキーボード向け。スマホでは物理キーボードをつなぐと遊べる。</p>
   <header class="topbar">
     <a class="brand" href="../../" aria-label="mini-games">
       <span class="logo">⌁</span>
@@ -241,7 +242,6 @@ kbd{display:inline-block;min-width:1.6em;padding:1px 5px;border:1px solid var(--
       </div>
       <footer class="foot">
         <span data-i18n="legend">h j k l 移動 · i 入力 · Esc 戻る · u 元に戻す</span>
-        <span id="tvTouch" data-i18n="touch.notice"></span>
       </footer>
     </main>
   </div>
