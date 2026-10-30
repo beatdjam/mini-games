@@ -89,6 +89,44 @@ test('lockdown: it waits for an enemy holding a door open, and a player who gets
   expect(alarm(), 'the lockdown is on').toBe(true);
   goBase();
 });
+test('lockdown: enemies of the room shut out of it no longer count, so it can still be cleared', () => {
+  enterBuilding(b => !!b.lockdown);
+  const ld = building!.lockdown!;
+  goToFloor(ld.floor);
+  const doors = roomDoors(building!.plans[ld.floor]!.gen, ld.room).doors,
+    alarm = () => el('#alarm').classList.contains('on'),
+    door = doors[0]!,
+    [di, dj] = SIDE_STEP.find(([a, b]) => level.roomOf[door + a + b * W] === ld.room)!,
+    out = door - 3 * (di + dj * W), // a tile of the corridor, three out from the door
+    at = (k: number): [number, number] => [((k % W) + 0.5) * T, (Math.floor(k / W) + 0.5) * T],
+    put = (x: number, z: number) => {
+      player.x = x;
+      player.z = z;
+      player.fy = floorY(x, z);
+    };
+  expect(level.roomOf[out], 'outside the room').not.toBe(ld.room);
+  // one of the room's enemies chased the player out and stays in the corridor (a turret: it does not move)
+  const stray = spawnEnemy('turret', ...at(out), ld.room, 1);
+  level.roomCount[ld.room]!++;
+  put(...roomSpot(level.rooms[ld.room]!));
+  tick(30);
+  expect(alarm(), 'the lockdown is on').toBe(true);
+  expect(stray.room, 'the one shut out is no longer of the room').toBe(-1);
+  // during it the player steps out and back in, and one of the room's enemies comes out after them and stays out
+  const follower = enemies.find(e => !e.dead && e.room === ld.room)!;
+  put(...at(out));
+  tick(3);
+  put(...roomSpot(level.rooms[ld.room]!));
+  for (let k = 0; k < 30; k++) {
+    [follower.x, follower.z] = at(out + (di + dj * W)); // (held there)
+    tick(1);
+  }
+  expect(follower.room, 'shut out on the way back in: no longer of the room').toBe(-1);
+  // the rest of the room and its waves are beaten in there, and the lockdown ends
+  for (let k = 0; k < 20 && !run.bld!.ld; k++) killRoom(ld.room);
+  expect(run.bld!.ld, 'the lockdown is over').toBe(1);
+  goBase();
+});
 test('lockdown: the room shuts, two waves come, then it opens and leaves a chip', () => {
   enterBuilding(b => !!b.lockdown);
   const ld = building!.lockdown!;
