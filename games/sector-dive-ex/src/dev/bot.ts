@@ -3,7 +3,7 @@ import { OPPOSITE_SIDE, SIDE_STEP, T, activeTileGrid, hasLOS, tileCenter, tileIn
 import { camera } from '@engine/render/render.ts';
 import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { query } from '@engine/core/world.ts';
-import type { Boss, Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
+import type { Boss, BossKind, Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { MAGNET_GAIN_MAX } from '../data/perks.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
@@ -96,11 +96,14 @@ interface BossPlay {
   chase?: boolean; // out of sight, it is run down with dashes (keeping enough stamina to dodge once)
 }
 type Vec = { x: number; z: number };
+type BossPlayFn = (b: Boss, me: Vec) => BossPlay;
 const unit = (x: number, z: number): Vec => {
   const l = Math.hypot(x, z) || 1;
   return { x: x / l, z: z / l };
 };
-const BOSS_PLAYS: Record<string, (b: Boss, me: Vec) => BossPlay> = {
+// how each boss is fought: null is fought as any enemy (no play of its own)
+const BOSS_PLAYS: Record<BossKind, BossPlayFn | null> = {
+  watcher: null, // fought as any enemy: dodge its shots
   // CRUSHER: keep well away; step out of the line of a charge; while it is stunned on a wall, close in and shoot
   crusher: (b, me) => {
     // (the boss's own state; its type is private to actors/bosses/crusher.ts)
@@ -150,6 +153,7 @@ const BOSS_PLAYS: Record<string, (b: Boss, me: Vec) => BossPlay> = {
     const away = unit(me.x - b.cx, me.z - b.cz);
     return { dash: { x: -away.z, z: away.x } };
   },
+  bastion: null, // fought as any enemy: its turrets go first, like any other enemy's followers
   // HOIST: out of the shadow ring of a load that is up, and (just before it falls) a dash out of it; while the magnet
   // pulls, away from it, with a dash whenever there is one
   hoist: (b, me) => {

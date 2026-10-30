@@ -1,4 +1,4 @@
-import type { Boss, Enemy, RunEnd, Weapon } from '../data/types.ts';
+import type { Boss, BossKind, Enemy, RunEnd, Weapon } from '../data/types.ts';
 import { isBossKind } from '../core/rules.ts';
 import { el, shuffle, yawToward } from '@engine/core/util.ts';
 import { devHook, showFps } from '@engine/core/dev.ts';
@@ -154,24 +154,16 @@ if (location.hash.startsWith('#bld-'))
       player.pitch = 0.45;
       run.bld!.supplied = true; // no supply screen over the view
       player.hp = 1e6;
-    } else if (what === 'hoist') {
-      // HOIST in the boss room (see hoistView; ?pose= picks the view)
+    } else if (isBossKind(what) && BOSS_VIEWS[what]?.room) {
+      // a boss with views of its own, in the building's boss room (?pose= picks one; see BOSS_VIEWS)
       const last = b.plans.length - 1,
-        r = b.plans[last]!.gen.rooms[b.plans[last]!.hall!.room]!;
+        r = b.plans[last]!.gen.rooms[b.plans[last]!.hall!.room]!,
+        view = BOSS_VIEWS[what];
       stand(last, (r.y + 1) * W + r.x + 1, W + 1);
       run.bld!.supplied = true;
-      spawnBoss('hoist');
+      spawnBoss(what);
       const made = enemies.find(e => e.boss);
-      if (made) hoistView(made, new URLSearchParams(location.search).get('pose') ?? 'wide');
-    } else if (what === 'surgeon') {
-      // SURGEON in the boss room (see surgeonView; ?pose= picks the view)
-      const last = b.plans.length - 1,
-        r = b.plans[last]!.gen.rooms[b.plans[last]!.hall!.room]!;
-      stand(last, (r.y + 1) * W + r.x + 1, W + 1);
-      run.bld!.supplied = true;
-      spawnBoss('surgeon');
-      const made = enemies.find(e => e.boss);
-      if (made) surgeonView(made, new URLSearchParams(location.search).get('pose') ?? 'wide');
+      if (made && view) view.show(made, new URLSearchParams(location.search).get('pose') ?? 'wide');
     } else if (what.startsWith('court') && b.court) {
       // the courtyard (?sector=CITY; ?court=open for a yard, ?court=roof for an atrium): court = from its lowest
       // floor, looking up; courttop = from its top floor, looking down; courtmid = from a floor between
@@ -652,6 +644,26 @@ function surgeonView(b: Enemy, view: string) {
   const name = document.querySelector<HTMLElement>('#banner');
   if (name) name.style.visibility = 'hidden';
 }
+// a boss's own views for screenshots: the poses its view knows (#boss-<kind>-<pose>), whether it can stand in a
+// building's boss room too (#bld-<kind>, ?pose=<pose>), and how it is shown (run the boss on to that moment and
+// stand the player there; the functions above). null: the boss has no view of its own (only #boss-<kind>-look,
+// which is the same for every boss). ?pose= takes any name the view knows, so #bld-hoist also takes close and
+// alarm; `poses` is only what #boss-<kind>-<pose> answers.
+interface BossView {
+  poses: readonly string[]; // the poses #boss-<kind>-<pose> answers
+  room: boolean; // #bld-<kind> shows it in the building's boss room
+  show: (b: Enemy, pose: string) => void;
+}
+const BOSS_VIEWS: Record<BossKind, BossView | null> = {
+  watcher: null,
+  crusher: null,
+  core: null,
+  phantom: null,
+  trinity: null,
+  bastion: null,
+  hoist: { poses: ['wide', 'drop', 'pull'], room: true, show: hoistView },
+  surgeon: { poses: ['wide', 'scalpel', 'needle', 'clamp'], room: true, show: surgeonView },
+};
 // dev view: #boss-phantom etc. starts boss practice against that boss
 // optional depth: #boss-phantom-3 = DEPTH 3 strength; #boss-phantom-look = up close
 if (location.hash.startsWith('#boss-'))
@@ -685,24 +697,15 @@ if (location.hash.startsWith('#boss-'))
       }, 200);
       return;
     }
-    // #boss-hoist-wide / -drop / -pull: see hoistView
-    if (k === 'hoist' && (d === 'wide' || d === 'drop' || d === 'pull')) {
+    // #boss-<kind>-<pose>: one of the poses the boss's own view knows (see BOSS_VIEWS); the rest is practice at <depth>
+    const view = BOSS_VIEWS[k];
+    if (view && d && view.poses.includes(d)) {
       startPractice(k, 0);
       const wait = setInterval(() => {
         const b = enemies.find(e => e.boss);
         if (!b) return;
         clearInterval(wait);
-        hoistView(b, d);
-      }, 200);
-      return;
-    }
-    if (k === 'surgeon' && (d === 'wide' || d === 'scalpel' || d === 'needle' || d === 'clamp')) {
-      startPractice(k, 0);
-      const wait = setInterval(() => {
-        const b = enemies.find(e => e.boss);
-        if (!b) return;
-        clearInterval(wait);
-        surgeonView(b, d);
+        view.show(b, d);
       }, 200);
       return;
     }
