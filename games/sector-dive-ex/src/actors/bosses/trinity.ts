@@ -10,7 +10,8 @@ import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, ring } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
-import { bossBase, bossHint, bossMaterial, isEnraged, RING_Y, wireOutline } from './common.ts';
+import { bossMaterial, createBoss, isEnraged, RING_Y, wireOutline } from './common.ts';
+import type { BossVisual } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // TRINITY: three bodies orbiting the centre on one shared health pool
 
@@ -24,7 +25,9 @@ type TrinityBoss = Boss & {
   ramT: number;
   ram: Ram | null;
 };
-export function spawnTrinity() {
+// how TRINITY looks (common.ts BossVisual): its three bodies, each a mesh of its own (they fly apart); the boss's own
+// mesh is an empty group
+export function trinityVisual(): BossVisual & { bodies: THREE.Group[] } {
   const g = new THREE.Group();
   const mat = bossMaterial(0x160a12, COLOR.mag);
   const geo = new THREE.OctahedronGeometry(1.2, 0),
@@ -32,24 +35,33 @@ export function spawnTrinity() {
   const bodies = cols.map(c => {
     const b = plainLooks() ? new THREE.Group() : trinityBodyLook(mat, c);
     if (plainLooks()) b.add(new THREE.Mesh(geo, mat), wireOutline(geo, c));
-    dynGroup.add(b);
     return b;
   });
+  return { mesh: g, mat, bodies };
+}
+export function spawnTrinity() {
+  const look = trinityVisual(),
+    bodies = look.bodies;
+  bodies.forEach(b => dynGroup.add(b));
   const K = BOSS_META.trinity.tune;
-  const e = bossBase('trinity', g, mat, updTrinity, {
-    bodies,
-    fireK: 0,
-    fireT: K.firstFire,
-    ringT: K.firstRing,
-    ramT: K.firstRam,
-    ram: null,
+  const e = createBoss({
+    kind: 'trinity',
+    look,
+    behave: updTrinity,
+    state: {
+      bodies,
+      fireK: 0,
+      fireT: K.firstFire,
+      ringT: K.firstRing,
+      ramT: K.firstRam,
+      ram: null,
+    },
+    centred: true,
+    extra: bodies, // (after its pool of light, when it has a look)
+    hint: ['boss.trinityHint', 3800],
   });
-  e.x = e.cx;
-  e.z = e.cz;
-  e.extra = [...(e.extra ?? []), ...bodies]; // (with its pool of light, when it has a look)
   e.parts = bodies.map(b => ({ p: b.position, r: 1.4 }));
   updTrinity(e, 0);
-  bossHint('boss.trinityHint', 3800);
 }
 function updTrinity(e: TrinityBoss, dt: number) {
   const K = BOSS_META.trinity.tune;

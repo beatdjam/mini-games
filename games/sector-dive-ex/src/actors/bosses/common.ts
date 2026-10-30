@@ -51,7 +51,7 @@ const PATTERN_COUNT = 3; // attack patterns the bosses with a pat / pt clock cyc
 // the bosses' shared timings and heights
 export const FIRST_SHOT_DELAY = 0.3; // a pattern waits this long before its first round (s)
 export const RING_Y = 1.3; // height of ring and spiral bullets above the floor (m)
-// a boss as bossBase makes it
+// a boss as createBoss makes it
 const BOSS_START_OFFSET_Z = 6; // it appears this far from the arena centre along z (m)
 const BOSS_BODY_R = 1.8; // collision radius of the body (m)
 const BOSS_DEF_R = 1.8; // r of the boss's `def` (the enemy-def shape the generic enemy code expects) (m)
@@ -84,16 +84,32 @@ export function bossMaterial(dark: number, emissive: number): THREE.MeshLambertM
 export function wireOutline(geo: THREE.BufferGeometry, color: number): THREE.LineSegments {
   return new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color }));
 }
+// What a boss looks like: its body and the material that glows in its colour (and flashes when hit). Each boss makes
+// it in its <name>Visual() from nothing of the game's state (no run, level or scene), so that it can also be shown on
+// its own; spawning it is what puts it in the arena. A look's material may carry userData.glow (a lower glow at rest)
+// and userData.pool (the colour of the pool of light it stands in: world/models/machine.ts bossHullMat)
+export interface BossVisual {
+  mesh: THREE.Group;
+  mat: THREE.MeshLambertMaterial;
+}
+// how a boss is put in the arena (createBoss)
+export interface BossSpawn<S extends object> {
+  kind: BossKind;
+  look: BossVisual;
+  behave: (e: Boss & S, dt: number) => void; // its own behaviour, called by updateEnemy once it has appeared
+  state: S; // the fields only this boss has (its type S is in src/actors/bosses/<name>.ts)
+  hint: [key: string, ms: number]; // its hint on how to fight it (bossHint)
+  centred?: boolean; // it starts in the arena's middle (bossPauseTick moves the body there as it comes in)
+  timer?: number; // its first pattern comes after this (s; BOSS_FIRST_TIMER when not given)
+  pool?: false; // no pool of light under it, even with a look (HOIST: the floor under the magnet carries its shadow)
+  extra?: THREE.Object3D[]; // meshes of its own already in the scene, removed with it (as its pool is)
+  onDown?: (e: Boss & S) => void; // when it goes down, after its meshes are removed
+}
 // hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDifficulty
-// behave(e, dt) is the boss's own behaviour, called by updateEnemy once it has appeared
-// state: the fields only this boss has (its type S is in src/actors/bosses/<name>.ts); they're put on the boss as it's made
-export function bossBase<S extends object>(
-  kind: BossKind,
-  mesh: THREE.Object3D,
-  mat: THREE.MeshLambertMaterial,
-  behave: (e: Boss & S, dt: number) => void,
-  state: S,
-): Boss & S {
+export function createBoss<S extends object>(o: BossSpawn<S>): Boss & S {
+  const { kind, behave, state } = o,
+    { mesh, mat } = o.look;
+  if (o.pool === false) delete mat.userData.pool;
   const meta = BOSS_META[kind],
     name = meta.title ?? kind,
     hp = meta.hp * bossDifficulty(),
@@ -152,10 +168,19 @@ export function bossBase<S extends object>(
   const [en, jp] = name.split(' — ');
   banner(en, jp || 'BOSS');
   sfx('beam');
+  if (o.centred) {
+    e.x = cx;
+    e.z = cz;
+  }
+  if (o.timer !== undefined) e.timer = o.timer;
+  if (o.extra) e.extra = [...(e.extra ?? []), ...o.extra];
+  const down = o.onDown;
+  if (down) e.onDown = () => down(e);
+  bossHint(...o.hint);
   return e;
 }
 // while a boss is appearing or switching phase it can't be hurt and doesn't act. It appears where it will start to
-// move: its own spawn may put it somewhere else than bossBase did (the arena's middle, a warp spot, its flight path),
+// move: its own spawn may put it somewhere else than createBoss did at first (the arena's middle, a warp spot, its flight path),
 // and its body would jump there on the first frame it acts
 export function bossPauseTick(e: Boss, dt: number) {
   e.spawnT -= dt;

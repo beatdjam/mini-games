@@ -9,7 +9,8 @@ import { toast } from '@engine/ui/ui.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { ring, shootHoming } from '../../world/entities.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
-import { bossBase, bossHint, bossMaterial, isEnraged, RING_Y, spawnMinion, wireOutline } from './common.ts';
+import { bossMaterial, createBoss, isEnraged, RING_Y, spawnMinion, wireOutline } from './common.ts';
+import type { BossVisual } from './common.ts';
 import { COLOR, PAINT } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
@@ -22,7 +23,11 @@ type BastionBoss = Boss & {
   openT: number;
   ringT: number;
 };
-export function spawnBastion() {
+// how BASTION looks (common.ts BossVisual), with its core (it turns) and its shield (it shows while the shield is up)
+export function bastionVisual(): BossVisual & {
+  core: THREE.Mesh;
+  shield: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
+} {
   const g = new THREE.Group();
   const mat = bossMaterial(0x1b1408, PAINT.amber3);
   const baseGeo = new THREE.CylinderGeometry(2.4, 3, 1.6, 8),
@@ -39,18 +44,26 @@ export function spawnBastion() {
   );
   if (look) g.add(look.g, shieldM);
   else g.add(base, baseEdge, core, shieldM);
-  const e = bossBase('bastion', g, mat, updBastion, {
-    core,
-    shield: shieldM,
-    invuln: true,
-    turrets: [],
-    openT: 0,
-    ringT: 2.5,
+  return { mesh: g, mat, core, shield: shieldM };
+}
+export function spawnBastion() {
+  const look = bastionVisual();
+  const e = createBoss({
+    kind: 'bastion',
+    look,
+    behave: updBastion,
+    state: {
+      core: look.core,
+      shield: look.shield,
+      invuln: true,
+      turrets: [],
+      openT: 0,
+      ringT: 2.5,
+    },
+    centred: true,
+    hint: ['boss.bastionHint', 4600],
   });
-  e.x = e.cx;
-  e.z = e.cz;
   bastionTurrets(e, BOSS_META.bastion.tune.turretsFirst);
-  bossHint('boss.bastionHint', 4600);
 }
 function bastionTurrets(e: BastionBoss, n: number) {
   const off = rand(0, Math.PI);

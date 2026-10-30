@@ -13,9 +13,8 @@ import { ringAngles } from '@engine/world/projectiles.ts';
 import { player } from '../player.ts';
 import {
   arenaRoom,
-  bossBase,
-  bossHint,
   bossMaterial,
+  createBoss,
   FIRST_SHOT_DELAY,
   isEnraged,
   nextPattern,
@@ -23,12 +22,14 @@ import {
   spawnMinion,
   wireOutline,
 } from './common.ts';
+import type { BossVisual } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // WATCHER: rings, aimed fans and a spiral; summons drones at 75% and 40% health
 
 // drone waves summoned so far
 type WatcherBoss = Boss & { summoned: number };
-export function spawnWatcher() {
+// how WATCHER looks (common.ts BossVisual)
+export function watcherVisual(): BossVisual {
   const g = new THREE.Group(),
     geo = new THREE.IcosahedronGeometry(2.1, 0);
   const mat = bossMaterial(0x0f151c, COLOR.cyan);
@@ -41,9 +42,17 @@ export function spawnWatcher() {
     eye.position.z = 1.75;
     g.add(eye);
   } else g.add(watcherLook(mat));
-  const e = bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
+  return { mesh: g, mat };
+}
+export function spawnWatcher() {
+  const e = createBoss({
+    kind: 'watcher',
+    look: watcherVisual(),
+    behave: updWatcher,
+    state: { summoned: 0 },
+    hint: ['boss.watcherHint', 3800],
+  });
   flyWatcher(e);
-  bossHint('boss.watcherHint', 3800);
 }
 // its flight path: a slow figure over the arena, by its own clock
 function flyWatcher(e: Boss) {

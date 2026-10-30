@@ -27,15 +27,15 @@ import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
 import {
   arenaRoom,
-  bossBase,
-  bossHint,
   bossMaterial,
+  createBoss,
   isEnraged,
   minionCount,
   nextPattern,
   spawnMinion,
   wireOutline,
 } from './common.ts';
+import type { BossVisual } from './common.ts';
 import { screenFx } from '../../ui/hud.ts';
 // HOIST: the loading dock's overhead crane. A trolley on a bridge on two rails trails the player along the ceiling, and
 // the magnet on its wire is what is shot. Two attacks: it hangs a load over the spot and lets it fall after a shadow
@@ -117,24 +117,29 @@ const additive = (color: number, opacity: number): THREE.MeshBasicMaterial =>
     depthWrite: false,
   });
 // the magnet's body, with the looks or without
-function magnetBody(mat: THREE.MeshLambertMaterial, coil: THREE.Material): THREE.Group {
-  if (!plainLooks()) return hoistMagnet(mat, coil, level.biome.code === 'MALL' ? 'mall' : 'forge');
+function magnetBody(mat: THREE.MeshLambertMaterial, coil: THREE.Material, sector: string): THREE.Group {
+  if (!plainLooks()) return hoistMagnet(mat, coil, sector === 'MALL' ? 'mall' : 'forge');
   const g = new THREE.Group(),
     geo = new THREE.BoxGeometry(3, 1.6, 3);
   g.add(new THREE.Mesh(geo, mat), wireOutline(geo, COLOR.shield));
   return g;
+}
+// how HOIST's magnet looks (common.ts BossVisual) in a sector, with the material of its coil (it lights up as it
+// pulls). The crane it hangs from is the arena's (hoistFrame), not the boss's
+export function hoistVisual(sector: string): BossVisual & { coil: THREE.MeshBasicMaterial } {
+  const g = new THREE.Group(),
+    mat = bossMaterial(0x14181c, COLOR.shield),
+    coil = new THREE.MeshBasicMaterial({ color: COIL_DIM });
+  g.add(magnetBody(mat, coil, sector));
+  return { mesh: g, mat, coil };
 }
 export function spawnHoist() {
   const K = BOSS_META.hoist.tune,
     room = arenaRoom(),
     hw = (room.w * T) / 2,
     hd = (room.h * T) / 2,
-    g = new THREE.Group(),
-    mat = bossMaterial(0x14181c, COLOR.shield),
-    coil = new THREE.MeshBasicMaterial({ color: COIL_DIM }),
-    frame = hoistFrame(hw - RAIL_MARGIN, hd, HALL_H, !level.hall);
-  delete mat.userData.pool; // no pool of light under the magnet: the floor under it carries the shadow
-  g.add(magnetBody(mat, coil));
+    frame = hoistFrame(hw - RAIL_MARGIN, hd, HALL_H, !level.hall),
+    look = hoistVisual(level.biome.code);
   const beam: Fill = new THREE.Mesh(cylGeo(BEAM_R, BEAM_R, 1, 8), additive(COLOR.shield, BEAM_OPACITY)),
     rings: Fill[] = [];
   beam.visible = false;
@@ -145,33 +150,37 @@ export function spawnHoist() {
     dynGroup.add(ring);
     rings.push(ring);
   }
-  const e = bossBase('hoist', g, mat, updHoist, {
-    st: 'chase',
-    cargo: null,
-    frame,
-    limX: hw - TROLLEY_MARGIN,
-    limZ: hd - TROLLEY_MARGIN,
-    glow: 0,
-    coil,
-    restEI: 0,
-    beam,
-    rings,
-    humT: 0,
-    gunT: 0,
+  const e = createBoss({
+    kind: 'hoist',
+    look,
+    behave: updHoist,
+    state: {
+      st: 'chase',
+      cargo: null,
+      frame,
+      limX: hw - TROLLEY_MARGIN,
+      limZ: hd - TROLLEY_MARGIN,
+      glow: 0,
+      coil: look.coil,
+      restEI: 0,
+      beam,
+      rings,
+      humT: 0,
+      gunT: K.first,
+    },
+    centred: true,
+    timer: K.first,
+    pool: false, // no pool of light under the magnet: the floor under it carries the shadow
+    extra: [beam, ...rings],
+    onDown: hoistDown,
+    hint: ['boss.hoistHint', 4200],
   });
   e.restEI = e.baseEI;
-  e.x = e.cx;
-  e.z = e.cz;
-  e.timer = K.first;
-  e.gunT = K.first;
-  e.extra = [...(e.extra ?? []), beam, ...rings];
-  e.onDown = () => hoistDown(e);
   // the crane stays after the magnet is gone: a world object of its own (cleared with the level)
   frame.g.position.set(e.cx, floorY(e.cx, e.cz), e.cz);
   frame.wire.visible = false; // (until it acts: the magnet grows in on its own at first)
   dynGroup.add(frame.g);
   spawn({ tag: 'crane' as const, mesh: frame.g });
-  bossHint('boss.hoistHint', 4200);
 }
 // the trolley goes toward (x, z) at `speed` along each axis, and no farther than the rails and the bridge reach
 function follow(e: HoistBoss, x: number, z: number, speed: number, dt: number) {
@@ -372,7 +381,7 @@ function hoistDown(e: HoistBoss) {
   const K = BOSS_META.hoist.tune,
     at = e.mesh.position,
     mat = bossMaterial(0x14181c, COLOR.shield),
-    g = magnetBody(mat, new THREE.MeshBasicMaterial({ color: COIL_DIM }));
+    g = magnetBody(mat, new THREE.MeshBasicMaterial({ color: COIL_DIM }), level.biome.code);
   e.frame.wire.visible = false;
   e.frame.stop();
   g.position.copy(at);

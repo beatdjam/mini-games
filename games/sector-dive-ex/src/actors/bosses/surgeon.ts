@@ -25,9 +25,8 @@ import { ring, shootAtPoint } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
 import {
-  bossBase,
-  bossHint,
   bossMaterial,
+  createBoss,
   isEnraged,
   minionCount,
   nextPattern,
@@ -35,6 +34,7 @@ import {
   spawnMinion,
   wireOutline,
 } from './common.ts';
+import type { BossVisual } from './common.ts';
 import { screenFx } from '../../ui/hud.ts';
 // SURGEON: a surgical robot hung from the ceiling of the operating theatre. The body never moves; it turns to face the
 // player. Three arms hang from it, each a minion of its own (the enemy 'sarm', which the boss holds where it wants it:
@@ -250,12 +250,18 @@ function armLook(kind: SurgeonArmKind): SurgeonArmLook {
     spin: () => undefined,
   };
 }
-export function spawnSurgeon() {
-  const K = BOSS_META.surgeon.tune,
-    g = new THREE.Group(),
+// how SURGEON's body looks (common.ts BossVisual), with its parts that light up (look). Its arms are enemies of their
+// own, made as it unfolds them (makeArm); the column it hangs from is the room's (surgeonMount)
+export function surgeonVisual(): BossVisual & { look: SurgeonBodyLook } {
+  const g = new THREE.Group(),
     mat = bodyMat(COLOR.repair),
     look = bodyModel(mat, COLOR.repair);
   g.add(look.g);
+  return { mesh: g, mat, look };
+}
+export function spawnSurgeon() {
+  const K = BOSS_META.surgeon.tune,
+    body = surgeonVisual();
   const pad = new THREE.Group(),
     padFill: Fill = new THREE.Mesh(discGeo, flat(COLOR.cyan, 0)),
     padRim: Fill = new THREE.Mesh(ringGeo, flat(COLOR.cyan, 0)),
@@ -273,42 +279,46 @@ export function spawnSurgeon() {
   pad.visible = false;
   shockMesh.visible = false;
   dynGroup.add(pad, shockMesh);
-  const e = bossBase('surgeon', g, mat, updSurgeon, {
-    arms: [] as Arm[],
-    atk: null,
-    sweep: null,
-    clamp: null,
-    face: 0,
-    made: false,
-    second: false,
-    floor: 0,
-    look,
-    line,
-    scorch,
-    beam,
-    glow,
-    aura,
-    stub,
-    padFill,
-    padRim,
-    padCore,
-    padInner,
-    padPulse,
-    shock: { mesh: shockMesh, t: -1, x: 0, z: 0 },
+  const e = createBoss({
+    kind: 'surgeon',
+    look: body,
+    behave: updSurgeon,
+    state: {
+      arms: [] as Arm[],
+      atk: null,
+      sweep: null,
+      clamp: null,
+      face: 0,
+      made: false,
+      second: false,
+      floor: 0,
+      look: body.look,
+      line,
+      scorch,
+      beam,
+      glow,
+      aura,
+      stub,
+      padFill,
+      padRim,
+      padCore,
+      padInner,
+      padPulse,
+      shock: { mesh: shockMesh, t: -1, x: 0, z: 0 },
+    },
+    centred: true,
+    timer: K.first,
+    extra: [pad, shockMesh, line, scorch, beam, glow, aura, stub],
+    onDown: surgeonDown,
+    hint: ['boss.surgeonHint', 4600],
   });
-  e.x = e.cx;
-  e.z = e.cz;
   e.floor = floorY(e.cx, e.cz);
-  e.timer = K.first;
   e.mesh.position.set(e.cx, e.floor + e.y, e.cz);
-  e.extra = [...(e.extra ?? []), pad, shockMesh, line, scorch, beam, glow, aura, stub];
-  e.onDown = () => surgeonDown(e);
   // the column stays after the body is gone: a world object of its own (cleared with the level)
   const mount = surgeonMount(HALL_H - e.y - SURGEON_NECK);
   mount.position.set(e.cx, e.floor + e.y + SURGEON_NECK, e.cz);
   dynGroup.add(mount);
   spawn({ tag: 'mount' as const, mesh: mount });
-  bossHint('boss.surgeonHint', 4600);
 }
 
 // ---- the arms ----

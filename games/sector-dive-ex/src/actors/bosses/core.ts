@@ -11,9 +11,8 @@ import { fanAt, ring, shootHoming } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import { damagePlayer } from '../combat.ts';
 import {
-  bossBase,
-  bossHint,
   bossMaterial,
+  createBoss,
   FIRST_SHOT_DELAY,
   isEnraged,
   minionCount,
@@ -21,6 +20,7 @@ import {
   RING_Y,
   spawnMinion,
 } from './common.ts';
+import type { BossVisual } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 const BEAM_CORE = 0.16; // a live beam's white-hot line (m across); the beam itself is 0.45
 // NOISE CORE: rotating beams, bullet rings, summons
@@ -32,7 +32,8 @@ type CoreBoss = Boss & {
   ba: number;
   bdir: number;
 };
-export function spawnCore() {
+// how NOISE CORE looks (common.ts BossVisual), with its knot (it turns)
+export function coreVisual(): BossVisual & { knot: THREE.Mesh } {
   const g = new THREE.Group(),
     geo = new THREE.TorusKnotGeometry(1.3, 0.38, 72, 8);
   const mat = bossMaterial(0x140c20, COLOR.violet);
@@ -41,11 +42,20 @@ export function spawnCore() {
     knot = look ? look.knot : new THREE.Mesh(geo, mat);
   if (look) g.add(look.g);
   else g.add(knot, core);
-  const beams: CoreBoss['beams'] = [];
-  const e = bossBase('core', g, mat, updCore, { knot, beams, ba: 0, bdir: 1 });
-  e.x = e.cx;
-  e.z = e.cz;
-  g.position.set(e.x, e.y, e.z);
+  return { mesh: g, mat, knot };
+}
+export function spawnCore() {
+  const look = coreVisual(),
+    beams: CoreBoss['beams'] = [];
+  const e = createBoss({
+    kind: 'core',
+    look,
+    behave: updCore,
+    state: { knot: look.knot, beams, ba: 0, bdir: 1 },
+    centred: true,
+    hint: ['boss.coreHint', 3800],
+  });
+  look.mesh.position.set(e.x, e.y, e.z);
   for (let k = 0; k < 3; k++) {
     const bg = new THREE.BoxGeometry(34, 0.45, 0.45);
     bg.translate(17, 0, 0);
@@ -66,7 +76,6 @@ export function spawnCore() {
     level.group!.add(bm);
     e.beams.push(bm);
   }
-  bossHint('boss.coreHint', 3800);
 }
 function updCore(e: CoreBoss, dt: number) {
   const K = BOSS_META.core.tune;

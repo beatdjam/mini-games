@@ -12,22 +12,23 @@ import { ring, shootAtPoint } from '../../world/entities.ts';
 import { player } from '../player.ts';
 import {
   arenaRoom,
-  bossBase,
-  bossHint,
   bossMaterial,
+  createBoss,
   isEnraged,
   minionCount,
   RING_Y,
   spawnMinion,
   wireOutline,
 } from './common.ts';
+import type { BossVisual } from './common.ts';
 import { makeLaser, setLaser } from '../../world/models.ts';
 import { COLOR } from '../../data/colors.ts';
 // PHANTOM: warps between spots near the pillars, aims a laser, fires one heavy round
 
 // laser: the aim line; lock: where it is locked on; cycle: warps so far (every droneEvery-th brings drones)
 type PhantomBoss = Boss & { st: string; laser: Laser; lock: number[]; cycle: number };
-export function spawnPhantom() {
+// how PHANTOM looks (common.ts BossVisual)
+export function phantomVisual(): BossVisual {
   const g = new THREE.Group(),
     geo = new THREE.OctahedronGeometry(1.2, 0);
   const mat = bossMaterial(0x0c1418, 0x9fe7ff);
@@ -42,15 +43,23 @@ export function spawnPhantom() {
   lens.position.set(0, 0.5, 0.75);
   if (plainLooks()) g.add(body, edge, lens);
   else g.add(phantomLook(mat, 0x9fe7ff));
-  const e = bossBase('phantom', g, mat, updPhantom, {
-    st: 'idle',
-    laser: makeLaser(COLOR.mag),
-    lock: [0, 0, 0],
-    cycle: 0,
+  return { mesh: g, mat };
+}
+export function spawnPhantom() {
+  const e = createBoss({
+    kind: 'phantom',
+    look: phantomVisual(),
+    behave: updPhantom,
+    state: {
+      st: 'idle',
+      laser: makeLaser(COLOR.mag),
+      lock: [0, 0, 0],
+      cycle: 0,
+    },
+    timer: 1.6,
+    hint: ['boss.phantomHint', 4200],
   });
-  e.timer = 1.6;
   phantomWarp(e, true);
-  bossHint('boss.phantomHint', 4200);
 }
 function phantomWarp(e: Boss, first?: boolean) {
   const [si, sj] = arenaShift();
