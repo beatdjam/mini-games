@@ -133,15 +133,14 @@ Vim の操作を、ブラウザのターミナル風画面で問題形式に練�
 | `src/core/vim/text.ts` | 位置・単語・段落・括弧・テキストオブジェクト・数値の純粋な計算 |
 | `src/core/vim/types.ts` | モード・オペレータ・保留中の操作などの型 |
 | `src/core/vim/registers.ts` | 無名・名前付きレジスタの保持と選択 |
-| `src/core/progress.ts` | `localStorage` の読み書き |
+| `src/core/progress.ts` | engine の store で進み具合を読む・書く |
 | `src/data/levels/` | コース109問を章ごとに分けたファイル（`01-move.ts`〜`09-text-objects.ts`、`index.ts` で連結） |
 | `src/core/content/generate/` | シードからドリル／エンドレスの問題を作る（`base.ts`・`builders.ts`・`index.ts`、48種類） |
 | `src/core/content/drills.ts` | 生成した84問のドリル |
 | `src/core/content/catalog.ts` | コースとドリルを合わせた一覧 |
 | `src/data/types.ts` | 問題・文言の型 |
-| `src/i18n/lang.ts` | 文言の引き当て（engine は使わない） |
-| `src/i18n/ja.ts` | 画面の文言、章と問題の説明、キー一覧 |
-| `src/i18n/text.ts` | 文言データを型付きで読む |
+| `src/i18n/ja.ts` | 画面の文言、章と問題の説明、キー一覧（engine の `LANG.ja` に登録） |
+| `src/i18n/text.ts` | engine の `LANG` から文言データを型付きで読む |
 | `src/ui/terminal.ts` | 画面の状態、キー入力、判定、保存、画面遷移 |
 | `src/ui/elements.ts` | ページの要素の取得 |
 | `src/ui/dom.ts` | 行・文字・カーソルの DOM 部品 |
@@ -168,4 +167,4 @@ npm test
 
 - Vim の全機能ではない。正規表現検索、マクロ、数字レジスタ・特別なレジスタ、ウィンドウ、`Ctrl-d/u` のスクロールは扱わない（画面が固定で、バッファ全体が見えているため）。レジスタは無名と `a`-`z` / `A`-`Z` だけ。`H` `M` `L` は画面＝バッファ全体として扱う。テキストオブジェクトは単語・引用符・括弧だけで、タグ・文・段落は扱わない。
 - キーボードが必要。スマホでは物理キーボードをつなぐ。タッチだけの端末ではトップの一覧に出さず、ゲームの画面の上に PC 向けの一言を出す。
-- 文章は日本語だけ。`LANG.ja` だけを読み、言語の切り替えはない。
+- 文章は日本語だけ。engine の i18n に `LANG.ja` だけを登録し、言語の切り替えはない。

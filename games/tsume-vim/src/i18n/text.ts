@@ -1,6 +1,6 @@
-// Reads the written words out of LANG.ja. src/i18n/ja.ts holds them; tools/check_i18n.js checks their shape.
+// Reads the written words out of the engine's LANG.ja. src/i18n/ja.ts holds them; tools/check_i18n.js checks their shape.
+import { LANG } from '@engine/core/i18n.ts';
 import type { ChapterText, EndlessText, HelpRow, LevelText } from '../data/types.ts';
-import { LANG } from './lang.ts';
 
 interface TextData {
   chapters: Record<string, ChapterText>;
