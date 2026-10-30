@@ -306,6 +306,72 @@ describe('editor', () => {
     expect(editor.lines).toEqual(['  a', '  b', 'c']);
   });
 
+  test('visual indent leaves empty lines alone', () => {
+    const editor = new Editor(['one', '', 'three'], { line: 0, col: 0 });
+    type(editor, ['V', 'j', '>']);
+    expect(editor.lines).toEqual(['  one', '', 'three']);
+    expect(editor.cursor).toEqual({ line: 0, col: 2 });
+  });
+
+  test('visual p replaces the selection with the register and keeps the deleted text', () => {
+    const editor = new Editor(['foo (bar) baz'], { line: 0, col: 6 });
+    type(editor, ['y', 'i', 'w', 'v', 'l', 'p']);
+    expect(editor.lines).toEqual(['foo (barr) baz']);
+    expect(editor.cursor).toEqual({ line: 0, col: 7 });
+    type(editor, ['0', 'p']);
+    expect(editor.lines).toEqual(['fbaoo (barr) baz']);
+  });
+
+  test('visual P keeps the unnamed register', () => {
+    const editor = new Editor(['foo (bar) baz'], { line: 0, col: 6 });
+    type(editor, ['y', 'i', 'w', 'v', 'l', 'P']);
+    expect(editor.lines).toEqual(['foo (barr) baz']);
+    type(editor, ['0', 'p']);
+    expect(editor.lines).toEqual(['fbaroo (barr) baz']);
+  });
+
+  test('visual r replaces the selected characters but not the newlines', () => {
+    const lines = ['foo (bar) baz', '  qux "x y" end', '', 'one {two} three', 'last line 42'];
+    const editor = new Editor(lines, { line: 0, col: 6 });
+    type(editor, ['y', 'i', 'w', 'v', 'j', 'r', '#']);
+    expect(editor.lines).toEqual(['foo (########', '######"x y" end', '', 'one {two} three', 'last line 42']);
+    expect(editor.cursor).toEqual({ line: 0, col: 5 });
+  });
+
+  test('visual ~ swaps the case of the selection', () => {
+    const editor = new Editor(['foo (bar) baz'], { line: 0, col: 6 });
+    type(editor, ['y', 'i', 'w', 'v', 'l', '~']);
+    expect(editor.lines).toEqual(['foo (BAr) baz']);
+    expect(editor.cursor).toEqual({ line: 0, col: 5 });
+  });
+
+  test('visual D deletes whole lines from a character selection', () => {
+    const lines = ['foo (bar) baz', '  qux "x y" end', '', 'one {two} three', 'last line 42'];
+    const editor = new Editor(lines, { line: 1, col: 4 });
+    type(editor, ['y', 'i', 'w', 'v', 'l', 'D']);
+    expect(editor.lines).toEqual(['foo (bar) baz', '', 'one {two} three', 'last line 42']);
+    expect(editor.cursor).toEqual({ line: 1, col: 0 });
+  });
+
+  test('visual J joins one selected line with the next', () => {
+    const linewise = new Editor(['one', 'two', 'three'], { line: 0, col: 0 });
+    type(linewise, ['V', 'J']);
+    expect(linewise.lines).toEqual(['one two', 'three']);
+    expect(linewise.cursor).toEqual({ line: 0, col: 3 });
+    const charwise = new Editor(['one', 'two', 'three'], { line: 0, col: 0 });
+    type(charwise, ['v', 'l', 'J']);
+    expect(charwise.lines).toEqual(['one two', 'three']);
+    expect(charwise.cursor).toEqual({ line: 0, col: 3 });
+  });
+
+  test('visual "ay yanks into a named register and "aP puts it back', () => {
+    const lines = ['foo (bar) baz', '  qux "x y" end', '', 'one {two} three', 'last line 42'];
+    const editor = new Editor(lines, { line: 0, col: 6 });
+    type(editor, ['y', 'i', 'w', 'v', 'l', '"', 'a', 'y', '"', 'a', 'P']);
+    expect(editor.lines).toEqual(['foo (babar) baz', '  qux "x y" end', '', 'one {two} three', 'last line 42']);
+    expect(editor.cursor).toEqual({ line: 0, col: 6 });
+  });
+
   test('put works for characters and lines', () => {
     const chars = new Editor(['ab'], { line: 0, col: 0 });
     type(chars, ['x', 'p']);

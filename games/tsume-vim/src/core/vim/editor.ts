@@ -95,7 +95,7 @@ const motionFlags = (kind: MotionKind): Pick<Motion, 'inclusive' | 'linewise'> =
 
 const SIMPLE_EDIT_KEYS = new Set(['x', 'X', 'D', 'C', 's', 'S', 'Y']);
 const INSERT_KEYS = new Set(['i', 'a', 'I', 'A', 'o', 'O']);
-const VISUAL_OPS = new Set(['d', 'x', 'y', 'c', '>', '<', 'J']);
+const VISUAL_OPS = new Set(['d', 'x', 'y', 'c', 's', '>', '<', 'J', 'p', 'P', '~', 'D', 'X', 'Y', 'C', 'S']);
 const CHANGE_STARTERS = new Set([
   '"',
   'x',
@@ -562,6 +562,12 @@ export class Editor {
       this.pending = null;
       return true;
     }
+    if (pending.kind === 'visualReplace') {
+      this.pending = null;
+      if (key.length !== 1) return false;
+      this.replaceVisual(key);
+      return true;
+    }
     // replace
     this.pending = null;
     if (key.length !== 1) return false;
@@ -892,6 +898,14 @@ export class Editor {
       this.pending = { kind: 'visualText', around: key === 'a' };
       return true;
     }
+    if (key === '"') {
+      this.pending = { kind: 'register' };
+      return true;
+    }
+    if (key === 'r') {
+      this.pending = { kind: 'visualReplace' };
+      return true;
+    }
     if (key === 'Escape' || (key === 'v' && this.mode === 'visual') || (key === 'V' && this.mode === 'visual-line')) {
       this.mode = 'normal';
       this.anchor = null;
@@ -920,35 +934,69 @@ export class Editor {
     return this.motionKey(key);
   }
 
-  private applyVisual(op: string): void {
+  // The selected characters. A linewise selection covers each line to its end.
+  private selectionRange(): { from: Pos; to: Pos; first: number; last: number; linewise: boolean } {
     const anchor = this.anchor ?? this.cursor;
     const linewise = this.mode === 'visual-line';
-    const from = linewise
-      ? { line: Math.min(anchor.line, this.cursor.line), col: 0 }
-      : before(anchor, this.cursor)
-        ? anchor
-        : this.cursor;
-    const to = linewise
-      ? {
-          line: Math.max(anchor.line, this.cursor.line),
-          col: this.lines[Math.max(anchor.line, this.cursor.line)].length,
-        }
-      : before(anchor, this.cursor)
-        ? this.cursor
-        : anchor;
+    const first = Math.min(anchor.line, this.cursor.line);
+    const last = Math.max(anchor.line, this.cursor.line);
+    if (linewise) {
+      return { from: { line: first, col: 0 }, to: { line: last, col: this.lines[last].length }, first, last, linewise };
+    }
+    const forward = before(anchor, this.cursor);
+    return {
+      from: forward ? anchor : this.cursor,
+      to: forward ? this.cursor : anchor,
+      first,
+      last,
+      linewise,
+    };
+  }
+
+  private applyVisual(op: string): void {
+    const { from, to, first, last, linewise } = this.selectionRange();
     this.mode = 'normal';
     this.anchor = null;
     if (op === '>' || op === '<') {
-      this.indentLines(from.line, to.line, op === '>' ? 1 : -1);
+      this.indentLines(first, last, op === '>' ? 1 : -1);
       return;
     }
     if (op === 'J') {
-      this.joinSelected(from.line, to.line);
+      this.joinSelected(first, last);
       return;
     }
-    const action: Operator = op === 'x' ? 'd' : (op as Operator);
-    if (linewise) this.linewiseOp(action, from.line, to.line);
+    if (op === 'p' || op === 'P') {
+      this.putVisual(from, to, linewise, op === 'P');
+      return;
+    }
+    if (op === 'D' || op === 'X') {
+      this.linewiseOp('d', first, last);
+      return;
+    }
+    if (op === 'Y') {
+      this.linewiseOp('y', first, last);
+      return;
+    }
+    if (op === 'C' || op === 'S') {
+      this.linewiseOp('c', first, last);
+      return;
+    }
+    if (op === '~') {
+      this.toggleRange(from, to);
+      this.cursor = this.normalizeNormal(from);
+      return;
+    }
+    const action: Operator = op === 'x' ? 'd' : op === 's' ? 'c' : (op as Operator);
+    if (linewise) this.linewiseOp(action, first, last);
     else this.charwiseOp(action, from, to, true);
+  }
+
+  private replaceVisual(char: string): void {
+    const { from, to } = this.selectionRange();
+    this.mode = 'normal';
+    this.anchor = null;
+    this.replaceRange(from, to, char);
+    this.cursor = this.normalizeNormal(from);
   }
 
   private simpleEdit(key: string): void {
@@ -1050,23 +1098,40 @@ export class Editor {
   private replaceChars(char: string, count: number): void {
     const n = Math.min(Math.max(1, count), this.line.length - this.cursor.col);
     if (n <= 0) return;
-    this.pushUndo();
-    const line = this.line;
-    this.lines[this.cursor.line] = line.slice(0, this.cursor.col) + char.repeat(n) + line.slice(this.cursor.col + n);
+    const from = { ...this.cursor };
+    const to = { line: this.cursor.line, col: this.cursor.col + n - 1 };
+    this.replaceRange(from, to, char);
     this.cursor = { line: this.cursor.line, col: this.cursor.col + n - 1 };
+  }
+
+  // Replaces every character in the range with `char`, keeping newlines.
+  private replaceRange(from: Pos, to: Pos, char: string): void {
+    this.pushUndo();
+    const start = offsetOf(this.lines, from);
+    const end = offsetOf(this.lines, to) + 1;
+    const text = this.text;
+    this.lines = (text.slice(0, start) + text.slice(start, end).replace(/[^\n]/g, char) + text.slice(end)).split('\n');
   }
 
   private toggleCase(count: number): void {
     const n = Math.min(Math.max(1, count), this.line.length - this.cursor.col);
     if (n <= 0) return;
+    const from = { ...this.cursor };
+    const to = { line: this.cursor.line, col: this.cursor.col + n - 1 };
+    this.toggleRange(from, to);
+    this.cursor = this.normalizeNormal({ line: from.line, col: from.col + n - 1 });
+  }
+
+  // Swaps the case of every character in the range, keeping newlines.
+  private toggleRange(from: Pos, to: Pos): void {
     this.pushUndo();
-    const chars = this.line.split('');
-    for (let i = 0; i < n; i++) {
-      const c = chars[this.cursor.col + i];
-      chars[this.cursor.col + i] = c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase();
-    }
-    this.lines[this.cursor.line] = chars.join('');
-    this.cursor = this.normalizeNormal({ line: this.cursor.line, col: this.cursor.col + n - 1 });
+    const start = offsetOf(this.lines, from);
+    const end = offsetOf(this.lines, to) + 1;
+    const text = this.text;
+    const swapped = text
+      .slice(start, end)
+      .replace(/[^\n]/g, c => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()));
+    this.lines = (text.slice(0, start) + swapped + text.slice(end)).split('\n');
   }
 
   private joinLines(count: number): void {
@@ -1080,12 +1145,15 @@ export class Editor {
     this.cursor = this.normalizeNormal({ line: start, col: joined.length });
   }
 
+  // Visual J always joins down: a one-line selection joins the next line too.
   private joinSelected(from: number, to: number): void {
-    if (to <= from) return;
+    if (from >= this.lines.length - 1) return;
     this.pushUndo();
-    const joined = joinLinesText(this.lines, from, to);
-    this.lines.splice(from, to - from + 1, joined);
-    this.cursor = this.normalizeNormal({ line: from, col: joined.length });
+    const end = Math.max(to, from + 1);
+    const at = this.lines[from].replace(/\s+$/, '').length;
+    const joined = joinLinesText(this.lines, from, end);
+    this.lines.splice(from, end - from + 1, joined);
+    this.cursor = this.normalizeNormal({ line: from, col: at });
   }
 
   private put(beforeCursor: boolean, count: number): void {
@@ -1095,24 +1163,71 @@ export class Editor {
     for (let i = 0; i < count; i++) {
       if (reg.linewise) {
         const at = this.cursor.line + (beforeCursor ? 0 : 1);
-        this.lines.splice(at, 0, ...reg.text.split('\n'));
+        this.insertLines(reg.text, at);
         this.cursor = { line: at, col: firstNonBlank(this.lines, at) };
         continue;
       }
-      const line = this.line;
-      const at = beforeCursor ? this.cursor.col : line.length === 0 ? 0 : this.cursor.col + 1;
-      const parts = (line.slice(0, at) + reg.text + line.slice(at)).split('\n');
-      this.lines.splice(this.cursor.line, 1, ...parts);
-      if (parts.length === 1) {
-        this.cursor = { line: this.cursor.line, col: Math.max(0, at + reg.text.length - 1) };
-      } else if (beforeCursor) {
-        // P leaves the cursor on the first inserted character
-        this.cursor = { line: this.cursor.line, col: at };
+      const at = beforeCursor ? this.cursor.col : this.line.length === 0 ? 0 : this.cursor.col + 1;
+      const pos = { line: this.cursor.line, col: at };
+      this.insertText(reg.text, pos);
+      if (!reg.text.includes('\n')) {
+        this.cursor = { line: pos.line, col: Math.max(0, at + reg.text.length - 1) };
       } else {
-        this.cursor = { line: this.cursor.line, col: at + 1 };
+        // a put that spans lines leaves the cursor on its first inserted character
+        this.cursor = { line: pos.line, col: at };
       }
     }
     this.normalizeCursor();
+  }
+
+  // Inserts text at pos, splitting the line where the text has newlines.
+  private insertText(text: string, pos: Pos): void {
+    const line = this.lines[pos.line];
+    const parts = (line.slice(0, pos.col) + text + line.slice(pos.col)).split('\n');
+    this.lines.splice(pos.line, 1, ...parts);
+  }
+
+  // Inserts text as whole lines above `line`.
+  private insertLines(text: string, line: number): void {
+    this.lines.splice(line, 0, ...text.split('\n'));
+  }
+
+  // Visual p/P: delete the selection, then put the register in its place.
+  private putVisual(from: Pos, to: Pos, linewise: boolean, keepUnnamed: boolean): void {
+    const reg = this.registers.read();
+    this.pushUndo();
+    let start: Pos;
+    if (linewise) {
+      const removed = this.lines.slice(from.line, to.line + 1);
+      if (!keepUnnamed) this.registers.store(removed.join('\n'), true);
+      this.lines.splice(from.line, to.line - from.line + 1);
+      start = { line: Math.min(from.line, this.lines.length), col: 0 };
+    } else {
+      const removed = this.removeRange(from, to, true);
+      if (!keepUnnamed) this.registers.store(removed, false);
+      start = { ...from };
+    }
+    if (!reg || (!reg.text && !reg.linewise)) {
+      if (!this.lines.length) this.lines = [''];
+      this.cursor = this.normalizeNormal(start);
+      return;
+    }
+    if (linewise) {
+      this.insertLines(reg.text, start.line);
+      const col = reg.linewise ? firstNonBlank(this.lines, start.line) : 0;
+      this.cursor = this.normalizeNormal({ line: start.line, col });
+      return;
+    }
+    if (reg.linewise) {
+      this.insertText(`\n${reg.text}\n`, start);
+      const col = firstNonBlank(this.lines, start.line + 1);
+      this.cursor = this.normalizeNormal({ line: start.line + 1, col });
+      return;
+    }
+    this.insertText(reg.text, start);
+    this.cursor = this.normalizeNormal(
+      reg.text.includes('\n') ? start : { line: start.line, col: start.col + reg.text.length - 1 },
+    );
   }
 
   private applyLineOp(op: Operator, count: number): void {
@@ -1228,6 +1343,7 @@ export class Editor {
     this.pushUndo();
     for (let line = from; line <= to; line++) {
       const text = this.lines[line];
+      if (text === '') continue; // empty lines get no indent
       if (dir > 0) this.lines[line] = INDENT + text;
       else this.lines[line] = text.startsWith(INDENT) ? text.slice(INDENT.length) : text.replace(/^ {1,2}/, '');
     }

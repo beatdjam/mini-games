@@ -21,6 +21,7 @@ export type Pending =
   | { kind: 'opMark'; op: Operator; linewise: boolean }
   | { kind: 'opText'; op: Operator; around: boolean }
   | { kind: 'visualText'; around: boolean }
+  | { kind: 'visualReplace' }
   | { kind: 'register' }
   | { kind: 'g'; count: number }
   | { kind: 'mark' }
