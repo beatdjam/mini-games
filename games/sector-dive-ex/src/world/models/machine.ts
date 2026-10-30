@@ -1,41 +1,26 @@
 import { PAINT } from '../../data/colors.ts';
 import * as THREE from 'three';
 import { shared } from '@engine/render/render.ts';
+import { cylGeo } from '@engine/render/parts.ts';
 import { TEX, grain, paint, poolTex } from '../looks/paint.ts';
 import type { Paint } from '../looks/paint.ts';
+export { at, ballGeo, boxGeo, cylGeo } from '@engine/render/parts.ts';
 // What a machine built to be believed is made with, for the bosses (world/models/bossLooks.ts) and the enemies
 // (world/models/enemyLooks.ts): hull plate with panel lines, a vent and a stencilled mark on it, steel that takes the light,
 // and parts a machine would need (a hydraulic ram between two points). A model made with these should show what the
 // machine does: how it moves (tracks, wheels, jets, legs on rams), what it fights with (barrels, launchers, rams,
 // blades), how it sees (a slit, lenses, aerials), and where its heat goes (stacks, radiators).
-// The parts the other models are put together from are here too (the pickups, world/models/itemLooks.ts; the enemies' shots,
-// world/models/ebulletLooks.ts): boxes and cylinders made once per size, and the pool of light on the ground under a thing.
+// The parts the other models are put together from (the pickups, world/models/itemLooks.ts; the enemies' shots,
+// world/models/ebulletLooks.ts) are the engine's render/parts.ts, passed on from here; the pool of light on the ground
+// under a thing is here.
 export const LOOK_GLOW = 0.05; // a machine's own glow in its colour (the plain enemies are at 0.4: they are all glow)
 const POOL_OPACITY = 0.55; // how strong a pool of light on the ground is
 
-// ---- the parts every model is put together from ----
-// geometries are made once per size and kept (shared: disposeTree leaves them)
-const geos: Record<string, THREE.BufferGeometry> = {};
-export const boxGeo = (w: number, h: number, d: number) =>
-  (geos[`b${w},${h},${d}`] ??= shared(new THREE.BoxGeometry(w, h, d)));
-export const cylGeo = (rt: number, rb: number, len: number, seg = 14) =>
-  (geos[`c${rt},${rb},${len},${seg}`] ??= shared(new THREE.CylinderGeometry(rt, rb, len, seg)));
-// a faceted ball (flat faces: armour, not a toy ball)
-export const ballGeo = (r: number, detail = 1) =>
-  (geos[`s${r},${detail}`] ??= shared(new THREE.IcosahedronGeometry(r, detail)));
-type Axis = 'x' | 'y' | 'z';
-// a mesh at (x, y, z); a cylinder's own axis is y: `along` lays it along x or z instead
-export function at(geo: THREE.BufferGeometry, mat: THREE.Material, x = 0, y = 0, z = 0, along: Axis = 'y') {
-  const m = new THREE.Mesh(geo, mat);
-  m.position.set(x, y, z);
-  if (along === 'x') m.rotation.z = Math.PI / 2;
-  if (along === 'z') m.rotation.x = Math.PI / 2;
-  return m;
-}
 // ---- the pool of light on the ground under a thing (a dark machine is lost against a dark wall) ----
 const poolMats: Record<number, THREE.Material> = {};
-const poolGeo = (side: number) =>
-  (geos[`p${side}`] ??= shared(new THREE.PlaneGeometry(side, side).rotateX(-Math.PI / 2)));
+// the pools of light are made once per size too (they are kept: disposeTree leaves the shared ones)
+const planes: Record<number, THREE.BufferGeometry> = {};
+const poolGeo = (side: number) => (planes[side] ??= shared(new THREE.PlaneGeometry(side, side).rotateX(-Math.PI / 2)));
 const poolMat = (color: number) =>
   (poolMats[color] ??= shared(
     new THREE.MeshBasicMaterial({
