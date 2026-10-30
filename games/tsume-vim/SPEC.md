@@ -153,6 +153,7 @@ Vim の操作を、ブラウザのターミナル風画面で問題形式に練�
 
 - `games/tsume-vim/test/levels.test.ts`: 全193問の手本をエンジンに流し、お題（移動問題はカーソルも）に一致することを確認する。300シードの生成問題も同じように確かめる。
 - `games/tsume-vim/test/editor.test.ts`: オペレータ、undo、ビジュアル、検索、マーク、`.`、`Ctrl-a/x`、`:`、レジスタ、テキストオブジェクトの単体を確認する。
+- `games/tsume-vim/test/vim-golden.test.ts`: 本物の Vim 9.1 の結果（`test/vim-golden/cases.json`、1349通り）と、バッファとカーソルが一致することを確認する。作り直すときは Vim のある環境で `node games/tsume-vim/test/vim-golden/generate.mjs` を流す。
 - `games/tsume-vim/test/vim-text.test.ts`: 単語・段落・括弧・数値・行連結の純粋な計算を確認する。
 - `games/tsume-vim/test/keyboard.test.ts`: キーイベントの変換を確認する。
 - `games/tsume-vim/test/smoke.test.ts`: 画面が起動し、第1問を `h` で解くと正解パネルが出ることを確認する。
