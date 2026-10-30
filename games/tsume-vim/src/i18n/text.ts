@@ -9,7 +9,7 @@ interface TextData {
   endless: { kinds: Record<string, EndlessText> };
 }
 
-// ja.ts is checked by tools/check_i18n.js; this names the shape once for the UI.
+// ja.ts is checked by tools/check_i18n.js, so its data has this shape at runtime.
 const data = (): Partial<TextData> => (LANG.ja?.data ?? {}) as Partial<TextData>;
 
 export function levelText(id: string): LevelText {

@@ -1,5 +1,7 @@
 import { expect, test } from 'vitest';
+import { LEVELS } from '../src/core/content/catalog.ts';
 import { generateLevel } from '../src/core/content/generate/index.ts';
+import { levelText } from '../src/i18n/text.ts';
 import '../src/main.ts';
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -19,7 +21,7 @@ const send = async (keys: string[]): Promise<void> => {
 
 test('the terminal boots and solves the first puzzle', async () => {
   expect(document.getElementById('tvBuffer')).not.toBeNull();
-  expect(document.getElementById('tvTitle')!.textContent).toContain('h');
+  expect(document.getElementById('tvTitle')!.textContent).toBe(levelText(LEVELS[0].id).title);
   expect(document.querySelectorAll('#tvLevelList .lv').length).toBeGreaterThan(10);
 
   window.dispatchEvent(new KeyboardEvent('keydown', { key: '@', bubbles: true }));
@@ -41,6 +43,9 @@ test('the terminal boots and solves the first puzzle', async () => {
   expect(document.getElementById('tvDoneTitle')!.textContent).toContain('正解');
   expect(document.getElementById('tvDoneText')!.textContent).not.toBe('');
   expect(document.getElementById('tvMode')!.textContent).toContain('NORMAL');
+  const firstLevel = document.querySelector('#tvLevelList .lv');
+  expect(firstLevel?.classList.contains('done')).toBe(true);
+  expect(firstLevel?.querySelector('.mark')?.textContent).toBe('✓');
 
   document.getElementById('tvEndless')!.click();
   await tick();

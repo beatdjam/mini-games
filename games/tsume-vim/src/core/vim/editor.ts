@@ -95,7 +95,9 @@ const motionFlags = (kind: MotionKind): Pick<Motion, 'inclusive' | 'linewise'> =
 
 const SIMPLE_EDIT_KEYS = new Set(['x', 'X', 'D', 'C', 's', 'S', 'Y']);
 const INSERT_KEYS = new Set(['i', 'a', 'I', 'A', 'o', 'O']);
-const VISUAL_OPS = new Set(['d', 'x', 'y', 'c', 's', '>', '<', 'J', 'p', 'P', '~', 'D', 'X', 'Y', 'C', 'S']);
+type VisualOp = 'd' | 'x' | 'y' | 'c' | 's' | '>' | '<' | 'J' | 'p' | 'P' | '~' | 'D' | 'X' | 'Y' | 'C' | 'S';
+const VISUAL_OPS = new Set<string>(['d', 'x', 'y', 'c', 's', '>', '<', 'J', 'p', 'P', '~', 'D', 'X', 'Y', 'C', 'S']);
+const isVisualOp = (key: string): key is VisualOp => VISUAL_OPS.has(key);
 const CHANGE_STARTERS = new Set([
   '"',
   'x',
@@ -130,7 +132,6 @@ export class Editor {
   cursor: Pos;
   mode: Mode = 'normal';
   anchor: Pos | null = null;
-  keyCount = 0;
   private registers = new Registers();
   // the text typed after / or ?, shown by the status line while mode is 'search'
   searchText = '';
@@ -176,9 +177,7 @@ export class Editor {
   }
 
   feed(key: string): boolean {
-    const handled = this.handleTracked(key);
-    if (handled) this.keyCount++;
-    return handled;
+    return this.handleTracked(key);
   }
 
   private handleTracked(key: string): boolean {
@@ -978,7 +977,7 @@ export class Editor {
       }
       return true;
     }
-    if (VISUAL_OPS.has(key)) {
+    if (isVisualOp(key)) {
       this.applyVisual(key);
       return true;
     }
@@ -1004,7 +1003,7 @@ export class Editor {
     };
   }
 
-  private applyVisual(op: string): void {
+  private applyVisual(op: VisualOp): void {
     const { from, to, first, last, linewise } = this.selectionRange();
     this.mode = 'normal';
     this.anchor = null;
@@ -1037,7 +1036,7 @@ export class Editor {
       this.cursor = this.normalizeNormal(from);
       return;
     }
-    const action: Operator = op === 'x' ? 'd' : op === 's' ? 'c' : (op as Operator);
+    const action: Operator = op === 'x' ? 'd' : op === 's' ? 'c' : op;
     if (linewise) this.linewiseOp(action, first, last);
     else this.charwiseOp(action, from, to, true);
   }

@@ -36,6 +36,7 @@ export interface Elements {
 function byId<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id);
   if (!found) throw new Error(`missing element: ${id}`);
+  // each id's element type is fixed in index.html, so T is the real one
   return found as T;
 }
 
@@ -69,7 +70,7 @@ export function getElements(): Elements {
     next: byId('tvNext'),
     retry: byId('tvRetry'),
     help: byId('tvHelp'),
-    helpDlg: byId('tvHelpDlg') as HTMLDialogElement,
+    helpDlg: byId<HTMLDialogElement>('tvHelpDlg'),
     helpList: byId('tvHelpList'),
     helpClose: byId('tvHelpClose'),
   };
