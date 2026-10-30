@@ -129,7 +129,20 @@ Vim の操作を、ブラウザのターミナル風画面で問題形式に練�
 | ファイル | 役割 |
 |----------|------|
 | `src/main.ts` | 入口。日本語の文言を読み、画面を起動する |
-| `src/core/vim/editor.ts` | Vim の小さな実装。モード、動き、オペレータ、レジスタ、undo、ビジュアル |
+| `src/core/vim/editor.ts` | 画面とテストが使う Vim。外から使う読み取り（バッファ・カーソル・モード・検索など）とキー入力だけを出し、内部の状態は `core.ts` に隠す |
+| `src/core/vim/core.ts` | Vim の内部の状態（バッファ・カーソル・モード・保留・レジスタ・undo の器）を持ち、キーを役割ごとのファイルへ渡す |
+| `src/core/vim/context.ts` | 分けたファイルが共有する状態と操作の型（`EditorHost`）と、数の上限 |
+| `src/core/vim/normal.ts` | NORMAL モードのキー（数、保留の開始、動きへの振り分け） |
+| `src/core/vim/pending.ts` | 保留中のキーを種類（`Pending['kind']`）から引く表 |
+| `src/core/vim/motion.ts` | 動きの行き先と、オペレータに渡す範囲の種類（状態を持たない計算） |
+| `src/core/vim/operator.ts` | オペレータの範囲と、`d` `c` `y` `>` `<` の実行 |
+| `src/core/vim/editing.ts` | `x` `D` `put` `J` `~` などのバッファ編集と、範囲の削除・挿入 |
+| `src/core/vim/insert.ts` | INSERT モードの開始・入力・数の繰り返し |
+| `src/core/vim/visual.ts` | VISUAL / VISUAL LINE の選択と、選択への操作 |
+| `src/core/vim/search.ts` | `/` `?` `n` `N` `*` `#` の文字列検索 |
+| `src/core/vim/command.ts` | `:` の行番号移動と `:s` |
+| `src/core/vim/undo.ts` | undo / redo のスナップショット |
+| `src/core/vim/replay.ts` | `.` の記録と再生 |
 | `src/core/vim/text.ts` | 位置・単語・段落・括弧・テキストオブジェクト・数値の純粋な計算 |
 | `src/core/vim/types.ts` | モード・オペレータ・保留中の操作などの型 |
 | `src/core/vim/registers.ts` | 無名・名前付きレジスタの保持と選択 |

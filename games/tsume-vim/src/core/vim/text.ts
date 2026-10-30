@@ -10,6 +10,8 @@ interface TextRange {
 
 export const isBlank = (ch: string): boolean => ch === '' || /\s/.test(ch);
 
+export const isDigit = (key: string): boolean => key.length === 1 && key >= '0' && key <= '9';
+
 // 0 = blank, 1 = word (letters, digits, _), 2 = punctuation
 export const charClass = (ch: string, big: boolean): 0 | 1 | 2 => {
   if (isBlank(ch)) return 0;
