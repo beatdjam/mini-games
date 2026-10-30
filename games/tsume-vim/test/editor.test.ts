@@ -317,4 +317,37 @@ describe('editor', () => {
     expect(editor.lines).toEqual(['', '', 'a']);
     expect(editor.cursor).toEqual({ line: 1, col: 0 });
   });
+
+  test('visual mode can use f and ;', () => {
+    const find = new Editor(['foo bar baz'], { line: 0, col: 0 });
+    type(find, ['v', 'f', ' ', 'd']);
+    expect(find.lines).toEqual(['bar baz']);
+    const repeat = new Editor(['foo bar baz'], { line: 0, col: 0 });
+    type(repeat, ['v', 'f', ' ', ';', 'd']);
+    expect(repeat.lines).toEqual(['baz']);
+  });
+
+  test('visual mode can use F', () => {
+    const editor = new Editor(['foo bar baz'], { line: 0, col: 10 });
+    type(editor, ['v', 'F', ' ', 'd']);
+    expect(editor.lines).toEqual(['foo bar']);
+  });
+
+  test('visual mode can search and comes back to visual mode', () => {
+    const editor = new Editor(['foo bar baz'], { line: 0, col: 0 });
+    type(editor, ['v', '/', 'b', 'a', 'z', 'Enter', 'd']);
+    expect(editor.lines).toEqual(['az']);
+  });
+
+  test('Escape while a visual motion waits keeps visual mode', () => {
+    const editor = new Editor(['foo bar baz'], { line: 0, col: 0 });
+    type(editor, ['v', 'f', 'Escape']);
+    expect(editor.mode).toBe('visual');
+  });
+
+  test('v$ selects the newline and v$d joins the next line', () => {
+    const editor = new Editor(['ab', 'cd'], { line: 0, col: 0 });
+    type(editor, ['v', '$', 'd']);
+    expect(editor.lines).toEqual(['cd']);
+  });
 });

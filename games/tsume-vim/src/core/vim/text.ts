@@ -92,20 +92,30 @@ export function wordForward(lines: string[], from: Pos, count: number, big: bool
 }
 
 export function wordBackward(lines: string[], from: Pos, count: number, big: boolean): Pos {
+  // Unlike prevChar, this stops at an empty line: Vim counts it as a word.
+  const step = (pos: Pos): Pos | null => {
+    if (pos.col > 0) return { line: pos.line, col: pos.col - 1 };
+    if (pos.line > 0) return { line: pos.line - 1, col: Math.max(0, lines[pos.line - 1].length - 1) };
+    return null;
+  };
+  const blankLine = (pos: Pos): boolean => (lines[pos.line] ?? '').length === 0;
   let pos: Pos = { ...from };
   for (let i = 0; i < count; i++) {
-    const prev = prevChar(lines, pos);
-    if (!prev) return { line: 0, col: 0 };
+    const prev = step(pos);
+    if (!prev) break;
     pos = prev;
+    if (blankLine(pos)) continue;
     while (charClass(charAt(lines, pos), big) === 0) {
-      const next = prevChar(lines, pos);
+      const next = step(pos);
       if (!next) break;
       pos = next;
+      if (blankLine(pos)) break;
     }
+    if (blankLine(pos)) continue;
     const cls = charClass(charAt(lines, pos), big);
     if (cls !== 0) {
       while (true) {
-        const next = prevChar(lines, pos);
+        const next = step(pos);
         if (!next || next.line !== pos.line || charClass(charAt(lines, next), big) !== cls) break;
         pos = next;
       }
@@ -138,27 +148,37 @@ export function wordEnd(lines: string[], from: Pos, count: number, big: boolean)
 }
 
 export function wordEndBackward(lines: string[], from: Pos, count: number, big: boolean): Pos {
+  // Unlike prevChar, this stops at an empty line: Vim counts it as a word.
+  const step = (pos: Pos): Pos | null => {
+    if (pos.col > 0) return { line: pos.line, col: pos.col - 1 };
+    if (pos.line > 0) return { line: pos.line - 1, col: Math.max(0, lines[pos.line - 1].length - 1) };
+    return null;
+  };
+  const blankLine = (pos: Pos): boolean => (lines[pos.line] ?? '').length === 0;
   let pos: Pos = { ...from };
   for (let i = 0; i < count; i++) {
-    let prev = prevChar(lines, pos);
+    let prev = step(pos);
     if (!prev) return { line: 0, col: 0 };
     // starting inside a word: step back past that word first
     const fromClass = charClass(charAt(lines, pos), big);
     if (prev.line === pos.line && fromClass !== 0 && charClass(charAt(lines, prev), big) === fromClass) {
       while (true) {
-        const more = prevChar(lines, prev);
+        const more = step(prev);
         if (!more || more.line !== prev.line || charClass(charAt(lines, more), big) !== fromClass) break;
         prev = more;
       }
-      const beforePrev = prevChar(lines, prev);
+      const beforePrev = step(prev);
       if (beforePrev) prev = beforePrev;
     }
     pos = prev;
+    if (blankLine(pos)) continue;
     while (charClass(charAt(lines, pos), big) === 0) {
-      const more = prevChar(lines, pos);
+      const more = step(pos);
       if (!more) break;
       pos = more;
+      if (blankLine(pos)) break;
     }
+    if (blankLine(pos)) continue;
     const cls = charClass(charAt(lines, pos), big);
     if (cls !== 0) {
       while (true) {
@@ -176,7 +196,12 @@ export function paragraphForward(lines: string[], from: Pos, count: number): Pos
   for (let i = 0; i < count; i++) {
     let next = line + 1;
     while (next < lines.length && lines[next].trim() !== '') next++;
-    line = next >= lines.length ? lines.length - 1 : next;
+    // no blank line left: Vim stops on the last character of the file
+    if (next >= lines.length) {
+      const last = lines.length - 1;
+      return { line: last, col: lastNonBlank(lines, last) };
+    }
+    line = next;
   }
   return { line, col: firstNonBlank(lines, line) };
 }

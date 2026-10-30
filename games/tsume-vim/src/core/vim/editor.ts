@@ -88,6 +88,8 @@ export class Editor {
   private count = 0;
   private lastFind: Find | null = null;
   private lastSearch: { pattern: string; dir: 1 | -1; wholeWord: boolean } | null = null;
+  // the mode to go back to after a search, so / in visual keeps the selection
+  private searchReturn: Mode = 'normal';
   private undoStack: Snapshot[] = [];
   private redoStack: Snapshot[] = [];
   // the keys of the change being recorded, and the keys of the last finished change (for `.`)
@@ -191,52 +193,14 @@ export class Editor {
       return true;
     }
     if (this.pending) return this.pendingKey(key);
-    if (isDigit(key) && (key !== '0' || this.count > 0)) {
-      this.count = Math.min(MAX_COUNT, this.count * 10 + Number(key));
-      return true;
-    }
     if (key === 'd' || key === 'c' || key === 'y' || key === '>' || key === '<') {
       this.pending = { kind: 'op', op: key, count: this.count, count2: 0 };
-      this.count = 0;
-      return true;
-    }
-    if (key === 'g') {
-      this.pending = { kind: 'g', count: this.count };
-      this.count = 0;
-      return true;
-    }
-    if (key === 'f' || key === 'F' || key === 't' || key === 'T') {
-      this.pending = {
-        kind: 'find',
-        dir: key === 'f' || key === 't' ? 1 : -1,
-        till: key === 't' || key === 'T',
-        count: this.count,
-      };
       this.count = 0;
       return true;
     }
     if (key === 'r') {
       this.pending = { kind: 'replace', count: this.count || 1 };
       this.count = 0;
-      return true;
-    }
-    if (key === ';' || key === ',') {
-      const count = this.takeCount();
-      if (!this.lastFind) return false;
-      const dir: 1 | -1 = key === ';' ? this.lastFind.dir : this.lastFind.dir === 1 ? -1 : 1;
-      const to = findCharOnLine(this.lines, this.cursor, this.lastFind.char, dir, this.lastFind.till, count);
-      if (to) this.cursor = to;
-      return true;
-    }
-    if (key === 'Enter') {
-      this.cursor = this.normalizeNormal({ line: this.cursor.line + 1, col: 0 });
-      this.cursor = { line: this.cursor.line, col: firstNonBlank(this.lines, this.cursor.line) };
-      return true;
-    }
-    if (key === '/' || key === '?') {
-      this.mode = 'search';
-      this.searchText = '';
-      this.searchDirection = key === '/' ? 1 : -1;
       return true;
     }
     if (key === ':') {
@@ -252,10 +216,6 @@ export class Editor {
       this.pending = { kind: 'mark' };
       return true;
     }
-    if (key === '`' || key === "'") {
-      this.pending = { kind: 'jumpMark', linewise: key === "'" };
-      return true;
-    }
     if (key === '.') {
       const count = this.takeCount();
       if (!this.lastChange) return false;
@@ -264,29 +224,6 @@ export class Editor {
     }
     if (key === 'C-a' || key === 'C-x') {
       this.adjustNumber(key === 'C-a' ? 1 : -1, this.takeCount() || 1);
-      return true;
-    }
-    if (key === 'n' || key === 'N') {
-      if (!this.lastSearch) return false;
-      const count = this.takeCount() || 1;
-      const dir: 1 | -1 = key === 'n' ? this.lastSearch.dir : this.lastSearch.dir === 1 ? -1 : 1;
-      this.lastJump = { ...this.cursor };
-      for (let i = 0; i < count; i++) {
-        const to = this.findPattern(this.lastSearch.pattern, dir, this.lastSearch.wholeWord);
-        if (!to) break;
-        this.cursor = this.normalizeNormal(to);
-      }
-      return true;
-    }
-    if (key === '*' || key === '#') {
-      return this.searchWordUnderCursor(key === '*' ? 1 : -1, this.takeCount() || 1);
-    }
-    if (LINE_MOTION_KEYS.has(key)) {
-      const motion = this.resolveMotion(key, this.takeCount());
-      if (motion) {
-        if (JUMP_KEYS.has(key)) this.lastJump = { ...this.cursor };
-        this.cursor = this.normalizeNormal(motion.to);
-      }
       return true;
     }
     if (INSERT_KEYS.has(key)) {
@@ -320,16 +257,82 @@ export class Editor {
       this.mode = key === 'v' ? 'visual' : 'visual-line';
       return true;
     }
-    if (MOTION_KEYS.has(key)) {
-      const count = this.takeCount();
-      const motion = this.resolveMotion(key, count);
-      if (motion) {
-        if (JUMP_KEYS.has(key)) this.lastJump = { ...this.cursor };
-        this.cursor = this.normalizeNormal(motion.to);
+    return this.motionKey(key);
+  }
+
+  // Moves the cursor only. Normal and visual mode both use this, so every motion works in both.
+  private motionKey(key: string): boolean {
+    if (isDigit(key) && (key !== '0' || this.count > 0)) {
+      this.count = Math.min(MAX_COUNT, this.count * 10 + Number(key));
+      return true;
+    }
+    if (key === 'g') {
+      this.pending = { kind: 'g', count: this.count };
+      this.count = 0;
+      return true;
+    }
+    if (key === 'f' || key === 'F' || key === 't' || key === 'T') {
+      this.pending = {
+        kind: 'find',
+        dir: key === 'f' || key === 't' ? 1 : -1,
+        till: key === 't' || key === 'T',
+        count: this.count,
+      };
+      this.count = 0;
+      return true;
+    }
+    if (key === '`' || key === "'") {
+      this.pending = { kind: 'jumpMark', linewise: key === "'" };
+      return true;
+    }
+    if (key === '/' || key === '?') {
+      this.searchReturn = this.mode === 'visual' || this.mode === 'visual-line' ? this.mode : 'normal';
+      this.mode = 'search';
+      this.searchText = '';
+      this.searchDirection = key === '/' ? 1 : -1;
+      return true;
+    }
+    if (key === 'n' || key === 'N') {
+      if (!this.lastSearch) return false;
+      const count = this.takeCount() || 1;
+      const dir: 1 | -1 = key === 'n' ? this.lastSearch.dir : this.lastSearch.dir === 1 ? -1 : 1;
+      this.lastJump = { ...this.cursor };
+      for (let i = 0; i < count; i++) {
+        const to = this.findPattern(this.lastSearch.pattern, dir, this.lastSearch.wholeWord);
+        if (!to) break;
+        this.moveTo(to);
       }
       return true;
     }
+    if (key === '*' || key === '#') {
+      return this.searchWordUnderCursor(key === '*' ? 1 : -1, this.takeCount() || 1);
+    }
+    if (key === 'Enter') {
+      const count = this.takeCount() || 1;
+      const line = this.cursor.line + count;
+      if (line < this.lines.length) this.moveTo({ line, col: firstNonBlank(this.lines, line) });
+      return true;
+    }
+    if (key === ';' || key === ',') {
+      this.moveToMotion(this.resolveMotion(key, this.takeCount()), false);
+      return true;
+    }
+    if (MOTION_KEYS.has(key) || LINE_MOTION_KEYS.has(key)) {
+      this.moveToMotion(this.resolveMotion(key, this.takeCount()), JUMP_KEYS.has(key));
+      return true;
+    }
     return false;
+  }
+
+  private moveTo(pos: Pos): void {
+    const visual = this.mode === 'visual' || this.mode === 'visual-line';
+    this.cursor = visual ? this.normalizeVisual(pos) : this.normalizeNormal(pos);
+  }
+
+  private moveToMotion(motion: Motion | null, jump: boolean): void {
+    if (!motion) return;
+    if (jump) this.lastJump = { ...this.cursor };
+    this.moveTo(motion.to);
   }
 
   private pendingKey(key: string): boolean {
@@ -387,28 +390,16 @@ export class Editor {
       }
       const to = findCharOnLine(this.lines, this.cursor, key, pending.dir, pending.till, pending.count);
       this.pending = null;
-      if (!to) return true;
+      // Vim remembers the character even when the search fails, for ; and ,
       this.lastFind = { char: key, dir: pending.dir, till: pending.till };
+      if (!to) return true;
       this.applyOperator(pending.op, { to, inclusive: true, linewise: false });
       return true;
     }
     if (pending.kind === 'opG') {
       this.pending = null;
-      if (key === 'g') {
-        this.applyOperator(pending.op, { to: { line: 0, col: 0 }, inclusive: false, linewise: true });
-        return true;
-      }
-      if (key === 'e' || key === 'E') {
-        const to = wordEndBackward(this.lines, this.cursor, pending.count, key === 'E');
-        this.applyOperator(pending.op, { to, inclusive: true, linewise: false });
-        return true;
-      }
-      if (key === '_') {
-        const line = Math.min(this.lines.length - 1, this.cursor.line + pending.count - 1);
-        const to = { line, col: lastNonBlank(this.lines, line) };
-        this.applyOperator(pending.op, { to, inclusive: true, linewise: false });
-        return true;
-      }
+      const motion = this.resolveGMotion(key, pending.count);
+      if (motion) this.applyOperator(pending.op, motion);
       return true;
     }
     if (pending.kind === 'opText') {
@@ -421,21 +412,8 @@ export class Editor {
     if (pending.kind === 'g') {
       this.pending = null;
       const count = pending.count > 0 ? pending.count : 1;
-      if (key === 'g') {
-        const line = pending.count > 0 ? Math.min(pending.count - 1, this.lines.length - 1) : 0;
-        this.lastJump = { ...this.cursor };
-        this.cursor = this.normalizeNormal({ line, col: firstNonBlank(this.lines, line) });
-        return true;
-      }
-      if (key === 'e' || key === 'E') {
-        this.cursor = this.normalizeNormal(wordEndBackward(this.lines, this.cursor, count, key === 'E'));
-        return true;
-      }
-      if (key === '_') {
-        const line = Math.min(this.lines.length - 1, this.cursor.line + count - 1);
-        this.cursor = this.normalizeNormal({ line, col: lastNonBlank(this.lines, line) });
-        return true;
-      }
+      const motion = this.resolveGMotion(key, count);
+      if (motion) this.moveToMotion(motion, key === 'g');
       return true;
     }
     if (pending.kind === 'register') {
@@ -456,30 +434,30 @@ export class Editor {
         if (!this.lastJump) return true;
         const target = { ...this.lastJump };
         this.lastJump = { ...this.cursor };
-        this.cursor = this.normalizeNormal(target);
+        this.moveTo(target);
         return true;
       }
       if (key === "'") {
         if (!this.lastJump) return true;
         const target = { line: this.lastJump.line, col: firstNonBlank(this.lines, this.lastJump.line) };
         this.lastJump = { ...this.cursor };
-        this.cursor = this.normalizeNormal(target);
+        this.moveTo(target);
         return true;
       }
       if (!/^[a-z]$/.test(key) || !this.marks[key]) return true;
       const target = this.marks[key];
       const to = pending.linewise ? { line: target.line, col: firstNonBlank(this.lines, target.line) } : { ...target };
       this.lastJump = { ...this.cursor };
-      this.cursor = this.normalizeNormal(to);
+      this.moveTo(to);
       return true;
     }
     if (pending.kind === 'find') {
       this.pending = null;
       if (key.length !== 1) return false;
       const to = findCharOnLine(this.lines, this.cursor, key, pending.dir, pending.till, pending.count);
-      if (!to) return true;
+      // Vim remembers the character even when the search fails, for ; and ,
       this.lastFind = { char: key, dir: pending.dir, till: pending.till };
-      this.cursor = this.normalizeNormal(to);
+      if (to) this.moveTo(to);
       return true;
     }
     if (pending.kind === 'visualText') {
@@ -495,13 +473,13 @@ export class Editor {
 
   private searchKey(key: string): boolean {
     if (key === 'Escape') {
-      this.mode = 'normal';
+      this.mode = this.searchReturn;
       this.searchText = '';
       return true;
     }
     if (key === 'Enter') {
       if (this.searchText) this.search(this.searchText, this.searchDirection);
-      this.mode = 'normal';
+      this.mode = this.searchReturn;
       this.searchText = '';
       return true;
     }
@@ -741,6 +719,7 @@ export class Editor {
       }
       return true;
     }
+    if (this.pending) return this.pendingKey(key);
     if (key === 'i' || key === 'a') {
       this.pending = { kind: 'visualText', around: key === 'a' };
       return true;
@@ -766,24 +745,11 @@ export class Editor {
       }
       return true;
     }
-    if (isDigit(key) && (key !== '0' || this.count > 0)) {
-      this.count = Math.min(MAX_COUNT, this.count * 10 + Number(key));
-      return true;
-    }
     if (VISUAL_OPS.has(key)) {
       this.applyVisual(key);
       return true;
     }
-    if (MOTION_KEYS.has(key)) {
-      const motion = this.resolveMotion(key, this.takeCount());
-      if (motion) this.cursor = this.normalizeNormal(motion.to);
-      return true;
-    }
-    if (key === 'g') {
-      this.cursor = this.normalizeNormal({ line: 0, col: firstNonBlank(this.lines, 0) });
-      return true;
-    }
-    return false;
+    return this.motionKey(key);
   }
 
   private applyVisual(op: string): void {
@@ -1023,7 +989,10 @@ export class Editor {
       this.mode = 'insert';
       return;
     }
-    this.cursor = { line: Math.min(from, this.lines.length - 1), col: 0 };
+    this.cursor = this.normalizeNormal({
+      line: Math.min(from, this.lines.length - 1),
+      col: firstNonBlank(this.lines, Math.min(from, this.lines.length - 1)),
+    });
   }
 
   private charwiseOp(op: Operator, from: Pos, to: Pos, inclusive: boolean): void {
@@ -1107,6 +1076,23 @@ export class Editor {
     this.redoStack = [];
   }
 
+  // The motions that start with g. `gg` with a count goes to that line, as Vim does.
+  private resolveGMotion(key: string, count: number): Motion | null {
+    const n = count > 0 ? count : 1;
+    if (key === 'g') {
+      const line = count > 0 ? Math.min(count - 1, this.lines.length - 1) : 0;
+      return { to: { line, col: firstNonBlank(this.lines, line) }, inclusive: false, linewise: true };
+    }
+    if (key === 'e' || key === 'E') {
+      return { to: wordEndBackward(this.lines, this.cursor, n, key === 'E'), inclusive: true, linewise: false };
+    }
+    if (key === '_') {
+      const line = Math.min(this.lines.length - 1, this.cursor.line + n - 1);
+      return { to: { line, col: lastNonBlank(this.lines, line) }, inclusive: true, linewise: false };
+    }
+    return null;
+  }
+
   private resolveMotion(key: string, count: number): Motion | null {
     const n = count > 0 ? count : 1;
     const line = this.cursor.line;
@@ -1130,7 +1116,9 @@ export class Editor {
     if (key === '0') return { to: { line, col: 0 }, inclusive: false, linewise: false };
     if (key === '^') return { to: { line, col: firstNonBlank(this.lines, line) }, inclusive: false, linewise: false };
     if (key === '+' || key === '-') {
-      const toLine = Math.max(0, Math.min(this.lines.length - 1, line + (key === '+' ? n : -n)));
+      const toLine = line + (key === '+' ? n : -n);
+      // Vim fails, and does not move, past the first or last line
+      if (toLine < 0 || toLine >= this.lines.length) return null;
       return { to: { line: toLine, col: firstNonBlank(this.lines, toLine) }, inclusive: false, linewise: true };
     }
     if (key === '_') {
@@ -1138,7 +1126,8 @@ export class Editor {
       return { to: { line: toLine, col: firstNonBlank(this.lines, toLine) }, inclusive: false, linewise: false };
     }
     if (key === '|') {
-      return { to: { line, col: Math.max(0, (count > 0 ? count : 1) - 1) }, inclusive: false, linewise: false };
+      const toCol = Math.max(0, Math.min(Math.max(0, this.line.length - 1), (count > 0 ? count : 1) - 1));
+      return { to: { line, col: toCol }, inclusive: false, linewise: false };
     }
     if (key === '{' || key === '}') {
       const to =
@@ -1155,8 +1144,11 @@ export class Editor {
     }
     if (key === '$') {
       const toLine = Math.min(this.lines.length - 1, line + n - 1);
+      const length = this.lines[toLine].length;
+      // In visual mode the last character is not the end: the newline is selected too.
+      const atNewline = this.mode === 'visual' && toLine < this.lines.length - 1;
       return {
-        to: { line: toLine, col: Math.max(0, this.lines[toLine].length - 1) },
+        to: { line: toLine, col: atNewline ? length : Math.max(0, length - 1) },
         inclusive: true,
         linewise: false,
       };
@@ -1200,6 +1192,13 @@ export class Editor {
   private normalizeNormal(pos: Pos): Pos {
     const line = Math.max(0, Math.min(this.lines.length - 1, pos.line));
     const col = Math.max(0, Math.min(Math.max(0, this.lines[line].length - 1), pos.col));
+    return { line, col };
+  }
+
+  // Visual mode can sit on the newline after the last character.
+  private normalizeVisual(pos: Pos): Pos {
+    const line = Math.max(0, Math.min(this.lines.length - 1, pos.line));
+    const col = Math.max(0, Math.min(this.lines[line].length, pos.col));
     return { line, col };
   }
 
