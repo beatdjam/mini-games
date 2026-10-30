@@ -6,6 +6,7 @@ import { rand } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { toast } from '@engine/ui/ui.ts';
+import { burst } from '@engine/render/fx.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { ring, shootHoming } from '../../world/entities.ts';
 import { ringAngles } from '@engine/world/projectiles.ts';
@@ -14,7 +15,8 @@ import type { BossVisual } from './common.ts';
 import { COLOR, PAINT } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds
 
-// invuln: shielded; core / shield: meshes; turrets: the shield generators still standing; openT: seconds left open; ringT: ring timer
+// invuln: shielded; core / shield: meshes; turrets: the shield generators still standing; openT: seconds left open;
+// ringT: ring timer; hinted: the shield's hint toast has been shown
 type BastionBoss = Boss & {
   invuln: boolean;
   core: THREE.Mesh;
@@ -22,7 +24,23 @@ type BastionBoss = Boss & {
   turrets: RegularEnemy[];
   openT: number;
   ringT: number;
+  hinted: boolean;
 };
+// the numbers BASTION's behaviour reads (BOSS_META.bastion.tune)
+export interface BastionTune {
+  turretsFirst: number;
+  turrets: number;
+  turretsEnr: number;
+  turretR: number;
+  open: number;
+  openMul: number;
+  ring: [number, number];
+  ringOpen: [number, number];
+  ringEvery: number;
+  ringEveryOpen: number;
+  enrShots: number;
+  enrSpeed: number;
+}
 // how BASTION looks (common.ts BossVisual), with its core (it turns) and its shield (it shows while the shield is up)
 export function bastionVisual(): BossVisual & {
   core: THREE.Mesh;
@@ -59,10 +77,22 @@ export function spawnBastion() {
       turrets: [],
       openT: 0,
       ringT: 2.5,
+      hinted: false,
     },
     centred: true,
     hint: ['boss.bastionHint', 4600],
   });
+  // the shield: nothing gets through while it is up; the hint says so once (bossHint's is another)
+  e.hit = () => {
+    if (!e.invuln) return null;
+    if (!e.hinted) {
+      e.hinted = true;
+      toast(t('run.shielded'), 2400);
+    }
+    const p = e.mesh.position;
+    burst(p.x, p.y, p.z, COLOR.shield, 2, 4, 0.2);
+    return 0;
+  };
   bastionTurrets(e, BOSS_META.bastion.tune.turretsFirst);
 }
 function bastionTurrets(e: BastionBoss, n: number) {

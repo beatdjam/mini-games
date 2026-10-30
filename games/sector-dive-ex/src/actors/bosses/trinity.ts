@@ -25,6 +25,25 @@ type TrinityBoss = Boss & {
   ramT: number;
   ram: Ram | null;
 };
+// the numbers TRINITY's behaviour reads (BOSS_META.trinity.tune)
+export interface TrinityTune {
+  firstFire: number;
+  firstRing: number;
+  firstRam: number;
+  orbitR: number;
+  orbitREnr: number;
+  orbitSpeed: number;
+  orbitSpeedEnr: number;
+  fire: number;
+  fireEnr: number;
+  fan: [number, number, number];
+  ringEvery: number;
+  ringEveryEnr: number;
+  ring: [number, number];
+  ramDur: number;
+  ramEvery: number;
+  ramDmg: number;
+}
 // how TRINITY looks (common.ts BossVisual): its three bodies, each a mesh of its own (they fly apart); the boss's own
 // mesh is an empty group
 export function trinityVisual(): BossVisual & { bodies: THREE.Group[] } {

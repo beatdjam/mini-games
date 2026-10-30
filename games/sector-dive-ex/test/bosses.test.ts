@@ -34,7 +34,7 @@ test('watcher: drones at 75% and 40%', () => {
   tick(10);
   if (!boss) spawnBoss('watcher');
   boss!.spawnT = 0;
-  boss!.phased = true;
+  boss!.phase = 1;
   const drones = () => enemies.filter(o => !o.boss && !o.dead && o.type === 'drone').length;
   boss!.hp = boss!.maxHp * 0.7;
   tick(2);
@@ -57,9 +57,9 @@ test('crusher: hurt below half in its jump, it changes phase once it is down, no
   tick(Math.ceil(K.slamTime * 20)); // a third of the way up
   expect(c.mesh.position.y, 'in the air').toBeGreaterThan(1);
   hurtEnemy(c, c.hp - c.maxHp * 0.4, false);
-  expect(c.phased, 'not while in the air').toBeFalsy();
+  expect(c.phase, 'not while in the air').toBe(0);
   tick(Math.ceil(K.slamTime * 60) + 2);
-  expect(c.phased, 'once it has landed').toBe(true);
+  expect(c.phase, 'once it has landed').toBe(1);
   expect(c.spawnT, 'the burst runs on the ground').toBeGreaterThan(0);
   endRun('abandon');
 });
@@ -71,7 +71,7 @@ test('crusher: fires fans as it walks; enraged, a second charge follows the firs
     c = boss as Boss & { st: string; fireT: number; chained: boolean },
     shots = () => eBullets.filter(b => b.alive).length;
   c.spawnT = 0;
-  c.phased = true;
+  c.phase = 1;
   // walking: one fan after walkFireFirst, the next walkFire later
   c.st = 'idle';
   c.timer = 10;
@@ -206,7 +206,7 @@ function hoistReady(): HoistTest {
   if (!boss) spawnBoss('hoist');
   const h = boss as HoistTest;
   h.spawnT = 0;
-  h.phased = true; // (the phase change has its own test)
+  h.phase = 1; // (the phase change has its own test)
   h.timer = 1e6;
   h.gunT = 1e6; // (the guns have their own test)
   h.x = h.cx;
@@ -371,7 +371,7 @@ function surgeonReady(): SurgeonTest {
   if (!boss) spawnBoss('surgeon');
   const s = boss as SurgeonTest;
   s.spawnT = 0;
-  s.phased = true; // (the phase change has its own test)
+  s.phase = 1; // (the phase change has its own test)
   s.timer = 1e6;
   joy.x = 0;
   joy.y = 0;
@@ -559,7 +559,7 @@ test('boss entrance and phase change: invulnerable while appearing and in the bu
   if (boss!.hp !== hp0) throw new Error('hurt during intro');
   tick(Math.ceil(BOSS_TUNE.introTime * 60) + 5);
   hurtEnemy(boss!, boss!.maxHp * 0.6, false);
-  if (!boss!.phased || !(boss!.spawnT > 0)) throw new Error('phase change');
+  if (!boss!.phase || !(boss!.spawnT > 0)) throw new Error('phase change');
   const hp1 = boss!.hp;
   hurtEnemy(boss!, 100, false);
   if (boss!.hp !== hp1) throw new Error('hurt during phase change');

@@ -35,6 +35,38 @@ type CrusherBoss = Boss & {
   fireT: number;
   chained: boolean;
 };
+// the numbers CRUSHER's behaviour reads (BOSS_META.crusher.tune)
+export interface CrusherTune {
+  walk: number;
+  walkFan: [number, number, number];
+  walkFireFirst: number;
+  walkFire: number;
+  walkFireEnr: number;
+  pick: [number, number];
+  tele: number;
+  teleEnr: number;
+  slamTime: number;
+  volleyTele: number;
+  chargeTime: number;
+  chargeSpeed: number;
+  chargeHitR: number;
+  chargeDmg: number;
+  chargeKnock: number;
+  chainTele: number;
+  stun: number;
+  stunMul: number;
+  hitWave: [number, number, number];
+  jump: number;
+  slamMove: number;
+  slamWave: [number, number, number];
+  secondDelay: number;
+  secondWave: [number, number, number];
+  afterSlam: number;
+  volleyN: number;
+  volleyNEnr: number;
+  volleySpeed: number;
+  afterVolley: number;
+}
 // how CRUSHER looks (common.ts BossVisual)
 export function crusherVisual(): BossVisual {
   const g = new THREE.Group(),

@@ -32,6 +32,29 @@ type CoreBoss = Boss & {
   ba: number;
   bdir: number;
 };
+// the numbers NOISE CORE's behaviour reads (BOSS_META.core.tune)
+export interface CoreTune {
+  patTime: [number, number, number];
+  beams: number;
+  beamsEnr: number;
+  beamWarm: number;
+  beamSpin: number;
+  beamSpinEnr: number;
+  beamSpinWarm: number;
+  beamWidth: number;
+  beamDmg: number;
+  fanGap: number;
+  fan: [number, number, number];
+  ringShots: number;
+  ringGap: number;
+  ring: [number, number];
+  ringEnr: [number, number];
+  minionCap: number;
+  minions: number;
+  minionsEnr: number;
+  burstN: number;
+  burstSpeed: number;
+}
 // how NOISE CORE looks (common.ts BossVisual), with its knot (it turns)
 export function coreVisual(): BossVisual & { knot: THREE.Mesh } {
   const g = new THREE.Group(),

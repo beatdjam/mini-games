@@ -108,6 +108,32 @@ type HoistBoss = Boss & {
   humT: number;
   gunT: number;
 };
+// the numbers HOIST's behaviour reads (BOSS_META.hoist.tune)
+export interface HoistTune {
+  chase: number;
+  approach: number;
+  approachMax: number;
+  stopNear: number;
+  first: number;
+  gap: number;
+  gapEnr: number;
+  shadowR: number;
+  warn: number;
+  fallG: number;
+  dropDmg: number;
+  pullWind: number;
+  pullTime: number;
+  pullSpeed: number;
+  minionCap: number;
+  crawlers: number;
+  crawlers1: number;
+  gunEvery: number;
+  gunEveryEnr: number;
+  gunN: number;
+  gunNEnr: number;
+  gunSpread: number;
+  gunSpeed: number;
+}
 const additive = (color: number, opacity: number): THREE.MeshBasicMaterial =>
   new THREE.MeshBasicMaterial({
     color,
