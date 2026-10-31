@@ -62,8 +62,15 @@ test('milestones: dying goes back to the last one passed, coming back keeps the 
   goBase();
   if (dead.join() !== '9,9' || back !== 12) throw new Error('milestone ' + dead + ' ' + back);
   // a save from before the issue: its base weapons' mods come back as bits (+1 50, +2 75, ★★ 300)
-  const old = { ...defaultSave(), bits: 5, mods: { pistol: { plus: 2, r: 1 } } } as Record<string, unknown>;
-  delete old.supplyV;
+  const old = {
+    ...defaultSave(),
+    v: undefined,
+    stageV: 2,
+    levelV: 1,
+    supplyV: undefined,
+    bits: 5,
+    mods: { pistol: { plus: 2, r: 1 } },
+  } as Record<string, unknown>;
   if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code');
   const paid = [save.bits, Object.keys(save.mods).length];
   el('#btnWipe').click();
@@ -279,14 +286,17 @@ test("level: a milestone's terminal opens on stepping onto it, sells the bag's w
 test('level: a save from before it has the reboot folded into its points', () => {
   const old = {
     ...defaultSave(),
+    v: undefined,
+    stageV: 2,
+    supplyV: 1,
+    levelV: undefined,
     up: { hp: 2, dmg: 1, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0 },
     pres: { count: 3, pts: 2, up: { gain: 1, hp: 3, funds: 1, relic: 0, choice: 1, dmg: 8, vit: 0 } },
     canReboot: true,
     bits: 5,
   } as Record<string, unknown>;
-  delete old.levelV;
   if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code');
-  const got = [save.up.hp, save.up.dmg, save.up.choice, save.levelV, 'pres' in save, save.bits];
+  const got = [save.up.hp, save.up.dmg, save.up.choice, save.v, 'pres' in save, save.bits];
   el('#btnWipe').click();
   el('#btnWipeGo').click();
   // (armour 2 + its +10 HP x 3 = 2 points; output 1 + its +5% x 8 = 5 points)
@@ -334,4 +344,22 @@ test('resume: a run saved on a building laid out another way goes on at the same
     building!.plans.filter((_, floor) => floor !== route[1]).every(p => p.seen.every(v => v === 0)),
     'the map starts unexplored (but where the player stands now)',
   ).toBe(true);
+});
+test('records: a version 1 save keeps its records, and an older save gets the defaults', () => {
+  const code = encodeStore('SDX1', {
+    ...defaultSave(),
+    v: 1,
+    records: { cleared: true, bossArea: { tier: 49, beaten: ['crusher'] } },
+  });
+  if (!importSave(code)) throw new Error('save code');
+  const kept = save.records;
+  if (save.v !== 1 || !kept.cleared || kept.bossArea?.tier !== 49 || kept.bossArea?.beaten.join() !== 'crusher')
+    throw new Error('records kept ' + JSON.stringify(kept));
+  const old = { ...defaultSave(), v: undefined, records: undefined } as Record<string, unknown>;
+  if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code');
+  const fresh = save.records;
+  if (save.v !== 1 || fresh.cleared || fresh.bossArea !== null)
+    throw new Error('records defaults ' + JSON.stringify(fresh));
+  el('#btnWipe').click();
+  el('#btnWipeGo').click();
 });

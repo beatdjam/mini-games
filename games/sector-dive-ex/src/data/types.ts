@@ -390,7 +390,13 @@ export interface Snapshot {
   run: RunState;
   P: Player;
 }
+// what the save keeps of the bosses: whether the last boss is down, and how far the boss area has got
+export interface SaveRecords {
+  cleared: boolean; // the last boss (TITAN) is down (not written yet)
+  bossArea: { tier: number; beaten: BossKind[] } | null; // the boss area of this save: its depth (0-based) and the boss rooms beaten there (one of each kind); null = not settled yet
+}
 export interface SaveData {
+  v: number; // the version of the save's shape (SAVE_VERSION in core/save.ts; converted from older versions when read)
   bits: number;
   up: Record<string, number>;
   unlocked: Record<string, boolean>;
@@ -403,13 +409,12 @@ export interface SaveData {
   runs: number;
   bossKills: number;
   bossSeen: Record<string, boolean>;
+  records: SaveRecords;
+  // the marks an older version of the game reads. Their values are fixed; they are not used to tell this save's version
   stageV: number;
+  levelV?: number;
+  supplyV?: number;
   mods: Record<string, { plus: number; r: number }>;
-  levelV?: number; // 1: the reboot has been folded into the level (core/save.ts)
-  supplyV?: number; // 1: the base weapons' mods have been paid back (core/save.ts)
-  // (from before the level, 2026-10-17: read once to fold the reboot's bonuses into save.up, then left alone)
-  canReboot?: boolean;
-  pres?: { count: number; pts: number; up: Record<string, number> };
   suspend: Snapshot | null; // the checkpoint of a run in progress (src/flow/suspend.ts makeSnapshot)
   settings: {
     lang: string | null;
