@@ -152,6 +152,7 @@ export function startRun() {
   // non-basic weapons leave the base: they come back only on extraction
   riskLoadout();
   setRun({
+    kind: 'dive',
     stage: firstStageOf(tier),
     kills: 0,
     bits: 0,
@@ -352,7 +353,7 @@ export function useLink(n: number) {
 export function startStage() {
   const si = stageInfo(run.stage),
     b = si.biome,
-    inBuilding = !run.practice, // boss practice is a boss arena on its own, as in Sector Dive
+    inBuilding = run.kind !== 'practice', // boss practice is a boss arena on its own, as in Sector Dive
     isArena = !inBuilding && isBossStage(run.stage);
   if (inBuilding) {
     // a run is never resumed in the boss fight (the checkpoint is the floor's); a stage left at the boss is the lowest floor
@@ -367,7 +368,7 @@ export function startStage() {
     fade.style.opacity = '0';
   });
   const bossKind = isArena ? run.forceBoss || pick(b.bosses) : null;
-  if (!run.practice)
+  if (run.kind !== 'practice')
     track('level_start', {
       level: si.tier + 1,
       stage: inBuilding ? run.bld!.step + 1 : si.sub + 1,
@@ -437,7 +438,7 @@ export function startPractice(kind: BossKind, tier?: number) {
     perks: [],
     startTier: 0,
     route: [bi],
-    practice: true,
+    kind: 'practice',
     forceBoss: kind,
     t0: performance.now(),
   });
@@ -466,7 +467,7 @@ function endPractice(kind: RunEnd) {
 const strip = (w: WeaponItem | null): WeaponItem | null =>
   w ? { id: w.id, r: w.r, basic: !!w.basic, plus: w.plus || 0, opts: w.opts || [] } : null;
 export function endRun(kind: RunEnd) {
-  if (run.practice) {
+  if (run.kind === 'practice') {
     endPractice(kind);
     return;
   }

@@ -352,7 +352,6 @@ export interface Player {
   reloadMax: number;
   fireCd: number;
 }
-// one run (a dive, or a boss practice when practice is set)
 // the building of the depth being played (src/world/building.ts): what is needed to build it again and to know how
 // far the player has got in it. Saved with the checkpoint
 export interface BuildingState {
@@ -371,7 +370,11 @@ export interface BuildingState {
   seen?: string[]; // per floor: the tiles shown on the map, packed (packSeen); written when the checkpoint is saved
   v?: number; // the BUILDING_V the building was laid out with (none: saved before there was one)
 }
+// the kinds of run (boss areas are added here later)
+export type RunKind = 'dive' | 'practice';
+// one run: a dive, or a boss practice when kind is 'practice'
 export interface RunState {
+  kind: RunKind;
   stage: number;
   kills: number;
   bits: number;
@@ -380,11 +383,10 @@ export interface RunState {
   perks: string[]; // chip ids taken, '+' for the rare version
   choice?: number; // chip offers show 3 + this many cards: the level's point as it was when the dive set out
   bosses?: string[]; // bosses defeated
-  bld?: BuildingState; // not in boss practice
-  cleared?: boolean;
-  practice?: boolean;
-  forceBoss?: BossKind;
-  t0?: number;
+  bld?: BuildingState; // not in a practice
+  cleared?: boolean; // set when a practice's boss goes down
+  forceBoss?: BossKind; // the boss a practice is for (src/dev/trailer.ts sets it for a moment too)
+  t0?: number; // when a practice began
 }
 export interface Snapshot {
   run: RunState;

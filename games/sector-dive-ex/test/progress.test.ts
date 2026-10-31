@@ -111,6 +111,17 @@ test('suspend -> resume -> suspend -> discard', () => {
   discardSuspended();
   if (save.suspend || !stateIs('result')) throw new Error('discard failed');
 });
+test('resume: a checkpoint from before the run kinds resumes as a dive', () => {
+  startRun();
+  tick(5);
+  suspendRun();
+  if (!save.suspend) throw new Error('no checkpoint');
+  const old = save.suspend.run as { kind?: string };
+  delete old.kind;
+  resumeRun();
+  expect(run.kind, 'the old checkpoint is a dive').toBe('dive');
+  endRun('abandon');
+});
 test('wipe: data wipe resets the save', () => {
   goBase();
   save.bits = 999;

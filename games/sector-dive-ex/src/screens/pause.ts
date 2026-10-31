@@ -24,6 +24,7 @@ import { renderSettings } from '@engine/ui/settings.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { endRun } from '../flow/run.ts';
 import { suspendRun } from '../flow/suspend.ts';
+import { RUN_KINDS } from '../flow/runKind.ts';
 import { rowsHTML } from '@engine/ui/dom.ts';
 
 // the run's own text that was written out in the old language (the language can be switched from the pause screen)
@@ -46,7 +47,7 @@ export function pause() {
   bigmap.hidden = true;
   musicVolume(0.4);
   renderSettings();
-  el('#btnSuspend').hidden = !!run.practice;
+  el('#btnSuspend').hidden = !RUN_KINDS[run.kind].save;
   armAbandon(false);
   el('#pauseChips').innerHTML = statsHTML();
   show('#scrPause');
