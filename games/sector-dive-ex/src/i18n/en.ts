@@ -345,6 +345,7 @@ LANG.en = {
     'boss.phase2': 'Phase two',
     'boss.hall': 'HALL',
     'boss.toBase': 'To base',
+    'boss.toHall': 'To the hall',
     'boss.practiceWon': 'Defeated. Take the gate back to base',
     'boss.forward': 'Onward',
     'boss.extract': 'Extract',

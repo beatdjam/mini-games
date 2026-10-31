@@ -13,8 +13,9 @@ import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { hpGrowth, isMilestone } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
-import { openShortcut, recordBossKill, recordBossSeen, recordPeak } from '../../core/progress.ts';
+import { openShortcut, recordBossKill, recordBossRoomBeaten, recordBossSeen, recordPeak } from '../../core/progress.ts';
 import { progressOf } from '../../core/rules.ts';
+import { bossAreaOn } from '../../core/bossArea.ts';
 import { arenaCenter, level } from '../../world/level.ts';
 import { BOSS_POOL_SIDE } from '../../world/models/bosses/shared.ts';
 import { bossHullMat, groundPool } from '../../world/models/machine.ts';
@@ -302,18 +303,17 @@ function hideBossBar() {
   el('#bossBar').hidden = true;
   setBoss(null);
 }
-// tier: the 0-based depth of this stage (stageInfo(run.stage).tier), progress: progressOf(run.stage)
-function giveBossRewards(e: Boss, tier: number, progress: number) {
+// progress: progressOf(run.stage)
+function giveBossRewards(e: Boss, progress: number) {
   run.bosses = run.bosses || [];
   run.bosses.push(e.kind);
-  track('boss_defeated', { target: e.kind, level: tier + 1 });
+  track('boss_defeated', { target: e.kind, level: stageInfo(run.stage).tier + 1 });
   dropBits(e.x, e.z, BOSS_TUNE.bits * BOSS_TUNE.bitsKept * bossDifficulty());
   addPickup('chip', e.cx, e.cz + 4);
   addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + progress * BOSS_WEAPON_ROLL_PER_PROGRESS;
   const minRarity = roll > BOSS_WEAPON_LUCKY_ABOVE ? BOSS_WEAPON_LUCKY_RARITY : BOSS_WEAPON_MIN_RARITY;
   addPickup('weapon', e.cx - 2, e.cz + 5, { w: rollWeapon(progress + BOSS_WEAPON_PROGRESS_BONUS, minRarity) });
-  putBossGates(e.cx, e.cz, tier);
 }
 // the gates round (cx, cz), the middle of the arena, once the boss of depth `tier` is down: forward and back to base,
 // and at a milestone a terminal between them, where the dive's bits buy levels (screens/levelup.ts). Also when the
@@ -322,6 +322,16 @@ export function putBossGates(cx: number, cz: number, tier: number) {
   makePortal(cx + 6, cz - 2, COLOR.amber, 'next', t('boss.forward'));
   makePortal(cx - 6, cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
   if (isMilestone(tier)) makeTerminal(cx, cz - 2, COLOR.lime, t('boss.terminal'));
+}
+// a beaten boss room's gate, at (cx, cz) in the middle of the room: back to the hall, where the run goes on
+export function putRoomGates(cx: number, cz: number) {
+  makePortal(cx, cz - 2, COLOR.cyan, 'hall', t('boss.toHall'));
+}
+// what saves the run once a boss room's boss is down: flow/suspend.ts checkpoint, handed over by main.ts. flow/suspend.ts
+// reaches this file through flow/run.ts, so importing it from here would close a cycle
+let saveBeatenRoom = () => {};
+export function setSaveBeatenRoom(fn: () => void) {
+  saveBeatenRoom = fn;
 }
 // the kill counts toward the save: deepest depth, the next shortcut
 function recordBossProgress(tier: number) {
@@ -346,7 +356,25 @@ export function bossDown(e: Boss) {
     return;
   }
   const tier = stageInfo(run.stage).tier;
-  giveBossRewards(e, tier, progressOf(run.stage));
+  // a boss room of the boss area: the same rewards the first time, only its bits after that, and no shortcut (the
+  // room beaten is kept in the save, so a death or a resume does not take it back)
+  if (bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room') {
+    const first = recordBossRoomBeaten(run.area.boss);
+    onBossDown(); // the room's door opens again
+    putRoomGates(e.cx, e.cz);
+    if (first) {
+      giveBossRewards(e, progressOf(run.stage));
+      recordBossKill();
+    } else {
+      dropBits(e.x, e.z, BOSS_TUNE.bits * BOSS_TUNE.bitsKept * bossDifficulty());
+      track('boss_defeated', { target: e.kind, level: tier + 1 });
+    }
+    hideBossBar();
+    saveBeatenRoom();
+    return;
+  }
+  giveBossRewards(e, progressOf(run.stage));
+  putBossGates(e.cx, e.cz, tier);
   onBossDown();
   hideBossBar();
   recordBossProgress(tier);
