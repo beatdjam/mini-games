@@ -372,6 +372,8 @@ export interface BuildingState {
 }
 // the kinds of run (boss areas are added here later)
 export type RunKind = 'dive' | 'practice';
+// where in the boss area the run is: the hall, or one of the eight boss rooms (TITAN comes later)
+export type BossAreaPlace = { at: 'hall' } | { at: 'room'; boss: BossKind };
 // one run: a dive, or a boss practice when kind is 'practice'
 export interface RunState {
   kind: RunKind;
@@ -384,6 +386,7 @@ export interface RunState {
   choice?: number; // chip offers show 3 + this many cards: the level's point as it was when the dive set out
   bosses?: string[]; // bosses defeated
   bld?: BuildingState; // not in a practice
+  area?: BossAreaPlace; // only in a dive in the boss area; the checkpoint keeps it
   cleared?: boolean; // set when a practice's boss goes down
   forceBoss?: BossKind; // the boss a practice is for (src/dev/trailer.ts sets it for a moment too)
   t0?: number; // when a practice began
