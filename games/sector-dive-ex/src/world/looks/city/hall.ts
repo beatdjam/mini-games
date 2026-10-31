@@ -496,10 +496,11 @@ export const CITY_HALL_MAP = [
   EXIT,
 ].map(n => n!);
 // what is set up by the hall's walls (the props of the second picture): where the reception desk stands, and the walls
-// of glass and of the lifts
+// of glass, of the lifts and of the fire exit
 export const CITY_HALL_DESK = [WAINSCOT!, BOARD!];
 export const CITY_HALL_GLASS = [GLASS_WALL!];
 export const CITY_HALL_LIFTS = [LIFTS!];
+export const CITY_HALL_EXIT = [EXIT!];
 
 // ---- the floor: polished marble ----
 // The marble is cut in metre squares laid light and dark turn about, its joints a quarter of a tile in from the edge,

@@ -20,6 +20,7 @@ import { hallWallNumbers } from '../hallWalls.ts';
 import { cityView } from './backdrop.ts';
 import {
   CITY_HALL_DESK,
+  CITY_HALL_EXIT,
   CITY_HALL_FLOORS,
   CITY_HALL_GLASS,
   CITY_HALL_LIFTS,
@@ -598,6 +599,7 @@ export const CITY_ROOM_FLOORS: RoomFloors = HALL.roomFloors;
 export const CITY_HALL_DESK_WALLS = CITY_HALL_DESK.map(HALL.wall); // where the reception desk stands
 export const CITY_HALL_GLASS_WALLS = CITY_HALL_GLASS.map(HALL.wall); // the glass curtain wall
 export const CITY_HALL_LIFTS_WALLS = CITY_HALL_LIFTS.map(HALL.wall); // the row of lift doors
+export const CITY_HALL_EXIT_WALLS = CITY_HALL_EXIT.map(HALL.wall); // the fire exit and its emergency lamp
 export const CITY_ALL_WALLS = HALL.all; // every wall picture of the look
 
 // The floor: the same carpet under every variant (the painter is given the same seed for all of them). Its tiles are

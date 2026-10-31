@@ -12,6 +12,7 @@ import type { Light } from '../props.ts';
 import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { fallenPanelTex, officeBoxTex, officeHeapTex, officeTex } from './cutouts.ts';
+import { hallProps } from './hallProps.ts';
 import { CITY_EXTINGUISHER, CITY_GUIDE } from '../../../i18n/signs.ts';
 import {
   BARRIER_RED,
@@ -323,4 +324,7 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const lights: Light[] = [];
   dressWalls({ add }, d, plan, rng, (cityKit ??= makeCityKit()), lights, f => inHallWall(f));
   tools.pools(lights, 0.5);
+  // the boss room is the entrance lobby: its own things (after the rest, so the random numbers of the others go on as
+  // they did)
+  hallProps(plan, { add, d, pools: tools.pools }, rng);
 }
