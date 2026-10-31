@@ -17,7 +17,7 @@ OpenCode は、Claude が書いたタスク票（`.tasks/<番号>-<名前>.md`�
   - README.md・STYLE.md・CLAUDE.md・SPEC.md（`games/<game-id>/SPEC.md`）は、票で指定された範囲だけを読む
 - コードを書いたら `npm run format` で整える
 - 終わったら票の完了条件のコマンドを流す
-  - `npm test` は出力が長いので、ファイルに書いて末尾だけを見る: `npm test > "${TMPDIR:-/tmp}/test.log" 2>&1; tail -n 15 "${TMPDIR:-/tmp}/test.log"`。失敗したら `grep -n FAIL` で場所を探す
+  - `npm test` は出力が長いので、ファイルに書いて末尾だけを見る: `npm test > .tasks/test.log 2>&1; echo "exit=$?"; tail -n 15 .tasks/test.log`（`exit=0` で通った。ログは `.tasks/` の下に置き、確かめたら消す）。失敗したら `grep -n FAIL` で場所を探す
 - 結果は票と同じ名前で `.tasks/<番号>-<名前>.result.md` に書く（変えたファイル、完了条件それぞれの結果、決められなかったこと）
 
 ## やらないこと

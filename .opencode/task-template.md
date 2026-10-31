@@ -27,7 +27,7 @@
 
 - [ ] `npm run typecheck` が通る
 - [ ] `npm run lint` が通る
-- [ ] `npm test > "${TMPDIR:-/tmp}/test.log" 2>&1; tail -n 15 "${TMPDIR:-/tmp}/test.log"` で失敗が0件
+- [ ] `npm test > .tasks/test.log 2>&1; echo "exit=$?"; tail -n 15 .tasks/test.log` が `exit=0`。ログは確かめたら `rm .tasks/test.log` で消す
 - [ ] <このタスク固有の条件>
 
 ## 報告
