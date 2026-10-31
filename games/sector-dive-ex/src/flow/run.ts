@@ -3,7 +3,7 @@ import { clamp, el, isTouch, pick, randi, shuffle, yawToward } from '@engine/cor
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { musicVolume, setMusic } from '@engine/audio/music.ts';
-import { T, W, computeFlow, floorY, flowAt, tileCenter, tileCoord, tileIndex } from '@engine/world/tiles.ts';
+import { T, W, computeFlow, floorY, flowAt, isFloor, tileCenter, tileCoord, tileIndex } from '@engine/world/tiles.ts';
 import type { Room } from '@engine/world/dungeon.ts';
 import { banner, enterFs, isFullscreen, keepAwake, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
@@ -45,7 +45,7 @@ import {
 import { BUILDING_V, building, fitBuildingState, makeBuilding, setBuilding, unpackSeen } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal, makeTerminal } from '../world/portals.ts';
-import { bossAreaOn } from '../core/bossArea.ts';
+import { bossAreaOn, bossRoomBiome } from '../core/bossArea.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import {
@@ -238,10 +238,10 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
 // ---- the building: a depth is FLOORS floors joined by stairwells and lifts (world/building.ts) ----
 // the building of this depth: a new one when the run has none for this depth yet; built again from its seed when the
 // one in memory is another (a resumed run)
-function ensureBuilding(tier: number, b: Biome): BuildingState {
-  if (!run.bld || run.bld.tier !== tier) {
-    const seed = newSeed(),
-      boss = run.forceBoss || pick(b.bosses),
+function ensureBuilding(tier: number, b: Biome, roomBoss?: BossKind): BuildingState {
+  if (!run.bld || run.bld.tier !== tier || (roomBoss !== undefined && run.bld.boss !== roomBoss)) {
+    const seed = newSeed(), // keep newSeed first: the pinned snapshots ride on the order of the random calls
+      boss = roomBoss ?? (run.forceBoss || pick(b.bosses)),
       made = makeBuilding(b, boss, seed);
     setBuilding(made);
     run.bld = {
@@ -283,14 +283,30 @@ const arrivalTile = (n: number, floor: number): number => {
 // the player where they came in: the start room, or the end of the stairwell or lift they took (the top of the
 // stairs, or on the lift's platform)
 function placePlayerOnFloor(st: BuildingState) {
-  if (st.at < 0) [player.x, player.z] = roomSpot(level.rooms[level.startIdx]);
-  else {
+  if (st.at < 0) {
+    if (level.startIdx >= 0) [player.x, player.z] = roomSpot(level.rooms[level.startIdx]!);
+    else {
+      // the lowest floor has no start room: stand in the corridor outside the boss hall door
+      const h = level.hall!,
+        inside = [1, -1, W, -W].find(o => level.roomOf[h.door + o] === h.room);
+      if (inside === undefined) throw new Error('the boss hall door has no tile inside the hall');
+      const k = h.door - inside;
+      if (!isFloor(k % W, Math.floor(k / W))) throw new Error('the tile outside the boss hall door is not walkable');
+      player.x = tileCenter(k % W);
+      player.z = tileCenter(Math.floor(k / W));
+    }
+  } else {
     const k = arrivalTile(st.at, st.floor);
     player.x = tileCenter(k % W);
     player.z = tileCenter(Math.floor(k / W));
   }
-  player.yaw = 0;
   player.pitch = 0;
+  player.yaw = 0;
+  if (st.at < 0 && level.startIdx < 0) {
+    // face the door
+    const h = level.hall!;
+    player.yaw = yawToward(tileCenter(h.door % W) - player.x, tileCenter(Math.floor(h.door / W)) - player.z);
+  }
 }
 // what lives on a floor of the building: enemies in the rooms not cleared yet (none in the start room and the boss
 // room), and weapon caches on the first visit
@@ -365,8 +381,10 @@ export function startStage() {
     inBuilding = run.kind !== 'practice', // boss practice is a boss arena on its own, as in Sector Dive
     isArena = !inBuilding && isBossStage(run.stage),
     inArea = bossAreaOn() && inBuilding && si.area,
-    inHall = inArea && run.area?.at !== 'room',
-    b = inHall ? BIOMES[0] : si.biome;
+    place = inArea ? run.area : undefined,
+    room = place?.at === 'room' ? place : null,
+    inHall = inArea && !room,
+    b = room ? bossRoomBiome(room.boss) : inHall ? BIOMES[0] : si.biome;
   if (inHall) {
     run.area = { at: 'hall' };
     run.bld = undefined; // the hall is not a floor of a building
@@ -374,8 +392,13 @@ export function startStage() {
     run.stage = firstStageOf(si.tier); // a room's boss stage must not stay when the hall comes back
   } else if (inBuilding) {
     // a run is never resumed in the boss fight (the checkpoint is the floor's); a stage left at the boss is the lowest floor
-    const st = ensureBuilding(si.tier, b);
-    setFloor(st, st.floor);
+    const st = ensureBuilding(si.tier, b, room?.boss);
+    if (room) {
+      st.floor = building!.plans.length - 1; // the lowest floor: its hall is the boss room
+      st.step = building!.route.indexOf(st.floor);
+      st.at = -1; // the room starts at the hall door, not at the stairwell a resume came by
+      run.stage = bossStageOf(si.tier); // the room's boss has the depth's boss strength
+    } else setFloor(st, st.floor);
   }
   const fade = el('#fade');
   fade.style.transition = 'none';
@@ -390,7 +413,7 @@ export function startStage() {
       level: si.tier + 1,
       stage: inHall ? 0 : inBuilding ? run.bld!.step + 1 : si.sub + 1,
       stage_type: b.code,
-      stage_role: isArena ? 'boss' : 'normal',
+      stage_role: isArena || room ? 'boss' : 'normal',
       target: bossKind ?? '',
     });
   if (inHall) {
@@ -424,7 +447,7 @@ export function startStage() {
   banner(stageLabel(run.stage), inHall ? '' : inBuilding ? `${floorLabel()}　${b.name}` : b.name);
   const hintAt = run.stage,
     hint = b.hint;
-  if (!inHall && si.sub === 0 && hint)
+  if (!inHall && !room && si.sub === 0 && hint)
     setTimeout(() => {
       if (run && run.stage === hintAt && state === 'play') toast(hint, HINT_TOAST_MS);
     }, HINT_DELAY_MS);
