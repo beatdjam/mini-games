@@ -316,4 +316,4 @@ onDataClick(
   baseAction('sell', sellStashItem),
   baseAction('up', buyBaseUpgrade),
 );
-el('#btnStart').addEventListener('click', startRun);
+el('#btnStart').addEventListener('click', () => startRun(true));

@@ -1102,6 +1102,11 @@
   - 画面の文字が明るい壁に重なると読みにくい所がある（廃棄データ層）。画面を調整するときに直す
 - **はしごで上がる高台や塔**: 【未決】入れるか。はしごでしか上がれない場所は、近接の敵が来られず安全地帯になる
 - **ドアの開く音**: 【未決】入れるか。ドアは 7m 手前から開くので、鳴る回数が多い
+- **ボスエリア（開発中）**: 広間と8つのボス部屋
+  - 公開版では出ない（`bossAreaOn` in `src/core/bossArea.ts`。`import.meta.env.DEV` のときだけ有効）
+  - 深度: 新セーブは D50（0始まり 49）。既に D50 を超えているセーブは、最初の潜行の開始深度より深い次の節目。`save.records.bossArea.tier` に1回だけ確定する（`bossAreaTierFor`）
+  - ボス部屋のセクター: WATCHER→DATA、CRUSHER→FORGE、CORE→NOISE、PHANTOM→RUIN、TRINITY→KWLN、BASTION→CITY、HOIST→MALL、SURGEON→HOSP（`BOSS_ROOMS` in `src/data/bossRooms.ts`）
+  - 【未決】広間・部屋の作り、TITAN、関所
 
 ### 入れないと決めたもの
 
