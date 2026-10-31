@@ -8,11 +8,13 @@ import { camera, renderGun, renderer, scene } from '../render/render.ts';
 // - runSystems(dt, mode): run one step by hand (tests do this); startLoop(): begin.
 // - LOOP.maxFps: at most this many frames a second (0: as many as the screen shows). A screen faster than that skips
 //   its frames in between, so the frames are as many, and feel the same, in a heavy place and a light one.
+// - LOOP.draw: false draws nothing (the systems still run, and the screen is cleared once); true draws as usual.
 // - framesDrawn(): the frames drawn so far (what a frame counter counts: core/dev.ts showFps).
 export interface LoopConfig {
   mode(): string | null;
   maxDt: number;
   maxFps: number;
+  draw: boolean;
 }
 export interface SystemDef {
   name: string;
@@ -25,13 +27,14 @@ export interface System extends SystemDef {
   order: number;
   enabled: boolean;
 }
-export const LOOP: LoopConfig = { mode: () => null, maxDt: 0.05, maxFps: 0 };
+export const LOOP: LoopConfig = { mode: () => null, maxDt: 0.05, maxFps: 0, draw: true };
 // a frame of the screen this near its turn (ms) is drawn: the screen's frames do not come exactly on time
 const FRAME_SLACK = 1;
 export const systems: System[] = [];
 let frameStopped = false; // set by stopFrame(): the rest of this frame's systems are skipped
 let loopLast = 0; // time of the previous frame (ms)
 let loopDue = 0; // when the next frame is due, with LOOP.maxFps (ms)
+let clearedStill = false; // the screen was cleared once since LOOP.draw turned off
 let drawn = 0;
 export const framesDrawn = (): number => drawn;
 export function addSystem(s: SystemDef): System {
@@ -65,11 +68,20 @@ export function frameDue(now: number): boolean {
 export function loopFrame(now: number) {
   requestAnimationFrame(loopFrame);
   if (!frameDue(now)) return;
-  drawn++;
   const dt = Math.min(LOOP.maxDt, (now - loopLast) / 1000);
   loopLast = now;
   runSystems(dt);
   renderer.info.reset(); // (render.ts: the counts add up over this frame's passes)
+  if (!LOOP.draw) {
+    // nothing on screen is the game's: clear what was drawn last, once, and leave the screen alone after that
+    if (!clearedStill) {
+      renderer.clear();
+      clearedStill = true;
+    }
+    return;
+  }
+  clearedStill = false;
+  drawn++;
   renderer.render(scene, camera);
   renderGun();
 }

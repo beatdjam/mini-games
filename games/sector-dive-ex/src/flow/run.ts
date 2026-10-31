@@ -8,6 +8,7 @@ import type { Room } from '@engine/world/dungeon.ts';
 import { banner, enterFs, isFullscreen, keepAwake, toast } from '@engine/ui/ui.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
+import { LOOP } from '@engine/core/loop.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { PER, TUNE } from '../data/progress.ts';
@@ -69,6 +70,7 @@ import { checkpoint } from './suspend.ts';
 import { buildAttract } from './attract.ts';
 import { resetFloorEvents } from './events.ts';
 import { placeView } from './update.ts';
+import { hud2 } from '../ui/hud2.ts';
 
 // toast and timer lengths (ms)
 const FIRST_TOAST_MS = 4200; // the how-to-play toast shown when a run opens with no chips to pick
@@ -125,6 +127,7 @@ export function enterDive() {
 }
 // once the player and the run are set: menus away, the play UI and the weapons on screen, the stage built
 export function beginDive() {
+  LOOP.draw = true; // the base screen draws nothing in the new layout (attract.ts): a dive draws again
   show(null);
   setPlayUI(true);
   normalizeWeapons();
@@ -523,6 +526,7 @@ export function goBase() {
   setPlayUI(false);
   show('#scrBase');
   renderBase();
+  if (hud2) LOOP.draw = false; // the new base screen covers the screen: no 3D backdrop behind it (attract.ts)
   setMusic('BASE');
   musicVolume(1);
   buildAttract();
