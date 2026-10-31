@@ -72,9 +72,9 @@ exports[`sector CITY 1`] = `
   "first": {
     "at": "94,54",
     "enemies": "49:3a0d18a1",
-    "scene": "1132:fbfb6ae",
+    "scene": "1145:c0d02679",
   },
-  "last": "752:3cba2dcf",
+  "last": "765:b6926b8d",
 }
 `;
 
