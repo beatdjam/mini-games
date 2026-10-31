@@ -29,7 +29,7 @@ export function prepFeedback(kind: RunEnd) {
     .map(([n, c]) => (c > 1 ? `${n}x${c}` : n))
     .join(',');
   resultInfo = [
-    run.practice ? `practice=${run.forceBoss} result=${run.cleared ? 'won' : kind}` : `result=${kind}`,
+    run.kind === 'practice' ? `practice=${run.forceBoss} result=${run.cleared ? 'won' : kind}` : `result=${kind}`,
     `at=${stageLabel(run.stage)}`,
     `kills=${run.kills}`,
     `weapons=${player.weapons.concat(player.bag).filter(Boolean).map(wInfo).join(' / ')}`,

@@ -124,7 +124,7 @@ test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
   goBase();
   startRun();
   // an open boss arena without pillars (a run's own boss room is inside a building floor: as boss practice gets one)
-  run.practice = true;
+  run.kind = 'practice';
   run.t0 = performance.now();
   run.stage = PER - 1;
   run.forceBoss = 'trinity';
@@ -144,7 +144,7 @@ test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
   const shots = e.shots,
     [head, chest, legs] = e.parts!.map(q => q.p.y);
   run.forceBoss = undefined;
-  run.practice = false; // ends as the ordinary run it was started as
+  run.kind = 'dive'; // ends as the ordinary run it was started as
   endRun('abandon');
   goBase();
   if (shots !== 3 || !(head > chest && chest > legs))

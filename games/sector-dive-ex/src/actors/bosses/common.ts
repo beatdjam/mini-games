@@ -20,6 +20,7 @@ import { BOSS_POOL_SIDE } from '../../world/models/bosses/shared.ts';
 import { bossHullMat, groundPool } from '../../world/models/machine.ts';
 import { plainLooks } from '../../world/looks.ts';
 import { onBossDown } from '../../flow/events.ts';
+import { RUN_KINDS } from '../../flow/runKind.ts';
 import { makePortal, makeTerminal } from '../../world/portals.ts';
 import {
   addPickup,
@@ -258,8 +259,9 @@ const BOSS_SPAWNERS: Record<BossKind, () => void> = {
 let hintDue = false;
 // candidates per sector are listed in BIOMES[].bosses; each boss lives in src/actors/bosses/<name>.ts
 export function spawnBoss(kind: BossKind) {
-  hintDue = !!run.practice || !save.bossSeen[kind];
-  if (!run.practice && !save.bossSeen[kind]) {
+  const practice = run.kind === 'practice';
+  hintDue = practice || !save.bossSeen[kind];
+  if (!practice && !save.bossSeen[kind]) {
     recordBossSeen(kind);
     persist();
   } // practice doesn't count as an encounter
@@ -335,7 +337,7 @@ function recordBossProgress(tier: number) {
 export function bossDown(e: Boss) {
   e.onDown?.();
   clearBattle(e);
-  if (run.practice) {
+  if (!RUN_KINDS[run.kind].rewards) {
     // practice: no rewards, no progress; just a way home
     makePortal(e.cx, e.cz - 2, COLOR.cyan, 'extract', t('boss.toBase'));
     hideBossBar();

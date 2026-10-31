@@ -14,6 +14,7 @@ import { building, packSeen } from '../world/building.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
 import { onDataClick } from '@engine/ui/dom.ts';
 import { beginDive, endRun, enterDive, goBase } from './run.ts';
+import { RUN_KINDS } from './runKind.ts';
 
 // ---- suspend / resume ----
 // the snapshot keeps the run and the player's build; resuming regenerates the current stage from its start
@@ -38,9 +39,8 @@ const SNAP_SKIP = [
 ];
 // the optional run fields: only those can be left out of a checkpoint
 type RunSnapSkipped = { [K in keyof RunState]-?: undefined extends RunState[K] ? K : never }[keyof RunState];
-// run fields the checkpoint does not keep: a practice's own state and the flags a finished run sets
+// run fields the checkpoint does not keep: the ones only a practice uses, and the flags a finished run sets
 const RUN_SNAP_SKIP: RunSnapSkipped[] = [
-  'practice', // boss practice is never checkpointed (checkpoint() returns early)
   'forceBoss', // the boss a practice is for: practice is never checkpointed
   't0', // when a practice began: practice is never checkpointed
   'cleared', // set when a practice's boss goes down: practice is never checkpointed
@@ -67,7 +67,7 @@ function makeSnapshot() {
   };
 }
 export function checkpoint() {
-  if (!run || run.practice || !player) return;
+  if (!run || !RUN_KINDS[run.kind].save || !player) return;
   setSuspend(makeSnapshot());
   persist();
 }
@@ -84,6 +84,7 @@ const OLD_DMG_PER_POINT = 0.08;
 function restoreSnapshot(sn: Snapshot) {
   if (sn.P.lvlDmg === undefined) sn.P.dmgMul -= OLD_DMG_PER_POINT * (save.up.dmg || 0);
   setPlayer(Object.assign(newPlayer([basicW('pistol'), null]), sn.P));
+  sn.run.kind ??= 'dive'; // a checkpoint from before the run kinds is a dive (practice was never checkpointed)
   setRun(Object.assign({}, sn.run));
   run.perks = (run.perks || []).map(perkIdOf);
 }

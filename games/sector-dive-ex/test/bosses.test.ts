@@ -648,6 +648,15 @@ test('boss entrance: every boss appears where it starts to move (no jump once it
     endRun('abandon');
   });
 });
+test('run kind: a dive is a dive, a boss practice is a practice', () => {
+  startPractice('crusher', 0);
+  expect(run.kind, 'practice').toBe('practice');
+  endRun('abandon');
+  goBase();
+  startRun();
+  expect(run.kind, 'dive').toBe('dive');
+  endRun('abandon');
+});
 test('boss practice: fight, win, go home; the save does not change', () => {
   const before = JSON.stringify(save);
   BOSS_ORDER.forEach(kind => {
