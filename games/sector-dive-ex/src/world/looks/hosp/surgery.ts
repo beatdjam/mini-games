@@ -422,9 +422,9 @@ export const hospDoor =
     } else {
       // an ordinary door: a pale leaf with a wired-glass porthole and a long handle, a kick plate
       const leaf = g.createLinearGradient(0, 0, TEX, 0);
-      leaf.addColorStop(0, '#c8cdb5');
-      leaf.addColorStop(0.5, '#d4d8c0');
-      leaf.addColorStop(1, '#c0c5ad');
+      leaf.addColorStop(0, '#8e937f');
+      leaf.addColorStop(0.5, '#989d88');
+      leaf.addColorStop(1, '#878c78');
       g.fillStyle = leaf;
       g.fillRect(0, 0, TEX, TEX);
       g.fillStyle = STEEL_DARK;
