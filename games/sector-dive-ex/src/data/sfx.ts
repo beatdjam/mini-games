@@ -5,7 +5,7 @@ import { SFX, audioNow, gunshot, noiseBurst, sweepTone, tone } from '@engine/aud
 // ---- the sounds of the field kit (2026-10-18): the beeps and little tunes of the old set were a game's sounds, out of
 // place in an abandoned site. What the player handles sounds like hardware (clicks, latches, a slide racked, a hiss),
 // what happens around them like the building (a door slamming shut, a low hum). The guns, the blasts, the dash, the
-// beam and the dry fire stay as they were. ?sfx1 plays the old set (dev: to compare); #sfx lists them all (src/dev/dev.ts)
+// beam and the dry fire stay as they were. ?sfx1 plays the old set (dev: to compare); #sfx lists them all (src/dev/views/sfx.ts)
 export const sfxOld = new URLSearchParams(location.search).has('sfx1');
 
 // the same in both sets
