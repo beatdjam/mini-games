@@ -146,20 +146,16 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     plank: paint(1124, plankPaint),
   };
   const shared = ruinShared,
-    tools = propTools(plan, group, RUIN_PROPS, rng),
-    { d, wallOf, add } = tools;
+    tools = propTools(plan, group, RUIN_PROPS, rng, {
+      first: RUIN_ROOM_WALLS.plain,
+      pics: { count: RUIN_ALL_WALLS, sides: RUIN_WALL_SIDES, rooms: RUIN_ROOM_WALLS },
+    }),
+    { d, wallOf, add, inHallWall, inHallRoom } = tools;
   // the picture on the wall a wall slot is on
   const pictureOf = (s: WallSlot) => wallPic(d, wallOf(s), { count: RUIN_WALLS, sides: RUIN_WALL_SIDES });
-  // The collapsed hall (the boss room) has its own things (hallProps.ts), so what hangs on the walls here is left out on
-  // the walls that have the hall's pictures (on both sides of them). The dice are thrown all the same, so the rest of the
-  // floor comes out as it did
-  const inHall = (s: WallSlot): boolean =>
-    wallPic(d, wallOf(s), { count: RUIN_ALL_WALLS, sides: RUIN_WALL_SIDES, rooms: RUIN_ROOM_WALLS }) >= RUIN_WALLS;
   // (nothing hangs where the ceiling is open, nor from the boss room's ceiling: it is higher than the others)
   const of = (id: string) =>
-    tools
-      .of(id)
-      .filter(s => s.kind === 'wall' || (!plan.noCeil[s.j * d.W + s.i] && (!plan.hall || s.room !== plan.hall.room)));
+    tools.of(id).filter(s => s.kind === 'wall' || (!plan.noCeil[s.j * d.W + s.i] && !inHallRoom(s)));
   const daylight: THREE.Matrix4[] = [];
 
   // ivy: a sheet of leaves hanging from the top of the wall, a little in front of it (not over a window or the board)
@@ -170,7 +166,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     vines.flatMap(s => {
       const flip = rng.next() < 0.5 ? -1 : 1,
         at = onWall(s, rng.rand(-1.1, 1.1), VINE.out, WALL_H - VINE.h / 2);
-      return inHall(s) ? [] : [pose(at, facing(s), new THREE.Vector3(flip, 1, 1))];
+      return inHallWall(s) ? [] : [pose(at, facing(s), new THREE.Vector3(flip, 1, 1))];
     }),
   );
 
@@ -183,7 +179,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       y = rng.rand(SHELF.y[0]!, SHELF.y[1]!),
       roll = rng.rand(SHELF.tilt[0]!, SHELF.tilt[1]!) * (rng.next() < 0.5 ? -1 : 1),
       turn = facing(s);
-    if (inHall(s)) return;
+    if (inHallWall(s)) return;
     plank.push(pose(onWall(s, off, SHELF.deep / 2 + 0.02, y), turn, FULL_SIZE, roll));
     bracket.push(pose(onWall(s, off, SHELF.deep / 2 + 0.02, y - 0.14), turn));
   });
@@ -205,7 +201,7 @@ export function ruinProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       y = rng.rand(LAMP.y[0]!, LAMP.y[1]!),
       roll = rng.rand(LAMP.tilt[0]!, LAMP.tilt[1]!) * (rng.next() < 0.5 ? -1 : 1),
       turn = facing(s);
-    if (inHall(s)) return;
+    if (inHallWall(s)) return;
     plate.push(pose(onWall(s, off, 0.03, y), turn));
     body.push(pose(onWall(s, off, 0.1, y), turn, FULL_SIZE, roll));
     tube.push(pose(onWall(s, off, 0.19, y), turn, FULL_SIZE, roll));

@@ -13,7 +13,8 @@ import { damageScaleAt, difficultyAt } from '../core/stages.ts';
 import { level, roomSpot, stashedRoomCount } from '../world/level.ts';
 import { lockdownAhead, markClearedOn, onRoomCleared } from '../flow/events.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
-import { BOSS_BITS, BOSS_BITS_KEPT, bossDifficulty, bossDown, bossPhase, isEnraged } from './bosses/common.ts';
+import { BOSS_TUNE } from '../data/bosses.ts';
+import { bossDifficulty, bossDown, checkPhase } from './bosses/common.ts';
 import { screenFx, hitDirection, hitMark } from '../ui/hud.ts';
 import { endRun } from '../flow/run.ts';
 import { state } from '../flow/state.ts';
@@ -49,14 +50,14 @@ const BOMBER_DEATH_DMG = 0.6; // share of its damage when a bomber is shot dead
 // kills and rewards
 const KILL_BITS_MUL = 0.6; // share of an enemy's bits dropped
 const KILL_BITS_PER_PROG = 0.05; // more bits per progress
-// the share of the boss's bits its depth's enemies drop (bosses/common.ts BOSS_BITS_KEPT): spread over about the kills
+// the share of the boss's bits its depth's enemies drop (BOSS_TUNE.bitsKept): spread over about the kills
 // of a depth walked room by room (sim, explorer: some 175), each enemy by its own `bits` against the average one's
 const KILLS_PER_DEPTH = 175,
   AVG_ENEMY_BITS = 5;
 const killBits = (e: RegularEnemy): number =>
   e.def.bits *
   (KILL_BITS_MUL * (1 + progressOf(run.stage) * KILL_BITS_PER_PROG) +
-    ((1 - BOSS_BITS_KEPT) * BOSS_BITS * bossDifficulty()) / (KILLS_PER_DEPTH * AVG_ENEMY_BITS));
+    ((1 - BOSS_TUNE.bitsKept) * BOSS_TUNE.bits * bossDifficulty()) / (KILLS_PER_DEPTH * AVG_ENEMY_BITS));
 const KIT_DROP_SPREAD = 0.5; // a dropped kit lands this far from the enemy (m)
 const CHAIN_R_BASE = 2.5,
   CHAIN_R_PER = 0.5, // chain blast radius: base + per chip (m)
@@ -89,15 +90,10 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
     burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, 0xffffff, 2, 3, 0.2);
     return;
   }
-  if (e.invuln) {
-    if (!e.hinted) {
-      e.hinted = true;
-      toast(t('run.shielded'), 2400);
-    }
-    burst(e.mesh.position.x, e.mesh.position.y, e.mesh.position.z, COLOR.shield, 2, 4, 0.2);
-    return;
-  }
-  const dealt = e.stunMul ? dmg * e.stunMul : dmg;
+  // a boss with its own rule for hits (BASTION's shield) says what the hit does; 0 = nothing got through
+  const own = e.boss ? e.hit?.(dmg, isCrit) : undefined,
+    dealt = own ?? (e.stunMul ? dmg * e.stunMul : dmg);
+  if (own === 0) return;
   e.hp -= dealt;
   e.flash = ENEMY_FLASH;
   if (!e.active) {
@@ -110,7 +106,7 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
   hitMark(isCrit);
   sfx('hit', 45);
   if (e.hp <= 0) killEnemy(e);
-  else if (e.boss && !e.phased && !e.aloft && isEnraged(e)) bossPhase(e);
+  else if (e.boss) checkPhase(e);
 }
 // push an enemy dist metres straight away from (fromX, fromZ), stopping at walls. One that never moves (a turret,
 // BASTION's turrets: bolted to the floor) stays where it is

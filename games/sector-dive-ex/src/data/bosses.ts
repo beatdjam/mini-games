@@ -1,9 +1,31 @@
 import type { BossKind, BossMeta } from './types.ts';
+import type { WatcherTune } from '../actors/bosses/watcher.ts';
+import type { CrusherTune } from '../actors/bosses/crusher.ts';
+import type { CoreTune } from '../actors/bosses/core.ts';
+import type { PhantomTune } from '../actors/bosses/phantom.ts';
+import type { TrinityTune } from '../actors/bosses/trinity.ts';
+import type { BastionTune } from '../actors/bosses/bastion.ts';
+import type { HoistTune } from '../actors/bosses/hoist.ts';
+import type { SurgeonTune } from '../actors/bosses/surgeon.ts';
 import { withLang } from '@engine/core/langslots.ts';
 // Bosses: names, order, tuning (each boss's behaviour is in src/actors/bosses/)
 // pillars: arena has pillars. hp: health at difficulty 1 (times bossDifficulty). y: body height. hitR: hit radius.
 // tune: the numbers each boss's attacks use (src/actors/bosses/<name>.ts). *Enr = the value once below half health (enraged).
 // Shots: [count, spread, speed] for fans, [count, speed] for rings, waves: [radius, speed, damage multiplier]. Times in seconds.
+// each boss's numbers, as its own file reads them (the types are in src/actors/bosses/<name>.ts)
+export interface BossTunes {
+  watcher: WatcherTune;
+  crusher: CrusherTune;
+  core: CoreTune;
+  phantom: PhantomTune;
+  trinity: TrinityTune;
+  bastion: BastionTune;
+  hoist: HoistTune;
+  surgeon: SurgeonTune;
+}
+type BossMetas = { [K in BossKind]: Omit<BossMeta, 'tune'> & { tune: BossTunes[K] } };
+// (withLang gives the whole table one type: every tune would be Record<string, any>. Each tune is checked where it
+// is written (satisfies), so this puts its kind's type back for the code that reads it)
 export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc', BossKind>(
   {
     watcher: {
@@ -34,7 +56,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         spiralArms: 2,
         spiralArmsEnr: 3,
         spiralSpeed: 9,
-      },
+      } satisfies WatcherTune,
     },
     crusher: {
       pillars: true,
@@ -71,7 +93,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         volleyNEnr: 9,
         volleySpeed: 6,
         afterVolley: 1.4,
-      },
+      } satisfies CrusherTune,
     },
     core: {
       pillars: false,
@@ -99,7 +121,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         minionsEnr: 3,
         burstN: 5,
         burstSpeed: 5,
-      },
+      } satisfies CoreTune,
     },
     phantom: {
       pillars: true,
@@ -128,7 +150,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         droneEvery: 3,
         droneCap: 2,
         drones: 2,
-      },
+      } satisfies PhantomTune,
     },
     trinity: {
       pillars: false,
@@ -152,7 +174,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         ramDur: 1.4,
         ramEvery: 3.2,
         ramDmg: 2,
-      },
+      } satisfies TrinityTune,
     },
     bastion: {
       pillars: false,
@@ -172,7 +194,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         ringEveryOpen: 2,
         enrShots: 3,
         enrSpeed: 5,
-      },
+      } satisfies BastionTune,
     },
     hoist: {
       pillars: false,
@@ -203,7 +225,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         gunNEnr: 5,
         gunSpread: 0.18, // the fan's width (rad)
         gunSpeed: 15, // m/s
-      },
+      } satisfies HoistTune,
     },
     surgeon: {
       pillars: false,
@@ -244,11 +266,11 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         medics: 2, // repair drones called in the second phase
         minionCap: 4, // minions alive at once, not counting the arms
         wreckG: 35, // what falls when it is down falls at this (m/s^2)
-      },
+      } satisfies SurgeonTune,
     },
   },
   { name: '', title: '', short: '', desc: '' },
-);
+) as BossMetas;
 // the bosses in the order BOSS_META lists them (the base's practice list, the dev views). (Object.keys gives strings:
 // they are the keys of a Record<BossKind, ...>)
 export const BOSS_ORDER = Object.keys(BOSS_META) as BossKind[];
@@ -261,4 +283,12 @@ export const BOSS_TUNE = {
   // stuck at a milestone was nearly always stopped by its boss)
   introTime: 2.0, // seconds a boss takes to appear (invulnerable, name shown)
   phaseTime: 1.2, // seconds of invulnerability when it drops below half health
+  // the shares of its own health at which a boss changes phase, in order: below the first is the second phase
+  // (today one boundary: the second phase below half)
+  phases: [0.5],
+  patternCount: 3, // attack patterns a boss with a pat / pt clock cycles through (nextPattern's default)
+  // bits a boss is worth before the bossDifficulty multiplier: it drops bitsKept of them and the rest come from
+  // its depth's enemies (actors/combat.ts killBits)
+  bits: 45,
+  bitsKept: 0.4,
 };

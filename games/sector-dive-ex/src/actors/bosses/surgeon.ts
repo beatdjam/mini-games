@@ -189,6 +189,42 @@ type SurgeonBoss = Boss & {
   padPulse: Fill;
   shock: { mesh: Fill; t: number; x: number; z: number };
 };
+// the numbers SURGEON's behaviour reads (BOSS_META.surgeon.tune)
+export interface SurgeonTune {
+  turn: number;
+  first: number;
+  gap: number;
+  gapEnr: number;
+  armHp: number;
+  armR: number;
+  armY: number;
+  armEase: number;
+  armGrow: number;
+  scalpelWarn: number;
+  scalpelSweep: number;
+  scalpelArc: number;
+  scalpelLock: number;
+  scalpelDmg: number;
+  scalpelW: number;
+  scalpelReach: number;
+  scalpelMin: number;
+  needleN: number;
+  needleNEnr: number;
+  needleStep: number;
+  needleSpeed: number;
+  needleSize: number;
+  needleWind: number;
+  clampR: number;
+  clampWarn: number;
+  clampTrack: number;
+  clampDmg: number;
+  clampHold: number;
+  ringN: number;
+  ringSpeed: number;
+  medics: number;
+  minionCap: number;
+  wreckG: number;
+}
 // a unit box (scaled to a bar by the caller), hidden until it is used
 function bar(mat: THREE.MeshBasicMaterial): Fill {
   const m: Fill = new THREE.Mesh(boxUnit, mat);

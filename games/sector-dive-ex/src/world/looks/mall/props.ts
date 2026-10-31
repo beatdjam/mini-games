@@ -184,7 +184,7 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   mallShared ??= { directions: MALL_DIRECTIONS.map(directionTex), banner: bannerTex() };
   const shared = mallShared,
     tools = propTools(plan, group, MALL_PROPS, rng),
-    { d, wallOf, add } = tools,
+    { d, wallOf, add, inHallRoom, hallRoom } = tools,
     pictureOf = (wall: number) =>
       wallPic(d, wall, {
         count: MALL_WALL_PICS.length,
@@ -195,8 +195,7 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
       });
   // (no ceiling where it is open to the sky; none in the boss room: its ceiling is twice as high, and a fitting at the
   // usual height would hang in the air)
-  const bossRoom = plan.hall ? plan.hall.room : null,
-    overhead = (id: string) => tools.of(id).filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom),
+  const overhead = (id: string) => tools.of(id).filter(s => !plan.noCeil[s.j * d.W + s.i] && !inHallRoom(s)),
     lights: Light[] = [];
 
   // direction signs: a board on two rods, one of the sorts at random, across or along the way. Over a deck they are
@@ -388,7 +387,7 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const court: THREE.Matrix4[] = [],
     courtRods: THREE.Matrix4[] = [];
   d.rooms.forEach((r, n) => {
-    if (roomKindOf(d.maps.grid, n) !== KIND_FOOD || n === bossRoom) return;
+    if (roomKindOf(d.maps.grid, n) !== KIND_FOOD || n === hallRoom) return;
     const i = Math.floor(r.x + r.w / 2),
       j = Math.floor(r.y + r.h / 2);
     if (plan.noCeil[j * d.W + i]) return;
