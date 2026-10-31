@@ -133,7 +133,7 @@ export function hallProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd' | 
     { add, d, pools } = tools,
     lights: Light[] = [],
     { open, pictureOf } = hallSurround(plan, d, wall =>
-      wallPic(d, wall, KWLN_ALL_WALLS, KWLN_LANE_WALLS, undefined, KWLN_ROOM_WALLS),
+      wallPic(d, wall, { count: KWLN_ALL_WALLS, laneWalls: KWLN_LANE_WALLS, rooms: KWLN_ROOM_WALLS }),
     ),
     edges = open.filter(f => f.edge),
     shrines = edges.filter(f => KWLN_HALL_SHRINE_WALLS.includes(pictureOf(f))),

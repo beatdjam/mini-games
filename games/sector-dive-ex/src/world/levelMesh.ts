@@ -10,7 +10,7 @@ import { biomeTex } from './render.ts';
 import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
-import { facesWest, floorPic, lookOf, wallHall, wallKinds, wallPic } from './looks.ts';
+import { facesWest, floorPic, lookOf, wallHall, wallKinds, wallPic, wallPicsOf } from './looks.ts';
 import type { FloorPlan } from './building.ts';
 import {
   addCeiling,
@@ -123,6 +123,7 @@ export function buildFloorMeshes(
       );
     };
   if (look) {
+    const pics = wallPicsOf(look);
     // (what kind each room is, for the walls and floors of a look whose rooms have kinds)
     if (look.roomKinds) wallKinds.set(plan.gen.maps.grid, look.roomKinds(plan));
     if (plan.hall) wallHall.set(plan.gen.maps.grid, plan.hall.room);
@@ -133,18 +134,7 @@ export function buildFloorMeshes(
       ),
     );
     look.walls.forEach((map, v) => {
-      const mine = walls.filter(
-          ([i, j]) =>
-            wallPic(
-              plan.gen,
-              j * W + i,
-              look.walls.length,
-              look.laneWalls,
-              look.wallSides,
-              look.roomWalls,
-              look.liftWalls,
-            ) === v,
-        ),
+      const mine = walls.filter(([i, j]) => wallPic(plan.gen, j * W + i, pics) === v),
         dusk = look.shadedWalls?.[v];
       // (a picture with a shaded one: as it is where it faces west, the shaded one elsewhere)
       wallBoxes(map, dusk ? mine.filter(([i, j]) => facesWest(plan.gen, j * W + i)) : mine);
@@ -160,10 +150,7 @@ export function buildFloorMeshes(
       const faces: WindowFace[] = [];
       for (const [i, j] of walls) {
         const k = j * W + i,
-          rects =
-            outside.panes[
-              wallPic(plan.gen, k, look.walls.length, look.laneWalls, look.wallSides, look.roomWalls, look.liftWalls)
-            ];
+          rects = outside.panes[wallPic(plan.gen, k, pics)];
         if (!rects) continue;
         for (const [di, dj] of floorSides(plan.gen, k)) {
           const into = plan.court?.open && plan.court.tiles.includes((j - dj) * W + i - di) ? yardInto(di, dj) : 0;

@@ -121,7 +121,7 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const bossRoom = plan.hall ? plan.hall.room : null,
     inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
       s.room === bossRoom ||
-      wallPic(d, wallOf(s), DATA_ALL_WALLS, undefined, undefined, DATA_ROOM_WALLS) >= DATA_WALLS.length;
+      wallPic(d, wallOf(s), { count: DATA_ALL_WALLS, rooms: DATA_ROOM_WALLS }) >= DATA_WALLS.length;
 
   // cable ladders: two rails and their rungs on brackets, the cables lying on them, a box at each end where the
   // cables go into the wall

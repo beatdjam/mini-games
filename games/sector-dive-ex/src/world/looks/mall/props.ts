@@ -186,7 +186,13 @@ export function mallProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     tools = propTools(plan, group, MALL_PROPS, rng),
     { d, wallOf, add } = tools,
     pictureOf = (wall: number) =>
-      wallPic(d, wall, MALL_WALL_PICS.length, MALL_LANE_WALLS, MALL_WALL_SIDES, MALL_ROOM_WALLS, MALL_LIFT_WALLS);
+      wallPic(d, wall, {
+        count: MALL_WALL_PICS.length,
+        laneWalls: MALL_LANE_WALLS,
+        sides: MALL_WALL_SIDES,
+        rooms: MALL_ROOM_WALLS,
+        liftWalls: MALL_LIFT_WALLS,
+      });
   // (no ceiling where it is open to the sky; none in the boss room: its ceiling is twice as high, and a fitting at the
   // usual height would hang in the air)
   const bossRoom = plan.hall ? plan.hall.room : null,

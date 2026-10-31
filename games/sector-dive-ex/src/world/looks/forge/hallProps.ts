@@ -153,7 +153,7 @@ export function hallProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd' | 
     { add, d, pools } = tools,
     lights: Light[] = [],
     { open, pictureOf } = hallSurround(plan, d, wall =>
-      wallPic(d, wall, FORGE_ALL_WALLS, undefined, undefined, FORGE_ROOM_WALLS, undefined),
+      wallPic(d, wall, { count: FORGE_ALL_WALLS, rooms: FORGE_ROOM_WALLS }),
     ),
     edges = open.filter(f => f.edge),
     mouths = edges.filter(f => FORGE_HALL_MOUTH_WALLS.includes(pictureOf(f))),

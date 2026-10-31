@@ -87,7 +87,7 @@ export function hallProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd' | 
     { add, d, pools } = tools,
     lights: Light[] = [],
     { open, pictureOf } = hallSurround(plan, d, wall =>
-      wallPic(d, wall, NOISE_ALL_WALLS, undefined, undefined, NOISE_ROOM_WALLS),
+      wallPic(d, wall, { count: NOISE_ALL_WALLS, rooms: NOISE_ROOM_WALLS }),
     ),
     edges = open.filter(f => f.edge),
     cabinets = edges.filter(f => NOISE_HALL_CABINET_WALLS.includes(pictureOf(f))),

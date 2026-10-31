@@ -128,7 +128,7 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   const bossRoom = plan.hall ? plan.hall.room : null,
     inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
       s.room === bossRoom ||
-      wallPic(d, wallOf(s), FORGE_ALL_WALLS, undefined, undefined, FORGE_ROOM_WALLS) >= FORGE_WALL_PICS.length;
+      wallPic(d, wallOf(s), { count: FORGE_ALL_WALLS, rooms: FORGE_ROOM_WALLS }) >= FORGE_WALL_PICS.length;
 
   // mains: a thick pipe along the wall under the roof, turning into the wall at both ends
   const mains = of('main'),

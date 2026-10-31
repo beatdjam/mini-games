@@ -232,7 +232,8 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   // (null on a floor without one: -1, the number the alleys have, would leave them all out)
   const bossRoom = plan.hall ? plan.hall.room : null,
     inHallWall = (wall: number): boolean =>
-      wallPic(d, wall, KWLN_ALL_WALLS, KWLN_LANE_WALLS, undefined, KWLN_ROOM_WALLS) >= KWLN_WALL_PICS.length,
+      wallPic(d, wall, { count: KWLN_ALL_WALLS, laneWalls: KWLN_LANE_WALLS, rooms: KWLN_ROOM_WALLS }) >=
+      KWLN_WALL_PICS.length,
     hidden = (s: WallSlot & { room?: number }): boolean => s.room === bossRoom || inHallWall(wallOf(s));
 
   // a board over every shutter that faces a floor tile (most of them): the shop's name
@@ -244,7 +245,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         const wall = (j + dj) * d.W + i + di;
         if (d.maps.grid[wall] || plan.voids[wall]) return;
         if (
-          wallPic(d, wall, KWLN_WALL_PICS.length, KWLN_LANE_WALLS) === KWLN_SHUTTER &&
+          wallPic(d, wall, { count: KWLN_WALL_PICS.length, laneWalls: KWLN_LANE_WALLS }) === KWLN_SHUTTER &&
           rng.next() < BOARD.chance &&
           !inHallWall(wall)
         )
@@ -379,7 +380,7 @@ export function kwlnProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     // (nor by a deck or a walkway: what stands on the ground there would be half in it)
     bare = (f: WallSlot): boolean => {
       const [di, dj] = SIDE_STEP[f.side ?? 0]!,
-        v = wallPic(d, (f.j + dj) * d.W + f.i + di, KWLN_WALL_PICS.length, KWLN_LANE_WALLS);
+        v = wallPic(d, (f.j + dj) * d.W + f.i + di, { count: KWLN_WALL_PICS.length, laneWalls: KWLN_LANE_WALLS });
       return (v === 0 || v === KWLN_WALL_PICS.length - 1) && !raised(d, f);
     },
     stalls = faces.filter((f, n) => bare(f) && !byDoor(f) && low[n]! < (inLane(f) ? 0.18 : 0.3)),
