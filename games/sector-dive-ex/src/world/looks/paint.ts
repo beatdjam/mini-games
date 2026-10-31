@@ -18,6 +18,29 @@ export const WALL_ASPECT = T / WALL_H;
 export const DOOR_ASPECT = T / 2 / WALL_H; // ... and a door leaf's picture
 // the signs and plates written in Japanese are drawn with whatever face the device has (the words: src/i18n/signs.ts)
 export const SIGN_FONT = '"Hiragino Sans","Noto Sans JP","Noto Sans CJK JP","Yu Gothic","Meiryo",sans-serif';
+// the picture of a room's name board, px (the mall's shops, the hospital's departments)
+export const NAME_BOARD_PX = [384, 64] as const;
+// a picture made once for each key and kept (the name boards: the same name is painted once)
+export function cachedTex(
+  cache: Map<string, THREE.CanvasTexture>,
+  key: string,
+  make: () => THREE.CanvasTexture,
+): THREE.CanvasTexture {
+  let tex = cache.get(key);
+  if (!tex) {
+    tex = make();
+    cache.set(key, tex);
+  }
+  return tex;
+}
+// the name on a room's board, centred in what is right of `from` px, in the face the signs are written in
+export const boardName = (g: CanvasRenderingContext2D, name: string, color: string, from: number) => {
+  g.fillStyle = color;
+  g.font = `700 36px ${SIGN_FONT}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(name, from + (NAME_BOARD_PX[0] - from) / 2, NAME_BOARD_PX[1] / 2 + 2, NAME_BOARD_PX[0] - from - 30);
+};
 
 export type { Paint } from '@engine/render/paint.ts';
 export { block, canvasTex, oval, poolTex, soil, stripes } from '@engine/render/paint.ts';

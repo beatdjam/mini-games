@@ -7,7 +7,7 @@ import type { FloorPlan } from '../../building.ts';
 import { wallPic } from '../common.ts';
 import { hallSurround } from '../hallFaces.ts';
 import { canvasTex } from '../paint.ts';
-import { facing, onWall, pose } from '../props.ts';
+import { facing, hallLine, onWall, pose } from '../props.ts';
 import type { Light, PropTools } from '../props.ts';
 import { seeded } from '../cutoutTools.ts';
 import { DRUM as DRUM_PAINTS, chainsTex } from './cutouts.ts';
@@ -166,11 +166,7 @@ export function hallProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd' | 
     dark = flat(IRON_DARK);
 
   // ---- the worn yellow line along every wall and round every pillar ----
-  add(
-    new THREE.BoxGeometry(T + LINE.w, LINE.thick, LINE.w),
-    flat(LINE.color),
-    open.map(f => pose(onWall(f, 0, LINE.out, LINE.y), facing(f))),
-  );
+  hallLine(add, open, LINE);
 
   // ---- the furnaces: the trough along the wall, a hood and a duct, the light, the sparks ----
   const bodies: THREE.Matrix4[] = [],

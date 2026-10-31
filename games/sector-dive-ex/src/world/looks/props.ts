@@ -61,6 +61,19 @@ export const FULL_SIZE = new THREE.Vector3(1, 1, 1); // a copy that is not scale
 // one copy of a part: a place, a turn about the upright and a scale; `roll` then tips the thing along its wall
 export const pose = (pos: THREE.Vector3, turn = 0, scale = FULL_SIZE, roll = 0): THREE.Matrix4 =>
   new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromEuler(new THREE.Euler(0, turn, roll, 'YXZ')), scale);
+// the worn yellow line along the walls of a boss room (data/hallProps.ts, forge/hallProps.ts, mall/dockProps.ts):
+// a box a tile long and `w` wide along every open face, its distance from the wall and its colour from the
+// sector's `LINE`
+export const hallLine = (
+  add: PropTools['add'],
+  open: readonly WallSlot[],
+  line: { w: number; thick: number; y: number; out: number; color: number },
+) =>
+  add(
+    new THREE.BoxGeometry(T + line.w, line.thick, line.w),
+    new THREE.MeshBasicMaterial({ color: line.color }),
+    open.map(f => pose(onWall(f, 0, line.out, line.y), facing(f))),
+  );
 
 // light thrown on a surface: a picture (a pool, a patch of sun) added to what is behind it; color = its tint (none:
 // each copy has its own)

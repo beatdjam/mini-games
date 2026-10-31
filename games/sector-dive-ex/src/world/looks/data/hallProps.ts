@@ -8,7 +8,7 @@ import { wallPic } from '../common.ts';
 import { hallSurround } from '../hallFaces.ts';
 import type { HallFace } from '../hallFaces.ts';
 import { canvasTex, oval } from '../paint.ts';
-import { facing, onWall, pose } from '../props.ts';
+import { facing, hallLine, onWall, pose } from '../props.ts';
 import type { Light, PropTools } from '../props.ts';
 import { DATA_ALL_WALLS, DATA_HALL_PLAIN_WALLS, DATA_HALL_RACK_WALLS, DATA_ROOM_WALLS } from './pictures.ts';
 import {
@@ -138,11 +138,7 @@ export function hallProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd' | 
     taken = new Set<HallFace>();
 
   // ---- the yellow line along every wall and round every pillar ----
-  add(
-    new THREE.BoxGeometry(T + LINE.w, LINE.thick, LINE.w),
-    flat(LINE.color),
-    open.map(f => pose(onWall(f, 0, LINE.out, LINE.y), facing(f))),
-  );
+  hallLine(add, open, LINE);
 
   // ---- cable ladders from the floor to the ceiling, with cables lying up them ----
   const rails: THREE.Matrix4[] = [],
