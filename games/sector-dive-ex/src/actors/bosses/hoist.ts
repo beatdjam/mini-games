@@ -13,10 +13,9 @@ import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
 import { clamp, distXZ, rand } from '@engine/core/util.ts';
 import { sfx } from '@engine/audio/audio.ts';
-import { disposeTree, dynGroup, shared } from '@engine/render/render.ts';
+import { disposeTree, dynGroup } from '@engine/render/render.ts';
 import { burst } from '@engine/render/fx.ts';
 import { spawn } from '@engine/core/world.ts';
-import type { WorldObject } from '@engine/core/world.ts';
 import { floorY, moveCircle, T } from '@engine/world/tiles.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { HALL_H } from '../../data/level.ts';
@@ -30,12 +29,15 @@ import {
   bossMaterial,
   createBoss,
   isEnraged,
+  LAND_DY,
   minionCount,
   nextPattern,
   spawnMinion,
   wireOutline,
 } from './common.ts';
 import type { BossVisual } from './common.ts';
+import { additive, dropWreck, layBeam, ringGeo, warningPad } from './fx.ts';
+import type { Fill, WarningPad } from './fx.ts';
 import { screenFx } from '../../ui/hud.ts';
 // HOIST: the loading dock's overhead crane. A trolley on a bridge on two rails trails the player along the ceiling, and
 // the magnet on its wire is what is shot. Two attacks: it hangs a load over the spot and lets it fall after a shadow
@@ -47,11 +49,9 @@ const RAIL_MARGIN = 2; // the rails run this far inside the walls (m)
 const TROLLEY_MARGIN = 4; // the trolley stays this far from the walls (m)
 const SHADOW_OPACITY: [number, number] = [0.15, 0.85]; // the shadow's fill, from the load appearing to its fall
 const RIM_OPACITY = 0.8;
-const RIM_BLINK = 0.75; // the rim blinks over the last quarter of the warning
 const SHADOW_LIFT = 0.06; // the shadow floats this far above the floor (m)
 const CARGO_GAP = 0.2; // between the magnet's face and the load's top (m)
 const CARGO_IN = 0.25; // the load appears over this long (s)
-const LAND_DY = 1.5; // the load crushes a player whose feet are this close to the floor it lands on (m)
 const CRAWLER_OUT = 1.6; // the crawlers come out this far from where the load broke (m)
 const PULL_STOP = 0.5; // the pull stops this near the magnet (m)
 const PULL_SHAKE = 0.1; // the screen shakes this much while it pulls
@@ -71,16 +71,12 @@ const RING_RATE = 1.1; // ... and this many times a second
 const RING_OPACITY = 0.6;
 const SMOKE = PAINT.grey3; // the dust of a landing
 const WRECK_TILT = 0.12; // the fallen magnet lies this far over (rad)
-const UP = new THREE.Vector3(0, 1, 0);
-const ringGeo = shared(new THREE.RingGeometry(0.93, 1, 48).rotateX(-Math.PI / 2));
-const discGeo = shared(new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2));
 
-type Fill = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
 // the load hanging or falling: g its picture, shadow the ring on the floor (fill and rim); x / z / floor where it lands;
 // y its middle's height; vy how fast it falls (m/s); color the dust of its breaking
 interface Cargo {
   g: THREE.Group;
-  shadow: THREE.Group;
+  shadow: WarningPad;
   fill: Fill;
   rim: Fill;
   x: number;
@@ -134,14 +130,6 @@ export interface HoistTune {
   gunSpread: number;
   gunSpeed: number;
 }
-const additive = (color: number, opacity: number): THREE.MeshBasicMaterial =>
-  new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
 // the magnet's body, with the looks or without
 function magnetBody(mat: THREE.MeshLambertMaterial, coil: THREE.Material, sector: string): THREE.Group {
   if (!plainLooks()) return hoistMagnet(mat, coil, sector === 'MALL' ? 'mall' : 'forge');
@@ -225,28 +213,22 @@ function hang(e: HoistBoss) {
     kind = e.patIdx % 2,
     g = hoistCargo(kind),
     floor = floorY(e.x, e.z),
-    shadow = new THREE.Group(),
-    fill: Fill = new THREE.Mesh(
-      discGeo,
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false }),
-    ),
-    rim: Fill = new THREE.Mesh(
-      ringGeo,
-      new THREE.MeshBasicMaterial({ color: PAINT.amber2, transparent: true, opacity: 0, depthWrite: false }),
-    );
+    shadow = warningPad({
+      fill: 0x000000,
+      rim: PAINT.amber2,
+      fillOpacity: SHADOW_OPACITY,
+      rimOpacity: RIM_OPACITY,
+    });
   g.position.set(e.x, e.mesh.position.y - HOIST_FACE - CARGO_GAP - HOIST_CARGO_H / 2, e.z);
   g.scale.setScalar(0.01);
-  shadow.position.set(e.x, floor + SHADOW_LIFT, e.z);
-  fill.scale.set(K.shadowR, 1, K.shadowR);
-  rim.scale.set(K.shadowR, 1, K.shadowR);
-  shadow.add(fill, rim);
-  dynGroup.add(g, shadow);
-  e.extra = [...(e.extra ?? []), g, shadow];
+  shadow.set(e.x, floor + SHADOW_LIFT, e.z, K.shadowR);
+  dynGroup.add(g);
+  e.extra = [...(e.extra ?? []), g, shadow.g];
   e.cargo = {
     g,
     shadow,
-    fill,
-    rim,
+    fill: shadow.fill,
+    rim: shadow.rim,
     x: e.x,
     z: e.z,
     floor,
@@ -264,8 +246,7 @@ function updateHang(e: HoistBoss) {
     c = e.cargo!,
     k = clamp(1 - e.timer / K.warn, 0, 1);
   c.g.scale.setScalar(Math.max(0.01, clamp((k * K.warn) / CARGO_IN, 0, 1)));
-  c.fill.material.opacity = SHADOW_OPACITY[0] + (SHADOW_OPACITY[1] - SHADOW_OPACITY[0]) * k;
-  c.rim.material.opacity = k > RIM_BLINK && Math.sin(e.t * 40) > 0 ? 0 : RIM_OPACITY;
+  c.shadow.warn(k, e.t);
 }
 // the load falls, and lands: it crushes what is in the ring, breaks, and (below half health) lets crawlers out
 function updateFall(e: HoistBoss, dt: number, enr: boolean) {
@@ -283,7 +264,7 @@ function updateFall(e: HoistBoss, dt: number, enr: boolean) {
   sfx('slam');
   sfx('boom');
   release(e, c.g);
-  release(e, c.shadow);
+  release(e, c.shadow.g);
   e.cargo = null;
   // crawlers out of the broken load: one, or two below half health, while the room has room for them
   const out = enr ? K.crawlers : K.crawlers1,
@@ -326,9 +307,7 @@ function showPull(e: HoistBoss, on: boolean) {
     reach = dir.length(),
     len = Math.max(reach - BEAM_SHORT, 0.1); // (it stops short of the eye: up close it would fill the screen)
   dir.divideScalar(reach || 1);
-  e.beam.position.copy(from).addScaledVector(dir, len / 2);
-  e.beam.quaternion.setFromUnitVectors(UP, dir);
-  e.beam.scale.set(1, len, 1);
+  layBeam(e.beam, from, from.clone().addScaledVector(dir, len), 1);
   e.beam.material.opacity = BEAM_OPACITY * (0.75 + 0.25 * Math.sin(e.t * 25));
   const floor = floorY(e.x, e.z);
   e.rings.forEach((r, k) => {
@@ -411,23 +390,16 @@ function hoistDown(e: HoistBoss) {
   e.frame.wire.visible = false;
   e.frame.stop();
   g.position.copy(at);
-  dynGroup.add(g);
-  let vy = 0;
-  const wreck: WorldObject = spawn({
-    tag: 'crane' as const,
-    mesh: g,
-    update(dt: number) {
-      vy += K.fallG * dt;
-      g.position.y -= vy * dt;
-      const rest = floorY(g.position.x, g.position.z) + HOIST_FACE;
-      if (g.position.y > rest) return;
-      g.position.y = rest;
+  dropWreck(g, g.position.x, g.position.z, {
+    tag: 'crane', // (the test counts the crane and the fallen magnet)
+    gravity: K.fallG,
+    drop: g.position.y - floorY(g.position.x, g.position.z) - HOIST_FACE,
+    onLand: (x, z, floor) => {
       g.rotation.z = WRECK_TILT;
-      burst(g.position.x, rest, g.position.z, SMOKE, 20, 6, 1.2, -1);
-      burst(g.position.x, rest + 0.4, g.position.z, COLOR.amber, 12, 8, 0.8);
+      burst(x, floor + HOIST_FACE, z, SMOKE, 20, 6, 1.2, -1);
+      burst(x, floor + HOIST_FACE + 0.4, z, COLOR.amber, 12, 8, 0.8);
       screenFx.shake = Math.max(screenFx.shake, 0.3);
       sfx('slam');
-      wreck.update = undefined; // it lies where it fell
     },
   });
 }

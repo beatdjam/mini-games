@@ -16,7 +16,6 @@ import { sfx } from '@engine/audio/audio.ts';
 import { disposeTree, dynGroup, shared } from '@engine/render/render.ts';
 import { burst, fireball } from '@engine/render/fx.ts';
 import { spawn } from '@engine/core/world.ts';
-import type { WorldObject } from '@engine/core/world.ts';
 import { floorY } from '@engine/world/tiles.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { HALL_H } from '../../data/level.ts';
@@ -28,6 +27,7 @@ import {
   bossMaterial,
   createBoss,
   isEnraged,
+  LAND_DY,
   minionCount,
   nextPattern,
   RING_Y,
@@ -35,6 +35,8 @@ import {
   wireOutline,
 } from './common.ts';
 import type { BossVisual } from './common.ts';
+import { additive, discGeo, dropWreck, flat, layBeam, RIM_BLINK, ringGeo, warningPad } from './fx.ts';
+import type { Fill, WarningPad } from './fx.ts';
 import { screenFx } from '../../ui/hud.ts';
 // SURGEON: a surgical robot hung from the ceiling of the operating theatre. The body never moves; it turns to face the
 // player. Three arms hang from it, each a minion of its own (the enemy 'sarm', which the boss holds where it wants it:
@@ -78,10 +80,8 @@ const CLAMP_DOWN = 0.9; // the jaws' middle, when it is down
 const CLAMP_OPEN = 0.5; // the jaws' turn when open (rad) ...
 const CLAMP_SHUT = -0.1; // ... and shut
 const SLAM_EASE = 45; // the clamp comes down this fast (per second)
-const LAND_DY = 1.5; // the clamp crushes a player whose feet are this close to the floor it lands on (m)
 const RING_FILL: [number, number] = [0.1, 0.55]; // the ring's fill, from its appearing to the slam
 const RIM_OPACITY = 0.85;
-const RIM_BLINK = 0.75; // the rim blinks over the last quarter of the warning
 const PULSE_RATE = 9; // the ring's edge pulses this fast (rad/s) ...
 const PULSE_GROW = 0.1; // ... swelling this much of the radius
 const SHOCK_LIFE = 0.35; // the slam's ring of dust spreads for this long (s) ...
@@ -112,14 +112,11 @@ const DEAD_LIGHTS = 0x1a1f1c; // the lights of the fallen body
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 const UP = new THREE.Vector3(0, 1, 0);
 const boxUnit = shared(new THREE.BoxGeometry(1, 1, 1));
-const ringGeo = shared(new THREE.RingGeometry(0.93, 1, 48).rotateX(-Math.PI / 2));
 const innerGeo = shared(new THREE.RingGeometry(0.5, 0.54, 48).rotateX(-Math.PI / 2));
-const discGeo = shared(new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2));
 const plainSegGeo = shared(new THREE.CylinderGeometry(0.12, 0.12, 1, 6));
 const plainTipGeo = shared(new THREE.BoxGeometry(0.4, 0.4, 1.2));
 const plainElbowGeo = shared(new THREE.IcosahedronGeometry(0.25, 0));
 
-type Fill = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
 // foe: the arm as an enemy (null once it is shot off); pos: its end now, where the hit sphere is; goal: where the boss
 // holds it; ease: how fast it closes on the goal (per second); dir: which way its tool points; open: a clamp's jaws;
 // age: seconds since it appeared; shoulder / elbow / pole: where the segments meet and which way they bend, as last
@@ -168,7 +165,7 @@ interface Clamp {
 // body looks; made: the arms have been made (when the boss first acts); second: the second phase has begun;
 // floor: the floor under the body; look: the body's picture; line / scorch / beam / glow / aura / stub: what the
 // scalpel shows (the line and the glow on the floor, the beam in three layers, the thin beam down from the blade);
-// padFill / padRim / padCore / padInner / padPulse: the clamp's ring (padFill's parent is the ring); shock: the dust
+// pad / padCore / padInner / padPulse: the clamp's ring (pad.g is the ring); shock: the dust
 // ring of a slam (t: seconds since, -1 when there is none; x / z where)
 type SurgeonBoss = Boss & {
   arms: Arm[];
@@ -186,8 +183,7 @@ type SurgeonBoss = Boss & {
   glow: Fill;
   aura: Fill;
   stub: Fill;
-  padFill: Fill;
-  padRim: Fill;
+  pad: WarningPad;
   padCore: Fill;
   padInner: Fill;
   padPulse: Fill;
@@ -229,16 +225,6 @@ export interface SurgeonTune {
   minionCap: number;
   wreckG: number;
 }
-const additive = (color: number, opacity: number): THREE.MeshBasicMaterial =>
-  new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-const flat = (color: number, opacity: number): THREE.MeshBasicMaterial =>
-  new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
 // a unit box (scaled to a bar by the caller), hidden until it is used
 function bar(mat: THREE.MeshBasicMaterial): Fill {
   const m: Fill = new THREE.Mesh(boxUnit, mat);
@@ -298,10 +284,7 @@ export function surgeonVisual(): BossVisual & { look: SurgeonBodyLook } {
 export function spawnSurgeon() {
   const K = BOSS_META.surgeon.tune,
     body = surgeonVisual();
-  const pad = new THREE.Group(),
-    padFill: Fill = new THREE.Mesh(discGeo, flat(COLOR.cyan, 0)),
-    padRim: Fill = new THREE.Mesh(ringGeo, flat(COLOR.cyan, 0)),
-    padCore: Fill = new THREE.Mesh(discGeo, additive(COLOR.cyan, 0)),
+  const padCore: Fill = new THREE.Mesh(discGeo, additive(COLOR.cyan, 0)),
     padInner: Fill = new THREE.Mesh(innerGeo, flat(COLOR.cyan, 0)),
     padPulse: Fill = new THREE.Mesh(ringGeo, additive(COLOR.cyan, 0)),
     line = bar(flat(PAINT.red1, LINE_OPACITY)),
@@ -310,11 +293,18 @@ export function spawnSurgeon() {
     glow = bar(additive(PAINT.red1, BEAM_GLOW_OPACITY)),
     aura = bar(additive(PAINT.red1, BEAM_AURA_OPACITY)),
     stub = bar(additive(PAINT.red1, 0.8)),
-    shockMesh: Fill = new THREE.Mesh(ringGeo, additive(COLOR.cyan, 0));
-  pad.add(padFill, padCore, padInner, padRim, padPulse);
-  pad.visible = false;
+    shockMesh: Fill = new THREE.Mesh(ringGeo, additive(COLOR.cyan, 0)),
+    pad = warningPad({
+      fill: COLOR.cyan,
+      rim: COLOR.cyan,
+      fillOpacity: RING_FILL,
+      rimOpacity: RIM_OPACITY,
+      visible: false,
+      inner: [padCore, padInner],
+      outer: [padPulse],
+    });
   shockMesh.visible = false;
-  dynGroup.add(pad, shockMesh);
+  dynGroup.add(shockMesh);
   const e = createBoss({
     kind: 'surgeon',
     look: body,
@@ -335,8 +325,7 @@ export function spawnSurgeon() {
       glow,
       aura,
       stub,
-      padFill,
-      padRim,
+      pad,
       padCore,
       padInner,
       padPulse,
@@ -344,7 +333,7 @@ export function spawnSurgeon() {
     },
     centred: true,
     timer: K.first,
-    extra: [pad, shockMesh, line, scorch, beam, glow, aura, stub],
+    extra: [pad.g, shockMesh, line, scorch, beam, glow, aura, stub],
     onDown: surgeonDown,
     hint: ['boss.surgeonHint', 4600],
   });
@@ -416,7 +405,6 @@ function makeArm(e: SurgeonBoss, slot: number): Arm {
 }
 const _a = new THREE.Vector3(),
   _b = new THREE.Vector3(),
-  _c = new THREE.Vector3(),
   _pole = new THREE.Vector3();
 // a bar of an arm between two points
 function segment(m: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3, size: number) {
@@ -513,60 +501,17 @@ interface Wreck {
 }
 // something falls `drop` m, lies there (dust and a thud at (x, z)), and stays with the level
 function wreck(g: THREE.Object3D, x: number, z: number, drop: number, color: number, opt: Wreck = {}) {
-  const K = BOSS_META.surgeon.tune,
-    floor = floorY(x, z),
-    hang = opt.hang ?? 0,
-    sag = Math.min(BODY_SAG, drop / 2),
-    y0 = g.position.y;
-  dynGroup.add(g);
-  let vy = 0,
-    fallen = 0,
-    t = 0,
-    sparkIn = 0,
-    dark = false;
-  const w: WorldObject = spawn({
-    tag: 'wreck' as const,
-    mesh: g,
-    update(dt: number) {
-      t += dt;
-      sparkIn -= dt;
-      if (sparkIn <= 0 && fallen < drop) {
-        sparkIn = SPARK_GAP;
-        burst(
-          x + rand(-0.4, 0.4),
-          (opt.sparkY ?? y0) + g.position.y - y0 + rand(-0.4, 0.4),
-          z + rand(-0.4, 0.4),
-          PAINT.amber3,
-          3,
-          5,
-          0.5,
-        );
-      }
-      if (t < hang) {
-        // hanging: sagging and shaking, the lights flickering out
-        const u = t / hang;
-        fallen = sag * u * u;
-        g.position.y = y0 - fallen;
-        g.rotation.z = Math.sin(t * 45) * 0.025 * (1 - u);
-        opt.dim?.(Math.random() < 1 - u ? 1 - u * 0.5 : 0.05);
-        return;
-      }
-      if (!dark) {
-        dark = true;
-        opt.dim?.(0);
-      }
-      vy += K.wreckG * dt;
-      const step = Math.min(vy * dt, Math.max(drop - fallen, 0));
-      fallen += step;
-      g.position.y -= step;
-      g.rotation.y += (opt.spin ?? 0) * dt;
-      g.rotation.z = (opt.tilt ?? 0) * Math.min(fallen / Math.max(drop, 0.01), 1);
-      if (fallen < drop) return;
-      burst(x, floor + 0.3, z, PAINT.grey3, 12, 5, 1, -1);
-      burst(x, floor + 0.6, z, color, 8, 6, 0.8);
+  dropWreck(g, x, z, {
+    gravity: BOSS_META.surgeon.tune.wreckG,
+    drop,
+    sag: BODY_SAG,
+    sparkGap: SPARK_GAP,
+    ...opt,
+    onLand: (wx, wz, floor) => {
+      burst(wx, floor + 0.3, wz, PAINT.grey3, 12, 5, 1, -1);
+      burst(wx, floor + 0.6, wz, color, 8, 6, 0.8);
       screenFx.shake = Math.max(screenFx.shake, 0.2);
       sfx('slam');
-      w.update = undefined; // it lies where it fell
     },
   });
 }
@@ -603,12 +548,6 @@ function layBar(e: SurgeonBoss, m: Fill, a: number, len: number, h: number, w: n
   m.rotation.y = -a;
   m.scale.set(len, tall, w);
 }
-// a thin bar from one point to another
-function layStub(m: Fill, from: THREE.Vector3, to: THREE.Vector3) {
-  m.position.copy(from).add(to).multiplyScalar(0.5);
-  m.quaternion.setFromUnitVectors(UP, _c.copy(to).sub(from).normalize());
-  m.scale.set(STUB_W, from.distanceTo(to), STUB_W);
-}
 function hideAttack(e: SurgeonBoss) {
   e.line.visible = false;
   e.scorch.visible = false;
@@ -616,7 +555,7 @@ function hideAttack(e: SurgeonBoss) {
   e.glow.visible = false;
   e.aura.visible = false;
   e.stub.visible = false;
-  e.padFill.parent!.visible = false;
+  e.pad.hide();
 }
 const LAMP_TINT: Record<SurgeonArmKind, number> = { scalpel: PAINT.red1, needle: COLOR.repair, clamp: COLOR.cyan };
 // the body's looks: the main lens follows the player, and the operating light shows the colour of the attack
@@ -708,7 +647,7 @@ function beginAttack(e: SurgeonBoss, enr: boolean) {
     sfx('unlock');
   } else if (arm.kind === 'clamp') {
     e.clamp = { x: player.x, z: player.z, slammed: false };
-    e.padFill.parent!.visible = true;
+    e.pad.g.visible = true;
     sfx('unlock');
   }
 }
@@ -762,10 +701,11 @@ function scalpel(e: SurgeonBoss, a: Attack) {
   }
   // the thin beam from the emitter on the blade down to where the beam runs
   e.stub.visible = true;
-  layStub(
+  layBeam(
     e.stub,
     _a.copy(arm.pos).addScaledVector(arm.dir, EMIT_REACH),
     _b.set(e.cx + Math.cos(s.a) * SC_R, e.floor + BEAM_Y, e.cz + Math.sin(s.a) * SC_R),
+    STUB_W,
   );
   if (!s.hit && beamTouches(e, before, s.a, s.len)) {
     s.hit = true;
@@ -833,13 +773,9 @@ function clampDown(e: SurgeonBoss, a: Attack) {
       c.x = player.x;
       c.z = player.z;
     }
-    const k = clamp(a.t / K.clampWarn, 0, 1),
-      pad = e.padFill.parent!;
-    pad.position.set(c.x, e.floor + LINE_LIFT, c.z);
-    pad.scale.set(K.clampR, 1, K.clampR);
-    e.padFill.material.opacity = RING_FILL[0] + (RING_FILL[1] - RING_FILL[0]) * k;
-    const blink = k > RIM_BLINK && Math.sin(e.t * 40) > 0;
-    e.padRim.material.opacity = blink ? 0 : RIM_OPACITY;
+    const k = clamp(a.t / K.clampWarn, 0, 1);
+    e.pad.set(c.x, e.floor + LINE_LIFT, c.z, K.clampR);
+    const blink = e.pad.warn(k, e.t);
     // the ring fills from its middle as the clamp comes, a thin ring inside it, and its edge pulses outward
     e.padCore.scale.set(k, 1, k);
     e.padCore.material.opacity = 0.45 * k;
@@ -854,7 +790,7 @@ function clampDown(e: SurgeonBoss, a: Attack) {
       arm.goal.y = e.floor + CLAMP_DOWN;
       arm.ease = SLAM_EASE;
       arm.openGoal = CLAMP_SHUT;
-      pad.visible = false;
+      e.pad.hide();
       const at = { x: c.x, z: c.z };
       if (distXZ(player, at) < K.clampR && Math.abs(player.fy - e.floor) < LAND_DY)
         damagePlayer(e.dmg * K.clampDmg, at);

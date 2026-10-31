@@ -49,6 +49,7 @@ import { COLOR } from '../../data/colors.ts';
 // the bosses' shared timings and heights
 export const FIRST_SHOT_DELAY = 0.3; // a pattern waits this long before its first round (s)
 export const RING_Y = 1.3; // height of ring and spiral bullets above the floor (m)
+export const LAND_DY = 1.5; // a landing crushes a player whose feet are this close to the floor it lands on (m)
 // a boss as createBoss makes it
 const BOSS_START_OFFSET_Z = 6; // it appears this far from the arena centre along z (m)
 const BOSS_BODY_R = 1.8; // collision radius of the body (m)
