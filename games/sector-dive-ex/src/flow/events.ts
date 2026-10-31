@@ -6,7 +6,6 @@ import { burst } from '@engine/render/fx.ts';
 import { T, activeTileGrid, tileCenter, tileIndex } from '@engine/world/tiles.ts';
 import { lockDoor } from '@engine/world/doors.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
-import { PER } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
 import { building, roomDoors } from '../world/building.ts';
 import type { BuildingLink } from '../world/building.ts';
@@ -14,7 +13,7 @@ import { arenaCenter, arenaFog, level, liftPads, randomTileIn, roomSpot, stashed
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import type { Enemy } from '../data/types.ts';
 import { player, run } from '../actors/player.ts';
-import { difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
+import { bossStageOf, difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
 import { putBossGates, spawnBoss } from '../actors/bosses/common.ts';
 import { rollWeapon } from '../actors/weapons.ts';
 import { progressOf } from '../core/rules.ts';
@@ -95,7 +94,7 @@ export function resetFloorEvents() {
   ev.bossStarted = true;
   ev.bossOver = true;
   lockDoor(world(), level.hall.door, false);
-  run.stage = stageInfo(run.stage).tier * PER + PER - 1;
+  run.stage = bossStageOf(stageInfo(run.stage).tier);
   const [cx, cz] = arenaCenter();
   putBossGates(cx, cz, run.bld.tier);
 }
@@ -246,7 +245,7 @@ function startBossFight() {
   ev.bossStarted = true;
   lockDoor(world(), level.hall!.door);
   // from here the stage is the depth's boss stage: the boss's strength, the label and the result screen follow it
-  run.stage = stageInfo(run.stage).tier * PER + PER - 1;
+  run.stage = bossStageOf(stageInfo(run.stage).tier);
   arenaFog();
   refreshRunText();
   banner(stageLabel(run.stage), level.biome.name);
