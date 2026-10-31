@@ -22,6 +22,7 @@ import {
   recordRunStart,
   riskLoadout,
   setSuspend,
+  settleBossArea,
   storeWeapons,
 } from '../core/progress.ts';
 import {
@@ -148,9 +149,12 @@ function newRoute(tier: number): number[] {
   if (k >= 0) [route[at], route[k]] = [route[k]!, route[at]!];
   return route;
 }
-export function startRun() {
+// `settleArea` is true only for an ordinary dive started from the base. The dev trailer and dev samples, the sim and
+// the shots call it without the argument (the default, false), so they settle no boss area
+export function startRun(settleArea = false) {
   enterDive();
   const tier = clamp(save.startTier, 0, save.shortcut);
+  if (settleArea) settleBossArea(tier);
   setPlayer(newPlayer(save.loadout, tier));
   const risked = save.loadout.filter(w => w && !w.basic).length;
   // non-basic weapons leave the base: they come back only on extraction

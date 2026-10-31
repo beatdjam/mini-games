@@ -2,6 +2,7 @@ import type { BossKind, SaveData, Snapshot, WeaponItem } from '../data/types.ts'
 import { clamp } from '@engine/core/util.ts';
 import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
 import { basicW, save } from './save.ts';
+import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
 import { sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
 // callers read it, call one of these, and persist() themselves.
@@ -107,6 +108,13 @@ export const recordPeak = (tier: number) => {
 export const openShortcut = (tier: number) => {
   save.shortcut = tier;
 };
+// The boss area's depth, settled once per save on the first dive from the base (when the flag is on). Returns whether
+// this call settled it; the caller persists
+export function settleBossArea(startTier: number): boolean {
+  if (!bossAreaOn() || save.records.bossArea) return false;
+  save.records.bossArea = { tier: bossAreaTierFor(save.shortcut, startTier), beaten: [] };
+  return true;
+}
 
 // ---- settings ----
 type Settings = SaveData['settings'];

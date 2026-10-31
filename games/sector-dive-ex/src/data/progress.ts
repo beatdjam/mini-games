@@ -79,6 +79,9 @@ export const levelCost = (l: number): number => Math.round(80 * Math.pow(1.2, l)
 // The milestones of the depths: DEPTH 5, 10, 15, ... (0-based tiers 4, 9, 14, ...). A dive that dies starts again from
 // the last one passed (milestoneBelow); one that comes back starts where it left off. DEPTH 1 is where it all begins
 export const MILESTONE_EVERY = 5;
+// The depth of the boss area of a new save: DEPTH 50 (0-based 49). A save already past D50 gets the next milestone
+// above its start depth instead (bossAreaTierFor in core/bossArea.ts)
+export const BOSS_AREA_START_TIER = 49;
 export const milestoneBelow = (tier: number): number =>
   tier < MILESTONE_EVERY - 1 ? 0 : tier - ((tier - (MILESTONE_EVERY - 1)) % MILESTONE_EVERY);
 export const isMilestone = (tier: number): boolean => tier > 0 && milestoneBelow(tier) === tier;

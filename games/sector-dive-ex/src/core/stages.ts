@@ -3,6 +3,8 @@ import { ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { DMG_SCALE_PER_PROG, PER, enemyGrowth } from '../data/progress.ts';
 import { progressOf } from './rules.ts';
+import { save } from './save.ts';
+import { bossAreaOn } from './bossArea.ts';
 import { run } from '../actors/player.ts';
 
 // ---- tuning numbers used only here ----
@@ -19,9 +21,11 @@ export interface StagePlan {
   biome: Biome;
   boss: boolean;
   deeper: boolean;
+  area: boolean; // whether the depth is the save's boss area (the depth of the hall and the boss rooms)
 }
-// The plan of a stage: its depth (tier), its step in the depth (sub), its sector, whether it is the depth's boss and
-// whether it opens the "deeper" toast. The depth of a boss area is to be fitted in here later, in this function alone
+// The plan of a stage: its depth (tier), its step in the depth (sub), its sector, whether it is the depth's boss,
+// whether it opens the "deeper" toast, and whether the depth is the boss area. The hall and the boss rooms of a run are
+// to be fitted in here later, in this function alone
 export function planOf(s: number): StagePlan {
   const tier = Math.floor(s / PER),
     sub = s % PER;
@@ -31,6 +35,7 @@ export function planOf(s: number): StagePlan {
     biome: routeBiome(tier),
     boss: sub === PER - 1,
     deeper: sub === 0 && tier % DEPTHS_PER_DEEPER_TOAST === 0,
+    area: bossAreaOn() && save.records.bossArea?.tier === tier,
   };
 }
 export const stageInfo = planOf;
