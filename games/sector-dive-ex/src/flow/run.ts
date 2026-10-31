@@ -457,6 +457,21 @@ export function startStage() {
   musicVolume(1);
   updateHint();
 }
+// A gate from the hall into a boss's room: hand the run over to that room and make the stage again (the room starts on
+// the lowest floor of the boss's sector building). The run's kind, the save and the records stay as they were.
+export function enterBossRoom(kind: BossKind): boolean {
+  if (!bossAreaOn() || !stageInfo(run.stage).area || run.area?.at !== 'hall') return false;
+  run.area = { at: 'room', boss: kind };
+  startStage();
+  return true;
+}
+// A gate from a boss room back to the hall: hand the run back and make the stage again (the building is dropped).
+export function returnToHall(): boolean {
+  if (!bossAreaOn() || !stageInfo(run.stage).area || run.area?.at !== 'room') return false;
+  run.area = { at: 'hall' };
+  startStage();
+  return true;
+}
 // deeper sectors lean toward the biome's tougher enemy types
 export function pickEnemyType(b: Biome, tier: number): string {
   if (Math.random() < ENEMY_TUNE.trooperChance) return 'trooper'; // the humanoid soldier turns up in every sector

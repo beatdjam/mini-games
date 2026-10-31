@@ -37,6 +37,8 @@ LANG.en = {
     'map.extract': 'Extract',
     'map.terminal': 'Upgrade',
     'map.next': 'Onward',
+    'map.room': 'Room',
+    'map.hall': 'Hall',
     'map.exit': 'Exit',
     'map.onward': 'Onward',
     'map.back': 'Back',

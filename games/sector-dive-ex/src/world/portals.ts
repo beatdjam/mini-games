@@ -3,7 +3,7 @@ import { distXZ } from '@engine/core/util.ts';
 import { textSprite } from '@engine/render/render.ts';
 import { floorY } from '@engine/world/tiles.ts';
 import { PORTAL } from '../data/level.ts';
-import type { PortalKind } from '../data/types.ts';
+import type { BossKind, PortalKind } from '../data/types.ts';
 import { player } from '../actors/player.ts';
 import { level } from './level.ts';
 import { plainLooks } from './looks.ts';
@@ -81,11 +81,12 @@ export interface Portal {
   ring: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>;
   disc: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   kind: PortalKind;
+  boss?: BossKind; // kind 'room': the boss whose room this gate leads to
   color: number;
   t: number;
   clear: boolean;
 }
-export function makePortal(x: number, z: number, color: number, kind: PortalKind, label: string) {
+export function makePortal(x: number, z: number, color: number, kind: PortalKind, label: string, boss?: BossKind) {
   const g = new THREE.Group();
   // with the looks on, the gate is a steel frame on a plate, its lamps and the light inside it in the gate's colour;
   // the ring and the disc (what shows whether it works yet: flow/update.ts) are the light inside the frame
@@ -116,7 +117,7 @@ export function makePortal(x: number, z: number, color: number, kind: PortalKind
   g.position.set(x, floorY(x, z) + PORTAL.centerY, z);
   level.group!.add(g); // gates are made after the level is built
   const clear = !player || distXZ(player, { x, z }) >= PORTAL.clearR; // opened underfoot: wait until the player steps off
-  level.portals.push({ x, z, g, ring, disc, kind, color, t: 0, clear });
+  level.portals.push({ x, z, g, ring, disc, kind, boss, color, t: 0, clear });
 }
 // ---- the milestone's terminal (screens/levelup.ts): a console on a ring on the floor. It is a gate of kind 'terminal'
 // to flow/update.ts (stepping onto the ring opens it, and it opens again only once stepped off), but it is not a way

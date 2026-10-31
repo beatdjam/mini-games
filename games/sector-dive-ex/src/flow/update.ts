@@ -44,7 +44,7 @@ import {
 } from '../ui/hud.ts';
 import { hud2 } from '../ui/hud2.ts';
 import { attract, buildAttract } from './attract.ts';
-import { endRun, nextStage } from './run.ts';
+import { endRun, enterBossRoom, nextStage, returnToHall } from './run.ts';
 import { liftRiding, onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
 import { keysTurnMap3D, updateMap3D } from '../ui/map3d.ts';
 import { state } from './state.ts';
@@ -393,6 +393,26 @@ function updatePortals(dt: number) {
         pt.clear = false;
         openLevelUp();
         continue;
+      }
+      if (pt.kind === 'room') {
+        // a gate into a boss room: it moves the run only where the run is in the hall of the boss area
+        if (!pt.boss || !enterBossRoom(pt.boss)) {
+          pt.clear = false;
+          continue;
+        }
+        sfx('portal');
+        stopFrame();
+        return;
+      }
+      if (pt.kind === 'hall') {
+        // a gate back to the hall: it moves the run only from a boss room
+        if (!returnToHall()) {
+          pt.clear = false;
+          continue;
+        }
+        sfx('portal');
+        stopFrame();
+        return;
       }
       if (pt.kind === 'extract') {
         sfx('portal');
