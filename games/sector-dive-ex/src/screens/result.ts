@@ -21,6 +21,46 @@ function open(kind: RunEnd) {
     kind === 'dead' ? DEAD_DELAY : 0,
   );
 }
+// the facts a real run's result rows are made from
+export interface RunResultFacts {
+  reached: string; // stageLabel(run.stage) and the sector name joined
+  kills: number;
+  dead: boolean;
+  got: number; // bits picked up in the dive
+  kept: number; // bits brought back
+  foundText: string; // the weapons brought back (or common.none)
+  sold: number; // bits sold from an overflowing stash (0: no row)
+  shortcut: string; // the milestone fallen back to (empty: no row)
+}
+// one result row: its name (for adding rows later, not shown), the i18n key of its label, when it shows, and its value
+interface ResultRow {
+  id: string;
+  label: string | ((f: RunResultFacts) => string);
+  when?: (f: RunResultFacts) => boolean;
+  value: (f: RunResultFacts) => string | number;
+}
+const RUN_RESULT_ROWS: ResultRow[] = [
+  { id: 'reached', label: 'res.reached', value: f => f.reached },
+  { id: 'kills', label: 'res.kills', value: f => f.kills },
+  {
+    id: 'bits',
+    label: 'res.bits',
+    value: f => (f.dead ? t('res.bitsLost', { kept: f.kept, lost: f.got - f.kept }) : `+${f.kept}`),
+  },
+  {
+    id: 'weapons',
+    label: f => (f.dead ? 'res.lostWeapons' : 'res.keptWeapons'),
+    value: f => f.foundText,
+  },
+  { id: 'sold', label: 'res.sold', when: f => !f.dead && f.sold > 0, value: f => `+${f.sold}` },
+  { id: 'shortcut', label: 'res.shortcut', when: f => !!f.shortcut, value: f => f.shortcut },
+];
+export function runResultRows(f: RunResultFacts): [string, string | number][] {
+  return RUN_RESULT_ROWS.filter(r => !r.when || r.when(f)).map(r => [
+    t(typeof r.label === 'function' ? r.label(f) : r.label),
+    r.value(f),
+  ]);
+}
 // a practice fight: the boss, the strength, how it ended, the time
 export function showPracticeResult(kind: RunEnd, sec: number) {
   el('#resEyebrow').textContent = 'practice';
@@ -37,11 +77,11 @@ export function showPracticeResult(kind: RunEnd, sec: number) {
   prepFeedback(kind);
   open(kind);
 }
-// a real run: the rows (reached, kills, bits, weapons...) come from endRun, the chips are listed here
-export function showRunResult(kind: RunEnd, rows: [string, string | number][]) {
+// a real run: the rows (reached, kills, bits, weapons...) come from the facts endRun gathers, the chips are listed here
+export function showRunResult(kind: RunEnd, facts: RunResultFacts) {
   el('#resEyebrow').textContent = RUN_END[kind].eyebrow;
   el('#resTitle').textContent = RUN_END[kind].title();
-  el('#resList').innerHTML = rowsHTML(rows);
+  el('#resList').innerHTML = rowsHTML(runResultRows(facts));
   el('#resChips').textContent = run.perks.length
     ? t('res.chips', { n: run.perks.length, list: chipSummary(run.perks) })
     : '';

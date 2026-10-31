@@ -22,7 +22,8 @@ import { encodeStore } from '@engine/core/store.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
 import { BOSS_META, BOSS_ORDER } from '../src/data/bosses.ts';
-import { SAVE_KEY, defaultSave, exportSave, importSave, persist, save } from '../src/core/save.ts';
+import { SAVE_KEY, basicW, defaultSave, exportSave, importSave, persist, save } from '../src/core/save.ts';
+import { STASH_MAX } from '../src/data/progress.ts';
 import { perkName } from '../src/core/rules.ts';
 import { level, reveal, roomSpot } from '../src/world/level.ts';
 import { addPickup, enemies, removeEnemyMesh, spawnEnemy } from '../src/world/entities.ts';
@@ -889,4 +890,55 @@ test('big map: the map key opens and closes it, the 3D map key turns to the 3D p
   cycleMap();
   tick(2);
   expect(pages()).toEqual([true, true]);
+});
+test('result rows: the labels and their order, on a death and on a return', () => {
+  const labels = () => [...el('#resList').querySelectorAll('dt')].map(d => d.textContent);
+  const keep = {
+    shortcut: save.shortcut,
+    startTier: save.startTier,
+    stash: save.stash.slice(),
+    loadout: save.loadout.slice(),
+    bits: save.bits,
+  };
+  try {
+    // a death: reached, kills, bits, the weapons lost
+    save.shortcut = 0;
+    save.startTier = 0;
+    goBase();
+    startRun();
+    tick(5);
+    endRun('dead');
+    expect(labels()).toEqual([t('res.reached'), t('res.kills'), t('res.bits'), t('res.lostWeapons')]);
+    // falling back to a milestone puts the shortcut row last
+    save.shortcut = 12;
+    save.startTier = 12;
+    startRun();
+    endRun('dead');
+    expect(labels()).toEqual([
+      t('res.reached'),
+      t('res.kills'),
+      t('res.bits'),
+      t('res.lostWeapons'),
+      t('res.shortcut'),
+    ]);
+    // a return: the weapons brought back, and nothing sold while the stash has room
+    save.startTier = 0;
+    save.stash = [];
+    startRun();
+    endRun('extract');
+    expect(labels()).toEqual([t('res.reached'), t('res.kills'), t('res.bits'), t('res.keptWeapons')]);
+    // a full stash: the cheapest weapon is sold, and the sold row comes after the weapons
+    save.stash = Array.from({ length: STASH_MAX }, () => basicW('pistol'));
+    startRun();
+    player.bag[0] = newWeapon('pistol', 0);
+    endRun('extract');
+    expect(labels()).toEqual([t('res.reached'), t('res.kills'), t('res.bits'), t('res.keptWeapons'), t('res.sold')]);
+  } finally {
+    save.shortcut = keep.shortcut;
+    save.startTier = keep.startTier;
+    save.stash = keep.stash;
+    save.loadout = keep.loadout;
+    save.bits = keep.bits;
+    goBase();
+  }
 });

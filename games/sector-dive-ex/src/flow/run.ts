@@ -65,6 +65,7 @@ import { openPerk } from '../screens/perk.ts';
 import { refreshRunText } from '../screens/pause.ts';
 import { renderBase } from '../screens/base.ts';
 import { showPracticeResult, showRunResult } from '../screens/result.ts';
+import type { RunResultFacts } from '../screens/result.ts';
 import { setPlayUI, setState, show, state } from './state.ts';
 import { checkpoint } from './suspend.ts';
 import { buildAttract } from './attract.ts';
@@ -498,25 +499,28 @@ export function endRun(kind: RunEnd) {
   recordBest(run.stage);
   const found = player.weapons.concat(player.bag).filter((w): w is Weapon => !!w && !w.basic);
   const foundText = found.length ? found.map(weaponText).join(t('common.sep')) : t('common.none');
-  const rows: [string, string | number][] = [];
-  rows.push([t('res.reached'), `${stageLabel(run.stage)}　${si.biome.name}`]);
-  rows.push([t('res.kills'), run.kills]);
-  rows.push([t('res.bits'), dead ? t('res.bitsLost', { kept, lost: got - kept }) : `+${kept}`]);
-  let shortcutMsg = '';
+  let sold = 0,
+    shortcutMsg = '';
   if (dead) {
-    rows.push([t('res.lostWeapons'), foundText]);
     if (fallBackToMilestone()) shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut) });
   } else {
-    const sold = storeWeapons(
+    sold = storeWeapons(
       [strip(player.weapons[0]), strip(player.weapons[1])],
       player.bag.filter(w => w && !w.basic).map(w => strip(w)!),
     );
-    rows.push([t('res.keptWeapons'), foundText]);
-    if (sold) rows.push([t('res.sold'), `+${sold}`]);
   }
-  if (shortcutMsg) rows.push([t('res.shortcut'), shortcutMsg]);
+  const facts: RunResultFacts = {
+    reached: `${stageLabel(run.stage)}　${si.biome.name}`,
+    kills: run.kills,
+    dead,
+    got,
+    kept,
+    foundText,
+    sold,
+    shortcut: shortcutMsg,
+  };
   persist();
-  showRunResult(kind, rows);
+  showRunResult(kind, facts);
 }
 el('#btnBack').addEventListener('click', goBase);
 export function goBase() {
