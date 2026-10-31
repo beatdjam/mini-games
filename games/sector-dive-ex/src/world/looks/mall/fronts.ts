@@ -3,13 +3,12 @@ import { SIDE_STEP } from '@engine/world/tiles.ts';
 import { MALL_SHOP_NAMES } from '../../../i18n/signs.ts';
 import type { FloorPlan } from '../../building.ts';
 import { roomBeside, roomKindOf, wallFloor } from '../common.ts';
-import { SIGN_FONT, canvasTex } from '../paint.ts';
+import { NAME_BOARD_PX, boardName, cachedTex, canvasTex } from '../paint.ts';
 import { BRASS, SHOP_SIGNS } from './shared.ts';
 // The name boards of the mall's shops (props): one for each shop room, on the wall of its longest front along the
 // concourse, at the middle of it. The wall pictures there have a plain band in the shop's colour for it. The pictures
 // of the boards are made once for each name.
 // ---- tuning numbers used only here ----
-const BOARD_PX = [384, 64] as const; // the picture of a board (px)
 const WORDS_COLOR = '#cdbd8e';
 
 export interface Front {
@@ -75,21 +74,14 @@ const boards = new Map<string, THREE.CanvasTexture>();
 // the board of a shop: the kind's colour, a brass rim, the name
 export function boardTex(kind: number, name: string): THREE.CanvasTexture {
   const key = `${kind}|${name}`;
-  let tex = boards.get(key);
-  if (!tex) {
-    tex = canvasTex(BOARD_PX[0], BOARD_PX[1], g => {
+  return cachedTex(boards, key, () =>
+    canvasTex(NAME_BOARD_PX[0], NAME_BOARD_PX[1], g => {
       g.fillStyle = SHOP_SIGNS[kind]!;
-      g.fillRect(0, 0, BOARD_PX[0], BOARD_PX[1]);
+      g.fillRect(0, 0, NAME_BOARD_PX[0], NAME_BOARD_PX[1]);
       g.strokeStyle = BRASS;
       g.lineWidth = 4;
-      g.strokeRect(4, 4, BOARD_PX[0] - 8, BOARD_PX[1] - 8);
-      g.fillStyle = WORDS_COLOR;
-      g.font = `700 36px ${SIGN_FONT}`;
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillText(name, BOARD_PX[0] / 2, BOARD_PX[1] / 2 + 2, BOARD_PX[0] - 30);
-    });
-    boards.set(key, tex);
-  }
-  return tex;
+      g.strokeRect(4, 4, NAME_BOARD_PX[0] - 8, NAME_BOARD_PX[1] - 8);
+      boardName(g, name, WORDS_COLOR, 0);
+    }),
+  );
 }

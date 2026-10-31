@@ -7,7 +7,7 @@ import { wallPic } from '../common.ts';
 import { hallSurround } from '../hallFaces.ts';
 import type { HallFace } from '../hallFaces.ts';
 import { canvasTex } from '../paint.ts';
-import { facing, onWall, pose } from '../props.ts';
+import { facing, hallLine, onWall, pose } from '../props.ts';
 import type { Light, PropTools } from '../props.ts';
 import { mallBoxTex } from './cutouts.ts';
 import {
@@ -154,11 +154,7 @@ export function dockProps(plan: FloorPlan, tools: Pick<PropTools, 'add' | 'd'>, 
     };
 
   // ---- the yellow line along every wall and round every pillar ----
-  add(
-    new THREE.BoxGeometry(T + LINE.w, LINE.thick, LINE.w),
-    flat(LINE.color),
-    open.map(f => pose(onWall(f, 0, LINE.out, LINE.y), facing(f))),
-  );
+  hallLine(add, open, LINE);
 
   // ---- on the floor: the forklift's tracks along a row and a column, and oil ----
   const tiles = (k: number) => ({ i: k % d.W, j: (k / d.W) | 0 }),
