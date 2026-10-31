@@ -33,6 +33,8 @@ import { CORRIDOR_PICS, ROOM_FLOOR_PICS, THEATRE_PICS } from './floors.ts';
 import { hospRoomKinds } from './rooms.ts';
 import { ROOM_FRONTS, ROOM_GROUNDS, ROOM_PICS } from './roomPics.ts';
 import { THEATRE_WALL_MAP, THEATRE_WALL_PICS, hospDoor, theatreCeiling, theatreUpper } from './surgery.ts';
+import { wardWindowPanes } from './wardPics.ts';
+import { cityView } from '../city/backdrop.ts';
 // The closed hospital (HOSP): a general hospital shut up at dusk. Mint-green walls under a wooden handrail, cream above,
 // linoleum floors; the evening sun comes through the windows and a few bulbs and emergency lamps are still on, so the
 // warm light (amber, the last of the sun) is mixed into the green. Paint is peeling, water has come through the ceiling,
@@ -43,6 +45,17 @@ import { THEATRE_WALL_MAP, THEATRE_WALL_PICS, hospDoor, theatreCeiling, theatreU
 const CEILING_PANELS = 3; // panels across one ceiling picture
 const LIFT_PAD_TOP = 1.9; // m: the padding on the lift car's walls goes up to here
 const QUILT = 12; // px across one diamond of quilted padding
+// the corridor windows: a steel frame of four panes, a blind half down or a curtain drawn back
+const WINDOW_X = 52; // px: the glass's left edge
+const WINDOW_W = TEX - 104; // px: its width
+const WINDOW_Y = rowOf(3.5); // px: its top
+const WINDOW_FOOT = rowOf(1.5); // px: its foot
+const WINDOW_H = WINDOW_FOOT - WINDOW_Y; // px: its height
+const WINDOW_BAR = 4; // px: the mullion and the transom
+const BLIND_DOWN = 0.4; // share of the height the blind hangs over the glass
+const CURTAIN_OUT = 4; // px the curtain hangs over the left edge of the glass
+const CURTAIN_SHARE = 0.3; // share of the width the curtain covers
+const WINDOW_FRAME = 0xc9ccbc; // the frame's white (#c9ccbc), as three.js takes it
 
 // ---- the pictures that stand in any room, on any wall ----
 // the floor guide: a dark green board with its heading, a plan of the floor in the colours of the departments round a
@@ -304,11 +317,11 @@ const stainedWall: Paint = (g, rand) => {
 // blind half down; the sun's warmth on the wall below it
 function corridorWindow(curtain: boolean): Paint {
   return (g, rand) => {
-    const x = 52,
-      w = TEX - 104,
-      y = rowOf(3.5),
-      foot = rowOf(1.5),
-      h = foot - y;
+    const x = WINDOW_X,
+      w = WINDOW_W,
+      y = WINDOW_Y,
+      foot = WINDOW_FOOT,
+      h = WINDOW_H;
     glow(g, TEX / 2, foot, 150, 0.2);
     box(g, x - 5, y - 4, w + 10, h + 8, '#c9ccbc');
     g.save();
@@ -331,21 +344,37 @@ function corridorWindow(curtain: boolean): Paint {
     }
     g.restore();
     g.fillStyle = '#c9ccbc';
-    g.fillRect(x + w / 2 - 2, y, 4, h);
-    g.fillRect(x, y + h / 2 - 2, w, 4);
+    g.fillRect(x + w / 2 - WINDOW_BAR / 2, y, WINDOW_BAR, h);
+    g.fillRect(x, y + h / 2 - WINDOW_BAR / 2, w, WINDOW_BAR);
     if (curtain) {
       g.fillStyle = '#a9c4ac';
-      g.fillRect(x - 4, y - 2, w * 0.3, h + 14);
-      for (let fx = x - 4; fx < x - 4 + w * 0.3; fx += 7) {
+      g.fillRect(x - CURTAIN_OUT, y - 2, w * CURTAIN_SHARE, h + 14);
+      for (let fx = x - CURTAIN_OUT; fx < x - CURTAIN_OUT + w * CURTAIN_SHARE; fx += 7) {
         g.fillStyle = 'rgba(20,34,28,.2)';
         g.fillRect(fx, y - 2, 2, h + 14);
       }
     } else {
       g.fillStyle = '#d4cfb2';
-      for (let sy = y; sy < y + h * 0.4; sy += 4) g.fillRect(x + 2, sy, w - 4, 3);
+      for (let sy = y; sy < y + h * BLIND_DOWN; sy += 4) g.fillRect(x + 2, sy, w - 4, 3);
     }
     box(g, x - 9, foot + 4, w + 18, 6, '#d6d3c0');
   };
+}
+// The glass of a corridor window, in the picture's pixels: the four panes between its cross of bars, with the blind's
+// share taken off the top or the curtain's strip off the left (Look.outside)
+function corridorPanes(curtain: boolean): [number, number, number, number][] {
+  const left = curtain ? WINDOW_X - CURTAIN_OUT + WINDOW_W * CURTAIN_SHARE : WINDOW_X,
+    right = WINDOW_X + WINDOW_W,
+    top = curtain ? WINDOW_Y : WINDOW_Y + WINDOW_H * BLIND_DOWN,
+    midX = WINDOW_X + WINDOW_W / 2,
+    midY = WINDOW_Y + WINDOW_H / 2,
+    bar = WINDOW_BAR / 2;
+  return [
+    [left, top, midX - bar, midY - bar],
+    [midX + bar, top, right, midY - bar],
+    [left, midY + bar, midX - bar, WINDOW_FOOT],
+    [midX + bar, midY + bar, right, WINDOW_FOOT],
+  ];
 }
 // the board of departments: a heading and a list of names, each with a bar in its colour, an arrow after it
 const departmentBoard: Paint = g => {
@@ -576,9 +605,9 @@ export const HOSP_ROOM_WALLS: RoomWalls = {
 // the walls along the corridor that belong to a room: its fronts and the plain wall of its kind beside them. A narrow unit
 // may stand at an end of such a face, clear of the door in the middle (looks/dress.ts `edges`)
 export const HOSP_EDGE_WALLS = [...HOSP_ROOM_WALLS.fronts.flat(), ...HOSP_ROOM_WALLS.ground];
-// the fire exit only on the building's outside wall (common.ts WallSides). The windows are painted (the dusk in them), not
-// seen through
-export const HOSP_WALL_SIDES: WallSides = { outer: [WALL_EXIT] };
+// the fire exit and the windows (seen through to the dusk outside, Look.outside) only on the building's outside wall
+// (common.ts WallSides); on any other wall they give way to the plain one
+export const HOSP_WALL_SIDES: WallSides = { outer: [WALL_EXIT, ...HOSP_WINDOW_PICS] };
 
 // the floors: the corridors' own, then the rooms', two to a kind, then the operating theatre's
 export const HOSP_ROOM_FLOORS: RoomFloors = {
@@ -656,6 +685,15 @@ export function hospPictures(): Pictures {
     walls: HOSP_WALL_PICS.map((_, v) => paint(4100 + v, hospWall(v))),
     laneWalls: HOSP_LANE_WALLS,
     wallSides: HOSP_WALL_SIDES,
+    outside: {
+      panes: {
+        [WINDOW_A]: corridorPanes(false),
+        [WINDOW_B]: corridorPanes(true),
+        [insideWalls[KIND_WARD]![1]!]: wardWindowPanes(),
+      },
+      frame: WINDOW_FRAME,
+      ...cityView(),
+    },
     roomWalls: HOSP_ROOM_WALLS,
     liftWalls: HOSP_LIFT_WALLS,
     roomFloors: HOSP_ROOM_FLOORS,
