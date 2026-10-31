@@ -46,8 +46,6 @@ import { screenFx } from '../../ui/hud.ts';
 import { track } from '@engine/core/analytics.ts';
 import { COLOR } from '../../data/colors.ts';
 // ================= bosses =================
-const BOSS_PHASE_HP = 0.5; // a boss enrages (and enters its next phase) below this share of its health
-const PATTERN_COUNT = 3; // attack patterns the bosses with a pat / pt clock cycle through
 // the bosses' shared timings and heights
 export const FIRST_SHOT_DELAY = 0.3; // a pattern waits this long before its first round (s)
 export const RING_Y = 1.3; // height of ring and spiral bullets above the floor (m)
@@ -58,12 +56,6 @@ const BOSS_DEF_R = 1.8; // r of the boss's `def` (the enemy-def shape the generi
 const BOSS_GLOW = 0.3; // emissive intensity of the body at rest (baseEI)
 const BOSS_FIRST_TIMER = 2.2; // starting value of the pattern timer (s); bosses that need another set it in their spawn
 const BOSS_BASE_DMG = 10; // attack damage before damageScaleAt
-// what a boss drops when it goes down (bossDown)
-// bits a boss is worth before the bossDifficulty multiplier. It drops BOSS_BITS_KEPT of them; the rest come from the
-// enemies of its depth (actors/combat.ts killBits), so a dive that falls before the boss still brings something in
-// (2026-10-23: deep down nearly all of a depth's bits were the boss's, and a dive stuck at a milestone bought no level)
-export const BOSS_BITS = 45,
-  BOSS_BITS_KEPT = 0.4;
 const BOSS_WEAPON_ROLL_PER_PROGRESS = 0.03; // added to the weapon's lucky roll for each point of progress
 const BOSS_WEAPON_LUCKY_ABOVE = 0.9; // a lucky roll above this raises the weapon's minimum rarity
 const BOSS_WEAPON_MIN_RARITY = 1; // minimum rarity of the weapon (index into RARITY: 1 = ★★)
@@ -150,6 +142,7 @@ export function createBoss<S extends object>(o: BossSpawn<S>): Boss & S {
     spawnT: BOSS_TUNE.introTime,
     spawnMax: BOSS_TUNE.introTime,
     intro: true,
+    phase: 0,
     ...state,
   };
   mesh.position.set(e.x, y, e.z);
@@ -202,13 +195,21 @@ export function poseBossPool(e: Boss) {
   const at = e.mesh.position;
   e.pool?.position.set(at.x, floorY(at.x, at.z) + BOSS_POOL_Y, at.z);
 }
-// below half health: the boss uses its enraged numbers (*Enr in BOSS_META tune); bossPhase fires at the same point
-export function isEnraged(e: Boss): boolean {
-  return e.hp < e.maxHp * BOSS_PHASE_HP;
+// how many of BOSS_TUNE.phases the boss's health has passed: 0 = the first phase, 1 = the second, ...
+export function phaseOf(e: Boss): number {
+  return BOSS_TUNE.phases.filter(t => e.hp < e.maxHp * t).length;
 }
-// start the next attack pattern: e.pat cycles 0..PATTERN_COUNT-1; the caller sets e.timer (its length) after this
+// below the first boundary: the boss uses its enraged numbers (*Enr in BOSS_META tune)
+export function isEnraged(e: Boss): boolean {
+  return phaseOf(e) > 0;
+}
+// the next phase begins when its health passes a boundary, once the attack it is in the air in is over
+export function checkPhase(e: Boss) {
+  if (!e.aloft && e.hp > 0 && phaseOf(e) > e.phase) bossPhase(e);
+}
+// start the next attack pattern: e.pat cycles 0..BOSS_TUNE.patternCount-1; the caller sets e.timer (its length) after this
 export function nextPattern(e: Boss) {
-  e.pat = e.patIdx++ % PATTERN_COUNT;
+  e.pat = e.patIdx++ % BOSS_TUNE.patternCount;
   e.pt = 0;
   e.shots = 0;
   e.acc = 0;
@@ -228,7 +229,7 @@ export function minionCount(): number {
 export const arenaRoom = () => level.rooms[level.hall ? level.hall.room : 0]!;
 // drop below half health: short invulnerable burst, then the boss's enraged patterns take over
 export function bossPhase(e: Boss) {
-  e.phased = true;
+  e.phase++;
   e.spawnT = BOSS_TUNE.phaseTime;
   e.spawnMax = BOSS_TUNE.phaseTime;
   e.intro = false;
@@ -303,7 +304,7 @@ function giveBossRewards(e: Boss, tier: number, progress: number) {
   run.bosses = run.bosses || [];
   run.bosses.push(e.kind);
   track('boss_defeated', { target: e.kind, level: tier + 1 });
-  dropBits(e.x, e.z, BOSS_BITS * BOSS_BITS_KEPT * bossDifficulty());
+  dropBits(e.x, e.z, BOSS_TUNE.bits * BOSS_TUNE.bitsKept * bossDifficulty());
   addPickup('chip', e.cx, e.cz + 4);
   addPickup('kit', e.cx + 2, e.cz + 5);
   const roll = Math.random() + progress * BOSS_WEAPON_ROLL_PER_PROGRESS;

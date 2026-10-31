@@ -154,7 +154,6 @@ interface EnemyBase extends WorldObject {
   pool?: THREE.Object3D; // a boss with a look: the pool of its colour on the ground under it
   stunMul?: number; // bosses: damage multiplier while stunned or open
   invuln?: boolean;
-  hinted?: boolean; // Bastion: shielded; whether the hint toast was shown
 }
 // a regular enemy (spawnEnemy in src/world/entities.ts)
 export interface RegularEnemy extends EnemyBase {
@@ -233,10 +232,13 @@ export interface Boss extends EnemyBase {
   spawnT: number;
   spawnMax: number;
   intro: boolean;
-  phased?: boolean; // entrance / phase change (bossPauseTick, bossPhase)
+  phase: number; // how many of the phase boundaries (BOSS_TUNE.phases) its health has passed: 0 = the first phase
   aloft?: boolean; // off the ground (CRUSHER's jump), or mid-attack (HOIST's load): the phase change waits until it is over (it stops the boss where it is)
   beams?: THREE.Object3D[]; // Noise Core's beams (hidden when it dies)
   onDown?(): void; // called when the boss goes down, after its meshes are removed (HOIST: its magnet falls)
+  // a boss's own rule for a hit (BASTION's shield): the damage it takes (0: nothing; the rule shows its own flash and
+  // hint), or null for the usual (the damage times stunMul)
+  hit?(dmg: number, isCrit: boolean): number | null;
 }
 export type Enemy = RegularEnemy | Boss;
 

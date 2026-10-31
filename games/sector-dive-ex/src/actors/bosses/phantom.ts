@@ -27,6 +27,22 @@ import { COLOR } from '../../data/colors.ts';
 
 // laser: the aim line; lock: where it is locked on; cycle: warps so far (every droneEvery-th brings drones)
 type PhantomBoss = Boss & { st: string; laser: Laser; lock: number[]; cycle: number };
+// the numbers PHANTOM's behaviour reads (BOSS_META.phantom.tune)
+export interface PhantomTune {
+  spots: [number, number][]; // warp spots, in arena tiles
+  warpRing: [number, number];
+  aim: number;
+  aimEnr: number;
+  shotSpeed: number;
+  shotDmg: number;
+  secondGap: number;
+  vanish: number;
+  idle: number;
+  idleEnr: number;
+  droneEvery: number;
+  droneCap: number;
+  drones: number;
+}
 // how PHANTOM looks (common.ts BossVisual)
 export function phantomVisual(): BossVisual {
   const g = new THREE.Group(),

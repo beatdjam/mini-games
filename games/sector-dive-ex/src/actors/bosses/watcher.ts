@@ -28,6 +28,28 @@ import { COLOR } from '../../data/colors.ts';
 
 // drone waves summoned so far
 type WatcherBoss = Boss & { summoned: number };
+// the numbers WATCHER's behaviour reads (BOSS_META.watcher.tune)
+export interface WatcherTune {
+  drones: [number, number][]; // health share at which a wave comes, and its drones
+  patTime: [number, number, number];
+  enrTime: number;
+  ringShots: number;
+  ringGap: number;
+  ringN: number;
+  ringNEnr: number;
+  ringSpeed: number;
+  fanShots: number;
+  fanShotsEnr: number;
+  fanGap: number;
+  fanN: number;
+  fanSpread: number;
+  fanSpeed: number;
+  spiralTime: number;
+  spiralGap: number;
+  spiralArms: number;
+  spiralArmsEnr: number;
+  spiralSpeed: number;
+}
 // how WATCHER looks (common.ts BossVisual)
 export function watcherVisual(): BossVisual {
   const g = new THREE.Group(),
