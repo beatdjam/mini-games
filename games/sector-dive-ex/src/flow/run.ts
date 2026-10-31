@@ -12,6 +12,7 @@ import { LOOP } from '@engine/core/loop.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { BOSS_META } from '../data/bosses.ts';
+import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { PER, TUNE } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
 import { persist, save } from '../core/save.ts';
@@ -432,8 +433,18 @@ export function startStage() {
     player.pitch = 0;
     makePortal(at.extract[0], at.extract[1], COLOR.cyan, 'extract', t('boss.extract'));
     makeTerminal(at.terminal[0], at.terminal[1], COLOR.lime, t('boss.terminal'));
-    // one room for now: the other seven gates are the eight-room draft
-    makePortal(at.roomGates[0]![0], at.roomGates[0]![1], COLOR.violet, 'room', BOSS_META.crusher.name, 'crusher');
+    // a gate for each boss room, in BOSS_ROOM_ORDER: a beaten room's gate is dim and says so
+    BOSS_ROOM_ORDER.forEach((kind, i) => {
+      const beaten = save.records.bossArea?.beaten.includes(kind) ?? false;
+      makePortal(
+        at.roomGates[i]![0],
+        at.roomGates[i]![1],
+        beaten ? COLOR.dim : COLOR.violet,
+        'room',
+        beaten ? `${BOSS_META[kind].name} ${t('boss.beaten')}` : BOSS_META[kind].name,
+        kind,
+      );
+    });
   } else if (inBuilding) {
     const st = run.bld!;
     if (!buildingShown(building)) showBuilding(building!);

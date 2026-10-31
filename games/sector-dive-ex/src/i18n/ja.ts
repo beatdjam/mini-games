@@ -342,6 +342,8 @@ LANG.ja = {
     'run.practiceStart': 'ボス練習 — 報酬もロストもなし',
     'boss.phase2': '第二段階',
     'boss.hall': '広間',
+    'boss.beaten': '撃破済み',
+    'boss.beatenCount': '撃破 {n}/{max}',
     'boss.toBase': '拠点へ',
     'boss.toHall': '広間へ',
     'boss.practiceWon': '撃破。ゲートから拠点へ戻る',

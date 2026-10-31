@@ -344,6 +344,8 @@ LANG.en = {
     'run.practiceStart': 'Boss practice — no rewards, no losses',
     'boss.phase2': 'Phase two',
     'boss.hall': 'HALL',
+    'boss.beaten': 'beaten',
+    'boss.beatenCount': 'Beaten {n}/{max}',
     'boss.toBase': 'To base',
     'boss.toHall': 'To the hall',
     'boss.practiceWon': 'Defeated. Take the gate back to base',
