@@ -5,7 +5,7 @@ import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf, wallPic } from '../common.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
 import { TEX, grain, paint, poolTex } from '../paint.ts';
 import type { Paint } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
@@ -117,18 +117,13 @@ const makeForgeKit = (pipe: THREE.Texture): WallKit => ({
 export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   forgeShared ??= { pipe: paint(22, pipePaint) };
   const shared = forgeShared,
-    { d, wallOf, of, add, pools } = propTools(plan, group, FORGE_PROPS, rng);
+    { d, wallOf, of, add, pools, inHall, inHallRoom } = propTools(plan, group, FORGE_PROPS, rng, {
+      first: FORGE_ROOM_WALLS.plain,
+      pics: { count: FORGE_ALL_WALLS, rooms: FORGE_ROOM_WALLS },
+    });
   const skin = new THREE.MeshBasicMaterial({ map: shared.pipe }),
     dark = new THREE.MeshBasicMaterial({ color: PIPE_DARK }),
     lights: Light[] = [];
-  // The casting hall (the boss room) has its own things (hallProps.ts), so what is fixed to its walls here is left out:
-  // on the walls of the room, and on the side of them that the corridor behind sees (the hall's pictures are on both
-  // sides). The dice are thrown all the same, so the rest of the floor comes out as it did
-  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
-  const bossRoom = plan.hall ? plan.hall.room : null,
-    inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
-      s.room === bossRoom ||
-      wallPic(d, wallOf(s), { count: FORGE_ALL_WALLS, rooms: FORGE_ROOM_WALLS }) >= FORGE_WALL_PICS.length;
 
   // mains: a thick pipe along the wall under the roof, turning into the wall at both ends
   const mains = of('main'),
@@ -211,7 +206,7 @@ export function forgeProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
 
   // roof lamps (not where the ceiling is open): a shade on a rod, the lit bulb seen from below
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
-  const lamps = of('lamp').filter(s => !plan.noCeil[s.j * d.W + s.i] && s.room !== bossRoom),
+  const lamps = of('lamp').filter(s => !plan.noCeil[s.j * d.W + s.i] && !inHallRoom(s)),
     rod: THREE.Matrix4[] = [],
     shade: THREE.Matrix4[] = [],
     bulb: THREE.Matrix4[] = [],

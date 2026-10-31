@@ -5,7 +5,7 @@ import { tileCenter } from '@engine/world/tiles.ts';
 import type { PropRule } from '@engine/world/slots.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
-import { WALL_PLAIN_SHARE, variantOf, wallPic } from '../common.ts';
+import { WALL_PLAIN_SHARE, variantOf } from '../common.ts';
 import { poolTex } from '../paint.ts';
 import { facing, lightMat, onWall, pose, propTools } from '../props.ts';
 import type { Light, WallSlot } from '../props.ts';
@@ -106,7 +106,10 @@ const makeDataKit = (): WallKit => ({
   ],
 });
 export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
-  const { d, wallOf, of, add, pools } = propTools(plan, group, DATA_PROPS, rng),
+  const { d, wallOf, of, add, pools, inHall, inHallRoom } = propTools(plan, group, DATA_PROPS, rng, {
+      first: DATA_ROOM_WALLS.plain,
+      pics: { count: DATA_ALL_WALLS, rooms: DATA_ROOM_WALLS },
+    }),
     up = new THREE.Vector3(0, 1, 0);
   // the picture on the wall a wall slot is on
   const picOf = (s: WallSlot) => DATA_WALLS[variantOf(wallOf(s), DATA_WALLS.length, WALL_PLAIN_SHARE)]!;
@@ -114,14 +117,6 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     housing = new THREE.MeshBasicMaterial({ color: HOUSING }),
     tinted = new THREE.MeshBasicMaterial({ color: 0xffffff }), // takes each copy's own colour
     lights: Light[] = [];
-  // The server hall (the boss room) has its own things (hallProps.ts), so what is fixed to its walls here is left out:
-  // on the walls of the room, and on the side of them that the corridor behind sees (the hall's pictures are on both
-  // sides). The dice are thrown all the same, so the rest of the floor comes out as it did
-  // (null on a floor without one: -1, the number the alleys have, would leave them all out)
-  const bossRoom = plan.hall ? plan.hall.room : null,
-    inHall = (s: { room: number; i: number; j: number; side?: number }): boolean =>
-      s.room === bossRoom ||
-      wallPic(d, wallOf(s), { count: DATA_ALL_WALLS, rooms: DATA_ROOM_WALLS }) >= DATA_WALLS.length;
 
   // cable ladders: two rails and their rungs on brackets, the cables lying on them, a box at each end where the
   // cables go into the wall
@@ -240,7 +235,7 @@ export function dataProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
         c = rng.pick(TUBE_COLORS),
         turn = rng.pick([0, Math.PI / 2]);
       lights.push({ x, z, color: c, size: 1 });
-      if (plan.hall && s.room === plan.hall.room) return;
+      if (inHallRoom(s)) return;
       fitting.push(pose(new THREE.Vector3(x, WALL_H - 0.03, z), turn));
       halo.push(pose(new THREE.Vector3(x, WALL_H - 0.01, z)));
       haloColors.push(c);
