@@ -12,9 +12,10 @@ import { plainLooks } from './looks.ts';
 import { pickupLook } from './models/itemLooks.ts';
 // ================= models =================
 // the three.js models of enemies and pickups, and the aimed laser line; entities.ts makes the entity objects around them
-// The looks of the models are in world/models/, one file per kind of thing (enemyLooks.ts, bossLooks.ts, itemLooks.ts,
-// gunLooks.ts, ebulletLooks.ts for the enemies' shots, sparkLooks.ts for the particles); the parts they share (boxes
-// and cylinders made once per size, the hull plate, the pool of light under a thing) are in world/models/machine.ts.
+// The looks of the models are in world/models/, one file per kind of thing (enemyLooks.ts, itemLooks.ts, gunLooks.ts,
+// ebulletLooks.ts for the enemies' shots, sparkLooks.ts for the particles); the bosses are in world/models/bosses/, one
+// file per boss, their shared tools in bosses/shared.ts; the parts they share (boxes and cylinders made once per size,
+// the hull plate, the pool of light under a thing) are in world/models/machine.ts.
 // What is built here without them is the plain look (glowing solids with outlines; dev: ?plain).
 
 // The trooper: boxes on joints. The group's origin is at the hips (def.y above the feet) and it faces +z like the others.

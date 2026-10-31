@@ -6,8 +6,8 @@ import {
   surgeonBody,
   surgeonHullMat,
   surgeonMount,
-} from '../../world/models/surgeonLooks.ts';
-import type { SurgeonArmKind, SurgeonArmLook, SurgeonBodyLook } from '../../world/models/surgeonLooks.ts';
+} from '../../world/models/bosses/surgeon.ts';
+import type { SurgeonArmKind, SurgeonArmLook, SurgeonBodyLook } from '../../world/models/bosses/surgeon.ts';
 import { plainLooks } from '../../world/looks.ts';
 import type { Boss, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';

@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { basicMat, shared } from '@engine/render/render.ts';
-import { PAINT, css } from '../../data/colors.ts';
-import { HOIST_CAUTION, HOIST_RATING, HOIST_UNIT } from '../../i18n/signs.ts';
-import { SIGN_FONT, TEX, grain, grime, paint, smudge, stripes, words } from '../looks/paint.ts';
-import type { Paint } from '../looks/paint.ts';
-import { at, boxGeo, cylGeo, machine } from './machine.ts';
-// What HOIST's model (world/models/bossLooks.ts) is dressed with, all for the eye and none of it hit: the pictures
+import { PAINT, css } from '../../../../data/colors.ts';
+import { HOIST_CAUTION, HOIST_RATING, HOIST_UNIT } from '../../../../i18n/signs.ts';
+import { SIGN_FONT, TEX, grain, grime, paint, smudge, stripes, words } from '../../../looks/paint.ts';
+import type { Paint } from '../../../looks/paint.ts';
+import { at, boxGeo, cylGeo, machine } from '../../machine.ts';
+// What HOIST's model (world/models/bosses/hoist/look.ts) is dressed with, all for the eye and none of it hit: the pictures
 // (rust, oil, dents and welds on the girder and the magnet, the plates and the caution card on the girder, the cab's
 // broken window), the cab, the beacons, the cable and chains hanging from the girder, and the scrap stuck to the
 // magnet (a mall's carts and shelves, a foundry's offcuts, pipe and gear). The pictures are painted on a canvas each

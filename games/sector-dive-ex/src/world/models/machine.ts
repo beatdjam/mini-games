@@ -5,7 +5,7 @@ import { cylGeo } from '@engine/render/parts.ts';
 import { TEX, grain, paint, poolTex } from '../looks/paint.ts';
 import type { Paint } from '../looks/paint.ts';
 export { at, ballGeo, boxGeo, cylGeo } from '@engine/render/parts.ts';
-// What a machine built to be believed is made with, for the bosses (world/models/bossLooks.ts) and the enemies
+// What a machine built to be believed is made with, for the bosses (world/models/bosses/) and the enemies
 // (world/models/enemyLooks.ts): hull plate with panel lines, a vent and a stencilled mark on it, steel that takes the light,
 // and parts a machine would need (a hydraulic ram between two points). A model made with these should show what the
 // machine does: how it moves (tracks, wheels, jets, legs on rams), what it fights with (barrels, launchers, rams,
@@ -98,6 +98,41 @@ const hullPaint: Paint = (g, rand) => {
   grain(g, rand, 12);
 };
 const HULL_MARK = 'K-07'; // the stencil on the hull (a made-up unit number)
+// a riot shield (and a dozer blade): steel with black and yellow chevrons along the bottom and a slit to see through
+const shieldPaint: Paint = (g, rand) => {
+  g.fillStyle = '#3d4852';
+  g.fillRect(0, 0, TEX, TEX);
+  for (let n = 0; n < 70; n++) {
+    g.fillStyle = rand() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.12)';
+    g.fillRect(rand() * TEX, rand() * TEX, 6 + rand() * 46, 2 + rand() * 12);
+  }
+  g.fillStyle = '#0b0d10';
+  g.fillRect(TEX * 0.22, TEX * 0.16, TEX * 0.56, TEX * 0.07);
+  g.save();
+  g.beginPath();
+  g.rect(0, TEX * 0.82, TEX, TEX * 0.12);
+  g.clip();
+  g.fillStyle = '#c9a233';
+  g.fillRect(0, TEX * 0.82, TEX, TEX * 0.12);
+  g.fillStyle = '#17150f';
+  for (let x = -40; x < TEX; x += 44) {
+    g.beginPath();
+    g.moveTo(x, TEX * 0.94);
+    g.lineTo(x + 30, TEX * 0.82);
+    g.lineTo(x + 52, TEX * 0.82);
+    g.lineTo(x + 22, TEX * 0.94);
+    g.fill();
+  }
+  g.restore();
+  g.strokeStyle = 'rgba(0,0,0,.6)';
+  g.lineWidth = 6;
+  g.strokeRect(3, 3, TEX - 6, TEX - 6);
+  grain(g, rand, 12);
+};
+let shield: THREE.CanvasTexture | null = null;
+export const shieldTex = () => (shield ??= paint(3003, shieldPaint));
+let blade: THREE.MeshLambertMaterial | null = null;
+export const bladeMat = () => (blade ??= shared(new THREE.MeshLambertMaterial({ map: shieldTex() })));
 // bare machined steel: for pistons, barrels, joints
 let machineMats: {
   hull: THREE.CanvasTexture;

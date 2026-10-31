@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { mergeParts } from '@engine/render/merge.ts';
 import { basicMat, shared } from '@engine/render/render.ts';
-import { PAINT } from '../../data/colors.ts';
-import { TEX, grain, grime, paint, smudge, stripes } from '../looks/paint.ts';
-import type { Paint } from '../looks/paint.ts';
-import { HALF, spokes, torusGeo, turned } from './bossLooks.ts';
-import { at, ballGeo, boxGeo, cylGeo, machine } from './machine.ts';
+import { PAINT } from '../../../data/colors.ts';
+import { TEX, grain, grime, paint, smudge, stripes } from '../../looks/paint.ts';
+import type { Paint } from '../../looks/paint.ts';
+import { HALF, spokes, torusGeo, turned } from './shared.ts';
+import { at, ballGeo, boxGeo, cylGeo, machine } from '../machine.ts';
 // SURGEON: a multi-armed surgical robot hung from the ceiling of an operating theatre (its fight is in
 // actors/bosses/surgeon.ts, which poses what is built here). White-and-pale-green enamel gone grimy (surgeonHullMat),
 // not the dark plate of the others. The body (surgeonBody) is layered housings: a black core under six enamel plates

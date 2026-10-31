@@ -5,7 +5,19 @@ import { COLOR } from '../../data/colors.ts';
 import { edges, geoCache } from '../render.ts';
 import { TEX, grain, paint } from '../looks/paint.ts';
 import type { Paint } from '../looks/paint.ts';
-import { V, at, ballGeo, bossHullMat, boxGeo, cylGeo, groundPool, machine, piston } from './machine.ts';
+import {
+  V,
+  at,
+  ballGeo,
+  bladeMat,
+  bossHullMat,
+  boxGeo,
+  cylGeo,
+  groundPool,
+  machine,
+  piston,
+  shieldTex,
+} from './machine.ts';
 // The enemies as machines, to go with the sectors' looks (world/looks/) and the guns (world/models/gunLooks.ts): each type
 // in the shape of what it is (a wheel that runs at you, a quadcopter, a sentry gun on a post ...), in painted armour
 // plate, rubber and steel. What glows is small and in the type's own colour (an eye, a lamp), so a type can still be
@@ -77,45 +89,12 @@ const treadPaint: Paint = (g, rand) => {
   }
   grain(g, rand, 14);
 };
-// a riot shield (and a dozer blade): steel with black and yellow chevrons along the bottom and a slit to see through
-const shieldPaint: Paint = (g, rand) => {
-  g.fillStyle = '#3d4852';
-  g.fillRect(0, 0, TEX, TEX);
-  for (let n = 0; n < 70; n++) {
-    g.fillStyle = rand() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.12)';
-    g.fillRect(rand() * TEX, rand() * TEX, 6 + rand() * 46, 2 + rand() * 12);
-  }
-  g.fillStyle = '#0b0d10';
-  g.fillRect(TEX * 0.22, TEX * 0.16, TEX * 0.56, TEX * 0.07);
-  g.save();
-  g.beginPath();
-  g.rect(0, TEX * 0.82, TEX, TEX * 0.12);
-  g.clip();
-  g.fillStyle = '#c9a233';
-  g.fillRect(0, TEX * 0.82, TEX, TEX * 0.12);
-  g.fillStyle = '#17150f';
-  for (let x = -40; x < TEX; x += 44) {
-    g.beginPath();
-    g.moveTo(x, TEX * 0.94);
-    g.lineTo(x + 30, TEX * 0.82);
-    g.lineTo(x + 52, TEX * 0.82);
-    g.lineTo(x + 22, TEX * 0.94);
-    g.fill();
-  }
-  g.restore();
-  g.strokeStyle = 'rgba(0,0,0,.6)';
-  g.lineWidth = 6;
-  g.strokeRect(3, 3, TEX - 6, TEX - 6);
-  grain(g, rand, 12);
-};
-let tex: { plate: THREE.CanvasTexture; tread: THREE.CanvasTexture; shield: THREE.CanvasTexture } | null = null;
-const textures = () =>
-  (tex ??= { plate: paint(3001, platePaint), tread: paint(3002, treadPaint), shield: paint(3003, shieldPaint) });
+let tex: { plate: THREE.CanvasTexture; tread: THREE.CanvasTexture } | null = null;
+const textures = () => (tex ??= { plate: paint(3001, platePaint), tread: paint(3002, treadPaint) });
 // the materials every enemy of a kind can share are made once and kept (shared: disposeTree leaves them)
 const mats: Record<string, THREE.Material> = {};
 const steelMat = () => (mats.steel ??= shared(new THREE.MeshLambertMaterial({ color: 0x3b4046 })));
 const treadMat = () => (mats.tread ??= shared(new THREE.MeshLambertMaterial({ map: textures().tread })));
-export const bladeMat = () => (mats.blade ??= shared(new THREE.MeshLambertMaterial({ map: textures().shield })));
 interface Built {
   g: THREE.Group;
   body: THREE.Object3D;
@@ -333,7 +312,7 @@ const marksman: Make = (body, glow) => {
 const riot: Make = (body, glow) => {
   const g = new THREE.Group(),
     k = machine(),
-    plate = new THREE.Mesh(geoCache.shieldPlate, new THREE.MeshLambertMaterial({ map: textures().shield })),
+    plate = new THREE.Mesh(geoCache.shieldPlate, new THREE.MeshLambertMaterial({ map: shieldTex() })),
     edge = new THREE.LineSegments(edges('shieldPlate'), lineMat(COLOR.shield));
   plate.position.set(0, 0.1, 0.75);
   edge.position.copy(plate.position);

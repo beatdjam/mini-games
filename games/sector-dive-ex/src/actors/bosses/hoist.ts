@@ -5,8 +5,8 @@ import {
   hoistCargo,
   hoistFrame,
   hoistMagnet,
-} from '../../world/models/bossLooks.ts';
-import type { HoistFrame } from '../../world/models/bossLooks.ts';
+} from '../../world/models/bosses/hoist/look.ts';
+import type { HoistFrame } from '../../world/models/bosses/hoist/look.ts';
 import { cylGeo } from '../../world/models/machine.ts';
 import { plainLooks } from '../../world/looks.ts';
 import type { Boss } from '../../data/types.ts';
