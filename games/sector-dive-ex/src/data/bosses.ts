@@ -213,9 +213,23 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         warn: 1.2, // seconds from the load hanging to its fall
         fallG: 35, // the load's fall (m/s^2)
         dropDmg: 2.2, // multiplier on the boss's damage
+        rushSpeed: 14, // the trolley closes on the player this fast along each axis to swing a load (m/s; running is 11.1)
+        rushMax: 1.2, // ... and gives up after this long (s)
+        swingWarn: 0.8, // the load comes down and the band fills this long before it swings (s)
+        swingR: 4.5, // the load swings this far from under the magnet (m)
+        swingW: 1.1, // half the band's width: it hits where |distance from the magnet - swingR| < swingW (m)
+        swingTime: 1.8, // seconds it swings
+        swingTurns: 0.8, // turns a second
+        swingTurnsEnr: 1.1,
+        swingDmg: 1.8, // multiplier on the boss's damage
         pullWind: 0.7, // the magnet lights and hums this long before it pulls (s)
         pullTime: 2, // seconds it pulls
         pullSpeed: 9, // metres per second the player is moved toward the magnet (walking is 7.4, running 11.1)
+        barrageN: 3, // loads dropped one after another
+        barrageNEnr: 4,
+        barrageEvery: 0.35, // seconds from one load hanging to the next (s)
+        barrageWarn: 1, // each load's warning (s)
+        barrageOver: 4, // the trolley runs this far past the player (m)
         minionCap: 4, // minions alive at once, counting the crawlers a load lets out
         crawlers: 2, // crawlers out of a broken load below half health,
         crawlers1: 1, // ... and above it

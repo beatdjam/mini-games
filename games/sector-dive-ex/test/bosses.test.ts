@@ -198,7 +198,18 @@ test('scaling: additive damage chips, compounding health, practice depth', () =>
 type HoistTest = Boss & {
   st: string;
   gunT: number;
-  cargo: { x: number; fill: { material: { opacity: number } } } | null;
+  cargos: {
+    x: number;
+    z: number;
+    t: number;
+    warn: number;
+    falling: boolean;
+    fill: { material: { opacity: number } };
+    shadow: { g: { position: { x: number; z: number } } };
+  }[];
+  left: number;
+  dropT: number;
+  goal: { x: number; z: number };
 };
 function hoistReady(): HoistTest {
   startPractice('hoist');
@@ -245,16 +256,16 @@ test('hoist: a load hangs over the player with a shadow that fills, then falls a
     h.timer = K.approachMax;
     update(1 / 60);
     expect(h.st, 'the load is up').toBe('hang');
-    expect(h.cargo, 'with its shadow').toBeTruthy();
-    const faint = h.cargo!.fill.material.opacity,
+    expect(h.cargos.length, 'with its shadow').toBe(1);
+    const faint = h.cargos[0]!.fill.material.opacity,
       hp0 = player.hp;
     for (let k = 0; k < (K.warn * 60) / 2; k++) update(1 / 60);
-    expect(h.cargo!.fill.material.opacity, 'the shadow fills').toBeGreaterThan(faint);
+    expect(h.cargos[0]!.fill.material.opacity, 'the shadow fills').toBeGreaterThan(faint);
     expect(player.hp, 'nothing falls yet').toBe(hp0);
     player.x += stepOut;
     for (let k = 0; k < 180 && h.st !== 'chase'; k++) update(1 / 60);
     expect(h.st, 'it fell and landed').toBe('chase');
-    expect(h.cargo, 'the load is gone').toBeNull();
+    expect(h.cargos, 'the load is gone').toHaveLength(0);
     const lost = hp0 - player.hp,
       dmg = h.dmg * K.dropDmg;
     endRun('abandon');
@@ -264,6 +275,62 @@ test('hoist: a load hangs over the player with a shadow that fills, then falls a
   expect(hit.lost, 'standing in the ring').toBeCloseTo(hit.dmg, 6);
   // (well outside: the crawler that the broken load lets out lands 1.6 m from its middle, any way round)
   expect(drop(K.shadowR + 2.5).lost, 'outside the ring').toBe(0);
+});
+test('hoist: it rushes in and swings a load round the magnet, hurting only whoever is in its band', () => {
+  const K = BOSS_META.hoist.tune;
+  const swing = (dist: number, untilHit: boolean) => {
+    const h = hoistReady();
+    h.x = h.cx;
+    h.z = h.cz;
+    player.x = h.cx + dist;
+    player.z = h.cz;
+    const hp0 = player.hp;
+    h.st = 'swingWind';
+    h.timer = 0;
+    for (let k = 0; k < 200; k++) {
+      update(1 / 60);
+      if (untilHit ? player.hp < hp0 : h.st === 'chase') break;
+    }
+    const lost = hp0 - player.hp;
+    endRun('abandon');
+    return { lost, dmg: h.dmg * K.swingDmg };
+  };
+  const inBand = swing(K.swingR, true);
+  expect(inBand.lost, 'in the band').toBeCloseTo(inBand.dmg, 6);
+  expect(swing(0, false).lost, 'under the magnet').toBe(0);
+});
+test('hoist: it runs across the player dropping loads one after another, each with its own shadow', () => {
+  const K = BOSS_META.hoist.tune,
+    h = hoistReady(),
+    crawlers = () => enemies.filter(o => !o.boss && !o.dead && o.type === 'crawler').length;
+  player.x = h.cx;
+  player.z = h.cz + 8;
+  h.st = 'chase';
+  h.timer = 0;
+  h.patIdx = 3; // the fourth attack in HOIST's order: barrage
+  const before = crawlers();
+  for (let k = 0; k < 180 && h.cargos.length < K.barrageN; k++) update(1 / 60);
+  expect(h.cargos.length, 'a load each').toBe(K.barrageN);
+  const order = h.cargos.slice(),
+    fills = order.map(c => c.fill.material.opacity);
+  for (const c of order) {
+    expect(c.fill.material.opacity, 'a shadow under each load').toBeGreaterThan(0);
+    expect(c.shadow.g.position.x, 'the shadow is under its load').toBeCloseTo(c.x, 6);
+    expect(c.shadow.g.position.z).toBeCloseTo(c.z, 6);
+  }
+  expect(new Set(fills).size, 'each shadow filling on its own').toBeGreaterThan(1);
+  const fell: number[] = [];
+  for (let k = 0; k < 300 && h.cargos.length; k++) {
+    update(1 / 60);
+    order.forEach((c, i) => {
+      if (c.falling && !fell.includes(i)) fell.push(i);
+    });
+  }
+  expect(fell, 'in the order they were hung').toEqual(order.map((_, i) => i));
+  expect(h.st, 'then back to the chase').toBe('chase');
+  expect(h.cargos, 'no load left').toHaveLength(0);
+  expect(crawlers() - before, 'the barrage loads let no crawler out').toBe(0);
+  endRun('abandon');
 });
 test('hoist: the magnet drags the player toward the point under it, and the load falls there', () => {
   const K = BOSS_META.hoist.tune,
@@ -279,7 +346,7 @@ test('hoist: the magnet drags the player toward the point under it, and the load
   expect(player.x, 'toward the magnet').toBeGreaterThan(h.cx - 12);
   for (let k = 0; k < 4 * 60 && h.st !== 'hang'; k++) update(1 / 60);
   expect(h.st, 'then the load').toBe('hang');
-  expect(h.cargo!.x, 'under the magnet').toBe(h.x);
+  expect(h.cargos[0]!.x, 'under the magnet').toBe(h.x);
   expect(distXZ(player, h), 'and the player is under it').toBeLessThan(K.shadowR);
   endRun('abandon');
 });
@@ -295,7 +362,7 @@ test('hoist: a load that breaks lets a crawler out, two below half health, up to
     const before = crawlers();
     h.st = 'approach';
     h.timer = 0;
-    for (let k = 0; k < 240 && !(h.st === 'chase' && !h.cargo); k++) update(1 / 60);
+    for (let k = 0; k < 240 && !(h.st === 'chase' && !h.cargos.length); k++) update(1 / 60);
     const out = crawlers() - before;
     endRun('abandon');
     return out;
