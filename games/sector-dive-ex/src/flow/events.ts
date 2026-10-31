@@ -63,6 +63,8 @@ const ev = {
   // the ride in progress: which lift, +1 down / -1 up, seconds so far
   ride: null as { link: number; dir: number; t: number } | null,
 };
+// the player has walked into the building's boss room (the boss comes after a moment): the sim waits on it
+export const bossStarted = (): boolean => ev.bossStarted;
 const world = () => activeTileGrid().world;
 // is this a boss room of the boss area (its lowest floor, with the boss hall on it)
 const inBossRoom = (): boolean => !!level.hall && bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room';

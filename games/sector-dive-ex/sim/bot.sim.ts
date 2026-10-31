@@ -7,16 +7,18 @@ import { createRng } from '@engine/core/util.ts';
 import { isBossStage } from '../src/core/stages.ts';
 import { levelOf, nextLevelCost, setDropOnly } from '../src/core/rules.ts';
 import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
-import { PER, UPGRADES, levelCost } from '../src/data/progress.ts';
+import { BOSS_AREA_START_TIER, PER, UPGRADES, levelCost } from '../src/data/progress.ts';
 import { fillMag, newWeapon } from '../src/actors/weapons.ts';
 import { normalizeWeapons } from '../src/ui/input.ts';
 import { defaultSave, save, setSave } from '../src/core/save.ts';
-import { buyUpgrade, setStartTier } from '../src/core/progress.ts';
+import { buyUpgrade, devBossAreaStart, setStartTier } from '../src/core/progress.ts';
+import { devBossArea } from '../src/core/bossArea.ts';
 import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { devSeed, level } from '../src/world/level.ts';
 import { player, run } from '../src/actors/player.ts';
 import { goBase, startRun } from '../src/flow/run.ts';
+import { bossStarted } from '../src/flow/events.ts';
 import { state } from '../src/flow/state.ts';
 import { update } from '../src/flow/update.ts';
 import { BOT_STYLES, createBot, nextPoint, setBot, setBotLevels } from '../src/dev/bot.ts';
@@ -27,6 +29,7 @@ declare const __SIM_STYLE__: string;
 declare const __SIM_WEAPON__: string;
 declare const __SIM_LEVEL__: string;
 declare const __SIM_TAG__: string;
+declare const __SIM_AREA__: string;
 
 const DT = 1 / 60;
 // A run goes on for as long as the bot gets anywhere: it is given up only when nothing has moved on for a while (no
@@ -83,6 +86,7 @@ const cases = styles.flatMap(style =>
 // milestone passed. Between dives the save's bits go on levels at the base (the same picks as at the terminals:
 // nextPoint) and the dive starts from the deepest start open. Not set (1): every dive from a new save
 const DIVES = Math.max(1, Number(__SIM_DIVES__) || 1);
+const AREA = __SIM_AREA__ === 'on';
 function buyAtBase(collect: boolean) {
   for (;;) {
     const cost = nextLevelCost(),
@@ -126,6 +130,10 @@ test.each(cases)(
           buyAtBase(style!.collect);
           setStartTier(save.shortcut);
         }
+        if (AREA) {
+          devBossArea(true);
+          devBossAreaStart(BOSS_AREA_START_TIER);
+        }
         const start = save.startTier,
           lv = levelOf();
         // (a seed's first dive is the same with SIM_DIVES as without; the later ones have buildings of their own)
@@ -157,7 +165,7 @@ test.each(cases)(
         let since = wall0, // when the page was last let breathe
           maxBlock = 0; // the longest the page went without (ms)
         for (; frames < MAX_FRAMES; frames++) {
-          const now = `${run.kills}:${run.stage}:${run.bld?.floor}:${boss ? Math.round(boss.hp) : ''}:${level.portals.length}`;
+          const now = `${run.kills}:${run.stage}:${run.bld?.floor}:${boss ? Math.round(boss.hp) : ''}:${level.portals.length}:${run.area?.at ?? ''}:${save.records.bossArea?.beaten.length ?? 0}`;
           if (now !== moved) {
             moved = now;
             movedAt = frames;
@@ -173,7 +181,7 @@ test.each(cases)(
             break;
           }
           // the boss comes on a timer of the page, not of the game: wait for it in real time
-          if (isBossStage(run.stage) && !boss && !level.portals.length) {
+          if (isBossStage(run.stage) && !boss && !level.portals.length && bossStarted()) {
             await sleep(30);
             since = performance.now();
           } else if (frames % YIELD_EVERY === 0 || performance.now() - since > YIELD_MS) {
@@ -192,6 +200,7 @@ test.each(cases)(
             `-- gave up at tile ${at(k)} room ${level.roomOf[k]} floor ${level.floor} (lockdown done: ${run.bld?.ld})`,
             `   enemies left per room: ${level.roomCount.join(' ')}`,
             `   locked doors: ${[...(w.doorLock ?? [])].flatMap((v, t) => (v ? [at(t)] : [])).join(' ') || 'none'}`,
+            `-- area ${JSON.stringify(run.area ?? null)} beaten ${save.records.bossArea?.beaten.join(',') ?? '-'}`,
             ...enemies
               .filter(e => !e.dead)
               .map(
@@ -211,6 +220,17 @@ test.each(cases)(
           bosses: (run?.bosses ?? []).join('>') || '-',
           toBoss: s.bossAt < 0 ? '-' : Math.round(s.bossAt / 60),
           bossHp: Math.round(s.bossHp * 100) + '%',
+          rooms:
+            s.rooms
+              .map(r => `${r.boss}:${Math.round(r.sec)}s/${Math.round(r.damage)}/${Math.round(r.minHp * 100)}%`)
+              .join('>') || '-',
+          fightRooms:
+            s.rooms
+              .map(
+                r =>
+                  `${r.boss}:${Math.round(r.bossSec)}s/${Math.round(r.bossDamage)}/${Math.round(r.bossMinHp * 100)}%`,
+              )
+              .join('>') || '-',
           weapons: player.weapons
             .map(w => (w ? `${w.id}${w.r}` : ''))
             .filter(Boolean)
