@@ -2,6 +2,7 @@
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
 import { camera } from '@engine/render/render.ts';
+import { LOOP } from '@engine/core/loop.ts';
 import { ELITE_TYPES } from '../src/data/enemies.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { TUNE } from '../src/data/progress.ts';
@@ -10,7 +11,7 @@ import { save } from '../src/core/save.ts';
 import { perkName } from '../src/core/rules.ts';
 import { player, newPlayer, run, setPlayer } from '../src/actors/player.ts';
 import { rollWeapon } from '../src/actors/weapons.ts';
-import { endRun, goBase, pickEnemyType, startRun } from '../src/flow/run.ts';
+import { endRun, goBase, pickEnemyType, startPractice, startRun } from '../src/flow/run.ts';
 import { setState, show } from '../src/flow/state.ts';
 import { openPerk } from '../src/screens/perk.ts';
 import { stateIs, tick, bootGame } from './helpers.ts';
@@ -89,6 +90,19 @@ test("the start chips' pick: the camera is already on the player, not where the 
   expect(Math.hypot(camera.position.x - player.x, camera.position.z - player.z)).toBeLessThan(1e-6);
   expect(camera.rotation.y).toBeCloseTo(player.yaw);
   document.querySelector<HTMLElement>('#perkList .perk')!.click();
+  endRun('abandon');
+  goBase();
+});
+test('the new base draws nothing behind it; a dive and boss practice draw again', () => {
+  goBase();
+  expect(LOOP.draw).toBe(false);
+  startRun();
+  expect(LOOP.draw).toBe(true);
+  endRun('abandon');
+  goBase();
+  expect(LOOP.draw).toBe(false);
+  startPractice('crusher', 0);
+  expect(LOOP.draw).toBe(true);
   endRun('abandon');
   goBase();
 });

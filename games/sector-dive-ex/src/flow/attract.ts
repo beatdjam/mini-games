@@ -8,10 +8,14 @@ import { buildLevel, level, randomTileIn, roomSpot } from '../world/level.ts';
 import { makePortal } from '../world/portals.ts';
 import { enemies, spawnEnemy } from '../world/entities.ts';
 import { tickClock } from './update.ts';
-// the base screen backdrop: the camera slowly turns in the start room (system 'attract', src/flow/update.ts)
+import { hud2 } from '../ui/hud2.ts';
+// the base screen backdrop: the camera slowly turns in the start room (system 'attract', src/flow/update.ts). The new
+// layout (ui/hud2.ts) covers the screen with its own wall and draws nothing of the 3D scene, so no scene is built for
+// it and the base leaves the screen alone (LOOP.draw, src/flow/run.ts)
 let attractYaw = 0; // camera yaw (rad)
 let attractPos = [0, 0]; // camera position (x, z)
 export function buildAttract() {
+  if (hud2) return;
   const ab = pick(BIOMES);
   buildLevel(ab, false);
   level.rooms.forEach((r, idx) => {
@@ -28,6 +32,7 @@ export function buildAttract() {
   level.seen.fill(1);
 }
 export function attract(dt: number) {
+  if (hud2) return;
   tickClock(dt);
   attractYaw += dt * 0.12;
   camera.position.set(attractPos[0], floorY(attractPos[0], attractPos[1]) + EYE + 0.4, attractPos[1]);

@@ -17,6 +17,7 @@
 - `src/core/loop.ts`: メインループ。`requestAnimationFrame`、dt の上限、システムの実行、描画（`renderer.render` と手の銃）
   - `addSystem({ name, order, modes, update })`, `stopFrame()`, `runSystems(dt, mode)`, `startLoop()`
   - `LOOP.maxFps`: 1秒に描くフレーム数の上限。0 で画面のまま。速い画面ではあいだのフレームを飛ばす。判定は `frameDue(now)`
+  - `LOOP.draw`: false の間は描かない（システムは動く。false にした後の最初のフレームで一度だけ画面を消す）。既定は true
   - `framesDrawn()`: 描いたフレームの数
   - ゲーム側: `LOOP.mode = () => 今のモード名`。動かしたいものを `addSystem` で登録し、最後に `startLoop()`
 - `src/core/world.ts`: 振る舞いを持つオブジェクト（Unity の MonoBehaviour に近い）

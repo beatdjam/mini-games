@@ -42,6 +42,7 @@ import {
   updateHud,
   weaponHud,
 } from '../ui/hud.ts';
+import { hud2 } from '../ui/hud2.ts';
 import { attract, buildAttract } from './attract.ts';
 import { endRun, nextStage } from './run.ts';
 import { liftRiding, onPlayerTile, ridingY, updateFloorEvents } from './events.ts';
@@ -561,6 +562,7 @@ export function boot() {
   });
 
   renderBase();
+  if (hud2) LOOP.draw = false; // the new base screen covers the screen: no 3D backdrop behind it (attract.ts)
   buildAttract();
   setMusic('BASE'); // starts once the first tap/click unlocks audio
   unlockAudio();

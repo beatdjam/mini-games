@@ -23,12 +23,12 @@ import {
   saveStore,
   unpackBits,
 } from '../src/core/store.ts';
-import { LOOP, addSystem, frameDue, runSystems, stopFrame } from '../src/core/loop.ts';
+import { LOOP, addSystem, frameDue, loopFrame, runSystems, stopFrame } from '../src/core/loop.ts';
 import { WORLD, clearWorld, query, spawn, worldGroup } from '../src/core/world.ts';
 import { LANG, fillData, lang, setI18nHook, setLang, t } from '../src/core/i18n.ts';
 import { ANALYTICS, TRACK_LOG, track } from '../src/core/analytics.ts';
 import { FEEDBACK, FEEDBACK_INFO_MAX, feedbackReady, feedbackUrl } from '../src/core/feedback.ts';
-import { buildViewmodel, disposeTree } from '../src/render/render.ts';
+import { buildViewmodel, disposeTree, renderer } from '../src/render/render.ts';
 import { at, ballGeo, boxGeo, cylGeo } from '../src/render/parts.ts';
 import {
   buildParts,
@@ -329,6 +329,32 @@ test('loop: LOOP.maxFps draws every other frame of a 120 Hz screen, and about 60
   expect(count([9e6, 9e6 + 8.3, 9e6 + 16.7])).toBe(2);
   LOOP.maxFps = 0;
   expect(count(at(1e7, 144, 10))).toBe(10);
+});
+test('loop: LOOP.draw false draws nothing, and clears the screen once', () => {
+  const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
+  const render = vi.spyOn(renderer, 'render');
+  const clear = vi.spyOn(renderer, 'clear');
+  const maxFps = LOOP.maxFps;
+  LOOP.maxFps = 0;
+  const sys = addSystem({ name: 't-nodraw', update: () => {} });
+  try {
+    LOOP.draw = false;
+    loopFrame(1e9);
+    eq(clear.mock.calls.length, 1, 'the last frame is cleared once');
+    loopFrame(1e9 + 16);
+    eq(clear.mock.calls.length, 1, 'the screen is left alone after that');
+    eq(render.mock.calls.length, 0, 'nothing is drawn while LOOP.draw is false');
+    LOOP.draw = true;
+    loopFrame(1e9 + 32);
+    ok(render.mock.calls.length > 0, 'draws again once LOOP.draw is true');
+  } finally {
+    LOOP.draw = true;
+    LOOP.maxFps = maxFps;
+    sys.enabled = false;
+    render.mockRestore();
+    clear.mockRestore();
+    raf.mockRestore();
+  }
 });
 test('dev: showFps counts the frames drawn and shows them after a second', async () => {
   const before = document.body.children.length;
