@@ -46,6 +46,9 @@ export const CITY_EXIT = '非常口';
 export const CITY_GUIDE = 'フロア案内';
 export const CITY_EXTINGUISHER = '消火器';
 export const CITY_KEEP_OUT = '立入禁止';
+// the entrance lobby (the boss room): the plate by the reception desk, and the floors the building's directory lists
+export const CITY_HALL_RECEPTION = '受付';
+export const CITY_HALL_TENANT_FLOORS = ['12F', '10F', '9F', '8F', '7F', '5F'];
 // The shopping mall: made-up shop names (the shutters of the closed shops), the plates and notices of a Japanese
 // mall (floor guide, closing sale, closed, toilets, fire hydrant), the places the hanging direction signs point to,
 // and the warning ("staff only") on the boss room's loading-bay shutter

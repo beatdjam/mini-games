@@ -1,6 +1,6 @@
 import { PAINT, css } from '../../../data/colors.ts';
 import { CITY_EXIT, CITY_KEEP_OUT } from '../../../i18n/signs.ts';
-import type { Pictures, WallSides } from '../common.ts';
+import type { Pictures, RoomFloors, RoomWalls, WallSides } from '../common.ts';
 import {
   DOOR_ASPECT,
   SIGN_FONT,
@@ -16,7 +16,19 @@ import {
   words,
 } from '../paint.ts';
 import type { Paint } from '../paint.ts';
+import { hallWallNumbers } from '../hallWalls.ts';
 import { cityView } from './backdrop.ts';
+import {
+  CITY_HALL_DESK,
+  CITY_HALL_EXIT,
+  CITY_HALL_FLOORS,
+  CITY_HALL_GLASS,
+  CITY_HALL_LIFTS,
+  CITY_HALL_MAP,
+  CITY_HALL_WALLS,
+  cityHallCeiling,
+  cityHallUpper,
+} from './hall.ts';
 // The old downtown (CITY): a wide floor of an old office building late in the afternoon. Beige wall panels and grey
 // carpet, a hung ceiling with its lamps mostly off, and the low sun coming amber through the blinds. The sector is
 // seen from far away (its fog starts late), so most of the walls are plain and the lights are kept soft: the enemies
@@ -572,6 +584,24 @@ const cityWall =
     grain(g, rand, 12);
   };
 
+// The entrance lobby (the boss room; hall.ts) has its own walls and floors, numbered after the sector's: the walls
+// beside the room take them (`RoomWalls.hall`), the rest of the sector's walls and floors are picked as they were
+const HALL = hallWallNumbers({
+  first: CITY_WALL_PICS.length,
+  walls: CITY_HALL_WALLS.length,
+  map: CITY_HALL_MAP,
+  floors: CITY_FLOORS,
+  hallFloors: CITY_HALL_FLOORS.length,
+});
+export const CITY_ROOM_WALLS: RoomWalls = HALL.roomWalls;
+export const CITY_ROOM_FLOORS: RoomFloors = HALL.roomFloors;
+// what is set up by the hall's walls (the props of the second picture)
+export const CITY_HALL_DESK_WALLS = CITY_HALL_DESK.map(HALL.wall); // where the reception desk stands
+export const CITY_HALL_GLASS_WALLS = CITY_HALL_GLASS.map(HALL.wall); // the glass curtain wall
+export const CITY_HALL_LIFTS_WALLS = CITY_HALL_LIFTS.map(HALL.wall); // the row of lift doors
+export const CITY_HALL_EXIT_WALLS = CITY_HALL_EXIT.map(HALL.wall); // the fire exit and its emergency lamp
+export const CITY_ALL_WALLS = HALL.all; // every wall picture of the look
+
 // The floor: the same carpet under every variant (the painter is given the same seed for all of them). Its tiles are
 // half a metre and laid turn about; their joints are faint and none of them lies on the picture's edge, and the worn
 // patches run on across that edge, so the floor reads as one carpet and not as squares of four metres
@@ -908,7 +938,10 @@ const cityDoor =
 // the old downtown's look (world/looks.ts makes it the first time the sector is drawn)
 export function cityPictures(): Pictures {
   return {
-    walls: CITY_WALL_PICS.map((_, v) => paint(1100 + v, cityWall(v))),
+    walls: [
+      ...CITY_WALL_PICS.map((_, v) => paint(1100 + v, cityWall(v))),
+      ...CITY_HALL_WALLS.map((fn, v) => paint(1600 + v, fn)),
+    ],
     laneWalls: CITY_LANE_WALLS,
     wallSides: CITY_WALL_SIDES,
     // (the same seed as the lit one: the same panels, only the window differs)
@@ -916,7 +949,14 @@ export function cityPictures(): Pictures {
     shadedWalls: Object.fromEntries(
       Object.keys(CITY_DUSK_PICS).map(v => [v, paint(1100 + Number(v), cityWall(Number(v), true))]),
     ),
-    floors: Array.from({ length: CITY_FLOORS }, (_, v) => paint(1200, cityFloor(v))),
+    floors: [
+      ...Array.from({ length: CITY_FLOORS }, (_, v) => paint(1200, cityFloor(v))),
+      // (one seed for all: the wear runs on across the picture's edge)
+      ...CITY_HALL_FLOORS.map(fn => paint(1700, fn)),
+    ],
+    roomWalls: CITY_ROOM_WALLS,
+    roomFloors: CITY_ROOM_FLOORS,
+    hall: { upper: paint(1710, cityHallUpper), ceiling: paint(1711, cityHallCeiling) },
     deck: paint(1300, cityDeck),
     ceiling: paint(1400, cityCeiling),
     door: paint(1500, cityDoor(false)),

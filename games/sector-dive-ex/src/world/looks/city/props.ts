@@ -12,8 +12,16 @@ import type { Light } from '../props.ts';
 import { dressWalls } from '../dress.ts';
 import type { WallKit } from '../dress.ts';
 import { fallenPanelTex, officeBoxTex, officeHeapTex, officeTex } from './cutouts.ts';
+import { hallProps } from './hallProps.ts';
 import { CITY_EXTINGUISHER, CITY_GUIDE } from '../../../i18n/signs.ts';
-import { BARRIER_RED, BARRIER_WHITE, CITY_LANE_WALLS, CITY_WALL_PICS, CITY_WALL_SIDES } from './pictures.ts';
+import {
+  BARRIER_RED,
+  BARRIER_WHITE,
+  CITY_ALL_WALLS,
+  CITY_LANE_WALLS,
+  CITY_ROOM_WALLS,
+  CITY_WALL_SIDES,
+} from './pictures.ts';
 // The props of the old downtown (CITY): the things fixed to its walls and ceilings, and the light they throw. They go
 // by the pictures on the walls (pictures.ts, next to this file), which are painted there. world/looks.ts puts the two
 // together.
@@ -157,9 +165,10 @@ function plateTex(): THREE.CanvasTexture {
 // cartons and paper and old sets along their feet, ceiling panels come down, cables run under the ceiling
 let cityKit: WallKit | null = null;
 const makeCityKit = (): WallKit => ({
-  pics: CITY_WALL_PICS.length,
+  pics: CITY_ALL_WALLS,
   laneWalls: CITY_LANE_WALLS,
   sides: CITY_WALL_SIDES,
+  rooms: CITY_ROOM_WALLS,
   bare: PLAIN_WALLS,
   units: {
     maps: [0, 1, 2, 3, 4, 5, 6, 7].map(n => officeTex(800 + n)),
@@ -206,13 +215,28 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
     plate: plateTex(),
   };
   const shared = cityShared,
-    tools = propTools(plan, group, CITY_PROPS, rng),
-    { d, wallOf, add, inHallRoom } = tools,
+    tools = propTools(plan, group, CITY_PROPS, rng, {
+      first: CITY_ROOM_WALLS.plain,
+      pics: {
+        count: CITY_ALL_WALLS,
+        laneWalls: CITY_LANE_WALLS,
+        sides: CITY_WALL_SIDES,
+        rooms: CITY_ROOM_WALLS,
+      },
+    }),
+    { d, wallOf, add, inHall, inHallWall, inHallRoom } = tools,
     M = d.maps;
   const pictureOf = (wall: number) =>
-    wallPic(d, wall, { count: CITY_WALL_PICS.length, laneWalls: CITY_LANE_WALLS, sides: CITY_WALL_SIDES });
-  // (the things on the walls go on the plain pictures only, clear of the windows, boards and cabinets)
-  const of = (id: string) => tools.of(id).filter(s => s.kind !== 'wall' || PLAIN_WALLS.includes(pictureOf(wallOf(s))));
+    wallPic(d, wall, {
+      count: CITY_ALL_WALLS,
+      laneWalls: CITY_LANE_WALLS,
+      sides: CITY_WALL_SIDES,
+      rooms: CITY_ROOM_WALLS,
+    });
+  // (the things on the walls go on the plain pictures only, clear of the windows, boards and cabinets; none of them on
+  // the walls of the entrance lobby, which has its own things)
+  const of = (id: string) =>
+    tools.of(id).filter(s => s.kind !== 'wall' || (!inHall(s) && PLAIN_WALLS.includes(pictureOf(wallOf(s)))));
 
   // lit fittings (not where the ceiling is open): over the painted fitting of the tile, so they run the same way
   // (none in the boss room: its ceiling is twice as high, and a fitting at the usual height would hang in the air)
@@ -298,6 +322,9 @@ export function cityProps(plan: FloorPlan, group: THREE.Group, rng: Rng) {
   add(new THREE.PlaneGeometry(0.2, 0.6), new THREE.MeshBasicMaterial({ map: shared.plate }), plate);
   // what the office was left full of, wall by wall (looks/dress.ts)
   const lights: Light[] = [];
-  dressWalls({ add }, d, plan, rng, (cityKit ??= makeCityKit()), lights);
+  dressWalls({ add }, d, plan, rng, (cityKit ??= makeCityKit()), lights, f => inHallWall(f));
   tools.pools(lights, 0.5);
+  // the boss room is the entrance lobby: its own things (after the rest, so the random numbers of the others go on as
+  // they did)
+  hallProps(plan, { add, d, pools: tools.pools }, rng);
 }
