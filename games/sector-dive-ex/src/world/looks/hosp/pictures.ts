@@ -314,33 +314,42 @@ const stainedWall: Paint = (g, rand) => {
   peeled(g, rand, cx - 50, rowOf(3.2), 40, 26);
 };
 // a window in a corridor's wall at dusk: sky from blue-green to orange over the roofs, a steel frame of four panes, a
-// blind half down; the sun's warmth on the wall below it
-function corridorWindow(curtain: boolean): Paint {
+// blind half down; the sun's warmth on the wall below it. Seen from outside the building (`outside`: Look.innerWalls),
+// the dark corridor behind its glass, and no sun on the wall
+function corridorWindow(curtain: boolean, outside = false): Paint {
   return (g, rand) => {
     const x = WINDOW_X,
       w = WINDOW_W,
       y = WINDOW_Y,
       foot = WINDOW_FOOT,
       h = WINDOW_H;
-    glow(g, TEX / 2, foot, 150, 0.2);
+    if (!outside) glow(g, TEX / 2, foot, 150, 0.2);
     box(g, x - 5, y - 4, w + 10, h + 8, '#c9ccbc');
     g.save();
     g.beginPath();
     g.rect(x, y, w, h);
     g.clip();
-    const sky = g.createLinearGradient(0, y, 0, foot);
-    sky.addColorStop(0, '#5b8794');
-    sky.addColorStop(0.6, '#d0b886');
-    sky.addColorStop(1, '#f2c486');
-    g.fillStyle = sky;
-    g.fillRect(x, y, w, h);
-    glow(g, x + w * 0.3, foot - 3, 60, 0.5);
-    for (let rx = x; rx < x + w;) {
-      const rw = 12 + rand() * 20,
-        rh = 6 + rand() * 16;
-      g.fillStyle = '#344446';
-      g.fillRect(rx, foot - rh, rw, rh);
-      rx += rw + 1;
+    if (outside) {
+      const dark = g.createLinearGradient(0, y, 0, foot);
+      dark.addColorStop(0, '#1b2522');
+      dark.addColorStop(1, '#2c3632');
+      g.fillStyle = dark;
+      g.fillRect(x, y, w, h);
+    } else {
+      const sky = g.createLinearGradient(0, y, 0, foot);
+      sky.addColorStop(0, '#5b8794');
+      sky.addColorStop(0.6, '#d0b886');
+      sky.addColorStop(1, '#f2c486');
+      g.fillStyle = sky;
+      g.fillRect(x, y, w, h);
+      glow(g, x + w * 0.3, foot - 3, 60, 0.5);
+      for (let rx = x; rx < x + w;) {
+        const rw = 12 + rand() * 20,
+          rh = 6 + rand() * 16;
+        g.fillStyle = '#344446';
+        g.fillRect(rx, foot - rh, rw, rh);
+        rx += rw + 1;
+      }
     }
     g.restore();
     g.fillStyle = '#c9ccbc';
@@ -694,6 +703,17 @@ export function hospPictures(): Pictures {
       frame: WINDOW_FRAME,
       ...cityView(),
     },
+    // the corridors' windows seen from outside, on the building's own outer walls (courtMesh.ts YARDS)
+    innerWalls: Object.fromEntries(
+      [WINDOW_A, WINDOW_B].map(v => [
+        v,
+        paint(4100 + v, (g, rand) => {
+          panels(g, rand);
+          corridorWindow(v === WINDOW_B, true)(g, rand);
+          grain(g, rand, 12);
+        }),
+      ]),
+    ),
     roomWalls: HOSP_ROOM_WALLS,
     liftWalls: HOSP_LIFT_WALLS,
     roomFloors: HOSP_ROOM_FLOORS,

@@ -304,6 +304,28 @@ const YARDS: Record<string, YardTheme> = {
     sky: ['#a9afae', '#8a9192', '#6c7476'],
     ground: ['#2c3626', '#3a4031', '#222b1e'],
   },
+  // the hospital: its courtyard is a roofed light well (no yard), so this is only its own outer walls seen from its
+  // windows (yardFacades): pale green panels, the corridors' windows dark behind their blinds. Without it the hospital
+  // took the old downtown's picture numbers, which are other pictures here (a fire hydrant box in every window)
+  HOSP: {
+    wall: ['#a9bcb0', '#93a69a'],
+    joint: 'rgba(30,40,34,0.18)',
+    pane: ['#3a4a46', '#1a2321'],
+    glint: 'rgba(255,200,150,0.10)',
+    sill: '#bfc3b2',
+    dense: false,
+    lit: 0.12,
+    screen: 0.04,
+    extra: 'none',
+    dress: 'downtown',
+    walls: [0, 0, 7], // panels, peeling paint
+    windows: [9, 10], // the corridors' windows, a blind half down and a curtain
+    band: ['#8c958c', 'rgba(30,36,32,0.35)'],
+    shade: 0x8f9a92,
+    glow: 0xffc27a,
+    sky: ['#c98a6c', '#8f7a94', '#4a4a6e'],
+    ground: ['#2a2630', '#3a3640', '#1f1c25'],
+  },
 };
 // Wall picture v as it is seen from outside the building, on a wall that faces west or not: the room behind a window
 // (Look.innerWalls), the picture out of the evening sun (Look.shadedWalls, on a wall that does not face west), or the
