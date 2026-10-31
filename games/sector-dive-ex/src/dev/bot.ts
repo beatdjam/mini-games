@@ -28,7 +28,7 @@ import { distXZ, el, yawToward, wrapAngle, turnToward } from '@engine/core/util.
 // knows no more than the map shows a person who has been there: the route (the stairs and lifts), the boss room and
 // the gates. `BotStyle` is what makes one kind of player differ from another.
 // Used two ways: headless, stepped by hand and fast (sim/bot.sim.ts, npm run sim), and on the dev server with the
-// picture on (#bot or #bot-<style>, src/dev/dev.ts; ?seed=<n> gives the same buildings each time).
+// picture on (#bot or #bot-<style>, src/dev/views/bot.ts; ?seed=<n> gives the same buildings each time).
 
 export interface BotStyle {
   name: string;
