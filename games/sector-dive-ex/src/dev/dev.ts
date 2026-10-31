@@ -554,12 +554,22 @@ const HOIST_VIEW_NEAR = 9; // the 'drop' and 'pull' views stand this far from th
 const HOIST_VIEW_WARN = 0.5; // 'drop' is taken this long before the load falls (s)
 const HOIST_VIEW_PULL_PITCH = 0.3; // 'pull' looks up at the magnet at this angle (rad)
 const HOIST_VIEW_PULL = 18; // 'pull' is taken this many frames into the pull
+const HOIST_VIEW_SWING = 20; // 'swing' is taken this many frames into the swing (the load is beside the player)
+const HOIST_VIEW_BARRAGE = 54; // 'barrage' is taken this many frames into it (two loads up, the first shadow dark)
+const HOIST_VIEW_BARRAGE_LOADS = 2; // ... with this many loads left to hang
 // HOIST's views (for screenshots), once it is in the room: wide (the whole crane from the back of the room), drop (a
-// load hanging with its shadow half filled), pull (the magnet pulling). The boss stands still from there.
+// load hanging with its shadow half filled), pull (the magnet pulling), swing (a load swung round the magnet, the band
+// on the floor), barrage (two loads hanging from its run past the player). The boss stands still from there.
 // #boss-hoist-<view>: in the boss arena; #bld-hoist (?sector=MALL, ?pose=<view>): in a building's boss room
 function hoistView(b: Enemy, view: string) {
   if (!b.boss) return;
-  const h = b as Boss & { st: string; cargo: unknown };
+  const h = b as Boss & {
+    st: string;
+    cargos: { t: number }[];
+    left: number;
+    dropT: number;
+    goal: { x: number; z: number };
+  };
   player.hp = 1e6;
   player.maxHp = 1e6;
   for (let n = 0; n < 150; n++) update(1 / 60);
@@ -567,7 +577,7 @@ function hoistView(b: Enemy, view: string) {
   player.x = b.cx;
   player.z = b.cz + HOIST_VIEW_BACK;
   player.pitch = HOIST_VIEW_PITCH;
-  if (view === 'drop' || view === 'alarm' || view === 'pull') {
+  if (view === 'drop' || view === 'alarm' || view === 'pull' || view === 'swing' || view === 'barrage') {
     h.x = b.cx;
     h.z = b.cz;
     player.z = b.cz + HOIST_VIEW_NEAR;
@@ -585,13 +595,25 @@ function hoistView(b: Enemy, view: string) {
   } else if (view === 'drop' || view === 'alarm') {
     h.st = 'approach';
     h.timer = 0;
-    while (!h.cargo || b.timer > HOIST_VIEW_WARN) update(1 / 60);
+    while (!h.cargos.length || h.cargos[0]!.t > HOIST_VIEW_WARN) update(1 / 60);
     // alarm: the same moment, seen from under the girder's end, where a beacon blinks red
     if (view === 'alarm') {
       player.x = b.cx - HOIST_ALARM_X;
       player.z = b.cz + HOIST_ALARM_Z;
       player.pitch = HOIST_ALARM_PITCH;
     }
+  } else if (view === 'swing') {
+    // (from the rush, stopped at once, so that the load, its chain and the band are made where the magnet is)
+    h.st = 'rush';
+    h.timer = 0;
+    const warn = Math.ceil(BOSS_META.hoist!.tune.swingWarn * 60);
+    for (let n = 0; n <= warn + HOIST_VIEW_SWING; n++) update(1 / 60);
+  } else if (view === 'barrage') {
+    h.st = 'barrage';
+    h.left = HOIST_VIEW_BARRAGE_LOADS;
+    h.dropT = 0;
+    h.goal = { x: b.cx, z: b.cz + HOIST_VIEW_NEAR + BOSS_META.hoist!.tune.barrageOver };
+    for (let n = 0; n < HOIST_VIEW_BARRAGE; n++) update(1 / 60);
   } else {
     h.st = 'wind';
     b.timer = 0.01;
@@ -667,7 +689,7 @@ const BOSS_VIEWS: Record<BossKind, BossView | null> = {
   phantom: null,
   trinity: null,
   bastion: null,
-  hoist: { poses: ['wide', 'drop', 'pull'], room: true, show: hoistView },
+  hoist: { poses: ['wide', 'drop', 'pull', 'swing', 'barrage'], room: true, show: hoistView },
   surgeon: { poses: ['wide', 'scalpel', 'needle', 'clamp'], room: true, show: surgeonView },
 };
 // dev view: #boss-phantom etc. starts boss practice against that boss

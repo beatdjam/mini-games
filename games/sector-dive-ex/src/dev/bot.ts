@@ -154,16 +154,20 @@ const BOSS_PLAYS: Record<BossKind, BossPlayFn | null> = {
     return { dash: { x: -away.z, z: away.x } };
   },
   bastion: null, // fought as any enemy: its turrets go first, like any other enemy's followers
-  // HOIST: out of the shadow ring of a load that is up, and (just before it falls) a dash out of it; while the magnet
-  // pulls, away from it, with a dash whenever there is one
+  // HOIST: out of the shadow ring of each load that is up, and (just before it falls) a dash out of it; under the
+  // magnet while it rushes in to swing a load (the band's inside is safe); while the magnet pulls, away from it, with a
+  // dash whenever there is one
   hoist: (b, me) => {
-    const h = b as Boss & { st: string; cargo: { x: number; z: number } | null },
+    const K = BOSS_META.hoist!.tune,
+      h = b as Boss & { st: string; cargos: { x: number; z: number; t: number }[] },
       away = unit(me.x - b.x, me.z - b.z);
     if (h.st === 'pull') return { near: PULL_AWAY, dash: away };
-    if (!h.cargo) return {};
-    const ring = BOSS_META.hoist!.tune.shadowR;
-    if (distXZ(me, h.cargo) > ring + SHADOW_MARGIN) return {};
-    return { near: ring + SHADOW_MARGIN * 2, ...(b.timer < SHADOW_LATE ? { dash: away } : {}) };
+    if (h.st === 'rush' || h.st === 'swingWind' || h.st === 'swing') return { near: K.swingR - K.swingW - 1 };
+    for (const c of h.cargos) {
+      if (distXZ(me, c) > K.shadowR + SHADOW_MARGIN) continue;
+      return { near: K.shadowR + SHADOW_MARGIN * 2, ...(c.t < SHADOW_LATE ? { dash: away } : {}) };
+    }
+    return {};
   },
   // SURGEON: the arms are shot first (what stands with a boss always goes first). A clamp's ring that is about to slam:
   // dash out of it. The scalpel's beam that is about to reach the player: dash through it, against the way it turns
