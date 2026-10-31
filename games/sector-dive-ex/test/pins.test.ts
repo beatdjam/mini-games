@@ -102,6 +102,10 @@ BIOMES.forEach((b, bi) => {
 });
 
 test('bosses', () => {
+  // the bosses stand where the sector tests above leave the run (the last sector's lowest floor): entered here too, so
+  // that the test does not lean on the order (alone, it would spawn them on the floor the run began on)
+  enterSector(BIOMES.length - 1, 'last');
+  clearEnemies();
   const got: Record<string, string> = {};
   BOSS_ORDER.forEach(kind => {
     seedDice();
