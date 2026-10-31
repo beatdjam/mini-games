@@ -158,6 +158,7 @@ const PLANTER_SPOTS: [number, number][] = [
   [0.12, 3.2],
 ];
 const PLANT_WOOD = [0x4f432e, 0x5d4f36, 0x40382a]; // a dead plant's stalks
+const LED_COLORS = [PAINT.cyan, PAINT.mint2, PAINT.amber3]; // the lamps up a data well's corner risers, in turn
 const DECK_CLEAR = 4.5; // nothing is strung across a yard this far over a bridge's deck (m)
 const WINDOW_DROP = 1.2; // a window's middle is about this far under the middle of its storey's wall tile (m)
 
@@ -773,14 +774,11 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
     for (let k = 0; k < 4; k++) {
       const [x, z] = wallCorner(k);
       b.put('riser', () => [box(0.3, 1, 0.3), flat(0x2a323b)], x, well.ground + h / 2, z, 0, 0, [1, h, 1]);
-      for (let y = well.ground + 1; y < well.sky - 1; y += 0.9)
-        b.put(
-          `led${(k + Math.round(y)) % 3}`,
-          () => [box(0.34, 0.08, 0.34), flat([PAINT.cyan, PAINT.mint2, PAINT.amber3][(k + Math.round(y)) % 3]!, true)],
-          x,
-          y,
-          z,
-        );
+      for (let y = well.ground + 1; y < well.sky - 1; y += 0.9) {
+        // (the well can go below 0: % keeps the sign, so it is brought back into 0..2)
+        const c = (((k + Math.round(y)) % LED_COLORS.length) + LED_COLORS.length) % LED_COLORS.length;
+        b.put(`led${c}`, () => [box(0.34, 0.08, 0.34), flat(LED_COLORS[c]!, true)], x, y, z);
+      }
     }
   } else if (sector === 'MALL') {
     // faded cloth banners hung from the glass roof, high over the heads (and clear of a bridge across the well), and
