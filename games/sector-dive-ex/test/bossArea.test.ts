@@ -9,14 +9,17 @@ import { PER, BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { save } from '../src/core/save.ts';
 import { bossAreaTierFor, bossRoomBiome, devBossArea } from '../src/core/bossArea.ts';
 import { bossStageOf, firstStageOf, planOf, stageLabel } from '../src/core/stages.ts';
-import { run } from '../src/actors/player.ts';
-import { enemies } from '../src/world/entities.ts';
-import { level } from '../src/world/level.ts';
+import { run, player } from '../src/actors/player.ts';
+import { boss, enemies } from '../src/world/entities.ts';
+import { building } from '../src/world/building.ts';
+import { devSeed, level } from '../src/world/level.ts';
 import { state } from '../src/flow/state.ts';
-import { goBase, startRun, startStage } from '../src/flow/run.ts';
+import { crossToFloor, endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
 import { resumeRun, suspendRun } from '../src/flow/suspend.ts';
+import { W, tileCenter, tileIndex } from '@engine/world/tiles.ts';
+import { wrapAngle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
-import { bootGame, tick } from './helpers.ts';
+import { bootGame, stateIs, tick } from './helpers.ts';
 
 beforeAll(async () => {
   await bootGame();
@@ -24,6 +27,7 @@ beforeAll(async () => {
 });
 afterEach(() => {
   devBossArea(true);
+  devSeed(null);
   goBase();
   save.records.bossArea = null;
   save.shortcut = 0;
@@ -147,4 +151,101 @@ test('boss area off: the boss area depth keeps the building', () => {
   expect(planOf(BOSS_AREA_START_TIER * PER).area, 'no boss area').toBe(false);
   expect(run.bld, 'the building is there').toBeTruthy();
   expect(level.floor, 'a floor of it').toBeGreaterThanOrEqual(0);
+});
+
+// ---- the boss rooms: the lowest floor of the boss's sector building, entered by hand (no gate yet) ----
+// a run in the crusher's room: the same start as the hall, then the room placed on the run by hand
+function enterRoom() {
+  enterHallRun();
+  devSeed(1234); // the building is the same on every run of the file
+  run.area = { at: 'room', boss: 'crusher' };
+  startStage();
+}
+// the floor one up from the lowest, and the link that joins them
+function upFromLowest(): { n: number; up: number } {
+  const lowest = building!.plans.length - 1,
+    n = building!.links.findIndex(l => l.lower === lowest || l.upper === lowest),
+    l = building!.links[n]!;
+  return { n, up: l.lower === lowest ? l.upper : l.lower };
+}
+const outsideHall = () => level.roomOf[tileIndex(player.x, player.z)] !== level.hall!.room;
+
+test('a boss room starts on the lowest floor of its sector building, outside the hall door', () => {
+  enterRoom();
+  expect(run.stage, "the depth's boss stage").toBe(bossStageOf(BOSS_AREA_START_TIER));
+  expect(run.bld?.tier, 'the building of the depth').toBe(BOSS_AREA_START_TIER);
+  expect(run.bld?.boss, "the room's boss").toBe('crusher');
+  expect(level.biome.code, "the crusher's sector").toBe('FORGE');
+  expect(level.floor, 'the lowest floor').toBe(building!.plans.length - 1);
+  expect(level.hall, 'its boss hall').toBeTruthy();
+  expect(outsideHall(), 'starts in the corridor outside the hall door').toBe(true);
+  const door = level.hall!.door,
+    toDoor = yawToward(tileCenter(door % W) - player.x, tileCenter(Math.floor(door / W)) - player.z);
+  expect(Math.abs(wrapAngle(player.yaw - toDoor)), 'facing the hall door').toBeLessThan(1e-6);
+  expect(save.suspend?.run.area, 'the checkpoint keeps the room').toEqual({ at: 'room', boss: 'crusher' });
+  tick(1);
+  expect(stateIs('play'), 'the room starts in play, not in the boss fight').toBe(true);
+  expect(boss, 'the boss has not come yet').toBeNull();
+});
+
+test('a run suspended in a boss room resumes in the same room, at the same entrance', () => {
+  enterRoom();
+  const seed = run.bld!.seed,
+    at = tileIndex(player.x, player.z);
+  suspendRun();
+  resumeRun();
+  expect(tileIndex(player.x, player.z), 'the same tile').toBe(at);
+  expect(run.area, 'still the same room').toEqual({ at: 'room', boss: 'crusher' });
+  expect(run.bld?.boss, 'the same building for the boss').toBe('crusher');
+  expect(run.bld?.seed, 'the same seed').toBe(seed);
+  expect(level.floor, 'the lowest floor again').toBe(building!.plans.length - 1);
+  expect(level.hall, 'its boss hall').toBeTruthy();
+  expect(outsideHall(), 'the same entrance outside the door').toBe(true);
+});
+
+test('a run suspended after going up a floor resumes at the lowest floor entrance', () => {
+  enterRoom();
+  const { n, up } = upFromLowest(),
+    at = tileIndex(player.x, player.z);
+  crossToFloor(n, up);
+  expect(run.bld!.floor, 'one floor up').toBe(up);
+  suspendRun();
+  resumeRun();
+  expect(run.bld!.floor, 'back on the lowest floor').toBe(building!.plans.length - 1);
+  expect(run.bld!.at, 'at the hall door, not the stairwell').toBe(-1);
+  expect(tileIndex(player.x, player.z), 'the same tile as the room began on').toBe(at);
+});
+
+test('going back to the hall from a boss room drops the building', () => {
+  enterRoom();
+  expect(run.bld, 'in the building first').toBeTruthy();
+  run.area = { at: 'hall' };
+  startStage();
+  expect(run.bld, 'the building is dropped').toBeUndefined();
+  expect(level.floor, 'a level of its own').toBe(-1);
+  expect(level.rooms.length, 'the hall map').toBe(1);
+  expect(stageLabel(run.stage), 'the hall is named on screen').toBe(t('boss.hall'));
+});
+
+test('a death in a boss room goes to the result screen and clears the checkpoint', () => {
+  enterRoom();
+  endRun('dead');
+  expect(stateIs('result'), 'the result screen').toBe(true);
+  expect(save.suspend, 'no checkpoint left').toBeNull();
+});
+
+test('boss area off: a room placed by hand is ignored and the building path stays', () => {
+  devBossArea(false);
+  goBase();
+  devSeed(1234);
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
+  save.shortcut = BOSS_AREA_START_TIER;
+  save.startTier = BOSS_AREA_START_TIER;
+  startRun(true);
+  tick(2);
+  run.area = { at: 'room', boss: 'crusher' };
+  startStage();
+  expect(run.stage, 'the depth start as before').toBe(firstStageOf(BOSS_AREA_START_TIER));
+  expect(level.floor, 'the top floor').toBe(0);
+  expect(level.hall, 'no boss hall').toBeNull();
 });

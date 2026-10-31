@@ -1121,8 +1121,11 @@
   - ボス部屋のセクター: WATCHER→DATA、CRUSHER→FORGE、CORE→NOISE、PHANTOM→RUIN、TRINITY→KWLN、BASTION→CITY、HOIST→MALL、SURGEON→HOSP（`BOSS_ROOMS` in `src/data/bossRooms.ts`）
   - ボスエリアの深度に入ると、建物ではなく固定マップの四角い部屋1つ（仮）の広間から始まる。`run.area = { at: 'hall' }`、`run.bld` は無い
   - 広間に敵・拾い物は置かない。帰還のゲートと強化のターミナルが1つずつある
+  - 部屋へ入ると、そのボスのセクターの建物を最下階のホールから始める（`run.area = { at: 'room', boss }`、`BOSS_ROOMS`）
+  - 部屋の段は `bossStageOf(areaTier)`。ボスの強さはその深度のボスと同じ基準
+  - 開始はホールのドアの外側（廊下）。中断すると同じ部屋の最下階の同じ入口から再開する
   - 【未決】広間の広さ・高さ・並べ方
-  - 【未決】部屋の作り、TITAN、関所
+  - 【未決】部屋へ入るゲート・倒した部屋の記録・報酬、TITAN、関所
 
 ### 入れないと決めたもの
 
