@@ -21,7 +21,7 @@ import { boss, enemies, pBullets, spawnEnemy } from '../src/world/entities.ts';
 import { player, run } from '../src/actors/player.ts';
 import { newWeapon } from '../src/actors/weapons.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
-import { stageInfo } from '../src/core/stages.ts';
+import { bossStageOf, planOf, stageInfo } from '../src/core/stages.ts';
 import { RUNNING_SPREAD, fire } from '../src/actors/firing.ts';
 import { arenaRoom, minionCount, spawnBoss, spawnMinion } from '../src/actors/bosses/common.ts';
 import { controlState } from '../src/ui/input.ts';
@@ -542,4 +542,14 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   expect(level.floor).toBe(0);
   expect(run.bld!.seed).not.toBe(seedWas);
   expect(run.bld!.tier).toBe(tier + 1);
+});
+test('plan: the depth plan of a stage (depth, step, boss, deeper) and the stage numbers it gives', () => {
+  expect(planOf(0)).toMatchObject({ tier: 0, sub: 0, boss: false, deeper: true });
+  expect(planOf(PER - 1).boss).toBe(true);
+  expect(planOf(PER)).toMatchObject({ tier: 1, sub: 0, deeper: false });
+  expect(planOf(PER * 3)).toMatchObject({ tier: 3, sub: 0, deeper: true });
+  // the old stageInfo's unused loop is gone
+  expect('loop' in stageInfo(0)).toBe(false);
+  expect(stageInfo(bossStageOf(2)).boss, 'bossStageOf(2) is a boss stage').toBe(true);
+  expect(isMilestone(2), 'a deeper toast is not a milestone').toBe(false);
 });

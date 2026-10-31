@@ -45,10 +45,13 @@ import { makePortal } from '../world/portals.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import {
+  bossStageOf,
   buildingStage,
   difficultyAt,
+  firstStageOf,
   floorLabel,
   isBossStage,
+  planOf,
   stageInfo,
   stageLabel,
   tierLabel,
@@ -149,7 +152,7 @@ export function startRun() {
   // non-basic weapons leave the base: they come back only on extraction
   riskLoadout();
   setRun({
-    stage: tier * PER,
+    stage: firstStageOf(tier),
     kills: 0,
     bits: 0,
     perks: [],
@@ -417,7 +420,7 @@ export function nextStage() {
   run.stage++;
   recordBest(run.stage);
   persist();
-  if (run.stage % (PER * 3) === 0) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), DEEPER_TOAST_MS);
+  if (planOf(run.stage).deeper) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), DEEPER_TOAST_MS);
   startStage();
 }
 
@@ -428,7 +431,7 @@ export function startPractice(kind: BossKind, tier?: number) {
   const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
   setPlayer(newPlayer(save.loadout, depth));
   setRun({
-    stage: depth * PER + PER - 1,
+    stage: bossStageOf(depth),
     kills: 0,
     bits: 0,
     perks: [],

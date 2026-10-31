@@ -8,13 +8,36 @@ import { run } from '../actors/player.ts';
 // ---- tuning numbers used only here ----
 export const STAGES_PER_GROWTH_DEPTH = 5; // progress (progressOf) per step of the enemy health growth curve
 
+// how many depths apart the "deeper" toast (run.deeper) comes: DEPTH 1, 4, 7, ... This is not isMilestone
+// (data/progress.ts), the every-5-depth step of the strengthening terminal and the shortcut
+export const DEPTHS_PER_DEEPER_TOAST = 3;
 // each run walks the sectors in its own shuffled order (run.route); depth (tier) drives difficulty
 const routeBiome = (t: number): Biome => BIOMES[run && run.route ? run.route[t % run.route.length] : t % BIOMES.length];
-export const stageInfo = (s: number) => {
-  const tier = Math.floor(s / PER);
-  return { biome: routeBiome(tier), sub: s % PER, loop: Math.floor(tier / 3), tier };
-};
-export const isBossStage = (s: number): boolean => s % PER === PER - 1;
+export interface StagePlan {
+  tier: number;
+  sub: number;
+  biome: Biome;
+  boss: boolean;
+  deeper: boolean;
+}
+// The plan of a stage: its depth (tier), its step in the depth (sub), its sector, whether it is the depth's boss and
+// whether it opens the "deeper" toast. The depth of a boss area is to be fitted in here later, in this function alone
+export function planOf(s: number): StagePlan {
+  const tier = Math.floor(s / PER),
+    sub = s % PER;
+  return {
+    tier,
+    sub,
+    biome: routeBiome(tier),
+    boss: sub === PER - 1,
+    deeper: sub === 0 && tier % DEPTHS_PER_DEEPER_TOAST === 0,
+  };
+}
+export const stageInfo = planOf;
+export const isBossStage = (s: number): boolean => planOf(s).boss;
+// the first stage of a depth, and its boss stage
+export const firstStageOf = (tier: number): number => tier * PER;
+export const bossStageOf = (tier: number): number => tier * PER + PER - 1;
 // In a building the stage number of a floor is depth * PER + step * (PER - 1) / floors (step = how far along the route),
 // so the progress (progressOf) runs evenly from the depth's start to its boss whatever the number of floors
 export const buildingStage = (tier: number, step: number, floors: number): number =>
