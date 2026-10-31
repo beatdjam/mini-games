@@ -14,6 +14,8 @@ LANG.en = {
     'map.hint3d': 'Paused   {move} / drag: turn   wheel: zoom   right drag: move   {map3d}: flat map   {map}: close',
     'map.hintTouch2d': 'Tap: 3D map',
     'map.hintTouch3d': 'Paused   one finger: turn   two: zoom and move   tap the minimap: close',
+    'map.hintClose': '{map}: close',
+    'map.hintTouchClose': 'Tap: close',
     'hud.fsToggle': 'Toggle fullscreen',
     'hud.fs': 'Fullscreen',
     'hud.fsOff': 'Exit fullscreen',
