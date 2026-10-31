@@ -5,6 +5,7 @@ import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { query } from '@engine/core/world.ts';
 import type { Boss, BossKind, Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
 import { BOSS_META } from '../data/bosses.ts';
+import { BOSS_ROOMS } from '../data/bossRooms.ts';
 import { MAGNET_GAIN_MAX } from '../data/perks.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { EYE, PORTAL } from '../data/level.ts';
@@ -18,6 +19,7 @@ import { hazardState } from '../world/hazards.ts';
 import { weaponStats } from '../actors/weapons.ts';
 import { kitHealAmount } from '../actors/combat.ts';
 import { building } from '../world/building.ts';
+import type { Portal } from '../world/portals.ts';
 import { level } from '../world/level.ts';
 import { state } from '../flow/state.ts';
 import { controlState, equipNearby, normalizeWeapons, stowNearby, useKit } from '../ui/input.ts';
@@ -234,6 +236,19 @@ const LOOT_GIVE_UP = 12; // a thing on the floor it has not got to in this long 
 const LOOT_REACH_Y = 3.5; // a thing this far above or below its feet is on another floor: left alone (m; one on a deck
 // floats 3 m up, the next floor is 8 m away)
 
+// the gate to take in the boss area's hall: the way forward when it is open (TITAN down), else the first room
+// not beaten yet, else the way out. TITAN's gate (kind 'room', boss 'titan') is not in yet: only the eight
+// bosses that have a room (BOSS_ROOMS) are chosen here. Look again after 7b (titan-gate)
+const ROOM_BOSSES = Object.keys(BOSS_ROOMS) as BossKind[];
+export function hallGate(portals: Portal[], beaten: BossKind[]): Portal | undefined {
+  const next = portals.find(p => p.kind === 'next');
+  if (next) return next;
+  const room = portals.find(
+    p => p.kind === 'room' && p.boss && ROOM_BOSSES.includes(p.boss) && !beaten.includes(p.boss),
+  );
+  return room ?? portals.find(p => p.kind === 'extract');
+}
+
 // what a run came to, for the tables (sim/bot.sim.ts)
 export interface BotStats {
   frames: number; // frames played (60 a second)
@@ -252,6 +267,17 @@ export interface BotStats {
   stuck: number; // times it had to shake itself loose
   doing: string; // what it is doing now (for the picture and for a run that never ends)
   trace: string[]; // what it did, in order: `<second> <floor> <what>` each time that changed
+  rooms: BotRoomStat[]; // the boss area's rooms it was in, in order
+}
+// what it did in one of the boss area's rooms, from entering it
+export interface BotRoomStat {
+  boss: BossKind;
+  sec: number; // seconds spent in the room, from entering it
+  damage: number; // health lost in it, from entering it
+  minHp: number; // the lowest health it had there, from entering it, as a share of the most
+  bossSec: number; // seconds of the boss fight (from the boss's appearance)
+  bossDamage: number; // health lost in the boss fight
+  bossMinHp: number; // the lowest health it had in the boss fight, as a share of the most
 }
 
 // ---- the milestones' terminals ----
@@ -296,9 +322,15 @@ export function createBot(style: BotStyle) {
     stuck: 0,
     doing: 'start',
     trace: [],
+    rooms: [],
   };
   let dist: Int32Array = new Int32Array(0); // per tile: steps to the goal (-1 = no way)
   let goalKey = ''; // what `dist` was made for
+  let targetGate: Portal | null = null; // the gate it means to take on this floor
+  let roomNow: BotRoomStat | null = null; // the boss area's room it is in
+  let roomDamageAt = 0; // stats.damage when it entered that room
+  let roomBossOn = false; // the room's boss has come in
+  let roomBossDamageAt = 0; // stats.damage when the boss came in
   let lastHp = -1;
   let strafe = 1; // the side it strafes to (±1)
   let strafeT = 0;
@@ -326,12 +358,12 @@ export function createBot(style: BotStyle) {
     // (when the only way lies past the gate it does not want, it goes that way all the same)
     if ((dist[tileIndex(player.x, player.z)] ?? -1) < 0) spread(goal, false);
   }
-  // the gates it keeps away from: the ones other than the gate it means to take, once that one is open
+  // the gates it keeps away from: all but the one it means to take, once that one is in this level's portals
   // (a terminal is not a way out: it is never kept away from)
-  const gatesToShun = () =>
-    level.portals.some(pt => pt.kind === style.after)
-      ? level.portals.filter(pt => pt.kind !== style.after && pt.kind !== 'terminal')
-      : [];
+  const gatesToShun = () => {
+    const target = targetGate && level.portals.includes(targetGate) ? targetGate : null;
+    return target ? level.portals.filter(pt => pt !== target && pt.kind !== 'terminal') : [];
+  };
   function spread(goal: number, roundGates: boolean) {
     const grid = activeTileGrid(),
       { W, H, grid: floor } = grid.world;
@@ -598,16 +630,25 @@ export function createBot(style: BotStyle) {
   function goal(dt: number): { tile: number; what: string; at?: { x: number; z: number } } | null {
     const { W } = activeTileGrid().world,
       tileAt = (x: number, z: number) => tileIndex(x, z);
+    // the gate it means to take, settled first: on the way to loot or a terminal it keeps off the other gates too
+    const areaNow = stageInfo(run.stage).area ? run.area : undefined;
+    const gate = areaNow
+      ? areaNow.at === 'room'
+        ? level.portals.find(p => p.kind === 'hall')
+        : hallGate(level.portals, save.records.bossArea?.beaten ?? [])
+      : level.portals.find(p => p.kind === style.after);
+    targetGate = gate ?? null;
     const loot = lootNear(dt);
     if (loot) return { tile: tileAt(loot.x, loot.z), what: `pick up a ${loot.kind}`, at: loot };
     // a milestone's terminal, once (botLevels)
     const term = botLevels ? level.portals.find(p => p.kind === 'terminal' && !termsUsed.has(p)) : undefined;
     if (term) return { tile: tileAt(term.x, term.z), what: 'terminal', at: term };
-    const gate = level.portals.find(p => p.kind === style.after) ?? level.portals[0];
-    if (gate) {
+    const goalGate = gate ?? level.portals[0];
+    if (goalGate) {
       // (a gate that opened underfoot works only once it has been stepped away from: data/level.ts PORTAL)
-      if (!gate.clear) return { tile: tileIndex(player.x, player.z), what: 'step off the gate', at: awayFrom(gate) };
-      return { tile: tileAt(gate.x, gate.z), what: `gate ${gate.kind}`, at: gate };
+      if (!goalGate.clear)
+        return { tile: tileIndex(player.x, player.z), what: 'step off the gate', at: awayFrom(goalGate) };
+      return { tile: tileAt(goalGate.x, goalGate.z), what: `gate ${goalGate.kind}`, at: goalGate };
     }
     // a boss out of sight (the map shows where it is): go to it
     if (boss && stepsTo(boss) >= 0) return { tile: tileAt(boss.x, boss.z), what: `find ${boss.kind}` };
@@ -685,6 +726,28 @@ export function createBot(style: BotStyle) {
     stats.minHp = Math.min(stats.minHp, player.hp / player.maxHp);
     stats.depth = Math.max(stats.depth, stageInfo(run.stage).tier + 1);
     if (run.bld) stats.floors = Math.max(stats.floors, building ? building.route.indexOf(run.bld.floor) + 1 : 1);
+    // the boss area's room it is in: the time, the damage and the lowest health in it, and in its boss fight
+    const at = stageInfo(run.stage).area ? run.area : undefined;
+    if (at?.at === 'room') {
+      if (!roomNow || roomNow.boss !== at.boss) {
+        roomNow = { boss: at.boss, sec: 0, damage: 0, minHp: 1, bossSec: 0, bossDamage: 0, bossMinHp: 1 };
+        roomDamageAt = stats.damage;
+        roomBossOn = false;
+        stats.rooms.push(roomNow);
+      }
+      roomNow.sec += dt;
+      roomNow.damage = stats.damage - roomDamageAt;
+      roomNow.minHp = Math.min(roomNow.minHp, player.hp / player.maxHp);
+      if (boss) {
+        if (!roomBossOn) {
+          roomBossOn = true;
+          roomBossDamageAt = stats.damage;
+        }
+        roomNow.bossSec += dt;
+        roomNow.bossDamage = stats.damage - roomBossDamageAt;
+        roomNow.bossMinHp = Math.min(roomNow.bossMinHp, player.hp / player.maxHp);
+      }
+    } else roomNow = null;
     if (boss) {
       if (stats.bossAt < 0) stats.bossAt = stats.frames;
       stats.bossHp = Math.max(0, boss.hp / boss.maxHp);

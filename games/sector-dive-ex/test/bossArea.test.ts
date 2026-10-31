@@ -24,9 +24,10 @@ import { resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { lockdownAhead, supplyChips } from '../src/flow/events.ts';
 import { spawnBoss } from '../src/actors/bosses/common.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
+import { BOT_STYLES, createBot, hallGate, setBot } from '../src/dev/bot.ts';
 import { query } from '@engine/core/world.ts';
 import { TRACK_LOG } from '@engine/core/analytics.ts';
-import { W, tileCenter, tileIndex } from '@engine/world/tiles.ts';
+import { T, W, tileCenter, tileIndex } from '@engine/world/tiles.ts';
 import { el, wrapAngle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { bootGame, enterBuilding, goToFloor, putOnTile, stateIs, tick } from './helpers.ts';
@@ -632,4 +633,66 @@ test('boss area off: the start depth is not limited and the hall is not used', (
   expect(run.startTier, 'the boss area depth as chosen').toBe(BOSS_AREA_START_TIER);
   expect(run.bld, 'a building, not the hall').toBeTruthy();
   expect(run.area, 'no boss area place').toBeUndefined();
+});
+
+// ---- the bot in the boss area: the gate it takes in the hall, and what it records in a room ----
+test('hallGate: the first room not beaten yet', () => {
+  enterHallRun();
+  const gate = hallGate(level.portals, []);
+  expect(gate?.kind, 'a room gate').toBe('room');
+  expect(gate?.boss, 'the first room not beaten').toBe(BOSS_ROOM_ORDER[0]);
+});
+
+test('hallGate: the one room left after the other seven', () => {
+  enterHallRun();
+  const left = BOSS_ROOM_ORDER[BOSS_ROOM_ORDER.length - 1]!;
+  expect(hallGate(level.portals, BOSS_ROOM_ORDER.slice(0, -1))?.boss, 'the room still to beat').toBe(left);
+});
+
+test('hallGate: the way out once all eight rooms are beaten', () => {
+  enterHallRun();
+  expect(hallGate(level.portals, BOSS_ROOM_ORDER)?.kind, 'the way out (TITAN has no gate yet)').toBe('extract');
+});
+
+test('hallGate: the way forward once it is open', () => {
+  enterHallRun();
+  const at = level.portals[0]!;
+  makePortal(at.x, at.z, 0xffffff, 'next', '');
+  expect(hallGate(level.portals, [])?.kind, 'the way forward comes first').toBe('next');
+});
+
+test('the bot records the room it is in, from entering it', () => {
+  enterRoom();
+  const bot = createBot(BOT_STYLES.rusher!);
+  setBot(bot);
+  try {
+    tick(2);
+  } finally {
+    setBot(null);
+  }
+  expect(bot.stats.rooms.length, 'one room so far').toBe(1);
+  const room = bot.stats.rooms[0]!;
+  expect(room.boss, "the room's boss").toBe('crusher');
+  expect(room.sec, 'some time in the room').toBeGreaterThan(0);
+  expect(room.bossSec, 'the boss has not come yet').toBe(0);
+});
+
+test('the bot keeps off the other gates on its way to a terminal', () => {
+  enterHallRun();
+  const terminal = level.portals.find(p => p.kind === 'terminal')!;
+  // a room it does not mean to take, on the straight way from the player to the terminal
+  makePortal(terminal.x - T, terminal.z, 0xffffff, 'room', '', 'phantom');
+  player.x = terminal.x - 2 * T;
+  player.z = terminal.z;
+  tick(70); // PORTAL.armTime (1 s) with the player clear of the gate
+  const bot = createBot(BOT_STYLES.rusher!);
+  setBot(bot);
+  try {
+    // (tick closes a screen, so the terminal's screen opening is where this stops)
+    for (let i = 0; i < 1200 && state === 'play' && run.area?.at === 'hall'; i++) tick(1);
+  } finally {
+    setBot(null);
+  }
+  expect(run.area, 'still in the hall').toEqual({ at: 'hall' });
+  expect(state, 'the terminal reached').not.toBe('play');
 });
