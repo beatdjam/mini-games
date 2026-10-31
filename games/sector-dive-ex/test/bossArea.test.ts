@@ -5,15 +5,18 @@ import { afterEach, beforeAll, expect, test } from 'vitest';
 import { BIOMES } from '../src/data/biomes.ts';
 import { BOSS_ORDER } from '../src/data/bosses.ts';
 import { BOSS_ROOMS } from '../src/data/bossRooms.ts';
-import { PER } from '../src/data/progress.ts';
+import { PER, BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { save } from '../src/core/save.ts';
 import { bossAreaTierFor, bossRoomBiome, devBossArea } from '../src/core/bossArea.ts';
-import { planOf } from '../src/core/stages.ts';
+import { bossStageOf, firstStageOf, planOf, stageLabel } from '../src/core/stages.ts';
 import { run } from '../src/actors/player.ts';
+import { enemies } from '../src/world/entities.ts';
 import { level } from '../src/world/level.ts';
 import { state } from '../src/flow/state.ts';
-import { goBase, startRun } from '../src/flow/run.ts';
-import { bootGame } from './helpers.ts';
+import { goBase, startRun, startStage } from '../src/flow/run.ts';
+import { resumeRun, suspendRun } from '../src/flow/suspend.ts';
+import { t } from '@engine/core/i18n.ts';
+import { bootGame, tick } from './helpers.ts';
 
 beforeAll(async () => {
   await bootGame();
@@ -87,4 +90,61 @@ test('a deep start settles the area and leaves the supply chip picks open', () =
   expect(save.records.bossArea, 'the next milestone above the start').toEqual({ tier: 59, beaten: [] });
   expect(run.startTier, 'the run starts where it was set to').toBe(54);
   expect(state, 'a supply chip pick is open').toBe('perk');
+});
+
+// a dive at the boss area's depth: the supply chip picks open first; tick(2) closes that screen and play goes on
+function enterHallRun() {
+  goBase();
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
+  save.shortcut = BOSS_AREA_START_TIER;
+  save.startTier = BOSS_AREA_START_TIER;
+  startRun(true);
+  expect(state, 'the supply chip pick is open first').toBe('perk');
+  tick(2);
+}
+
+test('a dive in the boss area starts in the hall', () => {
+  enterHallRun();
+  expect(run.area, 'the run is in the hall').toEqual({ at: 'hall' });
+  expect(run.bld, 'not a floor of a building').toBeUndefined();
+  expect(level.floor).toBe(-1);
+  expect(level.rooms.length).toBe(1);
+  expect(enemies.length, 'no enemy in the hall').toBe(0);
+  expect(level.portals.map(p => p.kind).sort(), 'the way out and the terminal').toEqual(['extract', 'terminal']);
+  expect(save.suspend?.run.area, 'the checkpoint keeps the hall').toEqual({ at: 'hall' });
+  expect(save.suspend?.run.bld).toBeUndefined();
+  expect(stageLabel(run.stage), 'the hall is named on screen').toBe(t('boss.hall'));
+});
+
+test('a run suspended in the hall resumes in the hall', () => {
+  enterHallRun();
+  suspendRun();
+  resumeRun();
+  expect(run.area, 'still in the hall').toEqual({ at: 'hall' });
+  expect(level.floor, 'still a level of its own').toBe(-1);
+  expect(run.bld, 'still no building').toBeUndefined();
+  expect(enemies.length, 'still no enemy').toBe(0);
+  expect(level.portals.map(p => p.kind).sort(), 'the gates are made again').toEqual(['extract', 'terminal']);
+});
+
+test('a boss room stage brings the hall back', () => {
+  enterHallRun();
+  run.stage = bossStageOf(BOSS_AREA_START_TIER);
+  run.area = { at: 'hall' };
+  startStage();
+  expect(run.stage, 'back at the depth start').toBe(firstStageOf(BOSS_AREA_START_TIER));
+  expect(stageLabel(run.stage), 'the hall is named on screen').toBe(t('boss.hall'));
+});
+
+test('boss area off: the boss area depth keeps the building', () => {
+  devBossArea(false);
+  goBase();
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
+  save.shortcut = BOSS_AREA_START_TIER;
+  save.startTier = BOSS_AREA_START_TIER;
+  startRun(true);
+  tick(2);
+  expect(planOf(BOSS_AREA_START_TIER * PER).area, 'no boss area').toBe(false);
+  expect(run.bld, 'the building is there').toBeTruthy();
+  expect(level.floor, 'a floor of it').toBeGreaterThanOrEqual(0);
 });

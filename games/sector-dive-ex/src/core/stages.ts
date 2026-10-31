@@ -6,6 +6,7 @@ import { progressOf } from './rules.ts';
 import { save } from './save.ts';
 import { bossAreaOn } from './bossArea.ts';
 import { run } from '../actors/player.ts';
+import { t } from '@engine/core/i18n.ts';
 
 // ---- tuning numbers used only here ----
 export const STAGES_PER_GROWTH_DEPTH = 5; // progress (progressOf) per step of the enemy health growth curve
@@ -54,6 +55,7 @@ export function stageLabel(s: number, bld?: { tier: number; step: number; floors
   const si = stageInfo(s),
     b = bld ?? (run?.bld && s === run.stage ? run.bld : undefined);
   if (isBossStage(s)) return `D${si.tier + 1} BOSS`;
+  if (si.area) return t('boss.hall');
   // in a building: the step along its route out of its floors
   if (b && b.tier === si.tier) return `D${si.tier + 1} ${b.step + 1}/${b.floors}`;
   return `D${si.tier + 1} ${Math.floor(si.sub) + 1}/${PER - 1}`;

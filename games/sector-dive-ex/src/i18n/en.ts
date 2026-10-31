@@ -341,6 +341,7 @@ LANG.en = {
     'run.kitUsedNow': 'Kits full, so you used it on the spot (HP +{n})',
     'run.practiceStart': 'Boss practice — no rewards, no losses',
     'boss.phase2': 'Phase two',
+    'boss.hall': 'HALL',
     'boss.toBase': 'To base',
     'boss.practiceWon': 'Defeated. Take the gate back to base',
     'boss.forward': 'Onward',

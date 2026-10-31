@@ -26,6 +26,7 @@ import {
   storeWeapons,
 } from '../core/progress.ts';
 import {
+  buildHall,
   buildLevel,
   buildingShown,
   enterFloor,
@@ -43,7 +44,8 @@ import {
 } from '../world/level.ts';
 import { BUILDING_V, building, fitBuildingState, makeBuilding, setBuilding, unpackSeen } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
-import { makePortal } from '../world/portals.ts';
+import { makePortal, makeTerminal } from '../world/portals.ts';
+import { bossAreaOn } from '../core/bossArea.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import {
@@ -360,10 +362,17 @@ export function useLink(n: number) {
 }
 export function startStage() {
   const si = stageInfo(run.stage),
-    b = si.biome,
     inBuilding = run.kind !== 'practice', // boss practice is a boss arena on its own, as in Sector Dive
-    isArena = !inBuilding && isBossStage(run.stage);
-  if (inBuilding) {
+    isArena = !inBuilding && isBossStage(run.stage),
+    inArea = bossAreaOn() && inBuilding && si.area,
+    inHall = inArea && run.area?.at !== 'room',
+    b = inHall ? BIOMES[0] : si.biome;
+  if (inHall) {
+    run.area = { at: 'hall' };
+    run.bld = undefined; // the hall is not a floor of a building
+    setBuilding(null); // the old building must not be left behind (roomsLeft reads building!)
+    run.stage = firstStageOf(si.tier); // a room's boss stage must not stay when the hall comes back
+  } else if (inBuilding) {
     // a run is never resumed in the boss fight (the checkpoint is the floor's); a stage left at the boss is the lowest floor
     const st = ensureBuilding(si.tier, b);
     setFloor(st, st.floor);
@@ -379,12 +388,20 @@ export function startStage() {
   if (run.kind !== 'practice')
     track('level_start', {
       level: si.tier + 1,
-      stage: inBuilding ? run.bld!.step + 1 : si.sub + 1,
+      stage: inHall ? 0 : inBuilding ? run.bld!.step + 1 : si.sub + 1,
       stage_type: b.code,
       stage_role: isArena ? 'boss' : 'normal',
       target: bossKind ?? '',
     });
-  if (inBuilding) {
+  if (inHall) {
+    const at = buildHall(b);
+    player.x = at.start[0];
+    player.z = at.start[1];
+    player.yaw = 0;
+    player.pitch = 0;
+    makePortal(at.extract[0], at.extract[1], COLOR.cyan, 'extract', t('boss.extract'));
+    makeTerminal(at.terminal[0], at.terminal[1], COLOR.lime, t('boss.terminal'));
+  } else if (inBuilding) {
     const st = run.bld!;
     if (!buildingShown(building)) showBuilding(building!);
     else if (level.floor !== st.floor) stashFloor(); // moving on within the building: the floor left keeps its contents
@@ -404,10 +421,10 @@ export function startStage() {
   placeView();
   el('#bossBar').hidden = true;
   refreshRunText();
-  banner(stageLabel(run.stage), inBuilding ? `${floorLabel()}　${b.name}` : b.name);
+  banner(stageLabel(run.stage), inHall ? '' : inBuilding ? `${floorLabel()}　${b.name}` : b.name);
   const hintAt = run.stage,
     hint = b.hint;
-  if (si.sub === 0 && hint)
+  if (!inHall && si.sub === 0 && hint)
     setTimeout(() => {
       if (run && run.stage === hintAt && state === 'play') toast(hint, HINT_TOAST_MS);
     }, HINT_DELAY_MS);

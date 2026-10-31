@@ -59,6 +59,15 @@ const REVEAL_R2 = 18; // map reveal radius around the player, squared (tiles)
 const REVEAL_BOX = 4; // ... searched in this many tiles each way
 const DOOR_SIGHT_CONE = 0.6; // the boss door is looked at when it is within this of the way the player faces (rad)
 const DOOR_SIGHT_OUT = T / 2 + 0.5; // the line of sight goes to a point this far out from the door's middle (m)
+// ---- the hall of the boss area (buildHall): one square room for now. Its size and the gates' places are stand-ins
+// until the hall's shape is decided ----
+const HALL_TILES_W = 24; // tiles across
+const HALL_TILES_H = 18; // tiles from north to south
+const HALL_WALL = '#'.repeat(HALL_TILES_W);
+const HALL_FLOOR = '#' + '.'.repeat(HALL_TILES_W - 2) + '#';
+const HALL_ROWS = [HALL_WALL, ...Array<string>(HALL_TILES_H - 2).fill(HALL_FLOOR), HALL_WALL];
+const HALL_ROOM = { x: 1, y: 1, w: HALL_TILES_W - 2, h: HALL_TILES_H - 2 };
+const HALL_GATE_GAP = T; // one tile (4 m) each side of the start spot: a stand-in until the hall's shape is decided
 // the level being played: built as a whole by buildLevel, replaced (never patched field by field) on the next one
 interface Level {
   biome: Biome; // sector of this level
@@ -737,6 +746,19 @@ export function buildFixedLevel(biome: Biome, map: FixedMap) {
   const { W, H, maps } = tileMapFromRows(map.rows, {}, map.rooms);
   useLevel(biome, false, { W, H, maps, hazard: new Uint8Array(W * H), rooms: map.rooms, startIdx: map.start }, 0);
   level.exitIdx = map.exit;
+}
+// The hall of the boss area: a fixed, plain map with no enemy and no pickup, where the run enters the depth. The gates
+// are made by the caller (portals.ts imports this file): their places are returned, in world coordinates. The hall's
+// look and music are BIOMES[0] (DATA) for now, until the hall's own look is decided.
+export function buildHall(biome: Biome): {
+  start: [number, number];
+  extract: [number, number];
+  terminal: [number, number];
+} {
+  buildFixedLevel(biome, { rows: HALL_ROWS, rooms: [HALL_ROOM], start: 0, exit: 0 });
+  const [sx, sz] = roomSpot(level.rooms[level.startIdx]!);
+  computeFlow(tileCoord(sx), tileCoord(sz));
+  return { start: [sx, sz], extract: [sx + HALL_GATE_GAP, sz], terminal: [sx - HALL_GATE_GAP, sz] };
 }
 // the steps buildLevel and buildFixedLevel share: hand the maps to the tile world, make the Level and its meshes
 function useLevel(biome: Biome, isArena: boolean, gen: GeneratedLevel, seed: number) {

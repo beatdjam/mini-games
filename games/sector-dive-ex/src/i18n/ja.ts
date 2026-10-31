@@ -339,6 +339,7 @@ LANG.ja = {
     'run.kitUsedNow': 'キットが満杯なのでその場で使った（HP +{n}）',
     'run.practiceStart': 'ボス練習 — 報酬もロストもなし',
     'boss.phase2': '第二段階',
+    'boss.hall': '広間',
     'boss.toBase': '拠点へ',
     'boss.practiceWon': '撃破。ゲートから拠点へ戻る',
     'boss.forward': '前進',
