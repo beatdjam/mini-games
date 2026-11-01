@@ -358,6 +358,7 @@ export const BOSS_TUNE = {
   growth: 1.85,
   lateGrowth: 1.25, // as DEPTH_HP_LATE (1.24, then 1.27 from 2026-10-18; the same as the rooms' from 2026-10-23: a dive
   // stuck at a milestone was nearly always stopped by its boss)
+  roomHpMul: 0.5, // the share of the health a boss in a boss area room has: about half the fight (sim, the bot at the real save's strength)
   introTime: 2.0, // seconds a boss takes to appear (invulnerable, name shown)
   phaseTime: 1.2, // seconds of invulnerability when it drops below half health
   // the shares of its own health at which a boss changes phase, in order: below the first is the second phase

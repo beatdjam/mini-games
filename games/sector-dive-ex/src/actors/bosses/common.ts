@@ -80,6 +80,13 @@ const TITAN_CLEARED_TOAST_MS = 4200; // the toast for the first time TITAN is do
 export function bossDifficulty() {
   return 1.33 * BOSS_TUNE.hpMul * hpGrowth((progressOf(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth);
 }
+// the boss area's rooms are one boss after another: only their health is cut, the attacks and the speed stay.
+// TITAN is the one boss after the eight rooms: it keeps its health as it is
+export function areaHpMul(): number {
+  return bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room' && run.area.boss !== 'titan'
+    ? BOSS_TUNE.roomHpMul
+    : 1;
+}
 // the body material of a boss: a near-black base colour that glows in the boss's own colour (at rest: BOSS_GLOW)
 // (with the looks on: a machine's hull plate with a little of that colour in it, world/models/machine.ts)
 export function bossMaterial(dark: number, emissive: number): THREE.MeshLambertMaterial {
@@ -111,14 +118,15 @@ export interface BossSpawn<S extends object> {
   extra?: THREE.Object3D[]; // meshes of its own already in the scene, removed with it (as its pool is)
   onDown?: (e: Boss & S) => void; // when it goes down, after its meshes are removed
 }
-// hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDifficulty
+// hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDifficulty and the boss area
+// room's multiplier (areaHpMul)
 export function createBoss<S extends object>(o: BossSpawn<S>): Boss & S {
   const { kind, behave, state } = o,
     { mesh, mat } = o.look;
   if (o.pool === false) delete mat.userData.pool;
   const meta = BOSS_META[kind],
     name = meta.title ?? kind,
-    hp = meta.hp * bossDifficulty(),
+    hp = meta.hp * bossDifficulty() * areaHpMul(),
     y = meta.y,
     hitR = meta.hitR;
   dynGroup.add(mesh);
