@@ -36,7 +36,7 @@ import { hurtEnemy } from '../src/actors/combat.ts';
 import { spawnBoss } from '../src/actors/bosses/common.ts';
 import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
 import { building } from '../src/world/building.ts';
-import { tick, bootGame, goToFloor } from './helpers.ts';
+import { tick, bootGame, failInfo, goToFloor } from './helpers.ts';
 
 beforeAll(bootGame);
 
@@ -150,6 +150,7 @@ test('gates: one opening underfoot waits until the player steps off and back', (
   run.stage = PER - 1; // as after the boss: an onward gate leads to the next depth
   const st = run.stage;
   makePortal(player.x, player.z, 0xffffff, 'next', '');
+  const gate = level.portals[level.portals.length - 1];
   tick(30);
   if (run.stage !== st) throw new Error('gate took the player right away');
   tick(60);
@@ -158,7 +159,7 @@ test('gates: one opening underfoot waits until the player steps off and back', (
   tick(2);
   player.x -= 3;
   tick(2);
-  if (run.stage !== st + 1) throw new Error('gate did not work after stepping off and back');
+  if (run.stage !== st + 1) throw new Error('gate did not work after stepping off and back ' + failInfo(gate));
   goBase();
 });
 test('hazard floors: none in the start room, off at the start of an area', () => {

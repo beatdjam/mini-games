@@ -12,7 +12,7 @@ import { MORTAR_BLAST_R } from '../src/actors/mortar.ts';
 import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
 import { setState, show } from '../src/flow/state.ts';
 import { update } from '../src/flow/update.ts';
-import { tick, bootGame } from './helpers.ts';
+import { tick, bootGame, failInfo } from './helpers.ts';
 
 beforeAll(bootGame);
 
@@ -142,11 +142,12 @@ test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
   e.cd = 0;
   for (let k = 0; k < 30; k++) update(1 / 60); // 0.5 s: one burst (3 rounds, 0.13 s apart)
   const shots = e.shots,
-    [head, chest, legs] = e.parts!.map(q => q.p.y);
+    [head, chest, legs] = e.parts!.map(q => q.p.y),
+    info = failInfo(e);
   run.forceBoss = undefined;
   run.kind = 'dive'; // ends as the ordinary run it was started as
   endRun('abandon');
   goBase();
   if (shots !== 3 || !(head > chest && chest > legs))
-    throw new Error('trooper burst ' + shots + ' spheres ' + [head, chest, legs]);
+    throw new Error('trooper burst ' + shots + ' spheres ' + [head, chest, legs] + ' ' + info);
 });
