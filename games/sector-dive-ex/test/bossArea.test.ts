@@ -25,6 +25,9 @@ import { lockdownAhead, supplyChips } from '../src/flow/events.ts';
 import { spawnBoss } from '../src/actors/bosses/common.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { BOT_STYLES, createBot, hallGate, setBot } from '../src/dev/bot.ts';
+import { bigmap, cycleMap, map3dWanted, toggleMap, toggleMap3D } from '../src/ui/hud.ts';
+import { map3d, map3dOpen } from '../src/ui/map3d.ts';
+import { keyText } from '../src/ui/input.ts';
 import { query } from '@engine/core/world.ts';
 import { TRACK_LOG } from '@engine/core/analytics.ts';
 import { T, W, tileCenter, tileIndex } from '@engine/world/tiles.ts';
@@ -695,4 +698,65 @@ test('the bot keeps off the other gates on its way to a terminal', () => {
   }
   expect(run.area, 'still in the hall').toEqual({ at: 'hall' });
   expect(state, 'the terminal reached').not.toBe('play');
+});
+
+// ---- the maps: the boss area's hall and rooms have the 2D page only ----
+test('a boss room has no 3D page, even when the 3D map key is pressed', () => {
+  enterRoom();
+  tick(1);
+  toggleMap3D();
+  expect(map3dWanted(), 'the 3D page is not asked for').toBe(false);
+  expect(map3d.on, 'nor turned on').toBe(false);
+  tick(2);
+  expect(el('#bigmap3d').hidden, 'the 3D canvas stays hidden').toBe(true);
+  expect(map3dOpen(), 'the 3D page is not on screen').toBe(false);
+});
+
+test('a boss room: the 3D canvas stays hidden even with the big map open and its 3D page asked for', () => {
+  enterRoom();
+  tick(1);
+  toggleMap();
+  map3d.on = true; // (no key gets here: this is the frame's own check)
+  tick(2);
+  const hidden = el('#bigmap3d').hidden;
+  map3d.on = false;
+  toggleMap(); // close it for the next test
+  expect(hidden).toBe(true);
+});
+
+test('a boss room: a tap cycles the 2D map and then closes, skipping the 3D page', () => {
+  enterRoom();
+  tick(1);
+  toggleMap();
+  expect(bigmap.hidden, 'the 2D map is open').toBe(false);
+  expect(map3d.on).toBe(false);
+  cycleMap();
+  expect(bigmap.hidden, 'the big map is closed, not on a 3D page').toBe(true);
+  expect(map3d.on).toBe(false);
+});
+
+test('a boss room: the PC hint does not name the 3D map key', () => {
+  enterRoom();
+  tick(1);
+  toggleMap();
+  expect(el('#mapHint').textContent).not.toContain(keyText('map3d', 0));
+  toggleMap(); // close it for the next test
+});
+
+test('an ordinary building still gets the 3D page on the second tap', () => {
+  enterBuilding();
+  cycleMap();
+  cycleMap();
+  expect(map3dWanted(), 'the 3D page is on').toBe(true);
+  cycleMap(); // closed for the next test
+});
+
+test('boss area off: a room placed by hand keeps the building, and its 3D page', () => {
+  devBossArea(false);
+  enterRoom();
+  tick(1);
+  cycleMap();
+  cycleMap();
+  expect(map3dWanted(), 'the 3D page is on, as in any building').toBe(true);
+  cycleMap(); // closed for the next test
 });

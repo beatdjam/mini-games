@@ -11,7 +11,8 @@ import { player, currentWeapon, run } from '../actors/player.ts';
 import { magSize, weaponName, weaponText, weaponStats } from '../actors/weapons.ts';
 import { state } from '../flow/state.ts';
 import { level } from '../world/level.ts';
-import { map3d } from './map3d.ts';
+import { bossAreaOn } from '../core/bossArea.ts';
+import { map3d, map3dAllowed } from './map3d.ts';
 import { time } from '../flow/update.ts';
 import { keyText, moveKeysText } from './input.ts';
 import { ICON, hud2, slotHtml } from './hud2.ts';
@@ -60,13 +61,13 @@ export const updateHitMark = hitMarkUi.update;
 // ---- the big map: the 2D map of this floor, and (in a building) a second page with the 3D map of the building ----
 const mapHint = el('#mapHint');
 // is the 3D page the one asked for (it is on screen from the next frame: ui/map3d.ts)
-export const map3dWanted = (): boolean => !bigmap.hidden && map3d.on && level.floor >= 0;
+export const map3dWanted = (): boolean => !bigmap.hidden && map3d.on && map3dAllowed();
 // Opens or closes the big map on one of its pages. On a PC the 3D page needs the pointer (the map is dragged with the
 // mouse), so the mouse lock is let go while it is up and taken back when it goes
 function setMap(open: boolean, solid: boolean) {
   const was = map3dWanted();
   bigmap.hidden = !open;
-  map3d.on = open && solid && level.floor >= 0;
+  map3d.on = open && solid && map3dAllowed();
   screenFx.miniT = 0;
   if (!isTouch && was !== map3dWanted()) {
     if (map3dWanted()) exitLock();
@@ -75,11 +76,14 @@ function setMap(open: boolean, solid: boolean) {
   mapHint.hidden = !open;
   if (!open) return;
   const keys = { map: keyText('map', 0), map3d: keyText('map3d', 0), move: moveKeysText() };
+  const can3d = map3dAllowed();
   mapHint.textContent = isTouch
-    ? t(map3d.on ? 'map.hintTouch3d' : 'map.hintTouch2d')
+    ? bossAreaOn()
+      ? t(can3d ? (map3d.on ? 'map.hintTouch3d' : 'map.hintTouch2d') : 'map.hintTouchClose')
+      : t(map3d.on ? 'map.hintTouch3d' : 'map.hintTouch2d')
     : level.floor < 0
       ? ''
-      : t(map3d.on ? 'map.hint3d' : 'map.hint2d', keys);
+      : t(can3d ? (map3d.on ? 'map.hint3d' : 'map.hint2d') : 'map.hintClose', keys);
 }
 // the map key: opens the 2D map, or closes the big map whichever page it is on
 export function toggleMap() {
@@ -88,14 +92,14 @@ export function toggleMap() {
 }
 // the 3D map key: opens the big map on its 3D page, or turns between the two pages
 export function toggleMap3D() {
-  if (state !== 'play' || level.floor < 0) return;
+  if (state !== 'play' || !map3dAllowed()) return;
   setMap(true, bigmap.hidden || !map3d.on);
 }
 // a tap on the minimap or the map (touch): closed, the 2D map, the 3D map, closed again
 export function cycleMap() {
   if (state !== 'play') return;
   if (bigmap.hidden) setMap(true, false);
-  else if (!map3d.on && level.floor >= 0) setMap(true, true);
+  else if (!map3d.on && map3dAllowed()) setMap(true, true);
   else setMap(false, false);
 }
 export function weaponHud() {

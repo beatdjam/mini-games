@@ -13,12 +13,17 @@ import type { FloorMap3D, FloorMapMarker, FloorMapVolume } from '@engine/ui/floo
 import { building } from '../world/building.ts';
 import type { Building } from '../world/building.ts';
 import { level } from '../world/level.ts';
-import { player } from '../actors/player.ts';
+import { player, run } from '../actors/player.ts';
+import { bossAreaOn } from '../core/bossArea.ts';
+import { stageInfo } from '../core/stages.ts';
 import { CSS_COLOR } from '../data/colors.ts';
 
 const canvas = el<HTMLCanvasElement>('#bigmap3d');
 // the 3D page is the one showing while the big map is open (set by toggleMap)
 export const map3d = { on: false };
+// the 3D page is for a building: the boss area's room is one floor of a building, but its map is not the room's
+export const map3dAllowed = (): boolean =>
+  level.floor >= 0 && !(run && bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room');
 let map: FloorMap3D | null = null; // made the first time the 3D page opens
 let floors: Floors | null = null; // the building as the engine's floors, lowest floor first
 let builtFor: Building | null = null;
@@ -106,7 +111,7 @@ function volumesOf(b: Building): FloorMapVolume[] {
 // the slabs again when more of the building has been seen, and draws
 export function updateMap3D(bigmapOpen: boolean) {
   const b = building,
-    show = bigmapOpen && map3d.on && level.floor >= 0 && !!b;
+    show = bigmapOpen && map3d.on && map3dAllowed() && !!b;
   canvas.hidden = !show;
   if (!show || !b) return;
   map ??= createFloorMap3D(canvas);

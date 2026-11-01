@@ -15,6 +15,8 @@ LANG.ja = {
       '一時停止中　{move} / ドラッグ: 回す　ホイール: 拡大　右ドラッグ: 移動　{map3d}: 平面マップ　{map}: 閉じる',
     'map.hintTouch2d': 'タップ: 立体マップ',
     'map.hintTouch3d': '一時停止中　1本指: 回す　2本指: 拡大・移動　ミニマップをタップ: 閉じる',
+    'map.hintClose': '{map}: 閉じる',
+    'map.hintTouchClose': 'タップ: 閉じる',
     'hud.fsToggle': '全画面の切り替え',
     'hud.fs': '全画面',
     'hud.fsOff': '全画面解除',
