@@ -9,7 +9,8 @@ import { BOSS_ROOMS, BOSS_ROOM_ORDER } from '../src/data/bossRooms.ts';
 import { COLOR } from '../src/data/colors.ts';
 import { PORTAL } from '../src/data/level.ts';
 import { PER, BOSS_AREA_START_TIER } from '../src/data/progress.ts';
-import { SAVE_KEY, save } from '../src/core/save.ts';
+import { SAVE_KEY, save, saveKeyFor } from '../src/core/save.ts';
+import { equipBestWeapons } from '../src/dev/climb.ts';
 import { allBossRoomsBeaten, bossAreaCleared, clampStartTier, startTierMax } from '../src/core/progress.ts';
 import { bossAreaTierFor, bossRoomBiome, devBossArea } from '../src/core/bossArea.ts';
 import { bossStageOf, firstStageOf, placeName, planOf, stageInfo, stageLabel } from '../src/core/stages.ts';
@@ -1065,4 +1066,26 @@ test("the hall and TITAN's room are drawn with the sectors run together", () => 
 test('boss area off: a sector is drawn as its own', () => {
   devBossArea(false);
   expect(lookOf(BIOMES.find(b => b.code === 'CITY')!)?.wallPatches, 'the city as it is').toBeUndefined();
+});
+
+// ---- the climber between dives ----
+test('between dives the two strongest weapons go on, and none is kept twice', () => {
+  goBase();
+  const held = { id: 'pistol', r: 2, basic: false, plus: 10, opts: [] },
+    moved = { id: 'pistol', r: 2, basic: false, plus: 40, opts: [] },
+    weak = { id: 'pistol', r: 0, basic: false, plus: 1, opts: [] },
+    strong = { id: 'pistol', r: 2, basic: false, plus: 80, opts: [] };
+  save.loadout = [held, moved];
+  save.stash = [weak, strong];
+  equipBestWeapons();
+  expect(save.loadout, 'the strongest first').toEqual([strong, moved]);
+  expect(save.stash.length, 'the rest in the stash').toBe(2);
+  expect(save.stash, 'nothing held is in the stash').not.toContain(moved);
+});
+
+test('#bot-climber keeps a save of its own, only on the dev server', () => {
+  expect(saveKeyFor('#bot-climber', true)).toBe(`${SAVE_KEY}-climber`);
+  expect(saveKeyFor('#bot-climber-new', true)).toBe(`${SAVE_KEY}-climber`);
+  expect(saveKeyFor('#bot-climber', false)).toBe(SAVE_KEY);
+  expect(saveKeyFor('#bot-explorer', true)).toBe(SAVE_KEY);
 });

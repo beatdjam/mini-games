@@ -3,27 +3,27 @@
 // Not a test: nothing is asserted but that the runs end.
 import { beforeAll, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
-import type { WeaponItem } from '../src/data/types.ts';
 import { createRng } from '@engine/core/util.ts';
 import { isBossStage, stageInfo } from '../src/core/stages.ts';
-import { levelOf, nextLevelCost, setDropOnly } from '../src/core/rules.ts';
+import { levelOf, setDropOnly } from '../src/core/rules.ts';
 import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
-import { BOSS_AREA_START_TIER, PER, UPGRADES, levelCost } from '../src/data/progress.ts';
-import { fillMag, newWeapon, wDmgMul, weaponStats } from '../src/actors/weapons.ts';
+import { BOSS_AREA_START_TIER, PER, levelCost } from '../src/data/progress.ts';
+import { fillMag, newWeapon, wDmgMul } from '../src/actors/weapons.ts';
 import { normalizeWeapons } from '../src/ui/input.ts';
 import { defaultSave, save, setSave } from '../src/core/save.ts';
-import { buyUpgrade, devBossAreaGear, devBossAreaStart, setStartTier } from '../src/core/progress.ts';
+import { devBossAreaGear, devBossAreaStart, setStartTier } from '../src/core/progress.ts';
 import { devBossArea } from '../src/core/bossArea.ts';
 import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { devSeed, level } from '../src/world/level.ts';
-import { newPlayer, player, run, setPlayer } from '../src/actors/player.ts';
+import { player, run } from '../src/actors/player.ts';
 import { goBase, startRun } from '../src/flow/run.ts';
+import { buyAtBase, equipBestWeapons } from '../src/dev/climb.ts';
 import { bossStarted } from '../src/flow/events.ts';
 import { setRushBuild } from '../src/dev/views/bossRush.ts';
 import { state } from '../src/flow/state.ts';
 import { update } from '../src/flow/update.ts';
-import { BOT_STYLES, createBot, nextPoint, setBot, setBotLevels } from '../src/dev/bot.ts';
+import { BOT_STYLES, createBot, setBot, setBotLevels } from '../src/dev/bot.ts';
 
 declare const __SIM_SEEDS__: string;
 declare const __SIM_DIVES__: string;
@@ -97,30 +97,6 @@ const cases = styles.flatMap(style =>
 // nextPoint) and the dive starts from the deepest start open. Not set (1): every dive from a new save
 const DIVES = Math.max(1, Number(__SIM_DIVES__) || 1);
 const AREA = __SIM_AREA__ === 'on';
-function buyAtBase(collect: boolean) {
-  for (;;) {
-    const cost = nextLevelCost(),
-      id = nextPoint(collect, id => save.bits >= cost && (save.up[id] || 0) < UPGRADES.find(u => u.id === id)!.max);
-    if (!id) return;
-    buyUpgrade(id, cost);
-  }
-}
-// Between dives: the two strongest weapons held or in the stash go on (the same comparison the bot makes on the floor,
-// weaponStats().dps), so what one dive brings home is what the next one sets out with
-function equipBestWeapons() {
-  // (weaponStats reads the player: stand in the one the next dive would set out with, at the depth it starts from)
-  const held = player;
-  setPlayer(newPlayer(save.loadout, save.shortcut));
-  try {
-    const all = [...save.loadout, ...save.stash].filter((w): w is WeaponItem => !!w),
-      best = [...all].sort((a, b) => weaponStats(b).dps - weaponStats(a).dps).slice(0, 2);
-    // (set directly, not one by one with equipWeapon: a weapon moved between the slots would stay in both)
-    save.loadout = [best[0] ?? null, best[1] ?? null];
-    save.stash = all.filter(w => !best.includes(w) && !w.basic);
-  } finally {
-    setPlayer(held);
-  }
-}
 type Row = Record<string, string | number>;
 const summary: Row[] = [];
 const tsv = (rows: Row[]): string => {
