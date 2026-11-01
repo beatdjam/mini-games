@@ -11,6 +11,7 @@ import { track } from '@engine/core/analytics.ts';
 import { LOOP } from '@engine/core/loop.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
+import { BOSS_META } from '../data/bosses.ts';
 import { PER, TUNE } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
 import { persist, save } from '../core/save.ts';
@@ -314,6 +315,12 @@ function populateFloor(b: Biome, tier: number, plan: FloorPlan, st: BuildingStat
   const diff = difficultyAt(run.stage),
     done = st.cleared[st.floor]!,
     hasEnemies = (idx: number) => idx !== plan.gen.startIdx && idx !== plan.hall?.room && !done.includes(idx);
+  // a room's lowest floor holds the boss alone
+  const bossOnly = !!plan.hall && bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room';
+  if (bossOnly) {
+    st.visited[st.floor] = true;
+    return;
+  }
   level.rooms.forEach((r, idx) => {
     if (!hasEnemies(idx)) return;
     const n = roomEnemyCount(r, b);
@@ -397,6 +404,7 @@ export function startStage() {
       st.floor = building!.plans.length - 1; // the lowest floor: its hall is the boss room
       st.step = building!.route.indexOf(st.floor);
       st.at = -1; // the room starts at the hall door, not at the stairwell a resume came by
+      st.supplied = true; // a boss room gives no pre-boss supply (roomsLeft() counts every floor of the building)
       run.stage = bossStageOf(si.tier); // the room's boss has the depth's boss strength
     } else setFloor(st, st.floor);
   }
@@ -414,7 +422,7 @@ export function startStage() {
       stage: inHall ? 0 : inBuilding ? run.bld!.step + 1 : si.sub + 1,
       stage_type: b.code,
       stage_role: isArena || room ? 'boss' : 'normal',
-      target: bossKind ?? '',
+      target: bossKind ?? room?.boss ?? '',
     });
   if (inHall) {
     const at = buildHall(b);
@@ -424,6 +432,8 @@ export function startStage() {
     player.pitch = 0;
     makePortal(at.extract[0], at.extract[1], COLOR.cyan, 'extract', t('boss.extract'));
     makeTerminal(at.terminal[0], at.terminal[1], COLOR.lime, t('boss.terminal'));
+    // one room for now: the other seven gates are the eight-room draft
+    makePortal(at.roomGates[0]![0], at.roomGates[0]![1], COLOR.violet, 'room', BOSS_META.crusher.name, 'crusher');
   } else if (inBuilding) {
     const st = run.bld!;
     if (!buildingShown(building)) showBuilding(building!);
@@ -468,6 +478,8 @@ export function enterBossRoom(kind: BossKind): boolean {
 // A gate from a boss room back to the hall: hand the run back and make the stage again (the building is dropped).
 export function returnToHall(): boolean {
   if (!bossAreaOn() || !stageInfo(run.stage).area || run.area?.at !== 'room') return false;
+  // the hall's heal after a room's boss: full HP for now, to be decided by playing
+  if (run.bld?.beaten) player.hp = player.maxHp;
   run.area = { at: 'hall' };
   startStage();
   return true;

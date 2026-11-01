@@ -14,7 +14,8 @@ import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import type { Enemy } from '../data/types.ts';
 import { player, run } from '../actors/player.ts';
 import { bossStageOf, difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
-import { putBossGates, spawnBoss } from '../actors/bosses/common.ts';
+import { bossAreaOn } from '../core/bossArea.ts';
+import { putBossGates, putRoomGates, spawnBoss } from '../actors/bosses/common.ts';
 import { rollWeapon } from '../actors/weapons.ts';
 import { progressOf } from '../core/rules.ts';
 import { refreshRunText } from '../screens/pause.ts';
@@ -63,8 +64,11 @@ const ev = {
   ride: null as { link: number; dir: number; t: number } | null,
 };
 const world = () => activeTileGrid().world;
+// is this a boss room of the boss area (its lowest floor, with the boss hall on it)
+const inBossRoom = (): boolean => !!level.hall && bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room';
 // is this room of the floor being played the building's lockdown room, with the lockdown still to come
 function isLockdownRoom(room: number): boolean {
+  if (inBossRoom()) return false; // no enemy is put on the floor, so no wave should come either
   const ld = building?.lockdown;
   return !!ld && !!run.bld && !run.bld.ld && level.floor === ld.floor && room === ld.room;
 }
@@ -96,7 +100,9 @@ export function resetFloorEvents() {
   lockDoor(world(), level.hall.door, false);
   run.stage = bossStageOf(stageInfo(run.stage).tier);
   const [cx, cz] = arenaCenter();
-  putBossGates(cx, cz, run.bld.tier);
+  // a beaten boss room has only the way back to the hall: no gate forward (TITAN's) and no extract
+  if (inBossRoom()) putRoomGates(cx, cz);
+  else putBossGates(cx, cz, run.bld.tier);
 }
 
 // the lockdown's look: the red frame and the wave count (step i of n: the room's own enemies, then the waves)
@@ -193,6 +199,7 @@ export function markClearedOn(floor: number, room: number) {
 }
 // is this the building's lockdown room, with its lockdown still to come
 export function lockdownAhead(floor: number, room: number): boolean {
+  if (inBossRoom()) return false;
   const ld = building?.lockdown;
   return !!ld && !!run.bld && !run.bld.ld && ld.floor === floor && ld.room === room;
 }

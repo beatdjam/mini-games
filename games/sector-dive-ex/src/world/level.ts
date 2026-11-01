@@ -68,6 +68,10 @@ const HALL_FLOOR = '#' + '.'.repeat(HALL_TILES_W - 2) + '#';
 const HALL_ROWS = [HALL_WALL, ...Array<string>(HALL_TILES_H - 2).fill(HALL_FLOOR), HALL_WALL];
 const HALL_ROOM = { x: 1, y: 1, w: HALL_TILES_W - 2, h: HALL_TILES_H - 2 };
 const HALL_GATE_GAP = T; // one tile (4 m) each side of the start spot: a stand-in until the hall's shape is decided
+// the gates into the boss rooms, round the start spot: two rows of four, north and south (m from the start spot).
+// a stand-in until the hall's shape is decided: sim decides
+const HALL_ROOM_GATE_X = [-4.5, -1.5, 1.5, 4.5].map(n => n * T);
+const HALL_ROOM_GATE_Z = 5 * T;
 // the level being played: built as a whole by buildLevel, replaced (never patched field by field) on the next one
 interface Level {
   biome: Biome; // sector of this level
@@ -754,11 +758,18 @@ export function buildHall(biome: Biome): {
   start: [number, number];
   extract: [number, number];
   terminal: [number, number];
+  roomGates: [number, number][]; // the gates into the boss rooms: the north row west to east, then the south row
 } {
   buildFixedLevel(biome, { rows: HALL_ROWS, rooms: [HALL_ROOM], start: 0, exit: 0 });
   const [sx, sz] = roomSpot(level.rooms[level.startIdx]!);
   computeFlow(tileCoord(sx), tileCoord(sz));
-  return { start: [sx, sz], extract: [sx + HALL_GATE_GAP, sz], terminal: [sx - HALL_GATE_GAP, sz] };
+  const row = (dz: number): [number, number][] => HALL_ROOM_GATE_X.map(x => [sx + x, sz + dz]);
+  return {
+    start: [sx, sz],
+    extract: [sx + HALL_GATE_GAP, sz],
+    terminal: [sx - HALL_GATE_GAP, sz],
+    roomGates: [...row(-HALL_ROOM_GATE_Z), ...row(HALL_ROOM_GATE_Z)],
+  };
 }
 // the steps buildLevel and buildFixedLevel share: hand the maps to the tile world, make the Level and its meshes
 function useLevel(biome: Biome, isArena: boolean, gen: GeneratedLevel, seed: number) {

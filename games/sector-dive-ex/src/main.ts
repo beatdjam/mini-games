@@ -51,7 +51,7 @@ import './actors/weapons.ts';
 import './actors/viewmodel.ts';
 import './actors/firing.ts';
 import './actors/combat.ts';
-import './actors/bosses/common.ts';
+import { setSaveBeatenRoom } from './actors/bosses/common.ts';
 import './actors/bosses/watcher.ts';
 import './actors/bosses/crusher.ts';
 import './actors/bosses/core.ts';
@@ -66,7 +66,7 @@ import { fsLabel, renderGuide } from './ui/settings.ts';
 import './flow/state.ts';
 import './flow/attract.ts';
 import './flow/run.ts';
-import './flow/suspend.ts';
+import { checkpoint } from './flow/suspend.ts';
 import './screens/perk.ts';
 import './screens/pause.ts';
 import './screens/bag.ts';
@@ -83,6 +83,7 @@ import { boot } from './flow/update.ts';
 
 ANALYTICS.game = 'sector-dive-ex'; // sent with every analytics event
 FEEDBACK.game = 'sector-dive-ex'; // filled into the feedback form
+setSaveBeatenRoom(checkpoint);
 setLang(save.settings.lang || defaultLang());
 syncVolumes();
 fsLabel();

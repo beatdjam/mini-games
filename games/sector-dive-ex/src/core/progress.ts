@@ -108,6 +108,15 @@ export const recordPeak = (tier: number) => {
 export const openShortcut = (tier: number) => {
   save.shortcut = tier;
 };
+// The boss area's beaten rooms stay in the save: a room beaten once is beaten after a death and after a resume from a
+// checkpoint too. True when this was the first time (the caller gives the full rewards then)
+export function recordBossRoomBeaten(kind: BossKind): boolean {
+  const area = save.records.bossArea;
+  if (!area) return false;
+  if (area.beaten.includes(kind)) return false;
+  area.beaten.push(kind);
+  return true;
+}
 // The boss area's depth, settled once per save on the first dive from the base (when the flag is on). Returns whether
 // this call settled it; the caller persists
 export function settleBossArea(startTier: number): boolean {
