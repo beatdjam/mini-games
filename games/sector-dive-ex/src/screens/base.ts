@@ -15,6 +15,7 @@ import {
   sellFromStash,
   setStartTier,
   spendBits,
+  startTierMax,
   takeFromStash,
   unlockWeapon,
 } from '../core/progress.ts';
@@ -107,7 +108,7 @@ const tierButton = (n: number): string => {
 // the milestones as diamonds (filled once passed), the depths open to start from as buttons and the one chosen in safety
 // yellow. Numbers only under the first depth, the milestones and the one chosen; that one's line underneath
 const depthPath = (): string => {
-  const open = save.shortcut,
+  const open = startTierMax(),
     at = save.startTier;
   let goal = open + 1;
   while (!isMilestone(goal)) goal++;
@@ -195,7 +196,7 @@ export function renderBase() {
   el('#sRuns').textContent = String(save.runs);
   el('#sBoss').textContent = String(save.bossKills);
   clampStartTier();
-  el('#tiers').innerHTML = Array.from({ length: save.shortcut + 1 }, (_, n) => tierButton(n)).join('');
+  el('#tiers').innerHTML = Array.from({ length: startTierMax() + 1 }, (_, n) => tierButton(n)).join('');
   el('#depthPath').innerHTML = depthPath();
   // (a long way down scrolls sideways: the depth chosen in sight)
   const line = el('#depthPath .dp-line'),

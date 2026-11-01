@@ -46,8 +46,16 @@ export function buyUpgrade(id: string, cost: number) {
 export const setStartTier = (n: number) => {
   save.startTier = n;
 };
+// Whether the last boss (TITAN) is down. Read only here: the TITAN draft adds the function that sets it
+export const bossAreaCleared = (): boolean => save.records.cleared;
+// The deepest start depth open: until TITAN is down it is the boss area's depth, so a save cannot start past the gate
+// into the depths after it. With the boss area off, TITAN down, or the boss area not settled yet, the shortcut is the limit
+export const startTierMax = (): number => {
+  const area = save.records.bossArea;
+  return !bossAreaOn() || bossAreaCleared() || !area ? save.shortcut : Math.min(save.shortcut, area.tier);
+};
 export const clampStartTier = () => {
-  save.startTier = clamp(save.startTier, 0, save.shortcut);
+  save.startTier = clamp(save.startTier, 0, startTierMax());
 };
 
 // ---- runs ----

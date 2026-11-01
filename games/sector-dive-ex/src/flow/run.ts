@@ -18,6 +18,7 @@ import { COLOR } from '../data/colors.ts';
 import { persist, save } from '../core/save.ts';
 import { progressOf } from '../core/rules.ts';
 import {
+  bossAreaCleared,
   fallBackToMilestone,
   earnBits,
   recordBest,
@@ -25,6 +26,7 @@ import {
   riskLoadout,
   setSuspend,
   settleBossArea,
+  startTierMax,
   storeWeapons,
 } from '../core/progress.ts';
 import {
@@ -157,7 +159,7 @@ function newRoute(tier: number): number[] {
 // the shots call it without the argument (the default, false), so they settle no boss area
 export function startRun(settleArea = false) {
   enterDive();
-  const tier = clamp(save.startTier, 0, save.shortcut);
+  const tier = clamp(save.startTier, 0, startTierMax());
   if (settleArea) settleBossArea(tier);
   setPlayer(newPlayer(save.loadout, tier));
   const risked = save.loadout.filter(w => w && !w.basic).length;
@@ -445,6 +447,8 @@ export function startStage() {
         kind,
       );
     });
+    // once TITAN is down: the way on from the boss area, to the next depth
+    if (bossAreaCleared()) makePortal(at.next[0], at.next[1], COLOR.amber, 'next', t('boss.forward'));
   } else if (inBuilding) {
     const st = run.bld!;
     if (!buildingShown(building)) showBuilding(building!);
@@ -504,7 +508,11 @@ export function pickEnemyType(b: Biome, tier: number): string {
 }
 export function nextStage() {
   sfx('portal');
-  run.stage++;
+  // the way on from the hall leaves the boss area: the next depth's first stage, not the same depth's next one
+  if (bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'hall') {
+    run.stage = firstStageOf(stageInfo(run.stage).tier + 1);
+    run.area = undefined;
+  } else run.stage++;
   recordBest(run.stage);
   persist();
   if (planOf(run.stage).deeper) toast(t('run.deeper', { n: stageInfo(run.stage).tier + 1 }), DEEPER_TOAST_MS);

@@ -10,6 +10,7 @@ import { COLOR } from '../src/data/colors.ts';
 import { PORTAL } from '../src/data/level.ts';
 import { PER, BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { SAVE_KEY, save } from '../src/core/save.ts';
+import { clampStartTier, startTierMax } from '../src/core/progress.ts';
 import { bossAreaTierFor, bossRoomBiome, devBossArea } from '../src/core/bossArea.ts';
 import { bossStageOf, firstStageOf, planOf, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { run, player } from '../src/actors/player.ts';
@@ -39,6 +40,7 @@ afterEach(() => {
   devSeed(null);
   goBase();
   save.records.bossArea = null;
+  save.records.cleared = false;
   save.shortcut = 0;
   save.startTier = 0;
 });
@@ -556,4 +558,78 @@ test('boss area off: a building boss keeps its rewards and shortcut', () => {
   expect(save.bossKills, 'the kill counts').toBe(kills + 1);
   expect(run.bosses, 'the boss is in the run').toContain(run.bld!.boss);
   expect(save.shortcut, 'the shortcut opens').toBe(tier + 1);
+});
+
+// ---- the way on from the boss area, and the start depth's gate ----
+test('the hall has a gate onward once TITAN is down', () => {
+  enterHallRun();
+  run.area = { at: 'hall' };
+  startStage();
+  expect(
+    level.portals.some(p => p.kind === 'next'),
+    'no gate onward before TITAN is down',
+  ).toBe(false);
+  save.records.cleared = true;
+  startStage();
+  expect(level.portals.filter(p => p.kind === 'next').length, 'the gate onward once TITAN is down').toBe(1);
+});
+
+test('the onward gate leaves the boss area for the next depth', () => {
+  enterHallRun();
+  save.records.cleared = true;
+  run.area = { at: 'hall' };
+  startStage();
+  const gate = level.portals.find(p => p.kind === 'next')!;
+  tick(70); // PORTAL.armTime (1 s) with the player clear of the gate
+  putOnTile(tileIndex(gate.x, gate.z));
+  tick(2);
+  expect(run.stage, 'the first stage of the next depth').toBe(firstStageOf(BOSS_AREA_START_TIER + 1));
+  expect(run.area, 'the boss area is left').toBeUndefined();
+  expect(run.bld, "the next depth's building").toBeTruthy();
+});
+
+test('the start depth stops at the boss area until TITAN is down', () => {
+  goBase();
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
+  save.shortcut = 55;
+  save.startTier = 55;
+  save.records.cleared = false;
+  clampStartTier();
+  expect(save.startTier, 'no start past the gate before TITAN is down').toBe(BOSS_AREA_START_TIER);
+  startRun(true);
+  expect(run.startTier, 'the run starts at the boss area too').toBe(BOSS_AREA_START_TIER);
+  goBase();
+  save.records.cleared = true;
+  save.startTier = 55;
+  clampStartTier();
+  expect(save.startTier, 'TITAN down: the shortcut is the limit again').toBe(55);
+  expect(startTierMax(), 'and the limit is the shortcut').toBe(55);
+});
+
+test('dying below the boss area comes back to the hall', () => {
+  enterHallRun();
+  save.records.cleared = true;
+  save.shortcut = 52;
+  save.startTier = 52;
+  startRun(true);
+  endRun('dead');
+  startRun(true);
+  tick(2); // the supply chip picks closed
+  expect(run.startTier, 'the last milestone below D53').toBe(BOSS_AREA_START_TIER);
+  expect(run.area, 'the hall again').toEqual({ at: 'hall' });
+  expect(run.bld, 'not a floor of a building').toBeUndefined();
+});
+
+test('boss area off: the start depth is not limited and the hall is not used', () => {
+  devBossArea(false);
+  goBase();
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
+  save.shortcut = 55;
+  save.startTier = BOSS_AREA_START_TIER;
+  expect(startTierMax(), 'the shortcut is the limit without the flag').toBe(55);
+  startRun(true);
+  tick(2); // the supply chip picks closed
+  expect(run.startTier, 'the boss area depth as chosen').toBe(BOSS_AREA_START_TIER);
+  expect(run.bld, 'a building, not the hall').toBeTruthy();
+  expect(run.area, 'no boss area place').toBeUndefined();
 });

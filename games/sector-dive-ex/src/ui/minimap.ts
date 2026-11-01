@@ -9,6 +9,8 @@ import { level } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { enemies } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
+import { bossAreaOn } from '../core/bossArea.ts';
+import { stageInfo } from '../core/stages.ts';
 import { CSS_COLOR } from '../data/colors.ts';
 
 const COVER_COLOR = '#5b6168'; // cover tiles are grey
@@ -45,9 +47,11 @@ export function markers(big: boolean): MapMarker[] {
             ? 'map.room'
             : pt.kind === 'hall'
               ? 'map.hall'
-              : pt.kind === 'next' && (level.arena || level.hall)
-                ? 'map.next'
-                : 'map.exit';
+              : pt.kind === 'next' && bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'hall'
+                ? 'map.onward'
+                : pt.kind === 'next' && (level.arena || level.hall)
+                  ? 'map.next'
+                  : 'map.exit';
     const color = '#' + pt.color.toString(16).padStart(6, '0');
     out.push({ x: pt.x, z: pt.z, shape: 'ring', color, size: 5, label: big ? t(name) : undefined, font: LABEL_FONT });
   });
