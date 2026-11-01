@@ -345,7 +345,8 @@ LANG.en = {
     'run.kitUsedNow': 'Kits full, so you used it on the spot (HP +{n})',
     'run.practiceStart': 'Boss practice — no rewards, no losses',
     'boss.phase2': 'Phase two',
-    'boss.hall': 'HALL',
+    'boss.hall': 'THE DEEPEST',
+    'boss.hallPlace': 'Unknown area',
     'boss.beaten': 'beaten',
     'boss.beatenCount': 'Beaten {n}/{max}',
     'boss.toBase': 'To base',
@@ -368,6 +369,9 @@ LANG.en = {
     'boss.phantomHint': 'It fires when the warning laser blinks',
     'boss.hoistHint': "Dash to break the magnet's pull",
     'boss.surgeonHint': 'Shoot off an arm to stop its attack',
+    'boss.titanHint': 'Its front armor is tough. Aim for the reactor on its back',
+    'boss.titanArmour': 'The armor stopped it',
+    'boss.titanRise': 'TITAN is getting back up',
   },
   data: {
     weapons: {
@@ -452,6 +456,12 @@ LANG.en = {
         title: 'SURGEON',
         short: 'Surgeon',
         desc: 'Operates with three arms: a laser scalpel, needles and a clamp. Shoot an arm off to stop it',
+      },
+      titan: {
+        name: 'TITAN',
+        title: 'TITAN',
+        short: 'Titan',
+        desc: 'Stomps, shoulder guns and a grab. Its front is armored; its back is the weak point',
       },
     },
     perks: {

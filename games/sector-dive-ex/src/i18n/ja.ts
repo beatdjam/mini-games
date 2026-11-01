@@ -343,7 +343,8 @@ LANG.ja = {
     'run.kitUsedNow': 'キットが満杯なのでその場で使った（HP +{n}）',
     'run.practiceStart': 'ボス練習 — 報酬もロストもなし',
     'boss.phase2': '第二段階',
-    'boss.hall': '広間',
+    'boss.hall': '最深部',
+    'boss.hallPlace': '不明なエリア',
     'boss.beaten': '撃破済み',
     'boss.beatenCount': '撃破 {n}/{max}',
     'boss.toBase': '拠点へ',
@@ -366,6 +367,9 @@ LANG.ja = {
     'boss.phantomHint': '予告レーザーが点滅したら撃ってくる',
     'boss.hoistHint': '磁石の引き寄せは、ダッシュで抜ける',
     'boss.surgeonHint': '腕を撃ち落とすと、その攻撃が止まる',
+    'boss.titanHint': '正面の装甲は固い。背中の動力部を狙え',
+    'boss.titanArmour': '装甲で弾かれた',
+    'boss.titanRise': 'TITAN が起き上がった',
   },
   data: {
     weapons: {
@@ -447,6 +451,12 @@ LANG.ja = {
         title: 'SURGEON — 手術ロボ',
         short: '手術ロボ',
         desc: '3本の腕で切り、刺し、挟む。腕を撃ち落とすと、その攻撃が止まる',
+      },
+      titan: {
+        name: 'TITAN 二足機',
+        title: 'TITAN — 二足機',
+        short: '二足機',
+        desc: '踏みつけ、肩の砲、掴み。正面の装甲は固く、背中が弱点',
       },
     },
     // desc(v): v is the chip's amount. curText(c): c is what the chip's cur(p) returns

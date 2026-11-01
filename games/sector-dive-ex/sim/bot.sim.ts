@@ -11,7 +11,7 @@ import { BOSS_AREA_START_TIER, PER, UPGRADES, levelCost } from '../src/data/prog
 import { fillMag, newWeapon } from '../src/actors/weapons.ts';
 import { normalizeWeapons } from '../src/ui/input.ts';
 import { defaultSave, save, setSave } from '../src/core/save.ts';
-import { buyUpgrade, devBossAreaStart, setStartTier } from '../src/core/progress.ts';
+import { buyUpgrade, devBossAreaGear, devBossAreaStart, setStartTier } from '../src/core/progress.ts';
 import { devBossArea } from '../src/core/bossArea.ts';
 import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
 import { boss, enemies } from '../src/world/entities.ts';
@@ -133,6 +133,7 @@ test.each(cases)(
         if (AREA) {
           devBossArea(true);
           devBossAreaStart(BOSS_AREA_START_TIER);
+          devBossAreaGear(BOSS_AREA_START_TIER);
         }
         const start = save.startTier,
           lv = levelOf();

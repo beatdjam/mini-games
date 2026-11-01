@@ -85,7 +85,7 @@ test('BOSS_ROOMS: every boss has a sector of its own, and all of them are sector
     expect(Object.keys(BOSS_ROOMS), `${kind} has a room`).toContain(kind);
     expect(BOSS_ORDER, `${kind} is a boss`).toContain(kind);
   });
-  const codes = Object.values(BOSS_ROOMS),
+  const codes = BOSS_ROOM_ORDER.map(kind => BOSS_ROOMS[kind]),
     sectors = BIOMES.map(b => b.code);
   expect(new Set(codes).size, 'a sector each').toBe(codes.length);
   codes.forEach(code => expect(sectors, `${code} is a sector`).toContain(code));

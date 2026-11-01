@@ -163,6 +163,7 @@ export function createBoss<S extends object>(o: BossSpawn<S>): Boss & S {
   setBoss(e);
   el('#bossName').textContent = name;
   el('#bossBar').hidden = false;
+  el('#bossFill').classList.remove('revived');
   const [en, jp] = name.split(' — ');
   banner(en, jp || 'BOSS');
   sfx('beam');
@@ -246,6 +247,12 @@ export function bossPhase(e: Boss) {
   clearPool(eBullets);
   toast(t('boss.phase2'), 2000);
 }
+// TITAN's spawner, handed over by main.ts: actors/bosses/titan.ts reads this file through actors/combat.ts, and a new
+// boss adds no import cycle this way
+let spawnTitan = () => {};
+export function setTitanSpawner(fn: () => void) {
+  spawnTitan = fn;
+}
 // the lookup wraps each call (not the function itself): the boss files import this one, so at load time
 // their exports may not exist yet
 const BOSS_SPAWNERS: Record<BossKind, () => void> = {
@@ -257,6 +264,7 @@ const BOSS_SPAWNERS: Record<BossKind, () => void> = {
   bastion: () => spawnBastion(),
   hoist: () => spawnHoist(),
   surgeon: () => spawnSurgeon(),
+  titan: () => spawnTitan(),
 };
 // the boss being spawned is met for the first time, or in boss practice (there to learn it): its hint is shown
 let hintDue = false;

@@ -6,6 +6,7 @@ import { player } from '../../actors/player.ts';
 import { enemies } from '../../world/entities.ts';
 import { startPractice } from '../../flow/run.ts';
 import { update } from '../../flow/update.ts';
+import { hurtEnemy } from '../../actors/combat.ts';
 const LOOK_FROM = 7.5; // how far from a boss #boss-<kind>-look stands (m)
 const LOOK_TURN = 0.65; // how far a boss is turned for #boss-<kind>-look (rad)
 const HOIST_VIEW_BACK = 20; // the 'wide' view of HOIST stands this far behind the middle of the room (m)...
@@ -149,6 +150,40 @@ interface BossView {
   room: boolean; // #bld-<kind> shows it in the building's boss room
   show: (b: Enemy, pose: string) => void;
 }
+// TITAN's views (for screenshots), standing still: wide (the first stage from in front), back (from behind), bare (the
+// armour off), risen (the third stage). #boss-titan-<view>
+const TITAN_VIEW_FROM = 20; // how far from it they stand (m)
+function titanView(b: Enemy, view: string) {
+  if (!b.boss) return;
+  const h = b as Boss & { behave: Boss['behave']; revived: boolean; face: number; st: string; timer: number };
+  player.hp = 1e6;
+  player.maxHp = 1e6;
+  for (let n = 0; n < 130; n++) update(1 / 60);
+  h.st = 'guns'; // it stands and turns to the player
+  h.timer = 1e6;
+  if (view === 'bare' || view === 'risen') h.hp = h.maxHp * 0.4;
+  for (let n = 0; n < 100; n++) update(1 / 60);
+  if (view === 'risen') {
+    hurtEnemy(h, h.maxHp, false);
+    for (let n = 0; n < 400 && !h.revived; n++) update(1 / 60);
+    h.st = 'guns';
+    h.timer = 1e6;
+  }
+  player.x = b.x;
+  player.z = b.z + TITAN_VIEW_FROM;
+  player.yaw = 0;
+  player.pitch = 0.2;
+  h.face = view === 'back' ? Math.PI : 0;
+  h.st = 'guns';
+  const look = h.behave;
+  h.behave = (e, dt) => {
+    look(e, dt);
+    h.face = view === 'back' ? Math.PI : 0;
+    h.timer = 1e6;
+  };
+  const name = document.querySelector<HTMLElement>('#banner');
+  if (name) name.style.visibility = 'hidden';
+}
 export const BOSS_VIEWS: Record<BossKind, BossView | null> = {
   watcher: null,
   crusher: null,
@@ -156,6 +191,7 @@ export const BOSS_VIEWS: Record<BossKind, BossView | null> = {
   phantom: null,
   trinity: null,
   bastion: null,
+  titan: { poses: ['wide', 'back', 'bare', 'risen'], room: false, show: titanView },
   hoist: { poses: ['wide', 'drop', 'pull', 'swing', 'barrage'], room: true, show: hoistView },
   surgeon: { poses: ['wide', 'scalpel', 'needle', 'clamp'], room: true, show: surgeonView },
 };

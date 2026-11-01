@@ -11,6 +11,7 @@ import { showShare } from './share.ts';
 import { showPerk } from './perks.ts';
 import { showSfx } from './sfx.ts';
 import { showBot } from './bot.ts';
+import { showBossRush } from './bossRush.ts';
 // every way into the game without playing it by hand: the hash it answers and what it shows
 export const DEV_VIEWS: DevView[] = [
   { hash: '#trailer', match: 'starts', name: 'the trailer', run: showTrailer },
@@ -42,4 +43,5 @@ export const DEV_VIEWS: DevView[] = [
   { hash: '#tab-', match: 'starts', name: 'a tab of the base', run: showBaseTab },
   { hash: '#view-susp', match: 'starts', name: 'a suspended run, back at the base', run: showSuspended },
   { hash: '#bot', match: 'starts', name: 'the bot playing a dive', run: showBot },
+  { hash: '#bossrush', match: 'starts', name: 'the boss area to play through', run: showBossRush },
 ];

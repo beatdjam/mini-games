@@ -239,6 +239,9 @@ body.hud2 .bbar {
 body.hud2 .bbar i {
   background: var(--stop);
 }
+body.hud2 .bbar i.revived {
+  background: #ff3030;
+}
 
 /* ---- the chip screen: one dark steel plate; each chip a black plate in white paint. Yellow means one thing here, a
    rare chip: its frame, its name and its words. No stripes. The bag, the pause screen and the result are the same

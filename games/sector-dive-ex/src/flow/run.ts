@@ -1,3 +1,4 @@
+import { BOSS_ROOMS } from '../data/bossRooms.ts';
 import type { Biome, BossKind, BuildingState, RunEnd, Weapon, WeaponItem } from '../data/types.ts';
 import { clamp, el, isTouch, pick, randi, shuffle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
@@ -469,7 +470,7 @@ export function startStage() {
   placeView();
   el('#bossBar').hidden = true;
   refreshRunText();
-  banner(stageLabel(run.stage), inHall ? '' : inBuilding ? `${floorLabel()}　${b.name}` : b.name);
+  banner(stageLabel(run.stage), inHall ? t('boss.hallPlace') : inBuilding ? `${floorLabel()}　${b.name}` : b.name);
   const hintAt = run.stage,
     hint = b.hint;
   if (!inHall && !room && si.sub === 0 && hint)
@@ -523,7 +524,8 @@ export function nextStage() {
 export function startPractice(kind: BossKind, tier?: number) {
   const depth = tier || 0;
   enterDive();
-  const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
+  // (TITAN is no sector's boss: it is fought in its room's sector)
+  const bi = BIOMES.findIndex(b => b.bosses.includes(kind) || (kind === 'titan' && b.code === BOSS_ROOMS.titan));
   setPlayer(newPlayer(save.loadout, depth));
   setRun({
     stage: bossStageOf(depth),

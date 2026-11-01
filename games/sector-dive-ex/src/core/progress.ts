@@ -3,7 +3,7 @@ import { clamp } from '@engine/core/util.ts';
 import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
 import { basicW, save } from './save.ts';
 import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
-import { sellValue } from './rules.ts';
+import { readiness, sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
 // callers read it, call one of these, and persist() themselves.
 
@@ -137,6 +137,21 @@ export function devBossAreaStart(tier: number) {
   save.shortcut = Math.max(save.shortcut, tier);
   save.startTier = tier;
   save.records.bossArea = { tier, beaten: [] };
+}
+// Equipment for a depth, for a save made to try it: two basic weapons (they grow with the depth: rules.ts basicNow),
+// DEV_GEAR_LEVELS on each of output and armour, and more of them in turn if the base's own yardstick does not yet call
+// that depth a fair fight (the yardstick alone is met by the weapons and the supply, with no armour at all)
+const DEV_GEAR_LEVELS = 30; // a first try: dives bring in about 36 levels by DEPTH 20 (data/progress.ts levelCost)
+const DEV_GEAR_FAIR = 2; // rules.ts readiness: 2 is 'fair'
+const DEV_GEAR_MAX_LEVELS = 200;
+export function devBossAreaGear(tier: number) {
+  save.loadout = [basicW('shotgun'), basicW('smg')];
+  save.up.hp = DEV_GEAR_LEVELS;
+  save.up.dmg = DEV_GEAR_LEVELS;
+  for (let n = 0; n < DEV_GEAR_MAX_LEVELS && readiness(tier) > DEV_GEAR_FAIR; n++) {
+    const id = n % 2 ? 'hp' : 'dmg';
+    save.up[id] = (save.up[id] || 0) + 1;
+  }
 }
 
 // ---- settings ----

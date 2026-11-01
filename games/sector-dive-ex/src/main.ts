@@ -1,6 +1,7 @@
 // Entry point. The imports below load every module (the order matters little: each one only declares things and
 // registers listeners); the start-up that needs everything loaded — language, volumes, the base screen, the
 // systems and the loop — runs at the bottom, after all of them.
+import { spawnTitan } from './actors/bosses/titan.ts';
 import { setLang, defaultLang } from '@engine/core/i18n.ts';
 import { ANALYTICS } from '@engine/core/analytics.ts';
 import { FEEDBACK } from '@engine/core/feedback.ts';
@@ -51,7 +52,7 @@ import './actors/weapons.ts';
 import './actors/viewmodel.ts';
 import './actors/firing.ts';
 import './actors/combat.ts';
-import { setSaveBeatenRoom } from './actors/bosses/common.ts';
+import { setSaveBeatenRoom, setTitanSpawner } from './actors/bosses/common.ts';
 import './actors/bosses/watcher.ts';
 import './actors/bosses/crusher.ts';
 import './actors/bosses/core.ts';
@@ -84,6 +85,7 @@ import { boot } from './flow/update.ts';
 ANALYTICS.game = 'sector-dive-ex'; // sent with every analytics event
 FEEDBACK.game = 'sector-dive-ex'; // filled into the feedback form
 setSaveBeatenRoom(checkpoint);
+setTitanSpawner(spawnTitan);
 setLang(save.settings.lang || defaultLang());
 syncVolumes();
 fsLabel();

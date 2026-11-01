@@ -22,6 +22,7 @@ import {
 import { basicNow, isBossKind, levelOf, nextLevelCost, readiness, sellValue } from '../core/rules.ts';
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
+import { bossAreaOn } from '../core/bossArea.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
 import { renderSettings } from '@engine/ui/settings.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
@@ -225,7 +226,10 @@ export function renderBase() {
     : t('base.levelNext', { cost: nextLevelCost() });
   el('#ulist').innerHTML = upgradeRows();
   el('#practiceTier').innerHTML = practiceTierButtons();
-  el('#bossList').innerHTML = BOSS_ORDER.map(bossButton).join('');
+  // (TITAN is out of the list with the boss area: it goes public with it)
+  el('#bossList').innerHTML = BOSS_ORDER.filter(k => k !== 'titan' || bossAreaOn())
+    .map(bossButton)
+    .join('');
   renderSettings();
   el('#help').innerHTML = isTouch ? t('base.helpTouch') : t('base.helpDesk', { pause: keyText('pause', 0) });
 }

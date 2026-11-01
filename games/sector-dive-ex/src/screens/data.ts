@@ -4,7 +4,15 @@ import { t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { applyLayout } from '@engine/ui/touchlayout.ts';
 import { saveFile } from '@engine/ui/share.ts';
-import { SAVE_KEY, defaultSave, exportSave, importSave, importSaveCheck, persist, setSave } from '../core/save.ts';
+import {
+  ACTIVE_SAVE_KEY,
+  defaultSave,
+  exportSave,
+  importSave,
+  importSaveCheck,
+  persist,
+  setSave,
+} from '../core/save.ts';
 import { baseUI, renderBase } from './base.ts';
 import { onDataClick } from '@engine/ui/dom.ts';
 import { refreshKeyTexts } from './keys.ts';
@@ -116,7 +124,7 @@ el<HTMLInputElement>('#saveFile').addEventListener('change', e => {
 });
 
 el('#btnWipeGo').addEventListener('click', () => {
-  clearStore(SAVE_KEY);
+  clearStore(ACTIVE_SAVE_KEY);
   setSave(defaultSave());
   persist();
   el('#dlgWipe').hidden = true;
