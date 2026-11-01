@@ -132,6 +132,12 @@ export function settleBossArea(startTier: number): boolean {
   save.records.bossArea = { tier: bossAreaTierFor(save.shortcut, startTier), beaten: [] };
   return true;
 }
+// the save a boss area sim starts from: at the boss area's depth, with none of its rooms beaten
+export function devBossAreaStart(tier: number) {
+  save.shortcut = Math.max(save.shortcut, tier);
+  save.startTier = tier;
+  save.records.bossArea = { tier, beaten: [] };
+}
 
 // ---- settings ----
 type Settings = SaveData['settings'];
