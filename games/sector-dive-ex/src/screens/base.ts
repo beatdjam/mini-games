@@ -22,7 +22,6 @@ import {
 import { basicNow, isBossKind, levelOf, nextLevelCost, readiness, sellValue } from '../core/rules.ts';
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
-import { bossAreaOn } from '../core/bossArea.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
 import { renderSettings } from '@engine/ui/settings.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
@@ -226,8 +225,8 @@ export function renderBase() {
     : t('base.levelNext', { cost: nextLevelCost() });
   el('#ulist').innerHTML = upgradeRows();
   el('#practiceTier').innerHTML = practiceTierButtons();
-  // (TITAN is out of the list with the boss area: it goes public with it)
-  el('#bossList').innerHTML = BOSS_ORDER.filter(k => k !== 'titan' || bossAreaOn())
+  // (TITAN is out of the list until it is beaten: the last boss is not shown before it is met)
+  el('#bossList').innerHTML = BOSS_ORDER.filter(k => k !== 'titan' || save.records.cleared)
     .map(bossButton)
     .join('');
   renderSettings();
