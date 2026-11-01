@@ -67,19 +67,28 @@ export function disposeTree(obj: THREE.Object3D) {
   });
 }
 
+const LABEL_PX = 64; // the letters of a text sprite (px of its canvas)
+const LABEL_PLATE = 320; // the plate behind them, at its narrowest (px)
+const LABEL_PAD = 16; // the room between the letters and the plate's edge (px)
+const LABEL_EDGE = 8; // the widest plate stops this far from the canvas's edge (px)
 export function textSprite(text: string, color: string): THREE.Sprite {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 128;
   const g = c.getContext('2d')!;
-  g.font = '64px "DotGothic16","Hiragino Sans",sans-serif';
+  // A long text: the plate widens up to the canvas's edges, then the letters get smaller. A short one stays as it was
+  const font = (px: number) => `${px}px "DotGothic16","Hiragino Sans",sans-serif`;
+  g.font = font(LABEL_PX);
+  const wide = g.measureText(text).width + LABEL_PAD * 2,
+    plate = Math.min(c.width - LABEL_EDGE * 2, Math.max(LABEL_PLATE, wide));
+  if (wide > plate) g.font = font(Math.floor((LABEL_PX * (plate - LABEL_PAD * 2)) / (wide - LABEL_PAD * 2)));
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillStyle = 'rgba(5,8,12,.7)';
-  g.fillRect(96, 16, 320, 96);
+  g.fillRect((c.width - plate) / 2, 16, plate, 96);
   g.strokeStyle = color;
   g.lineWidth = 4;
-  g.strokeRect(96, 16, 320, 96);
+  g.strokeRect((c.width - plate) / 2, 16, plate, 96);
   g.fillStyle = color;
   g.fillText(text, 256, 66);
   const mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true });
