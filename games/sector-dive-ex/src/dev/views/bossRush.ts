@@ -1,7 +1,8 @@
 import { BOSS_AREA_START_TIER } from '../../data/progress.ts';
 import { BOSS_RUSH_HASH, defaultSave, persist, save, setSave } from '../../core/save.ts';
 import { devBossAreaGear, devBossAreaStart } from '../../core/progress.ts';
-import { startRun } from '../../flow/run.ts';
+import { BOSS_ROOM_ORDER } from '../../data/bossRooms.ts';
+import { enterBossRoom, startRun } from '../../flow/run.ts';
 import { state } from '../../flow/state.ts';
 import { BOSS_TUNE } from '../../data/bosses.ts';
 import { player } from '../../actors/player.ts';
@@ -61,6 +62,11 @@ export function showBossRush(hash: string) {
       else {
         clearInterval(picks);
         setRushBuild(BOSS_AREA_START_TIER);
+        // #bossrush-titan: straight into TITAN's room
+        if (hash === `${BOSS_RUSH_HASH}-titan`) {
+          save.records.bossArea!.beaten = [...BOSS_ROOM_ORDER];
+          enterBossRoom('titan');
+        }
       }
     }, PICK_MS);
   }, 300);

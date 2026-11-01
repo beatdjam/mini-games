@@ -10,7 +10,8 @@ import { biomeTex } from './render.ts';
 import type { BiomeTextures } from './render.ts';
 import { buildHazardMesh } from './hazards.ts';
 import type { GeneratedLevel } from './levelGen.ts';
-import { facesWest, floorPic, lookOf, wallHall, wallKinds, wallPic, wallPicsOf } from './looks.ts';
+import type { Look } from './looks.ts';
+import { facesWest, floorPic, lookOf, patchOf, wallHall, wallKinds, wallPic, wallPicsOf } from './looks.ts';
 import type { FloorPlan } from './building.ts';
 import {
   addCeiling,
@@ -210,27 +211,40 @@ export function buildFloorMeshes(
   // the boss room goes on up to HALL_H (the floor above stands LAST_GAP over this one: building.ts)
   if (hallRoom) {
     const hallTop = new THREE.Group();
-    addTilePlanes(
-      all.filter(k => hallAt(k, 0)),
-      HALL_H,
-      false,
-      look?.hall ? new THREE.MeshBasicMaterial({ map: look.hall.ceiling }) : dark,
-      hallTop,
-    );
+    if (look?.ceilingPatches)
+      patchedCeiling(
+        look.ceilingPatches,
+        all.filter(k => hallAt(k, 0)),
+        HALL_H,
+        hallTop,
+      );
+    else
+      addTilePlanes(
+        all.filter(k => hallAt(k, 0)),
+        HALL_H,
+        false,
+        look?.hall ? new THREE.MeshBasicMaterial({ map: look.hall.ceiling }) : dark,
+        hallTop,
+      );
     // the walls go on up: over the ring round the room (its door too) and over the pillars in it
     const upper = all.filter(k => hallAt(k, 1) && (!hallAt(k, 0) || grid[k] !== 1)),
-      boxes = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(T, HALL_H - WALL_H, T),
-        new THREE.MeshBasicMaterial({ map: look?.hall?.upper ?? tex.wall }),
-        upper.length,
-      ),
+      uppers = look?.upperPatches ?? [look?.hall?.upper ?? tex.wall],
       matrix = new THREE.Matrix4();
-    upper.forEach((k, n) => {
-      matrix.makeTranslation(tileCenter(k % W), (WALL_H + HALL_H) / 2, tileCenter((k / W) | 0));
-      boxes.setMatrixAt(n, matrix);
+    uppers.forEach((map, v) => {
+      const mine = upper.filter(k => patchOf(k, W, uppers.length) === v);
+      if (!mine.length) return;
+      const boxes = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(T, HALL_H - WALL_H, T),
+        new THREE.MeshBasicMaterial({ map }),
+        mine.length,
+      );
+      mine.forEach((k, n) => {
+        matrix.makeTranslation(tileCenter(k % W), (WALL_H + HALL_H) / 2, tileCenter((k / W) | 0));
+        boxes.setMatrixAt(n, matrix);
+      });
+      boxes.instanceMatrix.needsUpdate = true;
+      hallTop.add(boxes);
     });
-    boxes.instanceMatrix.needsUpdate = true;
-    hallTop.add(boxes);
     group.add(hallTop);
   }
   // between this floor's ceiling and the next floor's ground, round a stairwell or shaft that goes up
@@ -266,6 +280,11 @@ export function buildFloorMeshes(
 export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedLevel, group: THREE.Group, rng: Rng) {
   const tex = biomeTex(biome);
   const walls = wallTiles();
+  const look = lookOf(biome);
+  if (look?.ceilingPatches) {
+    buildPatchedLevel(look, gen, walls, group);
+    return;
+  }
   addFloor(tex, group);
   addWalls(tex.wall, walls, group);
   addDecks(tex, group);
@@ -274,4 +293,38 @@ export function buildLevelMeshes(biome: Biome, isArena: boolean, gen: GeneratedL
   // sectors with gen.ceiling / gen.neon
   if (biome.gen.ceiling && !isArena) addCeiling(biome, group);
   if (biome.gen.neon && !isArena) addNeonSigns(walls, group, rng);
+}
+// each ceiling picture on the tiles of its patches (a look made of other looks: looks.ts mixedLook)
+function patchedCeiling(pictures: THREE.Texture[], tiles: number[], y: number, group: THREE.Group) {
+  pictures.forEach((map, v) =>
+    addTilePlanes(
+      tiles.filter(k => patchOf(k, W, pictures.length) === v),
+      y,
+      false,
+      new THREE.MeshBasicMaterial({ map }),
+      group,
+    ),
+  );
+}
+// A level that is no floor of a building (the boss area's hall), drawn with a look made of other looks
+function buildPatchedLevel(look: Look, gen: GeneratedLevel, walls: [number, number][], group: THREE.Group) {
+  const pics = wallPicsOf(look),
+    floorTiles = Array.from({ length: W * H }, (_, k) => k).filter(k => grid[k] === 1);
+  look.floors.forEach((map, v) =>
+    addTilePlanes(
+      floorTiles.filter(k => floorPic(gen, k, look.floors.length, look.roomFloors) === v),
+      0,
+      true,
+      new THREE.MeshBasicMaterial({ map }),
+      group,
+    ),
+  );
+  look.walls.forEach((map, v) =>
+    addWalls(
+      map,
+      walls.filter(([i, j]) => wallPic(gen, j * W + i, pics) === v),
+      group,
+    ),
+  );
+  patchedCeiling(look.ceilingPatches!, floorTiles, WALL_H, group);
 }

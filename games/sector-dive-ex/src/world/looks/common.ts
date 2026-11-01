@@ -56,6 +56,11 @@ export interface Look {
   // wall, the second (if any) goes on the one side wall that is the control panel's. Without it these walls are
   // painted like any other
   liftWalls?: number[];
+  // A look made of other looks (looks.ts mixedLook): the wall pictures of each, drawn in patches (patchPic)
+  wallPatches?: number[][];
+  // ... and the boss rooms' ceilings and the walls above the usual height, one picture for each of those looks
+  ceilingPatches?: THREE.CanvasTexture[];
+  upperPatches?: THREE.CanvasTexture[];
   // The floors of the rooms, by the kind of room (the same kinds as roomWalls): the pictures of a room's floor, picked
   // like the default floors (the first of a kind's set is the plain one, and comes up most). Without it every floor
   // tile is scattered over all the floors
@@ -137,6 +142,7 @@ export interface RoomFloors {
   plain: number;
   shops: number[][];
   hall?: number[];
+  patches?: number[][]; // a look made of other looks: the floor pictures of each (patchPic)
 }
 // The lifts and stairwells of a floor, by the floor's grid (world/building.ts): `lifts` the tiles of lift platforms,
 // `strips` every tile of every stairwell and lift on it (what the floor is marked on)
@@ -193,12 +199,26 @@ function hallBeside(
 }
 // which floor picture a floor tile gets (Look.roomFloors): the tile of a room of a kind has its kind's, any other the
 // default scattering over `floors` pictures
+// A look made of other looks' pictures (looks.ts mixedLook): the map is cut into square patches, and each patch has
+// the pictures of one of them, so the places can be told apart and run into each other
+const PATCH_TILES = 3; // a patch's side (tiles)
+// sets: the pictures of each look, by number; the first of a set is its plainest. w: the map's width (tiles)
+// which of `count` looks the patch of tile k has: the same one for its walls, floor and ceiling
+export function patchOf(k: number, w: number, count: number): number {
+  const cell = Math.floor((k % w) / PATCH_TILES) + 1009 * Math.floor(k / w / PATCH_TILES);
+  return Math.floor(unit(cell, 2654435769) * count);
+}
+function patchPic(k: number, w: number, sets: number[][], plainShare: number): number {
+  const set = sets[patchOf(k, w, sets.length)]!;
+  return set.length > 1 ? set[variantOf(k, set.length, plainShare)]! : set[0]!;
+}
 export function floorPic(
-  d: { maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
+  d: { W: number; maps: { grid: ArrayLike<number>; roomOf: ArrayLike<number> } },
   k: number,
   floors: number,
   rooms?: RoomFloors,
 ): number {
+  if (rooms?.patches) return patchPic(k, d.W, rooms.patches, FLOOR_PLAIN_SHARE);
   if (!rooms) return variantOf(k, floors, FLOOR_PLAIN_SHARE);
   if (rooms.hall && d.maps.roomOf[k] === wallHall.get(d.maps.grid))
     return rooms.hall[variantOf(k, rooms.hall.length, FLOOR_PLAIN_SHARE)]!;
@@ -223,6 +243,7 @@ export interface WallPics {
   sides?: WallSides; // the pictures that go only on some walls
   rooms?: RoomWalls; // the pictures of the rooms' walls
   liftWalls?: number[]; // the walls round a lift
+  patches?: number[][]; // a look made of other looks: the wall pictures of each (patchPic)
 }
 // a wall on a yard has a window on every this many tiles (where its place along the wall is odd)
 export const YARD_WINDOW_EVERY = 2;
@@ -234,6 +255,7 @@ export const facesWest = (d: WallMap, k: number): boolean => facesToward(d, k, W
 // which picture a wall tile gets (WallPics): variantOf, but along an alley the plain one gives way to one of the
 // lane's walls; a picture of `sides` on a wall it may not go on gives way to the plain one
 export function wallPic(d: WallMap & { maps: { roomOf: ArrayLike<number> } }, k: number, pics: WallPics): number {
+  if (pics.patches) return patchPic(k, d.W, pics.patches, WALL_PLAIN_SHARE);
   const v0 = pics.rooms
       ? pics.rooms.common[variantOf(k, pics.rooms.common.length, WALL_PLAIN_SHARE)]!
       : variantOf(k, pics.count, WALL_PLAIN_SHARE),
@@ -286,6 +308,7 @@ export const wallPicsOf = (look: Look): WallPics => ({
   sides: look.wallSides,
   rooms: look.roomWalls,
   liftWalls: look.liftWalls,
+  patches: look.wallPatches,
 });
 // What a building's wall looks out on (engine wallSide's `beyond`), registered by the floor's grid (world/building.ts):
 // another floor's floor counts as floor (so a wall is outside only where the building as a whole ends, and a window
