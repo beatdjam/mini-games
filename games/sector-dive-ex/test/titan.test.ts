@@ -8,7 +8,9 @@ import { devBossArea } from '../src/core/bossArea.ts';
 import { SAVE_KEY, defaultSave, save, saveKeyFor, setSave } from '../src/core/save.ts';
 import { devBossAreaGear } from '../src/core/progress.ts';
 import { readiness } from '../src/core/rules.ts';
-import { player } from '../src/actors/player.ts';
+import { currentWeapon, player } from '../src/actors/player.ts';
+import { wDmgMul } from '../src/actors/weapons.ts';
+import { rushDamage, setRushDamage } from '../src/dev/views/bossRush.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { spawnBoss } from '../src/actors/bosses/common.ts';
 import { boss } from '../src/world/entities.ts';
@@ -191,5 +193,17 @@ test('a player keeping far away is leapt on, not stomped at, and the ring is whe
   expect(e.st, 'landed').toBe('walk');
   expect(e.ringAt.visible, 'the ring is gone').toBe(false);
   expect(Math.hypot(player.x - e.x, player.z - e.z), 'it came down by the player').toBeLessThan(K.leapR);
+  endRun('abandon');
+});
+
+test('#bossrush: the damage in the stats is set from the real save at DEPTH 45', () => {
+  goBase();
+  startPractice('crusher');
+  tick(1);
+  setRushDamage(49);
+  const whole = player.dmgMul * player.lvlDmg * wDmgMul(currentWeapon());
+  expect(whole, 'the stats multiplier').toBeCloseTo(rushDamage(49));
+  expect(rushDamage(44), 'where it comes from').toBe(2400);
+  expect(rushDamage(49), 'grown with the bosses').toBeGreaterThan(7000);
   endRun('abandon');
 });
