@@ -22,7 +22,7 @@ import { building } from '../world/building.ts';
 import type { Portal } from '../world/portals.ts';
 import { level } from '../world/level.ts';
 import { state } from '../flow/state.ts';
-import { controlState, equipNearby, normalizeWeapons, stowNearby, useKit } from '../ui/input.ts';
+import { controlState, equipNearby, normalizeWeapons, setAutoPause, stowNearby, useKit } from '../ui/input.ts';
 import { distXZ, el, yawToward, wrapAngle, turnToward } from '@engine/core/util.ts';
 // ================= a player that plays by itself (dev) =================
 // For looking at the balance without playing by hand: a bot that walks the building's route, fights what it sees and
@@ -48,6 +48,7 @@ export interface BotStyle {
   collect: boolean; // it is after bits: the gain is the first point it buys, and it takes a magnet chip while that adds to the gain
   chipOrder?: string[]; // the chips it takes, earliest first (only chips not in it on offer: the first one offered)
   bankAtMilestone?: boolean; // it takes the way home after a milestone's boss and terminal, instead of going on
+  fightsTitan?: boolean; // with the boss area's eight rooms down it goes through TITAN's gate, not home
 }
 // someone who plays well: quick, accurate aim, dashes clear of most shots, minds the hazard floors
 const SKILLED = {
@@ -107,6 +108,7 @@ const KINDS: Record<string, Omit<BotStyle, 'name' | 'autofire'>> = {
     collect: false,
     chipOrder: CLIMB_CHIPS,
     bankAtMilestone: true,
+    fightsTitan: true,
   },
 };
 // each kind with the game's auto-fire on (the name alone) and off (`-manual`: it pulls the trigger itself)
@@ -126,6 +128,7 @@ interface BossPlay {
   far?: number;
   dash?: { x: number; z: number }; // get clear now, this way
   chase?: boolean; // out of sight, it is run down with dashes (keeping enough stamina to dodge once)
+  round?: number; // the way round it to walk (+1 or -1 in place of the strafe)
 }
 type Vec = { x: number; z: number };
 type BossPlayFn = (b: Boss, me: Vec) => BossPlay;
@@ -133,10 +136,24 @@ const unit = (x: number, z: number): Vec => {
   const l = Math.hypot(x, z) || 1;
   return { x: x / l, z: z / l };
 };
+const TITAN_NEAR = 7; // the distance kept from TITAN (m)
+const TITAN_FAR = 15; // ... past 18 m it leaps at you
+const TITAN_BEHIND = -0.3; // the player is behind it when facing and the way to the player are at less than this (cos)
 // how each boss is fought: null is fought as any enemy (no play of its own)
 const BOSS_PLAYS: Record<BossKind, BossPlayFn | null> = {
   watcher: null, // fought as any enemy: dodge its shots
-  titan: null, // for now fought as any enemy: it does not go round to the back yet
+  // TITAN: close enough that it does not leap; while the armour is on, go round to the reactor on its back
+  titan: (b, me) => {
+    const c = b as Boss & { stripped: boolean; face: number },
+      play: BossPlay = { near: TITAN_NEAR, far: TITAN_FAR };
+    if (c.stripped) return play;
+    const r = unit(me.x - c.x, me.z - c.z),
+      fx = Math.sin(c.face),
+      fz = Math.cos(c.face);
+    // (already behind it: the strafe is fine. Else the way round that takes it toward the back, the tangent is (r.z, -r.x))
+    if (fx * r.x + fz * r.z > TITAN_BEHIND) play.round = fx * r.z - fz * r.x > 0 ? -1 : 1;
+    return play;
+  },
   // CRUSHER: keep well away; step out of the line of a charge; while it is stunned on a wall, close in and shoot
   crusher: (b, me) => {
     // (the boss's own state; its type is private to actors/bosses/crusher.ts)
@@ -268,16 +285,16 @@ const LOOT_REACH_Y = 3.5; // a thing this far above or below its feet is on anot
 // floats 3 m up, the next floor is 8 m away)
 
 // the gate to take in the boss area's hall: the way forward when it is open (TITAN down), else the first room
-// not beaten yet, else the way out. TITAN's gate (kind 'room', boss 'titan') is not chosen: the bot has no way to
-// fight it yet (BOSS_PLAYS.titan), so only the eight bosses of the rooms (BOSS_ROOM_ORDER) are
+// not beaten yet, else TITAN's gate for a kind that fights it (fightsTitan), else the way out
 const ROOM_BOSSES = BOSS_ROOM_ORDER;
-export function hallGate(portals: Portal[], beaten: BossKind[]): Portal | undefined {
+export function hallGate(portals: Portal[], beaten: BossKind[], fightsTitan = false): Portal | undefined {
   const next = portals.find(p => p.kind === 'next');
   if (next) return next;
   const room = portals.find(
     p => p.kind === 'room' && p.boss && ROOM_BOSSES.includes(p.boss) && !beaten.includes(p.boss),
   );
-  return room ?? portals.find(p => p.kind === 'extract');
+  const titan = fightsTitan ? portals.find(p => p.kind === 'room' && p.boss === 'titan') : undefined;
+  return room ?? titan ?? portals.find(p => p.kind === 'extract');
 }
 
 // what a run came to, for the tables (sim/bot.sim.ts)
@@ -681,7 +698,7 @@ export function createBot(style: BotStyle) {
     const gate = areaNow
       ? areaNow.at === 'room'
         ? level.portals.find(p => p.kind === 'hall')
-        : hallGate(level.portals, save.records.bossArea?.beaten ?? [])
+        : hallGate(level.portals, save.records.bossArea?.beaten ?? [], style.fightsTitan)
       : level.portals.find(p => p.kind === (banked ? 'extract' : style.after));
     targetGate = gate ?? null;
     const loot = lootNear(dt);
@@ -891,7 +908,7 @@ export function createBot(style: BotStyle) {
       const pushIn = shotAt.t > NO_HIT_AFTER && shotAt.t < NO_HIT_AFTER + PUSH_IN_FOR;
       if (shotAt.t >= NO_HIT_AFTER + PUSH_IN_FOR) shotAt.t = 0;
       const along = pushIn ? 1 : keep,
-        across = pushIn ? 0 : strafe;
+        across = pushIn ? 0 : (ofBoss.round ?? strafe);
       if (intoHazard(dx * along + -dz * across, dz * along + dx * across)) strafe = -strafe;
       walk(dx * along + -dz * across, dz * along + dx * across);
       stats.doing = `fight ${foe.e.boss ? foe.e.kind : foe.e.type}`;
@@ -943,6 +960,7 @@ let playing: Bot | null = null;
 let hooked = false;
 export function setBot(bot: Bot | null) {
   playing = bot;
+  setAutoPause(!bot); // nobody is at the keys: losing the focus does not stop it
   if (!bot) {
     joy.x = 0;
     joy.y = 0;
