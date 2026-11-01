@@ -19,6 +19,7 @@ import { devSeed, level } from '../src/world/level.ts';
 import { player, run } from '../src/actors/player.ts';
 import { goBase, startRun } from '../src/flow/run.ts';
 import { bossStarted } from '../src/flow/events.ts';
+import { setRushBuild } from '../src/dev/views/bossRush.ts';
 import { state } from '../src/flow/state.ts';
 import { update } from '../src/flow/update.ts';
 import { BOT_STYLES, createBot, nextPoint, setBot, setBotLevels } from '../src/dev/bot.ts';
@@ -133,7 +134,7 @@ test.each(cases)(
         if (AREA) {
           devBossArea(true);
           devBossAreaStart(BOSS_AREA_START_TIER);
-          devBossAreaGear(BOSS_AREA_START_TIER);
+          devBossAreaGear();
         }
         const start = save.startTier,
           lv = levelOf();
@@ -165,7 +166,12 @@ test.each(cases)(
         const wall0 = performance.now();
         let since = wall0, // when the page was last let breathe
           maxBlock = 0; // the longest the page went without (ms)
+        let built = !AREA;
         for (; frames < MAX_FRAMES; frames++) {
+          if (!built && state === 'play') {
+            built = true;
+            setRushBuild(BOSS_AREA_START_TIER);
+          }
           const now = `${run.kills}:${run.stage}:${run.bld?.floor}:${boss ? Math.round(boss.hp) : ''}:${level.portals.length}:${run.area?.at ?? ''}:${save.records.bossArea?.beaten.length ?? 0}`;
           if (now !== moved) {
             moved = now;

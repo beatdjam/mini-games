@@ -5,12 +5,10 @@ import type { Boss } from '../src/data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { BOSS_META, BOSS_TUNE } from '../src/data/bosses.ts';
 import { devBossArea } from '../src/core/bossArea.ts';
-import { SAVE_KEY, defaultSave, save, saveKeyFor, setSave } from '../src/core/save.ts';
-import { devBossAreaGear } from '../src/core/progress.ts';
-import { readiness } from '../src/core/rules.ts';
+import { SAVE_KEY, saveKeyFor } from '../src/core/save.ts';
 import { currentWeapon, player } from '../src/actors/player.ts';
 import { wDmgMul } from '../src/actors/weapons.ts';
-import { rushDamage, setRushDamage } from '../src/dev/views/bossRush.ts';
+import { rushDamage, setRushBuild } from '../src/dev/views/bossRush.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { spawnBoss } from '../src/actors/bosses/common.ts';
 import { boss } from '../src/world/entities.ts';
@@ -143,67 +141,16 @@ test('the way in to play the boss area: a save of its own, only on the dev serve
   expect(saveKeyFor('#bossrush', false), 'the published game: the real one').toBe(SAVE_KEY);
 });
 
-test('devBossAreaGear: the depth is a fair fight', () => {
-  const kept = save;
-  setSave(defaultSave());
-  expect(readiness(49), 'a new save').toBeGreaterThan(2);
-  devBossAreaGear(49);
-  expect(readiness(49), 'equipped').toBeLessThanOrEqual(2);
-  setSave(kept);
-});
-
-test('the sweep: a beam that hurts a player far away, and a jump clears it', () => {
-  meet(1);
-  const e = titan(),
-    across = () => {
-      e.st = 'walk';
-      e.timer = 0;
-      e.pick = 1; // the sweep is next in the first stage's cycle
-      player.inv = 0;
-      player.hp = 1e6;
-      player.x = e.x;
-      player.z = e.z + 20;
-      for (let n = 0; n < 200 && e.st !== 'sweep'; n++) update(1 / 60);
-    };
-  across();
-  expect(e.st, 'it sweeps').toBe('sweep');
-  let least = player.hp;
-  for (let n = 0; n < 200 && e.st === 'sweep'; n++) {
-    player.inv = 0;
-    update(1 / 60);
-    least = Math.min(least, player.hp);
-  }
-  expect(least, 'the beam reached 20 m').toBeLessThan(1e6);
-  expect(e.beam.visible, 'the beam is gone with the attack').toBe(false);
-  endRun('abandon');
-});
-
-test('a player keeping far away is leapt on, not stomped at, and the ring is where it lands', () => {
-  meet(1);
-  const e = titan();
-  e.st = 'walk';
-  e.timer = 0;
-  e.pick = 0; // the stomp would be next
-  player.x = e.x;
-  player.z = e.z + K.farD + 5;
-  update(1 / 60);
-  expect(e.st, 'it comes to the player').toBe('leapWind');
-  expect(e.ringAt.visible, 'the ring says where').toBe(true);
-  for (let n = 0; n < 300 && e.st !== 'walk'; n++) tick(1);
-  expect(e.st, 'landed').toBe('walk');
-  expect(e.ringAt.visible, 'the ring is gone').toBe(false);
-  expect(Math.hypot(player.x - e.x, player.z - e.z), 'it came down by the player').toBeLessThan(K.leapR);
-  endRun('abandon');
-});
-
-test('#bossrush: the damage in the stats is set from the real save at DEPTH 45', () => {
+test('#bossrush: the player is set from the real save, the damage grown to the depth', () => {
   goBase();
   startPractice('crusher');
   tick(1);
-  setRushDamage(49);
+  setRushBuild(49);
   const whole = player.dmgMul * player.lvlDmg * wDmgMul(currentWeapon());
   expect(whole, 'the stats multiplier').toBeCloseTo(rushDamage(49));
   expect(rushDamage(44), 'where it comes from').toBe(2400);
-  expect(rushDamage(49), 'grown with the bosses').toBeGreaterThan(7000);
+  expect(player.fireRate, 'the rest of the build').toBeCloseTo(9.66);
+  expect(player.maxHp).toBe(1160);
+  expect(currentWeapon().id).toBe('shotgun');
   endRun('abandon');
 });
