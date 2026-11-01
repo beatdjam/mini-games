@@ -1,10 +1,10 @@
-import type { Biome } from '../data/types.ts';
+import type { Biome, BossAreaPlace } from '../data/types.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { DMG_SCALE_PER_PROG, PER, enemyGrowth } from '../data/progress.ts';
 import { progressOf } from './rules.ts';
 import { save } from './save.ts';
-import { bossAreaOn } from './bossArea.ts';
+import { bossAreaOn, bossRoomBiome } from './bossArea.ts';
 import { run } from '../actors/player.ts';
 import { t } from '@engine/core/i18n.ts';
 
@@ -51,15 +51,30 @@ export const buildingStage = (tier: number, step: number, floors: number): numbe
 // which floor of the building the player is on, counted from the top: '1F' is the top floor ('' outside a building)
 export const floorLabel = (): string => (run?.bld ? `${run.bld.floor + 1}F` : '');
 // bld = the building the stage is in, when it is not the run's own (a suspended run shown on the base screen)
-export function stageLabel(s: number, bld?: { tier: number; step: number; floors: number }): string {
+// area: the boss area place of a suspended dive (run is null on the base)
+export function stageLabel(
+  s: number,
+  bld?: { tier: number; step: number; floors: number },
+  area?: BossAreaPlace,
+): string {
   const si = stageInfo(s),
-    b = bld ?? (run?.bld && s === run.stage ? run.bld : undefined);
+    b = bld ?? (run?.bld && s === run.stage ? run.bld : undefined),
+    at = area ?? (run && s === run.stage ? run.area : undefined);
   if (isBossStage(s)) return `D${si.tier + 1} BOSS`;
-  if (si.area) return t('boss.hall');
+  // the hall is named where the player is: the base's best depth is a depth, not the hall
+  if (bossAreaOn() && si.area && at?.at === 'hall') return t('boss.hall');
   // in a building: the step along its route out of its floors
   if (b && b.tier === si.tier) return `D${si.tier + 1} ${b.step + 1}/${b.floors}`;
   return `D${si.tier + 1} ${Math.floor(si.sub) + 1}/${PER - 1}`;
 }
+// the name of the place the run is in: the hall, the sector of the boss room it is in, or the depth's sector
+export function placeName(): string {
+  const si = stageInfo(run.stage),
+    at = bossAreaOn() && si.area ? run.area : undefined;
+  return at ? areaPlaceName(at) : si.biome.name;
+}
+export const areaPlaceName = (at: BossAreaPlace): string =>
+  at.at === 'room' ? bossRoomBiome(at.boss).name : t('boss.hallPlace');
 export function tierLabel(t: number): string {
   return `DEPTH ${t + 1}`;
 }

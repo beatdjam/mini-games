@@ -15,7 +15,7 @@ import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { RUN_END, countBy, isBossKind, levelOf, parsePerk, perkName } from '../core/rules.ts';
 import { player, run } from '../actors/player.ts';
-import { stageInfo, stageLabel } from '../core/stages.ts';
+import { placeName, stageLabel } from '../core/stages.ts';
 import { weaponText } from '../actors/weapons.ts';
 import { track } from '@engine/core/analytics.ts';
 import { CSS_COLOR, KIT } from '../data/colors.ts';
@@ -77,8 +77,7 @@ function bossSummary(bosses: string[]): string {
     .join(t('share.join'));
 }
 export function prepShare(kind: RunEnd) {
-  const si = stageInfo(run.stage),
-    w = player.weapons[player.cur] || player.weapons[0];
+  const w = player.weapons[player.cur] || player.weapons[0];
   const chips = [...countBy(run.perks, rec => parsePerk(rec).id)]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
@@ -86,7 +85,7 @@ export function prepShare(kind: RunEnd) {
   shareData = {
     kind,
     where: stageLabel(run.stage),
-    biome: si.biome.name ?? '',
+    biome: placeName(),
     kills: run.kills,
     bosses: (run.bosses || []).map(bossShort),
     weapon: w ? weaponText(w) : '',

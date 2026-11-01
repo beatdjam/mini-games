@@ -12,7 +12,7 @@ import { PER, BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { SAVE_KEY, save } from '../src/core/save.ts';
 import { allBossRoomsBeaten, bossAreaCleared, clampStartTier, startTierMax } from '../src/core/progress.ts';
 import { bossAreaTierFor, bossRoomBiome, devBossArea } from '../src/core/bossArea.ts';
-import { bossStageOf, firstStageOf, planOf, stageInfo, stageLabel } from '../src/core/stages.ts';
+import { bossStageOf, firstStageOf, placeName, planOf, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { run, player } from '../src/actors/player.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { building } from '../src/world/building.ts';
@@ -913,4 +913,80 @@ test('areaHpMul: TITAN keeps its whole health', () => {
   expect(areaHpMul(), 'no share for TITAN').toBe(1);
   spawnBoss('titan');
   expect(boss!.hp, "TITAN's health").toBeCloseTo(BOSS_META.titan.hp * bossDifficulty());
+});
+
+// ---- the labels and events of the boss area: they follow the place the player is in ----
+const eventParams = (name: string, key: string) => {
+  const events = TRACK_LOG.filter(e => e.name === name);
+  return events[events.length - 1]!.params[key];
+};
+
+test('the base names the best depth as a depth, not as the hall', () => {
+  enterHallRun();
+  goBase();
+  const label = stageLabel(firstStageOf(BOSS_AREA_START_TIER));
+  expect(label, 'the hall is not named on the base').not.toBe(t('boss.hall'));
+  expect(label.startsWith('D50 '), 'the depth is').toBe(true);
+});
+
+test('a dive suspended in the hall or a room names its place on the base', () => {
+  enterHallRun();
+  suspendRun();
+  expect(el('#suspendBox').textContent, 'the hall').toContain(t('boss.hall'));
+  expect(el('#suspendBox').textContent, 'the hall is no sector').toContain(t('boss.hallPlace'));
+  resumeRun();
+  tick(2);
+  expect(enterBossRoom('crusher'), 'into the room').toBe(true);
+  suspendRun();
+  expect(el('#suspendBox').textContent, "the room's sector").toContain(bossRoomBiome('crusher').name);
+});
+
+test('the hall and a room name their own place', () => {
+  enterHallRun();
+  expect(placeName(), 'the hall').toBe(t('boss.hallPlace'));
+  enterRoom();
+  expect(placeName(), "the room's sector").toBe(bossRoomBiome('crusher').name);
+});
+
+test('level_end in the hall matches its level_start', () => {
+  TRACK_LOG.length = 0;
+  enterHallRun();
+  endRun('extract');
+  ['stage', 'stage_type', 'stage_role'].forEach(key =>
+    expect(eventParams('level_end', key), key).toBe(eventParams('level_start', key)),
+  );
+});
+
+test('level_end in a room matches its level_start', () => {
+  TRACK_LOG.length = 0;
+  enterRoom();
+  endRun('extract');
+  ['stage', 'stage_type', 'stage_role'].forEach(key =>
+    expect(eventParams('level_end', key), key).toBe(eventParams('level_start', key)),
+  );
+});
+
+test('coming back to the hall sends no level_start', () => {
+  TRACK_LOG.length = 0;
+  enterHallRun();
+  const starts = () => TRACK_LOG.filter(e => e.name === 'level_start').length,
+    inHall = starts();
+  expect(enterBossRoom('crusher'), 'into the room').toBe(true);
+  expect(starts(), 'the room is a level of its own').toBe(inHall + 1);
+  expect(returnToHall(), 'back to the hall').toBe(true);
+  expect(starts(), 'the hall is not a new level').toBe(inHall + 1);
+});
+
+test('boss area off: the labels and the events stay', () => {
+  devBossArea(false);
+  goBase();
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
+  save.shortcut = BOSS_AREA_START_TIER;
+  save.startTier = BOSS_AREA_START_TIER;
+  startRun(true);
+  tick(2);
+  expect(stageLabel(run.stage).startsWith('D50 '), 'a depth, not the hall').toBe(true);
+  TRACK_LOG.length = 0;
+  endRun('extract');
+  expect(eventParams('level_end', 'stage_type'), "the depth's sector").toBe(stageInfo(run.stage).biome.code);
 });

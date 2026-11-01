@@ -11,7 +11,7 @@ import { setSuspend } from '../core/progress.ts';
 import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { building, packSeen } from '../world/building.ts';
-import { stageInfo, stageLabel } from '../core/stages.ts';
+import { areaPlaceName, stageInfo, stageLabel } from '../core/stages.ts';
 import { onDataClick } from '@engine/ui/dom.ts';
 import { beginDive, endRun, enterDive, goBase } from './run.ts';
 import { RUN_KINDS } from './runKind.ts';
@@ -125,10 +125,11 @@ export function renderSuspend() {
   el('.base').classList.toggle('susp', !!sn);
   if (!sn) return;
   const tier = Math.floor(sn.run.stage / PER),
-    b = BIOMES[sn.run.route[tier % sn.run.route.length]];
+    b = BIOMES[sn.run.route[tier % sn.run.route.length]],
+    place = stageInfo(sn.run.stage).area ? sn.run.area : undefined;
   const info = t('susp.info', {
-    where: stageLabel(sn.run.stage, sn.run.bld),
-    biome: b.name,
+    where: stageLabel(sn.run.stage, sn.run.bld, place),
+    biome: place ? areaPlaceName(place) : b.name,
     hp: Math.ceil(sn.P.hp),
     maxHp: sn.P.maxHp,
     bits: Math.floor(sn.run.bits),
