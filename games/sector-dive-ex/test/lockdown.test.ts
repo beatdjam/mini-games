@@ -14,7 +14,7 @@ import { isDoorLocked } from '@engine/world/doors.ts';
 import { DOOR_PASS } from '@engine/world/tiles.ts';
 import { setState, show } from '../src/flow/state.ts';
 import { openPerk } from '../src/screens/perk.ts';
-import { tick, bootGame, killRoom, goToFloor, enterBuilding } from './helpers.ts';
+import { tick, bootGame, failInfo, killRoom, goToFloor, enterBuilding } from './helpers.ts';
 
 beforeAll(bootGame);
 
@@ -70,7 +70,9 @@ test('lockdown: it waits for an enemy holding a door open, and a player who gets
   put(...roomSpot(level.rooms[ld.room]!));
   tick(30);
   expect(locked(), 'locked with the player inside').toBe(true);
-  expect(world.doorOpen![door], 'the door cannot shut on the enemy in it').toBeGreaterThanOrEqual(DOOR_PASS);
+  expect(world.doorOpen![door], `the door cannot shut on the enemy in it ${failInfo(guard)}`).toBeGreaterThanOrEqual(
+    DOOR_PASS,
+  );
   expect(alarm(), 'no lockdown while a door is open').toBe(false);
   // the player walks out through it, two tiles down the corridor
   put(...at(door - 2 * (di + dj * W)));
