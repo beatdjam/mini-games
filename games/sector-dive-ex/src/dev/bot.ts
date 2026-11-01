@@ -238,8 +238,8 @@ const LOOT_REACH_Y = 3.5; // a thing this far above or below its feet is on anot
 // floats 3 m up, the next floor is 8 m away)
 
 // the gate to take in the boss area's hall: the way forward when it is open (TITAN down), else the first room
-// not beaten yet, else the way out. TITAN's gate (kind 'room', boss 'titan') is not in yet: only the eight
-// bosses of the rooms (BOSS_ROOM_ORDER) are chosen here. Look again after 7b (titan-gate)
+// not beaten yet, else the way out. TITAN's gate (kind 'room', boss 'titan') is not chosen: the bot has no way to
+// fight it yet (BOSS_PLAYS.titan), so only the eight bosses of the rooms (BOSS_ROOM_ORDER) are
 const ROOM_BOSSES = BOSS_ROOM_ORDER;
 export function hallGate(portals: Portal[], beaten: BossKind[]): Portal | undefined {
   const next = portals.find(p => p.kind === 'next');

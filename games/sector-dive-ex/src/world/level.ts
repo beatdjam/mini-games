@@ -75,6 +75,9 @@ const HALL_ROOM_GATE_Z = 5 * T;
 // the gate on from the hall (once TITAN is down): south of the start spot, past the south row of room gates and clear of
 // them. a stand-in until the hall's shape is decided: sim decides
 const HALL_NEXT_GAP = 7 * T; // (m)
+// the gate to TITAN (once the eight rooms are down): north of the start spot, past the north row of room gates and clear
+// of them. a stand-in until the hall's shape is decided: sim decides
+const HALL_TITAN_GAP = 7 * T; // (m)
 // the level being played: built as a whole by buildLevel, replaced (never patched field by field) on the next one
 interface Level {
   biome: Biome; // sector of this level
@@ -763,6 +766,7 @@ export function buildHall(biome: Biome): {
   terminal: [number, number];
   roomGates: [number, number][]; // the gates into the boss rooms: the north row west to east, then the south row
   next: [number, number]; // the gate on from the boss area, once its last boss is down
+  titan: [number, number]; // the gate to TITAN, once the eight rooms are down
 } {
   buildFixedLevel(biome, { rows: HALL_ROWS, rooms: [HALL_ROOM], start: 0, exit: 0 });
   const [sx, sz] = roomSpot(level.rooms[level.startIdx]!);
@@ -773,6 +777,7 @@ export function buildHall(biome: Biome): {
     extract: [sx + HALL_GATE_GAP, sz],
     terminal: [sx - HALL_GATE_GAP, sz],
     roomGates: [...row(-HALL_ROOM_GATE_Z), ...row(HALL_ROOM_GATE_Z)],
+    titan: [sx, sz - HALL_TITAN_GAP],
     next: [sx, sz + HALL_NEXT_GAP],
   };
 }

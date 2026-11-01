@@ -398,7 +398,7 @@ export interface Snapshot {
 }
 // what the save keeps of the bosses: whether the last boss is down, and how far the boss area has got
 export interface SaveRecords {
-  cleared: boolean; // the last boss (TITAN) is down (not written yet)
+  cleared: boolean; // the last boss (TITAN) is down
   bossArea: { tier: number; beaten: BossKind[] } | null; // the boss area of this save: its depth (0-based) and the boss rooms beaten there (one of each kind); null = not settled yet
 }
 export interface SaveData {

@@ -10,7 +10,7 @@ import { COLOR } from '../src/data/colors.ts';
 import { PORTAL } from '../src/data/level.ts';
 import { PER, BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { SAVE_KEY, save } from '../src/core/save.ts';
-import { clampStartTier, startTierMax } from '../src/core/progress.ts';
+import { allBossRoomsBeaten, bossAreaCleared, clampStartTier, startTierMax } from '../src/core/progress.ts';
 import { bossAreaTierFor, bossRoomBiome, devBossArea } from '../src/core/bossArea.ts';
 import { bossStageOf, firstStageOf, planOf, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { run, player } from '../src/actors/player.ts';
@@ -22,7 +22,7 @@ import { state } from '../src/flow/state.ts';
 import { crossToFloor, endRun, enterBossRoom, goBase, returnToHall, startRun, startStage } from '../src/flow/run.ts';
 import { resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { lockdownAhead, supplyChips } from '../src/flow/events.ts';
-import { spawnBoss } from '../src/actors/bosses/common.ts';
+import { bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { BOT_STYLES, createBot, hallGate, setBot } from '../src/dev/bot.ts';
 import { bigmap, cycleMap, map3dWanted, toggleMap, toggleMap3D } from '../src/ui/hud.ts';
@@ -772,4 +772,88 @@ test('boss area off: a room placed by hand keeps the building, and its 3D page',
   cycleMap();
   expect(map3dWanted(), 'the 3D page is on, as in any building').toBe(true);
   cycleMap(); // closed for the next test
+});
+
+// ---- TITAN: the gate once the eight rooms are down, and its clear ----
+test('allBossRoomsBeaten waits for the eighth room', () => {
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: BOSS_ROOM_ORDER.slice(0, -1) };
+  expect(allBossRoomsBeaten(), 'seven rooms are not the eight').toBe(false);
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [...BOSS_ROOM_ORDER] };
+  expect(allBossRoomsBeaten(), 'all eight rooms').toBe(true);
+  save.records.bossArea = null;
+  expect(allBossRoomsBeaten(), 'no boss area settled').toBe(false);
+});
+
+test('the hall has a gate to TITAN once the eight rooms are down', () => {
+  enterHallRun(BOSS_ROOM_ORDER.slice(0, -1));
+  expect(
+    level.portals.some(p => p.kind === 'room' && p.boss === 'titan'),
+    'no gate to TITAN before the eighth room',
+  ).toBe(false);
+  enterHallRun([...BOSS_ROOM_ORDER]);
+  const rooms = level.portals.filter(p => p.kind === 'room');
+  expect(rooms.length, 'the eight rooms and TITAN').toBe(9);
+  expect(rooms.filter(p => p.boss === 'titan').length, 'one gate to TITAN').toBe(1);
+});
+
+test("TITAN's fall clears the boss area and opens the way on", () => {
+  enterHallRun([...BOSS_ROOM_ORDER]);
+  run.area = { at: 'room', boss: 'titan' };
+  startStage();
+  spawnBoss('titan');
+  bossDown(boss!);
+  tick(2);
+  expect(save.records.cleared, 'the clear stays in the save').toBe(true);
+  expect(bossAreaCleared(), 'the boss area is cleared').toBe(true);
+  expect(save.shortcut, 'the depth after the boss area is open').toBe(BOSS_AREA_START_TIER + 1);
+  expect(
+    level.portals.map(p => p.kind),
+    'only the gate back to the hall',
+  ).toEqual(['hall']);
+  expect(el('#toast').textContent, 'the first time says the sectors go on').toBe(t('boss.titanCleared'));
+  const stored = JSON.parse(localStorage.getItem(SAVE_KEY) ?? '{}');
+  expect(stored.records.cleared, 'the clear is in the stored save at once').toBe(true);
+  expect(stored.suspend.run.bld.beaten, 'the checkpoint has TITAN down').toBe(true);
+});
+
+test('TITAN down again offers only the way back to the hall', () => {
+  enterHallRun([...BOSS_ROOM_ORDER]);
+  save.records.cleared = true;
+  run.area = { at: 'room', boss: 'titan' };
+  startStage();
+  spawnBoss('titan');
+  bossDown(boss!);
+  expect(el('#toast').textContent, 'not the first-time message, nor a choice of gates').toBe(t('boss.toHall'));
+});
+
+test('the way to TITAN opens only the first time the eighth room falls', () => {
+  const left = BOSS_ROOM_ORDER[BOSS_ROOM_ORDER.length - 1]!;
+  enterHallRun(BOSS_ROOM_ORDER.slice(0, -1));
+  devSeed(1234);
+  enterBossRoom(left);
+  beatRoomBoss();
+  expect(el('#toast').textContent, 'the eighth room down: TITAN is open').toBe(t('boss.titanOpen'));
+  el('#toast').textContent = ''; // cleared, so a toast shown again would be seen
+  returnToHall();
+  enterBossRoom(left);
+  beatRoomBoss();
+  expect(el('#toast').textContent, 'no second time').not.toBe(t('boss.titanOpen'));
+});
+
+test('boss area off: the TITAN gate stays out of the run', () => {
+  devBossArea(false);
+  goBase();
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [...BOSS_ROOM_ORDER] };
+  save.shortcut = BOSS_AREA_START_TIER;
+  save.startTier = BOSS_AREA_START_TIER;
+  expect(allBossRoomsBeaten(), 'the save has all eight rooms').toBe(true);
+  startRun(true);
+  tick(2);
+  expect(run.bld, 'the building is there as before').toBeTruthy();
+  expect(level.floor, 'a floor of it').toBeGreaterThanOrEqual(0);
+  expect(run.area, 'no boss area place').toBeUndefined();
+  expect(
+    level.portals.filter(p => p.kind === 'room' || p.kind === 'hall'),
+    'no gates to the rooms or TITAN',
+  ).toEqual([]);
 });

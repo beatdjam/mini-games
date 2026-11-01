@@ -19,6 +19,7 @@ import { COLOR } from '../data/colors.ts';
 import { persist, save } from '../core/save.ts';
 import { progressOf } from '../core/rules.ts';
 import {
+  allBossRoomsBeaten,
   bossAreaCleared,
   fallBackToMilestone,
   earnBits,
@@ -458,6 +459,8 @@ export function startStage() {
         kind,
       );
     });
+    // once the eight rooms are down: the gate to TITAN
+    if (allBossRoomsBeaten()) makePortal(at.titan[0], at.titan[1], COLOR.mag, 'room', BOSS_META.titan.name, 'titan');
     // once TITAN is down: the way on from the boss area, to the next depth
     if (bossAreaCleared()) makePortal(at.next[0], at.next[1], COLOR.amber, 'next', t('boss.forward'));
   } else if (inBuilding) {

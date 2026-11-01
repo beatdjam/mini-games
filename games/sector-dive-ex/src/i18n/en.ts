@@ -372,6 +372,8 @@ LANG.en = {
     'boss.titanHint': 'Its front armor is tough. Aim for the reactor on its back',
     'boss.titanArmour': 'The armor stopped it',
     'boss.titanRise': 'TITAN is getting back up',
+    'boss.titanOpen': 'The way to TITAN is open',
+    'boss.titanCleared': 'The thing in the deepest place is down. The sectors go on',
   },
   data: {
     weapons: {

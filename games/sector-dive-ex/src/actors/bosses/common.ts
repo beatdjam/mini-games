@@ -14,7 +14,15 @@ import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { BOSS_ROOM_ORDER } from '../../data/bossRooms.ts';
 import { hpGrowth, isMilestone } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
-import { openShortcut, recordBossKill, recordBossRoomBeaten, recordBossSeen, recordPeak } from '../../core/progress.ts';
+import {
+  allBossRoomsBeaten,
+  openShortcut,
+  recordBossKill,
+  recordBossRoomBeaten,
+  recordBossSeen,
+  recordPeak,
+  recordTitanClear,
+} from '../../core/progress.ts';
 import { progressOf } from '../../core/rules.ts';
 import { bossAreaOn } from '../../core/bossArea.ts';
 import { arenaCenter, level } from '../../world/level.ts';
@@ -66,6 +74,7 @@ const BOSS_WEAPON_MIN_RARITY = 1; // minimum rarity of the weapon (index into RA
 const BOSS_WEAPON_LUCKY_RARITY = 2; // minimum rarity on a lucky roll (★★★)
 const BOSS_WEAPON_PROGRESS_BONUS = 2; // the weapon is rolled as if this many progress points deeper
 const BOSS_BEATEN_TOAST_MS = 2600; // the "beaten n/8" toast (ms)
+const TITAN_CLEARED_TOAST_MS = 4200; // the toast for the first time TITAN is down (ms)
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
 // sliding down to x lateGrowth per depth deeper in (hpGrowth in src/data/progress.ts)
 export function bossDifficulty() {
@@ -366,6 +375,21 @@ export function bossDown(e: Boss) {
     return;
   }
   const tier = stageInfo(run.stage).tier;
+  // TITAN, the boss area's last boss: its clear stays in the save and the depth's shortcut opens as for any boss. The
+  // room beaten records are for the eight rooms, so TITAN does not touch them
+  if (e.kind === 'titan' && bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room') {
+    const first = !save.records.cleared;
+    recordTitanClear();
+    onBossDown(); // the room's door opens again
+    putRoomGates(e.cx, e.cz);
+    hideBossBar();
+    recordBossProgress(stageInfo(run.stage).tier);
+    giveBossRewards(e, progressOf(run.stage));
+    // over recordBossProgress's toast: it offers a choice of gates this room does not have
+    toast(first ? t('boss.titanCleared') : t('boss.toHall'), TITAN_CLEARED_TOAST_MS);
+    saveBeatenRoom();
+    return;
+  }
   // a boss room of the boss area: the same rewards the first time, only its bits after that, and no shortcut (the
   // room beaten is kept in the save, so a death or a resume does not take it back)
   if (bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room') {
@@ -376,7 +400,9 @@ export function bossDown(e: Boss) {
       giveBossRewards(e, progressOf(run.stage));
       recordBossKill();
       toast(
-        t('boss.beatenCount', { n: save.records.bossArea?.beaten.length ?? 0, max: BOSS_ROOM_ORDER.length }),
+        allBossRoomsBeaten()
+          ? t('boss.titanOpen')
+          : t('boss.beatenCount', { n: save.records.bossArea?.beaten.length ?? 0, max: BOSS_ROOM_ORDER.length }),
         BOSS_BEATEN_TOAST_MS,
       );
     } else {

@@ -1,6 +1,7 @@
 import type { BossKind, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
 import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
+import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { basicW, save } from './save.ts';
 import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
 import { sellValue } from './rules.ts';
@@ -46,7 +47,7 @@ export function buyUpgrade(id: string, cost: number) {
 export const setStartTier = (n: number) => {
   save.startTier = n;
 };
-// Whether the last boss (TITAN) is down. Read only here: the TITAN draft adds the function that sets it
+// Whether the last boss (TITAN) is down (recordTitanClear sets it)
 export const bossAreaCleared = (): boolean => save.records.cleared;
 // The deepest start depth open: until TITAN is down it is the boss area's depth, so a save cannot start past the gate
 // into the depths after it. With the boss area off, TITAN down, or the boss area not settled yet, the shortcut is the limit
@@ -124,6 +125,16 @@ export function recordBossRoomBeaten(kind: BossKind): boolean {
   if (area.beaten.includes(kind)) return false;
   area.beaten.push(kind);
   return true;
+}
+// The eight rooms are one of each kind, so all eight kinds in the save open the gate to TITAN. False until the boss area
+// is settled (or while no room is beaten yet)
+export function allBossRoomsBeaten(): boolean {
+  const area = save.records.bossArea;
+  return !!area && BOSS_ROOM_ORDER.every(kind => area.beaten.includes(kind));
+}
+// TITAN is down: the save keeps the clear (the caller persists)
+export function recordTitanClear() {
+  save.records.cleared = true;
 }
 // The boss area's depth, settled once per save on the first dive from the base (when the flag is on). Returns whether
 // this call settled it; the caller persists
