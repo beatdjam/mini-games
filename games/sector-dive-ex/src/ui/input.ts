@@ -33,6 +33,11 @@ export const moveKeysText = (): string => ['forward', 'left', 'back', 'right'].m
 // dash request, the dash button held (touch) and for how long, the run kept on after letting it go (touch), and the
 // full-stick dash timer
 export const controlState = { dashReq: false, dashHeld: false, heldT: 0, runLatch: false, stickT: 0, stickArmed: true };
+// dev: the bot is playing: a lost mouse lock or a hidden page does not pause (its buttons still do)
+let autoPause = true;
+export function setAutoPause(on: boolean) {
+  autoPause = on;
+}
 Object.assign(INPUT, {
   active: () => state === 'play',
   look: (dx: number, dy: number) => {
@@ -43,7 +48,7 @@ Object.assign(INPUT, {
   sens: () => save.settings.sens,
   // the mouse lock was lost: pause, unless the game let it go itself for the 3D map (it is dragged with the mouse)
   pause: () => {
-    if (!map3dWanted()) pause();
+    if (autoPause && !map3dWanted()) pause();
   },
   lockChanged: () => updateHint(),
   key: (e: KeyboardEvent) => {

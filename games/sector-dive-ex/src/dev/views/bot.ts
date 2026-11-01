@@ -2,11 +2,27 @@ import { BOT_CLIMB_HASH, defaultSave, persist, save, setSave } from '../../core/
 import { setStartTier } from '../../core/progress.ts';
 import { goBase, startRun } from '../../flow/run.ts';
 import { state } from '../../flow/state.ts';
+import { update } from '../../flow/update.ts';
 import { player } from '../../actors/player.ts';
 import { wDmgMul } from '../../actors/weapons.ts';
 import { BOT_STYLES, createBot, setBot } from '../bot.ts';
 import { buyAtBase, equipBestWeapons } from '../climb.ts';
 const NEXT_DIVE_MS = 1000; // how often the climber looks whether its dive is over (ms)
+const HIDDEN_DT = 1 / 60; // a frame of the game while the page is hidden (s)
+const HIDDEN_EVERY_MS = 250; // how often the game is caught up while hidden (a browser may wait longer than this)
+const HIDDEN_MAX_FRAMES = 3600; // at most this many frames at a time, so the page does not lock up
+// A hidden page gets no animation frames, so the bot's game is stepped from a timer, by the time that has gone by
+function keepGoingWhileHidden() {
+  let last = performance.now();
+  setInterval(() => {
+    const now = performance.now();
+    if (document.hidden && state === 'play') {
+      const frames = Math.min(Math.floor((now - last) / 1000 / HIDDEN_DT), HIDDEN_MAX_FRAMES);
+      for (let n = 0; n < frames && state === 'play'; n++) update(HIDDEN_DT);
+    }
+    last = now;
+  }, HIDDEN_EVERY_MS);
+}
 // dev: #bot (or #bot-<style>, src/dev/bot.ts) starts a run played by the bot, to watch it. What it is doing is shown
 // in the corner. #bot-climber goes on diving, with a save of its own (core/save.ts saveKeyFor) that stays between
 // visits: after each dive it buys levels, takes its two strongest weapons and starts from the deepest depth open.
@@ -33,6 +49,7 @@ export function showBot(hash: string) {
       setBot(bot);
     };
     go();
+    keepGoingWhileHidden();
     if (climbs)
       setInterval(() => {
         if (state !== 'result' && state !== 'base') return;

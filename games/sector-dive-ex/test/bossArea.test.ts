@@ -36,6 +36,7 @@ import { lockdownAhead, supplyChips } from '../src/flow/events.ts';
 import { areaHpMul, bossDifficulty, bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { BOT_STYLES, createBot, hallGate, setBot } from '../src/dev/bot.ts';
+import { INPUT } from '@engine/ui/input.ts';
 import { bigmap, cycleMap, map3dWanted, toggleMap, toggleMap3D } from '../src/ui/hud.ts';
 import { map3d, map3dOpen } from '../src/ui/map3d.ts';
 import { keyText } from '../src/ui/input.ts';
@@ -1088,4 +1089,23 @@ test('#bot-climber keeps a save of its own, only on the dev server', () => {
   expect(saveKeyFor('#bot-climber-new', true)).toBe(`${SAVE_KEY}-climber`);
   expect(saveKeyFor('#bot-climber', false)).toBe(SAVE_KEY);
   expect(saveKeyFor('#bot-explorer', true)).toBe(SAVE_KEY);
+});
+
+// ---- the climber and TITAN ----
+test('hallGate: the kind that fights TITAN takes its gate after the eight rooms', () => {
+  enterHallRun([...BOSS_ROOM_ORDER]);
+  expect(hallGate(level.portals, BOSS_ROOM_ORDER, true)?.boss, 'TITAN').toBe('titan');
+  expect(hallGate(level.portals, BOSS_ROOM_ORDER)?.kind, 'the others go home').toBe('extract');
+  expect(hallGate(level.portals, [], true)?.boss, 'the rooms first').not.toBe('titan');
+});
+
+test('the bot playing: a lost mouse lock does not pause, without it it does', () => {
+  enterHallRun();
+  setBot(createBot(BOT_STYLES.climber!));
+  INPUT.pause();
+  expect(state, 'still playing').toBe('play');
+  setBot(null);
+  INPUT.pause();
+  expect(state, 'paused').toBe('pause');
+  el('#btnResume')?.click();
 });
