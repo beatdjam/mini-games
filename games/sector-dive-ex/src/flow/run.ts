@@ -287,6 +287,7 @@ const arrivalTile = (n: number, floor: number): number => {
 };
 // the player where they came in: the start room, or the end of the stairwell or lift they took (the top of the
 // stairs, or on the lift's platform)
+const ROOM_START_FROM_END = 2; // in a boss room the player starts this many tiles from the hall's south end
 function placePlayerOnFloor(st: BuildingState) {
   if (st.at < 0) {
     if (level.startIdx >= 0) [player.x, player.z] = roomSpot(level.rooms[level.startIdx]!);
@@ -311,6 +312,15 @@ function placePlayerOnFloor(st: BuildingState) {
     // face the door
     const h = level.hall!;
     player.yaw = yawToward(tileCenter(h.door % W) - player.x, tileCenter(Math.floor(h.door / W)) - player.z);
+  }
+  // a boss room of the boss area is straight into the fight: inside the hall, at its south end, facing its middle (the
+  // first frame finds the player in the room and starts the fight: flow/events.ts)
+  if (bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room') {
+    const r = level.rooms[level.hall!.room]!,
+      i = r.x + Math.floor(r.w / 2);
+    player.x = tileCenter(i);
+    player.z = tileCenter(r.y + r.h - ROOM_START_FROM_END);
+    player.yaw = yawToward(0, -1);
   }
 }
 // what lives on a floor of the building: enemies in the rooms not cleared yet (none in the start room and the boss

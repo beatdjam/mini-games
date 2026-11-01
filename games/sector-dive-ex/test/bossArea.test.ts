@@ -30,7 +30,8 @@ import { map3d, map3dOpen } from '../src/ui/map3d.ts';
 import { keyText } from '../src/ui/input.ts';
 import { query } from '@engine/core/world.ts';
 import { TRACK_LOG } from '@engine/core/analytics.ts';
-import { T, W, tileCenter, tileIndex } from '@engine/world/tiles.ts';
+import { T, W, activeTileGrid, blocked, tileCenter, tileIndex } from '@engine/world/tiles.ts';
+import { isDoorLocked } from '@engine/world/doors.ts';
 import { el, wrapAngle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { bootGame, enterBuilding, goToFloor, putOnTile, stateIs, tick } from './helpers.ts';
@@ -238,7 +239,7 @@ function upFromLowest(): { n: number; up: number } {
 }
 const outsideHall = () => level.roomOf[tileIndex(player.x, player.z)] !== level.hall!.room;
 
-test('a boss room starts on the lowest floor of its sector building, outside the hall door', () => {
+test('a boss room starts on the lowest floor of its sector building, inside the hall, in the fight', () => {
   enterRoom();
   expect(run.stage, "the depth's boss stage").toBe(bossStageOf(BOSS_AREA_START_TIER));
   expect(run.bld?.tier, 'the building of the depth').toBe(BOSS_AREA_START_TIER);
@@ -246,14 +247,26 @@ test('a boss room starts on the lowest floor of its sector building, outside the
   expect(level.biome.code, "the crusher's sector").toBe('FORGE');
   expect(level.floor, 'the lowest floor').toBe(building!.plans.length - 1);
   expect(level.hall, 'its boss hall').toBeTruthy();
-  expect(outsideHall(), 'starts in the corridor outside the hall door').toBe(true);
-  const door = level.hall!.door,
-    toDoor = yawToward(tileCenter(door % W) - player.x, tileCenter(Math.floor(door / W)) - player.z);
-  expect(Math.abs(wrapAngle(player.yaw - toDoor)), 'facing the hall door').toBeLessThan(1e-6);
+  expect(outsideHall(), 'starts inside the hall').toBe(false);
+  expect(Math.abs(wrapAngle(player.yaw - yawToward(0, -1))), 'facing its middle').toBeLessThan(1e-6);
   expect(save.suspend?.run.area, 'the checkpoint keeps the room').toEqual({ at: 'room', boss: 'crusher' });
-  tick(1);
-  expect(stateIs('play'), 'the room starts in play, not in the boss fight').toBe(true);
-  expect(boss, 'the boss has not come yet').toBeNull();
+  tick(2);
+  expect(isDoorLocked(activeTileGrid().world, level.hall!.door), 'the fight has started: the door is shut').toBe(true);
+  expect(run.area, 'still in the room').toEqual({ at: 'room', boss: 'crusher' });
+});
+
+test('every boss room: the player starts on the floor of the hall, and the fight starts', () => {
+  [...BOSS_ROOM_ORDER, 'titan' as const].forEach(kind => {
+    enterHallRun();
+    devSeed(1234);
+    run.area = { at: 'room', boss: kind };
+    startStage();
+    expect(level.roomOf[tileIndex(player.x, player.z)], `${kind}: in the hall`).toBe(level.hall!.room);
+    expect(blocked(player.x, player.z, player.r), `${kind}: not in a wall`).toBe(false);
+    tick(2);
+    expect(isDoorLocked(activeTileGrid().world, level.hall!.door), `${kind}: the fight has started`).toBe(true);
+    devSeed(null);
+  });
 });
 
 test('a run suspended in a boss room resumes in the same room, at the same entrance', () => {
@@ -268,7 +281,7 @@ test('a run suspended in a boss room resumes in the same room, at the same entra
   expect(run.bld?.seed, 'the same seed').toBe(seed);
   expect(level.floor, 'the lowest floor again').toBe(building!.plans.length - 1);
   expect(level.hall, 'its boss hall').toBeTruthy();
-  expect(outsideHall(), 'the same entrance outside the door').toBe(true);
+  expect(outsideHall(), 'the same place inside the hall').toBe(false);
 });
 
 test('a run suspended after going up a floor resumes at the lowest floor entrance', () => {

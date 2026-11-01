@@ -1,6 +1,6 @@
 import type { BossKind, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
-import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
+import { STASH_MAX, UPGRADES, milestoneBelow } from '../data/progress.ts';
 import { basicW, save } from './save.ts';
 import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
 import { readiness, sellValue } from './rules.ts';
@@ -138,16 +138,25 @@ export function devBossAreaStart(tier: number) {
   save.startTier = tier;
   save.records.bossArea = { tier, beaten: [] };
 }
-// Equipment for a depth, for a save made to try it: two basic weapons (they grow with the depth: rules.ts basicNow),
-// DEV_GEAR_LEVELS on each of output and armour, and more of them in turn if the base's own yardstick does not yet call
-// that depth a fair fight (the yardstick alone is met by the weapons and the supply, with no armour at all)
-const DEV_GEAR_LEVELS = 30; // a first try: dives bring in about 36 levels by DEPTH 20 (data/progress.ts levelCost)
+// Equipment for a depth, for a save made to try it: two basic weapons (they grow with the depth: rules.ts basicNow) and
+// the levels of a player who has come that far: every level with a limit at its limit, the rest shared between output
+// and armour, and more of those in turn if the base's own yardstick does not yet call that depth a fair fight.
+// data/progress.ts levelCost: a dive's bits grow 1.6 times a depth and a level costs 1.2 times the last, so about 2.6
+// levels a depth on top of the 36 of DEPTH 20. An estimate from those figures, not measured at this depth
+const DEV_GEAR_LEVELS_AT_20 = 36;
+const DEV_GEAR_LEVELS_PER_DEPTH = 2.6;
 const DEV_GEAR_FAIR = 2; // rules.ts readiness: 2 is 'fair'
 const DEV_GEAR_MAX_LEVELS = 200;
 export function devBossAreaGear(tier: number) {
   save.loadout = [basicW('shotgun'), basicW('smg')];
-  save.up.hp = DEV_GEAR_LEVELS;
-  save.up.dmg = DEV_GEAR_LEVELS;
+  let left = Math.round(DEV_GEAR_LEVELS_AT_20 + (tier + 1 - 20) * DEV_GEAR_LEVELS_PER_DEPTH);
+  for (const u of UPGRADES)
+    if (Number.isFinite(u.max)) {
+      save.up[u.id] = u.max;
+      left -= u.max;
+    }
+  save.up.dmg = Math.ceil(left / 2);
+  save.up.hp = Math.floor(left / 2);
   for (let n = 0; n < DEV_GEAR_MAX_LEVELS && readiness(tier) > DEV_GEAR_FAIR; n++) {
     const id = n % 2 ? 'hp' : 'dmg';
     save.up[id] = (save.up[id] || 0) + 1;
