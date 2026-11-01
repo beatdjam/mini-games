@@ -17,8 +17,8 @@ import { run, player } from '../src/actors/player.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { building } from '../src/world/building.ts';
 import { devSeed, level } from '../src/world/level.ts';
-import { makePortal } from '../src/world/portals.ts';
-import { state } from '../src/flow/state.ts';
+import { makePortal, makeTerminal } from '../src/world/portals.ts';
+import { setState, state } from '../src/flow/state.ts';
 import {
   crossToFloor,
   endRun,
@@ -720,6 +720,63 @@ test('the bot keeps off the other gates on its way to a terminal', () => {
   }
   expect(run.area, 'still in the hall').toEqual({ at: 'hall' });
   expect(state, 'the terminal reached').not.toBe('play');
+});
+
+// ---- the bot's chips: the order a climber takes them in ----
+// offers these chips, in this order, and returns the one the bot took
+function chipTaken(styleName: string, offered: string[]): string {
+  const list = el('#perkList');
+  list.innerHTML = offered.map(id => `<button data-perk="${id}"></button>`).join('');
+  let taken = '';
+  list.querySelectorAll<HTMLButtonElement>('button').forEach(b => {
+    b.addEventListener('click', () => (taken = b.dataset.perk!));
+  });
+  el('#scrPerk').dataset.mode = '';
+  setState('perk');
+  const bot = createBot(BOT_STYLES[styleName]!);
+  try {
+    bot.step(1 / 60);
+  } finally {
+    goBase();
+  }
+  return taken;
+}
+
+test('climber takes the first chip of its order that is on offer', () => {
+  expect(chipTaken('climber', ['rapid', 'overload', 'crit']), 'overload comes before rapid and crit').toBe('overload');
+  expect(chipTaken('climber', ['magnet', 'crit', 'overload']), 'overload is further on in the offer').toBe('overload');
+});
+
+test('a style without chipOrder still takes the first chip', () => {
+  expect(chipTaken('rusher', ['rapid', 'overload', 'crit']), 'the first one offered').toBe('rapid');
+});
+
+// a boss stage at `tier`, its gates made as the game makes them once the boss is down, and the terminal used
+function bossStageBot(tier: number) {
+  goBase();
+  startRun();
+  tick(2);
+  run.stage = bossStageOf(tier);
+  startStage();
+  // (nothing on the floor to go for: only the gates matter here)
+  query<Pickup>('pickup').forEach(p => (p.dead = true));
+  makePortal(player.x + 5, player.z, 0xffffff, 'next', '');
+  makePortal(player.x - 5, player.z, 0xffffff, 'extract', '');
+  makeTerminal(player.x, player.z + 5, 0xffffff, '');
+  const bot = createBot(BOT_STYLES.climber!);
+  el('#perkList').innerHTML = '';
+  el('#sellList').innerHTML = '';
+  el('#scrPerk').dataset.mode = 'level';
+  setState('perk');
+  bot.step(1 / 60); // (the terminal: the bot marks it used and closes the screen)
+  expect(state, 'back at play after the terminal').toBe('play');
+  bot.step(1 / 60);
+  return bot;
+}
+
+test('climber takes the way home after a milestone boss, and goes on after any other', () => {
+  expect(bossStageBot(4).stats.doing, 'a milestone (DEPTH 5): home').toContain('gate extract');
+  expect(bossStageBot(1).stats.doing, 'not a milestone (DEPTH 2): on').toContain('gate next');
 });
 
 // ---- the maps: the boss area's hall and rooms have the 2D page only ----

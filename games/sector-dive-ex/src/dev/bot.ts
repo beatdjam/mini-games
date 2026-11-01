@@ -7,7 +7,7 @@ import type { Boss, BossKind, Enemy, Pickup, Wave, Weapon } from '../data/types.
 import { BOSS_META } from '../data/bosses.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { MAGNET_GAIN_MAX } from '../data/perks.ts';
-import { KIT_MAX, TUNE } from '../data/progress.ts';
+import { KIT_MAX, TUNE, isMilestone } from '../data/progress.ts';
 import { EYE, PORTAL } from '../data/level.ts';
 import { stageInfo } from '../core/stages.ts';
 import { save } from '../core/save.ts';
@@ -46,6 +46,8 @@ export interface BotStyle {
   explore: boolean; // it clears every room of a floor before going on (else it follows the route and fights what it meets)
   loot: number; // it goes out of its way for a weapon, a kit or a chip within this (m; 0 = only what it walks over)
   collect: boolean; // it is after bits: the gain is the first point it buys, and it takes a magnet chip while that adds to the gain
+  chipOrder?: string[]; // the chips it takes, earliest first (only chips not in it on offer: the first one offered)
+  bankAtMilestone?: boolean; // it takes the way home after a milestone's boss and terminal, instead of going on
 }
 // someone who plays well: quick, accurate aim, dashes clear of most shots, minds the hazard floors
 const SKILLED = {
@@ -57,6 +59,24 @@ const SKILLED = {
   healBelow: 0.5,
   knowsBosses: true,
 };
+// the chips a climber takes, the ones that grow its fire power first
+const CLIMB_CHIPS = [
+  'overload',
+  'rapid',
+  'crit',
+  'leech',
+  'chain',
+  'pierce',
+  'split',
+  'armor',
+  'repair',
+  'tank',
+  'mag',
+  'reload',
+  'sprint',
+  'light',
+  'magnet',
+];
 const KINDS: Record<string, Omit<BotStyle, 'name' | 'autofire'>> = {
   // new to it: slow, loose aim, seldom dashes, walks onto hazard floors, heals late, takes only what lies near
   beginner: {
@@ -78,6 +98,16 @@ const KINDS: Record<string, Omit<BotStyle, 'name' | 'autofire'>> = {
   rusher: { ...SKILLED, explore: false, loot: 12, after: 'next', collect: false },
   // the explorer after bits: buys the gain first and takes the magnet chips
   collector: { ...SKILLED, explore: true, loot: 40, after: 'next', collect: true },
+  // plays well and looks everywhere, and climbs: takes the chips that grow its fire power and banks at the milestones
+  climber: {
+    ...SKILLED,
+    explore: true,
+    loot: 40,
+    after: 'next',
+    collect: false,
+    chipOrder: CLIMB_CHIPS,
+    bankAtMilestone: true,
+  },
 };
 // each kind with the game's auto-fire on (the name alone) and off (`-manual`: it pulls the trigger itself)
 export const BOT_STYLES: Record<string, BotStyle> = Object.fromEntries(
@@ -304,6 +334,16 @@ function levelPick(collect: boolean): HTMLButtonElement | null {
   const button = (id: string) => document.querySelector<HTMLButtonElement>(`#perkList [data-level="${id}"]`);
   const id = nextPoint(collect, id => !!button(id) && !button(id)!.disabled);
   return id ? button(id) : null;
+}
+// the chip it takes from those on offer: the first of its order that is there, else the first one offered
+function chipPick(order?: string[]): HTMLButtonElement | null {
+  const offered = [...document.querySelectorAll<HTMLButtonElement>('#perkList [data-perk]')];
+  if (order)
+    for (const id of order) {
+      const button = offered.find(b => b.dataset.perk === id);
+      if (button) return button;
+    }
+  return offered[0] ?? document.querySelector<HTMLButtonElement>('#perkList button');
 }
 export function createBot(style: BotStyle) {
   const stats: BotStats = {
@@ -633,11 +673,16 @@ export function createBot(style: BotStyle) {
       tileAt = (x: number, z: number) => tileIndex(x, z);
     // the gate it means to take, settled first: on the way to loot or a terminal it keeps off the other gates too
     const areaNow = stageInfo(run.stage).area ? run.area : undefined;
+    // a climber takes the way home rather than on, once a milestone's boss is down and the terminal there is used
+    const banked =
+      style.bankAtMilestone &&
+      isMilestone(stageInfo(run.stage).tier) &&
+      level.portals.some(p => p.kind === 'terminal' && termsUsed.has(p));
     const gate = areaNow
       ? areaNow.at === 'room'
         ? level.portals.find(p => p.kind === 'hall')
         : hallGate(level.portals, save.records.bossArea?.beaten ?? [])
-      : level.portals.find(p => p.kind === style.after);
+      : level.portals.find(p => p.kind === (banked ? 'extract' : style.after));
     targetGate = gate ?? null;
     const loot = lootNear(dt);
     if (loot) return { tile: tileAt(loot.x, loot.z), what: `pick up a ${loot.kind}`, at: loot };
@@ -712,12 +757,13 @@ export function createBot(style: BotStyle) {
       return;
     }
     if (state === 'perk') {
-      // a chip to choose: the first one offered (after bits: a magnet while it still adds to the gain)
+      // a chip to choose: the first of its order that is offered (a climber's), else the first one offered (after bits:
+      // a magnet while it still adds to the gain)
       const magnet =
         style.collect && player && player.magnet < 1 + 0.8 * MAGNET_GAIN_MAX
           ? document.querySelector<HTMLButtonElement>('#perkList [data-perk="magnet"]')
           : null;
-      (magnet ?? document.querySelector<HTMLButtonElement>('#perkList button'))?.click();
+      (magnet ?? chipPick(style.chipOrder))?.click();
       return;
     }
     if (state !== 'play' || !player) return;

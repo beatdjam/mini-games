@@ -3,12 +3,13 @@
 // Not a test: nothing is asserted but that the runs end.
 import { beforeAll, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
+import type { WeaponItem } from '../src/data/types.ts';
 import { createRng } from '@engine/core/util.ts';
-import { isBossStage } from '../src/core/stages.ts';
+import { isBossStage, stageInfo } from '../src/core/stages.ts';
 import { levelOf, nextLevelCost, setDropOnly } from '../src/core/rules.ts';
 import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
 import { BOSS_AREA_START_TIER, PER, UPGRADES, levelCost } from '../src/data/progress.ts';
-import { fillMag, newWeapon } from '../src/actors/weapons.ts';
+import { fillMag, newWeapon, wDmgMul, weaponStats } from '../src/actors/weapons.ts';
 import { normalizeWeapons } from '../src/ui/input.ts';
 import { defaultSave, save, setSave } from '../src/core/save.ts';
 import { buyUpgrade, devBossAreaGear, devBossAreaStart, setStartTier } from '../src/core/progress.ts';
@@ -16,7 +17,7 @@ import { devBossArea } from '../src/core/bossArea.ts';
 import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { devSeed, level } from '../src/world/level.ts';
-import { player, run } from '../src/actors/player.ts';
+import { newPlayer, player, run, setPlayer } from '../src/actors/player.ts';
 import { goBase, startRun } from '../src/flow/run.ts';
 import { bossStarted } from '../src/flow/events.ts';
 import { setRushBuild } from '../src/dev/views/bossRush.ts';
@@ -31,6 +32,7 @@ declare const __SIM_WEAPON__: string;
 declare const __SIM_LEVEL__: string;
 declare const __SIM_TAG__: string;
 declare const __SIM_AREA__: string;
+declare const __SIM_CLIMB_TO__: string;
 
 const DT = 1 / 60;
 // A run goes on for as long as the bot gets anywhere: it is given up only when nothing has moved on for a while (no
@@ -70,8 +72,15 @@ beforeAll(async () => {
   await sleep(300); // the start-up timers
 });
 
-// the kinds of player to run: "all", or names of BOT_STYLES with commas between
-const styles = __SIM_STYLE__ === 'all' ? Object.keys(BOT_STYLES) : __SIM_STYLE__.split(',');
+// The depth a climb aims for (SIM_CLIMB_TO, 1-based). Not set (0): the dives end as they always have. Set: each seed
+// keeps its save and dives again up to DIVES times, and stops when the depth is reached
+const CLIMB_TO = Number(__SIM_CLIMB_TO__) || 0;
+// The kinds of player to run: "all", or names of BOT_STYLES with commas between. "all" without SIM_CLIMB_TO is the
+// kinds there were before the climber: the old runs' results stay as they were
+const styles =
+  __SIM_STYLE__ === 'all'
+    ? Object.keys(BOT_STYLES).filter(name => CLIMB_TO > 0 || !name.startsWith('climber'))
+    : __SIM_STYLE__.split(',');
 // One weapon at a time (SIM_WEAPON: names of WEAPONS with commas between, or "all"): the player starts with that
 // weapon alone and every drop of the run is that weapon, so the weapons are compared with the same luck in rarity
 // and upgrades. Not set: the game as it is
@@ -94,6 +103,22 @@ function buyAtBase(collect: boolean) {
       id = nextPoint(collect, id => save.bits >= cost && (save.up[id] || 0) < UPGRADES.find(u => u.id === id)!.max);
     if (!id) return;
     buyUpgrade(id, cost);
+  }
+}
+// Between dives: the two strongest weapons held or in the stash go on (the same comparison the bot makes on the floor,
+// weaponStats().dps), so what one dive brings home is what the next one sets out with
+function equipBestWeapons() {
+  // (weaponStats reads the player: stand in the one the next dive would set out with, at the depth it starts from)
+  const held = player;
+  setPlayer(newPlayer(save.loadout, save.shortcut));
+  try {
+    const all = [...save.loadout, ...save.stash].filter((w): w is WeaponItem => !!w),
+      best = [...all].sort((a, b) => weaponStats(b).dps - weaponStats(a).dps).slice(0, 2);
+    // (set directly, not one by one with equipWeapon: a weapon moved between the slots would stay in both)
+    save.loadout = [best[0] ?? null, best[1] ?? null];
+    save.stash = all.filter(w => !best.includes(w) && !w.basic);
+  } finally {
+    setPlayer(held);
   }
 }
 type Row = Record<string, string | number>;
@@ -121,14 +146,38 @@ test.each(cases)(
     const style = BOT_STYLES[styleName];
     expect(style, `no such style: ${styleName}`).toBeTruthy();
     if (weapon) expect(WEAPONS[weapon], `no such weapon: ${weapon}`).toBeTruthy();
-    const rows: Row[] = [];
-    for (const seed of seedsOf(__SIM_SEEDS__))
+    const rows: Row[] = [],
+      // the climb's table (SIM_CLIMB_TO): a line for every boss beaten and for the depth reached, written as it goes
+      climb: Row[] = [],
+      climbPath = `sim-results/sector-dive-ex-${__SIM_TAG__}${name}-climb.tsv`,
+      climbRow = (seed: number, dive: number, end: 'boss' | 'reached', totalSeconds: number): Row => {
+        const w = player.weapons[player.cur];
+        return {
+          seed,
+          dive,
+          depth: stageInfo(run.stage).tier + 1,
+          end,
+          level: levelOf(),
+          damagePct: Math.round(player.dmgMul * player.lvlDmg * (w ? wDmgMul(w) : 0) * 100),
+          maxHp: player.maxHp,
+          fireRate: Math.round(player.fireRate * 100) / 100,
+          crit: Math.round(player.crit * 100),
+          chips: run.perks?.length ?? 0,
+          weapon: w ? `${WEAPONS[w.id]!.name}${w.plus ? '+' + w.plus : ''}` : '-',
+          saveBits: Math.floor(save.bits),
+          totalSeconds: Math.round(totalSeconds),
+        };
+      };
+    for (const seed of seedsOf(__SIM_SEEDS__)) {
+      let seedSec = 0, // the game time of the seed so far (SIM_CLIMB_TO's totalSeconds)
+        reached = false;
       for (let dive = 1; dive <= DIVES; dive++) {
         // every seed starts from a new save: what one run brings home (weapons, bits, upgrades) must not help the next
         // (with SIM_DIVES, the dives of one seed share it)
         if (dive === 1) setSave(defaultSave());
         else {
           buyAtBase(style!.collect);
+          if (CLIMB_TO > 0) equipBestWeapons();
           setStartTier(save.shortcut);
         }
         if (AREA) {
@@ -166,7 +215,8 @@ test.each(cases)(
         const wall0 = performance.now();
         let since = wall0, // when the page was last let breathe
           maxBlock = 0; // the longest the page went without (ms)
-        let built = !AREA;
+        let built = !AREA,
+          bossesSeen = run.bosses?.length ?? 0;
         for (; frames < MAX_FRAMES; frames++) {
           if (!built && state === 'play') {
             built = true;
@@ -182,6 +232,22 @@ test.each(cases)(
           if (tier !== tierSeen) {
             tierSeen = tier;
             bitsAt.push(`${tier + 1}:${Math.floor(run.bits)}`);
+          }
+          // (SIM_CLIMB_TO: a line for every boss beaten, and the end of the seed once the depth is entered)
+          if (CLIMB_TO > 0) {
+            const beaten = run.bosses?.length ?? 0;
+            if (beaten > bossesSeen) {
+              for (; bossesSeen < beaten; bossesSeen++)
+                climb.push(climbRow(seed, dive, 'boss', seedSec + bot.stats.frames / 60));
+              await commands.writeFile(climbPath, tsv(climb));
+            }
+            if (stageInfo(run.stage).tier + 1 >= CLIMB_TO) {
+              climb.push(climbRow(seed, dive, 'reached', seedSec + bot.stats.frames / 60));
+              await commands.writeFile(climbPath, tsv(climb));
+              end = 'reached';
+              reached = true;
+              break;
+            }
           }
           if (stateNow() === 'result' || stateNow() === 'base') {
             end = player.hp <= 0 ? 'died' : 'extract';
@@ -272,7 +338,10 @@ test.each(cases)(
         setDropOnly(null);
         if (stateNow() !== 'base') goBase();
         await sleep(0);
+        seedSec += s.frames / 60;
+        if (reached) break; // (the seed is done once the depth is entered)
       }
+    }
     // one line per kind of player, for comparing them (and a change against what was there before); with SIM_DIVES, one
     // per dive of the seeds (the 1st dives, the 2nd, ...), to see how far each go gets
     for (let dive = 1; dive <= DIVES; dive++) summarize(DIVES > 1 ? rows.filter(r => r.dive === dive) : rows, dive);
