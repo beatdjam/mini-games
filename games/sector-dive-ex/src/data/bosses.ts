@@ -292,6 +292,21 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
       hitR: 3.4,
       tune: {
         bodyR: 2.2, // what it walks with (m)
+        farD: 18, // a player further than this: a leap instead of what only reaches close by (m)
+        sweepWarn: 1.0, // seconds of the red line on the floor before the beam
+        sweepLock: 0.3, // the line stops following the player this long before the beam (s)
+        sweepTime: [1.1, 0.8, 0.8], // seconds the beam takes across its arc, by stage
+        sweepArc: 1.5, // the arc it crosses (rad)
+        sweepLen: 40, // how far it reaches (m)
+        sweepW: 0.7, // it hurts what is within this of its line (m)
+        sweepDmg: 1.6, // multiplier on the boss's damage
+        leapWind: 0.8, // seconds it crouches, with the ring on the floor
+        leapLock: 0.3, // the ring stops following the player this long before it goes (s)
+        leapTime: 0.9, // seconds in the air
+        leapH: 7, // how high (m)
+        leapR: 5, // the ring, and what the landing crushes (m)
+        leapDmg: 2, // multiplier on the boss's damage
+        leapWave: [14, 20, 1.2],
         walk: [3, 5.5, 2.2], // by stage (m/s; walking is 7.4)
         turn: [0.9, 1.6, 1.2], // by stage: slow enough in the first to get round it (rad/s)
         gap: [2.4, 1.8, 1.2], // seconds of walking between two attacks, by stage
@@ -319,7 +334,7 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         throwDmg: 1.5, // multiplier on the boss's damage
         fallTime: 3, // seconds it lies still at no health
         riseTime: 1.6, // seconds it takes to get up
-        reviveHp: 0.25, // the share of its health the third stage has
+        reviveHp: 0.4, // the share of its health the third stage has
         chainN: 7, // blasts in a chain
         chainEvery: 0.28, // seconds between them
         chainStep: 3.2, // each is this far on from the last, toward the player (m)

@@ -3,7 +3,7 @@ import { basicMat } from '@engine/render/render.ts';
 import { COLOR } from '../../../data/colors.ts';
 import { at, ballGeo, boxGeo, cylGeo, machine } from '../machine.ts';
 import { shared } from '@engine/render/render.ts';
-import { turned } from './shared.ts';
+import { HALF, plateBallGeo, prismGeo, turned } from './shared.ts';
 // TITAN: nobody knows what it was built for, or if it was. It stands on two legs as a person does, and everything else
 // about that is wrong. The limbs are too thin and too long, the hands hang to the floor, the ribs have nothing inside
 // them, and where the head should be there is nothing: a blank pale face hangs from a long neck below the shoulders and
@@ -12,9 +12,13 @@ import { turned } from './shared.ts';
 // Its origin is the middle of its body, at TITAN_MID above the floor, and it faces +z
 export const TITAN_MID = 5.5; // BOSS_META.titan.y (m)
 const BODY_MID = 4.4; // the same before TITAN_SCALE: the numbers below are all before it (m)
-const TITAN_SCALE = TITAN_MID / BODY_MID; // the whole body is this much bigger
+export const TITAN_SCALE = TITAN_MID / BODY_MID; // the whole body is this much bigger
 const HIP_Y = -0.9; // the hips, below the origin (m)
 const LEG_LEN = BODY_MID + HIP_Y; // from the hips to the floor (m)
+export const TITAN_THIGH = LEG_LEN * 0.54; // (before TITAN_SCALE)
+export const TITAN_SHIN = LEG_LEN * 0.5; // a little more than the leg: it always stands with its knees bent
+const RIB_ARC = Math.PI * 1.55; // how far round a rib goes (rad)
+export const TITAN_HIP_Y = HIP_Y;
 const SHOULDER_Y = 2.7; // the shoulders, above the origin (m)
 const SHOULDER_X = 1.75; // the shoulders, to each side (m)
 const NECK_Y = 2.5; // where the neck leaves the chest, above the origin (m)
@@ -39,10 +43,10 @@ const EYES: [number, number, number, number][] = [
 export interface TitanParts {
   g: THREE.Group;
   torso: THREE.Group;
-  legL: THREE.Group;
-  legR: THREE.Group;
-  armL: THREE.Group;
-  armR: THREE.Group;
+  legL: { hip: THREE.Group; shin: THREE.Group; foot: THREE.Group };
+  legR: { hip: THREE.Group; shin: THREE.Group; foot: THREE.Group };
+  armL: { arm: THREE.Group; fore: THREE.Group; hand: THREE.Group };
+  armR: { arm: THREE.Group; fore: THREE.Group; hand: THREE.Group };
   armour: THREE.Group; // the plates that come off
   core: THREE.Mesh; // the one big eye in the ribs, seen once the armour is off
   reactor: THREE.Mesh; // the weak point on its back
@@ -95,34 +99,70 @@ function bundle(mat: THREE.Material, dark: THREE.Material, y0: number, len: numb
 function cracks(g: THREE.Group, dark: THREE.Material, list: [number, number, number, number][], z: number) {
   for (const [x, y, w, a] of list) g.add(turned(at(boxGeo(w, 0.022, 0.02), dark, x, y, z), 0, 0, a));
 }
-function titanLeg(mat: THREE.Material, void_: THREE.Material, x: number, veins: THREE.Material): THREE.Group {
-  const leg = new THREE.Group();
-  leg.position.set(x, HIP_Y, 0);
-  leg.add(
-    bundle(mat, void_, 0, LEG_LEN * 0.55, 0.42, 0.12), // the thigh
-    at(ballGeo(0.34), void_, 0, -LEG_LEN * 0.54, 0.2), // the knee: it bends the wrong way
-    bundle(mat, void_, -LEG_LEN * 0.52, LEG_LEN * 0.48, 0.28, -0.1), // the shin
-    at(boxGeo(0.5, 0.14, 1.5), void_, 0, -LEG_LEN + 0.07, 0.3), // the foot, long and flat
-    at(boxGeo(0.06, LEG_LEN * 0.9, 0.06), veins, 0, -LEG_LEN * 0.48, 0.38), // the light down its leg
+// a leg: the thigh swings from the hip, the shin from the knee (it bends the wrong way, as a bird's does), the foot from
+// the ankle, kept flat on the floor by the pose
+function titanLeg(mat: THREE.Material, void_: THREE.Material, x: number, veins: THREE.Material) {
+  const hip = new THREE.Group(),
+    shin = new THREE.Group(),
+    foot = new THREE.Group();
+  hip.position.set(x, HIP_Y, 0);
+  shin.position.y = -TITAN_THIGH;
+  foot.position.y = -TITAN_SHIN;
+  foot.add(
+    turned(at(prismGeo(0.14, 0.26, 0.5, 5), void_, 0, -0.02, -0.15), HALF * 1.1, 0, 0), // the heel
   );
-  return leg;
+  for (const a of [-0.42, 0, 0.42])
+    // three toes, long and splayed
+    foot.add(
+      turned(at(prismGeo(0.03, 0.12, 1.3, 4), void_, Math.sin(a) * 0.62, -0.03, Math.cos(a) * 0.62), HALF, 0, -a),
+    );
+  shin.add(
+    bundle(mat, void_, 0, TITAN_SHIN, 0.28),
+    at(boxGeo(0.05, TITAN_SHIN * 0.8, 0.05), veins, 0, -TITAN_SHIN * 0.5, 0.18),
+    foot,
+  );
+  hip.add(
+    bundle(mat, void_, 0, TITAN_THIGH, 0.42),
+    at(boxGeo(0.06, TITAN_THIGH * 0.8, 0.06), veins, 0, -TITAN_THIGH * 0.5, 0.26),
+    at(plateBallGeo(0.34), mat, 0, -TITAN_THIGH, 0), // the knee
+    shin,
+  );
+  return { hip, shin, foot };
 }
-function titanArm(mat: THREE.Material, void_: THREE.Material, x: number, veins: THREE.Material): THREE.Group {
-  const arm = new THREE.Group();
+// an arm: from the shoulder, the elbow and the wrist, with three long fingers nearly to the floor
+const UPPER_ARM = 2.9;
+const FOREARM = 2.7;
+function titanArm(mat: THREE.Material, void_: THREE.Material, x: number, veins: THREE.Material) {
+  const arm = new THREE.Group(),
+    fore = new THREE.Group(),
+    hand = new THREE.Group();
   arm.position.set(x, SHOULDER_Y, 0);
-  arm.add(
-    bundle(mat, void_, 0, 2.9, 0.28), // the upper arm
-    at(ballGeo(0.24), void_, 0, -2.95, 0), // the elbow
-    bundle(mat, void_, -2.95, 2.7, 0.2), // the forearm
-    at(boxGeo(0.05, 5.4, 0.05), veins, 0, -2.9, 0.18), // the light down its arm
-  );
-  // three long fingers, nearly to the floor
-  for (const a of [-0.28, 0, 0.3]) {
-    const f = at(boxGeo(0.07, 1.25, 0.09), void_, Math.sin(a) * 0.5, -6.1, Math.abs(a) * 0.2);
-    f.rotation.z = a;
-    arm.add(f);
+  fore.position.y = -UPPER_ARM;
+  hand.position.y = -FOREARM;
+  hand.add(at(plateBallGeo(0.18), void_, 0, 0, 0));
+  for (const a of [-0.32, 0, 0.34]) {
+    const knuckle = new THREE.Group();
+    knuckle.rotation.z = a;
+    knuckle.add(at(prismGeo(0.03, 0.07, 0.75, 4), void_, 0, -0.38, 0));
+    const tip = new THREE.Group();
+    tip.position.y = -0.75;
+    tip.rotation.x = -0.35;
+    tip.add(at(prismGeo(0.005, 0.03, 0.7, 4), void_, 0, -0.35, 0));
+    knuckle.add(tip);
+    hand.add(knuckle);
   }
-  return arm;
+  fore.add(
+    bundle(mat, void_, 0, FOREARM, 0.2),
+    at(boxGeo(0.04, FOREARM * 0.8, 0.04), veins, 0, -FOREARM * 0.5, 0.13),
+    hand,
+  );
+  arm.add(
+    bundle(mat, void_, 0, UPPER_ARM, 0.28),
+    at(boxGeo(0.05, UPPER_ARM * 0.8, 0.05), veins, 0, -UPPER_ARM * 0.5, 0.17),
+    at(plateBallGeo(0.24), mat, 0, -UPPER_ARM, 0), // the elbow
+    fore,
+  );
+  return { arm, fore, hand };
 }
 export function titanLook(mat: THREE.Material): TitanParts {
   const void_ = basicMat(0x030304),
@@ -142,38 +182,42 @@ export function titanLook(mat: THREE.Material): TitanParts {
     neck = new THREE.Group(),
     head = new THREE.Group(),
     under = new THREE.Group(),
-    legL = titanLeg(mat, void_, -0.75, veins),
-    legR = titanLeg(mat, void_, 0.75, veins),
-    armL = titanArm(mat, void_, -SHOULDER_X, veins),
-    armR = titanArm(mat, void_, SHOULDER_X, veins),
+    L = titanLeg(mat, void_, -0.75, veins),
+    R = titanLeg(mat, void_, 0.75, veins),
+    aL = titanArm(mat, void_, -SHOULDER_X, veins),
+    aR = titanArm(mat, void_, SHOULDER_X, veins),
     core = at(ballGeo(0.5), eyeMat, 0, 1.45, 0.05),
     reactor = at(ballGeo(0.62), eyeMat, 0, 1.5, -0.72),
     mask = at(ballGeo(0.62), face, 0, 0, 0.1);
-  // the ribs: bars round an empty chest, so the room shows through
-  for (let n = 0; n < 6; n++) {
-    const y = 0.45 + n * 0.42,
-      w = 1.05 + Math.sin((n / 5) * Math.PI) * 0.35;
+  // the ribs: curved, open at the front, so the room shows through and the eye sits in the gap
+  for (let n = 0; n < 7; n++) {
+    const r = 0.8 + Math.sin(((n + 0.5) / 7) * Math.PI) * 0.62,
+      rib = new THREE.Mesh(shared(new THREE.TorusGeometry(r, 0.055, 6, 18, RIB_ARC)), mat);
+    rib.position.set(0, 0.35 + n * 0.38, -0.05);
+    rib.rotation.set(HALF + 0.14, 0, HALF + (Math.PI * 2 - RIB_ARC) / 2);
+    rib.scale.set(0.82, 1.1, 1);
+    torso.add(rib);
+  }
+  // the spine, bone by bone, each with a spike
+  for (let n = 0; n < 9; n++) {
+    const y = -0.2 + n * 0.37;
     torso.add(
-      at(boxGeo(w * 2, 0.12, 0.12), mat, 0, y, 0.72),
-      at(boxGeo(0.12, 0.12, 1.4), mat, w, y, 0),
-      at(boxGeo(0.12, 0.12, 1.4), mat, -w, y, 0),
-      at(boxGeo(w * 2, 0.12, 0.12), mat, 0, y, -0.72),
+      at(prismGeo(0.12, 0.2, 0.26, 6), mat, 0, y, -0.95),
+      turned(at(prismGeo(0.005, 0.07, 0.75 - n * 0.04, 4), void_, 0, y + 0.1, -1.25), -0.95, 0, 0),
     );
   }
   torso.add(
-    at(boxGeo(0.34, 3.2, 0.3), mat, 0, 1.4, -0.7), // the spine
-    at(boxGeo(3.9, 0.3, 0.5), mat, 0, SHOULDER_Y, 0), // the yoke of the shoulders: narrow, and too wide for the chest
-    at(boxGeo(0.9, 0.9, 0.7), void_, 0, -0.35, 0), // the waist, thin
-    at(boxGeo(1.8, 0.35, 0.8), mat, 0, -0.85, 0), // the pelvis
+    turned(at(prismGeo(0.2, 0.42, 3.9, 6), mat, 0, SHOULDER_Y, -0.1), 0, 0, HALF), // the yoke of the shoulders
+    at(prismGeo(0.42, 0.28, 0.9, 6), void_, 0, -0.35, -0.3), // the waist, thin
+    at(prismGeo(0.9, 0.5, 0.5, 6), mat, 0, -0.85, 0), // the pelvis
+    at(plateBallGeo(0.3), mat, -SHOULDER_X, SHOULDER_Y, 0),
+    at(plateBallGeo(0.3), mat, SHOULDER_X, SHOULDER_Y, 0),
     core,
     reactor,
     armour,
-    armL,
-    armR,
+    aL.arm,
+    aR.arm,
   );
-  // the spines up its back
-  for (let n = 0; n < 5; n++)
-    torso.add(turned(at(boxGeo(0.07, 0.7 - n * 0.06, 0.07), void_, 0, 0.5 + n * 0.6, -1.0), -0.7, 0, 0));
   // the face: a pale blank oval on a long neck, hanging below the shoulders. Behind it, a knot of eyes
   neck.position.set(0, NECK_Y, NECK_Z);
   head.position.set(0, -NECK_LEN, 0.25);
@@ -191,18 +235,22 @@ export function titanLook(mat: THREE.Material): TitanParts {
   head.add(mask, under);
   neck.add(at(boxGeo(0.11, NECK_LEN, 0.11), void_, 0, -NECK_LEN / 2, 0.1), head);
   torso.add(neck);
-  // the plates: bone, put on crooked, and more on one side than on the other
+  // the plates: curved shells of bone that do not fit: on crooked, more on one side than the other, one over another,
+  // cracked, and bolted on from outside
+  const shell = (r0: number, r1: number, h: number, from: number, arc: number) =>
+    shared(new THREE.CylinderGeometry(r0, r1, h, 14, 1, true, from, arc));
+  bone.side = THREE.DoubleSide;
   armour.add(
-    turned(at(boxGeo(2.1, 1.5, 0.14), bone, 0.15, 1.7, 0.86), 0.08, 0.1, -0.09),
-    turned(at(boxGeo(1.2, 0.9, 0.12), bone, -0.5, 0.75, 0.82), -0.1, -0.15, 0.2),
-    turned(at(boxGeo(1.3, 0.3, 1.0), bone, SHOULDER_X, SHOULDER_Y + 0.22, 0), 0, 0.2, -0.28),
-    turned(at(boxGeo(0.34, 1.5, 0.42), bone, SHOULDER_X, 1.5, 0), 0.05, 0, 0.05),
-    turned(at(boxGeo(0.5, 1.1, 0.6), bone, -0.75, HIP_Y - 0.7, 0.2), -0.1, 0, 0.08),
-  );
-  // the plates are not whole: a second layer under them, cracks across, and bolts that hold them on from outside
-  armour.add(
-    turned(at(boxGeo(1.7, 1.15, 0.09), bone, -0.2, 1.55, 0.97), -0.04, -0.06, 0.12),
-    turned(at(boxGeo(0.8, 0.5, 0.09), bone, 0.72, 2.2, 0.98), 0.06, 0.12, -0.3),
+    turned(at(shell(1.5, 1.2, 1.8, -0.75, 1.6), bone, 0.05, 1.75, -0.2), 0.1, 0.05, -0.08),
+    turned(at(shell(1.45, 1.1, 1.1, -0.2, 1.15), bone, -0.1, 0.75, -0.25), 0.18, -0.5, 0.14),
+    turned(at(shell(1.56, 1.34, 1.0, -0.9, 0.85), bone, 0, 2.3, -0.2), 0.04, 0, 0.1),
+    // the great pauldron on one shoulder only, with spikes; a smaller one on the other
+    turned(at(shell(0.25, 0.95, 0.7, 0, Math.PI * 2), bone, SHOULDER_X, SHOULDER_Y + 0.25, 0), 0, 0, -0.3),
+    turned(at(shell(0.2, 0.55, 0.42, 0, Math.PI * 2), bone, -SHOULDER_X, SHOULDER_Y + 0.15, 0), 0, 0, 0.2),
+    turned(at(prismGeo(0.01, 0.13, 1.25, 4), bone, SHOULDER_X + 0.45, SHOULDER_Y + 0.75, 0.15), 0.1, 0, -0.5),
+    turned(at(prismGeo(0.01, 0.1, 0.8, 4), bone, SHOULDER_X - 0.1, SHOULDER_Y + 0.7, -0.25), -0.2, 0, 0.1),
+    // a plate strapped to the thigh's height
+    turned(at(shell(0.72, 0.5, 1.1, -0.9, 1.8), bone, -0.75, HIP_Y - 0.75, -0.1), 0.05, 0, 0.06),
   );
   cracks(
     armour,
@@ -210,21 +258,19 @@ export function titanLook(mat: THREE.Material): TitanParts {
     [
       [0.4, 2.1, 0.9, 0.5],
       [-0.1, 1.75, 1.1, -0.35],
-      [-0.6, 1.25, 0.7, 0.9],
-      [0.75, 1.2, 0.6, -1.1],
-      [0.05, 1.3, 0.5, 1.4],
+      [-0.55, 1.2, 0.7, 0.9],
+      [0.6, 1.3, 0.6, -1.1],
     ],
-    1.04,
+    1.32,
   );
   for (const [x, y] of [
-    [-0.95, 2.35],
-    [0.95, 2.4],
-    [1.05, 1.05],
-    [-1.0, 1.0],
-    [-0.05, 2.45],
+    [-0.8, 2.3],
+    [0.85, 2.35],
+    [0.85, 1.1],
+    [-0.75, 0.95],
   ] as const)
-    armour.add(at(cylGeo(0.05, 0.05, 0.06, 6), void_, x, y, 1.03, 'z'));
-  // inside the ribs, so the chest is not empty air up close: a tangle of pipes round the eye, and a plate down each flank
+    armour.add(at(cylGeo(0.05, 0.05, 0.08, 6), void_, x, y, 1.26, 'z'));
+  // inside the ribs: a tangle of pipes round the eye
   for (let n = 0; n < 9; n++) {
     const a = n * 2.4,
       y = 0.5 + ((n * 7) % 9) * 0.27;
@@ -237,7 +283,6 @@ export function titanLook(mat: THREE.Material): TitanParts {
       ),
     );
   }
-  // the mask: hairline cracks from one point, and a seam down it that is not quite straight
   cracks(
     head,
     void_,
@@ -290,17 +335,17 @@ export function titanLook(mat: THREE.Material): TitanParts {
     shards.add(blade);
   }
   torso.add(halo, crown);
-  g.add(torso, legL, legR, shards);
+  g.add(torso, L.hip, R.hip, shards);
   g.scale.setScalar(TITAN_SCALE);
   const whole = new THREE.Group();
   whole.add(g);
   return {
     g: whole,
     torso,
-    legL,
-    legR,
-    armL,
-    armR,
+    legL: L,
+    legR: R,
+    armL: aL,
+    armR: aR,
     armour,
     core,
     reactor,
