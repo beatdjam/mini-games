@@ -2,6 +2,7 @@ import type { Biome, BossKind } from '../data/types.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { BOSS_ROOMS } from '../data/bossRooms.ts';
 import { BOSS_AREA_START_TIER, MILESTONE_EVERY, milestoneBelow } from '../data/progress.ts';
+import { t } from '@engine/core/i18n.ts';
 // the boss area (the hall and the eight boss rooms): its depth once settled in the save, and where each boss's room is
 // The flag is off in the published build: only the dev server has it on (import.meta.env.DEV is false in a build)
 let on = import.meta.env.DEV;
@@ -18,5 +19,14 @@ export function bossAreaTierFor(shortcut: number, startTier: number): number {
 }
 // the sector whose building holds that boss's room (data/bossRooms.ts)
 export function bossRoomBiome(kind: BossKind): Biome {
-  return BIOMES.find(b => b.code === BOSS_ROOMS[kind])!;
+  const home = BIOMES.find(b => b.code === BOSS_ROOMS[kind])!;
+  if (kind !== 'titan') return home;
+  // (read through a prototype: the sector's fields stay as they are, whichever the language)
+  mixed ??= Object.create(home, {
+    code: { value: 'MIX' },
+    name: { get: () => t('boss.hallPlace') },
+  }) as Biome;
+  return mixed;
 }
+// TITAN's room: built as the city's plan, drawn with the sectors run together (world/looks.ts MIX), and nobody's sector
+let mixed: Biome | undefined;

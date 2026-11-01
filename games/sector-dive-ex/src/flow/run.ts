@@ -443,7 +443,7 @@ export function startStage(opts?: { backToHall?: boolean }) {
       target: bossKind ?? room?.boss ?? '',
     });
   if (inHall) {
-    const at = buildHall(b);
+    const at = buildHall(bossRoomBiome('titan')); // the sectors run together, as in TITAN's room
     player.x = at.start[0];
     player.z = at.start[1];
     player.yaw = 0;
@@ -495,7 +495,7 @@ export function startStage(opts?: { backToHall?: boolean }) {
     }, HINT_DELAY_MS);
   setState('play');
   checkpoint();
-  if (!isArena) setMusic(b.code);
+  if (!isArena) setMusic(room?.boss === 'titan' ? BOSS_ROOMS.titan : b.code); // (TITAN's room has no tune of its own)
   musicVolume(1);
   updateHint();
 }

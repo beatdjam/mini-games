@@ -759,7 +759,7 @@ export function buildFixedLevel(biome: Biome, map: FixedMap) {
 }
 // The hall of the boss area: a fixed, plain map with no enemy and no pickup, where the run enters the depth. The gates
 // are made by the caller (portals.ts imports this file): their places are returned, in world coordinates. The hall's
-// look and music are BIOMES[0] (DATA) for now, until the hall's own look is decided.
+// look is the sectors run together (world/looks.ts MIX), its music BIOMES[0] (DATA) for now.
 export function buildHall(biome: Biome): {
   start: [number, number];
   extract: [number, number];

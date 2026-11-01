@@ -41,6 +41,7 @@ export {
   WALL_PLAIN_SHARE,
   facesWest,
   floorPic,
+  patchOf,
   roomKindOf,
   variantOf,
   wallHall,
@@ -73,7 +74,44 @@ const MAKERS: Record<string, () => Look> = {
     props: mallProps,
   }),
   HOSP: () => ({ ...hospPictures(), deckSide: hospDeckTex(), cover: hospCover, props: hospProps }),
+  MIX: () => mixedLook(),
 };
+const MIXED_SECTORS = ['DATA', 'FORGE', 'NOISE', 'RUIN', 'KWLN', 'CITY', 'MALL', 'HOSP'];
+// The deepest place, where the sectors run into each other: the boss rooms' walls and floors of all of them (the
+// ordinary ones where a sector has none of its own), in patches (common.ts patchPic). Their props stay at home. The rest
+// is the city's
+function mixedLook(): Look {
+  const looks = MIXED_SECTORS.map(code => (made[code] ??= MAKERS[code]!())),
+    walls: Look['walls'] = [],
+    floors: Look['floors'] = [],
+    wallPatches = looks.map(l => {
+      const set = l.roomWalls?.hall ?? l.roomWalls?.common ?? l.walls.map((_, v) => v);
+      const special = [...(l.wallSides?.outer ?? []), ...(l.wallSides?.inner ?? []), ...(l.liftWalls ?? [])];
+      if (l.wallSides?.yard !== undefined) special.push(l.wallSides.yard);
+      return set.filter(v => !special.includes(v)).map(v => walls.push(l.walls[v]!) - 1);
+    }),
+    patches = looks.map(l =>
+      (l.roomFloors?.hall ?? Array.from({ length: l.roomFloors?.plain ?? l.floors.length }, (_, v) => v)).map(
+        v => floors.push(l.floors[v]!) - 1,
+      ),
+    ),
+    city = looks[MIXED_SECTORS.indexOf('CITY')]!;
+  return {
+    walls,
+    floors,
+    wallPatches,
+    ceilingPatches: looks.map(l => l.hall?.ceiling ?? l.ceiling),
+    upperPatches: looks.map(l => l.hall?.upper ?? l.walls[0]!),
+    roomFloors: { plain: floors.length, shops: [], patches },
+    deck: city.deck,
+    deckSide: city.deckSide,
+    ceiling: city.ceiling,
+    door: city.door,
+    bossDoor: city.bossDoor,
+    fog: city.fog,
+    props: () => {},
+  };
+}
 // The walled city is a canyon: bright where people walk, black overhead. Its walls are darkened toward their tops
 // and its ceiling nearly put out, once, when the look is made; the signs, lamps and cables stand out against that
 function soot(look: Look): Look {

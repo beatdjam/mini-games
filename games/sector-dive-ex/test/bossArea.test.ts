@@ -17,6 +17,7 @@ import { run, player } from '../src/actors/player.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { building } from '../src/world/building.ts';
 import { devSeed, level } from '../src/world/level.ts';
+import { lookOf } from '../src/world/looks.ts';
 import { makePortal, makeTerminal } from '../src/world/portals.ts';
 import { setState, state } from '../src/flow/state.ts';
 import {
@@ -1046,4 +1047,22 @@ test('boss area off: the labels and the events stay', () => {
   TRACK_LOG.length = 0;
   endRun('extract');
   expect(eventParams('level_end', 'stage_type'), "the depth's sector").toBe(stageInfo(run.stage).biome.code);
+});
+
+// ---- the deepest place: the sectors run together ----
+test("the hall and TITAN's room are drawn with the sectors run together", () => {
+  enterHallRun([...BOSS_ROOM_ORDER]);
+  expect(level.biome.code, 'the hall').toBe('MIX');
+  expect(enterBossRoom('titan'), 'into the room').toBe(true);
+  expect(level.biome.code, "TITAN's room").toBe('MIX');
+  expect(level.biome.name, "nobody's sector").toBe(t('boss.hallPlace'));
+  expect(level.biome.gen, "the city's plan").toBe(BIOMES.find(b => b.code === 'CITY')!.gen);
+  const look = lookOf(level.biome)!;
+  expect(look.wallPatches?.length, 'all eight sectors').toBe(BOSS_ROOM_ORDER.length);
+  expect(look.ceilingPatches?.length, 'their ceilings too').toBe(BOSS_ROOM_ORDER.length);
+});
+
+test('boss area off: a sector is drawn as its own', () => {
+  devBossArea(false);
+  expect(lookOf(BIOMES.find(b => b.code === 'CITY')!)?.wallPatches, 'the city as it is').toBeUndefined();
 });
