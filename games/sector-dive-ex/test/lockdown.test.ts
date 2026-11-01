@@ -45,6 +45,9 @@ test('lockdown: the room does not shut on a player still in its doorway (they co
   expect(locked(), 'shut once the player is clear of the door').toBe(true);
   goBase();
 });
+test("the tests' storage is this file's own, not the browser's shared one (setup.ts)", () => {
+  expect(localStorage instanceof Storage).toBe(false);
+});
 test('lockdown: it waits for an enemy holding a door open, and a player who gets out past it is not left outside', () => {
   enterBuilding(b => !!b.lockdown);
   const ld = building!.lockdown!;
