@@ -148,7 +148,7 @@ test('#bossrush: the player is set from the real save, the damage grown to the d
   setRushBuild(49);
   const whole = player.dmgMul * player.lvlDmg * wDmgMul(currentWeapon());
   expect(whole, 'the stats multiplier').toBeCloseTo(rushDamage(49));
-  expect(rushDamage(44), 'where it comes from').toBe(2400);
+  expect(rushDamage(49), 'the damage the boss area is tuned for').toBe(3000);
   expect(player.fireRate, 'the rest of the build').toBeCloseTo(9.66);
   expect(player.maxHp).toBe(1160);
   expect(currentWeapon().id).toBe('shotgun');
