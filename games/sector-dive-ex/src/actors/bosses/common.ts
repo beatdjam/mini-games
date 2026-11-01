@@ -11,6 +11,7 @@ import { floorY, tileIndex } from '@engine/world/tiles.ts';
 import { query } from '@engine/core/world.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
+import { BOSS_ROOM_ORDER } from '../../data/bossRooms.ts';
 import { hpGrowth, isMilestone } from '../../data/progress.ts';
 import { persist, save } from '../../core/save.ts';
 import { openShortcut, recordBossKill, recordBossRoomBeaten, recordBossSeen, recordPeak } from '../../core/progress.ts';
@@ -64,6 +65,7 @@ const BOSS_WEAPON_LUCKY_ABOVE = 0.9; // a lucky roll above this raises the weapo
 const BOSS_WEAPON_MIN_RARITY = 1; // minimum rarity of the weapon (index into RARITY: 1 = ★★)
 const BOSS_WEAPON_LUCKY_RARITY = 2; // minimum rarity on a lucky roll (★★★)
 const BOSS_WEAPON_PROGRESS_BONUS = 2; // the weapon is rolled as if this many progress points deeper
+const BOSS_BEATEN_TOAST_MS = 2600; // the "beaten n/8" toast (ms)
 // boss health multiplier: 1.33 x hpMul at the D1 boss (progress 4), then x growth per depth (about 4.0 at D3),
 // sliding down to x lateGrowth per depth deeper in (hpGrowth in src/data/progress.ts)
 export function bossDifficulty() {
@@ -365,6 +367,10 @@ export function bossDown(e: Boss) {
     if (first) {
       giveBossRewards(e, progressOf(run.stage));
       recordBossKill();
+      toast(
+        t('boss.beatenCount', { n: save.records.bossArea?.beaten.length ?? 0, max: BOSS_ROOM_ORDER.length }),
+        BOSS_BEATEN_TOAST_MS,
+      );
     } else {
       dropBits(e.x, e.z, BOSS_TUNE.bits * BOSS_TUNE.bitsKept * bossDifficulty());
       track('boss_defeated', { target: e.kind, level: tier + 1 });

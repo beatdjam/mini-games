@@ -5,7 +5,9 @@ import { afterEach, beforeAll, expect, test } from 'vitest';
 import type { BossKind, Pickup, PortalKind } from '../src/data/types.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { BOSS_ORDER } from '../src/data/bosses.ts';
-import { BOSS_ROOMS } from '../src/data/bossRooms.ts';
+import { BOSS_ROOMS, BOSS_ROOM_ORDER } from '../src/data/bossRooms.ts';
+import { COLOR } from '../src/data/colors.ts';
+import { PORTAL } from '../src/data/level.ts';
 import { PER, BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { SAVE_KEY, save } from '../src/core/save.ts';
 import { bossAreaTierFor, bossRoomBiome, devBossArea } from '../src/core/bossArea.ts';
@@ -24,7 +26,7 @@ import { hurtEnemy } from '../src/actors/combat.ts';
 import { query } from '@engine/core/world.ts';
 import { TRACK_LOG } from '@engine/core/analytics.ts';
 import { W, tileCenter, tileIndex } from '@engine/world/tiles.ts';
-import { wrapAngle, yawToward } from '@engine/core/util.ts';
+import { el, wrapAngle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { bootGame, enterBuilding, goToFloor, putOnTile, stateIs, tick } from './helpers.ts';
 
@@ -71,7 +73,12 @@ test('planOf: a depth is the boss area only where the save settled it', () => {
 });
 
 test('BOSS_ROOMS: every boss has a sector of its own, and all of them are sectors of the game', () => {
-  expect(Object.keys(BOSS_ROOMS).sort(), 'the same eight bosses').toEqual([...BOSS_ORDER].sort());
+  expect(BOSS_ROOM_ORDER.length, 'the eight rooms').toBe(8);
+  expect(new Set(BOSS_ROOM_ORDER).size, 'one room each').toBe(BOSS_ROOM_ORDER.length);
+  BOSS_ROOM_ORDER.forEach(kind => {
+    expect(Object.keys(BOSS_ROOMS), `${kind} has a room`).toContain(kind);
+    expect(BOSS_ORDER, `${kind} is a boss`).toContain(kind);
+  });
   const codes = Object.values(BOSS_ROOMS),
     sectors = BIOMES.map(b => b.code);
   expect(new Set(codes).size, 'a sector each').toBe(codes.length);
@@ -104,15 +111,18 @@ test('a deep start settles the area and leaves the supply chip picks open', () =
 });
 
 // a dive at the boss area's depth: the supply chip picks open first; tick(2) closes that screen and play goes on
-function enterHallRun() {
+function enterHallRun(beaten: BossKind[] = []) {
   goBase();
-  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten };
   save.shortcut = BOSS_AREA_START_TIER;
   save.startTier = BOSS_AREA_START_TIER;
   startRun(true);
   expect(state, 'the supply chip pick is open first').toBe('perk');
   tick(2);
 }
+
+// the ten gates of the hall: the way out, the terminal and a room for each boss
+const hallGateKinds = () => ['extract', 'room', 'room', 'room', 'room', 'room', 'room', 'room', 'room', 'terminal'];
 
 test('a dive in the boss area starts in the hall', () => {
   enterHallRun();
@@ -121,11 +131,7 @@ test('a dive in the boss area starts in the hall', () => {
   expect(level.floor).toBe(-1);
   expect(level.rooms.length).toBe(1);
   expect(enemies.length, 'no enemy in the hall').toBe(0);
-  expect(level.portals.map(p => p.kind).sort(), 'the way out, the terminal and the room gate').toEqual([
-    'extract',
-    'room',
-    'terminal',
-  ]);
+  expect(level.portals.map(p => p.kind).sort(), 'the way out, the terminal and the rooms').toEqual(hallGateKinds());
   expect(save.suspend?.run.area, 'the checkpoint keeps the hall').toEqual({ at: 'hall' });
   expect(save.suspend?.run.bld).toBeUndefined();
   expect(stageLabel(run.stage), 'the hall is named on screen').toBe(t('boss.hall'));
@@ -139,7 +145,36 @@ test('a run suspended in the hall resumes in the hall', () => {
   expect(level.floor, 'still a level of its own').toBe(-1);
   expect(run.bld, 'still no building').toBeUndefined();
   expect(enemies.length, 'still no enemy').toBe(0);
-  expect(level.portals.map(p => p.kind).sort(), 'the gates are made again').toEqual(['extract', 'room', 'terminal']);
+  expect(level.portals.map(p => p.kind).sort(), 'the gates are made again').toEqual(hallGateKinds());
+});
+
+test('the hall has eight room gates clear of each other', () => {
+  enterHallRun();
+  const rooms = level.portals.filter(p => p.kind === 'room');
+  expect(rooms.length, 'a gate for each boss').toBe(8);
+  expect(
+    rooms.map(p => p.boss),
+    'the order BOSS_ROOM_ORDER lists the rooms in',
+  ).toEqual(BOSS_ROOM_ORDER);
+  expect(new Set(rooms.map(p => p.boss)).size, 'one gate for each boss').toBe(8);
+  expect(level.portals.length, 'the way out, the terminal and the eight rooms').toBe(10);
+  level.portals.forEach((a, i) =>
+    level.portals.slice(i + 1).forEach(b => {
+      expect(
+        Math.hypot(a.x - b.x, a.z - b.z),
+        `the gates at (${a.x}, ${a.z}) and (${b.x}, ${b.z}) are clear of each other`,
+      ).toBeGreaterThanOrEqual(2 * PORTAL.clearR);
+    }),
+  );
+});
+
+test("a beaten room's gate is dim", () => {
+  enterHallRun(['crusher']);
+  const gate = (kind: BossKind) => level.portals.find(p => p.kind === 'room' && p.boss === kind)!;
+  expect(gate('crusher').color, 'the beaten room').toBe(COLOR.dim);
+  BOSS_ROOM_ORDER.filter(kind => kind !== 'crusher').forEach(kind =>
+    expect(gate(kind).color, `${kind} is not beaten yet`).toBe(COLOR.violet),
+  );
 });
 
 test('a boss room stage brings the hall back', () => {
@@ -162,6 +197,22 @@ test('boss area off: the boss area depth keeps the building', () => {
   expect(planOf(BOSS_AREA_START_TIER * PER).area, 'no boss area').toBe(false);
   expect(run.bld, 'the building is there').toBeTruthy();
   expect(level.floor, 'a floor of it').toBeGreaterThanOrEqual(0);
+});
+
+test('boss area off: the room gates stay out of the run', () => {
+  devBossArea(false);
+  goBase();
+  save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
+  save.shortcut = BOSS_AREA_START_TIER;
+  save.startTier = BOSS_AREA_START_TIER;
+  startRun(true);
+  tick(2);
+  expect(run.bld, 'the building is there').toBeTruthy();
+  expect(level.floor, 'a floor of it').toBeGreaterThanOrEqual(0);
+  expect(
+    level.portals.filter(p => p.kind === 'room' || p.kind === 'hall'),
+    'no room gates',
+  ).toEqual([]);
 });
 
 // ---- the boss rooms: the lowest floor of the boss's sector building, entered by hand (no gate yet) ----
@@ -289,6 +340,20 @@ test('a gate into a boss room starts the room', () => {
   expect(level.hall, 'its boss hall').toBeTruthy();
 });
 
+test('a beaten room can be entered and fought again', () => {
+  enterHallRun(['crusher']);
+  const gate = level.portals.find(p => p.kind === 'room' && p.boss === 'crusher')!;
+  tick(70); // PORTAL.armTime (1 s) with the player clear of the gate
+  putOnTile(tileIndex(gate.x, gate.z));
+  // the room gates stand on tile edges, so putOnTile lands two metres off: step onto the gate itself
+  player.x = gate.x;
+  player.z = gate.z;
+  tick(2);
+  expect(run.area, "the run is in the crusher's room again").toEqual({ at: 'room', boss: 'crusher' });
+  expect(run.bld?.beaten, 'the boss is not beaten in this run yet').toBeFalsy();
+  expect(boss, 'the boss has not come yet').toBeNull();
+});
+
 test('a gate back to the hall drops the building', () => {
   enterRoom();
   expect(run.bld, 'in the building first').toBeTruthy();
@@ -333,14 +398,12 @@ function beatRoomBoss() {
   tick(2);
 }
 
-test('the hall has one gate into the boss room', () => {
+test("the crusher's gate is one of the hall's room gates", () => {
   enterHallRun();
-  expect(level.portals.map(p => p.kind).sort(), 'the way out, the terminal and one room').toEqual([
-    'extract',
-    'room',
-    'terminal',
-  ]);
-  const into = level.portals.find(p => p.kind === 'room')!;
+  const rooms = level.portals.filter(p => p.kind === 'room');
+  expect(rooms.length, 'eight gates into the rooms').toBe(8);
+  const into = rooms.find(p => p.boss === 'crusher')!;
+  expect(into, "the crusher's room has a gate").toBeTruthy();
   expect(into.boss, "the crusher's room").toBe('crusher');
 });
 
@@ -375,6 +438,21 @@ test("a boss room's record stays one after beating it again", () => {
   expect(run.bosses!.filter(k => k === 'crusher').length, 'no second entry in the run').toBe(bosses);
   expect(lying('chip'), 'no chip the second time').toBe(chips);
   expect(lying('weapon'), 'no weapon the second time').toBe(weapons);
+});
+
+test('the beaten count comes only the first time', () => {
+  enterRoom();
+  beatRoomBoss();
+  expect(el('#toast').textContent, 'the count after the first room').toBe(
+    t('boss.beatenCount', { n: 1, max: BOSS_ROOM_ORDER.length }),
+  );
+  el('#toast').textContent = ''; // cleared, so a count shown again would be seen
+  returnToHall();
+  enterBossRoom('crusher');
+  beatRoomBoss();
+  expect(el('#toast').textContent, 'no count when the room is beaten again').not.toBe(
+    t('boss.beatenCount', { n: 1, max: BOSS_ROOM_ORDER.length }),
+  );
 });
 
 test("the hall has only the way back after a room's boss", () => {

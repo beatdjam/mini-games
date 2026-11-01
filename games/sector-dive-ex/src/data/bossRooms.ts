@@ -10,3 +10,15 @@ export const BOSS_ROOMS: Record<BossKind, string> = {
   hoist: 'MALL',
   surgeon: 'HOSP',
 };
+// the boss area's eight rooms, in the order the hall's gates stand round it (TITAN is not one of them: the eight-room
+// checks go by this list, so a ninth boss does not change them)
+export const BOSS_ROOM_ORDER: BossKind[] = [
+  'watcher',
+  'crusher',
+  'core',
+  'phantom',
+  'trinity',
+  'bastion',
+  'hoist',
+  'surgeon',
+];
