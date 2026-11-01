@@ -5,7 +5,7 @@ import type { Boss } from '../src/data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { BOSS_META, BOSS_TUNE } from '../src/data/bosses.ts';
 import { devBossArea } from '../src/core/bossArea.ts';
-import { SAVE_KEY, saveKeyFor } from '../src/core/save.ts';
+import { SAVE_KEY, save, saveKeyFor } from '../src/core/save.ts';
 import { currentWeapon, player } from '../src/actors/player.ts';
 import { wDmgMul } from '../src/actors/weapons.ts';
 import { rushDamage, setRushBuild } from '../src/dev/views/bossRush.ts';
@@ -125,13 +125,15 @@ test('second stage: the grab catches a player in front, holds them and throws th
   endRun('abandon');
 });
 
-test('the practice list has TITAN only with the boss area', () => {
+test('the practice list has TITAN only once it is beaten', () => {
   goBase();
+  save.records.cleared = false;
   renderBase();
-  expect(el('#bossList').innerHTML, 'with it').toContain('data-practice="titan"');
-  devBossArea(false);
+  expect(el('#bossList').innerHTML, 'before').not.toContain('data-practice="titan"');
+  save.records.cleared = true;
   renderBase();
-  expect(el('#bossList').innerHTML, 'without it').not.toContain('data-practice="titan"');
+  expect(el('#bossList').innerHTML, 'after').toContain('data-practice="titan"');
+  save.records.cleared = false;
 });
 
 test('the way in to play the boss area: a save of its own, only on the dev server', () => {

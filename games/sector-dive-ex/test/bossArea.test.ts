@@ -1,4 +1,4 @@
-// Smoke test for Sector Dive Extended, the boss area: its depth, the flag that keeps it out of the published build, and
+// Smoke test for Sector Dive Extended, the boss area: its depth, the flag that can turn it off, and
 // where each boss's room is. Boots the game page (setup.ts) once for this file (bootGame) and runs it through the real
 // loop by hand. Each test makes the state it needs; the file passes on its own and in any order.
 import { afterEach, beforeAll, expect, test } from 'vitest';
@@ -48,7 +48,7 @@ import { bootGame, enterBuilding, goToFloor, putOnTile, stateIs, tick } from './
 
 beforeAll(async () => {
   await bootGame();
-  devBossArea(true); // not left to import.meta.env.DEV
+  devBossArea(true);
 });
 afterEach(() => {
   devBossArea(true);
