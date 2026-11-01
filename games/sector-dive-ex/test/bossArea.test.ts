@@ -833,6 +833,10 @@ test('TITAN down again offers only the way back to the hall', () => {
   spawnBoss('titan');
   bossDown(boss!);
   expect(el('#toast').textContent, 'not the first-time message, nor a choice of gates').toBe(t('boss.toHall'));
+  expect(lying('chip'), 'no chip the second time').toBe(0);
+  expect(lying('kit'), 'no kit the second time').toBe(0);
+  expect(lying('weapon'), 'no weapon the second time').toBe(0);
+  expect(lying('bit'), 'its bits').toBeGreaterThan(0);
 });
 
 test('the way to TITAN opens only the first time the eighth room falls', () => {
