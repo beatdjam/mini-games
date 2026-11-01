@@ -1,6 +1,5 @@
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
-import { bossRoomBiome } from '../core/bossArea.ts';
 import { musicVolume } from '@engine/audio/music.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import {
@@ -19,7 +18,7 @@ import { chipSummary } from '../core/rules.ts';
 import { boss } from '../world/entities.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
 import { critChance, magSize, wDmgMul, weaponText, weaponOptCount } from '../actors/weapons.ts';
-import { floorLabel, stageInfo, stageLabel } from '../core/stages.ts';
+import { floorLabel, placeName, stageLabel } from '../core/stages.ts';
 import { bigmap } from '../ui/hud.ts';
 import { renderSettings } from '@engine/ui/settings.ts';
 import { setState, show, state } from '../flow/state.ts';
@@ -31,13 +30,8 @@ import { rowsHTML } from '@engine/ui/dom.ts';
 // the run's own text that was written out in the old language (the language can be switched from the pause screen)
 export function refreshRunText() {
   if (!run || !player) return;
-  const si = stageInfo(run.stage),
-    // the boss area: the hall is nobody's sector, and a room is in the sector of its boss, not of the depth
-    place = !si.area
-      ? si.biome.name
-      : run.area?.at === 'room'
-        ? bossRoomBiome(run.area.boss).name
-        : t('boss.hallPlace');
+  // the boss area: the hall is nobody's sector, and a room is in the sector of its boss, not of the depth
+  const place = placeName();
   // the step along the route, the floor of the building it is on, the sector
   // (in two parts: the old layout runs them on one line, the new one puts the sector on a line of its own: hud2.ts)
   el('#stageLbl').innerHTML =

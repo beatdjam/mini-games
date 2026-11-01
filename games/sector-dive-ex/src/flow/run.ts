@@ -61,6 +61,7 @@ import {
   firstStageOf,
   floorLabel,
   isBossStage,
+  placeName,
   planOf,
   stageInfo,
   stageLabel,
@@ -398,7 +399,9 @@ export function useLink(n: number) {
   persist();
   startStage();
 }
-export function startStage() {
+// backToHall: the stage is the hall the player has just come back to from a room: it sends no level_start (going back
+// within the boss area is not a new level; entering a room still sends one)
+export function startStage(opts?: { backToHall?: boolean }) {
   const si = stageInfo(run.stage),
     inBuilding = run.kind !== 'practice', // boss practice is a boss arena on its own, as in Sector Dive
     isArena = !inBuilding && isBossStage(run.stage),
@@ -431,7 +434,7 @@ export function startStage() {
     fade.style.opacity = '0';
   });
   const bossKind = isArena ? run.forceBoss || pick(b.bosses) : null;
-  if (run.kind !== 'practice')
+  if (run.kind !== 'practice' && !opts?.backToHall)
     track('level_start', {
       level: si.tier + 1,
       stage: inHall ? 0 : inBuilding ? run.bld!.step + 1 : si.sub + 1,
@@ -510,7 +513,7 @@ export function returnToHall(): boolean {
   // the hall's heal after a room's boss: full HP for now, to be decided by playing
   if (run.bld?.beaten) player.hp = player.maxHp;
   run.area = { at: 'hall' };
-  startStage();
+  startStage({ backToHall: true });
   return true;
 }
 // deeper sectors lean toward the biome's tougher enemy types
@@ -588,13 +591,26 @@ export function endRun(kind: RunEnd) {
   exitLock();
   const got = Math.floor(run.bits),
     kept = dead ? Math.floor(got * TUNE.deathBitsKeep) : got;
-  const si = stageInfo(run.stage);
+  const si = stageInfo(run.stage),
+    inArea = bossAreaOn() && si.area,
+    place = inArea ? run.area : undefined,
+    room = place?.at === 'room' ? place : null,
+    inHall = inArea && !room;
+  // the boss area names its place as its level_start did: the hall is the depth's start, a room the sector's boss
   track('level_end', {
     result: kind,
     level: si.tier + 1,
-    stage: isBossStage(run.stage) ? PER : run.bld ? run.bld.step + 1 : si.sub + 1,
-    stage_type: si.biome.code,
-    stage_role: isBossStage(run.stage) ? 'boss' : 'normal',
+    stage: inHall
+      ? 0
+      : room
+        ? run.bld!.step + 1
+        : isBossStage(run.stage)
+          ? PER
+          : run.bld
+            ? run.bld.step + 1
+            : si.sub + 1,
+    stage_type: room ? bossRoomBiome(room.boss).code : inHall ? BIOMES[0].code : si.biome.code,
+    stage_role: inHall ? 'normal' : room ? 'boss' : isBossStage(run.stage) ? 'boss' : 'normal',
     count: run.kills,
     upgrades: run.perks.length,
     value: kept,
@@ -615,7 +631,7 @@ export function endRun(kind: RunEnd) {
     );
   }
   const facts: RunResultFacts = {
-    reached: `${stageLabel(run.stage)}　${si.biome.name}`,
+    reached: `${stageLabel(run.stage)}　${placeName()}`,
     kills: run.kills,
     dead,
     got,

@@ -1125,7 +1125,8 @@
   - 公開版では出ない（`bossAreaOn` in `src/core/bossArea.ts`。`import.meta.env.DEV` のときだけ有効）
   - 深度: 新セーブは D50（0始まり 49）。既に D50 を超えているセーブは、最初の潜行の開始深度より深い次の節目。`save.records.bossArea.tier` に1回だけ確定する（`bossAreaTierFor`）
   - ボス部屋のセクター: WATCHER→DATA、CRUSHER→FORGE、CORE→NOISE、PHANTOM→RUIN、TRINITY→KWLN、BASTION→CITY、HOIST→MALL、SURGEON→HOSP（`BOSS_ROOMS` in `src/data/bossRooms.ts`）
-  - 広間の表示は「最深部」「不明なエリア」（どのセクターでもない）。ボス部屋の表示はそのボスのセクター
+  - 広間の表示は「最深部」「不明なエリア」（どのセクターでもない）。ボス部屋の表示はそのボスのセクター。広間の場所の名前は遊んでいるあいだと拠点の中断欄に出し、拠点の最高記録は深度（`D50 1/9` など）で出す
+  - `level_start` は広間に入るとき・部屋に入るとき・潜行の開始・中断からの再開で送る。部屋から広間へ戻るときは送らない（`startStage({ backToHall: true })`）。`level_end` の段・種類・役割は、広間なら広間の `level_start` と同じ値にする
   - ボスエリアの深度に入ると、建物ではなく固定マップの四角い部屋1つ（仮）の広間から始まる。`run.area = { at: 'hall' }`、`run.bld` は無い
   - 広間に敵・拾い物は置かない。帰還のゲート・強化のターミナル・ボス部屋へ入るゲート（`room`）が8つある。部屋ゲートは `BOSS_ROOM_ORDER`（`src/data/bossRooms.ts`）の順に並ぶ8種で、TITAN は入らない
   - 部屋ゲートにはボス名を出す。倒した部屋（`save.records.bossArea.beaten` にあるボス）のゲートは色が `dim` になり、札に「撃破済み」が付く。倒した部屋にもう一度入ると、またそのボスと戦える（記録は消えない）
