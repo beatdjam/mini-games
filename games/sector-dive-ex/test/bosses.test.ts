@@ -27,6 +27,16 @@ import { update } from '../src/flow/update.ts';
 import { COLOR } from '../src/data/colors.ts';
 import { tick, bootGame } from './helpers.ts';
 
+// TITAN's way to its last stage: hit down through the armour, fallen, and up again
+function titanToLastStage() {
+  const b = boss as Boss & { revived: boolean };
+  for (let n = 0; n < 2000 && !b.revived; n++) {
+    if (b.spawnT <= 0 && b.hp > 0) hurtEnemy(b, b.maxHp, false);
+    tick(1);
+  }
+  if (!b.revived) throw new Error('TITAN did not get up');
+}
+
 beforeAll(bootGame);
 
 test('watcher: drones at 75% and 40%', () => {
@@ -670,6 +680,7 @@ test('boss practice: fight, win, go home; the save does not change', () => {
       enemies.filter(e => !e.boss).forEach(e => hurtEnemy(e, 1e6, false));
       tick(20);
     }
+    if (kind === 'titan') titanToLastStage();
     spawnWave(boss!.x, boss!.z, 11, 18, 10, COLOR.orange); // a shockwave still spreading when the boss falls
     hurtEnemy(boss!, boss!.hp + 1, false);
     if (query('wave').length) throw new Error('shockwave outlived the boss ' + kind);

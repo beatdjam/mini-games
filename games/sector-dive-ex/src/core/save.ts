@@ -4,6 +4,11 @@ import { decodeStore, encodeStore, loadStore, saveStore } from '@engine/core/sto
 import { setVolumes } from '@engine/audio/audio.ts';
 // Save data: defaults and conversions from older versions (reading / writing is engine/src/core/store.ts)
 export const SAVE_KEY = 'sector-dive-ex-v1';
+// dev: the way into the boss area to play it (dev/views/bossRush.ts) keeps a save of its own, so the real one is not touched
+export const BOSS_RUSH_HASH = '#bossrush';
+export const saveKeyFor = (hash: string, dev: boolean): string =>
+  dev && hash.startsWith(BOSS_RUSH_HASH) ? `${SAVE_KEY}-bossrush` : SAVE_KEY;
+export const ACTIVE_SAVE_KEY = saveKeyFor(location.hash, import.meta.env.DEV);
 export const BASE_TAB_KEY = 'sdx-base-tab'; // the base tab last opened (a preference, kept apart from the save)
 // the version of the save's shape (1: stageV, levelV and supplyV are one version, and records is added)
 export const SAVE_VERSION = 1;
@@ -87,7 +92,7 @@ function migrateTo1(out: SaveData, raw: Record<string, any>) {
 // the conversions from older versions, in order (to = the version whose shape the function makes)
 const MIGRATIONS: [to: number, migrate: (out: SaveData, raw: Record<string, any>) => void][] = [[1, migrateTo1]];
 function loadSave(): SaveData {
-  const { data: out, raw: s } = loadStore(SAVE_KEY, defaultSave);
+  const { data: out, raw: s } = loadStore(ACTIVE_SAVE_KEY, defaultSave);
   if (!s) return out;
   // broken data fixed whatever the version (not part of the conversions below)
   const assist: unknown = out.settings.assist; // saves from before the setting had levels hold a boolean
@@ -111,7 +116,7 @@ export function syncVolumes() {
   setVolumes(save.settings.sfx ?? 1, save.settings.bgm ?? 0.6);
 }
 export function persist() {
-  saveStore(SAVE_KEY, save);
+  saveStore(ACTIVE_SAVE_KEY, save);
 }
 // save codes for moving a save between devices (settings tab > data; the format is engine/src/core/store.ts encodeStore)
 const SAVE_CODE_TAG = 'SDX1';
@@ -126,7 +131,7 @@ export const importSaveCheck = (code: string): boolean => !!readCode(code);
 export function importSave(code: string): boolean {
   const obj = readCode(code);
   if (!obj) return false;
-  saveStore(SAVE_KEY, obj);
+  saveStore(ACTIVE_SAVE_KEY, obj);
   setSave(loadSave());
   return true;
 }

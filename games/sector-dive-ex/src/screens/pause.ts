@@ -1,5 +1,6 @@
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
+import { bossRoomBiome } from '../core/bossArea.ts';
 import { musicVolume } from '@engine/audio/music.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import {
@@ -30,12 +31,18 @@ import { rowsHTML } from '@engine/ui/dom.ts';
 // the run's own text that was written out in the old language (the language can be switched from the pause screen)
 export function refreshRunText() {
   if (!run || !player) return;
-  const b = stageInfo(run.stage).biome;
+  const si = stageInfo(run.stage),
+    // the boss area: the hall is nobody's sector, and a room is in the sector of its boss, not of the depth
+    place = !si.area
+      ? si.biome.name
+      : run.area?.at === 'room'
+        ? bossRoomBiome(run.area.boss).name
+        : t('boss.hallPlace');
   // the step along the route, the floor of the building it is on, the sector
   // (in two parts: the old layout runs them on one line, the new one puts the sector on a line of its own: hud2.ts)
   el('#stageLbl').innerHTML =
     `<span class="sdepth"><b>${stageLabel(run.stage)}</b> ${floorLabel()}</span>` +
-    `<span class="sname">${b.name}</span>`;
+    `<span class="sname">${place}</span>`;
   if (boss && boss.kind) el('#bossName').textContent = BOSS_META[boss.kind]!.title ?? boss.kind;
   if (state === 'pause') el('#pauseChips').innerHTML = statsHTML();
 }

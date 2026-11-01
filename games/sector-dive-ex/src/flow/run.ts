@@ -1,3 +1,4 @@
+import { BOSS_ROOMS } from '../data/bossRooms.ts';
 import type { Biome, BossKind, BuildingState, RunEnd, Weapon, WeaponItem } from '../data/types.ts';
 import { clamp, el, isTouch, pick, randi, shuffle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
@@ -286,6 +287,7 @@ const arrivalTile = (n: number, floor: number): number => {
 };
 // the player where they came in: the start room, or the end of the stairwell or lift they took (the top of the
 // stairs, or on the lift's platform)
+const ROOM_START_FROM_END = 2; // in a boss room the player starts this many tiles from the hall's south end
 function placePlayerOnFloor(st: BuildingState) {
   if (st.at < 0) {
     if (level.startIdx >= 0) [player.x, player.z] = roomSpot(level.rooms[level.startIdx]!);
@@ -310,6 +312,15 @@ function placePlayerOnFloor(st: BuildingState) {
     // face the door
     const h = level.hall!;
     player.yaw = yawToward(tileCenter(h.door % W) - player.x, tileCenter(Math.floor(h.door / W)) - player.z);
+  }
+  // a boss room of the boss area is straight into the fight: inside the hall, at its south end, facing its middle (the
+  // first frame finds the player in the room and starts the fight: flow/events.ts)
+  if (bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room') {
+    const r = level.rooms[level.hall!.room]!,
+      i = r.x + Math.floor(r.w / 2);
+    player.x = tileCenter(i);
+    player.z = tileCenter(r.y + r.h - ROOM_START_FROM_END);
+    player.yaw = yawToward(0, -1);
   }
 }
 // what lives on a floor of the building: enemies in the rooms not cleared yet (none in the start room and the boss
@@ -469,7 +480,7 @@ export function startStage() {
   placeView();
   el('#bossBar').hidden = true;
   refreshRunText();
-  banner(stageLabel(run.stage), inHall ? '' : inBuilding ? `${floorLabel()}　${b.name}` : b.name);
+  banner(stageLabel(run.stage), inHall ? t('boss.hallPlace') : inBuilding ? `${floorLabel()}　${b.name}` : b.name);
   const hintAt = run.stage,
     hint = b.hint;
   if (!inHall && !room && si.sub === 0 && hint)
@@ -523,7 +534,8 @@ export function nextStage() {
 export function startPractice(kind: BossKind, tier?: number) {
   const depth = tier || 0;
   enterDive();
-  const bi = BIOMES.findIndex(b => b.bosses.includes(kind));
+  // (TITAN is no sector's boss: it is fought in its room's sector)
+  const bi = BIOMES.findIndex(b => b.bosses.includes(kind) || (kind === 'titan' && b.code === BOSS_ROOMS.titan));
   setPlayer(newPlayer(save.loadout, depth));
   setRun({
     stage: bossStageOf(depth),

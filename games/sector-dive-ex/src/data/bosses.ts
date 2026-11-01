@@ -7,6 +7,7 @@ import type { TrinityTune } from '../actors/bosses/trinity.ts';
 import type { BastionTune } from '../actors/bosses/bastion.ts';
 import type { HoistTune } from '../actors/bosses/hoist.ts';
 import type { SurgeonTune } from '../actors/bosses/surgeon.ts';
+import type { TitanTune } from '../actors/bosses/titan.ts';
 import { withLang } from '@engine/core/langslots.ts';
 // Bosses: names, order, tuning (each boss's behaviour is in src/actors/bosses/)
 // pillars: arena has pillars. hp: health at difficulty 1 (times bossDifficulty). y: body height. hitR: hit radius.
@@ -22,6 +23,7 @@ export interface BossTunes {
   bastion: BastionTune;
   hoist: HoistTune;
   surgeon: SurgeonTune;
+  titan: TitanTune;
 }
 type BossMetas = { [K in BossKind]: Omit<BossMeta, 'tune'> & { tune: BossTunes[K] } };
 // (withLang gives the whole table one type: every tune would be Record<string, any>. Each tune is checked where it
@@ -281,6 +283,67 @@ export const BOSS_META = withLang<BossMeta, 'name' | 'title' | 'short' | 'desc',
         minionCap: 4, // minions alive at once, not counting the arms
         wreckG: 35, // what falls when it is down falls at this (m/s^2)
       } satisfies SurgeonTune,
+    },
+    // the numbers are a first try, to be settled by playing it and by the sim
+    titan: {
+      pillars: false,
+      hp: 3000,
+      y: 5.5, // the body's middle above the floor (world/models/bosses/titan.ts TITAN_MID)
+      hitR: 3.4,
+      tune: {
+        bodyR: 2.2, // what it walks with (m)
+        farD: 18, // a player further than this: a leap instead of what only reaches close by (m)
+        sweepWarn: 1.0, // seconds of the red line on the floor before the beam
+        sweepLock: 0.3, // the line stops following the player this long before the beam (s)
+        sweepTime: [1.1, 0.8, 0.8], // seconds the beam takes across its arc, by stage
+        sweepArc: 1.5, // the arc it crosses (rad)
+        sweepLen: 40, // how far it reaches (m)
+        sweepW: 0.7, // it hurts what is within this of its line (m)
+        sweepDmg: 1.6, // multiplier on the boss's damage
+        leapWind: 0.8, // seconds it crouches, with the ring on the floor
+        leapLock: 0.3, // the ring stops following the player this long before it goes (s)
+        leapTime: 0.9, // seconds in the air
+        leapH: 7, // how high (m)
+        leapR: 5, // the ring, and what the landing crushes (m)
+        leapDmg: 2, // multiplier on the boss's damage
+        leapWave: [14, 20, 1.2],
+        walk: [3, 5.5, 2.2], // by stage (m/s; walking is 7.4)
+        turn: [0.9, 1.6, 1.2], // by stage: slow enough in the first to get round it (rad/s)
+        gap: [2.4, 1.8, 1.2], // seconds of walking between two attacks, by stage
+        armourMul: 0.25, // first stage: what a hit from in front does
+        backMul: 1.5, // ... and from behind, on the reactor
+        backCos: -0.2, // the player is behind it below this (the cosine of the angle from where it faces)
+        stompTime: 1.1, // seconds from lifting a foot to the stomp
+        stompLift: 1.6, // how far it rises (m)
+        stompWave: [14, 24, 1.6],
+        gunsTime: 0.7, // it takes aim this long
+        gunsFan: [5, 0.5, 16],
+        gunsHoming: 3, // homing rounds with the fan
+        gunsHomingSpeed: 9,
+        walkFire: 1.6, // while it walks, a fan this often
+        walkFan: [3, 0.25, 15],
+        grabWind: 0.8, // the arms go back this long before it lunges
+        lungeTime: 0.5, // seconds it lunges
+        lungeSpeed: 20, // m/s (running is 11.1)
+        grabR: 5.2, // it catches the player this close (m)
+        grabDmg: 1.2, // multiplier on the boss's damage
+        holdTime: 0.8, // seconds it holds the player
+        holdAt: 4.2, // its hands are this far in front of it (m)
+        holdEase: 10, // the player is drawn to them at this rate (per second)
+        throwDist: 8, // how far it throws (m)
+        throwDmg: 1.5, // multiplier on the boss's damage
+        fallTime: 3, // seconds it lies still at no health
+        riseTime: 1.6, // seconds it takes to get up
+        reviveHp: 0.4, // the share of its health the third stage has
+        chainN: 7, // blasts in a chain
+        chainEvery: 0.28, // seconds between them
+        chainStep: 3.2, // each is this far on from the last, toward the player (m)
+        chainWave: [9, 4.5, 1.3],
+        quakeTime: 0.9, // seconds from lifting a foot to the quake
+        quakeWave: [16, 30, 1.6],
+        quakeSecond: 0.6, // the second wave comes this long after the first (s)
+        quakeRing: [16, 7],
+      } satisfies TitanTune,
     },
   },
   { name: '', title: '', short: '', desc: '' },

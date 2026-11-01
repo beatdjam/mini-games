@@ -5,7 +5,7 @@ import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { query } from '@engine/core/world.ts';
 import type { Boss, BossKind, Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
 import { BOSS_META } from '../data/bosses.ts';
-import { BOSS_ROOMS } from '../data/bossRooms.ts';
+import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { MAGNET_GAIN_MAX } from '../data/perks.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { EYE, PORTAL } from '../data/level.ts';
@@ -106,6 +106,7 @@ const unit = (x: number, z: number): Vec => {
 // how each boss is fought: null is fought as any enemy (no play of its own)
 const BOSS_PLAYS: Record<BossKind, BossPlayFn | null> = {
   watcher: null, // fought as any enemy: dodge its shots
+  titan: null, // for now fought as any enemy: it does not go round to the back yet
   // CRUSHER: keep well away; step out of the line of a charge; while it is stunned on a wall, close in and shoot
   crusher: (b, me) => {
     // (the boss's own state; its type is private to actors/bosses/crusher.ts)
@@ -238,8 +239,8 @@ const LOOT_REACH_Y = 3.5; // a thing this far above or below its feet is on anot
 
 // the gate to take in the boss area's hall: the way forward when it is open (TITAN down), else the first room
 // not beaten yet, else the way out. TITAN's gate (kind 'room', boss 'titan') is not in yet: only the eight
-// bosses that have a room (BOSS_ROOMS) are chosen here. Look again after 7b (titan-gate)
-const ROOM_BOSSES = Object.keys(BOSS_ROOMS) as BossKind[];
+// bosses of the rooms (BOSS_ROOM_ORDER) are chosen here. Look again after 7b (titan-gate)
+const ROOM_BOSSES = BOSS_ROOM_ORDER;
 export function hallGate(portals: Portal[], beaten: BossKind[]): Portal | undefined {
   const next = portals.find(p => p.kind === 'next');
   if (next) return next;

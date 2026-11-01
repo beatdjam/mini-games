@@ -279,5 +279,6 @@ test('generation is pinned: the same seed gives the same level', () => {
     'arena phantom': 'b566d42b',
     'arena trinity': 'dc3f981b',
     'arena bastion': 'dc3f981b',
+    'arena titan': 'dc3f981b',
   });
 });

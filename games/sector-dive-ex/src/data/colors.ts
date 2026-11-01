@@ -4,6 +4,7 @@
 export const css = (n: number) => '#' + n.toString(16).padStart(6, '0');
 
 export const COLOR = {
+  titanEye: 0xff2a18, // TITAN's eyes and the light in it
   cyan: 0x54e8ff, // extract portal, pistol
   mag: 0xff4d8d, // enemy shots, boss / sniper eyes
   amber: 0xffc24a, // advance portal, chips, shotgun, rarity 3

@@ -9,6 +9,7 @@ export const BOSS_ROOMS: Record<BossKind, string> = {
   bastion: 'CITY',
   hoist: 'MALL',
   surgeon: 'HOSP',
+  titan: 'CITY', // for now: the last boss's own room is still to be made
 };
 // the boss area's eight rooms, in the order the hall's gates stand round it (TITAN is not one of them: the eight-room
 // checks go by this list, so a ninth boss does not change them)

@@ -138,6 +138,13 @@ export function devBossAreaStart(tier: number) {
   save.startTier = tier;
   save.records.bossArea = { tier, beaten: [] };
 }
+// The base levels of a real save at DEPTH 47 (2026-11-01), for a save made to try the boss area: what is on the player
+// in a dive is set by dev/views/bossRush.ts
+const DEV_GEAR_LEVELS = { hp: 5, dmg: 57, spd: 0, dash: 1, stam: 0, gain: 5, kit: 2, chip: 2, choice: 1 };
+export function devBossAreaGear() {
+  save.loadout = [basicW('shotgun'), basicW('smg')];
+  Object.assign(save.up, DEV_GEAR_LEVELS);
+}
 
 // ---- settings ----
 type Settings = SaveData['settings'];
