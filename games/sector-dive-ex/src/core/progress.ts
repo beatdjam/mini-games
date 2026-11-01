@@ -136,8 +136,8 @@ export function allBossRoomsBeaten(): boolean {
 export function recordTitanClear() {
   save.records.cleared = true;
 }
-// The boss area's depth, settled once per save on the first dive from the base (when the flag is on). Returns whether
-// this call settled it; the caller persists
+// The boss area's depth, settled once per save on the first dive from the base or resume (when the flag is on). Returns
+// whether this call settled it; the caller persists
 export function settleBossArea(startTier: number): boolean {
   if (!bossAreaOn() || save.records.bossArea) return false;
   save.records.bossArea = { tier: bossAreaTierFor(save.shortcut, startTier), beaten: [] };

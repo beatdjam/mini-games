@@ -7,7 +7,7 @@ import { track } from '@engine/core/analytics.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
 import { basicW, persist, save } from '../core/save.ts';
-import { setSuspend } from '../core/progress.ts';
+import { setSuspend, settleBossArea } from '../core/progress.ts';
 import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { building, packSeen } from '../world/building.ts';
@@ -93,6 +93,8 @@ export function resumeRun() {
   if (!sn) return;
   enterDive();
   restoreSnapshot(sn);
+  // a dive begun before the boss area was published has none settled: without this its D50 would be an ordinary depth
+  settleBossArea(stageInfo(run.stage).tier);
   track('dive_resume', { level: stageInfo(run.stage).tier + 1 });
   setSuspend(null);
   persist();

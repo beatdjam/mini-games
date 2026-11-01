@@ -167,6 +167,33 @@ test('a run suspended in the hall resumes in the hall', () => {
   expect(level.portals.map(p => p.kind).sort(), 'the gates are made again').toEqual(hallGateKinds());
 });
 
+test('a dive begun before the boss area settled it on resume: D50 is the hall, even from inside D50', () => {
+  goBase();
+  save.records.bossArea = null;
+  save.shortcut = 47;
+  save.startTier = 0;
+  startRun();
+  run.stage = firstStageOf(47);
+  startStage();
+  suspendRun();
+  expect(save.records.bossArea, 'not settled yet').toBeNull();
+  resumeRun();
+  expect(save.records.bossArea, 'settled on resume').toEqual({ tier: 49, beaten: [] });
+  expect(stageInfo(run.stage).tier, 'still at D48').toBe(47);
+
+  goBase();
+  save.records.bossArea = null;
+  save.shortcut = 49;
+  startRun();
+  run.stage = firstStageOf(49);
+  startStage();
+  suspendRun();
+  resumeRun();
+  expect(save.records.bossArea, 'D50 is the boss area').toEqual({ tier: 49, beaten: [] });
+  expect(run.area, 'a checkpoint inside D50 comes back in the hall').toEqual({ at: 'hall' });
+  expect(run.bld, 'no building left').toBeUndefined();
+});
+
 test('the hall has eight room gates clear of each other', () => {
   enterHallRun();
   const rooms = level.portals.filter(p => p.kind === 'room');
