@@ -486,5 +486,6 @@ export type GameState = 'base' | 'play' | 'pause' | 'perk' | 'result' | 'bag' | 
 // how a dive ends
 export type RunEnd = 'extract' | 'dead' | 'abandon';
 export type PickupKind = 'bit' | 'kit' | 'chip' | 'weapon';
-// a gate: 'next' (on to the next area) or 'extract' (back to base)
-export type PortalKind = 'next' | 'extract' | 'terminal';
+// a gate: 'next' (on to the next area) or 'extract' (back to base), a milestone's terminal, 'room' (from the boss
+// area's hall into one boss's room) or 'hall' (from a boss room back to the hall)
+export type PortalKind = 'next' | 'extract' | 'terminal' | 'room' | 'hall';

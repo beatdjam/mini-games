@@ -2,6 +2,7 @@
 // where each boss's room is. Boots the game page (setup.ts) once for this file (bootGame) and runs it through the real
 // loop by hand. Each test makes the state it needs; the file passes on its own and in any order.
 import { afterEach, beforeAll, expect, test } from 'vitest';
+import type { BossKind, PortalKind } from '../src/data/types.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { BOSS_ORDER } from '../src/data/bosses.ts';
 import { BOSS_ROOMS } from '../src/data/bossRooms.ts';
@@ -13,13 +14,14 @@ import { run, player } from '../src/actors/player.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { building } from '../src/world/building.ts';
 import { devSeed, level } from '../src/world/level.ts';
+import { makePortal } from '../src/world/portals.ts';
 import { state } from '../src/flow/state.ts';
-import { crossToFloor, endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
+import { crossToFloor, endRun, enterBossRoom, goBase, returnToHall, startRun, startStage } from '../src/flow/run.ts';
 import { resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { W, tileCenter, tileIndex } from '@engine/world/tiles.ts';
 import { wrapAngle, yawToward } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
-import { bootGame, stateIs, tick } from './helpers.ts';
+import { bootGame, putOnTile, stateIs, tick } from './helpers.ts';
 
 beforeAll(async () => {
   await bootGame();
@@ -248,4 +250,65 @@ test('boss area off: a room placed by hand is ignored and the building path stay
   expect(run.stage, 'the depth start as before').toBe(firstStageOf(BOSS_AREA_START_TIER));
   expect(level.floor, 'the top floor').toBe(0);
   expect(level.hall, 'no boss hall').toBeNull();
+});
+
+// ---- the gates between the hall and a room ----
+// a gate set down clear of the player, armed (data/level.ts PORTAL: armTime and clearR), then stepped on: two tiles
+// from the player, away from the boss hall door in a room and two tiles south in the hall
+function stepOnGate(kind: PortalKind, boss?: BossKind) {
+  const h = level.hall,
+    k = h
+      ? tileIndex(
+          player.x + (player.x - tileCenter(h.door % W)),
+          player.z + (player.z - tileCenter(Math.floor(h.door / W))),
+        )
+      : tileIndex(player.x, player.z) + W * 2;
+  makePortal(tileCenter(k % W), tileCenter(Math.floor(k / W)), 0xffffff, kind, '', boss);
+  const gate = level.portals[level.portals.length - 1];
+  tick(70); // PORTAL.armTime (1 s) with the player clear of the gate
+  expect(gate.clear, 'the gate is armed before it is stepped on').toBe(true);
+  putOnTile(k);
+  tick(2);
+  return gate; // a test can see that it was stepped on even when nothing moved
+}
+
+test('a gate into a boss room starts the room', () => {
+  enterHallRun();
+  stepOnGate('room', 'crusher');
+  expect(run.area, "the run is in the crusher's room").toEqual({ at: 'room', boss: 'crusher' });
+  expect(level.biome.code, "the crusher's sector").toBe(BOSS_ROOMS.crusher);
+  expect(level.hall, 'its boss hall').toBeTruthy();
+});
+
+test('a gate back to the hall drops the building', () => {
+  enterRoom();
+  expect(run.bld, 'in the building first').toBeTruthy();
+  stepOnGate('hall');
+  expect(run.area, 'back in the hall').toEqual({ at: 'hall' });
+  expect(level.rooms.length, 'the hall map').toBe(1);
+  expect(run.bld, 'the building is dropped').toBeUndefined();
+});
+
+test('a gate that moves nothing leaves the run as it was', () => {
+  enterHallRun();
+  const hallLevel = level;
+  expect(returnToHall(), 'the hall has no gate back').toBe(false);
+  expect(run.area, 'still the hall').toEqual({ at: 'hall' });
+  expect(level, 'the level is left as it was').toBe(hallLevel);
+  expect(enterBossRoom('crusher'), 'into the room').toBe(true);
+  const roomLevel = level;
+  expect(run.area, 'now in the room').toEqual({ at: 'room', boss: 'crusher' });
+  expect(enterBossRoom('crusher'), 'already in that room').toBe(false);
+  expect(run.area, 'still the same room').toEqual({ at: 'room', boss: 'crusher' });
+  expect(level, 'the level is left as it was').toBe(roomLevel);
+});
+
+test('boss area off: the gates leave the run as it was', () => {
+  enterHallRun();
+  devBossArea(false);
+  const hallLevel = level;
+  const gate = stepOnGate('room', 'crusher');
+  expect(gate.clear, 'the gate was stepped on and turned the player away').toBe(false);
+  expect(run.area, 'still the hall').toEqual({ at: 'hall' });
+  expect(level, 'the level is not made again').toBe(hallLevel);
 });

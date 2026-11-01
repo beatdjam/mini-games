@@ -38,6 +38,8 @@ LANG.ja = {
     'map.extract': '帰還',
     'map.terminal': '強化',
     'map.next': '前進',
+    'map.room': '部屋',
+    'map.hall': '広間',
     'map.exit': '出口',
     'map.onward': '先へ',
     'map.back': '戻る',
