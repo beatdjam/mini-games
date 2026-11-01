@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { basicMat } from '@engine/render/render.ts';
-import { at, ballGeo, boxGeo, cylGeo } from '../machine.ts';
+import { COLOR } from '../../../data/colors.ts';
+import { at, ballGeo, boxGeo, cylGeo, machine } from '../machine.ts';
 import { shared } from '@engine/render/render.ts';
 import { turned } from './shared.ts';
 // TITAN: nobody knows what it was built for, or if it was. It stands on two legs as a person does, and everything else
@@ -20,7 +21,9 @@ const NECK_Y = 2.5; // where the neck leaves the chest, above the origin (m)
 const NECK_Z = 0.7; // ... and in front (m)
 const NECK_LEN = 1.5; // how far the face hangs below that (m)
 const BONE = 0xbfb8a6; // the plates and the face
-const EYE = 0xff2a18;
+const EYE = COLOR.titanEye;
+const BONE_LIFT = 0x6e6a5c; // the plates are pale whatever light they stand in, with the hull's marks still on them
+const FACE_LIFT = 0x3a3830; // ... and the face a little paler still: it should be the first thing seen
 // where the small eyes are (x, y, z, size). Not in pairs and not in rows: that is the point
 const EYES: [number, number, number, number][] = [
   [0.55, 2.2, 0.72, 0.13],
@@ -67,13 +70,38 @@ function brokenRing(r: number, tube: number, arcs: number, arc: number, mat: THR
   }
   return g;
 }
+// a limb's length as a bundle: a thin core with cords round it and a collar every so often, so no side of it is a flat
+// plate. From (0, y0, z) down by len
+function bundle(mat: THREE.Material, dark: THREE.Material, y0: number, len: number, r: number, z = 0): THREE.Group {
+  const b = new THREE.Group(),
+    mid = y0 - len / 2;
+  b.add(at(boxGeo(r * 1.1, len, r * 1.1), dark, 0, mid, z));
+  for (let n = 0; n < 5; n++) {
+    const a = (n / 5) * Math.PI * 2 + 0.4,
+      w = r * (n % 2 ? 0.34 : 0.48);
+    b.add(
+      at(cylGeo(w * 0.8, w, len * (n % 2 ? 0.92 : 1), 6), mat, Math.cos(a) * r * 0.6, mid, z + Math.sin(a) * r * 0.6),
+    );
+  }
+  const collars = Math.max(2, Math.round(len / 0.75));
+  for (let n = 1; n < collars; n++) {
+    const y = y0 - (n / collars) * len,
+      s = 1.45 + ((n * 5) % 3) * 0.12;
+    b.add(at(boxGeo(r * s, 0.07, r * s), dark, 0, y, z));
+  }
+  return b;
+}
+// cracks across a plate: thin dark lines lying just proud of its face (x, y, w, turn), at depth z
+function cracks(g: THREE.Group, dark: THREE.Material, list: [number, number, number, number][], z: number) {
+  for (const [x, y, w, a] of list) g.add(turned(at(boxGeo(w, 0.022, 0.02), dark, x, y, z), 0, 0, a));
+}
 function titanLeg(mat: THREE.Material, void_: THREE.Material, x: number, veins: THREE.Material): THREE.Group {
   const leg = new THREE.Group();
   leg.position.set(x, HIP_Y, 0);
   leg.add(
-    at(boxGeo(0.42, LEG_LEN * 0.55, 0.5), mat, 0, -LEG_LEN * 0.27, 0.12), // the thigh
+    bundle(mat, void_, 0, LEG_LEN * 0.55, 0.42, 0.12), // the thigh
     at(ballGeo(0.34), void_, 0, -LEG_LEN * 0.54, 0.2), // the knee: it bends the wrong way
-    at(boxGeo(0.3, LEG_LEN * 0.5, 0.34), mat, 0, -LEG_LEN * 0.76, -0.1), // the shin
+    bundle(mat, void_, -LEG_LEN * 0.52, LEG_LEN * 0.48, 0.28, -0.1), // the shin
     at(boxGeo(0.5, 0.14, 1.5), void_, 0, -LEG_LEN + 0.07, 0.3), // the foot, long and flat
     at(boxGeo(0.06, LEG_LEN * 0.9, 0.06), veins, 0, -LEG_LEN * 0.48, 0.38), // the light down its leg
   );
@@ -83,9 +111,9 @@ function titanArm(mat: THREE.Material, void_: THREE.Material, x: number, veins: 
   const arm = new THREE.Group();
   arm.position.set(x, SHOULDER_Y, 0);
   arm.add(
-    at(boxGeo(0.3, 2.9, 0.3), mat, 0, -1.45, 0), // the upper arm
+    bundle(mat, void_, 0, 2.9, 0.28), // the upper arm
     at(ballGeo(0.24), void_, 0, -2.95, 0), // the elbow
-    at(boxGeo(0.22, 2.7, 0.24), mat, 0, -4.3, 0), // the forearm
+    bundle(mat, void_, -2.95, 2.7, 0.2), // the forearm
     at(boxGeo(0.05, 5.4, 0.05), veins, 0, -2.9, 0.18), // the light down its arm
   );
   // three long fingers, nearly to the floor
@@ -99,7 +127,14 @@ function titanArm(mat: THREE.Material, void_: THREE.Material, x: number, veins: 
 export function titanLook(mat: THREE.Material): TitanParts {
   const void_ = basicMat(0x030304),
     veins = new THREE.MeshBasicMaterial({ color: EYE }),
-    bone = new THREE.MeshLambertMaterial({ color: BONE }),
+    bone = new THREE.MeshPhongMaterial({
+      map: machine().hull,
+      color: 0xffffff,
+      emissive: BONE_LIFT,
+      specular: 0x4a4638,
+      shininess: 12,
+    }),
+    face = new THREE.MeshLambertMaterial({ color: BONE, emissive: FACE_LIFT }),
     eyeMat = basicMat(EYE),
     g = new THREE.Group(),
     torso = new THREE.Group(),
@@ -113,7 +148,7 @@ export function titanLook(mat: THREE.Material): TitanParts {
     armR = titanArm(mat, void_, SHOULDER_X, veins),
     core = at(ballGeo(0.5), eyeMat, 0, 1.45, 0.05),
     reactor = at(ballGeo(0.62), eyeMat, 0, 1.5, -0.72),
-    mask = at(ballGeo(0.62), bone, 0, 0, 0.1);
+    mask = at(ballGeo(0.62), face, 0, 0, 0.1);
   // the ribs: bars round an empty chest, so the room shows through
   for (let n = 0; n < 6; n++) {
     const y = 0.45 + n * 0.42,
@@ -163,6 +198,56 @@ export function titanLook(mat: THREE.Material): TitanParts {
     turned(at(boxGeo(1.3, 0.3, 1.0), bone, SHOULDER_X, SHOULDER_Y + 0.22, 0), 0, 0.2, -0.28),
     turned(at(boxGeo(0.34, 1.5, 0.42), bone, SHOULDER_X, 1.5, 0), 0.05, 0, 0.05),
     turned(at(boxGeo(0.5, 1.1, 0.6), bone, -0.75, HIP_Y - 0.7, 0.2), -0.1, 0, 0.08),
+  );
+  // the plates are not whole: a second layer under them, cracks across, and bolts that hold them on from outside
+  armour.add(
+    turned(at(boxGeo(1.7, 1.15, 0.09), bone, -0.2, 1.55, 0.97), -0.04, -0.06, 0.12),
+    turned(at(boxGeo(0.8, 0.5, 0.09), bone, 0.72, 2.2, 0.98), 0.06, 0.12, -0.3),
+  );
+  cracks(
+    armour,
+    void_,
+    [
+      [0.4, 2.1, 0.9, 0.5],
+      [-0.1, 1.75, 1.1, -0.35],
+      [-0.6, 1.25, 0.7, 0.9],
+      [0.75, 1.2, 0.6, -1.1],
+      [0.05, 1.3, 0.5, 1.4],
+    ],
+    1.04,
+  );
+  for (const [x, y] of [
+    [-0.95, 2.35],
+    [0.95, 2.4],
+    [1.05, 1.05],
+    [-1.0, 1.0],
+    [-0.05, 2.45],
+  ] as const)
+    armour.add(at(cylGeo(0.05, 0.05, 0.06, 6), void_, x, y, 1.03, 'z'));
+  // inside the ribs, so the chest is not empty air up close: a tangle of pipes round the eye, and a plate down each flank
+  for (let n = 0; n < 9; n++) {
+    const a = n * 2.4,
+      y = 0.5 + ((n * 7) % 9) * 0.27;
+    torso.add(
+      turned(
+        at(cylGeo(0.035, 0.05, 2.0, 5), n % 3 ? void_ : mat, Math.cos(a) * 0.55, y, Math.sin(a) * 0.45),
+        a,
+        n,
+        a * 0.6,
+      ),
+    );
+  }
+  // the mask: hairline cracks from one point, and a seam down it that is not quite straight
+  cracks(
+    head,
+    void_,
+    [
+      [0.1, 0.25, 0.55, 1.1],
+      [0.22, 0.05, 0.42, -0.5],
+      [-0.05, -0.12, 0.6, 1.9],
+      [0.28, -0.3, 0.3, 1.2],
+    ],
+    0.36,
   );
   const eyes = EYES.map(([x, y, z, s]) => at(ballGeo(s), eyeMat, x, y, z));
   torso.add(...eyes);

@@ -10,6 +10,7 @@ import { toast } from '@engine/ui/ui.ts';
 import { query } from '@engine/core/world.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { COLOR } from '../../data/colors.ts';
+import { machine } from '../../world/models/machine.ts';
 import { TITAN_MID, titanLook } from '../../world/models/bosses/titan.ts';
 import type { TitanParts } from '../../world/models/bosses/titan.ts';
 import { eBullets, fanAt, ring, shootHoming, spawnWave } from '../../world/entities.ts';
@@ -110,7 +111,7 @@ const FALLEN_DROP = 2.6; // how far the fallen body sinks (m)
 const HALO_TURN: [number, number, number] = [0.25, 0.7, 1.6]; // the rings turn this fast, by stage (rad/s)
 const SHARDS_TURN: [number, number, number] = [0.5, 1.1, 2.2]; // the blades circle this fast, by stage (rad/s)
 const VEIN_BEAT = [1.6, 3, 7]; // the light in it beats this fast, by stage (rad/s)
-const VEIN_COLOR = [0xff2a18, 0xff2a18, 0xffa030]; // ... in this colour
+const VEIN_COLOR = [COLOR.titanEye, COLOR.titanEye, 0xffa030]; // ... in this colour
 const EMBER_EVERY = [0.25, 0.12, 0.04]; // an ember leaves it this often, by stage (s)
 const EMBER_SPREAD = 3; // from this far around its chest (m)
 const LIMP_LEAN = 0.18; // the third stage's list to one side (rad)
@@ -142,7 +143,14 @@ export function titanSeesBack(e: { x: number; z: number; face: number }): boolea
 // how TITAN looks (common.ts BossVisual), and the parts its fight moves
 export function titanVisual(): BossVisual & { parts: TitanParts } {
   // no hull plate and hardly any glow: a body that drinks the light (a hit still flashes it: updateEnemy)
-  const mat = new THREE.MeshLambertMaterial({ color: 0x0b0b0e, emissive: COLOR.mag, emissiveIntensity: BODY_GLOW });
+  const mat = new THREE.MeshPhongMaterial({
+    map: machine().hull,
+    color: 0x4c4c55,
+    specular: 0x8a8088,
+    shininess: 48,
+    emissive: COLOR.mag,
+    emissiveIntensity: BODY_GLOW,
+  }) as unknown as THREE.MeshLambertMaterial;
   mat.userData.glow = BODY_GLOW;
   mat.userData.pool = 0x5a0810;
   const parts = titanLook(mat);

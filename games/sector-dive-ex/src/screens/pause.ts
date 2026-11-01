@@ -1,6 +1,6 @@
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
-import { level } from '../world/level.ts';
+import { bossRoomBiome } from '../core/bossArea.ts';
 import { musicVolume } from '@engine/audio/music.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import {
@@ -33,7 +33,11 @@ export function refreshRunText() {
   if (!run || !player) return;
   const si = stageInfo(run.stage),
     // the boss area: the hall is nobody's sector, and a room is in the sector of its boss, not of the depth
-    place = !si.area ? si.biome.name : run.area?.at === 'room' ? level.biome.name : t('boss.hallPlace');
+    place = !si.area
+      ? si.biome.name
+      : run.area?.at === 'room'
+        ? bossRoomBiome(run.area.boss).name
+        : t('boss.hallPlace');
   // the step along the route, the floor of the building it is on, the sector
   // (in two parts: the old layout runs them on one line, the new one puts the sector on a line of its own: hud2.ts)
   el('#stageLbl').innerHTML =

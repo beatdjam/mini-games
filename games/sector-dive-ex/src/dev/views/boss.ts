@@ -153,6 +153,7 @@ interface BossView {
 // TITAN's views (for screenshots), standing still: wide (the first stage from in front), back (from behind), bare (the
 // armour off), risen (the third stage). #boss-titan-<view>
 const TITAN_VIEW_FROM = 20; // how far from it they stand (m)
+const TITAN_VIEW_NEAR = 9; // the 'close' view (m)
 function titanView(b: Enemy, view: string) {
   if (!b.boss) return;
   const h = b as Boss & { behave: Boss['behave']; revived: boolean; face: number; st: string; timer: number };
@@ -170,9 +171,9 @@ function titanView(b: Enemy, view: string) {
     h.timer = 1e6;
   }
   player.x = b.x;
-  player.z = b.z + TITAN_VIEW_FROM;
+  player.z = b.z + (view === 'close' ? TITAN_VIEW_NEAR : TITAN_VIEW_FROM);
   player.yaw = 0;
-  player.pitch = 0.2;
+  player.pitch = view === 'close' ? 0.6 : 0.2;
   h.face = view === 'back' ? Math.PI : 0;
   h.st = 'guns';
   const look = h.behave;
@@ -191,7 +192,7 @@ export const BOSS_VIEWS: Record<BossKind, BossView | null> = {
   phantom: null,
   trinity: null,
   bastion: null,
-  titan: { poses: ['wide', 'back', 'bare', 'risen'], room: false, show: titanView },
+  titan: { poses: ['wide', 'close', 'back', 'bare', 'risen'], room: false, show: titanView },
   hoist: { poses: ['wide', 'drop', 'pull', 'swing', 'barrage'], room: true, show: hoistView },
   surgeon: { poses: ['wide', 'scalpel', 'needle', 'clamp'], room: true, show: surgeonView },
 };

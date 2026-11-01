@@ -8,7 +8,7 @@ exports[`bosses 1`] = `
   "hoist": "46:616a5fbe 1:1702d397 1:3df7c1ba 1:3df7c1ba 1:3df7c1ba",
   "phantom": "50:ea720073 1:ec51cbb8",
   "surgeon": "29:80a853cc 5:5415f2eb 1:ec4de736 1:bc1f4722 1:baa03194 1:c574796d 1:2e253ac1 1:ab657a21 1:35bba7cc",
-  "titan": "127:6852c4a0 1:b8223a4c",
+  "titan": "210:4f44863a 1:b8223a4c",
   "trinity": "0:811c9dc5 1:f4f1a7c3 26:3b344928 26:c617adde 26:c2370ae0",
   "watcher": "63:4a28f644 1:ff578fb3",
 }
