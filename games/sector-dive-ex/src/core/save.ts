@@ -6,8 +6,16 @@ import { setVolumes } from '@engine/audio/audio.ts';
 export const SAVE_KEY = 'sector-dive-ex-v1';
 // dev: the way into the boss area to play it (dev/views/bossRush.ts) keeps a save of its own, so the real one is not touched
 export const BOSS_RUSH_HASH = '#bossrush';
+// ... and so does the bot that goes on diving (dev/views/bot.ts)
+export const BOT_CLIMB_HASH = '#bot-climber';
 export const saveKeyFor = (hash: string, dev: boolean): string =>
-  dev && hash.startsWith(BOSS_RUSH_HASH) ? `${SAVE_KEY}-bossrush` : SAVE_KEY;
+  !dev
+    ? SAVE_KEY
+    : hash.startsWith(BOSS_RUSH_HASH)
+      ? `${SAVE_KEY}-bossrush`
+      : hash.startsWith(BOT_CLIMB_HASH)
+        ? `${SAVE_KEY}-climber`
+        : SAVE_KEY;
 export const ACTIVE_SAVE_KEY = saveKeyFor(location.hash, import.meta.env.DEV);
 export const BASE_TAB_KEY = 'sdx-base-tab'; // the base tab last opened (a preference, kept apart from the save)
 // the version of the save's shape (1: stageV, levelV and supplyV are one version, and records is added)
