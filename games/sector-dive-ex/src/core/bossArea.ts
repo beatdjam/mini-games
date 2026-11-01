@@ -4,8 +4,8 @@ import { BOSS_ROOMS } from '../data/bossRooms.ts';
 import { BOSS_AREA_START_TIER, MILESTONE_EVERY, milestoneBelow } from '../data/progress.ts';
 import { t } from '@engine/core/i18n.ts';
 // the boss area (the hall and the eight boss rooms): its depth once settled in the save, and where each boss's room is
-// The flag is off in the published build: only the dev server has it on (import.meta.env.DEV is false in a build)
-let on = import.meta.env.DEV;
+// The flag is on: tests and dev views turn it off to see the game without the boss area
+let on = true;
 export const bossAreaOn = (): boolean => on;
 // dev and tests only (the same handle as devSeed in world/level.ts); off in the published build
 export function devBossArea(v: boolean) {
