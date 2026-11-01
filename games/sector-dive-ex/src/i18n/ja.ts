@@ -370,6 +370,8 @@ LANG.ja = {
     'boss.titanHint': '正面の装甲は固い。背中の動力部を狙え',
     'boss.titanArmour': '装甲で弾かれた',
     'boss.titanRise': 'TITAN が起き上がった',
+    'boss.titanOpen': 'TITAN への道が開いた',
+    'boss.titanCleared': '最深部の敵を倒した。だが、セクターはまだ続く',
   },
   data: {
     weapons: {
