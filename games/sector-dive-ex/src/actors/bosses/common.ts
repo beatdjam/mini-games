@@ -392,7 +392,12 @@ export function bossDown(e: Boss) {
     putRoomGates(e.cx, e.cz);
     hideBossBar();
     recordBossProgress(stageInfo(run.stage).tier);
-    giveBossRewards(e, progressOf(run.stage));
+    // beaten again, as a room's boss: only its bits
+    if (first) giveBossRewards(e, progressOf(run.stage));
+    else {
+      dropBits(e.x, e.z, BOSS_TUNE.bits * BOSS_TUNE.bitsKept * bossDifficulty());
+      track('boss_defeated', { target: e.kind, level: tier + 1 });
+    }
     // over recordBossProgress's toast: it offers a choice of gates this room does not have
     toast(first ? t('boss.titanCleared') : t('boss.toHall'), TITAN_CLEARED_TOAST_MS);
     saveBeatenRoom();
