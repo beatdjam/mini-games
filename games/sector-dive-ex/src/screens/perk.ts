@@ -3,7 +3,7 @@ import { el, shuffle } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
-import { TUNE } from '../data/progress.ts';
+import { DEPTH_SCALE, TUNE } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { perkRecord } from '../core/rules.ts';
 import { PERKS } from '../data/perks.ts';
@@ -20,7 +20,9 @@ const perkCard = (o: Perk, v: number, rare: boolean, times: number): string => {
 };
 // times: the chosen chip is applied that many times (shortcut supply), stopping early once it is maxed
 // allRare: every choice is the rare version (only the chips that have one are offered)
-export function openPerk(title: string, eyebrow?: string, done?: () => void, times = 1, allRare = false) {
+export function openPerk(title: string, eyebrow?: string, done?: () => void, baseTimes = 1, allRare = false) {
+  const supply = baseTimes > 1,
+    times = baseTimes * DEPTH_SCALE;
   setState('perk');
   releaseInputs();
   exitLock();
@@ -28,7 +30,7 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
   el('#perkTitle').textContent = title;
   el('#perkEyebrow').textContent = eyebrow || 'chip acquired';
   const offered = PERKS.filter(
-    o => !(o.maxed && o.maxed(player)) && !(times > 1 && o.noSupply) && !(allRare && o.rv === undefined),
+    o => !(o.maxed && o.maxed(player)) && !(supply && o.noSupply) && !(allRare && o.rv === undefined),
   );
   const opts = shuffle(offered)
     .slice(0, 3 + (run.choice ?? save.up.choice ?? 0))

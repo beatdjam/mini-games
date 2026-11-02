@@ -2,6 +2,8 @@ import type { Upgrade } from './types.ts';
 import { withLang } from '@engine/core/langslots.ts';
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
+// trial: each depth counts as this many depths of the old curve (enemies, drops, bits), and each chip picked counts this many times
+export const DEPTH_SCALE = 2;
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
 // The player's own growth (additive chips, +8% per weapon +) slows down gradually, to about 1.3x per depth deep down,
 // so the per-depth factor slides the same way: `rate` up to GROWTH_SLIDE[0] depths in, then (geometrically) down to
@@ -81,7 +83,7 @@ export const levelCost = (l: number): number => Math.round(80 * Math.pow(1.2, l)
 export const MILESTONE_EVERY = 5;
 // The depth of the boss area of a new save: DEPTH 50 (0-based 49). A save already past D50 gets the next milestone
 // above its start depth instead (bossAreaTierFor in core/bossArea.ts)
-export const BOSS_AREA_START_TIER = 49;
+export const BOSS_AREA_START_TIER = 24;
 export const milestoneBelow = (tier: number): number =>
   tier < MILESTONE_EVERY - 1 ? 0 : tier - ((tier - (MILESTONE_EVERY - 1)) % MILESTONE_EVERY);
 export const isMilestone = (tier: number): boolean => tier > 0 && milestoneBelow(tier) === tier;
