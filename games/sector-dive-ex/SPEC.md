@@ -375,7 +375,7 @@
 ### ARCADE の潜行
 
 - **流れ**: 1回の潜行で、D1〜D8 の8セクターを1深度ずつ回り、次の D9 のボスエリア（8つのボス部屋）と TITAN を倒すとクリア。1回 45分前後を目安にする（強さは sim で別に合わせる）。セクターの数は `ARCADE_DEPTHS = 8` in src/data/progress.ts、ボスエリアは 0始まりの tier 8（D9）
-- **強さ**: 深度の倍率は ENDLESS の `DEPTH_SCALE`（2）ではなく `ARCADE_DEPTH_SCALE`（2.5）で、D8 は ENDLESS の前の深度で D18 くらいの強さ、ボスエリアは D20 くらい（`depthScale`・`progressOf`・`supplyRarity` in src/core/rules.ts）。チップの2回ぶんと拾ったビットの倍率は ENDLESS と同じ。sim の climber（シード1〜8、ビット 1.7倍の上）で、倍率2は8本中8本クリア、3は0本、2.5は6本（1回 約46分）。ボットは人より狙いと回避が正確なので、人では少し下がる見込み
+- **強さ**: 深度の倍率は ENDLESS の `DEPTH_SCALE`（2）ではなく `ARCADE_DEPTH_SCALE`（2.5）で、D8 は ENDLESS の前の深度で D18 くらいの強さ、ボスエリアは D20 くらい（`depthScale`・`progressOf`・`supplyRarity` in src/core/rules.ts）。チップの2回ぶんと拾ったビットの倍率は ENDLESS と同じ。各セクターのボス（D1〜8）は体力が `BOSS_TUNE.arcadeHpMul`（1.5）倍（`arcadeBossHpMul` in src/actors/bosses/common.ts。体力だけで、落とすビットは変えない）。ボスのたびにターミナルでレベルを買うので、ENDLESS と同じ体力では次のボスがすぐ倒れたため。ボスエリアの部屋と TITAN は変えない。sim の climber（シード1〜8、ビット 1.7倍の上）で、倍率2は8本中8本クリア、3は0本、2.5は6本（1回 約46分）。ボットは人より狙いと回避が正確なので、人では少し下がる見込み
 - **出発**: 出撃の深度はいつも D1（tier 0）。`save.startTier` は見ない（`startRun` in src/flow/run.ts）。潜行を始める前に、その挑戦のぶんの進み具合をまっさらにする
 - **ボスエリア**: 8セクターの次の深度に置き、ボス部屋は初めは全部未撃破にする（`settleArcadeBossArea` in src/core/progress.ts）
 - **ルートとボス**: 順路は ENDLESS と同じく、潜るたびに8セクターの順番が混ざる（`newRoute`）。各深度の建物のボスは、そのセクターのボス部屋の割り当てのボスに固定する（`BOSS_ROOMS` の逆引き、`arcadeBossOf` in src/core/bossArea.ts。建物を作るのは `ensureBuilding` in src/flow/run.ts）。8セクターと8体のボスは1対1

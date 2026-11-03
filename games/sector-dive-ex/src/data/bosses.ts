@@ -358,6 +358,11 @@ export const BOSS_TUNE = {
   growth: 1.85,
   lateGrowth: 1.25, // as DEPTH_HP_LATE (1.24, then 1.27 from 2026-10-18; the same as the rooms' from 2026-10-23: a dive
   // stuck at a milestone was nearly always stopped by its boss)
+  // ARCADE: a sector's boss (DEPTH 1 to 8) has this much more health. A dive there buys levels at every boss, so the
+  // next boss met a stronger player than in ENDLESS and went down far too fast (the user's play, 2026-11-03). The
+  // boss area's rooms and TITAN are as they are. The sim's climber (seeds 1-8): x1 cleared 6 dives of 8, x2 two (most of
+  // the deaths at a sector's boss); between them
+  arcadeHpMul: 1.5,
   roomHpMul: 0.2, // the share of the health a boss in a boss area room has: about half the fight at the 300000% damage assumed at D25
   introTime: 2.0, // seconds a boss takes to appear (invulnerable, name shown)
   phaseTime: 1.2, // seconds of invulnerability when it drops below half health
