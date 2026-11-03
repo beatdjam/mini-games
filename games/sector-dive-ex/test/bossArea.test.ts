@@ -788,8 +788,10 @@ function bossStageBot(tier: number) {
   tick(2);
   run.stage = bossStageOf(tier);
   startStage();
-  // (nothing on the floor to go for: only the gates matter here)
+  // (nothing on the floor to go for: only the gates matter here. The floor's enemies too: where the random numbers put
+  // one near, the bot went for it first and the test failed now and then)
   query<Pickup>('pickup').forEach(p => (p.dead = true));
+  enemies.forEach(e => (e.dead = true));
   makePortal(player.x + 5, player.z, 0xffffff, 'next', '');
   makePortal(player.x - 5, player.z, 0xffffff, 'extract', '');
   makeTerminal(player.x, player.z + 5, 0xffffff, '');
