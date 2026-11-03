@@ -465,7 +465,7 @@ body.booting #app{visibility:hidden}
         <div><span class="eyebrow" data-i18n="base.bossKills"></span><b id="sBoss">0</b></div>
       </div>
       <div class="side" id="sideCards">
-        <button id="levelCard" class="levelcard" type="button" data-go="up"><span class="lc-lv" id="lcLv"></span><span class="lc-bits" id="lcBits"></span><span class="lc-next" id="lcNext"></span><span class="lc-go" data-i18n="base.levelUp"></span></button>
+        <button id="levelCard" class="levelcard" type="button" data-go="up"><span class="lc-lv" id="lcLv"></span><span class="lc-bits" id="lcBits"></span><span class="lc-next" id="lcNext"></span><span class="lc-go" id="lcGo" data-i18n="base.levelUp"></span></button>
         <button class="pagecard" type="button" data-go="practice"><b data-i18n="base.practice"></b><small data-i18n="base.practiceCard"></small></button>
         <button class="pagecard" type="button" data-go="settings"><b data-i18n="base.settings"></b><small data-i18n="base.settingsCard"></small></button>
         <button id="btnMode" class="pagecard" type="button" hidden><b data-i18n="base.mode"></b></button>
@@ -475,7 +475,7 @@ body.booting #app{visibility:hidden}
       </nav>
       <div class="pane" data-pane="sortie" role="tabpanel">
         <div class="sec">
-          <h2><span data-i18n="base.tiers"></span><small data-i18n="base.tiersNote"></small></h2>
+          <h2 id="tiersHead"><span data-i18n="base.tiers"></span><small data-i18n="base.tiersNote"></small></h2>
           <div class="setrow" id="tiers"></div><div class="dpath" id="depthPath"></div>
         </div>
         <div class="sec">
@@ -483,7 +483,7 @@ body.booting #app{visibility:hidden}
           <div class="loadout" id="loadout"></div>
           <h3><span data-i18n="base.basic"></span><small data-i18n="base.basicNote"></small></h3>
           <div class="wgrid" id="wgrid"></div>
-          <h3><span data-i18n="base.stash"></span><small id="stashCount"></small></h3>
+          <h3 id="stashHead"><span data-i18n="base.stash"></span><small id="stashCount"></small></h3>
           <div class="wgrid" id="stash"></div>
         </div>
       </div>

@@ -6,7 +6,9 @@ import { INPUT, locked, tapBtn } from '@engine/ui/input.ts';
 import { actionOf, defineActions, importBindings, keyLabel, keysOf } from '@engine/ui/keymap.ts';
 import { KEY_ACTIONS } from '../data/controls.ts';
 import { BAG_MAX } from '../data/progress.ts';
-import { save } from '../core/save.ts';
+import { WEAPONS } from '../data/weapons.ts';
+import { isArcade, save } from '../core/save.ts';
+import { unlockFoundWeapon } from '../core/progress.ts';
 import { addPickup, nearPickup, setNear } from '../world/entities.ts';
 import { GUNFX, setVM } from '../actors/viewmodel.ts';
 import { player, currentWeapon } from '../actors/player.ts';
@@ -190,6 +192,9 @@ function takeNearby() {
   setNear(null);
   sfx('equip');
   GUNFX.gunKick = 0.12;
+  // ARCADE: finding a weapon unlocks its kind for the base (first time: a toast)
+  if (p.w && isArcade() && unlockFoundWeapon(p.w.id))
+    toast(t('run.weaponUnlocked', { name: WEAPONS[p.w.id].name }), 1200);
   return p.w;
 }
 // hold it: fills the empty second slot, otherwise swaps with the weapon in hand (that one is dropped here)

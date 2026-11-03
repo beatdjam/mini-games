@@ -26,6 +26,13 @@ export function equipWeapon(slot: number, item: WeaponItem | null) {
 export const unlockWeapon = (id: string) => {
   save.unlocked[id] = true;
 };
+// ARCADE: a weapon found in a dive unlocks its kind (ENDLESS buys it with bits at the base). Returns whether this is
+// the first time (the caller shows the toast then)
+export function unlockFoundWeapon(id: string): boolean {
+  if (save.unlocked[id]) return false;
+  unlockWeapon(id);
+  return true;
+}
 // the weapon leaves the stash (to be equipped)
 export const takeFromStash = (i: number): WeaponItem => save.stash.splice(i, 1)[0];
 export function sellFromStash(i: number) {

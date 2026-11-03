@@ -6,7 +6,7 @@ import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { RARITY, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
 import { STASH_MAX, TUNE, UPGRADES, isMilestone } from '../data/progress.ts';
-import { BASE_TAB_KEY, basicW, persist, save } from '../core/save.ts';
+import { BASE_TAB_KEY, basicW, isArcade, persist, save } from '../core/save.ts';
 import { keyText } from '../ui/input.ts';
 import {
   buyUpgrade,
@@ -68,7 +68,8 @@ export function weaponStatText(w: WeaponItem) {
 // (with the new layout, ui/hud2.ts, the tabs are pictures at the top right, and the home page carries the level's card
 // that opens the level's page: .base[data-tab] sets which parts of the page show, hud2.css)
 export function showTab(name: string) {
-  const tab = document.querySelector(`[data-pane="${name}"]`) ? name : 'sortie';
+  const want = isArcade() && name === 'up' ? 'sortie' : name;
+  const tab = document.querySelector(`[data-pane="${want}"]`) ? want : 'sortie';
   baseUI.tab = tab;
   el('.base').dataset.tab = tab;
   document
@@ -94,6 +95,12 @@ onDataClick(el('.tabs'), [
     el('#scrBase').scrollTop = 0;
   },
 ]);
+
+// the level card's own content (the new layout): ARCADE puts the record card in its place and this one back for ENDLESS
+const levelCard = el('#levelCard');
+const levelCardNodes = [...levelCard.childNodes];
+const bestTimeText = (sec: number | null): string =>
+  sec === null ? t('base.notCleared') : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
 // ---- the pieces of the base screen ----
 const tierButton = (n: number): string => {
@@ -144,6 +151,10 @@ const loadoutSlot = (k: number): string => {
 };
 const lockedCard = (id: string): string => {
   const def = WEAPONS[id];
+  if (isArcade())
+    return `<button class="wcard locked" data-w="${id}">
+      <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText({ id, r: 0 })}</span>
+      <span class="wf">${t('base.unlockFound')}</span></button>`;
   return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" data-w="${id}">
       <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText({ id, r: 0 })}</span>
       <span class="wf">${t('base.unlock', { cost: def.cost })}</span></button>`;
@@ -191,6 +202,15 @@ const bossButton = (k: BossKind): string =>
 
 export function renderBase() {
   showBaseFeedback();
+  const arcade = isArcade();
+  // ARCADE: the depth picker, storage and the base's level are not part of its base (the card below is the record)
+  el('#tiersHead').hidden = arcade;
+  el('#tiers').hidden = arcade;
+  el('#depthPath').hidden = arcade;
+  el('#stashHead').hidden = arcade;
+  el('#stash').hidden = arcade;
+  el('.tabs [data-tab="up"]').hidden = arcade;
+  if (arcade && baseUI.tab === 'up') showTab('sortie');
   el('#sBits').textContent = String(save.bits);
   el('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
   el('#sRuns').textContent = String(save.runs);
@@ -203,7 +223,7 @@ export function renderBase() {
     sel = line.querySelector<HTMLElement>('[aria-pressed="true"]');
   if (sel && line.scrollWidth > line.clientWidth)
     line.scrollLeft = sel.offsetLeft - line.offsetLeft - line.clientWidth / 2;
-  el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(save.startTier) });
+  el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(arcade ? 0 : save.startTier) });
   renderSuspend();
   el('#loadout').innerHTML = [0, 1].map(loadoutSlot).join('');
   el('[data-pane="sortie"]').classList.toggle('choosing', baseUI.choosing);
@@ -214,11 +234,26 @@ export function renderBase() {
   el('#stash').innerHTML = save.stash.length
     ? save.stash.map(stashCard).join('')
     : `<div class="empty">${t('base.stashEmpty')}</div>`;
-  // (the level's card on the home page of the new layout: it stands out when the next level can be bought)
-  el('#lcLv').textContent = t('base.level', { n: levelOf() });
-  el('#lcBits').textContent = t('base.bitsHave', { n: save.bits });
-  el('#lcNext').textContent = t('base.levelNext', { cost: nextLevelCost() });
-  el('#levelCard').classList.toggle('ready', !save.suspend && save.bits >= nextLevelCost());
+  // (the level's card on the home page of the new layout: it stands out when the next level can be bought; in ARCADE it
+  // is the record instead, and opens nothing)
+  if (arcade) {
+    levelCard.removeAttribute('data-go');
+    levelCard.classList.remove('ready');
+    levelCard.innerHTML =
+      `<span class="lc-lv">${t('base.record')}</span>` +
+      `<span class="lc-bits">${bestTimeText(save.records.bestTime)}</span>` +
+      `<span class="lc-next">${t('base.best')} ${save.best ? stageLabel(save.best - 1) : '—'}</span>`;
+  } else {
+    if (!levelCard.hasAttribute('data-go')) {
+      levelCard.setAttribute('data-go', 'up');
+      levelCard.replaceChildren(...levelCardNodes);
+    }
+    el('#lcLv').textContent = t('base.level', { n: levelOf() });
+    el('#lcBits').textContent = t('base.bitsHave', { n: save.bits });
+    el('#lcNext').textContent = t('base.levelNext', { cost: nextLevelCost() });
+    el('#lcGo').textContent = t('base.levelUp');
+    levelCard.classList.toggle('ready', !save.suspend && save.bits >= nextLevelCost());
+  }
   el('#levelNow').textContent = t('base.level', { n: levelOf() });
   el('#levelNext').textContent = save.suspend
     ? t('base.levelSuspended')
@@ -268,6 +303,7 @@ const chooseStartTier = (tier: string): After => {
 function unlockOrAssign(id: string): After {
   const def = WEAPONS[id];
   if (!save.unlocked[id]) {
+    if (isArcade()) return 'none';
     if (save.bits < def.cost) return 'none';
     spendBits(def.cost);
     unlockWeapon(id);
