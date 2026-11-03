@@ -80,6 +80,9 @@ const TITAN_CLEARED_TOAST_MS = 4200; // the toast for the first time TITAN is do
 export function bossDifficulty() {
   return 1.33 * BOSS_TUNE.hpMul * hpGrowth((progressOf(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth);
 }
+// ARCADE: a sector's boss (not in the boss area) has BOSS_TUNE.arcadeHpMul times the health (only the health: the bits
+// it drops go by bossDifficulty as they are)
+export const arcadeBossHpMul = (): number => (isArcade() && !stageInfo(run.stage).area ? BOSS_TUNE.arcadeHpMul : 1);
 // the boss area's rooms are one boss after another: only their health is cut, the attacks and the speed stay.
 // TITAN is the one boss after the eight rooms: it keeps its health as it is
 export function areaHpMul(): number {
@@ -126,7 +129,7 @@ export function createBoss<S extends object>(o: BossSpawn<S>): Boss & S {
   if (o.pool === false) delete mat.userData.pool;
   const meta = BOSS_META[kind],
     name = meta.title ?? kind,
-    hp = meta.hp * bossDifficulty() * areaHpMul(),
+    hp = meta.hp * bossDifficulty() * areaHpMul() * arcadeBossHpMul(),
     y = meta.y,
     hitR = meta.hitR;
   dynGroup.add(mesh);

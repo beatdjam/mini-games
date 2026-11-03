@@ -4,6 +4,7 @@
 // other files see the game it was
 import { afterEach, beforeAll, expect, test } from 'vitest';
 import { BIOMES } from '../src/data/biomes.ts';
+import { BOSS_TUNE } from '../src/data/bosses.ts';
 import { BOSS_ROOMS, BOSS_ROOM_ORDER } from '../src/data/bossRooms.ts';
 import { ARCADE_DEPTHS, ARCADE_DEPTH_SCALE, DEPTH_SCALE, PER } from '../src/data/progress.ts';
 import { saveStore } from '@engine/core/store.ts';
@@ -24,7 +25,7 @@ import { level } from '../src/world/level.ts';
 import { setState, state } from '../src/flow/state.ts';
 import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
 import { checkpoint, resumeRun, suspendRun } from '../src/flow/suspend.ts';
-import { bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
+import { arcadeBossHpMul, bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
 import { bootGame, tick } from './helpers.ts';
 
 beforeAll(async () => {
@@ -326,4 +327,17 @@ test('ARCADE counts its depths deeper (ARCADE_DEPTH_SCALE); ENDLESS keeps DEPTH_
   expect(progressOf(3 * PER)).toBe(3 * 5 * ARCADE_DEPTH_SCALE);
   devSetArcade(false);
   expect(progressOf(3 * PER)).toBe(3 * 5 * DEPTH_SCALE);
+});
+
+test("ARCADE: a sector's boss has more health; the boss area's and ENDLESS's as they are", () => {
+  devSetArcade(true);
+  startRun(true);
+  run.stage = bossStageOf(2);
+  expect(arcadeBossHpMul(), 'a sector boss').toBe(BOSS_TUNE.arcadeHpMul);
+  run.stage = firstStageOf(ARCADE_DEPTHS);
+  expect(arcadeBossHpMul(), 'the boss area').toBe(1);
+  devSetArcade(false);
+  run.stage = bossStageOf(2);
+  expect(arcadeBossHpMul(), 'ENDLESS').toBe(1);
+  goBase();
 });
