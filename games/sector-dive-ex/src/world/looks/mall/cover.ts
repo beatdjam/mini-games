@@ -5,6 +5,7 @@ import type { FloorPlan } from '../../building.ts';
 import type { Island } from './islands.ts';
 import { roomKindOf } from '../common.ts';
 import { KIND_FOOD } from './rooms.ts';
+import { fountainPiece } from './atrium.ts';
 // The mall's waist-high cover, drawn as the things that stand in a mall (Look.cover): a lounge of two sofas round a low
 // table, benches back to back with a planter between, a big tiled planter with a dead plant, a pair of sales wagons,
 // a stand of capsule toys. Each fills about the tile it stands on, and its top is the height of the cover (a back, a
@@ -24,7 +25,10 @@ const TWIG = 0x5f4c34;
 export interface Parts {
   boxes: Map<number, THREE.Matrix4[]>;
   domes: Map<number, THREE.Matrix4[]>;
+  discs: Map<number, THREE.Matrix4[]>; // upright cylinders (the mall atrium's fountain)
 }
+const add = (to: Map<number, THREE.Matrix4[]>, color: number, m: THREE.Matrix4) =>
+  (to.get(color) ?? to.set(color, []).get(color)!).push(m.clone());
 // a piece being made: parts placed about the tile's middle (its floor at height cy), the whole piece turned a quarter or not
 // (the hospital's cover is made the same way: looks/hosp/cover.ts)
 export function piece(parts: Parts, cx: number, cy: number, cz: number, quarter: boolean) {
@@ -36,12 +40,25 @@ export function piece(parts: Parts, cx: number, cy: number, cz: number, quarter:
     box(color: number, x: number, z: number, y0: number, w: number, h: number, d: number) {
       const [px, pz] = place(x, z);
       at.compose(new THREE.Vector3(cx + px, cy + y0 + h / 2, cz + pz), turn, new THREE.Vector3(w, h, d));
-      (parts.boxes.get(color) ?? parts.boxes.set(color, []).get(color)!).push(at.clone());
+      add(parts.boxes, color, at);
+    },
+    // a box as above, turned by `ry` about its own middle
+    turned(color: number, x: number, z: number, y0: number, w: number, h: number, d: number, ry: number) {
+      const [px, pz] = place(x, z),
+        q = turn.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry));
+      at.compose(new THREE.Vector3(cx + px, cy + y0 + h / 2, cz + pz), q, new THREE.Vector3(w, h, d));
+      add(parts.boxes, color, at);
+    },
+    // an upright cylinder: its middle at (x, z), its foot at y0, radius r
+    disc(color: number, x: number, z: number, y0: number, r: number, h: number) {
+      const [px, pz] = place(x, z);
+      at.compose(new THREE.Vector3(cx + px, cy + y0 + h / 2, cz + pz), turn, new THREE.Vector3(r, h, r));
+      add(parts.discs, color, at);
     },
     dome(color: number, x: number, z: number, y: number, r: number) {
       const [px, pz] = place(x, z);
       at.compose(new THREE.Vector3(cx + px, cy + y, cz + pz), turn, new THREE.Vector3(r, r, r));
-      (parts.domes.get(color) ?? parts.domes.set(color, []).get(color)!).push(at.clone());
+      add(parts.domes, color, at);
     },
   };
 }
@@ -50,6 +67,17 @@ function sofa(p: ReturnType<typeof piece>, color: number, z: number, back: 1 | -
   p.box(color, 0, z, 0, 3.2, 0.5, 0.95);
   p.box(color, 0, z - back * 0.45, 0.5, 3.2, 0.5, 0.25);
   for (const x of [-1.45, 1.45]) p.box(color, x, z, 0.5, 0.3, 0.22, 0.95);
+}
+// a big tiled planter with a brass rim and a dead bush (one of PIECE_MAKERS, and the planters of an atrium's ground)
+function bigPlanter(p: ReturnType<typeof piece>, h: number) {
+  p.box(TILE_GREEN, 0, 0, 0, 2 * HALF, 0.85, 2 * HALF);
+
+  p.box(BRASS_RIM, 0, 0, 0.85, 2 * HALF + 0.1, 0.06, 2 * HALF + 0.1);
+  p.box(SOIL, 0, 0, 0.9, 2 * HALF - 0.4, 0.04, 2 * HALF - 0.4);
+  for (let n = 0; n < 7; n++) {
+    const a = (n + (h % 3) / 3) * 0.9;
+    p.box(TWIG, Math.cos(a) * (0.2 + n * 0.12), Math.sin(a) * (0.2 + n * 0.12), 0.92, 0.05, 0.3 + (n % 3) * 0.1, 0.05);
+  }
 }
 const PIECE_MAKERS: ((p: ReturnType<typeof piece>, h: number) => void)[] = [
   // two sofas facing each other, a low table between
@@ -70,23 +98,7 @@ const PIECE_MAKERS: ((p: ReturnType<typeof piece>, h: number) => void)[] = [
     for (const x of [-0.8, 0.3, 1.1]) p.box(TWIG, x, 0, 0.88, 0.04, 0.6, 0.04);
   },
   // a big tiled planter with a brass rim and a dead bush
-  (p, h) => {
-    p.box(TILE_GREEN, 0, 0, 0, 2 * HALF, 0.85, 2 * HALF);
-    p.box(BRASS_RIM, 0, 0, 0.85, 2 * HALF + 0.1, 0.06, 2 * HALF + 0.1);
-    p.box(SOIL, 0, 0, 0.9, 2 * HALF - 0.4, 0.04, 2 * HALF - 0.4);
-    for (let n = 0; n < 7; n++) {
-      const a = (n + (h % 3) / 3) * 0.9;
-      p.box(
-        TWIG,
-        Math.cos(a) * (0.2 + n * 0.12),
-        Math.sin(a) * (0.2 + n * 0.12),
-        0.92,
-        0.05,
-        0.3 + (n % 3) * 0.1,
-        0.05,
-      );
-    }
-  },
+  (p, h) => bigPlanter(p, h),
   // two sales wagons side by side, goods heaped on them
   (p, h) => {
     for (const z of [-1.0, 1.0]) {
@@ -349,7 +361,7 @@ export function mallCover(tiles: number[], plan: FloorPlan, group: THREE.Group) 
   if (!tiles.length) return;
   const W = plan.gen.W,
     ground = groundOf(plan.gen.maps),
-    parts: Parts = { boxes: new Map(), domes: new Map() },
+    parts: Parts = { boxes: new Map(), domes: new Map(), discs: new Map() },
     onIsland = new Set<number>();
   for (const s of plan.islands) {
     for (let j = s.j; j < s.j + s.h; j++) for (let i = s.i; i < s.i + s.w; i++) onIsland.add(j * W + i);
@@ -359,7 +371,14 @@ export function mallCover(tiles: number[], plan: FloorPlan, group: THREE.Group) 
     if (onIsland.has(k)) continue;
     // (the same piece on a tile every time: by the tile's number)
     const h = Math.imul(k + 1, 2654435761) >>> 0,
-      p = piece(parts, tileCenter(k % W), ground(k), tileCenter((k / W) | 0), (h >>> 8) % 2 === 1);
+      p = piece(parts, tileCenter(k % W), ground(k), tileCenter((k / W) | 0), (h >>> 8) % 2 === 1),
+      // (the fountain and the planters on the ground of an atrium: atrium.ts)
+      set = plan.pieces?.get(k);
+    if (set) {
+      if (set === 'fountain') fountainPiece(p);
+      else bigPlanter(p, (h >>> 20) % 7);
+      continue;
+    }
     // (in the food court: tables and chairs)
     const makers = roomKindOf(plan.gen.maps.grid, plan.gen.maps.roomOf[k]!) === KIND_FOOD ? FOOD_MAKERS : PIECE_MAKERS;
     makers[(h >>> 12) % makers.length]!(p, (h >>> 20) % 7);
@@ -371,6 +390,8 @@ export function mallCover(tiles: number[], plan: FloorPlan, group: THREE.Group) 
 export function drawParts(parts: Parts, group: THREE.Group) {
   const box = new THREE.BoxGeometry(1, 1, 1),
     sphere = new THREE.SphereGeometry(1, 10, 7, 0, Math.PI * 2, 0, Math.PI / 2),
+    // (its groups: the side, the top, the bottom)
+    cylinder = new THREE.CylinderGeometry(1, 1, 1, 18),
     mats = (color: number) => {
       const side = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(SIDE_SHADE) });
       return [side, side, new THREE.MeshBasicMaterial({ color }), side, side, side];
@@ -383,4 +404,8 @@ export function drawParts(parts: Parts, group: THREE.Group) {
   };
   for (const [color, where] of parts.boxes) make(box, mats(color), where);
   for (const [color, where] of parts.domes) make(sphere, new THREE.MeshBasicMaterial({ color }), where);
+  for (const [color, where] of parts.discs) {
+    const [side, , top] = mats(color);
+    make(cylinder, [side!, top!, side!], where);
+  }
 }

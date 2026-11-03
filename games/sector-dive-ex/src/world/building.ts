@@ -26,6 +26,8 @@ import { wallBeyond, wallFloor, wallLinks } from './looks/common.ts';
 import { massOf } from './looks/outside.ts';
 import { placeIslands } from './looks/mall/islands.ts';
 import type { Island } from './looks/mall/islands.ts';
+import { placeAtriumPieces } from './looks/mall/atrium.ts';
+import type { AtriumPiece } from './looks/mall/atrium.ts';
 import { sinkFoodCourt } from './looks/mall/sunken.ts';
 import type { GeneratedLevel } from './levelGen.ts';
 import { courtFloor, openCourt, placeCourt } from './courtyard.ts';
@@ -50,7 +52,7 @@ export type { Court, YardShape } from './courtyard.ts';
 // The version of how makeBuilding lays a building out from its seed. Raise it with any change that gives a seed another
 // building (rooms, stairwells and lifts, the route, courtyards): a run suspended before then is fitted onto the new
 // building when it is resumed (fitBuildingState). A test in test/smoke.test.ts fails when the layout changes
-export const BUILDING_V = 6;
+export const BUILDING_V = 7;
 // ---- tuning numbers used only here ----
 export const FLOORS_RANGE: [number, number] = [3, 5]; // floors of a building
 // ordinary rooms per floor (min, max) by the number of floors, so that a building has about as many rooms with
@@ -93,6 +95,7 @@ export interface FloorPlan extends FloorOpenings {
   // the courtyard's open middle on this floor (null = none here; world/courtyard.ts)
   court: CourtFloor | null;
   islands: Island[]; // the mall's and the hospital's islands of waist-high cover in the middle of their big rooms (none in the other sectors)
+  pieces?: Map<number, AtriumPiece>; // cover tiles drawn as one thing of their own: a mall atrium's fountain and planters (looks/mall/atrium.ts)
   above: number; // from its ground to the ground of the floor above (m; the top floor: FLOOR_H)
 }
 export interface Building {
@@ -269,6 +272,8 @@ function tryBuilding(biome: Biome, bossKind: BossKind, seed: number): Building |
   if (biome.code === 'MALL') plans.forEach((p, floor) => placeIslands(p, seed, floor));
   // ... and so do the hospital's (the wards' beds, the waiting hall's benches), none of its rooms being sunk
   if (biome.code === 'HOSP') plans.forEach((p, floor) => placeIslands(p, seed, floor, -1));
+  // ... and the ground of a mall's atrium its fountain and planters, as cover (no random numbers either)
+  if (biome.code === 'MALL' && court) placeAtriumPieces(plans[court.lower]!, court);
   // the lockdown room: one that can be shut (every opening is a door), with enemies in it
   const fits: { floor: number; room: number }[] = [];
   plans.forEach((p, floor) =>
