@@ -1,5 +1,8 @@
 import type { Upgrade } from './types.ts';
 import { withLang } from '@engine/core/langslots.ts';
+// ARCADE's own game is not built yet: the published page starts ENDLESS with no mode select until it is (the dev server
+// still shows the select with #modes, to try it)
+export const ARCADE_OPEN = false;
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.

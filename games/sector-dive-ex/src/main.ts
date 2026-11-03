@@ -32,7 +32,7 @@ import './data/level.ts';
 import './data/enemies.ts';
 import './data/bosses.ts';
 import './data/biomes.ts';
-import './data/progress.ts';
+import { ARCADE_OPEN } from './data/progress.ts';
 import './data/perks.ts';
 import './data/controls.ts';
 import './data/sfx.ts';
@@ -74,6 +74,7 @@ import './screens/bag.ts';
 import './screens/result.ts';
 import './screens/base.ts';
 import './screens/data.ts';
+import { openModeSelect } from './screens/mode.ts';
 import './screens/keys.ts';
 import './ui/share.ts';
 import './ui/feedback.ts';
@@ -94,6 +95,9 @@ applyKeyBindings();
 renderGuide();
 showTab(baseUI.tab);
 boot();
+// the mode select: every start-up once ARCADE is open; the dev server only when asked (#modes), so its hooks still start
+// straight into the game
+if (ARCADE_OPEN || (import.meta.env.DEV && location.hash.startsWith('#modes'))) openModeSelect();
 // everything is in place (the new layout's moves and pictures, the base drawn): show the page (index.html body.booting)
 document.body.classList.remove('booting');
 // checks and screenshot hooks (#view-…): only on the dev server, never in the built pages. The dev module sets up

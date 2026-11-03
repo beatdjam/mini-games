@@ -8,6 +8,9 @@ import type { Projectile } from '@engine/world/projectiles.ts';
 import type { ButtonPlace } from '@engine/ui/touchlayout.ts';
 import type * as THREE from 'three';
 
+// The save a dive belongs to: ARCADE and ENDLESS keep their progress and suspended dive apart (core/save.ts)
+export type GameMode = 'arcade' | 'endless';
+
 export interface WeaponDef {
   dmg: number;
   rate: number;

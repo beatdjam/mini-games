@@ -353,6 +353,21 @@
     - マップは全部の階で未探索に戻る。チップ・武器・体力・ビットはそのまま
     - 決まったシードの建物の形を、テストが覚えている。作りが変わるとそのテストが落ちるので、版を上げてから覚えさせ直す
 
+### モードとセーブ
+
+- **モード**: ARCADE と ENDLESS（`GameMode` in src/data/types.ts）。ARCADE の中身はまだ無く、ENDLESS と同じゲームを別のセーブで遊ぶ
+- **セーブの分け方**: 進み具合と中断中の潜行は、モードごとに別のデータにする。ENDLESS は `SAVE_KEY`（`sector-dive-ex-v1`）、ARCADE は `ARCADE_SAVE_KEY`（`sector-dive-ex-arcade-v1`）in src/core/save.ts。片方のモードで遊んでも、もう片方のセーブと中断は変わらない
+- **設定**: 言語・操作・キー・音量などの設定は、両方のモードで共通。`SETTINGS_KEY`（`sector-dive-ex-settings`）に1つだけ置き、どちらのモードもそこから読む（`persist`・`loadSave` in src/core/save.ts）。セーブの中にも設定を残す（セーブのコードで運ぶため）
+  - `SETTINGS_KEY` に設定が無いときは、ENDLESS のセーブ（`SAVE_KEY`）に入っている設定を使う。それも無ければ既定値
+- **モードの記録**: 最後に選んだモードは `MODE_KEY`（`sdx-mode`、既定は `endless`）に好みとして置く（`prefGet`・`prefSet` in src/core/save.ts）。`ARCADE_OPEN` in src/data/progress.ts が `false` の公開版では、保存された値に関係なく ENDLESS で始まる
+- **モード選択**: ゲームの名前と ARCADE・ENDLESS のボタンを出す画面（`openModeSelect` in src/screens/mode.ts）
+  - 起動時は、`ARCADE_OPEN` が `true` なら毎回出す。開発サーバーでは `#modes` を付けて開いたときだけ出す
+  - 拠点の「モード」ボタンからも開ける。中断中の潜行があるモードのボタンには「中断中」の札を出す
+  - 今のモードと同じモードを選ぶと閉じるだけ。違うモードなら今のセーブを保存してからモードを記録し、ページを読み直す（`switchMode` in src/core/save.ts）
+- **完全消去**: 今のモードのセーブ（`ACTIVE_SAVE_KEY`）だけを消す。設定は既定値に戻し、`SETTINGS_KEY` にも書く。もう片方のモードのセーブは消さない（`#btnWipeGo` in src/screens/data.ts）
+- **セーブのコード**: 読み込むと今のモードのセーブ（`ACTIVE_SAVE_KEY`）に入り、コードの設定も `SETTINGS_KEY` に入る（`importSave` in src/core/save.ts）
+- **公開**: `ARCADE_OPEN` が `false` の間は、公開版でモード選択の画面・拠点の「モード」ボタン・今のモードの札を出さない
+
 ### 強化と補給
 
 - **ボス前の補給**: ボス部屋に入ると、まだ制圧していない部屋のぶんだけチップを選べる（`SUPPLY_PER_ROOM`・`giveSupply` in src/flow/events.ts）
@@ -1058,6 +1073,7 @@
 - アクセス解析: `game` は `sector-dive-ex`。イベントは Sector Dive と同じ名前を使う。ロックダウンと補給のイベントは無い（【未決】足すか）
 - 更新履歴: `updates.html`。このフォルダを触ったコミットの `Changelog:` の行から作る
 - 確認用フック（開発サーバーだけ）
+  - `#modes`（モード選択を出す）
   - 建物
     - `#bld-foot`（最初の階段室の下から見上げる。`#bld-foot`・`#bld-mid`・`#bld-top` に `?last` を付けると、最下階へ下りる階段室。建物にそれが無ければ何もしない）
     - `#bld-mid`（階段の途中）

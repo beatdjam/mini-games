@@ -1,22 +1,35 @@
-import type { SaveData, WeaponItem } from '../data/types.ts';
+import type { GameMode, SaveData, WeaponItem } from '../data/types.ts';
 import { isTouch } from '@engine/core/util.ts';
-import { decodeStore, encodeStore, loadStore, saveStore } from '@engine/core/store.ts';
+import { decodeStore, encodeStore, loadStore, mergeDefaults, prefGet, prefSet, saveStore } from '@engine/core/store.ts';
 import { setVolumes } from '@engine/audio/audio.ts';
+import { ARCADE_OPEN } from '../data/progress.ts';
 // Save data: defaults and conversions from older versions (reading / writing is engine/src/core/store.ts)
+// ENDLESS keeps the key the game had before there were modes, so the save a player already has is the ENDLESS one
 export const SAVE_KEY = 'sector-dive-ex-v1';
+// ARCADE's save is its own: a dive in either mode leaves the other mode's progress and suspended dive as they were
+export const ARCADE_SAVE_KEY = 'sector-dive-ex-arcade-v1';
+// the settings are the same in both modes, so they are kept apart from either save
+export const SETTINGS_KEY = 'sector-dive-ex-settings';
+// the mode last chosen (a preference, like BASE_TAB_KEY)
+export const MODE_KEY = 'sdx-mode';
 // dev: the way into the boss area to play it (dev/views/bossRush.ts) keeps a save of its own, so the real one is not touched
 export const BOSS_RUSH_HASH = '#bossrush';
 // ... and so does the bot that goes on diving (dev/views/bot.ts)
 export const BOT_CLIMB_HASH = '#bot-climber';
-export const saveKeyFor = (hash: string, dev: boolean): string =>
-  !dev
-    ? SAVE_KEY
-    : hash.startsWith(BOSS_RUSH_HASH)
-      ? `${SAVE_KEY}-bossrush`
-      : hash.startsWith(BOT_CLIMB_HASH)
-        ? `${SAVE_KEY}-climber`
+// The mode being played. Until ARCADE's own game is in, the published page always plays ENDLESS, whatever was chosen last;
+// the dev server can open either, so the mode select can be tried (#modes)
+export const ACTIVE_MODE: GameMode =
+  ARCADE_OPEN || import.meta.env.DEV ? (prefGet(MODE_KEY, 'endless') === 'arcade' ? 'arcade' : 'endless') : 'endless';
+// the dev views' hashes come before the mode: they are a save of their own, not the mode's
+export const saveKeyFor = (hash: string, dev: boolean, mode: GameMode = 'endless'): string =>
+  dev && hash.startsWith(BOSS_RUSH_HASH)
+    ? `${SAVE_KEY}-bossrush`
+    : dev && hash.startsWith(BOT_CLIMB_HASH)
+      ? `${SAVE_KEY}-climber`
+      : mode === 'arcade'
+        ? ARCADE_SAVE_KEY
         : SAVE_KEY;
-export const ACTIVE_SAVE_KEY = saveKeyFor(location.hash, import.meta.env.DEV);
+export const ACTIVE_SAVE_KEY = saveKeyFor(location.hash, import.meta.env.DEV, ACTIVE_MODE);
 export const BASE_TAB_KEY = 'sdx-base-tab'; // the base tab last opened (a preference, kept apart from the save)
 // the version of the save's shape (1: stageV, levelV and supplyV are one version, and records is added)
 export const SAVE_VERSION = 1;
@@ -99,12 +112,22 @@ function migrateTo1(out: SaveData, raw: Record<string, any>) {
 }
 // the conversions from older versions, in order (to = the version whose shape the function makes)
 const MIGRATIONS: [to: number, migrate: (out: SaveData, raw: Record<string, any>) => void][] = [[1, migrateTo1]];
-function loadSave(): SaveData {
-  const { data: out, raw: s } = loadStore(ACTIVE_SAVE_KEY, defaultSave);
-  if (!s) return out;
+// the settings both modes use: the one copy in SETTINGS_KEY, or—before they were shared—the ENDLESS save's
+function loadSharedSettings(): SaveData['settings'] | null {
+  const shared = loadStore(SETTINGS_KEY, () => defaultSave().settings);
+  if (shared.raw) return shared.data;
+  const endless = loadStore(SAVE_KEY, defaultSave);
+  return endless.raw ? endless.data.settings : null;
+}
+// reads one save (the game reads ACTIVE_SAVE_KEY; the key is for the mode select and the tests)
+export function loadSaveFrom(key: string): SaveData {
+  const { data: out, raw: s } = loadStore(key, defaultSave);
+  const shared = loadSharedSettings();
+  if (shared) out.settings = shared;
   // broken data fixed whatever the version (not part of the conversions below)
   const assist: unknown = out.settings.assist; // saves from before the setting had levels hold a boolean
   if (typeof assist === 'boolean') out.settings.assist = assist ? 'weak' : 'off';
+  if (!s) return out;
   if (!Array.isArray(out.loadout))
     out.loadout = [basicW(s.weapon && out.unlocked[s.weapon] ? s.weapon : 'pistol'), null];
   if (!out.loadout[0]) out.loadout[0] = basicW('pistol');
@@ -114,6 +137,7 @@ function loadSave(): SaveData {
   out.v = Math.max(v, SAVE_VERSION);
   return out;
 }
+const loadSave = (): SaveData => loadSaveFrom(ACTIVE_SAVE_KEY);
 // the save data; replaced only through setSave
 export let save = loadSave();
 export function setSave(s: SaveData) {
@@ -123,23 +147,39 @@ export function setSave(s: SaveData) {
 export function syncVolumes() {
   setVolumes(save.settings.sfx ?? 1, save.settings.bgm ?? 0.6);
 }
+// the save is the current mode's; the settings also go in their own copy, which both modes read
 export function persist() {
   saveStore(ACTIVE_SAVE_KEY, save);
+  saveStore(SETTINGS_KEY, save.settings);
 }
+// switches the mode: the save being played is stored first, then the page reloads so every screen reads the other save
+export function switchMode(mode: GameMode) {
+  persist();
+  prefSet(MODE_KEY, mode);
+  location.reload();
+}
+// whether that mode's save has a dive suspended in it (the mark on the mode select); reads only, never changes `save`
+export function hasSuspendIn(mode: GameMode): boolean {
+  const { data, raw } = loadStore(mode === 'arcade' ? ARCADE_SAVE_KEY : SAVE_KEY, defaultSave);
+  return !!raw && isRecord(data.suspend);
+}
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 // save codes for moving a save between devices (settings tab > data; the format is engine/src/core/store.ts encodeStore)
 const SAVE_CODE_TAG = 'SDX1';
 export const exportSave = (): string => encodeStore(SAVE_CODE_TAG, save);
 // false when the code isn't a Sector Dive Extended save. On success the save is stored and read back like one at start-up
 // (defaults filled in, old formats converted); the caller reloads the page so every screen picks it up
-const readCode = (code: string): object | null => {
+const readCode = (code: string): Record<string, unknown> | null => {
   const obj = decodeStore(SAVE_CODE_TAG, code);
-  return obj && typeof obj === 'object' && !Array.isArray(obj) && 'bits' in obj ? obj : null;
+  return isRecord(obj) && 'bits' in obj ? obj : null;
 };
 export const importSaveCheck = (code: string): boolean => !!readCode(code);
 export function importSave(code: string): boolean {
   const obj = readCode(code);
   if (!obj) return false;
   saveStore(ACTIVE_SAVE_KEY, obj);
+  // the code carries settings too: both modes take them from now on (a code without them gives the defaults)
+  saveStore(SETTINGS_KEY, mergeDefaults(defaultSave().settings, isRecord(obj.settings) ? obj.settings : {}));
   setSave(loadSave());
   return true;
 }

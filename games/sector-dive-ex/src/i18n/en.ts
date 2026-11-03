@@ -134,6 +134,7 @@ LANG.en = {
     'base.practiceGo': 'Practice',
     'base.practiceGoNew': 'Practice (not met yet)',
     'base.settings': 'Settings',
+    'base.mode': 'Mode',
     'base.links': 'Links',
     'base.backToList': '← All games',
     'base.updates': 'Update log (Japanese)',
@@ -195,6 +196,9 @@ LANG.en = {
     'wipe.l6': 'Settings (auto-fire, aim assist, look speed, button layout)',
     'wipe.cancel': 'Cancel',
     'wipe.go': 'Delete',
+
+    // ---- mode select ----
+    'mode.suspended': 'Suspended',
 
     // ---- chips ----
     'perk.title': 'Choose a chip',
