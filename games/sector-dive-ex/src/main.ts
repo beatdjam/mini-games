@@ -98,7 +98,7 @@ showTab(baseUI.tab);
 boot();
 // the mode select: every start-up once ARCADE is open; the dev server only when asked (#modes), so its hooks still start
 // straight into the game. Not on the reload a mode switch makes: that mode was just chosen
-if ((ARCADE_OPEN || (import.meta.env.DEV && location.hash.startsWith('#modes'))) && !takeModeChosen()) openModeSelect();
+if ((import.meta.env.DEV ? location.hash.startsWith('#modes') : ARCADE_OPEN) && !takeModeChosen()) openModeSelect();
 // everything is in place (the new layout's moves and pictures, the base drawn): show the page (index.html body.booting)
 document.body.classList.remove('booting');
 // checks and screenshot hooks (#view-…): only on the dev server, never in the built pages. The dev module sets up
