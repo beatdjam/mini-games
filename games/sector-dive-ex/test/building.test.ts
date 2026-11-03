@@ -733,7 +733,7 @@ test('building: the layout a seed gives is that of BUILDING_V', () => {
       b.plans.forEach(p => mix(Array.from(p.gen.maps.grid).join('') + Array.from(p.gen.maps.hgt).join()));
       mix(JSON.stringify([b.route, b.links.map(l => [l.kind, l.upper, l.lower, l.a, l.b]), b.lockdown, !!b.court]));
     }
-  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v6 abb6236');
+  expect(`v${BUILDING_V} ${h.toString(16)}`).toBe('v7 8aa5456');
 });
 test('mall: the big rooms have islands of cover, and one can still walk to every doorway of the room', () => {
   devCourtOpen(null);
@@ -866,4 +866,59 @@ test('hospital: the rooms have kinds, the biggest is the waiting hall, and the i
   expect(halls).toBeGreaterThan(10);
   // (every kind comes up somewhere)
   for (let kind = 0; kind < HOSP_KINDS; kind++) expect(kindsSeen.has(kind), `kind ${kind}`).toBe(true);
+});
+
+test("building: a mall atrium's ground has a fountain and planters that are cover, and is walked round them", () => {
+  const mall = BIOMES.find(x => x.code === 'MALL')!;
+  let atriums = 0,
+    planters = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const b = makeBuilding(mall, mall.bosses[0]!, seed),
+      c = b.court;
+    if (!c) continue;
+    atriums++;
+    const p = b.plans[c.lower]!,
+      { maps, W: w } = p.gen,
+      at = `seed ${seed}`,
+      pieces = [...(p.pieces ?? new Map<number, string>())];
+    // the fountain on the middle tile of the open middle, the planters in it too; all of them cover
+    const is = c.tiles.map(k => k % w),
+      js = c.tiles.map(k => (k / w) | 0),
+      middle = (Math.min(...js) + ((c.h - 1) >> 1)) * w + Math.min(...is) + ((c.w - 1) >> 1);
+    expect(p.pieces?.get(middle), at).toBe('fountain');
+    for (const [k] of pieces) {
+      expect(c.tiles, `${at} tile ${k}`).toContain(k);
+      expect(maps.cover[k], `${at} tile ${k}`).toBe(1);
+      expect(maps.hgt[k], `${at} tile ${k}`).toBeCloseTo(COVER_H); // (the heights are float32)
+    }
+    planters += pieces.filter(([, kind]) => kind === 'planter').length;
+    // every other tile of the ground's room is reached from any one of them, round the pieces
+    const room = p.gen.rooms.length - 1,
+      free = [...maps.roomOf.keys()].filter(k => maps.roomOf[k] === room && maps.grid[k] === 1 && !maps.cover[k]),
+      seen = new Set([free[0]!]),
+      todo = [free[0]!];
+    while (todo.length) {
+      const k = todo.pop()!;
+      for (const n of [k - 1, k + 1, k - w, k + w])
+        if (free.includes(n) && !seen.has(n)) {
+          seen.add(n);
+          todo.push(n);
+        }
+    }
+    expect(seen.size, at).toBe(free.length);
+  }
+  expect(atriums).toBeGreaterThan(0);
+  expect(planters, 'the galleries have planters').toBeGreaterThan(0);
+  // in a run, a cleared room's reward on the ground is not put on the fountain
+  for (let k = 0; k < 10; k++) {
+    goBase();
+    startRun();
+    run.route = [BIOMES.indexOf(mall)];
+    run.bld = undefined;
+    startStage();
+    if (building!.court) break;
+  }
+  goToFloor(building!.court!.lower);
+  const spot = tileIndex(...roomSpot(level.rooms[level.rooms.length - 1]!));
+  expect(building!.plans[building!.court!.lower]!.pieces?.has(spot)).toBe(false);
 });

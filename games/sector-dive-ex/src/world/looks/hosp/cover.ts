@@ -343,7 +343,7 @@ export function hospCover(tiles: number[], plan: FloorPlan, group: THREE.Group) 
   if (!tiles.length) return;
   const W = plan.gen.W,
     ground = groundOf(plan.gen.maps),
-    parts: Parts = { boxes: new Map(), domes: new Map() },
+    parts: Parts = { boxes: new Map(), domes: new Map(), discs: new Map() },
     onIsland = new Set<number>();
   for (const s of plan.islands) {
     for (let j = s.j; j < s.j + s.h; j++) for (let i = s.i; i < s.i + s.w; i++) onIsland.add(j * W + i);

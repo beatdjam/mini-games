@@ -133,8 +133,6 @@ const ESCAPE_RUN = 2.6,
   ESCAPE_LANDING = 0.7,
   ESCAPE_TREADS = 12;
 const RISER_IN = 0.3; // what runs up a corner of an atrium's gallery stands this far from both its walls (m)
-const FOUNTAIN_R = 2.3; // the drained fountain in the middle of a mall's atrium: the radius of its rim (m)
-const FOUNTAIN_RIM_H = 0.5; // ... and how high the rim stands (m)
 const BANNER_LEN = [2.5, 4.5] as const; // how far a banner hangs down from the roof (m; short of the deck of a bridge across the well)
 const BANNER_W = 140,
   BANNER_H = 320; // a banner's picture (px)
@@ -150,14 +148,6 @@ const BANNER_TONES = [
 const GALLERIA_BANNER_GAP = 4.5; // a long atrium has a banner about every this far along it (m)
 const BANNER_BRIDGE_BAND = 6; // a banner this near (along the well, m) to a bridge across it does not hang down to it
 const DECK_HEAD = 2.4; // ... but ends this far over its deck (m)
-const PLANTER = { w: 1.3, h: 0.5, len: 2.4 }; // a planter on the ground of a long atrium: its width, height and length (m)
-// where the planters stand along a long atrium and to which side (fractions of its length from the middle, and metres from its middle line)
-const PLANTER_SPOTS: [number, number][] = [
-  [-0.34, 3.2],
-  [0.3, -3.2],
-  [0.12, 3.2],
-];
-const PLANT_WOOD = [0x4f432e, 0x5d4f36, 0x40382a]; // a dead plant's stalks
 const LED_COLORS = [PAINT.cyan, PAINT.mint2, PAINT.amber3]; // the lamps up a data well's corner risers, in turn
 const DECK_CLEAR = 4.5; // nothing is strung across a yard this far over a bridge's deck (m)
 const WINDOW_DROP = 1.2; // a window's middle is about this far under the middle of its storey's wall tile (m)
@@ -634,45 +624,12 @@ function dressGalleria(b: Batch, well: Well) {
     const [x, z] = at(t, k % 2 ? 1.6 : -1.6);
     putBanner(b, k, x, top, z, turn, len);
   }
-  // (a short well has room for two)
-  const planters = PLANTER_SPOTS.slice(0, length >= 9 * T ? 3 : 2);
-  planters.forEach(([along, side], n) => {
-    const t = along * length,
-      [x, z] = at(t, side),
-      rim = well.ground + PLANTER.h;
-    b.put(
-      'planter',
-      () => [box(PLANTER.w, PLANTER.h, PLANTER.len), flat(0x76705f)],
-      x,
-      well.ground + PLANTER.h / 2,
-      z,
-      turn,
-    );
-    b.put('soil', () => [box(PLANTER.w - 0.2, 0.05, PLANTER.len - 0.2), flat(0x2b2420)], x, rim + 0.01, z, turn);
-    // the stalks of what grew there: bare, leaning every way
-    for (let k = 0; k < 7; k++) {
-      const h = 0.7 + yardDice(n, k, 8) * 1,
-        lean = (yardDice(n, k, 9) - 0.5) * 0.9,
-        [px, pz] = at(t + (yardDice(n, k, 10) - 0.5) * (PLANTER.len - 0.6), side + (yardDice(n, k, 11) - 0.5) * 0.7);
-      b.put(
-        `stalk${k % PLANT_WOOD.length}`,
-        () => [box(0.05, 1, 0.05), flat(PLANT_WOOD[k % PLANT_WOOD.length]!)],
-        px,
-        rim + (h / 2) * Math.cos(lean),
-        pz,
-        yardDice(n, k, 12) * Math.PI * 2,
-        lean,
-        [1, h, 1],
-      );
-    }
-  });
 }
 
 // ---- what hangs in an atrium ----
 // By sector: the old downtown's pendant lamps at different heights; the smelter's crane girder, its chains and hook,
 // and hot pipes up the corners; the broadcasting house's lighting truss with its lamps, and hanging cables; the data
-// floor's cable trays across the well and columns of status lights; the mall's cloth banners from the roof and the rim
-// of a drained fountain on the ground
+// floor's cable trays across the well and columns of status lights; the mall's cloth banners from the roof
 export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
   dim = new THREE.Color(0xffffff);
   const b = batcher(group),
@@ -781,9 +738,9 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
       }
     }
   } else if (sector === 'MALL') {
-    // faded cloth banners hung from the glass roof, high over the heads (and clear of a bridge across the well), and
-    // on the ground at the middle the rim of a fountain that has been drained: low and flat, nothing to walk round.
-    // In a long atrium the banners hang in a row down its length, and dead plants stand in planters along it
+    // faded cloth banners hung from the glass roof, high over the heads (and clear of a bridge across the well). In a
+    // long atrium they hang in a row down its length. (The drained fountain and the planters on the ground are cover
+    // tiles, drawn with the mall's cover: looks/mall/atrium.ts)
     if (well.wide !== well.deep) dressGalleria(b, well);
     else
       for (let k = 0; k < 5; k++) {
@@ -798,16 +755,6 @@ export function dressAtrium(group: THREE.Group, sector: string, well: Well) {
           len,
         );
       }
-    b.put(
-      'fountainRim',
-      () => [new THREE.TorusGeometry(FOUNTAIN_R, 0.2, 6, 28), flat(0x8d8878)],
-      well.cx,
-      well.ground + FOUNTAIN_RIM_H / 2,
-      well.cz,
-      0,
-      Math.PI / 2,
-      [1, 1, FOUNTAIN_RIM_H / 0.4],
-    );
   } else {
     // pendant lamps: a thin rod from the roof, a warm globe at its end, at different heights
     for (let k = 0; k < 7; k++) {
