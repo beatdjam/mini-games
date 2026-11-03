@@ -180,6 +180,7 @@ export const RUN_END: Record<RunEnd, { eyebrow: string; title: () => string; bad
   extract: { eyebrow: 'extracted', title: () => t('res.extract'), badge: 'EXTRACTED' },
   abandon: { eyebrow: 'abandoned', title: () => t('res.abandon'), badge: 'ABANDONED' },
   dead: { eyebrow: 'signal lost', title: () => t('res.dead'), badge: 'SIGNAL LOST' },
+  clear: { eyebrow: 'cleared', title: () => t('res.clear'), badge: 'CLEARED' },
 };
 // is a name from outside the code (a dev entry's hash, a button's data attribute, a trailer script) one of the bosses
 export const isBossKind = (k: string | undefined): k is BossKind => (BOSS_ORDER as (string | undefined)[]).includes(k);

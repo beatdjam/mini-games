@@ -23,6 +23,13 @@ export const BOT_CLIMB_HASH = '#bot-climber';
 // the dev server can open either, so the mode select can be tried (#modes)
 export const ACTIVE_MODE: GameMode =
   ARCADE_OPEN || import.meta.env.DEV ? (prefGet(MODE_KEY, 'endless') === 'arcade' ? 'arcade' : 'endless') : 'endless';
+// whether the game is being played as ARCADE: the one place the two modes' rules part (task: an ARCADE dive)
+let arcade = ACTIVE_MODE === 'arcade';
+export const isArcade = (): boolean => arcade;
+// dev and tests only (the same handle as devBossArea in core/bossArea.ts): plays ARCADE's rules without the mode switch
+export function devSetArcade(on: boolean) {
+  arcade = on;
+}
 // the dev views' hashes come before the mode: they are a save of their own, not the mode's
 export const saveKeyFor = (hash: string, dev: boolean, mode: GameMode = 'endless'): string =>
   dev && hash.startsWith(BOSS_RUSH_HASH)
@@ -52,7 +59,7 @@ export const defaultSave = (): SaveData => ({
   runs: 0,
   bossKills: 0,
   bossSeen: {},
-  records: { cleared: false, bossArea: null },
+  records: { cleared: false, bossArea: null, bestTime: null },
   // the marks an older version of the game reads. Their values are fixed; they are not used to tell this save's version
   stageV: 2,
   levelV: 1,
@@ -112,7 +119,7 @@ function migrateTo1(out: SaveData, raw: Record<string, any>) {
     out.supplyV = 1;
   }
   // the defaults give it, but an old save may carry records as nothing; keep the shape settled from here on
-  if (!out.records) out.records = { cleared: false, bossArea: null };
+  if (!out.records) out.records = { cleared: false, bossArea: null, bestTime: null };
 }
 // the first milestone at or above `tier` (the boss area sits on one)
 export const milestoneAtOrAbove = (tier: number): number =>
@@ -158,6 +165,9 @@ export function loadSaveFrom(key: string): SaveData {
   // broken data fixed whatever the version (not part of the conversions below)
   const assist: unknown = out.settings.assist; // saves from before the setting had levels hold a boolean
   if (typeof assist === 'boolean') out.settings.assist = assist ? 'weak' : 'off';
+  // ARCADE's record of its fastest clear came in without a new save version: an older save has no value for it
+  if (!out.records) out.records = { cleared: false, bossArea: null, bestTime: null };
+  else if (out.records.bestTime === undefined) out.records.bestTime = null;
   if (!s) return out;
   if (!Array.isArray(out.loadout))
     out.loadout = [basicW(s.weapon && out.unlocked[s.weapon] ? s.weapon : 'pistol'), null];

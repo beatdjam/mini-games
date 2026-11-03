@@ -297,6 +297,9 @@ LANG.en = {
     'res.quit': 'Quit',
     'res.time': 'Time',
     'res.timeV': '{m}m {s}s',
+    'res.clear': 'Cleared',
+    'res.record': 'Record',
+    'res.newRecord': 'New record',
     'res.practiceNote': 'Practice: your bits, weapons and records are unchanged.',
 
     // ---- share ----

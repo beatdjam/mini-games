@@ -52,7 +52,7 @@ import './actors/weapons.ts';
 import './actors/viewmodel.ts';
 import './actors/firing.ts';
 import './actors/combat.ts';
-import { setSaveBeatenRoom, setTitanSpawner } from './actors/bosses/common.ts';
+import { setArcadeClear, setSaveBeatenRoom, setTitanSpawner } from './actors/bosses/common.ts';
 import './actors/bosses/watcher.ts';
 import './actors/bosses/crusher.ts';
 import './actors/bosses/core.ts';
@@ -66,7 +66,7 @@ import './ui/hud.ts';
 import { fsLabel, renderGuide } from './ui/settings.ts';
 import './flow/state.ts';
 import './flow/attract.ts';
-import './flow/run.ts';
+import { endRun } from './flow/run.ts';
 import { checkpoint } from './flow/suspend.ts';
 import './screens/perk.ts';
 import './screens/pause.ts';
@@ -87,6 +87,7 @@ ANALYTICS.game = 'sector-dive-ex'; // sent with every analytics event
 FEEDBACK.game = 'sector-dive-ex'; // filled into the feedback form
 setSaveBeatenRoom(checkpoint);
 setTitanSpawner(spawnTitan);
+setArcadeClear(() => endRun('clear'));
 setLang(save.settings.lang || defaultLang());
 syncVolumes();
 fsLabel();

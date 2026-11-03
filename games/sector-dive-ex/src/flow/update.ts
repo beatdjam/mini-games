@@ -342,6 +342,8 @@ function updateFiring(dt: number) {
 
 function updatePlayer(dt: number) {
   time += dt;
+  // the dive's own clock (ARCADE's clear time): it runs only while the game is played, so a pause or a suspend leaves it
+  run.time = (run.time ?? 0) + dt;
   // the 3D map is up on a PC: the move keys turn the map, the player stands still
   const input = keysTurnMap3D(dt) ? { x: 0, z: 0 } : readMoveInput();
   updateStickDash(dt);

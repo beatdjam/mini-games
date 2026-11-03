@@ -1,8 +1,8 @@
 import type { BossKind, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
-import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
+import { ARCADE_DEPTHS, STASH_MAX, milestoneBelow } from '../data/progress.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
-import { basicW, save } from './save.ts';
+import { basicW, defaultSave, save } from './save.ts';
 import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
 import { sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
@@ -136,12 +136,40 @@ export function allBossRoomsBeaten(): boolean {
 export function recordTitanClear() {
   save.records.cleared = true;
 }
+// ARCADE: a clear's time in seconds. Returns whether it is the fastest so far (the caller persists)
+export function recordBestTime(sec: number): boolean {
+  const best = save.records.bestTime;
+  if (best !== null && best <= sec) return false;
+  save.records.bestTime = sec;
+  return true;
+}
 // The boss area's depth, settled once per save on the first dive from the base or resume (when the flag is on). Returns
 // whether this call settled it; the caller persists
 export function settleBossArea(startTier: number): boolean {
   if (!bossAreaOn() || save.records.bossArea) return false;
   save.records.bossArea = { tier: bossAreaTierFor(save.shortcut, startTier), beaten: [] };
   return true;
+}
+// ARCADE: the boss area is the depth after the last sector (ARCADE_DEPTHS), and its rooms are unbeaten when a dive
+// sets out. Returns whether this call settled it; the caller persists
+export function settleArcadeBossArea(): boolean {
+  if (!bossAreaOn() || save.records.bossArea?.tier === ARCADE_DEPTHS) return false;
+  save.records.bossArea = { tier: ARCADE_DEPTHS, beaten: [] };
+  return true;
+}
+// ARCADE: what a dive leaves behind is dropped when it ends (cleared, lost or given up) and before the next one sets out.
+// The records and what the base keeps (the unlocks, the bosses met and killed, the runs, the best and the settings) stay
+export function resetArcadeProgress() {
+  const base = defaultSave();
+  save.bits = base.bits;
+  save.up = base.up;
+  save.loadout = base.loadout;
+  save.stash = base.stash;
+  save.shortcut = base.shortcut;
+  save.startTier = base.startTier;
+  save.peak = base.peak;
+  save.records.bossArea = null;
+  save.suspend = null;
 }
 // the save a boss area sim starts from: at the boss area's depth, with none of its rooms beaten
 export function devBossAreaStart(tier: number) {

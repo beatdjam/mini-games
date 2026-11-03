@@ -31,6 +31,9 @@ export interface RunResultFacts {
   foundText: string; // the weapons brought back (or common.none)
   sold: number; // bits sold from an overflowing stash (0: no row)
   shortcut: string; // the milestone fallen back to (empty: no row)
+  arcade: boolean; // an ARCADE dive: its bits and weapons stay behind, and the time is shown
+  sec: number; // seconds the dive went on
+  newRecord: boolean; // the fastest clear so far (ARCADE)
 }
 // one result row: its name (for adding rows later, not shown), the i18n key of its label, when it shows, and its value
 interface ResultRow {
@@ -45,15 +48,24 @@ const RUN_RESULT_ROWS: ResultRow[] = [
   {
     id: 'bits',
     label: 'res.bits',
+    when: f => !f.arcade,
     value: f => (f.dead ? t('res.bitsLost', { kept: f.kept, lost: f.got - f.kept }) : `+${f.kept}`),
   },
   {
     id: 'weapons',
     label: f => (f.dead ? 'res.lostWeapons' : 'res.keptWeapons'),
+    when: f => !f.arcade,
     value: f => f.foundText,
   },
-  { id: 'sold', label: 'res.sold', when: f => !f.dead && f.sold > 0, value: f => `+${f.sold}` },
+  { id: 'sold', label: 'res.sold', when: f => !f.arcade && !f.dead && f.sold > 0, value: f => `+${f.sold}` },
   { id: 'shortcut', label: 'res.shortcut', when: f => !!f.shortcut, value: f => f.shortcut },
+  {
+    id: 'time',
+    label: 'res.time',
+    when: f => f.arcade,
+    value: f => t('res.timeV', { m: Math.floor(f.sec / 60), s: f.sec % 60 }),
+  },
+  { id: 'record', label: 'res.record', when: f => f.arcade && f.newRecord, value: () => t('res.newRecord') },
 ];
 export function runResultRows(f: RunResultFacts): [string, string | number][] {
   return RUN_RESULT_ROWS.filter(r => !r.when || r.when(f)).map(r => [

@@ -13,7 +13,7 @@ import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { BOSS_ROOM_ORDER } from '../../data/bossRooms.ts';
 import { hpGrowth, isMilestone } from '../../data/progress.ts';
-import { persist, save } from '../../core/save.ts';
+import { isArcade, persist, save } from '../../core/save.ts';
 import {
   allBossRoomsBeaten,
   openShortcut,
@@ -347,6 +347,12 @@ function giveBossRewards(e: Boss, progress: number) {
 // player comes back to the boss room's floor after the fight (flow/events.ts resetFloorEvents)
 export function putBossGates(cx: number, cz: number, tier: number) {
   makePortal(cx + 6, cz - 2, COLOR.amber, 'next', t('boss.forward'));
+  // ARCADE: a dive is never taken back to the base (it is given up from the pause screen), and every boss is a place to
+  // spend the dive's bits
+  if (isArcade()) {
+    makeTerminal(cx, cz - 2, COLOR.lime, t('boss.terminal'));
+    return;
+  }
   makePortal(cx - 6, cz - 2, COLOR.cyan, 'extract', t('boss.extract'));
   if (isMilestone(tier)) makeTerminal(cx, cz - 2, COLOR.lime, t('boss.terminal'));
 }
@@ -359,6 +365,12 @@ export function putRoomGates(cx: number, cz: number) {
 let saveBeatenRoom = () => {};
 export function setSaveBeatenRoom(fn: () => void) {
   saveBeatenRoom = fn;
+}
+// What ends an ARCADE dive when TITAN is down: flow/run.ts endRun('clear'), handed over by main.ts (flow/run.ts imports
+// this file, so importing it back would close a cycle)
+let endArcadeClear = () => {};
+export function setArcadeClear(fn: () => void) {
+  endArcadeClear = fn;
 }
 // the kill counts toward the save: deepest depth, the next shortcut
 function recordBossProgress(tier: number) {
@@ -386,6 +398,20 @@ export function bossDown(e: Boss) {
   // TITAN, the boss area's last boss: its clear stays in the save and the depth's shortcut opens as for any boss. The
   // room beaten records are for the eight rooms, so TITAN does not touch them
   if (e.kind === 'titan' && bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room') {
+    // ARCADE: TITAN is the end of the dive. The clear stays in the save; the dive's own gains do not (flow/run.ts endRun)
+    if (isArcade()) {
+      const first = !save.records.cleared;
+      recordTitanClear();
+      hideBossBar();
+      if (first) giveBossRewards(e, progressOf(run.stage));
+      else {
+        dropBits(e.x, e.z, BOSS_TUNE.bits * BOSS_TUNE.bitsKept * bossDifficulty());
+        track('boss_defeated', { target: e.kind, level: tier + 1 });
+      }
+      recordBossKill();
+      endArcadeClear();
+      return;
+    }
     const first = !save.records.cleared;
     recordTitanClear();
     onBossDown(); // the room's door opens again

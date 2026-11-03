@@ -6,8 +6,8 @@ import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { track } from '@engine/core/analytics.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
-import { basicW, persist, save } from '../core/save.ts';
-import { setSuspend, settleBossArea } from '../core/progress.ts';
+import { basicW, isArcade, persist, save } from '../core/save.ts';
+import { setSuspend, settleArcadeBossArea, settleBossArea } from '../core/progress.ts';
 import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { building, packSeen } from '../world/building.ts';
@@ -94,7 +94,8 @@ export function resumeRun() {
   enterDive();
   restoreSnapshot(sn);
   // a dive begun before the boss area was published has none settled: without this its D25 would be an ordinary depth
-  settleBossArea(stageInfo(run.stage).tier);
+  if (isArcade()) settleArcadeBossArea();
+  else settleBossArea(stageInfo(run.stage).tier);
   track('dive_resume', { level: stageInfo(run.stage).tier + 1 });
   setSuspend(null);
   persist();
