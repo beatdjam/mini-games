@@ -10,6 +10,10 @@ export const PER = 4; // 3 floors + boss per depth
 // How many depths of the curves below one depth now covers: enemies, drops, bits and room counts scale with it, and one
 // chip picked counts this many times (a depth holds what two used to)
 export const DEPTH_SCALE = 2;
+// what the bits picked up are worth, times this: a depth holds what two did, but one walks half the rooms to get to the
+// same strength, so without it about 0.6 of the bits came in on the way there (each depth's bits about 1.4 times the
+// last) and some three levels fewer were bought (levelCost). 1 / 0.6
+export const BIT_SCALE = 1.7;
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
 // The player's own growth (additive chips, +8% per weapon +) slows down gradually, to about 1.3x per depth deep down,
 // so the per-depth factor slides the same way: `rate` up to GROWTH_SLIDE[0] depths in, then (geometrically) down to

@@ -10,7 +10,7 @@ import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
 import { BOSS_AREA_START_TIER, PER, levelCost } from '../src/data/progress.ts';
 import { fillMag, newWeapon, wDmgMul } from '../src/actors/weapons.ts';
 import { normalizeWeapons } from '../src/ui/input.ts';
-import { defaultSave, save, setSave } from '../src/core/save.ts';
+import { defaultSave, devSetArcade, save, setSave } from '../src/core/save.ts';
 import { devBossAreaGear, devBossAreaStart, setStartTier } from '../src/core/progress.ts';
 import { devBossArea } from '../src/core/bossArea.ts';
 import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
@@ -33,6 +33,7 @@ declare const __SIM_LEVEL__: string;
 declare const __SIM_TAG__: string;
 declare const __SIM_AREA__: string;
 declare const __SIM_CLIMB_TO__: string;
+declare const __SIM_MODE__: string;
 
 const DT = 1 / 60;
 // A run goes on for as long as the bot gets anywhere: it is given up only when nothing has moved on for a while (no
@@ -97,6 +98,9 @@ const cases = styles.flatMap(style =>
 // nextPoint) and the dive starts from the deepest start open. Not set (1): every dive from a new save
 const DIVES = Math.max(1, Number(__SIM_DIVES__) || 1);
 const AREA = __SIM_AREA__ === 'on';
+// ARCADE's rules (SIM_MODE=arcade): every dive from DEPTH 1 with nothing carried over, the boss area at DEPTH 9 and the
+// dive over at TITAN (end 'clear'). Run it with the climber, the one kind that goes on to TITAN (the hall has no way home)
+const ARCADE = __SIM_MODE__ === 'arcade';
 type Row = Record<string, string | number>;
 const summary: Row[] = [];
 const tsv = (rows: Row[]): string => {
@@ -173,7 +177,9 @@ test.each(cases)(
         // (SIM_LEVEL=off: the milestones' terminals are not used, the game as before them, to compare)
         setBotLevels(__SIM_LEVEL__ !== 'off');
         setDropOnly(weapon);
-        startRun();
+        devSetArcade(ARCADE);
+        // (ARCADE: its boss area is settled as a dive from the base settles it)
+        startRun(ARCADE);
         if (weapon) {
           player.weapons = [fillMag(newWeapon(weapon, 0, true)), null];
           player.cur = 0;
@@ -226,7 +232,7 @@ test.each(cases)(
             }
           }
           if (stateNow() === 'result' || stateNow() === 'base') {
-            end = player.hp <= 0 ? 'died' : 'extract';
+            end = player.hp <= 0 ? 'died' : ARCADE && save.records.cleared ? 'clear' : 'extract';
             break;
           }
           // the boss comes on a timer of the page, not of the game: wait for it in real time
