@@ -124,6 +124,8 @@ el<HTMLInputElement>('#saveFile').addEventListener('change', e => {
 });
 
 el('#btnWipeGo').addEventListener('click', () => {
+  // only the mode being played: the other mode's save is left as it was. The settings are shared, so the defaults below
+  // are written to SETTINGS_KEY too (persist)
   clearStore(ACTIVE_SAVE_KEY);
   setSave(defaultSave());
   persist();

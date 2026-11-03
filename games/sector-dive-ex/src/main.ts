@@ -6,7 +6,7 @@ import { setLang, defaultLang } from '@engine/core/i18n.ts';
 import { ANALYTICS } from '@engine/core/analytics.ts';
 import { FEEDBACK } from '@engine/core/feedback.ts';
 import { applyLayout } from '@engine/ui/touchlayout.ts';
-import { save, syncVolumes } from './core/save.ts';
+import { save, syncVolumes, takeModeChosen } from './core/save.ts';
 import { applyKeyBindings } from './ui/input.ts';
 import { baseUI, showTab } from './screens/base.ts';
 import '@engine/core/util.ts';
@@ -32,7 +32,7 @@ import './data/level.ts';
 import './data/enemies.ts';
 import './data/bosses.ts';
 import './data/biomes.ts';
-import './data/progress.ts';
+import { ARCADE_OPEN } from './data/progress.ts';
 import './data/perks.ts';
 import './data/controls.ts';
 import './data/sfx.ts';
@@ -74,6 +74,7 @@ import './screens/bag.ts';
 import './screens/result.ts';
 import './screens/base.ts';
 import './screens/data.ts';
+import { openModeSelect } from './screens/mode.ts';
 import './screens/keys.ts';
 import './ui/share.ts';
 import './ui/feedback.ts';
@@ -94,6 +95,9 @@ applyKeyBindings();
 renderGuide();
 showTab(baseUI.tab);
 boot();
+// the mode select: every start-up once ARCADE is open; the dev server only when asked (#modes), so its hooks still start
+// straight into the game. Not on the reload a mode switch makes: that mode was just chosen
+if ((ARCADE_OPEN || (import.meta.env.DEV && location.hash.startsWith('#modes'))) && !takeModeChosen()) openModeSelect();
 // everything is in place (the new layout's moves and pictures, the base drawn): show the page (index.html body.booting)
 document.body.classList.remove('booting');
 // checks and screenshot hooks (#view-…): only on the dev server, never in the built pages. The dev module sets up

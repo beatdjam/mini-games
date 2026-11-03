@@ -128,9 +128,9 @@ exports[`sector MALL 1`] = `
   "first": {
     "at": "38,38",
     "enemies": "55:3cb002c4",
-    "scene": "1486:95274045",
+    "scene": "1503:15b84b0a",
   },
-  "last": "984:642a9230",
+  "last": "1001:1d40a03",
 }
 `;
 
