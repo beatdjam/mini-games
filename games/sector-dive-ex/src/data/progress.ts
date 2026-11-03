@@ -1,8 +1,8 @@
 import type { Upgrade } from './types.ts';
 import { withLang } from '@engine/core/langslots.ts';
-// ARCADE's own game is not built yet: the published page starts ENDLESS with no mode select until it is (the dev server
-// still shows the select with #modes, to try it)
-export const ARCADE_OPEN = false;
+// ARCADE is open: the published page asks for the mode at start-up and shows the mode button and tag (false: ENDLESS
+// only, with none of them). The dev server shows the select only with #modes, so its hooks start straight into the game
+export const ARCADE_OPEN = true;
 // ARCADE: the sectors a dive walks (DEPTH 1 to this many), and then the boss area at the depth after them (0-based 8 = DEPTH 9)
 export const ARCADE_DEPTHS = 8;
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
@@ -10,6 +10,9 @@ export const PER = 4; // 3 floors + boss per depth
 // How many depths of the curves below one depth now covers: enemies, drops, bits and room counts scale with it, and one
 // chip picked counts this many times (a depth holds what two used to)
 export const DEPTH_SCALE = 2;
+// ARCADE's depths count this many instead: its eight sectors end deeper than ENDLESS's DEPTH 8 would (the sim's climber,
+// 2026-11-03: 2 cleared 8 dives of 8, 3 none, 2.5 six)
+export const ARCADE_DEPTH_SCALE = 2.5;
 // what the bits picked up are worth, times this: a depth holds what two did, but one walks half the rooms to get to the
 // same strength, so without it about 0.6 of the bits came in on the way there (each depth's bits about 1.4 times the
 // last) and some three levels fewer were bought (levelCost). 1 / 0.6

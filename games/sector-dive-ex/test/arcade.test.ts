@@ -5,7 +5,7 @@
 import { afterEach, beforeAll, expect, test } from 'vitest';
 import { BIOMES } from '../src/data/biomes.ts';
 import { BOSS_ROOMS, BOSS_ROOM_ORDER } from '../src/data/bossRooms.ts';
-import { ARCADE_DEPTHS } from '../src/data/progress.ts';
+import { ARCADE_DEPTHS, ARCADE_DEPTH_SCALE, DEPTH_SCALE, PER } from '../src/data/progress.ts';
 import { saveStore } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
 import { runSystems } from '@engine/core/loop.ts';
@@ -13,7 +13,7 @@ import { el } from '@engine/core/util.ts';
 import { SAVE_KEY, defaultSave, devSetArcade, isArcade, loadSaveFrom, save } from '../src/core/save.ts';
 import { arcadeBossOf } from '../src/core/bossArea.ts';
 import { recordBestTime } from '../src/core/progress.ts';
-import { RUN_END } from '../src/core/rules.ts';
+import { RUN_END, progressOf } from '../src/core/rules.ts';
 import { bossStageOf, firstStageOf, stageLabel, tierLabel } from '../src/core/stages.ts';
 import { player, run } from '../src/actors/player.ts';
 import { newWeapon } from '../src/actors/weapons.ts';
@@ -319,4 +319,11 @@ test('ARCADE: a weapon found in a dive unlocks its kind; ENDLESS keeps it a purc
   setNear(bought);
   equipNearby();
   expect(save.unlocked.rail, 'ENDLESS still buys them with bits').toBeFalsy();
+});
+
+test('ARCADE counts its depths deeper (ARCADE_DEPTH_SCALE); ENDLESS keeps DEPTH_SCALE', () => {
+  devSetArcade(true);
+  expect(progressOf(3 * PER)).toBe(3 * 5 * ARCADE_DEPTH_SCALE);
+  devSetArcade(false);
+  expect(progressOf(3 * PER)).toBe(3 * 5 * DEPTH_SCALE);
 });
