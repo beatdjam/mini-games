@@ -14,9 +14,12 @@ import { SAVE_KEY, defaultSave, devSetArcade, isArcade, loadSaveFrom, save } fro
 import { arcadeBossOf } from '../src/core/bossArea.ts';
 import { recordBestTime } from '../src/core/progress.ts';
 import { RUN_END } from '../src/core/rules.ts';
-import { bossStageOf, firstStageOf } from '../src/core/stages.ts';
-import { run } from '../src/actors/player.ts';
-import { boss } from '../src/world/entities.ts';
+import { bossStageOf, firstStageOf, stageLabel, tierLabel } from '../src/core/stages.ts';
+import { player, run } from '../src/actors/player.ts';
+import { newWeapon } from '../src/actors/weapons.ts';
+import { addPickup, boss, setNear } from '../src/world/entities.ts';
+import { equipNearby } from '../src/ui/input.ts';
+import { baseUI, renderBase } from '../src/screens/base.ts';
 import { level } from '../src/world/level.ts';
 import { setState, state } from '../src/flow/state.ts';
 import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
@@ -246,4 +249,74 @@ test('a save from before the time record reads bestTime as null', () => {
   const loaded = loadSaveFrom(SAVE_KEY);
   expect(loaded.records.bestTime).toBeNull();
   expect(loaded.records.cleared, 'the rest of the records is as it was').toBe(true);
+});
+
+test('ARCADE base: the depth picker, storage and the level tab are hidden; the card is the record', () => {
+  devSetArcade(true);
+  save.records.bestTime = 754;
+  save.best = 3;
+  baseUI.tab = 'up';
+  goBase();
+  expect(baseUI.tab, 'a hidden tab falls back to the dive page').toBe('sortie');
+  expect(el('#tiersHead').hidden).toBe(true);
+  expect(el('#tiers').hidden).toBe(true);
+  expect(el('#depthPath').hidden).toBe(true);
+  expect(el('#stash').hidden).toBe(true);
+  expect(el('#stashHead').hidden, 'the storage heading and count go with it').toBe(true);
+  expect(el('.tabs [data-tab="up"]').hidden).toBe(true);
+  expect(el('[data-pane="up"]').hidden).toBe(true);
+  expect(el('#startSub').textContent).toBe(t('base.diveSub', { tier: tierLabel(0) }));
+  const card = el('#levelCard');
+  expect(card.hasAttribute('data-go'), 'the record card opens nothing').toBe(false);
+  expect(card.classList.contains('ready')).toBe(false);
+  expect(card.textContent).toContain(t('base.record'));
+  expect(card.textContent, '754 seconds').toContain('12:34');
+  expect(card.textContent).toContain(stageLabel(save.best - 1));
+  save.records.bestTime = null;
+  renderBase();
+  expect(card.textContent).toContain(t('base.notCleared'));
+});
+
+test('ENDLESS base: the depth picker, storage and the level tab stay', () => {
+  devSetArcade(false);
+  goBase();
+  expect(el('#tiersHead').hidden).toBe(false);
+  expect(el('#tiers').hidden).toBe(false);
+  expect(el('#depthPath').hidden).toBe(false);
+  expect(el('#stash').hidden).toBe(false);
+  expect(el('#stashHead').hidden).toBe(false);
+  expect(el('.tabs [data-tab="up"]').hidden).toBe(false);
+  expect(el('#levelCard').getAttribute('data-go')).toBe('up');
+  expect(document.querySelector('#lcLv'), 'the level is back on the card').not.toBeNull();
+});
+
+test('ARCADE base: a locked weapon shows no price and cannot be bought', () => {
+  devSetArcade(true);
+  save.bits = 1000;
+  save.unlocked.smg = false;
+  goBase();
+  const card = document.querySelector<HTMLButtonElement>('[data-w="smg"]')!;
+  expect(card.textContent).toContain(t('base.unlockFound'));
+  expect(card.textContent).not.toContain('BIT');
+  card.click();
+  expect(save.bits, 'no bits are spent').toBe(1000);
+  expect(save.unlocked.smg).toBeFalsy();
+});
+
+test('ARCADE: a weapon found in a dive unlocks its kind; ENDLESS keeps it a purchase', () => {
+  devSetArcade(true);
+  startRun(true);
+  setState('play');
+  const found = addPickup('weapon', player.x, player.z, { w: newWeapon('smg', 0) });
+  setNear(found);
+  equipNearby();
+  expect(save.unlocked.smg, 'ARCADE unlocks what is found').toBe(true);
+  devSetArcade(false);
+  goBase();
+  startRun(true);
+  setState('play');
+  const bought = addPickup('weapon', player.x, player.z, { w: newWeapon('rail', 0) });
+  setNear(bought);
+  equipNearby();
+  expect(save.unlocked.rail, 'ENDLESS still buys them with bits').toBeFalsy();
 });

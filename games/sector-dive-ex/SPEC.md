@@ -389,6 +389,12 @@
   - クリアすると `records.cleared = true` にし、`records.bestTime`（秒、既定 `null`）を短いほうに更新する（`recordBestTime` in src/core/progress.ts）。古いセーブは読み込みで `null` に揃える（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）
   - 結果の画面に、かかった時間を出し、記録を更新したら「新記録」を出す
 - **ENDLESS との分かれ道**: モードで分けるのは `isArcade()` in src/core/save.ts を見る所だけ。テストと開発用に `devSetArcade` で切り替えられる（開発サーバーの `#modes` から ARCADE を選ぶのと同じ）
+- **ARCADE の拠点**: 意味の無い欄を隠し、記録を出す（`renderBase` in src/screens/base.ts。ENDLESS の拠点は今までどおり）
+  - 出撃: 出撃地点の選び方（見出しと説明の `#tiersHead`、`#tiers`・`#depthPath`）を隠し、出撃の下の一行は D1 から出ることを出す
+  - ストック: 倉庫の欄（`#stash` と、見出しと数の `#stashHead`）を隠す
+  - レベル: 強化のタブ（`data-tab="up"` と `data-pane="up"`）を隠す。最後に開いたタブが `up` なら出撃を開く（`showTab`）
+  - 記録: `#levelCard` を RECORD のカードにし、クリアのいちばん速いタイム（`records.bestTime`、`m:ss`。まだなら未クリア）と最高到達（`save.best` を `stageLabel` で）を出す。押しても開かない
+  - 武器の解放: まだ解放していない武器のカードは値段を出さず、押しても買えない（「潜行で拾うと解放」）。潜行で武器を拾うと、その種類を `unlockFoundWeapon` in src/core/progress.ts で解放する（初めての解放のときだけトースト）。ENDLESS はビットで買う
 
 ### 強化と補給
 
