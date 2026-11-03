@@ -910,8 +910,8 @@ test('result rows: the labels and their order, on a death and on a return', () =
     endRun('dead');
     expect(labels()).toEqual([t('res.reached'), t('res.kills'), t('res.bits'), t('res.lostWeapons')]);
     // falling back to a milestone puts the shortcut row last
-    save.shortcut = 12;
-    save.startTier = 12;
+    save.shortcut = 11;
+    save.startTier = 11;
     startRun();
     endRun('dead');
     expect(labels()).toEqual([

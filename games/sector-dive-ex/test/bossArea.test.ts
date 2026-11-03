@@ -62,13 +62,13 @@ afterEach(() => {
   save.startTier = 0;
 });
 
-test('bossAreaTierFor: D50 for a new save, the next milestone for one already past it', () => {
-  expect(bossAreaTierFor(0, 0), 'a new save').toBe(49);
-  expect(bossAreaTierFor(49, 49), 'a save that stops at D50').toBe(49);
-  expect(bossAreaTierFor(50, 0), 'D51, started from the top').toBe(54);
-  expect(bossAreaTierFor(60, 57), 'D58: the next milestone').toBe(59);
-  expect(bossAreaTierFor(60, 54), 'a start on a milestone: the one after it').toBe(59);
-  expect(bossAreaTierFor(60, 59), 'a start on the next milestone: the one after that').toBe(64);
+test('bossAreaTierFor: D25 for a new save, the next milestone for one already past it', () => {
+  expect(bossAreaTierFor(0, 0), 'a new save').toBe(24);
+  expect(bossAreaTierFor(24, 24), 'a save that stops at D25').toBe(24);
+  expect(bossAreaTierFor(25, 0), 'D26, started from the top').toBe(27);
+  expect(bossAreaTierFor(30, 28), 'D29: the next milestone').toBe(30);
+  expect(bossAreaTierFor(30, 27), 'a start on a milestone: the one after it').toBe(30);
+  expect(bossAreaTierFor(33, 30), 'a start on the next milestone: the one after that').toBe(33);
 });
 
 test('settleBossArea: the first dive from the base settles the boss area once', () => {
@@ -77,18 +77,18 @@ test('settleBossArea: the first dive from the base settles the boss area once', 
   save.shortcut = 0;
   save.startTier = 0;
   startRun(true);
-  expect(save.records.bossArea, 'settled at D50').toEqual({ tier: 49, beaten: [] });
+  expect(save.records.bossArea, 'settled at D25').toEqual({ tier: 24, beaten: [] });
   goBase();
   save.startTier = 0; // (a deeper start would open the supply chip picks)
-  save.shortcut = 60;
+  save.shortcut = 30;
   startRun(true);
-  expect(save.records.bossArea, 'already settled: left as it was').toEqual({ tier: 49, beaten: [] });
+  expect(save.records.bossArea, 'already settled: left as it was').toEqual({ tier: 24, beaten: [] });
 });
 
 test('planOf: a depth is the boss area only where the save settled it', () => {
-  save.records.bossArea = { tier: 49, beaten: [] };
-  expect(planOf(49 * PER).area, 'the depth of the boss area').toBe(true);
-  expect(planOf(48 * PER).area, 'the depth before it').toBe(false);
+  save.records.bossArea = { tier: 24, beaten: [] };
+  expect(planOf(24 * PER).area, 'the depth of the boss area').toBe(true);
+  expect(planOf(23 * PER).area, 'the depth before it').toBe(false);
 });
 
 test('BOSS_ROOMS: every boss has a sector of its own, and all of them are sectors of the game', () => {
@@ -109,11 +109,11 @@ test('boss area off: a dive settles nothing and takes the building path as befor
   devBossArea(false);
   goBase();
   save.records.bossArea = null;
-  save.shortcut = 49;
-  save.startTier = 49;
+  save.shortcut = BOSS_AREA_START_TIER;
+  save.startTier = BOSS_AREA_START_TIER;
   startRun(true);
   expect(save.records.bossArea, 'not settled').toBeNull();
-  expect(planOf(49 * PER).area, 'no boss area').toBe(false);
+  expect(planOf(BOSS_AREA_START_TIER * PER).area, 'no boss area').toBe(false);
   expect(run.bld, 'the building is there').toBeTruthy();
   expect(level.floor, 'a floor of it').toBeGreaterThanOrEqual(0);
 });
@@ -121,11 +121,11 @@ test('boss area off: a dive settles nothing and takes the building path as befor
 test('a deep start settles the area and leaves the supply chip picks open', () => {
   goBase();
   save.records.bossArea = null;
-  save.shortcut = 60;
-  save.startTier = 54;
+  save.shortcut = 30;
+  save.startTier = 27;
   startRun(true);
-  expect(save.records.bossArea, 'the next milestone above the start').toEqual({ tier: 59, beaten: [] });
-  expect(run.startTier, 'the run starts where it was set to').toBe(54);
+  expect(save.records.bossArea, 'the next milestone above the start').toEqual({ tier: 30, beaten: [] });
+  expect(run.startTier, 'the run starts where it was set to').toBe(27);
   expect(state, 'a supply chip pick is open').toBe('perk');
 });
 
@@ -167,30 +167,30 @@ test('a run suspended in the hall resumes in the hall', () => {
   expect(level.portals.map(p => p.kind).sort(), 'the gates are made again').toEqual(hallGateKinds());
 });
 
-test('a dive begun before the boss area settled it on resume: D50 is the hall, even from inside D50', () => {
+test('a dive begun before the boss area settled it on resume: D25 is the hall, even from inside D25', () => {
   goBase();
   save.records.bossArea = null;
-  save.shortcut = 47;
+  save.shortcut = 23;
   save.startTier = 0;
   startRun();
-  run.stage = firstStageOf(47);
+  run.stage = firstStageOf(23);
   startStage();
   suspendRun();
   expect(save.records.bossArea, 'not settled yet').toBeNull();
   resumeRun();
-  expect(save.records.bossArea, 'settled on resume').toEqual({ tier: 49, beaten: [] });
-  expect(stageInfo(run.stage).tier, 'still at D48').toBe(47);
+  expect(save.records.bossArea, 'settled on resume').toEqual({ tier: 24, beaten: [] });
+  expect(stageInfo(run.stage).tier, 'still at D24').toBe(23);
 
   goBase();
   save.records.bossArea = null;
-  save.shortcut = 49;
+  save.shortcut = 24;
   startRun();
-  run.stage = firstStageOf(49);
+  run.stage = firstStageOf(24);
   startStage();
   suspendRun();
   resumeRun();
-  expect(save.records.bossArea, 'D50 is the boss area').toEqual({ tier: 49, beaten: [] });
-  expect(run.area, 'a checkpoint inside D50 comes back in the hall').toEqual({ at: 'hall' });
+  expect(save.records.bossArea, 'D25 is the boss area').toEqual({ tier: 24, beaten: [] });
+  expect(run.area, 'a checkpoint inside D25 comes back in the hall').toEqual({ at: 'hall' });
   expect(run.bld, 'no building left').toBeUndefined();
 });
 
@@ -647,8 +647,8 @@ test('the onward gate leaves the boss area for the next depth', () => {
 test('the start depth stops at the boss area until TITAN is down', () => {
   goBase();
   save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
-  save.shortcut = 55;
-  save.startTier = 55;
+  save.shortcut = 28;
+  save.startTier = 28;
   save.records.cleared = false;
   clampStartTier();
   expect(save.startTier, 'no start past the gate before TITAN is down').toBe(BOSS_AREA_START_TIER);
@@ -656,22 +656,22 @@ test('the start depth stops at the boss area until TITAN is down', () => {
   expect(run.startTier, 'the run starts at the boss area too').toBe(BOSS_AREA_START_TIER);
   goBase();
   save.records.cleared = true;
-  save.startTier = 55;
+  save.startTier = 28;
   clampStartTier();
-  expect(save.startTier, 'TITAN down: the shortcut is the limit again').toBe(55);
-  expect(startTierMax(), 'and the limit is the shortcut').toBe(55);
+  expect(save.startTier, 'TITAN down: the shortcut is the limit again').toBe(28);
+  expect(startTierMax(), 'and the limit is the shortcut').toBe(28);
 });
 
 test('dying below the boss area comes back to the hall', () => {
   enterHallRun();
   save.records.cleared = true;
-  save.shortcut = 52;
-  save.startTier = 52;
+  save.shortcut = 26;
+  save.startTier = 26;
   startRun(true);
   endRun('dead');
   startRun(true);
   tick(2); // the supply chip picks closed
-  expect(run.startTier, 'the last milestone below D53').toBe(BOSS_AREA_START_TIER);
+  expect(run.startTier, 'the last milestone below D27').toBe(BOSS_AREA_START_TIER);
   expect(run.area, 'the hall again').toEqual({ at: 'hall' });
   expect(run.bld, 'not a floor of a building').toBeUndefined();
 });
@@ -680,9 +680,9 @@ test('boss area off: the start depth is not limited and the hall is not used', (
   devBossArea(false);
   goBase();
   save.records.bossArea = { tier: BOSS_AREA_START_TIER, beaten: [] };
-  save.shortcut = 55;
+  save.shortcut = 28;
   save.startTier = BOSS_AREA_START_TIER;
-  expect(startTierMax(), 'the shortcut is the limit without the flag').toBe(55);
+  expect(startTierMax(), 'the shortcut is the limit without the flag').toBe(28);
   startRun(true);
   tick(2); // the supply chip picks closed
   expect(run.startTier, 'the boss area depth as chosen').toBe(BOSS_AREA_START_TIER);
@@ -805,7 +805,7 @@ function bossStageBot(tier: number) {
 }
 
 test('climber takes the way home after a milestone boss, and goes on after any other', () => {
-  expect(bossStageBot(4).stats.doing, 'a milestone (DEPTH 5): home').toContain('gate extract');
+  expect(bossStageBot(3).stats.doing, 'a milestone (DEPTH 4): home').toContain('gate extract');
   expect(bossStageBot(1).stats.doing, 'not a milestone (DEPTH 2): on').toContain('gate next');
 });
 
@@ -1013,7 +1013,7 @@ test('the base names the best depth as a depth, not as the hall', () => {
   goBase();
   const label = stageLabel(firstStageOf(BOSS_AREA_START_TIER));
   expect(label, 'the hall is not named on the base').not.toBe(t('boss.hall'));
-  expect(label.startsWith('D50 '), 'the depth is').toBe(true);
+  expect(label.startsWith('D25 '), 'the depth is').toBe(true);
 });
 
 test('a dive suspended in the hall or a room names its place on the base', () => {
@@ -1072,7 +1072,7 @@ test('boss area off: the labels and the events stay', () => {
   save.startTier = BOSS_AREA_START_TIER;
   startRun(true);
   tick(2);
-  expect(stageLabel(run.stage).startsWith('D50 '), 'a depth, not the hall').toBe(true);
+  expect(stageLabel(run.stage).startsWith('D25 '), 'a depth, not the hall').toBe(true);
   TRACK_LOG.length = 0;
   endRun('extract');
   expect(eventParams('level_end', 'stage_type'), "the depth's sector").toBe(stageInfo(run.stage).biome.code);

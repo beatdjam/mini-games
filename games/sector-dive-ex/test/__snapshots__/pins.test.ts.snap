@@ -72,10 +72,10 @@ exports[`sector CITY 1`] = `
 {
   "first": {
     "at": "94,54",
-    "enemies": "49:3a0d18a1",
-    "scene": "1155:d4313b0a",
+    "enemies": "55:45e78c3e",
+    "scene": "1213:521c2923",
   },
-  "last": "775:15cf6f6e",
+  "last": "763:d6ad8cf3",
 }
 `;
 
@@ -94,10 +94,10 @@ exports[`sector FORGE 1`] = `
 {
   "first": {
     "at": "126,122",
-    "enemies": "23:c73a320c",
-    "scene": "1007:87c4ddad",
+    "enemies": "32:592cb169",
+    "scene": "1105:1be695f5",
   },
-  "last": "769:b89597b6",
+  "last": "784:dbb26d0a",
 }
 `;
 
@@ -138,10 +138,10 @@ exports[`sector NOISE 1`] = `
 {
   "first": {
     "at": "126,122",
-    "enemies": "30:bcdbd9e4",
-    "scene": "1014:c12bc51b",
+    "enemies": "44:9937dee6",
+    "scene": "1071:7d5dd9d2",
   },
-  "last": "740:68882bf2",
+  "last": "747:703ffee0",
 }
 `;
 
@@ -149,9 +149,9 @@ exports[`sector RUIN 1`] = `
 {
   "first": {
     "at": "26,122",
-    "enemies": "36:a497e16a",
-    "scene": "987:a8695f5a",
+    "enemies": "55:ed1de799",
+    "scene": "1173:82d334a8",
   },
-  "last": "602:d4109185",
+  "last": "603:bc74acc3",
 }
 `;

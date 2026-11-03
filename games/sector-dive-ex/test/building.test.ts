@@ -28,7 +28,7 @@ import { hospRoomKinds, waitingRoom } from '../src/world/looks/hosp/rooms.ts';
 import { HOSP_KINDS, KIND_WAITING } from '../src/world/looks/hosp/shared.ts';
 import { groundOf } from '../src/world/meshParts.ts';
 import { lookOf } from '../src/world/looks.ts';
-import { PER } from '../src/data/progress.ts';
+import { DEPTH_SCALE, PER } from '../src/data/progress.ts';
 import { save } from '../src/core/save.ts';
 import { progressOf } from '../src/core/rules.ts';
 import { level, roomSpot } from '../src/world/level.ts';
@@ -654,7 +654,9 @@ test('building run: a cleared room stays empty across floors and a resume; the c
   expect(stageLabel(run.stage)).toBe(`D${run.bld!.tier + 1} 2/${run.bld!.floors}`);
   // the top-left label also says which floor of the building this is, counted from the top
   expect(el('#stageLbl').textContent).toContain(` ${next + 1}F`);
-  expect(progressOf(run.stage), 'the strength follows the route').toBeCloseTo(run.bld!.tier * 5 + 4 / run.bld!.floors);
+  expect(progressOf(run.stage), 'the strength follows the route').toBeCloseTo(
+    run.bld!.tier * 5 * DEPTH_SCALE + 4 / run.bld!.floors,
+  );
   expect(tileIndex(player.x, player.z), 'the player stands where the link ends on this floor').toBe(arrive.b);
   // at the top of a stairwell that is a floor above this floor's ground; on a lift's platform it is the ground
   expect(player.fy).toBeCloseTo(arrive.kind === 'stairs' ? building!.grounds[0]! - building!.grounds[next]! : 0);

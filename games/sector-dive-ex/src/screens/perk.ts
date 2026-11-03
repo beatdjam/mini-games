@@ -3,7 +3,7 @@ import { el, shuffle } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
-import { TUNE } from '../data/progress.ts';
+import { DEPTH_SCALE, TUNE } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { perkRecord } from '../core/rules.ts';
 import { PERKS } from '../data/perks.ts';
@@ -12,15 +12,19 @@ import { bigmap, weaponHud } from '../ui/hud.ts';
 import { setState, show } from '../flow/state.ts';
 import { statsHTML } from './pause.ts';
 
-// one chip card: name (★ and + when rare), what it does, what you have now
-const perkCard = (o: Perk, v: number, rare: boolean, times: number): string => {
-  const name = `${rare ? '★ ' : ''}${o.name}${rare ? '+' : ''}${times > 1 ? t('perk.times', { n: times }) : ''}`;
+// one chip card: name (★ and + when rare), what it does, what you have now. A shortcut supply card shows how many times
+// the chip is applied (×N); an ordinary pick shows its effect doubled instead, since one pick counts DEPTH_SCALE times
+const perkCard = (o: Perk, v: number, rare: boolean, times: number, supply: boolean): string => {
+  const name = `${rare ? '★ ' : ''}${o.name}${rare ? '+' : ''}${supply ? t('perk.times', { n: times }) : ''}`;
   const cur = t('perk.cur', { v: o.curText(o.cur(player)) });
-  return `<span class="pn">${name}</span><span class="pd">${o.desc(v)}</span><span class="pcur">${cur}</span>`;
+  return `<span class="pn">${name}</span><span class="pd">${o.desc(supply ? v : v * times)}</span><span class="pcur">${cur}</span>`;
 };
-// times: the chosen chip is applied that many times (shortcut supply), stopping early once it is maxed
+// baseTimes: how many picks this offer already stands for (a shortcut supply pick counts TUNE.supplyTimes). Every chip
+// picked is applied baseTimes * DEPTH_SCALE times, stopping early once it is maxed
 // allRare: every choice is the rare version (only the chips that have one are offered)
-export function openPerk(title: string, eyebrow?: string, done?: () => void, times = 1, allRare = false) {
+export function openPerk(title: string, eyebrow?: string, done?: () => void, baseTimes = 1, allRare = false) {
+  const supply = baseTimes > 1,
+    times = baseTimes * DEPTH_SCALE;
   setState('perk');
   releaseInputs();
   exitLock();
@@ -28,7 +32,7 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
   el('#perkTitle').textContent = title;
   el('#perkEyebrow').textContent = eyebrow || 'chip acquired';
   const offered = PERKS.filter(
-    o => !(o.maxed && o.maxed(player)) && !(times > 1 && o.noSupply) && !(allRare && o.rv === undefined),
+    o => !(o.maxed && o.maxed(player)) && !(supply && o.noSupply) && !(allRare && o.rv === undefined),
   );
   const opts = shuffle(offered)
     .slice(0, 3 + (run.choice ?? save.up.choice ?? 0))
@@ -41,7 +45,7 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, tim
     const b = document.createElement('button');
     b.className = 'perk' + (rare ? ' rare' : '');
     b.dataset.perk = o.id; // (for the bot: src/dev/bot.ts)
-    b.innerHTML = perkCard(o, v, rare, times);
+    b.innerHTML = perkCard(o, v, rare, times, supply);
     b.addEventListener('click', () => {
       for (let k = 0; k < times && !(k && o.maxed && o.maxed(player)); k++) {
         o.apply(player, v);

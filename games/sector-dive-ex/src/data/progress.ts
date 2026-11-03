@@ -5,6 +5,9 @@ import { withLang } from '@engine/core/langslots.ts';
 export const ARCADE_OPEN = false;
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
+// How many depths of the curves below one depth now covers: enemies, drops, bits and room counts scale with it, and one
+// chip picked counts this many times (a depth holds what two used to)
+export const DEPTH_SCALE = 2;
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
 // The player's own growth (additive chips, +8% per weapon +) slows down gradually, to about 1.3x per depth deep down,
 // so the per-depth factor slides the same way: `rate` up to GROWTH_SLIDE[0] depths in, then (geometrically) down to
@@ -79,14 +82,14 @@ export const UPGRADES = withLang<Upgrade, 'name' | 'desc'>(
 // climb with them: at 8% a level, half of a dive to DEPTH 20 bought 66 levels, twice the old base upgrades all bought.
 // At 20% it buys 32 (about the old ones all bought); a whole dive, 10 levels by DEPTH 5, 22 by 10, 36 by 20
 export const levelCost = (l: number): number => Math.round(80 * Math.pow(1.2, l));
-// The milestones of the depths: DEPTH 5, 10, 15, ... (0-based tiers 4, 9, 14, ...). A dive that dies starts again from
-// the last one passed (milestoneBelow); one that comes back starts where it left off. DEPTH 1 is where it all begins
-export const MILESTONE_EVERY = 5;
-// The depth of the boss area of a new save: DEPTH 50 (0-based 49). A save already past D50 gets the next milestone
+// The milestones of the depths: DEPTH 4, 7, 10, ... (0-based tiers 3, 6, 9, ...; DEPTH 25 is the eighth). A dive that
+// dies starts again from the last one passed (milestoneBelow); one that comes back starts where it left off. DEPTH 1 is
+// where it all begins
+export const MILESTONE_EVERY = 3;
+// The depth of the boss area of a new save: DEPTH 25 (0-based 24). A save already past D25 gets the next milestone
 // above its start depth instead (bossAreaTierFor in core/bossArea.ts)
-export const BOSS_AREA_START_TIER = 49;
-export const milestoneBelow = (tier: number): number =>
-  tier < MILESTONE_EVERY - 1 ? 0 : tier - ((tier - (MILESTONE_EVERY - 1)) % MILESTONE_EVERY);
+export const BOSS_AREA_START_TIER = 24;
+export const milestoneBelow = (tier: number): number => (tier < MILESTONE_EVERY ? 0 : tier - (tier % MILESTONE_EVERY));
 export const isMilestone = (tier: number): boolean => tier > 0 && milestoneBelow(tier) === tier;
 // A point in output multiplies the damage by LEVEL_DMG_MUL, apart from the chips (theirs add up in Player.dmgMul).
 // At +8% added to the chips' sum (until 2026-10-23), a level was worth less the more chips a dive had, and next to

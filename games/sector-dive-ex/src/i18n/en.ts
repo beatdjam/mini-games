@@ -95,7 +95,7 @@ LANG.en = {
     'tab.settings': 'Settings',
     'base.tiers': 'Start depth',
     'base.tiersNote':
-      'Beating a boss opens the next depth. Dying sends you back to the last milestone passed (◆, every 5 depths). Base weapons are issued to suit the depth you start at.',
+      'Beating a boss opens the next depth. Dying sends you back to the last milestone passed (◆, every 3 depths). Base weapons are issued to suit the depth you start at.',
     'base.ready0': 'Easy',
     'base.ready1': 'Comfortable',
     'base.ready2': 'Fair',
@@ -483,8 +483,8 @@ LANG.en = {
       },
       split: {
         name: 'Split Shot',
-        desc: () =>
-          '+1 projectile. +20% total damage when all hit (shared among them). Max 7. The launcher fires 3 at most; the rest goes into damage',
+        desc: v =>
+          `+${v} projectile${v > 1 ? 's' : ''}. +${pct(v * 0.2)} total damage when all hit (shared among them). Up to +7 projectiles. The launcher fires 3 at most; the rest goes into damage`,
         curText: c => `Projectiles +${c}`,
       },
       light: { name: 'Lightweight', desc: v => `Move speed +${pct(v)}`, curText: c => `Move speed +${pct(c)}` },
@@ -505,7 +505,7 @@ LANG.en = {
       },
       magnet: {
         name: 'Magnet',
-        desc: () => 'Bit pickup range +80%, bit gain +10% (gain from the first 5)',
+        desc: v => `Bit pickup range +${pct(v * 0.8)}, bit gain +${pct(Math.pow(1.1, v) - 1)} (gain up to 5 times)`,
         curText: c => `Pickup range ×${c}`,
       },
       reload: {
