@@ -18,6 +18,7 @@ SIM_SEEDS=1-20 SIM_STYLE=explorer SIM_JOBS=3 npm run sim:split           # シ�
 - `SIM_AREA`: `on` でボスエリアの広間から始める。D50 のセーブを作り（装備は実プレイのセーブの値: `devBossAreaGear`・`setRushBuild`）、`save.records.bossArea` を置き、`beaten` は潜行ごとに空へ戻す（既定は指定なしで、今までどおり）
 - `SIM_CLIMB_TO`: 到達したい深度（1 始まり。既定は指定なし）。指定があると、シードごとにセーブを引き継いで `SIM_DIVES` を上限に潜り続け、その深度に入った時点でそのシードを終える。潜行の合間は、拠点でビットをレベルに使い（`buyAtBase`）、ストックと装備の武器のうち `weaponStats().dps` が高い2本を装備してから、開いているいちばん深い出撃地点（`save.shortcut`）から出る。死んだときの持ち物とビットはゲームの決まりのまま。目標の深度のボスエリアには入らない
 - `SIM_AREA=on` の `climber` は、8部屋のあとに TITAN のゲートへ入る（ほかの型は帰還する）
+- `SIM_MODE`: `arcade` で ARCADE の決まりで潜る（毎回 D1 から、持ち越しなし、D9 がボスエリア、TITAN を倒すと `end` が `clear`）。広間に帰還のゲートが無いので、型は TITAN まで行く `climber` で回す。`SIM_DIVES` を付けると、同じシードで何回目にクリアするかを見られる（ARCADE は潜るたびにまっさらに戻り、武器の解放だけが残る）
 - `SIM_STYLE`: プレイヤーの型。コンマ区切りで複数、`all` で全部（既定は `all`。ただし `SIM_CLIMB_TO` を付けないときの `all` は、登攀型を足す前と同じ型だけにしてある）
 - `SIM_WEAPON`: 武器を1種類に固定して比べる。`pistol,shotgun` のようにコンマ区切り、`all` で5種類全部（既定は指定なしで、ふだんのゲームのまま）。その武器1本だけで始まり、その潜行のドロップは全部その武器になる（レア度・＋・オプションの出方は同じなので、武器の種類だけの差を見られる）。型 × 武器の組み合わせぶん回るので、型を絞って使う
 - Chromium の中で、画面を描かずにゲームのループを手で進める。実時間の数百倍で回る（1本あたり数秒〜数十秒。深く潜る型ほど長い）
@@ -51,7 +52,7 @@ SIM_SEEDS=1-20 SIM_STYLE=explorer SIM_JOBS=3 npm run sim:split           # シ�
 | 列 | 意味 |
 |---|---|
 | `dive`・`start`・`lv` | `SIM_DIVES` のときだけ。そのシードの何回目の潜行か、出撃した深度、出撃したときのレベル |
-| `end` | `died`（倒れた）・`extract`（帰還）・`gave up`（進まなくなって打ち切った）・`reached`（`SIM_CLIMB_TO` の目標の深度に入った） |
+| `end` | `died`（倒れた）・`extract`（帰還）・`gave up`（進まなくなって打ち切った）・`reached`（`SIM_CLIMB_TO` の目標の深度に入った）・`clear`（`SIM_MODE=arcade` で TITAN を倒した） |
 | `seconds` | 潜行の長さ（ゲーム内の秒） |
 | `depth`・`bosses` | 到達した深度と、倒したボス（順に） |
 | `toBoss`・`bossHp` | 最初のボスが出るまでの秒と、最後に戦ったボスの残り体力 |

@@ -21,6 +21,7 @@ export default defineConfig({
         __SIM_DIVES__: JSON.stringify(process.env.SIM_DIVES ?? '1'),
         __SIM_AREA__: JSON.stringify(process.env.SIM_AREA ?? ''),
         __SIM_CLIMB_TO__: JSON.stringify(process.env.SIM_CLIMB_TO ?? ''),
+        __SIM_MODE__: JSON.stringify(process.env.SIM_MODE ?? ''),
         // (put before the output files' names: tools/sim_split.js runs several at once, each with its own)
         __SIM_TAG__: JSON.stringify(process.env.SIM_TAG ?? ''),
       },
