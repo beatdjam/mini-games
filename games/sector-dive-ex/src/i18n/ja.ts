@@ -134,6 +134,7 @@ LANG.ja = {
     'base.practiceGo': '練習する',
     'base.practiceGoNew': '練習する（未遭遇）',
     'base.settings': '設定',
+    'base.mode': 'モード',
     'base.links': 'リンク',
     'base.backToList': '← ゲーム一覧',
     'base.updates': '更新履歴',
@@ -193,6 +194,9 @@ LANG.ja = {
     'wipe.l6': '設定（自動射撃、エイム補正、感度、ボタン配置）',
     'wipe.cancel': 'やめる',
     'wipe.go': '消去する',
+
+    // ---- mode select ----
+    'mode.suspended': '中断中',
 
     // ---- chips ----
     'perk.title': 'チップを1枚選ぶ',

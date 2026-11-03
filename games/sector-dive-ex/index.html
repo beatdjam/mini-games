@@ -214,6 +214,7 @@ body.desk.nolock .tbtn{display:grid}
 .head h1{margin:0;font-family:var(--disp);font-weight:700;font-size:clamp(30px,6vw,52px);letter-spacing:.14em;line-height:1;text-shadow:0 0 24px rgba(84,232,255,.35)}
 .head h1 span{color:var(--cyan)}
 .head p{margin:0;color:var(--dim);font-size:14px;line-height:1.7;max-width:62ch}
+.head .modetag{justify-self:start;padding:2px 8px;border:1px solid var(--line);font-family:var(--disp);font-size:11px;letter-spacing:.24em;color:var(--amber)}
 .back{justify-self:start;font-size:13px;color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line)}
 .back:hover{color:var(--text)}
 .backs{display:flex;gap:16px;flex-wrap:wrap}
@@ -369,6 +370,14 @@ body.booting #app{visibility:hidden}
 .modal-card h2{margin:0;font-size:20px;font-weight:400}
 .modal-card p{margin:0;line-height:1.7}
 .modal-card ul{margin:6px 0 0;padding-left:1.2em;line-height:1.8;color:#ffc7cd;font-size:13px}
+.modal.mode{background:rgba(5,8,12,.84)}
+.modal.mode .modal-card{background:var(--panel);border:2px solid var(--cyan);box-shadow:0 0 30px rgba(84,232,255,.25)}
+.moderow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modebtn{display:grid;justify-items:center;gap:4px;padding:18px 12px;border:1px solid var(--line);background:var(--panel);font-family:var(--disp);font-size:18px;letter-spacing:.12em;color:var(--text)}
+.modebtn:hover{border-color:var(--amber)}
+.modebadge{font-family:var(--jp);font-size:11px;letter-spacing:0;color:var(--amber)}
+#modeTitle{font-family:var(--disp);letter-spacing:.12em}
+#modeTitle span{color:var(--cyan)}
 .modal.calm{background:rgba(5,8,12,.84);grid-template-rows:minmax(0,1fr);padding-block:16px}
 .modal.calm .modal-card{box-sizing:border-box;max-height:100%;grid-template-rows:auto auto minmax(0,1fr) auto auto;background:var(--panel);border:1px solid var(--cyan);box-shadow:0 0 30px rgba(84,232,255,.2)}
 .keylist{display:grid;gap:4px;overflow-y:auto;align-content:start}
@@ -446,6 +455,7 @@ body.booting #app{visibility:hidden}
       <div class="head">
         <p class="eyebrow">roguelite fps / procedural sectors</p>
         <h1>SECTOR<span>/</span>DIVE <span>EX</span></h1>
+        <p id="modeTag" class="modetag" hidden></p>
         <p class="lead" data-i18n="base.lead"></p>
       </div>
       <div class="stats">
@@ -458,6 +468,7 @@ body.booting #app{visibility:hidden}
         <button id="levelCard" class="levelcard" type="button" data-go="up"><span class="lc-lv" id="lcLv"></span><span class="lc-bits" id="lcBits"></span><span class="lc-next" id="lcNext"></span><span class="lc-go" data-i18n="base.levelUp"></span></button>
         <button class="pagecard" type="button" data-go="practice"><b data-i18n="base.practice"></b><small data-i18n="base.practiceCard"></small></button>
         <button class="pagecard" type="button" data-go="settings"><b data-i18n="base.settings"></b><small data-i18n="base.settingsCard"></small></button>
+        <button id="btnMode" class="pagecard" type="button" hidden><b data-i18n="base.mode"></b></button>
       </div>
       <nav class="tabs" role="tablist" data-i18n-aria="base.menu">
         <button role="tab" data-tab="sortie" data-i18n="tab.sortie"></button><button role="tab" data-tab="up" data-i18n="tab.up"></button><button role="tab" data-tab="practice" data-i18n="tab.practice"></button><button role="tab" data-tab="settings" data-i18n="tab.settings"></button>
@@ -531,6 +542,16 @@ body.booting #app{visibility:hidden}
         </ul>
       </div>
       <div class="btnrow"><button id="btnWipeCancel" class="ghost" data-i18n="wipe.cancel"></button><button id="btnWipeGo" class="danger" data-i18n="wipe.go"></button></div>
+    </div>
+  </div>
+
+  <div id="dlgMode" class="modal mode" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
+    <div class="modal-card">
+      <h2 id="modeTitle">SECTOR<span>/</span>DIVE <span>EX</span></h2>
+      <div class="moderow">
+        <button id="btnModeArcade" class="modebtn" type="button">ARCADE</button>
+        <button id="btnModeEndless" class="modebtn" type="button">ENDLESS</button>
+      </div>
     </div>
   </div>
 
