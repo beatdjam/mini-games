@@ -363,7 +363,7 @@
 - **モード選択**: ゲームの名前と ARCADE・ENDLESS のボタンを出す画面（`openModeSelect` in src/screens/mode.ts）
   - 起動時は、`ARCADE_OPEN` が `true` なら毎回出す。開発サーバーでは `#modes` を付けて開いたときだけ出す
   - 拠点の「モード」ボタンからも開ける。中断中の潜行があるモードのボタンには「中断中」の札を出す
-  - 今のモードと同じモードを選ぶと閉じるだけ。違うモードなら今のセーブを保存してからモードを記録し、ページを読み直す（`switchMode` in src/core/save.ts）
+  - 今のモードと同じモードを選ぶと閉じるだけ。違うモードなら今のセーブを保存してからモードを記録し、ページを読み直す（`switchMode` in src/core/save.ts）。読み直した起動ではモード選択を出さない。選んだばかりのため（`MODE_CHOSEN_KEY` を sessionStorage に置き、起動時に `takeModeChosen` で見て消す）
 - **完全消去**: 今のモードのセーブ（`ACTIVE_SAVE_KEY`）だけを消す。設定は既定値に戻し、`SETTINGS_KEY` にも書く。もう片方のモードのセーブは消さない（`#btnWipeGo` in src/screens/data.ts）
 - **セーブのコード**: 読み込むと今のモードのセーブ（`ACTIVE_SAVE_KEY`）に入り、コードの設定も `SETTINGS_KEY` に入る（`importSave` in src/core/save.ts）
 - **公開**: `ARCADE_OPEN` が `false` の間は、公開版でモード選択の画面・拠点の「モード」ボタン・今のモードの札を出さない

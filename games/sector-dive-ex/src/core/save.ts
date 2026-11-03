@@ -12,6 +12,9 @@ export const ARCADE_SAVE_KEY = 'sector-dive-ex-arcade-v1';
 export const SETTINGS_KEY = 'sector-dive-ex-settings';
 // the mode last chosen (a preference, like BASE_TAB_KEY)
 export const MODE_KEY = 'sdx-mode';
+// set for the one reload a mode switch makes (sessionStorage): the page it opens is the chosen mode, so the mode select
+// is not shown again
+export const MODE_CHOSEN_KEY = 'sdx-mode-chosen';
 // dev: the way into the boss area to play it (dev/views/bossRush.ts) keeps a save of its own, so the real one is not touched
 export const BOSS_RUSH_HASH = '#bossrush';
 // ... and so does the bot that goes on diving (dev/views/bot.ts)
@@ -156,7 +159,20 @@ export function persist() {
 export function switchMode(mode: GameMode) {
   persist();
   prefSet(MODE_KEY, mode);
+  try {
+    sessionStorage.setItem(MODE_CHOSEN_KEY, '1');
+  } catch (e) {}
   location.reload();
+}
+// true once after a mode switch's reload (and clears the mark): the start-up skips the mode select then
+export function takeModeChosen(): boolean {
+  try {
+    const chosen = sessionStorage.getItem(MODE_CHOSEN_KEY) !== null;
+    sessionStorage.removeItem(MODE_CHOSEN_KEY);
+    return chosen;
+  } catch (e) {
+    return false;
+  }
 }
 // whether that mode's save has a dive suspended in it (the mark on the mode select); reads only, never changes `save`
 export function hasSuspendIn(mode: GameMode): boolean {

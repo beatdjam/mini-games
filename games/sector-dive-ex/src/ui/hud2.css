@@ -753,6 +753,41 @@ body.hud2 #scrBase .suspend :is(.ghost, .mini-btn, button:not(.primary)) {
   border-color: var(--paint2);
   color: var(--paint);
 }
+/* ---- the mode select: the steel plate of the chip screen; each mode a plate like the base's page cards, its name in
+   the stencil. Safety yellow only for a suspended dive. The mode tag under the title is worn paint ---- */
+body.hud2 #dlgMode {
+  background: rgba(6, 7, 7, 0.86);
+}
+body.hud2 #dlgMode .modal-card {
+  background: var(--steel);
+  border: 1px solid #3d4143;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
+  color: var(--paint);
+}
+body.hud2 #modeTitle {
+  font-weight: 700;
+  color: var(--paint);
+}
+body.hud2 #modeTitle span {
+  color: var(--safety);
+}
+body.hud2 .modebtn {
+  background: linear-gradient(180deg, #1f2122, #161718);
+  border: 1px solid #3d4143;
+  color: var(--paint);
+  font-family: var(--sten);
+}
+body.hud2 .modebtn:is(:hover, :focus-visible) {
+  border-color: var(--paint2);
+}
+body.hud2 .modebadge {
+  color: var(--safety);
+}
+body.hud2 .head .modetag {
+  border-color: var(--paint2);
+  color: var(--paint2);
+  font-family: var(--sten);
+}
 /* (a section packs its rows at the top: the page's columns are as tall as the tallest, and its rows would spread) */
 body.hud2 #scrBase .sec {
   align-content: start;

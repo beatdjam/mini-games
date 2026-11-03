@@ -9,6 +9,7 @@ import {
   ARCADE_SAVE_KEY,
   BOSS_RUSH_HASH,
   BOT_CLIMB_HASH,
+  MODE_CHOSEN_KEY,
   SAVE_KEY,
   SETTINGS_KEY,
   defaultSave,
@@ -17,6 +18,7 @@ import {
   persist,
   save,
   saveKeyFor,
+  takeModeChosen,
 } from '../src/core/save.ts';
 import { bootGame } from './helpers.ts';
 
@@ -85,4 +87,12 @@ test('wipe: only the current mode save goes; the other mode keeps its save', () 
   expect(save.bits).toBe(0);
   expect(loadSaveFrom(ARCADE_SAVE_KEY).bits).toBe(4242);
   expect(loadStore(SETTINGS_KEY, () => defaultSave().settings).data).toEqual(defaultSave().settings);
+});
+
+test('mode switch: the reload it makes skips the mode select once', () => {
+  sessionStorage.removeItem(MODE_CHOSEN_KEY);
+  expect(takeModeChosen(), 'an ordinary start-up shows the select').toBe(false);
+  sessionStorage.setItem(MODE_CHOSEN_KEY, '1'); // what switchMode leaves before it reloads
+  expect(takeModeChosen(), 'the reload after a switch').toBe(true);
+  expect(takeModeChosen(), 'only that once').toBe(false);
 });
