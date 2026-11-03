@@ -17,6 +17,7 @@ import {
   WEAPONS,
 } from '../data/weapons.ts';
 import {
+  DEPTH_SCALE,
   DMG_SCALE_PER_PROG,
   HP_PER_POINT,
   LEVEL_DMG_MUL,
@@ -31,8 +32,8 @@ import { PERKS } from '../data/perks.ts';
 import { save } from './save.ts';
 // Formulas that read the data: progress, drops, modding, sell value
 // progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
-// (depth start = depth * 5, the boss = depth * 5 + 4)
-export const progressOf = (s: number): number => Math.floor(s / PER) * 5 + ((s % PER) * 4) / (PER - 1);
+// (depth start = depth * 5 * DEPTH_SCALE, the boss = depth * 5 * DEPTH_SCALE + 4)
+export const progressOf = (s: number): number => Math.floor(s / PER) * 5 * DEPTH_SCALE + ((s % PER) * 4) / (PER - 1);
 // every weapon type can drop during a dive; unlocking only decides what you can start with and mod at the base
 // the player's level: one for every point put into the base upgrades (save.up), whichever it went to
 export const levelOf = (): number => Object.values(save.up).reduce((n, v) => n + (v || 0), 0);
@@ -57,8 +58,8 @@ export const supplyPlus = (stage: number): number =>
   stage >= PLUS_FROM_STAGE
     ? Math.max(0, Math.floor((stage - PLUS_STAGE_OFFSET) * PLUS_PER_STAGE) - SUPPLY_PLUS_BELOW)
     : 0;
-// the rarity a base weapon is handed out with for a dive from `tier` (0-based start depth)
-export const supplyRarity = (tier: number): number => SUPPLY_RARITY_AT.filter(at => tier >= at).length;
+// the rarity a base weapon is handed out with for a dive from `tier` (0-based start depth, counted in DEPTH_SCALE depths)
+export const supplyRarity = (tier: number): number => SUPPLY_RARITY_AT.filter(at => tier * DEPTH_SCALE >= at).length;
 // a base weapon as it is handed out for a dive from `tier` (0-based start depth): the + value (supplyPlus) and rarity
 // (supplyRarity) of that depth. A found weapon as it is
 export const basicNow = <W extends WeaponItem | null>(w: W, tier = 0): W =>
@@ -100,20 +101,22 @@ const readyNow = (tier: number): ReadyState => ({
   hp: startMaxHp(save.up.hp),
 });
 // what `picks` shortcut supply picks multiply the offence by (the curve was fitted to picks worth 5 chips each: more
-// a pick counts as that many more picks)
+// a pick counts as that many more picks, and each pick covers DEPTH_SCALE depths)
 const supplyGain = (picks: number): number =>
   picks > 0
-    ? Math.exp(TUNE.supplyCurve[0]! * Math.pow((picks * TUNE.supplyTimes) / SUPPLY_CURVE_TIMES, TUNE.supplyCurve[1]!))
+    ? Math.exp(
+        TUNE.supplyCurve[0]! *
+          Math.pow((picks * TUNE.supplyTimes * DEPTH_SCALE) / SUPPLY_CURVE_TIMES, TUNE.supplyCurve[1]!),
+      )
     : 1;
 const SUPPLY_CURVE_TIMES = 5;
 export function readinessScore(tier: number, s: ReadyState = readyNow(tier)): number {
+  // the curves below are per depth of DEPTH_SCALE depths: a start at `tier` is that many depths in
+  const d = tier * DEPTH_SCALE;
   const best = Math.max(0, ...s.weapons.map(bareDps));
-  const bossWall = Math.pow(
-    hpGrowth(tier, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(tier),
-    READY_BOSS_WEIGHT,
-  );
-  const off = ((best / READY_REF_DPS) * s.dmg * supplyGain(tier)) / (enemyGrowth(tier) * bossWall);
-  const def = s.hp / TUNE.hp / (1 + DMG_SCALE_PER_PROG * 5 * tier);
+  const bossWall = Math.pow(hpGrowth(d, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(d), READY_BOSS_WEIGHT);
+  const off = ((best / READY_REF_DPS) * s.dmg * supplyGain(tier)) / (enemyGrowth(d) * bossWall);
+  const def = s.hp / TUNE.hp / (1 + DMG_SCALE_PER_PROG * 5 * d);
   return Math.sqrt(off * def);
 }
 export function readiness(tier: number, s?: ReadyState): number {

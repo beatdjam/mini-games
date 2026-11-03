@@ -11,8 +11,8 @@ export const bossAreaOn = (): boolean => on;
 export function devBossArea(v: boolean) {
   on = v;
 }
-// The depth of the boss area for a save: a new save gets DEPTH 50 (0-based 49). A save already deeper gets the next
-// milestone above its start depth (a start on a milestone gives the milestone after it). A shallower start counts as D50
+// The depth of the boss area for a save: a new save gets DEPTH 25 (0-based 24). A save already deeper gets the next
+// milestone above its start depth (a start on a milestone gives the milestone after it). A shallower start counts as D25
 export function bossAreaTierFor(shortcut: number, startTier: number): number {
   if (shortcut <= BOSS_AREA_START_TIER) return BOSS_AREA_START_TIER;
   return milestoneBelow(Math.max(BOSS_AREA_START_TIER, startTier)) + MILESTONE_EVERY;

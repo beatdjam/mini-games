@@ -11,8 +11,8 @@ import { t } from '@engine/core/i18n.ts';
 // ---- tuning numbers used only here ----
 export const STAGES_PER_GROWTH_DEPTH = 5; // progress (progressOf) per step of the enemy health growth curve
 
-// how many depths apart the "deeper" toast (run.deeper) comes: DEPTH 1, 4, 7, ... This is not isMilestone
-// (data/progress.ts), the every-5-depth step of the strengthening terminal and the shortcut
+// how many depths apart the "deeper" toast (run.deeper) comes: DEPTH 1, 4, 7, ... It lines up with the milestones
+// (data/progress.ts, the step of the strengthening terminal and the shortcut) from DEPTH 4 on; DEPTH 1 has only the toast
 export const DEPTHS_PER_DEEPER_TOAST = 3;
 // each run walks the sectors in its own shuffled order (run.route); depth (tier) drives difficulty
 const routeBiome = (t: number): Biome => BIOMES[run && run.route ? run.route[t % run.route.length] : t % BIOMES.length];

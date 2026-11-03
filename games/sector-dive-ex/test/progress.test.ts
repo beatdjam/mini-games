@@ -5,10 +5,29 @@ import type { Snapshot } from '../src/data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { tileIndex } from '@engine/world/tiles.ts';
 import { encodeStore } from '@engine/core/store.ts';
+import { ENEMY_TUNE } from '../src/data/enemies.ts';
 import { WEAPONS } from '../src/data/weapons.ts';
-import { LEVEL_DMG_MUL, isMilestone, PER, UPGRADES, levelCost, milestoneBelow } from '../src/data/progress.ts';
+import {
+  DEPTH_SCALE,
+  LEVEL_DMG_MUL,
+  PER,
+  UPGRADES,
+  enemyGrowth,
+  isMilestone,
+  levelCost,
+  milestoneBelow,
+} from '../src/data/progress.ts';
 import { openLevelUp } from '../src/screens/levelup.ts';
-import { basicW, defaultSave, exportSave, importSave, importSaveCheck, persist, save } from '../src/core/save.ts';
+import {
+  basicW,
+  defaultSave,
+  exportSave,
+  importSave,
+  importSaveCheck,
+  milestoneAtOrAbove,
+  persist,
+  save,
+} from '../src/core/save.ts';
 import {
   levelOf,
   nextLevelCost,
@@ -22,7 +41,7 @@ import { level } from '../src/world/level.ts';
 import { makeTerminal } from '../src/world/portals.ts';
 import { applyLevelPoint, currentWeapon, player, run } from '../src/actors/player.ts';
 import { newWeapon, shotDamage } from '../src/actors/weapons.ts';
-import { stageLabel } from '../src/core/stages.ts';
+import { difficultyAt, stageLabel } from '../src/core/stages.ts';
 import { endRun, goBase, nextStage, startRun, startStage, useLink } from '../src/flow/run.ts';
 import { BUILDING_V, building, setBuilding } from '../src/world/building.ts';
 import { setState, show, state } from '../src/flow/state.ts';
@@ -33,34 +52,38 @@ import { stateIs, tick, bootGame, goToFloor } from './helpers.ts';
 
 beforeAll(bootGame);
 
-test('progress: depth start = depth*5, boss = depth*5+4 regardless of PER', () => {
+test('progress: depth start = depth*5*DEPTH_SCALE, boss = depth*5*DEPTH_SCALE+4 regardless of PER', () => {
   startRun();
   tick(5);
   if (
     progressOf(0) !== 0 ||
     progressOf(PER - 1) !== 4 ||
-    progressOf(PER) !== 5 ||
+    progressOf(PER) !== 5 * DEPTH_SCALE ||
     stageLabel(PER - 1) !== 'D1 BOSS' ||
     stageLabel(PER) !== 'D2 1/' + (PER - 1)
   )
     throw new Error('prog/label ' + [progressOf(PER - 1), progressOf(PER), stageLabel(PER - 1), stageLabel(PER)]);
 });
+test('depth scale: a new depth 12 has the enemy health the old depth 24 had', () => {
+  // the health curve is per old depth: the start of old depth 24 is 24 depths in
+  expect(difficultyAt(12 * PER), 'new depth 12').toBeCloseTo(ENEMY_TUNE.hpMul * enemyGrowth(24), 9);
+});
 test('milestones: dying goes back to the last one passed, coming back keeps the depth; old mods are paid back', () => {
-  if ([0, 3, 4, 8, 9, 13, 14].map(milestoneBelow).join() !== '0,0,4,4,9,9,14') throw new Error('milestones');
+  if ([0, 1, 2, 3, 4, 5, 24, 26].map(milestoneBelow).join() !== '0,0,0,3,3,3,24,24') throw new Error('milestones');
   const keepS = [save.shortcut, save.startTier];
-  save.shortcut = 12;
-  save.startTier = 12;
+  save.shortcut = 11;
+  save.startTier = 11;
   startRun();
   endRun('dead');
   const dead = [save.shortcut, save.startTier];
-  save.shortcut = 12;
-  save.startTier = 12;
+  save.shortcut = 11;
+  save.startTier = 11;
   startRun();
   endRun('extract');
   const back = save.shortcut;
   [save.shortcut, save.startTier] = keepS;
   goBase();
-  if (dead.join() !== '9,9' || back !== 12) throw new Error('milestone ' + dead + ' ' + back);
+  if (dead.join() !== '9,9' || back !== 11) throw new Error('milestone ' + dead + ' ' + back);
   // a save from before the issue: its base weapons' mods come back as bits (+1 50, +2 75, ★★ 300)
   const old = {
     ...defaultSave(),
@@ -246,7 +269,7 @@ test("level: a milestone level-up spends the dive's bits, counts at once, and ke
   save.bits = keepBits;
   persist();
   if (!open || !closed || got.join() !== [15, cost, 1, true].join()) throw new Error('milestone level ' + got);
-  if (![4, 9, 14].every(isMilestone) || isMilestone(5) || isMilestone(0)) throw new Error('isMilestone');
+  if (![3, 6, 9, 24].every(isMilestone) || isMilestone(4) || isMilestone(0)) throw new Error('isMilestone');
 });
 test('level: a point in output multiplies the damage, apart from the chips (so it counts as much with many chips)', () => {
   const keepUp = { ...save.up };
@@ -311,7 +334,7 @@ test('level: a save from before it has the reboot folded into its points', () =>
   el('#btnWipe').click();
   el('#btnWipeGo').click();
   // (armour 2 + its +10 HP x 3 = 2 points; output 1 + its +5% x 8 = 5 points)
-  if (got.join() !== [4, 6, 1, 1, false, 5].join()) throw new Error('old save ' + got);
+  if (got.join() !== [4, 6, 1, 2, false, 5].join()) throw new Error('old save ' + got);
 });
 test('readiness: a strong loadout still gets harder the deeper you start', () => {
   const strong = { weapons: [{ id: 'shotgun', r: 2, plus: 37, opts: [] }], dmg: 1.48, hp: 200 };
@@ -356,21 +379,95 @@ test('resume: a run saved on a building laid out another way goes on at the same
     'the map starts unexplored (but where the player stands now)',
   ).toBe(true);
 });
-test('records: a version 1 save keeps its records, and an older save gets the defaults', () => {
+test('records: a current save keeps its records, and an older save gets the defaults', () => {
   const code = encodeStore('SDX1', {
     ...defaultSave(),
-    v: 1,
-    records: { cleared: true, bossArea: { tier: 49, beaten: ['crusher'] } },
+    v: 2,
+    records: { cleared: true, bossArea: { tier: 24, beaten: ['crusher'] } },
   });
   if (!importSave(code)) throw new Error('save code');
   const kept = save.records;
-  if (save.v !== 1 || !kept.cleared || kept.bossArea?.tier !== 49 || kept.bossArea?.beaten.join() !== 'crusher')
+  if (save.v !== 2 || !kept.cleared || kept.bossArea?.tier !== 24 || kept.bossArea?.beaten.join() !== 'crusher')
     throw new Error('records kept ' + JSON.stringify(kept));
   const old = { ...defaultSave(), v: undefined, records: undefined } as Record<string, unknown>;
   if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code');
   const fresh = save.records;
-  if (save.v !== 1 || fresh.cleared || fresh.bossArea !== null)
+  if (save.v !== 2 || fresh.cleared || fresh.bossArea !== null)
     throw new Error('records defaults ' + JSON.stringify(fresh));
+  el('#btnWipe').click();
+  el('#btnWipeGo').click();
+});
+test('save version 2: depths move to the depth that used to hold the same strength', () => {
+  const old = {
+    ...defaultSave(),
+    v: 1,
+    bits: 1234,
+    up: { ...defaultSave().up, hp: 3, dmg: 5 },
+    loadout: [{ id: 'shotgun', r: 2, plus: 7, basic: false, opts: [] }, null],
+    stash: [{ id: 'rail', r: 1, plus: 3 }],
+    shortcut: 49,
+    startTier: 39,
+    peak: 49,
+    best: 33 * PER + 2 + 1,
+    records: { cleared: false, bossArea: { tier: 49, beaten: ['crusher', 'watcher'] } },
+    suspend: {
+      run: {
+        kind: 'dive',
+        stage: 33 * PER + 2,
+        kills: 9,
+        bits: 77,
+        startTier: 33,
+        route: [0, 1],
+        perks: ['overload'],
+        bld: {
+          tier: 33,
+          seed: 1,
+          boss: 'crusher',
+          floor: 1,
+          floors: 3,
+          step: 1,
+          at: 0,
+          cleared: [[], [], []],
+          ld: 0,
+          visited: [true, false, false],
+        },
+      },
+      P: { hp: 50 },
+    },
+  } as Record<string, unknown>;
+  if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code');
+  const moved = [
+    save.shortcut,
+    save.startTier,
+    save.peak,
+    save.best,
+    save.records.bossArea?.tier,
+    save.records.bossArea?.beaten.join(),
+  ];
+  const kept = [
+    save.bits,
+    save.up.hp,
+    save.up.dmg,
+    save.loadout[0]?.id,
+    save.loadout[0]?.plus,
+    save.stash.length,
+    save.v,
+  ];
+  expect(moved, 'depths halved, the stage within a depth kept').toEqual([24, 19, 24, 67, 24, 'crusher,watcher']);
+  expect(kept, 'bits, levels and weapons stay').toEqual([1234, 3, 5, 'shotgun', 7, 1, 2]);
+  const sn = save.suspend!;
+  expect(
+    [Math.floor(sn.run.stage / PER), sn.run.stage % PER, sn.run.startTier, 'bld' in sn.run],
+    'the checkpoint moves too and drops its building',
+  ).toEqual([16, 2, 16, false]);
+  // a boss area between milestones rounds up to the next one (old 54 -> 27; old 59 -> 29 -> 30)
+  old.records = { cleared: false, bossArea: { tier: 54, beaten: [] } };
+  if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code 2');
+  expect(save.records.bossArea?.tier, 'a boss area stays on a milestone').toBe(27);
+  old.records = { cleared: false, bossArea: { tier: 59, beaten: [] } };
+  if (!importSave(encodeStore('SDX1', old))) throw new Error('old save code 3');
+  expect(save.records.bossArea?.tier, 'a boss area rounds up to a milestone').toBe(30);
+  expect([0, 1, 2, 3, 4].map(milestoneAtOrAbove), 'the first milestone at or above').toEqual([3, 3, 3, 3, 6]);
   el('#btnWipe').click();
   el('#btnWipeGo').click();
 });

@@ -93,7 +93,7 @@ export function resumeRun() {
   if (!sn) return;
   enterDive();
   restoreSnapshot(sn);
-  // a dive begun before the boss area was published has none settled: without this its D50 would be an ordinary depth
+  // a dive begun before the boss area was published has none settled: without this its D25 would be an ordinary depth
   settleBossArea(stageInfo(run.stage).tier);
   track('dive_resume', { level: stageInfo(run.stage).tier + 1 });
   setSuspend(null);

@@ -1,4 +1,5 @@
 import type { SaveData, WeaponItem } from '../data/types.ts';
+import { DEPTH_SCALE, MILESTONE_EVERY, PER, isMilestone, milestoneBelow } from '../data/progress.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { decodeStore, encodeStore, loadStore, saveStore } from '@engine/core/store.ts';
 import { setVolumes } from '@engine/audio/audio.ts';
@@ -18,8 +19,9 @@ export const saveKeyFor = (hash: string, dev: boolean): string =>
         : SAVE_KEY;
 export const ACTIVE_SAVE_KEY = saveKeyFor(location.hash, import.meta.env.DEV);
 export const BASE_TAB_KEY = 'sdx-base-tab'; // the base tab last opened (a preference, kept apart from the save)
-// the version of the save's shape (1: stageV, levelV and supplyV are one version, and records is added)
-export const SAVE_VERSION = 1;
+// the version of the save's shape (1: stageV, levelV and supplyV are one version, and records is added; 2: a depth counts
+// DEPTH_SCALE depths, so the depth fields are halved)
+export const SAVE_VERSION = 2;
 export const basicW = (id: string): WeaponItem => ({ id, r: 0, basic: true });
 export const defaultSave = (): SaveData => ({
   v: SAVE_VERSION,
@@ -97,8 +99,35 @@ function migrateTo1(out: SaveData, raw: Record<string, any>) {
   // the defaults give it, but an old save may carry records as nothing; keep the shape settled from here on
   if (!out.records) out.records = { cleared: false, bossArea: null };
 }
+// the first milestone at or above `tier` (the boss area sits on one)
+export const milestoneAtOrAbove = (tier: number): number =>
+  isMilestone(tier) ? tier : milestoneBelow(tier) + MILESTONE_EVERY;
+// A depth now covers what two did (DEPTH_SCALE), so the save's depths move to the depth that used to hold the same
+// strength: new = floor(old / DEPTH_SCALE). The odd depths go to the shallower side (a little easier); the stages within
+// a depth stay where they were. The boss area sits on a milestone, so its halved depth rounds up to the next one. A
+// suspended dive's building is dropped: at a new depth the same seed may lay it out another way, so the dive goes on
+// from the start of that depth (a checkpoint in the boss area keeps its place)
+function migrateTo2(out: SaveData) {
+  const depth = (tier: number) => Math.floor(tier / DEPTH_SCALE);
+  const stage = (s: number) => depth(Math.floor(s / PER)) * PER + (s % PER);
+  out.shortcut = depth(out.shortcut);
+  out.startTier = depth(out.startTier);
+  out.peak = depth(out.peak);
+  if (out.best) out.best = stage(out.best - 1) + 1;
+  const area = out.records?.bossArea;
+  if (area) area.tier = milestoneAtOrAbove(depth(area.tier));
+  const run = out.suspend?.run;
+  if (run) {
+    run.stage = stage(run.stage);
+    run.startTier = depth(run.startTier);
+    delete run.bld;
+  }
+}
 // the conversions from older versions, in order (to = the version whose shape the function makes)
-const MIGRATIONS: [to: number, migrate: (out: SaveData, raw: Record<string, any>) => void][] = [[1, migrateTo1]];
+const MIGRATIONS: [to: number, migrate: (out: SaveData, raw: Record<string, any>) => void][] = [
+  [1, migrateTo1],
+  [2, migrateTo2],
+];
 function loadSave(): SaveData {
   const { data: out, raw: s } = loadStore(ACTIVE_SAVE_KEY, defaultSave);
   if (!s) return out;

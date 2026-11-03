@@ -12,7 +12,7 @@ import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { SPLIT_MAX } from '../src/data/weapons.ts';
 import { ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
-import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, PER, TUNE } from '../src/data/progress.ts';
+import { DEPTH_HP_GROWTH, DEPTH_HP_LATE, DEPTH_SCALE, PER, TUNE, hpGrowth } from '../src/data/progress.ts';
 import { PERKS } from '../src/data/perks.ts';
 import { save } from '../src/core/save.ts';
 import { level } from '../src/world/level.ts';
@@ -167,7 +167,9 @@ test('scaling: additive damage chips, compounding health, practice depth', () =>
   const b1 = bossDifficulty();
   setRun({ stage: 2 * PER + PER - 1, route: [0] } as RunState);
   const b3 = bossDifficulty();
-  if (Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul) > 1e-9 || Math.abs(b3 / b1 - BOSS_TUNE.growth * BOSS_TUNE.growth) > 1e-6)
+  // (two new depths are DEPTH_SCALE x 2 old depths on the curve)
+  const twoDeep = hpGrowth(2 * DEPTH_SCALE, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth);
+  if (Math.abs(b1 - 1.33 * BOSS_TUNE.hpMul) > 1e-9 || Math.abs(b3 / b1 - twoDeep) > 1e-6)
     throw new Error('boss scaling ' + b1 + ' ' + b3);
   if (Math.abs(difficultyAt(0) - ENEMY_TUNE.hpMul) > 1e-9) throw new Error('enemy hp base ' + difficultyAt(0));
   // the per-depth factor slides from the early rate down to the late one (GROWTH_SLIDE) and never goes back up
@@ -182,8 +184,16 @@ test('scaling: additive damage chips, compounding health, practice depth', () =>
     if (r.some((v, i) => i && v > r[i - 1]! + 1e-9))
       throw new Error(what + ' rate went up ' + r.map(v => v.toFixed(3)));
   };
-  slides(bossAt, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth, 'boss growth');
-  slides(d => difficultyAt((d - 1) * PER), DEPTH_HP_GROWTH, DEPTH_HP_LATE, 'enemy growth');
+  // a new depth is DEPTH_SCALE old depths, so a step between depths is that many old-depth steps
+  const earlyRatio = (rate: number, late: number) => hpGrowth(DEPTH_SCALE, rate, late),
+    lateRatio = (late: number) => Math.pow(late, DEPTH_SCALE);
+  slides(bossAt, earlyRatio(BOSS_TUNE.growth, BOSS_TUNE.lateGrowth), lateRatio(BOSS_TUNE.lateGrowth), 'boss growth');
+  slides(
+    d => difficultyAt((d - 1) * PER),
+    earlyRatio(DEPTH_HP_GROWTH, DEPTH_HP_LATE),
+    lateRatio(DEPTH_HP_LATE),
+    'enemy growth',
+  );
   // values that grow with depth: hazard floors and your own rockets hit like enemies do (damageScaleAt),
   // a med kit heals a share of max HP once that is more than kitHeal
   setRun({ stage: 13 * PER, route: [0] } as RunState);

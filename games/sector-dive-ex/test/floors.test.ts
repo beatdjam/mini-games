@@ -7,7 +7,7 @@ import { T, W, activeTileGrid, floorY, grid, tileIndex } from '@engine/world/til
 import { joy } from '@engine/ui/input.ts';
 import { HALL_H, WALL_H } from '../src/data/level.ts';
 import { BIOMES } from '../src/data/biomes.ts';
-import { isMilestone, PER, TUNE } from '../src/data/progress.ts';
+import { DEPTH_SCALE, isMilestone, PER, TUNE } from '../src/data/progress.ts';
 import {
   buildFixedLevel,
   floorDrawn,
@@ -476,7 +476,7 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
     document.querySelector<HTMLElement>('#perkList .perk')!.click();
   }
   expect(stateIs('play')).toBe(true);
-  expect(run.perks.length).toBe(chipsHad + owed);
+  expect(run.perks.length).toBe(chipsHad + owed * DEPTH_SCALE);
   expect(supplyChips(), 'given once').toBe(0);
   tick(3);
   expect(run.stage, 'the boss stage of this depth').toBe(tier * PER + PER - 1);
@@ -551,5 +551,5 @@ test('plan: the depth plan of a stage (depth, step, boss, deeper) and the stage 
   // the old stageInfo's unused loop is gone
   expect('loop' in stageInfo(0)).toBe(false);
   expect(stageInfo(bossStageOf(2)).boss, 'bossStageOf(2) is a boss stage').toBe(true);
-  expect(isMilestone(2), 'a deeper toast is not a milestone').toBe(false);
+  expect(isMilestone(3), 'the deeper toast at DEPTH 4 is also a milestone').toBe(true);
 });
