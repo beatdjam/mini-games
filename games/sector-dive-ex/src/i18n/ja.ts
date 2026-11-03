@@ -295,6 +295,9 @@ LANG.ja = {
     'res.quit': '放棄',
     'res.time': '時間',
     'res.timeV': '{m}分{s}秒',
+    'res.clear': 'クリア',
+    'res.record': '記録',
+    'res.newRecord': '新記録',
     'res.practiceNote': '練習なので、ビット・武器・記録は変わらない。',
 
     // ---- share ----

@@ -359,7 +359,7 @@
 
 ### モードとセーブ
 
-- **モード**: ARCADE と ENDLESS（`GameMode` in src/data/types.ts）。ARCADE の中身はまだ無く、ENDLESS と同じゲームを別のセーブで遊ぶ
+- **モード**: ARCADE と ENDLESS（`GameMode` in src/data/types.ts）。ARCADE の潜行の決まりは下の「ARCADE の潜行」、ENDLESS はこれまでの潜行
 - **セーブの分け方**: 進み具合と中断中の潜行は、モードごとに別のデータにする。ENDLESS は `SAVE_KEY`（`sector-dive-ex-v1`）、ARCADE は `ARCADE_SAVE_KEY`（`sector-dive-ex-arcade-v1`）in src/core/save.ts。片方のモードで遊んでも、もう片方のセーブと中断は変わらない
 - **設定**: 言語・操作・キー・音量などの設定は、両方のモードで共通。`SETTINGS_KEY`（`sector-dive-ex-settings`）に1つだけ置き、どちらのモードもそこから読む（`persist`・`loadSave` in src/core/save.ts）。セーブの中にも設定を残す（セーブのコードで運ぶため）
   - `SETTINGS_KEY` に設定が無いときは、ENDLESS のセーブ（`SAVE_KEY`）に入っている設定を使う。それも無ければ既定値
@@ -371,6 +371,24 @@
 - **完全消去**: 今のモードのセーブ（`ACTIVE_SAVE_KEY`）だけを消す。設定は既定値に戻し、`SETTINGS_KEY` にも書く。もう片方のモードのセーブは消さない（`#btnWipeGo` in src/screens/data.ts）
 - **セーブのコード**: 読み込むと今のモードのセーブ（`ACTIVE_SAVE_KEY`）に入り、コードの設定も `SETTINGS_KEY` に入る（`importSave` in src/core/save.ts）
 - **公開**: `ARCADE_OPEN` が `false` の間は、公開版でモード選択の画面・拠点の「モード」ボタン・今のモードの札を出さない
+
+### ARCADE の潜行
+
+- **流れ**: 1回の潜行で、D1〜D8 の8セクターを1深度ずつ回り、次の D9 のボスエリア（8つのボス部屋）と TITAN を倒すとクリア。1回 45分前後を目安にする（強さは sim で別に合わせる）。セクターの数は `ARCADE_DEPTHS = 8` in src/data/progress.ts、ボスエリアは 0始まりの tier 8（D9）
+- **出発**: 出撃の深度はいつも D1（tier 0）。`save.startTier` は見ない（`startRun` in src/flow/run.ts）。潜行を始める前に、その挑戦のぶんの進み具合をまっさらにする
+- **ボスエリア**: 8セクターの次の深度に置き、ボス部屋は初めは全部未撃破にする（`settleArcadeBossArea` in src/core/progress.ts）
+- **ルートとボス**: 順路は ENDLESS と同じく、潜るたびに8セクターの順番が混ざる（`newRoute`）。各深度の建物のボスは、そのセクターのボス部屋の割り当てのボスに固定する（`BOSS_ROOMS` の逆引き、`arcadeBossOf` in src/core/bossArea.ts。建物を作るのは `ensureBuilding` in src/flow/run.ts）。8セクターと8体のボスは1対1
+- **ボスのあとのゲート**: どの深度のボスを倒しても、前進のゲートと強化ターミナルを出す。帰還のゲートは出さない（`putBossGates` in src/actors/bosses/common.ts）。ボスエリアの広間にも帰還のゲートは出さない（`startStage` in src/flow/run.ts）。途中でやめるのは一時停止の「中断」と「放棄」だけ
+- **クリア**: ボスエリアの TITAN を倒すと、その場で潜行を終えて結果の画面を出す（`endRun('clear')` in src/flow/run.ts）。`RunEnd` に `'clear'` があり、結果の札は `CLEARED`（`RUN_END` in src/core/rules.ts）。TITAN のあとの部屋のゲートは出さない。ENDLESS の TITAN は今までどおり部屋へ戻る
+- **終わったとき**: 死亡・放棄・クリアのどれでも、潜行の進み具合をまっさらに戻す（`resetArcadeProgress` in src/core/progress.ts）
+  - 戻す: `bits`・`up`（レベル）・`loadout`（基本武器）・`stash`・`shortcut`・`startTier`・`peak`・`records.bossArea`・`suspend`
+  - 残す: `unlocked`（武器の解放）・`bossSeen`・`bossKills`・`runs`・`best`・`records.cleared`・`records.bestTime`・`settings`
+  - ENDLESS の `fallBackToMilestone` と `storeWeapons` は通らない（帰還が無いため）
+  - 結果の画面の、ビット・持ち帰った武器・ショートカットの行は出さない（`RUN_RESULT_ROWS` in src/screens/result.ts）
+- **時間と記録**: `RunState.time` が、遊んでいる間だけ毎フレーム増える（`updatePlayer` in src/flow/update.ts）。一時停止の間と中断していた間は数えない。中断と再開では、チェックポイントに入っている値から続く（`checkpoint`・`resumeRun` in src/flow/suspend.ts）
+  - クリアすると `records.cleared = true` にし、`records.bestTime`（秒、既定 `null`）を短いほうに更新する（`recordBestTime` in src/core/progress.ts）。古いセーブは読み込みで `null` に揃える（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）
+  - 結果の画面に、かかった時間を出し、記録を更新したら「新記録」を出す
+- **ENDLESS との分かれ道**: モードで分けるのは `isArcade()` in src/core/save.ts を見る所だけ。テストと開発用に `devSetArcade` で切り替えられる（開発サーバーの `#modes` から ARCADE を選ぶのと同じ）
 
 ### 強化と補給
 

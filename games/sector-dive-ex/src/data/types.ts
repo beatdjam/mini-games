@@ -394,6 +394,7 @@ export interface RunState {
   cleared?: boolean; // set when a practice's boss goes down
   forceBoss?: BossKind; // the boss a practice is for (src/dev/trailer.ts sets it for a moment too)
   t0?: number; // when a practice began
+  time?: number; // seconds the run has been played (not while paused or suspended); ARCADE's clock
 }
 export interface Snapshot {
   run: RunState;
@@ -403,6 +404,7 @@ export interface Snapshot {
 export interface SaveRecords {
   cleared: boolean; // the last boss (TITAN) is down
   bossArea: { tier: number; beaten: BossKind[] } | null; // the boss area of this save: its depth (0-based) and the boss rooms beaten there (one of each kind); null = not settled yet
+  bestTime: number | null; // ARCADE: the fastest clear in seconds (null: not cleared yet)
 }
 export interface SaveData {
   v: number; // the version of the save's shape (SAVE_VERSION in core/save.ts; converted from older versions when read)
@@ -488,7 +490,7 @@ export interface Wave extends WorldObject {
 // the flow of the game (src/flow/state.ts state)
 export type GameState = 'base' | 'play' | 'pause' | 'perk' | 'result' | 'bag' | 'layout';
 // how a dive ends
-export type RunEnd = 'extract' | 'dead' | 'abandon';
+export type RunEnd = 'extract' | 'dead' | 'abandon' | 'clear';
 export type PickupKind = 'bit' | 'kit' | 'chip' | 'weapon';
 // a gate: 'next' (on to the next area) or 'extract' (back to base), a milestone's terminal, 'room' (from the boss
 // area's hall into one boss's room) or 'hall' (from a boss room back to the hall)

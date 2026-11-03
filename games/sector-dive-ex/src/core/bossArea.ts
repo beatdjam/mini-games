@@ -1,6 +1,6 @@
 import type { Biome, BossKind } from '../data/types.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { BOSS_ROOMS } from '../data/bossRooms.ts';
+import { BOSS_ROOMS, BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { BOSS_AREA_START_TIER, MILESTONE_EVERY, milestoneBelow } from '../data/progress.ts';
 import { t } from '@engine/core/i18n.ts';
 // the boss area (the hall and the eight boss rooms): its depth once settled in the save, and where each boss's room is
@@ -27,6 +27,11 @@ export function bossRoomBiome(kind: BossKind): Biome {
     name: { get: () => t('boss.hallPlace') },
   }) as Biome;
   return mixed;
+}
+// ARCADE: the boss whose room is in this sector (the other way round from bossRoomBiome). The eight rooms are in eight
+// sectors, one each; TITAN's room is one of them too, so it is not a sector's boss
+export function arcadeBossOf(b: Biome): BossKind | undefined {
+  return BOSS_ROOM_ORDER.find(kind => BOSS_ROOMS[kind] === b.code);
 }
 // TITAN's room: built as the city's plan, drawn with the sectors run together (world/looks.ts MIX), and nobody's sector
 let mixed: Biome | undefined;

@@ -3,6 +3,8 @@ import { withLang } from '@engine/core/langslots.ts';
 // ARCADE's own game is not built yet: the published page starts ENDLESS with no mode select until it is (the dev server
 // still shows the select with #modes, to try it)
 export const ARCADE_OPEN = false;
+// ARCADE: the sectors a dive walks (DEPTH 1 to this many), and then the boss area at the depth after them (0-based 8 = DEPTH 9)
+export const ARCADE_DEPTHS = 8;
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
 // How many depths of the curves below one depth now covers: enemies, drops, bits and room counts scale with it, and one

@@ -16,7 +16,7 @@ import { BOSS_META } from '../data/bosses.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { PER, TUNE } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
-import { persist, save } from '../core/save.ts';
+import { persist, save, isArcade } from '../core/save.ts';
 import { progressOf } from '../core/rules.ts';
 import {
   allBossRoomsBeaten,
@@ -24,9 +24,12 @@ import {
   fallBackToMilestone,
   earnBits,
   recordBest,
+  recordBestTime,
   recordRunStart,
+  resetArcadeProgress,
   riskLoadout,
   setSuspend,
+  settleArcadeBossArea,
   settleBossArea,
   startTierMax,
   storeWeapons,
@@ -51,7 +54,7 @@ import {
 import { BUILDING_V, building, fitBuildingState, makeBuilding, setBuilding, unpackSeen } from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal, makeTerminal } from '../world/portals.ts';
-import { bossAreaOn, bossRoomBiome } from '../core/bossArea.ts';
+import { arcadeBossOf, bossAreaOn, bossRoomBiome } from '../core/bossArea.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import {
@@ -162,8 +165,14 @@ function newRoute(tier: number): number[] {
 // the shots call it without the argument (the default, false), so they settle no boss area
 export function startRun(settleArea = false) {
   enterDive();
-  const tier = clamp(save.startTier, 0, startTierMax());
-  if (settleArea) settleBossArea(tier);
+  // ARCADE: every dive sets out from DEPTH 1 with nothing carried over. What the last one gained is dropped first
+  const arcade = isArcade();
+  if (arcade) resetArcadeProgress();
+  const tier = arcade ? 0 : clamp(save.startTier, 0, startTierMax());
+  if (settleArea) {
+    if (arcade) settleArcadeBossArea();
+    else settleBossArea(tier);
+  }
   setPlayer(newPlayer(save.loadout, tier));
   const risked = save.loadout.filter(w => w && !w.basic).length;
   // non-basic weapons leave the base: they come back only on extraction
@@ -178,6 +187,7 @@ export function startRun(settleArea = false) {
     startTier: tier,
     route: newRoute(tier),
     choice: save.up.choice || 0,
+    time: 0,
   });
   recordRunStart();
   persist();
@@ -247,8 +257,10 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
 // one in memory is another (a resumed run)
 function ensureBuilding(tier: number, b: Biome, roomBoss?: BossKind): BuildingState {
   if (!run.bld || run.bld.tier !== tier || (roomBoss !== undefined && run.bld.boss !== roomBoss)) {
+    // ARCADE: a sector's boss is the one whose room is there, not a pick of the sector's candidates
     const seed = newSeed(), // keep newSeed first: the pinned snapshots ride on the order of the random calls
-      boss = roomBoss ?? (run.forceBoss || pick(b.bosses)),
+      arcadeBoss = isArcade() && !roomBoss && !run.forceBoss ? arcadeBossOf(b) : undefined,
+      boss = roomBoss ?? (run.forceBoss || arcadeBoss || pick(b.bosses)),
       made = makeBuilding(b, boss, seed);
     setBuilding(made);
     run.bld = {
@@ -448,7 +460,8 @@ export function startStage(opts?: { backToHall?: boolean }) {
     player.z = at.start[1];
     player.yaw = 0;
     player.pitch = 0;
-    makePortal(at.extract[0], at.extract[1], COLOR.cyan, 'extract', t('boss.extract'));
+    // ARCADE has no way home from the hall (a dive is given up from the pause screen, or TITAN ends it)
+    if (!isArcade()) makePortal(at.extract[0], at.extract[1], COLOR.cyan, 'extract', t('boss.extract'));
     makeTerminal(at.terminal[0], at.terminal[1], COLOR.lime, t('boss.terminal'));
     // a gate for each boss room, in BOSS_ROOM_ORDER: a beaten room's gate is dim and says so
     BOSS_ROOM_ORDER.forEach((kind, i) => {
@@ -464,8 +477,8 @@ export function startStage(opts?: { backToHall?: boolean }) {
     });
     // once the eight rooms are down: the gate to TITAN
     if (allBossRoomsBeaten()) makePortal(at.titan[0], at.titan[1], COLOR.mag, 'room', BOSS_META.titan.name, 'titan');
-    // once TITAN is down: the way on from the boss area, to the next depth
-    if (bossAreaCleared()) makePortal(at.next[0], at.next[1], COLOR.amber, 'next', t('boss.forward'));
+    // once TITAN is down: the way on from the boss area, to the next depth (ARCADE ends at TITAN, so there is no way on)
+    if (bossAreaCleared() && !isArcade()) makePortal(at.next[0], at.next[1], COLOR.amber, 'next', t('boss.forward'));
   } else if (inBuilding) {
     const st = run.bld!;
     if (!buildingShown(building)) showBuilding(building!);
@@ -584,7 +597,10 @@ export function endRun(kind: RunEnd) {
     return;
   }
   setSuspend(null); // the run is over: its checkpoint must not come back
-  const dead = kind !== 'extract';
+  // ARCADE: its runs end only in death, in giving up, or in TITAN's clear (no extraction)
+  const arcade = isArcade(),
+    dead = kind !== 'extract' && kind !== 'clear',
+    sec = Math.round(run.time ?? 0);
   setState('result');
   keepAwake(false);
   releaseInputs();
@@ -616,13 +632,17 @@ export function endRun(kind: RunEnd) {
     value: kept,
     virtual_currency_name: 'bits',
   });
-  earnBits(kept);
+  // an ARCADE dive carries nothing out: what it made is dropped with the reset below
+  if (!arcade) earnBits(kept);
   recordBest(run.stage);
   const found = player.weapons.concat(player.bag).filter((w): w is Weapon => !!w && !w.basic);
   const foundText = found.length ? found.map(weaponText).join(t('common.sep')) : t('common.none');
   let sold = 0,
-    shortcutMsg = '';
-  if (dead) {
+    shortcutMsg = '',
+    newRecord = false;
+  if (arcade) {
+    if (kind === 'clear') newRecord = recordBestTime(sec);
+  } else if (dead) {
     if (fallBackToMilestone()) shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut) });
   } else {
     sold = storeWeapons(
@@ -639,9 +659,18 @@ export function endRun(kind: RunEnd) {
     foundText,
     sold,
     shortcut: shortcutMsg,
+    arcade,
+    sec,
+    newRecord,
   };
-  persist();
+  if (!arcade) persist();
   showRunResult(kind, facts);
+  // ARCADE: a dive's gains stay in the dive, however it ended. The records and the base's own (unlocks, bosses met and
+  // killed, runs, best, the clear and its time) are kept
+  if (arcade) {
+    resetArcadeProgress();
+    persist();
+  }
 }
 el('#btnBack').addEventListener('click', goBase);
 export function goBase() {
