@@ -12,7 +12,7 @@ import { weaponIcon } from '../ui/hud2.ts';
 import { applyLevelPoint, player, run } from '../actors/player.ts';
 import { bigmap, weaponHud } from '../ui/hud.ts';
 import { setState, show } from '../flow/state.ts';
-import { openPerk } from './perk.ts';
+import { hideTerminalParts, openPerk } from './perk.ts';
 // A milestone's terminal (2026-10-18): the boss of a milestone depth (data/progress.ts isMilestone) leaves one in its
 // room (world/portals.ts makeTerminal), and stepping onto it opens this. The dive's own bits buy levels, as at the
 // base, and each point counts at once. What is spent here is the level's for good: death halves only the bits still
@@ -85,11 +85,7 @@ function buy(id: string) {
   render();
 }
 function close() {
-  el('#scrPerk').dataset.mode = '';
-  el('#levelNote').hidden = true;
-  el('#perkDone').hidden = true;
-  el('#sellHead').hidden = true;
-  el('#sellList').hidden = true;
+  hideTerminalParts();
   show(null);
   setState('play');
   requestLock();

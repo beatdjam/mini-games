@@ -19,6 +19,12 @@ const perkCard = (o: Perk, v: number, rare: boolean, times: number, supply: bool
   const cur = t('perk.cur', { v: o.curText(o.cur(player)) });
   return `<span class="pn">${name}</span><span class="pd">${o.desc(supply ? v : v * times)}</span><span class="pcur">${cur}</span>`;
 };
+// the chip screen without the terminal's parts (screens/levelup.ts): its note, "done" button and the bag's weapons to
+// sell. A starting chip bought at the terminal is picked on this same screen, so they must not stay on it
+export function hideTerminalParts() {
+  el('#scrPerk').dataset.mode = '';
+  for (const id of ['#levelNote', '#perkDone', '#sellHead', '#sellList']) el(id).hidden = true;
+}
 // baseTimes: how many picks this offer already stands for (a shortcut supply pick counts TUNE.supplyTimes). Every chip
 // picked is applied baseTimes * DEPTH_SCALE times, stopping early once it is maxed
 // allRare: every choice is the rare version (only the chips that have one are offered)
@@ -29,6 +35,7 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, bas
   releaseInputs();
   exitLock();
   bigmap.hidden = true;
+  hideTerminalParts();
   el('#perkTitle').textContent = title;
   el('#perkEyebrow').textContent = eyebrow || 'chip acquired';
   const offered = PERKS.filter(
