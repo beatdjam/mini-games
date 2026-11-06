@@ -12,6 +12,7 @@ import {
   RARITY,
   RATE_OPT_MUL,
   RELOAD_OPT_MUL,
+  SELL_DEPTH_SHARE,
   SUPPLY_PLUS_BELOW,
   SUPPLY_RARITY_AT,
   WEAPONS,
@@ -190,8 +191,21 @@ export function readiness(tier: number, s?: ReadyState): number {
     k = READY_CUTS.findIndex(c => v >= c);
   return k < 0 ? READY_CUTS.length : k;
 }
-export const sellValue = (w: WeaponItem): number =>
-  Math.round(8 + WEAPONS[w.id].cost * 0.06 + [0, 20, 55][w.r] + (w.plus || 0) * 10 + (w.opts || []).length * 20);
+// About the bits one depth gives at `progress`: its boss's bits (bossDifficulty in actors/bosses/common.ts, which the
+// boss drops in part and its depth's enemies in the rest) as picked up (the mode's bitScale)
+const depthBitsAt = (progress: number): number =>
+  BOSS_TUNE.bits *
+  1.33 *
+  BOSS_TUNE.hpMul *
+  hpGrowth((progress - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) *
+  modeTune().bitScale;
+// What a weapon sells for: the flat price of its kind, rarity, + value and options, or SELL_DEPTH_SHARE of a depth's
+// bits where its + value drops (the + read back to progress, as supplyPlus counts it), whichever is more
+export const sellValue = (w: WeaponItem): number => {
+  const flat = 8 + WEAPONS[w.id].cost * 0.06 + [0, 20, 55][w.r] + (w.plus || 0) * 10 + (w.opts || []).length * 20;
+  const at = w.plus ? w.plus / PLUS_PER_STAGE + PLUS_STAGE_OFFSET : 0;
+  return Math.round(Math.max(flat, at ? SELL_DEPTH_SHARE * depthBitsAt(at) : 0));
+};
 // a chip as recorded in run.perks: its id, with a trailing '+' for the rare version ("split", "split+")
 const RARE_MARK = '+';
 export const perkRecord = (id: string, rare: boolean): string => (rare ? id + RARE_MARK : id);

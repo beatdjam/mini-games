@@ -139,6 +139,11 @@ export const PLUS_FROM_STAGE = 2.5,
   PLUS_STAGE_OFFSET = 2,
   PLUS_PER_STAGE = 0.6,
   PLUS_BELOW_MAX = 2;
+// A weapon sells for at least this share of the bits one depth gives where its + value drops (core/rules.ts
+// sellValue). The flat price alone came to nothing deep down (a +150 sold for some 1,600 bits against some 1.1e8 a dive
+// in the user's loop 2, 2026-11-07); at 0.015 a +150 sells for about 1.6e6, four of them about 6% of that dive. Kept
+// small so that selling does not buy levels by itself
+export const SELL_DEPTH_SHARE = 0.015;
 // A base weapon is handed out for a dive's start depth (core/rules.ts basicNow): its + value SUPPLY_PLUS_BELOW under the
 // drops' level there (about what they average), its rarity ★★ from the depth SUPPLY_RARITY_AT[0] (0-based) and ★★★
 // from SUPPLY_RARITY_AT[1] (most drops that deep are). Was 2 under and plain rarity: a dive started again from a milestone

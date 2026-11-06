@@ -552,3 +552,12 @@ test('save version 2: depths move to the depth that used to hold the same streng
   el('#btnWipe').click();
   el('#btnWipeGo').click();
 });
+
+test('sell value: the flat price up shallow, a share of a depth bits where the + value drops deep down', () => {
+  const w = (plus: number) => ({ id: 'shotgun', r: 2, plus, opts: ['dmg', 'rate'] });
+  const flat = (plus: number) => Math.round(8 + WEAPONS.shotgun!.cost * 0.06 + 55 + plus * 10 + 40);
+  expect(sellValue(w(0)), 'no + value: the flat price').toBe(flat(0));
+  expect(sellValue(w(5)), 'shallow: the flat price is more').toBe(flat(5));
+  expect(sellValue(w(150)), 'deep: far over the flat price').toBeGreaterThan(flat(150) * 100);
+  expect(sellValue(w(150)), 'deeper sells for more').toBeGreaterThan(sellValue(w(100)));
+});
