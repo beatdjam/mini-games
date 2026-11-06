@@ -13,9 +13,9 @@ import { toast } from '@engine/ui/ui.ts';
 import { fire2Held, fireHeld, joy, mouseFire } from '@engine/ui/input.ts';
 import { actionDown } from '@engine/ui/keymap.ts';
 import { EYE, PORTAL } from '../data/level.ts';
-import { BIT_SCALE, KIT_MAX, TUNE } from '../data/progress.ts';
+import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
-import { save } from '../core/save.ts';
+import { modeTune, save } from '../core/save.ts';
 import { updateMusic } from './music.ts';
 import { level, reveal, showNeighbourFloors, sightHallDoor, updateFollowers } from '../world/level.ts';
 import { building } from '../world/building.ts';
@@ -468,7 +468,7 @@ function pullBit(p: Pickup, d: number, dt: number) {
 }
 function collectBit(p: Pickup) {
   p.dead = true;
-  run.bits += p.value! * BIT_SCALE * player.gainMul * (1 + GAIN_OPT_PER_LEVEL * weaponOptCount('gain'));
+  run.bits += p.value! * modeTune().bitScale * player.gainMul * (1 + GAIN_OPT_PER_LEVEL * weaponOptCount('gain'));
   sfx('bit', 30);
 }
 function collectKit(p: Pickup) {

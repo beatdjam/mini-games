@@ -17,7 +17,6 @@ import {
   WEAPONS,
 } from '../data/weapons.ts';
 import {
-  ARCADE_DEPTH_SCALE,
   DEPTH_SCALE,
   DMG_SCALE_PER_PROG,
   HP_PER_POINT,
@@ -30,12 +29,12 @@ import {
 } from '../data/progress.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
 import { PERKS } from '../data/perks.ts';
-import { isArcade, save } from './save.ts';
+import { modeTune, save } from './save.ts';
 // Formulas that read the data: progress, drops, modding, sell value
 // progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
 // (depth start = depth * 5 * DEPTH_SCALE, the boss = depth * 5 * DEPTH_SCALE + 4)
-// (ARCADE counts its depths deeper: ARCADE_DEPTH_SCALE)
-export const depthScale = (): number => (isArcade() ? ARCADE_DEPTH_SCALE : DEPTH_SCALE);
+// (ARCADE counts its depths deeper: modeTune().depthScale)
+export const depthScale = (): number => modeTune().depthScale;
 export const progressOf = (s: number): number => Math.floor(s / PER) * 5 * depthScale() + ((s % PER) * 4) / (PER - 1);
 // every weapon type can drop during a dive; unlocking only decides what you can start with and mod at the base
 // the player's level: one for every point put into the base upgrades (save.up), whichever it went to

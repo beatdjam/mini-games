@@ -374,13 +374,13 @@
 
 ### ARCADE の潜行
 
-- **流れ**: 1回の潜行で、D1〜D8 の8セクターを1深度ずつ回り、次の D9 のボスエリア（8つのボス部屋）と TITAN を倒すとクリア。1回 45分前後を目安にする（強さは sim で別に合わせる）。セクターの数は `ARCADE_DEPTHS = 8` in src/data/progress.ts、ボスエリアは 0始まりの tier 8（D9）
-- **強さ**: 深度の倍率は ENDLESS の `DEPTH_SCALE`（2）ではなく `ARCADE_DEPTH_SCALE`（2.5）で、D8 は ENDLESS の前の深度で D18 くらいの強さ、ボスエリアは D20 くらい（`depthScale`・`progressOf`・`supplyRarity` in src/core/rules.ts）。チップの2回ぶんと拾ったビットの倍率は ENDLESS と同じ。各セクターのボス（D1〜8）は体力が `BOSS_TUNE.arcadeHpMul`（1.5）倍（`arcadeBossHpMul` in src/actors/bosses/common.ts。体力だけで、落とすビットは変えない）。ボスのたびにターミナルでレベルを買うので、ENDLESS と同じ体力では次のボスがすぐ倒れたため。ボスエリアの部屋は `BOSS_TUNE.arcadeRoomHpMul`（3、`roomHpMul` の上から掛けて実質0.6）倍、TITAN は `arcadeTitanHpMul`（2）倍（`arcadeAreaHpMul` in src/actors/bosses/common.ts。ENDLESS は変えない）。`roomHpMul` 0.2 は D25 の火力を見込んだ値で、ARCADE では同じボスのセクターでの体力（`arcadeHpMul` 1.5倍）の約23%しかなく、TITAN（1230）も D8 の NOISE CORE より柔らかかったため。sim の climber（シード1〜8）で、部屋は1室 7〜52秒（前は 6〜29秒）、TITAN はクリアした回で 54〜78秒（前は 27〜52秒）、クリアは8本中3本。`arcadeHpMul` の sim の climber（シード1〜8、ビット 1.7倍の上）では、倍率2は8本中8本クリア、3は0本、2.5は6本（1回 約46分）。ボットは人より狙いと回避が正確なので、人では少し下がる見込み
+- **流れ**: 1回の潜行で、D1〜D8 の8セクターを1深度ずつ回り、次の D9 のボスエリア（8つのボス部屋）と TITAN を倒すとクリア。1回 45分前後を目安にする（強さは sim で別に合わせる）。セクターの数は `MODE_TUNE.arcade.sectorsBeforeBossArea`（8）in src/data/progress.ts、ボスエリアは 0始まりの tier 8（D9）
+- **強さ**: 深度の倍率は ENDLESS の `MODE_TUNE.endless.depthScale`（2）ではなく `MODE_TUNE.arcade.depthScale`（2.5）で、D8 は ENDLESS の前の深度で D18 くらいの強さ、ボスエリアは D20 くらい（`depthScale`・`progressOf`・`supplyRarity` in src/core/rules.ts）。チップの2回ぶんと拾ったビットの倍率は ENDLESS と同じ。各セクターのボス（D1〜8）は体力が `MODE_TUNE.arcade.bossHp.sector`（1.5）倍（`bossHpMul` in src/actors/bosses/common.ts。体力だけで、落とすビットは変えない）。ボスのたびにターミナルでレベルを買うので、ENDLESS と同じ体力では次のボスがすぐ倒れたため。ボスエリアの部屋は `MODE_TUNE.arcade.bossHp.room`（0.6、`bossHp.room` の 0.2 に3を掛けた合計）倍、TITAN は `MODE_TUNE.arcade.bossHp.titan`（2）倍（`bossHpMul` in src/actors/bosses/common.ts。ENDLESS は変えない）。ENDLESS の `bossHp.room` 0.2 は D25 の火力を見込んだ値で、ARCADE では同じボスのセクターでの体力（`bossHp.sector` 1.5倍）の約23%しかなく、TITAN（1230）も D8 の NOISE CORE より柔らかかったため。sim の climber（シード1〜8）で、部屋は1室 7〜52秒（前は 6〜29秒）、TITAN はクリアした回で 54〜78秒（前は 27〜52秒）、クリアは8本中3本。`bossHp.sector` の sim の climber（シード1〜8、ビット 1.7倍の上）では、倍率2は8本中8本クリア、3は0本、2.5は6本（1回 約46分）。ボットは人より狙いと回避が正確なので、人では少し下がる見込み
 - **出発**: 出撃の深度はいつも D1（tier 0）。`save.startTier` は見ない（`startRun` in src/flow/run.ts）。潜行を始める前に、その挑戦のぶんの進み具合をまっさらにする
 - **ボスエリア**: 8セクターの次の深度に置き、ボス部屋は初めは全部未撃破にする（`settleArcadeBossArea` in src/core/progress.ts）
 - **ルートとボス**: 順路は ENDLESS と同じく、潜るたびに8セクターの順番が混ざる（`newRoute`）。各深度の建物のボスは、そのセクターのボス部屋の割り当てのボスに固定する（`BOSS_ROOMS` の逆引き、`arcadeBossOf` in src/core/bossArea.ts。建物を作るのは `ensureBuilding` in src/flow/run.ts）。8セクターと8体のボスは1対1
 - **ボスのあとのゲート**: どの深度のボスを倒しても、前進のゲートと強化ターミナルを出す。帰還のゲートは出さない（`putBossGates` in src/actors/bosses/common.ts）。ボスエリアの広間にも帰還のゲートは出さない（`startStage` in src/flow/run.ts）。途中でやめるのは一時停止の「中断」と「放棄」だけ。倒したときの案内は「撃破。強化してから、前進のゲートで次へ」（`boss.arcadeNext`。`recordBossProgress` in src/actors/bosses/common.ts）。帰還やショートカットの案内は出さない
-- **ターミナルの振り先**: ARCADE では救急箱を出さない（潜行が終わるとレベルが消えるので、キット1個をレベル1枠で買うだけになるため。`ARCADE_HIDDEN_UPGRADES` in src/data/progress.ts）
+- **ターミナルの振り先**: ARCADE では救急箱を出さない（潜行が終わるとレベルが消えるので、キット1個をレベル1枠で買うだけになるため。`MODE_TUNE.arcade.hiddenUpgrades` in src/data/progress.ts）
 - **クリア**: ボスエリアの TITAN を倒すと、その場で潜行を終えて結果の画面を出す（`endRun('clear')` in src/flow/run.ts）。`RunEnd` に `'clear'` があり、結果の札は `CLEARED`（`RUN_END` in src/core/rules.ts）。TITAN のあとの部屋のゲートは出さない。ENDLESS の TITAN は今までどおり部屋へ戻る
 - **終わったとき**: 死亡・放棄・クリアのどれでも、潜行の進み具合をまっさらに戻す（`resetArcadeProgress` in src/core/progress.ts）
   - 戻す: `bits`・`up`（レベル）・`loadout`（基本武器）・`stash`・`shortcut`・`startTier`・`peak`・`records.bossArea`・`suspend`
@@ -407,7 +407,7 @@
 ### 強化と補給
 
 - **深度の倍率（DEPTH_SCALE）**: 1つの深度が、敵の体力と与ダメージ・ドロップの +値とレアリティ・ビット・部屋の敵の数で2深度ぶんに当たる（`DEPTH_SCALE` in src/data/progress.ts）。チップは1枚選ぶと2回ぶん効き、途中からの補給は1回で `TUNE.supplyTimes` × `DEPTH_SCALE` 回ぶんになる。ボスエリアは D25
-  - 拾ったビットは 1.7倍（`BIT_SCALE` in src/data/progress.ts、`flow/update.ts` で拾うとき）。同じ強さに着くまでに歩く部屋が半分になり、そのままでは入るビットが約6割（深度ごとのビットの伸びを約1.4倍として）で、買えるレベルが約3つ少なくなるため
+  - 拾ったビットは 1.7倍（`MODE_TUNE` の `bitScale` in src/data/progress.ts、`flow/update.ts` で拾うとき）。同じ強さに着くまでに歩く部屋が半分になり、そのままでは入るビットが約6割（深度ごとのビットの伸びを約1.4倍として）で、買えるレベルが約3つ少なくなるため
 - **ボス前の補給**: ボス部屋に入ると、まだ制圧していない部屋のぶんだけチップを選べる（`SUPPLY_PER_ROOM`・`giveSupply` in src/flow/events.ts）
   - 数: 建物の中でまだ制圧していない部屋（敵が残っている部屋）1つにつき 0.18枚ぶん（建物全体で四捨五入。全部制圧したときの約6割）
   - 全部の部屋を制圧していれば何も出ない
@@ -1190,7 +1190,7 @@
   - 部屋へ入ると、そのボスのセクターの建物を最下階のホールから始める（`run.area = { at: 'room', boss }`、`BOSS_ROOMS`）。最下階はホール以外に敵も武器キャッシュも置かない（ボスだけ）。ロックダウンも起きない。ボス前の補給は無い
   - ゲートの種類は `room`（広間から部屋へ）と `hall`（部屋から広間へ）。踏むと `run.area` を切り替えてステージを作り直す（`enterBossRoom`・`returnToHall`）。ゲートの置き場所は仮
   - 部屋の段は `bossStageOf(areaTier)`。ボスの強さはその深度のボスと同じ基準
-  - 部屋の8体は、その深度のボスと同じ基準の体力に `BOSS_TUNE.roomHpMul` を掛けた体力にする（攻撃と速さは変えない）。TITAN には掛けない
+  - 部屋の8体は、その深度のボスと同じ基準の体力に `MODE_TUNE.endless.bossHp.room` を掛けた体力にする（攻撃と速さは変えない）。TITAN には掛けない
   - 開始はホールの中の南寄りで、中央を向く（廊下は歩かない）。入るとすぐボス戦が始まる。中断すると同じ部屋の同じ位置から再開する
   - 部屋のボスを倒すと `save.records.bossArea.beaten` にそのボスが残る（死んでも中断から戻っても残る。同じボスは1つだけ）。初めての撃破はふつうのボスと同じ報酬（ビット・チップ・キット・武器）で、ショートカットは開かない。倒し直しはビットだけ。初めて倒したときは「撃破 n/8」を出す（TITAN は8に数えない）
   - 撃破後の部屋には広間へ戻るゲート（`hall`）だけを置く（`next`・`extract` は出さない）。広間に戻ると HP が全回復する

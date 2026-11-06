@@ -12,7 +12,7 @@ const PICK_MS = 30; // between two of the chip picks made for the player (ms)
 // The chips picked here are whatever comes first, not what a player would take, so the player is then set to a real
 // dive instead: a save at DEPTH 24 of 2026-11-01, whose damage was 240000% (2400 times). The damage alone is set to what
 // DEPTH 25 is assumed to reach, 300000%: a guess until a real save gets there. The bosses' health is tuned for it
-// (BOSS_TUNE.roomHpMul, BOSS_META.titan.hp). Elsewhere the damage grows as the bosses' health does, to make the fight as long
+// (MODE_TUNE.endless.bossHp.room, BOSS_META.titan.hp). Elsewhere the damage grows as the bosses' health does, to make the fight as long
 const RUSH_DMG_AT = BOSS_AREA_START_TIER;
 const RUSH_DMG = 3000;
 export const rushDamage = (tier: number): number => RUSH_DMG * Math.pow(BOSS_TUNE.lateGrowth, tier - RUSH_DMG_AT);

@@ -13,7 +13,7 @@ import { banner, toast } from '@engine/ui/ui.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { BOSS_ROOM_ORDER } from '../../data/bossRooms.ts';
 import { hpGrowth, isMilestone } from '../../data/progress.ts';
-import { isArcade, persist, save } from '../../core/save.ts';
+import { isArcade, modeTune, persist, save } from '../../core/save.ts';
 import {
   allBossRoomsBeaten,
   openShortcut,
@@ -80,24 +80,17 @@ const TITAN_CLEARED_TOAST_MS = 4200; // the toast for the first time TITAN is do
 export function bossDifficulty() {
   return 1.33 * BOSS_TUNE.hpMul * hpGrowth((progressOf(run.stage) - 4) / 5, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth);
 }
-// ARCADE: a sector's boss (not in the boss area) has BOSS_TUNE.arcadeHpMul times the health (only the health: the bits
-// it drops go by bossDifficulty as they are)
-export const arcadeBossHpMul = (): number => (isArcade() && !stageInfo(run.stage).area ? BOSS_TUNE.arcadeHpMul : 1);
-// the boss area's rooms are one boss after another: only their health is cut, the attacks and the speed stay.
-// TITAN is the one boss after the eight rooms: it keeps its health as it is
-export function areaHpMul(): number {
-  return bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room' && run.area.boss !== 'titan'
-    ? BOSS_TUNE.roomHpMul
-    : 1;
+// A boss's health multiplier by the place it is fought in and the mode (MODE_TUNE's bossHp): a sector's boss, a boss
+// area room's, or TITAN's. The boss area's rooms are one boss after another, so only their health is cut (the attacks and
+// the speed stay); TITAN is the one boss after the eight rooms and keeps its health. Only the health changes: the bits a
+// boss drops go by bossDifficulty as they are. A practice dive has no run.area: out of the boss area it keeps the
+// sector's multiplier, and at the boss area's depth it keeps the whole health, as it did before.
+export function bossHpMul(): number {
+  const tune = modeTune();
+  if (!stageInfo(run.stage).area) return tune.bossHp.sector;
+  if (!bossAreaOn() || run.area?.at !== 'room') return 1;
+  return run.area.boss === 'titan' ? tune.bossHp.titan : tune.bossHp.room;
 }
-// ARCADE: the boss area's rooms and TITAN get their own health multiplier over the ones above (ENDLESS keeps them as
-// they are). TITAN is the room whose boss is titan; every other room is one of the eight. Only the health changes.
-export const arcadeAreaHpMul = (): number =>
-  !isArcade() || !bossAreaOn() || !stageInfo(run.stage).area || run.area?.at !== 'room'
-    ? 1
-    : run.area.boss === 'titan'
-      ? BOSS_TUNE.arcadeTitanHpMul
-      : BOSS_TUNE.arcadeRoomHpMul;
 // the body material of a boss: a near-black base colour that glows in the boss's own colour (at rest: BOSS_GLOW)
 // (with the looks on: a machine's hull plate with a little of that colour in it, world/models/machine.ts)
 export function bossMaterial(dark: number, emissive: number): THREE.MeshLambertMaterial {
@@ -129,15 +122,15 @@ export interface BossSpawn<S extends object> {
   extra?: THREE.Object3D[]; // meshes of its own already in the scene, removed with it (as its pool is)
   onDown?: (e: Boss & S) => void; // when it goes down, after its meshes are removed
 }
-// hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDifficulty and the boss area
-// room's multiplier (areaHpMul), and in ARCADE by arcadeBossHpMul and arcadeAreaHpMul
+// hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDifficulty and by the place
+// and mode (bossHpMul)
 export function createBoss<S extends object>(o: BossSpawn<S>): Boss & S {
   const { kind, behave, state } = o,
     { mesh, mat } = o.look;
   if (o.pool === false) delete mat.userData.pool;
   const meta = BOSS_META[kind],
     name = meta.title ?? kind,
-    hp = meta.hp * bossDifficulty() * areaHpMul() * arcadeBossHpMul() * arcadeAreaHpMul(),
+    hp = meta.hp * bossDifficulty() * bossHpMul(),
     y = meta.y,
     hitR = meta.hitR;
   dynGroup.add(mesh);

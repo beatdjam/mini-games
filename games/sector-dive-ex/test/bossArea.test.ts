@@ -4,7 +4,7 @@
 import { afterEach, beforeAll, expect, test } from 'vitest';
 import type { BossKind, Pickup, PortalKind } from '../src/data/types.ts';
 import { BIOMES } from '../src/data/biomes.ts';
-import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';
+import { BOSS_META, BOSS_ORDER } from '../src/data/bosses.ts';
 import { BOSS_ROOMS, BOSS_ROOM_ORDER } from '../src/data/bossRooms.ts';
 import { COLOR } from '../src/data/colors.ts';
 import { PORTAL } from '../src/data/level.ts';
@@ -33,7 +33,7 @@ import {
 } from '../src/flow/run.ts';
 import { resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { lockdownAhead, supplyChips } from '../src/flow/events.ts';
-import { areaHpMul, bossDifficulty, bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
+import { bossDifficulty, bossDown, bossHpMul, spawnBoss } from '../src/actors/bosses/common.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { BOT_STYLES, createBot, hallGate, setBot } from '../src/dev/bot.ts';
 import { INPUT } from '@engine/ui/input.ts';
@@ -961,30 +961,31 @@ test('boss area off: the TITAN gate stays out of the run', () => {
 });
 
 // ---- a room's boss health: only the health is cut, the attacks and the speed stay ----
-test('areaHpMul: the share in a room, 1 in the hall', () => {
+test('bossHpMul: the share in a room, 1 in the hall', () => {
   enterRoom();
-  expect(areaHpMul(), 'in the room').toBe(BOSS_TUNE.roomHpMul);
+  expect(bossHpMul(), 'in the room').toBe(0.2);
   enterHallRun();
-  expect(areaHpMul(), 'in the hall').toBe(1);
+  expect(bossHpMul(), 'in the hall').toBe(1);
 });
 
 test("a room's boss has the share of the health of the same depth's boss", () => {
   enterRoom();
   spawnBoss('crusher');
-  expect(boss!.hp, "the crusher's health").toBeCloseTo(BOSS_META.crusher.hp * bossDifficulty() * BOSS_TUNE.roomHpMul);
+  expect(boss!.hp, "the crusher's health").toBeCloseTo(BOSS_META.crusher.hp * bossDifficulty() * bossHpMul());
 });
 
 test("a room's boss keeps the attack damage of the same depth's boss", () => {
   enterRoom();
   spawnBoss('crusher');
   const hp = boss!.hp,
-    dmg = boss!.dmg;
+    dmg = boss!.dmg,
+    roomMul = bossHpMul();
   goBase();
   startPractice('crusher', BOSS_AREA_START_TIER);
   tick(10);
   if (!boss) spawnBoss('crusher');
   expect(boss!.dmg, 'the same damage').toBeCloseTo(dmg);
-  expect(boss!.hp, "the room's health without the share").toBeCloseTo(hp / BOSS_TUNE.roomHpMul);
+  expect(boss!.hp, "the room's health without the share").toBeCloseTo(hp / roomMul);
 });
 
 test('boss area off: a room placed by hand keeps the whole health', () => {
@@ -992,14 +993,14 @@ test('boss area off: a room placed by hand keeps the whole health', () => {
   startPractice('crusher', BOSS_AREA_START_TIER);
   run.area = { at: 'room', boss: 'crusher' };
   if (!boss) spawnBoss('crusher');
-  expect(areaHpMul(), 'no share').toBe(1);
+  expect(bossHpMul(), 'no share').toBe(1);
   expect(boss!.hp, 'the whole health').toBeCloseTo(BOSS_META.crusher.hp * bossDifficulty());
 });
 
-test('areaHpMul: TITAN keeps its whole health', () => {
+test('bossHpMul: TITAN keeps its whole health', () => {
   enterHallRun();
   run.area = { at: 'room', boss: 'titan' };
-  expect(areaHpMul(), 'no share for TITAN').toBe(1);
+  expect(bossHpMul(), 'no share for TITAN').toBe(1);
   spawnBoss('titan');
   expect(boss!.hp, "TITAN's health").toBeCloseTo(BOSS_META.titan.hp * bossDifficulty());
 });
