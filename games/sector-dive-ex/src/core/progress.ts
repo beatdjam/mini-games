@@ -1,8 +1,16 @@
-import type { BossKind, ContinueFrom, EndlessRecord, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
+import type {
+  BossKind,
+  ContinueFrom,
+  EndlessRecord,
+  RestrictionId,
+  SaveData,
+  Snapshot,
+  WeaponItem,
+} from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
-import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
+import { LOOP_TUNE, STASH_MAX, milestoneBelow, restrictionOf } from '../data/progress.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
-import { basicW, defaultSave, modeTune, newEndlessRecord, save } from './save.ts';
+import { basicW, defaultSave, isArcade, modeTune, newEndlessRecord, save } from './save.ts';
 import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
 import { sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
@@ -82,15 +90,16 @@ export const recordBest = (stage: number) => {
   save.best = Math.max(save.best, stage + 1);
 };
 // ---- ENDLESS records ----
-// The row the dives of now go into: the loop being played with no restriction. When restrictions come, only this
-// function changes: the writers below and the base's records page ask it for the row
+// The row the dives of now go into: the loop being played with no restriction, or the challenge's strength and
+// restriction. The writers below and the base's records page ask it for the row
 const RESTRICTION = 'none';
 export function currentEndlessRecord(): EndlessRecord {
-  const loop = save.loop,
+  const loop = save.challenge ? save.challenge.strength : save.loop,
+    restriction = save.challenge ? save.challenge.restriction : RESTRICTION,
     rows = save.records.endless,
-    found = rows.find(r => r.loop === loop && r.restriction === RESTRICTION);
+    found = rows.find(r => r.loop === loop && r.restriction === restriction);
   if (found) return found;
-  const made = newEndlessRecord(false, 0, loop, RESTRICTION);
+  const made = newEndlessRecord(false, 0, loop, restriction);
   rows.push(made);
   return made;
 }
@@ -123,6 +132,53 @@ export function startNextLoop() {
   save.startTier = base.startTier;
   save.records.bossArea = base.records.bossArea;
   save.suspend = base.suspend;
+}
+// ---- ENDLESS restriction challenges ----
+// the strongest loop a challenge can be played at: the deepest plain loop cleared, up to LOOP_TUNE.cap (0: none cleared)
+export function challengeStrengthMax(): number {
+  const cleared = save.records.endless
+    .filter(r => r.restriction === RESTRICTION && r.titan)
+    .reduce((n, r) => Math.max(n, r.loop), 0);
+  return Math.min(cleared, LOOP_TUNE.cap);
+}
+// ENDLESS only, out of a challenge, with no dive suspended and at least one loop cleared
+export const canStartChallenge = (): boolean =>
+  !isArcade() && !save.challenge && save.suspend === null && challengeStrengthMax() >= 1;
+// whether the challenge being played carries restriction `id`
+export const usingRestriction = (id: RestrictionId): boolean => save.challenge?.restriction === id;
+// Sets the main loop's start depth, boss area and suspended dive aside and begins a challenge at D1. Only a ready
+// restriction and a strength within the cleared loops are taken
+export function startChallenge(restriction: RestrictionId, strength: number): boolean {
+  if (!canStartChallenge() || !Number.isInteger(strength)) return false;
+  if (strength < 1 || strength > challengeStrengthMax()) return false;
+  if (!restrictionOf(restriction)?.ready) return false;
+  save.challenge = {
+    restriction,
+    strength,
+    main: {
+      shortcut: save.shortcut,
+      startTier: save.startTier,
+      bossArea: save.records.bossArea,
+      suspend: save.suspend,
+    },
+  };
+  const base = defaultSave();
+  save.shortcut = base.shortcut;
+  save.startTier = base.startTier;
+  save.records.bossArea = base.records.bossArea;
+  save.suspend = base.suspend;
+  return true;
+}
+// Ends the challenge: the main loop's start depth, boss area and suspended dive come back. A suspended dive stops it
+export function endChallenge(): boolean {
+  const challenge = save.challenge;
+  if (!challenge || save.suspend !== null) return false;
+  save.shortcut = challenge.main.shortcut;
+  save.startTier = challenge.main.startTier;
+  save.records.bossArea = challenge.main.bossArea;
+  save.suspend = challenge.main.suspend;
+  save.challenge = null;
+  return true;
 }
 // extraction: the equipped weapons are the next loadout, the bag goes to the stash (the cheapest is sold when it is
 // full). Returns the bits from the weapons sold

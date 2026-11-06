@@ -370,6 +370,7 @@
   - 今のモードと同じモードを選ぶと閉じるだけ。違うモードなら今のセーブを保存してからモードを記録し、ページを読み直す（`switchMode` in src/core/save.ts）。読み直した起動ではモード選択を出さない。選んだばかりのため（`MODE_CHOSEN_KEY` を sessionStorage に置き、起動時に `takeModeChosen` で見て消す）
 - **完全消去**: 今のモードのセーブ（`ACTIVE_SAVE_KEY`）だけを消す。設定は既定値に戻し、`SETTINGS_KEY` にも書く。もう片方のモードのセーブは消さない（`#btnWipeGo` in src/screens/data.ts）
 - **セーブのコード**: 読み込むと今のモードのセーブ（`ACTIVE_SAVE_KEY`）に入り、コードの設定も `SETTINGS_KEY` に入る（`importSave` in src/core/save.ts）
+- **ENDLESS の縛りの挑戦**: `SaveData.challenge`（`Challenge | null` in src/data/types.ts）に、挑戦中の縛り・強さと、挑戦を始めたときの本線の `shortcut`・`startTier`・`records.bossArea`・`suspend` の写しを持つ。`defaultSave` は `null`、古いセーブは読み込みで `null` にそろえる（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）。詳しくは「ENDLESS の縛り」
 - **公開**: `ARCADE_OPEN` が `false` の間は、公開版でモード選択の画面・拠点の「モード」ボタン・今のモードの札を出さない
 
 ### ARCADE の潜行
@@ -406,8 +407,8 @@
 
 ### ENDLESS の記録
 
-- **何のため**: ENDLESS で TITAN を倒したあとも遊び続けられるよう、記録を「周と縛りの組ごとに1行」で持つ。周は今あり（「ENDLESS の周回」）、縛りはまだ無いので、行は「周・縛りなし」が1つずつになる
-- **行の鍵**: 周（`save.loop`、1始まりの数）と縛り（文字列。縛りなしは `'none'`）。今の行は `currentEndlessRecord` in src/core/progress.ts が `save.loop` と `'none'` で返す（無ければ作る。縛りを足すときは、この関数だけを直す）
+- **何のため**: ENDLESS で TITAN を倒したあとも遊び続けられるよう、記録を「周と縛りの組ごとに1行」で持つ。周は「ENDLESS の周回」、縛りは「ENDLESS の縛り」で、ふつうの周は「周・縛りなし」の行、挑戦は「強さ・縛り」の行になる
+- **行の鍵**: 周（`save.loop`、1始まりの数。挑戦中は `challenge.strength`）と縛り（文字列。縛りなしは `'none'`、挑戦中は `challenge.restriction`）。今の行は `currentEndlessRecord` in src/core/progress.ts がその組で返す（無ければ作る）
 - **1行に持つもの**（`EndlessRecord` in src/data/types.ts、`records.endless`）
   - `best`: その行で着いたいちばん深い所（`save.best` と同じ単位: `stage + 1`）
   - `sec`: その行の潜行の時間の合計（秒）。潜行が終わるたびに `run.time` を足す。拠点にいた時間は入れない
@@ -430,7 +431,7 @@
 - **周の番号**: `SaveData.loop`（1始まり）。`defaultSave` は 1、古いセーブは読み込みで 1 にそろえる（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）
 - **周の強さ（ENDLESS だけ）**: 深度 `tier`（0始まり）が、敵・ドロップ・ビットの式で何深度ぶんに当たるかを `scaledDepth` in src/core/rules.ts が返す。`progressOf` の深度の部分、`supplyRarity`、`readinessScore` がこれを使う（チップの効く回数は変えない。ボスの体力も `progressOf` を通して付いてくる）
   - ARCADE: `tier * depthScale()`
-  - ENDLESS: 周を `L = min(save.loop, LOOP_TUNE.cap)`、ボスエリアの深度を `END = BOSS_AREA_START_TIER`（24）とし、1周目は `start = 0`・`end = END * depthScale()`（48）、2周目からは `start(L) = LOOP_TUNE.start + LOOP_TUNE.shift * (L - 2)`、`end(L) = LOOP_TUNE.end + LOOP_TUNE.shift * (L - 2)` として
+  - ENDLESS: 周（挑戦中は `challenge.strength`、そうでなければ `save.loop`。`strengthLoop` in src/core/rules.ts）を `L = min(周, LOOP_TUNE.cap)`、ボスエリアの深度を `END = BOSS_AREA_START_TIER`（24）とし、1周目は `start = 0`・`end = END * depthScale()`（48）、2周目からは `start(L) = LOOP_TUNE.start + LOOP_TUNE.shift * (L - 2)`、`end(L) = LOOP_TUNE.end + LOOP_TUNE.shift * (L - 2)` として
     - `tier <= END`: `start(L) + (end(L) - start(L)) * tier / END`（1周目は `tier * 2` のまま）
     - `tier > END`: `end(L) + (tier - END) * depthScale() * LOOP_TUNE.pastEnd`。TITAN の先はどの周も伸びが半分（1深度で体力が約1.25倍）。全部の伸びのままだと、1周目の D26（ふつうの敵は D24 の次で2深度ぶん伸びる）が、ロックダウンの部屋を抜けられない壁だった（遊んだ感想、2026-11-07）
   - **出撃の補給の回数**（`supplyPicks` in src/core/rules.ts）: ARCADE は飛ばした深度の数のまま。ENDLESS は `round(scaledDepth(tier) / depthScale())`（同じ強さの1周目の深度の数）。1周目の D25 までは飛ばした深度の数と同じ。2周目の D1 は19回ぶんの補給をもらって出る（前は0回で、チップ0枚のまま1周目の D20 相当の敵と戦うことになり、遊んで1体も倒せなかった。2026-11-07）。`pickStartChips` in src/flow/run.ts・出撃地点の目安（`readinessScore` の `supplyGain`）・拠点の出撃地点の表示が同じ数を使う
@@ -440,6 +441,36 @@
   - `startNextLoop` が戻すもの: `save.loop += 1`、`save.shortcut`・`save.startTier`・`save.records.bossArea`・`save.suspend` を `defaultSave()` の値に戻す（`resetArcadeProgress` と同じやり方）
   - 残すもの: `bits`・`up`（レベル）・`loadout`・`stash`・`peak`・`unlocked`・`best`・`runs`・`bossKills`・`bossSeen`・`records.cleared`・`records.endless`・`settings`。新しい周の記録の行は、`currentEndlessRecord` が初めて呼ばれたときに作る
   - モードの札（`#modeTag`）: ENDLESS で `save.loop >= 2` なら「ENDLESS · {n}周目」（英語は `ENDLESS · LOOP {n}`）。1周目は「ENDLESS」
+
+### ENDLESS の縛り
+
+- **何のため**: 周をクリアしたあと、縛りを1つ付けて D1 から挑めるようにする。強さはもうクリアした周から選ぶ。挑戦のあいだ本線の周の進み具合（出撃地点・ボスエリア・中断）は取っておき、やめると元に戻る。縛りと強さの組をクリアするたびに、永続のボーナスがもらえる
+- **データ**（`RESTRICTIONS` in src/data/progress.ts。仮の値。sim と遊んだ感想で合わせる）: `{ id, dmg?, hp?, bits?, ready, name }`（`Restriction` in src/data/types.ts）。`dmg`・`hp`・`bits` は強さ L でクリアしたときの1回ぶん（値 × L）、`ready` が偽の縛りは選ぶ画面に出さない
+  - `weapon`（武器1種だけ）: 与ダメ 0.02。`ready: false`（効き目は次の票）
+  - `kit`（回復を絞る）: 最大HP 0.02。`ready: false`（効き目は次の票）
+  - `pick`（チップを選べない）: 拾うビット 0.03。`ready: true`
+  - `hurt`（被ダメージ2倍）: 与ダメ 0.03 と 最大HP 0.03。`ready: true`
+  - 被ダメージの倍率は `RESTRICTION_TUNE.hurtMul`（2）
+- **始める・やめる**（`core/progress.ts`）
+  - `challengeStrengthMax()`: 縛り `'none'` で `titan: true` の行のいちばん大きい周と `LOOP_TUNE.cap` の小さいほう（クリアした周が無ければ 0）
+  - `canStartChallenge()`: ENDLESS で、挑戦中でなく、`save.suspend` が `null` で、`challengeStrengthMax() >= 1`
+  - `startChallenge(restriction, strength)`: `canStartChallenge()` が真で、`strength` が 1〜`challengeStrengthMax()` の整数、縛りが `ready` のときだけ始める。本線の `shortcut`・`startTier`・`records.bossArea`・`suspend` を `challenge.main` に写してから、`defaultSave()` の値に戻す（`startNextLoop` と同じやり方）。`loop`・`bits`・`up`・`loadout`・`stash`・`peak`・`unlocked`・記録・設定は変えない
+  - `endChallenge()`: 挑戦中で `save.suspend` が `null` のときだけ。`main` の4つを書き戻して `challenge = null`
+  - 挑戦中は「次の周へ」を出さない（`renderNextLoop` の条件に `!save.challenge`）
+- **強さと記録**
+  - `strengthLoop()` in src/core/rules.ts は、挑戦中なら `challenge.strength`、そうでなければ `save.loop`。`scaledDepth` はこれを使う（強さ 1 は1周目と同じ式）
+  - `currentEndlessRecord` の鍵は、挑戦中が (`challenge.strength`, `challenge.restriction`)、そうでなければ (`save.loop`, `'none'`)。`loopCleared`・`loopsCleared` は今までどおり `'none'` の行だけを見る（挑戦の行は周のクリアに数えない）
+- **効き目（挑戦中だけ）**
+  - `hurt`: `damagePlayer` の受けるダメージに `RESTRICTION_TUNE.hurtMul` を掛ける（src/actors/combat.ts）
+  - `pick`: チップの候補を1枚だけにする（`openPerk` in src/screens/perk.ts。部屋・ボス前の補給・レベル・持ち込み・出撃の補給のどの経路でも同じ）
+- **ボーナス（ENDLESS だけ。挑戦中かどうかに関係なく効く）**: `restrictionBonus()` in src/core/rules.ts が、縛りが `'none'` でなく `titan: true` で周が `LOOP_TUNE.cap` 以下の行それぞれの、縛りの値 × 周を足して、与ダメ・最大HP・ビットの合計を返す。引数に縛りの id を渡すとその縛りぶんだけを返す。潜り始めの最大HPと与ダメージの倍率は `1 + 周のボーナス + 縛りのボーナス`（足し算。`startMaxHp`・`startDmgMul`）。拾ったビットには `(1 + ビットのボーナス)` を掛ける（`collectBit` in src/flow/update.ts）。ARCADE では掛けない
+- **拠点（ENDLESS だけ）**: `#sideCards` の「次の周へ」の後ろ、記録のカードの前に `pagecard` のボタン `#btnChallenge` を出す（`renderChallenge` in src/screens/base.ts）
+  - 挑戦中でなく `canStartChallenge()` が真: 見出し「縛りで挑む」、小さい字「縛りを1つ付けて D1 から。本線の周は取っておく」。押すと `#dlgChallenge` を開く
+  - 挑戦中: 見出し「挑戦をやめる」、小さい字「{縛り}・{L}周目の強さ。本線の周に戻る」。1回目で見出しが「もう一度押すと本線に戻る」に変わり、2回目で `endChallenge`。`save.suspend` があるときは押せず、小さい字は「中断中の潜行があるとやめられない」
+  - それ以外は隠す
+  - 縛りを選ぶ画面（`#dlgChallenge`、src/screens/challenge.ts）: `#dlgMode` と同じ作りのダイアログ。縛りのボタン（`ready` のものだけ。名前とボーナスの中身）、強さのボタン（1〜`challengeStrengthMax()`、「{L}周目の強さ」、初めは 1）。「挑む」で `startChallenge` を呼んで保存し、閉じて拠点を描き直す。「閉じる」と Esc は何もせず閉じる
+  - モードの札（`#modeTag`）: 挑戦中は「ENDLESS · 縛り: {縛り}（{L}周目の強さ）」（英語は `ENDLESS · {縛り} (LOOP {L})`）
+- **実績の表（記録のページ）**: 今の行の表のあとに見出し「縛りの実績」で、縦に `RESTRICTIONS` の4つ全部（`ready: false` も出す）、横に強さ 1〜`LOOP_TUNE.cap`。その組の行が `titan: true` なら「✓」、そうでなければ「—」。いちばん右にその縛りでもらったボーナスの合計（例「与ダメ +6%」。まだなら「—」）
 
 ### 強化と補給
 

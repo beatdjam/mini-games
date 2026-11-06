@@ -7,8 +7,9 @@ import { moveCircle } from '@engine/world/tiles.ts';
 import { toast } from '@engine/ui/ui.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { LEECH_OPT_HP } from '../data/weapons.ts';
-import { TUNE } from '../data/progress.ts';
+import { RESTRICTION_TUNE, TUNE } from '../data/progress.ts';
 import { progressOf } from '../core/rules.ts';
+import { usingRestriction } from '../core/progress.ts';
 import { damageScaleAt, difficultyAt } from '../core/stages.ts';
 import { level, roomSpot, stashedRoomCount } from '../world/level.ts';
 import { lockdownAhead, markClearedOn, onRoomCleared } from '../flow/events.ts';
@@ -72,7 +73,7 @@ export const kitHealAmount = (): number => Math.round(Math.max(TUNE.kitHeal, pla
 // from: where the hit came from (the attacker or the blast), for the direction arc; none for floors and your own blasts
 export function damagePlayer(d: number, from?: { x: number; z: number }) {
   if (player.inv > 0 || state !== 'play') return;
-  player.hp -= d;
+  player.hp -= usingRestriction('hurt') ? d * RESTRICTION_TUNE.hurtMul : d;
   player.inv = TUNE.hitInvuln;
   screenFx.shake = Math.max(screenFx.shake, HIT_SHAKE);
   screenFx.vig = HIT_VIGNETTE;

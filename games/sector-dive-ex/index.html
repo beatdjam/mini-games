@@ -379,6 +379,20 @@ body.booting #app{visibility:hidden}
 .modebadge{font-family:var(--jp);font-size:11px;letter-spacing:0;color:var(--amber)}
 #modeTitle{font-family:var(--disp);letter-spacing:.12em}
 #modeTitle span{color:var(--cyan)}
+#challengeTitle{font-family:var(--disp);letter-spacing:.06em}
+.chrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.modebtn.chbtn{justify-items:start;text-align:left;padding:12px 14px;font-family:var(--jp);font-size:15px;letter-spacing:0}
+.chbtn b{font-size:15px;font-weight:500}
+.chbtn small{font-family:var(--jp);font-size:12px;letter-spacing:0;color:var(--dim)}
+.chbtn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.chbtn[aria-pressed="true"] small{color:var(--dim)}
+.modal.challenge .modal-card{box-sizing:border-box;max-height:calc(100% - 24px);overflow:auto}
+.achhead{margin:18px 0 8px;font-size:14px;font-weight:400;color:var(--dim)}
+.achwrap{overflow-x:auto}
+.rectable.ach :is(th,td){text-align:center;padding:7px 10px}
+.rectable.ach tbody th{text-align:left}
+.rectable.ach td.bonus{text-align:left}
+@media (max-height:460px){.modal.challenge .modal-card{gap:8px;padding:12px 16px}.modal.challenge .modal-card h2{font-size:17px}.modal.challenge .chbtn{padding:8px 10px}}
 .modal.calm{background:rgba(5,8,12,.84);grid-template-rows:minmax(0,1fr);padding-block:16px}
 .modal.calm .modal-card{box-sizing:border-box;max-height:100%;grid-template-rows:auto auto minmax(0,1fr) auto auto;background:var(--panel);border:1px solid var(--cyan);box-shadow:0 0 30px rgba(84,232,255,.2)}
 .keylist{display:grid;gap:4px;overflow-y:auto;align-content:start}
@@ -468,6 +482,7 @@ body.booting #app{visibility:hidden}
       <div class="side" id="sideCards">
         <button id="levelCard" class="levelcard" type="button" data-go="up"><span class="lc-lv" id="lcLv"></span><span class="lc-bits" id="lcBits"></span><span class="lc-next" id="lcNext"></span><span class="lc-go" id="lcGo" data-i18n="base.levelUp"></span></button>
         <button id="btnNextLoop" class="pagecard" type="button" data-loop="1" hidden></button>
+        <button id="btnChallenge" class="pagecard" type="button" data-challenge="1" hidden></button>
         <button id="recordsCard" class="pagecard" type="button" data-go="records"><b data-i18n="base.records"></b><small data-i18n="base.recordsCard"></small></button>
         <button class="pagecard" type="button" data-go="practice"><b data-i18n="base.practice"></b><small data-i18n="base.practiceCard"></small></button>
         <button class="pagecard" type="button" data-go="settings"><b data-i18n="base.settings"></b><small data-i18n="base.settingsCard"></small></button>
@@ -561,6 +576,19 @@ body.booting #app{visibility:hidden}
         <button id="btnModeArcade" class="modebtn" type="button">ARCADE</button>
         <button id="btnModeEndless" class="modebtn" type="button">ENDLESS</button>
       </div>
+    </div>
+  </div>
+
+  <div id="dlgChallenge" class="modal mode challenge" role="dialog" aria-modal="true" aria-labelledby="challengeTitle" hidden>
+    <div class="modal-card">
+      <h2 id="challengeTitle" data-i18n="base.challengeTitle"></h2>
+      <p class="help" data-i18n="base.challengeNote"></p>
+      <div>
+        <p class="eyebrow" data-i18n="base.challengeRestrictions"></p>
+        <div id="challengeRestrictions" class="chrow"></div>
+      </div>
+      <div class="setrow"><span data-i18n="base.challengeStrength"></span><div id="challengeStrengths" class="seg" role="group" data-i18n-aria="base.challengeStrength"></div></div>
+      <div class="btnrow"><button id="btnChallengeClose" class="ghost" type="button" data-i18n="common.close"></button><button id="btnChallengeGo" class="amber" type="button" data-i18n="base.challengeGo"></button></div>
     </div>
   </div>
 

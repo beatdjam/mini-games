@@ -5,12 +5,14 @@ import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
 import { RARITY, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
-import { STASH_MAX, TUNE, UPGRADES, isMilestone } from '../data/progress.ts';
+import { LOOP_TUNE, RESTRICTIONS, STASH_MAX, TUNE, UPGRADES, isMilestone } from '../data/progress.ts';
 import { BASE_TAB_KEY, basicW, isArcade, persist, save } from '../core/save.ts';
 import { keyText } from '../ui/input.ts';
 import {
   buyUpgrade,
+  canStartChallenge,
   clampStartTier,
+  endChallenge,
   equipWeapon,
   loopCleared,
   sellFromStash,
@@ -21,7 +23,16 @@ import {
   takeFromStash,
   unlockWeapon,
 } from '../core/progress.ts';
-import { basicNow, isBossKind, levelOf, nextLevelCost, readiness, sellValue, supplyPicks } from '../core/rules.ts';
+import {
+  basicNow,
+  isBossKind,
+  levelOf,
+  nextLevelCost,
+  readiness,
+  restrictionBonus,
+  sellValue,
+  supplyPicks,
+} from '../core/rules.ts';
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
@@ -31,6 +42,7 @@ import { startPractice, startRun } from '../flow/run.ts';
 import { renderSuspend } from '../flow/suspend.ts';
 import { onDataClick, type DataClick } from '@engine/ui/dom.ts';
 import { renderModeTag } from './mode.ts';
+import { bonusText, openChallengeDialog, restrictionName } from './challenge.ts';
 
 // transient state of the base screen
 export const baseUI = {
@@ -42,6 +54,8 @@ export const baseUI = {
 // the next loop's card on the home page asks once, like the terminal's "sell all": the first click arms it, the second
 // starts the loop
 let nextLoopArmed = false;
+// the challenge card's "end it" asks once, like the next loop's card
+let challengeArmed = false;
 // a weapon's numbers as it would be right after diving: the level's points in, no chips, its own options
 // in (so weapons in the base can be compared; player may still be the last run's player, chips and all)
 // what the one-target DPS leaves out: the rail's damage past `far` metres, the rocket's blast radius
@@ -107,8 +121,8 @@ const levelCard = el('#levelCard');
 const levelCardNodes = [...levelCard.childNodes];
 const bestTimeText = (sec: number | null): string => (sec === null ? t('base.notCleared') : clockText(sec));
 const clockText = (sec: number): string => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
-// ENDLESS's records: one row for each loop and restriction (only loop 1 with no restriction for now)
-const restrictionText = (id: string): string => (id === 'none' ? t('base.recordsNone') : id);
+// ENDLESS's records: one row for each loop and restriction
+const restrictionText = (id: string): string => (id === 'none' ? t('base.recordsNone') : restrictionName(id));
 const endlessRecordRow = (r: EndlessRecord): string => {
   const note = r.partial ? `<tr class="rnote"><td colspan="6">${t('base.recordsPartial')}</td></tr>` : '';
   return (
@@ -126,9 +140,30 @@ const endlessRecordsHTML = (): string => {
     `<tbody>${rows.map(endlessRecordRow).join('')}</tbody></table>`
   );
 };
+// ENDLESS's restriction clears: a restriction down the side, the strengths across, and the bonus the restriction's
+// clears have added so far at the right
+const restrictionRecordsHTML = (): string => {
+  const heads =
+    `<th scope="col">${t('base.recordsRestriction')}</th>` +
+    Array.from({ length: LOOP_TUNE.cap }, (_, i) => `<th scope="col">${i + 1}</th>`).join('') +
+    `<th scope="col">${t('base.recordsBonus')}</th>`;
+  const rows = RESTRICTIONS.map(r => {
+    const marks = Array.from({ length: LOOP_TUNE.cap }, (_, i) => {
+      const cleared = save.records.endless.some(row => row.loop === i + 1 && row.restriction === r.id && row.titan);
+      return `<td>${cleared ? '✓' : '—'}</td>`;
+    }).join('');
+    const bonus = bonusText(restrictionBonus(r.id)) || '—';
+    return `<tr><th scope="row">${r.name}</th>${marks}<td class="bonus">${bonus}</td></tr>`;
+  }).join('');
+  return (
+    `<h3 class="achhead">${t('base.recordsChallenges')}</h3>` +
+    `<div class="achwrap"><table class="rectable ach"><thead><tr>${heads}</tr></thead>` +
+    `<tbody>${rows}</tbody></table></div>`
+  );
+};
 // ENDLESS's way on to the next loop (the loop cleared and no dive suspended): the card ahead of the records'. The first
 // click arms it, like the terminal's "sell all"
-const nextLoopShown = (): boolean => !isArcade() && loopCleared() && !save.suspend;
+const nextLoopShown = (): boolean => !isArcade() && loopCleared() && !save.suspend && !save.challenge;
 function renderNextLoop(show: boolean) {
   const b = el('#btnNextLoop'),
     n = save.loop + 1;
@@ -144,6 +179,33 @@ function renderNextLoop(show: boolean) {
 function armNextLoop(on: boolean) {
   nextLoopArmed = on;
   renderNextLoop(nextLoopShown());
+}
+// ENDLESS's restriction challenge card, after the next loop's and before the records': it opens the dialog when there is
+// one to start, and ends the challenge after a second press otherwise
+const challengeShown = (): boolean => !isArcade() && (!!save.challenge || canStartChallenge());
+function renderChallenge(show: boolean) {
+  const b = el<HTMLButtonElement>('#btnChallenge'),
+    c = save.challenge;
+  b.hidden = !show;
+  if (!show) {
+    challengeArmed = false;
+    return;
+  }
+  if (!c) {
+    b.disabled = false;
+    b.innerHTML = `<b>${t('base.challengeStart')}</b><small>${t('base.challengeStartNote')}</small>`;
+    return;
+  }
+  const suspended = !!save.suspend;
+  b.disabled = suspended;
+  const note = suspended
+    ? t('base.challengeSuspended')
+    : t('base.challengeStopNote', { restriction: restrictionName(c.restriction), loop: c.strength });
+  b.innerHTML = `<b>${challengeArmed && !suspended ? t('base.challengeStopArmed') : t('base.challengeStop')}</b><small>${note}</small>`;
+}
+function armChallenge(on: boolean) {
+  challengeArmed = on;
+  renderChallenge(challengeShown());
 }
 
 // ---- the pieces of the base screen ----
@@ -276,6 +338,8 @@ export function renderBase() {
   renderSuspend();
   nextLoopArmed = false;
   renderNextLoop(nextLoopShown());
+  challengeArmed = false;
+  renderChallenge(challengeShown());
   el('#loadout').innerHTML = [0, 1].map(loadoutSlot).join('');
   el('[data-pane="sortie"]').classList.toggle('choosing', baseUI.choosing);
   el('#wgrid').innerHTML = WEAPON_ORDER.map(id =>
@@ -326,7 +390,7 @@ export function renderBase() {
     .map(bossButton)
     .join('');
   renderSettings();
-  el('#endlessRecords').innerHTML = arcade ? '' : endlessRecordsHTML();
+  el('#endlessRecords').innerHTML = arcade ? '' : endlessRecordsHTML() + restrictionRecordsHTML();
   el('#help').innerHTML = isTouch ? t('base.helpTouch') : t('base.helpDesk', { pause: keyText('pause', 0) });
 }
 
@@ -394,6 +458,22 @@ const goNextLoop = (): After => {
   armNextLoop(true);
   return 'none';
 };
+// the challenge card: a start opens its dialog (which saves and redraws itself), an end asks once and then puts the
+// main loop's progress back
+const goChallenge = (): After => {
+  if (save.challenge) {
+    if (save.suspend) return 'none';
+    if (challengeArmed) {
+      endChallenge();
+      return 'save';
+    }
+    armChallenge(true);
+    return 'none';
+  }
+  if (!canStartChallenge()) return 'none';
+  openChallengeDialog(renderBase);
+  return 'none';
+};
 // saves and redraws even when the upgrade cannot be bought
 function buyBaseUpgrade(id: string): After {
   const def = UPGRADES.find(x => x.id === id)!,
@@ -426,6 +506,7 @@ onDataClick(
   baseAction('stash', assignFromStash),
   baseAction('sell', sellStashItem),
   baseAction('loop', goNextLoop),
+  baseAction('challenge', goChallenge),
   baseAction('up', buyBaseUpgrade),
 );
 // the next loop's first press is undone by a click anywhere else on the base (and by every redraw). It is read in the
@@ -433,7 +514,9 @@ onDataClick(
 el('#scrBase').addEventListener(
   'click',
   e => {
-    if (nextLoopArmed && !(e.target as HTMLElement).closest('#btnNextLoop')) armNextLoop(false);
+    const target = e.target as HTMLElement;
+    if (nextLoopArmed && !target.closest('#btnNextLoop')) armNextLoop(false);
+    if (challengeArmed && !target.closest('#btnChallenge')) armChallenge(false);
   },
   true,
 );

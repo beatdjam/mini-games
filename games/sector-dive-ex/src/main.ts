@@ -73,6 +73,7 @@ import './screens/pause.ts';
 import './screens/bag.ts';
 import './screens/result.ts';
 import './screens/base.ts';
+import './screens/challenge.ts';
 import './screens/data.ts';
 import { openModeSelect } from './screens/mode.ts';
 import './screens/keys.ts';

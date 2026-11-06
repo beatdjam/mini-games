@@ -1,4 +1,4 @@
-import type { GameMode, Upgrade } from './types.ts';
+import type { GameMode, Restriction, Upgrade } from './types.ts';
 import { withLang } from '@engine/core/langslots.ts';
 // The values that differ with the mode (ARCADE / ENDLESS). ENDLESS is the game as it was; ARCADE's dive counts its
 // depths deeper, gives the bosses more health and leaves the med kit out of a terminal. Only numbers: the screens and
@@ -162,6 +162,21 @@ export const LOOP_TUNE = {
   cap: 5, // loops past this are as strong as loop 5
   bonus: 0.1, // each cleared loop adds this to the start's HP and damage multiplier
 };
+// ENDLESS: the restrictions a challenge can be played with. A clear with one adds its value times the loop's number to
+// the start's damage / max HP / bits (core/rules.ts restrictionBonus). 'ready' restrictions are the ones the base offers;
+// the others are data only for now. Provisional: the sim and play will tune them
+export const RESTRICTIONS: Restriction[] = withLang<Restriction, 'name'>(
+  [
+    { id: 'weapon', dmg: 0.02, ready: false },
+    { id: 'kit', hp: 0.02, ready: false },
+    { id: 'pick', bits: 0.03, ready: true },
+    { id: 'hurt', dmg: 0.03, hp: 0.03, ready: true },
+  ],
+  { name: '' },
+);
+// A challenge's own numbers: the damage the player takes is multiplied by this while 'hurt' is on
+export const RESTRICTION_TUNE = { hurtMul: 2 };
+export const restrictionOf = (id: string): Restriction | undefined => RESTRICTIONS.find(r => r.id === id);
 export const milestoneBelow = (tier: number): number => (tier < MILESTONE_EVERY ? 0 : tier - (tier % MILESTONE_EVERY));
 export const isMilestone = (tier: number): boolean => tier > 0 && milestoneBelow(tier) === tier;
 // A point in output multiplies the damage by LEVEL_DMG_MUL, apart from the chips (theirs add up in Player.dmgMul).

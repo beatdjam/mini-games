@@ -6,6 +6,7 @@ import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { DEPTH_SCALE, TUNE } from '../data/progress.ts';
 import { save } from '../core/save.ts';
 import { perkRecord } from '../core/rules.ts';
+import { usingRestriction } from '../core/progress.ts';
 import { PERKS } from '../data/perks.ts';
 import { player, run } from '../actors/player.ts';
 import { bigmap, weaponHud } from '../ui/hud.ts';
@@ -41,8 +42,10 @@ export function openPerk(title: string, eyebrow?: string, done?: () => void, bas
   const offered = PERKS.filter(
     o => !(o.maxed && o.maxed(player)) && !(supply && o.noSupply) && !(allRare && o.rv === undefined),
   );
+  // the 'pick' restriction takes the choice away: one card, whatever way the offer came
+  const count = usingRestriction('pick') ? 1 : 3 + (run.choice ?? save.up.choice ?? 0);
   const opts = shuffle(offered)
-    .slice(0, 3 + (run.choice ?? save.up.choice ?? 0))
+    .slice(0, count)
     .map(o => ({ o, rare: o.rv !== undefined && (allRare || Math.random() < TUNE.rareChipChance) }));
   const list = el('#perkList');
   list.innerHTML = '';

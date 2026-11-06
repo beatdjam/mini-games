@@ -1,7 +1,7 @@
 import type { GameMode } from '../data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
-import { ARCADE_OPEN } from '../data/progress.ts';
+import { ARCADE_OPEN, restrictionOf } from '../data/progress.ts';
 import { ACTIVE_MODE, hasSuspendIn, isArcade, save, switchMode } from '../core/save.ts';
 
 // The mode select (the title): which save to play, ARCADE or ENDLESS. It is opened at start-up (when ARCADE is open, or
@@ -33,15 +33,24 @@ document.addEventListener('keydown', e => {
 // on the published page, until ARCADE is open, the mode select is not part of the game: no button and no mode tag
 const modeSelectable = ARCADE_OPEN || import.meta.env.DEV;
 el<HTMLButtonElement>('#btnMode').hidden = !modeSelectable;
-// ENDLESS's tag shows the loop once it is past the first (renderBase draws it, after a loop starts too)
+// ENDLESS's tag shows the loop once it is past the first, or the challenge (renderBase draws it, after a loop or a
+// challenge starts too). withLoop false: neither, only the mode (at load, before the languages are in)
 export function renderModeTag(withLoop = true) {
-  const tag = el('#modeTag');
+  const tag = el('#modeTag'),
+    challenge = save.challenge;
   tag.hidden = !modeSelectable;
   tag.textContent = isArcade()
     ? 'ARCADE'
-    : withLoop && save.loop >= 2
-      ? `ENDLESS · ${t('mode.loop', { n: save.loop })}`
-      : 'ENDLESS';
+    : !withLoop
+      ? 'ENDLESS'
+      : challenge
+        ? `ENDLESS · ${t('mode.challenge', {
+            restriction: restrictionOf(challenge.restriction)?.name ?? challenge.restriction,
+            n: challenge.strength,
+          })}`
+        : save.loop >= 2
+          ? `ENDLESS · ${t('mode.loop', { n: save.loop })}`
+          : 'ENDLESS';
 }
 // (at load the languages are not in yet, so t() would throw: the loop waits for the base's first draw. A save in
 // loop 2 broke the page at start-up, 2026-11-07)

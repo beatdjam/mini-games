@@ -16,6 +16,7 @@ import { EYE, PORTAL } from '../data/level.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
 import { modeTune, save } from '../core/save.ts';
+import { restrictionBonus } from '../core/rules.ts';
 import { updateMusic } from './music.ts';
 import { level, reveal, showNeighbourFloors, sightHallDoor, updateFollowers } from '../world/level.ts';
 import { building } from '../world/building.ts';
@@ -468,7 +469,12 @@ function pullBit(p: Pickup, d: number, dt: number) {
 }
 function collectBit(p: Pickup) {
   p.dead = true;
-  run.bits += p.value! * modeTune().bitScale * player.gainMul * (1 + GAIN_OPT_PER_LEVEL * weaponOptCount('gain'));
+  run.bits +=
+    p.value! *
+    modeTune().bitScale *
+    player.gainMul *
+    (1 + GAIN_OPT_PER_LEVEL * weaponOptCount('gain')) *
+    (1 + restrictionBonus().bits);
   sfx('bit', 30);
 }
 function collectKit(p: Pickup) {

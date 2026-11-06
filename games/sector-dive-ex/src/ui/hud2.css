@@ -586,12 +586,15 @@ body.hud2 .pagecard small {
 body.hud2 :is(.pagecard, .levelcard):hover {
   border-color: var(--paint2);
 }
-/* the way on to the next loop: the one card on the home page that moves the save on */
-body.hud2 #btnNextLoop {
+/* the way on to the next loop and the restriction challenge: the cards on the home page that move the save on */
+body.hud2 :is(#btnNextLoop, #btnChallenge) {
   border-color: #7a5c1c;
 }
-body.hud2 #btnNextLoop b {
+body.hud2 :is(#btnNextLoop, #btnChallenge) b {
   color: var(--amber);
+}
+body.hud2 #btnChallenge:disabled {
+  opacity: 0.45;
 }
 body.hud2 :is([data-pane='records'], [data-pane='up'], [data-pane='practice'], [data-pane='settings']) {
   grid-column: 1 / -1;
@@ -743,6 +746,29 @@ body.hud2 #scrBase .rectable .rnote td {
   font-size: 11px;
   white-space: normal;
 }
+/* ENDLESS's restriction clears: strengths across, the restriction down the side */
+body.hud2 #scrBase .achhead {
+  font-family: var(--sten);
+  letter-spacing: 0.06em;
+  color: var(--paint2);
+}
+body.hud2 #scrBase .achwrap {
+  overflow-x: auto;
+}
+body.hud2 #scrBase .rectable.ach :is(th, td) {
+  padding: 7px 10px;
+  text-align: center;
+}
+/* the first and last columns read left, as their heads */
+body.hud2 #scrBase .rectable.ach tbody th,
+body.hud2 #scrBase .rectable.ach thead th:is(:first-child, :last-child) {
+  text-align: left;
+}
+body.hud2 #scrBase .rectable.ach td.bonus {
+  text-align: left;
+  font-family: var(--jp);
+  white-space: nowrap;
+}
 body.hud2 #scrBase .buy {
   border-color: var(--safety);
   color: var(--safety);
@@ -814,16 +840,16 @@ body.hud2 #scrBase .suspend :is(.ghost, .mini-btn, button:not(.primary)) {
 }
 /* ---- the mode select: the steel plate of the chip screen; each mode a plate like the base's page cards, its name in
    the stencil. Safety yellow only for a suspended dive. The mode tag under the title is worn paint ---- */
-body.hud2 #dlgMode {
+body.hud2 :is(#dlgMode, #dlgChallenge) {
   background: rgba(6, 7, 7, 0.86);
 }
-body.hud2 #dlgMode .modal-card {
+body.hud2 :is(#dlgMode, #dlgChallenge) .modal-card {
   background: var(--steel);
   border: 1px solid #3d4143;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
   color: var(--paint);
 }
-body.hud2 #modeTitle {
+body.hud2 :is(#modeTitle, #challengeTitle) {
   font-weight: 700;
   color: var(--paint);
 }
@@ -838,6 +864,16 @@ body.hud2 .modebtn {
 }
 body.hud2 .modebtn:is(:hover, :focus-visible) {
   border-color: var(--paint2);
+}
+body.hud2 .chbtn small {
+  color: var(--paint2);
+}
+body.hud2 .chbtn[aria-pressed='true'] {
+  border-color: var(--safety);
+  color: var(--paint);
+}
+body.hud2 .chbtn[aria-pressed='true'] small {
+  color: var(--paint2);
 }
 body.hud2 .modebadge {
   color: var(--safety);
