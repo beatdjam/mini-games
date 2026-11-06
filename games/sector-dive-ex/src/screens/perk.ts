@@ -23,7 +23,7 @@ const perkCard = (o: Perk, v: number, rare: boolean, times: number, supply: bool
 // sell. A starting chip bought at the terminal is picked on this same screen, so they must not stay on it
 export function hideTerminalParts() {
   el('#scrPerk').dataset.mode = '';
-  for (const id of ['#levelNote', '#perkDone', '#sellHead', '#sellList']) el(id).hidden = true;
+  for (const id of ['#levelNote', '#perkDone', '#sellAll', '#sellHead', '#sellList']) el(id).hidden = true;
 }
 // baseTimes: how many picks this offer already stands for (a shortcut supply pick counts TUNE.supplyTimes). Every chip
 // picked is applied baseTimes * DEPTH_SCALE times, stopping early once it is maxed

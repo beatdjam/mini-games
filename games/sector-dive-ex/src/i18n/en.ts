@@ -120,6 +120,8 @@ LANG.en = {
     'level.done': 'Close',
     'level.sell': 'Sell',
     'level.sellFor': '+{v} BIT',
+    'level.sellAll': 'Sell all (+{v} BIT)',
+    'level.sellAllGo': 'Really sell all (+{v} BIT)',
     'base.levelSuspended': 'Locked until your suspended dive ends',
     'base.change': 'Change weapon ▾',
     'base.changeClose': 'Close ▴',

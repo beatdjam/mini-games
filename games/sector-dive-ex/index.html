@@ -319,6 +319,7 @@ body.booting #app{visibility:hidden}
 .card h3{margin:0;font-size:14px;font-weight:400;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .card h3 small{font-size:12px;color:var(--dim)}
 .cardhead{display:flex;justify-content:space-between;align-items:start;gap:12px}
+#sellAll{margin-left:auto}
 .perks{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:8px}
 #scrPerk .card{box-sizing:border-box;width:min(910px,100%)}
 @media (max-width:560px){.perks{grid-template-columns:repeat(2,minmax(0,1fr))}#scrPerk[data-mode="level"] .perks{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -567,7 +568,7 @@ body.booting #app{visibility:hidden}
 
   <section id="scrPerk" class="screen center" hidden>
     <div class="card">
-      <div class="cardhead"><div><p class="eyebrow" id="perkEyebrow">chip acquired</p><h2 id="perkTitle"></h2></div><button id="perkDone" class="ghost" data-i18n="level.done" hidden></button></div>
+      <div class="cardhead"><div><p class="eyebrow" id="perkEyebrow">chip acquired</p><h2 id="perkTitle"></h2></div><button id="sellAll" class="ghost" data-i18n="level.sellAll" hidden></button><button id="perkDone" class="ghost" data-i18n="level.done" hidden></button></div>
       <p class="chips" data-i18n="perk.note"></p>
       <p class="chips" id="levelNote" hidden></p>
       <div class="perks" id="perkList"></div>

@@ -42,10 +42,23 @@ function render() {
   }
   renderSell();
 }
+// what the bag's weapons would bring, all together
+const bagTotal = () => player.bag.reduce((sum, w) => sum + (w ? sellValue(w) : 0), 0);
+// "sell all" in the head asks once, like the pause screen's abandon: the first click arms it, the second sells the bag
+let sellAllArmed = false;
+function armSellAll(on: boolean, total: number) {
+  sellAllArmed = on;
+  const b = el('#sellAll'),
+    key = on ? 'level.sellAllGo' : 'level.sellAll';
+  b.dataset.i18n = key;
+  b.textContent = t(key, { v: total });
+}
 // the bag's weapons, each a button that sells it (none: the part is hidden)
 function renderSell() {
   const list = el('#sellList'),
     any = player.bag.some(Boolean);
+  el('#sellAll').hidden = !any;
+  armSellAll(false, bagTotal());
   el('#sellHead').hidden = !any;
   list.hidden = !any;
   list.innerHTML = '';
@@ -69,6 +82,15 @@ function sell(i: number) {
   weaponHud();
   render();
 }
+function sellAll() {
+  const total = bagTotal();
+  if (!total) return;
+  run.bits += total;
+  player.bag.fill(null);
+  sfx('pick');
+  weaponHud();
+  render();
+}
 function buy(id: string) {
   const cost = nextLevelCost();
   if (run.bits < cost) return;
@@ -87,6 +109,7 @@ function buy(id: string) {
 }
 function close() {
   hideTerminalParts();
+  armSellAll(false, bagTotal());
   show(null);
   setState('play');
   requestLock();
@@ -95,6 +118,10 @@ function close() {
   if (done) done();
 }
 el('#perkDone').addEventListener('click', close);
+el('#sellAll').addEventListener('click', () => {
+  if (sellAllArmed) sellAll();
+  else armSellAll(true, bagTotal());
+});
 export function openLevelUp(done?: () => void) {
   afterDone = done ?? null;
   setState('perk');
