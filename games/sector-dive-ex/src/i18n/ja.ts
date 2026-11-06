@@ -101,6 +101,9 @@ LANG.ja = {
     'base.recordsLoop': '{loop}周目・{restriction}',
     'base.recordsNone': '縛りなし',
     'base.recordsPartial': '時間・撃破数・回数は、記録を始めてから数えています',
+    'base.nextLoop': '次の周へ',
+    'base.nextLoopNote': '{n}周目へ。出撃地点とボスエリアがはじめに戻る',
+    'base.nextLoopGo': 'もう一度押すと {n}周目へ',
     'base.menu': '拠点メニュー',
     'tab.sortie': '出撃',
     'tab.records': '記録',
@@ -218,6 +221,7 @@ LANG.ja = {
 
     // ---- mode select ----
     'mode.suspended': '中断中',
+    'mode.loop': '{n}周目',
 
     // ---- chips ----
     'perk.title': 'チップを1枚選ぶ',

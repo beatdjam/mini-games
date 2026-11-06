@@ -56,7 +56,7 @@ export const BASE_TAB_KEY = 'sdx-base-tab'; // the base tab last opened (a prefe
 // DEPTH_SCALE depths, so the depth fields are halved)
 export const SAVE_VERSION = 2;
 export const basicW = (id: string): WeaponItem => ({ id, r: 0, basic: true });
-// one line of ENDLESS's records: loop 1 with no restriction until loops and restrictions come
+// one line of ENDLESS's records: loop 1 with no restriction until restrictions come
 export const newEndlessRecord = (partial = false, best = 0, loop = 1, restriction = 'none'): EndlessRecord => ({
   loop,
   restriction,
@@ -67,9 +67,11 @@ export const newEndlessRecord = (partial = false, best = 0, loop = 1, restrictio
   dives: 0,
   deaths: 0,
   partial,
+  titan: false,
 });
 export const defaultSave = (): SaveData => ({
   v: SAVE_VERSION,
+  loop: 1,
   bits: 0,
   up: { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0, choice: 0 },
   unlocked: { pistol: true },
@@ -234,6 +236,14 @@ export function loadSaveFrom(key: string): SaveData {
   if (!s.records || !Array.isArray(s.records.endless)) {
     const partial = out.runs > 0;
     out.records.endless = [newEndlessRecord(partial, partial ? out.best : 0)];
+  }
+  // the loop and its TITAN clear came in without a new save version: an older save has no value for them. Its loop 1 row
+  // takes the save's TITAN clear, since it holds the play from before the rows began; the other loops are not cleared
+  if (typeof out.loop !== 'number' || out.loop < 1) out.loop = 1;
+  const rawEndless: Record<string, any>[] = Array.isArray(s.records?.endless) ? s.records.endless : [];
+  for (const row of out.records.endless) {
+    const raw = rawEndless.find(r => r && r.loop === row.loop && r.restriction === row.restriction);
+    if (typeof raw?.titan !== 'boolean') row.titan = row.loop === 1 ? out.records.cleared : false;
   }
   out.v = Math.max(v, SAVE_VERSION);
   return out;

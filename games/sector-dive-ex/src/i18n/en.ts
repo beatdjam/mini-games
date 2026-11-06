@@ -100,6 +100,9 @@ LANG.en = {
     'base.recordsLoop': 'Loop {loop} · {restriction}',
     'base.recordsNone': 'No restriction',
     'base.recordsPartial': 'Time, kills and counts are from when records began.',
+    'base.nextLoop': 'Next loop',
+    'base.nextLoopNote': 'On to loop {n}. The start depths and the boss area start over',
+    'base.nextLoopGo': 'Press again for loop {n}',
     'base.menu': 'Base menu',
     'tab.sortie': 'Dive',
     'tab.records': 'Records',
@@ -220,6 +223,7 @@ LANG.en = {
 
     // ---- mode select ----
     'mode.suspended': 'Suspended',
+    'mode.loop': 'LOOP {n}',
 
     // ---- chips ----
     'perk.title': 'Choose a chip',

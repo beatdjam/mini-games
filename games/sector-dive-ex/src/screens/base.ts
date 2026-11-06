@@ -12,9 +12,11 @@ import {
   buyUpgrade,
   clampStartTier,
   equipWeapon,
+  loopCleared,
   sellFromStash,
   setStartTier,
   spendBits,
+  startNextLoop,
   startTierMax,
   takeFromStash,
   unlockWeapon,
@@ -28,6 +30,7 @@ import { showBaseFeedback } from '../ui/feedback.ts';
 import { startPractice, startRun } from '../flow/run.ts';
 import { renderSuspend } from '../flow/suspend.ts';
 import { onDataClick, type DataClick } from '@engine/ui/dom.ts';
+import { renderModeTag } from './mode.ts';
 
 // transient state of the base screen
 export const baseUI = {
@@ -36,6 +39,9 @@ export const baseUI = {
   practiceTier: 0, // boss practice depth chosen (0-based)
   choosing: false, // (new layout) the weapons to choose from are open under the loadout: a slot was picked
 };
+// the next loop's card on the home page asks once, like the terminal's "sell all": the first click arms it, the second
+// starts the loop
+let nextLoopArmed = false;
 // a weapon's numbers as it would be right after diving: the level's points in, no chips, its own options
 // in (so weapons in the base can be compared; player may still be the last run's player, chips and all)
 // what the one-target DPS leaves out: the rail's damage past `far` metres, the rocket's blast radius
@@ -114,11 +120,31 @@ const endlessRecordRow = (r: EndlessRecord): string => {
 };
 const endlessRecordsHTML = (): string => {
   const heads = ['recordsLoopHead', 'recordsBest', 'recordsTitan', 'recordsKills', 'recordsDives', 'recordsDeaths'];
+  const rows = [...save.records.endless].sort((a, b) => a.loop - b.loop);
   return (
     `<table class="rectable"><thead><tr>${heads.map(k => `<th scope="col">${t(`base.${k}`)}</th>`).join('')}</tr></thead>` +
-    `<tbody>${save.records.endless.map(endlessRecordRow).join('')}</tbody></table>`
+    `<tbody>${rows.map(endlessRecordRow).join('')}</tbody></table>`
   );
 };
+// ENDLESS's way on to the next loop (the loop cleared and no dive suspended): the card ahead of the records'. The first
+// click arms it, like the terminal's "sell all"
+const nextLoopShown = (): boolean => !isArcade() && loopCleared() && !save.suspend;
+function renderNextLoop(show: boolean) {
+  const b = el('#btnNextLoop'),
+    n = save.loop + 1;
+  b.hidden = !show;
+  if (!show) {
+    nextLoopArmed = false;
+    return;
+  }
+  b.innerHTML = nextLoopArmed
+    ? `<b>${t('base.nextLoopGo', { n })}</b><small>${t('base.nextLoopNote', { n })}</small>`
+    : `<b>${t('base.nextLoop')}</b><small>${t('base.nextLoopNote', { n })}</small>`;
+}
+function armNextLoop(on: boolean) {
+  nextLoopArmed = on;
+  renderNextLoop(nextLoopShown());
+}
 
 // ---- the pieces of the base screen ----
 const tierButton = (n: number): string => {
@@ -221,6 +247,7 @@ const bossButton = (k: BossKind): string =>
 export function renderBase() {
   showBaseFeedback();
   const arcade = isArcade();
+  renderModeTag();
   // ARCADE: the depth picker, storage and the base's level are not part of its base (the card below is the record)
   el('#tiersHead').hidden = arcade;
   el('#tiers').hidden = arcade;
@@ -245,6 +272,8 @@ export function renderBase() {
     line.scrollLeft = sel.offsetLeft - line.offsetLeft - line.clientWidth / 2;
   el('#startSub').textContent = t('base.diveSub', { tier: tierLabel(arcade ? 0 : save.startTier) });
   renderSuspend();
+  nextLoopArmed = false;
+  renderNextLoop(nextLoopShown());
   el('#loadout').innerHTML = [0, 1].map(loadoutSlot).join('');
   el('[data-pane="sortie"]').classList.toggle('choosing', baseUI.choosing);
   el('#wgrid').innerHTML = WEAPON_ORDER.map(id =>
@@ -354,6 +383,15 @@ const sellStashItem = (index: string): After => {
   sfx('pick');
   return 'save';
 };
+// the next loop's card: the first click arms it (no save or redraw), the second starts the loop
+const goNextLoop = (): After => {
+  if (nextLoopArmed) {
+    startNextLoop();
+    return 'save';
+  }
+  armNextLoop(true);
+  return 'none';
+};
 // saves and redraws even when the upgrade cannot be bought
 function buyBaseUpgrade(id: string): After {
   const def = UPGRADES.find(x => x.id === id)!,
@@ -385,6 +423,16 @@ onDataClick(
   baseAction('w', unlockOrAssign),
   baseAction('stash', assignFromStash),
   baseAction('sell', sellStashItem),
+  baseAction('loop', goNextLoop),
   baseAction('up', buyBaseUpgrade),
+);
+// the next loop's first press is undone by a click anywhere else on the base (and by every redraw). It is read in the
+// capture phase, before the card's own listener draws the armed label again (that would detach the pressed element)
+el('#scrBase').addEventListener(
+  'click',
+  e => {
+    if (nextLoopArmed && !(e.target as HTMLElement).closest('#btnNextLoop')) armNextLoop(false);
+  },
+  true,
 );
 el('#btnStart').addEventListener('click', () => startRun(true));
