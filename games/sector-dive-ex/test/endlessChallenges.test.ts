@@ -1,5 +1,5 @@
 // Smoke test for ENDLESS's restriction challenges: starting and ending one, the strength it plays at, the row it
-// records, the four restrictions that are open ('weapon', 'kit', 'pick' and 'hurt') and the bonus their clears give.
+// records, the five restrictions that are open ('weapon', 'kit', 'pick', 'hurt' and 'fail') and the bonus their clears give.
 // Boots the game page (setup.ts) once for this file; each test makes the state it needs.
 import { afterEach, beforeAll, expect, test, vi } from 'vitest';
 import { el } from '@engine/core/util.ts';
@@ -439,4 +439,26 @@ test('a kit challenge still gets the boss reward kit', () => {
     query<Pickup>('pickup').some(p => !p.dead && p.kind === 'kit'),
     'the boss still leaves a kit',
   ).toBe(true);
+});
+
+test('fail: a death ends the challenge and brings the main loop back; coming home does not', () => {
+  save.records.endless = [cleared(1)];
+  save.shortcut = 6;
+  save.startTier = 6;
+  expect(startChallenge('fail', 1)).toBe(true);
+  startRun();
+  endRun('extract');
+  expect(save.challenge?.restriction, 'coming home keeps it going').toBe('fail');
+  goBase();
+  startRun();
+  endRun('dead');
+  expect(save.challenge, 'a death ends it').toBeNull();
+  expect([save.shortcut, save.startTier], "the main loop's start depths are back").toEqual([6, 6]);
+  const row = save.records.endless.find(r => r.restriction === 'fail' && r.loop === 1)!;
+  expect([row.dives, row.deaths], 'both dives are in its row').toEqual([2, 1]);
+});
+
+test('fail: its clears give the thickest bonus (damage and max HP, 0.05 a loop)', () => {
+  save.records.endless = [cleared(1), cleared(2), cleared(2, 'fail')];
+  expect(restrictionBonus('fail')).toMatchObject({ dmg: 0.1, hp: 0.1 });
 });

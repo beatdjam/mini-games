@@ -21,6 +21,7 @@ import { progressOf, supplyPicks } from '../core/rules.ts';
 import {
   allBossRoomsBeaten,
   bossAreaCleared,
+  endChallenge,
   fallBackToMilestone,
   earnBits,
   recordBest,
@@ -36,6 +37,7 @@ import {
   settleBossArea,
   startTierMax,
   storeWeapons,
+  usingRestriction,
 } from '../core/progress.ts';
 import {
   buildHall,
@@ -670,6 +672,11 @@ export function endRun(kind: RunEnd) {
       if ((run.continues || 0) > 0) newRecordContinued = recordBestTime(sec, run.continues);
       else newRecord = recordBestTime(sec);
     }
+  } else if (dead && usingRestriction('fail')) {
+    // the 'fail' challenge: a death (or a give-up) ends it, and the main loop's progress comes back. The dive is already
+    // in the challenge's row (recordEndlessRun above)
+    endChallenge();
+    shortcutMsg = t('res.challengeFailed');
   } else if (dead) {
     if (fallBackToMilestone()) shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut) });
   } else {

@@ -418,7 +418,7 @@ export interface ContinueFrom {
   continues: number; // CONTINUEs used in the dive before this death
 }
 // ENDLESS: the restrictions a challenge can be played with. 'none' is not one: it is the row of a plain loop
-export type RestrictionId = 'weapon' | 'kit' | 'pick' | 'hurt';
+export type RestrictionId = 'weapon' | 'kit' | 'pick' | 'hurt' | 'fail';
 // one restriction of ENDLESS: the id, the bonus it gives for a clear (times the loop's number) and whether it is open
 export interface Restriction {
   id: RestrictionId;

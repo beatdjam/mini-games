@@ -450,6 +450,7 @@
   - `kit`（回復を絞る）: 最大HP 0.02。`ready: true`
   - `pick`（チップを選べない）: 拾うビット 0.03。`ready: true`
   - `hurt`（被ダメージ2倍）: 与ダメ 0.03 と 最大HP 0.03。`ready: true`
+  - `fail`（倒れたら失敗）: 与ダメ 0.05 と 最大HP 0.05（最後の砦なので一番厚い）。`ready: true`
   - 被ダメージの倍率は `RESTRICTION_TUNE.hurtMul`（2）
 - **始める・やめる**（`core/progress.ts`）
   - `challengeStrengthMax()`: 縛り `'none'` で `titan: true` の行のいちばん大きい周と `LOOP_TUNE.cap` の小さいほう（クリアした周が無ければ 0）
@@ -464,6 +465,7 @@
   - `hurt`: `damagePlayer` の受けるダメージに `RESTRICTION_TUNE.hurtMul` を掛ける（src/actors/combat.ts）
   - `pick`: チップの候補を1枚だけにする（`openPerk` in src/screens/perk.ts。部屋・ボス前の補給・レベル・持ち込み・出撃の補給のどの経路でも同じ）
   - `weapon`: 出撃装備は選んだ種類の基本武器1本だけ。拠点で出撃装備に付けられるのもその種類だけで、基本武器の一覧と倉庫のほかの種類は押せない見た目にし、`equipWeapon` もほかの種類は付けない。潜行中は `pickDrop` がその種類だけを返す（`setDropOnly` と同じく乱数は今までどおり振る）。部屋・ボス・ロックダウン・武器の箱のドロップはこれで決まる
+  - `fail`: 倒れた（または放棄した）潜行で、挑戦を終えて本線に戻す（`endRun` in src/flow/run.ts が `endChallenge` を呼ぶ。`endRun` の頭で中断は消えているので、そのまま戻せる）。その潜行は先に挑戦の行に入る（`recordEndlessRun`）。節目への戻り（`fallBackToMilestone`）は通らず、結果の画面の行に「挑戦は失敗。本線の周に戻った」を出す。帰還はふつうどおりで、挑戦は続く。挑み直すと D1 から
   - `kit`: 出撃時の救急箱は `TUNE.kitStart`（1）だけ（レベルの `up.kit` は足さない）。撃破のドロップ・部屋の制圧の報酬・補給後のロックダウンの報酬では救急箱を出さない（部屋のビットとロックダウンの武器はそのまま）。ボスの報酬の救急箱は今までどおり出す。強化ターミナルには救急箱のレベルを並べない。吸収コードと広間に戻ったときの全回復は触らない
 - **ボーナス（ENDLESS だけ。挑戦中かどうかに関係なく効く）**: `restrictionBonus()` in src/core/rules.ts が、縛りが `'none'` でなく `titan: true` で周が `LOOP_TUNE.cap` 以下の行それぞれの、縛りの値 × 周を足して、与ダメ・最大HP・ビットに加えて武器ごとの与ダメ（`weaponDmg: Record<武器の id, number>`）を返す。`weapon:<id>` の行の `weaponDmg` × 周はその武器に足す。`shotDamage`（src/actors/weapons.ts）が `(1 + その武器のボーナス)` を掛ける（`weaponStats` も `shotDamage` を通るので表示と撃った弾が同じ）。全体の与ダメ（`startBonus('dmg')`）には入れない。引数に縛りの id を渡すとその縛りぶんだけを返す。潜り始めの最大HPと与ダメージの倍率は `1 + 周のボーナス + 縛りのボーナス`（足し算。`startMaxHp`・`startDmgMul`）。拾ったビットには `(1 + ビットのボーナス)` を掛ける（`collectBit` in src/flow/update.ts）。ARCADE では掛けない
 - **拠点（ENDLESS だけ）**: `#sideCards` の「次の周へ」の後ろ、記録のカードの前に `pagecard` のボタン `#btnChallenge` を出す（`renderChallenge` in src/screens/base.ts）
