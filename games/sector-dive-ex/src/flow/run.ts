@@ -27,7 +27,9 @@ import {
   recordBestTime,
   recordRunStart,
   resetArcadeProgress,
+  restoreContinue,
   riskLoadout,
+  setContinueFrom,
   setSuspend,
   settleArcadeBossArea,
   settleBossArea,
@@ -80,7 +82,7 @@ import { renderBase } from '../screens/base.ts';
 import { showPracticeResult, showRunResult } from '../screens/result.ts';
 import type { RunResultFacts } from '../screens/result.ts';
 import { setPlayUI, setState, show, state } from './state.ts';
-import { checkpoint } from './suspend.ts';
+import { checkpoint, resumeRun, saveContinueFrom } from './suspend.ts';
 import { buildAttract } from './attract.ts';
 import { resetFloorEvents } from './events.ts';
 import { placeView } from './update.ts';
@@ -168,6 +170,8 @@ export function startRun(settleArea = false) {
   // ARCADE: every dive sets out from DEPTH 1 with nothing carried over. What the last one gained is dropped first
   const arcade = isArcade();
   if (arcade) resetArcadeProgress();
+  // a new dive: the last one's CONTINUE (if it died) is not offered any more
+  setContinueFrom(null);
   const tier = arcade ? 0 : clamp(save.startTier, 0, startTierMax());
   if (settleArea) {
     if (arcade) settleArcadeBossArea();
@@ -188,6 +192,7 @@ export function startRun(settleArea = false) {
     route: newRoute(tier),
     choice: save.up.choice || 0,
     time: 0,
+    continues: 0,
   });
   recordRunStart();
   persist();
@@ -596,11 +601,15 @@ export function endRun(kind: RunEnd) {
     endPractice(kind);
     return;
   }
-  setSuspend(null); // the run is over: its checkpoint must not come back
   // ARCADE: its runs end only in death, in giving up, or in TITAN's clear (no extraction)
   const arcade = isArcade(),
     dead = kind !== 'extract' && kind !== 'clear',
-    sec = Math.round(run.time ?? 0);
+    // ARCADE: a death keeps the stage's head for the result screen's CONTINUE, before the reset drops the run
+    canContinue = arcade && kind === 'dead' && saveContinueFrom(run.time ?? 0, run.continues || 0);
+  // a clear or a give-up leaves no CONTINUE behind (a death's is set above)
+  if (arcade && !canContinue) setContinueFrom(null);
+  setSuspend(null); // the run is over: its checkpoint must not come back
+  const sec = Math.round(run.time ?? 0);
   setState('result');
   keepAwake(false);
   releaseInputs();
@@ -639,9 +648,14 @@ export function endRun(kind: RunEnd) {
   const foundText = found.length ? found.map(weaponText).join(t('common.sep')) : t('common.none');
   let sold = 0,
     shortcutMsg = '',
-    newRecord = false;
+    newRecord = false,
+    newRecordContinued = false;
   if (arcade) {
-    if (kind === 'clear') newRecord = recordBestTime(sec);
+    // a clear that used a CONTINUE goes into its own record: the clean one stays the cleanest
+    if (kind === 'clear') {
+      if ((run.continues || 0) > 0) newRecordContinued = recordBestTime(sec, run.continues);
+      else newRecord = recordBestTime(sec);
+    }
   } else if (dead) {
     if (fallBackToMilestone()) shortcutMsg = t('res.shortcutClosed', { tier: tierLabel(save.shortcut) });
   } else {
@@ -662,6 +676,9 @@ export function endRun(kind: RunEnd) {
     arcade,
     sec,
     newRecord,
+    newRecordContinued,
+    continues: run.continues || 0,
+    canContinue,
   };
   if (!arcade) persist();
   showRunResult(kind, facts);
@@ -673,7 +690,24 @@ export function endRun(kind: RunEnd) {
   }
 }
 el('#btnBack').addEventListener('click', goBase);
+// ARCADE: the result screen's CONTINUE goes back to the stage the dive died in: the checkpoint's head, the save as it
+// was there, the dive's clock from the death, and one more CONTINUE on the count
+export function continueRun() {
+  const from = save.continueFrom;
+  if (!from || !isArcade()) return;
+  setBuilding(null); // the building left from the death must be made again from the checkpoint's seed
+  restoreContinue(from);
+  const sn = from.suspend;
+  sn.run.time = from.time;
+  sn.run.continues = from.continues + 1;
+  setSuspend(sn);
+  setContinueFrom(null);
+  resumeRun();
+}
+el('#btnContinue').addEventListener('click', continueRun);
 export function goBase() {
+  // leaving the result screen ends the offer to continue the dive that died
+  setContinueFrom(null);
   setState('base');
   keepAwake(false);
   setRun(null);

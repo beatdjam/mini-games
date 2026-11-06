@@ -156,6 +156,9 @@ LANG.ja = {
     'base.unlockFound': '潜行で拾うと解放',
     'base.record': 'RECORD',
     'base.notCleared': '未クリア',
+    'base.recordClean': 'ノーコンティニュー',
+    'base.recordContinued': 'コンティニューあり {time}（{n}回）',
+    'base.recordContinuedNone': 'コンティニューあり —',
     'base.assign': '装備{n}に割り当て',
     'base.stashAssign': '装備{n}へ',
     'base.sell': '売却 +{v}',
@@ -276,6 +279,7 @@ LANG.ja = {
     'res.extract': '帰還完了',
     'res.abandon': '潜行放棄',
     'res.back': '拠点へ戻る',
+    'res.continue': 'コンティニュー',
     'res.reached': '到達地点',
     'res.kills': '撃破数',
     'res.bits': 'ビット',
@@ -301,6 +305,8 @@ LANG.ja = {
     'res.clear': 'クリア',
     'res.record': '記録',
     'res.newRecord': '新記録',
+    'res.continues': 'コンティニュー',
+    'res.newRecordContinued': '新記録（コンティニューあり）',
     'res.practiceNote': '練習なので、ビット・武器・記録は変わらない。',
 
     // ---- share ----

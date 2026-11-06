@@ -158,6 +158,9 @@ LANG.en = {
     'base.unlockFound': 'Unlocks when found',
     'base.record': 'RECORD',
     'base.notCleared': 'Not cleared',
+    'base.recordClean': 'No continues',
+    'base.recordContinued': 'With continues {time} ({n})',
+    'base.recordContinuedNone': 'With continues —',
     'base.assign': 'Assign to slot {n}',
     'base.stashAssign': 'To slot {n}',
     'base.sell': 'Sell +{v}',
@@ -278,6 +281,7 @@ LANG.en = {
     'res.extract': 'Extracted',
     'res.abandon': 'Abandoned',
     'res.back': 'Back to base',
+    'res.continue': 'Continue',
     'res.reached': 'Reached',
     'res.kills': 'Kills',
     'res.bits': 'Bits',
@@ -303,6 +307,8 @@ LANG.en = {
     'res.clear': 'Cleared',
     'res.record': 'Record',
     'res.newRecord': 'New record',
+    'res.continues': 'Continues',
+    'res.newRecordContinued': 'New record (with continues)',
     'res.practiceNote': 'Practice: your bits, weapons and records are unchanged.',
 
     // ---- share ----

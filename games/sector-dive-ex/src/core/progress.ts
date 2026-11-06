@@ -1,4 +1,4 @@
-import type { BossKind, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
+import type { BossKind, ContinueFrom, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
 import { ARCADE_DEPTHS, STASH_MAX, milestoneBelow } from '../data/progress.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
@@ -109,6 +109,21 @@ export function fallBackToMilestone(): boolean {
 export const setSuspend = (snapshot: Snapshot | null) => {
   save.suspend = snapshot;
 };
+// ARCADE: where the result screen's CONTINUE goes back to (null: none)
+export const setContinueFrom = (from: ContinueFrom | null) => {
+  save.continueFrom = from;
+};
+// ARCADE: put the save's part of a CONTINUE back to the stage's head (the checkpoint keeps the run and the player)
+export function restoreContinue(from: ContinueFrom) {
+  save.bits = from.bits;
+  save.up = from.up;
+  save.loadout = from.loadout;
+  save.stash = from.stash;
+  save.shortcut = from.shortcut;
+  save.startTier = from.startTier;
+  save.peak = from.peak;
+  save.records.bossArea = from.bossArea;
+}
 
 // ---- bosses ----
 export const recordBossSeen = (kind: BossKind) => {
@@ -143,8 +158,16 @@ export function allBossRoomsBeaten(): boolean {
 export function recordTitanClear() {
   save.records.cleared = true;
 }
-// ARCADE: a clear's time in seconds. Returns whether it is the fastest so far (the caller persists)
-export function recordBestTime(sec: number): boolean {
+// ARCADE: a clear's time in seconds, with the CONTINUEs it used (none: a clean clear). Returns whether it is the fastest
+// so far in its own kind (the caller persists)
+export function recordBestTime(sec: number, continues = 0): boolean {
+  if (continues > 0) {
+    const best = save.records.bestTimeContinued;
+    if (best !== null && best <= sec) return false;
+    save.records.bestTimeContinued = sec;
+    save.records.bestTimeContinuedCount = continues;
+    return true;
+  }
   const best = save.records.bestTime;
   if (best !== null && best <= sec) return false;
   save.records.bestTime = sec;

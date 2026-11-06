@@ -387,15 +387,21 @@
   - 残す: `unlocked`（武器の解放）・`bossSeen`・`bossKills`・`runs`・`best`・`records.cleared`・`records.bestTime`・`settings`
   - ENDLESS の `fallBackToMilestone` と `storeWeapons` は通らない（帰還が無いため）
   - 結果の画面の、ビット・持ち帰った武器・ショートカットの行は出さない（`RUN_RESULT_ROWS` in src/screens/result.ts）
+- **コンティニュー**: 死んだときだけ、結果の画面に「コンティニュー」を出す（`#btnContinue` in index.html、`endRun`・`continueRun` in src/flow/run.ts）。押すと、死んだ階の頭（その階に入ったときのチェックポイント）から続けられる。ENDLESS・放棄・クリア・ボス練習では出さない
+  - 戻る所: 今のチェックポイント（`save.suspend`）の中身を `save.continueFrom` に取っておいたもの（`checkpoint`・`saveContinueFrom` in src/flow/suspend.ts）。ボスエリアの部屋も1つの階なので、死んだ部屋の頭（ボス戦の始め）から。倒した部屋は倒したまま
+  - 戻す値: `bits`・`up`・`loadout`・`stash`・`shortcut`・`startTier`・`peak`・`records.bossArea`（`resetArcadeProgress` が消す値。`restoreContinue` in src/core/progress.ts）。`continueFrom` は `resetArcadeProgress` では消さず、`startRun`・`goBase`・クリア・放棄で消す
+  - 時間: 死ぬまでにかかった時間も足す（再開した `run.time` は、死んだときの値から続く）
+  - 回数: 制限しない。`RunState.continues` がその潜行のコンティニュー回数で、結果の画面に行を出す（0回なら出さない）。押すたびに1増える
+  - 押したとき: 死んだ建物が残っていると作り直されないので、`setBuilding(null)` してから `resumeRun()` で再開する（`continueRun` in src/flow/run.ts）
 - **時間と記録**: `RunState.time` が、遊んでいる間だけ毎フレーム増える（`updatePlayer` in src/flow/update.ts）。一時停止の間と中断していた間は数えない。中断と再開では、チェックポイントに入っている値から続く（`checkpoint`・`resumeRun` in src/flow/suspend.ts）
-  - クリアすると `records.cleared = true` にし、`records.bestTime`（秒、既定 `null`）を短いほうに更新する（`recordBestTime` in src/core/progress.ts）。古いセーブは読み込みで `null` に揃える（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）
-  - 結果の画面に、かかった時間を出し、記録を更新したら「新記録」を出す
+  - クリアすると `records.cleared = true` にし、`records.bestTime`（ノーコンティニューのいちばん速いタイム、秒、既定 `null`）を短いほうに更新する（`recordBestTime` in src/core/progress.ts）。コンティニューありのクリアは `records.bestTimeContinued` と、そのときの回数 `records.bestTimeContinuedCount` を更新する。古いセーブは読み込みで `null` に揃える（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）
+  - 結果の画面に、かかった時間と、その潜行のコンティニュー回数（0回なら出さない）を出し、記録を更新したら「新記録」（コンティニューありなら「新記録（コンティニューあり）」）を出す
 - **ENDLESS との分かれ道**: モードで分けるのは `isArcade()` in src/core/save.ts を見る所だけ。テストと開発用に `devSetArcade` で切り替えられる（開発サーバーの `#modes` から ARCADE を選ぶのと同じ）
 - **ARCADE の拠点**: 意味の無い欄を隠し、記録を出す（`renderBase` in src/screens/base.ts。ENDLESS の拠点は今までどおり）
   - 出撃: 出撃地点の選び方（見出しと説明の `#tiersHead`、`#tiers`・`#depthPath`）を隠し、出撃の下の一行は D1 から出ることを出す
   - ストック: 倉庫の欄（`#stash` と、見出しと数の `#stashHead`）を隠す
   - レベル: 強化のタブ（`data-tab="up"` と `data-pane="up"`）を隠す。最後に開いたタブが `up` なら出撃を開く（`showTab`）
-  - 記録: `#levelCard` を RECORD のカードにし、クリアのいちばん速いタイム（`records.bestTime`、`m:ss`。まだなら未クリア）と最高到達（`save.best` を `stageLabel` で）を出す。押しても開かない
+  - 記録: `#levelCard` を RECORD のカードにし、ノーコンティニューのいちばん速いタイム（`records.bestTime`、`m:ss`。まだなら未クリア）と、コンティニューありのいちばん速いタイムとその回数（`records.bestTimeContinued`・`records.bestTimeContinuedCount`）、最高到達（`save.best` を `stageLabel` で）を出す。押しても開かない
   - 武器の解放: まだ解放していない武器のカードは値段を出さず、押しても買えない（「潜行で拾うと解放」）。潜行で武器を拾うと、その種類を `unlockFoundWeapon` in src/core/progress.ts で解放する（初めての解放のときだけトースト）。ENDLESS はビットで買う
 
 ### 強化と補給

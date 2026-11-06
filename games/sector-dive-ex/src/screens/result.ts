@@ -33,7 +33,10 @@ export interface RunResultFacts {
   shortcut: string; // the milestone fallen back to (empty: no row)
   arcade: boolean; // an ARCADE dive: its bits and weapons stay behind, and the time is shown
   sec: number; // seconds the dive went on
-  newRecord: boolean; // the fastest clear so far (ARCADE)
+  newRecord: boolean; // the fastest clean clear so far (ARCADE)
+  newRecordContinued: boolean; // the fastest clear so far after a CONTINUE (ARCADE)
+  continues: number; // CONTINUEs used in this dive (0: no row)
+  canContinue: boolean; // ARCADE died with a stage to go back to: the CONTINUE button shows
 }
 // one result row: its name (for adding rows later, not shown), the i18n key of its label, when it shows, and its value
 interface ResultRow {
@@ -65,7 +68,13 @@ const RUN_RESULT_ROWS: ResultRow[] = [
     when: f => f.arcade,
     value: f => t('res.timeV', { m: Math.floor(f.sec / 60), s: f.sec % 60 }),
   },
-  { id: 'record', label: 'res.record', when: f => f.arcade && f.newRecord, value: () => t('res.newRecord') },
+  { id: 'continues', label: 'res.continues', when: f => f.arcade && f.continues > 0, value: f => f.continues },
+  {
+    id: 'record',
+    label: 'res.record',
+    when: f => f.arcade && (f.newRecord || f.newRecordContinued),
+    value: f => t(f.newRecordContinued ? 'res.newRecordContinued' : 'res.newRecord'),
+  },
 ];
 export function runResultRows(f: RunResultFacts): [string, string | number][] {
   return RUN_RESULT_ROWS.filter(r => !r.when || r.when(f)).map(r => [
@@ -85,6 +94,7 @@ export function showPracticeResult(kind: RunEnd, sec: number) {
   ]);
   el('#resChips').textContent = t('res.practiceNote');
   el('#resOrder').hidden = true;
+  el('#btnContinue').hidden = true; // only a death in ARCADE offers it
   hideShare();
   prepFeedback(kind);
   open(kind);
@@ -101,6 +111,7 @@ export function showRunResult(kind: RunEnd, facts: RunResultFacts) {
   el('#resOrderList').textContent = run.perks.map(perkName).join(t('common.sep'));
   el('#resOrder').hidden = !run.perks.length;
   el<HTMLDetailsElement>('#resOrder').open = false;
+  el('#btnContinue').hidden = !facts.canContinue;
   prepShare(kind);
   prepFeedback(kind);
   open(kind);

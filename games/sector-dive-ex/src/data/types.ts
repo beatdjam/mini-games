@@ -395,16 +395,34 @@ export interface RunState {
   forceBoss?: BossKind; // the boss a practice is for (src/dev/trailer.ts sets it for a moment too)
   t0?: number; // when a practice began
   time?: number; // seconds the run has been played (not while paused or suspended); ARCADE's clock
+  continues?: number; // ARCADE: CONTINUEs used in this dive (none: 0)
 }
 export interface Snapshot {
   run: RunState;
   P: Player;
 }
+// ARCADE: the stage's head a CONTINUE goes back to. The checkpoint holds the run and the player, and these are the save's
+// values as they were when that checkpoint was taken (resetArcadeProgress drops them when the dive dies)
+export interface ContinueFrom {
+  suspend: Snapshot; // the checkpoint: the start of the stage the dive died in
+  bits: number;
+  up: Record<string, number>;
+  loadout: (WeaponItem | null)[];
+  stash: WeaponItem[];
+  shortcut: number;
+  startTier: number;
+  peak: number;
+  bossArea: SaveRecords['bossArea'];
+  time: number; // the dive's clock when it died: the CONTINUE goes on from there
+  continues: number; // CONTINUEs used in the dive before this death
+}
 // what the save keeps of the bosses: whether the last boss is down, and how far the boss area has got
 export interface SaveRecords {
   cleared: boolean; // the last boss (TITAN) is down
   bossArea: { tier: number; beaten: BossKind[] } | null; // the boss area of this save: its depth (0-based) and the boss rooms beaten there (one of each kind); null = not settled yet
-  bestTime: number | null; // ARCADE: the fastest clear in seconds (null: not cleared yet)
+  bestTime: number | null; // ARCADE: the fastest clear in seconds, with no CONTINUE (null: not cleared yet)
+  bestTimeContinued: number | null; // ARCADE: the fastest clear in seconds after a CONTINUE (null: none yet)
+  bestTimeContinuedCount: number | null; // ARCADE: the CONTINUEs that fastest continued clear used (null: none yet)
 }
 export interface SaveData {
   v: number; // the version of the save's shape (SAVE_VERSION in core/save.ts; converted from older versions when read)
@@ -427,6 +445,7 @@ export interface SaveData {
   supplyV?: number;
   mods: Record<string, { plus: number; r: number }>;
   suspend: Snapshot | null; // the checkpoint of a run in progress (src/flow/suspend.ts makeSnapshot)
+  continueFrom?: ContinueFrom | null; // ARCADE: where the result screen's CONTINUE goes back to (src/flow/suspend.ts)
   settings: {
     lang: string | null;
     autofire: boolean;
