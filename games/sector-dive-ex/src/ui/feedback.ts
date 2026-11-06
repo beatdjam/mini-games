@@ -16,6 +16,13 @@ const wInfo = (w: WeaponItem | null | undefined) =>
   w ? `${w.id}${w.plus ? '+' + w.plus : ''} r${w.r}${w.opts && w.opts.length ? ` [${w.opts.join(',')}]` : ''}` : '';
 const common = () => [
   `level=${levelOf()}`,
+  `up=${
+    Object.entries(save.up)
+      .filter(([, n]) => n >= 1)
+      .sort((a, b) => b[1] - a[1])
+      .map(([id, n]) => `${id}${n}`)
+      .join(',') || 'none'
+  }`,
   `shortcut=D${save.shortcut + 1}`,
   `runs=${save.runs}`,
   `lang=${lang}`,
