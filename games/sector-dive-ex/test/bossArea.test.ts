@@ -21,16 +21,7 @@ import { devSeed, level } from '../src/world/level.ts';
 import { lookOf } from '../src/world/looks.ts';
 import { makePortal, makeTerminal } from '../src/world/portals.ts';
 import { setState, state } from '../src/flow/state.ts';
-import {
-  crossToFloor,
-  endRun,
-  enterBossRoom,
-  goBase,
-  returnToHall,
-  startPractice,
-  startRun,
-  startStage,
-} from '../src/flow/run.ts';
+import { endRun, enterBossRoom, goBase, returnToHall, startPractice, startRun, startStage } from '../src/flow/run.ts';
 import { resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { lockdownAhead, supplyChips } from '../src/flow/events.ts';
 import { bossDifficulty, bossDown, bossHpMul, spawnBoss } from '../src/actors/bosses/common.ts';
@@ -261,7 +252,7 @@ test('boss area off: the room gates stay out of the run', () => {
   ).toEqual([]);
 });
 
-// ---- the boss rooms: the lowest floor of the boss's sector building, entered by hand (no gate yet) ----
+// ---- the boss rooms: a one-floor building with the hall alone, entered by hand (no gate yet) ----
 // a run in the crusher's room: the same start as the hall, then the room placed on the run by hand
 function enterRoom() {
   enterHallRun();
@@ -269,22 +260,20 @@ function enterRoom() {
   run.area = { at: 'room', boss: 'crusher' };
   startStage();
 }
-// the floor one up from the lowest, and the link that joins them
-function upFromLowest(): { n: number; up: number } {
-  const lowest = building!.plans.length - 1,
-    n = building!.links.findIndex(l => l.lower === lowest || l.upper === lowest),
-    l = building!.links[n]!;
-  return { n, up: l.lower === lowest ? l.upper : l.lower };
-}
 const outsideHall = () => level.roomOf[tileIndex(player.x, player.z)] !== level.hall!.room;
 
-test('a boss room starts on the lowest floor of its sector building, inside the hall, in the fight', () => {
+test('a boss room is a one-floor building, inside the hall, in the fight', () => {
   enterRoom();
   expect(run.stage, "the depth's boss stage").toBe(bossStageOf(BOSS_AREA_START_TIER));
   expect(run.bld?.tier, 'the building of the depth').toBe(BOSS_AREA_START_TIER);
   expect(run.bld?.boss, "the room's boss").toBe('crusher');
+  expect(building!.plans.length, 'the hall alone: one floor').toBe(1);
+  expect(building!.links, 'no stairwell or lift').toEqual([]);
+  expect(building!.route, 'only the floor there is').toEqual([0]);
+  expect(building!.lockdown, 'no lockdown').toBeNull();
   expect(level.biome.code, "the crusher's sector").toBe('FORGE');
-  expect(level.floor, 'the lowest floor').toBe(building!.plans.length - 1);
+  expect(level.floor, 'the only floor').toBe(0);
+  expect(level.rooms.length, 'only the hall').toBe(1);
   expect(level.hall, 'its boss hall').toBeTruthy();
   expect(outsideHall(), 'starts inside the hall').toBe(false);
   expect(Math.abs(wrapAngle(player.yaw - yawToward(0, -1))), 'facing its middle').toBeLessThan(1e-6);
@@ -318,22 +307,23 @@ test('a run suspended in a boss room resumes in the same room, at the same entra
   expect(run.area, 'still the same room').toEqual({ at: 'room', boss: 'crusher' });
   expect(run.bld?.boss, 'the same building for the boss').toBe('crusher');
   expect(run.bld?.seed, 'the same seed').toBe(seed);
-  expect(level.floor, 'the lowest floor again').toBe(building!.plans.length - 1);
+  expect(run.bld?.floors, 'still one floor').toBe(1);
+  expect(building!.plans.length, 'and it is built again as one floor').toBe(1);
+  expect(building!.links, 'no stairwell or lift').toEqual([]);
+  expect(level.floor, 'the only floor again').toBe(0);
   expect(level.hall, 'its boss hall').toBeTruthy();
   expect(outsideHall(), 'the same place inside the hall').toBe(false);
 });
 
-test('a run suspended after going up a floor resumes at the lowest floor entrance', () => {
+test('a run suspended in a boss room keeps its one floor in the checkpoint', () => {
   enterRoom();
-  const { n, up } = upFromLowest(),
-    at = tileIndex(player.x, player.z);
-  crossToFloor(n, up);
-  expect(run.bld!.floor, 'one floor up').toBe(up);
+  expect(save.suspend?.run.bld?.floors, 'one floor in the checkpoint').toBe(1);
+  expect(save.suspend?.run.bld?.seen?.length, 'one floor of map').toBe(1);
   suspendRun();
   resumeRun();
-  expect(run.bld!.floor, 'back on the lowest floor').toBe(building!.plans.length - 1);
-  expect(run.bld!.at, 'at the hall door, not the stairwell').toBe(-1);
-  expect(tileIndex(player.x, player.z), 'the same tile as the room began on').toBe(at);
+  expect(run.bld?.floors, 'one floor after the resume').toBe(1);
+  expect(building!.plans.length, 'one floor built').toBe(1);
+  expect(building!.links, 'still no stairwell or lift').toEqual([]);
 });
 
 test('going back to the hall from a boss room drops the building', () => {
@@ -532,15 +522,29 @@ test('a beaten room stays beaten after death and resume', () => {
   expect(save.records.bossArea!.beaten, 'after a death').toEqual(['crusher']);
 });
 
-test('a run suspended after leaving the beaten room resumes with its gates', () => {
+test("a boss room's door stays shut after the boss, and the way back is the hall gate", () => {
   enterRoom();
   beatRoomBoss();
-  const { n, up } = upFromLowest();
-  crossToFloor(n, up);
+  expect(isDoorLocked(activeTileGrid().world, level.hall!.door), 'the door does not open').toBe(true);
+  tick(2);
+  expect(isDoorLocked(activeTileGrid().world, level.hall!.door), 'nor after a moment').toBe(true);
+  expect(
+    level.portals.map(p => p.kind),
+    'only the gate to the hall',
+  ).toEqual(['hall']);
+});
+
+test('a beaten room resumes as the same one-floor room with its gates', () => {
+  enterRoom();
+  beatRoomBoss();
   suspendRun();
   resumeRun();
-  expect(run.bld!.floor, 'back on the lowest floor').toBe(building!.plans.length - 1);
-  expect(run.bld!.at, 'at the hall door').toBe(-1);
+  expect(run.bld?.floors, 'one floor').toBe(1);
+  expect(building!.plans.length, 'built as one floor').toBe(1);
+  expect(building!.links, 'no stairwell or lift').toEqual([]);
+  expect(run.bld!.floor, 'the only floor').toBe(0);
+  expect(run.bld!.at, 'at the room entrance').toBe(-1);
+  expect(isDoorLocked(activeTileGrid().world, level.hall!.door), 'the door stays shut').toBe(true);
   expect(
     level.portals.map(p => p.kind),
     'only the gate to the hall',
@@ -569,15 +573,14 @@ test("a room's boss is a boss in level_start and boss_defeated", () => {
   expect(defeated(), 'the second kill too').toBe(2);
 });
 
-test('the boss floor of a room has no other enemies, caches or lockdown', () => {
+test('a boss room is the hall alone: no other enemies, caches or lockdown', () => {
   enterRoom();
-  const hallRoom = level.hall!.room,
-    lowest = building!.plans.length - 1,
-    other = level.rooms.findIndex((_, i) => i !== hallRoom);
+  const hallRoom = level.hall!.room;
+  expect(level.rooms.length, 'only the hall').toBe(1);
   expect(enemies.filter(e => e.room !== hallRoom && !e.dead).length, 'no enemy outside the boss room').toBe(0);
   expect(lying('weapon'), 'no weapon cache').toBe(0);
-  building!.lockdown = { floor: lowest, room: other };
-  expect(lockdownAhead(lowest, other), 'no lockdown on the boss floor').toBe(false);
+  expect(building!.lockdown, 'no lockdown room').toBeNull();
+  expect(lockdownAhead(0, hallRoom), 'no lockdown on the room').toBe(false);
 });
 
 test('a boss room gives no pre-boss supply', () => {
@@ -611,6 +614,7 @@ test('boss area off: a building boss keeps its rewards and shortcut', () => {
     level.portals.some(p => p.kind === 'hall'),
     'no room gate',
   ).toBe(false);
+  expect(isDoorLocked(activeTileGrid().world, level.hall!.door), 'the boss room door opens as before').toBe(false);
   expect(save.bossKills, 'the kill counts').toBe(kills + 1);
   expect(run.bosses, 'the boss is in the run').toContain(run.bld!.boss);
   expect(save.shortcut, 'the shortcut opens').toBe(tier + 1);

@@ -99,7 +99,8 @@ export function resetFloorEvents() {
   }
   ev.bossStarted = true;
   ev.bossOver = true;
-  lockDoor(world(), level.hall.door, false);
+  // a boss area's room keeps its door shut (the only way out is the gate back to the hall); a building's opens again
+  lockDoor(world(), level.hall.door, inBossRoom());
   run.stage = bossStageOf(stageInfo(run.stage).tier);
   const [cx, cz] = arenaCenter();
   // a beaten boss room has only the way back to the hall: no gate forward (TITAN's) and no extract
@@ -266,11 +267,11 @@ function startBossFight() {
   }, BOSS_SPAWN_DELAY_MS);
   giveSupply();
 }
-// the boss is down: the way back up opens again
+// the boss is down: the way back up opens again (but not in a boss area's room, which has no floor beyond its door)
 export function onBossDown() {
   ev.bossOver = true;
   if (run.bld) run.bld.beaten = true;
-  if (level.hall) lockDoor(world(), level.hall.door, false);
+  if (level.hall) lockDoor(world(), level.hall.door, inBossRoom());
 }
 
 // ---- between floors ----

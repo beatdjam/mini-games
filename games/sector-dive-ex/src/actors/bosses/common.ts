@@ -420,7 +420,7 @@ export function bossDown(e: Boss) {
     }
     const first = !save.records.cleared;
     recordTitanClear();
-    onBossDown(); // the room's door opens again
+    onBossDown(); // (the door stays shut in the boss area's one-floor room)
     putRoomGates(e.cx, e.cz);
     hideBossBar();
     recordBossProgress(stageInfo(run.stage).tier);
@@ -439,7 +439,7 @@ export function bossDown(e: Boss) {
   // room beaten is kept in the save, so a death or a resume does not take it back)
   if (bossAreaOn() && stageInfo(run.stage).area && run.area?.at === 'room') {
     const first = recordBossRoomBeaten(run.area.boss);
-    onBossDown(); // the room's door opens again
+    onBossDown(); // (the door stays shut in the boss area's one-floor room)
     putRoomGates(e.cx, e.cz);
     if (first) {
       giveBossRewards(e, progressOf(run.stage));
