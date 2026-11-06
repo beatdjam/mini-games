@@ -2,8 +2,8 @@ import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
-import { UPGRADES } from '../data/progress.ts';
-import { persist, save } from '../core/save.ts';
+import { ARCADE_HIDDEN_UPGRADES, UPGRADES } from '../data/progress.ts';
+import { isArcade, persist, save } from '../core/save.ts';
 import { addLevelPoint } from '../core/progress.ts';
 import { levelOf, nextLevelCost, sellValue } from '../core/rules.ts';
 import { weaponText } from '../actors/weapons.ts';
@@ -29,6 +29,7 @@ function render() {
   list.innerHTML = '';
   list.style.setProperty('--n', '3');
   for (const u of UPGRADES) {
+    if (isArcade() && ARCADE_HIDDEN_UPGRADES.includes(u.id)) continue;
     const l = save.up[u.id] || 0,
       maxed = l >= u.max,
       b = document.createElement('button');

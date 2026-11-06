@@ -86,6 +86,9 @@ export const UPGRADES = withLang<Upgrade, 'name' | 'desc'>(
   ],
   { name: '', desc: () => '' },
 );
+// The upgrades ARCADE's terminal leaves out: a dive loses its levels when it ends (resetArcadeProgress), so a point in
+// med kits would buy one kit at a level's price and nothing else. ENDLESS keeps it.
+export const ARCADE_HIDDEN_UPGRADES = ['kit'];
 // what level `l` (the levels bought so far) costs: 80 bits, 20% more each level. The bits a dive brings in grow about 1.3
 // to 1.6 times a depth (sim, 2026-10-18: some 2,500 by DEPTH 5, 25,000 by 10, 330,000 by 20), so a level's price must
 // climb with them: at 8% a level, half of a dive to DEPTH 20 bought 66 levels, twice the old base upgrades all bought.
