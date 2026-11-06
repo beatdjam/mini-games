@@ -4,7 +4,7 @@ import { sfx } from '@engine/audio/audio.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { UPGRADES } from '../data/progress.ts';
 import { modeTune, persist, save } from '../core/save.ts';
-import { addLevelPoint } from '../core/progress.ts';
+import { addLevelPoint, usingRestriction } from '../core/progress.ts';
 import { levelOf, nextLevelCost, sellValue } from '../core/rules.ts';
 import { weaponText } from '../actors/weapons.ts';
 import { RARITY } from '../data/weapons.ts';
@@ -29,7 +29,7 @@ function render() {
   list.innerHTML = '';
   list.style.setProperty('--n', '3');
   for (const u of UPGRADES) {
-    if (modeTune().hiddenUpgrades.includes(u.id)) continue;
+    if (modeTune().hiddenUpgrades.includes(u.id) || (u.id === 'kit' && usingRestriction('kit'))) continue;
     const l = save.up[u.id] || 0,
       maxed = l >= u.max,
       b = document.createElement('button');

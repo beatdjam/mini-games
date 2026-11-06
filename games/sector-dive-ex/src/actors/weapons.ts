@@ -17,7 +17,7 @@ import {
   WEAPONS,
 } from '../data/weapons.ts';
 import { TUNE } from '../data/progress.ts';
-import { pickDrop } from '../core/rules.ts';
+import { pickDrop, restrictionBonus } from '../core/rules.ts';
 import { player } from './player.ts';
 
 // ---- tuning numbers used only here ----
@@ -115,9 +115,14 @@ export const fireInterval = (def: WeaponDef, w?: WeaponItem): number =>
 // seconds a reload takes
 export const reloadTime = (def: WeaponDef, w?: WeaponItem): number =>
   def.reload * player.reloadMul * Math.pow(RELOAD_OPT_MUL, weaponOptCount('reload', w));
-// damage of one projectile
+// damage of one projectile (the weapon challenges' clears add their bonus to that one kind)
 export const shotDamage = (def: WeaponDef, w: WeaponItem): number =>
-  def.dmg * wDmgMul(w) * player.dmgMul * player.lvlDmg * splitMul(def);
+  def.dmg *
+  wDmgMul(w) *
+  player.dmgMul *
+  player.lvlDmg *
+  splitMul(def) *
+  (1 + (restrictionBonus('weapon').weaponDmg?.[w.id] ?? 0));
 // Effective numbers for a weapon with the player's current chips / upgrades and the weapon's own options.
 // dps = sustained damage per second on one target, including reloads, average crits and a rocket's direct hit. What it
 // leaves out is given

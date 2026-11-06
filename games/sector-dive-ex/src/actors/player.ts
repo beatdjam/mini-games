@@ -1,6 +1,7 @@
 import type { Player, RunState, Weapon, WeaponItem } from '../data/types.ts';
 import { HP_PER_POINT, KIT_MAX, LEVEL_DMG_MUL, TUNE, BAG_MAX } from '../data/progress.ts';
 import { save } from '../core/save.ts';
+import { usingRestriction } from '../core/progress.ts';
 import { basicNow, startDmgMul, startMaxHp } from '../core/rules.ts';
 import { fillMag, newWeapon } from './weapons.ts';
 
@@ -64,7 +65,7 @@ export function newPlayer(loadout: (WeaponItem | null)[], tier = 0): Player {
     weapons: ws,
     cur: 0,
     bag: Array(BAG_MAX).fill(null),
-    kits: TUNE.kitStart + u.kit,
+    kits: TUNE.kitStart + (usingRestriction('kit') ? 0 : u.kit),
     reloadT: 0,
     reloadMax: 1,
     fireCd: 0,

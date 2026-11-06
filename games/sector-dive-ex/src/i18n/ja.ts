@@ -116,6 +116,7 @@ LANG.ja = {
     'base.challengeTitle': '縛りで挑む',
     'base.challengeNote': '縛りは1つだけ。本線の出撃地点・ボスエリア・中断は取っておき、やめると元に戻る',
     'base.challengeRestrictions': '縛り',
+    'base.challengeWeapon': '武器',
     'base.challengeStrength': '強さ',
     'base.challengeLoop': '{n}周目の強さ',
     'base.challengeGo': '挑む',
@@ -243,6 +244,9 @@ LANG.ja = {
     'restriction.dmg': '与ダメ +{pct}',
     'restriction.hp': '最大HP +{pct}',
     'restriction.bits': '拾うビット +{pct}',
+    'restriction.weaponDmg': 'その武器の与ダメ +{pct}',
+    'restriction.weaponDmgName': '{weapon}の与ダメ +{pct}',
+    'restriction.weaponName': '{restriction}（{weapon}）',
     'restriction.perLoop': '{bonus} × 周',
 
     // ---- chips ----

@@ -1,5 +1,5 @@
 import type { BossKind, EndlessRecord, WeaponItem } from '../data/types.ts';
-import { el, isTouch } from '@engine/core/util.ts';
+import { el, isTouch, pct } from '@engine/core/util.ts';
 import { prefGet, prefSet } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
 import { audioInit, sfx } from '@engine/audio/audio.ts';
@@ -56,6 +56,9 @@ export const baseUI = {
 let nextLoopArmed = false;
 // the challenge card's "end it" asks once, like the next loop's card
 let challengeArmed = false;
+// a weapon challenge takes only its own kind in the loadout (null: no weapon challenge)
+const challengeWeapon = (): string | null =>
+  save.challenge?.restriction === 'weapon' ? (save.challenge.weapon ?? null) : null;
 // a weapon's numbers as it would be right after diving: the level's points in, no chips, its own options
 // in (so weapons in the base can be compared; player may still be the last run's player, chips and all)
 // what the one-target DPS leaves out: the rail's damage past `far` metres, the rocket's blast radius
@@ -121,8 +124,13 @@ const levelCard = el('#levelCard');
 const levelCardNodes = [...levelCard.childNodes];
 const bestTimeText = (sec: number | null): string => (sec === null ? t('base.notCleared') : clockText(sec));
 const clockText = (sec: number): string => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
-// ENDLESS's records: one row for each loop and restriction
-const restrictionText = (id: string): string => (id === 'none' ? t('base.recordsNone') : restrictionName(id));
+// ENDLESS's records: one row for each loop and restriction. A weapon challenge's key is 'weapon:<id>'
+const restrictionText = (id: string): string => {
+  if (id === 'none') return t('base.recordsNone');
+  const [base, weapon] = id.split(':');
+  const name = restrictionName(base!);
+  return weapon ? t('restriction.weaponName', { restriction: name, weapon: WEAPONS[weapon]?.name ?? weapon }) : name;
+};
 const endlessRecordRow = (r: EndlessRecord): string => {
   const note = r.partial ? `<tr class="rnote"><td colspan="6">${t('base.recordsPartial')}</td></tr>` : '';
   return (
@@ -147,14 +155,25 @@ const restrictionRecordsHTML = (): string => {
     `<th scope="col">${t('base.recordsRestriction')}</th>` +
     Array.from({ length: LOOP_TUNE.cap }, (_, i) => `<th scope="col">${i + 1}</th>`).join('') +
     `<th scope="col">${t('base.recordsBonus')}</th>`;
-  const rows = RESTRICTIONS.map(r => {
+  const weaponBonus = restrictionBonus('weapon').weaponDmg ?? {};
+  const restrictionRow = (r: (typeof RESTRICTIONS)[number], weapon?: string): string => {
+    const key = weapon ? `weapon:${weapon}` : r.id,
+      name = weapon ? t('restriction.weaponName', { restriction: r.name, weapon: WEAPONS[weapon]!.name }) : r.name;
     const marks = Array.from({ length: LOOP_TUNE.cap }, (_, i) => {
-      const cleared = save.records.endless.some(row => row.loop === i + 1 && row.restriction === r.id && row.titan);
+      const cleared = save.records.endless.some(row => row.loop === i + 1 && row.restriction === key && row.titan);
       return `<td>${cleared ? '✓' : '—'}</td>`;
     }).join('');
-    const bonus = bonusText(restrictionBonus(r.id)) || '—';
-    return `<tr><th scope="row">${r.name}</th>${marks}<td class="bonus">${bonus}</td></tr>`;
-  }).join('');
+    const bonus = weapon
+      ? weaponBonus[weapon]
+        ? t('restriction.weaponDmgName', { weapon: WEAPONS[weapon]!.name, pct: pct(weaponBonus[weapon]) })
+        : '—'
+      : bonusText(restrictionBonus(r.id)) || '—';
+    return `<tr><th scope="row">${name}</th>${marks}<td class="bonus">${bonus}</td></tr>`;
+  };
+  // a weapon challenge is one row per kind; the other restrictions are one row each
+  const rows = RESTRICTIONS.flatMap(r =>
+    r.id === 'weapon' ? WEAPON_ORDER.map(id => restrictionRow(r, id)) : [restrictionRow(r)],
+  ).join('');
   return (
     `<h3 class="achhead">${t('base.recordsChallenges')}</h3>` +
     `<div class="achwrap"><table class="rectable ach"><thead><tr>${heads}</tr></thead>` +
@@ -258,26 +277,35 @@ const loadoutSlot = (k: number): string => {
       ${unequip}<span class="lchange">${t(on && baseUI.choosing ? 'base.changeClose' : 'base.change')}</span></button>`;
 };
 const lockedCard = (id: string): string => {
-  const def = WEAPONS[id];
+  const def = WEAPONS[id],
+    off = challengeWeapon() !== null && challengeWeapon() !== id;
+  const act = off ? 'disabled' : `data-w="${id}"`;
   if (isArcade())
-    return `<button class="wcard locked" data-w="${id}">
+    return `<button class="wcard locked" ${act}>
       <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText({ id, r: 0 })}</span>
       <span class="wf">${t('base.unlockFound')}</span></button>`;
-  return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" data-w="${id}">
+  return `<button class="wcard locked ${save.bits < def.cost ? 'poor' : ''}" ${act}>
       <span class="wn">${def.name}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText({ id, r: 0 })}</span>
       <span class="wf">${t('base.unlock', { cost: def.cost })}</span></button>`;
 };
 const weaponCard = (id: string): string => {
   const def = WEAPONS[id],
-    w = basicNow(basicW(id), save.startTier);
-  return `<div class="wcard" style="border-left:3px solid var(--line)">
+    w = basicNow(basicW(id), save.startTier),
+    off = challengeWeapon() !== null && challengeWeapon() !== id;
+  const assign = off
+    ? ''
+    : `<button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: baseUI.selSlot + 1 })}</button>`;
+  return `<div class="wcard${off ? ' locked' : ''}" style="border-left:3px solid var(--line)">
       <span class="wn">${weaponName(w)}</span><span class="wd">${def.desc}</span><span class="ws">${weaponStatText(w)}</span>
-      <span class="acts"><button class="mini-btn amber" data-w="${id}">${t('base.assign', { n: baseUI.selSlot + 1 })}</button></span></div>`;
+      <span class="acts">${assign}</span></div>`;
 };
 const stashCard = (w: WeaponItem, i: number): string => {
-  const assign = `<button class="mini-btn amber" data-stash="${i}">${t('base.stashAssign', { n: baseUI.selSlot + 1 })}</button>`;
+  const off = challengeWeapon() !== null && challengeWeapon() !== w.id;
+  const assign = off
+    ? ''
+    : `<button class="mini-btn amber" data-stash="${i}">${t('base.stashAssign', { n: baseUI.selSlot + 1 })}</button>`;
   const sell = `<button class="mini-btn" data-sell="${i}">${t('base.sell', { v: sellValue(w) })}</button>`;
-  return `<div class="wcard" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${weaponName(w)}</span><span class="ws">${weaponStatText(w)}</span>${weaponOptsHTML(w)}
+  return `<div class="wcard${off ? ' locked' : ''}" style="border-left:3px solid ${RARITY[w.r].css}"><span class="wn">${weaponName(w)}</span><span class="ws">${weaponStatText(w)}</span>${weaponOptsHTML(w)}
       <span class="acts">${assign}${sell}</span></div>`;
 };
 const pipsHTML = (max: number, level: number): string =>
@@ -428,6 +456,7 @@ const chooseStartTier = (tier: string): After => {
 // a locked weapon is bought first (nothing happens if the chips fall short); then it goes to the selected slot
 function unlockOrAssign(id: string): After {
   const def = WEAPONS[id];
+  if (challengeWeapon() !== null && challengeWeapon() !== id) return 'none';
   if (!save.unlocked[id]) {
     if (isArcade()) return 'none';
     if (save.bits < def.cost) return 'none';
@@ -440,6 +469,8 @@ function unlockOrAssign(id: string): After {
   return 'save';
 }
 const assignFromStash = (index: string): After => {
+  const w = save.stash[+index];
+  if (!w || (challengeWeapon() !== null && challengeWeapon() !== w.id)) return 'none';
   assignLoadout(takeFromStash(+index));
   return 'save';
 };

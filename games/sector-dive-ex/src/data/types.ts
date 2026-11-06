@@ -425,6 +425,7 @@ export interface Restriction {
   dmg?: number;
   hp?: number;
   bits?: number;
+  weaponDmg?: number; // 'weapon': the damage of the chosen weapon only (times the loop's number)
   ready: boolean;
   name: string; // (lang)
 }
@@ -433,11 +434,13 @@ export interface Restriction {
 export interface Challenge {
   restriction: RestrictionId;
   strength: number;
+  weapon?: string; // 'weapon': the kind chosen for the challenge
   main: {
     shortcut: number;
     startTier: number;
     bossArea: SaveRecords['bossArea'];
     suspend: SaveData['suspend'];
+    loadout: (WeaponItem | null)[]; // the main loop's sortie loadout (weapon challenges put it back on the way out)
   };
 }
 // ENDLESS: what one loop and restriction has done (the row of the base's records page)

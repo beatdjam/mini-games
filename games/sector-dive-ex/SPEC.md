@@ -370,7 +370,7 @@
   - 今のモードと同じモードを選ぶと閉じるだけ。違うモードなら今のセーブを保存してからモードを記録し、ページを読み直す（`switchMode` in src/core/save.ts）。読み直した起動ではモード選択を出さない。選んだばかりのため（`MODE_CHOSEN_KEY` を sessionStorage に置き、起動時に `takeModeChosen` で見て消す）
 - **完全消去**: 今のモードのセーブ（`ACTIVE_SAVE_KEY`）だけを消す。設定は既定値に戻し、`SETTINGS_KEY` にも書く。もう片方のモードのセーブは消さない（`#btnWipeGo` in src/screens/data.ts）
 - **セーブのコード**: 読み込むと今のモードのセーブ（`ACTIVE_SAVE_KEY`）に入り、コードの設定も `SETTINGS_KEY` に入る（`importSave` in src/core/save.ts）
-- **ENDLESS の縛りの挑戦**: `SaveData.challenge`（`Challenge | null` in src/data/types.ts）に、挑戦中の縛り・強さと、挑戦を始めたときの本線の `shortcut`・`startTier`・`records.bossArea`・`suspend` の写しを持つ。`defaultSave` は `null`、古いセーブは読み込みで `null` にそろえる（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）。詳しくは「ENDLESS の縛り」
+- **ENDLESS の縛りの挑戦**: `SaveData.challenge`（`Challenge | null` in src/data/types.ts）に、挑戦中の縛り・強さ（`weapon` の挑戦では選んだ武器の id も）と、挑戦を始めたときの本線の `shortcut`・`startTier`・`records.bossArea`・`suspend`・`loadout` の写しを持つ。`defaultSave` は `null`、古いセーブは読み込みで `null` にそろえる（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）。詳しくは「ENDLESS の縛り」
 - **公開**: `ARCADE_OPEN` が `false` の間は、公開版でモード選択の画面・拠点の「モード」ボタン・今のモードの札を出さない
 
 ### ARCADE の潜行
@@ -444,33 +444,36 @@
 
 ### ENDLESS の縛り
 
-- **何のため**: 周をクリアしたあと、縛りを1つ付けて D1 から挑めるようにする。強さはもうクリアした周から選ぶ。挑戦のあいだ本線の周の進み具合（出撃地点・ボスエリア・中断）は取っておき、やめると元に戻る。縛りと強さの組をクリアするたびに、永続のボーナスがもらえる
-- **データ**（`RESTRICTIONS` in src/data/progress.ts。仮の値。sim と遊んだ感想で合わせる）: `{ id, dmg?, hp?, bits?, ready, name }`（`Restriction` in src/data/types.ts）。`dmg`・`hp`・`bits` は強さ L でクリアしたときの1回ぶん（値 × L）、`ready` が偽の縛りは選ぶ画面に出さない
-  - `weapon`（武器1種だけ）: 与ダメ 0.02。`ready: false`（効き目は次の票）
-  - `kit`（回復を絞る）: 最大HP 0.02。`ready: false`（効き目は次の票）
+- **何のため**: 周をクリアしたあと、縛りを1つ付けて D1 から挑めるようにする。強さはもうクリアした周から選ぶ。挑戦のあいだ本線の周の進み具合（出撃地点・ボスエリア・中断・出撃装備）は取っておき、やめると元に戻る。縛りと強さの組をクリアするたびに、永続のボーナスがもらえる
+- **データ**（`RESTRICTIONS` in src/data/progress.ts。仮の値。sim と遊んだ感想で合わせる）: `{ id, dmg?, hp?, bits?, weaponDmg?, ready, name }`（`Restriction` in src/data/types.ts）。`dmg`・`hp`・`bits`・`weaponDmg` は強さ L でクリアしたときの1回ぶん（値 × L）、`ready` が偽の縛りは選ぶ画面に出さない
+  - `weapon`（武器1種だけ）: その武器の与ダメ 0.04（`weaponDmg`）。`ready: true`
+  - `kit`（回復を絞る）: 最大HP 0.02。`ready: true`
   - `pick`（チップを選べない）: 拾うビット 0.03。`ready: true`
   - `hurt`（被ダメージ2倍）: 与ダメ 0.03 と 最大HP 0.03。`ready: true`
   - 被ダメージの倍率は `RESTRICTION_TUNE.hurtMul`（2）
 - **始める・やめる**（`core/progress.ts`）
   - `challengeStrengthMax()`: 縛り `'none'` で `titan: true` の行のいちばん大きい周と `LOOP_TUNE.cap` の小さいほう（クリアした周が無ければ 0）
   - `canStartChallenge()`: ENDLESS で、挑戦中でなく、`save.suspend` が `null` で、`challengeStrengthMax() >= 1`
-  - `startChallenge(restriction, strength)`: `canStartChallenge()` が真で、`strength` が 1〜`challengeStrengthMax()` の整数、縛りが `ready` のときだけ始める。本線の `shortcut`・`startTier`・`records.bossArea`・`suspend` を `challenge.main` に写してから、`defaultSave()` の値に戻す（`startNextLoop` と同じやり方）。`loop`・`bits`・`up`・`loadout`・`stash`・`peak`・`unlocked`・記録・設定は変えない
-  - `endChallenge()`: 挑戦中で `save.suspend` が `null` のときだけ。`main` の4つを書き戻して `challenge = null`
+  - `startChallenge(restriction, strength, weapon?)`: `canStartChallenge()` が真で、`strength` が 1〜`challengeStrengthMax()` の整数、縛りが `ready` のときだけ始める。本線の `shortcut`・`startTier`・`records.bossArea`・`suspend`・`loadout` を `challenge.main` に写してから、`defaultSave()` の値に戻す（`startNextLoop` と同じやり方）。`weapon` の縛りでは、`weapon` が `WEAPON_ORDER` にあって解放済み（`save.unlocked[id]`、ピストルは常に）のときだけ始まり、`challenge.weapon` にその id を残し、出撃装備を `[basicW(weapon), null]` にする。`loop`・`bits`・`up`・`stash`・`peak`・`unlocked`・記録・設定は変えない
+  - `endChallenge()`: 挑戦中で `save.suspend` が `null` のときだけ。`weapon` の縛りでは、今の出撃装備のうち基本武器でないもの（挑戦で拾って持ち帰った武器）を `storeWeapons(challenge.main.loadout, それら)` で倉庫へ入れて（倉庫が一杯なら今の決まりどおり安いものから売る）、出撃装備を `main.loadout` に戻す。`main` の4つを書き戻して `challenge = null`
   - 挑戦中は「次の周へ」を出さない（`renderNextLoop` の条件に `!save.challenge`）
 - **強さと記録**
   - `strengthLoop()` in src/core/rules.ts は、挑戦中なら `challenge.strength`、そうでなければ `save.loop`。`scaledDepth` はこれを使う（強さ 1 は1周目と同じ式）
-  - `currentEndlessRecord` の鍵は、挑戦中が (`challenge.strength`, `challenge.restriction`)、そうでなければ (`save.loop`, `'none'`)。`loopCleared`・`loopsCleared` は今までどおり `'none'` の行だけを見る（挑戦の行は周のクリアに数えない）
+  - `restrictionKey(challenge)` in src/core/progress.ts の鍵は、`weapon` の挑戦が `weapon:<武器の id>`（例 `weapon:shotgun`）、ほかの挑戦がその id、挑戦中でなければ `'none'`。`currentEndlessRecord` は (`challenge.strength`, この鍵)、そうでなければ (`save.loop`, `'none'`) の行を使う。`loopCleared`・`loopsCleared` は今までどおり `'none'` の行だけを見る（挑戦の行は周のクリアに数えない）
 - **効き目（挑戦中だけ）**
   - `hurt`: `damagePlayer` の受けるダメージに `RESTRICTION_TUNE.hurtMul` を掛ける（src/actors/combat.ts）
   - `pick`: チップの候補を1枚だけにする（`openPerk` in src/screens/perk.ts。部屋・ボス前の補給・レベル・持ち込み・出撃の補給のどの経路でも同じ）
-- **ボーナス（ENDLESS だけ。挑戦中かどうかに関係なく効く）**: `restrictionBonus()` in src/core/rules.ts が、縛りが `'none'` でなく `titan: true` で周が `LOOP_TUNE.cap` 以下の行それぞれの、縛りの値 × 周を足して、与ダメ・最大HP・ビットの合計を返す。引数に縛りの id を渡すとその縛りぶんだけを返す。潜り始めの最大HPと与ダメージの倍率は `1 + 周のボーナス + 縛りのボーナス`（足し算。`startMaxHp`・`startDmgMul`）。拾ったビットには `(1 + ビットのボーナス)` を掛ける（`collectBit` in src/flow/update.ts）。ARCADE では掛けない
+  - `weapon`: 出撃装備は選んだ種類の基本武器1本だけ。拠点で出撃装備に付けられるのもその種類だけで、基本武器の一覧と倉庫のほかの種類は押せない見た目にし、`equipWeapon` もほかの種類は付けない。潜行中は `pickDrop` がその種類だけを返す（`setDropOnly` と同じく乱数は今までどおり振る）。部屋・ボス・ロックダウン・武器の箱のドロップはこれで決まる
+  - `kit`: 出撃時の救急箱は `TUNE.kitStart`（1）だけ（レベルの `up.kit` は足さない）。撃破のドロップ・部屋の制圧の報酬・補給後のロックダウンの報酬では救急箱を出さない（部屋のビットとロックダウンの武器はそのまま）。ボスの報酬の救急箱は今までどおり出す。強化ターミナルには救急箱のレベルを並べない。吸収コードと広間に戻ったときの全回復は触らない
+- **ボーナス（ENDLESS だけ。挑戦中かどうかに関係なく効く）**: `restrictionBonus()` in src/core/rules.ts が、縛りが `'none'` でなく `titan: true` で周が `LOOP_TUNE.cap` 以下の行それぞれの、縛りの値 × 周を足して、与ダメ・最大HP・ビットに加えて武器ごとの与ダメ（`weaponDmg: Record<武器の id, number>`）を返す。`weapon:<id>` の行の `weaponDmg` × 周はその武器に足す。`shotDamage`（src/actors/weapons.ts）が `(1 + その武器のボーナス)` を掛ける（`weaponStats` も `shotDamage` を通るので表示と撃った弾が同じ）。全体の与ダメ（`startBonus('dmg')`）には入れない。引数に縛りの id を渡すとその縛りぶんだけを返す。潜り始めの最大HPと与ダメージの倍率は `1 + 周のボーナス + 縛りのボーナス`（足し算。`startMaxHp`・`startDmgMul`）。拾ったビットには `(1 + ビットのボーナス)` を掛ける（`collectBit` in src/flow/update.ts）。ARCADE では掛けない
 - **拠点（ENDLESS だけ）**: `#sideCards` の「次の周へ」の後ろ、記録のカードの前に `pagecard` のボタン `#btnChallenge` を出す（`renderChallenge` in src/screens/base.ts）
   - 挑戦中でなく `canStartChallenge()` が真: 見出し「縛りで挑む」、小さい字「縛りを1つ付けて D1 から。本線の周は取っておく」。押すと `#dlgChallenge` を開く
   - 挑戦中: 見出し「挑戦をやめる」、小さい字「{縛り}・{L}周目の強さ。本線の周に戻る」。1回目で見出しが「もう一度押すと本線に戻る」に変わり、2回目で `endChallenge`。`save.suspend` があるときは押せず、小さい字は「中断中の潜行があるとやめられない」
   - それ以外は隠す
-  - 縛りを選ぶ画面（`#dlgChallenge`、src/screens/challenge.ts）: `#dlgMode` と同じ作りのダイアログ。縛りのボタン（`ready` のものだけ。名前とボーナスの中身）、強さのボタン（1〜`challengeStrengthMax()`、「{L}周目の強さ」、初めは 1）。「挑む」で `startChallenge` を呼んで保存し、閉じて拠点を描き直す。「閉じる」と Esc は何もせず閉じる
-  - モードの札（`#modeTag`）: 挑戦中は「ENDLESS · 縛り: {縛り}（{L}周目の強さ）」（英語は `ENDLESS · {縛り} (LOOP {L})`）
-- **実績の表（記録のページ）**: 今の行の表のあとに見出し「縛りの実績」で、縦に `RESTRICTIONS` の4つ全部（`ready: false` も出す）、横に強さ 1〜`LOOP_TUNE.cap`。その組の行が `titan: true` なら「✓」、そうでなければ「—」。いちばん右にその縛りでもらったボーナスの合計（例「与ダメ +6%」。まだなら「—」）
+  - 縛りを選ぶ画面（`#dlgChallenge`、src/screens/challenge.ts）: `#dlgMode` と同じ作りのダイアログ。縛りのボタン（`ready` のものだけ。名前とボーナスの中身）、強さのボタン（1〜`challengeStrengthMax()`、「{L}周目の強さ」、初めは 1）。「武器1種だけ」を選ぶとその下に武器のボタン（解放済みの種類だけ、`WEAPON_ORDER` の順、初めは選んだ縛りの1つ目）を出し、1つ選ぶ。ボーナスの書き方は「その武器の与ダメ +4% × 周」。「挑む」で `startChallenge` を呼んで保存し、閉じて拠点を描き直す。「閉じる」と Esc は何もせず閉じる
+  - モードの札（`#modeTag`）: 挑戦中は「ENDLESS · 縛り: {縛り}（{L}周目の強さ）」。`weapon` の挑戦中は「ENDLESS · 縛り: 武器1種だけ（{武器名}）（{L}周目の強さ）」（英語は `ENDLESS · {縛り} ({武器名}) (LOOP {L})`）
+- **記録の表（記録のページ）**: 周と縛りの行は、`weapon:<id>` の行を「{L}周目・武器1種だけ（{武器名}）」と書く
+- **実績の表（記録のページ）**: 今の行の表のあとに見出し「縛りの実績」で、縦に `RESTRICTIONS` の4つ全部（`ready: false` も出す）、横に強さ 1〜`LOOP_TUNE.cap`。その組の行が `titan: true` なら「✓」、そうでなければ「—」。いちばん右にその縛りでもらったボーナスの合計（例「与ダメ +6%」。まだなら「—」）。「武器1種だけ」は武器ごと（`WEAPON_ORDER` の5種）の行に分け、行の名前は「武器1種だけ（{武器名}）」、ボーナスは「{武器名}の与ダメ +8%」の形にする。ほかの3つの縛りは今までどおり1行ずつ
 
 ### 強化と補給
 

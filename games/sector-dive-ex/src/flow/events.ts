@@ -18,6 +18,7 @@ import { bossAreaOn } from '../core/bossArea.ts';
 import { putBossGates, putRoomGates, spawnBoss } from '../actors/bosses/common.ts';
 import { rollWeapon } from '../actors/weapons.ts';
 import { progressOf } from '../core/rules.ts';
+import { usingRestriction } from '../core/progress.ts';
 import { refreshRunText } from '../screens/pause.ts';
 import { openPerk } from '../screens/perk.ts';
 import { crossToFloor, pickEnemyType, roomEnemyCount } from './run.ts';
@@ -184,7 +185,9 @@ function endLockdown(room: number) {
   // across the room's middle. After the pre-boss supply the building's rooms drop no chips: kits in their place
   const [x, z] = roomSpot(level.rooms[room]!),
     chips = !run.bld!.supplied;
-  addPickup(chips ? 'chip' : 'kit', x - LOCKDOWN_REWARD_GAP / 2, z, chips ? { rare: true } : undefined);
+  // after the supply the chip's place has a med kit, or nothing in a 'kit' challenge
+  if (chips) addPickup('chip', x - LOCKDOWN_REWARD_GAP / 2, z, { rare: true });
+  else if (!usingRestriction('kit')) addPickup('kit', x - LOCKDOWN_REWARD_GAP / 2, z);
   addPickup('weapon', x + LOCKDOWN_REWARD_GAP / 2, z, {
     w: rollWeapon(progressOf(run.stage), LOCKDOWN_WEAPON_MIN_RARITY),
   });
