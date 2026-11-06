@@ -25,6 +25,7 @@ import {
   earnBits,
   recordBest,
   recordBestTime,
+  recordEndlessRun,
   recordRunStart,
   resetArcadeProgress,
   restoreContinue,
@@ -654,6 +655,8 @@ export function endRun(kind: RunEnd) {
   // an ARCADE dive carries nothing out: what it made is dropped with the reset below
   if (!arcade) earnBits(kept);
   recordBest(run.stage);
+  // ENDLESS: the dive goes into this loop and restriction's record (ARCADE has none of these)
+  if (!arcade) recordEndlessRun(run.stage, run.time ?? 0, run.kills, kind === 'dead');
   const found = player.weapons.concat(player.bag).filter((w): w is Weapon => !!w && !w.basic);
   const foundText = found.length ? found.map(weaponText).join(t('common.sep')) : t('common.none');
   let sold = 0,

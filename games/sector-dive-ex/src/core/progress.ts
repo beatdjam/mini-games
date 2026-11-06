@@ -1,8 +1,8 @@
-import type { BossKind, ContinueFrom, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
+import type { BossKind, ContinueFrom, EndlessRecord, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
 import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
-import { basicW, defaultSave, modeTune, save } from './save.ts';
+import { basicW, defaultSave, modeTune, newEndlessRecord, save } from './save.ts';
 import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
 import { sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
@@ -78,6 +78,35 @@ export const recordRunStart = () => {
 export const recordBest = (stage: number) => {
   save.best = Math.max(save.best, stage + 1);
 };
+// ---- ENDLESS records ----
+// The row the dives of now go into: loop 1 with no restriction. When loops and restrictions come, only this function
+// changes: the writers below and the base's records page ask it for the row
+const LOOP = 1,
+  RESTRICTION = 'none';
+export function currentEndlessRecord(): EndlessRecord {
+  const rows = save.records.endless,
+    found = rows.find(r => r.loop === LOOP && r.restriction === RESTRICTION);
+  if (found) return found;
+  const made = newEndlessRecord(false, 0, LOOP, RESTRICTION);
+  rows.push(made);
+  return made;
+}
+// a dive that ended adds its time and kills to the row, and its best to the row's best. `dead` only for a death (a
+// give-up counts as a dive, not a death)
+export function recordEndlessRun(stage: number, sec: number, kills: number, dead: boolean) {
+  const row = currentEndlessRecord();
+  row.best = Math.max(row.best, stage + 1);
+  row.sec += sec;
+  row.kills += kills;
+  row.dives++;
+  if (dead) row.deaths++;
+}
+// TITAN's first clear in this row: the row's dives so far plus this dive's clock up to now. Never overwritten; a partial
+// row keeps no time
+export function recordEndlessTitan(sec: number) {
+  const row = currentEndlessRecord();
+  if (row.titanSec === null && !row.partial) row.titanSec = row.sec + sec;
+}
 // extraction: the equipped weapons are the next loadout, the bag goes to the stash (the cheapest is sold when it is
 // full). Returns the bits from the weapons sold
 export function storeWeapons(equipped: (WeaponItem | null)[], bag: WeaponItem[]): number {

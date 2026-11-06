@@ -1,4 +1,4 @@
-import type { GameMode, SaveData, WeaponItem } from '../data/types.ts';
+import type { EndlessRecord, GameMode, SaveData, WeaponItem } from '../data/types.ts';
 import {
   ARCADE_OPEN,
   DEPTH_SCALE,
@@ -56,6 +56,18 @@ export const BASE_TAB_KEY = 'sdx-base-tab'; // the base tab last opened (a prefe
 // DEPTH_SCALE depths, so the depth fields are halved)
 export const SAVE_VERSION = 2;
 export const basicW = (id: string): WeaponItem => ({ id, r: 0, basic: true });
+// one line of ENDLESS's records: loop 1 with no restriction until loops and restrictions come
+export const newEndlessRecord = (partial = false, best = 0, loop = 1, restriction = 'none'): EndlessRecord => ({
+  loop,
+  restriction,
+  best,
+  sec: 0,
+  titanSec: null,
+  kills: 0,
+  dives: 0,
+  deaths: 0,
+  partial,
+});
 export const defaultSave = (): SaveData => ({
   v: SAVE_VERSION,
   bits: 0,
@@ -70,7 +82,14 @@ export const defaultSave = (): SaveData => ({
   runs: 0,
   bossKills: 0,
   bossSeen: {},
-  records: { cleared: false, bossArea: null, bestTime: null, bestTimeContinued: null, bestTimeContinuedCount: null },
+  records: {
+    cleared: false,
+    bossArea: null,
+    bestTime: null,
+    bestTimeContinued: null,
+    bestTimeContinuedCount: null,
+    endless: [newEndlessRecord()],
+  },
   // the marks an older version of the game reads. Their values are fixed; they are not used to tell this save's version
   stageV: 2,
   levelV: 1,
@@ -138,6 +157,7 @@ function migrateTo1(out: SaveData, raw: Record<string, any>) {
       bestTime: null,
       bestTimeContinued: null,
       bestTimeContinuedCount: null,
+      endless: [],
     };
 }
 // the first milestone at or above `tier` (the boss area sits on one)
@@ -192,6 +212,7 @@ export function loadSaveFrom(key: string): SaveData {
       bestTime: null,
       bestTimeContinued: null,
       bestTimeContinuedCount: null,
+      endless: [],
     };
   else {
     if (out.records.bestTime === undefined) out.records.bestTime = null;
@@ -208,6 +229,12 @@ export function loadSaveFrom(key: string): SaveData {
   if (!Array.isArray(out.stash)) out.stash = [];
   const v = typeof s.v === 'number' ? s.v : 0;
   for (const [to, migrate] of MIGRATIONS) if (to > v) migrate(out, s);
+  // ENDLESS's records came in without a new save version: a save that was played before them gets one partial row, whose
+  // best is the save's (after the conversions above). A save with no dive yet starts clean
+  if (!s.records || !Array.isArray(s.records.endless)) {
+    const partial = out.runs > 0;
+    out.records.endless = [newEndlessRecord(partial, partial ? out.best : 0)];
+  }
   out.v = Math.max(v, SAVE_VERSION);
   return out;
 }

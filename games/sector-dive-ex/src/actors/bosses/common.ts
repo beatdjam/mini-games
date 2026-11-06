@@ -20,6 +20,7 @@ import {
   recordBossKill,
   recordBossRoomBeaten,
   recordBossSeen,
+  recordEndlessTitan,
   recordPeak,
   recordTitanClear,
 } from '../../core/progress.ts';
@@ -420,6 +421,7 @@ export function bossDown(e: Boss) {
     }
     const first = !save.records.cleared;
     recordTitanClear();
+    recordEndlessTitan(run.time ?? 0);
     onBossDown(); // (the door stays shut in the boss area's one-floor room)
     putRoomGates(e.cx, e.cz);
     hideBossBar();

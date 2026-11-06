@@ -586,7 +586,7 @@ body.hud2 .pagecard small {
 body.hud2 :is(.pagecard, .levelcard):hover {
   border-color: var(--paint2);
 }
-body.hud2 :is([data-pane='up'], [data-pane='practice'], [data-pane='settings']) {
+body.hud2 :is([data-pane='records'], [data-pane='up'], [data-pane='practice'], [data-pane='settings']) {
   grid-column: 1 / -1;
   grid-row: 2 / 4;
 }
@@ -628,7 +628,8 @@ body.hud2 .levelcard.ready .lc-go {
   background: var(--safety);
   color: #151515;
 }
-/* the tabs: three pictures at the top right (home, practice, settings); the level has no tab, it is on the home page */
+/* the tabs: three pictures at the top right (home, practice, settings); the level has no tab, it is on the home page
+   (nor have the records: their card is on the home page too) */
 body.hud2 .tabs {
   position: absolute;
   top: 4px;
@@ -698,6 +699,42 @@ body.hud2 #scrBase .pips i {
 }
 body.hud2 #scrBase .pips i.on {
   background: var(--paint);
+}
+/* ENDLESS's records: a table on the black plate, one row for each loop and restriction */
+body.hud2 #scrBase .rectable {
+  width: 100%;
+  border-collapse: collapse;
+  background: #000;
+  border: 1px solid #3d4143;
+}
+body.hud2 #scrBase .rectable :is(th, td) {
+  padding: 10px 12px;
+  border-bottom: 1px solid #2b2e2f;
+  text-align: left;
+  white-space: nowrap;
+}
+body.hud2 #scrBase .rectable thead th {
+  color: var(--paint2);
+  font-family: var(--sten);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+body.hud2 #scrBase .rectable tbody th {
+  color: var(--paint);
+  font-weight: 500;
+}
+body.hud2 #scrBase .rectable td {
+  color: var(--paint);
+  font-family: var(--disp);
+  font-variant-numeric: tabular-nums;
+}
+body.hud2 #scrBase .rectable .rnote td {
+  padding-top: 0;
+  color: var(--paint2);
+  font-family: var(--jp);
+  font-size: 11px;
+  white-space: normal;
 }
 body.hud2 #scrBase .buy {
   border-color: var(--safety);

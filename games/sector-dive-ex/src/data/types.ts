@@ -416,6 +416,19 @@ export interface ContinueFrom {
   time: number; // the dive's clock when it died: the CONTINUE goes on from there
   continues: number; // CONTINUEs used in the dive before this death
 }
+// ENDLESS: what one loop and restriction has done (the row of the base's records page). The loops and restrictions are
+// not in the game yet: everything goes into loop 1 with no restriction
+export interface EndlessRecord {
+  loop: number; // the loop, from 1
+  restriction: string; // the restriction's id ('none': no restriction)
+  best: number; // the deepest stage reached (as save.best: stage + 1)
+  sec: number; // the dives' time in seconds: run.time added up as each dive ends
+  titanSec: number | null; // seconds (this row's sec plus the dive's time) when TITAN was first beaten in the row; null: not yet
+  kills: number; // the dives' kills added up as each dive ends
+  dives: number; // dives that ended in this row (extracted, died or gave up)
+  deaths: number; // dives that died in this row (a give-up is not a death)
+  partial: boolean; // the row was made from a save played before the records began
+}
 // what the save keeps of the bosses: whether the last boss is down, and how far the boss area has got
 export interface SaveRecords {
   cleared: boolean; // the last boss (TITAN) is down
@@ -423,6 +436,7 @@ export interface SaveRecords {
   bestTime: number | null; // ARCADE: the fastest clear in seconds, with no CONTINUE (null: not cleared yet)
   bestTimeContinued: number | null; // ARCADE: the fastest clear in seconds after a CONTINUE (null: none yet)
   bestTimeContinuedCount: number | null; // ARCADE: the CONTINUEs that fastest continued clear used (null: none yet)
+  endless: EndlessRecord[]; // ENDLESS: one row for each loop and restriction (only loop 1 and 'none' for now)
 }
 export interface SaveData {
   v: number; // the version of the save's shape (SAVE_VERSION in core/save.ts; converted from older versions when read)

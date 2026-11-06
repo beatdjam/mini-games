@@ -467,12 +467,13 @@ body.booting #app{visibility:hidden}
       </div>
       <div class="side" id="sideCards">
         <button id="levelCard" class="levelcard" type="button" data-go="up"><span class="lc-lv" id="lcLv"></span><span class="lc-bits" id="lcBits"></span><span class="lc-next" id="lcNext"></span><span class="lc-go" id="lcGo" data-i18n="base.levelUp"></span></button>
+        <button id="recordsCard" class="pagecard" type="button" data-go="records"><b data-i18n="base.records"></b><small data-i18n="base.recordsCard"></small></button>
         <button class="pagecard" type="button" data-go="practice"><b data-i18n="base.practice"></b><small data-i18n="base.practiceCard"></small></button>
         <button class="pagecard" type="button" data-go="settings"><b data-i18n="base.settings"></b><small data-i18n="base.settingsCard"></small></button>
         <button id="btnMode" class="pagecard" type="button" hidden><b data-i18n="base.mode"></b></button>
       </div>
       <nav class="tabs" role="tablist" data-i18n-aria="base.menu">
-        <button role="tab" data-tab="sortie" data-i18n="tab.sortie"></button><button role="tab" data-tab="up" data-i18n="tab.up"></button><button role="tab" data-tab="practice" data-i18n="tab.practice"></button><button role="tab" data-tab="settings" data-i18n="tab.settings"></button>
+        <button role="tab" data-tab="sortie" data-i18n="tab.sortie"></button><button role="tab" data-tab="records" data-i18n="tab.records"></button><button role="tab" data-tab="up" data-i18n="tab.up"></button><button role="tab" data-tab="practice" data-i18n="tab.practice"></button><button role="tab" data-tab="settings" data-i18n="tab.settings"></button>
       </nav>
       <div class="pane" data-pane="sortie" role="tabpanel">
         <div class="sec">
@@ -486,6 +487,12 @@ body.booting #app{visibility:hidden}
           <div class="wgrid" id="wgrid"></div>
           <h3 id="stashHead"><span data-i18n="base.stash"></span><small id="stashCount"></small></h3>
           <div class="wgrid" id="stash"></div>
+        </div>
+      </div>
+      <div class="pane" data-pane="records" role="tabpanel" hidden>
+        <div class="sec">
+          <h2><span data-i18n="base.records"></span><small data-i18n="base.recordsNote"></small></h2>
+          <div id="endlessRecords"></div>
         </div>
       </div>
       <div class="pane" data-pane="up" role="tabpanel" hidden>
