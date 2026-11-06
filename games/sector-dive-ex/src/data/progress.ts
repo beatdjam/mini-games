@@ -171,6 +171,8 @@ export const RESTRICTIONS: Restriction[] = withLang<Restriction, 'name'>(
     { id: 'kit', hp: 0.02, ready: true },
     { id: 'pick', bits: 0.03, ready: true },
     { id: 'hurt', dmg: 0.03, hp: 0.03, ready: true },
+    // the last stand: a death ends the challenge (flow/run.ts endRun), so its bonus is the thickest
+    { id: 'fail', dmg: 0.05, hp: 0.05, ready: true },
   ],
   { name: '' },
 );

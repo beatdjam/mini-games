@@ -337,6 +337,7 @@ LANG.en = {
     'res.sold': 'Storage overflow sold',
     'res.shortcut': 'Shortcut',
     'res.shortcutClosed': 'Back to the milestone at {tier}',
+    'res.challengeFailed': 'The challenge failed: back to the main loop',
     'res.chips': 'Chips this dive (not kept, {n} in all): {list}',
     'res.chipsOrder': 'Show the order taken',
     'res.practiceDone': 'Practice over',
@@ -597,6 +598,7 @@ LANG.en = {
       kit: { name: 'Few med kits' },
       pick: { name: 'No chip choice' },
       hurt: { name: 'Double damage taken' },
+      fail: { name: 'One death ends it' },
     },
     layout: {
       fire: { name: 'Fire' },

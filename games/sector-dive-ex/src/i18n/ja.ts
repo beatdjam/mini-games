@@ -334,6 +334,7 @@ LANG.ja = {
     'res.sold': '倉庫あふれ分を換金',
     'res.shortcut': 'ショートカット',
     'res.shortcutClosed': '節目の {tier} まで戻った',
+    'res.challengeFailed': '挑戦は失敗。本線の周に戻った',
     'res.chips': 'この潜行のチップ（持ち帰り不可・計{n}枚）: {list}',
     'res.chipsOrder': '取得順を見る',
     'res.practiceDone': '練習終了',
@@ -588,6 +589,7 @@ LANG.ja = {
       kit: { name: '回復を絞る' },
       pick: { name: 'チップを選べない' },
       hurt: { name: '被ダメージ2倍' },
+      fail: { name: '倒れたら失敗' },
     },
     layout: {
       fire: { name: '射撃' },
