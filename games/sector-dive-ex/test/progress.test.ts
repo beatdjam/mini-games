@@ -117,6 +117,23 @@ test('checkpoint: saved at stage start, deleted when the run ends', () => {
   startRun();
   tick(5); // leave a run going for the next check
 });
+test('checkpoint: a deep copy, so progress after the stage start stays out of it', () => {
+  startRun();
+  tick(5);
+  if (!save.suspend || !run.bld) throw new Error('checkpoint at stage start');
+  const floor = run.bld.floor,
+    perks0 = save.suspend.run.perks.length,
+    cleared0 = JSON.stringify(save.suspend.run.bld!.cleared);
+  // progress made in the same stage, after the checkpoint was taken
+  run.perks.push('split');
+  run.bld.cleared[floor].push(999);
+  persist();
+  if (save.suspend.run.perks.length !== perks0) throw new Error('a chip taken after the checkpoint went in');
+  if (JSON.stringify(save.suspend.run.bld!.cleared) !== cleared0)
+    throw new Error('a room cleared after the checkpoint went in');
+  resumeRun();
+  if (run.perks.length !== perks0) throw new Error('resume kept a chip taken after the checkpoint');
+});
 test('suspend -> resume -> suspend -> discard', () => {
   // the lowest floor of the building (stage 2 of the depth), reached by one of its stairs or lifts
   run.route = [0];
