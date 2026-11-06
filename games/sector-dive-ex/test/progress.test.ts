@@ -317,6 +317,40 @@ test("level: a milestone's terminal opens on stepping onto it, sells the bag's w
   if (sold.join() !== [true, true, true].join()) throw new Error('terminal sell ' + sold);
   if (!stays) throw new Error('terminal opened again without stepping off');
 });
+test("level: a starting chip bought at a terminal is picked without the terminal's parts, then the terminal is back", () => {
+  const keepUp = { ...save.up },
+    keepBits = save.bits;
+  goBase();
+  startRun();
+  tick(2);
+  run.bits = 1e9;
+  player.bag[0] = newWeapon('smg', 0);
+  openLevelUp();
+  document.querySelector<HTMLButtonElement>('#perkList [data-level="chip"]')!.click();
+  const picking = [
+    stateIs('perk'),
+    el('#scrPerk').dataset.mode === '',
+    el('#sellList').hidden,
+    el('#sellHead').hidden,
+    el('#perkDone').hidden,
+    el('#levelNote').hidden,
+    !!document.querySelector('#perkList [data-perk]'),
+  ];
+  document.querySelector<HTMLButtonElement>('#perkList [data-perk]')!.click();
+  const back = [
+    stateIs('perk'),
+    el('#scrPerk').dataset.mode === 'level',
+    !el('#sellList').hidden,
+    !el('#perkDone').hidden,
+  ];
+  el('#perkDone').click();
+  endRun('abandon');
+  Object.assign(save.up, keepUp);
+  save.bits = keepBits;
+  persist();
+  if (!picking.every(Boolean)) throw new Error('chip pick at the terminal ' + picking);
+  if (!back.every(Boolean)) throw new Error('back at the terminal ' + back);
+});
 test('level: a save from before it has the reboot folded into its points', () => {
   const old = {
     ...defaultSave(),
