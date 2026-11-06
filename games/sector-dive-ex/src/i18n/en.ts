@@ -106,7 +106,8 @@ LANG.en = {
     'base.recordsRestriction': 'Restriction',
     'base.recordsBonus': 'Bonus',
     'base.nextLoop': 'Next loop',
-    'base.nextLoopNote': 'On to loop {n}. Start depths and the boss area reset. Each loop cleared adds damage and max HP.',
+    'base.nextLoopNote':
+      'On to loop {n}. Start depths and the boss area reset. Each loop cleared adds damage and max HP.',
     'base.nextLoopGo': 'Press again for loop {n}',
     'base.challengeStart': 'Take on a restriction',
     'base.challengeStartNote': 'One restriction from D1. Your main loop is set aside',
@@ -138,7 +139,8 @@ LANG.en = {
     'base.loadout': 'Loadout',
     'base.loadoutNote': 'Pick a slot, then assign a basic weapon or one from storage',
     'base.basic': 'Basic weapons',
-    'base.basicNote': 'Take them as often as you like; never lost. Issued with a + value to suit the depth you start at.',
+    'base.basicNote':
+      'Take them as often as you like; never lost. Issued with a + value to suit the depth you start at.',
     'base.stash': 'Storage',
     'base.stashCount': '{n} / {max}  Weapons you brought back from a dive',
     'base.stashEmpty': 'Empty. Extract with weapons you found and they end up here.',
