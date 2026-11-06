@@ -1,4 +1,4 @@
-import type { BossKind, WeaponItem } from '../data/types.ts';
+import type { BossKind, EndlessRecord, WeaponItem } from '../data/types.ts';
 import { el, isTouch } from '@engine/core/util.ts';
 import { prefGet, prefSet } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
@@ -101,6 +101,24 @@ const levelCard = el('#levelCard');
 const levelCardNodes = [...levelCard.childNodes];
 const bestTimeText = (sec: number | null): string => (sec === null ? t('base.notCleared') : clockText(sec));
 const clockText = (sec: number): string => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+// ENDLESS's records: one row for each loop and restriction (only loop 1 with no restriction for now)
+const restrictionText = (id: string): string => (id === 'none' ? t('base.recordsNone') : id);
+const endlessRecordRow = (r: EndlessRecord): string => {
+  const note = r.partial ? `<tr class="rnote"><td colspan="6">${t('base.recordsPartial')}</td></tr>` : '';
+  return (
+    `<tr><th scope="row">${t('base.recordsLoop', { loop: r.loop, restriction: restrictionText(r.restriction) })}</th>` +
+    `<td>${r.best ? stageLabel(r.best - 1) : '—'}</td>` +
+    `<td>${r.titanSec === null ? '—' : clockText(Math.round(r.titanSec))}</td>` +
+    `<td>${r.kills}</td><td>${r.dives}</td><td>${r.deaths}</td></tr>${note}`
+  );
+};
+const endlessRecordsHTML = (): string => {
+  const heads = ['recordsLoopHead', 'recordsBest', 'recordsTitan', 'recordsKills', 'recordsDives', 'recordsDeaths'];
+  return (
+    `<table class="rectable"><thead><tr>${heads.map(k => `<th scope="col">${t(`base.${k}`)}</th>`).join('')}</tr></thead>` +
+    `<tbody>${save.records.endless.map(endlessRecordRow).join('')}</tbody></table>`
+  );
+};
 
 // ---- the pieces of the base screen ----
 const tierButton = (n: number): string => {
@@ -210,7 +228,9 @@ export function renderBase() {
   el('#stashHead').hidden = arcade;
   el('#stash').hidden = arcade;
   el('.tabs [data-tab="up"]').hidden = arcade;
-  if (arcade && baseUI.tab === 'up') showTab('sortie');
+  el('.tabs [data-tab="records"]').hidden = arcade;
+  el('#recordsCard').hidden = arcade;
+  if (arcade && (baseUI.tab === 'up' || baseUI.tab === 'records')) showTab('sortie');
   el('#sBits').textContent = String(save.bits);
   el('#sBest').textContent = save.best ? stageLabel(save.best - 1) : '—';
   el('#sRuns').textContent = String(save.runs);
@@ -275,6 +295,7 @@ export function renderBase() {
     .map(bossButton)
     .join('');
   renderSettings();
+  el('#endlessRecords').innerHTML = arcade ? '' : endlessRecordsHTML();
   el('#help').innerHTML = isTouch ? t('base.helpTouch') : t('base.helpDesk', { pause: keyText('pause', 0) });
 }
 
