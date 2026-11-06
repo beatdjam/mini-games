@@ -253,6 +253,35 @@ test('share: shown after a real run, hidden after practice; text fits X', () => 
     if (!ok) throw new Error('pause screen kept the old language');
   }
 });
+test('share: an ARCADE clear shows its time and CONTINUEs, not a lost signal', () => {
+  goBase();
+  startRun();
+  tick(5);
+  endRun('extract');
+  const base = shareData!,
+    clear = { ...base, kind: 'clear' as const, sec: 49 * 60 + 18, continues: 0 },
+    continued = { ...clear, continues: 2 },
+    dead = { ...base, kind: 'dead' as const },
+    keepLang = lang;
+  try {
+    for (const code of ['ja', 'en'] as const) {
+      changeLang(code);
+      const time = t('res.timeV', { m: 49, s: 18 }),
+        lost = code === 'ja' ? '信号途絶' : 'signal lost',
+        s = shareText(clear),
+        c = shareText(continued),
+        d = shareText(dead),
+        continues = code === 'ja' ? 'コンティニュー2回' : '2 continues';
+      if (!s.includes(time) || s.includes(lost)) throw new Error('clear share ' + s);
+      if (!c.includes(time) || !c.includes(continues) || c.split(continues).length !== 2)
+        throw new Error('continued clear share ' + c);
+      if (!d.includes(lost) || d.includes(time)) throw new Error('dead share changed ' + d);
+    }
+  } finally {
+    changeLang(keepLang);
+  }
+  goBase();
+});
 test('analytics: a dive, a result, a share and a practice send their events', () => {
   TRACK_LOG.length = 0;
   goBase();

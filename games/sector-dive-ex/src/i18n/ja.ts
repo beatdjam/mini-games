@@ -319,9 +319,14 @@ LANG.ja = {
     'share.help': 'X の投稿画面に、コピーした画像を貼り付けるか、保存した画像を添付して。',
     'share.copied': '画像をコピーした。X の投稿画面に貼り付けて',
     'share.copyFailed': 'コピーできなかった。代わりに「画像を保存」を使って',
-    // bosses: each kind once with a count (bossSummary), nBoss: how many in all
-    'share.text': ({ where, biome, kind, bosses, nBoss }) =>
-      `SECTOR/DIVE EX ${where} ${biome}${kind === 'extract' ? 'から帰還した' : kind === 'abandon' ? 'で潜行を放棄した' : 'で信号途絶'}。${nBoss > 1 ? `ボス${nBoss}体を撃破（${bosses}）。` : nBoss ? `${bosses}を撃破。` : ''}#SectorDiveEX`,
+    // bosses: each kind once with a count (bossSummary), nBoss: how many in all; time: the dive's time, continues: its CONTINUEs
+    'share.text': ({ where, biome, kind, bosses, nBoss, time, continues }) => {
+      const beaten = nBoss > 1 ? `ボス${nBoss}体を撃破（${bosses}）。` : nBoss ? `${bosses}を撃破。` : '';
+      return kind === 'clear'
+        ? `SECTOR/DIVE EX ARCADE を${time}でクリア${continues ? `（コンティニュー${continues}回）` : ''}。${beaten}#SectorDiveEX`
+        : `SECTOR/DIVE EX ${where} ${biome}${kind === 'extract' ? 'から帰還した' : kind === 'abandon' ? 'で潜行を放棄した' : 'で信号途絶'}。${beaten}#SectorDiveEX`;
+    },
+    'share.continuesV': '（コンティニュー{n}回）',
     'share.kills': '撃破',
     'share.killsV': '{n} 体',
     'share.bosses': 'ボス',
