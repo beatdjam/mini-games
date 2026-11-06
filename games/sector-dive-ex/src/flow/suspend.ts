@@ -62,7 +62,8 @@ function makeSnapshot() {
   // a run with no boss down yet may have no list: the checkpoint always carries one
   if (!r.bosses) r.bosses = [];
   return {
-    run: r,
+    // a deep copy, so progress after this stage's start stays out of the checkpoint
+    run: JSON.parse(JSON.stringify(r)),
     P: JSON.parse(JSON.stringify(p)),
   };
 }
