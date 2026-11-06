@@ -1,4 +1,4 @@
-import type { RunState, Snapshot } from '../data/types.ts';
+import type { ContinueFrom, RunState, Snapshot } from '../data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
@@ -7,7 +7,7 @@ import { track } from '@engine/core/analytics.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
 import { basicW, isArcade, persist, save } from '../core/save.ts';
-import { setSuspend, settleArcadeBossArea, settleBossArea } from '../core/progress.ts';
+import { setContinueFrom, setSuspend, settleArcadeBossArea, settleBossArea } from '../core/progress.ts';
 import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { building, packSeen } from '../world/building.ts';
@@ -46,6 +46,10 @@ const RUN_SNAP_SKIP: RunSnapSkipped[] = [
   'cleared', // set when a practice's boss goes down: practice is never checkpointed
 ];
 let discardArm = false; // the discard button shows its confirmation
+// ARCADE: the save's values that resetArcadeProgress drops, kept as they were at the last checkpoint (the stage's head)
+type ArcadeHead = Omit<ContinueFrom, 'suspend' | 'time' | 'continues'>;
+let arcadeHead: ArcadeHead | null = null;
+const deepCopy = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 // Checkpoint: the run is saved every time a stage (floor or boss room) starts, and deleted when the run ends.
 // If the page is killed (e.g. a phone closing a backgrounded browser) or the player suspends by hand,
 // the next launch offers RESUME from the start of that stage, with the state it had when the stage began.
@@ -70,7 +74,28 @@ function makeSnapshot() {
 export function checkpoint() {
   if (!run || !RUN_KINDS[run.kind].save || !player) return;
   setSuspend(makeSnapshot());
+  // ARCADE: keep what the save holds now too: a death drops it, and the CONTINUE puts it back
+  if (isArcade()) {
+    arcadeHead = {
+      bits: save.bits,
+      up: deepCopy(save.up),
+      loadout: deepCopy(save.loadout),
+      stash: deepCopy(save.stash),
+      shortcut: save.shortcut,
+      startTier: save.startTier,
+      peak: save.peak,
+      bossArea: deepCopy(save.records.bossArea),
+    };
+  }
   persist();
+}
+// ARCADE: the dive died. Keep the stage's head (the last checkpoint) and the save as it was then for the result screen's
+// CONTINUE; the run's clock and the CONTINUEs used so far go with it. Returns whether there is a head to go back to.
+export function saveContinueFrom(time: number, continues: number): boolean {
+  const sn = save.suspend;
+  if (!arcadeHead || !sn) return false;
+  setContinueFrom({ suspend: deepCopy(sn), ...arcadeHead, time, continues });
+  return true;
 }
 export function suspendRun() {
   // the checkpoint from the start of this stage is already saved; progress since then is dropped

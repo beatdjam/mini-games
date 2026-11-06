@@ -27,7 +27,7 @@ import { setState, state } from '../src/flow/state.ts';
 import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
 import { checkpoint, resumeRun, suspendRun } from '../src/flow/suspend.ts';
 import { arcadeAreaHpMul, arcadeBossHpMul, bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
-import { bootGame, tick } from './helpers.ts';
+import { bootGame, goToFloor, tick } from './helpers.ts';
 
 beforeAll(async () => {
   devSetArcade(true);
@@ -49,7 +49,10 @@ afterEach(() => {
   save.records.bossArea = base.records.bossArea;
   save.records.cleared = base.records.cleared;
   save.records.bestTime = base.records.bestTime;
+  save.records.bestTimeContinued = base.records.bestTimeContinued;
+  save.records.bestTimeContinuedCount = base.records.bestTimeContinuedCount;
   save.suspend = null;
+  save.continueFrom = null;
 });
 
 // a dive already in the boss area, in TITAN's room, with the boss down: the run ends as the game ends it
@@ -257,6 +260,79 @@ test('a lost dive keeps no progress and no shortcut', () => {
   const rows = el('#resList').textContent!;
   expect(rows, 'no bits row').not.toContain(t('res.bits'));
   expect(rows, 'no shortcut row').not.toContain(t('res.shortcut'));
+  expect(save.continueFrom, 'a death keeps the head for CONTINUE').not.toBeNull();
+});
+
+test('ARCADE: a death offers CONTINUE from the head of the floor it died on', async () => {
+  devSetArcade(true);
+  startRun(true);
+  // the second floor's head: the level, the base bits and the weapon as they are when that floor begins
+  save.bits = 7;
+  save.up.dmg = 4;
+  run.bits = 42;
+  player.weapons[1] = newWeapon('smg', 2);
+  goToFloor(1);
+  const stage = run.stage,
+    floor = run.bld!.floor;
+  // what the dive went on to do is dropped by the death: the CONTINUE goes back to the head above
+  save.bits = 100;
+  save.up.dmg = 9;
+  run.bits = 999;
+  player.weapons[1] = null;
+  run.time = 95;
+  endRun('dead');
+  expect(state).toBe('result');
+  expect(save.continueFrom, 'the head to go back to').not.toBeNull();
+  expect(el<HTMLButtonElement>('#btnContinue').hidden).toBe(false);
+  await new Promise(r => setTimeout(r, 750)); // the result screen comes up after the death moment
+  el<HTMLButtonElement>('#btnContinue').click();
+  expect(state, 'back in the dive').toBe('play');
+  expect(run.stage, 'the floor the dive died on').toBe(stage);
+  expect(run.bld!.floor).toBe(floor);
+  expect(save.up.dmg, 'the level at the head').toBe(4);
+  expect(save.bits, 'the base bits at the head').toBe(7);
+  expect(run.bits, 'the dive bits at the head').toBe(42);
+  expect(
+    player.weapons.some(w => w?.id === 'smg'),
+    'the weapon at the head',
+  ).toBe(true);
+  expect(run.time, 'the clock goes on from the death').toBe(95);
+  expect(run.continues, 'this was the first CONTINUE').toBe(1);
+  expect(save.continueFrom, 'used up').toBeNull();
+});
+
+test('CONTINUE shows only for a death in ARCADE', () => {
+  devSetArcade(false);
+  startRun();
+  endRun('dead');
+  expect(el<HTMLButtonElement>('#btnContinue').hidden, 'ENDLESS death').toBe(true);
+  expect(save.continueFrom).toBeNull();
+  devSetArcade(true);
+  startRun(true);
+  endRun('abandon');
+  expect(el<HTMLButtonElement>('#btnContinue').hidden, 'ARCADE give-up').toBe(true);
+  expect(save.continueFrom).toBeNull();
+});
+
+test('a clear after a CONTINUE keeps the clean record and takes the continued one', async () => {
+  devSetArcade(true);
+  save.records.bestTime = null;
+  save.records.bestTimeContinued = null;
+  save.records.bestTimeContinuedCount = null;
+  startRun(true);
+  run.time = 120;
+  endRun('dead');
+  await new Promise(r => setTimeout(r, 750));
+  el<HTMLButtonElement>('#btnContinue').click();
+  expect(run.continues, 'one CONTINUE used').toBe(1);
+  save.records.bossArea!.beaten = [...BOSS_ROOM_ORDER];
+  beatTitan(300);
+  expect(save.records.bestTime, 'the clean record stays unset').toBeNull();
+  expect(save.records.bestTimeContinued, 'the continued clear').toBe(300);
+  expect(save.records.bestTimeContinuedCount, 'the CONTINUEs it used').toBe(1);
+  const rows = el('#resList').textContent!;
+  expect(rows).toContain(t('res.newRecordContinued'));
+  expect(rows).toContain(t('res.continues'));
 });
 
 test('the clock runs only while the game is played', () => {
@@ -292,6 +368,17 @@ test('a save from before the time record reads bestTime as null', () => {
   const loaded = loadSaveFrom(SAVE_KEY);
   expect(loaded.records.bestTime).toBeNull();
   expect(loaded.records.cleared, 'the rest of the records is as it was').toBe(true);
+});
+
+test('a save from before CONTINUE reads its new fields as null', () => {
+  const old = { ...defaultSave(), records: { cleared: true, bossArea: null, bestTime: 754 } };
+  delete (old as { continueFrom?: unknown }).continueFrom;
+  saveStore(SAVE_KEY, old);
+  const loaded = loadSaveFrom(SAVE_KEY);
+  expect(loaded.records.bestTime).toBe(754);
+  expect(loaded.records.bestTimeContinued).toBeNull();
+  expect(loaded.records.bestTimeContinuedCount).toBeNull();
+  expect(loaded.continueFrom, 'no CONTINUE in an older save').toBeNull();
 });
 
 test('ARCADE base: the depth picker, storage and the level tab are hidden; the card is the record', () => {

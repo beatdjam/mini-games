@@ -99,8 +99,8 @@ onDataClick(el('.tabs'), [
 // the level card's own content (the new layout): ARCADE puts the record card in its place and this one back for ENDLESS
 const levelCard = el('#levelCard');
 const levelCardNodes = [...levelCard.childNodes];
-const bestTimeText = (sec: number | null): string =>
-  sec === null ? t('base.notCleared') : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+const bestTimeText = (sec: number | null): string => (sec === null ? t('base.notCleared') : clockText(sec));
+const clockText = (sec: number): string => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
 // ---- the pieces of the base screen ----
 const tierButton = (n: number): string => {
@@ -239,9 +239,19 @@ export function renderBase() {
   if (arcade) {
     levelCard.removeAttribute('data-go');
     levelCard.classList.remove('ready');
+    const cont = save.records.bestTimeContinued,
+      contText =
+        cont === null
+          ? t('base.recordContinuedNone')
+          : t('base.recordContinued', {
+              time: clockText(cont),
+              n: save.records.bestTimeContinuedCount ?? 0,
+            });
     levelCard.innerHTML =
       `<span class="lc-lv">${t('base.record')}</span>` +
       `<span class="lc-bits">${bestTimeText(save.records.bestTime)}</span>` +
+      `<span class="lc-next">${t('base.recordClean')}</span>` +
+      `<span class="lc-next">${contText}</span>` +
       `<span class="lc-next">${t('base.best')} ${save.best ? stageLabel(save.best - 1) : '—'}</span>`;
   } else {
     if (!levelCard.hasAttribute('data-go')) {

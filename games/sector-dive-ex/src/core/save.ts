@@ -59,13 +59,14 @@ export const defaultSave = (): SaveData => ({
   runs: 0,
   bossKills: 0,
   bossSeen: {},
-  records: { cleared: false, bossArea: null, bestTime: null },
+  records: { cleared: false, bossArea: null, bestTime: null, bestTimeContinued: null, bestTimeContinuedCount: null },
   // the marks an older version of the game reads. Their values are fixed; they are not used to tell this save's version
   stageV: 2,
   levelV: 1,
   supplyV: 1,
   mods: {},
   suspend: null,
+  continueFrom: null,
   settings: {
     lang: null,
     autofire: isTouch,
@@ -119,7 +120,14 @@ function migrateTo1(out: SaveData, raw: Record<string, any>) {
     out.supplyV = 1;
   }
   // the defaults give it, but an old save may carry records as nothing; keep the shape settled from here on
-  if (!out.records) out.records = { cleared: false, bossArea: null, bestTime: null };
+  if (!out.records)
+    out.records = {
+      cleared: false,
+      bossArea: null,
+      bestTime: null,
+      bestTimeContinued: null,
+      bestTimeContinuedCount: null,
+    };
 }
 // the first milestone at or above `tier` (the boss area sits on one)
 export const milestoneAtOrAbove = (tier: number): number =>
@@ -166,8 +174,22 @@ export function loadSaveFrom(key: string): SaveData {
   const assist: unknown = out.settings.assist; // saves from before the setting had levels hold a boolean
   if (typeof assist === 'boolean') out.settings.assist = assist ? 'weak' : 'off';
   // ARCADE's record of its fastest clear came in without a new save version: an older save has no value for it
-  if (!out.records) out.records = { cleared: false, bossArea: null, bestTime: null };
-  else if (out.records.bestTime === undefined) out.records.bestTime = null;
+  if (!out.records)
+    out.records = {
+      cleared: false,
+      bossArea: null,
+      bestTime: null,
+      bestTimeContinued: null,
+      bestTimeContinuedCount: null,
+    };
+  else {
+    if (out.records.bestTime === undefined) out.records.bestTime = null;
+    // the continued clear's record came in the same way (CONTINUE): an older save has no value for it
+    if (out.records.bestTimeContinued === undefined) out.records.bestTimeContinued = null;
+    if (out.records.bestTimeContinuedCount === undefined) out.records.bestTimeContinuedCount = null;
+  }
+  // ARCADE: where the result screen's CONTINUE goes (none in an older save)
+  if (out.continueFrom === undefined) out.continueFrom = null;
   if (!s) return out;
   if (!Array.isArray(out.loadout))
     out.loadout = [basicW(s.weapon && out.unlocked[s.weapon] ? s.weapon : 'pistol'), null];
