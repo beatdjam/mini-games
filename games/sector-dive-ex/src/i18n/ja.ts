@@ -366,6 +366,7 @@ LANG.ja = {
     'boss.terminal': '強化',
     'boss.shortcut': '撃破。{tier} へのショートカットが開通した。帰還か前進かを選ぶ',
     'boss.choose': '撃破。帰還するか、前進するかを選ぶ',
+    'boss.arcadeNext': '撃破。強化してから、前進のゲートで次へ',
     'boss.coreHint': '回転レーザーはダッシュの無敵で飛び越える',
     'boss.bastionHint': '周りの砲台を全部壊すと、シールドが外れる',
     'boss.bastionOpen': 'シールド解除',

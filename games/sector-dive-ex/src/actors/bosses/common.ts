@@ -380,10 +380,12 @@ function recordBossProgress(tier: number) {
   recordBossKill();
   const newTier = tier + 1;
   recordPeak(newTier);
-  if (newTier > save.shortcut) {
-    openShortcut(newTier);
-    toast(t('boss.shortcut', { tier: tierLabel(newTier) }), 4200);
-  } else toast(t('boss.choose'), 3200);
+  const opens = newTier > save.shortcut;
+  if (opens) openShortcut(newTier);
+  // ARCADE: no gate back to base and no start depth to choose (putBossGates), only the terminal and the way on
+  if (isArcade()) toast(t('boss.arcadeNext'), 3200);
+  else if (opens) toast(t('boss.shortcut', { tier: tierLabel(newTier) }), 4200);
+  else toast(t('boss.choose'), 3200);
   persist();
 }
 export function bossDown(e: Boss) {
