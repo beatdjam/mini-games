@@ -33,14 +33,16 @@ document.addEventListener('keydown', e => {
 // on the published page, until ARCADE is open, the mode select is not part of the game: no button and no mode tag
 const modeSelectable = ARCADE_OPEN || import.meta.env.DEV;
 el<HTMLButtonElement>('#btnMode').hidden = !modeSelectable;
-// ENDLESS's tag shows the loop once it is past the first (the base redraws it after a loop starts)
-export function renderModeTag() {
+// ENDLESS's tag shows the loop once it is past the first (renderBase draws it, after a loop starts too)
+export function renderModeTag(withLoop = true) {
   const tag = el('#modeTag');
   tag.hidden = !modeSelectable;
   tag.textContent = isArcade()
     ? 'ARCADE'
-    : save.loop >= 2
+    : withLoop && save.loop >= 2
       ? `ENDLESS · ${t('mode.loop', { n: save.loop })}`
       : 'ENDLESS';
 }
-renderModeTag();
+// (at load the languages are not in yet, so t() would throw: the loop waits for the base's first draw. A save in
+// loop 2 broke the page at start-up, 2026-11-07)
+renderModeTag(false);
