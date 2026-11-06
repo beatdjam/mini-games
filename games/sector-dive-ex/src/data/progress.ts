@@ -165,7 +165,7 @@ export const LOOP_TUNE = {
 // ENDLESS: the restrictions a challenge can be played with. A clear with one adds its value times the loop's number to
 // the start's damage / max HP / bits, or to that one weapon's damage (core/rules.ts restrictionBonus). 'ready'
 // restrictions are the ones the base offers; the others are data only for now. Provisional: the sim and play will tune them
-export const RESTRICTIONS: Restriction[] = withLang<Restriction, 'name'>(
+export const RESTRICTIONS: Restriction[] = withLang<Restriction, 'name' | 'desc'>(
   [
     { id: 'weapon', weaponDmg: 0.04, ready: true },
     { id: 'kit', hp: 0.02, ready: true },
@@ -174,7 +174,7 @@ export const RESTRICTIONS: Restriction[] = withLang<Restriction, 'name'>(
     // the last stand: a death ends the challenge (flow/run.ts endRun), so its bonus is the thickest
     { id: 'fail', dmg: 0.05, hp: 0.05, ready: true },
   ],
-  { name: '' },
+  { name: '', desc: '' },
 );
 // A challenge's own numbers: the damage the player takes is multiplied by this while 'hurt' is on
 export const RESTRICTION_TUNE = { hurtMul: 2 };

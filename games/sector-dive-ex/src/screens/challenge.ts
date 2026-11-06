@@ -39,7 +39,7 @@ function render() {
         : bonusText({ dmg: r.dmg ?? 0, hp: r.hp ?? 0, bits: r.bits ?? 0 }, true);
       return (
         `<button class="modebtn chbtn" type="button" data-chrestriction="${r.id}" aria-pressed="${r.id === restriction}">` +
-        `<b>${r.name}</b><small>${bonus}</small></button>`
+        `<b>${r.name}</b>${r.desc ? `<small class="chdesc">${r.desc}</small>` : ''}<small>${bonus}</small></button>`
       );
     })
     .join('');

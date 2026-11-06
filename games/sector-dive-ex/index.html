@@ -375,6 +375,8 @@ body.booting #app{visibility:hidden}
 .modal.mode .modal-card{background:var(--panel);border:2px solid var(--cyan);box-shadow:0 0 30px rgba(84,232,255,.25)}
 .moderow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .modebtn{display:grid;justify-items:center;gap:4px;padding:18px 12px;border:1px solid var(--line);background:var(--panel);font-family:var(--disp);font-size:18px;letter-spacing:.12em;color:var(--text)}
+.modecol{display:grid;gap:6px}
+.modenote{font-family:var(--jp);font-size:12px;line-height:1.5;text-align:center;color:var(--dim)}
 .modebtn:hover{border-color:var(--amber)}
 .modebadge{font-family:var(--jp);font-size:11px;letter-spacing:0;color:var(--amber)}
 #modeTitle{font-family:var(--disp);letter-spacing:.12em}
@@ -384,6 +386,7 @@ body.booting #app{visibility:hidden}
 .modebtn.chbtn{justify-items:start;text-align:left;padding:12px 14px;font-family:var(--jp);font-size:15px;letter-spacing:0}
 .chbtn b{font-size:15px;font-weight:500}
 .chbtn small{font-family:var(--jp);font-size:12px;letter-spacing:0;color:var(--dim)}
+.chbtn .chdesc{font-family:var(--jp);font-size:12px;letter-spacing:0;line-height:1.5;color:var(--text)}
 .chbtn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
 .chbtn[aria-pressed="true"] small{color:var(--dim)}
 .modal.challenge .modal-card{box-sizing:border-box;max-height:calc(100% - 24px);overflow:auto}
@@ -573,8 +576,8 @@ body.booting #app{visibility:hidden}
     <div class="modal-card">
       <h2 id="modeTitle">SECTOR<span>/</span>DIVE <span>EX</span></h2>
       <div class="moderow">
-        <button id="btnModeArcade" class="modebtn" type="button">ARCADE</button>
-        <button id="btnModeEndless" class="modebtn" type="button">ENDLESS</button>
+        <div class="modecol"><button id="btnModeArcade" class="modebtn" type="button">ARCADE</button><small class="modenote" data-i18n="mode.arcadeNote"></small></div>
+        <div class="modecol"><button id="btnModeEndless" class="modebtn" type="button">ENDLESS</button><small class="modenote" data-i18n="mode.endlessNote"></small></div>
       </div>
     </div>
   </div>
@@ -641,6 +644,7 @@ body.booting #app{visibility:hidden}
       <div class="setrow" data-settings="pause"></div>
       <div class="statbox" id="pauseChips"></div>
       <div class="btnrow"><button id="btnResume" class="primary" data-i18n="pause.resume"></button><button id="btnSuspend" class="ghost" data-i18n="pause.suspend"></button><button id="btnAbandon" class="ghost" data-i18n="pause.abandon"></button></div>
+      <p class="chips" id="abandonNote" hidden></p>
     </div>
   </section>
 
@@ -652,6 +656,7 @@ body.booting #app{visibility:hidden}
       <p class="chips" id="resChips"></p>
       <details class="perkmore" id="resOrder" hidden><summary data-i18n="res.chipsOrder"></summary><p class="chips" id="resOrderList"></p></details>
       <button id="btnContinue" class="primary" hidden data-i18n="res.continue"></button>
+      <p class="chips" id="continueNote" data-i18n="res.continueNote" hidden></p>
       <button id="btnBack" class="primary" data-i18n="res.back"></button>
       <button id="btnShare" class="sharebtn" hidden data-i18n="share.btn"></button>
       <button id="btnFeedbackRes" class="sharebtn" hidden data-i18n="fb.send"></button>

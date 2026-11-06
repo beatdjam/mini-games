@@ -3,7 +3,7 @@ import { t } from '@engine/core/i18n.ts';
 import { sfx } from '@engine/audio/audio.ts';
 import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
 import { UPGRADES } from '../data/progress.ts';
-import { modeTune, persist, save } from '../core/save.ts';
+import { isArcade, modeTune, persist, save } from '../core/save.ts';
 import { addLevelPoint, usingRestriction } from '../core/progress.ts';
 import { levelOf, nextLevelCost, sellValue } from '../core/rules.ts';
 import { weaponText } from '../actors/weapons.ts';
@@ -24,7 +24,7 @@ function render() {
   const cost = nextLevelCost(),
     bits = Math.floor(run.bits);
   el('#perkTitle').textContent = t('level.title', { n: levelOf() });
-  el('#levelNote').textContent = t('level.note', { bits, cost });
+  el('#levelNote').textContent = t(isArcade() ? 'level.noteArcade' : 'level.note', { bits, cost });
   const list = el('#perkList');
   list.innerHTML = '';
   list.style.setProperty('--n', '3');

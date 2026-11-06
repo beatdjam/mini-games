@@ -340,6 +340,8 @@ export function renderBase() {
   showBaseFeedback();
   const arcade = isArcade();
   renderModeTag();
+  // the home page's lead: the two modes' own rule (the static data-i18n in index.html is ENDLESS's)
+  el('#scrBase .head .lead').textContent = t(arcade ? 'base.leadArcade' : 'base.lead');
   // ARCADE: the depth picker, storage and the base's level are not part of its base (the card below is the record)
   el('#tiersHead').hidden = arcade;
   el('#tiers').hidden = arcade;
