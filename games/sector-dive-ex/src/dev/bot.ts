@@ -7,10 +7,10 @@ import type { Boss, BossKind, Enemy, Pickup, Wave, Weapon } from '../data/types.
 import { BOSS_META } from '../data/bosses.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { MAGNET_GAIN_MAX } from '../data/perks.ts';
-import { KIT_MAX, TUNE, isMilestone } from '../data/progress.ts';
+import { ARCADE_HIDDEN_UPGRADES, KIT_MAX, TUNE, isMilestone } from '../data/progress.ts';
 import { EYE, PORTAL } from '../data/level.ts';
 import { stageInfo } from '../core/stages.ts';
-import { save } from '../core/save.ts';
+import { isArcade, save } from '../core/save.ts';
 import { toggleSetting } from '../core/progress.ts';
 import { player, run } from '../actors/player.ts';
 import { spheres, startReload } from '../actors/firing.ts';
@@ -344,7 +344,7 @@ export function nextPoint(collect: boolean, can: (id: string) => boolean): strin
     'kit',
     'choice',
     ...((save.up.dmg || 0) <= (save.up.hp || 0) ? ['dmg', 'hp'] : ['hp', 'dmg']),
-  ];
+  ].filter(id => !isArcade() || !ARCADE_HIDDEN_UPGRADES.includes(id));
   return order.find(can) ?? null;
 }
 function levelPick(collect: boolean): HTMLButtonElement | null {

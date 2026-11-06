@@ -21,6 +21,7 @@ import { newWeapon } from '../src/actors/weapons.ts';
 import { addPickup, boss, setNear } from '../src/world/entities.ts';
 import { equipNearby } from '../src/ui/input.ts';
 import { baseUI, renderBase } from '../src/screens/base.ts';
+import { openLevelUp } from '../src/screens/levelup.ts';
 import { level } from '../src/world/level.ts';
 import { setState, state } from '../src/flow/state.ts';
 import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
@@ -145,6 +146,23 @@ test('ENDLESS: a boss keeps the way home, and a terminal only at a milestone', (
   bossDown(boss!);
   expectChoice(4);
   expect(level.portals.map(p => p.kind).sort(), 'a milestone').toEqual(['extract', 'next', 'terminal']);
+});
+
+test('ARCADE: the terminal leaves out med kits', () => {
+  devSetArcade(true);
+  startRun(true);
+  openLevelUp();
+  expect(document.querySelector('#perkList [data-level="kit"]'), 'no med kit in ARCADE').toBeNull();
+  expect(document.querySelector('#perkList [data-level="hp"]'), 'the other points are still there').not.toBeNull();
+  el('#perkDone').click();
+  endRun('abandon');
+  // ENDLESS keeps it
+  devSetArcade(false);
+  startRun(true);
+  openLevelUp();
+  expect(document.querySelector('#perkList [data-level="kit"]'), 'ENDLESS keeps the med kit').not.toBeNull();
+  el('#perkDone').click();
+  endRun('abandon');
 });
 
 test('the boss area is at DEPTH 9, and its hall has no way home', () => {
