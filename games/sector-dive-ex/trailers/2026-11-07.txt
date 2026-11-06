@@ -54,7 +54,7 @@ scene 5.0
   at      lockdown
   do      fight
 
-scene 7.0  ARCADE　8つのセクターを1回で抜ける
+scene 7.0  ARCADE　8つのセクターを攻略して最深部を目指す
   in      flash
   at      boss surgeon
   do      boss hp=8
@@ -62,7 +62,7 @@ scene 6.5  ^
   at      boss hoist
   do      boss hp=8
 
-scene 2.6  ENDLESS　周回して、もっと深く
+scene 2.6  ENDLESS　強化と周回でじっくりやりこむ
   in      fade
   at      base loop=2 cleared challenge
   do      stand
