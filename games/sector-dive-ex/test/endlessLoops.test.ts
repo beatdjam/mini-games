@@ -6,7 +6,7 @@ import { clearStore, saveStore } from '@engine/core/store.ts';
 import { BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { SAVE_KEY, basicW, defaultSave, devSetArcade, loadSaveFrom, newEndlessRecord, save } from '../src/core/save.ts';
 import { loopsCleared, startNextLoop } from '../src/core/progress.ts';
-import { progressOf, scaledDepth, startDmgMul, startMaxHp } from '../src/core/rules.ts';
+import { progressOf, scaledDepth, startDmgMul, startMaxHp, supplyPicks } from '../src/core/rules.ts';
 import { run } from '../src/actors/player.ts';
 import { endRun, goBase, startRun } from '../src/flow/run.ts';
 import { bootGame } from './helpers.ts';
@@ -38,18 +38,31 @@ afterEach(() => {
   save.continueFrom = null;
 });
 
-test('scaledDepth: ARCADE and loop 1 keep the depth scale', () => {
+test('scaledDepth: ARCADE and loop 1 keep the depth scale up to the boss area, and grow at half of it past it', () => {
   save.loop = 1;
-  expect([0, 1, 5, BOSS_AREA_START_TIER, 25].map(scaledDepth)).toEqual([0, 2, 10, 48, 50]);
+  expect([0, 1, 5, BOSS_AREA_START_TIER, 25, 26].map(scaledDepth)).toEqual([0, 2, 10, 48, 49, 50]);
   devSetArcade(true);
-  expect([0, 1, 5, BOSS_AREA_START_TIER].map(scaledDepth)).toEqual([0, 2.5, 12.5, 60]);
+  expect([0, 1, 5, BOSS_AREA_START_TIER, 26].map(scaledDepth)).toEqual([0, 2.5, 12.5, 60, 65]);
+});
+
+test('supplyPicks: the loop 1 depths of the same strength (a later loop sets out with chips at DEPTH 1)', () => {
+  save.loop = 1;
+  expect([0, 1, 9, BOSS_AREA_START_TIER].map(supplyPicks), 'one a skipped depth up to the boss area').toEqual([
+    0, 1, 9, 24,
+  ]);
+  expect(supplyPicks(26), 'past it, half').toBe(25);
+  save.loop = 2;
+  expect(supplyPicks(0), "loop 2's D1 is loop 1's D20").toBe(19);
+  expect(supplyPicks(BOSS_AREA_START_TIER)).toBe(29);
+  devSetArcade(true);
+  expect(supplyPicks(3), 'ARCADE: as it was').toBe(3);
 });
 
 test('scaledDepth: a later loop starts and ends deeper, and stops getting stronger past the cap', () => {
   save.loop = 2;
   expect(scaledDepth(0), "loop 2's D1 is loop 1's D20").toBe(38);
   expect(scaledDepth(BOSS_AREA_START_TIER), "loop 2's D25 is loop 1's D30").toBe(58);
-  expect(scaledDepth(25), 'past the boss area it grows as loop 1 does').toBe(60);
+  expect(scaledDepth(25), 'past the boss area it grows at half the depth scale, as loop 1 does').toBe(59);
   save.loop = 3;
   expect(scaledDepth(0), "loop 3's D1 is 10 deeper").toBe(48);
   save.loop = 5;
@@ -64,7 +77,7 @@ test('progressOf: loop 1 is unchanged; loop 2 starts at loop 1 D20 and ends at D
   save.loop = 2;
   expect(progressOf(0)).toBe(38 * 5);
   expect(progressOf(BOSS_AREA_START_TIER * 4)).toBe(58 * 5);
-  expect(progressOf(25 * 4)).toBe(60 * 5);
+  expect(progressOf(25 * 4), 'past the boss area, half the depth scale').toBe(59 * 5);
 });
 
 test('the loops cleared add 10% each to the start HP and damage; loop 6 does not count; ARCADE gets none', () => {

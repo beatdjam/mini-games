@@ -428,12 +428,13 @@
 
 - **何のため**: ENDLESS で TITAN を倒したあと、レベル・武器・ビット・記録はそのままで、出撃地点とボスエリアをはじめに戻して D1 から遊び直せるようにする。2周目からは D1 から今の強さに合う手ごたえで始まり、D25 でまた TITAN に挑む
 - **周の番号**: `SaveData.loop`（1始まり）。`defaultSave` は 1、古いセーブは読み込みで 1 にそろえる（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）
-- **周の強さ（ENDLESS だけ）**: 深度 `tier`（0始まり）が、敵・ドロップ・ビットの式で何深度ぶんに当たるかを `scaledDepth` in src/core/rules.ts が返す。`progressOf` の深度の部分、`supplyRarity`、`readinessScore` がこれを使う（チップの効く回数と補給の回数は変えない。ボスの体力も `progressOf` を通して付いてくる）
-  - ARCADE と ENDLESS の1周目: `tier * depthScale()`（ENDLESS は `tier * 2`）
-  - ENDLESS の2周目から: 周を `L = min(save.loop, LOOP_TUNE.cap)`、ボスエリアの深度を `END = BOSS_AREA_START_TIER`（24）とし、`start(L) = LOOP_TUNE.start + LOOP_TUNE.shift * (L - 2)`、`end(L) = LOOP_TUNE.end + LOOP_TUNE.shift * (L - 2)` として
-    - `tier <= END`: `start(L) + (end(L) - start(L)) * tier / END`
-    - `tier > END`: `end(L) + (tier - END) * depthScale()`
-  - `LOOP_TUNE` in src/data/progress.ts（仮の値。sim と遊んだ感想で合わせる）: `start: 38`（2周目の D1 = 1周目の D20）、`end: 58`（2周目の D25 = 1周目の D30）、`shift: 10`（周ごとに5深度ぶん奥へ）、`cap: 5`（6周目からは5周目と同じ強さ）、`bonus: 0.1`（下のボーナス）
+- **周の強さ（ENDLESS だけ）**: 深度 `tier`（0始まり）が、敵・ドロップ・ビットの式で何深度ぶんに当たるかを `scaledDepth` in src/core/rules.ts が返す。`progressOf` の深度の部分、`supplyRarity`、`readinessScore` がこれを使う（チップの効く回数は変えない。ボスの体力も `progressOf` を通して付いてくる）
+  - ARCADE: `tier * depthScale()`
+  - ENDLESS: 周を `L = min(save.loop, LOOP_TUNE.cap)`、ボスエリアの深度を `END = BOSS_AREA_START_TIER`（24）とし、1周目は `start = 0`・`end = END * depthScale()`（48）、2周目からは `start(L) = LOOP_TUNE.start + LOOP_TUNE.shift * (L - 2)`、`end(L) = LOOP_TUNE.end + LOOP_TUNE.shift * (L - 2)` として
+    - `tier <= END`: `start(L) + (end(L) - start(L)) * tier / END`（1周目は `tier * 2` のまま）
+    - `tier > END`: `end(L) + (tier - END) * depthScale() * LOOP_TUNE.pastEnd`。TITAN の先はどの周も伸びが半分（1深度で体力が約1.25倍）。全部の伸びのままだと、1周目の D26（ふつうの敵は D24 の次で2深度ぶん伸びる）が、ロックダウンの部屋を抜けられない壁だった（遊んだ感想、2026-11-07）
+  - **出撃の補給の回数**（`supplyPicks` in src/core/rules.ts）: ARCADE は飛ばした深度の数のまま。ENDLESS は `round(scaledDepth(tier) / depthScale())`（同じ強さの1周目の深度の数）。1周目の D25 までは飛ばした深度の数と同じ。2周目の D1 は19回ぶんの補給をもらって出る（前は0回で、チップ0枚のまま1周目の D20 相当の敵と戦うことになり、遊んで1体も倒せなかった。2026-11-07）。`pickStartChips` in src/flow/run.ts・出撃地点の目安（`readinessScore` の `supplyGain`）・拠点の出撃地点の表示が同じ数を使う
+  - `LOOP_TUNE` in src/data/progress.ts（仮の値。sim と遊んだ感想で合わせる）: `start: 38`（2周目の D1 = 1周目の D20）、`end: 58`（2周目の D25。`pastEnd` の前の1周目の D30 の値）、`pastEnd: 0.5`、`shift: 10`（周ごとに5深度ぶん奥へ）、`cap: 5`（6周目からは5周目と同じ強さ）、`bonus: 0.1`（下のボーナス）
 - **周のボーナス（ENDLESS だけ）**: クリアした周 `n`（縛り `'none'` の行で `titan: true` のもの。周の番号が `LOOP_TUNE.cap` 以下の行だけ数える）だけ、潜り始めの最大HPと与ダメージの倍率に `1 + LOOP_TUNE.bonus * n` を掛ける。`startMaxHp`・`startDmgMul` in src/core/rules.ts が掛けるので、プレイヤーの作成（src/actors/player.ts）と出撃地点の目安（`readinessScore`）の両方に効く。`startMaxHp` は掛けてから丸める。ARCADE では掛けない
 - **次の周へ（ENDLESS の拠点）**: ENDLESS で今の周をクリアしていて（上の `titan`）、中断中の潜行が無い（`save.suspend` が `null`）ときに、`#sideCards` の記録のカードの前に `pagecard` のボタン `#btnNextLoop` を出す。見出しは「次の周へ」、小さい字で「{n}周目へ。出撃地点とボスエリアがはじめに戻る」（n は次の周）。1回押すと見出しが「もう一度押すと {n}周目へ」に変わり、ほかを押すか拠点を描き直すと元に戻る（強化ターミナルの「全部売る」と同じ）。2回目で `startNextLoop` in src/core/progress.ts を呼んで保存し、拠点を描き直す
   - `startNextLoop` が戻すもの: `save.loop += 1`、`save.shortcut`・`save.startTier`・`save.records.bossArea`・`save.suspend` を `defaultSave()` の値に戻す（`resetArcadeProgress` と同じやり方）
