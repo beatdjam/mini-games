@@ -368,6 +368,7 @@ LANG.en = {
     'boss.terminal': 'Upgrade',
     'boss.shortcut': 'Defeated. A shortcut to {tier} is open. Extract or go on',
     'boss.choose': 'Defeated. Extract, or go on',
+    'boss.arcadeNext': 'Defeated. Upgrade, then take the gate onward',
     'boss.coreHint': 'Dash through the rotating lasers: you are invulnerable while dashing',
     'boss.bastionHint': 'Destroy every turret around it to drop the shield',
     'boss.bastionOpen': 'Shield down',

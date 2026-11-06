@@ -99,20 +99,43 @@ test('a boss is followed by a terminal and no way home', () => {
   startStage();
   spawnBoss(run.bld!.boss);
   bossDown(boss!);
+  expect(el('#toast').textContent, 'ARCADE points to the terminal and the gate on, not a way home').toBe(
+    t('boss.arcadeNext'),
+  );
   expect(level.portals.map(p => p.kind).sort(), 'forward and a terminal').toEqual(['next', 'terminal']);
   expect(
     level.portals.some(p => p.kind === 'extract'),
     'no way back to the base',
   ).toBe(false);
+  // a deeper boss that opens a shortcut still gets the ARCADE message, not the shortcut one
+  goBase();
+  startRun(true);
+  save.shortcut = 1;
+  run.stage = bossStageOf(2);
+  startStage();
+  spawnBoss(run.bld!.boss);
+  bossDown(boss!);
+  expect(save.shortcut, 'the shortcut to DEPTH 4 opened').toBe(3);
+  expect(el('#toast').textContent, 'ARCADE does not offer the shortcut as a choice').toBe(t('boss.arcadeNext'));
 });
 
 test('ENDLESS: a boss keeps the way home, and a terminal only at a milestone', () => {
   devSetArcade(false);
+  // the toast still offers the choice of gates (or the shortcut), never ARCADE's gate onward
+  const expectChoice = (tier: number) => {
+    const shown = el('#toast').textContent;
+    expect(shown, 'not the ARCADE message').not.toBe(t('boss.arcadeNext'));
+    expect(
+      [t('boss.choose'), t('boss.shortcut', { tier: tierLabel(tier) })],
+      'the choice of gates or the shortcut',
+    ).toContain(shown);
+  };
   startRun(true);
   run.stage = bossStageOf(1);
   startStage();
   spawnBoss(run.bld!.boss);
   bossDown(boss!);
+  expectChoice(2);
   expect(level.portals.map(p => p.kind).sort(), 'not a milestone').toEqual(['extract', 'next']);
   goBase();
   startRun(true);
@@ -120,6 +143,7 @@ test('ENDLESS: a boss keeps the way home, and a terminal only at a milestone', (
   startStage();
   spawnBoss(run.bld!.boss);
   bossDown(boss!);
+  expectChoice(4);
   expect(level.portals.map(p => p.kind).sort(), 'a milestone').toEqual(['extract', 'next', 'terminal']);
 });
 

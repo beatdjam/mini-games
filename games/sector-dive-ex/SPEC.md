@@ -379,7 +379,7 @@
 - **出発**: 出撃の深度はいつも D1（tier 0）。`save.startTier` は見ない（`startRun` in src/flow/run.ts）。潜行を始める前に、その挑戦のぶんの進み具合をまっさらにする
 - **ボスエリア**: 8セクターの次の深度に置き、ボス部屋は初めは全部未撃破にする（`settleArcadeBossArea` in src/core/progress.ts）
 - **ルートとボス**: 順路は ENDLESS と同じく、潜るたびに8セクターの順番が混ざる（`newRoute`）。各深度の建物のボスは、そのセクターのボス部屋の割り当てのボスに固定する（`BOSS_ROOMS` の逆引き、`arcadeBossOf` in src/core/bossArea.ts。建物を作るのは `ensureBuilding` in src/flow/run.ts）。8セクターと8体のボスは1対1
-- **ボスのあとのゲート**: どの深度のボスを倒しても、前進のゲートと強化ターミナルを出す。帰還のゲートは出さない（`putBossGates` in src/actors/bosses/common.ts）。ボスエリアの広間にも帰還のゲートは出さない（`startStage` in src/flow/run.ts）。途中でやめるのは一時停止の「中断」と「放棄」だけ
+- **ボスのあとのゲート**: どの深度のボスを倒しても、前進のゲートと強化ターミナルを出す。帰還のゲートは出さない（`putBossGates` in src/actors/bosses/common.ts）。ボスエリアの広間にも帰還のゲートは出さない（`startStage` in src/flow/run.ts）。途中でやめるのは一時停止の「中断」と「放棄」だけ。倒したときの案内は「撃破。強化してから、前進のゲートで次へ」（`boss.arcadeNext`。`recordBossProgress` in src/actors/bosses/common.ts）。帰還やショートカットの案内は出さない
 - **クリア**: ボスエリアの TITAN を倒すと、その場で潜行を終えて結果の画面を出す（`endRun('clear')` in src/flow/run.ts）。`RunEnd` に `'clear'` があり、結果の札は `CLEARED`（`RUN_END` in src/core/rules.ts）。TITAN のあとの部屋のゲートは出さない。ENDLESS の TITAN は今までどおり部屋へ戻る
 - **終わったとき**: 死亡・放棄・クリアのどれでも、潜行の進み具合をまっさらに戻す（`resetArcadeProgress` in src/core/progress.ts）
   - 戻す: `bits`・`up`（レベル）・`loadout`（基本武器）・`stash`・`shortcut`・`startTier`・`peak`・`records.bossArea`・`suspend`
