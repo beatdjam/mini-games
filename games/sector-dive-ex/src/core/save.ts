@@ -1,5 +1,14 @@
 import type { GameMode, SaveData, WeaponItem } from '../data/types.ts';
-import { ARCADE_OPEN, DEPTH_SCALE, MILESTONE_EVERY, PER, isMilestone, milestoneBelow } from '../data/progress.ts';
+import {
+  ARCADE_OPEN,
+  DEPTH_SCALE,
+  MILESTONE_EVERY,
+  MODE_TUNE,
+  PER,
+  isMilestone,
+  milestoneBelow,
+  type ModeTune,
+} from '../data/progress.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { decodeStore, encodeStore, loadStore, mergeDefaults, prefGet, prefSet, saveStore } from '@engine/core/store.ts';
 import { setVolumes } from '@engine/audio/audio.ts';
@@ -26,6 +35,8 @@ export const ACTIVE_MODE: GameMode =
 // whether the game is being played as ARCADE: the one place the two modes' rules part (task: an ARCADE dive)
 let arcade = ACTIVE_MODE === 'arcade';
 export const isArcade = (): boolean => arcade;
+// the mode's coefficients (data/progress.ts MODE_TUNE): depth scale, bits, boss health, hidden upgrades, boss area depth
+export const modeTune = (): ModeTune => MODE_TUNE[arcade ? 'arcade' : 'endless'];
 // dev and tests only (the same handle as devBossArea in core/bossArea.ts): plays ARCADE's rules without the mode switch
 export function devSetArcade(on: boolean) {
   arcade = on;

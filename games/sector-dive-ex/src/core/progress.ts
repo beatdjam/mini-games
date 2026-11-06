@@ -1,8 +1,8 @@
 import type { BossKind, ContinueFrom, SaveData, Snapshot, WeaponItem } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
-import { ARCADE_DEPTHS, STASH_MAX, milestoneBelow } from '../data/progress.ts';
+import { STASH_MAX, milestoneBelow } from '../data/progress.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
-import { basicW, defaultSave, save } from './save.ts';
+import { basicW, defaultSave, modeTune, save } from './save.ts';
 import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
 import { sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
@@ -180,11 +180,12 @@ export function settleBossArea(startTier: number): boolean {
   save.records.bossArea = { tier: bossAreaTierFor(save.shortcut, startTier), beaten: [] };
   return true;
 }
-// ARCADE: the boss area is the depth after the last sector (ARCADE_DEPTHS), and its rooms are unbeaten when a dive
-// sets out. Returns whether this call settled it; the caller persists
+// ARCADE: the boss area is the depth after the last sector (modeTune().sectorsBeforeBossArea), and its rooms are
+// unbeaten when a dive sets out. Returns whether this call settled it; the caller persists
 export function settleArcadeBossArea(): boolean {
-  if (!bossAreaOn() || save.records.bossArea?.tier === ARCADE_DEPTHS) return false;
-  save.records.bossArea = { tier: ARCADE_DEPTHS, beaten: [] };
+  const tier = modeTune().sectorsBeforeBossArea;
+  if (tier === null || !bossAreaOn() || save.records.bossArea?.tier === tier) return false;
+  save.records.bossArea = { tier, beaten: [] };
   return true;
 }
 // ARCADE: what a dive leaves behind is dropped when it ends (cleared, lost or given up) and before the next one sets out.

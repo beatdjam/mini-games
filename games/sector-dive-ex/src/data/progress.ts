@@ -1,22 +1,75 @@
-import type { Upgrade } from './types.ts';
+import type { GameMode, Upgrade } from './types.ts';
 import { withLang } from '@engine/core/langslots.ts';
+// The values that differ with the mode (ARCADE / ENDLESS). ENDLESS is the game as it was; ARCADE's dive counts its
+// depths deeper, gives the bosses more health and leaves the med kit out of a terminal. Only numbers: the screens and
+// gates that a mode has or has not stay on isArcade() (core/save.ts)
+export interface ModeTune {
+  depthScale: number; // what one depth counts in progress (core/rules.ts depthScale)
+  bitScale: number; // what a bit picked up is worth
+  bossHp: { sector: number; room: number; titan: number }; // a boss's health by place, over bossDifficulty
+  hiddenUpgrades: readonly string[]; // the upgrades a terminal leaves out
+  sectorsBeforeBossArea: number | null; // the depth of the boss area (null: ENDLESS settles it from the save)
+}
+export const MODE_TUNE: Record<GameMode, ModeTune> = {
+  arcade: {
+    // ARCADE's depths count this many instead: its eight sectors end deeper than ENDLESS's DEPTH 8 would (the sim's
+    // climber, 2026-11-03: 2 cleared 8 dives of 8, 3 none, 2.5 six)
+    depthScale: 2.5,
+    // what the bits picked up are worth, times this: a depth holds what two did, but one walks half the rooms to get to
+    // the same strength, so without it about 0.6 of the bits came in on the way there (each depth's bits about 1.4
+    // times the last) and some three levels fewer were bought (levelCost). 1 / 0.6
+    bitScale: 1.7,
+    bossHp: {
+      // ARCADE: a sector's boss (DEPTH 1 to 8) has this much more health. A dive there buys levels at every boss, so
+      // the next boss met a stronger player than in ENDLESS and went down far too fast (the user's play, 2026-11-03).
+      // The boss area's rooms and TITAN have their own multipliers below. The sim's climber (seeds 1-8): x1 cleared 6
+      // dives of 8, x2 two (most of the deaths at a sector's boss); between them
+      sector: 1.5,
+      // ARCADE: the boss area's eight rooms, as a total share of the same boss's health (0.2 x 3 = 0.6; the 0.2 is
+      // ENDLESS's room share below). The 0.2 looks to ENDLESS's D25 damage, which ARCADE does not have: a room's boss
+      // had about 23% of the same boss's health in its sector (x1.5). The sim's climber (seeds 1-8): 3 dives of 8
+      // cleared, a room took 7-52s against 6-29s before
+      room: 0.6,
+      // ARCADE: TITAN's health in the boss area (x2). At 1230 as it was, it was softer than D8's NOISE CORE. The sim's
+      // climber: the clears spent 54-78s on TITAN, against 27-52s before
+      titan: 2,
+    },
+    // The upgrades ARCADE's terminal leaves out: a dive loses its levels when it ends (resetArcadeProgress), so a point
+    // in med kits would buy one kit at a level's price and nothing else. ENDLESS keeps it.
+    hiddenUpgrades: ['kit'],
+    // ARCADE: the sectors a dive walks (DEPTH 1 to this many), and then the boss area at the depth after them (0-based
+    // 8 = DEPTH 9)
+    sectorsBeforeBossArea: 8,
+  },
+  endless: {
+    // How many depths of the curves below one depth now covers: enemies, drops, bits and room counts scale with it, and
+    // one chip picked counts this many times (a depth holds what two used to)
+    depthScale: 2,
+    // (the same in both modes: ARCADE walks half the rooms for the same strength, so the bits are worth as much)
+    bitScale: 1.7,
+    bossHp: {
+      sector: 1,
+      // the share of the health a boss in a boss area room has: about half the fight at the 300000% damage assumed at
+      // D25
+      room: 0.2,
+      titan: 1,
+    },
+    hiddenUpgrades: [],
+    // no fixed depth: the boss area sits on a milestone the save settles (core/bossArea.ts bossAreaTierFor)
+    sectorsBeforeBossArea: null,
+  },
+};
 // ARCADE is open: the published page asks for the mode at start-up and shows the mode button and tag (false: ENDLESS
 // only, with none of them). The dev server shows the select only with #modes, so its hooks start straight into the game
 export const ARCADE_OPEN = true;
-// ARCADE: the sectors a dive walks (DEPTH 1 to this many), and then the boss area at the depth after them (0-based 8 = DEPTH 9)
-export const ARCADE_DEPTHS = 8;
+// ENDLESS's depth scale (the mode table above)
+export const DEPTH_SCALE = MODE_TUNE.endless.depthScale;
+// ARCADE's depth scale (the mode table above)
+export const ARCADE_DEPTH_SCALE = MODE_TUNE.arcade.depthScale;
+// ARCADE's sectors before the boss area (the mode table above; ENDLESS has no fixed depth)
+export const ARCADE_DEPTHS = MODE_TUNE.arcade.sectorsBeforeBossArea!;
 // Run structure, balance numbers, base upgrades, reboot upgrades, inventory sizes
 export const PER = 4; // 3 floors + boss per depth
-// How many depths of the curves below one depth now covers: enemies, drops, bits and room counts scale with it, and one
-// chip picked counts this many times (a depth holds what two used to)
-export const DEPTH_SCALE = 2;
-// ARCADE's depths count this many instead: its eight sectors end deeper than ENDLESS's DEPTH 8 would (the sim's climber,
-// 2026-11-03: 2 cleared 8 dives of 8, 3 none, 2.5 six)
-export const ARCADE_DEPTH_SCALE = 2.5;
-// what the bits picked up are worth, times this: a depth holds what two did, but one walks half the rooms to get to the
-// same strength, so without it about 0.6 of the bits came in on the way there (each depth's bits about 1.4 times the
-// last) and some three levels fewer were bought (levelCost). 1 / 0.6
-export const BIT_SCALE = 1.7;
 // health grows by these factors per depth (compounding). Enemies trail the player's growth a little; bosses stay a wall.
 // The player's own growth (additive chips, +8% per weapon +) slows down gradually, to about 1.3x per depth deep down,
 // so the per-depth factor slides the same way: `rate` up to GROWTH_SLIDE[0] depths in, then (geometrically) down to
@@ -86,9 +139,6 @@ export const UPGRADES = withLang<Upgrade, 'name' | 'desc'>(
   ],
   { name: '', desc: () => '' },
 );
-// The upgrades ARCADE's terminal leaves out: a dive loses its levels when it ends (resetArcadeProgress), so a point in
-// med kits would buy one kit at a level's price and nothing else. ENDLESS keeps it.
-export const ARCADE_HIDDEN_UPGRADES = ['kit'];
 // what level `l` (the levels bought so far) costs: 80 bits, 20% more each level. The bits a dive brings in grow about 1.3
 // to 1.6 times a depth (sim, 2026-10-18: some 2,500 by DEPTH 5, 25,000 by 10, 330,000 by 20), so a level's price must
 // climb with them: at 8% a level, half of a dive to DEPTH 20 bought 66 levels, twice the old base upgrades all bought.

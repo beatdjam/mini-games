@@ -4,9 +4,8 @@
 // other files see the game it was
 import { afterEach, beforeAll, expect, test } from 'vitest';
 import { BIOMES } from '../src/data/biomes.ts';
-import { BOSS_TUNE } from '../src/data/bosses.ts';
 import { BOSS_ROOMS, BOSS_ROOM_ORDER } from '../src/data/bossRooms.ts';
-import { ARCADE_DEPTHS, ARCADE_DEPTH_SCALE, DEPTH_SCALE, PER } from '../src/data/progress.ts';
+import { ARCADE_DEPTHS, ARCADE_DEPTH_SCALE, BOSS_AREA_START_TIER, DEPTH_SCALE, PER } from '../src/data/progress.ts';
 import { saveStore } from '@engine/core/store.ts';
 import { t } from '@engine/core/i18n.ts';
 import { runSystems } from '@engine/core/loop.ts';
@@ -24,9 +23,9 @@ import { baseUI, renderBase } from '../src/screens/base.ts';
 import { openLevelUp } from '../src/screens/levelup.ts';
 import { level } from '../src/world/level.ts';
 import { setState, state } from '../src/flow/state.ts';
-import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
+import { endRun, goBase, startPractice, startRun, startStage } from '../src/flow/run.ts';
 import { checkpoint, resumeRun, suspendRun } from '../src/flow/suspend.ts';
-import { arcadeAreaHpMul, arcadeBossHpMul, bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
+import { bossDown, bossHpMul, spawnBoss } from '../src/actors/bosses/common.ts';
 import { bootGame, goToFloor, tick } from './helpers.ts';
 
 beforeAll(async () => {
@@ -462,12 +461,12 @@ test("ARCADE: a sector's boss has more health; the boss area's and ENDLESS's as 
   devSetArcade(true);
   startRun(true);
   run.stage = bossStageOf(2);
-  expect(arcadeBossHpMul(), 'a sector boss').toBe(BOSS_TUNE.arcadeHpMul);
+  expect(bossHpMul(), 'a sector boss').toBe(1.5);
   run.stage = firstStageOf(ARCADE_DEPTHS);
-  expect(arcadeBossHpMul(), 'the boss area').toBe(1);
+  expect(bossHpMul(), 'the boss area').toBe(1);
   devSetArcade(false);
   run.stage = bossStageOf(2);
-  expect(arcadeBossHpMul(), 'ENDLESS').toBe(1);
+  expect(bossHpMul(), 'ENDLESS').toBe(1);
   goBase();
 });
 
@@ -476,19 +475,52 @@ test('ARCADE: the boss area and TITAN have their own health multiplier; ENDLESS 
   startRun(true);
   run.stage = firstStageOf(ARCADE_DEPTHS);
   run.area = { at: 'room', boss: 'titan' };
-  expect(arcadeAreaHpMul(), 'TITAN').toBe(BOSS_TUNE.arcadeTitanHpMul);
+  expect(bossHpMul(), 'TITAN').toBe(2);
   run.area = { at: 'room', boss: BOSS_ROOM_ORDER[0]! };
-  expect(arcadeAreaHpMul(), 'a room of the boss area').toBe(BOSS_TUNE.arcadeRoomHpMul);
+  expect(bossHpMul(), 'a room of the boss area').toBe(0.6);
   run.area = { at: 'hall' };
-  expect(arcadeAreaHpMul(), 'the hall').toBe(1);
+  expect(bossHpMul(), 'the hall').toBe(1);
   run.stage = bossStageOf(2);
   run.area = undefined;
-  expect(arcadeAreaHpMul(), "a sector's boss").toBe(1);
+  expect(bossHpMul(), "a sector's boss").toBe(1.5);
   devSetArcade(false);
   run.stage = firstStageOf(ARCADE_DEPTHS);
   run.area = { at: 'room', boss: 'titan' };
-  expect(arcadeAreaHpMul(), 'ENDLESS TITAN').toBe(1);
+  expect(bossHpMul(), 'ENDLESS TITAN').toBe(1);
   run.area = { at: 'room', boss: BOSS_ROOM_ORDER[0]! };
-  expect(arcadeAreaHpMul(), "ENDLESS's boss area").toBe(1);
+  expect(bossHpMul(), "ENDLESS's boss area").toBe(0.2);
+  goBase();
+});
+
+test('bossHpMul: a sector, a room, TITAN, the hall and practice in each mode', () => {
+  type Place = 'sector' | 'room' | 'titan' | 'hall' | 'practice' | 'practiceArea';
+  const want: Record<'arcade' | 'endless', Record<Place, number>> = {
+    arcade: { sector: 1.5, room: 0.6, titan: 2, hall: 1, practice: 1.5, practiceArea: 1 },
+    endless: { sector: 1, room: 0.2, titan: 1, hall: 1, practice: 1, practiceArea: 1 },
+  };
+  for (const mode of ['arcade', 'endless'] as const) {
+    const areaTier = mode === 'arcade' ? ARCADE_DEPTHS : BOSS_AREA_START_TIER;
+    for (const place of Object.keys(want[mode]) as Place[]) {
+      devSetArcade(mode === 'arcade');
+      goBase();
+      save.records.bossArea = { tier: areaTier, beaten: [] };
+      if (place === 'practice' || place === 'practiceArea') {
+        startPractice('crusher', place === 'practice' ? 2 : areaTier);
+      } else {
+        startRun(false);
+        save.records.bossArea = { tier: areaTier, beaten: [] };
+        run.stage = place === 'sector' ? bossStageOf(2) : firstStageOf(areaTier);
+        run.area =
+          place === 'hall'
+            ? { at: 'hall' }
+            : place === 'room'
+              ? { at: 'room', boss: BOSS_ROOM_ORDER[0]! }
+              : place === 'titan'
+                ? { at: 'room', boss: 'titan' }
+                : undefined;
+      }
+      expect(bossHpMul(), `${mode} ${place}`).toBe(want[mode][place]);
+    }
+  }
   goBase();
 });
