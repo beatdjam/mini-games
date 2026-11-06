@@ -95,6 +95,7 @@ export function showPracticeResult(kind: RunEnd, sec: number) {
   el('#resChips').textContent = t('res.practiceNote');
   el('#resOrder').hidden = true;
   el('#btnContinue').hidden = true; // only a death in ARCADE offers it
+  el('#continueNote').hidden = true;
   hideShare();
   prepFeedback(kind);
   open(kind);
@@ -112,6 +113,7 @@ export function showRunResult(kind: RunEnd, facts: RunResultFacts) {
   el('#resOrder').hidden = !run.perks.length;
   el<HTMLDetailsElement>('#resOrder').open = false;
   el('#btnContinue').hidden = !facts.canContinue;
+  el('#continueNote').hidden = !facts.canContinue;
   prepShare(kind);
   prepFeedback(kind);
   open(kind);

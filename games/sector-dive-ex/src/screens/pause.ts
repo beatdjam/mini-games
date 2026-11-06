@@ -14,6 +14,7 @@ import {
 } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { TUNE } from '../data/progress.ts';
+import { isArcade } from '../core/save.ts';
 import { chipSummary } from '../core/rules.ts';
 import { boss } from '../world/entities.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
@@ -68,6 +69,13 @@ function armAbandon(on: boolean) {
     key = on ? 'pause.abandonGo' : 'pause.abandon';
   b.dataset.i18n = key;
   b.textContent = t(key);
+  const note = el('#abandonNote');
+  note.hidden = !on;
+  if (on) {
+    const noteKey = isArcade() ? 'pause.abandonNoteArcade' : 'pause.abandonNote';
+    note.dataset.i18n = noteKey;
+    note.textContent = t(noteKey);
+  }
 }
 el('#btnAbandon').addEventListener('click', () => {
   if (abandonArmed) endRun('abandon');

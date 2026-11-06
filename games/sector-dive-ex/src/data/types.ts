@@ -282,7 +282,7 @@ export interface LangData {
   bosses: Record<BossKind, { name: string; title: string; short: string; desc: string }>;
   perks: Record<string, { name: string; desc(v: number): string; curText(c: any): string }>;
   upgrades: Record<string, { name: string; desc(level: number): string }>;
-  restrictions: Record<string, { name: string }>;
+  restrictions: Record<string, { name: string; desc: string }>;
   layout: Record<string, { name: string }>;
   keyActions: Record<string, { name: string }>;
   guideDesk: [string, string][];
@@ -428,6 +428,7 @@ export interface Restriction {
   weaponDmg?: number; // 'weapon': the damage of the chosen weapon only (times the loop's number)
   ready: boolean;
   name: string; // (lang)
+  desc: string; // (lang)
 }
 // ENDLESS: the restriction challenge being played, and the main loop's progress it set aside. The four values come back
 // when the challenge ends; the loop, level, bits, weapons and records stay the save's own while it runs

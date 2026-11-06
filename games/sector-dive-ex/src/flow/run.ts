@@ -101,8 +101,6 @@ import { hud2 } from '../ui/hud2.ts';
 
 // toast and timer lengths (ms)
 const FIRST_TOAST_MS = 4200; // the how-to-play toast shown when a run opens with no chips to pick
-const RISKED_TOAST_MS = 3000; // the "weapons at risk" toast
-const RISKED_TOAST_DELAY_MS = FIRST_TOAST_MS + 200; // shown just after the how-to-play toast ends
 const HINT_DELAY_MS = 1800; // the sector hint toast comes up this long after a sector's first floor starts
 const HINT_TOAST_MS = 3600;
 const DEEPER_TOAST_MS = 3000; // the "next depth" toast
@@ -190,7 +188,6 @@ export function startRun(settleArea = false) {
     else settleBossArea(tier);
   }
   setPlayer(newPlayer(save.loadout, tier));
-  const risked = save.loadout.filter(w => w && !w.basic).length;
   // non-basic weapons leave the base: they come back only on extraction
   riskLoadout();
   setRun({
@@ -219,7 +216,6 @@ export function startRun(settleArea = false) {
       FIRST_TOAST_MS,
     );
   }
-  if (risked) setTimeout(() => toast(t('run.risked'), RISKED_TOAST_MS), total ? 0 : RISKED_TOAST_DELAY_MS);
 }
 // the boss room: the player starts at the south end, the boss comes after a moment
 function setupArena(bossKind: BossKind | null) {
