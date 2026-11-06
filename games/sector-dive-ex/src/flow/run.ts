@@ -53,7 +53,15 @@ import {
   stashFloor,
   takeFollowers,
 } from '../world/level.ts';
-import { BUILDING_V, building, fitBuildingState, makeBuilding, setBuilding, unpackSeen } from '../world/building.ts';
+import {
+  BUILDING_V,
+  building,
+  fitBuildingState,
+  makeBossRoomBuilding,
+  makeBuilding,
+  setBuilding,
+  unpackSeen,
+} from '../world/building.ts';
 import type { FloorPlan } from '../world/building.ts';
 import { makePortal, makeTerminal } from '../world/portals.ts';
 import { arcadeBossOf, bossAreaOn, bossRoomBiome } from '../core/bossArea.ts';
@@ -259,14 +267,15 @@ function setupFloor(b: Biome, si: ReturnType<typeof stageInfo>) {
 }
 // ---- the building: a depth is FLOORS floors joined by stairwells and lifts (world/building.ts) ----
 // the building of this depth: a new one when the run has none for this depth yet; built again from its seed when the
-// one in memory is another (a resumed run)
+// one in memory is another (a resumed run). A boss area's room is a building of one floor: the hall alone
+// (world/building.ts makeBossRoomBuilding)
 function ensureBuilding(tier: number, b: Biome, roomBoss?: BossKind): BuildingState {
   if (!run.bld || run.bld.tier !== tier || (roomBoss !== undefined && run.bld.boss !== roomBoss)) {
     // ARCADE: a sector's boss is the one whose room is there, not a pick of the sector's candidates
     const seed = newSeed(), // keep newSeed first: the pinned snapshots ride on the order of the random calls
       arcadeBoss = isArcade() && !roomBoss && !run.forceBoss ? arcadeBossOf(b) : undefined,
       boss = roomBoss ?? (run.forceBoss || arcadeBoss || pick(b.bosses)),
-      made = makeBuilding(b, boss, seed);
+      made = roomBoss !== undefined ? makeBossRoomBuilding(b, boss, seed) : makeBuilding(b, boss, seed);
     setBuilding(made);
     run.bld = {
       tier,
@@ -286,10 +295,11 @@ function ensureBuilding(tier: number, b: Biome, roomBoss?: BossKind): BuildingSt
   if (!building || building.seed !== st.seed || building.biome !== b) {
     // a resumed run: the same building from its seed, with the map as far as it was explored at the checkpoint. A run
     // saved on a building laid out another way is fitted onto the one the seed gives now
-    const made = makeBuilding(b, st.boss, st.seed);
-    if (st.v === BUILDING_V) unpackSeen(made, st.seen);
+    const made = roomBoss !== undefined ? makeBossRoomBuilding(b, st.boss, st.seed) : makeBuilding(b, st.boss, st.seed);
+    if (st.v === BUILDING_V && !(roomBoss !== undefined && st.floors !== made.plans.length)) unpackSeen(made, st.seen);
     else fitBuildingState(st, made);
     setBuilding(made);
+    st.floors = made.plans.length;
   }
   return st;
 }

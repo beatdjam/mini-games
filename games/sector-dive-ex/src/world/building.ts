@@ -1,6 +1,7 @@
 import { createRng } from '@engine/core/util.ts';
 import { packBits, unpackBits } from '@engine/core/store.ts';
 import { generateDungeon } from '@engine/world/dungeon.ts';
+import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import {
   allReached,
   around,
@@ -294,4 +295,54 @@ export function makeBuilding(biome: Biome, bossKind: BossKind, seed: number): Bu
     if (b) return { ...b, seed };
   }
   throw new Error(`makeBuilding: no building for ${biome.code} from seed ${seed}`);
+}
+
+// The map of a boss area's room: a BOSS_HALL square with walls round it and a stub of corridor behind its one door
+// (the tile outside the door, which placePlayerOnFloor reads). The door is in the middle of its south wall.
+function bossRoomMap(): {
+  rows: string[];
+  room: { x: number; y: number; w: number; h: number };
+  door: number;
+} {
+  const W = BOSS_HALL + 4,
+    wall = '#'.repeat(W),
+    floorRow = '##' + '.'.repeat(BOSS_HALL) + '##',
+    room = { x: 2, y: 2, w: BOSS_HALL, h: BOSS_HALL },
+    doorX = room.x + Math.floor(room.w / 2),
+    doorY = room.y + room.h,
+    behind = (c: string) => '#'.repeat(doorX) + c + '#'.repeat(W - doorX - 1);
+  return {
+    rows: [wall, wall, ...Array<string>(BOSS_HALL).fill(floorRow), behind('+'), behind('.')],
+    room,
+    door: doorY * W + doorX,
+  };
+}
+// The boss area's room as a building of one floor: the hall alone, with no stairwell, lift, courtyard or lockdown. It
+// is drawn and played as a floor of a building still (world/level.ts showBuilding, enterFloor; world/levelMesh.ts
+// buildFloorMeshes), so the room keeps its look without the floors of its sector's building round it.
+export function makeBossRoomBuilding(biome: Biome, bossKind: BossKind, seed: number): Building {
+  const { rows, room, door } = bossRoomMap(),
+    d = tileMapFromRows(rows, {}, [room]),
+    W = d.W,
+    size = W * d.H,
+    plan: FloorPlan = {
+      gen: { W: d.W, H: d.H, maps: d.maps, hazard: new Uint8Array(size), rooms: d.rooms, startIdx: -1 },
+      hall: { room: 0, door },
+      seen: new Uint8Array(size),
+      ...noOpenings(size),
+      court: null,
+      islands: [],
+      above: FLOOR_H,
+    };
+  // the boss's pillars, at the same places as in a building's boss room (tryBuilding)
+  if (BOSS_META[bossKind].pillars)
+    for (const [pi, pj] of ARENA_PILLARS)
+      plan.gen.maps.grid[(room.y + pj - ARENA_FROM) * W + room.x + pi - ARENA_FROM] = 0;
+  // what the room's walls look out on: the one floor there is (as tryBuilding does for every floor)
+  const floors = new Uint8Array(size);
+  plan.gen.maps.grid.forEach((v, k) => (floors[k] ||= v === 1 || plan.voids[k] ? 1 : 0));
+  wallBeyond.set(plan.gen.maps.grid, massOf(floors, W, d.H));
+  wallFloor.set(plan.gen.maps.grid, 0);
+  wallLinks.set(plan.gen.maps.grid, { lifts: new Set(), strips: new Set() });
+  return { seed, biome, plans: [plan], route: [0], links: [], lockdown: null, court: null, grounds: [0] };
 }
