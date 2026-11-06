@@ -282,6 +282,7 @@ export interface LangData {
   bosses: Record<BossKind, { name: string; title: string; short: string; desc: string }>;
   perks: Record<string, { name: string; desc(v: number): string; curText(c: any): string }>;
   upgrades: Record<string, { name: string; desc(level: number): string }>;
+  restrictions: Record<string, { name: string }>;
   layout: Record<string, { name: string }>;
   keyActions: Record<string, { name: string }>;
   guideDesk: [string, string][];
@@ -416,8 +417,30 @@ export interface ContinueFrom {
   time: number; // the dive's clock when it died: the CONTINUE goes on from there
   continues: number; // CONTINUEs used in the dive before this death
 }
-// ENDLESS: what one loop and restriction has done (the row of the base's records page). Restrictions are not in the
-// game yet: every row has no restriction
+// ENDLESS: the restrictions a challenge can be played with. 'none' is not one: it is the row of a plain loop
+export type RestrictionId = 'weapon' | 'kit' | 'pick' | 'hurt';
+// one restriction of ENDLESS: the id, the bonus it gives for a clear (times the loop's number) and whether it is open
+export interface Restriction {
+  id: RestrictionId;
+  dmg?: number;
+  hp?: number;
+  bits?: number;
+  ready: boolean;
+  name: string; // (lang)
+}
+// ENDLESS: the restriction challenge being played, and the main loop's progress it set aside. The four values come back
+// when the challenge ends; the loop, level, bits, weapons and records stay the save's own while it runs
+export interface Challenge {
+  restriction: RestrictionId;
+  strength: number;
+  main: {
+    shortcut: number;
+    startTier: number;
+    bossArea: SaveRecords['bossArea'];
+    suspend: SaveData['suspend'];
+  };
+}
+// ENDLESS: what one loop and restriction has done (the row of the base's records page)
 export interface EndlessRecord {
   loop: number; // the loop, from 1
   restriction: string; // the restriction's id ('none': no restriction)
@@ -462,6 +485,7 @@ export interface SaveData {
   mods: Record<string, { plus: number; r: number }>;
   suspend: Snapshot | null; // the checkpoint of a run in progress (src/flow/suspend.ts makeSnapshot)
   continueFrom?: ContinueFrom | null; // ARCADE: where the result screen's CONTINUE goes back to (src/flow/suspend.ts)
+  challenge: Challenge | null; // ENDLESS: the restriction challenge being played (null: none)
   settings: {
     lang: string | null;
     autofire: boolean;

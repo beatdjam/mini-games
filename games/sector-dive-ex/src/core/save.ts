@@ -99,6 +99,7 @@ export const defaultSave = (): SaveData => ({
   mods: {},
   suspend: null,
   continueFrom: null,
+  challenge: null,
   settings: {
     lang: null,
     autofire: isTouch,
@@ -224,6 +225,8 @@ export function loadSaveFrom(key: string): SaveData {
   }
   // ARCADE: where the result screen's CONTINUE goes (none in an older save)
   if (out.continueFrom === undefined) out.continueFrom = null;
+  // ENDLESS's restriction challenge came in without a new save version: an older save is not in one
+  if (out.challenge === undefined) out.challenge = null;
   if (!s) return out;
   if (!Array.isArray(out.loadout))
     out.loadout = [basicW(s.weapon && out.unlocked[s.weapon] ? s.weapon : 'pistol'), null];

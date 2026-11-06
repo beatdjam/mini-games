@@ -100,9 +100,25 @@ LANG.en = {
     'base.recordsLoop': 'Loop {loop} · {restriction}',
     'base.recordsNone': 'No restriction',
     'base.recordsPartial': 'Time, kills and counts are from when records began.',
+    'base.recordsChallenges': 'Restriction clears',
+    'base.recordsRestriction': 'Restriction',
+    'base.recordsBonus': 'Bonus',
     'base.nextLoop': 'Next loop',
     'base.nextLoopNote': 'On to loop {n}. The start depths and the boss area start over',
     'base.nextLoopGo': 'Press again for loop {n}',
+    'base.challengeStart': 'Take on a restriction',
+    'base.challengeStartNote': 'One restriction from D1. Your main loop is set aside',
+    'base.challengeStop': 'End the challenge',
+    'base.challengeStopNote': '{restriction} · loop {loop} strength. Back to your main loop',
+    'base.challengeStopArmed': 'Press again to return to your main loop',
+    'base.challengeSuspended': 'Cannot end it while a dive is suspended',
+    'base.challengeTitle': 'Take on a restriction',
+    'base.challengeNote':
+      'One restriction. Your main loop’s start depth, boss area and suspended dive are kept, and come back when you stop',
+    'base.challengeRestrictions': 'Restriction',
+    'base.challengeStrength': 'Strength',
+    'base.challengeLoop': 'Loop {n} strength',
+    'base.challengeGo': 'Challenge',
     'base.menu': 'Base menu',
     'tab.sortie': 'Dive',
     'tab.records': 'Records',
@@ -224,6 +240,13 @@ LANG.en = {
     // ---- mode select ----
     'mode.suspended': 'Suspended',
     'mode.loop': 'LOOP {n}',
+    'mode.challenge': '{restriction} (LOOP {n})',
+
+    // ---- ENDLESS restrictions ----
+    'restriction.dmg': 'Damage +{pct}',
+    'restriction.hp': 'Max HP +{pct}',
+    'restriction.bits': 'Bits +{pct}',
+    'restriction.perLoop': '{bonus} × loop',
 
     // ---- chips ----
     'perk.title': 'Choose a chip',
@@ -564,6 +587,12 @@ LANG.en = {
       kit: { name: 'First Aid', desc: l => `Med kits at the start of a dive +1 (now ${1 + l})` },
       chip: { name: 'Starting Chips', desc: l => `Pick chips at the start of a dive (now ${l})` },
       choice: { name: 'Wider Choice', desc: l => `Chip offers show 4 cards (${l ? 'owned' : 'not owned'})` },
+    },
+    restrictions: {
+      weapon: { name: 'One weapon' },
+      kit: { name: 'Few med kits' },
+      pick: { name: 'No chip choice' },
+      hurt: { name: 'Double damage taken' },
     },
     layout: {
       fire: { name: 'Fire' },

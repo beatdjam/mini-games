@@ -1,4 +1,4 @@
-import type { BossKind, RunEnd, WeaponItem } from '../data/types.ts';
+import type { BossKind, RestrictionId, RunEnd, WeaponItem } from '../data/types.ts';
 import { BOSS_ORDER } from '../data/bosses.ts';
 import { LANG, t } from '@engine/core/i18n.ts';
 import {
@@ -28,6 +28,7 @@ import {
   enemyGrowth,
   hpGrowth,
   levelCost,
+  restrictionOf,
 } from '../data/progress.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
 import { PERKS } from '../data/perks.ts';
@@ -37,13 +38,17 @@ import { isArcade, modeTune, save } from './save.ts';
 // (depth start = depth * 5 * DEPTH_SCALE, the boss = depth * 5 * DEPTH_SCALE + 4)
 // (ARCADE counts its depths deeper: modeTune().depthScale)
 export const depthScale = (): number => modeTune().depthScale;
+// ENDLESS: the loop whose strength the depths use: the challenge's chosen strength while one is played, else the loop
+// being played
+export const strengthLoop = (): number => (save.challenge ? save.challenge.strength : save.loop);
 // What depth `tier` (0-based) counts as in the curves of the enemies, drops and bits. ARCADE is what it was; ENDLESS's
 // loop 1 counts depthScale() a depth up to the boss area's depth, and its later loops start and end deeper (LOOP_TUNE
 // in data/progress.ts). Past the boss area's depth every loop grows by LOOP_TUNE.pastEnd of depthScale() a depth: at
-// the full rate D26 (two depths past D24's rooms) was a wall the user could not get through (2026-11-07)
+// the full rate D26 (two depths past D24's rooms) was a wall the user could not get through (2026-11-07). A challenge
+// uses the strength chosen for it
 export function scaledDepth(tier: number): number {
   if (isArcade()) return tier * depthScale();
-  const loop = Math.min(save.loop, LOOP_TUNE.cap),
+  const loop = Math.min(strengthLoop(), LOOP_TUNE.cap),
     start = loop <= 1 ? 0 : LOOP_TUNE.start + LOOP_TUNE.shift * (loop - 2),
     end = loop <= 1 ? BOSS_AREA_START_TIER * depthScale() : LOOP_TUNE.end + LOOP_TUNE.shift * (loop - 2);
   return tier <= BOSS_AREA_START_TIER
@@ -67,10 +72,33 @@ export const loopsCleared = (): number =>
     ? 0
     : save.records.endless.filter(r => r.restriction === 'none' && r.titan && r.loop <= LOOP_TUNE.cap).length;
 const loopBonus = (): number => 1 + LOOP_TUNE.bonus * loopsCleared();
+// ENDLESS: what the restriction clears have added to the start: each (restriction, strength) row with TITAN down adds
+// that restriction's value times its strength, up to LOOP_TUNE.cap. `id` asks for one restriction's share, none for all
+export interface RestrictionBonus {
+  dmg: number;
+  hp: number;
+  bits: number;
+}
+export function restrictionBonus(id?: RestrictionId): RestrictionBonus {
+  const total: RestrictionBonus = { dmg: 0, hp: 0, bits: 0 };
+  if (isArcade()) return total;
+  for (const row of save.records.endless) {
+    if (row.restriction === 'none' || !row.titan || row.loop > LOOP_TUNE.cap) continue;
+    if (id && row.restriction !== id) continue;
+    const def = restrictionOf(row.restriction);
+    if (!def) continue;
+    total.dmg += (def.dmg ?? 0) * row.loop;
+    total.hp += (def.hp ?? 0) * row.loop;
+    total.bits += (def.bits ?? 0) * row.loop;
+  }
+  return total;
+}
+// the loops' bonus and the restrictions' bonus add up (not multiply): 1 + the loops + the restriction clears
+const startBonus = (kind: 'dmg' | 'hp'): number => loopBonus() + restrictionBonus()[kind];
 // max HP and damage multiplier at the start of a dive, from the points in armour and output (given), times the loops
-// cleared (ENDLESS; 1 in ARCADE). The HP is rounded after the bonus
-export const startMaxHp = (upHp: number): number => Math.round((TUNE.hp + upHp * HP_PER_POINT) * loopBonus());
-export const startDmgMul = (upDmg: number): number => Math.pow(LEVEL_DMG_MUL, upDmg) * loopBonus();
+// cleared and the restriction clears (ENDLESS; 1 in ARCADE). The HP is rounded after the bonus
+export const startMaxHp = (upHp: number): number => Math.round((TUNE.hp + upHp * HP_PER_POINT) * startBonus('hp'));
+export const startDmgMul = (upDmg: number): number => Math.pow(LEVEL_DMG_MUL, upDmg) * startBonus('dmg');
 // (dev: with setDropOnly every drop is that one weapon, for the trials that look at one weapon at a time,
 // sim/bot.sim.ts; the die is thrown all the same, so the rest of the run's dice do not shift)
 let dropOnly: string | null = null;

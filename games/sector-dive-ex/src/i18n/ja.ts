@@ -101,9 +101,24 @@ LANG.ja = {
     'base.recordsLoop': '{loop}周目・{restriction}',
     'base.recordsNone': '縛りなし',
     'base.recordsPartial': '時間・撃破数・回数は、記録を始めてから数えています',
+    'base.recordsChallenges': '縛りの実績',
+    'base.recordsRestriction': '縛り',
+    'base.recordsBonus': 'ボーナス',
     'base.nextLoop': '次の周へ',
     'base.nextLoopNote': '{n}周目へ。出撃地点とボスエリアがはじめに戻る',
     'base.nextLoopGo': 'もう一度押すと {n}周目へ',
+    'base.challengeStart': '縛りで挑む',
+    'base.challengeStartNote': '縛りを1つ付けて D1 から。本線の周は取っておく',
+    'base.challengeStop': '挑戦をやめる',
+    'base.challengeStopNote': '{restriction}・{loop}周目の強さ。本線の周に戻る',
+    'base.challengeStopArmed': 'もう一度押すと本線に戻る',
+    'base.challengeSuspended': '中断中の潜行があるとやめられない',
+    'base.challengeTitle': '縛りで挑む',
+    'base.challengeNote': '縛りは1つだけ。本線の出撃地点・ボスエリア・中断は取っておき、やめると元に戻る',
+    'base.challengeRestrictions': '縛り',
+    'base.challengeStrength': '強さ',
+    'base.challengeLoop': '{n}周目の強さ',
+    'base.challengeGo': '挑む',
     'base.menu': '拠点メニュー',
     'tab.sortie': '出撃',
     'tab.records': '記録',
@@ -222,6 +237,13 @@ LANG.ja = {
     // ---- mode select ----
     'mode.suspended': '中断中',
     'mode.loop': '{n}周目',
+    'mode.challenge': '縛り: {restriction}（{n}周目の強さ）',
+
+    // ---- ENDLESS restrictions ----
+    'restriction.dmg': '与ダメ +{pct}',
+    'restriction.hp': '最大HP +{pct}',
+    'restriction.bits': '拾うビット +{pct}',
+    'restriction.perLoop': '{bonus} × 周',
 
     // ---- chips ----
     'perk.title': 'チップを1枚選ぶ',
@@ -556,6 +578,12 @@ LANG.ja = {
       kit: { name: '救急箱', desc: l => `潜行の始めの回復キット +1（今 ${1 + l} 個）` },
       chip: { name: '持ち込みチップ', desc: l => `潜行の始めにチップを選ぶ（今 ${l} 枚）` },
       choice: { name: '選択肢拡張', desc: l => `チップの候補が4枚になる（${l ? '取得済み' : '未取得'}）` },
+    },
+    restrictions: {
+      weapon: { name: '武器1種だけ' },
+      kit: { name: '回復を絞る' },
+      pick: { name: 'チップを選べない' },
+      hurt: { name: '被ダメージ2倍' },
     },
     layout: {
       fire: { name: '射撃' },
