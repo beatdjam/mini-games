@@ -282,6 +282,37 @@ test('share: an ARCADE clear shows its time and CONTINUEs, not a lost signal', (
   }
   goBase();
 });
+test('feedback: up= lists where the level points went, most first, none when none', () => {
+  const keepOpen = window.open,
+    keepUp = { ...save.up },
+    opened: string[] = [];
+  window.open = ((u: string) => {
+    opened.push(u);
+    return null;
+  }) as typeof window.open;
+  try {
+    goBase();
+    startRun();
+    tick(5);
+    save.up = { hp: 0, dmg: 39, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 2, choice: 1 };
+    endRun('extract');
+    el('#btnFeedbackRes').click();
+    const info = new URL(opened[0]!).searchParams.get('entry.' + FEEDBACK_FORM.info) || '';
+    if (!info.includes('up=dmg39,chip2,choice1')) throw new Error('feedback up ' + info);
+    goBase();
+    startRun();
+    tick(5);
+    save.up = { hp: 0, dmg: 0, spd: 0, dash: 0, stam: 0, gain: 0, kit: 0, chip: 0, choice: 0 };
+    endRun('extract');
+    el('#btnFeedbackRes').click();
+    const none = new URL(opened[1]!).searchParams.get('entry.' + FEEDBACK_FORM.info) || '';
+    if (!none.includes('up=none')) throw new Error('feedback up none ' + none);
+  } finally {
+    save.up = keepUp;
+    window.open = keepOpen;
+  }
+  goBase();
+});
 test('analytics: a dive, a result, a share and a practice send their events', () => {
   TRACK_LOG.length = 0;
   goBase();
