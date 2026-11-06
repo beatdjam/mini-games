@@ -586,6 +586,13 @@ body.hud2 .pagecard small {
 body.hud2 :is(.pagecard, .levelcard):hover {
   border-color: var(--paint2);
 }
+/* the way on to the next loop: the one card on the home page that moves the save on */
+body.hud2 #btnNextLoop {
+  border-color: #7a5c1c;
+}
+body.hud2 #btnNextLoop b {
+  color: var(--amber);
+}
 body.hud2 :is([data-pane='records'], [data-pane='up'], [data-pane='practice'], [data-pane='settings']) {
   grid-column: 1 / -1;
   grid-row: 2 / 4;

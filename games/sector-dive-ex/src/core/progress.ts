@@ -7,6 +7,9 @@ import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
 import { sellValue } from './rules.ts';
 // The operations that change the save. Nothing outside src/core/ writes `save` (ESLint no-restricted-syntax);
 // callers read it, call one of these, and persist() themselves.
+// (loopsCleared reads the ENDLESS rows for the start's bonus and is used by the formulas in core/rules.ts, which this
+// module already imports from: it lives there and is offered from here as well)
+export { loopsCleared } from './rules.ts';
 
 // ---- bits ----
 export const earnBits = (n: number) => {
@@ -79,15 +82,15 @@ export const recordBest = (stage: number) => {
   save.best = Math.max(save.best, stage + 1);
 };
 // ---- ENDLESS records ----
-// The row the dives of now go into: loop 1 with no restriction. When loops and restrictions come, only this function
-// changes: the writers below and the base's records page ask it for the row
-const LOOP = 1,
-  RESTRICTION = 'none';
+// The row the dives of now go into: the loop being played with no restriction. When restrictions come, only this
+// function changes: the writers below and the base's records page ask it for the row
+const RESTRICTION = 'none';
 export function currentEndlessRecord(): EndlessRecord {
-  const rows = save.records.endless,
-    found = rows.find(r => r.loop === LOOP && r.restriction === RESTRICTION);
+  const loop = save.loop,
+    rows = save.records.endless,
+    found = rows.find(r => r.loop === loop && r.restriction === RESTRICTION);
   if (found) return found;
-  const made = newEndlessRecord(false, 0, LOOP, RESTRICTION);
+  const made = newEndlessRecord(false, 0, loop, RESTRICTION);
   rows.push(made);
   return made;
 }
@@ -102,10 +105,24 @@ export function recordEndlessRun(stage: number, sec: number, kills: number, dead
   if (dead) row.deaths++;
 }
 // TITAN's first clear in this row: the row's dives so far plus this dive's clock up to now. Never overwritten; a partial
-// row keeps no time
+// row keeps no time. The row is cleared (titan) even when it is partial
 export function recordEndlessTitan(sec: number) {
   const row = currentEndlessRecord();
+  row.titan = true;
   if (row.titanSec === null && !row.partial) row.titanSec = row.sec + sec;
+}
+// whether the loop being played is cleared: its row with no restriction has beaten TITAN
+export const loopCleared = (): boolean =>
+  save.records.endless.some(r => r.loop === save.loop && r.restriction === RESTRICTION && r.titan);
+// ENDLESS: on to the next loop. The start depths, the boss area and a suspended dive go back to a new save's (as
+// resetArcadeProgress does); the level, weapons, bits, records and settings stay
+export function startNextLoop() {
+  const base = defaultSave();
+  save.loop += 1;
+  save.shortcut = base.shortcut;
+  save.startTier = base.startTier;
+  save.records.bossArea = base.records.bossArea;
+  save.suspend = base.suspend;
 }
 // extraction: the equipped weapons are the next loadout, the bag goes to the stash (the cheapest is sold when it is
 // full). Returns the bits from the weapons sold

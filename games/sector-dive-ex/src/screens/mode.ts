@@ -2,7 +2,7 @@ import type { GameMode } from '../data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { ARCADE_OPEN } from '../data/progress.ts';
-import { ACTIVE_MODE, hasSuspendIn, switchMode } from '../core/save.ts';
+import { ACTIVE_MODE, hasSuspendIn, isArcade, save, switchMode } from '../core/save.ts';
 
 // The mode select (the title): which save to play, ARCADE or ENDLESS. It is opened at start-up (when ARCADE is open, or
 // with #modes on the dev server) and from the base's mode button.
@@ -33,6 +33,14 @@ document.addEventListener('keydown', e => {
 // on the published page, until ARCADE is open, the mode select is not part of the game: no button and no mode tag
 const modeSelectable = ARCADE_OPEN || import.meta.env.DEV;
 el<HTMLButtonElement>('#btnMode').hidden = !modeSelectable;
-const tag = el('#modeTag');
-tag.hidden = !modeSelectable;
-tag.textContent = ACTIVE_MODE === 'arcade' ? 'ARCADE' : 'ENDLESS';
+// ENDLESS's tag shows the loop once it is past the first (the base redraws it after a loop starts)
+export function renderModeTag() {
+  const tag = el('#modeTag');
+  tag.hidden = !modeSelectable;
+  tag.textContent = isArcade()
+    ? 'ARCADE'
+    : save.loop >= 2
+      ? `ENDLESS · ${t('mode.loop', { n: save.loop })}`
+      : 'ENDLESS';
+}
+renderModeTag();

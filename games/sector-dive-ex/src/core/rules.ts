@@ -17,10 +17,12 @@ import {
   WEAPONS,
 } from '../data/weapons.ts';
 import {
+  BOSS_AREA_START_TIER,
   DEPTH_SCALE,
   DMG_SCALE_PER_PROG,
   HP_PER_POINT,
   LEVEL_DMG_MUL,
+  LOOP_TUNE,
   PER,
   TUNE,
   enemyGrowth,
@@ -29,21 +31,41 @@ import {
 } from '../data/progress.ts';
 import { BOSS_TUNE } from '../data/bosses.ts';
 import { PERKS } from '../data/perks.ts';
-import { modeTune, save } from './save.ts';
+import { isArcade, modeTune, save } from './save.ts';
 // Formulas that read the data: progress, drops, modding, sell value
 // progress in "old" 5-stage-per-depth units, so per-depth scaling stays the same whatever PER is
 // (depth start = depth * 5 * DEPTH_SCALE, the boss = depth * 5 * DEPTH_SCALE + 4)
 // (ARCADE counts its depths deeper: modeTune().depthScale)
 export const depthScale = (): number => modeTune().depthScale;
-export const progressOf = (s: number): number => Math.floor(s / PER) * 5 * depthScale() + ((s % PER) * 4) / (PER - 1);
+// What depth `tier` (0-based) counts as in the curves of the enemies, drops and bits. ARCADE and ENDLESS's loop 1 are
+// what they were; ENDLESS's later loops start and end deeper (LOOP_TUNE in data/progress.ts), the boss area's depth
+// being the end (past it, the depths grow as they do in loop 1)
+export function scaledDepth(tier: number): number {
+  if (isArcade() || save.loop <= 1) return tier * depthScale();
+  const loop = Math.min(save.loop, LOOP_TUNE.cap),
+    start = LOOP_TUNE.start + LOOP_TUNE.shift * (loop - 2),
+    end = LOOP_TUNE.end + LOOP_TUNE.shift * (loop - 2);
+  return tier <= BOSS_AREA_START_TIER
+    ? start + ((end - start) * tier) / BOSS_AREA_START_TIER
+    : end + (tier - BOSS_AREA_START_TIER) * depthScale();
+}
+export const progressOf = (s: number): number => scaledDepth(Math.floor(s / PER)) * 5 + ((s % PER) * 4) / (PER - 1);
 // every weapon type can drop during a dive; unlocking only decides what you can start with and mod at the base
 // the player's level: one for every point put into the base upgrades (save.up), whichever it went to
 export const levelOf = (): number => Object.values(save.up).reduce((n, v) => n + (v || 0), 0);
 // what the next level costs (bits): the same whatever it goes to (data/progress.ts levelCost)
 export const nextLevelCost = (): number => levelCost(levelOf());
-// max HP and damage multiplier at the start of a dive, from the points in armour and output (given)
-export const startMaxHp = (upHp: number): number => Math.round(TUNE.hp + upHp * HP_PER_POINT);
-export const startDmgMul = (upDmg: number): number => Math.pow(LEVEL_DMG_MUL, upDmg);
+// ENDLESS: the loops cleared so far (their rows with no restriction, TITAN beaten, up to LOOP_TUNE.cap). Each adds
+// LOOP_TUNE.bonus to the start's HP and damage multiplier; ARCADE has no loops
+export const loopsCleared = (): number =>
+  isArcade()
+    ? 0
+    : save.records.endless.filter(r => r.restriction === 'none' && r.titan && r.loop <= LOOP_TUNE.cap).length;
+const loopBonus = (): number => 1 + LOOP_TUNE.bonus * loopsCleared();
+// max HP and damage multiplier at the start of a dive, from the points in armour and output (given), times the loops
+// cleared (ENDLESS; 1 in ARCADE). The HP is rounded after the bonus
+export const startMaxHp = (upHp: number): number => Math.round((TUNE.hp + upHp * HP_PER_POINT) * loopBonus());
+export const startDmgMul = (upDmg: number): number => Math.pow(LEVEL_DMG_MUL, upDmg) * loopBonus();
 // (dev: with setDropOnly every drop is that one weapon, for the trials that look at one weapon at a time,
 // sim/bot.sim.ts; the die is thrown all the same, so the rest of the run's dice do not shift)
 let dropOnly: string | null = null;
@@ -60,8 +82,8 @@ export const supplyPlus = (stage: number): number =>
   stage >= PLUS_FROM_STAGE
     ? Math.max(0, Math.floor((stage - PLUS_STAGE_OFFSET) * PLUS_PER_STAGE) - SUPPLY_PLUS_BELOW)
     : 0;
-// the rarity a base weapon is handed out with for a dive from `tier` (0-based start depth, counted in DEPTH_SCALE depths)
-export const supplyRarity = (tier: number): number => SUPPLY_RARITY_AT.filter(at => tier * depthScale() >= at).length;
+// the rarity a base weapon is handed out with for a dive from `tier` (0-based start depth, in scaled depths)
+export const supplyRarity = (tier: number): number => SUPPLY_RARITY_AT.filter(at => scaledDepth(tier) >= at).length;
 // a base weapon as it is handed out for a dive from `tier` (0-based start depth): the + value (supplyPlus) and rarity
 // (supplyRarity) of that depth. A found weapon as it is
 export const basicNow = <W extends WeaponItem | null>(w: W, tier = 0): W =>
@@ -114,7 +136,7 @@ const supplyGain = (picks: number): number =>
 const SUPPLY_CURVE_TIMES = 5;
 export function readinessScore(tier: number, s: ReadyState = readyNow(tier)): number {
   // the curves below are per depth of DEPTH_SCALE depths: a start at `tier` is that many depths in
-  const d = tier * DEPTH_SCALE;
+  const d = scaledDepth(tier);
   const best = Math.max(0, ...s.weapons.map(bareDps));
   const bossWall = Math.pow(hpGrowth(d, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(d), READY_BOSS_WEIGHT);
   const off = ((best / READY_REF_DPS) * s.dmg * supplyGain(tier)) / (enemyGrowth(d) * bossWall);

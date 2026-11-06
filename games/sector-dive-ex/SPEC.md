@@ -406,8 +406,8 @@
 
 ### ENDLESS の記録
 
-- **何のため**: ENDLESS で TITAN を倒したあとも遊び続けられるよう、あとで「周回」と「縛り」を足す。その前に、記録を「周と縛りの組ごとに1行」で持つ。周回と縛りはまだ無いので、今は「1周目・縛りなし」の1行だけが埋まる
-- **行の鍵**: 周（1始まりの数）と縛り（文字列。縛りなしは `'none'`）。今の行は `currentEndlessRecord` in src/core/progress.ts が返す（周回と縛りを足すときは、この関数だけを直す）
+- **何のため**: ENDLESS で TITAN を倒したあとも遊び続けられるよう、記録を「周と縛りの組ごとに1行」で持つ。周は今あり（「ENDLESS の周回」）、縛りはまだ無いので、行は「周・縛りなし」が1つずつになる
+- **行の鍵**: 周（`save.loop`、1始まりの数）と縛り（文字列。縛りなしは `'none'`）。今の行は `currentEndlessRecord` in src/core/progress.ts が `save.loop` と `'none'` で返す（無ければ作る。縛りを足すときは、この関数だけを直す）
 - **1行に持つもの**（`EndlessRecord` in src/data/types.ts、`records.endless`）
   - `best`: その行で着いたいちばん深い所（`save.best` と同じ単位: `stage + 1`）
   - `sec`: その行の潜行の時間の合計（秒）。潜行が終わるたびに `run.time` を足す。拠点にいた時間は入れない
@@ -416,12 +416,29 @@
   - `dives`: 終わった潜行の数（帰還・倒れた・放棄のどれでも1つ）
   - `deaths`: 倒れた潜行の数（`RunEnd` が `'dead'` のときだけ。放棄は入れない）
   - `partial`: 記録を入れる前から遊んでいたセーブの行なら `true`
+  - `titan`: その行で TITAN を倒したか（周をクリアしたか。`partial` の行でも `true` になる）
 - **書き足す所**
   - `endRun`（ENDLESS で、ボス練習でないとき）: `recordEndlessRun` が `sec`・`kills`・`dives`・`deaths`・`best` を更新する
-  - ENDLESS で TITAN を倒したとき（`bossDown` in src/actors/bosses/common.ts の ARCADE でない分岐）: `recordEndlessTitan` が `titanSec` を入れる（`null` で `partial` でないときだけ）
-- **古いセーブ**: セーブの版は上げない。`loadSaveFrom` in src/core/save.ts で入れ物が無ければ、周 1・`'none'` の行を1つ作る。保存されていたセーブ（`raw` がある）で `runs > 0` なら、その行は `partial: true`、`best` は今の `save.best`、ほかは 0（`titanSec` は `null`）。まっさらなセーブは `partial: false` の行を1つ持つ。`partial` の行は TITAN までの時間を入れない
-- **見せ方**: ENDLESS の拠点だけ。`#sideCards` の「記録」のカード（`data-go="records"`）と `.tabs` の「記録」から、ペイン `data-pane="records"` を開く（ARCADE ではカードもタブも隠す。新しい見た目の拠点は、レベルと同じくタブを出さず、ホームのカードから開く）。行ごとに「周と縛り」「最深」「TITAN まで」「撃破数」「潜った回数」「倒れた回数」を並べる。周と縛りの表示は「1周目・縛りなし」（英語は `Loop 1 · No restriction`）。最深は `stageLabel(best - 1)`（0 なら「—」）、TITAN までは `clockText`（`null` なら「—」）。`partial` の行には、行の下に「時間・撃破数・回数は、記録を始めてから数えています」と出す
+  - ENDLESS で TITAN を倒したとき（`bossDown` in src/actors/bosses/common.ts の ARCADE でない分岐）: `recordEndlessTitan` が `titan` を `true` にし、`titanSec` を入れる（`null` で `partial` でないときだけ）
+- **古いセーブ**: セーブの版は上げない。`loadSaveFrom` in src/core/save.ts で入れ物が無ければ、周 1・`'none'` の行を1つ作る。保存されていたセーブ（`raw` がある）で `runs > 0` なら、その行は `partial: true`、`best` は今の `save.best`、ほかは 0（`titanSec` は `null`）。まっさらなセーブは `partial: false` の行を1つ持つ。`partial` の行は TITAN までの時間を入れない。`loop` の無い古いセーブは `loop: 1` にし、`titan` の無い行は周 1 なら `records.cleared`、それ以外は `false` で埋める
+- **見せ方**: ENDLESS の拠点だけ。`#sideCards` の「記録」のカード（`data-go="records"`）と `.tabs` の「記録」から、ペイン `data-pane="records"` を開く（ARCADE ではカードもタブも隠す。新しい見た目の拠点は、レベルと同じくタブを出さず、ホームのカードから開く）。行は周の番号の小さい順に並べる。行ごとに「周と縛り」「最深」「TITAN まで」「撃破数」「潜った回数」「倒れた回数」を並べる。周と縛りの表示は「1周目・縛りなし」（英語は `Loop 1 · No restriction`）。最深は `stageLabel(best - 1)`（0 なら「—」）、TITAN までは `clockText`（`null` なら「—」）。`partial` の行には、行の下に「時間・撃破数・回数は、記録を始めてから数えています」と出す
 - ARCADE の記録（`records.bestTime` と `save.best`）は今までどおりで、ARCADE の潜行では行を書き足さない。`resetArcadeProgress` も行を消さない
+
+### ENDLESS の周回
+
+- **何のため**: ENDLESS で TITAN を倒したあと、レベル・武器・ビット・記録はそのままで、出撃地点とボスエリアをはじめに戻して D1 から遊び直せるようにする。2周目からは D1 から今の強さに合う手ごたえで始まり、D25 でまた TITAN に挑む
+- **周の番号**: `SaveData.loop`（1始まり）。`defaultSave` は 1、古いセーブは読み込みで 1 にそろえる（`loadSaveFrom` in src/core/save.ts。セーブの版は上げない）
+- **周の強さ（ENDLESS だけ）**: 深度 `tier`（0始まり）が、敵・ドロップ・ビットの式で何深度ぶんに当たるかを `scaledDepth` in src/core/rules.ts が返す。`progressOf` の深度の部分、`supplyRarity`、`readinessScore` がこれを使う（チップの効く回数と補給の回数は変えない。ボスの体力も `progressOf` を通して付いてくる）
+  - ARCADE と ENDLESS の1周目: `tier * depthScale()`（ENDLESS は `tier * 2`）
+  - ENDLESS の2周目から: 周を `L = min(save.loop, LOOP_TUNE.cap)`、ボスエリアの深度を `END = BOSS_AREA_START_TIER`（24）とし、`start(L) = LOOP_TUNE.start + LOOP_TUNE.shift * (L - 2)`、`end(L) = LOOP_TUNE.end + LOOP_TUNE.shift * (L - 2)` として
+    - `tier <= END`: `start(L) + (end(L) - start(L)) * tier / END`
+    - `tier > END`: `end(L) + (tier - END) * depthScale()`
+  - `LOOP_TUNE` in src/data/progress.ts（仮の値。sim と遊んだ感想で合わせる）: `start: 38`（2周目の D1 = 1周目の D20）、`end: 58`（2周目の D25 = 1周目の D30）、`shift: 10`（周ごとに5深度ぶん奥へ）、`cap: 5`（6周目からは5周目と同じ強さ）、`bonus: 0.1`（下のボーナス）
+- **周のボーナス（ENDLESS だけ）**: クリアした周 `n`（縛り `'none'` の行で `titan: true` のもの。周の番号が `LOOP_TUNE.cap` 以下の行だけ数える）だけ、潜り始めの最大HPと与ダメージの倍率に `1 + LOOP_TUNE.bonus * n` を掛ける。`startMaxHp`・`startDmgMul` in src/core/rules.ts が掛けるので、プレイヤーの作成（src/actors/player.ts）と出撃地点の目安（`readinessScore`）の両方に効く。`startMaxHp` は掛けてから丸める。ARCADE では掛けない
+- **次の周へ（ENDLESS の拠点）**: ENDLESS で今の周をクリアしていて（上の `titan`）、中断中の潜行が無い（`save.suspend` が `null`）ときに、`#sideCards` の記録のカードの前に `pagecard` のボタン `#btnNextLoop` を出す。見出しは「次の周へ」、小さい字で「{n}周目へ。出撃地点とボスエリアがはじめに戻る」（n は次の周）。1回押すと見出しが「もう一度押すと {n}周目へ」に変わり、ほかを押すか拠点を描き直すと元に戻る（強化ターミナルの「全部売る」と同じ）。2回目で `startNextLoop` in src/core/progress.ts を呼んで保存し、拠点を描き直す
+  - `startNextLoop` が戻すもの: `save.loop += 1`、`save.shortcut`・`save.startTier`・`save.records.bossArea`・`save.suspend` を `defaultSave()` の値に戻す（`resetArcadeProgress` と同じやり方）
+  - 残すもの: `bits`・`up`（レベル）・`loadout`・`stash`・`peak`・`unlocked`・`best`・`runs`・`bossKills`・`bossSeen`・`records.cleared`・`records.endless`・`settings`。新しい周の記録の行は、`currentEndlessRecord` が初めて呼ばれたときに作る
+  - モードの札（`#modeTag`）: ENDLESS で `save.loop >= 2` なら「ENDLESS · {n}周目」（英語は `ENDLESS · LOOP {n}`）。1周目は「ENDLESS」
 
 ### 強化と補給
 
