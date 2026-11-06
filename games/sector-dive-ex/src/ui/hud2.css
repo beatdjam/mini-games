@@ -400,19 +400,11 @@ body.hud2 :is(#scrPerk, #scrBag, #scrPause, #scrResult) .sharebtn {
 body.hud2 .perk:disabled {
   opacity: 0.45;
 }
-/* the terminal: the bits and the next level's price in a line, the weapons to sell as plates with their outlines,
-   DONE outlined in paint (buying is the thing to do here) */
+/* the terminal: the bits and the next level's price in a line, the weapons to sell as plates with their outlines */
 body.hud2 #scrPerk[data-mode='level'] #levelNote {
   color: var(--paint);
   font-family: var(--disp);
   font-size: 14px;
-}
-body.hud2 #scrPerk[data-mode='level'] #perkDone {
-  background: none;
-  border: 1px solid var(--paint2);
-  color: var(--paint);
-  box-shadow: none;
-  font-size: 16px;
 }
 /* (a phone's width: the terminal's plates in two columns and packed, so that the levels fit the first screen) */
 @media (max-width: 560px) {

@@ -323,6 +323,7 @@ test("level: a milestone's terminal opens on stepping onto it, sells the bag's w
   player.x -= 3;
   update(1 / 60);
   const open = stateIs('perk') && el('#scrPerk').dataset.mode === 'level' && !el('#sellList').hidden;
+  const closeInHead = !!document.querySelector('#scrPerk .cardhead #perkDone') && !el('#perkDone').hidden;
   document.querySelector<HTMLButtonElement>('#sellList [data-sell="0"]')!.click();
   const sold = [run.bits - bits0 === sellValue(w), player.bag[0] === null, el('#sellList').hidden];
   el('#perkDone').click();
@@ -331,6 +332,7 @@ test("level: a milestone's terminal opens on stepping onto it, sells the bag's w
   endRun('abandon');
   if (!underfoot) throw new Error('terminal opened underfoot');
   if (!open) throw new Error('terminal did not open');
+  if (!closeInHead) throw new Error('terminal close is not in the card head');
   if (sold.join() !== [true, true, true].join()) throw new Error('terminal sell ' + sold);
   if (!stays) throw new Error('terminal opened again without stepping off');
 });
