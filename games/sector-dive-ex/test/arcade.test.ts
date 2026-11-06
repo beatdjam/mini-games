@@ -26,7 +26,7 @@ import { level } from '../src/world/level.ts';
 import { setState, state } from '../src/flow/state.ts';
 import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
 import { checkpoint, resumeRun, suspendRun } from '../src/flow/suspend.ts';
-import { arcadeBossHpMul, bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
+import { arcadeAreaHpMul, arcadeBossHpMul, bossDown, spawnBoss } from '../src/actors/bosses/common.ts';
 import { bootGame, tick } from './helpers.ts';
 
 beforeAll(async () => {
@@ -381,5 +381,27 @@ test("ARCADE: a sector's boss has more health; the boss area's and ENDLESS's as 
   devSetArcade(false);
   run.stage = bossStageOf(2);
   expect(arcadeBossHpMul(), 'ENDLESS').toBe(1);
+  goBase();
+});
+
+test('ARCADE: the boss area and TITAN have their own health multiplier; ENDLESS does not', () => {
+  devSetArcade(true);
+  startRun(true);
+  run.stage = firstStageOf(ARCADE_DEPTHS);
+  run.area = { at: 'room', boss: 'titan' };
+  expect(arcadeAreaHpMul(), 'TITAN').toBe(BOSS_TUNE.arcadeTitanHpMul);
+  run.area = { at: 'room', boss: BOSS_ROOM_ORDER[0]! };
+  expect(arcadeAreaHpMul(), 'a room of the boss area').toBe(BOSS_TUNE.arcadeRoomHpMul);
+  run.area = { at: 'hall' };
+  expect(arcadeAreaHpMul(), 'the hall').toBe(1);
+  run.stage = bossStageOf(2);
+  run.area = undefined;
+  expect(arcadeAreaHpMul(), "a sector's boss").toBe(1);
+  devSetArcade(false);
+  run.stage = firstStageOf(ARCADE_DEPTHS);
+  run.area = { at: 'room', boss: 'titan' };
+  expect(arcadeAreaHpMul(), 'ENDLESS TITAN').toBe(1);
+  run.area = { at: 'room', boss: BOSS_ROOM_ORDER[0]! };
+  expect(arcadeAreaHpMul(), "ENDLESS's boss area").toBe(1);
   goBase();
 });
