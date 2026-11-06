@@ -37,18 +37,23 @@ import { isArcade, modeTune, save } from './save.ts';
 // (depth start = depth * 5 * DEPTH_SCALE, the boss = depth * 5 * DEPTH_SCALE + 4)
 // (ARCADE counts its depths deeper: modeTune().depthScale)
 export const depthScale = (): number => modeTune().depthScale;
-// What depth `tier` (0-based) counts as in the curves of the enemies, drops and bits. ARCADE and ENDLESS's loop 1 are
-// what they were; ENDLESS's later loops start and end deeper (LOOP_TUNE in data/progress.ts), the boss area's depth
-// being the end (past it, the depths grow as they do in loop 1)
+// What depth `tier` (0-based) counts as in the curves of the enemies, drops and bits. ARCADE is what it was; ENDLESS's
+// loop 1 counts depthScale() a depth up to the boss area's depth, and its later loops start and end deeper (LOOP_TUNE
+// in data/progress.ts). Past the boss area's depth every loop grows by LOOP_TUNE.pastEnd of depthScale() a depth: at
+// the full rate D26 (two depths past D24's rooms) was a wall the user could not get through (2026-11-07)
 export function scaledDepth(tier: number): number {
-  if (isArcade() || save.loop <= 1) return tier * depthScale();
+  if (isArcade()) return tier * depthScale();
   const loop = Math.min(save.loop, LOOP_TUNE.cap),
-    start = LOOP_TUNE.start + LOOP_TUNE.shift * (loop - 2),
-    end = LOOP_TUNE.end + LOOP_TUNE.shift * (loop - 2);
+    start = loop <= 1 ? 0 : LOOP_TUNE.start + LOOP_TUNE.shift * (loop - 2),
+    end = loop <= 1 ? BOSS_AREA_START_TIER * depthScale() : LOOP_TUNE.end + LOOP_TUNE.shift * (loop - 2);
   return tier <= BOSS_AREA_START_TIER
     ? start + ((end - start) * tier) / BOSS_AREA_START_TIER
-    : end + (tier - BOSS_AREA_START_TIER) * depthScale();
+    : end + (tier - BOSS_AREA_START_TIER) * depthScale() * LOOP_TUNE.pastEnd;
 }
+// The shortcut supply picks a dive from `tier` gets: the depths of loop 1 that hold the same strength (scaledDepth over
+// depthScale()), so that a later loop's DEPTH 1 sets out with the chips its enemies call for (it had none: the user
+// could not down one enemy, 2026-11-07). Loop 1 up to the boss area is one a skipped depth, as it was
+export const supplyPicks = (tier: number): number => (isArcade() ? tier : Math.round(scaledDepth(tier) / depthScale()));
 export const progressOf = (s: number): number => scaledDepth(Math.floor(s / PER)) * 5 + ((s % PER) * 4) / (PER - 1);
 // every weapon type can drop during a dive; unlocking only decides what you can start with and mod at the base
 // the player's level: one for every point put into the base upgrades (save.up), whichever it went to
@@ -139,7 +144,7 @@ export function readinessScore(tier: number, s: ReadyState = readyNow(tier)): nu
   const d = scaledDepth(tier);
   const best = Math.max(0, ...s.weapons.map(bareDps));
   const bossWall = Math.pow(hpGrowth(d, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(d), READY_BOSS_WEIGHT);
-  const off = ((best / READY_REF_DPS) * s.dmg * supplyGain(tier)) / (enemyGrowth(d) * bossWall);
+  const off = ((best / READY_REF_DPS) * s.dmg * supplyGain(supplyPicks(tier))) / (enemyGrowth(d) * bossWall);
   const def = s.hp / TUNE.hp / (1 + DMG_SCALE_PER_PROG * 5 * d);
   return Math.sqrt(off * def);
 }

@@ -21,7 +21,7 @@ import {
   takeFromStash,
   unlockWeapon,
 } from '../core/progress.ts';
-import { basicNow, isBossKind, levelOf, nextLevelCost, readiness, sellValue } from '../core/rules.ts';
+import { basicNow, isBossKind, levelOf, nextLevelCost, readiness, sellValue, supplyPicks } from '../core/rules.ts';
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
@@ -148,7 +148,8 @@ function armNextLoop(on: boolean) {
 
 // ---- the pieces of the base screen ----
 const tierButton = (n: number): string => {
-  const sub = n === 0 ? t('base.tierFirst') : t('base.tierChips', { n, times: TUNE.supplyTimes });
+  const picks = supplyPicks(n),
+    sub = picks === 0 ? t('base.tierFirst') : t('base.tierChips', { n: picks, times: TUNE.supplyTimes });
   const ready = readiness(n);
   return (
     `<button class="tier${isMilestone(n) ? ' mile' : ''}" data-tier="${n}" aria-pressed="${save.startTier === n}"><b>${tierLabel(n)}</b>` +
@@ -170,7 +171,8 @@ const depthPath = (): string => {
       ? `<span class="${cls}"><i></i>${num}</span>`
       : `<button class="${cls}" data-tier="${n}" aria-pressed="${n === at}" aria-label="${tierLabel(n)}"><i></i>${num}</button>`;
   }).join('');
-  const sub = at === 0 ? t('base.tierFirst') : t('base.tierChips', { n: at, times: TUNE.supplyTimes }),
+  const picks = supplyPicks(at),
+    sub = picks === 0 ? t('base.tierFirst') : t('base.tierChips', { n: picks, times: TUNE.supplyTimes }),
     ready = readiness(at);
   return (
     `<div class="dp-line" style="--n:${goal + 1}">${marks}</div>` +

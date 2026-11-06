@@ -152,11 +152,12 @@ export const MILESTONE_EVERY = 3;
 // above its start depth instead (bossAreaTierFor in core/bossArea.ts)
 export const BOSS_AREA_START_TIER = 24;
 // ENDLESS: how strong the later loops are (scaledDepth in core/rules.ts). A loop starts and ends deeper than the one
-// before; the boss area's depth is where a loop ends, and past it the depths grow as they do in loop 1.
+// before; the boss area's depth is where a loop ends, and past it every loop grows at pastEnd of the usual rate.
 // Provisional: the sim and play will tune them.
 export const LOOP_TUNE = {
-  start: 38, // loop 2's D1: loop 1's D20 (tier 19 * 2)
-  end: 58, // loop 2's D25: loop 1's D30 (tier 29 * 2)
+  start: 38, // loop 2's D1: what loop 1's D20 is (tier 19 * 2)
+  end: 58, // loop 2's D25: what loop 1's D30 was before pastEnd (tier 29 * 2)
+  pastEnd: 0.5, // past the boss area's depth, a depth counts this much of depthScale() (about x1.25 health a depth)
   shift: 10, // each loop moves this much deeper (5 depths)
   cap: 5, // loops past this are as strong as loop 5
   bonus: 0.1, // each cleared loop adds this to the start's HP and damage multiplier

@@ -17,7 +17,7 @@ import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { PER, TUNE } from '../data/progress.ts';
 import { COLOR } from '../data/colors.ts';
 import { persist, save, isArcade } from '../core/save.ts';
-import { progressOf } from '../core/rules.ts';
+import { progressOf, supplyPicks } from '../core/rules.ts';
 import {
   allBossRoomsBeaten,
   bossAreaCleared,
@@ -128,7 +128,8 @@ function pickStartChips(tier: number) {
   for (let k = 0; k < save.up.chip; k++) queue.push({ label: t('perk.carry'), times: 1 });
   // a walked depth gives about 8 chips, so one supply chip per skipped depth left deep starts hopeless: each supply pick
   // counts supplyTimes times instead
-  for (let k = 0; k < tier; k++) queue.push({ label: t('perk.supply'), times: TUNE.supplyTimes });
+  // (a later loop's depth counts the loop 1 depths of the same strength: supplyPicks)
+  for (let k = 0; k < supplyPicks(tier); k++) queue.push({ label: t('perk.supply'), times: TUNE.supplyTimes });
   const total = queue.length;
   // after the loadout / shortcut chips are picked, re-save the checkpoint so they are part of it
   const next = () => {
