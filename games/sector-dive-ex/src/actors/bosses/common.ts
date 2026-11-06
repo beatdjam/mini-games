@@ -90,6 +90,14 @@ export function areaHpMul(): number {
     ? BOSS_TUNE.roomHpMul
     : 1;
 }
+// ARCADE: the boss area's rooms and TITAN get their own health multiplier over the ones above (ENDLESS keeps them as
+// they are). TITAN is the room whose boss is titan; every other room is one of the eight. Only the health changes.
+export const arcadeAreaHpMul = (): number =>
+  !isArcade() || !bossAreaOn() || !stageInfo(run.stage).area || run.area?.at !== 'room'
+    ? 1
+    : run.area.boss === 'titan'
+      ? BOSS_TUNE.arcadeTitanHpMul
+      : BOSS_TUNE.arcadeRoomHpMul;
 // the body material of a boss: a near-black base colour that glows in the boss's own colour (at rest: BOSS_GLOW)
 // (with the looks on: a machine's hull plate with a little of that colour in it, world/models/machine.ts)
 export function bossMaterial(dark: number, emissive: number): THREE.MeshLambertMaterial {
@@ -122,14 +130,14 @@ export interface BossSpawn<S extends object> {
   onDown?: (e: Boss & S) => void; // when it goes down, after its meshes are removed
 }
 // hp / y (height of the body) / hitR (hit radius) come from BOSS_META; hp is scaled by bossDifficulty and the boss area
-// room's multiplier (areaHpMul)
+// room's multiplier (areaHpMul), and in ARCADE by arcadeBossHpMul and arcadeAreaHpMul
 export function createBoss<S extends object>(o: BossSpawn<S>): Boss & S {
   const { kind, behave, state } = o,
     { mesh, mat } = o.look;
   if (o.pool === false) delete mat.userData.pool;
   const meta = BOSS_META[kind],
     name = meta.title ?? kind,
-    hp = meta.hp * bossDifficulty() * areaHpMul() * arcadeBossHpMul(),
+    hp = meta.hp * bossDifficulty() * areaHpMul() * arcadeBossHpMul() * arcadeAreaHpMul(),
     y = meta.y,
     hitR = meta.hitR;
   dynGroup.add(mesh);

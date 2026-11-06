@@ -360,9 +360,16 @@ export const BOSS_TUNE = {
   // stuck at a milestone was nearly always stopped by its boss)
   // ARCADE: a sector's boss (DEPTH 1 to 8) has this much more health. A dive there buys levels at every boss, so the
   // next boss met a stronger player than in ENDLESS and went down far too fast (the user's play, 2026-11-03). The
-  // boss area's rooms and TITAN are as they are. The sim's climber (seeds 1-8): x1 cleared 6 dives of 8, x2 two (most of
+  // boss area's rooms and TITAN have their own multipliers below. The sim's climber (seeds 1-8): x1 cleared 6 dives of 8, x2 two (most of
   // the deaths at a sector's boss); between them
   arcadeHpMul: 1.5,
+  // ARCADE: multiplied over roomHpMul on the boss area's eight rooms (0.6 at 3). roomHpMul 0.2 looks to ENDLESS's D25
+  // damage, which ARCADE does not have: a room's boss had about 23% of the same boss's health in its sector (x1.5).
+  // The sim's climber (seeds 1-8): 3 dives of 8 cleared, a room took 7-52s against 6-29s before
+  arcadeRoomHpMul: 3,
+  // ARCADE: TITAN's health in the boss area (x2). At 1230 as it was, it was softer than D8's NOISE CORE. The sim's
+  // climber: the clears spent 54-78s on TITAN, against 27-52s before
+  arcadeTitanHpMul: 2,
   roomHpMul: 0.2, // the share of the health a boss in a boss area room has: about half the fight at the 300000% damage assumed at D25
   introTime: 2.0, // seconds a boss takes to appear (invulnerable, name shown)
   phaseTime: 1.2, // seconds of invulnerability when it drops below half health
