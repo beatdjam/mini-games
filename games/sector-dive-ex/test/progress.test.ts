@@ -336,6 +336,34 @@ test("level: a milestone's terminal opens on stepping onto it, sells the bag's w
   if (sold.join() !== [true, true, true].join()) throw new Error('terminal sell ' + sold);
   if (!stays) throw new Error('terminal opened again without stepping off');
 });
+test("level: the terminal's sell all asks once, then sells the whole bag from the head", () => {
+  goBase();
+  startRun();
+  tick(2);
+  const bits0 = run.bits;
+  const a = newWeapon('smg', 0),
+    b = newWeapon('launcher', 0);
+  player.bag[0] = a;
+  player.bag[1] = b;
+  const total = sellValue(a) + sellValue(b);
+  openLevelUp();
+  const all = el('#sellAll');
+  const before = all.textContent;
+  const shown = !all.hidden && !!before?.includes(String(total));
+  all.click();
+  const armed = run.bits === bits0 && player.bag[0] === a && player.bag[1] === b && all.textContent !== before;
+  all.click();
+  const sold = [run.bits - bits0 === total, player.bag.every(w => !w), all.hidden];
+  el('#perkDone').click();
+  openLevelUp();
+  const empty = el('#sellAll').hidden;
+  el('#perkDone').click();
+  endRun('abandon');
+  if (!shown) throw new Error('sell all is not shown with its total');
+  if (!armed) throw new Error('one click sold the bag');
+  if (sold.join() !== [true, true, true].join()) throw new Error('sell all ' + sold);
+  if (!empty) throw new Error('sell all is shown with an empty bag');
+});
 test("level: a starting chip bought at a terminal is picked without the terminal's parts, then the terminal is back", () => {
   const keepUp = { ...save.up },
     keepBits = save.bits;

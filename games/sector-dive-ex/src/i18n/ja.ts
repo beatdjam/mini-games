@@ -120,6 +120,8 @@ LANG.ja = {
     'level.done': '閉じる',
     'level.sell': '売る',
     'level.sellFor': '+{v} BIT',
+    'level.sellAll': '全部売る（+{v} BIT）',
+    'level.sellAllGo': '本当に全部売る（+{v} BIT）',
     'base.levelSuspended': '中断中の潜行が終わるまで上げられない',
     'base.change': '武器を変える ▾',
     'base.changeClose': '閉じる ▴',
