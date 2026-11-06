@@ -1,0 +1,43 @@
+# Sector Dive Extended: the places and moves added for the trailer of 2026-11-07, one each (2-3 seconds)
+#   CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run trailer -- games/sector-dive-ex/trailers/check-places.txt --preview
+
+size    1280x576 @1.5
+lang    ja
+input   mouse
+music   KWLN boss
+build   strong
+guns    shotgun:rate rail:pierce
+
+scene 2.4  DEPTH 25 の HUD
+  at      KWLN start depth=25
+  enemies 3
+  do      look-around
+
+scene 5.0  場面ごとに別のボス
+  at      boss hoist
+  do      boss
+
+scene 5.0  別のボス
+  at      boss surgeon
+  do      boss
+
+scene 2.4  ボスエリアの広間
+  at      hall depth=25
+  do      look-around
+
+scene 2.4  TITAN のシルエット
+  at      titan
+  looks   silhouette
+  do      look-around
+
+scene 2.0  ARCADE を選ぶ
+  at      modes
+  do      pick arcade
+
+scene 2.0  ENDLESS を選ぶ
+  at      modes
+  do      pick endless
+
+scene 2.4  ENDLESS の拠点
+  at      base loop=2 cleared challenge
+  do      stand

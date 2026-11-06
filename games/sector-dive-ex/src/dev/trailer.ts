@@ -1,4 +1,5 @@
-import type { BossKind, Enemy, WeaponItem } from '../data/types.ts';
+import * as THREE from 'three';
+import type { Boss, BossKind, Enemy, WeaponItem } from '../data/types.ts';
 import { clamp, distXZ, el, wrapAngle, yawToward } from '@engine/core/util.ts';
 import { setMusic, setMusicMix } from '@engine/audio/music.ts';
 import { T, W, activeTileGrid, floorY, grid, hasLOS } from '@engine/world/tiles.ts';
@@ -10,10 +11,12 @@ import { FILM_SETTINGS, setting } from '@engine/trailer/script.ts';
 import type { Script, ScriptLine, ScriptScene } from '@engine/trailer/script.ts';
 import { isBossKind } from '../core/rules.ts';
 import { BIOMES } from '../data/biomes.ts';
-import { BOSS_TUNE } from '../data/bosses.ts';
+import { BOSS_ORDER, BOSS_TUNE } from '../data/bosses.ts';
+import { BOSS_ROOM_ORDER, BOSS_ROOMS } from '../data/bossRooms.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
+import { BOSS_AREA_START_TIER } from '../data/progress.ts';
 import { WEAPONS } from '../data/weapons.ts';
-import { save } from '../core/save.ts';
+import { newEndlessRecord, persist, save } from '../core/save.ts';
 import { building, makeBuilding, roomDoors } from '../world/building.ts';
 import type { Building, BuildingLink } from '../world/building.ts';
 import { devSeed, level } from '../world/level.ts';
@@ -23,6 +26,7 @@ import { makeTerminal } from '../world/portals.ts';
 import { COLOR } from '../data/colors.ts';
 import { t as say } from '@engine/core/i18n.ts';
 import { boss, enemies, spawnEnemy } from '../world/entities.ts';
+import { spawnBoss } from '../actors/bosses/common.ts';
 import { devPlainLooks } from '../world/looks.ts';
 import { useSparkLooks } from '../world/models/sparkLooks.ts';
 import { devPlainGuns } from '../actors/viewmodel.ts';
@@ -32,8 +36,11 @@ import { cycleMap } from '../ui/hud.ts';
 import { turnMap3D } from '../ui/map3d.ts';
 import { changeLang } from '../ui/settings.ts';
 import { ridingY } from '../flow/events.ts';
-import { startRun, startStage } from '../flow/run.ts';
+import { goBase, startRun, startStage } from '../flow/run.ts';
 import { state } from '../flow/state.ts';
+import { firstStageOf, tierLabel } from '../core/stages.ts';
+import { refreshRunText } from '../screens/pause.ts';
+import { openModeSelect } from '../screens/mode.ts';
 // the boss a `building` line names (boss=...), if it is one
 const namedBoss = (l: ScriptLine): BossKind | undefined => (isBossKind(l.named.boss) ? l.named.boss : undefined);
 // Dev only: the words of Sector Dive Extended's trailer scripts (engine/src/trailer; how to write one and film it:
@@ -41,13 +48,17 @@ const namedBoss = (l: ScriptLine): BossKind | undefined => (isBossKind(l.named.b
 // player somewhere (`at`), in the old or new looks (`looks`), with a row of enemies in front (`enemies`), and moves
 // their hands (`do`). The building places (stairs, lift, court, lockdown, boss, terminal, map3d) are all in one
 // building of the `building` setting, one the script's places all fit in. `at window <SECTOR>` is in a building of
-// its own, as a start room
+// its own, as a start room; so is `at boss <BOSS>` (a building of that boss's sector). `at hall`, `at titan`, `at modes`
+// and `at base` stand outside a building: the boss area's hall, TITAN's room, the mode select and the ENDLESS base
 
 // ---- the words ----
 const SETTINGS = ['music', 'build', 'guns', 'building'];
 const SCENE_KEYS = ['at', 'looks', 'enemies', 'do'];
-// where a scene can be: a sector's start room, where the scene before was, or a place of the building
+// where a scene can be: a sector's start room, where the scene before was, a place of the building, or one of the
+// boss area's own places, the mode select and the base
 const BUILDING_PLACES = ['stairs', 'lift', 'court', 'lockdown', 'boss', 'terminal', 'map3d'];
+// every place, for the error message
+const PLACES = [...BUILDING_PLACES, ...['hall', 'titan', 'modes', 'base']];
 // what the hands do, and the place each needs in the same scene (none: anywhere)
 const ACTIONS: Record<string, string | null> = {
   stand: null,
@@ -58,7 +69,12 @@ const ACTIONS: Record<string, string | null> = {
   'turn-map': 'map3d',
   fight: null,
   boss: 'boss',
+  pick: 'modes',
 };
+// `hall` and `titan` stand at the boss area's depth; the depth of a scene (1-based `depth=`), or the boss area's own
+const depthOf = (l: ScriptLine | undefined): number => (l?.named.depth ? +l.named.depth : BOSS_AREA_START_TIER + 1);
+const pickOf = (l: ScriptLine | undefined): 'arcade' | 'endless' | null =>
+  l?.args[0] === 'pick' && (l.args[1] === 'arcade' || l.args[1] === 'endless') ? l.args[1] : null;
 const codeOf = (code: string) => BIOMES.findIndex(b => b.code === code);
 const lineOf = (sc: ScriptScene, key: string): ScriptLine | undefined => sc.lines.find(l => l.key === key);
 const placeOf = (sc: ScriptScene): string | undefined => {
@@ -88,9 +104,12 @@ function check(script: Script): string[] {
     for (const l of sc.lines) {
       if (!SCENE_KEYS.includes(l.key)) no(l, `no "${l.key}" in a scene (${SCENE_KEYS.join(', ')}, in)`);
       else if (l.key === 'at') {
-        const [where = '', what] = l.args;
+        const [where = '', what] = l.args,
+          depth = l.named.depth,
+          goodDepth = depth === undefined || (/^\d+$/.test(depth) && +depth >= 1);
         if (what === 'start') {
           if (codeOf(where) < 0) no(l, `no sector "${where}"`);
+          else if (!goodDepth) no(l, 'depth= takes a depth from 1');
         } else if (where === 'window') {
           const n = codeOf(what ?? '');
           if (n < 0 || !lookOf(BIOMES[n]!)?.outside)
@@ -100,18 +119,37 @@ function check(script: Script): string[] {
                 .map(b => b.code)
                 .join(', ')})`,
             );
-        } else if (where !== 'same' && !BUILDING_PLACES.includes(where))
-          no(l, `no place "${l.text}" (<SECTOR> start, window <SECTOR>, same, ${BUILDING_PLACES.join(', ')})`);
+        } else if (where === 'boss') {
+          if (what !== undefined && !isBossKind(what)) no(l, `no boss "${what}" (${BOSS_ORDER.join(', ')})`);
+          else if (what === undefined && !setting(script, 'building'))
+            no(l, 'boss is a place of the building: the script needs a building setting');
+        } else if (where === 'hall') {
+          if (!goodDepth) no(l, 'depth= takes a depth from 1');
+        } else if (where === 'titan' || where === 'modes') {
+          if (depth !== undefined) no(l, 'depth= goes with <SECTOR> start or hall');
+        } else if (where === 'base') {
+          if (l.named.loop !== undefined && (!/^\d+$/.test(l.named.loop) || +l.named.loop < 2))
+            no(l, 'loop= takes a loop from 2 (or more)');
+          for (const a of l.args.slice(1))
+            if (!['cleared', 'challenge'].includes(a)) no(l, `no "${a}" for base (cleared, challenge)`);
+        } else if (where !== 'same' && !PLACES.includes(where))
+          no(l, `no place "${l.text}" (<SECTOR> start, window <SECTOR>, same, ${PLACES.join(', ')})`);
         else if (BUILDING_PLACES.includes(where) && !setting(script, 'building'))
           no(l, `${where} is a place of the building: the script needs a building setting`);
-      } else if (l.key === 'looks' && !['old', 'new'].includes(l.args[0] ?? '')) no(l, 'looks takes old or new');
-      else if (l.key === 'enemies' && !/^\d+$/.test(l.args[0] ?? ''))
+      } else if (l.key === 'looks') {
+        const look = l.args[0] ?? '';
+        if (look === 'silhouette') {
+          if (placeOf(sc) !== 'titan') no(l, 'silhouette needs "at titan" in its scene');
+        } else if (!['old', 'new'].includes(look)) no(l, 'looks takes old, new or silhouette');
+      } else if (l.key === 'enemies' && !/^\d+$/.test(l.args[0] ?? ''))
         for (const t of l.args) if (!ENEMY[t]) no(l, `no enemy "${t}"`);
       if (l.key === 'do') {
-        const need = ACTIONS[l.args[0] ?? ''];
-        if (need === undefined) no(l, `no action "${l.args[0] ?? ''}" (${Object.keys(ACTIONS).join(', ')})`);
-        else if (need && placeOf(sc) !== need) no(l, `${l.args[0]} needs "at ${need}" in its scene`);
-        else if (l.named.hp !== undefined && (l.args[0] !== 'boss' || !(+l.named.hp > 0)))
+        const action = l.args[0] ?? '',
+          need = ACTIONS[action];
+        if (need === undefined) no(l, `no action "${action}" (${Object.keys(ACTIONS).join(', ')})`);
+        else if (need && placeOf(sc) !== need) no(l, `${action} needs "at ${need}" in its scene`);
+        else if (action === 'pick' && !pickOf(l)) no(l, 'pick takes arcade or endless');
+        else if (l.named.hp !== undefined && (action !== 'boss' || !(+l.named.hp > 0)))
           no(l, 'hp= goes with do boss, as a number above 0');
       }
     }
@@ -161,6 +199,7 @@ let script: Script;
 let started = false; // a run has been started
 let shown: Building | null = null; // the building of the building places, once it is up
 let sector = 0; // the sector of the start rooms (at <SECTOR> start; `same` rebuilds it)
+let startTier = 0; // the depth of the start rooms (`depth=` on at <SECTOR> start; `same` rebuilds it)
 let lift: BuildingLink | null = null;
 let liftFrom = 0; // the tile the player steps onto the lift from
 let fightRoom = -1;
@@ -168,6 +207,11 @@ let lockFrom: [number, number] | null = null; // the middle of the door the play
 let target: Enemy | null = null;
 let bossFought = false; // the boss of the scene has come out (once it is beaten, the hands rest)
 let bossHp = 1; // do boss hp=4: the boss's health that many times (a longer fight than a practised build's two seconds)
+let pickTarget: 'arcade' | 'endless' | null = null; // do pick: the mode button to press
+let pickPressed = false;
+const PICK_AT = 0.7; // seconds into the scene when the mode button is pressed
+// a boss drawn as a black shape: what the silhouette look puts on every part of it
+const SILHOUETTE = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide, fog: false });
 
 // the player's guns and chips, from the settings
 function settle() {
@@ -210,6 +254,8 @@ function start() {
 function inSector(n: number) {
   run.route = [n];
   run.bld = undefined;
+  run.area = undefined; // a normal building, even after a boss area scene at the same depth
+  save.records.bossArea = null;
   startStage();
 }
 // to a floor of the building (a cut)
@@ -220,24 +266,109 @@ function goFloor(floor: number) {
   startStage();
   buff();
 }
-// the building of the building places, made when the first of them comes
-function upBuilding() {
+// the building of the building places, made when the first of them comes; with `boss`, a building of that boss's own
+// sector (the scene is that boss's, not the `building` setting's)
+function upBuilding(boss?: BossKind) {
   showOnly(false);
-  if (shown && building === shown) return;
-  const b = setting(script, 'building')!,
-    n = codeOf(b.args[0]!);
+  if (!boss && shown && building === shown) return;
+  const b = boss ? undefined : setting(script, 'building')!,
+    n = codeOf(boss ? BOSS_ROOMS[boss] : b!.args[0]!);
   settle();
-  devSeed(pickSeed(script, b));
+  devSeed(boss ? 1 : pickSeed(script, b!));
   startRun();
   started = true;
   run.route = [n];
   run.bld = undefined;
-  run.forceBoss = namedBoss(b) ?? BIOMES[n]!.bosses[0]!;
+  run.area = undefined; // a normal building, even after a boss area scene at the same depth
+  save.records.bossArea = null;
+  run.forceBoss = boss ?? namedBoss(b!) ?? BIOMES[n]!.bosses[0]!;
   startStage();
   run.forceBoss = undefined;
   run.bld!.supplied = true; // no supply picks at the boss door: the clip goes straight into the fight
   shown = building!;
   shown.plans.forEach(p => p.seen.fill(1)); // the maps show the whole building
+}
+// the boss area's depth for a scene (1-based `depth=`, or the boss area's own depth)
+const tierOf = (l: ScriptLine | undefined): number => depthOf(l) - 1;
+// the ENDLESS base's home, with the cards the scene asks for (`loop=`, `cleared`, `challenge`)
+function baseScene(at: ScriptLine) {
+  const loop = at.named.loop ? +at.named.loop : 1;
+  save.loop = loop;
+  save.challenge = null;
+  save.suspend = null;
+  save.records.endless = [newEndlessRecord()]; // a clean set of rows (the film's own save, never the player's)
+  // a row cleared of TITAN: the current loop's for the next-loop card, another loop's for a challenge to be open
+  const clearRow = (n: number) => {
+    let row = save.records.endless.find(r => r.loop === n && r.restriction === 'none');
+    if (!row) {
+      row = newEndlessRecord(false, 0, n);
+      save.records.endless.push(row);
+    }
+    row.titan = true;
+  };
+  if (at.args.includes('cleared')) clearRow(loop);
+  if (at.args.includes('challenge') && !at.args.includes('cleared')) clearRow(1);
+  started = false; // a later start scene makes a run again
+  shown = null;
+  el('#dlgMode').hidden = true;
+  goBase();
+}
+// the mode select, opened on the base screen (its buttons as they are, not pressed by the scene before)
+function modesScene() {
+  for (const id of ['#btnModeArcade', '#btnModeEndless']) el<HTMLButtonElement>(id).style.cssText = '';
+  started = false;
+  shown = null;
+  // no suspended dive in the film's save: the mode dialog reads the stored save for its "suspended" badge
+  save.suspend = null;
+  persist();
+  goBase();
+  openModeSelect();
+}
+// TITAN's room, from its entrance: the boss stands in the middle and is left asleep (no attack, no walk)
+function titanRoom(tier: number) {
+  start();
+  save.shortcut = Math.max(save.shortcut, tier);
+  save.records.bossArea = { tier, beaten: [...BOSS_ROOM_ORDER] };
+  run.stage = firstStageOf(tier);
+  run.area = { at: 'room', boss: 'titan' };
+  run.bld = undefined;
+  startStage();
+  shown = building!;
+  el('#banner').style.visibility = 'hidden';
+  if (!boss) spawnBoss('titan');
+  const b = enemies.find(e => e.boss && e.kind === 'titan') as
+    (Boss & { st: string; timer: number; emberT?: number }) | undefined;
+  if (!b) return;
+  b.spawnT = 0;
+  b.intro = false;
+  b.mesh.scale.setScalar(1);
+  b.st = 'guns'; // standing, turned to the player
+  b.timer = 1e9;
+  b.emberT = 1e9; // no fire, no sparks: a still shape
+  for (let n = 0; n < 60; n++) b.update?.(1 / 60); // let the pose settle
+  b.behave = () => {}; // asleep: no attack, no walk, nothing that moves
+  player.pitch = 0.12; // the entrance looks a little up at it
+}
+// the boss drawn as a silhouette: every part of TITAN black and its own light out (the room and its own lights stay)
+function paintSilhouette() {
+  const b = enemies.find(e => e.boss && e.kind === 'titan');
+  if (!b) return;
+  b.mesh.traverse(o => {
+    if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).material = SILHOUETTE;
+  });
+  if (b.pool) b.pool.visible = false;
+  b.extra?.forEach(o => (o.visible = false));
+  // the health bar names the boss: the silhouette keeps who it is a secret
+  el('#bossBar').style.visibility = 'hidden';
+}
+// the mode button pressed, as far as a frame shows it (the game itself is not switched: no reload in a trailer)
+function pressMode() {
+  if (!pickTarget) return;
+  const b = el<HTMLButtonElement>(pickTarget === 'arcade' ? '#btnModeArcade' : '#btnModeEndless');
+  b.style.borderColor = 'var(--amber, #ffc24a)';
+  b.style.background = 'linear-gradient(180deg, #2c3034, #1b1d1f)';
+  b.style.boxShadow = 'inset 0 2px 7px rgba(0, 0, 0, 0.65)';
+  b.style.transform = 'translateY(1px)';
 }
 const closeMap = () => {
   for (let n = 0; n < 3 && !el('#bigmap').hidden; n++) cycleMap();
@@ -300,12 +431,44 @@ function place(at: ScriptLine) {
     showOnly(true); // (after start: its settle turns auto-fire on)
     if (at.named.seed) devSeed(+at.named.seed);
     sector = codeOf(where!);
+    startTier = at.named.depth ? tierOf(at) : 0;
+    run.stage = firstStageOf(startTier);
     inSector(sector);
     shown = null;
+  } else if (where === 'hall') {
+    // the boss area's hall, its eight gates not beaten; the depth is the boss area's, or `depth=`
+    start();
+    showOnly(true);
+    const tier = tierOf(at);
+    save.shortcut = Math.max(save.shortcut, tier);
+    save.records.bossArea = { tier, beaten: [] };
+    run.stage = firstStageOf(tier);
+    run.area = { at: 'hall' };
+    run.bld = undefined;
+    startStage();
+    shown = null;
+    el('#banner').style.visibility = 'hidden';
+    if (at.named.depth) {
+      // (the hall's own label is "the deepest": the depth asked for goes in front of it)
+      refreshRunText();
+      el('#stageLbl').innerHTML =
+        `<span class="sdepth"><b>${tierLabel(tier)}</b></span>` + `<span class="sname">${say('boss.hallPlace')}</span>`;
+    }
+  } else if (where === 'titan') {
+    start();
+    showOnly(true); // nobody fires: the silhouette is the picture
+    titanRoom(tierOf(at));
+  } else if (where === 'modes') {
+    modesScene();
+  } else if (where === 'base') {
+    baseScene(at);
   } else if (where === 'same') {
     const { x, z, yaw, pitch } = player;
     if (shown) goFloor(run.bld!.floor);
-    else inSector(sector);
+    else {
+      run.stage = firstStageOf(startTier);
+      inSector(sector);
+    }
     Object.assign(player, { x, z, yaw, pitch });
     player.fy = floorY(x, z);
   } else if (where === 'stairs') {
@@ -376,7 +539,7 @@ function place(at: ScriptLine) {
       if (e.room === ld.room) e.active = true;
     });
   } else if (where === 'boss') {
-    upBuilding();
+    upBuilding(isBossKind(what) ? what : undefined);
     goFloor(shown!.plans.length - 1);
     BOSS_TUNE.introTime = 1.0;
     const hall = level.hall!,
@@ -390,15 +553,28 @@ function place(at: ScriptLine) {
 function scene(sc: ScriptScene) {
   closeMap();
   el('#alarm').classList.remove('on');
+  el('#bossBar').style.visibility = ''; // (a silhouette scene hides it)
+  // what the mode-select and base scenes left: the dialog closed, and the film's save back in loop 1 with no challenge
+  // (a loop 2 left on made the next dive open with its shortcut supply picks over the picture)
+  const where = lineOf(sc, 'at')?.args[0];
+  if (where && where !== 'modes') el('#dlgMode').hidden = true;
+  if (where && where !== 'base' && where !== 'modes' && where !== 'same') {
+    save.loop = 1;
+    save.challenge = null;
+  }
   target = null;
   bossFought = false;
   bossHp = +(lineOf(sc, 'do')?.named.hp ?? 1);
   const looks = lineOf(sc, 'looks'),
     at = lineOf(sc, 'at'),
-    row = lineOf(sc, 'enemies');
+    row = lineOf(sc, 'enemies'),
+    silhouette = looks?.args[0] === 'silhouette';
   if (at?.args[0] !== 'lockdown') lockFrom = null;
-  if (looks) plainAll(looks.args[0] === 'old');
+  if (looks && !silhouette) plainAll(looks.args[0] === 'old');
   if (at) place(at);
+  if (silhouette) paintSilhouette();
+  pickTarget = pickOf(lineOf(sc, 'do'));
+  pickPressed = false;
   if (row) lineUp(row);
 }
 
@@ -476,6 +652,14 @@ const HANDS: Record<string, (t: number, dt: number, s: number) => void> = {
       aimAt(ox, player.fy + 1.6, oz, dt, 2.6);
     }
   },
+  // the mode select: a moment, then the button goes down (only its look: the game is not switched)
+  pick: t => {
+    still();
+    if (!pickPressed && t >= PICK_AT) {
+      pickPressed = true;
+      pressMode();
+    }
+  },
   'turn-map': (t, dt) => {
     still();
     turnMap3D(0.55 * dt, (t < 1.2 ? 0.12 : -0.1) * dt);
@@ -535,13 +719,19 @@ const HANDS: Record<string, (t: number, dt: number, s: number) => void> = {
   },
 };
 function frame(sc: ScriptScene, t: number, dt: number) {
+  const action = lineOf(sc, 'do')?.args[0] ?? 'stand';
+  // (the mode select is a screen of the base, with no player: its press is a look only)
+  if (action === 'pick') {
+    HANDS.pick!(t, dt, sc.start + t);
+    return;
+  }
   if (state !== 'play' || !player) {
     still();
     return;
   }
   player.hp = player.maxHp;
   player.inv = Math.max(player.inv, 0.2);
-  HANDS[lineOf(sc, 'do')?.args[0] ?? 'stand']!(t, dt, sc.start + t);
+  HANDS[action]!(t, dt, sc.start + t);
 }
 // the lockdown's red frame pulses by the film's clock (the page's own animation runs on real time)
 function paint(s: number) {
