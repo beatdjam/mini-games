@@ -4,7 +4,8 @@ import { PER } from '../../data/progress.ts';
 import { player, run } from '../../actors/player.ts';
 import { endRun, startRun } from '../../flow/run.ts';
 import { drawShareCard, shareData, shareText } from '../../ui/share.ts';
-// dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-res: the result screen, #view-share-res-panel: with the PC share panel open,
+// dev view: #view-share[-dead] shows the result card image for a sample run (#view-share-clear: an ARCADE clear with a
+// time, -cont: with CONTINUEs; #view-share-res: the result screen, #view-share-res-panel: with the PC share panel open,
 // #view-share-res-many: a deep run's hundred chips)
 export function showShare(hash: string) {
   setTimeout(() => {
@@ -38,7 +39,11 @@ export function showShare(hash: string) {
         }).flatMap(([id, n]) => Array(n).fill(id)),
       );
     player.weapons[0] = { id: 'rail', r: 2, plus: 7, opts: [] } as unknown as Weapon;
-    const kind: RunEnd = hash.includes('dead') ? 'dead' : 'extract';
+    if (hash.includes('clear')) {
+      run.time = 49 * 60 + 18;
+      if (hash.includes('cont')) run.continues = 2;
+    }
+    const kind: RunEnd = hash.includes('dead') ? 'dead' : hash.includes('clear') ? 'clear' : 'extract';
     endRun(kind);
     if (hash.includes('res')) {
       if (hash.includes('panel')) setTimeout(() => el('#btnShare').click(), 900);

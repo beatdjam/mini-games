@@ -321,9 +321,14 @@ LANG.en = {
     'share.help': 'Paste the copied image into the X post, or attach the saved one.',
     'share.copied': 'Image copied. Paste it into your X post.',
     'share.copyFailed': 'Could not copy. Use "Save image" instead.',
-    // bosses: each kind once with a count (bossSummary), nBoss: how many in all
-    'share.text': ({ where, biome, kind, bosses, nBoss }) =>
-      `SECTOR/DIVE EX: ${kind === 'extract' ? 'extracted from' : kind === 'abandon' ? 'abandoned the dive at' : 'signal lost at'} ${where} ${biome}.${nBoss > 1 ? ` Defeated ${nBoss} bosses (${bosses}).` : nBoss ? ` Defeated ${bosses}.` : ''} #SectorDiveEX`,
+    // bosses: each kind once with a count (bossSummary), nBoss: how many in all; time: the dive's time, continues: its CONTINUEs
+    'share.text': ({ where, biome, kind, bosses, nBoss, time, continues }) => {
+      const beaten = nBoss > 1 ? ` Defeated ${nBoss} bosses (${bosses}).` : nBoss ? ` Defeated ${bosses}.` : '';
+      return kind === 'clear'
+        ? `SECTOR/DIVE EX: cleared ARCADE in ${time}${continues ? (continues === 1 ? ' (1 continue)' : ` (${continues} continues)`) : ''}.${beaten} #SectorDiveEX`
+        : `SECTOR/DIVE EX: ${kind === 'extract' ? 'extracted from' : kind === 'abandon' ? 'abandoned the dive at' : 'signal lost at'} ${where} ${biome}.${beaten} #SectorDiveEX`;
+    },
+    'share.continuesV': ({ n }) => (n === 1 ? ' (1 continue)' : ` (${n} continues)`),
     'share.kills': 'Kills',
     'share.killsV': '{n}',
     'share.bosses': 'Bosses',

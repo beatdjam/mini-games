@@ -64,6 +64,8 @@ interface ShareCard {
   chips: string[];
   nChips: number;
   level: number; // the player's level, shown next to the result label
+  sec: number; // seconds the dive went on (ARCADE's clear shows it)
+  continues: number; // CONTINUEs used in the dive (a clear shows them when above 0)
 }
 export let shareData: ShareCard | null = null; // the card for the result on screen
 let shareBlob: Blob | null = null; // its image, drawn on first use
@@ -76,6 +78,10 @@ function bossSummary(bosses: string[]): string {
     .map(([name, c]) => (c > 1 ? t('common.count', { name, n: c }) : name))
     .join(t('share.join'));
 }
+// the dive's time in the result screen's words
+const timeValue = (d: ShareCard) => t('res.timeV', { m: Math.floor(d.sec / 60), s: d.sec % 60 });
+// the card's time row, with its CONTINUEs when the clear used any
+const timeText = (d: ShareCard) => timeValue(d) + (d.continues ? t('share.continuesV', { n: d.continues }) : '');
 export function prepShare(kind: RunEnd) {
   const w = player.weapons[player.cur] || player.weapons[0];
   const chips = [...countBy(run.perks, rec => parsePerk(rec).id)]
@@ -94,6 +100,8 @@ export function prepShare(kind: RunEnd) {
     chips,
     nChips: run.perks.length,
     level: levelOf(),
+    sec: Math.round(run.time ?? 0),
+    continues: run.continues || 0,
   };
   shareBlob = null;
   drawShareCard(shareData)
@@ -112,7 +120,11 @@ export function hideShare() {
 }
 
 export function shareText(d: ShareCard) {
-  return t('share.text', { ...d, bosses: bossSummary(d.bosses), nBoss: d.bosses.length }) + '\n' + SHARE_URL;
+  return (
+    t('share.text', { ...d, time: timeValue(d), bosses: bossSummary(d.bosses), nBoss: d.bosses.length }) +
+    '\n' +
+    SHARE_URL
+  );
 }
 
 function drawBackground(g: CanvasRenderingContext2D) {
@@ -162,8 +174,9 @@ function drawHeadline(g: CanvasRenderingContext2D, d: ShareCard, acc: string, fo
 
 // label / value rows under a rule each. Needs textAlign 'left'
 function drawRows(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts) {
-  const rows = [
+  const rows: [string, string, string][] = [
     [t('share.kills'), t('share.killsV', { n: d.kills }), CSS_COLOR.text],
+    ...(d.kind === 'clear' ? [[t('res.time'), timeText(d), CSS_COLOR.text] as [string, string, string]] : []),
     [t('share.bosses'), d.bosses.length ? bossSummary(d.bosses) : t('common.none'), CSS_COLOR.text],
     [t('share.weapon'), d.weapon || t('common.none'), RARITY[d.wr] ? RARITY[d.wr].css : CSS_COLOR.text],
     [
@@ -289,6 +302,7 @@ function drawKitRows(g: CanvasRenderingContext2D, d: ShareCard, fonts: CardFonts
   // [label, value, the weapon's kind for its outline, a tail kept whole when the value is cut short (the chips' count)]
   const rows: [string, string, string | null, string][] = [
     [t('share.kills'), t('share.killsV', { n: d.kills }), null, ''],
+    ...(d.kind === 'clear' ? [[t('res.time'), timeText(d), null, ''] as [string, string, string | null, string]] : []),
     [t('share.bosses'), d.bosses.length ? bossSummary(d.bosses) : t('common.none'), null, ''],
     [t('share.weapon'), d.weapon || t('common.none'), d.wid || null, ''],
     [
@@ -352,6 +366,7 @@ export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
     t('share.weapon'),
     t('share.chips'),
     t('common.none'),
+    d.kind === 'clear' ? t('res.time') + timeText(d) : '',
   ].join('');
   try {
     await Promise.all([
