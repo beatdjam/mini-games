@@ -193,7 +193,9 @@ export function detonate(e: RegularEnemy) {
 // bits, a kit (chance) and leech healing for a kill
 function dropKillRewards(e: RegularEnemy) {
   dropBits(e.x, e.z, killBits(e));
-  if (Math.random() < TUNE.kitDropChance)
+  // the die is thrown all the same: a 'kit' challenge leaves the med kit out
+  const kit = Math.random() < TUNE.kitDropChance;
+  if (kit && !usingRestriction('kit'))
     addPickup('kit', e.x + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD), e.z + rand(-KIT_DROP_SPREAD, KIT_DROP_SPREAD));
   const lh = player.leech + LEECH_OPT_HP * weaponOptCount('leech');
   if (lh) player.hp = Math.min(player.maxHp, player.hp + lh);
@@ -281,7 +283,7 @@ function roomReward(x: number, z: number) {
     addPickup('chip', x, z);
     toast(t('run.clearedChip'));
   } else {
-    addPickup('kit', x - ROOM_KIT_OFFSET, z);
+    if (!usingRestriction('kit')) addPickup('kit', x - ROOM_KIT_OFFSET, z);
     dropBits(x + ROOM_KIT_OFFSET, z, ROOM_BITS_BASE + progressOf(run.stage));
     toast(t('run.cleared'));
   }

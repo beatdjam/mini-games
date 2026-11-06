@@ -163,12 +163,12 @@ export const LOOP_TUNE = {
   bonus: 0.1, // each cleared loop adds this to the start's HP and damage multiplier
 };
 // ENDLESS: the restrictions a challenge can be played with. A clear with one adds its value times the loop's number to
-// the start's damage / max HP / bits (core/rules.ts restrictionBonus). 'ready' restrictions are the ones the base offers;
-// the others are data only for now. Provisional: the sim and play will tune them
+// the start's damage / max HP / bits, or to that one weapon's damage (core/rules.ts restrictionBonus). 'ready'
+// restrictions are the ones the base offers; the others are data only for now. Provisional: the sim and play will tune them
 export const RESTRICTIONS: Restriction[] = withLang<Restriction, 'name'>(
   [
-    { id: 'weapon', dmg: 0.02, ready: false },
-    { id: 'kit', hp: 0.02, ready: false },
+    { id: 'weapon', weaponDmg: 0.04, ready: true },
+    { id: 'kit', hp: 0.02, ready: true },
     { id: 'pick', bits: 0.03, ready: true },
     { id: 'hurt', dmg: 0.03, hp: 0.03, ready: true },
   ],

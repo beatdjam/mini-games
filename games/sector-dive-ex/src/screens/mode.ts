@@ -2,6 +2,7 @@ import type { GameMode } from '../data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { ARCADE_OPEN, restrictionOf } from '../data/progress.ts';
+import { WEAPONS } from '../data/weapons.ts';
 import { ACTIVE_MODE, hasSuspendIn, isArcade, save, switchMode } from '../core/save.ts';
 
 // The mode select (the title): which save to play, ARCADE or ENDLESS. It is opened at start-up (when ARCADE is open, or
@@ -39,18 +40,27 @@ export function renderModeTag(withLoop = true) {
   const tag = el('#modeTag'),
     challenge = save.challenge;
   tag.hidden = !modeSelectable;
-  tag.textContent = isArcade()
-    ? 'ARCADE'
-    : !withLoop
-      ? 'ENDLESS'
-      : challenge
-        ? `ENDLESS · ${t('mode.challenge', {
-            restriction: restrictionOf(challenge.restriction)?.name ?? challenge.restriction,
-            n: challenge.strength,
-          })}`
-        : save.loop >= 2
-          ? `ENDLESS · ${t('mode.loop', { n: save.loop })}`
-          : 'ENDLESS';
+  if (isArcade()) {
+    tag.textContent = 'ARCADE';
+    return;
+  }
+  // at load the languages are not in yet: no t() or name until the base draws it again (withLoop)
+  if (!withLoop) {
+    tag.textContent = 'ENDLESS';
+    return;
+  }
+  if (challenge) {
+    const restriction =
+      challenge.restriction === 'weapon' && challenge.weapon
+        ? t('restriction.weaponName', {
+            restriction: restrictionOf('weapon')?.name ?? 'weapon',
+            weapon: WEAPONS[challenge.weapon]?.name ?? challenge.weapon,
+          })
+        : (restrictionOf(challenge.restriction)?.name ?? challenge.restriction);
+    tag.textContent = `ENDLESS · ${t('mode.challenge', { restriction, n: challenge.strength })}`;
+    return;
+  }
+  tag.textContent = save.loop >= 2 ? `ENDLESS · ${t('mode.loop', { n: save.loop })}` : 'ENDLESS';
 }
 // (at load the languages are not in yet, so t() would throw: the loop waits for the base's first draw. A save in
 // loop 2 broke the page at start-up, 2026-11-07)

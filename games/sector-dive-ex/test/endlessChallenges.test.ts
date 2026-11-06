@@ -1,26 +1,38 @@
 // Smoke test for ENDLESS's restriction challenges: starting and ending one, the strength it plays at, the row it
-// records, the two effects that are open ('hurt' and 'pick') and the bonus its clears give. Boots the game page
-// (setup.ts) once for this file; each test makes the state it needs.
-import { afterEach, beforeAll, expect, test } from 'vitest';
+// records, the four restrictions that are open ('weapon', 'kit', 'pick' and 'hurt') and the bonus their clears give.
+// Boots the game page (setup.ts) once for this file; each test makes the state it needs.
+import { afterEach, beforeAll, expect, test, vi } from 'vitest';
+import { el } from '@engine/core/util.ts';
+import { query } from '@engine/core/world.ts';
+import { floorY } from '@engine/world/tiles.ts';
 import { clearStore, saveStore } from '@engine/core/store.ts';
-import { BOSS_AREA_START_TIER, LOOP_TUNE, RESTRICTION_TUNE } from '../src/data/progress.ts';
+import type { Pickup } from '../src/data/types.ts';
+import { BOSS_AREA_START_TIER, LOOP_TUNE, RESTRICTION_TUNE, TUNE } from '../src/data/progress.ts';
+import { WEAPONS } from '../src/data/weapons.ts';
 import { SAVE_KEY, basicW, defaultSave, devSetArcade, loadSaveFrom, newEndlessRecord, save } from '../src/core/save.ts';
 import {
   canStartChallenge,
   challengeStrengthMax,
   endChallenge,
+  equipWeapon,
   loopsCleared,
   recordEndlessTitan,
+  restrictionKey,
   setSuspend,
   startChallenge,
 } from '../src/core/progress.ts';
-import { restrictionBonus, scaledDepth, startDmgMul, startMaxHp } from '../src/core/rules.ts';
-import { damagePlayer } from '../src/actors/combat.ts';
+import { pickDrop, restrictionBonus, scaledDepth, startDmgMul, startMaxHp } from '../src/core/rules.ts';
+import { damagePlayer, hurtEnemy } from '../src/actors/combat.ts';
 import { player, run } from '../src/actors/player.ts';
-import { addPickup } from '../src/world/entities.ts';
+import { newWeapon, shotDamage } from '../src/actors/weapons.ts';
+import { addPickup, boss, spawnEnemy } from '../src/world/entities.ts';
+import { spawnBoss } from '../src/actors/bosses/common.ts';
 import { openPerk } from '../src/screens/perk.ts';
+import { openLevelUp } from '../src/screens/levelup.ts';
 import { endRun, goBase, startRun } from '../src/flow/run.ts';
-import { bootGame, tick } from './helpers.ts';
+import { building } from '../src/world/building.ts';
+import { level, roomSpot } from '../src/world/level.ts';
+import { bootGame, enterBuilding, goToFloor, killRoom, tick } from './helpers.ts';
 
 beforeAll(async () => {
   devSetArcade(false);
@@ -46,6 +58,7 @@ afterEach(() => {
   save.up = base.up;
   save.loadout = base.loadout;
   save.stash = base.stash;
+  save.unlocked = base.unlocked;
   save.shortcut = base.shortcut;
   save.startTier = base.startTier;
   save.peak = base.peak;
@@ -226,4 +239,204 @@ test('an old save without a challenge reads as none', () => {
   } finally {
     restore(SAVE_KEY, before);
   }
+});
+
+// ---- the two restrictions that came in after the first two ----
+test('a weapon challenge needs an unlocked kind and sets out with that one basic weapon', () => {
+  save.records.endless = [cleared(1), cleared(2)];
+  save.unlocked = { pistol: true };
+  expect(startChallenge('weapon', 1, 'shotgun'), 'not unlocked').toBe(false);
+  expect(startChallenge('weapon', 1, 'nope'), 'not a kind').toBe(false);
+  expect(startChallenge('weapon', 1), 'no kind').toBe(false);
+  save.unlocked.shotgun = true;
+  save.loadout = [basicW('smg'), basicW('rail')];
+  const main = save.loadout;
+  expect(startChallenge('weapon', 1, 'shotgun')).toBe(true);
+  expect(save.challenge).toMatchObject({ restriction: 'weapon', strength: 1, weapon: 'shotgun' });
+  expect(save.challenge!.main.loadout, 'the main loadout is set aside').toBe(main);
+  expect(save.loadout.map(w => w?.id ?? null)).toEqual(['shotgun', null]);
+  expect(save.loadout[0]!.basic, 'the basic one').toBe(true);
+  for (let i = 0; i < 20; i++) expect(pickDrop(), 'only the chosen kind drops').toBe('shotgun');
+  equipWeapon(0, basicW('pistol'));
+  expect(save.loadout[0]!.id, 'another kind cannot be equipped').toBe('shotgun');
+  equipWeapon(1, basicW('shotgun'));
+  expect(save.loadout[1]!.id, 'the chosen kind can').toBe('shotgun');
+  expect(restrictionKey(save.challenge)).toBe('weapon:shotgun');
+  expect(endChallenge()).toBe(true);
+  expect(save.loadout, 'the main loadout comes back').toBe(main);
+});
+
+test("endChallenge puts a weapon challenge's picked weapons in the stash", () => {
+  save.records.endless = [cleared(1)];
+  save.unlocked.shotgun = true;
+  save.loadout = [basicW('pistol'), basicW('smg')];
+  const main = save.loadout;
+  expect(startChallenge('weapon', 1, 'shotgun')).toBe(true);
+  const picked = newWeapon('rail', 1, false, 2);
+  save.loadout[1] = picked;
+  save.stash = [];
+  expect(endChallenge()).toBe(true);
+  expect(save.loadout, 'the main loadout comes back').toBe(main);
+  expect(save.stash, 'the picked weapon goes into the stash').toContain(picked);
+});
+
+test('a weapon challenge records under weapon:<kind>', () => {
+  save.records.endless = [cleared(1), cleared(2)];
+  save.unlocked.shotgun = true;
+  expect(startChallenge('weapon', 2, 'shotgun')).toBe(true);
+  startRun();
+  run.stage = 9;
+  run.time = 10;
+  run.kills = 3;
+  endRun('extract');
+  const row = save.records.endless.find(r => r.loop === 2 && r.restriction === 'weapon:shotgun')!;
+  expect(row, 'the row is keyed by the kind').toBeTruthy();
+  expect([row.dives, row.best, row.kills]).toEqual([1, 10, 3]);
+});
+
+test("a weapon clear adds its bonus to that kind's damage alone", () => {
+  save.records.endless = [cleared(1)];
+  startRun();
+  const shotgun = basicW('shotgun'),
+    pistol = basicW('pistol');
+  const shotgun0 = shotDamage(WEAPONS.shotgun, shotgun),
+    pistol0 = shotDamage(WEAPONS.pistol, pistol),
+    dmg0 = startDmgMul(0);
+  const row = newEndlessRecord(false, 0, 2, 'weapon:shotgun');
+  row.titan = true;
+  save.records.endless.push(row);
+  expect(restrictionBonus('weapon').weaponDmg).toEqual({ shotgun: 0.08 });
+  expect(restrictionBonus().dmg, 'the weapon bonus is not the whole damage').toBe(0);
+  expect(shotDamage(WEAPONS.shotgun, shotgun)).toBeCloseTo(shotgun0 * 1.08, 9);
+  expect(shotDamage(WEAPONS.pistol, pistol), 'another kind is unchanged').toBeCloseTo(pistol0, 9);
+  expect(startDmgMul(0), 'the start damage is unchanged').toBeCloseTo(dmg0, 9);
+});
+
+test('a kit challenge sets out with one kit and leaves the terminal out', () => {
+  save.records.endless = [cleared(1)];
+  save.up.kit = 2;
+  startRun();
+  expect(player.kits, 'no challenge: the level counts').toBe(TUNE.kitStart + 2);
+  openLevelUp();
+  expect(document.querySelector('#perkList [data-level="kit"]'), 'no challenge: the kit level is there').not.toBeNull();
+  el('#perkDone').click();
+  goBase();
+  setSuspend(null);
+  expect(startChallenge('kit', 1)).toBe(true);
+  startRun();
+  expect(player.kits, 'a kit challenge: only the start kit').toBe(TUNE.kitStart);
+  openLevelUp();
+  expect(document.querySelector('#perkList [data-level="kit"]'), 'a kit challenge: no kit level').toBeNull();
+  expect(document.querySelector('#perkList [data-level="hp"]'), 'the other levels are still there').not.toBeNull();
+  el('#perkDone').click();
+});
+
+test('a kit challenge leaves the med kits out of a kill', () => {
+  save.records.endless = [cleared(1)];
+  const original = Math.random,
+    random = vi.spyOn(Math, 'random');
+  const kits = () => query<Pickup>('pickup').filter(p => !p.dead && p.kind === 'kit').length;
+  try {
+    startRun();
+    query<Pickup>('pickup').forEach(p => (p.dead = true));
+    random.mockReturnValue(0); // the kit drop's die comes up
+    hurtEnemy(spawnEnemy('crawler', player.x + 2, player.z, -1, 1), 1e6, false);
+    random.mockImplementation(original);
+    expect(kits(), 'no challenge: a kill can drop a kit').toBe(1);
+    goBase();
+    setSuspend(null);
+    expect(startChallenge('kit', 1)).toBe(true);
+    startRun();
+    query<Pickup>('pickup').forEach(p => (p.dead = true));
+    random.mockReturnValue(0);
+    hurtEnemy(spawnEnemy('crawler', player.x + 2, player.z, -1, 1), 1e6, false);
+    random.mockImplementation(original);
+    expect(kits(), 'a kit challenge: no kit from a kill').toBe(0);
+  } finally {
+    random.mockRestore();
+  }
+});
+
+test('a kit challenge leaves the med kits out of a cleared room', () => {
+  save.records.endless = [cleared(1)];
+  const original = Math.random,
+    random = vi.spyOn(Math, 'random');
+  const roomToClear = () => {
+    const hall = building!.plans[level.floor]?.hall?.room,
+      ld = building!.lockdown;
+    return level.roomCount.findIndex(
+      (n, i) => n > 0 && i !== hall && !(ld && ld.floor === level.floor && ld.room === i),
+    );
+  };
+  const alive = (kind: Pickup['kind']) => query<Pickup>('pickup').filter(p => !p.dead && p.kind === kind).length;
+  try {
+    enterBuilding();
+    let room = roomToClear();
+    expect(room, 'a room to clear').toBeGreaterThanOrEqual(0);
+    query<Pickup>('pickup').forEach(p => (p.dead = true));
+    random.mockReturnValue(1); // no kill kit, and the room's chip roll fails
+    killRoom(room);
+    random.mockImplementation(original);
+    expect(alive('kit'), 'no challenge: the room gives a kit').toBe(1);
+    expect(alive('bit'), 'the room gives its bits').toBeGreaterThan(0);
+    goBase();
+    setSuspend(null);
+    expect(startChallenge('kit', 1)).toBe(true);
+    enterBuilding();
+    room = roomToClear();
+    expect(room, 'a room to clear').toBeGreaterThanOrEqual(0);
+    query<Pickup>('pickup').forEach(p => (p.dead = true));
+    random.mockReturnValue(1);
+    killRoom(room);
+    random.mockImplementation(original);
+    expect(alive('kit'), 'a kit challenge: no kit from a room').toBe(0);
+    expect(alive('bit'), 'the bits stay').toBeGreaterThan(0);
+  } finally {
+    random.mockRestore();
+  }
+});
+
+test('a kit challenge leaves the med kits out of a supplied lockdown reward', () => {
+  save.records.endless = [cleared(1)];
+  setSuspend(null);
+  expect(startChallenge('kit', 1)).toBe(true);
+  enterBuilding(b => !!b.lockdown);
+  const ld = building!.lockdown!;
+  goToFloor(ld.floor);
+  run.bld!.supplied = true; // after the pre-boss supply the chip's place would be a kit
+  query<Pickup>('pickup').forEach(p => (p.dead = true));
+  const [x, z] = roomSpot(level.rooms[ld.room]!);
+  player.x = x;
+  player.z = z;
+  player.fy = floorY(x, z);
+  tick(2);
+  tick(30);
+  for (let k = 0; k < 20 && !run.bld!.ld; k++)
+    for (let n = 0; n < 6 && level.roomCount[ld.room]! > 0 && !run.bld!.ld; n++) killRoom(ld.room);
+  expect(run.bld!.ld, 'the lockdown is over').toBe(1);
+  const lying = query<Pickup>('pickup').filter(p => !p.dead);
+  expect(
+    lying.some(p => p.kind === 'kit'),
+    'a kit challenge: no kit',
+  ).toBe(false);
+  expect(
+    lying.some(p => p.kind === 'weapon'),
+    'the weapon is still there',
+  ).toBe(true);
+});
+
+test('a kit challenge still gets the boss reward kit', () => {
+  save.records.endless = [cleared(1)];
+  setSuspend(null);
+  expect(startChallenge('kit', 1)).toBe(true);
+  startRun();
+  query<Pickup>('pickup').forEach(p => (p.dead = true));
+  spawnBoss('watcher');
+  tick(200);
+  hurtEnemy(boss!, boss!.hp + 1, false);
+  tick(2);
+  expect(
+    query<Pickup>('pickup').some(p => !p.dead && p.kind === 'kit'),
+    'the boss still leaves a kit',
+  ).toBe(true);
 });

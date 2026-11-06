@@ -116,6 +116,7 @@ LANG.en = {
     'base.challengeNote':
       'One restriction. Your main loop’s start depth, boss area and suspended dive are kept, and come back when you stop',
     'base.challengeRestrictions': 'Restriction',
+    'base.challengeWeapon': 'Weapon',
     'base.challengeStrength': 'Strength',
     'base.challengeLoop': 'Loop {n} strength',
     'base.challengeGo': 'Challenge',
@@ -246,6 +247,9 @@ LANG.en = {
     'restriction.dmg': 'Damage +{pct}',
     'restriction.hp': 'Max HP +{pct}',
     'restriction.bits': 'Bits +{pct}',
+    'restriction.weaponDmg': "That weapon's damage +{pct}",
+    'restriction.weaponDmgName': '{weapon} damage +{pct}',
+    'restriction.weaponName': '{restriction} ({weapon})',
     'restriction.perLoop': '{bonus} × loop',
 
     // ---- chips ----

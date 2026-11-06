@@ -78,18 +78,25 @@ export interface RestrictionBonus {
   dmg: number;
   hp: number;
   bits: number;
+  weaponDmg?: Record<string, number>; // 'weapon' clears: the chosen kind's own damage bonus
 }
 export function restrictionBonus(id?: RestrictionId): RestrictionBonus {
   const total: RestrictionBonus = { dmg: 0, hp: 0, bits: 0 };
   if (isArcade()) return total;
   for (const row of save.records.endless) {
     if (row.restriction === 'none' || !row.titan || row.loop > LOOP_TUNE.cap) continue;
-    if (id && row.restriction !== id) continue;
-    const def = restrictionOf(row.restriction);
+    // a weapon challenge's row is 'weapon:<id>'; the others are their id
+    const [base, weapon] = row.restriction.split(':');
+    if (id && base !== id) continue;
+    const def = restrictionOf(base!);
     if (!def) continue;
     total.dmg += (def.dmg ?? 0) * row.loop;
     total.hp += (def.hp ?? 0) * row.loop;
     total.bits += (def.bits ?? 0) * row.loop;
+    if (weapon && def.weaponDmg) {
+      total.weaponDmg ??= {};
+      total.weaponDmg[weapon] = (total.weaponDmg[weapon] ?? 0) + def.weaponDmg * row.loop;
+    }
   }
   return total;
 }
@@ -107,6 +114,8 @@ export function setDropOnly(id: string | null) {
 }
 export const pickDrop = () => {
   const id = DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
+  // a weapon challenge drops only the kind it was started with (the die is thrown all the same)
+  if (save.challenge?.restriction === 'weapon' && save.challenge.weapon) return save.challenge.weapon;
   return dropOnly ?? id;
 };
 // the + value a base weapon is handed out with for a dive starting at `stage` (progress): the level of the weapons

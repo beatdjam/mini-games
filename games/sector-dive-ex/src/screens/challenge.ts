@@ -2,7 +2,8 @@ import type { RestrictionId } from '../data/types.ts';
 import { el, pct } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { RESTRICTIONS, restrictionOf } from '../data/progress.ts';
-import { persist } from '../core/save.ts';
+import { WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
+import { persist, save } from '../core/save.ts';
 import { challengeStrengthMax, startChallenge } from '../core/progress.ts';
 import type { RestrictionBonus } from '../core/rules.ts';
 
@@ -10,10 +11,13 @@ import type { RestrictionBonus } from '../core/rules.ts';
 // "Challenge" starts it (core/progress.ts startChallenge). The dialog itself changes nothing but the save.
 let restriction: RestrictionId = 'pick';
 let strength = 1;
+let weapon = 'pistol'; // the kind a 'weapon' challenge takes
 // what the base does after the challenge started (it redraws itself)
 let onStarted: (() => void) | null = null;
 
 export const restrictionName = (id: string): string => restrictionOf(id)?.name ?? id;
+// the weapons a 'weapon' challenge can be started with: the kinds the save has unlocked, in WEAPON_ORDER
+const weaponChoices = (): string[] => WEAPON_ORDER.filter(id => id === 'pistol' || save.unlocked[id]);
 // "Damage +3% · Max HP +3%" (perLoop: "... × loop", as the dialog shows a bonus for each loop's strength)
 export function bonusText(bonus: RestrictionBonus, perLoop = false): string {
   const parts: string[] = [];
@@ -25,12 +29,25 @@ export function bonusText(bonus: RestrictionBonus, perLoop = false): string {
   return perLoop ? t('restriction.perLoop', { bonus: text }) : text;
 }
 function render() {
-  const max = challengeStrengthMax();
+  const max = challengeStrengthMax(),
+    choices = weaponChoices();
+  if (!choices.includes(weapon)) weapon = choices[0]!;
   el('#challengeRestrictions').innerHTML = RESTRICTIONS.filter(r => r.ready)
-    .map(
-      r =>
+    .map(r => {
+      const bonus = r.weaponDmg
+        ? t('restriction.perLoop', { bonus: t('restriction.weaponDmg', { pct: pct(r.weaponDmg) }) })
+        : bonusText({ dmg: r.dmg ?? 0, hp: r.hp ?? 0, bits: r.bits ?? 0 }, true);
+      return (
         `<button class="modebtn chbtn" type="button" data-chrestriction="${r.id}" aria-pressed="${r.id === restriction}">` +
-        `<b>${r.name}</b><small>${bonusText({ dmg: r.dmg ?? 0, hp: r.hp ?? 0, bits: r.bits ?? 0 }, true)}</small></button>`,
+        `<b>${r.name}</b><small>${bonus}</small></button>`
+      );
+    })
+    .join('');
+  el('#challengeWeapons').hidden = restriction !== 'weapon';
+  el('#challengeWeaponList').innerHTML = choices
+    .map(
+      id =>
+        `<button class="modebtn chbtn" type="button" data-chweapon="${id}" aria-pressed="${id === weapon}"><b>${WEAPONS[id]!.name}</b></button>`,
     )
     .join('');
   el('#challengeStrengths').innerHTML = Array.from(
@@ -42,6 +59,7 @@ function render() {
 export function openChallengeDialog(afterStart: () => void) {
   restriction = RESTRICTIONS.find(r => r.ready)?.id ?? 'pick';
   strength = 1;
+  weapon = weaponChoices()[0] ?? 'pistol';
   onStarted = afterStart;
   render();
   el('#dlgChallenge').hidden = false;
@@ -56,6 +74,12 @@ el('#challengeRestrictions').addEventListener('click', e => {
   restriction = b.dataset.chrestriction as RestrictionId;
   render();
 });
+el('#challengeWeaponList').addEventListener('click', e => {
+  const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-chweapon]');
+  if (!b) return;
+  weapon = b.dataset.chweapon!;
+  render();
+});
 el('#challengeStrengths').addEventListener('click', e => {
   const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-chstrength]');
   if (!b) return;
@@ -63,7 +87,7 @@ el('#challengeStrengths').addEventListener('click', e => {
   render();
 });
 el('#btnChallengeGo').addEventListener('click', () => {
-  if (!startChallenge(restriction, strength)) return;
+  if (!startChallenge(restriction, strength, restriction === 'weapon' ? weapon : undefined)) return;
   persist();
   const done = onStarted;
   close();

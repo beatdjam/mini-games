@@ -1,5 +1,6 @@
 import type {
   BossKind,
+  Challenge,
   ContinueFrom,
   EndlessRecord,
   RestrictionId,
@@ -9,6 +10,7 @@ import type {
 } from '../data/types.ts';
 import { clamp } from '@engine/core/util.ts';
 import { LOOP_TUNE, STASH_MAX, milestoneBelow, restrictionOf } from '../data/progress.ts';
+import { WEAPON_ORDER } from '../data/weapons.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { basicW, defaultSave, isArcade, modeTune, newEndlessRecord, save } from './save.ts';
 import { bossAreaOn, bossAreaTierFor } from './bossArea.ts';
@@ -28,8 +30,10 @@ export const spendBits = (n: number) => {
 };
 
 // ---- weapons ----
-// the weapon goes into a loadout slot; the weapon that was there goes to the stash unless it is a basic one
+// the weapon goes into a loadout slot; the weapon that was there goes to the stash unless it is a basic one.
+// A weapon challenge takes only its own kind
 export function equipWeapon(slot: number, item: WeaponItem | null) {
+  if (item && save.challenge?.restriction === 'weapon' && item.id !== save.challenge.weapon) return;
   const prev = save.loadout[slot];
   if (prev && !prev.basic) save.stash.push(prev);
   save.loadout[slot] = item;
@@ -93,9 +97,17 @@ export const recordBest = (stage: number) => {
 // The row the dives of now go into: the loop being played with no restriction, or the challenge's strength and
 // restriction. The writers below and the base's records page ask it for the row
 const RESTRICTION = 'none';
+// The restriction key of a challenge's row: a weapon challenge is one row per weapon ('weapon:<id>'); the others are
+// their id as it is
+export function restrictionKey(challenge: Challenge | null): string {
+  if (!challenge) return RESTRICTION;
+  return challenge.restriction === 'weapon' && challenge.weapon
+    ? `${challenge.restriction}:${challenge.weapon}`
+    : challenge.restriction;
+}
 export function currentEndlessRecord(): EndlessRecord {
   const loop = save.challenge ? save.challenge.strength : save.loop,
-    restriction = save.challenge ? save.challenge.restriction : RESTRICTION,
+    restriction = restrictionKey(save.challenge),
     rows = save.records.endless,
     found = rows.find(r => r.loop === loop && r.restriction === restriction);
   if (found) return found;
@@ -146,20 +158,28 @@ export const canStartChallenge = (): boolean =>
   !isArcade() && !save.challenge && save.suspend === null && challengeStrengthMax() >= 1;
 // whether the challenge being played carries restriction `id`
 export const usingRestriction = (id: RestrictionId): boolean => save.challenge?.restriction === id;
-// Sets the main loop's start depth, boss area and suspended dive aside and begins a challenge at D1. Only a ready
-// restriction and a strength within the cleared loops are taken
-export function startChallenge(restriction: RestrictionId, strength: number): boolean {
+// Sets the main loop's start depth, boss area, suspended dive and sortie loadout aside and begins a challenge at D1.
+// Only a ready restriction and a strength within the cleared loops are taken; a weapon challenge also needs one of the
+// kinds in WEAPON_ORDER that the save has unlocked (the pistol always is)
+export function startChallenge(restriction: RestrictionId, strength: number, weapon?: string): boolean {
   if (!canStartChallenge() || !Number.isInteger(strength)) return false;
   if (strength < 1 || strength > challengeStrengthMax()) return false;
   if (!restrictionOf(restriction)?.ready) return false;
+  if (
+    restriction === 'weapon' &&
+    (!weapon || !WEAPON_ORDER.includes(weapon) || !(weapon === 'pistol' || save.unlocked[weapon]))
+  )
+    return false;
   save.challenge = {
     restriction,
     strength,
+    ...(restriction === 'weapon' ? { weapon } : {}),
     main: {
       shortcut: save.shortcut,
       startTier: save.startTier,
       bossArea: save.records.bossArea,
       suspend: save.suspend,
+      loadout: save.loadout,
     },
   };
   const base = defaultSave();
@@ -167,12 +187,19 @@ export function startChallenge(restriction: RestrictionId, strength: number): bo
   save.startTier = base.startTier;
   save.records.bossArea = base.records.bossArea;
   save.suspend = base.suspend;
+  // a weapon challenge sets out with that kind's basic weapon alone
+  if (restriction === 'weapon') save.loadout = [basicW(weapon!), null];
   return true;
 }
-// Ends the challenge: the main loop's start depth, boss area and suspended dive come back. A suspended dive stops it
+// Ends the challenge: the main loop's start depth, boss area, suspended dive and sortie loadout come back. A weapon
+// challenge's picked weapons go into the stash first (as on extraction). A suspended dive stops it
 export function endChallenge(): boolean {
   const challenge = save.challenge;
   if (!challenge || save.suspend !== null) return false;
+  if (challenge.restriction === 'weapon') {
+    const picked = save.loadout.filter((w): w is WeaponItem => !!w && !w.basic);
+    storeWeapons(challenge.main.loadout ?? save.loadout, picked);
+  }
   save.shortcut = challenge.main.shortcut;
   save.startTier = challenge.main.startTier;
   save.records.bossArea = challenge.main.bossArea;
