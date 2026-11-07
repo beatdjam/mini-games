@@ -92,7 +92,6 @@ import {
   sinkRect,
   tileWorldOf,
 } from '../src/world/dungeon.ts';
-import { FLOOR_H, generateFloors } from '../src/world/floorgen.ts';
 import { DOOR_CLOSE_DELAY, DOOR_SENSE_R, DOOR_SPEED, isDoorLocked, lockDoor, updateDoors } from '../src/world/doors.ts';
 import { tileMapFromRows } from '../src/world/tilemap.ts';
 import { showFps } from '../src/core/dev.ts';
@@ -117,7 +116,6 @@ import {
 import { type PropRule, type Slot, placeProps, slotsOf } from '../src/world/slots.ts';
 import {
   type FloorLink,
-  type FloorSpot,
   type Floors,
   createFloors,
   crossLink,
@@ -2321,6 +2319,13 @@ test('dungeon: doors go in the room doorways, draw no random numbers, and every 
   addDoorways(wider.maps, wider.W);
   eq(wider.maps.door, undefined, 'a corridor 3 wide has no doorway');
 });
+test('dungeon: tileWorldOf shares the maps and brings the doors along', () => {
+  const d = generateDungeon({ map: 30, doors: true }, createRng(3)),
+    w = tileWorldOf(d);
+  ok(w.grid === d.maps.grid && w.hgt === d.maps.hgt && w.door === d.maps.door, 'the maps themselves');
+  eq([w.W, w.H, w.flow.length, w.flowQ.length].join(','), '30,30,900,900');
+  ok(!('door' in tileWorldOf(generateDungeon({ map: 30 }, createRng(3)))), 'no door maps without doors');
+});
 
 // ---------- audio ----------
 test('music: the game decides the fallback style and the mix; without them nothing breaks', () => {
@@ -2383,7 +2388,6 @@ test('music: the game decides the fallback style and the mix; without them nothi
   delete LAYER_MIX.loud;
 });
 
-// ---- several floors, generated ----
 // ---- the hall: a room with a single way in ----
 // the floor tiles reached from tile `from` walking over floor (4 ways, heights ignored), never stepping on `skip`
 function floodFloor(d: ReturnType<typeof generateDungeon>, from: number, skip = -1): Uint8Array {
@@ -2469,161 +2473,6 @@ test('dungeon: the hall draws two numbers first, repeats with the seed, and the 
   expect(() => generateDungeon({ map: 20, hall: { w: 4, h: 0 } }, createRng(1))).toThrow(/does not fit/);
   // a map the hall fills leaves no place for another room
   expect(() => generateDungeon({ map: 18, hall: { w: 12, h: 12 } }, createRng(1))).toThrow(/no room could be placed/);
-});
-test('floorgen: no stairs or lift ends in a hall', () => {
-  const hallFloor = { countMin: 2, countMax: 3, hall: { w: 12, h: 12 } };
-  for (let seed = 1; seed <= 40; seed++) {
-    const g = generateFloors(
-      { floors: 3, dungeon: [hallFloor, {}, hallFloor], stairs: 2, lifts: 1, liftRooms: 1 },
-      createRng(seed),
-    );
-    for (const l of g.links)
-      for (const s of [l.a, l.b]) {
-        const m = g.maps[s.floor];
-        ok(!m.hall || m.maps.roomOf[s.j * m.W + s.i] !== m.hall.room, `seed ${seed}: a ${l.kind} ends in the hall`);
-      }
-    eq(g.maps[0].hall!.room < g.maps[0].rooms.length, true);
-    // every floor is still reached by stairs alone, the halls through their doors included
-    const start = g.maps[0].rooms[0],
-      from = { floor: 0, i: Math.floor(start.x + start.w / 2), j: Math.floor(start.y + start.h / 2) },
-      cut = unreachableFloorTiles(g.floors, from, l => l.kind === 'stairs');
-    const liftOnly = (t: { floor: number; i: number; j: number }) =>
-      g.liftRooms.some(
-        r => r.floor === t.floor && g.maps[t.floor].maps.roomOf[t.j * g.maps[t.floor].W + t.i] === r.room,
-      );
-    ok(
-      cut.every(t => liftOnly(t) || g.maps[t.floor].maps.cover[t.j * g.maps[t.floor].W + t.i]),
-      `seed ${seed}: stairs reach everything but the lift-only rooms`,
-    );
-  }
-});
-test('floorgen: tileWorldOf shares the maps and brings the doors along', () => {
-  const d = generateDungeon({ map: 30, doors: true }, createRng(3)),
-    w = tileWorldOf(d);
-  ok(w.grid === d.maps.grid && w.hgt === d.maps.hgt && w.door === d.maps.door, 'the maps themselves');
-  eq([w.W, w.H, w.flow.length, w.flowQ.length].join(','), '30,30,900,900');
-  ok(!('door' in tileWorldOf(generateDungeon({ map: 30 }, createRng(3)))), 'no door maps without doors');
-});
-test('floorgen: floors joined by stairs (and lifts), every floor reached by stairs alone, the same seed repeats', () => {
-  const opts = {
-    floors: 3,
-    dungeon: { map: 36, doors: true, platform: 1, rubble: 0.1, bridges: 2 },
-    lifts: 1,
-  };
-  const stairsOnly = (l: FloorLink) => l.kind === 'stairs';
-  for (const seed of [1, 7, 99, 123, 2024]) {
-    const g = generateFloors(opts, createRng(seed)),
-      again = generateFloors(opts, createRng(seed));
-    eq(JSON.stringify(g.links), JSON.stringify(again.links), 'links repeat');
-    eq(g.maps.map(dungeonHash).join(), again.maps.map(dungeonHash).join(), 'maps repeat');
-    eq(
-      g.links.map(l => `${l.kind}:${l.a.floor}-${l.b.floor}`).join(),
-      'stairs:0-1,elevator:0-1,stairs:1-2,elevator:1-2',
-    );
-    eq(g.floors.baseY.join(), [0, FLOOR_H, 2 * FLOOR_H].join(), 'floor heights');
-    const ends = new Set<string>();
-    for (const l of g.links)
-      for (const s of [l.a, l.b]) {
-        const m = g.maps[s.floor].maps,
-          k = s.j * g.maps[s.floor].W + s.i;
-        ok(m.roomOf[k] >= 0 && m.hgt[k] === 0 && m.ramp[k] < 0 && !m.cover[k] && !m.door![k], 'a flat room tile');
-        ok(!ends.has(`${s.floor}:${k}`), 'no tile holds two link ends');
-        ends.add(`${s.floor}:${k}`);
-      }
-    // cover (waist high, more than STEP) is a floor tile nobody climbs onto: leave it out
-    const offCover = (s: FloorSpot) => !g.maps[s.floor].maps.cover[s.j * g.maps[s.floor].W + s.i];
-    eq(
-      unreachableFloorTiles(g.floors, g.links[0].a, stairsOnly).filter(offCover).length,
-      0,
-      `seed ${seed}: every floor tile by stairs alone`,
-    );
-    // and every floor tile can come to the top floor's stairs: an enemy anywhere can follow up there
-    floorFlow(g.floors, g.links[2].b, stairsOnly);
-    g.floors.grids.forEach((gr, n) => {
-      const w = gr.world;
-      for (let k = 0; k < w.grid.length; k++)
-        if (w.grid[k] === 1 && !w.cover[k]) ok(w.flow[k] >= 0, `seed ${seed}: floor ${n} tile ${k} has a way`);
-    });
-  }
-});
-test('floorgen: floors and rooms that only a lift reaches', () => {
-  const stairsOnly = (l: FloorLink) => l.kind === 'stairs',
-    offCover = (g: ReturnType<typeof generateFloors>) => (s: FloorSpot) =>
-      !g.maps[s.floor].maps.cover[s.j * g.maps[s.floor].W + s.i];
-  for (const seed of [1, 7, 99, 123, 2024]) {
-    // floor 2 hangs on a lift only; every floor has one room that only a lift reaches
-    const g = generateFloors(
-        { floors: 3, dungeon: { map: 40, doors: true }, stairs: [1, 0], liftRooms: 1 },
-        createRng(seed),
-      ),
-      again = generateFloors(
-        { floors: 3, dungeon: { map: 40, doors: true }, stairs: [1, 0], liftRooms: 1 },
-        createRng(seed),
-      );
-    eq(JSON.stringify(g.links), JSON.stringify(again.links), 'repeats');
-    eq(g.liftRooms.length, 3, `seed ${seed}: one lift-only room per floor`);
-    eq(
-      g.links.map(l => `${l.kind}:${l.a.floor}-${l.b.floor}`).join(),
-      'stairs:0-1,elevator:1-2,elevator:0-1,elevator:1-2,elevator:2-1',
-      'the pairs, then each lift-only room to the floor above (below on the top floor)',
-    );
-    const start = g.links[0].a,
-      everything = unreachableFloorTiles(g.floors, start).filter(offCover(g)),
-      byStairs = unreachableFloorTiles(g.floors, start, stairsOnly).filter(offCover(g));
-    eq(everything.length, 0, `seed ${seed}: with the lifts, every tile`);
-    const inLiftRoom = (s: FloorSpot) =>
-      g.liftRooms.some(
-        r => r.floor === s.floor && g.maps[s.floor].maps.roomOf[s.j * g.maps[s.floor].W + s.i] === r.room,
-      );
-    // by stairs alone: all of floor 2 and the lift-only rooms are out of reach, and nothing else
-    ok(
-      byStairs.every(s => s.floor === 2 || inLiftRoom(s)),
-      'only floor 2 and the lift-only rooms are cut off',
-    );
-    ok(
-      byStairs.some(s => s.floor === 2) &&
-        g.liftRooms.every(r => byStairs.some(s => s.floor === r.floor && inLiftRoom(s))),
-      'all of them',
-    );
-    for (const r of g.liftRooms) {
-      const m = g.maps[r.floor],
-        room = m.rooms[r.room];
-      // walls all round, two tiles deep
-      for (let j = room.y - 2; j < room.y + room.h + 2; j++)
-        for (let i = room.x - 2; i < room.x + room.w + 2; i++) {
-          const inside = i >= room.x && j >= room.y && i < room.x + room.w && j < room.y + room.h;
-          if (!inside && i >= 0 && j >= 0 && i < m.W && j < m.H)
-            eq(m.maps.grid[j * m.W + i], 0, 'a wall round the room');
-        }
-      const ends = g.links.flatMap(l => [l.a, l.b]).filter(s => s.floor === r.floor && inLiftRoom(s));
-      eq(ends.length, 1, 'one link end in the room: its own lift');
-    }
-  }
-  // no room for a lift-only room: it is left out
-  const full = generateFloors(
-    { floors: 2, dungeon: { map: 12, countMin: 1, countMax: 1, roomMin: 8, roomMax: 8 }, liftRooms: 2 },
-    createRng(3),
-  );
-  eq(full.liftRooms.length, 0, 'no place, no room');
-  eq(full.links.length, 1, 'just the stairs');
-});
-test('floorgen: options and wrong input', () => {
-  const one = generateFloors({ floors: 1 }, createRng(1));
-  eq([one.maps.length, one.links.length, one.floors.grids.length].join(','), '1,0,1', 'one floor, no links');
-  const per = generateFloors({ floors: 2, dungeon: [{ map: 30 }, { map: 40 }], stairs: 0, floorH: 5 }, createRng(2));
-  eq(per.maps.map(m => m.W).join(), '30,40', 'options per floor');
-  eq(per.links.map(l => l.kind).join(), 'elevator', 'stairs: 0: a lift joins the pair instead');
-  eq(per.floors.baseY.join(), '0,5', 'floorH');
-  const many = generateFloors({ floors: 2, stairs: 3, stairsKind: 'ladder' }, createRng(4));
-  eq(many.links.map(l => l.kind).join(), 'ladder,ladder,ladder', 'the kind and the count');
-  expect(() => generateFloors({ floors: 0 }, createRng(1))).toThrow(/floors must be 1 or more/);
-  expect(() => generateFloors({ floors: 1.5 }, createRng(1))).toThrow(/floors must be 1 or more/);
-  expect(() => generateFloors({ floors: 2, dungeon: [{}] }, createRng(1))).toThrow(/2 floors but 1 dungeon options/);
-  expect(() => generateFloors({ floors: 3, stairs: [1] }, createRng(1))).toThrow(/2 floor pairs but 1 stairs counts/);
-  const tiny = { map: 12, countMin: 1, countMax: 1, roomMin: 4, roomMax: 4 };
-  expect(() => generateFloors({ floors: 2, dungeon: tiny, stairs: 20 }, createRng(1))).toThrow(
-    /floor 0 has no room tile left/,
-  );
 });
 // ---- prop slots ----
 const slotText = (s: Slot) => `${s.kind}@${s.i},${s.j}` + (s.side === undefined ? '' : `/${s.side}`);
