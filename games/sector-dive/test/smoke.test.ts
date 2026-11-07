@@ -39,7 +39,15 @@ import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBind
 import { encodeStore } from '@engine/core/store.ts';
 import { isTouch } from '@engine/core/util.ts';
 import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
-import { MOD_PLUS_MAX, SPLIT_FAN, SPLIT_MAX, WEAPONS, WEAPON_ORDER, modPlusCost } from '../src/data/weapons.ts';
+import {
+  MOD_PLUS_MAX,
+  SPEED_OPT_PER_LEVEL,
+  SPLIT_FAN,
+  SPLIT_MAX,
+  WEAPONS,
+  WEAPON_ORDER,
+  modPlusCost,
+} from '../src/data/weapons.ts';
 import { EYE, PLAT_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
 import { ELITE_TYPES, ENEMY_TUNE } from '../src/data/enemies.ts';
@@ -90,7 +98,15 @@ import {
   spawnWave,
 } from '../src/world/entities.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../src/actors/player.ts';
-import { critChance, fillMag, rollWeapon, magSize, newWeapon, weaponStats } from '../src/actors/weapons.ts';
+import {
+  critChance,
+  fillMag,
+  rollWeapon,
+  magSize,
+  newWeapon,
+  weaponOptCount,
+  weaponStats,
+} from '../src/actors/weapons.ts';
 import { damagePlayer, explode, kitHealAmount, hurtEnemy } from '../src/actors/combat.ts';
 import { difficultyAt, damageScaleAt, stageInfo, stageLabel } from '../src/core/stages.ts';
 import { findTarget, fire, shotId } from '../src/actors/firing.ts';
@@ -225,6 +241,40 @@ test('ledge: stepping off a raised deck leaves nothing stuck or half inside', ()
   }
   if (tested !== 6) throw new Error('ledge: expected 6 cases, ran ' + tested);
   if (stuck || inside) throw new Error('ledge check failed');
+});
+test('dash: a long frame still climbs a ramp onto the deck', () => {
+  // a flat tile before the ramp, a ramp, a 3x3 deck and open floor beside it
+  const rows = ['###########', '#.>===....#', '#.>===....#', '#.>===....#', '###########'];
+  run.route = [5];
+  run.stage = 26;
+  buildFixedLevel(BIOMES[5], { rows, rooms: [{ x: 1, y: 1, w: 9, h: 3 }], start: 0, exit: 0 });
+  show(null);
+  setState('play');
+  // dash +x from the flat tile just before the ramp
+  joy.x = 0;
+  player.x = 2 * T - 0.5;
+  player.z = 2.5 * T;
+  player.yaw = 0;
+  player.fy = 0;
+  player.vy = 0;
+  player.dashT = TUNE.dashTime;
+  player.ddx = 1;
+  player.ddz = 0;
+  update(0.2);
+  expect(player.fy, 'climbed the ramp onto the deck').toBe(PLAT_H);
+  expect(blocked(player.x, player.z, player.r), 'not stuck on the ramp').toBe(false);
+  // a normal walk moves the same distance as one whole move (a frame under MOVE_STEP is one step)
+  const walk = (player.baseSpeed * player.spdMul * (1 + SPEED_OPT_PER_LEVEL * weaponOptCount('speed'))) / 60;
+  player.x = 2 * T - 0.5;
+  player.z = 2.5 * T;
+  player.yaw = 0;
+  player.fy = 0;
+  player.vy = 0;
+  player.dashT = 0;
+  joy.x = 1;
+  update(1 / 60);
+  joy.x = 0;
+  expect(player.x).toBeCloseTo(2 * T - 0.5 + walk, 6);
 });
 test('progress: depth start = depth*5, boss = depth*5+4 regardless of PER', () => {
   startRun();
