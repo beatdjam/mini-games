@@ -6818,6 +6818,36 @@
   {
     "type": "cycle",
     "from": "games/sector-dive/src/flow/run.ts",
+    "to": "games/sector-dive/src/flow/update.ts",
+    "unresolvedTo": "./update.ts",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "games/sector-dive/src/flow/update.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "games/sector-dive/src/flow/run.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "games/sector-dive/src/flow/run.ts",
     "to": "games/sector-dive/src/screens/base.ts",
     "unresolvedTo": "../screens/base.ts",
     "dependencyTypes": [
@@ -7258,6 +7288,43 @@
   {
     "type": "cycle",
     "from": "games/sector-dive/src/flow/update.ts",
+    "to": "games/sector-dive/src/actors/combat.ts",
+    "unresolvedTo": "../actors/combat.ts",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "games/sector-dive/src/actors/combat.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "games/sector-dive/src/flow/run.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "games/sector-dive/src/flow/update.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "games/sector-dive/src/flow/update.ts",
     "to": "games/sector-dive/src/flow/state.ts",
     "unresolvedTo": "./state.ts",
     "dependencyTypes": [
@@ -7315,20 +7382,6 @@
       },
       {
         "name": "games/sector-dive/src/flow/run.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "games/sector-dive/src/actors/bosses/common.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "games/sector-dive/src/ui/hud.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -7453,20 +7506,6 @@
         ]
       },
       {
-        "name": "games/sector-dive/src/actors/bosses/common.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "games/sector-dive/src/ui/hud.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
         "name": "games/sector-dive/src/flow/update.ts",
         "dependencyTypes": [
           "local",
@@ -7572,20 +7611,6 @@
       },
       {
         "name": "games/sector-dive/src/flow/run.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "games/sector-dive/src/actors/bosses/common.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "games/sector-dive/src/ui/hud.ts",
         "dependencyTypes": [
           "local",
           "import"
@@ -8826,6 +8851,64 @@
       },
       {
         "name": "games/sector-dive/src/world/entities.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "games/sector-dive/src/world/hazards.ts",
+    "to": "games/sector-dive/src/actors/combat.ts",
+    "unresolvedTo": "../actors/combat.ts",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "games/sector-dive/src/actors/combat.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "games/sector-dive/src/flow/run.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "games/sector-dive/src/actors/bosses/common.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "games/sector-dive/src/ui/hud.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "games/sector-dive/src/flow/update.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "games/sector-dive/src/world/hazards.ts",
         "dependencyTypes": [
           "local",
           "import"
