@@ -150,12 +150,17 @@ function bareDps(w: WeaponItem): number {
 // over how much enemy health has grown by then, and three quarters of the way (^READY_BOSS_WEIGHT) over how much more the depth's boss has
 // grown than the rooms: a deep start's first wall is that boss; defence: max HP over how much enemy damage has grown.
 // score = the geometric mean of the two, where 1 = DEPTH 1 with a plain handgun and no upgrades.
-// Returns 0 (easy) .. 4 (reckless) by READY_CUTS.
-const READY_CUTS = [1.5, 1.15, 0.85, 0.6];
+// Returns 0 (easy) .. 4 (reckless) by READY_CUTS. Only the first READY_SUPPLY_PICKS supply picks count, so a deeper
+// start is capped there.
+const READY_CUTS = [0.6, 0.4, 0.25, 0.15];
 // the yardstick of the offence: the damage per second of a plain handgun (★, +0, no options), so that DEPTH 1 with it
 // and no upgrades reads 1. Taken from the handgun as it is now, so changing its numbers moves the yardstick too
 const READY_REF_DPS = bareDps({ id: 'pistol', r: 0 });
 const READY_BOSS_WEIGHT = 0.75;
+// the supply picks the readiness counts: the first four (one per skipped depth up to DEPTH 5). Past that the
+// uncapped curve was the only thing lifting the gauge, while the sim's dives from DEPTH 13 down beat their
+// depth's boss 74% .. 3% of the time (2026-11-08)
+const READY_SUPPLY_PICKS = 4;
 // what the readiness is computed from: the loadout weapons, the damage upgrade level and max HP
 interface ReadyState {
   weapons: WeaponItem[];
@@ -182,7 +187,9 @@ export function readinessScore(tier: number, s: ReadyState = readyNow(tier)): nu
   const d = scaledDepth(tier);
   const best = Math.max(0, ...s.weapons.map(bareDps));
   const bossWall = Math.pow(hpGrowth(d, BOSS_TUNE.growth, BOSS_TUNE.lateGrowth) / enemyGrowth(d), READY_BOSS_WEIGHT);
-  const off = ((best / READY_REF_DPS) * s.dmg * supplyGain(supplyPicks(tier))) / (enemyGrowth(d) * bossWall);
+  const off =
+    ((best / READY_REF_DPS) * s.dmg * supplyGain(Math.min(supplyPicks(tier), READY_SUPPLY_PICKS))) /
+    (enemyGrowth(d) * bossWall);
   const def = s.hp / TUNE.hp / (1 + DMG_SCALE_PER_PROG * 5 * d);
   return Math.sqrt(off * def);
 }
