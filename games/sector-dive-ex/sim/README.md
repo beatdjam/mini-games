@@ -52,6 +52,7 @@ SIM_SEEDS=1-20 SIM_STYLE=explorer SIM_JOBS=3 npm run sim:split           # シ�
 | 列 | 意味 |
 |---|---|
 | `dive`・`start`・`lv` | `SIM_DIVES` のときだけ。そのシードの何回目の潜行か、出撃した深度、出撃したときのレベル |
+| `readinessScore`・`readiness` | `SIM_DIVES` のときだけ。出撃した時点の目安のスコアと段階（0 楽勝・1 余裕・2 適正・3 厳しい・4 無謀）。ARCADE は使わない（ENDLESS 用）、`-` |
 | `end` | `died`（倒れた）・`extract`（帰還）・`gave up`（進まなくなって打ち切った）・`reached`（`SIM_CLIMB_TO` の目標の深度に入った）・`clear`（`SIM_MODE=arcade` で TITAN を倒した） |
 | `seconds` | 潜行の長さ（ゲーム内の秒） |
 | `depth`・`bosses` | 到達した深度と、倒したボス（順に） |
@@ -65,6 +66,8 @@ SIM_SEEDS=1-20 SIM_STYLE=explorer SIM_JOBS=3 npm run sim:split           # シ�
 | `last` | 最後にしていたこと |
 | `bits`・`bought`・`sold` | 終わったときの潜行のビット、ターミナルで買ったレベルの数、売った武器の数 |
 | `levels`・`bitsAt` | 潜行のビットでレベル0から買えるレベルの数、各深度に着いたときの潜行のビット（`深度:ビット`） |
+
+- `readinessScore` は拠点の出撃地点の目安（`readinessScore`・`readiness` in src/core/rules.ts）と同じ式で、小数3桁。出撃した時点の値で、潜行中に拾うチップ・武器・レベルは入らない。ARCADE は使わない（ENDLESS 用）。`startRun` がレベルと装備を戻すため、`-` にする
 
 ### 能力の表の列（`SIM_CLIMB_TO`）
 

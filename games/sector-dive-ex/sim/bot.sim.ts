@@ -5,7 +5,7 @@ import { beforeAll, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
 import { createRng } from '@engine/core/util.ts';
 import { isBossStage, stageInfo } from '../src/core/stages.ts';
-import { levelOf, setDropOnly } from '../src/core/rules.ts';
+import { levelOf, readiness, readinessScore, setDropOnly } from '../src/core/rules.ts';
 import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
 import { BOSS_AREA_START_TIER, PER, levelCost } from '../src/data/progress.ts';
 import { fillMag, newWeapon, wDmgMul } from '../src/actors/weapons.ts';
@@ -178,6 +178,13 @@ test.each(cases)(
         setBotLevels(__SIM_LEVEL__ !== 'off');
         setDropOnly(weapon);
         devSetArcade(ARCADE);
+        // (the gauge at the moment the dive sets out: readiness reads the mode and the save. startRun changes the
+        // save's loadout (riskLoadout) and, in ARCADE, resets the levels and loadout (resetArcadeProgress); an ENDLESS
+        // dive sets out from `start` (startRun clamps it). The columns are for ENDLESS: in ARCADE the save still holds
+        // the last dive's leftovers, so they would not match the dive that sets out)
+        const readyTier = start,
+          readyScore = ARCADE ? '-' : readinessScore(readyTier).toFixed(3),
+          readyStage = ARCADE ? '-' : readiness(readyTier);
         // (ARCADE: its boss area is settled as a dive from the base settles it)
         startRun(ARCADE);
         if (weapon) {
@@ -267,7 +274,13 @@ test.each(cases)(
         rows.push({
           seed,
           // (SIM_DIVES: which dive of the seed, the depth it started from, the level it went in with)
-          ...(DIVES > 1 && { dive, start: start + 1, lv }),
+          ...(DIVES > 1 && {
+            dive,
+            start: start + 1,
+            lv,
+            readinessScore: readyScore,
+            readiness: readyStage,
+          }),
           sector: level.biome.code,
           end,
           seconds: Math.round(s.frames / 60),
