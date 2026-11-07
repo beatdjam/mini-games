@@ -511,7 +511,7 @@
   - GA の推奨イベント（`share` の `method`、`earn_virtual_currency` の `value`・`virtual_currency_name` など）に合う所はその名前に寄せる
   - GA に登録済み（2026-09-28。`stage_role` は追加分）: ディメンション `game` `result` `method` `level` `start_level` `stage` `stage_type` `stage_role` `target` `item_name` `virtual_currency_name`、指標 `value` `count` `upgrades` `duration_sec`
   - GA が予約している名前（`currency` など EC 用のもの）は登録できない。登録で弾かれたら、推奨イベントの名前に置き換える
-  - 意味: `level` 深度・ステージ番号などの段階 / `stage` その中の区切り / `stage_type` ステージの種類 / `stage_role` 部屋の役割（`normal` / `boss` など。何番目かに頼らず絞るため） / `target` 倒した・挑んだ相手 / `item_name` 使っている道具 / `value`＋`virtual_currency_name` 手に入れた通貨の量と種類 / `count` 倒した・こなした数 / `upgrades` 取得した強化の数 / `duration_sec` かかった秒数
+  - 意味: `level` 深度・ステージ番号などの段階 / `stage` その中の区切り / `stage_type` ステージの種類 / `stage_role` 部屋の役割（`normal` / `boss` など。何番目かに頼らず絞るため） / `target` 倒した・挑んだ相手 / `item_name` 使っている道具 / `value`＋`virtual_currency_name` 手に入れた通貨の量と種類 / `count` 倒した・こなした数 / `upgrades` 取得した強化の数 / `duration_sec` かかった秒数 / `mode` ゲームのモード（`arcade` / `endless`）
   - 新しいパラメータを足したら、この一覧に足して、登録してもらうよう伝える
 
 ## 15. 確認用フックとテスト

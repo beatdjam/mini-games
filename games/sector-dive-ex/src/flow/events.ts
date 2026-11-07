@@ -6,12 +6,14 @@ import { burst } from '@engine/render/fx.ts';
 import { T, activeTileGrid, tileCenter, tileIndex } from '@engine/world/tiles.ts';
 import { lockDoor } from '@engine/world/doors.ts';
 import { banner, toast } from '@engine/ui/ui.ts';
+import { track } from '@engine/core/analytics.ts';
 import { COLOR } from '../data/colors.ts';
 import { building, roomDoors } from '../world/building.ts';
 import type { BuildingLink } from '../world/building.ts';
 import { arenaCenter, arenaFog, level, liftPads, randomTileIn, roomSpot, stashedEnemies } from '../world/level.ts';
 import { addPickup, boss, enemies, spawnEnemy } from '../world/entities.ts';
-import type { Enemy } from '../data/types.ts';
+import type { Enemy, RunEnd } from '../data/types.ts';
+import { isArcade } from '../core/save.ts';
 import { player, run } from '../actors/player.ts';
 import { bossStageOf, difficultyAt, stageInfo, stageLabel } from '../core/stages.ts';
 import { bossAreaOn } from '../core/bossArea.ts';
@@ -63,6 +65,12 @@ const ev = {
   liftT: 0, // seconds the player has stood on a platform
   // the ride in progress: which lift, +1 down / -1 up, seconds so far
   ride: null as { link: number; dir: number; t: number } | null,
+  // the lockdown's analytics: the values taken when it started (sent with lockdown_start and lockdown_end)
+  ldT0: 0, // run.time when the lockdown started (s)
+  mode: '' as 'arcade' | 'endless' | '', // the mode it started in
+  level: 0, // the depth (stageInfo(run.stage).tier + 1)
+  stage: 0, // the floor of the building (run.bld.step + 1)
+  stage_type: '', // the sector's code
 };
 // the player has walked into the building's boss room (the boss comes after a moment): the sim waits on it
 export const bossStarted = (): boolean => ev.bossStarted;
@@ -77,14 +85,36 @@ function isLockdownRoom(room: number): boolean {
 }
 const lockdownDoors = (room: number): number[] => roomDoors(building!.plans[level.floor]!.gen, room).doors;
 
+// Sends the lockdown's end once, with the values it started with, and takes it out of the events (so it is not sent
+// twice). A return or clear can happen while the lockdown is on (the player got out of its room and went on to the
+// gate): its result is sent as it is, so a later goBase or floor change does not send it again as another end.
+export function trackLockdownEnd(result: RunEnd | 'cleared' | 'left' | 'suspended') {
+  if (!ev.ldActive) return;
+  track('lockdown_end', {
+    mode: ev.mode,
+    level: ev.level,
+    stage: ev.stage,
+    stage_type: ev.stage_type,
+    result,
+    duration_sec: Math.round((run.time ?? 0) - ev.ldT0),
+  });
+  ev.ldActive = false;
+}
+
 // called when a building floor has been built: nothing running, the boss door locked. Back on the lowest floor after
 // its boss is down (the player went up a floor and came back), the fight is over instead: the door open, the gates
 // standing again, and the stage the boss's, so the gate forward leads to the next depth
 export function resetFloorEvents() {
+  trackLockdownEnd('left');
   ev.ldActive = false;
   ev.ldShutting = false;
   ev.ldPending = false;
   ev.wavesLeft = 0;
+  ev.ldT0 = 0;
+  ev.mode = '';
+  ev.level = 0;
+  ev.stage = 0;
+  ev.stage_type = '';
   showAlarm(false);
   ev.bossStarted = false;
   ev.bossOver = false;
@@ -141,6 +171,12 @@ function spawnWave(room: number) {
 function startLockdown(room: number) {
   ev.ldActive = true;
   ev.wavesLeft = LOCKDOWN_WAVES;
+  ev.mode = isArcade() ? 'arcade' : 'endless';
+  ev.level = stageInfo(run.stage).tier + 1;
+  ev.stage = run.bld!.step + 1;
+  ev.stage_type = level.biome.code;
+  ev.ldT0 = run.time ?? 0;
+  track('lockdown_start', { mode: ev.mode, level: ev.level, stage: ev.stage, stage_type: ev.stage_type });
   sfx('slam');
   sfx('alarm');
   ev.alarmT = ALARM_EVERY;
@@ -174,7 +210,7 @@ function lockdownShut(room: number): boolean {
   return level.roomOf[tileIndex(player.x, player.z)] === room && lockdownDoors(room).every(k => !world().doorOpen![k]);
 }
 function endLockdown(room: number) {
-  ev.ldActive = false;
+  trackLockdownEnd('cleared');
   showAlarm(false);
   setMusic(level.biome.code);
   run.bld!.ld = 1;
@@ -246,6 +282,14 @@ function giveSupply() {
   const total = supplyChips();
   if (!total) return;
   run.bld!.supplied = true;
+  track('supply', {
+    mode: isArcade() ? 'arcade' : 'endless',
+    method: 'pre_boss',
+    level: stageInfo(run.stage).tier + 1,
+    stage: run.bld!.step + 1,
+    stage_type: level.biome.code,
+    count: total,
+  });
   let given = 0;
   const next = () => {
     if (given >= total) return;

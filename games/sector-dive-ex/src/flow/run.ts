@@ -95,7 +95,7 @@ import type { RunResultFacts } from '../screens/result.ts';
 import { setPlayUI, setState, show, state } from './state.ts';
 import { checkpoint, resumeRun, saveContinueFrom } from './suspend.ts';
 import { buildAttract } from './attract.ts';
-import { resetFloorEvents } from './events.ts';
+import { resetFloorEvents, trackLockdownEnd } from './events.ts';
 import { placeView } from './update.ts';
 import { hud2 } from '../ui/hud2.ts';
 
@@ -611,6 +611,7 @@ export function endRun(kind: RunEnd) {
     endPractice(kind);
     return;
   }
+  trackLockdownEnd(kind);
   // ARCADE: its runs end only in death, in giving up, or in TITAN's clear (no extraction)
   const arcade = isArcade(),
     dead = kind !== 'extract' && kind !== 'clear',
@@ -723,6 +724,7 @@ export function continueRun() {
 }
 el('#btnContinue').addEventListener('click', continueRun);
 export function goBase() {
+  trackLockdownEnd('suspended');
   // leaving the result screen ends the offer to continue the dive that died
   setContinueFrom(null);
   setState('base');
