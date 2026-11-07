@@ -173,6 +173,11 @@ export function buildFloorMeshes(
         yardPanes[into] = [Math.min(b[0], i), Math.min(b[1], j), Math.max(b[2], i), Math.max(b[3], j)];
       }
       group.userData.yardPanes = yardPanes;
+      // (and the walls of the windows one sees out of: the backdrop is drawn only through those; a pane on a yard
+      // looks into it instead and shows its copy, so those walls are left out)
+      const outsideWalls = new Set<number>();
+      for (const { i, j, into } of faces) if (!into) outsideWalls.add(j * W + i);
+      group.userData.outsideWindows = [...outsideWalls].map(k => [k % W, (k / W) | 0]);
       const panes = buildWindowPanes(faces, WALL_H),
         // (the glass has the colour of the haze out there: the view through it goes the way the far ground does)
         glass = buildWindowGlass(faces, WALL_H, (glassTex[biome.code] ??= windowGlassTex(outside.haze)));
