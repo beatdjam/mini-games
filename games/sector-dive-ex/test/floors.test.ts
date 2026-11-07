@@ -4,13 +4,14 @@ import { beforeAll, expect, test } from 'vitest';
 import type { Pickup } from '../src/data/types.ts';
 import { TRACK_LOG } from '@engine/core/analytics.ts';
 import { query } from '@engine/core/world.ts';
-import { T, W, activeTileGrid, floorY, grid, tileIndex } from '@engine/world/tiles.ts';
-import { joy } from '@engine/ui/input.ts';
+import { T, W, activeTileGrid, floorY, grid, tileCenter, tileIndex, walkable } from '@engine/world/tiles.ts';
+import { joy, setFireHeld } from '@engine/ui/input.ts';
 import { HALL_H, WALL_H } from '../src/data/level.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { DEPTH_SCALE, isMilestone, PER, TUNE } from '../src/data/progress.ts';
 import {
   buildFixedLevel,
+  floorChunkRoots,
   floorDrawn,
   followersOnTheWay,
   level,
@@ -30,6 +31,8 @@ import { goBase, nextStage, startRun, crossToFloor } from '../src/flow/run.ts';
 import { FLOOR_H, building } from '../src/world/building.ts';
 import { ridingY, supplyChips } from '../src/flow/events.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
+import { updateDoorMeshes } from '../src/world/doors.ts';
+import { screenFx } from '../src/ui/hud.ts';
 import { update } from '../src/flow/update.ts';
 import { runSystems } from '@engine/core/loop.ts';
 import { stateIs, tick, bootGame, goToFloor, putOnTile, enterBuilding } from './helpers.ts';
@@ -368,6 +371,81 @@ test('neighbour floors: by a stairwell they show; by a lift only while it is rid
     expect(floorDrawn(l.upper === n ? l.lower : l.upper), 'by the stairwell').toBe(true);
   }
   expect(lift >= 0 || stairs >= 0, 'this floor has a way on').toBe(true);
+});
+test('idle: a still player and camera do not draw the floor again; a door that becomes passable does', () => {
+  screenFx.shake = 0;
+  setFireHeld(false); // the file's start-up holds fire: a shot would shake the camera
+  joy.x = 0;
+  joy.y = 0;
+  enterBuilding();
+  const b = building!,
+    centre = (k: number): [number, number] => [tileCenter(k % W), tileCenter(Math.floor(k / W))],
+    // a chunk of a floor in view, and a door of it that can be opened
+    chunkOf = (m: number) => floorChunkRoots(m).find(g => g.visible) ?? null;
+  let chunk: ReturnType<typeof floorChunkRoots>[number] | null = null,
+    door = -1;
+  for (let floor = 0; floor < b.plans.length && !chunk; floor++) {
+    goToFloor(floor);
+    // nothing on the floor moves or opens a door
+    for (let n = 0; n < 5 && enemies.some(e => !e.dead); n++)
+      enemies.filter(e => !e.dead).forEach(e => hurtEnemy(e, 1e6, false));
+    const w = activeTileGrid().world,
+      doors: number[] = [];
+    w.door?.forEach((v, k) => v && doors.push(k));
+    const open = doors.find(k => !isDoorLocked(w, k));
+    if (open === undefined) continue;
+    const used = new Set<number>([
+        ...level.portals.map(p => tileIndex(p.x, p.z)),
+        ...b.links.flatMap(l => [...l.strip, l.a]),
+      ]),
+      // far enough from every door that standing still does not open one (DOOR_CFG.sense is 7 m)
+      spot = w.grid.findIndex((v, k) => {
+        if (!v || !walkable(k) || level.hazardTiles[k] || used.has(k)) return false;
+        const [x, z] = centre(k);
+        return doors.every(d => Math.hypot(centre(d)[0] - x, centre(d)[1] - z) > 10);
+      });
+    if (spot < 0) continue;
+    putOnTile(spot);
+    controlState.dashHeld = false;
+    // wait out the doors' close delay and let the camera come to rest, then turn until something of the floor is in view
+    tick(180);
+    chunk = chunkOf(floor);
+    for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      if (chunk) break;
+      player.yaw = yaw;
+      tick(10);
+      chunk = chunkOf(floor);
+    }
+    if (chunk) door = open;
+  }
+  expect(chunk, 'a floor with something in view and a door that opens').not.toBeNull();
+  expect(door).toBeGreaterThanOrEqual(0);
+  // nothing moved: the chunk stays hidden even though showNeighbourFloors would show it again
+  chunk!.visible = false;
+  tick(1);
+  expect(chunk!.visible, 'a still camera does not call showNeighbourFloors').toBe(false);
+  // the camera turns: the floor is drawn again
+  player.yaw += 0.002;
+  tick(1);
+  expect(chunk!.visible, 'a turned camera calls showNeighbourFloors').toBe(true);
+  // a door of this floor, opened by someone at its tile (the player and the camera stay put)
+  const [x, z] = centre(door),
+    movers = [{ x, z, r: 0.2 }];
+  for (const d of [1, -1, W, -W]) {
+    if (!activeTileGrid().world.door?.[door + d]) continue;
+    const [ox, oz] = centre(door + d);
+    movers.push({ x: ox, z: oz, r: 0.2 });
+  }
+  chunk!.visible = false;
+  updateDoorMeshes(movers, 0.5);
+  tick(1);
+  expect(chunk!.visible, 'a door that can be passed calls showNeighbourFloors').toBe(true);
+  // and it shuts again: the floor is drawn once more
+  chunk!.visible = false;
+  updateDoorMeshes([], 2);
+  tick(1);
+  expect(chunk!.visible, 'a door that shuts calls showNeighbourFloors').toBe(true);
+  setFireHeld(true);
 });
 test('lift: standing on the platform rides to its other floor and back, past a floor when it is a long one', () => {
   // once with any lift, and once with one that passes a floor (in a building that has one)

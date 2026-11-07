@@ -18,11 +18,11 @@ import { GAIN_OPT_PER_LEVEL, SPEED_OPT_PER_LEVEL } from '../data/weapons.ts';
 import { modeTune, save } from '../core/save.ts';
 import { restrictionBonus } from '../core/rules.ts';
 import { updateMusic } from './music.ts';
-import { level, reveal, showNeighbourFloors, sightHallDoor, updateFollowers } from '../world/level.ts';
+import { level, reveal, showNeighbourFloorsIfChanged, sightHallDoor, updateFollowers } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { updateHazards } from '../world/hazards.ts';
 import { ENEMY_GROUP, enemies, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
-import { updateDoorMeshes } from '../world/doors.ts';
+import { doorPassChanges, updateDoorMeshes } from '../world/doors.ts';
 import type { DoorMover } from '@engine/world/doors.ts';
 import { GUNFX, curVM } from '../actors/viewmodel.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
@@ -371,7 +371,7 @@ function updateBuildingFloor(dt: number) {
   updateDoorMeshes(movers, dt);
   updateFloorEvents(dt);
   updateFollowers(dt);
-  if (building) showNeighbourFloors(building, player.x, player.z, liftRiding());
+  if (building) showNeighbourFloorsIfChanged(building, player.x, player.z, liftRiding(), doorPassChanges());
   sightHallDoor(player.x, player.z, player.yaw, visibleRange());
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped); a terminal opens its screen ----

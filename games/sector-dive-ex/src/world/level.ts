@@ -158,6 +158,22 @@ const YARD_WALL_CLEAR = 0.15;
 const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings across the street
 const SHELL_STOREYS = 2; // the facade's picture (4 storeys) over this many floors of the building's own walls: two storeys a floor, so its windows keep their shape
 let shown: Building | null = null;
+// What showNeighbourFloors last ran with: the building, the floor played (and its group), the lift ridden, the player's
+// place, the camera's place and projection, and how many door tiles have changed between passable and shut. It runs
+// again only when one of them changes: a shut door is a wall for the way to the yard (seesYard/hasLOS/isShutDoor), and
+// the awake enemies and bosses open doors too. The two matrices are copied into these, so no array is made per frame.
+interface NeighbourInputs {
+  building: Building;
+  floor: number;
+  group: THREE.Group | null;
+  riding: number | null;
+  x: number;
+  z: number;
+  doors: number;
+  world: Float64Array;
+  projection: Float64Array;
+}
+let neighbourInputs: NeighbourInputs | null = null;
 // the lifts' platforms: one per lift, at the level of the floor being played (moved by the ride, flow/events.ts)
 export let liftPads: { link: number; mesh: THREE.Mesh }[] = [];
 export const buildingShown = (b: Building | null): boolean => !!b && shown === b;
@@ -320,6 +336,7 @@ function dropFloorStash() {
 }
 
 function clearLevel() {
+  neighbourInputs = null;
   if (buildingGroup) {
     disposeTree(buildingGroup);
     scene.remove(buildingGroup);
@@ -522,7 +539,59 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     }
   }
 }
+// Calls showNeighbourFloors only when what it looks at has changed: the camera (place and projection: head bob and
+// screen shake move it), the player's place, the floor played (its group too), the lift ridden, the building, and the
+// doors' passable state (a shut door walls off the way to the yard; awake enemies and bosses open doors too).
+export function showNeighbourFloorsIfChanged(b: Building, x: number, z: number, riding: number | null, doors: number) {
+  camera.updateMatrixWorld();
+  const was = neighbourInputs,
+    same =
+      !!was &&
+      was.building === b &&
+      was.floor === level.floor &&
+      was.group === level.group &&
+      was.riding === riding &&
+      was.x === x &&
+      was.z === z &&
+      was.doors === doors &&
+      sameElements(was.world, camera.matrixWorld.elements) &&
+      sameElements(was.projection, camera.projectionMatrix.elements);
+  if (same) return;
+  if (!was) {
+    neighbourInputs = {
+      building: b,
+      floor: level.floor,
+      group: level.group,
+      riding,
+      x,
+      z,
+      doors,
+      world: new Float64Array(camera.matrixWorld.elements),
+      projection: new Float64Array(camera.projectionMatrix.elements),
+    };
+  } else {
+    was.building = b;
+    was.floor = level.floor;
+    was.group = level.group;
+    was.riding = riding;
+    was.x = x;
+    was.z = z;
+    was.doors = doors;
+    was.world.set(camera.matrixWorld.elements);
+    was.projection.set(camera.projectionMatrix.elements);
+  }
+  showNeighbourFloors(b, x, z, riding);
+}
+// The matrices are compared element by element. A NaN (a projection with no width or height, say) never matches, so the
+// floor is drawn again every frame until it goes: no worse than always drawing it, and the view stays right.
+function sameElements(seen: ArrayLike<number>, now: ArrayLike<number>): boolean {
+  if (now.length !== seen.length) return false;
+  for (let k = 0; k < seen.length; k++) if (seen[k] !== now[k]) return false;
+  return true;
+}
 export const floorDrawn = (m: number): boolean => !!floorGroups[m]?.visible;
+// the chunks of floor m (tests: flip one's visibility and see whether anything puts it back)
+export const floorChunkRoots = (m: number): THREE.Group[] => floorChunks[m]?.map(c => c.root) ?? [];
 // Puts the whole building (world/building.ts) on screen: the meshes and doors of every floor, each in a group of its
 // own, plus the lifts' platforms. Which floor is played, and where the groups stand, is enterFloor's
 export function showBuilding(b: Building) {
