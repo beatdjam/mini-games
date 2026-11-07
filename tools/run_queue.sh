@@ -9,7 +9,8 @@
 # - 終わったら result を .tasks/ に写し、変更を「WIP（未レビュー）」のコミットにする。push・PR はしない
 # - 回し終えた印は .tasks/<番号>-<名前>.result.md。あれば飛ばす。票が消えていれば（レビュー済み）飛ばす
 # - queue.txt の2列目からは土台。master か、先に回す票の番号（その票の未レビューのコミットの上に積む）
-# - result が出なかった・merge がぶつかったときは、そこで止める
+# - result が出なかったときは、混雑で落ちたなら少し待って続きから回し直す。それでも出なければ止める
+# - merge がぶつかったときは、そこで止める
 # - queue.txt の例: 「110 master」「160 110」（# から後と空行は読まない）。.tasks/ はコミットしないので、手元で書く
 # 経過は .tasks/queue.log に書く。Claude が戻ったら、result と WIP のコミットを番号の順にレビューする。
 if [ -z "${QUEUE_CAFFEINATED:-}" ] && [ "${1:-}" != "--dry-run" ] && command -v caffeinate >/dev/null; then
@@ -23,6 +24,11 @@ R=$(dirname "$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-c
 T=$R/.tasks
 OC=$HOME/.opencode/bin/opencode
 LOG=$T/queue.log
+# 混雑で落ちたときに、待つ秒数と回し直す回数
+BUSY_WAIT=60
+BUSY_TRIES=5
+# 混雑かどうかを見るログの末尾の行数
+BUSY_TAIL=10
 
 log() { if [ $DRY = 1 ]; then echo "$*"; else echo "$(date '+%m-%d %H:%M:%S') $*" | tee -a "$LOG"; fi; }
 ticket_of() { ls "$T"/"$1"-*.md 2>/dev/null | grep -v '\.result\.md$' | head -1; }
@@ -31,6 +37,14 @@ worktree_of() { # そのブランチを開いている作業ツリー
   git -C "$R" worktree list --porcelain | awk -v b="refs/heads/$1" '/^worktree /{p=$2} $0=="branch " b {print p}'
 }
 dirty() { [ -n "$(git -C "$1" status --porcelain -- . ':(exclude)node_modules' ':(exclude).tasks')" ]; }
+# ログの末尾が、サーバーの混雑で落ちたときのものか
+busy_log() {
+  local tail; tail=$(tail -n "$BUSY_TAIL" "$1" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
+  printf '%s\n' "$tail" | grep -q 'Upstream request failed' || return 1
+  printf '%s\n' "$tail" | grep -qE 'overloaded|at capacity'
+}
+# --title で引いたセッションの ID
+session_of() { env -C "$1" PWD="$1" "$OC" session list 2>/dev/null | awk -v t="$2" 'index($0, t) {print $1; exit}'; }
 
 # 土台の票番号 → その票のブランチ。票が消えていれば master に入った扱い。まだ回していなければ空
 base_ref() {
@@ -68,6 +82,7 @@ run_oc() {
       kill -0 "$pid" 2>/dev/null || break
     done
     if env -C "$wt" PWD="$wt" "$OC" session list 2>/dev/null | grep -q "$title"; then
+      OC_TITLE=$title
       log "票$n: 起動した（${title}）"
       wait "$pid"
       return 0
@@ -141,8 +156,21 @@ while read -r -u 3 n bases; do
   log "票$n: 回す（${br}、土台 ${refs[*]}）"
   run_oc "$n" "$wt" "$prompt" || { log "票$n: 3回起動しても止まったまま。止める"; exit 1; }
   if [ ! -f "$wt/.tasks/$name.result.md" ]; then
-    log "票$n: result が無い。止める（$wt/.tasks/oc-$n.log を見る）"
-    exit 1
+    tries=0
+    while [ ! -f "$wt/.tasks/$name.result.md" ] && [ "$tries" -lt "$BUSY_TRIES" ] && busy_log "$wt/.tasks/oc-$n.log"; do
+      tries=$((tries + 1))
+      log "票$n: 混雑で止まったので、${BUSY_WAIT}秒待って続きから回す（$tries 回目）"
+      sleep "$BUSY_WAIT"
+      id=$(session_of "$wt" "$OC_TITLE")
+      [ -z "$id" ] && { log "票$n: 続きを渡すセッションが見つからない。止める"; break; }
+      cont=".tasks/$name.md の票の続きをやって。前は混雑で途中で止まった。作業ツリーの今の状態を見てから続ける"
+      env -C "$wt" PWD="$wt" OPENCODE_DISABLE_CLAUDE_CODE=1 "$OC" run --standalone --session "$id" "$cont" \
+        </dev/null >>"$wt/.tasks/oc-$n.log" 2>&1
+    done
+    if [ ! -f "$wt/.tasks/$name.result.md" ]; then
+      log "票$n: result が無い。止める（$wt/.tasks/oc-$n.log を見る）"
+      exit 1
+    fi
   fi
   finish "$n" "$wt" "$name" "$title"
 done 3<"$T/queue.txt"
