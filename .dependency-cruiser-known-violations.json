@@ -1,36 +1,6 @@
 [
   {
     "type": "cycle",
-    "from": "engine/src/audio/audio.ts",
-    "to": "engine/src/audio/music.ts",
-    "unresolvedTo": "./music.ts",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "engine/src/audio/music.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "engine/src/audio/audio.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
     "from": "games/sector-dive-ex/src/actors/bosses/bastion.ts",
     "to": "games/sector-dive-ex/src/actors/bosses/common.ts",
     "unresolvedTo": "./common.ts",
