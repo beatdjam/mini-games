@@ -402,7 +402,7 @@
   - 出撃: 出撃地点の選び方（見出しと説明の `#tiersHead`、`#tiers`・`#depthPath`）を隠し、出撃の下の一行は D1 から出ることを出す
   - ストック: 倉庫の欄（`#stash` と、見出しと数の `#stashHead`）を隠す
   - レベル: 強化のタブ（`data-tab="up"` と `data-pane="up"`）を隠す。最後に開いたタブが `up` なら出撃を開く（`showTab`）
-  - 記録: `#levelCard` を RECORD のカードにし、ノーコンティニューのいちばん速いタイム（`records.bestTime`、`m:ss`。まだなら未クリア）と、コンティニューありのいちばん速いタイムとその回数（`records.bestTimeContinued`・`records.bestTimeContinuedCount`）、最高到達（`save.best` を `stageLabel` で）を出す。押しても開かない
+  - 記録: `#levelCard` を RECORD のカードにし、ノーコンティニューのいちばん速いタイム（`records.bestTime`、`m:ss`。まだなら未クリア。何の時間かが先に読めるように、ラベル「ノーコンティニュー」を時間の上に置く）と、コンティニューありのいちばん速いタイムとその回数（`records.bestTimeContinued`・`records.bestTimeContinuedCount`）、最高到達（`save.best` を `stageLabel` で）を出す。押しても開かない
   - 武器の解放: まだ解放していない武器のカードは値段を出さず、押しても買えない（「潜行で拾うと解放」）。潜行で武器を拾うと、その種類を `unlockFoundWeapon` in src/core/progress.ts で解放する（初めての解放のときだけトースト）。ENDLESS はビットで買う
 
 ### ENDLESS の記録

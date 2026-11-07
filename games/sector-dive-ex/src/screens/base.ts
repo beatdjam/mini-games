@@ -394,8 +394,8 @@ export function renderBase() {
             });
     levelCard.innerHTML =
       `<span class="lc-lv">${t('base.record')}</span>` +
+      `<span class="lc-next lc-label">${t('base.recordClean')}</span>` +
       `<span class="lc-bits">${bestTimeText(save.records.bestTime)}</span>` +
-      `<span class="lc-next">${t('base.recordClean')}</span>` +
       `<span class="lc-next">${contText}</span>` +
       `<span class="lc-next">${t('base.best')} ${save.best ? stageLabel(save.best - 1) : '—'}</span>`;
   } else {
