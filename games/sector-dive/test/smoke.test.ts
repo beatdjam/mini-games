@@ -949,6 +949,21 @@ test('boss practice: fight, win, go home; the save does not change', () => {
   const after = JSON.stringify(save);
   if (before !== after) throw new Error('practice changed the save');
 });
+test('boss spawn: the body appears where it starts to move', () => {
+  ['watcher', 'phantom', 'bastion'].forEach(kind => {
+    startPractice(kind);
+    tick(3);
+    if (!boss) spawnBoss(kind);
+    tick(Math.ceil(BOSS_TUNE.introTime * 60));
+    if (boss!.spawnT > 0) tick(1);
+    if (boss!.spawnT > 0) throw new Error('boss still appearing ' + kind);
+    const at = boss!.mesh.position.clone();
+    tick(1);
+    const moved = Math.hypot(boss!.mesh.position.x - at.x, boss!.mesh.position.z - at.z);
+    if (moved >= 0.5) throw new Error('boss jumped on its first frame ' + kind + ' ' + moved.toFixed(2));
+    endRun('abandon');
+  });
+});
 test('checkpoint: saved at stage start, deleted when the run ends', () => {
   startRun();
   tick(5);
