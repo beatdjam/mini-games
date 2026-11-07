@@ -434,7 +434,7 @@
   - ENDLESS: 周（挑戦中は `challenge.strength`、そうでなければ `save.loop`。`strengthLoop` in src/core/rules.ts）を `L = min(周, LOOP_TUNE.cap)`、ボスエリアの深度を `END = BOSS_AREA_START_TIER`（24）とし、1周目は `start = 0`・`end = END * depthScale()`（48）、2周目からは `start(L) = LOOP_TUNE.start + LOOP_TUNE.shift * (L - 2)`、`end(L) = LOOP_TUNE.end + LOOP_TUNE.shift * (L - 2)` として
     - `tier <= END`: `start(L) + (end(L) - start(L)) * tier / END`（1周目は `tier * 2` のまま）
     - `tier > END`: `end(L) + (tier - END) * depthScale() * LOOP_TUNE.pastEnd`。TITAN の先はどの周も伸びが半分（1深度で体力が約1.25倍）。全部の伸びのままだと、1周目の D26（ふつうの敵は D24 の次で2深度ぶん伸びる）が、ロックダウンの部屋を抜けられない壁だった（遊んだ感想、2026-11-07）
-  - **出撃の補給の回数**（`supplyPicks` in src/core/rules.ts）: ARCADE は飛ばした深度の数のまま。ENDLESS は `round(scaledDepth(tier) / depthScale())`（同じ強さの1周目の深度の数）。1周目の D25 までは飛ばした深度の数と同じ。2周目の D1 は19回ぶんの補給をもらって出る（前は0回で、チップ0枚のまま1周目の D20 相当の敵と戦うことになり、遊んで1体も倒せなかった。2026-11-07）。`pickStartChips` in src/flow/run.ts・出撃地点の目安（`readinessScore` の `supplyGain`）・拠点の出撃地点の表示が同じ数を使う
+  - **出撃の補給の回数**（`supplyPicks` in src/core/rules.ts）: ARCADE は飛ばした深度の数のまま。ENDLESS は `round(scaledDepth(tier) / depthScale())`（同じ強さの1周目の深度の数）。1周目の D25 までは飛ばした深度の数と同じ。2周目の D1 は19回ぶんの補給をもらって出る（前は0回で、チップ0枚のまま1周目の D20 相当の敵と戦うことになり、遊んで1体も倒せなかった。2026-11-07）。出撃地点の目安（`readinessScore` の `supplyGain`）が数えるのはこのうち先頭4回（D5 ぶん）までで、それより深い所は頭打ちになる。ゲームが渡す補給（`pickStartChips` in src/flow/run.ts）は今までどおり全部で、拠点の出撃地点の表示も同じ数を使う
   - `LOOP_TUNE` in src/data/progress.ts（仮の値。sim と遊んだ感想で合わせる）: `start: 38`（2周目の D1 = 1周目の D20）、`end: 58`（2周目の D25。`pastEnd` の前の1周目の D30 の値）、`pastEnd: 0.5`、`shift: 10`（周ごとに5深度ぶん奥へ）、`cap: 5`（6周目からは5周目と同じ強さ）、`bonus: 0.1`（下のボーナス）
 - **周のボーナス（ENDLESS だけ）**: クリアした周 `n`（縛り `'none'` の行で `titan: true` のもの。周の番号が `LOOP_TUNE.cap` 以下の行だけ数える）だけ、潜り始めの最大HPと与ダメージの倍率に `1 + LOOP_TUNE.bonus * n` を掛ける。`startMaxHp`・`startDmgMul` in src/core/rules.ts が掛けるので、プレイヤーの作成（src/actors/player.ts）と出撃地点の目安（`readinessScore`）の両方に効く。`startMaxHp` は掛けてから丸める。ARCADE では掛けない
 - **次の周へ（ENDLESS の拠点）**: ENDLESS で今の周をクリアしていて（上の `titan`）、中断中の潜行が無い（`save.suspend` が `null`）ときに、`#sideCards` の記録のカードの前に `pagecard` のボタン `#btnNextLoop` を出す。見出しは「次の周へ」、小さい字で「{n}周目へ。出撃地点とボスエリアがはじめに戻る」（n は次の周）。1回押すと見出しが「もう一度押すと {n}周目へ」に変わり、ほかを押すか拠点を描き直すと元に戻る（強化ターミナルの「全部売る」と同じ）。2回目で `startNextLoop` in src/core/progress.ts を呼んで保存し、拠点を描き直す
@@ -513,8 +513,9 @@
 - **ランチャーの直撃**: ロケットが当たった敵は、爆発とは別に威力の 0.5倍を受ける（`direct`。`pBulletStep` in src/actors/bullets.ts）。爆発の会心とは別で、直撃ぶんは会心しない
 - **難しさの目安の物差し**: 拠点の出撃地点の目安（Sector Dive の 9.3）は、無改造ハンドガン（★・＋0・オプションなし）の毎秒ダメージ約79.6を 1 として測る
   - `READY_REF_DPS` in src/core/rules.ts が `bareDps` で `WEAPONS.pistol` から計算するので、ハンドガンの数値を変えると物差しも同じだけ動く
-  - 無改造ハンドガンで DEPTH 1 から出る新規セーブは 1.0（適正）になる
-  - 段階は `READY_CUTS`（1.5・1.15・0.85・0.6）で分ける
+  - 無改造ハンドガンで DEPTH 1 から出る新規セーブは 1.0（楽勝）になる
+  - 段階は `READY_CUTS`（0.6・0.4・0.25・0.15）で分ける
+  - 段階の意味は、出撃深度のボスを倒せる割合（0 は9割以上、2 は5割前後、4 は1割以下）
 
 ### マップと表示
 

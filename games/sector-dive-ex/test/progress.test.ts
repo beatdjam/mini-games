@@ -197,13 +197,15 @@ test('save codes: round trip, a bad code is refused', () => {
   el('#btnWipe').click();
   el('#btnWipeGo').click();
 });
-test('readiness: fit at DEPTH 1, harder deeper; levels make it easier', () => {
-  // (the yardstick READY_REF_DPS is the plain handgun's damage per second, so DEPTH 1 is "fit": a fresh save)
+test('readiness: easy at DEPTH 1, harder deeper; levels make it easier', () => {
+  // (the yardstick READY_REF_DPS is the plain handgun's damage per second, so DEPTH 1 is easy: a fresh save)
   devSetArcade(false);
   el('#btnWipe').click();
   el('#btnWipeGo').click();
   const fresh = [0, 1, 2, 4].map(n => readiness(n));
-  if (fresh[0] !== 2 || fresh.some((r, i) => i && r < fresh[i - 1]!)) throw new Error('readiness fresh ' + fresh);
+  if (fresh[0] !== 0) throw new Error('readiness fresh ' + fresh);
+  const scores = [0, 1, 2, 4].map(n => readinessScore(n));
+  if (scores.some((v, i) => i && v >= scores[i - 1]!)) throw new Error('readiness deeper ' + scores);
   const s0 = readinessScore(2);
   save.up.dmg = 6;
   save.up.hp = 6;
@@ -211,15 +213,15 @@ test('readiness: fit at DEPTH 1, harder deeper; levels make it easier', () => {
   const s1 = readinessScore(2);
   if (!(s1 > s0)) throw new Error('readiness upgrades ' + s0 + ' ' + s1);
 });
-test('readiness: ARCADE at DEPTH 10 reads reckless against the same yardstick', () => {
+test('readiness: ARCADE at DEPTH 10 reads hard against the same yardstick', () => {
   devSetArcade(false);
   el('#btnWipe').click();
   el('#btnWipeGo').click();
   devSetArcade(true);
   try {
     const score = readinessScore(9); // DEPTH 10
-    // the old yardstick read 0.704443; the handgun's own reads 0.532522 (reckless)
-    if (Math.abs(score - 0.532522) > 0.001 || readiness(9) !== 4) throw new Error('readiness arcade ' + score);
+    // the supply picks are capped at four here too; the handgun's own reads 0.161773 (hard)
+    if (Math.abs(score - 0.161773) > 0.001 || readiness(9) !== 3) throw new Error('readiness arcade ' + score);
   } finally {
     devSetArcade(false);
   }
