@@ -1,4 +1,4 @@
-import type { Snapshot } from '../data/types.ts';
+import type { RunState, Snapshot } from '../data/types.ts';
 import { el } from '@engine/core/util.ts';
 import { t } from '@engine/core/i18n.ts';
 import { toast } from '@engine/ui/ui.ts';
@@ -43,18 +43,18 @@ function makeSnapshot() {
   Object.entries(player).forEach(([k, v]) => {
     if (!SNAP_SKIP.includes(k)) p[k] = v;
   });
-  return {
-    run: {
-      stage: run.stage,
-      kills: run.kills,
-      bits: run.bits,
-      perks: run.perks,
-      bosses: run.bosses || [],
-      startTier: run.startTier,
-      route: run.route,
-    },
-    P: JSON.parse(JSON.stringify(p)),
+  const r: RunState = {
+    stage: run.stage,
+    kills: run.kills,
+    bits: run.bits,
+    perks: run.perks,
+    bosses: run.bosses || [],
+    startTier: run.startTier,
+    route: run.route,
   };
+  // a deep copy: the arrays (perks, bosses, route) would otherwise be the live run's, and chips and bosses
+  // taken mid-stage got into the checkpoint
+  return { run: JSON.parse(JSON.stringify(r)), P: JSON.parse(JSON.stringify(p)) };
 }
 export function checkpoint() {
   if (!run || run.practice || !player) return;

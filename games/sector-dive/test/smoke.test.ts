@@ -865,6 +865,17 @@ test('checkpoint: saved at stage start, deleted when the run ends', () => {
   startRun();
   tick(5); // leave a run going for the next check
 });
+test('checkpoint: arrays from the stage start do not change later', () => {
+  startRun();
+  if (!save.suspend) throw new Error('checkpoint at stage start');
+  const n = save.suspend.run.perks.length;
+  run.perks.push('rapid');
+  if (save.suspend.run.perks.length !== n) throw new Error('checkpoint perks changed with the run');
+  run.bosses = run.bosses || [];
+  run.bosses.push('watcher');
+  if (save.suspend.run.bosses!.includes('watcher')) throw new Error('checkpoint bosses changed with the run');
+  endRun('abandon');
+});
 test('feedback: hidden without a form; with one, the result screen opens it filled in', () => {
   const keepForm = { ...FEEDBACK_FORM },
     keepOpen = window.open,
