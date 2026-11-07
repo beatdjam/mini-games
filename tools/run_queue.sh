@@ -30,7 +30,13 @@ BUSY_TRIES=5
 # 混雑かどうかを見るログの末尾の行数
 BUSY_TAIL=10
 
-log() { if [ $DRY = 1 ]; then echo "$*"; else echo "$(date '+%m-%d %H:%M:%S') $*" | tee -a "$LOG"; fi; }
+log() {
+  if [ $DRY = 1 ]; then echo "$*"; return; fi
+  echo "$(date '+%m-%d %H:%M:%S') $*" | tee -a "$LOG"
+  # the state page for looking from elsewhere (tools/queue_status.py), when a place for it is given
+  [ -n "${QUEUE_STATUS_FILE:-}" ] && python3 "$R/tools/queue_status.py" --out "$QUEUE_STATUS_FILE" >/dev/null 2>&1
+  return 0
+}
 ticket_of() { ls "$T"/"$1"-*.md 2>/dev/null | grep -v '\.result\.md$' | head -1; }
 branch_of() { grep -o -m1 -E 'git switch [^ `]+' "$1" | awk '{print $3}'; }
 worktree_of() { # そのブランチを開いている作業ツリー
