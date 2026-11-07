@@ -154,6 +154,10 @@ while read -r -u 3 n bases; do
   done
   mkdir -p "$wt/.tasks"
   cp "$t" "$wt/.tasks/"
+  # what tickets read besides themselves: the copied notes (context/), the drafts (draft/) and the results of
+  # earlier tickets (.tasks/ is not committed, so a new worktree has none of them)
+  for d in context draft; do [ -d "$T/$d" ] && cp -R "$T/$d" "$wt/.tasks/"; done
+  for r in "$T"/*.result.md; do [ -f "$r" ] && [ ! -f "$wt/.tasks/$(basename "$r")" ] && cp "$r" "$wt/.tasks/"; done
 
   prompt=".tasks/$name.md の票をやって"
   if [ "${refs[*]}" != origin/master ]; then
