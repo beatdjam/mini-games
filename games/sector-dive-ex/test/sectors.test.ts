@@ -235,15 +235,6 @@ describe('reachability', () => {
   });
 });
 
-test('the same seed builds the same level', () => {
-  const snap = () => ({ rooms: JSON.stringify(level.rooms), grid: Array.from(grid), start: level.startIdx });
-  buildLevel(BIOMES[1], false, null, 1234);
-  const a = snap();
-  buildLevel(BIOMES[1], false, null, 1234);
-  expect(snap()).toEqual(a);
-  expect(level.seed).toBe(1234);
-});
-
 // A pin on generation: the same seed must keep giving the same maps, rooms and start. Changing the generator or the
 // order it draws random numbers in changes these on purpose, and then the numbers here are updated with it.
 function levelHash(gen: GeneratedLevel): string {
