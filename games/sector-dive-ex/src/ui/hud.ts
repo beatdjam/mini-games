@@ -42,6 +42,38 @@ const btnDash = el('#btnDash'),
   btnStow = el<HTMLButtonElement>('#btnStow'),
   hintEl = el('#hint');
 const LOW_HP_FRAC = 0.3; // below this share of max HP the HP bar turns red and the screen edge pulses
+// The last values written to the HUD by updateHud and its helpers: a frame whose values are unchanged writes nothing.
+// null = not written yet, so the first frame after a load writes every one of them.
+// These elements are not written outside updateHud; if one is, change the matching item in shown too.
+const shown: {
+  hpFill: string | null;
+  hpNum: string | null;
+  hpLow: boolean | null;
+  stFill: string | null;
+  stShort: boolean | null;
+  stWarn: boolean | null;
+  dashOff: boolean | null;
+  bits: string | null;
+  lock: boolean | null;
+  bossFill: string | null;
+  vig: string | null;
+  reloadHidden: boolean | null;
+  reloadFill: string | null;
+} = {
+  hpFill: null,
+  hpNum: null,
+  hpLow: null,
+  stFill: null,
+  stShort: null,
+  stWarn: null,
+  dashOff: null,
+  bits: null,
+  lock: null,
+  bossFill: null,
+  vig: null,
+  reloadHidden: null,
+  reloadFill: null,
+};
 // screen effects shared by several files: hit marker, damage vignette, camera shake, minimap redraw, stamina warning
 export const screenFx = { vig: 0, shake: 0, miniT: 0, stWarn: 0 };
 // where a hit came from: a red arc around the crosshair, only when the attacker is outside the view (engine/ui/hitdir.ts)
@@ -127,14 +159,41 @@ function hpFrac() {
 }
 // HP, stamina and the dash button that needs stamina
 function updateBars() {
-  const f = hpFrac();
-  hpFill.style.transform = `scaleX(${f})`;
-  hpBar.classList.toggle('low', f < LOW_HP_FRAC);
-  hpNum.textContent = String(Math.ceil(player.hp));
-  stFill.style.transform = `scaleX(${clamp(player.st / player.stMax, 0, 1)})`;
-  stBar.classList.toggle('short', player.st < TUNE.dashCost);
-  stBar.classList.toggle('warn', screenFx.stWarn > 0);
-  btnDash.classList.toggle('off', player.st < TUNE.dashCost);
+  const f = hpFrac(),
+    hpScale = `scaleX(${f})`;
+  if (shown.hpFill !== hpScale) {
+    hpFill.style.transform = hpScale;
+    shown.hpFill = hpScale;
+  }
+  const low = f < LOW_HP_FRAC;
+  if (shown.hpLow !== low) {
+    hpBar.classList.toggle('low', low);
+    shown.hpLow = low;
+  }
+  const hpText = String(Math.ceil(player.hp));
+  if (shown.hpNum !== hpText) {
+    hpNum.textContent = hpText;
+    shown.hpNum = hpText;
+  }
+  const stScale = `scaleX(${clamp(player.st / player.stMax, 0, 1)})`;
+  if (shown.stFill !== stScale) {
+    stFill.style.transform = stScale;
+    shown.stFill = stScale;
+  }
+  const short = player.st < TUNE.dashCost;
+  if (shown.stShort !== short) {
+    stBar.classList.toggle('short', short);
+    shown.stShort = short;
+  }
+  const warn = screenFx.stWarn > 0;
+  if (shown.stWarn !== warn) {
+    stBar.classList.toggle('warn', warn);
+    shown.stWarn = warn;
+  }
+  if (shown.dashOff !== short) {
+    btnDash.classList.toggle('off', short);
+    shown.dashOff = short;
+  }
 }
 // rounds in the magazine and the reload bar
 function updateAmmo() {
@@ -147,13 +206,27 @@ function updateAmmo() {
     // (not 'empty': that is the box of an empty list, index.html, and would put its dashed frame round the count)
     ammoEl.classList.toggle('dry', w.mag === 0);
   }
-  reloadEl.hidden = !(player.reloadT > 0);
-  if (player.reloadT > 0) rFill.style.transform = `scaleX(${1 - player.reloadT / player.reloadMax})`;
+  const reloadHidden = !(player.reloadT > 0);
+  if (shown.reloadHidden !== reloadHidden) {
+    reloadEl.hidden = reloadHidden;
+    shown.reloadHidden = reloadHidden;
+  }
+  if (player.reloadT > 0) {
+    const fill = `scaleX(${1 - player.reloadT / player.reloadMax})`;
+    if (shown.reloadFill !== fill) {
+      rFill.style.transform = fill;
+      shown.reloadFill = fill;
+    }
+  }
 }
 // the red screen edge: hits, and a pulse while HP is low
 function updateVignette() {
   const lowPulse = hpFrac() < LOW_HP_FRAC ? 0.25 + Math.sin(time * 5) * 0.12 : 0;
-  vigEl.style.opacity = String(Math.max(screenFx.vig, lowPulse));
+  const opacity = String(Math.max(screenFx.vig, lowPulse));
+  if (shown.vig !== opacity) {
+    vigEl.style.opacity = opacity;
+    shown.vig = opacity;
+  }
 }
 // the weapon on the floor next to the player: name, comparison and the equip / stow buttons
 function updatePickPrompt() {
@@ -192,10 +265,24 @@ function updatePickPrompt() {
 }
 export function updateHud() {
   updateBars();
-  bitNum.textContent = String(Math.floor(run.bits));
-  cross.classList.toggle('lock', !!target);
+  const bits = String(Math.floor(run.bits));
+  if (shown.bits !== bits) {
+    bitNum.textContent = bits;
+    shown.bits = bits;
+  }
+  const lock = !!target;
+  if (shown.lock !== lock) {
+    cross.classList.toggle('lock', lock);
+    shown.lock = lock;
+  }
   updateAmmo();
-  if (boss) bossFill.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
+  if (boss) {
+    const fill = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
+    if (shown.bossFill !== fill) {
+      bossFill.style.transform = fill;
+      shown.bossFill = fill;
+    }
+  }
   updateVignette();
   updatePickPrompt();
 }
