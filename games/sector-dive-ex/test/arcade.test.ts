@@ -457,41 +457,6 @@ test('ARCADE counts its depths deeper (ARCADE_DEPTH_SCALE); ENDLESS keeps DEPTH_
   expect(progressOf(3 * PER)).toBe(3 * 5 * DEPTH_SCALE);
 });
 
-test("ARCADE: a sector's boss has more health; the boss area's and ENDLESS's as they are", () => {
-  devSetArcade(true);
-  startRun(true);
-  run.stage = bossStageOf(2);
-  expect(bossHpMul(), 'a sector boss').toBe(1.5);
-  run.stage = firstStageOf(ARCADE_DEPTHS);
-  expect(bossHpMul(), 'the boss area').toBe(1);
-  devSetArcade(false);
-  run.stage = bossStageOf(2);
-  expect(bossHpMul(), 'ENDLESS').toBe(1);
-  goBase();
-});
-
-test('ARCADE: the boss area and TITAN have their own health multiplier; ENDLESS does not', () => {
-  devSetArcade(true);
-  startRun(true);
-  run.stage = firstStageOf(ARCADE_DEPTHS);
-  run.area = { at: 'room', boss: 'titan' };
-  expect(bossHpMul(), 'TITAN').toBe(2);
-  run.area = { at: 'room', boss: BOSS_ROOM_ORDER[0]! };
-  expect(bossHpMul(), 'a room of the boss area').toBe(0.6);
-  run.area = { at: 'hall' };
-  expect(bossHpMul(), 'the hall').toBe(1);
-  run.stage = bossStageOf(2);
-  run.area = undefined;
-  expect(bossHpMul(), "a sector's boss").toBe(1.5);
-  devSetArcade(false);
-  run.stage = firstStageOf(ARCADE_DEPTHS);
-  run.area = { at: 'room', boss: 'titan' };
-  expect(bossHpMul(), 'ENDLESS TITAN').toBe(1);
-  run.area = { at: 'room', boss: BOSS_ROOM_ORDER[0]! };
-  expect(bossHpMul(), "ENDLESS's boss area").toBe(0.2);
-  goBase();
-});
-
 test('bossHpMul: a sector, a room, TITAN, the hall and practice in each mode', () => {
   type Place = 'sector' | 'room' | 'titan' | 'hall' | 'practice' | 'practiceArea';
   const want: Record<'arcade' | 'endless', Record<Place, number>> = {

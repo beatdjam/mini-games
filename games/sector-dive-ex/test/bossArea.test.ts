@@ -965,13 +965,6 @@ test('boss area off: the TITAN gate stays out of the run', () => {
 });
 
 // ---- a room's boss health: only the health is cut, the attacks and the speed stay ----
-test('bossHpMul: the share in a room, 1 in the hall', () => {
-  enterRoom();
-  expect(bossHpMul(), 'in the room').toBe(0.2);
-  enterHallRun();
-  expect(bossHpMul(), 'in the hall').toBe(1);
-});
-
 test("a room's boss has the share of the health of the same depth's boss", () => {
   enterRoom();
   spawnBoss('crusher');
