@@ -708,6 +708,38 @@ test('shotgun knockback once per shot; launcher gets half the magazine chips', (
     throw new Error('mag chips ' + magSize(newWeapon('launcher', 0)));
   endRun('abandon');
 });
+test('immobile enemies are not knocked back by shotgun or launcher', () => {
+  startRun();
+  tick(3);
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
+  grid.fill(1);
+  hgt.fill(0);
+  ramp.fill(-1);
+  cover.fill(0);
+  player.x = (W * T) / 2;
+  player.z = (H * T) / 2;
+  player.fy = 0;
+  const e = spawnEnemy('turret', player.x, player.z - 4, -1, 50);
+  e.fy = 0;
+  e.mesh.position.set(e.x, 1.1, e.z);
+  e.hp = 1e9;
+  e.maxHp = 1e9;
+  const z0 = e.z;
+  for (let k = 0; k < 8; k++)
+    spawnPBullet(new V3(player.x + rand(-0.2, 0.2), 1.1, player.z), new V3(0, 0, -1), 65, 1, 0, 0, 0xffffff, 0, {
+      kb: WEAPONS.shotgun.kb,
+      shot: 999,
+    });
+  updatePBullets(0.1);
+  if (e.z !== z0) throw new Error('shotgun pushed a turret ' + (z0 - e.z));
+  explode(player.x, 1.1, player.z, 6, 1, COLOR.orange, true);
+  if (e.z !== z0) throw new Error('launcher pushed a turret ' + (z0 - e.z));
+  endRun('abandon');
+});
 test('every type drops regardless of unlocks; modded basic weapons start modded', () => {
   const keepU = save.unlocked,
     keepM = save.mods,
