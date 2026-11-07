@@ -624,6 +624,10 @@ body.hud2 .levelcard .lc-next {
   font-size: 12px;
   color: var(--paint2);
 }
+/* the record card's label sits on the big time it names: pulled up to the grid's gap (4px) leaves it 2px off */
+body.hud2 .levelcard .lc-label {
+  margin-bottom: -2px;
+}
 body.hud2 .levelcard .lc-go {
   margin-top: 8px;
   padding: 6px 10px;
