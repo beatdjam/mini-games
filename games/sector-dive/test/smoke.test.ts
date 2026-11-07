@@ -123,7 +123,7 @@ import { discardSuspended, resumeRun, suspendRun } from '../src/flow/suspend.ts'
 import { openPerk } from '../src/screens/perk.ts';
 import { pause, statsHTML } from '../src/screens/pause.ts';
 import { renderBase, showTab, weaponStatText } from '../src/screens/base.ts';
-import { shareData, shareText } from '../src/ui/share.ts';
+import { drawShareCard, shareData, shareText } from '../src/ui/share.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
 import { update, updatePickups } from '../src/flow/update.ts';
 import { GUNFX, curVM } from '../src/actors/viewmodel.ts';
@@ -1217,6 +1217,36 @@ test('share: shown after a real run, hidden after practice; text fits X', () => 
     setState('play');
     if (!ok) throw new Error('pause screen kept the old language');
   }
+});
+test('share card: the Japanese font is loaded with the words the card draws', async () => {
+  goBase();
+  startRun();
+  tick(5);
+  run.bosses = ['watcher'];
+  run.perks = ['overload'];
+  endRun('extract');
+  const d = shareData!;
+  const keepLoad = document.fonts.load;
+  const loaded: [string, string | undefined][] = [];
+  document.fonts.load = (font, text) => {
+    loaded.push([font, text]);
+    return keepLoad.call(document.fonts, font, text);
+  };
+  try {
+    await drawShareCard(d);
+  } finally {
+    document.fonts.load = keepLoad;
+  }
+  const jp = loaded
+    .filter(([font]) => font.includes('DotGothic16'))
+    .map(([, text]) => text ?? '')
+    .join('');
+  if (!d.biome) throw new Error('share card test: the biome name is empty');
+  for (const want of [t('res.extract'), d.biome, t('share.killsV', { n: d.kills })])
+    if (!jp.includes(want)) throw new Error('share card font words missing ' + want + ' / ' + jp);
+  goBase();
+  startRun();
+  tick(5); // leave a run going for the next check, like the share test above
 });
 test('analytics: the flow above sent its events', () => {
   if (TRACK_LOG.some(e => e.params.game !== 'sector-dive')) throw new Error('analytics: game id missing');

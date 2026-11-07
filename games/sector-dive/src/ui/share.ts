@@ -195,8 +195,29 @@ function drawFooter(g: CanvasRenderingContext2D, fonts: CardFonts) {
 }
 
 export async function drawShareCard(d: ShareCard): Promise<Blob | null> {
+  // hand the font load the words the card says, as Extended does, so its text is loaded up front: the card also draws
+  // results the page itself has not shown yet
+  const words = [
+    RUN_END[d.kind].title(),
+    d.biome,
+    bossSummary(d.bosses),
+    d.weapon,
+    d.chips.join(t('share.join')),
+    t('share.killsV', { n: d.kills }),
+    t('share.chipsMore', { n: d.nChips }),
+    t('share.kills'),
+    t('share.bosses'),
+    t('share.weapon'),
+    t('share.chips'),
+    t('common.none'),
+    '#SectorDive',
+    '…', // fitText cuts a long line with this, so it is on the card too
+  ].join('');
   try {
-    await Promise.all([document.fonts.load('700 40px "Chakra Petch"'), document.fonts.load('30px "DotGothic16"')]);
+    await Promise.all([
+      document.fonts.load('700 40px "Chakra Petch"'),
+      document.fonts.load('30px "DotGothic16"', words),
+    ]);
   } catch {
     // the fonts are only for looks: if loading fails, the card is still drawn with the fallback fonts
   }
