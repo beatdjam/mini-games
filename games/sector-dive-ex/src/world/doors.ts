@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { T, activeTileGrid, tileCenter } from '@engine/world/tiles.ts';
+import { DOOR_PASS, T, activeTileGrid, tileCenter } from '@engine/world/tiles.ts';
 import { isDoorLocked, updateDoors } from '@engine/world/doors.ts';
 import type { DoorMover } from '@engine/world/doors.ts';
 import { textSprite } from '@engine/render/render.ts';
@@ -38,13 +38,31 @@ interface DoorMesh {
 // the doors of every floor of the building (filled by buildDoorMeshes), and the floor whose doors move
 let doorSets: DoorMesh[][] = [];
 let doorMeshes: DoorMesh[] = [];
+// per floor: every door tile of its map, found once when the floor's meshes are built (the map is never scanned per
+// frame). Some door tiles get no DoorMesh (buildDoorMeshes skips the second tile of a door 2 wide and a door that
+// stands right behind another), but they open and shut all the same, so they are counted from this list.
+let doorTiles: number[][] = [];
+// the door tiles of the floor being played, and whether each can be walked through (DOOR_PASS) this frame
+let floorDoorTiles: number[] = [];
+const passable = new Map<number, boolean>();
+// How many door tiles have changed between passable and shut since the count was last read. world/level.ts keeps it in
+// the inputs of showNeighbourFloors: a shut door is a wall for the way to the yard (seesYard/hasLOS), and the awake
+// enemies and bosses open doors too, so a change can change what the floor shows.
+let passChanges = 0;
+export const doorPassChanges = (): number => passChanges;
 export function resetDoorMeshes() {
   doorSets = [];
   doorMeshes = [];
+  doorTiles = [];
+  floorDoorTiles = [];
+  passable.clear();
+  passChanges = 0;
 }
 // the floor being played: its doors are the ones that move from now on
 export function useDoorFloor(floor: number) {
   doorMeshes = doorSets[floor] ?? [];
+  floorDoorTiles = doorTiles[floor] ?? [];
+  passable.clear();
   doorMeshes.forEach(d => placeLeaves(d, 0));
 }
 
@@ -55,6 +73,9 @@ export function buildDoorMeshes(biome: Biome, group: THREE.Group, bossDoor: numb
   doorSets[floor] = list;
   const { door, grid, W } = activeTileGrid().world,
     look = lookOf(biome);
+  const tiles: number[] = [];
+  if (door) door.forEach((v, k) => v && tiles.push(k));
+  doorTiles[floor] = tiles;
   if (!door) return;
   door.forEach((v, k) => {
     if (!v) return;
@@ -124,6 +145,14 @@ export function updateDoorMeshes(movers: Iterable<DoorMover>, dt: number) {
     { doorOpen } = g.world;
   if (!doorOpen) return;
   updateDoors(g, movers, dt, DOOR_CFG);
+  // count the door tiles that became passable or shut. A door seen for the first time counts once: the floor or the
+  // building changed with it, so showNeighbourFloors runs anyway
+  for (const k of floorDoorTiles) {
+    const now = doorOpen[k]! >= DOOR_PASS,
+      before = passable.get(k);
+    if (before === undefined || before !== now) passChanges++;
+    passable.set(k, now);
+  }
   for (const d of doorMeshes) {
     // a door 2 wide moves as one: as far open as the further open of its two tiles
     const other = d.k + (d.axis === 'z' ? g.world.W : 1);
