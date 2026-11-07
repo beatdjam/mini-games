@@ -2,6 +2,7 @@
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
 import type { Pickup } from '../src/data/types.ts';
+import { TRACK_LOG } from '@engine/core/analytics.ts';
 import { query } from '@engine/core/world.ts';
 import { T, W, activeTileGrid, floorY, grid, tileIndex } from '@engine/world/tiles.ts';
 import { joy } from '@engine/ui/input.ts';
@@ -438,6 +439,7 @@ test('boss room: its door goes on the map when the player looks at it from the c
   expect(level.seen[hall.door], 'looking at it').toBe(1);
 });
 test('boss room: its door opens for a player who waits at it; walking in starts the boss stage', () => {
+  TRACK_LOG.length = 0;
   enterBuilding();
   goToFloor(building!.plans.length - 1);
   const hall = level.hall!,
@@ -478,6 +480,17 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   expect(stateIs('play')).toBe(true);
   expect(run.perks.length).toBe(chipsHad + owed * DEPTH_SCALE);
   expect(supplyChips(), 'given once').toBe(0);
+  // the analytics: one pre-boss supply, with the chips it offered and where it happened
+  const supplies = TRACK_LOG.filter(e => e.name === 'supply');
+  expect(supplies.length, 'supply').toBe(1);
+  expect(supplies[0]!.params).toMatchObject({
+    method: 'pre_boss',
+    count: owed,
+    level: tier + 1,
+    stage: run.bld!.step + 1,
+    stage_type: level.biome.code,
+  });
+  expect(['arcade', 'endless'], 'mode').toContain(supplies[0]!.params.mode);
   tick(3);
   expect(run.stage, 'the boss stage of this depth').toBe(tier * PER + PER - 1);
   expect(isDoorLocked(world, hall.door), 'shut behind the player').toBe(true);

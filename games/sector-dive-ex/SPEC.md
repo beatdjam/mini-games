@@ -1184,7 +1184,8 @@
   - 3D の詳細マップ（9章）
 - 見た目のコードの置き場所: セクター（壁・床・扉・小物）は src/world/looks/、モデル（敵・ボス・拾い物・手に持つ銃・敵の弾・粒）は src/world/models/。ボスは src/world/models/bosses/ に1体1ファイル、共通の道具は bosses/shared.ts。モデルが共通で使う部品（箱と円柱、装甲の絵、足元の光だまり）は src/world/models/machine.ts、絵を描く道具は、どちらも src/world/looks/paint.ts
 - セクターの絵は、engine の「名前で引くテクスチャとマテリアル」（engine/SPEC.md 7章の `materials.ts`）を使わず、ゲームの中（src/world/looks/）でキャンバスから作っている。武器・敵・拾い物の絵（src/world/models/）も同じ。【未決】engine の仕組みに乗せ替えるか
-- アクセス解析: `game` は `sector-dive-ex`。イベントは Sector Dive と同じ名前を使う。ロックダウンと補給のイベントは無い（【未決】足すか）
+- アクセス解析: `game` は `sector-dive-ex`。イベントは Sector Dive と同じ名前を使う。ロックダウンは `lockdown_start`（始まったとき）と `lockdown_end`（終わったとき。`result` は `cleared`・`dead`・`abandon`・`suspended`・`left`・`extract`・`clear`、`duration_sec` はロックダウン中だった秒数）で送る。ロックダウン中に帰還（`extract`）・クリア（`clear`）したときは、その `result` のまま送る。ボス前の補給は `supply`（`method` は `pre_boss`、`count` は選べるチップの枚数）で送る。どちらにも `level`・`stage`・`stage_type`・`mode` が付く。ショートカット補給は `dive_start` の `start_level` で分かるので送らない
+  - 中断して再開したときは、同じロックダウンがもう一度 `lockdown_start` から始まり、新しい1回として数える
 - 更新履歴: `updates.html`。このフォルダを触ったコミットの `Changelog:` の行から作る
 - 確認用フック（開発サーバーだけ）
   - `#modes`（モード選択を出す）

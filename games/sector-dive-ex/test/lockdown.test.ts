@@ -3,12 +3,13 @@
 import { beforeAll, expect, test } from 'vitest';
 import type { Pickup } from '../src/data/types.ts';
 import { el } from '@engine/core/util.ts';
+import { TRACK_LOG } from '@engine/core/analytics.ts';
 import { query } from '@engine/core/world.ts';
 import { SIDE_STEP, T, W, activeTileGrid, floorY, tileIndex } from '@engine/world/tiles.ts';
 import { level, roomSpot } from '../src/world/level.ts';
 import { enemies, spawnEnemy } from '../src/world/entities.ts';
 import { player, run } from '../src/actors/player.ts';
-import { goBase } from '../src/flow/run.ts';
+import { endRun, goBase } from '../src/flow/run.ts';
 import { building, roomDoors } from '../src/world/building.ts';
 import { isDoorLocked } from '@engine/world/doors.ts';
 import { DOOR_PASS } from '@engine/world/tiles.ts';
@@ -133,6 +134,7 @@ test('lockdown: enemies of the room shut out of it no longer count, so it can st
   goBase();
 });
 test('lockdown: the room shuts, two waves come, then it opens and leaves a chip', () => {
+  TRACK_LOG.length = 0;
   enterBuilding(b => !!b.lockdown);
   const ld = building!.lockdown!;
   goToFloor(ld.floor);
@@ -171,6 +173,19 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
   expect(locked(), 'open again').toBe(false);
   expect(doors.some(k => isDoorLocked(world, k))).toBe(false);
   expect(run.bld!.cleared[ld.floor]).toContain(ld.room);
+  // the analytics: one start, and one end that says the lockdown was cleared
+  const starts = TRACK_LOG.filter(e => e.name === 'lockdown_start'),
+    ends = TRACK_LOG.filter(e => e.name === 'lockdown_end');
+  expect(starts.length, 'lockdown_start').toBe(1);
+  expect(ends.length, 'lockdown_end').toBe(1);
+  expect(ends[0]!.params.result, 'cleared').toBe('cleared');
+  expect(typeof ends[0]!.params.duration_sec, 'duration_sec is a number').toBe('number');
+  for (const e of [starts[0]!, ends[0]!]) {
+    expect(typeof e.params.level, 'level').toBe('number');
+    expect(typeof e.params.stage, 'stage').toBe('number');
+    expect(typeof e.params.stage_type, 'stage_type').toBe('string');
+    expect(['arcade', 'endless'], 'mode').toContain(e.params.mode);
+  }
   // the reward: a chip whose choices are all rare and a weapon of the second rarity or better
   const reward = query<Pickup>('pickup');
   expect(chips(), 'one chip to pick up').toBe(chipsWas + 1);
@@ -194,4 +209,57 @@ test('lockdown: the room shuts, two waves come, then it opens and leaves a chip'
     });
   });
   goBase();
+});
+// puts the player in the middle of the lockdown room and runs the frames that shut it and start the lockdown
+function enterLockdown(): number {
+  const ld = building!.lockdown!;
+  goToFloor(ld.floor);
+  const [x, z] = roomSpot(level.rooms[ld.room]!);
+  player.x = x;
+  player.z = z;
+  player.fy = floorY(x, z);
+  tick(30);
+  expect(el('#alarm').classList.contains('on'), 'the lockdown is on').toBe(true);
+  return ld.floor;
+}
+test('lockdown: dying inside sends lockdown_end with result dead', () => {
+  TRACK_LOG.length = 0;
+  enterBuilding(b => !!b.lockdown);
+  enterLockdown();
+  endRun('dead');
+  const ends = TRACK_LOG.filter(e => e.name === 'lockdown_end');
+  expect(ends.length).toBe(1);
+  expect(ends[0]!.params.result).toBe('dead');
+  goBase();
+});
+test('lockdown: suspending sends lockdown_end with result suspended', () => {
+  TRACK_LOG.length = 0;
+  enterBuilding(b => !!b.lockdown);
+  enterLockdown();
+  goBase();
+  const ends = TRACK_LOG.filter(e => e.name === 'lockdown_end');
+  expect(ends.length).toBe(1);
+  expect(ends[0]!.params.result).toBe('suspended');
+});
+test('lockdown: moving to another floor sends lockdown_end with result left', () => {
+  TRACK_LOG.length = 0;
+  enterBuilding(b => !!b.lockdown);
+  const floor = enterLockdown();
+  goToFloor((floor + 1) % building!.plans.length);
+  const ends = TRACK_LOG.filter(e => e.name === 'lockdown_end');
+  expect(ends.length).toBe(1);
+  expect(ends[0]!.params.result).toBe('left');
+  goBase();
+});
+test('lockdown: returning while it is on sends lockdown_end with result extract, and the base does not send another', () => {
+  TRACK_LOG.length = 0;
+  enterBuilding(b => !!b.lockdown);
+  enterLockdown();
+  endRun('extract');
+  const ends = TRACK_LOG.filter(e => e.name === 'lockdown_end');
+  expect(ends.length).toBe(1);
+  expect(ends[0]!.params.result).toBe('extract');
+  // the lockdown is over: the way back to the base does not send it again as a suspension
+  goBase();
+  expect(TRACK_LOG.filter(e => e.name === 'lockdown_end').length).toBe(1);
 });
