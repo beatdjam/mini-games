@@ -128,8 +128,16 @@ export function addDecks(look: DeckLook, group: THREE.Group) {
   ).forEach(([tiles, mat]) => {
     if (!tiles.length) return;
     const geo = new THREE.BoxGeometry(T, 1, T);
+    // BoxGeometry's groups are px, nx, py, ny, pz, nz (6 indices each): put the top (py, 12..17) last, so the sides
+    // are one group and the top another (drawn face by face, the same picture took five calls a deck)
+    const idx = Array.from(geo.index!.array),
+      order = [...idx.slice(0, 12), ...idx.slice(18), ...idx.slice(12, 18)];
+    geo.setIndex(order);
+    geo.clearGroups();
+    geo.addGroup(0, 30, 0);
+    geo.addGroup(30, 6, 1);
     geo.translate(0, 0.5, 0);
-    const decks = new THREE.InstancedMesh(geo, [mat, mat, topMat, mat, mat, mat], tiles.length);
+    const decks = new THREE.InstancedMesh(geo, [mat, topMat], tiles.length);
     tiles.forEach((k, n) => {
       matrix.makeScale(1, hgt[k], 1);
       matrix.setPosition(tileCenter(k % W), 0, tileCenter((k / W) | 0));
