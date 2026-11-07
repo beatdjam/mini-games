@@ -660,6 +660,11 @@ test('tilemesh: walls round the floor, one box per deck and per cover tile, a we
     addRamps(tex, tex, 0, group);
     const [walls, decks, cover, wedge] = group.children as THREE.InstancedMesh[];
     expect([walls!.count, decks!.count, cover!.count]).toEqual([14, 1, 1]);
+    expect(
+      decks!.geometry.groups.map(g => g.materialIndex),
+      'two groups: the sides and the top',
+    ).toEqual([0, 1]);
+    expect((decks!.material as THREE.Material[]).length, 'two materials for the two groups').toBe(2);
     expect(group.children.length, 'the ramp is one mesh').toBe(4);
     expect(wedge!.isInstancedMesh).toBeFalsy();
   } finally {
