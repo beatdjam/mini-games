@@ -159,6 +159,10 @@ export function bossPauseTick(e: Boss, dt: number) {
 export function isEnraged(e: Boss): boolean {
   return e.hp < e.maxHp * BOSS_PHASE_HP;
 }
+// the phase change begins once the boss is down (not aloft) and has crossed the boundary but is still alive
+export function checkPhase(e: Boss) {
+  if (!e.aloft && !e.phased && e.hp > 0 && isEnraged(e)) bossPhase(e);
+}
 // start the next attack pattern: e.pat cycles 0..PATTERN_COUNT-1; the caller sets e.timer (its length) after this
 export function nextPattern(e: Boss) {
   e.pat = e.patIdx++ % PATTERN_COUNT;

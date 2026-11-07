@@ -1,7 +1,7 @@
 // Smoke test for Sector Dive: boots the game page (setup.ts) and runs its parts through the real loop by hand.
 // The tests share one game state and run in order; some checks depend on how many random numbers the earlier ones used.
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import type { GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
+import type { Boss, GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
 import { createRng, distXZ, el, rand } from '@engine/core/util.ts';
 import { clearWorld, query } from '@engine/core/world.ts';
 import { lang, t } from '@engine/core/i18n.ts';
@@ -901,10 +901,29 @@ test('boss entrance and phase change: invulnerable while appearing and in the bu
   if (boss!.hp !== hp0) throw new Error('hurt during intro');
   tick(Math.ceil(BOSS_TUNE.introTime * 60) + 5);
   hurtEnemy(boss!, boss!.maxHp * 0.6, false);
+  tick(1); // the phase change begins on the next update
   if (!boss!.phased || !(boss!.spawnT > 0)) throw new Error('phase change');
   const hp1 = boss!.hp;
   hurtEnemy(boss!, 100, false);
   if (boss!.hp !== hp1) throw new Error('hurt during phase change');
+  endRun('abandon');
+});
+test('boss phase change waits while the boss is aloft (crusher jump)', () => {
+  startPractice('crusher');
+  tick(3);
+  if (!boss) spawnBoss('crusher');
+  tick(Math.ceil(BOSS_TUNE.introTime * 60) + 5);
+  if (boss!.spawnT > 0) throw new Error('intro not over');
+  const slamTime = BOSS_META.crusher!.tune.slamTime;
+  (boss as Boss & { st: string }).st = 'slam';
+  boss!.timer = slamTime;
+  hurtEnemy(boss!, boss!.maxHp * 0.6, false);
+  tick(1);
+  if (!boss!.aloft) throw new Error('not aloft during the jump');
+  if (boss!.phased) throw new Error('phase change while aloft');
+  tick(Math.ceil(slamTime * 60) + 2);
+  if (boss!.aloft) throw new Error('still aloft after the jump');
+  if (!boss!.phased || !(boss!.spawnT > 0)) throw new Error('phase change after landing');
   endRun('abandon');
 });
 test('boss practice: fight, win, go home; the save does not change', () => {

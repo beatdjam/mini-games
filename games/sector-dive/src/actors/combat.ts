@@ -12,7 +12,7 @@ import { progressOf } from '../core/rules.ts';
 import { STAGES_PER_GROWTH_DEPTH, damageScaleAt, difficultyAt } from '../core/stages.ts';
 import { level, roomSpot } from '../world/level.ts';
 import { addPickup, dropBits, enemies, removeEnemyMesh, spawnEnemy } from '../world/entities.ts';
-import { bossDown, bossPhase, isEnraged } from './bosses/common.ts';
+import { bossDown } from './bosses/common.ts';
 import { screenFx, hitDirection, hitMark } from '../ui/hud.ts';
 import { endRun } from '../flow/run.ts';
 import { state } from '../flow/state.ts';
@@ -100,7 +100,6 @@ export function hurtEnemy(e: Enemy, dmg: number, isCrit: boolean) {
   hitMark(isCrit);
   sfx('hit', 45);
   if (e.hp <= 0) killEnemy(e);
-  else if (e.boss && !e.phased && isEnraged(e)) bossPhase(e);
 }
 // push an enemy dist metres straight away from (fromX, fromZ), stopping at walls. One that never moves (a turret,
 // BASTION's turrets: bolted to the floor) stays where it is
