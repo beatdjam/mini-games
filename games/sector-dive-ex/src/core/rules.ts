@@ -152,9 +152,9 @@ function bareDps(w: WeaponItem): number {
 // score = the geometric mean of the two, where 1 = DEPTH 1 with a plain handgun and no upgrades.
 // Returns 0 (easy) .. 4 (reckless) by READY_CUTS.
 const READY_CUTS = [1.5, 1.15, 0.85, 0.6];
-// the yardstick of the offence: the damage per second of a plain handgun as it was when READY_CUTS were set (16 a
-// round). Fixed, so a stronger handgun reads as a better start instead of moving the yardstick with it
-const READY_REF_DPS = 45.5;
+// the yardstick of the offence: the damage per second of a plain handgun (★, +0, no options), so that DEPTH 1 with it
+// and no upgrades reads 1. Taken from the handgun as it is now, so changing its numbers moves the yardstick too
+const READY_REF_DPS = bareDps({ id: 'pistol', r: 0 });
 const READY_BOSS_WEIGHT = 0.75;
 // what the readiness is computed from: the loadout weapons, the damage upgrade level and max HP
 interface ReadyState {
@@ -167,8 +167,8 @@ const readyNow = (tier: number): ReadyState => ({
   dmg: startDmgMul(save.up.dmg),
   hp: startMaxHp(save.up.hp),
 });
-// what `picks` shortcut supply picks multiply the offence by (the curve was fitted to picks worth 5 chips each: more
-// a pick counts as that many more picks, and each pick covers DEPTH_SCALE depths)
+// what `picks` shortcut supply picks multiply the offence by (the curve was fitted to picks worth 5 chips each: a pick
+// counts as TUNE.supplyTimes * DEPTH_SCALE chip picks, as openPerk in src/screens/perk.ts applies it, ARCADE too)
 const supplyGain = (picks: number): number =>
   picks > 0
     ? Math.exp(
