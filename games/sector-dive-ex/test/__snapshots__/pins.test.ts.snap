@@ -73,9 +73,9 @@ exports[`sector CITY 1`] = `
   "first": {
     "at": "94,54",
     "enemies": "55:45e78c3e",
-    "scene": "1213:521c2923",
+    "scene": "1167:3a6af2da",
   },
-  "last": "763:d6ad8cf3",
+  "last": "717:ddd2acd6",
 }
 `;
 
@@ -84,9 +84,9 @@ exports[`sector DATA 1`] = `
   "first": {
     "at": "126,122",
     "enemies": "16:902604c9",
-    "scene": "915:4d642632",
+    "scene": "846:992f0ad8",
   },
-  "last": "734:c040f74a",
+  "last": "665:4ed40137",
 }
 `;
 
@@ -95,9 +95,9 @@ exports[`sector FORGE 1`] = `
   "first": {
     "at": "126,122",
     "enemies": "32:592cb169",
-    "scene": "1105:1be695f5",
+    "scene": "1036:233c2acd",
   },
-  "last": "784:dbb26d0a",
+  "last": "715:59ebb113",
 }
 `;
 
@@ -106,9 +106,9 @@ exports[`sector HOSP 1`] = `
   "first": {
     "at": "38,38",
     "enemies": "95:309609e",
-    "scene": "1888:385e8b04",
+    "scene": "1819:d055b03b",
   },
-  "last": "1048:19cee982",
+  "last": "979:227e0b90",
 }
 `;
 
@@ -128,9 +128,9 @@ exports[`sector MALL 1`] = `
   "first": {
     "at": "38,38",
     "enemies": "55:3cb002c4",
-    "scene": "1503:15b84b0a",
+    "scene": "1409:7a64faec",
   },
-  "last": "1001:1d40a03",
+  "last": "907:1339c2e7",
 }
 `;
 
@@ -139,9 +139,9 @@ exports[`sector NOISE 1`] = `
   "first": {
     "at": "126,122",
     "enemies": "44:9937dee6",
-    "scene": "1071:7d5dd9d2",
+    "scene": "1002:193e48c8",
   },
-  "last": "747:703ffee0",
+  "last": "678:b70d2bab",
 }
 `;
 

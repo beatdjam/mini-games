@@ -31,22 +31,39 @@ const SKYLIGHTS: Record<string, [number, number]> = {
   MALL: [0xcfdcf2, 0.17],
   HOSP: [0xffd9a8, 0.16], // a hospital's light well: the last of the evening sun, warm
 };
+// The rails and bridges are boxes of three materials: steel (posts, rails, girders, beams), the bridge's slab and its
+// glass. Their places and sizes are gathered here, to be drawn as one instanced mesh each (addCourt)
+interface CourtParts {
+  steel: THREE.Matrix4[];
+  slab: THREE.Matrix4[];
+  glass: THREE.Matrix4[];
+}
+const noTurn = new THREE.Quaternion(),
+  spot = new THREE.Vector3(),
+  size = new THREE.Vector3();
+// a box `sx` by `sy` by `sz` at (x, y, z), as a matrix. The boxes are never turned: a run's `alongX` only swaps its
+// width and depth
+function boxAt(list: THREE.Matrix4[], x: number, y: number, z: number, sx: number, sy: number, sz: number) {
+  spot.set(x, y, z);
+  size.set(sx, sy, sz);
+  list.push(new THREE.Matrix4().compose(spot, noTurn, size));
+}
+// the boxes gathered for one material, drawn as one instanced mesh
+function addParts(group: THREE.Group, list: THREE.Matrix4[], material: THREE.Material) {
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, list.length);
+  list.forEach((m, n) => mesh.setMatrixAt(n, m));
+  mesh.instanceMatrix.needsUpdate = true;
+  group.add(mesh);
+}
 // a run of rail `len` long, centred on (x, z), along x (alongX) or along z
-function addRail(x: number, z: number, len: number, alongX: boolean, group: THREE.Group) {
-  const steel = new THREE.MeshBasicMaterial({ color: PAINT.soot9 }),
-    glass = new THREE.MeshBasicMaterial({ color: 0x9fb6c4, transparent: true, opacity: 0.16, depthWrite: false }),
-    box = (along: number, h: number, across: number) =>
-      new THREE.BoxGeometry(alongX ? along : across, h, alongX ? across : along);
-  const top = new THREE.Mesh(box(len, RAIL_T, RAIL_T), steel);
-  top.position.set(x, RAIL_H, z);
-  const pane = new THREE.Mesh(box(len, RAIL_H - 0.12, RAIL_T / 2), glass);
-  pane.position.set(x, (RAIL_H - 0.12) / 2 + 0.06, z);
-  group.add(top, pane);
+function addRail(x: number, z: number, len: number, alongX: boolean, parts: CourtParts) {
+  const box = (list: THREE.Matrix4[], px: number, py: number, pz: number, along: number, h: number, across: number) =>
+    boxAt(list, px, py, pz, alongX ? along : across, h, alongX ? across : along);
+  box(parts.steel, x, RAIL_H, z, len, RAIL_T, RAIL_T);
+  box(parts.glass, x, (RAIL_H - 0.12) / 2 + 0.06, z, len, RAIL_H - 0.12, RAIL_T / 2);
   for (let p = 0; p <= Math.round(len / T); p++) {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(RAIL_T, RAIL_H, RAIL_T), steel),
-      at = -len / 2 + p * T;
-    post.position.set(alongX ? x + at : x, RAIL_H / 2, alongX ? z : z + at);
-    group.add(post);
+    const at = -len / 2 + p * T;
+    box(parts.steel, alongX ? x + at : x, RAIL_H / 2, alongX ? z : z + at, RAIL_T, RAIL_H, RAIL_T);
   }
 }
 // A bridge across a yard or an atrium, from under: the slab it is walked on (the floor's own tiles lie on top of it),
@@ -55,7 +72,7 @@ function addRail(x: number, z: number, len: number, alongX: boolean, group: THRE
 // plain (an office ceiling out of doors would be out of place)
 const BRIDGE_SLAB = 0.3,
   BRIDGE_GIRDER = 0.5; // how thick the slab is and how deep the girders under it (m)
-function addBridge(tiles: number[], group: THREE.Group, under: THREE.Material | null) {
+function addBridge(tiles: number[], parts: CourtParts, group: THREE.Group, under: THREE.Material | null) {
   if (!tiles.length) return;
   const is = tiles.map(k => k % W),
     js = tiles.map(k => (k / W) | 0),
@@ -63,19 +80,24 @@ function addBridge(tiles: number[], group: THREE.Group, under: THREE.Material | 
     len = tiles.length * T,
     cx = ((Math.min(...is) + Math.max(...is) + 1) / 2) * T,
     cz = ((Math.min(...js) + Math.max(...js) + 1) / 2) * T,
-    steel = new THREE.MeshBasicMaterial({ color: PAINT.soot9 }),
-    box = (along: number, h: number, across: number, y: number, off: number, at = 0, mat: THREE.Material = steel) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(alongX ? along : across, h, alongX ? across : along), mat);
-      m.position.set(cx + (alongX ? at : off), y, cz + (alongX ? off : at));
-      group.add(m);
-    };
+    box = (list: THREE.Matrix4[], along: number, h: number, across: number, y: number, off: number, at = 0) =>
+      boxAt(
+        list,
+        cx + (alongX ? at : off),
+        y,
+        cz + (alongX ? off : at),
+        alongX ? along : across,
+        h,
+        alongX ? across : along,
+      );
   // (its top a little under the floor's tiles and its bottom a little over the underside's: two faces in one plane
   // flicker)
-  box(len, BRIDGE_SLAB - 0.02, T, -BRIDGE_SLAB / 2 - 0.02, 0, 0, new THREE.MeshBasicMaterial({ color: PAINT.ink11 }));
+  box(parts.slab, len, BRIDGE_SLAB - 0.02, T, -BRIDGE_SLAB / 2 - 0.02, 0);
   if (under) addTilePlanes(tiles, -BRIDGE_SLAB - 0.02, false, under, group);
-  for (const side of [-1, 1]) box(len, BRIDGE_GIRDER, 0.3, -BRIDGE_SLAB - BRIDGE_GIRDER / 2, side * (T / 2 - 0.15));
+  for (const side of [-1, 1])
+    box(parts.steel, len, BRIDGE_GIRDER, 0.3, -BRIDGE_SLAB - BRIDGE_GIRDER / 2, side * (T / 2 - 0.15));
   for (let n = 0; n <= tiles.length; n++)
-    box(0.25, BRIDGE_GIRDER * 0.7, T - 0.6, -BRIDGE_SLAB - 0.2, 0, -len / 2 + n * T);
+    box(parts.steel, 0.25, BRIDGE_GIRDER * 0.7, T - 0.6, -BRIDGE_SLAB - 0.2, 0, -len / 2 + n * T);
 }
 // A galleria's skylight: a barrel vault of pale glass over the hole, its crown at the ceiling and its edges VAULT_RISE
 // lower, along the hole's length. Steel ribs stand across it at every tile line, and VAULT_PURLINS bars run along it
@@ -154,15 +176,24 @@ export function addCourt(
     deep = (j1 - j0) * T;
   // a rail wherever the hole has a tile one stands on beside it: a yard's balcony, an atrium's gallery, a bridge
   if (!court.ground) {
-    const hole = new Set(court.tiles.filter(k => !court.bridge.includes(k))),
+    const parts: CourtParts = { steel: [], slab: [], glass: [] },
+      hole = new Set(court.tiles.filter(k => !court.bridge.includes(k))),
       stood = new Set([...court.balcony, ...court.bridge]);
     for (const k of hole)
       for (const [di, dj] of SIDE_STEP) {
         const t = k + dj * W + di;
         if (stood.has(t) || (!court.open && !court.tiles.includes(t)))
-          addRail(tileCenter(k % W) + (di * T) / 2, tileCenter((k / W) | 0) + (dj * T) / 2, T, dj !== 0, group);
+          addRail(tileCenter(k % W) + (di * T) / 2, tileCenter((k / W) | 0) + (dj * T) / 2, T, dj !== 0, parts);
       }
-    addBridge(court.bridge, group, court.open ? null : ceiling);
+    addBridge(court.bridge, parts, group, court.open ? null : ceiling);
+    if (parts.steel.length) addParts(group, parts.steel, new THREE.MeshBasicMaterial({ color: PAINT.soot9 }));
+    if (parts.slab.length) addParts(group, parts.slab, new THREE.MeshBasicMaterial({ color: PAINT.ink11 }));
+    if (parts.glass.length)
+      addParts(
+        group,
+        parts.glass,
+        new THREE.MeshBasicMaterial({ color: 0x9fb6c4, transparent: true, opacity: 0.16, depthWrite: false }),
+      );
   }
   if (court.open) return;
   if (court.top) {
