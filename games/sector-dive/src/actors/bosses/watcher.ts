@@ -32,8 +32,14 @@ export function spawnWatcher() {
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), new THREE.MeshBasicMaterial({ color: COLOR.mag }));
   eye.position.z = 1.75;
   g.add(eye);
-  bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
+  const e = bossBase('watcher', g, mat, updWatcher, { summoned: 0 });
+  flyWatcher(e);
   toast(t('boss.watcherHint'), 3800);
+}
+// its flight path: a slow figure over the arena, by its own clock
+function flyWatcher(e: Boss) {
+  e.x = e.cx + Math.sin(e.t * 0.35) * 7;
+  e.z = e.cz + Math.sin(e.t * 0.22) * 5 - 3;
 }
 function updWatcher(e: WatcherBoss, dt: number) {
   const K = BOSS_META.watcher.tune;
@@ -41,8 +47,7 @@ function updWatcher(e: WatcherBoss, dt: number) {
   e.timer -= dt;
   e.pt += dt;
   const enr = isEnraged(e);
-  e.x = e.cx + Math.sin(e.t * 0.35) * 7;
-  e.z = e.cz + Math.sin(e.t * 0.22) * 5 - 3;
+  flyWatcher(e);
   e.mesh.position.set(e.x, e.y + Math.sin(e.t * 1.6) * 0.4, e.z);
   e.mesh.lookAt(player.x, 1.6, player.z);
   // drone waves: [health share at which it triggers, drones]
