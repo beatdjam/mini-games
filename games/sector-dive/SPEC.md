@@ -438,7 +438,7 @@ BGM は音楽ファイルを使わず、Web Audio でその場で合成する（
 | `src/screens/keys.ts` | キー設定のダイアログ（キーの待ち受けと割り当て、既定に戻す） |
 | `src/ui/hud.ts` | HUD、被弾方向の表示（部品は `engine/ui/hitdir.ts`） |
 | `src/ui/settings.ts` | 設定の項目（言語・全画面・オート射撃・エイム補助・感度・音量・タッチ用の項目）と、変えたときの保存・反映。パネルは `engine/ui/settings.ts`。細かい中身は表の下の補足 |
-| `src/ui/minimap.ts` | ミニマップと大きなマップに何をどの色で出すか（`drawMap`。描くのは `engine/ui/minimap.ts`） |
+| `src/ui/minimap.ts` | ミニマップと大きなマップに何をどの色で出すか（`drawMap`。描くのは `engine/ui/minimap.ts`）。入った部屋の寝ている敵も出す（未入室の部屋の敵は出さない） |
 | `src/ui/input.ts` | キーとボタンの割り当て（`INPUT`。キーは操作の名前で引く）、持ち替え・拾う・回復、保存した割り当ての読み込み（`applyKeyBindings`）、画面に出すキーの文字（`keyText`） |
 | `src/ui/share.ts` | 結果のシェア（結果カードの画像と投稿文、パネル。共有・コピー・保存・X 投稿の部品は `engine/ui/share.ts`） |
 | `src/ui/feedback.ts` | 感想フォームを開く導線と、フォームに入れるプレイ情報 |

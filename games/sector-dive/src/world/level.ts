@@ -38,6 +38,7 @@ interface Level {
   arena: boolean; // a boss arena
   rooms: Room[];
   roomOf: Int8Array; // per tile: index of the room it is in (-1 = none)
+  entered: Uint8Array; // per room: the player has been inside (so its sleeping enemies show on the map)
   seen: Uint8Array; // per tile: shown on the map (filled in as the player explores)
   hazardTiles: Uint8Array; // per tile: hazard floor
   roomCount: number[]; // enemies left per room (a room is cleared at 0)
@@ -53,6 +54,7 @@ function emptyLevel(): Level {
     arena: false,
     rooms: [],
     roomOf: new Int8Array(0),
+    entered: new Uint8Array(0),
     seen: new Uint8Array(0),
     hazardTiles: new Uint8Array(0),
     roomCount: [],
@@ -140,6 +142,7 @@ function useLevel(biome: Biome, isArena: boolean, gen: GeneratedLevel, seed: num
     arena: isArena,
     rooms: gen.rooms,
     roomOf: M.roomOf,
+    entered: new Uint8Array(gen.rooms.length),
     seen: new Uint8Array(W * H),
     hazardTiles: gen.hazard,
     roomCount: new Array(gen.rooms.length).fill(0),
@@ -198,6 +201,7 @@ export function reveal(ti: number, tj: number) {
     }
   const r = level.roomOf[tj * W + ti];
   if (r >= 0) {
+    level.entered[r] = 1;
     const R = level.rooms[r];
     for (let j = R.y - 1; j <= R.y + R.h; j++)
       for (let i = R.x - 1; i <= R.x + R.w; i++) if (inBounds(i, j)) level.seen[j * W + i] = 1;
