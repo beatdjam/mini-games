@@ -3,7 +3,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { createRng } from '@engine/core/util.ts';
 import { camera, scene } from '@engine/render/render.ts';
-import { T } from '@engine/world/tiles.ts';
+import { T, tileCenter } from '@engine/world/tiles.ts';
 import { WEAPON_ORDER } from '../src/data/weapons.ts';
 import { EYE, WALL_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
@@ -11,10 +11,10 @@ import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
 import { floorSides, wallSide } from '@engine/world/walls.ts';
-import { enterFloor, showBuilding, showNeighbourFloors } from '../src/world/level.ts';
+import { enterFloor, level, showBuilding, showNeighbourFloors } from '../src/world/level.ts';
 import { devCourtOpen, makeBuilding } from '../src/world/building.ts';
 import type { Building } from '../src/world/building.ts';
-import { WINDOW_ORDER } from '@engine/render/windows.ts';
+import { Backdrop, WINDOW_ORDER } from '@engine/render/windows.ts';
 import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import * as THREE from 'three';
 import { dressAtrium, dressYard } from '../src/world/yardProps.ts';
@@ -299,6 +299,75 @@ test('outside: a window on a yard shows the yard itself, its walls out to the gl
     }),
     'the ground a tile longer toward the window',
   ).toBe(true);
+});
+test('outside: the view out is drawn only while one of its windows is in sight', () => {
+  const city = BIOMES.find(x => x.code === 'CITY')!,
+    box = new THREE.Box3(),
+    frustum = new THREE.Frustum(),
+    m = new THREE.Matrix4();
+  let sawWindows = false,
+    sawOpen = false,
+    sawShut = false;
+  // a window one sees out of that a room looks at (not one on a yard, whose pane shows the yard instead)
+  for (let seed = 1; seed < 200 && !(sawOpen && sawShut); seed++) {
+    const b = makeBuilding(city, city.bosses[0]!, seed);
+    showBuilding(b);
+    const bands: THREE.Object3D[] = [];
+    scene.traverse(x => {
+      if (x instanceof Backdrop) bands.push(x);
+    });
+    expect(bands.length, 'the view out').toBeGreaterThan(0);
+    for (let floor = 0; floor < b.plans.length && !(sawOpen && sawShut); floor++) {
+      enterFloor(b, floor);
+      const tiles = level.group!.userData.outsideWindows as [number, number][];
+      if (!tiles.length) continue;
+      sawWindows = true;
+      const W = b.plans[floor]!.gen.W,
+        g = b.plans[floor]!.gen.maps.grid,
+        y = level.group!.position.y;
+      // a window with a room in front of it, seen out of it (not the yard behind the wall)
+      let at: { k: number; o: number } | null = null;
+      for (const [i, j] of tiles) {
+        const k = j * W + i,
+          o = [1, -1, W, -W].find(o => g[k + o] === 1 && !(b.court?.open && b.court.tiles.includes(k - o)));
+        if (o !== undefined) {
+          at = { k, o };
+          break;
+        }
+      }
+      if (!at) continue;
+      const { k, o } = at,
+        [di, dj] = Math.abs(o) === 1 ? [o, 0] : [0, Math.sign(o)],
+        i = k % W,
+        j = (k / W) | 0,
+        x = (i + 0.5 + di) * T,
+        z = (j + 0.5 + dj) * T;
+      // standing in front of the window, looking round from it: the view out is drawn whenever one of the floor's
+      // window tiles is in sight
+      for (const yaw of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+        camera.position.set(x, EYE, z);
+        camera.rotation.set(0, yaw, 0);
+        camera.updateMatrixWorld();
+        frustum.setFromProjectionMatrix(m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+        // the tile's box as it is, not widened (a pane is always inside it): checked with its own shape so that a
+        // wrong box in the room cannot make this pass
+        const inSight = tiles.some(([ti, tj]) => {
+          box.min.set(tileCenter(ti) - T / 2, y, tileCenter(tj) - T / 2);
+          box.max.set(tileCenter(ti) + T / 2, y + WALL_H, tileCenter(tj) + T / 2);
+          return frustum.intersectsBox(box);
+        });
+        showNeighbourFloors(b, x, z, null);
+        const shown = bands.some(x => x.visible);
+        if (inSight) {
+          expect(shown, `seed ${seed} floor ${floor} yaw ${yaw}: a window in sight`).toBe(true);
+          sawOpen = true;
+        } else if (!shown) sawShut = true;
+      }
+    }
+  }
+  expect(sawWindows, 'a building with windows out').toBe(true);
+  expect(sawOpen, 'the view out drawn while one of its windows is in sight').toBe(true);
+  expect(sawShut, 'the view out hidden while none is in sight').toBe(true);
 });
 test('props: what hangs overhead clears the head of someone on a raised floor under it or next to it', () => {
   // a 4 by 3 map: ground, a ramp up toward +x, a walkway 2 m up, ground; the row under it walls

@@ -132,6 +132,9 @@ let yardShell: THREE.Group | null = null;
 const sight = new THREE.Frustum(),
   sightBox = new THREE.Box3(),
   sightM = new THREE.Matrix4();
+// The window panes stand PANE_OUT (0.02 m, engine windows.ts) in front of their wall, so a window tile's box is widened
+// by this much either way in x and z: a pane at the very edge of the view then still counts as seen (m)
+const WINDOW_BOX_GROW = 0.05;
 let yardCopies: {
   into: number;
   root: THREE.Group;
@@ -428,6 +431,8 @@ function seesYard(b: Building, n: number, x: number, z: number): boolean {
   });
 }
 export function showNeighbourFloors(b: Building, x: number, z: number, riding: number | null) {
+  camera.updateMatrixWorld();
+  sight.setFromProjectionMatrix(sightM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
   const n = level.floor,
     w = b.plans[0]!.gen.W,
     reach = Math.min(NEIGHBOUR_SHOW_R, b.biome.fogFar),
@@ -463,10 +468,36 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     const by = m === n || riding !== null ? undefined : stairsSeen(b, n, m);
     cullChunks(floorChunks[m]!, g, camera, b.biome.fogFar, by);
   });
+  // What the windows look out on is drawn only while one of them is in sight (it costs many draws): a window of a
+  // floor in sight counts, from anywhere (a stairwell sees the windows of the floors it passes)
+  if (outside) {
+    let seen = false;
+    for (const g of floorGroups) {
+      if (seen || !g.visible) continue;
+      const tiles = g.userData.outsideWindows as [number, number][] | undefined;
+      if (!tiles) continue;
+      for (const [i, j] of tiles) {
+        sightBox.min.set(
+          tileCenter(i) - T / 2 - WINDOW_BOX_GROW,
+          g.position.y,
+          tileCenter(j) - T / 2 - WINDOW_BOX_GROW,
+        );
+        sightBox.max.set(
+          tileCenter(i) + T / 2 + WINDOW_BOX_GROW,
+          g.position.y + WALL_H,
+          tileCenter(j) + T / 2 + WINDOW_BOX_GROW,
+        );
+        if (sight.intersectsBox(sightBox)) {
+          seen = true;
+          break;
+        }
+      }
+    }
+    outside.band.visible = seen;
+    outside.across.visible = seen;
+  }
   if (yardShell) yardShell.visible = !!b.court?.open ? yardSeen : atCourt;
   if (yardCopies.length) {
-    camera.updateMatrixWorld();
-    sight.setFromProjectionMatrix(sightM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     const panes = floorGroups[n]!.userData.yardPanes as Record<number, [number, number, number, number]> | undefined;
     for (const y of yardCopies) {
       const at = panes?.[y.into],
