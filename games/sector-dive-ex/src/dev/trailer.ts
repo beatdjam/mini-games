@@ -20,8 +20,7 @@ import { newEndlessRecord, persist, save } from '../core/save.ts';
 import { building, makeBuilding, roomDoors } from '../world/building.ts';
 import type { Building, BuildingLink } from '../world/building.ts';
 import { devSeed, level } from '../world/level.ts';
-import { lookOf } from '../world/looks.ts';
-import { wallPic } from '../world/looks/common.ts';
+import { lookOf, wallPic, wallPicsOf } from '../world/looks.ts';
 import { makeTerminal } from '../world/portals.ts';
 import { COLOR } from '../data/colors.ts';
 import { t as say } from '@engine/core/i18n.ts';
@@ -409,16 +408,12 @@ function place(at: ScriptLine) {
     inSector(sector);
     shown = null;
     const b = building!,
-      look = lookOf(b.biome); // (none in the old looks: no window to see out of, so the start room)
+      look = lookOf(b.biome), // (none in the old looks: no window to see out of, so the start room)
+      pics = look && wallPicsOf(look);
     for (let floor = 0; floor < b.plans.length && look?.outside; floor++) {
       const d = b.plans[floor]!.gen,
         g = d.maps.grid,
-        pane = (k: number) =>
-          !g[k] &&
-          !b.plans[floor]!.voids[k] &&
-          !!look.outside!.panes[
-            wallPic(d, k, { count: look.walls.length, laneWalls: look.laneWalls, sides: look.wallSides })
-          ],
+        pane = (k: number) => !g[k] && !b.plans[floor]!.voids[k] && !!look.outside!.panes[wallPic(d, k, pics!)],
         k = g.findIndex((_, k) => pane(k) && [1, -1, W, -W].some(o => g[k + o] === 1 && g[k + 2 * o] === 1));
       if (k < 0) continue;
       const o = [1, -1, W, -W].find(o => g[k + o] === 1 && g[k + 2 * o] === 1)!;
