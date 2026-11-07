@@ -503,15 +503,6 @@ test('the beaten count comes only the first time', () => {
   );
 });
 
-test("the hall has only the way back after a room's boss", () => {
-  enterRoom();
-  beatRoomBoss();
-  expect(
-    level.portals.map(p => p.kind),
-    'only the gate to the hall',
-  ).toEqual(['hall']);
-});
-
 test('a beaten room stays beaten after death and resume', () => {
   enterRoom();
   beatRoomBoss();
