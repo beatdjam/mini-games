@@ -79,7 +79,7 @@ import {
   readinessScore,
   readyAfterReboot,
 } from '../src/core/rules.ts';
-import { buildFixedLevel, buildLevel, level, roomSpot } from '../src/world/level.ts';
+import { buildFixedLevel, buildLevel, level, reveal, roomSpot } from '../src/world/level.ts';
 import { hazardState } from '../src/world/hazards.ts';
 import { generateLevel } from '../src/world/levelGen.ts';
 import type { GeneratedLevel } from '../src/world/levelGen.ts';
@@ -115,6 +115,7 @@ import { KEY_ACTIONS } from '../src/data/controls.ts';
 import { setKeyBindings } from '../src/core/progress.ts';
 import { applyKeyBindings, controlState, equipNearby, stowNearby } from '../src/ui/input.ts';
 import { bigmap, hitDirs, updateHud } from '../src/ui/hud.ts';
+import { markers } from '../src/ui/minimap.ts';
 import { changeLang, renderGuide } from '../src/ui/settings.ts';
 import { endRun, goBase, nextStage, pickEnemyType, startPractice, startRun, startStage } from '../src/flow/run.ts';
 import { setState, show, state } from '../src/flow/state.ts';
@@ -726,6 +727,42 @@ test('autofire target: a fogged enemy is not picked, a close one is', () => {
   const t2 = findTarget();
   if (t1 || !t2) throw new Error('fog target ' + !!t1 + ' ' + !!t2);
   endRun('abandon');
+});
+test('minimap: a sleeping enemy in an entered room shows, one in a room not entered does not', () => {
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
+  // two 3x3 rooms split by a 2-tile wall; room 0 is the start
+  const rows = ['##########', '#...##...#', '#...##...#', '#...##...#', '##########'];
+  buildFixedLevel(BIOMES[5], {
+    rows,
+    rooms: [
+      { x: 1, y: 1, w: 3, h: 3 },
+      { x: 6, y: 1, w: 3, h: 3 },
+    ],
+    start: 0,
+    exit: 1,
+  });
+  const here = spawnEnemy('crawler', (2 + 0.5) * T, (2 + 0.5) * T, 0, 1); // asleep, room 0
+  const beyond = spawnEnemy('crawler', (6 + 0.5) * T, (2 + 0.5) * T, 1, 1); // asleep, room 1, seen through the wall
+  player.x = here.x;
+  player.z = here.z;
+  player.fy = 0;
+  reveal(2, 2); // the player's tile, inside room 0
+  if (level.entered[0] !== 1 || level.entered[1] !== 0)
+    throw new Error('entered rooms ' + level.entered[0] + ' ' + level.entered[1]);
+  const marks = markers(true);
+  if (!marks.some(m => m.x === here.x && m.z === here.z))
+    throw new Error('the sleeping enemy in the entered room is missing');
+  if (level.seen[tileIndex(beyond.x, beyond.z)] !== 1) throw new Error('the enemy in the room not entered is not seen');
+  if (marks.some(m => m.x === beyond.x && m.z === beyond.z)) throw new Error('an enemy in a room not entered is shown');
+  enemies.slice().forEach(e => {
+    e.dead = true;
+    removeEnemyMesh(e);
+  });
+  clearWorld('enemy');
 });
 test('shotgun knockback once per shot; launcher gets half the magazine chips', () => {
   startRun();
