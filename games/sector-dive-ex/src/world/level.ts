@@ -67,17 +67,16 @@ const HALL_WALL = '#'.repeat(HALL_TILES_W);
 const HALL_FLOOR = '#' + '.'.repeat(HALL_TILES_W - 2) + '#';
 const HALL_ROWS = [HALL_WALL, ...Array<string>(HALL_TILES_H - 2).fill(HALL_FLOOR), HALL_WALL];
 const HALL_ROOM = { x: 1, y: 1, w: HALL_TILES_W - 2, h: HALL_TILES_H - 2 };
-const HALL_GATE_GAP = T; // one tile (4 m) each side of the start spot: a stand-in until the hall's shape is decided
+// the gates at the hall's side walls, 8 tiles (32 m) each side of the start spot: TITAN to the west and the way home to
+// the east. Kept well away from the middle, so the way home is not stepped on by mistake when going for the terminal
+const HALL_SIDE_GAP = 8 * T; // (m)
+// the middle pair, one tile (4 m) each side of the start spot: the way on to the west and the terminal to the east,
+// side by side where a dive means to go, with the way home out at the wall
+const HALL_MID_GAP = T; // (m)
 // the gates into the boss rooms, round the start spot: two rows of four, north and south (m from the start spot).
 // a stand-in until the hall's shape is decided: sim decides
 const HALL_ROOM_GATE_X = [-4.5, -1.5, 1.5, 4.5].map(n => n * T);
 const HALL_ROOM_GATE_Z = 5 * T;
-// the gate on from the hall (once TITAN is down): south of the start spot, past the south row of room gates and clear of
-// them. a stand-in until the hall's shape is decided: sim decides
-const HALL_NEXT_GAP = 7 * T; // (m)
-// the gate to TITAN (once the eight rooms are down): north of the start spot, past the north row of room gates and clear
-// of them. a stand-in until the hall's shape is decided: sim decides
-const HALL_TITAN_GAP = 7 * T; // (m)
 // the level being played: built as a whole by buildLevel, replaced (never patched field by field) on the next one
 interface Level {
   biome: Biome; // sector of this level
@@ -774,11 +773,11 @@ export function buildHall(biome: Biome): {
   const row = (dz: number): [number, number][] => HALL_ROOM_GATE_X.map(x => [sx + x, sz + dz]);
   return {
     start: [sx, sz],
-    extract: [sx + HALL_GATE_GAP, sz],
-    terminal: [sx - HALL_GATE_GAP, sz],
+    extract: [sx + HALL_SIDE_GAP, sz],
+    terminal: [sx + HALL_MID_GAP, sz],
     roomGates: [...row(-HALL_ROOM_GATE_Z), ...row(HALL_ROOM_GATE_Z)],
-    titan: [sx, sz - HALL_TITAN_GAP],
-    next: [sx, sz + HALL_NEXT_GAP],
+    titan: [sx - HALL_SIDE_GAP, sz],
+    next: [sx - HALL_MID_GAP, sz],
   };
 }
 // the steps buildLevel and buildFixedLevel share: hand the maps to the tile world, make the Level and its meshes

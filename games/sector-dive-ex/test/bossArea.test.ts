@@ -17,7 +17,7 @@ import { bossStageOf, firstStageOf, placeName, planOf, stageInfo, stageLabel } f
 import { run, player } from '../src/actors/player.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { building } from '../src/world/building.ts';
-import { devSeed, level } from '../src/world/level.ts';
+import { buildHall, devSeed, level } from '../src/world/level.ts';
 import { lookOf } from '../src/world/looks.ts';
 import { makePortal, makeTerminal } from '../src/world/portals.ts';
 import { setState, state } from '../src/flow/state.ts';
@@ -202,6 +202,37 @@ test('the hall has eight room gates clear of each other', () => {
         `the gates at (${a.x}, ${a.z}) and (${b.x}, ${b.z}) are clear of each other`,
       ).toBeGreaterThanOrEqual(2 * PORTAL.clearR);
     }),
+  );
+});
+
+test('the hall puts TITAN and the way home at the side walls, and the way on and terminal in the middle', () => {
+  const at = buildHall(bossRoomBiome('titan'));
+  const [sx, sz] = at.start;
+  // (yaw 0 looks toward -z and turns left toward -x: west is left on the screen, east is right)
+  expect(at.titan, 'TITAN to the west, level with the start').toEqual([sx - 8 * T, sz]);
+  expect(at.extract, 'the way home to the east, level with the start').toEqual([sx + 8 * T, sz]);
+  expect(at.next, 'the way on just west of the start').toEqual([sx - T, sz]);
+  expect(at.terminal, 'the terminal just east of the start').toEqual([sx + T, sz]);
+  const gates = [at.titan, at.extract, at.next, at.terminal];
+  gates.forEach(([x, z]) => expect(blocked(x, z, 0.5), `the gate at (${x}, ${z}) is on the floor`).toBe(false));
+  gates.forEach(([x, z]) => {
+    at.roomGates.forEach(([rx, rz]) =>
+      expect(
+        Math.hypot(x - rx, z - rz),
+        `(${x}, ${z}) is clear of the room gate at (${rx}, ${rz})`,
+      ).toBeGreaterThanOrEqual(2 * T),
+    );
+  });
+  [
+    [at.titan, at.next],
+    [at.titan, at.terminal],
+    [at.extract, at.next],
+    [at.extract, at.terminal],
+  ].forEach(([a, b]) =>
+    expect(
+      Math.hypot(a![0] - b![0], a![1] - b![1]),
+      `(${a![0]}, ${a![1]}) is well away from (${b![0]}, ${b![1]})`,
+    ).toBeGreaterThanOrEqual(5 * T),
   );
 });
 
