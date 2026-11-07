@@ -39,6 +39,7 @@ import { showPracticeResult, showRunResult } from '../screens/result.ts';
 import { setPlayUI, setState, show, state } from './state.ts';
 import { checkpoint } from './suspend.ts';
 import { buildAttract } from './attract.ts';
+import { placeView } from './update.ts';
 
 // toast and timer lengths (ms)
 const FIRST_TOAST_MS = 4200; // the how-to-play toast shown when a run opens with no chips to pick
@@ -207,6 +208,7 @@ export function startStage() {
   player.inv = STAGE_START_INVULN;
   player.fy = floorY(player.x, player.z);
   player.vy = 0;
+  placeView();
   el('#bossBar').hidden = true;
   refreshRunText();
   banner(stageLabel(run.stage), b.name);

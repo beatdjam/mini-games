@@ -15,7 +15,7 @@ import {
   setMusic,
   setMusicMix,
 } from '@engine/audio/music.ts';
-import { V3, camera, scene } from '@engine/render/render.ts';
+import { V3, camera, gun, scene } from '@engine/render/render.ts';
 import {
   H,
   STEP,
@@ -125,6 +125,7 @@ import { renderBase, showTab, weaponStatText } from '../src/screens/base.ts';
 import { shareData, shareText } from '../src/ui/share.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
 import { update, updatePickups } from '../src/flow/update.ts';
+import { GUNFX, curVM } from '../src/actors/viewmodel.ts';
 import { TRACK_LOG } from '@engine/core/analytics.ts';
 import { FEEDBACK_FORM } from '@engine/core/feedback.ts';
 import { COLOR } from '../src/data/colors.ts';
@@ -1002,6 +1003,33 @@ test('feedback: hidden without a form; with one, the result screen opens it fill
   goBase();
   startRun();
   tick(5);
+});
+test('start chips: the camera and the gun already look from the new stage', () => {
+  const keepChip = save.up.chip;
+  goBase();
+  save.up.chip = 1;
+  camera.position.set(777, 777, 777);
+  camera.rotation.set(9, 9, 9);
+  gun.position.set(777, 777, 777);
+  GUNFX.gunKick = 0;
+  try {
+    startRun();
+    if (state !== 'perk') throw new Error('start chips did not open: ' + state);
+    expect(camera.position.x).toBeCloseTo(player.x);
+    expect(camera.position.z).toBeCloseTo(player.z);
+    expect(camera.position.y).toBeCloseTo(player.fy + EYE + Math.sin(player.bob) * 0.05);
+    expect(camera.rotation.x).toBeCloseTo(player.pitch);
+    expect(camera.rotation.y).toBeCloseTo(player.yaw);
+    const pos = curVM!.userData.pos;
+    expect(gun.position.x).toBeCloseTo(pos[0] + Math.cos(player.bob * 0.5) * 0.012);
+    expect(gun.position.y).toBeCloseTo(pos[1] + Math.abs(Math.sin(player.bob * 0.5)) * 0.012);
+    expect(gun.position.z).toBeCloseTo(pos[2]);
+  } finally {
+    save.up.chip = keepChip;
+    while (state === 'perk') document.querySelector<HTMLElement>('#perkList .perk')!.click();
+    endRun('abandon');
+    goBase();
+  }
 });
 test('result chips: counted, most first, order folded underneath', () => {
   goBase();
