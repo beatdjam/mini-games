@@ -262,8 +262,11 @@ test('a lost dive keeps no progress and no shortcut', () => {
   expect(save.continueFrom, 'a death keeps the head for CONTINUE').not.toBeNull();
 });
 
-test('ARCADE: a death offers CONTINUE from the head of the floor it died on', async () => {
+test('ARCADE: a death offers CONTINUE from the head of its floor, and a clear after it keeps the clean record', async () => {
   devSetArcade(true);
+  save.records.bestTime = null;
+  save.records.bestTimeContinued = null;
+  save.records.bestTimeContinuedCount = null;
   startRun(true);
   // the second floor's head: the level, the base bits and the weapon as they are when that floor begins
   save.bits = 7;
@@ -298,6 +301,14 @@ test('ARCADE: a death offers CONTINUE from the head of the floor it died on', as
   expect(run.time, 'the clock goes on from the death').toBe(95);
   expect(run.continues, 'this was the first CONTINUE').toBe(1);
   expect(save.continueFrom, 'used up').toBeNull();
+  save.records.bossArea!.beaten = [...BOSS_ROOM_ORDER];
+  beatTitan(300);
+  expect(save.records.bestTime, 'the clean record stays unset').toBeNull();
+  expect(save.records.bestTimeContinued, 'the continued clear').toBe(300);
+  expect(save.records.bestTimeContinuedCount, 'the CONTINUEs it used').toBe(1);
+  const rows = el('#resList').textContent!;
+  expect(rows).toContain(t('res.newRecordContinued'));
+  expect(rows).toContain(t('res.continues'));
 });
 
 test('CONTINUE shows only for a death in ARCADE', () => {
@@ -311,27 +322,6 @@ test('CONTINUE shows only for a death in ARCADE', () => {
   endRun('abandon');
   expect(el<HTMLButtonElement>('#btnContinue').hidden, 'ARCADE give-up').toBe(true);
   expect(save.continueFrom).toBeNull();
-});
-
-test('a clear after a CONTINUE keeps the clean record and takes the continued one', async () => {
-  devSetArcade(true);
-  save.records.bestTime = null;
-  save.records.bestTimeContinued = null;
-  save.records.bestTimeContinuedCount = null;
-  startRun(true);
-  run.time = 120;
-  endRun('dead');
-  await new Promise(r => setTimeout(r, 750));
-  el<HTMLButtonElement>('#btnContinue').click();
-  expect(run.continues, 'one CONTINUE used').toBe(1);
-  save.records.bossArea!.beaten = [...BOSS_ROOM_ORDER];
-  beatTitan(300);
-  expect(save.records.bestTime, 'the clean record stays unset').toBeNull();
-  expect(save.records.bestTimeContinued, 'the continued clear').toBe(300);
-  expect(save.records.bestTimeContinuedCount, 'the CONTINUEs it used').toBe(1);
-  const rows = el('#resList').textContent!;
-  expect(rows).toContain(t('res.newRecordContinued'));
-  expect(rows).toContain(t('res.continues'));
 });
 
 test('the clock runs only while the game is played', () => {
