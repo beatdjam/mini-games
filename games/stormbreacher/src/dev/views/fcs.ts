@@ -38,7 +38,7 @@ declare global {
   }
 }
 
-const DEFAULT_FCS: FcsKind = 'hard';
+const DEFAULT_FCS: FcsKind = 'soft'; // the type chosen for the game (D-10, 2026-11-09)
 const FCS_KINDS: readonly FcsKind[] = ['manual', 'soft', 'hard'];
 const FCS_LABELS: Record<FcsKind, string> = { manual: '手動', soft: 'ソフト', hard: 'ハード' };
 const CHEST_HEIGHT = 5; // the height a shot starts from, above the feet (m)
