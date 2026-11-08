@@ -21,7 +21,7 @@ Unity に例えると次のようになる。
 
 1. **engine はゲームを import しない。** ゲームの事情は、設定オブジェクト・登録関数・器を通して受け取る（5章）
 2. **動くものはすべて「システム」か「world のオブジェクト」。** 毎フレームの処理をループの外に置かない（3章・4章）
-3. **読み込み時は宣言だけにする。** 起動処理は入口の `src/main.ts` が全部を読み込んだあとに呼ぶ（6章）
+3. **読み込み時は宣言だけにする。** 要素の取得とイベントの登録は `src/main.ts` の初期化関数（`initRender`・`initInput`・`initTouchLayout`）から行い、起動処理は入口の `src/main.ts` が全部を読み込んだあとに呼ぶ（6章）
 
 ## 2. 層の構成
 
@@ -48,7 +48,8 @@ flowchart TB
   REND --> THREE
 ```
 
-- 上から下へだけ依存する。engine の中でも `core/` がいちばん下（`render/fx.ts` と `core/world.ts` は `core/loop.ts` にシステムを登録する）
+- 上から下へだけ依存する。ゲームは engine を6つの入口（`@engine/<フォルダ>/index.ts` の `core`・`render`・`world`・`ui`・`audio`・`trailer`）からだけ import する。engine の中でも `core/` がいちばん下の層で、ほかのフォルダを読まない（`render/fx.ts` と `core/world.ts` は `core/loop.ts` にシステムを登録する）
+- どちらも依存の規則（`.dependency-cruiser.cjs` の `games-import-engine-entry`・`engine-core-is-bottom` など。`npm run deps`）で止まる
 - ゲームの中では、`data/` と `i18n/` は値だけを持つ。数値や文言を変えるときにロジックを触らなくて済む
 
 ## 3. 1フレームの流れ
@@ -75,24 +76,30 @@ sequenceDiagram
 - **dt の頭打ち（0.05秒）**: タブが裏にいたあとなどで、1フレームに大きく進みすぎないようにしている
 - **モードはフレームの頭で固定**: 途中でモードが変わっても、そのフレームの残りは元のモードで進む。区画を移った直後など、残りを走らせたくないときは `stopFrame()`
 
-### 例: Sector Dive のシステムの並び
+### 例: Sector Dive Extended のシステムの並び
 
-`games/sector-dive/src/flow/update.ts` の `boot()` で登録している。エンジンが自分で登録するもの（world のグループ、FX）も同じ列に並ぶ。
+`games/sector-dive-ex/src/flow/update.ts` の `boot()` で登録している。エンジンが自分で登録するもの（world のグループ、FX）も同じ列に並ぶ。
 
 | order | システム | 動くモード | 登録元 |
 |---:|---|---|---|
 | 0 | player（移動・射撃・カメラ） | play | ゲーム |
 | 0 | attract（拠点画面の背景） | base | ゲーム |
+| 0 | map3d（3D の詳細マップの描画と操作） | map | ゲーム |
 | 10 | world:enemy（敵ひとりずつ `update`） | play | engine のグループ（ゲームが `worldGroup('enemy', 10)`） |
-| 20 / 21 | 自弾 / 敵弾 | play | ゲーム |
+| 20 / 21 | playerBullets / enemyBullets（自弾 / 敵弾） | play | ゲーム |
 | 29 | pickupReset（「いちばん近い武器」を選び直す） | play | ゲーム |
 | 30 | world:*（拾える物・衝撃波など、その他のオブジェクト） | play | engine の既定グループ |
 | 40 / 41 | 爆発の光 / パーティクル | play / play・base | engine（`FX`） |
 | 50 | hazards（床の危険地帯） | play | ゲーム |
+| 55 | building（建物の階の切り替え） | play | ゲーム |
 | 60 | music（戦闘かどうかで BGM の層を切り替える） | play | ゲーム |
 | 65 | endGuard（ランが終わったらこのフレームを止める） | play | ゲーム |
 | 70 | portals | play | ゲーム |
 | 90 | screenFx（揺れ・ビネット・HUD） | play | ゲーム |
+| 95 | fogCull（霧の向こうの敵を描かない） | play | ゲーム |
+
+- `LOOP.draw`: `false` の間は描かない。Sector Dive Extended は新しい拠点画面が画面を覆うとき（`hud2`）に `false` にする
+- `LOOP.maxFps`: 1秒に描くフレーム数の上限。Sector Dive Extended はタッチの端末で 60 にし、`?fps120` で画面のままにする
 
 一時停止中（`'pause'`）は、どのシステムもそのモードを持っていないので全部止まる。止めるための特別な処理はない。
 
@@ -160,9 +167,9 @@ sequenceDiagram
   participant L as loop.ts
 
   HTML->>M: <script type="module">
-  M->>Mods: import（宣言とイベント登録だけ）
+  M->>Mods: import（宣言だけ）
   Note over Mods: engine の FX・既定グループのシステムはここで登録される
-  M->>M: setLang → syncVolumes → fsLabel → applyLayout → renderGuide → showTab
+  M->>M: setLang → syncVolumes → fsLabel → initRender → initInput → initTouchLayout → applyLayout → applyKeyBindings → renderGuide → showTab
   M->>B: boot()
   B->>L: addSystem …（3章の表）
   B->>B: renderBase / buildAttract / setMusic('BASE') / unlockAudio
@@ -170,6 +177,8 @@ sequenceDiagram
 ```
 
 import が循環していると、読み込みの順番は保証されない。なので、他のモジュールの値を使う処理を読み込み時に走らせない。全部読み込み終わった `src/main.ts` の最後からだけ起動する。
+
+ゲームは読み込み時に `renderer` を読まない（`initRender` の前。`scene`・`camera`・`dynGroup` は読み込み時にある）。テストの setup は先に初期化するので、これを破っても `npm test` は通り、`npm run test:build` で落ちる。
 
 ## 7. 状態の持ち主
 
