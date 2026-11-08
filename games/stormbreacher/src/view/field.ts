@@ -9,8 +9,10 @@ const SKY = 0x9db8c6;
 const SAND = 0xc2a878;
 const BOX = 0x5c6670;
 
-// The name the dev views look up in the scene to hide the size box (the scale course has mechs of its own).
+// The names the dev views look up in the scene to hide the field's own ground and size box (the scale course and the
+// beach bench build their own).
 export const SIZE_BOX_NAME = 'sizeBox';
+export const GROUND_NAME = 'ground';
 
 // Builds the field into the engine's scene: ground, sky, the two lights, the fog and the size box. Called once at
 // start-up; placeCamera() then puts the camera where the view starts.
@@ -25,6 +27,7 @@ export function buildField() {
     new THREE.MeshLambertMaterial({ color: SAND }),
   );
   ground.rotation.x = -Math.PI / 2;
+  ground.name = GROUND_NAME;
   scene.add(ground);
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7a60, 0.9));
