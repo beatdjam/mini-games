@@ -1,0 +1,85 @@
+# SECTOR/DIVE EX のトレイラー（2026-11-08 版。2026-11-07 版の後半を、モード選択の画面とモードごとの遊び方を見せる形に組み替えた）
+# 撮り方と書き方: tools/trailer/README.md
+#   npm run trailer -- games/sector-dive-ex/trailers/2026-11-08.txt
+
+size     1280x576 @1.5        # 書き出しは 1920x864（スマホ横向き）
+lang     ja
+input    mouse
+music    CITY boss            # TITAN の部屋と同じ、都市の曲のボス戦のアレンジ
+build    strong
+guns     shotgun:rate rail:pierce
+building KWLN boss=trinity
+
+scene 2.4
+  at      stairs
+  do      run
+scene 3.0
+  at      lift skip=2
+  do      ride
+
+scene 1.3
+  at      FORGE start
+  enemies 3
+  do      look-around
+scene 1.3
+  at      DATA start
+  enemies 3
+  do      look-around
+scene 1.3
+  at      NOISE start
+  enemies 3
+  do      look-around
+scene 1.3
+  at      RUIN start
+  enemies 3
+  do      look-around
+scene 1.3
+  at      KWLN start
+  enemies 3
+  do      look-around
+scene 1.3
+  at      CITY start
+  enemies 3
+  do      look-around
+scene 1.3
+  at      MALL start
+  enemies 3
+  do      look-around
+scene 1.3
+  at      HOSP start
+  enemies 3
+  do      look-around
+
+scene 5.0
+  at      lockdown
+  do      fight
+
+scene 1.8  ARCADE　8つのセクターを攻略して最深部を目指す
+  in      flash
+  at      modes
+  do      pick arcade
+scene 7.0  ^
+  at      boss surgeon
+  do      boss hp=2
+scene 2.6  ボスを倒すたびに、その場で強化
+  at      terminal
+  do      walk
+
+scene 1.8  ENDLESS　強化と周回でじっくりやりこむ
+  in      fade
+  at      modes
+  do      pick endless
+scene 2.6  ^
+  at      base loop=2 cleared challenge
+  do      stand
+scene 6.5  ^
+  in      fade
+  at      boss
+  do      boss hp=8
+
+end 4.2
+  in      flash
+  title   SECTOR/DIVE EX
+  line    ランダム生成ダンジョンのローグライトFPS
+  sub     ブラウザで無料・スマホ対応
+  url     beatdjam.github.io/mini-games
