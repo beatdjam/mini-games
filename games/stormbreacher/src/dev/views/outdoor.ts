@@ -18,7 +18,7 @@ const PARAMS = {
   chunk: { fallback: 32, values: [0, 16, 32, 64] }, // m; a chunk's side, 0 leaves the beach whole
   chunkMin: { fallback: 3000 }, // triangles; the least a kind needs before the chunks split it
   far: { fallback: 120, values: [80, 120, 160] }, // m; how far the camera draws and the fog ends
-  enemies: { fallback: 30, values: [10, 30, 50] }, // the mechs walking the beach
+  enemies: { fallback: 30, values: [0, 10, 30, 50] }, // the mechs walking the beach (0: none, for ?mechs=)
   mechDraw: { fallback: 'group', values: ['group', 'instanced'] }, // how the mechs are drawn
   mechs: { fallback: 0 }, // mechs added in a line for comparison (?mechs=100)
   density: { fallback: 1 }, // how many obstacles stand on the beach
