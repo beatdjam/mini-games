@@ -15,6 +15,7 @@ const games = readdirSync('games').filter(g => existsSync(`games/${g}/index.html
 const BASE_SCREEN: Record<string, string> = {
   'sector-dive': '#scrBase',
   'sector-dive-ex': '#scrBase',
+  stormbreacher: '#sbApp',
   'tsume-vim': '#tvApp',
 };
 
