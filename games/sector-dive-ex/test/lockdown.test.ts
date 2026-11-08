@@ -2,17 +2,17 @@
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
 import type { Pickup } from '../src/data/types.ts';
-import { el } from '@engine/core/util.ts';
-import { TRACK_LOG } from '@engine/core/analytics.ts';
-import { query } from '@engine/core/world.ts';
-import { SIDE_STEP, T, W, activeTileGrid, floorY, tileIndex } from '@engine/world/tiles.ts';
+import { el } from '@engine/core/index.ts';
+import { TRACK_LOG } from '@engine/core/index.ts';
+import { query } from '@engine/core/index.ts';
+import { SIDE_STEP, T, W, activeTileGrid, floorY, tileIndex } from '@engine/world/index.ts';
 import { level, roomSpot } from '../src/world/level.ts';
 import { enemies, spawnEnemy } from '../src/world/entities.ts';
 import { player, run } from '../src/actors/player.ts';
 import { endRun, goBase } from '../src/flow/run.ts';
 import { building, roomDoors } from '../src/world/building.ts';
-import { isDoorLocked } from '@engine/world/doors.ts';
-import { DOOR_PASS } from '@engine/world/tiles.ts';
+import { isDoorLocked } from '@engine/world/index.ts';
+import { DOOR_PASS } from '@engine/world/index.ts';
 import { setState, show } from '../src/flow/state.ts';
 import { openPerk } from '../src/screens/perk.ts';
 import { tick, bootGame, failInfo, killRoom, goToFloor, enterBuilding } from './helpers.ts';

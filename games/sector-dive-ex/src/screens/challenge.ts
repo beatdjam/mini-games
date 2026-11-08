@@ -1,6 +1,6 @@
 import type { RestrictionId } from '../data/types.ts';
-import { el, pct } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
+import { el, pct } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
 import { RESTRICTIONS, restrictionOf } from '../data/progress.ts';
 import { WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { persist, save } from '../core/save.ts';

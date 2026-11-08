@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import { UP } from '@engine/render/render.ts';
-import { addCeiling, addDecks, addFloor, addRamps, addWalls, wallTiles } from '@engine/render/tilemesh.ts';
-import { SIDE_STEP, T, isSolid } from '@engine/world/tiles.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { UP } from '@engine/render/index.ts';
+import { addCeiling, addDecks, addFloor, addRamps, addWalls, wallTiles } from '@engine/render/index.ts';
+import { SIDE_STEP, T, isSolid } from '@engine/world/index.ts';
 import { WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
 import { COLOR } from '../data/colors.ts';

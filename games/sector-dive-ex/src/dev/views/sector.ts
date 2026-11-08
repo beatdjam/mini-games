@@ -1,5 +1,5 @@
-import { yawToward } from '@engine/core/util.ts';
-import { T, floorY } from '@engine/world/tiles.ts';
+import { yawToward } from '@engine/core/index.ts';
+import { T, floorY } from '@engine/world/index.ts';
 import { BIOMES } from '../../data/biomes.ts';
 import { PER } from '../../data/progress.ts';
 import { player, run } from '../../actors/player.ts';

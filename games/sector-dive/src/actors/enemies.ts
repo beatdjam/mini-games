@@ -1,8 +1,8 @@
 import type { Enemy, RegularEnemy, Sniper, Trooper } from '../data/types.ts';
-import { clamp, distXZ, rand, turnToward } from '@engine/core/util.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { flowAt, hasLOS } from '@engine/world/tiles.ts';
-import { steerChase } from '@engine/world/steer.ts';
+import { clamp, distXZ, rand, turnToward } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { flowAt, hasLOS } from '@engine/world/index.ts';
+import { steerChase } from '@engine/world/index.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { enemies, fanAt, isSniper, isTrooper, shootAtPoint } from '../world/entities.ts';
 import { player } from './player.ts';

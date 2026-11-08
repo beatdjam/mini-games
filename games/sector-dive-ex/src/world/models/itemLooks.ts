@@ -1,6 +1,6 @@
 import type { PickupKind, Weapon } from '../../data/types.ts';
 import * as THREE from 'three';
-import { basicMat, shared } from '@engine/render/render.ts';
+import { basicMat, shared } from '@engine/render/index.ts';
 import { RARITY, WEAPONS } from '../../data/weapons.ts';
 import { COLOR, PAINT, css } from '../../data/colors.ts';
 import { gunLook, hasGunLook } from './gunLooks.ts';

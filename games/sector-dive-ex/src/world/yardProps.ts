@@ -2,9 +2,9 @@ import { PAINT, css } from '../data/colors.ts';
 import * as THREE from 'three';
 import { KWLN_NEON_WORDS, KWLN_SHOP_NAMES, MALL_BANNERS } from '../i18n/signs.ts';
 import { canvasTex } from './looks/paint.ts';
-import { T } from '@engine/world/tiles.ts';
-import { batcher } from '@engine/render/batch.ts';
-import type { Batch } from '@engine/render/batch.ts';
+import { T } from '@engine/world/index.ts';
+import { batcher } from '@engine/render/index.ts';
+import type { Batch } from '@engine/render/index.ts';
 // What crowds a courtyard (world/courtMesh.ts buildYardShell, buildAtriumProps): the things on the outer walls of a
 // yard and across it, and the things that hang in an atrium. All of it is looked at, never touched: nothing here is
 // in the tile world. Many small things, so they are drawn as instanced meshes, one per kind of thing (engine/src/render/batch.ts batcher)

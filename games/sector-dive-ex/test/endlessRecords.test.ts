@@ -2,7 +2,7 @@
 // the row an old save gets, and what a dive and TITAN's first clear add to it. Boots the game page (setup.ts) once for
 // this file; each test makes the state it needs.
 import { afterEach, beforeAll, expect, test } from 'vitest';
-import { clearStore, saveStore } from '@engine/core/store.ts';
+import { clearStore, saveStore } from '@engine/core/index.ts';
 import { BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { SAVE_KEY, defaultSave, devSetArcade, loadSaveFrom, save } from '../src/core/save.ts';
 import { recordEndlessTitan } from '../src/core/progress.ts';

@@ -1,7 +1,7 @@
 // Smoke test for Sector Dive Extended, the trailer script. Boots the game page (setup.ts) once for this file (bootGame) and runs it through the real loop by hand.
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
-import { parseScript } from '@engine/trailer/script.ts';
+import { parseScript } from '@engine/trailer/index.ts';
 import { trailerGame } from '../src/dev/trailer.ts';
 import sampleTrailer from '../trailers/2026-10-05.txt?raw';
 import { bootGame } from './helpers.ts';

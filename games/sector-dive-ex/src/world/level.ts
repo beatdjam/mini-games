@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { createRng, rand, randi, wrapAngle, yawToward } from '@engine/core/util.ts';
-import { clearWorld, groupOf, spawn, sweepWorld } from '@engine/core/world.ts';
-import { camera, disposeTree, dynGroup, scene } from '@engine/render/render.ts';
-import { clearFx } from '@engine/render/fx.ts';
+import { createRng, rand, randi, wrapAngle, yawToward } from '@engine/core/index.ts';
+import { clearWorld, groupOf, spawn, sweepWorld } from '@engine/core/index.ts';
+import { camera, disposeTree, dynGroup, scene } from '@engine/render/index.ts';
+import { clearFx } from '@engine/render/index.ts';
 import {
   H,
   T,
@@ -18,9 +18,9 @@ import {
   tileCoord,
   tileIndex,
   walkable,
-} from '@engine/world/tiles.ts';
-import { tileMapFromRows } from '@engine/world/tilemap.ts';
-import { clearPool } from '@engine/world/projectiles.ts';
+} from '@engine/world/index.ts';
+import { tileMapFromRows } from '@engine/world/index.ts';
+import { clearPool } from '@engine/world/index.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { COLOR } from '../data/colors.ts';
 import type { Biome, BossKind, Enemy, Pickup, RegularEnemy } from '../data/types.ts';
@@ -45,11 +45,11 @@ import {
   buildOutsideCards,
   keepOutOfPanes,
   seenThrough,
-} from '@engine/render/windows.ts';
-import { mergeFlat } from '@engine/render/mergeflat.ts';
-import { chunkInstances, cullChunks } from '@engine/render/chunks.ts';
-import type { Chunk } from '@engine/render/chunks.ts';
-import type { Backdrop, OutsideLook } from '@engine/render/windows.ts';
+} from '@engine/render/index.ts';
+import { mergeFlat } from '@engine/render/index.ts';
+import { chunkInstances, cullChunks } from '@engine/render/index.ts';
+import type { Chunk } from '@engine/render/index.ts';
+import type { Backdrop, OutsideLook } from '@engine/render/index.ts';
 import type { Portal } from './portals.ts';
 // ---- tuning numbers used only here (the per-sector numbers are in data/biomes.ts gen) ----
 const ARENA_FOG_NEAR = 6; // fog start in boss arenas (m)

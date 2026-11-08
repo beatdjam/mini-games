@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { basicMat } from '@engine/render/render.ts';
+import { basicMat } from '@engine/render/index.ts';
 import { at, boxGeo, cylGeo, machine } from '../machine.ts';
 import { prismGeo, spokes } from './shared.ts';
 // TRINITY: one of its three bodies: a gun platform that spins as it flies, so it is the same all the way round. A

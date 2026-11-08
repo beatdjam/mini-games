@@ -1,6 +1,6 @@
 import type { EnemyDef, Laser, PickupKind, Weapon } from '../data/types.ts';
 import * as THREE from 'three';
-import { V3, basicMat, dynGroup, lineMat } from '@engine/render/render.ts';
+import { V3, basicMat, dynGroup, lineMat } from '@engine/render/index.ts';
 import { RARITY, WEAPONS } from '../data/weapons.ts';
 import { COLOR } from '../data/colors.ts';
 import { edges, geoCache } from './render.ts';

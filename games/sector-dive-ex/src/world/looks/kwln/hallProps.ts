@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import { T } from '@engine/world/tiles.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { T } from '@engine/world/index.ts';
 import { COLOR, css } from '../../../data/colors.ts';
 import { KWLN_NEON_WORDS } from '../../../i18n/signs.ts';
 import type { FloorPlan } from '../../building.ts';

@@ -1,11 +1,11 @@
 import type { Boss, Laser } from '../../data/types.ts';
 import * as THREE from 'three';
-import { pick, rand } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { burst } from '@engine/render/fx.ts';
-import { T } from '@engine/world/tiles.ts';
-import { toast } from '@engine/ui/ui.ts';
+import { pick, rand } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { burst } from '@engine/render/index.ts';
+import { T } from '@engine/world/index.ts';
+import { toast } from '@engine/ui/index.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { level, randomTileIn } from '../../world/level.ts';
 import { ring, shootAtPoint } from '../../world/entities.ts';

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { T, tileCenter } from '@engine/world/tiles.ts';
+import { T, tileCenter } from '@engine/world/index.ts';
 import { groundOf } from '../../meshParts.ts';
 import type { FloorPlan } from '../../building.ts';
 import { roomKindOf } from '../common.ts';

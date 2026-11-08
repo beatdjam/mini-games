@@ -1,8 +1,8 @@
 import { PAINT } from '../../../data/colors.ts';
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import { tileCenter } from '@engine/world/tiles.ts';
-import type { PropRule } from '@engine/world/slots.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { tileCenter } from '@engine/world/index.ts';
+import type { PropRule } from '@engine/world/index.ts';
 import { WALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';
 import { roomKindOf, wallFloor, wallLinks, wallPic } from '../common.ts';

@@ -2,11 +2,11 @@
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
 import type { Pickup } from '../src/data/types.ts';
-import { el, rand } from '@engine/core/util.ts';
-import { clearWorld, query } from '@engine/core/world.ts';
-import { t } from '@engine/core/i18n.ts';
-import { V3, camera, scene } from '@engine/render/render.ts';
-import { H, T, W, activeTileGrid, cover, grid, hgt, ramp } from '@engine/world/tiles.ts';
+import { el, rand } from '@engine/core/index.ts';
+import { clearWorld, query } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { V3, camera, scene } from '@engine/render/index.ts';
+import { H, T, W, activeTileGrid, cover, grid, hgt, ramp } from '@engine/world/index.ts';
 import { SPLIT_FAN, WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
 import { EYE } from '../src/data/level.ts';
 import { KIT_MAX, PER } from '../src/data/progress.ts';
@@ -32,7 +32,7 @@ import * as THREE from 'three';
 import { weaponStatText } from '../src/screens/base.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
 import { updatePickups } from '../src/flow/update.ts';
-import { setFireHeld } from '@engine/ui/input.ts';
+import { setFireHeld } from '@engine/ui/index.ts';
 import { tick, bootGame } from './helpers.ts';
 
 beforeAll(bootGame);

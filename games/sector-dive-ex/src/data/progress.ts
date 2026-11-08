@@ -1,5 +1,5 @@
 import type { GameMode, Restriction, Upgrade } from './types.ts';
-import { withLang } from '@engine/core/langslots.ts';
+import { withLang } from '@engine/core/index.ts';
 // The values that differ with the mode (ARCADE / ENDLESS). ENDLESS is the game as it was; ARCADE's dive counts its
 // depths deeper, gives the bosses more health and leaves the med kit out of a terminal. Only numbers: the screens and
 // gates that a mode has or has not stay on isArcade() (core/save.ts)

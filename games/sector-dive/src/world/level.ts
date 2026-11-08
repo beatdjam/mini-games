@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { createRng, rand, randi } from '@engine/core/util.ts';
-import { clearWorld } from '@engine/core/world.ts';
-import { disposeTree, scene } from '@engine/render/render.ts';
-import { clearFx } from '@engine/render/fx.ts';
+import { createRng, rand, randi } from '@engine/core/index.ts';
+import { clearWorld } from '@engine/core/index.ts';
+import { disposeTree, scene } from '@engine/render/index.ts';
+import { clearFx } from '@engine/render/index.ts';
 import {
   H,
   W,
@@ -14,9 +14,9 @@ import {
   tileCoord,
   tileIndex,
   walkable,
-} from '@engine/world/tiles.ts';
-import { tileMapFromRows } from '@engine/world/tilemap.ts';
-import { clearPool } from '@engine/world/projectiles.ts';
+} from '@engine/world/index.ts';
+import { tileMapFromRows } from '@engine/world/index.ts';
+import { clearPool } from '@engine/world/index.ts';
 import { BIOMES } from '../data/biomes.ts';
 import type { Biome } from '../data/types.ts';
 import { eBullets, enemies, pBullets, removeEnemyMesh, setBoss, setNear } from './entities.ts';

@@ -1,6 +1,6 @@
-import type { Rng } from '@engine/core/util.ts';
-import { generateArena, generateDungeon } from '@engine/world/dungeon.ts';
-import type { Room, TileMapData, TileMaps } from '@engine/world/dungeon.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { generateArena, generateDungeon } from '@engine/world/index.ts';
+import type { Room, TileMapData, TileMaps } from '@engine/world/index.ts';
 import { COVER_H, PLAT_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import type { Biome, BossKind } from '../data/types.ts';

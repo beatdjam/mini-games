@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import { buildWindowFrames, buildWindowGlass, buildWindowPanes, windowGlassTex } from '@engine/render/windows.ts';
-import type { WindowFace } from '@engine/render/windows.ts';
-import { floorSides } from '@engine/world/walls.ts';
-import { H, T, W, grid, tileCenter } from '@engine/world/tiles.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { buildWindowFrames, buildWindowGlass, buildWindowPanes, windowGlassTex } from '@engine/render/index.ts';
+import type { WindowFace } from '@engine/render/index.ts';
+import { floorSides } from '@engine/world/index.ts';
+import { H, T, W, grid, tileCenter } from '@engine/world/index.ts';
 import { HALL_H, WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
 import { biomeTex } from './render.ts';

@@ -1,6 +1,6 @@
 import type { LangData } from '../data/types.ts';
-import { pct } from '@engine/core/util.ts';
-import { LANG } from '@engine/core/i18n.ts';
+import { pct } from '@engine/core/index.ts';
+import { LANG } from '@engine/core/index.ts';
 // English
 LANG.en = {
   name: 'English',

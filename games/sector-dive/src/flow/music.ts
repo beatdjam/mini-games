@@ -1,5 +1,5 @@
-import { musicState, setMusicMix } from '@engine/audio/music.ts';
-import { distXZ } from '@engine/core/util.ts';
+import { musicState, setMusicMix } from '@engine/audio/index.ts';
+import { distXZ } from '@engine/core/index.ts';
 import { enemies } from '../world/entities.ts';
 import { player } from '../actors/player.ts';
 // Which music plays when (the player is engine/src/audio/music.ts, the styles are src/data/music.ts)

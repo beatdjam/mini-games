@@ -2,7 +2,7 @@ import type { Biome, BossKind } from '../data/types.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { BOSS_ROOMS, BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
 import { BOSS_AREA_START_TIER, MILESTONE_EVERY, milestoneBelow } from '../data/progress.ts';
-import { t } from '@engine/core/i18n.ts';
+import { t } from '@engine/core/index.ts';
 // the boss area (the hall and the eight boss rooms): its depth once settled in the save, and where each boss's room is
 // The flag is on: tests and dev views turn it off to see the game without the boss area
 let on = true;

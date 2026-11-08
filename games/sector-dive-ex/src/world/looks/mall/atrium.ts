@@ -1,4 +1,4 @@
-import { COVER_H } from '@engine/world/tiles.ts';
+import { COVER_H } from '@engine/world/index.ts';
 import type { Court, FloorPlan } from '../../building.ts';
 import type { piece } from './cover.ts';
 // The ground of a mall's atrium: a drained fountain on the tile in the middle of its open middle and, in a long one

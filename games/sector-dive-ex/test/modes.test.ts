@@ -2,8 +2,8 @@
 // settings. Boots the game page once (bootGame) for the wipe button and a real checkpoint; the save functions are also
 // tried on their own.
 import { beforeAll, expect, test } from 'vitest';
-import { clearStore, loadStore, saveStore } from '@engine/core/store.ts';
-import { el } from '@engine/core/util.ts';
+import { clearStore, loadStore, saveStore } from '@engine/core/index.ts';
+import { el } from '@engine/core/index.ts';
 import {
   ACTIVE_SAVE_KEY,
   ARCADE_SAVE_KEY,

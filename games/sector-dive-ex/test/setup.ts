@@ -1,10 +1,10 @@
 // Vitest setup for the Sector Dive Extended tests: puts the game page's styles and elements into the document before
 // the game modules load, then starts the engine's renderer, input and touch layout on them
 import page from '../index.html?raw';
-import { el } from '@engine/core/util.ts';
-import { initRender } from '@engine/render/render.ts';
-import { initInput } from '@engine/ui/input.ts';
-import { initTouchLayout } from '@engine/ui/touchlayout.ts';
+import { el } from '@engine/core/index.ts';
+import { initRender } from '@engine/render/index.ts';
+import { initInput } from '@engine/ui/index.ts';
+import { initTouchLayout } from '@engine/ui/index.ts';
 
 // Each test file has a storage of its own, in memory. The real one is shared by the files running at the same time in
 // one browser: the game reads its save from it as it loads, so a file could start from a save another had just written

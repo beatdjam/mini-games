@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { basicMat, shared } from '@engine/render/render.ts';
+import { basicMat, shared } from '@engine/render/index.ts';
 import { PAINT, css } from '../../../../data/colors.ts';
 import { TEX, grain, paint, stripes } from '../../../looks/paint.ts';
 import type { Paint } from '../../../looks/paint.ts';

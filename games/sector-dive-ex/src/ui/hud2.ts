@@ -1,4 +1,4 @@
-import { el } from '@engine/core/util.ts';
+import { el } from '@engine/core/index.ts';
 import type { WeaponItem } from '../data/types.ts';
 import { RARITY } from '../data/weapons.ts';
 import './hud2.css';

@@ -1,26 +1,26 @@
 // Smoke test for Sector Dive Extended, looks: view models, gun looks, wall pictures, the outside of a building and props. Boots the game page (setup.ts) once for this file (bootGame) and runs it through the real loop by hand.
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
-import { createRng } from '@engine/core/util.ts';
-import { camera, scene } from '@engine/render/render.ts';
-import { T, tileCenter, tileCoord } from '@engine/world/tiles.ts';
+import { createRng } from '@engine/core/index.ts';
+import { camera, scene } from '@engine/render/index.ts';
+import { T, tileCenter, tileCoord } from '@engine/world/index.ts';
 import { WEAPON_ORDER } from '../src/data/weapons.ts';
 import { EYE, WALL_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
 import { gunLook, hasGunLook } from '../src/world/models/gunLooks.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
-import { floorSides, wallSide } from '@engine/world/walls.ts';
+import { floorSides, wallSide } from '@engine/world/index.ts';
 import { enterFloor, level, showBuilding, showNeighbourFloors } from '../src/world/level.ts';
 import { devCourtOpen, makeBuilding, roomDoors, roomTiles } from '../src/world/building.ts';
 import type { Building, FloorPlan } from '../src/world/building.ts';
 import { updateDoorMeshes } from '../src/world/doors.ts';
-import { Backdrop, WINDOW_ORDER } from '@engine/render/windows.ts';
-import { tileMapFromRows } from '@engine/world/tilemap.ts';
+import { Backdrop, WINDOW_ORDER } from '@engine/render/index.ts';
+import { tileMapFromRows } from '@engine/world/index.ts';
 import * as THREE from 'three';
 import { dressAtrium, dressYard } from '../src/world/yardProps.ts';
 import { buildingShell, outsideBlocks, shellOf } from '../src/world/looks/outside.ts';
-import type { TileMapData } from '@engine/world/dungeon.ts';
+import type { TileMapData } from '@engine/world/index.ts';
 import { floorNear, overHead, raised } from '../src/world/looks/props.ts';
 import { bootGame } from './helpers.ts';
 

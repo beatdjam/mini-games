@@ -1,4 +1,4 @@
-import { yawToward } from '@engine/core/util.ts';
+import { yawToward } from '@engine/core/index.ts';
 import type { Boss, BossKind, Enemy } from '../../data/types.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { isBossKind } from '../../core/rules.ts';

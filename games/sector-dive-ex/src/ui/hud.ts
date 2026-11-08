@@ -1,10 +1,10 @@
 import type { WeaponItem } from '../data/types.ts';
-import { clamp, el, isTouch } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { camera } from '@engine/render/render.ts';
-import { exitLock, locked, requestLock } from '@engine/ui/input.ts';
-import { createHitDirs } from '@engine/ui/hitdir.ts';
-import { createHitMark } from '@engine/ui/hitmark.ts';
+import { clamp, el, isTouch } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { camera } from '@engine/render/index.ts';
+import { exitLock, locked, requestLock } from '@engine/ui/index.ts';
+import { createHitDirs } from '@engine/ui/index.ts';
+import { createHitMark } from '@engine/ui/index.ts';
 import { KIT_MAX, TUNE } from '../data/progress.ts';
 import { boss, nearPickup, target } from '../world/entities.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';

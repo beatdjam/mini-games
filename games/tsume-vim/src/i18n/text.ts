@@ -1,5 +1,5 @@
 // Reads the written words out of the engine's LANG.ja. src/i18n/ja.ts holds them; tools/check_i18n.js checks their shape.
-import { LANG } from '@engine/core/i18n.ts';
+import { LANG } from '@engine/core/index.ts';
 import type { ChapterText, EndlessText, HelpRow, LevelText } from '../data/types.ts';
 
 interface TextData {

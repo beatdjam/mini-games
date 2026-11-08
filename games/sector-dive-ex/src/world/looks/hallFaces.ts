@@ -1,4 +1,4 @@
-import { SIDE_STEP } from '@engine/world/tiles.ts';
+import { SIDE_STEP } from '@engine/world/index.ts';
 import type { FloorPlan } from '../building.ts';
 import type { PropTools, WallSlot } from './props.ts';
 // The walls of a sector's boss room, found for the props that stand along them (mall/dockProps.ts, forge/hallProps.ts,

@@ -1,9 +1,9 @@
 import type * as THREE from 'three';
 import type { BlockStyle, StreetThing } from './outside.ts';
-import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP } from '@engine/world/tiles.ts';
-import { alongOpen, facesToward, floorSides, wallSide } from '@engine/world/walls.ts';
-import type { WallMap } from '@engine/world/walls.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { SIDE_STEP } from '@engine/world/index.ts';
+import { alongOpen, facesToward, floorSides, wallSide } from '@engine/world/index.ts';
+import type { WallMap } from '@engine/world/index.ts';
 import { CSS_COLOR } from '../../data/colors.ts';
 import type { FloorPlan } from '../building.ts';
 import { TEX, grain, grime } from './paint.ts';

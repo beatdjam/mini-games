@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { H, T, W, hgt, inBounds, tileCenter, tileCoord } from '@engine/world/tiles.ts';
+import { H, T, W, hgt, inBounds, tileCenter, tileCoord } from '@engine/world/index.ts';
 import type { Biome } from '../data/types.ts';
 import { player, run } from '../actors/player.ts';
 import { damagePlayer } from '../actors/combat.ts';

@@ -1,12 +1,12 @@
-import { el } from '@engine/core/util.ts';
-import { clearStore } from '@engine/core/store.ts';
-import { t } from '@engine/core/i18n.ts';
-import { toast } from '@engine/ui/ui.ts';
-import { applyLayout } from '@engine/ui/touchlayout.ts';
-import { saveFile } from '@engine/ui/share.ts';
+import { el } from '@engine/core/index.ts';
+import { clearStore } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { toast } from '@engine/ui/index.ts';
+import { applyLayout } from '@engine/ui/index.ts';
+import { saveFile } from '@engine/ui/index.ts';
 import { SAVE_KEY, defaultSave, exportSave, importSave, importSaveCheck, persist, setSave } from '../core/save.ts';
 import { baseUI, renderBase } from './base.ts';
-import { onDataClick } from '@engine/ui/dom.ts';
+import { onDataClick } from '@engine/ui/index.ts';
 import { refreshKeyTexts } from './keys.ts';
 import { applyKeyBindings } from '../ui/input.ts';
 

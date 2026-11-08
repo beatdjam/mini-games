@@ -1,13 +1,13 @@
 // Entry point. The imports below load every module (the order matters little: each one only declares things and
 // registers listeners); the start-up that needs everything loaded — language, volumes, the base screen, the
 // systems and the loop — runs at the bottom, after all of them.
-import { setLang, defaultLang } from '@engine/core/i18n.ts';
-import { ANALYTICS } from '@engine/core/analytics.ts';
-import { FEEDBACK } from '@engine/core/feedback.ts';
-import { applyLayout, initTouchLayout } from '@engine/ui/touchlayout.ts';
-import { el } from '@engine/core/util.ts';
-import { initRender } from '@engine/render/render.ts';
-import { initInput } from '@engine/ui/input.ts';
+import { setLang, defaultLang } from '@engine/core/index.ts';
+import { ANALYTICS } from '@engine/core/index.ts';
+import { FEEDBACK } from '@engine/core/index.ts';
+import { applyLayout, initTouchLayout } from '@engine/ui/index.ts';
+import { el } from '@engine/core/index.ts';
+import { initRender } from '@engine/render/index.ts';
+import { initInput } from '@engine/ui/index.ts';
 import { save, syncVolumes } from './core/save.ts';
 import { applyKeyBindings } from './ui/input.ts';
 import { baseUI, showTab } from './screens/base.ts';

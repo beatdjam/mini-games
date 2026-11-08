@@ -1,9 +1,9 @@
-import { clamp, el, rand } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { toast } from '@engine/ui/ui.ts';
-import { INPUT, locked, tapBtn } from '@engine/ui/input.ts';
-import { actionOf, defineActions, importBindings, keyLabel, keysOf } from '@engine/ui/keymap.ts';
+import { clamp, el, rand } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { toast } from '@engine/ui/index.ts';
+import { INPUT, locked, tapBtn } from '@engine/ui/index.ts';
+import { actionOf, defineActions, importBindings, keyLabel, keysOf } from '@engine/ui/index.ts';
 import { KEY_ACTIONS } from '../data/controls.ts';
 import { BAG_MAX } from '../data/progress.ts';
 import { WEAPONS } from '../data/weapons.ts';

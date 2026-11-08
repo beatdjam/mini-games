@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { FX, parts } from '@engine/render/fx.ts';
-import { shared } from '@engine/render/render.ts';
+import { FX, parts } from '@engine/render/index.ts';
+import { shared } from '@engine/render/index.ts';
 import { plainLooks } from '../looks.ts';
 // The particles as sparks and smoke, to go with the looks (the plain ones are flat cubes of a colour): what flies
 // out of a hit, a kill or a blast is a small sharp chip of light in its colour, added to what is behind it; what

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { shared } from '@engine/render/render.ts';
+import { shared } from '@engine/render/index.ts';
 import { TEX, grain, paint } from '../looks/paint.ts';
 import type { Paint } from '../looks/paint.ts';
 // The gun in hand, one look per weapon: each in its own shape (a pistol's slide and raked grip, a pump shotgun's

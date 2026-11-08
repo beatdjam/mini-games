@@ -1,12 +1,12 @@
 // The screen: course list, the two buffers, the status line, hints and the solved panel. Every key goes to one Editor.
 import { LEVELS } from '../core/content/catalog.ts';
-import { track } from '@engine/core/analytics.ts';
+import { track } from '@engine/core/index.ts';
 import { Editor } from '../core/vim/editor.ts';
 import { generateLevel } from '../core/content/generate/index.ts';
 import { loadEndlessBest, loadProgress, recordSolve, saveEndlessBest, type Progress } from '../core/progress.ts';
 import { samePos } from '../core/vim/text.ts';
 import type { Level, LevelText } from '../data/types.ts';
-import { applyStaticText, t } from '@engine/core/i18n.ts';
+import { applyStaticText, t } from '@engine/core/index.ts';
 import { chapterText, endlessText, helpRows, levelText } from '../i18n/text.ts';
 import { charSpan, ensureCursorVisible, insertCursor, newLineRow } from './dom.ts';
 import { getElements, type Elements } from './elements.ts';

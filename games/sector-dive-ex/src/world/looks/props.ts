@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import { placeProps } from '@engine/world/slots.ts';
-import type { PropRule, Slot } from '@engine/world/slots.ts';
-import type { TileMapData } from '@engine/world/dungeon.ts';
-import { RISE, SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { placeProps } from '@engine/world/index.ts';
+import type { PropRule, Slot } from '@engine/world/index.ts';
+import type { TileMapData } from '@engine/world/index.ts';
+import { RISE, SIDE_STEP, T, tileCenter } from '@engine/world/index.ts';
 import { EYE, WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
 import { wallPic } from './common.ts';
 import type { WallPics } from './common.ts';
 import { poolTex } from './paint.ts';
-import { yawToward } from '@engine/core/util.ts';
+import { yawToward } from '@engine/core/index.ts';
 // The tools for the things fixed to a sector's walls and ceilings (its props): where a thing goes on a wall, the
 // places the engine hands out (placeProps), one instanced mesh for all the copies of a part, and the light the lamps
 // throw on the ground.

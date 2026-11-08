@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SIDE_STEP, T } from '@engine/world/tiles.ts';
+import { SIDE_STEP, T } from '@engine/world/index.ts';
 import type { FloorPlan } from '../../building.ts';
 import { SIGN_FONT, canvasTex, poolTex } from '../paint.ts';
 import { facing, lightMat, onWall, pose } from '../props.ts';

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { SIDE_STEP, T, W, tileCenter } from '@engine/world/tiles.ts';
-import { facadePicture } from '@engine/world/walls.ts';
+import { SIDE_STEP, T, W, tileCenter } from '@engine/world/index.ts';
+import { facadePicture } from '@engine/world/index.ts';
 import { WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
 import { PAINT, css } from '../data/colors.ts';

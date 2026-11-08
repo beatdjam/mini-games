@@ -1,6 +1,6 @@
-import { pick, yawToward } from '@engine/core/util.ts';
-import { camera } from '@engine/render/render.ts';
-import { floorY } from '@engine/world/tiles.ts';
+import { pick, yawToward } from '@engine/core/index.ts';
+import { camera } from '@engine/render/index.ts';
+import { floorY } from '@engine/world/index.ts';
 import { EYE } from '../data/level.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { COLOR } from '../data/colors.ts';

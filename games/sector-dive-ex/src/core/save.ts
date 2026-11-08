@@ -9,9 +9,9 @@ import {
   milestoneBelow,
   type ModeTune,
 } from '../data/progress.ts';
-import { isTouch } from '@engine/core/util.ts';
-import { decodeStore, encodeStore, loadStore, mergeDefaults, prefGet, prefSet, saveStore } from '@engine/core/store.ts';
-import { setVolumes } from '@engine/audio/audio.ts';
+import { isTouch } from '@engine/core/index.ts';
+import { decodeStore, encodeStore, loadStore, mergeDefaults, prefGet, prefSet, saveStore } from '@engine/core/index.ts';
+import { setVolumes } from '@engine/audio/index.ts';
 // Save data: defaults and conversions from older versions (reading / writing is engine/src/core/store.ts)
 // ENDLESS keeps the key the game had before there were modes, so the save a player already has is the ENDLESS one
 export const SAVE_KEY = 'sector-dive-ex-v1';

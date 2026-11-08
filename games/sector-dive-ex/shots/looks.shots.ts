@@ -6,8 +6,8 @@
 // every enemy (in a boss room), the things that lie on the floor, and each boss up close as #boss-<kind>-look shows it.
 import { afterAll, beforeAll, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { T, W, floorY } from '@engine/world/tiles.ts';
-import { yawToward } from '@engine/core/util.ts';
+import { T, W, floorY } from '@engine/world/index.ts';
+import { yawToward } from '@engine/core/index.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { BOSS_ORDER } from '../src/data/bosses.ts';
 import { ENEMY } from '../src/data/enemies.ts';

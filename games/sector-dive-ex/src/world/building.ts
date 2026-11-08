@@ -1,7 +1,7 @@
-import { createRng } from '@engine/core/util.ts';
-import { packBits, unpackBits } from '@engine/core/store.ts';
-import { generateDungeon } from '@engine/world/dungeon.ts';
-import { tileMapFromRows } from '@engine/world/tilemap.ts';
+import { createRng } from '@engine/core/index.ts';
+import { packBits, unpackBits } from '@engine/core/index.ts';
+import { generateDungeon } from '@engine/world/index.ts';
+import { tileMapFromRows } from '@engine/world/index.ts';
 import {
   allReached,
   around,
@@ -14,11 +14,11 @@ import {
   roomDoors,
   roomTiles,
   thinDoorPairs,
-} from '@engine/world/stairwells.ts';
-import type { BuildingLink, FloorOpenings, StairwellConfig } from '@engine/world/stairwells.ts';
+} from '@engine/world/index.ts';
+import type { BuildingLink, FloorOpenings, StairwellConfig } from '@engine/world/index.ts';
 // (what the game's other files and the tests take from here)
-export { makeRoute, roomDoors, roomsOnWay, roomTiles } from '@engine/world/stairwells.ts';
-export type { BuildingLink } from '@engine/world/stairwells.ts';
+export { makeRoute, roomDoors, roomsOnWay, roomTiles } from '@engine/world/index.ts';
+export type { BuildingLink } from '@engine/world/index.ts';
 import { COVER_H, HALL_H, PLAT_H, WALL_H } from '../data/level.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import type { Biome, BossKind, BuildingState } from '../data/types.ts';

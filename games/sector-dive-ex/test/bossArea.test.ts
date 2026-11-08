@@ -27,16 +27,16 @@ import { lockdownAhead, supplyChips } from '../src/flow/events.ts';
 import { bossDifficulty, bossDown, bossHpMul, spawnBoss } from '../src/actors/bosses/common.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { BOT_STYLES, createBot, hallGate, setBot } from '../src/dev/bot.ts';
-import { INPUT } from '@engine/ui/input.ts';
+import { INPUT } from '@engine/ui/index.ts';
 import { bigmap, cycleMap, map3dWanted, toggleMap, toggleMap3D } from '../src/ui/hud.ts';
 import { map3d, map3dOpen } from '../src/ui/map3d.ts';
 import { keyText } from '../src/ui/input.ts';
-import { query } from '@engine/core/world.ts';
-import { TRACK_LOG } from '@engine/core/analytics.ts';
-import { T, W, activeTileGrid, blocked, tileCenter, tileIndex } from '@engine/world/tiles.ts';
-import { isDoorLocked } from '@engine/world/doors.ts';
-import { el, wrapAngle, yawToward } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
+import { query } from '@engine/core/index.ts';
+import { TRACK_LOG } from '@engine/core/index.ts';
+import { T, W, activeTileGrid, blocked, tileCenter, tileIndex } from '@engine/world/index.ts';
+import { isDoorLocked } from '@engine/world/index.ts';
+import { el, wrapAngle, yawToward } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
 import { bootGame, enterBuilding, goToFloor, putOnTile, stateIs, tick } from './helpers.ts';
 
 beforeAll(async () => {

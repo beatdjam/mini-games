@@ -2,7 +2,7 @@
 // cleared, startNextLoop, the row a new loop's dive gets, and the values an old save is given. Boots the game page
 // (setup.ts) once for this file; each test makes the state it needs.
 import { afterEach, beforeAll, expect, test } from 'vitest';
-import { clearStore, saveStore } from '@engine/core/store.ts';
+import { clearStore, saveStore } from '@engine/core/index.ts';
 import { BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { SAVE_KEY, basicW, defaultSave, devSetArcade, loadSaveFrom, newEndlessRecord, save } from '../src/core/save.ts';
 import { loopsCleared, startNextLoop } from '../src/core/progress.ts';

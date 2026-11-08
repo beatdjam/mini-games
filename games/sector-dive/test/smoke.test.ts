@@ -2,10 +2,10 @@
 // The tests share one game state and run in order; some checks depend on how many random numbers the earlier ones used.
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type { Boss, GameState, Pickup, RunState, Snapshot } from '../src/data/types.ts';
-import { createRng, distXZ, el, rand } from '@engine/core/util.ts';
-import { clearWorld, query } from '@engine/core/world.ts';
-import { lang, t } from '@engine/core/i18n.ts';
-import { SFX, actx, audioInit } from '@engine/audio/audio.ts';
+import { createRng, distXZ, el, rand } from '@engine/core/index.ts';
+import { clearWorld, query } from '@engine/core/index.ts';
+import { lang, t } from '@engine/core/index.ts';
+import { SFX, actx, audioInit } from '@engine/audio/index.ts';
 import {
   MUSIC_STYLES,
   musicState,
@@ -14,8 +14,8 @@ import {
   playStep,
   setMusic,
   setMusicMix,
-} from '@engine/audio/music.ts';
-import { V3, camera, gun, scene } from '@engine/render/render.ts';
+} from '@engine/audio/index.ts';
+import { V3, camera, gun, scene } from '@engine/render/index.ts';
 import {
   H,
   STEP,
@@ -32,13 +32,13 @@ import {
   ramp,
   tileIndex,
   walkable,
-} from '@engine/world/tiles.ts';
-import { joy, setFireHeld } from '@engine/ui/input.ts';
-import { SETTINGS } from '@engine/ui/settings.ts';
-import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBindings } from '@engine/ui/keymap.ts';
-import { encodeStore } from '@engine/core/store.ts';
-import { isTouch } from '@engine/core/util.ts';
-import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
+} from '@engine/world/index.ts';
+import { joy, setFireHeld } from '@engine/ui/index.ts';
+import { SETTINGS } from '@engine/ui/index.ts';
+import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBindings } from '@engine/ui/index.ts';
+import { encodeStore } from '@engine/core/index.ts';
+import { isTouch } from '@engine/core/index.ts';
+import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/index.ts';
 import {
   MOD_PLUS_MAX,
   SPEED_OPT_PER_LEVEL,
@@ -127,8 +127,8 @@ import { drawShareCard, shareData, shareText } from '../src/ui/share.ts';
 import { updatePBullets } from '../src/actors/bullets.ts';
 import { update, updatePickups } from '../src/flow/update.ts';
 import { GUNFX, curVM } from '../src/actors/viewmodel.ts';
-import { TRACK_LOG } from '@engine/core/analytics.ts';
-import { FEEDBACK_FORM } from '@engine/core/feedback.ts';
+import { TRACK_LOG } from '@engine/core/index.ts';
+import { FEEDBACK_FORM } from '@engine/core/index.ts';
 import { COLOR } from '../src/data/colors.ts';
 
 const stateIs = (s: GameState) => state === s; // a call, so TypeScript does not keep the narrowing of an earlier state check

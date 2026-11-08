@@ -1,4 +1,4 @@
-import { t } from '@engine/core/i18n.ts';
+import { t } from '@engine/core/index.ts';
 import { PERKS } from '../../data/perks.ts';
 import { save } from '../../core/save.ts';
 import { player } from '../../actors/player.ts';

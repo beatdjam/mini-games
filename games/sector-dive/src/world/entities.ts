@@ -13,12 +13,12 @@ import type {
   Weapon,
 } from '../data/types.ts';
 import * as THREE from 'three';
-import { clamp, rand } from '@engine/core/util.ts';
-import { spawn, worldGroup } from '@engine/core/world.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { basicMat, disposeTree, dynGroup } from '@engine/render/render.ts';
-import { blocked, floorY, tileIndex, walkable } from '@engine/world/tiles.ts';
-import { aimFan, ringAngles, takeFromPool } from '@engine/world/projectiles.ts';
+import { clamp, rand } from '@engine/core/index.ts';
+import { spawn, worldGroup } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { basicMat, disposeTree, dynGroup } from '@engine/render/index.ts';
+import { blocked, floorY, tileIndex, walkable } from '@engine/world/index.ts';
+import { aimFan, ringAngles, takeFromPool } from '@engine/world/index.ts';
 import { ENEMY, ENEMY_TUNE } from '../data/enemies.ts';
 import { rebootMul } from '../core/rules.ts';
 import { geoCache } from './render.ts';

@@ -3,12 +3,12 @@
 import { beforeAll, expect, test } from 'vitest';
 import { Group } from 'three';
 import type { Boss, Enemy, RunState } from '../src/data/types.ts';
-import { distXZ, el } from '@engine/core/util.ts';
-import { query } from '@engine/core/world.ts';
-import { t } from '@engine/core/i18n.ts';
-import { clearPool } from '@engine/world/projectiles.ts';
-import { floorY } from '@engine/world/tiles.ts';
-import { joy, setFireHeld } from '@engine/ui/input.ts';
+import { distXZ, el } from '@engine/core/index.ts';
+import { query } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { clearPool } from '@engine/world/index.ts';
+import { floorY } from '@engine/world/index.ts';
+import { joy, setFireHeld } from '@engine/ui/index.ts';
 import { SPLIT_MAX } from '../src/data/weapons.ts';
 import { ENEMY_TUNE } from '../src/data/enemies.ts';
 import { BOSS_META, BOSS_ORDER, BOSS_TUNE } from '../src/data/bosses.ts';

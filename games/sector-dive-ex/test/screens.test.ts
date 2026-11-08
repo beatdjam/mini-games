@@ -1,10 +1,10 @@
 // Smoke test for Sector Dive Extended, screens and input: music, result, share, analytics, pause, the maps, key bindings and the wake lock. Boots the game page (setup.ts) once for this file (bootGame) and runs it through the real loop by hand.
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import { distXZ, el } from '@engine/core/util.ts';
-import { clearWorld } from '@engine/core/world.ts';
-import { lang, t } from '@engine/core/i18n.ts';
-import { SFX, actx, audioInit } from '@engine/audio/audio.ts';
+import { distXZ, el } from '@engine/core/index.ts';
+import { clearWorld } from '@engine/core/index.ts';
+import { lang, t } from '@engine/core/index.ts';
+import { SFX, actx, audioInit } from '@engine/audio/index.ts';
 import {
   MUSIC_STYLES,
   musicState,
@@ -13,14 +13,14 @@ import {
   playStep,
   setMusic,
   setMusicMix,
-} from '@engine/audio/music.ts';
-import { H, T, W, grid, hasLOS, tileIndex } from '@engine/world/tiles.ts';
-import { joy, setFireHeld } from '@engine/ui/input.ts';
-import { SETTINGS } from '@engine/ui/settings.ts';
-import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBindings } from '@engine/ui/keymap.ts';
-import { encodeStore } from '@engine/core/store.ts';
-import { isTouch } from '@engine/core/util.ts';
-import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
+} from '@engine/audio/index.ts';
+import { H, T, W, grid, hasLOS, tileIndex } from '@engine/world/index.ts';
+import { joy, setFireHeld } from '@engine/ui/index.ts';
+import { SETTINGS } from '@engine/ui/index.ts';
+import { actionDown, bindKey, changedBindings, exportBindings, keysOf, resetBindings } from '@engine/ui/index.ts';
+import { encodeStore } from '@engine/core/index.ts';
+import { isTouch } from '@engine/core/index.ts';
+import { applyLayout, buttonLayout, openLayoutEditor } from '@engine/ui/index.ts';
 import { BOSS_META, BOSS_ORDER } from '../src/data/bosses.ts';
 import { SAVE_KEY, basicW, defaultSave, exportSave, importSave, persist, save } from '../src/core/save.ts';
 import { STASH_MAX } from '../src/data/progress.ts';
@@ -45,9 +45,9 @@ import { markers } from '../src/ui/minimap.ts';
 import { renderBase } from '../src/screens/base.ts';
 import { shareData, shareText } from '../src/ui/share.ts';
 import { time, updatePickups } from '../src/flow/update.ts';
-import { LOOP, runSystems } from '@engine/core/loop.ts';
-import { TRACK_LOG } from '@engine/core/analytics.ts';
-import { FEEDBACK_FORM } from '@engine/core/feedback.ts';
+import { LOOP, runSystems } from '@engine/core/index.ts';
+import { TRACK_LOG } from '@engine/core/index.ts';
+import { FEEDBACK_FORM } from '@engine/core/index.ts';
 import { stateIs, tick, bootGame, goToFloor, enterBuilding } from './helpers.ts';
 
 beforeAll(bootGame);

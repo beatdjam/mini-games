@@ -1,8 +1,8 @@
 import type { WeaponItem } from '../data/types.ts';
-import { el, rand } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
+import { el, rand } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { exitLock, releaseInputs, requestLock } from '@engine/ui/index.ts';
 import { RARITY } from '../data/weapons.ts';
 import { addPickup } from '../world/entities.ts';
 import { player, run } from '../actors/player.ts';
@@ -14,7 +14,7 @@ import { weaponIcon } from '../ui/hud2.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { statsHTML } from './pause.ts';
 import { weaponReachText } from './base.ts';
-import { onDataClick } from '@engine/ui/dom.ts';
+import { onDataClick } from '@engine/ui/index.ts';
 
 // transient state of the bag screen
 const bagUI: { sel: { where: string; i: number } | null } = {

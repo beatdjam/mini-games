@@ -1,6 +1,6 @@
-import { el, isTouch } from '@engine/core/util.ts';
-import { lang, t } from '@engine/core/i18n.ts';
-import { toast } from '@engine/ui/ui.ts';
+import { el, isTouch } from '@engine/core/index.ts';
+import { lang, t } from '@engine/core/index.ts';
+import { toast } from '@engine/ui/index.ts';
 import {
   canCopyImage,
   canShareFile,
@@ -10,14 +10,14 @@ import {
   openXPost,
   saveFile,
   shareNative,
-} from '@engine/ui/share.ts';
+} from '@engine/ui/index.ts';
 import { RARITY } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { RUN_END, countBy, parsePerk, perkName } from '../core/rules.ts';
 import { player, run } from '../actors/player.ts';
 import { stageInfo, stageLabel } from '../core/stages.ts';
 import { weaponText } from '../actors/weapons.ts';
-import { track } from '@engine/core/analytics.ts';
+import { track } from '@engine/core/index.ts';
 import { save } from '../core/save.ts';
 import { CSS_COLOR } from '../data/colors.ts';
 import type { RunEnd } from '../data/types.ts';

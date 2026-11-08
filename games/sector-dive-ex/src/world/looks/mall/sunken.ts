@@ -1,5 +1,5 @@
-import { COVER_H } from '@engine/world/tiles.ts';
-import { sinkRect } from '@engine/world/dungeon.ts';
+import { COVER_H } from '@engine/world/index.ts';
+import { sinkRect } from '@engine/world/index.ts';
 import type { FloorPlan } from '../../building.ts';
 import { wallLinks } from '../common.ts';
 import { foodCourtRoom } from './rooms.ts';

@@ -1,6 +1,6 @@
 import { WEAPON_ORDER, WEAPONS } from '../data/weapons.ts';
 import { VIEWMODELS, VM_COLORS } from '../data/viewmodels.ts';
-import { buildViewmodel, gun } from '@engine/render/render.ts';
+import { buildViewmodel, gun } from '@engine/render/index.ts';
 
 // the gun in hand per weapon, from src/data/viewmodels.ts
 const viewmodelGroups: Record<string, THREE.Group> = {};

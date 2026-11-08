@@ -1,15 +1,15 @@
 import type { Boss, BossKind, Enemy, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
-import { clamp, el } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { setMusic } from '@engine/audio/music.ts';
-import { dynGroup } from '@engine/render/render.ts';
-import { burst, fireball } from '@engine/render/fx.ts';
-import { clearPool } from '@engine/world/projectiles.ts';
-import { floorY, tileIndex } from '@engine/world/tiles.ts';
-import { query } from '@engine/core/world.ts';
-import { banner, toast } from '@engine/ui/ui.ts';
+import { clamp, el } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { setMusic } from '@engine/audio/index.ts';
+import { dynGroup } from '@engine/render/index.ts';
+import { burst, fireball } from '@engine/render/index.ts';
+import { clearPool } from '@engine/world/index.ts';
+import { floorY, tileIndex } from '@engine/world/index.ts';
+import { query } from '@engine/core/index.ts';
+import { banner, toast } from '@engine/ui/index.ts';
 import { BOSS_META, BOSS_TUNE } from '../../data/bosses.ts';
 import { BOSS_ROOM_ORDER } from '../../data/bossRooms.ts';
 import { hpGrowth, isMilestone } from '../../data/progress.ts';
@@ -55,7 +55,7 @@ import { spawnBastion } from './bastion.ts';
 import { spawnHoist } from './hoist.ts';
 import { spawnSurgeon } from './surgeon.ts';
 import { screenFx } from '../../ui/hud.ts';
-import { track } from '@engine/core/analytics.ts';
+import { track } from '@engine/core/index.ts';
 import { COLOR } from '../../data/colors.ts';
 // ================= bosses =================
 // the bosses' shared timings and heights

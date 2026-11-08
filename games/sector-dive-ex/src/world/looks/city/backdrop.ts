@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import { createRng } from '@engine/core/util.ts';
+import { createRng } from '@engine/core/index.ts';
 import { BACKDROP_EYE, BACKDROP_H, BACKDROP_W, FACADE_PX, GROUND_PX, canvasTex, hazeUnder } from '../paint.ts';
 import type { OutsideView } from '../common.ts';
 import type { BlockStyle, StreetThing } from '../outside.ts';

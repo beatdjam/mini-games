@@ -2,9 +2,9 @@
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
 import type { MortarShell } from '../src/data/types.ts';
-import { distXZ } from '@engine/core/util.ts';
-import { clearWorld, query } from '@engine/core/world.ts';
-import { H, T, W, activeTileGrid, cover, floorY, grid, hgt, ramp } from '@engine/world/tiles.ts';
+import { distXZ } from '@engine/core/index.ts';
+import { clearWorld, query } from '@engine/core/index.ts';
+import { H, T, W, activeTileGrid, cover, floorY, grid, hgt, ramp } from '@engine/world/index.ts';
 import { PER } from '../src/data/progress.ts';
 import { enemies, removeEnemyMesh, spawnEnemy } from '../src/world/entities.ts';
 import { player, run } from '../src/actors/player.ts';

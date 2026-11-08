@@ -2,10 +2,10 @@
 // records, the five restrictions that are open ('weapon', 'kit', 'pick', 'hurt' and 'fail') and the bonus their clears give.
 // Boots the game page (setup.ts) once for this file; each test makes the state it needs.
 import { afterEach, beforeAll, expect, test, vi } from 'vitest';
-import { el } from '@engine/core/util.ts';
-import { query } from '@engine/core/world.ts';
-import { floorY } from '@engine/world/tiles.ts';
-import { clearStore, saveStore } from '@engine/core/store.ts';
+import { el } from '@engine/core/index.ts';
+import { query } from '@engine/core/index.ts';
+import { floorY } from '@engine/world/index.ts';
+import { clearStore, saveStore } from '@engine/core/index.ts';
 import type { Pickup } from '../src/data/types.ts';
 import { BOSS_AREA_START_TIER, LOOP_TUNE, RESTRICTION_TUNE, TUNE } from '../src/data/progress.ts';
 import { WEAPONS } from '../src/data/weapons.ts';

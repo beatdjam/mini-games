@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { basicMat } from '@engine/render/render.ts';
+import { basicMat } from '@engine/render/index.ts';
 import { COLOR } from '../../../data/colors.ts';
 import { V, at, bladeMat, boxGeo, cylGeo, machine, piston } from '../machine.ts';
 // CRUSHER: a siege machine that throws itself at you. A low hull with a stepped upper deck and a sloped bow; a

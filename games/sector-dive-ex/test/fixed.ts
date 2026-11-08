@@ -1,8 +1,8 @@
 // What the pinned tests (pins.test.ts) and the screenshots (shots/looks.shots.ts) share: the game booted with fixed
 // dice, its own loop held still, and a sector's building entered on a floor of it
-import { createRng } from '@engine/core/util.ts';
-import { clearWorld } from '@engine/core/world.ts';
-import { systems } from '@engine/core/loop.ts';
+import { createRng } from '@engine/core/index.ts';
+import { clearWorld } from '@engine/core/index.ts';
+import { systems } from '@engine/core/index.ts';
 import { PER } from '../src/data/progress.ts';
 import { run } from '../src/actors/player.ts';
 import { startRun, startStage } from '../src/flow/run.ts';

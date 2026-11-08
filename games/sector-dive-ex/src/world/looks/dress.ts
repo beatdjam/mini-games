@@ -1,8 +1,8 @@
 import { PAINT } from '../../data/colors.ts';
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import type { TileMapData } from '@engine/world/dungeon.ts';
-import { SIDE_STEP, T, tileCenter } from '@engine/world/tiles.ts';
+import type { Rng } from '@engine/core/index.ts';
+import type { TileMapData } from '@engine/world/index.ts';
+import { SIDE_STEP, T, tileCenter } from '@engine/world/index.ts';
 import { WALL_H } from '../../data/level.ts';
 import type { FloorPlan } from '../building.ts';
 import { roomKindOf, wallPic } from './common.ts';

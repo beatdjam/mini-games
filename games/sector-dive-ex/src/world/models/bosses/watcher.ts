@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { basicMat } from '@engine/render/render.ts';
+import { basicMat } from '@engine/render/index.ts';
 import { COLOR } from '../../../data/colors.ts';
 import { V, at, boxGeo, cylGeo, machine, piston } from '../machine.ts';
 import { prismGeo, spokes, torusGeo, turned } from './shared.ts';

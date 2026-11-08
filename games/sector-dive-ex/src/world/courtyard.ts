@@ -1,6 +1,6 @@
-import type { Rng } from '@engine/core/util.ts';
-import type { TileMapData } from '@engine/world/dungeon.ts';
-import { around, carveCorridorFrom } from '@engine/world/stairwells.ts';
+import type { Rng } from '@engine/core/index.ts';
+import type { TileMapData } from '@engine/world/index.ts';
+import { around, carveCorridorFrom } from '@engine/world/index.ts';
 import type { FloorPlan } from './building.ts';
 // The courtyard of a building (world/building.ts makeBuilding): where it goes, how it is carved out of the floors it
 // passes, and how those floors are opened round it. Drawn by courtMesh.ts (and levelMesh.ts buildYardShell)

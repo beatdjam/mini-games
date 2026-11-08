@@ -1,7 +1,7 @@
-import { el } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { musicVolume } from '@engine/audio/music.ts';
-import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
+import { el } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { musicVolume } from '@engine/audio/index.ts';
+import { exitLock, releaseInputs, requestLock } from '@engine/ui/index.ts';
 import {
   CRIT_OPT_PER_LEVEL,
   GAIN_OPT_PER_LEVEL,
@@ -21,12 +21,12 @@ import { player, currentWeapon, run } from '../actors/player.ts';
 import { critChance, magSize, wDmgMul, weaponText, weaponOptCount } from '../actors/weapons.ts';
 import { floorLabel, placeName, stageLabel } from '../core/stages.ts';
 import { bigmap } from '../ui/hud.ts';
-import { renderSettings } from '@engine/ui/settings.ts';
+import { renderSettings } from '@engine/ui/index.ts';
 import { setState, show, state } from '../flow/state.ts';
 import { endRun } from '../flow/run.ts';
 import { suspendRun } from '../flow/suspend.ts';
 import { RUN_KINDS } from '../flow/runKind.ts';
-import { rowsHTML } from '@engine/ui/dom.ts';
+import { rowsHTML } from '@engine/ui/index.ts';
 
 // the run's own text that was written out in the old language (the language can be switched from the pause screen)
 export function refreshRunText() {
