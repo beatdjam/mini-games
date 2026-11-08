@@ -73,9 +73,18 @@ function acquireWakeLock() {
     () => {}, // refused (page hidden, battery saver...): the next visibilitychange tries again
   );
 }
+let visibilityOn = false; // the document's visibilitychange listener is registered
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') acquireWakeLock();
+}
 export function keepAwake(on: boolean) {
   awake.on = on;
   if (on) {
+    // the listener goes in with the first keepAwake(true) (as it loads, nothing here touches the page)
+    if (!visibilityOn) {
+      visibilityOn = true;
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    }
     acquireWakeLock();
     return;
   }
@@ -83,6 +92,3 @@ export function keepAwake(on: boolean) {
   awake.lock = null;
   if (lock && !lock.released) lock.release().catch(() => {});
 }
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') acquireWakeLock();
-});

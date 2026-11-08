@@ -1,11 +1,13 @@
 import * as THREE from 'three';
-import { renderer } from './render.ts';
 // The painters' tools: pictures painted on canvases from a seed (so a picture is the same every time) and made into
 // textures, and the strokes pictures are made of (dirt, grain, a soft patch that runs on into the next tile, warning
 // stripes, words, a lit block, soil). No game's pictures here: a game paints its own with these.
 // The strokes that cover the whole picture take its size from the canvas unless told
 export type Paint = (g: CanvasRenderingContext2D, rand: () => number) => void;
 export const PAINT_SIZE = 256; // side of a painted picture unless told (px)
+// anisotropic filtering of a painted picture. three.js caps it at what the GPU allows when it draws, so a picture
+// can be painted before initRender (a game builds its gun models as it loads)
+const TEX_ANISOTROPY = 4;
 
 // a small seeded generator for the painters (0..1, the same row every time)
 export function paintRand(seed: number): () => number {
@@ -24,7 +26,7 @@ export function paintTex(seed: number, fn: Paint, size = PAINT_SIZE, repeat = fa
   c.height = size;
   fn(c.getContext('2d')!, paintRand(seed));
   const t = new THREE.CanvasTexture(c);
-  t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  t.anisotropy = TEX_ANISOTROPY;
   if (repeat) {
     t.wrapS = THREE.RepeatWrapping;
     t.wrapT = THREE.RepeatWrapping;
@@ -38,7 +40,7 @@ export function canvasTex(w: number, h: number, fn: (g: CanvasRenderingContext2D
   c.height = h;
   fn(c.getContext('2d')!);
   const t = new THREE.CanvasTexture(c);
-  t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  t.anisotropy = TEX_ANISOTROPY;
   return t;
 }
 // a soft round patch of white light, for pools of light on the ground (one picture for all of them; each material

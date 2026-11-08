@@ -1,6 +1,5 @@
-import { camera, renderGun, renderer, scene } from '../render/render.ts';
 // engine: The main loop. The engine owns requestAnimationFrame, caps dt, runs the systems, then draws the frame
-// (renderer.render(scene, camera) and the in-hand viewmodel pass).
+// (LOOP.render: render/render.ts sets it in initRender to draw the scene and the in-hand viewmodel pass).
 // - addSystem({ name, order, modes, update(dt) }): order = lower runs first (default 0); modes = names of the modes it
 //   runs in (omit to run in every mode). Returns the system; change .modes / .enabled on it later if needed.
 // - LOOP.mode(): the game says which mode it is in (e.g. 'play', 'base', 'pause'); read once at the start of each frame.
@@ -9,12 +8,14 @@ import { camera, renderGun, renderer, scene } from '../render/render.ts';
 // - LOOP.maxFps: at most this many frames a second (0: as many as the screen shows). A screen faster than that skips
 //   its frames in between, so the frames are as many, and feel the same, in a heavy place and a light one.
 // - LOOP.draw: false draws nothing (the systems still run, and the screen is cleared once); true draws as usual.
+// - LOOP.render: draws one frame (render/render.ts sets it in initRender; unset, nothing is drawn).
 // - framesDrawn(): the frames drawn so far (what a frame counter counts: core/dev.ts showFps).
 export interface LoopConfig {
   mode(): string | null;
   maxDt: number;
   maxFps: number;
   draw: boolean;
+  render?: () => void;
 }
 export interface SystemDef {
   name: string;
@@ -34,7 +35,6 @@ export const systems: System[] = [];
 let frameStopped = false; // set by stopFrame(): the rest of this frame's systems are skipped
 let loopLast = 0; // time of the previous frame (ms)
 let loopDue = 0; // when the next frame is due, with LOOP.maxFps (ms)
-let clearedStill = false; // the screen was cleared once since LOOP.draw turned off
 let drawn = 0;
 export const framesDrawn = (): number => drawn;
 export function addSystem(s: SystemDef): System {
@@ -71,19 +71,8 @@ export function loopFrame(now: number) {
   const dt = Math.min(LOOP.maxDt, (now - loopLast) / 1000);
   loopLast = now;
   runSystems(dt);
-  renderer.info.reset(); // (render.ts: the counts add up over this frame's passes)
-  if (!LOOP.draw) {
-    // nothing on screen is the game's: clear what was drawn last, once, and leave the screen alone after that
-    if (!clearedStill) {
-      renderer.clear();
-      clearedStill = true;
-    }
-    return;
-  }
-  clearedStill = false;
-  drawn++;
-  renderer.render(scene, camera);
-  renderGun();
+  if (LOOP.draw) drawn++;
+  LOOP.render?.();
 }
 export function startLoop() {
   loopLast = performance.now();

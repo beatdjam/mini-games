@@ -1,5 +1,5 @@
+import type * as THREE from 'three';
 import { addSystem, type System } from './loop.ts';
-import { disposeTree } from '../render/render.ts';
 // engine: Objects with behaviour, in the spirit of Unity's MonoBehaviour.
 // - spawn(obj): obj joins the world; every frame the engine calls obj.update(dt), in the order they joined (objects
 //   spawned during the pass are updated in the same pass). Set obj.dead = true to remove it: after the pass it leaves
@@ -42,6 +42,19 @@ export function spawn<T extends WorldObject>(o: T): T & WorldObject {
 // T: the game's type of the objects with that tag (the tag says which type they are, so the list is taken as T[])
 export function query<T extends WorldObject = WorldObject>(tag: string): T[] {
   return groupOf(tag).list.filter(o => o.tag === tag && !o.dead) as T[];
+}
+// frees the GPU resources of an object and its children (skipping shared ones, and textures not owned by the material)
+export function disposeTree(obj: THREE.Object3D) {
+  obj.traverse(node => {
+    const o = node as THREE.Mesh;
+    if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
+    (Array.isArray(o.material) ? o.material : o.material ? [o.material] : []).forEach(m => {
+      if (m.userData.shared) return;
+      const map = (m as THREE.MeshBasicMaterial).map;
+      if (map && m.userData.ownMap) map.dispose();
+      m.dispose();
+    });
+  });
 }
 export function removeFromWorld(o: WorldObject) {
   if (o.onRemove) o.onRemove();
