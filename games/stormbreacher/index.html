@@ -9,6 +9,8 @@
 <link rel="icon" href="data:,">
 <style>
 :root{color-scheme:dark}
+/* the hidden attribute wins over a display set below (#sbApp is flex) */
+[hidden]{display:none!important}
 html,body{height:100%}
 body{
   margin:0;background:#000;color:#e8eef2;
@@ -30,6 +32,28 @@ body{
   font-size:clamp(11px,2vmin,15px);color:#cfe4ef;text-decoration:none;
   border-bottom:1px solid rgba(207,228,239,.5);text-shadow:0 1px 6px rgba(0,0,0,.7);
 }
+/* touch (SB-030): the engine's stick and view drag, the mech's buttons and the layout editor. #touch stays hidden
+   unless a dev view shows it. */
+#touch{position:fixed;inset:0;touch-action:none;z-index:3}
+#joyBase{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border:1px solid rgba(84,232,255,.45);border-radius:50%;background:rgba(84,232,255,.06);display:none;pointer-events:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(84,232,255,.35);border:1px solid #54e8ff}
+.tbtn{position:absolute;width:64px;height:64px;padding:0;border-radius:50%;border:1px solid rgba(213,228,238,.35);background:rgba(10,17,25,.55);color:#e8eef2;font:inherit;font-size:12px;display:grid;place-items:center;touch-action:none;line-height:1.2;text-align:center}
+.tbtn.down,.tbtn:active{background:rgba(84,232,255,.25);border-color:#54e8ff}
+.tbtn.on{border-color:#ffcf6a;color:#ffcf6a}
+/* applyLayout() puts the button's centre at left / top */
+.tbtn[data-lb]{transform:translate(-50%,-50%)}
+#btnFire{font-size:14px;border-color:rgba(255,120,120,.8);background:rgba(70,16,20,.6)}
+#btnFire2{font-size:12px;border-color:rgba(255,120,120,.6);background:rgba(55,16,20,.55)}
+#touch.editing{background:rgba(5,8,12,.5)}
+#touch.editing .tbtn[data-lb]{border-style:dashed;cursor:move}
+#touch.editing .tbtn.sel{border-color:#ffcf6a;box-shadow:0 0 0 2px #ffcf6a}
+#layoutBar{position:absolute;z-index:5;left:50%;top:calc(env(safe-area-inset-top,0px) + 52px);transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:8px 10px;background:rgba(10,17,25,.85);border:1px solid rgba(213,228,238,.25)}
+#layoutBar[hidden]{display:none}
+#layoutBar p{margin:0;width:100%;text-align:center;font-size:12px;color:#a9bfcc}
+#layoutBar b{color:#ffcf6a;font-weight:400}
+#layoutBar button{min-width:52px;height:34px;padding:0 10px;border-radius:4px;border:1px solid rgba(213,228,238,.35);background:rgba(10,17,25,.7);color:#e8eef2;font:inherit;font-size:12px;touch-action:none}
+#layoutBar button:active{background:rgba(84,232,255,.25)}
+#layoutBar button.amber{border-color:#ffcf6a;color:#ffcf6a}
 </style>
 </head>
 <body>
@@ -38,6 +62,21 @@ body{
   <div class="title" data-i18n="app.title">STORMBREACHER</div>
   <div class="status" data-i18n="app.status"></div>
   <a href="../../" data-i18n="app.back"></a>
+</div>
+<div id="touch" hidden>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <button id="btnFire" class="tbtn" data-lb="main" data-i18n="btn.main"></button>
+  <button id="btnFire2" class="tbtn" data-lb="sub" data-i18n="btn.sub"></button>
+  <button id="btnJump" class="tbtn" data-lb="jump" data-i18n="btn.jump"></button>
+  <button id="btnBoost" class="tbtn" data-lb="boost" data-i18n="btn.boost"></button>
+  <button id="btnLock" class="tbtn" data-lb="lock" data-i18n="btn.lock"></button>
+  <div id="layoutBar" hidden>
+    <p><span data-i18n="layout.help"></span><b id="lbName"></b></p>
+    <button type="button" data-lbact="minus" data-i18n="layout.minus"></button>
+    <button type="button" data-lbact="plus" data-i18n="layout.plus"></button>
+    <button type="button" data-lbact="reset" data-i18n="layout.reset"></button>
+    <button type="button" class="amber" data-lbact="done" data-i18n="layout.done"></button>
+  </div>
 </div>
 <script type="module" src="./src/main.ts"></script>
 </body>
