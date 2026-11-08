@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { isTouch } from '../core/util.ts';
 import { LOOP } from '../core/loop.ts';
 // engine: three.js setup: renderer on canvas#gl, scene, camera, resize, shared materials, disposal, text sprites, and the in-hand viewmodel pass
-// Nothing here touches the page as it loads: initRender(canvasEl) makes the renderer, scene and camera, and sets LOOP.render
+// Nothing here touches the page as it loads: initRender(canvasEl) makes the renderer on the page's canvas and sets LOOP.render
 const BG_COLOR = 0x061219; // fog and background
 const FOV_LANDSCAPE = 72; // vertical field of view (deg) on a wide window
 const FOV_PORTRAIT = 90; // ... on a tall window (width < height)
@@ -14,12 +14,19 @@ function addLights(target: THREE.Scene, sunPos: [number, number, number]): THREE
   target.add(light);
   return light;
 }
+// the scene, the camera and the groups touch no page: they are made as this loads, so a module may add to them as it
+// loads (render/fx.ts fills its pool of particles into dynGroup). Only the renderer needs the page's canvas
+export const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(BG_COLOR, 4, 44);
+scene.background = new THREE.Color(BG_COLOR);
+export const camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.05, 140);
+camera.rotation.order = 'YXZ';
+scene.add(camera);
+export const sun = addLights(scene, [3, 10, 2]);
+export const dynGroup = new THREE.Group();
+scene.add(dynGroup);
 export let canvas: HTMLCanvasElement;
 export let renderer: THREE.WebGLRenderer;
-export let scene: THREE.Scene;
-export let camera: THREE.PerspectiveCamera;
-export let sun: THREE.DirectionalLight;
-export let dynGroup: THREE.Group;
 let renderReady = false; // initRender has run (a second call does nothing)
 let clearedStill = false; // the screen was cleared once since LOOP.draw turned off
 export function initRender(canvasEl: HTMLCanvasElement) {
@@ -30,15 +37,6 @@ export function initRender(canvasEl: HTMLCanvasElement) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
   // the draw counts (drawStats) add up over a frame's passes (the scene, then the gun): LOOP.render clears them per frame
   renderer.info.autoReset = false;
-  scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(BG_COLOR, 4, 44);
-  scene.background = new THREE.Color(BG_COLOR);
-  camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.05, 140);
-  camera.rotation.order = 'YXZ';
-  scene.add(camera);
-  sun = addLights(scene, [3, 10, 2]);
-  dynGroup = new THREE.Group();
-  scene.add(dynGroup);
   window.addEventListener('resize', resize);
   resize();
   // what the loop draws each frame: the scene, then the in-hand viewmodel pass (core/loop.ts calls it)
