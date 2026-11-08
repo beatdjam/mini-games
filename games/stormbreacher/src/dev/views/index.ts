@@ -2,6 +2,7 @@ import type { DevView } from './view.ts';
 import { placeCamera } from '../../view/field.ts';
 import { showScale } from './scale.ts';
 import { showCamera } from './camera.ts';
+import { showMove } from './move.ts';
 import { showOutdoor } from './outdoor.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -23,6 +24,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the third-person camera on the course',
     run: showCamera,
+  },
+  {
+    hash: '#view-move',
+    match: 'is',
+    name: 'walk, jump, boost and fire on flat ground',
+    run: showMove,
   },
   {
     hash: '#view-outdoor',

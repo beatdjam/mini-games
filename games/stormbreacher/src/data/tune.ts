@@ -28,3 +28,37 @@ export const CAMERA_TUNE = {
 };
 
 export type CameraTune = typeof CAMERA_TUNE;
+
+// The mech's movement on flat ground (SB-025). Speeds are m/s, accelerations m/s^2.
+export const MOVE_TUNE = {
+  walk: 7.4, // the walking speed (m/s)
+  accel: 40, // how fast walking speeds up (m/s^2)
+  decel: 50, // how fast the mech slows down with no input (m/s^2)
+  jump: 10.2, // the upward speed a jump starts with (m/s)
+  gravity: 25, // the downward pull in the air (m/s^2)
+  airControl: 0.4, // the share of the walking acceleration that works in the air (0-1)
+  boost: 19, // the boost's speed (m/s)
+  boostAccel: 80, // how fast the boost speeds up (m/s^2)
+  boostDrain: 0.5, // the gauge a second of boosting uses (gauge/s)
+  boostRegen: 0.35, // the gauge a second on the ground gives back (gauge/s)
+  boostLift: 0, // the upward acceleration while boosting in the air (m/s^2); 0 falls while moving forward
+  landStop: 0.12, // how long a landing stops the mech from walking (s)
+  turn: 2.6, // how fast the turn keys change the yaw (rad/s)
+  maxStep: 1 / 120, // the longest step a frame is split into (s)
+};
+
+export type MoveTune = typeof MOVE_TUNE;
+
+// The feel of moving and firing (SB-025): camera and screen effects. Angles are in degrees, but only the FOV uses them.
+export const FEEL_TUNE = {
+  boostFov: 10, // how much wider the field of view gets while boosting (deg)
+  fovRate: 8, // how fast the field of view reaches its target (1/s)
+  landShake: 0.35, // the landing's shake at a falling speed of 10 m/s (m)
+  fireShake: 0.06, // the shake a shot adds (m)
+  shakeDecay: 10, // how fast the shake dies away (1/s)
+  hitStop: 0.05, // how long a hit stops the mech (s)
+  dust: 1, // the multiplier on how much dust a burst makes; 0 makes none
+  fireRate: 8, // the shots a second while the fire key is held (shots/s)
+};
+
+export type FeelTune = typeof FEEL_TUNE;
