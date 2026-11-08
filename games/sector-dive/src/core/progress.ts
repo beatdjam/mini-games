@@ -1,5 +1,5 @@
 import type { SaveData, Snapshot, WeaponItem } from '../data/types.ts';
-import { clamp } from '@engine/core/util.ts';
+import { clamp } from '@engine/core/index.ts';
 import { STASH_MAX } from '../data/progress.ts';
 import { basicW, defaultSave, save } from './save.ts';
 import { pickDrop, sellValue } from './rules.ts';

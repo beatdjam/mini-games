@@ -1,8 +1,8 @@
 import type { Enemy, Medic, RegularEnemy } from '../data/types.ts';
-import { distXZ } from '@engine/core/util.ts';
-import { burst } from '@engine/render/fx.ts';
-import { hasLOS } from '@engine/world/tiles.ts';
-import { steerChase } from '@engine/world/steer.ts';
+import { distXZ } from '@engine/core/index.ts';
+import { burst } from '@engine/render/index.ts';
+import { hasLOS } from '@engine/world/index.ts';
+import { steerChase } from '@engine/world/index.ts';
 import { COLOR } from '../data/colors.ts';
 import { enemies, isShielded } from '../world/entities.ts';
 import { setLaser } from '../world/models.ts';

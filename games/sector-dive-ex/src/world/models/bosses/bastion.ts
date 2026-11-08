@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { basicMat } from '@engine/render/render.ts';
+import { basicMat } from '@engine/render/index.ts';
 import { V, at, boxGeo, cylGeo, machine, piston } from '../machine.ts';
 import { HALF, plateBallGeo, prismGeo, spokes, torusGeo, turned } from './shared.ts';
 // BASTION: a fortress round a reactor. A plinth of two eight-sided tiers on the ground, twin guns and radiator slats

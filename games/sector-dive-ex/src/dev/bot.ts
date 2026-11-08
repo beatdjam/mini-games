@@ -1,8 +1,8 @@
-import { addSystem } from '@engine/core/loop.ts';
-import { OPPOSITE_SIDE, SIDE_STEP, T, activeTileGrid, hasLOS, tileCenter, tileIndex } from '@engine/world/tiles.ts';
-import { camera } from '@engine/render/render.ts';
-import { joy, setFireHeld } from '@engine/ui/input.ts';
-import { query } from '@engine/core/world.ts';
+import { addSystem } from '@engine/core/index.ts';
+import { OPPOSITE_SIDE, SIDE_STEP, T, activeTileGrid, hasLOS, tileCenter, tileIndex } from '@engine/world/index.ts';
+import { camera } from '@engine/render/index.ts';
+import { joy, setFireHeld } from '@engine/ui/index.ts';
+import { query } from '@engine/core/index.ts';
 import type { Boss, BossKind, Enemy, Pickup, Wave, Weapon } from '../data/types.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';
@@ -23,7 +23,7 @@ import type { Portal } from '../world/portals.ts';
 import { level } from '../world/level.ts';
 import { state } from '../flow/state.ts';
 import { controlState, equipNearby, normalizeWeapons, setAutoPause, stowNearby, useKit } from '../ui/input.ts';
-import { distXZ, el, yawToward, wrapAngle, turnToward } from '@engine/core/util.ts';
+import { distXZ, el, yawToward, wrapAngle, turnToward } from '@engine/core/index.ts';
 // ================= a player that plays by itself (dev) =================
 // For looking at the balance without playing by hand: a bot that walks the building's route, fights what it sees and
 // takes the boss, through the same inputs a person uses (the stick, where the player looks, the fire button). It

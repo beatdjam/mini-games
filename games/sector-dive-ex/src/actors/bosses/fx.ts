@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { dynGroup, shared } from '@engine/render/render.ts';
-import { spawn } from '@engine/core/world.ts';
-import type { WorldObject } from '@engine/core/world.ts';
-import { floorY } from '@engine/world/tiles.ts';
-import { burst } from '@engine/render/fx.ts';
-import { rand } from '@engine/core/util.ts';
+import { dynGroup, shared } from '@engine/render/index.ts';
+import { spawn } from '@engine/core/index.ts';
+import type { WorldObject } from '@engine/core/index.ts';
+import { floorY } from '@engine/world/index.ts';
+import { burst } from '@engine/render/index.ts';
+import { rand } from '@engine/core/index.ts';
 import { PAINT } from '../../data/colors.ts';
 // what a boss's attacks draw on the screen: the warning ring on the floor, a beam between two points and the wreck of
 // something that falls. They are the boss's own show, so they stay in the game (not the engine).

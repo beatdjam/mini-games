@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { basicMat, shared } from '@engine/render/render.ts';
+import { basicMat, shared } from '@engine/render/index.ts';
 import { PAINT, css } from '../../../../data/colors.ts';
 import { HOIST_CAUTION, HOIST_RATING, HOIST_UNIT } from '../../../../i18n/signs.ts';
 import { SIGN_FONT, TEX, grain, grime, paint, smudge, stripes, words } from '../../../looks/paint.ts';

@@ -1,10 +1,10 @@
 import type * as THREE from 'three';
 import type { EBullet, Enemy, PBullet } from '../data/types.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { basicMat } from '@engine/render/render.ts';
-import { burst } from '@engine/render/fx.ts';
-import { floorY } from '@engine/world/tiles.ts';
-import { projHitsTerrain, steerToward, stepProjectile } from '@engine/world/projectiles.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { basicMat } from '@engine/render/index.ts';
+import { burst } from '@engine/render/index.ts';
+import { floorY } from '@engine/world/index.ts';
+import { projHitsTerrain, steerToward, stepProjectile } from '@engine/world/index.ts';
 import { WALL_H } from '../data/level.ts';
 import { eBullets, enemies, isShielded, pBullets } from '../world/entities.ts';
 import { poseEBullet } from '../world/models/ebulletLooks.ts';

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { mergeParts } from '@engine/render/merge.ts';
-import { basicMat, shared } from '@engine/render/render.ts';
+import { mergeParts } from '@engine/render/index.ts';
+import { basicMat, shared } from '@engine/render/index.ts';
 import { PAINT } from '../../../data/colors.ts';
 import { TEX, grain, grime, paint, smudge, stripes } from '../../looks/paint.ts';
 import type { Paint } from '../../looks/paint.ts';

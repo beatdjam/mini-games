@@ -3,9 +3,9 @@
 // in the type; the definitions get an empty value for them first (withLang in src/data/langslots.ts), so they are never undefined.
 // Objects that gain fields while the game runs (enemies, bosses, bullets) list every field: the ones every object has
 // are required, the ones only some kinds use (a sniper's laser, a boss's pattern state) are optional.
-import type { WorldObject } from '@engine/core/world.ts';
-import type { Projectile } from '@engine/world/projectiles.ts';
-import type { ButtonPlace } from '@engine/ui/touchlayout.ts';
+import type { WorldObject } from '@engine/core/index.ts';
+import type { Projectile } from '@engine/world/index.ts';
+import type { ButtonPlace } from '@engine/ui/index.ts';
 import type * as THREE from 'three';
 
 // The save a dive belongs to: ARCADE and ENDLESS keep their progress and suspended dive apart (core/save.ts)

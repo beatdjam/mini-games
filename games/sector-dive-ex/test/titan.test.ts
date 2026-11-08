@@ -2,7 +2,7 @@
 // (bootGame) and fights it in boss practice. Each test makes the state it needs.
 import { beforeAll, afterEach, expect, test } from 'vitest';
 import type { Boss } from '../src/data/types.ts';
-import { el } from '@engine/core/util.ts';
+import { el } from '@engine/core/index.ts';
 import { BOSS_META, BOSS_TUNE } from '../src/data/bosses.ts';
 import { BOSS_AREA_START_TIER } from '../src/data/progress.ts';
 import { devBossArea } from '../src/core/bossArea.ts';

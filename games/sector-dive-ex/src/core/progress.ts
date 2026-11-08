@@ -8,7 +8,7 @@ import type {
   Snapshot,
   WeaponItem,
 } from '../data/types.ts';
-import { clamp } from '@engine/core/util.ts';
+import { clamp } from '@engine/core/index.ts';
 import { LOOP_TUNE, STASH_MAX, milestoneBelow, restrictionOf } from '../data/progress.ts';
 import { WEAPON_ORDER } from '../data/weapons.ts';
 import { BOSS_ROOM_ORDER } from '../data/bossRooms.ts';

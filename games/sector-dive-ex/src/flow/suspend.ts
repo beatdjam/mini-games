@@ -1,9 +1,9 @@
 import type { ContinueFrom, RunState, Snapshot } from '../data/types.ts';
-import { el } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { toast } from '@engine/ui/ui.ts';
-import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
-import { track } from '@engine/core/analytics.ts';
+import { el } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { toast } from '@engine/ui/index.ts';
+import { exitLock, releaseInputs, requestLock } from '@engine/ui/index.ts';
+import { track } from '@engine/core/index.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { PER } from '../data/progress.ts';
 import { basicW, isArcade, persist, save } from '../core/save.ts';
@@ -12,7 +12,7 @@ import { perkIdOf } from '../core/rules.ts';
 import { player, newPlayer, run, setPlayer, setRun } from '../actors/player.ts';
 import { building, packSeen } from '../world/building.ts';
 import { areaPlaceName, stageInfo, stageLabel } from '../core/stages.ts';
-import { onDataClick } from '@engine/ui/dom.ts';
+import { onDataClick } from '@engine/ui/index.ts';
 import { beginDive, endRun, enterDive, goBase } from './run.ts';
 import { RUN_KINDS } from './runKind.ts';
 

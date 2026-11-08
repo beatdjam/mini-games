@@ -2,10 +2,10 @@
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
 import type { Pickup } from '../src/data/types.ts';
-import { TRACK_LOG } from '@engine/core/analytics.ts';
-import { query } from '@engine/core/world.ts';
-import { T, W, activeTileGrid, floorY, grid, tileCenter, tileIndex, walkable } from '@engine/world/tiles.ts';
-import { joy, setFireHeld } from '@engine/ui/input.ts';
+import { TRACK_LOG } from '@engine/core/index.ts';
+import { query } from '@engine/core/index.ts';
+import { T, W, activeTileGrid, floorY, grid, tileCenter, tileIndex, walkable } from '@engine/world/index.ts';
+import { joy, setFireHeld } from '@engine/ui/index.ts';
 import { HALL_H, WALL_H } from '../src/data/level.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { DEPTH_SCALE, isMilestone, PER, TUNE } from '../src/data/progress.ts';
@@ -30,11 +30,11 @@ import { controlState } from '../src/ui/input.ts';
 import { goBase, nextStage, startRun, crossToFloor } from '../src/flow/run.ts';
 import { FLOOR_H, building } from '../src/world/building.ts';
 import { ridingY, supplyChips } from '../src/flow/events.ts';
-import { isDoorLocked } from '@engine/world/doors.ts';
+import { isDoorLocked } from '@engine/world/index.ts';
 import { updateDoorMeshes } from '../src/world/doors.ts';
 import { screenFx } from '../src/ui/hud.ts';
 import { update } from '../src/flow/update.ts';
-import { runSystems } from '@engine/core/loop.ts';
+import { runSystems } from '@engine/core/index.ts';
 import { stateIs, tick, bootGame, goToFloor, putOnTile, enterBuilding } from './helpers.ts';
 
 beforeAll(bootGame);

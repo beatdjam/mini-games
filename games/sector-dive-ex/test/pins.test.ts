@@ -5,7 +5,7 @@
 // differ between machines), so a texture counts only by its size.
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import * as THREE from 'three';
-import { scene } from '@engine/render/render.ts';
+import { scene } from '@engine/render/index.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { BOSS_ORDER } from '../src/data/bosses.ts';
 import { ENEMY } from '../src/data/enemies.ts';

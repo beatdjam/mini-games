@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import type { MortarShell, RegularEnemy } from '../data/types.ts';
-import { distXZ } from '@engine/core/util.ts';
-import { spawn } from '@engine/core/world.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { basicMat, dynGroup, shared } from '@engine/render/render.ts';
-import { burst, fireball } from '@engine/render/fx.ts';
-import { floorY } from '@engine/world/tiles.ts';
+import { distXZ } from '@engine/core/index.ts';
+import { spawn } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { basicMat, dynGroup, shared } from '@engine/render/index.ts';
+import { burst, fireball } from '@engine/render/index.ts';
+import { floorY } from '@engine/world/index.ts';
 import { WALL_H } from '../data/level.ts';
 import { COLOR } from '../data/colors.ts';
 import { geoCache } from '../world/render.ts';

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { DOOR_PASS, T, activeTileGrid, tileCenter } from '@engine/world/tiles.ts';
-import { isDoorLocked, updateDoors } from '@engine/world/doors.ts';
-import type { DoorMover } from '@engine/world/doors.ts';
-import { textSprite } from '@engine/render/render.ts';
-import { t } from '@engine/core/i18n.ts';
+import { DOOR_PASS, T, activeTileGrid, tileCenter } from '@engine/world/index.ts';
+import { isDoorLocked, updateDoors } from '@engine/world/index.ts';
+import type { DoorMover } from '@engine/world/index.ts';
+import { textSprite } from '@engine/render/index.ts';
+import { t } from '@engine/core/index.ts';
 import { WALL_H } from '../data/level.ts';
 import { COLOR } from '../data/colors.ts';
 import type { Biome } from '../data/types.ts';

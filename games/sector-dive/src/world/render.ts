@@ -1,6 +1,6 @@
 import type { Biome } from '../data/types.ts';
 import * as THREE from 'three';
-import { renderer, shared } from '@engine/render/render.ts';
+import { renderer, shared } from '@engine/render/index.ts';
 const rocketGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.7, 8);
 rocketGeo.rotateX(Math.PI / 2);
 // shared shapes by name (enemy defs pick theirs with `geo`)

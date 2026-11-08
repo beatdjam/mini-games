@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { basicMat } from '@engine/render/render.ts';
+import { basicMat } from '@engine/render/index.ts';
 import { COLOR } from '../../../data/colors.ts';
 import { at, ballGeo, boxGeo, cylGeo, machine } from '../machine.ts';
-import { shared } from '@engine/render/render.ts';
+import { shared } from '@engine/render/index.ts';
 import { HALF, plateBallGeo, prismGeo, turned } from './shared.ts';
 // TITAN: nobody knows what it was built for, or if it was. It stands on two legs as a person does, and everything else
 // about that is wrong. The limbs are too thin and too long, the hands hang to the floor, the ribs have nothing inside

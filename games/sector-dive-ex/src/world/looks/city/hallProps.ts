@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP } from '@engine/world/tiles.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { SIDE_STEP } from '@engine/world/index.ts';
 import { PAINT, css } from '../../../data/colors.ts';
 import { CITY_HALL_RECEPTION } from '../../../i18n/signs.ts';
 import type { FloorPlan } from '../../building.ts';

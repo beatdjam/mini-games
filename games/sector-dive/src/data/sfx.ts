@@ -1,5 +1,5 @@
-import { rand } from '@engine/core/util.ts';
-import { SFX, audioNow, gunshot, noiseBurst, sweepTone, tone } from '@engine/audio/audio.ts';
+import { rand } from '@engine/core/index.ts';
+import { SFX, audioNow, gunshot, noiseBurst, sweepTone, tone } from '@engine/audio/index.ts';
 // Sound effect recipes, added to the engine's SFX table (the synth is engine/src/audio/audio.ts)
 Object.assign(SFX, {
   // pistol: snappy — bright short body, light thump, short bright tail

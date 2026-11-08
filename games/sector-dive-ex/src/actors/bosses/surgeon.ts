@@ -11,12 +11,12 @@ import type { SurgeonArmKind, SurgeonArmLook, SurgeonBodyLook } from '../../worl
 import { plainLooks } from '../../world/looks.ts';
 import type { Boss, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
-import { clamp, distXZ, rand, turnToward, wrapAngle } from '@engine/core/util.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { disposeTree, dynGroup, shared } from '@engine/render/render.ts';
-import { burst, fireball } from '@engine/render/fx.ts';
-import { spawn } from '@engine/core/world.ts';
-import { floorY } from '@engine/world/tiles.ts';
+import { clamp, distXZ, rand, turnToward, wrapAngle } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { disposeTree, dynGroup, shared } from '@engine/render/index.ts';
+import { burst, fireball } from '@engine/render/index.ts';
+import { spawn } from '@engine/core/index.ts';
+import { floorY } from '@engine/world/index.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { HALL_H } from '../../data/level.ts';
 import { COLOR, PAINT } from '../../data/colors.ts';

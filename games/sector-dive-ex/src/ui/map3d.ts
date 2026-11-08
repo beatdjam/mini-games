@@ -2,14 +2,14 @@
 // posts between them, the courtyard and the boss room as boxes, the player as an arrow. It is the second page of the
 // big map (hud.ts toggleMap: closed, 2D, 3D, closed). The drawing and the dragging are the engine's
 // (engine/src/ui/floormap3d.ts); this file says what to show.
-import { el, isTouch } from '@engine/core/util.ts';
-import { actionDown } from '@engine/ui/keymap.ts';
-import { T, tileCenter } from '@engine/world/tiles.ts';
-import { tileWorldOf } from '@engine/world/dungeon.ts';
-import { createFloors } from '@engine/world/floors.ts';
-import type { Floors } from '@engine/world/floors.ts';
-import { createFloorMap3D } from '@engine/ui/floormap3d.ts';
-import type { FloorMap3D, FloorMapMarker, FloorMapVolume } from '@engine/ui/floormap3d.ts';
+import { el, isTouch } from '@engine/core/index.ts';
+import { actionDown } from '@engine/ui/index.ts';
+import { T, tileCenter } from '@engine/world/index.ts';
+import { tileWorldOf } from '@engine/world/index.ts';
+import { createFloors } from '@engine/world/index.ts';
+import type { Floors } from '@engine/world/index.ts';
+import { createFloorMap3D } from '@engine/ui/index.ts';
+import type { FloorMap3D, FloorMapMarker, FloorMapVolume } from '@engine/ui/index.ts';
 import { building } from '../world/building.ts';
 import type { Building } from '../world/building.ts';
 import { level } from '../world/level.ts';

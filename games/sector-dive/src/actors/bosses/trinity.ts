@@ -1,11 +1,11 @@
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
-import { distXZ, randi } from '@engine/core/util.ts';
-import { ringAngles } from '@engine/world/projectiles.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { dynGroup } from '@engine/render/render.ts';
-import { toast } from '@engine/ui/ui.ts';
+import { distXZ, randi } from '@engine/core/index.ts';
+import { ringAngles } from '@engine/world/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { dynGroup } from '@engine/render/index.ts';
+import { toast } from '@engine/ui/index.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { fanAt, ring } from '../../world/entities.ts';
 import { player } from '../player.ts';

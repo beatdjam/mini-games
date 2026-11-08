@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { basicMat, dynGroup, shared } from '@engine/render/render.ts';
-import { floorY } from '@engine/world/tiles.ts';
+import { basicMat, dynGroup, shared } from '@engine/render/index.ts';
+import { floorY } from '@engine/world/index.ts';
 import { at, ballGeo, boxGeo, cylGeo, groundPool, machine } from './machine.ts';
 import { plainLooks } from '../looks.ts';
 import { geoCache } from '../render.ts';

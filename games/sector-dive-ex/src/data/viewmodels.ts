@@ -1,4 +1,4 @@
-import type { ViewmodelDef } from '@engine/render/render.ts';
+import type { ViewmodelDef } from '@engine/render/index.ts';
 // The gun in hand for each weapon, built from boxes and cylinders by buildViewmodel (engine/src/render/render.ts).
 // Sizes and positions are in metres in camera space (-z is forward). part: [shape, ...size, material, x, y, z]
 //   'box' size = w, h, d / 'cyl' size = r, len (along the barrel)

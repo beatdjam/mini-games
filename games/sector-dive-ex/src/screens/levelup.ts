@@ -1,7 +1,7 @@
-import { el } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { exitLock, releaseInputs, requestLock } from '@engine/ui/input.ts';
+import { el } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { exitLock, releaseInputs, requestLock } from '@engine/ui/index.ts';
 import { UPGRADES } from '../data/progress.ts';
 import { isArcade, modeTune, persist, save } from '../core/save.ts';
 import { addLevelPoint, usingRestriction } from '../core/progress.ts';

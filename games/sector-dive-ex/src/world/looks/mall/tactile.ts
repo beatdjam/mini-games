@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { T } from '@engine/world/tiles.ts';
+import { T } from '@engine/world/index.ts';
 import type { FloorPlan } from '../../building.ts';
 import { wallLinks } from '../common.ts';
 import { pose } from '../props.ts';

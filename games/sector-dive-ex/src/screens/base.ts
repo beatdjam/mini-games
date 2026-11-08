@@ -1,8 +1,8 @@
 import type { BossKind, EndlessRecord, WeaponItem } from '../data/types.ts';
-import { el, isTouch, pct } from '@engine/core/util.ts';
-import { prefGet, prefSet } from '@engine/core/store.ts';
-import { t } from '@engine/core/i18n.ts';
-import { audioInit, sfx } from '@engine/audio/audio.ts';
+import { el, isTouch, pct } from '@engine/core/index.ts';
+import { prefGet, prefSet } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { audioInit, sfx } from '@engine/audio/index.ts';
 import { RARITY, WEAPONS, WEAPON_ORDER } from '../data/weapons.ts';
 import { BOSS_META, BOSS_ORDER } from '../data/bosses.ts';
 import { LOOP_TUNE, RESTRICTIONS, STASH_MAX, TUNE, UPGRADES, isMilestone } from '../data/progress.ts';
@@ -36,11 +36,11 @@ import {
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
-import { renderSettings } from '@engine/ui/settings.ts';
+import { renderSettings } from '@engine/ui/index.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
 import { startPractice, startRun } from '../flow/run.ts';
 import { renderSuspend } from '../flow/suspend.ts';
-import { onDataClick, type DataClick } from '@engine/ui/dom.ts';
+import { onDataClick, type DataClick } from '@engine/ui/index.ts';
 import { renderModeTag } from './mode.ts';
 import { bonusText, openChallengeDialog, restrictionName } from './challenge.ts';
 

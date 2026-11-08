@@ -1,6 +1,6 @@
-import { showFps } from '@engine/core/dev.ts';
-import { drawStats } from '@engine/render/render.ts';
-import { LANG, lang } from '@engine/core/i18n.ts';
+import { showFps } from '@engine/core/index.ts';
+import { drawStats } from '@engine/render/index.ts';
+import { LANG, lang } from '@engine/core/index.ts';
 import { BIOMES } from '../data/biomes.ts';
 import { save } from '../core/save.ts';
 import { devSeed } from '../world/level.ts';

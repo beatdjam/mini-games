@@ -1,13 +1,13 @@
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { blocked } from '@engine/world/tiles.ts';
-import { toast } from '@engine/ui/ui.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { blocked } from '@engine/world/index.ts';
+import { toast } from '@engine/ui/index.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { level, randomTileIn } from '../../world/level.ts';
 import { fanAt, ring, shootAngle } from '../../world/entities.ts';
-import { ringAngles } from '@engine/world/projectiles.ts';
+import { ringAngles } from '@engine/world/index.ts';
 import { player } from '../player.ts';
 import {
   FIRST_SHOT_DELAY,

@@ -1,10 +1,10 @@
 // The minimap and the big map (M key): what to show and in which colours. The drawing is engine/src/ui/minimap.ts.
 import type { Pickup } from '../data/types.ts';
-import { query } from '@engine/core/world.ts';
-import { t } from '@engine/core/i18n.ts';
-import { W, cover, grid, hgt, ramp, tileCenter, tileIndex } from '@engine/world/tiles.ts';
-import { drawTileMap } from '@engine/ui/minimap.ts';
-import type { MapMarker, TileStyle } from '@engine/ui/minimap.ts';
+import { query } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { W, cover, grid, hgt, ramp, tileCenter, tileIndex } from '@engine/world/index.ts';
+import { drawTileMap } from '@engine/ui/index.ts';
+import type { MapMarker, TileStyle } from '@engine/ui/index.ts';
 import { level } from '../world/level.ts';
 import { building } from '../world/building.ts';
 import { enemies } from '../world/entities.ts';

@@ -1,6 +1,6 @@
 import type { GameState } from '../data/types.ts';
-import { el } from '@engine/core/util.ts';
-import { gun } from '@engine/render/render.ts';
+import { el } from '@engine/core/index.ts';
+import { gun } from '@engine/render/index.ts';
 import { bigmap } from '../ui/hud.ts';
 // ================= which screen is up =================
 // the screen that is up; replaced only through setState

@@ -1,11 +1,11 @@
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
-import { clamp } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { burst } from '@engine/render/fx.ts';
-import { moveCircle } from '@engine/world/tiles.ts';
-import { toast } from '@engine/ui/ui.ts';
+import { clamp } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { burst } from '@engine/render/index.ts';
+import { moveCircle } from '@engine/world/index.ts';
+import { toast } from '@engine/ui/index.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { shootHoming, spawnWave } from '../../world/entities.ts';
 import { player } from '../player.ts';

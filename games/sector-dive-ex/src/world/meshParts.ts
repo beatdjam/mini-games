@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import { UP } from '@engine/render/render.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { UP } from '@engine/render/index.ts';
 import {
   addCeiling as addPlainCeiling,
   addDecks as addPlainDecks,
@@ -8,9 +8,9 @@ import {
   addRamps as addPlainRamps,
   addSunkSides as addPlainSunkSides,
   addWalls as addPlainWalls,
-} from '@engine/render/tilemesh.ts';
-import type { TileMaps } from '@engine/world/dungeon.ts';
-import { SIDE_STEP, T, isSolid } from '@engine/world/tiles.ts';
+} from '@engine/render/index.ts';
+import type { TileMaps } from '@engine/world/index.ts';
+import { SIDE_STEP, T, isSolid } from '@engine/world/index.ts';
 import { COVER_H, WALL_H } from '../data/level.ts';
 import type { Biome } from '../data/types.ts';
 import { COLOR } from '../data/colors.ts';
@@ -18,7 +18,7 @@ import type { BiomeTextures } from './render.ts';
 // The pieces a level's meshes are made of (world/levelMesh.ts puts them together): the floor, the walls, the raised
 // decks and ramps, the ceiling (engine/src/render/tilemesh.ts, given this game's pictures and heights), and the neon
 // signs. They read the tile world being built
-export { addTilePlanes, touchesFloor, wallTiles } from '@engine/render/tilemesh.ts';
+export { addTilePlanes, touchesFloor, wallTiles } from '@engine/render/index.ts';
 const NEON_COUNT = 90; // neon signs per level
 // a ramp's sides are cut into this many slices, so they take a deck's side picture the way a deck does (where a ramp
 // meets the deck it climbs to, the two sides are the same): engine wedgeGeo

@@ -22,7 +22,7 @@ scene.background = new THREE.Color(BG_COLOR);
 export const camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.05, 140);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
-export const sun = addLights(scene, [3, 10, 2]);
+addLights(scene, [3, 10, 2]);
 export const dynGroup = new THREE.Group();
 scene.add(dynGroup);
 export let canvas: HTMLCanvasElement;
@@ -72,8 +72,8 @@ export function shared<T extends { userData: Record<string, any> }>(x: T): T {
   x.userData.shared = true;
   return x;
 }
-export const bmats: Record<number, THREE.MeshBasicMaterial> = {};
-export const lmats: Record<number, THREE.LineBasicMaterial> = {};
+const bmats: Record<number, THREE.MeshBasicMaterial> = {};
+const lmats: Record<number, THREE.LineBasicMaterial> = {};
 export function basicMat(c: number): THREE.MeshBasicMaterial {
   return bmats[c] || (bmats[c] = shared(new THREE.MeshBasicMaterial({ color: c })));
 }

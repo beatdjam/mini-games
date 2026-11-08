@@ -2,9 +2,9 @@
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
 import type { Snapshot } from '../src/data/types.ts';
-import { el } from '@engine/core/util.ts';
-import { tileIndex } from '@engine/world/tiles.ts';
-import { encodeStore } from '@engine/core/store.ts';
+import { el } from '@engine/core/index.ts';
+import { tileIndex } from '@engine/world/index.ts';
+import { encodeStore } from '@engine/core/index.ts';
 import { ENEMY_TUNE } from '../src/data/enemies.ts';
 import { WEAPONS } from '../src/data/weapons.ts';
 import {

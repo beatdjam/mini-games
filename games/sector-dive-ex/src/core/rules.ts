@@ -1,6 +1,6 @@
 import type { BossKind, RestrictionId, RunEnd, WeaponItem } from '../data/types.ts';
 import { BOSS_ORDER } from '../data/bosses.ts';
-import { LANG, t } from '@engine/core/i18n.ts';
+import { LANG, t } from '@engine/core/index.ts';
 import {
   CRIT_OPT_PER_LEVEL,
   DROP_POOL,

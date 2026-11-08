@@ -1,6 +1,6 @@
 import type { Weapon, WeaponDef, WeaponItem } from '../data/types.ts';
-import { randi, shuffle } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
+import { randi, shuffle } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
 import {
   AFFIX,
   CRIT_OPT_PER_LEVEL,

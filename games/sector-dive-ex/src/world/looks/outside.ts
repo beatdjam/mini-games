@@ -1,6 +1,6 @@
-import type { OutsideBlock, OutsideCard } from '@engine/render/windows.ts';
-import type { Rng } from '@engine/core/util.ts';
-import { SIDE_STEP, T } from '@engine/world/tiles.ts';
+import type { OutsideBlock, OutsideCard } from '@engine/render/index.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { SIDE_STEP, T } from '@engine/world/index.ts';
 // The buildings across the street from the windows one sees out of (Look.outside.blocks). They stand round the
 // building, wherever its outside wall is (the floors' outline can lie well inside the map, and not square): every
 // tile is measured by how far it is from the building (from the nearest tile that is floor, or open, on any floor),

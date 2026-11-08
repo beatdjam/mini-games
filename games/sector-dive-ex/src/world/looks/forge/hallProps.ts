@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type { Rng } from '@engine/core/util.ts';
-import { T } from '@engine/world/tiles.ts';
+import type { Rng } from '@engine/core/index.ts';
+import { T } from '@engine/world/index.ts';
 import { PAINT, css } from '../../../data/colors.ts';
 import { HALL_H } from '../../../data/level.ts';
 import type { FloorPlan } from '../../building.ts';

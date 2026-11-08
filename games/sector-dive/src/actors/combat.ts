@@ -1,10 +1,10 @@
 import type { Enemy, RegularEnemy } from '../data/types.ts';
-import { clamp, distXZ, rand } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { burst, fireball } from '@engine/render/fx.ts';
-import { moveCircle } from '@engine/world/tiles.ts';
-import { toast } from '@engine/ui/ui.ts';
+import { clamp, distXZ, rand } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { burst, fireball } from '@engine/render/index.ts';
+import { moveCircle } from '@engine/world/index.ts';
+import { toast } from '@engine/ui/index.ts';
 import { ENEMY_TUNE } from '../data/enemies.ts';
 import { LEECH_OPT_HP } from '../data/weapons.ts';
 import { TUNE, enemyGrowth } from '../data/progress.ts';

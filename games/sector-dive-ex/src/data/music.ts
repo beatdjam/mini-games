@@ -1,4 +1,4 @@
-import { LAYER_MIX, MUSIC, MUSIC_STYLES } from '@engine/audio/music.ts';
+import { LAYER_MIX, MUSIC, MUSIC_STYLES } from '@engine/audio/index.ts';
 // Music: per-sector styles and the layer mix (the player is engine/src/audio/music.ts, which also holds SCALES)
 // patterns are 16 steps (16th notes, one bar). arp: chord tone index (0-2, +3 = octave up), -1 rest.
 // bass: 1 root, 2 fifth, 3 octave, 0 rest. kick / snare / hat / clank: 1 hit, 0 rest.

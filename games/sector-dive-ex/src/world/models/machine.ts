@@ -1,10 +1,10 @@
 import { PAINT } from '../../data/colors.ts';
 import * as THREE from 'three';
-import { shared } from '@engine/render/render.ts';
-import { cylGeo } from '@engine/render/parts.ts';
+import { shared } from '@engine/render/index.ts';
+import { cylGeo } from '@engine/render/index.ts';
 import { TEX, grain, paint, poolTex } from '../looks/paint.ts';
 import type { Paint } from '../looks/paint.ts';
-export { at, ballGeo, boxGeo, cylGeo } from '@engine/render/parts.ts';
+export { at, ballGeo, boxGeo, cylGeo } from '@engine/render/index.ts';
 // What a machine built to be believed is made with, for the bosses (world/models/bosses/) and the enemies
 // (world/models/enemyLooks.ts): hull plate with panel lines, a vent and a stencilled mark on it, steel that takes the light,
 // and parts a machine would need (a hydraulic ram between two points). A model made with these should show what the

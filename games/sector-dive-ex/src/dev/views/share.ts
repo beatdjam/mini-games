@@ -1,4 +1,4 @@
-import { el, shuffle } from '@engine/core/util.ts';
+import { el, shuffle } from '@engine/core/index.ts';
 import type { RunEnd, Weapon } from '../../data/types.ts';
 import { PER } from '../../data/progress.ts';
 import { player, run } from '../../actors/player.ts';

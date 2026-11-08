@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { distXZ } from '@engine/core/util.ts';
-import { textSprite } from '@engine/render/render.ts';
-import { floorY } from '@engine/world/tiles.ts';
+import { distXZ } from '@engine/core/index.ts';
+import { textSprite } from '@engine/render/index.ts';
+import { floorY } from '@engine/world/index.ts';
 import { PORTAL } from '../data/level.ts';
 import type { PortalKind } from '../data/types.ts';
 import { player } from '../actors/player.ts';

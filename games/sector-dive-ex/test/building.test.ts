@@ -4,8 +4,8 @@ import { beforeAll, expect, test } from 'vitest';
 import { Group, Matrix4, Vector3 } from 'three';
 import type { InstancedMesh } from 'three';
 import type { Enemy, Pickup, Snapshot } from '../src/data/types.ts';
-import { createRng, el } from '@engine/core/util.ts';
-import { query } from '@engine/core/world.ts';
+import { createRng, el } from '@engine/core/index.ts';
+import { query } from '@engine/core/index.ts';
 import {
   T,
   W,
@@ -18,7 +18,7 @@ import {
   moveCircle,
   tileCenter,
   tileIndex,
-} from '@engine/world/tiles.ts';
+} from '@engine/world/index.ts';
 import { COVER_H } from '../src/data/level.ts';
 import { BOSS_META } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';

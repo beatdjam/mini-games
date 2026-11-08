@@ -1,5 +1,5 @@
-import { COVER_H } from '@engine/world/tiles.ts';
-import { createRng } from '@engine/core/util.ts';
+import { COVER_H } from '@engine/world/index.ts';
+import { createRng } from '@engine/core/index.ts';
 import type { FloorPlan } from '../../building.ts';
 import { wallLinks } from '../common.ts';
 import { foodCourtRoom } from './rooms.ts';

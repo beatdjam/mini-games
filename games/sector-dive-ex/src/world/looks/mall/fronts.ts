@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SIDE_STEP } from '@engine/world/tiles.ts';
+import { SIDE_STEP } from '@engine/world/index.ts';
 import { MALL_SHOP_NAMES } from '../../../i18n/signs.ts';
 import type { FloorPlan } from '../../building.ts';
 import { roomBeside, roomKindOf, wallFloor } from '../common.ts';

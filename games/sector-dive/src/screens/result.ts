@@ -1,6 +1,6 @@
 import type { RunEnd } from '../data/types.ts';
-import { el } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
+import { el } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { RUN_END, chipSummary, perkName } from '../core/rules.ts';
 import { run } from '../actors/player.ts';
@@ -8,7 +8,7 @@ import { stageInfo } from '../core/stages.ts';
 import { hideShare, prepShare } from '../ui/share.ts';
 import { prepFeedback } from '../ui/feedback.ts';
 import { setPlayUI, show } from '../flow/state.ts';
-import { rowsHTML } from '@engine/ui/dom.ts';
+import { rowsHTML } from '@engine/ui/index.ts';
 
 // the result screen comes up at once, or after the death moment
 const DEAD_DELAY = 700; // ms

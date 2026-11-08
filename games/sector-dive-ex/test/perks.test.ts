@@ -1,8 +1,8 @@
 // Smoke test for Sector Dive Extended, chips: scaling, supply picks and rarity. Boots the game page (setup.ts) once for this file (bootGame) and runs it through the real loop by hand.
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
-import { camera } from '@engine/render/render.ts';
-import { LOOP } from '@engine/core/loop.ts';
+import { camera } from '@engine/render/index.ts';
+import { LOOP } from '@engine/core/index.ts';
 import { ELITE_TYPES } from '../src/data/enemies.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { DEPTH_SCALE, TUNE } from '../src/data/progress.ts';

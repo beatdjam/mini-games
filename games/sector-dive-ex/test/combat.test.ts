@@ -1,9 +1,9 @@
 // Smoke test for Sector Dive Extended, damage and knockback: shields, rockets, chain blasts, splitters and hit directions. Boots the game page (setup.ts) once for this file (bootGame) and runs it through the real loop by hand.
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, expect, test } from 'vitest';
-import { clearWorld } from '@engine/core/world.ts';
-import { V3 } from '@engine/render/render.ts';
-import { H, T, W, activeTileGrid, cover, grid, hgt, ramp } from '@engine/world/tiles.ts';
+import { clearWorld } from '@engine/core/index.ts';
+import { V3 } from '@engine/render/index.ts';
+import { H, T, W, activeTileGrid, cover, grid, hgt, ramp } from '@engine/world/index.ts';
 import { PER } from '../src/data/progress.ts';
 import { level, roomSpot } from '../src/world/level.ts';
 import { enemies, isShielded, removeEnemyMesh, spawnEnemy, spawnPBullet } from '../src/world/entities.ts';

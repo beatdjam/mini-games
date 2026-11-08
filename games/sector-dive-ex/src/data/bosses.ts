@@ -8,7 +8,7 @@ import type { BastionTune } from '../actors/bosses/bastion.ts';
 import type { HoistTune } from '../actors/bosses/hoist.ts';
 import type { SurgeonTune } from '../actors/bosses/surgeon.ts';
 import type { TitanTune } from '../actors/bosses/titan.ts';
-import { withLang } from '@engine/core/langslots.ts';
+import { withLang } from '@engine/core/index.ts';
 // Bosses: names, order, tuning (each boss's behaviour is in src/actors/bosses/)
 // pillars: arena has pillars. hp: health at difficulty 1 (times bossDifficulty). y: body height. hitR: hit radius.
 // tune: the numbers each boss's attacks use (src/actors/bosses/<name>.ts). *Enr = the value once below half health (enraged).

@@ -1,6 +1,6 @@
 import type { EnemyDef, HumanoidRig } from '../../data/types.ts';
 import * as THREE from 'three';
-import { basicMat, lineMat, shared } from '@engine/render/render.ts';
+import { basicMat, lineMat, shared } from '@engine/render/index.ts';
 import { COLOR } from '../../data/colors.ts';
 import { edges, geoCache } from '../render.ts';
 import { TEX, grain, paint } from '../looks/paint.ts';

@@ -1,7 +1,7 @@
 // Shared by the Sector Dive Extended smoke tests: the loop stepper, the start-up and the building helpers
 import type { GameState } from '../src/data/types.ts';
-import { T, W, floorY } from '@engine/world/tiles.ts';
-import { setFireHeld } from '@engine/ui/input.ts';
+import { T, W, floorY } from '@engine/world/index.ts';
+import { setFireHeld } from '@engine/ui/index.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { player, run } from '../src/actors/player.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';

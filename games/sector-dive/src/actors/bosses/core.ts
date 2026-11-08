@@ -1,10 +1,10 @@
 import type { Boss } from '../../data/types.ts';
 import * as THREE from 'three';
-import { pick, rand, wrapAngle } from '@engine/core/util.ts';
-import { ringAngles } from '@engine/world/projectiles.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { toast } from '@engine/ui/ui.ts';
+import { pick, rand, wrapAngle } from '@engine/core/index.ts';
+import { ringAngles } from '@engine/world/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { toast } from '@engine/ui/index.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { level } from '../../world/level.ts';
 import { fanAt, ring, shootHoming } from '../../world/entities.ts';

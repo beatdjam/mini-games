@@ -1,6 +1,6 @@
 import { WEAPON_ORDER, WEAPONS } from '../data/weapons.ts';
 import { VIEWMODELS, VM_COLORS } from '../data/viewmodels.ts';
-import { buildViewmodel, gun } from '@engine/render/render.ts';
+import { buildViewmodel, gun } from '@engine/render/index.ts';
 import { gunLook, hasGunLook } from '../world/models/gunLooks.ts';
 
 // the gun in hand per weapon: its own look (world/models/gunLooks.ts), or the plain one from src/data/viewmodels.ts for a

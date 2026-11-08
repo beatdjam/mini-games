@@ -5,9 +5,9 @@ import {
   paintTex,
   smudge as engineSmudge,
   words as engineWords,
-} from '@engine/render/paint.ts';
-import type { Paint } from '@engine/render/paint.ts';
-import { T } from '@engine/world/tiles.ts';
+} from '@engine/render/index.ts';
+import type { Paint } from '@engine/render/index.ts';
+import { T } from '@engine/world/index.ts';
 import { WALL_H } from '../../data/level.ts';
 // The painters' tools for this game's pictures: the engine's (engine/src/render/paint.ts: a seeded painter, dirt,
 // grain, a soft patch, warning stripes, words ...) on pictures TEX a side, and the sizes of the pictures on a wall.
@@ -42,8 +42,8 @@ export const boardName = (g: CanvasRenderingContext2D, name: string, color: stri
   g.fillText(name, from + (NAME_BOARD_PX[0] - from) / 2, NAME_BOARD_PX[1] / 2 + 2, NAME_BOARD_PX[0] - from - 30);
 };
 
-export type { Paint } from '@engine/render/paint.ts';
-export { block, canvasTex, oval, poolTex, soil, stripes } from '@engine/render/paint.ts';
+export type { Paint } from '@engine/render/index.ts';
+export { block, canvasTex, oval, poolTex, soil, stripes } from '@engine/render/index.ts';
 // the engine's painter and strokes on this game's pictures, TEX a side (engine/src/render/paint.ts)
 export const paint = (seed: number, fn: Paint, repeat = false): THREE.CanvasTexture => paintTex(seed, fn, TEX, repeat);
 export const grime = (g: CanvasRenderingContext2D, rand: () => number, n: number, light: string, dark: string) =>

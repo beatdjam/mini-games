@@ -1,4 +1,4 @@
-import { createRng } from '@engine/core/util.ts';
+import { createRng } from '@engine/core/index.ts';
 import { BASE_BOARD, BASE_CHECK, BASE_SAFETY } from '../i18n/signs.ts';
 import { SIGN_FONT } from '../world/looks/paint.ts';
 // The base's backdrop (the new layout, ui/hud2.ts): the wall of the site office the workers set out from. A row of

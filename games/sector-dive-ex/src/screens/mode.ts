@@ -1,6 +1,6 @@
 import type { GameMode } from '../data/types.ts';
-import { el } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
+import { el } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
 import { ARCADE_OPEN, restrictionOf } from '../data/progress.ts';
 import { WEAPONS } from '../data/weapons.ts';
 import { ACTIVE_MODE, hasSuspendIn, isArcade, save, switchMode } from '../core/save.ts';

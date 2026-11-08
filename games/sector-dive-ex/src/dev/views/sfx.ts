@@ -1,4 +1,4 @@
-import { SFX, audioInit } from '@engine/audio/audio.ts';
+import { SFX, audioInit } from '@engine/audio/index.ts';
 import { SFX_NEW, SFX_OLD } from '../../data/sfx.ts';
 // dev view: #sfx lists every sound effect, the new set and the old (?sfx1) side by side, a button each, to listen to them
 export function showSfx() {

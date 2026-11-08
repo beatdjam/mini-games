@@ -10,4 +10,4 @@ export function seeded(seed: number): () => number {
   };
 }
 export const pick = <T>(rand: () => number, of: readonly T[]): T => of[Math.floor(rand() * of.length)]!;
-export { block, soil } from '@engine/render/paint.ts';
+export { block, soil } from '@engine/render/index.ts';

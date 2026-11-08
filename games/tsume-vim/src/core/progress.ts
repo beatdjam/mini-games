@@ -1,6 +1,6 @@
 // Best key count per solved puzzle and the endless best, kept through the engine store. Reading and writing never
 // throw: the game still runs when storage is blocked (private windows, for example).
-import { loadStore, prefGet, prefSet, saveStore } from '@engine/core/store.ts';
+import { loadStore, prefGet, prefSet, saveStore } from '@engine/core/index.ts';
 
 export interface Progress {
   done: Record<string, number>;

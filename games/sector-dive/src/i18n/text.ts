@@ -1,5 +1,5 @@
 import type { LangData } from '../data/types.ts';
-import { fillData, setI18nHook } from '@engine/core/i18n.ts';
+import { fillData, setI18nHook } from '@engine/core/index.ts';
 import { AFFIX, RARITY, WEAPONS } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';

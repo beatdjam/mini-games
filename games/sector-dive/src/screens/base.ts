@@ -1,9 +1,9 @@
 import type { WeaponItem } from '../data/types.ts';
-import { el, isTouch } from '@engine/core/util.ts';
-import { prefGet, prefSet } from '@engine/core/store.ts';
-import { t } from '@engine/core/i18n.ts';
-import { audioInit, sfx } from '@engine/audio/audio.ts';
-import { track } from '@engine/core/analytics.ts';
+import { el, isTouch } from '@engine/core/index.ts';
+import { prefGet, prefSet } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { audioInit, sfx } from '@engine/audio/index.ts';
+import { track } from '@engine/core/index.ts';
 import {
   MOD_CAP_PER_DEPTH,
   MOD_PLUS_MAX,
@@ -47,11 +47,11 @@ import {
 import { player, newPlayer, setPlayer } from '../actors/player.ts';
 import { stageLabel, tierLabel } from '../core/stages.ts';
 import { weaponName, weaponOptsHTML, weaponStats } from '../actors/weapons.ts';
-import { renderSettings } from '@engine/ui/settings.ts';
+import { renderSettings } from '@engine/ui/index.ts';
 import { showBaseFeedback } from '../ui/feedback.ts';
 import { startPractice, startRun } from '../flow/run.ts';
 import { renderSuspend } from '../flow/suspend.ts';
-import { onDataClick, type DataClick } from '@engine/ui/dom.ts';
+import { onDataClick, type DataClick } from '@engine/ui/index.ts';
 
 // transient state of the base screen
 export const baseUI = {

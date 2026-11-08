@@ -1,7 +1,7 @@
 import type { RunEnd, Weapon } from '../data/types.ts';
-import { el, shuffle } from '@engine/core/util.ts';
-import { LANG, lang, t } from '@engine/core/i18n.ts';
-import { T, W } from '@engine/world/tiles.ts';
+import { el, shuffle } from '@engine/core/index.ts';
+import { LANG, lang, t } from '@engine/core/index.ts';
+import { T, W } from '@engine/world/index.ts';
 import { WEAPONS } from '../data/weapons.ts';
 import { BOSS_META } from '../data/bosses.ts';
 import { BIOMES } from '../data/biomes.ts';

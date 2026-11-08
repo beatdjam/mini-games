@@ -3,7 +3,7 @@
 // Not a test: nothing is asserted but that the runs end.
 import { beforeAll, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
-import { createRng } from '@engine/core/util.ts';
+import { createRng } from '@engine/core/index.ts';
 import { isBossStage, stageInfo } from '../src/core/stages.ts';
 import { levelOf, readiness, readinessScore, setDropOnly } from '../src/core/rules.ts';
 import { WEAPONS, WEAPON_ORDER } from '../src/data/weapons.ts';
@@ -13,7 +13,7 @@ import { normalizeWeapons } from '../src/ui/input.ts';
 import { defaultSave, devSetArcade, save, setSave } from '../src/core/save.ts';
 import { devBossAreaGear, devBossAreaStart, setStartTier } from '../src/core/progress.ts';
 import { devBossArea } from '../src/core/bossArea.ts';
-import { activeTileGrid, tileIndex } from '@engine/world/tiles.ts';
+import { activeTileGrid, tileIndex } from '@engine/world/index.ts';
 import { boss, enemies } from '../src/world/entities.ts';
 import { devSeed, level } from '../src/world/level.ts';
 import { player, run } from '../src/actors/player.ts';

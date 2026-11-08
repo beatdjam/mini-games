@@ -1,8 +1,8 @@
 // Smoke test for Sector Dive Extended, every sector's floors and bosses, ledges, reachability and level generation. Boots the game page (setup.ts) once for this file (bootGame) and runs it through the real loop by hand.
 // Each test makes the state it needs; the file passes on its own and in any order (the dice are seeded where a test depends on them).
 import { beforeAll, describe, expect, test } from 'vitest';
-import { createRng } from '@engine/core/util.ts';
-import { clearWorld } from '@engine/core/world.ts';
+import { createRng } from '@engine/core/index.ts';
+import { clearWorld } from '@engine/core/index.ts';
 import {
   H,
   STEP,
@@ -19,8 +19,8 @@ import {
   ramp,
   tileIndex,
   walkable,
-} from '@engine/world/tiles.ts';
-import { joy } from '@engine/ui/input.ts';
+} from '@engine/world/index.ts';
+import { joy } from '@engine/ui/index.ts';
 import { PLAT_H } from '../src/data/level.ts';
 import { BOSS_ORDER } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';

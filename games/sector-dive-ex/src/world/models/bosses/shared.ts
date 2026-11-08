@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { shared } from '@engine/render/render.ts';
+import { shared } from '@engine/render/index.ts';
 // The bosses as machines, as the enemies are (world/models/enemyLooks.ts): dark hull plate (world/models/machine.ts), what glows
 // kept to slits, bands and lenses in the boss's own colour, a pool of that colour on the ground under it
 // (actors/bosses/common.ts createBoss, from each boss's <name>Visual). Each is built of the parts its fight would need (how it stays up, what it

@@ -1,12 +1,12 @@
 import type { Boss, RegularEnemy } from '../../data/types.ts';
 import * as THREE from 'three';
-import { rand } from '@engine/core/util.ts';
-import { t } from '@engine/core/i18n.ts';
-import { sfx } from '@engine/audio/audio.ts';
-import { toast } from '@engine/ui/ui.ts';
+import { rand } from '@engine/core/index.ts';
+import { t } from '@engine/core/index.ts';
+import { sfx } from '@engine/audio/index.ts';
+import { toast } from '@engine/ui/index.ts';
 import { BOSS_META } from '../../data/bosses.ts';
 import { ring, shootHoming } from '../../world/entities.ts';
-import { ringAngles } from '@engine/world/projectiles.ts';
+import { ringAngles } from '@engine/world/index.ts';
 import { RING_Y, bossBase, bossMaterial, isEnraged, spawnMinion, wireOutline } from './common.ts';
 import { COLOR } from '../../data/colors.ts';
 // BASTION: shielded core; destroy every turret to open it for a few seconds

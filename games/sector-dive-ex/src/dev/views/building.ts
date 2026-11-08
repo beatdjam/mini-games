@@ -1,6 +1,6 @@
 import { isBossKind } from '../../core/rules.ts';
-import { yawToward } from '@engine/core/util.ts';
-import { SINK_FLOOR, T, W, floorY } from '@engine/world/tiles.ts';
+import { yawToward } from '@engine/core/index.ts';
+import { SINK_FLOOR, T, W, floorY } from '@engine/world/index.ts';
 import { BIOMES } from '../../data/biomes.ts';
 import { building } from '../../world/building.ts';
 import { lookOf, wallPic, wallPicsOf } from '../../world/looks.ts';

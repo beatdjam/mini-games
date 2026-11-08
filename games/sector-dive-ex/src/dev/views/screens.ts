@@ -1,4 +1,4 @@
-import { el } from '@engine/core/util.ts';
+import { el } from '@engine/core/index.ts';
 import { PER } from '../../data/progress.ts';
 import { player, run } from '../../actors/player.ts';
 import { fillMag, newWeapon } from '../../actors/weapons.ts';

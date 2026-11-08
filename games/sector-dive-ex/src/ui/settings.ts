@@ -3,15 +3,15 @@
 // the other things that follow from settings — the language switch, the fullscreen button, the touch button layout
 // and the how-to-play list.
 import { ICON, hud2 } from './hud2.ts';
-import { el, isTouch } from '@engine/core/util.ts';
-import { setLang, t } from '@engine/core/i18n.ts';
-import { applySfxVolume, audioInit } from '@engine/audio/audio.ts';
-import { musicVolume } from '@engine/audio/music.ts';
-import { resize } from '@engine/render/render.ts';
-import { fsSupported, isFullscreen, isStandalone, toggleFs } from '@engine/ui/ui.ts';
-import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '@engine/ui/touchlayout.ts';
-import { SETTINGS, fullscreenSetting, languageSetting, renderSettings } from '@engine/ui/settings.ts';
-import type { SettingItem } from '@engine/ui/settings.ts';
+import { el, isTouch } from '@engine/core/index.ts';
+import { setLang, t } from '@engine/core/index.ts';
+import { applySfxVolume, audioInit } from '@engine/audio/index.ts';
+import { musicVolume } from '@engine/audio/index.ts';
+import { resize } from '@engine/render/index.ts';
+import { fsSupported, isFullscreen, isStandalone, toggleFs } from '@engine/ui/index.ts';
+import { TOUCH_LAYOUT, applyLayout, openLayoutEditor } from '@engine/ui/index.ts';
+import { SETTINGS, fullscreenSetting, languageSetting, renderSettings } from '@engine/ui/index.ts';
+import type { SettingItem } from '@engine/ui/index.ts';
 import { GUIDE_DESK, GUIDE_TOUCH, LAYOUT_DEF } from '../data/controls.ts';
 import { persist, save, syncVolumes } from '../core/save.ts';
 import { layoutEdits, resetLayout, setLanguage, setSetting, toggleSetting } from '../core/progress.ts';

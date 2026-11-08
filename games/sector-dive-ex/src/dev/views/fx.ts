@@ -1,5 +1,5 @@
-import { t } from '@engine/core/i18n.ts';
-import { T, W } from '@engine/world/tiles.ts';
+import { t } from '@engine/core/index.ts';
+import { T, W } from '@engine/world/index.ts';
 import { COLOR } from '../../data/colors.ts';
 import { PER } from '../../data/progress.ts';
 import { WEAPONS } from '../../data/weapons.ts';
@@ -9,7 +9,7 @@ import { player, run } from '../../actors/player.ts';
 import { magSize } from '../../actors/weapons.ts';
 import { basicW } from '../../core/save.ts';
 import { damagePlayer } from '../../actors/combat.ts';
-import { setFireHeld } from '@engine/ui/input.ts';
+import { setFireHeld } from '@engine/ui/index.ts';
 import { normalizeWeapons } from '../../ui/input.ts';
 import { updateHitDirs, weaponHud } from '../../ui/hud.ts';
 import { level } from '../../world/level.ts';

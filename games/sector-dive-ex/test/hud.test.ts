@@ -1,7 +1,7 @@
 // Smoke test for the HUD's writes: updateHud leaves a value alone when it has not changed, so a quiet frame does no DOM
 // work (perf/sdx-hud-writes). Boots the game page with the loop held (bootFixed), so only the calls in the test write.
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { el } from '@engine/core/util.ts';
+import { el } from '@engine/core/index.ts';
 import type { Boss } from '../src/data/types.ts';
 import { TUNE } from '../src/data/progress.ts';
 import { player, run } from '../src/actors/player.ts';
