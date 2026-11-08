@@ -2,10 +2,8 @@
 // the bounds, the targets stand apart, and a mech with a 2 m radius can walk from the front edge to the back one. A
 // map under construction is checked after every edit, so the problems come back as a list, not as an exception.
 import { distXZ } from '@engine/core/index.ts';
-import type { MapDef, MissionDef, PropKind } from '../data/types.ts';
-
-// The kinds that stop a mech. A crater is a dip in the ground, and a tile is the ground itself.
-const BLOCKING: ReadonlySet<PropKind> = new Set(['hedgehog', 'block', 'bunker', 'seawall', 'cliff', 'wreck']);
+import { PROP_SIZE, TARGET_SIZE } from '../data/props.ts';
+import type { MapDef, MissionDef, Prop, TargetPlace } from '../data/types.ts';
 
 const MECH_RADIUS = 2; // the mech's hit radius (m)
 const CELL = 2; // the side of one cell of the walking check (m)
@@ -93,21 +91,59 @@ function checkWaves(map: MapDef, mission: MissionDef, skip: MapCheckSkip, out: M
   }
 }
 
-// A target or a blocking prop stops the mech's middle from coming within MECH_RADIUS of it.
+// A thing's footprint on the ground: its middle, half its width and depth, and how far it is turned.
+interface Footprint {
+  x: number;
+  z: number;
+  halfW: number;
+  halfD: number;
+  yaw: number;
+}
+
+function propFootprint(prop: Prop): Footprint {
+  const size = PROP_SIZE[prop.kind];
+  return {
+    x: prop.x,
+    z: prop.z,
+    halfW: (size.w * prop.scale) / 2,
+    halfD: (size.d * prop.scale) / 2,
+    yaw: prop.yaw,
+  };
+}
+
+function targetFootprint(target: TargetPlace): Footprint {
+  const size = TARGET_SIZE[target.kind];
+  return { x: target.x, z: target.z, halfW: size.w / 2, halfD: size.d / 2, yaw: target.yaw };
+}
+
+// The distance from a point to a footprint's rectangle on the ground; 0 inside it.
+function footprintDistance(footprint: Footprint, x: number, z: number): number {
+  const dx = x - footprint.x;
+  const dz = z - footprint.z;
+  const cos = Math.cos(footprint.yaw);
+  const sin = Math.sin(footprint.yaw);
+  const localX = cos * dx - sin * dz;
+  const localZ = sin * dx + cos * dz;
+  const outX = Math.max(Math.abs(localX) - footprint.halfW, 0);
+  const outZ = Math.max(Math.abs(localZ) - footprint.halfD, 0);
+  return Math.hypot(outX, outZ);
+}
+
+// A target or a blocking prop stops the mech's middle from coming within MECH_RADIUS of its footprint.
 function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Array } {
   const { minX, minZ, maxX, maxZ } = map.bounds;
   const cols = Math.max(1, Math.floor((maxX - minX) / CELL));
   const rows = Math.max(1, Math.floor((maxZ - minZ) / CELL));
   const cells = new Uint8Array(cols * rows); // 0 free, 1 blocked
-  const blockers: { x: number; z: number }[] = [];
-  for (const prop of map.props) if (BLOCKING.has(prop.kind)) blockers.push(prop);
-  for (const target of map.targets) blockers.push(target);
+  const blockers: Footprint[] = [];
+  for (const prop of map.props) if (PROP_SIZE[prop.kind].blocks) blockers.push(propFootprint(prop));
+  for (const target of map.targets) blockers.push(targetFootprint(target));
   for (let j = 0; j < rows; j++) {
     const z = minZ + (j + 0.5) * CELL;
     for (let i = 0; i < cols; i++) {
       const x = minX + (i + 0.5) * CELL;
       for (const blocker of blockers) {
-        if (Math.hypot(blocker.x - x, blocker.z - z) >= MECH_RADIUS) continue;
+        if (footprintDistance(blocker, x, z) >= MECH_RADIUS) continue;
         cells[j * cols + i] = 1;
         break;
       }

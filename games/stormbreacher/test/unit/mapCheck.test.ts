@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { validateMapForMission } from '../../src/logic/mapCheck.ts';
-import type { MapDef } from '../../src/data/types.ts';
+import type { MapDef, Prop } from '../../src/data/types.ts';
 
 // The mission's things past this map's range: the guns and the magazine behind the seawall, the beach's mortar and
 // the battery on the other side.
@@ -26,8 +26,29 @@ function withWall(): MapDef {
   return map;
 }
 
+// A wall of blocks across the map at z with an 18 m gap over x -9..9, so a blocker in the middle leaves 6 m on each
+// side.
+function withGapWall(z: number): MapDef {
+  const map = structuredClone(M1B_HAND);
+  const props: Prop[] = [];
+  const add = (x: number) => props.push({ kind: 'block', x, z, yaw: 0, scale: 1 });
+  for (let x = -96; x <= -12; x += 6) add(x);
+  for (let x = 12; x <= 96; x += 6) add(x);
+  add(-99);
+  add(99);
+  map.props = props;
+  return map;
+}
+
 test('the hand map has no violations against M1 once the out-of-range names are left out', () => {
   expect(validateMapForMission(M1B_HAND, M1, SKIP)).toEqual([]);
+});
+
+test('the hand map keeps the B line dense', () => {
+  const count = (kind: Prop['kind']) => M1B_HAND.props.filter(prop => prop.kind === kind).length;
+  const obstacles = ['block', 'wreck', 'crater'] as const;
+  expect(obstacles.reduce((total, kind) => total + count(kind), 0)).toBeGreaterThanOrEqual(50);
+  expect(count('hedgehog')).toBeGreaterThanOrEqual(60);
 });
 
 test('a target the mission destroys and the map lacks is a violation', () => {
@@ -55,8 +76,30 @@ test('a wall of blocks across the whole map leaves no path', () => {
   expect(violations.some(violation => violation.kind === 'no-path')).toBe(true);
 });
 
-test('a 6 m gap in the wall opens the path again', () => {
+test('a gap wider than the mech in the wall opens the path again', () => {
   const map = withWall();
-  map.props = map.props.filter(prop => Math.abs(prop.x) > 3);
+  map.props = map.props.filter(prop => Math.abs(prop.x) > 6);
   expect(validateMapForMission(map, M1, SKIP)).toEqual([]);
+});
+
+test('a 12 m wreck across the path with 3 m gaps leaves no path', () => {
+  const map = withGapWall(50);
+  map.props.push({ kind: 'wreck', x: 0, z: 50, yaw: 0, scale: 1 });
+  const violations = validateMapForMission(map, M1, SKIP);
+  expect(violations.some(violation => violation.kind === 'no-path')).toBe(true);
+});
+
+test('turning the wreck 90 degrees opens the path again', () => {
+  const map = withGapWall(50);
+  map.props.push({ kind: 'wreck', x: 0, z: 50, yaw: Math.PI / 2, scale: 1 });
+  expect(validateMapForMission(map, M1, SKIP)).toEqual([]);
+});
+
+test('a block at scale 2 blocks a wider gap than at scale 1', () => {
+  const small = withGapWall(50);
+  small.props.push({ kind: 'block', x: 0, z: 50, yaw: 0, scale: 1 });
+  expect(validateMapForMission(small, M1, SKIP)).toEqual([]);
+  const large = withGapWall(50);
+  large.props.push({ kind: 'block', x: 0, z: 50, yaw: 0, scale: 2 });
+  expect(validateMapForMission(large, M1, SKIP).some(violation => violation.kind === 'no-path')).toBe(true);
 });

@@ -262,6 +262,7 @@ M1 の B トーチカ線と C 防波堤の手前（z −60〜170、x −100〜10
 - `MapDef`（`src/data/types.ts`）は `id`・`bounds`（`minX`・`maxX`・`minZ`・`maxZ`）・`props`・`targets`・`spawns` を持つ。`bounds` の外は作らない
 - `Prop` は `kind`・`x`・`z`・`yaw`・`scale`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）
 - `TargetPlace` は `id`・`kind`・`x`・`z`・`yaw`。種類（`TargetKind`）は `pillbox`・`depot`・`gun`・`magazine`。`spawns` は波の名前 → `SpawnPoint`（`x`・`z`）の一覧
+- 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。機体は高さ 8m・当たり半径 2m に合わせ、遮蔽物は機体が隠れる高さ、障害物はジャンプで越える高さにする。描く形（`src/dev/outdoor/build.ts`）も検査もこの表を読む
 - 手書きは `src/data/maps/m1b-hand.ts`。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`depot`、波は `b-squad`・`seawall-drop`
 - 生成は `generateMap(rng, rules, anchors)`（`src/logic/mapgen.ts`）。`MapRules` は帯（`minZ`・`maxZ`・`kind`・`count`・`minGap`）・右の辺の崖・目標のまわりの空き（`clear`、既定 10m）・道筋の帯（`lanes`）を持つ。目標と波の出る場所は物語に関わるので生成せず `anchors` で受ける。M1 の B の規則は `src/data/maps/m1b-rules.ts` の `M1B_RULES`
 - 生成は物を置いたあと通り道を調べ、通れなければ種をずらして作り直す（最大10回。だめなら例外）。`rng` は `logic/rng.ts` の `stream('map')` から引く
@@ -269,5 +270,5 @@ M1 の B トーチカ線と C 防波堤の手前（z −60〜170、x −100〜10
 - `validateMapForMission(map, mission, skip)`（`src/logic/mapCheck.ts`）は違反の一覧 `{ kind, message }[]` を返す（例外にしない）。`skip` は範囲の外にある波と目標の名前
   - 台本の `targets` が全部マップにあり、マップにしか無い目標が無い。台本で `spawn` する波が全部 `spawns` にある
   - 物と目標が `bounds` の中にあり、目標どうしが 12m より近くない
-  - 範囲の手前（`maxZ`）から奥（`minZ`）まで、当たり半径 2m の機体が通れる道があるか。2m 四方の格子にして幅優先で調べ、`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`wreck`・目標を避ける。`crater` と `tile` は避けない。`seawall` は登らない前提なので、防波堤の帯（z −75〜−65）は範囲の外（`minZ` −60）に置く
+  - 範囲の手前（`maxZ`）から奥（`minZ`）まで、当たり半径 2m の機体が通れる道があるか。2m 四方の格子にして幅優先で調べ、`PROP_SIZE` の `blocks` が真の物と目標を、表の `w`×`d` に `scale` を掛け `yaw` で回した四角として避ける。格子の点から四角までの距離が 2m より近ければ塞がれている。`crater` と `tile` は避けない。物が範囲の外に出ているかは中心で見る。`seawall` は登らない前提なので、防波堤の帯（z −75〜−65）は範囲の外（`minZ` −60）に置く
 - M1 の範囲の外（A 波打ち際・ボスの場所）と、機体と物の当たり判定・防波堤を登る仕組みは作らない

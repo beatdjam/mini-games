@@ -2,7 +2,8 @@
 // so they come in as anchors and the generator only lays the ground's obstacles around them: a band of one kind at a
 // time, a cliff along the right edge, the targets' clear ground and the lanes that must stay walkable.
 import { createRng, distXZ, type Rng } from '@engine/core/index.ts';
-import type { MapDef, MapRules, Prop, SpawnPoint, TargetPlace } from '../data/types.ts';
+import { PROP_SIZE, TARGET_SIZE } from '../data/props.ts';
+import type { MapDef, MapRules, Prop, PropKind, SpawnPoint, TargetKind, TargetPlace } from '../data/types.ts';
 import { checkMapPath } from './mapCheck.ts';
 
 export interface MapAnchors {
@@ -20,12 +21,25 @@ function inLane(rules: MapRules, x: number): boolean {
   return rules.lanes.some(lane => Math.abs(x - lane.x) < lane.width / 2);
 }
 
-function inClear(anchors: MapAnchors, x: number, z: number, clear: number): boolean {
-  return anchors.targets.some(target => distXZ(target, { x, z }) < clear);
+// The radius of the circle around a footprint: two such circles that stay apart prove the rectangles do not overlap.
+function propRadius(kind: PropKind, scale: number): number {
+  const size = PROP_SIZE[kind];
+  return Math.hypot(size.w * scale, size.d * scale) / 2;
 }
 
-function within(values: Prop[], x: number, z: number, gap: number): boolean {
-  return values.some(prop => distXZ(prop, { x, z }) < gap);
+function targetRadius(kind: TargetKind): number {
+  const size = TARGET_SIZE[kind];
+  return Math.hypot(size.w, size.d) / 2;
+}
+
+function inClear(anchors: MapAnchors, x: number, z: number, clear: number, kind: PropKind, scale: number): boolean {
+  const radius = propRadius(kind, scale);
+  return anchors.targets.some(target => distXZ(target, { x, z }) < clear + targetRadius(target.kind) + radius);
+}
+
+function within(values: Prop[], x: number, z: number, gap: number, kind: PropKind, scale: number): boolean {
+  const radius = propRadius(kind, scale);
+  return values.some(prop => distXZ(prop, { x, z }) < gap + propRadius(prop.kind, prop.scale) + radius);
 }
 
 // One try: put every band's count down, then the cliff. A prop is kept out of the lanes, out of the targets' clear
@@ -41,10 +55,11 @@ function layOut(rng: Rng, rules: MapRules, anchors: MapAnchors): MapDef {
       for (let t = 0; t < tries; t++) {
         const x = rng.rand(rules.bounds.minX, rules.bounds.maxX);
         const z = rng.rand(band.minZ, band.maxZ);
-        if (inLane(rules, x) || inClear(anchors, x, z, clear)) continue;
-        if (within(placed, x, z, band.minGap)) continue;
-        if (within(props, x, z, OTHER_GAP)) continue;
-        found = { kind: band.kind, x, z, yaw: rng.rand(0, FULL_TURN), scale: rng.rand(0.8, 1.2) };
+        const scale = rng.rand(0.8, 1.2);
+        if (inLane(rules, x) || inClear(anchors, x, z, clear, band.kind, scale)) continue;
+        if (within(placed, x, z, band.minGap, band.kind, scale)) continue;
+        if (within(props, x, z, OTHER_GAP, band.kind, scale)) continue;
+        found = { kind: band.kind, x, z, yaw: rng.rand(0, FULL_TURN), scale };
         break;
       }
       if (found === null) {

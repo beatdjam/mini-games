@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { chunkInstances, type Chunk } from '@engine/render/index.ts';
+import { PROP_SIZE, TARGET_SIZE, type PropSize, type TargetSize } from '../../data/props.ts';
 import type { TargetKind, TargetPlace } from '../../data/types.ts';
 import { TILE_SIZE, type OutdoorItem, type OutdoorKind } from './layout.ts';
 
@@ -55,6 +56,21 @@ function box(
 // Joins parts into one shape, so one copy of the thing is one draw.
 function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
   return BufferGeometryUtils.mergeBufferGeometries(parts);
+}
+
+// Stretches a shape's bounding box to the size the table gives and puts its footprint over the item's place. A height
+// of 0 leaves the shape's own height: the ground tiles and the craters are flat.
+function fitBox(geometry: THREE.BufferGeometry, size: PropSize | TargetSize): THREE.BufferGeometry {
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  if (bounds === null) return geometry;
+  const center = bounds.getCenter(new THREE.Vector3());
+  const own = bounds.getSize(new THREE.Vector3());
+  geometry.translate(-center.x, -bounds.min.y, -center.z);
+  const sx = own.x > 0 ? size.w / own.x : 1;
+  const sy = size.h > 0 && own.y > 0 ? size.h / own.y : 1;
+  const sz = own.z > 0 ? size.d / own.z : 1;
+  return geometry.scale(sx, sy, sz);
 }
 
 function tileGeometry(): THREE.BufferGeometry {
@@ -115,14 +131,14 @@ function wreckGeometry(): THREE.BufferGeometry {
 }
 
 const SHAPES: Record<OutdoorKind, () => THREE.BufferGeometry> = {
-  tile: tileGeometry,
-  hedgehog: hedgehogGeometry,
-  block: blockGeometry,
-  bunker: bunkerGeometry,
-  seawall: seawallGeometry,
-  cliff: cliffGeometry,
-  crater: craterGeometry,
-  wreck: wreckGeometry,
+  tile: () => fitBox(tileGeometry(), PROP_SIZE.tile),
+  hedgehog: () => fitBox(hedgehogGeometry(), PROP_SIZE.hedgehog),
+  block: () => fitBox(blockGeometry(), PROP_SIZE.block),
+  bunker: () => fitBox(bunkerGeometry(), PROP_SIZE.bunker),
+  seawall: () => fitBox(seawallGeometry(), PROP_SIZE.seawall),
+  cliff: () => fitBox(cliffGeometry(), PROP_SIZE.cliff),
+  crater: () => fitBox(craterGeometry(), PROP_SIZE.crater),
+  wreck: () => fitBox(wreckGeometry(), PROP_SIZE.wreck),
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -195,10 +211,10 @@ function magazineTargetGeometry(): THREE.BufferGeometry {
 }
 
 const TARGET_SHAPES: Record<TargetKind, () => THREE.BufferGeometry> = {
-  pillbox: pillboxTargetGeometry,
-  depot: depotTargetGeometry,
-  gun: gunTargetGeometry,
-  magazine: magazineTargetGeometry,
+  pillbox: () => fitBox(pillboxTargetGeometry(), TARGET_SIZE.pillbox),
+  depot: () => fitBox(depotTargetGeometry(), TARGET_SIZE.depot),
+  gun: () => fitBox(gunTargetGeometry(), TARGET_SIZE.gun),
+  magazine: () => fitBox(magazineTargetGeometry(), TARGET_SIZE.magazine),
 };
 
 const TARGET_COLORS: Record<TargetKind, number> = {
