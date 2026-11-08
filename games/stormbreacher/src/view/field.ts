@@ -9,6 +9,9 @@ const SKY = 0x9db8c6;
 const SAND = 0xc2a878;
 const BOX = 0x5c6670;
 
+// The name the dev views look up in the scene to hide the size box (the scale course has mechs of its own).
+export const SIZE_BOX_NAME = 'sizeBox';
+
 // Builds the field into the engine's scene: ground, sky, the two lights, the fog and the size box. Called once at
 // start-up; placeCamera() then puts the camera where the view starts.
 export function buildField() {
@@ -35,6 +38,7 @@ export function buildField() {
     new THREE.MeshLambertMaterial({ color: BOX }),
   );
   size.position.y = FIELD_TUNE.mechHeight / 2;
+  size.name = SIZE_BOX_NAME;
   scene.add(size);
 }
 
