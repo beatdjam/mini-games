@@ -160,7 +160,7 @@
   - shots（画面を撮って前後を比べる。`npm run shots`）
   - ファイルごとに起動するテスト。前のテストの状態を引き継がない（`-t` で絞っても通る）
   - 場所が要るテストは、固定マップか固定シードで書く（8章）
-- **重さを測る道具**: `?stats`・`?fps`（描く回数と三角形の数）と、場面を固定する確認用の入口（`?seed=` など）を、if の連鎖ではなく `devHook` の表で用意する（`engine/SPEC.md` 15章）
+- **重さを測る道具**: `?stats`・`?fps`（描く回数と三角形の数）と、場面を固定する確認用の入口（`?seed=` など）を、if の連鎖ではなく表で用意する。ハッシュの入口は Extended の `DevView` と `findDevView`（`games/sector-dive-ex/src/dev/views/view.ts`）の形にする。engine の `devHook` は公開の入口（`engine/src/core/index.ts`）に無く、ゲームからは import できない
 - **文言**: 言語ファイル1か所に置き、6章の決まりを最初から使う
 - **スマホ**: 横向きだけを想定する。画面を確かめるのは 844×390 と PC
 - **公開**: 古い HTML のキャッシュ対策（`stale.ts`）は engine のものを使う（`engine/SPEC.md` 12章。ページに `<meta name="build" content="dev">` を置く）。three.js の `@license` コメントは、ルートの `vite.config.js` が残す
