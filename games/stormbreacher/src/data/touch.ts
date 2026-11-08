@@ -16,13 +16,14 @@ export interface TouchDefault extends TouchPlace {
   b: number; // the button's size at s = 1 (px)
 }
 
-// The starting places: a fan of the right thumb, with the main shot the biggest. s is 1 and b is the size in px.
+// The starting places: the right thumb's buttons, with the main shot the biggest. s is the size multiplier and b is
+// the size in px.
 export const TOUCH_DEFAULTS: Record<TouchButton, TouchDefault> = {
-  main: { x: 0.86, y: 0.72, s: 1, b: 84 },
-  sub: { x: 0.72, y: 0.84, s: 1, b: 64 },
-  jump: { x: 0.93, y: 0.48, s: 1, b: 64 },
-  boost: { x: 0.75, y: 0.58, s: 1, b: 64 },
-  lock: { x: 0.62, y: 0.66, s: 1, b: 64 },
+  main: { x: 0.83, y: 0.56, s: 1.1, b: 84 },
+  sub: { x: 0.77, y: 0.82, s: 1, b: 64 },
+  jump: { x: 0.87, y: 0.84, s: 1, b: 64 },
+  boost: { x: 0.95, y: 0.57, s: 1, b: 64 },
+  lock: { x: 0.9, y: 0.34, s: 1, b: 64 },
 };
 
 // The touch view's starting values (SB-030). Both are multipliers on the engine's look drag (unitless).

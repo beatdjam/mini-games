@@ -37,16 +37,19 @@ export interface TouchStats {
 const STICK_MOVE_MIN = 0.15;
 // The engine's stick takes the first 45% of the screen (input.ts STICK_ZONE); the rest is the view drag.
 const STICK_ZONE = 0.45;
+// How long after a view drag the view still counts as in use (s).
+export const LOOK_RECENT = 0.25;
 
 const presses: Record<TouchButton, number> = { main: 0, sub: 0, jump: 0, boost: 0, lock: 0 };
 const pointers = new Set<number>(); // every finger down on #touch (buttons included)
 let maxPointers = 0;
 let stickId: number | null = null; // the finger the engine's stick took
 let lookId: number | null = null; // the finger the engine's view drag took
+let lastLookAt = -Infinity; // when the view last moved (ms, performance.now)
 let jumpPressed = false; // went down since the last readTouch
+let jumpHeld = false; // the jump button is held
 let lockOn = false;
 let boostHeld = false;
-let boostId: number | null = null; // the finger holding #btnBoost
 let yawDelta = 0; // the view drag since the last readTouch (rad)
 let pitchDelta = 0; // the same, for the pitch (rad)
 let touchActive = false; // the touch view is running (INPUT.active)
@@ -78,8 +81,13 @@ const comboSeconds = (combo: Combo, now: number): number =>
 
 const stickInUse = (): boolean => stickId !== null && Math.hypot(joy.x, joy.y) > STICK_MOVE_MIN;
 
+// The view counts as in use for LOOK_RECENT after any drag, from the main button as well as the open part.
+export function lookInUse(now: number): boolean {
+  return now - lastLookAt <= LOOK_RECENT * 1000;
+}
+
 function sampleCombos(now: number) {
-  const aiming = stickInUse() && lookId !== null;
+  const aiming = stickInUse() && lookInUse(now);
   sampleCombo(stickLookFire, aiming && fireHeld, now);
   sampleCombo(stickLookBoost, aiming && boostHeld, now);
 }
@@ -100,9 +108,11 @@ function touchDefs(): Record<TouchButton, TouchDefault & { name: string }> {
   };
 }
 
-// #btnBoost held by the finger that pressed it; only that finger can let it go. The engine's hold-button binding is
-// not exported (the engine stays as it is), so the same steps are here.
-function bindBoost(btn: HTMLElement) {
+// A button held by the finger that pressed it; only that finger can let it go. `onHold` runs whenever the held state
+// changes and `onDown`, if given, once on the press. The engine's hold-button binding is not exported (the engine
+// stays as it is), so the same steps are here.
+function bindHold(btn: HTMLElement, onHold: (down: boolean) => void, onDown?: () => void) {
+  let heldId: number | null = null;
   btn.addEventListener('pointerdown', e => {
     e.preventDefault();
     e.stopPropagation();
@@ -110,15 +120,16 @@ function bindBoost(btn: HTMLElement) {
     try {
       btn.setPointerCapture(e.pointerId);
     } catch (err) {}
-    boostId = e.pointerId;
-    boostHeld = true;
+    heldId = e.pointerId;
     btn.classList.add('down');
+    onHold(true);
+    onDown?.();
   });
   const up = (e: PointerEvent) => {
-    if (e.pointerId !== boostId) return;
-    boostId = null;
-    boostHeld = false;
+    if (e.pointerId !== heldId) return;
+    heldId = null;
     btn.classList.remove('down');
+    onHold(false);
   };
   btn.addEventListener('pointerup', up);
   btn.addEventListener('pointercancel', up);
@@ -171,17 +182,26 @@ export function initTouch() {
   touch.addEventListener('pointerup', end, true);
   touch.addEventListener('pointercancel', end, true);
 
-  tapBtn(el('#btnJump'), () => {
-    jumpPressed = true;
-  });
+  bindHold(
+    el('#btnJump'),
+    down => {
+      jumpHeld = down;
+    },
+    () => {
+      jumpPressed = true;
+    },
+  );
   tapBtn(el('#btnLock'), () => {
     lockOn = !lockOn;
     el('#btnLock').classList.toggle('on', lockOn);
   });
-  bindBoost(el('#btnBoost'));
+  bindHold(el('#btnBoost'), down => {
+    boostHeld = down;
+  });
 
   INPUT.active = () => touchActive;
   INPUT.look = (dx: number, dy: number) => {
+    lastLookAt = performance.now();
     yawDelta -= dx * TOUCH_TUNE.lookX;
     pitchDelta -= dy * TOUCH_TUNE.lookY;
   };
@@ -195,6 +215,7 @@ export function readTouch(): TouchRead {
     moveZ: -joy.y, // the stick up is forward
     turn: yawDelta,
     jump: jumpPressed,
+    jumpHeld,
     boost: boostHeld,
     fire: fireHeld,
   };

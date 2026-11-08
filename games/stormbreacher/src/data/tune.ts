@@ -31,16 +31,18 @@ export type CameraTune = typeof CAMERA_TUNE;
 
 // The mech's movement on flat ground (SB-025). Speeds are m/s, accelerations m/s^2.
 export const MOVE_TUNE = {
-  walk: 7.4, // the walking speed (m/s)
-  accel: 40, // how fast walking speeds up (m/s^2)
-  decel: 50, // how fast the mech slows down with no input (m/s^2)
+  walk: 15, // the walking speed (m/s)
+  accel: 80, // how fast walking speeds up (m/s^2)
+  decel: 90, // how fast the mech slows down with no input (m/s^2)
   jump: 10.2, // the upward speed a jump starts with (m/s)
   gravity: 25, // the downward pull in the air (m/s^2)
   airControl: 0.4, // the share of the walking acceleration that works in the air (0-1)
-  boost: 19, // the boost's speed (m/s)
-  boostAccel: 80, // how fast the boost speeds up (m/s^2)
+  boost: 30, // the boost's speed (m/s)
+  boostAccel: 160, // how fast the boost speeds up (m/s^2)
   boostDrain: 0.5, // the gauge a second of boosting uses (gauge/s)
   boostRegen: 0.35, // the gauge a second on the ground gives back (gauge/s)
+  hoverFall: 1.5, // the fastest a hover lets the mech fall (m/s)
+  hoverDrain: 0.3, // the gauge a second of hovering uses (gauge/s)
   boostLift: 0, // the upward acceleration while boosting in the air (m/s^2); 0 falls while moving forward
   landStop: 0.12, // how long a landing stops the mech from walking (s)
   turn: 2.6, // how fast the turn keys change the yaw (rad/s)
