@@ -3,6 +3,7 @@ import { placeCamera } from '../../view/field.ts';
 import { showScale } from './scale.ts';
 import { showCamera } from './camera.ts';
 import { showMove } from './move.ts';
+import { showTouch } from './touch.ts';
 import { showOutdoor } from './outdoor.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -30,6 +31,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'walk, jump, boost and fire on flat ground',
     run: showMove,
+  },
+  {
+    hash: '#view-touch',
+    match: 'is',
+    name: 'touch controls on flat ground, with the layout editor',
+    run: showTouch,
   },
   {
     hash: '#view-outdoor',

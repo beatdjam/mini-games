@@ -3,12 +3,12 @@
 import * as THREE from 'three';
 import { addSystem, clamp } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
-import { FEEL_TUNE, MOVE_TUNE } from '../../data/tune.ts';
+import { FEEL_TUNE, MOVE_TUNE, type FeelTune, type MoveTune } from '../../data/tune.ts';
 import { fireRay, type Aabb } from '../../logic/fire.ts';
-import { newMech, stepMech, type MechInput } from '../../logic/mech.ts';
+import { newMech, stepMech, type MechInput, type MechState } from '../../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
-import { feelEvents, feelStep, newFeel, spawnDust } from '../../view/feel.ts';
+import { feelEvents, feelStep, newFeel, spawnDust, type FeelState } from '../../view/feel.ts';
 import { heldKeys } from '../keys.ts';
 import { buildMechProxy } from '../mechProxy.ts';
 import { tuneFrom } from './camera.ts';
@@ -92,62 +92,24 @@ function buildTargets(): Target[] {
   });
 }
 
-export function showMove(_hash: string) {
-  const params = new URLSearchParams(location.search);
-  const cameraTune = tuneFrom(params);
-  checkOneTable(MOVE_TUNE, FEEL_TUNE);
-  const moveTune = tuneWithParams(MOVE_TUNE, params);
-  const feelTune = tuneWithParams(FEEL_TUNE, params);
-  // ?feel=0 turns the visible effects off for a comparison; the fire rate is the number of shots, not a feel.
-  if (params.get('feel') === '0') {
-    feelTune.boostFov = 0;
-    feelTune.landShake = 0;
-    feelTune.fireShake = 0;
-    feelTune.hitStop = 0;
-    feelTune.dust = 0;
-  }
+export interface FlatRange {
+  mech: MechState;
+  feel: FeelState;
+  model: THREE.Group;
+  // Advances the mech and the effects and gives back the camera's feel for this frame.
+  step(input: MechInput, dt: number, moveTune: MoveTune, feelTune: FeelTune): { fov: number; offset: THREE.Vector3 };
+}
 
-  const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
-  if (sizeBox) sizeBox.visible = false;
-
+// Builds what #view-move and #view-touch share: the mech, the targets, the shots and their effects (the flat ground
+// is the start-up field's). Nothing here reads an input device; the caller fills MechInput.
+export function buildFlatRange(baseFov: number): FlatRange {
   const mech = newMech();
-  const feel = newFeel(cameraTune.fov);
-  const keys = heldKeys();
+  const feel = newFeel(baseFov);
   const model = buildMechProxy(MECH_HEIGHT);
   scene.add(model);
-
   const targets = buildTargets();
   const targetBoxes = targets.map(target => target.box);
   const tracers: Tracer[] = [];
-  const walls: THREE.Box3[] = []; // no walls in this view
-
-  // The HUD at the bottom left: the numbers that say what the movement did.
-  const hud = document.createElement('div');
-  hud.style.cssText =
-    'position:fixed;left:8px;bottom:8px;padding:4px 6px;font:12px/1.4 monospace;color:#fff;' +
-    'background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none';
-  document.body.appendChild(hud);
-
-  let mouseDown = false;
-  let dragging = false;
-  let lastMouseX = 0;
-  let mouseYaw = 0; // the yaw the mouse added since the last frame (rad)
-  window.addEventListener('mousedown', event => {
-    if (event.button === 0) mouseDown = true;
-    dragging = true;
-    lastMouseX = event.clientX;
-  });
-  window.addEventListener('mouseup', event => {
-    if (event.button === 0) mouseDown = false;
-    dragging = false;
-  });
-  window.addEventListener('mousemove', event => {
-    if (!dragging) return;
-    mouseYaw -= (event.clientX - lastMouseX) * MOUSE_TURN;
-    lastMouseX = event.clientX;
-  });
-
-  let camPos: THREE.Vector3 | null = null;
 
   function shoot(): boolean {
     const dx = -Math.sin(mech.yaw);
@@ -186,6 +148,77 @@ export function showMove(_hash: string) {
     }
   }
 
+  function step(input: MechInput, dt: number, moveTune: MoveTune, feelTune: FeelTune) {
+    const frame = feelStep(feel, dt, mech.boosting, baseFov, feelTune);
+    const events = frame.stopped ? [] : stepMech(mech, input, dt, moveTune, feelTune.fireRate);
+    let hit = false;
+    for (const event of events) {
+      if (event.kind === 'fire') hit = shoot() || hit;
+      else if (event.kind === 'land') spawnDust(mech.x, mech.z, LAND_DUST, feelTune);
+      else if (event.kind === 'boostStart') spawnDust(mech.x, mech.z, BOOST_DUST, feelTune);
+    }
+    feelEvents(feel, events, hit, feelTune);
+    stepEffects(dt);
+    model.position.set(mech.x, mech.y, mech.z);
+    model.rotation.y = mech.yaw;
+    return { fov: frame.fov, offset: frame.offset };
+  }
+
+  return { mech, feel, model, step };
+}
+
+export function showMove(_hash: string) {
+  const params = new URLSearchParams(location.search);
+  const cameraTune = tuneFrom(params);
+  checkOneTable(MOVE_TUNE, FEEL_TUNE);
+  const moveTune = tuneWithParams(MOVE_TUNE, params);
+  const feelTune = tuneWithParams(FEEL_TUNE, params);
+  // ?feel=0 turns the visible effects off for a comparison; the fire rate is the number of shots, not a feel.
+  if (params.get('feel') === '0') {
+    feelTune.boostFov = 0;
+    feelTune.landShake = 0;
+    feelTune.fireShake = 0;
+    feelTune.hitStop = 0;
+    feelTune.dust = 0;
+  }
+
+  const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
+  if (sizeBox) sizeBox.visible = false;
+
+  const range = buildFlatRange(cameraTune.fov);
+  const mech = range.mech;
+  const keys = heldKeys();
+  const walls: THREE.Box3[] = []; // no walls in this view
+
+  // The HUD at the bottom left: the numbers that say what the movement did.
+  const hud = document.createElement('div');
+  hud.id = 'sbMoveHud';
+  hud.style.cssText =
+    'position:fixed;left:8px;bottom:8px;padding:4px 6px;font:12px/1.4 monospace;color:#fff;' +
+    'background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none';
+  document.body.appendChild(hud);
+
+  let mouseDown = false;
+  let dragging = false;
+  let lastMouseX = 0;
+  let mouseYaw = 0; // the yaw the mouse added since the last frame (rad)
+  window.addEventListener('mousedown', event => {
+    if (event.button === 0) mouseDown = true;
+    dragging = true;
+    lastMouseX = event.clientX;
+  });
+  window.addEventListener('mouseup', event => {
+    if (event.button === 0) mouseDown = false;
+    dragging = false;
+  });
+  window.addEventListener('mousemove', event => {
+    if (!dragging) return;
+    mouseYaw -= (event.clientX - lastMouseX) * MOUSE_TURN;
+    lastMouseX = event.clientX;
+  });
+
+  let camPos: THREE.Vector3 | null = null;
+
   addSystem({
     name: 'sb-move',
     update: dt => {
@@ -201,25 +234,12 @@ export function showMove(_hash: string) {
       mouseYaw = 0;
       keys.pressed.clear();
 
-      const step = feelStep(feel, dt, mech.boosting, cameraTune.fov, feelTune);
-      const events = step.stopped ? [] : stepMech(mech, input, dt, moveTune, feelTune.fireRate);
-
-      let hit = false;
-      for (const event of events) {
-        if (event.kind === 'fire') hit = shoot() || hit;
-        else if (event.kind === 'land') spawnDust(mech.x, mech.z, LAND_DUST, feelTune);
-        else if (event.kind === 'boostStart') spawnDust(mech.x, mech.z, BOOST_DUST, feelTune);
-      }
-      feelEvents(feel, events, hit, feelTune);
-      stepEffects(dt);
+      const step = range.step(input, dt, moveTune, feelTune);
 
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, 0, cameraTune, walls);
       camPos = camPos ? followPose(camPos, pose.pos, dt, cameraTune.lag) : pose.pos.clone();
       const pos = camPos.clone().add(step.offset);
       applyPose(camera, { ...pose, pos }, step.fov);
-
-      model.position.set(mech.x, mech.y, mech.z);
-      model.rotation.y = mech.yaw;
 
       // The HUD's numbers: the horizontal speed, the gauge, the ground and the landing stop.
       hud.textContent =
