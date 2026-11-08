@@ -50,6 +50,12 @@ const passable = new Map<number, boolean>();
 // enemies and bosses open doors too, so a change can change what the floor shows.
 let passChanges = 0;
 export const doorPassChanges = (): number => passChanges;
+// How many door tiles have changed between moving and shut since the count was last read (doorOpen > 0: a door's leaves
+// part before it is passable, so the room behind it is seen from the first bit of movement). world/level.ts rebuilds
+// what it can see from the player when this changes.
+let openChanges = 0;
+const moving = new Map<number, boolean>();
+export const doorOpenChanges = (): number => openChanges;
 export function resetDoorMeshes() {
   doorSets = [];
   doorMeshes = [];
@@ -57,12 +63,16 @@ export function resetDoorMeshes() {
   floorDoorTiles = [];
   passable.clear();
   passChanges = 0;
+  moving.clear();
+  openChanges = 0;
 }
 // the floor being played: its doors are the ones that move from now on
 export function useDoorFloor(floor: number) {
   doorMeshes = doorSets[floor] ?? [];
   floorDoorTiles = doorTiles[floor] ?? [];
   passable.clear();
+  moving.clear();
+  openChanges = 0;
   doorMeshes.forEach(d => placeLeaves(d, 0));
 }
 
@@ -152,6 +162,11 @@ export function updateDoorMeshes(movers: Iterable<DoorMover>, dt: number) {
       before = passable.get(k);
     if (before === undefined || before !== now) passChanges++;
     passable.set(k, now);
+    // (the leaves start moving before the door is passable: a door 2 wide is counted by both of its tiles)
+    const started = doorOpen[k]! > 0,
+      was = moving.get(k) ?? false;
+    if (started !== was) openChanges++;
+    moving.set(k, started);
   }
   for (const d of doorMeshes) {
     // a door 2 wide moves as one: as far open as the further open of its two tiles

@@ -22,7 +22,7 @@ import { level, reveal, showNeighbourFloorsIfChanged, sightHallDoor, updateFollo
 import { building } from '../world/building.ts';
 import { updateHazards } from '../world/hazards.ts';
 import { ENEMY_GROUP, enemies, nearPickupDist, setNear, setTarget, target } from '../world/entities.ts';
-import { doorPassChanges, updateDoorMeshes } from '../world/doors.ts';
+import { doorOpenChanges, doorPassChanges, updateDoorMeshes } from '../world/doors.ts';
 import type { DoorMover } from '@engine/world/doors.ts';
 import { GUNFX, curVM } from '../actors/viewmodel.ts';
 import { player, currentWeapon, run } from '../actors/player.ts';
@@ -371,7 +371,8 @@ function updateBuildingFloor(dt: number) {
   updateDoorMeshes(movers, dt);
   updateFloorEvents(dt);
   updateFollowers(dt);
-  if (building) showNeighbourFloorsIfChanged(building, player.x, player.z, liftRiding(), doorPassChanges());
+  if (building)
+    showNeighbourFloorsIfChanged(building, player.x, player.z, liftRiding(), doorPassChanges(), doorOpenChanges());
   sightHallDoor(player.x, player.z, player.yaw, visibleRange());
 }
 // ---- gates: stepping into one moves on (the rest of the frame is skipped); a terminal opens its screen ----

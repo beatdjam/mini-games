@@ -7,6 +7,7 @@ import {
   H,
   T,
   W,
+  activeTileGrid,
   computeFlow,
   floorY,
   flow,
@@ -30,7 +31,7 @@ import type { FloorPlan } from './building.ts';
 import { FLOOR_H } from './building.ts';
 import { WALL_H } from '../data/level.ts';
 import type { Building } from './building.ts';
-import { buildDoorMeshes, resetDoorMeshes, useDoorFloor } from './doors.ts';
+import { buildDoorMeshes, doorOpenChanges, resetDoorMeshes, useDoorFloor } from './doors.ts';
 import { lookOf, wallPic } from './looks.ts';
 import { liftPaint } from './looks/common.ts';
 import { BACKDROP_GROUND, BACKDROP_R, BACKDROP_TALL, BLOCK_REACH, FACADE_M, ROOF_M, paint } from './looks/paint.ts';
@@ -158,10 +159,31 @@ const YARD_WALL_CLEAR = 0.15;
 const OUTSIDE_SEED = 0x51ab; // mixed into the building's seed for the buildings across the street
 const SHELL_STOREYS = 2; // the facade's picture (4 storeys) over this many floors of the building's own walls: two storeys a floor, so its windows keep their shape
 let shown: Building | null = null;
+// Per mesh of a floor: the rooms its copies (InstancedMesh) or vertices (Mesh) stand in, whether all of them are in a
+// room (roomOf >= 0: a mesh that also stands over a wall or a corridor is never hidden), and whether it was drawn when
+// it was marked. Kept in userData.roomCull; showNeighbourFloors hides a mesh only when every room it stands in is out
+// of the player's reach (through open doors).
+interface RoomCull {
+  rooms: number[]; // room numbers of the copies (vertices), without repetitions
+  allInside: boolean; // every copy (vertex) is in a room (roomOf >= 0)
+  shown: boolean; // the mesh's own visibility when it was marked
+}
+const ROOM_CULL = 'roomCull';
+// What the rooms the player can reach were last worked out for: the building, the floor, the player's tile and how many
+// doors have started or stopped moving. Worked out again only when one of them changes (showNeighbourFloors).
+interface ReachState {
+  building: Building;
+  floor: number;
+  tile: number;
+  opened: number;
+  hidden: Uint8Array; // per room: 1 = out of reach and not facing a courtyard, a stairwell or a lift
+}
+let reachState: ReachState | null = null;
 // What showNeighbourFloors last ran with: the building, the floor played (and its group), the lift ridden, the player's
-// place, the camera's place and projection, and how many door tiles have changed between passable and shut. It runs
-// again only when one of them changes: a shut door is a wall for the way to the yard (seesYard/hasLOS/isShutDoor), and
-// the awake enemies and bosses open doors too. The two matrices are copied into these, so no array is made per frame.
+// place, the camera's place and projection, how many door tiles have changed between passable and shut, and how many
+// have started or stopped moving. It runs again only when one of them changes: a shut door is a wall for the way to
+// the yard (seesYard/hasLOS/isShutDoor) and for the rooms seen from here, and the awake enemies and bosses open doors
+// too. The two matrices are copied into these, so no array is made per frame.
 interface NeighbourInputs {
   building: Building;
   floor: number;
@@ -170,6 +192,7 @@ interface NeighbourInputs {
   x: number;
   z: number;
   doors: number;
+  opened: number;
   world: Float64Array;
   projection: Float64Array;
 }
@@ -337,6 +360,7 @@ function dropFloorStash() {
 
 function clearLevel() {
   neighbourInputs = null;
+  reachState = null;
   if (buildingGroup) {
     disposeTree(buildingGroup);
     scene.remove(buildingGroup);
@@ -447,6 +471,97 @@ function seesYard(b: Building, n: number, x: number, z: number): boolean {
     return Math.hypot(tx - x, tz - z) < YARD_NEAR || hasLOS(x, z, tx, tz);
   });
 }
+// Works out the rooms of floor n that the player cannot reach from (x, z) through floor tiles and doors that have
+// started to open (doorOpen > 0: the leaves part before DOOR_PASS). Rooms with a courtyard tile, a stairwell or lift
+// strip, or a gap to another floor (voids, noFloor, noCeil, shaft) at or next to one of their tiles are never hidden:
+// they can be seen from there. Anything not known is left out of the hidden set, so it stays drawn.
+function hiddenRoomsFrom(b: Building, n: number, x: number, z: number): Uint8Array {
+  const plan = b.plans[n]!,
+    { W: w, H: h, maps } = plan.gen,
+    { grid, door, doorOpen } = activeTileGrid().world,
+    roomOf = maps.roomOf,
+    size = w * h,
+    seen = new Uint8Array(size),
+    queue = new Int32Array(size),
+    start = tileIndex(x, z);
+  let head = 0,
+    tail = 0;
+  // (a player not on a floor tile has no reach to work out from: nothing is hidden)
+  if (!(start >= 0 && start < size && grid[start] === 1)) return new Uint8Array(plan.gen.rooms.length);
+  seen[start] = 1;
+  queue[tail++] = start;
+  while (head < tail) {
+    const k = queue[head++]!,
+      i = k % w,
+      j = (k / w) | 0;
+    for (const o of [1, -1, w, -w]) {
+      const ni = i + (o === 1 ? 1 : o === -1 ? -1 : 0),
+        nj = j + (o === w ? 1 : o === -w ? -1 : 0);
+      if (ni < 0 || nj < 0 || ni >= w || nj >= h) continue;
+      const t = nj * w + ni;
+      if (seen[t] || grid[t] !== 1) continue;
+      // a door that has not started to open is a wall
+      if (door && door[t] === 1 && !(doorOpen && doorOpen[t]! > 0)) continue;
+      seen[t] = 1;
+      queue[tail++] = t;
+    }
+  }
+  const rooms = plan.gen.rooms.length,
+    reach = new Uint8Array(rooms);
+  for (let k = 0; k < size; k++) {
+    const r = seen[k] ? roomOf[k]! : -1;
+    if (r >= 0) reach[r] = 1;
+  }
+  // rooms at or next to a place seen from outside their own room: a courtyard, a gap to another floor, a stairwell or
+  // lift. (A wall between the tile and the room is taken as facing it too: it can have a window on it.)
+  const open = new Uint8Array(rooms),
+    mark = (k: number) => {
+      const i = k % w,
+        j = (k / w) | 0;
+      for (const [di, dj] of [
+        [0, 0],
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const a = i + di!,
+          b = j + dj!;
+        if (a < 0 || b < 0 || a >= w || b >= h) continue;
+        const r = roomOf[b * w + a]!;
+        if (r >= 0) open[r] = 1;
+      }
+    };
+  if (plan.court) for (const k of [...plan.court.tiles, ...plan.court.balcony, ...plan.court.bridge]) mark(k);
+  for (const gaps of [plan.voids, plan.noFloor, plan.noCeil, plan.shaft]) gaps.forEach((v, k) => v && mark(k));
+  // (only the stairwells and lifts that stop on or pass this floor: another floor's has no opening here)
+  for (const l of b.links) if (n >= l.upper && n <= l.lower) for (const k of l.strip) mark(k);
+  const hidden = new Uint8Array(rooms);
+  for (let r = 0; r < rooms; r++) hidden[r] = !reach[r] && !open[r] ? 1 : 0;
+  return hidden;
+}
+// the rooms to hide for the floor being played, worked out again only when the player's tile or a door's movement
+function hiddenRooms(b: Building, x: number, z: number): Uint8Array {
+  const tile = tileIndex(x, z),
+    opened = doorOpenChanges(),
+    was = reachState;
+  if (was && was.building === b && was.floor === level.floor && was.tile === tile && was.opened === opened)
+    return was.hidden;
+  const hidden = hiddenRoomsFrom(b, level.floor, x, z);
+  reachState = { building: b, floor: level.floor, tile, opened, hidden };
+  return hidden;
+}
+// Hides the played floor's meshes that stand only in rooms out of the player's reach. A mesh over a wall, a corridor or
+// a reachable room stays drawn; the chunks' own visibility is left as cullChunks set it.
+function showFloorRooms(group: THREE.Group, hidden: Uint8Array) {
+  group.traverse(o => {
+    const mesh = o as THREE.Mesh,
+      // (userData is untyped in three.js: this is the one place its room mark is cast to its shape)
+      mark = mesh.userData[ROOM_CULL] as RoomCull | undefined;
+    if (!mesh.isMesh || !mark) return;
+    mesh.visible = mark.shown && !(mark.allInside && mark.rooms.length > 0 && mark.rooms.every(r => hidden[r]));
+  });
+}
 export function showNeighbourFloors(b: Building, x: number, z: number, riding: number | null) {
   camera.updateMatrixWorld();
   sight.setFromProjectionMatrix(sightM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -484,6 +599,9 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
     // the whole of the floors it passes)
     const by = m === n || riding !== null ? undefined : stairsSeen(b, n, m);
     cullChunks(floorChunks[m]!, g, camera, b.biome.fogFar, by);
+    // the rooms not in the player's reach: only the floor being played (the floors a stairwell or lift shows are seen
+    // from outside them and keep their own rule)
+    if (m === n) showFloorRooms(g, hiddenRooms(b, x, z));
   });
   // What the windows look out on is drawn only while one of them is in sight (it costs many draws): a window of a
   // floor in sight counts, from anywhere (a stairwell sees the windows of the floors it passes)
@@ -541,8 +659,16 @@ export function showNeighbourFloors(b: Building, x: number, z: number, riding: n
 }
 // Calls showNeighbourFloors only when what it looks at has changed: the camera (place and projection: head bob and
 // screen shake move it), the player's place, the floor played (its group too), the lift ridden, the building, and the
-// doors' passable state (a shut door walls off the way to the yard; awake enemies and bosses open doors too).
-export function showNeighbourFloorsIfChanged(b: Building, x: number, z: number, riding: number | null, doors: number) {
+// doors (passable or not, and started to move or not: a shut door walls off the way to the yard and the rooms behind
+// it; awake enemies and bosses open doors too).
+export function showNeighbourFloorsIfChanged(
+  b: Building,
+  x: number,
+  z: number,
+  riding: number | null,
+  doors: number,
+  opened: number,
+) {
   camera.updateMatrixWorld();
   const was = neighbourInputs,
     same =
@@ -554,6 +680,7 @@ export function showNeighbourFloorsIfChanged(b: Building, x: number, z: number, 
       was.x === x &&
       was.z === z &&
       was.doors === doors &&
+      was.opened === opened &&
       sameElements(was.world, camera.matrixWorld.elements) &&
       sameElements(was.projection, camera.projectionMatrix.elements);
   if (same) return;
@@ -566,6 +693,7 @@ export function showNeighbourFloorsIfChanged(b: Building, x: number, z: number, 
       x,
       z,
       doors,
+      opened,
       world: new Float64Array(camera.matrixWorld.elements),
       projection: new Float64Array(camera.projectionMatrix.elements),
     };
@@ -577,6 +705,7 @@ export function showNeighbourFloorsIfChanged(b: Building, x: number, z: number, 
     was.x = x;
     was.z = z;
     was.doors = doors;
+    was.opened = opened;
     was.world.set(camera.matrixWorld.elements);
     was.projection.set(camera.projectionMatrix.elements);
   }
@@ -592,6 +721,47 @@ function sameElements(seen: ArrayLike<number>, now: ArrayLike<number>): boolean 
 export const floorDrawn = (m: number): boolean => !!floorGroups[m]?.visible;
 // the chunks of floor m (tests: flip one's visibility and see whether anything puts it back)
 export const floorChunkRoots = (m: number): THREE.Group[] => floorChunks[m]?.map(c => c.root) ?? [];
+// Marks each mesh of a floor with the rooms its copies (InstancedMesh) or vertices (Mesh) stand in, for
+// showNeighbourFloors. Done after mergeFlat (which joins InstancedMeshes into Meshes) and before buildDoorMeshes, so a
+// door's leaves (plain Meshes, added after) are not marked and are never hidden.
+function markMeshRooms(group: THREE.Group, plan: FloorPlan) {
+  const { W: w, H: h, maps } = plan.gen,
+    roomOf = maps.roomOf,
+    p = new THREE.Vector3(),
+    roomAt = (x: number, z: number): number => {
+      const i = Math.floor(x / T),
+        j = Math.floor(z / T);
+      return i >= 0 && j >= 0 && i < w && j < h ? roomOf[j * w + i]! : -1;
+    };
+  group.updateMatrixWorld(true);
+  group.traverse(o => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const rooms = new Set<number>();
+    let allInside = true,
+      any = false;
+    const add = (r: number) => {
+      any = true;
+      if (r < 0) allInside = false;
+      else rooms.add(r);
+    };
+    const im = mesh as THREE.InstancedMesh;
+    if (im.isInstancedMesh) {
+      const a = im.instanceMatrix.array;
+      for (let n = 0; n < im.count; n++) {
+        p.set(a[n * 16 + 12]!, a[n * 16 + 13]!, a[n * 16 + 14]!).applyMatrix4(mesh.matrixWorld);
+        add(roomAt(p.x, p.z));
+      }
+    } else {
+      const at = mesh.geometry.getAttribute('position');
+      for (let n = 0; n < at.count; n++) {
+        p.fromBufferAttribute(at, n).applyMatrix4(mesh.matrixWorld);
+        add(roomAt(p.x, p.z));
+      }
+    }
+    if (any) mesh.userData[ROOM_CULL] = { rooms: [...rooms], allInside, shown: mesh.visible } satisfies RoomCull;
+  });
+}
 // Puts the whole building (world/building.ts) on screen: the meshes and doors of every floor, each in a group of its
 // own, plus the lifts' platforms. Which floor is played, and where the groups stand, is enterFloor's
 export function showBuilding(b: Building) {
@@ -607,6 +777,7 @@ export function showBuilding(b: Building) {
     floorChunks.push(chunkInstances(g, CHUNK_M, CHUNK_MIN_TRIS));
     mergeFlat(g);
     if (cg) mergeFlat(cg);
+    markMeshRooms(g, plan);
     buildDoorMeshes(b.biome, g, plan.hall ? plan.hall.door : -1, n);
     all.add(g);
     floorGroups.push(g);
