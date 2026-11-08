@@ -228,6 +228,7 @@ export function showMove(_hash: string) {
         moveZ: axis(keys.held, 'KeyW', 'KeyS'),
         turn: turnKeys * moveTune.turn * dt + mouseYaw,
         jump: keys.pressed.has('Space'),
+        jumpHeld: keys.held.has('Space'),
         boost: keys.held.has('ShiftLeft') || keys.held.has('ShiftRight'),
         fire: keys.held.has('KeyJ') || mouseDown,
       };

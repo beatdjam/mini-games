@@ -2,7 +2,15 @@ import { expect, test } from 'vitest';
 import { MOVE_TUNE } from '../../src/data/tune.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from '../../src/logic/mech.ts';
 
-const idle: MechInput = { moveX: 0, moveZ: 0, turn: 0, jump: false, boost: false, fire: false };
+const idle: MechInput = {
+  moveX: 0,
+  moveZ: 0,
+  turn: 0,
+  jump: false,
+  jumpHeld: false,
+  boost: false,
+  fire: false,
+};
 
 const input = (over: Partial<MechInput>): MechInput => ({ ...idle, ...over });
 
@@ -54,6 +62,100 @@ test('a jump input on one frame does not jump again after the landing', () => {
   }
   expect(jumps).toBe(1);
   expect(lands).toBe(1);
+});
+
+test('holding a jump in the air hovers and lands later than a plain jump', () => {
+  const plain = newMech();
+  stepMech(plain, input({ jump: true }), 1 / 60, MOVE_TUNE, 8);
+  let plainFrames = 1;
+  while (!plain.grounded && plainFrames < 600) {
+    stepMech(plain, idle, 1 / 60, MOVE_TUNE, 8);
+    plainFrames++;
+  }
+
+  const hover = newMech();
+  stepMech(hover, input({ jump: true, jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+  let hoverFrames = 1;
+  while (!hover.grounded && hoverFrames < 600) {
+    stepMech(hover, input({ jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+    hoverFrames++;
+  }
+
+  expect(plain.grounded).toBe(true);
+  expect(hover.grounded).toBe(true);
+  expect(hoverFrames).toBeGreaterThan(plainFrames);
+});
+
+test('a hover never falls faster than hoverFall while the gauge lasts', () => {
+  const m = newMech();
+  stepMech(m, input({ jump: true, jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+  let started = false;
+  for (let i = 0; i < 600 && !m.grounded; i++) {
+    const events = stepMech(m, input({ jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+    started = started || count(events, 'hoverStart') === 1;
+    if (m.gauge > 0) expect(m.vy).toBeGreaterThanOrEqual(-MOVE_TUNE.hoverFall - 1e-9);
+  }
+  expect(started).toBe(true);
+});
+
+test('a hover drains the gauge at hoverDrain', () => {
+  const m = newMech();
+  stepMech(m, input({ jump: true, jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+  let started = false;
+  for (let i = 0; i < 300 && !started; i++) {
+    const events = stepMech(m, input({ jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+    started = count(events, 'hoverStart') === 1;
+  }
+  expect(started).toBe(true);
+  const before = m.gauge;
+  for (let i = 0; i < 30; i++) stepMech(m, input({ jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+  expect(m.gauge).toBeCloseTo(before - MOVE_TUNE.hoverDrain * 0.5, 2);
+});
+
+test('a hover while boosting drains the boost and the hover together', () => {
+  const m = newMech();
+  stepMech(m, input({ jump: true, jumpHeld: true, boost: true }), 1 / 60, MOVE_TUNE, 8);
+  let started = false;
+  for (let i = 0; i < 300 && !started; i++) {
+    const events = stepMech(m, input({ jumpHeld: true, boost: true }), 1 / 60, MOVE_TUNE, 8);
+    started = count(events, 'hoverStart') === 1;
+  }
+  expect(started).toBe(true);
+  const before = m.gauge;
+  for (let i = 0; i < 30; i++) stepMech(m, input({ jumpHeld: true, boost: true }), 1 / 60, MOVE_TUNE, 8);
+  expect(m.gauge).toBeCloseTo(before - (MOVE_TUNE.boostDrain + MOVE_TUNE.hoverDrain) * 0.5, 2);
+});
+
+test('an empty gauge falls normally and ends the hover once', () => {
+  const m = newMech();
+  stepMech(m, input({ jump: true, jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+  let started = false;
+  for (let i = 0; i < 300 && !started; i++) {
+    const events = stepMech(m, input({ jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+    started = count(events, 'hoverStart') === 1;
+  }
+  expect(started).toBe(true);
+  m.gauge = 0.001; // almost empty, so the hover ends in a few steps
+  const events: MechEvent[] = [];
+  let fell = false;
+  for (let i = 0; i < 300 && !m.grounded; i++) {
+    events.push(...stepMech(m, input({ jumpHeld: true }), 1 / 60, MOVE_TUNE, 8));
+    if (m.vy < -MOVE_TUNE.hoverFall) fell = true;
+  }
+  expect(m.grounded).toBe(true);
+  expect(fell).toBe(true);
+  expect(count(events, 'hoverEnd')).toBe(1);
+  expect(count(events, 'land')).toBe(1);
+});
+
+test('the gauge does not drain while the mech is still rising', () => {
+  const m = newMech();
+  stepMech(m, input({ jump: true, jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+  for (let i = 0; i < 20; i++) {
+    expect(m.vy).toBeGreaterThan(0);
+    stepMech(m, input({ jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
+    expect(m.gauge).toBe(1);
+  }
 });
 
 test('boosting drains the gauge at boostDrain and ends once when it is empty', () => {

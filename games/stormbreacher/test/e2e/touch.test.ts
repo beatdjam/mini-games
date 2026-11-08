@@ -1,8 +1,9 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { el } from '@engine/core/index.ts';
+import { INPUT } from '@engine/ui/index.ts';
 import { TOUCH_BUTTONS, TOUCH_DEFAULTS } from '../../src/data/touch.ts';
-import { initTouch, readTouch } from '../../src/app/touch.ts';
+import { LOOK_RECENT, initTouch, lookInUse, readTouch } from '../../src/app/touch.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -45,4 +46,21 @@ test('a jump is true for one read only', () => {
   expect(readTouch().input.jump).toBe(true);
   expect(readTouch().input.jump).toBe(false);
   button.dispatchEvent(pointer('pointerup', 32, 10, 10));
+});
+
+test('the jump button holds while its finger stays down', () => {
+  const button = el('#btnJump');
+  button.dispatchEvent(pointer('pointerdown', 34, 10, 10));
+  expect(readTouch().input.jumpHeld).toBe(true);
+  expect(readTouch().input.jumpHeld).toBe(true);
+  expect(readTouch().input.jump).toBe(false);
+  button.dispatchEvent(pointer('pointerup', 34, 10, 10));
+  expect(readTouch().input.jumpHeld).toBe(false);
+});
+
+test('the view counts as in use for LOOK_RECENT after a drag', () => {
+  INPUT.look(0.01, 0);
+  const t = performance.now();
+  expect(lookInUse(t)).toBe(true);
+  expect(lookInUse(t + LOOK_RECENT * 1000 + 5)).toBe(false);
 });

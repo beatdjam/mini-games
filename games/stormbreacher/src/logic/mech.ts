@@ -8,6 +8,7 @@ export interface MechInput {
   moveZ: number; // the mech's forward/back input (-1 to 1, forward is +)
   turn: number; // the yaw this frame adds (rad); the view already multiplied the rate by the frame time
   jump: boolean; // true only on the frame the jump key goes down, so holding it does not jump again
+  jumpHeld: boolean; // true while the jump key is held
   boost: boolean; // true while the boost key is held
   fire: boolean; // true while the fire key is held
 }
@@ -24,10 +25,11 @@ export interface MechState {
   gauge: number; // the boost gauge, 0 to 1
   landT: number; // the landing stop left (s); the mech cannot walk while it is above 0
   boosting: boolean; // whether the boost was on in the last step
+  hovering: boolean; // whether the hover was on in the last step
   fireT: number; // the wait before the next shot (s)
 }
 
-export type MechEventKind = 'jump' | 'land' | 'boostStart' | 'boostEnd' | 'fire';
+export type MechEventKind = 'jump' | 'land' | 'boostStart' | 'boostEnd' | 'hoverStart' | 'hoverEnd' | 'fire';
 
 export interface MechEvent {
   kind: MechEventKind;
@@ -47,6 +49,7 @@ export function newMech(): MechState {
     gauge: 1,
     landT: 0,
     boosting: false,
+    hovering: false,
     fireT: 0,
   };
 }
@@ -142,6 +145,15 @@ function stepOnce(
   if (!m.grounded) {
     if (m.boosting && tune.boostLift > 0) m.vy += tune.boostLift * h;
     m.vy -= tune.gravity * h;
+    // A held jump slows the fall while the gauge lasts; it does nothing while rising.
+    const hovering = input.jumpHeld && m.gauge > 0 && m.vy < -tune.hoverFall;
+    if (hovering) {
+      m.vy = -tune.hoverFall;
+      m.gauge = Math.max(0, m.gauge - tune.hoverDrain * h);
+    }
+    if (hovering && !m.hovering) events.push({ kind: 'hoverStart', speed: 0 });
+    else if (!hovering && m.hovering) events.push({ kind: 'hoverEnd', speed: 0 });
+    m.hovering = hovering;
     m.y += m.vy * h;
     if (m.y <= 0) {
       const speed = Math.max(0, -m.vy);
@@ -150,9 +162,14 @@ function stepOnce(
       m.grounded = true;
       m.landT = tune.landStop;
       events.push({ kind: 'land', speed });
+      if (m.hovering) {
+        m.hovering = false;
+        events.push({ kind: 'hoverEnd', speed: 0 });
+      }
     }
   } else {
     m.vy = 0;
+    m.hovering = false;
   }
 
   // The gauge comes back with the boost key up, so holding it empty does not start and stop the boost again.
