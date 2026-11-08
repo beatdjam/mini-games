@@ -6,6 +6,7 @@ import { showMove } from './move.ts';
 import { showTouch } from './touch.ts';
 import { showFcs } from './fcs.ts';
 import { showOutdoor } from './outdoor.ts';
+import { showScript } from './script.ts';
 
 // The views the dev server can open (dev/dev.ts).
 export const DEV_VIEWS: DevView[] = [
@@ -56,5 +57,11 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the beach bench: draw calls, triangles and fps',
     run: showOutdoor,
+  },
+  {
+    hash: '#view-script',
+    match: 'is',
+    name: 'the mission script, driven by buttons',
+    run: showScript,
   },
 ];
