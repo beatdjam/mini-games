@@ -95,7 +95,14 @@ export function settingsHTML(where: string): string {
     .join('\n');
 }
 // draws every settings panel on the page again
+let settingsListenersOn = false; // the document's click / input listeners are registered
 export function renderSettings() {
+  // the document's listeners go in with the first draw (before it, a click lands on nothing the settings own)
+  if (!settingsListenersOn) {
+    settingsListenersOn = true;
+    document.addEventListener('click', onSettingsClick);
+    document.addEventListener('input', onSettingsInput);
+  }
   document.querySelectorAll<HTMLElement>('[data-settings]').forEach(p => {
     p.innerHTML = settingsHTML(p.dataset.settings || '');
   });
@@ -103,7 +110,7 @@ export function renderSettings() {
 const item = <K extends SettingItem['kind']>(key: string | undefined, kind: K) =>
   SETTINGS.items.find((it): it is Extract<SettingItem, { kind: K }> => it.key === key && it.kind === kind);
 
-document.addEventListener('click', e => {
+function onSettingsClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   if (!target.closest || !target.closest('[data-settings]')) return;
   const tg = target.closest<HTMLElement>('[data-set]'),
@@ -125,9 +132,9 @@ document.addEventListener('click', e => {
     const it = item(bt.dataset.action, 'button');
     if (it) it.onClick();
   }
-});
+}
 // a slider is not drawn again while it is dragged: the other panels' sliders and values follow it instead
-document.addEventListener('input', e => {
+function onSettingsInput(e: Event) {
   const input = e.target as HTMLInputElement;
   const key = input.dataset && input.dataset.range;
   const it = item(key, 'range');
@@ -144,4 +151,4 @@ document.addEventListener('input', e => {
     });
   }
   SETTINGS.onChange(it.key);
-});
+}

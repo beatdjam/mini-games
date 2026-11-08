@@ -1,4 +1,8 @@
-// Vitest setup for the engine tests: the page elements the engine looks up when its modules load (engine/README.md)
+import { el } from '../src/core/util.ts';
+import { initRender } from '../src/render/render.ts';
+import { initInput } from '../src/ui/input.ts';
+import { initTouchLayout } from '../src/ui/touchlayout.ts';
+// Vitest setup for the engine tests: the page elements the engine uses (engine/README.md), then its start-up
 document.body.innerHTML = `
 <canvas id="gl" width="64" height="64"></canvas>
 <div id="touch" hidden><div id="joyBase"><div id="joyKnob"></div></div>
@@ -6,3 +10,6 @@ document.body.innerHTML = `
 <div id="layoutBar" hidden><b id="lbName"></b><button data-lbact="minus"></button><button data-lbact="plus"></button><button data-lbact="reset"></button><button data-lbact="done"></button></div>
 <div id="toast"></div><div id="banner"><b id="bannerCode"></b><span id="bannerSub"></span></div>
 <p data-i18n="hello"></p>`;
+initRender(el<HTMLCanvasElement>('#gl'));
+initInput({ touch: el('#touch'), fire: el('#btnFire'), fire2: el('#btnFire2') });
+initTouchLayout();

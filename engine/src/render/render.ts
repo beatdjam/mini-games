@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import { el, isTouch } from '../core/util.ts';
+import { isTouch } from '../core/util.ts';
+import { LOOP } from '../core/loop.ts';
 // engine: three.js setup: renderer on canvas#gl, scene, camera, resize, shared materials, disposal, text sprites, and the in-hand viewmodel pass
+// Nothing here touches the page as it loads: initRender(canvasEl) makes the renderer, scene and camera, and sets LOOP.render
 const BG_COLOR = 0x061219; // fog and background
 const FOV_LANDSCAPE = 72; // vertical field of view (deg) on a wide window
 const FOV_PORTRAIT = 90; // ... on a tall window (width < height)
@@ -12,20 +14,49 @@ function addLights(target: THREE.Scene, sunPos: [number, number, number]): THREE
   target.add(light);
   return light;
 }
-export const canvas = el<HTMLCanvasElement>('#gl');
-export const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
-// the draw counts (drawStats) add up over a frame's passes (the scene, then the gun): core/loop.ts clears them per frame
-renderer.info.autoReset = false;
-export const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(BG_COLOR, 4, 44);
-scene.background = new THREE.Color(BG_COLOR);
-export const camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.05, 140);
-camera.rotation.order = 'YXZ';
-scene.add(camera);
-export const sun = addLights(scene, [3, 10, 2]);
-export const dynGroup = new THREE.Group();
-scene.add(dynGroup);
+export let canvas: HTMLCanvasElement;
+export let renderer: THREE.WebGLRenderer;
+export let scene: THREE.Scene;
+export let camera: THREE.PerspectiveCamera;
+export let sun: THREE.DirectionalLight;
+export let dynGroup: THREE.Group;
+let renderReady = false; // initRender has run (a second call does nothing)
+let clearedStill = false; // the screen was cleared once since LOOP.draw turned off
+export function initRender(canvasEl: HTMLCanvasElement) {
+  if (renderReady) return;
+  renderReady = true;
+  canvas = canvasEl;
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2));
+  // the draw counts (drawStats) add up over a frame's passes (the scene, then the gun): LOOP.render clears them per frame
+  renderer.info.autoReset = false;
+  scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(BG_COLOR, 4, 44);
+  scene.background = new THREE.Color(BG_COLOR);
+  camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.05, 140);
+  camera.rotation.order = 'YXZ';
+  scene.add(camera);
+  sun = addLights(scene, [3, 10, 2]);
+  dynGroup = new THREE.Group();
+  scene.add(dynGroup);
+  window.addEventListener('resize', resize);
+  resize();
+  // what the loop draws each frame: the scene, then the in-hand viewmodel pass (core/loop.ts calls it)
+  LOOP.render = () => {
+    renderer.info.reset();
+    if (!LOOP.draw) {
+      // nothing on screen is the game's: clear what was drawn last, once, and leave the screen alone after that
+      if (!clearedStill) {
+        renderer.clear();
+        clearedStill = true;
+      }
+      return;
+    }
+    clearedStill = false;
+    renderer.render(scene, camera);
+    renderGun();
+  };
+}
 export const V3 = THREE.Vector3;
 export const UP = new V3(0, 1, 0);
 
@@ -37,8 +68,6 @@ export function resize() {
   camera.fov = w / h < 1 ? FOV_PORTRAIT : FOV_LANDSCAPE;
   camera.updateProjectionMatrix();
 }
-window.addEventListener('resize', resize);
-resize();
 
 // marks a geometry / material as shared, so disposeTree leaves it alone
 export function shared<T extends { userData: Record<string, any> }>(x: T): T {
@@ -54,18 +83,8 @@ export function lineMat(c: number): THREE.LineBasicMaterial {
   return lmats[c] || (lmats[c] = shared(new THREE.LineBasicMaterial({ color: c })));
 }
 // frees the GPU resources of an object and its children (skipping shared ones, and textures not owned by the material)
-export function disposeTree(obj: THREE.Object3D) {
-  obj.traverse(node => {
-    const o = node as THREE.Mesh;
-    if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
-    (Array.isArray(o.material) ? o.material : o.material ? [o.material] : []).forEach(m => {
-      if (m.userData.shared) return;
-      const map = (m as THREE.MeshBasicMaterial).map;
-      if (map && m.userData.ownMap) map.dispose();
-      m.dispose();
-    });
-  });
-}
+// (it lives in core/world.ts now; kept here for the files that import it from render.ts)
+export { disposeTree } from '../core/world.ts';
 
 const LABEL_PX = 64; // the letters of a text sprite (px of its canvas)
 const LABEL_PLATE = 320; // the plate behind them, at its narrowest (px)

@@ -84,71 +84,78 @@ export function closeLayoutEditor() {
   applyLayout();
   TOUCH_LAYOUT.onClose(layoutEditor.from);
 }
-touchEl.addEventListener(
-  'pointerdown',
-  e => {
-    if (!layoutEditor.open) return;
-    const target = e.target as HTMLElement,
-      b = target.closest<HTMLElement>('[data-lb]');
-    if (!b) {
-      if (!target.closest('#layoutBar')) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
+let layoutReady = false; // initTouchLayout has run (a second call does nothing)
+// registers the editor's listeners (touchEl comes from initInput: call this after it); nothing here touches the page
+// as it loads
+export function initTouchLayout() {
+  if (layoutReady) return;
+  layoutReady = true;
+  touchEl.addEventListener(
+    'pointerdown',
+    e => {
+      if (!layoutEditor.open) return;
+      const target = e.target as HTMLElement,
+        b = target.closest<HTMLElement>('[data-lb]');
+      if (!b) {
+        if (!target.closest('#layoutBar')) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+        return;
       }
+      e.preventDefault();
+      e.stopPropagation();
+      layoutEditor.sel = b.dataset.lb ?? '';
+      const r = b.getBoundingClientRect();
+      layoutEditor.drag = {
+        id: e.pointerId,
+        dx: e.clientX - (r.left + r.width / 2),
+        dy: e.clientY - (r.top + r.height / 2),
+      };
+      try {
+        b.setPointerCapture(e.pointerId);
+      } catch (err) {}
+      el('#lbName').textContent = TOUCH_LAYOUT.defs[layoutEditor.sel].name;
+      applyLayout();
+    },
+    true,
+  );
+  window.addEventListener('pointermove', e => {
+    if (!layoutEditor.open || !layoutEditor.drag || e.pointerId !== layoutEditor.drag.id) return;
+    const L = TOUCH_LAYOUT.edits(),
+      cur = buttonLayout(layoutEditor.sel);
+    L[layoutEditor.sel] = {
+      x: clamp((e.clientX - layoutEditor.drag.dx) / window.innerWidth, 0, 1),
+      y: clamp((e.clientY - layoutEditor.drag.dy) / window.innerHeight, 0, 1),
+      s: cur.s,
+    };
+    applyLayout();
+  });
+  window.addEventListener('pointerup', e => {
+    if (layoutEditor.drag && e.pointerId === layoutEditor.drag.id) {
+      layoutEditor.drag = null;
+      TOUCH_LAYOUT.save();
+    }
+  });
+  el('#layoutBar').addEventListener('click', e => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-lbact]');
+    if (!b) return;
+    const a = b.dataset.lbact,
+      L = TOUCH_LAYOUT.edits(),
+      cur = buttonLayout(layoutEditor.sel);
+    if (a === 'minus' || a === 'plus')
+      L[layoutEditor.sel] = {
+        x: cur.x,
+        y: cur.y,
+        s: clamp(Math.round((cur.s + (a === 'plus' ? 0.1 : -0.1)) * 10) / 10, 0.7, 1.6),
+      };
+    else if (a === 'reset') TOUCH_LAYOUT.reset();
+    else if (a === 'done') {
+      closeLayoutEditor();
       return;
     }
-    e.preventDefault();
-    e.stopPropagation();
-    layoutEditor.sel = b.dataset.lb ?? '';
-    const r = b.getBoundingClientRect();
-    layoutEditor.drag = {
-      id: e.pointerId,
-      dx: e.clientX - (r.left + r.width / 2),
-      dy: e.clientY - (r.top + r.height / 2),
-    };
-    try {
-      b.setPointerCapture(e.pointerId);
-    } catch (err) {}
-    el('#lbName').textContent = TOUCH_LAYOUT.defs[layoutEditor.sel].name;
-    applyLayout();
-  },
-  true,
-);
-window.addEventListener('pointermove', e => {
-  if (!layoutEditor.open || !layoutEditor.drag || e.pointerId !== layoutEditor.drag.id) return;
-  const L = TOUCH_LAYOUT.edits(),
-    cur = buttonLayout(layoutEditor.sel);
-  L[layoutEditor.sel] = {
-    x: clamp((e.clientX - layoutEditor.drag.dx) / window.innerWidth, 0, 1),
-    y: clamp((e.clientY - layoutEditor.drag.dy) / window.innerHeight, 0, 1),
-    s: cur.s,
-  };
-  applyLayout();
-});
-window.addEventListener('pointerup', e => {
-  if (layoutEditor.drag && e.pointerId === layoutEditor.drag.id) {
-    layoutEditor.drag = null;
     TOUCH_LAYOUT.save();
-  }
-});
-el('#layoutBar').addEventListener('click', e => {
-  const b = (e.target as HTMLElement).closest<HTMLElement>('[data-lbact]');
-  if (!b) return;
-  const a = b.dataset.lbact,
-    L = TOUCH_LAYOUT.edits(),
-    cur = buttonLayout(layoutEditor.sel);
-  if (a === 'minus' || a === 'plus')
-    L[layoutEditor.sel] = {
-      x: cur.x,
-      y: cur.y,
-      s: clamp(Math.round((cur.s + (a === 'plus' ? 0.1 : -0.1)) * 10) / 10, 0.7, 1.6),
-    };
-  else if (a === 'reset') TOUCH_LAYOUT.reset();
-  else if (a === 'done') {
-    closeLayoutEditor();
-    return;
-  }
-  TOUCH_LAYOUT.save();
-  applyLayout();
-});
-window.addEventListener('resize', applyLayout);
+    applyLayout();
+  });
+  window.addEventListener('resize', applyLayout);
+}

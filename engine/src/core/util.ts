@@ -50,7 +50,6 @@ export const isTouch =
   (typeof window.matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ||
   'ontouchstart' in window ||
   /-touch$/.test(location.hash);
-document.body.classList.add(isTouch ? 'touch' : 'desk');
 
 export const pct = (v: number): string => `${Math.round(v * 100)}%`;
 // Angles in radians. The yaw of a look on the ground plane: 0 looks toward -z, and it grows turning left (toward -x)
