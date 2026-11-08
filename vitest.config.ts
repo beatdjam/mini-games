@@ -1,6 +1,7 @@
-// Vitest: npm test. The engine tests and each game's smoke test run in Chromium (Vitest browser mode through Playwright).
+// Vitest: npm test. The engine tests and each game's e2e test run in Chromium (Vitest browser mode through Playwright).
 // CHROME=/path/to/chrome picks the browser (the cloud container's, or google-chrome in CI); otherwise Playwright's own.
 // In GitHub Actions the results also go to the job summary, a JUnit file and an HTML report (test-results/).
+// A game split into layers has three projects: <id>-unit, <id>-integration (both node) and <id>-e2e (Chromium).
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { existsSync, readdirSync } from 'node:fs';
@@ -18,6 +19,40 @@ const ci = !!process.env.GITHUB_ACTIONS;
 // and simulates thousands of frames, so it gets a long timeout
 const games = readdirSync('games').filter(g => existsSync(`games/${g}/test`));
 
+// a node layer: pure functions and the logic run for many frames, without a page
+const nodeProject = (id: string, layer: 'unit' | 'integration') => ({
+  resolve: { alias: { '@engine': resolve('engine/src') } },
+  test: {
+    name: `${id}-${layer}`,
+    include: [`games/${id}/test/${layer}/**/*.test.ts`],
+    environment: 'node' as const,
+  },
+});
+
+// the page layer: the game's page booted in Chromium
+const e2eProject = (id: string) => ({
+  resolve: { alias: { '@engine': resolve('engine/src') } },
+  test: {
+    name: `${id}-e2e`,
+    include: [`games/${id}/test/e2e/**/*.test.ts`],
+    setupFiles: [`games/${id}/test/e2e/setup.ts`],
+    testTimeout: 60000,
+    browser: browser(),
+  },
+});
+
+// a game that is not split into layers: one Chromium project as before
+const gameProject = (id: string) => ({
+  resolve: { alias: { '@engine': resolve('engine/src') } },
+  test: {
+    name: id,
+    include: [`games/${id}/test/**/*.test.ts`],
+    setupFiles: [`games/${id}/test/setup.ts`],
+    testTimeout: 60000,
+    browser: browser(),
+  },
+});
+
 export default defineConfig({
   test: {
     projects: [
@@ -29,16 +64,11 @@ export default defineConfig({
           browser: browser(),
         },
       },
-      ...games.map(id => ({
-        resolve: { alias: { '@engine': resolve('engine/src') } },
-        test: {
-          name: id,
-          include: [`games/${id}/test/**/*.test.ts`],
-          setupFiles: [`games/${id}/test/setup.ts`],
-          testTimeout: 60000,
-          browser: browser(),
-        },
-      })),
+      ...games.flatMap(id =>
+        existsSync(`games/${id}/test/unit`)
+          ? [nodeProject(id, 'unit'), nodeProject(id, 'integration'), e2eProject(id)]
+          : [gameProject(id)],
+      ),
     ],
     reporters: ci
       ? [

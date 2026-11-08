@@ -46,10 +46,12 @@ export function createRng(seed: number): Rng {
   };
 }
 // `-touch` at the end of a dev hash (e.g. #view-pick-touch) forces the touch layout for screenshots
+// In node (the game's logic tests) there is no window, so it is false.
 export const isTouch =
-  (typeof window.matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ||
-  'ontouchstart' in window ||
-  /-touch$/.test(location.hash);
+  typeof window !== 'undefined' &&
+  ((typeof window.matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ||
+    'ontouchstart' in window ||
+    /-touch$/.test(location.hash));
 
 export const pct = (v: number): string => `${Math.round(v * 100)}%`;
 // Angles in radians. The yaw of a look on the ground plane: 0 looks toward -z, and it grows turning left (toward -x)

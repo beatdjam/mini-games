@@ -2,7 +2,8 @@
 // rules are tools/check_style.js.
 import tseslint from 'typescript-eslint';
 
-const SAVE_MSG = 'save is changed only in src/core/ (progress.ts): add or use a named operation there';
+const SAVE_MSG =
+  'save is changed only in src/core/ (src/logic/ in a game split into layers): add or use a named operation there';
 // a write to save.a, save.a.b or save.a.b.c (assignment, ++ / --, delete), a mutating array call on save.a or save.a.b,
 // or Object.assign(save, ...)
 const SAVE_PATHS = ['object.name', 'object.object.name', 'object.object.object.name'];
@@ -44,9 +45,9 @@ export default tseslint.config(
     },
   },
   {
-    // the save is changed only in src/core/ (progress.ts); everywhere else it is read
+    // the save is changed only in src/core/ (src/logic/ in a game split into layers); everywhere else it is read
     files: ['games/*/src/**/*.ts'],
-    ignores: ['games/*/src/core/**', 'games/*/src/dev/**'],
+    ignores: ['games/*/src/core/**', 'games/*/src/logic/**', 'games/*/src/dev/**'],
     rules: {
       'no-restricted-syntax': ['error', ...SAVE_WRITES.map(selector => ({ selector, message: SAVE_MSG }))],
     },

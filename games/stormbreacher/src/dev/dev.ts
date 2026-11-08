@@ -2,7 +2,7 @@
 // the dev server, so the built pages carry none of it. See SPEC.md, chapter 6.
 import { showFps } from '@engine/core/index.ts';
 import { drawStats } from '@engine/render/index.ts';
-import { seed } from '../core/rng.ts';
+import { seed } from '../logic/rng.ts';
 import { DEV_VIEWS } from './views/index.ts';
 import { findDevView } from './views/view.ts';
 

@@ -1,7 +1,7 @@
 import './i18n/ja.ts';
 import './i18n/en.ts';
 import { ANALYTICS } from '@engine/core/index.ts';
-import { boot } from './flow/boot.ts';
+import { boot } from './app/boot.ts';
 
 ANALYTICS.game = 'stormbreacher'; // sent with every analytics event
 boot();

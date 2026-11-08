@@ -1,6 +1,6 @@
 // Vitest setup for the STORMBREACHER tests: puts the game page's styles and elements into the document before the
 // game modules load, then starts the engine's renderer on them. No input yet: the prototype has no controls.
-import page from '../index.html?raw';
+import page from '../../index.html?raw';
 import { el } from '@engine/core/index.ts';
 import { initRender } from '@engine/render/index.ts';
 
