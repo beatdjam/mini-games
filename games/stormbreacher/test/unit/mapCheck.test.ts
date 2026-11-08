@@ -1,7 +1,8 @@
-// The map check: the hand map fits M1's names and the mech's size, a missing target or a prop outside the bounds is
-// named, and a wall of blocks stops the walk until a gap is opened.
+// The map check: the hand map fits M1's names and the mech's size, a missing or doubled target or a prop outside the
+// bounds is named, and a wall of blocks stops the walk until a gap is opened.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { validateMapForMission } from '../../src/logic/mapCheck.ts';
 import type { MapDef, Prop } from '../../src/data/types.ts';
@@ -46,15 +47,36 @@ test('the hand map has no violations against M1 once the out-of-range names are 
 
 test('the hand map keeps the B line dense', () => {
   const count = (kind: Prop['kind']) => M1B_HAND.props.filter(prop => prop.kind === kind).length;
-  const obstacles = ['block', 'wreck', 'crater'] as const;
-  expect(obstacles.reduce((total, kind) => total + count(kind), 0)).toBeGreaterThanOrEqual(50);
-  expect(count('hedgehog')).toBeGreaterThanOrEqual(60);
+  const cover = ['block', 'wreck', 'crater'] as const;
+  expect(cover.reduce((total, kind) => total + count(kind), 0)).toBeGreaterThanOrEqual(20);
+  expect(count('hedgehog')).toBeGreaterThanOrEqual(120);
 });
 
 test('a target the mission destroys and the map lacks is a violation', () => {
   const violations = validateMapForMission(withoutTargets(['depot']), M1, SKIP);
   expect(violations.some(violation => violation.kind === 'target-missing')).toBe(true);
   expect(violations.some(violation => violation.message.includes('depot'))).toBe(true);
+});
+
+test('two targets with the same id are a violation', () => {
+  const map = structuredClone(M1B_HAND);
+  map.targets.push({ id: 'pillbox-1', kind: 'gun', x: 80, z: -20, yaw: 0 });
+  const violations = validateMapForMission(map, M1, SKIP);
+  expect(violations.some(violation => violation.kind === 'target-duplicate')).toBe(true);
+  expect(violations.some(violation => violation.message.includes('pillbox-1'))).toBe(true);
+});
+
+test('blocking a defence line’s breakthroughs leaves no path', () => {
+  const line = M1B_RULES.lines[0];
+  const map = structuredClone(M1B_HAND);
+  for (const gap of line.gaps) {
+    for (let row = 0; row < line.rows; row++) {
+      const z = line.z - line.depth / 2 + (line.depth / line.rows) * (row + 0.5);
+      map.props.push({ kind: 'hedgehog', x: gap.x, z, yaw: 0, scale: 1 });
+    }
+  }
+  const violations = validateMapForMission(map, M1, SKIP);
+  expect(violations.some(violation => violation.kind === 'no-path')).toBe(true);
 });
 
 test('a prop outside the bounds is a violation', () => {

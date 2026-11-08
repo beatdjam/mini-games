@@ -260,15 +260,21 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 M1 の B トーチカ線と C 防波堤の手前（z −60〜170、x −100〜100）を、手書き・生成・簡易エディタの3つの作り方で同じ形のデータにする。決めるのは遊ぶ人と Claude で、どの作り方がよいかはこの仕様では決めない。
 
 - `MapDef`（`src/data/types.ts`）は `id`・`bounds`（`minX`・`maxX`・`minZ`・`maxZ`）・`props`・`targets`・`spawns` を持つ。`bounds` の外は作らない
-- `Prop` は `kind`・`x`・`z`・`yaw`・`scale`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）
+- `Prop` は `kind`・`x`・`z`・`yaw`・`scale`・`breakable?`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）。`breakable: true` は「後で壊して突破できる物」の印で、今は色とエディタの切り替えだけで、壊す仕組みは G1 で作る
 - `TargetPlace` は `id`・`kind`・`x`・`z`・`yaw`。種類（`TargetKind`）は `pillbox`・`depot`・`gun`・`magazine`。`spawns` は波の名前 → `SpawnPoint`（`x`・`z`）の一覧
-- 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。機体は高さ 8m・当たり半径 2m に合わせ、遮蔽物は機体が隠れる高さ、障害物はジャンプで越える高さにする。描く形（`src/dev/outdoor/build.ts`）も検査もこの表を読む
+- 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。機体は高さ 8m・当たり半径 2m に合わせ、遮蔽物は機体が隠れる高さ、障害物はジャンプで越える高さにする。描く形（`src/dev/outdoor/build.ts`）も検査もこの表を読む。`breakable` の物は同じ形のまま色を少し赤っぽくし、種類ごとの `InstancedMesh` と描く回数は増やさない（`instanceColor`）
 - 手書きは `src/data/maps/m1b-hand.ts`。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`depot`、波は `b-squad`・`seawall-drop`
-- 生成は `generateMap(rng, rules, anchors)`（`src/logic/mapgen.ts`）。`MapRules` は帯（`minZ`・`maxZ`・`kind`・`count`・`minGap`）・右の辺の崖・目標のまわりの空き（`clear`、既定 10m）・道筋の帯（`lanes`）を持つ。目標と波の出る場所は物語に関わるので生成せず `anchors` で受ける。M1 の B の規則は `src/data/maps/m1b-rules.ts` の `M1B_RULES`
+  - B は「三重の防御線」: z 128〜146・z 80〜96・z 8〜26 に、それぞれ対戦車障害物を3列（列の間 6m 前後、同じ列の中は 6.5m 前後、奇数の列は半分ずらす）。線1の突破口は x −55 と x 40、線2は x −10（ほかに壊せる区間 x 40〜60）、線3は x 61（ほかに壊せる区間 x −40〜−20）。突破口はどれも四角の間で 9m 前後、壊せる区間は幅 15m 前後
+  - C の手前（z −55〜−35）は2列で突破口が2か所。線の間には塊・残骸・クレーターの遮蔽物をそれぞれ 10〜12 個、線3の奥に6個ほど置く
+  - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は z −55。崖は右の辺のまま
+- 生成は `generateMap(rng, rules, anchors)`（`src/logic/mapgen.ts`）。`MapRules` は帯（`minZ`・`maxZ`・`kind`・`count`・`minGap`）・防御線（`lines`）・右の辺の崖・目標のまわりの空き（`clear`、既定 10m）・道筋の帯（`lanes`）を持つ。目標と波の出る場所は物語に関わるので生成せず `anchors` で受ける。M1 の B の規則は `src/data/maps/m1b-rules.ts` の `M1B_RULES`（`lanes` は空で、通り道は防御線の突破口が決める）
+- `MapLine` は `z`（線の真ん中）・`depth`（奥行き）・`rows`（列の数）・`kind`・`spacing`（同じ列の中の間隔）・`gaps`（突破口の真ん中と、四角の間の幅）・`breakable`（壊せる区間の真ん中と幅）を持つ。生成は列ごとに `spacing` で x に並べ、奇数の列を `spacing / 2` ずらし、位置を ±1m・向きと倍率（0.9〜1.1）を少し揺らす。`gaps` には四角が入らないように物を置かず、`breakable` の区間の物に `breakable: true` を付ける。帯の物は防御線の z の範囲には置かない
 - 生成は物を置いたあと通り道を調べ、通れなければ種をずらして作り直す（最大10回。だめなら例外）。`rng` は `logic/rng.ts` の `stream('map')` から引く
 - 簡易エディタは `#view-mapedit`（`src/dev/views/mapEdit.ts`）。編集は `localStorage` の `stormbreacher-dev-map` に保存し、`#view-map?src=edit` が読む。開発用なので保存キーは `src/dev/map/store.ts` に置く
+  - 目標の id は最初「選んで」（空）で、空のまま目標を置こうとすると置かずに「id を選んで」と出す。すでにある id を選んで置くと、増やさずにその目標をクリックした所へ動かす
+  - 物を選んでいるとき「壊せる」で `breakable` を切り替える。書き出しの JSON には `breakable: true` のときだけ出す
 - `validateMapForMission(map, mission, skip)`（`src/logic/mapCheck.ts`）は違反の一覧 `{ kind, message }[]` を返す（例外にしない）。`skip` は範囲の外にある波と目標の名前
-  - 台本の `targets` が全部マップにあり、マップにしか無い目標が無い。台本で `spawn` する波が全部 `spawns` にある
+  - 台本の `targets` が全部マップにあり、マップにしか無い目標が無い。同じ id の目標が2つあれば `target-duplicate`。台本で `spawn` する波が全部 `spawns` にある
   - 物と目標が `bounds` の中にあり、目標どうしが 12m より近くない
-  - 範囲の手前（`maxZ`）から奥（`minZ`）まで、当たり半径 2m の機体が通れる道があるか。2m 四方の格子にして幅優先で調べ、`PROP_SIZE` の `blocks` が真の物と目標を、表の `w`×`d` に `scale` を掛け `yaw` で回した四角として避ける。格子の点から四角までの距離が 2m より近ければ塞がれている。`crater` と `tile` は避けない。物が範囲の外に出ているかは中心で見る。`seawall` は登らない前提なので、防波堤の帯（z −75〜−65）は範囲の外（`minZ` −60）に置く
-- M1 の範囲の外（A 波打ち際・ボスの場所）と、機体と物の当たり判定・防波堤を登る仕組みは作らない
+  - 範囲の手前（`maxZ`）から奥（`minZ`）まで、当たり半径 2m の機体が通れる道があるか。2m 四方の格子にして幅優先で調べ、`PROP_SIZE` の `blocks` が真の物と目標を、表の `w`×`d` に `scale` を掛け `yaw` で回した四角として避ける。`breakable` の物も今は塞ぐ物として避ける（壊せるようになるまでは突破口で通れること）。格子の点から四角までの距離が 2m より近ければ塞がれている。`crater` と `tile` は避けない。物が範囲の外に出ているかは中心で見る。`seawall` は登らない前提なので、防波堤の帯（z −75〜−65）は範囲の外（`minZ` −60）に置く
+- M1 の範囲の外（A 波打ち際・ボスの場所）と、機体と物の当たり判定・物を壊す仕組み・防波堤を登る仕組みは作らない

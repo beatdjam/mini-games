@@ -55,13 +55,18 @@ function targetKind(value: unknown, what: string): TargetKind {
 
 function propOf(value: unknown, index: number): Prop {
   const prop = record(value, `props[${index}]`);
-  return {
+  if (prop.breakable !== undefined && typeof prop.breakable !== 'boolean') {
+    throw new Error(`props[${index}].breakable is not a boolean`);
+  }
+  const out: Prop = {
     kind: propKind(prop.kind, `props[${index}].kind`),
     x: num(prop.x, `props[${index}].x`),
     z: num(prop.z, `props[${index}].z`),
     yaw: num(prop.yaw, `props[${index}].yaw`),
     scale: num(prop.scale, `props[${index}].scale`),
   };
+  if (prop.breakable === true) out.breakable = true;
+  return out;
 }
 
 function targetOf(value: unknown, index: number): TargetPlace {

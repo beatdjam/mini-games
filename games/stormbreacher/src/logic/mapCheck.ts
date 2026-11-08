@@ -14,6 +14,7 @@ export type MapViolationKind =
   | 'target-extra' // the map has a target the mission does not know
   | 'wave-missing' // the mission sends a wave the map has no spawn for
   | 'out-of-bounds' // a prop or target stands outside the map
+  | 'target-duplicate' // the same target id is on the map more than once
   | 'targets-close' // two targets stand less than TARGET_GAP apart
   | 'no-path'; // the mech cannot walk from the front edge to the back edge
 
@@ -59,6 +60,14 @@ function checkTargets(map: MapDef, mission: MissionDef, skip: MapCheckSkip, out:
   for (const target of map.targets) {
     if (mission.targets.includes(target.id)) continue;
     out.push({ kind: 'target-extra', message: `the map's target ${target.id} is not in the mission` });
+  }
+  const seen = new Set<string>();
+  for (const target of map.targets) {
+    if (seen.has(target.id)) {
+      out.push({ kind: 'target-duplicate', message: `the map has more than one target called ${target.id}` });
+      continue;
+    }
+    seen.add(target.id);
   }
   for (let i = 0; i < map.targets.length; i++) {
     for (let j = i + 1; j < map.targets.length; j++) {
@@ -129,7 +138,8 @@ function footprintDistance(footprint: Footprint, x: number, z: number): number {
   return Math.hypot(outX, outZ);
 }
 
-// A target or a blocking prop stops the mech's middle from coming within MECH_RADIUS of its footprint.
+// A target or a blocking prop stops the mech's middle from coming within MECH_RADIUS of its footprint. Breakable props
+// block too until G1 adds breaking, so a map must still have its breakthroughs open.
 function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Array } {
   const { minX, minZ, maxX, maxZ } = map.bounds;
   const cols = Math.max(1, Math.floor((maxX - minX) / CELL));
