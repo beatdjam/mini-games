@@ -28,6 +28,8 @@
 
 `src/logic/fcs.ts` は三人称の照準の線・機体の胸・的から、撃つ向きと `hard` が捕まえた的を決める純粋な関数。`src/logic/dummies.ts` は `#view-fcs` の動く的の動きと当たりを、`src/view/reticle.ts` はその照準（点・円・候補の弧・捕まえた印）を DOM で描く。
 
+`src/logic/script.ts` はミッションの台本を進める純粋な関数。`src/data/missions/m1.ts` に M1 の cue の並びと、場所・物・波・目標・印・味方・道の名前の一覧を置き、`src/data/script.ts` にカットシーンの秒と無線の最低表示時間を置く。
+
 `src/app/touch.ts` は engine のスティック・視点のドラッグ・タッチのボタンを `MechInput` の形に変え、ボタンの配置の編集と、押した回数・同時に触れている指の数・動作が同時に効いた時間を測る。
 
 - `src/app/keyboard.ts`: engine のキーの動作とマウスを読み、ジャンプとロックの押した瞬間、右クリックのサブ射撃を `MechInput` の形にする
@@ -170,6 +172,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - `#view-touch`: 同じ平らな地面で、タッチで機体を動かす入口。左 45% のスティックが移動、残りのドラッグが視点、`#btnFire`（メイン）が撃つ、`#btnFire2`（サブ）が押した回数だけ、`#btnJump`（ジャンプ）が押した瞬間に跳び、空中で押し続けると滞空、`#btnBoost`（ブースト）が押している間ブースト、`#btnLock`（ロック）が LOCK の表示を切り替える。ボタンの最初の配置は `src/data/touch.ts` の `TOUCH_DEFAULTS` のとおりで、右手側に寄せ、メインを少し大きくする。画面の上の「配置」で engine の配置の編集画面を開き、指で動かした座標と大きさを保存する。画面の左上に速さ・ゲージ・LOCK・押した回数・同時に触れた指の最大・「スティック＋視点＋メイン」と「スティック＋視点＋ブースト」が同時に効いた秒を出す。視点は `INPUT.look` が呼ばれた時刻から `LOOK_RECENT`（0.25 秒）以内なら使っていると数え、メインのボタンを押したままのドラッグも含める。画面の上の「結果」で、`window.sbTouchReport()` と同じ JSON（測った数字、ボタンの配置 `x`・`y`・`s`・`b`、画面の大きさと `devicePixelRatio`、`userAgent`）を出す
 - `#view-play`: `#view-touch` と同じ画面を、PC ではキーボードとマウス、スマホではタッチで動かす入口。キーボードは W/S が前後、A/D が左右、マウスの移動と矢印キーが視点、Space がジャンプ（押した瞬間に跳び、空中で押し続けると滞空）、Shift がブースト、J かマウスの左ボタンがメイン、K かマウスの右ボタンがサブ、E がロック、Esc がロック解除。PC では画面の下の真ん中に操作の一覧を出し、ポインタロック中は消す。`MOVE_TUNE`・`FEEL_TUNE` の項目と `?feel=0` は `#view-move` と同じく URL で上書きできる（`#view-touch` も同じ）
 - `#view-fcs`: 平らな地面で、8体の動く的（止まる2・左右に往復2・円を回る2・近づいて離れる2）へ撃ち、FCS の3つの型を比べる入口。`?fcs=manual|soft|hard` で型を選び（既定はゲームで使う `soft`。表に無い値は既定にして画面に「無効な値」と出す）、`FCS_TUNE` の各項目を同じ名前で上書きできる（例 `?fcs=soft&cone=10&pull=30`）。`MOVE_TUNE`・`FEEL_TUNE` の項目と `?feel=0` も `#view-move` と同じく効く。`?move=still` で的を全部止める。画面の上の真ん中のボタンで型を切り替える（`?fcs=` を変えて読み直す）。照準は画面の真ん中の点と、`cone` が 0 より大きい型ではカメラの画角から出した円、円の中の的の角の印、`hard` の候補の進み具合の弧、捕まえた的の四角で出す。画面の左上に撃った数・当てた数・当たる率・倒した数・倒すまでの時間の平均・捕まえるまでの時間の平均を出し、`window.sbFcsReport()` が同じ数字を JSON の文字列で返す。測る数字は型ごとで、切り替えると 0 から
+- `#view-script`: M1「強襲上陸」の台本をボタンで動かす入口。3D は描かず、屋外の画面に DOM を重ねる。左に今の目標・地図の印・カットシーンと残りの秒・旗・結果、下の真ん中に無線の帯（1行を最低 `RADIO_MIN_SEC` ずつ順に出す）、右に出来事を入れるボタン（`enter b-line`・`enter seawall-top`・各物の `destroyed`・`skip`）と時間の速さ（×1・×4）、右下に cue が発火した時刻と出来事のログを出す。毎フレーム `stepScript` を回し、`window.sbScriptReport()` が `fired`（cue → 時刻）と出来事の列を JSON の文字列で返す
 - `#view-outdoor`: 上陸戦の浜辺のような広い屋外（地面・障害物・トーチカ・防波堤・崖・歩く敵の機体）を種から作り、その重さを測る入口。開いて2秒たってから10秒のあいだ、フレームの間隔・描く回数・三角形の数を記録し、終わると画面の右上に大きく出す（下の `textarea` は同じ結果の JSON）。`window.sbBenchReport()` は終わっていればその JSON の文字列、まだなら `null`
   - `?chunk=<m>`: 区画の一辺（`0`・`16`・`32`・`64`。既定 `32`。`0` は区画に分けない）。`?chunkMin=<n>`: 区画に分ける種類の三角形の数の下限（既定 `3000`）
   - `?far=<m>`: 描く距離と霧の終わり（`80`・`120`・`160`。既定 `120`）。霧の始まりは `far × 0.4`
@@ -179,3 +182,71 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
   - スマホで開くときは `npx vite --port 8765 --host` で開発サーバーを立て、同じ Wi-Fi の端末から `http://<Mac の IP>:8765/games/stormbreacher/#view-outdoor` を開く
 
 確認用の入口は開発サーバーでだけ読み込む（公開のビルドには入らない）。
+
+## 7. 台本
+
+ミッションの台本は「きっかけ → 動き」の行（cue）の並びで、`src/data/missions/<id>.ts` に置き、`src/logic/script.ts` が進める。台本は出来事を出すだけで、目標の文・無線の帯・地図の印・カットシーンはそれを読んで出す。`data/`・`logic/` は three も DOM も読まない。
+
+- どの cue も1回だけ発火する。時刻は `dt` で進む台本の秒で、`Date.now()` や実時間は使わない
+- 始まりからの絶対の時刻は書かない。場所か物で区切り、その中の間合いだけ `after` で付ける
+- 迫撃砲・副砲の砲撃のような繰り返しは台本の動きにしない。敵や陣地の設定で持ち、台本は `spawn` と `flag` で始めたり変えたりする
+- 乱数は使わない（M1 の台本に要らない）
+- 種類は union 型と `Record<Kind, …>`。知らない種類や、一覧に無い id は `validateMission` が例外にする。無線の行のキーは `logic/` から言語ファイルを読めないので、テストで検査する
+- きっかけが条件を満たした cue は、無くなるまで同じフレームで続けて発火する（`after … 0` のため）
+
+### きっかけ
+
+| `kind` | 形 | 意味 |
+|--------|----|------|
+| `start` | `{ kind: 'start' }` | ミッションの始まり。最初の `stepScript` で発火する |
+| `enter` | `{ kind: 'enter', area }` | プレイヤーが場所に入った |
+| `destroyed` | `{ kind: 'destroyed', targets, count? }` | 目標の物が壊れた。`count` を省くと全部、`count: 1` ならどれか1つ |
+| `cleared` | `{ kind: 'cleared', wave }` | 出した波の敵が全部倒れた（M1 では使わないが、型と判定はある） |
+| `after` | `{ kind: 'after', cue, sec }` | 別の cue が発火してから `sec` 秒後。`sec: 0` は同じフレームで続けて |
+| `flag` | `{ kind: 'flag', name }` | 旗が立った（M1 では使わないが、型と判定はある） |
+
+場所は四角で持つ（`{ x, z, w, d }`。中心と、x の幅・z の奥行き m）。
+
+### 動き
+
+| `kind` | 形 | 意味 |
+|--------|----|------|
+| `objective` | `{ kind: 'objective', id }` | 目標を書き換える |
+| `radio` | `{ kind: 'radio', line }` | 無線の1行（言語ファイルのキー） |
+| `spawn` | `{ kind: 'spawn', wave }` | 敵の波を出す（中身はマップの側で決める） |
+| `ally` | `{ kind: 'ally', id, path, fate? }` | 味方の台本（出来事を出すだけ）。`fate` は `{ at, by }` |
+| `cutscene` | `{ kind: 'cutscene', id }` | カットシーンに入る。`CUTSCENE_SEC` の秒だけ経つか、読み飛ばすまで、カットシーン中の状態にする |
+| `checkpoint` | `{ kind: 'checkpoint', id }` | チェックポイント。台本の状態を深いコピーで残す |
+| `flag` | `{ kind: 'flag', name }` | 旗を立てる |
+| `map` | `{ kind: 'map', mark, on }` | 戦況の地図の印を出す・消す |
+| `end` | `{ kind: 'end', result }` | ミッションの終わり（`result` は `'cleared'`） |
+
+決まり:
+
+- `CUTSCENE_SEC`（`src/data/script.ts`）は `landing` 10 秒・`wave2-sinks` 6 秒・`beach-held` 8 秒（仮の値）。カットシーンの中でも台本の時間は進み、`after` の秒は数える
+- 無線が重なったら、順番に積んで1行ずつ出す。1行は最低 `RADIO_MIN_SEC`（3 秒）出す（画面の側の決まり）
+- 報酬は扱わない。ミッションの終わりでまとめて決める
+
+### M1「強襲上陸」の cue
+
+| cue | きっかけ | 動き |
+|-----|----------|------|
+| `intro` | `start` | `cutscene landing` |
+| `beach` | `after intro 0` | `objective reach-pillboxes`・`map wave2 on`・`spawn beach-mortar`・`ally buddy beach-run`（`fate { at: 'beach-mid', by: 'mortar' }`） |
+| `pillboxes` | `enter b-line` | `objective break-pillboxes`・`spawn b-squad`・`radio m1.depot-hint` |
+| `depot` | `destroyed depot` | `flag depot-down`・`radio m1.depot-down` |
+| `cp1` | `destroyed pillbox-1, pillbox-2` | `checkpoint cp1` |
+| `wave2-lost` | `after cp1 4` | `cutscene wave2-sinks`・`radio m1.wave2-lost`・`map wave2 off`・`objective take-seawall`・`spawn seawall-drop` |
+| `seawall` | `enter seawall-top` | `checkpoint cp2`・`objective silence-battery`・`spawn battery` |
+| `gun1` | `destroyed main-gun-1, main-gun-2`（どれか1つ） | `radio m1.gun1-down` |
+| `shutter` | `destroyed main-gun-1, main-gun-2`（全部） | `flag shutter-open`・`objective hit-magazine` |
+| `win` | `destroyed magazine` | `cutscene beach-held`・`end cleared` |
+
+場所は仮の座標で、奥行き 480m・幅 200m のマップに置く（+z が海、A 波打ち際 z 120〜240、B トーチカ線 z −30〜120、C 防波堤 z −150〜−30、ボスは z −150 より陸側）。`b-line` は中心 z 135・奥行き 30（z 120〜150）、`seawall-top` は中心 z −90・奥行き 60（z −120〜−60）で、幅はどちらも 200。物は `depot`・`pillbox-1`・`pillbox-2`・`main-gun-1`・`main-gun-2`・`magazine`、波は `beach-mortar`・`b-squad`・`seawall-drop`・`battery`、目標は `reach-pillboxes`・`break-pillboxes`・`take-seawall`・`silence-battery`・`hit-magazine`、印は `wave2`、味方は `buddy`、道は `beach-run`。
+
+### チェックポイント
+
+- `checkpoint` は台本の状態を深いコピーで残す。コピーを取るのは、その cue の動きを全部当て終わってから（M1 の `seawall` は cp2 のあとに目標とボスを出すので、途中で取ると戻したときにどちらも出ない）。保存しない項目はチェックポイント自身だけで、前のチェックポイントを入れ子にしない
+- `restoreCheckpoint` は最後のチェックポイントの深いコピーを返す。取った時点より後の cue は発火していない状態に戻る。戻した状態も同じチェックポイントを持つので、戻ったあとにまたやられても同じ所へ戻れる
+- `checkpointReplay` は、戻したあとに画面を組み直す出来事（今の目標、出ている地図の印、出してまだ倒していない波）を返す。状態は出した波を `spawned` に持つ
+- 報酬はチェックポイントで確定しない（ミッションの終わりでまとめて決める）
