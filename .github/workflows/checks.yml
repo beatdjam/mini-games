@@ -4,6 +4,7 @@ name: Checks
 # 公開ジョブでも同じ確認をもう一度流す（PR どうしの組み合わせで master が壊れたときに、公開しないため）
 # テストだけは、PR が変えたファイルに合わせて絞る（tools/test_scope.js）: 1つのゲームの中だけを変えた PR は、
 # そのゲームのテストだけ。engine・道具・設定などを変えた PR は全部。文書（*.md）だけの PR はテストなし。
+# 層に分けたゲームは、node の層を先に流す
 # 公開ジョブは、いつも全部のテストを流す
 on:
   pull_request:
@@ -41,10 +42,21 @@ jobs:
           echo "テストの範囲: $scope" | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$scope" = none ]; then exit 0; fi
           if [ "$scope" = all ]; then
-            npm test
+            # node の層（ページを使わないテスト）を先に流す。落ちたらここで止まり、Chromium の層は流さない
+            npx vitest run --project '*-unit' --project '*-integration'
+            npx vitest run --project '!*-unit' --project '!*-integration'
           else
+            node_projects=""
             projects=""
-            for game in $scope; do projects="$projects --project $game"; done
+            for game in $scope; do
+              if [ -d "games/$game/test/unit" ]; then
+                node_projects="$node_projects --project $game-unit --project $game-integration"
+                projects="$projects --project $game-e2e"
+              else
+                projects="$projects --project $game"
+              fi
+            done
+            if [ -n "$node_projects" ]; then npx vitest run $node_projects; fi
             npx vitest run $projects
           fi
           npm run test:build

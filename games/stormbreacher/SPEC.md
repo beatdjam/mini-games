@@ -9,10 +9,33 @@
 - 公開のビルドにも GA のタグは入る
 - この器の上に、屋外の描画の測定（SB-010）・三人称カメラ（SB-020）・タッチ操作（SB-030）・寸法（SB-040）の確認用の入口が乗る
 
+## フォルダと層
+
+ソースは4層に分ける。`logic/` と `data/` は three も DOM も読まず、ページなしの node で動く。
+
+| フォルダ | 中身 | 読んでよいもの |
+|----------|------|----------------|
+| `src/data/` | 表と定義（型・状態・調整の値） | `data/` と engine の core |
+| `src/logic/` | 状態と1フレームの更新 | `data/`・`logic/`・engine の core |
+| `src/view/` | 状態を読んで描く | `data/`・`logic/`・engine・three |
+| `src/app/` | 入力・画面・起動 | すべて |
+
+`logic/`・`data/` は three・DOM・`view/`・`app/`・`dev/`・`i18n/` を読まない。`data/` は `logic/` も読まない。`view/` は `app/` と `dev/` を読まない。この向きは dependency-cruiser の規則（`sb-logic-data-no-render`・`sb-logic-data-inward`・`sb-data-is-data`・`sb-view-reads-only`）で止めてある。
+
+## テストの層
+
+| 層 | 何を確かめるか | 動く場所 | project の名前 | 流し方 |
+|----|----------------|----------|----------------|--------|
+| unit | 純粋な関数1つ | node | `stormbreacher-unit` | `npx vitest run --project stormbreacher-unit` |
+| integration | `logic/` を何フレームも回す | node | `stormbreacher-integration` | `npx vitest run --project stormbreacher-integration` |
+| e2e | ページを起動する | Chromium | `stormbreacher-e2e` | `npx vitest run --project stormbreacher-e2e` |
+
+E2E に書いてよいのは、画面か入力が無いと確かめられないものだけ。
+
 ## 2. 画面
 
 - ページの要素: `<canvas id="gl">` の上に `<div id="sbApp">` を重ねる（`pointer-events:none`。一覧へ戻るリンクだけ `pointer-events:auto`）
-- 画面の状態は `src/core/state.ts` の `GameState` と `src/data/states.ts` の `STATES` で持つ。今は `title` の1つだけで、`playing` は false
+- 画面の状態は `src/app/screen.ts` の `GameState` と `src/data/states.ts` の `STATES` で持つ。今は `title` の1つだけで、`playing` は false
 - 状態は `setState` でだけ書き換え、遊んでいるかは `isPlaying()` で見る。状態の名前を直に比べない
 
 | 状態 | playing | 意味 |
@@ -21,7 +44,7 @@
 
 ## 3. 乱数
 
-- 乱数は `src/core/rng.ts` の1つの口からだけ引く。ほかで `Math.random` を呼ばない
+- 乱数は `src/logic/rng.ts` の1つの口からだけ引く。ほかで `Math.random` を呼ばない
 - `rng()`: 全体の乱数。`seed(n)` で種を入れると、同じ種からは同じ並びになる
 - `stream(name)`: 要素ごとの専用の乱数列。今は `field` の1つ。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
 - 種を入れていないときは、どれも `Math.random` から引く

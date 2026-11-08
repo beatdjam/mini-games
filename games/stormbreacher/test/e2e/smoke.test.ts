@@ -2,11 +2,11 @@ import { beforeEach, expect, test } from 'vitest';
 import * as THREE from 'three';
 import { el, t } from '@engine/core/index.ts';
 import { camera, drawStats, scene } from '@engine/render/index.ts';
-import { FIELD_TUNE } from '../src/data/tune.ts';
-import { isPlaying, state } from '../src/core/state.ts';
-import { boot } from '../src/flow/boot.ts';
+import { FIELD_TUNE } from '../../src/data/tune.ts';
+import { isPlaying, state } from '../../src/app/screen.ts';
+import { boot, currentGame } from '../../src/app/boot.ts';
 // loads the language files and boots the page, as the real page does
-import '../src/main.ts';
+import '../../src/main.ts';
 
 // each test boots the page itself, so one test alone still starts everything (boot() does nothing twice)
 beforeEach(() => boot());
@@ -37,6 +37,11 @@ test('a drawn frame reports what it drew', async () => {
   // drawStats() is "<n> calls <k>k tris": the ground and the size box make at least one draw call
   const calls = Number(/^(\d+) calls/.exec(drawStats())?.[1]);
   expect(calls).toBeGreaterThan(0);
+});
+
+test('the logic advances the game every frame', async () => {
+  await frames(2);
+  expect(currentGame().time).toBeGreaterThan(0);
 });
 
 test('the field replaces the engine fog and the camera far plane', () => {

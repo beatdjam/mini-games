@@ -25,6 +25,36 @@ module.exports = {
       from: { path: '^engine/src/core/' },
       to: { path: '^engine/src/(render|world|ui|audio|trailer)/' },
     },
+    // STORMBREACHER's layers (only that game: the other games have a data/ folder too)
+    {
+      name: 'sb-logic-data-no-render',
+      severity: 'error',
+      comment: 'stormbreacher: logic and data run without a page, so they must not read three or the engine renderers',
+      from: { path: '^games/stormbreacher/src/(logic|data)/' },
+      // three without ^: in a work tree whose node_modules links to the main checkout's, it resolves to ../../node_modules
+      to: { path: ['(^|/)node_modules/three/', '^engine/src/(render|ui|audio|trailer)/'] },
+    },
+    {
+      name: 'sb-logic-data-inward',
+      severity: 'error',
+      comment: 'stormbreacher: logic and data are the inner layers; the view, the app, the dev hooks and i18n use them',
+      from: { path: '^games/stormbreacher/src/(logic|data)/' },
+      to: { path: '^games/stormbreacher/src/(view|app|dev|i18n)/' },
+    },
+    {
+      name: 'sb-data-is-data',
+      severity: 'error',
+      comment: 'stormbreacher: data holds definitions only, so it must not read logic',
+      from: { path: '^games/stormbreacher/src/data/' },
+      to: { path: '^games/stormbreacher/src/logic/' },
+    },
+    {
+      name: 'sb-view-reads-only',
+      severity: 'error',
+      comment: 'stormbreacher: the view reads state and draws it; the app and the dev hooks drive it',
+      from: { path: '^games/stormbreacher/src/view/' },
+      to: { path: '^games/stormbreacher/src/(app|dev)/' },
+    },
     {
       name: 'no-circular',
       severity: 'error',
