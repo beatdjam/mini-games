@@ -44,6 +44,13 @@ test('the hand map has no violations against M1 once the out-of-range names are 
   expect(validateMapForMission(M1B_HAND, M1, SKIP)).toEqual([]);
 });
 
+test('the hand map keeps the B line dense', () => {
+  const count = (kind: Prop['kind']) => M1B_HAND.props.filter(prop => prop.kind === kind).length;
+  const obstacles = ['block', 'wreck', 'crater'] as const;
+  expect(obstacles.reduce((total, kind) => total + count(kind), 0)).toBeGreaterThanOrEqual(50);
+  expect(count('hedgehog')).toBeGreaterThanOrEqual(60);
+});
+
 test('a target the mission destroys and the map lacks is a violation', () => {
   const violations = validateMapForMission(withoutTargets(['depot']), M1, SKIP);
   expect(violations.some(violation => violation.kind === 'target-missing')).toBe(true);
