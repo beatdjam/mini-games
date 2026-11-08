@@ -3,7 +3,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { createRng } from '@engine/core/util.ts';
 import { camera, scene } from '@engine/render/render.ts';
-import { T, tileCenter } from '@engine/world/tiles.ts';
+import { T, tileCenter, tileCoord } from '@engine/world/tiles.ts';
 import { WEAPON_ORDER } from '../src/data/weapons.ts';
 import { EYE, WALL_H } from '../src/data/level.ts';
 import { VIEWMODELS } from '../src/data/viewmodels.ts';
@@ -12,8 +12,9 @@ import { BIOMES } from '../src/data/biomes.ts';
 import { facesWest, lookOf, variantOf, wallPic, WALL_PLAIN_SHARE } from '../src/world/looks.ts';
 import { floorSides, wallSide } from '@engine/world/walls.ts';
 import { enterFloor, level, showBuilding, showNeighbourFloors } from '../src/world/level.ts';
-import { devCourtOpen, makeBuilding } from '../src/world/building.ts';
-import type { Building } from '../src/world/building.ts';
+import { devCourtOpen, makeBuilding, roomDoors, roomTiles } from '../src/world/building.ts';
+import type { Building, FloorPlan } from '../src/world/building.ts';
+import { updateDoorMeshes } from '../src/world/doors.ts';
 import { Backdrop, WINDOW_ORDER } from '@engine/render/windows.ts';
 import { tileMapFromRows } from '@engine/world/tilemap.ts';
 import * as THREE from 'three';
@@ -387,6 +388,132 @@ test('props: what hangs overhead clears the head of someone on a raised floor un
   expect(overHead(3.5, 2), 'a metre over the eye on the walkway').toBeCloseTo(2 + EYE + 1);
   expect(overHead(5.9, 2), 'never up into the ceiling').toBeLessThan(WALL_H);
   expect(raised(d, { i: 1, j: 0 }) && raised(d, { i: 2, j: 0 }) && !raised(d, { i: 3, j: 0 })).toBe(true);
+});
+// the instanced meshes of the floor on screen whose every copy stands in `room`
+function meshesOnlyIn(plan: FloorPlan, room: number): THREE.InstancedMesh[] {
+  const W = plan.gen.W,
+    roomOf = plan.gen.maps.roomOf,
+    out: THREE.InstancedMesh[] = [],
+    p = new THREE.Vector3();
+  level.group!.traverse(o => {
+    const m = o as THREE.InstancedMesh;
+    if (!m.isInstancedMesh || !m.count) return;
+    const a = m.instanceMatrix.array;
+    for (let n = 0; n < m.count; n++) {
+      p.set(a[n * 16 + 12]!, a[n * 16 + 13]!, a[n * 16 + 14]!).applyMatrix4(m.matrixWorld);
+      if (roomOf[tileCoord(p.z) * W + tileCoord(p.x)] !== room) return;
+    }
+    out.push(m);
+  });
+  return out;
+}
+// a floor tile inside `room`, to stand on
+function tileIn(plan: FloorPlan, room: number): number {
+  const grid = plan.gen.maps.grid,
+    roomOf = plan.gen.maps.roomOf;
+  return roomTiles(plan.gen, room).find(k => grid[k] === 1 && roomOf[k] === room) ?? -1;
+}
+// the rooms that have a tile of the courtyard, or one next to it
+function roomsFacingCourt(plan: FloorPlan): Set<number> {
+  const W = plan.gen.W,
+    H = plan.gen.H,
+    roomOf = plan.gen.maps.roomOf,
+    out = new Set<number>();
+  if (!plan.court) return out;
+  for (const k of [...plan.court.tiles, ...plan.court.balcony, ...plan.court.bridge]) {
+    const i = k % W,
+      j = (k / W) | 0;
+    for (const [di, dj] of [
+      [0, 0],
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const a = i + di!,
+        b = j + dj!;
+      if (a < 0 || b < 0 || a >= W || b >= H) continue;
+      const r = roomOf[b * W + a]!;
+      if (r >= 0) out.add(r);
+    }
+  }
+  return out;
+}
+test('door cull: a room behind a shut door is not drawn, and is drawn as the door starts to open', () => {
+  const ruin = BIOMES.find(x => x.code === 'RUIN')!,
+    b = makeBuilding(ruin, ruin.bosses[0]!, 1),
+    floor = b.plans.length - 1;
+  showBuilding(b);
+  enterFloor(b, floor);
+  level.group!.updateMatrixWorld(true);
+  const plan = b.plans[floor]!,
+    W = plan.gen.W;
+  // a room whose only ways out are doors, and a mesh that stands only in another room
+  let from = -1,
+    to = -1,
+    target: THREE.InstancedMesh | null = null;
+  for (let r = 0; r < plan.gen.rooms.length && !target; r++) {
+    if (!roomDoors(plan.gen, r).closable) continue;
+    for (let f = 0; f < plan.gen.rooms.length; f++) {
+      if (f === r) continue;
+      const ms = meshesOnlyIn(plan, f);
+      if (ms.length) {
+        from = r;
+        to = f;
+        target = ms[0]!;
+        break;
+      }
+    }
+  }
+  expect(target, 'a room with a door, and a mesh only in another room').not.toBeNull();
+  const start = tileIn(plan, from);
+  expect(start, 'a floor tile in the room with the door').toBeGreaterThanOrEqual(0);
+  const x = tileCenter(start % W),
+    z = tileCenter(Math.floor(start / W));
+  camera.position.set(x, EYE, z);
+  showNeighbourFloors(b, x, z, null);
+  expect(target!.visible, `room ${to} behind shut doors`).toBe(false);
+  // the door starts to open: every door of the floor (a door 2 wide has two tiles), moved once with nobody near
+  plan.gen.maps.door?.forEach((v, k) => {
+    if (v) plan.gen.maps.doorOpen![k] = 0.01;
+  });
+  updateDoorMeshes([], 1 / 60);
+  showNeighbourFloors(b, x, z, null);
+  expect(target!.visible, 'the room behind the door as it starts to open').toBe(true);
+});
+test('door cull: a room facing the courtyard is not hidden behind a shut door', () => {
+  const city = BIOMES.find(x => x.code === 'CITY')!,
+    b = makeBuilding(city, city.bosses[0]!, 1),
+    floor = b.court!.lower;
+  showBuilding(b);
+  enterFloor(b, floor);
+  level.group!.updateMatrixWorld(true);
+  const plan = b.plans[floor]!,
+    W = plan.gen.W,
+    facing = roomsFacingCourt(plan);
+  let from = -1;
+  for (let r = 0; r < plan.gen.rooms.length; r++)
+    if (roomDoors(plan.gen, r).closable && !facing.has(r)) {
+      from = r;
+      break;
+    }
+  expect(from, 'a room with a door, away from the courtyard').toBeGreaterThanOrEqual(0);
+  let to = -1,
+    target: THREE.InstancedMesh | null = null;
+  for (const r of facing) {
+    const ms = meshesOnlyIn(plan, r);
+    if (ms.length) {
+      to = r;
+      target = ms[0]!;
+      break;
+    }
+  }
+  expect(target, 'a mesh only in a room facing the courtyard').not.toBeNull();
+  const start = tileIn(plan, from),
+    x = tileCenter(start % W),
+    z = tileCenter(Math.floor(start / W));
+  showNeighbourFloors(b, x, z, null);
+  expect(target!.visible, `room ${to} facing the courtyard`).toBe(true);
 });
 test('courtyard: what hangs in an atrium has the same colours whatever yard was dressed before it', () => {
   const well = { cx: 20, cz: 20, wide: 12, deep: 12, ground: -16, sky: 0, decks: [] },
