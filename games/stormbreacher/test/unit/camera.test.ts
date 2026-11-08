@@ -26,9 +26,18 @@ test('a wall behind the mech pulls the camera in front of it', () => {
 
 test('a wall closer than minDist does not bring the camera nearer than minDist', () => {
   const wall = box([-50, 0, 2], [50, 20, 3]);
+  const tune = { ...CAMERA_TUNE, minDist: 4 };
+  const pose = cameraPose(at(), 0, tune, [wall]);
+  expect(pose.pulled).toBe(true);
+  expect(pose.dist).toBeGreaterThanOrEqual(tune.minDist);
+});
+
+test('with the default minDist, a wall 2 m behind keeps the camera on this side of it', () => {
+  const wall = box([-50, 0, 2], [50, 20, 3]);
   const pose = cameraPose(at(), 0, CAMERA_TUNE, [wall]);
   expect(pose.pulled).toBe(true);
-  expect(pose.dist).toBeGreaterThanOrEqual(CAMERA_TUNE.minDist);
+  expect(pose.pos.z).toBeLessThan(2);
+  expect(wall.containsPoint(pose.pos)).toBe(false);
 });
 
 test('a wall on the right shortens the shoulder and keeps the look point out of it', () => {

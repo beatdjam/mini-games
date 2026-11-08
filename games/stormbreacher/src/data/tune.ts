@@ -16,7 +16,7 @@ export const CAMERA_TUNE = {
   height: 3.0, // how far the camera sits above the look point (m)
   shoulder: 4.3, // how far the look point moves to the mech's right (m)
   lookHeight: 5.8, // the look point's height above the mech's feet (m)
-  minDist: 4, // the shortest horizontal distance a wall may pull the camera to (m)
+  minDist: 0.5, // the shortest horizontal distance a wall may pull the camera to (m): near 0, so the camera stays on this side of any wall farther than this
   margin: 0.6, // the gap kept in front of a wall (m)
   pitchMin: -0.5, // the lowest pitch the camera may look, looking down (rad)
   pitchMax: 0.8, // the highest pitch the camera may look, looking up (rad)
