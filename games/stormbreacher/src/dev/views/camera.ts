@@ -7,6 +7,7 @@ import { CAMERA_TUNE, type CameraTune } from '../../data/tune.ts';
 import { applyPose, cameraPose, followPose, screenFraction, type CameraPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import { STATIONS, buildCourse, type StationName } from '../course.ts';
+import { heldKeys } from '../keys.ts';
 import { buildMechProxy } from '../mechProxy.ts';
 
 declare global {
@@ -171,7 +172,7 @@ function numberParam(params: URLSearchParams, name: string, fallback: number): n
 }
 
 // CAMERA_TUNE with every numeric URL value of the same name on top; a value that is not a number is ignored.
-function tuneFrom(params: URLSearchParams): CameraTune {
+export function tuneFrom(params: URLSearchParams): CameraTune {
   const tune: CameraTune = { ...CAMERA_TUNE };
   // Object.keys loses the key type; every field of CAMERA_TUNE is a number.
   for (const key of Object.keys(CAMERA_TUNE) as (keyof CameraTune)[]) {
@@ -216,33 +217,10 @@ export function showCamera(_hash: string) {
   model.position.copy(pos);
   model.rotation.y = yaw;
 
-  const held = new Set<string>();
-  if (drive) {
-    const downKeys = [
-      'KeyW',
-      'KeyA',
-      'KeyS',
-      'KeyD',
-      'KeyQ',
-      'KeyE',
-      'KeyR',
-      'KeyF',
-      'ArrowLeft',
-      'ArrowRight',
-      'ArrowUp',
-      'ArrowDown',
-      'ShiftLeft',
-      'ShiftRight',
-    ];
-    window.addEventListener('keydown', event => {
-      held.add(event.code);
-      if (downKeys.includes(event.code)) event.preventDefault();
-    });
-    window.addEventListener('keyup', event => held.delete(event.code));
-    window.addEventListener('blur', () => held.clear());
-  }
+  // ?drive: the keys the view holds. pressed is unused here, but cleared each frame like every reader of heldKeys.
+  const keys = drive ? heldKeys() : null;
 
-  const down = (code: string): boolean => held.has(code);
+  const down = (code: string): boolean => keys !== null && keys.held.has(code);
 
   function advanceRoute(): boolean {
     targetIndex++;
@@ -316,6 +294,7 @@ export function showCamera(_hash: string) {
   addSystem({
     name: 'sb-camera',
     update: dt => {
+      if (keys) keys.pressed.clear();
       let lapDone = false;
       if (drive) stepDrive(dt);
       else lapDone = stepRoute(dt);
