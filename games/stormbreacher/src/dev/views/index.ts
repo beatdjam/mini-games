@@ -7,6 +7,8 @@ import { showTouch } from './touch.ts';
 import { showFcs } from './fcs.ts';
 import { showOutdoor } from './outdoor.ts';
 import { showScript } from './script.ts';
+import { showMap } from './mapView.ts';
+import { showMapEdit } from './mapEdit.ts';
 
 // The views the dev server can open (dev/dev.ts).
 export const DEV_VIEWS: DevView[] = [
@@ -63,5 +65,17 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the mission script, driven by buttons',
     run: showScript,
+  },
+  {
+    hash: '#view-map',
+    match: 'is',
+    name: 'walk M1 B line: by hand, from a seed, or the editor’s map',
+    run: showMap,
+  },
+  {
+    hash: '#view-mapedit',
+    match: 'is',
+    name: 'put props and targets on M1 B line',
+    run: showMapEdit,
   },
 ];
