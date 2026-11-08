@@ -8,7 +8,7 @@
 - engine が外に見せる型（設定オブジェクト・システム・world のオブジェクト・言語ファイルの形など）は、持ち主のモジュールから export する。ブラウザ固有の古い API の型は `engine/src/vendor.d.ts`
 - **engine はゲームを import しない**。ゲームの状態や操作は、設定オブジェクト（`LOOP`, `INPUT`, `TOUCH_LAYOUT`, `MUSIC`）、登録用の関数（`setI18nHook`, `addSystem`, `spawn`）、ゲームが中身を入れる器（`SFX`, `MUSIC_STYLES`, `LAYER_MIX`）で受け取る
 - 他のモジュールの変数には代入できないので、ゲームや engine の状態を外から変えるときは、持ち主のモジュールの関数（`setTileWorld`, `setVolumes` など）を呼ぶ
-- モジュールの読み込み時は、宣言とイベントの登録だけにする。ほかのモジュールの値を使う起動処理は、入口（`games/<id>/src/main.ts`）が全部を読み込んだあとに呼ぶ（import が循環していると、読み込みの順番は保証されないため）
+- モジュールの読み込み時は、宣言だけにする。要素の取得とイベントの登録は入口（`games/<id>/src/main.ts`）の初期化関数（`initRender`・`initInput`・`initTouchLayout`）から行い、ほかのモジュールの値を使う起動処理は、入口が全部を読み込んだあとに呼ぶ（import が循環していると、読み込みの順番は保証されないため）
 - engine が前提にする HTML の要素（`<canvas id="gl">`, `#touch` など）は README の表に書く
 
 ## 2. ループ・モード・システム（core/loop.ts）
@@ -275,7 +275,7 @@
 
 ### 7.1 レンダラーと手に持つ銃（render/render.ts）
 
-- `render.ts`: レンダラー（`<canvas id="gl">`）、シーン、カメラ、画面サイズへの追従
+- `render.ts`: `initRender(canvas)` で `<canvas id="gl">` からレンダラーを作り、`LOOP.render` に描画を入れる。シーン、カメラ、画面サイズへの追従。`scene`・`camera`・`dynGroup` は読み込み時にできている
   - `shared()` を付けたジオメトリとマテリアルは `disposeTree` で破棄しない
 - **手に持つ銃**: 専用のシーン（`gunScene`）に置き、世界を描いたあと奥行きをリセットしてから描く（`renderGun`）
   - 壁や半透明の床に隠れず、銃の部品どうしは奥行きで正しく重なる

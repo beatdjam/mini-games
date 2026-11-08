@@ -69,7 +69,7 @@ export interface Look {
   // kinds roomWalls and roomFloors use
   roomKinds?: (plan: FloorPlan) => number[];
   // The boss room's own surfaces, for a sector whose boss room is a place of another kind than the rest of the floor
-  // (the mall's loading dock). `upper`: the wall from the usual wall height up to the room's ceiling (a picture a tile
+  // (e.g. its own loading dock, a hall). `upper`: the wall from the usual wall height up to the room's ceiling (a picture a tile
   // wide and as high as the wall above the usual height), `ceiling`: its ceiling. The pictures of its walls and floor are
   // RoomWalls.hall and RoomFloors.hall. Without it the boss room has the sector's ordinary walls, floor and ceiling
   hall?: { upper: THREE.CanvasTexture; ceiling: THREE.CanvasTexture };

@@ -52,7 +52,7 @@
 ## 4. engine とゲームの境界
 
 - **[自動]** engine はゲームを import しない。ゲームの事情は、設定オブジェクト・登録関数・ゲームが中身を入れる器で受け取る（`engine/ARCHITECTURE.md`）
-- engine に関数を足したら `engine/test/engine.test.ts` にテストを足し、`engine/README.md` の表に書く
+- engine に関数を足したら `engine/test/<フォルダ>.test.ts`（core・world・render・ui・audio・trailer。world のドアは doors、複数階は floors）にテストを足し、`engine/README.md` の表に書く
 - どのゲームでもそのまま使えるもの（ゲームの名前・数値・ルールを持たないもの）は engine に置く。ゲーム固有のもの（ルール・データ・見た目の作り）はゲームに置く。迷ったらゲームに置き、2本目で要るとわかったときに切り出す（候補は `engine/README.md`「まだ切り出していないもの」）
 
 ## 5. データの定義（`games/<id>/src/data/`）

@@ -2,7 +2,7 @@
 
 考え方と構造の図は [ARCHITECTURE.md](ARCHITECTURE.md)、仕様は [SPEC.md](SPEC.md)、テストは `engine/test/`（Vitest。`npm run test:engine`）。
 
-ゲームをまたいで使うコア。ES モジュールで、ソースは `engine/src/` にあり、ゲームは `@engine/<フォルダ>/<名前>.ts`（`engine/src/` の別名。`tsconfig.json`・`vite.config.js`・`vitest.config.ts` で設定）から必要なものを import する。engine はゲームを import しない。
+ゲームをまたいで使うコア。ES モジュールで、ソースは `engine/src/` にあり、ゲームは `@engine/<フォルダ>/index.ts`（6つの入口: `core`・`render`・`world`・`ui`・`audio`・`trailer`。`engine/src/` の別名。`tsconfig.json`・`vite.config.js`・`vitest.config.ts` で設定）からだけ import する。入口に無い名前を使うなら、入口に足す。engine はゲームを import しない。どちらも依存の規則（`.dependency-cruiser.cjs` の `engine-does-not-import-games`・`games-import-engine-entry`・`engine-core-is-bottom`・`no-circular`。`npm run deps`）で止まる。
 
 テストやビルドの道具（`tools/`）の使い方は、リポジトリの README「開発」にまとめてある。
 
@@ -14,7 +14,7 @@
 
 ### core/
 
-- `src/core/loop.ts`: メインループ。`requestAnimationFrame`、dt の上限、システムの実行、描画（`renderer.render` と手の銃）
+- `src/core/loop.ts`: メインループ。`requestAnimationFrame`、dt の上限、システムの実行、描画（`LOOP.render` を呼ぶ。`initRender` が入れる）
   - `addSystem({ name, order, modes, update })`, `stopFrame()`, `runSystems(dt, mode)`, `startLoop()`
   - `LOOP.maxFps`: 1秒に描くフレーム数の上限。0 で画面のまま。速い画面ではあいだのフレームを飛ばす。判定は `frameDue(now)`
   - `LOOP.draw`: false の間は描かない（システムは動く。false にした後の最初のフレームで一度だけ画面を消す）。既定は true
@@ -33,7 +33,7 @@
   - `yawToward`: (dx, dz) を向く yaw。0 が -z、左回りが正
   - `wrapAngle`: 角度を -π〜π に収める
   - `turnToward`: 近いほうへ最大 max だけ向きを変える
-  - `isTouch`: body に `touch` / `desk` クラスを付ける
+  - `isTouch`: タッチの端末かどうか。`initInput` が body に `touch` / `desk` クラスを付ける
 - `src/core/i18n.ts`: `LANG`, `lang`, `t(key, values)`, `setLang(code)`, `setI18nHook(fn)`, `fillData`, `applyStaticText`, `defaultLang`
   - ゲーム側: `LANG.<code>` を登録する言語ファイル（`ja` は必須で、キーが無いときの予備）。定義に名前を流し込むなら `setI18nHook(fn)` で関数を登録
 - `src/core/langslots.ts`: `withLang(table, blank)`
@@ -60,10 +60,11 @@
 ### render/
 
 - `src/render/render.ts`: three.js の描画まわり
+  - `initRender(canvas)`: `<canvas id="gl">` から `renderer` を作り、`LOOP.render` に描画を入れる。`scene`・`camera`・`dynGroup` は読み込み時にできている（`render/fx.ts` が読み込み時に `dynGroup` へ粒を足すため）
   - `canvas`（`#gl`）, `renderer`, `scene`, `camera`, `dynGroup`, `resize`, `shared`, `basicMat`, `lineMat`, `disposeTree`, `textSprite`
   - 手に持つ銃: 部品の一覧から組み立てる `buildViewmodel` と、別パスで描く `gunScene`, `gun`, `renderGun`
   - `drawStats()`: 直前のフレームで描いた回数と三角形の数。シーンと手に持つ銃の両方の分を足したもの
-  - ゲーム側: `<canvas id="gl">`。毎フレーム `renderer.render(scene, camera)` のあとに `renderGun()`
+  - ゲーム側: `<canvas id="gl">` を `initRender` に渡す。描くのは engine の `LOOP.render`（`initRender` が入れる）
 - `src/render/paint.ts`: 絵を描く道具
   - `paintTex(seed, fn, size?, repeat?)`: シードから描く正方形の絵のテクスチャ。同じシードなら同じ絵
   - `paintRand(seed)`: その乱数
@@ -189,7 +190,7 @@
     - ドアのタイルの一覧は最初の呼び出しで作る
   - `lockDoor(world, k, on?)`: ドアをロックすると、だれが近くにいても開かず、すぐ閉じる（タイルに重なっているキャラがいる間だけ待つ）。経路と到達チェックもロック中のドアへは入らない
   - `isDoorLocked(world, k)`: ロックの状態を読む
-  - 型 `DoorConfig`, `DoorMover`、`DOOR_DEFAULTS`
+  - 型 `DoorConfig`, `DoorMover`、engine の中だけで使う既定値 `DOOR_DEFAULTS`（`updateDoors` が使う。ゲームは `DOOR_CFG` を持つ）
   - ゲーム側: その階（地形）にいるキャラの一覧を毎フレーム `movers` に渡す。`doorOpen` を見て、ドアの見た目（スライドなど）を動かす。閉じ込める部屋や、条件を満たすまで開けないドアは `lockDoor` でロックする
 - `src/world/lifts.ts`: 乗ると自分で動くエレベーター
   - `createLift(link)`: `Lift` を作る
@@ -263,6 +264,7 @@
     - `drawGrid(ctx, w, h, 間隔, 色)`: 1px の格子
   - ゲーム側: 画像（`Blob`）と投稿文、ファイル名。パネルの要素・文言・解析イベントはゲームが持つ（スマホは `shareNative`、失敗したらパネル、PC はコピー・保存・X 投稿のボタン）
 - `src/ui/input.ts`: 入力
+  - `initInput({ touch, fire, fire2 })`: ページの要素を受け取り、イベントの登録と body の `touch` / `desk` クラスを付ける
   - キー: `keys`（右の Shift などは左のキーとして入る。`normalizeCode`）
   - マウスとポインタロック: `requestLock`, `exitLock`, `locked`, `mouseFire`
   - タッチの移動スティック（`joy`）と視点ドラッグ
@@ -281,6 +283,7 @@
   - `keyLabel(code)`: 画面用の短い名前。`KeyW` → W、`ArrowUp` → ↑、`ShiftLeft` → Shift
   - ゲーム側: 起動時に `defineActions` で操作と既定のキーを登録し、保存した割り当てを `importBindings` で入れる。キーを調べるときは `keys.KeyW` ではなく `actionDown('forward')`、`INPUT.key(e)` では `actionOf(e.code)`。割り当てを変える画面（キーの待ち受け）と文言はゲームが作り、変えたら `changedBindings()` をセーブに入れる
 - `src/ui/touchlayout.ts`: タッチボタンの配置（`applyLayout`, `buttonLayout`）と配置の編集（`openLayoutEditor`, `closeLayoutEditor`）
+  - `initTouchLayout()`: `#touch` の操作を登録する（`applyLayout` の前に呼ぶ）
   - ゲーム側: `TOUCH_LAYOUT` に `defs`, `first`, `edits`, `reset`, `save`, `afterApply`, `onOpen`, `onClose` を入れる。`data-lb` の付いたボタン、`#layoutBar`, `#lbName`
 
 ### trailer/
@@ -305,13 +308,11 @@
 - `rooms` を渡したときは、その長方形の中のタイルに `roomOf` を入れる（文字の目印は使わない）
 
 - engine のファイルは、ゲーム固有の名前を読み込み時に使わない（実行時に使うものは上の一覧の「ゲーム側」の行だけ）
-- engine を変えたら、使っている全ゲームで確認する。今のところ使っているのは Sector Dive と Sector Dive Extended
+- engine を変えたら、使っている全ゲームで確認する。今のところ使っているのは Sector Dive・Sector Dive Extended・`tsume-vim`（`tsume-vim` は `core/analytics.ts`・`core/store.ts` を使う）
 
 ## まだ切り出していないもの
 
-どのゲームでもそのまま使えるものは engine に置く。迷うものはゲームに置き、2本目のゲームで要るとわかったときに engine を広げる。今のところ候補は次のもの（どれも Sector Dive の中にある）:
-
-- ヒットマーカー（FPS なら共通。`ui/hud.ts` の `hitMark`。タイマーをビネット・画面の揺れと同じ `screenFx` で回しているので、切り出すならそれらとまとめて）
+どのゲームでもそのまま使えるものは engine に置く。迷うものはゲームに置き、2本目のゲームで要るとわかったときに engine を広げる。今のところ候補は無い。
 
 切り出すときの方針:
 
