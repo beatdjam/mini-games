@@ -4,15 +4,7 @@
 import * as THREE from 'three';
 import { addSystem, clamp, el } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
-import {
-  CAMERA_TUNE,
-  DUMMY_TUNE,
-  FCS_TUNE,
-  FEEL_TUNE,
-  MOVE_TUNE,
-  type FcsKind,
-  type FcsTune,
-} from '../../data/tune.ts';
+import { CAMERA_TUNE, DUMMY_TUNE, FCS_TUNE, type FcsKind, type FcsTune } from '../../data/tune.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { fireRay } from '../../logic/fire.ts';
 import { newFcs, spreadDir, stepFcs, type Dir3, type FcsStep, type FcsTarget, type Ray3 } from '../../logic/fcs.ts';
@@ -29,8 +21,9 @@ import {
 import { stream } from '../../logic/rng.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
+import type { ShotResult } from '../../view/feel.ts';
 import { updateReticle } from '../../view/reticle.ts';
-import { buildFlatRange } from './move.ts';
+import { buildFlatRange, moveFeelFromParams } from './move.ts';
 
 declare global {
   interface Window {
@@ -119,6 +112,7 @@ export function showFcs(_hash: string) {
   const invalid = requested !== null && !isFcsKind(requested);
   const fcsKind: FcsKind = requested !== null && isFcsKind(requested) ? requested : DEFAULT_FCS;
   const tune = tuneFrom(params, fcsKind);
+  const { moveTune, feelTune } = moveFeelFromParams(params);
 
   const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
   if (sizeBox) sizeBox.visible = false;
@@ -213,7 +207,7 @@ export function showFcs(_hash: string) {
     view.mesh.material.color.setHex(DUMMY_HIT_COLOR);
   }
 
-  function shoot(shotDir: Dir3): boolean {
+  function shoot(shotDir: Dir3): ShotResult {
     const dir = spreadDir(shotDir, tune.spread, fcsRng);
     const chestY = mech.y + CHEST_HEIGHT;
     const alive = targets().filter(t => t.alive);
@@ -225,23 +219,22 @@ export function showFcs(_hash: string) {
         : tune.range;
     range.tracer(mech.x, chestY, mech.z, dir.dx, dir.dy, dir.dz, reach);
     shots++;
-    if (index < 0) return false;
+    if (index < 0) return 'miss';
     hits++;
     const id = alive[index].id;
     flash(id);
     const dummy = dummies.find(d => d.id === id);
-    if (!dummy) return false;
+    if (!dummy) return 'hit';
     if (!firstHitAt.has(id)) firstHitAt.set(id, elapsed);
-    if (hitDummy(dummy, DUMMY_TUNE)) {
-      kills++;
-      const since = firstHitAt.get(id);
-      if (since !== undefined) {
-        killTimeSum += elapsed - since;
-        killCount++;
-        firstHitAt.delete(id);
-      }
+    if (!hitDummy(dummy, DUMMY_TUNE)) return 'hit';
+    kills++;
+    const since = firstHitAt.get(id);
+    if (since !== undefined) {
+      killTimeSum += elapsed - since;
+      killCount++;
+      firstHitAt.delete(id);
     }
-    return true;
+    return 'kill';
   }
 
   function reportJson(): string {
@@ -284,11 +277,11 @@ export function showFcs(_hash: string) {
       pitch = clamp(pitch + read.pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
 
       // A shot uses the FCS step of this frame; on a frame with no shot the step runs after the mech.
-      const fire = (): boolean => {
+      const fire = (): ShotResult => {
         if (!frameResult) frameResult = aimStep(dt);
         return shoot(frameResult.shotDir);
       };
-      const step = range.step(read.input, dt, MOVE_TUNE, FEEL_TUNE, fire);
+      const step = range.step(read.input, dt, moveTune, feelTune, fire);
       if (!frameResult) frameResult = aimStep(dt);
 
       stepDummies(dummies, dt, DUMMY_TUNE);

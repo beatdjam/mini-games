@@ -8,7 +8,7 @@ import { fireRay, type Aabb } from '../../logic/fire.ts';
 import { newMech, stepMech, type MechInput, type MechState } from '../../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
-import { feelEvents, feelStep, newFeel, spawnDust, type FeelState } from '../../view/feel.ts';
+import { feelEvents, feelStep, newFeel, spawnDust, type FeelState, type ShotResult } from '../../view/feel.ts';
 import { heldKeys } from '../keys.ts';
 import { buildMechProxy } from '../mechProxy.ts';
 import { tuneFrom } from './camera.ts';
@@ -99,13 +99,13 @@ export interface FlatRange {
   // A shot's line from (ox, oy, oz) toward (dx, dy, dz), `length` m long.
   tracer(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, length: number): void;
   // Advances the mech and the effects and gives back the camera's feel for this frame. `onFire` may replace the
-  // default shot (forward from the chest) with the caller's own; it says whether that shot hit.
+  // default shot (forward from the chest) with the caller's own; it says what that shot did.
   step(
     input: MechInput,
     dt: number,
     moveTune: MoveTune,
     feelTune: FeelTune,
-    onFire?: (mech: MechState) => boolean,
+    onFire?: (mech: MechState) => ShotResult,
   ): { fov: number; offset: THREE.Vector3 };
 }
 
@@ -135,17 +135,18 @@ export function buildFlatRange(baseFov: number, options: FlatRangeOptions = {}):
     tracers.push({ line, t: TRACER_TIME });
   }
 
-  function shoot(): boolean {
+  // the fixed boxes never go down, so a shot here is a hit or a miss
+  function shoot(): ShotResult {
     const dx = -Math.sin(mech.yaw);
     const dz = -Math.cos(mech.yaw);
     const chest = mech.y + CHEST_HEIGHT;
     const index = fireRay(mech.x, chest, mech.z, dx, 0, dz, SHOT_RANGE, targetBoxes);
     const reach = index >= 0 ? TARGETS[index].dist : SHOT_RANGE;
     tracer(mech.x, chest, mech.z, dx, 0, dz, reach);
-    if (index < 0) return false;
+    if (index < 0) return 'miss';
     targets[index].flashT = FLASH_TIME;
     targets[index].mesh.material.color.setHex(TARGET_HIT_COLOR);
-    return true;
+    return 'hit';
   }
 
   function stepEffects(dt: number) {
@@ -170,17 +171,17 @@ export function buildFlatRange(baseFov: number, options: FlatRangeOptions = {}):
     dt: number,
     moveTune: MoveTune,
     feelTune: FeelTune,
-    onFire?: (mech: MechState) => boolean,
+    onFire?: (mech: MechState) => ShotResult,
   ) {
     const frame = feelStep(feel, dt, mech.boosting, baseFov, feelTune);
     const events = frame.stopped ? [] : stepMech(mech, input, dt, moveTune, feelTune.fireRate);
-    let hit = false;
+    let kill = false;
     for (const event of events) {
-      if (event.kind === 'fire') hit = (onFire ? onFire(mech) : shoot()) || hit;
+      if (event.kind === 'fire') kill = (onFire ? onFire(mech) : shoot()) === 'kill' || kill;
       else if (event.kind === 'land') spawnDust(mech.x, mech.z, LAND_DUST, feelTune);
       else if (event.kind === 'boostStart') spawnDust(mech.x, mech.z, BOOST_DUST, feelTune);
     }
-    feelEvents(feel, events, hit, feelTune);
+    feelEvents(feel, events, kill, feelTune);
     stepEffects(dt);
     model.position.set(mech.x, mech.y, mech.z);
     model.rotation.y = mech.yaw;
@@ -190,13 +191,12 @@ export function buildFlatRange(baseFov: number, options: FlatRangeOptions = {}):
   return { mech, feel, model, tracer, step };
 }
 
-export function showMove(_hash: string) {
-  const params = new URLSearchParams(location.search);
-  const cameraTune = tuneFrom(params);
+// MOVE_TUNE and FEEL_TUNE with the URL's values on top (?walk=12&hitStop=0), for every view that moves the mech.
+// ?feel=0 turns the visible effects off for a comparison; the fire rate is the number of shots, not a feel.
+export function moveFeelFromParams(params: URLSearchParams): { moveTune: MoveTune; feelTune: FeelTune } {
   checkOneTable(MOVE_TUNE, FEEL_TUNE);
   const moveTune = tuneWithParams(MOVE_TUNE, params);
   const feelTune = tuneWithParams(FEEL_TUNE, params);
-  // ?feel=0 turns the visible effects off for a comparison; the fire rate is the number of shots, not a feel.
   if (params.get('feel') === '0') {
     feelTune.boostFov = 0;
     feelTune.landShake = 0;
@@ -204,6 +204,13 @@ export function showMove(_hash: string) {
     feelTune.hitStop = 0;
     feelTune.dust = 0;
   }
+  return { moveTune, feelTune };
+}
+
+export function showMove(_hash: string) {
+  const params = new URLSearchParams(location.search);
+  const cameraTune = tuneFrom(params);
+  const { moveTune, feelTune } = moveFeelFromParams(params);
 
   const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
   if (sizeBox) sizeBox.visible = false;

@@ -58,7 +58,7 @@ export const FEEL_TUNE = {
   landShake: 0.35, // the landing's shake at a falling speed of 10 m/s (m)
   fireShake: 0.06, // the shake a shot adds (m)
   shakeDecay: 10, // how fast the shake dies away (1/s)
-  hitStop: 0.05, // how long a hit stops the mech (s)
+  hitStop: 0.05, // how long a kill stops the mech (s); a plain hit does not (8 shots a second made it stutter)
   dust: 1, // the multiplier on how much dust a burst makes; 0 makes none
   fireRate: 8, // the shots a second while the fire key is held (shots/s)
 };

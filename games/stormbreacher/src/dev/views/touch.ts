@@ -6,14 +6,14 @@ import * as THREE from 'three';
 import { addSystem, clamp, el, isTouch } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { buttonLayout, locked, openLayoutEditor } from '@engine/ui/index.ts';
-import { CAMERA_TUNE, FEEL_TUNE, MOVE_TUNE } from '../../data/tune.ts';
+import { CAMERA_TUNE } from '../../data/tune.ts';
 import { TOUCH_BUTTONS, type TouchButton } from '../../data/touch.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { touchStats, type TouchStats } from '../../app/touch.ts';
 import type { MechState } from '../../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
-import { buildFlatRange } from './move.ts';
+import { buildFlatRange, moveFeelFromParams } from './move.ts';
 
 declare global {
   interface Window {
@@ -106,6 +106,7 @@ export function showTouch(_hash: string) {
 
   const range = buildFlatRange(CAMERA_TUNE.fov);
   const mech = range.mech;
+  const { moveTune, feelTune } = moveFeelFromParams(new URLSearchParams(location.search));
   initPlayInput();
 
   let pitch = 0;
@@ -159,7 +160,7 @@ export function showTouch(_hash: string) {
       const read = readInput(dt);
       if (hint) hint.hidden = locked;
       pitch = clamp(pitch + read.pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
-      const step = range.step(read.input, dt, MOVE_TUNE, FEEL_TUNE);
+      const step = range.step(read.input, dt, moveTune, feelTune);
 
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
       camPos = camPos ? followPose(camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
