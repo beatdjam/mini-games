@@ -131,8 +131,8 @@ export interface ScaleTableOpts {
   radius: number;
 }
 
-// The same sizes as a Markdown table: each one against the 7, 8 and 10 m mechs, with the width left over after the
-// collision radius for the widths.
+// The same sizes as a Markdown table: each one over the 7, 8 and 10 m mechs' heights (an opening by its height, the
+// size a mech has to pass under), with the width left over after the collision radius for the widths.
 export function scaleTable(opts: ScaleTableOpts): string {
   const heights = [7, 8, 10] as const;
   const columns = ['寸法'];
@@ -147,7 +147,7 @@ export function scaleTable(opts: ScaleTableOpts): string {
   };
   const room = (width: number): number => width - opts.radius * 2;
   for (const width of CORRIDOR_WIDTHS) lines.push(row(`通路の幅 ${width}m`, width, room(width)));
-  for (const opening of DOOR_OPENINGS) lines.push(row(`開口 ${opening.w}×${opening.h}m`, opening.w, room(opening.w)));
+  for (const opening of DOOR_OPENINGS) lines.push(row(`開口 ${opening.w}×${opening.h}m`, opening.h, room(opening.w)));
   lines.push(row('天井', opts.ceil));
   for (const step of STEP_SIZES) lines.push(row(`段差 ${step}m`, step));
   for (const wall of REF_WALLS) lines.push(row(`Extended の壁 ${wall}m`, wall));
