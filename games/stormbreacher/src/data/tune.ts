@@ -58,9 +58,41 @@ export const FEEL_TUNE = {
   landShake: 0.35, // the landing's shake at a falling speed of 10 m/s (m)
   fireShake: 0.06, // the shake a shot adds (m)
   shakeDecay: 10, // how fast the shake dies away (1/s)
-  hitStop: 0.05, // how long a hit stops the mech (s)
+  hitStop: 0.05, // how long a kill stops the mech (s); a plain hit does not (8 shots a second made it stutter)
   dust: 1, // the multiplier on how much dust a burst makes; 0 makes none
   fireRate: 8, // the shots a second while the fire key is held (shots/s)
 };
 
 export type FeelTune = typeof FEEL_TUNE;
+
+// The three ways the aim assist (FCS) may work (SB-060). `manual` does nothing, `soft` pulls the shot toward the
+// nearest target in the aim circle, and `hard` locks a target after a short wait and follows it.
+export type FcsKind = 'manual' | 'soft' | 'hard';
+
+// One FCS's values. Angles are degrees, `range` is m, `pull` and `trackRate` are degrees a second, `lockTime` is s.
+export interface FcsTune {
+  cone: number; // the aim circle's half-angle (deg); soft and hard use it, manual does not
+  range: number; // the farthest a target may be from the mech's chest (m); every kind uses it
+  spread: number; // how far a shot drifts inside its cone (deg); every kind uses it
+  pull: number; // soft: how fast the aim turns toward the target (deg/s); the other kinds keep it 0
+  lockTime: number; // hard: how long the target stays in the circle before it is caught (s); the other kinds keep it 0
+  trackRate: number; // hard: how fast the muzzle follows a caught target (deg/s); the other kinds keep it 0
+  breakCone: number; // hard: how far a caught target may drift from the aim before the lock breaks (deg); the other kinds keep it 0
+}
+
+// The starting values of each kind. The numbers decide nothing here: SB-060 compares them by hand.
+export const FCS_TUNE: Record<FcsKind, FcsTune> = {
+  manual: { cone: 0, range: 200, spread: 0.5, pull: 0, lockTime: 0, trackRate: 0, breakCone: 0 },
+  soft: { cone: 8, range: 200, spread: 0.8, pull: 20, lockTime: 0, trackRate: 0, breakCone: 0 },
+  hard: { cone: 12, range: 180, spread: 1.5, pull: 0, lockTime: 0.35, trackRate: 90, breakCone: 20 },
+};
+
+// The moving dummies of #view-fcs (SB-060). `hp` is the hits a dummy takes, `speed` is how fast it moves (m/s), and
+// `respawn` is how long a downed dummy stays down (s).
+export const DUMMY_TUNE = {
+  hp: 10, // hits needed to down a dummy
+  speed: 8, // how fast a moving dummy travels (m/s)
+  respawn: 1.5, // how long after a down a dummy comes back (s)
+};
+
+export type DummyTune = typeof DUMMY_TUNE;

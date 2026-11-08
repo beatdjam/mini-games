@@ -4,6 +4,7 @@ import { showScale } from './scale.ts';
 import { showCamera } from './camera.ts';
 import { showMove } from './move.ts';
 import { showTouch } from './touch.ts';
+import { showFcs } from './fcs.ts';
 import { showOutdoor } from './outdoor.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -43,6 +44,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'play on flat ground with touch, or keyboard and mouse',
     run: showTouch,
+  },
+  {
+    hash: '#view-fcs',
+    match: 'is',
+    name: 'the three FCS types against moving dummies',
+    run: showFcs,
   },
   {
     hash: '#view-outdoor',

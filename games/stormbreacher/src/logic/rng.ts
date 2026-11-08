@@ -4,11 +4,13 @@ import { createRng, type Rng } from '@engine/core/index.ts';
 
 // The named streams: each kind of thing draws from its own sequence, so adding a draw in one place does not shift
 // another place's numbers.
-export type StreamName = 'field';
+export type StreamName = 'field' | 'fcs' | 'dummies';
 
 // The value mixed into the seed for a stream (a 32-bit constant). Each stream needs its own.
 const STREAM_SALT: Record<StreamName, number> = {
   field: 0x9e3779b9,
+  fcs: 0x85ebca6b,
+  dummies: 0xc2b2ae35,
 };
 
 // A generator on Math.random, for the runs that are not seeded (the published game and the dev views).

@@ -24,13 +24,18 @@ export function newFeel(baseFov: number): FeelState {
   return { fov: baseFov, shake: 0, stopT: 0, seed: SHAKE_SEED };
 }
 
-// Adds the shake and the hit stop the frame's events ask for (a landing's shake grows with its falling speed).
-export function feelEvents(f: FeelState, events: readonly MechEvent[], hit: boolean, tune: FeelTune) {
+// What a shot did: missed, hit, or brought its target down.
+export type ShotResult = 'miss' | 'hit' | 'kill';
+
+// Adds the shake and the hit stop the frame's events ask for (a landing's shake grows with its falling speed). The hit
+// stop comes only with a kill: a gun firing 8 shots a second that stopped the mech on every hit made it stutter, and
+// the strafing camera shook with it (2026-11-09)
+export function feelEvents(f: FeelState, events: readonly MechEvent[], kill: boolean, tune: FeelTune) {
   for (const event of events) {
     if (event.kind === 'land') f.shake += (tune.landShake * event.speed) / 10;
     else if (event.kind === 'fire') f.shake += tune.fireShake;
   }
-  if (hit) f.stopT = tune.hitStop;
+  if (kill) f.stopT = tune.hitStop;
 }
 
 // The next number of the shake's fixed sequence (a linear congruential generator: the same seed gives the same run).
