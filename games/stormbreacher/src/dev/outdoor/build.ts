@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { chunkInstances, type Chunk } from '@engine/render/index.ts';
+import type { TargetKind, TargetPlace } from '../../data/types.ts';
 import { TILE_SIZE, type OutdoorItem, type OutdoorKind } from './layout.ts';
 
 export interface OutdoorBuildOpts {
@@ -17,7 +18,7 @@ export interface OutdoorBuild {
 }
 
 // The order the kinds are built in (and drawn, until the chunks reorder them).
-const KINDS: OutdoorKind[] = ['tile', 'hedgehog', 'block', 'bunker', 'seawall', 'cliff'];
+const KINDS: OutdoorKind[] = ['tile', 'hedgehog', 'block', 'bunker', 'seawall', 'cliff', 'crater', 'wreck'];
 
 const TILE_COLOR = 0xc2a878; // the sand a tile is drawn in at scale 1
 
@@ -29,6 +30,8 @@ const KIND_COLOR: Record<OutdoorKind, number> = {
   bunker: 0x7e7a72,
   seawall: 0x8b8880,
   cliff: 0x6e6759,
+  crater: 0x8f7a58,
+  wreck: 0x5a5148,
 };
 
 // A box with its place baked in (the base sits on y = 0 when y is half its height).
@@ -97,6 +100,20 @@ function cliffGeometry(): THREE.BufferGeometry {
   return merge([box(20, 24, 16, 0, 12, 0), box(8, 30, 10, 6, 15, 2)]);
 }
 
+// A shell crater: a low disc just above the ground, its colour darker than the sand's.
+function craterGeometry(): THREE.BufferGeometry {
+  return new THREE.CircleGeometry(3, 18).rotateX(-Math.PI / 2).translate(0, 0.03, 0);
+}
+
+// A broken boat or vehicle: a hull, a cabin and a tilted plate.
+function wreckGeometry(): THREE.BufferGeometry {
+  return merge([
+    box(6, 1.4, 2.6, 0, 0.7, 0),
+    box(2.4, 1.6, 2.2, -1.2, 2.2, 0, 0.25),
+    box(3, 0.4, 1.4, 1.2, 1.7, 0.2, -0.2, 0.35),
+  ]);
+}
+
 const SHAPES: Record<OutdoorKind, () => THREE.BufferGeometry> = {
   tile: tileGeometry,
   hedgehog: hedgehogGeometry,
@@ -104,6 +121,8 @@ const SHAPES: Record<OutdoorKind, () => THREE.BufferGeometry> = {
   bunker: bunkerGeometry,
   seawall: seawallGeometry,
   cliff: cliffGeometry,
+  crater: craterGeometry,
+  wreck: wreckGeometry,
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -155,4 +174,53 @@ export function buildOutdoor(items: OutdoorItem[], opts: OutdoorBuildOpts): Outd
 
   const chunks = opts.chunk > 0 ? chunkInstances(group, opts.chunk, opts.chunkMin) : [];
   return { group, chunks, build: performance.now() - start };
+}
+
+// The mission's targets, each a shape with its own colour so the four kinds are told apart from above: a low wide
+// pillbox, a pile of crates for the depot, a base and barrel for the gun, and a square magazine.
+function pillboxTargetGeometry(): THREE.BufferGeometry {
+  return merge([box(10, 2.2, 6, 0, 1.1, 0), box(10.6, 0.6, 6.6, 0, 2.5, 0), box(3, 1, 1, 0, 1.8, 3.2)]);
+}
+
+function depotTargetGeometry(): THREE.BufferGeometry {
+  return merge([box(4, 2, 4, -2, 1, 0), box(4, 2, 4, 2, 1, 0.5), box(4, 2, 4, 0, 3, 0.2), box(2, 1.4, 2, -2, 2.7, -1)]);
+}
+
+function gunTargetGeometry(): THREE.BufferGeometry {
+  return merge([box(4, 1.4, 4, 0, 0.7, 0), box(1.2, 1.2, 5, 0, 1.7, 1.5)]);
+}
+
+function magazineTargetGeometry(): THREE.BufferGeometry {
+  return merge([box(7, 4, 7, 0, 2, 0), box(8, 0.7, 8, 0, 4.3, 0), box(2, 2, 1, 0, 1, 4)]);
+}
+
+const TARGET_SHAPES: Record<TargetKind, () => THREE.BufferGeometry> = {
+  pillbox: pillboxTargetGeometry,
+  depot: depotTargetGeometry,
+  gun: gunTargetGeometry,
+  magazine: magazineTargetGeometry,
+};
+
+const TARGET_COLORS: Record<TargetKind, number> = {
+  pillbox: 0xb03a2e,
+  depot: 0xd4a017,
+  gun: 0x3f6f8f,
+  magazine: 0x7a4fa0,
+};
+
+// The mission's targets as one group, each turned the way the map says.
+export function buildTargets(targets: readonly TargetPlace[]): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'targets';
+  for (const target of targets) {
+    const mesh = new THREE.Mesh(
+      TARGET_SHAPES[target.kind](),
+      new THREE.MeshLambertMaterial({ color: TARGET_COLORS[target.kind] }),
+    );
+    mesh.name = target.id;
+    mesh.position.set(target.x, 0, target.z);
+    mesh.rotation.y = target.yaw;
+    group.add(mesh);
+  }
+  return group;
 }

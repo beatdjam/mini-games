@@ -11,6 +11,8 @@ function countByKind(items: OutdoorItem[]): Record<OutdoorKind, number> {
     bunker: 0,
     seawall: 0,
     cliff: 0,
+    crater: 0,
+    wreck: 0,
   };
   for (const item of items) counts[item.kind]++;
   return counts;

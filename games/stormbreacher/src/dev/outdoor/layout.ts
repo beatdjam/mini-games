@@ -1,16 +1,11 @@
 // The beach's layout as plain numbers (no three.js): what stands where on a 400 x 400 m beach, scattered from the
 // seeded generator so the same seed gives the same beach. build.ts turns the list into meshes.
 import type { Rng } from '@engine/core/index.ts';
+import type { Prop, PropKind } from '../../data/types.ts';
 
-export type OutdoorKind = 'tile' | 'hedgehog' | 'block' | 'bunker' | 'seawall' | 'cliff';
-
-export interface OutdoorItem {
-  kind: OutdoorKind;
-  x: number; // the middle of the thing on the beach (m)
-  z: number; // ... +z is the sea, -z is the land
-  yaw: number; // how far it is turned about its middle (rad)
-  scale: number; // its size (tile: how dark the sand is)
-}
+// The beach uses the map's prop kinds; crater and wreck are only on the map, not in this beach's bands.
+export type OutdoorKind = PropKind;
+export type OutdoorItem = Prop;
 
 interface Band {
   count: number; // how many stand on the beach at density 1
@@ -33,6 +28,9 @@ export const LAYOUT: Record<OutdoorKind, Band> = {
   bunker: { count: 20, scaled: true, x: [-BEACH, BEACH], z: [-60, -30], scale: [0.9, 1.1] },
   seawall: { count: 50, scaled: false, x: [-BEACH, BEACH], z: [-70, -70], scale: [1, 1] },
   cliff: { count: 40, scaled: true, x: [-BEACH, BEACH], z: [-200, -120], scale: [0.8, 1.4] },
+  // the map's craters and wrecks are not part of this beach
+  crater: { count: 0, scaled: true, x: [-BEACH, BEACH], z: [-20, 80], scale: [0.8, 1.4] },
+  wreck: { count: 0, scaled: true, x: [-BEACH, BEACH], z: [-20, 80], scale: [0.8, 1.2] },
 };
 
 const SEAWALL_STEP = 8; // between the seawall's pieces along x (m)
