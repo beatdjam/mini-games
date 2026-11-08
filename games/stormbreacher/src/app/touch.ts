@@ -17,6 +17,7 @@ import {
 } from '@engine/ui/index.ts';
 import { TOUCH_BUTTONS, TOUCH_DEFAULTS, TOUCH_TUNE, type TouchButton, type TouchDefault } from '../data/touch.ts';
 import type { MechInput } from '../logic/mech.ts';
+import { handleKey, lockState, toggleLock } from './keyboard.ts';
 import { clearTouchEdits, loadTouchEdits, saveTouchEdits, type TouchEdits } from './storage.ts';
 
 export interface TouchRead {
@@ -48,7 +49,6 @@ let lookId: number | null = null; // the finger the engine's view drag took
 let lastLookAt = -Infinity; // when the view last moved (ms, performance.now)
 let jumpPressed = false; // went down since the last readTouch
 let jumpHeld = false; // the jump button is held
-let lockOn = false;
 let boostHeld = false;
 let yawDelta = 0; // the view drag since the last readTouch (rad)
 let pitchDelta = 0; // the same, for the pitch (rad)
@@ -135,7 +135,8 @@ function bindHold(btn: HTMLElement, onHold: (down: boolean) => void, onDown?: ()
   btn.addEventListener('pointercancel', up);
 }
 
-export function initTouch() {
+// `show` false keeps #touch hidden (a PC): the buttons are still laid out, but the keyboard and mouse do the work.
+export function initTouch(options: { show?: boolean } = {}) {
   if (touchReady) return;
   touchReady = true;
   initInput({ touch: el('#touch'), fire: el('#btnFire'), fire2: el('#btnFire2') });
@@ -152,7 +153,7 @@ export function initTouch() {
   TOUCH_LAYOUT.onOpen = () => {};
   TOUCH_LAYOUT.onClose = () => applyLayout();
   initTouchLayout();
-  el('#touch').hidden = false;
+  if (options.show !== false) el('#touch').hidden = false;
   applyLayout();
   touchActive = true;
 
@@ -192,14 +193,15 @@ export function initTouch() {
     },
   );
   tapBtn(el('#btnLock'), () => {
-    lockOn = !lockOn;
-    el('#btnLock').classList.toggle('on', lockOn);
+    toggleLock();
+    el('#btnLock').classList.toggle('on', lockState());
   });
   bindHold(el('#btnBoost'), down => {
     boostHeld = down;
   });
 
   INPUT.active = () => touchActive;
+  INPUT.key = handleKey;
   INPUT.look = (dx: number, dy: number) => {
     lastLookAt = performance.now();
     yawDelta -= dx * TOUCH_TUNE.lookX;
@@ -223,7 +225,7 @@ export function readTouch(): TouchRead {
   yawDelta = 0;
   pitchDelta = 0;
   jumpPressed = false;
-  return { input, pitchDelta: pitch, lock: lockOn, sub: fire2Held };
+  return { input, pitchDelta: pitch, lock: lockState(), sub: fire2Held };
 }
 
 export function touchStats(): TouchStats {

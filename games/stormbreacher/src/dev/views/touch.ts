@@ -1,13 +1,15 @@
-// The touch view (#view-touch): the same flat field, mech and targets as #view-move, moved by the touch screen
-// (app/touch.ts) instead of the keyboard. The button layout can be edited on the phone, and the screen reports how
-// hard the layout is to use: the presses, the most fingers down at once and how long the three actions overlapped.
+// The touch / play views (#view-touch, #view-play): the same flat field, mech and targets as #view-move, moved by the
+// touch screen (app/touch.ts) or the keyboard and mouse (app/keyboard.ts) through app/input.ts. The button layout can
+// be edited on the phone, and the screen reports how hard the layout is to use: the presses, the most fingers down at
+// once and how long the three actions overlapped.
 import * as THREE from 'three';
-import { addSystem, clamp, el } from '@engine/core/index.ts';
+import { addSystem, clamp, el, isTouch } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
-import { buttonLayout, openLayoutEditor } from '@engine/ui/index.ts';
+import { buttonLayout, locked, openLayoutEditor } from '@engine/ui/index.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MOVE_TUNE } from '../../data/tune.ts';
 import { TOUCH_BUTTONS, type TouchButton } from '../../data/touch.ts';
-import { initTouch, readTouch, touchStats, type TouchStats } from '../../app/touch.ts';
+import { initPlayInput, readInput } from '../../app/input.ts';
+import { touchStats, type TouchStats } from '../../app/touch.ts';
 import type { MechState } from '../../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
@@ -64,6 +66,7 @@ function hudText(mech: MechState, lock: boolean, stats: TouchStats): string {
   return (
     `speed ${Math.hypot(mech.vx, mech.vz).toFixed(1)} m/s\n` +
     `gauge ${mech.gauge.toFixed(2)}\n` +
+    `${mech.grounded ? 'ground' : 'air'}\n` +
     `LOCK ${lock ? 'on' : '--'}\n` +
     `press ${pressed}\n` +
     `fingers max ${stats.maxPointers}\n` +
@@ -103,7 +106,7 @@ export function showTouch(_hash: string) {
 
   const range = buildFlatRange(CAMERA_TUNE.fov);
   const mech = range.mech;
-  initTouch();
+  initPlayInput();
 
   let pitch = 0;
   let camPos: THREE.Vector3 | null = null;
@@ -114,6 +117,20 @@ export function showTouch(_hash: string) {
     'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 8px);padding:4px 6px;' +
     'font:12px/1.4 monospace;color:#fff;background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none';
   document.body.appendChild(hud);
+
+  // The keys on a PC, small at the bottom middle; the pointer lock hides it while the mouse is in use.
+  const hint = isTouch ? null : document.createElement('div');
+  if (hint) {
+    hint.id = 'sbPlayHint';
+    hint.textContent =
+      'クリックで操作開始 / WASD 移動 / マウス・矢印 視点 / Space ジャンプ（長押しで滞空） / Shift ブースト / ' +
+      '左クリック・J メイン / 右クリック・K サブ / E ロック / Esc 解除';
+    hint.style.cssText =
+      'position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);transform:translateX(-50%);' +
+      'max-width:calc(100% - 16px);padding:4px 8px;border-radius:6px;font:11px/1.4 monospace;color:#d5e4ee;' +
+      'background:rgba(5,8,12,.6);white-space:nowrap;pointer-events:none;z-index:4';
+    document.body.appendChild(hint);
+  }
 
   const result = document.createElement('textarea');
   result.id = 'sbResult';
@@ -139,7 +156,8 @@ export function showTouch(_hash: string) {
   addSystem({
     name: 'sb-touch',
     update: dt => {
-      const read = readTouch();
+      const read = readInput(dt);
+      if (hint) hint.hidden = locked;
       pitch = clamp(pitch + read.pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
       const step = range.step(read.input, dt, MOVE_TUNE, FEEL_TUNE);
 

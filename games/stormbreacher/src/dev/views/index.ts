@@ -39,6 +39,12 @@ export const DEV_VIEWS: DevView[] = [
     run: showTouch,
   },
   {
+    hash: '#view-play',
+    match: 'is',
+    name: 'play on flat ground with touch, or keyboard and mouse',
+    run: showTouch,
+  },
+  {
     hash: '#view-outdoor',
     match: 'is',
     name: 'the beach bench: draw calls, triangles and fps',
