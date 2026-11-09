@@ -17,6 +17,7 @@ import {
   rotate,
   startFromGenerated,
   startFromHand,
+  toggleBreakable,
   validate,
   type MapSelection,
   type MapTool,
@@ -144,6 +145,10 @@ export function showMapEdit(_hash: string) {
   const idSelect = document.createElement('select');
   idSelect.id = 'sbMapTargetId';
   idSelect.style.cssText = 'pointer-events:auto;font:inherit;max-width:100%';
+  const choose = document.createElement('option');
+  choose.value = '';
+  choose.textContent = '選んで';
+  idSelect.appendChild(choose);
   for (const id of TARGET_IDS) {
     const option = document.createElement('option');
     option.value = id;
@@ -183,6 +188,9 @@ export function showMapEdit(_hash: string) {
     remove(map, selection);
     selection = null;
     changed(true);
+  });
+  makeButton(edits, 'sbMapBreakable', '壊せる', () => {
+    if (toggleBreakable(map, selection)) changed(true);
   });
   makeButton(edits, 'sbMapExport', '書き出し', () => {
     text.value = JSON.stringify(map, null, 2);
@@ -224,6 +232,11 @@ export function showMapEdit(_hash: string) {
   function showError(error: unknown) {
     status.textContent = `できない: ${error instanceof Error ? error.message : String(error)}`;
     status.style.color = '#ff6b6b';
+  }
+
+  function notice(message: string) {
+    status.textContent = message;
+    status.style.color = '#ffcf6a';
   }
 
   function changed(save: boolean) {
@@ -283,6 +296,7 @@ export function showMapEdit(_hash: string) {
       selection = next;
     },
     changed,
+    notice,
   });
 
   paintTools();

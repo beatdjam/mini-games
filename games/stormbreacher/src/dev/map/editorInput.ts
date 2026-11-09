@@ -20,6 +20,7 @@ export interface EditorInputHost {
   selection(): MapSelection;
   setSelection(selection: MapSelection): void;
   changed(save: boolean): void;
+  notice(message: string): void;
 }
 
 export function bindEditorInput(host: EditorInputHost): void {
@@ -116,8 +117,12 @@ export function bindEditorInput(host: EditorInputHost): void {
     if (gesture === 'place' && moved < CLICK_MOVE && event.button !== 2) {
       const at = groundAt(event.clientX, event.clientY);
       if (at !== null) {
-        const next = place(host.map(), host.tool(), host.targetId(), at.x, at.z);
-        host.setSelection(next);
+        const result = place(host.map(), host.tool(), host.targetId(), at.x, at.z);
+        if (!result.ok) {
+          host.notice(result.message);
+          return;
+        }
+        host.setSelection(result.selection);
         host.changed(true);
       }
     } else if (gesture === 'drag') {

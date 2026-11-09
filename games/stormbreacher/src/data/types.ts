@@ -83,6 +83,7 @@ export interface Prop {
   z: number;
   yaw: number; // how far it is turned about its middle (rad)
   scale: number; // its size (tile: how dark the sand is)
+  breakable?: boolean; // can be broken through later (G1); for now only a mark in the editor and the colour
 }
 
 export type TargetKind = 'pillbox' | 'depot' | 'gun' | 'magazine';
@@ -139,9 +140,27 @@ export interface MapLane {
   width: number; // the lane's full width (m)
 }
 
+// A defence line: rows of one kind across x, with a gap where the mech may pass and a stretch that can be broken
+// through later. `z` is the line's middle, `depth` its span along z and `spacing` the distance between props in a row.
+export interface MapGap {
+  x: number; // the gap's middle (m)
+  width: number; // the clear distance between the props' rectangles (m)
+}
+
+export interface MapLine {
+  z: number; // the line's middle (m)
+  depth: number; // the line's span along z (m)
+  rows: number; // how many rows the line has
+  kind: PropKind;
+  spacing: number; // the distance between props in a row (m)
+  gaps: MapGap[]; // the breakthroughs
+  breakable: MapGap[]; // the stretches whose props are marked breakable
+}
+
 export interface MapRules {
   id: string;
   bounds: MapBounds;
+  lines: MapLine[];
   bands: MapBand[];
   cliff: MapCliff;
   clear?: number; // the clear ground around a target (m); 10 when left out

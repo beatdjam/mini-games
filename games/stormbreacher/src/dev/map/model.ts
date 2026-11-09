@@ -53,14 +53,36 @@ export function validate(map: MapDef): MapViolation[] {
   return validateMapForMission(map, M1, MAP_SKIP);
 }
 
-export function place(map: MapDef, tool: MapTool, targetId: string, x: number, z: number): MapSelection {
+// What placing something did: the new selection, or the reason nothing was placed. A target with an id the map already
+// has is moved rather than added, so the same id never stands twice.
+export type PlaceResult = { ok: true; selection: MapSelection } | { ok: false; message: string };
+
+export function place(map: MapDef, tool: MapTool, targetId: string, x: number, z: number): PlaceResult {
   if (tool.type === 'prop') {
     map.props.push({ kind: tool.kind, x, z, yaw: 0, scale: 1 });
-    return { type: 'prop', index: map.props.length - 1 };
+    return { ok: true, selection: { type: 'prop', index: map.props.length - 1 } };
   }
-  const id = targetId.trim() === '' ? `target-${map.targets.length + 1}` : targetId.trim();
+  const id = targetId.trim();
+  if (id === '') return { ok: false, message: 'id を選んで' };
+  const existing = map.targets.findIndex(target => target.id === id);
+  if (existing >= 0) {
+    const target = map.targets[existing];
+    target.x = x;
+    target.z = z;
+    return { ok: true, selection: { type: 'target', index: existing } };
+  }
   map.targets.push({ id, kind: tool.kind, x, z, yaw: 0 });
-  return { type: 'target', index: map.targets.length - 1 };
+  return { ok: true, selection: { type: 'target', index: map.targets.length - 1 } };
+}
+
+// Flips the selected prop's breakable mark; false when a target or nothing is selected.
+export function toggleBreakable(map: MapDef, selection: MapSelection): boolean {
+  if (selection === null || selection.type !== 'prop') return false;
+  const prop = map.props[selection.index];
+  if (!prop) return false;
+  if (prop.breakable === true) delete prop.breakable;
+  else prop.breakable = true;
+  return true;
 }
 
 export function move(map: MapDef, selection: MapSelection, x: number, z: number) {

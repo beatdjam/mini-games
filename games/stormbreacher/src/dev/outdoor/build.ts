@@ -143,11 +143,16 @@ const SHAPES: Record<OutdoorKind, () => THREE.BufferGeometry> = {
 
 const UP = new THREE.Vector3(0, 1, 0);
 
-// One instanced mesh per kind, with each copy's place, turn and size in its matrix.
+const BREAK_TINT = 0xd2402e; // the red a breakable prop leans towards
+
+// One instanced mesh per kind, with each copy's place, turn and size in its matrix. A kind with a breakable prop gets an
+// instance colour for every copy (white material, the kind's colour in the buffer), so the breakable ones can lean red
+// without adding a draw.
 function addKind(group: THREE.Group, kind: OutdoorKind, items: OutdoorItem[]) {
+  const tinted = kind !== 'tile' && items.some(item => item.breakable === true);
   const mesh = new THREE.InstancedMesh(
     SHAPES[kind](),
-    new THREE.MeshLambertMaterial({ color: KIND_COLOR[kind] }),
+    new THREE.MeshLambertMaterial({ color: tinted ? 0xffffff : KIND_COLOR[kind] }),
     items.length,
   );
   mesh.name = kind;
@@ -155,7 +160,9 @@ function addKind(group: THREE.Group, kind: OutdoorKind, items: OutdoorItem[]) {
     at = new THREE.Vector3(),
     turn = new THREE.Quaternion(),
     size = new THREE.Vector3(),
-    color = new THREE.Color();
+    color = new THREE.Color(),
+    baseColor = new THREE.Color(KIND_COLOR[kind]),
+    breakColor = baseColor.clone().lerp(new THREE.Color(BREAK_TINT), 0.45);
   items.forEach((item, i) => {
     at.set(item.x, 0, item.z);
     turn.setFromAxisAngle(UP, item.yaw);
@@ -165,6 +172,7 @@ function addKind(group: THREE.Group, kind: OutdoorKind, items: OutdoorItem[]) {
     matrix.compose(at, turn, size);
     mesh.setMatrixAt(i, matrix);
     if (kind === 'tile') mesh.setColorAt(i, color.setHex(TILE_COLOR).multiplyScalar(item.scale));
+    else if (tinted) mesh.setColorAt(i, item.breakable === true ? breakColor : baseColor);
   });
   mesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
