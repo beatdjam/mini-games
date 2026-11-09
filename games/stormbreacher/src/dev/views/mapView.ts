@@ -26,7 +26,7 @@ declare global {
   }
 }
 
-type Source = 'hand' | 'gen' | 'edit';
+export type Source = 'hand' | 'gen' | 'edit';
 
 // The mission's names that stand past this map's range: the guns and the magazine are behind the seawall, and the
 // beach's mortar and the battery are on the other side of the bounds.
@@ -62,12 +62,12 @@ interface MapReport {
   mech: { x: number; z: number };
 }
 
-function sourceOf(params: URLSearchParams): Source {
+export function sourceOf(params: URLSearchParams): Source {
   const value = params.get('src');
   return value === 'gen' || value === 'edit' ? value : 'hand';
 }
 
-function seedOf(params: URLSearchParams): number | null {
+export function seedOf(params: URLSearchParams): number | null {
   const value = params.get('seed');
   if (value === null || !/^\d+$/.test(value)) return null;
   return Number(value) >>> 0;
@@ -78,7 +78,7 @@ function emptyMap(bounds: MapBounds): MapDef {
 }
 
 // The map the URL asks for. The edited map is the editor's saved one; a MapDef is never guessed from a broken save.
-function mapOf(source: Source, seed: number | null): { map: MapDef; message: string } {
+export function mapOf(source: Source, seed: number | null): { map: MapDef; message: string } {
   if (source === 'hand') return { map: M1B_HAND, message: '' };
   if (source === 'gen') {
     const map = generateMap(stream('map'), M1B_RULES, { targets: M1B_HAND.targets, spawns: M1B_HAND.spawns });

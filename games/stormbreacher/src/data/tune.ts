@@ -91,42 +91,47 @@ export const FCS_TUNE: Record<FcsKind, FcsTune> = {
 // smoke they leave, the tracers that cross the view, the allies walking landward and the planes overhead. The values
 // are the middle of the three strengths; FX_STAGES turns them down or up. Colours are 0xRRGGBB.
 export const FX_TUNE = {
-  pixel: 0.55, // the share of the screen's pixels to draw (1 draws them all; the canvas is stretched back up)
-  saturate: 0.68, // the CSS filter's saturation (1 leaves the colour as it is)
-  contrast: 1.08, // the CSS filter's contrast (1 leaves it as it is)
-  sepia: 0.12, // the CSS filter's sepia (0 leaves it as it is)
+  pixel: 0.4, // the share of the screen's pixels to draw (1 draws them all; the canvas is stretched back up)
+  saturate: 0.61, // the CSS filter's saturation (1 leaves the colour as it is)
+  contrast: 1.01, // the CSS filter's contrast (1 leaves it as it is)
+  sepia: 0.16, // the CSS filter's sepia (0 leaves it as it is)
   haze: 0.25, // how far the fog's near side comes toward the camera (0 leaves it where #view-map has it)
   fogColor: 0x9aa9b0, // the fog's colour (0xRRGGBB)
   skyColor: 0x93a3ac, // the background's colour behind everything (0xRRGGBB)
+  light: 0.6, // the multiplier on every light in the scene (1 leaves them as they are)
+  sun: 1, // a further multiplier on the directional light (1 leaves it as it is)
+  groundColor: 0x7a6a4f, // the ground tiles' colour (0xRRGGBB)
 
-  shellEvery: 2.4, // seconds between two shells (0 makes none)
-  shellNear: 10, // the nearest a shell falls from the mech (m)
+  shellEvery: 10, // seconds between two shells (0 makes none)
+  shellNear: 17, // the nearest a shell falls from the mech (m)
   shellFar: 70, // the farthest a shell falls from the mech (m)
-  shellShake: 0.28, // the shake a shell 10 m away adds (m); farther shells add less
+  shellShake: 0.14, // the shake a shell 10 m away adds (m); farther shells add less
 
-  smokeLife: 5, // how long a shell's smoke stays (s)
-  smokeCubes: 8, // the puffs one shell makes
-  smokeMax: 160, // the most puffs drawn at once
+  smokeLife: 5.5, // how long a shell's smoke stays (s)
+  smokeCubes: 10, // the puffs one shell makes
+  smokeMax: 270, // the most puffs drawn at once
   wreckSmoke: 3, // how many of the map's wrecks keep a column of smoke
+  smokeColor: 0xb0aaa0, // a fresh puff's colour (0xRRGGBB)
+  smokeDark: 0x3f3d3a, // a puff's colour just before it goes (0xRRGGBB)
 
-  craters: 60, // the shell holes scattered over the map at the start (0 makes none)
+  craters: 90, // the shell holes scattered over the map at the start (0 makes none)
   craterMin: 2.5, // the smallest hole's radius (m)
   craterMax: 8, // the largest hole's radius (m)
-  craterWater: 0.35, // the share of holes with water in them (0 keeps them dry)
+  craterWater: 0.2, // the share of holes with water in them (0 keeps them dry)
   shellCrater: 1, // whether a shell leaves a new hole (0 or 1)
-  craterCap: 140, // the most holes a shell may add; the oldest goes when it is full
+  craterCap: 50, // the most holes a shell may add; the oldest goes when it is full
 
-  tracers: 9, // the lines a second crossing the view (0 makes none)
-  tracerSpeed: 180, // how fast a tracer flies (m/s)
+  tracers: 15, // the lines a second crossing the view (0 makes none)
+  tracerSpeed: 80, // how fast a tracer flies (m/s)
 
-  allies: 66, // the allies in the first wave (0 makes none)
+  allies: 300, // the allies in the first wave (0 makes none)
   allyWaves: 5, // seconds between one wave and the next (0 makes no more waves)
-  allySpeed: 3.5, // how fast an ally walks landward (m/s)
-  allyDeathRate: 0.03, // the chance that one ally falls in a second (0 keeps them all up)
+  allySpeed: 2, // how fast an ally walks landward (m/s)
+  allyDeathRate: 0.1, // the chance that one ally falls in a second (0 keeps them all up)
 
-  planes: 3, // the planes in the air at once (0 makes none)
-  planeHeight: 110, // how high a plane flies (m)
-  planeSpeed: 55, // how fast a plane crosses (m/s)
+  planes: 8, // the planes in the air at once (0 makes none)
+  planeHeight: 80, // how high a plane flies (m)
+  planeSpeed: 30, // how fast a plane crosses (m/s)
 };
 
 export type FxTune = typeof FX_TUNE;
@@ -141,6 +146,9 @@ const FX_OFF: Partial<FxTune> = {
   haze: 0,
   fogColor: 0x9db8c6,
   skyColor: 0x9db8c6,
+  light: 1,
+  sun: 1,
+  groundColor: 0xc2a878,
   shellEvery: 0,
   shellShake: 0,
   smokeCubes: 0,
@@ -163,29 +171,31 @@ const FX_WEAK: Partial<FxTune> = {
   haze: 0.12,
   fogColor: 0x9db2ba,
   skyColor: 0x9aadb6,
-  shellEvery: 5,
-  shellNear: 15,
-  shellFar: 60,
-  shellShake: 0.15,
-  smokeLife: 3.5,
+  light: 0.75,
+  groundColor: 0x9a8660,
+  shellEvery: 20,
+  shellNear: 17,
+  shellFar: 70,
+  shellShake: 0.07,
+  smokeLife: 5.5,
   smokeCubes: 5,
-  smokeMax: 100,
+  smokeMax: 135,
   wreckSmoke: 2,
-  craters: 30,
-  craterMin: 2,
-  craterMax: 6,
-  craterWater: 0.3,
+  craters: 45,
+  craterMin: 2.5,
+  craterMax: 8,
+  craterWater: 0.1,
   shellCrater: 1,
-  craterCap: 80,
-  tracers: 5,
-  tracerSpeed: 140,
-  allies: 32,
-  allyWaves: 7,
-  allySpeed: 3.2,
-  allyDeathRate: 0.02,
-  planes: 2,
-  planeHeight: 90,
-  planeSpeed: 40,
+  craterCap: 25,
+  tracers: 7.5,
+  tracerSpeed: 80,
+  allies: 150,
+  allyWaves: 10,
+  allySpeed: 2,
+  allyDeathRate: 0.05,
+  planes: 4,
+  planeHeight: 80,
+  planeSpeed: 30,
 };
 
 const FX_STRONG: Partial<FxTune> = {
@@ -196,29 +206,31 @@ const FX_STRONG: Partial<FxTune> = {
   haze: 0.45,
   fogColor: 0x8b959b,
   skyColor: 0x889399,
-  shellEvery: 1.2,
-  shellNear: 5,
-  shellFar: 90,
-  shellShake: 0.5,
-  smokeLife: 7,
-  smokeCubes: 14,
-  smokeMax: 320,
-  wreckSmoke: 6,
-  craters: 110,
-  craterMin: 3,
-  craterMax: 9,
-  craterWater: 0.45,
+  light: 0.5,
+  groundColor: 0x5f5340,
+  shellEvery: 6.7,
+  shellNear: 17,
+  shellFar: 70,
+  shellShake: 0.21,
+  smokeLife: 5.5,
+  smokeCubes: 15,
+  smokeMax: 405,
+  wreckSmoke: 5,
+  craters: 135,
+  craterMin: 2.5,
+  craterMax: 8,
+  craterWater: 0.3,
   shellCrater: 1,
-  craterCap: 220,
-  tracers: 16,
-  tracerSpeed: 260,
-  allies: 90,
-  allyWaves: 3.5,
-  allySpeed: 3.8,
-  allyDeathRate: 0.05,
-  planes: 6,
-  planeHeight: 150,
-  planeSpeed: 90,
+  craterCap: 75,
+  tracers: 22.5,
+  tracerSpeed: 80,
+  allies: 450,
+  allyWaves: 3.3,
+  allySpeed: 2,
+  allyDeathRate: 0.15,
+  planes: 12,
+  planeHeight: 80,
+  planeSpeed: 30,
 };
 
 // Stage 0 (off), 1 (weak), 2 (middle, FX_TUNE) and 3 (strong).

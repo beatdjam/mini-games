@@ -5,14 +5,15 @@
 import * as THREE from 'three';
 import { addSystem, clamp } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
-import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { CAMERA_TUNE, FEEL_TUNE, FX_STAGES, FX_TUNE, MOVE_TUNE, type FxTune } from '../../data/tune.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
+import { MECH_BASE_HEIGHT, scaleForMech } from '../../logic/mechScale.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { buildBattle, type Battle } from '../../view/battle/index.ts';
 import type { CrowdCounts } from '../../logic/crowd.ts';
-import { MAP_FOG, buildMapScene } from './mapView.ts';
+import { MAP_FOG, buildMapScene, mapOf, seedOf, sourceOf, type Source } from './mapView.ts';
+import { TILE_COLOR } from '../outdoor/build.ts';
 import { buildFlatRange, checkOneTable, moveFeelFromParams, tuneWithParams } from './move.ts';
 
 declare global {
@@ -23,6 +24,9 @@ declare global {
 
 type TuneKey = keyof FxTune;
 
+const MECH_DEFAULT = 4; // the height #view-fx starts at (m)
+const START_MARGIN = 4; // how far inside the sea edge the camera keeps the mech (m)
+
 // The knobs the panel shows; the colours are left out (the URL can still set them).
 const SLIDERS: readonly { key: TuneKey; min: number; max: number; step: number }[] = [
   { key: 'pixel', min: 0.2, max: 1, step: 0.01 },
@@ -30,27 +34,29 @@ const SLIDERS: readonly { key: TuneKey; min: number; max: number; step: number }
   { key: 'contrast', min: 0.5, max: 1.6, step: 0.01 },
   { key: 'sepia', min: 0, max: 0.8, step: 0.01 },
   { key: 'haze', min: 0, max: 0.8, step: 0.01 },
-  { key: 'shellEvery', min: 0, max: 10, step: 0.2 },
+  { key: 'light', min: 0, max: 2, step: 0.01 },
+  { key: 'sun', min: 0, max: 2, step: 0.01 },
+  { key: 'shellEvery', min: 0, max: 30, step: 0.1 },
   { key: 'shellNear', min: 5, max: 80, step: 1 },
   { key: 'shellFar', min: 10, max: 200, step: 5 },
-  { key: 'shellShake', min: 0, max: 1, step: 0.02 },
+  { key: 'shellShake', min: 0, max: 1, step: 0.01 },
   { key: 'smokeLife', min: 0, max: 12, step: 0.5 },
   { key: 'smokeCubes', min: 0, max: 40, step: 1 },
-  { key: 'smokeMax', min: 0, max: 600, step: 10 },
+  { key: 'smokeMax', min: 0, max: 600, step: 5 },
   { key: 'wreckSmoke', min: 0, max: 8, step: 1 },
   { key: 'craters', min: 0, max: 300, step: 5 },
   { key: 'craterMin', min: 1, max: 8, step: 0.5 },
   { key: 'craterMax', min: 2, max: 12, step: 0.5 },
   { key: 'craterWater', min: 0, max: 1, step: 0.05 },
   { key: 'shellCrater', min: 0, max: 1, step: 1 },
-  { key: 'craterCap', min: 0, max: 400, step: 10 },
-  { key: 'tracers', min: 0, max: 30, step: 1 },
+  { key: 'craterCap', min: 0, max: 400, step: 5 },
+  { key: 'tracers', min: 0, max: 40, step: 0.5 },
   { key: 'tracerSpeed', min: 40, max: 400, step: 10 },
-  { key: 'allies', min: 0, max: 300, step: 1 },
-  { key: 'allyWaves', min: 0, max: 20, step: 0.5 },
+  { key: 'allies', min: 0, max: 600, step: 1 },
+  { key: 'allyWaves', min: 0, max: 30, step: 0.1 },
   { key: 'allySpeed', min: 0, max: 12, step: 0.1 },
   { key: 'allyDeathRate', min: 0, max: 0.5, step: 0.01 },
-  { key: 'planes', min: 0, max: 8, step: 1 },
+  { key: 'planes', min: 0, max: 12, step: 1 },
   { key: 'planeHeight', min: 20, max: 200, step: 5 },
   { key: 'planeSpeed', min: 20, max: 150, step: 5 },
 ];
@@ -68,9 +74,16 @@ const REBUILD_KEYS: readonly TuneKey[] = [
 
 interface FxReport {
   stage: number;
+  src: Source;
   seed: number | null;
   tune: FxTune;
   allies: CrowdCounts;
+  smoke: number;
+  mech: number;
+  mechCam: boolean;
+  mechMove: boolean;
+  walkSpeed: number;
+  boostSpeed: number;
   calls: number;
   triangles: number;
   fps: number;
@@ -87,9 +100,17 @@ function stageOf(params: URLSearchParams): number {
   return value !== null && /^[0-3]$/.test(value) ? Number(value) : 2;
 }
 
-function seedOf(params: URLSearchParams): number | null {
-  const value = params.get('seed');
-  return value !== null && /^\d+$/.test(value) ? Number(value) >>> 0 : null;
+// The mech's height for the view: 3 to 8 m, the same range as the panel's slider.
+function mechOf(params: URLSearchParams): number {
+  const value = params.get('mech');
+  if (value === null || value.trim() === '') return MECH_DEFAULT;
+  const n = Number(value);
+  return Number.isFinite(n) ? clamp(n, 3, 8) : MECH_DEFAULT;
+}
+
+// ?mechCam=0 / ?mechMove=0 turn a proportion off; anything else (or no value) leaves it on.
+function flagOf(params: URLSearchParams, name: string): boolean {
+  return params.get(name) !== '0';
 }
 
 // The resolution, the colour and the fog: the only post-process this view has.
@@ -109,40 +130,122 @@ function applyLook(tune: FxTune, basePixel: number) {
   if (scene.background instanceof THREE.Color) scene.background.setHex(tune.skyColor);
 }
 
-function hudText(stage: number, seed: number | null, counts: CrowdCounts, calls: number, tris: number, fps: number) {
-  return [
-    `fx ${stage} seed ${seed === null ? '-' : seed}`,
+interface LightBase {
+  light: THREE.Light;
+  intensity: number; // what it had before #view-fx was turned
+}
+
+// Every light in the scene, with its starting strength. The engine and the start-up field each add a hemisphere and a
+// sun, so #view-fx scales both pairs instead of picking one out.
+function collectLights(): LightBase[] {
+  const lights: LightBase[] = [];
+  scene.traverse(object => {
+    if (object instanceof THREE.Light) lights.push({ light: object, intensity: object.intensity });
+  });
+  return lights;
+}
+
+function applyLights(tune: FxTune, lights: readonly LightBase[]) {
+  for (const { light, intensity } of lights) {
+    const sun = light instanceof THREE.DirectionalLight ? tune.sun : 1;
+    light.intensity = intensity * tune.light * sun;
+  }
+}
+
+interface GroundTint {
+  mesh: THREE.InstancedMesh;
+  scales: Float32Array; // each tile's light/dark scale, kept from the build
+}
+
+// The map's tile meshes (the build may have split them into chunks): their colour is per instance.
+function collectGroundTiles(root: THREE.Object3D): GroundTint[] {
+  const tiles: GroundTint[] = [];
+  const base = new THREE.Color(TILE_COLOR).r;
+  root.traverse(object => {
+    if (!(object instanceof THREE.InstancedMesh) || object.name !== 'tile' || !object.instanceColor) return;
+    const colors = object.instanceColor.array;
+    const scales = new Float32Array(object.count);
+    for (let i = 0; i < object.count; i++) scales[i] = base > 0 ? Number(colors[i * 3]) / base : 1;
+    tiles.push({ mesh: object, scales });
+  });
+  return tiles;
+}
+
+function applyGroundColor(tune: FxTune, tiles: readonly GroundTint[]) {
+  const base = new THREE.Color(tune.groundColor);
+  const color = new THREE.Color();
+  for (const { mesh, scales } of tiles) {
+    for (let i = 0; i < scales.length; i++) {
+      color.copy(base).multiplyScalar(scales[i]);
+      mesh.setColorAt(i, color);
+    }
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+}
+
+function hudText(
+  stage: number,
+  src: Source,
+  seed: number | null,
+  message: string,
+  counts: CrowdCounts,
+  smoke: number,
+  mechLine: string,
+  calls: number,
+  tris: number,
+  fps: number,
+) {
+  const lines = [
+    `fx ${stage} src ${src} seed ${seed === null ? '-' : seed}`,
     `味方 前進 ${counts.advancing} 倒れ ${counts.fallen} 抜け ${counts.through}${counts.capped ? ' 上限' : ''}`,
+    `煙 ${smoke} 個`,
+    mechLine,
     `描画 calls ${calls} / tris ${tris} / fps ${fps.toFixed(0)}`,
-  ].join('\n');
+  ];
+  if (message !== '') lines.push(message);
+  return lines.join('\n');
 }
 
 export function showFx(_hash: string) {
   const params = viewParams();
   const stage = stageOf(params);
+  const source = sourceOf(params);
   const seed = seedOf(params);
+  let mechSize = mechOf(params);
+  let mechCam = flagOf(params, 'mechCam');
+  let mechMove = flagOf(params, 'mechMove');
   if (seed !== null) seedRng(seed);
+
+  const { map, message } = mapOf(source, seed);
 
   checkOneTable(FX_TUNE, MOVE_TUNE);
   checkOneTable(FX_TUNE, FEEL_TUNE);
   const tune = tuneWithParams({ ...FX_STAGES[stage] }, params);
   const { moveTune, feelTune } = moveFeelFromParams(params);
 
-  const { built } = buildMapScene(M1B_HAND);
+  const { built } = buildMapScene(map);
   const basePixel = renderer.getPixelRatio();
-  applyLook(tune, basePixel);
+  const lights = collectLights();
+  const groundTiles = collectGroundTiles(built.group);
+  applyGroundColor(tune, groundTiles);
+  const apply = () => {
+    applyLook(tune, basePixel);
+    applyLights(tune, lights);
+  };
+  apply();
 
   const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false });
   const mech = range.mech;
-  mech.x = (M1B_HAND.bounds.minX + M1B_HAND.bounds.maxX) / 2;
-  mech.z = M1B_HAND.bounds.maxZ - 4;
+  const startCamera = scaleForMech(mechSize, MOVE_TUNE, CAMERA_TUNE, { camera: mechCam, move: mechMove }).cameraTune;
+  mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
+  mech.z = map.bounds.maxZ - (startCamera.dist + START_MARGIN);
   mech.yaw = 0;
   initPlayInput();
 
   const rng = stream('field');
   const craterRng = stream('craters');
   const start = { x: mech.x, z: mech.z };
-  let battle: Battle = buildBattle(M1B_HAND, tune, rng, craterRng, start);
+  let battle: Battle = buildBattle(map, tune, rng, craterRng, start);
 
   const hud = document.createElement('div');
   hud.id = 'sbFxHud';
@@ -206,7 +309,7 @@ export function showFx(_hash: string) {
     input.addEventListener('input', () => {
       tune[spec.key] = Number(input.value);
       value.textContent = String(tune[spec.key]);
-      applyLook(tune, basePixel);
+      apply();
       if (REBUILD_KEYS.includes(spec.key)) rebuild.textContent = 'やり直し *';
     });
     row.append(title, value, input);
@@ -214,12 +317,52 @@ export function showFx(_hash: string) {
     values.set(spec.key, value);
   }
 
+  // The mech's own size (m) and whether the camera and the movement follow it. The props and the allies stay as they are.
+  const mechRow = document.createElement('label');
+  mechRow.style.cssText = 'display:block;border-top:1px solid rgba(213,228,238,0.12);padding:2px 0';
+  const mechTitle = document.createElement('span');
+  mechTitle.textContent = 'mech ';
+  const mechValue = document.createElement('b');
+  mechValue.textContent = String(mechSize);
+  const mechInput = document.createElement('input');
+  mechInput.type = 'range';
+  mechInput.min = '3';
+  mechInput.max = '8';
+  mechInput.step = '0.5';
+  mechInput.value = String(mechSize);
+  mechInput.style.cssText = 'display:block;width:100%;margin:0';
+  mechInput.addEventListener('input', () => {
+    mechSize = Number(mechInput.value);
+    mechValue.textContent = String(mechSize);
+  });
+  mechRow.append(mechTitle, mechValue, mechInput);
+  body.appendChild(mechRow);
+
+  const addToggle = (name: string, checked: boolean, onChange: (value: boolean) => void) => {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 0';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    input.addEventListener('change', () => onChange(input.checked));
+    const title = document.createElement('span');
+    title.textContent = name;
+    row.append(input, title);
+    body.appendChild(row);
+  };
+  addToggle('mechCam', mechCam, value => {
+    mechCam = value;
+  });
+  addToggle('mechMove', mechMove, value => {
+    mechMove = value;
+  });
+
   rebuild.addEventListener('click', () => {
     battle.dispose();
-    battle = buildBattle(M1B_HAND, tune, rng, craterRng, start);
+    battle = buildBattle(map, tune, rng, craterRng, start);
     rebuild.textContent = 'やり直し';
     for (const spec of SLIDERS) values.get(spec.key)?.replaceChildren(String(tune[spec.key]));
-    applyLook(tune, basePixel);
+    apply();
   });
 
   const exportBtn = document.createElement('button');
@@ -233,12 +376,25 @@ export function showFx(_hash: string) {
   exportBox.style.cssText = 'width:100%;height:96px;margin-top:4px;box-sizing:border-box;font:10px/1.3 monospace';
   body.append(exportBtn, exportBox);
 
-  const baseReport = () => ({
-    stage,
-    seed,
-    tune: { ...tune },
-    allies: battle.counts(),
-  });
+  const baseReport = () => {
+    const { moveTune: sizedMove } = scaleForMech(mechSize, moveTune, CAMERA_TUNE, {
+      camera: mechCam,
+      move: mechMove,
+    });
+    return {
+      stage,
+      src: source,
+      seed,
+      tune: { ...tune },
+      allies: battle.counts(),
+      smoke: battle.smoke(),
+      mech: mechSize,
+      mechCam,
+      mechMove,
+      walkSpeed: sizedMove.walk,
+      boostSpeed: sizedMove.boost,
+    };
+  };
 
   let pitch = 0;
   let camPos: THREE.Vector3 | null = null;
@@ -265,11 +421,16 @@ export function showFx(_hash: string) {
     name: 'sb-fx',
     update: dt => {
       const read = readInput(dt);
-      pitch = clamp(pitch + read.pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
+      const { cameraTune: cameraAtSize, moveTune: moveAtSize } = scaleForMech(mechSize, moveTune, CAMERA_TUNE, {
+        camera: mechCam,
+        move: mechMove,
+      });
+      range.model.scale.setScalar(mechSize / MECH_BASE_HEIGHT);
+      pitch = clamp(pitch + read.pitchDelta, cameraAtSize.pitchMin, cameraAtSize.pitchMax);
       range.feel.shake += battle.step(dt, mech);
-      const step = range.step(read.input, dt, moveTune, feelTune);
-      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
-      camPos = camPos ? followPose(camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
+      const step = range.step(read.input, dt, moveAtSize, feelTune);
+      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, cameraAtSize, []);
+      camPos = camPos ? followPose(camPos, pose.pos, dt, cameraAtSize.lag) : pose.pos.clone();
       const pos = camPos.clone().add(step.offset);
       applyPose(camera, { ...pose, pos }, step.fov);
       cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
@@ -281,10 +442,17 @@ export function showFx(_hash: string) {
         fpsFrames = 0;
         fpsTime = 0;
       }
+      const mechLine =
+        `機体 ${mechSize}m 歩き ${moveAtSize.walk.toFixed(1)} ブースト ${moveAtSize.boost.toFixed(1)} m/s\n` +
+        `比例 カメラ ${mechCam ? 'あり' : 'なし'} 動き ${mechMove ? 'あり' : 'なし'}`;
       hud.textContent = hudText(
         stage,
+        source,
         seed,
+        message,
         battle.counts(),
+        battle.smoke(),
+        mechLine,
         renderer.info.render.calls,
         renderer.info.render.triangles,
         fps,

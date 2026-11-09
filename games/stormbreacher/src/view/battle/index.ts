@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { burst, disposeTree, fireball, scene } from '@engine/render/index.ts';
 import type { FxTune } from '../../data/tune.ts';
+import { PROP_SIZE } from '../../data/props.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
 import {
   MAX_SOLDIERS,
@@ -27,8 +28,6 @@ const HEAD_FORWARD = 0.78; // how far the head lies past the body (m)
 const FALL_DUST_COLOR = 0x766a58; // the dust a falling ally raises
 const FALL_DUST = 4; // the pieces of that dust
 
-const SMOKE_COLOR = 0xb0aaa0; // a fresh puff
-const SMOKE_DARK = 0x3f3d3a; // a puff about to go
 const SMOKE_RISE = 1.4; // how fast a puff rises (m/s)
 const SMOKE_GROW = 2.2; // how much bigger a puff gets by the end
 const SHELL_FIRE_COLOR = 0xffb347; // the shell's flash
@@ -36,7 +35,7 @@ const SHELL_DEBRIS_COLOR = 0x746654; // the dirt the shell throws
 const SHELL_DEBRIS = 14; // the pieces one shell throws
 const SHELL_RADIUS = 3.2; // the flash's radius (m)
 const WRECK_SMOKE_EVERY = 0.9; // how often a wreck gives a puff (s)
-const WRECK_SMOKE_Y = 1.6; // where a wreck's puffs start (m)
+const WRECK_SMOKE_LIFT = 0.5; // how far above the wreck's top a puff starts (m)
 
 const TRACER_LIFE = 3; // how long a tracer may fly (s)
 const TRACER_SIDE = 70; // how far to either side a tracer starts (m)
@@ -44,7 +43,7 @@ const TRACER_BACK = 90; // how far toward the land a tracer starts (m)
 const TRACER_FRONT = 30; // ... and the nearest (m)
 const TRACER_LIFT = 18; // how high the highest tracer starts (m)
 
-const MAX_PLANES = 8; // the most planes made; the tune shows fewer
+const MAX_PLANES = 12; // the most planes made; the tune shows fewer
 const PLANE_SPAN = 160; // how far from the mech a plane crosses before it starts again (m)
 const PLANE_SIDE = 80; // how far to either side of the mech a plane may fly (m)
 
@@ -82,6 +81,7 @@ interface Plane {
 
 interface WreckSmoke {
   x: number;
+  y: number; // where its puffs start, above the wreck (m)
   z: number;
   t: number; // seconds until its next puff (s)
 }
@@ -92,6 +92,7 @@ export interface Battle {
   // Moves the battle one frame and gives back the shake the shells ask the camera to add this frame (m).
   step(dt: number, mech: { x: number; y: number; z: number }): number;
   counts(): CrowdCounts;
+  smoke(): number; // the smoke puffs on screen now
   dispose(): void;
 }
 
@@ -104,7 +105,12 @@ function showInstances(mesh: THREE.InstancedMesh, count: number) {
 // The wrecks that keep a column of smoke, in the order the seed picks them.
 function wreckSources(rng: Rng, props: readonly Prop[]): WreckSmoke[] {
   const wrecks = props.filter(prop => prop.kind === 'wreck');
-  return rng.shuffle([...wrecks]).map(prop => ({ x: prop.x, z: prop.z, t: rng.rand(0, WRECK_SMOKE_EVERY) }));
+  return rng.shuffle([...wrecks]).map(prop => ({
+    x: prop.x,
+    y: PROP_SIZE[prop.kind].h * prop.scale + WRECK_SMOKE_LIFT,
+    z: prop.z,
+    t: rng.rand(0, WRECK_SMOKE_EVERY),
+  }));
 }
 
 export function buildBattle(
@@ -145,8 +151,8 @@ export function buildBattle(
   const forward = new THREE.Vector3(0, 0, 1);
   const heading = new THREE.Vector3();
   const puffColor = new THREE.Color();
-  const freshColor = new THREE.Color(SMOKE_COLOR);
-  const darkColor = new THREE.Color(SMOKE_DARK);
+  const freshColor = new THREE.Color(tune.smokeColor);
+  const darkColor = new THREE.Color(tune.smokeDark);
 
   let shellT = tune.shellEvery > 0 ? tune.shellEvery * 0.5 : 0;
   let tracerT = tune.tracers > 0 ? 1 / tune.tracers : 0;
@@ -222,10 +228,10 @@ export function buildBattle(
     const cubes = Math.min(200, Math.max(0, Math.round(tune.smokeCubes)));
     for (let i = 0; i < cubes; i++) {
       addPuff(
-        x + rng.rand(-4, 4),
+        x + rng.rand(-6, 6),
         rng.rand(0.5, 3),
-        z + rng.rand(-4, 4),
-        rng.rand(1.2, 3),
+        z + rng.rand(-6, 6),
+        rng.rand(2.5, 5),
         tune.smokeLife,
         SMOKE_RISE * rng.rand(0.6, 1.3),
       );
@@ -270,7 +276,7 @@ export function buildBattle(
       if (source.t > 0) continue;
       source.t += WRECK_SMOKE_EVERY;
       if (i >= active) continue;
-      addPuff(source.x + rng.rand(-1, 1), WRECK_SMOKE_Y, source.z + rng.rand(-1, 1), 1.4, tune.smokeLife, 1);
+      addPuff(source.x + rng.rand(-1, 1), source.y, source.z + rng.rand(-1, 1), rng.rand(2.5, 4), tune.smokeLife, 1);
     }
   }
 
@@ -408,6 +414,7 @@ export function buildBattle(
       return shake;
     },
     counts: () => crowdCounts(crowd),
+    smoke: () => smokePuffs.length,
     dispose() {
       scene.remove(group);
       group.traverse(object => {

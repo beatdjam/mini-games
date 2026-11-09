@@ -7,7 +7,7 @@ import type { FxTune } from '../data/tune.ts';
 
 // A hard cap on the soldiers in the list, so the view's instanced mesh is always big enough. The first wave plus the
 // waves after it can reach it; from then on a new wave brings no one until the fallen are gone.
-export const MAX_SOLDIERS = 600;
+export const MAX_SOLDIERS = 1200;
 
 const LAND_FRACTION = 0.09; // the far defence line's z, as a share of the bounds' depth from minZ
 const SPAWN_MARGIN = 2; // how far inside the side edges a soldier comes in (m)

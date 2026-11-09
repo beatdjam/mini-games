@@ -48,11 +48,15 @@ export function soldierMeshes(): { bodies: THREE.InstancedMesh; heads: THREE.Ins
 
 // The smoke: cubes of one size, scaled per puff (their colour comes from instanceColor).
 export function smokeMesh(size: number): THREE.InstancedMesh {
+  const capacity = Math.max(1, size);
   const mesh = new THREE.InstancedMesh(
     new THREE.BoxGeometry(1, 1, 1),
     new THREE.MeshLambertMaterial({ color: 0xffffff }),
-    Math.max(1, size),
+    capacity,
   );
+  // make instanceColor before the first draw: three r128 creates it in setColorAt
+  const color = new THREE.Color(0xffffff);
+  for (let i = 0; i < capacity; i++) mesh.setColorAt(i, color);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   mesh.frustumCulled = false;
   mesh.count = 0;
