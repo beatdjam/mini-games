@@ -42,6 +42,13 @@ const CHUNK = 32; // m
 const CHUNK_MIN = 3000; // triangles
 const MECH_MARGIN = 4; // how far inside the front edge the mech starts (m)
 
+// The fog's numbers #view-map sets; #view-fx starts from the same ones when its own look is off.
+export const MAP_FOG = { near: FOG_NEAR, far: FOG_FAR } as const;
+
+export interface MapScene {
+  built: ReturnType<typeof buildOutdoor>;
+}
+
 interface MapReport {
   src: Source;
   seed: number | null;
@@ -107,14 +114,9 @@ function hudText(
     .join('\n');
 }
 
-export function showMap(_hash: string) {
-  const params = new URLSearchParams(location.search);
-  const source = sourceOf(params);
-  const seed = seedOf(params);
-  const { map, message } = mapOf(source, seed);
-  const counts = countProps(map.props);
-  const violations = validateMapForMission(map, M1, OUT_OF_RANGE);
-
+// Hides the start-up field and builds the walkable map into the scene: its ground and props, its targets, the mission's
+// areas and the waves' marks. #view-map and #view-fx share it; the fog it sets is the one both start from.
+export function buildMapScene(map: MapDef): MapScene {
   el('#sbApp').hidden = true;
   const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
   if (sizeBox) sizeBox.visible = false;
@@ -133,6 +135,18 @@ export function showMap(_hash: string) {
   scene.add(buildTargets(map.targets));
   scene.add(buildAreaFrames(M1.areas, map.bounds));
   scene.add(buildSpawnMarks(map.spawns));
+  return { built };
+}
+
+export function showMap(_hash: string) {
+  const params = new URLSearchParams(location.search);
+  const source = sourceOf(params);
+  const seed = seedOf(params);
+  const { map, message } = mapOf(source, seed);
+  const counts = countProps(map.props);
+  const violations = validateMapForMission(map, M1, OUT_OF_RANGE);
+
+  const { built } = buildMapScene(map);
 
   const { moveTune, feelTune } = moveFeelFromParams(params);
   const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false });

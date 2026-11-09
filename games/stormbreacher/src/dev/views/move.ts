@@ -49,7 +49,7 @@ interface Tracer {
 }
 
 // One tune table with every URL value of the same name on top; a value that is not a number is ignored.
-function tuneWithParams<T extends Record<string, number>>(base: T, params: URLSearchParams): T {
+export function tuneWithParams<T extends Record<string, number>>(base: T, params: URLSearchParams): T {
   const tune: T = { ...base };
   // a field-by-field view: Object.keys loses the key type, but every field of a tune table is a number
   const fields: Record<string, number> = tune;
@@ -63,7 +63,7 @@ function tuneWithParams<T extends Record<string, number>>(base: T, params: URLSe
 }
 
 // A URL name that is in both tables would set two values at once; refuse it instead of picking one.
-function checkOneTable(a: Record<string, number>, b: Record<string, number>) {
+export function checkOneTable(a: Record<string, number>, b: Record<string, number>) {
   for (const name of Object.keys(a)) {
     if (name in b) throw new Error(`the tune name "${name}" is in two tables`);
   }

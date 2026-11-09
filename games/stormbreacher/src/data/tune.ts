@@ -87,6 +87,148 @@ export const FCS_TUNE: Record<FcsKind, FcsTune> = {
   hard: { cone: 12, range: 180, spread: 1.5, pull: 0, lockTime: 0.35, trackRate: 90, breakCone: 20 },
 };
 
+// The look and the battle effects of #view-fx (SB-045): the resolution and the colour, the shells near the mech, the
+// smoke they leave, the tracers that cross the view, the allies walking landward and the planes overhead. The values
+// are the middle of the three strengths; FX_STAGES turns them down or up. Colours are 0xRRGGBB.
+export const FX_TUNE = {
+  pixel: 0.55, // the share of the screen's pixels to draw (1 draws them all; the canvas is stretched back up)
+  saturate: 0.68, // the CSS filter's saturation (1 leaves the colour as it is)
+  contrast: 1.08, // the CSS filter's contrast (1 leaves it as it is)
+  sepia: 0.12, // the CSS filter's sepia (0 leaves it as it is)
+  haze: 0.25, // how far the fog's near side comes toward the camera (0 leaves it where #view-map has it)
+  fogColor: 0x9aa9b0, // the fog's colour (0xRRGGBB)
+  skyColor: 0x93a3ac, // the background's colour behind everything (0xRRGGBB)
+
+  shellEvery: 2.4, // seconds between two shells (0 makes none)
+  shellNear: 10, // the nearest a shell falls from the mech (m)
+  shellFar: 70, // the farthest a shell falls from the mech (m)
+  shellShake: 0.28, // the shake a shell 10 m away adds (m); farther shells add less
+
+  smokeLife: 5, // how long a shell's smoke stays (s)
+  smokeCubes: 8, // the puffs one shell makes
+  smokeMax: 160, // the most puffs drawn at once
+  wreckSmoke: 3, // how many of the map's wrecks keep a column of smoke
+
+  craters: 60, // the shell holes scattered over the map at the start (0 makes none)
+  craterMin: 2.5, // the smallest hole's radius (m)
+  craterMax: 8, // the largest hole's radius (m)
+  craterWater: 0.35, // the share of holes with water in them (0 keeps them dry)
+  shellCrater: 1, // whether a shell leaves a new hole (0 or 1)
+  craterCap: 140, // the most holes a shell may add; the oldest goes when it is full
+
+  tracers: 9, // the lines a second crossing the view (0 makes none)
+  tracerSpeed: 180, // how fast a tracer flies (m/s)
+
+  allies: 66, // the allies in the first wave (0 makes none)
+  allyWaves: 5, // seconds between one wave and the next (0 makes no more waves)
+  allySpeed: 3.5, // how fast an ally walks landward (m/s)
+  allyDeathRate: 0.03, // the chance that one ally falls in a second (0 keeps them all up)
+
+  planes: 3, // the planes in the air at once (0 makes none)
+  planeHeight: 110, // how high a plane flies (m)
+  planeSpeed: 55, // how fast a plane crosses (m/s)
+};
+
+export type FxTune = typeof FX_TUNE;
+
+// What each strength changes; the rest stays as FX_TUNE. Stage 0 is #view-map's look with every effect off, so the two
+// can be compared. Stage 2 is FX_TUNE itself.
+const FX_OFF: Partial<FxTune> = {
+  pixel: 1,
+  saturate: 1,
+  contrast: 1,
+  sepia: 0,
+  haze: 0,
+  fogColor: 0x9db8c6,
+  skyColor: 0x9db8c6,
+  shellEvery: 0,
+  shellShake: 0,
+  smokeCubes: 0,
+  smokeMax: 0,
+  wreckSmoke: 0,
+  craters: 0,
+  shellCrater: 0,
+  craterCap: 0,
+  tracers: 0,
+  allies: 0,
+  allyWaves: 0,
+  planes: 0,
+};
+
+const FX_WEAK: Partial<FxTune> = {
+  pixel: 0.75,
+  saturate: 0.85,
+  contrast: 1,
+  sepia: 0.05,
+  haze: 0.12,
+  fogColor: 0x9db2ba,
+  skyColor: 0x9aadb6,
+  shellEvery: 5,
+  shellNear: 15,
+  shellFar: 60,
+  shellShake: 0.15,
+  smokeLife: 3.5,
+  smokeCubes: 5,
+  smokeMax: 100,
+  wreckSmoke: 2,
+  craters: 30,
+  craterMin: 2,
+  craterMax: 6,
+  craterWater: 0.3,
+  shellCrater: 1,
+  craterCap: 80,
+  tracers: 5,
+  tracerSpeed: 140,
+  allies: 32,
+  allyWaves: 7,
+  allySpeed: 3.2,
+  allyDeathRate: 0.02,
+  planes: 2,
+  planeHeight: 90,
+  planeSpeed: 40,
+};
+
+const FX_STRONG: Partial<FxTune> = {
+  pixel: 0.35,
+  saturate: 0.45,
+  contrast: 1.18,
+  sepia: 0.25,
+  haze: 0.45,
+  fogColor: 0x8b959b,
+  skyColor: 0x889399,
+  shellEvery: 1.2,
+  shellNear: 5,
+  shellFar: 90,
+  shellShake: 0.5,
+  smokeLife: 7,
+  smokeCubes: 14,
+  smokeMax: 320,
+  wreckSmoke: 6,
+  craters: 110,
+  craterMin: 3,
+  craterMax: 9,
+  craterWater: 0.45,
+  shellCrater: 1,
+  craterCap: 220,
+  tracers: 16,
+  tracerSpeed: 260,
+  allies: 90,
+  allyWaves: 3.5,
+  allySpeed: 3.8,
+  allyDeathRate: 0.05,
+  planes: 6,
+  planeHeight: 150,
+  planeSpeed: 90,
+};
+
+// Stage 0 (off), 1 (weak), 2 (middle, FX_TUNE) and 3 (strong).
+export const FX_STAGES: readonly FxTune[] = [
+  { ...FX_TUNE, ...FX_OFF },
+  { ...FX_TUNE, ...FX_WEAK },
+  FX_TUNE,
+  { ...FX_TUNE, ...FX_STRONG },
+];
+
 // The moving dummies of #view-fcs (SB-060). `hp` is the hits a dummy takes, `speed` is how fast it moves (m/s), and
 // `respawn` is how long a downed dummy stays down (s).
 export const DUMMY_TUNE = {
