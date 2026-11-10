@@ -9,6 +9,7 @@ import { showOutdoor } from './outdoor.ts';
 import { showScript } from './script.ts';
 import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
+import { showFx } from './fx.ts';
 
 // The views the dev server can open (dev/dev.ts).
 export const DEV_VIEWS: DevView[] = [
@@ -71,6 +72,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'walk M1 B line: by hand, from a seed, or the editor’s map',
     run: showMap,
+  },
+  {
+    hash: '#view-fx',
+    match: 'starts',
+    name: 'the beach under fire: smoke, tracers, allies and the look, with knobs',
+    run: showFx,
   },
   {
     hash: '#view-mapedit',

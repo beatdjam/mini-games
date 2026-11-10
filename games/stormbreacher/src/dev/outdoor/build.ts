@@ -21,7 +21,7 @@ export interface OutdoorBuild {
 // The order the kinds are built in (and drawn, until the chunks reorder them).
 const KINDS: OutdoorKind[] = ['tile', 'hedgehog', 'block', 'bunker', 'seawall', 'cliff', 'crater', 'wreck'];
 
-const TILE_COLOR = 0xc2a878; // the sand a tile is drawn in at scale 1
+export const TILE_COLOR = 0xc2a878; // the sand a tile is drawn in at scale 1
 
 // Each kind's colour; the tile's material stays white and its colour comes from instanceColor instead.
 const KIND_COLOR: Record<OutdoorKind, number> = {
