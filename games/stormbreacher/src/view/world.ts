@@ -6,6 +6,8 @@ import { SKY_COLOR } from '../data/colors.ts';
 import { TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
+import { mapBlockers } from '../logic/mapShapes.ts';
+import { cameraBoxes } from './camera.ts';
 import { buildOutdoor, buildTargets, type OutdoorBuild } from './outdoor.ts';
 
 const FOG_NEAR = 100; // m
@@ -22,6 +24,7 @@ export interface World {
   built: OutdoorBuild; // the ground and props, and their chunks
   targets: Map<string, THREE.Mesh>; // the mission's targets by id
   targetGroup: THREE.Group; // every target, to take out when the world is built again
+  cameraBoxes: THREE.Box3[]; // the props and targets as walls the camera keeps out of
 }
 
 // The tiles that cover the whole bounds. The last row and column may hang a little past the edge, so no gap is left.
@@ -58,7 +61,7 @@ export function buildWorld(map: MapDef): World {
     if (child instanceof THREE.Mesh) targets.set(child.name, child);
   }
 
-  return { built, targets, targetGroup };
+  return { built, targets, targetGroup, cameraBoxes: cameraBoxes(mapBlockers(map)) };
 }
 
 // Lowers and darkens every target whose health is gone. Called every frame, so one already down is left as it is: the

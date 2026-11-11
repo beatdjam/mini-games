@@ -1,6 +1,8 @@
 // The flat (XZ) collision of a circle with turned rects: how far a point is from a rect and how a circle is pushed out
-// of one. A candidate to move into the engine (D-23): it reads no table, no MapDef and no mission, so every value comes
-// in as an argument.
+// of one. The box that wraps a rect is made here too. A candidate to move into the engine (D-23): it reads no table,
+// no MapDef and no mission, so every value comes in as an argument.
+import type { Aabb } from './fire.ts';
+
 const PUSH_PASSES = 4; // how many times the rects are gone over when one push moves the circle into another
 
 // A thing's footprint on the ground: its middle, half its width (x) and depth (z) before turning, and how far it is
@@ -13,6 +15,23 @@ export interface GroundRect {
   halfD: number;
   yaw: number;
   top?: number;
+}
+
+// The box a shot may hit, from a rect on the ground: the turned rect's outside wrapped along the axes, with y from the
+// ground to its top. A turned rect's box grows a little, because fireRay only handles boxes along the axes.
+export function rectBox(rect: GroundRect): Aabb {
+  const cos = Math.abs(Math.cos(rect.yaw));
+  const sin = Math.abs(Math.sin(rect.yaw));
+  const halfX = cos * rect.halfW + sin * rect.halfD;
+  const halfZ = sin * rect.halfW + cos * rect.halfD;
+  return {
+    minX: rect.x - halfX,
+    maxX: rect.x + halfX,
+    minY: 0,
+    maxY: rect.top ?? 0,
+    minZ: rect.z - halfZ,
+    maxZ: rect.z + halfZ,
+  };
 }
 
 // The direction one push moved the circle (unit length).

@@ -89,7 +89,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw },
     view.pitch,
     CAMERA_TUNE,
-    [],
+    view.world.cameraBoxes,
   );
   view.camPos = view.camPos ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
   const pos = view.camPos.clone().add(frame.offset);
