@@ -20,11 +20,11 @@
 | `src/view/` | 状態を読んで描く | `data/`・`logic/`・engine・three |
 | `src/app/` | 入力・画面・起動 | すべて |
 
-`logic/`・`data/` は three・DOM・`view/`・`app/`・`dev/`・`i18n/` を読まない。`data/` は `logic/` も読まない。`view/` は `app/` と `dev/` を読まない。この向きは dependency-cruiser の規則（`sb-logic-data-no-render`・`sb-logic-data-inward`・`sb-data-is-data`・`sb-view-reads-only`・`sb-portable-no-game`）で止めてある。
+`logic/`・`data/` は three・DOM・`view/`・`app/`・`dev/`・`i18n/` を読まない。`data/` は `logic/` も読まない。`view/` は `app/` と `dev/` を読まない。`app/` は `dev/` を読まない（本体のページに開発用の入口が入らないため）。この向きは dependency-cruiser の規則（`sb-logic-data-no-render`・`sb-logic-data-inward`・`sb-data-is-data`・`sb-view-reads-only`・`sb-app-no-dev`・`sb-portable-no-game`）で止めてある。
 
 `src/view/camera.ts` は三人称カメラの位置を決める純粋な関数で、`scene` も `camera` も触らない（カメラに書くのは `applyPose` だけ）。
 
-`src/view/world.ts` はマップの描き方を本体と開発用の入口で共有し、`src/view/outdoor.ts` は地面と物、`src/view/mechProxy.ts` は機体の仮の模型を描き、`src/data/colors.ts` は地面の砂と空の色を名前で持つ。
+`src/view/world.ts` はマップの描き方を本体と開発用の入口で共有し、`src/view/outdoor.ts` は地面と物、`src/view/mechProxy.ts` は機体の仮の模型を描き、`src/data/colors.ts` は地面の砂と空の色を名前で持つ。`src/view/play.ts` は出撃中の画面を組み立てて描き、`src/view/world.ts` の `syncWorld` が壊れた目標を低く暗い姿にする。
 
 `src/logic/mech.ts` は機体の歩く・跳ぶ・ブースト・着地を、状態を引数で受けて進める純粋な関数で、three も DOM も読まない。`src/logic/fire.ts` は正面への線が的の箱に当たるかを返す純粋な関数。`src/view/feel.ts` は動きの出来事からカメラの揺れ・FOV・ヒットストップ・砂煙を作る。
 
@@ -42,6 +42,7 @@
 
 - `src/app/keyboard.ts`: engine のキーの動作とマウスを読み、ジャンプとロックの押した瞬間、右クリックのサブ射撃を `MechInput` の形にする
 - `src/app/input.ts`: タッチとキーボードを1つの `MechInput` にまとめる口。本番のゲームもここから読む
+- `src/app/play.ts`: 出撃の開始（`startSortie`）・出撃中のシステム・結果の画面（`showResult`）と、タイトルから出撃へ進む入り口
 - `src/logic/input.ts`: タッチとキーボードの `MechInput` を合わせる純粋な関数（three も DOM も読まない）
 
 ## テストの層
@@ -56,7 +57,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 ## 2. 画面
 
-- ページの要素: `<canvas id="gl">` の上に `<div id="sbApp">` を重ねる（`pointer-events:none`。一覧へ戻るリンクだけ `pointer-events:auto`）
+- ページの要素: `<canvas id="gl">` の上に `<div id="sbApp">` を重ねる（`pointer-events:none`。一覧へ戻るリンクと出撃のボタンだけ `pointer-events:auto`）
 - 画面の状態は `src/app/screen.ts` の `GameState` と `src/data/states.ts` の `STATES` で持つ。`title`（タイトル）・`play`（出撃中）・`result`（結果）の3つで、`playing` は `play` のときだけ true
 - 状態は `setState` でだけ書き換え、遊んでいるかは `isPlaying()` で見る。状態の名前を直に比べない
 
@@ -65,6 +66,8 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `title` | false | タイトル画面 |
 | `play` | true | 出撃中 |
 | `result` | false | 結果の画面 |
+
+画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間と「タイトルへ」）になる。「タイトルへ」は今は `location.reload()` で戻る（結果とセーブは SB-210）。
 
 ## 3. 乱数
 
