@@ -39,9 +39,8 @@ test('a drawn frame reports what it drew', async () => {
   expect(calls).toBeGreaterThan(0);
 });
 
-test('the logic advances the game every frame', async () => {
-  await frames(2);
-  expect(currentGame().time).toBeGreaterThan(0);
+test('the game does not start until the sortie', () => {
+  expect(currentGame()).toBeNull();
 });
 
 test('the field replaces the engine fog and the camera far plane', () => {
