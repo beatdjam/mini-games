@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { yawToward, type Rng } from '@engine/core/index.ts';
 import { hideInFog, scene } from '@engine/render/index.ts';
-import { buildMechProxy } from '../mechProxy.ts';
+import { buildMechProxy } from '../../view/mechProxy.ts';
 
 export type MechDraw = 'group' | 'instanced';
 

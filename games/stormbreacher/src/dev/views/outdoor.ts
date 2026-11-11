@@ -8,7 +8,7 @@ import { stream } from '../../logic/rng.ts';
 import { applyPose, cameraPose, type CameraTarget } from '../../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { startBench, type BenchParams } from '../outdoor/bench.ts';
-import { buildOutdoor } from '../outdoor/build.ts';
+import { buildOutdoor } from '../../view/outdoor.ts';
 import { outdoorLayout } from '../outdoor/layout.ts';
 import { spawnMechLine, spawnMechs } from '../outdoor/mechs.ts';
 

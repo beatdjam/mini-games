@@ -3,10 +3,9 @@
 // own here.
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
+import { SAND_COLOR, SKY_COLOR } from '../data/colors.ts';
 import { FIELD_TUNE, MECH_TUNE } from '../data/tune.ts';
 
-const SKY = 0x9db8c6;
-const SAND = 0xc2a878;
 const BOX = 0x5c6670;
 
 // The names the dev views look up in the scene to hide the field's own ground and size box (the scale course and the
@@ -17,14 +16,14 @@ export const GROUND_NAME = 'ground';
 // Builds the field into the engine's scene: ground, sky, the two lights, the fog and the size box. Called once at
 // start-up; placeCamera() then puts the camera where the view starts.
 export function buildField() {
-  scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, FIELD_TUNE.fogNear, FIELD_TUNE.fogFar);
+  scene.background = new THREE.Color(SKY_COLOR);
+  scene.fog = new THREE.Fog(SKY_COLOR, FIELD_TUNE.fogNear, FIELD_TUNE.fogFar);
   camera.far = FIELD_TUNE.viewFar;
   camera.updateProjectionMatrix();
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(FIELD_TUNE.groundSize, FIELD_TUNE.groundSize),
-    new THREE.MeshLambertMaterial({ color: SAND }),
+    new THREE.MeshLambertMaterial({ color: SAND_COLOR }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.name = GROUND_NAME;

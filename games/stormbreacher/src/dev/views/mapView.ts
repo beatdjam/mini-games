@@ -17,9 +17,9 @@ import { mapBlockers } from '../../logic/mapShapes.ts';
 import { stream } from '../../logic/rng.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
-import { buildAreaFrames, buildSpawnMarks, countProps, groundTiles } from '../map/build.ts';
+import { buildWorld, MAP_FOG, type World } from '../../view/world.ts';
+import { buildAreaFrames, buildSpawnMarks, countProps } from '../map/build.ts';
 import { loadDevMap } from '../map/store.ts';
-import { buildOutdoor, buildTargets } from '../outdoor/build.ts';
 import { buildFlatRange, moveFeelFromParams } from './move.ts';
 
 declare global {
@@ -37,18 +37,12 @@ const OUT_OF_RANGE = {
   waves: ['beach-mortar', 'battery'],
 } as const;
 
-const SKY_COLOR = 0x9db8c6;
-const FOG_NEAR = 100; // m
-const FOG_FAR = 240; // m; the map is 230 m deep
-const CHUNK = 32; // m
-const CHUNK_MIN = 3000; // triangles
 const MECH_MARGIN = 4; // how far inside the front edge the mech starts (m)
 
-// The fog's numbers #view-map sets; #view-fx starts from the same ones when its own look is off.
-export const MAP_FOG = { near: FOG_NEAR, far: FOG_FAR } as const;
+export { MAP_FOG } from '../../view/world.ts';
 
 export interface MapScene {
-  built: ReturnType<typeof buildOutdoor>;
+  built: World['built'];
 }
 
 interface MapReport {
@@ -125,16 +119,7 @@ export function buildMapScene(map: MapDef): MapScene {
   const ground = scene.getObjectByName(GROUND_NAME);
   if (ground) ground.visible = false;
 
-  const fog = scene.fog instanceof THREE.Fog ? scene.fog : new THREE.Fog(SKY_COLOR, FOG_NEAR, FOG_FAR);
-  fog.near = FOG_NEAR;
-  fog.far = FOG_FAR;
-  scene.fog = fog;
-  camera.far = FOG_FAR + 20;
-  camera.updateProjectionMatrix();
-
-  const built = buildOutdoor([...groundTiles(map.bounds), ...map.props], { chunk: CHUNK, chunkMin: CHUNK_MIN });
-  scene.add(built.group);
-  scene.add(buildTargets(map.targets));
+  const { built } = buildWorld(map);
   scene.add(buildAreaFrames(M1.areas, map.bounds));
   scene.add(buildSpawnMarks(map.spawns));
   return { built };
@@ -194,7 +179,7 @@ export function showMap(_hash: string) {
       camPos = camPos ? followPose(camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
       const pos = camPos.clone().add(step.offset);
       applyPose(camera, { ...pose, pos }, step.fov);
-      cullChunks(built.chunks, built.group, camera, FOG_FAR);
+      cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
       hud.textContent = hudText(source, seed, message, map, counts, violations, mech);
     },
   });
