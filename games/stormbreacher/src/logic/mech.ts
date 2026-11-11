@@ -3,7 +3,7 @@
 // forward; touch (SB-030) gives the same shape as the keyboard. Given the map's rects, the mech cannot enter them.
 // A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
 import type { MoveTune } from '../data/tuneTypes.ts';
-import { pushOutCircle, type GroundRect } from './collide.ts';
+import { groundAt, pushOutCircle, type GroundRect } from './collide.ts';
 
 export interface MechInput {
   moveX: number; // the mech's right/left input (-1 to 1, right is +)
@@ -152,6 +152,8 @@ function stepOnce(
   }
 
   if (!m.grounded) {
+    // The floor is the highest top under the feet; a top above the feet does not hold the mech up.
+    const floor = world ? groundAt(m.x, m.z, world.radius, world.rects, m.y) : 0;
     if (m.boosting && tune.boostLift > 0) m.vy += tune.boostLift * h;
     m.vy -= tune.gravity * h;
     // A held jump slows the fall while the gauge lasts; it does nothing while rising.
@@ -164,9 +166,9 @@ function stepOnce(
     else if (!hovering && m.hovering) events.push({ kind: 'hoverEnd', speed: 0 });
     m.hovering = hovering;
     m.y += m.vy * h;
-    if (m.y <= 0) {
+    if (m.y <= floor) {
       const speed = Math.max(0, -m.vy);
-      m.y = 0;
+      m.y = floor;
       m.vy = 0;
       m.grounded = true;
       m.landT = tune.landStop;
@@ -192,9 +194,11 @@ function stepOnce(
   m.x += m.vx * h;
   m.z += m.vz * h;
 
-  // A wall stops the way in and leaves the way along it, so a glancing hit slides.
+  // A wall stops the way in and leaves the way along it, so a glancing hit slides. On the ground anything within a step
+  // is walked onto; in the air only what is under the feet is left alone.
   if (world) {
-    const pushed = pushOutCircle(m.x, m.z, world.radius, world.rects);
+    const over = m.grounded ? m.y + tune.stepHeight : m.y;
+    const pushed = pushOutCircle(m.x, m.z, world.radius, world.rects, over);
     m.x = pushed.x;
     m.z = pushed.z;
     for (const hit of pushed.hits) {
@@ -202,6 +206,15 @@ function stepOnce(
       if (dot < 0) {
         m.vx -= dot * hit.nx;
         m.vz -= dot * hit.nz;
+      }
+    }
+    // On the ground: step up onto what is now under the feet, or start falling when nothing is.
+    if (m.grounded) {
+      const under = groundAt(m.x, m.z, world.radius, world.rects, m.y + tune.stepHeight);
+      if (under > m.y) {
+        m.y = under;
+      } else if (under < m.y - 1e-6) {
+        m.grounded = false;
       }
     }
   }

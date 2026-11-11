@@ -4,13 +4,15 @@
 const PUSH_PASSES = 4; // how many times the rects are gone over when one push moves the circle into another
 
 // A thing's footprint on the ground: its middle, half its width (x) and depth (z) before turning, and how far it is
-// turned about its middle (rad, the same sense as three's rotation.y).
+// turned about its middle (rad, the same sense as three's rotation.y). `top` is the height of the thing's upper face
+// (m); leaving it out means a wall with no top, which nothing can stand on or cross.
 export interface GroundRect {
   x: number;
   z: number;
   halfW: number;
   halfD: number;
   yaw: number;
+  top?: number;
 }
 
 // The direction one push moved the circle (unit length).
@@ -32,13 +34,27 @@ export function rectDistance(rect: GroundRect, x: number, z: number): number {
   return Math.hypot(outX, outZ);
 }
 
+// The height of the highest upper face the circle stands over: a rect whose top is at most `maxTop` and whose distance
+// from the middle is under the radius; 0 when there is none (the ground).
+export function groundAt(x: number, z: number, radius: number, rects: readonly GroundRect[], maxTop: number): number {
+  let top = 0;
+  for (const rect of rects) {
+    const face = rect.top;
+    if (face === undefined || face > maxTop || face <= top) continue;
+    if (rectDistance(rect, x, z) < radius) top = face;
+  }
+  return top;
+}
+
 // Pushes a circle of `radius` out of every rect so its middle stands at least `radius` from each; gives back the new
-// middle and the direction of each push, in the order they happened.
+// middle and the direction of each push, in the order they happened. A rect whose top is at or under `over` is not
+// pushed against (`over` is the mech's height plus its step); leaving `over` out pushes against every rect.
 export function pushOutCircle(
   x: number,
   z: number,
   radius: number,
   rects: readonly GroundRect[],
+  over?: number,
 ): { x: number; z: number; hits: CircleHit[] } {
   let px = x;
   let pz = z;
@@ -46,6 +62,8 @@ export function pushOutCircle(
   for (let pass = 0; pass < PUSH_PASSES; pass++) {
     let pushed = false;
     for (const rect of rects) {
+      // a rect the circle can walk onto is no wall
+      if (over !== undefined && rect.top !== undefined && rect.top <= over) continue;
       // a rect too far for the circle to reach can be left alone
       if (Math.hypot(px - rect.x, pz - rect.z) > radius + Math.hypot(rect.halfW, rect.halfD)) continue;
       const dx = px - rect.x;

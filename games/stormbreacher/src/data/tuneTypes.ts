@@ -3,6 +3,7 @@
 
 export type MoveTune = {
   walk: number; // the walking speed (m/s)
+  stepHeight: number; // the highest ledge the mech walks onto without a jump (m)
   accel: number; // how fast walking speeds up (m/s^2)
   decel: number; // how fast the mech slows down with no input (m/s^2)
   jump: number; // the upward speed a jump starts with (m/s)

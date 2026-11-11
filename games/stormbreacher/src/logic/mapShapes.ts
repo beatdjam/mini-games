@@ -5,7 +5,7 @@ import type { MapDef } from '../data/types.ts';
 import type { GroundRect } from './collide.ts';
 
 // Every blocking prop and every target, as a rect on the ground: the table's w and d with the prop's scale, turned by
-// its yaw. Breakable props block too until G1 adds breaking.
+// its yaw and topped at its height. Breakable props block too until G1 adds breaking.
 export function mapBlockers(map: MapDef): GroundRect[] {
   const rects: GroundRect[] = [];
   for (const prop of map.props) {
@@ -17,11 +17,19 @@ export function mapBlockers(map: MapDef): GroundRect[] {
       halfW: (size.w * prop.scale) / 2,
       halfD: (size.d * prop.scale) / 2,
       yaw: prop.yaw,
+      top: size.h * prop.scale,
     });
   }
   for (const target of map.targets) {
     const size = TARGET_SIZE[target.kind];
-    rects.push({ x: target.x, z: target.z, halfW: size.w / 2, halfD: size.d / 2, yaw: target.yaw });
+    rects.push({
+      x: target.x,
+      z: target.z,
+      halfW: size.w / 2,
+      halfD: size.d / 2,
+      yaw: target.yaw,
+      top: size.h,
+    });
   }
   return rects;
 }
