@@ -34,6 +34,8 @@
 
 `src/logic/collide.ts` は平面で円を回った四角から押し出す純粋な関数で、engine へ移す候補なのでゲームのファイルを読まず、四角と半径を引数で受ける（規則 `sb-portable-no-game`）。`src/logic/mapShapes.ts` の `mapBlockers` が `MapDef` から四角の一覧を作り、通り道の検査と機体の当たりがそれを読む。
 
+`src/logic/game.ts` は出撃の `GameModel`（機体・マップ・目標の体力・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、撃ち、弾が目標に当たると体力が減って0で壊れ、全部壊れると `cleared` になる。台本（SB-150）・敵（SB-190）・武器の表（SB-140）はまだつながない。
+
 `src/app/touch.ts` は engine のスティック・視点のドラッグ・タッチのボタンを `MechInput` の形に変え、ボタンの配置の編集と、押した回数・同時に触れている指の数・動作が同時に効いた時間を測る。
 
 - `src/app/keyboard.ts`: engine のキーの動作とマウスを読み、ジャンプとロックの押した瞬間、右クリックのサブ射撃を `MechInput` の形にする
@@ -53,12 +55,14 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 ## 2. 画面
 
 - ページの要素: `<canvas id="gl">` の上に `<div id="sbApp">` を重ねる（`pointer-events:none`。一覧へ戻るリンクだけ `pointer-events:auto`）
-- 画面の状態は `src/app/screen.ts` の `GameState` と `src/data/states.ts` の `STATES` で持つ。今は `title` の1つだけで、`playing` は false
+- 画面の状態は `src/app/screen.ts` の `GameState` と `src/data/states.ts` の `STATES` で持つ。`title`（タイトル）・`play`（出撃中）・`result`（結果）の3つで、`playing` は `play` のときだけ true
 - 状態は `setState` でだけ書き換え、遊んでいるかは `isPlaying()` で見る。状態の名前を直に比べない
 
 | 状態 | playing | 意味 |
 |------|---------|------|
-| `title` | false | タイトル画面（今はこれだけ） |
+| `title` | false | タイトル画面 |
+| `play` | true | 出撃中 |
+| `result` | false | 結果の画面 |
 
 ## 3. 乱数
 
@@ -96,6 +100,14 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `height` | 4 | m。機体の高さ |
 | `radius` | 1 | m。地面での当たり半径。機体と物の当たりと通り道の検査が使う |
 | `chestHeight` | 2.5 | m。撃つ弾が足元から出る高さ |
+
+出撃の値は `PLAY_TUNE`（SB-115）。値は仮。
+
+| 名前 | 値 | 単位・意味 |
+|------|----|------------|
+| `shotDamage` | 10 | 1発の威力（仮。武器の表は SB-140） |
+| `shotRange` | 200 | m。弾の届く距離 |
+| `startMargin` | 4 | m。機体が始まる位置の、マップの手前の端からの距離 |
 
 三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。
 
@@ -314,6 +326,7 @@ M1 の B トーチカ線と C 防波堤の手前（z −60〜170、x −100〜10
 - `Prop` は `kind`・`x`・`z`・`yaw`・`scale`・`breakable?`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）。`breakable: true` は「後で壊して突破できる物」の印で、今は色とエディタの切り替えだけで、壊す仕組みは G1 で作る
 - `TargetPlace` は `id`・`kind`・`x`・`z`・`yaw`。種類（`TargetKind`）は `pillbox`・`depot`・`gun`・`magazine`。`spawns` は波の名前 → `SpawnPoint`（`x`・`z`）の一覧
 - 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。物の大きさは高さ 8m・当たり半径 2m の機体に合わせて決めたときのまま。機体は今 4m・当たり半径 1m（`MECH_TUNE`）で、ジャンプの最高点は約 1m なので、対戦車障害物（3m）は跳んでも越えられない。描く形（`src/dev/outdoor/build.ts`）も検査も当たりもこの表を読む。`breakable` の物は同じ形のまま色を少し赤っぽくし、種類ごとの `InstancedMesh` と描く回数は増やさない（`instanceColor`）
+- 目標の体力は `TARGET_HP`（仮。`pillbox` 100・`depot` 60・`gun` 200・`magazine` 80。1発 `PLAY_TUNE.shotDamage` 10 で、トーチカは10発で壊れる。SB-190 で決め直す）
 - 手書きは `src/data/maps/m1b-hand.ts`。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`depot`、波は `b-squad`・`seawall-drop`
   - B は「三重の防御線」: z 128〜146・z 80〜96・z 8〜26 に、それぞれ対戦車障害物を3列（列の間 6m 前後、同じ列の中は 6.5m 前後、奇数の列は半分ずらす）。線1の突破口は x −55 と x 40、線2は x −10（ほかに壊せる区間 x 40〜60）、線3は x 61（ほかに壊せる区間 x −40〜−20）。突破口はどれも四角の間で 9m 前後、壊せる区間は幅 15m 前後。同じ列の中のすき間は 3.5m 前後あり、当たり半径 1m の機体は突破口でなくても列の間を抜けられる（線を詰めるのは SB-120）
   - C の手前（z −55〜−35）は2列で突破口が2か所。線の間には塊・残骸・クレーターの遮蔽物をそれぞれ 10〜12 個、線3の奥に6個ほど置く
