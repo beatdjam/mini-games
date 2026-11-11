@@ -110,15 +110,20 @@ function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Ar
   const cols = Math.max(1, Math.floor((maxX - minX) / CELL));
   const rows = Math.max(1, Math.floor((maxZ - minZ) / CELL));
   const cells = new Uint8Array(cols * rows); // 0 free, 1 blocked
-  const blockers = mapBlockers(map);
-  for (let j = 0; j < rows; j++) {
-    const z = minZ + (j + 0.5) * CELL;
-    for (let i = 0; i < cols; i++) {
-      const x = minX + (i + 0.5) * CELL;
-      for (const blocker of blockers) {
-        if (rectDistance(blocker, x, z) >= MECH_TUNE.radius) continue;
-        cells[j * cols + i] = 1;
-        break;
+  // Each blocker looks only at the cells within its reach (its corner's distance from the middle plus the radius), so
+  // the check does not go over every cell for every blocker; a cell outside that square cannot be within the radius.
+  for (const blocker of mapBlockers(map)) {
+    const reach = Math.hypot(blocker.halfW, blocker.halfD) + MECH_TUNE.radius;
+    const i0 = Math.max(0, Math.floor((blocker.x - reach - minX) / CELL));
+    const i1 = Math.min(cols - 1, Math.floor((blocker.x + reach - minX) / CELL));
+    const j0 = Math.max(0, Math.floor((blocker.z - reach - minZ) / CELL));
+    const j1 = Math.min(rows - 1, Math.floor((blocker.z + reach - minZ) / CELL));
+    for (let j = j0; j <= j1; j++) {
+      const z = minZ + (j + 0.5) * CELL;
+      for (let i = i0; i <= i1; i++) {
+        if (cells[j * cols + i]) continue;
+        const x = minX + (i + 0.5) * CELL;
+        if (rectDistance(blocker, x, z) < MECH_TUNE.radius) cells[j * cols + i] = 1;
       }
     }
   }

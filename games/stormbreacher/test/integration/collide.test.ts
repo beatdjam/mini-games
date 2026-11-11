@@ -21,6 +21,9 @@ const input = (over: Partial<MechInput>): MechInput => ({ ...idle, ...over });
 
 const world = { rects: mapBlockers(M1B_HAND), radius: MECH_TUNE.radius };
 
+// The nearest any rect comes to the mech's middle; one expect a frame instead of one a rect keeps the test quick.
+const nearest = (x: number, z: number): number => Math.min(...world.rects.map(rect => rectDistance(rect, x, z)));
+
 test('the hand map lets the mech walk straight through lines 1 to 3 at their breakthroughs', () => {
   for (const line of M1B_RULES.lines.slice(0, 3)) {
     const gapX = line.gaps[0].x;
@@ -31,9 +34,7 @@ test('the hand map lets the mech walk straight through lines 1 to 3 at their bre
     let crossed = false;
     for (let i = 0; i < 600; i++) {
       stepMech(m, input({ moveZ: 1 }), 1 / 60, MOVE_TUNE, 0, world);
-      for (const rect of world.rects) {
-        expect(rectDistance(rect, m.x, m.z), `line at z ${line.z}`).toBeGreaterThanOrEqual(MECH_TUNE.radius - 1e-6);
-      }
+      expect(nearest(m.x, m.z), `line at z ${line.z}`).toBeGreaterThanOrEqual(MECH_TUNE.radius - 1e-6);
       if (m.z < line.z - line.depth / 2 - 2) {
         crossed = true;
         break;
@@ -50,9 +51,7 @@ test('walking head-on into a line hedgehog stops the mech in front of it', () =>
   m.yaw = 0;
   for (let i = 0; i < 240; i++) {
     stepMech(m, input({ moveZ: 1 }), 1 / 60, MOVE_TUNE, 0, world);
-    for (const rect of world.rects) {
-      expect(rectDistance(rect, m.x, m.z)).toBeGreaterThanOrEqual(MECH_TUNE.radius - 1e-6);
-    }
+    expect(nearest(m.x, m.z)).toBeGreaterThanOrEqual(MECH_TUNE.radius - 1e-6);
   }
   expect(m.z).toBeCloseTo(145.5, 3);
   expect(m.x).toBeCloseTo(-61, 6);
