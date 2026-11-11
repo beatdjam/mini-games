@@ -71,6 +71,13 @@ export const FEEL_TUNE = {
 
 export type FeelTune = typeof FEEL_TUNE;
 
+// The game's own starting values (SB-115). The damage and the range are provisional.
+export const PLAY_TUNE = {
+  shotDamage: 10, // the damage of one shot (provisional; the weapon table is SB-140)
+  shotRange: 200, // how far a shot reaches (m)
+  startMargin: 4, // how far the mech starts inside the map's front edge (m)
+};
+
 // The three ways the aim assist (FCS) may work (SB-060). `manual` does nothing, `soft` pulls the shot toward the
 // nearest target in the aim circle, and `hard` locks a target after a short wait and follows it.
 export type FcsKind = 'manual' | 'soft' | 'hard';
