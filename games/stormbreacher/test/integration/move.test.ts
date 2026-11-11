@@ -20,14 +20,14 @@ function inputAt(frame: number): MechInput {
   };
 }
 
-// Jump on the first frame, hold the jump key for a second, then let it go and land.
+// Jump on the first frame, hold the jump key for half a second, then let it go and land.
 function hoverInputAt(frame: number): MechInput {
   return {
     moveX: 0,
     moveZ: 0,
     turn: 0,
     jump: frame === 0,
-    jumpHeld: frame < 60,
+    jumpHeld: frame < 30,
     boost: false,
     fire: false,
   };
@@ -79,7 +79,7 @@ test('the events run jump, then boostStart, then land before boostEnd', () => {
   expect(kinds.filter(kind => kind === 'land')).toHaveLength(1);
 });
 
-test('a jump held for a second hovers, then lets go and lands once, the same twice', () => {
+test('a jump held for half a second hovers, then lets go and lands once, the same twice', () => {
   const a = hoverRun();
   const b = hoverRun();
   expect(a.mech.x).toBeCloseTo(b.mech.x, 10);
@@ -92,6 +92,6 @@ test('a jump held for a second hovers, then lets go and lands once, the same twi
   expect(kinds.filter(kind => kind === 'hoverStart')).toHaveLength(1);
   expect(kinds.filter(kind => kind === 'hoverEnd')).toHaveLength(1);
   expect(kinds.filter(kind => kind === 'land')).toHaveLength(1);
-  expect(a.landFrame).toBeGreaterThan(60); // still in the air when the key is let go
+  expect(a.landFrame).toBeGreaterThan(30); // still in the air when the key is let go
   expect(b.landFrame).toBe(a.landFrame);
 });

@@ -1,15 +1,17 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
-import { DUMMY_TUNE, FCS_TUNE, FEEL_TUNE, MOVE_TUNE, type FcsKind } from '../../src/data/tune.ts';
+import { DUMMY_TUNE, FCS_TUNE, FEEL_TUNE, MECH_TUNE, MOVE_TUNE, type FcsKind } from '../../src/data/tune.ts';
 import { fireRay } from '../../src/logic/fire.ts';
 import { newFcs, spreadDir, stepFcs } from '../../src/logic/fcs.ts';
-import { dummyBox, spawnDummies, stepDummies } from '../../src/logic/dummies.ts';
+import { DUMMY_HEIGHT, dummyBox, spawnDummies, stepDummies } from '../../src/logic/dummies.ts';
 import { newMech, stepMech, type MechInput } from '../../src/logic/mech.ts';
 
 const DEG = Math.PI / 180;
 const FRAMES = 300; // 5 s at 60 steps a second
-const CHEST = 5; // the chest above the feet (m)
-const DISTANCE = 50; // the dummy's home in front of the mech (m)
+const CHEST = MECH_TUNE.chestHeight; // the chest above the feet (m)
+// The dummy's home in front of the mech (m). At this distance the 2 m dummy fills most of the 1.5 degree spread cone,
+// and the dummy's 10 m circle plus the aim's 6 degree offset stays inside hard's 20 degree break cone.
+const DISTANCE = 42;
 const OFFSET = 6; // how far the aim is turned from the dummy's centre (deg)
 
 interface Rates {
@@ -34,7 +36,7 @@ function run(kind: FcsKind): Rates {
   const mech = newMech();
   const state = newFcs();
   const spreadRng = createRng(99);
-  const toCentre = { dx: dummy.x, dy: dummy.y + 4 - CHEST, dz: dummy.z };
+  const toCentre = { dx: dummy.x, dy: dummy.y + DUMMY_HEIGHT / 2 - CHEST, dz: dummy.z };
   const a = OFFSET * DEG;
   const aim = {
     ox: 0,
@@ -59,7 +61,9 @@ function run(kind: FcsKind): Rates {
 
   for (let frame = 0; frame < FRAMES; frame++) {
     const events = stepMech(mech, input, 1 / 60, MOVE_TUNE, FEEL_TUNE.fireRate);
-    const targets = [{ id: dummy.id, box: dummyBox(dummy), cx: dummy.x, cy: dummy.y + 4, cz: dummy.z, alive: true }];
+    const targets = [
+      { id: dummy.id, box: dummyBox(dummy), cx: dummy.x, cy: dummy.y + DUMMY_HEIGHT / 2, cz: dummy.z, alive: true },
+    ];
     const result = stepFcs(state, kind, tune, aim, { x: mech.x, y: mech.y + CHEST, z: mech.z }, targets, 1 / 60);
     for (const event of events) {
       if (event.kind !== 'fire') continue;

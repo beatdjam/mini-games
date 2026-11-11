@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { addSystem, clamp, el } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
-import { CAMERA_TUNE, DUMMY_TUNE, FCS_TUNE, type FcsKind, type FcsTune } from '../../data/tune.ts';
+import { CAMERA_TUNE, DUMMY_TUNE, FCS_TUNE, MECH_TUNE, type FcsKind, type FcsTune } from '../../data/tune.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { fireRay } from '../../logic/fire.ts';
 import { newFcs, spreadDir, stepFcs, type Dir3, type FcsStep, type FcsTarget, type Ray3 } from '../../logic/fcs.ts';
@@ -34,7 +34,6 @@ declare global {
 const DEFAULT_FCS: FcsKind = 'soft'; // the type chosen for the game (D-10, 2026-11-09)
 const FCS_KINDS: readonly FcsKind[] = ['manual', 'soft', 'hard'];
 const FCS_LABELS: Record<FcsKind, string> = { manual: '手動', soft: 'ソフト', hard: 'ハード' };
-const CHEST_HEIGHT = 5; // the height a shot starts from, above the feet (m)
 const FLASH_TIME = 0.15; // how long a hit keeps a dummy red (s)
 const DUMMY_COLOR = 0x5c6670; // a dummy's usual color
 const DUMMY_HIT_COLOR = 0xc0392b; // a dummy flashes this on a hit
@@ -192,7 +191,7 @@ export function showFcs(_hash: string) {
       fcsKind,
       tune,
       aim,
-      { x: mech.x, y: mech.y + CHEST_HEIGHT, z: mech.z },
+      { x: mech.x, y: mech.y + MECH_TUNE.chestHeight, z: mech.z },
       targets(),
       dt,
     );
@@ -209,7 +208,7 @@ export function showFcs(_hash: string) {
 
   function shoot(shotDir: Dir3): ShotResult {
     const dir = spreadDir(shotDir, tune.spread, fcsRng);
-    const chestY = mech.y + CHEST_HEIGHT;
+    const chestY = mech.y + MECH_TUNE.chestHeight;
     const alive = targets().filter(t => t.alive);
     const boxes = alive.map(t => t.box);
     const index = fireRay(mech.x, chestY, mech.z, dir.dx, dir.dy, dir.dz, tune.range, boxes);

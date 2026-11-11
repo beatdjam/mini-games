@@ -1,5 +1,5 @@
 // The map walk (#view-map, SB-055): one map (by hand, from a seed, or the editor's saved one) drawn with the beach's
-// builder, the mission's places and the waves' spawn points, and an 8 m mech walked with #view-play's input. The screen
+// builder, the mission's places and the waves' spawn points, and a 4 m mech walked with #view-play's input. The screen
 // shows what the map holds and what validateMapForMission says about it; window.sbMapReport() returns the same numbers.
 import * as THREE from 'three';
 import { addSystem, clamp, el } from '@engine/core/index.ts';

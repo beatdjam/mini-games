@@ -1,9 +1,9 @@
-// The movement view (#view-move): an 8 m mech walks, jumps, boosts, lands and fires on the flat field, with the feel's
+// The movement view (#view-move): a 4 m mech walks, jumps, boosts, lands and fires on the flat field, with the feel's
 // camera effects, while the values are turned with URL parameters. The targets are five boxes in front.
 import * as THREE from 'three';
 import { addSystem, clamp } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
-import { FEEL_TUNE, MOVE_TUNE, type FeelTune, type MoveTune } from '../../data/tune.ts';
+import { FEEL_TUNE, MECH_TUNE, MOVE_TUNE, type FeelTune, type MoveTune } from '../../data/tune.ts';
 import { fireRay, type Aabb } from '../../logic/fire.ts';
 import { newMech, stepMech, type MechInput, type MechState } from '../../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
@@ -13,12 +13,10 @@ import { heldKeys } from '../keys.ts';
 import { buildMechProxy } from '../mechProxy.ts';
 import { tuneFrom } from './camera.ts';
 
-const MECH_HEIGHT = 8; // the model's height (m)
-const CHEST_HEIGHT = 5; // the height a shot starts from, above the feet (m)
 const SHOT_RANGE = 200; // how far a shot reaches (m)
-const TARGET_WIDTH = 4; // the target's width (m)
-const TARGET_HEIGHT = 8; // the target's height (m)
-const TARGET_DEPTH = 2; // the target's depth (m)
+const TARGET_WIDTH = 2; // the target's width (m)
+const TARGET_HEIGHT = 4; // the target's height (m)
+const TARGET_DEPTH = 1; // the target's depth (m)
 const TARGET_COLOR = 0x5c6670; // the target's usual color
 const TARGET_HIT_COLOR = 0xc0392b; // the target flashes this on a hit
 const FLASH_TIME = 0.15; // how long a hit keeps the target red (s)
@@ -118,7 +116,7 @@ export interface FlatRangeOptions {
 export function buildFlatRange(baseFov: number, options: FlatRangeOptions = {}): FlatRange {
   const mech = newMech();
   const feel = newFeel(baseFov);
-  const model = buildMechProxy(MECH_HEIGHT);
+  const model = buildMechProxy(MECH_TUNE.height);
   scene.add(model);
   const targets = options.targets === false ? [] : buildTargets();
   const targetBoxes = targets.map(target => target.box);
@@ -139,7 +137,7 @@ export function buildFlatRange(baseFov: number, options: FlatRangeOptions = {}):
   function shoot(): ShotResult {
     const dx = -Math.sin(mech.yaw);
     const dz = -Math.cos(mech.yaw);
-    const chest = mech.y + CHEST_HEIGHT;
+    const chest = mech.y + MECH_TUNE.chestHeight;
     const index = fireRay(mech.x, chest, mech.z, dx, 0, dz, SHOT_RANGE, targetBoxes);
     const reach = index >= 0 ? TARGETS[index].dist : SHOT_RANGE;
     tracer(mech.x, chest, mech.z, dx, 0, dz, reach);

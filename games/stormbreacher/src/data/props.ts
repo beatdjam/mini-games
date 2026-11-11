@@ -1,5 +1,5 @@
-// The sizes of the map's props and targets (m). The mech is 8 m tall with a 2 m hit radius: cover is tall enough for
-// it to hide behind, and obstacles are a jump's height.
+// The sizes of the map's props and targets (m), decided when the mech was 8 m tall with a 2 m hit radius. The mech is
+// now 4 m tall with a 1 m radius (MECH_TUNE), and a jump peaks at about 1 m, so a hedgehog (3 m) is not jumped over.
 import type { PropKind, TargetKind } from './types.ts';
 
 export interface PropSize {

@@ -17,7 +17,9 @@ const DEFAULT_CLEAR = 10; // the clear ground around a target when the rules lea
 const OTHER_GAP = 3; // the least distance between props of different bands (m)
 const TRIES_PER_PROP = 400; // how many places a band may try for one prop
 const MAX_TRIES = 10; // how many seeds to try before giving up on a walkable map
-const CRACK = 3.9; // the widest crack inside a row that still stops a mech with a 2 m radius (m)
+// The widest crack inside a row that still stops a mech with a 2 m radius (m). It was set for that radius; a mech with
+// a 1 m radius gets through these cracks. Tightening the rows is left to a later ticket that rebuilds the maps.
+const CRACK = 3.9;
 const SCALE_MIN = 0.9; // the smallest size a line's props may take
 const SCALE_MAX = 1.1; // the largest size a line's props may take
 

@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { addSystem, clamp } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
-import { CAMERA_TUNE, FEEL_TUNE, FX_STAGES, FX_TUNE, MOVE_TUNE, type FxTune } from '../../data/tune.ts';
+import { CAMERA_TUNE, FEEL_TUNE, FX_STAGES, FX_TUNE, MECH_TUNE, MOVE_TUNE, type FxTune } from '../../data/tune.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
 import { MECH_BASE_HEIGHT, scaleForMech } from '../../logic/mechScale.ts';
@@ -24,7 +24,6 @@ declare global {
 
 type TuneKey = keyof FxTune;
 
-const MECH_DEFAULT = 4; // the height #view-fx starts at (m)
 const START_MARGIN = 4; // how far inside the sea edge the camera keeps the mech (m)
 
 // The knobs the panel shows; the colours are left out (the URL can still set them).
@@ -103,9 +102,9 @@ function stageOf(params: URLSearchParams): number {
 // The mech's height for the view: 3 to 8 m, the same range as the panel's slider.
 function mechOf(params: URLSearchParams): number {
   const value = params.get('mech');
-  if (value === null || value.trim() === '') return MECH_DEFAULT;
+  if (value === null || value.trim() === '') return MECH_TUNE.height;
   const n = Number(value);
-  return Number.isFinite(n) ? clamp(n, 3, 8) : MECH_DEFAULT;
+  return Number.isFinite(n) ? clamp(n, 3, 8) : MECH_TUNE.height;
 }
 
 // ?mechCam=0 / ?mechMove=0 turn a proportion off; anything else (or no value) leaves it on.

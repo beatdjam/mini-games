@@ -1,11 +1,11 @@
 // Checks a map against M1's script and against the mech's size (SB-055): the names line up, everything stands inside
-// the bounds, the targets stand apart, and a mech with a 2 m radius can walk from the front edge to the back one. A
+// the bounds, the targets stand apart, and a mech with a 1 m radius can walk from the front edge to the back one. A
 // map under construction is checked after every edit, so the problems come back as a list, not as an exception.
 import { distXZ } from '@engine/core/index.ts';
 import { PROP_SIZE, TARGET_SIZE } from '../data/props.ts';
+import { MECH_TUNE } from '../data/tune.ts';
 import type { MapDef, MissionDef, Prop, TargetPlace } from '../data/types.ts';
 
-const MECH_RADIUS = 2; // the mech's hit radius (m)
 const CELL = 2; // the side of one cell of the walking check (m)
 const TARGET_GAP = 12; // how close two targets may stand (m)
 
@@ -138,7 +138,7 @@ function footprintDistance(footprint: Footprint, x: number, z: number): number {
   return Math.hypot(outX, outZ);
 }
 
-// A target or a blocking prop stops the mech's middle from coming within MECH_RADIUS of its footprint. Breakable props
+// A target or a blocking prop stops the mech's middle from coming within MECH_TUNE.radius of its footprint. Breakable props
 // block too until G1 adds breaking, so a map must still have its breakthroughs open.
 function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Array } {
   const { minX, minZ, maxX, maxZ } = map.bounds;
@@ -153,7 +153,7 @@ function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Ar
     for (let i = 0; i < cols; i++) {
       const x = minX + (i + 0.5) * CELL;
       for (const blocker of blockers) {
-        if (footprintDistance(blocker, x, z) >= MECH_RADIUS) continue;
+        if (footprintDistance(blocker, x, z) >= MECH_TUNE.radius) continue;
         cells[j * cols + i] = 1;
         break;
       }
@@ -192,7 +192,7 @@ export function checkMapPath(map: MapDef): MapViolation[] {
   return [
     {
       kind: 'no-path',
-      message: `the mech cannot walk from z ${map.bounds.maxZ} to z ${map.bounds.minZ}: ${MECH_RADIUS} m of clearance does not fit`,
+      message: `the mech cannot walk from z ${map.bounds.maxZ} to z ${map.bounds.minZ}: ${MECH_TUNE.radius} m of clearance does not fit`,
     },
   ];
 }
