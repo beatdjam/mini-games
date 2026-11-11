@@ -3,9 +3,9 @@
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { chunkInstances, type Chunk } from '@engine/render/index.ts';
-import { PROP_SIZE, TARGET_SIZE, type PropSize, type TargetSize } from '../../data/props.ts';
-import type { TargetKind, TargetPlace } from '../../data/types.ts';
-import { TILE_SIZE, type OutdoorItem, type OutdoorKind } from './layout.ts';
+import { SAND_COLOR } from '../data/colors.ts';
+import { PROP_SIZE, TARGET_SIZE, TILE_SIZE, type PropSize, type TargetSize } from '../data/props.ts';
+import type { Prop, PropKind, TargetKind, TargetPlace } from '../data/types.ts';
 
 export interface OutdoorBuildOpts {
   chunk: number; // the chunk side (m); 0 leaves everything in one instanced mesh per kind
@@ -19,12 +19,12 @@ export interface OutdoorBuild {
 }
 
 // The order the kinds are built in (and drawn, until the chunks reorder them).
-const KINDS: OutdoorKind[] = ['tile', 'hedgehog', 'block', 'bunker', 'seawall', 'cliff', 'crater', 'wreck'];
+const KINDS: PropKind[] = ['tile', 'hedgehog', 'block', 'bunker', 'seawall', 'cliff', 'crater', 'wreck'];
 
-export const TILE_COLOR = 0xc2a878; // the sand a tile is drawn in at scale 1
+export const TILE_COLOR = SAND_COLOR; // the sand a tile is drawn in at scale 1
 
 // Each kind's colour; the tile's material stays white and its colour comes from instanceColor instead.
-const KIND_COLOR: Record<OutdoorKind, number> = {
+const KIND_COLOR: Record<PropKind, number> = {
   tile: 0xffffff,
   hedgehog: 0x666b6e,
   block: 0x9c978d,
@@ -130,7 +130,7 @@ function wreckGeometry(): THREE.BufferGeometry {
   ]);
 }
 
-const SHAPES: Record<OutdoorKind, () => THREE.BufferGeometry> = {
+const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
   tile: () => fitBox(tileGeometry(), PROP_SIZE.tile),
   hedgehog: () => fitBox(hedgehogGeometry(), PROP_SIZE.hedgehog),
   block: () => fitBox(blockGeometry(), PROP_SIZE.block),
@@ -148,7 +148,7 @@ const BREAK_TINT = 0xd2402e; // the red a breakable prop leans towards
 // One instanced mesh per kind, with each copy's place, turn and size in its matrix. A kind with a breakable prop gets an
 // instance colour for every copy (white material, the kind's colour in the buffer), so the breakable ones can lean red
 // without adding a draw.
-function addKind(group: THREE.Group, kind: OutdoorKind, items: OutdoorItem[]) {
+function addKind(group: THREE.Group, kind: PropKind, items: Prop[]) {
   const tinted = kind !== 'tile' && items.some(item => item.breakable === true);
   const mesh = new THREE.InstancedMesh(
     SHAPES[kind](),
@@ -180,12 +180,12 @@ function addKind(group: THREE.Group, kind: OutdoorKind, items: OutdoorItem[]) {
 }
 
 // The whole beach: the items grouped by kind, built, and split into chunks when asked.
-export function buildOutdoor(items: OutdoorItem[], opts: OutdoorBuildOpts): OutdoorBuild {
+export function buildOutdoor(items: Prop[], opts: OutdoorBuildOpts): OutdoorBuild {
   const start = performance.now();
   const group = new THREE.Group();
   group.name = 'outdoor';
 
-  const byKind = new Map<OutdoorKind, OutdoorItem[]>();
+  const byKind = new Map<PropKind, Prop[]>();
   for (const item of items) {
     const list = byKind.get(item.kind);
     if (list) list.push(item);

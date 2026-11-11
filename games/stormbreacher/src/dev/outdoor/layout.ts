@@ -1,6 +1,7 @@
 // The beach's layout as plain numbers (no three.js): what stands where on a 400 x 400 m beach, scattered from the
 // seeded generator so the same seed gives the same beach. build.ts turns the list into meshes.
 import type { Rng } from '@engine/core/index.ts';
+import { TILE_SIZE } from '../../data/props.ts';
 import type { Prop, PropKind } from '../../data/types.ts';
 
 // The beach uses the map's prop kinds; crater and wreck are only on the map, not in this beach's bands.
@@ -17,7 +18,7 @@ interface Band {
 
 // The beach: x and z each run -200 to 200 m, +z is the sea, -z is the land.
 export const BEACH = 200; // half the beach's side (m)
-export const TILE_SIZE = 4; // the ground tile's side (m)
+export { TILE_SIZE };
 
 // Where each kind of thing stands. The bands come from the beach's shape: hedgehogs at the water's edge, blocks across
 // the sand, bunkers just in front of the seawall, the seawall along z = -70, and the cliffs behind it.

@@ -2,7 +2,7 @@
 // selected piece. The map view and this view use the same builders, so the editor shows the map #view-map walks.
 import * as THREE from 'three';
 import type { MapDef } from '../../data/types.ts';
-import { buildOutdoor, buildTargets } from '../outdoor/build.ts';
+import { buildOutdoor, buildTargets } from '../../view/outdoor.ts';
 import { groundTiles } from './build.ts';
 import { selectionAt, type MapSelection } from './model.ts';
 

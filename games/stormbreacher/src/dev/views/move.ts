@@ -11,7 +11,7 @@ import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import { feelEvents, feelStep, newFeel, spawnDust, type FeelState, type ShotResult } from '../../view/feel.ts';
 import { heldKeys } from '../keys.ts';
-import { buildMechProxy } from '../mechProxy.ts';
+import { buildMechProxy } from '../../view/mechProxy.ts';
 import { tuneFrom } from './camera.ts';
 
 const SHOT_RANGE = 200; // how far a shot reaches (m)
