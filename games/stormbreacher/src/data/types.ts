@@ -1,5 +1,6 @@
-// The screens the game can be in. Only the title for now; 'briefing', 'play' and the rest come with the prototype.
-export type GameState = 'title';
+// The screens the game can be in: the title, the sortie itself and its result. 'briefing' and the rest come with the
+// prototype.
+export type GameState = 'title' | 'play' | 'result';
 
 // What a state means to the game, kept one per state in data/states.ts.
 export interface StateDef {

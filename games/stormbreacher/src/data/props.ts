@@ -32,3 +32,12 @@ export const TARGET_SIZE: Record<TargetKind, TargetSize> = {
   gun: { w: 14, h: 8, d: 14 },
   magazine: { w: 10, h: 8, d: 10 },
 };
+
+// The targets' health (provisional; SB-190 decides it again). One shot does PLAY_TUNE.shotDamage 10, so a pillbox
+// (100) breaks in 10 shots, a depot (60) in 6, a gun (200) in 20 and a magazine (80) in 8.
+export const TARGET_HP: Record<TargetKind, number> = {
+  pillbox: 100,
+  depot: 60,
+  gun: 200,
+  magazine: 80,
+};
