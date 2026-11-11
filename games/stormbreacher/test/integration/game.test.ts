@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { TARGET_HP, TARGET_SIZE } from '../../src/data/props.ts';
+import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { M1_LOADOUT, WEAPONS } from '../../src/data/weapons.ts';
@@ -23,6 +23,20 @@ function atPillbox1(game: GameModel): void {
   const place = M1B_HAND.targets[0];
   game.mech.x = place.x;
   game.mech.z = place.z + 20;
+  game.mech.yaw = 0;
+}
+
+// The breakable hedgehog of line 2 nearest the sea, found by its place rather than its index in the map.
+function breakableHedgehogIndex(): number {
+  const prop = M1B_HAND.props.find(item => item.breakable === true && item.x === 54.5 && item.z === 93.33);
+  if (!prop) throw new Error('the hand map has the breakable hedgehog at x 54.5, z 93.33');
+  return M1B_HAND.props.indexOf(prop);
+}
+
+// Puts the mech in front of that hedgehog (its +z side), facing the land.
+function atBreakableHedgehog(game: GameModel): void {
+  game.mech.x = 54.5;
+  game.mech.z = 105;
   game.mech.yaw = 0;
 }
 
@@ -193,4 +207,105 @@ test('running out of ammo stops the shots', () => {
     shots += game.events.filter(event => event.kind === 'shot').length;
   }
   expect(shots).toBe(3);
+});
+
+test('a breakable hedgehog breaks after its health in autocannon shots', () => {
+  const index = breakableHedgehogIndex();
+  const game = newGame(M1B_HAND);
+  atBreakableHedgehog(game);
+  const rects = game.rects.length;
+  const boxes = game.propBoxes.length;
+  const refs = game.propRefs.length;
+  let shots = 0;
+  let broke: GameEvent | undefined;
+  for (let i = 0; i < 600 && !broke; i++) {
+    step(game, { ...idle, fire: true }, 1 / 60);
+    for (const event of game.events) {
+      if (event.kind === 'shot') shots++;
+      if (event.kind === 'propDestroyed') broke = event;
+    }
+  }
+  if (broke?.kind !== 'propDestroyed') throw new Error('the hedgehog broke');
+  expect(shots).toBe(Math.ceil(PROP_HP.hedgehog / WEAPONS[M1_LOADOUT.main].damage));
+  expect(broke.prop).toBe(index);
+  expect(game.rects.length).toBe(rects - 1);
+  expect(game.propBoxes.length).toBe(boxes - 1);
+  expect(game.propRefs.length).toBe(refs - 1);
+  expect(game.breakables.find(state => state.prop === index)?.hp).toBe(0);
+});
+
+test('the sub gun breaks a breakable hedgehog in one shot', () => {
+  const game = newGame(M1B_HAND);
+  atBreakableHedgehog(game);
+  let shots = 0;
+  let broke = false;
+  for (let i = 0; i < 600 && !broke; i++) {
+    step(game, { ...idle, sub: true }, 1 / 60);
+    for (const event of game.events) {
+      if (event.kind === 'shot') shots++;
+      if (event.kind === 'propDestroyed') broke = true;
+    }
+  }
+  expect(broke).toBe(true);
+  expect(shots).toBe(1);
+});
+
+test('a prop that is not marked breakable takes no damage', () => {
+  const game = newGame(M1B_HAND);
+  game.mech.x = -61;
+  game.mech.z = 150;
+  game.mech.yaw = 0;
+  const rects = game.rects.length;
+  let destroyed = false;
+  for (let i = 0; i < 120; i++) {
+    step(game, { ...idle, fire: true }, 1 / 60);
+    for (const event of game.events) if (event.kind === 'propDestroyed') destroyed = true;
+  }
+  expect(destroyed).toBe(false);
+  expect(game.rects.length).toBe(rects);
+});
+
+test('a broken prop does not come back', () => {
+  const index = breakableHedgehogIndex();
+  const game = newGame(M1B_HAND);
+  atBreakableHedgehog(game);
+  let broke = false;
+  for (let i = 0; i < 600 && !broke; i++) {
+    step(game, { ...idle, fire: true }, 1 / 60);
+    broke = game.events.some(event => event.kind === 'propDestroyed');
+  }
+  if (!broke) throw new Error('the hedgehog broke');
+  const rects = game.rects.length;
+  const boxes = game.propBoxes.length;
+  const refs = game.propRefs.length;
+  for (let i = 0; i < 60; i++) step(game, idle, 1 / 60);
+  expect(game.rects.length).toBe(rects);
+  expect(game.propBoxes.length).toBe(boxes);
+  expect(game.propRefs.length).toBe(refs);
+  expect(game.breakables.find(state => state.prop === index)?.hp).toBe(0);
+});
+
+test('the breakable stretch of line 2 is shut until it is shot, then the mech walks through', () => {
+  // without firing, the hedgehogs stop the mech on the sea side of the line
+  const shut = newGame(M1B_HAND);
+  atBreakableHedgehog(shut);
+  for (let i = 0; i < 600; i++) step(shut, { ...idle, moveZ: 1 }, 1 / 60);
+  expect(shut.mech.z).toBeGreaterThan(90);
+
+  // firing while walking breaks the stretch and the mech passes the back edge of line 2 (z 80)
+  const through = newGame(M1B_HAND);
+  atBreakableHedgehog(through);
+  const broke: number[] = [];
+  let crossed = false;
+  for (let i = 0; i < 1800 && !crossed; i++) {
+    step(through, { ...idle, moveZ: 1, fire: true }, 1 / 60);
+    for (const event of through.events) if (event.kind === 'propDestroyed') broke.push(event.prop);
+    for (const rect of through.rects) {
+      expect(rectDistance(rect, through.mech.x, through.mech.z)).toBeGreaterThanOrEqual(MECH_TUNE.radius - 1e-9);
+    }
+    if (through.mech.z < 78) crossed = true;
+  }
+  expect(crossed).toBe(true);
+  expect(broke.length).toBeGreaterThanOrEqual(3);
+  for (const prop of broke) expect(through.map.props[prop].breakable).toBe(true);
 });

@@ -18,6 +18,7 @@ import {
   type CrowdCounts,
 } from '../../logic/crowd.ts';
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
+import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
 import { MAX_TRACERS, craterMeshes, planeGroup, smokeMesh, soldierMeshes, tracerMesh } from './parts.ts';
 
 const BODY_Y = 0.62; // the body's middle above the feet (m)
@@ -44,8 +45,7 @@ const TRACER_FRONT = 30; // ... and the nearest (m)
 const TRACER_LIFT = 18; // how high the highest tracer starts (m)
 
 const MAX_PLANES = 12; // the most planes made; the tune shows fewer
-const PLANE_SPAN = 160; // how far from the mech a plane crosses before it starts again (m)
-const PLANE_SIDE = 80; // how far to either side of the mech a plane may fly (m)
+const TRACER_PAST = 160; // how far past the sea edge a tracer flies before it goes (m)
 
 const CRATER_DISC_Y = 0.02; // the hole's floor, just above the ground (m)
 const CRATER_WATER_Y = 0.04; // the water, just above the floor (m)
@@ -70,13 +70,6 @@ interface Tracer {
   vy: number;
   vz: number;
   life: number;
-}
-
-interface Plane {
-  x: number;
-  z: number;
-  lift: number;
-  dir: number; // +1 crosses toward +x, -1 toward -x
 }
 
 interface WreckSmoke {
@@ -139,12 +132,7 @@ export function buildBattle(
   const shellCraters: Crater[] = [];
   const smokePuffs: Puff[] = [];
   const tracerList: Tracer[] = [];
-  const planes: Plane[] = Array.from({ length: MAX_PLANES }, () => ({
-    x: rng.rand(-PLANE_SPAN, PLANE_SPAN),
-    z: rng.rand(-PLANE_SIDE, PLANE_SIDE),
-    lift: rng.rand(-12, 12),
-    dir: rng.next() < 0.5 ? -1 : 1,
-  }));
+  const planes: Plane[] = Array.from({ length: MAX_PLANES }, () => newPlane(rng, map.bounds));
   const wreckSmokes = wreckSources(rng, map.props);
 
   const dummy = new THREE.Object3D();
@@ -296,20 +284,12 @@ export function buildBattle(
       tracer.y += tracer.vy * dt;
       tracer.z += tracer.vz * dt;
       tracer.life -= dt;
-      if (tracer.life <= 0 || tracer.z > map.bounds.maxZ + PLANE_SPAN) tracerList.splice(i, 1);
+      if (tracer.life <= 0 || tracer.z > map.bounds.maxZ + TRACER_PAST) tracerList.splice(i, 1);
     }
   }
 
   function stepPlanes(dt: number) {
-    for (const plane of planes) {
-      plane.x += plane.dir * tune.planeSpeed * dt;
-      if (Math.abs(plane.x) > PLANE_SPAN) {
-        plane.dir = -plane.dir;
-        plane.x = -plane.dir * PLANE_SPAN;
-        plane.z = rng.rand(-PLANE_SIDE, PLANE_SIDE);
-        plane.lift = rng.rand(-12, 12);
-      }
-    }
+    for (const plane of planes) stepPlane(plane, rng, map.bounds, tune.planeSpeed, dt);
   }
 
   function drawSoldiers() {
@@ -377,7 +357,7 @@ export function buildBattle(
     tracers.instanceMatrix.needsUpdate = true;
   }
 
-  function drawPlanes(at: { x: number; z: number }) {
+  function drawPlanes() {
     const shown = Math.min(MAX_PLANES, Math.max(0, Math.round(tune.planes)));
     for (let i = 0; i < MAX_PLANES; i++) {
       const plane = planes[i];
@@ -385,7 +365,7 @@ export function buildBattle(
       mesh.visible = i < shown;
       if (!mesh.visible) continue;
       // the plane is built facing +z; a crossing along x turns it a quarter turn
-      mesh.position.set(at.x + plane.x, tune.planeHeight + plane.lift, at.z + plane.z);
+      mesh.position.set(plane.x, tune.planeHeight + plane.lift, plane.z);
       mesh.rotation.set(0, plane.dir > 0 ? -Math.PI / 2 : Math.PI / 2, 0);
     }
   }
@@ -410,7 +390,7 @@ export function buildBattle(
       drawSoldiers();
       drawSmoke();
       drawTracers();
-      drawPlanes(mech);
+      drawPlanes();
       return shake;
     },
     counts: () => crowdCounts(crowd),

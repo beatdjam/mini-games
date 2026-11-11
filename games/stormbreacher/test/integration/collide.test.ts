@@ -4,7 +4,7 @@ import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
-import { mapBlockers } from '../../src/logic/mapShapes.ts';
+import { blockingPropIndexes, mapBlockers } from '../../src/logic/mapShapes.ts';
 import { newMech, stepMech, type MechInput } from '../../src/logic/mech.ts';
 
 const idle: MechInput = {
@@ -60,4 +60,10 @@ test('walking head-on into a line hedgehog stops the mech in front of it', () =>
 test('the walking check and the mech use the same rects', () => {
   const blocking = M1B_HAND.props.filter(prop => PROP_SIZE[prop.kind].blocks).length;
   expect(mapBlockers(M1B_HAND).length).toBe(blocking + M1B_HAND.targets.length);
+});
+
+test('the blocking prop indexes are the props the rects stand on', () => {
+  const indexes = blockingPropIndexes(M1B_HAND);
+  expect(indexes).toHaveLength(mapBlockers(M1B_HAND).length - M1B_HAND.targets.length);
+  for (const index of indexes) expect(PROP_SIZE[M1B_HAND.props[index].kind].blocks).toBe(true);
 });

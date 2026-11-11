@@ -102,8 +102,9 @@ function checkWaves(map: MapDef, mission: MissionDef, skip: MapCheckSkip, out: M
 }
 
 // A target or a blocking prop stops the mech's middle from coming within MECH_TUNE.radius of its rect. The rects come
-// from mapBlockers, the same ones the mech's collision uses. Breakable props block too until G1 adds breaking, so a map
-// must still have its breakthroughs open.
+// from mapBlockers, the same ones the mech's collision uses. The map is checked in the shape it has before anything is
+// broken: a breakable stretch counts as blocking, so a map must still be crossable through its breakthroughs even
+// without breaking it.
 function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Array } {
   const { minX, minZ, maxX, maxZ } = map.bounds;
   const cols = Math.max(1, Math.floor((maxX - minX) / CELL));

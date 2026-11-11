@@ -22,6 +22,21 @@ export const PROP_SIZE: Record<PropKind, PropSize> = {
   wreck: { w: 12, h: 5, d: 6, blocks: true },
 };
 
+// A prop's health (provisional). Only a `breakable: true` prop uses it. The autocannon (WEAPONS.autocannon.damage 10)
+// and the heavy gun (WEAPONS.heavyGun.damage 60) take this many shots: a hedgehog 3 and 1, a block 6 and 1, a bunker 15
+// and 3, a seawall 12 and 2, a wreck 8 and 2, and a cliff 30 and 5. The tile and the crater do not block, so they are
+// never shot down.
+export const PROP_HP: Record<PropKind, number> = {
+  tile: 0,
+  hedgehog: 30,
+  block: 60,
+  bunker: 150,
+  seawall: 120,
+  cliff: 300,
+  crater: 0,
+  wreck: 80,
+};
+
 export interface TargetSize {
   w: number; // the width along x (m)
   h: number; // the height (m)

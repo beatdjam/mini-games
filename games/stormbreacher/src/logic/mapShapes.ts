@@ -4,13 +4,23 @@ import { PROP_SIZE, TARGET_SIZE } from '../data/props.ts';
 import type { MapDef } from '../data/types.ts';
 import type { GroundRect } from './collide.ts';
 
+// The places in map.props of the props that block the mech's path.
+export function blockingPropIndexes(map: MapDef): number[] {
+  const indexes: number[] = [];
+  map.props.forEach((prop, index) => {
+    if (PROP_SIZE[prop.kind].blocks) indexes.push(index);
+  });
+  return indexes;
+}
+
 // Every blocking prop and every target, as a rect on the ground: the table's w and d with the prop's scale, turned by
-// its yaw and topped at its height. Breakable props block too until G1 adds breaking.
+// its yaw and topped at its height. Breakable props block too in the shape the map was made; game.ts takes a broken
+// prop out of GameModel.rects.
 export function mapBlockers(map: MapDef): GroundRect[] {
   const rects: GroundRect[] = [];
-  for (const prop of map.props) {
+  for (const index of blockingPropIndexes(map)) {
+    const prop = map.props[index];
     const size = PROP_SIZE[prop.kind];
-    if (!size.blocks) continue;
     rects.push({
       x: prop.x,
       z: prop.z,
