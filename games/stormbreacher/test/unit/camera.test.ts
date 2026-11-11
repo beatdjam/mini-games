@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
 import { CAMERA_TUNE } from '../../src/data/tune.ts';
-import { cameraPose, followPose, type CameraTarget } from '../../src/view/camera.ts';
+import { cameraBoxes, cameraPose, followPose, type CameraTarget } from '../../src/view/camera.ts';
 
 const at = (x = 0, z = 0, yaw = 0): CameraTarget => ({ x, y: 0, z, yaw });
 
@@ -77,4 +77,30 @@ test('aiming uses the aiming distance', () => {
   const pose = cameraPose(at(), 0, CAMERA_TUNE, [], true);
   expect(pose.dist).toBeCloseTo(CAMERA_TUNE.aimDist, 9);
   expect(pose.pos.z).toBeCloseTo(CAMERA_TUNE.aimDist, 9);
+});
+
+test('cameraBoxes turns rects into boxes up to their tops', () => {
+  const boxes = cameraBoxes([
+    { x: 0, z: 0, halfW: 2, halfD: 1, yaw: 0, top: 3 },
+    { x: 0, z: 0, halfW: 2, halfD: 1, yaw: 0 },
+  ]);
+  expect(boxes[0].min.toArray()).toEqual([-2, 0, -1]);
+  expect(boxes[0].max.toArray()).toEqual([2, 3, 1]);
+  expect(boxes[1].min.y).toBe(0);
+  expect(boxes[1].max.y).toBe(100);
+});
+
+test('a box behind the mech pulls the camera in front of it', () => {
+  const boxes = cameraBoxes([{ x: 0, z: 3, halfW: 5, halfD: 0.5, yaw: 0, top: 6 }]);
+  const pose = cameraPose(at(), 0, CAMERA_TUNE, boxes);
+  expect(pose.pulled).toBe(true);
+  expect(pose.pos.z).toBeLessThan(2.5);
+});
+
+test('a low box behind the mech leaves the camera where it was', () => {
+  const low = cameraBoxes([{ x: 0, z: 3, halfW: 5, halfD: 0.5, yaw: 0, top: 0.5 }]);
+  const pose = cameraPose(at(), 0, CAMERA_TUNE, low);
+  const open = cameraPose(at(), 0, CAMERA_TUNE, []);
+  expect(pose.pulled).toBe(false);
+  expect(pose.pos.toArray()).toEqual(open.pos.toArray());
 });

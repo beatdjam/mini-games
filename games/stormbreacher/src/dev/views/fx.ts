@@ -223,7 +223,7 @@ export function showFx(_hash: string) {
   const tune = tuneWithParams({ ...FX_STAGES[stage] }, params);
   const { moveTune, feelTune } = moveFeelFromParams(params);
 
-  const { built } = buildMapScene(map);
+  const { built, cameraBoxes } = buildMapScene(map);
   const basePixel = renderer.getPixelRatio();
   const lights = collectLights();
   const groundTiles = collectGroundTiles(built.group);
@@ -436,7 +436,7 @@ export function showFx(_hash: string) {
         undefined,
         (MECH_TUNE.radius * mechSize) / MECH_BASE_HEIGHT,
       );
-      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, cameraAtSize, []);
+      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, cameraAtSize, cameraBoxes);
       camPos = camPos ? followPose(camPos, pose.pos, dt, cameraAtSize.lag) : pose.pos.clone();
       const pos = camPos.clone().add(step.offset);
       applyPose(camera, { ...pose, pos }, step.fov);

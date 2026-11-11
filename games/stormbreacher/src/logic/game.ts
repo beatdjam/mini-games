@@ -5,7 +5,7 @@
 import { TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { FEEL_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../data/tune.ts';
 import type { MapDef, TargetKind, TargetPlace } from '../data/types.ts';
-import type { GroundRect } from './collide.ts';
+import { rectBox, type GroundRect } from './collide.ts';
 import { fireRay, type Aabb } from './fire.ts';
 import { mapBlockers } from './mapShapes.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from './mech.ts';
@@ -33,23 +33,6 @@ export interface GameModel {
   targets: TargetState[];
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // every target is down
-}
-
-// The box a shot may hit, from a rect on the ground: the turned rect's outside wrapped along the axes, with y from the
-// ground to its top. A turned rect's box grows a little, because fireRay only handles boxes along the axes.
-function rectBox(rect: GroundRect): Aabb {
-  const cos = Math.abs(Math.cos(rect.yaw));
-  const sin = Math.abs(Math.sin(rect.yaw));
-  const halfX = cos * rect.halfW + sin * rect.halfD;
-  const halfZ = sin * rect.halfW + cos * rect.halfD;
-  return {
-    minX: rect.x - halfX,
-    maxX: rect.x + halfX,
-    minY: 0,
-    maxY: rect.top ?? 0,
-    minZ: rect.z - halfZ,
-    maxZ: rect.z + halfZ,
-  };
 }
 
 // The box a shot may hit: TARGET_SIZE's w and d turned by the target's yaw, with y from the ground to its height.

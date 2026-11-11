@@ -4,6 +4,9 @@
 import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import type { CameraTune } from '../data/tuneTypes.ts';
+import { rectBox, type GroundRect } from '../logic/collide.ts';
+
+const WALL_HEIGHT = 100; // m; how high a rect with no top reaches, so the camera never goes over it
 
 export interface CameraTarget {
   x: number; // the mech's feet on x (m)
@@ -37,6 +40,15 @@ function nearestHit(origin: THREE.Vector3, dir: THREE.Vector3, max: number, boxe
     if (!best || dist < best.dist) best = { point: point.clone(), dist };
   }
   return best;
+}
+
+// The rects as boxes the camera keeps out of: each rect's box up to its top, or up to WALL_HEIGHT when it has no top.
+export function cameraBoxes(rects: readonly GroundRect[]): THREE.Box3[] {
+  return rects.map(rect => {
+    const box = rectBox(rect);
+    const top = rect.top === undefined ? WALL_HEIGHT : box.maxY;
+    return new THREE.Box3(new THREE.Vector3(box.minX, box.minY, box.minZ), new THREE.Vector3(box.maxX, top, box.maxZ));
+  });
 }
 
 // The point a mech's feet and yaw put the camera behind, with the walls kept out of the way.

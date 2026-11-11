@@ -43,6 +43,7 @@ export { MAP_FOG } from '../../view/world.ts';
 
 export interface MapScene {
   built: World['built'];
+  cameraBoxes: THREE.Box3[];
 }
 
 interface MapReport {
@@ -119,10 +120,10 @@ export function buildMapScene(map: MapDef): MapScene {
   const ground = scene.getObjectByName(GROUND_NAME);
   if (ground) ground.visible = false;
 
-  const { built } = buildWorld(map);
+  const { built, cameraBoxes } = buildWorld(map);
   scene.add(buildAreaFrames(M1.areas, map.bounds));
   scene.add(buildSpawnMarks(map.spawns));
-  return { built };
+  return { built, cameraBoxes };
 }
 
 export function showMap(_hash: string) {
@@ -133,7 +134,7 @@ export function showMap(_hash: string) {
   const counts = countProps(map.props);
   const violations = validateMapForMission(map, M1, OUT_OF_RANGE);
 
-  const { built } = buildMapScene(map);
+  const { built, cameraBoxes } = buildMapScene(map);
 
   const { moveTune, feelTune } = moveFeelFromParams(params);
   const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false, rects: mapBlockers(map) });
@@ -175,7 +176,7 @@ export function showMap(_hash: string) {
       const read = readInput(dt);
       pitch = clamp(pitch + read.pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
       const step = range.step(read.input, dt, moveTune, feelTune);
-      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
+      const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, cameraBoxes);
       camPos = camPos ? followPose(camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
       const pos = camPos.clone().add(step.offset);
       applyPose(camera, { ...pose, pos }, step.fov);
