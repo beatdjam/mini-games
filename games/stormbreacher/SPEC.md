@@ -24,7 +24,7 @@
 
 `src/view/camera.ts` は三人称カメラの位置を決める純粋な関数で、`scene` も `camera` も触らない（カメラに書くのは `applyPose` だけ）。
 
-`src/view/world.ts` はマップの描き方を本体と開発用の入口で共有し、`src/view/outdoor.ts` は地面と物、`src/view/mechProxy.ts` は機体の仮の模型を描き、`src/data/colors.ts` は地面の砂と空の色を名前で持つ。`src/view/play.ts` は出撃中の画面を組み立てて描き、`src/view/world.ts` の `syncWorld` が壊れた目標と壊れた物（`breakable` の物）を低く暗い姿にする。
+`src/view/world.ts` はマップの描き方を本体と開発用の入口で共有し、`src/view/outdoor.ts` は地面と物、`src/view/mechProxy.ts` は機体の仮の模型を描き、`src/data/colors.ts` は地面の砂と空の色を名前で持つ。`src/view/play.ts` は出撃中の画面を組み立てて描き、`src/view/world.ts` の `syncWorld` が壊れた目標と壊れた物（`breakable` の物）を低く暗い姿にする。`src/view/hud.ts` は本体の出撃中の HUD を `HudModel` から描き、`src/view/hudParts.ts` は弧・丸いレーダー・点と円・照準の円の半径を持ち、`#view-hud` の見本と本体が同じものを使う。`src/data/colors.ts` は HUD の色（`HUD_COLOR`）も名前で持つ。
 
 `src/data/looks.ts` はミッションごとの見た目の表（`LOOKS`・`lookOf`）と光の元の強さ（`BASE_LIGHTS`）を持つ。`src/view/look.ts` は解像度・色味・霧・空・光・地面の色をかけ、`#view-fx`・`#view-hud`・本体が同じ関数を使う。`src/view/field.ts` の光は半球1つ・太陽1つ（engine の光は外す）。`src/logic/planes.ts` は飛行機の動き（機体と関係なくマップの座標で往復）を持つ。
 
@@ -39,6 +39,8 @@
 `src/logic/collide.ts` は平面で円を回った四角から押し出す純粋な関数で、engine へ移す候補なのでゲームのファイルを読まず、四角と半径を引数で受ける（規則 `sb-portable-no-game`）。`src/logic/mapShapes.ts` の `mapBlockers` が `MapDef` から四角の一覧を作り、通り道の検査と機体の当たりがそれを読む。規則に入っているファイルは `src/logic/collide.ts`・`src/logic/mech.ts`・`src/logic/fcs.ts`・`src/logic/fire.ts`・`src/view/camera.ts`・`src/data/tuneTypes.ts` の6つで、機体・カメラ・FCS の調整の型は値と分けて `src/data/tuneTypes.ts` に置く（値は `src/data/tune.ts`）。
 
 `src/logic/game.ts` は出撃の `GameModel`（機体・マップ・目標の体力・壊せる物の体力（`breakables`）・メインとサブの武器・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・間隔・弾数）、弾が目標に当たると体力が減って0で壊れ、全部壊れると `cleared` になる。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。台本（SB-150）はまだつながず、敵もまだ（壊せる物だけ入った）。
+
+`src/logic/hud.ts` は HUD に出す値（ブースト・装甲・メインとサブの弾数・目標の数・照準の円の中の一番近い敵の体力・レーダーの点）を `GameModel` から作る純粋な関数 `hudModel`。装甲は機体の体力が無い（SB-190）ので常に満タン。熱は持たない。描くのは `view/hud.ts`（次の票）。
 
 `src/app/touch.ts` は engine のスティック・視点のドラッグ・タッチのボタンを `MechInput` の形に変え、ボタンの配置の編集と、押した回数・同時に触れている指の数・動作が同時に効いた時間を測る。
 
@@ -69,7 +71,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `play` | true | 出撃中 |
 | `result` | false | 結果の画面 |
 
-画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間と「タイトルへ」）になる。「タイトルへ」は今は `location.reload()` で戻る（結果とセーブは SB-210）。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。
+画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間と「タイトルへ」）になる。「タイトルへ」は今は `location.reload()` で戻る（結果とセーブは SB-210）。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲は機体の体力が無い間は満タンで数字なし。熱・無線・警告は出さない。値の出し方は `src/logic/hud.ts`。色と主張は仮。
 
 ## 3. 乱数
 
@@ -115,6 +117,15 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
 | `startMargin` | 4 | m。機体が始まる位置の、マップの手前の端からの距離 |
+
+HUD の値は `HUD_TUNE`（SB-160）。値は仮。
+
+| 名前 | 値 | 単位・意味 |
+|------|----|------------|
+| `radarRange` | 200 | m。レーダーの見える距離。これより遠い目標は描かない |
+| `aimCone` | `FCS_TUNE.soft.cone` | 度。照準の円の半分の角度。敵の体力の棒はこの中の目標を選ぶ |
+| `objectiveKey` | `obj.break-pillboxes` | 目標の言語キー。台本（SB-150）がつながるまで |
+| `objectiveKind` | `pillbox` | 目標が数える目標の種類 |
 
 武器は表 `data/weapons.ts` の `WEAPONS`（`Record<WeaponId, WeaponDef>`）に置く。値はどれも仮で、SB-140 の2枚目と遊んで詰める。熱は持たない（2026-11-12 の決定）。
 
@@ -255,7 +266,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - `#view-play`: `#view-touch` と同じ画面を、PC ではキーボードとマウス、スマホではタッチで動かす入口。キーボードは W/S が前後、A/D が左右、マウスの移動と矢印キーが視点、Space がジャンプ（押した瞬間に跳び、空中で押し続けると滞空）、Shift がブースト、J かマウスの左ボタンがメイン（機関砲）、K かマウスの右ボタンがサブ（砲）、E がロック、Esc がロック解除。スマホではタッチのメインのボタンで機関砲、サブのボタンで砲を撃つ。PC では画面の下の真ん中に操作の一覧を出し、ポインタロック中は消す。`MOVE_TUNE`・`FEEL_TUNE` の項目と `?feel=0` は `#view-move` と同じく URL で上書きできる（`#view-touch` も同じ）
 - `#view-fcs`: 平らな地面で、8体の動く的（止まる2・左右に往復2・円を回る2・近づいて離れる2）へ撃ち、FCS の3つの型を比べる入口。`?fcs=manual|soft|hard` で型を選び（既定はゲームで使う `soft`。表に無い値は既定にして画面に「無効な値」と出す）、`FCS_TUNE` の各項目を同じ名前で上書きできる（例 `?fcs=soft&cone=10&pull=30`）。`MOVE_TUNE`・`FEEL_TUNE` の項目と `?feel=0` も `#view-move` と同じく効く。`?move=still` で的を全部止める。画面の上の真ん中のボタンで型を切り替える（`?fcs=` を変えて読み直す）。照準は画面の真ん中の点と、`cone` が 0 より大きい型ではカメラの画角から出した円、円の中の的の角の印、`hard` の候補の進み具合の弧、捕まえた的の四角で出す。画面の左上に撃った数・当てた数・当たる率・倒した数・倒すまでの時間の平均・捕まえるまでの時間の平均を出し、`window.sbFcsReport()` が同じ数字を JSON の文字列で返す。測る数字は型ごとで、切り替えると 0 から
 - `#view-script`: M1「強襲上陸」の台本をボタンで動かす入口。3D は描かず、屋外の画面に DOM を重ねる。左に今の目標・地図の印・カットシーンと残りの秒・旗・結果、下の真ん中に無線の帯（1行を最低 `RADIO_MIN_SEC` ずつ順に出す）、右に出来事を入れるボタン（`enter b-line`・`enter seawall-top`・各物の `destroyed`・`skip`）と時間の速さ（×1・×4）、右下に cue が発火した時刻と出来事のログを出す。毎フレーム `stepScript` を回し、`window.sbScriptReport()` が `fired`（cue → 時刻）と出来事の列を JSON の文字列で返す
-- `#view-hud`: HUD の配置の見本を4案（A 四隅に散らす・B 下にまとめる・C 照準のまわりに寄せる・D A の配置に照準のまわりの細い計器を足す）で切り替えて見る入口。`#view-map` の浜のマップ（`buildMapScene`）を固定カメラで描き、機体の模型を置く。ゲームの状態にはつながず、見本の値（`src/dev/hud/plans.ts` の `HUD_SAMPLE`）で描く。`?plan=a|b|c|d`（既定 a）、`?cut=1`（カットシーンの帯）、`?touch=1`（タッチのボタンの輪）、数字キー 1〜4 で案を切り替える。`window.sbHudReport()` が各要素の矩形を JSON の文字列で返す。要素の値の多く（装甲・熱・弾数・武器の枠（メインとサブの2つ）・レーダー）と、カットシーン中の表示（無線以外を隠す）は仮であること
+- `#view-hud`: HUD の配置の見本を4案（A 四隅に散らす・B 下にまとめる・C 照準のまわりに寄せる・D A の配置に照準のまわりの細い計器を足す）で切り替えて見る入口。`#view-map` の浜のマップ（`buildMapScene`）を固定カメラで描き、機体の模型を置く。ゲームの状態にはつながず、見本の値（`src/dev/hud/plans.ts` の `HUD_SAMPLE`）で描く。`?plan=a|b|c|d`（既定 a）、`?cut=1`（カットシーンの帯）、`?touch=1`（タッチのボタンの輪）、数字キー 1〜4 で案を切り替える。`window.sbHudReport()` が各要素の矩形を JSON の文字列で返す。弧・レーダー・点と円の描き方は `src/view/hudParts.ts` から読む（見本の値と動きは変えない）。要素の値の多く（装甲・熱・弾数・武器の枠（メインとサブの2つ）・レーダー）と、カットシーン中の表示（無線以外を隠す）は仮であること
 - `#view-map`: M1 の B トーチカ線と C 防波堤の手前のマップを歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（8章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す
 - `#view-fx`: M1 の B のマップ（手書き・生成・エディタが保存したもの）を機体で歩きながら、周りで戦闘が起きている迫力を試す入口。`?src=hand|gen|edit` で M1 の B の手書きのマップ・生成したマップ・エディタが `localStorage` に保存したマップを選び（既定 `hand`。`edit` で保存が無いときは「保存されたマップが無い」を出して空のマップで開く）、`?fx=0|1|2|3` で濃さを選び（0 は演出を全部切った見た目で、`mech=4` なら `#view-map` と同じ。1 は弱、2 は中、3 は強。既定 2）、`FX_TUNE` の各項目を同じ名前でさらに上書きできる（例 `?fx=3&pixel=0.4&tracers=6`）。`?seed=<n>` は場面の種。`?mech=<m>` は機体の高さ（3〜8m、既定は `MECH_TUNE.height` の 4）で、仮の模型を `mech/4` 倍にし、足元は地面に付けたままにする。機体は `#view-map` と同じく物と目標に入らず、斜めに当たると壁に沿って滑る。当たり半径は `?mech=` とつまみに比例する（`MECH_TUNE.radius` × `mech/4`。`?mechMove=0` でも比例し、`?mech=8` で 2m）。`?mechCam=0` はカメラの距離・肩・注視点の高さ・上への持ち上げ・狙うときの距離を、`?mechMove=0` は歩き・ブーストの速さと加速・ジャンプの初速を `mech/4` に比例させない（ジャンプの初速は `sqrt(mech/4)`。既定はどちらも比例）。`MOVE_TUNE`・`CAMERA_TUNE` は 4m 用で、`?mech=8` にすると SB-100 の前の 8m の値に戻る。物と歩兵の大きさは 8m の機体に合わせて決めたときのまま。機体の始まりは地図の手前の端から、`mech` に比例したカメラの距離＋4m 内側にして、カメラが地図の外に出ないようにする。味方の歩兵は海側から波で出て -z へ進み、倒れた人と抜けた人を数える。砲撃は機体のまわりの輪に落ちて閃光・破片・灰色の煙を出し、近いほどカメラを揺らす。残骸からは煙の柱が立ち、曳光弾が画面を横切り、飛行機はマップの左右の端の外側（`PLANE_MARGIN`）まで機体と関係なくマップの座標で横切る。地面には `stream('craters')` の種から散らした砲弾穴があり、`craterWater` の割合で水が溜まる（見た目だけで、地面の高さ・機体の歩き・当たり判定は変えない）。砲撃は `shellCrater` が 1 なら落ちた所に新しい穴を残し、`craterCap` を超えると古いものから消える。見た目は `pixel` の解像度と canvas の CSS の `filter`（`saturate`・`contrast`・`sepia`）と霧で作る。`light` はシーンの全部の光の強さに掛ける倍率、`sun` はそのうち `DirectionalLight` だけにさらに掛ける倍率、`groundColor` は地面のタイルの色（タイルごとの濃淡は残す）で、色は URL では10進の数値で上書きできる。煙の色は `smokeColor`・`smokeDark` で変えられる（URL のみ）。右上のつまみは `FX_TUNE` の主な値をスライダーで変え（歩兵の人数・煙の上限・穴の数と上限・穴の半径と水の割合は「やり直し」で作り直す）、`mech` のスライダーと `mechCam`・`mechMove` のチェックも置き、折りたためる。「書き出し」は今の値を JSON で `<textarea>` に出し、`window.sbFxReport()` が同じ JSON に機体の高さ・比例のありなし・歩きとブーストの速さ・描く回数・三角形の数・直近の fps を足して文字列で返す。左上に選んだ `src`・前進・倒れ・抜けの人数（戦場の歩兵が上限に当たっているときは「上限」も）・煙の塊の数と描く回数・三角形の数・fps を出し、`window.sbFxReport()` と書き出しの JSON にも `src` を出す。演出はゲームの状態に影響しない
 - `#view-mapedit`: マップの簡易エディタ。上から見下ろすカメラで、ホイールかピンチで寄り・引き、右ドラッグか2本指で動かす。右の一覧で物の8種か目標の4種を選び、地面をクリックかタップすると置く。目標は `id` を一覧から選ぶ。置いた物はドラッグで動き、`R` か回転のボタンで15度ずつ回り、`Delete` か削除のボタンで消える。「手書き」「生成（種）」「空」から始められ、置くたびに `validateMapForMission` を回して違反を出し、通り道が無ければ赤くする。「書き出し」は JSON を `<textarea>` に出し、「読み込み」はその JSON を読む。編集は `localStorage` の `stormbreacher-dev-map` に保存し、`#view-map?src=edit` で歩ける
