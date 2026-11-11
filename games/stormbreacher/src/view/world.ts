@@ -5,12 +5,15 @@ import { camera, scene } from '@engine/render/index.ts';
 import { SKY_COLOR } from '../data/colors.ts';
 import { TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
+import type { GameModel } from '../logic/game.ts';
 import { buildOutdoor, buildTargets, type OutdoorBuild } from './outdoor.ts';
 
 const FOG_NEAR = 100; // m
 const FOG_FAR = 240; // m; the map is 230 m deep
 const CHUNK = 32; // m
 const CHUNK_MIN = 3000; // triangles
+const WRECK_COLOR = 0x1f1c18; // the colour a broken target keeps
+const WRECK_SCALE_Y = 0.35; // how low a broken target sits (its height scale)
 
 // The fog's numbers the map views set; #view-fx starts from the same ones when its own look is off.
 export const MAP_FOG = { near: FOG_NEAR, far: FOG_FAR } as const;
@@ -56,4 +59,16 @@ export function buildWorld(map: MapDef): World {
   }
 
   return { built, targets, targetGroup };
+}
+
+// Lowers and darkens every target whose health is gone. Called every frame, so one already down is left as it is: the
+// scale says a wreck has been made.
+export function syncWorld(world: World, game: GameModel): void {
+  for (const target of game.targets) {
+    if (target.hp > 0) continue;
+    const mesh = world.targets.get(target.id);
+    if (!mesh || mesh.scale.y === WRECK_SCALE_Y) continue;
+    if (mesh.material instanceof THREE.MeshLambertMaterial) mesh.material.color.setHex(WRECK_COLOR);
+    mesh.scale.y = WRECK_SCALE_Y;
+  }
 }
