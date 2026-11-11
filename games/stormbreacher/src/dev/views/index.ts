@@ -7,6 +7,7 @@ import { showTouch } from './touch.ts';
 import { showFcs } from './fcs.ts';
 import { showOutdoor } from './outdoor.ts';
 import { showScript } from './script.ts';
+import { showHud } from './hud.ts';
 import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
 import { showFx } from './fx.ts';
@@ -66,6 +67,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the mission script, driven by buttons',
     run: showScript,
+  },
+  {
+    hash: '#view-hud',
+    match: 'is',
+    name: 'HUD layout plans A/B/C on a still beach, with sample values',
+    run: showHud,
   },
   {
     hash: '#view-map',
