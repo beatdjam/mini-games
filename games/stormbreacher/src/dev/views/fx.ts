@@ -9,6 +9,7 @@ import { CAMERA_TUNE, FEEL_TUNE, FX_STAGES, FX_TUNE, MECH_TUNE, MOVE_TUNE, type 
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
 import { MECH_BASE_HEIGHT, scaleForMech } from '../../logic/mechScale.ts';
+import { mapBlockers } from '../../logic/mapShapes.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { buildBattle, type Battle } from '../../view/battle/index.ts';
 import type { CrowdCounts } from '../../logic/crowd.ts';
@@ -233,7 +234,7 @@ export function showFx(_hash: string) {
   };
   apply();
 
-  const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false });
+  const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false, rects: mapBlockers(map) });
   const mech = range.mech;
   const startCamera = scaleForMech(mechSize, MOVE_TUNE, CAMERA_TUNE, { camera: mechCam, move: mechMove }).cameraTune;
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
@@ -427,7 +428,14 @@ export function showFx(_hash: string) {
       range.model.scale.setScalar(mechSize / MECH_BASE_HEIGHT);
       pitch = clamp(pitch + read.pitchDelta, cameraAtSize.pitchMin, cameraAtSize.pitchMax);
       range.feel.shake += battle.step(dt, mech);
-      const step = range.step(read.input, dt, moveAtSize, feelTune);
+      const step = range.step(
+        read.input,
+        dt,
+        moveAtSize,
+        feelTune,
+        undefined,
+        (MECH_TUNE.radius * mechSize) / MECH_BASE_HEIGHT,
+      );
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, cameraAtSize, []);
       camPos = camPos ? followPose(camPos, pose.pos, dt, cameraAtSize.lag) : pose.pos.clone();
       const pos = camPos.clone().add(step.offset);

@@ -2,6 +2,11 @@
 // know them; the games go into the engine only through its public entries (engine/src/<folder>/index.ts), so the
 // engine's files can be split without touching the games; core is the engine's lowest layer; and a cycle runs its
 // modules in an order nobody can see.
+
+// STORMBREACHER's pieces that may move into the engine later (D-23). They take every value as an argument and read
+// nothing of the game, so they can be lifted out as they are. Add a file here when it is ready.
+const SB_PORTABLE = '^games/stormbreacher/src/logic/(collide)\\.ts$';
+
 module.exports = {
   forbidden: [
     {
@@ -54,6 +59,14 @@ module.exports = {
       comment: 'stormbreacher: the view reads state and draws it; the app and the dev hooks drive it',
       from: { path: '^games/stormbreacher/src/view/' },
       to: { path: '^games/stormbreacher/src/(app|dev)/' },
+    },
+    {
+      name: 'sb-portable-no-game',
+      severity: 'error',
+      comment:
+        'stormbreacher: the pieces that may move into the engine read nothing of the game; values come in as arguments',
+      from: { path: SB_PORTABLE },
+      to: { path: '^games/', pathNot: SB_PORTABLE },
     },
     {
       name: 'no-circular',
