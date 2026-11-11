@@ -12,9 +12,15 @@ export interface OutdoorBuildOpts {
   chunkMin: number; // only kinds with at least this many triangles in all are split into chunks
 }
 
+export interface PropSlot {
+  mesh: THREE.InstancedMesh; // the mesh the copy stands in after the chunks were made
+  index: number; // the copy's place among that mesh's matrices
+}
+
 export interface OutdoorBuild {
   group: THREE.Group; // everything built, at the origin
   chunks: Chunk[]; // the chunks chunkInstances split out; empty when chunk is 0
+  slots: Map<Prop, PropSlot>; // where each breakable prop is drawn
   build: number; // how long the build took (ms)
 }
 
@@ -144,6 +150,11 @@ const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
 const UP = new THREE.Vector3(0, 1, 0);
 
 const BREAK_TINT = 0xd2402e; // the red a breakable prop leans towards
+export const BROKEN_SCALE_Y = 0.2; // how tall a broken prop's copy is drawn (its height scale; 0 would hide it)
+export const BROKEN_COLOR = 0x2a2622; // the dark colour a broken prop's copy keeps
+
+// How close a copy's place must be to a prop's own x and z for it to be that prop's copy (m).
+const SLOT_TOLERANCE = 0.01;
 
 // One instanced mesh per kind, with each copy's place, turn and size in its matrix. A kind with a breakable prop gets an
 // instance colour for every copy (white material, the kind's colour in the buffer), so the breakable ones can lean red
@@ -197,7 +208,50 @@ export function buildOutdoor(items: Prop[], opts: OutdoorBuildOpts): OutdoorBuil
   }
 
   const chunks = opts.chunk > 0 ? chunkInstances(group, opts.chunk, opts.chunkMin) : [];
-  return { group, chunks, build: performance.now() - start };
+  // The chunks remake the matrices, so a breakable prop is found by its kind and its place, not by an index.
+  const slots = new Map<Prop, PropSlot>();
+  for (const item of items) {
+    if (item.breakable !== true) continue;
+    const slot = findSlot(group, item);
+    if (slot) slots.set(item, slot);
+  }
+  return { group, chunks, slots, build: performance.now() - start };
+}
+
+// The copy of `prop` under `group` (inside the chunk roots too), or null when none is that close to its place.
+function findSlot(group: THREE.Group, prop: Prop): PropSlot | null {
+  const matrix = new THREE.Matrix4(),
+    at = new THREE.Vector3();
+  let found: PropSlot | null = null;
+  group.traverse(child => {
+    if (found || !(child instanceof THREE.InstancedMesh) || child.name !== prop.kind) return;
+    for (let i = 0; i < child.count; i++) {
+      child.getMatrixAt(i, matrix);
+      at.setFromMatrixPosition(matrix);
+      if (Math.abs(at.x - prop.x) > SLOT_TOLERANCE || Math.abs(at.z - prop.z) > SLOT_TOLERANCE) continue;
+      found = { mesh: child, index: i };
+      return;
+    }
+  });
+  return found;
+}
+
+// Lowers and darkens one copy of a prop where it stands: the same mesh, so the number of draws does not grow.
+export function breakPropSlot(slot: PropSlot): void {
+  const matrix = new THREE.Matrix4(),
+    at = new THREE.Vector3(),
+    turn = new THREE.Quaternion(),
+    size = new THREE.Vector3();
+  slot.mesh.getMatrixAt(slot.index, matrix);
+  matrix.decompose(at, turn, size);
+  size.y *= BROKEN_SCALE_Y;
+  matrix.compose(at, turn, size);
+  slot.mesh.setMatrixAt(slot.index, matrix);
+  slot.mesh.instanceMatrix.needsUpdate = true;
+  if (slot.mesh.instanceColor) {
+    slot.mesh.setColorAt(slot.index, new THREE.Color(BROKEN_COLOR));
+    slot.mesh.instanceColor.needsUpdate = true;
+  }
 }
 
 // The mission's targets, each a shape with its own colour so the four kinds are told apart from above: a low wide

@@ -6,9 +6,9 @@ import { SKY_COLOR } from '../data/colors.ts';
 import { TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
-import { mapBlockers } from '../logic/mapShapes.ts';
+import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxes } from './camera.ts';
-import { buildOutdoor, buildTargets, type OutdoorBuild } from './outdoor.ts';
+import { breakPropSlot, buildOutdoor, buildTargets, type OutdoorBuild, type PropSlot } from './outdoor.ts';
 
 const FOG_NEAR = 100; // m
 const FOG_FAR = 240; // m; the map is 230 m deep
@@ -25,6 +25,9 @@ export interface World {
   targets: Map<string, THREE.Mesh>; // the mission's targets by id
   targetGroup: THREE.Group; // every target, to take out when the world is built again
   cameraBoxes: THREE.Box3[]; // the props and targets as walls the camera keeps out of
+  slots: Map<number, PropSlot>; // a breakable prop's place in map.props -> where it is drawn
+  propCameraBoxes: Map<number, THREE.Box3>; // a breakable prop's place in map.props -> its box in cameraBoxes
+  broken: Set<number>; // the props already drawn broken
 }
 
 // The tiles that cover the whole bounds. The last row and column may hang a little past the edge, so no gap is left.
@@ -61,11 +64,26 @@ export function buildWorld(map: MapDef): World {
     if (child instanceof THREE.Mesh) targets.set(child.name, child);
   }
 
-  return { built, targets, targetGroup, cameraBoxes: cameraBoxes(mapBlockers(map)) };
+  // cameraBoxes runs over mapBlockers' rects, which put the blocking props first in map.props' order, so box i belongs
+  // to blockingPropIndexes(map)[i]. Only the breakable props need their box kept.
+  const boxes = cameraBoxes(mapBlockers(map));
+  const slots = new Map<number, PropSlot>();
+  const propCameraBoxes = new Map<number, THREE.Box3>();
+  map.props.forEach((prop, index) => {
+    const slot = built.slots.get(prop);
+    if (slot) slots.set(index, slot);
+  });
+  blockingPropIndexes(map).forEach((propIndex, i) => {
+    if (map.props[propIndex].breakable !== true) return;
+    propCameraBoxes.set(propIndex, boxes[i]);
+  });
+
+  return { built, targets, targetGroup, cameraBoxes: boxes, slots, propCameraBoxes, broken: new Set() };
 }
 
-// Lowers and darkens every target whose health is gone. Called every frame, so one already down is left as it is: the
-// scale says a wreck has been made.
+// Lowers and darkens every target whose health is gone, and every breakable prop the game has broken: its copy becomes
+// a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands that same array to the camera every frame).
+// Called every frame, so one already down or broken is left as it is.
 export function syncWorld(world: World, game: GameModel): void {
   for (const target of game.targets) {
     if (target.hp > 0) continue;
@@ -73,5 +91,16 @@ export function syncWorld(world: World, game: GameModel): void {
     if (!mesh || mesh.scale.y === WRECK_SCALE_Y) continue;
     if (mesh.material instanceof THREE.MeshLambertMaterial) mesh.material.color.setHex(WRECK_COLOR);
     mesh.scale.y = WRECK_SCALE_Y;
+  }
+  for (const breakable of game.breakables) {
+    if (breakable.hp > 0 || world.broken.has(breakable.prop)) continue;
+    const slot = world.slots.get(breakable.prop);
+    if (slot) breakPropSlot(slot);
+    const box = world.propCameraBoxes.get(breakable.prop);
+    if (box) {
+      const at = world.cameraBoxes.indexOf(box);
+      if (at >= 0) world.cameraBoxes.splice(at, 1);
+    }
+    world.broken.add(breakable.prop);
   }
 }
