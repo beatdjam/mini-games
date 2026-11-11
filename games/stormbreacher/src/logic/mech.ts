@@ -1,7 +1,8 @@
 // The mech's movement on flat ground: walking, jumping, boosting and landing, as pure functions over a state. No
 // three and no DOM, so a node test can run it. Inputs arrive already turned into the mech's own left/right and
-// forward; touch (SB-030) gives the same shape as the keyboard.
+// forward; touch (SB-030) gives the same shape as the keyboard. Given the map's rects, the mech cannot enter them.
 import type { MoveTune } from '../data/tune.ts';
+import { pushOutCircle, type GroundRect } from './collide.ts';
 
 export interface MechInput {
   moveX: number; // the mech's right/left input (-1 to 1, right is +)
@@ -34,6 +35,12 @@ export type MechEventKind = 'jump' | 'land' | 'boostStart' | 'boostEnd' | 'hover
 export interface MechEvent {
   kind: MechEventKind;
   speed: number; // the landing's falling speed (m/s); 0 for the other events
+}
+
+// The ground the mech may not enter: the rects (see collide.ts) and the mech's hit radius (m).
+interface MechWorld {
+  rects: readonly GroundRect[];
+  radius: number;
 }
 
 export function newMech(): MechState {
@@ -89,6 +96,7 @@ function stepOnce(
   fireRate: number,
   first: boolean,
   events: MechEvent[],
+  world?: MechWorld,
 ) {
   m.fireT = Math.max(0, m.fireT - h);
   if (m.landT > 0) m.landT = Math.max(0, m.landT - h);
@@ -182,11 +190,32 @@ function stepOnce(
 
   m.x += m.vx * h;
   m.z += m.vz * h;
+
+  // A wall stops the way in and leaves the way along it, so a glancing hit slides.
+  if (world) {
+    const pushed = pushOutCircle(m.x, m.z, world.radius, world.rects);
+    m.x = pushed.x;
+    m.z = pushed.z;
+    for (const hit of pushed.hits) {
+      const dot = m.vx * hit.nx + m.vz * hit.nz;
+      if (dot < 0) {
+        m.vx -= dot * hit.nx;
+        m.vz -= dot * hit.nz;
+      }
+    }
+  }
 }
 
 // Advances the mech by `dt`, split into steps of tune.maxStep at most so a fast boost cannot skip over a step. The
 // events of the whole frame come back in the order they happened (a jump only on the frame's first step).
-export function stepMech(m: MechState, input: MechInput, dt: number, tune: MoveTune, fireRate: number): MechEvent[] {
+export function stepMech(
+  m: MechState,
+  input: MechInput,
+  dt: number,
+  tune: MoveTune,
+  fireRate: number,
+  world?: MechWorld,
+): MechEvent[] {
   const events: MechEvent[] = [];
   if (!(dt > 0)) return events;
   m.yaw += input.turn;
@@ -195,7 +224,7 @@ export function stepMech(m: MechState, input: MechInput, dt: number, tune: MoveT
   while (remaining > 1e-9) {
     const h = Math.min(tune.maxStep, remaining);
     remaining -= h;
-    stepOnce(m, input, h, tune, fireRate, first, events);
+    stepOnce(m, input, h, tune, fireRate, first, events, world);
     first = false;
   }
   return events;

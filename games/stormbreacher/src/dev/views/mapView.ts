@@ -1,6 +1,7 @@
 // The map walk (#view-map, SB-055): one map (by hand, from a seed, or the editor's saved one) drawn with the beach's
-// builder, the mission's places and the waves' spawn points, and a 4 m mech walked with #view-play's input. The screen
-// shows what the map holds and what validateMapForMission says about it; window.sbMapReport() returns the same numbers.
+// builder, the mission's places and the waves' spawn points, and a 4 m mech walked with #view-play's input. The mech
+// cannot walk into the props or the targets. The screen shows what the map holds and what validateMapForMission says
+// about it; window.sbMapReport() returns the same numbers.
 import * as THREE from 'three';
 import { addSystem, clamp, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
@@ -12,6 +13,7 @@ import { PROP_KINDS, type MapBounds, type MapDef, type PropKind } from '../../da
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { validateMapForMission, type MapViolation } from '../../logic/mapCheck.ts';
 import { generateMap } from '../../logic/mapgen.ts';
+import { mapBlockers } from '../../logic/mapShapes.ts';
 import { stream } from '../../logic/rng.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
@@ -149,7 +151,7 @@ export function showMap(_hash: string) {
   const { built } = buildMapScene(map);
 
   const { moveTune, feelTune } = moveFeelFromParams(params);
-  const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false });
+  const range = buildFlatRange(CAMERA_TUNE.fov, { targets: false, rects: mapBlockers(map) });
   const mech = range.mech;
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
   mech.z = map.bounds.maxZ - MECH_MARGIN;
