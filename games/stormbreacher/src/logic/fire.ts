@@ -1,5 +1,5 @@
 // The shot's path: a ray against the target boxes, as a pure function (slab method). No three, so a node test can run
-// it.
+// it. A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
 export interface Aabb {
   minX: number;
   minY: number;

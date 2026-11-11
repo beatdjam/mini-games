@@ -1,7 +1,8 @@
 // The mech's movement on flat ground: walking, jumping, boosting and landing, as pure functions over a state. No
 // three and no DOM, so a node test can run it. Inputs arrive already turned into the mech's own left/right and
 // forward; touch (SB-030) gives the same shape as the keyboard. Given the map's rects, the mech cannot enter them.
-import type { MoveTune } from '../data/tune.ts';
+// A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
+import type { MoveTune } from '../data/tuneTypes.ts';
 import { pushOutCircle, type GroundRect } from './collide.ts';
 
 export interface MechInput {

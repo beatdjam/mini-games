@@ -1,8 +1,9 @@
 // The aim assist (FCS) of the three kinds (SB-060): the aim line of the camera, the mech's chest and the targets go
 // in; the direction a shot flies, the lock and the targets in the aim circle come out. No three and no DOM, so a node
 // test can run it. Angles in the tables are degrees; everything here turns them into radians as it needs.
+// A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
 import type { Rng } from '@engine/core/index.ts';
-import type { FcsKind, FcsTune } from '../data/tune.ts';
+import type { FcsKind, FcsTune } from '../data/tuneTypes.ts';
 import { fireRay, type Aabb } from './fire.ts';
 
 export interface Ray3 {
