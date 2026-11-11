@@ -1,9 +1,9 @@
-// The size of the mech #view-fx walks (SB-045): the props and the allies stay the size they are, so the mech can be made
-// smaller to compare. This is only the view's numbers; MOVE_TUNE and CAMERA_TUNE themselves are not changed, and no
-// other view sees these. Pure functions, so a node test can check the proportions.
-import type { CameraTune, MoveTune } from '../data/tune.ts';
+// The size a mech walks at (SB-045, SB-100): MOVE_TUNE and CAMERA_TUNE are written for the 4 m mech (MECH_TUNE), and
+// this scales them for another height. #view-fx's ?mech= and #view-camera, which is still 8 m, use it. Pure functions,
+// so a node test can check the proportions.
+import { MECH_TUNE, type CameraTune, type MoveTune } from '../data/tune.ts';
 
-export const MECH_BASE_HEIGHT = 8; // the height the tune tables are written for (m)
+export const MECH_BASE_HEIGHT = MECH_TUNE.height; // the height the tune tables are written for (m)
 
 export interface MechScaleOptions {
   camera: boolean; // scale the camera's distances with the mech (0 does not)

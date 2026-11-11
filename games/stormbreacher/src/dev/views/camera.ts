@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { addSystem, clamp, turnToward, yawToward } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
-import { CAMERA_TUNE, type CameraTune } from '../../data/tune.ts';
+import { CAMERA_TUNE, MOVE_TUNE, type CameraTune } from '../../data/tune.ts';
+import { scaleForMech } from '../../logic/mechScale.ts';
 import { applyPose, cameraPose, followPose, screenFraction, type CameraPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import { STATIONS, buildCourse, type StationName } from '../course.ts';
@@ -171,11 +172,11 @@ function numberParam(params: URLSearchParams, name: string, fallback: number): n
   return Number.isFinite(n) ? n : fallback;
 }
 
-// CAMERA_TUNE with every numeric URL value of the same name on top; a value that is not a number is ignored.
-export function tuneFrom(params: URLSearchParams): CameraTune {
-  const tune: CameraTune = { ...CAMERA_TUNE };
-  // Object.keys loses the key type; every field of CAMERA_TUNE is a number.
-  for (const key of Object.keys(CAMERA_TUNE) as (keyof CameraTune)[]) {
+// `base` with every numeric URL value of the same name on top; a value that is not a number is ignored.
+export function tuneFrom(params: URLSearchParams, base: CameraTune = CAMERA_TUNE): CameraTune {
+  const tune: CameraTune = { ...base };
+  // Object.keys loses the key type; every field of a camera table is a number.
+  for (const key of Object.keys(base) as (keyof CameraTune)[]) {
     const value = params.get(key);
     if (value === null || value.trim() === '') continue;
     const n = Number(value);
@@ -186,7 +187,9 @@ export function tuneFrom(params: URLSearchParams): CameraTune {
 
 export function showCamera(_hash: string) {
   const params = new URLSearchParams(location.search);
-  const tune = tuneFrom(params);
+  // This view keeps the 8 m mech and the course built for it, so start from the 8 m camera.
+  const base = scaleForMech(MECH_HEIGHT, MOVE_TUNE, CAMERA_TUNE, { camera: true, move: false }).cameraTune;
+  const tune = tuneFrom(params, base);
   const ceil = numberParam(params, 'ceil', DEFAULT_CEIL);
   const speed = numberParam(params, 'speed', SPEED_DEFAULT);
   const drive = params.has('drive');

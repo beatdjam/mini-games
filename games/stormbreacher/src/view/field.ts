@@ -3,7 +3,7 @@
 // own here.
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
-import { FIELD_TUNE } from '../data/tune.ts';
+import { FIELD_TUNE, MECH_TUNE } from '../data/tune.ts';
 
 const SKY = 0x9db8c6;
 const SAND = 0xc2a878;
@@ -35,19 +35,19 @@ export function buildField() {
   sun.position.set(30, 50, 20);
   scene.add(sun);
 
-  // the size box: a mech's height at the origin, 4 m wide and deep
+  // the size box: a mech's height at the origin, 2 m wide and deep
   const size = new THREE.Mesh(
-    new THREE.BoxGeometry(4, FIELD_TUNE.mechHeight, 4),
+    new THREE.BoxGeometry(MECH_TUNE.radius * 2, MECH_TUNE.height, MECH_TUNE.radius * 2),
     new THREE.MeshLambertMaterial({ color: BOX }),
   );
-  size.position.y = FIELD_TUNE.mechHeight / 2;
+  size.position.y = MECH_TUNE.height / 2;
   size.name = SIZE_BOX_NAME;
   scene.add(size);
 }
 
 // Puts the camera behind and above the size box, looking at its middle (the start view and #view-field).
 export function placeCamera() {
-  const mid = FIELD_TUNE.mechHeight / 2;
+  const mid = MECH_TUNE.height / 2;
   camera.position.set(0, mid + FIELD_TUNE.camHeight, FIELD_TUNE.camDist);
   camera.lookAt(0, mid, 0);
 }

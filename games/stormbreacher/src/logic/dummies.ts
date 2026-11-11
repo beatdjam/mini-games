@@ -19,9 +19,9 @@ export interface Dummy {
   homeZ: number;
 }
 
-export const DUMMY_WIDTH = 4; // the box's width across (m)
-export const DUMMY_DEPTH = 4; // the box's depth (m)
-export const DUMMY_HEIGHT = 8; // the box's height (m)
+export const DUMMY_WIDTH = 2; // the box's width across (m)
+export const DUMMY_DEPTH = 2; // the box's depth (m)
+export const DUMMY_HEIGHT = 4; // the box's height (m)
 
 const SPAWN_FRONT = 45; // how far in front the dummies start (m)
 const SPAWN_SPREAD = 40; // how much farther back one may start (m)

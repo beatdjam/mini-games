@@ -4,25 +4,31 @@ export const FIELD_TUNE = {
   fogNear: 60, // where the fog starts (m)
   fogFar: 160, // where the fog hides everything (m)
   viewFar: 200, // the camera's far plane (m), past the fog's end
-  mechHeight: 8, // the size box's height (m); a mech is about 7-10 m tall
-  camDist: 17, // the start camera's horizontal distance from the box (m)
-  camHeight: 6, // the start camera's height above the box's middle (m)
+  camDist: 8.5, // the start camera's horizontal distance from the box (m)
+  camHeight: 3, // the start camera's height above the box's middle (m)
   touchMaxFps: 60, // the frame cap on a phone (frames a second)
+};
+
+// The player's mech itself (D-24: 4 m tall). The tables below are written for this height.
+export const MECH_TUNE = {
+  height: 4, // the mech's height (m)
+  radius: 1, // the hit radius on the ground (m)
+  chestHeight: 2.5, // the height a shot starts from, above the feet (m)
 };
 
 // The third-person camera's starting values (SB-020). Distances are measured on the ground plane unless noted.
 export const CAMERA_TUNE = {
-  dist: 17.2, // the camera's horizontal distance from the look point (m)
-  height: 3.0, // how far the camera sits above the look point (m)
-  shoulder: 4.3, // how far the look point moves to the mech's right (m)
-  lookHeight: 5.8, // the look point's height above the mech's feet (m)
+  dist: 8.6, // the camera's horizontal distance from the look point (m)
+  height: 1.5, // how far the camera sits above the look point (m)
+  shoulder: 2.15, // how far the look point moves to the mech's right (m)
+  lookHeight: 2.9, // the look point's height above the mech's feet (m)
   minDist: 0.5, // the shortest horizontal distance a wall may pull the camera to (m): near 0, so the camera stays on this side of any wall farther than this
   margin: 0.6, // the gap kept in front of a wall (m)
   pitchMin: -0.5, // the lowest pitch the camera may look, looking down (rad)
   pitchMax: 0.8, // the highest pitch the camera may look, looking up (rad)
   lag: 0.12, // the time constant for the camera to reach its target position (s); 0 means no lag
   fov: 72, // the vertical field of view (deg)
-  aimDist: 10.2, // the camera's horizontal distance while aiming (m)
+  aimDist: 5.1, // the camera's horizontal distance while aiming (m)
   aimFov: 52, // the vertical field of view while aiming (deg)
   walk: 7.4, // the model's walking speed in #view-camera (m/s)
 };
@@ -31,14 +37,14 @@ export type CameraTune = typeof CAMERA_TUNE;
 
 // The mech's movement on flat ground (SB-025). Speeds are m/s, accelerations m/s^2.
 export const MOVE_TUNE = {
-  walk: 15, // the walking speed (m/s)
-  accel: 80, // how fast walking speeds up (m/s^2)
+  walk: 7.5, // the walking speed (m/s)
+  accel: 40, // how fast walking speeds up (m/s^2)
   decel: 90, // how fast the mech slows down with no input (m/s^2)
-  jump: 10.2, // the upward speed a jump starts with (m/s)
+  jump: 7.2, // the upward speed a jump starts with (m/s)
   gravity: 25, // the downward pull in the air (m/s^2)
   airControl: 0.4, // the share of the walking acceleration that works in the air (0-1)
-  boost: 30, // the boost's speed (m/s)
-  boostAccel: 160, // how fast the boost speeds up (m/s^2)
+  boost: 15, // the boost's speed (m/s)
+  boostAccel: 80, // how fast the boost speeds up (m/s^2)
   boostDrain: 0.5, // the gauge a second of boosting uses (gauge/s)
   boostRegen: 0.35, // the gauge a second on the ground gives back (gauge/s)
   hoverFall: 1.5, // the fastest a hover lets the mech fall (m/s)
