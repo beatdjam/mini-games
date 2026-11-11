@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { TARGET_HP, TARGET_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
+import type { MapDef } from '../../src/data/types.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
 import { newGame, step, type GameEvent, type GameModel } from '../../src/logic/game.ts';
 import type { MechInput } from '../../src/logic/mech.ts';
@@ -58,7 +59,8 @@ test('holding fire in front of a pillbox breaks it', () => {
 });
 
 test('a shot that misses reaches the full range', () => {
-  const game = newGame(M1B_HAND);
+  // no props: a shot now stops at a prop (the hedgehogs of line 3 stand on the sea side of this spot)
+  const game = newGame({ ...M1B_HAND, props: [] });
   atPillbox1(game);
   game.mech.yaw = Math.PI; // away from the land, toward the sea
   step(game, { ...idle, fire: true }, 1 / 60);
@@ -125,4 +127,22 @@ test('the mech does not walk into a target', () => {
     step(game, { ...idle, moveZ: 1 }, 1 / 60);
     expect(rectDistance(rect, game.mech.x, game.mech.z)).toBeGreaterThanOrEqual(MECH_TUNE.radius - 1e-9);
   }
+});
+
+test('a prop between the mech and a target stops the shot', () => {
+  const map: MapDef = {
+    ...M1B_HAND,
+    props: [{ kind: 'block', x: -33, z: -5, yaw: 0, scale: 1 }],
+    targets: [M1B_HAND.targets[0]],
+  };
+  const game = newGame(map);
+  game.mech.x = -33;
+  game.mech.z = 5;
+  game.mech.yaw = 0;
+  step(game, { ...idle, fire: true }, 1 / 60);
+  const shot = game.events.find(event => event.kind === 'shot');
+  if (shot?.kind !== 'shot') throw new Error('the frame fired a shot');
+  expect(shot.target).toBeNull();
+  expect(shot.reach).toBeCloseTo(8, 6);
+  expect(game.targets[0].hp).toBe(TARGET_HP.pillbox);
 });

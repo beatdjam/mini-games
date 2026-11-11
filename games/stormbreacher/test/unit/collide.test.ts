@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { MOVE_TUNE } from '../../src/data/tune.ts';
-import { pushOutCircle, rectDistance, type GroundRect } from '../../src/logic/collide.ts';
+import { groundAt, pushOutCircle, rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from '../../src/logic/mech.ts';
 
 const idle: MechInput = {
@@ -72,6 +72,25 @@ test('a rect that is too far away adds no hit', () => {
   expect(pushed.x).toBe(10);
   expect(pushed.z).toBe(10);
   expect(pushed.hits).toEqual([]);
+});
+
+test('groundAt finds the highest top the circle stands over', () => {
+  const low: GroundRect = { x: 0, z: 0, halfW: 2, halfD: 2, yaw: 0, top: 0.5 };
+  const high: GroundRect = { x: 1, z: 0, halfW: 2, halfD: 2, yaw: 0, top: 1 };
+  expect(groundAt(0.5, 0, 1, [low, high], 2)).toBe(1);
+  expect(groundAt(0.5, 0, 1, [low, high], 0.8)).toBe(0.5);
+  expect(groundAt(10, 10, 1, [low, high], 2)).toBe(0);
+});
+
+test('pushOutCircle leaves a rect whose top is under the given height', () => {
+  const low: GroundRect = { x: 0, z: 0, halfW: 2, halfD: 2, yaw: 0, top: 0.5 };
+  const kept = pushOutCircle(0.5, 0, 1, [low], 0.75);
+  expect(kept.x).toBeCloseTo(0.5, 6);
+  expect(kept.z).toBeCloseTo(0, 6);
+  expect(kept.hits).toEqual([]);
+  const pushed = pushOutCircle(0.5, 0, 1, [low]);
+  expect(pushed.x).toBeCloseTo(3, 6);
+  expect(pushed.hits.length).toBe(1);
 });
 
 test('the mech stops at a wall hit head-on and does not enter it', () => {

@@ -40,6 +40,7 @@ export const CAMERA_TUNE: CameraTune = {
 // The mech's movement on flat ground (SB-025). Speeds are m/s, accelerations m/s^2.
 export const MOVE_TUNE: MoveTune = {
   walk: 7.5, // the walking speed (m/s)
+  stepHeight: 0.75, // the highest ledge the mech walks onto without a jump (m); provisional, SB-120's low obstacles settle it
   accel: 40, // how fast walking speeds up (m/s^2)
   decel: 90, // how fast the mech slows down with no input (m/s^2)
   jump: 7.2, // the upward speed a jump starts with (m/s)
