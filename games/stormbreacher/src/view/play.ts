@@ -74,6 +74,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       else if (event.event.kind === 'boostStart') spawnDust(game.mech.x, game.mech.z, BOOST_DUST, FEEL_TUNE);
     } else if (event.kind === 'shot') {
       addTracer(view, event.x, event.y, event.z, event.dx, event.dz, event.reach);
+      mechEvents.push({ kind: 'fire', speed: 0 });
     } else if (event.kind === 'destroyed') {
       kill = true;
     }

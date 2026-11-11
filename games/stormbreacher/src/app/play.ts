@@ -62,7 +62,7 @@ export function startSortie(): void {
 function update(dt: number): void {
   if (!game || !view) return;
   const read = readInput(dt);
-  step(game, read.input, dt);
+  step(game, { ...read.input, sub: read.sub }, dt);
   drawPlay(view, game, dt, read.pitchDelta);
   if (game.cleared) showResult();
 }
