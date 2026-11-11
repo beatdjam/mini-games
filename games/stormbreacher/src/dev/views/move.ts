@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { addSystem, clamp } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { FEEL_TUNE, MECH_TUNE, MOVE_TUNE, type FeelTune, type MoveTune } from '../../data/tune.ts';
+import type { GroundRect } from '../../logic/collide.ts';
 import { fireRay, type Aabb } from '../../logic/fire.ts';
 import { newMech, stepMech, type MechInput, type MechState } from '../../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
@@ -97,18 +98,21 @@ export interface FlatRange {
   // A shot's line from (ox, oy, oz) toward (dx, dy, dz), `length` m long.
   tracer(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, length: number): void;
   // Advances the mech and the effects and gives back the camera's feel for this frame. `onFire` may replace the
-  // default shot (forward from the chest) with the caller's own; it says what that shot did.
+  // default shot (forward from the chest) with the caller's own; it says what that shot did. `radius` is the mech's
+  // hit radius (m; MECH_TUNE.radius when left out).
   step(
     input: MechInput,
     dt: number,
     moveTune: MoveTune,
     feelTune: FeelTune,
     onFire?: (mech: MechState) => ShotResult,
+    radius?: number,
   ): { fov: number; offset: THREE.Vector3 };
 }
 
 export interface FlatRangeOptions {
   targets?: boolean; // false leaves out the five fixed boxes, when the caller brings its own
+  rects?: readonly GroundRect[]; // the map's blocking rects; left out, nothing blocks
 }
 
 // Builds what #view-move and #view-touch share: the mech, the targets, the shots and their effects (the flat ground
@@ -170,9 +174,15 @@ export function buildFlatRange(baseFov: number, options: FlatRangeOptions = {}):
     moveTune: MoveTune,
     feelTune: FeelTune,
     onFire?: (mech: MechState) => ShotResult,
+    radius?: number,
   ) {
     const frame = feelStep(feel, dt, mech.boosting, baseFov, feelTune);
-    const events = frame.stopped ? [] : stepMech(mech, input, dt, moveTune, feelTune.fireRate);
+    const events = frame.stopped
+      ? []
+      : stepMech(mech, input, dt, moveTune, feelTune.fireRate, {
+          rects: options.rects ?? [],
+          radius: radius ?? MECH_TUNE.radius,
+        });
     let kill = false;
     for (const event of events) {
       if (event.kind === 'fire') kill = (onFire ? onFire(mech) : shoot()) === 'kill' || kill;
