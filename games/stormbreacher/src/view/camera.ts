@@ -1,8 +1,9 @@
 // The third-person camera's position, as pure functions: the mech's target and the wall boxes go in, a camera pose
 // comes out. Nothing here reads the scene or the camera; only applyPose writes to a camera.
+// A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
 import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
-import type { CameraTune } from '../data/tune.ts';
+import type { CameraTune } from '../data/tuneTypes.ts';
 
 export interface CameraTarget {
   x: number; // the mech's feet on x (m)

@@ -5,7 +5,7 @@
 
 // STORMBREACHER's pieces that may move into the engine later (D-23). They take every value as an argument and read
 // nothing of the game, so they can be lifted out as they are. Add a file here when it is ready.
-const SB_PORTABLE = '^games/stormbreacher/src/logic/(collide)\\.ts$';
+const SB_PORTABLE = '^games/stormbreacher/src/(logic/(collide|mech|fcs|fire)|view/camera|data/tuneTypes)\\.ts$';
 
 module.exports = {
   forbidden: [

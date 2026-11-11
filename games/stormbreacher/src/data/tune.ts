@@ -1,3 +1,7 @@
+import type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
+
+export type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
+
 // Named values for the empty field: the ground, the fog, the camera and the box that shows a mech's size.
 export const FIELD_TUNE = {
   groundSize: 400, // the ground plane's side (m)
@@ -17,7 +21,7 @@ export const MECH_TUNE = {
 };
 
 // The third-person camera's starting values (SB-020). Distances are measured on the ground plane unless noted.
-export const CAMERA_TUNE = {
+export const CAMERA_TUNE: CameraTune = {
   dist: 8.6, // the camera's horizontal distance from the look point (m)
   height: 1.5, // how far the camera sits above the look point (m)
   shoulder: 2.15, // how far the look point moves to the mech's right (m)
@@ -33,10 +37,8 @@ export const CAMERA_TUNE = {
   walk: 7.4, // the model's walking speed in #view-camera (m/s)
 };
 
-export type CameraTune = typeof CAMERA_TUNE;
-
 // The mech's movement on flat ground (SB-025). Speeds are m/s, accelerations m/s^2.
-export const MOVE_TUNE = {
+export const MOVE_TUNE: MoveTune = {
   walk: 7.5, // the walking speed (m/s)
   accel: 40, // how fast walking speeds up (m/s^2)
   decel: 90, // how fast the mech slows down with no input (m/s^2)
@@ -54,8 +56,6 @@ export const MOVE_TUNE = {
   turn: 2.6, // how fast the turn keys change the yaw (rad/s)
   maxStep: 1 / 120, // the longest step a frame is split into (s)
 };
-
-export type MoveTune = typeof MOVE_TUNE;
 
 // The feel of moving and firing (SB-025): camera and screen effects. Angles are in degrees, but only the FOV uses them.
 export const FEEL_TUNE = {
@@ -77,21 +77,6 @@ export const PLAY_TUNE = {
   shotRange: 200, // how far a shot reaches (m)
   startMargin: 4, // how far the mech starts inside the map's front edge (m)
 };
-
-// The three ways the aim assist (FCS) may work (SB-060). `manual` does nothing, `soft` pulls the shot toward the
-// nearest target in the aim circle, and `hard` locks a target after a short wait and follows it.
-export type FcsKind = 'manual' | 'soft' | 'hard';
-
-// One FCS's values. Angles are degrees, `range` is m, `pull` and `trackRate` are degrees a second, `lockTime` is s.
-export interface FcsTune {
-  cone: number; // the aim circle's half-angle (deg); soft and hard use it, manual does not
-  range: number; // the farthest a target may be from the mech's chest (m); every kind uses it
-  spread: number; // how far a shot drifts inside its cone (deg); every kind uses it
-  pull: number; // soft: how fast the aim turns toward the target (deg/s); the other kinds keep it 0
-  lockTime: number; // hard: how long the target stays in the circle before it is caught (s); the other kinds keep it 0
-  trackRate: number; // hard: how fast the muzzle follows a caught target (deg/s); the other kinds keep it 0
-  breakCone: number; // hard: how far a caught target may drift from the aim before the lock breaks (deg); the other kinds keep it 0
-}
 
 // The starting values of each kind. The numbers decide nothing here: SB-060 compares them by hand.
 export const FCS_TUNE: Record<FcsKind, FcsTune> = {
