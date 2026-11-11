@@ -3,11 +3,11 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { TARGET_HP, TARGET_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
+import { M1_LOADOUT, WEAPONS } from '../../src/data/weapons.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
-import { newGame, step, type GameEvent, type GameModel } from '../../src/logic/game.ts';
-import type { MechInput } from '../../src/logic/mech.ts';
+import { newGame, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
 
-const idle: MechInput = {
+const idle: GameInput = {
   moveX: 0,
   moveZ: 0,
   turn: 0,
@@ -15,6 +15,7 @@ const idle: MechInput = {
   jumpHeld: false,
   boost: false,
   fire: false,
+  sub: false,
 };
 
 // Puts the mech where the tests fire from: in front of pillbox-1 (its +z side), facing the land.
@@ -54,7 +55,7 @@ test('holding fire in front of a pillbox breaks it', () => {
     }
   }
   expect(destroyedFrame).toBeGreaterThanOrEqual(0);
-  expect(hits).toBe(TARGET_HP.pillbox / PLAY_TUNE.shotDamage);
+  expect(hits).toBe(TARGET_HP.pillbox / WEAPONS[M1_LOADOUT.main].damage);
   expect(game.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
 });
 
@@ -68,7 +69,7 @@ test('a shot that misses reaches the full range', () => {
   expect(shot).toBeDefined();
   if (shot?.kind !== 'shot') throw new Error('the frame fired a shot');
   expect(shot.target).toBeNull();
-  expect(shot.reach).toBe(PLAY_TUNE.shotRange);
+  expect(shot.reach).toBe(WEAPONS[M1_LOADOUT.main].range);
 });
 
 test('breaking every target clears the game and then the game stops', () => {
@@ -93,7 +94,7 @@ test('breaking every target clears the game and then the game stops', () => {
 });
 
 test('the same inputs give the same game', () => {
-  const inputs: MechInput[] = [];
+  const inputs: GameInput[] = [];
   for (let i = 0; i < 120; i++) inputs.push({ ...idle, moveZ: 1 });
   for (let i = 0; i < 180; i++) inputs.push({ ...idle, moveZ: 1, turn: -MOVE_TUNE.turn / 60, fire: true });
   for (let i = 0; i < 60; i++) inputs.push({ ...idle, jump: i === 0, jumpHeld: true, boost: true });
@@ -145,4 +146,51 @@ test('a prop between the mech and a target stops the shot', () => {
   expect(shot.target).toBeNull();
   expect(shot.reach).toBeCloseTo(8, 6);
   expect(game.targets[0].hp).toBe(TARGET_HP.pillbox);
+});
+
+test('the sub gun breaks a pillbox in fewer shots', () => {
+  const game = newGame(M1B_HAND);
+  atPillbox1(game);
+  let hits = 0;
+  for (let i = 0; i < 600 && game.targets[0].hp > 0; i++) {
+    step(game, { ...idle, sub: true }, 1 / 60);
+    for (const event of game.events) {
+      if (event.kind !== 'shot' || event.target !== 'pillbox-1') continue;
+      hits++;
+      expect(event.weapon).toBe('heavyGun');
+    }
+  }
+  expect(hits).toBe(Math.ceil(TARGET_HP.pillbox / WEAPONS.heavyGun.damage));
+  expect(game.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
+});
+
+test('the autocannon does not reach past its range', () => {
+  const place = M1B_HAND.targets[0];
+  const map: MapDef = { ...M1B_HAND, props: [], targets: [place] };
+  const game = newGame(map);
+  game.mech.x = place.x;
+  game.mech.z = place.z + 150;
+  game.mech.yaw = 0;
+  step(game, { ...idle, fire: true }, 1 / 60);
+  const mainShot = game.events.find(event => event.kind === 'shot');
+  if (mainShot?.kind !== 'shot') throw new Error('the frame fired a shot');
+  expect(mainShot.target).toBeNull();
+  expect(mainShot.reach).toBe(WEAPONS[M1_LOADOUT.main].range);
+
+  step(game, { ...idle, sub: true }, 1 / 60);
+  const subShot = game.events.find(event => event.kind === 'shot');
+  if (subShot?.kind !== 'shot') throw new Error('the frame fired a shot');
+  expect(subShot.target).toBe('pillbox-1');
+});
+
+test('running out of ammo stops the shots', () => {
+  const game = newGame(M1B_HAND);
+  atPillbox1(game);
+  game.main.ammo = 3;
+  let shots = 0;
+  for (let i = 0; i < 120; i++) {
+    step(game, { ...idle, fire: true }, 1 / 60);
+    shots += game.events.filter(event => event.kind === 'shot').length;
+  }
+  expect(shots).toBe(3);
 });

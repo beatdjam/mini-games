@@ -37,8 +37,37 @@ function entryDistance(
   return near <= far ? near : null;
 }
 
-// The index of the first target a ray from (ox, oy, oz) toward (dx, dy, dz) meets within `range` m, or -1. The
-// direction does not have to be normalized; every target is a box.
+export interface RayHit {
+  index: number; // the box's place in the list
+  dist: number; // how far along the ray the box starts (m)
+}
+
+// The first box a ray from (ox, oy, oz) toward (dx, dy, dz) meets within `range` m, with the distance to it, or null.
+// The direction does not have to be normalized; every target is a box.
+export function fireRayHit(
+  ox: number,
+  oy: number,
+  oz: number,
+  dx: number,
+  dy: number,
+  dz: number,
+  range: number,
+  targets: readonly Aabb[],
+): RayHit | null {
+  const length = Math.hypot(dx, dy, dz);
+  if (length < 1e-12 || range <= 0) return null;
+  const nx = dx / length;
+  const ny = dy / length;
+  const nz = dz / length;
+  let best: RayHit | null = null;
+  for (let i = 0; i < targets.length; i++) {
+    const dist = entryDistance(ox, oy, oz, nx, ny, nz, range, targets[i]);
+    if (dist !== null && (best === null || dist < best.dist)) best = { index: i, dist };
+  }
+  return best;
+}
+
+// The index of the first box a ray meets within `range` m, or -1.
 export function fireRay(
   ox: number,
   oy: number,
@@ -49,19 +78,5 @@ export function fireRay(
   range: number,
   targets: readonly Aabb[],
 ): number {
-  const length = Math.hypot(dx, dy, dz);
-  if (length < 1e-12 || range <= 0) return -1;
-  const nx = dx / length;
-  const ny = dy / length;
-  const nz = dz / length;
-  let best = -1;
-  let bestDist = Infinity;
-  for (let i = 0; i < targets.length; i++) {
-    const dist = entryDistance(ox, oy, oz, nx, ny, nz, range, targets[i]);
-    if (dist !== null && dist < bestDist) {
-      bestDist = dist;
-      best = i;
-    }
-  }
-  return best;
+  return fireRayHit(ox, oy, oz, dx, dy, dz, range, targets)?.index ?? -1;
 }
