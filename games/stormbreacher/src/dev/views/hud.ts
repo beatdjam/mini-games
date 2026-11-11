@@ -8,8 +8,8 @@ import { CAMERA_TUNE, FX_TUNE, MECH_TUNE } from '../../data/tune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
 import { buildHud } from '../hud/build.ts';
 import { PLAN_IDS, PLAN_LABELS, type PlanId } from '../hud/plans.ts';
-import { buildMechProxy } from '../mechProxy.ts';
-import { TILE_COLOR } from '../outdoor/build.ts';
+import { buildMechProxy } from '../../view/mechProxy.ts';
+import { TILE_COLOR } from '../../view/outdoor.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
 
 declare global {

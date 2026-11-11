@@ -14,7 +14,7 @@ import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { buildBattle, type Battle } from '../../view/battle/index.ts';
 import type { CrowdCounts } from '../../logic/crowd.ts';
 import { MAP_FOG, buildMapScene, mapOf, seedOf, sourceOf, type Source } from './mapView.ts';
-import { TILE_COLOR } from '../outdoor/build.ts';
+import { TILE_COLOR } from '../../view/outdoor.ts';
 import { buildFlatRange, checkOneTable, moveFeelFromParams, tuneWithParams } from './move.ts';
 
 declare global {

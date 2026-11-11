@@ -2,7 +2,6 @@
 // spawn points as small marks, and the count of props by kind for the screen.
 import * as THREE from 'three';
 import { type Area, type MapBounds, type Prop, type PropKind, type SpawnPoint } from '../../data/types.ts';
-import { TILE_SIZE } from '../outdoor/layout.ts';
 
 const AREA_COLOR = 0x8fd3ff; // the mission's areas are a pale blue frame
 const SPAWN_COLOR = 0xffcf6a; // the spawn points are a yellow ring
@@ -10,20 +9,7 @@ const FRAME_Y = 0.06; // just above the ground (m)
 const SPAWN_Y = 0.08; // ... and the same for the rings (m)
 const SPAWN_RING = { inner: 1.2, outer: 2.2 } as const; // the mark's size (m)
 
-// The tiles that cover the whole bounds. The last row and column may hang a little past the edge, so no gap is left.
-export function groundTiles(bounds: MapBounds): Prop[] {
-  const cols = Math.ceil((bounds.maxX - bounds.minX) / TILE_SIZE);
-  const rows = Math.ceil((bounds.maxZ - bounds.minZ) / TILE_SIZE);
-  const tiles: Prop[] = [];
-  for (let row = 0; row < rows; row++) {
-    const z = bounds.minZ + TILE_SIZE / 2 + row * TILE_SIZE;
-    for (let col = 0; col < cols; col++) {
-      const x = bounds.minX + TILE_SIZE / 2 + col * TILE_SIZE;
-      tiles.push({ kind: 'tile', x, z, yaw: 0, scale: 0.9 + ((row + col) % 3) * 0.07 });
-    }
-  }
-  return tiles;
-}
+export { groundTiles } from '../../view/world.ts';
 
 export function countProps(props: readonly Prop[]): Record<PropKind, number> {
   const counts: Record<PropKind, number> = {

@@ -10,7 +10,7 @@ import {
   REF_WALLS,
   type StationName,
 } from '../course.ts';
-import { buildMechProxy, buildRadiusRing } from '../mechProxy.ts';
+import { buildMechProxy, buildRadiusRing } from '../../view/mechProxy.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 
 declare global {

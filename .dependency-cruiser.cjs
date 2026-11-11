@@ -61,6 +61,13 @@ module.exports = {
       to: { path: '^games/stormbreacher/src/(app|dev)/' },
     },
     {
+      name: 'sb-app-no-dev',
+      severity: 'error',
+      comment: 'stormbreacher: the game itself does not read the dev hooks, so the public page keeps them out',
+      from: { path: '^games/stormbreacher/src/app/' },
+      to: { path: '^games/stormbreacher/src/dev/' },
+    },
+    {
       name: 'sb-portable-no-game',
       severity: 'error',
       comment:

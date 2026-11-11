@@ -9,7 +9,7 @@ import { applyPose, cameraPose, followPose, screenFraction, type CameraPose } fr
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import { STATIONS, buildCourse, type StationName } from '../course.ts';
 import { heldKeys } from '../keys.ts';
-import { buildMechProxy } from '../mechProxy.ts';
+import { buildMechProxy } from '../../view/mechProxy.ts';
 
 declare global {
   interface Window {

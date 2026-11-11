@@ -9,6 +9,8 @@ export interface PropSize {
   blocks: boolean; // whether it blocks the mech's path
 }
 
+export const TILE_SIZE = 4; // the ground tile's side (m)
+
 export const PROP_SIZE: Record<PropKind, PropSize> = {
   tile: { w: 4, h: 0, d: 4, blocks: false },
   hedgehog: { w: 3, h: 3, d: 3, blocks: true },
