@@ -24,7 +24,7 @@
 
 `src/view/camera.ts` は三人称カメラの位置を決める純粋な関数で、`scene` も `camera` も触らない（カメラに書くのは `applyPose` だけ）。
 
-`src/view/world.ts` はマップの描き方を本体と開発用の入口で共有し、`src/view/outdoor.ts` は地面と物、`src/view/mechProxy.ts` は機体の仮の模型を描き、`src/data/colors.ts` は地面の砂と空の色を名前で持つ。`src/view/play.ts` は出撃中の画面を組み立てて描き、`src/view/world.ts` の `syncWorld` が壊れた目標を低く暗い姿にする。
+`src/view/world.ts` はマップの描き方を本体と開発用の入口で共有し、`src/view/outdoor.ts` は地面と物、`src/view/mechProxy.ts` は機体の仮の模型を描き、`src/data/colors.ts` は地面の砂と空の色を名前で持つ。`src/view/play.ts` は出撃中の画面を組み立てて描き、`src/view/world.ts` の `syncWorld` が壊れた目標と壊れた物（`breakable` の物）を低く暗い姿にする。
 
 `src/logic/mech.ts` は機体の歩く・跳ぶ・ブースト・着地を、状態を引数で受けて進める純粋な関数で、three も DOM も読まない。`src/logic/fire.ts` は正面への線が的の箱に当たるかを返す純粋な関数。`src/view/feel.ts` は動きの出来事からカメラの揺れ・FOV・ヒットストップ・砂煙を作る。
 
@@ -36,7 +36,7 @@
 
 `src/logic/collide.ts` は平面で円を回った四角から押し出す純粋な関数で、engine へ移す候補なのでゲームのファイルを読まず、四角と半径を引数で受ける（規則 `sb-portable-no-game`）。`src/logic/mapShapes.ts` の `mapBlockers` が `MapDef` から四角の一覧を作り、通り道の検査と機体の当たりがそれを読む。規則に入っているファイルは `src/logic/collide.ts`・`src/logic/mech.ts`・`src/logic/fcs.ts`・`src/logic/fire.ts`・`src/view/camera.ts`・`src/data/tuneTypes.ts` の6つで、機体・カメラ・FCS の調整の型は値と分けて `src/data/tuneTypes.ts` に置く（値は `src/data/tune.ts`）。
 
-`src/logic/game.ts` は出撃の `GameModel`（機体・マップ・目標の体力・メインとサブの武器・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・間隔・弾数）、弾が目標に当たると体力が減って0で壊れ、全部壊れると `cleared` になる。台本（SB-150）・敵（SB-190）はまだつながない。
+`src/logic/game.ts` は出撃の `GameModel`（機体・マップ・目標の体力・壊せる物の体力（`breakables`）・メインとサブの武器・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・間隔・弾数）、弾が目標に当たると体力が減って0で壊れ、全部壊れると `cleared` になる。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。台本（SB-150）はまだつながず、敵もまだ（壊せる物だけ入った）。
 
 `src/app/touch.ts` は engine のスティック・視点のドラッグ・タッチのボタンを `MechInput` の形に変え、ボタンの配置の編集と、押した回数・同時に触れている指の数・動作が同時に効いた時間を測る。
 
@@ -121,9 +121,9 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` の弾を積み、撃ち切ると撃てない。撃つ間隔は `logic/weapons.ts` の `stepWeapon` が決め、`wait` の残りを次のフレームへ持ち越すので、フレームの長さで連射の速さは変わらない。
 
-弾は物で止まり、物の向こうの目標には当たらない（物は壊れない）。
+弾は物で止まり、物の向こうの目標には当たらない（壊せる物（`breakable`）は体力が 0 で壊れ、当たりと弾の箱から外れる。ほかの物は壊れない）。
 
-三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）をカメラの壁として渡す。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
+三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）をカメラの壁として渡す。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -338,7 +338,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 M1 の B トーチカ線と C 防波堤の手前（z −60〜170、x −100〜100）を、手書き・生成・簡易エディタの3つの作り方で同じ形のデータにする。決めるのは遊ぶ人と Claude で、どの作り方がよいかはこの仕様では決めない。
 
 - `MapDef`（`src/data/types.ts`）は `id`・`bounds`（`minX`・`maxX`・`minZ`・`maxZ`）・`props`・`targets`・`spawns` を持つ。`bounds` の外は作らない
-- `Prop` は `kind`・`x`・`z`・`yaw`・`scale`・`breakable?`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）。`breakable: true` は「後で壊して突破できる物」の印で、今は色とエディタの切り替えだけで、壊す仕組みは G1 で作る
+- `Prop` は `kind`・`x`・`z`・`yaw`・`scale`・`breakable?`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）。`breakable: true` は撃つと壊れる物の印。体力は種類ごとに `PROP_HP`（仮）で、`hedgehog` 30・`block` 60・`bunker` 150・`seawall` 120・`wreck` 80・`cliff` 300（`tile`・`crater` は 0）。壊れると機体の当たりと弾の箱から外れて通れる。見た目は低い暗い残骸（`BROKEN_SCALE_Y`）で、`InstancedMesh` と描く回数は増えない
 - `TargetPlace` は `id`・`kind`・`x`・`z`・`yaw`。種類（`TargetKind`）は `pillbox`・`depot`・`gun`・`magazine`。`spawns` は波の名前 → `SpawnPoint`（`x`・`z`）の一覧
 - 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。物の大きさは高さ 8m・当たり半径 2m の機体に合わせて決めたときのまま。機体は今 4m・当たり半径 1m（`MECH_TUNE`）で、ジャンプの最高点は約 1m なので、対戦車障害物（3m）は跳んでも越えられない。描く形（`src/view/outdoor.ts`）も検査も当たりもこの表を読む。`breakable` の物は同じ形のまま色を少し赤っぽくし、種類ごとの `InstancedMesh` と描く回数は増やさない（`instanceColor`）
 - 目標の体力は `TARGET_HP`（仮。`pillbox` 100・`depot` 60・`gun` 200・`magazine` 80。武器の表の威力で減り、トーチカは機関砲10発・砲2発で壊れる。SB-190 で決め直す）
@@ -355,9 +355,9 @@ M1 の B トーチカ線と C 防波堤の手前（z −60〜170、x −100〜10
 - `validateMapForMission(map, mission, skip)`（`src/logic/mapCheck.ts`）は違反の一覧 `{ kind, message }[]` を返す（例外にしない）。`skip` は範囲の外にある波と目標の名前
   - 台本の `targets` が全部マップにあり、マップにしか無い目標が無い。同じ id の目標が2つあれば `target-duplicate`。台本で `spawn` する波が全部 `spawns` にある
   - 物と目標が `bounds` の中にあり、目標どうしが 12m より近くない
-  - 範囲の手前（`maxZ`）から奥（`minZ`）まで、当たり半径 `MECH_TUNE.radius`（1m）の機体が通れる道があるか。2m 四方の格子にして幅優先で調べ、`PROP_SIZE` の `blocks` が真の物と目標を、表の `w`×`d` に `scale` を掛け `yaw` で回した四角として避ける。`breakable` の物も今は塞ぐ物として避ける（壊せるようになるまでは突破口で通れること）。格子の点から四角までの距離が 1m より近ければ塞がれている。`crater` と `tile` は避けない。物が範囲の外に出ているかは中心で見る。`seawall` は登らない前提なので、防波堤の帯（z −75〜−65）は範囲の外（`minZ` −60）に置く
+  - 範囲の手前（`maxZ`）から奥（`minZ`）まで、当たり半径 `MECH_TUNE.radius`（1m）の機体が通れる道があるか。2m 四方の格子にして幅優先で調べ、`PROP_SIZE` の `blocks` が真の物と目標を、表の `w`×`d` に `scale` を掛け `yaw` で回した四角として避ける。検査は壊す前の形で見るので、`breakable` の区間は塞ぐ物として数え、壊さなくても突破口で通れること。格子の点から四角までの距離が 1m より近ければ塞がれている。`crater` と `tile` は避けない。物が範囲の外に出ているかは中心で見る。`seawall` は登らない前提なので、防波堤の帯（z −75〜−65）は範囲の外（`minZ` −60）に置く
 - 機体は、`mapBlockers`（`src/logic/mapShapes.ts`）が作る四角（`blocks` が真の物と全部の目標。表の `w`×`d` に `scale` を掛け `yaw` で回したもの。通り道の検査と同じ）から、当たり半径 `MECH_TUNE.radius` 以上離れた所に押し出される（`pushOutCircle` in `src/logic/collide.ts`）
 - 押し出したあと、壁へ向かう速さだけを消し、壁に沿う速さは残すので、斜めに当たると滑る（`stepMech` in `src/logic/mech.ts`）。1歩は `MOVE_TUNE.maxStep` 以下に刻むので、ブーストでも薄い物を抜けない
-- 高さを見る。物と目標の四角は上の面の高さ `top`（m）を持ち（`GroundRect.top`。`mapBlockers` が物は `PROP_SIZE` の `h` × `scale`、目標は `TARGET_SIZE` の `h` を入れる）、`top` の無い四角はどの高さからも越えられない壁になる。地面にいる機体は、足元から `MOVE_TUNE.stepHeight`（仮 0.75m）までの物には歩いて乗る。それより高い物は壁になり、押し出される。跳んでいる機体は、足より低い物の上を越えられ、その上に降りられる。物から歩いて外れると、その高さから地面へ落ちる。`breakable` の物も壊す仕組みができるまでは当たる
+- 高さを見る。物と目標の四角は上の面の高さ `top`（m）を持ち（`GroundRect.top`。`mapBlockers` が物は `PROP_SIZE` の `h` × `scale`、目標は `TARGET_SIZE` の `h` を入れる）、`top` の無い四角はどの高さからも越えられない壁になる。地面にいる機体は、足元から `MOVE_TUNE.stepHeight`（仮 0.75m）までの物には歩いて乗る。それより高い物は壁になり、押し出される。跳んでいる機体は、足より低い物の上を越えられ、その上に降りられる。物から歩いて外れると、その高さから地面へ落ちる。`breakable` の物も壊れるまでは当たる
 - 効くのは `#view-map` と `#view-fx`。平らな地面の入口（`#view-move`・`#view-touch`・`#view-play`・`#view-fcs`）の的には当たらない
-- M1 の範囲の外（A 波打ち際・ボスの場所）と、物を壊す仕組み・防波堤を登る仕組みは作らない
+- M1 の範囲の外（A 波打ち際・ボスの場所）と、防波堤を登る仕組みは作らない

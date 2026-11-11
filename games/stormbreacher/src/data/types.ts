@@ -84,7 +84,7 @@ export interface Prop {
   z: number;
   yaw: number; // how far it is turned about its middle (rad)
   scale: number; // its size (tile: how dark the sand is)
-  breakable?: boolean; // can be broken through later (G1); for now only a mark in the editor and the colour
+  breakable?: boolean; // a prop a shot may break (SB-190); its kind's health is PROP_HP
 }
 
 export type TargetKind = 'pillbox' | 'depot' | 'gun' | 'magazine';

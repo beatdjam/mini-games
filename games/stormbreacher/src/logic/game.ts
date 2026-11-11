@@ -1,15 +1,15 @@
-// The game's state and the entry for updating it by one frame: the mech, the map, the targets' health, the weapons and
-// the frame's events. Nothing here reads three or the DOM, so a test runs it in node without a page. The mission script
-// (SB-150) and the enemies (SB-190) are not here yet. A shot's damage and range come from the weapon table
-// (data/weapons.ts), and it stops at the first prop it meets and at the first target along its path, whichever is
-// nearer.
-import { TARGET_HP, TARGET_SIZE } from '../data/props.ts';
+// The game's state and the entry for updating it by one frame: the mech, the map, the targets' health, the props that
+// break, the weapons and the frame's events. Nothing here reads three or the DOM, so a test runs it in node without a
+// page. The mission script (SB-150) and the enemies are not here yet. A shot's damage and range come from the weapon
+// table (data/weapons.ts), and it stops at the first prop it meets and at the first target along its path, whichever is
+// nearer; a breakable prop takes the damage and breaks at 0.
+import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../data/tune.ts';
 import type { MapDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, type GroundRect } from './collide.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
-import { mapBlockers } from './mapShapes.ts';
+import { blockingPropIndexes, mapBlockers } from './mapShapes.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from './mech.ts';
 import { newWeapon, stepWeapon, type WeaponState } from './weapons.ts';
 
@@ -18,6 +18,11 @@ export interface TargetState {
   kind: TargetKind;
   hp: number; // the health left
   box: Aabb; // the box a shot may hit
+}
+
+export interface BreakableState {
+  prop: number; // the prop's place in map.props
+  hp: number; // the health left; 0 stays after it breaks
 }
 
 // What happened in one frame, in the order it happened.
@@ -35,6 +40,7 @@ export type GameEvent =
       weapon: WeaponId;
     }
   | { kind: 'destroyed'; id: string }
+  | { kind: 'propDestroyed'; prop: number; x: number; z: number }
   | { kind: 'cleared' };
 
 export interface GameModel {
@@ -43,6 +49,8 @@ export interface GameModel {
   mech: MechState;
   rects: GroundRect[]; // the map's blockers (mapBlockers)
   propBoxes: Aabb[]; // the props' boxes, which stop a shot
+  propRefs: number[]; // the prop's place in map.props for each propBoxes entry
+  breakables: BreakableState[]; // the breakable blocking props, with their health
   targets: TargetState[];
   main: WeaponState; // the main weapon's ammo and wait
   sub: WeaponState; // the sub weapon's ammo and wait
@@ -64,8 +72,9 @@ export function targetBox(place: TargetPlace): Aabb {
 }
 
 // One shot from the mech's chest, straight ahead along the ground, with `weapon`'s damage and range: it stops at the
-// first prop or hits the first target it meets, and a target down to 0 breaks. When every target is down the sortie is
-// cleared (a map with no targets is never cleared). A prop does not break.
+// first prop or hits the first target it meets, and a target down to 0 breaks. A breakable prop takes the same damage
+// and breaks at 0, which opens the mech's path; any other prop only stops the shot. When every target is down the
+// sortie is cleared (a map with no targets is never cleared).
 function shoot(game: GameModel, weapon: WeaponId): void {
   const def = WEAPONS[weapon];
   const mech = game.mech;
@@ -79,6 +88,7 @@ function shoot(game: GameModel, weapon: WeaponId): void {
   const target = hit && hit.index < alive.length ? alive[hit.index] : null;
   const reach = hit ? hit.dist : def.range;
   game.events.push({ kind: 'shot', x: mech.x, y, z: mech.z, dx, dz, reach, target: target ? target.id : null, weapon });
+  if (hit && hit.index >= alive.length) damageProp(game, hit.index - alive.length, def.damage);
   if (!target) return;
   target.hp = Math.max(0, target.hp - def.damage);
   if (target.hp > 0) return;
@@ -89,6 +99,22 @@ function shoot(game: GameModel, weapon: WeaponId): void {
   }
 }
 
+// Takes `damage` off the prop at `boxIndex` when it can break. At 0 the prop leaves rects, propBoxes and propRefs at that
+// same place, in place, so the mech's path opens without a new array (step hands game.rects to stepMech as it is) and the
+// frame reports it. A prop with no health left never comes back.
+function damageProp(game: GameModel, boxIndex: number, damage: number): void {
+  const prop = game.propRefs[boxIndex];
+  const breakable = game.breakables.find(state => state.prop === prop);
+  if (!breakable) return;
+  breakable.hp = Math.max(0, breakable.hp - damage);
+  if (breakable.hp > 0) return;
+  game.rects.splice(boxIndex, 1);
+  game.propBoxes.splice(boxIndex, 1);
+  game.propRefs.splice(boxIndex, 1);
+  const place = game.map.props[prop];
+  game.events.push({ kind: 'propDestroyed', prop, x: place.x, z: place.z });
+}
+
 // A new sortie on `map`: the mech at the middle of the front edge, facing the land, and every target at its health.
 export function newGame(map: MapDef): GameModel {
   const mech = newMech();
@@ -96,14 +122,18 @@ export function newGame(map: MapDef): GameModel {
   mech.z = map.bounds.maxZ - PLAY_TUNE.startMargin;
   mech.yaw = 0;
   const rects = mapBlockers(map);
-  // mapBlockers puts the props first and the targets after, so all but the last targets.length rects are props.
-  const propCount = rects.length - map.targets.length;
+  // mapBlockers puts the props first and the targets after, so the first propRefs.length rects are the props.
+  const propRefs = blockingPropIndexes(map);
   return {
     time: 0,
     map,
     mech,
     rects,
-    propBoxes: rects.slice(0, propCount).map(rectBox),
+    propBoxes: rects.slice(0, propRefs.length).map(rectBox),
+    propRefs,
+    breakables: propRefs
+      .filter(index => map.props[index].breakable === true)
+      .map(index => ({ prop: index, hp: PROP_HP[map.props[index].kind] })),
     targets: map.targets.map(place => ({
       id: place.id,
       kind: place.kind,
