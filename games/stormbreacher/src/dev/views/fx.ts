@@ -4,7 +4,7 @@
 // window.sbFxReport() gives the same JSON with the frame's counts.
 import * as THREE from 'three';
 import { addSystem, clamp } from '@engine/core/index.ts';
-import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
+import { camera, cullChunks, renderer } from '@engine/render/index.ts';
 import { CAMERA_TUNE, FEEL_TUNE, FX_STAGES, FX_TUNE, MECH_TUNE, MOVE_TUNE, type FxTune } from '../../data/tune.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
@@ -14,7 +14,14 @@ import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { buildBattle, type Battle } from '../../view/battle/index.ts';
 import type { CrowdCounts } from '../../logic/crowd.ts';
 import { MAP_FOG, buildMapScene, mapOf, seedOf, sourceOf, type Source } from './mapView.ts';
-import { TILE_COLOR } from '../../view/outdoor.ts';
+import {
+  applyGroundColor,
+  applyLights,
+  applyLook,
+  basePixelRatio,
+  collectGroundTiles,
+  collectLights,
+} from '../../view/look.ts';
 import { buildFlatRange, checkOneTable, moveFeelFromParams, tuneWithParams } from './move.ts';
 
 declare global {
@@ -113,76 +120,6 @@ function flagOf(params: URLSearchParams, name: string): boolean {
   return params.get(name) !== '0';
 }
 
-// The resolution, the colour and the fog: the only post-process this view has.
-function applyLook(tune: FxTune, basePixel: number) {
-  renderer.setPixelRatio(Math.max(0.1, basePixel * tune.pixel));
-  const style = renderer.domElement.style;
-  style.imageRendering = tune.pixel < 0.999 ? 'pixelated' : 'auto';
-  style.filter =
-    tune.saturate === 1 && tune.contrast === 1 && tune.sepia === 0
-      ? ''
-      : `saturate(${tune.saturate}) contrast(${tune.contrast}) sepia(${tune.sepia})`;
-  if (scene.fog instanceof THREE.Fog) {
-    scene.fog.color.setHex(tune.fogColor);
-    scene.fog.near = MAP_FOG.near * (1 - clamp(tune.haze, 0, 0.9));
-    scene.fog.far = MAP_FOG.far;
-  }
-  if (scene.background instanceof THREE.Color) scene.background.setHex(tune.skyColor);
-}
-
-interface LightBase {
-  light: THREE.Light;
-  intensity: number; // what it had before #view-fx was turned
-}
-
-// Every light in the scene, with its starting strength. The engine and the start-up field each add a hemisphere and a
-// sun, so #view-fx scales both pairs instead of picking one out.
-function collectLights(): LightBase[] {
-  const lights: LightBase[] = [];
-  scene.traverse(object => {
-    if (object instanceof THREE.Light) lights.push({ light: object, intensity: object.intensity });
-  });
-  return lights;
-}
-
-function applyLights(tune: FxTune, lights: readonly LightBase[]) {
-  for (const { light, intensity } of lights) {
-    const sun = light instanceof THREE.DirectionalLight ? tune.sun : 1;
-    light.intensity = intensity * tune.light * sun;
-  }
-}
-
-interface GroundTint {
-  mesh: THREE.InstancedMesh;
-  scales: Float32Array; // each tile's light/dark scale, kept from the build
-}
-
-// The map's tile meshes (the build may have split them into chunks): their colour is per instance.
-function collectGroundTiles(root: THREE.Object3D): GroundTint[] {
-  const tiles: GroundTint[] = [];
-  const base = new THREE.Color(TILE_COLOR).r;
-  root.traverse(object => {
-    if (!(object instanceof THREE.InstancedMesh) || object.name !== 'tile' || !object.instanceColor) return;
-    const colors = object.instanceColor.array;
-    const scales = new Float32Array(object.count);
-    for (let i = 0; i < object.count; i++) scales[i] = base > 0 ? Number(colors[i * 3]) / base : 1;
-    tiles.push({ mesh: object, scales });
-  });
-  return tiles;
-}
-
-function applyGroundColor(tune: FxTune, tiles: readonly GroundTint[]) {
-  const base = new THREE.Color(tune.groundColor);
-  const color = new THREE.Color();
-  for (const { mesh, scales } of tiles) {
-    for (let i = 0; i < scales.length; i++) {
-      color.copy(base).multiplyScalar(scales[i]);
-      mesh.setColorAt(i, color);
-    }
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }
-}
-
 function hudText(
   stage: number,
   src: Source,
@@ -224,7 +161,7 @@ export function showFx(_hash: string) {
   const { moveTune, feelTune } = moveFeelFromParams(params);
 
   const { built, cameraBoxes } = buildMapScene(map);
-  const basePixel = renderer.getPixelRatio();
+  const basePixel = basePixelRatio();
   const lights = collectLights();
   const groundTiles = collectGroundTiles(built.group);
   applyGroundColor(tune, groundTiles);

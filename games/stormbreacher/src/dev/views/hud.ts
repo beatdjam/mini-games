@@ -1,15 +1,15 @@
 // The HUD mock's view (#view-hud, SB-160): the M1 B beach drawn once with a fixed camera, a mech proxy standing on
 // it and the three layout plans' sample HUD over it. It never reads the game's state and never takes input.
-import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
-import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
+import { camera, cullChunks, scene } from '@engine/render/index.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
-import { CAMERA_TUNE, FX_TUNE, MECH_TUNE } from '../../data/tune.ts';
+import { lookOf } from '../../data/looks.ts';
+import { CAMERA_TUNE, MECH_TUNE } from '../../data/tune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
 import { buildHud } from '../hud/build.ts';
 import { PLAN_IDS, PLAN_LABELS, type PlanId } from '../hud/plans.ts';
+import { applyLookTo } from '../../view/look.ts';
 import { buildMechProxy } from '../../view/mechProxy.ts';
-import { TILE_COLOR } from '../../view/outdoor.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
 
 declare global {
@@ -37,37 +37,6 @@ function paintButton(node: HTMLButtonElement, on: boolean) {
   node.style.color = on ? BUTTON_ON_TEXT : BUTTON_TEXT;
 }
 
-// #view-fx's default look (FX_TUNE, its middle strength) without its battle: every light dimmed, the canvas's colour
-// filter, the fog and the sky, and the sand of the ground tiles. The low resolution is left out. fx.ts keeps its own
-// helpers private, so the same steps are repeated here on the same table.
-function applyFxLook() {
-  scene.traverse(object => {
-    if (!(object instanceof THREE.Light)) return;
-    const sun = object instanceof THREE.DirectionalLight ? FX_TUNE.sun : 1;
-    object.intensity *= FX_TUNE.light * sun;
-  });
-  renderer.domElement.style.filter = `saturate(${FX_TUNE.saturate}) contrast(${FX_TUNE.contrast}) sepia(${FX_TUNE.sepia})`;
-  if (scene.fog instanceof THREE.Fog) {
-    scene.fog.color.setHex(FX_TUNE.fogColor);
-    scene.fog.near = MAP_FOG.near * (1 - FX_TUNE.haze);
-  }
-  if (scene.background instanceof THREE.Color) scene.background.setHex(FX_TUNE.skyColor);
-
-  // each tile keeps its light/dark scale against the sand it was built in
-  const base = new THREE.Color(TILE_COLOR).r;
-  const ground = new THREE.Color(FX_TUNE.groundColor);
-  const color = new THREE.Color();
-  scene.traverse(object => {
-    if (!(object instanceof THREE.InstancedMesh) || object.name !== 'tile' || !object.instanceColor) return;
-    const colors = object.instanceColor.array;
-    for (let i = 0; i < object.count; i++) {
-      const scale = base > 0 ? Number(colors[i * 3]) / base : 1;
-      object.setColorAt(i, color.copy(ground).multiplyScalar(scale));
-    }
-    object.instanceColor.needsUpdate = true;
-  });
-}
-
 function button(parent: HTMLElement, label: string, onClick: () => void): HTMLButtonElement {
   const node = document.createElement('button');
   node.type = 'button';
@@ -88,7 +57,8 @@ export function showHud(_hash: string) {
   const mech = buildMechProxy(MECH_TUNE.height);
   mech.position.set(x, 0, z);
   scene.add(mech);
-  applyFxLook();
+  // #view-fx's default look (the M1 row) without the low resolution, through the same view/look.ts the sortie uses
+  applyLookTo({ ...lookOf('m1'), pixel: 1 }, built.group);
 
   const pose = cameraPose({ x, y: 0, z, yaw: 0 }, 0, CAMERA_TUNE, []);
   applyPose(camera, pose, CAMERA_TUNE.fov);
