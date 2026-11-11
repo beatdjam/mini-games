@@ -3,11 +3,14 @@
 import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
+import { lookOf } from '../data/looks.ts';
+import { M1 } from '../data/missions/m1.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { GameModel } from '../logic/game.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from './camera.ts';
 import { feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
+import { applyLookTo } from './look.ts';
 import { buildMechProxy } from './mechProxy.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
@@ -33,6 +36,8 @@ export interface PlayView {
 // Builds the sortie's map and its mech into the scene. Hiding the start-up field is left to the caller.
 export function buildPlayView(game: GameModel): PlayView {
   const world = buildWorld(game.map);
+  // the look comes from the mission's row; the sortie is M1's B alone, so M1.id is written here (SB-300 picks the mission)
+  applyLookTo(lookOf(M1.id), world.built.group);
   const model = buildMechProxy(MECH_TUNE.height);
   scene.add(model);
   return { world, model, feel: newFeel(CAMERA_TUNE.fov), pitch: 0, camPos: null, tracers: [] };

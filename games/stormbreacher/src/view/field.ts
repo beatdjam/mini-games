@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
 import { SAND_COLOR, SKY_COLOR } from '../data/colors.ts';
+import { BASE_LIGHTS } from '../data/looks.ts';
 import { FIELD_TUNE, MECH_TUNE } from '../data/tune.ts';
 
 const BOX = 0x5c6670;
@@ -29,9 +30,14 @@ export function buildField() {
   ground.name = GROUND_NAME;
   scene.add(ground);
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7a60, 0.9));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-  sun.position.set(30, 50, 20);
+  // The engine puts a hemisphere and a sun in its scene for its indoor sectors. Take those out and give the field one
+  // pair, so a look scales one strength and not two.
+  for (const child of [...scene.children]) {
+    if (child instanceof THREE.Light) scene.remove(child);
+  }
+  scene.add(new THREE.HemisphereLight(BASE_LIGHTS.sky, BASE_LIGHTS.ground, BASE_LIGHTS.hemi));
+  const sun = new THREE.DirectionalLight('white', BASE_LIGHTS.sun);
+  sun.position.set(...BASE_LIGHTS.sunAt);
   scene.add(sun);
 
   // the size box: a mech's height at the origin, 2 m wide and deep
