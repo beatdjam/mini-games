@@ -19,7 +19,7 @@ export const HUD_IDS = [
 
 export type HudId = (typeof HUD_IDS)[number];
 
-export const PLAN_IDS = ['a', 'b', 'c'] as const;
+export const PLAN_IDS = ['a', 'b', 'c', 'd'] as const;
 
 export type PlanId = (typeof PLAN_IDS)[number];
 
@@ -28,6 +28,7 @@ export const PLAN_LABELS: Record<PlanId, string> = {
   a: '四隅に散らす',
   b: '下にまとめる',
   c: '照準のまわりに寄せる',
+  d: 'A＋照準に細く',
 };
 
 export type RadarMarkKind = 'objective' | 'depot' | 'enemy';
@@ -59,12 +60,13 @@ export const HUD_SAMPLE = {
   ],
 } as const;
 
-export type HudDir = 'h' | 'row' | 'v';
+export type HudDir = 'h' | 'row' | 'v' | 'arc';
 
 export interface HudPlace {
   id: HudId | 'strip';
   css: string; // position and size, without position:absolute
-  dir?: HudDir; // h: name and number above a bar; row: name, bar and number on one line; v: a tall bar with the text below
+  dir?: HudDir; // h: name and number above a bar; row: name, bar and number on one line; v: a tall bar with the text below; arc: a thin arc along the aim circle, the number outside it
+  side?: 'left' | 'right'; // an `arc` element only: which side of the aim circle the arc sits on
   radar?: 'round' | 'compass';
 }
 
@@ -130,6 +132,28 @@ export const HUD_PLANS: Record<PlanId, readonly HudPlace[]> = {
     { id: 'enemy', css: 'left:calc(50% + 114px);top:calc(50% - 105px);width:72px', dir: 'h' },
     { id: 'radar', css: 'left:50%;transform:translateX(-50%);top:48px;width:480px;height:28px', radar: 'compass' },
     { id: 'objective', css: 'left:50%;transform:translateX(-50%);top:84px;width:420px;text-align:center' },
+    { id: 'warning', css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 70px)' },
+    { id: 'radio', css: 'left:50%;transform:translateX(-50%);bottom:48px;width:560px' },
+  ],
+  // A's corners and round radar, with thin arcs on the aim circle for the armour and the boost (the user liked C's
+  // gathering around the aim, but not its thick bars)
+  d: [
+    { id: 'armor', css: '', dir: 'arc', side: 'left' },
+    { id: 'boost', css: '', dir: 'arc', side: 'right' },
+    {
+      id: 'heat',
+      css: 'left:50%;transform:translateX(-50%);top:calc(50% + var(--ring) + 14px);width:140px',
+      dir: 'row',
+    },
+    {
+      id: 'main',
+      css: 'right:50%;margin-right:8px;top:calc(50% + var(--ring) + 36px);width:150px;text-align:right',
+      dir: 'h',
+    },
+    { id: 'sub', css: 'left:50%;margin-left:8px;top:calc(50% + var(--ring) + 36px);width:150px', dir: 'h' },
+    { id: 'radar', css: 'right:24px;top:48px;width:150px;height:150px', radar: 'round' },
+    { id: 'objective', css: 'left:24px;top:48px;width:340px' },
+    { id: 'enemy', css: 'left:50%;transform:translateX(-50%);top:48px;width:300px', dir: 'h' },
     { id: 'warning', css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 70px)' },
     { id: 'radio', css: 'left:50%;transform:translateX(-50%);bottom:48px;width:560px' },
   ],

@@ -154,4 +154,21 @@ test('the view opens and the plan changes with the number keys', () => {
   };
   expect(report.plan).toBe('c');
   expect(report.elements.armor).toBeDefined();
+
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: '4' }));
+  expect(must('#sbHud').dataset.plan).toBe('d');
+  expect(new URLSearchParams(location.search).get('plan')).toBe('d');
+});
+
+test("plan D's arcs hug the aim circle", () => {
+  buildHud(document.body, 'd', { cutscene: false, touch: false });
+  const ring = ringRadius(720);
+  const armor = must('#sbHud [data-hud="armor"]').getBoundingClientRect();
+  const boost = must('#sbHud [data-hud="boost"]').getBoundingClientRect();
+  expect(armor.right).toBeLessThanOrEqual(innerWidth / 2 - ring * 0.6);
+  expect(boost.left).toBeGreaterThanOrEqual(innerWidth / 2 + ring * 0.6);
+  expect(Math.abs(armor.top + armor.height / 2 - innerHeight / 2)).toBeLessThanOrEqual(2);
+  expect(Math.abs(boost.top + boost.height / 2 - innerHeight / 2)).toBeLessThanOrEqual(2);
+  expect(innerWidth / 2 - armor.left).toBeLessThanOrEqual(ring + 80);
+  expect(boost.right - innerWidth / 2).toBeLessThanOrEqual(ring + 80);
 });

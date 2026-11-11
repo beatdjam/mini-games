@@ -36,6 +36,11 @@ const RADAR_PAD = 8; // px kept inside the round radar's edge
 const COMPASS_PAD = 8; // px between the compass's edge and angle +-90
 const COMPASS_LETTER_SIZE = 11; // px, the W / N / E letters
 const COMPASS_LETTER_Y = 22; // px, the letters' baseline from the compass's top (under the amber mark)
+const ARC_GAP = 14; // px, from the aim circle to the arc; the arc's radius is ringRadius + ARC_GAP
+const ARC_HALF = 50; // degrees, half the arc's opening: 50 above and below the horizontal, 100 in all
+const ARC_TEXT_W = 44; // px, the text column outside the arc
+const ARC_TEXT_GAP = 6; // px, between the arc and the text column
+const ARC_TRACK_COLOR = 'rgba(84, 232, 255, 0.2)';
 
 // The text sizes and the bar's thickness per plan, from the ticket's notes. For a `v` element `bar` is the bar's
 // length and `barWidth` its width.
@@ -72,9 +77,18 @@ const TEXT_STYLES: Record<PlanId, Partial<Record<HudId, HudStyle>>> = {
     sub: { name: 12, value: 15, bar: 0 },
     enemy: { name: 12, value: 12, bar: 4 },
   },
+  d: {
+    // on an `arc` element `bar` is the arc's line thickness
+    armor: { name: 10, value: 13, bar: 4 },
+    boost: { name: 10, value: 13, bar: 4 },
+    heat: { name: 11, value: 11, bar: 3 },
+    main: { name: 11, value: 16, bar: 0 },
+    sub: { name: 11, value: 13, bar: 0 },
+    enemy: { name: 14, value: 14, bar: 10 },
+  },
 };
 
-const WARNING_SIZE: Record<PlanId, number> = { a: 20, b: 18, c: 20 };
+const WARNING_SIZE: Record<PlanId, number> = { a: 20, b: 18, c: 20, d: 20 };
 
 const LABELS: Record<HudId, string> = {
   armor: '装甲',
@@ -166,6 +180,20 @@ function bar(ratio: number, style: HudStyle, mode: 'h' | 'row' | 'v', color: str
       : `position:absolute;left:0;top:0;bottom:0;width:${share};background:${color};`;
   box.appendChild(fill);
   return box;
+}
+
+// One arc of a circle centred at (cx, cy) in the SVG's own coordinates, from `startDeg` through `sweepDeg` (positive is
+// clockwise on screen, the way a growing angle turns when y points down).
+function arcPath(cx: number, cy: number, radius: number, startDeg: number, sweepDeg: number): string {
+  const point = (deg: number): [number, number] => {
+    const angle = (deg * Math.PI) / 180;
+    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+  };
+  const [x1, y1] = point(startDeg);
+  const [x2, y2] = point(startDeg + sweepDeg);
+  const large = Math.abs(sweepDeg) > 180 ? 1 : 0;
+  const sweep = sweepDeg >= 0 ? 1 : 0;
+  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} ${sweep} ${x2} ${y2}`;
 }
 
 function markShape(mark: RadarMark, x: number, y: number): SVGElement {
@@ -309,6 +337,53 @@ const GAUGE_BUILDERS: Record<HudDir, Builder> = {
     if (args.texts[id] !== '') row.appendChild(span(` ${args.texts[id]}`, style.value));
     args.node.appendChild(row);
     if (style.bar > 0 && ratio !== undefined) args.node.appendChild(bar(ratio, style, 'h', color));
+  },
+  // a thin arc along the aim circle with the name and the number outside it (plan D)
+  arc: args => {
+    const { id, style, ratio, color } = gaugeParts(args);
+    const side = args.place.side ?? 'right';
+    const radius = ringRadius(window.innerHeight) + ARC_GAP;
+    const width = style.bar;
+    const half = (ARC_HALF * Math.PI) / 180;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const arcW = radius * (1 - Math.cos(half)) + width;
+    const arcH = 2 * radius * Math.sin(half) + width;
+    const boxW = arcW + ARC_TEXT_GAP + ARC_TEXT_W;
+    const left =
+      side === 'left' ? cx - radius - width / 2 - ARC_TEXT_GAP - ARC_TEXT_W : cx + radius * Math.cos(half) - width / 2;
+    const top = cy - arcH / 2;
+    args.node.style.left = `${left}px`;
+    args.node.style.top = `${top}px`;
+    args.node.style.width = `${boxW}px`;
+    args.node.style.height = `${arcH}px`;
+
+    // the box's top left from the circle's centre, then the arc runs from its lower end towards the upper one
+    const root = svg('svg', { width: '100%', height: '100%' }) as SVGSVGElement;
+    root.style.display = 'block';
+    const mid = side === 'left' ? 180 : 0;
+    const dir = side === 'left' ? 1 : -1;
+    const from = mid - dir * ARC_HALF;
+    const sweep = dir * ARC_HALF * 2;
+    const stroke = (d: string, color: string) =>
+      svg('path', { d, fill: 'none', stroke: color, 'stroke-width': width, 'stroke-linecap': 'butt' });
+    const ox = cx - left;
+    const oy = cy - top;
+    root.appendChild(stroke(arcPath(ox, oy, radius, from, sweep), ARC_TRACK_COLOR));
+    if (ratio !== undefined && ratio > 0)
+      root.appendChild(stroke(arcPath(ox, oy, radius, from, sweep * Math.min(1, ratio)), color));
+    args.node.appendChild(root);
+
+    const column = document.createElement('div');
+    column.style.cssText =
+      `position:absolute;top:50%;transform:translateY(-50%);width:${ARC_TEXT_W}px;` +
+      (side === 'left' ? 'left:0;text-align:right' : 'right:0;text-align:left');
+    const name = span(LABELS[id], style.name);
+    const value = span(SHORT_TEXTS[id] ?? args.texts[id], style.value);
+    name.style.display = 'block';
+    value.style.display = 'block';
+    column.append(name, value);
+    args.node.appendChild(column);
   },
 };
 

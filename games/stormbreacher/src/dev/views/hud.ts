@@ -23,13 +23,13 @@ const BUTTON_BACK = 'rgba(10,17,25,.85)';
 const BUTTON_ON_TEXT = '#10161d';
 const BUTTON_ON_BACK = 'rgba(255,207,106,.85)';
 const BUTTON =
-  'pointer-events:auto;min-height:30px;padding:0 8px;border-radius:4px;font:inherit;font-size:12px;' +
+  'pointer-events:auto;min-height:30px;padding:0 8px;border-radius:4px;font:inherit;font-size:12px;white-space:nowrap;' +
   `border:1px solid rgba(255,207,106,.55);background:${BUTTON_BACK};color:${BUTTON_TEXT}`;
 
 // How far inside the map's front edge the mech stands (m); showMap's MECH_MARGIN is not exported.
 const MECH_MARGIN = 4;
 
-const KEY_PLAN: Record<string, PlanId> = { '1': 'a', '2': 'b', '3': 'c' };
+const KEY_PLAN: Record<string, PlanId> = { '1': 'a', '2': 'b', '3': 'c', '4': 'd' };
 
 function paintButton(node: HTMLButtonElement, on: boolean) {
   node.setAttribute('aria-pressed', String(on));
