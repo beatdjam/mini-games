@@ -4,7 +4,7 @@
 
 - **更新履歴**: ゲームのフォルダ（`games/<game-id>/`）を触るコミットには、末尾に `Changelog: 追加|調整|修正 | 本文`（遊ぶ人に関係しない変更は `Changelog: なし`）を書く。書き方は README「更新履歴のルール」。`python3 tools/check_changelog.py origin/master HEAD` で確かめられる
 - **仕様書**: 数値・ルール・操作・表示を変えたら、同じコミットで `games/<game-id>/SPEC.md` も直す
-- **確認**: `npm run typecheck`、`npm run lint`（スタイルと文言）、`npm test`（Chrome は `CHROME=` で指定）を通してから push する
+- **確認**: `npm run typecheck`、`npm run lint`（スタイルと文言）、変更が届く範囲のテスト（Chrome は `CHROME=` で指定）を通してから push する。範囲の目安は、足したテスト・変えたファイルを import しているテスト・広く効く変更ならそのゲームの project（`npx vitest run --project '<id>-*'`）。リポジトリ全体の `npm test` は手元で毎回流さない。CI は `tools/test_scope.js` が決めた範囲を流す（1つのゲームの中だけの変更はそのゲーム、engine・tools・設定などを触れば全部。全部がいつも流れるのは master の Deploy Pages。詳しくは README の「CI と公開」）。engine・tools・設定を触るときは、触った所のテストと、影響が届きそうなゲームの project を流す。全体は PR の CI が流す
 - **バランスの調整**（敵・ボス・武器・チップの数値、体力や被ダメージに関わる変更）: 変える前と後に `npm run sim`（ボットによる試行。`games/sector-dive-ex/sim/README.md`）を同じシードで流し、プレイヤーの型ごとの差を PR の説明に書く。数字そのものではなく、前後の差と、狙っていない型への影響を見る
 - **PR**: 1つの修正・調整につき1本。PR の CI（Checks・Changelog）が通ってから、マージをユーザーに頼む
 
@@ -13,7 +13,7 @@
 読んだものは会話に残り、そのあとのやり取りで毎回読み直される。質を落とさない範囲で、要る所だけを読む。
 
 - **SPEC.md**: 数万字あるので丸ごと読まない。`grep -n '^#' games/<game-id>/SPEC.md` で見出しを出すか、用語で grep して、関係する章だけを行を指定して読む。サブエージェントに渡すときも、読む章を指示に書く
-- **確認のコマンド**: `npm test` は1件ずつ結果が出るので、出力をファイルに書いて末尾の集計だけを見る（`npm test > "${TMPDIR:-/tmp}/test.log" 2>&1; tail -n 15 "${TMPDIR:-/tmp}/test.log"`）。失敗したら `grep -n FAIL` で場所を探し、その周りだけを読む。`npm run sim` は、画面の出力ではなく `sim-results/` の集計（`*-summary.tsv`）を読む
+- **確認のコマンド**: テストは1件ずつ結果が出るので、出力をファイルに書いて末尾の集計だけを見る（全体を流すなら `npm test > "${TMPDIR:-/tmp}/test.log" 2>&1; tail -n 15 "${TMPDIR:-/tmp}/test.log"`。範囲を絞ったときも同じ形で、`npm test` を `npx vitest run --project '<id>-*'` に替える）。失敗したら `grep -n FAIL` で場所を探し、その周りだけを読む。`npm run sim` は、画面の出力ではなく `sim-results/` の集計（`*-summary.tsv`）を読む
 
 ## 作業の進め方（サブエージェントへの振り分け）
 
@@ -52,7 +52,7 @@
 2. **渡す**: ユーザーが OpenCode に票を渡す。OpenCode は票のブランチに移り、編集と確認だけを行う。commit・push はしない。結果は `.tasks/<番号>-<名前>.result.md` に書く。Claude から `opencode run` をバックグラウンドで起動してもよい（出力は読まず、終わったら result を読む）
    - 起動: `env -C <作業ツリー> PWD=<作業ツリー> OPENCODE_DISABLE_CLAUDE_CODE=1 ~/.opencode/bin/opencode run --standalone --title "<票の番号>" "<票> の票をやって"`。`--dir` は無い。`--standalone` と `PWD` が無いと、共有のサービスにつながって、起動した場所（Vault など）で作業してしまう
    - 起動したきり止まることがある。数秒後に `opencode session list` に `--title` のセッションが出たかを確かめ、出なければ止めて起動し直す。並べるときは、1本ずつ起動して確かめてから次を起動する
-   - 並べてよいもの・1本ずつのもの: テストは Chromium を使うので、`npm test` を流すコードの票は一度に1本。文書の票・下書き・調査（テストを流さないもの）は、作業ツリーを分ければ並べてよい
+   - 並べてよいもの・1本ずつのもの: テストは Chromium を使うので、テストを流すコードの票は一度に1本。文書の票・下書き・調査（テストを流さないもの）は、作業ツリーを分ければ並べてよい
    - 再開: セッションはリポジトリ単位で残る。`opencode run --session <ID> "続きをやって"`（`--continue` は並べているときに別の票を拾う）
    - まとめて回す: Claude の枠が切れているあいだは、ユーザーが `tools/run_queue.sh` で `.tasks/queue.txt` の票を1本ずつ回す（変更は「WIP（未レビュー）」のコミットになり、push はしない）。Claude は票を上げたら `queue.txt` に順番と土台を足しておく。作業ツリーには、票と一緒に `.tasks/` の `context/`・`draft/`・ほかの票の result も写る。戻ったら、`.tasks/queue.log` と result を見て、WIP のコミットを番号の順にレビューする。OpenCode がサーバーの混雑で途中で止まったときは、少し待って同じセッションの続きから回し直す（`BUSY_WAIT` 秒を `BUSY_TRIES` 回まで）。環境変数 `QUEUE_STATUS_FILE` に書き出す先を渡すと、ログを書くたびに票の状態のページ（`tools/queue_status.py`。票ごとの状態・開いている PR・下書き・ログの最後）を書く。外から見るためのページで、Claude も票を上げたり PR を出したりしたら `python3 tools/queue_status.py --out <同じ先>` で書き直す
    - モデルは Flash（`opencode-go/deepseek-v4.1-flash`）。Pro は約2〜4.5倍遅く、出来は少し丁寧な程度だった。Flash で回して、レビューで差し戻す
