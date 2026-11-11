@@ -6,6 +6,7 @@ import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { newGame, step, type GameModel } from '../logic/game.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
+import { removeHud } from '../view/hud.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
 import { initPlayInput, readInput } from './input.ts';
 import { setState } from './screen.ts';
@@ -32,6 +33,7 @@ function clearPlay(old: PlayView): void {
     tracer.line.geometry.dispose();
     tracer.line.material.dispose();
   }
+  removeHud(old.hud);
 }
 
 // The sortie's time as minutes and seconds ("3:07").
@@ -70,6 +72,7 @@ function update(dt: number): void {
 // The result's screen: the run's time, and the title's page comes back by loading it again.
 export function showResult(): void {
   if (!game) return;
+  if (view) view.hud.root.hidden = true;
   setState('result');
   el('#sbResult').hidden = false;
   el('#sbResultTime').textContent = t('result.time', { time: clock(game.time) });

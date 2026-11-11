@@ -5,9 +5,11 @@ import { clamp } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { GameModel } from '../logic/game.ts';
+import { hudModel } from '../logic/hud.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from './camera.ts';
 import { feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
+import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { buildMechProxy } from './mechProxy.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
@@ -28,6 +30,7 @@ export interface PlayView {
   pitch: number; // the camera's pitch (rad)
   camPos: THREE.Vector3 | null; // the camera's place in the last frame
   tracers: Tracer[]; // the shots whose line is still showing
+  hud: PlayHud; // the sortie's HUD, in the page
 }
 
 // Builds the sortie's map and its mech into the scene. Hiding the start-up field is left to the caller.
@@ -35,7 +38,8 @@ export function buildPlayView(game: GameModel): PlayView {
   const world = buildWorld(game.map);
   const model = buildMechProxy(MECH_TUNE.height);
   scene.add(model);
-  return { world, model, feel: newFeel(CAMERA_TUNE.fov), pitch: 0, camPos: null, tracers: [] };
+  const hud = buildPlayHud(document.body);
+  return { world, model, feel: newFeel(CAMERA_TUNE.fov), pitch: 0, camPos: null, tracers: [], hud };
 }
 
 function addTracer(view: PlayView, ox: number, oy: number, oz: number, dx: number, dz: number, length: number): void {
@@ -99,4 +103,5 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game);
   stepTracers(view, dt);
+  drawHud(view.hud, hudModel(game));
 }
