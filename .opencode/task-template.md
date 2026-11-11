@@ -27,7 +27,8 @@
 
 - [ ] `npm run typecheck` が通る
 - [ ] `npm run lint` が通る
-- [ ] `npm test > .tasks/test.log 2>&1; echo "exit=$?"; tail -n 15 .tasks/test.log` が `exit=0`。ログは確かめたら `rm .tasks/test.log` で消す
+- [ ] `npx vitest run --project '<id>-*' > .tasks/test.log 2>&1; echo "exit=$?"; tail -n 15 .tasks/test.log` が `exit=0`。ログは確かめたら `rm .tasks/test.log` で消す。票を書く人が、流す範囲（ファイル名か project）を書き入れる。リポジトリ全体の `npm test` は流さない（CI が `tools/test_scope.js` の決めた範囲で流す）。engine・tools・設定を触る票は、触った所のテストと、影響が届きそうなゲームの project を書く
+- [ ] 票に書いていないテストが落ちたら、テストも実装も直さない。落ちたテストの名前と理由を result に書いて止める
 - [ ] <このタスク固有の条件>
 - [ ] <係数（強さ・報酬・値段・間隔など）を変える票だけ> 連鎖する所（収入・値段・節目の間隔・保存済みの値）を一緒に見直し、変えなかったものは理由を result に書く。報酬を増やす変更なら、増えたぶんがどこに乗るか（チップの数・強さ）も確かめる
 - [ ] <新しい種類の物（敵・小物・ステージの部品）を足す票だけ> 変える前と後に、同じ場面（`?stats` と場面を固定する確認用の入口）で描く回数と三角形の数を取り、result に書く（描く回数は物の種類の数で増え、区画に分けても減らないため）

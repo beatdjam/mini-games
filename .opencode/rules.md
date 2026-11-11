@@ -17,7 +17,8 @@ OpenCode は、Claude が書いたタスク票（`.tasks/<番号>-<名前>.md`�
   - README.md・STYLE.md・CLAUDE.md・SPEC.md（`games/<game-id>/SPEC.md`）は、票で指定された範囲だけを読む
 - コードを書いたら `npm run format` で整える
 - 終わったら票の完了条件のコマンドを流す
-  - `npm test` は出力が長いので、ファイルに書いて末尾だけを見る: `npm test > .tasks/test.log 2>&1; echo "exit=$?"; tail -n 15 .tasks/test.log`（`exit=0` で通った。ログは `.tasks/` の下に置き、確かめたら消す）。失敗したら `grep -n FAIL` で場所を探す
+  - 流すテストは、票の完了条件に書いてある範囲だけ。リポジトリ全体の `npm test` は流さない
+  - テストは出力が長いので、ファイルに書いて末尾だけを見る: `npx vitest run --project '<id>-*' > .tasks/test.log 2>&1; echo "exit=$?"; tail -n 15 .tasks/test.log`（範囲は票のとおりに替える。`exit=0` で通った。ログは `.tasks/` の下に置き、確かめたら消す）。失敗したら `grep -n FAIL` で場所を探す
 - 結果は票と同じ名前で `.tasks/<番号>-<名前>.result.md` に書く（変えたファイル、完了条件それぞれの結果、決められなかったこと）
 
 ## やらないこと
@@ -25,6 +26,7 @@ OpenCode は、Claude が書いたタスク票（`.tasks/<番号>-<名前>.md`�
 - commit・push・ブランチの作成・PR の作成（`opencode.json` でも止めている）。ブランチの切り替えは、始めるときの1回だけ
 - 作業ツリーにある、自分が作っていないファイルを消すこと・戻すこと（`git clean`・`git checkout -- <file>`・`git stash` を使わない）
 - 仕様がはっきりしない所を推測で埋めること。そこで止めて、result に書く
+- 票に書いていないテストが落ちたときに、テストや実装を直して通すこと。直さずに止めて、落ちたテストの名前と理由を result に書く
 - バランスの数値（敵・ボス・武器・チップの強さ、体力や被ダメージ）を票の指定から変えること
 - 依存パッケージを足すこと・`package.json` を変えること（`npm install` は `opencode.json` で止めている。要るときは result に書く）
 - リポジトリの外のファイルを読むこと・Web を見ること
