@@ -1,8 +1,9 @@
 // Checks a map against M1's script and against the mech's size (SB-055): the names line up, everything stands inside
-// the bounds, the targets stand apart, and a mech with a 1 m radius can walk from the front edge to the back one. A
-// map under construction is checked after every edit, so the problems come back as a list, not as an exception.
+// the bounds, the targets stand apart, and a mech with a 1 m radius can walk from the front edge to the back one (with a
+// seawall: in two stretches, see checkMapPath). A map under construction is checked after every edit, so the problems
+// come back as a list, not as an exception.
 import { distXZ } from '@engine/core/index.ts';
-import { PROP_SIZE } from '../data/props.ts';
+import { PROP_SIZE, TARGET_SIZE } from '../data/props.ts';
 import { MECH_TUNE } from '../data/tune.ts';
 import type { MapDef, MissionDef } from '../data/types.ts';
 import { rectDistance } from './collide.ts';
@@ -10,6 +11,7 @@ import { mapBlockers } from './mapShapes.ts';
 
 const CELL = 2; // the side of one cell of the walking check (m)
 const TARGET_GAP = 12; // how close two targets may stand (m)
+const TARGET_REACH = 4; // how near a target behind the seawall the walk must come: the mech's middle to its edge (m)
 
 export type MapViolationKind =
   | 'target-missing' // the mission destroys a target the map does not have
@@ -18,18 +20,24 @@ export type MapViolationKind =
   | 'out-of-bounds' // a prop or target stands outside the map
   | 'target-duplicate' // the same target id is on the map more than once
   | 'targets-close' // two targets stand less than TARGET_GAP apart
-  | 'no-path'; // the mech cannot walk from the front edge to the back edge (the seawall's foot, with a seawall)
+  | 'no-path'; // the mech cannot walk from the front edge to the back edge (with a seawall: to its foot, and from its back to the targets behind it)
 
 export interface MapViolation {
   kind: MapViolationKind;
   message: string;
 }
 
-// The names the mission has outside this map's range. The hand map covers only the B line and the front of C, so M1's
-// guns and magazine (past the seawall) and the beach's waves are left out of the name checks.
+// The names the mission has outside this map's range: a map that stops short of M1's guns and magazine, or of the
+// waves that come in on the beach and the battery, leaves them out of the name checks.
 export interface MapCheckSkip {
   waves?: readonly string[];
   targets?: readonly string[];
+}
+
+interface Grid {
+  cols: number;
+  rows: number;
+  cells: Uint8Array; // 0 free, 1 blocked; row 0 is minZ
 }
 
 const range = (min: number, max: number): string => `${min}..${max}`;
@@ -107,7 +115,7 @@ function checkWaves(map: MapDef, mission: MissionDef, skip: MapCheckSkip, out: M
 // broken: a breakable stretch counts as blocking, so a map must still be crossable through its breakthroughs even
 // without breaking it. Stairs are walked up from their lowest step, so they count as open ground here: a flight set
 // behind a breakthrough does not close it (the climb itself is checked by walking it in the tests).
-function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Array } {
+function blockedCells(map: MapDef): Grid {
   const { minX, minZ, maxX, maxZ } = map.bounds;
   const cols = Math.max(1, Math.floor((maxX - minX) / CELL));
   const rows = Math.max(1, Math.floor((maxZ - minZ) / CELL));
@@ -133,26 +141,33 @@ function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Ar
   return { cols, rows, cells };
 }
 
-// The row the walk has to reach. Without a seawall it is the back edge (row 0). With one it is the row just landward of
-// the clearance in front of the seawall's seaward face: the seawall is climbed by its stairs, which this check does not
-// walk, so the check asks for a way from the front edge to the seawall's foot.
-function goalRow(map: MapDef): number {
-  let foot = -Infinity; // the seaward face of the seawall nearest the sea (z, m)
+// The two faces of the seawall (z, m): the one nearest the sea and the one nearest the land. Null when the map has none.
+function seawallFaces(map: MapDef): { foot: number; back: number } | null {
+  let foot = -Infinity;
+  let back = Infinity;
   for (const prop of map.props) {
     if (prop.kind !== 'seawall') continue;
     const size = PROP_SIZE.seawall;
     const half = (Math.abs(Math.cos(prop.yaw)) * size.d + Math.abs(Math.sin(prop.yaw)) * size.w) * prop.scale * 0.5;
     foot = Math.max(foot, prop.z + half);
+    back = Math.min(back, prop.z - half);
   }
-  if (foot === -Infinity) return 0;
-  return Math.max(0, Math.floor((foot + MECH_TUNE.radius + CELL - map.bounds.minZ) / CELL - 0.5));
+  return foot === -Infinity ? null : { foot, back };
 }
 
-// The walking check on its own: breadth-first from every free cell on the front edge (maxZ) to the back edge (minZ), or
-// to the seawall's foot when the map has a seawall (goalRow). generateMap runs this after each try, so the two views
-// and the tests see the same answer.
-export function checkMapPath(map: MapDef): MapViolation[] {
-  const { cols, rows, cells } = blockedCells(map);
+// The row the first stretch has to reach. Without a seawall it is the back edge (row 0). With one it is the row just
+// landward of the clearance in front of the seawall's seaward face: the seawall is climbed by its stairs, which this
+// check does not walk, so the check asks for a way from the front edge to the seawall's foot.
+function goalRow(map: MapDef): number {
+  const faces = seawallFaces(map);
+  if (faces === null) return 0;
+  return Math.max(0, Math.floor((faces.foot + MECH_TUNE.radius + CELL - map.bounds.minZ) / CELL - 0.5));
+}
+
+// The first stretch: breadth-first from every free cell on the front edge (maxZ) to the back edge (minZ), or to the
+// seawall's foot when the map has a seawall (goalRow).
+function checkFront(map: MapDef, grid: Grid): MapViolation[] {
+  const { cols, rows, cells } = grid;
   const visited = new Uint8Array(cols * rows);
   const queue: number[] = [];
   for (let i = 0; i < cols; i++) {
@@ -165,11 +180,24 @@ export function checkMapPath(map: MapDef): MapViolation[] {
     return [{ kind: 'no-path', message: 'no free cell on the front edge: the mech cannot start' }];
   }
   const goal = Math.min(goalRow(map), rows - 1);
+  if (flood(grid, visited, queue, j => j <= goal)) return [];
+  return [
+    {
+      kind: 'no-path',
+      message: `the mech cannot walk from z ${map.bounds.maxZ} to ${goal === 0 ? `z ${map.bounds.minZ}` : "the seawall's foot"}: ${MECH_TUNE.radius} m of clearance does not fit`,
+    },
+  ];
+}
+
+// Fills `visited` outward from the queued cells over the free ones; true as soon as a cell in a row `stop` accepts is
+// reached (the queue then holds the cells found so far).
+function flood(grid: Grid, visited: Uint8Array, queue: number[], stop: (row: number) => boolean): boolean {
+  const { cols, cells } = grid;
   for (let head = 0; head < queue.length; head++) {
     const index = queue[head];
     const j = Math.floor(index / cols);
     const i = index % cols;
-    if (j <= goal) return [];
+    if (stop(j)) return true;
     const around = [i > 0 ? index - 1 : -1, i + 1 < cols ? index + 1 : -1, index - cols, index + cols];
     for (const next of around) {
       if (next < 0 || next >= visited.length || visited[next] || cells[next]) continue;
@@ -177,12 +205,56 @@ export function checkMapPath(map: MapDef): MapViolation[] {
       queue.push(next);
     }
   }
-  return [
-    {
+  return false;
+}
+
+// The second stretch, only for a map with a seawall and targets behind it: from the free cells just landward of the
+// seawall's back face, the mech must be able to come within TARGET_REACH of every target behind the seawall. The
+// stretch starts where the mech drops off the seawall, so it does not depend on the first one.
+function checkBehind(map: MapDef, grid: Grid): MapViolation[] {
+  const faces = seawallFaces(map);
+  if (faces === null) return [];
+  const behind = map.targets.filter(target => target.z < faces.back);
+  if (behind.length === 0) return [];
+  const { cols, rows, cells } = grid;
+  const { minX, minZ } = map.bounds;
+  const startRow = Math.floor((faces.back - MECH_TUNE.radius - minZ) / CELL - 0.5);
+  const visited = new Uint8Array(cols * rows);
+  const queue: number[] = [];
+  if (startRow >= 0 && startRow < rows) {
+    for (let i = 0; i < cols; i++) {
+      const index = startRow * cols + i;
+      if (cells[index]) continue;
+      visited[index] = 1;
+      queue.push(index);
+    }
+  }
+  flood(grid, visited, queue, () => false);
+  const out: MapViolation[] = [];
+  for (const target of behind) {
+    const size = TARGET_SIZE[target.kind];
+    const rect = { x: target.x, z: target.z, halfW: size.w / 2, halfD: size.d / 2, yaw: target.yaw };
+    const reached = queue.some(index => {
+      const x = minX + ((index % cols) + 0.5) * CELL;
+      const z = minZ + (Math.floor(index / cols) + 0.5) * CELL;
+      return rectDistance(rect, x, z) <= TARGET_REACH;
+    });
+    if (reached) continue;
+    out.push({
       kind: 'no-path',
-      message: `the mech cannot walk from z ${map.bounds.maxZ} to ${goal === 0 ? `z ${map.bounds.minZ}` : "the seawall's foot"}: ${MECH_TUNE.radius} m of clearance does not fit`,
-    },
-  ];
+      message: `the mech cannot walk from behind the seawall to within ${TARGET_REACH} m of ${target.id}`,
+    });
+  }
+  return out;
+}
+
+// The walking check on its own. A map with a seawall is walked in two stretches, because the seawall is climbed by its
+// stairs and dropped off at its back, which this check does not walk: from the front edge to the seawall's foot, and
+// from the seawall's back face to the targets behind it. A map without one is walked from the front edge to the back
+// edge. generateMap runs this after each try, so the two views and the tests see the same answer.
+export function checkMapPath(map: MapDef): MapViolation[] {
+  const grid = blockedCells(map);
+  return [...checkFront(map, grid), ...checkBehind(map, grid)];
 }
 
 // Every problem with `map` seen against `mission`, in a fixed order: names, bounds, target gaps, then the walk.

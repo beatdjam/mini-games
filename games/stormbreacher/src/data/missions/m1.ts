@@ -1,12 +1,12 @@
 // M1 「強襲上陸」の台本 (SB-050). The paper's write-down, one cue at a time: a trigger and the actions in order.
-// The places are a starting point on a 480 m deep, 200 m wide map: +z is the sea, A is the beach (z 120..240), B the
-// bunker line (z -30..120), C the seawall (z -150..-30) and the boss sits past z -150. seawall-top already follows the
-// hand map of B (data/maps/m1b-hand.ts), whose seawall runs at z -75..-65; the full-length map (SB-120) moves the rest.
+// The places follow the hand map (data/maps/m1b-hand.ts), 340 m deep and 200 m wide: +z is the sea, the beach and the
+// bunker line B run from z 170 to about z 0 (the pillboxes stand at z -15), C's two rows (z -55..-35) stand before the
+// seawall (z -75..-65), and the boss's ground lies past it: the guns at z -135 and the magazine at z -150.
 import type { Area, Cue, MissionDef } from '../types.ts';
 
 const AREAS = {
   'b-line': { x: 0, z: 135, w: 200, d: 30 }, // the band just before B (z 120..150)
-  'seawall-top': { x: 0, z: -70, w: 200, d: 10 }, // the top of the seawall in C (z -75..-65); the ground cannot reach it
+  'seawall-top': { x: 0, z: -70, w: 200, d: 10 }, // the top of the seawall (z -75..-65); the ground cannot reach it
 } as const satisfies Record<string, Area>;
 
 // The names the cues may use. A typo here is caught by validateMission when logic/script.ts loads the mission.

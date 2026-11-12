@@ -1,11 +1,13 @@
-// M1's B line and the front of C (SB-055), written by hand: every prop is one line so the shape can be read and
-// edited without a tool. +z is the sea and -z is the land; the bounds run back past the seawall (z -75..-65) to z -90.
+// All of M1 (SB-055, SB-120), written by hand: every prop is one line so the shape can be read and edited without a
+// tool. +z is the sea and -z is the land; the bounds run from the beach (z 170) back past the seawall (z -75..-65) to
+// the boss's ground (z -170).
 import type { MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B line is three defence lines across the map: three hedgehog rows each, with breakthroughs and, on lines 2 and 3,
 // a stretch marked breakable. Each row is spaced so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows
 // hold the front before the seawall, which runs across the whole map with a flight of stairs
-// right behind each breakthrough of the line before it (x -50 and x 35).
+// right behind each breakthrough of the line before it (x -50 and x 35). Behind the seawall (z -75..-170) is the boss's
+// ground: cover in its first stretch (z -80..-115) and the battery's three parts at the back (the targets below).
 const PROPS: Prop[] = [
   // the cliff along the right edge (x 100, clear of the line's last props)
   { kind: 'cliff', x: 100, z: 160, yaw: 0, scale: 1.08 },
@@ -593,6 +595,19 @@ const PROPS: Prop[] = [
   { kind: 'lowWall', x: 6, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: 30, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: 54, z: 154, yaw: 0, scale: 1 },
+  // cover on the boss's ground, landward of the seawall (z -80..-115): no sight line runs straight to the battery, and
+  // every gap between two pieces stays wider than the mech
+  { kind: 'block', x: -70, z: -84, yaw: 0.12, scale: 1.05 },
+  { kind: 'block', x: -35, z: -90, yaw: -0.18, scale: 1.06 },
+  { kind: 'block', x: -5, z: -82, yaw: 0.25, scale: 0.9 },
+  { kind: 'block', x: 25, z: -88, yaw: -0.05, scale: 1.03 },
+  { kind: 'block', x: 60, z: -85, yaw: 0.2, scale: 0.98 },
+  { kind: 'block', x: -50, z: -108, yaw: -0.22, scale: 0.95 },
+  { kind: 'block', x: 45, z: -110, yaw: 0.08, scale: 0.93 },
+  { kind: 'wreck', x: -88, z: -100, yaw: -0.14, scale: 1.1 },
+  { kind: 'wreck', x: -15, z: -100, yaw: 0.16, scale: 0.97 },
+  { kind: 'wreck', x: 78, z: -102, yaw: -0.09, scale: 1.02 },
+  { kind: 'wreck', x: 15, z: -114, yaw: 0.23, scale: 1 },
 ];
 
 // Six mines on the beach (z 148..162), kept 6 m or more from the mech's start (x 0, z 166).
@@ -607,13 +622,17 @@ const MINES: MinePlace[] = [
 
 export const M1B_HAND: MapDef = {
   id: 'm1b-hand',
-  bounds: { minX: -100, maxX: 100, minZ: -90, maxZ: 170 },
+  bounds: { minX: -100, maxX: 100, minZ: -170, maxZ: 170 },
   props: PROPS,
   mines: MINES,
   targets: [
     { id: 'pillbox-1', kind: 'pillbox', x: -33, z: -15, yaw: 0 },
     { id: 'pillbox-2', kind: 'pillbox', x: 22, z: -15, yaw: 0.2 },
     { id: 'depot', kind: 'depot', x: 53, z: 31, yaw: -0.3 },
+    // the battery on the seawall's landward side: two main guns, and the magazine between and behind them
+    { id: 'main-gun-1', kind: 'gun', x: -30, z: -135, yaw: 0 },
+    { id: 'main-gun-2', kind: 'gun', x: 30, z: -135, yaw: 0 },
+    { id: 'magazine', kind: 'magazine', x: 0, z: -150, yaw: 0 },
   ],
   spawns: {
     'b-squad': [

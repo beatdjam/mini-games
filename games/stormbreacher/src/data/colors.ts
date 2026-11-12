@@ -3,6 +3,7 @@ import type { EnemyKind } from './enemies.ts';
 
 export const SAND_COLOR = 0xc2a878; // the ground's sand
 export const SKY_COLOR = 0x9db8c6; // the sky and the fog
+export const SEA_COLOR = 0x4f6f80; // the sea's surface, a little darker than the fog it fades into (仮)
 
 // The HUD's colours, shared by the mock (#view-hud) and the game's sortie. The values come from the mock as they were;
 // the shades are 仮 and will be tuned later.
