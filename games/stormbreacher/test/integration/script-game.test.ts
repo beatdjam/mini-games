@@ -51,8 +51,8 @@ function scriptLabels(game: GameModel): string[] {
 }
 
 // Runs M1 from the landing to the cleared result. The depot and the two pillboxes are shot from their fronts; the rest
-// of the targets (main-gun-1, main-gun-2, magazine) are not on M1B_HAND and seawall-top is outside its bounds, so the
-// test hands those to the script with sendToScript. When the map grows to C, this should shoot and walk them.
+// of the targets (main-gun-1, main-gun-2, magazine) are not on M1B_HAND and the mech does not climb the seawall here, so
+// the test hands those and seawall-top to the script with sendToScript (seawall.test.ts walks up to seawall-top).
 function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAfterTargets: boolean } {
   const outs: ScriptOut[] = [];
   let cleared = 0;

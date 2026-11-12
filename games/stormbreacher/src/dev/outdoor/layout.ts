@@ -4,7 +4,7 @@ import type { Rng } from '@engine/core/index.ts';
 import { TILE_SIZE } from '../../data/props.ts';
 import type { Prop, PropKind } from '../../data/types.ts';
 
-// The beach uses the map's prop kinds; crater and wreck are only on the map, not in this beach's bands.
+// The beach uses the map's prop kinds; crater, wreck, low wall and stairs are only on the map, not in this beach's bands.
 export type OutdoorKind = PropKind;
 export type OutdoorItem = Prop;
 
@@ -29,9 +29,11 @@ export const LAYOUT: Record<OutdoorKind, Band> = {
   bunker: { count: 20, scaled: true, x: [-BEACH, BEACH], z: [-60, -30], scale: [0.9, 1.1] },
   seawall: { count: 50, scaled: false, x: [-BEACH, BEACH], z: [-70, -70], scale: [1, 1] },
   cliff: { count: 40, scaled: true, x: [-BEACH, BEACH], z: [-200, -120], scale: [0.8, 1.4] },
-  // the map's craters and wrecks are not part of this beach
+  // the map's craters, wrecks, low walls and stairs are not part of this beach
   crater: { count: 0, scaled: true, x: [-BEACH, BEACH], z: [-20, 80], scale: [0.8, 1.4] },
   wreck: { count: 0, scaled: true, x: [-BEACH, BEACH], z: [-20, 80], scale: [0.8, 1.2] },
+  lowWall: { count: 0, scaled: true, x: [-BEACH, BEACH], z: [120, 160], scale: [1, 1] },
+  stairs: { count: 0, scaled: true, x: [-BEACH, BEACH], z: [-60, -60], scale: [1, 1] },
 };
 
 const SEAWALL_STEP = 8; // between the seawall's pieces along x (m)

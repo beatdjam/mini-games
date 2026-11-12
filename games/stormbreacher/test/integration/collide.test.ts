@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
-import { PROP_SIZE } from '../../src/data/props.ts';
+import { PROP_SIZE, STAIRS_TUNE } from '../../src/data/props.ts';
 import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
 import { blockingPropIndexes, mapBlockers } from '../../src/logic/mapShapes.ts';
@@ -58,7 +58,11 @@ test('walking head-on into a line hedgehog stops the mech in front of it', () =>
 });
 
 test('the walking check and the mech use the same rects', () => {
-  const blocking = M1B_HAND.props.filter(prop => PROP_SIZE[prop.kind].blocks).length;
+  // a flight of stairs is one rect per step
+  const rectsOf = (kind: string): number => (kind === 'stairs' ? STAIRS_TUNE.steps : 1);
+  const blocking = M1B_HAND.props
+    .filter(prop => PROP_SIZE[prop.kind].blocks)
+    .reduce((total, prop) => total + rectsOf(prop.kind), 0);
   expect(mapBlockers(M1B_HAND).length).toBe(blocking + M1B_HAND.targets.length);
 });
 

@@ -2,6 +2,7 @@
 // the bounds, the targets stand apart, and a mech with a 1 m radius can walk from the front edge to the back one. A
 // map under construction is checked after every edit, so the problems come back as a list, not as an exception.
 import { distXZ } from '@engine/core/index.ts';
+import { PROP_SIZE } from '../data/props.ts';
 import { MECH_TUNE } from '../data/tune.ts';
 import type { MapDef, MissionDef } from '../data/types.ts';
 import { rectDistance } from './collide.ts';
@@ -17,7 +18,7 @@ export type MapViolationKind =
   | 'out-of-bounds' // a prop or target stands outside the map
   | 'target-duplicate' // the same target id is on the map more than once
   | 'targets-close' // two targets stand less than TARGET_GAP apart
-  | 'no-path'; // the mech cannot walk from the front edge to the back edge
+  | 'no-path'; // the mech cannot walk from the front edge to the back edge (the seawall's foot, with a seawall)
 
 export interface MapViolation {
   kind: MapViolationKind;
@@ -104,7 +105,8 @@ function checkWaves(map: MapDef, mission: MissionDef, skip: MapCheckSkip, out: M
 // A target or a blocking prop stops the mech's middle from coming within MECH_TUNE.radius of its rect. The rects come
 // from mapBlockers, the same ones the mech's collision uses. The map is checked in the shape it has before anything is
 // broken: a breakable stretch counts as blocking, so a map must still be crossable through its breakthroughs even
-// without breaking it.
+// without breaking it. Stairs are walked up from their lowest step, so they count as open ground here: a flight set
+// behind a breakthrough does not close it (the climb itself is checked by walking it in the tests).
 function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Array } {
   const { minX, minZ, maxX, maxZ } = map.bounds;
   const cols = Math.max(1, Math.floor((maxX - minX) / CELL));
@@ -112,7 +114,8 @@ function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Ar
   const cells = new Uint8Array(cols * rows); // 0 free, 1 blocked
   // Each blocker looks only at the cells within its reach (its corner's distance from the middle plus the radius), so
   // the check does not go over every cell for every blocker; a cell outside that square cannot be within the radius.
-  for (const blocker of mapBlockers(map)) {
+  const walls = { ...map, props: map.props.filter(prop => prop.kind !== 'stairs') };
+  for (const blocker of mapBlockers(walls)) {
     const reach = Math.hypot(blocker.halfW, blocker.halfD) + MECH_TUNE.radius;
     const i0 = Math.max(0, Math.floor((blocker.x - reach - minX) / CELL));
     const i1 = Math.min(cols - 1, Math.floor((blocker.x + reach - minX) / CELL));
@@ -130,8 +133,24 @@ function blockedCells(map: MapDef): { cols: number; rows: number; cells: Uint8Ar
   return { cols, rows, cells };
 }
 
-// The walking check on its own: breadth-first from every free cell on the front edge (maxZ) to the back edge (minZ).
-// generateMap runs this after each try, so the two views and the tests see the same answer.
+// The row the walk has to reach. Without a seawall it is the back edge (row 0). With one it is the row just landward of
+// the clearance in front of the seawall's seaward face: the seawall is climbed by its stairs, which this check does not
+// walk, so the check asks for a way from the front edge to the seawall's foot.
+function goalRow(map: MapDef): number {
+  let foot = -Infinity; // the seaward face of the seawall nearest the sea (z, m)
+  for (const prop of map.props) {
+    if (prop.kind !== 'seawall') continue;
+    const size = PROP_SIZE.seawall;
+    const half = (Math.abs(Math.cos(prop.yaw)) * size.d + Math.abs(Math.sin(prop.yaw)) * size.w) * prop.scale * 0.5;
+    foot = Math.max(foot, prop.z + half);
+  }
+  if (foot === -Infinity) return 0;
+  return Math.max(0, Math.floor((foot + MECH_TUNE.radius + CELL - map.bounds.minZ) / CELL - 0.5));
+}
+
+// The walking check on its own: breadth-first from every free cell on the front edge (maxZ) to the back edge (minZ), or
+// to the seawall's foot when the map has a seawall (goalRow). generateMap runs this after each try, so the two views
+// and the tests see the same answer.
 export function checkMapPath(map: MapDef): MapViolation[] {
   const { cols, rows, cells } = blockedCells(map);
   const visited = new Uint8Array(cols * rows);
@@ -145,11 +164,12 @@ export function checkMapPath(map: MapDef): MapViolation[] {
   if (queue.length === 0) {
     return [{ kind: 'no-path', message: 'no free cell on the front edge: the mech cannot start' }];
   }
+  const goal = Math.min(goalRow(map), rows - 1);
   for (let head = 0; head < queue.length; head++) {
     const index = queue[head];
     const j = Math.floor(index / cols);
     const i = index % cols;
-    if (j === 0) return [];
+    if (j <= goal) return [];
     const around = [i > 0 ? index - 1 : -1, i + 1 < cols ? index + 1 : -1, index - cols, index + cols];
     for (const next of around) {
       if (next < 0 || next >= visited.length || visited[next] || cells[next]) continue;
@@ -160,7 +180,7 @@ export function checkMapPath(map: MapDef): MapViolation[] {
   return [
     {
       kind: 'no-path',
-      message: `the mech cannot walk from z ${map.bounds.maxZ} to z ${map.bounds.minZ}: ${MECH_TUNE.radius} m of clearance does not fit`,
+      message: `the mech cannot walk from z ${map.bounds.maxZ} to ${goal === 0 ? `z ${map.bounds.minZ}` : "the seawall's foot"}: ${MECH_TUNE.radius} m of clearance does not fit`,
     },
   ];
 }

@@ -1,10 +1,11 @@
 // M1's B line and the front of C (SB-055), written by hand: every prop is one line so the shape can be read and
-// edited without a tool. +z is the sea and -z is the land; the bounds stop before the seawall, which is not climbed yet.
+// edited without a tool. +z is the sea and -z is the land; the bounds run back past the seawall (z -75..-65) to z -90.
 import type { MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B line is three defence lines across the map: three hedgehog rows each, with breakthroughs and, on lines 2 and 3,
 // a stretch marked breakable. Each row is spaced so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows
-// hold the front before the seawall.
+// hold the front before the seawall, which runs across the whole map with a flight of stairs
+// right behind each breakthrough of the line before it (x -50 and x 35).
 const PROPS: Prop[] = [
   // the cliff along the right edge (x 100, clear of the line's last props)
   { kind: 'cliff', x: 100, z: 160, yaw: 0, scale: 1.08 },
@@ -507,6 +508,91 @@ const PROPS: Prop[] = [
   { kind: 'wreck', x: -15, z: -5, yaw: -0.18, scale: 1.06 },
   { kind: 'wreck', x: 45, z: 3, yaw: 0.25, scale: 0.9 },
   { kind: 'crater', x: 65, z: -2, yaw: -0.05, scale: 1.03 },
+  // the seawall across the map (z -75..-65): three overlapping rows of 8 m pieces leave no gap
+  { kind: 'seawall', x: -96, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -88, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -80, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -72, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -64, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -56, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -48, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -40, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -32, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -24, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -16, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -8, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 0, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 8, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 16, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 24, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 32, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 40, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 48, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 56, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 64, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 72, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 80, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 88, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 96, z: -73, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -96, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -88, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -80, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -72, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -64, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -56, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -48, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -40, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -32, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -24, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -16, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -8, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 0, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 8, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 16, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 24, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 32, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 40, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 48, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 56, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 64, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 72, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 80, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 88, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 96, z: -70, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -96, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -88, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -80, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -72, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -64, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -56, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -48, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -40, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -32, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -24, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -16, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: -8, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 0, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 8, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 16, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 24, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 32, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 40, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 48, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 56, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 64, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 72, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 80, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 88, z: -67, yaw: 0, scale: 1 },
+  { kind: 'seawall', x: 96, z: -67, yaw: 0, scale: 1 },
+  // two flights up the seawall from its sea side (z -65..-51.5), climbing towards -z
+  { kind: 'stairs', x: -50, z: -58.25, yaw: 0, scale: 1 },
+  { kind: 'stairs', x: 35, z: -58.25, yaw: 0, scale: 1 },
+  // low walls across the beach (z 154): too high to walk onto, low enough to jump, with 14 m between them
+  { kind: 'lowWall', x: -42, z: 154, yaw: 0, scale: 1 },
+  { kind: 'lowWall', x: -18, z: 154, yaw: 0, scale: 1 },
+  { kind: 'lowWall', x: 6, z: 154, yaw: 0, scale: 1 },
+  { kind: 'lowWall', x: 30, z: 154, yaw: 0, scale: 1 },
+  { kind: 'lowWall', x: 54, z: 154, yaw: 0, scale: 1 },
 ];
 
 // Six mines on the beach (z 148..162), kept 6 m or more from the mech's start (x 0, z 166).
@@ -521,7 +607,7 @@ const MINES: MinePlace[] = [
 
 export const M1B_HAND: MapDef = {
   id: 'm1b-hand',
-  bounds: { minX: -100, maxX: 100, minZ: -60, maxZ: 170 },
+  bounds: { minX: -100, maxX: 100, minZ: -90, maxZ: 170 },
   props: PROPS,
   mines: MINES,
   targets: [

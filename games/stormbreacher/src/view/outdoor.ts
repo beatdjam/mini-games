@@ -25,7 +25,18 @@ export interface OutdoorBuild {
 }
 
 // The order the kinds are built in (and drawn, until the chunks reorder them).
-const KINDS: PropKind[] = ['tile', 'hedgehog', 'block', 'bunker', 'seawall', 'cliff', 'crater', 'wreck'];
+const KINDS: PropKind[] = [
+  'tile',
+  'hedgehog',
+  'block',
+  'bunker',
+  'seawall',
+  'cliff',
+  'crater',
+  'wreck',
+  'lowWall',
+  'stairs',
+];
 
 export const TILE_COLOR = SAND_COLOR; // the sand a tile is drawn in at scale 1
 
@@ -39,6 +50,8 @@ const KIND_COLOR: Record<PropKind, number> = {
   cliff: 0x6e6759,
   crater: 0x8f7a58,
   wreck: 0x5a5148,
+  lowWall: 0x8f8a80,
+  stairs: 0x9a968c,
 };
 
 // A box with its place baked in (the base sits on y = 0 when y is half its height).
@@ -136,6 +149,23 @@ function wreckGeometry(): THREE.BufferGeometry {
   ]);
 }
 
+function lowWallGeometry(): THREE.BufferGeometry {
+  return box(6, 0.85, 1, 0, 0.425, 0);
+}
+
+// A flight of stairs drawn as a slope (its rects are steps, but a slope reads better from afar): a box whose near top
+// edge is lowered to the ground, so the top climbs towards -z and meets each step's far edge.
+function stairsGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.BoxGeometry(8, 6, 13.5);
+  geometry.translate(0, 3, 0);
+  const at = geometry.getAttribute('position');
+  for (let i = 0; i < at.count; i++) {
+    if (at.getZ(i) > 0 && at.getY(i) > 0) at.setY(i, 0);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
   tile: () => fitBox(tileGeometry(), PROP_SIZE.tile),
   hedgehog: () => fitBox(hedgehogGeometry(), PROP_SIZE.hedgehog),
@@ -145,6 +175,8 @@ const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
   cliff: () => fitBox(cliffGeometry(), PROP_SIZE.cliff),
   crater: () => fitBox(craterGeometry(), PROP_SIZE.crater),
   wreck: () => fitBox(wreckGeometry(), PROP_SIZE.wreck),
+  lowWall: () => fitBox(lowWallGeometry(), PROP_SIZE.lowWall),
+  stairs: () => fitBox(stairsGeometry(), PROP_SIZE.stairs),
 };
 
 const UP = new THREE.Vector3(0, 1, 0);

@@ -65,7 +65,17 @@ export interface MissionDef {
 // The map (SB-055): what stands where on M1's B line and the front of C, written by hand, made from a seed, or put
 // together in the editor. A prop is a piece of the ground or an obstacle; a target is a thing a cue can destroy; a
 // spawn is where a wave comes in. +z is the sea and -z is the land.
-export type PropKind = 'tile' | 'hedgehog' | 'block' | 'bunker' | 'seawall' | 'cliff' | 'crater' | 'wreck';
+export type PropKind =
+  | 'tile'
+  | 'hedgehog'
+  | 'block'
+  | 'bunker'
+  | 'seawall'
+  | 'cliff'
+  | 'crater'
+  | 'wreck'
+  | 'lowWall' // a low obstacle: too high to walk onto, low enough to jump over
+  | 'stairs'; // one flight of steps up the seawall; its rects are one per step (STAIRS_TUNE)
 
 export const PROP_KINDS: readonly PropKind[] = [
   'tile',
@@ -76,6 +86,8 @@ export const PROP_KINDS: readonly PropKind[] = [
   'cliff',
   'crater',
   'wreck',
+  'lowWall',
+  'stairs',
 ];
 
 export interface Prop {
