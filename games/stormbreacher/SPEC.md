@@ -34,15 +34,17 @@
 
 `src/data/enemies.ts` は敵の表（`EnemyKind`・`ENEMY_KINDS`・`ENEMIES`・波の名前から出る敵の種類を引く `M1_WAVE_ENEMY`・撃つ高さの割合 `ENEMY_CHEST`）、`src/logic/enemies.ts` は敵1体の状態 `EnemyState` と1フレームの動き `stepEnemy`（three も DOM も読まない純粋な関数。乱数は引数で受ける）、`src/view/enemies.ts` は敵を種類ごとに1つの `InstancedMesh`（描く回数は種類の数）で描く。敵の色は `src/data/colors.ts` の `ENEMY_COLOR`・`ENEMY_DOWN_COLOR`・`ENEMY_BULLET_COLOR`。
 
+`src/data/hazards.ts` は迫撃砲の砲撃と地雷の表（`BarrageKind`・`BARRAGE_KINDS`・`BARRAGES`・波の名前から出る砲撃の種類を引く `M1_WAVE_BARRAGE`・地雷の `MINE_TUNE`）、`src/logic/hazards.ts` は砲撃と地雷の純粋な関数（`newBarrage`・`stepBarrage`・`stepShells`・`inCircle`・`mineStepped`。乱数は引数で受ける）、`src/view/hazards.ts` は着弾予告の輪と地雷の円盤を `InstancedMesh` 1つずつで描く。色は `src/data/colors.ts` の `SHELL_WARN_COLOR`・`SHELL_LAND_COLOR`・`MINE_COLOR`。
+
 `src/logic/script.ts` はミッションの台本を進める純粋な関数。`src/data/missions/m1.ts` に M1 の cue の並びと、場所・物・波・目標・印・味方・道の名前の一覧を置き、`src/data/script.ts` にカットシーンの秒と無線の最低表示時間を置く。
 
 `src/logic/mapCheck.ts` はマップが台本と機体の大きさに合うかを調べる純粋な関数。`src/logic/mapgen.ts` は種と規則から物を並べる純粋な関数。M1 の B の手書きのマップは `src/data/maps/m1b-hand.ts`、生成の規則は `src/data/maps/m1b-rules.ts` に置く。
 
 `src/logic/collide.ts` は平面で円を回った四角から押し出す純粋な関数で、engine へ移す候補なのでゲームのファイルを読まず、四角と半径を引数で受ける（規則 `sb-portable-no-game`）。関数は円を四角から押し出す `pushOutCircle`、点と四角の距離 `rectDistance`、2つの四角の最短距離 `rectGap`、円の下の高い面 `groundAt`。`src/logic/mapShapes.ts` の `mapBlockers` が `MapDef` から四角の一覧を作り、通り道の検査と機体の当たりがそれを読む。規則に入っているファイルは `src/logic/collide.ts`・`src/logic/mech.ts`・`src/logic/fcs.ts`・`src/logic/fire.ts`・`src/view/camera.ts`・`src/data/tuneTypes.ts` の6つで、機体・カメラ・FCS の調整の型は値と分けて `src/data/tuneTypes.ts` に置く（値は `src/data/tune.ts`）。
 
-`src/logic/game.ts` は出撃の `GameModel`（機体・機体の装甲 `armor` と倒れた印 `downed`・マップ・目標の体力・壊せる物の体力（`breakables`）・敵 `enemies`・メインとサブの武器・FCS の状態 `fcs`・ソフトロックが狙いを寄せている目標か敵の id `aimTarget`・飛んでいる弾 `bullets`・台本の状態 `script`・最後の無線 `radio`・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、FCS（`soft`）が照準の円の中の生きている目標と敵へ狙いを寄せ、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・弾速・間隔・弾数）、敵が起きて歩いて撃ち（5章の「敵」）、弾が飛んで目標や敵に当たると体力が減って0で壊れる・倒れる。`step` は壊れた目標（`destroyed`）と入った場所（`enter`）を台本に渡し、波の敵が全部倒れたら `cleared` を台本に渡し、台本の時間を進め、台本の出来事を `script` の出来事として残す。出撃が終わる（`cleared`）のは台本の `end` が来たときだけ。機体の装甲が 0 になる（`downed`）と `step` は何もしない（`cleared` のあとと同じ）。台本の `spawn`（敵の波）は敵を出し、`ally`（味方）は味方ができるまで本体で受けても何もしない（出来事に残すだけ）。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。
+`src/logic/game.ts` は出撃の `GameModel`（機体・機体の装甲 `armor` と倒れた印 `downed`・マップ・目標の体力・壊せる物の体力（`breakables`）・敵 `enemies`・メインとサブの武器・FCS の状態 `fcs`・ソフトロックが狙いを寄せている目標か敵の id `aimTarget`・飛んでいる弾 `bullets`・始まった砲撃 `barrages`・落ちる前の着弾予告 `shells`・残っている地雷 `mines`・台本の状態 `script`・最後の無線 `radio`・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、FCS（`soft`）が照準の円の中の生きている目標と敵へ狙いを寄せ、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・弾速・間隔・弾数）、敵が起きて歩いて撃ち（5章の「敵」）、弾が飛んで目標や敵に当たると体力が減って0で壊れる・倒れる。`step` は壊れた目標（`destroyed`）と入った場所（`enter`）を台本に渡し、波の敵が全部倒れたら `cleared` を台本に渡し、台本の時間を進め、台本の出来事を `script` の出来事として残す。出撃が終わる（`cleared`）のは台本の `end` が来たときだけ。機体の装甲が 0 になる（`downed`）と `step` は何もしない（`cleared` のあとと同じ）。台本の `spawn`（敵の波）は敵を出し、`ally`（味方）は味方ができるまで本体で受けても何もしない（出来事に残すだけ）。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。
 
-`src/logic/hud.ts` は HUD に出す値（ブースト・装甲・メインとサブの弾数・目標の数・ソフトロックが狙いを寄せている目標か敵の体力・レーダーの点）を `GameModel` から作る純粋な関数 `hudModel`。装甲は `armor / MECH_TUNE.armor`。熱は持たない。描くのは `view/hud.ts`。
+`src/logic/hud.ts` は HUD に出す値（ブースト・装甲・メインとサブの弾数・目標の数・ソフトロックが狙いを寄せている目標か敵の体力・レーダーの点・着弾予告の警告 `warning`）を `GameModel` から作る純粋な関数 `hudModel`。装甲は `armor / MECH_TUNE.armor`。熱は持たない。描くのは `view/hud.ts`。
 
 `src/app/touch.ts` は engine のスティック・視点のドラッグ・タッチのボタンを `MechInput` の形に変え、ボタンの配置の編集と、押した回数・同時に触れている指の数・動作が同時に効いた時間を測る。
 
@@ -74,7 +76,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `play` | true | 出撃中 |
 | `result` | false | 結果の画面 |
 
-画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間と「タイトルへ」）になる。「タイトルへ」は今は `location.reload()` で戻る（結果とセーブは SB-210）。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱・無線・警告は出さない。値の出し方は `src/logic/hud.ts`。色と主張は仮。
+画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間と「タイトルへ」）になる。「タイトルへ」は今は `location.reload()` で戻る（結果とセーブは SB-210）。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱・無線は出さない。機体が着弾予告の円の中にいる間だけ、照準の円の上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。値の出し方は `src/logic/hud.ts`。色と主張は仮。
 
 機体の装甲が 0 になる（`downed`）と、`src/app/play.ts` の `update` が結果の画面（`showResult`）へ移す。見出しは、やられたときが `result.downed`（「やられた」/ Downed）、台本の終わりのときが `result.title`（「突破」/ Breakthrough）。どちらも所要時間と「タイトルへ」が出る。やられたときだけ、さらに「チェックポイントから」（`#sbResultCheckpoint`。チェックポイントがあるときだけ）と「最初から」（`#sbResultRestart`）が出る。台本の終わりのときは出ない。押すと、`beginPlay`（`startSortie` と同じ片付けと組み直し）で新しい `GameModel` を描き直し、結果の画面を消して `play` に戻る。やり直しの中身は 7章「チェックポイント」。
 
@@ -82,7 +84,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 - 乱数は `src/logic/rng.ts` の1つの口からだけ引く。ほかで `Math.random` を呼ばない
 - `rng()`: 全体の乱数。`seed(n)` で種を入れると、同じ種からは同じ並びになる
-- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
+- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）・`mortar`（迫撃砲の狙いのずれ）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
 - 種を入れていないときは、どれも `Math.random` から引く
 
 ## 4. セーブ
@@ -183,6 +185,41 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 波が終わる: 波の敵が全部倒れると、`checkWaves` が台本に `cleared`（`wave`）を渡す。台本が覚えるので1回だけ。敵を出さなかった波には渡さない
 - FCS: 生きている敵も `fcsTargets` に入る。`aimTarget` は目標か敵の id
 - 見た目: `src/view/enemies.ts` が種類ごとの `InstancedMesh`（名前 `sb-enemy-<kind>`、最大 64 体、色 `ENEMY_COLOR`）で描く。倒れた敵は高さを 0.35 倍にして `ENEMY_DOWN_COLOR` に変える。HUD の敵の名前は `target.<kind>`、レーダーの印は赤い点
+
+### 迫撃砲の砲撃と地雷
+
+SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ人が壊しに行く対象にはしない。値はどれも仮。定義は `src/data/hazards.ts`、動きは `src/logic/hazards.ts` と `src/logic/game.ts` の `stepHazards`、見た目は `src/view/hazards.ts`。
+
+- 砲撃（表 `BARRAGES`: `Record<BarrageKind, BarrageDef>`。種類は今 `mortar` だけ）
+  - 始まる: 台本の `spawn` で、波の名前が `M1_WAVE_BARRAGE`（`beach-mortar` が `mortar`）にあれば `startBarrage` が `game.barrages` に足す。同じ波では1回だけ。始まったら止まらない（陣地は壊せないため、台本で止める仕組みは持たない）
+  - 流れ（`stepBarrage`）: 機体の足元の z が `minZ` 以上の間だけ `wait` を数える。0 になるたびに着弾予告 `ShellState` を `game.shells` に足し、出来事 `shellWarn`（`x`・`z`・`radius`）を出す。届かない間は数えない（届く所に戻ってから `interval` 後が最初の予告）
+  - 狙い: 機体の位置から、向きは 0〜2π、距離は 0〜`aimJitter` の一様な乱数でずらした所。乱数の列は `stream('mortar')`
+  - 落ちる: `shells` の `left` が `dt` ずつ減り、0 になった予告が落ちて `shellLand`（`x`・`z`・`hit`）を出す。機体の足元が半径 `radius` の円の中なら `hit` が true で、`damageMech` と同じ道で装甲が `damage` 減る（`damaged` の向きは機体から落ちた所へ）
+- 地雷（`MINE_TUNE`）
+  - 置き場所は `MapDef.mines`（`MinePlace` の一覧。省略できる）。省略した地図は地雷なしで、生成の地図と簡易エディタの地図は地雷を持たない。`newGame` が `game.mines`（`x`・`z`・`hp`）にする
+  - 踏む: 機体の足元から `stepRadius` 以内で爆発する（跳んでいても高さは見ない）
+  - 撃つ: 機体の弾は、地雷の箱（`size` の幅・高さ・奥行き）に当たると止まり、`hp` が威力の分だけ減る。0 で爆発する。弾が止まる順は、目標・敵・地雷・物・地面のうち、飛ぶ道の上でいちばん近いもの（敵の弾は地雷を素通りする）。当たりの出来事 `hit` は、地面と同じく目標・物・敵・機体のどれも空
+  - 爆発（`blowUp`）: 地雷が `game.mines` から消え、出来事 `mineBlast`（`x`・`z`・`hit`）を出す。機体の足元が `blastRadius` 以内なら `hit` が true で、装甲が `damage` 減る
+- チェックポイント: `shells` は持ち越さない（`retryFromCheckpoint` で空にする。`bullets` と同じ）。`barrages` と `mines` はコピーで、壊した地雷は戻らない
+- 見た目（`src/view/hazards.ts`）
+  - 着弾予告の輪: 地面の輪を `InstancedMesh`（名前 `sb-shells`、最大 16）1つで描く。輪の半径は爆発の半径のまま、落ちるまでの間に `SHELL_WARN_COLOR` から `SHELL_LAND_COLOR` へ明るくなる
+  - 地雷: 地面の円盤を `InstancedMesh`（名前 `sb-mines`、最大 64）1つで描く。爆発したものは描かない
+  - 落ちた・爆発したときは、その場に砂ぼこり（`spawnDust`）を出し、外れても機体から 25m 以内ならカメラが揺れる（当たったときは `damaged` の揺れ）。描く回数は輪1・地雷1。`clearPlay` が片付ける
+- HUD の警告: `hudModel` の `warning` は、機体がどれかの着弾予告の円の中にいる間 `'shell'`、ほかは null
+
+| 名前 | 値 | 単位・意味 |
+|------|----|------------|
+| `BARRAGES.mortar.interval` | 4 | s。予告から次の予告まで（届く間だけ数える） |
+| `BARRAGES.mortar.warn` | 2.5 | s。予告から着弾まで |
+| `BARRAGES.mortar.radius` | 7 | m。爆発の半径 |
+| `BARRAGES.mortar.damage` | 25 | 当たったときに減る装甲 |
+| `BARRAGES.mortar.aimJitter` | 12 | m。狙いのずれの最大 |
+| `BARRAGES.mortar.minZ` | 30 | m。砲撃が届くのはこの z より海側 |
+| `MINE_TUNE.stepRadius` | 1.8 | m。踏んで爆発する距離 |
+| `MINE_TUNE.blastRadius` | 4 | m。爆発で装甲が減る距離 |
+| `MINE_TUNE.damage` | 30 | 爆発で減る装甲 |
+| `MINE_TUNE.hp` | 10 | 機体の弾に対する体力 |
+| `MINE_TUNE.size` | 1×0.3×1 | m。弾の当たる箱（幅・高さ・奥行き） |
 
 三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）をカメラの壁として渡す。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
 
@@ -404,7 +441,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - コピーの形: `GameSnapshot` は `GameModel` から保存しない項目を除いたもの + 取った id。除く項目は `events`（空）・`bullets`（飛んでいる弾は持ち越さない）・`checkpoint`（入れ子にしない）。項目を足したときは、除く項目に書かない限りコピーされる。`map` と `mission` は書き換えない定義なので、コピーせず同じものを指す
 - `retryFromCheckpoint(game)` は、コピーをもう一度深くコピーして新しい `GameModel` を返す（元は変わらない）
   - 戻る: 機体の位置・時計・敵（波は出し直さない）・目標・壊せる物・台本（`restoreCheckpoint` と同じ中身）・無線
-  - 満タンに戻る: 装甲（`MECH_TUNE.armor`）、メインとサブの弾数と待ち（`M1_LOADOUT` の表）。`downed`・`cleared` は false、`fcs` は新しく、`aimTarget` は null、`bullets` は空
+  - 満タンに戻る: 装甲（`MECH_TUNE.armor`）、メインとサブの弾数と待ち（`M1_LOADOUT` の表）。`downed`・`cleared` は false、`fcs` は新しく、`aimTarget` は null、`bullets` と `shells` は空（着弾予告は持ち越さない）。砲撃 `barrages` と地雷 `mines` はチェックポイントのまま
   - `retries` は前の値 + 1（やり直した回数。修理費と弾の積み直しの請求は SB-210 が使う）。`checkpoint` は同じものを持つので、続けてやられても同じ所へ戻る。`events` は `{ kind: 'retried', from: <id> }`
   - チェックポイントが無いときは例外
 - `restartGame(game)` は `newGame(game.map, game.mission)` で最初から。`retries` は前の値 + 1、`events` は `{ kind: 'retried', from: null }`、`checkpoint` は null
@@ -420,12 +457,12 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 M1 の B トーチカ線と C 防波堤の手前（z −60〜170、x −100〜100）を、手書き・生成・簡易エディタの3つの作り方で同じ形のデータにする。決めるのは遊ぶ人と Claude で、どの作り方がよいかはこの仕様では決めない。
 
-- `MapDef`（`src/data/types.ts`）は `id`・`bounds`（`minX`・`maxX`・`minZ`・`maxZ`）・`props`・`targets`・`spawns` を持つ。`bounds` の外は作らない
+- `MapDef`（`src/data/types.ts`）は `id`・`bounds`（`minX`・`maxX`・`minZ`・`maxZ`）・`props`・`targets`・`spawns` と、省略できる `mines`（`MinePlace`: `x`・`z`）を持つ。`bounds` の外は作らない
 - `Prop` は `kind`・`x`・`z`・`yaw`・`scale`・`breakable?`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）。`breakable: true` は撃つと壊れる物の印。体力は種類ごとに `PROP_HP`（仮）で、`hedgehog` 30・`block` 60・`bunker` 150・`seawall` 120・`wreck` 80・`cliff` 300（`tile`・`crater` は 0）。壊れると機体の当たりと弾の箱から外れて通れる。見た目は低い暗い残骸（`BROKEN_SCALE_Y`）で、`InstancedMesh` と描く回数は増えない
 - `TargetPlace` は `id`・`kind`・`x`・`z`・`yaw`。種類（`TargetKind`）は `pillbox`・`depot`・`gun`・`magazine`。`spawns` は波の名前 → `SpawnPoint`（`x`・`z`）の一覧
 - 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。物の大きさは高さ 8m・当たり半径 2m の機体に合わせて決めたときのまま。機体は今 4m・当たり半径 1m（`MECH_TUNE`）で、ジャンプの最高点は約 1m なので、対戦車障害物（3m）は跳んでも越えられない。描く形（`src/view/outdoor.ts`）も検査も当たりもこの表を読む。`breakable` の物は同じ形のまま色を少し赤っぽくし、種類ごとの `InstancedMesh` と描く回数は増やさない（`instanceColor`）
 - 目標の体力は `TARGET_HP`（仮。`pillbox` 100・`depot` 60・`gun` 200・`magazine` 80。武器の表の威力で減り、トーチカは機関砲10発・砲2発で壊れる。SB-190 で決め直す）
-- 手書きは `src/data/maps/m1b-hand.ts`。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`depot`、波は `b-squad`・`seawall-drop`
+- 手書きは `src/data/maps/m1b-hand.ts`。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`depot`、波は `b-squad`・`seawall-drop`。地雷は浜（z 148〜162、x −60〜60）に6個で、機体の始まり（x 0, z 166）から 6m 以上離す
   - B は「三重の防御線」: z 128〜146・z 80〜96・z 8〜26 に、それぞれ対戦車障害物を3列（列の間 6m 前後、同じ列の中は 4.4m 以下の間隔で均等に並べる）。線1の突破口は x −55 と x 40、線2は x −10（ほかに壊せる区間 x 40〜60）、線3は x 61（ほかに壊せる区間 x −40〜−20）。突破口はどれも四角の間で 9m 前後、壊せる区間は幅 15m 前後。同じ列の中の隣との四角の距離は 2m 未満（最大 約 1.3m）で、当たり半径 1m の機体は突破口と壊せる区間を壊したあとでなければ列を抜けられない
   - C の手前（z −55〜−35）は2列で突破口が2か所。線の間には塊・残骸・クレーターの遮蔽物をそれぞれ 10〜12 個、線3の奥に6個ほど置く
   - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は z −55。崖は右の辺のまま

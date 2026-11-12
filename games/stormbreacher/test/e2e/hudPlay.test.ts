@@ -20,9 +20,10 @@ const key = (type: string, code: string): KeyboardEvent => new KeyboardEvent(typ
 test('a sortie shows the HUD', () => {
   startSortie();
   const hud = el('#sbPlayHud');
-  for (const id of ['armor', 'boost', 'main', 'sub', 'objective', 'radar', 'reticle'])
+  for (const id of ['armor', 'boost', 'main', 'sub', 'objective', 'radar', 'reticle', 'warning'])
     expect(hud.querySelector(`[data-hud="${id}"]`), `the HUD is missing ${id}`).not.toBeNull();
-  for (const id of ['heat', 'radio', 'warning'])
+  expect(hud.querySelector('[data-hud="warning"]')?.hasAttribute('hidden'), 'no warning at the start').toBe(true);
+  for (const id of ['heat', 'radio'])
     expect(hud.querySelector(`[data-hud="${id}"]`), `the HUD should not have ${id}`).toBeNull();
   expect(document.querySelector('#sbHud')).toBeNull();
 });

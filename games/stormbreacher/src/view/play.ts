@@ -1,7 +1,7 @@
 // The sortie as the screen draws it: the map on M1's B line, the mech, its shots, the dust and the camera's feel. The
 // view reads GameModel and never writes it; logic/game.ts owns the mech, the targets and the frame's events.
 import * as THREE from 'three';
-import { clamp } from '@engine/core/index.ts';
+import { clamp, distXZ } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
 import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
 import { lookOf } from '../data/looks.ts';
@@ -12,6 +12,7 @@ import { hudModel } from '../logic/hud.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
+import { drawHazards, buildHazardView, type HazardView } from './hazards.ts';
 import { feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { applyLookTo } from './look.ts';
@@ -24,6 +25,8 @@ const MAX_BULLET_LINES = 96; // the most bullets drawn at once, for the mech's a
 const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
 const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per landing
 const BOOST_DUST = 6; // the same, per boost start
+const BLAST_DUST = 14; // the same, per shell landing or mine blast
+const BLAST_SHAKE_NEAR = 25; // a blast this near the mech (m) shakes the camera even when it does no harm
 
 // The bullets in flight, drawn as one set of line segments: two vertices a bullet, the position written every frame.
 export interface BulletLines {
@@ -40,6 +43,7 @@ export interface PlayView {
   bullets: BulletLines; // the lines of the mech's shots in flight
   enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
   enemies: EnemyView; // the enemies' instanced boxes
+  hazards: HazardView; // the warned shells' rings and the mines' discs
   hud: PlayHud; // the sortie's HUD, in the page
 }
 
@@ -60,6 +64,7 @@ export function buildPlayView(game: GameModel): PlayView {
     bullets: buildBulletLines(TRACER_COLOR),
     enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
     enemies: buildEnemyView(),
+    hazards: buildHazardView(),
     hud,
   };
 }
@@ -96,7 +101,7 @@ function drawBullets(lines: BulletLines, bullets: readonly Bullet[]): void {
 }
 
 // One frame of the sortie: the frame's events become dust and the camera's shake, the bullets in flight become lines
-// (the mech's and the enemies' apart), the enemies are drawn, the mech and the map follow the game's state, and the camera looks from behind the mech. The feel's hit stop is not
+// (the mech's and the enemies' apart), the enemies, the rings of warned shells and the mines are drawn, the mech and the map follow the game's state, and the camera looks from behind the mech. The feel's hit stop is not
 // used: the logic cannot be frozen.
 export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
   const mechEvents: MechEvent[] = [];
@@ -112,6 +117,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
     } else if (event.kind === 'destroyed' || event.kind === 'enemyDown') {
       kill = true;
+    } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
+      spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
+      // a blast that hurt shakes through 'damaged'; a near one that missed shakes here
+      if (!event.hit && distXZ(event, game.mech) <= BLAST_SHAKE_NEAR) feelDamage(view.feel, FEEL_TUNE);
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
     }
@@ -141,5 +150,6 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   );
   drawBullets(view.enemyBullets, game.bullets.filter(isEnemyBullet));
   drawEnemies(view.enemies, game);
+  drawHazards(view.hazards, game);
   drawHud(view.hud, hudModel(game));
 }

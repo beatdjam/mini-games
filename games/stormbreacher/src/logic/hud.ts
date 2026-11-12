@@ -6,6 +6,7 @@ import { HUD_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
 import { WEAPONS, type WeaponId } from '../data/weapons.ts';
 import type { GameModel } from './game.ts';
+import { inCircle } from './hazards.ts';
 import type { WeaponState } from './weapons.ts';
 
 export interface HudAmmo {
@@ -29,6 +30,7 @@ export interface HudModel {
   objective: { key: string; done: number; total: number }; // key: a language key; done and total count HUD_TUNE.objectiveKind
   enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp
   radar: HudRadarMark[]; // the living targets and enemies within HUD_TUNE.radarRange
+  warning: 'shell' | null; // 'shell' while the mech stands inside a warned shell's blast, else null
 }
 
 const DEG = 180 / Math.PI;
@@ -91,5 +93,6 @@ export function hudModel(game: GameModel): HudModel {
     },
     enemy,
     radar,
+    warning: game.shells.some(shell => inCircle(shell, shell.radius, game.mech)) ? 'shell' : null,
   };
 }

@@ -1,6 +1,6 @@
 // M1's B line and the front of C (SB-055), written by hand: every prop is one line so the shape can be read and
 // edited without a tool. +z is the sea and -z is the land; the bounds stop before the seawall, which is not climbed yet.
-import type { MapDef, Prop } from '../types.ts';
+import type { MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B line is three defence lines across the map: three hedgehog rows each, with breakthroughs and, on lines 2 and 3,
 // a stretch marked breakable. Each row is spaced so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows
@@ -509,10 +509,21 @@ const PROPS: Prop[] = [
   { kind: 'crater', x: 65, z: -2, yaw: -0.05, scale: 1.03 },
 ];
 
+// Six mines on the beach (z 148..162), kept 6 m or more from the mech's start (x 0, z 166).
+const MINES: MinePlace[] = [
+  { x: -50, z: 152 },
+  { x: -30, z: 158 },
+  { x: -12, z: 150 },
+  { x: 14, z: 156 },
+  { x: 34, z: 150 },
+  { x: 52, z: 160 },
+];
+
 export const M1B_HAND: MapDef = {
   id: 'm1b-hand',
   bounds: { minX: -100, maxX: 100, minZ: -60, maxZ: 170 },
   props: PROPS,
+  mines: MINES,
   targets: [
     { id: 'pillbox-1', kind: 'pillbox', x: -33, z: -15, yaw: 0 },
     { id: 'pillbox-2', kind: 'pillbox', x: 22, z: -15, yaw: 0.2 },
