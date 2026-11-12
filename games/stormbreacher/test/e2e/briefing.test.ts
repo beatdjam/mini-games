@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { el, t } from '@engine/core/index.ts';
+import { el, runSystems, t } from '@engine/core/index.ts';
 import { boot } from '../../src/app/boot.ts';
 import { briefingUI } from '../../src/app/briefing.ts';
 import { continueSortie, currentGame, syncTitle, titleReturn } from '../../src/app/play.ts';
@@ -139,7 +139,8 @@ test('the retry from the result does not show the briefing', async () => {
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   game.downed = true;
-  for (let i = 0; i < 240 && state !== 'result'; i++) await frame();
+  // the systems run by hand, a 60th of a second each: waiting for drawn frames timed out on CI
+  for (let i = 0; i < 720 && state !== 'result'; i++) runSystems(1 / 60);
   expect(state).toBe('result');
   button('#sbResultRestart').click();
   expect(state).toBe('play');
