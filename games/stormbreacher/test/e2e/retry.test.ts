@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { el, t } from '@engine/core/index.ts';
+import { el, runSystems, t } from '@engine/core/index.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
@@ -24,13 +24,17 @@ function game() {
   return current;
 }
 
-// Runs frames until `done` says so, and fails when it never does.
-async function until(done: () => boolean, tries = 240): Promise<void> {
+// Runs the game's systems by hand, a 60th of a second each, until `done` holds, and fails when it never does. Waiting
+// for drawn frames instead timed out at 60 s on CI when every game's tests ran at once. A drawn frame could be up to a
+// 20th of a second, so 720 steps are the 12 s of the game that 240 frames were. A drawn frame every 30 steps lets the
+// page's own timers move on.
+async function until(done: () => boolean, tries = 720): Promise<void> {
   for (let i = 0; i < tries; i++) {
     if (done()) return;
-    await frame();
+    runSystems(1 / 60);
+    if (i % 30 === 29) await frame();
   }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} frames`);
+  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps`);
 }
 
 const button = (id: string): HTMLButtonElement => el<HTMLButtonElement>(id);

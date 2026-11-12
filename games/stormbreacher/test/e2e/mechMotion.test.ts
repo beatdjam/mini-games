@@ -18,9 +18,6 @@ beforeAll(async () => {
 });
 
 const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
-const frames = async (n: number) => {
-  for (let i = 0; i < n; i++) await frame();
-};
 const key = (type: 'keydown' | 'keyup', code: string) => new KeyboardEvent(type, { code, bubbles: true });
 
 const mechGroups = (): THREE.Object3D[] => scene.children.filter(child => child.name === 'mech');
@@ -43,26 +40,31 @@ const legMatrices = (group: THREE.Object3D): number[] =>
   Array.from(frameMesh(group).instanceMatrix.array).slice(0, LEG_VALUES);
 
 test("walking in a sortie moves the legs' boxes, and standing keeps them still", async () => {
+  // A drawn frame of the sortie is slow on CI when every game's tests run at once (it timed out at 60 s waiting for
+  // ~110 frames), so after the first frame the systems run by hand, a 60th of a second each.
+  const steps = (n: number) => {
+    for (let i = 0; i < n; i++) runSystems(1 / 60);
+  };
   startSortie();
   await frame();
   sendToScript(currentGame()!, { kind: 'skip' });
-  await frames(2);
+  steps(2);
   const group = mechGroups().reverse()[0];
   const rest = legMatrices(group);
-  await frames(10);
+  steps(10);
   expect(legMatrices(group)).toEqual(rest);
 
   window.dispatchEvent(key('keydown', 'KeyW'));
-  await frames(25);
+  steps(25);
   const walking = legMatrices(group);
   expect(walking).not.toEqual(rest);
   expect(countMechDraws(group).calls).toBe(5);
   window.dispatchEvent(key('keyup', 'KeyW'));
 
   // the swing dies away once the mech has stopped, then nothing changes
-  await frames(60);
+  steps(60);
   const stopped = legMatrices(group);
-  await frames(10);
+  steps(10);
   expect(legMatrices(group)).toEqual(stopped);
   expect(countMechDraws(group).calls).toBe(5);
 });
