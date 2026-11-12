@@ -60,6 +60,7 @@ const GAME_SHAPE: Record<keyof SuspendedGame, Shape> = {
   breakables: 'array',
   targets: 'array',
   enemies: 'array',
+  allies: 'array', // the scripted friends (SB-170): where each runs and whether it is down
   main: 'object',
   sub: 'object',
   fcs: 'object',
