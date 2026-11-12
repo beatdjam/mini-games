@@ -18,6 +18,7 @@ import { removeHazardView } from '../view/hazards.ts';
 import { removeHud } from '../view/hud.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
+import { openBriefing } from './briefing.ts';
 import { clearSuspend, loadSuspend, save, writeSave, writeSuspend } from './storage.ts';
 import { initPlayInput, readInput } from './input.ts';
 import { hidePause, initPause, showPauseButton } from './pause.ts';
@@ -160,14 +161,14 @@ export function syncTitle(): void {
 }
 
 // The title's start button (and Enter). With a sortie suspended, the first press asks (the new sortie would discard it)
-// and the second starts.
+// and the second opens the briefing, which starts the sortie when it ends. "Continue" and the retries skip the briefing.
 export function pressStart(): void {
   if (!confirmingStart && loadSuspend() !== null) {
     confirmingStart = true;
     el('#sbStart').textContent = t('app.startOver');
     return;
   }
-  startSortie();
+  openBriefing(startSortie);
 }
 
 // The title's "continue": the suspended sortie comes back and the suspend is gone, so one suspend gives one sortie back

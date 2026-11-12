@@ -219,6 +219,8 @@ test('start with a suspend asks first; the second press starts and the suspend g
   expect(button('#sbStart').textContent).toBe(t('app.startOver'));
   expect(localStorage.getItem(SUSPEND_KEY)).not.toBeNull();
   button('#sbStart').click();
+  expect(state).toBe('briefing');
+  button('#sbBriefingSkip').click(); // the briefing is test/e2e/briefing.test.ts's
   expect(state).toBe('play');
   expect(localStorage.getItem(SUSPEND_KEY)).toBeNull();
   expect(game().retries).toBe(0);

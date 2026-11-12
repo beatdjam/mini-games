@@ -1,6 +1,6 @@
 // The screens the game can be in: the title, the sortie itself and its result. 'briefing' and the rest come with the
 // prototype.
-export type GameState = 'title' | 'play' | 'paused' | 'result';
+export type GameState = 'title' | 'briefing' | 'play' | 'paused' | 'result';
 
 // What a state means to the game, kept one per state in data/states.ts.
 export interface StateDef {
@@ -192,4 +192,15 @@ export interface MapRules {
   cliff: MapCliff;
   clear?: number; // the clear ground around a target (m); 10 when left out
   lanes: MapLane[];
+}
+
+// The briefing (SB-310): what its map can show, and the lines that bring them in.
+// battery: the guns and the magazine; pillboxes; squad: where the B line's soldiers come in; depot; wave1 and wave2:
+// the arrows of the first wave (the player's, with the ally) and of the second wave that follows.
+export type BriefingSymbol = 'battery' | 'pillboxes' | 'squad' | 'depot' | 'wave1' | 'wave2';
+
+export interface BriefingLine {
+  key: string; // the language key of the line
+  at: number; // when the line comes, from the start (s)
+  show: readonly BriefingSymbol[]; // the symbols that come in with it; they blink while it is the latest line
 }

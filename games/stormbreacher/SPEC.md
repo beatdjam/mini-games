@@ -61,6 +61,7 @@
 - `src/app/pause.ts`: 一時停止のメニュー（`initPause`）。P・Esc・一時停止のボタンで `paused` にし、「再開」「中断」「放棄」を出す（2章「一時停止と中断」）
 - `src/logic/suspend.ts`: 中断のスナップショットを作る `suspendOf` と、読み戻す `restoreSuspend`（純粋）。保存と読み出しは `src/app/storage.ts`（4章）
 - `src/logic/input.ts`: タッチとキーボードの `MechInput` を合わせる純粋な関数（three も DOM も読まない）
+- `src/app/briefing.ts`: 出撃の前のブリーフィング（`openBriefing`。2章「ブリーフィング」）。記号と時計は `src/logic/briefing.ts`、絵は `src/view/briefing.ts`、表は `src/data/briefings.ts`
 - `src/app/skip.ts`: カットシーンを飛ばす要求（クリック・タップ・Enter・Space・Esc）を受け、`update` が1コマに1回取る（7章「カットシーンの演出」）
 
 ## テストの層
@@ -77,17 +78,48 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 - ページの要素: `<canvas id="gl">` の上に `<div id="sbApp">` を重ねる（`pointer-events:none`。一覧へ戻るリンクと出撃のボタンだけ `pointer-events:auto`）
 - 全画面のボタン `#sbFs`: どの画面でも右上の隅（HUD のレーダーの上、タッチの層より手前）に出す。押すと全画面を切り替え（engine の `toggleFs`）、文字は「全画面」「全画面を終了」が今の状態に合わせて変わる。全画面にできないブラウザと、ホーム画面のアプリとして開いているときは出さない。押した後はフォーカスを外す（タイトルの Enter で出撃しないため。`src/app/fullscreen.ts`）
-- 画面の状態は `src/app/screen.ts` の `GameState` と `src/data/states.ts` の `STATES` で持つ。`title`（タイトル）・`play`（出撃中）・`paused`（一時停止）・`result`（結果）の4つで、`playing` は `play` のときだけ true
+- 画面の状態は `src/app/screen.ts` の `GameState` と `src/data/states.ts` の `STATES` で持つ。`title`（タイトル）・`briefing`（ブリーフィング）・`play`（出撃中）・`paused`（一時停止）・`result`（結果）の5つで、`playing` は `play` のときだけ true
 - 状態は `setState` でだけ書き換え、遊んでいるかは `isPlaying()` で見る。状態の名前を直に比べない
 
 | 状態 | playing | 意味 |
 |------|---------|------|
 | `title` | false | タイトル画面 |
+| `briefing` | false | 出撃の前のブリーフィング（下の「ブリーフィング」） |
 | `play` | true | 出撃中 |
 | `paused` | false | 出撃の一時停止（メニューが出ている。`step` は進まない） |
 | `result` | false | 結果の画面 |
 
-画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間・報酬の内訳・所持金と「タイトルへ」）になる。内訳は「報酬と所持金」（4章）。「タイトルへ」は今は `location.reload()` で戻る。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱は出さない。出撃中の HUD は左上に目標、下の真ん中に最後の無線（`RADIO_MIN_SEC` の間だけ。ラベルは `hud.radio`）を出し、ソフトロックが狙いを寄せている相手がいる間は、その相手を囲む四隅の鉤形の枠（ロック枠。色は `HUD_COLOR.lock`）を毎フレーム出す。枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）。機体が着弾予告の円の中にいる間だけ、照準の円の上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。値の出し方は `src/logic/hud.ts`。色と主張は仮。
+画面はタイトル → ブリーフィング → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）でブリーフィングが出て、そこを抜けると `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間・報酬の内訳・所持金と「タイトルへ」）になる。内訳は「報酬と所持金」（4章）。「タイトルへ」は今は `location.reload()` で戻る。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱は出さない。出撃中の HUD は左上に目標、下の真ん中に最後の無線（`RADIO_MIN_SEC` の間だけ。ラベルは `hud.radio`）を出し、ソフトロックが狙いを寄せている相手がいる間は、その相手を囲む四隅の鉤形の枠（ロック枠。色は `HUD_COLOR.lock`）を毎フレーム出す。枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）。機体が着弾予告の円の中にいる間だけ、照準の円の上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。値の出し方は `src/logic/hud.ts`。色と主張は仮。
+
+### ブリーフィング
+
+出撃の前に、上から見た地図と1行ずつの文で作戦を告げる画面（`briefing`）。画面は `src/app/briefing.ts`、地図の絵は `src/view/briefing.ts`、地図の記号と時計は `src/logic/briefing.ts`（純粋）、行と時間割の表は `src/data/briefings.ts`（型 `BriefingLine`・`BriefingSymbol` は `src/data/types.ts`）、色は `BRIEFING_COLOR` in `src/data/colors.ts`。声はなし。
+
+- 入口: タイトルの「出撃」（`pressStart` in `src/app/play.ts`）だけ。中断があるときの確認（2回押し）を済ませたあとで開く。「続きから」とやり直し（チェックポイントから・最初から）では出さない。出撃（`startSortie`）はブリーフィングを抜けたときに呼ばれ、そのあと導入のカットシーン（`landing`）が流れる
+- 流れ:
+  1. 開くと `#sbApp`（タイトル）を隠して `#sbBriefing` を出し、`briefing` にする。時計は 0 から `update`（システム `sb-briefing`）で進む
+  2. 行は表（`M1_BRIEFING`）の `at` の秒に1行ずつ左から積まれ、最新の行だけ明るく出る。行が出ると、その行の `show` の記号が地図に出る
+  3. 最新の行が出した記号は点滅し、前の行の記号は点いたままになる。矢印は出てから `BRIEFING_TUNE.arrowSec` 秒かけて尾から頭へ伸びる
+  4. 全部の行が出ると「出撃」（`#sbBriefingGo`）が出て、「飛ばす」（`#sbBriefingSkip`）が消える
+- 操作: タップ・クリック（ボタン以外）・Enter・Space で次の行がすぐ出る（時計がその行の `at` になる）。全部出たあとの同じ操作か「出撃」で出撃へ進む。Esc か「飛ばす」はいつでも出撃へ進む。開いたときの押下（タイトルの「出撃」のクリックと Enter）は数えない（`event.timeStamp` が開いた時刻より前のものは捨てる）。キーは capture 段階で受けて止める（同じ Esc が出撃を一時停止にしないため）。ボタンにフォーカスがあるときの Enter・Space はボタンのクリックとして1回だけ数える
+- 行の表（`M1_BRIEFING`）: 一巡は約 15 秒（最後の行の `at` + `holdSec`）。`at` は 0 から増えていく
+
+| キー | `at`（秒） | 出す記号 | 文（ja） |
+|------|-----------|----------|----------|
+| `briefing.goal` | 0 | `battery` | 沿岸砲台を黙らせ、突破口を開く |
+| `briefing.enemy` | 3 | `pillboxes`・`squad` | 浜にトーチカと迫撃砲陣地がある |
+| `briefing.wave1` | 6 | `wave1` | 第1波の機体と共に上陸する |
+| `briefing.wave2` | 9 | `wave2` | 第2波が後に続く |
+| `briefing.depot` | 12 | `depot` | 右手に敵の弾薬集積所がある。潰すと砲撃が弱まる |
+
+- 地図: 手書きマップ（`M1B_HAND`）の範囲を canvas に上から描く。上が陸（−z）、下が海（+z。前の縁から `seaMargin` m 分の海も描く）。`briefingMap(map, path)` が `MapDef` から次を作る（座標を手で写さない）
+  - 地面の点: 防風杭・防波堤・崖の props（`BRIEFING_TERRAIN_KINDS`）
+  - `site`: マップの目標1つにつき四角1つ。記号は `BRIEFING_TARGET_SYMBOL`（トーチカ → `pillboxes`、集積所 → `depot`、主砲と弾薬庫 → `battery`）
+  - `dot`: 波 `b-squad`（`M1_BRIEFING_SQUAD_WAVE`）の出る場所。記号は `squad`。マップに迫撃砲陣地の場所は無いので、敵の行ではこの点で敵の居場所を示す
+  - `arrow`: `wave1` はミッションの道 `beach-run`（`M1_BRIEFING_WAVE_PATH`）の前に、海の側の尾（前の縁から `waveStartGap` m 沖）を足したもの。`wave2` は `wave1` の最初の `wave2Points` 点を x に `wave2ShiftX` m ずらしたもの（後ろの艇）
+- 崩れる作戦（柱2）: ブリーフィングは第2波が後に続く予定を見せる。作戦が崩れて第2波の艇が沈んだときは、台本の cue `wave2-lost` の無線 `m1.wave2-lost` で伝える（7章）。ブリーフィング側に出撃中の表示は無い
+- 数値: `BRIEFING_TUNE` in `src/data/briefings.ts`（`holdSec`・`arrowSec`・`blinkHz`・`seaMargin`・`waveStartGap`・`wave2ShiftX`・`wave2Points`）
+- テスト: `test/unit/briefing.test.ts`（表・地図の記号）、`test/e2e/briefing.test.ts`（画面と操作）
 
 ### 一時停止と中断
 
@@ -99,7 +131,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - 中断: 今の `GameModel` を `SUSPEND_KEY` に書き（4章）、タイトルへ戻って「続きから」（`#sbContinue`）を出す
 - 放棄: 押すと確認に変わる（「放棄する（報酬なし）」`#sbAbandonYes` と「やめる」`#sbAbandonNo`。確認の間の Esc は確認を閉じる）。確定すると中断（あれば）も消してタイトルへ戻る。報酬もセーブも書かない
 - タイトルの「続きから」: 中断があるときだけ出す。押すと中断から `GameModel` を組み直し（`beginPlay`）、中断を消す。同じ中断から2回再開できない
-- タイトルの「出撃」: 中断があるときは1回目の押下で文字が「出撃する（中断を消す）」に変わり、2回目で始める（始めると中断は消える）。Enter も同じ。ボタンにフォーカスがあるときの Enter はボタンのクリックとして1回だけ数える
+- タイトルの「出撃」: 中断があるときは1回目の押下で文字が「出撃する（中断を消す）」に変わり、2回目でブリーフィングを開く（ブリーフィングを抜けて出撃を始めると中断は消える）。Enter も同じ。ボタンにフォーカスがあるときの Enter はボタンのクリックとして1回だけ数える
 - タイトルへの戻り方: 中断・放棄はページを読み込み直してタイトルに戻る（結果の「タイトルへ」と同じ）。読み直さないと、出撃の見た目（光・色の膜・霧・地面の色）がタイトルの地面に残って白く飛ぶため。中断はセーブにあるので、読み直したタイトルに「続きから」が出る。e2e はテストの途中でページを読み直せないので、`titleReturn.reload` を切ってページの中で戻す（`returnToTitle` in `src/app/play.ts`）
 
 機体の装甲が 0 になる（`downed`）と、`src/app/play.ts` の `update` が結果の画面（`showResult`）へ移す。見出しは、やられたときが `result.downed`（「やられた」/ Downed）、台本の終わりのときが `result.title`（「突破」/ Breakthrough）。どちらも所要時間と「タイトルへ」が出る。やられたときだけ、さらに「チェックポイントから」（`#sbResultCheckpoint`。チェックポイントがあるときだけ）と「最初から」（`#sbResultRestart`）が出る。台本の終わりのときは出ない。押すと、`beginPlay`（`startSortie` と同じ片付けと組み直し）で新しい `GameModel` を描き直し、結果の画面を消して `play` に戻る。やり直しの中身は 7章「チェックポイント」。
