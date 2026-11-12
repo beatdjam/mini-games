@@ -217,3 +217,14 @@ test('beach-held plays on the win, the game goes on until it ends, and a skip en
   expect(skipped.script.ended).toBe(game.script.ended);
   expect(Object.keys(skipped.script.fired).sort()).toEqual(Object.keys(game.script.fired).sort());
 });
+
+test('nothing takes armour off the mech while a cutscene plays', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, DT);
+  expect(game.script.cutscene).not.toBeNull();
+  const y = game.mech.y + MECH_TUNE.chestHeight;
+  game.bullets.push({ enemy: 'grunt', x: game.mech.x, y, z: game.mech.z - 20, dx: 0, dy: 0, dz: 1, left: 80 });
+  for (let i = 0; i < 30; i++) step(game, idle, DT);
+  expect(game.armor).toBe(MECH_TUNE.armor);
+  expect(game.events.some(event => event.kind === 'damaged')).toBe(false);
+});

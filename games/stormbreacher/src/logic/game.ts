@@ -364,6 +364,8 @@ function damageEnemy(game: GameModel, enemy: EnemyState, damage: number): void {
 // ground from the mech toward the source (any length); at 0 the mech is downed, once.
 function damageMech(game: GameModel, damage: number, toX: number, toZ: number): void {
   if (game.downed) return;
+  // A cutscene holds the mech still, so nothing hurts it while one plays (the shot still stops at it).
+  if (game.script.cutscene !== null) return;
   game.armor = Math.max(0, game.armor - damage);
   const flat = Math.hypot(toX, toZ);
   game.events.push({

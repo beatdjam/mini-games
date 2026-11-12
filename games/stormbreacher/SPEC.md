@@ -674,6 +674,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - 海の艇: 表の `sink`・`arrive` の数だけ、始まりの艇と同じ作り（`buildCraft` in src/view/shore.ts）の艇を置く。そのカットシーンの間だけ見え、`sink` は沈み終えると消える。物の崩れ（`collapse`）は、`buildCutsceneView` が渡された `world.targets` の模型の高さと傾きを動かす（`COLLAPSE_DEPTH` 3m・`COLLAPSE_TILT` 0.35 rad。1つおきに逆へ傾く。崩す物の id が無ければ例外）。始まりの艇のランプは別のメッシュ（`${CRAFT_NAME}Ramp`）で、カットシーンの外では下りた形
 - 入力: 台本の `cutscene` の間（`game.script.cutscene` が null でない間）は、`step` が機体に何も押していない入力を渡す。動かず、撃たず（メインもサブも）、ジャンプもブーストもしない。敵・砲撃・弾・台本の時間は止まらず進む。台本が最初の `stepScript` でカットシーンに入るので、出撃の最初の1コマだけは入力が通る
 - 砲撃: カットシーンの間は、砲撃（`game.barrages`）が数えず、着弾予告を出さない。もう予告した弾は落ちる。カットシーンが終わるか飛ばされると、そこから数え始める（機体が動けない間に被弾しないため。`stepHazards` in `src/logic/game.ts`）
+- 被弾: カットシーンの間は、機体の装甲が減らない（弾は機体で止まる）。機体が動けない間に倒されないため（`damageMech` in `src/logic/game.ts`）
 - 機体: カットシーンの間は、機体の模型を描かない（まだ艇の中にいるため。`drawPlay` in `src/view/play.ts`）
 - 飛ばし方: クリック・タップ（`pointerdown`）・Enter・Space・Esc のどれでも飛ばせる。出撃の開始より前の押し込み（出撃を始めたクリックや Enter）と、押しっぱなしの繰り返し（`repeat`）は数えない。`update` が `step` の後に取り、`game.script.cutscene` があれば台本に `skip` を渡す（`cutsceneEnd` が出て、次のコマから本体のカメラと HUD）。飛ばしても台本の状態は、最後まで見たときと同じ（台本の時計だけ、見た秒の分だけ小さい）
 - 表に無いカットシーン: 表の無い id（今は無い）は流さず、`update` が `step` の直後に台本へ `skip` を渡すので、描かれる前に終わる。台本の出来事（`cutscene` と `cutsceneEnd`）は出る
