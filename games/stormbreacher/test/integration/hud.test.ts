@@ -52,12 +52,16 @@ const idle: GameInput = {
 };
 
 // M1B_HAND with the battery's two main guns added, so the silence-battery objective has something to count.
+// M1's B with both main guns: the hand map has them behind the seawall (SB-120); the check keeps that true.
 function withGuns(): GameModel {
-  const guns: TargetPlace[] = [
-    { id: 'main-gun-1', kind: 'gun', x: 100, z: -100, yaw: 0 },
-    { id: 'main-gun-2', kind: 'gun', x: 130, z: -100, yaw: 0 },
-  ];
-  return newGame({ ...M1B_HAND, targets: [...M1B_HAND.targets, ...guns] });
+  const guns = M1B_HAND.targets.filter(target => target.kind === 'gun');
+  expect(guns.map(target => target.id).sort()).toEqual(['main-gun-1', 'main-gun-2']);
+  return newGame(M1B_HAND);
+}
+
+// M1's B with the battery's guns taken off, for an objective that counts targets the map does not have.
+function withoutGuns(): GameModel {
+  return newGame({ ...M1B_HAND, targets: M1B_HAND.targets.filter(target => target.kind !== 'gun') });
 }
 
 test('the objective follows the script', () => {
@@ -96,7 +100,7 @@ test('the battery objective counts the main guns', () => {
 });
 
 test('a counted objective leaves out the targets the map does not have', () => {
-  const game = newGame(M1B_HAND);
+  const game = withoutGuns();
   game.script.objective = 'silence-battery';
   expect(hudModel(game).objective).toEqual({ key: 'obj.silence-battery', count: null });
 });
