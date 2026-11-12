@@ -1,12 +1,12 @@
-// The mech's parts (SB-130's first card). Every value here is provisional and gets settled by the look's second card
-// and the movement's third card. Boxes are ratios of the mech's height, the feet at y = 0, the front toward -z and the
+// The mech's parts (SB-130's first card) and M1's look (its second card). Every value here is provisional and gets
+// settled by the movement's third card. Boxes are ratios of the mech's height, the feet at y = 0, the front toward -z and the
 // right toward +x. M1 is one fixed set with no swap screen (D-12).
 import { M1_LOADOUT, type WeaponId } from './weapons.ts';
 
 export type SlotId = 'arms' | 'legs' | 'back' | 'fcs';
 export const SLOT_IDS: readonly SlotId[] = ['arms', 'legs', 'back', 'fcs'];
 
-// the colour names a box asks for; the hex values belong to the look that draws it (dev/mech/patterns.ts)
+// the colour names a box asks for; the hex values belong to the look that draws it (M1_MECH_PALETTE, dev/mech/patterns.ts)
 export const MECH_COLORS = ['armor', 'frame', 'accent', 'sensor', 'weapon'] as const;
 export type MechColor = (typeof MECH_COLORS)[number];
 
@@ -211,14 +211,25 @@ export interface MechBuild {
   sub: WeaponId;
 }
 
+// M1's mech is pattern E of #view-mech: a medium 2-leg mech, pattern A made lean (decided 2026-11-12).
 export const M1_MECH: MechBuild = {
-  core: 'bulky',
-  arms: 'heavyArms',
-  legs: 'stoutLegs',
+  core: 'medium',
+  arms: 'midArms',
+  legs: 'midLegs',
   back: 'pack',
   fcs: 'blockHead',
   ...M1_LOADOUT,
 };
+
+// The colours M1's mech wears, one hex per colour name (provisional), and the scale of its weapons.
+export const M1_MECH_PALETTE: Record<MechColor, number> = {
+  armor: 0x6f735c,
+  frame: 0x3a3c36,
+  accent: 0xc8a23a,
+  sensor: 0xd8482a,
+  weapon: 0x9a9a92,
+};
+export const M1_WEAPON_SCALE = 1;
 
 // The weapons' boxes, with the origin at the mount and the front toward -z.
 export const WEAPON_LOOK: Record<WeaponId, readonly MechBox[]> = {

@@ -19,6 +19,8 @@ export const MECH_TUNE = {
   radius: 1, // the hit radius on the ground (m)
   chestHeight: 2.5, // the height a shot starts from, above the feet (m)
   armor: 200, // the damage the mech takes before it is downed (SB-190; provisional)
+  fadeDist: 3.5, // the camera nearer than this to the mech's chest (m) draws the mech see-through
+  fadeOpacity: 0.35, // the mech's opacity while see-through
 };
 
 // The third-person camera's starting values (SB-020). Distances are measured on the ground plane unless noted.

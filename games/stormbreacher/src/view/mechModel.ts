@@ -119,6 +119,19 @@ function isInstanced(mesh: THREE.Mesh): mesh is THREE.InstancedMesh {
   return (mesh as THREE.InstancedMesh).isInstancedMesh === true;
 }
 
+// Makes every material of the mech see-through (`opacity` below 1) or solid again (1). It only flips the materials, so
+// the draw calls stay the same.
+export function setMechOpacity(root: THREE.Object3D, opacity: number): void {
+  root.traverse(object => {
+    if (!isMesh(object)) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      material.transparent = opacity < 1;
+      material.opacity = opacity;
+    }
+  });
+}
+
 export function countMechDraws(root: THREE.Object3D): { calls: number; triangles: number } {
   let calls = 0;
   let triangles = 0;
