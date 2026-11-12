@@ -76,3 +76,31 @@ test('a mine goes off under the mech’s feet and not from afar', () => {
   // the blast reaches farther than the step
   expect(MINE_TUNE.blastRadius).toBeGreaterThan(MINE_TUNE.stepRadius);
 });
+
+const BATTERY = BARRAGES.battery;
+const ON_WALL = { x: 0, z: -70 }; // the seawall's top
+const BEHIND_WALL = { x: 0, z: -100 };
+const SEAWARD = { x: 0, z: -64 };
+
+test('the battery’s barrage reaches the seawall’s top and the ground behind it, and not the land seaward of the wall', () => {
+  expect(BATTERY.maxZ).toBe(-65);
+  expect(run(newBarrage('battery', 'battery'), ON_WALL, BATTERY.interval + 0.1)).toHaveLength(1);
+  expect(run(newBarrage('battery', 'battery'), BEHIND_WALL, BATTERY.interval + 0.1)).toHaveLength(1);
+  expect(run(newBarrage('battery', 'battery'), SEAWARD, BATTERY.interval * 4)).toHaveLength(0);
+  // the mortar still reaches only the beach, not the wall
+  expect(run(newBarrage('beach-mortar', 'mortar'), ON_WALL, MORTAR.interval * 4)).toHaveLength(0);
+});
+
+test('a slowed barrage counts its interval as many times as long', () => {
+  const slow = BATTERY.slow;
+  if (!slow) throw new Error('the battery’s barrage has no slow');
+  expect(slow).toEqual({ flag: 'depot-down', mul: 1.5 });
+  const rng = createRng(1);
+  const barrage = newBarrage('battery', 'battery');
+  const at: number[] = [];
+  for (let i = 1; i <= Math.round((BATTERY.interval * slow.mul * 3 + 0.1) / DT); i++) {
+    if (stepBarrage(barrage, ON_WALL, DT, rng, slow.mul)) at.push(i * DT);
+  }
+  expect(at).toHaveLength(3);
+  at.forEach((time, i) => expect(time).toBeCloseTo(BATTERY.interval * slow.mul * (i + 1), 1));
+});

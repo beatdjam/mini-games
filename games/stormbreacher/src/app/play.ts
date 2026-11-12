@@ -11,6 +11,7 @@ import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
 import { removeEnemyView } from '../view/enemies.ts';
 import { removeHazardView } from '../view/hazards.ts';
 import { removeHud } from '../view/hud.ts';
+import { removeSeaFire } from '../view/seaFire.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
 import { initPlayInput, readInput } from './input.ts';
 import { setState } from './screen.ts';
@@ -41,6 +42,7 @@ function clearPlay(old: PlayView): void {
   old.enemyBullets.lines.material.dispose();
   removeEnemyView(old.enemies);
   removeHazardView(old.hazards);
+  removeSeaFire(old.seaFire);
   removeHud(old.hud);
 }
 

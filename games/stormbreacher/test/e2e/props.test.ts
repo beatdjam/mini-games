@@ -48,10 +48,12 @@ function find(name: string): THREE.Object3D | undefined {
 test('a sortie draws every target of the map, the battery’s parts among them', async () => {
   startSortie();
   await frame();
-  const map = currentGame()?.map;
-  if (!map) throw new Error('the sortie has not started');
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  const map = game.map;
   const group = find('targets');
-  expect(group?.children).toHaveLength(map.targets.length);
+  // the targets, and a plate for each shutter
+  expect(group?.children).toHaveLength(map.targets.length + game.shutters.length);
   for (const id of ['main-gun-1', 'main-gun-2', 'magazine']) {
     expect(
       group?.children.some(child => child.name === id),

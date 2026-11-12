@@ -37,6 +37,8 @@
 
 `src/data/hazards.ts` は迫撃砲の砲撃と地雷の表（`BarrageKind`・`BARRAGE_KINDS`・`BARRAGES`・波の名前から出る砲撃の種類を引く `M1_WAVE_BARRAGE`・地雷の `MINE_TUNE`）、`src/logic/hazards.ts` は砲撃と地雷の純粋な関数（`newBarrage`・`stepBarrage`・`stepShells`・`inCircle`・`mineStepped`。乱数は引数で受ける）、`src/view/hazards.ts` は着弾予告の輪と地雷の円盤を `InstancedMesh` 1つずつで描く。色は `src/data/colors.ts` の `SHELL_WARN_COLOR`・`SHELL_LAND_COLOR`・`MINE_COLOR`。
 
+`src/data/battery.ts` はボス（沿岸砲台）の表（機銃の `GUN_TUNE`・機銃が動き出す波 `BATTERY_WAVE`・シャッターの `ShutterDef` と `M1_SHUTTERS`）、`src/logic/battery.ts` は機銃とシャッターの純粋な関数（`newBattery`・`newShutters`・`stepGun`・`shuttered`・`openShutters`。乱数は引数で受ける）、`src/view/seaFire.ts` は主砲が海を撃つ見た目、シャッターの板は `src/view/world.ts` が描く。詳しくは「ボス（沿岸砲台）」。
+
 `src/logic/script.ts` はミッションの台本を進める純粋な関数。`src/data/missions/m1.ts` に M1 の cue の並びと、場所・物・波・目標・印・味方・道の名前の一覧を置き、`src/data/script.ts` にカットシーンの秒と無線の最低表示時間を置く。
 
 `src/logic/mapCheck.ts` はマップが台本と機体の大きさに合うかを調べる純粋な関数。`src/logic/mapgen.ts` は種と規則から物を並べる純粋な関数。M1 の B の手書きのマップは `src/data/maps/m1b-hand.ts`、生成の規則は `src/data/maps/m1b-rules.ts` に置く。
@@ -152,11 +154,11 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 当たったあと: 目標は体力が減って 0 で `destroyed` を残して台本に渡す。物は `damageProp` が体力を減らす。撃ったフレームの弾も同じフレームで進み、途中で壊れた目標や物には、あとの弾は当たらない
 - 表示: `src/view/play.ts` は飛んでいる弾を `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` = 96 本。超えた弾は飛ぶが描かない）で、弾の頭から後ろへ `TRACER_LENGTH` = 4m の線として毎フレーム描く（色は `TRACER_COLOR`）。`hit` の起きた所に `HIT_DUST` = 3 の砂ぼこりを出し、`shot` で撃った手応え（`fire`）を出す
 - 物と壊れる物: 弾は物で止まり、物の向こうの目標には当たらない。壊せる物（`breakable`）は体力が 0 で壊れ、当たりと弾の箱から外れる。ほかの物は壊れない
-- 弾は2種類で、型 `Bullet = MechBullet | EnemyBullet`（`weapon` を持つのが機体の弾、`enemy` を持つのが敵の弾。`isEnemyBullet` で絞る）。速さと威力は `bulletSpec` が `WEAPONS` か `ENEMIES` の表から引く
+- 弾は3種類で、型 `Bullet = MechBullet | EnemyBullet | BatteryBullet`（`weapon` を持つのが機体の弾、`enemy` を持つのが敵の弾、`gun`（撃った主砲の目標 id）を持つのが砲台の弾。`isEnemyBullet`・`isBatteryBullet` で絞り、敵の弾と砲台の弾をまとめて `isHostileBullet` で絞る）。速さと威力は `bulletSpec` が `WEAPONS`・`ENEMIES`・`GUN_TUNE` の表から引く
   - 機体の弾: 物・生きている目標・生きている敵・地面のうち一番手前で止まる。敵の箱は x z が ± `radius`、y が 0〜`height`。敵に当たると体力が減り、0 で出来事 `enemyDown`（`id`・`x`・`z`）を残す。`hit` の `enemy` は敵の id
-  - 敵の弾: 物・機体・壊れていない目標・地面のうち一番手前で止まる。機体の箱は x z が ± `MECH_TUNE.radius`、y が足元から `MECH_TUNE.height`。目標は壁として弾を止めるだけで体力は減らない（トーチカの奥の敵がトーチカ越しに撃たないため）。敵には当たらず、物を壊さない。`hit` の `weapon` は null、機体に当たると `mech` が true
+  - 敵の弾と砲台の弾（`isHostileBullet`。以下は「敵の弾」と呼ぶ）: 物・機体・壊れていない目標・地面のうち一番手前で止まる。機体の箱は x z が ± `MECH_TUNE.radius`、y が足元から `MECH_TUNE.height`。目標は壁として弾を止めるだけで体力は減らない（トーチカの奥の敵がトーチカ越しに撃たないため）。敵には当たらず、物を壊さない。`hit` の `weapon` は null、機体に当たると `mech` が true
   - 機体に当たる（`damageMech`）: 装甲が弾の威力だけ減り、出来事 `damaged`（`amount`・`fromX`・`fromZ`。`fromX` `fromZ` は機体から見た、弾が来た側の地面の単位ベクトル）を残す。装甲が 0 になると `downed` を1回残し、`GameModel.downed` が true になる
-  - 見た目: `src/view/play.ts` は敵の弾を機体の弾とは別の `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` 本、色 `ENEMY_BULLET_COLOR`）で描く。`damaged` で `feelDamage`（`FEEL_TUNE.damageShake`）の揺れを足す。`enemyDown` は `destroyed` と同じに「倒した」手応え（ヒットストップ）を出す
+  - 見た目: `src/view/play.ts` は敵の弾と砲台の弾を機体の弾とは別の `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` 本、色 `ENEMY_BULLET_COLOR`）で描く。`damaged` で `feelDamage`（`FEEL_TUNE.damageShake`）の揺れを足す。`enemyDown` は `destroyed` と同じに「倒した」手応え（ヒットストップ）を出す
 
 ### 敵
 
@@ -193,9 +195,9 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ人が壊しに行く対象にはしない。値はどれも仮。定義は `src/data/hazards.ts`、動きは `src/logic/hazards.ts` と `src/logic/game.ts` の `stepHazards`、見た目は `src/view/hazards.ts`。
 
-- 砲撃（表 `BARRAGES`: `Record<BarrageKind, BarrageDef>`。種類は今 `mortar` だけ）
-  - 始まる: 台本の `spawn` で、波の名前が `M1_WAVE_BARRAGE`（`beach-mortar` が `mortar`）にあれば `startBarrage` が `game.barrages` に足す。同じ波では1回だけ。始まったら止まらない（陣地は壊せないため、台本で止める仕組みは持たない）
-  - 流れ（`stepBarrage`）: 機体の足元の z が `minZ` 以上の間だけ `wait` を数える。0 になるたびに着弾予告 `ShellState` を `game.shells` に足し、出来事 `shellWarn`（`x`・`z`・`radius`）を出す。届かない間は数えない（届く所に戻ってから `interval` 後が最初の予告）
+- 砲撃（表 `BARRAGES`: `Record<BarrageKind, BarrageDef>`。種類は `mortar`（迫撃砲）と `battery`（沿岸砲台の副砲。「ボス（沿岸砲台）」））
+  - 始まる: 台本の `spawn` で、波の名前が `M1_WAVE_BARRAGE`（`beach-mortar` が `mortar`、`battery` が `battery`）にあれば `startBarrage` が `game.barrages` に足す。同じ波では1回だけ。始まったら止まらない（迫撃砲の陣地は壊せないため、台本で止める仕組みは持たない。副砲も主砲が倒れたあとも続き、弾薬庫を壊して出撃が終わるまで止まらない）
+  - 流れ（`stepBarrage`）: 機体の足元の z が `minZ` 以上 `maxZ` 以下の間だけ `wait` を数える（`inReach`。限りのない側は `-Infinity`・`Infinity`）。`slow`（`flag` と `mul`）を持つ砲撃は、台本のその印が立っている間、`wait` を `dt / mul` ずつ数える（間隔が `mul` 倍になる。`stepHazards` が `game.script.flags` を見て渡す）。0 になるたびに着弾予告 `ShellState` を `game.shells` に足し、出来事 `shellWarn`（`x`・`z`・`radius`）を出す。届かない間は数えない（届く所に戻ってから `interval` 後が最初の予告）
   - 狙い: 機体の位置から、向きは 0〜2π、距離は 0〜`aimJitter` の一様な乱数でずらした所。乱数の列は `stream('mortar')`
   - 落ちる: `shells` の `left` が `dt` ずつ減り、0 になった予告が落ちて `shellLand`（`x`・`z`・`hit`）を出す。機体の足元が半径 `radius` の円の中なら `hit` が true で、`damageMech` と同じ道で装甲が `damage` 減る（`damaged` の向きは機体から落ちた所へ）
 - 地雷（`MINE_TUNE`）
@@ -218,6 +220,7 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 | `BARRAGES.mortar.damage` | 25 | 当たったときに減る装甲 |
 | `BARRAGES.mortar.aimJitter` | 12 | m。狙いのずれの最大 |
 | `BARRAGES.mortar.minZ` | 30 | m。砲撃が届くのはこの z より海側 |
+| `BARRAGES.mortar.maxZ` | Infinity | m。上限なし |
 | `MINE_TUNE.stepRadius` | 1.8 | m。踏んで爆発する距離 |
 | `MINE_TUNE.blastRadius` | 4 | m。爆発で装甲が減る距離 |
 | `MINE_TUNE.damage` | 30 | 爆発で減る装甲 |
@@ -338,6 +341,53 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 | `planeHeight` | 80 | m。飛行機の高さ |
 | `planeSpeed` | 30 | m/s。飛行機の速さ |
 
+### ボス（沿岸砲台）
+
+SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方の艇を撃っていて、機体には副砲（着弾予告つきの砲撃）と機銃で応じる。主砲を2門とも壊すと装甲のシャッターが開いて弾薬庫が見え、そこが弱点で、壊すと出撃が終わる。寄り道の弾薬集積所（`depot`）を壊していると、副砲の砲撃が間遠になる。値はどれも仮。定義は `src/data/battery.ts` と `src/data/hazards.ts`、動きは `src/logic/battery.ts` と `src/logic/game.ts`（`stepBattery`・`checkShutters`・`stepHazards`・`flyBullet`）、見た目は `src/view/world.ts` と `src/view/seaFire.ts`。
+
+- シャッター（表 `M1_SHUTTERS`: `ShutterDef` の一覧。`target`・`opensWhen`・板の大きさ `w`×`h`×`d`・`gap`）
+  - 守られる目標と、開くきっかけの目標は表で決める。M1 は `magazine` を、`main-gun-1`・`main-gun-2` が両方壊れると開く。守られる目標が地図に無ければシャッターも作らない（`newShutters`）
+  - 閉じている間: 機体の弾は弾薬庫の箱で止まり、出来事 `hit`（`target` は弾薬庫の id）を出すが、体力は減らず `destroyed` も出ない（`shuttered`）。弾の止まる順は変わらない
+  - 開く: きっかけの目標が全部壊れると `game.shutters` の `open` が true になり、出来事 `shutterOpen`（`target`）を1回だけ出す（`openShutters`）。弾が主砲を壊したフレームで（`destroyed` の直後に）開き、そのあとの弾は弾薬庫に当たる。毎フレームの `checkShutters` が、体力を別の道で 0 にした場合も拾う。台本の印 `shutter-open` と目標 `hit-magazine` は従来どおり台本の cue が出す
+  - 見た目: 弾薬庫の前（海側の面から `gap` 離れた所）の板を `THREE.Mesh`（名前 `sb-shutter-<target>`、色 `SHUTTER_COLOR`）で描く。`buildWorld` が `targetGroup` に足し、`syncWorld` が開いたものを隠す。当たりには関わらない（弾が止まるのは弾薬庫の箱）
+- 副砲の砲撃（`BARRAGES.battery`）
+  - 台本の波 `battery` が出ると始まる（`M1_WAVE_BARRAGE`）。届くのは機体が防波堤の帯より陸側か防波堤の上にいるとき（z ≤ −65）。浜では撃たれない
+  - 間隔・予告・半径・威力・ずらしは表のとおり。台本の印 `depot-down`（集積所を壊した）が立っている間は、間隔が `slow.mul` = 1.5 倍になる（`wait` を `dt / 1.5` ずつ数えるため、立った瞬間から効く）。乱数の列は `stream('mortar')`
+  - 主砲が倒れたあとも続く
+- 機銃（`GUN_TUNE`。`BatteryState.guns` に `kind` が `gun` の目標ごとの `GunState`（`id`・`wait`）を持つ）
+  - 動き出す: 台本の波 `BATTERY_WAVE`（`battery`）が出ると `BatteryState.on` が true になる（`applyScriptOut`）。それまでは撃たない
+  - 撃つ（`stepGun`）: 壊れていない主砲が、`wait` を `dt` ずつ減らし、0 になったとき、箱の中心から機体の足元までの水平距離が `range` 以内で、射線が物と、ほかの壊れていない目標に遮られないなら、1発撃って `wait` を `interval` に戻す。弾は主砲の箱の海側の面から `muzzleGap` 先の、箱の高さの `muzzle` 倍の所から、機体の胸へ向け、`spread` 度の範囲で散らして出る。最初の1発は動き出してから `interval` 後。乱数の列は `stream('battery')`
+  - 弾: 型 `BatteryBullet`（`gun` に主砲の id）。速さ `bulletSpeed`、威力 `damage`、飛ぶ距離 `range`。扱いは敵の弾と同じ（機体・物・壊れていない目標・地面で止まり、機体に当たると装甲が減って `damaged` を出す）
+- 主砲が海を撃つ見た目（`src/view/seaFire.ts`。当たりなし。ゲームの時計 `game.time` から決める）
+  - 壊れていない主砲ごとに、`SEA_FIRE_PERIOD` ごとに箱の海側の面の砲口で閃光（`SEA_FLASH_COLOR`）を `FLASH_TIME` 出し、海の方（+z）へ曳光の線（`SEA_TRACER_COLOR`）を `TRACER_TIME` 走らせる。2門目の拍は `SEA_FIRE_OFFSET` ずらす。倒れた主砲は何も出さない。1門目が倒れて無線 `m1.gun1-down` が出ると、海を撃つのが片方止まる
+  - 閃光の `Mesh`（名前 `sb-sea-flash`）と線の `Line`（名前 `sb-sea-tracer`）を主砲ごとに1つずつ作り、`buildSeaFire` が組み、`removeSeaFire` が片付ける（`clearPlay` から）
+- チェックポイント: `shutters` と `battery` はコピーに入る（「本体のチェックポイントとやり直し」）。cp2 は波 `battery` を出した直後に取るので、戻すと機銃は動いたままで待ちはコピーの値、シャッターは閉じ、主砲は元の体力、副砲の砲撃は続く。落ちる前の予告 `shells` と飛んでいる弾は持ち越さない
+- HUD: シャッターで守られていても、弾薬庫にロック枠と体力は出る。守られていることを示す文言や印は無い
+
+| 名前 | 値 | 単位・意味 |
+|------|----|------------|
+| `GUN_TUNE.range` | 90 | m。機体がこの水平距離以内なら撃つ。弾の飛ぶ距離でもある |
+| `GUN_TUNE.interval` | 1.2 | s。1発から次まで |
+| `GUN_TUNE.damage` | 3 | 当たったときに減る装甲 |
+| `GUN_TUNE.bulletSpeed` | 200 | m/s |
+| `GUN_TUNE.spread` | 4 | 度。狙いからのずれ |
+| `GUN_TUNE.muzzle` | 0.7 | 撃つ高さ。主砲の箱の高さに対する割合 |
+| `GUN_TUNE.muzzleGap` | 0.3 | m。主砲の箱の海側の面から弾が出る所まで |
+| `BARRAGES.battery.interval` | 3 | s。予告から次の予告まで |
+| `BARRAGES.battery.warn` | 2 | s。予告から着弾まで |
+| `BARRAGES.battery.radius` | 6 | m。爆発の半径 |
+| `BARRAGES.battery.damage` | 30 | 当たったときに減る装甲 |
+| `BARRAGES.battery.aimJitter` | 8 | m。狙いのずれの最大 |
+| `BARRAGES.battery.minZ` / `maxZ` | −Infinity / −65 | m。届くのは z が −65 以下の間 |
+| `BARRAGES.battery.slow` | `depot-down` / 1.5 | 印が立っている間の間隔の倍率 |
+| `M1_SHUTTERS[0]` | 10×8×1.5、`gap` 0.5 | m。弾薬庫の板の幅・高さ・厚さと、箱の面からの離れ |
+| `SEA_FIRE_PERIOD` | 3.2 | s。主砲が海を撃つ間隔（`src/view/seaFire.ts`） |
+| `SEA_FIRE_OFFSET` | 1.3 | s。2門目の拍のずれ |
+| `FLASH_TIME` / `TRACER_TIME` | 0.15 / 0.9 | s。閃光と曳光の線が出ている間 |
+| `TRACER_SPEED` / `TRACER_LENGTH` | 220 / 25 | m/s と m。線の頭の速さと長さ |
+
+テスト: 純粋な関数は `test/unit/battery.test.ts`・`test/unit/hazards.test.ts`、ゲームの中の動き（シャッター・波・集積所・ボットでのクリア・チェックポイント・同じ seed で同じ出来事）は `test/integration/boss.test.ts`、描画は `test/e2e/battery.test.ts`。
+
 ## 6. 確認用の入口
 
 - `?fps`: 直近1秒に描いたコマ数と、最後のコマが描いた物を画面の上に出す
@@ -444,7 +494,7 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 - コピーの形: `GameSnapshot` は `GameModel` から保存しない項目を除いたもの + 取った id。除く項目は `events`（空）・`bullets`（飛んでいる弾は持ち越さない）・`checkpoint`（入れ子にしない）。項目を足したときは、除く項目に書かない限りコピーされる。`map` と `mission` は書き換えない定義なので、コピーせず同じものを指す
 - `retryFromCheckpoint(game)` は、コピーをもう一度深くコピーして新しい `GameModel` を返す（元は変わらない）
   - 戻る: 機体の位置・時計・敵（波は出し直さない）・目標・壊せる物・台本（`restoreCheckpoint` と同じ中身）・無線
-  - 満タンに戻る: 装甲（`MECH_TUNE.armor`）、メインとサブの弾数と待ち（`M1_LOADOUT` の表）。`downed`・`cleared` は false、`fcs` は新しく、`aimTarget` は null、`bullets` と `shells` は空（着弾予告は持ち越さない）。砲撃 `barrages` と地雷 `mines` はチェックポイントのまま
+  - 満タンに戻る: 装甲（`MECH_TUNE.armor`）、メインとサブの弾数と待ち（`M1_LOADOUT` の表）。`downed`・`cleared` は false、`fcs` は新しく、`aimTarget` は null、`bullets` と `shells` は空（着弾予告は持ち越さない）。砲撃 `barrages`・地雷 `mines`・砲台の状態（`shutters`・`battery`。機銃の待ちと動き出したか）はチェックポイントのまま
   - `retries` は前の値 + 1（やり直した回数。修理費と弾の積み直しの請求は SB-210 が使う）。`checkpoint` は同じものを持つので、続けてやられても同じ所へ戻る。`events` は `{ kind: 'retried', from: <id> }`
   - チェックポイントが無いときは例外
 - `restartGame(game)` は `newGame(game.map, game.mission)` で最初から。`retries` は前の値 + 1、`events` は `{ kind: 'retried', from: null }`、`checkpoint` は null
@@ -476,7 +526,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - 階段 `stairs` は2本、x −50 と x 35（z −58.25、`yaw` 0。海側の面 z −65 から z −51.5 まで）。上ると防波堤の上（高さ 6m）に乗れる。C の手前の列（z −50・z −40）の突破口（x −50・x 35）の真後ろに置き、突破口をまっすぐ抜けるとそのまま最下段に乗る（防波堤への道を突破口が決めるため）
   - 低い障害物 `lowWall` は浜（z 154）に5個（x −42・−18・6・30・54）。間は 14m 以上あいて回り込めて、地雷と重ならず、機体の始まり（x 0, z 166）から 4m 以上離れる
   - C の手前（z −55〜−35）は2列で突破口が2か所。線の間には塊・残骸・クレーターの遮蔽物をそれぞれ 10〜12 個、線3の奥に6個ほど置く
-  - ボスの場所は防波堤の陸側（z −75〜−170）。「防波堤の上の巨大な砲台」の部位を目標として置く: `main-gun-1`（種類 `gun`、x −30, z −135）・`main-gun-2`（`gun`、x 30, z −135）・`magazine`（弾薬庫、x 0, z −150）。大きさは `TARGET_SIZE`（`gun` 14×8×14m、`magazine` 10×8×10m）で、主砲の間は 60m、主砲と弾薬庫の間は約 33m。台本はこの3つの名前で主砲2門 → 弾薬庫の順に進む（7章）。シャッターと、砲台が撃ってくる動きは未実装
+  - ボスの場所は防波堤の陸側（z −75〜−170）。「防波堤の上の巨大な砲台」の部位を目標として置く: `main-gun-1`（種類 `gun`、x −30, z −135）・`main-gun-2`（`gun`、x 30, z −135）・`magazine`（弾薬庫、x 0, z −150）。大きさは `TARGET_SIZE`（`gun` 14×8×14m、`magazine` 10×8×10m）で、主砲の間は 60m、主砲と弾薬庫の間は約 33m。台本はこの3つの名前で主砲2門 → 弾薬庫の順に進む（7章）。シャッターと、砲台が撃ってくる動きは「ボス（沿岸砲台）」
   - 降りた先（z −80〜−115）の遮蔽物は塊 7 個と残骸 4 個（1行に1つ）。どの2つの間も中心で 20m 以上あいて機体（当たり半径 1m）が通れ、防波堤の降り口から砲台へは遮蔽物で視線の一部が遮られる。主砲と弾薬庫のまわり（z −117 より奥）には置かない
   - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は z −55（階段 x ±40 の幅に入らない）。崖は右の辺のまま
 - 生成は `generateMap(rng, rules, anchors)`（`src/logic/mapgen.ts`）。`MapRules` は帯（`minZ`・`maxZ`・`kind`・`count`・`minGap`）・防御線（`lines`）・右の辺の崖・目標のまわりの空き（`clear`、既定 10m）・道筋の帯（`lanes`）を持つ。目標と波の出る場所は物語に関わるので生成せず `anchors` で受ける。M1 の B の規則は `src/data/maps/m1b-rules.ts` の `M1B_RULES`（`lanes` は空で、列の中はすき間が 2m 未満に閉じているので、通り道は防御線の突破口が決める）
