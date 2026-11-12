@@ -8,6 +8,8 @@ LANG.ja = {
     'app.status': '開発中',
     'app.back': '一覧へ',
     'app.start': '出撃',
+    'app.fs': '全画面',
+    'app.fsOff': '全画面を終了',
     'btn.main': 'メイン',
     'btn.sub': 'サブ',
     'btn.jump': 'ジャンプ',

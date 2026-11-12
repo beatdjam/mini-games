@@ -3,6 +3,7 @@ import { defaultLang, el, isTouch, LOOP, setLang, startLoop } from '@engine/core
 import { initRender } from '@engine/render/index.ts';
 import { FIELD_TUNE } from '../data/tune.ts';
 import { buildField, placeCamera } from '../view/field.ts';
+import { initFullscreen } from './fullscreen.ts';
 import { startSortie } from './play.ts';
 import { loopMode, state } from './screen.ts';
 import { initSave, settings } from './storage.ts';
@@ -37,6 +38,7 @@ const BOOT: { name: string; run: () => void }[] = [
     },
   },
   { name: 'start', run: initStart },
+  { name: 'fullscreen', run: initFullscreen },
   {
     name: 'loop',
     run: () => {
