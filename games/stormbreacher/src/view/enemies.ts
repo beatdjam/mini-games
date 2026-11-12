@@ -47,7 +47,7 @@ export function drawEnemies(view: EnemyView, game: GameModel): void {
     const def = ENEMIES[enemy.kind];
     const alive = enemy.hp > 0;
     const height = alive ? def.height : def.height * DOWN_SCALE_Y;
-    place.position.set(enemy.x, height / 2, enemy.z);
+    place.position.set(enemy.x, enemy.y + height / 2, enemy.z);
     place.rotation.y = enemy.yaw;
     place.scale.set(def.radius * 2, height, def.radius * 2);
     place.updateMatrix();
