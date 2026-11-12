@@ -5,6 +5,7 @@
 import { createRng, distXZ, type Rng } from '@engine/core/index.ts';
 import { PROP_SIZE, TARGET_SIZE } from '../data/props.ts';
 import type { MapDef, MapLine, MapRules, Prop, PropKind, SpawnPoint, TargetKind, TargetPlace } from '../data/types.ts';
+import { rectGap, type GroundRect } from './collide.ts';
 import { checkMapPath } from './mapCheck.ts';
 
 export interface MapAnchors {
@@ -17,9 +18,9 @@ const DEFAULT_CLEAR = 10; // the clear ground around a target when the rules lea
 const OTHER_GAP = 3; // the least distance between props of different bands (m)
 const TRIES_PER_PROP = 400; // how many places a band may try for one prop
 const MAX_TRIES = 10; // how many seeds to try before giving up on a walkable map
-// The widest crack inside a row that still stops a mech with a 2 m radius (m). It was set for that radius; a mech with
-// a 1 m radius gets through these cracks. Tightening the rows is left to a later ticket that rebuilds the maps.
-const CRACK = 3.9;
+// The widest distance between two neighbouring props of a row (m). A mech with a 1 m radius needs 2 m, so a row
+// closed to it needs every crack under 2; 1.5 keeps a margin for the turn and the wobble in z.
+const CRACK = 1.5;
 const SCALE_MIN = 0.9; // the smallest size a line's props may take
 const SCALE_MAX = 1.1; // the largest size a line's props may take
 
@@ -73,17 +74,47 @@ function lineMaxX(rules: MapRules, kind: PropKind): number {
 }
 
 // One defence line: rows of props across x, odd rows shifted by half a spacing. Every prop wobbles within 1 m, turns
-// and takes a size between 0.9 and 1.1; the gaps stay empty of rectangles and the breakable stretches are marked. A
-// row is also kept closed away from its gaps, so the only ways through are the breakthroughs.
+// and takes a size between 0.9 and 1.1; the gaps stay empty of rectangles and the breakable stretches are marked. A row
+// is also kept closed away from its gaps: neighbouring props stand at most CRACK apart, the row's left end is pulled
+// within CRACK of the map's edge, and its right end is carried on until it reaches within CRACK of the cliff, so the
+// only ways through are the breakthroughs.
+function footprint(kind: PropKind, x: number, z: number, scale: number, yaw: number): GroundRect {
+  const size = PROP_SIZE[kind];
+  return { x, z, halfW: (size.w * scale) / 2, halfD: (size.d * scale) / 2, yaw };
+}
+
+// x pulled back toward the previous prop of the row until the two stand at most CRACK apart (bisection; the distance
+// grows with x).
+function pullToward(previous: Prop, kind: PropKind, x0: number, z: number, scale: number, yaw: number): number {
+  const before = footprint(previous.kind, previous.x, previous.z, previous.scale, previous.yaw);
+  if (rectGap(before, footprint(kind, x0, z, scale, yaw)) <= CRACK) return x0;
+  let near = previous.x;
+  let far = x0;
+  for (let i = 0; i < 24; i++) {
+    const mid = (near + far) / 2;
+    if (rectGap(before, footprint(kind, mid, z, scale, yaw)) > CRACK) far = mid;
+    else near = mid;
+  }
+  return near;
+}
+
 function layLine(rng: Rng, rules: MapRules, line: MapLine): Prop[] {
   const out: Prop[] = [];
   const rowStep = line.depth / line.rows;
   const maxX = lineMaxX(rules, line.kind);
+  // the cliff's face is at least this far from its middle, so a row that reaches CRACK short of it is closed to the cliff
+  const farFace = rules.cliff.x - (PROP_SIZE.cliff.w * SCALE_MIN) / 2;
   for (let row = 0; row < line.rows; row++) {
     const rowZ = line.z - line.depth / 2 + rowStep * (row + 0.5);
     const offset = row % 2 === 1 ? line.spacing / 2 : 0;
     let previous: Prop | null = null;
-    for (let base = rules.bounds.minX + line.spacing / 2 + offset; base < maxX; base += line.spacing) {
+    let atEdge = true; // the stretch that starts at the left edge of the map
+    for (let base = rules.bounds.minX + line.spacing / 2 + offset; base < maxX + 10; base += line.spacing) {
+      // a row stops once it is past the end of the line and, if it ends in a stretch, that stretch reaches the cliff
+      if (base >= maxX) {
+        if (previous === null) break;
+        if (previous.x + halfWidthOnX(previous.kind, previous.scale, previous.yaw) >= farFace - CRACK) break;
+      }
       const x0 = base + rng.rand(-1, 1);
       const z = rowZ + rng.rand(-1, 1);
       const yaw = rng.rand(0, FULL_TURN);
@@ -91,13 +122,11 @@ function layLine(rng: Rng, rules: MapRules, line: MapLine): Prop[] {
       const halfX = halfWidthOnX(line.kind, scale, yaw);
       if (inGap(line, x0, halfX)) {
         previous = null; // the gap starts a new stretch
+        atEdge = false;
         continue;
       }
-      let x = x0;
-      if (previous !== null) {
-        const maxCentre = halfWidthOnX(previous.kind, previous.scale, previous.yaw) + halfX + CRACK;
-        if (x - previous.x > maxCentre) x = previous.x + maxCentre;
-      }
+      let x = previous === null ? x0 : pullToward(previous, line.kind, x0, z, scale, yaw);
+      if (previous === null && atEdge) x = Math.min(x, rules.bounds.minX + halfX + CRACK);
       if (inGap(line, x, halfX)) continue;
       const prop: Prop = { kind: line.kind, x, z, yaw, scale };
       if (inBreakable(line, x)) prop.breakable = true;

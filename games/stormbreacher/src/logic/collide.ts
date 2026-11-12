@@ -53,6 +53,30 @@ export function rectDistance(rect: GroundRect, x: number, z: number): number {
   return Math.hypot(outX, outZ);
 }
 
+// The corners of a rect on the ground.
+function cornersOf(rect: GroundRect): { x: number; z: number }[] {
+  const cos = Math.cos(rect.yaw);
+  const sin = Math.sin(rect.yaw);
+  return [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ].map(([a, b]) => ({
+    x: rect.x + cos * a * rect.halfW + sin * b * rect.halfD,
+    z: rect.z - sin * a * rect.halfW + cos * b * rect.halfD,
+  }));
+}
+
+// The shortest distance between two rects on the ground; 0 when they touch or overlap. Two convex shapes that do not
+// overlap come closest at a corner of one of them, so the corners of each are measured against the other.
+export function rectGap(a: GroundRect, b: GroundRect): number {
+  let gap = Infinity;
+  for (const corner of cornersOf(a)) gap = Math.min(gap, rectDistance(b, corner.x, corner.z));
+  for (const corner of cornersOf(b)) gap = Math.min(gap, rectDistance(a, corner.x, corner.z));
+  return gap;
+}
+
 // The height of the highest upper face the circle stands over: a rect whose top is at most `maxTop` and whose distance
 // from the middle is under the radius; 0 when there is none (the ground).
 export function groundAt(x: number, z: number, radius: number, rects: readonly GroundRect[], maxTop: number): number {

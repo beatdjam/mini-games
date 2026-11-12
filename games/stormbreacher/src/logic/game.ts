@@ -162,6 +162,26 @@ export function step(game: GameModel, input: GameInput, dt: number): void {
     rects: game.rects,
     radius: MECH_TUNE.radius,
   });
+  // The mech stays inside the map: the mech is kept a radius in from every side, and a speed that pushed it out stops.
+  const radius = MECH_TUNE.radius;
+  const minX = game.map.bounds.minX + radius;
+  const maxX = game.map.bounds.maxX - radius;
+  const minZ = game.map.bounds.minZ + radius;
+  const maxZ = game.map.bounds.maxZ - radius;
+  if (game.mech.x < minX) {
+    game.mech.x = minX;
+    if (game.mech.vx < 0) game.mech.vx = 0;
+  } else if (game.mech.x > maxX) {
+    game.mech.x = maxX;
+    if (game.mech.vx > 0) game.mech.vx = 0;
+  }
+  if (game.mech.z < minZ) {
+    game.mech.z = minZ;
+    if (game.mech.vz < 0) game.mech.vz = 0;
+  } else if (game.mech.z > maxZ) {
+    game.mech.z = maxZ;
+    if (game.mech.vz > 0) game.mech.vz = 0;
+  }
   for (const event of events) game.events.push({ kind: 'mech', event });
   const mainShots = stepWeapon(game.main, input.fire, dt);
   const subShots = stepWeapon(game.sub, input.sub, dt);

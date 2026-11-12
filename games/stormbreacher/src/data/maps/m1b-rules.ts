@@ -1,6 +1,7 @@
 // The rules that make M1's B line from a seed (SB-055): three defence lines and C's front row, the cover between them,
 // and the cliff along the right edge. The targets and spawns come from the hand map, so the two ways of making the map
-// put the story's things in the same places.
+// put the story's things in the same places. The lines stand 4.4 m apart in a row, which keeps the 3 m hedgehogs (2.7 m
+// at scale 0.9) under 2 m apart (SB-120).
 import type { MapRules } from '../types.ts';
 
 export const M1B_RULES: MapRules = {
@@ -13,7 +14,7 @@ export const M1B_RULES: MapRules = {
       depth: 18,
       rows: 3,
       kind: 'hedgehog',
-      spacing: 6.2,
+      spacing: 4.4,
       gaps: [
         { x: -55, width: 9 },
         { x: 40, width: 9 },
@@ -26,7 +27,7 @@ export const M1B_RULES: MapRules = {
       depth: 16,
       rows: 3,
       kind: 'hedgehog',
-      spacing: 6.2,
+      spacing: 4.4,
       gaps: [{ x: -10, width: 9 }],
       breakable: [{ x: 50, width: 15 }],
     },
@@ -36,7 +37,7 @@ export const M1B_RULES: MapRules = {
       depth: 18,
       rows: 3,
       kind: 'hedgehog',
-      spacing: 6.2,
+      spacing: 4.4,
       gaps: [{ x: 61, width: 9 }],
       breakable: [{ x: -30, width: 15 }],
     },
@@ -46,7 +47,7 @@ export const M1B_RULES: MapRules = {
       depth: 20,
       rows: 2,
       kind: 'hedgehog',
-      spacing: 6.2,
+      spacing: 4.4,
       gaps: [
         { x: -50, width: 9 },
         { x: 35, width: 9 },

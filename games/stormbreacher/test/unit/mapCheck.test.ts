@@ -5,7 +5,7 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { validateMapForMission } from '../../src/logic/mapCheck.ts';
-import type { MapDef, Prop } from '../../src/data/types.ts';
+import type { MapDef, MapLine, Prop } from '../../src/data/types.ts';
 
 // The mission's things past this map's range: the guns and the magazine behind the seawall, the beach's mortar and
 // the battery on the other side.
@@ -66,8 +66,7 @@ test('two targets with the same id are a violation', () => {
   expect(violations.some(violation => violation.message.includes('pillbox-1'))).toBe(true);
 });
 
-// A 1 m mech gets through the 3.2 m cracks between a defence line's hedgehogs, so blocking only the breakthroughs no
-// longer closes the line (mapgen's CRACK). Fill every row solid to check the walk.
+// Fill every row solid to check the walk.
 test('a defence line filled solid across the map leaves no path', () => {
   const line = M1B_RULES.lines[0];
   const map = structuredClone(M1B_HAND);
@@ -81,8 +80,30 @@ test('a defence line filled solid across the map leaves no path', () => {
   expect(violations.some(violation => violation.kind === 'no-path')).toBe(true);
 });
 
-// SB-120 closes the lines to the 4 m mech; until then the cracks between the hedgehogs are open.
-test.todo('blocking a defence line’s breakthroughs leaves no path');
+// Fills each breakthrough of a defence line with hedgehogs every 3 m (7 of them, so the fill reaches past the gap's
+// neighbours on both sides) on every row of the line.
+function withGapsBlocked(line: MapLine): MapDef {
+  const map = structuredClone(M1B_HAND);
+  for (const gap of line.gaps) {
+    for (let row = 0; row < line.rows; row++) {
+      const z = line.z - line.depth / 2 + (line.depth / line.rows) * (row + 0.5);
+      for (let k = -3; k <= 3; k++) {
+        map.props.push({ kind: 'hedgehog', x: gap.x + k * 3, z, yaw: 0, scale: 1 });
+      }
+    }
+  }
+  return map;
+}
+
+test('blocking a defence line’s breakthroughs leaves no path', () => {
+  for (const line of M1B_RULES.lines) {
+    const violations = validateMapForMission(withGapsBlocked(line), M1, SKIP);
+    expect(
+      violations.some(violation => violation.kind === 'no-path'),
+      `line at z ${line.z}`,
+    ).toBe(true);
+  }
+});
 
 test('a prop outside the bounds is a violation', () => {
   const map = structuredClone(M1B_HAND);
