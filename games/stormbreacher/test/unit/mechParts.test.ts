@@ -51,6 +51,11 @@ test('every weapon has a look', () => {
     for (const box of boxes) for (const size of box.size) expect(size).toBeGreaterThan(0);
 });
 
+test('the medium mech stands taller than the bulky one at the hip', () => {
+  expect(PARTS.legs.midLegs.hipY).toBeGreaterThan(PARTS.legs.stoutLegs.hipY!);
+  expect(PARTS.legs.longLegs.hipY).toBeGreaterThan(PARTS.legs.stoutLegs.hipY!);
+});
+
 test('every pattern uses existing parts and a full palette', () => {
   for (const id of PATTERN_IDS) {
     const pattern = PATTERNS[id];

@@ -86,10 +86,10 @@ test('the view opens, and number keys and buttons change the look', () => {
   expect(report().pattern).toBe('b');
 
   document.dispatchEvent(new KeyboardEvent('keydown', { key: '3' }));
-  expect(report().pattern).toBe('c');
-  expect(new URLSearchParams(location.search).get('pattern')).toBe('c');
+  expect(report().pattern).toBe('f');
+  expect(new URLSearchParams(location.search).get('pattern')).toBe('f');
 
-  document.dispatchEvent(new KeyboardEvent('keydown', { key: '4' }));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: '5' }));
   expect(report().pattern).toBe('d');
   expect(new URLSearchParams(location.search).get('pattern')).toBe('d');
 

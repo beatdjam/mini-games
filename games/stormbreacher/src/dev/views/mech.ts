@@ -1,5 +1,5 @@
-// The mech's look plans A-D (#view-mech): the M1 B beach with the mech on it, spun to look around. It never reads the
-// game's state and never takes input.
+// The mech's look plans A, E, F, B, D (#view-mech): the M1 B beach with the mech on it, spun to look around. It never
+// reads the game's state and never takes input.
 import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
@@ -33,7 +33,7 @@ const MECH_MARGIN = 4;
 // The spin's speed (rad/s; 仮).
 const SPIN_RATE = 0.6;
 
-const KEY_PATTERN: Record<string, PatternId> = { '1': 'a', '2': 'b', '3': 'c', '4': 'd' };
+const KEY_PATTERN: Record<string, PatternId> = { '1': 'a', '2': 'e', '3': 'f', '4': 'b', '5': 'd' };
 
 type ViewMode = 'spin' | 'behind';
 

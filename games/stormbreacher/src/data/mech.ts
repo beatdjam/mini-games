@@ -27,7 +27,7 @@ export interface PartDef {
   mount?: Vec3; // arms: where the main weapon sits; back: where the sub weapon sits (ratio, from the hip top)
 }
 
-export type CoreId = 'bulky' | 'slim' | 'low';
+export type CoreId = 'bulky' | 'medium' | 'slim' | 'low';
 
 export const CORES: Record<CoreId, PartDef> = {
   bulky: {
@@ -35,6 +35,14 @@ export const CORES: Record<CoreId, PartDef> = {
     boxes: [
       { size: [0.4, 0.09, 0.26], at: [0, 0.045, 0], color: 'frame' },
       { size: [0.36, 0.3, 0.28], at: [0, 0.24, 0], color: 'armor' },
+    ],
+  },
+  medium: {
+    // provisional: bulky made leaner (SB-130's second card)
+    weight: 2.2,
+    boxes: [
+      { size: [0.32, 0.08, 0.22], at: [0, 0.04, 0], color: 'frame' },
+      { size: [0.28, 0.28, 0.22], at: [0, 0.22, 0], color: 'armor' },
     ],
   },
   slim: {
@@ -54,8 +62,8 @@ export const CORES: Record<CoreId, PartDef> = {
 };
 
 export const PART_IDS = {
-  arms: ['heavyArms', 'slimArms', 'stubArms'],
-  legs: ['stoutLegs', 'reverseLegs', 'quadLegs'],
+  arms: ['heavyArms', 'midArms', 'slimArms', 'stubArms'],
+  legs: ['stoutLegs', 'midLegs', 'longLegs', 'reverseLegs', 'quadLegs'],
   back: ['pack', 'boosters', 'pods', 'turret'],
   fcs: ['blockHead', 'visor', 'sensorPod'],
 } as const;
@@ -70,6 +78,15 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
       boxes: [
         { size: [0.15, 0.3, 0.18], at: [0.255, 0.26, 0], color: 'armor', mirror: 'x' },
         { size: [0.19, 0.08, 0.22], at: [0.255, 0.44, 0], color: 'frame', mirror: 'x' },
+      ],
+    },
+    midArms: {
+      // provisional: heavyArms made leaner (SB-130's second card)
+      weight: 3,
+      mount: [0.2, 0.18, -0.12],
+      boxes: [
+        { size: [0.1, 0.3, 0.13], at: [0.2, 0.24, 0], color: 'armor', mirror: 'x' },
+        { size: [0.13, 0.06, 0.15], at: [0.2, 0.42, 0], color: 'frame', mirror: 'x' },
       ],
     },
     slimArms: {
@@ -90,6 +107,24 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
       boxes: [
         { size: [0.17, 0.33, 0.2], at: [0.13, 0.235, 0], color: 'armor', mirror: 'x' },
         { size: [0.2, 0.07, 0.3], at: [0.13, 0.035, -0.04], color: 'frame', mirror: 'x' },
+      ],
+    },
+    midLegs: {
+      // provisional: stoutLegs made leaner (SB-130's second card)
+      weight: 4,
+      hipY: 0.45,
+      boxes: [
+        { size: [0.12, 0.38, 0.15], at: [0.1, 0.26, 0], color: 'armor', mirror: 'x' },
+        { size: [0.15, 0.06, 0.24], at: [0.1, 0.03, -0.03], color: 'frame', mirror: 'x' },
+      ],
+    },
+    longLegs: {
+      // provisional: midLegs made taller (SB-130's second card)
+      weight: 3.5,
+      hipY: 0.52,
+      boxes: [
+        { size: [0.1, 0.45, 0.13], at: [0.1, 0.295, 0], color: 'armor', mirror: 'x' },
+        { size: [0.14, 0.06, 0.22], at: [0.1, 0.03, -0.03], color: 'frame', mirror: 'x' },
       ],
     },
     reverseLegs: {
