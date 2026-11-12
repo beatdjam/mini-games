@@ -168,3 +168,36 @@ test('a block at scale 2.8 blocks a wider gap than at scale 1', () => {
   large.props.push({ kind: 'block', x: 0, z: 50, yaw: 0, scale: 2.8 });
   expect(validateMapForMission(large, M1, SKIP).some(violation => violation.kind === 'no-path')).toBe(true);
 });
+
+// A wall of blocks across the boss's ground (z -95), with an optional 14 m gap in the middle.
+function withWallBehindSeawall(gap: boolean): MapDef {
+  const map = structuredClone(M1B_HAND);
+  map.props = map.props.filter(prop => prop.z > -76);
+  for (let x = -99; x <= 99; x += 2) {
+    if (gap && Math.abs(x) < 7) continue;
+    map.props.push({ kind: 'block', x, z: -95, yaw: 0, scale: 1 });
+  }
+  return map;
+}
+
+test('a wall of blocks behind the seawall leaves every part of the battery out of reach', () => {
+  const violations = validateMapForMission(withWallBehindSeawall(false), M1, SKIP);
+  const messages = violations.filter(violation => violation.kind === 'no-path').map(violation => violation.message);
+  expect(messages).toHaveLength(3);
+  for (const id of ['main-gun-1', 'main-gun-2', 'magazine']) {
+    expect(
+      messages.some(message => message.includes(id)),
+      id,
+    ).toBe(true);
+  }
+});
+
+test('a gap in the wall behind the seawall opens the way to the battery again', () => {
+  expect(validateMapForMission(withWallBehindSeawall(true), M1, SKIP)).toEqual([]);
+});
+
+test('a map whose targets all stand before the seawall is not held to the stretch behind it', () => {
+  const map = withWallBehindSeawall(false);
+  map.targets = map.targets.filter(target => target.z > -76);
+  expect(validateMapForMission(map, M1, SKIP).some(violation => violation.kind === 'no-path')).toBe(false);
+});

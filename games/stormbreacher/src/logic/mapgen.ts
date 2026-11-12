@@ -139,7 +139,13 @@ function layLine(rng: Rng, rules: MapRules, line: MapLine): Prop[] {
 
 // One try: put every defence line down, then every band's count, then the cliff. A band prop is kept out of the lines,
 // the lanes, the targets' clear ground and at least the band's minGap from the band's other props.
-function layOut(rng: Rng, rules: MapRules, anchors: MapAnchors): MapDef {
+function layOut(rng: Rng, rules: MapRules, fullAnchors: MapAnchors): MapDef {
+  // the rules may cover less than the hand map: a target outside their bounds is left off the map
+  const { minX, maxX, minZ, maxZ } = rules.bounds;
+  const anchors: MapAnchors = {
+    ...fullAnchors,
+    targets: fullAnchors.targets.filter(t => t.x >= minX && t.x <= maxX && t.z >= minZ && t.z <= maxZ),
+  };
   const clear = rules.clear ?? DEFAULT_CLEAR;
   const props: Prop[] = [];
   for (const line of rules.lines) props.push(...layLine(rng, rules, line));

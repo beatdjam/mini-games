@@ -8,10 +8,11 @@ import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
 import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxes } from './camera.ts';
+import { buildShore } from './shore.ts';
 import { breakPropSlot, buildOutdoor, buildTargets, type OutdoorBuild, type PropSlot } from './outdoor.ts';
 
 const FOG_NEAR = 100; // m
-const FOG_FAR = 240; // m; the map is 230 m deep
+const FOG_FAR = 240; // m; the map is 340 m deep, so the far end appears as the mech comes closer
 const CHUNK = 32; // m
 const CHUNK_MIN = 3000; // triangles
 const WRECK_COLOR = 0x1f1c18; // the colour a broken target keeps
@@ -24,6 +25,7 @@ export interface World {
   built: OutdoorBuild; // the ground and props, and their chunks
   targets: Map<string, THREE.Mesh>; // the mission's targets by id
   targetGroup: THREE.Group; // every target, to take out when the world is built again
+  shore: THREE.Group; // the sea and the landing craft, to take out with them
   cameraBoxes: THREE.Box3[]; // the props and targets as walls the camera keeps out of
   slots: Map<number, PropSlot>; // a breakable prop's place in map.props -> where it is drawn
   propCameraBoxes: Map<number, THREE.Box3>; // a breakable prop's place in map.props -> its box in cameraBoxes
@@ -59,6 +61,8 @@ export function buildWorld(map: MapDef): World {
 
   const targetGroup = buildTargets(map.targets);
   scene.add(targetGroup);
+  const shore = buildShore(map.bounds);
+  scene.add(shore);
   const targets = new Map<string, THREE.Mesh>();
   for (const child of targetGroup.children) {
     if (child instanceof THREE.Mesh) targets.set(child.name, child);
@@ -78,7 +82,7 @@ export function buildWorld(map: MapDef): World {
     propCameraBoxes.set(propIndex, boxes[i]);
   });
 
-  return { built, targets, targetGroup, cameraBoxes: boxes, slots, propCameraBoxes, broken: new Set() };
+  return { built, targets, targetGroup, shore, cameraBoxes: boxes, slots, propCameraBoxes, broken: new Set() };
 }
 
 // Lowers and darkens every target whose health is gone, and every breakable prop the game has broken: its copy becomes

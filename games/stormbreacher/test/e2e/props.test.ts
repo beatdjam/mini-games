@@ -35,3 +35,58 @@ test('a sortie draws the low walls and the stairs', async () => {
     expect(drawn(kind), kind).toBe(placed);
   }
 });
+
+// The first object in the scene with this name, anywhere below it.
+function find(name: string): THREE.Object3D | undefined {
+  let found: THREE.Object3D | undefined;
+  scene.traverse(child => {
+    if (!found && child.name === name) found = child;
+  });
+  return found;
+}
+
+test('a sortie draws every target of the map, the battery’s parts among them', async () => {
+  startSortie();
+  await frame();
+  const map = currentGame()?.map;
+  if (!map) throw new Error('the sortie has not started');
+  const group = find('targets');
+  expect(group?.children).toHaveLength(map.targets.length);
+  for (const id of ['main-gun-1', 'main-gun-2', 'magazine']) {
+    expect(
+      group?.children.some(child => child.name === id),
+      id,
+    ).toBe(true);
+  }
+});
+
+test('a sortie draws the sea past the front edge and the landing craft behind the mech, and starting again leaves one of each', async () => {
+  for (let sortie = 0; sortie < 2; sortie++) {
+    startSortie();
+    await frame();
+    const game = currentGame();
+    if (!game) throw new Error('the sortie has not started');
+    const { maxX, minX, maxZ } = game.map.bounds;
+    const shores = scene.children.filter(child => child.name === 'shore');
+    expect(shores).toHaveLength(1);
+
+    const sea = find('sea');
+    const craft = find('craft');
+    if (!sea || !craft) throw new Error('the sea or the landing craft is not in the scene');
+    const seaBox = new THREE.Box3().setFromObject(sea);
+    expect(seaBox.min.z).toBeCloseTo(maxZ, 6);
+    expect(seaBox.min.x).toBeLessThan(minX);
+    expect(seaBox.max.x).toBeGreaterThan(maxX);
+
+    const craftBox = new THREE.Box3().setFromObject(craft);
+    expect(craftBox.min.z).toBeGreaterThanOrEqual(maxZ - 6);
+    expect(craftBox.max.z).toBeGreaterThan(game.mech.z + 10);
+    expect(craftBox.max.y).toBeGreaterThan(seaBox.max.y + 1);
+    // one draw a colour: the hull and the dark deck and ramp
+    const meshes: THREE.Mesh[] = [];
+    craft.traverse(child => {
+      if (child instanceof THREE.Mesh) meshes.push(child);
+    });
+    expect(meshes).toHaveLength(2);
+  }
+});

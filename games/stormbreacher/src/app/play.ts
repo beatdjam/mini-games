@@ -32,6 +32,7 @@ function hideField(): void {
 function clearPlay(old: PlayView): void {
   scene.remove(old.world.built.group);
   scene.remove(old.world.targetGroup);
+  scene.remove(old.world.shore);
   scene.remove(old.model);
   scene.remove(old.bullets.lines);
   old.bullets.lines.geometry.dispose();

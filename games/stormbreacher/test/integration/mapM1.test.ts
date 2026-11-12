@@ -31,11 +31,12 @@ function destroyedTargets(): Set<string> {
 }
 
 // The hand map around one defence line, with some open ground on either side, so checkMapPath can say whether the mech
-// can cross that line.
+// can cross that line. The battery's parts are left off: they stand far outside the cropped range.
 function acrossLine(line: MapLine): MapDef {
   const margin = 6;
   return {
     ...M1B_HAND,
+    targets: M1B_HAND.targets.filter(target => target.kind !== 'gun' && target.kind !== 'magazine'),
     bounds: {
       ...M1B_HAND.bounds,
       minZ: line.z - line.depth / 2 - margin,
