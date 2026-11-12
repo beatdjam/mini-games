@@ -1,10 +1,21 @@
 import { expect, test } from 'vitest';
 import { ENEMIES } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
-import { sendToScript, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { rectDistance } from '../../src/logic/collide.ts';
+import {
+  isEnemyBullet,
+  sendToScript,
+  step,
+  type GameEvent,
+  type GameInput,
+  type GameModel,
+} from '../../src/logic/game.ts';
+import { mapBlockers } from '../../src/logic/mapShapes.ts';
+import { fireRayHit } from '../../src/logic/fire.ts';
 import { newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
@@ -189,7 +200,7 @@ test('an enemy’s bullet stops at a prop and does not hit the mech behind it', 
   expect(game.bullets).toHaveLength(0);
 });
 
-test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind it holds fire', () => {
+test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind it fires only once it has come round to a clear line', () => {
   seed(5);
   const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
   const game = newPlayGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
@@ -200,16 +211,25 @@ test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind
   game.bullets.push({ enemy: 'grunt', x: 0, y, z: -30, dx: 0, dy: 0, dz: 1, left: 80 });
   sendToScript(game, { kind: 'enter', area: 'b-line' });
   const hits: Extract<GameEvent, { kind: 'hit' }>[] = [];
+  let shotsWithoutLine = 0;
+  let shots = 0;
   for (let i = 0; i < 600; i++) {
+    const before = game.enemies[0].wait;
     step(game, idle, DT);
     for (const event of game.events) if (event.kind === 'hit') hits.push(event);
+    // its timer going back up is a shot; the pillbox must not be between it and the mech then
+    if (game.enemies[0].wait > before) {
+      shots++;
+      if (inSight(game) === 0) shotsWithoutLine++;
+    }
   }
-  // the pushed bullet stops at the pillbox's wall; the enemy behind it never gets a clear line, so fires nothing
-  expect(hits).toHaveLength(1);
+  // the pushed bullet stops at the pillbox's wall; the pillbox itself takes no harm
   expect(hits[0]).toMatchObject({ weapon: null, mech: false, enemy: null, target: null, prop: null });
   expect(hits[0].z).toBeLessThan(-10);
   expect(game.targets[0].hp).toBeGreaterThan(0);
-  expect(game.armor).toBe(MECH_TUNE.armor);
+  // the enemy walks round the pillbox and shoots from there: every shot it fired had a clear line
+  expect(shots).toBeGreaterThan(0);
+  expect(shotsWithoutLine).toBe(0);
 });
 
 test('the soft lock does not pull toward an enemy hidden behind a pillbox, but toward the pillbox in front', () => {
@@ -314,4 +334,76 @@ test('the same seed and inputs give the same events; another seed gives other sh
   expect(first.flat().some(event => event.kind === 'damaged')).toBe(true);
   expect(run(21)).toEqual(first);
   expect(run(22)).not.toEqual(first);
+});
+
+// How many of the living enemies have a clear line from their chest to the mech's chest (no prop or standing target between).
+function inSight(game: GameModel): number {
+  const walls = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
+  const chest = ENEMIES.grunt.height * 0.7;
+  return game.enemies.filter(enemy => {
+    const dx = game.mech.x - enemy.x;
+    const dy = game.mech.y + MECH_TUNE.chestHeight - chest;
+    const dz = game.mech.z - enemy.z;
+    return enemy.hp > 0 && !fireRayHit(enemy.x, chest, enemy.z, dx, dy, dz, Math.hypot(dx, dy, dz), walls);
+  }).length;
+}
+
+const SQUAD_SECONDS = 35; // the time the squad has to come out into the mech's sight (s)
+
+test('b-squad, put out behind line 3, finds the way through its breakthrough and comes into the mech’s sight', () => {
+  seed(1);
+  const game = newPlayGame({ ...M1B_HAND, mines: [] });
+  // in front of line 3 (z 8..26), a long way from the squad (z -25..-33)
+  game.mech.x = 0;
+  game.mech.z = 40;
+  game.mech.yaw = 0;
+  game.armor = 1e9; // the squad shoots at the mech once it sees it; this test is about where it comes
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  expect(game.enemies).toHaveLength(6);
+  expect(inSight(game)).toBe(0);
+  for (let i = 0; i < SQUAD_SECONDS / DT; i++) step(game, idle, DT);
+  expect(inSight(game)).toBeGreaterThanOrEqual(game.enemies.length / 2);
+  // they came round the line, not through it
+  const blockers = mapBlockers(game.map).filter(rect => rect.top !== undefined && rect.top > 1);
+  for (const enemy of game.enemies) {
+    for (const rect of blockers)
+      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES.grunt.radius - 1e-6);
+  }
+});
+
+test('seawall-drop is put out on top of the seawall and jumps down to the ground on its seaward side, shooting only after', () => {
+  seed(1);
+  const game = newPlayGame({ ...M1B_HAND, mines: [] });
+  game.mech.x = 0;
+  game.mech.z = -20;
+  game.mech.yaw = 0;
+  game.armor = 1e9;
+  // both pillboxes down: cp1, then the wave 2 sinking and `seawall-drop` four seconds on
+  sendToScript(game, { kind: 'destroyed', target: 'pillbox-1' });
+  sendToScript(game, { kind: 'destroyed', target: 'pillbox-2' });
+  for (let i = 0; i < 600 && game.enemies.length === 0; i++) {
+    step(game, idle, DT);
+    if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
+  }
+  expect(game.enemies).toHaveLength(6);
+  for (const enemy of game.enemies) {
+    expect(enemy.y).toBeGreaterThan(PROP_SIZE.seawall.h - 1);
+    expect(enemy.z).toBeLessThan(-65);
+  }
+  let hostileInTheAir = 0;
+  let landed = -1;
+  for (let i = 0; i < 4 * 60 && landed < 0; i++) {
+    step(game, idle, DT);
+    if (game.enemies.every(enemy => enemy.y > 0) && game.bullets.some(isEnemyBullet)) hostileInTheAir++;
+    if (game.enemies.every(enemy => enemy.y === 0)) landed = i;
+  }
+  expect(landed).toBeGreaterThan(0);
+  expect(landed * DT).toBeLessThan(1.5);
+  expect(hostileInTheAir).toBe(0);
+  // on the ground on the seaward side of the wall (z -65), outside every wall
+  for (const enemy of game.enemies) {
+    expect(enemy.z).toBeGreaterThan(-65);
+    for (const rect of game.rects)
+      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES.grunt.radius - 1e-6);
+  }
 });

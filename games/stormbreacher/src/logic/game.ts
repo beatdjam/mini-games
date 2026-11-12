@@ -13,7 +13,7 @@
 // (SB-200, logic/battery.ts): once the `battery` wave is out, each main gun still standing shoots the mech with a machine
 // gun, and the magazine takes no harm while its shutter is shut, until both main guns are down. An `ally` (a friend,
 // logic/allies.ts) runs its way with no hit box and falls at the place its fate names (SB-170).
-import { ENEMIES, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
+import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { BARRAGES, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { M1_MECH } from '../data/mech.ts';
@@ -34,7 +34,17 @@ import {
 } from './battery.ts';
 import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
-import { newFcs, spreadDir, stepFcs, type Dir3, type FcsState, type FcsTarget, type Ray3 } from './fcs.ts';
+import { newNav, stepNav, type NavState } from './nav.ts';
+import {
+  newFcs,
+  spreadDir,
+  stepFcs,
+  type Dir3,
+  type FcsState,
+  type FcsTarget,
+  type FcsWorld,
+  type Ray3,
+} from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
 import {
   inCircle,
@@ -52,6 +62,9 @@ import { moveTuneOf } from './mechTune.ts';
 import { stream } from './rng.ts';
 import { newScript, scriptInput, stepScript, type ScriptInput, type ScriptOut, type ScriptState } from './script.ts';
 import { newWeapon, stepWeapon, type WeaponState } from './weapons.ts';
+
+// The radius the enemies' cells are blocked for (m): the widest enemy's, so what one can walk through they all can.
+const NAV_RADIUS = Math.max(...ENEMY_KINDS.map(kind => ENEMIES[kind].radius));
 
 export interface TargetState {
   id: string;
@@ -149,7 +162,7 @@ function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
 // The game as a checkpoint keeps it: every field of GameModel except the ones listed here, which are not kept. `events`,
 // `bullets` and `shells` (a warning before it lands) are the frame's own, `checkpoint` never nests, and `id` is the checkpoint's name (cp1). `map` and
 // `mission` are definitions nothing writes to, so the copy points at the same ones.
-export type GameSnapshot = Omit<GameModel, 'events' | 'bullets' | 'shells' | 'checkpoint'> & { id: string };
+export type GameSnapshot = Omit<GameModel, 'events' | 'bullets' | 'shells' | 'nav' | 'checkpoint'> & { id: string };
 
 export interface GameModel {
   time: number; // seconds since the sortie began
@@ -166,6 +179,7 @@ export interface GameModel {
   breakables: BreakableState[]; // the breakable blocking props, with their health
   targets: TargetState[];
   enemies: EnemyState[]; // every enemy put out, the fallen too (hp 0: they do not move, shoot or take a hit)
+  nav: NavState; // the cells and counts the enemies find their way by; made again from rects, so a copy leaves it out
   main: WeaponState; // the main weapon's ammo and wait
   sub: WeaponState; // the sub weapon's ammo and wait
   fcs: FcsState; // the aim assist's state (the soft kind)
@@ -189,10 +203,11 @@ function mineBox(mine: MineState): Aabb {
   return rectBox({ x: mine.x, z: mine.z, halfW: size.w / 2, halfD: size.d / 2, yaw: 0, top: size.h });
 }
 
-// The box a shot may hit on an enemy: x and z +- its radius, y from the ground to its height.
+// The box a shot may hit on an enemy: x and z +- its radius, y from its feet (the ground, but while it falls in) to its height.
 export function enemyBox(enemy: EnemyState): Aabb {
   const def = ENEMIES[enemy.kind];
-  return rectBox({ x: enemy.x, z: enemy.z, halfW: def.radius, halfD: def.radius, yaw: 0, top: def.height });
+  const box = rectBox({ x: enemy.x, z: enemy.z, halfW: def.radius, halfD: def.radius, yaw: 0, top: def.height });
+  return { ...box, minY: enemy.y, maxY: enemy.y + def.height };
 }
 
 // The box an enemy's shot may hit on the mech: x and z +- its radius, y from the feet to its height.
@@ -263,14 +278,24 @@ function fcsName(game: GameModel, id: number): string {
   return id < game.targets.length ? game.targets[id].id : game.enemies[id - game.targets.length].id;
 }
 
-// One shot from the mech's chest toward `dir`, spread by a random draw: a bullet with `weapon`'s range to fly.
+// Where a shot leaves: the weapon arm's muzzle, to the mech's right and a little ahead of its centre.
+function muzzleOf(mech: MechState): { x: number; y: number; z: number } {
+  const side = MECH_TUNE.muzzleSide;
+  const ahead = MECH_TUNE.muzzleForward;
+  return {
+    x: mech.x + Math.cos(mech.yaw) * side - Math.sin(mech.yaw) * ahead,
+    y: mech.y + MECH_TUNE.chestHeight,
+    z: mech.z - Math.sin(mech.yaw) * side - Math.cos(mech.yaw) * ahead,
+  };
+}
+
+// One shot from the muzzle toward `dir`, spread by a random draw: a bullet with `weapon`'s range to fly.
 function shoot(game: GameModel, weapon: WeaponId, dir: Dir3): void {
   const def = WEAPONS[weapon];
-  const mech = game.mech;
+  const { x, y, z } = muzzleOf(game.mech);
   const aimed = spreadDir(dir, FCS_TUNE.soft.spread, stream('shots'));
-  const y = mech.y + MECH_TUNE.chestHeight;
-  game.bullets.push({ weapon, x: mech.x, y, z: mech.z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, left: def.range });
-  game.events.push({ kind: 'shot', x: mech.x, y, z: mech.z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, weapon });
+  game.bullets.push({ weapon, x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, left: def.range });
+  game.events.push({ kind: 'shot', x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, weapon });
 }
 
 // Moves one bullet on by `dt`. The mech's bullet stops at the nearest of the first prop, the first live target, the
@@ -447,6 +472,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
       box: targetBox(place),
     })),
     enemies: [],
+    nav: newNav(),
     main: newWeapon(M1_LOADOUT.main),
     sub: newWeapon(M1_LOADOUT.sub),
     fcs: newFcs(),
@@ -480,7 +506,8 @@ function spawnWave(game: GameModel, wave: string): void {
   const kind = M1_WAVE_ENEMY[wave];
   const places = game.map.spawns[wave];
   if (kind === undefined || places === undefined || places.length === 0) return;
-  places.forEach((place, i) => game.enemies.push(newEnemy(`${wave}-${i + 1}`, wave, kind, place.x, place.z)));
+  const y = M1_WAVE_DROP[wave] ?? 0;
+  places.forEach((place, i) => game.enemies.push(newEnemy(`${wave}-${i + 1}`, wave, kind, place.x, place.z, y)));
   game.events.push({ kind: 'spawned', wave, count: places.length });
 }
 
@@ -540,7 +567,16 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
 // A deep copy of the game for the checkpoint `id`. The fields that are not kept are taken out by name, so a field added
 // to GameModel is copied unless it is added to the list.
 function snapshotOf(game: GameModel, id: string): GameSnapshot {
-  const { events: _events, bullets: _bullets, shells: _shells, checkpoint: _checkpoint, map, mission, ...kept } = game;
+  const {
+    events: _events,
+    bullets: _bullets,
+    shells: _shells,
+    nav: _nav,
+    checkpoint: _checkpoint,
+    map,
+    mission,
+    ...kept
+  } = game;
   return { ...structuredClone(kept), map, mission, id };
 }
 
@@ -565,6 +601,7 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
     aimTarget: null,
     bullets: [],
     shells: [],
+    nav: newNav(),
     events: [{ kind: 'retried', from: id }],
     cleared: false,
     checkpoint,
@@ -589,7 +626,11 @@ function inArea(area: Area, x: number, z: number): boolean {
 function stepEnemies(game: GameModel, dt: number): void {
   // a standing target blocks an enemy's line as a prop does
   const blockers = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
-  const world = { rects: game.rects, propBoxes: blockers, bounds: game.map.bounds };
+  const mech = game.mech;
+  const alive = game.enemies.some(enemy => enemy.hp > 0);
+  // the way round the walls is made only while there is an enemy to use it
+  const nav = alive ? stepNav(game.nav, game.rects, game.map.bounds, NAV_RADIUS, mech, dt) : null;
+  const world = { rects: game.rects, propBoxes: blockers, bounds: game.map.bounds, nav, others: game.enemies };
   for (const enemy of game.enemies) {
     const shot: EnemyShot | null = stepEnemy(enemy, game.mech, world, dt, stream('enemies'));
     if (!shot) continue;
@@ -712,7 +753,16 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     dy: 0,
     dz: -Math.cos(game.mech.yaw),
   };
-  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, chest, fcsTargets(game, chest), dt);
+  // The aim line stops at the first prop, standing target, live enemy or the ground; a shot goes there from the muzzle.
+  const world: FcsWorld = {
+    boxes: [
+      ...game.propBoxes,
+      ...game.targets.filter(target => target.hp > 0).map(target => target.box),
+      ...game.enemies.filter(enemy => enemy.hp > 0).map(enemyBox),
+    ],
+    groundY: 0,
+  };
+  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, muzzleOf(game.mech), fcsTargets(game, chest), dt, world);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);
   const mainShots = stepWeapon(game.main, input.fire, dt);
   const subShots = stepWeapon(game.sub, input.sub, dt);

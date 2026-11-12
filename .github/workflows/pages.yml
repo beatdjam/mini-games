@@ -45,8 +45,11 @@ jobs:
         # 失敗したら公開しない。ランナーの Chrome を使う。結果はジョブのサマリに出る
         env:
           CHROME: /usr/bin/google-chrome
+        # PR の確認（checks.yml）と同じく、node の層を先に流してから Chromium の層を流す。
+        # 全部を一度に流すと、node の層と Chromium が CPU を取り合って、重いテストが 5 秒の上限を超える（#509〜#511 で落ちた）
         run: |
-          npm test
+          npx vitest run --project '*-unit' --project '*-integration'
+          npx vitest run --project '!*-unit' --project '!*-integration'
           npm run test:build
       - name: テストのレポートを保存（失敗したときも）
         if: always()

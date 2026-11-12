@@ -1,6 +1,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
+import { runSystems } from '@engine/core/index.ts';
 import { drawStats, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
@@ -58,7 +59,10 @@ test('a sortie draws the battle: the allies walking, the holes and the smoke, in
   startSortie();
   await frames(3);
   sendToScript(game(), { kind: 'skip' });
-  await frames(90);
+  // 1.5 s of the battle, run by hand: waiting for 90 drawn frames timed out at 60 s on CI when every game's tests ran at
+  // once. One drawn frame after it gives the draw counts.
+  for (let i = 0; i < 90; i++) runSystems(1 / 60);
+  await frames(1);
   expect(battleGroups()).toHaveLength(1);
   const drawn = drawnBattleMeshes();
   // the walkers' bodies and heads (some have fallen or gone by now), and the holes, the smoke and the rest
