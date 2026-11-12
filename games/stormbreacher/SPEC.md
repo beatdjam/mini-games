@@ -149,7 +149,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - `SAVE_VERSION = 2`。形を変えたら版を上げ、`MIGRATIONS` に `[to, migrate]` を足す。1 → 2 は `funds` を `ECONOMY.startFunds` で作る
 - `SaveData` は `v`・所持金 `funds`（cr）と `records.missions` を持つ。`MissionRecord` は `cleared` と `bestSec`（秒、無ければ null）
 - 古いセーブは `v`（無ければ 0）から今の版まで `MIGRATIONS` を順に流す。読むのは `initSave()`（起動時）で、モジュールの読み込み時には読まない
-- 中断のスナップショット: 一時停止の「中断」で `SUSPEND_KEY = 'stormbreacher-suspend'` に1つだけ書く（キャンペーンの進みとは別のキー）。形は `SuspendData`（`v`・`map` と `mission` の id・`game`・`checkpoint`）で、`SUSPEND_VERSION = 1`。定義場所は `suspendOf`・`restoreSuspend` in src/logic/suspend.ts、読み書きは `loadSuspend`・`writeSuspend`・`clearSuspend` in src/app/storage.ts
+- 中断のスナップショット: 一時停止の「中断」で `SUSPEND_KEY = 'stormbreacher-suspend'` に1つだけ書く（キャンペーンの進みとは別のキー）。形は `SuspendData`（`v`・`map` と `mission` の id・`game`・`checkpoint`）で、`SUSPEND_VERSION = 2`。定義場所は `suspendOf`・`restoreSuspend` in src/logic/suspend.ts、読み書きは `loadSuspend`・`writeSuspend`・`clearSuspend` in src/app/storage.ts
   - 深いコピー（`structuredClone`）で、保存しない項目を名前で並べる形: `events`（そのフレームの出来事）・`bullets`（飛んでいる弾）・`shells`（落ちる前の着弾予告。チェックポイントと同じく持ち越さず、再開で消える）。`map` と `mission` は id で持ち、読むときに `MAPS`・`MISSIONS` の表から引き直す。`checkpoint` は `map`・`mission` を除いた形で一緒に保存し、再開したあとにやられてもそこからやり直せる。`GameModel` に項目を足すと、保存しない項目に書かない限り保存される（読み込みの検査表 `GAME_SHAPE` が項目の抜けを型で知らせる）
   - 読み込み: 版が違う・JSON として壊れている・map や mission の id が表に無い・項目の型が違うときは捨てて（キーを消す）、「続きから」を出さない。例外では落ちない
   - 再開すると中断のキーを消す。報酬を判定する粒度（クリア1回）より前に保存し、再開した出撃のクリアで1回だけ書くので、同じ中断から報酬を二重に取れない。やり直しの回数 `retries` も保存するので、再開しても費用と戦果は中断しなかったときと同じ
@@ -244,7 +244,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | `radius` | 0.75 | m。当たりの半径（箱は 1.5 × 3 × 1.5m） |
 | `speed` | 3.5 | m/s。歩く速さ |
 | `notice` | 120 | m。この距離に機体が入ると起きる |
-| `stopDist` | 25 | m。ここまで近づくと歩くのをやめる |
+| `stopDist` | 25 | m。ここまで近づき、機体への線が通っていれば歩くのをやめる（線が通らない間は止まらない） |
 | `fireRange` | 80 | m。機体がこの中にいると撃つ。弾の射程もこれ |
 | `fireInterval` | 1.5 | s。撃つ間隔 |
 | `damage` | 4 | 1発が減らす機体の装甲 |
@@ -253,11 +253,19 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 `ENEMY_CHEST` = 0.7 は、敵が撃つ高さの、高さに対する割合。
 
-敵の動き（`stepEnemy` in `src/logic/enemies.ts`。`EnemyState` は `id`・`wave`・`kind`・`x`・`z`・`yaw`・`hp`・`awake`・`wait`）:
-- 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`b-squad`・`depot-guard`・`seawall-drop`・`c-squad` が `grunt`）にあれば、`map.spawns[波]` の場所ごとに1体を出す（`spawnWave` in `src/logic/game.ts`）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
+敵の動き（`stepEnemy` in `src/logic/enemies.ts`。`EnemyState` は `id`・`wave`・`kind`・`x`・`z`・`y`・`vy`・`yaw`・`hp`・`awake`・`wait`）:
+- 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`b-squad`・`depot-guard`・`seawall-drop`・`c-squad` が `grunt`）にあれば、`map.spawns[波]` の場所ごとに1体を出す（`spawnWave` in `src/logic/game.ts`）。高さ `y` は `M1_WAVE_DROP`（`src/data/enemies.ts`。`seawall-drop` が防波堤の高さ `PROP_SIZE.seawall.h` = 6m。表に無い波は地面の 0）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
 - 寝る: 起きる前は動かず撃たない。機体が地面での距離で `notice` に入ると起き、一度起きたら寝ない
-- 歩く: 起きると機体へ向き（`yaw`）、`stopDist` まで歩く（`stopDist` を越えて進まない）。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない
-- 撃つ: 機体が `fireRange` の中にいて、胸（高さの `ENEMY_CHEST`）から機体の胸への線が物の箱（`game.propBoxes`）と壊れていない目標の箱に遮られないとき、`wait` が 0 になるたびに1発撃ち、`wait` を `fireInterval` に戻す。起きた直後は `fireInterval` 待ってから。向きは `spreadDir(…, spread, stream('enemies'))` で散らす。遮られている間は撃たずに待つ
+- 降りる: `y` が 0 より大きい敵（`seawall-drop`）は、起きる前でも落ちる（`fall` in `src/logic/enemies.ts`）。毎フレーム `vy` を `DROP_GRAVITY`（20 m/s²）で下へ増やして `y` を動かし、同時に海（+z）へ `DROP_PUSH`（10 m/s）で跳ぶ（防波堤の海側の面 z −65 から離れて降りるため）。落ちている間は壁を無視し、撃たず、歩かない。`y` が 0 以下になったら地面に着き、`pushOutCircle` で壁の外へ押し出す。`enemyBox` の y は足元 `y` から `y` + `height`（機体の弾は落ちている敵にも当たる）。`src/view/enemies.ts` は `y` の分だけ上に描く
+- 歩く: 起きると機体へ向く（`yaw`）。`stopDist` の外では歩き、`stopDist` の中でも機体への線（撃つときと同じ判定）が通らない間は歩き続ける。線が通っていて `stopDist` 以内なら止まって撃つ。線が通って `stopDist` の外なら、`stopDist` を越えて進まない。歩く先は `navTarget`（下の「敵の道」）が返す点で、道が引けないときは機体そのもの。1フレームの歩幅は `speed` × dt で、歩く先を越えない。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない
+- 離れる: 生きていて地面にいる他の敵が `SEPARATION_DIST`（2.5m）より近いと、その敵から遠ざかる向きに、近いほど強く押される（0 の距離で `SEPARATION_SPEED` = 3 m/s、`SEPARATION_DIST` で 0）。歩いていても止まっていても押される。全く同じ所の2体は id の順で左右に分かれる。押したあとも壁の外へ押し出す（`keepApart` in `src/logic/enemies.ts`）
+- 撃つ: 機体が `fireRange` の中にいて、胸（高さの `ENEMY_CHEST`）から機体の胸への線が物の箱（`game.propBoxes`）と壊れていない目標の箱に遮られないとき（この判定はそのフレームの歩く前の位置で1回だけ行い、止まるかどうかの判定と撃つ判定に使う）、`wait` が 0 になるたびに1発撃ち、`wait` を `fireInterval` に戻す。起きた直後は `fireInterval` 待ってから。向きは `spreadDir(…, spread, stream('enemies'))` で散らす。遮られている間は撃たずに待つ（歩き続けて線の通る所を探す）
+- 敵の道（`src/logic/nav.ts`。何も import しない純粋なファイルで、検査の格子と同じ考え方）: 壁を回り込む道を、2m 四方の格子（`CELL`）と機体までの歩数で引く
+  - 格子（`buildNavGrid`）: マップの範囲を 2m 四方に切り、中心が `game.rects` のどの四角からも「半径 + `NAV_MARGIN`（0.25m）」より近い格子を塞ぐ。半径は敵の種類のうち最大の `radius`（`NAV_RADIUS` in `src/logic/game.ts`。今は 0.75m で、塞ぐ距離は検査の機体と同じ 1m）。階段・目標の四角も敵には壁（敵は登らないため）。壊した物は `game.rects` から抜けるので、`rectCount` が変わったら格子を作り直す
+  - 歩数（`buildNavField`）: 機体のいる格子（塞がれていれば `NAV_GOAL_REACH` = 5 格子以内でいちばん近い空き）を 0 として、4方向の幅優先で各格子の歩数を数える。たどり着けない格子は `FAR`（65535）
+  - 歩く先（`navTarget`）: 敵から機体への直線が塞がれた格子を通らなければ機体そのもの。通るなら、敵のいる格子から歩数の少ない隣（8方向。斜めは両側が空いているときだけ。同じ歩数なら機体に近いほう）を `NAV_LOOKAHEAD`（6）格子まで先へたどり、敵から直線で行ける最も遠い格子の中心を返す（角でだけ曲がる）。敵が壁沿いで塞がれた格子の中にいるときは、まわりでいちばん歩数の少ない格子から始める。機体が囲われていて歩数がつかないときは null（まっすぐ歩く）。直線の判定は `NAV_SAMPLE`（1m）ごとの点で、始まりの格子は数えない
+  - 作り直し（`stepNav`）: `game.nav`（`NavState`）が持つ。生きている敵がいるフレームだけ呼ぶ。格子は最初と `rectCount` が変わったとき、歩数は格子を作ったときと、機体が別の格子に移ったとき（前の作り直しから `NAV_REBUILD_GAP` = 0.25 秒以上たっていれば）に作り直す。M1 の手書きマップ（四角 603 個）で、歩数の作り直しは1回 約 0.3 ms、格子は約 3 ms（壊せる物が壊れたときだけ）
+  - 保存: `nav` は四角から作り直せるので、チェックポイント（`snapshotOf`・`GameSnapshot`）にも中断（`suspendOf`・`SuspendedGame`）にも入れず、戻したときは `newNav()`
 - 倒れる: 体力 0 の敵は `game.enemies` に残るが、動かず、撃たず、弾も当たらない。FCS の対象にもならない
 - 波が終わる: 波の敵が全部倒れると、`checkWaves` が台本に `cleared`（`wave`）を渡す。台本が覚えるので1回だけ。敵を出さなかった波には渡さない
 - FCS: 生きている敵も `fcsTargets` に入る。`aimTarget` は目標か敵の id
@@ -706,7 +714,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - C の手前（z −55〜−35）は2列で突破口が2か所。線の間には塊・残骸・クレーターの遮蔽物をそれぞれ 10〜12 個、線3の奥に6個ほど置く
   - ボスの場所は防波堤の陸側（z −75〜−170）。「防波堤の上の巨大な砲台」の部位を目標として置く: `main-gun-1`（種類 `gun`、x −30, z −135）・`main-gun-2`（`gun`、x 30, z −135）・`magazine`（弾薬庫、x 0, z −150）。大きさは `TARGET_SIZE`（`gun` 14×8×14m、`magazine` 10×8×10m）で、主砲の間は 60m、主砲と弾薬庫の間は約 33m。台本はこの3つの名前で主砲2門 → 弾薬庫の順に進む（7章）。シャッターと、砲台が撃ってくる動きは「ボス（沿岸砲台）」
   - 降りた先（z −80〜−115）の遮蔽物は塊 7 個と残骸 4 個（1行に1つ）。どの2つの間も中心で 20m 以上あいて機体（当たり半径 1m）が通れ、防波堤の降り口から砲台へは遮蔽物で視線の一部が遮られる。主砲と弾薬庫のまわり（z −117 より奥）には置かない
-  - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は z −55（階段 x ±40 の幅に入らない）。`pillbox-3`（`pillbox`、x 58, z 52）は集積所の守りで、集積所の 21m 海側に置き、線2の壊せる区間（x 50）から下りてくる道をにらむ。`depot-guard` の3か所は集積所の両脇と海側（(40,36)・(66,32)・(60,42)）、`c-squad` の4か所は C の2列の間（z −45、x −70・−20・15・65）。崖は右の辺のまま
+  - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は防波堤の上（z −70。x −62・−30・−10・10・24・50 で、階段 x −54〜−46 と 31〜39 の幅に入らない。高さ 6m は `M1_WAVE_DROP`）で、出るとすぐ海側へ跳び降り、z −64 あたりに着く。`pillbox-3`（`pillbox`、x 58, z 52）は集積所の守りで、集積所の 21m 海側に置き、線2の壊せる区間（x 50）から下りてくる道をにらむ。`depot-guard` の3か所は集積所の両脇と海側（(40,36)・(66,32)・(60,42)）、`c-squad` の4か所は C の2列の間（z −45、x −70・−20・15・65）。崖は右の辺のまま
 - 生成は `generateMap(rng, rules, anchors)`（`src/logic/mapgen.ts`）。`MapRules` は帯（`minZ`・`maxZ`・`kind`・`count`・`minGap`）・防御線（`lines`）・右の辺の崖・目標のまわりの空き（`clear`、既定 10m）・道筋の帯（`lanes`）を持つ。目標と波の出る場所は物語に関わるので生成せず `anchors` で受ける。M1 の B の規則は `src/data/maps/m1b-rules.ts` の `M1B_RULES`（`lanes` は空で、列の中はすき間が 2m 未満に閉じているので、通り道は防御線の突破口が決める）
 - `MapLine` は `z`（線の真ん中）・`depth`（奥行き）・`rows`（列の数）・`kind`・`spacing`（同じ列の中の間隔）・`gaps`（突破口の真ん中と、四角の間の幅）・`breakable`（壊せる区間の真ん中と幅）を持つ。生成は列ごとに `spacing` で x に並べ、奇数の列を `spacing / 2` ずらし、位置を ±1m・向きと倍率（0.9〜1.1）を少し揺らす。隣の物との四角の距離が `CRACK`（1.5m）を超えたら前の物へ引き寄せる。列の左の端は辺から `CRACK` 以内に寄せ、右は崖の遠い側の面から `CRACK` 以内に届くまで並べる。`spacing` は 4.4（3m の逆茂木の間を 2m 未満に保つ）。`gaps` には四角が入らないように物を置かず、`breakable` の区間の物に `breakable: true` を付ける。帯の物は防御線の z の範囲には置かない
 - 生成は物を置いたあと通り道を調べ、通れなければ種をずらして作り直す（最大10回。だめなら例外）。`rng` は `logic/rng.ts` の `stream('map')` から引く
