@@ -69,7 +69,7 @@ test('a new game puts the mech at the front edge facing the land', () => {
   expect(game.mech.x).toBe((M1B_HAND.bounds.minX + M1B_HAND.bounds.maxX) / 2);
   expect(game.mech.z).toBe(M1B_HAND.bounds.maxZ - PLAY_TUNE.startMargin);
   expect(game.mech.yaw).toBe(0);
-  expect(game.targets).toHaveLength(6);
+  expect(game.targets).toHaveLength(7);
   for (const target of game.targets) expect(target.hp).toBe(TARGET_HP[target.kind]);
 });
 

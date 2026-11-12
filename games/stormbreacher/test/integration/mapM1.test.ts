@@ -1,4 +1,4 @@
-// The maps and M1's script agree: every target the script destroys and the map covers is on the map, the two waves
+// The maps and M1's script agree: every target the script destroys and the map covers is on the map, the waves
 // that come in on this range have places, and the pillboxes do not stand inside the b-line place the script enters.
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
@@ -70,8 +70,8 @@ test('the hand map marks two breakable stretches, one on line 2 and one on line 
   }
 });
 
-test('the two pillboxes stand landward of z 0', () => {
-  const pillboxes = M1B_HAND.targets.filter(target => target.kind === 'pillbox');
+test('the two pillboxes of the objective stand landward of z 0', () => {
+  const pillboxes = M1B_HAND.targets.filter(target => target.id === 'pillbox-1' || target.id === 'pillbox-2');
   expect(pillboxes.length).toBe(2);
   for (const pillbox of pillboxes) expect(pillbox.z, pillbox.id).toBeLessThan(0);
 });
@@ -126,7 +126,8 @@ for (const { name, map } of MAPS) {
       expect(onMap.has(target), target).toBe(true);
       expect(M1.targets).toContain(target);
     }
-    for (const wave of ['b-squad', 'seawall-drop']) expect(map.spawns[wave]?.length ?? 0).toBeGreaterThan(0);
+    for (const wave of ['b-squad', 'depot-guard', 'seawall-drop', 'c-squad'])
+      expect(map.spawns[wave]?.length ?? 0).toBeGreaterThan(0);
   });
 
   test(`the ${name} map keeps the pillboxes out of the b-line place`, () => {

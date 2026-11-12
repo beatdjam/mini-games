@@ -96,6 +96,7 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
   shootDown(22, 5, 'pillbox-2'); // cp1 fires once both pillboxes are down
   const clearedAfterTargets = game.cleared;
   run(idle, 240); // wave2-lost fires 4 s after cp1
+  send({ kind: 'enter', area: 'c-line' });
   send({ kind: 'enter', area: 'seawall-top' });
   send({ kind: 'destroyed', target: 'main-gun-2' });
   send({ kind: 'destroyed', target: 'main-gun-1' });

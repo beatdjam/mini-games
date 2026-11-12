@@ -629,6 +629,9 @@ export const M1B_HAND: MapDef = {
     { id: 'pillbox-1', kind: 'pillbox', x: -33, z: -15, yaw: 0 },
     { id: 'pillbox-2', kind: 'pillbox', x: 22, z: -15, yaw: 0.2 },
     { id: 'depot', kind: 'depot', x: 53, z: 31, yaw: -0.3 },
+    // the depot's guard: it stands 21 m sea-side of the depot, between the cover at x 70 and the wreck at x 45, and
+    // looks down the way the mech comes from line 2's breakable stretch (x 50). Not one of the two the objective counts
+    { id: 'pillbox-3', kind: 'pillbox', x: 58, z: 52, yaw: 0.1 },
     // the battery on the seawall's landward side: two main guns, and the magazine between and behind them
     { id: 'main-gun-1', kind: 'gun', x: -30, z: -135, yaw: 0 },
     { id: 'main-gun-2', kind: 'gun', x: 30, z: -135, yaw: 0 },
@@ -642,6 +645,20 @@ export const M1B_HAND: MapDef = {
       { x: 15, z: -30 },
       { x: 40, z: -27 },
       { x: 65, z: -33 },
+    ],
+    // three at the depot, round it on the sides the mech does not come from; each stands clear of the cover and of
+    // pillbox-3 (z 48..56)
+    'depot-guard': [
+      { x: 40, z: 36 },
+      { x: 66, z: 32 },
+      { x: 60, z: 42 },
+    ],
+    // four in the band between C's two rows (z -50 and -40), clear of both rows and of the stairs behind them
+    'c-squad': [
+      { x: -70, z: -45 },
+      { x: -20, z: -45 },
+      { x: 15, z: -45 },
+      { x: 65, z: -45 },
     ],
     'seawall-drop': [
       { x: -50, z: -55 },

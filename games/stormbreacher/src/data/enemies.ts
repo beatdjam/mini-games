@@ -41,5 +41,7 @@ export const ENEMY_CHEST = 0.7;
 // `beach-mortar` (the mortar, SB-190's third card) and `battery` (the boss) are made by other cards.
 export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, EnemyKind>>> = {
   'b-squad': 'grunt',
+  'depot-guard': 'grunt',
   'seawall-drop': 'grunt',
+  'c-squad': 'grunt',
 };
