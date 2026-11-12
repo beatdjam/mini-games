@@ -7,8 +7,10 @@ import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
+import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE, FX_TUNE, MECH_TUNE } from '../data/tune.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
+import { cutsceneMech } from '../logic/cutscene.ts';
 import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
@@ -22,7 +24,7 @@ import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.t
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { applyLookTo } from './look.ts';
-import { drawMechMotion } from './mechDrive.ts';
+import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
 import { buildMechVisual, setMechOpacity } from './mechModel.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
@@ -154,20 +156,35 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   feelEvents(view.feel, mechEvents, kill, FEEL_TUNE);
   const frame = feelStep(view.feel, dt, game.mech.boosting, CAMERA_TUNE.fov, FEEL_TUNE);
 
-  view.model.position.set(game.mech.x, game.mech.y, game.mech.z);
-  view.model.rotation.y = game.mech.yaw;
-  drawMechMotion(view.model, game, dt);
-  // the mech is still in the boat while a cutscene plays, so it is not drawn standing on the beach
-  view.model.visible = game.script.cutscene === null;
+  // A cutscene that has the mech walk (the landing's ramp) draws it on its path; this is the picture only, so the
+  // game's mech stays at its start and a skip, a checkpoint or a suspend need nothing: the model is back on the game's
+  // mech in the frame the cutscene ends. A cutscene with no path does not draw the mech: it is still in the boat.
+  const cutscene = game.script.cutscene;
+  const walk = cutscene === null ? null : cutsceneMech(cutscene.id, CUTSCENE_SEC[cutscene.id] - cutscene.left);
+  if (walk === null) {
+    view.model.position.set(game.mech.x, game.mech.y, game.mech.z);
+    view.model.rotation.y = game.mech.yaw;
+    drawMechMotion(view.model, game, dt);
+  } else {
+    view.model.position.set(walk.x, walk.y, walk.z);
+    view.model.rotation.y = game.mech.yaw;
+    drawMechWalk(view.model, walk.speed, dt);
+  }
+  view.model.visible = cutscene === null || walk !== null;
 
-  view.pitch = clamp(view.pitch + pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
+  // The camera's pitch is held while a cutscene plays, so the game's camera is where the cutscene's last key puts its
+  // own (the key is written for pitch 0) in the first frame the player controls.
+  if (cutscene === null) view.pitch = clamp(view.pitch + pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
   const pose = cameraPose(
     { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw },
     view.pitch,
     CAMERA_TUNE,
     view.world.cameraBoxes,
   );
-  view.camPos = view.camPos ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
+  // The cutscene draws its own camera over this one (drawCutscene). The game's camera sits at its place meanwhile, so it
+  // starts the first controlled frame, or the one after a skip, where it stands and does not fly in from elsewhere.
+  view.camPos =
+    view.camPos && cutscene === null ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
   const pos = view.camPos.clone().add(frame.offset);
   applyPose(camera, { ...pose, pos }, frame.fov);
   drawCutscene(view.cutscene, game, view.hud.root);

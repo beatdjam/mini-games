@@ -16,6 +16,12 @@ export interface CameraKey {
   rel?: true;
 }
 
+// A place on the walk the mech takes in a cutscene (view only; the game's own mech stays at its start).
+export interface MechKey {
+  at: number; // second the mech is there
+  pos: Vec3; // where its feet are (m)
+}
+
 export interface CutsceneLine {
   from: number; // second the line appears
   to: number; // second it goes
@@ -33,19 +39,30 @@ export type CutsceneEvent =
 
 export interface CutsceneDef {
   camera: readonly CameraKey[]; // in time order; the first key's pose holds before it, the last one's after it
+  // Set: the mech is drawn walking this path, in a straight line from key to key (it stands at the first key before it
+  // and at the last one after it). Unset: the mech is not drawn, for it is not on the beach yet.
+  mech?: readonly MechKey[];
   lines: readonly CutsceneLine[];
   events: readonly CutsceneEvent[];
 }
 
 // The map is M1B_HAND: the mech starts at (0, 166) looking to -z, the player's craft lies at z 175-187 behind it and the
 // sea is +z. The last key is the game's own camera behind the mech at the start (the test compares it with cameraPose).
+// The landing's mech walks down the ramp: it stands on the deck (y 1.7, in the craft), starts once the ramp is nearly
+// down, crosses the ramp's hinge (z 175) and its tip on the sand (z 170.3) and ends at the start (0, 166) at the last second.
 export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
   landing: {
     camera: [
       { at: 0, pos: [-8, 9, 206], look: [-10, 1, 170] }, // over the sea behind the craft, the craft and the beach in view
       { at: 4, pos: [30, 5, 178], look: [-14, 2, 175] }, // from the side along the row of craft
-      { at: 7, pos: [0, 3.2, 181], look: [0, 1.5, 150] }, // inside the craft, the beach past the ramp
+      { at: 7, pos: [16, 5, 172], look: [0, 3, 178] }, // beside the ramp, the mech on the deck and the ramp coming down
       { at: 10, pos: [2.15, 4.4, 174.6], look: [2.15, 2.9, 166] }, // behind the mech, where the game's camera takes over
+    ],
+    mech: [
+      { at: 7.5, pos: [0, 1.7, 180] },
+      { at: 8.5, pos: [0, 1.7, 175] },
+      { at: 9.3, pos: [0, 0, 170.3] },
+      { at: 10, pos: [0, 0, 166] },
     ],
     lines: [
       { from: 0.5, to: 3.5, key: 'cutscene.landing.wave' },

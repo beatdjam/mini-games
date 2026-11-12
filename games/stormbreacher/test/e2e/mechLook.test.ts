@@ -47,6 +47,9 @@ test('a sortie draws the mech as one instanced mesh per colour, with no stand-in
     if ((object as THREE.Mesh).isMesh === true && !meshes.includes(object as THREE.InstancedMesh)) others++;
   });
   expect(others).toBe(0);
+  // the landing walks the model down the ramp, so it is on the game's mech once the cutscene is skipped
+  sendToScript(currentGame()!, { kind: 'skip' });
+  await frame();
   const game = currentGame()!;
   expect(group.position.x).toBe(game.mech.x);
   expect(group.position.z).toBe(game.mech.z);
@@ -55,7 +58,7 @@ test('a sortie draws the mech as one instanced mesh per colour, with no stand-in
 test('the mech turns see-through while the camera is near its chest, and solid again when it moves away', async () => {
   startSortie();
   await frame();
-  // the landing cutscene holds its own camera and does not draw the mech, so the test starts past it
+  // the landing cutscene holds its own camera and the mech is on the ramp, so the test starts past it
   sendToScript(currentGame()!, { kind: 'skip' });
   await frame();
   expect(opacities().every(opacity => opacity === 1)).toBe(true);

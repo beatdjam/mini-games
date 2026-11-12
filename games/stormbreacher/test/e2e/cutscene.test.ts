@@ -1,9 +1,12 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { el, t } from '@engine/core/index.ts';
-import { scene } from '@engine/render/index.ts';
+import * as THREE from 'three';
+import { camera, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { CUTSCENES } from '../../src/data/cutscenes.ts';
+import { M1_MECH_PALETTE } from '../../src/data/mech.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
@@ -16,6 +19,9 @@ beforeAll(async () => {
 });
 
 const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
+const frames = async (n: number): Promise<void> => {
+  for (let i = 0; i < n; i++) await frame();
+};
 
 function game() {
   const current = currentGame();
@@ -131,4 +137,87 @@ test('beach-held plays after the win and then the result shows', async () => {
   el('#gl').click();
   await until(() => !el('#sbResult').hidden);
   expect(bars().hidden).toBe(true);
+});
+
+const mechModel = (): THREE.Object3D => {
+  const found = scene.children.filter(child => child.name === 'mech').reverse()[0];
+  if (!found) throw new Error('no mech model in the scene');
+  return found;
+};
+
+// The frame-coloured mesh holds the legs' boxes first (the legs are placed before the rest).
+const LEG_VALUES = 4 * 16;
+function legMatrices(): number[] {
+  const mesh = mechModel().children.find(
+    (child): child is THREE.InstancedMesh =>
+      (child as THREE.InstancedMesh).isInstancedMesh === true &&
+      ((child as THREE.InstancedMesh).material as THREE.MeshLambertMaterial).color.getHex() === M1_MECH_PALETTE.frame,
+  );
+  if (!mesh) throw new Error('the mech has no frame mesh');
+  return Array.from(mesh.instanceMatrix.array).slice(0, LEG_VALUES);
+}
+
+const lastKey = (): THREE.Vector3 => {
+  const keys = CUTSCENES.landing?.camera ?? [];
+  const last = keys[keys.length - 1];
+  return new THREE.Vector3(...last.pos);
+};
+
+const START_Z = 166; // the mech's start (SPEC 3.1; newGame)
+
+test('the landing draws the mech standing in the craft, then walking down the ramp with its legs swinging', async () => {
+  startSortie();
+  await until(() => !bars().hidden);
+  // in the craft before the ramp comes down: drawn, behind the start, standing
+  game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 6 };
+  await frames(10);
+  expect(mechModel().visible).toBe(true);
+  expect(mechModel().position.z).toBeGreaterThan(START_Z + 10);
+  const rest = legMatrices();
+  // on the ramp: drawn over the craft and the ramp, past the start, and the legs swing
+  game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 8.8 };
+  await frames(10);
+  expect(mechModel().visible).toBe(true);
+  expect(mechModel().position.z).toBeGreaterThan(START_Z);
+  expect(mechModel().position.z).toBeLessThan(START_Z + 14);
+  expect(legMatrices()).not.toEqual(rest);
+  // the game's own mech never moved
+  expect(game().mech.z).toBeCloseTo(START_Z, 3);
+});
+
+test('the other cutscenes do not draw the mech', async () => {
+  startSortie();
+  await until(() => !bars().hidden);
+  el('#gl').click();
+  await until(() => bars().hidden);
+  game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };
+  await frame();
+  expect(mechModel().visible).toBe(false);
+  game().script.cutscene = null;
+  await frame();
+  expect(mechModel().visible).toBe(true);
+});
+
+test('when the landing ends the mech is at its start and the camera is where the last key put it', async () => {
+  startSortie();
+  await until(() => !bars().hidden);
+  game().script.cutscene = { id: 'landing', left: 0.05 };
+  await until(() => bars().hidden);
+  const model = mechModel();
+  expect(model.visible).toBe(true);
+  expect(model.position.x).toBeCloseTo(game().mech.x, 3);
+  expect(model.position.z).toBeCloseTo(START_Z, 3);
+  expect(model.rotation.y).toBeCloseTo(0, 6);
+  expect(camera.position.distanceTo(lastKey())).toBeLessThan(0.5);
+});
+
+test('a skip puts the mech at its start and the camera at the game camera', async () => {
+  startSortie();
+  await until(() => !bars().hidden);
+  game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 2 };
+  await frames(3);
+  el('#gl').click();
+  await until(() => bars().hidden);
+  expect(mechModel().position.z).toBeCloseTo(START_Z, 3);
+  expect(camera.position.distanceTo(lastKey())).toBeLessThan(0.5);
 });
