@@ -8,7 +8,7 @@
 // speed and stops at a prop, at the mech or at the ground; the mech's armour takes its damage, and at 0 the mech is
 // downed and the game stops. A pillbox (logic/pillbox.ts) that sees the mech warns of a burst and then fires it, and its
 // shots fly as an enemy's do; a shot from its front does a quarter of its damage and is reported as deflected. The
-// script's `spawn` puts a wave's enemies out (the wave's kind is in M1_WAVE_ENEMY), starts
+// script's `spawn` puts a wave's enemies out (the wave's kinds are in M1_WAVE_ENEMY), starts
 // the wave's barrage (M1_WAVE_BARRAGE; logic/hazards.ts) and, when the last of the enemies falls, `cleared` goes back
 // through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; a mine blows up
 // when the mech steps on it or the mech's shot breaks it, and both take armour from a mech inside the blast. The boss
@@ -524,15 +524,20 @@ export function sendToScript(game: GameModel, input: ScriptInput): void {
   applyScriptOut(game, scriptInput(game.script, game.mission, input));
 }
 
-// Puts a wave's enemies out, one at each of the map's spawn points for the wave. A wave that M1_WAVE_ENEMY does not
-// name, or that the map has no place for, puts out nothing.
+// Puts a wave's enemies out, one at each of the map's spawn points for the wave: the i-th place gets the i-th kind in
+// M1_WAVE_ENEMY. A wave the table does not name, a wave the map has no place for, or a list whose length does not match
+// the places puts out nothing, so a half-written table cannot put out a wrong mix.
 function spawnWave(game: GameModel, wave: string): void {
-  const kind = M1_WAVE_ENEMY[wave];
+  const kinds = M1_WAVE_ENEMY[wave];
   const places = game.map.spawns[wave];
-  if (kind === undefined || places === undefined || places.length === 0) return;
+  if (kinds === undefined || places === undefined || places.length === 0 || kinds.length !== places.length) return;
   const y = M1_WAVE_DROP[wave] ?? 0;
-  places.forEach((place, i) => game.enemies.push(newEnemy(`${wave}-${i + 1}`, wave, kind, place.x, place.z, y)));
-  game.events.push({ kind: 'spawned', wave, count: places.length });
+  let count = 0;
+  places.forEach((place, i) => {
+    game.enemies.push(newEnemy(`${wave}-${i + 1}`, wave, kinds[i], place.x, place.z, y));
+    count++;
+  });
+  game.events.push({ kind: 'spawned', wave, count });
 }
 
 // Starts the barrage a wave names in M1_WAVE_BARRAGE, once; a wave that is not there starts none.

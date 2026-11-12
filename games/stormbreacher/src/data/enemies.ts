@@ -68,13 +68,19 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
 // The height a shot leaves an enemy at, as a share of its height.
 export const ENEMY_CHEST = 0.7;
 
-// The enemy a wave puts out, by the wave's name in the mission's script. A wave that is not here puts out nothing:
+// The enemies a wave puts out, in the order of the map's spawn points for that wave: the i-th place gets the i-th kind.
+// The list must be as long as `map.spawns[wave]`; a wave that is not here, or a list of another length, puts out nothing.
 // `beach-mortar` (the mortar, SB-190's third card) and `battery` (the boss) are made by other cards.
-export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, EnemyKind>>> = {
-  'b-squad': 'grunt',
-  'depot-guard': 'grunt',
-  'seawall-drop': 'grunt',
-  'c-squad': 'grunt',
+export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]>>> = {
+  // a heavy comes in from the left, two assaults follow it, and three grunts hold the line, so the mech must choose
+  // between the hard target and the fast ones
+  'b-squad': ['heavy', 'assault', 'grunt', 'grunt', 'assault', 'grunt'],
+  // an assault meets the mech on the way in, a heavy fires from the back of the depot, a grunt holds the middle
+  'depot-guard': ['assault', 'heavy', 'grunt'],
+  // from the top of the seawall: two assaults, three grunts and a heavy
+  'seawall-drop': ['assault', 'grunt', 'heavy', 'grunt', 'assault', 'grunt'],
+  // an assault comes from either side before C, and a heavy backs them up from behind
+  'c-squad': ['assault', 'grunt', 'assault', 'heavy'],
 };
 
 // The height a wave's enemies come in at (m), by the wave's name. A wave that is not here comes in on the ground. The

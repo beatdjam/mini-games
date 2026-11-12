@@ -1,6 +1,7 @@
-// The depot's guard and C's reinforcement (SB-300): pillbox-3 and the three grunts of `depot-guard` stand round the
-// depot on the side road, and `c-squad`'s four grunts come out when the mech nears C. Walked with inputs.
+// The depot's guard and C's reinforcement (SB-300): pillbox-3 and the three enemies of `depot-guard` stand round the
+// depot on the side road, and `c-squad`'s four come out when the mech nears C. Walked with inputs.
 import { expect, test } from 'vitest';
+import { M1_WAVE_ENEMY } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { TARGET_SIZE } from '../../src/data/props.ts';
@@ -69,7 +70,7 @@ test('the hand map holds the depot’s guard and passes the check against M1', (
   expect(violations).toEqual([]);
 });
 
-test('walking to the depot enters depot-approach, which puts out the guard’s three grunts', () => {
+test('walking to the depot enters depot-approach, which puts out the guard’s three in the wave’s order and kind', () => {
   const game = newWalkGame();
   const places = M1B_HAND.spawns['depot-guard'];
   for (const way of WAY_TO_DEPOT) {
@@ -81,7 +82,7 @@ test('walking to the depot enters depot-approach, which puts out the guard’s t
   expect(game.script.entered).toContain('depot-approach');
   const guard = waveEnemies(game, 'depot-guard');
   expect(guard).toHaveLength(3);
-  expect(guard.map(enemy => enemy.kind)).toEqual(['grunt', 'grunt', 'grunt']);
+  expect(guard.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['depot-guard']);
   expect(guard.length).toBe(places.length);
 
   // the mech came to the depot's side without a shot
@@ -119,7 +120,7 @@ test('pillbox-3 does not count toward the two pillboxes of the objective', () =>
   expect(game.script.fired).not.toHaveProperty('cp1');
 });
 
-test('entering c-line puts out the four grunts of c-squad between C’s two rows, once', () => {
+test('entering c-line puts out the four of c-squad between C’s two rows, in the wave’s order and kind, once', () => {
   const game = newWalkGame();
   game.mech.x = 0;
   game.mech.z = -20;
@@ -129,7 +130,7 @@ test('entering c-line puts out the four grunts of c-squad between C’s two rows
   step(game, idle, DT);
   const squad = waveEnemies(game, 'c-squad');
   expect(squad).toHaveLength(4);
-  expect(squad.map(enemy => enemy.kind)).toEqual(['grunt', 'grunt', 'grunt', 'grunt']);
+  expect(squad.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['c-squad']);
   for (const enemy of squad) {
     expect(enemy.z).toBeLessThan(-40);
     expect(enemy.z).toBeGreaterThan(-50);

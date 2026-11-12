@@ -33,7 +33,7 @@
 
 `src/logic/fcs.ts` は三人称の照準の線・機体の胸・的から、撃つ向きと `hard` が捕まえた的を決める純粋な関数。本体の射撃は `soft` を使う（`game.ts`）。撃つ向きは弾の出る所（機体の右腕の先）から照準の点へ向ける。`src/logic/dummies.ts` は `#view-fcs` の動く的の動きと当たりを、`src/view/reticle.ts` はその照準（点・円・候補の弧・捕まえた印）を DOM で描く。
 
-`src/data/enemies.ts` は敵の表（`EnemyKind`・`ENEMY_KINDS`・`ENEMIES`・波の名前から出る敵の種類を引く `M1_WAVE_ENEMY`・撃つ高さの割合 `ENEMY_CHEST`）、`src/logic/enemies.ts` は敵1体の状態 `EnemyState` と1フレームの動き `stepEnemy`（three も DOM も読まない純粋な関数。乱数は引数で受ける）、`src/view/enemies.ts` は敵を種類ごとに1つの `InstancedMesh`（描く回数は種類の数）で描く。敵の色は `src/data/colors.ts` の `ENEMY_COLOR`・`ENEMY_DOWN_COLOR`・`ENEMY_BULLET_COLOR`。
+`src/data/enemies.ts` は敵の表（`EnemyKind`・`ENEMY_KINDS`・`ENEMIES`・波の名前から出る敵の種類の並びを引く `M1_WAVE_ENEMY`・撃つ高さの割合 `ENEMY_CHEST`）、`src/logic/enemies.ts` は敵1体の状態 `EnemyState` と1フレームの動き `stepEnemy`（three も DOM も読まない純粋な関数。乱数は引数で受ける）、`src/view/enemies.ts` は敵を種類ごとに1つの `InstancedMesh`（描く回数は種類の数）で描く。敵の色は `src/data/colors.ts` の `ENEMY_COLOR`・`ENEMY_DOWN_COLOR`・`ENEMY_BULLET_COLOR`。
 
 `src/data/hazards.ts` は迫撃砲の砲撃と地雷の表（`BarrageKind`・`BARRAGE_KINDS`・`BARRAGES`・波の名前から出る砲撃の種類を引く `M1_WAVE_BARRAGE`・地雷の `MINE_TUNE`）、`src/logic/hazards.ts` は砲撃と地雷の純粋な関数（`newBarrage`・`stepBarrage`・`stepShells`・`inCircle`・`mineStepped`。乱数は引数で受ける）、`src/view/hazards.ts` は着弾予告の輪と地雷の円盤を `InstancedMesh` 1つずつで描く。色は `src/data/colors.ts` の `SHELL_WARN_COLOR`・`SHELL_LAND_COLOR`・`MINE_COLOR`。
 
@@ -261,8 +261,19 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 `ENEMY_CHEST` = 0.7 は、敵が撃つ高さの、高さに対する割合。
 
+波ごとの配分（`M1_WAVE_ENEMY`。種類は `map.spawns[波]` の順に並べる）:
+
+| 波 | 出る数 | 種類（`map.spawns` の順） |
+|----|--------|---------------------------|
+| `b-squad` | 6 | `heavy`・`assault`・`grunt`・`grunt`・`assault`・`grunt` |
+| `depot-guard` | 3 | `assault`・`heavy`・`grunt` |
+| `seawall-drop` | 6 | `assault`・`grunt`・`heavy`・`grunt`・`assault`・`grunt` |
+| `c-squad` | 4 | `assault`・`grunt`・`assault`・`heavy` |
+
+4波の数は 6・3・4・6 で、`seawall-drop` は今のとおり防波堤の上（`PROP_SIZE.seawall.h` = 6m）から全員が降りる。
+
 敵の動き（`stepEnemy` in `src/logic/enemies.ts`。`EnemyState` は `id`・`wave`・`kind`・`x`・`z`・`y`・`vy`・`yaw`・`hp`・`awake`・`wait`）:
-- 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`b-squad`・`depot-guard`・`seawall-drop`・`c-squad` が `grunt`）にあれば、`map.spawns[波]` の場所ごとに1体を出す（`spawnWave` in `src/logic/game.ts`）。高さ `y` は `M1_WAVE_DROP`（`src/data/enemies.ts`。`seawall-drop` が防波堤の高さ `PROP_SIZE.seawall.h` = 6m。表に無い波は地面の 0）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
+- 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`src/data/enemies.ts`。波の名前ごとに `map.spawns[波]` の場所の順に並べた種類の配列）にあれば、i 番目の場所に i 番目の種類の敵を1体ずつ出す（`spawnWave` in `src/logic/game.ts`）。配列の長さが `map.spawns[波]` の場所の数と違う波は出さない。高さ `y` は `M1_WAVE_DROP`（`src/data/enemies.ts`。`seawall-drop` が防波堤の高さ `PROP_SIZE.seawall.h` = 6m。表に無い波は地面の 0）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
 - 寝る: 起きる前は動かず撃たない。機体が地面での距離で `notice` に入ると起き、一度起きたら寝ない
 - 降りる: `y` が 0 より大きい敵（`seawall-drop`）は、起きる前でも落ちる（`fall` in `src/logic/enemies.ts`）。毎フレーム `vy` を `DROP_GRAVITY`（20 m/s²）で下へ増やして `y` を動かし、同時に海（+z）へ `DROP_PUSH`（10 m/s）で跳ぶ（防波堤の海側の面 z −65 から離れて降りるため）。落ちている間は壁を無視し、撃たず、歩かない。`y` が 0 以下になったら地面に着き、`pushOutCircle` で壁の外へ押し出す。`enemyBox` の y は足元 `y` から `y` + `height`（機体の弾は落ちている敵にも当たる）。`src/view/enemies.ts` は `y` の分だけ上に描く
 - 歩く: 起きると機体へ向く（`yaw`）。`stopDist` は種類ごとに違い（突撃 4m・射撃 25m・重装 35m）、`stopDist` の外では歩き、`stopDist` の中でも機体への線（撃つときと同じ判定）が通らない間は歩き続ける。線が通っていて `stopDist` 以内なら止まって撃つ。線が通って `stopDist` の外なら、`stopDist` を越えて進まない。歩く先は `navTarget`（下の「敵の道」）が返す点で、道が引けないときは機体そのもの。1フレームの歩幅は `speed` × dt で、歩く先を越えない。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない

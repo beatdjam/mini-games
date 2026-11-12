@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
-import { ENEMIES, type EnemyKind } from '../../src/data/enemies.ts';
+import { ENEMIES, M1_WAVE_ENEMY, type EnemyKind } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { M1 } from '../../src/data/missions/m1.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
@@ -34,18 +35,22 @@ const idle: GameInput = {
   sub: false,
 };
 
-// An open field with a wave `b-squad` that comes in at the given places: no props, no targets.
+// An open field with a wave `b-squad`: no props, no targets. The wave's table plays no part here, so a test chooses the
+// places and the kinds itself.
 function field(places: { x: number; z: number }[]): MapDef {
   return { ...M1B_HAND, props: [], targets: [], spawns: { 'b-squad': places } };
 }
 
-// Starts the wave through the script (the mech at the origin facing -z), as the b-line cue does.
+// Starts the wave by hand (the mech at the origin facing -z), as the b-line cue does, with a grunt at each place. A test
+// that wants another kind pushes it in itself.
 function withSquad(places: { x: number; z: number }[]): GameModel {
   const game = newPlayGame(field(places));
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
-  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  places.forEach((place, i) => {
+    game.enemies.push(newEnemy(`b-squad-${i + 1}`, 'b-squad', 'grunt', place.x, place.z));
+  });
   return game;
 }
 
@@ -66,14 +71,17 @@ function walkIntoBLine(game: GameModel): GameEvent[] | null {
   return null;
 }
 
-test('walking into b-line puts one enemy at each of the six b-squad places, and the beach wave puts out none', () => {
+test('walking into b-line puts one enemy at each of the six b-squad places, in the wave’s order and kind', () => {
   const game = newPlayGame(M1B_HAND);
   const events = walkIntoBLine(game);
   expect(events).toContainEqual({ kind: 'spawned', wave: 'b-squad', count: 6 });
   expect(game.script.spawned).toEqual(['beach-mortar', 'b-squad']);
   expect(game.enemies.map(enemy => enemy.id)).toEqual([1, 2, 3, 4, 5, 6].map(n => `b-squad-${n}`));
+  const kinds = M1_WAVE_ENEMY['b-squad'] ?? [];
+  expect(kinds).toHaveLength(6);
   game.enemies.forEach((enemy, i) => {
-    expect(enemy).toMatchObject({ wave: 'b-squad', kind: 'grunt', hp: GRUNT.hp, awake: false });
+    const kind = kinds[i];
+    expect(enemy).toMatchObject({ wave: 'b-squad', kind, hp: ENEMIES[kind].hp, awake: false });
     expect(enemy.x).toBe(M1B_HAND.spawns['b-squad'][i].x);
     expect(enemy.z).toBe(M1B_HAND.spawns['b-squad'][i].z);
   });
@@ -85,6 +93,16 @@ test('a wave the map has no place for puts out nothing', () => {
   expect(walkIntoBLine(game)).toBeNull();
   expect(game.script.spawned).toContain('b-squad');
   expect(game.enemies).toEqual([]);
+});
+
+test('every wave with places on the hand map has a kind for each place', () => {
+  for (const wave of M1.waves) {
+    const places = M1B_HAND.spawns[wave];
+    if (places === undefined) continue;
+    const kinds = M1_WAVE_ENEMY[wave];
+    expect(kinds, `the wave ${wave} has no kind table`).toBeDefined();
+    expect(kinds, `the wave ${wave} has a kind for each of its places`).toHaveLength(places.length);
+  }
 });
 
 test('four autocannon shots bring a grunt down, and so does one heavy gun shot', () => {
@@ -204,13 +222,13 @@ test('an enemy’s bullet stops at a prop and does not hit the mech behind it', 
 test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind it fires only once it has come round to a clear line', () => {
   seed(5);
   const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
-  const game = newPlayGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
+  const game = newPlayGame({ ...field([]), targets: [pillbox] });
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
+  game.enemies.push(newEnemy('b-squad-1', 'b-squad', 'grunt', 0, -30));
   const y = game.mech.y + MECH_TUNE.chestHeight;
   game.bullets.push({ enemy: 'grunt', x: 0, y, z: -30, dx: 0, dy: 0, dz: 1, left: 80 });
-  sendToScript(game, { kind: 'enter', area: 'b-line' });
   const hits: Extract<GameEvent, { kind: 'hit' }>[] = [];
   let shotsWithoutLine = 0;
   let shots = 0;
@@ -236,11 +254,11 @@ test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind
 test('the soft lock does not pull toward an enemy hidden behind a pillbox, but toward the pillbox in front', () => {
   seed(5);
   const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
-  const game = newPlayGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
+  const game = newPlayGame({ ...field([]), targets: [pillbox] });
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
-  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  game.enemies.push(newEnemy('b-squad-1', 'b-squad', 'grunt', 0, -30));
   // the aim goes straight at the enemy's middle, through the pillbox, so by angle alone the enemy would win
   const atEnemy = (): GameInput => {
     const enemy = game.enemies[0];
@@ -368,7 +386,7 @@ test('b-squad, put out behind line 3, finds the way through its breakthrough and
   const blockers = mapBlockers(game.map).filter(rect => rect.top !== undefined && rect.top > 1);
   for (const enemy of game.enemies) {
     for (const rect of blockers)
-      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES.grunt.radius - 1e-6);
+      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
   }
 });
 
@@ -387,6 +405,7 @@ test('seawall-drop is put out on top of the seawall and jumps down to the ground
     if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
   }
   expect(game.enemies).toHaveLength(6);
+  expect(game.enemies.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['seawall-drop']);
   for (const enemy of game.enemies) {
     expect(enemy.y).toBeGreaterThan(PROP_SIZE.seawall.h - 1);
     expect(enemy.z).toBeLessThan(-65);
@@ -405,7 +424,7 @@ test('seawall-drop is put out on top of the seawall and jumps down to the ground
   for (const enemy of game.enemies) {
     expect(enemy.z).toBeGreaterThan(-65);
     for (const rect of game.rects)
-      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES.grunt.radius - 1e-6);
+      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
   }
 });
 

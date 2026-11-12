@@ -148,7 +148,7 @@ test('wave2-sinks starts 4 s after cp1, holds the mech still, and ends with the 
   // the cue's other actions come in the same frame
   expect(game.script.objective).toBe('take-seawall');
   expect(game.radio?.line).toBe('m1.wave2-lost');
-  expect(game.enemies.some(enemy => enemy.kind === 'grunt')).toBe(true);
+  expect(game.enemies.some(enemy => enemy.wave === 'seawall-drop')).toBe(true);
   const start = { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw };
   let shots = 0;
   for (let i = 0; i < 60 * (CUTSCENE_SEC['wave2-sinks'] - 1); i++) {
