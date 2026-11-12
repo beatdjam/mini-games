@@ -1,5 +1,5 @@
 // The sizes of the map's props and targets (m), decided when the mech was 8 m tall with a 2 m hit radius. The mech is
-// now 4 m tall with a 1 m radius (MECH_TUNE), and a jump peaks at about 1 m, so a hedgehog (3 m) is not jumped over.
+// now 4 m tall with a 1 m radius (MECH_TUNE), and a jump peaks at about 2.2 m, so a hedgehog (3 m) is not jumped over.
 import type { PropKind, TargetKind } from './types.ts';
 
 export interface PropSize {
@@ -30,7 +30,7 @@ export const PROP_SIZE: Record<PropKind, PropSize> = {
   cliff: { w: 20, h: 30, d: 16, blocks: true },
   crater: { w: 12, h: 0, d: 12, blocks: false },
   wreck: { w: 12, h: 5, d: 6, blocks: true },
-  lowWall: { w: 6, h: 0.85, d: 1, blocks: true }, // above the 0.75 m step, below a jump's peak of about 1.04 m
+  lowWall: { w: 6, h: 0.85, d: 1, blocks: true }, // above the 0.75 m step, below a jump's peak of about 2.2 m
   stairs: { w: 8, h: SEAWALL_HEIGHT, d: STAIRS_TUNE.steps * STAIRS_TUNE.run, blocks: true },
 };
 
