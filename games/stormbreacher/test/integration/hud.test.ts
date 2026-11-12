@@ -4,6 +4,7 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { RADIO_MIN_SEC } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
+import { WEAPONS } from '../../src/data/weapons.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel, type TargetState } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { hudModel } from '../../src/logic/hud.ts';
@@ -35,8 +36,8 @@ test('the boost and the ammo follow the game', () => {
 
   const hud = hudModel(game);
   expect(hud.boost).toBe(0.4);
-  expect(hud.main).toEqual({ id: 'autocannon', ammo: 150, max: 200 });
-  expect(hud.sub).toEqual({ id: 'heavyGun', ammo: 3, max: 8 });
+  expect(hud.main).toEqual({ id: 'autocannon', ammo: 150, max: WEAPONS.autocannon.ammo });
+  expect(hud.sub).toEqual({ id: 'heavyGun', ammo: 3, max: WEAPONS.heavyGun.ammo });
   expect(hud.armor).toBe(1);
 });
 
