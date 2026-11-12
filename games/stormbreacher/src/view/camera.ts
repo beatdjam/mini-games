@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import type { CameraTune } from '../data/tuneTypes.ts';
 import { rectBox, type GroundRect } from '../logic/collide.ts';
+import type { Ray3 } from '../logic/fcs.ts';
 
 const WALL_HEIGHT = 100; // m; how high a rect with no top reaches, so the camera never goes over it
 
@@ -100,6 +101,20 @@ export function cameraPose(
   pos.y = Math.max(pos.y, target.y + tune.margin);
 
   return { pos, look, dist, pulled, shoulder };
+}
+
+// The line through the middle of the screen: from where the camera sits to the point it looks at. No walls are given,
+// so the line is the one the camera would have in the open.
+export function aimRay(target: CameraTarget, pitch: number, tune: CameraTune): Ray3 {
+  const pose = cameraPose(target, pitch, tune, []);
+  return {
+    ox: pose.pos.x,
+    oy: pose.pos.y,
+    oz: pose.pos.z,
+    dx: pose.look.x - pose.pos.x,
+    dy: pose.look.y - pose.pos.y,
+    dz: pose.look.z - pose.pos.z,
+  };
 }
 
 // `prev` moved toward `next` with the time constant `lag` (s); lag 0 goes straight to next. A new Vector3 comes back.

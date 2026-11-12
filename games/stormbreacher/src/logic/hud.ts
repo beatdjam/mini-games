@@ -26,7 +26,7 @@ export interface HudModel {
   main: HudAmmo;
   sub: HudAmmo;
   objective: { key: string; done: number; total: number }; // key: a language key; done and total count HUD_TUNE.objectiveKind
-  enemy: { kind: TargetKind; ratio: number } | null; // the nearest living target inside the aim circle; ratio is hp / TARGET_HP[kind]
+  enemy: { kind: TargetKind; ratio: number } | null; // the living target the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind]
   radar: HudRadarMark[]; // the living targets within HUD_TUNE.radarRange
 }
 
@@ -54,14 +54,9 @@ function hudAmmo(weapon: WeaponState): HudAmmo {
 export function hudModel(game: GameModel): HudModel {
   const living = game.targets.filter(target => target.hp > 0);
 
-  let enemy: HudModel['enemy'] = null;
-  let nearest = Infinity;
-  for (const target of living) {
-    const { angle, dist } = bearing(game, target);
-    if (Math.abs(angle) > HUD_TUNE.aimCone || dist >= nearest) continue;
-    nearest = dist;
-    enemy = { kind: target.kind, ratio: target.hp / TARGET_HP[target.kind] };
-  }
+  const aimed = game.targets.find(target => target.id === game.aimTarget);
+  const enemy: HudModel['enemy'] =
+    aimed && aimed.hp > 0 ? { kind: aimed.kind, ratio: aimed.hp / TARGET_HP[aimed.kind] } : null;
 
   const radar: HudRadarMark[] = [];
   for (const target of living) {

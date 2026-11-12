@@ -51,42 +51,35 @@ test('the objective counts only the pillboxes', () => {
   expect(hudModel(game).objective.done).toBe(2);
 });
 
-test('the enemy is the nearest living target inside the aim circle', () => {
+test('the enemy is the living target the aim is pulled toward', () => {
   const targets: TargetPlace[] = [
     { id: 'near', kind: 'pillbox', x: 0, z: -50, yaw: 0 },
     { id: 'far', kind: 'depot', x: 0, z: -100, yaw: 0 },
-    { id: 'behind', kind: 'gun', x: 0, z: 50, yaw: 0 },
-    { id: 'side', kind: 'magazine', x: 60, z: -50, yaw: 0 },
   ];
   const game = newGame({ ...M1B_HAND, targets });
   atOrigin(game);
 
+  game.aimTarget = 'near';
   expect(hudModel(game).enemy).toEqual({ kind: 'pillbox', ratio: 1 });
 
   targetAt(game, 'near').hp = 50;
   expect(hudModel(game).enemy).toEqual({ kind: 'pillbox', ratio: 0.5 });
 
-  targetAt(game, 'near').hp = 0;
+  game.aimTarget = 'far';
   expect(hudModel(game).enemy).toEqual({ kind: 'depot', ratio: 1 });
 
   targetAt(game, 'far').hp = 0;
   expect(hudModel(game).enemy).toBeNull();
 });
 
-test('a target outside the aim circle is not the enemy', () => {
-  const outside = newGame({
-    ...M1B_HAND,
-    targets: [atAngle('outside', 'pillbox', HUD_TUNE.aimCone + 2, 100)],
-  });
-  atOrigin(outside);
-  expect(hudModel(outside).enemy).toBeNull();
+test('with no aim target there is no enemy', () => {
+  const game = newGame({ ...M1B_HAND, targets: [atAngle('inside', 'pillbox', 0, 100)] });
+  atOrigin(game);
+  expect(game.aimTarget).toBeNull();
+  expect(hudModel(game).enemy).toBeNull();
 
-  const inside = newGame({
-    ...M1B_HAND,
-    targets: [atAngle('inside', 'pillbox', HUD_TUNE.aimCone - 2, 100)],
-  });
-  atOrigin(inside);
-  expect(hudModel(inside).enemy).toEqual({ kind: 'pillbox', ratio: 1 });
+  game.aimTarget = 'inside';
+  expect(hudModel(game).enemy).toEqual({ kind: 'pillbox', ratio: 1 });
 });
 
 test('the radar turns with the mech', () => {

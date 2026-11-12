@@ -5,7 +5,9 @@ import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { RADIO_MIN_SEC } from '../data/script.ts';
+import { CAMERA_TUNE } from '../data/tune.ts';
 import { newGame, step, type GameModel } from '../logic/game.ts';
+import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
 import { removeHud } from '../view/hud.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
@@ -29,11 +31,9 @@ function clearPlay(old: PlayView): void {
   scene.remove(old.world.built.group);
   scene.remove(old.world.targetGroup);
   scene.remove(old.model);
-  for (const tracer of old.tracers) {
-    scene.remove(tracer.line);
-    tracer.line.geometry.dispose();
-    tracer.line.material.dispose();
-  }
+  scene.remove(old.bullets.lines);
+  old.bullets.lines.geometry.dispose();
+  old.bullets.lines.material.dispose();
   removeHud(old.hud);
 }
 
@@ -67,7 +67,9 @@ export function startSortie(): void {
 function update(dt: number): void {
   if (!game || !view) return;
   const read = readInput(dt);
-  step(game, { ...read.input, sub: read.sub }, dt);
+  // The aim is the camera's line with the pitch of the last frame; drawPlay adds this frame's pitch change after.
+  const aim = aimRay({ x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw }, view.pitch, CAMERA_TUNE);
+  step(game, { ...read.input, sub: read.sub, aim }, dt);
   drawPlay(view, game, dt, read.pitchDelta);
   showScriptText(game);
   if (game.cleared) showResult();
