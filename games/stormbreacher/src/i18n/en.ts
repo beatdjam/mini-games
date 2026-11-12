@@ -9,6 +9,8 @@ LANG.en = {
     'app.status': 'In development',
     'app.back': 'All games',
     'app.start': 'Sortie',
+    'app.fs': 'Fullscreen',
+    'app.fsOff': 'Exit fullscreen',
     'btn.main': 'Main',
     'btn.sub': 'Sub',
     'btn.jump': 'Jump',

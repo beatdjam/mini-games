@@ -39,6 +39,12 @@ body{
   font-size:clamp(11px,2vmin,15px);color:#cfe4ef;background:none;border:0;
   border-bottom:1px solid rgba(207,228,239,.5);text-shadow:0 1px 6px rgba(0,0,0,.7);cursor:pointer;
 }
+/* fullscreen (any screen): the top right corner, above the HUD's radar and the touch layer */
+#sbFs{
+  position:fixed;z-index:5;top:max(10px,env(safe-area-inset-top));right:max(24px,env(safe-area-inset-right));
+  padding:3px 10px;font:inherit;font-size:clamp(11px,1.8vmin,14px);color:#cfe4ef;cursor:pointer;
+  background:rgba(10,17,25,.55);border:1px solid rgba(213,228,238,.35);border-radius:4px;
+}
 #sbResult{
   position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
   background:rgba(5,8,12,.72);text-align:center;
@@ -81,6 +87,7 @@ body{
   <a href="../../" data-i18n="app.back"></a>
   <button id="sbStart" type="button" data-i18n="app.start"></button>
 </div>
+<button id="sbFs" type="button" hidden></button>
 <div id="sbResult" hidden>
   <div class="title" data-i18n="result.title"></div>
   <p id="sbResultTime"></p>
