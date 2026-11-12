@@ -243,21 +243,21 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 ### 敵
 
-敵は `src/data/enemies.ts` の表 `ENEMIES`（`Record<EnemyKind, EnemyDef>`）に置く。値はどれも仮。種類は今 `grunt`（小型量産機）だけ。
+敵は `src/data/enemies.ts` の表 `ENEMIES`（`Record<EnemyKind, EnemyDef>`）に置く。値はどれも仮。種類は3つ: `grunt`（射撃。今の量産機）、`assault`（突撃。速くて柔く、近くまで詰めて撃つ）、`heavy`（重装。遅くて硬く、遠くから間隔の長い重い1発）。
 
-| 名前 | `grunt` | 単位・意味 |
-|------|---------|------------|
-| `hp` | 40 | 体力。機関砲4発・砲1発で倒れる |
-| `height` | 3 | m。高さ |
-| `radius` | 0.75 | m。当たりの半径（箱は 1.5 × 3 × 1.5m） |
-| `speed` | 3.5 | m/s。歩く速さ |
-| `notice` | 120 | m。この距離に機体が入ると起きる |
-| `stopDist` | 25 | m。ここまで近づき、機体への線が通っていれば歩くのをやめる（線が通らない間は止まらない） |
-| `fireRange` | 80 | m。機体がこの中にいると撃つ。弾の射程もこれ |
-| `fireInterval` | 1.5 | s。撃つ間隔 |
-| `damage` | 4 | 1発が減らす機体の装甲 |
-| `bulletSpeed` | 150 | m/s。弾の速さ |
-| `spread` | 3 | 度。撃つ向きのずれ |
+| 項目 | `grunt`（射撃） | `assault`（突撃） | `heavy`（重装） | 単位・意味 |
+|------|-----------------|-------------------|-----------------|------------|
+| `hp` | 40 | 20 | 120 | 体力。射撃は機関砲4発・砲1発、突撃は機関砲2発、重装は機関砲12発・砲2発で倒れる |
+| `height` | 3 | 2.4 | 3.5 | m。高さ。重装は射撃より高く自機 4m より低い |
+| `radius` | 0.75 | 0.6 | 0.75 | m。当たりの半径（箱は `radius` の2倍四方で、高さは `height`） |
+| `speed` | 3.5 | 6.5 | 2.2 | m/s。歩く速さ。突撃は自機の歩き 7.5 に近い |
+| `notice` | 120 | 120 | 120 | m。この距離に機体が入ると起きる |
+| `stopDist` | 25 | 4 | 35 | m。ここまで近づき、機体への線が通っていれば歩くのをやめる（線が通らない間は止まらない） |
+| `fireRange` | 80 | 30 | 100 | m。機体がこの中にいると撃つ。弾の射程もこれ |
+| `fireInterval` | 1.5 | 1 | 3.5 | s。撃つ間隔 |
+| `damage` | 4 | 3 | 12 | 1発が減らす機体の装甲 |
+| `bulletSpeed` | 150 | 150 | 130 | m/s。弾の速さ |
+| `spread` | 3 | 5 | 2 | 度。撃つ向きのずれ |
 
 `ENEMY_CHEST` = 0.7 は、敵が撃つ高さの、高さに対する割合。
 
@@ -265,7 +265,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`b-squad`・`depot-guard`・`seawall-drop`・`c-squad` が `grunt`）にあれば、`map.spawns[波]` の場所ごとに1体を出す（`spawnWave` in `src/logic/game.ts`）。高さ `y` は `M1_WAVE_DROP`（`src/data/enemies.ts`。`seawall-drop` が防波堤の高さ `PROP_SIZE.seawall.h` = 6m。表に無い波は地面の 0）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
 - 寝る: 起きる前は動かず撃たない。機体が地面での距離で `notice` に入ると起き、一度起きたら寝ない
 - 降りる: `y` が 0 より大きい敵（`seawall-drop`）は、起きる前でも落ちる（`fall` in `src/logic/enemies.ts`）。毎フレーム `vy` を `DROP_GRAVITY`（20 m/s²）で下へ増やして `y` を動かし、同時に海（+z）へ `DROP_PUSH`（10 m/s）で跳ぶ（防波堤の海側の面 z −65 から離れて降りるため）。落ちている間は壁を無視し、撃たず、歩かない。`y` が 0 以下になったら地面に着き、`pushOutCircle` で壁の外へ押し出す。`enemyBox` の y は足元 `y` から `y` + `height`（機体の弾は落ちている敵にも当たる）。`src/view/enemies.ts` は `y` の分だけ上に描く
-- 歩く: 起きると機体へ向く（`yaw`）。`stopDist` の外では歩き、`stopDist` の中でも機体への線（撃つときと同じ判定）が通らない間は歩き続ける。線が通っていて `stopDist` 以内なら止まって撃つ。線が通って `stopDist` の外なら、`stopDist` を越えて進まない。歩く先は `navTarget`（下の「敵の道」）が返す点で、道が引けないときは機体そのもの。1フレームの歩幅は `speed` × dt で、歩く先を越えない。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない
+- 歩く: 起きると機体へ向く（`yaw`）。`stopDist` は種類ごとに違い（突撃 4m・射撃 25m・重装 35m）、`stopDist` の外では歩き、`stopDist` の中でも機体への線（撃つときと同じ判定）が通らない間は歩き続ける。線が通っていて `stopDist` 以内なら止まって撃つ。線が通って `stopDist` の外なら、`stopDist` を越えて進まない。歩く先は `navTarget`（下の「敵の道」）が返す点で、道が引けないときは機体そのもの。1フレームの歩幅は `speed` × dt で、歩く先を越えない。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない
 - 離れる: 生きていて地面にいる他の敵が `SEPARATION_DIST`（2.5m）より近いと、その敵から遠ざかる向きに、近いほど強く押される（0 の距離で `SEPARATION_SPEED` = 3 m/s、`SEPARATION_DIST` で 0）。歩いていても止まっていても押される。全く同じ所の2体は id の順で左右に分かれる。押したあとも壁の外へ押し出す（`keepApart` in `src/logic/enemies.ts`）
 - 撃つ: 機体が `fireRange` の中にいて、胸（高さの `ENEMY_CHEST`）から機体の胸への線が物の箱（`game.propBoxes`）と壊れていない目標の箱に遮られないとき（この判定はそのフレームの歩く前の位置で1回だけ行い、止まるかどうかの判定と撃つ判定に使う）、`wait` が 0 になるたびに1発撃ち、`wait` を `fireInterval` に戻す。起きた直後は `fireInterval` 待ってから。向きは `spreadDir(…, spread, stream('enemies'))` で散らす。遮られている間は撃たずに待つ（歩き続けて線の通る所を探す）
 - 敵の道（`src/logic/nav.ts`。何も import しない純粋なファイルで、検査の格子と同じ考え方）: 壁を回り込む道を、2m 四方の格子（`CELL`）と機体までの歩数で引く
@@ -278,7 +278,8 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 波が終わる: 波の敵が全部倒れると、`checkWaves` が台本に `cleared`（`wave`）を渡す。台本が覚えるので1回だけ。敵を出さなかった波には渡さない
 - FCS: 生きている敵も `fcsTargets` に入る。`aimTarget` は目標か敵の id
 - 見えない相手には寄らない: 胸から相手の箱の中心への線が、物の箱か壊れていない目標の箱（相手自身の箱は除く）に先に当たる相手は、生きていても `fcsTargets` で生きていない扱いにする（トーチカの陰の敵にソフトロックとロック枠が寄らないため。`inSight` in `src/logic/game.ts`）
-- 見た目: `src/view/enemies.ts` が種類ごとの `InstancedMesh`（名前 `sb-enemy-<kind>`、最大 64 体、色 `ENEMY_COLOR`）で描く。倒れた敵は高さを 0.35 倍にして `ENEMY_DOWN_COLOR` に変える。HUD の敵の名前は `target.<kind>`、レーダーの印は赤い点
+- 見た目: `src/view/enemies.ts` が種類ごとの `InstancedMesh`（名前 `sb-enemy-<kind>`、最大 64 体、色 `ENEMY_COLOR`）で描く。色と高さ `height` で役割が分かる（射撃は暗い赤で 3m、突撃は明るい赤で 2.4m、重装は暗い灰緑で 3.5m）。倒れた敵は高さを 0.35 倍にして `ENEMY_DOWN_COLOR` に変える。HUD の敵の名前は `target.<kind>`、レーダーの印は赤い点
+- 保存: 敵は `kind` の文字列ごと保存するので、種類を増やしても中断の版（`SUSPEND_VERSION`）は上げない。古いデータの種類は `grunt` だけなので、そのまま読める
 
 ### トーチカ
 

@@ -55,6 +55,8 @@ const RADAR_MARK: Record<TargetKind | EnemyKind, RadarMarkKind> = {
   gun: 'objective',
   magazine: 'objective',
   grunt: 'enemy',
+  assault: 'enemy',
+  heavy: 'enemy',
 };
 
 // The radar's size (px): the mock's D plan.

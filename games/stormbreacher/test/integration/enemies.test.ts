@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { ENEMIES } from '../../src/data/enemies.ts';
+import { ENEMIES, type EnemyKind } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
@@ -16,6 +16,7 @@ import {
 } from '../../src/logic/game.ts';
 import { mapBlockers } from '../../src/logic/mapShapes.ts';
 import { fireRayHit } from '../../src/logic/fire.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
@@ -406,4 +407,124 @@ test('seawall-drop is put out on top of the seawall and jumps down to the ground
     for (const rect of game.rects)
       expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES.grunt.radius - 1e-6);
   }
+});
+
+// The mech at the origin facing -z, on an open field, and one enemy pushed in by the test itself: the wave table plays no
+// part, so the roles are told apart by their own values alone.
+function loneFoe(kind: EnemyKind, z: number): GameModel {
+  const game = newPlayGame(field([]));
+  game.mech.x = 0;
+  game.mech.z = 0;
+  game.mech.yaw = 0;
+  game.armor = 1e9; // it keeps shooting through a long test
+  game.enemies.push(newEnemy(`${kind}-1`, 'b-squad', kind, 0, z));
+  return game;
+}
+
+function distanceToMech(game: GameModel): number {
+  const enemy = game.enemies[0];
+  return Math.hypot(game.mech.x - enemy.x, game.mech.z - enemy.z);
+}
+
+const ASSAULT = ENEMIES.assault;
+const HEAVY = ENEMIES.heavy;
+
+test('a grunt comes in to rifle range and shoots from there, farther out than an assault and nearer than a heavy', () => {
+  seed(1);
+  const game = loneFoe('grunt', -60);
+  let shotOnceStopped = false;
+  for (let i = 0; i < 15 / DT; i++) {
+    step(game, idle, DT);
+    if (distanceToMech(game) <= GRUNT.stopDist + 1 && game.bullets.some(isEnemyBullet)) shotOnceStopped = true;
+  }
+  expect(distanceToMech(game)).toBeGreaterThan(GRUNT.stopDist - 1);
+  expect(distanceToMech(game)).toBeLessThan(GRUNT.stopDist + 1);
+  expect(shotOnceStopped).toBe(true);
+  expect(GRUNT.stopDist).toBeGreaterThan(ASSAULT.stopDist);
+  expect(GRUNT.stopDist).toBeLessThan(HEAVY.stopDist);
+});
+
+test('an assault closes to point-blank, firing on the way in, and two autocannon shots bring it down', () => {
+  seed(1);
+  const game = loneFoe('assault', -60);
+  let firedOnTheWay = false;
+  for (let i = 0; i < 15 / DT; i++) {
+    step(game, idle, DT);
+    if (distanceToMech(game) > 15 && game.bullets.some(isEnemyBullet)) firedOnTheWay = true;
+  }
+  expect(distanceToMech(game)).toBeGreaterThan(ASSAULT.stopDist - 1);
+  expect(distanceToMech(game)).toBeLessThan(ASSAULT.stopDist + 1);
+  expect(firedOnTheWay).toBe(true);
+
+  seed(1);
+  const shooting = loneFoe('assault', -40);
+  const hits: string[] = [];
+  let down: GameEvent | null = null;
+  for (let i = 0; i < 240 && !down; i++) {
+    step(shooting, { ...idle, fire: true }, DT);
+    for (const event of shooting.events) {
+      if (event.kind === 'hit' && event.enemy !== null) hits.push(event.enemy);
+      if (event.kind === 'enemyDown') down = event;
+    }
+  }
+  expect(hits).toEqual(Array(ASSAULT.hp / WEAPONS.autocannon.damage).fill('assault-1'));
+  expect(down).toMatchObject({ kind: 'enemyDown', id: 'assault-1' });
+});
+
+test('a heavy stops far out, shoots less often but heavier, and takes 12 autocannon or 2 heavy gun shots', () => {
+  seed(1);
+  const game = loneFoe('heavy', -60);
+  for (let i = 0; i < 15 / DT; i++) step(game, idle, DT);
+  expect(distanceToMech(game)).toBeGreaterThan(HEAVY.stopDist - 1);
+  expect(distanceToMech(game)).toBeLessThan(HEAVY.stopDist + 1);
+
+  // at 10 m, inside every stop distance: the heavy shoots less often than a grunt, and each shot takes its own damage
+  const shots = (kind: 'grunt' | 'heavy'): { amount: number; at: number }[] => {
+    seed(1);
+    const g = loneFoe(kind, -10);
+    const taken: { amount: number; at: number }[] = [];
+    for (let i = 0; i < 10 / DT; i++) {
+      step(g, idle, DT);
+      for (const event of g.events) if (event.kind === 'damaged') taken.push({ amount: event.amount, at: g.time });
+    }
+    return taken;
+  };
+  const gruntShots = shots('grunt');
+  const heavyShots = shots('heavy');
+  expect(heavyShots.length).toBeGreaterThan(0);
+  expect(heavyShots.length).toBeLessThan(gruntShots.length);
+  for (const shot of heavyShots) expect(shot.amount).toBe(HEAVY.damage);
+  for (let i = 1; i < heavyShots.length; i++) {
+    const gap = heavyShots[i].at - heavyShots[i - 1].at;
+    expect(gap).toBeGreaterThan(HEAVY.fireInterval - 0.5);
+    expect(gap).toBeLessThan(HEAVY.fireInterval + 0.5);
+  }
+
+  seed(1);
+  const autocannon = loneFoe('heavy', -40);
+  const hits: string[] = [];
+  let down = false;
+  for (let i = 0; i < 360 && !down; i++) {
+    step(autocannon, { ...idle, fire: true }, DT);
+    for (const event of autocannon.events) {
+      if (event.kind === 'hit' && event.enemy !== null) hits.push(event.enemy);
+      if (event.kind === 'enemyDown') down = true;
+    }
+  }
+  expect(hits).toHaveLength(HEAVY.hp / WEAPONS.autocannon.damage);
+  expect(down).toBe(true);
+
+  seed(1);
+  const heavyGun = loneFoe('heavy', -40);
+  const heavyHits: string[] = [];
+  let heavyDown = 0;
+  for (let i = 0; i < 360 && heavyDown === 0; i++) {
+    step(heavyGun, { ...idle, sub: true }, DT);
+    for (const event of heavyGun.events) {
+      if (event.kind === 'hit' && event.enemy !== null) heavyHits.push(event.enemy);
+      if (event.kind === 'enemyDown') heavyDown++;
+    }
+  }
+  expect(heavyHits).toHaveLength(HEAVY.hp / WEAPONS.heavyGun.damage);
+  expect(heavyDown).toBe(1);
 });

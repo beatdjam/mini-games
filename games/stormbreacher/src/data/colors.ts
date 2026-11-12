@@ -23,6 +23,8 @@ export const HUD_COLOR = {
 // The enemies on the field (仮): each kind's body, the body of one that is down and the line of an enemy's shot.
 export const ENEMY_COLOR: Record<EnemyKind, number> = {
   grunt: 0x8c3b32,
+  assault: 0xc94a3d, // a brighter red than a grunt's, so the fast one reads apart at a distance
+  heavy: 0x4a5340, // a dark grey-green, far from the grunt's red
 };
 export const ENEMY_DOWN_COLOR = 0x2a2522;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;

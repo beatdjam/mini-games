@@ -2,9 +2,9 @@
 // one is a line in ENEMIES (and in ENEMY_KINDS, ENEMY_COLOR and the language files' `target.<kind>`).
 import { PROP_SIZE } from './props.ts';
 
-export type EnemyKind = 'grunt';
+export type EnemyKind = 'grunt' | 'assault' | 'heavy';
 
-export const ENEMY_KINDS: readonly EnemyKind[] = ['grunt'];
+export const ENEMY_KINDS: readonly EnemyKind[] = ['grunt', 'assault', 'heavy'];
 
 export interface EnemyDef {
   hp: number; // the health a new enemy has
@@ -21,6 +21,7 @@ export interface EnemyDef {
 }
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
+  // the rifle: it stops at rifle range and fires from there, so closing in is the answer
   grunt: {
     hp: 40, // 4 autocannon shots (WEAPONS.autocannon.damage 10) or 1 heavy gun shot (60)
     height: 3,
@@ -33,6 +34,34 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
     damage: 4,
     bulletSpeed: 150,
     spread: 3,
+  },
+  // the assault: it runs in to point-blank and fires on the way, so it has to be put down quickly
+  assault: {
+    hp: 20, // 2 autocannon shots
+    height: 2.4,
+    radius: 0.6,
+    speed: 6.5,
+    notice: 120,
+    stopDist: 4, // outside the 2.5 m enemies keep apart, so a pack of them does not pile on the mech
+    fireRange: 30,
+    fireInterval: 1,
+    damage: 3,
+    bulletSpeed: 150,
+    spread: 5,
+  },
+  // the heavy: it stops far out and fires one heavy shot at a long interval, so it takes time to wear down
+  heavy: {
+    hp: 120, // 12 autocannon shots or 2 heavy gun shots
+    height: 3.5, // taller than a grunt, still under the mech's 4 m
+    radius: 0.75, // the same as a grunt, so the nav grid (NAV_RADIUS) does not change
+    speed: 2.2,
+    notice: 120,
+    stopDist: 35,
+    fireRange: 100,
+    fireInterval: 3.5,
+    damage: 12,
+    bulletSpeed: 130,
+    spread: 2,
   },
 };
 
