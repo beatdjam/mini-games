@@ -50,8 +50,10 @@ test("the sites are the map's targets, one for one, where the targets are", () =
     expect(marks.map(mark => mark.points[0])).toEqual(targets.map(target => ({ x: target.x, z: target.z })));
     for (const mark of marks) expect(mark.symbol).toBe(BRIEFING_TARGET_SYMBOL[kind]);
   }
-  // the numbers the briefing talks about: two pillboxes, one depot, two guns and the magazine
-  expect(sites.filter(mark => mark.target === 'pillbox')).toHaveLength(2);
+  // every pillbox of the map is marked, the depot's guard (pillbox-3) too, and there is the one depot
+  expect(sites.filter(mark => mark.target === 'pillbox')).toHaveLength(
+    M1B_HAND.targets.filter(target => target.kind === 'pillbox').length,
+  );
   expect(sites.filter(mark => mark.target === 'depot')).toHaveLength(1);
 });
 
