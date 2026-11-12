@@ -669,10 +669,10 @@ const IDLE_INPUT: GameInput = {
 // ones too) moves on, stopping at a prop, a target, an enemy, a mine, the mech or the ground; the hazards run next
 // (stepHazards); a broken target goes to the script, and so does a wave whose enemies are all down. The mech then
 // enters any area it stands in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
-// or the mech is downed, step does nothing.
+// (the closing cutscene may still be playing: it goes on to its end) or the mech is downed, step does nothing.
 export function step(game: GameModel, given: GameInput, dt: number): void {
   game.events = [];
-  if (game.cleared || game.downed) return;
+  if ((game.cleared && game.script.cutscene === null) || game.downed) return;
   // while a cutscene plays the mech holds still and holds its fire; the aim line still passes through
   const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
   game.time += dt;

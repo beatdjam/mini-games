@@ -171,6 +171,8 @@ test('the whole of M1 runs from the landing to the cleared result', () => {
 test('the game stops once the script has ended', () => {
   const game = newGame(M1B_HAND);
   runM1(game);
+  // the closing cutscene still runs the game; once it is over the game stops
+  sendToScript(game, { kind: 'skip' });
   const time = game.time;
   const z = game.mech.z;
   step(game, { ...idle, moveZ: 1 }, 1 / 60);

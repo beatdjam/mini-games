@@ -45,7 +45,7 @@
 
 `src/logic/collide.ts` は平面で円を回った四角から押し出す純粋な関数で、engine へ移す候補なのでゲームのファイルを読まず、四角と半径を引数で受ける（規則 `sb-portable-no-game`）。関数は円を四角から押し出す `pushOutCircle`、点と四角の距離 `rectDistance`、2つの四角の最短距離 `rectGap`、円の下の高い面 `groundAt`。`src/logic/mapShapes.ts` の `mapBlockers` が `MapDef` から四角の一覧を作り、通り道の検査と機体の当たりがそれを読む。規則に入っているファイルは `src/logic/collide.ts`・`src/logic/mech.ts`・`src/logic/fcs.ts`・`src/logic/fire.ts`・`src/view/camera.ts`・`src/data/tuneTypes.ts` の6つで、機体・カメラ・FCS の調整の型は値と分けて `src/data/tuneTypes.ts` に置く（値は `src/data/tune.ts`）。
 
-`src/logic/game.ts` は出撃の `GameModel`（機体・機体の装甲 `armor` と倒れた印 `downed`・マップ・目標の体力・壊せる物の体力（`breakables`）・敵 `enemies`・メインとサブの武器・FCS の状態 `fcs`・ソフトロックが狙いを寄せている目標か敵の id `aimTarget`・飛んでいる弾 `bullets`・始まった砲撃 `barrages`・落ちる前の着弾予告 `shells`・残っている地雷 `mines`・味方の機体 `allies`・台本の状態 `script`・最後の無線 `radio`・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、FCS（`soft`）が照準の円の中の生きている目標と敵へ狙いを寄せ、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・弾速・間隔・弾数）、敵が起きて歩いて撃ち（5章の「敵」）、弾が飛んで目標や敵に当たると体力が減って0で壊れる・倒れる。`step` は壊れた目標（`destroyed`）と入った場所（`enter`）を台本に渡し、波の敵が全部倒れたら `cleared` を台本に渡し、台本の時間を進め、台本の出来事を `script` の出来事として残す。出撃が終わる（`cleared`）のは台本の `end` が来たときだけ。機体の装甲が 0 になる（`downed`）と `step` は何もしない（`cleared` のあとと同じ）。台本の `spawn`（敵の波）は敵を出し、`ally`（味方）は味方の機体 `allies` を出す（5章「台本の味方の機体」）。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。
+`src/logic/game.ts` は出撃の `GameModel`（機体・機体の装甲 `armor` と倒れた印 `downed`・マップ・目標の体力・壊せる物の体力（`breakables`）・敵 `enemies`・メインとサブの武器・FCS の状態 `fcs`・ソフトロックが狙いを寄せている目標か敵の id `aimTarget`・飛んでいる弾 `bullets`・始まった砲撃 `barrages`・落ちる前の着弾予告 `shells`・残っている地雷 `mines`・味方の機体 `allies`・台本の状態 `script`・最後の無線 `radio`・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、FCS（`soft`）が照準の円の中の生きている目標と敵へ狙いを寄せ、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・弾速・間隔・弾数）、敵が起きて歩いて撃ち（5章の「敵」）、弾が飛んで目標や敵に当たると体力が減って0で壊れる・倒れる。`step` は壊れた目標（`destroyed`）と入った場所（`enter`）を台本に渡し、波の敵が全部倒れたら `cleared` を台本に渡し、台本の時間を進め、台本の出来事を `script` の出来事として残す。出撃が終わる（`cleared`）のは台本の `end` が来たときだけ。`cleared` になったときカットシーンが流れていれば（M1 の `win`）、そのカットシーンが終わる（飛ばしも）まで `step` は動き続け（台本の時間も進む）、結果の画面は閉じのカットシーンのあとに出す（`step` in `src/logic/game.ts`、`update` in `src/app/play.ts`）。機体の装甲が 0 になる（`downed`）と `step` は何もしない（`cleared` のあと、閉じのカットシーンが終わってからも同じ）。台本の `spawn`（敵の波）は敵を出し、`ally`（味方）は味方の機体 `allies` を出す（5章「台本の味方の機体」）。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。
 
 `src/logic/hud.ts` は HUD に出す値（ブースト・装甲・メインとサブの弾数・台本の今の目標と数えている数 `objective`・最後の無線 `radio`・ソフトロックが狙いを寄せている目標か敵の体力 `enemy` とその箱 `lock`・レーダーの点・着弾予告の警告 `warning`）を `GameModel` から作る純粋な関数 `hudModel`。装甲は `armor / MECH_TUNE.armor`。熱は持たない。描くのは `view/hud.ts`。
 
@@ -654,26 +654,34 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 
 ### カットシーンの演出
 
-台本の `cutscene` の間、カメラの通り道・文・見た目の出来事を表で持ち、上下に黒い帯を出して流す。定義場所は `CUTSCENES` in src/data/cutscenes.ts（表）、`cutscenePose`・`cutsceneLine`・`cutsceneEvents`・`hasCutscene` in src/logic/cutscene.ts（時刻から引く純粋な関数）、`buildCutsceneView`・`drawCutscene` in src/view/cutscene.ts（帯・カメラ・艇）、`armSkip`・`takeSkip` in src/app/skip.ts（飛ばす）。
+台本の `cutscene` の間、カメラの通り道・文・見た目の出来事を表で持ち、上下に黒い帯を出して流す。定義場所は `CUTSCENES` in src/data/cutscenes.ts（表）、`cutscenePose`・`keyPose`・`cutsceneLine`・`cutsceneEvents`・`hasCutscene` in src/logic/cutscene.ts（時刻から引く純粋な関数）、`buildCutsceneView`・`drawCutscene` in src/view/cutscene.ts（帯・カメラ・艇・着弾・砲台の崩れ）、`armSkip`・`takeSkip` in src/app/skip.ts（飛ばす）。
 
 - 表（`CutsceneDef`）: カットシーンの id ごとに、時刻は流し始めからの秒で持つ
-  - `camera`: キーフレームの列 `{ at, pos, look }`（時刻・カメラの位置・見る点。マップの座標）。最初のキーより前は最初の姿勢、最後のキーより後は最後の姿勢
+  - `camera`: キーフレームの列 `{ at, pos, look, rel? }`（時刻・カメラの位置・見る点。マップの座標）。最初のキーより前は最初の姿勢、最後のキーより後は最後の姿勢
+  - `rel: true` のキーは、`pos` と `look` の x・z が機体の x・z からの差（y は高さのまま）。機体がどこにいるか決まっていないカットシーン（`wave2-sinks`）で、機体の位置から始めて機体の位置に戻すため。`cutscenePose(id, elapsed, mech)` が `keyPose` でマップの座標にしてから混ぜる（`rel` のキーがあるのに `mech` を渡さなければ例外）。画面は `game.mech` を渡す
   - `lines`: 文の時間割 `{ from, to, key }`（出す秒・消す秒・言語キー）。重ならない。間は何も出ない
-  - `events`: 見た目の出来事。`sink`（`x` の艇が `sec` 秒かけて傾いて沈む）、`ramp`（始まりの艇のランプが `sec` 秒かけて上がった形から下りる）
-  - 表の時刻は `CUTSCENE_SEC`（7章「動き」）を超えない。最後のキーは `CUTSCENE_SEC` ちょうどにして、その姿勢を本体のカメラ（`CAMERA_TUNE`、ピッチ 0）の始まりの位置に合わせる（unit テストが比べる）
+  - `events`: 見た目の出来事。座標はマップの座標
+    - `sink`: `x`・`z`（艇の船体の始まり。省くと始まりの艇の z）の艇が `sec` 秒かけて傾いて沈む
+    - `arrive`: `x`・`z` の艇が、`from` の z から `sec` 秒かけて進んで着く
+    - `burst`: `x`・`z` に砲弾が落ちる（`shellBurst` in src/view/hazards.ts と砂煙）
+    - `collapse`: `targets`（ミッションの物の id）が `sec` 秒かけて沈んで傾く
+    - `ramp`: 始まりの艇のランプが `sec` 秒かけて上がった形から下りる
+  - 表の時刻は `CUTSCENE_SEC`（7章「動き」）を超えない。`landing` の最後のキーは `CUTSCENE_SEC` ちょうどにして、その姿勢を本体のカメラ（`CAMERA_TUNE`、ピッチ 0）の始まりの位置に合わせる（unit テストが比べる）。`wave2-sinks` は防波堤の上を見せるため合わせず、最後のキーで止めて終わると本体のカメラに切り替わる。`beach-held` は結果の画面へ進むので合わせない
 - カメラ: キーとキーの間は、時刻をなめらかに（`u*u*(3-2u)`）して位置と見る点を線形に混ぜる。そのためキーの時刻ちょうどは、そのキーの値で、前後で速さが 0 になる。画角は `CAMERA_TUNE.fov`。カットシーンが終わると、次のコマから本体のカメラに戻る
 - 文: `cutsceneLine` が今の秒の言語キーを返す（なければ null）。下の帯の中に、`t(key)` の文字で出す
-- 見た目の出来事: `cutsceneEvents(id, from, to)` は `from` より後で `to` 以前の出来事を返すので、コマごとに呼ぶと各出来事は1回だけ出る。画面はこれで砂煙を出す。艇の沈み方・ランプの角度は、経過秒と表の `at`・`sec` から毎コマ決める（見た目だけで、当たり判定・マップの検査には入らない）
+- 見た目の出来事: `cutsceneEvents(id, from, to)` は `from` より後で `to` 以前の出来事を返すので、コマごとに呼ぶと各出来事は1回だけ出る。画面はこれで砂煙を出す。艇の沈み方・着き方・ランプの角度・物の崩れ方は、経過秒と表の `at`・`sec` から毎コマ決める（見た目だけで、当たり判定・マップの検査には入らない）
 - 帯: 上下に高さ 12vh の黒い帯（`#sbCutscene`。`#view-hud?cut=1` の見本の帯に合わせる）。文は下の帯の中の真ん中。カットシーンの間は HUD（`#sbPlayHud`）を隠し、終わると出す。帯は `pointer-events:none`
-- 隣の艇: 表の `sink` の数だけ、始まりの艇と同じ作り（`buildCraft` in src/view/shore.ts）の艇を、`x` で始まりの艇の横に置く。カットシーンの間だけ見え、沈み終えると消える。始まりの艇のランプは別のメッシュ（`${CRAFT_NAME}Ramp`）で、カットシーンの外では下りた形
+- 海の艇: 表の `sink`・`arrive` の数だけ、始まりの艇と同じ作り（`buildCraft` in src/view/shore.ts）の艇を置く。そのカットシーンの間だけ見え、`sink` は沈み終えると消える。物の崩れ（`collapse`）は、`buildCutsceneView` が渡された `world.targets` の模型の高さと傾きを動かす（`COLLAPSE_DEPTH` 3m・`COLLAPSE_TILT` 0.35 rad。1つおきに逆へ傾く。崩す物の id が無ければ例外）。始まりの艇のランプは別のメッシュ（`${CRAFT_NAME}Ramp`）で、カットシーンの外では下りた形
 - 入力: 台本の `cutscene` の間（`game.script.cutscene` が null でない間）は、`step` が機体に何も押していない入力を渡す。動かず、撃たず（メインもサブも）、ジャンプもブーストもしない。敵・砲撃・弾・台本の時間は止まらず進む。台本が最初の `stepScript` でカットシーンに入るので、出撃の最初の1コマだけは入力が通る
 - 砲撃: カットシーンの間は、砲撃（`game.barrages`）が数えず、着弾予告を出さない。もう予告した弾は落ちる。カットシーンが終わるか飛ばされると、そこから数え始める（機体が動けない間に被弾しないため。`stepHazards` in `src/logic/game.ts`）
 - 機体: カットシーンの間は、機体の模型を描かない（まだ艇の中にいるため。`drawPlay` in `src/view/play.ts`）
 - 飛ばし方: クリック・タップ（`pointerdown`）・Enter・Space・Esc のどれでも飛ばせる。出撃の開始より前の押し込み（出撃を始めたクリックや Enter）と、押しっぱなしの繰り返し（`repeat`）は数えない。`update` が `step` の後に取り、`game.script.cutscene` があれば台本に `skip` を渡す（`cutsceneEnd` が出て、次のコマから本体のカメラと HUD）。飛ばしても台本の状態は、最後まで見たときと同じ（台本の時計だけ、見た秒の分だけ小さい）
-- 表に無いカットシーン: 表の無い id（今は `wave2-sinks`・`beach-held`）は流さず、`update` が `step` の直後に台本へ `skip` を渡すので、描かれる前に終わる。台本の出来事（`cutscene` と `cutsceneEnd`）は出る
+- 表に無いカットシーン: 表の無い id（今は無い）は流さず、`update` が `step` の直後に台本へ `skip` を渡すので、描かれる前に終わる。台本の出来事（`cutscene` と `cutsceneEnd`）は出る
 - やり直し: 最初からのやり直し（`restartGame`）は台本が最初に戻るので、また流れる。チェックポイントからのやり直しは、`intro` が済んだ状態に戻るので流れない
-- 文言: `cutscene.landing.wave`・`cutscene.landing.hit`・`cutscene.landing.ramp`（ja・en）
+- 文言: `cutscene.landing.wave`・`cutscene.landing.hit`・`cutscene.landing.ramp`・`cutscene.wave2.hit`・`cutscene.wave2.none`・`cutscene.held.silent`・`cutscene.held.landing`（ja・en）
 - `landing`（10 秒）: カメラは 0 秒 艇の後ろの海の上 → 4 秒 横から艇の列 → 7 秒 艇の中からランプ越しの浜 → 10 秒 機体の後ろ。文は 0.5〜3.5 秒「第1波、上陸」、3.8〜6.3 秒「2番艇、被弾」、6.5〜9.5 秒「ランプ、下ろせ」。出来事は 4.2 秒に x −20 の艇が 2.5 秒かけて沈み、7 秒にランプが 1.5 秒かけて下りる
+- `wave2-sinks`（6 秒）: 台本の `wave2-lost`（トーチカ2基を壊した 4 秒後）で流れる。カメラは 0 秒 機体の後ろ（x 0・z +10・高さ 7、相対）から海を見る → 1.8 秒 浜の端（z 150）から沖の艇の列 → 3.6 秒 浜の端（z 165）でさらに近く → 5.2 秒 機体の後ろ（x 2.15・z +14・高さ 9、相対）から防波堤の方（z −50）を見て、6 秒まで止まる。艇は4隻（x −40・−14・16・42、z 205・222・208・226）で、1.4・1.9・2.4・2.9 秒に 1.8 秒かけて沈み、その 0.2 秒前に近くへ着弾する。文は 0.6〜3.2 秒「第2波、被弾」、3.4〜5.9 秒「後続、来ず」。防波堤の上の増援は同じ cue の `spawn` で出るので、画面はそれを描く
+- `beach-held`（8 秒）: 台本の `win`（弾薬庫を壊した）で流れ、終わると結果の画面。カメラは 0 秒 砲台の手前（z −105・高さ 14）から砲台 → 3 秒 そのまま → 5 秒 浜（z 140）から海 → 8 秒 浜の上（z 110）から浜の奥（z 40）。出来事は 0.3・0.6・1 秒に主砲 2 基と弾薬庫へ着弾、0.8 秒から 2.2 秒かけて主砲 2 基（`main-gun-1`・`main-gun-2`）と弾薬庫（`magazine`）が沈む、3.2 秒に x −35（2.5 秒かけて z 230 から）、3.6 秒に x 40（z 240 から）の艇が浜（z 175）へ着く。文は 0.5〜3.5 秒「砲台、沈黙」、4.5〜7.5 秒「上陸、再開」。浜の歩兵は戦場の層（`view/battle/`）の味方が歩いているのをそのまま映す
 
 ## 8. マップ
 

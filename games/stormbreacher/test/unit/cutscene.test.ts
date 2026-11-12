@@ -3,7 +3,6 @@ import { LANG } from '@engine/core/index.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { CAMERA_TUNE } from '../../src/data/tune.ts';
-import type { CutsceneId } from '../../src/data/types.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { hasCutscene, cutsceneEvents, cutsceneLine, cutscenePose } from '../../src/logic/cutscene.ts';
 import { newGame } from '../../src/logic/game.ts';
@@ -91,10 +90,65 @@ test('an event comes once, in the frame that reaches its second', () => {
   expect(cutsceneEvents('landing', first.at, first.at + 0.5)).not.toContain(first);
 });
 
-test('the table keeps to the cutscene length, and only landing has a table', () => {
-  for (const key of keys) expect(key.at).toBeLessThanOrEqual(CUTSCENE_SEC.landing);
-  for (const line of landing.lines) expect(line.to).toBeLessThanOrEqual(CUTSCENE_SEC.landing);
-  for (const event of landing.events) expect(event.at + event.sec).toBeLessThanOrEqual(CUTSCENE_SEC.landing);
-  const played: CutsceneId[] = (['landing', 'wave2-sinks', 'beach-held'] as const).filter(hasCutscene);
-  expect(played).toEqual(['landing']);
+test('every table keeps to its cutscene length, and all three cutscenes have one', () => {
+  for (const id of ['landing', 'wave2-sinks', 'beach-held'] as const) {
+    const def = CUTSCENES[id];
+    if (!def) throw new Error(`no table for ${id}`);
+    for (const key of def.camera) expect(key.at, `${id} camera`).toBeLessThanOrEqual(CUTSCENE_SEC[id]);
+    for (const line of def.lines) {
+      expect(line.from, `${id} line`).toBeLessThan(line.to);
+      expect(line.to, `${id} line`).toBeLessThanOrEqual(CUTSCENE_SEC[id]);
+    }
+    for (const event of def.events) {
+      const sec = 'sec' in event ? event.sec : 0;
+      expect(event.at + sec, `${id} ${event.kind}`).toBeLessThanOrEqual(CUTSCENE_SEC[id]);
+    }
+    expect(hasCutscene(id)).toBe(true);
+  }
+});
+
+test('a relative key is built from where the mech stands, and an absolute one is not', () => {
+  const table = CUTSCENES['wave2-sinks'];
+  if (!table) throw new Error('no table for wave2-sinks');
+  const [first, second] = table.camera;
+  expect(first.rel).toBe(true);
+  expect(second.rel).toBeUndefined();
+  const mech = { x: 13, z: -22 };
+  const pose = cutscenePose('wave2-sinks', first.at, mech);
+  expect(pose.pos).toEqual([first.pos[0] + 13, first.pos[1], first.pos[2] - 22]);
+  expect(pose.look).toEqual([first.look[0] + 13, first.look[1], first.look[2] - 22]);
+  // the absolute key keeps the map's coordinates wherever the mech is
+  expect(cutscenePose('wave2-sinks', second.at, mech).pos).toEqual(second.pos);
+  // between a relative and an absolute key the camera is between the two built poses
+  const mid = cutscenePose('wave2-sinks', (first.at + second.at) / 2, mech);
+  expect(mid.pos[0]).toBeCloseTo((pose.pos[0] + second.pos[0]) / 2, 9);
+  expect(mid.pos[2]).toBeCloseTo((pose.pos[2] + second.pos[2]) / 2, 9);
+  // the last key is relative too: it moves with the mech
+  const last = table.camera[table.camera.length - 1];
+  expect(cutscenePose('wave2-sinks', last.at, { x: 0, z: 0 }).pos[2]).toBe(last.pos[2]);
+  expect(cutscenePose('wave2-sinks', last.at, { x: 0, z: 30 }).pos[2]).toBe(last.pos[2] + 30);
+  expect(() => cutscenePose('wave2-sinks', 0)).toThrow();
+});
+
+test('the new tables have their lines in ja and en, one after another', () => {
+  for (const id of ['wave2-sinks', 'beach-held'] as const) {
+    const def = CUTSCENES[id];
+    if (!def) throw new Error(`no table for ${id}`);
+    expect(def.lines).toHaveLength(2);
+    expect(def.lines[0].to).toBeLessThanOrEqual(def.lines[1].from);
+    for (const code of ['ja', 'en']) {
+      for (const line of def.lines) expect(LANG[code].ui[line.key], `${code} lacks "${line.key}"`).toBeTruthy();
+    }
+  }
+});
+
+test('the craft that wave2-sinks sinks lie at sea, and the battery collapse names real targets', () => {
+  const sea = M1B_HAND.bounds.maxZ;
+  const sinks = (CUTSCENES['wave2-sinks']?.events ?? []).filter(event => event.kind === 'sink');
+  expect(sinks).toHaveLength(4);
+  for (const sink of sinks) expect((sink.kind === 'sink' ? sink.z : 0) ?? 0).toBeGreaterThan(sea);
+  const ids = M1B_HAND.targets.map(target => target.id);
+  for (const event of CUTSCENES['beach-held']?.events ?? []) {
+    if (event.kind === 'collapse') for (const id of event.targets) expect(ids).toContain(id);
+  }
 });

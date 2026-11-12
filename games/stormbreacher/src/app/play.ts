@@ -194,7 +194,8 @@ function update(dt: number): void {
   const cutscene = game.script.cutscene;
   if (cutscene !== null && (skip || !hasCutscene(cutscene.id))) sendToScript(game, { kind: 'skip' });
   drawPlay(view, game, dt, read.pitchDelta);
-  if (game.cleared || game.downed) showResult();
+  // a cleared sortie shows its result once the closing cutscene is over
+  if ((game.cleared && game.script.cutscene === null) || game.downed) showResult();
 }
 
 // A number with the language's thousands separators ("12,300").
