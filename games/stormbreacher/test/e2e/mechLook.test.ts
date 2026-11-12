@@ -5,6 +5,7 @@ import { scene } from '@engine/render/index.ts';
 import { MECH_COLORS } from '../../src/data/mech.ts';
 import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
+import { sendToScript } from '../../src/logic/game.ts';
 import { boot } from '../../src/app/boot.ts';
 import { PATTERNS } from '../../src/dev/mech/patterns.ts';
 import { showMech } from '../../src/dev/views/mech.ts';
@@ -53,6 +54,9 @@ test('a sortie draws the mech as one instanced mesh per colour, with no stand-in
 
 test('the mech turns see-through while the camera is near its chest, and solid again when it moves away', async () => {
   startSortie();
+  await frame();
+  // the landing cutscene holds its own camera and does not draw the mech, so the test starts past it
+  sendToScript(currentGame()!, { kind: 'skip' });
   await frame();
   expect(opacities().every(opacity => opacity === 1)).toBe(true);
   const { dist, lag } = CAMERA_TUNE;
