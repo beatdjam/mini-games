@@ -136,6 +136,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
 
   view.model.position.set(game.mech.x, game.mech.y, game.mech.z);
   view.model.rotation.y = game.mech.yaw;
+  // the mech is still in the boat while a cutscene plays, so it is not drawn standing on the beach
+  view.model.visible = game.script.cutscene === null;
 
   view.pitch = clamp(view.pitch + pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
   const pose = cameraPose(

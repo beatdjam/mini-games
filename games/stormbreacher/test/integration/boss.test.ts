@@ -8,7 +8,6 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import {
   isBatteryBullet,
-  newGame,
   retryFromCheckpoint,
   sendToScript,
   step,
@@ -18,6 +17,7 @@ import {
   type GameModel,
 } from '../../src/logic/game.ts';
 import { seed } from '../../src/logic/rng.ts';
+import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const SEAWALL_TOP = { x: 0, y: 6, z: -68 }; // on the seawall, in the area `seawall-top`
@@ -39,7 +39,7 @@ const idle: GameInput = {
 
 // The hand map without its mines, with the mech at `at` facing the land.
 function newBossGame(at: { x: number; y: number; z: number }): GameModel {
-  const game = newGame({ ...M1B_HAND, mines: [] });
+  const game = newPlayGame({ ...M1B_HAND, mines: [] });
   game.mech.x = at.x;
   game.mech.y = at.y;
   game.mech.z = at.z;

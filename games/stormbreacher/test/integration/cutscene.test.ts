@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
+import { MECH_TUNE } from '../../src/data/tune.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import type { ScriptOut } from '../../src/logic/script.ts';
@@ -94,4 +95,23 @@ test('a skip ends the landing at once, and the script is the same as after watch
   expect(skippedTime).toBeLessThan(watchedTime);
   const withoutTimes = (s: typeof skippedRest) => ({ ...s, fired: Object.keys(s.fired).sort() });
   expect(withoutTimes(skippedRest)).toEqual(withoutTimes(watchedRest));
+});
+
+test('no mortar shell is warned of while the landing plays, and the barrage starts once it is over', () => {
+  const game = newGame(M1B_HAND);
+  let warned = 0;
+  for (let t = 0; t < CUTSCENE_SEC.landing - 0.1; t += 1 / 60) {
+    step(game, idle, 1 / 60);
+    warned += game.events.filter(event => event.kind === 'shellWarn').length;
+  }
+  expect(game.script.cutscene?.id).toBe('landing');
+  expect(game.barrages.length).toBeGreaterThan(0);
+  expect(warned).toBe(0);
+  expect(game.armor).toBe(MECH_TUNE.armor);
+  for (let t = 0; t < 8; t += 1 / 60) {
+    step(game, idle, 1 / 60);
+    warned += game.events.filter(event => event.kind === 'shellWarn').length;
+  }
+  expect(game.script.cutscene).toBeNull();
+  expect(warned).toBeGreaterThan(0);
 });

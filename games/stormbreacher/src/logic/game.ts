@@ -595,7 +595,10 @@ function stepBattery(game: GameModel, dt: number): void {
 // Runs the hazards by `dt`: each barrage may warn of a shell, each shell counts down and one that lands hurts a mech inside
 // its blast, and a mine the mech stands on goes off.
 function stepHazards(game: GameModel, dt: number): void {
-  for (const barrage of game.barrages) {
+  // A cutscene holds the mech still, so no barrage counts down or warns of a shell while one plays; the shells already
+  // warned of still land. The barrage starts counting again when the cutscene ends or is skipped.
+  const held = game.script.cutscene !== null;
+  for (const barrage of held ? [] : game.barrages) {
     // a barrage the script's flag slows (the depot's loss) comes that many times as seldom
     const slow = BARRAGES[barrage.kind].slow;
     const mul = slow !== undefined && game.script.flags.includes(slow.flag) ? slow.mul : 1;
