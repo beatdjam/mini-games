@@ -55,3 +55,5 @@ export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
   sensor: 0x1e2022,
   weapon: 0x2a2c2d,
 };
+// The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
+export const MECH_FLAME_COLOR = 0xffd27a;
