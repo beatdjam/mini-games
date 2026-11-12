@@ -72,6 +72,22 @@ for (const dist of [20, 50, 120]) {
   });
 }
 
+test('a shot goes forward when a prop sits between the camera and the muzzle', () => {
+  seed(7);
+  // The block stands behind the mech, between it and the camera: the aim line meets it before it passes the muzzle.
+  const block: Prop = { kind: 'block', x: 1, z: MECH_Z + 4, yaw: 0, scale: 1 };
+  const game = newPlayGame({ ...M1B_HAND, props: [block], targets: [], mines: [] });
+  game.mech.x = 0;
+  game.mech.z = MECH_Z;
+  game.mech.yaw = 0;
+  const aim = cameraAim(game, WALL_PITCH);
+  step(game, { ...idle, fire: true, aim }, DT);
+  const shot = game.events.find((event): event is Extract<GameEvent, { kind: 'shot' }> => event.kind === 'shot');
+  expect(shot).toBeDefined();
+  const forward = shot!.dx * aim.dx + shot!.dy * aim.dy + shot!.dz * aim.dz;
+  expect(forward).toBeGreaterThan(0);
+});
+
 test('a shot aimed at the ground lands near the ground point the reticle is on', () => {
   seed(7);
   const game = gameWithWall(150);

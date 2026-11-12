@@ -117,10 +117,29 @@ function manualDir(
 ): Dir3 {
   const boxes = [...targets.filter(t => t.alive).map(t => t.box), ...(world ? world.boxes : [])];
   const dir = normalize(aim.dx, aim.dy, aim.dz);
+  // A hit between the camera and the muzzle would put the aim point behind the mech, sending the shot backwards or
+  // sideways. Only what lies beyond the muzzle counts, so the line starts where the muzzle falls on it.
+  const start = Math.max(0, (muzzle.x - aim.ox) * dir.dx + (muzzle.y - aim.oy) * dir.dy + (muzzle.z - aim.oz) * dir.dz);
+  const rest = range - start;
   let reach = range;
-  const hit = fireRayHit(aim.ox, aim.oy, aim.oz, dir.dx, dir.dy, dir.dz, range, boxes);
-  if (hit) reach = hit.dist;
-  if (world && dir.dy < -EPS && aim.oy > world.groundY) reach = Math.min(reach, (world.groundY - aim.oy) / dir.dy);
+  const hit =
+    rest > 0
+      ? fireRayHit(
+          aim.ox + dir.dx * start,
+          aim.oy + dir.dy * start,
+          aim.oz + dir.dz * start,
+          dir.dx,
+          dir.dy,
+          dir.dz,
+          rest,
+          boxes,
+        )
+      : null;
+  if (hit) reach = start + hit.dist;
+  if (world && dir.dy < -EPS && aim.oy > world.groundY) {
+    const ground = (world.groundY - aim.oy) / dir.dy;
+    if (ground >= start) reach = Math.min(reach, ground);
+  }
   return normalize(
     aim.ox + dir.dx * reach - muzzle.x,
     aim.oy + dir.dy * reach - muzzle.y,
