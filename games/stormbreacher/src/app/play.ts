@@ -5,9 +5,11 @@ import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CAMERA_TUNE } from '../data/tune.ts';
-import { newGame, restartGame, retryFromCheckpoint, step, type GameModel } from '../logic/game.ts';
+import { hasCutscene } from '../logic/cutscene.ts';
+import { newGame, restartGame, retryFromCheckpoint, sendToScript, step, type GameModel } from '../logic/game.ts';
 import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
+import { removeCutsceneView } from '../view/cutscene.ts';
 import { removeEnemyView } from '../view/enemies.ts';
 import { removeHazardView } from '../view/hazards.ts';
 import { removeHud } from '../view/hud.ts';
@@ -15,6 +17,7 @@ import { removeSeaFire } from '../view/seaFire.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
 import { initPlayInput, readInput } from './input.ts';
 import { setState } from './screen.ts';
+import { armSkip, takeSkip } from './skip.ts';
 
 let game: GameModel | null = null; // the sortie in play; null before the first one
 let view: PlayView | null = null;
@@ -44,6 +47,7 @@ function clearPlay(old: PlayView): void {
   removeHazardView(old.hazards);
   removeSeaFire(old.seaFire);
   removeHud(old.hud);
+  removeCutsceneView(old.cutscene);
 }
 
 // The sortie's time as minutes and seconds ("3:07").
@@ -65,6 +69,7 @@ function beginPlay(next: GameModel): void {
   game = next;
   view = buildPlayView(game);
   initPlayInput();
+  armSkip();
   if (started) return;
   started = true;
   addSystem({ name: 'sb-play', modes: ['play'], update });
@@ -89,6 +94,10 @@ function update(dt: number): void {
   // The aim is the camera's line with the pitch of the last frame; drawPlay adds this frame's pitch change after.
   const aim = aimRay({ x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw }, view.pitch, CAMERA_TUNE);
   step(game, { ...read.input, sub: read.sub, aim }, dt);
+  // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn.
+  const skip = takeSkip();
+  const cutscene = game.script.cutscene;
+  if (cutscene !== null && (skip || !hasCutscene(cutscene.id))) sendToScript(game, { kind: 'skip' });
   drawPlay(view, game, dt, read.pitchDelta);
   if (game.cleared || game.downed) showResult();
 }

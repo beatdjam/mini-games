@@ -4,7 +4,8 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
-import { newGame, sendToScript, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { sendToScript, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
 const DT = 1 / 60;
@@ -28,7 +29,7 @@ function field(places: { x: number; z: number }[]): MapDef {
 
 // Starts the wave through the script (the mech at the origin facing -z), as the b-line cue does.
 function withSquad(places: { x: number; z: number }[]): GameModel {
-  const game = newGame(field(places));
+  const game = newPlayGame(field(places));
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
@@ -54,7 +55,7 @@ function walkIntoBLine(game: GameModel): GameEvent[] | null {
 }
 
 test('walking into b-line puts one enemy at each of the six b-squad places, and the beach wave puts out none', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   const events = walkIntoBLine(game);
   expect(events).toContainEqual({ kind: 'spawned', wave: 'b-squad', count: 6 });
   expect(game.script.spawned).toEqual(['beach-mortar', 'b-squad']);
@@ -68,7 +69,7 @@ test('walking into b-line puts one enemy at each of the six b-squad places, and 
 });
 
 test('a wave the map has no place for puts out nothing', () => {
-  const game = newGame({ ...M1B_HAND, spawns: {} });
+  const game = newPlayGame({ ...M1B_HAND, spawns: {} });
   expect(walkIntoBLine(game)).toBeNull();
   expect(game.script.spawned).toContain('b-squad');
   expect(game.enemies).toEqual([]);
@@ -168,7 +169,7 @@ test('an enemy’s bullets take the armour down, with the way they came from', (
 });
 
 test('an enemy’s bullet stops at a prop and does not hit the mech behind it', () => {
-  const game = newGame({
+  const game = newPlayGame({
     ...field([]),
     props: [{ kind: 'block', x: 0, z: -10, yaw: 0, scale: 1 }],
   });
@@ -191,7 +192,7 @@ test('an enemy’s bullet stops at a prop and does not hit the mech behind it', 
 test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind it holds fire', () => {
   seed(5);
   const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
-  const game = newGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
+  const game = newPlayGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
@@ -214,7 +215,7 @@ test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind
 test('the soft lock does not pull toward an enemy hidden behind a pillbox, but toward the pillbox in front', () => {
   seed(5);
   const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
-  const game = newGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
+  const game = newPlayGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;

@@ -11,6 +11,7 @@ import {
   type GameInput,
   type GameModel,
 } from '../../src/logic/game.ts';
+import { newPlayGame } from './playGame.ts';
 import { restoreCheckpoint } from '../../src/logic/script.ts';
 
 const DT = 1 / 60;
@@ -43,7 +44,7 @@ function takeCp1(game: GameModel): void {
 
 // A game that walked, met the B line's squad and then took cp1.
 function atCp1(): GameModel {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   run(game, walk, 30);
   sendToScript(game, { kind: 'enter', area: 'b-line' });
   run(game, walk, 30);
@@ -68,7 +69,7 @@ function playOn(game: GameModel): void {
 
 describe('checkpoint', () => {
   test('there is none until the script takes one; the pillboxes down take cp1', () => {
-    const game = newGame(M1B_HAND);
+    const game = newPlayGame(M1B_HAND);
     expect(game.checkpoint).toBeNull();
     run(game, idle, 5);
     expect(game.checkpoint).toBeNull();

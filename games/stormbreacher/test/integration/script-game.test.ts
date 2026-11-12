@@ -3,6 +3,7 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { TARGET_HP } from '../../src/data/props.ts';
 import type { MapDef } from '../../src/data/types.ts';
+import { newPlayGame } from './playGame.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import type { ScriptInput, ScriptOut } from '../../src/logic/script.ts';
 
@@ -139,6 +140,7 @@ test('spawn and ally change nothing else in the game', () => {
 test('breaking the depot reaches the script', () => {
   const game = newGame(M1B_HAND);
   step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'skip' }); // the mech takes no input during the landing
   game.mech.x = 53;
   game.mech.z = 51;
   game.mech.yaw = 0;
@@ -192,7 +194,7 @@ test('the game can hand a cleared wave to the script', () => {
 
 test('a target the mission does not know does not break the game', () => {
   const map: MapDef = { ...M1B_HAND, targets: [{ id: 'extra', kind: 'pillbox', x: -33, z: -15, yaw: 0 }] };
-  const game = newGame(map);
+  const game = newPlayGame(map);
   game.mech.x = -33;
   game.mech.z = 5;
   game.mech.yaw = 0;
