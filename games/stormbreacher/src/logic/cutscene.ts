@@ -69,3 +69,29 @@ export function cutsceneLine(id: CutsceneId, elapsed: number): string | null {
 export function cutsceneEvents(id: CutsceneId, from: number, to: number): CutsceneEvent[] {
   return tableOf(id).events.filter(event => from < event.at && event.at <= to);
 }
+
+// Where the walking mech's feet are at `elapsed`, and how fast it goes along the ground (m/s).
+export interface CutsceneMech {
+  x: number;
+  y: number;
+  z: number;
+  speed: number;
+}
+
+// The mech's place in the cutscene, or null when the cutscene has no mech path (the mech is not drawn then). It goes
+// in a straight line at an even speed between two keys, so the legs swing in time with the ground it covers.
+export function cutsceneMech(id: CutsceneId, elapsed: number): CutsceneMech | null {
+  const keys = tableOf(id).mech;
+  if (keys === undefined) return null;
+  const first = keys[0];
+  const last = keys[keys.length - 1];
+  if (elapsed <= first.at) return { x: first.pos[0], y: first.pos[1], z: first.pos[2], speed: 0 };
+  if (elapsed >= last.at) return { x: last.pos[0], y: last.pos[1], z: last.pos[2], speed: 0 };
+  let next = 1;
+  while (keys[next].at < elapsed) next++;
+  const a = keys[next - 1];
+  const b = keys[next];
+  const span = b.at - a.at;
+  const [x, y, z] = mix(a.pos, b.pos, (elapsed - a.at) / span);
+  return { x, y, z, speed: Math.hypot(b.pos[0] - a.pos[0], b.pos[2] - a.pos[2]) / span };
+}

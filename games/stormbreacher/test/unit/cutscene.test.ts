@@ -4,7 +4,7 @@ import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { CAMERA_TUNE } from '../../src/data/tune.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { hasCutscene, cutsceneEvents, cutsceneLine, cutscenePose } from '../../src/logic/cutscene.ts';
+import { hasCutscene, cutsceneEvents, cutsceneLine, cutsceneMech, cutscenePose } from '../../src/logic/cutscene.ts';
 import { newGame } from '../../src/logic/game.ts';
 import { cameraPose } from '../../src/view/camera.ts';
 import '../../src/i18n/ja.ts';
@@ -151,4 +151,57 @@ test('the craft that wave2-sinks sinks lie at sea, and the battery collapse name
   for (const event of CUTSCENES['beach-held']?.events ?? []) {
     if (event.kind === 'collapse') for (const id of event.targets) expect(ids).toContain(id);
   }
+});
+
+const rampEvent = landing.events.find(event => event.kind === 'ramp');
+if (!rampEvent || rampEvent.kind !== 'ramp') throw new Error('landing has no ramp event');
+const deckZ = M1B_HAND.bounds.maxZ + 5; // the player's craft's body begins 5 m past the front edge (view/shore.ts)
+
+test('the landing mech stands in the craft until the ramp is down, then walks down it', () => {
+  const mech = (second: number) => {
+    const at = cutsceneMech('landing', second);
+    if (!at) throw new Error('the landing has no mech path');
+    return at;
+  };
+  // before the ramp comes down it stands still on the deck, behind the ramp's hinge
+  for (const second of [0, rampEvent.at]) {
+    const at = mech(second);
+    expect(at.z, `z at ${second}`).toBeGreaterThan(deckZ);
+    expect(at.y, `y at ${second}`).toBeGreaterThan(1);
+    expect(at.speed, `speed at ${second}`).toBe(0);
+  }
+  expect(mech(0).z).toBe(mech(rampEvent.at).z);
+  // it goes on from the craft over the ramp to the sand (it may start a little before the ramp is all the way down): z only gets smaller, the feet come down to the ground
+  let z = Infinity;
+  let y = Infinity;
+  for (let second = rampEvent.at; second <= CUTSCENE_SEC.landing + 1e-9; second += 0.05) {
+    const at = mech(second);
+    expect(at.z).toBeLessThanOrEqual(z + 1e-9);
+    expect(at.y).toBeLessThanOrEqual(y + 1e-9);
+    z = at.z;
+    y = at.y;
+  }
+  expect(mech(8.5).z).toBeCloseTo(deckZ, 6);
+  expect(mech(9.3).z).toBeLessThan(deckZ);
+  expect(mech(9.3).z).toBeGreaterThan(M1B_HAND.bounds.maxZ - 4);
+  expect(mech(9.3).speed).toBeGreaterThan(1);
+});
+
+test('the landing mech ends at the game mech start, standing, and holds there after', () => {
+  const start = newGame(M1B_HAND).mech;
+  for (const second of [CUTSCENE_SEC.landing, CUTSCENE_SEC.landing + 3]) {
+    const at = cutsceneMech('landing', second);
+    expect(at).toEqual({ x: start.x, y: start.y, z: start.z, speed: 0 });
+  }
+});
+
+test('only the landing has a mech path, and its keys are in time order inside the cutscene', () => {
+  expect(cutsceneMech('wave2-sinks', 1)).toBeNull();
+  expect(cutsceneMech('beach-held', 1)).toBeNull();
+  const keys = CUTSCENES.landing?.mech ?? [];
+  expect(keys.length).toBeGreaterThan(1);
+  keys.forEach((key, i) => {
+    expect(key.at).toBeLessThanOrEqual(CUTSCENE_SEC.landing);
+    if (i > 0) expect(key.at).toBeGreaterThan(keys[i - 1].at);
+  });
 });

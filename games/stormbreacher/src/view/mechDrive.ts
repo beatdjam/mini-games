@@ -22,3 +22,9 @@ export function motionInputOf(game: GameModel): MotionInput {
 export function drawMechMotion(model: THREE.Object3D, game: GameModel, dt: number): void {
   animateMech(model, motionInputOf(game), dt);
 }
+
+// A cutscene walks the mech by a path (data/cutscenes.ts), not by the game's state: the legs swing at the path's speed
+// on the ground, and nothing else moves.
+export function drawMechWalk(model: THREE.Object3D, speed: number, dt: number): void {
+  animateMech(model, { speed, grounded: true, boosting: false, landSpeed: null, fired: false }, dt);
+}
