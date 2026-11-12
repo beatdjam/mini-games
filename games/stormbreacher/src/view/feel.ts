@@ -38,6 +38,11 @@ export function feelEvents(f: FeelState, events: readonly MechEvent[], kill: boo
   if (kill) f.stopT = tune.hitStop;
 }
 
+// Adds the shake a hit on the mech asks for.
+export function feelDamage(f: FeelState, tune: FeelTune) {
+  f.shake += tune.damageShake;
+}
+
 // The next number of the shake's fixed sequence (a linear congruential generator: the same seed gives the same run).
 function nextSeed(seed: number): number {
   return (Math.imul(seed, 1664525) + 1013904223) >>> 0;

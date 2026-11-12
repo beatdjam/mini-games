@@ -32,15 +32,17 @@
 
 `src/logic/fcs.ts` は三人称の照準の線・機体の胸・的から、撃つ向きと `hard` が捕まえた的を決める純粋な関数。本体の射撃は `soft` を使う（`game.ts`）。`src/logic/dummies.ts` は `#view-fcs` の動く的の動きと当たりを、`src/view/reticle.ts` はその照準（点・円・候補の弧・捕まえた印）を DOM で描く。
 
+`src/data/enemies.ts` は敵の表（`EnemyKind`・`ENEMY_KINDS`・`ENEMIES`・波の名前から出る敵の種類を引く `M1_WAVE_ENEMY`・撃つ高さの割合 `ENEMY_CHEST`）、`src/logic/enemies.ts` は敵1体の状態 `EnemyState` と1フレームの動き `stepEnemy`（three も DOM も読まない純粋な関数。乱数は引数で受ける）、`src/view/enemies.ts` は敵を種類ごとに1つの `InstancedMesh`（描く回数は種類の数）で描く。敵の色は `src/data/colors.ts` の `ENEMY_COLOR`・`ENEMY_DOWN_COLOR`・`ENEMY_BULLET_COLOR`。
+
 `src/logic/script.ts` はミッションの台本を進める純粋な関数。`src/data/missions/m1.ts` に M1 の cue の並びと、場所・物・波・目標・印・味方・道の名前の一覧を置き、`src/data/script.ts` にカットシーンの秒と無線の最低表示時間を置く。
 
 `src/logic/mapCheck.ts` はマップが台本と機体の大きさに合うかを調べる純粋な関数。`src/logic/mapgen.ts` は種と規則から物を並べる純粋な関数。M1 の B の手書きのマップは `src/data/maps/m1b-hand.ts`、生成の規則は `src/data/maps/m1b-rules.ts` に置く。
 
 `src/logic/collide.ts` は平面で円を回った四角から押し出す純粋な関数で、engine へ移す候補なのでゲームのファイルを読まず、四角と半径を引数で受ける（規則 `sb-portable-no-game`）。関数は円を四角から押し出す `pushOutCircle`、点と四角の距離 `rectDistance`、2つの四角の最短距離 `rectGap`、円の下の高い面 `groundAt`。`src/logic/mapShapes.ts` の `mapBlockers` が `MapDef` から四角の一覧を作り、通り道の検査と機体の当たりがそれを読む。規則に入っているファイルは `src/logic/collide.ts`・`src/logic/mech.ts`・`src/logic/fcs.ts`・`src/logic/fire.ts`・`src/view/camera.ts`・`src/data/tuneTypes.ts` の6つで、機体・カメラ・FCS の調整の型は値と分けて `src/data/tuneTypes.ts` に置く（値は `src/data/tune.ts`）。
 
-`src/logic/game.ts` は出撃の `GameModel`（機体・マップ・目標の体力・壊せる物の体力（`breakables`）・メインとサブの武器・FCS の状態 `fcs`・ソフトロックが狙いを寄せている目標 `aimTarget`・飛んでいる弾 `bullets`・台本の状態 `script`・最後の無線 `radio`・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、FCS（`soft`）が照準の円の中の生きている目標へ狙いを寄せ、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・弾速・間隔・弾数）、弾が飛んで目標に当たると体力が減って0で壊れる。`step` は壊れた目標（`destroyed`）と入った場所（`enter`）を台本に渡し、台本の時間を進め、台本の出来事を `script` の出来事として残す。出撃が終わる（`cleared`）のは台本の `end` が来たときだけ。`spawn`（敵の波）・`ally`（味方）・`cleared`（波を倒した）は、敵・味方（SB-190 以降）ができるまで本体で受けても何もしない（出来事に残すだけ）。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。
+`src/logic/game.ts` は出撃の `GameModel`（機体・機体の装甲 `armor` と倒れた印 `downed`・マップ・目標の体力・壊せる物の体力（`breakables`）・敵 `enemies`・メインとサブの武器・FCS の状態 `fcs`・ソフトロックが狙いを寄せている目標か敵の id `aimTarget`・飛んでいる弾 `bullets`・台本の状態 `script`・最後の無線 `radio`・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、FCS（`soft`）が照準の円の中の生きている目標と敵へ狙いを寄せ、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・弾速・間隔・弾数）、敵が起きて歩いて撃ち（5章の「敵」）、弾が飛んで目標や敵に当たると体力が減って0で壊れる・倒れる。`step` は壊れた目標（`destroyed`）と入った場所（`enter`）を台本に渡し、波の敵が全部倒れたら `cleared` を台本に渡し、台本の時間を進め、台本の出来事を `script` の出来事として残す。出撃が終わる（`cleared`）のは台本の `end` が来たときだけ。機体の装甲が 0 になる（`downed`）と `step` は何もしない（`cleared` のあとと同じ）。台本の `spawn`（敵の波）は敵を出し、`ally`（味方）は味方ができるまで本体で受けても何もしない（出来事に残すだけ）。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。
 
-`src/logic/hud.ts` は HUD に出す値（ブースト・装甲・メインとサブの弾数・目標の数・ソフトロックが狙いを寄せている敵の体力・レーダーの点）を `GameModel` から作る純粋な関数 `hudModel`。装甲は機体の体力が無い（SB-190）ので常に満タン。熱は持たない。描くのは `view/hud.ts`（次の票）。
+`src/logic/hud.ts` は HUD に出す値（ブースト・装甲・メインとサブの弾数・目標の数・ソフトロックが狙いを寄せている目標か敵の体力・レーダーの点）を `GameModel` から作る純粋な関数 `hudModel`。装甲は `armor / MECH_TUNE.armor`。熱は持たない。描くのは `view/hud.ts`。
 
 `src/app/touch.ts` は engine のスティック・視点のドラッグ・タッチのボタンを `MechInput` の形に変え、ボタンの配置の編集と、押した回数・同時に触れている指の数・動作が同時に効いた時間を測る。
 
@@ -72,13 +74,15 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `play` | true | 出撃中 |
 | `result` | false | 結果の画面 |
 
-画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間と「タイトルへ」）になる。「タイトルへ」は今は `location.reload()` で戻る（結果とセーブは SB-210）。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲は機体の体力が無い間は満タンで数字なし。熱・無線・警告は出さない。値の出し方は `src/logic/hud.ts`。色と主張は仮。
+画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間と「タイトルへ」）になる。「タイトルへ」は今は `location.reload()` で戻る（結果とセーブは SB-210）。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱・無線・警告は出さない。値の出し方は `src/logic/hud.ts`。色と主張は仮。
+
+機体の装甲が 0 になる（`downed`）と、`src/app/play.ts` の `update` が結果の画面（`showResult`）へ移す。見出しは、やられたときが `result.downed`（「やられた」/ Downed）、台本の終わりのときが `result.title`（「突破」/ Breakthrough）。どちらも所要時間と「タイトルへ」が出る。
 
 ## 3. 乱数
 
 - 乱数は `src/logic/rng.ts` の1つの口からだけ引く。ほかで `Math.random` を呼ばない
 - `rng()`: 全体の乱数。`seed(n)` で種を入れると、同じ種からは同じ並びになる
-- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`shots`（本体の弾の散らし）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
+- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
 - 種を入れていないときは、どれも `Math.random` から引く
 
 ## 4. セーブ
@@ -111,7 +115,8 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 |------|----|------------|
 | `height` | 4 | m。機体の高さ |
 | `radius` | 1 | m。地面での当たり半径。機体と物の当たりと通り道の検査が使う |
-| `chestHeight` | 2.5 | m。撃つ弾が出る、足元からの高さ。FCS の「胸」もこの高さ |
+| `chestHeight` | 2.5 | m。撃つ弾が出る、足元からの高さ。FCS の「胸」もこの高さ。敵が狙う機体の胸もこの高さ |
+| `armor` | 200 | 機体が倒れるまでに受けるダメージ（仮）。0 になると `downed` |
 
 出撃の値は `PLAY_TUNE`（SB-115）。
 
@@ -143,6 +148,41 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 当たったあと: 目標は体力が減って 0 で `destroyed` を残して台本に渡す。物は `damageProp` が体力を減らす。撃ったフレームの弾も同じフレームで進み、途中で壊れた目標や物には、あとの弾は当たらない
 - 表示: `src/view/play.ts` は飛んでいる弾を `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` = 96 本。超えた弾は飛ぶが描かない）で、弾の頭から後ろへ `TRACER_LENGTH` = 4m の線として毎フレーム描く（色は `TRACER_COLOR`）。`hit` の起きた所に `HIT_DUST` = 3 の砂ぼこりを出し、`shot` で撃った手応え（`fire`）を出す
 - 物と壊れる物: 弾は物で止まり、物の向こうの目標には当たらない。壊せる物（`breakable`）は体力が 0 で壊れ、当たりと弾の箱から外れる。ほかの物は壊れない
+- 弾は2種類で、型 `Bullet = MechBullet | EnemyBullet`（`weapon` を持つのが機体の弾、`enemy` を持つのが敵の弾。`isEnemyBullet` で絞る）。速さと威力は `bulletSpec` が `WEAPONS` か `ENEMIES` の表から引く
+  - 機体の弾: 物・生きている目標・生きている敵・地面のうち一番手前で止まる。敵の箱は x z が ± `radius`、y が 0〜`height`。敵に当たると体力が減り、0 で出来事 `enemyDown`（`id`・`x`・`z`）を残す。`hit` の `enemy` は敵の id
+  - 敵の弾: 物・機体・壊れていない目標・地面のうち一番手前で止まる。機体の箱は x z が ± `MECH_TUNE.radius`、y が足元から `MECH_TUNE.height`。目標は壁として弾を止めるだけで体力は減らない（トーチカの奥の敵がトーチカ越しに撃たないため）。敵には当たらず、物を壊さない。`hit` の `weapon` は null、機体に当たると `mech` が true
+  - 機体に当たる（`damageMech`）: 装甲が弾の威力だけ減り、出来事 `damaged`（`amount`・`fromX`・`fromZ`。`fromX` `fromZ` は機体から見た、弾が来た側の地面の単位ベクトル）を残す。装甲が 0 になると `downed` を1回残し、`GameModel.downed` が true になる
+  - 見た目: `src/view/play.ts` は敵の弾を機体の弾とは別の `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` 本、色 `ENEMY_BULLET_COLOR`）で描く。`damaged` で `feelDamage`（`FEEL_TUNE.damageShake`）の揺れを足す。`enemyDown` は `destroyed` と同じに「倒した」手応え（ヒットストップ）を出す
+
+### 敵
+
+敵は `src/data/enemies.ts` の表 `ENEMIES`（`Record<EnemyKind, EnemyDef>`）に置く。値はどれも仮。種類は今 `grunt`（小型量産機）だけ。
+
+| 名前 | `grunt` | 単位・意味 |
+|------|---------|------------|
+| `hp` | 40 | 体力。機関砲4発・砲1発で倒れる |
+| `height` | 3 | m。高さ |
+| `radius` | 0.75 | m。当たりの半径（箱は 1.5 × 3 × 1.5m） |
+| `speed` | 3.5 | m/s。歩く速さ |
+| `notice` | 120 | m。この距離に機体が入ると起きる |
+| `stopDist` | 25 | m。ここまで近づくと歩くのをやめる |
+| `fireRange` | 80 | m。機体がこの中にいると撃つ。弾の射程もこれ |
+| `fireInterval` | 1.5 | s。撃つ間隔 |
+| `damage` | 4 | 1発が減らす機体の装甲 |
+| `bulletSpeed` | 150 | m/s。弾の速さ |
+| `spread` | 3 | 度。撃つ向きのずれ |
+
+`ENEMY_CHEST` = 0.7 は、敵が撃つ高さの、高さに対する割合。
+
+敵の動き（`stepEnemy` in `src/logic/enemies.ts`。`EnemyState` は `id`・`wave`・`kind`・`x`・`z`・`yaw`・`hp`・`awake`・`wait`）:
+- 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`b-squad` と `seawall-drop` が `grunt`）にあれば、`map.spawns[波]` の場所ごとに1体を出す（`spawnWave` in `src/logic/game.ts`）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
+- 寝る: 起きる前は動かず撃たない。機体が地面での距離で `notice` に入ると起き、一度起きたら寝ない
+- 歩く: 起きると機体へ向き（`yaw`）、`stopDist` まで歩く（`stopDist` を越えて進まない）。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない
+- 撃つ: 機体が `fireRange` の中にいて、胸（高さの `ENEMY_CHEST`）から機体の胸への線が物の箱（`game.propBoxes`）と壊れていない目標の箱に遮られないとき、`wait` が 0 になるたびに1発撃ち、`wait` を `fireInterval` に戻す。起きた直後は `fireInterval` 待ってから。向きは `spreadDir(…, spread, stream('enemies'))` で散らす。遮られている間は撃たずに待つ
+- 倒れる: 体力 0 の敵は `game.enemies` に残るが、動かず、撃たず、弾も当たらない。FCS の対象にもならない
+- 波が終わる: 波の敵が全部倒れると、`checkWaves` が台本に `cleared`（`wave`）を渡す。台本が覚えるので1回だけ。敵を出さなかった波には渡さない
+- FCS: 生きている敵も `fcsTargets` に入る。`aimTarget` は目標か敵の id
+- 見た目: `src/view/enemies.ts` が種類ごとの `InstancedMesh`（名前 `sb-enemy-<kind>`、最大 64 体、色 `ENEMY_COLOR`）で描く。倒れた敵は高さを 0.35 倍にして `ENEMY_DOWN_COLOR` に変える。HUD の敵の名前は `target.<kind>`、レーダーの印は赤い点
 
 三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）をカメラの壁として渡す。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
 
@@ -192,6 +232,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | `fovRate` | 8 | 1/s。画角が目標に寄る速さ |
 | `landShake` | 0.35 | m。落ちる速さ 10m/s の着地の揺れ |
 | `fireShake` | 0.06 | m。撃ったときの揺れ |
+| `damageShake` | 0.2 | m。機体が弾を受けたときの揺れ |
 | `shakeDecay` | 10 | 1/s。揺れが収まる速さ |
 | `hitStop` | 0.05 | s。敵を倒したときに機体を止める時間（連射の命中では止めない） |
 | `dust` | 1 | 砂煙の量の倍率（0 で出さない） |
@@ -357,8 +398,8 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 ### 本体とのつながり
 
-- 本体が台本に渡す入力: 壊れた目標の `destroyed`、入った場所の `enter`、敵ができたあとの `cleared`
-- 台本の出来事を本体が受ける所: `radio` は最後の1行を覚える、`end` で出撃が終わる、ほかは出来事に残すだけ
+- 本体が台本に渡す入力: 壊れた目標の `destroyed`、入った場所の `enter`、波の敵が全部倒れたときの `cleared`
+- 台本の出来事を本体が受ける所: `radio` は最後の1行を覚える、`spawn` は波の敵を出す、`end` で出撃が終わる、ほかは出来事に残すだけ
 - M1 の `main-gun-1`・`main-gun-2`・`magazine` と `seawall-top` はマップ `M1B_HAND` の外にあり、マップが C に広がるまで結合テストが `sendToScript` で出来事を渡す
 - カットシーンの間も操作は止めない（演出は SB-180）
 - チェックポイントを戻す仕組みは SB-150 の2枚目

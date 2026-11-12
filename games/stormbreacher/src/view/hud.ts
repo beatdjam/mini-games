@@ -4,6 +4,7 @@
 // Heat, radio and warnings are not drawn. The shades and the emphasis are 仮.
 import { t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
+import type { EnemyKind } from '../data/enemies.ts';
 import type { TargetKind } from '../data/types.ts';
 import type { HudAmmo, HudModel } from '../logic/hud.ts';
 import { fillArcGauge, reticleSvg, ringRadius, roundRadar, type RadarKey, type RadarMarkKind } from './hudParts.ts';
@@ -32,13 +33,14 @@ const PLAY_HUD_TEXT = {
   enemy: { name: 14, bar: 10 }, // px
 } as const;
 
-// The target kinds become the radar's mark kinds: the bunkers, the guns and the magazine are objectives (an amber
-// diamond), the depot is an amber square. An enemy mark has no target kind yet.
-const RADAR_MARK: Record<TargetKind, RadarMarkKind> = {
+// The target and enemy kinds become the radar's mark kinds: the bunkers, the guns and the magazine are objectives (an
+// amber diamond), the depot is an amber square, an enemy is a red dot.
+const RADAR_MARK: Record<TargetKind | EnemyKind, RadarMarkKind> = {
   pillbox: 'objective',
   depot: 'depot',
   gun: 'objective',
   magazine: 'objective',
+  grunt: 'enemy',
 };
 
 // The radar's size (px): the mock's D plan.
@@ -59,7 +61,7 @@ interface HudLast {
   main: string | null;
   sub: string | null;
   objective: string | null;
-  enemy: TargetKind | null;
+  enemy: TargetKind | EnemyKind | null;
   enemyRatio: number | null;
   enemyHidden: boolean | null;
 }
