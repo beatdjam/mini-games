@@ -1,7 +1,7 @@
 // The boundary between the beach and the sea (#view-boom, SB-1340): a fixed camera on the water's edge where each kind of
 // explosion can be set off with a button. The four knobs (size, smoke count, smoke life, shake) write straight into
-// data/boom.ts's row for the selected kind, so the next blast shows the new value; nothing is saved. The panel prints the
-// current values so they can be handed back for the table.
+// data/boom.ts's row for the selected kind, so the next blast shows the new value; nothing is saved. The knobs are the
+// shared tuning panel (dev/tunePanel.ts), which also copies the changed values in the table's shape.
 import { addSystem } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
 import { BOOM_DEFS, BOOM_SHAKE, boomShakeAt, type BoomKind } from '../../data/boom.ts';
@@ -13,6 +13,7 @@ import { boomCounts, buildBooms, drawBooms, spawnBoom } from '../../view/boom.ts
 import { feelBoom, feelStep, newFeel } from '../../view/feel.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { CRAFT_NAME } from '../../view/shore.ts';
+import { createTunePanel, type TuneRange } from '../tunePanel.ts';
 import { buildMapScene } from './mapView.ts';
 
 declare global {
@@ -27,7 +28,20 @@ const SEA_Z = 181; // where one on the sea goes (m)
 const CAM_POS = [0, 12, 202] as const; // over the water, the boundary and the beach in view
 const CAM_LOOK = [0, 2, 160] as const;
 const X_STEPS = [-9, 0, 9] as const; // where the next blast goes, so two side by side can be compared
-const PANEL_STEPS = { size: 0.1, count: 1, life: 0.5, shake: 0.01 } as const;
+
+// The four values the panel turns, by dotted path into the selected kind's row.
+const BOOM_RANGES: Record<string, TuneRange> = {
+  'fire.radius': { min: 0.5, max: 15, step: 0.1 },
+  'smoke.count': { min: 0, max: 120, step: 1 },
+  'smoke.life': { min: 1, max: 20, step: 0.5 },
+  shake: { min: 0, max: 2, step: 0.01 },
+};
+const BOOM_LABELS: Record<string, string> = {
+  'fire.radius': '大きさ（火球 m）',
+  'smoke.count': '煙の数',
+  'smoke.life': '煙の寿命（s）',
+  shake: '揺れ（m）',
+};
 
 interface BoomReport {
   kind: BoomKind;
@@ -40,6 +54,17 @@ interface BoomReport {
 function valuesOf(kind: BoomKind) {
   const def = BOOM_DEFS[kind];
   return { size: def.fire.radius, smoke: def.smoke.count, smokeLife: def.smoke.life, shake: def.shake };
+}
+
+// The same four values as the dotted paths the panel turns, used to remember what the table held when the view opened.
+function tuneOf(kind: BoomKind): Record<string, number> {
+  const def = BOOM_DEFS[kind];
+  return {
+    'fire.radius': def.fire.radius,
+    'smoke.count': def.smoke.count,
+    'smoke.life': def.smoke.life,
+    shake: def.shake,
+  };
 }
 
 function valuesText(): string {
@@ -72,31 +97,47 @@ export function showBoom(_hash: string) {
     'font:12px/1.4 monospace;color:#fff;background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none;z-index:5';
   document.body.appendChild(hud);
 
-  const panel = document.createElement('div');
-  panel.id = 'sbBoomPanel';
-  panel.style.cssText =
-    'position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);width:270px;max-height:calc(100vh - 16px);' +
-    'overflow:auto;padding:6px;font:11px/1.35 monospace;color:#e8eef2;background:rgba(10,17,25,0.88);' +
-    'border:1px solid rgba(213,228,238,0.3);z-index:6';
-  document.body.appendChild(panel);
+  // What the tables held when the view opened: "元に戻す" goes back to these, whichever kind is picked.
+  const originals = {
+    small: tuneOf('small'),
+    large: tuneOf('large'),
+    craft: tuneOf('craft'),
+    water: tuneOf('water'),
+  };
+  const groupsFor = (name: BoomKind) => [
+    {
+      name: `BOOM_DEFS.${name}`,
+      table: BOOM_DEFS[name],
+      ranges: BOOM_RANGES,
+      labels: BOOM_LABELS,
+      baseline: originals[name],
+    },
+  ];
 
-  const title = document.createElement('div');
-  title.textContent = '爆発 #view-boom';
-  title.style.cssText = 'font-weight:bold;margin-bottom:4px';
-  panel.appendChild(title);
-
+  // The panel's own header: the kind buttons, the values of every kind and the note.
+  const extra = document.createElement('div');
   const buttons = document.createElement('div');
   buttons.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
-  panel.appendChild(buttons);
+  extra.appendChild(buttons);
 
   const values = document.createElement('pre');
   values.dataset.boomValues = '1';
   values.style.cssText = 'margin:0 0 6px;white-space:pre-wrap;color:#ffcf6a';
-  panel.appendChild(values);
+  extra.appendChild(values);
 
-  const showValues = () => {
-    values.textContent = valuesText();
-  };
+  const note = document.createElement('div');
+  note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
+  note.textContent = '土の上は砂柱、海の上は水柱。\nキー 1〜4 でも出せる。\n保存はしない。';
+  extra.appendChild(note);
+
+  const tune = createTunePanel({
+    title: '爆発 #view-boom',
+    extra,
+    groups: groupsFor(kind),
+    onChange: () => {
+      values.textContent = valuesText();
+    },
+  });
 
   const kindButtons = new Map<BoomKind, HTMLButtonElement>();
   const markKind = () => {
@@ -104,11 +145,7 @@ export function showBoom(_hash: string) {
       button.style.background = name === kind ? 'rgba(255,207,106,0.25)' : 'rgba(10,17,25,0.7)';
       button.style.color = name === kind ? '#ffcf6a' : 'inherit';
     }
-    syncSliders();
   };
-
-  const controls: Partial<Record<'size' | 'count' | 'life' | 'shake', HTMLInputElement>> = {};
-  const labels: Partial<Record<'size' | 'count' | 'life' | 'shake', HTMLElement>> = {};
 
   const fire = () => {
     const x = X_STEPS[step % X_STEPS.length];
@@ -116,47 +153,6 @@ export function showBoom(_hash: string) {
     const z = kind === 'water' ? SEA_Z : LAND_Z;
     spawnBoom(kind, x, 0.4, z);
     feelBoom(feel, boomShakeAt(kind, Math.hypot(CAM_POS[0] - x, CAM_POS[2] - z)));
-  };
-
-  const syncSliders = () => {
-    const value = valuesOf(kind);
-    if (controls.size) controls.size.value = String(value.size);
-    if (controls.count) controls.count.value = String(value.smoke);
-    if (controls.life) controls.life.value = String(value.smokeLife);
-    if (controls.shake) controls.shake.value = String(value.shake);
-    if (labels.size) labels.size.textContent = value.size.toFixed(1);
-    if (labels.count) labels.count.textContent = String(Math.round(value.smoke));
-    if (labels.life) labels.life.textContent = value.smokeLife.toFixed(1);
-    if (labels.shake) labels.shake.textContent = value.shake.toFixed(2);
-  };
-
-  const addSlider = (key: 'size' | 'count' | 'life' | 'shake', name: string, min: number, max: number) => {
-    const row = document.createElement('label');
-    row.style.cssText = 'display:block;border-top:1px solid rgba(213,228,238,0.12);padding:2px 0';
-    const head = document.createElement('span');
-    head.textContent = `${name} `;
-    const value = document.createElement('b');
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = String(min);
-    input.max = String(max);
-    input.step = String(PANEL_STEPS[key]);
-    input.style.cssText = 'display:block;width:100%;margin:0';
-    input.addEventListener('input', () => {
-      const n = Number(input.value);
-      const def = BOOM_DEFS[kind];
-      if (key === 'size') def.fire.radius = n;
-      else if (key === 'count') def.smoke.count = Math.round(n);
-      else if (key === 'life') def.smoke.life = n;
-      else def.shake = n;
-      showValues();
-      syncSliders();
-    });
-    row.append(head, value, input);
-    panel.appendChild(row);
-    controls[key] = input;
-    labels[key] = value;
-    input.value = '0';
   };
 
   for (const name of KINDS) {
@@ -169,23 +165,14 @@ export function showBoom(_hash: string) {
     button.addEventListener('click', () => {
       kind = name;
       markKind();
+      tune.setGroups(groupsFor(kind));
       fire();
     });
     buttons.appendChild(button);
     kindButtons.set(name, button);
   }
 
-  addSlider('size', '大きさ（火球 m）', 0.5, 15);
-  addSlider('count', '煙の数', 0, 120);
-  addSlider('life', '煙の寿命（s）', 1, 20);
-  addSlider('shake', '揺れ（m）', 0, 2);
-
-  const note = document.createElement('div');
-  note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
-  note.textContent = '土の上は砂柱、海の上は水柱。\nキー 1〜4 でも出せる。\n保存はしない。';
-  panel.appendChild(note);
-
-  showValues();
+  values.textContent = valuesText();
   markKind();
 
   window.sbBoomReport = () => {
@@ -210,6 +197,7 @@ export function showBoom(_hash: string) {
     if (!Number.isInteger(at) || at < 0 || at >= KINDS.length) return;
     kind = KINDS[at];
     markKind();
+    tune.setGroups(groupsFor(kind));
     fire();
   });
 
