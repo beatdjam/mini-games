@@ -28,14 +28,14 @@ function atPillbox1(game: GameModel): void {
 
 // The breakable hedgehog of line 2 nearest the sea, found by its place rather than its index in the map.
 function breakableHedgehogIndex(): number {
-  const prop = M1B_HAND.props.find(item => item.breakable === true && item.x === 54.5 && item.z === 93.33);
-  if (!prop) throw new Error('the hand map has the breakable hedgehog at x 54.5, z 93.33');
+  const prop = M1B_HAND.props.find(item => item.breakable === true && item.x === 52.33 && item.z === 93.33);
+  if (!prop) throw new Error('the hand map has the breakable hedgehog at x 52.33, z 93.33');
   return M1B_HAND.props.indexOf(prop);
 }
 
 // Puts the mech in front of that hedgehog (its +z side), facing the land.
 function atBreakableHedgehog(game: GameModel): void {
-  game.mech.x = 54.5;
+  game.mech.x = 52.33;
   game.mech.z = 105;
   game.mech.yaw = 0;
 }
@@ -275,6 +275,15 @@ test('a broken prop does not come back', () => {
   expect(game.propBoxes.length).toBe(boxes);
   expect(game.propRefs.length).toBe(refs);
   expect(game.breakables.find(state => state.prop === index)?.hp).toBe(0);
+});
+
+test('the mech stays inside the map’s bounds', () => {
+  const game = newGame(M1B_HAND);
+  game.mech.x = M1B_HAND.bounds.minX + 2;
+  game.mech.z = M1B_HAND.bounds.maxZ - 10;
+  game.mech.yaw = 0;
+  for (let i = 0; i < 120; i++) step(game, { ...idle, moveX: -1 }, 1 / 60);
+  expect(game.mech.x).toBeGreaterThanOrEqual(M1B_HAND.bounds.minX + MECH_TUNE.radius);
 });
 
 test('the breakable stretch of line 2 is shut until it is shot, then the mech walks through', () => {

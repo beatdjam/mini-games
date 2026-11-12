@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { MOVE_TUNE } from '../../src/data/tune.ts';
-import { groundAt, pushOutCircle, rectDistance, type GroundRect } from '../../src/logic/collide.ts';
+import { groundAt, pushOutCircle, rectDistance, rectGap, type GroundRect } from '../../src/logic/collide.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from '../../src/logic/mech.ts';
 
 const idle: MechInput = {
@@ -154,4 +154,11 @@ test('the same input gives the same result', () => {
   const second = runSlide();
   expect(second.mech).toEqual(first.mech);
   expect(second.events).toEqual(first.events);
+});
+
+test('rectGap is the distance between two rects, turned or not', () => {
+  const square = (x: number, yaw: number): GroundRect => ({ x, z: 0, halfW: 1.5, halfD: 1.5, yaw });
+  expect(rectGap(square(0, 0), square(5, 0))).toBeCloseTo(2, 6);
+  expect(rectGap(square(0, 0), square(5, Math.PI / 4))).toBeCloseTo(5 - 1.5 - 1.5 * Math.SQRT2, 6);
+  expect(rectGap(square(0, 0), square(2, 0.3))).toBe(0);
 });
