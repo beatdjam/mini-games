@@ -186,6 +186,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 倒れる: 体力 0 の敵は `game.enemies` に残るが、動かず、撃たず、弾も当たらない。FCS の対象にもならない
 - 波が終わる: 波の敵が全部倒れると、`checkWaves` が台本に `cleared`（`wave`）を渡す。台本が覚えるので1回だけ。敵を出さなかった波には渡さない
 - FCS: 生きている敵も `fcsTargets` に入る。`aimTarget` は目標か敵の id
+- 見えない相手には寄らない: 胸から相手の箱の中心への線が、物の箱か壊れていない目標の箱（相手自身の箱は除く）に先に当たる相手は、生きていても `fcsTargets` で生きていない扱いにする（トーチカの陰の敵にソフトロックとロック枠が寄らないため。`inSight` in `src/logic/game.ts`）
 - 見た目: `src/view/enemies.ts` が種類ごとの `InstancedMesh`（名前 `sb-enemy-<kind>`、最大 64 体、色 `ENEMY_COLOR`）で描く。倒れた敵は高さを 0.35 倍にして `ENEMY_DOWN_COLOR` に変える。HUD の敵の名前は `target.<kind>`、レーダーの印は赤い点
 
 ### 迫撃砲の砲撃と地雷

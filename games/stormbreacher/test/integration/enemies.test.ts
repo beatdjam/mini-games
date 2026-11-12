@@ -211,6 +211,32 @@ test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind
   expect(game.armor).toBe(MECH_TUNE.armor);
 });
 
+test('the soft lock does not pull toward an enemy hidden behind a pillbox, but toward the pillbox in front', () => {
+  seed(5);
+  const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
+  const game = newGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
+  game.mech.x = 0;
+  game.mech.z = 0;
+  game.mech.yaw = 0;
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  // the aim goes straight at the enemy's middle, through the pillbox, so by angle alone the enemy would win
+  const atEnemy = (): GameInput => {
+    const enemy = game.enemies[0];
+    const oy = game.mech.y + MECH_TUNE.chestHeight;
+    const aim = { ox: 0, oy, oz: 0, dx: enemy.x, dy: GRUNT.height / 2 - oy, dz: enemy.z };
+    return { ...idle, aim };
+  };
+  step(game, idle, DT);
+  for (let i = 0; i < 30; i++) {
+    step(game, atEnemy(), DT);
+    expect(game.aimTarget).toBe('pillbox-1');
+  }
+  // with the pillbox down the enemy is in sight, and the lock goes to it
+  game.targets[0].hp = 0;
+  step(game, atEnemy(), DT);
+  expect(game.aimTarget).toBe('b-squad-1');
+});
+
 test('armour at 0 downs the mech, and a downed game does not change', () => {
   seed(5);
   const game = withSquad([{ x: 0, z: -GRUNT.stopDist }]);
