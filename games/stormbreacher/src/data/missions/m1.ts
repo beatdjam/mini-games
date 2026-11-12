@@ -2,7 +2,23 @@
 // The places follow the hand map (data/maps/m1b-hand.ts), 340 m deep and 200 m wide: +z is the sea, the beach and the
 // bunker line B run from z 170 to about z 0 (the pillboxes stand at z -15), C's two rows (z -55..-35) stand before the
 // seawall (z -75..-65), and the boss's ground lies past it: the guns at z -135 and the magazine at z -150.
-import type { Area, Cue, MissionDef } from '../types.ts';
+import type { Area, Cue, GroundSpot, MissionDef } from '../types.ts';
+
+// The way the allied mech runs along the beach and where the mortar takes it (SB-170). It starts beside the mech's start
+// (x 0, z 166), crosses the sea-side hedgehog rows through their breakthrough at x 40 and falls at z 135.
+const PATHS = {
+  'beach-run': [
+    { x: 10, z: 166 },
+    { x: 24, z: 156 },
+    { x: 40, z: 146 },
+    { x: 40, z: 135 },
+    { x: 40, z: 110 },
+  ],
+} as const satisfies Record<string, readonly GroundSpot[]>;
+
+const PLACES = {
+  'beach-mid': { x: 40, z: 135 },
+} as const satisfies Record<string, GroundSpot>;
 
 const AREAS = {
   'b-line': { x: 0, z: 135, w: 200, d: 30 }, // the band just before B (z 120..150)
@@ -100,5 +116,6 @@ export const M1: MissionDef = {
   objectives: ['reach-pillboxes', 'break-pillboxes', 'take-seawall', 'silence-battery', 'hit-magazine'],
   marks: ['wave2'],
   allies: ['buddy'],
-  paths: ['beach-run'],
+  paths: PATHS,
+  places: PLACES,
 };

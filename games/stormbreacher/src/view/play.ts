@@ -7,13 +7,16 @@ import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
-import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { CAMERA_TUNE, FEEL_TUNE, FX_TUNE, MECH_TUNE } from '../data/tune.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { hudModel } from '../logic/hud.ts';
+import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
+import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
+import { buildBattle, type Battle } from './battle/index.ts';
 import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
-import { drawHazards, buildHazardView, type HazardView } from './hazards.ts';
+import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
 import { feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
 import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.ts';
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
@@ -49,6 +52,8 @@ export interface PlayView {
   enemies: EnemyView; // the enemies' instanced boxes
   hazards: HazardView; // the warned shells' rings and the mines' discs
   seaFire: SeaFireView; // the main guns' flashes and lines toward the sea
+  battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; looks only (SB-170)
+  allies: AllyView; // the script's allied mech
   hud: PlayHud; // the sortie's HUD, in the page
   cutscene: CutsceneView; // the bars, the line and the pictures only a cutscene shows
 }
@@ -76,6 +81,9 @@ export function buildPlayView(game: GameModel): PlayView {
     enemies: buildEnemyView(),
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
+    // FX_TUNE is #view-fx's stage 2; the battle is made at the mech's start and keeps no link to the game's state
+    battle: buildBattle(game.map, FX_TUNE, stream('battle'), stream('craters'), { x: game.mech.x, z: game.mech.z }),
+    allies: buildAllyView(),
     hud,
     cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds),
   };
@@ -133,10 +141,15 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
       // a blast that hurt shakes through 'damaged'; a near one that missed shakes here
       if (!event.hit && distXZ(event, game.mech) <= BLAST_SHAKE_NEAR) feelDamage(view.feel, FEEL_TUNE);
+    } else if (event.kind === 'allyDown') {
+      // the only fate there is is a mortar shell, drawn as a battle shell is
+      shellBurst(event.x, event.z);
+      spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
     }
   }
+  view.feel.shake += view.battle.step(dt, game.mech);
   feelEvents(view.feel, mechEvents, kill, FEEL_TUNE);
   const frame = feelStep(view.feel, dt, game.mech.boosting, CAMERA_TUNE.fov, FEEL_TUNE);
 
@@ -176,6 +189,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawEnemies(view.enemies, game);
   drawHazards(view.hazards, game);
   drawSeaFire(view.seaFire, game);
+  drawAllies(view.allies, game, view.battle, stream('battle'), dt);
   const hud = hudModel(game);
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
   drawHud(view.hud, hud, lock);

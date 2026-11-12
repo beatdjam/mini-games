@@ -11,8 +11,8 @@
 // through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; a mine blows up
 // when the mech steps on it or the mech's shot breaks it, and both take armour from a mech inside the blast. The boss
 // (SB-200, logic/battery.ts): once the `battery` wave is out, each main gun still standing shoots the mech with a machine
-// gun, and the magazine takes no harm while its shutter is shut, until both main guns are down. `ally` (a friend) is kept
-// as an event and does nothing until the friends come.
+// gun, and the magazine takes no harm while its shutter is shut, until both main guns are down. An `ally` (a friend,
+// logic/allies.ts) runs its way with no hit box and falls at the place its fate names (SB-170).
 import { ENEMIES, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { BARRAGES, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
@@ -31,6 +31,7 @@ import {
   type BatteryState,
   type ShutterState,
 } from './battery.ts';
+import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
 import { newFcs, spreadDir, stepFcs, type Dir3, type FcsState, type FcsTarget, type Ray3 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
@@ -88,6 +89,7 @@ export type GameEvent =
   | { kind: 'shellWarn'; x: number; z: number; radius: number } // a shell will land here
   | { kind: 'shellLand'; x: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
   | { kind: 'mineBlast'; x: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
+  | { kind: 'allyDown'; id: string; x: number; z: number; by: string } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   | { kind: 'cleared' }
   | { kind: 'retried'; from: string | null }; // the sortie began again: from the checkpoint with this id, or null from the start
@@ -172,6 +174,7 @@ export interface GameModel {
   shutters: ShutterState[]; // the armour plates before the targets that have one, shut or open
   battery: BatteryState; // the main guns' machine guns
   mines: MineState[]; // the mines still on the ground
+  allies: AllyState[]; // the allies the script has put out, the fallen too (down: they do not move); no hit box
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
   checkpoint: GameSnapshot | null; // the game as the last checkpoint kept it; null before one
@@ -450,6 +453,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     shutters: newShutters(map.targets.map(place => place.id)),
     battery: newBattery(map.targets),
     mines: (map.mines ?? []).map(place => ({ x: place.x, z: place.z, hp: MINE_TUNE.hp })),
+    allies: [],
     events: [],
     cleared: false,
     checkpoint: null,
@@ -493,8 +497,21 @@ function checkWaves(game: GameModel): void {
   }
 }
 
-// Keeps every event the script reported. The game itself takes three: a radio line (the last one stays up), a wave to
-// put out and start the barrage of (`spawn`) and the end (the sortie is cleared). `ally` waits for the friends.
+// Puts out the ally a script's `ally` event names, on the way and with the fate the mission writes down.
+function spawnAlly(game: GameModel, event: Extract<ScriptOut, { kind: 'ally' }>): void {
+  const way = game.mission.paths[event.path];
+  if (way === undefined) throw new Error(`no path "${event.path}" in the mission`);
+  let fate: AllyFate | null = null;
+  if (event.fate) {
+    const place = game.mission.places[event.fate.at];
+    if (place === undefined) throw new Error(`no place "${event.fate.at}" in the mission`);
+    fate = { place, by: event.fate.by };
+  }
+  game.allies.push(newAlly(event.id, way, fate));
+}
+
+// Keeps every event the script reported. The game itself takes four: a radio line (the last one stays up), a wave to
+// put out and start the barrage of (`spawn`), an ally to put out (`ally`) and the end (the sortie is cleared).
 function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
   let checkpoint: string | null = null;
   for (const event of outs) {
@@ -505,6 +522,7 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
       startBarrage(game, event.wave);
       if (event.wave === BATTERY_WAVE) game.battery.on = true;
     }
+    if (event.kind === 'ally') spawnAlly(game, event);
     if (event.kind === 'end' && !game.cleared) {
       game.cleared = true;
       game.events.push({ kind: 'cleared' });
@@ -615,6 +633,17 @@ function stepHazards(game: GameModel, dt: number): void {
   for (const mine of [...game.mines]) if (mineStepped(mine, game.mech)) blowUp(game, mine);
 }
 
+// Runs every ally on by `dt`; one that reaches its fate's place falls there. A cutscene holds them where they stand, as it
+// holds the barrages: the beach's cue puts the ally out in the same frame as the landing, and it should run once the
+// mech can.
+function stepAllies(game: GameModel, dt: number): void {
+  if (game.script.cutscene !== null) return;
+  for (const ally of game.allies) {
+    if (!stepAlly(ally, dt) || ally.fate === null) continue;
+    game.events.push({ kind: 'allyDown', id: ally.id, x: ally.x, z: ally.z, by: ally.fate.by });
+  }
+}
+
 // A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire) and the camera's aim.
 export interface GameInput extends MechInput {
   sub: boolean;
@@ -689,6 +718,7 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   stepBattery(game, dt);
   stepBullets(game, dt);
   stepHazards(game, dt);
+  stepAllies(game, dt);
   checkShutters(game);
   checkWaves(game);
   for (const [id, area] of Object.entries(game.mission.areas)) {

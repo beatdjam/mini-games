@@ -1,5 +1,6 @@
 // The colours the field, the map's ground and the sky share, so the same one is not written in two files.
 import type { EnemyKind } from './enemies.ts';
+import type { MechColor } from './mech.ts';
 
 export const SAND_COLOR = 0xc2a878; // the ground's sand
 export const SKY_COLOR = 0x9db8c6; // the sky and the fog
@@ -37,3 +38,20 @@ export const MINE_COLOR = 0x3a3d2e;
 export const SHUTTER_COLOR = 0x5b6168;
 export const SEA_FLASH_COLOR = 0xfff1b0;
 export const SEA_TRACER_COLOR = 0xffb347;
+
+// The allied mech of the script (SB-170, 仮): the colours it wears running and the dark ones of its wreck, one hex per
+// colour name of the mech's look.
+export const ALLY_PALETTE: Record<MechColor, number> = {
+  armor: 0x5c6f7a,
+  frame: 0x363b3e,
+  accent: 0xd8d2b8,
+  sensor: 0x4ab6d8,
+  weapon: 0x8c9296,
+};
+export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
+  armor: 0x2e3234,
+  frame: 0x1e2022,
+  accent: 0x35332c,
+  sensor: 0x1e2022,
+  weapon: 0x2a2c2d,
+};

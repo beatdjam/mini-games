@@ -179,7 +179,7 @@ export function showFx(_hash: string) {
   mech.yaw = 0;
   initPlayInput();
 
-  const rng = stream('field');
+  const rng = stream('battle');
   const craterRng = stream('craters');
   const start = { x: mech.x, z: mech.z };
   let battle: Battle = buildBattle(map, tune, rng, craterRng, start);

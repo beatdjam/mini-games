@@ -2,7 +2,7 @@
 // one instanced mesh each (so two draws in all). A shell's ring keeps the blast's radius and goes from dark to bright as
 // it nears landing. It reads GameModel and never writes it.
 import * as THREE from 'three';
-import { scene } from '@engine/render/index.ts';
+import { burst, fireball, scene } from '@engine/render/index.ts';
 import { MINE_COLOR, SHELL_LAND_COLOR, SHELL_WARN_COLOR } from '../data/colors.ts';
 import { MINE_TUNE } from '../data/hazards.ts';
 import type { GameModel } from '../logic/game.ts';
@@ -16,6 +16,10 @@ const RING_INNER = 0.88; // the ring's inner radius as a share of its outer one
 const RING_SEGMENTS = 48;
 const GROUND_LIFT = 0.06; // how far above the ground the ring and the discs sit, so they do not fight with it (m)
 const DISC_SEGMENTS = 16;
+const SHELL_FIRE_COLOR = 0xffb347; // the flash of a shell that lands
+const SHELL_DEBRIS_COLOR = 0x746654; // the dirt it throws
+const SHELL_DEBRIS = 14; // the pieces of that dirt
+const SHELL_RADIUS = 3.2; // the flash's radius (m)
 
 export interface HazardView {
   shells: THREE.InstancedMesh;
@@ -77,6 +81,12 @@ export function drawHazards(view: HazardView, game: GameModel): void {
   }
   view.mines.count = mines;
   view.mines.instanceMatrix.needsUpdate = true;
+}
+
+// The flash and the dirt of a shell landing at (x, z). The battle's shells and the one that takes an ally down look the same.
+export function shellBurst(x: number, z: number): void {
+  fireball(x, 0.8, z, SHELL_RADIUS, SHELL_FIRE_COLOR);
+  burst(x, 0.8, z, SHELL_DEBRIS_COLOR, SHELL_DEBRIS, 10, 0.7, 18);
 }
 
 // Takes the meshes out of the scene.

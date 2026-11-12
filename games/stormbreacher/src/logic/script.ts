@@ -1,6 +1,7 @@
 // The mission script (SB-050): triggers go in, events come out. The script keeps only its state; the mission's
 // write-up (data/missions/m1.ts) is passed in on every call. No three and no DOM, so a node test can run it. Time is
 // the script's own seconds, advanced by stepScript, never the wall clock.
+import { ALLY_FATES } from '../data/allies.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import type { Action, Cue, CutsceneId, MissionDef, Trigger } from '../data/types.ts';
 
@@ -113,7 +114,11 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
       return;
     case 'ally':
       requireIn(def.allies, action.id, 'ally');
-      requireIn(def.paths, action.path, 'path');
+      requireIn(Object.keys(def.paths), action.path, 'path');
+      if (action.fate) {
+        requireIn(Object.keys(def.places), action.fate.at, 'place');
+        requireIn(ALLY_FATES, action.fate.by, 'fate');
+      }
       return;
     case 'cutscene':
       if (!(action.id in CUTSCENE_SEC)) throw new Error(`cue "${cueId}": no cutscene "${action.id}"`);

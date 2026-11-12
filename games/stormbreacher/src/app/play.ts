@@ -11,6 +11,7 @@ import { newGame, restartGame, retryFromCheckpoint, sendToScript, step, type Gam
 import { recordClear } from '../logic/save.ts';
 import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
+import { removeAllyView } from '../view/allies.ts';
 import { removeCutsceneView } from '../view/cutscene.ts';
 import { removeEnemyView } from '../view/enemies.ts';
 import { removeHazardView } from '../view/hazards.ts';
@@ -50,6 +51,8 @@ function clearPlay(old: PlayView): void {
   removeEnemyView(old.enemies);
   removeHazardView(old.hazards);
   removeSeaFire(old.seaFire);
+  old.battle.dispose();
+  removeAllyView(old.allies);
   removeHud(old.hud);
   removeCutsceneView(old.cutscene);
 }
