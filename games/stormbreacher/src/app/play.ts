@@ -9,6 +9,7 @@ import { CAMERA_TUNE } from '../data/tune.ts';
 import { newGame, step, type GameModel } from '../logic/game.ts';
 import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
+import { removeEnemyView } from '../view/enemies.ts';
 import { removeHud } from '../view/hud.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
 import { initPlayInput, readInput } from './input.ts';
@@ -26,7 +27,7 @@ function hideField(): void {
   if (sizeBox) sizeBox.visible = false;
 }
 
-// Takes the last sortie's map, targets and mech out of the scene.
+// Takes the last sortie's map, targets, enemies and mech out of the scene.
 function clearPlay(old: PlayView): void {
   scene.remove(old.world.built.group);
   scene.remove(old.world.targetGroup);
@@ -34,6 +35,10 @@ function clearPlay(old: PlayView): void {
   scene.remove(old.bullets.lines);
   old.bullets.lines.geometry.dispose();
   old.bullets.lines.material.dispose();
+  scene.remove(old.enemyBullets.lines);
+  old.enemyBullets.lines.geometry.dispose();
+  old.enemyBullets.lines.material.dispose();
+  removeEnemyView(old.enemies);
   removeHud(old.hud);
 }
 
@@ -72,7 +77,7 @@ function update(dt: number): void {
   step(game, { ...read.input, sub: read.sub, aim }, dt);
   drawPlay(view, game, dt, read.pitchDelta);
   showScriptText(game);
-  if (game.cleared) showResult();
+  if (game.cleared || game.downed) showResult();
 }
 
 // Puts `text` in `node` and shows it; no text hides the node. The text is written only when it changes.
@@ -89,7 +94,8 @@ function showScriptText(game: GameModel): void {
   showText(el('#sbRadio'), radio !== null && game.time - radio.time < RADIO_MIN_SEC ? t(radio.line) : null);
 }
 
-// The result's screen: the run's time, and the title's page comes back by loading it again.
+// The result's screen: the heading (the mech downed, or the script's end), the run's time, and the title's page comes
+// back by loading it again.
 export function showResult(): void {
   if (!game) return;
   if (view) view.hud.root.hidden = true;
@@ -97,6 +103,7 @@ export function showResult(): void {
   el('#sbRadio').hidden = true;
   setState('result');
   el('#sbResult').hidden = false;
+  el('#sbResult .title').textContent = t(game.downed ? 'result.downed' : 'result.title');
   el('#sbResultTime').textContent = t('result.time', { time: clock(game.time) });
   exitLock();
 }

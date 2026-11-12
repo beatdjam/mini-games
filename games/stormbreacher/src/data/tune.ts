@@ -19,6 +19,7 @@ export const MECH_TUNE = {
   height: 4, // the mech's height (m)
   radius: 1, // the hit radius on the ground (m)
   chestHeight: 2.5, // the height a shot starts from, above the feet (m)
+  armor: 200, // the damage the mech takes before it is downed (SB-190; provisional)
 };
 
 // The third-person camera's starting values (SB-020). Distances are measured on the ground plane unless noted.
@@ -65,6 +66,7 @@ export const FEEL_TUNE = {
   fovRate: 8, // how fast the field of view reaches its target (1/s)
   landShake: 0.35, // the landing's shake at a falling speed of 10 m/s (m)
   fireShake: 0.06, // the shake a shot adds (m)
+  damageShake: 0.2, // the shake a hit on the mech adds (m)
   shakeDecay: 10, // how fast the shake dies away (1/s)
   hitStop: 0.05, // how long a kill stops the mech (s); a plain hit does not (8 shots a second made it stutter)
   dust: 1, // the multiplier on how much dust a burst makes; 0 makes none

@@ -1,8 +1,10 @@
 import { expect, test } from 'vitest';
+import { ENEMIES } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { HUD_TUNE } from '../../src/data/tune.ts';
+import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { newGame, type GameModel, type TargetState } from '../../src/logic/game.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { hudModel } from '../../src/logic/hud.ts';
 
 // A target at `deg` from the mech's front (+ to the right) and `dist` metres away, with the mech at the origin facing -z.
@@ -113,6 +115,46 @@ test('the radar leaves out dead and far targets', () => {
   const radar = hudModel(game).radar;
   expect(radar).toHaveLength(1);
   expect(radar[0].kind).toBe('pillbox');
+  expect(radar[0].angle).toBeCloseTo(0, 6);
+  expect(radar[0].dist).toBeCloseTo(50 / HUD_TUNE.radarRange, 6);
+});
+
+test('the armour follows the mech’s armour left', () => {
+  const game = newGame(M1B_HAND);
+  expect(hudModel(game).armor).toBe(1);
+  game.armor = MECH_TUNE.armor / 4;
+  expect(hudModel(game).armor).toBe(0.25);
+  game.armor = 0;
+  expect(hudModel(game).armor).toBe(0);
+});
+
+test('the enemy is an enemy the aim is pulled toward, with its health', () => {
+  const game = newGame({ ...M1B_HAND, targets: [] });
+  atOrigin(game);
+  const grunt = newEnemy('w-1', 'w', 'grunt', 0, -50);
+  game.enemies.push(grunt);
+  game.aimTarget = 'w-1';
+  expect(hudModel(game).enemy).toEqual({ kind: 'grunt', ratio: 1 });
+
+  grunt.hp = ENEMIES.grunt.hp / 4;
+  expect(hudModel(game).enemy).toEqual({ kind: 'grunt', ratio: 0.25 });
+
+  grunt.hp = 0;
+  expect(hudModel(game).enemy).toBeNull();
+});
+
+test('the radar shows the living enemies and leaves out the fallen and the far', () => {
+  const game = newGame({ ...M1B_HAND, targets: [] });
+  atOrigin(game);
+  game.enemies.push(
+    newEnemy('ahead', 'w', 'grunt', 0, -50),
+    newEnemy('fallen', 'w', 'grunt', 10, -50),
+    newEnemy('far', 'w', 'grunt', 0, -(HUD_TUNE.radarRange + 50)),
+  );
+  game.enemies[1].hp = 0;
+  const radar = hudModel(game).radar;
+  expect(radar).toHaveLength(1);
+  expect(radar[0].kind).toBe('grunt');
   expect(radar[0].angle).toBeCloseTo(0, 6);
   expect(radar[0].dist).toBeCloseTo(50 / HUD_TUNE.radarRange, 6);
 });

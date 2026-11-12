@@ -3,14 +3,16 @@
 import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
+import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE } from '../data/tune.ts';
-import type { GameModel } from '../logic/game.ts';
+import { isEnemyBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { hudModel } from '../logic/hud.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { applyPose, cameraPose, followPose } from './camera.ts';
-import { feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
+import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
+import { feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { applyLookTo } from './look.ts';
 import { buildMechProxy } from './mechProxy.ts';
@@ -18,7 +20,7 @@ import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const TRACER_COLOR = 0xffe066; // the bullet's line
 const TRACER_LENGTH = 4; // how far behind its head a bullet's line reaches (m)
-const MAX_BULLET_LINES = 96; // the most bullets drawn at once; the rest fly unseen
+const MAX_BULLET_LINES = 96; // the most bullets drawn at once, for the mech's and for the enemies' each; the rest fly unseen
 const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
 const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per landing
 const BOOST_DUST = 6; // the same, per boost start
@@ -35,7 +37,9 @@ export interface PlayView {
   feel: FeelState;
   pitch: number; // the camera's pitch (rad)
   camPos: THREE.Vector3 | null; // the camera's place in the last frame
-  bullets: BulletLines; // the lines of the shots in flight
+  bullets: BulletLines; // the lines of the mech's shots in flight
+  enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
+  enemies: EnemyView; // the enemies' instanced boxes
   hud: PlayHud; // the sortie's HUD, in the page
 }
 
@@ -47,16 +51,26 @@ export function buildPlayView(game: GameModel): PlayView {
   const model = buildMechProxy(MECH_TUNE.height);
   scene.add(model);
   const hud = buildPlayHud(document.body);
-  return { world, model, feel: newFeel(CAMERA_TUNE.fov), pitch: 0, camPos: null, bullets: buildBulletLines(), hud };
+  return {
+    world,
+    model,
+    feel: newFeel(CAMERA_TUNE.fov),
+    pitch: 0,
+    camPos: null,
+    bullets: buildBulletLines(TRACER_COLOR),
+    enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
+    enemies: buildEnemyView(),
+    hud,
+  };
 }
 
-function buildBulletLines(): BulletLines {
+function buildBulletLines(color: number): BulletLines {
   const positions = new THREE.BufferAttribute(new Float32Array(MAX_BULLET_LINES * 2 * 3), 3);
   positions.setUsage(THREE.DynamicDrawUsage);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', positions);
   geometry.setDrawRange(0, 0);
-  const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: TRACER_COLOR }));
+  const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color }));
   // the bounding sphere would be made from the first positions (all 0), so the lines are never culled by it
   lines.frustumCulled = false;
   scene.add(lines);
@@ -64,11 +78,11 @@ function buildBulletLines(): BulletLines {
 }
 
 // Writes each bullet's head and the point TRACER_LENGTH behind it, and draws only as many segments as there are bullets.
-function drawBullets(view: PlayView, game: GameModel): void {
-  const count = Math.min(game.bullets.length, MAX_BULLET_LINES);
-  const positions = view.bullets.positions;
+function drawBullets(lines: BulletLines, bullets: readonly Bullet[]): void {
+  const count = Math.min(bullets.length, MAX_BULLET_LINES);
+  const positions = lines.positions;
   for (let i = 0; i < count; i++) {
-    const bullet = game.bullets[i];
+    const bullet = bullets[i];
     positions.setXYZ(
       i * 2,
       bullet.x - bullet.dx * TRACER_LENGTH,
@@ -78,11 +92,11 @@ function drawBullets(view: PlayView, game: GameModel): void {
     positions.setXYZ(i * 2 + 1, bullet.x, bullet.y, bullet.z);
   }
   positions.needsUpdate = true;
-  view.bullets.lines.geometry.setDrawRange(0, count * 2);
+  lines.lines.geometry.setDrawRange(0, count * 2);
 }
 
-// One frame of the sortie: the frame's events become dust and the camera's shake, the bullets in flight become lines,
-// the mech and the map follow the game's state, and the camera looks from behind the mech. The feel's hit stop is not
+// One frame of the sortie: the frame's events become dust and the camera's shake, the bullets in flight become lines
+// (the mech's and the enemies' apart), the enemies are drawn, the mech and the map follow the game's state, and the camera looks from behind the mech. The feel's hit stop is not
 // used: the logic cannot be frozen.
 export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
   const mechEvents: MechEvent[] = [];
@@ -96,8 +110,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       mechEvents.push({ kind: 'fire', speed: 0 });
     } else if (event.kind === 'hit') {
       spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
-    } else if (event.kind === 'destroyed') {
+    } else if (event.kind === 'destroyed' || event.kind === 'enemyDown') {
       kill = true;
+    } else if (event.kind === 'damaged') {
+      feelDamage(view.feel, FEEL_TUNE);
     }
   }
   feelEvents(view.feel, mechEvents, kill, FEEL_TUNE);
@@ -119,6 +135,11 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
 
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game);
-  drawBullets(view, game);
+  drawBullets(
+    view.bullets,
+    game.bullets.filter(bullet => !isEnemyBullet(bullet)),
+  );
+  drawBullets(view.enemyBullets, game.bullets.filter(isEnemyBullet));
+  drawEnemies(view.enemies, game);
   drawHud(view.hud, hudModel(game));
 }

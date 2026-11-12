@@ -1,4 +1,6 @@
 // The colours the field, the map's ground and the sky share, so the same one is not written in two files.
+import type { EnemyKind } from './enemies.ts';
+
 export const SAND_COLOR = 0xc2a878; // the ground's sand
 export const SKY_COLOR = 0x9db8c6; // the sky and the fog
 
@@ -14,3 +16,10 @@ export const HUD_COLOR = {
   dot: '#f4f7fa', // the aim dot (仮)
   track: 'rgba(84, 232, 255, 0.2)', // the empty part of an arc (仮)
 };
+
+// The enemies on the field (仮): each kind's body, the body of one that is down and the line of an enemy's shot.
+export const ENEMY_COLOR: Record<EnemyKind, number> = {
+  grunt: 0x8c3b32,
+};
+export const ENEMY_DOWN_COLOR = 0x2a2522;
+export const ENEMY_BULLET_COLOR = 0xff6a4a;
