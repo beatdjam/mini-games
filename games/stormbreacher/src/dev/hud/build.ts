@@ -3,7 +3,7 @@
 import { t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../../data/colors.ts';
 import { TOUCH_DEFAULTS, type TouchButton } from '../../data/touch.ts';
-import { fillArcGauge, markShape, reticleSvg, ringRadius, roundRadar, svg } from '../../view/hudParts.ts';
+import { fillArcGauge, lockFrame, markShape, reticleSvg, ringRadius, roundRadar, svg } from '../../view/hudParts.ts';
 import {
   CUTSCENE_RADIO_CSS,
   HUD_IDS,
@@ -17,12 +17,11 @@ import {
 } from './plans.ts';
 
 const HEAT_COLOR = '#ff9d3d';
-const LOCK_COLOR = '#ff9d3d';
 const EDGE_COLOR = 'rgba(84, 232, 255, 0.35)';
 const TOUCH_COLOR = 'rgba(255, 255, 255, 0.35)';
 const CUTSCENE_COLOR = '#000';
 
-const LOCK_SIZE = 30; // the square's side (px)
+const LOCK_SAMPLE = { left: 775, top: 285, width: 40, height: 40 }; // px; the sample frame's rectangle (1280x720)
 const COMPASS_PAD = 8; // px between the compass's edge and angle +-90
 const COMPASS_LETTER_SIZE = 11; // px, the W / N / E letters
 const COMPASS_LETTER_Y = 22; // px, the letters' baseline from the compass's top (under the amber mark)
@@ -313,13 +312,11 @@ function reticle(): HTMLElement {
   return node;
 }
 
-function lockSquare(): HTMLElement {
-  const node = document.createElement('div');
-  node.dataset.hud = 'lock';
-  node.style.cssText =
-    `position:absolute;box-sizing:border-box;left:calc(50% + 135px);top:calc(50% - 75px);` +
-    `width:${LOCK_SIZE}px;height:${LOCK_SIZE}px;border:2px solid ${LOCK_COLOR}`;
-  return node;
+// The lock frame round a sample rectangle, drawn by the same part the game uses.
+function lockSample(): HTMLElement {
+  const frame = lockFrame();
+  frame.set(LOCK_SAMPLE);
+  return frame.root;
 }
 
 function touchRing(id: TouchButton): HTMLElement {
@@ -374,7 +371,7 @@ export function buildHud(
     root.appendChild(buildElement(shown, plan, textsById));
   }
   root.appendChild(reticle());
-  root.appendChild(lockSquare());
+  root.appendChild(lockSample());
 
   if (options.touch) {
     for (const id of Object.keys(TOUCH_DEFAULTS) as TouchButton[]) root.appendChild(touchRing(id));

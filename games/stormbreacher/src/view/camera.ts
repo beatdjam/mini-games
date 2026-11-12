@@ -6,6 +6,7 @@ import { clamp } from '@engine/core/index.ts';
 import type { CameraTune } from '../data/tuneTypes.ts';
 import { rectBox, type GroundRect } from '../logic/collide.ts';
 import type { Ray3 } from '../logic/fcs.ts';
+import type { Aabb } from '../logic/fire.ts';
 
 const WALL_HEIGHT = 100; // m; how high a rect with no top reaches, so the camera never goes over it
 
@@ -138,4 +139,45 @@ export function screenFraction(cam: THREE.PerspectiveCamera, foot: THREE.Vector3
   const bottom = new THREE.Vector3(foot.x, foot.y, foot.z).project(cam);
   const top = new THREE.Vector3(foot.x, foot.y + height, foot.z).project(cam);
   return Math.abs(top.y - bottom.y) / 2;
+}
+
+export interface ScreenRect {
+  left: number; // px from the screen's left edge
+  top: number; // px from the screen's top edge
+  width: number; // px
+  height: number; // px
+}
+
+// The rectangle round a box on a screen of width x height px: the box's eight corners projected by the camera, then
+// the smallest rectangle that holds them, cut to the screen. null when a corner is behind the camera (the box is
+// beside or round the camera, where a frame would mean nothing) or when the rectangle is wholly off the screen. The
+// camera's matrices must be current (applyPose, then updateMatrixWorld, which the renderer does before a frame).
+export function screenRect(box: Aabb, cam: THREE.Camera, width: number, height: number): ScreenRect | null {
+  cam.updateMatrixWorld();
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  const corner = new THREE.Vector3();
+  for (const x of [box.minX, box.maxX]) {
+    for (const y of [box.minY, box.maxY]) {
+      for (const z of [box.minZ, box.maxZ]) {
+        corner.set(x, y, z);
+        // the camera looks down -z in its own space, so a corner at z >= 0 there is behind it
+        if (corner.clone().applyMatrix4(cam.matrixWorldInverse).z >= 0) return null;
+        corner.project(cam);
+        minX = Math.min(minX, corner.x);
+        maxX = Math.max(maxX, corner.x);
+        minY = Math.min(minY, corner.y);
+        maxY = Math.max(maxY, corner.y);
+      }
+    }
+  }
+  // NDC runs -1..1 with y up
+  if (maxX < -1 || minX > 1 || maxY < -1 || minY > 1) return null;
+  const left = ((Math.max(minX, -1) + 1) / 2) * width;
+  const right = ((Math.min(maxX, 1) + 1) / 2) * width;
+  const top = ((1 - Math.min(maxY, 1)) / 2) * height;
+  const bottom = ((1 - Math.max(minY, -1)) / 2) * height;
+  return { left, top, width: right - left, height: bottom - top };
 }

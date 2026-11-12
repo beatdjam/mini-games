@@ -29,6 +29,7 @@ LANG.ja = {
     'hud.main': 'メイン',
     'hud.sub': 'サブ',
     'hud.objective': '目標',
+    'hud.radio': '無線',
     'hud.warn.shell': '着弾予告の範囲内',
     'target.pillbox': 'トーチカ',
     'target.depot': '集積所',

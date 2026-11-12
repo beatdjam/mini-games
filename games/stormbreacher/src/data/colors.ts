@@ -14,6 +14,7 @@ export const HUD_COLOR = {
   panel: 'rgba(6, 12, 18, 0.6)', // behind a bar and the radar (仮)
   ring: 'rgba(244, 247, 250, 0.55)', // the aim circle (仮)
   dot: '#f4f7fa', // the aim dot (仮)
+  lock: '#ff9d3d', // the lock frame round the target the soft FCS pulls toward (仮)
   track: 'rgba(84, 232, 255, 0.2)', // the empty part of an arc (仮)
 };
 

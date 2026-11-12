@@ -39,10 +39,6 @@ body{
   font-size:clamp(11px,2vmin,15px);color:#cfe4ef;background:none;border:0;
   border-bottom:1px solid rgba(207,228,239,.5);text-shadow:0 1px 6px rgba(0,0,0,.7);cursor:pointer;
 }
-/* provisional text for the sortie (HUD, SB-160, replaces both): the current objective at the top left and the last
-   radio line just above the bottom middle */
-#sbObjective{position:fixed;left:max(16px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top));pointer-events:none;font-size:clamp(11px,2vmin,16px);letter-spacing:.16em;color:#ffcf6a;text-shadow:0 1px 6px rgba(0,0,0,.7)}
-#sbRadio{position:fixed;left:50%;bottom:max(96px,calc(env(safe-area-inset-bottom) + 80px));transform:translateX(-50%);max-width:calc(100% - 32px);pointer-events:none;font-size:clamp(11px,2vmin,16px);letter-spacing:.16em;color:#ffcf6a;text-shadow:0 1px 6px rgba(0,0,0,.7);text-align:center}
 #sbResult{
   position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
   background:rgba(5,8,12,.72);text-align:center;
@@ -85,8 +81,6 @@ body{
   <a href="../../" data-i18n="app.back"></a>
   <button id="sbStart" type="button" data-i18n="app.start"></button>
 </div>
-<div id="sbObjective" hidden></div>
-<div id="sbRadio" hidden></div>
 <div id="sbResult" hidden>
   <div class="title" data-i18n="result.title"></div>
   <p id="sbResultTime"></p>

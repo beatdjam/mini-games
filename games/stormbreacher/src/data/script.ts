@@ -10,3 +10,10 @@ export const CUTSCENE_SEC: Record<CutsceneId, number> = {
 };
 
 export const RADIO_MIN_SEC = 3; // seconds one radio line stays on screen
+
+// The objectives that show a count on the HUD: the objective's id and the ids of the targets it counts. The HUD writes
+// "done/total" for these; an objective that is not here shows no count. A target the map does not have is not counted.
+export const OBJECTIVE_COUNT: Record<string, readonly string[]> = {
+  'break-pillboxes': ['pillbox-1', 'pillbox-2'],
+  'silence-battery': ['main-gun-1', 'main-gun-2'],
+};

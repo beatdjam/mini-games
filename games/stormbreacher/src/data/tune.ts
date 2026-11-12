@@ -1,5 +1,4 @@
 import type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
-import type { TargetKind } from './types.ts';
 
 export type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
 
@@ -90,8 +89,6 @@ export const FCS_TUNE: Record<FcsKind, FcsTune> = {
 // The HUD's values (SB-160). All provisional.
 export const HUD_TUNE = {
   radarRange: 200, // how far the radar sees (m); a target farther than this is not drawn
-  objectiveKey: 'obj.break-pillboxes', // the objective's language key, until the script (SB-150) is wired in
-  objectiveKind: 'pillbox' as TargetKind, // the kind of target the objective counts
 };
 
 // The look and the battle effects of #view-fx (SB-045): the resolution and the colour, the shells near the mech, the

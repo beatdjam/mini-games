@@ -4,7 +4,6 @@ import { addSystem, el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
-import { RADIO_MIN_SEC } from '../data/script.ts';
 import { CAMERA_TUNE } from '../data/tune.ts';
 import { newGame, restartGame, retryFromCheckpoint, step, type GameModel } from '../logic/game.ts';
 import { aimRay } from '../view/camera.ts';
@@ -54,8 +53,6 @@ function clock(seconds: number): string {
 // The tests sortie more than once on one page, so this builds the view again; the play system and the buttons are set up
 // only once.
 function beginPlay(next: GameModel): void {
-  el('#sbObjective').hidden = true;
-  el('#sbRadio').hidden = true;
   if (view) clearPlay(view);
   view = null;
   el('#sbApp').hidden = true;
@@ -90,22 +87,7 @@ function update(dt: number): void {
   const aim = aimRay({ x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw }, view.pitch, CAMERA_TUNE);
   step(game, { ...read.input, sub: read.sub, aim }, dt);
   drawPlay(view, game, dt, read.pitchDelta);
-  showScriptText(game);
   if (game.cleared || game.downed) showResult();
-}
-
-// Puts `text` in `node` and shows it; no text hides the node. The text is written only when it changes.
-function showText(node: HTMLElement, text: string | null): void {
-  node.hidden = text === null;
-  if (text !== null && node.textContent !== text) node.textContent = text;
-}
-
-// Provisional: the script's current objective and the last radio line for RADIO_MIN_SEC. HUD (SB-160) replaces both.
-function showScriptText(game: GameModel): void {
-  const objective = game.script.objective;
-  showText(el('#sbObjective'), objective === null ? null : t(`obj.${objective}`));
-  const radio = game.radio;
-  showText(el('#sbRadio'), radio !== null && game.time - radio.time < RADIO_MIN_SEC ? t(radio.line) : null);
 }
 
 // The result's screen: the heading (the mech downed, or the script's end), the run's time and the buttons. A downed mech
@@ -114,8 +96,6 @@ function showScriptText(game: GameModel): void {
 export function showResult(): void {
   if (!game) return;
   if (view) view.hud.root.hidden = true;
-  el('#sbObjective').hidden = true;
-  el('#sbRadio').hidden = true;
   setState('result');
   el('#sbResult').hidden = false;
   el('#sbResult .title').textContent = t(game.downed ? 'result.downed' : 'result.title');

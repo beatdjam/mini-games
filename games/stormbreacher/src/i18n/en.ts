@@ -30,6 +30,7 @@ LANG.en = {
     'hud.main': 'Main',
     'hud.sub': 'Sub',
     'hud.objective': 'Objective',
+    'hud.radio': 'Radio',
     'hud.warn.shell': 'Inside shell impact zone',
     'target.pillbox': 'Bunker',
     'target.depot': 'Depot',

@@ -57,8 +57,9 @@ test('the mech walks and shoots in the sortie', async () => {
   window.dispatchEvent(key('keyup', 'KeyJ'));
   expect(game().mech.z).toBeLessThan(startZ);
   expect(shots).toBeGreaterThan(0);
-  expect(el('#sbObjective').hidden).toBe(false);
-  expect(el('#sbObjective').textContent).toBe(t('obj.reach-pillboxes'));
+  const objective = el('#sbPlayHud [data-hud="objective"]');
+  expect(objective.hidden).toBe(false);
+  expect(objective.textContent).toContain(t('obj.reach-pillboxes'));
 });
 
 test("the script's end shows the result", async () => {

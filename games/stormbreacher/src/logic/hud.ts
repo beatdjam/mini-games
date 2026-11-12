@@ -1,11 +1,13 @@
 // The values the HUD shows, built from the GameModel. Nothing here reads three or the DOM, so a node test can run it.
 // view/hud.ts draws them. There is no heat.
 import { ENEMIES, type EnemyKind } from '../data/enemies.ts';
+import { RADIO_MIN_SEC, OBJECTIVE_COUNT } from '../data/script.ts';
 import { TARGET_HP } from '../data/props.ts';
 import { HUD_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
 import { WEAPONS, type WeaponId } from '../data/weapons.ts';
-import type { GameModel } from './game.ts';
+import type { Aabb } from './fire.ts';
+import { enemyBox, type GameModel } from './game.ts';
 import { inCircle } from './hazards.ts';
 import type { WeaponState } from './weapons.ts';
 
@@ -27,7 +29,9 @@ export interface HudModel {
   armor: number; // 0-1, game.armor / MECH_TUNE.armor
   main: HudAmmo;
   sub: HudAmmo;
-  objective: { key: string; done: number; total: number }; // key: a language key; done and total count HUD_TUNE.objectiveKind
+  objective: { key: string; count: { done: number; total: number } | null } | null; // the script's objective (`obj.<id>`); count is set for the objectives in OBJECTIVE_COUNT; null before the script names one
+  radio: string | null; // the language key of the last radio line while it is within RADIO_MIN_SEC, else null
+  lock: Aabb | null; // the box of the target or enemy `enemy` describes, for the lock frame; null when `enemy` is
   enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp
   radar: HudRadarMark[]; // the living targets and enemies within HUD_TUNE.radarRange
   warning: 'shell' | null; // 'shell' while the mech stands inside a warned shell's blast, else null
@@ -60,9 +64,14 @@ export function hudModel(game: GameModel): HudModel {
   const aimed = game.targets.find(target => target.id === game.aimTarget);
   const aimedEnemy = game.enemies.find(placed => placed.id === game.aimTarget);
   let enemy: HudModel['enemy'] = null;
-  if (aimed && aimed.hp > 0) enemy = { kind: aimed.kind, ratio: aimed.hp / TARGET_HP[aimed.kind] };
-  else if (aimedEnemy && aimedEnemy.hp > 0)
+  let lock: Aabb | null = null;
+  if (aimed && aimed.hp > 0) {
+    enemy = { kind: aimed.kind, ratio: aimed.hp / TARGET_HP[aimed.kind] };
+    lock = aimed.box;
+  } else if (aimedEnemy && aimedEnemy.hp > 0) {
     enemy = { kind: aimedEnemy.kind, ratio: aimedEnemy.hp / ENEMIES[aimedEnemy.kind].hp };
+    lock = enemyBox(aimedEnemy);
+  }
 
   const radar: HudRadarMark[] = [];
   const marks = [
@@ -79,19 +88,28 @@ export function hudModel(game: GameModel): HudModel {
     radar.push({ kind: mark.kind, angle, dist: dist / HUD_TUNE.radarRange });
   }
 
-  const counted = game.targets.filter(target => target.kind === HUD_TUNE.objectiveKind);
+  const id = game.script.objective;
+  let objective: HudModel['objective'] = null;
+  if (id !== null) {
+    const names = OBJECTIVE_COUNT[id];
+    const counted = names === undefined ? [] : game.targets.filter(target => names.includes(target.id));
+    objective = {
+      key: `obj.${id}`,
+      count:
+        counted.length === 0 ? null : { done: counted.filter(target => target.hp <= 0).length, total: counted.length },
+    };
+  }
+  const radio = game.radio;
 
   return {
     boost: game.mech.gauge,
     armor: game.armor / MECH_TUNE.armor,
     main: hudAmmo(game.main),
     sub: hudAmmo(game.sub),
-    objective: {
-      key: HUD_TUNE.objectiveKey,
-      done: counted.filter(target => target.hp <= 0).length,
-      total: counted.length,
-    },
+    objective,
+    radio: radio !== null && game.time - radio.time < RADIO_MIN_SEC ? radio.line : null,
     enemy,
+    lock,
     radar,
     warning: game.shells.some(shell => inCircle(shell, shell.radius, game.mech)) ? 'shell' : null,
   };

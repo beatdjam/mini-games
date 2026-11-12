@@ -1,13 +1,23 @@
 // The HUD of the game's sortie (SB-160). D plan: the objective at the top left, the enemy's health at the top centre,
-// the round radar at the top right, an arc along the aim circle (the armour on the left, the boost on the right) and
-// the main and sub ammo under the circle. It reads HudModel (logic/hud.ts) and draws it; it never writes the model.
-// Heat and radio are not drawn; the only warning is the shell's. The shades and the emphasis are 仮.
+// the round radar at the top right, an arc along the aim circle (the armour on the left, the boost on the right), the
+// main and sub ammo under the circle, the last radio line at the bottom centre and a lock frame round the target the
+// aim is pulled toward. It reads HudModel (logic/hud.ts) and draws it; it never writes the model. Heat is not drawn;
+// the only warning is the shell's. The shades and the emphasis are 仮.
 import { t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import type { EnemyKind } from '../data/enemies.ts';
 import type { TargetKind } from '../data/types.ts';
 import type { HudAmmo, HudModel } from '../logic/hud.ts';
-import { fillArcGauge, reticleSvg, ringRadius, roundRadar, type RadarKey, type RadarMarkKind } from './hudParts.ts';
+import type { ScreenRect } from './camera.ts';
+import {
+  fillArcGauge,
+  lockFrame,
+  reticleSvg,
+  ringRadius,
+  roundRadar,
+  type RadarKey,
+  type RadarMarkKind,
+} from './hudParts.ts';
 
 // The D plan's placement and text sizes, copied from dev/hud/plans.ts (HUD_PLANS.d) and dev/hud/build.ts
 // (TEXT_STYLES.d). view/ cannot read dev/, and the mock compares four plans while the game has settled on D, so the two
@@ -20,6 +30,7 @@ const PLAY_HUD_LAYOUT = {
   sub: { css: 'left:50%;margin-left:8px;top:calc(50% + var(--ring) + 36px);width:150px' },
   radar: { css: 'right:24px;top:48px;width:150px;height:150px' },
   objective: { css: 'left:24px;top:48px;width:340px' },
+  radio: { css: 'left:50%;transform:translateX(-50%);bottom:48px;width:560px;padding:2px 6px' },
   enemy: { css: 'left:50%;transform:translateX(-50%);top:48px;width:300px' },
   warning: { css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 40px);text-align:center' },
   reticle: { css: 'inset:0;pointer-events:none' },
@@ -31,6 +42,7 @@ const PLAY_HUD_TEXT = {
   main: { name: 11, value: 16 }, // px
   sub: { name: 11, value: 13 }, // px
   objective: { label: 16, value: 16 }, // px
+  radio: { label: 16, value: 16 }, // px
   enemy: { name: 14, bar: 10 }, // px
   warning: { text: 18 }, // px
 } as const;
@@ -63,6 +75,7 @@ interface HudLast {
   main: string | null;
   sub: string | null;
   objective: string | null;
+  radio: string | null;
   enemy: TargetKind | EnemyKind | null;
   enemyRatio: number | null;
   enemyHidden: boolean | null;
@@ -76,7 +89,11 @@ export interface PlayHud {
   boost: ArcGauge;
   mainValue: HTMLSpanElement;
   subValue: HTMLSpanElement;
+  objective: HTMLElement;
   objectiveValue: HTMLSpanElement;
+  radio: HTMLElement;
+  radioValue: HTMLSpanElement;
+  lock: ReturnType<typeof lockFrame>;
   enemy: HTMLElement;
   enemyName: HTMLSpanElement;
   enemyFill: HTMLElement;
@@ -121,6 +138,7 @@ function freshLast(): HudLast {
     main: null,
     sub: null,
     objective: null,
+    radio: null,
     enemy: null,
     enemyRatio: null,
     enemyHidden: null,
@@ -168,6 +186,13 @@ function layOut(root: HTMLElement): PlayHud {
   const objective = place(root, PLAY_HUD_LAYOUT.objective.css, 'objective');
   const objectiveValue = span('', PLAY_HUD_TEXT.objective.value);
   objective.append(span(t('hud.objective'), PLAY_HUD_TEXT.objective.label, HUD_COLOR.amber), objectiveValue);
+  objective.hidden = true;
+
+  const radio = place(root, PLAY_HUD_LAYOUT.radio.css, 'radio');
+  radio.style.background = HUD_COLOR.panel;
+  const radioValue = span('', PLAY_HUD_TEXT.radio.value);
+  radio.append(span(t('hud.radio'), PLAY_HUD_TEXT.radio.label), radioValue);
+  radio.hidden = true;
 
   const enemy = place(root, PLAY_HUD_LAYOUT.enemy.css, 'enemy');
   const enemyName = span('', PLAY_HUD_TEXT.enemy.name);
@@ -186,6 +211,9 @@ function layOut(root: HTMLElement): PlayHud {
 
   place(root, PLAY_HUD_LAYOUT.reticle.css, 'reticle').appendChild(reticleSvg());
 
+  const lock = lockFrame();
+  root.appendChild(lock.root);
+
   return {
     root,
     height: window.innerHeight,
@@ -193,7 +221,11 @@ function layOut(root: HTMLElement): PlayHud {
     boost,
     mainValue,
     subValue,
+    objective,
     objectiveValue,
+    radio,
+    radioValue,
+    lock,
     enemy,
     enemyName,
     enemyFill: enemyBar.fill,
@@ -221,8 +253,14 @@ function ammoText(ammo: HudAmmo): string {
   return ` ${ammo.ammo} / ${ammo.max}`;
 }
 
-// Writes one frame of the HUD. Only the values that changed are written; the radar's marks are put down every frame.
-export function drawHud(hud: PlayHud, model: HudModel): void {
+// " 1/2" for a counted objective, nothing for one that is not counted.
+function countText(count: { done: number; total: number } | null): string {
+  return count === null ? '' : ` ${count.done}/${count.total}`;
+}
+
+// Writes one frame of the HUD. Only the values that changed are written; the radar's marks and the lock frame are put
+// down every frame. `lock` is the lock target's rectangle on the screen (view/camera.ts screenRect), null for none.
+export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null): void {
   // the arcs and the aims sit on the window's size, so a new height lays the parts out again
   if (window.innerHeight !== hud.height) Object.assign(hud, layOut(hud.root));
   const last = hud.last;
@@ -247,10 +285,18 @@ export function drawHud(hud: PlayHud, model: HudModel): void {
     last.sub = sub;
   }
 
-  const objective = ` ${t(model.objective.key)} ${model.objective.done}/${model.objective.total}`;
+  const objective = model.objective === null ? '' : ` ${t(model.objective.key)}${countText(model.objective.count)}`;
   if (last.objective !== objective) {
+    hud.objective.hidden = model.objective === null;
     hud.objectiveValue.textContent = objective;
     last.objective = objective;
+  }
+
+  const radio = model.radio === null ? '' : ` ${t(model.radio)}`;
+  if (last.radio !== radio) {
+    hud.radio.hidden = model.radio === null;
+    hud.radioValue.textContent = radio;
+    last.radio = radio;
   }
 
   if (!model.enemy) {
@@ -279,6 +325,7 @@ export function drawHud(hud: PlayHud, model: HudModel): void {
     last.warning = model.warning;
   }
 
+  hud.lock.set(lock);
   hud.radar.set(model.radar.map(mark => ({ kind: RADAR_MARK[mark.kind], angle: mark.angle, dist: mark.dist })));
 }
 
