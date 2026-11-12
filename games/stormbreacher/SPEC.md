@@ -136,6 +136,8 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 機体の装甲が 0 になる（`downed`）と、`src/app/play.ts` の `update` が結果の画面（`showResult`）へ移す。見出しは、やられたときが `result.downed`（「やられた」/ Downed）、台本の終わりのときが `result.title`（「突破」/ Breakthrough）。どちらも所要時間と「タイトルへ」が出る。やられたときだけ、さらに「チェックポイントから」（`#sbResultCheckpoint`。チェックポイントがあるときだけ）と「最初から」（`#sbResultRestart`）が出る。台本の終わりのときは出ない。押すと、`beginPlay`（`startSortie` と同じ片付けと組み直し）で新しい `GameModel` を描き直し、結果の画面を消して `play` に戻る。やり直しの中身は 7章「チェックポイント」。
 
+結果の画面はタッチの層（`#touch`）より上（z-index 6）に出し、出すときに `#touch` を隠す（スマホでボタンを押せるように）。
+
 ## 3. 乱数
 
 - 乱数は `src/logic/rng.ts` の1つの口からだけ引く。ほかで `Math.random` を呼ばない

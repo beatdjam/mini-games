@@ -110,3 +110,20 @@ test('the cleared result has no retry buttons', () => {
   expect(button('#sbResultRestart').hidden).toBe(true);
   expect(button('#sbResultBack').hidden).toBe(false);
 });
+
+test('the result buttons take a tap above the touch layer', async () => {
+  startSortie();
+  // the phone shows the touch layer while the sortie plays; it covers the whole screen
+  el('#touch').hidden = false;
+  const current = game();
+  current.armor = 0;
+  current.downed = true;
+  await until(() => state === 'result');
+  expect(el('#touch').hidden).toBe(true);
+  for (const id of ['#sbResultBack', '#sbResultRestart']) {
+    const target = button(id);
+    const box = target.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    expect(hit === target || target.contains(hit), `the tap on ${id} reached ${hit?.id || hit?.tagName}`).toBe(true);
+  }
+});
