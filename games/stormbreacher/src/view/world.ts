@@ -2,8 +2,9 @@
 // are seen through. The game and the dev views that walk a map both build it from here.
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
-import { SKY_COLOR } from '../data/colors.ts';
-import { TILE_SIZE } from '../data/props.ts';
+import { M1_SHUTTERS } from '../data/battery.ts';
+import { SHUTTER_COLOR, SKY_COLOR } from '../data/colors.ts';
+import { TARGET_SIZE, TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
 import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
@@ -24,7 +25,8 @@ export const MAP_FOG = { near: FOG_NEAR, far: FOG_FAR } as const;
 export interface World {
   built: OutdoorBuild; // the ground and props, and their chunks
   targets: Map<string, THREE.Mesh>; // the mission's targets by id
-  targetGroup: THREE.Group; // every target, to take out when the world is built again
+  targetGroup: THREE.Group; // every target and shutter, to take out when the world is built again
+  shutters: Map<string, THREE.Mesh>; // the armour plate before a target, by the target's id; hidden once it is open
   shore: THREE.Group; // the sea and the landing craft, to take out with them
   cameraBoxes: THREE.Box3[]; // the props and targets as walls the camera keeps out of
   slots: Map<number, PropSlot>; // a breakable prop's place in map.props -> where it is drawn
@@ -68,6 +70,21 @@ export function buildWorld(map: MapDef): World {
     if (child instanceof THREE.Mesh) targets.set(child.name, child);
   }
 
+  // a shutter's plate stands in front of its target, toward the sea (+z); it is a stage prop and stops no shot itself
+  const shutters = new Map<string, THREE.Mesh>();
+  for (const def of M1_SHUTTERS) {
+    const place = map.targets.find(target => target.id === def.target);
+    if (!place) continue;
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(def.w, def.h, def.d),
+      new THREE.MeshLambertMaterial({ color: SHUTTER_COLOR }),
+    );
+    plate.name = `sb-shutter-${def.target}`;
+    plate.position.set(place.x, def.h / 2, place.z + TARGET_SIZE[place.kind].d / 2 + def.gap + def.d / 2);
+    targetGroup.add(plate);
+    shutters.set(def.target, plate);
+  }
+
   // cameraBoxes runs over mapBlockers' rects, which put the blocking props first in map.props' order, so box i belongs
   // to blockingPropIndexes(map)[i]. Only the breakable props need their box kept.
   const boxes = cameraBoxes(mapBlockers(map));
@@ -82,10 +99,20 @@ export function buildWorld(map: MapDef): World {
     propCameraBoxes.set(propIndex, boxes[i]);
   });
 
-  return { built, targets, targetGroup, shore, cameraBoxes: boxes, slots, propCameraBoxes, broken: new Set() };
+  return {
+    built,
+    targets,
+    targetGroup,
+    shutters,
+    shore,
+    cameraBoxes: boxes,
+    slots,
+    propCameraBoxes,
+    broken: new Set(),
+  };
 }
 
-// Lowers and darkens every target whose health is gone, and every breakable prop the game has broken: its copy becomes
+// Lowers and darkens every target whose health is gone, hides every shutter that is open, and every breakable prop the game has broken: its copy becomes
 // a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands that same array to the camera every frame).
 // Called every frame, so one already down or broken is left as it is.
 export function syncWorld(world: World, game: GameModel): void {
@@ -95,6 +122,10 @@ export function syncWorld(world: World, game: GameModel): void {
     if (!mesh || mesh.scale.y === WRECK_SCALE_Y) continue;
     if (mesh.material instanceof THREE.MeshLambertMaterial) mesh.material.color.setHex(WRECK_COLOR);
     mesh.scale.y = WRECK_SCALE_Y;
+  }
+  for (const shutter of game.shutters) {
+    const plate = world.shutters.get(shutter.target);
+    if (plate) plate.visible = !shutter.open;
   }
   for (const breakable of game.breakables) {
     if (breakable.hp > 0 || world.broken.has(breakable.prop)) continue;

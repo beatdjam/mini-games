@@ -7,13 +7,14 @@ import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE } from '../data/tune.ts';
-import { isEnemyBullet, type Bullet, type GameModel } from '../logic/game.ts';
+import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { hudModel } from '../logic/hud.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, type HazardView } from './hazards.ts';
 import { feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
+import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { applyLookTo } from './look.ts';
 import { buildMechProxy } from './mechProxy.ts';
@@ -44,6 +45,7 @@ export interface PlayView {
   enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
   enemies: EnemyView; // the enemies' instanced boxes
   hazards: HazardView; // the warned shells' rings and the mines' discs
+  seaFire: SeaFireView; // the main guns' flashes and lines toward the sea
   hud: PlayHud; // the sortie's HUD, in the page
 }
 
@@ -65,6 +67,7 @@ export function buildPlayView(game: GameModel): PlayView {
     enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
     enemies: buildEnemyView(),
     hazards: buildHazardView(),
+    seaFire: buildSeaFire(game),
     hud,
   };
 }
@@ -101,7 +104,7 @@ function drawBullets(lines: BulletLines, bullets: readonly Bullet[]): void {
 }
 
 // One frame of the sortie: the frame's events become dust and the camera's shake, the bullets in flight become lines
-// (the mech's and the enemies' apart), the enemies, the rings of warned shells and the mines are drawn, the mech and the map follow the game's state, and the camera looks from behind the mech. The feel's hit stop is not
+// (the mech's and the hostile ones' apart), the enemies, the rings of warned shells and the mines are drawn, the mech and the map follow the game's state, and the camera looks from behind the mech. The feel's hit stop is not
 // used: the logic cannot be frozen.
 export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
   const mechEvents: MechEvent[] = [];
@@ -146,11 +149,12 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   syncWorld(view.world, game);
   drawBullets(
     view.bullets,
-    game.bullets.filter(bullet => !isEnemyBullet(bullet)),
+    game.bullets.filter(bullet => !isHostileBullet(bullet)),
   );
-  drawBullets(view.enemyBullets, game.bullets.filter(isEnemyBullet));
+  drawBullets(view.enemyBullets, game.bullets.filter(isHostileBullet));
   drawEnemies(view.enemies, game);
   drawHazards(view.hazards, game);
+  drawSeaFire(view.seaFire, game);
   const hud = hudModel(game);
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
   drawHud(view.hud, hud, lock);

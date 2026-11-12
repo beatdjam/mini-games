@@ -9,16 +9,28 @@
 // downed and the game stops. The script's `spawn` puts a wave's enemies out (the wave's kind is in M1_WAVE_ENEMY), starts
 // the wave's barrage (M1_WAVE_BARRAGE; logic/hazards.ts) and, when the last of the enemies falls, `cleared` goes back
 // through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; a mine blows up
-// when the mech steps on it or the mech's shot breaks it, and both take armour from a mech inside the blast. `ally` (a friend) is kept as an event and does
-// nothing until the friends come.
+// when the mech steps on it or the mech's shot breaks it, and both take armour from a mech inside the blast. The boss
+// (SB-200, logic/battery.ts): once the `battery` wave is out, each main gun still standing shoots the mech with a machine
+// gun, and the magazine takes no harm while its shutter is shut, until both main guns are down. `ally` (a friend) is kept
+// as an event and does nothing until the friends come.
 import { ENEMIES, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
-import { M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
+import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
+import { BARRAGES, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { FCS_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../data/tune.ts';
 import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, type GroundRect } from './collide.ts';
+import {
+  newBattery,
+  newShutters,
+  openShutters,
+  shuttered,
+  stepGun,
+  type BatteryState,
+  type ShutterState,
+} from './battery.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
 import { newFcs, spreadDir, stepFcs, type Dir3, type FcsState, type FcsTarget, type Ray3 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
@@ -60,13 +72,14 @@ export type GameEvent =
       x: number;
       y: number;
       z: number;
-      weapon: WeaponId | null; // the mech's weapon; null for an enemy's bullet
+      weapon: WeaponId | null; // the mech's weapon; null for an enemy's or the battery's bullet
       target: string | null; // the target's id when a target stopped the bullet
       prop: number | null; // the prop's place in map.props when a prop stopped it
       enemy: string | null; // the enemy's id when an enemy stopped the bullet
       mech: boolean; // whether the mech stopped the bullet; all of these are empty at the ground and at a mine
     }
   | { kind: 'destroyed'; id: string }
+  | { kind: 'shutterOpen'; target: string } // the shutter before this target opened
   | { kind: 'spawned'; wave: string; count: number } // a wave's enemies were put out
   | { kind: 'enemyDown'; id: string; x: number; z: number } // an enemy's health reached 0
   | { kind: 'damaged'; amount: number; fromX: number; fromZ: number } // the mech took `amount`; (fromX, fromZ) is the unit direction on the ground from the mech toward where the bullet came from
@@ -98,14 +111,29 @@ export interface EnemyBullet extends BulletBase {
   enemy: EnemyKind;
 }
 
-export type Bullet = MechBullet | EnemyBullet;
+// A shot of a main gun's machine gun.
+export interface BatteryBullet extends BulletBase {
+  gun: string; // the id of the target that fired it
+}
+
+export type Bullet = MechBullet | EnemyBullet | BatteryBullet;
 
 export function isEnemyBullet(bullet: Bullet): bullet is EnemyBullet {
   return 'enemy' in bullet;
 }
 
-// How fast a bullet flies and what it does, from the table of the weapon or the enemy that fired it.
+export function isBatteryBullet(bullet: Bullet): bullet is BatteryBullet {
+  return 'gun' in bullet;
+}
+
+// Whether the bullet is fired at the mech: an enemy's or the battery's.
+export function isHostileBullet(bullet: Bullet): bullet is EnemyBullet | BatteryBullet {
+  return !('weapon' in bullet);
+}
+
+// How fast a bullet flies and what it does, from the table of the weapon, the enemy or the gun that fired it.
 function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
+  if (isBatteryBullet(bullet)) return { speed: GUN_TUNE.bulletSpeed, damage: GUN_TUNE.damage };
   if (isEnemyBullet(bullet)) {
     const def = ENEMIES[bullet.enemy];
     return { speed: def.bulletSpeed, damage: def.damage };
@@ -141,6 +169,8 @@ export interface GameModel {
   bullets: Bullet[]; // the shots in flight
   barrages: BarrageState[]; // the barrages that have started; none stops
   shells: ShellState[]; // the shells warned and not yet landed
+  shutters: ShutterState[]; // the armour plates before the targets that have one, shut or open
+  battery: BatteryState; // the main guns' machine guns
   mines: MineState[]; // the mines still on the ground
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
@@ -247,7 +277,7 @@ function shoot(game: GameModel, weapon: WeaponId, dir: Dir3): void {
 function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   const { speed, damage } = bulletSpec(bullet);
   const dist = Math.min(speed * dt, bullet.left);
-  const hostile = isEnemyBullet(bullet);
+  const hostile = isHostileBullet(bullet);
   const aliveTargets = hostile ? [] : game.targets.filter(target => target.hp > 0);
   const aliveEnemies = hostile ? [] : game.enemies.filter(enemy => enemy.hp > 0);
   // What only this bullet can hit comes first and the props after, so an index past `front` is a prop that stopped it.
@@ -301,11 +331,21 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   if (enemy) damageEnemy(game, enemy, damage);
   if (mine) damageMine(game, mine, damage);
   if (!target) return true;
+  // a target behind a shut shutter stops the bullet and takes no harm
+  if (shuttered(game.shutters, target.id)) return true;
   target.hp = Math.max(0, target.hp - damage);
   if (target.hp > 0) return true;
   game.events.push({ kind: 'destroyed', id: target.id });
+  checkShutters(game);
   sendToScript(game, { kind: 'destroyed', target: target.id });
   return true;
+}
+
+// Opens every shutter whose targets are all down and reports each one. Also called every frame, so a target whose health
+// was taken some other way opens its shutter too.
+function checkShutters(game: GameModel): void {
+  const hpOf = (id: string): number => game.targets.find(target => target.id === id)?.hp ?? 0;
+  for (const target of openShutters(game.shutters, hpOf)) game.events.push({ kind: 'shutterOpen', target });
 }
 
 // Takes `damage` off the enemy; at 0 it falls (it stays in game.enemies).
@@ -407,6 +447,8 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     bullets: [],
     barrages: [],
     shells: [],
+    shutters: newShutters(map.targets.map(place => place.id)),
+    battery: newBattery(map.targets),
     mines: (map.mines ?? []).map(place => ({ x: place.x, z: place.z, hp: MINE_TUNE.hp })),
     events: [],
     cleared: false,
@@ -461,6 +503,7 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
     if (event.kind === 'spawn') {
       spawnWave(game, event.wave);
       startBarrage(game, event.wave);
+      if (event.wave === BATTERY_WAVE) game.battery.on = true;
     }
     if (event.kind === 'end' && !game.cleared) {
       game.cleared = true;
@@ -532,11 +575,31 @@ function stepEnemies(game: GameModel, dt: number): void {
   }
 }
 
+// Counts every main gun still standing down by `dt` once the battery is on; the shots they fire become bullets.
+function stepBattery(game: GameModel, dt: number): void {
+  if (!game.battery.on) return;
+  for (const gun of game.battery.guns) {
+    const place = game.targets.find(target => target.id === gun.id);
+    if (!place || place.hp <= 0) continue;
+    // the line is stopped by a prop or by another standing target; the gun's own box is left out
+    const blockers = [
+      ...game.propBoxes,
+      ...game.targets.filter(target => target.hp > 0 && target.id !== gun.id).map(target => target.box),
+    ];
+    const shot = stepGun(gun, place.box, game.mech, blockers, dt, stream('battery'));
+    if (!shot) continue;
+    game.bullets.push({ gun: gun.id, ...shot, left: GUN_TUNE.range });
+  }
+}
+
 // Runs the hazards by `dt`: each barrage may warn of a shell, each shell counts down and one that lands hurts a mech inside
 // its blast, and a mine the mech stands on goes off.
 function stepHazards(game: GameModel, dt: number): void {
   for (const barrage of game.barrages) {
-    const shell = stepBarrage(barrage, game.mech, dt, stream('mortar'));
+    // a barrage the script's flag slows (the depot's loss) comes that many times as seldom
+    const slow = BARRAGES[barrage.kind].slow;
+    const mul = slow !== undefined && game.script.flags.includes(slow.flag) ? slow.mul : 1;
+    const shell = stepBarrage(barrage, game.mech, dt, stream('mortar'), mul);
     if (!shell) continue;
     game.shells.push(shell);
     game.events.push({ kind: 'shellWarn', x: shell.x, z: shell.z, radius: shell.radius });
@@ -606,8 +669,10 @@ export function step(game: GameModel, input: GameInput, dt: number): void {
   for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir);
   for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir);
   stepEnemies(game, dt);
+  stepBattery(game, dt);
   stepBullets(game, dt);
   stepHazards(game, dt);
+  checkShutters(game);
   checkWaves(game);
   for (const [id, area] of Object.entries(game.mission.areas)) {
     if (game.script.entered.includes(id)) continue;

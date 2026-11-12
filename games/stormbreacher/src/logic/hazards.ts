@@ -38,18 +38,19 @@ export function newBarrage(wave: string, kind: BarrageKind): BarrageState {
   return { wave, kind, wait: BARRAGES[kind].interval };
 }
 
-// Whether the barrage's shells reach the mech where it stands.
+// Whether the barrage's shells reach the mech where it stands: z from minZ to maxZ.
 export function inReach(kind: BarrageKind, mech: Spot): boolean {
-  return mech.z >= BARRAGES[kind].minZ;
+  const def = BARRAGES[kind];
+  return mech.z >= def.minZ && mech.z <= def.maxZ;
 }
 
 // Counts the barrage down by `dt` while the mech is in reach, and returns a new warned shell when the count reaches 0
-// (the count starts again). The shell is aimed at the mech moved 0 to `aimJitter` in a random direction; that is two
+// (the count starts again). `slow` (1 for none) makes the interval that many times as long. The shell is aimed at the mech moved 0 to `aimJitter` in a random direction; that is two
 // draws from `rng`, and none while there is no warning.
-export function stepBarrage(barrage: BarrageState, mech: Spot, dt: number, rng: Rng): ShellState | null {
+export function stepBarrage(barrage: BarrageState, mech: Spot, dt: number, rng: Rng, slow = 1): ShellState | null {
   const def = BARRAGES[barrage.kind];
   if (!inReach(barrage.kind, mech)) return null;
-  barrage.wait -= dt;
+  barrage.wait -= dt / slow;
   if (barrage.wait > 0) return null;
   barrage.wait += def.interval;
   const angle = rng.rand(0, Math.PI * 2);

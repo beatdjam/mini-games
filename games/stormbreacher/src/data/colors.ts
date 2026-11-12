@@ -31,3 +31,9 @@ export const ENEMY_BULLET_COLOR = 0xff6a4a;
 export const SHELL_WARN_COLOR = 0x5a1a14;
 export const SHELL_LAND_COLOR = 0xff3a22;
 export const MINE_COLOR = 0x3a3d2e;
+
+// The boss (SB-200, 仮): the armour plate before the magazine, the flash of a main gun firing at the sea and the line of
+// its shot.
+export const SHUTTER_COLOR = 0x5b6168;
+export const SEA_FLASH_COLOR = 0xfff1b0;
+export const SEA_TRACER_COLOR = 0xffb347;
