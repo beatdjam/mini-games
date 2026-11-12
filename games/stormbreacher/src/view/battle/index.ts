@@ -1,24 +1,19 @@
-// The battle around the mech in #view-fx (SB-045): the allies walking landward, the shells falling near the mech, the
-// smoke they leave, the columns from the wrecks, the tracers crossing the view and the planes overhead. It reads the
-// crowd's state (logic/crowd.ts) and draws it; it does not decide anything about the game. Everything that comes in
-// numbers is drawn from one instanced mesh per kind, made once at the size the tune asks for.
+// The battle around the mech, in the sortie and in #view-fx (SB-045, SB-170): the allies walking landward, the shells
+// falling near the mech, the smoke they leave, the columns from the wrecks, the tracers crossing the view and the planes
+// overhead. It reads the battle's state (logic/battle.ts) and draws it; it does not decide anything about the game and
+// touches no part of GameModel. Everything that comes in numbers is drawn from one instanced mesh per kind, made once at
+// the size the tune asks for.
 import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
-import { burst, disposeTree, fireball, scene } from '@engine/render/index.ts';
+import { burst, disposeTree, scene } from '@engine/render/index.ts';
 import type { FxTune } from '../../data/tune.ts';
 import { PROP_SIZE } from '../../data/props.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
-import {
-  MAX_SOLDIERS,
-  crowdCounts,
-  newCrowd,
-  spawnWave,
-  stepCrowd,
-  type Crowd,
-  type CrowdCounts,
-} from '../../logic/crowd.ts';
+import { newBattle, stepBattle } from '../../logic/battle.ts';
+import { MAX_SOLDIERS, crowdCounts, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
+import { shellBurst } from '../hazards.ts';
 import { MAX_TRACERS, craterMeshes, planeGroup, smokeMesh, soldierMeshes, tracerMesh } from './parts.ts';
 
 const BODY_Y = 0.62; // the body's middle above the feet (m)
@@ -31,10 +26,6 @@ const FALL_DUST = 4; // the pieces of that dust
 
 const SMOKE_RISE = 1.4; // how fast a puff rises (m/s)
 const SMOKE_GROW = 2.2; // how much bigger a puff gets by the end
-const SHELL_FIRE_COLOR = 0xffb347; // the shell's flash
-const SHELL_DEBRIS_COLOR = 0x746654; // the dirt the shell throws
-const SHELL_DEBRIS = 14; // the pieces one shell throws
-const SHELL_RADIUS = 3.2; // the flash's radius (m)
 const WRECK_SMOKE_EVERY = 0.9; // how often a wreck gives a puff (s)
 const WRECK_SMOKE_LIFT = 0.5; // how far above the wreck's top a puff starts (m)
 
@@ -79,11 +70,15 @@ interface WreckSmoke {
   t: number; // seconds until its next puff (s)
 }
 
+export const BATTLE_GROUP_NAME = 'sbBattle';
+
 export interface Battle {
   crowd: Crowd;
   group: THREE.Group;
   // Moves the battle one frame and gives back the shake the shells ask the camera to add this frame (m).
   step(dt: number, mech: { x: number; y: number; z: number }): number;
+  // Lets one tracer fly from a place at a velocity (m, m/s); the allies of the sortie shoot with it.
+  tracer(at: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }): void;
   counts(): CrowdCounts;
   smoke(): number; // the smoke puffs on screen now
   dispose(): void;
@@ -114,10 +109,9 @@ export function buildBattle(
   start: { x: number; z: number },
 ): Battle {
   const group = new THREE.Group();
-  group.name = 'sbFxBattle';
-  const crowd = newCrowd();
-  spawnWave(crowd, rng, map.bounds, Math.round(tune.allies));
-  crowd.waveT = tune.allyWaves;
+  group.name = BATTLE_GROUP_NAME;
+  const state = newBattle(rng, map.bounds, tune);
+  const crowd = state.crowd;
   const { bodies, heads } = soldierMeshes();
   const smoke = smokeMesh(tune.smokeMax);
   const smokeCapacity = Math.max(1, Math.round(tune.smokeMax));
@@ -142,7 +136,6 @@ export function buildBattle(
   const freshColor = new THREE.Color(tune.smokeColor);
   const darkColor = new THREE.Color(tune.smokeDark);
 
-  let shellT = tune.shellEvery > 0 ? tune.shellEvery * 0.5 : 0;
   let tracerT = tune.tracers > 0 ? 1 / tune.tracers : 0;
 
   function drawCraters() {
@@ -204,14 +197,9 @@ export function buildBattle(
     smokePuffs.push({ x, y, z, age: 0, life, size, rise });
   }
 
-  function shell(at: { x: number; z: number }): number {
-    if (tune.shellEvery <= 0) return 0;
-    const dist = tune.shellNear + rng.rand(0, Math.max(0, tune.shellFar - tune.shellNear));
-    const angle = rng.rand(0, Math.PI * 2);
-    const x = at.x + Math.cos(angle) * dist;
-    const z = at.z + Math.sin(angle) * dist;
-    fireball(x, 0.8, z, SHELL_RADIUS, SHELL_FIRE_COLOR);
-    burst(x, 0.8, z, SHELL_DEBRIS_COLOR, SHELL_DEBRIS, 10, 0.7, 18);
+  // Shows a shell that landed at (x, z): its flash and dirt, its hole and its smoke.
+  function landShell(x: number, z: number) {
+    shellBurst(x, z);
     addShellCraterAt(x, z);
     const cubes = Math.min(200, Math.max(0, Math.round(tune.smokeCubes)));
     for (let i = 0; i < cubes; i++) {
@@ -224,7 +212,6 @@ export function buildBattle(
         SMOKE_RISE * rng.rand(0.6, 1.3),
       );
     }
-    return (tune.shellShake * 10) / Math.max(10, dist);
   }
 
   function addTracer(at: { x: number; z: number }) {
@@ -374,15 +361,12 @@ export function buildBattle(
     crowd,
     group,
     step(dt, mech) {
-      const fell = stepCrowd(crowd, rng, dt, tune);
-      for (const soldier of fell) burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
+      const frame = stepBattle(state, rng, dt, tune, mech);
+      for (const soldier of frame.fell) burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
       let shake = 0;
-      if (tune.shellEvery > 0) {
-        shellT -= dt;
-        if (shellT <= 0) {
-          shake += shell(mech);
-          shellT = Math.max(0.01, tune.shellEvery);
-        }
+      if (frame.shell !== null) {
+        landShell(frame.shell.x, frame.shell.z);
+        shake = frame.shell.shake;
       }
       stepSmoke(dt);
       stepTracers(dt, mech);
@@ -392,6 +376,10 @@ export function buildBattle(
       drawTracers();
       drawPlanes();
       return shake;
+    },
+    tracer(at, velocity) {
+      if (tracerList.length >= MAX_TRACERS) return;
+      tracerList.push({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, life: TRACER_LIFE });
     },
     counts: () => crowdCounts(crowd),
     smoke: () => smokePuffs.length,

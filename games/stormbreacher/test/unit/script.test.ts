@@ -138,7 +138,8 @@ const CUTSCENE_MISSION: MissionDef = {
   objectives: [],
   marks: [],
   allies: [],
-  paths: [],
+  paths: {},
+  places: {},
 };
 
 test('a cutscene ends after CUTSCENE_SEC', () => {

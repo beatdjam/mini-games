@@ -1,0 +1,71 @@
+// The allied mech of the mission script (SB-170): it runs along a way the mission names, with no hit box (the mech and the
+// shots pass through it), and falls where its fate says. Pure functions over one ally's state, so a node test can run
+// them and a checkpoint can copy them; no three and no DOM. +z is the sea.
+import { distXZ } from '@engine/core/index.ts';
+import { ALLY_TUNE } from '../data/allies.ts';
+import type { GroundSpot } from '../data/types.ts';
+
+// The ally's fate once it reaches the place: it falls by `by` there.
+export interface AllyFate {
+  place: GroundSpot;
+  by: string;
+}
+
+export interface AllyState {
+  id: string;
+  x: number; // the feet (m)
+  z: number;
+  yaw: number; // the way it faces (rad); 0 faces -z, as the mech does
+  way: GroundSpot[]; // the points it passes in order, copied from the mission so the state stands alone
+  next: number; // the place in `way` of the point it runs to now; at way.length it has reached the end
+  fate: AllyFate | null; // null for an ally that lives on
+  down: boolean; // true once it has fallen; it does not move again
+}
+
+// An ally standing at the first point of its way, facing the second.
+export function newAlly(id: string, way: readonly GroundSpot[], fate: AllyFate | null): AllyState {
+  if (way.length === 0) throw new Error(`the way of ally "${id}" has no point`);
+  const ally: AllyState = {
+    id,
+    x: way[0].x,
+    z: way[0].z,
+    yaw: 0,
+    way: way.map(p => ({ ...p })),
+    next: 1,
+    fate,
+    down: false,
+  };
+  if (way.length > 1) ally.yaw = faceTo(way[0], way[1]);
+  return ally;
+}
+
+function faceTo(from: GroundSpot, to: GroundSpot): number {
+  return Math.atan2(-(to.x - from.x), -(to.z - from.z));
+}
+
+// Runs the ally on by `dt` along its way at ALLY_TUNE.speed. Gives back true on the frame it comes within
+// ALLY_TUNE.arrive of its fate's place, and it is down from then on; a fallen ally, or one at the end of its way, stays.
+export function stepAlly(ally: AllyState, dt: number): boolean {
+  if (ally.down) return false;
+  let left = ALLY_TUNE.speed * Math.max(0, dt);
+  while (left > 0 && ally.next < ally.way.length) {
+    const to = ally.way[ally.next];
+    const dist = distXZ(ally, to);
+    ally.yaw = faceTo(ally, to);
+    if (dist <= left) {
+      ally.x = to.x;
+      ally.z = to.z;
+      left -= dist;
+      ally.next++;
+    } else {
+      ally.x += ((to.x - ally.x) / dist) * left;
+      ally.z += ((to.z - ally.z) / dist) * left;
+      left = 0;
+    }
+  }
+  if (ally.fate !== null && distXZ(ally, ally.fate.place) <= ALLY_TUNE.arrive) {
+    ally.down = true;
+    return true;
+  }
+  return false;
+}

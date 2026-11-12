@@ -49,6 +49,12 @@ export interface Cue {
   actions: readonly Action[];
 }
 
+// A point on the ground (m); +z is the sea.
+export interface GroundSpot {
+  x: number;
+  z: number;
+}
+
 // A mission's whole script and the names its cues may use. The lists are what validateMission checks against.
 export interface MissionDef {
   id: string;
@@ -59,7 +65,8 @@ export interface MissionDef {
   objectives: readonly string[];
   marks: readonly string[];
   allies: readonly string[];
-  paths: readonly string[];
+  paths: Readonly<Record<string, readonly GroundSpot[]>>; // the ways an ally runs, by name; a way is the points it passes in order
+  places: Readonly<Record<string, GroundSpot>>; // the places a fate happens at, by name
 }
 
 // The map (SB-055): what stands where on M1's B line and the front of C, written by hand, made from a seed, or put
