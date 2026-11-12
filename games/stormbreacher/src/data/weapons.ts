@@ -12,8 +12,8 @@ export interface WeaponDef {
 }
 
 export const WEAPONS: Record<WeaponId, WeaponDef> = {
-  autocannon: { damage: 10, range: 120, speed: 400, interval: 0.125, ammo: 200 }, // 8 shots a second
-  heavyGun: { damage: 60, range: 180, speed: 250, interval: 1.2, ammo: 8 },
+  autocannon: { damage: 10, range: 120, speed: 400, interval: 0.125, ammo: 400 }, // 8 shots a second, 50 s of fire
+  heavyGun: { damage: 60, range: 180, speed: 250, interval: 1.2, ammo: 12 },
 };
 
 // M1's fixed pair (D-12): the main is the rapid autocannon, the sub is the single heavy gun. Provisional.
