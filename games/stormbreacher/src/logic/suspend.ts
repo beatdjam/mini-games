@@ -4,12 +4,13 @@ import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { M1 } from '../data/missions/m1.ts';
 import type { MapDef, MissionDef } from '../data/types.ts';
 import type { GameModel, GameSnapshot } from './game.ts';
+import { newNav } from './nav.ts';
 
-export const SUSPEND_VERSION = 1;
+export const SUSPEND_VERSION = 2; // 2: an enemy has a height and a fall speed
 
 // The game as a suspend keeps it: every field of GameModel except the ones listed in suspendOf. `map` and `mission` are
 // definitions nothing writes to, so they go by id (below) and come back from the tables; `checkpoint` is kept apart.
-type SuspendedGame = Omit<GameModel, 'events' | 'bullets' | 'shells' | 'map' | 'mission' | 'checkpoint'>;
+type SuspendedGame = Omit<GameModel, 'events' | 'bullets' | 'shells' | 'nav' | 'map' | 'mission' | 'checkpoint'>;
 type SuspendedCheckpoint = Omit<GameSnapshot, 'map' | 'mission'>;
 
 export interface SuspendData {
@@ -25,10 +26,11 @@ const MAPS: Record<string, MapDef> = { [M1B_HAND.id]: M1B_HAND };
 const MISSIONS: Record<string, MissionDef> = { [M1.id]: M1 };
 
 // A deep copy of the game for the suspend. The fields that are not kept are taken out by name, so a field added to
-// GameModel is kept unless it is added to the list. `events` and `bullets` are the frame's own, and `shells` (a warning
-// before it lands) is dropped as a checkpoint drops it, so a shell warned and not landed is gone after the resume.
+// GameModel is kept unless it is added to the list. `events` and `bullets` are the frame's own, `shells` (a warning
+// before it lands) is dropped as a checkpoint drops it, so a shell warned and not landed is gone after the resume, and
+// `nav` is made again from the rects on the first frame with an enemy.
 export function suspendOf(game: GameModel): SuspendData {
-  const { events: _events, bullets: _bullets, shells: _shells, map, mission, checkpoint, ...kept } = game;
+  const { events: _events, bullets: _bullets, shells: _shells, nav: _nav, map, mission, checkpoint, ...kept } = game;
   let savedCheckpoint: SuspendedCheckpoint | null = null;
   if (checkpoint !== null) {
     const { map: _map, mission: _mission, ...rest } = checkpoint;
@@ -113,5 +115,5 @@ export function restoreSuspend(data: unknown): GameModel | null {
   // hasGameShape checked every field of SuspendedGame, which is what the casts below rely on
   const kept = structuredClone(data.game) as SuspendedGame;
   const checkpoint = saved === null ? null : { ...(structuredClone(saved) as SuspendedCheckpoint), map, mission };
-  return { ...kept, map, mission, bullets: [], shells: [], events: [], checkpoint };
+  return { ...kept, map, mission, bullets: [], shells: [], nav: newNav(), events: [], checkpoint };
 }

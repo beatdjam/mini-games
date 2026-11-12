@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { newGame } from '../../src/logic/game.ts';
+import { buildNavGrid, newNav } from '../../src/logic/nav.ts';
 import { SUSPEND_VERSION, restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 
 // The data as the storage hands it back: written to JSON and read again.
@@ -18,18 +19,21 @@ describe('suspend', () => {
     expect('mission' in data.game).toBe(false);
   });
 
-  test('the frame-only fields are not kept: events, bullets in flight and shells warned', () => {
+  test('the frame-only fields are not kept: events, bullets in flight, shells warned and the enemies’ nav', () => {
     const game = newGame(M1B_HAND);
     game.bullets.push({ enemy: 'grunt', x: 0, y: 1, z: 0, dx: 0, dy: 0, dz: 1, left: 10 });
     game.shells.push({ x: 1, z: 2, radius: 5, warn: 2, left: 1, damage: 10 });
+    game.nav = { grid: buildNavGrid(game.rects, M1B_HAND.bounds, 0.75), field: null, since: 3 };
     const data = suspendOf(game);
     expect('events' in data.game).toBe(false);
     expect('bullets' in data.game).toBe(false);
     expect('shells' in data.game).toBe(false);
+    expect('nav' in data.game).toBe(false);
     const back = restoreSuspend(stored(data));
     expect(back?.bullets).toEqual([]);
     expect(back?.shells).toEqual([]);
     expect(back?.events).toEqual([]);
+    expect(back?.nav).toEqual(newNav()); // made again from the rects on the first frame with an enemy
   });
 
   test('read back, every other field is the same, and map and mission are the definitions themselves', () => {
