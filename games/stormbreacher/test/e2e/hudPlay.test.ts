@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { el, t } from '@engine/core/index.ts';
+import { el, runSystems, t } from '@engine/core/index.ts';
 import { CAMERA_TUNE } from '../../src/data/tune.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import { sendToScript } from '../../src/logic/game.ts';
@@ -84,7 +84,8 @@ test('the lock frame shows only while the aim is pulled toward a target', async 
   game.mech.x = -33 - CAMERA_TUNE.shoulder;
   game.mech.z = 5;
   game.mech.yaw = 0;
-  for (let i = 0; i < 120 && game.aimTarget === null; i++) await frame();
+  // the systems run by hand, a 60th of a second each: waiting for drawn frames timed out on CI
+  for (let i = 0; i < 120 && game.aimTarget === null; i++) runSystems(1 / 60);
   expect(game.aimTarget).not.toBeNull();
   await frame();
   expect(lock.hidden).toBe(false);
@@ -92,7 +93,7 @@ test('the lock frame shows only while the aim is pulled toward a target', async 
 
   game.mech.x = 0;
   game.mech.z = 140;
-  for (let i = 0; i < 120 && game.aimTarget !== null; i++) await frame();
+  for (let i = 0; i < 120 && game.aimTarget !== null; i++) runSystems(1 / 60);
   expect(game.aimTarget).toBeNull();
   await frame();
   expect(lock.hidden).toBe(true);
