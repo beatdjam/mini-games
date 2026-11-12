@@ -1,3 +1,4 @@
+import type { GaitKind } from './mech.ts';
 import type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
 
 export type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
@@ -59,6 +60,33 @@ export const MOVE_TUNE: MoveTune = {
   landStop: 0.12, // how long a landing stops the mech from walking (s)
   turn: 2.6, // how fast the turn keys change the yaw (rad/s)
   maxStep: 1 / 120, // the longest step a frame is split into (s)
+};
+
+// What each kind of legs changes in MOVE_TUNE (SB-130's third card; provisional). Only the items that differ are
+// written; the biped is the standard and changes none. The mech's own table is made by moveTuneOf (logic/mechTune.ts).
+export const LEG_MOVE_TUNE: Record<GaitKind, Partial<MoveTune>> = {
+  biped: {},
+  reverse: { walk: 8.5, accel: 44, jump: 8.2, boostDrain: 0.42, stepHeight: 0.6 }, // fast, jumps high, boosts long
+  multi: { walk: 6.2, jump: 5.4, stepHeight: 0.6 }, // slow, jumps low
+};
+
+// How the mech's body moves while it walks, boosts, jumps and fires (SB-130's third card; view only, provisional).
+// Lengths are ratios of the mech's height.
+export const MOTION_TUNE = {
+  walkSpeed: 6, // the speed at which the legs swing fully (m/s)
+  idleSpeed: 0.3, // below this speed the legs stand (m/s)
+  walkRate: 6, // how fast the swing grows and dies away (1/s)
+  airRate: 12, // how fast the legs tuck and come back (1/s)
+  boostRate: 8, // how fast the lean and the flame come and go (1/s)
+  lean: 0.2, // how far the body leans forward while boosting (rad)
+  flameLength: 0.22, // the flame's length at full boost
+  flameSize: 0.035, // the flame's width and height
+  flameShow: 0.02, // the flame is drawn above this share of full boost
+  recoilBack: 0.06, // how far a shot pulls the arms back
+  recoilTime: 0.16, // how long the arms take to come back (s)
+  landDip: 0.05, // how far a landing at landSpeed sinks the body
+  landSpeed: 10, // the falling speed that sinks the body fully (m/s)
+  landTime: 0.2, // how long the body takes to come back up (s)
 };
 
 // The feel of moving and firing (SB-025): camera and screen effects. Angles are in degrees, but only the FOV uses them.

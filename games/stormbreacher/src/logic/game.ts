@@ -16,9 +16,10 @@
 import { ENEMIES, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { BARRAGES, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
+import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
-import { FCS_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../data/tune.ts';
+import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
 import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, type GroundRect } from './collide.ts';
@@ -47,6 +48,7 @@ import {
 } from './hazards.ts';
 import { blockingPropIndexes, mapBlockers } from './mapShapes.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from './mech.ts';
+import { moveTuneOf } from './mechTune.ts';
 import { stream } from './rng.ts';
 import { newScript, scriptInput, stepScript, type ScriptInput, type ScriptOut, type ScriptState } from './script.ts';
 import { newWeapon, stepWeapon, type WeaponState } from './weapons.ts';
@@ -674,7 +676,7 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   // while a cutscene plays the mech holds still and holds its fire; the aim line still passes through
   const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
   game.time += dt;
-  const events = stepMech(game.mech, input, dt, MOVE_TUNE, 0, {
+  const events = stepMech(game.mech, input, dt, moveTuneOf(M1_MECH), 0, {
     rects: game.rects,
     radius: MECH_TUNE.radius,
   });

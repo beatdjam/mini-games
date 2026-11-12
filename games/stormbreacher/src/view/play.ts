@@ -22,6 +22,7 @@ import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.t
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { applyLookTo } from './look.ts';
+import { drawMechMotion } from './mechDrive.ts';
 import { buildMechVisual, setMechOpacity } from './mechModel.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
@@ -155,6 +156,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
 
   view.model.position.set(game.mech.x, game.mech.y, game.mech.z);
   view.model.rotation.y = game.mech.yaw;
+  drawMechMotion(view.model, game, dt);
   // the mech is still in the boat while a cutscene plays, so it is not drawn standing on the beach
   view.model.visible = game.script.cutscene === null;
 

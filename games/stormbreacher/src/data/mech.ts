@@ -20,10 +20,17 @@ export interface MechBox {
   mirror?: 'x' | 'xz'; // 'x': also draw the box mirrored in x (two boxes); 'xz': mirrored in x and in z (four boxes)
 }
 
+// How a pair of legs moves (SB-130's third card): the heavy biped is the standard, the reverse-joint legs are fast and
+// jump high, the multi legs are slow and low-jumping. The move values are LEG_MOVE_TUNE (tune.ts), the swing GAIT_LOOK.
+export const GAIT_KINDS = ['biped', 'reverse', 'multi'] as const;
+export type GaitKind = (typeof GAIT_KINDS)[number];
+
 export interface PartDef {
   weight: number; // provisional weight (t); the third card turns it into speed
   boxes: readonly MechBox[];
   hipY?: number; // legs only: the hip top's height, as a ratio of the mech's height
+  gait?: GaitKind; // legs only: how they move
+  exhaust?: readonly Vec3[]; // back only: where the boost's flame leaves, facing back (ratio, from the hip top)
   mount?: Vec3; // arms: where the main weapon sits; back: where the sub weapon sits (ratio, from the hip top)
 }
 
@@ -104,6 +111,7 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
     stoutLegs: {
       weight: 5,
       hipY: 0.4,
+      gait: 'biped',
       boxes: [
         { size: [0.17, 0.33, 0.2], at: [0.13, 0.235, 0], color: 'armor', mirror: 'x' },
         { size: [0.2, 0.07, 0.3], at: [0.13, 0.035, -0.04], color: 'frame', mirror: 'x' },
@@ -113,6 +121,7 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
       // provisional: stoutLegs made leaner (SB-130's second card)
       weight: 4,
       hipY: 0.45,
+      gait: 'biped',
       boxes: [
         { size: [0.12, 0.38, 0.15], at: [0.1, 0.26, 0], color: 'armor', mirror: 'x' },
         { size: [0.15, 0.06, 0.24], at: [0.1, 0.03, -0.03], color: 'frame', mirror: 'x' },
@@ -122,6 +131,7 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
       // provisional: midLegs made taller (SB-130's second card)
       weight: 3.5,
       hipY: 0.52,
+      gait: 'biped',
       boxes: [
         { size: [0.1, 0.45, 0.13], at: [0.1, 0.295, 0], color: 'armor', mirror: 'x' },
         { size: [0.14, 0.06, 0.22], at: [0.1, 0.03, -0.03], color: 'frame', mirror: 'x' },
@@ -130,6 +140,7 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
     reverseLegs: {
       weight: 3,
       hipY: 0.5,
+      gait: 'reverse',
       boxes: [
         { size: [0.09, 0.27, 0.1], at: [0.09, 0.37, 0.06], color: 'armor', rotX: -0.46, mirror: 'x' },
         { size: [0.09, 0.27, 0.1], at: [0.09, 0.15, 0.04], color: 'armor', rotX: 0.63, mirror: 'x' },
@@ -139,6 +150,7 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
     quadLegs: {
       weight: 7,
       hipY: 0.3,
+      gait: 'multi',
       boxes: [
         { size: [0.09, 0.26, 0.09], at: [0.19, 0.17, 0.15], color: 'armor', mirror: 'xz' },
         { size: [0.14, 0.04, 0.16], at: [0.19, 0.02, 0.15], color: 'frame', mirror: 'xz' },
@@ -149,6 +161,10 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
     pack: {
       weight: 3,
       mount: [-0.2, 0.52, 0.06],
+      exhaust: [
+        [-0.08, 0.1, 0.32],
+        [0.08, 0.1, 0.32],
+      ],
       boxes: [
         { size: [0.28, 0.26, 0.14], at: [0, 0.26, 0.21], color: 'frame' },
         { size: [0.08, 0.08, 0.1], at: [0.08, 0.1, 0.27], color: 'accent', mirror: 'x' },
@@ -157,6 +173,10 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
     boosters: {
       weight: 1,
       mount: [-0.07, 0.38, 0.1],
+      exhaust: [
+        [-0.07, 0.12, 0.18],
+        [0.07, 0.12, 0.18],
+      ],
       boxes: [
         { size: [0.07, 0.3, 0.08], at: [0.07, 0.22, 0.14], color: 'frame', mirror: 'x' },
         { size: [0.05, 0.05, 0.06], at: [0.07, 0.05, 0.14], color: 'accent', mirror: 'x' },
@@ -165,6 +185,10 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
     pods: {
       weight: 4,
       mount: [0, 0.64, 0.06],
+      exhaust: [
+        [-0.2, 0.52, 0.19],
+        [0.2, 0.52, 0.19],
+      ],
       boxes: [
         { size: [0.13, 0.22, 0.22], at: [0.2, 0.52, 0.08], color: 'frame', mirror: 'x' },
         { size: [0.1, 0.14, 0.02], at: [0.2, 0.52, -0.04], color: 'accent', mirror: 'x' },
@@ -173,6 +197,7 @@ export const PARTS: { [S in SlotId]: Record<PartIdOf<S>, PartDef> } = {
     turret: {
       weight: 5,
       mount: [0, 0.46, 0.04],
+      exhaust: [[0, 0.34, 0.17]],
       boxes: [
         { size: [0.26, 0.06, 0.26], at: [0, 0.3, 0.04], color: 'frame' },
         { size: [0.22, 0.1, 0.24], at: [0, 0.38, 0.04], color: 'armor' },
@@ -230,6 +255,19 @@ export const M1_MECH_PALETTE: Record<MechColor, number> = {
   weapon: 0x9a9a92,
 };
 export const M1_WEAPON_SCALE = 1;
+
+// How far a gait swings the legs (provisional). Used by the view only; the speeds are LEG_MOVE_TUNE.
+export interface GaitLook {
+  stride: number; // the ground one swing cycle (both legs) covers, as a ratio of the mech's height
+  swing: number; // the swing at full walking speed (rad)
+  bend: number; // how far the legs tuck back in the air (rad)
+}
+
+export const GAIT_LOOK: Record<GaitKind, GaitLook> = {
+  biped: { stride: 0.8, swing: 0.5, bend: 0.35 },
+  reverse: { stride: 1, swing: 0.4, bend: 0.6 },
+  multi: { stride: 0.6, swing: 0.3, bend: 0.15 },
+};
 
 // The weapons' boxes, with the origin at the mount and the front toward -z.
 export const WEAPON_LOOK: Record<WeaponId, readonly MechBox[]> = {
