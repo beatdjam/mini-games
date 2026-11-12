@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
+import { boomShakeAt } from '../data/boom.ts';
 import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
@@ -19,7 +20,8 @@ import { buildBattle, type Battle } from './battle/index.ts';
 import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
-import { feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
+import { buildBooms, drawBooms, spawnBoom } from './boom.ts';
+import { feelBoom, feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
 import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.ts';
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
@@ -34,8 +36,7 @@ const MAX_BULLET_LINES = 96; // the most bullets drawn at once, for the mech's a
 const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
 const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per landing
 const BOOST_DUST = 6; // the same, per boost start
-const BLAST_DUST = 14; // the same, per shell landing or mine blast
-const BLAST_SHAKE_NEAR = 25; // a blast this near the mech (m) shakes the camera even when it does no harm
+const BLAST_DUST = 14; // the same, per ally falling to a mortar shell
 
 // The bullets in flight, drawn as one set of line segments: two vertices a bullet, the position written every frame.
 export interface BulletLines {
@@ -64,6 +65,7 @@ export interface PlayView {
 // Builds the sortie's map and its mech into the scene. Hiding the start-up field is left to the caller.
 export function buildPlayView(game: GameModel): PlayView {
   const world = buildWorld(game.map);
+  buildBooms(game.map.bounds);
   // the look comes from the mission's row; the sortie is M1's B alone, so M1.id is written here (SB-300 picks the mission)
   applyLookTo(lookOf(M1.id), world.built.group);
   const model = buildMechVisual(
@@ -129,6 +131,11 @@ function drawBullets(lines: BulletLines, bullets: readonly Bullet[]): void {
 export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
   const mechEvents: MechEvent[] = [];
   let kill = false;
+  // the blast and the shake its distance from the mech asks for
+  const blast = (kind: 'small' | 'large', x: number, y: number, z: number) => {
+    spawnBoom(kind, x, y, z);
+    feelBoom(view.feel, boomShakeAt(kind, distXZ({ x, z }, game.mech)));
+  };
   for (const event of game.events) {
     if (event.kind === 'mech') {
       mechEvents.push(event.event);
@@ -138,12 +145,20 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       mechEvents.push({ kind: 'fire', speed: 0 });
     } else if (event.kind === 'hit') {
       spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
-    } else if (event.kind === 'destroyed' || event.kind === 'enemyDown') {
+    } else if (event.kind === 'destroyed') {
       kill = true;
+      const target = game.targets.find(entry => entry.id === event.id);
+      if (target) {
+        const { box } = target;
+        blast('large', (box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, (box.minZ + box.maxZ) / 2);
+      }
+    } else if (event.kind === 'enemyDown') {
+      kill = true;
+      blast('small', event.x, 0.6, event.z);
+    } else if (event.kind === 'propDestroyed') {
+      blast('small', event.x, 0.5, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
-      spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
-      // a blast that hurt shakes through 'damaged'; a near one that missed shakes here
-      if (!event.hit && distXZ(event, game.mech) <= BLAST_SHAKE_NEAR) feelDamage(view.feel, FEEL_TUNE);
+      blast('large', event.x, 0.8, event.z);
     } else if (event.kind === 'allyDown') {
       // the only fate there is is a mortar shell, drawn as a battle shell is
       shellBurst(event.x, event.z);
@@ -187,7 +202,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     view.camPos && cutscene === null ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
   const pos = view.camPos.clone().add(frame.offset);
   applyPose(camera, { ...pose, pos }, frame.fov);
-  drawCutscene(view.cutscene, game, view.hud.root);
+  drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset);
+  drawBooms(dt);
 
   // a camera pushed close by a wall would fill the screen with the mech, so the mech turns see-through
   const near =

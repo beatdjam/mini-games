@@ -12,6 +12,7 @@ import { recordClear } from '../logic/save.ts';
 import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME, placeCamera } from '../view/field.ts';
 import { removeAllyView } from '../view/allies.ts';
+import { removeBooms } from '../view/boom.ts';
 import { removeCutsceneView } from '../view/cutscene.ts';
 import { removeEnemyView } from '../view/enemies.ts';
 import { removeHazardView } from '../view/hazards.ts';
@@ -59,6 +60,7 @@ function clearPlay(old: PlayView): void {
   removeAllyView(old.allies);
   removeHud(old.hud);
   removeCutsceneView(old.cutscene);
+  removeBooms();
 }
 
 // The sortie's time as minutes and seconds ("3:07").
