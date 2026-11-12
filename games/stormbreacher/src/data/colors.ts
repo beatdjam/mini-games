@@ -57,3 +57,17 @@ export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
 };
 // The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
 export const MECH_FLAME_COLOR = 0xffd27a;
+
+// The briefing's map (SB-310, 仮): the land, the sea, the three kinds of ground props and the marks. The marks that stand
+// for a side take the HUD's colours (the radar's enemy and the bars' cyan).
+export const BRIEFING_COLOR = {
+  land: '#6f6a54', // the sand seen from above
+  sea: '#27404f', // the sea
+  hedgehog: '#9a9680', // a hedgehog's dot
+  wall: '#d8d2b8', // a seawall piece's dot
+  cliff: '#4a4538', // a cliff's dot
+  enemy: HUD_COLOR.warn, // the battery, the pillboxes, the soldiers
+  depot: HUD_COLOR.amber, // the depot
+  wave1: HUD_COLOR.bar, // the first wave's arrow
+  wave2: '#7fb4d6', // the second wave's arrow, paler than the first
+};

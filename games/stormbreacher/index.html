@@ -58,6 +58,22 @@ body{
   background:rgba(5,8,12,.72);text-align:center;
 }
 #sbPause{z-index:6}
+/* briefing (SB-310): the map on the left, the lines and the buttons on the right; a tap anywhere but a button brings the next line */
+#sbBriefing{
+  position:fixed;inset:0;z-index:4;box-sizing:border-box;display:flex;gap:clamp(12px,3vw,32px);align-items:stretch;
+  padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  background:#05080c;
+}
+#sbBriefingMap{height:100%;width:auto;min-width:0;border:1px solid rgba(213,228,238,.35)}
+#sbBriefingText{flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px;min-width:0}
+#sbBriefing .title{font-size:clamp(14px,3vmin,22px);font-weight:700;letter-spacing:.16em;color:#ffcf6a}
+#sbBriefingLines{display:flex;flex-direction:column;gap:8px}
+#sbBriefingLines p{margin:0;font-size:clamp(13px,2.6vmin,20px);color:#a9bfcc}
+#sbBriefingLines p[data-latest="true"]{color:#e8eef2}
+#sbBriefing button{
+  align-self:flex-start;min-width:140px;height:40px;padding:0 14px;font:inherit;font-size:14px;color:#e8eef2;
+  border:1px solid rgba(213,228,238,.35);background:rgba(10,17,25,.7);cursor:pointer;
+}
 #sbResult .title,#sbPause .title{font-size:clamp(24px,6vmin,48px);font-weight:700;letter-spacing:.16em;text-shadow:0 2px 8px rgba(0,0,0,.7)}
 #sbResultPay{display:flex;flex-direction:column;gap:2px}
 #sbResult p{margin:0;font-size:clamp(13px,2.4vmin,18px);color:#cfe4ef}
@@ -107,6 +123,15 @@ body{
   <button id="sbPauseAbandon" type="button" data-i18n="pause.abandon"></button>
   <button id="sbAbandonYes" type="button" data-i18n="pause.abandonYes" hidden></button>
   <button id="sbAbandonNo" type="button" data-i18n="pause.abandonNo" hidden></button>
+</div>
+<div id="sbBriefing" hidden>
+  <canvas id="sbBriefingMap"></canvas>
+  <div id="sbBriefingText">
+    <div class="title" data-i18n="briefing.title"></div>
+    <div id="sbBriefingLines"></div>
+    <button id="sbBriefingGo" type="button" data-i18n="briefing.go" hidden></button>
+    <button id="sbBriefingSkip" type="button" data-i18n="briefing.skip"></button>
+  </div>
 </div>
 <div id="sbResult" hidden>
   <div class="title" data-i18n="result.title"></div>

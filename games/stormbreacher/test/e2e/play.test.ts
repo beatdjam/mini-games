@@ -36,6 +36,8 @@ async function until(done: () => boolean, tries = 240): Promise<void> {
 
 test('the start button begins a sortie on M1 B', () => {
   el<HTMLButtonElement>('#sbStart').click();
+  expect(state).toBe('briefing');
+  el<HTMLButtonElement>('#sbBriefingSkip').click(); // the briefing is test/e2e/briefing.test.ts's
   expect(state).toBe('play');
   const current = game();
   expect(current.mech.z).toBe(current.map.bounds.maxZ - PLAY_TUNE.startMargin);
