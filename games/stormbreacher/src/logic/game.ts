@@ -187,20 +187,40 @@ export function targetBox(place: TargetPlace): Aabb {
 }
 
 // The FCS's view of the targets and then the enemies: the id is the place in game.targets, or past them in
-// game.enemies; the centre is the middle of the box.
-function fcsTargets(game: GameModel): FcsTarget[] {
+// game.enemies; the centre is the middle of the box. One the chest cannot see (a prop or a standing target in the way)
+// counts as not alive, so the soft lock never pulls toward an enemy behind a pillbox's wall.
+function fcsTargets(game: GameModel, chest: { x: number; y: number; z: number }): FcsTarget[] {
   const things = [
     ...game.targets.map(target => ({ box: target.box, alive: target.hp > 0 })),
     ...game.enemies.map(enemy => ({ box: enemyBox(enemy), alive: enemy.hp > 0 })),
   ];
-  return things.map(({ box, alive }, id) => ({
-    id,
-    box,
-    cx: (box.minX + box.maxX) / 2,
-    cy: (box.minY + box.maxY) / 2,
-    cz: (box.minZ + box.maxZ) / 2,
-    alive,
-  }));
+  // What hides one from the chest: the props and the standing targets (a pillbox's wall hides the enemy behind it).
+  const walls = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
+  return things.map(({ box, alive }, id) => {
+    const cx = (box.minX + box.maxX) / 2;
+    const cy = (box.minY + box.maxY) / 2;
+    const cz = (box.minZ + box.maxZ) / 2;
+    return { id, box, cx, cy, cz, alive: alive && inSight(chest, cx, cy, cz, box, walls) };
+  });
+}
+
+// Whether the line from the chest to (cx, cy, cz) meets none of `walls` before it enters `own` (the thing's own box,
+// which is left out of the walls: a target's centre is inside its own box).
+function inSight(
+  chest: { x: number; y: number; z: number },
+  cx: number,
+  cy: number,
+  cz: number,
+  own: Aabb,
+  walls: readonly Aabb[],
+): boolean {
+  const dx = cx - chest.x;
+  const dy = cy - chest.y;
+  const dz = cz - chest.z;
+  const length = Math.hypot(dx, dy, dz);
+  const reach = fireRayHit(chest.x, chest.y, chest.z, dx, dy, dz, length, [own])?.dist ?? length;
+  const others = walls.filter(wall => wall !== own);
+  return fireRayHit(chest.x, chest.y, chest.z, dx, dy, dz, reach, others) === null;
 }
 
 // The id of the target or enemy at the FCS's id (see fcsTargets).
@@ -579,7 +599,7 @@ export function step(game: GameModel, input: GameInput, dt: number): void {
     dy: 0,
     dz: -Math.cos(game.mech.yaw),
   };
-  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, chest, fcsTargets(game), dt);
+  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, chest, fcsTargets(game, chest), dt);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);
   const mainShots = stepWeapon(game.main, input.fire, dt);
   const subShots = stepWeapon(game.sub, input.sub, dt);
