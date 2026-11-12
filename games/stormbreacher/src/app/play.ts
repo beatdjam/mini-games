@@ -16,6 +16,7 @@ import { removeBooms } from '../view/boom.ts';
 import { removeCutsceneView } from '../view/cutscene.ts';
 import { removeEnemyView } from '../view/enemies.ts';
 import { removeHazardView } from '../view/hazards.ts';
+import { removeHurtView } from '../view/hurt.ts';
 import { removeHud } from '../view/hud.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
@@ -58,6 +59,7 @@ function clearPlay(old: PlayView): void {
   removeSeaFire(old.seaFire);
   old.battle.dispose();
   removeAllyView(old.allies);
+  removeHurtView(old.hurt);
   removeHud(old.hud);
   removeCutsceneView(old.cutscene);
   removeBooms();

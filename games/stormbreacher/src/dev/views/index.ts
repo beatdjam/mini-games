@@ -13,6 +13,7 @@ import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
 import { showFx } from './fx.ts';
 import { showBoom } from './boom.ts';
+import { showHurt } from './hurt.ts';
 import { showSound } from './sound.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -100,6 +101,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'starts',
     name: 'explosions at the water’s edge: fire, smoke, debris and water, with knobs',
     run: showBoom,
+  },
+  {
+    hash: '#view-hurt',
+    match: 'is',
+    name: 'the signs of being under fire in the sortie, with knobs',
+    run: showHurt,
   },
   {
     hash: '#view-mapedit',

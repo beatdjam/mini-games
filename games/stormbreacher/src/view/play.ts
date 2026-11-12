@@ -25,6 +25,7 @@ import { feelBoom, feelDamage, feelEvents, feelStep, newFeel, spawnDust, type Fe
 import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.ts';
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
+import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from './hurt.ts';
 import { applyLookTo } from './look.ts';
 import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
 import { buildMechVisual, setMechOpacity } from './mechModel.ts';
@@ -59,6 +60,7 @@ export interface PlayView {
   battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; looks only (SB-170)
   allies: AllyView; // the script's allied mech
   hud: PlayHud; // the sortie's HUD, in the page
+  hurt: HurtView; // the red edge, the white flash and the dark edge while the armour is low
   cutscene: CutsceneView; // the bars, the line and the pictures only a cutscene shows
 }
 
@@ -90,6 +92,7 @@ export function buildPlayView(game: GameModel): PlayView {
     battle: buildBattle(game.map, FX_TUNE, stream('battle'), stream('craters'), { x: game.mech.x, z: game.mech.z }),
     allies: buildAllyView(),
     hud,
+    hurt: buildHurtView(document.body),
     cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets),
   };
 }
@@ -131,10 +134,11 @@ function drawBullets(lines: BulletLines, bullets: readonly Bullet[]): void {
 export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
   const mechEvents: MechEvent[] = [];
   let kill = false;
-  // the blast and the shake its distance from the mech asks for
+  // the blast and the shake its distance from the mech asks for; a close blast also whitens the screen
   const blast = (kind: 'small' | 'large', x: number, y: number, z: number) => {
     spawnBoom(kind, x, y, z);
     feelBoom(view.feel, boomShakeAt(kind, distXZ({ x, z }, game.mech)));
+    hurtBlast(view.hurt, x, z, game.mech);
   };
   for (const event of game.events) {
     if (event.kind === 'mech') {
@@ -165,6 +169,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
+      hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw);
     }
   }
   view.feel.shake += view.battle.step(dt, game.mech);
@@ -225,6 +230,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawHazards(view.hazards, game);
   drawSeaFire(view.seaFire, game);
   drawAllies(view.allies, game, view.battle, stream('battle'), dt);
+  hurtStep(view.hurt, dt, game.armor / MECH_TUNE.armor);
   const hud = hudModel(game);
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
   drawHud(view.hud, hud, lock);

@@ -95,6 +95,13 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 画面はタイトル → ブリーフィング → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）でブリーフィングが出て、そこを抜けると `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間・報酬の内訳・所持金と「タイトルへ」）になる。内訳は「報酬と所持金」（4章）。「タイトルへ」は今は `location.reload()` で戻る。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱は出さない。出撃中の HUD は左上に目標、下の真ん中に最後の無線（`RADIO_MIN_SEC` の間だけ。ラベルは `hud.radio`）を出し、ソフトロックが狙いを寄せている相手がいる間は、その相手を囲む四隅の鉤形の枠（ロック枠。色は `HUD_COLOR.lock`）を毎フレーム出す。枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）。機体が着弾予告の円の中にいる間だけ、照準の円の上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。値の出し方は `src/logic/hud.ts`。色と主張は仮。
 
+撃たれている感（SB-1380）は `src/view/hurt.ts` が画面の縁に出す。要素 `#sbPlayHurt`（`z-index: 4`。キャンバスの上、HUD とカットシーンの帯の下）は出撃を作るときに1度だけ作り、毎フレームは `opacity` と `backdrop-filter` を書き換えるだけ。値は `HURT_TUNE` in `src/data/tune.ts`（すべて仮。`#view-hurt` の調整パネルで決める）。
+
+- 被弾の方向: 出来事 `damaged` の `fromX`・`fromZ`（機体から撃った側への向き）と機体の `yaw` から、機体の正面を 0 度とする角度を `hurtAngle` で出す。画面の縁を8方向（正面・右前・右・右後ろ・後ろ・左後ろ・左・左前。`hurtEdge`）に分け、その方向の縁を `HURT_TUNE.edgeFade` 秒かけて赤く光らせる。同じ方向に重ねて受けたら消えるまでの時間を戻し、別の方向は同時に出る
+- 近い着弾: 爆発が機体から `HURT_TUNE.flashNear` m 以内で起きたら、`HURT_TUNE.flashFade` 秒かけて画面を白ませる。強さは近いほど強く、0m で `flashAlpha`、`flashNear` で 0。揺れは5章の爆発の `boomShakeAt` が近いほど強くする（ここでは足さない）
+- 装甲の減り: 装甲が `HURT_TUNE.armorDarkFrom`（0.5 = 50%）を下回ると、画面の縁を暗くし、`backdrop-filter` の `saturate()` で色を抜く。強さは減るほど強く、装甲 0 で `armorDarkMax`・`armorDrain`。出撃を作り直す（やり直し）と戻る
+- 確認用の入口 `#view-hurt`: 本体の出撃を始める（導入のカットシーンは飛ばす）。右上の調整パネルが `HURT_TUNE` を書き換え、「右から被弾」「近くに着弾」「装甲25%」「装甲を戻す」のボタンで、その場で3つの印を起こせる
+
 ### ブリーフィング
 
 出撃の前に、上から見た地図と1行ずつの文で作戦を告げる画面（`briefing`）。画面は `src/app/briefing.ts`、地図の絵は `src/view/briefing.ts`、地図の記号と時計は `src/logic/briefing.ts`（純粋）、行と時間割の表は `src/data/briefings.ts`（型 `BriefingLine`・`BriefingSymbol` は `src/data/types.ts`）、色は `BRIEFING_COLOR` in `src/data/colors.ts`。声はなし。
