@@ -10,7 +10,7 @@ import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE } from '../data/tune.ts';
 import { isEnemyBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { hudModel } from '../logic/hud.ts';
 import type { MechEvent } from '../logic/mech.ts';
-import { applyPose, cameraPose, followPose } from './camera.ts';
+import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, type HazardView } from './hazards.ts';
 import { feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
@@ -151,5 +151,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawBullets(view.enemyBullets, game.bullets.filter(isEnemyBullet));
   drawEnemies(view.enemies, game);
   drawHazards(view.hazards, game);
-  drawHud(view.hud, hudModel(game));
+  const hud = hudModel(game);
+  const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
+  drawHud(view.hud, hud, lock);
 }

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
 import { CAMERA_TUNE } from '../../src/data/tune.ts';
-import { cameraBoxes, cameraPose, followPose, type CameraTarget } from '../../src/view/camera.ts';
+import { cameraBoxes, cameraPose, followPose, screenRect, type CameraTarget } from '../../src/view/camera.ts';
 
 const at = (x = 0, z = 0, yaw = 0): CameraTarget => ({ x, y: 0, z, yaw });
 
@@ -103,4 +103,54 @@ test('a low box behind the mech leaves the camera where it was', () => {
   const open = cameraPose(at(), 0, CAMERA_TUNE, []);
   expect(pose.pulled).toBe(false);
   expect(pose.pos.toArray()).toEqual(open.pos.toArray());
+});
+
+// A camera at the origin looking down -z, on a 1000x500 screen (aspect 2, vertical fov 60).
+function lookingDownZ(): THREE.PerspectiveCamera {
+  const cam = new THREE.PerspectiveCamera(60, 2, 0.1, 1000);
+  cam.updateMatrixWorld();
+  return cam;
+}
+
+const aabb = (minX: number, maxX: number, minY: number, maxY: number, minZ: number, maxZ: number) => ({
+  minX,
+  maxX,
+  minY,
+  maxY,
+  minZ,
+  maxZ,
+});
+
+test('a box in front of the camera gets a rectangle round it', () => {
+  const rect = screenRect(aabb(-2, 2, -2, 2, -21, -19), lookingDownZ(), 1000, 500);
+  if (!rect) throw new Error('the box is in view');
+  expect(rect.left + rect.width / 2).toBeCloseTo(500, 6);
+  expect(rect.top + rect.height / 2).toBeCloseTo(250, 6);
+  expect(rect.width).toBeGreaterThan(0);
+  expect(rect.height).toBeGreaterThan(0);
+  expect(rect.width).toBeCloseTo(rect.height, 6); // a square of metres is a square of pixels
+});
+
+test('a box to the right lands on the right half of the screen', () => {
+  const rect = screenRect(aabb(8, 10, -1, 1, -21, -19), lookingDownZ(), 1000, 500);
+  if (!rect) throw new Error('the box is in view');
+  expect(rect.left).toBeGreaterThan(500);
+});
+
+test('a box behind the camera has no rectangle', () => {
+  expect(screenRect(aabb(-2, 2, -2, 2, 19, 21), lookingDownZ(), 1000, 500)).toBeNull();
+});
+
+test('a box with a corner behind the camera has no rectangle', () => {
+  expect(screenRect(aabb(-2, 2, -2, 2, -10, 10), lookingDownZ(), 1000, 500)).toBeNull();
+});
+
+test('a box off the screen has no rectangle', () => {
+  expect(screenRect(aabb(200, 202, -1, 1, -21, -19), lookingDownZ(), 1000, 500)).toBeNull();
+});
+
+test('a box that runs off the screen is cut to the screen', () => {
+  const rect = screenRect(aabb(5, 200, -1, 1, -21, -19), lookingDownZ(), 1000, 500);
+  if (!rect) throw new Error('the box is in view');
+  expect(rect.left + rect.width).toBeCloseTo(1000, 6);
 });

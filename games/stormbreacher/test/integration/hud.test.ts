@@ -1,9 +1,10 @@
 import { expect, test } from 'vitest';
 import { ENEMIES } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { RADIO_MIN_SEC } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
-import { newGame, type GameModel, type TargetState } from '../../src/logic/game.ts';
+import { newGame, sendToScript, step, type GameInput, type GameModel, type TargetState } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { hudModel } from '../../src/logic/hud.ts';
 
@@ -39,18 +40,108 @@ test('the boost and the ammo follow the game', () => {
   expect(hud.armor).toBe(1);
 });
 
-test('the objective counts only the pillboxes', () => {
+const idle: GameInput = {
+  moveX: 0,
+  moveZ: 0,
+  turn: 0,
+  jump: false,
+  jumpHeld: false,
+  boost: false,
+  fire: false,
+  sub: false,
+};
+
+// M1B_HAND with the battery's two main guns added, so the silence-battery objective has something to count.
+function withGuns(): GameModel {
+  const guns: TargetPlace[] = [
+    { id: 'main-gun-1', kind: 'gun', x: 100, z: -100, yaw: 0 },
+    { id: 'main-gun-2', kind: 'gun', x: 130, z: -100, yaw: 0 },
+  ];
+  return newGame({ ...M1B_HAND, targets: [...M1B_HAND.targets, ...guns] });
+}
+
+test('the objective follows the script', () => {
   const game = newGame(M1B_HAND);
-  expect(hudModel(game).objective).toEqual({ key: HUD_TUNE.objectiveKey, done: 0, total: 2 });
+  expect(hudModel(game).objective).toBeNull();
+
+  step(game, idle, 1 / 60);
+  expect(hudModel(game).objective?.key).toBe('obj.reach-pillboxes');
+
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  expect(hudModel(game).objective?.key).toBe('obj.break-pillboxes');
+});
+
+test('a counted objective shows done and total', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  expect(hudModel(game).objective).toEqual({ key: 'obj.break-pillboxes', count: { done: 0, total: 2 } });
 
   targetAt(game, 'pillbox-1').hp = 0;
-  expect(hudModel(game).objective.done).toBe(1);
+  expect(hudModel(game).objective?.count).toEqual({ done: 1, total: 2 });
 
   targetAt(game, 'depot').hp = 0;
-  expect(hudModel(game).objective.done).toBe(1);
+  expect(hudModel(game).objective?.count).toEqual({ done: 1, total: 2 });
 
   targetAt(game, 'pillbox-2').hp = 0;
-  expect(hudModel(game).objective.done).toBe(2);
+  expect(hudModel(game).objective?.count).toEqual({ done: 2, total: 2 });
+});
+
+test('the battery objective counts the main guns', () => {
+  const game = withGuns();
+  game.script.objective = 'silence-battery';
+  expect(hudModel(game).objective).toEqual({ key: 'obj.silence-battery', count: { done: 0, total: 2 } });
+  targetAt(game, 'main-gun-2').hp = 0;
+  expect(hudModel(game).objective?.count).toEqual({ done: 1, total: 2 });
+});
+
+test('a counted objective leaves out the targets the map does not have', () => {
+  const game = newGame(M1B_HAND);
+  game.script.objective = 'silence-battery';
+  expect(hudModel(game).objective).toEqual({ key: 'obj.silence-battery', count: null });
+});
+
+test('an objective that is not counted shows no count', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 1 / 60);
+  expect(hudModel(game).objective).toEqual({ key: 'obj.reach-pillboxes', count: null });
+  game.script.objective = 'hit-magazine';
+  expect(hudModel(game).objective).toEqual({ key: 'obj.hit-magazine', count: null });
+});
+
+test('the radio line stays for RADIO_MIN_SEC', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 1 / 60);
+  expect(hudModel(game).radio).toBeNull();
+
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  expect(game.radio?.line).toBe('m1.depot-hint');
+  expect(hudModel(game).radio).toBe('m1.depot-hint');
+
+  game.time += RADIO_MIN_SEC - 0.1;
+  expect(hudModel(game).radio).toBe('m1.depot-hint');
+  game.time += 0.2;
+  expect(hudModel(game).radio).toBeNull();
+});
+
+test('the lock box is the box of the target or enemy the aim is pulled toward', () => {
+  const game = newGame({ ...M1B_HAND, targets: [{ id: 'near', kind: 'pillbox', x: 0, z: -50, yaw: 0 }] });
+  atOrigin(game);
+  expect(hudModel(game).lock).toBeNull();
+
+  game.aimTarget = 'near';
+  expect(hudModel(game).lock).toBe(targetAt(game, 'near').box);
+
+  targetAt(game, 'near').hp = 0;
+  expect(hudModel(game).lock).toBeNull();
+
+  const grunt = newEnemy('w-1', 'w', 'grunt', 5, -30);
+  game.enemies.push(grunt);
+  game.aimTarget = 'w-1';
+  const box = hudModel(game).lock;
+  expect(box).not.toBeNull();
+  expect(box?.maxY).toBe(ENEMIES.grunt.height);
+  expect((box?.minX ?? 0) + (box?.maxX ?? 0)).toBeCloseTo(10, 6);
 });
 
 test('the enemy is the living target the aim is pulled toward', () => {

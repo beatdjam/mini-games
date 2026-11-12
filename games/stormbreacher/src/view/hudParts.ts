@@ -179,3 +179,43 @@ export function reticleSvg(): SVGSVGElement {
   );
   return root;
 }
+
+const LOCK_ARM = 10; // px; the length of each corner's arm
+const LOCK_LINE = 2; // px; the arm's thickness
+const LOCK_PAD = 4; // px; how far the frame stands off the target's rectangle
+
+// The lock frame: four corner hooks round a rectangle. `set` moves it (the rect is the target's, the frame adds
+// LOCK_PAD round it); null hides it.
+export function lockFrame(): {
+  root: HTMLElement;
+  set(rect: { left: number; top: number; width: number; height: number } | null): void;
+} {
+  const root = document.createElement('div');
+  root.dataset.hud = 'lock';
+  root.style.cssText = 'position:absolute;box-sizing:border-box;pointer-events:none';
+  root.hidden = true;
+  const line = `${LOCK_LINE}px solid ${HUD_COLOR.lock}`;
+  for (const [v, h] of [
+    ['top', 'left'],
+    ['top', 'right'],
+    ['bottom', 'left'],
+    ['bottom', 'right'],
+  ]) {
+    const hook = document.createElement('div');
+    hook.style.cssText =
+      `position:absolute;box-sizing:border-box;${v}:0;${h}:0;width:${LOCK_ARM}px;height:${LOCK_ARM}px;` +
+      `border-${v}:${line};border-${h}:${line}`;
+    root.appendChild(hook);
+  }
+  return {
+    root,
+    set(rect) {
+      root.hidden = rect === null;
+      if (rect === null) return;
+      root.style.left = `${rect.left - LOCK_PAD}px`;
+      root.style.top = `${rect.top - LOCK_PAD}px`;
+      root.style.width = `${rect.width + LOCK_PAD * 2}px`;
+      root.style.height = `${rect.height + LOCK_PAD * 2}px`;
+    },
+  };
+}

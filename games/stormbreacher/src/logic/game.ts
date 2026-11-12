@@ -155,7 +155,7 @@ function mineBox(mine: MineState): Aabb {
 }
 
 // The box a shot may hit on an enemy: x and z +- its radius, y from the ground to its height.
-function enemyBox(enemy: EnemyState): Aabb {
+export function enemyBox(enemy: EnemyState): Aabb {
   const def = ENEMIES[enemy.kind];
   return rectBox({ x: enemy.x, z: enemy.z, halfW: def.radius, halfD: def.radius, yaw: 0, top: def.height });
 }
