@@ -222,7 +222,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 `ENEMY_CHEST` = 0.7 は、敵が撃つ高さの、高さに対する割合。
 
 敵の動き（`stepEnemy` in `src/logic/enemies.ts`。`EnemyState` は `id`・`wave`・`kind`・`x`・`z`・`yaw`・`hp`・`awake`・`wait`）:
-- 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`b-squad` と `seawall-drop` が `grunt`）にあれば、`map.spawns[波]` の場所ごとに1体を出す（`spawnWave` in `src/logic/game.ts`）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
+- 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`b-squad`・`depot-guard`・`seawall-drop`・`c-squad` が `grunt`）にあれば、`map.spawns[波]` の場所ごとに1体を出す（`spawnWave` in `src/logic/game.ts`）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
 - 寝る: 起きる前は動かず撃たない。機体が地面での距離で `notice` に入ると起き、一度起きたら寝ない
 - 歩く: 起きると機体へ向き（`yaw`）、`stopDist` まで歩く（`stopDist` を越えて進まない）。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない
 - 撃つ: 機体が `fireRange` の中にいて、胸（高さの `ENEMY_CHEST`）から機体の胸への線が物の箱（`game.propBoxes`）と壊れていない目標の箱に遮られないとき、`wait` が 0 になるたびに1発撃ち、`wait` を `fireInterval` に戻す。起きた直後は `fireInterval` 待ってから。向きは `spreadDir(…, spread, stream('enemies'))` で散らす。遮られている間は撃たずに待つ
@@ -580,15 +580,17 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 | `intro` | `start` | `cutscene landing` |
 | `beach` | `after intro 0` | `objective reach-pillboxes`・`map wave2 on`・`spawn beach-mortar`・`ally buddy beach-run`（`fate { at: 'beach-mid', by: 'mortar' }`） |
 | `pillboxes` | `enter b-line` | `objective break-pillboxes`・`spawn b-squad`・`radio m1.depot-hint` |
+| `depot-guard` | `enter depot-approach` | `spawn depot-guard` |
 | `depot` | `destroyed depot` | `flag depot-down`・`radio m1.depot-down` |
 | `cp1` | `destroyed pillbox-1, pillbox-2` | `checkpoint cp1` |
 | `wave2-lost` | `after cp1 4` | `cutscene wave2-sinks`・`radio m1.wave2-lost`・`map wave2 off`・`objective take-seawall`・`spawn seawall-drop` |
+| `c-squad` | `enter c-line` | `spawn c-squad` |
 | `seawall` | `enter seawall-top` | `checkpoint cp2`・`objective silence-battery`・`spawn battery` |
 | `gun1` | `destroyed main-gun-1, main-gun-2`（どれか1つ） | `radio m1.gun1-down` |
 | `shutter` | `destroyed main-gun-1, main-gun-2`（全部） | `flag shutter-open`・`objective hit-magazine` |
 | `win` | `destroyed magazine` | `cutscene beach-held`・`end cleared` |
 
-場所は手書きのマップ `M1B_HAND`（奥行き 340m・幅 200m、z −170〜170）に合わせた座標で、+z が海。浜と B のトーチカ線は z 170 から z 0 あたり（トーチカは z −15）、C の2列（z −55〜−35）の奥に防波堤（z −75〜−65）、その陸側（z −75〜−170）がボスの場所で、主砲が z −135、弾薬庫が z −150。`b-line` は中心 z 135・奥行き 30（z 120〜150）、`seawall-top` は中心 z −70・奥行き 10（z −75〜−65、防波堤の帯）で、幅はどちらも 200。地面からは防波堤に塞がれて入れず、階段を上がって防波堤の上に乗ると入る。物は `depot`・`pillbox-1`・`pillbox-2`・`main-gun-1`・`main-gun-2`・`magazine`、波は `beach-mortar`・`b-squad`・`seawall-drop`・`battery`、目標は `reach-pillboxes`・`break-pillboxes`・`take-seawall`・`silence-battery`・`hit-magazine`、印は `wave2`、味方は `buddy`、道は `beach-run`、場所は `beach-mid`。道と場所の座標は `M1` の `paths`・`places`（`MissionDef`）に置く: `beach-run` は (10,166)・(24,156)・(40,146)・(40,135)・(40,110) を順に通り、`beach-mid` は (40,135)。道は浜の1列目の防風杭（z 131〜143）の切れ目（x 40 あたり）を通す。
+場所は手書きのマップ `M1B_HAND`（奥行き 340m・幅 200m、z −170〜170）に合わせた座標で、+z が海。浜と B のトーチカ線は z 170 から z 0 あたり（トーチカは z −15）、C の2列（z −55〜−35）の奥に防波堤（z −75〜−65）、その陸側（z −75〜−170）がボスの場所で、主砲が z −135、弾薬庫が z −150。`b-line` は中心 z 135・奥行き 30（z 120〜150）、`seawall-top` は中心 z −70・奥行き 10（z −75〜−65、防波堤の帯）で、幅はどちらも 200。`depot-approach` は中心 (55, 52)・幅 50・奥行き 30（x 30〜80・z 37〜67。線2の先、集積所へ下りる道）、`c-line` は中心 z −30・奥行き 10（z −35〜−25）・幅 200（C の1列目の手前）。地面からは防波堤に塞がれて入れず、階段を上がって防波堤の上に乗ると入る。物は `depot`・`pillbox-1`・`pillbox-2`・`pillbox-3`（集積所の守り。目標「トーチカ2基」の数に入らない）・`main-gun-1`・`main-gun-2`・`magazine`、波は `beach-mortar`・`b-squad`・`depot-guard`・`seawall-drop`・`c-squad`・`battery`、目標は `reach-pillboxes`・`break-pillboxes`・`take-seawall`・`silence-battery`・`hit-magazine`、印は `wave2`、味方は `buddy`、道は `beach-run`、場所は `beach-mid`。道と場所の座標は `M1` の `paths`・`places`（`MissionDef`）に置く: `beach-run` は (10,166)・(24,156)・(40,146)・(40,135)・(40,110) を順に通り、`beach-mid` は (40,135)。道は浜の1列目の防風杭（z 131〜143）の切れ目（x 40 あたり）を通す。
 
 ### チェックポイント
 
@@ -655,7 +657,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - `yaw` 0 で -z の向きへ上り、最も低い段が +z 側。`yaw` で段の並びごと回る（`yaw` π/2 で -x の向きへ上る）。壊れず（`PROP_HP` 0）、坂の形の当たりは無い。`blockingPropIndexes` は四角ごとに元の物の番号を返すので、階段は段の数だけ同じ番号が並ぶ
   - 見た目は段の箱ではなく坂（手前の上の辺を地面まで下げた箱）で、段ごとの `top` の奥の辺を通る。種類ごとに `InstancedMesh` 1つで、描く回数は増えない
 - 目標の体力は `TARGET_HP`（仮。`pillbox` 100・`depot` 60・`gun` 200・`magazine` 80。武器の表の威力で減り、トーチカは機関砲10発・砲2発で壊れる。SB-190 で決め直す）
-- 手書きは `src/data/maps/m1b-hand.ts`。範囲は x −100〜100・z −170〜170。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`depot` と、ボスの場所の `main-gun-1`・`main-gun-2`・`magazine`、波は `b-squad`・`seawall-drop`。地雷は浜（z 148〜162、x −60〜60）に6個で、機体の始まり（x 0, z 166）から 6m 以上離す
+- 手書きは `src/data/maps/m1b-hand.ts`。範囲は x −100〜100・z −170〜170。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`pillbox-3`・`depot` と、ボスの場所の `main-gun-1`・`main-gun-2`・`magazine`、波は `b-squad`・`depot-guard`・`seawall-drop`・`c-squad`。地雷は浜（z 148〜162、x −60〜60）に6個で、機体の始まり（x 0, z 166）から 6m 以上離す
   - B は「三重の防御線」: z 128〜146・z 80〜96・z 8〜26 に、それぞれ対戦車障害物を3列（列の間 6m 前後、同じ列の中は 4.4m 以下の間隔で均等に並べる）。線1の突破口は x −55 と x 40、線2は x −10（ほかに壊せる区間 x 40〜60）、線3は x 61（ほかに壊せる区間 x −40〜−20）。突破口はどれも四角の間で 9m 前後、壊せる区間は幅 15m 前後。同じ列の中の隣との四角の距離は 2m 未満（最大 約 1.3m）で、当たり半径 1m の機体は突破口と壊せる区間を壊したあとでなければ列を抜けられない
   - 防波堤は z −75〜−65 に `seawall`（8×6×4m）を z −73・−70・−67 の3列、x −96 から 96 まで 8m おきに25個ずつ並べ、x −100〜100 に隙間が無い（3列は1m ずつ重なる）。その陸側（z −75〜−170）は高さ 0 の平らな地面で、防波堤の上から -z へ歩いて降りると、降りた所で高さが 0 に戻る（下のボスの場所）
   - 階段 `stairs` は2本、x −50 と x 35（z −58.25、`yaw` 0。海側の面 z −65 から z −51.5 まで）。上ると防波堤の上（高さ 6m）に乗れる。C の手前の列（z −50・z −40）の突破口（x −50・x 35）の真後ろに置き、突破口をまっすぐ抜けるとそのまま最下段に乗る（防波堤への道を突破口が決めるため）
@@ -663,7 +665,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - C の手前（z −55〜−35）は2列で突破口が2か所。線の間には塊・残骸・クレーターの遮蔽物をそれぞれ 10〜12 個、線3の奥に6個ほど置く
   - ボスの場所は防波堤の陸側（z −75〜−170）。「防波堤の上の巨大な砲台」の部位を目標として置く: `main-gun-1`（種類 `gun`、x −30, z −135）・`main-gun-2`（`gun`、x 30, z −135）・`magazine`（弾薬庫、x 0, z −150）。大きさは `TARGET_SIZE`（`gun` 14×8×14m、`magazine` 10×8×10m）で、主砲の間は 60m、主砲と弾薬庫の間は約 33m。台本はこの3つの名前で主砲2門 → 弾薬庫の順に進む（7章）。シャッターと、砲台が撃ってくる動きは「ボス（沿岸砲台）」
   - 降りた先（z −80〜−115）の遮蔽物は塊 7 個と残骸 4 個（1行に1つ）。どの2つの間も中心で 20m 以上あいて機体（当たり半径 1m）が通れ、防波堤の降り口から砲台へは遮蔽物で視線の一部が遮られる。主砲と弾薬庫のまわり（z −117 より奥）には置かない
-  - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は z −55（階段 x ±40 の幅に入らない）。崖は右の辺のまま
+  - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は z −55（階段 x ±40 の幅に入らない）。`pillbox-3`（`pillbox`、x 58, z 52）は集積所の守りで、集積所の 21m 海側に置き、線2の壊せる区間（x 50）から下りてくる道をにらむ。`depot-guard` の3か所は集積所の両脇と海側（(40,36)・(66,32)・(60,42)）、`c-squad` の4か所は C の2列の間（z −45、x −70・−20・15・65）。崖は右の辺のまま
 - 生成は `generateMap(rng, rules, anchors)`（`src/logic/mapgen.ts`）。`MapRules` は帯（`minZ`・`maxZ`・`kind`・`count`・`minGap`）・防御線（`lines`）・右の辺の崖・目標のまわりの空き（`clear`、既定 10m）・道筋の帯（`lanes`）を持つ。目標と波の出る場所は物語に関わるので生成せず `anchors` で受ける。M1 の B の規則は `src/data/maps/m1b-rules.ts` の `M1B_RULES`（`lanes` は空で、列の中はすき間が 2m 未満に閉じているので、通り道は防御線の突破口が決める）
 - `MapLine` は `z`（線の真ん中）・`depth`（奥行き）・`rows`（列の数）・`kind`・`spacing`（同じ列の中の間隔）・`gaps`（突破口の真ん中と、四角の間の幅）・`breakable`（壊せる区間の真ん中と幅）を持つ。生成は列ごとに `spacing` で x に並べ、奇数の列を `spacing / 2` ずらし、位置を ±1m・向きと倍率（0.9〜1.1）を少し揺らす。隣の物との四角の距離が `CRACK`（1.5m）を超えたら前の物へ引き寄せる。列の左の端は辺から `CRACK` 以内に寄せ、右は崖の遠い側の面から `CRACK` 以内に届くまで並べる。`spacing` は 4.4（3m の逆茂木の間を 2m 未満に保つ）。`gaps` には四角が入らないように物を置かず、`breakable` の区間の物に `breakable: true` を付ける。帯の物は防御線の z の範囲には置かない
 - 生成は物を置いたあと通り道を調べ、通れなければ種をずらして作り直す（最大10回。だめなら例外）。`rng` は `logic/rng.ts` の `stream('map')` から引く

@@ -22,6 +22,8 @@ const PLACES = {
 
 const AREAS = {
   'b-line': { x: 0, z: 135, w: 200, d: 30 }, // the band just before B (z 120..150)
+  'depot-approach': { x: 55, z: 52, w: 50, d: 30 }, // the way down to the depot (x 30..80, z 37..67), past line 2
+  'c-line': { x: 0, z: -30, w: 200, d: 10 }, // just before C's first row (z -35..-25)
   'seawall-top': { x: 0, z: -70, w: 200, d: 10 }, // the top of the seawall (z -75..-65); the ground cannot reach it
 } as const satisfies Record<string, Area>;
 
@@ -52,6 +54,11 @@ const CUES = [
     ],
   },
   {
+    id: 'depot-guard',
+    trigger: { kind: 'enter', area: 'depot-approach' },
+    actions: [{ kind: 'spawn', wave: 'depot-guard' }],
+  },
+  {
     id: 'depot',
     trigger: { kind: 'destroyed', targets: ['depot'] },
     actions: [
@@ -74,6 +81,11 @@ const CUES = [
       { kind: 'objective', id: 'take-seawall' },
       { kind: 'spawn', wave: 'seawall-drop' },
     ],
+  },
+  {
+    id: 'c-squad',
+    trigger: { kind: 'enter', area: 'c-line' },
+    actions: [{ kind: 'spawn', wave: 'c-squad' }],
   },
   {
     id: 'seawall',
@@ -111,8 +123,8 @@ export const M1: MissionDef = {
   id: 'm1',
   cues: CUES,
   areas: AREAS,
-  targets: ['depot', 'pillbox-1', 'pillbox-2', 'main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'b-squad', 'seawall-drop', 'battery'],
+  targets: ['depot', 'pillbox-1', 'pillbox-2', 'pillbox-3', 'main-gun-1', 'main-gun-2', 'magazine'],
+  waves: ['beach-mortar', 'b-squad', 'depot-guard', 'seawall-drop', 'c-squad', 'battery'],
   objectives: ['reach-pillboxes', 'break-pillboxes', 'take-seawall', 'silence-battery', 'hit-magazine'],
   marks: ['wave2'],
   allies: ['buddy'],
