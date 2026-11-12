@@ -26,6 +26,8 @@ body{
   display:flex;flex-direction:column;align-items:flex-start;gap:6px;
   padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
   pointer-events:none;
+  /* a dark wash on the left keeps the title's words readable over the bright start-up field on a short screen */
+  background:linear-gradient(90deg,rgba(5,8,12,.55),rgba(5,8,12,0) 45%);
 }
 #sbApp .title{font-size:clamp(18px,4.2vmin,34px);font-weight:700;letter-spacing:.12em;line-height:1.1;text-shadow:0 2px 8px rgba(0,0,0,.7)}
 #sbApp .status{font-size:clamp(11px,2vmin,16px);letter-spacing:.16em;color:#ffcf6a;text-shadow:0 1px 6px rgba(0,0,0,.7)}

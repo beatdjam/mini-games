@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { el, t } from '@engine/core/index.ts';
 import { boot } from '../../src/app/boot.ts';
-import { currentGame, startSortie, syncTitle } from '../../src/app/play.ts';
+import { currentGame, startSortie, syncTitle, titleReturn } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
 import { SAVE_KEY, SUSPEND_KEY, loadSuspend, save } from '../../src/app/storage.ts';
 import { sendToScript } from '../../src/logic/game.ts';
@@ -12,6 +12,8 @@ import '../../src/main.ts';
 beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
+  // the real page loads again to go back to the title; a test cannot, so it takes the in-page way
+  titleReturn.reload = false;
 });
 
 // Each test starts with no suspend and no sortie, on the title.

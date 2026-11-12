@@ -109,7 +109,16 @@ export function startSortie(): void {
 
 // Puts the title back: the sortie's drawing is taken out, the start-up field shows again and the title's buttons are
 // set for the suspend that is there or not. The page is not loaded again, so the tests can go on after it.
+// How the pause menu goes back to the title. The page loads again, as the result's "back to title" does: the sortie's
+// look (lights, colour filter, fog, ground) stays on the scene otherwise, and the title's field shows washed out. The
+// e2e tests cannot load the page again in the middle of a test, so they turn `reload` off and get the in-page way.
+export const titleReturn = { reload: true };
+
 function returnToTitle(): void {
+  if (titleReturn.reload) {
+    location.reload();
+    return;
+  }
   if (view) clearPlay(view);
   view = null;
   game = null;
