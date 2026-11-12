@@ -12,6 +12,7 @@ import { showMech } from './mech.ts';
 import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
 import { showFx } from './fx.ts';
+import { showSound } from './sound.ts';
 
 // The views the dev server can open (dev/dev.ts).
 export const DEV_VIEWS: DevView[] = [
@@ -98,5 +99,11 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'put props and targets on M1 B line',
     run: showMapEdit,
+  },
+  {
+    hash: '#view-sound',
+    match: 'is',
+    name: 'every sound in the table, with a distance knob',
+    run: showSound,
   },
 ];
