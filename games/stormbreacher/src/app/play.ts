@@ -1,12 +1,14 @@
 // The screens the sortie moves through: the start button (title), the sortie itself and its result. The logic stays in
 // logic/game.ts and the drawing in view/play.ts; this file decides which of them runs and what the page shows.
-import { addSystem, el, t } from '@engine/core/index.ts';
+import { addSystem, el, lang, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CAMERA_TUNE } from '../data/tune.ts';
 import { hasCutscene } from '../logic/cutscene.ts';
+import { payoutOf, type Payout } from '../logic/economy.ts';
 import { newGame, restartGame, retryFromCheckpoint, sendToScript, step, type GameModel } from '../logic/game.ts';
+import { recordClear } from '../logic/save.ts';
 import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
 import { removeCutsceneView } from '../view/cutscene.ts';
@@ -15,12 +17,14 @@ import { removeHazardView } from '../view/hazards.ts';
 import { removeHud } from '../view/hud.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
+import { save, writeSave } from './storage.ts';
 import { initPlayInput, readInput } from './input.ts';
 import { setState } from './screen.ts';
 import { armSkip, takeSkip } from './skip.ts';
 
 let game: GameModel | null = null; // the sortie in play; null before the first one
 let view: PlayView | null = null;
+let settled: { game: GameModel; payout: Payout } | null = null; // the clear already written to the save, so a second showResult adds nothing
 let started = false; // the play system and the result's button are set up once
 
 // Hides the start-up field's ground and size box; the sortie's map takes their place.
@@ -73,7 +77,7 @@ function beginPlay(next: GameModel): void {
   if (started) return;
   started = true;
   addSystem({ name: 'sb-play', modes: ['play'], update });
-  // Provisional: the result and the save come with SB-210, so the title is the page as it loaded.
+  // The title is the page as it loaded.
   el('#sbResultBack').addEventListener('click', () => location.reload());
   el('#sbResultCheckpoint').addEventListener('click', () => {
     if (game && game.checkpoint) beginPlay(retryFromCheckpoint(game));
@@ -102,7 +106,39 @@ function update(dt: number): void {
   if (game.cleared || game.downed) showResult();
 }
 
-// The result's screen: the heading (the mech downed, or the script's end), the run's time and the buttons. A downed mech
+// A number with the language's thousands separators ("12,300").
+const money = (n: number): string => n.toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US');
+
+// The cleared run's take-home, written into the save once (the money moves only here, at the clear) and returned.
+function settle(done: GameModel): Payout {
+  if (settled && settled.game === done) return settled.payout;
+  const clearedBefore = save.records.missions[done.mission.id]?.cleared === true;
+  const payout = payoutOf(done, clearedBefore);
+  recordClear(save, done.mission.id, done.time, payout);
+  writeSave();
+  settled = { game: done, payout };
+  return payout;
+}
+
+// The breakdown's lines: the base, the bonuses earned, the costs, the take-home and the funds, and a note when it does
+// not go to the funds.
+function payLines(payout: Payout): string[] {
+  const lines = [t('result.base', { cr: money(payout.base) })];
+  for (const id of ['depot', 'par', 'noRetry'] as const) {
+    const bonus = payout.bonuses[id];
+    if (bonus.earned) lines.push(t(`result.bonus.${id}`, { cr: money(bonus.amount) }));
+  }
+  lines.push(t('result.ammo', { cr: money(payout.ammo) }), t('result.repair', { cr: money(payout.repair) }));
+  if (payout.retries > 0) {
+    lines.push(t('result.retry', { count: payout.retries, cr: money(payout.retryCost) }));
+  }
+  lines.push(t('result.net', { cr: money(payout.net) }), t('result.funds', { cr: money(save.funds) }));
+  if (!payout.credited) lines.push(t('result.noCredit'));
+  return lines;
+}
+
+// The result's screen: the heading (the mech downed, or the script's end), the run's time, the cleared run's breakdown
+// and the buttons. A downed mech
 // can start again from the checkpoint (when there is one) or from the start; both come back to the title's page by
 // loading it again.
 export function showResult(): void {
@@ -112,6 +148,16 @@ export function showResult(): void {
   el('#sbResult').hidden = false;
   el('#sbResult .title').textContent = t(game.downed ? 'result.downed' : 'result.title');
   el('#sbResultTime').textContent = t('result.time', { time: clock(game.time) });
+  const pay = el('#sbResultPay');
+  pay.replaceChildren();
+  pay.hidden = !game.cleared;
+  if (game.cleared) {
+    for (const line of payLines(settle(game))) {
+      const row = document.createElement('p');
+      row.textContent = line;
+      pay.append(row);
+    }
+  }
   el('#sbResultCheckpoint').hidden = !(game.downed && game.checkpoint);
   el('#sbResultRestart').hidden = !game.downed;
   exitLock();

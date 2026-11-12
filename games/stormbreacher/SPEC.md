@@ -84,7 +84,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `play` | true | 出撃中 |
 | `result` | false | 結果の画面 |
 
-画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間と「タイトルへ」）になる。「タイトルへ」は今は `location.reload()` で戻る（結果とセーブは SB-210）。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱は出さない。出撃中の HUD は左上に目標、下の真ん中に最後の無線（`RADIO_MIN_SEC` の間だけ。ラベルは `hud.radio`）を出し、ソフトロックが狙いを寄せている相手がいる間は、その相手を囲む四隅の鉤形の枠（ロック枠。色は `HUD_COLOR.lock`）を毎フレーム出す。枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）。機体が着弾予告の円の中にいる間だけ、照準の円の上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。値の出し方は `src/logic/hud.ts`。色と主張は仮。
+画面はタイトル → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）で `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間・報酬の内訳・所持金と「タイトルへ」）になる。内訳は「報酬と所持金」（4章）。「タイトルへ」は今は `location.reload()` で戻る。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱は出さない。出撃中の HUD は左上に目標、下の真ん中に最後の無線（`RADIO_MIN_SEC` の間だけ。ラベルは `hud.radio`）を出し、ソフトロックが狙いを寄せている相手がいる間は、その相手を囲む四隅の鉤形の枠（ロック枠。色は `HUD_COLOR.lock`）を毎フレーム出す。枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）。機体が着弾予告の円の中にいる間だけ、照準の円の上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。値の出し方は `src/logic/hud.ts`。色と主張は仮。
 
 機体の装甲が 0 になる（`downed`）と、`src/app/play.ts` の `update` が結果の画面（`showResult`）へ移す。見出しは、やられたときが `result.downed`（「やられた」/ Downed）、台本の終わりのときが `result.title`（「突破」/ Breakthrough）。どちらも所要時間と「タイトルへ」が出る。やられたときだけ、さらに「チェックポイントから」（`#sbResultCheckpoint`。チェックポイントがあるときだけ）と「最初から」（`#sbResultRestart`）が出る。台本の終わりのときは出ない。押すと、`beginPlay`（`startSortie` と同じ片付けと組み直し）で新しい `GameModel` を描き直し、結果の画面を消して `play` に戻る。やり直しの中身は 7章「チェックポイント」。
 
@@ -98,10 +98,27 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 ## 4. セーブ
 
 - 保存キー: キャンペーンの進みは `SAVE_KEY = 'stormbreacher-v1'`、設定（言語）は全モード共通で `SETTINGS_KEY = 'stormbreacher-settings'`、タッチのボタンの配置は `TOUCH_LAYOUT_KEY = 'stormbreacher-touch-layout'`
-- `SAVE_VERSION = 1`。形を変えたら版を上げ、`MIGRATIONS` に `[to, migrate]` を足す（今は空）
-- `SaveData` は `v` と `records.missions` を持つ。`MissionRecord` は `cleared` と `bestSec`（秒、無ければ null）
+- `SAVE_VERSION = 2`。形を変えたら版を上げ、`MIGRATIONS` に `[to, migrate]` を足す。1 → 2 は `funds` を `ECONOMY.startFunds` で作る
+- `SaveData` は `v`・所持金 `funds`（cr）と `records.missions` を持つ。`MissionRecord` は `cleared` と `bestSec`（秒、無ければ null）
 - 古いセーブは `v`（無ければ 0）から今の版まで `MIGRATIONS` を順に流す。読むのは `initSave()`（起動時）で、モジュールの読み込み時には読まない
 - 中断のスナップショットはまだ作らない
+- 書くのはクリアしたときだけ（`recordClear` in src/logic/save.ts を結果画面の `settle` in src/app/play.ts が1回呼ぶ）。やられた・やり直しでは書かない。同じ結果画面で `showResult` を2回呼んでも、二重には足さない。報酬を判定する粒度（クリア1回）にそろえてある
+
+### 報酬と所持金
+
+クリアしたときに結果画面で報酬をまとめて計算し、所持金に足す。出撃からクリアまでお金は動かさず、所持金から引くこともない。単位は cr（仮）。値は全部仮。定義場所は `ECONOMY`・`MISSION_ECONOMY`・`AMMO_COST`・`M1_MECH_REPAIR_FULL`・`DEPOT_FLAG` in src/data/economy.ts（表）、`payoutOf`・`Payout` in src/logic/economy.ts（式。純粋）。
+
+- 式: 手取り = 基本報酬 ＋ 戦果 − 弾薬費 − 修理費 − やり直しの費用 × やり直した回数。`ECONOMY.rewardFloor`（0）を下回ったら 0
+- 値: `startFunds` 0、`rewardFloor` 0、`roundTo` 10。M1 の `baseReward` 10,000、`parTimeSec` 720
+- 戦果は3つで、撃破の数は入れない。クリアの時点の状態から1回だけ数えるので、チェックポイントを何度通っても増えない
+  - `depot`（2,000）: 弾薬集積所を壊した（台本の印 `depot-down` が立っている）
+  - `par`（1,000）: ゲームの中の時計 `time` が `parTimeSec` 以内
+  - `noRetry`（1,000）: `retries` が 0
+- 弾薬費: メインとサブの武器の `AMMO_COST` の合計（機関砲 500、重い砲 300。M1 は 800）
+- 修理費: `M1_MECH_REPAIR_FULL`（1,500）× 失った装甲 ÷ `MECH_TUNE.armor`（クリアした出撃の分）を `roundTo` に丸めたもの
+- やり直しの費用: 1回につき 弾薬費 ＋ `M1_MECH_REPAIR_FULL`（M1 は 2,300）。チェックポイントからも最初からも1回と数える
+- 初回だけ: そのミッションを前にクリアしていなければ（`records.missions[id].cleared`）手取りを `funds` に足す（`Payout.credited`）。2回目からも内訳は出すが、足さない
+- 結果画面（`#sbResultPay`。クリアのときだけ。やられたときは出さない）: 基本報酬・取れた戦果だけ・弾薬費・修理費・やり直しの費用（やり直した回数があるとき、回数つき）・手取り・所持金。足さないときは「所持金には足さない」（`result.noCredit`）。数は桁区切り（`toLocaleString`。言語に合わせる）
 
 ## 5. 調整の値
 
