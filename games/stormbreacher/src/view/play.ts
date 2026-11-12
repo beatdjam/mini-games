@@ -86,7 +86,7 @@ export function buildPlayView(game: GameModel): PlayView {
     battle: buildBattle(game.map, FX_TUNE, stream('battle'), stream('craters'), { x: game.mech.x, z: game.mech.z }),
     allies: buildAllyView(),
     hud,
-    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds),
+    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets),
   };
 }
 

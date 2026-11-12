@@ -25,19 +25,36 @@ const mix = (a: Vec3, b: Vec3, u: number): Vec3 => [
   a[2] + (b[2] - a[2]) * u,
 ];
 
+// Where a mech stands (m); the offsets of a `rel` key are from it.
+export interface Origin {
+  x: number;
+  z: number;
+}
+
+// A key's pose in the map's coordinates: a `rel` key's x and z are offsets from the mech, so `mech` must be given for one.
+export function keyPose(key: CameraKey, mech?: Origin): CutscenePose {
+  if (key.rel !== true) return { pos: key.pos, look: key.look };
+  if (mech === undefined) throw new Error("a relative camera key needs the mech's place");
+  return {
+    pos: [key.pos[0] + mech.x, key.pos[1], key.pos[2] + mech.z],
+    look: [key.look[0] + mech.x, key.look[1], key.look[2] + mech.z],
+  };
+}
+
 // The camera at `elapsed` seconds: exactly a key's pose at the key's second, and eased between two keys, so it
-// starts and stops softly at each. Before the first key and after the last, the nearest key's pose.
-export function cutscenePose(id: CutsceneId, elapsed: number): CutscenePose {
+// starts and stops softly at each. Before the first key and after the last, the nearest key's pose. `mech` is where the
+// mech stands, for the tables whose keys are relative to it.
+export function cutscenePose(id: CutsceneId, elapsed: number, mech?: Origin): CutscenePose {
   const keys = tableOf(id).camera;
   const first = keys[0];
   const last = keys[keys.length - 1];
-  if (elapsed <= first.at) return { pos: first.pos, look: first.look };
-  if (elapsed >= last.at) return { pos: last.pos, look: last.look };
+  if (elapsed <= first.at) return keyPose(first, mech);
+  if (elapsed >= last.at) return keyPose(last, mech);
   let next = 1;
   while (keys[next].at < elapsed) next++;
-  const a: CameraKey = keys[next - 1];
-  const b: CameraKey = keys[next];
-  const u = smooth((elapsed - a.at) / (b.at - a.at));
+  const a = keyPose(keys[next - 1], mech);
+  const b = keyPose(keys[next], mech);
+  const u = smooth((elapsed - keys[next - 1].at) / (keys[next].at - keys[next - 1].at));
   return { pos: mix(a.pos, b.pos, u), look: mix(a.look, b.look, u) };
 }
 

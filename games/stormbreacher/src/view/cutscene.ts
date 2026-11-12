@@ -1,6 +1,7 @@
-// The cutscene as the screen draws it (SB-180): the black bars with the line in the lower one, the camera on the table's
-// path, the craft beside the player's that sinks and the player's ramp that comes down. The view reads GameModel and
-// never writes it; what is shown when comes from logic/cutscene.ts and data/cutscenes.ts.
+// The cutscene as the screen draws it (SB-180, SB-300): the black bars with the line in the lower one, the camera on the
+// table's path, the crafts at sea that sink or come in, the shells that land, the battery's wrecks that go down and the
+// player's ramp that comes down. The view reads GameModel and never writes it; what is shown when comes from
+// logic/cutscene.ts and data/cutscenes.ts.
 import * as THREE from 'three';
 import { clamp, t } from '@engine/core/index.ts';
 import { camera } from '@engine/render/index.ts';
@@ -8,10 +9,11 @@ import { HUD_COLOR } from '../data/colors.ts';
 import { CUTSCENES, type CutsceneEvent } from '../data/cutscenes.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE } from '../data/tune.ts';
-import type { MapBounds } from '../data/types.ts';
+import type { CutsceneId, MapBounds } from '../data/types.ts';
 import { cutsceneEvents, cutsceneLine, cutscenePose } from '../logic/cutscene.ts';
 import type { GameModel } from '../logic/game.ts';
 import { spawnDust } from './feel.ts';
+import { shellBurst } from './hazards.ts';
 import { buildCraft, CRAFT_NAME, craftZ, RAMP_DOWN } from './shore.ts';
 
 const BAR_HEIGHT = '12vh'; // each black bar, as in the HUD mock (#view-hud?cut=1)
@@ -22,8 +24,13 @@ const SINK_DEPTH = 5; // how far it goes down (m)
 const SINK_DUST = 14; // the dust's particle count before FEEL_TUNE.dust, where a craft goes down
 const RAMP_DUST = 8; // the same, where the ramp meets the sand
 const RAMP_LENGTH = 5; // the ramp's length (m), for where its tip lands
+const BURST_DUST = 10; // the same, where a shell lands
+const COLLAPSE_DEPTH = 3; // how far a target of the battery goes down in a collapse (m)
+const COLLAPSE_TILT = 0.35; // how far it tips over (rad); alternate targets tip the other way
 
 type SinkEvent = Extract<CutsceneEvent, { kind: 'sink' }>;
+type ArriveEvent = Extract<CutsceneEvent, { kind: 'arrive' }>;
+type CollapseEvent = Extract<CutsceneEvent, { kind: 'collapse' }>;
 
 export interface CutsceneView {
   root: HTMLElement; // the bars; hidden when no cutscene plays
@@ -34,7 +41,8 @@ export interface CutsceneView {
   ramp: THREE.Object3D; // the player's ramp, turning about x
   rampX: number; // where the player's craft stands on x (m)
   rampZ: number; // where the player's craft's body begins (m)
-  sinkers: { event: SinkEvent; craft: THREE.Group }[]; // the crafts that sink, with their events
+  crafts: { cutscene: CutsceneId; event: SinkEvent | ArriveEvent; craft: THREE.Group }[]; // the crafts at sea, with their events
+  targets: Map<string, THREE.Mesh>; // the map's mission targets by id, for the collapse
 }
 
 const smooth = (u: number): number => u * u * (3 - 2 * u);
@@ -46,9 +54,14 @@ function bar(side: 'top' | 'bottom'): HTMLElement {
   return node;
 }
 
-// Builds the bars into `parent` and puts the crafts the tables sink beside the player's, in `shore`. Everything starts
-// out of sight; the player's ramp starts down.
-export function buildCutsceneView(parent: HTMLElement, shore: THREE.Group, bounds: MapBounds): CutsceneView {
+// Builds the bars into `parent` and puts the crafts the tables sink or bring in, in `shore`. Everything starts out of
+// sight; the player's ramp starts down. `targets` are the map's mission targets (the view moves them in a collapse).
+export function buildCutsceneView(
+  parent: HTMLElement,
+  shore: THREE.Group,
+  bounds: MapBounds,
+  targets: Map<string, THREE.Mesh>,
+): CutsceneView {
   const root = document.createElement('div');
   root.id = 'sbCutscene';
   root.hidden = true;
@@ -66,15 +79,15 @@ export function buildCutsceneView(parent: HTMLElement, shore: THREE.Group, bound
   parent.appendChild(root);
 
   const z = craftZ(bounds);
-  const sinkers: CutsceneView['sinkers'] = [];
-  for (const def of Object.values(CUTSCENES)) {
+  const crafts: CutsceneView['crafts'] = [];
+  for (const [id, def] of Object.entries(CUTSCENES)) {
     for (const event of def.events) {
-      if (event.kind !== 'sink') continue;
-      const craft = buildCraft(`${CRAFT_NAME}Side${sinkers.length}`);
-      craft.position.set(event.x, 0, z);
+      if (event.kind !== 'sink' && event.kind !== 'arrive') continue;
+      const craft = buildCraft(`${CRAFT_NAME}Side${crafts.length}`);
+      craft.position.set(event.x, 0, event.kind === 'sink' ? (event.z ?? z) : event.from);
       craft.visible = false;
       shore.add(craft);
-      sinkers.push({ event, craft });
+      crafts.push({ cutscene: id as CutsceneId, event, craft }); // the keys of CUTSCENES are cutscene ids
     }
   }
   const ramp = shore.getObjectByName(`${CRAFT_NAME}Ramp`);
@@ -88,7 +101,8 @@ export function buildCutsceneView(parent: HTMLElement, shore: THREE.Group, bound
     ramp,
     rampX: (bounds.minX + bounds.maxX) / 2,
     rampZ: z,
-    sinkers,
+    crafts,
+    targets,
   };
 }
 
@@ -100,7 +114,7 @@ export function removeCutsceneView(view: CutsceneView): void {
 const progress = (elapsed: number, at: number, sec: number): number => clamp((elapsed - at) / sec, 0, 1);
 
 // One frame. While a cutscene with a table plays: the bars and the line show, the HUD hides, the camera goes where the
-// table says, the ramp and the sinking craft follow the second, and the events of the frame throw dust. Otherwise the
+// table says, the ramp, the crafts and the collapsing targets follow the second, and the events of the frame throw dust. Otherwise the
 // bars are away, the ramp is down and the crafts beside the player's are out of sight. Call it after the game's own
 // camera is placed and before anything is culled by the camera.
 export function drawCutscene(view: CutsceneView, game: GameModel, hud: HTMLElement): void {
@@ -115,14 +129,18 @@ export function drawCutscene(view: CutsceneView, game: GameModel, hud: HTMLEleme
   if (!playing || def === undefined || cutscene === null) {
     view.elapsed = -1;
     view.ramp.rotation.x = RAMP_DOWN;
-    for (const sinker of view.sinkers) sinker.craft.visible = false;
+    for (const entry of view.crafts) entry.craft.visible = false;
     return;
   }
 
   const elapsed = CUTSCENE_SEC[cutscene.id] - cutscene.left;
   for (const event of cutsceneEvents(cutscene.id, view.elapsed, elapsed)) {
-    if (event.kind === 'sink') spawnDust(event.x, view.rampZ + 6, SINK_DUST, FEEL_TUNE);
-    else spawnDust(view.rampX, view.rampZ - RAMP_LENGTH, RAMP_DUST, FEEL_TUNE);
+    if (event.kind === 'sink') spawnDust(event.x, (event.z ?? view.rampZ) + 6, SINK_DUST, FEEL_TUNE);
+    else if (event.kind === 'ramp') spawnDust(view.rampX, view.rampZ - RAMP_LENGTH, RAMP_DUST, FEEL_TUNE);
+    else if (event.kind === 'burst') {
+      shellBurst(event.x, event.z);
+      spawnDust(event.x, event.z, BURST_DUST, FEEL_TUNE);
+    }
   }
   view.elapsed = elapsed;
 
@@ -132,7 +150,7 @@ export function drawCutscene(view: CutsceneView, game: GameModel, hud: HTMLEleme
     view.caption.textContent = key === null ? '' : t(key);
   }
 
-  const pose = cutscenePose(cutscene.id, elapsed);
+  const pose = cutscenePose(cutscene.id, elapsed, game.mech);
   camera.fov = CAMERA_TUNE.fov;
   camera.updateProjectionMatrix();
   camera.position.set(...pose.pos);
@@ -141,10 +159,29 @@ export function drawCutscene(view: CutsceneView, game: GameModel, hud: HTMLEleme
   const ramp = def.events.find(event => event.kind === 'ramp');
   view.ramp.rotation.x =
     ramp === undefined ? RAMP_DOWN : RAMP_UP + (RAMP_DOWN - RAMP_UP) * smooth(progress(elapsed, ramp.at, ramp.sec));
-  for (const sinker of view.sinkers) {
-    const p = smooth(progress(elapsed, sinker.event.at, sinker.event.sec));
-    sinker.craft.visible = p < 1;
-    sinker.craft.rotation.z = p * SINK_ROLL;
-    sinker.craft.position.y = -p * SINK_DEPTH;
+  for (const entry of view.crafts) {
+    const { event, craft } = entry;
+    const p = smooth(progress(elapsed, event.at, event.sec));
+    craft.visible = entry.cutscene === cutscene.id && (event.kind === 'arrive' || p < 1);
+    if (event.kind === 'sink') {
+      craft.rotation.z = p * SINK_ROLL;
+      craft.position.y = -p * SINK_DEPTH;
+    } else {
+      craft.position.z = event.from + (event.z - event.from) * p;
+    }
   }
+  for (const event of def.events) {
+    if (event.kind === 'collapse') collapse(view, event, progress(elapsed, event.at, event.sec));
+  }
+}
+
+// Sinks and tips the event's targets, `u` of the way (0 to 1).
+function collapse(view: CutsceneView, event: CollapseEvent, u: number): void {
+  const p = smooth(u);
+  event.targets.forEach((id, i) => {
+    const mesh = view.targets.get(id);
+    if (!mesh) throw new Error(`the collapse has no target "${id}"`);
+    mesh.position.y = -p * COLLAPSE_DEPTH;
+    mesh.rotation.z = (i % 2 === 0 ? 1 : -1) * p * COLLAPSE_TILT;
+  });
 }
