@@ -19,6 +19,8 @@ export const MECH_TUNE = {
   height: 4, // the mech's height (m)
   radius: 1, // the hit radius on the ground (m)
   chestHeight: 2.5, // the height a shot starts from, above the feet (m)
+  muzzleSide: 0.9, // how far right of the mech's centre the weapon arm's muzzle sits (m): the arm's mount in data/mech.ts, kept inside the radius
+  muzzleForward: 0.4, // how far in front of the mech's centre the muzzle sits (m)
   armor: 200, // the damage the mech takes before it is downed (SB-190; provisional)
   fadeDist: 3.5, // the camera nearer than this to the mech's chest (m) draws the mech see-through
   fadeOpacity: 0.35, // the mech's opacity while see-through

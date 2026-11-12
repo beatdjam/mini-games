@@ -34,7 +34,16 @@ import {
 } from './battery.ts';
 import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
-import { newFcs, spreadDir, stepFcs, type Dir3, type FcsState, type FcsTarget, type Ray3 } from './fcs.ts';
+import {
+  newFcs,
+  spreadDir,
+  stepFcs,
+  type Dir3,
+  type FcsState,
+  type FcsTarget,
+  type FcsWorld,
+  type Ray3,
+} from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
 import {
   inCircle,
@@ -263,14 +272,24 @@ function fcsName(game: GameModel, id: number): string {
   return id < game.targets.length ? game.targets[id].id : game.enemies[id - game.targets.length].id;
 }
 
-// One shot from the mech's chest toward `dir`, spread by a random draw: a bullet with `weapon`'s range to fly.
+// Where a shot leaves: the weapon arm's muzzle, to the mech's right and a little ahead of its centre.
+function muzzleOf(mech: MechState): { x: number; y: number; z: number } {
+  const side = MECH_TUNE.muzzleSide;
+  const ahead = MECH_TUNE.muzzleForward;
+  return {
+    x: mech.x + Math.cos(mech.yaw) * side - Math.sin(mech.yaw) * ahead,
+    y: mech.y + MECH_TUNE.chestHeight,
+    z: mech.z - Math.sin(mech.yaw) * side - Math.cos(mech.yaw) * ahead,
+  };
+}
+
+// One shot from the muzzle toward `dir`, spread by a random draw: a bullet with `weapon`'s range to fly.
 function shoot(game: GameModel, weapon: WeaponId, dir: Dir3): void {
   const def = WEAPONS[weapon];
-  const mech = game.mech;
+  const { x, y, z } = muzzleOf(game.mech);
   const aimed = spreadDir(dir, FCS_TUNE.soft.spread, stream('shots'));
-  const y = mech.y + MECH_TUNE.chestHeight;
-  game.bullets.push({ weapon, x: mech.x, y, z: mech.z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, left: def.range });
-  game.events.push({ kind: 'shot', x: mech.x, y, z: mech.z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, weapon });
+  game.bullets.push({ weapon, x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, left: def.range });
+  game.events.push({ kind: 'shot', x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, weapon });
 }
 
 // Moves one bullet on by `dt`. The mech's bullet stops at the nearest of the first prop, the first live target, the
@@ -712,7 +731,16 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     dy: 0,
     dz: -Math.cos(game.mech.yaw),
   };
-  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, chest, fcsTargets(game, chest), dt);
+  // The aim line stops at the first prop, standing target, live enemy or the ground; a shot goes there from the muzzle.
+  const world: FcsWorld = {
+    boxes: [
+      ...game.propBoxes,
+      ...game.targets.filter(target => target.hp > 0).map(target => target.box),
+      ...game.enemies.filter(enemy => enemy.hp > 0).map(enemyBox),
+    ],
+    groundY: 0,
+  };
+  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, muzzleOf(game.mech), fcsTargets(game, chest), dt, world);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);
   const mainShots = stepWeapon(game.main, input.fire, dt);
   const subShots = stepWeapon(game.sub, input.sub, dt);
