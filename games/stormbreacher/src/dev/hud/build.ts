@@ -1,8 +1,9 @@
 // The HUD mock's DOM (#view-hud, SB-160): the three plans from plans.ts drawn with sample values, the shared reticle
 // and lock square, and the optional touch rings. DOM only; no three, so a test can build it without a renderer.
 import { t } from '@engine/core/index.ts';
+import { HUD_COLOR } from '../../data/colors.ts';
 import { TOUCH_DEFAULTS, type TouchButton } from '../../data/touch.ts';
-import { CAMERA_TUNE, FCS_TUNE } from '../../data/tune.ts';
+import { fillArcGauge, markShape, reticleSvg, ringRadius, roundRadar, svg } from '../../view/hudParts.ts';
 import {
   CUTSCENE_RADIO_CSS,
   HUD_IDS,
@@ -13,34 +14,21 @@ import {
   type HudId,
   type HudPlace,
   type PlanId,
-  type RadarMark,
 } from './plans.ts';
 
-const TEXT_COLOR = '#e8eef2';
-const BAR_COLOR = '#54e8ff';
 const HEAT_COLOR = '#ff9d3d';
-const AMBER_COLOR = '#ffcf6a';
-const WARNING_COLOR = '#ff5a4a';
 const LOCK_COLOR = '#ff9d3d';
-const PANEL_COLOR = 'rgba(6, 12, 18, 0.6)';
-const RING_COLOR = 'rgba(244, 247, 250, 0.55)';
-const DOT_COLOR = '#f4f7fa';
 const EDGE_COLOR = 'rgba(84, 232, 255, 0.35)';
 const TOUCH_COLOR = 'rgba(255, 255, 255, 0.35)';
 const CUTSCENE_COLOR = '#000';
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const DOT_RADIUS = 2.5; // px
 const LOCK_SIZE = 30; // the square's side (px)
-const RADAR_PAD = 8; // px kept inside the round radar's edge
 const COMPASS_PAD = 8; // px between the compass's edge and angle +-90
 const COMPASS_LETTER_SIZE = 11; // px, the W / N / E letters
 const COMPASS_LETTER_Y = 22; // px, the letters' baseline from the compass's top (under the amber mark)
-const ARC_GAP = 14; // px, from the aim circle to the arc; the arc's radius is ringRadius + ARC_GAP
-const ARC_HALF = 50; // degrees, half the arc's opening: 50 above and below the horizontal, 100 in all
-const ARC_TEXT_W = 44; // px, the text column outside the arc
-const ARC_TEXT_GAP = 6; // px, between the arc and the text column
-const ARC_TRACK_COLOR = 'rgba(84, 232, 255, 0.2)';
+
+// test/e2e/hud.test.ts reads ringRadius from here; the mock and the game both draw with view/hudParts.ts.
+export { ringRadius };
 
 // The text sizes and the bar's thickness per plan, from the ticket's notes. For a `v` element `bar` is the bar's
 // length and `barWidth` its width.
@@ -135,20 +123,6 @@ const SHORT_TEXTS: Partial<Record<HudId, string>> = {
   armor: `${HUD_SAMPLE.armor.current}`,
 };
 
-// The aim circle's radius (px) for a screen of this height: the soft-lock cone's half-angle at the camera's field of
-// view. 720 gives about 70.
-export function ringRadius(height: number): number {
-  const cone = (FCS_TUNE.soft.cone * Math.PI) / 180;
-  const halfFov = (CAMERA_TUNE.fov * Math.PI) / 360;
-  return Math.tan(cone) * (height / 2 / Math.tan(halfFov));
-}
-
-function svg(tag: string, attrs: Record<string, string | number>): SVGElement {
-  const node = document.createElementNS(SVG_NS, tag);
-  for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, String(value));
-  return node;
-}
-
 function pxOf(css: string, name: string): number {
   const hit = new RegExp(`${name}:(\\d+)px`).exec(css);
   return hit ? Number(hit[1]) : 0;
@@ -158,7 +132,7 @@ function span(text: string, size: number): HTMLSpanElement {
   const node = document.createElement('span');
   node.textContent = text;
   node.style.fontSize = `${size}px`;
-  node.style.color = TEXT_COLOR;
+  node.style.color = HUD_COLOR.text;
   return node;
 }
 
@@ -171,7 +145,7 @@ function bar(ratio: number, style: HudStyle, mode: 'h' | 'row' | 'v', color: str
       : mode === 'row'
         ? `flex:1 1 auto;height:${style.bar}px;`
         : `width:${style.barWidth ?? 8}px;height:${style.bar}px;`;
-  box.style.cssText = `position:relative;background:${PANEL_COLOR};${layout}`;
+  box.style.cssText = `position:relative;background:${HUD_COLOR.panel};${layout}`;
   const fill = document.createElement('div');
   const share = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
   fill.style.cssText =
@@ -182,53 +156,18 @@ function bar(ratio: number, style: HudStyle, mode: 'h' | 'row' | 'v', color: str
   return box;
 }
 
-// One arc of a circle centred at (cx, cy) in the SVG's own coordinates, from `startDeg` through `sweepDeg` (positive is
-// clockwise on screen, the way a growing angle turns when y points down).
-function arcPath(cx: number, cy: number, radius: number, startDeg: number, sweepDeg: number): string {
-  const point = (deg: number): [number, number] => {
-    const angle = (deg * Math.PI) / 180;
-    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
-  };
-  const [x1, y1] = point(startDeg);
-  const [x2, y2] = point(startDeg + sweepDeg);
-  const large = Math.abs(sweepDeg) > 180 ? 1 : 0;
-  const sweep = sweepDeg >= 0 ? 1 : 0;
-  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} ${sweep} ${x2} ${y2}`;
-}
-
-function markShape(mark: RadarMark, x: number, y: number): SVGElement {
-  if (mark.kind === 'enemy') return svg('circle', { cx: x, cy: y, r: 3, fill: WARNING_COLOR });
-  if (mark.kind === 'depot') return svg('rect', { x: x - 3, y: y - 3, width: 6, height: 6, fill: AMBER_COLOR });
-  const points = `${x},${y - 5} ${x + 5},${y} ${x},${y + 5} ${x - 5},${y}`;
-  return svg('polygon', { points, fill: AMBER_COLOR });
-}
-
-function roundRadar(width: number, height: number): SVGSVGElement {
-  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width: '100%', height: '100%' }) as SVGSVGElement;
-  const cx = width / 2;
-  const cy = height / 2;
-  const radius = Math.min(width, height) / 2 - RADAR_PAD;
-  root.appendChild(svg('circle', { cx, cy, r: radius, fill: PANEL_COLOR, stroke: TEXT_COLOR, 'stroke-opacity': 0.35 }));
-  root.appendChild(svg('circle', { cx, cy, r: 2.5, fill: BAR_COLOR }));
-  for (const mark of HUD_SAMPLE.radar) {
-    const angle = (mark.angle * Math.PI) / 180;
-    const x = cx + Math.sin(angle) * mark.dist * radius;
-    const y = cy - Math.cos(angle) * mark.dist * radius;
-    root.appendChild(markShape(mark, x, y));
-  }
-  return root;
-}
-
 function compass(width: number, height: number): SVGSVGElement {
   const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width: '100%', height: '100%' }) as SVGSVGElement;
   const cx = width / 2;
   const half = width / 2 - COMPASS_PAD;
-  root.appendChild(svg('rect', { x: 0, y: 0, width, height, fill: PANEL_COLOR }));
+  root.appendChild(svg('rect', { x: 0, y: 0, width, height, fill: HUD_COLOR.panel }));
   // ticks every 15 degrees, from -90 (left) to +90 (right)
   for (let angle = -90; angle <= 90; angle += 15) {
     const x = cx + (angle / 90) * half;
     const top = angle % 45 === 0 ? 4 : 7;
-    root.appendChild(svg('line', { x1: x, y1: top, x2: x, y2: height - 3, stroke: TEXT_COLOR, 'stroke-opacity': 0.3 }));
+    root.appendChild(
+      svg('line', { x1: x, y1: top, x2: x, y2: height - 3, stroke: HUD_COLOR.text, 'stroke-opacity': 0.3 }),
+    );
   }
   // the letters: W at the left end, N in the middle and E at the right end. S lies outside +-90 degrees, so it is not
   // drawn.
@@ -236,7 +175,7 @@ function compass(width: number, height: number): SVGSVGElement {
     const node = svg('text', {
       x,
       y: COMPASS_LETTER_Y,
-      fill: TEXT_COLOR,
+      fill: HUD_COLOR.text,
       'font-size': COMPASS_LETTER_SIZE,
       'text-anchor': 'middle',
       'font-family': 'monospace',
@@ -247,10 +186,10 @@ function compass(width: number, height: number): SVGSVGElement {
   root.appendChild(letter('W', cx - half + 8));
   root.appendChild(letter('N', cx));
   root.appendChild(letter('E', cx + half - 8));
-  root.appendChild(svg('polygon', { points: `${cx - 4},3 ${cx + 4},3 ${cx},9`, fill: AMBER_COLOR }));
+  root.appendChild(svg('polygon', { points: `${cx - 4},3 ${cx + 4},3 ${cx},9`, fill: HUD_COLOR.amber }));
   for (const mark of HUD_SAMPLE.radar) {
     const x = cx + (Math.max(-90, Math.min(90, mark.angle)) / 90) * half;
-    root.appendChild(markShape(mark, x, height / 2 + 4));
+    root.appendChild(markShape(mark.kind, x, height / 2 + 4));
   }
   return root;
 }
@@ -258,7 +197,10 @@ function compass(width: number, height: number): SVGSVGElement {
 function radarOf(place: HudPlace): SVGElement {
   const width = pxOf(place.css, 'width');
   const height = pxOf(place.css, 'height');
-  return place.radar === 'compass' ? compass(width, height) : roundRadar(width, height);
+  if (place.radar === 'compass') return compass(width, height);
+  const radar = roundRadar(width, height);
+  radar.set(HUD_SAMPLE.radar);
+  return radar.root;
 }
 
 // What a builder gets: the element's outer node (already placed) and what it may draw into it.
@@ -274,7 +216,7 @@ type Builder = (args: BuildArgs) => void;
 // The elements with a look of their own. The rest are gauges, drawn by their `dir`.
 const SPECIAL_BUILDERS: Partial<Record<HudId | 'strip', Builder>> = {
   strip: ({ node }) => {
-    node.style.background = PANEL_COLOR;
+    node.style.background = HUD_COLOR.panel;
     node.style.borderTop = `1px solid ${EDGE_COLOR}`;
   },
   radar: ({ node, place }) => {
@@ -282,17 +224,17 @@ const SPECIAL_BUILDERS: Partial<Record<HudId | 'strip', Builder>> = {
   },
   objective: ({ node, texts }) => {
     const label = span(LABELS.objective, 16);
-    label.style.color = AMBER_COLOR;
+    label.style.color = HUD_COLOR.amber;
     node.append(label, span(` ${texts.objective}`, 16));
   },
   warning: ({ node, plan, texts }) => {
     const text = span(texts.warning, WARNING_SIZE[plan]);
-    text.style.color = WARNING_COLOR;
+    text.style.color = HUD_COLOR.warn;
     text.style.fontWeight = 'bold';
     node.appendChild(text);
   },
   radio: ({ node, texts }) => {
-    node.style.background = PANEL_COLOR;
+    node.style.background = HUD_COLOR.panel;
     node.style.padding = '2px 6px';
     node.append(span(LABELS.radio, 16), span(` ${texts.radio}`, 16));
   },
@@ -305,7 +247,7 @@ function gaugeParts(args: BuildArgs) {
   const id = gaugeId(args.place);
   const style = TEXT_STYLES[args.plan][id] ?? { name: 12, value: 14, bar: 0 };
   const ratio = ratios()[id];
-  const color = id === 'heat' ? HEAT_COLOR : BAR_COLOR;
+  const color = id === 'heat' ? HEAT_COLOR : HUD_COLOR.bar;
   return { id, style, ratio, color };
 }
 
@@ -341,49 +283,16 @@ const GAUGE_BUILDERS: Record<HudDir, Builder> = {
   // a thin arc along the aim circle with the name and the number outside it (plan D)
   arc: args => {
     const { id, style, ratio, color } = gaugeParts(args);
-    const side = args.place.side ?? 'right';
-    const radius = ringRadius(window.innerHeight) + ARC_GAP;
-    const width = style.bar;
-    const half = (ARC_HALF * Math.PI) / 180;
-    const cx = window.innerWidth / 2;
-    const cy = window.innerHeight / 2;
-    const arcW = radius * (1 - Math.cos(half)) + width;
-    const arcH = 2 * radius * Math.sin(half) + width;
-    const boxW = arcW + ARC_TEXT_GAP + ARC_TEXT_W;
-    const left =
-      side === 'left' ? cx - radius - width / 2 - ARC_TEXT_GAP - ARC_TEXT_W : cx + radius * Math.cos(half) - width / 2;
-    const top = cy - arcH / 2;
-    args.node.style.left = `${left}px`;
-    args.node.style.top = `${top}px`;
-    args.node.style.width = `${boxW}px`;
-    args.node.style.height = `${arcH}px`;
-
-    // the box's top left from the circle's centre, then the arc runs from its lower end towards the upper one
-    const root = svg('svg', { width: '100%', height: '100%' }) as SVGSVGElement;
-    root.style.display = 'block';
-    const mid = side === 'left' ? 180 : 0;
-    const dir = side === 'left' ? 1 : -1;
-    const from = mid - dir * ARC_HALF;
-    const sweep = dir * ARC_HALF * 2;
-    const stroke = (d: string, color: string) =>
-      svg('path', { d, fill: 'none', stroke: color, 'stroke-width': width, 'stroke-linecap': 'butt' });
-    const ox = cx - left;
-    const oy = cy - top;
-    root.appendChild(stroke(arcPath(ox, oy, radius, from, sweep), ARC_TRACK_COLOR));
-    if (ratio !== undefined && ratio > 0)
-      root.appendChild(stroke(arcPath(ox, oy, radius, from, sweep * Math.min(1, ratio)), color));
-    args.node.appendChild(root);
-
-    const column = document.createElement('div');
-    column.style.cssText =
-      `position:absolute;top:50%;transform:translateY(-50%);width:${ARC_TEXT_W}px;` +
-      (side === 'left' ? 'left:0;text-align:right' : 'right:0;text-align:left');
-    const name = span(LABELS[id], style.name);
-    const value = span(SHORT_TEXTS[id] ?? args.texts[id], style.value);
-    name.style.display = 'block';
-    value.style.display = 'block';
-    column.append(name, value);
-    args.node.appendChild(column);
+    fillArcGauge(args.node, {
+      side: args.place.side ?? 'right',
+      ratio: ratio ?? 0,
+      color,
+      thickness: style.bar,
+      name: LABELS[id],
+      nameSize: style.name,
+      value: SHORT_TEXTS[id] ?? args.texts[id],
+      valueSize: style.value,
+    });
   },
 };
 
@@ -400,19 +309,7 @@ function reticle(): HTMLElement {
   const node = document.createElement('div');
   node.dataset.hud = 'reticle';
   node.style.cssText = 'position:absolute;inset:0;pointer-events:none';
-  const root = svg('svg', { width: '100%', height: '100%' }) as SVGSVGElement;
-  root.appendChild(svg('circle', { cx: '50%', cy: '50%', r: DOT_RADIUS, fill: DOT_COLOR }));
-  root.appendChild(
-    svg('circle', {
-      cx: '50%',
-      cy: '50%',
-      r: ringRadius(window.innerHeight),
-      fill: 'none',
-      stroke: RING_COLOR,
-      'stroke-width': 1,
-    }),
-  );
-  node.appendChild(root);
+  node.appendChild(reticleSvg());
   return node;
 }
 

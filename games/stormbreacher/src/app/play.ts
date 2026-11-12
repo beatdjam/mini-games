@@ -4,8 +4,10 @@ import { addSystem, el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
+import { RADIO_MIN_SEC } from '../data/script.ts';
 import { newGame, step, type GameModel } from '../logic/game.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
+import { removeHud } from '../view/hud.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
 import { initPlayInput, readInput } from './input.ts';
 import { setState } from './screen.ts';
@@ -32,6 +34,7 @@ function clearPlay(old: PlayView): void {
     tracer.line.geometry.dispose();
     tracer.line.material.dispose();
   }
+  removeHud(old.hud);
 }
 
 // The sortie's time as minutes and seconds ("3:07").
@@ -43,6 +46,8 @@ function clock(seconds: number): string {
 // Starts a sortie on M1's B line. The tests sortie more than once on one page, so this builds the game again and takes
 // out what the last one left; the play system and the input are set up only once.
 export function startSortie(): void {
+  el('#sbObjective').hidden = true;
+  el('#sbRadio').hidden = true;
   if (view) clearPlay(view);
   view = null;
   el('#sbApp').hidden = true;
@@ -64,12 +69,30 @@ function update(dt: number): void {
   const read = readInput(dt);
   step(game, { ...read.input, sub: read.sub }, dt);
   drawPlay(view, game, dt, read.pitchDelta);
+  showScriptText(game);
   if (game.cleared) showResult();
+}
+
+// Puts `text` in `node` and shows it; no text hides the node. The text is written only when it changes.
+function showText(node: HTMLElement, text: string | null): void {
+  node.hidden = text === null;
+  if (text !== null && node.textContent !== text) node.textContent = text;
+}
+
+// Provisional: the script's current objective and the last radio line for RADIO_MIN_SEC. HUD (SB-160) replaces both.
+function showScriptText(game: GameModel): void {
+  const objective = game.script.objective;
+  showText(el('#sbObjective'), objective === null ? null : t(`obj.${objective}`));
+  const radio = game.radio;
+  showText(el('#sbRadio'), radio !== null && game.time - radio.time < RADIO_MIN_SEC ? t(radio.line) : null);
 }
 
 // The result's screen: the run's time, and the title's page comes back by loading it again.
 export function showResult(): void {
   if (!game) return;
+  if (view) view.hud.root.hidden = true;
+  el('#sbObjective').hidden = true;
+  el('#sbRadio').hidden = true;
   setState('result');
   el('#sbResult').hidden = false;
   el('#sbResultTime').textContent = t('result.time', { time: clock(game.time) });

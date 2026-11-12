@@ -1,10 +1,11 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { el } from '@engine/core/index.ts';
+import { el, t } from '@engine/core/index.ts';
 import { PLAY_TUNE } from '../../src/data/tune.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
+import { sendToScript } from '../../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -56,9 +57,11 @@ test('the mech walks and shoots in the sortie', async () => {
   window.dispatchEvent(key('keyup', 'KeyJ'));
   expect(game().mech.z).toBeLessThan(startZ);
   expect(shots).toBeGreaterThan(0);
+  expect(el('#sbObjective').hidden).toBe(false);
+  expect(el('#sbObjective').textContent).toBe(t('obj.reach-pillboxes'));
 });
 
-test('breaking every target shows the result', async () => {
+test("the script's end shows the result", async () => {
   startSortie();
   const current = game();
   for (const target of current.targets) target.hp = 1;
@@ -71,11 +74,13 @@ test('breaking every target shows the result', async () => {
   // the first shot brings one target down; the rest stay up, so the sortie goes on
   await until(() => pillbox.hp === 0);
   expect(state).toBe('play');
-  // leave only the last target at one shot and finish it from its front
-  for (const target of current.targets) if (target.id !== 'depot') target.hp = 0;
-  current.mech.x = 53;
-  current.mech.z = 51;
-  current.mech.yaw = 0;
+  // every target on the map down still does not end the sortie: only the script's end does
+  for (const target of current.targets) target.hp = 0;
+  await frame();
+  expect(state).toBe('play');
+  sendToScript(current, { kind: 'destroyed', target: 'main-gun-1' });
+  sendToScript(current, { kind: 'destroyed', target: 'main-gun-2' });
+  sendToScript(current, { kind: 'destroyed', target: 'magazine' });
   await until(() => state === 'result');
   window.dispatchEvent(key('keyup', 'KeyJ'));
   expect(el('#sbResult').hidden).toBe(false);

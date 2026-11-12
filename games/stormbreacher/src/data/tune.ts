@@ -1,4 +1,5 @@
 import type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
+import type { TargetKind } from './types.ts';
 
 export type { CameraTune, FcsKind, FcsTune, MoveTune } from './tuneTypes.ts';
 
@@ -82,6 +83,14 @@ export const FCS_TUNE: Record<FcsKind, FcsTune> = {
   manual: { cone: 0, range: 200, spread: 0.5, pull: 0, lockTime: 0, trackRate: 0, breakCone: 0 },
   soft: { cone: 8, range: 200, spread: 0.8, pull: 20, lockTime: 0, trackRate: 0, breakCone: 0 },
   hard: { cone: 12, range: 180, spread: 1.5, pull: 0, lockTime: 0.35, trackRate: 90, breakCone: 20 },
+};
+
+// The HUD's values (SB-160). All provisional.
+export const HUD_TUNE = {
+  radarRange: 200, // how far the radar sees (m); a target farther than this is not drawn
+  aimCone: FCS_TUNE.soft.cone, // the half-angle of the aim circle (deg); the enemy bar picks a target inside it
+  objectiveKey: 'obj.break-pillboxes', // the objective's language key, until the script (SB-150) is wired in
+  objectiveKind: 'pillbox' as TargetKind, // the kind of target the objective counts
 };
 
 // The look and the battle effects of #view-fx (SB-045): the resolution and the colour, the shells near the mech, the

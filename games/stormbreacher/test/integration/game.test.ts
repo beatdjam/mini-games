@@ -86,25 +86,17 @@ test('a shot that misses reaches the full range', () => {
   expect(shot.reach).toBe(WEAPONS[M1_LOADOUT.main].range);
 });
 
-test('breaking every target clears the game and then the game stops', () => {
+test('breaking every target on the map no longer clears the game', () => {
   const oneTarget = { ...M1B_HAND, targets: [M1B_HAND.targets[0]] };
   const game = newGame(oneTarget);
   atPillbox1(game);
-  let sameFrame = false;
-  for (let i = 0; i < 600 && !game.cleared; i++) {
+  let destroyed = false;
+  for (let i = 0; i < 600 && !destroyed; i++) {
     step(game, { ...idle, fire: true }, 1 / 60);
-    const kinds = game.events.map(event => event.kind);
-    if (kinds.includes('destroyed') && kinds.includes('cleared')) sameFrame = true;
+    destroyed = game.events.some(event => event.kind === 'destroyed');
   }
-  expect(sameFrame).toBe(true);
-  expect(game.cleared).toBe(true);
-  const time = game.time;
-  const x = game.mech.x;
-  const z = game.mech.z;
-  step(game, { ...idle, fire: true, moveZ: 1 }, 1 / 60);
-  expect(game.time).toBe(time);
-  expect(game.mech.x).toBe(x);
-  expect(game.mech.z).toBe(z);
+  expect(destroyed).toBe(true);
+  expect(game.cleared).toBe(false);
 });
 
 test('the same inputs give the same game', () => {

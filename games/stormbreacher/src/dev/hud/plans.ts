@@ -1,6 +1,10 @@
 // The HUD layout plans (#view-hud, SB-160): the three placements the mock compares, the sample values it draws and
 // the radar's marks. No DOM and no three: build.ts turns these tables into elements. Every value here is a sample; the
 // game's state is never read.
+import type { RadarMarkKind } from '../../view/hudParts.ts';
+
+// The radar's mark kinds are drawn by view/hudParts.ts, which the mock and the game share.
+export type { RadarMarkKind };
 
 // The elements every plan draws. The strip is the background of plan B's bottom panel and belongs to plan B only, so it
 // stays out of this list.
@@ -30,8 +34,6 @@ export const PLAN_LABELS: Record<PlanId, string> = {
   c: '照準のまわりに寄せる',
   d: 'A＋照準に細く',
 };
-
-export type RadarMarkKind = 'objective' | 'depot' | 'enemy';
 
 export interface RadarMark {
   kind: RadarMarkKind;
