@@ -237,6 +237,8 @@ export function showResult(): void {
   if (!game) return;
   if (view) view.hud.root.hidden = true;
   showPauseButton(false);
+  // the touch layer covers the whole screen and would take the result's taps (back to title, retry)
+  el('#touch').hidden = true;
   setState('result');
   el('#sbResult').hidden = false;
   el('#sbResult .title').textContent = t(game.downed ? 'result.downed' : 'result.title');
