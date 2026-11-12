@@ -39,6 +39,9 @@ export const SHUTTER_COLOR = 0x5b6168;
 export const SEA_FLASH_COLOR = 0xfff1b0;
 export const SEA_TRACER_COLOR = 0xffb347;
 
+// The light at a pillbox's muzzle while it warns of a burst (仮).
+export const PILLBOX_WARN_COLOR = 0xffd890;
+
 // The allied mech of the script (SB-170, 仮): the colours it wears running and the dark ones of its wreck, one hex per
 // colour name of the mech's look.
 export const ALLY_PALETTE: Record<MechColor, number> = {

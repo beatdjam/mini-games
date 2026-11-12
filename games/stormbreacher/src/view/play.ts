@@ -3,10 +3,11 @@
 import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
-import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
+import { ENEMY_BULLET_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
+import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE, FX_TUNE, MECH_TUNE } from '../data/tune.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
@@ -36,11 +37,28 @@ const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per la
 const BOOST_DUST = 6; // the same, per boost start
 const BLAST_DUST = 14; // the same, per shell landing or mine blast
 const BLAST_SHAKE_NEAR = 25; // a blast this near the mech (m) shakes the camera even when it does no harm
+const MAX_PILLBOX_WARNS = 8; // the most warning lights drawn at once; the oldest goes when it is full
+const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
+const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
 
 // The bullets in flight, drawn as one set of line segments: two vertices a bullet, the position written every frame.
 export interface BulletLines {
   lines: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
   positions: THREE.BufferAttribute; // MAX_BULLET_LINES * 2 vertices (the tail, then the head)
+}
+
+// A warning light at a pillbox's muzzle: where it is and how long it has left.
+interface PillboxWarn {
+  x: number;
+  y: number;
+  z: number;
+  left: number; // the seconds of warning left
+}
+
+// The warning lights, one instanced mesh for all of them.
+export interface PillboxWarnView {
+  mesh: THREE.InstancedMesh;
+  lights: PillboxWarn[];
 }
 
 export interface PlayView {
@@ -53,6 +71,7 @@ export interface PlayView {
   bullets: BulletLines; // the lines of the mech's shots in flight
   enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
   enemies: EnemyView; // the enemies' instanced boxes
+  pillboxWarns: PillboxWarnView; // the lights at the pillboxes' muzzles while they warn of a burst
   hazards: HazardView; // the warned shells' rings and the mines' discs
   seaFire: SeaFireView; // the main guns' flashes and lines toward the sea
   battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; looks only (SB-170)
@@ -82,6 +101,7 @@ export function buildPlayView(game: GameModel): PlayView {
     bullets: buildBulletLines(TRACER_COLOR),
     enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
     enemies: buildEnemyView(),
+    pillboxWarns: buildPillboxWarnView(world.targetGroup),
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
     // FX_TUNE is #view-fx's stage 2; the battle is made at the mech's start and keeps no link to the game's state
@@ -103,6 +123,48 @@ function buildBulletLines(color: number): BulletLines {
   lines.frustumCulled = false;
   scene.add(lines);
   return { lines, positions };
+}
+
+// The lights at the pillboxes' muzzles: one instanced mesh, added to the targets' group so that group's removal takes
+// it out with them.
+function buildPillboxWarnView(group: THREE.Group): PillboxWarnView {
+  const mesh = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(1, 8, 6),
+    new THREE.MeshBasicMaterial({
+      color: PILLBOX_WARN_COLOR,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
+    }),
+    MAX_PILLBOX_WARNS,
+  );
+  mesh.name = 'sb-pillbox-warn';
+  mesh.count = 0;
+  // the lights come and go, so the bounding sphere made at the start would cull them
+  mesh.frustumCulled = false;
+  group.add(mesh);
+  return { mesh, lights: [] };
+}
+
+const pillboxWarnPlace = new THREE.Object3D();
+
+// Ages the warning lights, drops the ones whose warning is over and writes the rest, smaller as the warning nears its
+// end.
+function drawPillboxWarns(view: PillboxWarnView, dt: number): void {
+  for (const light of view.lights) light.left -= dt;
+  view.lights = view.lights.filter(light => light.left > 0);
+  const count = Math.min(view.lights.length, MAX_PILLBOX_WARNS);
+  for (let i = 0; i < count; i++) {
+    const light = view.lights[i];
+    const share = Math.max(0, light.left / PILLBOX_TUNE.warn); // 1 at the warning, 0 as it ends
+    const size = PILLBOX_WARN_SIZE * (PILLBOX_WARN_SHRINK + (1 - PILLBOX_WARN_SHRINK) * share);
+    pillboxWarnPlace.position.set(light.x, light.y, light.z);
+    pillboxWarnPlace.scale.setScalar(size);
+    pillboxWarnPlace.updateMatrix();
+    view.mesh.setMatrixAt(i, pillboxWarnPlace.matrix);
+  }
+  view.mesh.count = count;
+  view.mesh.instanceMatrix.needsUpdate = true;
 }
 
 // Writes each bullet's head and the point TRACER_LENGTH behind it, and draws only as many segments as there are bullets.
@@ -150,6 +212,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
+    } else if (event.kind === 'pillboxWarn') {
+      view.pillboxWarns.lights.push({ x: event.x, y: event.y, z: event.z, left: PILLBOX_TUNE.warn });
+      // the oldest goes when the lights are full
+      if (view.pillboxWarns.lights.length > MAX_PILLBOX_WARNS) view.pillboxWarns.lights.shift();
     }
   }
   view.feel.shake += view.battle.step(dt, game.mech);
@@ -206,6 +272,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   );
   drawBullets(view.enemyBullets, game.bullets.filter(isHostileBullet));
   drawEnemies(view.enemies, game);
+  drawPillboxWarns(view.pillboxWarns, dt);
   drawHazards(view.hazards, game);
   drawSeaFire(view.seaFire, game);
   drawAllies(view.allies, game, view.battle, stream('battle'), dt);
