@@ -8,6 +8,8 @@ let requested = false; // a press came since the last take
 let ready = false; // the listeners are set up (a second call does nothing)
 
 function request(event: Event): void {
+  // the pause button and menu mark themselves: pressing them is not a request to skip
+  if (event.target instanceof Element && event.target.closest('[data-noskip]')) return;
   if (event.timeStamp > armedAt) requested = true;
 }
 

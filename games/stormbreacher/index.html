@@ -45,14 +45,21 @@ body{
   padding:3px 10px;font:inherit;font-size:clamp(11px,1.8vmin,14px);color:#cfe4ef;cursor:pointer;
   background:rgba(10,17,25,.55);border:1px solid rgba(213,228,238,.35);border-radius:4px;
 }
-#sbResult{
+/* pause (any sortie): the top left corner, clear of the HUD's objective below it and the fullscreen button */
+#sbPauseBtn{
+  position:fixed;z-index:5;top:max(10px,env(safe-area-inset-top));left:max(24px,env(safe-area-inset-left));
+  padding:3px 10px;font:inherit;font-size:clamp(11px,1.8vmin,14px);color:#cfe4ef;cursor:pointer;
+  background:rgba(10,17,25,.55);border:1px solid rgba(213,228,238,.35);border-radius:4px;
+}
+#sbResult,#sbPause{
   position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
   background:rgba(5,8,12,.72);text-align:center;
 }
-#sbResult .title{font-size:clamp(24px,6vmin,48px);font-weight:700;letter-spacing:.16em;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+#sbPause{z-index:6}
+#sbResult .title,#sbPause .title{font-size:clamp(24px,6vmin,48px);font-weight:700;letter-spacing:.16em;text-shadow:0 2px 8px rgba(0,0,0,.7)}
 #sbResultPay{display:flex;flex-direction:column;gap:2px}
 #sbResult p{margin:0;font-size:clamp(13px,2.4vmin,18px);color:#cfe4ef}
-#sbResult button{
+#sbResult button,#sbPause button{
   min-width:140px;height:40px;padding:0 14px;font:inherit;font-size:14px;color:#e8eef2;
   border:1px solid rgba(213,228,238,.35);background:rgba(10,17,25,.7);cursor:pointer;
 }
@@ -87,8 +94,18 @@ body{
   <div class="status" data-i18n="app.status"></div>
   <a href="../../" data-i18n="app.back"></a>
   <button id="sbStart" type="button" data-i18n="app.start"></button>
+  <button id="sbContinue" type="button" data-i18n="app.continue" hidden></button>
 </div>
 <button id="sbFs" type="button" hidden></button>
+<button id="sbPauseBtn" type="button" data-noskip data-i18n="pause.button" hidden></button>
+<div id="sbPause" data-noskip hidden>
+  <div class="title" data-i18n="pause.title"></div>
+  <button id="sbPauseResume" type="button" data-i18n="pause.resume"></button>
+  <button id="sbPauseSuspend" type="button" data-i18n="pause.suspend"></button>
+  <button id="sbPauseAbandon" type="button" data-i18n="pause.abandon"></button>
+  <button id="sbAbandonYes" type="button" data-i18n="pause.abandonYes" hidden></button>
+  <button id="sbAbandonNo" type="button" data-i18n="pause.abandonNo" hidden></button>
+</div>
 <div id="sbResult" hidden>
   <div class="title" data-i18n="result.title"></div>
   <p id="sbResultTime"></p>

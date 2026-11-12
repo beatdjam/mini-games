@@ -39,3 +39,7 @@ export const KEY_TUNE = {
   lookRate: 2.4, // the yaw the left / right arrows add while held (rad/s)
   pitchRate: 1.2, // the pitch the up / down arrows add while held (rad/s)
 };
+
+// The keys that pause a sortie and, in the pause menu, close it again (KeyboardEvent.code). Esc is also a skip key
+// (app/skip.ts), so during a cutscene it skips and does not pause.
+export const PAUSE_KEYS = ['KeyP', 'Escape'];

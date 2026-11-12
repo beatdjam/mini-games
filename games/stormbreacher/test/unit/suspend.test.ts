@@ -1,0 +1,100 @@
+import { describe, expect, test } from 'vitest';
+import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { M1 } from '../../src/data/missions/m1.ts';
+import { newGame } from '../../src/logic/game.ts';
+import { SUSPEND_VERSION, restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
+
+// The data as the storage hands it back: written to JSON and read again.
+const stored = (data: unknown): unknown => JSON.parse(JSON.stringify(data));
+
+describe('suspend', () => {
+  test('the data names the map and mission by id and carries the version', () => {
+    const data = suspendOf(newGame(M1B_HAND));
+    expect(data.v).toBe(SUSPEND_VERSION);
+    expect(data.map).toBe(M1B_HAND.id);
+    expect(data.mission).toBe(M1.id);
+    expect(data.checkpoint).toBeNull();
+    expect('map' in data.game).toBe(false);
+    expect('mission' in data.game).toBe(false);
+  });
+
+  test('the frame-only fields are not kept: events, bullets in flight and shells warned', () => {
+    const game = newGame(M1B_HAND);
+    game.bullets.push({ enemy: 'grunt', x: 0, y: 1, z: 0, dx: 0, dy: 0, dz: 1, left: 10 });
+    game.shells.push({ x: 1, z: 2, radius: 5, warn: 2, left: 1, damage: 10 });
+    const data = suspendOf(game);
+    expect('events' in data.game).toBe(false);
+    expect('bullets' in data.game).toBe(false);
+    expect('shells' in data.game).toBe(false);
+    const back = restoreSuspend(stored(data));
+    expect(back?.bullets).toEqual([]);
+    expect(back?.shells).toEqual([]);
+    expect(back?.events).toEqual([]);
+  });
+
+  test('read back, every other field is the same, and map and mission are the definitions themselves', () => {
+    const game = newGame(M1B_HAND);
+    game.time = 12.5;
+    game.armor = 321;
+    game.mech.x = 7;
+    game.retries = 2;
+    game.events = [];
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back).toEqual({ ...game, bullets: [], shells: [], events: [] });
+    expect(back?.map).toBe(M1B_HAND);
+    expect(back?.mission).toBe(M1);
+  });
+
+  test('the data is a deep copy: changing the game afterwards does not change it', () => {
+    const game = newGame(M1B_HAND);
+    const data = suspendOf(game);
+    const before = JSON.stringify(data);
+    game.mech.x += 50;
+    game.targets[0].hp = 0;
+    game.script.flags.push('x');
+    expect(JSON.stringify(data)).toBe(before);
+  });
+
+  test('the game read back shares nothing with the data', () => {
+    const data = stored(suspendOf(newGame(M1B_HAND)));
+    const before = JSON.stringify(data);
+    const back = restoreSuspend(data);
+    if (!back) throw new Error('not read');
+    back.mech.x += 50;
+    back.targets[0].hp = 0;
+    expect(JSON.stringify(data)).toBe(before);
+  });
+
+  test('a version that is not this one is thrown away', () => {
+    const data = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
+    expect(restoreSuspend({ ...data, v: SUSPEND_VERSION + 1 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 0 })).toBeNull();
+    const { v: _v, ...noVersion } = data;
+    expect(restoreSuspend(noVersion)).toBeNull();
+  });
+
+  test('damaged data is thrown away and does not throw', () => {
+    const good = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
+    const game = good.game as Record<string, unknown>;
+    const cases: unknown[] = [
+      null,
+      undefined,
+      'text',
+      42,
+      [],
+      {},
+      { ...good, map: 'no-such-map' },
+      { ...good, mission: 'no-such-mission' },
+      { ...good, map: 'constructor' },
+      { ...good, game: null },
+      { ...good, game: { ...game, time: 'soon' } },
+      { ...good, game: { ...game, mech: null } },
+      { ...good, game: { ...game, enemies: {} } },
+      { ...good, checkpoint: 'cp1' },
+      { ...good, checkpoint: { id: 'cp1' } },
+    ];
+    for (const data of cases) expect(restoreSuspend(data)).toBeNull();
+    const { retries: _retries, ...noRetries } = game;
+    expect(restoreSuspend({ ...good, game: noRetries })).toBeNull();
+  });
+});
