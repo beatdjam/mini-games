@@ -5,7 +5,7 @@ import { runSystems } from '@engine/core/index.ts';
 import { drawStats, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
-import { FX_TUNE } from '../../src/data/tune.ts';
+import { PLAY_BATTLE_TUNE } from '../../src/data/tune.ts';
 import { ALLY_MESH_NAME } from '../../src/view/allies.ts';
 import { BATTLE_GROUP_NAME } from '../../src/view/battle/index.ts';
 import { sendToScript, step, type GameInput } from '../../src/logic/game.ts';
@@ -66,7 +66,7 @@ test('a sortie draws the battle: the allies walking, the holes and the smoke, in
   expect(battleGroups()).toHaveLength(1);
   const drawn = drawnBattleMeshes();
   // the walkers' bodies and heads (some have fallen or gone by now), and the holes, the smoke and the rest
-  expect(drawn.filter(mesh => mesh.count >= FX_TUNE.allies / 2).length).toBeGreaterThanOrEqual(2);
+  expect(drawn.filter(mesh => mesh.count >= PLAY_BATTLE_TUNE.allies / 2).length).toBeGreaterThanOrEqual(2);
   expect(drawn.length).toBeGreaterThanOrEqual(5);
   console.log(`sortie after the cutscene: ${drawStats()}`);
 });
