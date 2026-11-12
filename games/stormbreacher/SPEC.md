@@ -25,7 +25,7 @@
 
 `src/view/camera.ts` は三人称カメラの位置を決める純粋な関数で、`scene` も `camera` も触らない（カメラに書くのは `applyPose` だけ）。`aimRay` はカメラの位置から注視点への線（壁を考えない）を返し、本体の射撃の狙いになる。
 
-`src/view/world.ts` はマップの描き方を本体と開発用の入口で共有し、`src/view/outdoor.ts` は地面と物、`src/view/shore.ts` は海と揚陸艇（8章）、`src/view/mechProxy.ts` は機体の仮の模型を描き、`src/data/colors.ts` は地面の砂と空と海の色を名前で持つ。`src/view/mechModel.ts` は機体を箱で描く関数で、ゲームの状態に触らず、形を共有した単位の箱を色ごとに `InstancedMesh` で描く（1体の描く回数は使った色の数）。仮の模型 `mechProxy.ts` は本体が使っている。`src/data/mech.ts` は機体の部品の表（腕・脚・背中・FCS の4スロットと武器2、胴は4スロットの外の枠、箱は高さの割合、色は名前、値は仮）と M1 の固定の1組 `M1_MECH` を持つ。`src/view/play.ts` は出撃中の画面を組み立てて描き、`src/view/world.ts` の `syncWorld` が壊れた目標と壊れた物（`breakable` の物）を低く暗い姿にする。`src/view/hud.ts` は本体の出撃中の HUD を `HudModel` から描き、`src/view/hudParts.ts` は弧・丸いレーダー・点と円・照準の円の半径を持ち、`#view-hud` の見本と本体が同じものを使う。`src/data/colors.ts` は HUD の色（`HUD_COLOR`）も名前で持つ。
+`src/view/world.ts` はマップの描き方を本体と開発用の入口で共有し、`src/view/outdoor.ts` は地面と物、`src/view/shore.ts` は海と揚陸艇（8章）、`src/view/mechProxy.ts` は寸法の確認用の仮の模型を描き（開発用の入口だけが使う）、`src/data/colors.ts` は地面の砂と空と海の色を名前で持つ。`src/view/mechModel.ts` は機体を箱で描く関数で、ゲームの状態に触らず、形を共有した単位の箱を色ごとに `InstancedMesh` で描く（1体の描く回数は使った色の数）。`src/data/mech.ts` は機体の部品の表（腕・脚・背中・FCS の4スロットと武器2、胴は4スロットの外の枠、箱は高さの割合、色は名前、値は仮）と M1 の固定の1組 `M1_MECH`（見本 E の部品: 胴 `medium`・腕 `midArms`・脚 `midLegs`・背中 `pack`・FCS `blockHead`）、その色 `M1_MECH_PALETTE`（色の名前ごとの16進数）、武器の大きさ `M1_WEAPON_SCALE` を持つ。`src/view/play.ts` は出撃中の画面を組み立てて描き（本体の機体は `buildMechVisual` で M1 の組・色・武器の大きさから高さ `MECH_TUNE.height` に描く。向きと位置はゲームの機体に合わせる。1体の描く回数は色の数の5）、`src/view/world.ts` の `syncWorld` が壊れた目標と壊れた物（`breakable` の物）を低く暗い姿にする。`src/view/hud.ts` は本体の出撃中の HUD を `HudModel` から描き、`src/view/hudParts.ts` は弧・丸いレーダー・点と円・照準の円の半径を持ち、`#view-hud` の見本と本体が同じものを使う。`src/data/colors.ts` は HUD の色（`HUD_COLOR`）も名前で持つ。
 
 `src/data/looks.ts` はミッションごとの見た目の表（`LOOKS`・`lookOf`）と光の元の強さ（`BASE_LIGHTS`）を持つ。`src/view/look.ts` は解像度・色味・霧・空・光・地面の色をかけ、`#view-fx`・`#view-hud`・本体が同じ関数を使う。`src/view/field.ts` の光は半球1つ・太陽1つ（engine の光は外す）。`src/logic/planes.ts` は飛行機の動き（機体と関係なくマップの座標で往復）を持つ。
 
@@ -126,7 +126,10 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `radius` | 1 | m。地面での当たり半径。機体と物の当たりと通り道の検査が使う |
 | `chestHeight` | 2.5 | m。撃つ弾が出る、足元からの高さ。FCS の「胸」もこの高さ。敵が狙う機体の胸もこの高さ |
 | `armor` | 200 | 機体が倒れるまでに受けるダメージ（仮）。0 になると `downed` |
+| `fadeDist` | 3.5 | m。カメラと機体の胸（足元から `chestHeight`）の距離がこれより近いとき、機体を半透明にする |
+| `fadeOpacity` | 0.35 | 半透明のときの不透明度。遠ざかると 1 に戻る |
 
+半透明は、壁で寄ったカメラに画面を埋められないための決まり。`setMechOpacity`（`src/view/mechModel.ts`）が機体の材質の `transparent` と `opacity` を切り替えるだけなので、描く回数は変わらない。毎フレーム、カメラを置いたあとに距離を測る（`drawPlay`）。
 出撃の値は `PLAY_TUNE`（SB-115）。
 
 | 名前 | 値 | 単位・意味 |

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
 import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
+import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE } from '../data/tune.ts';
@@ -17,7 +18,7 @@ import { feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } 
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { applyLookTo } from './look.ts';
-import { buildMechProxy } from './mechProxy.ts';
+import { buildMechVisual, setMechOpacity } from './mechModel.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const TRACER_COLOR = 0xffe066; // the bullet's line
@@ -37,7 +38,8 @@ export interface BulletLines {
 
 export interface PlayView {
   world: World;
-  model: THREE.Group; // the mech's stand-in
+  model: THREE.Group; // the mech, M1's look (pattern E)
+  mechFaded: boolean; // whether the mech is drawn see-through, for the camera is near
   feel: FeelState;
   pitch: number; // the camera's pitch (rad)
   camPos: THREE.Vector3 | null; // the camera's place in the last frame
@@ -54,12 +56,16 @@ export function buildPlayView(game: GameModel): PlayView {
   const world = buildWorld(game.map);
   // the look comes from the mission's row; the sortie is M1's B alone, so M1.id is written here (SB-300 picks the mission)
   applyLookTo(lookOf(M1.id), world.built.group);
-  const model = buildMechProxy(MECH_TUNE.height);
+  const model = buildMechVisual(
+    { build: M1_MECH, palette: M1_MECH_PALETTE, weaponScale: M1_WEAPON_SCALE },
+    MECH_TUNE.height,
+  );
   scene.add(model);
   const hud = buildPlayHud(document.body);
   return {
     world,
     model,
+    mechFaded: false,
     feel: newFeel(CAMERA_TUNE.fov),
     pitch: 0,
     camPos: null,
@@ -144,6 +150,15 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   view.camPos = view.camPos ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
   const pos = view.camPos.clone().add(frame.offset);
   applyPose(camera, { ...pose, pos }, frame.fov);
+
+  // a camera pushed close by a wall would fill the screen with the mech, so the mech turns see-through
+  const near =
+    camera.position.distanceTo(new THREE.Vector3(game.mech.x, game.mech.y + MECH_TUNE.chestHeight, game.mech.z)) <
+    MECH_TUNE.fadeDist;
+  if (near !== view.mechFaded) {
+    view.mechFaded = near;
+    setMechOpacity(view.model, near ? MECH_TUNE.fadeOpacity : 1);
+  }
 
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game);

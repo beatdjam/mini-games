@@ -1,6 +1,6 @@
 // The look plans for #view-mech. Which parts a plan picks makes its shape; this table holds the colours and the
-// weapons' size. Every value here is provisional.
-import { M1_MECH, type MechBuild } from '../../data/mech.ts';
+// weapons' size. E is M1's own look (data/mech.ts), A and F share its colours. Every value here is provisional.
+import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE, type MechBuild } from '../../data/mech.ts';
 import { M1_LOADOUT } from '../../data/weapons.ts';
 import type { MechLook } from '../../view/mechModel.ts';
 
@@ -19,19 +19,19 @@ const build = (parts: Omit<MechBuild, 'main' | 'sub'>): MechBuild => ({ ...parts
 
 export const PATTERNS: Record<PatternId, MechLook> = {
   a: {
-    build: M1_MECH,
+    build: build({ core: 'bulky', arms: 'heavyArms', legs: 'stoutLegs', back: 'pack', fcs: 'blockHead' }),
     weaponScale: 1,
-    palette: { armor: 0x6f735c, frame: 0x3a3c36, accent: 0xc8a23a, sensor: 0xd8482a, weapon: 0x9a9a92 },
+    palette: M1_MECH_PALETTE,
   },
   e: {
-    build: build({ core: 'medium', arms: 'midArms', legs: 'midLegs', back: 'pack', fcs: 'blockHead' }),
-    weaponScale: 1,
-    palette: { armor: 0x6f735c, frame: 0x3a3c36, accent: 0xc8a23a, sensor: 0xd8482a, weapon: 0x9a9a92 },
+    build: M1_MECH,
+    weaponScale: M1_WEAPON_SCALE,
+    palette: M1_MECH_PALETTE,
   },
   f: {
     build: build({ core: 'medium', arms: 'midArms', legs: 'longLegs', back: 'boosters', fcs: 'visor' }),
     weaponScale: 1,
-    palette: { armor: 0x6f735c, frame: 0x3a3c36, accent: 0xc8a23a, sensor: 0xd8482a, weapon: 0x9a9a92 },
+    palette: M1_MECH_PALETTE,
   },
   b: {
     build: build({ core: 'slim', arms: 'slimArms', legs: 'reverseLegs', back: 'boosters', fcs: 'visor' }),

@@ -3,6 +3,7 @@ import {
   CORES,
   MECH_COLORS,
   M1_MECH,
+  M1_MECH_PALETTE,
   PART_IDS,
   PARTS,
   SLOT_IDS,
@@ -67,5 +68,19 @@ test('every pattern uses existing parts and a full palette', () => {
     expect(Object.keys(pattern.palette).sort()).toEqual([...MECH_COLORS].sort());
     expect(pattern.weaponScale).toBeGreaterThan(0);
   }
-  expect(PATTERNS.a.build).toEqual(M1_MECH);
+  expect(PATTERNS.e.build).toEqual(M1_MECH);
+});
+
+test("M1's mech is pattern E's parts", () => {
+  expect({ core: M1_MECH.core, arms: M1_MECH.arms, legs: M1_MECH.legs, back: M1_MECH.back, fcs: M1_MECH.fcs }).toEqual({
+    core: 'medium',
+    arms: 'midArms',
+    legs: 'midLegs',
+    back: 'pack',
+    fcs: 'blockHead',
+  });
+});
+
+test("M1's palette names every colour", () => {
+  expect(Object.keys(M1_MECH_PALETTE).sort()).toEqual([...MECH_COLORS].sort());
 });
