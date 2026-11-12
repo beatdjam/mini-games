@@ -11,21 +11,33 @@ export interface PropSize {
 
 export const TILE_SIZE = 4; // the ground tile's side (m)
 
+const SEAWALL_HEIGHT = 6; // the seawall's height (m), also the height a flight of stairs climbs
+
+// A flight of stairs up the seawall: one prop, one rect per step (mapBlockers). The rise follows from the seawall's
+// height, so the mech can walk up every step (MOVE_TUNE.stepHeight is 0.75 m).
+export const STAIRS_TUNE = {
+  steps: 9, // how many steps the flight has
+  run: 1.5, // each step's depth along the climb (m)
+};
+export const STAIR_RISE = SEAWALL_HEIGHT / STAIRS_TUNE.steps; // how much each step rises above the one before (m)
+
 export const PROP_SIZE: Record<PropKind, PropSize> = {
   tile: { w: 4, h: 0, d: 4, blocks: false },
   hedgehog: { w: 3, h: 3, d: 3, blocks: true },
   block: { w: 6, h: 4, d: 4, blocks: true },
   bunker: { w: 12, h: 6, d: 8, blocks: true },
-  seawall: { w: 8, h: 6, d: 4, blocks: true },
+  seawall: { w: 8, h: SEAWALL_HEIGHT, d: 4, blocks: true },
   cliff: { w: 20, h: 30, d: 16, blocks: true },
   crater: { w: 12, h: 0, d: 12, blocks: false },
   wreck: { w: 12, h: 5, d: 6, blocks: true },
+  lowWall: { w: 6, h: 0.85, d: 1, blocks: true }, // above the 0.75 m step, below a jump's peak of about 1.04 m
+  stairs: { w: 8, h: SEAWALL_HEIGHT, d: STAIRS_TUNE.steps * STAIRS_TUNE.run, blocks: true },
 };
 
 // A prop's health (provisional). Only a `breakable: true` prop uses it. The autocannon (WEAPONS.autocannon.damage 10)
 // and the heavy gun (WEAPONS.heavyGun.damage 60) take this many shots: a hedgehog 3 and 1, a block 6 and 1, a bunker 15
-// and 3, a seawall 12 and 2, a wreck 8 and 2, and a cliff 30 and 5. The tile and the crater do not block, so they are
-// never shot down.
+// and 3, a seawall 12 and 2, a wreck 8 and 2, a low wall 4 and 1, and a cliff 30 and 5. The tile and the crater do not
+// block, so they are never shot down. The stairs are not broken either (their health is 0).
 export const PROP_HP: Record<PropKind, number> = {
   tile: 0,
   hedgehog: 30,
@@ -35,6 +47,8 @@ export const PROP_HP: Record<PropKind, number> = {
   cliff: 300,
   crater: 0,
   wreck: 80,
+  lowWall: 40,
+  stairs: 0,
 };
 
 export interface TargetSize {

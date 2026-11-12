@@ -105,6 +105,17 @@ test('blocking a defence line’s breakthroughs leaves no path', () => {
   }
 });
 
+test('with a seawall the walk ends at its foot, so the seawall itself is not a wall across the path', () => {
+  expect(M1B_HAND.props.some(prop => prop.kind === 'seawall')).toBe(true);
+  expect(validateMapForMission(M1B_HAND, M1, SKIP).some(violation => violation.kind === 'no-path')).toBe(false);
+});
+
+test('a wall of blocks between the front edge and the seawall’s foot leaves no path', () => {
+  const map = structuredClone(M1B_HAND);
+  for (let x = -99; x <= 99; x += 2) map.props.push({ kind: 'block', x, z: -58, yaw: 0, scale: 1 });
+  expect(validateMapForMission(map, M1, SKIP).some(violation => violation.kind === 'no-path')).toBe(true);
+});
+
 test('a prop outside the bounds is a violation', () => {
   const map = structuredClone(M1B_HAND);
   map.props.push({ kind: 'block', x: 120, z: 0, yaw: 0, scale: 1 });

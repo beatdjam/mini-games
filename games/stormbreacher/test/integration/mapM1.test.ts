@@ -4,6 +4,8 @@ import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
+import { PROP_SIZE } from '../../src/data/props.ts';
+import { MECH_TUNE } from '../../src/data/tune.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import type { MapDef, MapLine } from '../../src/data/types.ts';
 import { checkMapPath } from '../../src/logic/mapCheck.ts';
@@ -71,6 +73,48 @@ test('the two pillboxes stand landward of z 0', () => {
   const pillboxes = M1B_HAND.targets.filter(target => target.kind === 'pillbox');
   expect(pillboxes.length).toBe(2);
   for (const pillbox of pillboxes) expect(pillbox.z, pillbox.id).toBeLessThan(0);
+});
+
+test('the hand map’s seawall runs from x -100 to 100 with no gap along x, inside the bounds', () => {
+  const size = PROP_SIZE.seawall;
+  const rows = new Map<number, number[]>();
+  for (const prop of M1B_HAND.props) {
+    if (prop.kind !== 'seawall') continue;
+    rows.set(
+      prop.z,
+      [...(rows.get(prop.z) ?? []), prop.x].sort((a, b) => a - b),
+    );
+  }
+  expect(rows.size).toBeGreaterThan(0);
+  const { minX, maxX, minZ } = M1B_HAND.bounds;
+  for (const [z, xs] of rows) {
+    expect(xs[0] - size.w / 2, `row ${z}`).toBeLessThanOrEqual(minX);
+    expect(xs[xs.length - 1] + size.w / 2, `row ${z}`).toBeGreaterThanOrEqual(maxX);
+    for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1], `row ${z}`).toBeLessThanOrEqual(size.w);
+    expect(z - size.d / 2, `row ${z}`).toBeGreaterThanOrEqual(minZ);
+  }
+});
+
+test('the hand map’s stairs stand against the seawall’s sea side and climb to its height', () => {
+  const stairs = M1B_HAND.props.filter(prop => prop.kind === 'stairs');
+  expect(stairs.length).toBe(2);
+  const seaSide = Math.max(
+    ...M1B_HAND.props.filter(prop => prop.kind === 'seawall').map(prop => prop.z + PROP_SIZE.seawall.d / 2),
+  );
+  for (const flight of stairs) {
+    expect(flight.z - PROP_SIZE.stairs.d / 2).toBeCloseTo(seaSide, 6);
+    expect(PROP_SIZE.stairs.h).toBe(PROP_SIZE.seawall.h);
+  }
+});
+
+test('the hand map’s low walls leave room to walk round them', () => {
+  const walls = M1B_HAND.props.filter(prop => prop.kind === 'lowWall').sort((a, b) => a.x - b.x);
+  expect(walls.length).toBeGreaterThanOrEqual(4);
+  expect(walls.length).toBeLessThanOrEqual(6);
+  for (let i = 1; i < walls.length; i++) {
+    const gap = walls[i].x - walls[i - 1].x - PROP_SIZE.lowWall.w;
+    expect(gap).toBeGreaterThan(MECH_TUNE.radius * 2);
+  }
 });
 
 for (const { name, map } of MAPS) {
