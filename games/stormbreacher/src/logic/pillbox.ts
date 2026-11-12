@@ -3,7 +3,7 @@
 // reports the events.
 import type { Rng } from '@engine/core/index.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { MECH_TUNE } from '../data/tune.ts';
+import { MECH_TUNE, PILLBOX_ARMOR } from '../data/tune.ts';
 import type { EnemyShot } from './enemies.ts';
 import { spreadDir } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
@@ -30,6 +30,18 @@ export function newPillbox(id: string): PillboxState {
 // The direction a pillbox faces on the ground: its front is +z turned by the map's yaw.
 export function pillboxFront(yaw: number): { x: number; z: number } {
   return { x: Math.sin(yaw), z: Math.cos(yaw) };
+}
+
+// The share of a shot's damage a pillbox takes. Its front is `pillboxFront`, but the shot's direction (dx, dz) points
+// away from the shooter, so the angle is taken between the front and the way back to the shooter. A shot with no
+// horizontal direction counts as a side hit.
+export function pillboxDamageMul(yaw: number, dx: number, dz: number): number {
+  const length = Math.hypot(dx, dz);
+  if (length === 0) return PILLBOX_ARMOR.sideMul;
+  const front = pillboxFront(yaw);
+  const cos = Math.min(1, Math.max(-1, (-dx * front.x - dz * front.z) / length));
+  const angle = (Math.acos(cos) * 180) / Math.PI;
+  return angle <= PILLBOX_ARMOR.frontArc ? PILLBOX_ARMOR.frontMul : PILLBOX_ARMOR.sideMul;
 }
 
 // How far along `front` the box's face lies from its middle: the first face the line meets.

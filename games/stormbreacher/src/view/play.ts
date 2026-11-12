@@ -2,8 +2,8 @@
 // view reads GameModel and never writes it; logic/game.ts owns the mech, the targets and the frame's events.
 import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
-import { camera, cullChunks, scene } from '@engine/render/index.ts';
-import { ENEMY_BULLET_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
+import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
+import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
@@ -33,6 +33,10 @@ const TRACER_COLOR = 0xffe066; // the bullet's line
 const TRACER_LENGTH = 4; // how far behind its head a bullet's line reaches (m)
 const MAX_BULLET_LINES = 96; // the most bullets drawn at once, for the mech's and for the enemies' each; the rest fly unseen
 const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
+const DEFLECT_SPARKS = 6; // the sparks a shot off a pillbox's front throws
+const DEFLECT_SPEED = 5; // how fast a spark flies out (m/s)
+const DEFLECT_LIFE = 0.18; // how long a spark lives (s)
+const DEFLECT_GRAVITY = -4; // how fast a spark falls (m/s^2)
 const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per landing
 const BOOST_DUST = 6; // the same, per boost start
 const BLAST_DUST = 14; // the same, per shell landing or mine blast
@@ -199,7 +203,21 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     } else if (event.kind === 'shot') {
       mechEvents.push({ kind: 'fire', speed: 0 });
     } else if (event.kind === 'hit') {
-      spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+      // a shot a pillbox's front turned away throws a small bright spark; everything else leaves sand
+      if (event.deflected) {
+        burst(
+          event.x,
+          event.y,
+          event.z,
+          PILLBOX_DEFLECT_COLOR,
+          DEFLECT_SPARKS,
+          DEFLECT_SPEED,
+          DEFLECT_LIFE,
+          DEFLECT_GRAVITY,
+        );
+      } else {
+        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+      }
     } else if (event.kind === 'destroyed' || event.kind === 'enemyDown') {
       kill = true;
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {

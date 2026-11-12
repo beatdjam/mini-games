@@ -7,7 +7,8 @@
 // range; a breakable prop takes the damage and breaks at 0. An enemy's shot (logic/enemies.ts) flies at its kind's
 // speed and stops at a prop, at the mech or at the ground; the mech's armour takes its damage, and at 0 the mech is
 // downed and the game stops. A pillbox (logic/pillbox.ts) that sees the mech warns of a burst and then fires it, and its
-// shots fly as an enemy's do. The script's `spawn` puts a wave's enemies out (the wave's kind is in M1_WAVE_ENEMY), starts
+// shots fly as an enemy's do; a shot from its front does a quarter of its damage and is reported as deflected. The
+// script's `spawn` puts a wave's enemies out (the wave's kind is in M1_WAVE_ENEMY), starts
 // the wave's barrage (M1_WAVE_BARRAGE; logic/hazards.ts) and, when the last of the enemies falls, `cleared` goes back
 // through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; a mine blows up
 // when the mech steps on it or the mech's shot breaks it, and both take armour from a mech inside the blast. The boss
@@ -37,7 +38,7 @@ import {
 import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
 import { newNav, stepNav, type NavState } from './nav.ts';
-import { newPillbox, stepPillbox, type PillboxState } from './pillbox.ts';
+import { newPillbox, pillboxDamageMul, stepPillbox, type PillboxState } from './pillbox.ts';
 import {
   newFcs,
   spreadDir,
@@ -97,6 +98,7 @@ export type GameEvent =
       prop: number | null; // the prop's place in map.props when a prop stopped it
       enemy: string | null; // the enemy's id when an enemy stopped the bullet
       mech: boolean; // whether the mech stopped the bullet; all of these are empty at the ground and at a mine
+      deflected: boolean; // whether a pillbox's front turned the bullet away; false everywhere else
     }
   | { kind: 'destroyed'; id: string }
   | { kind: 'shutterOpen'; target: string } // the shutter before this target opened
@@ -360,6 +362,9 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
     !hostile && met >= aliveTargets.length && met < enemyEnd ? aliveEnemies[met - aliveTargets.length] : null;
   const mine = !hostile && met >= enemyEnd && met < front.length ? game.mines[met - enemyEnd] : null;
   const propBox = met >= front.length && met < front.length + game.propBoxes.length ? met - front.length : -1;
+  // A pillbox's front takes a quarter of the shot; everything else takes it whole. The way it came from is the
+  // bullet's own direction turned around, so this is settled before the damage is taken.
+  const mul = target && target.kind === 'pillbox' ? pillboxDamageMul(target.yaw, bullet.dx, bullet.dz) : 1;
   game.events.push({
     kind: 'hit',
     x,
@@ -370,6 +375,7 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
     prop: propBox >= 0 ? game.propRefs[propBox] : null,
     enemy: enemy ? enemy.id : null,
     mech: asMech,
+    deflected: mul < 1,
   });
   if (asMech) damageMech(game, damage, -bullet.dx, -bullet.dz);
   // an enemy's bullet does not break a prop
@@ -379,7 +385,7 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   if (!target) return true;
   // a target behind a shut shutter stops the bullet and takes no harm
   if (shuttered(game.shutters, target.id)) return true;
-  target.hp = Math.max(0, target.hp - damage);
+  target.hp = Math.max(0, target.hp - damage * mul);
   if (target.hp > 0) return true;
   game.events.push({ kind: 'destroyed', id: target.id });
   checkShutters(game);

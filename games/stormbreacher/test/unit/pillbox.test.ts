@@ -3,9 +3,10 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
 import { PILLBOX_TUNE } from '../../src/data/pillbox.ts';
+import { PILLBOX_ARMOR } from '../../src/data/tune.ts';
 import { rectBox } from '../../src/logic/collide.ts';
 import type { Aabb } from '../../src/logic/fire.ts';
-import { newPillbox, pillboxFront, pillboxMuzzle, stepPillbox } from '../../src/logic/pillbox.ts';
+import { newPillbox, pillboxDamageMul, pillboxFront, pillboxMuzzle, stepPillbox } from '../../src/logic/pillbox.ts';
 
 const DT = 1 / 60;
 // a pillbox like the hand map's: 12 wide, 8 deep and 6 high, at the origin, its front toward +z
@@ -84,6 +85,39 @@ test('a shot leaves outside the pillbox, at the muzzle’s share of its height',
   expect(outside).toBe(true);
   expect(turnedMuzzle.y).toBeCloseTo(turned.maxY * PILLBOX_TUNE.muzzle);
   expect(pillboxFront(0.2)).toEqual({ x: Math.sin(0.2), z: Math.cos(0.2) });
+});
+
+// A shot that comes from `deg` around the front: the bullet flies the opposite way, so the front is turned round to the
+// shooter and then back again.
+function shotFrom(deg: number, yaw = 0): { dx: number; dz: number } {
+  const front = pillboxFront(yaw);
+  const turn = (deg * Math.PI) / 180;
+  const x = front.x * Math.cos(turn) + front.z * Math.sin(turn);
+  const z = -front.x * Math.sin(turn) + front.z * Math.cos(turn);
+  return { dx: -x, dz: -z };
+}
+
+test('a pillbox takes a quarter of a shot from its front and all of one from its side or back', () => {
+  const front = shotFrom(0);
+  expect(pillboxDamageMul(0, front.dx, front.dz)).toBe(PILLBOX_ARMOR.frontMul);
+  // just inside and just outside the front arc
+  const inside = shotFrom(44);
+  expect(pillboxDamageMul(0, inside.dx, inside.dz)).toBe(PILLBOX_ARMOR.frontMul);
+  const outside = shotFrom(46);
+  expect(pillboxDamageMul(0, outside.dx, outside.dz)).toBe(PILLBOX_ARMOR.sideMul);
+  const side = shotFrom(90);
+  expect(pillboxDamageMul(0, side.dx, side.dz)).toBe(PILLBOX_ARMOR.sideMul);
+  const back = shotFrom(180);
+  expect(pillboxDamageMul(0, back.dx, back.dz)).toBe(PILLBOX_ARMOR.sideMul);
+  // a shot with no horizontal direction cannot come from the front
+  expect(pillboxDamageMul(0, 0, 0)).toBe(PILLBOX_ARMOR.sideMul);
+});
+
+test('a turned pillbox keeps the same front and side from its own yaw', () => {
+  const front = shotFrom(0, 0.2);
+  expect(pillboxDamageMul(0.2, front.dx, front.dz)).toBe(PILLBOX_ARMOR.frontMul);
+  const side = shotFrom(90, 0.2);
+  expect(pillboxDamageMul(0.2, side.dx, side.dz)).toBe(PILLBOX_ARMOR.sideMul);
 });
 
 test('the same seed gives the same burst', () => {
