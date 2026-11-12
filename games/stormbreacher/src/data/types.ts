@@ -104,6 +104,12 @@ export interface SpawnPoint {
   z: number;
 }
 
+// Where a mine lies on the ground (m).
+export interface MinePlace {
+  x: number;
+  z: number;
+}
+
 export interface MapBounds {
   minX: number;
   maxX: number;
@@ -117,6 +123,7 @@ export interface MapDef {
   props: Prop[];
   targets: TargetPlace[];
   spawns: Record<string, SpawnPoint[]>; // wave name -> the places it comes in
+  mines?: MinePlace[]; // left out where a map has none: the generated and edited maps hold none, so only the hand map sets it
 }
 
 // What the generator must put down: bands of one kind, the cliff along the right edge, the clear ground around the

@@ -23,3 +23,9 @@ export const ENEMY_COLOR: Record<EnemyKind, number> = {
 };
 export const ENEMY_DOWN_COLOR = 0x2a2522;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
+
+// The hazards on the field (仮): the ring of a coming shell from the moment it is warned to the moment it lands, and a
+// mine's disc.
+export const SHELL_WARN_COLOR = 0x5a1a14;
+export const SHELL_LAND_COLOR = 0xff3a22;
+export const MINE_COLOR = 0x3a3d2e;

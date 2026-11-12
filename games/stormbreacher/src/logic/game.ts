@@ -6,10 +6,13 @@
 // meets, at the first target or living enemy along its path or at the ground, whichever is nearest, and vanishes at its
 // range; a breakable prop takes the damage and breaks at 0. An enemy's shot (logic/enemies.ts) flies at its kind's
 // speed and stops at a prop, at the mech or at the ground; the mech's armour takes its damage, and at 0 the mech is
-// downed and the game stops. The script's `spawn` puts a wave's enemies out (the wave's kind is in M1_WAVE_ENEMY) and,
-// when the last of them falls, `cleared` goes back through sendToScript. `ally` (a friend) is kept as an event and does
+// downed and the game stops. The script's `spawn` puts a wave's enemies out (the wave's kind is in M1_WAVE_ENEMY), starts
+// the wave's barrage (M1_WAVE_BARRAGE; logic/hazards.ts) and, when the last of the enemies falls, `cleared` goes back
+// through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; a mine blows up
+// when the mech steps on it or the mech's shot breaks it, and both take armour from a mech inside the blast. `ally` (a friend) is kept as an event and does
 // nothing until the friends come.
 import { ENEMIES, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
+import { M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { FCS_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../data/tune.ts';
@@ -19,6 +22,16 @@ import { rectBox, type GroundRect } from './collide.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
 import { newFcs, spreadDir, stepFcs, type Dir3, type FcsState, type FcsTarget, type Ray3 } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
+import {
+  inCircle,
+  mineStepped,
+  newBarrage,
+  stepBarrage,
+  stepShells,
+  type BarrageState,
+  type MineState,
+  type ShellState,
+} from './hazards.ts';
 import { blockingPropIndexes, mapBlockers } from './mapShapes.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from './mech.ts';
 import { stream } from './rng.ts';
@@ -51,7 +64,7 @@ export type GameEvent =
       target: string | null; // the target's id when a target stopped the bullet
       prop: number | null; // the prop's place in map.props when a prop stopped it
       enemy: string | null; // the enemy's id when an enemy stopped the bullet
-      mech: boolean; // whether the mech stopped the bullet; all of these are empty at the ground
+      mech: boolean; // whether the mech stopped the bullet; all of these are empty at the ground and at a mine
     }
   | { kind: 'destroyed'; id: string }
   | { kind: 'spawned'; wave: string; count: number } // a wave's enemies were put out
@@ -59,6 +72,9 @@ export type GameEvent =
   | { kind: 'damaged'; amount: number; fromX: number; fromZ: number } // the mech took `amount`; (fromX, fromZ) is the unit direction on the ground from the mech toward where the bullet came from
   | { kind: 'downed' } // the armour reached 0
   | { kind: 'propDestroyed'; prop: number; x: number; z: number }
+  | { kind: 'shellWarn'; x: number; z: number; radius: number } // a shell will land here
+  | { kind: 'shellLand'; x: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
+  | { kind: 'mineBlast'; x: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   | { kind: 'cleared' }
   | { kind: 'retried'; from: string | null }; // the sortie began again: from the checkpoint with this id, or null from the start
@@ -98,10 +114,10 @@ function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
   return { speed: def.speed, damage: def.damage };
 }
 
-// The game as a checkpoint keeps it: every field of GameModel except the ones listed here, which are not kept. `events`
-// and `bullets` are the frame's own, `checkpoint` never nests, and `id` is the checkpoint's name (cp1). `map` and
+// The game as a checkpoint keeps it: every field of GameModel except the ones listed here, which are not kept. `events`,
+// `bullets` and `shells` (a warning before it lands) are the frame's own, `checkpoint` never nests, and `id` is the checkpoint's name (cp1). `map` and
 // `mission` are definitions nothing writes to, so the copy points at the same ones.
-export type GameSnapshot = Omit<GameModel, 'events' | 'bullets' | 'checkpoint'> & { id: string };
+export type GameSnapshot = Omit<GameModel, 'events' | 'bullets' | 'shells' | 'checkpoint'> & { id: string };
 
 export interface GameModel {
   time: number; // seconds since the sortie began
@@ -123,10 +139,19 @@ export interface GameModel {
   fcs: FcsState; // the aim assist's state (the soft kind)
   aimTarget: string | null; // the id of the target or enemy the soft FCS pulls the aim toward, or null
   bullets: Bullet[]; // the shots in flight
+  barrages: BarrageState[]; // the barrages that have started; none stops
+  shells: ShellState[]; // the shells warned and not yet landed
+  mines: MineState[]; // the mines still on the ground
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
   checkpoint: GameSnapshot | null; // the game as the last checkpoint kept it; null before one
   retries: number; // how many times the sortie began again (SB-210 charges the repair and the ammo for each)
+}
+
+// The box a shot may hit on a mine: MINE_TUNE.size around its place.
+function mineBox(mine: MineState): Aabb {
+  const size = MINE_TUNE.size;
+  return rectBox({ x: mine.x, z: mine.z, halfW: size.w / 2, halfD: size.d / 2, yaw: 0, top: size.h });
 }
 
 // The box a shot may hit on an enemy: x and z +- its radius, y from the ground to its height.
@@ -194,9 +219,9 @@ function shoot(game: GameModel, weapon: WeaponId, dir: Dir3): void {
 }
 
 // Moves one bullet on by `dt`. The mech's bullet stops at the nearest of the first prop, the first live target, the
-// first live enemy and the ground along the stretch it flies; an enemy's bullet stops at the nearest of the first prop,
+// first live enemy, the first mine and the ground along the stretch it flies; an enemy's bullet stops at the nearest of the first prop,
 // the mech and the ground. There it reports a hit; a prop (the mech's bullet only), a target or an enemy takes the
-// damage and one down to 0 falls, a target going to the script; the mech's armour takes an enemy's bullet. Returns
+// damage and one down to 0 falls, a target going to the script, a mine going off at 0; the mech's armour takes an enemy's bullet. Returns
 // whether the bullet is gone. The boxes are made fresh for each bullet, so a thing an earlier bullet broke is not met
 // again.
 function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
@@ -206,7 +231,10 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   const aliveTargets = hostile ? [] : game.targets.filter(target => target.hp > 0);
   const aliveEnemies = hostile ? [] : game.enemies.filter(enemy => enemy.hp > 0);
   // What only this bullet can hit comes first and the props after, so an index past `front` is a prop that stopped it.
-  const front = hostile ? [mechBox(game.mech)] : [...aliveTargets.map(t => t.box), ...aliveEnemies.map(enemyBox)];
+  // (a mine comes after the enemies; an enemy's bullet flies over the mines)
+  const front = hostile
+    ? [mechBox(game.mech)]
+    : [...aliveTargets.map(t => t.box), ...aliveEnemies.map(enemyBox), ...game.mines.map(mineBox)];
   // An enemy's bullet also stops at a standing target (a pillbox's wall), after the props, and does it no harm.
   const walls = hostile ? game.targets.filter(target => target.hp > 0).map(target => target.box) : [];
   const hit = fireRayHit(bullet.x, bullet.y, bullet.z, bullet.dx, bullet.dy, bullet.dz, dist, [
@@ -231,8 +259,10 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   const met = hit && hit.dist <= ground ? hit.index : -1;
   const asMech = hostile && met === 0;
   const target = !hostile && met >= 0 && met < aliveTargets.length ? aliveTargets[met] : null;
+  const enemyEnd = aliveTargets.length + aliveEnemies.length;
   const enemy =
-    !hostile && met >= aliveTargets.length && met < front.length ? aliveEnemies[met - aliveTargets.length] : null;
+    !hostile && met >= aliveTargets.length && met < enemyEnd ? aliveEnemies[met - aliveTargets.length] : null;
+  const mine = !hostile && met >= enemyEnd && met < front.length ? game.mines[met - enemyEnd] : null;
   const propBox = met >= front.length && met < front.length + game.propBoxes.length ? met - front.length : -1;
   game.events.push({
     kind: 'hit',
@@ -245,10 +275,11 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
     enemy: enemy ? enemy.id : null,
     mech: asMech,
   });
-  if (asMech) damageMech(game, damage, bullet);
+  if (asMech) damageMech(game, damage, -bullet.dx, -bullet.dz);
   // an enemy's bullet does not break a prop
   if (!hostile && propBox >= 0) damageProp(game, propBox, damage);
   if (enemy) damageEnemy(game, enemy, damage);
+  if (mine) damageMine(game, mine, damage);
   if (!target) return true;
   target.hp = Math.max(0, target.hp - damage);
   if (target.hp > 0) return true;
@@ -264,20 +295,36 @@ function damageEnemy(game: GameModel, enemy: EnemyState, damage: number): void {
   game.events.push({ kind: 'enemyDown', id: enemy.id, x: enemy.x, z: enemy.z });
 }
 
-// Takes `damage` off the mech's armour and reports it with the way the bullet came from; at 0 the mech is downed, once.
-function damageMech(game: GameModel, damage: number, bullet: Bullet): void {
+// Takes `damage` off the mech's armour and reports it with the way it came from, (toX, toZ) being the direction on the
+// ground from the mech toward the source (any length); at 0 the mech is downed, once.
+function damageMech(game: GameModel, damage: number, toX: number, toZ: number): void {
   if (game.downed) return;
   game.armor = Math.max(0, game.armor - damage);
-  const flat = Math.hypot(bullet.dx, bullet.dz);
+  const flat = Math.hypot(toX, toZ);
   game.events.push({
     kind: 'damaged',
     amount: damage,
-    fromX: flat < 1e-9 ? 0 : -bullet.dx / flat,
-    fromZ: flat < 1e-9 ? 0 : -bullet.dz / flat,
+    fromX: flat < 1e-9 ? 0 : toX / flat,
+    fromZ: flat < 1e-9 ? 0 : toZ / flat,
   });
   if (game.armor > 0) return;
   game.downed = true;
   game.events.push({ kind: 'downed' });
+}
+
+// Takes `damage` off the mine's health; at 0 it goes off.
+function damageMine(game: GameModel, mine: MineState, damage: number): void {
+  mine.hp = Math.max(0, mine.hp - damage);
+  if (mine.hp > 0) return;
+  blowUp(game, mine);
+}
+
+// Takes the mine off the ground and blows it up: a mech inside MINE_TUNE.blastRadius takes MINE_TUNE.damage.
+function blowUp(game: GameModel, mine: MineState): void {
+  game.mines.splice(game.mines.indexOf(mine), 1);
+  const hit = inCircle(mine, MINE_TUNE.blastRadius, game.mech);
+  game.events.push({ kind: 'mineBlast', x: mine.x, z: mine.z, hit });
+  if (hit) damageMech(game, MINE_TUNE.damage, mine.x - game.mech.x, mine.z - game.mech.z);
 }
 
 // Moves every bullet in flight on by `dt` and drops the ones that stopped or ran out of range.
@@ -338,6 +385,9 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     fcs: newFcs(),
     aimTarget: null,
     bullets: [],
+    barrages: [],
+    shells: [],
+    mines: (map.mines ?? []).map(place => ({ x: place.x, z: place.z, hp: MINE_TUNE.hp })),
     events: [],
     cleared: false,
     checkpoint: null,
@@ -364,6 +414,13 @@ function spawnWave(game: GameModel, wave: string): void {
   game.events.push({ kind: 'spawned', wave, count: places.length });
 }
 
+// Starts the barrage a wave names in M1_WAVE_BARRAGE, once; a wave that is not there starts none.
+function startBarrage(game: GameModel, wave: string): void {
+  const kind = M1_WAVE_BARRAGE[wave];
+  if (kind === undefined || game.barrages.some(barrage => barrage.wave === wave)) return;
+  game.barrages.push(newBarrage(wave, kind));
+}
+
 // Sends `cleared` to the script for each wave whose enemies are all down. Once a wave is cleared the script remembers
 // it, so it is not sent again.
 function checkWaves(game: GameModel): void {
@@ -375,13 +432,16 @@ function checkWaves(game: GameModel): void {
 }
 
 // Keeps every event the script reported. The game itself takes three: a radio line (the last one stays up), a wave to
-// put out (`spawn`) and the end (the sortie is cleared). `ally` waits for the friends.
+// put out and start the barrage of (`spawn`) and the end (the sortie is cleared). `ally` waits for the friends.
 function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
   let checkpoint: string | null = null;
   for (const event of outs) {
     game.events.push({ kind: 'script', event });
     if (event.kind === 'radio') game.radio = { line: event.line, time: game.time };
-    if (event.kind === 'spawn') spawnWave(game, event.wave);
+    if (event.kind === 'spawn') {
+      spawnWave(game, event.wave);
+      startBarrage(game, event.wave);
+    }
     if (event.kind === 'end' && !game.cleared) {
       game.cleared = true;
       game.events.push({ kind: 'cleared' });
@@ -395,12 +455,13 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
 // A deep copy of the game for the checkpoint `id`. The fields that are not kept are taken out by name, so a field added
 // to GameModel is copied unless it is added to the list.
 function snapshotOf(game: GameModel, id: string): GameSnapshot {
-  const { events: _events, bullets: _bullets, checkpoint: _checkpoint, map, mission, ...kept } = game;
+  const { events: _events, bullets: _bullets, shells: _shells, checkpoint: _checkpoint, map, mission, ...kept } = game;
   return { ...structuredClone(kept), map, mission, id };
 }
 
 // The sortie again from the last checkpoint: the checkpoint's game with the armour full, both weapons loaded, the aim
-// assist fresh and the enemies, targets, props and script as the checkpoint kept them (no wave is sent out again). The
+// assist fresh and the enemies, targets, props, mines, barrages and script as the checkpoint kept them (no wave is sent
+// out again; a shell warned but not landed is gone). The
 // checkpoint is copied again, so the new game's changes do not reach it, and it stays for the next time.
 export function retryFromCheckpoint(game: GameModel): GameModel {
   const checkpoint = game.checkpoint;
@@ -418,6 +479,7 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
     fcs: newFcs(),
     aimTarget: null,
     bullets: [],
+    shells: [],
     events: [{ kind: 'retried', from: id }],
     cleared: false,
     checkpoint,
@@ -450,6 +512,23 @@ function stepEnemies(game: GameModel, dt: number): void {
   }
 }
 
+// Runs the hazards by `dt`: each barrage may warn of a shell, each shell counts down and one that lands hurts a mech inside
+// its blast, and a mine the mech stands on goes off.
+function stepHazards(game: GameModel, dt: number): void {
+  for (const barrage of game.barrages) {
+    const shell = stepBarrage(barrage, game.mech, dt, stream('mortar'));
+    if (!shell) continue;
+    game.shells.push(shell);
+    game.events.push({ kind: 'shellWarn', x: shell.x, z: shell.z, radius: shell.radius });
+  }
+  for (const shell of stepShells(game.shells, dt)) {
+    const hit = inCircle(shell, shell.radius, game.mech);
+    game.events.push({ kind: 'shellLand', x: shell.x, z: shell.z, hit });
+    if (hit) damageMech(game, shell.damage, shell.x - game.mech.x, shell.z - game.mech.z);
+  }
+  for (const mine of [...game.mines]) if (mineStepped(mine, game.mech)) blowUp(game, mine);
+}
+
 // A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire) and the camera's aim.
 export interface GameInput extends MechInput {
   sub: boolean;
@@ -458,9 +537,9 @@ export interface GameInput extends MechInput {
 
 // One frame: the mech moves, the soft FCS picks the target or enemy in the aim circle, each weapon fires as often as its
 // interval allows while its trigger is held, each enemy wakes, walks and shoots, and every bullet in flight (the new
-// ones too) moves on, stopping at a prop, a target, an enemy, the mech or the ground; a broken target goes to the script,
-// and so does a wave whose enemies are all down. The mech then enters any area it stands in, and the script's time moves
-// on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
+// ones too) moves on, stopping at a prop, a target, an enemy, a mine, the mech or the ground; the hazards run next
+// (stepHazards); a broken target goes to the script, and so does a wave whose enemies are all down. The mech then
+// enters any area it stands in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
 // or the mech is downed, step does nothing.
 export function step(game: GameModel, input: GameInput, dt: number): void {
   game.events = [];
@@ -508,6 +587,7 @@ export function step(game: GameModel, input: GameInput, dt: number): void {
   for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir);
   stepEnemies(game, dt);
   stepBullets(game, dt);
+  stepHazards(game, dt);
   checkWaves(game);
   for (const [id, area] of Object.entries(game.mission.areas)) {
     if (game.script.entered.includes(id)) continue;

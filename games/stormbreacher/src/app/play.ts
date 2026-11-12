@@ -10,6 +10,7 @@ import { newGame, restartGame, retryFromCheckpoint, step, type GameModel } from 
 import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
 import { removeEnemyView } from '../view/enemies.ts';
+import { removeHazardView } from '../view/hazards.ts';
 import { removeHud } from '../view/hud.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
 import { initPlayInput, readInput } from './input.ts';
@@ -39,6 +40,7 @@ function clearPlay(old: PlayView): void {
   old.enemyBullets.lines.geometry.dispose();
   old.enemyBullets.lines.material.dispose();
   removeEnemyView(old.enemies);
+  removeHazardView(old.hazards);
   removeHud(old.hud);
 }
 

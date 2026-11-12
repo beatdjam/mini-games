@@ -1,7 +1,7 @@
 // The HUD of the game's sortie (SB-160). D plan: the objective at the top left, the enemy's health at the top centre,
 // the round radar at the top right, an arc along the aim circle (the armour on the left, the boost on the right) and
 // the main and sub ammo under the circle. It reads HudModel (logic/hud.ts) and draws it; it never writes the model.
-// Heat, radio and warnings are not drawn. The shades and the emphasis are 仮.
+// Heat and radio are not drawn; the only warning is the shell's. The shades and the emphasis are 仮.
 import { t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import type { EnemyKind } from '../data/enemies.ts';
@@ -21,6 +21,7 @@ const PLAY_HUD_LAYOUT = {
   radar: { css: 'right:24px;top:48px;width:150px;height:150px' },
   objective: { css: 'left:24px;top:48px;width:340px' },
   enemy: { css: 'left:50%;transform:translateX(-50%);top:48px;width:300px' },
+  warning: { css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 40px);text-align:center' },
   reticle: { css: 'inset:0;pointer-events:none' },
 } as const;
 
@@ -31,6 +32,7 @@ const PLAY_HUD_TEXT = {
   sub: { name: 11, value: 13 }, // px
   objective: { label: 16, value: 16 }, // px
   enemy: { name: 14, bar: 10 }, // px
+  warning: { text: 18 }, // px
 } as const;
 
 // The target and enemy kinds become the radar's mark kinds: the bunkers, the guns and the magazine are objectives (an
@@ -64,6 +66,7 @@ interface HudLast {
   enemy: TargetKind | EnemyKind | null;
   enemyRatio: number | null;
   enemyHidden: boolean | null;
+  warning: HudModel['warning'] | undefined; // undefined means "not written yet" (null is a written "none")
 }
 
 export interface PlayHud {
@@ -77,6 +80,8 @@ export interface PlayHud {
   enemy: HTMLElement;
   enemyName: HTMLSpanElement;
   enemyFill: HTMLElement;
+  warning: HTMLElement;
+  warningText: HTMLSpanElement;
   radar: RadarGauge;
   last: HudLast;
 }
@@ -119,6 +124,7 @@ function freshLast(): HudLast {
     enemy: null,
     enemyRatio: null,
     enemyHidden: null,
+    warning: undefined,
   };
 }
 
@@ -169,6 +175,11 @@ function layOut(root: HTMLElement): PlayHud {
   enemy.append(enemyName, enemyBar.box);
   enemy.hidden = true;
 
+  const warning = place(root, PLAY_HUD_LAYOUT.warning.css, 'warning');
+  const warningText = span('', PLAY_HUD_TEXT.warning.text, HUD_COLOR.warn);
+  warning.appendChild(warningText);
+  warning.hidden = true;
+
   const radarNode = place(root, PLAY_HUD_LAYOUT.radar.css, 'radar');
   const radar = roundRadar(RADAR_SIZE, RADAR_SIZE);
   radarNode.appendChild(radar.root);
@@ -186,6 +197,8 @@ function layOut(root: HTMLElement): PlayHud {
     enemy,
     enemyName,
     enemyFill: enemyBar.fill,
+    warning,
+    warningText,
     radar,
     last: freshLast(),
   };
@@ -258,6 +271,12 @@ export function drawHud(hud: PlayHud, model: HudModel): void {
       hud.enemyFill.style.width = `${Math.max(0, Math.min(1, model.enemy.ratio)) * 100}%`;
       last.enemyRatio = model.enemy.ratio;
     }
+  }
+
+  if (last.warning !== model.warning) {
+    hud.warning.hidden = model.warning === null;
+    if (model.warning !== null) hud.warningText.textContent = t(`hud.warn.${model.warning}`);
+    last.warning = model.warning;
   }
 
   hud.radar.set(model.radar.map(mark => ({ kind: RADAR_MARK[mark.kind], angle: mark.angle, dist: mark.dist })));
