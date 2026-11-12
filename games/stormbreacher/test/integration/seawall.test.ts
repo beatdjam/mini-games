@@ -7,7 +7,8 @@ import { M1 } from '../../src/data/missions/m1.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { checkMapPath } from '../../src/logic/mapCheck.ts';
-import { newGame, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 
@@ -28,7 +29,7 @@ function run(game: GameModel, input: GameInput, frames: number): void {
 
 // The hand map without its mines, so a walk across the beach does not set one off.
 function newBeachGame(): GameModel {
-  const game = newGame({ ...M1B_HAND, mines: [] });
+  const game = newPlayGame({ ...M1B_HAND, mines: [] });
   game.mech.yaw = 0;
   return game;
 }

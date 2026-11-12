@@ -3,6 +3,7 @@ import { page } from 'vitest/browser';
 import { el, t } from '@engine/core/index.ts';
 import { CAMERA_TUNE } from '../../src/data/tune.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
+import { sendToScript } from '../../src/logic/game.ts';
 import { currentGame, startSortie, showResult } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 // loads the language files and boots the page, as the real page does
@@ -39,6 +40,9 @@ test('the ammo count follows the shots', async () => {
   };
   // the HUD is filled on the first frame of the sortie
   await frame();
+  const current = currentGame();
+  if (!current) throw new Error('the sortie has not started');
+  sendToScript(current, { kind: 'skip' }); // the mech takes no input during the landing
   expect(shotsLeft()).toBe(WEAPONS.autocannon.ammo);
   window.dispatchEvent(key('keydown', 'KeyJ'));
   for (let i = 0; i < 30; i++) await frame();
@@ -71,6 +75,7 @@ test('the lock frame shows only while the aim is pulled toward a target', async 
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   await frame();
+  sendToScript(game, { kind: 'skip' }); // the mech takes no input during the landing
   const lock = el('#sbPlayHud [data-hud="lock"]');
   expect(game.aimTarget).toBeNull();
   expect(lock.hidden).toBe(true);

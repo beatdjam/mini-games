@@ -18,6 +18,7 @@ import {
 } from '../../src/logic/game.ts';
 import { validateMapForMission } from '../../src/logic/mapCheck.ts';
 import { seed } from '../../src/logic/rng.ts';
+import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const MORTAR = BARRAGES.mortar;
@@ -39,7 +40,7 @@ type Warned = Extract<GameEvent, { kind: 'shellWarn' }>;
 // An open field with mines at the given places: no props, no targets. The mech is at the origin.
 function minefield(mines: { x: number; z: number }[]): GameModel {
   const map: MapDef = { ...M1B_HAND, props: [], targets: [], mines };
-  const game = newGame(map);
+  const game = newPlayGame(map);
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
@@ -74,7 +75,7 @@ function shootMine(game: GameModel, mine: { x: number; z: number }): void {
 
 test('the beach wave starts a mortar barrage, and a shell warns, then lands after the warning', () => {
   seed(1);
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
   expect(game.barrages).toMatchObject([{ wave: 'beach-mortar', kind: 'mortar' }]);
   const warns = events.filter((event): event is Warned => event.kind === 'shellWarn');
@@ -92,7 +93,7 @@ test('a shell hurts a mech inside the blast and not one outside it, with the way
   let misses = 0;
   for (let n = 1; n <= 12; n++) {
     seed(n);
-    const game = newGame(M1B_HAND);
+    const game = newPlayGame(M1B_HAND);
     const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
     const warn = events.find((event): event is Warned => event.kind === 'shellWarn');
     const land = events.find((event): event is Landed => event.kind === 'shellLand');
@@ -125,7 +126,7 @@ test('a shell hurts a mech inside the blast and not one outside it, with the way
 
 test('a mech past the barrage’s reach (z under minZ) gets no warning', () => {
   seed(1);
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   step(game, idle, DT);
   game.mech.z = MORTAR.minZ - 5;
   const events = run(game, framesOf(MORTAR.interval * 3));
@@ -136,7 +137,7 @@ test('a mech past the barrage’s reach (z under minZ) gets no warning', () => {
 test('the same seed and input give the same events', () => {
   const play = (): GameEvent[] => {
     seed(42);
-    const game = newGame(M1B_HAND);
+    const game = newPlayGame(M1B_HAND);
     return run(game, 900, { ...idle, moveZ: 1 });
   };
   const first = play();
@@ -199,7 +200,7 @@ test('stepping on a mine sets it off and hurts the mech; a mine only beyond the 
 
 test('a checkpoint keeps the barrage and the mines but not a shell that has not landed', () => {
   seed(3);
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   // the first shell is warned and still in flight
   run(game, framesOf(MORTAR.interval) + 2);
   expect(game.shells).toHaveLength(1);

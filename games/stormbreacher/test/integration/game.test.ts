@@ -6,7 +6,8 @@ import type { MapDef } from '../../src/data/types.ts';
 import { M1_LOADOUT, WEAPONS } from '../../src/data/weapons.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
 import type { Ray3 } from '../../src/logic/fcs.ts';
-import { newGame, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
 const DT = 1 / 60;
@@ -58,13 +59,13 @@ function firstHit(game: GameModel, input: GameInput, maxFrames: number): { hit: 
 
 // This runs in node without three or the DOM: that it passes is itself the check that the logic runs without a page.
 test('120 frames of 1/60 s advance the game by 2 s', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   for (let i = 0; i < 120; i++) step(game, idle, 1 / 60);
   expect(game.time).toBeCloseTo(2, 6);
 });
 
 test('a new game puts the mech at the front edge facing the land', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   expect(game.mech.x).toBe((M1B_HAND.bounds.minX + M1B_HAND.bounds.maxX) / 2);
   expect(game.mech.z).toBe(M1B_HAND.bounds.maxZ - PLAY_TUNE.startMargin);
   expect(game.mech.yaw).toBe(0);
@@ -73,7 +74,7 @@ test('a new game puts the mech at the front edge facing the land', () => {
 });
 
 test('holding fire in front of a pillbox breaks it', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   atPillbox1(game);
   let hits = 0;
   let destroyedFrame = -1;
@@ -91,7 +92,7 @@ test('holding fire in front of a pillbox breaks it', () => {
 
 test('a shot that misses flies its range and vanishes without a hit', () => {
   // no props: a shot now stops at a prop (the hedgehogs of line 3 stand on the sea side of this spot)
-  const game = newGame({ ...M1B_HAND, props: [] });
+  const game = newPlayGame({ ...M1B_HAND, props: [] });
   atPillbox1(game);
   game.mech.yaw = Math.PI; // away from the land, toward the sea
   const def = WEAPONS[M1_LOADOUT.main];
@@ -111,7 +112,7 @@ test('a shot that misses flies its range and vanishes without a hit', () => {
 
 test('breaking every target on the map no longer clears the game', () => {
   const oneTarget = { ...M1B_HAND, targets: [M1B_HAND.targets[0]] };
-  const game = newGame(oneTarget);
+  const game = newPlayGame(oneTarget);
   atPillbox1(game);
   let destroyed = false;
   for (let i = 0; i < 600 && !destroyed; i++) {
@@ -138,10 +139,10 @@ test('the same inputs give the same game', () => {
   };
 
   seed(5);
-  const a = newGame(M1B_HAND);
+  const a = newPlayGame(M1B_HAND);
   const eventsA = run(a);
   seed(5);
-  const b = newGame(M1B_HAND);
+  const b = newPlayGame(M1B_HAND);
   const eventsB = run(b);
   expect(a.mech).toEqual(b.mech);
   expect(a.targets).toEqual(b.targets);
@@ -150,7 +151,7 @@ test('the same inputs give the same game', () => {
 });
 
 test('the mech does not walk into a target', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   atPillbox1(game);
   const place = M1B_HAND.targets[0];
   const size = TARGET_SIZE[place.kind];
@@ -167,7 +168,7 @@ test('a prop between the mech and a target stops the shot', () => {
     props: [{ kind: 'block', x: -33, z: -5, yaw: 0, scale: 1 }],
     targets: [M1B_HAND.targets[0]],
   };
-  const game = newGame(map);
+  const game = newPlayGame(map);
   game.mech.x = -33;
   game.mech.z = 5;
   game.mech.yaw = 0;
@@ -181,7 +182,7 @@ test('a prop between the mech and a target stops the shot', () => {
 });
 
 test('the sub gun breaks a pillbox in fewer shots', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   atPillbox1(game);
   let hits = 0;
   for (let i = 0; i < 600 && game.targets[0].hp > 0; i++) {
@@ -199,7 +200,7 @@ test('the sub gun breaks a pillbox in fewer shots', () => {
 test('the autocannon does not reach past its range', () => {
   const place = M1B_HAND.targets[0];
   const map: MapDef = { ...M1B_HAND, props: [], targets: [place] };
-  const game = newGame(map);
+  const game = newPlayGame(map);
   game.mech.x = place.x;
   game.mech.z = place.z + 150;
   game.mech.yaw = 0;
@@ -213,7 +214,7 @@ test('the autocannon does not reach past its range', () => {
 });
 
 test('running out of ammo stops the shots', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   atPillbox1(game);
   game.main.ammo = 3;
   let shots = 0;
@@ -226,7 +227,7 @@ test('running out of ammo stops the shots', () => {
 
 test('a breakable hedgehog breaks after its health in autocannon shots', () => {
   const index = breakableHedgehogIndex();
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   atBreakableHedgehog(game);
   const rects = game.rects.length;
   const boxes = game.propBoxes.length;
@@ -250,7 +251,7 @@ test('a breakable hedgehog breaks after its health in autocannon shots', () => {
 });
 
 test('the sub gun breaks a breakable hedgehog in one shot', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   atBreakableHedgehog(game);
   let shots = 0;
   let broke = false;
@@ -266,7 +267,7 @@ test('the sub gun breaks a breakable hedgehog in one shot', () => {
 });
 
 test('a prop that is not marked breakable takes no damage', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   game.mech.x = -61;
   game.mech.z = 150;
   game.mech.yaw = 0;
@@ -282,7 +283,7 @@ test('a prop that is not marked breakable takes no damage', () => {
 
 test('a broken prop does not come back', () => {
   const index = breakableHedgehogIndex();
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   atBreakableHedgehog(game);
   let broke = false;
   for (let i = 0; i < 600 && !broke; i++) {
@@ -301,7 +302,7 @@ test('a broken prop does not come back', () => {
 });
 
 test('the mech stays inside the map’s bounds', () => {
-  const game = newGame(M1B_HAND);
+  const game = newPlayGame(M1B_HAND);
   game.mech.x = M1B_HAND.bounds.minX + 2;
   game.mech.z = M1B_HAND.bounds.maxZ - 10;
   game.mech.yaw = 0;
@@ -311,13 +312,13 @@ test('the mech stays inside the map’s bounds', () => {
 
 test('the breakable stretch of line 2 is shut until it is shot, then the mech walks through', () => {
   // without firing, the hedgehogs stop the mech on the sea side of the line
-  const shut = newGame(M1B_HAND);
+  const shut = newPlayGame(M1B_HAND);
   atBreakableHedgehog(shut);
   for (let i = 0; i < 600; i++) step(shut, { ...idle, moveZ: 1 }, 1 / 60);
   expect(shut.mech.z).toBeGreaterThan(90);
 
   // firing while walking breaks the stretch and the mech passes the back edge of line 2 (z 80)
-  const through = newGame(M1B_HAND);
+  const through = newPlayGame(M1B_HAND);
   atBreakableHedgehog(through);
   const broke: number[] = [];
   let crossed = false;
@@ -336,7 +337,7 @@ test('the breakable stretch of line 2 is shut until it is shot, then the mech wa
 
 test('a shot does not hit in the frame it is fired; it lands after about distance / speed', () => {
   const place = M1B_HAND.targets[0];
-  const game = newGame({ ...M1B_HAND, props: [], targets: [place] });
+  const game = newPlayGame({ ...M1B_HAND, props: [], targets: [place] });
   game.mech.x = place.x;
   game.mech.z = place.z + 100;
   game.mech.yaw = 0;
@@ -349,7 +350,7 @@ test('a shot does not hit in the frame it is fired; it lands after about distanc
 });
 
 test('a shot aimed down stops at the ground', () => {
-  const game = newGame({ ...M1B_HAND, props: [], targets: [] });
+  const game = newPlayGame({ ...M1B_HAND, props: [], targets: [] });
   atPillbox1(game);
   const chestY = game.mech.y + MECH_TUNE.chestHeight;
   const aim: Ray3 = { ox: game.mech.x, oy: chestY, oz: game.mech.z, dx: 0, dy: -0.5, dz: -Math.sqrt(0.75) };
@@ -365,7 +366,7 @@ test('a shot aimed down stops at the ground', () => {
 function withPillboxAtAngle(deg: number): GameModel {
   const rad = (deg * Math.PI) / 180;
   const place = { id: 'dummy', kind: 'pillbox' as const, x: Math.sin(rad) * 100, z: -Math.cos(rad) * 100, yaw: 0 };
-  const game = newGame({ ...M1B_HAND, props: [], targets: [place] });
+  const game = newPlayGame({ ...M1B_HAND, props: [], targets: [place] });
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;

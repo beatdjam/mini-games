@@ -595,7 +595,10 @@ function stepBattery(game: GameModel, dt: number): void {
 // Runs the hazards by `dt`: each barrage may warn of a shell, each shell counts down and one that lands hurts a mech inside
 // its blast, and a mine the mech stands on goes off.
 function stepHazards(game: GameModel, dt: number): void {
-  for (const barrage of game.barrages) {
+  // A cutscene holds the mech still, so no barrage counts down or warns of a shell while one plays; the shells already
+  // warned of still land. The barrage starts counting again when the cutscene ends or is skipped.
+  const held = game.script.cutscene !== null;
+  for (const barrage of held ? [] : game.barrages) {
     // a barrage the script's flag slows (the depot's loss) comes that many times as seldom
     const slow = BARRAGES[barrage.kind].slow;
     const mul = slow !== undefined && game.script.flags.includes(slow.flag) ? slow.mul : 1;
@@ -618,15 +621,29 @@ export interface GameInput extends MechInput {
   aim?: Ray3; // the camera's line through the middle of the screen; without it, level from the chest along the mech's yaw
 }
 
+// No key, no stick, no trigger: what the mech gets while a cutscene plays.
+const IDLE_INPUT: GameInput = {
+  moveX: 0,
+  moveZ: 0,
+  turn: 0,
+  jump: false,
+  jumpHeld: false,
+  boost: false,
+  fire: false,
+  sub: false,
+};
+
 // One frame: the mech moves, the soft FCS picks the target or enemy in the aim circle, each weapon fires as often as its
 // interval allows while its trigger is held, each enemy wakes, walks and shoots, and every bullet in flight (the new
 // ones too) moves on, stopping at a prop, a target, an enemy, a mine, the mech or the ground; the hazards run next
 // (stepHazards); a broken target goes to the script, and so does a wave whose enemies are all down. The mech then
 // enters any area it stands in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
 // or the mech is downed, step does nothing.
-export function step(game: GameModel, input: GameInput, dt: number): void {
+export function step(game: GameModel, given: GameInput, dt: number): void {
   game.events = [];
   if (game.cleared || game.downed) return;
+  // while a cutscene plays the mech holds still and holds its fire; the aim line still passes through
+  const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
   game.time += dt;
   const events = stepMech(game.mech, input, dt, MOVE_TUNE, 0, {
     rects: game.rects,

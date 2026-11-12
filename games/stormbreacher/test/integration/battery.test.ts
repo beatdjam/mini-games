@@ -7,7 +7,8 @@ import { PROP_SIZE, TARGET_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetPlace } from '../../src/data/types.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
-import { newGame, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newPlayGame } from './playGame.ts';
 import { validateMapForMission } from '../../src/logic/mapCheck.ts';
 
 const DT = 1 / 60;
@@ -29,7 +30,7 @@ const idle: GameInput = {
 
 // The hand map without its mines, so a walk does not set one off.
 function newBatteryGame(): GameModel {
-  const game = newGame({ ...M1B_HAND, mines: [] });
+  const game = newPlayGame({ ...M1B_HAND, mines: [] });
   game.mech.yaw = 0;
   return game;
 }

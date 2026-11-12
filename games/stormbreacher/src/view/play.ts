@@ -14,6 +14,7 @@ import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, type HazardView } from './hazards.ts';
 import { feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
+import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.ts';
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
 import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { applyLookTo } from './look.ts';
@@ -47,6 +48,7 @@ export interface PlayView {
   hazards: HazardView; // the warned shells' rings and the mines' discs
   seaFire: SeaFireView; // the main guns' flashes and lines toward the sea
   hud: PlayHud; // the sortie's HUD, in the page
+  cutscene: CutsceneView; // the bars, the line and the pictures only a cutscene shows
 }
 
 // Builds the sortie's map and its mech into the scene. Hiding the start-up field is left to the caller.
@@ -69,6 +71,7 @@ export function buildPlayView(game: GameModel): PlayView {
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
     hud,
+    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds),
   };
 }
 
@@ -133,6 +136,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
 
   view.model.position.set(game.mech.x, game.mech.y, game.mech.z);
   view.model.rotation.y = game.mech.yaw;
+  // the mech is still in the boat while a cutscene plays, so it is not drawn standing on the beach
+  view.model.visible = game.script.cutscene === null;
 
   view.pitch = clamp(view.pitch + pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
   const pose = cameraPose(
@@ -144,6 +149,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   view.camPos = view.camPos ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
   const pos = view.camPos.clone().add(frame.offset);
   applyPose(camera, { ...pose, pos }, frame.fov);
+  drawCutscene(view.cutscene, game, view.hud.root);
 
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game);
