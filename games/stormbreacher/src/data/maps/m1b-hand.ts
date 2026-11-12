@@ -660,13 +660,15 @@ export const M1B_HAND: MapDef = {
       { x: 15, z: -45 },
       { x: 65, z: -45 },
     ],
+    // on top of the seawall (z -75..-65), clear of the two flights of stairs (x -54..-46 and 31..39), and each jumps
+    // down to the seaward side; the landing is about 6 m on, in the band between the wall and C's rear row
     'seawall-drop': [
-      { x: -50, z: -55 },
-      { x: -30, z: -55 },
-      { x: -10, z: -55 },
-      { x: 10, z: -55 },
-      { x: 30, z: -55 },
-      { x: 50, z: -55 },
+      { x: -62, z: -70 },
+      { x: -30, z: -70 },
+      { x: -10, z: -70 },
+      { x: 10, z: -70 },
+      { x: 24, z: -70 },
+      { x: 50, z: -70 },
     ],
   },
 };
