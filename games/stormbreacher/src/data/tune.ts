@@ -160,7 +160,7 @@ export const FX_TUNE = {
   tracers: 15, // the lines a second crossing the view (0 makes none)
   tracerSpeed: 80, // how fast a tracer flies (m/s)
 
-  allies: 300, // the allies in the first wave (0 makes none)
+  allies: 300, // the allies in each wave (0 makes none)
   allyWaves: 5, // seconds between one wave and the next (0 makes no more waves)
   allySpeed: 2, // how fast an ally walks landward (m/s)
   allyDeathRate: 0.1, // the chance that one ally falls in a second (0 keeps them all up)
@@ -171,6 +171,13 @@ export const FX_TUNE = {
 };
 
 export type FxTune = typeof FX_TUNE;
+
+// The battle layer of the main sortie. #view-fx keeps FX_TUNE, so the tools can still compare 150/300/450.
+export const BATTLE_TUNE = {
+  allies: 60, // the allies in each wave of the main sortie (0 makes none)
+};
+
+export const PLAY_BATTLE_TUNE: FxTune = { ...FX_TUNE, allies: BATTLE_TUNE.allies };
 
 // What each strength changes; the rest stays as FX_TUNE. Stage 0 is #view-map's look with every effect off, so the two
 // can be compared. Stage 2 is FX_TUNE itself.
