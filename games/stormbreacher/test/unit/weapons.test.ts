@@ -6,6 +6,7 @@ test('every weapon in the table has positive values', () => {
   for (const def of Object.values(WEAPONS)) {
     expect(def.damage).toBeGreaterThan(0);
     expect(def.range).toBeGreaterThan(0);
+    expect(def.speed).toBeGreaterThan(0);
     expect(def.interval).toBeGreaterThan(0);
     expect(def.ammo).toBeGreaterThan(0);
   }

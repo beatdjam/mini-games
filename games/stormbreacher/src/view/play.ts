@@ -16,14 +16,17 @@ import { applyLookTo } from './look.ts';
 import { buildMechProxy } from './mechProxy.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
-const TRACER_COLOR = 0xffe066; // the shot's line
-const TRACER_TIME = 0.05; // how long the shot's line shows (s)
+const TRACER_COLOR = 0xffe066; // the bullet's line
+const TRACER_LENGTH = 4; // how far behind its head a bullet's line reaches (m)
+const MAX_BULLET_LINES = 96; // the most bullets drawn at once; the rest fly unseen
+const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
 const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per landing
 const BOOST_DUST = 6; // the same, per boost start
 
-interface Tracer {
-  line: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
-  t: number; // the time left (s)
+// The bullets in flight, drawn as one set of line segments: two vertices a bullet, the position written every frame.
+export interface BulletLines {
+  lines: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+  positions: THREE.BufferAttribute; // MAX_BULLET_LINES * 2 vertices (the tail, then the head)
 }
 
 export interface PlayView {
@@ -32,7 +35,7 @@ export interface PlayView {
   feel: FeelState;
   pitch: number; // the camera's pitch (rad)
   camPos: THREE.Vector3 | null; // the camera's place in the last frame
-  tracers: Tracer[]; // the shots whose line is still showing
+  bullets: BulletLines; // the lines of the shots in flight
   hud: PlayHud; // the sortie's HUD, in the page
 }
 
@@ -44,35 +47,43 @@ export function buildPlayView(game: GameModel): PlayView {
   const model = buildMechProxy(MECH_TUNE.height);
   scene.add(model);
   const hud = buildPlayHud(document.body);
-  return { world, model, feel: newFeel(CAMERA_TUNE.fov), pitch: 0, camPos: null, tracers: [], hud };
+  return { world, model, feel: newFeel(CAMERA_TUNE.fov), pitch: 0, camPos: null, bullets: buildBulletLines(), hud };
 }
 
-function addTracer(view: PlayView, ox: number, oy: number, oz: number, dx: number, dz: number, length: number): void {
-  const from = new THREE.Vector3(ox, oy, oz);
-  const to = new THREE.Vector3(ox + dx * length, oy, oz + dz * length);
-  const line = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([from, to]),
-    new THREE.LineBasicMaterial({ color: TRACER_COLOR }),
-  );
-  scene.add(line);
-  view.tracers.push({ line, t: TRACER_TIME });
+function buildBulletLines(): BulletLines {
+  const positions = new THREE.BufferAttribute(new Float32Array(MAX_BULLET_LINES * 2 * 3), 3);
+  positions.setUsage(THREE.DynamicDrawUsage);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', positions);
+  geometry.setDrawRange(0, 0);
+  const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: TRACER_COLOR }));
+  // the bounding sphere would be made from the first positions (all 0), so the lines are never culled by it
+  lines.frustumCulled = false;
+  scene.add(lines);
+  return { lines, positions };
 }
 
-// Takes the lines whose time is up out of the scene and frees them.
-function stepTracers(view: PlayView, dt: number): void {
-  for (let i = view.tracers.length - 1; i >= 0; i--) {
-    const tracer = view.tracers[i];
-    tracer.t -= dt;
-    if (tracer.t > 0) continue;
-    scene.remove(tracer.line);
-    tracer.line.geometry.dispose();
-    tracer.line.material.dispose();
-    view.tracers.splice(i, 1);
+// Writes each bullet's head and the point TRACER_LENGTH behind it, and draws only as many segments as there are bullets.
+function drawBullets(view: PlayView, game: GameModel): void {
+  const count = Math.min(game.bullets.length, MAX_BULLET_LINES);
+  const positions = view.bullets.positions;
+  for (let i = 0; i < count; i++) {
+    const bullet = game.bullets[i];
+    positions.setXYZ(
+      i * 2,
+      bullet.x - bullet.dx * TRACER_LENGTH,
+      bullet.y - bullet.dy * TRACER_LENGTH,
+      bullet.z - bullet.dz * TRACER_LENGTH,
+    );
+    positions.setXYZ(i * 2 + 1, bullet.x, bullet.y, bullet.z);
   }
+  positions.needsUpdate = true;
+  view.bullets.lines.geometry.setDrawRange(0, count * 2);
 }
 
-// One frame of the sortie: the frame's events become dust, lines and the camera's shake, the mech and the map follow the
-// game's state, and the camera looks from behind the mech. The feel's hit stop is not used: the logic cannot be frozen.
+// One frame of the sortie: the frame's events become dust and the camera's shake, the bullets in flight become lines,
+// the mech and the map follow the game's state, and the camera looks from behind the mech. The feel's hit stop is not
+// used: the logic cannot be frozen.
 export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
   const mechEvents: MechEvent[] = [];
   let kill = false;
@@ -82,8 +93,9 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       if (event.event.kind === 'land') spawnDust(game.mech.x, game.mech.z, LAND_DUST, FEEL_TUNE);
       else if (event.event.kind === 'boostStart') spawnDust(game.mech.x, game.mech.z, BOOST_DUST, FEEL_TUNE);
     } else if (event.kind === 'shot') {
-      addTracer(view, event.x, event.y, event.z, event.dx, event.dz, event.reach);
       mechEvents.push({ kind: 'fire', speed: 0 });
+    } else if (event.kind === 'hit') {
+      spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
     } else if (event.kind === 'destroyed') {
       kill = true;
     }
@@ -107,6 +119,6 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
 
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game);
-  stepTracers(view, dt);
+  drawBullets(view, game);
   drawHud(view.hud, hudModel(game));
 }

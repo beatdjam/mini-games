@@ -5,7 +5,11 @@ import { MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { M1_LOADOUT, WEAPONS } from '../../src/data/weapons.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
+import type { Ray3 } from '../../src/logic/fcs.ts';
 import { newGame, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { seed } from '../../src/logic/rng.ts';
+
+const DT = 1 / 60;
 
 const idle: GameInput = {
   moveX: 0,
@@ -40,6 +44,18 @@ function atBreakableHedgehog(game: GameModel): void {
   game.mech.yaw = 0;
 }
 
+type HitEvent = Extract<GameEvent, { kind: 'hit' }>;
+
+// Steps with `input` for the first frame and `idle` after, until a bullet reports a hit. Returns the hit and the number
+// of frames it took (null when none came in `maxFrames`).
+function firstHit(game: GameModel, input: GameInput, maxFrames: number): { hit: HitEvent; frames: number } | null {
+  for (let i = 0; i < maxFrames; i++) {
+    step(game, i === 0 ? input : idle, DT);
+    for (const event of game.events) if (event.kind === 'hit') return { hit: event, frames: i + 1 };
+  }
+  return null;
+}
+
 // This runs in node without three or the DOM: that it passes is itself the check that the logic runs without a page.
 test('120 frames of 1/60 s advance the game by 2 s', () => {
   const game = newGame(M1B_HAND);
@@ -64,7 +80,7 @@ test('holding fire in front of a pillbox breaks it', () => {
   for (let i = 0; i < 600 && destroyedFrame < 0; i++) {
     step(game, { ...idle, fire: true }, 1 / 60);
     for (const event of game.events) {
-      if (event.kind === 'shot' && event.target === 'pillbox-1') hits++;
+      if (event.kind === 'hit' && event.target === 'pillbox-1') hits++;
       if (event.kind === 'destroyed' && event.id === 'pillbox-1') destroyedFrame = i;
     }
   }
@@ -73,17 +89,24 @@ test('holding fire in front of a pillbox breaks it', () => {
   expect(game.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
 });
 
-test('a shot that misses reaches the full range', () => {
+test('a shot that misses flies its range and vanishes without a hit', () => {
   // no props: a shot now stops at a prop (the hedgehogs of line 3 stand on the sea side of this spot)
   const game = newGame({ ...M1B_HAND, props: [] });
   atPillbox1(game);
   game.mech.yaw = Math.PI; // away from the land, toward the sea
-  step(game, { ...idle, fire: true }, 1 / 60);
-  const shot = game.events.find(event => event.kind === 'shot');
-  expect(shot).toBeDefined();
-  if (shot?.kind !== 'shot') throw new Error('the frame fired a shot');
-  expect(shot.target).toBeNull();
-  expect(shot.reach).toBe(WEAPONS[M1_LOADOUT.main].range);
+  const def = WEAPONS[M1_LOADOUT.main];
+  step(game, { ...idle, fire: true }, DT);
+  expect(game.events.some(event => event.kind === 'shot')).toBe(true);
+  expect(game.bullets).toHaveLength(1);
+  let frames = 1;
+  let hits = 0;
+  while (game.bullets.length > 0 && frames < 120) {
+    step(game, idle, DT);
+    frames++;
+    hits += game.events.filter(event => event.kind === 'hit').length;
+  }
+  expect(hits).toBe(0);
+  expect(frames / 60).toBeCloseTo(def.range / def.speed, 1);
 });
 
 test('breaking every target on the map no longer clears the game', () => {
@@ -114,9 +137,11 @@ test('the same inputs give the same game', () => {
     return frames;
   };
 
+  seed(5);
   const a = newGame(M1B_HAND);
-  const b = newGame(M1B_HAND);
   const eventsA = run(a);
+  seed(5);
+  const b = newGame(M1B_HAND);
   const eventsB = run(b);
   expect(a.mech).toEqual(b.mech);
   expect(a.targets).toEqual(b.targets);
@@ -146,12 +171,13 @@ test('a prop between the mech and a target stops the shot', () => {
   game.mech.x = -33;
   game.mech.z = 5;
   game.mech.yaw = 0;
-  step(game, { ...idle, fire: true }, 1 / 60);
-  const shot = game.events.find(event => event.kind === 'shot');
-  if (shot?.kind !== 'shot') throw new Error('the frame fired a shot');
-  expect(shot.target).toBeNull();
-  expect(shot.reach).toBeCloseTo(8, 6);
+  const result = firstHit(game, { ...idle, fire: true }, 60);
+  if (!result) throw new Error('the shot hit something');
+  expect(result.hit.target).toBeNull();
+  expect(result.hit.prop).toBe(0);
+  expect(5 - result.hit.z).toBeCloseTo(8, 0);
   expect(game.targets[0].hp).toBe(TARGET_HP.pillbox);
+  expect(game.bullets).toHaveLength(0);
 });
 
 test('the sub gun breaks a pillbox in fewer shots', () => {
@@ -161,7 +187,7 @@ test('the sub gun breaks a pillbox in fewer shots', () => {
   for (let i = 0; i < 600 && game.targets[0].hp > 0; i++) {
     step(game, { ...idle, sub: true }, 1 / 60);
     for (const event of game.events) {
-      if (event.kind !== 'shot' || event.target !== 'pillbox-1') continue;
+      if (event.kind !== 'hit' || event.target !== 'pillbox-1') continue;
       hits++;
       expect(event.weapon).toBe('heavyGun');
     }
@@ -177,16 +203,13 @@ test('the autocannon does not reach past its range', () => {
   game.mech.x = place.x;
   game.mech.z = place.z + 150;
   game.mech.yaw = 0;
-  step(game, { ...idle, fire: true }, 1 / 60);
-  const mainShot = game.events.find(event => event.kind === 'shot');
-  if (mainShot?.kind !== 'shot') throw new Error('the frame fired a shot');
-  expect(mainShot.target).toBeNull();
-  expect(mainShot.reach).toBe(WEAPONS[M1_LOADOUT.main].range);
+  expect(firstHit(game, { ...idle, fire: true }, 120)).toBeNull();
+  expect(game.bullets).toHaveLength(0);
 
-  step(game, { ...idle, sub: true }, 1 / 60);
-  const subShot = game.events.find(event => event.kind === 'shot');
-  if (subShot?.kind !== 'shot') throw new Error('the frame fired a shot');
-  expect(subShot.target).toBe('pillbox-1');
+  const subHit = firstHit(game, { ...idle, sub: true }, 120);
+  if (!subHit) throw new Error('the heavy gun hit something');
+  expect(subHit.hit.target).toBe('pillbox-1');
+  expect(subHit.hit.weapon).toBe('heavyGun');
 });
 
 test('running out of ammo stops the shots', () => {
@@ -213,7 +236,7 @@ test('a breakable hedgehog breaks after its health in autocannon shots', () => {
   for (let i = 0; i < 600 && !broke; i++) {
     step(game, { ...idle, fire: true }, 1 / 60);
     for (const event of game.events) {
-      if (event.kind === 'shot') shots++;
+      if (event.kind === 'hit' && event.prop === index) shots++;
       if (event.kind === 'propDestroyed') broke = event;
     }
   }
@@ -234,7 +257,7 @@ test('the sub gun breaks a breakable hedgehog in one shot', () => {
   for (let i = 0; i < 600 && !broke; i++) {
     step(game, { ...idle, sub: true }, 1 / 60);
     for (const event of game.events) {
-      if (event.kind === 'shot') shots++;
+      if (event.kind === 'hit' && event.prop !== null) shots++;
       if (event.kind === 'propDestroyed') broke = true;
     }
   }
@@ -309,4 +332,76 @@ test('the breakable stretch of line 2 is shut until it is shot, then the mech wa
   expect(crossed).toBe(true);
   expect(broke.length).toBeGreaterThanOrEqual(3);
   for (const prop of broke) expect(through.map.props[prop].breakable).toBe(true);
+});
+
+test('a shot does not hit in the frame it is fired; it lands after about distance / speed', () => {
+  const place = M1B_HAND.targets[0];
+  const game = newGame({ ...M1B_HAND, props: [], targets: [place] });
+  game.mech.x = place.x;
+  game.mech.z = place.z + 100;
+  game.mech.yaw = 0;
+  const def = WEAPONS[M1_LOADOUT.main];
+  const result = firstHit(game, { ...idle, fire: true }, 120);
+  if (!result) throw new Error('the shot hit the pillbox');
+  expect(result.hit.target).toBe('pillbox-1');
+  expect(result.frames).toBeGreaterThan(1);
+  expect(result.frames / 60).toBeCloseTo(100 / def.speed, 1);
+});
+
+test('a shot aimed down stops at the ground', () => {
+  const game = newGame({ ...M1B_HAND, props: [], targets: [] });
+  atPillbox1(game);
+  const chestY = game.mech.y + MECH_TUNE.chestHeight;
+  const aim: Ray3 = { ox: game.mech.x, oy: chestY, oz: game.mech.z, dx: 0, dy: -0.5, dz: -Math.sqrt(0.75) };
+  const result = firstHit(game, { ...idle, fire: true, aim }, 60);
+  if (!result) throw new Error('the shot reached the ground');
+  expect(result.hit.target).toBeNull();
+  expect(result.hit.prop).toBeNull();
+  expect(result.hit.y).toBeCloseTo(0, 6);
+  expect(game.bullets).toHaveLength(0);
+});
+
+// The mech at the origin facing -z, one pillbox 100 m away at `deg` from the front, no props.
+function withPillboxAtAngle(deg: number): GameModel {
+  const rad = (deg * Math.PI) / 180;
+  const place = { id: 'dummy', kind: 'pillbox' as const, x: Math.sin(rad) * 100, z: -Math.cos(rad) * 100, yaw: 0 };
+  const game = newGame({ ...M1B_HAND, props: [], targets: [place] });
+  game.mech.x = 0;
+  game.mech.z = 0;
+  game.mech.yaw = 0;
+  return game;
+}
+
+test('a target inside the aim circle becomes the aim target and the shots reach it', () => {
+  seed(3);
+  const game = withPillboxAtAngle(5);
+  let hits = 0;
+  for (let i = 0; i < 90; i++) {
+    step(game, { ...idle, fire: true }, DT);
+    expect(game.aimTarget).toBe('dummy');
+    for (const event of game.events) if (event.kind === 'hit' && event.target === 'dummy') hits++;
+  }
+  expect(hits).toBeGreaterThan(0);
+});
+
+test('a target outside the aim circle is not the aim target', () => {
+  const game = withPillboxAtAngle(12);
+  step(game, idle, DT);
+  expect(game.aimTarget).toBeNull();
+});
+
+test('the same seed and the same inputs give the same events; another seed gives other shots', () => {
+  const run = (n: number): GameEvent[][] => {
+    seed(n);
+    const game = withPillboxAtAngle(3);
+    const frames: GameEvent[][] = [];
+    for (let i = 0; i < 90; i++) {
+      step(game, { ...idle, fire: true, sub: i % 30 === 0 }, DT);
+      frames.push(game.events);
+    }
+    return frames;
+  };
+  const first = run(11);
+  expect(run(11)).toEqual(first);
+  expect(run(12)).not.toEqual(first);
 });
