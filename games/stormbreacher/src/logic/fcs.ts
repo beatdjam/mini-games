@@ -4,7 +4,7 @@
 // A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
 import type { Rng } from '@engine/core/index.ts';
 import type { FcsKind, FcsTune } from '../data/tuneTypes.ts';
-import { fireRay, type Aabb } from './fire.ts';
+import { fireRayHit, type Aabb } from './fire.ts';
 
 export interface Ray3 {
   ox: number;
@@ -38,7 +38,7 @@ export interface FcsState {
 }
 
 export interface FcsStep {
-  shotDir: Dir3; // the direction a shot from the chest flies
+  shotDir: Dir3; // the direction a shot from the muzzle flies
   lockId: number | null;
   candidateId: number | null;
   inCone: number[]; // the indices of the targets in the aim circle
@@ -97,46 +97,53 @@ function turnToward(from: Dir3, to: Dir3, maxDeg: number): Dir3 {
 }
 
 // The distance along the ray at which it enters the box, or null (m). The ray's direction is normalized here.
-function entryDistance(ray: Ray3, range: number, box: Aabb): number | null {
-  const dir = normalize(ray.dx, ray.dy, ray.dz);
-  let near = 0;
-  let far = range;
-  const axis = (origin: number, d: number, min: number, max: number): boolean => {
-    if (Math.abs(d) < 1e-12) return origin >= min && origin <= max;
-    let t0 = (min - origin) / d;
-    let t1 = (max - origin) / d;
-    if (t0 > t1) [t0, t1] = [t1, t0];
-    near = Math.max(near, t0);
-    far = Math.min(far, t1);
-    return near <= far;
-  };
-  if (!axis(ray.ox, dir.dx, box.minX, box.maxX)) return null;
-  if (!axis(ray.oy, dir.dy, box.minY, box.maxY)) return null;
-  if (!axis(ray.oz, dir.dz, box.minZ, box.maxZ)) return null;
-  return near <= far ? near : null;
+// What stops the aim line besides the targets: boxes (props, enemies) and the flat ground at height `groundY` (m).
+// The game fills it in, since this file reads no game table.
+export interface FcsWorld {
+  boxes: readonly Aabb[];
+  groundY: number;
 }
 
-// The shot direction manual aiming gives: from the chest toward the point where the aim line passes `range` m out,
-// or where it first meets a target on the way.
+// The shot direction manual aiming gives: from the muzzle toward the point where the aim line first meets a target,
+// a box of `world` or the ground within `range` m, or else the point where it passes `range` m out. Aiming at that point
+// (not at a point 200 m out) makes a shot from the muzzle, which sits off the camera's line, land on the reticle at any
+// distance. `world` is optional: the dev view has none, and aims at the targets alone.
 function manualDir(
   aim: Ray3,
-  chest: { x: number; y: number; z: number },
+  muzzle: { x: number; y: number; z: number },
   range: number,
   targets: readonly FcsTarget[],
+  world: FcsWorld | null,
 ): Dir3 {
-  const alive = targets.filter(t => t.alive);
-  const boxes = alive.map(t => t.box);
-  const index = fireRay(aim.ox, aim.oy, aim.oz, aim.dx, aim.dy, aim.dz, range, boxes);
+  const boxes = [...targets.filter(t => t.alive).map(t => t.box), ...(world ? world.boxes : [])];
   const dir = normalize(aim.dx, aim.dy, aim.dz);
+  // A hit between the camera and the muzzle would put the aim point behind the mech, sending the shot backwards or
+  // sideways. Only what lies beyond the muzzle counts, so the line starts where the muzzle falls on it.
+  const start = Math.max(0, (muzzle.x - aim.ox) * dir.dx + (muzzle.y - aim.oy) * dir.dy + (muzzle.z - aim.oz) * dir.dz);
+  const rest = range - start;
   let reach = range;
-  if (index >= 0) {
-    const distanceToHit = entryDistance(aim, range, boxes[index]);
-    if (distanceToHit !== null) reach = distanceToHit;
+  const hit =
+    rest > 0
+      ? fireRayHit(
+          aim.ox + dir.dx * start,
+          aim.oy + dir.dy * start,
+          aim.oz + dir.dz * start,
+          dir.dx,
+          dir.dy,
+          dir.dz,
+          rest,
+          boxes,
+        )
+      : null;
+  if (hit) reach = start + hit.dist;
+  if (world && dir.dy < -EPS && aim.oy > world.groundY) {
+    const ground = (world.groundY - aim.oy) / dir.dy;
+    if (ground >= start) reach = Math.min(reach, ground);
   }
   return normalize(
-    aim.ox + dir.dx * reach - chest.x,
-    aim.oy + dir.dy * reach - chest.y,
-    aim.oz + dir.dz * reach - chest.z,
+    aim.ox + dir.dx * reach - muzzle.x,
+    aim.oy + dir.dy * reach - muzzle.y,
+    aim.oz + dir.dz * reach - muzzle.z,
   );
 }
 
@@ -166,6 +173,8 @@ function circleTargets(
 }
 
 // Advances the aim assist by `dt` (s) and gives back the shot's direction, the lock and the circle's targets.
+// `chest` is where the shot starts (the game passes the muzzle). The point to aim at is worked out here, not by the
+// game, so the soft pull and the hard lock start from the same manual direction.
 export function stepFcs(
   state: FcsState,
   kind: FcsKind,
@@ -174,9 +183,10 @@ export function stepFcs(
   chest: { x: number; y: number; z: number },
   targets: readonly FcsTarget[],
   dt: number,
+  world: FcsWorld | null = null,
 ): FcsStep {
   const { inCone, nearest } = circleTargets(aim, chest, tune, targets);
-  const manual = manualDir(aim, chest, tune.range, targets);
+  const manual = manualDir(aim, chest, tune.range, targets, world);
   const targetDir = (target: FcsTarget): Dir3 =>
     normalize(target.cx - chest.x, target.cy - chest.y, target.cz - chest.z);
 
