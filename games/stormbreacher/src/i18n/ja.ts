@@ -21,6 +21,8 @@ LANG.ja = {
     'result.title': '突破',
     'result.downed': 'やられた',
     'result.time': '所要時間 {time}',
+    'result.checkpoint': 'チェックポイントから',
+    'result.restart': '最初から',
     'result.back': 'タイトルへ',
     'hud.armor': '装甲',
     'hud.boost': 'ブースト',

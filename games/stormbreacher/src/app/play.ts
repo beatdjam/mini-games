@@ -6,7 +6,7 @@ import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { RADIO_MIN_SEC } from '../data/script.ts';
 import { CAMERA_TUNE } from '../data/tune.ts';
-import { newGame, step, type GameModel } from '../logic/game.ts';
+import { newGame, restartGame, retryFromCheckpoint, step, type GameModel } from '../logic/game.ts';
 import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
 import { removeEnemyView } from '../view/enemies.ts';
@@ -48,9 +48,10 @@ function clock(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
 
-// Starts a sortie on M1's B line. The tests sortie more than once on one page, so this builds the game again and takes
-// out what the last one left; the play system and the input are set up only once.
-export function startSortie(): void {
+// Puts `next` in play: the last sortie's drawing is taken out, the page goes to the sortie and the game is drawn anew.
+// The tests sortie more than once on one page, so this builds the view again; the play system and the buttons are set up
+// only once.
+function beginPlay(next: GameModel): void {
   el('#sbObjective').hidden = true;
   el('#sbRadio').hidden = true;
   if (view) clearPlay(view);
@@ -59,7 +60,7 @@ export function startSortie(): void {
   el('#sbResult').hidden = true;
   setState('play');
   hideField();
-  game = newGame(M1B_HAND);
+  game = next;
   view = buildPlayView(game);
   initPlayInput();
   if (started) return;
@@ -67,6 +68,17 @@ export function startSortie(): void {
   addSystem({ name: 'sb-play', modes: ['play'], update });
   // Provisional: the result and the save come with SB-210, so the title is the page as it loaded.
   el('#sbResultBack').addEventListener('click', () => location.reload());
+  el('#sbResultCheckpoint').addEventListener('click', () => {
+    if (game && game.checkpoint) beginPlay(retryFromCheckpoint(game));
+  });
+  el('#sbResultRestart').addEventListener('click', () => {
+    if (game) beginPlay(restartGame(game));
+  });
+}
+
+// Starts a sortie on M1's B line.
+export function startSortie(): void {
+  beginPlay(newGame(M1B_HAND));
 }
 
 function update(dt: number): void {
@@ -94,8 +106,9 @@ function showScriptText(game: GameModel): void {
   showText(el('#sbRadio'), radio !== null && game.time - radio.time < RADIO_MIN_SEC ? t(radio.line) : null);
 }
 
-// The result's screen: the heading (the mech downed, or the script's end), the run's time, and the title's page comes
-// back by loading it again.
+// The result's screen: the heading (the mech downed, or the script's end), the run's time and the buttons. A downed mech
+// can start again from the checkpoint (when there is one) or from the start; both come back to the title's page by
+// loading it again.
 export function showResult(): void {
   if (!game) return;
   if (view) view.hud.root.hidden = true;
@@ -105,6 +118,8 @@ export function showResult(): void {
   el('#sbResult').hidden = false;
   el('#sbResult .title').textContent = t(game.downed ? 'result.downed' : 'result.title');
   el('#sbResultTime').textContent = t('result.time', { time: clock(game.time) });
+  el('#sbResultCheckpoint').hidden = !(game.downed && game.checkpoint);
+  el('#sbResultRestart').hidden = !game.downed;
   exitLock();
 }
 

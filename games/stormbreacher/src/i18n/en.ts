@@ -22,6 +22,8 @@ LANG.en = {
     'result.title': 'Breakthrough',
     'result.downed': 'Downed',
     'result.time': 'Time {time}',
+    'result.checkpoint': 'From checkpoint',
+    'result.restart': 'From start',
     'result.back': 'Back to title',
     'hud.armor': 'Armor',
     'hud.boost': 'Boost',

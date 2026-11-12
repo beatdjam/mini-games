@@ -60,7 +60,8 @@ export type GameEvent =
   | { kind: 'downed' } // the armour reached 0
   | { kind: 'propDestroyed'; prop: number; x: number; z: number }
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
-  | { kind: 'cleared' };
+  | { kind: 'cleared' }
+  | { kind: 'retried'; from: string | null }; // the sortie began again: from the checkpoint with this id, or null from the start
 
 // A shot in flight: where it is, the direction it flies (length 1) and the range it has left.
 interface BulletBase {
@@ -97,6 +98,11 @@ function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
   return { speed: def.speed, damage: def.damage };
 }
 
+// The game as a checkpoint keeps it: every field of GameModel except the ones listed here, which are not kept. `events`
+// and `bullets` are the frame's own, `checkpoint` never nests, and `id` is the checkpoint's name (cp1). `map` and
+// `mission` are definitions nothing writes to, so the copy points at the same ones.
+export type GameSnapshot = Omit<GameModel, 'events' | 'bullets' | 'checkpoint'> & { id: string };
+
 export interface GameModel {
   time: number; // seconds since the sortie began
   map: MapDef;
@@ -119,6 +125,8 @@ export interface GameModel {
   bullets: Bullet[]; // the shots in flight
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
+  checkpoint: GameSnapshot | null; // the game as the last checkpoint kept it; null before one
+  retries: number; // how many times the sortie began again (SB-210 charges the repair and the ammo for each)
 }
 
 // The box a shot may hit on an enemy: x and z +- its radius, y from the ground to its height.
@@ -332,6 +340,8 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     bullets: [],
     events: [],
     cleared: false,
+    checkpoint: null,
+    retries: 0,
   };
 }
 
@@ -367,6 +377,7 @@ function checkWaves(game: GameModel): void {
 // Keeps every event the script reported. The game itself takes three: a radio line (the last one stays up), a wave to
 // put out (`spawn`) and the end (the sortie is cleared). `ally` waits for the friends.
 function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
+  let checkpoint: string | null = null;
   for (const event of outs) {
     game.events.push({ kind: 'script', event });
     if (event.kind === 'radio') game.radio = { line: event.line, time: game.time };
@@ -375,7 +386,51 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
       game.cleared = true;
       game.events.push({ kind: 'cleared' });
     }
+    if (event.kind === 'checkpoint') checkpoint = event.id;
   }
+  // The copy is taken once all of the frame's events are applied, so the wave a checkpoint's cue sends out is in it
+  if (checkpoint !== null) game.checkpoint = snapshotOf(game, checkpoint);
+}
+
+// A deep copy of the game for the checkpoint `id`. The fields that are not kept are taken out by name, so a field added
+// to GameModel is copied unless it is added to the list.
+function snapshotOf(game: GameModel, id: string): GameSnapshot {
+  const { events: _events, bullets: _bullets, checkpoint: _checkpoint, map, mission, ...kept } = game;
+  return { ...structuredClone(kept), map, mission, id };
+}
+
+// The sortie again from the last checkpoint: the checkpoint's game with the armour full, both weapons loaded, the aim
+// assist fresh and the enemies, targets, props and script as the checkpoint kept them (no wave is sent out again). The
+// checkpoint is copied again, so the new game's changes do not reach it, and it stays for the next time.
+export function retryFromCheckpoint(game: GameModel): GameModel {
+  const checkpoint = game.checkpoint;
+  if (checkpoint === null) throw new Error('no checkpoint to retry from');
+  const { id, map, mission, ...rest } = checkpoint;
+  return {
+    ...structuredClone(rest),
+    map,
+    mission,
+    armor: MECH_TUNE.armor,
+    downed: false,
+    // the weapons the checkpoint had, loaded full again
+    main: newWeapon(rest.main.id),
+    sub: newWeapon(rest.sub.id),
+    fcs: newFcs(),
+    aimTarget: null,
+    bullets: [],
+    events: [{ kind: 'retried', from: id }],
+    cleared: false,
+    checkpoint,
+    retries: game.retries + 1,
+  };
+}
+
+// The sortie again from the start.
+export function restartGame(game: GameModel): GameModel {
+  const next = newGame(game.map, game.mission);
+  next.retries = game.retries + 1;
+  next.events.push({ kind: 'retried', from: null });
+  return next;
 }
 
 // Whether the point is inside the area's rectangle on the ground.
