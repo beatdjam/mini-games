@@ -1,16 +1,20 @@
 // The game's state and the entry for updating it by one frame: the mech, the map, the targets' health, the props that
-// break, the weapons and the frame's events. Nothing here reads three or the DOM, so a test runs it in node without a
-// page. The mission script (SB-150) and the enemies are not here yet. A shot's damage and range come from the weapon
-// table (data/weapons.ts), and it stops at the first prop it meets and at the first target along its path, whichever is
-// nearer; a breakable prop takes the damage and breaks at 0.
+// break, the weapons, the mission script and the frame's events. Nothing here reads three or the DOM, so a test runs it
+// in node without a page. A shot's damage and range come from the weapon table (data/weapons.ts), and it stops at the
+// first prop it meets and at the first target along its path, whichever is nearer; a breakable prop takes the damage
+// and breaks at 0. The script's `spawn` (a wave of enemies), `cleared` (a wave down) and `ally` (a friend) are kept as
+// events but do nothing until the enemies and the friends come (SB-190); when they do, `cleared` goes back through
+// sendToScript and `spawn` puts the enemies out.
+import { M1 } from '../data/missions/m1.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../data/tune.ts';
-import type { MapDef, TargetKind, TargetPlace } from '../data/types.ts';
+import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, type GroundRect } from './collide.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
 import { blockingPropIndexes, mapBlockers } from './mapShapes.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from './mech.ts';
+import { newScript, scriptInput, stepScript, type ScriptInput, type ScriptOut, type ScriptState } from './script.ts';
 import { newWeapon, stepWeapon, type WeaponState } from './weapons.ts';
 
 export interface TargetState {
@@ -41,11 +45,15 @@ export type GameEvent =
     }
   | { kind: 'destroyed'; id: string }
   | { kind: 'propDestroyed'; prop: number; x: number; z: number }
+  | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   | { kind: 'cleared' };
 
 export interface GameModel {
   time: number; // seconds since the sortie began
   map: MapDef;
+  mission: MissionDef; // the script's write-up (data/missions/m1.ts)
+  script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
+  radio: { line: string; time: number } | null; // the last radio line's key and when it came; null before one
   mech: MechState;
   rects: GroundRect[]; // the map's blockers (mapBlockers)
   propBoxes: Aabb[]; // the props' boxes, which stop a shot
@@ -55,7 +63,7 @@ export interface GameModel {
   main: WeaponState; // the main weapon's ammo and wait
   sub: WeaponState; // the sub weapon's ammo and wait
   events: GameEvent[]; // this frame's events; step empties it first
-  cleared: boolean; // every target is down
+  cleared: boolean; // set when the script's `end` fires
 }
 
 // The box a shot may hit: TARGET_SIZE's w and d turned by the target's yaw, with y from the ground to its height.
@@ -72,9 +80,8 @@ export function targetBox(place: TargetPlace): Aabb {
 }
 
 // One shot from the mech's chest, straight ahead along the ground, with `weapon`'s damage and range: it stops at the
-// first prop or hits the first target it meets, and a target down to 0 breaks. A breakable prop takes the same damage
-// and breaks at 0, which opens the mech's path; any other prop only stops the shot. When every target is down the
-// sortie is cleared (a map with no targets is never cleared).
+// first prop or hits the first target it meets, and a target down to 0 breaks and goes to the script. A breakable prop
+// takes the same damage and breaks at 0, which opens the mech's path; any other prop only stops the shot.
 function shoot(game: GameModel, weapon: WeaponId): void {
   const def = WEAPONS[weapon];
   const mech = game.mech;
@@ -93,10 +100,7 @@ function shoot(game: GameModel, weapon: WeaponId): void {
   target.hp = Math.max(0, target.hp - def.damage);
   if (target.hp > 0) return;
   game.events.push({ kind: 'destroyed', id: target.id });
-  if (game.targets.length > 0 && game.targets.every(placed => placed.hp <= 0)) {
-    game.cleared = true;
-    game.events.push({ kind: 'cleared' });
-  }
+  sendToScript(game, { kind: 'destroyed', target: target.id });
 }
 
 // Takes `damage` off the prop at `boxIndex` when it can break. At 0 the prop leaves rects, propBoxes and propRefs at that
@@ -115,8 +119,9 @@ function damageProp(game: GameModel, boxIndex: number, damage: number): void {
   game.events.push({ kind: 'propDestroyed', prop, x: place.x, z: place.z });
 }
 
-// A new sortie on `map`: the mech at the middle of the front edge, facing the land, and every target at its health.
-export function newGame(map: MapDef): GameModel {
+// A new sortie on `map` with the script `mission`: the mech at the middle of the front edge, facing the land, every
+// target at its health, and the script at its start.
+export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
   const mech = newMech();
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
   mech.z = map.bounds.maxZ - PLAY_TUNE.startMargin;
@@ -127,6 +132,9 @@ export function newGame(map: MapDef): GameModel {
   return {
     time: 0,
     map,
+    mission,
+    script: newScript(mission),
+    radio: null,
     mech,
     rects,
     propBoxes: rects.slice(0, propRefs.length).map(rectBox),
@@ -147,13 +155,42 @@ export function newGame(map: MapDef): GameModel {
   };
 }
 
+// Hands one input to the script and keeps its events. Names the mission does not have are not sent: scriptInput throws
+// on them, and a map may hold a target the script does not know. Tests and the enemies' `cleared` use this entry.
+export function sendToScript(game: GameModel, input: ScriptInput): void {
+  if (input.kind === 'destroyed' && !game.mission.targets.includes(input.target)) return;
+  if (input.kind === 'cleared' && !game.mission.waves.includes(input.wave)) return;
+  if (input.kind === 'enter' && !(input.area in game.mission.areas)) return;
+  applyScriptOut(game, scriptInput(game.script, game.mission, input));
+}
+
+// Keeps every event the script reported. The game itself takes only two: a radio line (the last one stays up) and the
+// end (the sortie is cleared). The rest wait for the enemies and the friends (SB-190).
+function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
+  for (const event of outs) {
+    game.events.push({ kind: 'script', event });
+    if (event.kind === 'radio') game.radio = { line: event.line, time: game.time };
+    if (event.kind === 'end' && !game.cleared) {
+      game.cleared = true;
+      game.events.push({ kind: 'cleared' });
+    }
+  }
+}
+
+// Whether the point is inside the area's rectangle on the ground.
+function inArea(area: Area, x: number, z: number): boolean {
+  return Math.abs(x - area.x) <= area.w / 2 && Math.abs(z - area.z) <= area.d / 2;
+}
+
 // A frame's input: the mech's own input, and the sub weapon's trigger (the main uses the mech's fire).
 export interface GameInput extends MechInput {
   sub: boolean;
 }
 
 // One frame: the mech moves, each weapon fires as often as its interval allows while its trigger is held, every shot
-// hits a target or reaches its range, and a broken target reports it. The main weapon fires first.
+// hits a target or reaches its range, and a broken target goes to the script. The mech then enters any area it stands
+// in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires
+// first.
 export function step(game: GameModel, input: GameInput, dt: number): void {
   game.events = [];
   if (game.cleared) return;
@@ -167,4 +204,9 @@ export function step(game: GameModel, input: GameInput, dt: number): void {
   const subShots = stepWeapon(game.sub, input.sub, dt);
   for (let i = 0; i < mainShots; i++) shoot(game, game.main.id);
   for (let i = 0; i < subShots; i++) shoot(game, game.sub.id);
+  for (const [id, area] of Object.entries(game.mission.areas)) {
+    if (game.script.entered.includes(id)) continue;
+    if (inArea(area, game.mech.x, game.mech.z)) sendToScript(game, { kind: 'enter', area: id });
+  }
+  applyScriptOut(game, stepScript(game.script, game.mission, dt));
 }

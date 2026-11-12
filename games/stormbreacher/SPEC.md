@@ -38,7 +38,7 @@
 
 `src/logic/collide.ts` は平面で円を回った四角から押し出す純粋な関数で、engine へ移す候補なのでゲームのファイルを読まず、四角と半径を引数で受ける（規則 `sb-portable-no-game`）。`src/logic/mapShapes.ts` の `mapBlockers` が `MapDef` から四角の一覧を作り、通り道の検査と機体の当たりがそれを読む。規則に入っているファイルは `src/logic/collide.ts`・`src/logic/mech.ts`・`src/logic/fcs.ts`・`src/logic/fire.ts`・`src/view/camera.ts`・`src/data/tuneTypes.ts` の6つで、機体・カメラ・FCS の調整の型は値と分けて `src/data/tuneTypes.ts` に置く（値は `src/data/tune.ts`）。
 
-`src/logic/game.ts` は出撃の `GameModel`（機体・マップ・目標の体力・壊せる物の体力（`breakables`）・メインとサブの武器・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・間隔・弾数）、弾が目標に当たると体力が減って0で壊れ、全部壊れると `cleared` になる。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。台本（SB-150）はまだつながず、敵もまだ（壊せる物だけ入った）。
+`src/logic/game.ts` は出撃の `GameModel`（機体・マップ・目標の体力・壊せる物の体力（`breakables`）・メインとサブの武器・台本の状態 `script`・最後の無線 `radio`・そのフレームの出来事）を持ち、`step(game, input, dt)` で入力から1フレーム進める。機体が歩き、メインとサブの武器が撃ち（`data/weapons.ts` の表の威力・射程・間隔・弾数）、弾が目標に当たると体力が減って0で壊れる。`step` は壊れた目標（`destroyed`）と入った場所（`enter`）を台本に渡し、台本の時間を進め、台本の出来事を `script` の出来事として残す。出撃が終わる（`cleared`）のは台本の `end` が来たときだけ。`spawn`（敵の波）・`ally`（味方）・`cleared`（波を倒した）は、敵・味方（SB-190 以降）ができるまで本体で受けても何もしない（出来事に残すだけ）。`breakable` の物は撃つと体力が減って0で壊れ、機体の当たりと弾の箱から外れて通れるようになる。壊れた物は戻らない。壊れた物は出来事 `propDestroyed`（`prop` は `map.props` の添字）で知らせる。
 
 `src/logic/hud.ts` は HUD に出す値（ブースト・装甲・メインとサブの弾数・目標の数・照準の円の中の一番近い敵の体力・レーダーの点）を `GameModel` から作る純粋な関数 `hudModel`。装甲は機体の体力が無い（SB-190）ので常に満タン。熱は持たない。描くのは `view/hud.ts`（次の票）。
 
@@ -64,6 +64,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - ページの要素: `<canvas id="gl">` の上に `<div id="sbApp">` を重ねる（`pointer-events:none`。一覧へ戻るリンクと出撃のボタンだけ `pointer-events:auto`）
 - 画面の状態は `src/app/screen.ts` の `GameState` と `src/data/states.ts` の `STATES` で持つ。`title`（タイトル）・`play`（出撃中）・`result`（結果）の3つで、`playing` は `play` のときだけ true
 - 状態は `setState` でだけ書き換え、遊んでいるかは `isPlaying()` で見る。状態の名前を直に比べない
+- 出撃中の仮の文字: `#sbObjective` に今の目標（`obj.*`）を左上に出し、`#sbRadio` に最後の無線（`RADIO_MIN_SEC` の間）を下の真ん中より少し上に出す。HUD（SB-160）が来たら置き換える
 
 | 状態 | playing | 意味 |
 |------|---------|------|
@@ -347,6 +348,14 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - `restoreCheckpoint` は最後のチェックポイントの深いコピーを返す。取った時点より後の cue は発火していない状態に戻る。戻した状態も同じチェックポイントを持つので、戻ったあとにまたやられても同じ所へ戻れる
 - `checkpointReplay` は、戻したあとに画面を組み直す出来事（今の目標、出ている地図の印、出してまだ倒していない波）を返す。状態は出した波を `spawned` に持つ
 - 報酬はチェックポイントで確定しない（ミッションの終わりでまとめて決める）
+
+### 本体とのつながり
+
+- 本体が台本に渡す入力: 壊れた目標の `destroyed`、入った場所の `enter`、敵ができたあとの `cleared`
+- 台本の出来事を本体が受ける所: `radio` は最後の1行を覚える、`end` で出撃が終わる、ほかは出来事に残すだけ
+- M1 の `main-gun-1`・`main-gun-2`・`magazine` と `seawall-top` はマップ `M1B_HAND` の外にあり、マップが C に広がるまで結合テストが `sendToScript` で出来事を渡す
+- カットシーンの間も操作は止めない（演出は SB-180）
+- チェックポイントを戻す仕組みは SB-150 の2枚目
 
 ## 8. マップ
 
