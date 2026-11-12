@@ -96,15 +96,15 @@ test('the hand map’s seawall runs from x -100 to 100 with no gap along x, insi
   }
 });
 
-test('the hand map’s stairs stand against the seawall’s sea side and climb to its height', () => {
-  const stairs = M1B_HAND.props.filter(prop => prop.kind === 'stairs');
-  expect(stairs.length).toBe(2);
+test('the hand map’s ramps stand against the seawall’s sea side and climb to its height', () => {
+  const ramps = M1B_HAND.props.filter(prop => prop.kind === 'ramp');
+  expect(ramps.length).toBe(2);
   const seaSide = Math.max(
     ...M1B_HAND.props.filter(prop => prop.kind === 'seawall').map(prop => prop.z + PROP_SIZE.seawall.d / 2),
   );
-  for (const flight of stairs) {
-    expect(flight.z - PROP_SIZE.stairs.d / 2).toBeCloseTo(seaSide, 6);
-    expect(PROP_SIZE.stairs.h).toBe(PROP_SIZE.seawall.h);
+  for (const ramp of ramps) {
+    expect(ramp.z - PROP_SIZE.ramp.d / 2).toBeCloseTo(seaSide, 6);
+    expect(PROP_SIZE.ramp.h).toBe(PROP_SIZE.seawall.h);
   }
 });
 

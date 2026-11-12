@@ -7,7 +7,8 @@ const PUSH_PASSES = 4; // how many times the rects are gone over when one push m
 
 // A thing's footprint on the ground: its middle, half its width (x) and depth (z) before turning, and how far it is
 // turned about its middle (rad, the same sense as three's rotation.y). `top` is the height of the thing's upper face
-// (m); leaving it out means a wall with no top, which nothing can stand on or cross.
+// (m); leaving it out means a wall with no top, which nothing can stand on or cross. `ramp` makes `top` the height at
+// the -z edge, with the surface falling in a straight line to 0 at the +z edge, so the mech walks up it smoothly.
 export interface GroundRect {
   x: number;
   z: number;
@@ -15,6 +16,7 @@ export interface GroundRect {
   halfD: number;
   yaw: number;
   top?: number;
+  ramp?: boolean;
 }
 
 // The box a shot may hit, from a rect on the ground: the turned rect's outside wrapped along the axes, with y from the
@@ -77,21 +79,54 @@ export function rectGap(a: GroundRect, b: GroundRect): number {
   return gap;
 }
 
-// The height of the highest upper face the circle stands over: a rect whose top is at most `maxTop` and whose distance
-// from the middle is under the radius; 0 when there is none (the ground).
+// The height of a rect's upper face at (x, z): the flat `top` for most, or the slanted surface of a ramp, which runs
+// from 0 at the +z edge to `top` at the -z edge (turned by the rect's yaw). A point outside the rect is measured at the
+// nearest edge, so the side of a ramp is as tall as the surface there.
+export function surfaceAt(rect: GroundRect, x: number, z: number): number {
+  const top = rect.top ?? 0;
+  if (rect.ramp !== true) return top;
+  const dx = x - rect.x;
+  const dz = z - rect.z;
+  const localZ = Math.sin(rect.yaw) * dx + Math.cos(rect.yaw) * dz;
+  const at = Math.min(Math.max(localZ, -rect.halfD), rect.halfD);
+  return (top * (rect.halfD - at)) / (2 * rect.halfD);
+}
+
+// The height of the highest upper face the circle stands over: a rect whose face at (x, z) is at most `maxTop` and whose
+// distance from the middle is under the radius; 0 when there is none (the ground). A ramp is read only where the middle
+// stands on it (not within the radius): its seaward end is reached from the ground without a step, and its high end meets
+// the seawall, whose top must not lift the circle off the slope that is actually under it.
 export function groundAt(x: number, z: number, radius: number, rects: readonly GroundRect[], maxTop: number): number {
   let top = 0;
+  let rampTop = -1;
   for (const rect of rects) {
-    const face = rect.top;
-    if (face === undefined || face > maxTop || face <= top) continue;
-    if (rectDistance(rect, x, z) < radius) top = face;
+    if (rect.top === undefined) continue;
+    if (rect.ramp === true) {
+      if (rectDistance(rect, x, z) !== 0) continue;
+      const face = surfaceAt(rect, x, z);
+      if (face > maxTop || face <= rampTop) continue;
+      rampTop = face;
+      continue;
+    }
+    if (rect.top > maxTop || rect.top <= top) continue;
+    if (rectDistance(rect, x, z) < radius) top = rect.top;
   }
-  return top;
+  return rampTop >= 0 ? rampTop : top;
+}
+
+// Whether the face the circle stands on at (x, z) is a ramp's surface: its middle lies on a ramp whose face is at most
+// `maxTop` (the face groundAt picks). The mech follows a ramp's drop in one step; every other edge it walks off, it falls.
+export function groundIsRamp(x: number, z: number, rects: readonly GroundRect[], maxTop: number): boolean {
+  return rects.some(
+    rect =>
+      rect.ramp === true && rect.top !== undefined && rectDistance(rect, x, z) === 0 && surfaceAt(rect, x, z) <= maxTop,
+  );
 }
 
 // Pushes a circle of `radius` out of every rect so its middle stands at least `radius` from each; gives back the new
-// middle and the direction of each push, in the order they happened. A rect whose top is at or under `over` is not
-// pushed against (`over` is the mech's height plus its step); leaving `over` out pushes against every rect.
+// middle and the direction of each push, in the order they happened. A rect whose face at the circle's place is at or
+// under `over` is not pushed against (`over` is the mech's height plus its step); leaving `over` out pushes against
+// every rect. A ramp is measured where the circle stands, so its low end is walked onto and its sides are walls.
 export function pushOutCircle(
   x: number,
   z: number,
@@ -106,7 +141,7 @@ export function pushOutCircle(
     let pushed = false;
     for (const rect of rects) {
       // a rect the circle can walk onto is no wall
-      if (over !== undefined && rect.top !== undefined && rect.top <= over) continue;
+      if (over !== undefined && rect.top !== undefined && surfaceAt(rect, px, pz) <= over) continue;
       // a rect too far for the circle to reach can be left alone
       if (Math.hypot(px - rect.x, pz - rect.z) > radius + Math.hypot(rect.halfW, rect.halfD)) continue;
       const dx = px - rect.x;

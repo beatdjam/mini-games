@@ -8,10 +8,11 @@ test('the size table has every prop kind', () => {
   expect(Object.keys(PROP_SIZE).sort()).toEqual([...PROP_KINDS].sort());
 });
 
-// The stairs are never broken (their health is 0): only their steps would be left in rects.
-test('the prop health table is positive for every blocking kind but the stairs', () => {
+// The stairs and the ramp are never broken (their health is 0): only their steps or their slanted top would be left in
+// rects.
+test('the prop health table is positive for every blocking kind but the stairs and the ramp', () => {
   for (const kind of PROP_KINDS) {
-    if (!PROP_SIZE[kind].blocks || kind === 'stairs') continue;
+    if (!PROP_SIZE[kind].blocks || kind === 'stairs' || kind === 'ramp') continue;
     expect(PROP_HP[kind], kind).toBeGreaterThan(0);
   }
 });

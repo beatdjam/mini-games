@@ -36,6 +36,7 @@ const KINDS: PropKind[] = [
   'wreck',
   'lowWall',
   'stairs',
+  'ramp',
 ];
 
 export const TILE_COLOR = SAND_COLOR; // the sand a tile is drawn in at scale 1
@@ -52,6 +53,7 @@ const KIND_COLOR: Record<PropKind, number> = {
   wreck: 0x5a5148,
   lowWall: 0x8f8a80,
   stairs: 0x9a968c,
+  ramp: 0x9a968c,
 };
 
 // A box with its place baked in (the base sits on y = 0 when y is half its height).
@@ -166,6 +168,55 @@ function stairsGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
+// A wedge for a ramp: the low edge on the ground at +z, the high edge at -z, a slanted top and two triangular sides.
+// Its corners are laid out by hand so every face keeps its own normal; the slanted face then points up and towards +z
+// instead of taking the near-horizontal normal a box's face would leave.
+function rampGeometry(): THREE.BufferGeometry {
+  const hw = PROP_SIZE.ramp.w / 2;
+  const h = PROP_SIZE.ramp.h;
+  const hd = PROP_SIZE.ramp.d / 2;
+  // a: the low edge (+z, y 0); b: the high edge's foot (-z, y 0); c: the high edge's top (-z, y h)
+  const a0 = [-hw, 0, hd];
+  const a1 = [hw, 0, hd];
+  const b0 = [-hw, 0, -hd];
+  const b1 = [hw, 0, -hd];
+  const c0 = [-hw, h, -hd];
+  const c1 = [hw, h, -hd];
+  const positions = [
+    // the slanted top (up and towards +z)
+    ...a0,
+    ...a1,
+    ...c1,
+    ...a0,
+    ...c1,
+    ...c0,
+    // the two triangular sides
+    ...a0,
+    ...c0,
+    ...b0,
+    ...a1,
+    ...b1,
+    ...c1,
+    // the high end and the bottom
+    ...b0,
+    ...c1,
+    ...b1,
+    ...b0,
+    ...c0,
+    ...c1,
+    ...a0,
+    ...b0,
+    ...b1,
+    ...a0,
+    ...b1,
+    ...a1,
+  ];
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
   tile: () => fitBox(tileGeometry(), PROP_SIZE.tile),
   hedgehog: () => fitBox(hedgehogGeometry(), PROP_SIZE.hedgehog),
@@ -177,6 +228,7 @@ const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
   wreck: () => fitBox(wreckGeometry(), PROP_SIZE.wreck),
   lowWall: () => fitBox(lowWallGeometry(), PROP_SIZE.lowWall),
   stairs: () => fitBox(stairsGeometry(), PROP_SIZE.stairs),
+  ramp: () => fitBox(rampGeometry(), PROP_SIZE.ramp),
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
