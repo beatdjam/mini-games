@@ -1,7 +1,6 @@
 // The depot's guard and C's reinforcement (SB-300): pillbox-3 and the three enemies of `depot-guard` stand round the
 // depot on the side road, and `c-squad`'s four come out when the mech nears C. Walked with inputs.
 import { expect, test } from 'vitest';
-import { M1_WAVE_ENEMY } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { TARGET_SIZE } from '../../src/data/props.ts';
@@ -82,7 +81,7 @@ test('walking to the depot enters depot-approach, which puts out the guard’s t
   expect(game.script.entered).toContain('depot-approach');
   const guard = waveEnemies(game, 'depot-guard');
   expect(guard).toHaveLength(3);
-  expect(guard.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['depot-guard']);
+  expect(guard.map(enemy => enemy.kind)).toEqual(['assault', 'heavy', 'grunt']);
   expect(guard.length).toBe(places.length);
 
   // the mech came to the depot's side without a shot
@@ -130,7 +129,7 @@ test('entering c-line puts out the four of c-squad between C’s two rows, in th
   step(game, idle, DT);
   const squad = waveEnemies(game, 'c-squad');
   expect(squad).toHaveLength(4);
-  expect(squad.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['c-squad']);
+  expect(squad.map(enemy => enemy.kind)).toEqual(['assault', 'grunt', 'assault', 'heavy']);
   for (const enemy of squad) {
     expect(enemy.z).toBeLessThan(-40);
     expect(enemy.z).toBeGreaterThan(-50);

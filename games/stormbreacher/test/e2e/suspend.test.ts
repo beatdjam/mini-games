@@ -1,6 +1,8 @@
 import { beforeAll, beforeEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import * as THREE from 'three';
 import { el, runSystems, t } from '@engine/core/index.ts';
+import { scene } from '@engine/render/index.ts';
 import { boot } from '../../src/app/boot.ts';
 import { currentGame, startSortie, syncTitle, titleReturn } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
@@ -68,6 +70,24 @@ async function playedSortie(): Promise<void> {
   current.armor -= 200;
   current.retries = 1;
   await frames(5);
+}
+
+// How many warning lights the scene draws, from the pillboxes' instanced mesh.
+function warnLights(): number {
+  let count = 0;
+  scene.traverse(child => {
+    if (child instanceof THREE.InstancedMesh && child.name === 'sb-pillbox-warn') count += child.count;
+  });
+  return count;
+}
+
+// Skips the opening and stands the mech in front of pillbox-1 until its warning starts.
+async function warnedSortie(): Promise<void> {
+  await pastCutscene();
+  const current = game();
+  current.mech.x = -33;
+  current.mech.z = 10;
+  await until(() => current.pillboxes.some(state => state.warn > 0));
 }
 
 test('P pauses: the menu comes, the clock stops and the pointer lock goes', async () => {
@@ -159,6 +179,15 @@ test('suspend goes to the title with "continue"; continue brings the same sortie
   expect(loadSuspend()).toBeNull();
   await frames(3);
   expect(game().time).toBeGreaterThan(time);
+});
+
+test('a sortie suspended during a warning comes back with the light still on', async () => {
+  await warnedSortie();
+  press('KeyP');
+  button('#sbPauseSuspend').click();
+  button('#sbContinue').click();
+  await frames(2);
+  expect(warnLights()).toBeGreaterThan(0);
 });
 
 test('the title after a continue and an abandon has no "continue"', async () => {

@@ -2,8 +2,7 @@
 // its shots leave outside its own box.
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
-import { PILLBOX_TUNE } from '../../src/data/pillbox.ts';
-import { PILLBOX_ARMOR } from '../../src/data/tune.ts';
+import { PILLBOX_ARMOR, PILLBOX_TUNE } from '../../src/data/pillbox.ts';
 import { rectBox } from '../../src/logic/collide.ts';
 import type { Aabb } from '../../src/logic/fire.ts';
 import { newPillbox, pillboxDamageMul, pillboxFront, pillboxMuzzle, stepPillbox } from '../../src/logic/pillbox.ts';
@@ -66,7 +65,7 @@ test('a pillbox warns, fires its burst at the interval, then waits before the ne
     expect(shots[i] - shots[i - 1]).toBeCloseTo(PILLBOX_TUNE.shotInterval, 1);
   }
   // no shot in the interval after the burst, and the next warning comes after it
-  expect(warns[1] - shots[shots.length - 1]).toBeCloseTo(PILLBOX_TUNE.interval, 0);
+  expect(warns[1] - shots[shots.length - 1]).toBeCloseTo(PILLBOX_TUNE.interval, 2);
 });
 
 test('a shot leaves outside the pillbox, at the muzzle’s share of its height', () => {
@@ -87,10 +86,13 @@ test('a shot leaves outside the pillbox, at the muzzle’s share of its height',
   expect(pillboxFront(0.2)).toEqual({ x: Math.sin(0.2), z: Math.cos(0.2) });
 });
 
-// A shot that comes from `deg` around the front: the bullet flies the opposite way, so the front is turned round to the
-// shooter and then back again.
-function shotFrom(deg: number, yaw = 0): { dx: number; dz: number } {
-  const front = pillboxFront(yaw);
+// A shot that comes from `deg` around `front`: the bullet flies the opposite way, so the front is turned round to the
+// shooter and then back again. The fronts are written out rather than taken from pillboxFront, so the test does not
+// check one function against itself.
+const FRONT = { x: 0, z: 1 };
+const TURNED_FRONT = { x: Math.sin(0.2), z: Math.cos(0.2) };
+
+function shotFrom(deg: number, front: { x: number; z: number }): { dx: number; dz: number } {
   const turn = (deg * Math.PI) / 180;
   const x = front.x * Math.cos(turn) + front.z * Math.sin(turn);
   const z = -front.x * Math.sin(turn) + front.z * Math.cos(turn);
@@ -98,25 +100,25 @@ function shotFrom(deg: number, yaw = 0): { dx: number; dz: number } {
 }
 
 test('a pillbox takes a quarter of a shot from its front and all of one from its side or back', () => {
-  const front = shotFrom(0);
+  const front = shotFrom(0, FRONT);
   expect(pillboxDamageMul(0, front.dx, front.dz)).toBe(PILLBOX_ARMOR.frontMul);
   // just inside and just outside the front arc
-  const inside = shotFrom(44);
+  const inside = shotFrom(44, FRONT);
   expect(pillboxDamageMul(0, inside.dx, inside.dz)).toBe(PILLBOX_ARMOR.frontMul);
-  const outside = shotFrom(46);
+  const outside = shotFrom(46, FRONT);
   expect(pillboxDamageMul(0, outside.dx, outside.dz)).toBe(PILLBOX_ARMOR.sideMul);
-  const side = shotFrom(90);
+  const side = shotFrom(90, FRONT);
   expect(pillboxDamageMul(0, side.dx, side.dz)).toBe(PILLBOX_ARMOR.sideMul);
-  const back = shotFrom(180);
+  const back = shotFrom(180, FRONT);
   expect(pillboxDamageMul(0, back.dx, back.dz)).toBe(PILLBOX_ARMOR.sideMul);
   // a shot with no horizontal direction cannot come from the front
   expect(pillboxDamageMul(0, 0, 0)).toBe(PILLBOX_ARMOR.sideMul);
 });
 
 test('a turned pillbox keeps the same front and side from its own yaw', () => {
-  const front = shotFrom(0, 0.2);
+  const front = shotFrom(0, TURNED_FRONT);
   expect(pillboxDamageMul(0.2, front.dx, front.dz)).toBe(PILLBOX_ARMOR.frontMul);
-  const side = shotFrom(90, 0.2);
+  const side = shotFrom(90, TURNED_FRONT);
   expect(pillboxDamageMul(0.2, side.dx, side.dz)).toBe(PILLBOX_ARMOR.sideMul);
 });
 

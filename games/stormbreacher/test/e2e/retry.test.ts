@@ -1,6 +1,8 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import * as THREE from 'three';
 import { el, runSystems, t } from '@engine/core/index.ts';
+import { scene } from '@engine/render/index.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
@@ -17,6 +19,15 @@ beforeAll(async () => {
 });
 
 const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+// How many warning lights the scene draws, from the pillboxes' instanced mesh.
+function warnLights(): number {
+  let count = 0;
+  scene.traverse(child => {
+    if (child instanceof THREE.InstancedMesh && child.name === 'sb-pillbox-warn') count += child.count;
+  });
+  return count;
+}
 
 function game() {
   const current = currentGame();
@@ -104,6 +115,25 @@ test('the start button goes back to the sortie at the start', async () => {
   expect(again.armor).toBe(MECH_TUNE.armor);
   expect(again.checkpoint).toBeNull();
   expect(again.retries).toBe(1);
+});
+
+test('a warning light goes out once the sortie starts again', async () => {
+  startSortie();
+  const current = game();
+  sendToScript(current, { kind: 'skip' });
+  await until(() => current.script.cutscene === null);
+  current.mech.x = -33;
+  current.mech.z = 10;
+  await until(() => current.pillboxes.some(state => state.warn > 0));
+  await frame();
+  expect(warnLights()).toBeGreaterThan(0);
+
+  current.armor = 0;
+  current.downed = true;
+  await until(() => state === 'result');
+  button('#sbResultRestart').click();
+  await frame();
+  expect(warnLights()).toBe(0);
 });
 
 test('the cleared result has no retry buttons', () => {

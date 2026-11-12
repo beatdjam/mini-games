@@ -12,6 +12,7 @@ import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE, FX_TUNE, MECH_TUNE } from '../data/tune.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneMech } from '../logic/cutscene.ts';
+import { pillboxMuzzle } from '../logic/pillbox.ts';
 import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
@@ -41,7 +42,7 @@ const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per la
 const BOOST_DUST = 6; // the same, per boost start
 const BLAST_DUST = 14; // the same, per shell landing or mine blast
 const BLAST_SHAKE_NEAR = 25; // a blast this near the mech (m) shakes the camera even when it does no harm
-const MAX_PILLBOX_WARNS = 8; // the most warning lights drawn at once; the oldest goes when it is full
+const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the game has fewer pillboxes than that
 const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
 const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
 
@@ -51,18 +52,9 @@ export interface BulletLines {
   positions: THREE.BufferAttribute; // MAX_BULLET_LINES * 2 vertices (the tail, then the head)
 }
 
-// A warning light at a pillbox's muzzle: where it is and how long it has left.
-interface PillboxWarn {
-  x: number;
-  y: number;
-  z: number;
-  left: number; // the seconds of warning left
-}
-
 // The warning lights, one instanced mesh for all of them.
 export interface PillboxWarnView {
   mesh: THREE.InstancedMesh;
-  lights: PillboxWarn[];
 }
 
 export interface PlayView {
@@ -147,25 +139,29 @@ function buildPillboxWarnView(group: THREE.Group): PillboxWarnView {
   // the lights come and go, so the bounding sphere made at the start would cull them
   mesh.frustumCulled = false;
   group.add(mesh);
-  return { mesh, lights: [] };
+  return { mesh };
 }
 
 const pillboxWarnPlace = new THREE.Object3D();
 
-// Ages the warning lights, drops the ones whose warning is over and writes the rest, smaller as the warning nears its
-// end.
-function drawPillboxWarns(view: PillboxWarnView, dt: number): void {
-  for (const light of view.lights) light.left -= dt;
-  view.lights = view.lights.filter(light => light.left > 0);
-  const count = Math.min(view.lights.length, MAX_PILLBOX_WARNS);
-  for (let i = 0; i < count; i++) {
-    const light = view.lights[i];
-    const share = Math.max(0, light.left / PILLBOX_TUNE.warn); // 1 at the warning, 0 as it ends
+// Draws a light at the muzzle of every pillbox whose warning is running, smaller as the warning nears its end. The light
+// is read from the pillbox's own countdown each frame, so a cutscene, a pause or a suspend holds it where it stands.
+function drawPillboxWarns(view: PillboxWarnView, game: GameModel): void {
+  let count = 0;
+  for (const state of game.pillboxes) {
+    if (count === MAX_PILLBOX_WARNS) break;
+    if (state.warn <= 0) continue;
+    const target = game.targets.find(target => target.id === state.id);
+    // a destroyed pillbox keeps its state but must not keep its light
+    if (!target || target.hp <= 0) continue;
+    const muzzle = pillboxMuzzle(target.box, target.yaw);
+    const share = clamp(state.warn / PILLBOX_TUNE.warn, 0, 1); // 1 at the warning, 0 as it ends
     const size = PILLBOX_WARN_SIZE * (PILLBOX_WARN_SHRINK + (1 - PILLBOX_WARN_SHRINK) * share);
-    pillboxWarnPlace.position.set(light.x, light.y, light.z);
+    pillboxWarnPlace.position.set(muzzle.x, muzzle.y, muzzle.z);
     pillboxWarnPlace.scale.setScalar(size);
     pillboxWarnPlace.updateMatrix();
-    view.mesh.setMatrixAt(i, pillboxWarnPlace.matrix);
+    view.mesh.setMatrixAt(count, pillboxWarnPlace.matrix);
+    count++;
   }
   view.mesh.count = count;
   view.mesh.instanceMatrix.needsUpdate = true;
@@ -230,10 +226,6 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
-    } else if (event.kind === 'pillboxWarn') {
-      view.pillboxWarns.lights.push({ x: event.x, y: event.y, z: event.z, left: PILLBOX_TUNE.warn });
-      // the oldest goes when the lights are full
-      if (view.pillboxWarns.lights.length > MAX_PILLBOX_WARNS) view.pillboxWarns.lights.shift();
     }
   }
   view.feel.shake += view.battle.step(dt, game.mech);
@@ -290,7 +282,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   );
   drawBullets(view.enemyBullets, game.bullets.filter(isHostileBullet));
   drawEnemies(view.enemies, game);
-  drawPillboxWarns(view.pillboxWarns, dt);
+  drawPillboxWarns(view.pillboxWarns, game);
   drawHazards(view.hazards, game);
   drawSeaFire(view.seaFire, game);
   drawAllies(view.allies, game, view.battle, stream('battle'), dt);

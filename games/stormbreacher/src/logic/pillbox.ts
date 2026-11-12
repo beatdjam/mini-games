@@ -2,8 +2,8 @@
 // on small states; the random draw comes in as an argument. logic/game.ts keeps the states, flies the bullets and
 // reports the events.
 import type { Rng } from '@engine/core/index.ts';
-import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { MECH_TUNE, PILLBOX_ARMOR } from '../data/tune.ts';
+import { PILLBOX_ARMOR, PILLBOX_TUNE } from '../data/pillbox.ts';
+import { MECH_TUNE } from '../data/tune.ts';
 import type { EnemyShot } from './enemies.ts';
 import { spreadDir } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';

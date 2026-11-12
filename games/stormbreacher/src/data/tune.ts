@@ -111,14 +111,6 @@ export const PLAY_TUNE = {
   startMargin: 4, // how far the mech starts inside the map's front edge (m)
 };
 
-// A pillbox's armour (仮): its front shrugs off shots, its sides and back take them whole. The angle is measured on the
-// ground from the direction the shot came from, so a shot from within `frontArc` of the front is a front hit.
-export const PILLBOX_ARMOR = {
-  frontMul: 0.25, // the share of a front shot's damage
-  sideMul: 1, // the share of a side or back shot's damage
-  frontArc: 45, // deg; half the arc that counts as the front
-};
-
 // The starting values of each kind. The numbers decide nothing here: SB-060 compares them by hand.
 export const FCS_TUNE: Record<FcsKind, FcsTune> = {
   manual: { cone: 0, range: 200, spread: 0.5, pull: 0, lockTime: 0, trackRate: 0, breakCone: 0 },

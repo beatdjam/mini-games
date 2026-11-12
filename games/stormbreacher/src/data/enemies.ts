@@ -72,14 +72,17 @@ export const ENEMY_CHEST = 0.7;
 // The list must be as long as `map.spawns[wave]`; a wave that is not here, or a list of another length, puts out nothing.
 // `beach-mortar` (the mortar, SB-190's third card) and `battery` (the boss) are made by other cards.
 export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]>>> = {
-  // a heavy comes in from the left, two assaults follow it, and three grunts hold the line, so the mech must choose
-  // between the hard target and the fast ones
+  // a heavy on the left, an assault next, two grunts in the middle, then an assault and a grunt on the right, so the
+  // mech must choose between the hard target and the fast ones
   'b-squad': ['heavy', 'assault', 'grunt', 'grunt', 'assault', 'grunt'],
-  // an assault meets the mech on the way in, a heavy fires from the back of the depot, a grunt holds the middle
+  // an assault meets the mech on the way in, a heavy fires from the east end, and a grunt stands between them, so the
+  // guard watches the road and the open flank
   'depot-guard': ['assault', 'heavy', 'grunt'],
-  // from the top of the seawall: two assaults, three grunts and a heavy
+  // from the top of the seawall: an assault and a grunt on the left, a heavy in the middle, then a grunt, an assault and
+  // a grunt on the right
   'seawall-drop': ['assault', 'grunt', 'heavy', 'grunt', 'assault', 'grunt'],
-  // an assault comes from either side before C, and a heavy backs them up from behind
+  // an assault, a grunt and another assault spread across the left and middle, and a heavy on the east end; all four
+  // stand on one row, so the mech meets them together as it crosses C
   'c-squad': ['assault', 'grunt', 'assault', 'heavy'],
 };
 

@@ -77,7 +77,7 @@ test('walking into b-line puts one enemy at each of the six b-squad places, in t
   expect(events).toContainEqual({ kind: 'spawned', wave: 'b-squad', count: 6 });
   expect(game.script.spawned).toEqual(['beach-mortar', 'b-squad']);
   expect(game.enemies.map(enemy => enemy.id)).toEqual([1, 2, 3, 4, 5, 6].map(n => `b-squad-${n}`));
-  const kinds = M1_WAVE_ENEMY['b-squad'] ?? [];
+  const kinds = ['heavy', 'assault', 'grunt', 'grunt', 'assault', 'grunt'] as const;
   expect(kinds).toHaveLength(6);
   game.enemies.forEach((enemy, i) => {
     const kind = kinds[i];

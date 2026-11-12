@@ -67,7 +67,7 @@ export const TARGET_SIZE: Record<TargetKind, TargetSize> = {
 // The targets' health (provisional; SB-190 decides it again). One autocannon shot does WEAPONS.autocannon.damage 10,
 // so a depot (60) breaks in 6 shots, a gun (200) in 20 and a magazine (80) in 8. A pillbox (100) breaks in 10 autocannon
 // shots or 2 heavy-gun shots (WEAPONS.heavyGun.damage 60) from its side or back, and in 40 or 7 from its front
-// (PILLBOX_ARMOR in src/data/tune.ts).
+// (PILLBOX_ARMOR in src/data/pillbox.ts).
 export const TARGET_HP: Record<TargetKind, number> = {
   pillbox: 100,
   depot: 60,

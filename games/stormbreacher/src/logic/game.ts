@@ -7,7 +7,7 @@
 // range; a breakable prop takes the damage and breaks at 0. An enemy's shot (logic/enemies.ts) flies at its kind's
 // speed and stops at a prop, at the mech or at the ground; the mech's armour takes its damage, and at 0 the mech is
 // downed and the game stops. A pillbox (logic/pillbox.ts) that sees the mech warns of a burst and then fires it, and its
-// shots fly as an enemy's do; a shot from its front does a quarter of its damage and is reported as deflected. The
+// shots fly as an enemy's do; a shot from its front does little damage and is reported as deflected. The
 // script's `spawn` puts a wave's enemies out (the wave's kinds are in M1_WAVE_ENEMY), starts
 // the wave's barrage (M1_WAVE_BARRAGE; logic/hazards.ts) and, when the last of the enemies falls, `cleared` goes back
 // through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; a mine blows up
