@@ -1,6 +1,6 @@
 // The screens the sortie moves through: the start button (title), the sortie itself and its result. The logic stays in
 // logic/game.ts and the drawing in view/play.ts; this file decides which of them runs and what the page shows.
-import { addSystem, el, lang, t } from '@engine/core/index.ts';
+import { addSystem, el, isTouch, lang, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
@@ -10,7 +10,7 @@ import { payoutOf, type Payout } from '../logic/economy.ts';
 import { newGame, restartGame, retryFromCheckpoint, sendToScript, step, type GameModel } from '../logic/game.ts';
 import { recordClear } from '../logic/save.ts';
 import { aimRay } from '../view/camera.ts';
-import { GROUND_NAME, SIZE_BOX_NAME } from '../view/field.ts';
+import { GROUND_NAME, SIZE_BOX_NAME, placeCamera } from '../view/field.ts';
 import { removeAllyView } from '../view/allies.ts';
 import { removeCutsceneView } from '../view/cutscene.ts';
 import { removeEnemyView } from '../view/enemies.ts';
@@ -18,14 +18,16 @@ import { removeHazardView } from '../view/hazards.ts';
 import { removeHud } from '../view/hud.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
-import { save, writeSave } from './storage.ts';
+import { clearSuspend, loadSuspend, save, writeSave, writeSuspend } from './storage.ts';
 import { initPlayInput, readInput } from './input.ts';
+import { hidePause, initPause, showPauseButton } from './pause.ts';
 import { setState } from './screen.ts';
 import { armSkip, takeSkip } from './skip.ts';
 
 let game: GameModel | null = null; // the sortie in play; null before the first one
 let view: PlayView | null = null;
 let settled: { game: GameModel; payout: Payout } | null = null; // the clear already written to the save, so a second showResult adds nothing
+let confirmingStart = false; // the title's start button asked whether to discard the suspended sortie, and waits for the second press
 let started = false; // the play system and the result's button are set up once
 
 // Hides the start-up field's ground and size box; the sortie's map takes their place.
@@ -76,9 +78,18 @@ function beginPlay(next: GameModel): void {
   game = next;
   view = buildPlayView(game);
   initPlayInput();
+  // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
+  el('#touch').hidden = !isTouch;
+  hidePause();
+  showPauseButton(true);
   armSkip();
   if (started) return;
   started = true;
+  initPause({
+    inCutscene: () => game !== null && game.script.cutscene !== null,
+    suspend: suspendSortie,
+    abandon: abandonSortie,
+  });
   addSystem({ name: 'sb-play', modes: ['play'], update });
   // The title is the page as it loaded.
   el('#sbResultBack').addEventListener('click', () => location.reload());
@@ -90,9 +101,85 @@ function beginPlay(next: GameModel): void {
   });
 }
 
-// Starts a sortie on M1's B line.
+// Starts a sortie on M1's B line. A suspended sortie is thrown away: the new one replaces it.
 export function startSortie(): void {
+  clearSuspend();
   beginPlay(newGame(M1B_HAND));
+}
+
+// Puts the title back: the sortie's drawing is taken out, the start-up field shows again and the title's buttons are
+// set for the suspend that is there or not. The page is not loaded again, so the tests can go on after it.
+// How the pause menu goes back to the title. The page loads again, as the result's "back to title" does: the sortie's
+// look (lights, colour filter, fog, ground) stays on the scene otherwise, and the title's field shows washed out. The
+// e2e tests cannot load the page again in the middle of a test, so they turn `reload` off and get the in-page way.
+export const titleReturn = { reload: true };
+
+function returnToTitle(): void {
+  if (titleReturn.reload) {
+    location.reload();
+    return;
+  }
+  if (view) clearPlay(view);
+  view = null;
+  game = null;
+  hidePause();
+  showPauseButton(false);
+  el('#touch').hidden = true;
+  el('#sbResult').hidden = true;
+  el('#sbApp').hidden = false;
+  const ground = scene.getObjectByName(GROUND_NAME);
+  if (ground) ground.visible = true;
+  const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
+  if (sizeBox) sizeBox.visible = true;
+  placeCamera();
+  exitLock();
+  setState('title');
+  syncTitle();
+}
+
+// Writes the sortie as it stands (the pause menu's suspend) and goes to the title, where "continue" takes it back.
+function suspendSortie(): void {
+  if (!game) return;
+  writeSuspend(game);
+  returnToTitle();
+}
+
+// Gives the sortie up (the pause menu's abandon, after its question): no reward and no save is written, and a suspend
+// from before is gone too.
+function abandonSortie(): void {
+  clearSuspend();
+  returnToTitle();
+}
+
+// Sets the title's buttons for the save: "continue" shows only while a sortie is suspended, and the start button goes
+// back to its plain word.
+export function syncTitle(): void {
+  confirmingStart = false;
+  el('#sbContinue').hidden = loadSuspend() === null;
+  el('#sbStart').textContent = t('app.start');
+}
+
+// The title's start button (and Enter). With a sortie suspended, the first press asks (the new sortie would discard it)
+// and the second starts.
+export function pressStart(): void {
+  if (!confirmingStart && loadSuspend() !== null) {
+    confirmingStart = true;
+    el('#sbStart').textContent = t('app.startOver');
+    return;
+  }
+  startSortie();
+}
+
+// The title's "continue": the suspended sortie comes back and the suspend is gone, so one suspend gives one sortie back
+// (a clear pays once). A suspend that cannot be read is gone already (loadSuspend) and the title goes on without it.
+export function continueSortie(): void {
+  const resumed = loadSuspend();
+  if (resumed === null) {
+    syncTitle();
+    return;
+  }
+  clearSuspend();
+  beginPlay(resumed);
 }
 
 function update(dt: number): void {
@@ -147,6 +234,7 @@ function payLines(payout: Payout): string[] {
 export function showResult(): void {
   if (!game) return;
   if (view) view.hud.root.hidden = true;
+  showPauseButton(false);
   setState('result');
   el('#sbResult').hidden = false;
   el('#sbResult .title').textContent = t(game.downed ? 'result.downed' : 'result.title');
