@@ -6,6 +6,19 @@ export const SAND_COLOR = 0xc2a878; // the ground's sand
 export const SKY_COLOR = 0x9db8c6; // the sky and the fog
 export const SEA_COLOR = 0x4f6f80; // the sea's surface, a little darker than the fog it fades into (仮)
 
+// The beach's surfaces (SB-1360, 仮): the dry sand away from the water, the wet sand kept in the sea's reach, the rust
+// of the hedgehogs and the charred iron of the wrecks, and the foam the sea leaves on the shore. New names because the
+// look is provisional and will be tuned from the shots.
+export const DRY_SAND_COLOR = 0xc9b184;
+export const WET_SAND_COLOR = 0x6f6250;
+export const RUST_COLOR = 0x8a5a3a;
+export const BURNT_COLOR = 0x3a3733;
+export const FOAM_COLOR = 0xe9eeec;
+
+// The cloudy sky's top, the darkest part of the gradient behind the fog (仮). The bottom is the fog's own colour, so the
+// two always meet.
+export const SKY_TOP_COLOR = 0x5b6a74;
+
 // The HUD's colours, shared by the mock (#view-hud) and the game's sortie. The values come from the mock as they were;
 // the shades are 仮 and will be tuned later.
 export const HUD_COLOR = {

@@ -38,5 +38,5 @@ export const BASE_LIGHTS = {
   ground: 0x4c4942,
   hemi: 1.9,
   sun: 1.25,
-  sunAt: [24, 50, 16] as const,
+  sunAt: [42, 30, 22] as const,
 };
