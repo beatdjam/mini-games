@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { ENEMIES } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { RADIO_MIN_SEC } from '../../src/data/script.ts';
+import { RADIO_MIN_SEC, CUTSCENE_SEC } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
@@ -126,6 +126,24 @@ test('the radio line stays for RADIO_MIN_SEC', () => {
   game.time += RADIO_MIN_SEC - 0.1;
   expect(hudModel(game).radio).toBe('m1.depot-hint');
   game.time += 0.2;
+  expect(hudModel(game).radio).toBeNull();
+});
+
+test('a radio line waits out a cutscene: its RADIO_MIN_SEC counts only while the HUD shows', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'skip' });
+  // the wave 2 line comes as its cutscene starts, and the bars hide the HUD for the whole cutscene
+  game.radio = { line: 'm1.wave2-lost', time: game.time };
+  game.script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] };
+  for (let i = 0; i < 500 && game.script.cutscene !== null; i++) step(game, idle, 1 / 60);
+  expect(game.script.cutscene).toBeNull();
+  expect(hudModel(game).radio).toBe('m1.wave2-lost');
+
+  // the line then gets its full RADIO_MIN_SEC once the HUD is back
+  for (let i = 0; i < 150; i++) step(game, idle, 1 / 60); // 2.5 s
+  expect(hudModel(game).radio).toBe('m1.wave2-lost');
+  for (let i = 0; i < 60; i++) step(game, idle, 1 / 60); // 1 s more (3.5 s)
   expect(hudModel(game).radio).toBeNull();
 });
 

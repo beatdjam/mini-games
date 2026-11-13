@@ -794,6 +794,10 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   // while a cutscene plays the mech holds still and holds its fire; the aim line still passes through
   const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
   game.time += dt;
+  // A cutscene hides the HUD, so the last radio line's age stands still while one plays: the line gets its RADIO_MIN_SEC
+  // of the HUD, not of the sortie's clock (the wave2-sinks line comes as its cutscene starts, and would otherwise run out
+  // while the bars are up).
+  if (game.script.cutscene !== null && game.radio !== null) game.radio.time += dt;
   const events = stepMech(game.mech, input, dt, moveTuneOf(M1_MECH), 0, {
     rects: game.rects,
     radius: MECH_TUNE.radius,

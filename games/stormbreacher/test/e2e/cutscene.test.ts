@@ -7,7 +7,7 @@ import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { M1_MECH_PALETTE } from '../../src/data/mech.ts';
-import { CUTSCENE_SEC } from '../../src/data/script.ts';
+import { CUTSCENE_SEC, CUTSCENE_SKIP_GUARD_SEC } from '../../src/data/script.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
@@ -37,6 +37,14 @@ async function until(done: () => boolean, tries = 240): Promise<void> {
   if (!done()) throw new Error(`the page did not reach the state in ${tries} frames`);
 }
 
+// A cutscene takes no skip for CUTSCENE_SKIP_GUARD_SEC after it starts, so a test that skips it waits that out first.
+async function pastSkipGuard(): Promise<void> {
+  await until(() => {
+    const cutscene = game().script.cutscene;
+    return cutscene === null || CUTSCENE_SEC[cutscene.id] - cutscene.left >= CUTSCENE_SKIP_GUARD_SEC + 0.1;
+  });
+}
+
 const bars = (): HTMLElement => el('#sbCutscene');
 const caption = (): string => el('#sbCutscene [data-cutscene="caption"]').textContent ?? '';
 
@@ -58,6 +66,7 @@ test('a sortie shows the black bars and a line, and hides the HUD', async () => 
 test('a click skips the cutscene: the bars go and the HUD comes', async () => {
   startSortie();
   await until(() => !bars().hidden);
+  await pastSkipGuard();
   el('#gl').click();
   await until(() => bars().hidden);
   expect(game().script.cutscene).toBeNull();
@@ -68,6 +77,7 @@ test('Enter skips it too, and the click that started the sortie does not', async
   startSortie();
   await frame();
   expect(game().script.cutscene).not.toBeNull();
+  await pastSkipGuard();
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', repeat: true, bubbles: true }));
   await frame();
   expect(game().script.cutscene).not.toBeNull();
@@ -79,6 +89,7 @@ test('Enter skips it too, and the click that started the sortie does not', async
 test('starting again from the beginning plays it again, with one set of bars', async () => {
   startSortie();
   await until(() => !bars().hidden);
+  await pastSkipGuard();
   el('#gl').click();
   await until(() => bars().hidden);
   el('#sbResultRestart').click();
@@ -100,6 +111,7 @@ function seaCrafts(): number {
 test('wave2-sinks shows the bars and its line, hides the HUD and draws the crafts at sea', async () => {
   startSortie();
   await until(() => !bars().hidden);
+  await pastSkipGuard();
   el('#gl').click();
   await until(() => bars().hidden);
   expect(seaCrafts()).toBe(0);
@@ -122,6 +134,7 @@ test('wave2-sinks shows the bars and its line, hides the HUD and draws the craft
 test('beach-held plays after the win and then the result shows', async () => {
   startSortie();
   await until(() => !bars().hidden);
+  await pastSkipGuard();
   el('#gl').click();
   await until(() => bars().hidden);
   for (const target of ['main-gun-1', 'main-gun-2', 'magazine']) sendToScript(game(), { kind: 'destroyed', target });
@@ -188,6 +201,7 @@ test('the landing draws the mech standing in the craft, then walking down the ra
 test('the other cutscenes do not draw the mech', async () => {
   startSortie();
   await until(() => !bars().hidden);
+  await pastSkipGuard();
   el('#gl').click();
   await until(() => bars().hidden);
   game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };

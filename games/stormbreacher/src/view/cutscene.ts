@@ -57,11 +57,14 @@ function bar(side: 'top' | 'bottom'): HTMLElement {
 
 // Builds the bars into `parent` and puts the crafts the tables sink or bring in, in `shore`. Everything starts out of
 // sight; the player's ramp starts down. `targets` are the map's mission targets (the view moves them in a collapse).
+// `elapsed` is the cutscene's second when the view is made: a sortie taken up from a suspend comes back in the middle of
+// one, and starting the view there keeps the events already played from all playing again in its first frame.
 export function buildCutsceneView(
   parent: HTMLElement,
   shore: THREE.Group,
   bounds: MapBounds,
   targets: Map<string, THREE.Mesh>,
+  elapsed = -1,
 ): CutsceneView {
   const root = document.createElement('div');
   root.id = 'sbCutscene';
@@ -98,7 +101,7 @@ export function buildCutsceneView(
     caption,
     lineKey: null,
     playing: false,
-    elapsed: -1,
+    elapsed,
     ramp,
     rampX: (bounds.minX + bounds.maxX) / 2,
     rampZ: z,

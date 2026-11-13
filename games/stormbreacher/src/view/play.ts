@@ -91,6 +91,10 @@ export function buildPlayView(game: GameModel): PlayView {
   );
   scene.add(model);
   const hud = buildPlayHud(document.body);
+  // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
+  // events before it (already played) are not all played again in the first frame.
+  const cutscene = game.script.cutscene;
+  const cutsceneElapsed = cutscene === null ? -1 : CUTSCENE_SEC[cutscene.id] - cutscene.left;
   return {
     world,
     model,
@@ -113,7 +117,7 @@ export function buildPlayView(game: GameModel): PlayView {
     allies: buildAllyView(),
     hud,
     hurt: buildHurtView(document.body),
-    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets),
+    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets, cutsceneElapsed),
   };
 }
 

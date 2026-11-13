@@ -4,6 +4,7 @@ import { addSystem, el, isTouch, lang, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
+import { CUTSCENE_SEC, CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
 import { CAMERA_TUNE } from '../data/tune.ts';
 import { hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
@@ -195,10 +196,15 @@ function update(dt: number): void {
   // The aim is the camera's line with the pitch of the last frame; drawPlay adds this frame's pitch change after.
   const aim = aimRay({ x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw }, view.pitch, CAMERA_TUNE);
   step(game, { ...read.input, sub: read.sub, aim }, dt);
-  // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn.
+  // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn. A
+  // cutscene that step has just started takes no skip for CUTSCENE_SKIP_GUARD_SEC: the jump, shot or Enter of this frame
+  // started it. takeSkip runs every frame, so a press inside the guard is thrown away rather than saved up.
   const skip = takeSkip();
   const cutscene = game.script.cutscene;
-  if (cutscene !== null && (skip || !hasCutscene(cutscene.id))) sendToScript(game, { kind: 'skip' });
+  if (cutscene !== null) {
+    const elapsed = CUTSCENE_SEC[cutscene.id] - cutscene.left;
+    if (!hasCutscene(cutscene.id) || (skip && elapsed >= CUTSCENE_SKIP_GUARD_SEC)) sendToScript(game, { kind: 'skip' });
+  }
   // the cutscene's sounds play too: this line is not behind the cutscene branch
   soundFrame(game, dt);
   drawPlay(view, game, dt, read.pitchDelta);
