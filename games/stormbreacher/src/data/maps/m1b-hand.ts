@@ -690,6 +690,16 @@ export const M1B_HAND: MapDef = {
       { x: 40, z: -27 },
       { x: 65, z: -33 },
     ],
+    // the six machine-gun nests, seaward of each line, so the hedgehogs behind do not stop their fire; clear of the low
+    // walls and the mines
+    'b-emplacements': [
+      { x: -30, z: 147 },
+      { x: 45, z: 147 },
+      { x: -30, z: 99 },
+      { x: 40, z: 99 },
+      { x: -20, z: 29 },
+      { x: 55, z: 29 },
+    ],
     // three at the depot, round it on the sides the mech does not come from; each stands clear of the cover and of
     // pillbox-3 (z 48..56)
     'depot-guard': [

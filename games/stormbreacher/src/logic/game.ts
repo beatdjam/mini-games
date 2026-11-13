@@ -77,8 +77,9 @@ import { stream } from './rng.ts';
 import { newScript, scriptInput, stepScript, type ScriptInput, type ScriptOut, type ScriptState } from './script.ts';
 import { newWeapon, stepWeapon, type WeaponState } from './weapons.ts';
 
-// The radius the enemies' cells are blocked for (m): the widest enemy's, so what one can walk through they all can.
-const NAV_RADIUS = Math.max(...ENEMY_KINDS.map(kind => ENEMIES[kind].radius));
+// The radius the enemies' cells are blocked for (m): the widest walking enemy's, so what one can walk through they all
+// can. A static kind (the machine-gun nest) never uses the nav, so it does not widen the cells for the walkers.
+const NAV_RADIUS = Math.max(...ENEMY_KINDS.filter(kind => ENEMIES[kind].speed > 0).map(kind => ENEMIES[kind].radius));
 
 export interface TargetState {
   id: string;
@@ -720,12 +721,15 @@ function stepEnemies(game: GameModel, dt: number): void {
   // a standing target blocks an enemy's line as a prop does
   const blockers = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
   const mech = game.mech;
-  const alive = game.enemies.some(enemy => enemy.hp > 0);
+  // a nest never walks, so the nav is made only while an enemy that does walk is alive
+  const alive = game.enemies.some(enemy => enemy.hp > 0 && ENEMIES[enemy.kind].speed > 0);
   // the way round the walls is made only while there is an enemy to use it
   const nav = alive ? stepNav(game.nav, game.rects, game.map.bounds, NAV_RADIUS, mech, dt) : null;
   const world = { rects: game.rects, propBoxes: blockers, bounds: game.map.bounds, nav, others: game.enemies };
   for (const enemy of game.enemies) {
-    const shot: EnemyShot | null = stepEnemy(enemy, game.mech, world, dt, stream('enemies'));
+    // the nests draw from a stream of their own, so their bursts do not shift the walkers' spread
+    const rng = ENEMIES[enemy.kind].burst ? stream('emplacements') : stream('enemies');
+    const shot: EnemyShot | null = stepEnemy(enemy, game.mech, world, dt, rng);
     if (!shot) continue;
     game.bullets.push({ enemy: enemy.kind, ...shot, left: ENEMIES[enemy.kind].fireRange });
   }

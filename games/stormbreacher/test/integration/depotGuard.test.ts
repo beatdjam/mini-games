@@ -41,9 +41,12 @@ const WAY_TO_DEPOT = [
 ];
 
 // The hand map without its mines, so a walk does not set one off, and with the holes line 1 and line 2 need for the way:
-// the mech blows those two points open on its way in.
+// the mech blows those two points open on its way in. The nests are taken out too, since this is a walk about the
+// depot's guard and they would shoot the mech on the way.
 function newWalkGame(map: MapDef = openBreach({ ...M1B_HAND, mines: [] }, ['l1-b', 'l2-a'])): GameModel {
-  const game = newPlayGame(map);
+  const spawns = { ...map.spawns };
+  delete spawns['b-emplacements'];
+  const game = newPlayGame({ ...map, spawns });
   game.mech.yaw = 0;
   return game;
 }

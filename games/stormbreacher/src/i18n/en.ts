@@ -78,6 +78,7 @@ LANG.en = {
     'target.grunt': 'Grunt',
     'target.assault': 'Assault Grunt',
     'target.heavy': 'Heavy Grunt',
+    'target.emplacement': 'Machine-gun nest',
     'obj.reach-pillboxes': 'Advance to the bunker line',
     'obj.break-pillboxes': 'Destroy both bunkers',
     'obj.take-seawall': 'Take the seawall',

@@ -3,6 +3,7 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { blastPropIndexes } from '../../src/logic/blasts.ts';
 import { newGame } from '../../src/logic/game.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { buildNavGrid, newNav } from '../../src/logic/nav.ts';
 import { SUSPEND_VERSION, restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 
@@ -93,9 +94,21 @@ describe('suspend', () => {
     expect(back?.blasts.find(blast => blast.id === 'l1-a')?.blasted).toBe(false);
   });
 
+  test('a nest’s burst under way comes back at the same shot', () => {
+    const game = newGame(M1B_HAND);
+    const nest = newEnemy('b-emplacements-1', 'b-emplacements', 'emplacement', 0, 140);
+    nest.burstLeft = 3;
+    nest.wait = 0.08;
+    nest.awake = true;
+    game.enemies.push(nest);
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.enemies[0]).toMatchObject({ kind: 'emplacement', burstLeft: 3, wait: 0.08 });
+  });
+
   test('a version that is not this one is thrown away', () => {
     const data = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
     expect(restoreSuspend({ ...data, v: SUSPEND_VERSION + 1 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 5 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 4 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 3 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 0 })).toBeNull();

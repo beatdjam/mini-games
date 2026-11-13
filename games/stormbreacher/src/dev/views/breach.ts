@@ -1,19 +1,26 @@
 // The blast points on the hedgehog line and the charge planted on one (#view-breach, SB-1500). The hand map's line 1 is
 // drawn with the beach's builder, the mech stands at the breakthrough at x 40, and the buttons plant a charge, burn its
-// fuse to the blast and put everything back. The panel turns CHARGE_TUNE; window.sbBreachReport() gives the same state
-// and the last frame's draw counts as JSON.
+// fuse to the blast, put everything back, and put out the six machine-gun nests that shoot at the mech. The panel turns
+// CHARGE_TUNE and ENEMIES.emplacement; window.sbBreachReport() gives the same state and the last frame's draw counts as
+// JSON.
+import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
+import { ENEMIES } from '../../data/enemies.ts';
 import { CHARGE_TUNE } from '../../data/charge.ts';
+import { ENEMY_BULLET_COLOR } from '../../data/colors.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../../data/mech.ts';
 import { M1 } from '../../data/missions/m1.ts';
 import { MECH_TUNE } from '../../data/tune.ts';
 import { newGame, type GameModel } from '../../logic/game.ts';
+import { newEnemy, stepEnemy } from '../../logic/enemies.ts';
+import { stream } from '../../logic/rng.ts';
 import { buildWorld } from '../../view/world.ts';
 import { buildBlastView, drawBlasts, type BlastView } from '../../view/blasts.ts';
 import { buildBooms, drawBooms, spawnBoom } from '../../view/boom.ts';
+import { buildEnemyView, drawEnemies, type EnemyView } from '../../view/enemies.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { buildMechVisual } from '../../view/mechModel.ts';
@@ -49,11 +56,81 @@ const CHARGE_LABELS: Record<string, string> = {
   holeHalfDepth: '穴の半奥行き（m）',
 };
 
+// The nest's values the panel turns, by dotted path into ENEMIES.emplacement.
+const EMPLACEMENT_RANGES: Record<string, TuneRange> = {
+  hp: { min: 20, max: 400, step: 5 },
+  fireRange: { min: 20, max: 250, step: 5 },
+  damage: { min: 1, max: 20, step: 1 },
+  'burst.shots': { min: 1, max: 12, step: 1 },
+  'burst.arcDeg': { min: 0, max: 90, step: 1 },
+  'burst.interval': { min: 0.05, max: 1, step: 0.01 },
+  'burst.rest': { min: 0.5, max: 10, step: 0.1 },
+};
+const EMPLACEMENT_LABELS: Record<string, string> = {
+  hp: '体力',
+  fireRange: '射程（m）',
+  damage: '1発の装甲',
+  'burst.shots': '掃射の弾数',
+  'burst.arcDeg': '掃射の弧（度）',
+  'burst.interval': '掃射の間隔（s）',
+  'burst.rest': '次の掃射まで（s）',
+};
+
+const TRACER_LENGTH = 4; // how long a nest's tracer is drawn (m)
+const TRACER_LIFE = 0.35; // how long a tracer stays in the dev view (s)
+const MAX_TRACERS = 64; // the most tracers drawn at once here
+
+interface Tracer {
+  x: number;
+  y: number;
+  z: number;
+  dx: number;
+  dy: number;
+  dz: number;
+  life: number; // the seconds it stays drawn
+}
+
+interface TracerView {
+  lines: THREE.LineSegments;
+  positions: THREE.BufferAttribute;
+}
+
+// The nests' tracers: one LineSegments, drawn from each shot's head back along its direction.
+function buildTracerView(): TracerView {
+  const positions = new THREE.BufferAttribute(new Float32Array(MAX_TRACERS * 2 * 3), 3);
+  positions.setUsage(THREE.DynamicDrawUsage);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', positions);
+  geometry.setDrawRange(0, 0);
+  const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: ENEMY_BULLET_COLOR }));
+  lines.frustumCulled = false;
+  scene.add(lines);
+  return { lines, positions };
+}
+
+function drawTracers(view: TracerView, tracers: readonly Tracer[]): void {
+  const count = Math.min(tracers.length, MAX_TRACERS);
+  for (let i = 0; i < count; i++) {
+    const tracer = tracers[i];
+    view.positions.setXYZ(
+      i * 2,
+      tracer.x - tracer.dx * TRACER_LENGTH,
+      tracer.y - tracer.dy * TRACER_LENGTH,
+      tracer.z - tracer.dz * TRACER_LENGTH,
+    );
+    view.positions.setXYZ(i * 2 + 1, tracer.x, tracer.y, tracer.z);
+  }
+  view.positions.needsUpdate = true;
+  view.lines.geometry.setDrawRange(0, count * 2);
+}
+
 interface BreachReport {
   mech: { x: number; z: number };
   blasts: { id: string; x: number; z: number }[];
   charges: { blast: string; left: number }[];
   plant: { blast: string; hold: number } | null;
+  nests: number;
+  bullets: number;
   calls: number;
   triangles: number;
 }
@@ -106,6 +183,9 @@ export function showBreach(_hash: string) {
   scene.add(model);
 
   const view: BlastView = buildBlastView(map);
+  const enemyView: EnemyView = buildEnemyView();
+  const tracerView = buildTracerView();
+  let tracers: Tracer[] = [];
   camera.position.set(...CAM_POS);
   camera.lookAt(...CAM_LOOK);
   camera.fov = 50;
@@ -152,6 +232,18 @@ export function showBreach(_hash: string) {
     showLine(false);
   });
   close.dataset.sbBreach = 'close';
+  const nestRow = document.createElement('div');
+  nestRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
+  extra.appendChild(nestRow);
+  const putNests = button(nestRow, '機銃座を出す', () => {
+    // the six nests of the hand map, shot at the mech as stepEnemies does it
+    const places = M1B_HAND.spawns['b-emplacements'] ?? [];
+    game.enemies = places.map((place, i) =>
+      newEnemy(`b-emplacements-${i + 1}`, 'b-emplacements', 'emplacement', place.x, place.z),
+    );
+    tracers = [];
+  });
+  putNests.dataset.sbBreach = 'nests';
 
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
@@ -159,9 +251,17 @@ export function showBreach(_hash: string) {
   extra.appendChild(note);
 
   createTunePanel({
-    title: '爆破点と爆薬 #view-breach',
+    title: '爆破点・爆薬・機銃座 #view-breach',
     extra,
-    groups: [{ name: 'CHARGE_TUNE', table: CHARGE_TUNE, ranges: CHARGE_RANGES, labels: CHARGE_LABELS }],
+    groups: [
+      { name: 'CHARGE_TUNE', table: CHARGE_TUNE, ranges: CHARGE_RANGES, labels: CHARGE_LABELS },
+      {
+        name: 'ENEMIES.emplacement',
+        table: ENEMIES.emplacement,
+        ranges: EMPLACEMENT_RANGES,
+        labels: EMPLACEMENT_LABELS,
+      },
+    ],
   });
 
   window.sbBreachReport = () => {
@@ -170,6 +270,8 @@ export function showBreach(_hash: string) {
       blasts: game.blasts.map(blast => ({ id: blast.id, x: blast.x, z: blast.z })),
       charges: game.charges.map(charge => ({ blast: charge.blast, left: charge.left })),
       plant: game.plant === null ? null : { blast: game.plant.blast, hold: game.plant.hold },
+      nests: game.enemies.filter(enemy => enemy.kind === 'emplacement').length,
+      bullets: tracers.length,
       calls: renderer.info.render.calls,
       triangles: renderer.info.render.triangles,
     };
@@ -186,15 +288,39 @@ export function showBreach(_hash: string) {
         spawnBoom('large', blown.blast.x, 0.8, blown.blast.z);
         if (blown.blast.id === 'l1-b' && !blown.blast.blasted) showLine(true);
       }
+      // the nests shoot at the mech as stepEnemies has them: a prop or a standing target stops the line
+      const blockers = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
+      const world = {
+        rects: game.rects,
+        propBoxes: blockers,
+        bounds: game.map.bounds,
+        nav: null,
+        others: game.enemies,
+      };
+      for (const enemy of game.enemies) {
+        const shot = stepEnemy(enemy, game.mech, world, dt, stream('emplacements'));
+        if (shot) tracers.push({ ...shot, life: TRACER_LIFE });
+      }
+      const speed = ENEMIES.emplacement.bulletSpeed;
+      for (const tracer of tracers) {
+        tracer.x += tracer.dx * speed * dt;
+        tracer.y += tracer.dy * speed * dt;
+        tracer.z += tracer.dz * speed * dt;
+        tracer.life -= dt;
+      }
+      tracers = tracers.filter(tracer => tracer.life > 0);
       model.position.set(game.mech.x, game.mech.y, game.mech.z);
       drawBooms(dt);
       drawBlasts(view, game);
+      drawEnemies(enemyView, game);
+      drawTracers(tracerView, tracers);
       const near = game.blasts.find(blast => blast.id === 'l1-b');
       hud.textContent =
         `機体 x ${game.mech.x} z ${game.mech.z}\n` +
         `爆破点 l1-b ${near ? `${near.x}, ${near.z}` : 'なし'}\n` +
         `長押し ${game.plant === null ? '-' : `${(game.plant.hold / CHARGE_TUNE.holdSec).toFixed(2)}`}\n` +
         `爆薬 ${game.charges.map(charge => `${charge.blast} ${charge.left.toFixed(2)}s`).join(' ') || '-'}\n` +
+        `機銃座 ${game.enemies.filter(enemy => enemy.kind === 'emplacement').length} / 弾 ${tracers.length}\n` +
         `描画 calls ${renderer.info.render.calls} / tris ${renderer.info.render.triangles}`;
     },
   });

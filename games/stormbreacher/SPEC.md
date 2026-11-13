@@ -157,7 +157,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 - 乱数は `src/logic/rng.ts` の1つの口からだけ引く。ほかで `Math.random` を呼ばない
 - `rng()`: 全体の乱数。`seed(n)` で種を入れると、同じ種からは同じ並びになる
-- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`battle`（戦場の層の歩兵の波と砲撃の予定）・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）・`mortar`（迫撃砲の狙いのずれ）・`battery`（砲台の機銃の散らし）・`pillboxes`（トーチカの弾の散らし）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
+- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`battle`（戦場の層の歩兵の波と砲撃の予定）・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）・`emplacements`（機銃座の掃射の散らし）・`mortar`（迫撃砲の狙いのずれ）・`battery`（砲台の機銃の散らし）・`pillboxes`（トーチカの弾の散らし）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
 - 種を入れていないときは、どれも `Math.random` から引く
 
 ## 4. セーブ
@@ -166,7 +166,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - `SAVE_VERSION = 2`。形を変えたら版を上げ、`MIGRATIONS` に `[to, migrate]` を足す。1 → 2 は `funds` を `ECONOMY.startFunds` で作る
 - `SaveData` は `v`・所持金 `funds`（cr）と `records.missions` を持つ。`MissionRecord` は `cleared` と `bestSec`（秒、無ければ null）
 - 古いセーブは `v`（無ければ 0）から今の版まで `MIGRATIONS` を順に流す。読むのは `initSave()`（起動時）で、モジュールの読み込み時には読まない
-- 中断のスナップショット: 一時停止の「中断」で `SUSPEND_KEY = 'stormbreacher-suspend'` に1つだけ書く（キャンペーンの進みとは別のキー）。形は `SuspendData`（`v`・`map` と `mission` の id・`game`・`checkpoint`）で、`SUSPEND_VERSION = 5`（5: 爆破した線は開いたまま。4: 仕掛けた爆薬と導火線、長押しの途中を保存する。3: トーチカの待ちと予兆を保存する）。定義場所は `suspendOf`・`restoreSuspend` in src/logic/suspend.ts、読み書きは `loadSuspend`・`writeSuspend`・`clearSuspend` in src/app/storage.ts
+- 中断のスナップショット: 一時停止の「中断」で `SUSPEND_KEY = 'stormbreacher-suspend'` に1つだけ書く（キャンペーンの進みとは別のキー）。形は `SuspendData`（`v`・`map` と `mission` の id・`game`・`checkpoint`）で、`SUSPEND_VERSION = 6`（6: 機銃座の掃射の途中を保存する。5: 爆破した線は開いたまま。4: 仕掛けた爆薬と導火線、長押しの途中を保存する。3: トーチカの待ちと予兆を保存する）。定義場所は `suspendOf`・`restoreSuspend` in src/logic/suspend.ts、読み書きは `loadSuspend`・`writeSuspend`・`clearSuspend` in src/app/storage.ts
   - 深いコピー（`structuredClone`）で、保存しない項目を名前で並べる形: `events`（そのフレームの出来事）・`bullets`（飛んでいる弾）・`shells`（落ちる前の着弾予告。チェックポイントと同じく持ち越さず、再開で消える）。`map` と `mission` は id で持ち、読むときに `MAPS`・`MISSIONS` の表から引き直す。`checkpoint` は `map`・`mission` を除いた形で一緒に保存し、再開したあとにやられてもそこからやり直せる。`GameModel` に項目を足すと、保存しない項目に書かない限り保存される（読み込みの検査表 `GAME_SHAPE` が項目の抜けを型で知らせる）。トーチカの状態 `pillboxes`（待ち・予兆・連射）と、爆破点 `blasts`（爆破済みの印を含む）・仕掛けた爆薬 `charges`（導火線の残り）・長押しの途中 `plant` も保存する
   - 読み込み: 版が違う・JSON として壊れている・map や mission の id が表に無い・項目の型が違うときは捨てて（キーを消す）、「続きから」を出さない。例外では落ちない
   - 再開すると中断のキーを消す。報酬を判定する粒度（クリア1回）より前に保存し、再開した出撃のクリアで1回だけ書くので、同じ中断から報酬を二重に取れない。やり直しの回数 `retries` も保存するので、再開しても費用と戦果は中断しなかったときと同じ
@@ -258,21 +258,23 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 
 ### 敵
 
-敵は `src/data/enemies.ts` の表 `ENEMIES`（`Record<EnemyKind, EnemyDef>`）に置く。値はどれも仮。種類は3つ: `grunt`（射撃。今の量産機）、`assault`（突撃。速くて柔く、近くまで詰めて撃つ）、`heavy`（重装。遅くて硬く、遠くから間隔の長い重い1発）。
+敵は `src/data/enemies.ts` の表 `ENEMIES`（`Record<EnemyKind, EnemyDef>`）に置く。値はどれも仮。種類は4つ: `grunt`（射撃。今の量産機）、`assault`（突撃。速くて柔く、近くまで詰めて撃つ）、`heavy`（重装。遅くて硬く、遠くから間隔の長い重い1発）、`emplacement`（機銃座。動かず、機体への向きを扇に掃射する）。
 
-| 項目 | `grunt`（射撃） | `assault`（突撃） | `heavy`（重装） | 単位・意味 |
-|------|-----------------|-------------------|-----------------|------------|
-| `hp` | 40 | 20 | 120 | 体力。射撃は機関砲4発・砲1発、突撃は機関砲2発、重装は機関砲12発・砲2発で倒れる |
-| `height` | 3 | 2.4 | 3.5 | m。高さ。重装は射撃より高く自機 4m より低い |
-| `radius` | 0.75 | 0.6 | 0.75 | m。当たりの半径（箱は `radius` の2倍四方で、高さは `height`） |
-| `speed` | 3.5 | 6.5 | 2.2 | m/s。歩く速さ。突撃は自機の歩き 7.5 に近い |
-| `notice` | 120 | 120 | 120 | m。この距離に機体が入ると起きる |
-| `stopDist` | 25 | 4 | 35 | m。ここまで近づき、機体への線が通っていれば歩くのをやめる（線が通らない間は止まらない） |
-| `fireRange` | 80 | 30 | 100 | m。機体がこの中にいると撃つ。弾の射程もこれ |
-| `fireInterval` | 1.5 | 1 | 3.5 | s。撃つ間隔 |
-| `damage` | 4 | 3 | 12 | 1発が減らす機体の装甲 |
-| `bulletSpeed` | 150 | 150 | 130 | m/s。弾の速さ |
-| `spread` | 3 | 5 | 2 | 度。撃つ向きのずれ |
+| 項目 | `grunt`（射撃） | `assault`（突撃） | `heavy`（重装） | `emplacement`（機銃座） | 単位・意味 |
+|------|-----------------|-------------------|-----------------|--------------------------|------------|
+| `hp` | 40 | 20 | 120 | 140 | 体力。射撃は機関砲4発・砲1発、突撃は機関砲2発、重装は機関砲12発・砲2発、機銃座は機関砲14発・砲3発で倒れる |
+| `height` | 3 | 2.4 | 3.5 | 2.2 | m。高さ。重装は射撃より高く自機 4m より低い |
+| `radius` | 0.75 | 0.6 | 0.75 | 1.4 | m。当たりの半径（箱は `radius` の2倍四方で、高さは `height`） |
+| `speed` | 3.5 | 6.5 | 2.2 | 0 | m/s。歩く速さ。突撃は自機の歩き 7.5 に近い。機銃座は動かない |
+| `notice` | 120 | 120 | 120 | Infinity | m。この距離に機体が入ると起きる。機銃座は出たフレームから起きる |
+| `stopDist` | 25 | 4 | 35 | 0 | m。ここまで近づき、機体への線が通っていれば歩くのをやめる（線が通らない間は止まらない） |
+| `fireRange` | 80 | 30 | 100 | 180 | m。機体がこの中にいると撃つ。弾の射程もこれ |
+| `fireInterval` | 1.5 | 1 | 3.5 | 2.4 | s。撃つ間隔。掃射を持つ種類では最初の掃射までの待ち |
+| `damage` | 4 | 3 | 12 | 3 | 1発が減らす機体の装甲 |
+| `bulletSpeed` | 150 | 150 | 130 | 170 | m/s。弾の速さ |
+| `spread` | 3 | 5 | 2 | 3 | 度。撃つ向きのずれ |
+| `static` | — | — | — | true | 省略できる。真なら歩かず、落ちず、ほかの敵に押されない。それでも撃つ |
+| `burst` | — | — | — | `shots` 6・`arcDeg` 36・`interval` 0.16・`rest` 2.4 | 省略できる。持つと1発ではなく掃射。`shots` 発を `interval` 秒ごとに、機体への向きを `-arcDeg/2` から `+arcDeg/2` まで等分に回して撃ち、`rest` 秒待つ |
 
 `ENEMY_CHEST` = 0.7 は、敵が撃つ高さの、高さに対する割合。
 
@@ -281,31 +283,33 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | 波 | 出る数 | 種類（`map.spawns` の順） |
 |----|--------|---------------------------|
 | `b-squad` | 6 | `heavy`・`assault`・`grunt`・`grunt`・`assault`・`grunt` |
+| `b-emplacements` | 6 | `emplacement`×6 |
 | `depot-guard` | 3 | `assault`・`heavy`・`grunt` |
 | `seawall-drop` | 6 | `assault`・`grunt`・`heavy`・`grunt`・`assault`・`grunt` |
 | `c-squad` | 4 | `assault`・`grunt`・`assault`・`heavy` |
 
-4波の数は 6・3・4・6 で、`seawall-drop` は今のとおり防波堤の上（`PROP_SIZE.seawall.h` = 6m）から全員が降りる。
+5波の数は 6・6・3・4・6 で、`seawall-drop` は今のとおり防波堤の上（`PROP_SIZE.seawall.h` = 6m）から全員が降りる。`b-emplacements` は `pillboxes` cue（B に入る）が `b-squad` の直後に出す。6基ともそのフレームから起きるが、撃つのは射程の中に機体がいて線が通る基だけで、前の線のハリネズミが間にある基は機体が近づくまで撃たない。
 
-敵の動き（`stepEnemy` in `src/logic/enemies.ts`。`EnemyState` は `id`・`wave`・`kind`・`x`・`z`・`y`・`vy`・`yaw`・`hp`・`awake`・`wait`）:
+敵の動き（`stepEnemy` in `src/logic/enemies.ts`。`EnemyState` は `id`・`wave`・`kind`・`x`・`z`・`y`・`vy`・`yaw`・`hp`・`awake`・`wait`・`burstLeft`）:
 - 出る: 台本の `spawn` で、波の名前が `M1_WAVE_ENEMY`（`src/data/enemies.ts`。波の名前ごとに `map.spawns[波]` の場所の順に並べた種類の配列）にあれば、i 番目の場所に i 番目の種類の敵を1体ずつ出す（`spawnWave` in `src/logic/game.ts`）。配列の長さが `map.spawns[波]` の場所の数と違う波は出さない。高さ `y` は `M1_WAVE_DROP`（`src/data/enemies.ts`。`seawall-drop` が防波堤の高さ `PROP_SIZE.seawall.h` = 6m。表に無い波は地面の 0）。id は `<波>-<番号>`（番号は1から）。場所が無ければ出さない。`beach-mortar`（迫撃砲）と `battery`（ボス）は表に入れず、出さない。出たとき出来事 `spawned`（`wave`・`count`）を残す
 - 寝る: 起きる前は動かず撃たない。機体が地面での距離で `notice` に入ると起き、一度起きたら寝ない
 - 降りる: `y` が 0 より大きい敵（`seawall-drop`）は、起きる前でも落ちる（`fall` in `src/logic/enemies.ts`）。毎フレーム `vy` を `DROP_GRAVITY`（20 m/s²）で下へ増やして `y` を動かし、同時に海（+z）へ `DROP_PUSH`（10 m/s）で跳ぶ（防波堤の海側の面 z −65 から離れて降りるため）。落ちている間は壁を無視し、撃たず、歩かない。`y` が 0 以下になったら地面に着き、`pushOutCircle` で壁の外へ押し出す。`enemyBox` の y は足元 `y` から `y` + `height`（機体の弾は落ちている敵にも当たる）。`src/view/enemies.ts` は `y` の分だけ上に描く
-- 歩く: 起きると機体へ向く（`yaw`）。`stopDist` は種類ごとに違い（突撃 4m・射撃 25m・重装 35m）、`stopDist` の外では歩き、`stopDist` の中でも機体への線（撃つときと同じ判定）が通らない間は歩き続ける。線が通っていて `stopDist` 以内なら止まって撃つ。線が通って `stopDist` の外なら、`stopDist` を越えて進まない。歩く先は `navTarget`（下の「敵の道」）が返す点で、道が引けないときは機体そのもの。1フレームの歩幅は `speed` × dt で、歩く先を越えない。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない
-- 離れる: 生きていて地面にいる他の敵が `SEPARATION_DIST`（2.5m）より近いと、その敵から遠ざかる向きに、近いほど強く押される（0 の距離で `SEPARATION_SPEED` = 3 m/s、`SEPARATION_DIST` で 0）。歩いていても止まっていても押される。全く同じ所の2体は id の順で左右に分かれる。押したあとも壁の外へ押し出す（`keepApart` in `src/logic/enemies.ts`）
+- 歩く: 起きると機体へ向く（`yaw`）。`static: true` の種類（機銃座）は歩かず、落ちず、押されない。それでも向きと撃つ判定は同じ。`stopDist` は種類ごとに違い（突撃 4m・射撃 25m・重装 35m・機銃座 0m）、`stopDist` の外では歩き、`stopDist` の中でも機体への線（撃つときと同じ判定）が通らない間は歩き続ける。線が通っていて `stopDist` 以内なら止まって撃つ。線が通って `stopDist` の外なら、`stopDist` を越えて進まない。歩く先は `navTarget`（下の「敵の道」）が返す点で、道が引けないときは機体そのもの。1フレームの歩幅は `speed` × dt で、歩く先を越えない。物の四角（`game.rects`）からは `pushOutCircle` で押し出されるので、壁に当たると壁に沿って滑る。マップの範囲（`bounds`）の中に `radius` 分だけ入った所から出ない
+- 離れる: 生きていて地面にいる他の敵が `SEPARATION_DIST`（2.5m）より近いと、その敵から遠ざかる向きに、近いほど強く押される（0 の距離で `SEPARATION_SPEED` = 3 m/s、`SEPARATION_DIST` で 0）。歩いていても止まっていても押される。全く同じ所の2体は id の順で左右に分かれる。押したあとも壁の外へ押し出す（`keepApart` in `src/logic/enemies.ts`）。機銃座は押されず、ほかの敵を押しもしない
 - 撃つ: 機体が `fireRange` の中にいて、胸（高さの `ENEMY_CHEST`）から機体の胸への線が物の箱（`game.propBoxes`）と壊れていない目標の箱に遮られないとき（この判定はそのフレームの歩く前の位置で1回だけ行い、止まるかどうかの判定と撃つ判定に使う）、`wait` が 0 になるたびに1発撃ち、`wait` を `fireInterval` に戻す。起きた直後は `fireInterval` 待ってから。向きは `spreadDir(…, spread, stream('enemies'))` で散らす。遮られている間は撃たずに待つ（歩き続けて線の通る所を探す）
+- 掃射: `burst` を持つ種類（機銃座）は、`wait` が 0 になるたびに `burstLeft` を1減らし、`index = shots - burstLeft - 1` から `-arcDeg/2 + arcDeg × index / (shots - 1)` 度だけ機体への水平の向きを回して撃つ（`spread` の散らしはその上に重ねる）。1発ごとに `wait` を `burst.interval` にし、最後の1発のあと `burstLeft` を `shots` に戻して `wait` を `burst.rest` にする。掃射の途中で線が通らなくなったら、その掃射をやめて `burstLeft` を `shots` に戻し、`burst.rest` 待つ（`stepPillbox` と同じ考え）。乱数は `stream('emplacements')` から引き、歩く敵の `enemies` の列を動かさない。`burst` を持たない種類は今の1発の道のまま
 - 敵の道（`src/logic/nav.ts`。何も import しない純粋なファイルで、検査の格子と同じ考え方）: 壁を回り込む道を、2m 四方の格子（`CELL`）と機体までの歩数で引く
-  - 格子（`buildNavGrid`）: マップの範囲を 2m 四方に切り、中心が `game.rects` のどの四角からも「半径 + `NAV_MARGIN`（0.25m）」より近い格子を塞ぐ。半径は敵の種類のうち最大の `radius`（`NAV_RADIUS` in `src/logic/game.ts`。今は 0.75m で、塞ぐ距離は検査の機体と同じ 1m）。階段・坂・目標の四角も敵には壁（敵は登らないため）。壊した物は `game.rects` から抜けるので、`rectCount` が変わったら格子を作り直す
+  - 格子（`buildNavGrid`）: マップの範囲を 2m 四方に切り、中心が `game.rects` のどの四角からも「半径 + `NAV_MARGIN`（0.25m）」より近い格子を塞ぐ。半径は歩く敵の種類のうち最大の `radius`（`NAV_RADIUS` in `src/logic/game.ts`。今は 0.75m で、塞ぐ距離は検査の機体と同じ 1m。動かない機銃座は入らない）。階段・坂・目標の四角も敵には壁（敵は登らないため）。壊した物は `game.rects` から抜けるので、`rectCount` が変わったら格子を作り直す
   - 歩数（`buildNavField`）: 機体のいる格子（塞がれていれば `NAV_GOAL_REACH` = 5 格子以内でいちばん近い空き）を 0 として、4方向の幅優先で各格子の歩数を数える。たどり着けない格子は `FAR`（65535）
   - 歩く先（`navTarget`）: 敵から機体への直線が塞がれた格子を通らなければ機体そのもの。通るなら、敵のいる格子から歩数の少ない隣（8方向。斜めは両側が空いているときだけ。同じ歩数なら機体に近いほう）を `NAV_LOOKAHEAD`（6）格子まで先へたどり、敵から直線で行ける最も遠い格子の中心を返す（角でだけ曲がる）。敵が壁沿いで塞がれた格子の中にいるときは、まわりでいちばん歩数の少ない格子から始める。機体が囲われていて歩数がつかないときは null（まっすぐ歩く）。直線の判定は `NAV_SAMPLE`（1m）ごとの点で、始まりの格子は数えない
-  - 作り直し（`stepNav`）: `game.nav`（`NavState`）が持つ。生きている敵がいるフレームだけ呼ぶ。格子は最初と `rectCount` が変わったとき、歩数は格子を作ったときと、機体が別の格子に移ったとき（前の作り直しから `NAV_REBUILD_GAP` = 0.25 秒以上たっていれば）に作り直す。M1 の手書きマップ（四角 603 個）で、歩数の作り直しは1回 約 0.3 ms、格子は約 3 ms（壊せる物が壊れたときだけ）
+  - 作り直し（`stepNav`）: `game.nav`（`NavState`）が持つ。生きていて `speed > 0` の敵がいるフレームだけ呼ぶ（機銃座だけが残ったら作らない）。格子は最初と `rectCount` が変わったとき、歩数は格子を作ったときと、機体が別の格子に移ったとき（前の作り直しから `NAV_REBUILD_GAP` = 0.25 秒以上たっていれば）に作り直す。M1 の手書きマップ（四角 603 個）で、歩数の作り直しは1回 約 0.3 ms、格子は約 3 ms（壊せる物が壊れたときだけ）
   - 保存: `nav` は四角から作り直せるので、チェックポイント（`snapshotOf`・`GameSnapshot`）にも中断（`suspendOf`・`SuspendedGame`）にも入れず、戻したときは `newNav()`
 - 倒れる: 体力 0 の敵は `game.enemies` に残るが、動かず、撃たず、弾も当たらない。FCS の対象にもならない
 - 波が終わる: 波の敵が全部倒れると、`checkWaves` が台本に `cleared`（`wave`）を渡す。台本が覚えるので1回だけ。敵を出さなかった波には渡さない
 - FCS: 生きている敵も `fcsTargets` に入る。`aimTarget` は目標か敵の id
 - 見えない相手には寄らない: 胸から相手の箱の中心への線が、物の箱か壊れていない目標の箱（相手自身の箱は除く）に先に当たる相手は、生きていても `fcsTargets` で生きていない扱いにする（トーチカの陰の敵にソフトロックとロック枠が寄らないため。`inSight` in `src/logic/game.ts`）
-- 見た目: `src/view/enemies.ts` が種類ごとの `InstancedMesh`（名前 `sb-enemy-<kind>`、最大 64 体、色 `ENEMY_COLOR`）で描く。色と高さ `height` で役割が分かる（射撃は暗い赤で 3m、突撃は明るい赤で 2.4m、重装は暗い灰緑で 3.5m）。倒れた敵は高さを 0.35 倍にして `ENEMY_DOWN_COLOR` に変える。HUD の敵の名前は `target.<kind>`、レーダーの印は赤い点
-- 保存: 敵は `kind` の文字列ごと保存するので、種類を増やしても中断の版（`SUSPEND_VERSION`）は上げない。古いデータの種類は `grunt` だけなので、そのまま読める
+- 見た目: `src/view/enemies.ts` が種類ごとの `InstancedMesh`（名前 `sb-enemy-<kind>`、最大 64 体、色 `ENEMY_COLOR`）で描く。種類が4つになったので本体の mesh は4つで、出ていない種類は `count` 0 なので描く回数は増えない。色と高さ `height` で役割が分かる（射撃は暗い赤で 3m、突撃は明るい赤で 2.4m、重装は暗い灰緑で 3.5m、機銃座は砂に近い灰色で 2.2m）。倒れた敵は高さを 0.35 倍にして `ENEMY_DOWN_COLOR` に変える。HUD の敵の名前は `target.<kind>`、レーダーの印は赤い点。弾の線は機体のものと敵のもので別々に `MAX_BULLET_LINES` = 96 本までで、6基が同時に掃射しても1基6発（36本）なので足りる（`test/integration/enemies.test.ts` が開放された野原で測る）
+- 保存: 敵は `kind` の文字列ごと保存するので、種類を増やしても読める。機銃座の `burstLeft`（掃射の残り）は `EnemyState` の項目なのでチェックポイントと中断に入り、その版を 6 に上げた（4章）
 
 ### トーチカ
 
@@ -667,7 +671,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `#view-map`: M1 の手書きのマップ（浜・B トーチカ線・C・防波堤・ボスの場所）を歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、海と揚陸艇を `buildShore`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（8章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す。右上の調整パネルで `MOVE_TUNE`（歩く速さ・ジャンプ・重力・ブースト）・`CAMERA_TUNE`（距離・高さ）・`FEEL_TUNE`（画角・揺れ・ヒットストップ・砂煙・連射）を歩きながら変えられる（保存しない。`?walk=` などの URL の値の上に載る）
 - `#view-fx`: M1 の B のマップ（手書き・生成・エディタが保存したもの）を機体で歩きながら、周りで戦闘が起きている迫力を試す入口。`?src=hand|gen|edit` で M1 の B の手書きのマップ・生成したマップ・エディタが `localStorage` に保存したマップを選び（既定 `hand`。`edit` で保存が無いときは「保存されたマップが無い」を出して空のマップで開く）、`?fx=0|1|2|3` で濃さを選び（0 は演出を全部切った見た目で、`mech=4` なら `#view-map` と同じ。1 は弱、2 は中、3 は強。既定 2）、`FX_TUNE` の各項目を同じ名前でさらに上書きできる（例 `?fx=3&pixel=0.4&tracers=6`）。`?seed=<n>` は場面の種。`?mech=<m>` は機体の高さ（3〜8m、既定は `MECH_TUNE.height` の 4）で、仮の模型を `mech/4` 倍にし、足元は地面に付けたままにする。機体は `#view-map` と同じく物と目標に入らず、斜めに当たると壁に沿って滑る。当たり半径は `?mech=` とつまみに比例する（`MECH_TUNE.radius` × `mech/4`。`?mechMove=0` でも比例し、`?mech=8` で 2m）。`?mechCam=0` はカメラの距離・肩・注視点の高さ・上への持ち上げ・狙うときの距離を、`?mechMove=0` は歩き・ブーストの速さと加速・ジャンプの初速を `mech/4` に比例させない（ジャンプの初速は `sqrt(mech/4)`。既定はどちらも比例）。`MOVE_TUNE`・`CAMERA_TUNE` は 4m 用で、`?mech=8` にすると SB-100 の前の 8m の値に戻る。物と歩兵の大きさは 8m の機体に合わせて決めたときのまま。機体の始まりは地図の手前の端から、`mech` に比例したカメラの距離＋4m 内側にして、カメラが地図の外に出ないようにする。味方の歩兵は海側から波で出て -z へ進み、倒れた人と抜けた人を数える。砲撃は機体のまわりの輪に落ちて閃光・破片・灰色の煙を出し、近いほどカメラを揺らす。残骸からは煙の柱が立ち、曳光弾が画面を横切り、飛行機はマップの左右の端の外側（`PLANE_MARGIN`）まで機体と関係なくマップの座標で横切る。地面には `stream('craters')` の種から散らした砲弾穴があり、`craterWater` の割合で水が溜まる（見た目だけで、地面の高さ・機体の歩き・当たり判定は変えない）。砲撃は `shellCrater` が 1 なら落ちた所に新しい穴を残し、`craterCap` を超えると古いものから消える。見た目は `pixel` の解像度と canvas の CSS の `filter`（`saturate`・`contrast`・`sepia`）と霧で作る。`light` はシーンの全部の光の強さに掛ける倍率、`sun` はそのうち `DirectionalLight` だけにさらに掛ける倍率、`groundColor` は地面のタイルの色（タイルごとの濃淡は残す）で、色は URL では10進の数値で上書きできる。煙の色は `smokeColor`・`smokeDark` で変えられる（URL のみ）。右上のつまみは `FX_TUNE` の主な値をスライダーで変え（歩兵の人数・煙の上限・穴の数と上限・穴の半径と水の割合は「やり直し」で作り直す）、`mech` のスライダーと `mechCam`・`mechMove` のチェックも置き、折りたためる。「書き出し」は今の値を JSON で `<textarea>` に出し、`window.sbFxReport()` が同じ JSON に機体の高さ・比例のありなし・歩きとブーストの速さ・描く回数・三角形の数・直近の fps を足して文字列で返す。左上に選んだ `src`・前進・倒れ・抜けの人数（戦場の歩兵が上限に当たっているときは「上限」も）・煙の塊の数と描く回数・三角形の数・fps を出し、`window.sbFxReport()` と書き出しの JSON にも `src` を出す。演出はゲームの状態に影響しない
 - `#view-boom`: 浜と海の境を固定カメラで見て、爆発の見た目と揺れを試す入口。種類 `small`・`large`・`craft`・`water` のボタン（とキー 1〜4）でその種類を選んで出し、右上の調整パネル（`BOOM_DEFS.<種類>` の行）で「大きさ（火球の半径）」「煙の数」「煙の寿命」「揺れ」をその場で書き換える（保存しない。「値をコピー」で `BOOM_DEFS.large.fire.radius: 6.4` の形になる）。今の値を文字で出し、`window.sbBoomReport()` が同じ値と粒の数・描く回数・三角形を JSON の文字列で返す。土の上は砂柱、海の上は水柱
-- `#view-breach`: 手書きマップの線1の爆破点と爆薬を、機体を (40, 150) に置いて見る入口。右上の調整パネルが `CHARGE_TUNE`（長押し・届く距離・導火線・爆風の半径と装甲・穴の半幅と半奥行き）を書き換え、「仕掛ける」「爆破」「戻す」と「この線を爆破で開く」（`openBreach` の結果でシーンを作り直す）「閉じた線に戻す」でその場で試せる。`window.sbBreachReport()` が機体・爆破点・爆薬・`?stats` の数字を JSON の文字列で返す
+- `#view-breach`: 手書きマップの線1の爆破点と爆薬を、機体を (40, 150) に置いて見る入口。右上の調整パネルが `CHARGE_TUNE`（長押し・届く距離・導火線・爆風の半径と装甲・穴の半幅と半奥行き）と `ENEMIES.emplacement`（体力・射程・1発の装甲・掃射の弾数・弧・間隔・次の掃射まで）を書き換え、「仕掛ける」「爆破」「戻す」と「この線を爆破で開く」（`openBreach` の結果でシーンを作り直す）「閉じた線に戻す」、それに「機銃座を出す」（`M1B_HAND.spawns['b-emplacements']` の6か所に機銃座を置き、機体へ掃射させる。曳光はこの入口だけの線で描く）でその場で試せる。`window.sbBreachReport()` が機体・爆破点・爆薬・機銃座の数・弾の数・`?stats` の数字を JSON の文字列で返す
 - `#view-mapedit`: マップの簡易エディタ。上から見下ろすカメラで、ホイールかピンチで寄り・引き、右ドラッグか2本指で動かす。右の一覧で物の8種か目標の4種を選び、地面をクリックかタップすると置く。目標は `id` を一覧から選ぶ。置いた物はドラッグで動き、`R` か回転のボタンで15度ずつ回り、`Delete` か削除のボタンで消える。「手書き」「生成（種）」「空」から始められ、置くたびに `validateMapForMission` を回して違反を出し、通り道が無ければ赤くする。「書き出し」は JSON を `<textarea>` に出し、「読み込み」はその JSON を読む。編集は `localStorage` の `stormbreacher-dev-map` に保存し、`#view-map?src=edit` で歩ける
 - `#view-sound`: 音の表の全部（`SOUND_NAMES`）をボタンで並べ、押すとその音を鳴らす入口。距離のつまみ（0〜200m）が `SOUND_DISTANCE` の距離の扱いを通すので、遠い音の小ささ・こもり方も試せる。右上の調整パネルで `SOUND_DISTANCE`（近い・遠い・遠くの音量と高さ）と `SOUND_VOLUME.sfx`（効果音の音量）も変えられる。`#sbSound` に並び、ボタンは `data-sound` に音の名前を持つ
 - `#view-outdoor`: 上陸戦の浜辺のような広い屋外（地面・障害物・トーチカ・防波堤・崖・歩く敵の機体）を種から作り、その重さを測る入口。開いて2秒たってから10秒のあいだ、フレームの間隔・描く回数・三角形の数を記録し、終わると画面の右上に大きく出す（下の `textarea` は同じ結果の JSON）。`window.sbBenchReport()` は終わっていればその JSON の文字列、まだなら `null`
@@ -730,7 +734,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 |-----|----------|------|
 | `intro` | `start` | `cutscene landing` |
 | `beach` | `after intro 0` | `objective reach-pillboxes`・`map wave2 on`・`spawn beach-mortar`・`ally buddy beach-run`（`fate { at: 'beach-mid', by: 'mortar' }`） |
-| `pillboxes` | `enter b-line` | `objective break-pillboxes`・`spawn b-squad`・`radio m1.depot-hint` |
+| `pillboxes` | `enter b-line` | `objective break-pillboxes`・`spawn b-squad`・`spawn b-emplacements`・`radio m1.depot-hint` |
 | `depot-guard` | `enter depot-approach` | `spawn depot-guard` |
 | `depot` | `destroyed depot` | `flag depot-down`・`radio m1.depot-down` |
 | `cp1` | `destroyed pillbox-1, pillbox-2` | `checkpoint cp1` |
@@ -741,7 +745,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 | `shutter` | `destroyed main-gun-1, main-gun-2`（全部） | `flag shutter-open`・`objective hit-magazine` |
 | `win` | `destroyed magazine` | `cutscene beach-held`・`end cleared` |
 
-場所は手書きのマップ `M1B_HAND`（奥行き 340m・幅 200m、z −170〜170）に合わせた座標で、+z が海。浜と B のトーチカ線は z 170 から z 0 あたり（トーチカは z −15）、C の2列（z −55〜−35）の奥に防波堤（z −75〜−65）、その陸側（z −75〜−170）がボスの場所で、主砲が z −135、弾薬庫が z −150。`b-line` は中心 z 135・奥行き 30（z 120〜150）、`seawall-top` は中心 z −70・奥行き 10（z −75〜−65、防波堤の帯）で、幅はどちらも 200。`depot-approach` は中心 (55, 52)・幅 50・奥行き 30（x 30〜80・z 37〜67。線2の先、集積所へ下りる道）、`c-line` は中心 z −30・奥行き 10（z −35〜−25）・幅 200（C の1列目の手前）。地面からは防波堤に塞がれて入れず、坂を上がって防波堤の上に乗ると入る。物は `depot`・`pillbox-1`・`pillbox-2`・`pillbox-3`（集積所の守り。目標「トーチカ2基」の数に入らない）・`main-gun-1`・`main-gun-2`・`magazine`、波は `beach-mortar`・`b-squad`・`depot-guard`・`seawall-drop`・`c-squad`・`battery`、目標は `reach-pillboxes`・`break-pillboxes`・`take-seawall`・`silence-battery`・`hit-magazine`、印は `wave2`、味方は `buddy`、道は `beach-run`、場所は `beach-mid`。道と場所の座標は `M1` の `paths`・`places`（`MissionDef`）に置く: `beach-run` は (10,166)・(24,156)・(44,151) を順に通り、`beach-mid` は (44,151)。道は線1の爆破点 (40,146.5) の海側の面の手前まで走り、その横で倒れる。
+場所は手書きのマップ `M1B_HAND`（奥行き 340m・幅 200m、z −170〜170）に合わせた座標で、+z が海。浜と B のトーチカ線は z 170 から z 0 あたり（トーチカは z −15）、C の2列（z −55〜−35）の奥に防波堤（z −75〜−65）、その陸側（z −75〜−170）がボスの場所で、主砲が z −135、弾薬庫が z −150。`b-line` は中心 z 135・奥行き 30（z 120〜150）、`seawall-top` は中心 z −70・奥行き 10（z −75〜−65、防波堤の帯）で、幅はどちらも 200。`depot-approach` は中心 (55, 52)・幅 50・奥行き 30（x 30〜80・z 37〜67。線2の先、集積所へ下りる道）、`c-line` は中心 z −30・奥行き 10（z −35〜−25）・幅 200（C の1列目の手前）。地面からは防波堤に塞がれて入れず、坂を上がって防波堤の上に乗ると入る。物は `depot`・`pillbox-1`・`pillbox-2`・`pillbox-3`（集積所の守り。目標「トーチカ2基」の数に入らない）・`main-gun-1`・`main-gun-2`・`magazine`、波は `beach-mortar`・`b-squad`・`b-emplacements`・`depot-guard`・`seawall-drop`・`c-squad`・`battery`、目標は `reach-pillboxes`・`break-pillboxes`・`take-seawall`・`silence-battery`・`hit-magazine`、印は `wave2`、味方は `buddy`、道は `beach-run`、場所は `beach-mid`。道と場所の座標は `M1` の `paths`・`places`（`MissionDef`）に置く: `beach-run` は (10,166)・(24,156)・(44,151) を順に通り、`beach-mid` は (44,151)。道は線1の爆破点 (40,146.5) の海側の面の手前まで走り、その横で倒れる。
 
 ### チェックポイント
 
@@ -824,7 +828,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - 見た目は、低い端の辺から高い端の上辺へ上がる斜めの面と、両側の三角形の側面で、色と質感は階段と同じ。斜めの面は手で並べた頂点で法線を上向きにする
   - M1 では、防波堤への上がり口の階段を置き換えて2本（x −50・35、z −56。C の突破口の列）。階段 `stairs` の種類はエディタと確認用の入口のために残す
 - 目標の体力は `TARGET_HP`（仮。`pillbox` 100・`depot` 60・`gun` 200・`magazine` 80。武器の表の威力で減り、トーチカは横・後ろからは機関砲10発・砲2発、正面からは機関砲40発・砲7発で壊れる（`PILLBOX_ARMOR`）。SB-190 で決め直す）
-- 手書きは `src/data/maps/m1b-hand.ts`。範囲は x −100〜100・z −170〜170。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`pillbox-3`・`depot` と、ボスの場所の `main-gun-1`・`main-gun-2`・`magazine`、波は `b-squad`・`depot-guard`・`seawall-drop`・`c-squad`。地雷は浜（z 148〜162、x −60〜60）に6個で、機体の始まり（x 0, z 166）から 6m 以上離す。爆破点は3本の線に2か所ずつ、計6か所（5章「爆破点と爆薬」）
+- 手書きは `src/data/maps/m1b-hand.ts`。範囲は x −100〜100・z −170〜170。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`pillbox-3`・`depot` と、ボスの場所の `main-gun-1`・`main-gun-2`・`magazine`、波は `b-squad`・`b-emplacements`・`depot-guard`・`seawall-drop`・`c-squad`。地雷は浜（z 148〜162、x −60〜60）に6個で、機体の始まり（x 0, z 166）から 6m 以上離す。爆破点は3本の線に2か所ずつ、計6か所（5章「爆破点と爆薬」）
   - B は「三重の防御線」: z 128〜146・z 80〜96・z 8〜26 に、それぞれ対戦車障害物を3列（列の間 6m 前後、同じ列の中は 4.4m 以下の間隔で均等に並べる）。3本とも切れ目が無く、各列の旧い突破口（線1 x −55・40、線2 x −10、線3 x 61）と旧い壊せる区間（線2 x 50 前後、線3 x −30 前後）は埋めた。同じ列の中の隣との四角の距離は 2m 未満（最大 約 1.3m）で、当たり半径 1m の機体は爆破で穴を開けなければ列を抜けられない。爆破点は各線の海側の面の 2m 前に2か所ずつ（計6か所）あり、どれか1つを爆破すると `holeHalfWidth`（4m）× `holeHalfDepth`（10m）の四角のハリネズミが抜けて 9m 前後の穴が開く。爆破点のハリネズミは `breakable` ではなく、弾では壊れない。C の2列の突破口はこの段階では前のまま
   - 防波堤は z −75〜−65 に `seawall`（8×6×4m）を z −73・−70・−67 の3列、x −96 から 96 まで 8m おきに25個ずつ並べ、x −100〜100 に隙間が無い（3列は1m ずつ重なる）。その陸側（z −75〜−170）は高さ 0 の平らな地面で、防波堤の上から -z へ歩いて降りると、降りた所で高さが 0 に戻る（下のボスの場所）
   - 坂 `ramp` は2本、x −50 と x 35（`yaw` 0。高い端を海側の面 z −65 に合わせ、長さ 18m ぶん z −65 から z −47 まで海側へ延ばす）。上ると防波堤の上（高さ 6m）に乗れる。C の手前の列（z −50・z −40）の突破口（x −50・x 35）の真後ろに置き、突破口をまっすぐ抜けるとそのまま坂の低い端に乗る（防波堤への道を突破口が決めるため）。階段 `stairs` は種類として残すが、M1 では使わない
@@ -832,7 +836,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - C の手前（z −55〜−35）は2列で突破口が2か所。線の間には塊・残骸・クレーターの遮蔽物をそれぞれ 10〜12 個、線3の奥に6個ほど置く
   - ボスの場所は防波堤の陸側（z −75〜−170）。「防波堤の上の巨大な砲台」の部位を目標として置く: `main-gun-1`（種類 `gun`、x −30, z −135）・`main-gun-2`（`gun`、x 30, z −135）・`magazine`（弾薬庫、x 0, z −150）。大きさは `TARGET_SIZE`（`gun` 14×8×14m、`magazine` 10×8×10m）で、主砲の間は 60m、主砲と弾薬庫の間は約 33m。台本はこの3つの名前で主砲2門 → 弾薬庫の順に進む（7章）。シャッターと、砲台が撃ってくる動きは「ボス（沿岸砲台）」
   - 降りた先（z −80〜−115）の遮蔽物は塊 7 個と残骸 4 個（1行に1つ）。どの2つの間も中心で 20m 以上あいて機体（当たり半径 1m）が通れ、防波堤の降り口から砲台へは遮蔽物で視線の一部が遮られる。主砲と弾薬庫のまわり（z −117 より奥）には置かない
-  - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は防波堤の上（z −70。x −62・−30・−10・10・24・50 で、坂 x −54〜−46 と 31〜39 の幅に入らない。高さ 6m は `M1_WAVE_DROP`）で、出るとすぐ海側へ跳び降り、z −64 あたりに着く。`pillbox-3`（`pillbox`、x 58, z 52）は集積所の守りで、集積所の 21m 海側に置き、線2の爆破点（x 50）から下りてくる道をにらむ。`depot-guard` の3か所は集積所の両脇と海側（(40,36)・(66,32)・(60,42)）、`c-squad` の4か所は C の2列の間（z −45、x −70・−20・15・65）。崖は右の辺のまま
+  - 目標は `pillbox-1`（x −33, z −15）・`pillbox-2`（x 22, z −15）・`depot`（x 53, z 31）。`b-squad` はトーチカの後ろ（z −25〜−35）、`seawall-drop` は防波堤の上（z −70。x −62・−30・−10・10・24・50 で、坂 x −54〜−46 と 31〜39 の幅に入らない。高さ 6m は `M1_WAVE_DROP`）で、出るとすぐ海側へ跳び降り、z −64 あたりに着く。`pillbox-3`（`pillbox`、x 58, z 52）は集積所の守りで、集積所の 21m 海側に置き、線2の爆破点（x 50）から下りてくる道をにらむ。`depot-guard` の3か所は集積所の両脇と海側（(40,36)・(66,32)・(60,42)）、`c-squad` の4か所は C の2列の間（z −45、x −70・−20・15・65）。`b-emplacements` の6か所は各線の海側（線1 z 147 の x −30・45、線2 z 99 の x −30・40、線3 z 29 の x −20・55）で、前の線のハリネズミが射線に入り、近づくまで撃たない。崖は右の辺のまま
 - 生成は `generateMap(rng, rules, anchors)`（`src/logic/mapgen.ts`）。`MapRules` は帯（`minZ`・`maxZ`・`kind`・`count`・`minGap`）・防御線（`lines`）・右の辺の崖・目標のまわりの空き（`clear`、既定 10m）・道筋の帯（`lanes`）を持つ。目標と波の出る場所は物語に関わるので生成せず `anchors` で受ける。M1 の B の規則は `src/data/maps/m1b-rules.ts` の `M1B_RULES`（`lanes` は空で、列の中はすき間が 2m 未満に閉じているので、通り道は防御線の突破口が決める）
 - `MapLine` は `z`（線の真ん中）・`depth`（奥行き）・`rows`（列の数）・`kind`・`spacing`（同じ列の中の間隔）・`gaps`（突破口の真ん中と、四角の間の幅）・`breakable`（壊せる区間の真ん中と幅）を持つ。生成は列ごとに `spacing` で x に並べ、奇数の列を `spacing / 2` ずらし、位置を ±1m・向きと倍率（0.9〜1.1）を少し揺らす。隣の物との四角の距離が `CRACK`（1.5m）を超えたら前の物へ引き寄せる。列の左の端は辺から `CRACK` 以内に寄せ、右は崖の遠い側の面から `CRACK` 以内に届くまで並べる。`spacing` は 4.4（3m の逆茂木の間を 2m 未満に保つ）。`gaps` には四角が入らないように物を置かず、`breakable` の区間の物に `breakable: true` を付ける。帯の物は防御線の z の範囲には置かない
 - 生成は物を置いたあと通り道を調べ、通れなければ種をずらして作り直す（最大10回。だめなら例外）。`rng` は `logic/rng.ts` の `stream('map')` から引く

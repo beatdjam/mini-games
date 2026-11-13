@@ -95,6 +95,8 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
   game.mech.x = 0;
   game.mech.z = 140;
   run(idle, 1); // the b-line fires the pillboxes cue
+  // the nests would shoot the mech on the way to the depot and the pillboxes; this test reads the script's line alone
+  game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
   shootDown(53, 51, 'depot');
   shootDown(-13, -15, 'pillbox-1');
   shootDown(42, -15, 'pillbox-2'); // cp1 fires once both pillboxes are down
@@ -128,7 +130,12 @@ test('entering the b-line changes the objective and brings a radio line', () => 
   game.mech.x = 0;
   game.mech.z = 140;
   step(game, idle, 1 / 60);
-  expect(scriptLabels(game)).toEqual(['objective:break-pillboxes', 'spawn:b-squad', 'radio:m1.depot-hint']);
+  expect(scriptLabels(game)).toEqual([
+    'objective:break-pillboxes',
+    'spawn:b-squad',
+    'spawn:b-emplacements',
+    'radio:m1.depot-hint',
+  ]);
   expect(game.radio).toEqual({ line: 'm1.depot-hint', time: game.time });
   step(game, idle, 1 / 60);
   expect(scriptLabels(game)).toEqual([]);

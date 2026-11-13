@@ -47,6 +47,8 @@ function atCp1(): GameModel {
   const game = newPlayGame(M1B_HAND);
   run(game, walk, 30);
   sendToScript(game, { kind: 'enter', area: 'b-line' });
+  // the nests would shoot the mech on the way; this test reads the checkpoint's copy
+  game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
   run(game, walk, 30);
   takeCp1(game);
   return game;

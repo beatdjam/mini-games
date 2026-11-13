@@ -44,10 +44,12 @@ const CUES = [
   },
   {
     id: 'pillboxes',
+    // entering B also wakes the six machine-gun nests
     trigger: { kind: 'enter', area: 'b-line' },
     actions: [
       { kind: 'objective', id: 'break-pillboxes' },
       { kind: 'spawn', wave: 'b-squad' },
+      { kind: 'spawn', wave: 'b-emplacements' },
       { kind: 'radio', line: 'm1.depot-hint' },
     ],
   },
@@ -122,7 +124,7 @@ export const M1: MissionDef = {
   cues: CUES,
   areas: AREAS,
   targets: ['depot', 'pillbox-1', 'pillbox-2', 'pillbox-3', 'main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'b-squad', 'depot-guard', 'seawall-drop', 'c-squad', 'battery'],
+  waves: ['beach-mortar', 'b-squad', 'b-emplacements', 'depot-guard', 'seawall-drop', 'c-squad', 'battery'],
   objectives: ['reach-pillboxes', 'break-pillboxes', 'take-seawall', 'silence-battery', 'hit-magazine'],
   marks: ['wave2'],
   allies: ['buddy'],

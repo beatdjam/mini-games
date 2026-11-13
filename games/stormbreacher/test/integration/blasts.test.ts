@@ -33,6 +33,14 @@ function blastOf(game: GameModel, id: string): BlastPlace {
   return blast;
 }
 
+// The hand map without the six nests: every test here stands the mech in b-line while a fuse burns, and the nests would
+// take armour the tests count.
+function newBlastGame(): GameModel {
+  const spawns = { ...M1B_HAND.spawns };
+  delete spawns['b-emplacements'];
+  return newPlayGame({ ...M1B_HAND, spawns });
+}
+
 // Stands the mech 2 m sea-side of the point, inside reach and clear of the hedgehogs.
 function standAt(game: GameModel, blast: BlastPlace): void {
   game.mech.x = blast.x;
@@ -69,7 +77,7 @@ function takeCp1(game: GameModel): void {
 
 describe('planting and blowing a charge', () => {
   test('holding use by l1-b plants it, and the blast hurts a mech that stayed close', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     const blast = blastOf(game, 'l1-b');
     standAt(game, blast);
@@ -104,7 +112,7 @@ describe('planting and blowing a charge', () => {
   });
 
   test('a mech that walks out of the blast takes no damage', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     const blast = blastOf(game, 'l1-b');
     standAt(game, blast);
@@ -121,7 +129,7 @@ describe('planting and blowing a charge', () => {
   });
 
   test('a hit during the hold does not put it back to zero', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     standAt(game, blastOf(game, 'l1-b'));
 
@@ -154,7 +162,7 @@ describe('planting and blowing a charge', () => {
   });
 
   test('holding use shoots nothing', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     standAt(game, blastOf(game, 'l1-b'));
     const ammo = game.main.ammo;
@@ -167,7 +175,7 @@ describe('planting and blowing a charge', () => {
 
 describe('checkpoint and retry', () => {
   test('a planted charge and its fuse are kept by the checkpoint and go on after the retry', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     standAt(game, blastOf(game, 'l1-b'));
     runUntil(game, use, 200, () => game.events.some(event => event.kind === 'planted'));
@@ -188,7 +196,7 @@ describe('checkpoint and retry', () => {
   });
 
   test('a hold under way is kept by the checkpoint and finishes after the retry', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     standAt(game, blastOf(game, 'l1-b'));
     for (let i = 0; i < 30; i++) step(game, use, DT);
@@ -235,7 +243,7 @@ function walkThroughL1(game: GameModel, x: number): boolean {
 
 describe('a blast opens its line', () => {
   test('the same hedgehogs leave rects, propBoxes and propRefs, and the mech walks through the hole', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     game.armor = 1e9;
     const props = new Set(blastPropIndexes(game.map, blastOf(game, 'l1-b')));
@@ -255,7 +263,7 @@ describe('a blast opens its line', () => {
   });
 
   test('a blasted point cannot be planted on again', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     game.armor = 1e9;
     const { blast } = blowL1B(game);
@@ -272,7 +280,7 @@ describe('a blast opens its line', () => {
   });
 
   test('the checkpoint keeps the line open, so a retry starts with the hole still there', () => {
-    const game = newPlayGame(M1B_HAND);
+    const game = newBlastGame();
     quiet(game);
     game.armor = 1e9;
     const props = new Set(blastPropIndexes(game.map, blastOf(game, 'l1-b')));

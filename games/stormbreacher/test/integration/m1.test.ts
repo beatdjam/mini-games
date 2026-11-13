@@ -23,6 +23,7 @@ const EXPECTED: readonly string[] = [
   'cutsceneEnd:landing',
   'objective:break-pillboxes',
   'spawn:b-squad',
+  'spawn:b-emplacements',
   'radio:m1.depot-hint',
   'flag:depot-down',
   'radio:m1.depot-down',

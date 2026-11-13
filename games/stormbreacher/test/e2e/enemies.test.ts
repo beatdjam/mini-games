@@ -80,9 +80,10 @@ test('the enemies of a wave are drawn, and starting again leaves one set', async
   expect(drawnEnemies()).toBe(0);
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
   await frame();
-  expect(game().enemies).toHaveLength(6);
+  // the squad and the six nests
+  expect(game().enemies).toHaveLength(12);
   expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length);
-  expect(drawnEnemies()).toBe(6);
+  expect(drawnEnemies()).toBe(12);
 
   startSortie();
   await frame();

@@ -2,9 +2,18 @@
 // one is a line in ENEMIES (and in ENEMY_KINDS, ENEMY_COLOR and the language files' `target.<kind>`).
 import { PROP_SIZE } from './props.ts';
 
-export type EnemyKind = 'grunt' | 'assault' | 'heavy';
+export type EnemyKind = 'grunt' | 'assault' | 'heavy' | 'emplacement';
 
-export const ENEMY_KINDS: readonly EnemyKind[] = ['grunt', 'assault', 'heavy'];
+export const ENEMY_KINDS: readonly EnemyKind[] = ['grunt', 'assault', 'heavy', 'emplacement'];
+
+// A burst of shots: `shots` of them, swept from -arcDeg/2 to +arcDeg/2 across the way to the mech, `interval` seconds
+// apart, then the next burst after `rest` seconds.
+export interface EnemyBurst {
+  shots: number;
+  arcDeg: number;
+  interval: number; // s
+  rest: number; // s
+}
 
 export interface EnemyDef {
   hp: number; // the health a new enemy has
@@ -18,6 +27,8 @@ export interface EnemyDef {
   damage: number; // what one shot takes off the mech's armour
   bulletSpeed: number; // m/s
   spread: number; // the shot's drift from its aim (deg)
+  static?: boolean; // it never walks or is pushed; it still shoots (a machine-gun nest)
+  burst?: EnemyBurst; // shoots a burst rather than one shot; a kind without it keeps the one-shot way
 }
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
@@ -63,6 +74,24 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
     bulletSpeed: 130,
     spread: 2,
   },
+  // the machine-gun nest: it stands still and sweeps a burst across the way to the mech. It is awake as soon as it is put
+  // out (`notice` Infinity), and its range (180m) reaches from the b-line to line 3, so a nest fires as soon as the line
+  // it guards is not between it and the mech. All of the values are provisional.
+  emplacement: {
+    hp: 140, // 14 autocannon shots or 3 heavy gun shots
+    height: 2.2,
+    radius: 1.4,
+    speed: 0,
+    notice: Infinity,
+    stopDist: 0,
+    fireRange: 180,
+    fireInterval: 2.4, // the same as the burst's rest
+    damage: 3,
+    bulletSpeed: 170,
+    spread: 3,
+    static: true,
+    burst: { shots: 6, arcDeg: 36, interval: 0.16, rest: 2.4 },
+  },
 };
 
 // The height a shot leaves an enemy at, as a share of its height.
@@ -84,6 +113,9 @@ export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]
   // an assault, a grunt and another assault spread across the left and middle, and a heavy on the east end; all four
   // stand on one row, so the mech meets them together as it crosses C
   'c-squad': ['assault', 'grunt', 'assault', 'heavy'],
+  // six nests, one at each of the map's places: entering B wakes them all, and a nest whose line to the mech is clear
+  // fires; the hedgehogs of a line hide the nests beyond it until the mech crosses
+  'b-emplacements': ['emplacement', 'emplacement', 'emplacement', 'emplacement', 'emplacement', 'emplacement'],
 };
 
 // The height a wave's enemies come in at (m), by the wave's name. A wave that is not here comes in on the ground. The
