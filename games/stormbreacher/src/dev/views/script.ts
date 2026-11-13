@@ -39,6 +39,8 @@ function eventText(event: ScriptOut): string {
       return `spawn ${event.wave}`;
     case 'ally':
       return `ally ${event.id} ${event.path}`;
+    case 'allyMove':
+      return `allyMove ${event.id} ${event.path}`;
     case 'cutscene':
       return `cutscene ${event.id}`;
     case 'cutsceneEnd':

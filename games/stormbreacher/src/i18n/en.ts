@@ -89,6 +89,8 @@ LANG.en = {
     'm1.pillboxes-down': 'Bunkers silent. Move up.',
     'm1.wave2-lost': 'The second wave is lost. Push through with what we have.',
     'm1.gun1-down': 'One main gun down. Fire on the boats is halved.',
+    'm1.buddy-call': 'Mortar fire. Spread out',
+    'm1.gunner-call': 'Machine gun. Stay behind cover',
   },
   data: {},
 };

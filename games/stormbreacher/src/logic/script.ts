@@ -3,7 +3,7 @@
 // the script's own seconds, advanced by stepScript, never the wall clock.
 import { ALLY_FATES } from '../data/allies.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
-import type { Action, Cue, CutsceneId, MissionDef, Trigger } from '../data/types.ts';
+import type { Action, AllyFateBy, Cue, CutsceneId, MissionDef, Trigger } from '../data/types.ts';
 
 export interface ScriptState {
   time: number; // seconds since the mission started
@@ -25,7 +25,8 @@ export type ScriptOut =
   | { kind: 'objective'; id: string; time: number }
   | { kind: 'radio'; line: string; time: number }
   | { kind: 'spawn'; wave: string; time: number }
-  | { kind: 'ally'; id: string; path: string; fate?: { at: string; by: string }; time: number }
+  | { kind: 'ally'; id: string; path: string; fate?: { at: string; by: AllyFateBy; call?: string }; time: number }
+  | { kind: 'allyMove'; id: string; path: string; time: number }
   | { kind: 'cutscene'; id: CutsceneId; time: number }
   | { kind: 'cutsceneEnd'; id: CutsceneId; time: number }
   | { kind: 'checkpoint'; id: string; time: number }
@@ -119,6 +120,10 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
         requireIn(Object.keys(def.places), action.fate.at, 'place');
         requireIn(ALLY_FATES, action.fate.by, 'fate');
       }
+      return;
+    case 'allyMove':
+      requireIn(def.allies, action.id, 'ally');
+      requireIn(Object.keys(def.paths), action.path, 'path');
       return;
     case 'cutscene':
       if (!(action.id in CUTSCENE_SEC)) throw new Error(`cue "${cueId}": no cutscene "${action.id}"`);
@@ -222,6 +227,9 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
           ? { kind: 'ally', id: action.id, path: action.path, fate: action.fate, time }
           : { kind: 'ally', id: action.id, path: action.path, time },
       );
+      return;
+    case 'allyMove':
+      out.push({ kind: 'allyMove', id: action.id, path: action.path, time });
       return;
     case 'cutscene':
       s.cutscene = { id: action.id, left: CUTSCENE_SEC[action.id] };

@@ -16,6 +16,7 @@ import { showBoom } from './boom.ts';
 import { showBreach } from './breach.ts';
 import { showHurt } from './hurt.ts';
 import { showPillbox } from './pillbox.ts';
+import { showAlly } from './ally.ts';
 import { showSound } from './sound.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -121,6 +122,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the pillboxes’ blast points in the sortie, with knobs',
     run: showPillbox,
+  },
+  {
+    hash: '#view-allies',
+    match: 'starts',
+    name: 'the five allied mechs taking their posts, with knobs',
+    run: showAlly,
   },
   {
     hash: '#view-mapedit',

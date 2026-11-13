@@ -8,30 +8,102 @@ import type { Area, Cue, GroundSpot, MissionDef } from '../types.ts';
 // BATTLE_TUNE.holdZ, and once it stands they walk on to the far line (s3-3).
 export const PILLBOXES_DOWN_FLAG = 'pillboxes-down';
 
-// The way the allied mech runs along the beach and where the mortar takes it (SB-170). It starts beside the mech's start
-// (x 0, z 166), runs to the front of line 1's blast point (40, 146.5) and falls beside it.
+// The ways the allied mechs run (SB-170, SB-1590). The beach's buddy falls beside line 1's blast point; the three cover
+// mechs run through that hole to the cover behind line 1, then on to C and the boss's ground. The gunner falls on the way
+// to B's cover. The points are a guess; +z is the sea.
 const PATHS = {
   'beach-run': [
     { x: 10, z: 166 },
     { x: 24, z: 156 },
     { x: 44, z: 151 },
   ],
-  // The two allied mechs that go on with the infantry once the pillboxes are down (s3-3). They start in the gap between
-  // the pillboxes and run through it toward C's breakthrough at x 35, then stop short of C. The places are a guess.
-  'advance-run-1': [
-    { x: 12, z: -4 },
-    { x: 32, z: -24 },
-    { x: 32, z: -60 },
+  // the three cover mechs: from the beach through line 1's hole at x 40 (its blast point) to the cover behind the line
+  'b1-run': [
+    { x: 0, z: 166 },
+    { x: 24, z: 156 },
+    { x: 40, z: 146 },
+    { x: 40, z: 122 },
+    { x: 20, z: 110 },
   ],
-  'advance-run-2': [
-    { x: -12, z: -4 },
-    { x: 38, z: -26 },
-    { x: 38, z: -60 },
+  'b2-run': [
+    { x: -5, z: 164 },
+    { x: 24, z: 156 },
+    { x: 40, z: 146 },
+    { x: 40, z: 122 },
+    { x: 30, z: 118 },
+  ],
+  'b3-run': [
+    { x: 20, z: 164 },
+    { x: 28, z: 156 },
+    { x: 40, z: 146 },
+    { x: 40, z: 122 },
+    { x: 55, z: 129 },
+  ],
+  // the gunner: line 1's hole to B's cover, where the machine guns take it
+  'gunner-run': [
+    { x: 40, z: 148 },
+    { x: 40, z: 130 },
+    { x: 45, z: 112 },
+  ],
+  // from B's cover to C's posts, past line 2's hole at x -10 and line 3's at x 61
+  'c1-run': [
+    { x: 20, z: 110 },
+    { x: -10, z: 100 },
+    { x: -10, z: 76 },
+    { x: 61, z: 36 },
+    { x: 61, z: 4 },
+    { x: 0, z: 6 },
+  ],
+  'c2-run': [
+    { x: 30, z: 118 },
+    { x: -10, z: 100 },
+    { x: -10, z: 76 },
+    { x: 61, z: 36 },
+    { x: 61, z: 4 },
+    { x: -7, z: 1 },
+  ],
+  'c3-run': [
+    { x: 55, z: 129 },
+    { x: 40, z: 110 },
+    { x: -10, z: 100 },
+    { x: -10, z: 76 },
+    { x: 61, z: 36 },
+    { x: 61, z: 4 },
+    { x: 45, z: 9 },
+  ],
+  // the boss's ground: up the ramp at x 35 (the seawall is 6 m) and to the cover behind it
+  'boss1-run': [
+    { x: 0, z: 6 },
+    { x: 35, z: -20 },
+    { x: 35, z: -30 },
+    { x: 35, z: -46 },
+    { x: 35, z: -66 },
+    { x: 35, z: -78 },
+    { x: 0, z: -76 },
+  ],
+  'boss2-run': [
+    { x: -7, z: 1 },
+    { x: 35, z: -20 },
+    { x: 35, z: -30 },
+    { x: 35, z: -46 },
+    { x: 35, z: -66 },
+    { x: 35, z: -78 },
+    { x: -35, z: -84 },
+  ],
+  'boss3-run': [
+    { x: 45, z: 9 },
+    { x: 35, z: -20 },
+    { x: 35, z: -30 },
+    { x: 35, z: -46 },
+    { x: 35, z: -66 },
+    { x: 35, z: -78 },
+    { x: 25, z: -82 },
   ],
 } as const satisfies Record<string, readonly GroundSpot[]>;
 
 const PLACES = {
   'beach-mid': { x: 44, z: 151 },
+  'b-mid': { x: 45, z: 112 }, // where the gunner falls, at the cover behind line 1
 } as const satisfies Record<string, GroundSpot>;
 
 const AREAS = {
@@ -56,7 +128,10 @@ const CUES = [
       { kind: 'map', mark: 'wave2', on: true },
       // the beach's mortar also starts the aimed mortar (M1_WAVE_AIMED)
       { kind: 'spawn', wave: 'beach-mortar' },
-      { kind: 'ally', id: 'buddy', path: 'beach-run', fate: { at: 'beach-mid', by: 'mortar' } },
+      { kind: 'ally', id: 'buddy', path: 'beach-run', fate: { at: 'beach-mid', by: 'mortar', call: 'm1.buddy-call' } },
+      { kind: 'ally', id: 'cover-b1', path: 'b1-run' },
+      { kind: 'ally', id: 'cover-b2', path: 'b2-run' },
+      { kind: 'ally', id: 'cover-b3', path: 'b3-run' },
     ],
   },
   {
@@ -68,6 +143,13 @@ const CUES = [
       { kind: 'spawn', wave: 'b-squad' },
       { kind: 'spawn', wave: 'b-emplacements' },
       { kind: 'radio', line: 'm1.depot-hint' },
+      // the gunner runs with the line's cover and the machine guns take it there
+      {
+        kind: 'ally',
+        id: 'gunner',
+        path: 'gunner-run',
+        fate: { at: 'b-mid', by: 'gun', call: 'm1.gunner-call' },
+      },
     ],
   },
   {
@@ -87,14 +169,15 @@ const CUES = [
     id: 'cp1',
     trigger: { kind: 'destroyed', targets: ['pillbox-1', 'pillbox-2'] },
     // the flag and the radio come before the checkpoint, so its copy holds both (the copy is taken after the whole cue)
-    // the two allies come after the checkpoint, in the same cue: the copy is taken after all of its actions, so they
-    // are in the checkpoint too and a retry does not put them out twice
+    // the three cover mechs go on to C after the checkpoint, in the same cue: the copy is taken after all of its actions,
+    // so their next way is in the checkpoint too and a retry does not send them along it twice
     actions: [
       { kind: 'radio', line: 'm1.pillboxes-down' },
       { kind: 'flag', name: PILLBOXES_DOWN_FLAG },
       { kind: 'checkpoint', id: 'cp1' },
-      { kind: 'ally', id: 'advance-1', path: 'advance-run-1' },
-      { kind: 'ally', id: 'advance-2', path: 'advance-run-2' },
+      { kind: 'allyMove', id: 'cover-b1', path: 'c1-run' },
+      { kind: 'allyMove', id: 'cover-b2', path: 'c2-run' },
+      { kind: 'allyMove', id: 'cover-b3', path: 'c3-run' },
     ],
   },
   {
@@ -120,6 +203,9 @@ const CUES = [
       { kind: 'checkpoint', id: 'cp2' },
       { kind: 'objective', id: 'silence-battery' },
       { kind: 'spawn', wave: 'battery' },
+      { kind: 'allyMove', id: 'cover-b1', path: 'boss1-run' },
+      { kind: 'allyMove', id: 'cover-b2', path: 'boss2-run' },
+      { kind: 'allyMove', id: 'cover-b3', path: 'boss3-run' },
     ],
   },
   {
@@ -153,7 +239,7 @@ export const M1: MissionDef = {
   waves: ['beach-mortar', 'b-squad', 'b-emplacements', 'depot-guard', 'seawall-drop', 'c-squad', 'battery'],
   objectives: ['reach-pillboxes', 'break-pillboxes', 'take-seawall', 'silence-battery', 'hit-magazine'],
   marks: ['wave2'],
-  allies: ['buddy', 'advance-1', 'advance-2'],
+  allies: ['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner'],
   paths: PATHS,
   places: PLACES,
 };

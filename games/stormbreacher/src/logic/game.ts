@@ -16,6 +16,8 @@
 // (SB-200, logic/battery.ts): once the `battery` wave is out, each main gun still standing shoots the mech with a machine
 // gun, and the magazine takes no harm while its shutter is shut, until both main guns are down. An `ally` (a friend,
 // logic/allies.ts) runs its way with no hit box and falls at the place its fate names (SB-170).
+import { distXZ } from '@engine/core/index.ts';
+import { ALLY_TUNE } from '../data/allies.ts';
 import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
@@ -26,9 +28,9 @@ import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
 import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
-import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
+import type { AllyFateBy, Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
-import { rectBox, rectBoxes, type GroundRect } from './collide.ts';
+import { rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
 import {
   newBattery,
   newShutters,
@@ -38,7 +40,7 @@ import {
   type BatteryState,
   type ShutterState,
 } from './battery.ts';
-import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
+import { moveAlly, newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
 import {
   blastPropIndexes,
   blastTarget,
@@ -130,7 +132,8 @@ export type GameEvent =
   | { kind: 'planted'; id: string; x: number; z: number } // a charge was planted on this blast point
   | { kind: 'blast'; id: string; x: number; z: number; hit: boolean } // a charge blew up; `hit` is whether the mech was inside the blast
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
-  | { kind: 'allyDown'; id: string; x: number; z: number; by: string } // an ally fell where it stood; `by` is how (the script's fate)
+  | { kind: 'allyDown'; id: string; x: number; z: number; by: AllyFateBy } // an ally fell where it stood; `by` is how (the script's fate)
+  | { kind: 'allyCall'; id: string; line: string } // an ally called on the radio before its fate
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   | { kind: 'cleared' }
   | { kind: 'retried'; from: string | null }; // the sortie began again: from the checkpoint with this id, or null from the start
@@ -649,9 +652,18 @@ function spawnAlly(game: GameModel, event: Extract<ScriptOut, { kind: 'ally' }>)
   if (event.fate) {
     const place = game.mission.places[event.fate.at];
     if (place === undefined) throw new Error(`no place "${event.fate.at}" in the mission`);
-    fate = { place, by: event.fate.by };
+    fate = { place, by: event.fate.by, call: event.fate.call ?? null };
   }
   game.allies.push(newAlly(event.id, way, fate));
+}
+
+// Sends an ally already out along the next way the mission names. An ally the script moved before it came out is left
+// alone: the mission writes the `ally` action before its `allyMove` in the same cue.
+function moveAllyTo(game: GameModel, event: Extract<ScriptOut, { kind: 'allyMove' }>): void {
+  const way = game.mission.paths[event.path];
+  if (way === undefined) throw new Error(`no path "${event.path}" in the mission`);
+  const ally = game.allies.find(entry => entry.id === event.id);
+  if (ally !== undefined) moveAlly(ally, way);
 }
 
 // Puts one radio line behind the one on screen. `time` is when the script said it (s). When the queue is full the newest
@@ -684,6 +696,7 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
       if (event.wave === BATTERY_WAVE) game.battery.on = true;
     }
     if (event.kind === 'ally') spawnAlly(game, event);
+    if (event.kind === 'allyMove') moveAllyTo(game, event);
     if (event.kind === 'end' && !game.cleared) {
       game.cleared = true;
       game.events.push({ kind: 'cleared' });
@@ -845,12 +858,24 @@ function stepHazards(game: GameModel, dt: number): void {
 
 // Runs every ally on by `dt`; one that reaches its fate's place falls there. A cutscene holds them where they stand, as it
 // holds the barrages: the beach's cue puts the ally out in the same frame as the landing, and it should run once the
-// mech can.
+// mech can. The feet follow the ground under them (a ramp up the seawall), and an ally that steps off a drop falls at
+// ALLY_TUNE.fallSpeed rather than dropping in one frame.
 function stepAllies(game: GameModel, dt: number): void {
   if (game.script.cutscene !== null) return;
   for (const ally of game.allies) {
-    if (!stepAlly(ally, dt) || ally.fate === null) continue;
-    game.events.push({ kind: 'allyDown', id: ally.id, x: ally.x, z: ally.z, by: ally.fate.by });
+    const fell = stepAlly(ally, dt);
+    const ground = groundAt(ally.x, ally.z, ALLY_TUNE.groundRadius, game.rects, ALLY_TUNE.maxGround);
+    if (ground > ally.y) ally.y = ground;
+    else ally.y = Math.max(ground, ally.y - ALLY_TUNE.fallSpeed * dt);
+    const fate = ally.fate;
+    if (fate === null) continue;
+    // The call comes a few seconds before the fate's place, so it is out before the ally falls, never after.
+    if (!ally.called && fate.call !== null && distXZ(ally, fate.place) <= ALLY_TUNE.callLead * ALLY_TUNE.speed) {
+      ally.called = true;
+      queueRadio(game, fate.call, game.time);
+      game.events.push({ kind: 'allyCall', id: ally.id, line: fate.call });
+    }
+    if (fell) game.events.push({ kind: 'allyDown', id: ally.id, x: ally.x, z: ally.z, by: fate.by });
   }
 }
 

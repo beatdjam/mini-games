@@ -1,18 +1,24 @@
 import { expect, test } from 'vitest';
-import { ALLY_TUNE } from '../../src/data/allies.ts';
+import { ALLY_FATES, ALLY_TUNE } from '../../src/data/allies.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { newAlly, stepAlly } from '../../src/logic/allies.ts';
+import { moveAlly, newAlly, stepAlly } from '../../src/logic/allies.ts';
 
 const DT = 1 / 60;
 const WAY = M1.paths['beach-run'];
-const FATE = { place: M1.places['beach-mid'], by: 'mortar' };
+const FATE = { place: M1.places['beach-mid'], by: 'mortar' as const, call: null };
 
-test('the ally starts at the first point of its way, facing the second', () => {
+test('the ally starts at the first point of its way, facing the second, on the ground and not yet called', () => {
   const ally = newAlly('buddy', WAY, FATE);
   expect([ally.x, ally.z]).toEqual([WAY[0].x, WAY[0].z]);
+  expect(ally.y).toBe(0);
+  expect(ally.called).toBe(false);
   expect(ally.down).toBe(false);
   // the way goes toward -z and +x: the yaw (0 faces -z) turns to -x's side
   expect(ally.yaw).toBeLessThan(0);
+});
+
+test('the fates an ally may fall by are the mortar and the gun', () => {
+  expect(ALLY_FATES).toEqual(['mortar', 'gun']);
 });
 
 test('the ally runs at ALLY_TUNE.speed along the way', () => {
@@ -71,4 +77,34 @@ test('an ally with no fate runs to the end of its way and stays', () => {
 
 test('a way with no point is refused', () => {
   expect(() => newAlly('buddy', [], null)).toThrow(/no point/);
+});
+
+test('moving an ally swaps its way, starts at the next point and faces on from where it stands', () => {
+  const ally = newAlly('cover-b1', M1.paths['b1-run'], null);
+  stepAlly(ally, 60 / ALLY_TUNE.speed); // 60 m along the way, so it stands away from the first point
+  const from = { x: ally.x, z: ally.z };
+  const next = M1.paths['c1-run'];
+  moveAlly(ally, next);
+  expect(ally.next).toBe(1);
+  // the state does not jump to the new way's first point: it runs on from where it stood
+  expect([ally.x, ally.z]).toEqual([from.x, from.z]);
+  // the new way is a copy, not the mission's list
+  expect(ally.way).toEqual(next.map(point => ({ ...point })));
+  expect(ally.way).not.toBe(next);
+  expect(ally.yaw).toBeCloseTo(Math.atan2(-(next[1].x - from.x), -(next[1].z - from.z)), 6);
+});
+
+test('a fallen ally keeps the way and the place it fell at', () => {
+  const ally = newAlly('buddy', WAY, FATE);
+  while (!ally.down) stepAlly(ally, DT);
+  const was = { way: ally.way, next: ally.next, x: ally.x, z: ally.z };
+  moveAlly(ally, M1.paths['c1-run']);
+  expect(ally.way).toBe(was.way);
+  expect(ally.next).toBe(was.next);
+  expect([ally.x, ally.z]).toEqual([was.x, was.z]);
+});
+
+test('moving an ally along a way with no point is refused', () => {
+  const ally = newAlly('buddy', WAY, null);
+  expect(() => moveAlly(ally, [])).toThrow(/no point/);
 });

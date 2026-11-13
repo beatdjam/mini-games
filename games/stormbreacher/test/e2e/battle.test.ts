@@ -79,21 +79,33 @@ test('starting again builds the battle anew, and leaves one', async () => {
   expect(battleGroups()).toHaveLength(1);
 });
 
-test('the cutscene shows no ally, and the ally runs and then lies down once the cutscene is over', async () => {
+test('the cutscene shows no ally, and the allies run and then lie down once the cutscene is over', async () => {
   startSortie();
   await frames(3);
-  expect(game().allies).toHaveLength(1);
+  expect(game().allies).toHaveLength(4);
   expect(allyGroups()).toHaveLength(0);
   sendToScript(game(), { kind: 'skip' });
   await frames(2);
-  const [run, wreck] = allyGroups();
-  expect(allyGroups()).toHaveLength(2);
+  expect(allyGroups()).toHaveLength(8);
+  const buddyGroups = allyGroups().filter(group => group.userData.allyId === 'buddy');
+  expect(buddyGroups).toHaveLength(2);
+  const [run, wreck] = buddyGroups;
   expect(run.visible).toBe(true);
   expect(wreck.visible).toBe(false);
   // run the logic on until the mortar takes it; the page draws the next frame
-  for (let i = 0; i < 20 && !game().allies[0].down; i++) step(game(), IDLE, 1);
+  const buddy = () => game().allies.find(ally => ally.id === 'buddy');
+  for (let i = 0; i < 20 && buddy()?.down !== true; i++) step(game(), IDLE, 1);
   await frames(2);
-  expect(game().allies[0].down).toBe(true);
+  expect(buddy()?.down).toBe(true);
   expect(run.visible).toBe(false);
   expect(wreck.visible).toBe(true);
+
+  // entering B puts the gunner out as the fifth ally, the tenth group
+  game().mech.x = 0;
+  game().mech.z = 140;
+  step(game(), IDLE, 0.1);
+  await frames(2);
+  expect(game().allies).toHaveLength(5);
+  expect(allyGroups()).toHaveLength(10);
+  expect(allyGroups().filter(group => group.userData.allyId === 'gunner')).toHaveLength(2);
 });

@@ -6,7 +6,7 @@ import type { MapDef, MissionDef } from '../data/types.ts';
 import type { GameModel, GameSnapshot } from './game.ts';
 import { newNav } from './nav.ts';
 
-export const SUSPEND_VERSION = 8; // 8: the radio queue is kept; 7: the aimed mortar remembers where the mech stood; 6: a machine-gun nest's burst under way; 5: a blasted line stays open; 4: the planted charges, their fuses and the hold under way
+export const SUSPEND_VERSION = 9; // 9: an ally's ground height and its radio call are kept; 8: the radio queue is kept; 7: the aimed mortar remembers where the mech stood; 6: a machine-gun nest's burst under way; 5: a blasted line stays open; 4: the planted charges, their fuses and the hold under way
 
 // The game as a suspend keeps it: every field of GameModel except the ones listed in suspendOf. `map` and `mission` are
 // definitions nothing writes to, so they go by id (below) and come back from the tables; `checkpoint` is kept apart.
@@ -64,7 +64,7 @@ const GAME_SHAPE: Record<keyof SuspendedGame, Shape> = {
   targets: 'array',
   pillboxes: 'array',
   enemies: 'array',
-  allies: 'array', // the scripted friends (SB-170): where each runs and whether it is down
+  allies: 'array', // the scripted friends (SB-170): where each runs, the height under it, the call it made and whether it is down
   main: 'object',
   sub: 'object',
   fcs: 'object',

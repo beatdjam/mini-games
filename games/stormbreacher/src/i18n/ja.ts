@@ -88,6 +88,8 @@ LANG.ja = {
     'm1.pillboxes-down': 'トーチカ沈黙。前へ',
     'm1.wave2-lost': '第2波の艇が沈んだ。今いる戦力で押し切れ',
     'm1.gun1-down': '主砲を1門潰した。艇への砲撃が半分になった',
+    'm1.buddy-call': '迫撃砲だ。散れ',
+    'm1.gunner-call': '機銃だ。遮蔽から出るな',
   },
   data: {},
 };

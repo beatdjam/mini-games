@@ -268,9 +268,13 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       // already down (broken by a shot while the fuse burnt) draws its own.
       if (target === undefined || !brokenThisFrame.has(target)) blast('large', event.x, 0.8, event.z);
     } else if (event.kind === 'allyDown') {
-      // the only fate there is is a mortar shell, drawn as a battle shell is
-      shellBurst(event.x, event.z);
-      spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
+      // A machine gun's burst takes the gunner down: dust, no blast, so it does not look like a mortar round.
+      if (event.by === 'gun') {
+        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+      } else {
+        shellBurst(event.x, event.z);
+        spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
+      }
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw);

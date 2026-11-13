@@ -91,7 +91,8 @@ test('a broken pillbox sinks and leans, and the second brings the radio, the fla
   breakFromSide('pillbox-2');
   runSystems(1 / 60);
   expect(game().targets.find(target => target.id === 'pillbox-2')?.hp).toBe(0);
-  expect(game().radio?.line).toBe('m1.pillboxes-down');
+  // the ally's call may still hold the band, so the line is on it or behind it
+  expect([game().radio?.line ?? null, ...game().radioQueue.map(entry => entry.line)]).toContain('m1.pillboxes-down');
   expect(game().script.flags).toContain('pillboxes-down');
   expect(game().checkpoint?.id).toBe('cp1');
 

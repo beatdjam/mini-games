@@ -20,18 +20,23 @@ const EXPECTED: readonly string[] = [
   'map:wave2:on',
   'spawn:beach-mortar',
   'ally:buddy',
+  'ally:cover-b1',
+  'ally:cover-b2',
+  'ally:cover-b3',
   'cutsceneEnd:landing',
   'objective:break-pillboxes',
   'spawn:b-squad',
   'spawn:b-emplacements',
   'radio:m1.depot-hint',
+  'ally:gunner',
   'flag:depot-down',
   'radio:m1.depot-down',
   'radio:m1.pillboxes-down',
   'flag:pillboxes-down',
   'checkpoint:cp1',
-  'ally:advance-1',
-  'ally:advance-2',
+  'allyMove:cover-b1',
+  'allyMove:cover-b2',
+  'allyMove:cover-b3',
   'cutscene:wave2-sinks',
   'radio:m1.wave2-lost',
   'map:wave2:off',
@@ -41,6 +46,9 @@ const EXPECTED: readonly string[] = [
   'checkpoint:cp2',
   'objective:silence-battery',
   'spawn:battery',
+  'allyMove:cover-b1',
+  'allyMove:cover-b2',
+  'allyMove:cover-b3',
   'radio:m1.gun1-down',
   'flag:shutter-open',
   'objective:hit-magazine',
@@ -59,6 +67,8 @@ function label(event: ScriptOut): string {
       return `spawn:${event.wave}`;
     case 'ally':
       return `ally:${event.id}`;
+    case 'allyMove':
+      return `allyMove:${event.id}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':

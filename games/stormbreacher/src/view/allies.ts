@@ -44,12 +44,17 @@ function modelOf(view: AllyView, id: string): AllyModel {
   let model = view.models.get(id);
   if (model === undefined) {
     model = { run: buildModel(ALLY_PALETTE), wreck: buildModel(ALLY_WRECK_PALETTE), fireT: ALLY_TUNE.fireEvery };
+    // the e2e finds one ally among the five by its id
+    model.run.userData.allyId = id;
+    model.wreck.userData.allyId = id;
     view.models.set(id, model);
   }
   return model;
 }
 
-// Puts each ally at its place, or its wreck once it is down, and lets the running ones shoot ahead through `battle`.
+// Puts each ally at its place, or its wreck once it is down, and lets the ones on their feet shoot ahead through
+// `battle`. One that has reached the end of its way keeps shooting at its post: only the next ticket turns the tracers
+// toward the nearest enemy.
 export function drawAllies(view: AllyView, game: GameModel, battle: Battle, rng: Rng, dt: number): void {
   const shown = game.script.cutscene === null;
   for (const ally of game.allies) {
@@ -57,11 +62,11 @@ export function drawAllies(view: AllyView, game: GameModel, battle: Battle, rng:
     const model = modelOf(view, ally.id);
     model.run.visible = shown && !ally.down;
     model.wreck.visible = shown && ally.down;
-    model.run.position.set(ally.x, 0, ally.z);
+    model.run.position.set(ally.x, ally.y, ally.z);
     model.run.rotation.y = ally.yaw;
-    model.wreck.position.set(ally.x, 0, ally.z);
+    model.wreck.position.set(ally.x, ally.y, ally.z);
     model.wreck.rotation.set(0, ally.yaw, ALLY_TUNE.wreckTilt, 'YXZ');
-    if (!shown || ally.down || ally.next >= ally.way.length) continue;
+    if (!shown || ally.down) continue;
     model.fireT -= dt;
     if (model.fireT > 0) continue;
     model.fireT = ALLY_TUNE.fireEvery;
@@ -69,7 +74,11 @@ export function drawAllies(view: AllyView, game: GameModel, battle: Battle, rng:
     const fz = -Math.cos(ally.yaw);
     const speed = ALLY_TUNE.tracerSpeed;
     battle.tracer(
-      { x: ally.x + fx * ALLY_TUNE.fireAhead, y: ALLY_TUNE.fireHeight, z: ally.z + fz * ALLY_TUNE.fireAhead },
+      {
+        x: ally.x + fx * ALLY_TUNE.fireAhead,
+        y: ally.y + ALLY_TUNE.fireHeight,
+        z: ally.z + fz * ALLY_TUNE.fireAhead,
+      },
       {
         x: fx * speed + rng.rand(-ALLY_TUNE.tracerSpread, ALLY_TUNE.tracerSpread),
         y: rng.rand(-ALLY_TUNE.tracerSpread, ALLY_TUNE.tracerSpread) / 2,

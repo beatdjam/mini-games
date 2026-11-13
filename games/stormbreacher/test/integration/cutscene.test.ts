@@ -145,9 +145,9 @@ test('wave2-sinks starts 4 s after cp1, holds the mech still, and ends with the 
   expect(game.script.cutscene?.id).toBe('wave2-sinks');
   expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeGreaterThan(3.99);
   expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeLessThan(4.1);
-  // the cue's other actions come in the same frame
+  // the cue's other actions come in the same frame; the ally calls before it are still in the radio band or behind it
   expect(game.script.objective).toBe('take-seawall');
-  expect(game.radio?.line).toBe('m1.wave2-lost');
+  expect([game.radio?.line ?? null, ...game.radioQueue.map(entry => entry.line)]).toContain('m1.wave2-lost');
   expect(game.enemies.some(enemy => enemy.wave === 'seawall-drop')).toBe(true);
   const start = { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw };
   let shots = 0;

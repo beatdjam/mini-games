@@ -29,6 +29,8 @@ function label(event: ScriptOut): string {
       return `spawn:${event.wave}`;
     case 'ally':
       return `ally:${event.id}`;
+    case 'allyMove':
+      return `allyMove:${event.id}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':
@@ -119,6 +121,9 @@ test('the first step starts the landing and the beach', () => {
     'map:wave2:on',
     'spawn:beach-mortar',
     'ally:buddy',
+    'ally:cover-b1',
+    'ally:cover-b2',
+    'ally:cover-b3',
   ]);
   expect(game.script.objective).toBe('reach-pillboxes');
   expect(game.script.marks).toEqual(['wave2']);
@@ -135,6 +140,7 @@ test('entering the b-line changes the objective and brings a radio line', () => 
     'spawn:b-squad',
     'spawn:b-emplacements',
     'radio:m1.depot-hint',
+    'ally:gunner',
   ]);
   expect(game.radio).toEqual({ line: 'm1.depot-hint', time: game.time });
   step(game, idle, 1 / 60);
