@@ -15,8 +15,9 @@ declare const __SHOTS_OUT__: string; // the folder the pictures go to (vitest.sh
 declare const __SHOTS_ONLY__: string; // only the shots whose names contain this ('' = all)
 
 // The landing's seconds to take: the outside shot along the row of craft, the cut inside at 3.45, the near craft to port,
-// the raised ramp and its coming down (9.2 to 10.8), and the change to the game's camera.
-const LANDING_AT = [0, 1.6, 3.4, 3.5, 5.4, 6.4, 9.2, 10.8, 11.6, 11.95] as const;
+// the riders before and after the near shell, the raised ramp and its coming down (9.2 to 10.8), the machine gun's
+// sweep (11.0 to 11.4) and the change to the game's camera.
+const LANDING_AT = [0, 1.6, 3.4, 3.5, 5.4, 6.0, 6.4, 6.6, 9.2, 10.8, 11.0, 11.6, 11.95] as const;
 const HELD_DT = 0; // the loop's step while a shot is taken: the cutscene's second stands still, the page still draws
 const SHOT_CLOCK = 1000; // what performance.now() says while a shot is taken (ms)
 const DRAWN_FRAMES = 3; // frames drawn before the picture, so it does not show the one before the state was set

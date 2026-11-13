@@ -9,6 +9,7 @@ import { burst, disposeTree, scene } from '@engine/render/index.ts';
 import type { FxTune } from '../../data/tune.ts';
 import { M1_NEST_WAVE } from '../../data/enemies.ts';
 import { PROP_SIZE } from '../../data/props.ts';
+import { SOLDIER_POSE } from '../../data/soldiers.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
 import { newBattle, stepBattle } from '../../logic/battle.ts';
 import { MAX_SOLDIERS, crowdCounts, fallNear, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
@@ -17,11 +18,6 @@ import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
 import { shellBurst } from '../hazards.ts';
 import { MAX_TRACERS, craterMeshes, planeGroup, smokeMesh, soldierMeshes, tracerMesh } from './parts.ts';
 
-const BODY_Y = 0.62; // the body's middle above the feet (m)
-const HEAD_Y = 1.36; // the head's middle above the feet (m)
-const BODY_DEAD_Y = 0.24; // the body's middle once it lies down (m)
-const HEAD_DEAD_Y = 0.2; // the head's middle once it lies down (m)
-const HEAD_FORWARD = 0.78; // how far the head lies past the body (m)
 const FALL_DUST_COLOR = 0x766a58; // the dust a falling ally raises
 const FALL_DUST = 4; // the pieces of that dust
 
@@ -293,10 +289,10 @@ export function buildBattle(
       if (soldier.alive) {
         dummy.rotation.set(0, soldier.yaw, 0);
         dummy.scale.set(1, 1, 1);
-        dummy.position.set(soldier.x, BODY_Y, soldier.z);
+        dummy.position.set(soldier.x, SOLDIER_POSE.bodyY, soldier.z);
         dummy.updateMatrix();
         bodies.setMatrixAt(i, dummy.matrix);
-        dummy.position.set(soldier.x, HEAD_Y, soldier.z);
+        dummy.position.set(soldier.x, SOLDIER_POSE.headY, soldier.z);
         dummy.updateMatrix();
         heads.setMatrixAt(i, dummy.matrix);
       } else {
@@ -304,10 +300,14 @@ export function buildBattle(
         const fz = -Math.cos(soldier.yaw);
         dummy.rotation.set(Math.PI / 2, soldier.yaw, 0);
         dummy.scale.set(1, 1, 1);
-        dummy.position.set(soldier.x, BODY_DEAD_Y, soldier.z);
+        dummy.position.set(soldier.x, SOLDIER_POSE.bodyDeadY, soldier.z);
         dummy.updateMatrix();
         bodies.setMatrixAt(i, dummy.matrix);
-        dummy.position.set(soldier.x + fx * HEAD_FORWARD, HEAD_DEAD_Y, soldier.z + fz * HEAD_FORWARD);
+        dummy.position.set(
+          soldier.x + fx * SOLDIER_POSE.headForward,
+          SOLDIER_POSE.headDeadY,
+          soldier.z + fz * SOLDIER_POSE.headForward,
+        );
         dummy.rotation.set(Math.PI / 2, soldier.yaw, Math.PI / 2);
         dummy.updateMatrix();
         heads.setMatrixAt(i, dummy.matrix);

@@ -319,7 +319,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     view.camPos && cutscene === null ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
   const pos = view.camPos.clone().add(frame.offset);
   applyPose(camera, { ...pose, pos }, frame.fov);
-  drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset);
+  drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset, view.battle);
   drawBooms(dt);
 
   // a camera pushed close by a wall would fill the screen with the mech, so the mech turns see-through

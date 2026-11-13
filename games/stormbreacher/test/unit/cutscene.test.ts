@@ -5,7 +5,16 @@ import { CRAFT_TUNE, craftZ } from '../../src/data/craft.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { hasCutscene, cutsceneEvents, cutsceneLine, cutsceneMech, cutscenePose } from '../../src/logic/cutscene.ts';
+import { LANDING_RIDERS } from '../../src/data/landing.ts';
+import {
+  hasCutscene,
+  cutsceneEvents,
+  cutsceneLine,
+  cutsceneMech,
+  cutscenePose,
+  riderFall,
+} from '../../src/logic/cutscene.ts';
+import { craftRects } from '../../src/logic/craft.ts';
 import { newGame } from '../../src/logic/game.ts';
 import { cameraPose } from '../../src/view/camera.ts';
 import '../../src/i18n/ja.ts';
@@ -127,7 +136,10 @@ test('the landing sinks two craft to port, out at sea, and no blast is put in it
   const sinks = landing.events.filter(event => event.kind === 'sink' && event.z !== undefined);
   const bursts = landing.events.filter(event => event.kind === 'burst');
   expect(sinks).toHaveLength(2);
-  expect(bursts).toHaveLength(2);
+  // two shells hit the craft to port and the third is the near miss beside the player's craft that takes the riders
+  expect(bursts).toHaveLength(3);
+  const nearMiss = bursts.find(event => event.kind === 'burst' && event.x < 0 && event.z < 175 + CRAFT_TUNE.length);
+  expect(nearMiss).toBeDefined();
   for (const sink of sinks) {
     if (sink.kind !== 'sink') throw new Error('not a sink');
     expect(sink.z ?? 0).toBeGreaterThan(M1B_HAND.bounds.maxZ);
@@ -270,4 +282,78 @@ test('only the landing has a mech path, and its keys are in time order inside th
     expect(key.at).toBeLessThanOrEqual(CUTSCENE_SEC.landing);
     if (i > 0) expect(key.at).toBeGreaterThan(keys[i - 1].at);
   });
+});
+
+test('the six riders stand on the deck, clear of the mech and the wheelhouse', () => {
+  expect(LANDING_RIDERS).toHaveLength(6);
+  expect(new Set(LANDING_RIDERS.map(rider => rider.id)).size).toBe(LANDING_RIDERS.length);
+  const [deck] = craftRects(M1B_HAND.bounds);
+  const start = newGame(M1B_HAND).mech;
+  const wheelhouseFront =
+    craftZ(M1B_HAND.bounds) + CRAFT_TUNE.length - CRAFT_TUNE.wheelhouse.fromStern - CRAFT_TUNE.wheelhouse.d / 2;
+  for (const rider of LANDING_RIDERS) {
+    expect(Math.abs(rider.x - deck.x), `${rider.id} x`).toBeLessThanOrEqual(deck.halfW);
+    expect(Math.abs(rider.z - deck.z), `${rider.id} z`).toBeLessThanOrEqual(deck.halfD);
+    expect(rider.z, `${rider.id} wheelhouse`).toBeLessThan(wheelhouseFront);
+    const away = Math.hypot(rider.x - start.x, rider.z - start.z);
+    expect(away, `${rider.id} mech`).toBeGreaterThan(MECH_TUNE.radius);
+  }
+  for (const id of ['r2', 'r3']) {
+    const rider = LANDING_RIDERS.find(entry => entry.id === id);
+    if (!rider) throw new Error(`the landing has no rider "${id}"`);
+    expect(Math.hypot(rider.x - start.x, rider.z - start.z), `${id} from the mech`).toBeGreaterThanOrEqual(2.5);
+  }
+});
+
+test('a rider stands before its event, falls smoothly over sec, and stays down', () => {
+  const events = landing.events;
+  const event = events.find(entry => entry.kind === 'riders' && entry.ids.includes('r1'));
+  if (!event || event.kind !== 'riders') throw new Error('no riders event names r1');
+  expect(riderFall('r1', event.at - 0.1, events)).toBe(0);
+  expect(riderFall('r1', event.at, events)).toBe(0);
+  expect(riderFall('r1', event.at + event.sec, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r1', event.at + event.sec + 5, events)).toBeCloseTo(1, 9);
+  let last = 0;
+  for (let second = event.at; second <= event.at + event.sec; second += event.sec / 20) {
+    const fall = riderFall('r1', second, events);
+    expect(fall).toBeGreaterThanOrEqual(last);
+    last = fall;
+  }
+  expect(riderFall('nobody', event.at + event.sec, events)).toBe(0);
+});
+
+test('every fall in the table names a rider that rides', () => {
+  const ids = new Set(LANDING_RIDERS.map(rider => rider.id));
+  for (const event of landing.events) {
+    if (event.kind !== 'riders') continue;
+    expect(event.sec).toBeGreaterThan(0);
+    for (const id of event.ids) expect(ids, `the table names "${id}"`).toContain(id);
+  }
+});
+
+test('the near shell takes r1 and r5, the sweep takes r2, r3 and r4, and r6 stands', () => {
+  const events = landing.events;
+  expect(riderFall('r1', 6.9, events)).toBeGreaterThan(0);
+  expect(riderFall('r5', 7.3, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r1', 7.3, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r2', 11.9, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r3', 11.9, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r4', 11.9, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r6', CUTSCENE_SEC.landing, events)).toBe(0);
+});
+
+test('the tracers come only after the ramp is down and nothing blows up in the last half second', () => {
+  const ramp = landing.events.find(event => event.kind === 'ramp');
+  if (!ramp || ramp.kind !== 'ramp') throw new Error('landing has no ramp event');
+  const down = ramp.at + ramp.sec;
+  const tracers = landing.events.filter(event => event.kind === 'tracers');
+  expect(tracers.length).toBeGreaterThan(0);
+  for (const event of tracers) {
+    expect(event.at, 'a tracer before the ramp is down').toBeGreaterThan(down);
+    expect(event.at, 'a tracer in the last half second').toBeLessThan(CUTSCENE_SEC.landing - 0.5);
+  }
+  for (const event of landing.events) {
+    if (event.kind === 'burst')
+      expect(event.at, 'a blast in the last half second').toBeLessThan(CUTSCENE_SEC.landing - 0.5);
+  }
 });

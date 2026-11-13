@@ -35,7 +35,9 @@ export type CutsceneEvent =
   | { at: number; kind: 'arrive'; x: number; z: number; from: number; sec: number } // a craft comes in from `from` to `z` over `sec` seconds
   | { at: number; kind: 'burst'; x: number; z: number } // a shell lands there
   | { at: number; kind: 'collapse'; targets: readonly string[]; sec: number } // the mission targets with these ids sink and tilt over `sec` seconds
-  | { at: number; kind: 'ramp'; sec: number }; // the player's craft lowers its ramp over `sec` seconds
+  | { at: number; kind: 'ramp'; sec: number } // the player's craft lowers its ramp over `sec` seconds
+  | { at: number; kind: 'riders'; ids: readonly string[]; sec: number } // these riders fall over `sec` seconds
+  | { at: number; kind: 'tracers'; x: number; z: number; n: number }; // `n` machine-gun tracers come in at (x, z)
 
 export interface CutsceneDef {
   camera: readonly CameraKey[]; // in time order; the first key's pose holds before it, the last one's after it
@@ -81,7 +83,15 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
       { at: 3.9, kind: 'burst', x: -58, z: 210 }, // and the one beyond it
       { at: 4.0, kind: 'sink', x: -58, z: 210, sec: 2.4 },
       { at: 4.2, kind: 'sink', x: -20, sec: 2.5 }, // the craft right beside the player's: the near miss at 6 s
+      { at: 6.4, kind: 'burst', x: -6, z: 180 }, // a shell falls off the port side and takes the riders there
+      { at: 6.5, kind: 'riders', ids: ['r1', 'r5'], sec: 0.7 },
       { at: 9.2, kind: 'ramp', sec: 1.6 },
+      // the machine gun sweeps the boat once the ramp is down (10.8 s); nothing after 11.5 s, so the last key stays put
+      { at: 11.0, kind: 'tracers', x: 0.4, z: 176, n: 4 },
+      { at: 11.1, kind: 'riders', ids: ['r2', 'r3'], sec: 0.5 },
+      { at: 11.2, kind: 'tracers', x: -0.6, z: 175.6, n: 3 },
+      { at: 11.35, kind: 'tracers', x: 1.2, z: 176, n: 3 },
+      { at: 11.4, kind: 'riders', ids: ['r4'], sec: 0.5 },
     ],
   },
   // The second wave goes down at sea (the sea starts at z 170, the player's craft's body at z 175). The camera starts

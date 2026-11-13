@@ -7,11 +7,12 @@ import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { craftZ } from '../../src/data/craft.ts';
-import { LANDING_TUNE } from '../../src/data/landing.ts';
+import { LANDING_RIDERS, LANDING_TUNE } from '../../src/data/landing.ts';
 import { M1_MECH_PALETTE } from '../../src/data/mech.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { sendToScript } from '../../src/logic/game.ts';
+import { RIDERS_NAME } from '../../src/view/riders.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -199,6 +200,41 @@ test('the other cutscenes do not draw the mech', async () => {
   game().script.cutscene = null;
   await frame();
   expect(mechModel().visible).toBe(true);
+});
+
+const riderGroups = (): THREE.Group[] =>
+  scene.children.filter((child): child is THREE.Group => child.name === RIDERS_NAME);
+
+test('the landing draws six riders, hides them after, and a restart keeps one set', async () => {
+  startSortie();
+  await until(() => !bars().hidden);
+  game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 6 };
+  await frames(3);
+  const groups = riderGroups();
+  expect(groups).toHaveLength(1);
+  expect(groups[0].visible).toBe(true);
+  const meshes: THREE.InstancedMesh[] = [];
+  groups[0].traverse(object => {
+    const mesh = object as THREE.InstancedMesh;
+    if (mesh.isInstancedMesh === true) meshes.push(mesh);
+  });
+  expect(meshes).toHaveLength(2);
+  for (const mesh of meshes) {
+    expect(mesh.count).toBe(LANDING_RIDERS.length);
+    expect(mesh.visible).toBe(true);
+  }
+  // another cutscene leaves them on the beach
+  game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };
+  await frame();
+  expect(groups[0].visible).toBe(false);
+  // and once the landing is over they are out of sight too
+  game().script.cutscene = null;
+  await frame();
+  expect(groups[0].visible).toBe(false);
+  // starting again builds one set of riders, not two
+  startSortie();
+  await frames(2);
+  expect(riderGroups()).toHaveLength(1);
 });
 
 test('when the landing ends the mech is at its start and the camera is where the last key put it', async () => {

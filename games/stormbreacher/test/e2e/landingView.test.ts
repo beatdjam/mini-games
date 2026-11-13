@@ -2,9 +2,12 @@
 // real sortie, so the report reads the drawn frame's counts as well as the second and the pose.
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import { scene } from '@engine/render/index.ts';
 import { boot } from '../../src/app/boot.ts';
+import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { showLanding } from '../../src/dev/views/landing.ts';
+import { RIDERS_NAME } from '../../src/view/riders.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -19,6 +22,8 @@ interface LandingReport {
   pose: { pos: readonly number[]; look: readonly number[] };
   calls: number;
   triangles: number;
+  riders: { id: string; x: number; z: number; fall: number }[];
+  tracers: number;
 }
 
 const frames = async (n: number): Promise<void> => {
@@ -100,4 +105,54 @@ test('#view-landing knobs turn the nearest key and copy it in the table shape', 
   copy.click();
   await frames(1);
   expect(copied).toMatch(/^CUTSCENES\.landing\.camera\.6\.pos\.0: 2\.5$/m);
+});
+
+function knob(groupName: string, key: string): HTMLInputElement {
+  const input = document.querySelector(`[data-tune-group="${groupName}"] [data-tune-key="${key}"] input[type="range"]`);
+  if (!(input instanceof HTMLInputElement)) throw new Error(`no knob for ${groupName}.${key}`);
+  return input;
+}
+
+test('#view-landing shows the riders and their fall follows the events’ seconds', async () => {
+  history.replaceState(null, '', '#view-landing?at=6.6');
+  showLanding('#view-landing?at=6.6');
+  await frames(3);
+  const held = report();
+  const fallOf = (id: string): number => held.riders.find(rider => rider.id === id)?.fall ?? 0;
+  // the near shell at 6.4 s has begun to take r1 and r5; r6 is not named
+  expect(fallOf('r1')).toBeGreaterThan(0);
+  expect(fallOf('r5')).toBeGreaterThan(0);
+  expect(fallOf('r6')).toBe(0);
+  expect(held.tracers).toBeGreaterThan(0);
+
+  // the rider's x knob moves the table the report reads
+  const x = knob('LANDING_RIDERS.0', 'x');
+  x.value = '-2.7';
+  x.dispatchEvent(new Event('input', { bubbles: true }));
+  await frames(2);
+  expect(report().riders.find(rider => rider.id === 'r1')?.x).toBeCloseTo(-2.7, 6);
+
+  // moving the fall's second past the held second puts the rider back on their feet
+  const events = CUTSCENES.landing?.events ?? [];
+  const index = events.findIndex(event => event.kind === 'riders');
+  expect(index).toBeGreaterThanOrEqual(0);
+  const atKnob = knob(`CUTSCENES.landing.events.${index}`, 'at');
+  atKnob.value = '7';
+  atKnob.dispatchEvent(new Event('input', { bubbles: true }));
+  await frames(2);
+  expect(report().riders.find(rider => rider.id === 'r1')?.fall).toBe(0);
+
+  // the drawn frame with the riders, and without them for the measure
+  const withRiders = report();
+  const riders = scene.getObjectByName(RIDERS_NAME);
+  if (!riders) throw new Error('the landing has no riders in the scene');
+  scene.remove(riders);
+  await frames(2);
+  const without = report();
+  console.log(
+    `#view-landing 6.6: riders ${withRiders.calls} calls, ${withRiders.triangles} tris; ` +
+      `without ${without.calls} calls, ${without.triangles} tris`,
+  );
+  scene.add(riders);
+  await frames(1);
 });

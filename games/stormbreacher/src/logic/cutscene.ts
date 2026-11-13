@@ -70,6 +70,22 @@ export function cutsceneEvents(id: CutsceneId, from: number, to: number): Cutsce
   return tableOf(id).events.filter(event => from < event.at && event.at <= to);
 }
 
+// How far the rider with this id has fallen at `elapsed`: 0 standing, 1 on the deck. The last `riders` event that names
+// the rider decides; before its second the rider stands, and it reaches 1 `sec` seconds after it.
+export function riderFall(id: string, elapsed: number, events: readonly CutsceneEvent[]): number {
+  let at = Number.NEGATIVE_INFINITY;
+  let sec = 0;
+  for (const event of events) {
+    if (event.kind !== 'riders' || !event.ids.includes(id)) continue;
+    if (event.at <= at) continue;
+    at = event.at;
+    sec = event.sec;
+  }
+  if (!Number.isFinite(at)) return 0;
+  if (sec <= 0) return elapsed >= at ? 1 : 0;
+  return smooth(Math.min(1, Math.max(0, (elapsed - at) / sec)));
+}
+
 // Where the walking mech's feet are at `elapsed`, and how fast it goes along the ground (m/s).
 export interface CutsceneMech {
   x: number;

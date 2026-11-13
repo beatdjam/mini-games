@@ -5,11 +5,11 @@
 import { addSystem, LOOP, systems } from '@engine/core/index.ts';
 import { renderer } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../app/play.ts';
-import { CUTSCENES, type CameraKey } from '../../data/cutscenes.ts';
-import { LANDING_TUNE } from '../../data/landing.ts';
+import { CUTSCENES, type CameraKey, type CutsceneEvent } from '../../data/cutscenes.ts';
+import { LANDING_RIDERS, LANDING_TUNE } from '../../data/landing.ts';
 import { CUTSCENE_SEC } from '../../data/script.ts';
 import { FEEL_TUNE } from '../../data/tune.ts';
-import { cutscenePose, type CutscenePose } from '../../logic/cutscene.ts';
+import { cutscenePose, riderFall, type CutscenePose } from '../../logic/cutscene.ts';
 import { createTunePanel, tuneNumber, type TuneGroup, type TuneRange } from '../tunePanel.ts';
 
 declare global {
@@ -29,6 +29,8 @@ interface LandingReport {
   pose: CutscenePose;
   calls: number;
   triangles: number;
+  riders: { id: string; x: number; z: number; fall: number }[];
+  tracers: number;
 }
 
 // The camera's six values: x and z over the map's range, y over the craft's height.
@@ -50,9 +52,38 @@ const CAMERA_LABELS: Record<string, string> = {
 };
 const START_DEPTH_RANGES: Record<string, TuneRange> = { startDepth: { min: 0, max: 2.5, step: 0.05 } };
 const START_DEPTH_LABELS: Record<string, string> = { startDepth: '甲板の深さ (m)' };
+const RIDER_RANGES: Record<string, TuneRange> = {
+  x: { min: -2.9, max: 2.9, step: 0.05 },
+  z: { min: 175.3, max: 186.7, step: 0.05 },
+};
+const RIDER_LABELS: Record<string, string> = { x: 'x (m)', z: 'z (m)' };
+const EVENT_RANGES: Record<string, TuneRange> = { at: { min: 0, max: MAX_AT, step: 0.05 } };
+
+function landingEvents(): readonly CutsceneEvent[] {
+  const def = CUTSCENES.landing;
+  if (!def) throw new Error('no table for landing');
+  return def.events;
+}
+
+// The row's name: the near explosion, then the falls and the sweeps in the order the table gives them.
+const EVENT_LABELS: readonly string[] = (() => {
+  const labels: string[] = [];
+  let bursts = 0;
+  let falls = 0;
+  let sweeps = 0;
+  for (const event of landingEvents()) {
+    if (event.kind === 'burst') labels.push(event.x < -5 ? '近くの爆発' : `着弾${++bursts}`);
+    else if (event.kind === 'sink') labels.push('沈む艇');
+    else if (event.kind === 'ramp') labels.push('ランプ');
+    else if (event.kind === 'riders') labels.push(`倒れる${++falls}`);
+    else labels.push(`掃射${++sweeps}`);
+  }
+  return labels;
+})();
 
 let at = 0; // the second the picture is held at
 let keyIndex = 0; // the nearest key at or before `at`
+let riderIndex = 0; // the rider whose x and z the panel shows
 let paint = () => {}; // writes the readouts and swaps the panel's key (the view that is open now)
 let listening = false; // the arrow keys are listened for once
 let held = false; // the loop and the clock are held (opening the view again keeps them)
@@ -89,6 +120,18 @@ const cameraGroups = (index: number): TuneGroup[] => [
     labels: CAMERA_LABELS,
   },
   { name: 'LANDING_TUNE', table: LANDING_TUNE, ranges: START_DEPTH_RANGES, labels: START_DEPTH_LABELS },
+  {
+    name: `LANDING_RIDERS.${riderIndex}`,
+    table: LANDING_RIDERS[riderIndex],
+    ranges: RIDER_RANGES,
+    labels: RIDER_LABELS,
+  },
+  ...landingEvents().map((event, i) => ({
+    name: `CUTSCENES.landing.events.${i}`,
+    table: event,
+    ranges: EVENT_RANGES,
+    labels: { at: EVENT_LABELS[i] },
+  })),
 ];
 
 const vecText = (v: readonly number[]): string => v.map(n => tuneNumber(n)).join(',');
@@ -160,15 +203,37 @@ export function showLanding(hash: string): void {
   hud.appendChild(note);
   const help = document.createElement('div');
   help.style.cssText = 'color:#9fb3c0';
-  help.textContent = '← → で 1/10 秒。?at=<秒> で開く秒。3.4→3.45 で艇の中へ。';
+  help.textContent =
+    '← → で 1/10 秒。?at=<秒> で開く秒。3.4→3.45 で艇の中へ。同乗者は甲板の前寄り。倒れる秒は events の at。';
   hud.appendChild(help);
+
+  const riderBox = document.createElement('label');
+  riderBox.style.cssText = 'display:block;margin-top:4px;color:#9fb3c0';
+  riderBox.textContent = '同乗者 ';
+  const riderSelect = document.createElement('select');
+  riderSelect.dataset.landing = 'rider';
+  riderSelect.style.cssText =
+    'font:inherit;color:inherit;background:rgba(10,17,25,0.7);border:1px solid rgba(213,228,238,0.35)';
+  for (let i = 0; i < LANDING_RIDERS.length; i++) {
+    const option = document.createElement('option');
+    option.value = String(i);
+    option.textContent = LANDING_RIDERS[i].id;
+    riderSelect.appendChild(option);
+  }
+  riderSelect.value = String(riderIndex);
+  riderBox.appendChild(riderSelect);
 
   const tune = createTunePanel({
     title: '導入 #view-landing',
     zIndex: 7,
     groups: cameraGroups(keyIndex),
+    extra: riderBox,
   });
   tune.element.dataset.noskip = '';
+  riderSelect.addEventListener('change', () => {
+    riderIndex = Number(riderSelect.value);
+    tune.setGroups(cameraGroups(keyIndex));
+  });
 
   const poseOf = (): CutscenePose => cutscenePose('landing', at);
 
@@ -187,12 +252,20 @@ export function showLanding(hash: string): void {
   paint();
 
   window.sbLandingReport = () => {
+    const events = landingEvents();
     const report: LandingReport = {
       at,
       keyAt: landingKeys()[keyIndex].at,
       pose: poseOf(),
       calls: renderer.info.render.calls,
       triangles: renderer.info.render.triangles,
+      riders: LANDING_RIDERS.map(rider => ({
+        id: rider.id,
+        x: rider.x,
+        z: rider.z,
+        fall: riderFall(rider.id, at, events),
+      })),
+      tracers: events.filter(event => event.kind === 'tracers').length,
     };
     return JSON.stringify(report);
   };
