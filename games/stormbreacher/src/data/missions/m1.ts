@@ -70,7 +70,12 @@ const CUES = [
   {
     id: 'cp1',
     trigger: { kind: 'destroyed', targets: ['pillbox-1', 'pillbox-2'] },
-    actions: [{ kind: 'checkpoint', id: 'cp1' }],
+    // the flag and the radio come before the checkpoint, so its copy holds both (the copy is taken after the whole cue)
+    actions: [
+      { kind: 'radio', line: 'm1.pillboxes-down' },
+      { kind: 'flag', name: 'pillboxes-down' },
+      { kind: 'checkpoint', id: 'cp1' },
+    ],
   },
   {
     id: 'wave2-lost',

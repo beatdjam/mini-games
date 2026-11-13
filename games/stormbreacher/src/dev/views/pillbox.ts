@@ -4,7 +4,8 @@
 // it. The panel turns PILLBOX_BLAST.damage; nothing is saved.
 import { addSystem, systems } from '@engine/core/index.ts';
 import { currentGame, startSortie } from '../../app/play.ts';
-import { PILLBOX_BLAST } from '../../data/pillbox.ts';
+import { PILLBOX_BLAST, PILLBOX_BREAK } from '../../data/pillbox.ts';
+import { WEAPONS } from '../../data/weapons.ts';
 import { sendToScript } from '../../logic/game.ts';
 import { createTunePanel, type TuneRange } from '../tunePanel.ts';
 
@@ -13,6 +14,7 @@ const SYSTEMS = ['sb-pillbox-skip'] as const;
 const SIDE_POINT = 'blast-pillbox-1-side';
 const BACK_POINT = 'blast-pillbox-1-back';
 const STAND_OFF = 4; // how far from a point the mech stands, on the sea side for the side point (m)
+const TWO_PILLBOXES = ['pillbox-1', 'pillbox-2'] as const;
 
 const PILLBOX_RANGES: Record<string, TuneRange> = {
   damage: { min: 0, max: 300, step: 10 },
@@ -20,6 +22,18 @@ const PILLBOX_RANGES: Record<string, TuneRange> = {
 
 const PILLBOX_LABELS: Record<string, string> = {
   damage: '爆薬1つのダメージ',
+};
+
+const BREAK_RANGES: Record<string, TuneRange> = {
+  sec: { min: 0.5, max: 6, step: 0.1 },
+  sink: { min: 0, max: 4, step: 0.1 },
+  lean: { min: 0, max: 1, step: 0.01 },
+};
+
+const BREAK_LABELS: Record<string, string> = {
+  sec: '沈み切るまでの秒',
+  sink: '沈む深さ(m)',
+  lean: '傾く角(rad)',
 };
 
 const BUTTON_STYLE =
@@ -56,6 +70,29 @@ function standAt(pointId: string, dz: number, yaw: number): void {
   game.mech.yaw = yaw;
 }
 
+// Breaks both pillboxes with a heavy-gun shot from the side, as a player would: the target's health is left at 1 and a
+// shot is put just outside its box, so the game's own hit makes the `destroyed` event (sendToScript is not called).
+function breakPillboxes(): void {
+  const game = currentGame();
+  if (!game) return;
+  for (const id of TWO_PILLBOXES) {
+    const target = game.targets.find(entry => entry.id === id);
+    if (!target || target.hp <= 0) continue;
+    target.hp = 1;
+    const { box } = target;
+    game.bullets.push({
+      weapon: 'heavyGun',
+      x: box.minX - 0.5,
+      y: (box.minY + box.maxY) / 2,
+      z: (box.minZ + box.maxZ) / 2,
+      dx: 1,
+      dy: 0,
+      dz: 0,
+      left: WEAPONS.heavyGun.range,
+    });
+  }
+}
+
 export function showPillbox(_hash: string) {
   dropSystems();
   startSortie();
@@ -81,16 +118,21 @@ export function showPillbox(_hash: string) {
   const restartRow = document.createElement('div');
   restartRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
   extra.appendChild(restartRow);
+  button(restartRow, 'トーチカ2基を壊す', breakPillboxes);
   button(restartRow, 'やり直す', () => startSortie());
 
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
-  note.textContent = 'F（使う）を長押しすると仕掛ける。\n離れて導火線が切れると爆破する。\n保存はしない。';
+  note.textContent =
+    'F（使う）を長押しすると仕掛ける。\n離れて導火線が切れると爆破する。\n壊し直すときは「やり直す」。\n保存はしない。';
   extra.appendChild(note);
 
   createTunePanel({
     title: 'トーチカの爆破点 #view-pillbox',
     extra,
-    groups: [{ name: 'PILLBOX_BLAST', table: PILLBOX_BLAST, ranges: PILLBOX_RANGES, labels: PILLBOX_LABELS }],
+    groups: [
+      { name: 'PILLBOX_BLAST', table: PILLBOX_BLAST, ranges: PILLBOX_RANGES, labels: PILLBOX_LABELS },
+      { name: 'PILLBOX_BREAK', table: PILLBOX_BREAK, ranges: BREAK_RANGES, labels: BREAK_LABELS },
+    ],
   });
 }

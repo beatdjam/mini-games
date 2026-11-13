@@ -243,6 +243,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       kill = true;
       const target = game.targets.find(entry => entry.id === event.id);
       if (target) {
+        // the pillbox's fall starts now; syncWorld advances its seconds (SB-1550)
+        if (target.kind === 'pillbox') view.world.breaks.set(event.id, 0);
         const { box } = target;
         blast('large', (box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, (box.minZ + box.maxZ) / 2);
       }
@@ -317,7 +319,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   }
 
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
-  syncWorld(view.world, game);
+  syncWorld(view.world, game, dt);
   drawBullets(
     view.bullets,
     game.bullets.filter(bullet => !isHostileBullet(bullet)),

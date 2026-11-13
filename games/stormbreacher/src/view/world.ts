@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
 import { M1_SHUTTERS } from '../data/battery.ts';
 import { SHUTTER_COLOR, SKY_COLOR } from '../data/colors.ts';
+import { PILLBOX_BREAK } from '../data/pillbox.ts';
 import { TARGET_SIZE, TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
@@ -33,6 +34,7 @@ export interface World {
   slots: Map<number, PropSlot>; // a breakable or blast-opened prop's place in map.props -> where it is drawn
   propCameraBoxes: Map<number, THREE.Box3>; // those props' place in map.props -> its box in cameraBoxes
   broken: Set<number>; // the props already drawn broken or opened
+  breaks: Map<string, number>; // a target's id -> the seconds since it broke, for the pillboxes' sink
 }
 
 // The tiles that cover the whole bounds. The last row and column may hang a little past the edge, so no gap is left.
@@ -129,20 +131,36 @@ export function buildWorld(map: MapDef): World {
     slots,
     propCameraBoxes,
     broken: new Set(),
+    breaks: new Map(),
   };
 }
 
 // Lowers and darkens every target whose health is gone, hides every shutter that is open, and every prop the game has
 // broken or a blast has opened: its copy becomes a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands
 // that same array to the camera every frame). A blasted line is drawn open from the first frame after a checkpoint or a
-// suspend brings it back. Called every frame, so one already down or broken is left as it is.
-export function syncWorld(world: World, game: GameModel): void {
+// suspend brings it back. A pillbox goes down over PILLBOX_BREAK.sec instead, so its fall reads as the road opening: the
+// seconds live here, in the view, and a save or a checkpoint needs nothing new. Called every frame, so one already down
+// or broken is left as it is.
+export function syncWorld(world: World, game: GameModel, dt: number): void {
   for (const target of game.targets) {
     if (target.hp > 0) continue;
     const mesh = world.targets.get(target.id);
-    if (!mesh || mesh.scale.y === WRECK_SCALE_Y) continue;
+    if (!mesh) continue;
+    if (target.kind === 'pillbox') {
+      // A pillbox already down when the world is built (a checkpoint or a suspend brings one back) has no seconds yet:
+      // start it fully down, so it does not sink again.
+      const before = world.breaks.get(target.id) ?? PILLBOX_BREAK.sec;
+      const at = Math.min(PILLBOX_BREAK.sec, before + dt);
+      world.breaks.set(target.id, at);
+      const share = PILLBOX_BREAK.sec <= 0 ? 1 : Math.min(1, at / PILLBOX_BREAK.sec);
+      const k = share * share * (3 - 2 * share); // smooth in and out
+      mesh.scale.y = 1 + (WRECK_SCALE_Y - 1) * k;
+      mesh.position.y = -PILLBOX_BREAK.sink * k;
+      mesh.rotation.x = -PILLBOX_BREAK.lean * k; // toward the land (-z); the yaw in rotation.y stays
+    } else {
+      mesh.scale.y = WRECK_SCALE_Y;
+    }
     if (mesh.material instanceof THREE.MeshLambertMaterial) mesh.material.color.setHex(WRECK_COLOR);
-    mesh.scale.y = WRECK_SCALE_Y;
   }
   for (const shutter of game.shutters) {
     const plate = world.shutters.get(shutter.target);

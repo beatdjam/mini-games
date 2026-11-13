@@ -27,6 +27,8 @@ const EXPECTED: readonly string[] = [
   'radio:m1.depot-hint',
   'flag:depot-down',
   'radio:m1.depot-down',
+  'radio:m1.pillboxes-down',
+  'flag:pillboxes-down',
   'checkpoint:cp1',
   'cutscene:wave2-sinks',
   'radio:m1.wave2-lost',
@@ -117,6 +119,8 @@ test('restoring cp1 drops wave2-lost and replays the same column', () => {
   expect(restored.fired.cp1).toBeTypeOf('number');
   expect(restored.fired['wave2-lost']).toBeUndefined();
   expect(restored.ended).toBeNull();
+  // the flag is one of cp1's actions before the checkpoint, so the copy holds it
+  expect(restored.flags).toContain('pillboxes-down');
 
   expect(fromCp1(restored).map(label)).toEqual(EXPECTED.slice(EXPECTED.indexOf('cutscene:wave2-sinks')));
   expect(restored.ended).toBe('cleared');

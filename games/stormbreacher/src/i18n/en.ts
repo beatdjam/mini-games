@@ -86,6 +86,7 @@ LANG.en = {
     'obj.hit-magazine': 'Destroy the magazine',
     'm1.depot-hint': 'Ammo depot by the right cliff. Hit it to ease the shelling.',
     'm1.depot-down': 'Depot down. The shelling will ease.',
+    'm1.pillboxes-down': 'Bunkers silent. Move up.',
     'm1.wave2-lost': 'The second wave is lost. Push through with what we have.',
     'm1.gun1-down': 'One main gun down. Fire on the boats is halved.',
   },
