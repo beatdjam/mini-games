@@ -1,11 +1,14 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import * as THREE from 'three';
 import { el, runSystems, t } from '@engine/core/index.ts';
+import { camera } from '@engine/render/index.ts';
 import { PLAY_TUNE } from '../../src/data/tune.ts';
-import { currentGame, startSortie } from '../../src/app/play.ts';
+import { currentGame, currentPlayView, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
 import { sendToScript } from '../../src/logic/game.ts';
+import { aimRay } from '../../src/view/camera.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -92,4 +95,20 @@ test("the script's end shows the result", async () => {
   window.dispatchEvent(key('keyup', 'KeyJ'));
   expect(el('#sbResult').hidden).toBe(false);
   expect(el('#sbResultTime').textContent).toContain('0:');
+});
+
+test('the aim is the camera state with the feel shake taken out', async () => {
+  startSortie();
+  await frame();
+  sendToScript(game(), { kind: 'skip' });
+  await frame();
+  const view = currentPlayView();
+  if (!view || view.cam === null) throw new Error('the sortie has no camera');
+  // a big shake moves the camera the screen draws, but the reticle and the shots keep the state's line
+  view.feel.shake = 1;
+  await frame();
+  expect(view.aim).toEqual(aimRay(view.cam));
+  const origin = new THREE.Vector3(view.aim.ox, view.aim.oy, view.aim.oz);
+  expect(origin.distanceTo(view.cam.pos)).toBe(0);
+  expect(camera.position.distanceTo(origin)).toBeGreaterThan(1e-3);
 });

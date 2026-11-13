@@ -266,3 +266,6 @@ export function showResult(): void {
 
 // The game in play, for the tests; null before the first sortie.
 export const currentGame = (): GameModel | null => game;
+
+// The sortie's view, for the tests; null before the first sortie.
+export const currentPlayView = (): PlayView | null => view;

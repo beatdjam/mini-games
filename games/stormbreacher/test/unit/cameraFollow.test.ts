@@ -1,5 +1,5 @@
-// The camera's state across frames (SB-1935): the mech's own motion follows with the open lag, a wall or a turn eases
-// the camera, and the aim is the middle of the screen the state drew.
+// The camera's state across frames (SB-1935, SB-1945): with no wall the camera takes the open lag's step exactly; a
+// wall eases only its own share of the move; and the aim is the middle of the screen the state drew.
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
@@ -19,9 +19,9 @@ const DT = 1 / 60;
 const DEG = 180 / Math.PI;
 const BOOST = 15; // m/s
 const SECONDS = 2; // the boost's length
-const WITHIN = 1.5; // how much farther than the open lag the camera may fall behind
-const MAX_FRAME_MOVE = 0.2; // m
 const MAX_FRAME_TURN = 5; // deg
+const PULL_STEP = CAMERA_TUNE.pullSpeed * DT; // the most a wall's share may move the camera in one frame (m)
+const WITHIN = 1e-9; // m
 
 const at = (x: number, z: number, yaw = 0): CameraTarget => ({ x, y: 0, z, yaw });
 
@@ -36,62 +36,115 @@ function followFrames(targets: readonly CameraTarget[], boxes: readonly THREE.Bo
   return states;
 }
 
-// The same targets with the open lag alone: the camera the master would keep with no wall and no speed cap.
-function openFrames(targets: readonly CameraTarget[]): THREE.Vector3[] {
-  const out: THREE.Vector3[] = [];
-  let pos: THREE.Vector3 | null = null;
-  for (const target of targets) {
-    const pose = cameraPose(target, 0, CAMERA_TUNE, []);
-    pos = pos === null ? pose.pos.clone() : followPose(pos, pose.pos, DT, CAMERA_TUNE.lag);
-    out.push(pos.clone());
+// The direction from the camera to the point it looks at, normalized.
+const view = (state: CameraState): THREE.Vector3 => state.look.clone().sub(state.pos).normalize();
+
+// The most one frame moved the camera relative to the mech, and the most the screen turned (deg).
+function motion(states: readonly CameraState[]): { rel: number; turn: number } {
+  let rel = 0;
+  let turn = 0;
+  for (let i = 1; i < states.length; i++) {
+    const travel = new THREE.Vector3(
+      states[i].feet.x - states[i - 1].feet.x,
+      0,
+      states[i].feet.z - states[i - 1].feet.z,
+    );
+    rel = Math.max(
+      rel,
+      states[i].pos
+        .clone()
+        .sub(states[i - 1].pos)
+        .sub(travel)
+        .length(),
+    );
+    const dot = Math.min(1, Math.max(-1, view(states[i]).dot(view(states[i - 1]))));
+    turn = Math.max(turn, Math.acos(dot) * DEG);
   }
-  return out;
+  return { rel, turn };
 }
 
-test('a boost in the open stays within 1.5 times the open lag, forward and backward', () => {
-  for (const direction of [1, -1]) {
-    const targets = Array.from({ length: Math.round(SECONDS / DT) }, (_, frame) =>
-      at(0, direction * BOOST * frame * DT),
-    );
-    const states = followFrames(targets, []);
-    const open = openFrames(targets);
-    const mech = (frame: number) => new THREE.Vector3(0, 0, direction * BOOST * frame * DT);
-    const own = Math.max(...states.map((state, frame) => state.pos.distanceTo(mech(frame))));
-    const reference = Math.max(...open.map((pos, frame) => pos.distanceTo(mech(frame))));
-    expect(own).toBeLessThanOrEqual(reference * WITHIN);
-    // backing up must not walk the camera into the mech and make it see-through
-    const chest = states.map((state, frame) =>
-      state.pos.distanceTo(new THREE.Vector3(0, MECH_TUNE.chestHeight, direction * BOOST * frame * DT)),
-    );
-    expect(Math.min(...chest)).toBeGreaterThan(MECH_TUNE.fadeDist);
+// The smallest distance from the camera to the mech's chest while the mech backs up along +z for two seconds.
+function minChest(boxes: readonly THREE.Box3[]): number {
+  const targets = Array.from({ length: Math.round(SECONDS / DT) }, (_, frame) => at(0, BOOST * frame * DT));
+  const states = followFrames(targets, boxes);
+  return Math.min(
+    ...states.map((state, frame) =>
+      state.pos.distanceTo(new THREE.Vector3(0, MECH_TUNE.chestHeight, BOOST * frame * DT)),
+    ),
+  );
+}
+
+// With no wall the camera takes the open lag's step: nothing but the wall may ease it.
+for (const [name, pitch, next] of [
+  ['a forward boost', 0, at(0, -BOOST * DT)],
+  ['a backward boost', 0, at(0, BOOST * DT)],
+  ['a turn', 0, at(0, 0, 0.3)],
+  ['looking down', CAMERA_TUNE.pitchMin, at(0, BOOST * DT)],
+  ['looking up', CAMERA_TUNE.pitchMax, at(0, BOOST * DT)],
+] as const) {
+  test(`no wall, ${name}: the camera takes the open lag's step`, () => {
+    const prev = stateOfPose(cameraPose(at(0, 0), pitch, CAMERA_TUNE, []));
+    const pose = cameraPose(next, pitch, CAMERA_TUNE, []);
+    const state = followCamera(prev, pose, DT, CAMERA_TUNE);
+    const lagged = followPose(prev.pos, pose.pos, DT, CAMERA_TUNE.lag);
+    expect(state.pos.distanceTo(lagged)).toBeLessThan(WITHIN);
+  });
+}
+
+test('a boost for two seconds in the open: every frame is the open lag step', () => {
+  let state: CameraState | null = null;
+  let lagged: THREE.Vector3 | null = null;
+  for (let frame = 0; frame < Math.round(SECONDS / DT); frame++) {
+    const pose = cameraPose(at(0, -BOOST * frame * DT), 0, CAMERA_TUNE, []);
+    state = followCamera(state, pose, DT, CAMERA_TUNE);
+    lagged = lagged === null ? pose.pos.clone() : followPose(lagged, pose.pos, DT, CAMERA_TUNE.lag);
+    expect(state.pos.distanceTo(lagged), `frame ${frame}`).toBeLessThan(WITHIN);
   }
 });
 
 // The wall behind the mech at 1 m, 20 m long: the mech walks +x past its end while the camera follows.
 const wallBehind = (): THREE.Box3[] => cameraBoxes([{ x: 0, z: 2, halfW: 10, halfD: 1, yaw: 0, top: 6 }]);
 
-// The direction from the camera to the point it looks at, normalized.
-const view = (state: CameraState): THREE.Vector3 => state.look.clone().sub(state.pos).normalize();
-
+// The wall's share of the move alone is held to pullSpeed; the mech's own travel is followed exactly.
 for (const speed of [7.5, BOOST]) {
-  test(`walking past a wall's end at ${speed} m/s: no jump and no sudden turn`, () => {
-    const boxes = wallBehind();
-    // let the camera settle beside the wall first
+  test(`walking past a wall's end at ${speed} m/s: the wall's share slides and the screen turns little`, () => {
     const settle = Array.from({ length: 30 }, () => at(0, 0));
     const run = Array.from({ length: 240 }, (_, frame) => at(speed * frame * DT, 0));
-    const states = followFrames([...settle, ...run], boxes).slice(settle.length);
-    let maxMove = 0;
-    let maxTurn = 0;
-    for (let i = 0; i < states.length; i++) {
-      const prevPos = i === 0 ? states[0].pos : states[i - 1].pos;
-      const prevView = i === 0 ? view(states[0]) : view(states[i - 1]);
-      maxMove = Math.max(maxMove, states[i].pos.distanceTo(prevPos));
-      maxTurn = Math.max(maxTurn, Math.acos(Math.min(1, Math.max(-1, view(states[i]).dot(prevView)))) * DEG);
-    }
-    expect(maxMove).toBeLessThanOrEqual(MAX_FRAME_MOVE);
-    expect(maxTurn).toBeLessThanOrEqual(MAX_FRAME_TURN);
+    const { rel, turn } = motion(followFrames([...settle, ...run], wallBehind()));
+    expect(rel).toBeLessThanOrEqual(PULL_STEP + 1e-6);
+    expect(turn).toBeLessThanOrEqual(MAX_FRAME_TURN);
   });
 }
+
+test('a wall that lets go while the mech backs and slides: no jump and no sudden turn', () => {
+  // The mech faces +x and slides along +z past the seawall's end at 12 m/s, backing toward the wall a little. The wall
+  // was holding the camera close to the mech; once its end is passed the camera comes back out.
+  const wall = cameraBoxes([{ x: -2, z: 0, halfW: 1, halfD: 10, yaw: 0, top: 6 }]);
+  const settle = Array.from({ length: 30 }, () => at(0, 5, -Math.PI / 2));
+  const run = Array.from({ length: 180 }, (_, frame) => {
+    const t = frame * DT;
+    return at(-0.2 * t, 5 + 12 * t, -Math.PI / 2);
+  });
+  const { rel, turn } = motion(followFrames([...settle, ...run], wall));
+  expect(rel).toBeLessThanOrEqual(PULL_STEP + 1e-6);
+  expect(turn).toBeLessThanOrEqual(MAX_FRAME_TURN);
+});
+
+test('backing the mech up for two seconds never walks the camera into its chest, with or without a wall', () => {
+  // The wall's near face is 5 m past where the two seconds of backing end: it presses the camera in late, then the mech
+  // reaches the end of the run before the wall stops it.
+  expect(minChest([]), 'the open').toBeGreaterThan(MECH_TUNE.fadeDist);
+  expect(minChest(cameraBoxes([{ x: 0, z: 38, halfW: 10, halfD: 3, yaw: 0, top: 6 }])), 'a wall').toBeGreaterThan(
+    MECH_TUNE.fadeDist,
+  );
+});
+
+test('a frame of no time gives the camera a place, not a NaN', () => {
+  const prev = stateOfPose(cameraPose(at(0, 0), 0, CAMERA_TUNE, []));
+  const pose = cameraPose(at(0, BOOST * DT), 0, CAMERA_TUNE, wallBehind());
+  const state = followCamera(prev, pose, 0, CAMERA_TUNE);
+  expect([state.pos.x, state.pos.y, state.pos.z].every(Number.isFinite)).toBe(true);
+});
 
 // The camera applyPose leaves for a state.
 function cameraOf(pose: ReturnType<typeof cameraPose>, state: CameraState): THREE.PerspectiveCamera {

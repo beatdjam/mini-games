@@ -64,13 +64,12 @@ test('the mech turns see-through while the camera is near its chest, and solid a
   sendToScript(currentGame()!, { kind: 'skip' });
   await frame();
   expect(opacities().every(opacity => opacity === 1)).toBe(true);
-  const { dist, lag, pullSpeed, maxSpeed, returnSpeed, returnLag } = CAMERA_TUNE;
+  const { dist, lag, pullSpeed, returnSpeed, returnLag } = CAMERA_TUNE;
   try {
     CAMERA_TUNE.dist = 0.5;
     CAMERA_TUNE.lag = 0; // the camera reaches its place in one frame
     // SB-1910 caps how fast a wall brings the camera in, so the test takes the caps off as shots/wall-close.shots.ts does
     CAMERA_TUNE.pullSpeed = SNAP_SPEED;
-    CAMERA_TUNE.maxSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnLag = 0;
     await frame();
@@ -86,7 +85,6 @@ test('the mech turns see-through while the camera is near its chest, and solid a
     CAMERA_TUNE.dist = dist;
     CAMERA_TUNE.lag = lag;
     CAMERA_TUNE.pullSpeed = pullSpeed;
-    CAMERA_TUNE.maxSpeed = maxSpeed;
     CAMERA_TUNE.returnSpeed = returnSpeed;
     CAMERA_TUNE.returnLag = returnLag;
   }

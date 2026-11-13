@@ -300,8 +300,9 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   view.cam = cutscene === null ? followCamera(view.cam, pose, dt, CAMERA_TUNE) : stateOfPose(pose);
   const pos = view.cam.pos.clone().add(frame.offset);
   applyPose(camera, { ...pose, pos, look: view.cam.look }, frame.fov);
-  // The aim is this screen's middle, feel shake and all: next frame's step fires along what the player just saw.
-  view.aim = aimRay({ ...view.cam, pos });
+  // The aim is the middle of the screen without the feel's shake: the reticle stays still and next frame's shot goes
+  // where the player aimed, along the same line the state holds.
+  view.aim = aimRay(view.cam);
   drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset);
   drawBooms(dt);
 

@@ -62,14 +62,12 @@ async function stand(x: number, z: number, yaw: number): Promise<void> {
   const ease = {
     lag: CAMERA_TUNE.lag,
     pullSpeed: CAMERA_TUNE.pullSpeed,
-    maxSpeed: CAMERA_TUNE.maxSpeed,
     returnSpeed: CAMERA_TUNE.returnSpeed,
     returnLag: CAMERA_TUNE.returnLag,
   };
   try {
     CAMERA_TUNE.lag = 0;
     CAMERA_TUNE.pullSpeed = SNAP_SPEED;
-    CAMERA_TUNE.maxSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnLag = 0;
     for (let n = 0; n < SETTLE; n++) await frame();

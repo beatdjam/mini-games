@@ -42,7 +42,6 @@ test('an 8 m mech scales every camera distance and speed, and keeps the angles a
     'pullSpeed',
     'pullGap',
     'pullNear',
-    'maxSpeed',
     'returnSpeed',
     'releaseGap',
     'rise',

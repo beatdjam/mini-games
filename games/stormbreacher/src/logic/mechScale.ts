@@ -46,7 +46,6 @@ export function scaleForMech(
     camera.pullSpeed *= ratio;
     camera.pullGap *= ratio;
     camera.pullNear *= ratio;
-    camera.maxSpeed *= ratio;
     camera.returnSpeed *= ratio;
     camera.releaseGap *= ratio;
     camera.rise *= ratio;
