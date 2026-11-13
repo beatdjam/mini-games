@@ -8,6 +8,10 @@ import type { EnemyShot } from './enemies.ts';
 import { spreadDir } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
 
+// A wait summed frame by frame can end a sliver above zero. A wait this near zero has run out, so the warning starts
+// on the frame the wait was meant to end rather than a frame later.
+const WAIT_EPSILON = 1e-9;
+
 export interface PillboxState {
   id: string;
   wait: number; // the seconds before the next warning
@@ -124,9 +128,11 @@ export function stepPillbox(
   // The wait counts only while the mech can be shot at, so one that spent the wait behind cover does not fire the
   // moment the mech steps out.
   if (aim === null) return { warnAt: null, shot: null };
-  if (state.wait > 0) {
+  if (state.wait > WAIT_EPSILON) {
     state.wait = Math.max(0, state.wait - dt);
-    return { warnAt: null, shot: null };
+    if (state.wait > WAIT_EPSILON) return { warnAt: null, shot: null };
+    // the wait ran out in this frame: the warning starts in this same frame, a whole interval after the last shot
+    state.wait = 0;
   }
   state.warn = PILLBOX_TUNE.warn;
   return { warnAt: { ...aim.muzzle }, shot: null };

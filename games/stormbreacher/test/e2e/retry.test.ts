@@ -124,7 +124,7 @@ test('a warning light goes out once the sortie starts again', async () => {
   await until(() => current.script.cutscene === null);
   current.mech.x = -33;
   current.mech.z = 10;
-  await until(() => current.pillboxes.some(state => state.warn > 0));
+  await until(() => current.pillboxes.some(pillbox => pillbox.warn > 0));
   await frame();
   expect(warnLights()).toBeGreaterThan(0);
 

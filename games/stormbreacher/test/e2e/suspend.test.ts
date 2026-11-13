@@ -87,7 +87,7 @@ async function warnedSortie(): Promise<void> {
   const current = game();
   current.mech.x = -33;
   current.mech.z = 10;
-  await until(() => current.pillboxes.some(state => state.warn > 0));
+  await until(() => current.pillboxes.some(pillbox => pillbox.warn > 0));
 }
 
 test('P pauses: the menu comes, the clock stops and the pointer lock goes', async () => {

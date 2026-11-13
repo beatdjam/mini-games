@@ -42,7 +42,7 @@ const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per la
 const BOOST_DUST = 6; // the same, per boost start
 const BLAST_DUST = 14; // the same, per shell landing or mine blast
 const BLAST_SHAKE_NEAR = 25; // a blast this near the mech (m) shakes the camera even when it does no harm
-const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the game has fewer pillboxes than that
+const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the hand map has 3 pillboxes, so it is not reached
 const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
 const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
 
@@ -144,8 +144,9 @@ function buildPillboxWarnView(group: THREE.Group): PillboxWarnView {
 
 const pillboxWarnPlace = new THREE.Object3D();
 
-// Draws a light at the muzzle of every pillbox whose warning is running, smaller as the warning nears its end. The light
-// is read from the pillbox's own countdown each frame, so a cutscene, a pause or a suspend holds it where it stands.
+// Draws a light at the muzzle of every pillbox whose warning is running, up to the mesh's capacity, smaller as the
+// warning nears its end. The light is read from the pillbox's own countdown each frame, so a cutscene, a pause or a
+// suspend holds it where it stands.
 function drawPillboxWarns(view: PillboxWarnView, game: GameModel): void {
   let count = 0;
   for (const state of game.pillboxes) {
