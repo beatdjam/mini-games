@@ -6,6 +6,7 @@ import { distXZ } from '@engine/core/index.ts';
 import { PROP_SIZE, TARGET_SIZE } from '../data/props.ts';
 import { MECH_TUNE } from '../data/tune.ts';
 import type { MapDef, MissionDef } from '../data/types.ts';
+import { blastPropIndexes } from './blasts.ts';
 import { rectDistance } from './collide.ts';
 import { mapBlockers } from './mapShapes.ts';
 
@@ -111,10 +112,11 @@ function checkWaves(map: MapDef, mission: MissionDef, skip: MapCheckSkip, out: M
 }
 
 // A target or a blocking prop stops the mech's middle from coming within MECH_TUNE.radius of its rect. The rects come
-// from mapBlockers, the same ones the mech's collision uses. The map is checked in the shape it has before anything is
-// broken: a breakable stretch counts as blocking, so a map must still be crossable through its breakthroughs even
-// without breaking it. Stairs and ramps are walked up from their lowest edge, so they count as open ground here: one set
-// behind a breakthrough does not close it (the climb itself is checked by walking it in the tests).
+// from mapBlockers, the same ones the mech's collision uses. A blast point is walked as an open hole: the mech can blow it
+// open, so the check reads the line with those hedgehogs gone. The closed line is checked by walking a copy with
+// `blasts: []`. The line's hedgehogs block: a shot does not break them. Stairs and ramps are walked up from their lowest
+// edge, so they count as open ground here: one set behind a breakthrough does not close it (the climb itself is checked
+// by walking it in the tests).
 function blockedCells(map: MapDef): Grid {
   const { minX, minZ, maxX, maxZ } = map.bounds;
   const cols = Math.max(1, Math.floor((maxX - minX) / CELL));
@@ -122,7 +124,14 @@ function blockedCells(map: MapDef): Grid {
   const cells = new Uint8Array(cols * rows); // 0 free, 1 blocked
   // Each blocker looks only at the cells within its reach (its corner's distance from the middle plus the radius), so
   // the check does not go over every cell for every blocker; a cell outside that square cannot be within the radius.
-  const walls = { ...map, props: map.props.filter(prop => prop.kind !== 'stairs' && prop.kind !== 'ramp') };
+  const opened = new Set<number>();
+  for (const blast of map.blasts ?? []) {
+    for (const index of blastPropIndexes(map, blast)) opened.add(index);
+  }
+  const walls = {
+    ...map,
+    props: map.props.filter((prop, index) => prop.kind !== 'stairs' && prop.kind !== 'ramp' && !opened.has(index)),
+  };
   for (const blocker of mapBlockers(walls)) {
     const reach = Math.hypot(blocker.halfW, blocker.halfD) + MECH_TUNE.radius;
     const i0 = Math.max(0, Math.floor((blocker.x - reach - minX) / CELL));

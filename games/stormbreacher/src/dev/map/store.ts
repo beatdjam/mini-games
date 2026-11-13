@@ -99,9 +99,11 @@ function blastsOf(value: unknown): BlastPlace[] | undefined {
   if (!Array.isArray(value)) throw new Error('blasts is not a list');
   return value.map((entry, index) => {
     const blast = record(entry, `blasts[${index}]`);
+    const line = blast.line;
+    if (line !== null) num(line, `blasts[${index}].line`);
     return {
       id: text(blast.id, `blasts[${index}].id`),
-      line: num(blast.line, `blasts[${index}].line`),
+      line: line === null ? null : num(line, `blasts[${index}].line`),
       x: num(blast.x, `blasts[${index}].x`),
       z: num(blast.z, `blasts[${index}].z`),
     };

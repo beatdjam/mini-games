@@ -7,6 +7,7 @@ import { SHUTTER_COLOR, SKY_COLOR } from '../data/colors.ts';
 import { TARGET_SIZE, TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
+import { blastPropIndexes } from '../logic/blasts.ts';
 import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxesOfRect } from './camera.ts';
 import { buildShore } from './shore.ts';
@@ -29,9 +30,9 @@ export interface World {
   shutters: Map<string, THREE.Mesh>; // the armour plate before a target, by the target's id; hidden once it is open
   shore: THREE.Group; // the sea and the landing craft, to take out with them
   cameraBoxes: THREE.Box3[]; // the props and targets as walls the camera keeps out of
-  slots: Map<number, PropSlot>; // a breakable prop's place in map.props -> where it is drawn
-  propCameraBoxes: Map<number, THREE.Box3>; // a breakable prop's place in map.props -> its box in cameraBoxes
-  broken: Set<number>; // the props already drawn broken
+  slots: Map<number, PropSlot>; // a breakable or blast-opened prop's place in map.props -> where it is drawn
+  propCameraBoxes: Map<number, THREE.Box3>; // those props' place in map.props -> its box in cameraBoxes
+  broken: Set<number>; // the props already drawn broken or opened
 }
 
 // The tiles that cover the whole bounds. The last row and column may hang a little past the edge, so no gap is left.
@@ -49,6 +50,16 @@ export function groundTiles(bounds: MapBounds): Prop[] {
   return tiles;
 }
 
+// The props a blast point would take out of its line, for the draw: their copies get a slot and a camera box now, so a
+// blast can lower them where they stand without a new mesh.
+function blastPropsOf(map: MapDef): Set<Prop> {
+  const props = new Set<Prop>();
+  for (const blast of map.blasts ?? []) {
+    for (const index of blastPropIndexes(map, blast)) props.add(map.props[index]);
+  }
+  return props;
+}
+
 // Builds the walkable map into the scene and returns what was built. Hiding the start-up field is left to the caller.
 export function buildWorld(map: MapDef): World {
   const fog = scene.fog instanceof THREE.Fog ? scene.fog : new THREE.Fog(SKY_COLOR, FOG_NEAR, FOG_FAR);
@@ -58,7 +69,11 @@ export function buildWorld(map: MapDef): World {
   camera.far = FOG_FAR + 20;
   camera.updateProjectionMatrix();
 
-  const built = buildOutdoor([...groundTiles(map.bounds), ...map.props], { chunk: CHUNK, chunkMin: CHUNK_MIN });
+  const built = buildOutdoor([...groundTiles(map.bounds), ...map.props], {
+    chunk: CHUNK,
+    chunkMin: CHUNK_MIN,
+    slotProps: blastPropsOf(map),
+  });
   scene.add(built.group);
 
   const targetGroup = buildTargets(map.targets);
@@ -92,12 +107,14 @@ export function buildWorld(map: MapDef): World {
   const boxes = boxesByRect.flat();
   const slots = new Map<number, PropSlot>();
   const propCameraBoxes = new Map<number, THREE.Box3>();
+  const blastProps = blastPropsOf(map);
   map.props.forEach((prop, index) => {
     const slot = built.slots.get(prop);
     if (slot) slots.set(index, slot);
   });
   blockingPropIndexes(map).forEach((propIndex, i) => {
-    if (map.props[propIndex].breakable !== true) return;
+    const prop = map.props[propIndex];
+    if (prop.breakable !== true && !blastProps.has(prop)) return;
     const box = boxesByRect[i][0];
     if (box) propCameraBoxes.set(propIndex, box);
   });
@@ -115,9 +132,10 @@ export function buildWorld(map: MapDef): World {
   };
 }
 
-// Lowers and darkens every target whose health is gone, hides every shutter that is open, and every breakable prop the game has broken: its copy becomes
-// a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands that same array to the camera every frame).
-// Called every frame, so one already down or broken is left as it is.
+// Lowers and darkens every target whose health is gone, hides every shutter that is open, and every prop the game has
+// broken or a blast has opened: its copy becomes a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands
+// that same array to the camera every frame). A blasted line is drawn open from the first frame after a checkpoint or a
+// suspend brings it back. Called every frame, so one already down or broken is left as it is.
 export function syncWorld(world: World, game: GameModel): void {
   for (const target of game.targets) {
     if (target.hp > 0) continue;
@@ -140,5 +158,19 @@ export function syncWorld(world: World, game: GameModel): void {
       if (at >= 0) world.cameraBoxes.splice(at, 1);
     }
     world.broken.add(breakable.prop);
+  }
+  for (const blast of game.blasts) {
+    if (!blast.blasted) continue;
+    for (const prop of blastPropIndexes(game.map, blast)) {
+      if (world.broken.has(prop)) continue;
+      const slot = world.slots.get(prop);
+      if (slot) breakPropSlot(slot);
+      const box = world.propCameraBoxes.get(prop);
+      if (box) {
+        const at = world.cameraBoxes.indexOf(box);
+        if (at >= 0) world.cameraBoxes.splice(at, 1);
+      }
+      world.broken.add(prop);
+    }
   }
 }

@@ -3,6 +3,7 @@ import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { BlastPlace } from '../../src/data/types.ts';
+import { blastPropIndexes } from '../../src/logic/blasts.ts';
 import {
   retryFromCheckpoint,
   sendToScript,
@@ -203,5 +204,87 @@ describe('checkpoint and retry', () => {
     expect(again.plant?.hold).toBeCloseTo(held, 6);
     runUntil(again, use, 200, () => again.events.some(event => event.kind === 'planted'));
     expect(again.charges).toHaveLength(1);
+  });
+});
+
+// Plants l1-b, steps well out of its blast and waits for the charge to blow.
+function blowL1B(game: GameModel) {
+  const blast = blastOf(game, 'l1-b');
+  standAt(game, blast);
+  runUntil(game, use, 200, () => game.events.some(event => event.kind === 'planted'));
+  game.mech.z = blast.z + CHARGE_TUNE.blastRadius + 5;
+  const blown = runUntil(game, idle, Math.ceil((CHARGE_TUNE.fuse + 0.5) / DT), () =>
+    game.events.some(event => event.kind === 'blast'),
+  );
+  return { blast, blown };
+}
+
+// Walks the mech landward at x through the open hole of line 1; true when it comes out the other side.
+function walkThroughL1(game: GameModel, x: number): boolean {
+  game.mech.x = x;
+  game.mech.y = 0;
+  game.mech.z = 150;
+  game.mech.grounded = true;
+  game.mech.yaw = 0;
+  for (let i = 0; i < 600; i++) {
+    step(game, { ...idle, moveZ: 1 }, DT);
+    if (game.mech.z < 126) return true;
+  }
+  return false;
+}
+
+describe('a blast opens its line', () => {
+  test('the same hedgehogs leave rects, propBoxes and propRefs, and the mech walks through the hole', () => {
+    const game = newPlayGame(M1B_HAND);
+    quiet(game);
+    game.armor = 1e9;
+    const props = new Set(blastPropIndexes(game.map, blastOf(game, 'l1-b')));
+    expect(props.size).toBeGreaterThan(0);
+    const boxesBefore = game.propRefs.length;
+    const rectsBefore = game.rects.length;
+
+    const { blast } = blowL1B(game);
+    expect(game.blasts.find(place => place.id === blast.id)?.blasted).toBe(true);
+    expect(game.propRefs.some(index => props.has(index))).toBe(false);
+    expect(game.propRefs.length).toBeLessThan(boxesBefore);
+    expect(game.rects.length).toBe(rectsBefore - props.size);
+    // the map is the closed line still: only the game's own arrays were opened
+    expect(game.map.props.filter((_prop, index) => props.has(index))).toHaveLength(props.size);
+
+    expect(walkThroughL1(game, blast.x)).toBe(true);
+  });
+
+  test('a blasted point cannot be planted on again', () => {
+    const game = newPlayGame(M1B_HAND);
+    quiet(game);
+    game.armor = 1e9;
+    const { blast } = blowL1B(game);
+
+    standAt(game, blast);
+    const events: GameEvent[] = [];
+    for (let i = 0; i < 200; i++) {
+      step(game, use, DT);
+      events.push(...game.events);
+    }
+    expect(events.some(event => event.kind === 'planted')).toBe(false);
+    expect(game.charges).toEqual([]);
+    expect(game.plant).toBeNull();
+  });
+
+  test('the checkpoint keeps the line open, so a retry starts with the hole still there', () => {
+    const game = newPlayGame(M1B_HAND);
+    quiet(game);
+    game.armor = 1e9;
+    const props = new Set(blastPropIndexes(game.map, blastOf(game, 'l1-b')));
+    const { blast } = blowL1B(game);
+    takeCp1(game);
+    expect(game.checkpoint?.blasts.find(place => place.id === blast.id)?.blasted).toBe(true);
+
+    game.armor = 0;
+    game.downed = true;
+    const again = retryFromCheckpoint(game);
+    expect(again.blasts.find(place => place.id === blast.id)?.blasted).toBe(true);
+    expect(again.propRefs.some(index => props.has(index))).toBe(false);
+    expect(walkThroughL1(again, blast.x)).toBe(true);
   });
 });

@@ -18,7 +18,7 @@ import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { buildMechVisual } from '../../view/mechModel.ts';
 import { createTunePanel, type TuneRange } from '../tunePanel.ts';
-import { stepBlasts, stepCharge } from '../../logic/blasts.ts';
+import { openBreach, stepBlasts, stepCharge } from '../../logic/blasts.ts';
 
 declare global {
   interface Window {
@@ -58,7 +58,7 @@ interface BreachReport {
   triangles: number;
 }
 
-function button(parent: HTMLElement, label: string, run: () => void): void {
+function button(parent: HTMLElement, label: string, run: () => void): HTMLButtonElement {
   const node = document.createElement('button');
   node.type = 'button';
   node.textContent = label;
@@ -67,6 +67,7 @@ function button(parent: HTMLElement, label: string, run: () => void): void {
     'color:inherit;font:inherit';
   node.addEventListener('click', run);
   parent.appendChild(node);
+  return node;
 }
 
 export function showBreach(_hash: string) {
@@ -76,8 +77,8 @@ export function showBreach(_hash: string) {
     const node = scene.getObjectByName(name);
     if (node) node.visible = false;
   }
-  const { built } = buildWorld(map);
-  applyLookTo(lookOf(M1.id), built.group);
+  let world = buildWorld(map);
+  applyLookTo(lookOf(M1.id), world.built.group);
   buildBooms(map.bounds);
 
   const game: GameModel = newGame(map);
@@ -86,6 +87,16 @@ export function showBreach(_hash: string) {
   game.mech.y = 0;
   game.mech.grounded = true;
   game.mech.yaw = 0;
+
+  // Draws the line closed again, or with l1-b's hole open: the map is built anew, since a blast takes props away.
+  const showLine = (open: boolean) => {
+    scene.remove(world.built.group);
+    scene.remove(world.targetGroup);
+    scene.remove(world.shore);
+    for (const blast of game.blasts) blast.blasted = open && blast.id === 'l1-b';
+    world = buildWorld(openBreach(map, open ? ['l1-b'] : []));
+    applyLookTo(lookOf(M1.id), world.built.group);
+  };
 
   const model = buildMechVisual(
     { build: M1_MECH, palette: M1_MECH_PALETTE, weaponScale: M1_WEAPON_SCALE },
@@ -130,6 +141,17 @@ export function showBreach(_hash: string) {
     game.plant = null;
     useHeld = false;
   });
+  const lineRow = document.createElement('div');
+  lineRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
+  extra.appendChild(lineRow);
+  button(lineRow, 'この線を爆破で開く', () => showLine(true)).dataset.sbBreach = 'open';
+  const close = button(lineRow, '閉じた線に戻す', () => {
+    game.charges = [];
+    game.plant = null;
+    useHeld = false;
+    showLine(false);
+  });
+  close.dataset.sbBreach = 'close';
 
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
@@ -160,7 +182,10 @@ export function showBreach(_hash: string) {
       game.time += dt;
       const hold = stepCharge(game, useHeld, dt);
       game.plant = hold.plant;
-      for (const blown of stepBlasts(game, dt)) spawnBoom('large', blown.blast.x, 0.8, blown.blast.z);
+      for (const blown of stepBlasts(game, dt)) {
+        spawnBoom('large', blown.blast.x, 0.8, blown.blast.z);
+        if (blown.blast.id === 'l1-b' && !blown.blast.blasted) showLine(true);
+      }
       model.position.set(game.mech.x, game.mech.y, game.mech.z);
       drawBooms(dt);
       drawBlasts(view, game);

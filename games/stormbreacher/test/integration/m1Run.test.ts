@@ -1,6 +1,7 @@
 // A bot plays M1 from the landing to the cleared result with inputs alone (no teleport, no health written): it walks a
-// list of points through the breakthroughs and up a ramp, shoots what is in its sight and steps out of a
-// shell's circle. It tells whether the sortie can be done and gives a rough measure of the ammo and the armour it costs.
+// list of points, plants a charge at one blast point of each line and goes through the hole it opens, shoots what is in
+// its sight and steps out of a shell's circle. It tells whether the sortie can be done and gives a rough measure of the
+// ammo and the armour it costs.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
@@ -24,22 +25,28 @@ interface Waypoint {
   z: number;
   why: string;
   hold?: readonly string[]; // targets that stand the bot here, shooting, until they are all down
+  plant?: string; // stands here and holds use until this blast point has a charge on it
+  wait?: string; // stands here until this blast point has blown
 }
 
-// The route. +z is the sea. It goes through the gaps the map leaves: the low walls (z 154) have 14 m between them, line 1
-// (z 128..146) has its breakthrough at x 40, line 2 (z 80..96) at x -10, line 3 (z 8..26) at x 61 and C's rows
-// (z -55..-35) at x 35, right in front of the ramp up the seawall.
+// The route. +z is the sea. It plants a charge at one blast point of each line, walks back out of the blast and goes
+// through the hole the charge opens: line 1 at x 40, line 2 at x -10, line 3 at x 61. C's rows (z -55..-35) still have
+// their breakthrough at x 35, right in front of the ramp up the seawall.
 const ROUTE: readonly Waypoint[] = [
   { x: 26, z: 166, why: 'along the sea edge, clear of the mines at x 14 and x 34' },
   { x: 42, z: 160, why: 'the gap between the low walls at x 30 and x 54, 10 m from the mine at x 52' },
-  { x: 40, z: 148, why: 'into the breakthrough of line 1, 6 m from the mine at x 34' },
-  { x: 40, z: 122, why: 'out of line 1' },
+  { x: 40, z: 150, why: "in front of line 1's blast point l1-b, and stands to plant", plant: 'l1-b' },
+  { x: 40, z: 162, why: 'back from line 1 while the fuse burns', wait: 'l1-b' },
+  { x: 40, z: 122, why: "through the hole line 1's blast opened" },
   { x: 5, z: 110, why: 'between the covers of the first stretch, towards line 2' },
-  { x: -10, z: 100, why: 'in front of the breakthrough of line 2' },
-  { x: -10, z: 76, why: 'out of line 2' },
+  { x: -10, z: 100, why: "in front of line 2's blast point l2-a, and stands to plant", plant: 'l2-a' },
+  { x: -10, z: 112, why: 'back from line 2 while the fuse burns', wait: 'l2-a' },
+  { x: -10, z: 76, why: "through the hole line 2's blast opened" },
   { x: 20, z: 56, why: 'between the covers of the second stretch, towards line 3' },
-  { x: 61, z: 36, why: 'in front of the breakthrough of line 3' },
-  { x: 61, z: 4, why: 'out of line 3' },
+  { x: 61, z: 36, why: 'in front of the line 3 row, clear of the cover' },
+  { x: 61, z: 29, why: "in front of line 3's blast point l3-b, and stands to plant", plant: 'l3-b' },
+  { x: 61, z: 41, why: 'back from line 3 while the fuse burns', wait: 'l3-b' },
+  { x: 61, z: 4, why: "through the hole line 3's blast opened" },
   {
     x: 45,
     z: -8,
@@ -107,13 +114,24 @@ interface Bot {
   next: number; // the place in ROUTE of the point it walks to
 }
 
-// One frame of the bot's input: the way to the point (or away from a shell), the shots at the nearest foe in sight.
+// Whether a blast point has a charge on it.
+const charged = (game: GameModel, id: string): boolean => game.charges.some(charge => charge.blast === id);
+
+// Whether a blast point has blown its line open.
+const blasted = (game: GameModel, id: string): boolean => game.blasts.find(blast => blast.id === id)?.blasted === true;
+
+// One frame of the bot's input: the way to the point (or away from a shell), the shots at the nearest foe in sight, and the
+// use held while it stands at a blast point. It plants the charge, steps back to the next point, waits there until the
+// blast opens the line and then walks through the hole.
 function decide(game: GameModel, bot: Bot): GameInput {
   const { mech } = game;
   const point = ROUTE[bot.next];
   const held = point.hold?.filter(id => game.targets.find(target => target.id === id)?.hp !== 0) ?? [];
-  if (Math.hypot(point.x - mech.x, point.z - mech.z) < REACH && held.length === 0 && bot.next < ROUTE.length - 1) {
-    bot.next += 1;
+  const arrived = Math.hypot(point.x - mech.x, point.z - mech.z) < REACH;
+  if (arrived && held.length === 0 && bot.next < ROUTE.length - 1) {
+    const plantingLeft = point.plant !== undefined && !charged(game, point.plant);
+    const waitingLeft = point.wait !== undefined && !blasted(game, point.wait);
+    if (!plantingLeft && !waitingLeft) bot.next += 1;
   }
   const goal = ROUTE[bot.next];
   let wx = goal.x - mech.x;
@@ -153,6 +171,15 @@ function decide(game: GameModel, bot: Bot): GameInput {
     turn = Math.max(-TURN_RATE * DT, Math.min(TURN_RATE * DT, diff));
   }
   const input: GameInput = { ...idle, moveZ: wx * fx + wz * fz, moveX: wx * -fz + wz * fx, turn };
+  // at the blast point, holding use: it stands still and shoots nothing until the charge is on
+  const planting =
+    standing &&
+    goal.plant !== undefined &&
+    !charged(game, goal.plant) &&
+    !game.shells.some(shell => {
+      return Math.hypot(mech.x - shell.x, mech.z - shell.z) < shell.radius + SHELL_MARGIN;
+    });
+  if (planting) return { ...input, moveX: 0, moveZ: 0, use: true, fire: false, sub: false };
   if (!foe) return input;
   const c = centre(foe.box);
   const chestY = mech.y + MECH_TUNE.chestHeight;
@@ -216,7 +243,7 @@ test(
     const times = STORY.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    // seed 7 took about 78 s of game time and 27 armour (of 200), and left 303 of 400 autocannon shots and 3 of 12 heavy
+    // seed 7 took about 106 s of game time and 43 armour (of 200), and left 241 of 400 autocannon shots and 0 of 12 heavy
     // gun shots; the limits below keep room for a retune of the values, and fail if the sortie turns out hardly possible
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
     expect(result.armor).toBeGreaterThan(0);

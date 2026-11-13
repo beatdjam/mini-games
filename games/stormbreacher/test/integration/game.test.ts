@@ -40,11 +40,21 @@ function atPillbox1Side(game: GameModel): void {
   game.mech.yaw = Math.PI / 2;
 }
 
+// The hand map with the old breakable stretch of line 2 marked breakable again, for the tests of a breakable prop: the
+// line itself is closed and not breakable (SB-1510).
+function breakableLine2(): MapDef {
+  const map = structuredClone(M1B_HAND);
+  for (const prop of map.props) {
+    if (prop.kind === 'hedgehog' && prop.z >= 80 && prop.z <= 96 && prop.x >= 40 && prop.x <= 60) prop.breakable = true;
+  }
+  return map;
+}
+
 // The breakable hedgehog of line 2 nearest the sea, found by its place rather than its index in the map.
-function breakableHedgehogIndex(): number {
-  const prop = M1B_HAND.props.find(item => item.breakable === true && item.x === 52.33 && item.z === 93.33);
-  if (!prop) throw new Error('the hand map has the breakable hedgehog at x 52.33, z 93.33');
-  return M1B_HAND.props.indexOf(prop);
+function breakableHedgehogIndex(map: MapDef): number {
+  const prop = map.props.find(item => item.breakable === true && item.x === 52.33 && item.z === 93.33);
+  if (!prop) throw new Error('the map has the breakable hedgehog at x 52.33, z 93.33');
+  return map.props.indexOf(prop);
 }
 
 // Puts the mech in front of that hedgehog (its +z side), facing the land.
@@ -271,8 +281,9 @@ test('running out of ammo stops the shots', () => {
 });
 
 test('a breakable hedgehog breaks after its health in autocannon shots', () => {
-  const index = breakableHedgehogIndex();
-  const game = newPlayGame(M1B_HAND);
+  const map = breakableLine2();
+  const index = breakableHedgehogIndex(map);
+  const game = newPlayGame(map);
   atBreakableHedgehog(game);
   const rects = game.rects.length;
   const boxes = game.propBoxes.length;
@@ -296,7 +307,7 @@ test('a breakable hedgehog breaks after its health in autocannon shots', () => {
 });
 
 test('the sub gun breaks a breakable hedgehog in one shot', () => {
-  const game = newPlayGame(M1B_HAND);
+  const game = newPlayGame(breakableLine2());
   atBreakableHedgehog(game);
   let shots = 0;
   let broke = false;
@@ -327,8 +338,9 @@ test('a prop that is not marked breakable takes no damage', () => {
 });
 
 test('a broken prop does not come back', () => {
-  const index = breakableHedgehogIndex();
-  const game = newPlayGame(M1B_HAND);
+  const map = breakableLine2();
+  const index = breakableHedgehogIndex(map);
+  const game = newPlayGame(map);
   atBreakableHedgehog(game);
   let broke = false;
   for (let i = 0; i < 600 && !broke; i++) {
@@ -356,14 +368,15 @@ test('the mech stays inside the map’s bounds', () => {
 });
 
 test('the breakable stretch of line 2 is shut until it is shot, then the mech walks through', () => {
+  const map = breakableLine2();
   // without firing, the hedgehogs stop the mech on the sea side of the line
-  const shut = newPlayGame(M1B_HAND);
+  const shut = newPlayGame(map);
   atBreakableHedgehog(shut);
   for (let i = 0; i < 600; i++) step(shut, { ...idle, moveZ: 1 }, 1 / 60);
   expect(shut.mech.z).toBeGreaterThan(90);
 
   // firing while walking breaks the stretch and the mech passes the back edge of line 2 (z 80)
-  const through = newPlayGame(M1B_HAND);
+  const through = newPlayGame(structuredClone(map));
   atBreakableHedgehog(through);
   const broke: number[] = [];
   let crossed = false;

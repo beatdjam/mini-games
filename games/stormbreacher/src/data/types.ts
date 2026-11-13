@@ -131,11 +131,12 @@ export interface MinePlace {
   z: number;
 }
 
-// A place a charge may be planted on a defence line (m). `line` is the line's centre z; `x` and `z` are the point on the
-// ground. +z is the sea, and the point stands 2 m sea-side of the line's most seaward face.
+// A place a charge may be planted on a defence line (m). `line` is the line's centre z (null for a point that belongs to
+// no line, such as a pillbox's later); `x` and `z` are the point on the ground. +z is the sea, and the point stands 2 m
+// sea-side of the line's most seaward face.
 export interface BlastPlace {
   id: string;
-  line: number;
+  line: number | null;
   x: number;
   z: number;
 }

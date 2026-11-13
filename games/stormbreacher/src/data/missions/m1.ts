@@ -5,19 +5,17 @@
 import type { Area, Cue, GroundSpot, MissionDef } from '../types.ts';
 
 // The way the allied mech runs along the beach and where the mortar takes it (SB-170). It starts beside the mech's start
-// (x 0, z 166), crosses the sea-side hedgehog rows through their breakthrough at x 40 and falls at z 135.
+// (x 0, z 166), runs to the front of line 1's blast point (40, 146.5) and falls beside it.
 const PATHS = {
   'beach-run': [
     { x: 10, z: 166 },
     { x: 24, z: 156 },
-    { x: 40, z: 146 },
-    { x: 40, z: 135 },
-    { x: 40, z: 110 },
+    { x: 44, z: 151 },
   ],
 } as const satisfies Record<string, readonly GroundSpot[]>;
 
 const PLACES = {
-  'beach-mid': { x: 40, z: 135 },
+  'beach-mid': { x: 44, z: 151 },
 } as const satisfies Record<string, GroundSpot>;
 
 const AREAS = {

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { blastPropIndexes } from '../../src/logic/blasts.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -24,6 +25,24 @@ function drawn(name: string): number {
   return count;
 }
 
+// How many hedgehog copies are drawn low (a broken or blast-opened one makes its copy this low).
+function loweredHedgehogs(): number {
+  const matrix = new THREE.Matrix4();
+  const at = new THREE.Vector3();
+  const turn = new THREE.Quaternion();
+  const size = new THREE.Vector3();
+  let count = 0;
+  scene.traverse(child => {
+    if (!(child instanceof THREE.InstancedMesh) || child.name !== 'hedgehog') return;
+    for (let i = 0; i < child.count; i++) {
+      child.getMatrixAt(i, matrix);
+      matrix.decompose(at, turn, size);
+      if (size.y < 0.5) count++;
+    }
+  });
+  return count;
+}
+
 test('a sortie draws the low walls and the ramps', async () => {
   startSortie();
   await frame();
@@ -34,6 +53,23 @@ test('a sortie draws the low walls and the ramps', async () => {
     expect(placed, kind).toBeGreaterThan(0);
     expect(drawn(kind), kind).toBe(placed);
   }
+});
+
+test('a blast lowers the line’s hedgehogs where they stand, with no new mesh', async () => {
+  startSortie();
+  await frame();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  const blast = game.blasts.find(place => place.id === 'l1-b');
+  if (!blast) throw new Error('the map has no l1-b');
+  const props = blastPropIndexes(game.map, blast);
+  expect(props.length).toBeGreaterThan(0);
+  expect(loweredHedgehogs()).toBe(0);
+
+  blast.blasted = true;
+  await frame();
+  await frame();
+  expect(loweredHedgehogs()).toBe(props.length);
 });
 
 // The first object in the scene with this name, anywhere below it.

@@ -7,6 +7,7 @@ import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
+import { openBreach } from '../../src/logic/blasts.ts';
 import {
   isEnemyBullet,
   sendToScript,
@@ -369,9 +370,9 @@ function inSight(game: GameModel): number {
 
 const SQUAD_SECONDS = 35; // the time the squad has to come out into the mech's sight (s)
 
-test('b-squad, put out behind line 3, finds the way through its breakthrough and comes into the mech’s sight', () => {
+test('b-squad, put out behind line 3, finds the way through the hole a blast opens and comes into the mech’s sight', () => {
   seed(1);
-  const game = newPlayGame({ ...M1B_HAND, mines: [] });
+  const game = newPlayGame(openBreach({ ...M1B_HAND, mines: [] }, ['l3-b']));
   // in front of line 3 (z 8..26), a long way from the squad (z -25..-33)
   game.mech.x = 0;
   game.mech.z = 40;
@@ -388,6 +389,18 @@ test('b-squad, put out behind line 3, finds the way through its breakthrough and
     for (const rect of blockers)
       expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
   }
+});
+
+test('a closed line 3 keeps b-squad out of the mech’s sight', () => {
+  seed(1);
+  const game = newPlayGame({ ...M1B_HAND, mines: [] });
+  game.mech.x = 0;
+  game.mech.z = 40;
+  game.mech.yaw = 0;
+  game.armor = 1e9;
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  for (let i = 0; i < SQUAD_SECONDS / DT; i++) step(game, idle, DT);
+  expect(inSight(game)).toBe(0);
 });
 
 test('seawall-drop is put out on top of the seawall and jumps down to the ground on its seaward side, shooting only after', () => {

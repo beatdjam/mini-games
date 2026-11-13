@@ -24,7 +24,7 @@ import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
-import type { Area, BlastPlace, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
+import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, rectBoxes, type GroundRect } from './collide.ts';
 import {
@@ -37,7 +37,15 @@ import {
   type ShutterState,
 } from './battery.ts';
 import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
-import { stepBlasts, stepCharge, type ChargeState, type PlantState } from './blasts.ts';
+import {
+  blastPropIndexes,
+  newBlasts,
+  stepBlasts,
+  stepCharge,
+  type BlastState,
+  type ChargeState,
+  type PlantState,
+} from './blasts.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
 import { newNav, stepNav, type NavState } from './nav.ts';
 import { newPillbox, pillboxDamageMul, stepPillbox, type PillboxState } from './pillbox.ts';
@@ -212,7 +220,7 @@ export interface GameModel {
   shutters: ShutterState[]; // the armour plates before the targets that have one, shut or open
   battery: BatteryState; // the main guns' machine guns
   mines: MineState[]; // the mines still on the ground
-  blasts: BlastPlace[]; // the map's blast points; a charge may be planted on one of them
+  blasts: BlastState[]; // the map's blast points, and which have blown their line open
   charges: ChargeState[]; // the charges planted and not yet blown
   plant: PlantState | null; // the hold under way on a blast point, if any
   allies: AllyState[]; // the allies the script has put out, the fallen too (down: they do not move); no hit box
@@ -484,6 +492,25 @@ function damageProp(game: GameModel, boxIndex: number, damage: number): void {
   game.events.push({ kind: 'propDestroyed', prop, x: place.x, z: place.z });
 }
 
+// Opens the hole a blast makes in its line: takes every hedgehog blastPropIndexes names out of rects, propBoxes and
+// propRefs. The boxes are taken out from the highest number down, because each splice moves the ones after it; the rect
+// each box belongs to is found first, the same way damageProp does (a ramp's stack makes the two numbers differ), and the
+// rects are taken out from the highest number down too. The map itself is not touched: it stays the closed line.
+function openBlastHole(game: GameModel, blast: BlastState): void {
+  const props = new Set(blastPropIndexes(game.map, blast));
+  if (props.size === 0) return;
+  const boxes: number[] = [];
+  for (let i = 0; i < game.propRefs.length; i++) if (props.has(game.propRefs[i])) boxes.push(i);
+  if (boxes.length === 0) return;
+  const rects = [...new Set(boxes.map(box => rectIndexOfBox(game, box)))].filter(index => index >= 0);
+  for (let i = boxes.length - 1; i >= 0; i--) {
+    game.propBoxes.splice(boxes[i], 1);
+    game.propRefs.splice(boxes[i], 1);
+  }
+  rects.sort((a, b) => b - a);
+  for (const index of rects) game.rects.splice(index, 1);
+}
+
 // A new sortie on `map` with the script `mission`: the mech at the middle of the front edge, facing the land, every
 // target at its health, and the script at its start.
 export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
@@ -537,7 +564,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     shutters: newShutters(map.targets.map(place => place.id)),
     battery: newBattery(map.targets),
     mines: (map.mines ?? []).map(place => ({ x: place.x, z: place.z, hp: MINE_TUNE.hp })),
-    blasts: (map.blasts ?? []).map(place => ({ ...place })),
+    blasts: newBlasts(map),
     charges: [],
     plant: null,
     allies: [],
@@ -870,9 +897,12 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     game.events.push({ kind: 'planted', id, x, z });
   }
   for (const blown of stepBlasts(game, dt)) {
-    const { id, x, z } = blown.blast;
-    game.events.push({ kind: 'blast', id, x, z, hit: blown.hit });
-    if (blown.hit) damageMech(game, CHARGE_TUNE.damage, x - game.mech.x, z - game.mech.z);
+    const blast = blown.blast;
+    if (blast.blasted) continue;
+    openBlastHole(game, blast);
+    blast.blasted = true;
+    game.events.push({ kind: 'blast', id: blast.id, x: blast.x, z: blast.z, hit: blown.hit });
+    if (blown.hit) damageMech(game, CHARGE_TUNE.damage, blast.x - game.mech.x, blast.z - game.mech.z);
   }
   stepAllies(game, dt);
   checkShutters(game);

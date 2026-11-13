@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
+import { blastPropIndexes } from '../../src/logic/blasts.ts';
 import { newGame } from '../../src/logic/game.ts';
 import { buildNavGrid, newNav } from '../../src/logic/nav.ts';
 import { SUSPEND_VERSION, restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
@@ -78,9 +79,24 @@ describe('suspend', () => {
     expect(back?.plant).toEqual({ blast: 'l1-a', hold: 0.5 });
   });
 
+  test('a blasted line comes back blasted and stays open', () => {
+    const game = newGame(M1B_HAND);
+    const point = game.blasts.find(blast => blast.id === 'l1-b');
+    if (!point) throw new Error('the map has no l1-b');
+    point.blasted = true;
+    // what the game does to its own arrays when the blast opens the line
+    const removed = new Set(blastPropIndexes(game.map, point));
+    game.propRefs = game.propRefs.filter(index => !removed.has(index));
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.blasts.find(blast => blast.id === 'l1-b')?.blasted).toBe(true);
+    expect(back?.propRefs.some(index => removed.has(index))).toBe(false);
+    expect(back?.blasts.find(blast => blast.id === 'l1-a')?.blasted).toBe(false);
+  });
+
   test('a version that is not this one is thrown away', () => {
     const data = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
     expect(restoreSuspend({ ...data, v: SUSPEND_VERSION + 1 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 4 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 3 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 0 })).toBeNull();
     const { v: _v, ...noVersion } = data;

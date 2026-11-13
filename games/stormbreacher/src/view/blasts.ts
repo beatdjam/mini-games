@@ -1,6 +1,6 @@
-// The blast points and the charges on them as the screen draws them (SB-1500): a ring on the ground for every point with
-// no charge on it, and a small blinking box for every charge planted. One InstancedMesh each, so two draws in all; a frame
-// makes no mesh, geometry or material. It reads GameModel and never writes it.
+// The blast points and the charges on them as the screen draws them (SB-1500): a ring on the ground for every point not
+// yet blown and with no charge on it, and a small blinking box for every charge planted. One InstancedMesh each, so two
+// draws in all; a frame makes no mesh, geometry or material. It reads GameModel and never writes it.
 import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { BLAST_POINT_COLOR, CHARGE_COLOR } from '../data/colors.ts';
@@ -65,6 +65,7 @@ export function drawBlasts(view: BlastView, game: GameModel): void {
   let rings = 0;
   for (const blast of game.blasts) {
     if (rings === MAX_BLAST_RINGS) break;
+    if (blast.blasted) continue;
     if (game.charges.some(charge => charge.blast === blast.id)) continue;
     place.position.set(blast.x, GROUND_LIFT, blast.z);
     place.rotation.set(0, 0, 0);

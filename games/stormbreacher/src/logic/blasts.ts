@@ -1,10 +1,19 @@
 // The charges planted on defence lines (SB-1500): holding use near a blast point plants one, its fuse burns down, and
-// when it runs out the charge blows and hurts a mech that stayed inside the blast. Pure functions on small states;
-// logic/game.ts keeps them and reports the events. They take narrow worlds rather than GameModel so game.ts can import
-// this file without a cycle.
+// when it runs out the charge blows and hurts a mech that stayed inside the blast. The blast also opens a hole in the
+// line: the hedgehogs in a rectangle about the point (SB-1510). Pure functions on small states; logic/game.ts keeps them
+// and reports the events. They take narrow worlds rather than GameModel so game.ts can import this file without a cycle.
 import { distXZ } from '@engine/core/index.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
-import type { BlastPlace } from '../data/types.ts';
+import type { MapDef } from '../data/types.ts';
+
+// A blast point and whether its charge has already blown the line open.
+export interface BlastState {
+  id: string;
+  line: number | null; // the line's centre z; null for a point that belongs to no line
+  x: number;
+  z: number;
+  blasted: boolean;
+}
 
 // A charge on the ground: the point it was planted on and the fuse it has left.
 export interface ChargeState {
@@ -19,7 +28,7 @@ export interface PlantState {
 }
 
 export interface ChargeWorld {
-  blasts: readonly BlastPlace[];
+  blasts: readonly BlastState[];
   charges: ChargeState[];
   plant: PlantState | null;
   mech: { x: number; y: number; z: number; grounded: boolean };
@@ -27,19 +36,55 @@ export interface ChargeWorld {
 
 export interface BlastWorld {
   charges: ChargeState[];
-  blasts: readonly BlastPlace[];
+  blasts: readonly BlastState[];
   mech: { x: number; z: number };
 }
 
-// The nearest blast point within reach that has no charge on it, or null when there is none.
+// The map's blast points as the game keeps them, none of them blown yet.
+export function newBlasts(map: MapDef): BlastState[] {
+  return (map.blasts ?? []).map(place => ({ id: place.id, line: place.line, x: place.x, z: place.z, blasted: false }));
+}
+
+// The place in map.props of every hedgehog a blast at `blast` opens out of the line: the rectangle of half width
+// CHARGE_TUNE.holeHalfWidth about the point's x and half depth CHARGE_TUNE.holeHalfDepth about the line's centre z. A point
+// that belongs to no line opens no hedgehog. The walking check (mapCheck.ts) and the game both call this, so the shape
+// they use is the same one.
+export function blastPropIndexes(map: MapDef, blast: { x: number; line: number | null }): number[] {
+  const line = blast.line;
+  if (line === null) return [];
+  const indexes: number[] = [];
+  map.props.forEach((prop, index) => {
+    if (prop.kind !== 'hedgehog') return;
+    if (Math.abs(prop.x - blast.x) > CHARGE_TUNE.holeHalfWidth) return;
+    if (Math.abs(prop.z - line) > CHARGE_TUNE.holeHalfDepth) return;
+    indexes.push(index);
+  });
+  return indexes;
+}
+
+// A copy of the map with the holes of the named blast points opened: for the tests and the dev view, so they see the
+// line as the game draws it after a blast. The game itself takes the props out of its own arrays instead; `blasts` stays
+// on the copy, so a point that is already open can still be named.
+export function openBreach(map: MapDef, ids: readonly string[]): MapDef {
+  const named = new Set(ids);
+  const removed = new Set<number>();
+  for (const blast of map.blasts ?? []) {
+    if (!named.has(blast.id)) continue;
+    for (const index of blastPropIndexes(map, blast)) removed.add(index);
+  }
+  return { ...map, props: map.props.filter((_prop, index) => !removed.has(index)) };
+}
+
+// The nearest blast point within reach that has no charge on it and has not blown yet, or null when there is none.
 export function nearBlast(
-  blasts: readonly BlastPlace[],
+  blasts: readonly BlastState[],
   charges: readonly ChargeState[],
   mech: { x: number; z: number },
-): BlastPlace | null {
-  let best: BlastPlace | null = null;
+): BlastState | null {
+  let best: BlastState | null = null;
   let bestDist = CHARGE_TUNE.reach;
   for (const blast of blasts) {
+    if (blast.blasted) continue;
     if (charges.some(charge => charge.blast === blast.id)) continue;
     const dist = distXZ(blast, mech);
     if (dist > bestDist) continue;
@@ -56,7 +101,7 @@ export function stepCharge(
   world: ChargeWorld,
   use: boolean,
   dt: number,
-): { plant: PlantState | null; planted: BlastPlace | null } {
+): { plant: PlantState | null; planted: BlastState | null } {
   const near =
     use && world.mech.grounded && world.mech.y === 0 ? nearBlast(world.blasts, world.charges, world.mech) : null;
   if (near === null) {
@@ -75,8 +120,8 @@ export function stepCharge(
 
 // Counts every fuse down by `dt`, takes the burnt-out charges out of `charges` (in place) and returns their points, each
 // with whether the mech's feet were inside the blast. The returned order is the order the charges were planted.
-export function stepBlasts(world: BlastWorld, dt: number): { blast: BlastPlace; hit: boolean }[] {
-  const blown: { blast: BlastPlace; hit: boolean }[] = [];
+export function stepBlasts(world: BlastWorld, dt: number): { blast: BlastState; hit: boolean }[] {
+  const blown: { blast: BlastState; hit: boolean }[] = [];
   for (const charge of world.charges) charge.left -= dt;
   for (let i = world.charges.length - 1; i >= 0; i--) {
     if (world.charges[i].left > 0) continue;
