@@ -1,18 +1,20 @@
-// The metal on the prototype (SB-1468): for each painted material, a colour picture (the paint, the dirt, the panel
-// seams, the rivets and the stencilled markings), a normal picture made from the same seams and bolts as a height map,
-// and a roughness picture (worn, polished edges and dirty patches). Each is painted once on a canvas, shared by every
-// copy of the material, and never touched per frame. A node test has no canvas: the pictures are then null and the
-// material keeps the palette's colour alone, as view/mechSurfaces.ts does for the other mech.
+// The metal on the prototype (SB-1468, second pass SB-1469): for each painted material, a colour picture (the paint,
+// the dirt, the panel seams and the rivets), a normal picture made from the same seams and bolts as a height map, and a
+// roughness picture (worn, polished edges and dirty patches). The seams are fewer, wider and deeper than the first
+// pass, and a diagonal runs with the plates' cut, so the joins still read from across the beach. The repeat is short
+// enough to land on the small plates, and the big markings are geometry, not the picture. Each is painted once on a
+// canvas, shared by every copy of the material, and never touched per frame. A node test has no canvas: the pictures
+// are then null and the material keeps the palette's colour alone.
 import * as THREE from 'three';
-import { grain, grime, paintTex, smudge, stripes, words, type Paint } from '@engine/render/index.ts';
-import { MECH_PAINT_COLOR } from '../data/colors.ts';
+import { grain, grime, paintTex, smudge, stripes, type Paint } from '@engine/render/index.ts';
+import { MECH_PAINT_COLOR, MECH_PROTO_PAINT_COLOR } from '../data/colors.ts';
 import { MECH_PROTO_TEX, type ProtoMaterial } from '../data/mechProto.ts';
 
 const CAN_PAINT = typeof document !== 'undefined';
 
 const rgb = (value: string): string => `rgb(${value})`;
 const rgba = (value: string, alpha: number): string => `rgba(${value},${alpha})`;
-const PAINTED = ['armor', 'frame', 'weapon', 'accent'] as const;
+const PAINTED = ['armor', 'frame', 'accent'] as const;
 type PaintedMaterial = (typeof PAINTED)[number];
 
 export interface ProtoMaps {
@@ -21,12 +23,14 @@ export interface ProtoMaps {
   roughnessMap: THREE.Texture | null; // worn metal and dirt
 }
 
-// The panel seams every material shares, as fractions of the picture. The colour, the height and the roughness pictures
-// draw the same lines, so the seam that darkens a plate is also a groove and a polished edge in the other two.
-const SEAMS_X = [0.3, 0.72];
-const SEAMS_Y = [0.24, 0.66, 0.9];
-const RIVET_STEP = 0.12;
-const RIVET_RADIUS = 0.012;
+// The panel seams every material shares, as fractions of the picture, and the one diagonal that follows the plates'
+// cut. The colour, the height and the roughness pictures draw the same lines, so the seam that darkens a plate is also
+// a groove and a polished edge in the other two.
+const SEAMS_X = [0.32, 0.74];
+const SEAMS_Y = [0.28, 0.7];
+const SEAM_DIAGONAL = { x0: 0.06, x1: 0.94 };
+const RIVET_STEP = 0.18;
+const RIVET_RADIUS = 0.014;
 
 // A small seeded generator for the pictures painted without paintTex (the height and roughness maps).
 function seeded(seed: number): () => number {
@@ -46,7 +50,8 @@ function canvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   return [made, made.getContext('2d')!];
 }
 
-// The seams and rivets in one stroke, for every picture of a material. `shade` paints a line, `head` a rivet.
+// The seams, the diagonal and the rivets in one stroke, for every picture of a material. `shade` paints a line, `head`
+// a rivet. The lines are wide enough to survive the far camera.
 function panels(
   g: CanvasRenderingContext2D,
   size: number,
@@ -57,26 +62,33 @@ function panels(
   g.fillStyle = line;
   for (const at of SEAMS_X) g.fillRect(at * size, 0, width, size);
   for (const at of SEAMS_Y) g.fillRect(0, at * size, size, width);
+  g.strokeStyle = line;
+  g.lineWidth = width;
+  g.beginPath();
+  g.moveTo(SEAM_DIAGONAL.x0 * size, 0);
+  g.lineTo(SEAM_DIAGONAL.x1 * size, size);
+  g.stroke();
   for (const at of SEAMS_X) for (let y = RIVET_STEP * 0.5; y < 1; y += RIVET_STEP) head(at * size, y * size);
   for (const at of SEAMS_Y) for (let x = RIVET_STEP * 0.5; x < 1; x += RIVET_STEP) head(x * size, at * size);
 }
 
 // A small rivet on the colour picture: a bright head with a dark line under it.
 function paintRivet(g: CanvasRenderingContext2D, x: number, y: number, r: number): void {
-  g.fillStyle = rgba(MECH_PAINT_COLOR.grimeDark, 0.35);
+  g.fillStyle = rgba(MECH_PAINT_COLOR.grimeDark, 0.4);
   g.beginPath();
   g.arc(x, y + r * 0.6, r, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = rgba(MECH_PAINT_COLOR.scrape, 0.7);
+  g.fillStyle = rgba(MECH_PAINT_COLOR.scrape, 0.8);
   g.beginPath();
   g.arc(x, y, r, 0, Math.PI * 2);
   g.fill();
 }
 
-// The armour: the light paint, the seams, the numbed stencil and a label, with rust at a few seams.
+// The armour: the light paint, the seams and the diagonal. The markings are the orange geometry (the chest chevron and
+// the bands), so the picture carries no number and stays one clean panel surface.
 const paintArmor: Paint = (g, rand) => {
   const size = g.canvas.width;
-  g.fillStyle = rgb(MECH_PAINT_COLOR.baseLight);
+  g.fillStyle = rgb(MECH_PROTO_PAINT_COLOR.armorBase);
   g.fillRect(0, 0, size, size);
   grime(
     g,
@@ -87,7 +99,7 @@ const paintArmor: Paint = (g, rand) => {
     size,
     size,
   );
-  panels(g, size, rgba(MECH_PAINT_COLOR.grimeDark, 0.5), 3, (x, y) => paintRivet(g, x, y, size * RIVET_RADIUS));
+  panels(g, size, rgba(MECH_PAINT_COLOR.grimeDark, 0.85), 9, (x, y) => paintRivet(g, x, y, size * RIVET_RADIUS));
   for (let i = 0; i < MECH_PROTO_TEX.rivets.armor; i++)
     paintRivet(g, rand() * size, rand() * size, size * RIVET_RADIUS * (0.7 + rand() * 0.6));
   for (let i = 0; i < MECH_PROTO_TEX.scratches.armor; i++) {
@@ -100,16 +112,14 @@ const paintArmor: Paint = (g, rand) => {
     g.lineTo(x + 4 + rand() * 18, y + (rand() - 0.5) * 3);
     g.stroke();
   }
-  g.fillStyle = rgba(MECH_PAINT_COLOR.stencil, 0.7);
-  words(g, MECH_PROTO_TEX.stencil, size * 0.2, size * 0.8, MECH_PROTO_TEX.stencilSize, 1);
-  words(g, MECH_PROTO_TEX.label, size * 0.76, size * 0.14, MECH_PROTO_TEX.labelSize, 1);
-  grain(g, rand, 18, size, size);
+  grain(g, rand, 7, size, size);
 };
 
-// The frame: dark metal, rust running out of the seams and more scrapes than the armour.
+// The frame: dark metal, rust running out of the seams and more scrapes than the armour. It is the dark half of the
+// two paints, so it carries no number.
 const paintFrame: Paint = (g, rand) => {
   const size = g.canvas.width;
-  g.fillStyle = rgb(MECH_PAINT_COLOR.baseMid);
+  g.fillStyle = rgb(MECH_PROTO_PAINT_COLOR.frameBase);
   g.fillRect(0, 0, size, size);
   grime(
     g,
@@ -133,7 +143,7 @@ const paintFrame: Paint = (g, rand) => {
       size,
     );
   }
-  panels(g, size, rgba(MECH_PAINT_COLOR.grimeDark, 0.55), 3, (x, y) => paintRivet(g, x, y, size * RIVET_RADIUS * 0.8));
+  panels(g, size, rgba(MECH_PAINT_COLOR.grimeDark, 0.8), 9, (x, y) => paintRivet(g, x, y, size * RIVET_RADIUS * 0.8));
   for (let i = 0; i < MECH_PROTO_TEX.scratches.frame; i++) {
     const x = rand() * size;
     const y = rand() * size;
@@ -144,49 +154,18 @@ const paintFrame: Paint = (g, rand) => {
     g.lineTo(x + 4 + rand() * 22, y + (rand() - 0.5) * 2);
     g.stroke();
   }
-  g.fillStyle = rgba(MECH_PAINT_COLOR.stencil, 0.5);
-  words(g, MECH_PROTO_TEX.label, size * 0.7, size * 0.86, MECH_PROTO_TEX.labelSize * 0.8, 1);
-  grain(g, rand, 16, size, size);
+  grain(g, rand, 9, size, size);
 };
 
-// The weapon: the frame's worn metal with a few dark grooves, since it takes the most knocks.
-const paintWeapon: Paint = (g, rand) => {
-  const size = g.canvas.width;
-  g.fillStyle = rgb(MECH_PAINT_COLOR.baseMid);
-  g.fillRect(0, 0, size, size);
-  grime(
-    g,
-    rand,
-    MECH_PROTO_TEX.grime.weapon,
-    rgb(MECH_PAINT_COLOR.grimeLight),
-    rgb(MECH_PAINT_COLOR.grimeDark),
-    size,
-    size,
-  );
-  panels(g, size, rgba(MECH_PAINT_COLOR.grimeDark, 0.45), 2, (x, y) => paintRivet(g, x, y, size * RIVET_RADIUS * 0.7));
-  for (let i = 0; i < MECH_PROTO_TEX.scratches.weapon; i++) {
-    const x = rand() * size;
-    const y = rand() * size;
-    g.strokeStyle = rand() < 0.6 ? rgba(MECH_PAINT_COLOR.scrape, 0.2) : rgba(MECH_PAINT_COLOR.grimeDark, 0.28);
-    g.lineWidth = 1;
-    g.beginPath();
-    g.moveTo(x, y);
-    g.lineTo(x + 3 + rand() * 24, y + (rand() - 0.5) * 2);
-    g.stroke();
-  }
-  g.fillStyle = rgba(MECH_PAINT_COLOR.stencil, 0.6);
-  words(g, MECH_PROTO_TEX.stencil, size * 0.22, size * 0.2, MECH_PROTO_TEX.stencilSize * 0.55, 1);
-  grain(g, rand, 14, size, size);
-};
-
-// The accent: hazard stripes and their worn lower band, so the vents read as warning markings from any side.
+// The accent: hazard stripes at a wide pitch, so the orange reads as one large marking on the vents and the chevron,
+// with a worn lower band.
 const paintAccent: Paint = (g, rand) => {
   const size = g.canvas.width;
   stripes(
     g,
     [0, 0, size, size],
     MECH_PROTO_TEX.stripePitch,
-    rgb(MECH_PAINT_COLOR.stripeLight),
+    rgb(MECH_PROTO_PAINT_COLOR.accentBase),
     rgb(MECH_PAINT_COLOR.stripeDark),
     rgba(MECH_PAINT_COLOR.grimeDark, 0.25),
   );
@@ -215,12 +194,11 @@ const paintAccent: Paint = (g, rand) => {
 const PAINTERS: Record<PaintedMaterial, Paint> = {
   armor: paintArmor,
   frame: paintFrame,
-  weapon: paintWeapon,
   accent: paintAccent,
 };
 
-// The height map the normal picture is made from: the seams cut in, the rivet heads standing out, the paint flat between
-// them. `deep` is how dark a groove is, `high` how bright a rivet is.
+// The height map the normal picture is made from: the seams cut deep, the rivet heads standing out, the paint flat
+// between them. `deep` is how dark a groove is, `high` how bright a rivet is.
 function paintHeight(g: CanvasRenderingContext2D, size: number, material: PaintedMaterial): void {
   const rand = seeded(MECH_PROTO_TEX.seed[material]);
   g.fillStyle = 'rgb(128,128,128)';
@@ -238,12 +216,12 @@ function paintHeight(g: CanvasRenderingContext2D, size: number, material: Painte
       g.fill();
     }
   }
-  panels(g, size, 'rgb(62,62,62)', 4, (x, y) => {
+  panels(g, size, 'rgb(34,34,34)', 15, (x, y) => {
     g.fillStyle = 'rgb(92,92,92)';
     g.beginPath();
-    g.arc(x, y, size * RIVET_RADIUS * 1.4, 0, Math.PI * 2);
+    g.arc(x, y, size * RIVET_RADIUS * 1.5, 0, Math.PI * 2);
     g.fill();
-    g.fillStyle = 'rgb(210,210,210)';
+    g.fillStyle = 'rgb(218,218,218)';
     g.beginPath();
     g.arc(x, y, size * RIVET_RADIUS, 0, Math.PI * 2);
     g.fill();
@@ -251,12 +229,12 @@ function paintHeight(g: CanvasRenderingContext2D, size: number, material: Painte
   for (let i = 0; i < MECH_PROTO_TEX.rivets[material]; i++) {
     const x = rand() * size;
     const y = rand() * size;
-    g.fillStyle = 'rgb(196,196,196)';
+    g.fillStyle = 'rgb(200,200,200)';
     g.beginPath();
     g.arc(x, y, size * RIVET_RADIUS * (0.7 + rand() * 0.7), 0, Math.PI * 2);
     g.fill();
   }
-  g.strokeStyle = 'rgba(84,84,84,0.7)';
+  g.strokeStyle = 'rgba(72,72,72,0.7)';
   g.lineWidth = 1;
   for (let i = 0; i < MECH_PROTO_TEX.scratches[material]; i++) {
     const x = rand() * size;
@@ -268,29 +246,30 @@ function paintHeight(g: CanvasRenderingContext2D, size: number, material: Painte
   }
 }
 
-// The roughness picture: the material's base (bright is rough, dark is polished), the seams polished by wear, the rivets
-// smoother than the paint, and the dirt rough.
+// The roughness picture: the material's base (bright is rough, dark is polished), the seams polished by wear, the
+// rivets smoother than the paint, and the dirt rough. The frame is much darker than the armour, so the polished metal
+// catches more of the surroundings' light and the two paints read apart.
 function paintRoughness(g: CanvasRenderingContext2D, size: number, material: PaintedMaterial): void {
   const rand = seeded(MECH_PROTO_TEX.seed[material] + 1);
-  const base = material === 'weapon' ? 176 : material === 'armor' ? 200 : 188;
+  const base = material === 'frame' ? 105 : material === 'armor' ? 180 : 190;
   g.fillStyle = `rgb(${base},${base},${base})`;
   g.fillRect(0, 0, size, size);
-  panels(g, size, 'rgb(120,120,120)', 4, (x, y) => {
-    g.fillStyle = 'rgb(112,112,112)';
+  panels(g, size, 'rgb(55,55,55)', 14, (x, y) => {
+    g.fillStyle = 'rgb(88,88,88)';
     g.beginPath();
     g.arc(x, y, size * RIVET_RADIUS, 0, Math.PI * 2);
     g.fill();
   });
   for (let i = 0; i < MECH_PROTO_TEX.grime[material]; i++) {
-    g.globalAlpha = 0.12 + rand() * 0.2;
-    g.fillStyle = 'rgb(236,236,236)';
+    g.globalAlpha = 0.14 + rand() * 0.24;
+    g.fillStyle = 'rgb(244,244,244)';
     g.fillRect(rand() * size, rand() * size, 8 + rand() * 46, 5 + rand() * 24);
   }
   g.globalAlpha = 1;
   for (let i = 0; i < MECH_PROTO_TEX.scratches[material]; i++) {
     const x = rand() * size;
     const y = rand() * size;
-    g.strokeStyle = 'rgba(96,96,96,0.6)';
+    g.strokeStyle = 'rgba(60,60,60,0.7)';
     g.lineWidth = 1;
     g.beginPath();
     g.moveTo(x, y);
@@ -344,12 +323,13 @@ function repeated(source: HTMLCanvasElement): THREE.CanvasTexture {
 
 const maps = new Map<ProtoMaterial, ProtoMaps>();
 
-// The painted materials have the pictures; the lights (sensor, lamp) do not.
+// The painted materials have the pictures; the glow does not.
 function isPainted(material: ProtoMaterial): material is PaintedMaterial {
-  return material === 'armor' || material === 'frame' || material === 'weapon' || material === 'accent';
+  return material === 'armor' || material === 'frame' || material === 'accent';
 }
 
-// The three pictures of a material, painted the first time it is asked for and shared after that.
+// The three pictures of a material, painted the first time it is asked for and shared after that. The accent needs
+// less detail than the armour, so its picture is smaller.
 export function protoMaps(material: ProtoMaterial): ProtoMaps {
   if (!CAN_PAINT) return { map: null, normalMap: null, roughnessMap: null };
   const kept = maps.get(material);
@@ -359,7 +339,7 @@ export function protoMaps(material: ProtoMaterial): ProtoMaps {
     maps.set(material, none);
     return none;
   }
-  const size = MECH_PROTO_TEX.size;
+  const size = MECH_PROTO_TEX.size[material];
   const [heightCanvas, height] = canvas(size);
   paintHeight(height, size, material);
   const [roughCanvas, rough] = canvas(size);

@@ -1,7 +1,8 @@
-// Draws the prototype mech (SB-1468): the table in data/mechProto.ts, built out of view/mechShapes.ts and merged by
-// material and by the part that moves, so a mech of a hundred shapes costs a dozen draws. It moves exactly where the
-// sortie's mech does: the legs swing about the hip, the body leans and sinks, the arms pull back when the main weapon
-// fires and the flame grows at the back. The rig never reads the game (no GameModel).
+// Draws the prototype mech (SB-1468, second pass SB-1469): the table in data/mechProto.ts, built out of
+// view/mechShapes.ts and merged by material and by the part that moves, so a mech of a hundred shapes costs a dozen
+// draws. It moves exactly where the sortie's mech does: the legs swing about the hip, the body leans (with a little
+// standing lean of its own) and sinks, the arms pull back when the main weapon fires and the flame grows at the back.
+// The rig never reads the game (no GameModel).
 import * as THREE from 'three';
 import { MECH_FLAME_COLOR, MECH_PROTO_COLOR } from '../data/colors.ts';
 import { GAIT_LOOK, type GaitLook, type Vec3 } from '../data/mech.ts';
@@ -76,15 +77,17 @@ function materialOf(name: ProtoMaterial): THREE.MeshStandardMaterial {
     envMapIntensity: def.envMapIntensity * PROTO_TUNE.light.env,
   });
   if (def.emissive > 0) {
+    // a light gives its colour without the paint under it, so the thin lines stay cyan rather than washing out white
+    material.color.setRGB(0, 0, 0);
     material.emissive = new THREE.Color(MECH_PROTO_COLOR[name]);
     material.emissiveIntensity = def.emissive;
   }
   return material;
 }
 
-// The picture's repeat depends on the metal: armour covers more metres, the weapon less.
+// The picture's repeat depends on the metal: the armour covers more metres, the accent less.
 function tileOf(name: ProtoMaterial): number {
-  if (name === 'armor' || name === 'frame' || name === 'weapon' || name === 'accent') return MECH_PROTO_TEX.tile[name];
+  if (name === 'armor' || name === 'frame' || name === 'accent') return MECH_PROTO_TEX.tile[name];
   return 1;
 }
 
@@ -96,7 +99,14 @@ function shapeGeometry(shape: ProtoShape, height: number, lift: number): THREE.B
   switch (shape.kind) {
     case 'plate': {
       const size = shape.size ?? [0, 0, 0];
-      geometry = plateGeometry(size[0] * height, size[1] * height, size[2] * height, bevel, PROTO_TUNE.bevelSegments);
+      geometry = plateGeometry(
+        size[0] * height,
+        size[1] * height,
+        size[2] * height,
+        bevel,
+        PROTO_TUNE.bevelSegments,
+        shape.taper,
+      );
       break;
     }
     case 'tube':
@@ -139,24 +149,21 @@ function shapeGeometry(shape: ProtoShape, height: number, lift: number): THREE.B
   return geometry;
 }
 
-// The mirrored pair of a shape: the same at -x, with the turns about y and z flipped so the pair stays symmetrical.
-function shapeGeometries(shape: ProtoShape, height: number, lift: number): THREE.BufferGeometry[] {
-  const made = [shapeGeometry(shape, height, lift)];
-  if (shape.mirror === true) {
-    const mirrored: ProtoShape = { ...shape, at: [-shape.at[0], shape.at[1], shape.at[2]] };
-    if (shape.rot !== undefined) mirrored.rot = [shape.rot[0], -shape.rot[1], -shape.rot[2]];
-    made.push(shapeGeometry(mirrored, height, lift));
+// A shape turned over the x = 0 plane: its place at -x, the turns about y and z flipped, and a one-sided cut moved to
+// the other side, so a pauldron stays symmetrical.
+function mirroredShape(shape: ProtoShape): ProtoShape {
+  const mirrored: ProtoShape = { ...shape, at: [-shape.at[0], shape.at[1], shape.at[2]] };
+  if (shape.rot !== undefined) mirrored.rot = [shape.rot[0], -shape.rot[1], -shape.rot[2]];
+  if (shape.taper?.cutSide !== undefined) {
+    mirrored.taper = { ...shape.taper, cutSide: shape.taper.cutSide === 'left' ? 'right' : 'left' };
   }
-  return made;
+  return mirrored;
 }
 
-// The weapon's shapes, moved from the mount they hang on. The front toward -z is the table's own.
-function weaponGeometries(shapes: readonly ProtoShape[], mount: Vec3, height: number): THREE.BufferGeometry[] {
-  const made: THREE.BufferGeometry[] = [];
-  for (const shape of shapes) {
-    const at: Vec3 = [shape.at[0] + mount[0], shape.at[1] + mount[1], shape.at[2] + mount[2]];
-    made.push(...shapeGeometries({ ...shape, at }, height, 0));
-  }
+// The mirrored pair of a shape: the same at -x, with the turns and the cut flipped so the pair stays symmetrical.
+function shapeGeometries(shape: ProtoShape, height: number, lift: number): THREE.BufferGeometry[] {
+  const made = [shapeGeometry(shape, height, lift)];
+  if (shape.mirror === true) made.push(shapeGeometry(mirroredShape(shape), height, lift));
   return made;
 }
 
@@ -184,18 +191,25 @@ export function buildProtoMech(height: number): THREE.Group {
     const right: ProtoShape = { ...part, mirror: false };
     add('legR', part.material, [shapeGeometry(right, height, -pivotY)]);
     if (part.mirror === true) {
-      const left: ProtoShape = { ...part, at: [-part.at[0], part.at[1], part.at[2]], mirror: false };
-      if (part.rot !== undefined) left.rot = [part.rot[0], -part.rot[1], -part.rot[2]];
+      const left: ProtoShape = { ...mirroredShape(part), mirror: false };
       add('legL', part.material, [shapeGeometry(left, height, -pivotY)]);
     }
   }
+
+  // A weapon's shapes, moved from the mount they hang on. The front toward -z is the table's own.
+  const addWeapon = (limb: ProtoLimb, shapes: readonly ProtoShape[], mount: Vec3): void => {
+    for (const shape of shapes) {
+      const at: Vec3 = [shape.at[0] + mount[0], shape.at[1] + mount[1], shape.at[2] + mount[2]];
+      add(limb, shape.material, shapeGeometries({ ...shape, at }, height, 0));
+    }
+  };
 
   for (const part of MECH_PROTO.core) add('body', part.material, shapeGeometries(part, height, 0));
   for (const part of MECH_PROTO.back) add('body', part.material, shapeGeometries(part, height, 0));
   for (const part of MECH_PROTO.head) add('body', part.material, shapeGeometries(part, height, 0));
   for (const part of MECH_PROTO.arms) add('arm', part.material, shapeGeometries(part, height, 0));
-  add('arm', 'weapon', weaponGeometries(MECH_PROTO.main.shapes, MECH_PROTO.armMount, height));
-  add('body', 'weapon', weaponGeometries(MECH_PROTO.sub.shapes, MECH_PROTO.backMount, height));
+  addWeapon('arm', MECH_PROTO.main.shapes, MECH_PROTO.armMount);
+  addWeapon('body', MECH_PROTO.sub.shapes, MECH_PROTO.backMount);
 
   const body = new THREE.Group();
   const arms = new THREE.Group();
@@ -269,7 +283,7 @@ function poseProto(rig: ProtoRig): void {
   const back = recoilBack(motion) * height;
   const flame = flameLength(motion) * height;
   rig.body.position.y = rig.hipY * height - sink;
-  rig.body.rotation.x = lean;
+  rig.body.rotation.x = PROTO_TUNE.lean + lean;
   rig.arms.position.z = back;
   rig.legR.rotation.x = legAngle(motion, 'biped', look, 1, 0);
   rig.legL.rotation.x = legAngle(motion, 'biped', look, -1, 0);

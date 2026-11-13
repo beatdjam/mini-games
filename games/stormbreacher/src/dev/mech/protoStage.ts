@@ -54,6 +54,11 @@ export function addProtoStage(mech: THREE.Object3D, map: THREE.Object3D, x: numb
   rim.target.position.set(x, height * 0.5, z);
   scene.add(rim, rim.target);
 
+  const fill = new THREE.DirectionalLight(MECH_PROTO_LIGHT_COLOR.fill, light.fill.intensity);
+  fill.position.set(x + light.fill.at[0] * height, light.fill.at[1] * height, z + light.fill.at[2] * height);
+  fill.target.position.set(x, height * 0.5, z);
+  scene.add(fill, fill.target);
+
   const pmrem = new THREE.PMREMGenerator(renderer);
   const room = new RoomEnvironment();
   const envTarget = pmrem.fromScene(room, 0.04);
@@ -98,7 +103,7 @@ export function addProtoStage(mech: THREE.Object3D, map: THREE.Object3D, x: numb
       refresh();
     },
     dispose(): void {
-      scene.remove(sun, sun.target, rim, rim.target);
+      scene.remove(sun, sun.target, rim, rim.target, fill, fill.target);
       if (scene.environment === envTarget.texture) scene.environment = null;
       envTarget.dispose();
       room.traverse(object => {

@@ -7,6 +7,19 @@ import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtil
 
 export type ShapeAxis = 'x' | 'y' | 'z';
 
+// How a plate changes from the plain box: its width at the bottom and the top, at the back and the front, its height
+// at the front (a wedge), how far the front drops, and a diagonal cut on one side. Every multiplier is 1 unless written.
+export interface PlateTaper {
+  top?: number; // width at the top, against the bottom
+  bottom?: number; // width at the bottom (both 1 when neither is written)
+  front?: number; // width at the front (-z), against the back
+  back?: number; // width at the back
+  nose?: number; // height at the front, against the back (below 1 makes a wedge)
+  drop?: number; // how far the front edge sits lower, as a share of the plate's height
+  cut?: number; // how far one side is cut in at the top, as a share of the plate's width
+  cutSide?: 'left' | 'right'; // the side the cut is on (right when left out)
+}
+
 // The sides a round shape is drawn with. A table can pass its own.
 const ROUND_SEGMENTS = 12;
 const RING_SEGMENTS = 18;
@@ -20,12 +33,16 @@ function alongAxis(geometry: THREE.BufferGeometry, axis: ShapeAxis): THREE.Buffe
 
 // A box whose corners and long edges are chamfered, read as armour: the cross-section is an octagon and the ends are
 // beveled by the same `bevel`, so no edge is a razor line. Total size is exactly [width, height, depth].
+// `taper` then bends the box into the shapes the mech's faces are cut from: a plate that narrows toward the top or the
+// front, a wedge whose front edge is shorter and lower, and a side cut diagonally. The facets stay flat, so the cuts
+// read as armour rather than as a smooth blob.
 export function plateGeometry(
   width: number,
   height: number,
   depth: number,
   bevel: number,
   segments = 1,
+  taper?: PlateTaper,
 ): THREE.BufferGeometry {
   const c = Math.max(1e-4, Math.min(bevel, width * 0.24, height * 0.24, depth * 0.24));
   const hw = width / 2 - c;
@@ -51,7 +68,41 @@ export function plateGeometry(
     steps: 1,
   });
   geometry.translate(0, 0, -body / 2);
+  if (taper !== undefined) taperPlate(geometry, width, height, depth, taper);
   return nonIndexed(geometry);
+}
+
+// Bends a finished plate by the taper's multipliers. `y` runs from the bottom (-height/2) to the top and `z` from the
+// front (-depth/2) to the back (+depth/2), so a cut on one side only moves the vertices on that side.
+function taperPlate(
+  geometry: THREE.BufferGeometry,
+  width: number,
+  height: number,
+  depth: number,
+  taper: PlateTaper,
+): void {
+  const position = geometry.getAttribute('position');
+  const bottom = taper.bottom ?? 1;
+  const top = taper.top ?? 1;
+  const back = taper.back ?? 1;
+  const front = taper.front ?? 1;
+  const nose = taper.nose ?? 1;
+  const drop = taper.drop ?? 0;
+  const cut = taper.cut ?? 0;
+  const cutSide = taper.cutSide ?? 'right';
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    const up = (y + height / 2) / height;
+    const towardFront = (depth / 2 - z) / depth;
+    const scaled = x * (bottom + (top - bottom) * up) * (back + (front - back) * towardFront);
+    const cutIn = cut * width * up;
+    const bent = cutSide === 'right' ? scaled - (scaled > 0 ? cutIn : 0) : scaled + (scaled < 0 ? cutIn : 0);
+    position.setXYZ(i, bent, y * (1 + (nose - 1) * towardFront) + drop * height * towardFront, z);
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
 }
 
 // A cylinder from end to end along its axis.

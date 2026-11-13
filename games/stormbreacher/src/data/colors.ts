@@ -68,22 +68,29 @@ export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
 // The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
 export const MECH_FLAME_COLOR = 0xffd27a;
 
-// The prototype's metal (SB-1468, 仮): a blue-grey armour, a near-black frame, bare gunmetal, an orange hazard accent
-// and the warm lights. One hex per material name of data/mechProto.ts.
+// The prototype's metal (SB-1468, second pass SB-1469, 仮): a pale steel armour over a near-black frame, an orange
+// accent, and a cool light for the seams, the windows and the lamps. One hex per material name of data/mechProto.ts.
 export const MECH_PROTO_COLOR: Record<ProtoMaterial, number> = {
-  armor: 0x5f6b66,
-  frame: 0x2f3335,
-  weapon: 0x8d9296,
-  accent: 0xd08a2a,
-  sensor: 0xff5c2a,
-  lamp: 0xffe2a0,
+  armor: 0x747d7f,
+  frame: 0x2b3134,
+  accent: 0xe07a2a,
+  glow: 0x4fc8ee,
 };
 
-// The light the confirmation view puts around the prototype (SB-1468, 仮): the warm sun that casts its shadow and the
-// cool edge light along its back.
+// The light the confirmation view puts around the prototype (SB-1468, second pass SB-1469, 仮): a warm sun that casts
+// its shadow, a cool edge light along its back, a soft fill on the dark side, and the room the metal reflects.
 export const MECH_PROTO_LIGHT_COLOR = {
-  key: 0xfff1d4,
-  rim: 0x8cc4f0,
+  key: 0xfff3df,
+  rim: 0x8fc8ff,
+  fill: 0xd8e8ff,
+};
+
+// The paint under the prototype's colours (SB-1469, 仮): the armour and the frame keep their tone in the picture, so the
+// pale armour does not blow out to white in the sun. The grime, the rust and the stencil stay MECH_PAINT_COLOR's.
+export const MECH_PROTO_PAINT_COLOR = {
+  armorBase: '176,182,184', // the armour's mid tone under the grime
+  frameBase: '158,164,166', // the frame's worn metal
+  accentBase: '238,234,226', // the accent's stripes, so the orange keeps its colour
 };
 
 // The paint on a mech's boxes (SB-1460, 仮): the strokes of view/mechSurfaces.ts, as the canvas's "r,g,b" strings. The

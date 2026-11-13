@@ -1,16 +1,18 @@
-// Screenshots of the prototype mech (SB-1468): #view-mech?proto from the front, the rear quarter, the front 3/4 and the
-// side, with its shadow and the surroundings' light on, on the beach. The same four angles are taken of the sortie's
-// mech as it is now, so the two can be compared side by side. npm run shots. Not a test: it is not part of npm test or
-// the CI (the drawn pixels differ between machines). SHOTS_OUT=<folder> picks where the pictures go; SHOTS_ONLY=<text>
-// takes only the shots whose names contain it.
+// Screenshots of the prototype mech (SB-1468, second pass SB-1469): #view-mech?proto from the front, the rear quarter,
+// the front 3/4 and the side, plus two close pictures (the chest and head, a leg's joints) and one from the sortie's
+// shoulder camera. Every shot keeps the shadow and the surroundings' light on, on the beach. The same four angles are
+// taken of the sortie's mech as it is now, so the two can be compared side by side. npm run shots. Not a test: it is
+// not part of npm test or the CI (the drawn pixels differ between machines). SHOTS_OUT=<folder> picks where the
+// pictures go; SHOTS_ONLY=<text> takes only the shots whose names contain it.
 import { beforeAll, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
 import { systems } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
 import { boot } from '../src/app/boot.ts';
-import { MECH_TUNE } from '../src/data/tune.ts';
+import { CAMERA_TUNE, MECH_TUNE } from '../src/data/tune.ts';
 import { showMech } from '../src/dev/views/mech.ts';
+import { applyPose, cameraPose } from '../src/view/camera.ts';
 import { disposeMech } from '../src/view/mechModel.ts';
 import { disposeProtoMech } from '../src/view/mechProtoModel.ts';
 // loads the language files and boots the page, as the real page does
@@ -26,13 +28,14 @@ const wanted = (name: string) => !__SHOTS_ONLY__ || name.includes(__SHOTS_ONLY__
 const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
 async function picture(name: string): Promise<void> {
+  if (!wanted(name)) return;
   for (let n = 0; n < DRAWN_FRAMES; n++) await frame();
   await page.screenshot({ path: `${__SHOTS_OUT__}/${name}.png` });
 }
 
-// The view's own system moves the camera and the mech every frame; the pictures set the camera by hand, so it is stopped.
+// The views' systems move the camera and the mech every frame; the pictures set the camera by hand, so they are stopped.
 function stopView(): void {
-  for (const system of systems) if (system.name === 'sb-mech') system.enabled = false;
+  for (const system of systems) system.enabled = false;
 }
 
 function clearView(before: Set<THREE.Object3D>): void {
@@ -55,13 +58,15 @@ function clearView(before: Set<THREE.Object3D>): void {
 beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
+  // main.ts imports the dev views after boot; wait for that import, so a view does not run late and move the camera
+  await import('../src/dev/dev.ts');
   const hide = document.createElement('style');
   hide.textContent = HIDDEN;
   document.head.appendChild(hide);
 });
 
-// The camera places the four pictures take, in heights from the mech's feet; every shot uses the same four, so the
-// prototype and the sortie's mech are framed alike.
+// The camera places the four whole-mech pictures take, in heights from the mech's feet; every shot uses the same four,
+// so the prototype and the sortie's mech are framed alike.
 const ANGLES = [
   { name: 'front', at: [0, 0.55, -1.8] },
   { name: 'rear', at: [1.1, 0.62, 1.5] },
@@ -69,7 +74,13 @@ const ANGLES = [
   { name: 'side', at: [1.8, 0.55, 0] },
 ] as const;
 
-test('mech-proto', async () => {
+// The two close pictures: the chest and head from the front 3/4, and a knee and thigh from the outside front.
+const DETAILS = [
+  { name: 'detail-chest', at: [0.32, 0.82, -0.55], look: [0, 0.8, 0] },
+  { name: 'detail-leg', at: [0.3, 0.4, -0.35], look: [0.12, 0.35, 0] },
+] as const;
+
+test('mech-proto2', async () => {
   const height = MECH_TUNE.height;
   const params = new URLSearchParams(location.search);
   params.set('pattern', 'e');
@@ -84,16 +95,22 @@ test('mech-proto', async () => {
   const proto = scene.children.find(child => child.name === 'mech-proto');
   if (!proto) throw new Error('#view-mech?proto built no prototype');
   const at = { x: proto.position.x, z: proto.position.z };
-  const look = (px: number, py: number, pz: number) => {
+  const look = (px: number, py: number, pz: number, lx = 0, ly = 0.5, lz = 0) => {
     camera.position.set(at.x + px * height, py * height, at.z + pz * height);
-    camera.lookAt(at.x, 0.5 * height, at.z);
+    camera.lookAt(at.x + lx * height, ly * height, at.z + lz * height);
   };
   try {
     for (const angle of ANGLES) {
-      if (!wanted(`mech-proto-${angle.name}`)) continue;
       look(angle.at[0], angle.at[1], angle.at[2]);
-      await picture(`mech-proto-${angle.name}`);
+      await picture(`mech-proto2-${angle.name}`);
     }
+    for (const detail of DETAILS) {
+      look(detail.at[0], detail.at[1], detail.at[2], detail.look[0], detail.look[1], detail.look[2]);
+      await picture(`mech-proto2-${detail.name}`);
+    }
+    // the sortie's shoulder camera: the same place view/camera.ts puts it behind the mech
+    applyPose(camera, cameraPose({ x: at.x, y: 0, z: at.z, yaw: 0 }, 0, CAMERA_TUNE, []), CAMERA_TUNE.fov);
+    await picture('mech-proto2-game');
   } finally {
     clearView(beforeProto);
     disposeProtoMech(proto);
@@ -114,9 +131,8 @@ test('mech-proto', async () => {
   };
   try {
     for (const angle of ANGLES) {
-      if (!wanted(`mech-proto-base-${angle.name}`)) continue;
       lookBase(angle.at[0], angle.at[1], angle.at[2]);
-      await picture(`mech-proto-base-${angle.name}`);
+      await picture(`mech-proto2-base-${angle.name}`);
     }
   } finally {
     clearView(beforeBase);
