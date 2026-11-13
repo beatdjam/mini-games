@@ -49,6 +49,8 @@ function withSquad(places: { x: number; z: number }[]): GameModel {
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
+  // the mech stands still through the test, so the aimed mortar would hurt it too; these tests read the enemies' bullets
+  game.aimed = null;
   places.forEach((place, i) => {
     game.enemies.push(newEnemy(`b-squad-${i + 1}`, 'b-squad', 'grunt', place.x, place.z));
   });
@@ -523,6 +525,8 @@ function loneFoe(kind: EnemyKind, z: number): GameModel {
   game.mech.z = 0;
   game.mech.yaw = 0;
   game.armor = 1e9; // it keeps shooting through a long test
+  // the mech stands still through the test, so the aimed mortar would hurt it too; these tests read the enemies' bullets
+  game.aimed = null;
   game.enemies.push(newEnemy(`${kind}-1`, 'b-squad', kind, 0, z));
   return game;
 }

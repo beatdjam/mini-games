@@ -38,6 +38,7 @@ const CUES = [
     actions: [
       { kind: 'objective', id: 'reach-pillboxes' },
       { kind: 'map', mark: 'wave2', on: true },
+      // the beach's mortar also starts the aimed mortar (M1_WAVE_AIMED)
       { kind: 'spawn', wave: 'beach-mortar' },
       { kind: 'ally', id: 'buddy', path: 'beach-run', fate: { at: 'beach-mid', by: 'mortar' } },
     ],

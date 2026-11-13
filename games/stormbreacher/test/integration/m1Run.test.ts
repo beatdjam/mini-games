@@ -1,10 +1,11 @@
 // A bot plays M1 from the landing to the cleared result with inputs alone (no teleport, no health written): it walks a
 // list of points, plants a charge at one blast point of each line and goes through the hole it opens, shoots what is in
-// its sight and steps out of a shell's circle. It tells whether the sortie can be done and gives a rough measure of the
-// ammo and the armour it costs.
+// its sight, steps out of a shell's circle and steps aside from the aimed mortar. It tells whether the sortie can be done
+// and gives a rough measure of the ammo and the armour it costs.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
+import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { fireRayHit, type Aabb } from '../../src/logic/fire.ts';
 import { enemyBox, newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
@@ -19,6 +20,9 @@ const SIGHT = 100; // the bot shoots what is this near and in sight (m); the aut
 const HEAVY_TARGETS = ['pillbox', 'gun', 'magazine']; // what the heavy gun is spent on (the kinds of target)
 const SHELL_MARGIN = 3; // the bot leaves a shell's circle by this much more than its radius (m)
 const TURN_RATE = 6; // how fast the bot turns (rad/s)
+const AIMED_LEAD = 1; // the bot steps aside this long before the aimed mortar's stay is full (s)
+const AIMED_STEP = 4; // how far it steps aside (m)
+const AIMED_STEP_SEC = 1.2; // how long it keeps to the side before coming back (s)
 
 interface Waypoint {
   x: number;
@@ -112,6 +116,8 @@ function foesInSight(game: GameModel, only: readonly string[] | null): Foe[] {
 
 interface Bot {
   next: number; // the place in ROUTE of the point it walks to
+  side: { x: number; z: number; left: number } | null; // a place it stepped aside to, and the seconds left there
+  steps: number; // how many times it stepped aside from the aimed mortar
 }
 
 // Whether a blast point has a charge on it.
@@ -120,9 +126,9 @@ const charged = (game: GameModel, id: string): boolean => game.charges.some(char
 // Whether a blast point has blown its line open.
 const blasted = (game: GameModel, id: string): boolean => game.blasts.find(blast => blast.id === id)?.blasted === true;
 
-// One frame of the bot's input: the way to the point (or away from a shell), the shots at the nearest foe in sight, and the
-// use held while it stands at a blast point. It plants the charge, steps back to the next point, waits there until the
-// blast opens the line and then walks through the hole.
+// One frame of the bot's input: the way to the point (or away from a shell, or aside from the aimed mortar), the shots at
+// the nearest foe in sight, and the use held while it stands at a blast point. It plants the charge, steps back to the next
+// point, waits there until the blast opens the line and then walks through the hole.
 function decide(game: GameModel, bot: Bot): GameInput {
   const { mech } = game;
   const point = ROUTE[bot.next];
@@ -134,15 +140,34 @@ function decide(game: GameModel, bot: Bot): GameInput {
     if (!plantingLeft && !waitingLeft) bot.next += 1;
   }
   const goal = ROUTE[bot.next];
-  let wx = goal.x - mech.x;
-  let wz = goal.z - mech.z;
-  const standing = Math.hypot(wx, wz) < REACH;
-  if (standing) {
+  // The aimed mortar comes down on the place the mech has stayed at. Shortly before the stay is full, the bot steps 4 m
+  // to one side and comes back after a moment, so the count starts again.
+  if (bot.side !== null) {
+    bot.side.left -= DT;
+    if (bot.side.left <= 0) bot.side = null;
+  }
+  if (bot.side === null && game.aimed !== null && game.aimed.still >= AIMED_MORTAR.stillSec - AIMED_LEAD) {
+    const dir = bot.steps % 2 === 0 ? 1 : -1;
+    const sideX = mech.x + Math.cos(mech.yaw) * AIMED_STEP * dir;
+    const sideZ = mech.z - Math.sin(mech.yaw) * AIMED_STEP * dir;
+    const margin = MECH_TUNE.radius + 0.5;
+    bot.side = {
+      x: Math.min(game.map.bounds.maxX - margin, Math.max(game.map.bounds.minX + margin, sideX)),
+      z: Math.min(game.map.bounds.maxZ - margin, Math.max(game.map.bounds.minZ + margin, sideZ)),
+      left: AIMED_STEP_SEC,
+    };
+    bot.steps += 1;
+  }
+  const target = bot.side ?? goal;
+  let wx = target.x - mech.x;
+  let wz = target.z - mech.z;
+  const standing = Math.hypot(goal.x - mech.x, goal.z - mech.z) < REACH;
+  if (bot.side === null && standing) {
     wx = 0;
     wz = 0;
   }
-  // a shell about to land on the mech: straight away from its middle
-  for (const shell of game.shells) {
+  // a shell about to land on the mech: straight away from its middle (a step aside is already one)
+  for (const shell of bot.side === null ? game.shells : []) {
     const dx = mech.x - shell.x;
     const dz = mech.z - shell.z;
     const dist = Math.hypot(dx, dz);
@@ -173,6 +198,7 @@ function decide(game: GameModel, bot: Bot): GameInput {
   const input: GameInput = { ...idle, moveZ: wx * fx + wz * fz, moveX: wx * -fz + wz * fx, turn };
   // at the blast point, holding use: it stands still and shoots nothing until the charge is on
   const planting =
+    bot.side === null &&
     standing &&
     goal.plant !== undefined &&
     !charged(game, goal.plant) &&
@@ -210,7 +236,7 @@ interface Result {
 function playM1(): Result {
   seed(SEED);
   const game = newGame(M1B_HAND, M1);
-  const bot: Bot = { next: 0 };
+  const bot: Bot = { next: 0, side: null, steps: 0 };
   for (let i = 0; i < LIMIT_SECONDS / DT && !game.cleared && !game.downed; i++) {
     // the cutscenes are skipped: the landing, and the wave 2 sinking
     if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
@@ -243,8 +269,9 @@ test(
     const times = STORY.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    // seed 7 took about 106 s of game time and 43 armour (of 200), and left 241 of 400 autocannon shots and 0 of 12 heavy
-    // gun shots; the limits below keep room for a retune of the values, and fail if the sortie turns out hardly possible
+    // seed 7 took about 130 s of game time and 44 armour (of 200), and left 138 of 400 autocannon shots and 0 of 12 heavy
+    // gun shots; it stepped aside from the aimed mortar 4 times. The limits below keep room for a retune of the values,
+    // and fail if the sortie turns out hardly possible
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
     expect(result.armor).toBeGreaterThan(0);
     expect(result.main).toBeGreaterThan(0);

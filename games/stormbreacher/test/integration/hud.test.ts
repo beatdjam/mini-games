@@ -1,9 +1,10 @@
 import { expect, test } from 'vitest';
 import { ENEMIES } from '../../src/data/enemies.ts';
 import { CHARGE_TUNE } from '../../src/data/charge.ts';
+import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { RADIO_MIN_SEC } from '../../src/data/script.ts';
-import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
+import { HUD_TUNE, MECH_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel, type TargetState } from '../../src/logic/game.ts';
@@ -279,4 +280,19 @@ test('a planted charge shows its fuse left and full length', () => {
   game.mech.z = blast.z + 2;
   game.charges.push({ blast: blast.id, left: CHARGE_TUNE.fuse / 2 });
   expect(hudModel(game).charge).toEqual({ left: CHARGE_TUNE.fuse / 2, total: CHARGE_TUNE.fuse });
+});
+
+test('a warned aimed shell inside its circle shows the shell warning', () => {
+  const game = newGame(M1B_HAND);
+  // the mech's start, clear of the map's props
+  game.mech.x = 0;
+  game.mech.z = M1B_HAND.bounds.maxZ - PLAY_TUNE.startMargin;
+  game.mech.yaw = 0;
+  // one step short of a full stay, so the next frame's warning lands on the mech
+  game.aimed = { anchor: { x: game.mech.x, z: game.mech.z }, still: AIMED_MORTAR.stillSec - 0.1 };
+  step(game, idle, 0.2);
+  expect(game.shells).toHaveLength(1);
+  expect(hudModel(game).warning).toBe('shell');
+  game.mech.x = AIMED_MORTAR.radius + 1;
+  expect(hudModel(game).warning).toBeNull();
 });

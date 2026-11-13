@@ -1,7 +1,7 @@
 // The hazards in the game: the beach wave starts a mortar barrage whose shells warn and land, a mine goes off under the
 // mech or from its shot, a checkpoint does not keep a shell in flight, and the hand map's mines stand clear of the start.
 import { expect, test } from 'vitest';
-import { BARRAGES, MINE_TUNE } from '../../src/data/hazards.ts';
+import { AIMED_MORTAR, BARRAGES, MINE_TUNE } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { MECH_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
@@ -76,6 +76,8 @@ function shootMine(game: GameModel, mine: { x: number; z: number }): void {
 test('the beach wave starts a mortar barrage, and a shell warns, then lands after the warning', () => {
   seed(1);
   const game = newPlayGame(M1B_HAND);
+  // the aimed mortar is another hazard: this test reads the barrage's shells alone
+  game.aimed = null;
   const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
   expect(game.barrages).toMatchObject([{ wave: 'beach-mortar', kind: 'mortar' }]);
   const warns = events.filter((event): event is Warned => event.kind === 'shellWarn');
@@ -94,6 +96,8 @@ test('a shell hurts a mech inside the blast and not one outside it, with the way
   for (let n = 1; n <= 12; n++) {
     seed(n);
     const game = newPlayGame(M1B_HAND);
+    // the mech stands still here, so the aimed mortar would also warn; this test reads the barrage's shells alone
+    game.aimed = null;
     const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
     const warn = events.find((event): event is Warned => event.kind === 'shellWarn');
     const land = events.find((event): event is Landed => event.kind === 'shellLand');
@@ -128,6 +132,8 @@ test('a mech past the barrage’s reach (z under minZ) gets no warning', () => {
   seed(1);
   const game = newPlayGame(M1B_HAND);
   step(game, idle, DT);
+  // z 25 lies inside the aimed mortar's reach (minZ -10), so it is left out here too
+  game.aimed = null;
   game.mech.z = MORTAR.minZ - 5;
   const events = run(game, framesOf(MORTAR.interval * 3));
   expect(events.filter(event => event.kind === 'shellWarn')).toHaveLength(0);
@@ -236,4 +242,89 @@ test('the hand map’s mines are on the beach, 6 m or more from the start, and t
   // a map with no `mines` field plays as before
   const { mines: _mines, ...bare } = M1B_HAND;
   expect(newGame(bare).mines).toEqual([]);
+});
+
+test('a mech that stands in one place brings an aimed shell down on that place', () => {
+  const game = newPlayGame(M1B_HAND);
+  // the beach's spawn starts both: the timed barrage and the aimed mortar
+  expect(game.barrages).toMatchObject([{ wave: 'beach-mortar', kind: 'mortar' }]);
+  expect(game.aimed).not.toBeNull();
+  // the aimed mortar alone; the beach's barrage would warn at its own interval too
+  game.barrages = [];
+  const events = run(game, framesOf(AIMED_MORTAR.stillSec) + 2);
+  const warns = events.filter((event): event is Warned => event.kind === 'shellWarn');
+  expect(warns).toHaveLength(1);
+  expect(warns[0]).toMatchObject({ x: game.mech.x, z: game.mech.z, radius: AIMED_MORTAR.radius });
+  expect(game.shells).toHaveLength(1);
+  expect(game.shells[0]).toMatchObject({ x: game.mech.x, z: game.mech.z });
+  expect(game.shells[0].damage).toBe(AIMED_MORTAR.damage);
+  expect(game.shells[0].warn).toBe(AIMED_MORTAR.warn);
+  // the shell has already counted this frame's dt down
+  expect(game.shells[0].left).toBeCloseTo(AIMED_MORTAR.warn, 1);
+});
+
+test('a mech that leaves the circle starts the stay again, and the next shell comes a full stay later', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.barrages = [];
+  run(game, framesOf(AIMED_MORTAR.stillSec) + 2);
+  expect(game.shells).toHaveLength(1);
+  game.mech.x += AIMED_MORTAR.radius + 4;
+  run(game, 1);
+  expect(game.aimed?.still).toBe(0);
+  const early = run(game, framesOf(AIMED_MORTAR.stillSec - 0.2));
+  expect(early.filter(event => event.kind === 'shellWarn')).toHaveLength(0);
+  const late = run(game, framesOf(0.3));
+  expect(late.filter(event => event.kind === 'shellWarn')).toHaveLength(1);
+});
+
+test('the aimed mortar does not reach past its minZ, and its stay does not run there', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.barrages = [];
+  game.mech.z = AIMED_MORTAR.minZ - 5;
+  const events = run(game, framesOf(AIMED_MORTAR.stillSec * 2));
+  expect(events.filter(event => event.kind === 'shellWarn')).toHaveLength(0);
+  expect(game.aimed?.still).toBe(0);
+});
+
+test('the aimed mortar ignores cover: a shell comes down even behind the line', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.barrages = [];
+  // just landward of line 1's hedgehogs
+  game.mech.x = 0;
+  game.mech.z = 140;
+  const events = run(game, framesOf(AIMED_MORTAR.stillSec) + 2);
+  const warns = events.filter((event): event is Warned => event.kind === 'shellWarn');
+  expect(warns).toHaveLength(1);
+  expect(warns[0]).toMatchObject({ x: 0, z: 140 });
+});
+
+test('a cutscene holds the stay, and the warning comes a full stay after it ends', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.barrages = [];
+  game.script.cutscene = { id: 'landing', left: 1 };
+  const held = run(game, framesOf(2));
+  expect(held.filter(event => event.kind === 'shellWarn')).toHaveLength(0);
+  expect(game.aimed?.still).toBeGreaterThan(0);
+  expect(game.aimed?.still).toBeLessThan(1.2);
+  const after = run(game, framesOf(AIMED_MORTAR.stillSec) + 2);
+  expect(after.filter(event => event.kind === 'shellWarn')).toHaveLength(1);
+});
+
+test('a checkpoint keeps the stay of the aimed mortar and drops a shell that has not landed', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.barrages = [];
+  run(game, framesOf(3));
+  const still = game.aimed?.still ?? 0;
+  expect(still).toBeGreaterThan(2);
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game.targets.find(t => t.id === id);
+    if (!target) throw new Error(`the map has no ${id}`);
+    target.hp = 0;
+    sendToScript(game, { kind: 'destroyed', target: id });
+  }
+  expect(game.checkpoint?.id).toBe('cp1');
+  const again = retryFromCheckpoint(game);
+  expect(again.aimed?.still).toBeCloseTo(still, 6);
+  expect(again.shells).toEqual([]);
 });

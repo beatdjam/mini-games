@@ -1,14 +1,15 @@
 // The blast points on the hedgehog line and the charge planted on one (#view-breach, SB-1500). The hand map's line 1 is
 // drawn with the beach's builder, the mech stands at the breakthrough at x 40, and the buttons plant a charge, burn its
-// fuse to the blast, put everything back, and put out the six machine-gun nests that shoot at the mech. The panel turns
-// CHARGE_TUNE and ENEMIES.emplacement; window.sbBreachReport() gives the same state and the last frame's draw counts as
-// JSON.
+// fuse to the blast, put everything back, put out the six machine-gun nests that shoot at the mech, and start the aimed
+// mortar (SB-1530). The panel turns CHARGE_TUNE, ENEMIES.emplacement and AIMED_MORTAR; window.sbBreachReport() gives the
+// same state and the last frame's draw counts as JSON.
 import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
 import { ENEMIES } from '../../data/enemies.ts';
 import { CHARGE_TUNE } from '../../data/charge.ts';
 import { ENEMY_BULLET_COLOR } from '../../data/colors.ts';
+import { AIMED_MORTAR } from '../../data/hazards.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../../data/mech.ts';
@@ -16,12 +17,14 @@ import { M1 } from '../../data/missions/m1.ts';
 import { MECH_TUNE } from '../../data/tune.ts';
 import { newGame, type GameModel } from '../../logic/game.ts';
 import { newEnemy, stepEnemy } from '../../logic/enemies.ts';
+import { inCircle, newAimed, stepAimed, stepShells } from '../../logic/hazards.ts';
 import { stream } from '../../logic/rng.ts';
 import { buildWorld } from '../../view/world.ts';
 import { buildBlastView, drawBlasts, type BlastView } from '../../view/blasts.ts';
 import { buildBooms, drawBooms, spawnBoom } from '../../view/boom.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from '../../view/enemies.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
+import { buildHazardView, drawHazards, type HazardView } from '../../view/hazards.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { buildMechVisual } from '../../view/mechModel.ts';
 import { createTunePanel, type TuneRange } from '../tunePanel.ts';
@@ -74,6 +77,24 @@ const EMPLACEMENT_LABELS: Record<string, string> = {
   'burst.arcDeg': '掃射の弧（度）',
   'burst.interval': '掃射の間隔（s）',
   'burst.rest': '次の掃射まで（s）',
+};
+
+// The aimed mortar's values the panel turns.
+const AIMED_RANGES: Record<string, TuneRange> = {
+  stillSec: { min: 0.5, max: 20, step: 0.1 },
+  stillRadius: { min: 0.5, max: 10, step: 0.1 },
+  warn: { min: 0.5, max: 10, step: 0.1 },
+  radius: { min: 1, max: 20, step: 0.5 },
+  damage: { min: 0, max: 100, step: 1 },
+  minZ: { min: -170, max: 170, step: 1 },
+};
+const AIMED_LABELS: Record<string, string> = {
+  stillSec: '同じ所にいる（s）',
+  stillRadius: '同じと見る半径（m）',
+  warn: '予告から着弾まで（s）',
+  radius: '爆風の半径（m）',
+  damage: '当たったときの装甲',
+  minZ: '区間の手前（m）',
 };
 
 const TRACER_LENGTH = 4; // how long a nest's tracer is drawn (m)
@@ -131,6 +152,7 @@ interface BreachReport {
   plant: { blast: string; hold: number } | null;
   nests: number;
   bullets: number;
+  aimed: { still: number; warns: number } | null;
   calls: number;
   triangles: number;
 }
@@ -184,6 +206,7 @@ export function showBreach(_hash: string) {
 
   const view: BlastView = buildBlastView(map);
   const enemyView: EnemyView = buildEnemyView();
+  const hazardView: HazardView = buildHazardView();
   const tracerView = buildTracerView();
   let tracers: Tracer[] = [];
   camera.position.set(...CAM_POS);
@@ -244,6 +267,14 @@ export function showBreach(_hash: string) {
     tracers = [];
   });
   putNests.dataset.sbBreach = 'nests';
+  const aimedRow = document.createElement('div');
+  aimedRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
+  extra.appendChild(aimedRow);
+  const startAimed = button(aimedRow, '狙う迫撃砲を始める', () => {
+    game.aimed = newAimed(game.mech);
+    game.shells = [];
+  });
+  startAimed.dataset.sbBreach = 'aimed';
 
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
@@ -251,7 +282,7 @@ export function showBreach(_hash: string) {
   extra.appendChild(note);
 
   createTunePanel({
-    title: '爆破点・爆薬・機銃座 #view-breach',
+    title: '爆破点・爆薬・機銃座・狙う迫撃砲 #view-breach',
     extra,
     groups: [
       { name: 'CHARGE_TUNE', table: CHARGE_TUNE, ranges: CHARGE_RANGES, labels: CHARGE_LABELS },
@@ -261,6 +292,7 @@ export function showBreach(_hash: string) {
         ranges: EMPLACEMENT_RANGES,
         labels: EMPLACEMENT_LABELS,
       },
+      { name: 'AIMED_MORTAR', table: AIMED_MORTAR, ranges: AIMED_RANGES, labels: AIMED_LABELS },
     ],
   });
 
@@ -272,6 +304,7 @@ export function showBreach(_hash: string) {
       plant: game.plant === null ? null : { blast: game.plant.blast, hold: game.plant.hold },
       nests: game.enemies.filter(enemy => enemy.kind === 'emplacement').length,
       bullets: tracers.length,
+      aimed: game.aimed === null ? null : { still: game.aimed.still, warns: game.shells.length },
       calls: renderer.info.render.calls,
       triangles: renderer.info.render.triangles,
     };
@@ -287,6 +320,15 @@ export function showBreach(_hash: string) {
       for (const blown of stepBlasts(game, dt)) {
         spawnBoom('large', blown.blast.x, 0.8, blown.blast.z);
         if (blown.blast.id === 'l1-b' && !blown.blast.blasted) showLine(true);
+      }
+      // the aimed mortar, if the button has started it: a warning goes on the ground and then lands on the mech
+      if (game.aimed !== null) {
+        const shell = stepAimed(game.aimed, game.mech, dt);
+        if (shell) game.shells.push(shell);
+      }
+      for (const shell of stepShells(game.shells, dt)) {
+        spawnBoom('large', shell.x, 0.8, shell.z);
+        if (inCircle(shell, shell.radius, game.mech)) game.armor = Math.max(0, game.armor - shell.damage);
       }
       // the nests shoot at the mech as stepEnemies has them: a prop or a standing target stops the line
       const blockers = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
@@ -313,6 +355,7 @@ export function showBreach(_hash: string) {
       drawBooms(dt);
       drawBlasts(view, game);
       drawEnemies(enemyView, game);
+      drawHazards(hazardView, game);
       drawTracers(tracerView, tracers);
       const near = game.blasts.find(blast => blast.id === 'l1-b');
       hud.textContent =
@@ -321,6 +364,9 @@ export function showBreach(_hash: string) {
         `長押し ${game.plant === null ? '-' : `${(game.plant.hold / CHARGE_TUNE.holdSec).toFixed(2)}`}\n` +
         `爆薬 ${game.charges.map(charge => `${charge.blast} ${charge.left.toFixed(2)}s`).join(' ') || '-'}\n` +
         `機銃座 ${game.enemies.filter(enemy => enemy.kind === 'emplacement').length} / 弾 ${tracers.length}\n` +
+        `狙う迫撃砲 ${
+          game.aimed === null ? '止' : `あと ${Math.max(0, AIMED_MORTAR.stillSec - game.aimed.still).toFixed(1)}s`
+        } / 予告 ${game.shells.length} / 装甲 ${game.armor}\n` +
         `描画 calls ${renderer.info.render.calls} / tris ${renderer.info.render.triangles}`;
     },
   });

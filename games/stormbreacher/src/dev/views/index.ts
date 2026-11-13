@@ -106,7 +106,7 @@ export const DEV_VIEWS: DevView[] = [
   {
     hash: '#view-breach',
     match: 'starts',
-    name: 'blast points, charges and machine-gun nests, with knobs',
+    name: 'blast points, charges, machine-gun nests and the aimed mortar, with knobs',
     run: showBreach,
   },
   {

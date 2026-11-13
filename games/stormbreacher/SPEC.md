@@ -166,8 +166,8 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - `SAVE_VERSION = 2`。形を変えたら版を上げ、`MIGRATIONS` に `[to, migrate]` を足す。1 → 2 は `funds` を `ECONOMY.startFunds` で作る
 - `SaveData` は `v`・所持金 `funds`（cr）と `records.missions` を持つ。`MissionRecord` は `cleared` と `bestSec`（秒、無ければ null）
 - 古いセーブは `v`（無ければ 0）から今の版まで `MIGRATIONS` を順に流す。読むのは `initSave()`（起動時）で、モジュールの読み込み時には読まない
-- 中断のスナップショット: 一時停止の「中断」で `SUSPEND_KEY = 'stormbreacher-suspend'` に1つだけ書く（キャンペーンの進みとは別のキー）。形は `SuspendData`（`v`・`map` と `mission` の id・`game`・`checkpoint`）で、`SUSPEND_VERSION = 6`（6: 機銃座の掃射の途中を保存する。5: 爆破した線は開いたまま。4: 仕掛けた爆薬と導火線、長押しの途中を保存する。3: トーチカの待ちと予兆を保存する）。定義場所は `suspendOf`・`restoreSuspend` in src/logic/suspend.ts、読み書きは `loadSuspend`・`writeSuspend`・`clearSuspend` in src/app/storage.ts
-  - 深いコピー（`structuredClone`）で、保存しない項目を名前で並べる形: `events`（そのフレームの出来事）・`bullets`（飛んでいる弾）・`shells`（落ちる前の着弾予告。チェックポイントと同じく持ち越さず、再開で消える）。`map` と `mission` は id で持ち、読むときに `MAPS`・`MISSIONS` の表から引き直す。`checkpoint` は `map`・`mission` を除いた形で一緒に保存し、再開したあとにやられてもそこからやり直せる。`GameModel` に項目を足すと、保存しない項目に書かない限り保存される（読み込みの検査表 `GAME_SHAPE` が項目の抜けを型で知らせる）。トーチカの状態 `pillboxes`（待ち・予兆・連射）と、爆破点 `blasts`（爆破済みの印を含む）・仕掛けた爆薬 `charges`（導火線の残り）・長押しの途中 `plant` も保存する
+- 中断のスナップショット: 一時停止の「中断」で `SUSPEND_KEY = 'stormbreacher-suspend'` に1つだけ書く（キャンペーンの進みとは別のキー）。形は `SuspendData`（`v`・`map` と `mission` の id・`game`・`checkpoint`）で、`SUSPEND_VERSION = 7`（7: 狙う迫撃砲が、機体がどこに立っていたかを覚えている。6: 機銃座の掃射の途中を保存する。5: 爆破した線は開いたまま。4: 仕掛けた爆薬と導火線、長押しの途中を保存する。3: トーチカの待ちと予兆を保存する）。定義場所は `suspendOf`・`restoreSuspend` in src/logic/suspend.ts、読み書きは `loadSuspend`・`writeSuspend`・`clearSuspend` in src/app/storage.ts
+  - 深いコピー（`structuredClone`）で、保存しない項目を名前で並べる形: `events`（そのフレームの出来事）・`bullets`（飛んでいる弾）・`shells`（落ちる前の着弾予告。チェックポイントと同じく持ち越さず、再開で消える）。`map` と `mission` は id で持ち、読むときに `MAPS`・`MISSIONS` の表から引き直す。`checkpoint` は `map`・`mission` を除いた形で一緒に保存し、再開したあとにやられてもそこからやり直せる。`GameModel` に項目を足すと、保存しない項目に書かない限り保存される（読み込みの検査表 `GAME_SHAPE` が項目の抜けを型で知らせる）。トーチカの状態 `pillboxes`（待ち・予兆・連射）と、爆破点 `blasts`（爆破済みの印を含む）・仕掛けた爆薬 `charges`（導火線の残り）・長押しの途中 `plant`、狙う迫撃砲 `aimed`（`anchor`・`still`）も保存する
   - 読み込み: 版が違う・JSON として壊れている・map や mission の id が表に無い・項目の型が違うときは捨てて（キーを消す）、「続きから」を出さない。例外では落ちない
   - 再開すると中断のキーを消す。報酬を判定する粒度（クリア1回）より前に保存し、再開した出撃のクリアで1回だけ書くので、同じ中断から報酬を二重に取れない。やり直しの回数 `retries` も保存するので、再開しても費用と戦果は中断しなかったときと同じ
 - 書くのはクリアしたときだけ（`recordClear` in src/logic/save.ts を結果画面の `settle` in src/app/play.ts が1回呼ぶ）。やられた・やり直しでは書かない。同じ結果画面で `showResult` を2回呼んでも、二重には足さない。報酬を判定する粒度（クリア1回）にそろえてある
@@ -379,6 +379,16 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
   - 流れ（`stepBarrage`）: 機体の足元の z が `minZ` 以上 `maxZ` 以下の間だけ `wait` を数える（`inReach`。限りのない側は `-Infinity`・`Infinity`）。`slow`（`flag` と `mul`）を持つ砲撃は、台本のその印が立っている間、`wait` を `dt / mul` ずつ数える（間隔が `mul` 倍になる。`stepHazards` が `game.script.flags` を見て渡す）。0 になるたびに着弾予告 `ShellState` を `game.shells` に足し、出来事 `shellWarn`（`x`・`z`・`radius`）を出す。届かない間は数えない（届く所に戻ってから `interval` 後が最初の予告）
   - 狙い: 機体の位置から、向きは 0〜2π、距離は 0〜`aimJitter` の一様な乱数でずらした所。乱数の列は `stream('mortar')`
   - 落ちる: `shells` の `left` が `dt` ずつ減り、0 になった予告が落ちて `shellLand`（`x`・`z`・`hit`）を出す。機体の足元が半径 `radius` の円の中なら `hit` が true で、`damageMech` と同じ道で装甲が `damage` 減る（`damaged` の向きは機体から落ちた所へ）
+- 狙う迫撃砲（`AIMED_MORTAR`）
+  - 始まる: 台本の `spawn` の波の名前が `M1_WAVE_AIMED`（`beach-mortar`）にあれば `startAimed` が `game.aimed`（`anchor`・`still`）を作る。同じ波では1回だけ（`game.aimed` があれば何もしない）。既存の `BARRAGES.mortar` の砲撃はそのまま残り、`beach-mortar` は両方を始める
+  - 区間: 機体の足元の z が `minZ` 以上 `maxZ` 以下の間（既存の `inReach` と同じ向き。+z が海）。`minZ` はトーチカ線の手前。`aimedInReach` が判定する
+  - 同じ所にいる（`stepAimed`）: 機体の x・z が `anchor` から `stillRadius` 以内にいる時間を `still` に足す。`anchor` を出たら `anchor` を機体の位置にし、`still` を 0 に戻す。高さは見ない（跳んでいても x・z が同じなら数える）
+  - 予告: `still` が `stillSec` に達したら 0 に戻し、そのときの機体の x・z を狙う `ShellState`（`radius`・`warn`・`left = warn`・`damage`）を `game.shells` に足し、出来事 `shellWarn` を出す。乱数は使わず（`stream('mortar')` を消費しない）、その場所を狙う
+  - 遮蔽: 見ない。物の後ろでも来る。着弾の円から出れば当たらない
+  - 着弾: 既存の `stepShells` と `stepHazards` の道。`shellLand` を出し、円の中なら `damageMech`（向きは機体から着弾点へ）
+  - カットシーン: カットシーンの間は `still` を数えない。もう出た予告は落ちる
+  - HUD・見た目・音: 既存の `warning`（円の中にいる間 `'shell'`）・`sb-shells` の輪・`shellWarn`/`shellLand` の音がそのまま効く
+  - 保存: `aimed` をチェックポイントと中断に保存する。`shells` は持ち越さないので、戻すと予告中の弾は消えて `still` だけが残る（戻ってすぐに撃たれる場合がある）
 - 地雷（`MINE_TUNE`）
   - 置き場所は `MapDef.mines`（`MinePlace` の一覧。省略できる）。省略した地図は地雷なしで、生成の地図と簡易エディタの地図は地雷を持たない。`newGame` が `game.mines`（`x`・`z`・`hp`）にする
   - 踏む: 機体の足元から `stepRadius` 以内で爆発する（跳んでいても高さは見ない）
@@ -400,6 +410,13 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 | `BARRAGES.mortar.aimJitter` | 12 | m。狙いのずれの最大 |
 | `BARRAGES.mortar.minZ` | 30 | m。砲撃が届くのはこの z より海側 |
 | `BARRAGES.mortar.maxZ` | Infinity | m。上限なし |
+| `AIMED_MORTAR.stillSec` | 5 | s。同じ所にいる時間 |
+| `AIMED_MORTAR.stillRadius` | 3 | m。同じ所と見る半径 |
+| `AIMED_MORTAR.warn` | 2.5 | s。予告から着弾まで |
+| `AIMED_MORTAR.radius` | 6 | m。爆発の半径 |
+| `AIMED_MORTAR.damage` | 20 | 当たったときに減る装甲 |
+| `AIMED_MORTAR.minZ` | -10 | m。届くのはこの z より海側 |
+| `AIMED_MORTAR.maxZ` | Infinity | m。上限なし |
 | `MINE_TUNE.stepRadius` | 1.8 | m。踏んで爆発する距離 |
 | `MINE_TUNE.blastRadius` | 4 | m。爆発で装甲が減る距離 |
 | `MINE_TUNE.damage` | 30 | 爆発で減る装甲 |
@@ -671,7 +688,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `#view-map`: M1 の手書きのマップ（浜・B トーチカ線・C・防波堤・ボスの場所）を歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、海と揚陸艇を `buildShore`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（8章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す。右上の調整パネルで `MOVE_TUNE`（歩く速さ・ジャンプ・重力・ブースト）・`CAMERA_TUNE`（距離・高さ）・`FEEL_TUNE`（画角・揺れ・ヒットストップ・砂煙・連射）を歩きながら変えられる（保存しない。`?walk=` などの URL の値の上に載る）
 - `#view-fx`: M1 の B のマップ（手書き・生成・エディタが保存したもの）を機体で歩きながら、周りで戦闘が起きている迫力を試す入口。`?src=hand|gen|edit` で M1 の B の手書きのマップ・生成したマップ・エディタが `localStorage` に保存したマップを選び（既定 `hand`。`edit` で保存が無いときは「保存されたマップが無い」を出して空のマップで開く）、`?fx=0|1|2|3` で濃さを選び（0 は演出を全部切った見た目で、`mech=4` なら `#view-map` と同じ。1 は弱、2 は中、3 は強。既定 2）、`FX_TUNE` の各項目を同じ名前でさらに上書きできる（例 `?fx=3&pixel=0.4&tracers=6`）。`?seed=<n>` は場面の種。`?mech=<m>` は機体の高さ（3〜8m、既定は `MECH_TUNE.height` の 4）で、仮の模型を `mech/4` 倍にし、足元は地面に付けたままにする。機体は `#view-map` と同じく物と目標に入らず、斜めに当たると壁に沿って滑る。当たり半径は `?mech=` とつまみに比例する（`MECH_TUNE.radius` × `mech/4`。`?mechMove=0` でも比例し、`?mech=8` で 2m）。`?mechCam=0` はカメラの距離・肩・注視点の高さ・上への持ち上げ・狙うときの距離を、`?mechMove=0` は歩き・ブーストの速さと加速・ジャンプの初速を `mech/4` に比例させない（ジャンプの初速は `sqrt(mech/4)`。既定はどちらも比例）。`MOVE_TUNE`・`CAMERA_TUNE` は 4m 用で、`?mech=8` にすると SB-100 の前の 8m の値に戻る。物と歩兵の大きさは 8m の機体に合わせて決めたときのまま。機体の始まりは地図の手前の端から、`mech` に比例したカメラの距離＋4m 内側にして、カメラが地図の外に出ないようにする。味方の歩兵は海側から波で出て -z へ進み、倒れた人と抜けた人を数える。砲撃は機体のまわりの輪に落ちて閃光・破片・灰色の煙を出し、近いほどカメラを揺らす。残骸からは煙の柱が立ち、曳光弾が画面を横切り、飛行機はマップの左右の端の外側（`PLANE_MARGIN`）まで機体と関係なくマップの座標で横切る。地面には `stream('craters')` の種から散らした砲弾穴があり、`craterWater` の割合で水が溜まる（見た目だけで、地面の高さ・機体の歩き・当たり判定は変えない）。砲撃は `shellCrater` が 1 なら落ちた所に新しい穴を残し、`craterCap` を超えると古いものから消える。見た目は `pixel` の解像度と canvas の CSS の `filter`（`saturate`・`contrast`・`sepia`）と霧で作る。`light` はシーンの全部の光の強さに掛ける倍率、`sun` はそのうち `DirectionalLight` だけにさらに掛ける倍率、`groundColor` は地面のタイルの色（タイルごとの濃淡は残す）で、色は URL では10進の数値で上書きできる。煙の色は `smokeColor`・`smokeDark` で変えられる（URL のみ）。右上のつまみは `FX_TUNE` の主な値をスライダーで変え（歩兵の人数・煙の上限・穴の数と上限・穴の半径と水の割合は「やり直し」で作り直す）、`mech` のスライダーと `mechCam`・`mechMove` のチェックも置き、折りたためる。「書き出し」は今の値を JSON で `<textarea>` に出し、`window.sbFxReport()` が同じ JSON に機体の高さ・比例のありなし・歩きとブーストの速さ・描く回数・三角形の数・直近の fps を足して文字列で返す。左上に選んだ `src`・前進・倒れ・抜けの人数（戦場の歩兵が上限に当たっているときは「上限」も）・煙の塊の数と描く回数・三角形の数・fps を出し、`window.sbFxReport()` と書き出しの JSON にも `src` を出す。演出はゲームの状態に影響しない
 - `#view-boom`: 浜と海の境を固定カメラで見て、爆発の見た目と揺れを試す入口。種類 `small`・`large`・`craft`・`water` のボタン（とキー 1〜4）でその種類を選んで出し、右上の調整パネル（`BOOM_DEFS.<種類>` の行）で「大きさ（火球の半径）」「煙の数」「煙の寿命」「揺れ」をその場で書き換える（保存しない。「値をコピー」で `BOOM_DEFS.large.fire.radius: 6.4` の形になる）。今の値を文字で出し、`window.sbBoomReport()` が同じ値と粒の数・描く回数・三角形を JSON の文字列で返す。土の上は砂柱、海の上は水柱
-- `#view-breach`: 手書きマップの線1の爆破点と爆薬を、機体を (40, 150) に置いて見る入口。右上の調整パネルが `CHARGE_TUNE`（長押し・届く距離・導火線・爆風の半径と装甲・穴の半幅と半奥行き）と `ENEMIES.emplacement`（体力・射程・1発の装甲・掃射の弾数・弧・間隔・次の掃射まで）を書き換え、「仕掛ける」「爆破」「戻す」と「この線を爆破で開く」（`openBreach` の結果でシーンを作り直す）「閉じた線に戻す」、それに「機銃座を出す」（`M1B_HAND.spawns['b-emplacements']` の6か所に機銃座を置き、機体へ掃射させる。曳光はこの入口だけの線で描く）でその場で試せる。`window.sbBreachReport()` が機体・爆破点・爆薬・機銃座の数・弾の数・`?stats` の数字を JSON の文字列で返す
+- `#view-breach`: 手書きマップの線1の爆破点と爆薬を、機体を (40, 150) に置いて見る入口。右上の調整パネルが `CHARGE_TUNE`（長押し・届く距離・導火線・爆風の半径と装甲・穴の半幅と半奥行き）と `ENEMIES.emplacement`（体力・射程・1発の装甲・掃射の弾数・弧・間隔・次の掃射まで）、`AIMED_MORTAR`（同じ所にいる秒・同じと見る半径・予告・爆風の半径・装甲・区間の手前）を書き換え、「仕掛ける」「爆破」「戻す」と「この線を爆破で開く」（`openBreach` の結果でシーンを作り直す）「閉じた線に戻す」、「機銃座を出す」（`M1B_HAND.spawns['b-emplacements']` の6か所に機銃座を置き、機体へ掃射させる。曳光はこの入口だけの線で描く）、「狙う迫撃砲を始める」（その場に立ち続けると予告の輪と着弾が出る。`still` の残りを画面に出す）でその場で試せる。`window.sbBreachReport()` が機体・爆破点・爆薬・機銃座の数・弾の数・狙う迫撃砲（`still`・予告の数）・`?stats` の数字を JSON の文字列で返す
 - `#view-mapedit`: マップの簡易エディタ。上から見下ろすカメラで、ホイールかピンチで寄り・引き、右ドラッグか2本指で動かす。右の一覧で物の8種か目標の4種を選び、地面をクリックかタップすると置く。目標は `id` を一覧から選ぶ。置いた物はドラッグで動き、`R` か回転のボタンで15度ずつ回り、`Delete` か削除のボタンで消える。「手書き」「生成（種）」「空」から始められ、置くたびに `validateMapForMission` を回して違反を出し、通り道が無ければ赤くする。「書き出し」は JSON を `<textarea>` に出し、「読み込み」はその JSON を読む。編集は `localStorage` の `stormbreacher-dev-map` に保存し、`#view-map?src=edit` で歩ける
 - `#view-sound`: 音の表の全部（`SOUND_NAMES`）をボタンで並べ、押すとその音を鳴らす入口。距離のつまみ（0〜200m）が `SOUND_DISTANCE` の距離の扱いを通すので、遠い音の小ささ・こもり方も試せる。右上の調整パネルで `SOUND_DISTANCE`（近い・遠い・遠くの音量と高さ）と `SOUND_VOLUME.sfx`（効果音の音量）も変えられる。`#sbSound` に並び、ボタンは `data-sound` に音の名前を持つ
 - `#view-outdoor`: 上陸戦の浜辺のような広い屋外（地面・障害物・トーチカ・防波堤・崖・歩く敵の機体）を種から作り、その重さを測る入口。開いて2秒たってから10秒のあいだ、フレームの間隔・描く回数・三角形の数を記録し、終わると画面の右上に大きく出す（下の `textarea` は同じ結果の JSON）。`window.sbBenchReport()` は終わっていればその JSON の文字列、まだなら `null`
@@ -733,7 +750,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 | cue | きっかけ | 動き |
 |-----|----------|------|
 | `intro` | `start` | `cutscene landing` |
-| `beach` | `after intro 0` | `objective reach-pillboxes`・`map wave2 on`・`spawn beach-mortar`・`ally buddy beach-run`（`fate { at: 'beach-mid', by: 'mortar' }`） |
+| `beach` | `after intro 0` | `objective reach-pillboxes`・`map wave2 on`・`spawn beach-mortar`（狙う迫撃砲も始まる）・`ally buddy beach-run`（`fate { at: 'beach-mid', by: 'mortar' }`） |
 | `pillboxes` | `enter b-line` | `objective break-pillboxes`・`spawn b-squad`・`spawn b-emplacements`・`radio m1.depot-hint` |
 | `depot-guard` | `enter depot-approach` | `spawn depot-guard` |
 | `depot` | `destroyed depot` | `flag depot-down`・`radio m1.depot-down` |
@@ -761,7 +778,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - 取る所: `applyScriptOut` が、そのフレームの台本の出来事を全部当て終えたあとに、`checkpoint` の出来事があれば `GameModel.checkpoint` に深いコピー（`structuredClone`）を取る。cue の `spawn` が同じフレームにあっても、出した敵がコピーに入るため
 - コピーの形: `GameSnapshot` は `GameModel` から保存しない項目を除いたもの + 取った id。除く項目は `events`（空）・`bullets`（飛んでいる弾は持ち越さない）・`checkpoint`（入れ子にしない）。項目を足したときは、除く項目に書かない限りコピーされる。`map` と `mission` は書き換えない定義なので、コピーせず同じものを指す。爆破点 `blasts`・仕掛けた爆薬 `charges`（導火線の残り）・長押しの途中 `plant` もコピーに残る（SB-1500）
 - `retryFromCheckpoint(game)` は、コピーをもう一度深くコピーして新しい `GameModel` を返す（元は変わらない）
-  - 戻る: 機体の位置・時計・敵（波は出し直さない）・目標・壊せる物・台本（`restoreCheckpoint` と同じ中身）・無線・味方の機体 `allies`（走っている位置と落ちた印。取ったときが走っている途中なら、そこからまた走って落ちる）・爆破点 `blasts`・仕掛けた爆薬 `charges`（導火線は取ったときの残りから続く）・長押しの途中 `plant`（そこから押し続けると仕掛かる）
+  - 戻る: 機体の位置・時計・敵（波は出し直さない）・目標・壊せる物・台本（`restoreCheckpoint` と同じ中身）・無線・味方の機体 `allies`（走っている位置と落ちた印。取ったときが走っている途中なら、そこからまた走って落ちる）・爆破点 `blasts`・仕掛けた爆薬 `charges`（導火線は取ったときの残りから続く）・長押しの途中 `plant`（そこから押し続けると仕掛かる）・狙う迫撃砲 `aimed`（`anchor`・`still`）
   - 満タンに戻る: 装甲（`MECH_TUNE.armor`）、メインとサブの弾数と待ち（`M1_LOADOUT` の表）。`downed`・`cleared` は false、`fcs` は新しく、`aimTarget` は null、`bullets` と `shells` は空（着弾予告は持ち越さない）。砲撃 `barrages`・地雷 `mines`・砲台の状態（`shutters`・`battery`。機銃の待ちと動き出したか）・トーチカの状態（`pillboxes`。待ち `wait` はコピーのまま、予兆 `warn` と連射 `shots`・`shotWait` は 0 に戻す）はチェックポイントのまま
   - `retries` は前の値 + 1（やり直した回数。修理費と弾の積み直しの請求は SB-210 が使う）。`checkpoint` は同じものを持つので、続けてやられても同じ所へ戻る。`events` は `{ kind: 'retried', from: <id> }`
   - チェックポイントが無いときは例外

@@ -10,7 +10,8 @@
 // shots fly as an enemy's do; a shot from its front does little damage and is reported as deflected. The
 // script's `spawn` puts a wave's enemies out (the wave's kinds are in M1_WAVE_ENEMY), starts
 // the wave's barrage (M1_WAVE_BARRAGE; logic/hazards.ts) and, when the last of the enemies falls, `cleared` goes back
-// through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; a mine blows up
+// through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; an aimed mortar
+// warns of a shell on the place the mech has stayed at for a while; a mine blows up
 // when the mech steps on it or the mech's shot breaks it, and both take armour from a mech inside the blast. The boss
 // (SB-200, logic/battery.ts): once the `battery` wave is out, each main gun still standing shoots the mech with a machine
 // gun, and the magazine takes no harm while its shutter is shut, until both main guns are down. An `ally` (a friend,
@@ -18,7 +19,7 @@
 import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
-import { BARRAGES, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
+import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
@@ -63,9 +64,12 @@ import { fireRayHit, type Aabb } from './fire.ts';
 import {
   inCircle,
   mineStepped,
+  newAimed,
   newBarrage,
+  stepAimed,
   stepBarrage,
   stepShells,
+  type AimedState,
   type BarrageState,
   type MineState,
   type ShellState,
@@ -217,6 +221,7 @@ export interface GameModel {
   aimTarget: string | null; // the id of the target or enemy the soft FCS pulls the aim toward, or null
   bullets: Bullet[]; // the shots in flight
   barrages: BarrageState[]; // the barrages that have started; none stops
+  aimed: AimedState | null; // the aimed mortar, once a wave has started it; null before one
   shells: ShellState[]; // the shells warned and not yet landed
   shutters: ShutterState[]; // the armour plates before the targets that have one, shut or open
   battery: BatteryState; // the main guns' machine guns
@@ -561,6 +566,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     aimTarget: null,
     bullets: [],
     barrages: [],
+    aimed: null,
     shells: [],
     shutters: newShutters(map.targets.map(place => place.id)),
     battery: newBattery(map.targets),
@@ -608,6 +614,13 @@ function startBarrage(game: GameModel, wave: string): void {
   game.barrages.push(newBarrage(wave, kind));
 }
 
+// Starts the aimed mortar a wave names in M1_WAVE_AIMED, once; a wave that is not there, or a mortar already started,
+// does nothing.
+function startAimed(game: GameModel, wave: string): void {
+  if (!M1_WAVE_AIMED.includes(wave) || game.aimed !== null) return;
+  game.aimed = newAimed(game.mech);
+}
+
 // Sends `cleared` to the script for each wave whose enemies are all down. Once a wave is cleared the script remembers
 // it, so it is not sent again.
 function checkWaves(game: GameModel): void {
@@ -641,6 +654,7 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
     if (event.kind === 'spawn') {
       spawnWave(game, event.wave);
       startBarrage(game, event.wave);
+      startAimed(game, event.wave);
       if (event.wave === BATTERY_WAVE) game.battery.on = true;
     }
     if (event.kind === 'ally') spawnAlly(game, event);
@@ -671,8 +685,8 @@ function snapshotOf(game: GameModel, id: string): GameSnapshot {
 }
 
 // The sortie again from the last checkpoint: the checkpoint's game with the armour full, both weapons loaded, the aim
-// assist fresh and the enemies, targets, props, mines, barrages and script as the checkpoint kept them (no wave is sent
-// out again; a shell warned but not landed is gone). The
+// assist fresh and the enemies, targets, props, mines, barrages, the aimed mortar and script as the checkpoint kept them
+// (no wave is sent out again; a shell warned but not landed is gone). The
 // checkpoint is copied again, so the new game's changes do not reach it, and it stays for the next time.
 export function retryFromCheckpoint(game: GameModel): GameModel {
   const checkpoint = game.checkpoint;
@@ -771,8 +785,9 @@ function stepBattery(game: GameModel, dt: number): void {
   }
 }
 
-// Runs the hazards by `dt`: each barrage may warn of a shell, each shell counts down and one that lands hurts a mech inside
-// its blast, and a mine the mech stands on goes off.
+// Runs the hazards by `dt`: each barrage may warn of a shell, the aimed mortar warns of one on the place the mech has
+// stayed at, each shell counts down and one that lands hurts a mech inside its blast, and a mine the mech stands on goes
+// off.
 function stepHazards(game: GameModel, dt: number): void {
   // A cutscene holds the mech still, so no barrage counts down or warns of a shell while one plays; the shells already
   // warned of still land. The barrage starts counting again when the cutscene ends or is skipped.
@@ -785,6 +800,14 @@ function stepHazards(game: GameModel, dt: number): void {
     if (!shell) continue;
     game.shells.push(shell);
     game.events.push({ kind: 'shellWarn', x: shell.x, z: shell.z, radius: shell.radius });
+  }
+  // The aimed mortar counts the stay as the barrage counts its interval: nothing while a cutscene holds the mech.
+  if (!held && game.aimed !== null) {
+    const shell = stepAimed(game.aimed, game.mech, dt);
+    if (shell) {
+      game.shells.push(shell);
+      game.events.push({ kind: 'shellWarn', x: shell.x, z: shell.z, radius: shell.radius });
+    }
   }
   for (const shell of stepShells(game.shells, dt)) {
     const hit = inCircle(shell, shell.radius, game.mech);

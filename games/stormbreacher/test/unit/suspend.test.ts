@@ -105,9 +105,17 @@ describe('suspend', () => {
     expect(back?.enemies[0]).toMatchObject({ kind: 'emplacement', burstLeft: 3, wait: 0.08 });
   });
 
+  test('the aimed mortar’s anchor and stay come back', () => {
+    const game = newGame(M1B_HAND);
+    game.aimed = { anchor: { x: 12, z: 34 }, still: 1.75 };
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.aimed).toEqual({ anchor: { x: 12, z: 34 }, still: 1.75 });
+  });
+
   test('a version that is not this one is thrown away', () => {
     const data = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
     expect(restoreSuspend({ ...data, v: SUSPEND_VERSION + 1 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 6 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 5 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 4 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 3 })).toBeNull();
