@@ -45,6 +45,7 @@ const hit = (target: string | null, mech = false): GameEvent => ({
   prop: null,
   enemy: null,
   mech,
+  deflected: false,
 });
 
 const target = (id: string, x: number): SoundTarget => ({
