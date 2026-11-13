@@ -19,14 +19,28 @@ const EXPECTED: readonly string[] = [
   'objective:reach-pillboxes',
   'map:wave2:on',
   'spawn:beach-mortar',
-  'ally:buddy',
   'cutsceneEnd:landing',
+  'ally:buddy',
+  'ally:cover-b1',
+  'ally:cover-b2',
+  'ally:cover-b3',
+  'ally:gunner',
   'objective:break-pillboxes',
   'spawn:b-squad',
+  'spawn:b-emplacements',
   'radio:m1.depot-hint',
+  'allyMove:cover-b1',
+  'allyMove:cover-b2',
+  'allyMove:cover-b3',
+  'allyMove:gunner',
   'flag:depot-down',
   'radio:m1.depot-down',
+  'radio:m1.pillboxes-down',
+  'flag:pillboxes-down',
   'checkpoint:cp1',
+  'allyMove:cover-b1',
+  'allyMove:cover-b2',
+  'allyMove:cover-b3',
   'cutscene:wave2-sinks',
   'radio:m1.wave2-lost',
   'map:wave2:off',
@@ -36,6 +50,9 @@ const EXPECTED: readonly string[] = [
   'checkpoint:cp2',
   'objective:silence-battery',
   'spawn:battery',
+  'allyMove:cover-b1',
+  'allyMove:cover-b2',
+  'allyMove:cover-b3',
   'radio:m1.gun1-down',
   'flag:shutter-open',
   'objective:hit-magazine',
@@ -54,6 +71,8 @@ function label(event: ScriptOut): string {
       return `spawn:${event.wave}`;
     case 'ally':
       return `ally:${event.id}`;
+    case 'allyMove':
+      return `allyMove:${event.id}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':
@@ -75,7 +94,9 @@ function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[
   const outputs: ScriptOut[] = [];
   outputs.push(...stepScript(state, M1, 0));
   outputs.push(...scriptInput(state, M1, { kind: 'skip' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'ashore' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'b-line' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'blast', id: 'l1-b' }));
   if (destroyDepot) outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'depot' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-1' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-2' }));
@@ -116,6 +137,8 @@ test('restoring cp1 drops wave2-lost and replays the same column', () => {
   expect(restored.fired.cp1).toBeTypeOf('number');
   expect(restored.fired['wave2-lost']).toBeUndefined();
   expect(restored.ended).toBeNull();
+  // the flag is one of cp1's actions before the checkpoint, so the copy holds it
+  expect(restored.flags).toContain('pillboxes-down');
 
   expect(fromCp1(restored).map(label)).toEqual(EXPECTED.slice(EXPECTED.indexOf('cutscene:wave2-sinks')));
   expect(restored.ended).toBe('cleared');

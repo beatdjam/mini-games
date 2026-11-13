@@ -1,10 +1,20 @@
 import { expect, test } from 'vitest';
 import { LANG } from '@engine/core/index.ts';
-import { CUTSCENES } from '../../src/data/cutscenes.ts';
+import { CUTSCENES, type CutsceneEvent } from '../../src/data/cutscenes.ts';
+import { CRAFT_TUNE, craftZ } from '../../src/data/craft.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
-import { CAMERA_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { hasCutscene, cutsceneEvents, cutsceneLine, cutsceneMech, cutscenePose } from '../../src/logic/cutscene.ts';
+import { LANDING_RIDERS, LANDING_TUNE } from '../../src/data/landing.ts';
+import {
+  hasCutscene,
+  cutsceneEvents,
+  cutsceneLine,
+  cutsceneMech,
+  cutscenePose,
+  riderFall,
+} from '../../src/logic/cutscene.ts';
+import { craftRects } from '../../src/logic/craft.ts';
 import { newGame } from '../../src/logic/game.ts';
 import { cameraPose } from '../../src/view/camera.ts';
 import '../../src/i18n/ja.ts';
@@ -54,6 +64,100 @@ test('the last key is the game camera behind the mech at the start, and the tabl
   expect(last.look[1]).toBeCloseTo(pose.look.y, 2);
   expect(last.look[2]).toBeCloseTo(pose.look.z, 2);
   expect(last.at).toBe(CUTSCENE_SEC.landing);
+});
+
+// The wheelhouse's box in the map's coordinates, from the craft's table (its middle is fromStern in front of the stern).
+function wheelhouseBox() {
+  const z = craftZ(M1B_HAND.bounds) + (CRAFT_TUNE.length - CRAFT_TUNE.wheelhouse.fromStern);
+  return {
+    minX: -CRAFT_TUNE.wheelhouse.w / 2,
+    maxX: CRAFT_TUNE.wheelhouse.w / 2,
+    minY: CRAFT_TUNE.hullTop,
+    maxY: CRAFT_TUNE.hullTop + CRAFT_TUNE.wheelhouse.h,
+    minZ: z - CRAFT_TUNE.wheelhouse.d / 2,
+    maxZ: z + CRAFT_TUNE.wheelhouse.d / 2,
+  };
+}
+
+type Box = ReturnType<typeof wheelhouseBox>;
+
+const inside = (box: Box, point: readonly number[]): boolean =>
+  point[0] >= box.minX &&
+  point[0] <= box.maxX &&
+  point[1] >= box.minY &&
+  point[1] <= box.maxY &&
+  point[2] >= box.minZ &&
+  point[2] <= box.maxZ;
+
+test('the landing camera never goes into the wheelhouse, at a key or between two', () => {
+  const box = wheelhouseBox();
+  for (let i = 0; i <= Math.round(CUTSCENE_SEC.landing / 0.05); i++) {
+    const second = i * 0.05;
+    const pose = cutscenePose('landing', second);
+    expect(inside(box, pose.pos), `the camera at ${second} s`).toBe(false);
+  }
+});
+
+test('the landing cuts from the sea outside the craft to the deck inside at 3.45 seconds', () => {
+  const outside = keys.find(key => key.at === 3.4);
+  const within = keys.find(key => key.at === 3.45);
+  if (!outside || !within) throw new Error('the landing has no cut at 3.4 and 3.45');
+  expect(within.at - outside.at).toBeCloseTo(0.05, 9);
+  expect(within.pos).not.toEqual(outside.pos);
+  const z = craftZ(M1B_HAND.bounds);
+  // outside: over the sea past the craft's stern
+  expect(outside.pos[2]).toBeGreaterThan(z + CRAFT_TUNE.length);
+  // inside: over the deck, within the hull's width and length
+  expect(Math.abs(within.pos[0])).toBeLessThan(CRAFT_TUNE.width / 2);
+  expect(within.pos[2]).toBeGreaterThan(z);
+  expect(within.pos[2]).toBeLessThan(z + CRAFT_TUNE.length);
+  expect(within.pos[1]).toBeGreaterThan(CRAFT_TUNE.deckTop);
+});
+
+test('the keys inside the craft keep the mech out of its see-through distance', () => {
+  const start = newGame(M1B_HAND).mech;
+  const chest = [start.x, start.y + MECH_TUNE.chestHeight, start.z] as const;
+  const z = craftZ(M1B_HAND.bounds);
+  const insideKeys = keys.filter(
+    key => Math.abs(key.pos[0]) < CRAFT_TUNE.width / 2 && key.pos[2] > z && key.pos[2] < z + CRAFT_TUNE.length,
+  );
+  expect(insideKeys.length).toBeGreaterThan(0);
+  for (const key of insideKeys) {
+    const distance = Math.hypot(key.pos[0] - chest[0], key.pos[1] - chest[1], key.pos[2] - chest[2]);
+    expect(distance, `the key at ${key.at} s`).toBeGreaterThan(MECH_TUNE.fadeDist);
+    // Claude's rule for this ticket: 4 m or more, so the model has room before it would fade
+    expect(distance, `the key at ${key.at} s`).toBeGreaterThanOrEqual(4);
+  }
+});
+
+test('the landing sinks two craft to port, out at sea, and no blast is put in its last 1.5 seconds', () => {
+  // the two craft of the row that the outside shot watches go down (the near craft beside the player's has no z: it
+  // begins where the player's craft does, and the 6.4 s burst takes it)
+  const sinks = landing.events.filter(event => event.kind === 'sink' && event.z !== undefined);
+  const bursts = landing.events.filter(event => event.kind === 'burst');
+  expect(sinks).toHaveLength(2);
+  // two shells hit the craft to port and the third is the near miss beside the player's craft that takes the riders
+  expect(bursts).toHaveLength(3);
+  // the near miss is the one off the player's port side at 6.4 s, not just any burst on the craft's side of the sea
+  const nearMiss = bursts.find(event => event.kind === 'burst' && event.x === -6 && event.z === 180);
+  expect(nearMiss).toBeDefined();
+  for (const sink of sinks) {
+    if (sink.kind !== 'sink') throw new Error('not a sink');
+    expect(sink.z ?? 0).toBeGreaterThan(M1B_HAND.bounds.maxZ);
+  }
+  const near = landing.events.filter(event => event.kind === 'sink' && event.z === undefined);
+  expect(near).toHaveLength(1);
+  for (const event of landing.events) {
+    if (event.kind === 'burst' || event.kind === 'sink') expect(event.at, `${event.kind}`).toBeLessThan(10.5);
+  }
+});
+
+test('the two new landing lines have text in ja and en', () => {
+  for (const code of ['ja', 'en']) {
+    for (const key of ['cutscene.landing.shell', 'cutscene.landing.sweep']) {
+      expect(LANG[code].ui[key], `${code} lacks "${key}"`).toBeTruthy();
+    }
+  }
 });
 
 test('the line follows the schedule, and none shows between lines', () => {
@@ -155,53 +259,122 @@ test('the craft that wave2-sinks sinks lie at sea, and the battery collapse name
 
 const rampEvent = landing.events.find(event => event.kind === 'ramp');
 if (!rampEvent || rampEvent.kind !== 'ramp') throw new Error('landing has no ramp event');
-const deckZ = M1B_HAND.bounds.maxZ + 5; // the player's craft's body begins 5 m past the front edge (view/shore.ts)
 
-test('the landing mech stands in the craft until the ramp is down, then walks down it', () => {
-  const mech = (second: number) => {
+test('the landing mech stands on the deck the whole time, where the new game puts it', () => {
+  const start = newGame(M1B_HAND).mech;
+  for (let second = 0; second <= CUTSCENE_SEC.landing + 3; second += 0.05) {
     const at = cutsceneMech('landing', second);
     if (!at) throw new Error('the landing has no mech path');
-    return at;
-  };
-  // before the ramp comes down it stands still on the deck, behind the ramp's hinge
-  for (const second of [0, rampEvent.at]) {
-    const at = mech(second);
-    expect(at.z, `z at ${second}`).toBeGreaterThan(deckZ);
-    expect(at.y, `y at ${second}`).toBeGreaterThan(1);
-    expect(at.speed, `speed at ${second}`).toBe(0);
+    expect(at, `at ${second}`).toEqual({ x: start.x, y: start.y, z: start.z, speed: 0 });
   }
-  expect(mech(0).z).toBe(mech(rampEvent.at).z);
-  // it goes on from the craft over the ramp to the sand (it may start a little before the ramp is all the way down): z only gets smaller, the feet come down to the ground
-  let z = Infinity;
-  let y = Infinity;
-  for (let second = rampEvent.at; second <= CUTSCENE_SEC.landing + 1e-9; second += 0.05) {
-    const at = mech(second);
-    expect(at.z).toBeLessThanOrEqual(z + 1e-9);
-    expect(at.y).toBeLessThanOrEqual(y + 1e-9);
-    z = at.z;
-    y = at.y;
-  }
-  expect(mech(8.5).z).toBeCloseTo(deckZ, 6);
-  expect(mech(9.3).z).toBeLessThan(deckZ);
-  expect(mech(9.3).z).toBeGreaterThan(M1B_HAND.bounds.maxZ - 4);
-  expect(mech(9.3).speed).toBeGreaterThan(1);
 });
 
-test('the landing mech ends at the game mech start, standing, and holds there after', () => {
-  const start = newGame(M1B_HAND).mech;
-  for (const second of [CUTSCENE_SEC.landing, CUTSCENE_SEC.landing + 3]) {
-    const at = cutsceneMech('landing', second);
-    expect(at).toEqual({ x: start.x, y: start.y, z: start.z, speed: 0 });
-  }
+test('the ramp is down before the cutscene ends, so the player can walk off the deck', () => {
+  expect(rampEvent.at + rampEvent.sec).toBeCloseTo(10.8, 6);
+  expect(rampEvent.at + rampEvent.sec).toBeLessThan(CUTSCENE_SEC.landing);
 });
 
 test('only the landing has a mech path, and its keys are in time order inside the cutscene', () => {
   expect(cutsceneMech('wave2-sinks', 1)).toBeNull();
   expect(cutsceneMech('beach-held', 1)).toBeNull();
   const keys = CUTSCENES.landing?.mech ?? [];
-  expect(keys.length).toBeGreaterThan(1);
+  expect(keys.length).toBeGreaterThanOrEqual(1);
   keys.forEach((key, i) => {
     expect(key.at).toBeLessThanOrEqual(CUTSCENE_SEC.landing);
     if (i > 0) expect(key.at).toBeGreaterThan(keys[i - 1].at);
   });
+});
+
+test('the six riders stand on the deck, clear of the mech and the wheelhouse', () => {
+  expect(LANDING_RIDERS).toHaveLength(6);
+  expect(new Set(LANDING_RIDERS.map(rider => rider.id)).size).toBe(LANDING_RIDERS.length);
+  const [deck] = craftRects(M1B_HAND.bounds);
+  const start = newGame(M1B_HAND).mech;
+  const wheelhouseFront =
+    craftZ(M1B_HAND.bounds) + CRAFT_TUNE.length - CRAFT_TUNE.wheelhouse.fromStern - CRAFT_TUNE.wheelhouse.d / 2;
+  for (const rider of LANDING_RIDERS) {
+    expect(Math.abs(rider.x - deck.x), `${rider.id} x`).toBeLessThanOrEqual(deck.halfW);
+    expect(Math.abs(rider.z - deck.z), `${rider.id} z`).toBeLessThanOrEqual(deck.halfD);
+    expect(rider.z, `${rider.id} wheelhouse`).toBeLessThan(wheelhouseFront);
+    const away = Math.hypot(rider.x - start.x, rider.z - start.z);
+    expect(away, `${rider.id} mech`).toBeGreaterThan(MECH_TUNE.radius);
+  }
+  for (const id of ['r2', 'r3']) {
+    const rider = LANDING_RIDERS.find(entry => entry.id === id);
+    if (!rider) throw new Error(`the landing has no rider "${id}"`);
+    expect(Math.hypot(rider.x - start.x, rider.z - start.z), `${id} from the mech`).toBeGreaterThanOrEqual(2.5);
+  }
+});
+
+test('a rider stands before its event, falls smoothly over sec, and stays down', () => {
+  const events = landing.events;
+  const event = events.find(entry => entry.kind === 'riders' && entry.ids.includes('r1'));
+  if (!event || event.kind !== 'riders') throw new Error('no riders event names r1');
+  expect(riderFall('r1', event.at - 0.1, events)).toBe(0);
+  expect(riderFall('r1', event.at, events)).toBe(0);
+  expect(riderFall('r1', event.at + event.sec, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r1', event.at + event.sec + 5, events)).toBeCloseTo(1, 9);
+  let last = 0;
+  for (let second = event.at; second <= event.at + event.sec; second += event.sec / 20) {
+    const fall = riderFall('r1', second, events);
+    expect(fall).toBeGreaterThanOrEqual(last);
+    last = fall;
+  }
+  expect(riderFall('nobody', event.at + event.sec, events)).toBe(0);
+});
+
+test('every fall in the table names a rider that rides', () => {
+  const ids = new Set(LANDING_RIDERS.map(rider => rider.id));
+  for (const event of landing.events) {
+    if (event.kind !== 'riders') continue;
+    expect(event.sec).toBeGreaterThan(0);
+    for (const id of event.ids) expect(ids, `the table names "${id}"`).toContain(id);
+  }
+});
+
+test('the near shell takes r1 and r5, the sweep takes r2, r3 and r4, and r6 stands', () => {
+  const events = landing.events;
+  expect(riderFall('r1', 6.9, events)).toBeGreaterThan(0);
+  expect(riderFall('r5', 7.3, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r1', 7.3, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r2', 11.9, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r3', 11.9, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r4', CUTSCENE_SEC.landing, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r6', CUTSCENE_SEC.landing, events)).toBe(0);
+});
+
+test('each fall starts after the burst that takes it has reached the deck', () => {
+  const tracers = landing.events.filter(event => event.kind === 'tracers');
+  const arrivalOf = (event: Extract<CutsceneEvent, { kind: 'tracers' }>): number =>
+    event.at + (event.z - LANDING_TUNE.tracer.fromZ) / LANDING_TUNE.tracer.speed;
+  // The sweep's bursts and the riders they take: the first (11.0 s) takes r2 and r3, the second (11.2 s) takes r4.
+  // The near shell's riders (r1 and r5) are not checked here; their fall is the shell's.
+  const takes = [
+    ['r2', 11.0],
+    ['r3', 11.0],
+    ['r4', 11.2],
+  ] as const;
+  for (const [id, burstAt] of takes) {
+    const tracer = tracers.find(event => event.at === burstAt);
+    if (!tracer) throw new Error(`the landing has no tracer at ${burstAt} s`);
+    const fall = landing.events.find(event => event.kind === 'riders' && event.ids.includes(id) && event.at >= 10);
+    if (!fall) throw new Error(`the landing has no sweep fall for ${id}`);
+    expect(fall.at, `${id} falls before its burst reaches the deck`).toBeGreaterThan(arrivalOf(tracer));
+  }
+});
+
+test('the tracers come only after the ramp is down and nothing blows up in the last half second', () => {
+  const ramp = landing.events.find(event => event.kind === 'ramp');
+  if (!ramp || ramp.kind !== 'ramp') throw new Error('landing has no ramp event');
+  const down = ramp.at + ramp.sec;
+  const tracers = landing.events.filter(event => event.kind === 'tracers');
+  expect(tracers.length).toBeGreaterThan(0);
+  for (const event of tracers) {
+    expect(event.at, 'a tracer before the ramp is down').toBeGreaterThan(down);
+    expect(event.at, 'a tracer in the last half second').toBeLessThan(CUTSCENE_SEC.landing - 0.5);
+  }
+  for (const event of landing.events) {
+    if (event.kind === 'burst')
+      expect(event.at, 'a blast in the last half second').toBeLessThan(CUTSCENE_SEC.landing - 0.5);
+  }
 });

@@ -3,6 +3,7 @@
 import {
   PROP_KINDS,
   TARGET_KINDS,
+  type BlastPlace,
   type MapBounds,
   type MapDef,
   type Prop,
@@ -93,6 +94,25 @@ function spawnsOf(value: unknown): Record<string, SpawnPoint[]> {
   return out;
 }
 
+function blastsOf(value: unknown): BlastPlace[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error('blasts is not a list');
+  return value.map((entry, index) => {
+    const blast = record(entry, `blasts[${index}]`);
+    const line = blast.line;
+    if (line !== null) num(line, `blasts[${index}].line`);
+    const out: BlastPlace = {
+      id: text(blast.id, `blasts[${index}].id`),
+      line: line === null ? null : num(line, `blasts[${index}].line`),
+      x: num(blast.x, `blasts[${index}].x`),
+      z: num(blast.z, `blasts[${index}].z`),
+    };
+    // a pillbox's point names the target its charge breaks (SB-1540); a point on a line names none
+    if (blast.target !== undefined) out.target = text(blast.target, `blasts[${index}].target`);
+    return out;
+  });
+}
+
 // The JSON the editor writes, and the same shape the hand map uses. A broken file or an unknown kind throws, so the
 // view can say what is wrong instead of drawing half a map.
 export function parseMap(value: unknown): MapDef {
@@ -105,6 +125,7 @@ export function parseMap(value: unknown): MapDef {
     props: map.props.map(propOf),
     targets: map.targets.map(targetOf),
     spawns: spawnsOf(map.spawns),
+    blasts: blastsOf(map.blasts),
   };
 }
 

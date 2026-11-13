@@ -1,11 +1,11 @@
 // All of M1 (SB-055, SB-120), written by hand: every prop is one line so the shape can be read and edited without a
 // tool. +z is the sea and -z is the land; the bounds run from the beach (z 170) back past the seawall (z -75..-65) to
 // the boss's ground (z -170).
-import type { MapDef, MinePlace, Prop } from '../types.ts';
+import type { BlastPlace, MapDef, MinePlace, Prop } from '../types.ts';
 
-// The B line is three defence lines across the map: three hedgehog rows each, with breakthroughs and, on lines 2 and 3,
-// a stretch marked breakable. Each row is spaced so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows
-// hold the front before the seawall, which runs across the whole map with a ramp
+// The B line is three closed defence lines across the map: three hedgehog rows each, with the old breakthroughs filled in
+// so only a charge's hole opens them. Each row is spaced so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two
+// rows hold the front before the seawall, which runs across the whole map with a ramp
 // right behind each breakthrough of the line before it (x -50 and x 35). Behind the seawall (z -75..-170) is the boss's
 // ground: cover in its first stretch (z -80..-115) and the battery's three parts at the back (the targets below).
 const PROPS: Prop[] = [
@@ -22,7 +22,7 @@ const PROPS: Prop[] = [
   { kind: 'cliff', x: 100, z: -20, yaw: 0.16, scale: 0.97 },
   { kind: 'cliff', x: 100, z: -40, yaw: -0.09, scale: 1.02 },
   { kind: 'cliff', x: 100, z: -60, yaw: 0.23, scale: 1 },
-  // line 1 at the water's edge (z 128..146): breakthroughs near x -55 and x 40
+  // line 1 at the water's edge (z 128..146): closed; the blast points at x -55 and x 40 open it
   { kind: 'hedgehog', x: -98, z: 131, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: -93.89, z: 131, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: -89.78, z: 131, yaw: -0.18, scale: 1.06 },
@@ -33,6 +33,8 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -69.22, z: 131, yaw: 0.08, scale: 0.93 },
   { kind: 'hedgehog', x: -65.11, z: 131, yaw: -0.14, scale: 1.1 },
   { kind: 'hedgehog', x: -61, z: 131, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: -57.2, z: 131, yaw: 0.16, scale: 1.03 },
+  { kind: 'hedgehog', x: -52.8, z: 131, yaw: -0.09, scale: 0.97 },
   { kind: 'hedgehog', x: -49, z: 131, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: -44.63, z: 131, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: -40.26, z: 131, yaw: -0.09, scale: 1.02 },
@@ -53,6 +55,8 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 25.26, z: 131, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: 29.63, z: 131, yaw: -0.18, scale: 1.06 },
   { kind: 'hedgehog', x: 34, z: 131, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: 37.8, z: 131, yaw: 0.16, scale: 1.03 },
+  { kind: 'hedgehog', x: 42.2, z: 131, yaw: -0.09, scale: 0.97 },
   { kind: 'hedgehog', x: 46, z: 131, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 50.1, z: 131, yaw: 0.25, scale: 0.9 },
   { kind: 'hedgehog', x: 54.2, z: 131, yaw: -0.05, scale: 1.03 },
@@ -74,6 +78,9 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -69.22, z: 137, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: -65.11, z: 137, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: -61, z: 137, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: -57.2, z: 137, yaw: 0.12, scale: 1.05 },
+  { kind: 'hedgehog', x: -52.8, z: 137, yaw: -0.18, scale: 1.02 },
+  { kind: 'hedgehog', x: -48.4, z: 137, yaw: 0.08, scale: 0.97 },
   { kind: 'hedgehog', x: -45.75, z: 137, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: -41.55, z: 137, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: -37.36, z: 137, yaw: -0.18, scale: 1.06 },
@@ -94,6 +101,9 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 25.61, z: 137, yaw: 0.2, scale: 0.98 },
   { kind: 'hedgehog', x: 29.8, z: 137, yaw: -0.22, scale: 0.95 },
   { kind: 'hedgehog', x: 34, z: 137, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: 37.8, z: 137, yaw: 0.12, scale: 1.05 },
+  { kind: 'hedgehog', x: 42.2, z: 137, yaw: -0.18, scale: 1.02 },
+  { kind: 'hedgehog', x: 46.6, z: 137, yaw: 0.08, scale: 0.97 },
   { kind: 'hedgehog', x: 49.25, z: 137, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 53.44, z: 137, yaw: 0.08, scale: 0.93 },
   { kind: 'hedgehog', x: 57.64, z: 137, yaw: -0.14, scale: 1.1 },
@@ -114,6 +124,8 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -69.22, z: 143, yaw: 0.25, scale: 0.9 },
   { kind: 'hedgehog', x: -65.11, z: 143, yaw: -0.05, scale: 1.03 },
   { kind: 'hedgehog', x: -61, z: 143, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: -57.2, z: 143, yaw: 0.25, scale: 0.95 },
+  { kind: 'hedgehog', x: -52.8, z: 143, yaw: -0.05, scale: 1.08 },
   { kind: 'hedgehog', x: -49, z: 143, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: -44.63, z: 143, yaw: 0.2, scale: 0.98 },
   { kind: 'hedgehog', x: -40.26, z: 143, yaw: -0.22, scale: 0.95 },
@@ -134,6 +146,8 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 25.26, z: 143, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: 29.63, z: 143, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: 34, z: 143, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: 37.8, z: 143, yaw: 0.25, scale: 0.95 },
+  { kind: 'hedgehog', x: 42.2, z: 143, yaw: -0.05, scale: 1.08 },
   { kind: 'hedgehog', x: 46, z: 143, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 50.1, z: 143, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: 54.2, z: 143, yaw: 0, scale: 1.08 },
@@ -145,7 +159,7 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 78.8, z: 143, yaw: -0.22, scale: 0.95 },
   { kind: 'hedgehog', x: 82.9, z: 143, yaw: 0.08, scale: 0.93 },
   { kind: 'hedgehog', x: 87, z: 143, yaw: -0.14, scale: 1.1 },
-  // line 2 in the middle of B (z 80..96): a breakthrough near x -10, a breakable stretch near x 50
+  // line 2 in the middle of B (z 80..96): closed; the blast points at x -10 and x 50 open it
   { kind: 'hedgehog', x: -98, z: 82.67, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: -93.68, z: 82.67, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: -89.37, z: 82.67, yaw: -0.18, scale: 1.06 },
@@ -166,6 +180,8 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -24.63, z: 82.67, yaw: 0.2, scale: 0.98 },
   { kind: 'hedgehog', x: -20.32, z: 82.67, yaw: -0.22, scale: 0.95 },
   { kind: 'hedgehog', x: -16, z: 82.67, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: -12.2, z: 82.67, yaw: 0.16, scale: 1.03 },
+  { kind: 'hedgehog', x: -7.8, z: 82.67, yaw: -0.09, scale: 0.97 },
   { kind: 'hedgehog', x: -4, z: 82.67, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 0.33, z: 82.67, yaw: 0.08, scale: 0.93 },
   { kind: 'hedgehog', x: 4.67, z: 82.67, yaw: -0.14, scale: 1.1 },
@@ -177,10 +193,10 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 30.67, z: 82.67, yaw: -0.18, scale: 1.06 },
   { kind: 'hedgehog', x: 35, z: 82.67, yaw: 0.25, scale: 0.9 },
   { kind: 'hedgehog', x: 39.33, z: 82.67, yaw: -0.05, scale: 1.03 },
-  { kind: 'hedgehog', x: 43.67, z: 82.67, yaw: 0.2, scale: 0.98, breakable: true },
-  { kind: 'hedgehog', x: 48, z: 82.67, yaw: -0.22, scale: 0.95, breakable: true },
-  { kind: 'hedgehog', x: 52.33, z: 82.67, yaw: 0.08, scale: 0.93, breakable: true },
-  { kind: 'hedgehog', x: 56.67, z: 82.67, yaw: -0.14, scale: 1.1, breakable: true },
+  { kind: 'hedgehog', x: 43.67, z: 82.67, yaw: 0.2, scale: 0.98 },
+  { kind: 'hedgehog', x: 48, z: 82.67, yaw: -0.22, scale: 0.95 },
+  { kind: 'hedgehog', x: 52.33, z: 82.67, yaw: 0.08, scale: 0.93 },
+  { kind: 'hedgehog', x: 56.67, z: 82.67, yaw: -0.14, scale: 1.1 },
   { kind: 'hedgehog', x: 61, z: 82.67, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: 65.33, z: 82.67, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: 69.67, z: 82.67, yaw: 0.23, scale: 1 },
@@ -208,6 +224,9 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -24.63, z: 88, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: -20.32, z: 88, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: -16, z: 88, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: -12.2, z: 88, yaw: 0.12, scale: 1.05 },
+  { kind: 'hedgehog', x: -7.8, z: 88, yaw: -0.18, scale: 1.02 },
+  { kind: 'hedgehog', x: -3.35, z: 88, yaw: 0.08, scale: 0.97 },
   { kind: 'hedgehog', x: -0.75, z: 88, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 3.64, z: 88, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: 8.03, z: 88, yaw: 0, scale: 1.08 },
@@ -218,10 +237,10 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 29.96, z: 88, yaw: 0.2, scale: 0.98 },
   { kind: 'hedgehog', x: 34.35, z: 88, yaw: -0.22, scale: 0.95 },
   { kind: 'hedgehog', x: 38.74, z: 88, yaw: 0.08, scale: 0.93 },
-  { kind: 'hedgehog', x: 43.13, z: 88, yaw: -0.14, scale: 1.1, breakable: true },
-  { kind: 'hedgehog', x: 47.51, z: 88, yaw: 0.16, scale: 0.97, breakable: true },
-  { kind: 'hedgehog', x: 51.9, z: 88, yaw: -0.09, scale: 1.02, breakable: true },
-  { kind: 'hedgehog', x: 56.29, z: 88, yaw: 0.23, scale: 1, breakable: true },
+  { kind: 'hedgehog', x: 43.13, z: 88, yaw: -0.14, scale: 1.1 },
+  { kind: 'hedgehog', x: 47.51, z: 88, yaw: 0.16, scale: 0.97 },
+  { kind: 'hedgehog', x: 51.9, z: 88, yaw: -0.09, scale: 1.02 },
+  { kind: 'hedgehog', x: 56.29, z: 88, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: 60.68, z: 88, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: 65.06, z: 88, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: 69.45, z: 88, yaw: -0.18, scale: 1.06 },
@@ -249,6 +268,8 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -24.63, z: 93.33, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: -20.32, z: 93.33, yaw: -0.18, scale: 1.06 },
   { kind: 'hedgehog', x: -16, z: 93.33, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: -12.2, z: 93.33, yaw: 0.25, scale: 0.95 },
+  { kind: 'hedgehog', x: -7.8, z: 93.33, yaw: -0.05, scale: 1.08 },
   { kind: 'hedgehog', x: -4, z: 93.33, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 0.33, z: 93.33, yaw: 0.25, scale: 0.9 },
   { kind: 'hedgehog', x: 4.67, z: 93.33, yaw: -0.05, scale: 1.03 },
@@ -260,10 +281,10 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 30.67, z: 93.33, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: 35, z: 93.33, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: 39.33, z: 93.33, yaw: 0, scale: 1.08 },
-  { kind: 'hedgehog', x: 43.67, z: 93.33, yaw: 0.12, scale: 1.05, breakable: true },
-  { kind: 'hedgehog', x: 48, z: 93.33, yaw: -0.18, scale: 1.06, breakable: true },
-  { kind: 'hedgehog', x: 52.33, z: 93.33, yaw: 0.25, scale: 0.9, breakable: true },
-  { kind: 'hedgehog', x: 56.67, z: 93.33, yaw: -0.05, scale: 1.03, breakable: true },
+  { kind: 'hedgehog', x: 43.67, z: 93.33, yaw: 0.12, scale: 1.05 },
+  { kind: 'hedgehog', x: 48, z: 93.33, yaw: -0.18, scale: 1.06 },
+  { kind: 'hedgehog', x: 52.33, z: 93.33, yaw: 0.25, scale: 0.9 },
+  { kind: 'hedgehog', x: 56.67, z: 93.33, yaw: -0.05, scale: 1.03 },
   { kind: 'hedgehog', x: 61, z: 93.33, yaw: 0.2, scale: 0.98 },
   { kind: 'hedgehog', x: 65.33, z: 93.33, yaw: -0.22, scale: 0.95 },
   { kind: 'hedgehog', x: 69.67, z: 93.33, yaw: 0.08, scale: 0.93 },
@@ -271,7 +292,7 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 78.33, z: 93.33, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: 82.67, z: 93.33, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: 87, z: 93.33, yaw: 0.23, scale: 1 },
-  // line 3 before the pillboxes (z 8..26): a breakthrough near x 61, a breakable stretch near x -30
+  // line 3 before the pillboxes (z 8..26): closed; the blast points at x -30 and x 61 open it
   { kind: 'hedgehog', x: -98, z: 11, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: -93.63, z: 11, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: -89.26, z: 11, yaw: -0.18, scale: 1.06 },
@@ -286,10 +307,10 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -49.91, z: 11, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: -45.54, z: 11, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: -41.17, z: 11, yaw: 0.12, scale: 1.05 },
-  { kind: 'hedgehog', x: -36.8, z: 11, yaw: -0.18, scale: 1.06, breakable: true },
-  { kind: 'hedgehog', x: -32.43, z: 11, yaw: 0.25, scale: 0.9, breakable: true },
-  { kind: 'hedgehog', x: -28.06, z: 11, yaw: -0.05, scale: 1.03, breakable: true },
-  { kind: 'hedgehog', x: -23.69, z: 11, yaw: 0.2, scale: 0.98, breakable: true },
+  { kind: 'hedgehog', x: -36.8, z: 11, yaw: -0.18, scale: 1.06 },
+  { kind: 'hedgehog', x: -32.43, z: 11, yaw: 0.25, scale: 0.9 },
+  { kind: 'hedgehog', x: -28.06, z: 11, yaw: -0.05, scale: 1.03 },
+  { kind: 'hedgehog', x: -23.69, z: 11, yaw: 0.2, scale: 0.98 },
   { kind: 'hedgehog', x: -19.31, z: 11, yaw: -0.22, scale: 0.95 },
   { kind: 'hedgehog', x: -14.94, z: 11, yaw: 0.08, scale: 0.93 },
   { kind: 'hedgehog', x: -10.57, z: 11, yaw: -0.14, scale: 1.1 },
@@ -308,6 +329,9 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 46.26, z: 11, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: 50.63, z: 11, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: 55, z: 11, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: 57.2, z: 11, yaw: 0.16, scale: 1.03 },
+  { kind: 'hedgehog', x: 61.6, z: 11, yaw: -0.09, scale: 0.97 },
+  { kind: 'hedgehog', x: 66, z: 11, yaw: 0.08, scale: 1.02 },
   { kind: 'hedgehog', x: 67, z: 11, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 71, z: 11, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: 75, z: 11, yaw: 0, scale: 1.08 },
@@ -328,10 +352,10 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -49.91, z: 17, yaw: 0.25, scale: 0.9 },
   { kind: 'hedgehog', x: -45.54, z: 17, yaw: -0.05, scale: 1.03 },
   { kind: 'hedgehog', x: -41.17, z: 17, yaw: 0.2, scale: 0.98 },
-  { kind: 'hedgehog', x: -36.8, z: 17, yaw: -0.22, scale: 0.95, breakable: true },
-  { kind: 'hedgehog', x: -32.43, z: 17, yaw: 0.08, scale: 0.93, breakable: true },
-  { kind: 'hedgehog', x: -28.06, z: 17, yaw: -0.14, scale: 1.1, breakable: true },
-  { kind: 'hedgehog', x: -23.69, z: 17, yaw: 0.16, scale: 0.97, breakable: true },
+  { kind: 'hedgehog', x: -36.8, z: 17, yaw: -0.22, scale: 0.95 },
+  { kind: 'hedgehog', x: -32.43, z: 17, yaw: 0.08, scale: 0.93 },
+  { kind: 'hedgehog', x: -28.06, z: 17, yaw: -0.14, scale: 1.1 },
+  { kind: 'hedgehog', x: -23.69, z: 17, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: -19.31, z: 17, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: -14.94, z: 17, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: -10.57, z: 17, yaw: 0, scale: 1.08 },
@@ -350,6 +374,9 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 46.26, z: 17, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: 50.63, z: 17, yaw: -0.18, scale: 1.06 },
   { kind: 'hedgehog', x: 55, z: 17, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: 57.4, z: 17, yaw: 0.12, scale: 1.05 },
+  { kind: 'hedgehog', x: 61.8, z: 17, yaw: -0.18, scale: 1.02 },
+  { kind: 'hedgehog', x: 66.2, z: 17, yaw: 0.08, scale: 0.97 },
   { kind: 'hedgehog', x: 70.25, z: 17, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 74.44, z: 17, yaw: 0.25, scale: 0.9 },
   { kind: 'hedgehog', x: 78.63, z: 17, yaw: -0.05, scale: 1.03 },
@@ -369,10 +396,10 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -49.91, z: 23, yaw: 0.08, scale: 0.93 },
   { kind: 'hedgehog', x: -45.54, z: 23, yaw: -0.14, scale: 1.1 },
   { kind: 'hedgehog', x: -41.17, z: 23, yaw: 0.16, scale: 0.97 },
-  { kind: 'hedgehog', x: -36.8, z: 23, yaw: -0.09, scale: 1.02, breakable: true },
-  { kind: 'hedgehog', x: -32.43, z: 23, yaw: 0.23, scale: 1, breakable: true },
-  { kind: 'hedgehog', x: -28.06, z: 23, yaw: 0, scale: 1.08, breakable: true },
-  { kind: 'hedgehog', x: -23.69, z: 23, yaw: 0.12, scale: 1.05, breakable: true },
+  { kind: 'hedgehog', x: -36.8, z: 23, yaw: -0.09, scale: 1.02 },
+  { kind: 'hedgehog', x: -32.43, z: 23, yaw: 0.23, scale: 1 },
+  { kind: 'hedgehog', x: -28.06, z: 23, yaw: 0, scale: 1.08 },
+  { kind: 'hedgehog', x: -23.69, z: 23, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: -19.31, z: 23, yaw: -0.18, scale: 1.06 },
   { kind: 'hedgehog', x: -14.94, z: 23, yaw: 0.25, scale: 0.9 },
   { kind: 'hedgehog', x: -10.57, z: 23, yaw: -0.05, scale: 1.03 },
@@ -391,6 +418,9 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 46.26, z: 23, yaw: 0.2, scale: 0.98 },
   { kind: 'hedgehog', x: 50.63, z: 23, yaw: -0.22, scale: 0.95 },
   { kind: 'hedgehog', x: 55, z: 23, yaw: 0, scale: 1 },
+  { kind: 'hedgehog', x: 57.2, z: 23, yaw: 0.25, scale: 0.95 },
+  { kind: 'hedgehog', x: 61.6, z: 23, yaw: -0.05, scale: 1.08 },
+  { kind: 'hedgehog', x: 66, z: 23, yaw: 0.08, scale: 1.02 },
   { kind: 'hedgehog', x: 67, z: 23, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 71, z: 23, yaw: 0.08, scale: 0.93 },
   { kind: 'hedgehog', x: 75, z: 23, yaw: -0.14, scale: 1.1 },
@@ -620,11 +650,33 @@ const MINES: MinePlace[] = [
   { x: 52, z: 160 },
 ];
 
+// Two blast points on each line, 2 m sea-side of its most seaward row's face: z = row z + 3 m x scale / 2 + 2 m. The rows
+// are at z 143, 93.33 and 23 and their scales there are about 1, so the points stand at z 146.5, 96.8 and 26.5. x is the
+// centre of the old breakthrough (line 1) or of the old breakable stretch (lines 2 and 3); a hole opened there takes the
+// filled hedgehogs out again.
+//
+// The two pillboxes of the objective get a point beside and behind each (SB-1540), 2 m outside the box on its side and
+// 4 m behind it on the landward side, clear of every prop. A charge on one breaks that pillbox; its point belongs to no
+// line, so it opens no hedgehog.
+const BLASTS: BlastPlace[] = [
+  { id: 'l1-a', line: 137, x: -55, z: 146.5 },
+  { id: 'l1-b', line: 137, x: 40, z: 146.5 },
+  { id: 'l2-a', line: 88, x: -10, z: 96.8 },
+  { id: 'l2-b', line: 88, x: 50, z: 96.8 },
+  { id: 'l3-a', line: 17, x: -30, z: 26.5 },
+  { id: 'l3-b', line: 17, x: 61, z: 26.5 },
+  { id: 'blast-pillbox-1-side', line: null, x: -41, z: -15, target: 'pillbox-1' },
+  { id: 'blast-pillbox-1-back', line: null, x: -33, z: -23, target: 'pillbox-1' },
+  { id: 'blast-pillbox-2-side', line: null, x: 30, z: -17, target: 'pillbox-2' },
+  { id: 'blast-pillbox-2-back', line: null, x: 21, z: -23, target: 'pillbox-2' },
+];
+
 export const M1B_HAND: MapDef = {
   id: 'm1b-hand',
   bounds: { minX: -100, maxX: 100, minZ: -170, maxZ: 170 },
   props: PROPS,
   mines: MINES,
+  blasts: BLASTS,
   targets: [
     { id: 'pillbox-1', kind: 'pillbox', x: -33, z: -15, yaw: 0 },
     { id: 'pillbox-2', kind: 'pillbox', x: 22, z: -15, yaw: 0.2 },
@@ -645,6 +697,16 @@ export const M1B_HAND: MapDef = {
       { x: 15, z: -30 },
       { x: 40, z: -27 },
       { x: 65, z: -33 },
+    ],
+    // the six machine-gun nests, seaward of each line, so the hedgehogs behind do not stop their fire; clear of the low
+    // walls and the mines
+    'b-emplacements': [
+      { x: -30, z: 147 },
+      { x: 45, z: 147 },
+      { x: -30, z: 99 },
+      { x: 40, z: 99 },
+      { x: -20, z: 29 },
+      { x: 55, z: 29 },
     ],
     // three at the depot, round it on the sides the mech does not come from; each stands clear of the cover and of
     // pillbox-3 (z 48..56)

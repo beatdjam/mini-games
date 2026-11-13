@@ -6,6 +6,7 @@ import { M1 } from '../../src/data/missions/m1.ts';
 import { TARGET_SIZE } from '../../src/data/props.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
+import { openBreach } from '../../src/logic/blasts.ts';
 import { sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { hudModel } from '../../src/logic/hud.ts';
 import { validateMapForMission } from '../../src/logic/mapCheck.ts';
@@ -39,9 +40,13 @@ const WAY_TO_DEPOT = [
   { x: 50, z: 41 },
 ];
 
-// The hand map without its mines, so a walk does not set one off.
-function newWalkGame(map: MapDef = { ...M1B_HAND, mines: [] }): GameModel {
-  const game = newPlayGame(map);
+// The hand map without its mines, so a walk does not set one off, and with the holes line 1 and line 2 need for the way:
+// the mech blows those two points open on its way in. The nests are taken out too, since this is a walk about the
+// depot's guard and they would shoot the mech on the way.
+function newWalkGame(map: MapDef = openBreach({ ...M1B_HAND, mines: [] }, ['l1-b', 'l2-a'])): GameModel {
+  const spawns = { ...map.spawns };
+  delete spawns['b-emplacements'];
+  const game = newPlayGame({ ...map, spawns });
   game.mech.yaw = 0;
   return game;
 }

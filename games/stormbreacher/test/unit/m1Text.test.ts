@@ -12,6 +12,7 @@ test('every M1 radio line and objective has text in ja and en', () => {
     for (const action of cue.actions) {
       if (action.kind === 'radio') keys.add(action.line);
       else if (action.kind === 'objective') keys.add(`obj.${action.id}`);
+      else if (action.kind === 'ally' && action.fate?.call) keys.add(action.fate.call);
     }
   }
   expect(keys.size).toBeGreaterThan(0);

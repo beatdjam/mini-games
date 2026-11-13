@@ -26,16 +26,32 @@ export type Trigger =
   | { kind: 'start' }
   | { kind: 'enter'; area: string }
   | { kind: 'destroyed'; targets: readonly string[]; count?: number }
+  | { kind: 'blast'; ids: readonly string[] }
+  | { kind: 'ashore' } // the mech has left the landing craft (mech.z at or past the map's front edge)
   | { kind: 'cleared'; wave: string }
   | { kind: 'after'; cue: string; sec: number } // sec 0 fires in the same frame as the cue it follows
   | { kind: 'flag'; name: string };
+
+// A way the player's first blast in each line decides. `lines` lists each line's blast points in the order the run
+// crosses their lines; the first point of a line that the game blew picks that line's part. `paths` maps the chosen ids,
+// joined with '+', to a path name. A line with no blown point falls back to its first id, which keeps a checkpoint or a
+// test that reaches the cue without the blast on the expected way.
+export interface HolePaths {
+  lines: readonly (readonly string[])[];
+  paths: Readonly<Record<string, string>>;
+}
+
+// How an ally falls (`fate.by` of a script's `ally` action): a mortar shell on the beach, or a machine gun on the
+// bunker line. ALLY_FATES in data/allies.ts lists them for validateMission.
+export type AllyFateBy = 'mortar' | 'gun';
 
 // What a cue does, in order. The script only reports these as events; the screen and the map carry them out.
 export type Action =
   | { kind: 'objective'; id: string }
   | { kind: 'radio'; line: string }
   | { kind: 'spawn'; wave: string }
-  | { kind: 'ally'; id: string; path: string; fate?: { at: string; by: string } }
+  | { kind: 'ally'; id: string; path: string | HolePaths; fate?: { at: string; by: AllyFateBy; call?: string } }
+  | { kind: 'allyMove'; id: string; path: string | HolePaths } // an ally already out takes the next way
   | { kind: 'cutscene'; id: CutsceneId }
   | { kind: 'checkpoint'; id: string }
   | { kind: 'flag'; name: string }
@@ -131,6 +147,18 @@ export interface MinePlace {
   z: number;
 }
 
+// A place a charge may be planted (m). `line` is the line's centre z (null for a point that belongs to no line, such as a
+// pillbox's); `x` and `z` are the point on the ground. +z is the sea, and a point on a line stands 2 m sea-side of the
+// line's most seaward face. `target` names the target the charge breaks: a pillbox's point sets it, a point on a line
+// leaves it out.
+export interface BlastPlace {
+  id: string;
+  line: number | null;
+  x: number;
+  z: number;
+  target?: string;
+}
+
 export interface MapBounds {
   minX: number;
   maxX: number;
@@ -145,6 +173,7 @@ export interface MapDef {
   targets: TargetPlace[];
   spawns: Record<string, SpawnPoint[]>; // wave name -> the places it comes in
   mines?: MinePlace[]; // left out where a map has none: the generated and edited maps hold none, so only the hand map sets it
+  blasts?: BlastPlace[]; // the places a charge may be planted, left out where a map has none
 }
 
 // What the generator must put down: bands of one kind, the cliff along the right edge, the clear ground around the

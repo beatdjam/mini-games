@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { validateMapForMission } from '../../src/logic/mapCheck.ts';
+import { checkMapPath, validateMapForMission } from '../../src/logic/mapCheck.ts';
 import type { MapDef, MapLine, Prop } from '../../src/data/types.ts';
 
 // The mission's things past this map's range: the guns and the magazine behind the seawall, the beach's mortar and
@@ -45,6 +45,11 @@ test('the hand map has no violations against M1 once the out-of-range names are 
   expect(validateMapForMission(M1B_HAND, M1, SKIP)).toEqual([]);
 });
 
+test('the hand map without its blast points is a closed line and has no path', () => {
+  const violations = checkMapPath({ ...M1B_HAND, blasts: [] });
+  expect(violations.some(violation => violation.kind === 'no-path')).toBe(true);
+});
+
 test('the hand map keeps the B line dense', () => {
   const count = (kind: Prop['kind']) => M1B_HAND.props.filter(prop => prop.kind === kind).length;
   const cover = ['block', 'wreck', 'crater'] as const;
@@ -70,6 +75,7 @@ test('two targets with the same id are a violation', () => {
 test('a defence line filled solid across the map leaves no path', () => {
   const line = M1B_RULES.lines[0];
   const map = structuredClone(M1B_HAND);
+  map.blasts = []; // a line with blast points is opened where they are; this checks a line that has none
   for (let row = 0; row < line.rows; row++) {
     const z = line.z - line.depth / 2 + (line.depth / line.rows) * (row + 0.5);
     for (let x = map.bounds.minX + 1; x <= map.bounds.maxX - 1; x += 2) {
@@ -84,6 +90,7 @@ test('a defence line filled solid across the map leaves no path', () => {
 // neighbours on both sides) on every row of the line.
 function withGapsBlocked(line: MapLine): MapDef {
   const map = structuredClone(M1B_HAND);
+  map.blasts = []; // a blocked breakthrough must stay blocked: no blast point may open it
   for (const gap of line.gaps) {
     for (let row = 0; row < line.rows; row++) {
       const z = line.z - line.depth / 2 + (line.depth / line.rows) * (row + 0.5);

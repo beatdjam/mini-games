@@ -3,13 +3,15 @@
 // the script's own seconds, advanced by stepScript, never the wall clock.
 import { ALLY_FATES } from '../data/allies.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
-import type { Action, Cue, CutsceneId, MissionDef, Trigger } from '../data/types.ts';
+import type { Action, AllyFateBy, Cue, CutsceneId, HolePaths, MissionDef, Trigger } from '../data/types.ts';
 
 export interface ScriptState {
   time: number; // seconds since the mission started
   fired: Record<string, number>; // cue id -> the time it fired (s)
   flags: string[];
   destroyed: string[];
+  blasts: string[]; // the blast points the game has blown, in the order they blew, so a cue can wait for a line's hole
+  ashore: boolean; // the mech has left the landing craft
   entered: string[];
   cleared: string[];
   spawned: string[]; // the waves sent so far, so a restored checkpoint can send the ones not cleared again
@@ -25,7 +27,8 @@ export type ScriptOut =
   | { kind: 'objective'; id: string; time: number }
   | { kind: 'radio'; line: string; time: number }
   | { kind: 'spawn'; wave: string; time: number }
-  | { kind: 'ally'; id: string; path: string; fate?: { at: string; by: string }; time: number }
+  | { kind: 'ally'; id: string; path: string; fate?: { at: string; by: AllyFateBy; call?: string }; time: number }
+  | { kind: 'allyMove'; id: string; path: string; time: number }
   | { kind: 'cutscene'; id: CutsceneId; time: number }
   | { kind: 'cutsceneEnd'; id: CutsceneId; time: number }
   | { kind: 'checkpoint'; id: string; time: number }
@@ -37,6 +40,8 @@ export type ScriptOut =
 export type ScriptInput =
   | { kind: 'enter'; area: string }
   | { kind: 'destroyed'; target: string }
+  | { kind: 'blast'; id: string } // a blast point blew and opened its line
+  | { kind: 'ashore' } // the mech stepped off the landing craft onto the beach
   | { kind: 'cleared'; wave: string }
   | { kind: 'skip' };
 
@@ -50,6 +55,8 @@ export function newScript(def: MissionDef): ScriptState {
     fired: {},
     flags: [],
     destroyed: [],
+    blasts: [],
+    ashore: false,
     entered: [],
     cleared: [],
     spawned: [],
@@ -89,6 +96,11 @@ function checkTrigger(def: MissionDef, cueId: string, trigger: Trigger, ids: Rea
     case 'destroyed':
       for (const target of trigger.targets) requireIn(def.targets, target, 'target');
       return;
+    case 'blast':
+      // the blast points belong to the map, which the mission does not hold: a wrong id here simply never fires
+      return;
+    case 'ashore':
+      return;
     case 'cleared':
       requireIn(def.waves, trigger.wave, 'wave');
       return;
@@ -114,11 +126,15 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
       return;
     case 'ally':
       requireIn(def.allies, action.id, 'ally');
-      requireIn(Object.keys(def.paths), action.path, 'path');
+      checkWay(def, action.path);
       if (action.fate) {
         requireIn(Object.keys(def.places), action.fate.at, 'place');
         requireIn(ALLY_FATES, action.fate.by, 'fate');
       }
+      return;
+    case 'allyMove':
+      requireIn(def.allies, action.id, 'ally');
+      checkWay(def, action.path);
       return;
     case 'cutscene':
       if (!(action.id in CUTSCENE_SEC)) throw new Error(`cue "${cueId}": no cutscene "${action.id}"`);
@@ -135,6 +151,41 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
   }
 }
 
+// The names a way may use: one path as it stands, or every path a hole choice can take. The keys of a hole choice must
+// cover every combination of its lines' points, so a missing way is caught when the mission loads.
+function checkWay(def: MissionDef, way: string | HolePaths): void {
+  const names = Object.keys(def.paths);
+  if (typeof way === 'string') {
+    requireIn(names, way, 'path');
+    return;
+  }
+  for (const path of Object.values(way.paths)) requireIn(names, path, 'path');
+  let keys = [''];
+  for (const ids of way.lines) keys = keys.flatMap(prefix => ids.map(id => (prefix === '' ? id : `${prefix}+${id}`)));
+  for (const key of keys) requireIn(Object.keys(way.paths), key, 'way');
+}
+
+// The path an `ally` or `allyMove` takes now: the first point the game blew in each line the way crosses picks that
+// line's part. A line with no blown point uses its first id: an escape hatch for the dev views and the tests, never for
+// the sortie's own order (a cue that picks a hole is written to fire after the blast).
+function wayPath(s: ScriptState, way: string | HolePaths): string {
+  if (typeof way === 'string') return way;
+  const chosen: string[] = [];
+  for (const ids of way.lines) {
+    let picked = ids[0];
+    for (const id of s.blasts) {
+      if (ids.includes(id)) {
+        picked = id;
+        break;
+      }
+    }
+    chosen.push(picked);
+  }
+  const path = way.paths[chosen.join('+')];
+  if (path === undefined) throw new Error(`no way for the holes "${chosen.join('+')}"`);
+  return path;
+}
+
 function checkInput(def: MissionDef, input: ScriptInput): void {
   switch (input.kind) {
     case 'enter':
@@ -142,6 +193,10 @@ function checkInput(def: MissionDef, input: ScriptInput): void {
       return;
     case 'destroyed':
       requireIn(def.targets, input.target, 'target');
+      return;
+    case 'blast':
+      return;
+    case 'ashore':
       return;
     case 'cleared':
       requireIn(def.waves, input.wave, 'wave');
@@ -169,6 +224,10 @@ function isDue(s: ScriptState, cue: Cue, allowStart: boolean): boolean {
       for (const target of trigger.targets) if (s.destroyed.includes(target)) down++;
       return down >= needed;
     }
+    case 'blast':
+      return trigger.ids.some(id => s.blasts.includes(id));
+    case 'ashore':
+      return s.ashore;
     case 'cleared':
       return s.cleared.includes(trigger.wave);
     case 'after': {
@@ -216,12 +275,17 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
       if (!s.spawned.includes(action.wave)) s.spawned.push(action.wave);
       out.push({ kind: 'spawn', wave: action.wave, time });
       return;
-    case 'ally':
+    case 'ally': {
+      const path = wayPath(s, action.path);
       out.push(
         action.fate
-          ? { kind: 'ally', id: action.id, path: action.path, fate: action.fate, time }
-          : { kind: 'ally', id: action.id, path: action.path, time },
+          ? { kind: 'ally', id: action.id, path, fate: action.fate, time }
+          : { kind: 'ally', id: action.id, path, time },
       );
+      return;
+    }
+    case 'allyMove':
+      out.push({ kind: 'allyMove', id: action.id, path: wayPath(s, action.path), time });
       return;
     case 'cutscene':
       s.cutscene = { id: action.id, left: CUTSCENE_SEC[action.id] };
@@ -259,6 +323,8 @@ function snapshotOf(s: ScriptState): ScriptState {
     fired: { ...s.fired },
     flags: [...s.flags],
     destroyed: [...s.destroyed],
+    blasts: [...s.blasts],
+    ashore: s.ashore,
     entered: [...s.entered],
     cleared: [...s.cleared],
     spawned: [...s.spawned],
@@ -298,6 +364,12 @@ export function scriptInput(s: ScriptState, def: MissionDef, input: ScriptInput)
       break;
     case 'destroyed':
       if (!s.destroyed.includes(input.target)) s.destroyed.push(input.target);
+      break;
+    case 'blast':
+      if (!s.blasts.includes(input.id)) s.blasts.push(input.id);
+      break;
+    case 'ashore':
+      s.ashore = true;
       break;
     case 'cleared':
       if (!s.cleared.includes(input.wave)) s.cleared.push(input.wave);

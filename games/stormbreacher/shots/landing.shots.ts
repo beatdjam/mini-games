@@ -1,5 +1,5 @@
-// Screenshots of the landing's end, where the mech walks down the ramp and the game's camera takes over (SB-1230):
-// npm run shots. Not a test: it is not part of npm test or the CI (the drawn pixels differ between machines).
+// Screenshots of the landing, where the ramp comes down while the mech stands on the deck and the game's camera takes over
+// (SB-1230): npm run shots. Not a test: it is not part of npm test or the CI (the drawn pixels differ between machines).
 // SHOTS_OUT=<folder> picks where the pictures go; SHOTS_ONLY=<text> takes only the shots whose names contain it.
 import { beforeAll, test } from 'vitest';
 import { page } from 'vitest/browser';
@@ -7,15 +7,17 @@ import { LOOP, el } from '@engine/core/index.ts';
 import { currentGame, startSortie } from '../src/app/play.ts';
 import { boot } from '../src/app/boot.ts';
 import { CUTSCENE_SEC } from '../src/data/script.ts';
+import { FEEL_TUNE } from '../src/data/tune.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
 
 declare const __SHOTS_OUT__: string; // the folder the pictures go to (vitest.shots.config.ts)
 declare const __SHOTS_ONLY__: string; // only the shots whose names contain this ('' = all)
 
-// The landing's seconds to take: the ramp starts coming down at 7, the mech steps onto it at 7.5 and reaches the start at
-// 10; the rest are around the ramp's tip and the change to the game's camera.
-const LANDING_AT = [0, 4, 7, 7.5, 8, 8.5, 9, 9.3, 9.7, 9.95] as const;
+// The landing's seconds to take: the outside shot along the row of craft, the cut inside at 3.45, the near craft to port,
+// the riders before and after the near shell, the raised ramp and its coming down (9.2 to 10.8), the machine gun's
+// sweep (11.0 to 11.4) and the change to the game's camera.
+const LANDING_AT = [0, 1.6, 3.4, 3.5, 5.4, 6.0, 6.4, 6.6, 9.2, 10.8, 11.0, 11.6, 11.95] as const;
 const HELD_DT = 0; // the loop's step while a shot is taken: the cutscene's second stands still, the page still draws
 const SHOT_CLOCK = 1000; // what performance.now() says while a shot is taken (ms)
 const DRAWN_FRAMES = 3; // frames drawn before the picture, so it does not show the one before the state was set
@@ -41,6 +43,8 @@ async function until(done: () => boolean, tries = 240): Promise<void> {
 beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
+  // the held step cannot let a blast's shake die away; with it off the camera sits on the key the picture is taken at
+  FEEL_TUNE.shakeMax = 0;
   const hide = document.createElement('style');
   hide.textContent = HIDDEN;
   document.head.appendChild(hide);

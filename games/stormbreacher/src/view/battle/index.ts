@@ -7,20 +7,17 @@ import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { burst, disposeTree, scene } from '@engine/render/index.ts';
 import type { FxTune } from '../../data/tune.ts';
+import { M1_NEST_WAVE } from '../../data/enemies.ts';
 import { PROP_SIZE } from '../../data/props.ts';
+import { SOLDIER_POSE } from '../../data/soldiers.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
 import { newBattle, stepBattle } from '../../logic/battle.ts';
-import { MAX_SOLDIERS, crowdCounts, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
+import { MAX_SOLDIERS, crowdCounts, fallNear, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
 import { shellBurst } from '../hazards.ts';
 import { MAX_TRACERS, craterMeshes, planeGroup, smokeMesh, soldierMeshes, tracerMesh } from './parts.ts';
 
-const BODY_Y = 0.62; // the body's middle above the feet (m)
-const HEAD_Y = 1.36; // the head's middle above the feet (m)
-const BODY_DEAD_Y = 0.24; // the body's middle once it lies down (m)
-const HEAD_DEAD_Y = 0.2; // the head's middle once it lies down (m)
-const HEAD_FORWARD = 0.78; // how far the head lies past the body (m)
 const FALL_DUST_COLOR = 0x766a58; // the dust a falling ally raises
 const FALL_DUST = 4; // the pieces of that dust
 
@@ -75,10 +72,15 @@ export const BATTLE_GROUP_NAME = 'sbBattle';
 export interface Battle {
   crowd: Crowd;
   group: THREE.Group;
-  // Moves the battle one frame and gives back the shake the shells ask the camera to add this frame (m).
-  step(dt: number, mech: { x: number; y: number; z: number }): number;
+  // Moves the battle one frame and gives back the shake the shells ask the camera to add this frame (m). While `held`,
+  // the allies wait at the crowd's holdZ and no new wave comes in.
+  step(dt: number, mech: { x: number; y: number; z: number }, held?: boolean): number;
   // Lets one tracer fly from a place at a velocity (m, m/s); the allies of the sortie shoot with it.
   tracer(at: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }): void;
+  // Moves and draws only the tracers already out, for the landing cutscene: the battlefield's own clock stays still.
+  advanceTracers(dt: number): void;
+  // Lets a blast of the game's own (a mortar shell or a mine) take the soldiers near it (m), with the dust of each.
+  blast(x: number, z: number): void;
   counts(): CrowdCounts;
   smoke(): number; // the smoke puffs on screen now
   dispose(): void;
@@ -107,10 +109,12 @@ export function buildBattle(
   rng: Rng,
   craterRng: Rng,
   start: { x: number; z: number },
+  holdZ: number | null = null,
 ): Battle {
   const group = new THREE.Group();
   group.name = BATTLE_GROUP_NAME;
-  const state = newBattle(rng, map.bounds, tune);
+  // the machine-gun nests are on the map's spawns; a squad walks on one and falls in its fire (see logic/crowd.ts)
+  const state = newBattle(rng, map.bounds, tune, holdZ, map.spawns[M1_NEST_WAVE] ?? []);
   const crowd = state.crowd;
   const { bodies, heads } = soldierMeshes();
   const smoke = smokeMesh(tune.smokeMax);
@@ -255,6 +259,18 @@ export function buildBattle(
     }
   }
 
+  // Moves the tracers already out and takes the old ones away; it draws none.
+  function moveTracers(dt: number) {
+    for (let i = tracerList.length - 1; i >= 0; i--) {
+      const tracer = tracerList[i];
+      tracer.x += tracer.vx * dt;
+      tracer.y += tracer.vy * dt;
+      tracer.z += tracer.vz * dt;
+      tracer.life -= dt;
+      if (tracer.life <= 0 || tracer.z > map.bounds.maxZ + TRACER_PAST) tracerList.splice(i, 1);
+    }
+  }
+
   function stepTracers(dt: number, at: { x: number; z: number }) {
     const rate = tune.tracers;
     if (rate > 0) {
@@ -265,14 +281,7 @@ export function buildBattle(
       }
       if (tracerT <= 0) tracerT = 0;
     }
-    for (let i = tracerList.length - 1; i >= 0; i--) {
-      const tracer = tracerList[i];
-      tracer.x += tracer.vx * dt;
-      tracer.y += tracer.vy * dt;
-      tracer.z += tracer.vz * dt;
-      tracer.life -= dt;
-      if (tracer.life <= 0 || tracer.z > map.bounds.maxZ + TRACER_PAST) tracerList.splice(i, 1);
-    }
+    moveTracers(dt);
   }
 
   function stepPlanes(dt: number) {
@@ -287,10 +296,10 @@ export function buildBattle(
       if (soldier.alive) {
         dummy.rotation.set(0, soldier.yaw, 0);
         dummy.scale.set(1, 1, 1);
-        dummy.position.set(soldier.x, BODY_Y, soldier.z);
+        dummy.position.set(soldier.x, SOLDIER_POSE.bodyY, soldier.z);
         dummy.updateMatrix();
         bodies.setMatrixAt(i, dummy.matrix);
-        dummy.position.set(soldier.x, HEAD_Y, soldier.z);
+        dummy.position.set(soldier.x, SOLDIER_POSE.headY, soldier.z);
         dummy.updateMatrix();
         heads.setMatrixAt(i, dummy.matrix);
       } else {
@@ -298,10 +307,14 @@ export function buildBattle(
         const fz = -Math.cos(soldier.yaw);
         dummy.rotation.set(Math.PI / 2, soldier.yaw, 0);
         dummy.scale.set(1, 1, 1);
-        dummy.position.set(soldier.x, BODY_DEAD_Y, soldier.z);
+        dummy.position.set(soldier.x, SOLDIER_POSE.bodyDeadY, soldier.z);
         dummy.updateMatrix();
         bodies.setMatrixAt(i, dummy.matrix);
-        dummy.position.set(soldier.x + fx * HEAD_FORWARD, HEAD_DEAD_Y, soldier.z + fz * HEAD_FORWARD);
+        dummy.position.set(
+          soldier.x + fx * SOLDIER_POSE.headForward,
+          SOLDIER_POSE.headDeadY,
+          soldier.z + fz * SOLDIER_POSE.headForward,
+        );
         dummy.rotation.set(Math.PI / 2, soldier.yaw, Math.PI / 2);
         dummy.updateMatrix();
         heads.setMatrixAt(i, dummy.matrix);
@@ -360,8 +373,8 @@ export function buildBattle(
   return {
     crowd,
     group,
-    step(dt, mech) {
-      const frame = stepBattle(state, rng, dt, tune, mech);
+    step(dt, mech, held = false) {
+      const frame = stepBattle(state, rng, dt, tune, mech, held);
       for (const soldier of frame.fell) burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
       let shake = 0;
       if (frame.shell !== null) {
@@ -380,6 +393,15 @@ export function buildBattle(
     tracer(at, velocity) {
       if (tracerList.length >= MAX_TRACERS) return;
       tracerList.push({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, life: TRACER_LIFE });
+    },
+    advanceTracers(dt) {
+      moveTracers(dt);
+      drawTracers();
+    },
+    blast(x, z) {
+      for (const soldier of fallNear(crowd, x, z, tune.shellFallRadius, tune.shellFallShare, rng)) {
+        burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
+      }
     },
     counts: () => crowdCounts(crowd),
     smoke: () => smokePuffs.length,

@@ -12,6 +12,7 @@ export type KeyAction =
   | 'main'
   | 'sub'
   | 'lock'
+  | 'use'
   | 'lookLeft'
   | 'lookRight'
   | 'lookUp'
@@ -28,6 +29,7 @@ export const KEY_DEFAULTS: Record<KeyAction, string[]> = {
   main: ['KeyJ'],
   sub: ['KeyK'],
   lock: ['KeyE'],
+  use: ['KeyF'],
   lookLeft: ['ArrowLeft'],
   lookRight: ['ArrowRight'],
   lookUp: ['ArrowUp'],

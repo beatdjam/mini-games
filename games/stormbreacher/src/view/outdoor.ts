@@ -12,6 +12,7 @@ import { groundMaterial, surfaceMaterial, targetMaterial, type SurfaceName } fro
 export interface OutdoorBuildOpts {
   chunk: number; // the chunk side (m); 0 leaves everything in one instanced mesh per kind
   chunkMin: number; // only kinds with at least this many triangles in all are split into chunks
+  slotProps?: ReadonlySet<Prop>; // props to find a slot for beside the breakable ones (a blast's hedgehogs)
 }
 
 export interface PropSlot {
@@ -22,7 +23,7 @@ export interface PropSlot {
 export interface OutdoorBuild {
   group: THREE.Group; // everything built, at the origin
   chunks: Chunk[]; // the chunks chunkInstances split out; empty when chunk is 0
-  slots: Map<Prop, PropSlot>; // where each breakable prop is drawn
+  slots: Map<Prop, PropSlot>; // where each breakable or blast-opened prop is drawn
   build: number; // how long the build took (ms)
 }
 
@@ -357,10 +358,10 @@ export function buildOutdoor(items: Prop[], opts: OutdoorBuildOpts): OutdoorBuil
   }
 
   const chunks = opts.chunk > 0 ? chunkInstances(group, opts.chunk, opts.chunkMin) : [];
-  // The chunks remake the matrices, so a breakable prop is found by its kind and its place, not by an index.
+  // The chunks remake the matrices, so a prop is found by its kind and its place, not by an index.
   const slots = new Map<Prop, PropSlot>();
   for (const item of items) {
-    if (item.breakable !== true) continue;
+    if (item.breakable !== true && opts.slotProps?.has(item) !== true) continue;
     const slot = findSlot(group, item);
     if (slot) slots.set(item, slot);
   }

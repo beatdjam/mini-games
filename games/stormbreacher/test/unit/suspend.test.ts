@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { newGame } from '../../src/logic/game.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { buildNavGrid, newNav } from '../../src/logic/nav.ts';
 import { SUSPEND_VERSION, restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 
@@ -69,9 +70,49 @@ describe('suspend', () => {
     expect(JSON.stringify(data)).toBe(before);
   });
 
+  test('the planted charges and the hold under way come back', () => {
+    const game = newGame(M1B_HAND);
+    game.charges.push({ blast: 'l1-b', left: 1.75 });
+    game.plant = { blast: 'l1-a', hold: 0.5 };
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.charges).toEqual([{ blast: 'l1-b', left: 1.75 }]);
+    expect(back?.plant).toEqual({ blast: 'l1-a', hold: 0.5 });
+  });
+
+  test('a nest’s burst under way comes back at the same shot', () => {
+    const game = newGame(M1B_HAND);
+    const nest = newEnemy('b-emplacements-1', 'b-emplacements', 'emplacement', 0, 140);
+    nest.burstLeft = 3;
+    nest.wait = 0.08;
+    nest.awake = true;
+    game.enemies.push(nest);
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.enemies[0]).toMatchObject({ kind: 'emplacement', burstLeft: 3, wait: 0.08 });
+  });
+
+  test('the aimed mortar’s anchor and stay come back', () => {
+    const game = newGame(M1B_HAND);
+    game.aimed = { anchor: { x: 12, z: 34 }, still: 1.75 };
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.aimed).toEqual({ anchor: { x: 12, z: 34 }, still: 1.75 });
+  });
+
+  test('the radio queue comes back in the same order', () => {
+    const game = newGame(M1B_HAND);
+    game.radio = { line: 'm1.depot-hint', time: 1 };
+    game.radioQueue.push({ line: 'm1.pillboxes-down' }, { line: 'm1.wave2-lost' });
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.radio).toEqual({ line: 'm1.depot-hint', time: 1 });
+    expect(back?.radioQueue).toEqual([{ line: 'm1.pillboxes-down' }, { line: 'm1.wave2-lost' }]);
+  });
+
   test('a version that is not this one is thrown away', () => {
     const data = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
     expect(restoreSuspend({ ...data, v: SUSPEND_VERSION + 1 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 6 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 5 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 4 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 3 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 0 })).toBeNull();
     const { v: _v, ...noVersion } = data;
     expect(restoreSuspend(noVersion)).toBeNull();
@@ -100,5 +141,7 @@ describe('suspend', () => {
     for (const data of cases) expect(restoreSuspend(data)).toBeNull();
     const { retries: _retries, ...noRetries } = game;
     expect(restoreSuspend({ ...good, game: noRetries })).toBeNull();
+    const { radioQueue: _radioQueue, ...noRadioQueue } = game;
+    expect(restoreSuspend({ ...good, game: noRadioQueue })).toBeNull();
   });
 });

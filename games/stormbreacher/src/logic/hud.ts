@@ -1,11 +1,13 @@
 // The values the HUD shows, built from the GameModel. Nothing here reads three or the DOM, so a node test can run it.
 // view/hud.ts draws them. There is no heat.
 import { ENEMIES, type EnemyKind } from '../data/enemies.ts';
-import { RADIO_MIN_SEC, OBJECTIVE_COUNT } from '../data/script.ts';
+import { CHARGE_TUNE } from '../data/charge.ts';
+import { RADIO_TUNE, OBJECTIVE_COUNT } from '../data/script.ts';
 import { TARGET_HP } from '../data/props.ts';
 import { HUD_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
 import { WEAPONS, type WeaponId } from '../data/weapons.ts';
+import { nearBlast } from './blasts.ts';
 import type { Aabb } from './fire.ts';
 import { enemyBox, type GameModel } from './game.ts';
 import { inCircle } from './hazards.ts';
@@ -30,11 +32,13 @@ export interface HudModel {
   main: HudAmmo;
   sub: HudAmmo;
   objective: { key: string; count: { done: number; total: number } | null } | null; // the script's objective (`obj.<id>`); count is set for the objectives in OBJECTIVE_COUNT; null before the script names one
-  radio: string | null; // the language key of the last radio line while it is within RADIO_MIN_SEC, else null
+  radio: string | null; // the language key of the radio line on screen while it is within RADIO_TUNE.minSec, else null
   lock: Aabb | null; // the box of the target or enemy `enemy` describes, for the lock frame; null when `enemy` is
   enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp
   radar: HudRadarMark[]; // the living targets and enemies within HUD_TUNE.radarRange
   warning: 'shell' | null; // 'shell' while the mech stands inside a warned shell's blast, else null
+  use: { key: 'hud.use'; progress: number } | null; // the use prompt near a blast point; progress is the hold, 0-1
+  charge: { left: number; total: number } | null; // the first planted charge's fuse left and its full length (s)
 }
 
 const DEG = 180 / Math.PI;
@@ -100,6 +104,18 @@ export function hudModel(game: GameModel): HudModel {
     };
   }
   const radio = game.radio;
+  const near = nearBlast(game.blasts, game.charges, game.mech, game);
+  const use =
+    near === null
+      ? null
+      : {
+          key: 'hud.use' as const,
+          progress:
+            game.plant !== null && game.plant.blast === near.id
+              ? Math.min(1, game.plant.hold / CHARGE_TUNE.holdSec)
+              : 0,
+        };
+  const planted = game.charges[0];
 
   return {
     boost: game.mech.gauge,
@@ -107,10 +123,12 @@ export function hudModel(game: GameModel): HudModel {
     main: hudAmmo(game.main),
     sub: hudAmmo(game.sub),
     objective,
-    radio: radio !== null && game.time - radio.time < RADIO_MIN_SEC ? radio.line : null,
+    radio: radio !== null && game.time - radio.time < RADIO_TUNE.minSec ? radio.line : null,
     enemy,
     lock,
     radar,
     warning: game.shells.some(shell => inCircle(shell, shell.radius, game.mech)) ? 'shell' : null,
+    use,
+    charge: planted === undefined ? null : { left: Math.max(0, planted.left), total: CHARGE_TUNE.fuse },
   };
 }

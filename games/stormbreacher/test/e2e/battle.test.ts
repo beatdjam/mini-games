@@ -5,10 +5,12 @@ import { runSystems } from '@engine/core/index.ts';
 import { drawStats, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PLAY_BATTLE_TUNE } from '../../src/data/tune.ts';
 import { ALLY_MESH_NAME } from '../../src/view/allies.ts';
-import { BATTLE_GROUP_NAME } from '../../src/view/battle/index.ts';
-import { sendToScript } from '../../src/logic/game.ts';
+import { BATTLE_GROUP_NAME, buildBattle } from '../../src/view/battle/index.ts';
+import { sendToScript, step, type GameInput } from '../../src/logic/game.ts';
+import { stream } from '../../src/logic/rng.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -19,6 +21,17 @@ beforeAll(async () => {
 
 const frames = async (n: number): Promise<void> => {
   for (let i = 0; i < n; i++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+};
+
+const IDLE: GameInput = {
+  moveX: 0,
+  moveZ: 0,
+  turn: 0,
+  jump: false,
+  jumpHeld: false,
+  boost: false,
+  fire: false,
+  sub: false,
 };
 
 function game() {
@@ -44,6 +57,24 @@ function allyGroups(): THREE.Group[] {
   return scene.children.filter((child): child is THREE.Group => child.name === ALLY_MESH_NAME);
 }
 
+// The battle's infantry bodies, named in parts.ts so the test can read how many are drawn.
+function battleBodies(): THREE.InstancedMesh {
+  const bodies = battleGroups()[0].getObjectByName('sb-battle-bodies');
+  if (!(bodies instanceof THREE.InstancedMesh)) throw new Error('the battle has no soldier bodies');
+  return bodies;
+}
+
+// One number from the drawn soldiers' places: a frame that moved any of them changes it.
+function battleBodiesPlacement(bodies: THREE.InstancedMesh): number {
+  const matrix = new THREE.Matrix4();
+  let sum = 0;
+  for (let i = 0; i < bodies.count; i++) {
+    bodies.getMatrixAt(i, matrix);
+    sum += matrix.elements[12] * 1000 + matrix.elements[14];
+  }
+  return sum;
+}
+
 test('a sortie draws the battle: the allies walking, the holes and the smoke, in one group', async () => {
   startSortie();
   await frames(3);
@@ -60,6 +91,65 @@ test('a sortie draws the battle: the allies walking, the holes and the smoke, in
   console.log(`sortie after the cutscene: ${drawStats()}`);
 });
 
+test('the battlefield holds still during the landing and starts when the controls do', async () => {
+  startSortie();
+  await frames(3);
+  const bodies = battleBodies();
+  // the landing's frames do not move the infantry: it starts at the sea edge and is not drawn yet
+  expect(bodies.count).toBe(0);
+  for (let i = 0; i < 120; i++) runSystems(1 / 60);
+  await frames(1);
+  expect(bodies.count).toBe(0);
+  // the first controlled frame steps the battle and draws the first wave
+  sendToScript(game(), { kind: 'skip' });
+  runSystems(1 / 60);
+  await frames(1);
+  expect(bodies.count).toBeGreaterThan(0);
+});
+
+test('the battlefield runs while the wave 2 cutscene plays', async () => {
+  startSortie();
+  await frames(3);
+  sendToScript(game(), { kind: 'skip' });
+  // both pillboxes down fires cp1; wave2-lost starts the cutscene 4 s later
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game().targets.find(entry => entry.id === id);
+    if (target) target.hp = 0;
+    sendToScript(game(), { kind: 'destroyed', target: id });
+  }
+  for (let i = 0; i < 60 * 5 && game().script.cutscene === null; i++) runSystems(1 / 60);
+  expect(game().script.cutscene?.id).toBe('wave2-sinks');
+  await frames(1);
+  const bodies = battleBodies();
+  expect(bodies.count).toBeGreaterThan(0);
+  const before = battleBodiesPlacement(bodies);
+  // half a second into the cutscene the infantry has moved on (the landing is the one that holds it still)
+  for (let i = 0; i < 30; i++) runSystems(1 / 60);
+  await frames(1);
+  expect(game().script.cutscene?.id).toBe('wave2-sinks');
+  expect(battleBodiesPlacement(bodies)).not.toBe(before);
+});
+
+test('a blast of the game takes the soldiers near it', () => {
+  const tune = {
+    ...PLAY_BATTLE_TUNE,
+    shellEvery: 0,
+    squadFallRadius: 0,
+    squadFallShare: 0,
+    allyDeathRate: 0,
+    shellFallRadius: 10,
+    shellFallShare: 1,
+  };
+  const battle = buildBattle(M1B_HAND, tune, stream('battle'), stream('craters'), { x: 0, z: 166 }, null);
+  const soldier = battle.crowd.soldiers[0];
+  if (!soldier) throw new Error('the battle put out no soldier');
+  const before = battle.counts().fallen;
+  battle.blast(soldier.x, soldier.z);
+  expect(battle.counts().fallen).toBeGreaterThan(before);
+  expect(soldier.alive).toBe(false);
+  battle.dispose();
+});
+
 test('starting again builds the battle anew, and leaves one', async () => {
   startSortie();
   await frames(2);
@@ -68,23 +158,42 @@ test('starting again builds the battle anew, and leaves one', async () => {
   expect(battleGroups()).toHaveLength(1);
 });
 
-test('the cutscene shows no ally, and the ally runs and then lies down once the cutscene is over', async () => {
+test('the cutscene shows no ally, and the ashore input puts them out and then lies them down', async () => {
   startSortie();
   await frames(3);
-  expect(game().allies).toHaveLength(1);
+  // the beach's allies wait until the mech has left the craft
+  expect(game().allies).toHaveLength(0);
   expect(allyGroups()).toHaveLength(0);
   sendToScript(game(), { kind: 'skip' });
   await frames(2);
-  const [run, wreck] = allyGroups();
-  expect(allyGroups()).toHaveLength(2);
+  expect(game().allies).toHaveLength(0);
+  expect(allyGroups()).toHaveLength(0);
+  sendToScript(game(), { kind: 'ashore' });
+  await frames(2);
+  // the buddy, the three cover mechs and the gunner: two groups each, the runner and the wreck
+  expect(game().allies).toHaveLength(5);
+  expect(allyGroups()).toHaveLength(10);
+  expect(allyGroups().filter(group => group.userData.allyId === 'gunner')).toHaveLength(2);
+  const buddyGroups = allyGroups().filter(group => group.userData.allyId === 'buddy');
+  expect(buddyGroups).toHaveLength(2);
+  const [run, wreck] = buddyGroups;
   expect(run.visible).toBe(true);
   expect(wreck.visible).toBe(false);
   // Run the page's own frame by hand until the mortar takes it. A frame moves the ally 9 * dt metres: the page's frames
   // are capped at LOOP.maxDt (0.05 s, under 0.5 m), but a 1 s step moves it 9 m, enough to pass over the place it falls
   // at and end farther than ALLY_TUNE.arrive from it, so the fall is never seen.
-  for (let i = 0; i < 600 && !game().allies[0].down; i++) runSystems(1 / 60);
+  const buddy = () => game().allies.find(ally => ally.id === 'buddy');
+  for (let i = 0; i < 600 && buddy()?.down !== true; i++) runSystems(1 / 60);
   await frames(2);
-  expect(game().allies[0].down).toBe(true);
+  expect(buddy()?.down).toBe(true);
   expect(run.visible).toBe(false);
   expect(wreck.visible).toBe(true);
+
+  // entering B wakes the pillboxes but brings out no more allies: the gunner came with the beach and waits by line 1
+  game().mech.x = 0;
+  game().mech.z = 140;
+  step(game(), IDLE, 0.1);
+  await frames(2);
+  expect(game().allies).toHaveLength(5);
+  expect(allyGroups()).toHaveLength(10);
 });

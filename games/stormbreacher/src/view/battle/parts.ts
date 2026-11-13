@@ -26,18 +26,21 @@ export interface CraterMeshes {
   water: THREE.InstancedMesh;
 }
 
-// The allies: one box for the body and one for the head, both moved every frame.
-export function soldierMeshes(): { bodies: THREE.InstancedMesh; heads: THREE.InstancedMesh } {
+// The allies: one box for the body and one for the head, both moved every frame. The landing's riders use it too, at their
+// own smaller count.
+export function soldierMeshes(capacity = MAX_SOLDIERS): { bodies: THREE.InstancedMesh; heads: THREE.InstancedMesh } {
   const bodies = new THREE.InstancedMesh(
     new THREE.BoxGeometry(BODY.w, BODY.h, BODY.d),
     new THREE.MeshLambertMaterial({ color: ALLY_BODY_COLOR }),
-    MAX_SOLDIERS,
+    capacity,
   );
   const heads = new THREE.InstancedMesh(
     new THREE.BoxGeometry(HEAD, HEAD, HEAD),
     new THREE.MeshLambertMaterial({ color: ALLY_HEAD_COLOR }),
-    MAX_SOLDIERS,
+    capacity,
   );
+  bodies.name = 'sb-battle-bodies';
+  heads.name = 'sb-battle-heads';
   for (const mesh of [bodies, heads]) {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;

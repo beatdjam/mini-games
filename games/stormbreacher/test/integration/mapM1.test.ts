@@ -1,13 +1,14 @@
 // The maps and M1's script agree: every target the script destroys and the map covers is on the map, the waves
 // that come in on this range have places, and the pillboxes do not stand inside the b-line place the script enters.
 import { expect, test } from 'vitest';
-import { createRng } from '@engine/core/index.ts';
+import { createRng, distXZ } from '@engine/core/index.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import type { MapDef, MapLine } from '../../src/data/types.ts';
+import { targetBox } from '../../src/logic/game.ts';
 import { checkMapPath } from '../../src/logic/mapCheck.ts';
 import { generateMap } from '../../src/logic/mapgen.ts';
 
@@ -45,9 +46,21 @@ function acrossLine(line: MapLine): MapDef {
   };
 }
 
-test('the hand map leaves a breakthrough in each of the three defence lines', () => {
+test('each of the three lines is closed, and one blast point of each opens it', () => {
+  const points = M1B_HAND.blasts ?? [];
   for (const line of M1B_RULES.lines.slice(0, 3)) {
-    expect(checkMapPath(acrossLine(line)), `line at z ${line.z}`).toEqual([]);
+    const onLine = points.filter(point => point.line === line.z);
+    const others = points.filter(point => point.line !== line.z);
+    expect(onLine.length, `line at z ${line.z}`).toBe(2);
+    for (const point of onLine) {
+      const map = { ...acrossLine(line), blasts: [point, ...others] };
+      expect(checkMapPath(map), `line at z ${line.z} opened by ${point.id}`).toEqual([]);
+    }
+    const closed = { ...acrossLine(line), blasts: [] };
+    expect(
+      checkMapPath(closed).some(violation => violation.kind === 'no-path'),
+      `line at z ${line.z} closed`,
+    ).toBe(true);
   }
 });
 
@@ -55,18 +68,56 @@ test('the hand map keeps at least 120 hedgehogs', () => {
   expect(M1B_HAND.props.filter(prop => prop.kind === 'hedgehog').length).toBeGreaterThanOrEqual(120);
 });
 
-test('the hand map marks two breakable stretches, one on line 2 and one on line 3', () => {
-  const stretches = M1B_RULES.lines.flatMap(line => line.breakable.map(zone => ({ line, zone })));
-  expect(stretches.length).toBe(2);
-  for (const { line, zone } of stretches) {
+test('the hand map has two blast points on each of the three lines and none on C', () => {
+  // the pillboxes' points name a target and belong to no line; the line tests count only the line's points (SB-1540)
+  const blasts = (M1B_HAND.blasts ?? []).filter(blast => blast.target === undefined);
+  expect(blasts).toHaveLength(6);
+  for (const line of M1B_RULES.lines.slice(0, 3)) {
+    const onLine = blasts.filter(blast => blast.line === line.z);
+    expect(onLine, `line at z ${line.z}`).toHaveLength(2);
+    for (const blast of onLine) expect(blast.z, blast.id).toBeGreaterThan(line.z);
+  }
+  for (const line of M1B_RULES.lines.slice(3)) {
+    expect(
+      blasts.filter(blast => blast.line === line.z),
+      `line at z ${line.z}`,
+    ).toEqual([]);
+  }
+});
+
+test('the two pillboxes have a side and a back blast point outside their boxes', () => {
+  const points = (M1B_HAND.blasts ?? []).filter(blast => blast.target !== undefined);
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const place = M1B_HAND.targets.find(target => target.id === id);
+    if (!place) throw new Error(`the hand map has no ${id}`);
+    const box = targetBox(place);
+    const ofTarget = points.filter(point => point.target === id);
+    expect(ofTarget, id).toHaveLength(2);
+    for (const point of ofTarget) {
+      expect(point.line, point.id).toBeNull();
+      // clear of the box the shot meets, so a charge can be planted beside it without standing in the wall
+      expect(point.x < box.minX || point.x > box.maxX || point.z < box.minZ || point.z > box.maxZ, point.id).toBe(true);
+      // near enough to reach from the point
+      expect(distXZ(point, place), point.id).toBeLessThanOrEqual(12);
+      const { minX, maxX, minZ, maxZ } = M1B_HAND.bounds;
+      expect(point.x, point.id).toBeGreaterThanOrEqual(minX);
+      expect(point.x, point.id).toBeLessThanOrEqual(maxX);
+      expect(point.z, point.id).toBeGreaterThanOrEqual(minZ);
+      expect(point.z, point.id).toBeLessThanOrEqual(maxZ);
+    }
+  }
+});
+
+test('the hand map’s line hedgehogs are not breakable', () => {
+  for (const line of M1B_RULES.lines.slice(0, 3)) {
     const marked = M1B_HAND.props.filter(
       prop =>
-        prop.breakable === true &&
+        prop.kind === 'hedgehog' &&
         prop.z >= line.z - line.depth / 2 &&
         prop.z <= line.z + line.depth / 2 &&
-        Math.abs(prop.x - zone.x) <= zone.width / 2,
+        prop.breakable === true,
     );
-    expect(marked.length, `breakable near x ${zone.x} on line ${line.z}`).toBeGreaterThan(0);
+    expect(marked, `line at z ${line.z}`).toEqual([]);
   }
 });
 

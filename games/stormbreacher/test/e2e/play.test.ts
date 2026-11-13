@@ -1,7 +1,8 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { el, runSystems, t } from '@engine/core/index.ts';
-import { PLAY_TUNE } from '../../src/data/tune.ts';
+import { craftZ } from '../../src/data/craft.ts';
+import { LANDING_TUNE } from '../../src/data/landing.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
@@ -44,13 +45,15 @@ test('the start button begins a sortie on M1 B', () => {
   el<HTMLButtonElement>('#sbBriefingSkip').click(); // the briefing is test/e2e/briefing.test.ts's
   expect(state).toBe('play');
   const current = game();
-  expect(current.mech.z).toBe(current.map.bounds.maxZ - PLAY_TUNE.startMargin);
+  expect(current.mech.z).toBe(craftZ(current.map.bounds) + LANDING_TUNE.startDepth);
   expect(el('#sbApp').hidden).toBe(true);
 });
 
 test('the mech walks and shoots in the sortie', async () => {
   startSortie();
   const current = game();
+  // the landing holds the mech on the deck; let it go so the keys reach the mech
+  sendToScript(current, { kind: 'skip' });
   const startZ = current.mech.z;
   window.dispatchEvent(key('keydown', 'KeyW'));
   window.dispatchEvent(key('keydown', 'KeyJ'));

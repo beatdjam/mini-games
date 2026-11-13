@@ -22,7 +22,7 @@ const pointer = (type: string, id: number, x: number, y: number): PointerEvent =
     clientY: y,
   });
 
-test('the touch screen is shown with the five buttons at their default places', () => {
+test('the touch screen is shown with the six buttons at their default places', () => {
   expect(el('#touch').hidden).toBe(false);
   for (const id of TOUCH_BUTTONS) {
     const box = el(`[data-lb="${id}"]`).getBoundingClientRect();
@@ -38,6 +38,27 @@ test('the boost button holds while its finger stays down', () => {
   expect(readTouch().input.boost).toBe(true);
   button.dispatchEvent(pointer('pointerup', 31, 10, 10));
   expect(readTouch().input.boost).toBe(false);
+});
+
+test('the use button holds while its finger stays down', () => {
+  const button = el('#btnUse');
+  button.dispatchEvent(pointer('pointerdown', 33, 10, 10));
+  expect(readTouch().use).toBe(true);
+  expect(readTouch().use).toBe(true);
+  button.dispatchEvent(pointer('pointerup', 33, 10, 10));
+  expect(readTouch().use).toBe(false);
+});
+
+test('the use button does not sit on top of the other buttons', () => {
+  const box = (id: string): DOMRect => el(`[data-lb="${id}"]`).getBoundingClientRect();
+  const use = box('use');
+  for (const id of TOUCH_BUTTONS) {
+    if (id === 'use') continue;
+    const other = box(id);
+    const apart =
+      use.right <= other.left || other.right <= use.left || use.bottom <= other.top || other.bottom <= use.top;
+    expect(apart, `use overlaps ${id}`).toBe(true);
+  }
 });
 
 test('a jump is true for one read only', () => {

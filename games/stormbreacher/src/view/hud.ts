@@ -33,6 +33,9 @@ const PLAY_HUD_LAYOUT = {
   radio: { css: 'left:50%;transform:translateX(-50%);bottom:48px;width:560px;padding:2px 6px' },
   enemy: { css: 'left:50%;transform:translateX(-50%);top:48px;width:300px' },
   warning: { css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 40px);text-align:center' },
+  use: {
+    css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 80px);width:220px;text-align:center',
+  },
   reticle: { css: 'inset:0;pointer-events:none' },
 } as const;
 
@@ -45,6 +48,7 @@ const PLAY_HUD_TEXT = {
   radio: { label: 16, value: 16 }, // px
   enemy: { name: 14, bar: 10 }, // px
   warning: { text: 18 }, // px
+  use: { text: 13, bar: 6 }, // px; the charge's fuse uses the same sizes
 } as const;
 
 // The target and enemy kinds become the radar's mark kinds: the bunkers, the guns and the magazine are objectives (an
@@ -57,6 +61,7 @@ const RADAR_MARK: Record<TargetKind | EnemyKind, RadarMarkKind> = {
   grunt: 'enemy',
   assault: 'enemy',
   heavy: 'enemy',
+  emplacement: 'enemy',
 };
 
 // The radar's size (px): the mock's D plan.
@@ -82,6 +87,8 @@ interface HudLast {
   enemyRatio: number | null;
   enemyHidden: boolean | null;
   warning: HudModel['warning'] | undefined; // undefined means "not written yet" (null is a written "none")
+  use: number | null; // the hold's progress (0-1), or null when the prompt is not up
+  charge: string | null; // the fuse's text, or null when no charge is shown
 }
 
 export interface PlayHud {
@@ -101,6 +108,13 @@ export interface PlayHud {
   enemyFill: HTMLElement;
   warning: HTMLElement;
   warningText: HTMLSpanElement;
+  use: HTMLElement;
+  useRow: HTMLElement;
+  useText: HTMLSpanElement;
+  useFill: HTMLElement;
+  chargeRow: HTMLElement;
+  chargeText: HTMLSpanElement;
+  chargeFill: HTMLElement;
   radar: RadarGauge;
   last: HudLast;
 }
@@ -133,6 +147,16 @@ function healthBar(): { box: HTMLElement; fill: HTMLElement } {
   return { box, fill };
 }
 
+// The bar under the use prompt and the charge's fuse: a thin fill on the panel.
+function useBar(color: string): { box: HTMLElement; fill: HTMLElement } {
+  const box = document.createElement('div');
+  box.style.cssText = `position:relative;background:${HUD_COLOR.panel};width:100%;height:${PLAY_HUD_TEXT.use.bar}px;`;
+  const fill = document.createElement('div');
+  fill.style.cssText = `position:absolute;left:0;top:0;bottom:0;width:0%;background:${color};`;
+  box.appendChild(fill);
+  return { box, fill };
+}
+
 function freshLast(): HudLast {
   return {
     armor: null,
@@ -145,6 +169,8 @@ function freshLast(): HudLast {
     enemyRatio: null,
     enemyHidden: null,
     warning: undefined,
+    use: null,
+    charge: null,
   };
 }
 
@@ -207,6 +233,21 @@ function layOut(root: HTMLElement): PlayHud {
   warning.appendChild(warningText);
   warning.hidden = true;
 
+  // One place above the aim circle: the use prompt with the hold's progress, or the planted charge's fuse. Both rows sit
+  // in the same element and only one shows.
+  const use = place(root, PLAY_HUD_LAYOUT.use.css, 'use');
+  const useRow = document.createElement('div');
+  const useText = span(t('hud.use'), PLAY_HUD_TEXT.use.text, HUD_COLOR.amber);
+  const useMeter = useBar(HUD_COLOR.bar);
+  useRow.append(useText, useMeter.box);
+  const chargeRow = document.createElement('div');
+  chargeRow.hidden = true;
+  const chargeText = span('', PLAY_HUD_TEXT.use.text, HUD_COLOR.warn);
+  const chargeMeter = useBar(HUD_COLOR.warn);
+  chargeRow.append(chargeText, chargeMeter.box);
+  use.append(useRow, chargeRow);
+  use.hidden = true;
+
   const radarNode = place(root, PLAY_HUD_LAYOUT.radar.css, 'radar');
   const radar = roundRadar(RADAR_SIZE, RADAR_SIZE);
   radarNode.appendChild(radar.root);
@@ -233,6 +274,13 @@ function layOut(root: HTMLElement): PlayHud {
     enemyFill: enemyBar.fill,
     warning,
     warningText,
+    use,
+    useRow,
+    useText,
+    useFill: useMeter.fill,
+    chargeRow,
+    chargeText,
+    chargeFill: chargeMeter.fill,
     radar,
     last: freshLast(),
   };
@@ -326,6 +374,28 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null):
     if (model.warning !== null) hud.warningText.textContent = t(`hud.warn.${model.warning}`);
     last.warning = model.warning;
   }
+
+  const useProgress = model.use === null ? null : Math.max(0, Math.min(1, model.use.progress));
+  if (last.use !== useProgress) {
+    if (useProgress !== null) hud.useFill.style.width = `${useProgress * 100}%`;
+    last.use = useProgress;
+  }
+  const charge = model.charge;
+  const chargeText = charge === null ? null : `${t('hud.charge')} ${String(Math.max(0, charge.left).toFixed(1))}`;
+  if (last.charge !== chargeText) {
+    if (charge !== null && chargeText !== null) {
+      hud.chargeText.textContent = chargeText;
+      hud.chargeFill.style.width = `${Math.max(0, Math.min(1, charge.total > 0 ? charge.left / charge.total : 0)) * 100}%`;
+    }
+    last.charge = chargeText;
+  }
+  // one row at a time: a burning charge takes the place over the use prompt
+  const showCharge = chargeText !== null;
+  const showUse = !showCharge && useProgress !== null;
+  if (hud.useRow.hidden === showUse) hud.useRow.hidden = !showUse;
+  if (hud.chargeRow.hidden === showCharge) hud.chargeRow.hidden = !showCharge;
+  const useVisible = showUse || showCharge;
+  if (hud.use.hidden === useVisible) hud.use.hidden = !useVisible;
 
   hud.lock.set(lock);
   hud.radar.set(model.radar.map(mark => ({ kind: RADAR_MARK[mark.kind], angle: mark.angle, dist: mark.dist })));

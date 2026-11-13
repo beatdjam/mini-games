@@ -1,13 +1,23 @@
 // The pieces both map views draw: the ground tiles that cover the bounds, the mission's areas as thin frames, the wave
 // spawn points as small marks, and the count of props by kind for the screen.
 import * as THREE from 'three';
-import { type Area, type MapBounds, type Prop, type PropKind, type SpawnPoint } from '../../data/types.ts';
+import {
+  type Area,
+  type BlastPlace,
+  type MapBounds,
+  type Prop,
+  type PropKind,
+  type SpawnPoint,
+} from '../../data/types.ts';
 
 const AREA_COLOR = 0x8fd3ff; // the mission's areas are a pale blue frame
 const SPAWN_COLOR = 0xffcf6a; // the spawn points are a yellow ring
+const BLAST_COLOR = 0xff9d3d; // the blast points are a warmer ring than the spawn marks
 const FRAME_Y = 0.06; // just above the ground (m)
 const SPAWN_Y = 0.08; // ... and the same for the rings (m)
+const BLAST_Y = 0.1; // above the spawn marks, so a point in the same place still reads (m)
 const SPAWN_RING = { inner: 1.2, outer: 2.2 } as const; // the mark's size (m)
+const BLAST_RING = { inner: 1.7, outer: 2.4 } as const;
 
 export { groundTiles } from '../../view/world.ts';
 
@@ -70,5 +80,28 @@ export function buildSpawnMarks(spawns: Record<string, SpawnPoint[]>): THREE.Gro
       group.add(mark);
     }
   }
+  return group;
+}
+
+// A small ring at each blast point, one instanced mesh for all of them so the map view adds one draw.
+export function buildBlastMarks(blasts: readonly BlastPlace[] | undefined): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'blasts';
+  if (!blasts || blasts.length === 0) return group;
+  const geometry = new THREE.RingGeometry(BLAST_RING.inner, BLAST_RING.outer, 16).rotateX(-Math.PI / 2);
+  const mesh = new THREE.InstancedMesh(
+    geometry,
+    new THREE.MeshBasicMaterial({ color: BLAST_COLOR, side: THREE.DoubleSide }),
+    blasts.length,
+  );
+  mesh.name = 'sb-blast-marks';
+  const place = new THREE.Object3D();
+  blasts.forEach((blast, i) => {
+    place.position.set(blast.x, BLAST_Y, blast.z);
+    place.updateMatrix();
+    mesh.setMatrixAt(i, place.matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  group.add(mesh);
   return group;
 }

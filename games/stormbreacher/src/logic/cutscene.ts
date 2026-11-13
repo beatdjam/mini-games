@@ -51,7 +51,7 @@ export function cutscenePose(id: CutsceneId, elapsed: number, mech?: Origin): Cu
   if (elapsed <= first.at) return keyPose(first, mech);
   if (elapsed >= last.at) return keyPose(last, mech);
   let next = 1;
-  while (keys[next].at < elapsed) next++;
+  while (keys[next].at <= elapsed) next++;
   const a = keyPose(keys[next - 1], mech);
   const b = keyPose(keys[next], mech);
   const u = smooth((elapsed - keys[next - 1].at) / (keys[next].at - keys[next - 1].at));
@@ -68,6 +68,22 @@ export function cutsceneLine(id: CutsceneId, elapsed: number): string | null {
 // event once. Call with `from` below 0 on the first frame to take an event at second 0.
 export function cutsceneEvents(id: CutsceneId, from: number, to: number): CutsceneEvent[] {
   return tableOf(id).events.filter(event => from < event.at && event.at <= to);
+}
+
+// How far the rider with this id has fallen at `elapsed`: 0 standing, 1 on the deck. The last `riders` event that names
+// the rider decides; before its second the rider stands, and it reaches 1 `sec` seconds after it.
+export function riderFall(id: string, elapsed: number, events: readonly CutsceneEvent[]): number {
+  let at = Number.NEGATIVE_INFINITY;
+  let sec = 0;
+  for (const event of events) {
+    if (event.kind !== 'riders' || !event.ids.includes(id)) continue;
+    if (event.at <= at) continue;
+    at = event.at;
+    sec = event.sec;
+  }
+  if (!Number.isFinite(at)) return 0;
+  if (sec <= 0) return elapsed >= at ? 1 : 0;
+  return smooth(Math.min(1, Math.max(0, (elapsed - at) / sec)));
 }
 
 // Where the walking mech's feet are at `elapsed`, and how fast it goes along the ground (m/s).

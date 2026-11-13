@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { payoutOf } from '../../src/logic/economy.ts';
 import { retryFromCheckpoint, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
@@ -97,6 +98,17 @@ describe('suspend and resume', () => {
     const game = newPlayGame(M1B_HAND);
     run(game, walk, 20);
     expect(resumed(game).checkpoint).toBeNull();
+  });
+
+  test('the aimed mortar’s anchor and stay come back with the resume', () => {
+    const game = newPlayGame(M1B_HAND);
+    if (game.aimed === null) throw new Error('the beach cue did not start the aimed mortar');
+    game.aimed = { anchor: { x: game.mech.x + 1, z: game.mech.z - 1 }, still: 1.75 };
+    const back = resumed(game);
+    expect(back.aimed).toEqual({ anchor: { x: game.mech.x + 1, z: game.mech.z - 1 }, still: 1.75 });
+    // a shell warned before the suspend is gone, as a checkpoint's is
+    back.shells.push({ x: 0, z: 0, radius: AIMED_MORTAR.radius, warn: AIMED_MORTAR.warn, left: 1, damage: 1 });
+    expect(resumed(back).shells).toEqual([]);
   });
 
   test('a clear after the resume pays what the same sortie pays without a suspend', () => {

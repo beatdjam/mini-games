@@ -13,6 +13,7 @@ import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME, placeCamera } from '../view/field.ts';
 import { removeAllyView } from '../view/allies.ts';
 import { removeBooms } from '../view/boom.ts';
+import { removeBlastView } from '../view/blasts.ts';
 import { removeCutsceneView } from '../view/cutscene.ts';
 import { removeEnemyView } from '../view/enemies.ts';
 import { removeHazardView } from '../view/hazards.ts';
@@ -59,6 +60,7 @@ function clearPlay(old: PlayView): void {
   removeSeaFire(old.seaFire);
   old.battle.dispose();
   removeAllyView(old.allies);
+  removeBlastView(old.blasts);
   removeHurtView(old.hurt);
   removeHud(old.hud);
   removeCutsceneView(old.cutscene);
@@ -82,7 +84,7 @@ function beginPlay(next: GameModel): void {
   setState('play');
   hideField();
   game = next;
-  resetSound();
+  resetSound(game.radio);
   view = buildPlayView(game);
   initPlayInput();
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
@@ -194,7 +196,7 @@ function update(dt: number): void {
   const read = readInput(dt);
   // The aim is the camera's line with the pitch of the last frame; drawPlay adds this frame's pitch change after.
   const aim = aimRay({ x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw }, view.pitch, CAMERA_TUNE);
-  step(game, { ...read.input, sub: read.sub, aim }, dt);
+  step(game, { ...read.input, sub: read.sub, use: read.use, aim }, dt);
   // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn.
   const skip = takeSkip();
   const cutscene = game.script.cutscene;

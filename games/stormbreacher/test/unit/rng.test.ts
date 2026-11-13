@@ -20,3 +20,11 @@ test('a stream gets a different sequence from the seed', () => {
   const fromMain = rng().next();
   expect(fromStream).not.toBe(fromMain);
 });
+
+test('the allyFx stream gets its own sequence', () => {
+  seed(7);
+  const fromAllyFx = stream('allyFx').next();
+  seed(7);
+  const fromField = stream('field').next();
+  expect(fromAllyFx).not.toBe(fromField);
+});
