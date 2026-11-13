@@ -45,6 +45,7 @@ export function scaleForMech(
     camera.releaseGap *= ratio;
     camera.rise *= ratio;
     camera.riseRange *= ratio;
+    camera.closeLook *= ratio;
   }
   return { cameraTune: camera, moveTune: move };
 }

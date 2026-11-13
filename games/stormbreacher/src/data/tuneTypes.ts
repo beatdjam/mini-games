@@ -36,6 +36,8 @@ export interface CameraTune {
   releaseGap: number; // a wall lets the camera go when it is this much farther than the camera was (m)
   rise: number; // how far the camera rises at minDist, so it looks over the mech's shoulder (m)
   riseRange: number; // how far above minDist the rise has fallen to 0 (m)
+  closeLook: number; // how far the look point moves toward the mech's front at minDist, so a close camera sees ahead, not down (m)
+  closePitch: number; // the most the camera may look down past its open angle when a wall pulls it in (rad)
   probeDeg: number; // how far to either side of a wall ray the camera looks, so a corner comes in smoothly (deg)
   pitchMin: number; // the lowest pitch the camera may look, looking down (rad)
   pitchMax: number; // the highest pitch the camera may look, looking up (rad)

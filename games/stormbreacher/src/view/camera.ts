@@ -85,34 +85,23 @@ export function cameraBoxesOfRect(rect: GroundRect): THREE.Box3[] {
   });
 }
 
-// The point a mech's feet and yaw put the camera behind, with the walls kept out of the way.
-export function cameraPose(
-  target: CameraTarget,
-  pitch: number,
+interface Placed {
+  pos: THREE.Vector3; // where the camera goes with no lift
+  dist: number; // the horizontal distance from the look point the wall left (m)
+  pulled: boolean; // a wall pulled the camera closer than the desired place
+}
+
+// The camera's place for a look point: the desired position, pulled to a gap in front of the first wall between them.
+function placedAt(
+  look: THREE.Vector3,
+  behind: THREE.Vector3,
+  horizontal: number,
+  up: number,
   tune: CameraTune,
   boxes: readonly THREE.Box3[],
-  aim = false,
-): CameraPose {
-  const head = new THREE.Vector3(target.x, target.y + tune.lookHeight, target.z);
-
-  // the look point goes to the mech's right; a wall there shortens the shoulder
-  const right = new THREE.Vector3(Math.cos(target.yaw), 0, -Math.sin(target.yaw));
-  let shoulder = tune.shoulder;
-  if (shoulder > 0) {
-    const hit = nearestHitFan(head, right, shoulder, boxes, tune.probeDeg);
-    if (hit) shoulder = Math.max(0, hit.dist - tune.margin);
-  }
-  const look = head.clone().addScaledVector(right, shoulder);
-
-  // Positive pitch looks up, so the camera drops below the look point; negative pitch lifts it.
-  const pitchUsed = clamp(pitch, tune.pitchMin, tune.pitchMax);
-  const baseDist = aim ? tune.aimDist : tune.dist;
-  const horizontal = baseDist * Math.cos(pitchUsed);
-  const up = tune.height - baseDist * Math.sin(pitchUsed);
-  const behind = new THREE.Vector3(Math.sin(target.yaw), 0, Math.cos(target.yaw));
+  groundY: number,
+): Placed {
   const desired = new THREE.Vector3(look.x + behind.x * horizontal, look.y + up, look.z + behind.z * horizontal);
-
-  // A wall between the look point and the desired position pulls the camera to a gap in front of it.
   const offset = desired.clone().sub(look);
   const length = offset.length();
   let pos = desired;
@@ -131,15 +120,59 @@ export function cameraPose(
     }
   }
   // the ground is not one of the boxes: looking up drops the camera, so it stops a margin above the mech's feet
-  pos.y = Math.max(pos.y, target.y + tune.margin);
-  // A wall at minDist would put the camera in the mech's back. Lift it a little there, easing out as the wall lets it go,
-  // so the mech is seen over its shoulder rather than filling the screen.
-  if (pulled) {
-    const closeness = 1 - clamp((dist - tune.minDist) / Math.max(tune.riseRange, 1e-6), 0, 1);
-    pos.y += tune.rise * closeness;
+  pos.y = Math.max(pos.y, groundY + tune.margin);
+  return { pos, dist, pulled };
+}
+
+// The point a mech's feet and yaw put the camera behind, with the walls kept out of the way.
+export function cameraPose(
+  target: CameraTarget,
+  pitch: number,
+  tune: CameraTune,
+  boxes: readonly THREE.Box3[],
+  aim = false,
+): CameraPose {
+  const head = new THREE.Vector3(target.x, target.y + tune.lookHeight, target.z);
+
+  // the look point goes to the mech's right; a wall there shortens the shoulder
+  const right = new THREE.Vector3(Math.cos(target.yaw), 0, -Math.sin(target.yaw));
+  // Positive pitch looks up, so the camera drops below the look point; negative pitch lifts it.
+  const pitchUsed = clamp(pitch, tune.pitchMin, tune.pitchMax);
+  const baseDist = aim ? tune.aimDist : tune.dist;
+  const horizontal = baseDist * Math.cos(pitchUsed);
+  const up = tune.height - baseDist * Math.sin(pitchUsed);
+  const behind = new THREE.Vector3(Math.sin(target.yaw), 0, Math.cos(target.yaw));
+
+  let shoulder = tune.shoulder;
+  if (shoulder > 0) {
+    const hit = nearestHitFan(head, right, shoulder, boxes, tune.probeDeg);
+    if (hit) shoulder = Math.max(0, hit.dist - tune.margin);
+  }
+  const look = head.clone().addScaledVector(right, shoulder);
+  const placed = placedAt(look, behind, horizontal, up, tune, boxes, target.y);
+
+  // A wall at minDist would put the lifted camera almost overhead, so the screen would be ground and shoulder. The look
+  // point moves toward the mech's front by the pull, and the lift keeps the view no steeper than the open one plus
+  // closePitch, so the wall-side camera still looks ahead over the shoulder.
+  let dist = placed.dist;
+  if (placed.pulled) {
+    const closeness = 1 - clamp((placed.dist - tune.minDist) / Math.max(tune.riseRange, 1e-6), 0, 1);
+    placed.pos.y += tune.rise * closeness;
+    // the look point moves toward the mech's front, but stops a margin short of a wall the mech faces
+    const forward = behind.clone().negate();
+    let ahead = tune.closeLook * closeness;
+    const aheadHit = nearestHit(look, forward, ahead, boxes);
+    if (aheadHit) ahead = Math.max(0, aheadHit.dist - tune.margin);
+    look.addScaledVector(forward, ahead);
+    dist = placed.dist + ahead;
+    const openDown = Math.atan2(up, Math.max(horizontal, 1e-6));
+    const mostDown = clamp(openDown + tune.closePitch, -1.5, 1.5);
+    const above = placed.pos.y - look.y;
+    placed.pos.y = look.y + Math.min(above, dist * Math.tan(mostDown));
+    placed.pos.y = Math.max(placed.pos.y, target.y + tune.margin);
   }
 
-  return { pos, look, dist, pulled, shoulder };
+  return { pos: placed.pos, look, dist, pulled: placed.pulled, shoulder };
 }
 
 // The line through the middle of the screen: from where the camera sits to the point it looks at. No walls are given,

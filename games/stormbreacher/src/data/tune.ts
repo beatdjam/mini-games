@@ -42,6 +42,8 @@ export const CAMERA_TUNE: CameraTune = {
   releaseGap: 1.2, // a wall lets the camera go when it is this much farther than the camera was (m)
   rise: 0.9, // how far the camera rises at minDist, so it looks over the mech's shoulder (m)
   riseRange: 1.5, // how far above minDist the rise has fallen to 0 (m)
+  closeLook: 2, // how far the look point moves toward the mech's front at minDist, so a close camera sees ahead, not down (m)
+  closePitch: 0.1, // the most the camera may look down past its open angle when a wall pulls it in (rad); about 6 degrees
   probeDeg: 4, // how far to either side of a wall ray the camera looks, so a corner comes in smoothly (deg)
   pitchMin: -0.5, // the lowest pitch the camera may look, looking down (rad)
   pitchMax: 0.8, // the highest pitch the camera may look, looking up (rad)

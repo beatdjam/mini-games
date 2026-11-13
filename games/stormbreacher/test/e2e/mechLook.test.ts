@@ -20,6 +20,8 @@ beforeAll(async () => {
 
 const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
+const SNAP_SPEED = 1e6; // m/s: the ease's cap while a test puts the camera in its place, high enough to count as no cap
+
 // The meshes the sortie's mech is drawn with: the instanced meshes named 'mech' that sit in the sortie's scene.
 function mechMeshes(): THREE.InstancedMesh[] {
   const meshes: THREE.InstancedMesh[] = [];
@@ -62,10 +64,14 @@ test('the mech turns see-through while the camera is near its chest, and solid a
   sendToScript(currentGame()!, { kind: 'skip' });
   await frame();
   expect(opacities().every(opacity => opacity === 1)).toBe(true);
-  const { dist, lag } = CAMERA_TUNE;
+  const { dist, lag, pullSpeed, returnSpeed, returnLag } = CAMERA_TUNE;
   try {
     CAMERA_TUNE.dist = 0.5;
     CAMERA_TUNE.lag = 0; // the camera reaches its place in one frame
+    // SB-1910 caps how fast a wall brings the camera in, so the test takes the cap off as shots/wall-close.shots.ts does
+    CAMERA_TUNE.pullSpeed = SNAP_SPEED;
+    CAMERA_TUNE.returnSpeed = SNAP_SPEED;
+    CAMERA_TUNE.returnLag = 0;
     await frame();
     await frame();
     expect(opacities().every(opacity => opacity === MECH_TUNE.fadeOpacity)).toBe(true);
@@ -78,6 +84,9 @@ test('the mech turns see-through while the camera is near its chest, and solid a
   } finally {
     CAMERA_TUNE.dist = dist;
     CAMERA_TUNE.lag = lag;
+    CAMERA_TUNE.pullSpeed = pullSpeed;
+    CAMERA_TUNE.returnSpeed = returnSpeed;
+    CAMERA_TUNE.returnLag = returnLag;
   }
 });
 

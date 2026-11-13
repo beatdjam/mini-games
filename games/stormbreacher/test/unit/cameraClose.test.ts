@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
-import { cameraBoxes, cameraPose, followCamera, type CameraTarget } from '../../src/view/camera.ts';
+import { cameraBoxes, cameraPose, followCamera, type CameraPose, type CameraTarget } from '../../src/view/camera.ts';
 
 const DT = 1 / 60;
 const TURN_RATE = Math.PI; // rad/s, a full turn in two seconds
@@ -87,4 +87,18 @@ test('at minDist the camera is lifted over the mech shoulder', () => {
   expect(near.maxHeight).toBeGreaterThan(near.minHeight);
   expect(near.minHeight).toBeGreaterThan(3.4);
   expect(far.minHeight).toBeLessThan(near.minHeight);
+});
+
+// The angle from the camera down to the look point (rad); a positive angle looks down.
+function downAngle(pose: CameraPose): number {
+  return Math.atan2(pose.pos.y - pose.look.y, Math.hypot(pose.pos.x - pose.look.x, pose.pos.z - pose.look.z));
+}
+
+test('at minDist the camera looks down no more than its open angle plus closePitch', () => {
+  // a wall 1 m behind the mech holds the camera at minDist, where the lift used to tip the view at the ground
+  const open = cameraPose(at(0, 0), 0, CAMERA_TUNE, []);
+  const pulled = cameraPose(at(0, 0), 0, CAMERA_TUNE, behind(1, 4));
+  expect(pulled.pulled).toBe(true);
+  expect(pulled.dist).toBeCloseTo(CAMERA_TUNE.minDist + CAMERA_TUNE.closeLook, 6);
+  expect(downAngle(pulled)).toBeLessThanOrEqual(downAngle(open) + CAMERA_TUNE.closePitch + 1e-6);
 });
