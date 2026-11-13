@@ -300,6 +300,7 @@
 - 同じ名前を2回登録すると例外。知らない名前を引くと、名前を書いた例外
 - `texture(name)` は最初に使うときに作って、そのあとは同じものを返す。画像はそのとき読み込みを始め、`texturesReady()` が読み込み（失敗も含む）を待つ。読めない画像は無地のまま進む
 - `material(name)` は名前ごとに1つの共有マテリアル（`shared()` 付き。変更しない）。`ownMaterial(name)` は1体用の新しいマテリアル（被弾で光らせる敵など）。テクスチャは共有なので、`disposeTree` はマテリアルだけを捨ててテクスチャは残す
+- ゲームはこれらを `@engine/render` の公開口から読む: `defineTexture`・`defineMaterial`・`material`・`ownMaterial` と、型 `TextureDef`・`MaterialDef`・`TextureSource`
 - `buildParts(parts, { own? })`: `PartDef`（`shape`: box / cylinder / cone / sphere / tetra / octa / ico、`size`、マテリアル名 `mat`、任意の `pos`・`rot`）の並びから `THREE.Group` を作る
   - 同じ形と大きさのジオメトリは全部の模型で共有する
   - `own` なら、使うマテリアル名ごとに1つ自分用のマテリアルを作り、`mats` に最初に使った順で返す（被弾で全部光らせるため）
@@ -307,7 +308,7 @@
 
 ### 7.4 絵を描く道具（render/paint.ts）
 
-- `paintTex(seed, fn, size, repeat)` は `size` px 四方のキャンバスに、`paintRand(seed)` の乱数を渡して `fn` で1回だけ描き、テクスチャにする（同じシードと関数なら同じ絵。異方性フィルタは最大 4）
+- `paintTex(seed, fn, size, repeat)` は `size` px 四方のキャンバスに、`paintRand(seed)` の乱数を渡して `fn` で1回だけ描き、テクスチャにする（同じシードと関数なら同じ絵。異方性フィルタは最大 4）。`paintRand` は `@engine/render` の公開口から読む
   - `canvasTex(w, h, fn)` は好きな大きさで、乱数は渡さない
   - `poolTex()` は白い丸い光だまりを1枚だけ作って使い回す
 - 筆づかい:

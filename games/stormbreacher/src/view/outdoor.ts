@@ -40,9 +40,8 @@ const KINDS: PropKind[] = [
   'stairs',
 ];
 
-// Each kind's colour; the tile's material stays white and its colour comes from instanceColor instead.
-const KIND_COLOR: Record<PropKind, number> = {
-  tile: 0xffffff,
+// Each kind's colour. The tile has none: its ground plane takes its colour from the look (view/look.ts).
+const KIND_COLOR: Record<Exclude<PropKind, 'tile'>, number> = {
   hedgehog: RUST_COLOR,
   block: 0x9c978d,
   bunker: 0x7e7a72,
@@ -202,6 +201,7 @@ const SLOT_TOLERANCE = 0.01;
 // The ground: one plane over all the tiles, so the sand's picture repeats in the world's metres and no tile seam shows.
 // Its vertex colour fades from the dry sand inland to the wet sand within reach of the sea.
 function addGround(group: THREE.Group, items: Prop[]) {
+  if (items.length === 0) return; // no tiles: no plane (the bounds below would stay infinite and give a NaN size)
   let minX = Infinity,
     maxX = -Infinity,
     minZ = Infinity,

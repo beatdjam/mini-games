@@ -83,7 +83,9 @@ export const SEA_SURFACE = {
   foamFade: 11, // m the foam thins out over
   foamWobble: 2.2, // m the foam line wanders up and down the beach
   foamCols: 48,
-  foamRows: 48,
+  // rows the sea's 260m depth is split into, about 1.5m apart: less than half the foam's width, so the vertex colours
+  // keep the foam a line at the beach instead of blending it into a soft wash over several rows
+  foamRows: 170,
 };
 
 // The sky's gradient: the top is mixed this far toward SKY_TOP_COLOR (the rest is the look's sky colour), and the

@@ -471,7 +471,7 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 - 乱数は `stream('battle')`（歩兵の波・砲撃の予定・煙・曳光弾・飛行機）と `stream('craters')`（穴）。`#view-fx` も同じ列を使う
 - 本体は出撃ごとに `buildPlayView` が作り、やり直し（`retryFromCheckpoint`・`restartGame`）や次の出撃で作り直す。状態は view の側が持ち、`GameModel` にもチェックポイントにも入れない。見た目だけで勝ち負けに関わらず、チェックポイントに戻しても歩兵が巻き戻るかどうかは遊びに関係しないため。logic の `battle.ts` に出したのは、進行をページなしでテストするため
 - 砲撃の揺れは本体のカメラの揺れ `FeelState.shake` に足す。導入のカットシーンの間も戦場の層は流れる
-- 描く回数: 本体の出撃（導入のカットシーンを飛ばした 90 フレーム後）は 120 calls・45k tris（歩兵を1波 60 人にしたあと）、`#view-fx` の段階 2（40 フレーム後）は 252 calls・100k tris（headless Chromium。`test/e2e/battle.test.ts`・`test/e2e/fxView.test.ts` が出力する）。本体は地面の塊を視錐台で切る（`cullChunks`）ため、`#view-fx` より少ない
+- 描く回数: 本体の出撃（導入のカットシーンを飛ばした 90 フレーム後）は 66 calls・55k tris（歩兵を1波 60 人にしたあと）、`#view-fx` の段階 2（40 フレーム後）は 86 calls・61k tris（headless Chromium。`test/e2e/battle.test.ts`・`test/e2e/fxView.test.ts` が出力する）。本体は地面の塊を視錐台で切る（`cullChunks`）ため、`#view-fx` より少ない
 
 ### 台本の味方の機体
 
@@ -708,7 +708,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
 - 見た目の質感（SB-1360。値はどれも仮で、`shots/surfaces.shots.ts` の絵を見て決める）: 絵の値は `src/data/surfaces.ts`（種・大きさ・繰り返し・汚れの量・濡れの幅・波の速さ）、名前を付けた色は `src/data/colors.ts`（`DRY_SAND_COLOR`・`WET_SAND_COLOR`・`RUST_COLOR`・`BURNT_COLOR`・`FOAM_COLOR`・`SKY_TOP_COLOR`）。絵は `src/view/surfaces.ts` が engine の `defineTexture`・`defineMaterial`（engine の SPEC 7.3節）で描き、名前で引く。絵は起動後に1回だけ作り、毎フレームは作らない。node の単体テストには canvas が無いので、絵の無い材質に切り替える
   - 地面: `tile` は種類ごとの `InstancedMesh` をやめ、範囲を覆う1枚の平面（名前 `tile`）にする。UV はワールドの x・z を `SAND_SURFACE.repeatM`（12m）で割ったもので、砂の絵（粒・まだら・轍・足跡）がタイルの継ぎ目なく繰り返す。海の縁から `wetBand`（15m）は頂点色で `WET_SAND_COLOR` の比まで暗くし、奥は乾いた `DRY_SAND_COLOR` にする。地面は1回で描き、区画には分けない
   - 物: `block`・`bunker`・`seawall`・`lowWall`・`stairs` はコンクリートの絵（汚れ・雨だれの筋・欠け）、`hedgehog` は錆びた鉄、`wreck` は焦げた鉄。目標は `pillbox`・`magazine` がコンクリート、`gun` が錆びた鉄、`depot` が木。絵は灰色で、色は物の `instanceColor` か目標ごとの材質で付ける。形・大きさ・置き場所と、種類ごとに1回の描く回数は変えない
-  - 海: 1枚の平面の頂点色を、`SEA_COLOR` から浜の白波（`FOAM_COLOR`、幅 `foamWidth`・揺れ `foamWobble`）へ変える。波の絵は `waveSpeed` で流す（`onBeforeRender` で `offset` を書くだけで、毎フレーム絵は作らない）。海の描く回数は1回のまま
+  - 海: 1枚の平面の頂点色を、`SEA_COLOR` から浜の白波（`FOAM_COLOR`、幅 `foamWidth`・揺れ `foamWobble`）へ変える。平面の奥行きは `foamRows` の行に分け、1行を白波の幅の半分より細かくして、白波がぼかしではなく線に見えるようにする。波の絵は `waveSpeed` で流す（`onBeforeRender` で `offset` を書くだけで、毎フレーム絵は作らない）。海の描く回数は1回のまま
   - 空と光: 空は `scene.background` の縦グラデーション（上は `skyColor` を `SKY_TOP_COLOR` へ `SKY_TOP_MIX` 混ぜた色、下は霧の色 `fogColor`）で、霧と地平で合う。絵は `src/view/sky.ts` が作り、色が変わったときだけ描き直す。太陽の向き（`BASE_LIGHTS.sunAt`）は横からにして、箱の面ごとに陰影を付ける（影の計算はしない）
 - 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。物の大きさは高さ 8m・当たり半径 2m の機体に合わせて決めたときのまま。機体は今 4m・当たり半径 1m（`MECH_TUNE`）で、ジャンプの最高点は約 1m なので、対戦車障害物（3m）は跳んでも越えられない。描く形（`src/view/outdoor.ts`）も検査も当たりもこの表を読む。`breakable` の物は同じ形のまま色を少し赤っぽくし、種類ごとの `InstancedMesh` と描く回数は増やさない（`instanceColor`）
 - 低い障害物 `lowWall` は 6×0.85×1m（`PROP_SIZE`）。段差 `MOVE_TUNE.stepHeight`（0.75m）より高いので歩いては越えられず、ジャンプの最高点（約 1.04m）より低いので跳ぶと越えられる
