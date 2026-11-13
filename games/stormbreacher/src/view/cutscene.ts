@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { clamp, t } from '@engine/core/index.ts';
 import { camera } from '@engine/render/index.ts';
+import { boomShakeAt } from '../data/boom.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import { CUTSCENES, type CutsceneEvent } from '../data/cutscenes.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
@@ -12,19 +13,18 @@ import { CAMERA_TUNE, FEEL_TUNE } from '../data/tune.ts';
 import type { CutsceneId, MapBounds } from '../data/types.ts';
 import { cutsceneEvents, cutsceneLine, cutscenePose } from '../logic/cutscene.ts';
 import type { GameModel } from '../logic/game.ts';
-import { spawnDust } from './feel.ts';
-import { shellBurst } from './hazards.ts';
+import { spawnBoom } from './boom.ts';
+import { feelBoom, spawnDust, type FeelState } from './feel.ts';
 import { buildCraft, CRAFT_NAME, craftZ, RAMP_DOWN } from './shore.ts';
+import { playSound, soundMix } from './sound.ts';
 
 const BAR_HEIGHT = '12vh'; // each black bar, as in the HUD mock (#view-hud?cut=1)
 const CAPTION_SIZE = 16; // px
 const RAMP_UP = 1.35; // the ramp's turn about its hinge when it is shut (rad)
 const SINK_ROLL = 0.6; // how far a sinking craft rolls over (rad)
 const SINK_DEPTH = 5; // how far it goes down (m)
-const SINK_DUST = 14; // the dust's particle count before FEEL_TUNE.dust, where a craft goes down
-const RAMP_DUST = 8; // the same, where the ramp meets the sand
+const RAMP_DUST = 8; // the dust's particle count before FEEL_TUNE.dust, where the ramp meets the sand
 const RAMP_LENGTH = 5; // the ramp's length (m), for where its tip lands
-const BURST_DUST = 10; // the same, where a shell lands
 const COLLAPSE_DEPTH = 3; // how far a target of the battery goes down in a collapse (m)
 const COLLAPSE_TILT = 0.35; // how far it tips over (rad); alternate targets tip the other way
 
@@ -43,6 +43,7 @@ export interface CutsceneView {
   rampZ: number; // where the player's craft's body begins (m)
   crafts: { cutscene: CutsceneId; event: SinkEvent | ArriveEvent; craft: THREE.Group }[]; // the crafts at sea, with their events
   targets: Map<string, THREE.Mesh>; // the map's mission targets by id, for the collapse
+  seaZ: number; // the map's front edge: a shell past it falls in the sea
 }
 
 const smooth = (u: number): number => u * u * (3 - 2 * u);
@@ -103,6 +104,7 @@ export function buildCutsceneView(
     rampZ: z,
     crafts,
     targets,
+    seaZ: bounds.maxZ,
   };
 }
 
@@ -114,10 +116,17 @@ export function removeCutsceneView(view: CutsceneView): void {
 const progress = (elapsed: number, at: number, sec: number): number => clamp((elapsed - at) / sec, 0, 1);
 
 // One frame. While a cutscene with a table plays: the bars and the line show, the HUD hides, the camera goes where the
-// table says, the ramp, the crafts and the collapsing targets follow the second, and the events of the frame throw dust. Otherwise the
-// bars are away, the ramp is down and the crafts beside the player's are out of sight. Call it after the game's own
-// camera is placed and before anything is culled by the camera.
-export function drawCutscene(view: CutsceneView, game: GameModel, hud: HTMLElement): void {
+// table says, the ramp, the crafts and the collapsing targets follow the second, and the events of the frame blow up.
+// `feel` takes the shake of those blasts; `offset` is the frame's shake, added to the cutscene's camera as well.
+// Otherwise the bars are away, the ramp is down and the crafts beside the player's are out of sight. Call it after the
+// game's own camera is placed and before anything is culled by the camera.
+export function drawCutscene(
+  view: CutsceneView,
+  game: GameModel,
+  hud: HTMLElement,
+  feel: FeelState,
+  offset: THREE.Vector3,
+): void {
   const cutscene = game.script.cutscene;
   const def = cutscene === null ? undefined : CUTSCENES[cutscene.id];
   const playing = cutscene !== null && def !== undefined;
@@ -134,13 +143,19 @@ export function drawCutscene(view: CutsceneView, game: GameModel, hud: HTMLEleme
   }
 
   const elapsed = CUTSCENE_SEC[cutscene.id] - cutscene.left;
+  const pose = cutscenePose(cutscene.id, elapsed, game.mech);
+  // a blast shakes the cutscene's camera by how near it is to that camera; a shell that falls past the map's front edge
+  // is a water blast, as in the sortie. It sounds the way a big blast in the sortie does, from that camera's distance
+  const blast = (kind: 'large' | 'craft' | 'water', x: number, y: number, z: number) => {
+    spawnBoom(kind, x, y, z);
+    const distance = Math.hypot(pose.pos[0] - x, pose.pos[2] - z);
+    feelBoom(feel, boomShakeAt(kind, distance), FEEL_TUNE);
+    playSound({ name: 'explosionLarge', ...soundMix(distance) });
+  };
   for (const event of cutsceneEvents(cutscene.id, view.elapsed, elapsed)) {
-    if (event.kind === 'sink') spawnDust(event.x, (event.z ?? view.rampZ) + 6, SINK_DUST, FEEL_TUNE);
+    if (event.kind === 'sink') blast('craft', event.x, 1.2, (event.z ?? view.rampZ) + 6);
     else if (event.kind === 'ramp') spawnDust(view.rampX, view.rampZ - RAMP_LENGTH, RAMP_DUST, FEEL_TUNE);
-    else if (event.kind === 'burst') {
-      shellBurst(event.x, event.z);
-      spawnDust(event.x, event.z, BURST_DUST, FEEL_TUNE);
-    }
+    else if (event.kind === 'burst') blast(event.z >= view.seaZ ? 'water' : 'large', event.x, 0.8, event.z);
   }
   view.elapsed = elapsed;
 
@@ -150,10 +165,9 @@ export function drawCutscene(view: CutsceneView, game: GameModel, hud: HTMLEleme
     view.caption.textContent = key === null ? '' : t(key);
   }
 
-  const pose = cutscenePose(cutscene.id, elapsed, game.mech);
   camera.fov = CAMERA_TUNE.fov;
   camera.updateProjectionMatrix();
-  camera.position.set(...pose.pos);
+  camera.position.set(...pose.pos).add(offset);
   camera.lookAt(...pose.look);
 
   const ramp = def.events.find(event => event.kind === 'ramp');

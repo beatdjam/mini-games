@@ -67,6 +67,21 @@ export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
 // The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
 export const MECH_FLAME_COLOR = 0xffd27a;
 
+// An explosion (SB-1340, 仮): the flash of each kind, the smoke that turns from black to grey, the debris, and the sand
+// or water a blast lifts from the ground or the sea.
+export const BOOM_COLOR = {
+  fire: 0xff6d21, // a small blast's flash
+  fireLarge: 0xff8f31, // a target's, a mine's or a mortar shell's
+  fireCraft: 0xffa646, // a landing craft's
+  fireWater: 0x8fd2e6, // a shell falling into the sea
+  smoke: 0x191715, // a fresh puff of the column
+  smokeFade: 0x6d6a66, // a puff just before it goes
+  debris: 0x584635, // the pieces of earth and metal thrown out
+  sand: 0xb39262, // the sand a blast lifts from the beach
+  water: 0x84bccb, // the water a shell lifts from the sea
+  spray: 0xd9edf0, // the drops thrown with it
+};
+
 // The briefing's map (SB-310, 仮): the land, the sea, the three kinds of ground props and the marks. The marks that stand
 // for a side take the HUD's colours (the radar's enemy and the bars' cyan).
 export const BRIEFING_COLOR = {
