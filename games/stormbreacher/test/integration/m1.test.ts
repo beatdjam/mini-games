@@ -29,6 +29,9 @@ const EXPECTED: readonly string[] = [
   'spawn:b-emplacements',
   'radio:m1.depot-hint',
   'ally:gunner',
+  'allyMove:cover-b1',
+  'allyMove:cover-b2',
+  'allyMove:cover-b3',
   'flag:depot-down',
   'radio:m1.depot-down',
   'radio:m1.pillboxes-down',
@@ -91,6 +94,7 @@ function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[
   outputs.push(...stepScript(state, M1, 0));
   outputs.push(...scriptInput(state, M1, { kind: 'skip' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'b-line' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'blast', id: 'l1-b' }));
   if (destroyDepot) outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'depot' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-1' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-2' }));

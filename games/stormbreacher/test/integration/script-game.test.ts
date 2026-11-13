@@ -98,6 +98,8 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
   game.mech.x = 0;
   game.mech.z = 140;
   run(idle, 1); // the b-line fires the pillboxes cue
+  // the script hears line 1 open, as the bot's charge does in the real sortie, so its cue enters `fired`
+  send({ kind: 'blast', id: 'l1-b' });
   // the nests would shoot the mech on the way to the depot and the pillboxes; this test reads the script's line alone
   game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
   shootDown(53, 51, 'depot');

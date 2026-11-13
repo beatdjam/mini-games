@@ -13,6 +13,7 @@ import {
   type GameModel,
 } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
+import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
 
 const DT = 1 / 60;
 const idle: GameInput = {
@@ -107,6 +108,8 @@ describe('planting and blowing a charge', () => {
       hit: true,
     });
     expect(blown.some(event => event.kind === 'damaged' && event.amount === CHARGE_TUNE.damage)).toBe(true);
+    // the hit faces from the mech toward the charge: the mech stood sea-side of it, so the direction is landward (-z)
+    expect(blown.find(event => event.kind === 'damaged')).toMatchObject({ fromX: 0, fromZ: -1 });
     expect(game.armor).toBe(MECH_TUNE.armor - CHARGE_TUNE.damage);
     expect(game.charges).toEqual([]);
   });
@@ -165,11 +168,16 @@ describe('planting and blowing a charge', () => {
     const game = newBlastGame();
     quiet(game);
     standAt(game, blastOf(game, 'l1-b'));
+    // the control: the same triggers without use do fire, so the check below cannot pass on a weapon that is empty
     const ammo = game.main.ammo;
     const subAmmo = game.sub.ammo;
-    for (let i = 0; i < 10; i++) step(game, { ...use, fire: true, sub: true }, DT);
-    expect(game.main.ammo).toBe(ammo);
-    expect(game.sub.ammo).toBe(subAmmo);
+    for (let i = 0; i < 80; i++) step(game, { ...idle, fire: true, sub: true }, DT);
+    expect(game.main.ammo).toBeLessThan(ammo);
+    expect(game.sub.ammo).toBeLessThan(subAmmo);
+    const armed = { main: game.main.ammo, sub: game.sub.ammo };
+    for (let i = 0; i < 80; i++) step(game, { ...use, fire: true, sub: true }, DT);
+    expect(game.main.ammo).toBe(armed.main);
+    expect(game.sub.ammo).toBe(armed.sub);
   });
 });
 
@@ -294,5 +302,21 @@ describe('a blast opens its line', () => {
     expect(again.blasts.find(place => place.id === blast.id)?.blasted).toBe(true);
     expect(again.propRefs.some(index => props.has(index))).toBe(false);
     expect(walkThroughL1(again, blast.x)).toBe(true);
+  });
+
+  test('a suspend keeps the hole the real blast opened, with the three arrays in step', () => {
+    const game = newBlastGame();
+    quiet(game);
+    game.armor = 1e9;
+    const { blast } = blowL1B(game);
+    const counts = { refs: game.propRefs.length, boxes: game.propBoxes.length, rects: game.rects.length };
+    const back = restoreSuspend(suspendOf(game));
+    if (!back) throw new Error('the suspend did not read back');
+    expect(back.blasts.find(place => place.id === blast.id)?.blasted).toBe(true);
+    // the real openBlastHole removed a box and a rect for each hedgehog, so a suspend that kept only some of them shows
+    expect(back.propRefs).toHaveLength(counts.refs);
+    expect(back.propBoxes).toHaveLength(counts.boxes);
+    expect(back.rects).toHaveLength(counts.rects);
+    expect(walkThroughL1(back, blast.x)).toBe(true);
   });
 });

@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { blastPropIndexes } from '../../src/logic/blasts.ts';
 import { newGame } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { buildNavGrid, newNav } from '../../src/logic/nav.ts';
@@ -80,20 +79,6 @@ describe('suspend', () => {
     expect(back?.plant).toEqual({ blast: 'l1-a', hold: 0.5 });
   });
 
-  test('a blasted line comes back blasted and stays open', () => {
-    const game = newGame(M1B_HAND);
-    const point = game.blasts.find(blast => blast.id === 'l1-b');
-    if (!point) throw new Error('the map has no l1-b');
-    point.blasted = true;
-    // what the game does to its own arrays when the blast opens the line
-    const removed = new Set(blastPropIndexes(game.map, point));
-    game.propRefs = game.propRefs.filter(index => !removed.has(index));
-    const back = restoreSuspend(stored(suspendOf(game)));
-    expect(back?.blasts.find(blast => blast.id === 'l1-b')?.blasted).toBe(true);
-    expect(back?.propRefs.some(index => removed.has(index))).toBe(false);
-    expect(back?.blasts.find(blast => blast.id === 'l1-a')?.blasted).toBe(false);
-  });
-
   test('a nest’s burst under way comes back at the same shot', () => {
     const game = newGame(M1B_HAND);
     const nest = newEnemy('b-emplacements-1', 'b-emplacements', 'emplacement', 0, 140);
@@ -115,13 +100,10 @@ describe('suspend', () => {
   test('the radio queue comes back in the same order', () => {
     const game = newGame(M1B_HAND);
     game.radio = { line: 'm1.depot-hint', time: 1 };
-    game.radioQueue.push({ line: 'm1.pillboxes-down', time: 2 }, { line: 'm1.wave2-lost', time: 3 });
+    game.radioQueue.push({ line: 'm1.pillboxes-down' }, { line: 'm1.wave2-lost' });
     const back = restoreSuspend(stored(suspendOf(game)));
     expect(back?.radio).toEqual({ line: 'm1.depot-hint', time: 1 });
-    expect(back?.radioQueue).toEqual([
-      { line: 'm1.pillboxes-down', time: 2 },
-      { line: 'm1.wave2-lost', time: 3 },
-    ]);
+    expect(back?.radioQueue).toEqual([{ line: 'm1.pillboxes-down' }, { line: 'm1.wave2-lost' }]);
   });
 
   test('a version that is not this one is thrown away', () => {

@@ -68,6 +68,33 @@ export function nearestIndex(from: GroundSpot, points: readonly GroundSpot[], ra
   return best;
 }
 
+// The enemy the view draws a tracer from to which ally: every living, awake enemy within `range` of an ally gets that
+// ally (the nearest), and an enemy with none in range gets null. A cutscene stops them all, as it stops the allies: the
+// picture must not show a fight the logic is holding. Pure, so a node test can check the awake and health branches.
+export interface EnemyTracerState {
+  id: string;
+  x: number;
+  z: number;
+  hp: number;
+  awake: boolean;
+}
+
+export function enemyTracerTargets<T extends EnemyTracerState, A extends GroundSpot>(
+  enemies: readonly T[],
+  allies: readonly A[],
+  range: number,
+  cutscene: boolean,
+): Map<string, A | null> {
+  const targets = new Map<string, A | null>();
+  if (cutscene) return targets;
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0 || !enemy.awake) continue;
+    const pick = nearestIndex(enemy, allies, range);
+    targets.set(enemy.id, pick === null ? null : allies[pick]);
+  }
+  return targets;
+}
+
 function faceTo(from: GroundSpot, to: GroundSpot): number {
   // `|| 0` turns the -0 a straight -z step gives into 0, so a checkpoint and a suspend keep the same number
   return Math.atan2(-(to.x - from.x), -(to.z - from.z)) || 0;

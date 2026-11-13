@@ -84,7 +84,7 @@ function beginPlay(next: GameModel): void {
   setState('play');
   hideField();
   game = next;
-  resetSound();
+  resetSound(game.radio);
   view = buildPlayView(game);
   initPlayInput();
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again

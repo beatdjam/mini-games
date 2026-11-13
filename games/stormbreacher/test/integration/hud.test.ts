@@ -132,7 +132,7 @@ test('two radio lines come up in turn, each for RADIO_TUNE.minSec', () => {
 
   // the same frame brings two lines: the b-line's radio and one queued behind it
   sendToScript(game, { kind: 'enter', area: 'b-line' });
-  queueRadio(game, 'm1.pillboxes-down', game.time);
+  queueRadio(game, 'm1.pillboxes-down');
   step(game, idle, 1 / 60);
   expect(game.radio?.line).toBe('m1.depot-hint');
   expect(hudModel(game).radio).toBe('m1.depot-hint');

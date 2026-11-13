@@ -90,6 +90,16 @@ test('a frame maps its events to the table’s sounds', () => {
       cue => cue.name,
     ),
   ).toEqual(['explosionLarge']);
+  // a machine gun's burst leaves no explosion; a mortar's round does
+  const allyDown = (by: 'gun' | 'mortar') =>
+    planSounds({
+      events: [{ kind: 'allyDown', id: 'gunner', x: 0, z: 0, by }],
+      mech: MECH,
+      targets: [],
+      hostile: [],
+    }).map(cue => cue.name);
+  expect(allyDown('gun')).toEqual(['impactArmor']);
+  expect(allyDown('mortar')).toEqual(['explosionSmall']);
 });
 
 test('the radio speaks when the line on screen changes', () => {
@@ -203,6 +213,14 @@ test('the radio sounds once, on the frame the line on screen changes', () => {
   expect(voices()).toBe(2);
   soundFrame(withRadio(null, 5), 0); // the band empties: no voice
   expect(voices()).toBe(2);
+});
+
+test('a resume does not speak the line that was already on screen', () => {
+  const game = { ...fakeGame([]), radio: { line: 'm1.depot-hint', time: 2 } } as unknown as GameModel;
+  // beginPlay calls this with the resumed game's line, so lastRadio starts where the screen already is
+  resetSound(game.radio);
+  soundFrame(game, 0);
+  expect(synth.tones.filter(tone => tone.type === 'square')).toHaveLength(0);
 });
 
 test('the ambience keeps its interval and starts again from its seed', () => {

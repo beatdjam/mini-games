@@ -35,6 +35,7 @@ export interface World {
   slots: Map<number, PropSlot>; // a breakable or blast-opened prop's place in map.props -> where it is drawn
   propCameraBoxes: Map<number, THREE.Box3>; // those props' place in map.props -> its box in cameraBoxes
   broken: Set<number>; // the props already drawn broken or opened
+  opened: Set<string>; // the blast points whose hole is already open in the draw, so the props are not searched again
   breaks: Map<string, number>; // a target's id -> the seconds since it broke, for the pillboxes' sink
 }
 
@@ -133,6 +134,7 @@ export function buildWorld(map: MapDef): World {
     slots,
     propCameraBoxes,
     broken: new Set(),
+    opened: new Set(),
     breaks: new Map(),
   };
 }
@@ -141,8 +143,9 @@ export function buildWorld(map: MapDef): World {
 // broken or a blast has opened: its copy becomes a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands
 // that same array to the camera every frame). A blasted line is drawn open from the first frame after a checkpoint or a
 // suspend brings it back. A pillbox goes down over PILLBOX_BREAK.sec instead, so its fall reads as the road opening: the
-// seconds live here, in the view, and a save or a checkpoint needs nothing new. Called every frame, so one already down
-// or broken is left as it is.
+// seconds live here, in the view, and a save or a checkpoint needs nothing new. Called every frame: a pillbox keeps
+// sinking until PILLBOX_BREAK.sec, while every other broken target is left as it is once it is down, and a blast point's
+// hole is searched only on the frame it opens.
 export function syncWorld(world: World, game: GameModel, dt: number): void {
   for (const target of game.targets) {
     if (target.hp > 0) continue;
@@ -160,6 +163,7 @@ export function syncWorld(world: World, game: GameModel, dt: number): void {
       mesh.position.y = -PILLBOX_BREAK.sink * k;
       mesh.rotation.x = -PILLBOX_BREAK.lean * k; // toward the land (-z); the yaw in rotation.y stays
     } else {
+      if (mesh.scale.y === WRECK_SCALE_Y) continue;
       mesh.scale.y = WRECK_SCALE_Y;
     }
     if (mesh.material instanceof THREE.MeshLambertMaterial) mesh.material.color.setHex(WRECK_COLOR);
@@ -180,7 +184,8 @@ export function syncWorld(world: World, game: GameModel, dt: number): void {
     world.broken.add(breakable.prop);
   }
   for (const blast of game.blasts) {
-    if (!blast.blasted) continue;
+    if (!blast.blasted || world.opened.has(blast.id)) continue;
+    world.opened.add(blast.id);
     for (const prop of blastPropIndexes(game.map, blast)) {
       if (world.broken.has(prop)) continue;
       const slot = world.slots.get(prop);

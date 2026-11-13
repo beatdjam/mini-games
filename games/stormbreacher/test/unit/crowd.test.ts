@@ -103,12 +103,32 @@ test('a held crowd waits at holdZ, brings no new wave, and walks on to the line 
   for (let i = 0; i < 60 * 30; i++) stepCrowd(crowd, rng, DT, waiting, true);
   expect(crowd.through).toBe(0);
   expect(crowd.soldiers).toHaveLength(10);
-  for (const soldier of crowd.soldiers) expect(soldier.z).toBeGreaterThanOrEqual(0);
+  for (const soldier of crowd.soldiers) {
+    expect(soldier.z).toBeGreaterThanOrEqual(0);
+    // at the line it stands still and faces the land; it does not sway on the spot
+    expect(soldier.yaw).toBe(0);
+  }
 
   const walking = tuneWith({ allyDeathRate: 0, allyWaves: 0, allySpeed: 10 });
   for (let i = 0; i < 60 * 30; i++) stepCrowd(crowd, rng, DT, walking, false);
   expect(crowd.through).toBe(10);
   expect(crowd.soldiers).toHaveLength(0);
+});
+
+test('nobody falls to the steady loss while held, and the ones that waited survive the advance', () => {
+  const crowd = newCrowd();
+  const rng = createRng(12);
+  const tune = tuneWith({ allyDeathRate: 5, allyWaves: 0, allySpeed: 10 });
+  spawnWave(crowd, rng, BOUNDS, 10, tune);
+  crowd.holdZ = 0;
+  // 30 s: they reach the waiting line in 17 s and stand there with the steady loss still on
+  for (let i = 0; i < 60 * 30; i++) stepCrowd(crowd, rng, DT, tune, true);
+  expect(crowd.fallen).toBe(0);
+  expect(crowd.soldiers.filter(soldier => soldier.alive)).toHaveLength(10);
+  // let go: the ones that waited must reach the far line rather than falling on the way
+  for (let i = 0; i < 60 * 30; i++) stepCrowd(crowd, rng, DT, tune, false);
+  expect(crowd.fallen).toBe(0);
+  expect(crowd.through).toBe(10);
 });
 
 test('a wave of 20 comes in as two squads of five on the nests, and the rest scattered', () => {

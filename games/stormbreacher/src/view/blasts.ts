@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { BLAST_POINT_COLOR, CHARGE_COLOR } from '../data/colors.ts';
 import type { MapDef } from '../data/types.ts';
-import { blastTarget } from '../logic/blasts.ts';
+import { targetStands } from '../logic/blasts.ts';
 import type { GameModel } from '../logic/game.ts';
 
 export const BLAST_POINT_MESH_NAME = 'sb-blast-points';
@@ -70,8 +70,7 @@ export function drawBlasts(view: BlastView, game: GameModel): void {
     if (rings === MAX_BLAST_RINGS) break;
     if (blast.blasted) continue;
     if (game.charges.some(charge => charge.blast === blast.id)) continue;
-    const target = blastTarget(game.map, blast.id);
-    if (target !== undefined && (game.targets.find(entry => entry.id === target)?.hp ?? 0) <= 0) continue;
+    if (!targetStands(blast, game)) continue;
     place.position.set(blast.x, GROUND_LIFT, blast.z);
     place.rotation.set(0, 0, 0);
     place.scale.set(1, 1, 1);

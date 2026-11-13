@@ -79,8 +79,12 @@ export function planSounds(input: SoundInput): SoundCue[] {
       }
       case 'enemyDown':
       case 'propDestroyed':
-      case 'allyDown':
         ask('explosionSmall', event);
+        break;
+      case 'allyDown':
+        // A machine gun's burst leaves no blast: a metal impact reads as the burst that took the mech down; only a
+        // mortar's round lifts the sand as an explosion.
+        ask(event.by === 'gun' ? 'impactArmor' : 'explosionSmall', event);
         break;
       case 'mineBlast':
         ask('explosionLarge', event);
@@ -158,14 +162,16 @@ let ambientRng: Rng = createRng(SOUND_AMBIENT.seed);
 
 const randomBetween = (range: { min: number; max: number }): number => ambientRng.rand(range.min, range.max);
 
-// Puts the ambience back to the start of a sortie and forgets the bullets of the last one.
-export function resetSound(): void {
+// Puts the ambience back to the start of a sortie and forgets the bullets of the last one. `radio` is the line the sortie
+// already has on screen (a resume brings one back): the first frame must not speak it again, so it starts as the last one
+// heard.
+export function resetSound(radio: { line: string; time: number } | null = null): void {
   ambientTime = 0;
   nextWave = 0;
   nextBoom = SOUND_AMBIENT.firstBoom;
   ambientRng = createRng(SOUND_AMBIENT.seed);
   heardHostile = new WeakSet();
-  lastRadio = null;
+  lastRadio = radio === null ? null : { line: radio.line, time: radio.time };
 }
 
 // The beach while the sortie runs. It is driven from update, so a pause, the result and the title stop it by not calling

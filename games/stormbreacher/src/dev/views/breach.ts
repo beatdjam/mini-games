@@ -228,6 +228,10 @@ export function showBreach(_hash: string) {
   window.addEventListener('keyup', event => {
     if (event.code === 'KeyF') useHeld = false;
   });
+  // a keyup goes to the window that had the focus: leaving the page mid-hold would keep the hold on
+  window.addEventListener('blur', () => {
+    useHeld = false;
+  });
 
   const extra = document.createElement('div');
   const row = document.createElement('div');

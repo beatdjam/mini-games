@@ -212,7 +212,7 @@ export interface GameModel {
   mission: MissionDef; // the script's write-up (data/missions/m1.ts)
   script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
   radio: { line: string; time: number } | null; // the line on screen now, with the game time it came up; null before one
-  radioQueue: { line: string; time: number }[]; // the lines waiting to come up after it, oldest first; time is when the script said it (s)
+  radioQueue: { line: string }[]; // the lines waiting to come up after it, oldest first
   mech: MechState;
   armor: number; // the mech's armour left (MECH_TUNE.armor at the start)
   downed: boolean; // set when the armour reaches 0; step does nothing after
@@ -671,11 +671,11 @@ function moveAllyTo(game: GameModel, event: Extract<ScriptOut, { kind: 'allyMove
   if (ally !== undefined) moveAlly(ally, way);
 }
 
-// Puts one radio line behind the one on screen. `time` is when the script said it (s). When the queue is full the newest
-// line is dropped: dropping the oldest would leave the lines behind the one on screen waiting longer.
-export function queueRadio(game: GameModel, line: string, time: number): void {
+// Puts one radio line behind the one on screen; its time is stamped when `stepRadio` brings it up. When the queue is
+// full the newest line is dropped: dropping the oldest would leave the lines behind the one on screen waiting longer.
+export function queueRadio(game: GameModel, line: string): void {
   if (game.radioQueue.length >= RADIO_TUNE.maxPending) return;
-  game.radioQueue.push({ line, time });
+  game.radioQueue.push({ line });
 }
 
 // Moves the radio band on: the next line comes up when the one on screen has had RADIO_TUNE.minSec (s), one line a
@@ -693,7 +693,7 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
   let checkpoint: string | null = null;
   for (const event of outs) {
     game.events.push({ kind: 'script', event });
-    if (event.kind === 'radio') queueRadio(game, event.line, game.time);
+    if (event.kind === 'radio') queueRadio(game, event.line);
     if (event.kind === 'spawn') {
       spawnWave(game, event.wave);
       startBarrage(game, event.wave);
@@ -878,7 +878,7 @@ function stepAllies(game: GameModel, dt: number): void {
     // The call comes a few seconds before the fate's place, so it is out before the ally falls, never after.
     if (!ally.called && fate.call !== null && distXZ(ally, fate.place) <= ALLY_TUNE.callLead * ALLY_TUNE.speed) {
       ally.called = true;
-      queueRadio(game, fate.call, game.time);
+      queueRadio(game, fate.call);
       game.events.push({ kind: 'allyCall', id: ally.id, line: fate.call });
     }
     if (fell) game.events.push({ kind: 'allyDown', id: ally.id, x: ally.x, z: ally.z, by: fate.by });
@@ -989,6 +989,9 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     openBlastHole(game, blast);
     blast.blasted = true;
     game.events.push({ kind: 'blast', id: blast.id, x: blast.x, z: blast.z, hit: blown.hit });
+    // the script may wait for a line's hole: a mission that runs an `allyMove` on the blast hears it now, before the
+    // frame's allies step, so the allies that waited by the line start through it in this same frame
+    sendToScript(game, { kind: 'blast', id: blast.id });
     // A point that names a target breaks it (a pillbox's point, SB-1540). The charge sits outside the armour, so the
     // shot's shares are not taken off it, and a target already down is not reported again.
     const targetId = blastTarget(game.map, blast.id);

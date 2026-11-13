@@ -10,6 +10,7 @@ export interface ScriptState {
   fired: Record<string, number>; // cue id -> the time it fired (s)
   flags: string[];
   destroyed: string[];
+  blasts: string[]; // the blast points the game has blown, so a cue can wait for a line's hole
   entered: string[];
   cleared: string[];
   spawned: string[]; // the waves sent so far, so a restored checkpoint can send the ones not cleared again
@@ -38,6 +39,7 @@ export type ScriptOut =
 export type ScriptInput =
   | { kind: 'enter'; area: string }
   | { kind: 'destroyed'; target: string }
+  | { kind: 'blast'; id: string } // a blast point blew and opened its line
   | { kind: 'cleared'; wave: string }
   | { kind: 'skip' };
 
@@ -51,6 +53,7 @@ export function newScript(def: MissionDef): ScriptState {
     fired: {},
     flags: [],
     destroyed: [],
+    blasts: [],
     entered: [],
     cleared: [],
     spawned: [],
@@ -89,6 +92,9 @@ function checkTrigger(def: MissionDef, cueId: string, trigger: Trigger, ids: Rea
       return;
     case 'destroyed':
       for (const target of trigger.targets) requireIn(def.targets, target, 'target');
+      return;
+    case 'blast':
+      // the blast points belong to the map, which the mission does not hold: a wrong id here simply never fires
       return;
     case 'cleared':
       requireIn(def.waves, trigger.wave, 'wave');
@@ -148,6 +154,8 @@ function checkInput(def: MissionDef, input: ScriptInput): void {
     case 'destroyed':
       requireIn(def.targets, input.target, 'target');
       return;
+    case 'blast':
+      return;
     case 'cleared':
       requireIn(def.waves, input.wave, 'wave');
       return;
@@ -174,6 +182,8 @@ function isDue(s: ScriptState, cue: Cue, allowStart: boolean): boolean {
       for (const target of trigger.targets) if (s.destroyed.includes(target)) down++;
       return down >= needed;
     }
+    case 'blast':
+      return trigger.ids.some(id => s.blasts.includes(id));
     case 'cleared':
       return s.cleared.includes(trigger.wave);
     case 'after': {
@@ -267,6 +277,7 @@ function snapshotOf(s: ScriptState): ScriptState {
     fired: { ...s.fired },
     flags: [...s.flags],
     destroyed: [...s.destroyed],
+    blasts: [...s.blasts],
     entered: [...s.entered],
     cleared: [...s.cleared],
     spawned: [...s.spawned],
@@ -306,6 +317,9 @@ export function scriptInput(s: ScriptState, def: MissionDef, input: ScriptInput)
       break;
     case 'destroyed':
       if (!s.destroyed.includes(input.target)) s.destroyed.push(input.target);
+      break;
+    case 'blast':
+      if (!s.blasts.includes(input.id)) s.blasts.push(input.id);
       break;
     case 'cleared':
       if (!s.cleared.includes(input.wave)) s.cleared.push(input.wave);

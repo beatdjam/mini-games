@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { ALLY_FATES, ALLY_TUNE } from '../../src/data/allies.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { moveAlly, nearestIndex, newAlly, stepAlly } from '../../src/logic/allies.ts';
+import { enemyTracerTargets, moveAlly, nearestIndex, newAlly, stepAlly } from '../../src/logic/allies.ts';
 
 const DT = 1 / 60;
 const WAY = M1.paths['beach-run'];
@@ -132,4 +132,28 @@ test('nearestIndex gives null when every point is farther than the range', () =>
 
 test('nearestIndex gives null for no points', () => {
   expect(nearestIndex({ x: 0, z: 0 }, [], 70)).toBeNull();
+});
+
+test('enemyTracerTargets picks a living, awake enemy’s nearest ally, and leaves the others out', () => {
+  const allies = [
+    { x: 0, z: 10 },
+    { x: 0, z: -10 },
+  ];
+  const enemies = [
+    { id: 'awake', x: 50, z: 0, hp: 1, awake: true },
+    { id: 'asleep', x: 50, z: 0, hp: 1, awake: false },
+    { id: 'dead', x: 50, z: 0, hp: 0, awake: true },
+    { id: 'far', x: 500, z: 0, hp: 1, awake: true },
+  ];
+  const targets = enemyTracerTargets(enemies, allies, 70, false);
+  expect([...targets.keys()]).toEqual(['awake', 'far']);
+  // both allies are 50 m away: the first of equal distances is the one nearestIndex gives
+  expect(targets.get('awake')).toEqual(allies[0]);
+  // an awake enemy with no ally in range still gets its timer, then fires nothing
+  expect(targets.get('far')).toBeNull();
+});
+
+test('enemyTracerTargets shows nothing during a cutscene', () => {
+  const targets = enemyTracerTargets([{ id: 'awake', x: 0, z: 0, hp: 1, awake: true }], [{ x: 0, z: 5 }], 70, true);
+  expect(targets.size).toBe(0);
 });

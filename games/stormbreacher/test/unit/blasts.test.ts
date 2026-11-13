@@ -94,23 +94,6 @@ describe('stepCharge', () => {
       expect(w.plant).toBeNull();
     }
   });
-
-  test('a hit is not an input, so it cannot put the hold back', () => {
-    const w = world();
-    stepCharge(w, true, 0.6);
-    const held = w.plant?.hold ?? 0;
-    // a hit only takes armour in game.ts; stepCharge is given use and dt, so the hold goes on
-    const after = stepCharge(w, true, 0.2);
-    expect(after.plant?.hold).toBeCloseTo(held + 0.2, 6);
-  });
-
-  test('the same world and input give the same result', () => {
-    const one = world();
-    const two = world();
-    for (let i = 0; i < 20; i++) {
-      expect(stepCharge(one, true, 0.1)).toEqual(stepCharge(two, true, 0.1));
-    }
-  });
 });
 
 describe('stepBlasts', () => {

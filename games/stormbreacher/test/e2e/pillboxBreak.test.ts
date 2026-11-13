@@ -10,6 +10,7 @@ import { boot } from '../../src/app/boot.ts';
 import { PILLBOX_BREAK } from '../../src/data/pillbox.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import { sendToScript } from '../../src/logic/game.ts';
+import { boomCounts } from '../../src/view/boom.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -91,8 +92,11 @@ test('a broken pillbox sinks and leans, and the second brings the radio, the fla
   breakFromSide('pillbox-2');
   runSystems(1 / 60);
   expect(game().targets.find(target => target.id === 'pillbox-2')?.hp).toBe(0);
-  // the ally's call may still hold the band, so the line is on it or behind it
-  expect([game().radio?.line ?? null, ...game().radioQueue.map(entry => entry.line)]).toContain('m1.pillboxes-down');
+  // the ally's call may still hold the band: the line reaches the screen once the lines before it have had their time
+  game().barrages = [];
+  game().shells = [];
+  for (let i = 0; i < 60 * 20 && game().radio?.line !== 'm1.pillboxes-down'; i++) runSystems(1 / 60);
+  expect(game().radio?.line).toBe('m1.pillboxes-down');
   expect(game().script.flags).toContain('pillboxes-down');
   expect(game().checkpoint?.id).toBe('cp1');
 
@@ -109,4 +113,26 @@ test('a broken pillbox sinks and leans, and the second brings the radio, the fla
   expect(restoredMesh.scale.y).toBeCloseTo(WRECK_SCALE_Y);
   expect(restoredMesh.position.y).toBeCloseTo(-PILLBOX_BREAK.sink);
   expect(restoredMesh.rotation.x).toBeCloseTo(-PILLBOX_BREAK.lean);
+});
+
+test('a charge that breaks its pillbox in the same frame draws one large blast, not two', () => {
+  startSortie();
+  LOOP.maxDt = 0;
+  runSystems(1 / 60);
+  sendToScript(game(), { kind: 'skip' });
+  const current = game();
+  const point = current.blasts.find(place => place.id === 'blast-pillbox-1-side');
+  if (!point) throw new Error('the map has no blast-pillbox-1-side');
+  const target = current.targets.find(entry => entry.id === 'pillbox-1');
+  if (!target) throw new Error('the map has no pillbox-1');
+  // the charge blows on the next frame, and its 150 takes the pillbox's last point: `blast` and `destroyed` come together
+  target.hp = 1;
+  current.mech.x = point.x;
+  current.mech.y = 0;
+  current.mech.z = point.z + 2;
+  current.mech.grounded = true;
+  current.charges.push({ blast: point.id, left: 0 });
+  runSystems(1 / 60);
+  expect(target.hp).toBe(0);
+  expect(boomCounts().fire).toBe(1);
 });

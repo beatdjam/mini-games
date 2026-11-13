@@ -8,40 +8,51 @@ import type { Area, Cue, GroundSpot, MissionDef } from '../types.ts';
 // BATTLE_TUNE.holdZ, and once it stands they walk on to the far line (s3-3).
 export const PILLBOXES_DOWN_FLAG = 'pillboxes-down';
 
-// The ways the allied mechs run (SB-170, SB-1590). The beach's buddy falls beside line 1's blast point; the three cover
-// mechs run through that hole to the cover behind line 1, then on to C and the boss's ground. The gunner falls on the way
-// to B's cover. The points are a guess; +z is the sea.
+// The ways the allied mechs run (SB-170, SB-1590). The beach's buddy falls beside line 1's blast point. The three cover
+// mechs wait at the cover sea-side of line 1 until a charge opens its hole (`line1-open`), then run through the hole to
+// the cover behind the line, and on to C and the boss's ground. The gunner falls on the way to B's cover. The points are a
+// guess; +z is the sea.
 const PATHS = {
   'beach-run': [
     { x: 10, z: 166 },
     { x: 24, z: 156 },
     { x: 44, z: 151 },
   ],
-  // the three cover mechs: from the beach through line 1's hole at x 40 (its blast point) to the cover behind the line
-  'b1-run': [
+  // the three cover mechs wait sea-side of line 1: their ways end where the run after the blast starts
+  'b1-wait': [
     { x: 0, z: 166 },
+    { x: 24, z: 156 },
+  ],
+  'b2-wait': [
+    { x: -5, z: 164 },
+    { x: 20, z: 156 },
+  ],
+  'b3-wait': [
+    { x: 20, z: 164 },
+    { x: 28, z: 156 },
+  ],
+  // from the waiting cover through line 1's hole at x 40 (its blast point) to the cover behind the line
+  'b1-run': [
     { x: 24, z: 156 },
     { x: 40, z: 146 },
     { x: 40, z: 122 },
     { x: 20, z: 110 },
   ],
   'b2-run': [
-    { x: -5, z: 164 },
-    { x: 24, z: 156 },
+    { x: 20, z: 156 },
     { x: 40, z: 146 },
     { x: 40, z: 122 },
     { x: 30, z: 118 },
   ],
   'b3-run': [
-    { x: 20, z: 164 },
     { x: 28, z: 156 },
     { x: 40, z: 146 },
     { x: 40, z: 122 },
     { x: 55, z: 129 },
   ],
-  // the gunner: line 1's hole to B's cover, where the machine guns take it
+  // the gunner: from the buddy's fall to line 1's hole and B's cover, where the machine guns take it
   'gunner-run': [
-    { x: 40, z: 148 },
+    { x: 44, z: 151 },
     { x: 40, z: 130 },
     { x: 45, z: 112 },
   ],
@@ -71,9 +82,10 @@ const PATHS = {
     { x: 61, z: 4 },
     { x: 45, z: 9 },
   ],
-  // the boss's ground: up the ramp at x 35 (the seawall is 6 m) and to the cover behind it
+  // the boss's ground: past pillbox-2 on its open side (x 35), then up the ramp at x 35 (the seawall is 6 m)
   'boss1-run': [
     { x: 0, z: 6 },
+    { x: 35, z: -4 },
     { x: 35, z: -20 },
     { x: 35, z: -30 },
     { x: 35, z: -46 },
@@ -83,6 +95,7 @@ const PATHS = {
   ],
   'boss2-run': [
     { x: -7, z: 1 },
+    { x: 35, z: -4 },
     { x: 35, z: -20 },
     { x: 35, z: -30 },
     { x: 35, z: -46 },
@@ -129,9 +142,19 @@ const CUES = [
       // the beach's mortar also starts the aimed mortar (M1_WAVE_AIMED)
       { kind: 'spawn', wave: 'beach-mortar' },
       { kind: 'ally', id: 'buddy', path: 'beach-run', fate: { at: 'beach-mid', by: 'mortar', call: 'm1.buddy-call' } },
-      { kind: 'ally', id: 'cover-b1', path: 'b1-run' },
-      { kind: 'ally', id: 'cover-b2', path: 'b2-run' },
-      { kind: 'ally', id: 'cover-b3', path: 'b3-run' },
+      { kind: 'ally', id: 'cover-b1', path: 'b1-wait' },
+      { kind: 'ally', id: 'cover-b2', path: 'b2-wait' },
+      { kind: 'ally', id: 'cover-b3', path: 'b3-wait' },
+    ],
+  },
+  {
+    id: 'line1-open',
+    // the cover mechs only run through line 1 once a charge has opened its hole: either point of the line opens it
+    trigger: { kind: 'blast', ids: ['l1-a', 'l1-b'] },
+    actions: [
+      { kind: 'allyMove', id: 'cover-b1', path: 'b1-run' },
+      { kind: 'allyMove', id: 'cover-b2', path: 'b2-run' },
+      { kind: 'allyMove', id: 'cover-b3', path: 'b3-run' },
     ],
   },
   {

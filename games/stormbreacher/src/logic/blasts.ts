@@ -53,8 +53,8 @@ export function blastTarget(map: MapDef, id: string): string | undefined {
 }
 
 // Whether the target a point names still stands. A point that names no target, or a world without the map, counts as
-// live.
-function targetStands(blast: BlastState, world: BlastTargetWorld): boolean {
+// live. The draw uses it too, so the ring on the ground and the point the game lets a charge be planted on agree.
+export function targetStands(blast: BlastState, world: BlastTargetWorld): boolean {
   if (world.map === undefined) return true;
   const target = blastTarget(world.map, blast.id);
   if (target === undefined) return true;

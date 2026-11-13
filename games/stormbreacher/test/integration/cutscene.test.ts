@@ -153,7 +153,7 @@ test('wave2-sinks starts 4 s after cp1, holds the mech still, and ends with the 
   expect(game.script.cutscene?.id).toBe('wave2-sinks');
   expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeGreaterThan(3.99);
   expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeLessThan(4.1);
-  // the cue's other actions come in the same frame; the ally calls before it are still in the radio band or behind it
+  // the cue's other actions come in the same frame; the ally calls may still hold the band, so the line is on it or queued
   expect(game.script.objective).toBe('take-seawall');
   expect([game.radio?.line ?? null, ...game.radioQueue.map(entry => entry.line)]).toContain('m1.wave2-lost');
   expect(game.enemies.some(enemy => enemy.wave === 'seawall-drop')).toBe(true);
@@ -172,6 +172,14 @@ test('wave2-sinks starts 4 s after cp1, holds the mech still, and ends with the 
   const z = game.mech.z;
   for (let i = 0; i < 30; i++) step(game, { ...idle, moveZ: 1 }, DT);
   expect(game.mech.z).toBeLessThan(z);
+});
+
+test('the wave2-lost line reaches the screen once the ally call before it has had its time', () => {
+  const game = afterPillboxes();
+  runUntilCutscene(game, 'wave2-sinks', 4.5);
+  // buddy's call takes the band first; the line waits behind it and then is the one on screen
+  for (let i = 0; i < 60 * 8 && game.radio?.line !== 'm1.wave2-lost'; i++) step(game, idle, DT);
+  expect(game.radio?.line).toBe('m1.wave2-lost');
 });
 
 test('a skip of wave2-sinks leaves the script as watching it does', () => {

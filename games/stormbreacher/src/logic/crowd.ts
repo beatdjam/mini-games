@@ -30,6 +30,7 @@ export interface Soldier {
   phase: number; // how far its sway has run (rad)
   squad: number; // the squad it walks in (0 for one of the scattered soldiers)
   fallAt: SpawnPoint | null; // the machine-gun nest it falls near (null keeps it walking)
+  waited: boolean; // true once it has stood at the waiting line; it does not fall to the steady loss after that
 }
 
 export interface Crowd {
@@ -85,6 +86,7 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
         phase: rng.rand(0, Math.PI * 2),
         squad: n + 1,
         fallAt: i < falls ? { x: nest.x, z: nest.z } : null,
+        waited: false,
       });
       added++;
     }
@@ -101,6 +103,7 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
       phase: rng.rand(0, Math.PI * 2),
       squad: 0,
       fallAt: null,
+      waited: false,
     });
     added++;
   }
@@ -109,8 +112,10 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
 
 // Moves the crowd by one frame: brings the next wave when its time comes, walks the living, makes some fall, takes the
 // fallen away after DEAD_LINGER and counts the ones that reach the line. While `held` and the crowd has a holdZ, the
-// living stop at that line and no new wave comes in, so the field does not fill up while they wait. Gives back the
-// soldiers that fell this frame, so the view can put a little dust where each one went down.
+// living stop at that line and no new wave comes in, so the field does not fill up while they wait; nobody falls to the
+// steady loss while they wait, and one that waited does not fall to it after the line is let go either (a shell or a
+// squad's machine gun still takes it). Gives back the soldiers that fell this frame, so the view can put a little dust
+// where each one went down.
 export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held = false): Soldier[] {
   const span = Math.max(0, dt);
   const fell: Soldier[] = [];
@@ -134,13 +139,21 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
       continue;
     }
 
-    soldier.phase += SWAY_RATE * span;
-    const sideways = Math.cos(soldier.phase) * SWAY_SPEED;
-    soldier.x += sideways * span;
-    soldier.z -= Math.max(0, tune.allySpeed) * span;
-    soldier.yaw = Math.atan2(-sideways, Math.max(0.001, tune.allySpeed));
-    if (bounds !== null) {
-      soldier.x = clamp(soldier.x, bounds.minX + EDGE_MARGIN, bounds.maxX - EDGE_MARGIN);
+    // A soldier at the waiting line stands still and faces the land: no sway, no walk, and it is marked as one that
+    // waited, so the steady loss never takes it after the line is let go.
+    if (holdZ !== null && soldier.z <= holdZ + 1e-9) {
+      soldier.z = holdZ;
+      soldier.yaw = 0;
+      soldier.waited = true;
+    } else {
+      soldier.phase += SWAY_RATE * span;
+      const sideways = Math.cos(soldier.phase) * SWAY_SPEED;
+      soldier.x += sideways * span;
+      soldier.z -= Math.max(0, tune.allySpeed) * span;
+      soldier.yaw = Math.atan2(-sideways, Math.max(0.001, tune.allySpeed));
+      if (bounds !== null) {
+        soldier.x = clamp(soldier.x, bounds.minX + EDGE_MARGIN, bounds.maxX - EDGE_MARGIN);
+      }
     }
 
     // the waiting line comes before the far line: a held soldier stops there and never counts as through
@@ -159,7 +172,10 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
       fell.push(soldier);
       continue;
     }
-    if (tune.allyDeathRate > 0 && rng.next() < deathChance) {
+    // Nobody falls to the steady loss while the crowd waits, or after it has waited: an ally that reached the line has
+    // to be there when the flag comes, or the advance the ticket plays for never shows. Shells and squads still take them.
+    const steady = holdZ === null && !soldier.waited;
+    if (steady && tune.allyDeathRate > 0 && rng.next() < deathChance) {
       soldier.alive = false;
       soldier.deadT = 0;
       crowd.fallen++;

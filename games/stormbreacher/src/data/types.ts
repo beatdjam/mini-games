@@ -26,6 +26,7 @@ export type Trigger =
   | { kind: 'start' }
   | { kind: 'enter'; area: string }
   | { kind: 'destroyed'; targets: readonly string[]; count?: number }
+  | { kind: 'blast'; ids: readonly string[] }
   | { kind: 'cleared'; wave: string }
   | { kind: 'after'; cue: string; sec: number } // sec 0 fires in the same frame as the cue it follows
   | { kind: 'flag'; name: string };

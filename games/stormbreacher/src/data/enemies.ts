@@ -85,7 +85,7 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
     notice: Infinity,
     stopDist: 0,
     fireRange: 180,
-    fireInterval: 2.4, // the same as the burst's rest
+    fireInterval: 2.4, // the first wait before the first burst; after that the burst's own `rest` rules
     damage: 3,
     bulletSpeed: 170,
     spread: 3,

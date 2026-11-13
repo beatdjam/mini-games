@@ -151,9 +151,34 @@ test('a shot passing through the buddy goes on, and the mech stands where the bu
   expect(game.bullets[0].z).toBeLessThan(buddy.z + 1);
 });
 
-test('the three cover mechs reach the posts behind line 1 and go on to C at cp1, then to the boss at the seawall', () => {
+test('the three cover mechs wait sea-side of line 1 and go through its hole once the line is blasted', () => {
   const game = newPlayGame(M1B_HAND);
   run(game, IDLE, 60 * 20);
+  for (const id of COVERS) {
+    const ally = allyById(game.allies, id);
+    // the way they were given ends at the cover sea-side of line 1; they do not run through the closed line
+    expect(ally.next).toBe(ally.way.length);
+    expect(ally.z).toBeGreaterThan(150);
+    expect(ally.down).toBe(false);
+  }
+  const waits = COVERS.map(id => {
+    const ally = allyById(game.allies, id);
+    return { x: ally.x, z: ally.z };
+  });
+
+  // l1-b blows: the script hears the blast and sends the three through the hole
+  sendToScript(game, { kind: 'blast', id: 'l1-b' });
+  COVERS.forEach((id, i) => {
+    const ally = allyById(game.allies, id);
+    expect(ally.way[0]).toEqual(waits[i]);
+    expect(ally.next).toBe(1);
+  });
+  const before = allyById(game.allies, 'cover-b1').z;
+  run(game, IDLE, 60);
+  expect(allyById(game.allies, 'cover-b1').z).toBeLessThan(before);
+
+  // they reach the posts behind line 1
+  runQuiet(game, 60 * 20);
   for (const id of COVERS) {
     const ally = allyById(game.allies, id);
     expect(ally.next).toBe(ally.way.length);
@@ -255,9 +280,7 @@ test('going back to the checkpoint brings the buddy back as the checkpoint kept 
   const keptAgain = allyById(again.allies, 'buddy');
   expect(keptAgain).toEqual(kept);
   expect(keptAgain).not.toBe(game.checkpoint?.allies.find(ally => ally.id === 'buddy'));
-  expect(again.allies.map(ally => ally.id)).toEqual(
-    expect.arrayContaining(['buddy', 'cover-b1', 'cover-b2', 'cover-b3']),
-  );
+  expect(again.allies.map(ally => ally.id)).toEqual(['buddy', 'cover-b1', 'cover-b2', 'cover-b3']);
   // it runs on from there and falls once more
   expect(downs(run(again, IDLE, 60 * 20))).toHaveLength(1);
   // and the checkpoint itself still holds the buddy running
