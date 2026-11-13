@@ -22,6 +22,7 @@ import {
 import { boss, enemies, pBullets, spawnEnemy } from '../src/world/entities.ts';
 import { player, run } from '../src/actors/player.ts';
 import { newWeapon } from '../src/actors/weapons.ts';
+import { SPLIT_MAX } from '../src/data/weapons.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { bossStageOf, planOf, stageInfo } from '../src/core/stages.ts';
 import { RUNNING_SPREAD, fire } from '../src/actors/firing.ts';
@@ -545,6 +546,16 @@ test('boss room: its door opens for a player who waits at it; walking in starts 
   expect(run.bld!.step, 'still the last floor of the route').toBe(run.bld!.floors - 1);
   // the rooms of the other floors were never cleared: walking in gives the pre-boss supply for them, about 0.18 chips
   // a room, one pick after another
+  // A capped chip (crit, reload, magazine, pierce, split, sprint) stops the pick's DEPTH_SCALE applications once it
+  // is maxed, and the cards are offered at random: the same capped chip twice could add fewer than DEPTH_SCALE records
+  // (the supply would still count as a pick). Max them first, so every offered card applies in full and the count below
+  // is the supply's own, not the dice's
+  player.crit = TUNE.critCap;
+  player.reloadMul = 0.4;
+  player.magMul = 2.5;
+  player.pierce = 3;
+  player.extra = SPLIT_MAX;
+  player.stRegen = TUNE.staminaRegenCap;
   const owed = supplyChips(),
     chipsHad = run.perks.length;
   expect(owed, 'rooms are left on the floors above').toBeGreaterThan(0);
