@@ -2,7 +2,6 @@
 // shells, smoke, tracers and planes around the mech, and the look (resolution, colour, haze) turned by the same knobs.
 // The panel at the top right changes the values as they are; "書き出し" puts the JSON in the textarea and
 // window.sbFxReport() gives the same JSON with the frame's counts.
-import * as THREE from 'three';
 import { addSystem, clamp } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer } from '@engine/render/index.ts';
 import { CAMERA_TUNE, FEEL_TUNE, FX_STAGES, FX_TUNE, MECH_TUNE, MOVE_TUNE, type FxTune } from '../../data/tune.ts';
@@ -10,7 +9,7 @@ import { initPlayInput, readInput } from '../../app/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
 import { MECH_BASE_HEIGHT, scaleForMech } from '../../logic/mechScale.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
-import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
+import { applyPose, cameraPose, followCamera } from '../../view/camera.ts';
 import { buildBattle, type Battle } from '../../view/battle/index.ts';
 import type { CrowdCounts } from '../../logic/crowd.ts';
 import { MAP_FOG, buildMapScene, mapOf, seedOf, sourceOf, type Source } from './mapView.ts';
@@ -374,7 +373,7 @@ export function showFx(_hash: string) {
         (MECH_TUNE.radius * mechSize) / MECH_BASE_HEIGHT,
       );
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, cameraAtSize, cameraBoxes);
-      camPos = camPos ? followPose(camPos, pose.pos, dt, cameraAtSize.lag) : pose.pos.clone();
+      camPos = followCamera(camPos, pose, dt, cameraAtSize);
       const pos = camPos.clone().add(step.offset);
       applyPose(camera, { ...pose, pos }, step.fov);
       cullChunks(built.chunks, built.group, camera, MAP_FOG.far);

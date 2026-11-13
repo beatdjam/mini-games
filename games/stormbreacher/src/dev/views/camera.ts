@@ -5,7 +5,7 @@ import { addSystem, clamp, turnToward, yawToward } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { CAMERA_TUNE, MOVE_TUNE, type CameraTune } from '../../data/tune.ts';
 import { scaleForMech } from '../../logic/mechScale.ts';
-import { applyPose, cameraPose, followPose, screenFraction, type CameraPose } from '../../view/camera.ts';
+import { applyPose, cameraPose, followCamera, screenFraction, type CameraPose } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import { STATIONS, buildCourse, type StationName } from '../course.ts';
 import { heldKeys } from '../keys.ts';
@@ -304,7 +304,7 @@ export function showCamera(_hash: string) {
 
       const aiming = alwaysAim || (drive && (down('ShiftLeft') || down('ShiftRight')));
       const pose = cameraPose({ x: pos.x, y: 0, z: pos.z, yaw }, pitch, tune, boxes, aiming);
-      camPos = camPos ? followPose(camPos, pose.pos, dt, tune.lag) : pose.pos.clone();
+      camPos = followCamera(camPos, pose, dt, tune);
       applyPose(camera, { ...pose, pos: camPos }, aiming ? tune.aimFov : tune.fov);
       model.position.set(pos.x, 0, pos.z);
       model.rotation.y = yaw;

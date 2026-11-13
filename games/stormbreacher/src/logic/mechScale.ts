@@ -40,6 +40,11 @@ export function scaleForMech(
     camera.shoulder *= ratio;
     camera.lookHeight *= ratio;
     camera.aimDist *= ratio;
+    camera.pullSpeed *= ratio;
+    camera.returnSpeed *= ratio;
+    camera.releaseGap *= ratio;
+    camera.rise *= ratio;
+    camera.riseRange *= ratio;
   }
   return { cameraTune: camera, moveTune: move };
 }

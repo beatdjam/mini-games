@@ -19,7 +19,7 @@ import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
 import { buildBattle, type Battle } from './battle/index.ts';
-import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
+import { applyPose, cameraPose, followCamera, screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
 import { buildBooms, drawBooms, spawnBoom } from './boom.ts';
@@ -285,8 +285,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   );
   // The cutscene draws its own camera over this one (drawCutscene). The game's camera sits at its place meanwhile, so it
   // starts the first controlled frame, or the one after a skip, where it stands and does not fly in from elsewhere.
-  view.camPos =
-    view.camPos && cutscene === null ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
+  view.camPos = view.camPos && cutscene === null ? followCamera(view.camPos, pose, dt, CAMERA_TUNE) : pose.pos.clone();
   const pos = view.camPos.clone().add(frame.offset);
   applyPose(camera, { ...pose, pos }, frame.fov);
   drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset);

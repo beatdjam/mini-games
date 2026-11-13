@@ -42,6 +42,7 @@ import { newPillbox, pillboxDamageMul, stepPillbox, type PillboxState } from './
 import {
   newFcs,
   spreadDir,
+  spreadFor,
   stepFcs,
   type Dir3,
   type FcsState,
@@ -307,11 +308,11 @@ function muzzleOf(mech: MechState): { x: number; y: number; z: number } {
   };
 }
 
-// One shot from the muzzle toward `dir`, spread by a random draw: a bullet with `weapon`'s range to fly.
-function shoot(game: GameModel, weapon: WeaponId, dir: Dir3): void {
+// One shot from the muzzle toward `dir`, spread by a random draw at `dist` m: a bullet with `weapon`'s range to fly.
+function shoot(game: GameModel, weapon: WeaponId, dir: Dir3, dist: number): void {
   const def = WEAPONS[weapon];
   const { x, y, z } = muzzleOf(game.mech);
-  const aimed = spreadDir(dir, FCS_TUNE.soft.spread, stream('shots'));
+  const aimed = spreadDir(dir, spreadFor(dist, FCS_TUNE.soft), stream('shots'));
   game.bullets.push({ weapon, x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, left: def.range });
   game.events.push({ kind: 'shot', x, y, z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz, weapon });
 }
@@ -841,8 +842,8 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);
   const mainShots = stepWeapon(game.main, input.fire, dt);
   const subShots = stepWeapon(game.sub, input.sub, dt);
-  for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir);
-  for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir);
+  for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir, fcs.shotDist);
+  for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir, fcs.shotDist);
   stepEnemies(game, dt);
   stepPillboxes(game, dt);
   stepBattery(game, dt);

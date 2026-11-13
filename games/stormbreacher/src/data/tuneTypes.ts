@@ -28,6 +28,15 @@ export interface CameraTune {
   lookHeight: number; // the look point's height above the mech's feet (m)
   minDist: number; // the shortest horizontal distance a wall may pull the camera to (m): near 0, so the camera stays on this side of any wall farther than this
   margin: number; // the gap kept in front of a wall (m)
+  pullSpeed: number; // the fastest a wall may bring the camera in (m/s); a slower cap keeps a corner from snapping
+  pullGap: number; // a gap this large between the camera and the pose counts as the wall pulling it in (m)
+  pullNear: number; // the camera counts as near the mech this much closer than its open distance (m)
+  returnSpeed: number; // the fastest the camera comes back out after a wall lets it go (m/s)
+  returnLag: number; // the time constant for coming back out (s)
+  releaseGap: number; // a wall lets the camera go when it is this much farther than the camera was (m)
+  rise: number; // how far the camera rises at minDist, so it looks over the mech's shoulder (m)
+  riseRange: number; // how far above minDist the rise has fallen to 0 (m)
+  probeDeg: number; // how far to either side of a wall ray the camera looks, so a corner comes in smoothly (deg)
   pitchMin: number; // the lowest pitch the camera may look, looking down (rad)
   pitchMax: number; // the highest pitch the camera may look, looking up (rad)
   lag: number; // the time constant for the camera to reach its target position (s); 0 means no lag
@@ -46,6 +55,8 @@ export interface FcsTune {
   cone: number; // the aim circle's half-angle (deg); soft and hard use it, manual does not
   range: number; // the farthest a target may be from the mech's chest (m); every kind uses it
   spread: number; // how far a shot drifts inside its cone (deg); every kind uses it
+  nearRange: number; // the distance inside which a target is aimed at directly and the spread shrinks (m)
+  nearSpread: number; // the share of `spread` left at no distance (1 keeps the spread the same near and far)
   pull: number; // soft: how fast the aim turns toward the target (deg/s); the other kinds keep it 0
   lockTime: number; // hard: how long the target stays in the circle before it is caught (s); the other kinds keep it 0
   trackRate: number; // hard: how fast the muzzle follows a caught target (deg/s); the other kinds keep it 0

@@ -34,6 +34,15 @@ export const CAMERA_TUNE: CameraTune = {
   lookHeight: 2.9, // the look point's height above the mech's feet (m)
   minDist: 0.5, // the shortest horizontal distance a wall may pull the camera to (m): near 0, so the camera stays on this side of any wall farther than this
   margin: 0.6, // the gap kept in front of a wall (m)
+  pullSpeed: 9, // the fastest a wall may bring the camera in (m/s); a slower cap keeps a corner from snapping
+  pullGap: 1, // a gap this large between the camera and the pose counts as the wall pulling it in (m)
+  pullNear: 0.5, // the camera counts as near the mech this much closer than its open distance (m)
+  returnSpeed: 4, // the fastest the camera comes back out after a wall lets it go (m/s)
+  returnLag: 0.35, // the time constant for coming back out (s)
+  releaseGap: 1.2, // a wall lets the camera go when it is this much farther than the camera was (m)
+  rise: 0.9, // how far the camera rises at minDist, so it looks over the mech's shoulder (m)
+  riseRange: 1.5, // how far above minDist the rise has fallen to 0 (m)
+  probeDeg: 4, // how far to either side of a wall ray the camera looks, so a corner comes in smoothly (deg)
   pitchMin: -0.5, // the lowest pitch the camera may look, looking down (rad)
   pitchMax: 0.8, // the highest pitch the camera may look, looking up (rad)
   lag: 0.12, // the time constant for the camera to reach its target position (s); 0 means no lag
@@ -114,9 +123,39 @@ export const PLAY_TUNE = {
 
 // The starting values of each kind. The numbers decide nothing here: SB-060 compares them by hand.
 export const FCS_TUNE: Record<FcsKind, FcsTune> = {
-  manual: { cone: 0, range: 200, spread: 0.5, pull: 0, lockTime: 0, trackRate: 0, breakCone: 0 },
-  soft: { cone: 8, range: 200, spread: 0.8, pull: 20, lockTime: 0, trackRate: 0, breakCone: 0 },
-  hard: { cone: 12, range: 180, spread: 1.5, pull: 0, lockTime: 0.35, trackRate: 90, breakCone: 20 },
+  manual: {
+    cone: 0,
+    range: 200,
+    spread: 0.5,
+    nearRange: 15,
+    nearSpread: 0.25,
+    pull: 0,
+    lockTime: 0,
+    trackRate: 0,
+    breakCone: 0,
+  },
+  soft: {
+    cone: 8,
+    range: 200,
+    spread: 0.8,
+    nearRange: 15,
+    nearSpread: 0.25,
+    pull: 20,
+    lockTime: 0,
+    trackRate: 0,
+    breakCone: 0,
+  },
+  hard: {
+    cone: 12,
+    range: 180,
+    spread: 1.5,
+    nearRange: 15,
+    nearSpread: 0.5,
+    pull: 0,
+    lockTime: 0.35,
+    trackRate: 90,
+    breakCone: 20,
+  },
 };
 
 // The HUD's values (SB-160). All provisional.

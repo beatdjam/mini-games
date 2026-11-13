@@ -19,7 +19,7 @@ import {
   type Dummy,
 } from '../../logic/dummies.ts';
 import { stream } from '../../logic/rng.ts';
-import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
+import { applyPose, cameraPose, followCamera } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import type { ShotResult } from '../../view/feel.ts';
 import { updateReticle } from '../../view/reticle.ts';
@@ -294,7 +294,7 @@ export function showFcs(_hash: string) {
       }
 
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
-      camPos = camPos ? followPose(camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
+      camPos = followCamera(camPos, pose, dt, CAMERA_TUNE);
       const pos = camPos.clone().add(step.offset);
       applyPose(camera, { ...pose, pos }, step.fov);
 

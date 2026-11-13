@@ -30,6 +30,9 @@ interface Hit {
   dist: number;
 }
 
+const FAN_SAMPLES = 3; // rays across a probe fan: the middle and one each side
+const DEG = Math.PI / 180;
+
 // The nearest box the ray meets, when that is no farther than `max` (m).
 function nearestHit(origin: THREE.Vector3, dir: THREE.Vector3, max: number, boxes: readonly THREE.Box3[]): Hit | null {
   const ray = new THREE.Ray(origin, dir);
@@ -40,6 +43,29 @@ function nearestHit(origin: THREE.Vector3, dir: THREE.Vector3, max: number, boxe
     const dist = origin.distanceTo(point);
     if (dist > max) continue;
     if (!best || dist < best.dist) best = { point: point.clone(), dist };
+  }
+  return best;
+}
+
+// The nearest hit across a fan of rays from `dir` to `probeDeg` either side of it. A corner's single edge then enters the
+// test through the side rays, so the pull it causes grows with the angle instead of jumping when the middle ray crosses.
+function nearestHitFan(
+  origin: THREE.Vector3,
+  dir: THREE.Vector3,
+  max: number,
+  boxes: readonly THREE.Box3[],
+  probeDeg: number,
+): Hit | null {
+  if (probeDeg <= 0) return nearestHit(origin, dir, max, boxes);
+  let best: Hit | null = null;
+  const step = (2 * probeDeg * DEG) / (FAN_SAMPLES - 1);
+  for (let i = 0; i < FAN_SAMPLES; i++) {
+    const angle = -probeDeg * DEG + step * i;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const ray = new THREE.Vector3(dir.x * c + dir.z * s, dir.y, -dir.x * s + dir.z * c).normalize();
+    const hit = nearestHit(origin, ray, max, boxes);
+    if (hit && (!best || hit.dist < best.dist)) best = hit;
   }
   return best;
 }
@@ -73,7 +99,7 @@ export function cameraPose(
   const right = new THREE.Vector3(Math.cos(target.yaw), 0, -Math.sin(target.yaw));
   let shoulder = tune.shoulder;
   if (shoulder > 0) {
-    const hit = nearestHit(head, right, shoulder, boxes);
+    const hit = nearestHitFan(head, right, shoulder, boxes, tune.probeDeg);
     if (hit) shoulder = Math.max(0, hit.dist - tune.margin);
   }
   const look = head.clone().addScaledVector(right, shoulder);
@@ -94,7 +120,7 @@ export function cameraPose(
   let pulled = false;
   if (length > 1e-6) {
     const dir = offset.clone().divideScalar(length);
-    const hit = nearestHit(look, dir, length, boxes);
+    const hit = nearestHitFan(look, dir, length, boxes, tune.probeDeg);
     if (hit) {
       pulled = true;
       const hitHorizontal = (hit.dist / length) * horizontal;
@@ -106,6 +132,12 @@ export function cameraPose(
   }
   // the ground is not one of the boxes: looking up drops the camera, so it stops a margin above the mech's feet
   pos.y = Math.max(pos.y, target.y + tune.margin);
+  // A wall at minDist would put the camera in the mech's back. Lift it a little there, easing out as the wall lets it go,
+  // so the mech is seen over its shoulder rather than filling the screen.
+  if (pulled) {
+    const closeness = 1 - clamp((dist - tune.minDist) / Math.max(tune.riseRange, 1e-6), 0, 1);
+    pos.y += tune.rise * closeness;
+  }
 
   return { pos, look, dist, pulled, shoulder };
 }
@@ -129,6 +161,36 @@ export function followPose(prev: THREE.Vector3, next: THREE.Vector3, dt: number,
   if (lag <= 0) return next.clone();
   const amount = 1 - Math.exp(-dt / lag);
   return prev.clone().lerp(next, amount);
+}
+
+// The camera's place for this frame, followed from the last. A wall bringing the camera in is capped at `pullSpeed`, so
+// a wall appearing at a corner slides the camera in rather than snapping it; a wall letting it go returns it at
+// `returnSpeed`, slower than it came in. In the open the camera follows with `lag` as before.
+export function followCamera(
+  prev: THREE.Vector3 | null,
+  pose: CameraPose,
+  dt: number,
+  tune: CameraTune,
+): THREE.Vector3 {
+  if (prev === null) return pose.pos.clone();
+  const prevDist = Math.hypot(prev.x - pose.look.x, prev.z - pose.look.z);
+  const inward = prevDist - pose.dist; // how much farther out the camera is than the pose wants (m)
+  const outward = pose.dist - prevDist; // how much nearer it is (m)
+  let lag = tune.lag;
+  let speed = Infinity;
+  const near = pose.pulled || prevDist < tune.dist - tune.pullNear;
+  if (outward > tune.releaseGap) {
+    // the wall let it go: come back out slowly
+    lag = tune.returnLag;
+    speed = tune.returnSpeed;
+  } else if (near || inward > tune.pullGap) {
+    // a wall is holding it in, or a corner is swinging its place: slide, do not jump
+    speed = tune.pullSpeed;
+  }
+  const step = followPose(prev, pose.pos, dt, lag).sub(prev);
+  const length = step.length();
+  if (Number.isFinite(speed) && length > speed * dt) step.multiplyScalar((speed * dt) / length);
+  return prev.clone().add(step);
 }
 
 // Puts a pose on the camera: position, look direction and field of view.
