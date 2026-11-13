@@ -9,7 +9,7 @@ import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
-import { CAMERA_TUNE, FEEL_TUNE, FX_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneMech } from '../logic/cutscene.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
@@ -100,8 +100,12 @@ export function buildPlayView(game: GameModel): PlayView {
     pillboxWarns: buildPillboxWarnView(world.targetGroup),
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
-    // FX_TUNE is #view-fx's stage 2; the battle is made at the mech's start and keeps no link to the game's state
-    battle: buildBattle(game.map, FX_TUNE, stream('battle'), stream('craters'), { x: game.mech.x, z: game.mech.z }),
+    // PLAY_BATTLE_TUNE keeps FX_TUNE's look; only the main sortie's waves are thinner. The battle is made at the
+    // mech's start and keeps no link to the game's state
+    battle: buildBattle(game.map, PLAY_BATTLE_TUNE, stream('battle'), stream('craters'), {
+      x: game.mech.x,
+      z: game.mech.z,
+    }),
     allies: buildAllyView(),
     hud,
     cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets),

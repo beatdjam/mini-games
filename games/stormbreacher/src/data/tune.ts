@@ -49,8 +49,8 @@ export const MOVE_TUNE: MoveTune = {
   stepHeight: 0.75, // the highest ledge the mech walks onto without a jump (m); provisional, SB-120's low obstacles settle it
   accel: 40, // how fast walking speeds up (m/s^2)
   decel: 90, // how fast the mech slows down with no input (m/s^2)
-  jump: 7.2, // the upward speed a jump starts with (m/s)
-  gravity: 25, // the downward pull in the air (m/s^2)
+  jump: 9.4, // the upward speed a jump starts with (m/s)
+  gravity: 20, // the downward pull in the air (m/s^2)
   airControl: 0.4, // the share of the walking acceleration that works in the air (0-1)
   boost: 15, // the boost's speed (m/s)
   boostAccel: 80, // how fast the boost speeds up (m/s^2)
@@ -68,8 +68,8 @@ export const MOVE_TUNE: MoveTune = {
 // written; the biped is the standard and changes none. The mech's own table is made by moveTuneOf (logic/mechTune.ts).
 export const LEG_MOVE_TUNE: Record<GaitKind, Partial<MoveTune>> = {
   biped: {},
-  reverse: { walk: 8.5, accel: 44, jump: 8.2, boostDrain: 0.42, stepHeight: 0.6 }, // fast, jumps high, boosts long
-  multi: { walk: 6.2, jump: 5.4, stepHeight: 0.6 }, // slow, jumps low
+  reverse: { walk: 8.5, accel: 44, jump: 10.4, boostDrain: 0.42, stepHeight: 0.6 }, // fast, jumps high, boosts long
+  multi: { walk: 6.2, jump: 7.05, stepHeight: 0.6 }, // slow, jumps low
 };
 
 // How the mech's body moves while it walks, boosts, jumps and fires (SB-130's third card; view only, provisional).
@@ -160,7 +160,7 @@ export const FX_TUNE = {
   tracers: 15, // the lines a second crossing the view (0 makes none)
   tracerSpeed: 80, // how fast a tracer flies (m/s)
 
-  allies: 300, // the allies in the first wave (0 makes none)
+  allies: 300, // the allies in each wave (0 makes none)
   allyWaves: 5, // seconds between one wave and the next (0 makes no more waves)
   allySpeed: 2, // how fast an ally walks landward (m/s)
   allyDeathRate: 0.1, // the chance that one ally falls in a second (0 keeps them all up)
@@ -171,6 +171,13 @@ export const FX_TUNE = {
 };
 
 export type FxTune = typeof FX_TUNE;
+
+// The battle layer of the main sortie. #view-fx keeps FX_TUNE, so the tools can still compare 150/300/450.
+export const BATTLE_TUNE = {
+  allies: 60, // the allies in each wave of the main sortie (0 makes none)
+};
+
+export const PLAY_BATTLE_TUNE: FxTune = { ...FX_TUNE, allies: BATTLE_TUNE.allies };
 
 // What each strength changes; the rest stays as FX_TUNE. Stage 0 is #view-map's look with every effect off, so the two
 // can be compared. Stage 2 is FX_TUNE itself.

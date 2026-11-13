@@ -152,8 +152,9 @@ test('an empty gauge falls normally and ends the hover once', () => {
 test('the gauge does not drain while the mech is still rising', () => {
   const m = newMech();
   stepMech(m, input({ jump: true, jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
-  // The 4 m mech's jump tops out after 17 frames of a 60th of a second.
-  for (let i = 0; i < 17; i++) {
+  // The rise lasts jump / gravity seconds; this many whole frames of it are still rising.
+  const riseFrames = Math.floor(MOVE_TUNE.jump / MOVE_TUNE.gravity / (1 / 60));
+  for (let i = 0; i < riseFrames; i++) {
     expect(m.vy).toBeGreaterThan(0);
     stepMech(m, input({ jumpHeld: true }), 1 / 60, MOVE_TUNE, 8);
     expect(m.gauge).toBe(1);

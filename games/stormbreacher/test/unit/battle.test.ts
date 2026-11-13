@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
-import { FX_TUNE, type FxTune } from '../../src/data/tune.ts';
+import { BATTLE_TUNE, FX_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../src/data/tune.ts';
 import { newBattle, stepBattle, type BattleState } from '../../src/logic/battle.ts';
 import { MAX_SOLDIERS } from '../../src/logic/crowd.ts';
 
@@ -35,6 +35,13 @@ test('the same seed gives the same walkers and the same shells', () => {
   expect(a.shells).toEqual(b.shells);
   expect(a.state.crowd.soldiers).toEqual(b.state.crowd.soldiers);
   expect(run(8, 30, FX_TUNE).shells).not.toEqual(a.shells);
+});
+
+test('the main sortie thins each wave to 60 allies, and #view-fx keeps 300', () => {
+  expect(PLAY_BATTLE_TUNE.allies).toBe(BATTLE_TUNE.allies);
+  expect(BATTLE_TUNE.allies).toBe(60);
+  expect(FX_TUNE.allies).toBe(300);
+  expect(BATTLE_TUNE.allies).toBeLessThan(FX_TUNE.allies);
 });
 
 test('the first wave is tune.allies strong, and the first shell comes half an interval in', () => {

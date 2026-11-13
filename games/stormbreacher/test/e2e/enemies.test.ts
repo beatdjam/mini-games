@@ -27,13 +27,13 @@ function game() {
   return current;
 }
 
-// Runs frames until `done` says so, and fails when it never does.
-async function until(done: () => boolean, tries = 240): Promise<void> {
+// Runs frames until `done` says so, and fails when it never does, saying what the page was in (`what`).
+async function until(done: () => boolean, tries = 240, what = (): string => ''): Promise<void> {
   for (let i = 0; i < tries; i++) {
     if (done()) return;
     await frame();
   }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} frames`);
+  if (!done()) throw new Error(`the page did not reach the state in ${tries} frames ${what()}`);
 }
 
 // The mesh of every kind; a wave of mixed kinds draws into more than one of them.
@@ -45,11 +45,22 @@ const drawnEnemies = (): number => enemyMeshes().reduce((sum, mesh) => sum + (me
 
 test('an enemy’s bullet that takes the last armour shows the result with the downed heading', async () => {
   startSortie();
+  // The landing cutscene starts on the first step, and no hit takes armour while it plays: a bullet that has not reached
+  // the mech in the first frame (a short frame on a busy machine) would hit during it and change nothing. So the
+  // cutscene is skipped before the bullet is put out.
+  await frame();
+  sendToScript(game(), { kind: 'skip' });
+  await frame();
   const current = game();
+  expect(current.script.cutscene).toBeNull();
   current.armor = 1;
   const y = current.mech.y + MECH_TUNE.chestHeight;
   current.bullets.push({ enemy: 'grunt', x: current.mech.x, y, z: current.mech.z - 5, dx: 0, dy: 0, dz: 1, left: 50 });
-  await until(() => state === 'result');
+  await until(
+    () => state === 'result',
+    240,
+    () => `state ${state}, armour ${current.armor}, cutscene ${current.script.cutscene?.id ?? 'none'}`,
+  );
   expect(current.downed).toBe(true);
   expect(el('#sbResult').hidden).toBe(false);
   expect(el('#sbResult .title').textContent).toBe(t('result.downed'));
