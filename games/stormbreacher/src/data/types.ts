@@ -131,6 +131,15 @@ export interface MinePlace {
   z: number;
 }
 
+// A place a charge may be planted on a defence line (m). `line` is the line's centre z; `x` and `z` are the point on the
+// ground. +z is the sea, and the point stands 2 m sea-side of the line's most seaward face.
+export interface BlastPlace {
+  id: string;
+  line: number;
+  x: number;
+  z: number;
+}
+
 export interface MapBounds {
   minX: number;
   maxX: number;
@@ -145,6 +154,7 @@ export interface MapDef {
   targets: TargetPlace[];
   spawns: Record<string, SpawnPoint[]>; // wave name -> the places it comes in
   mines?: MinePlace[]; // left out where a map has none: the generated and edited maps hold none, so only the hand map sets it
+  blasts?: BlastPlace[]; // the places a charge may be planted, left out where a map has none
 }
 
 // What the generator must put down: bands of one kind, the cliff along the right edge, the clear ground around the

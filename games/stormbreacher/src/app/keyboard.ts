@@ -9,6 +9,7 @@ export interface KeyboardRead {
   pitchDelta: number; // the pitch the arrow keys add this frame (rad)
   lock: boolean; // the lock display, shared with the touch screen's lock button
   sub: boolean; // the sub shot: its key, or the right mouse button while locked
+  use: boolean; // the use key (planting a charge)
 }
 
 // The action table defineActions takes, built from the defaults (the object's keys are the action ids).
@@ -79,5 +80,6 @@ export function readKeyboard(dt: number): KeyboardRead {
     pitchDelta: actionAxis('lookUp', 'lookDown') * KEY_TUNE.pitchRate * dt,
     lock: lockState(),
     sub: actionDown('sub') || (locked && subMouse),
+    use: actionDown('use'),
   };
 }

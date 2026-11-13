@@ -69,9 +69,19 @@ describe('suspend', () => {
     expect(JSON.stringify(data)).toBe(before);
   });
 
+  test('the planted charges and the hold under way come back', () => {
+    const game = newGame(M1B_HAND);
+    game.charges.push({ blast: 'l1-b', left: 1.75 });
+    game.plant = { blast: 'l1-a', hold: 0.5 };
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.charges).toEqual([{ blast: 'l1-b', left: 1.75 }]);
+    expect(back?.plant).toEqual({ blast: 'l1-a', hold: 0.5 });
+  });
+
   test('a version that is not this one is thrown away', () => {
     const data = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
     expect(restoreSuspend({ ...data, v: SUSPEND_VERSION + 1 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: 3 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 0 })).toBeNull();
     const { v: _v, ...noVersion } = data;
     expect(restoreSuspend(noVersion)).toBeNull();

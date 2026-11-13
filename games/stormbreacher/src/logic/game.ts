@@ -17,13 +17,14 @@
 // logic/allies.ts) runs its way with no hit box and falls at the place its fate names (SB-170).
 import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
+import { CHARGE_TUNE } from '../data/charge.ts';
 import { BARRAGES, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
-import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
+import type { Area, BlastPlace, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, rectBoxes, type GroundRect } from './collide.ts';
 import {
@@ -36,6 +37,7 @@ import {
   type ShutterState,
 } from './battery.ts';
 import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
+import { stepBlasts, stepCharge, type ChargeState, type PlantState } from './blasts.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
 import { newNav, stepNav, type NavState } from './nav.ts';
 import { newPillbox, pillboxDamageMul, stepPillbox, type PillboxState } from './pillbox.ts';
@@ -110,6 +112,8 @@ export type GameEvent =
   | { kind: 'shellWarn'; x: number; z: number; radius: number } // a shell will land here
   | { kind: 'shellLand'; x: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
   | { kind: 'mineBlast'; x: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
+  | { kind: 'planted'; id: string; x: number; z: number } // a charge was planted on this blast point
+  | { kind: 'blast'; id: string; x: number; z: number; hit: boolean } // a charge blew up; `hit` is whether the mech was inside the blast
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
   | { kind: 'allyDown'; id: string; x: number; z: number; by: string } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
@@ -208,6 +212,9 @@ export interface GameModel {
   shutters: ShutterState[]; // the armour plates before the targets that have one, shut or open
   battery: BatteryState; // the main guns' machine guns
   mines: MineState[]; // the mines still on the ground
+  blasts: BlastPlace[]; // the map's blast points; a charge may be planted on one of them
+  charges: ChargeState[]; // the charges planted and not yet blown
+  plant: PlantState | null; // the hold under way on a blast point, if any
   allies: AllyState[]; // the allies the script has put out, the fallen too (down: they do not move); no hit box
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
@@ -530,6 +537,9 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     shutters: newShutters(map.targets.map(place => place.id)),
     battery: newBattery(map.targets),
     mines: (map.mines ?? []).map(place => ({ x: place.x, z: place.z, hp: MINE_TUNE.hp })),
+    blasts: (map.blasts ?? []).map(place => ({ ...place })),
+    charges: [],
+    plant: null,
     allies: [],
     events: [],
     cleared: false,
@@ -764,10 +774,12 @@ function stepAllies(game: GameModel, dt: number): void {
   }
 }
 
-// A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire) and the camera's aim.
+// A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the camera's aim and
+// the use key (planting a charge; left out where there is none, so the old test inputs need no change).
 export interface GameInput extends MechInput {
   sub: boolean;
   aim?: Ray3; // the camera's line through the middle of the screen; without it, level from the chest along the mech's yaw
+  use?: boolean;
 }
 
 // No key, no stick, no trigger: what the mech gets while a cutscene plays.
@@ -793,8 +805,11 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   if ((game.cleared && game.script.cutscene === null) || game.downed) return;
   // while a cutscene plays the mech holds still and holds its fire; the aim line still passes through
   const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
+  // Use plants a charge: while it is held the mech does not shoot, so a charge and a shot cannot be asked for together.
+  const use = input.use === true && game.script.cutscene === null;
+  const held = use ? { ...input, fire: false, sub: false } : input;
   game.time += dt;
-  const events = stepMech(game.mech, input, dt, moveTuneOf(M1_MECH), 0, {
+  const events = stepMech(game.mech, held, dt, moveTuneOf(M1_MECH), 0, {
     rects: game.rects,
     radius: MECH_TUNE.radius,
   });
@@ -839,8 +854,8 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   };
   const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, muzzleOf(game.mech), fcsTargets(game, chest), dt, world);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);
-  const mainShots = stepWeapon(game.main, input.fire, dt);
-  const subShots = stepWeapon(game.sub, input.sub, dt);
+  const mainShots = stepWeapon(game.main, held.fire, dt);
+  const subShots = stepWeapon(game.sub, held.sub, dt);
   for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir);
   for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir);
   stepEnemies(game, dt);
@@ -848,6 +863,17 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   stepBattery(game, dt);
   stepBullets(game, dt);
   stepHazards(game, dt);
+  const charge = stepCharge(game, use, dt);
+  game.plant = charge.plant;
+  if (charge.planted) {
+    const { id, x, z } = charge.planted;
+    game.events.push({ kind: 'planted', id, x, z });
+  }
+  for (const blown of stepBlasts(game, dt)) {
+    const { id, x, z } = blown.blast;
+    game.events.push({ kind: 'blast', id, x, z, hit: blown.hit });
+    if (blown.hit) damageMech(game, CHARGE_TUNE.damage, x - game.mech.x, z - game.mech.z);
+  }
   stepAllies(game, dt);
   checkShutters(game);
   checkWaves(game);

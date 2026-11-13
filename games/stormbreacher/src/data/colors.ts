@@ -44,6 +44,11 @@ export const SEA_TRACER_COLOR = 0xffb347;
 // The light at a pillbox's muzzle while it warns of a burst (仮).
 export const PILLBOX_WARN_COLOR = 0xffd890;
 
+// The blast points on the hedgehog lines and the charges planted on them (SB-1500, 仮): the ring the player stands in,
+// and the box that blinks as its fuse burns.
+export const BLAST_POINT_COLOR = 0xffb347;
+export const CHARGE_COLOR = 0xffe066;
+
 // The sparks of a shot a pillbox's front turns away (仮). A little warmer than SEA_FLASH_COLOR, so the two do not read
 // as the same flash.
 export const PILLBOX_DEFLECT_COLOR = 0xffe080;

@@ -1,7 +1,7 @@
 // All of M1 (SB-055, SB-120), written by hand: every prop is one line so the shape can be read and edited without a
 // tool. +z is the sea and -z is the land; the bounds run from the beach (z 170) back past the seawall (z -75..-65) to
 // the boss's ground (z -170).
-import type { MapDef, MinePlace, Prop } from '../types.ts';
+import type { BlastPlace, MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B line is three defence lines across the map: three hedgehog rows each, with breakthroughs and, on lines 2 and 3,
 // a stretch marked breakable. Each row is spaced so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows
@@ -620,11 +620,24 @@ const MINES: MinePlace[] = [
   { x: 52, z: 160 },
 ];
 
+// Two blast points on each line, 2 m sea-side of its most seaward row's face: z = row z + 3 m x scale / 2 + 2 m. The rows
+// are at z 143, 93.33 and 23 and their scales there are about 1, so the points stand at z 146.5, 96.8 and 26.5. x is the
+// centre of the breakthrough (line 1) or of the breakable stretch (lines 2 and 3).
+const BLASTS: BlastPlace[] = [
+  { id: 'l1-a', line: 137, x: -55, z: 146.5 },
+  { id: 'l1-b', line: 137, x: 40, z: 146.5 },
+  { id: 'l2-a', line: 88, x: -10, z: 96.8 },
+  { id: 'l2-b', line: 88, x: 50, z: 96.8 },
+  { id: 'l3-a', line: 17, x: -30, z: 26.5 },
+  { id: 'l3-b', line: 17, x: 61, z: 26.5 },
+];
+
 export const M1B_HAND: MapDef = {
   id: 'm1b-hand',
   bounds: { minX: -100, maxX: 100, minZ: -170, maxZ: 170 },
   props: PROPS,
   mines: MINES,
+  blasts: BLASTS,
   targets: [
     { id: 'pillbox-1', kind: 'pillbox', x: -33, z: -15, yaw: 0 },
     { id: 'pillbox-2', kind: 'pillbox', x: 22, z: -15, yaw: 0.2 },

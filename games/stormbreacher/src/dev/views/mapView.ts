@@ -18,7 +18,7 @@ import { stream } from '../../logic/rng.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildWorld, MAP_FOG, type World } from '../../view/world.ts';
-import { buildAreaFrames, buildSpawnMarks, countProps } from '../map/build.ts';
+import { buildAreaFrames, buildBlastMarks, buildSpawnMarks, countProps } from '../map/build.ts';
 import { loadDevMap } from '../map/store.ts';
 import { createTunePanel } from '../tunePanel.ts';
 import { buildFlatRange, moveFeelFromParams } from './move.ts';
@@ -124,6 +124,7 @@ export function buildMapScene(map: MapDef): MapScene {
   const { built, cameraBoxes } = buildWorld(map);
   scene.add(buildAreaFrames(M1.areas, map.bounds));
   scene.add(buildSpawnMarks(map.spawns));
+  scene.add(buildBlastMarks(map.blasts));
   return { built, cameraBoxes };
 }
 

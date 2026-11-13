@@ -94,6 +94,17 @@ test('a frame maps its events to the table’s sounds', () => {
   ).toEqual(['explosionLarge']);
 });
 
+test('a planted charge rings and a blast is the big explosion', () => {
+  const events: GameEvent[] = [
+    { kind: 'planted', id: 'l1-b', x: 0, z: 20 },
+    { kind: 'blast', id: 'l1-b', x: 0, z: 20, hit: true },
+  ];
+  expect(planSounds({ events, mech: MECH, targets: [], hostile: [] }).map(cue => cue.name)).toEqual([
+    'charge',
+    'explosionLarge',
+  ]);
+});
+
 test('a hit on the mech plays the metal sound once, even with its damaged event', () => {
   const metal: GameEvent[] = [hit(null, true), { kind: 'damaged', amount: 10, fromX: 0, fromZ: 1 }];
   // The bullet's hit and the damage it does are the same blow; the per-frame limit leaves one metal sound.

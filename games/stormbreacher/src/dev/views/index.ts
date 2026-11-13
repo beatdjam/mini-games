@@ -13,6 +13,7 @@ import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
 import { showFx } from './fx.ts';
 import { showBoom } from './boom.ts';
+import { showBreach } from './breach.ts';
 import { showHurt } from './hurt.ts';
 import { showSound } from './sound.ts';
 
@@ -101,6 +102,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'starts',
     name: 'explosions at the water’s edge: fire, smoke, debris and water, with knobs',
     run: showBoom,
+  },
+  {
+    hash: '#view-breach',
+    match: 'starts',
+    name: "the hedgehog line's blast points and charges, with knobs",
+    run: showBreach,
   },
   {
     hash: '#view-hurt',

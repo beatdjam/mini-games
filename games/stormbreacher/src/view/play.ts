@@ -19,6 +19,7 @@ import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
 import { buildBattle, type Battle } from './battle/index.ts';
+import { buildBlastView, drawBlasts, type BlastView } from './blasts.ts';
 import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
@@ -44,6 +45,7 @@ const DEFLECT_GRAVITY = -4; // how fast a spark falls (m/s^2)
 const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per landing
 const BOOST_DUST = 6; // the same, per boost start
 const BLAST_DUST = 14; // the same, per ally falling to a mortar shell
+const PLANT_DUST = 4; // the same, when a charge is set on a blast point
 const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the hand map has 3 pillboxes, so it is not reached
 const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
 const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
@@ -70,6 +72,7 @@ export interface PlayView {
   enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
   enemies: EnemyView; // the enemies' instanced boxes
   pillboxWarns: PillboxWarnView; // the lights at the pillboxes' muzzles while they warn of a burst
+  blasts: BlastView; // the blast points' rings and the charges planted on them
   hazards: HazardView; // the warned shells' rings and the mines' discs
   seaFire: SeaFireView; // the main guns' flashes and lines toward the sea
   battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; looks only (SB-170)
@@ -102,6 +105,7 @@ export function buildPlayView(game: GameModel): PlayView {
     enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
     enemies: buildEnemyView(),
     pillboxWarns: buildPillboxWarnView(world.targetGroup),
+    blasts: buildBlastView(game.map),
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
     // PLAY_BATTLE_TUNE keeps FX_TUNE's look; only the main sortie's waves are thinner. The battle is made at the
@@ -245,6 +249,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       blast('small', event.x, 0.5, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
       blast(event.z >= game.map.bounds.maxZ ? 'water' : 'large', event.x, 0.8, event.z);
+    } else if (event.kind === 'planted') {
+      spawnDust(event.x, event.z, PLANT_DUST, FEEL_TUNE);
+    } else if (event.kind === 'blast') {
+      blast('large', event.x, 0.8, event.z);
     } else if (event.kind === 'allyDown') {
       // the only fate there is is a mortar shell, drawn as a battle shell is
       shellBurst(event.x, event.z);
@@ -311,6 +319,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawEnemies(view.enemies, game);
   drawPillboxWarns(view.pillboxWarns, game);
   drawHazards(view.hazards, game);
+  drawBlasts(view.blasts, game);
   drawSeaFire(view.seaFire, game);
   drawAllies(view.allies, game, view.battle, stream('battle'), dt);
   hurtStep(view.hurt, dt, game.armor / MECH_TUNE.armor);

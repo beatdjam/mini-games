@@ -82,6 +82,12 @@ export function planSounds(input: SoundInput): SoundCue[] {
       case 'mineBlast':
         ask('explosionLarge', event);
         break;
+      case 'planted':
+        ask('charge', event);
+        break;
+      case 'blast':
+        ask('explosionLarge', event);
+        break;
       case 'shellWarn':
         ask('shellWarn', event);
         break;

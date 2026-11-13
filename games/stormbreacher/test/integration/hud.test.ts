@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { ENEMIES } from '../../src/data/enemies.ts';
+import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { RADIO_MIN_SEC } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
@@ -253,4 +254,29 @@ test('the radar shows the living enemies and leaves out the fallen and the far',
   expect(radar[0].kind).toBe('grunt');
   expect(radar[0].angle).toBeCloseTo(0, 6);
   expect(radar[0].dist).toBeCloseTo(50 / HUD_TUNE.radarRange, 6);
+});
+
+test('the use prompt comes up near a blast point and follows the hold', () => {
+  const game = newGame(M1B_HAND);
+  const blast = game.blasts.find(place => place.id === 'l1-b');
+  if (!blast) throw new Error('the map has no l1-b');
+  game.mech.x = blast.x;
+  game.mech.z = blast.z + 2;
+  expect(hudModel(game).use).toEqual({ key: 'hud.use', progress: 0 });
+
+  game.plant = { blast: blast.id, hold: CHARGE_TUNE.holdSec / 2 };
+  expect(hudModel(game).use?.progress).toBeCloseTo(0.5, 6);
+
+  game.mech.z = blast.z + CHARGE_TUNE.reach + 1;
+  expect(hudModel(game).use).toBeNull();
+});
+
+test('a planted charge shows its fuse left and full length', () => {
+  const game = newGame(M1B_HAND);
+  const blast = game.blasts.find(place => place.id === 'l1-b');
+  if (!blast) throw new Error('the map has no l1-b');
+  game.mech.x = blast.x;
+  game.mech.z = blast.z + 2;
+  game.charges.push({ blast: blast.id, left: CHARGE_TUNE.fuse / 2 });
+  expect(hudModel(game).charge).toEqual({ left: CHARGE_TUNE.fuse / 2, total: CHARGE_TUNE.fuse });
 });
