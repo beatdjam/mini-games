@@ -28,9 +28,10 @@ export interface CameraTune {
   lookHeight: number; // the look point's height above the mech's feet (m)
   minDist: number; // the shortest horizontal distance a wall may pull the camera to (m): near 0, so the camera stays on this side of any wall farther than this
   margin: number; // the gap kept in front of a wall (m)
-  pullSpeed: number; // the fastest a wall may bring the camera in (m/s); a slower cap keeps a corner from snapping
-  pullGap: number; // a gap this large between the camera and the pose counts as the wall pulling it in (m)
+  pullSpeed: number; // the fastest a wall may bring the camera in, or a turn may swing it (m/s); keeps a corner from snapping
+  pullGap: number; // a gap this large between the camera and the pose counts as still pulling it in (m)
   pullNear: number; // the camera counts as near the mech this much closer than its open distance (m)
+  maxSpeed: number; // the fastest the camera may move while it is falling behind its open place (m/s)
   returnSpeed: number; // the fastest the camera comes back out after a wall lets it go (m/s)
   returnLag: number; // the time constant for coming back out (s)
   releaseGap: number; // a wall lets the camera go when it is this much farther than the camera was (m)

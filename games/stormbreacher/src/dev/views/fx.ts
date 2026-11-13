@@ -9,7 +9,7 @@ import { initPlayInput, readInput } from '../../app/input.ts';
 import { seed as seedRng, stream } from '../../logic/rng.ts';
 import { MECH_BASE_HEIGHT, scaleForMech } from '../../logic/mechScale.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
-import { applyPose, cameraPose, followCamera } from '../../view/camera.ts';
+import { applyPose, cameraPose, followCamera, type CameraState } from '../../view/camera.ts';
 import { buildBattle, type Battle } from '../../view/battle/index.ts';
 import type { CrowdCounts } from '../../logic/crowd.ts';
 import { MAP_FOG, buildMapScene, mapOf, seedOf, sourceOf, type Source } from './mapView.ts';
@@ -333,7 +333,7 @@ export function showFx(_hash: string) {
   };
 
   let pitch = 0;
-  let camPos: THREE.Vector3 | null = null;
+  let cam: CameraState | null = null;
   let fps = 0;
   let fpsFrames = 0;
   let fpsTime = 0;
@@ -373,9 +373,9 @@ export function showFx(_hash: string) {
         (MECH_TUNE.radius * mechSize) / MECH_BASE_HEIGHT,
       );
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, cameraAtSize, cameraBoxes);
-      camPos = followCamera(camPos, pose, dt, cameraAtSize);
-      const pos = camPos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos }, step.fov);
+      cam = followCamera(cam, pose, dt, cameraAtSize);
+      const pos = cam.pos.clone().add(step.offset);
+      applyPose(camera, { ...pose, pos, look: cam.look }, step.fov);
       cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
 
       fpsFrames++;

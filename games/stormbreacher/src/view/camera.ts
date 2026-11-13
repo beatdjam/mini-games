@@ -23,6 +23,19 @@ export interface CameraPose {
   dist: number; // the horizontal distance from look to pos (m)
   pulled: boolean; // a wall pulled the camera closer than dist
   shoulder: number; // how far the look point moved right (m)
+  openLook: THREE.Vector3; // where the look point would be with no walls
+  feet: { x: number; z: number }; // the mech's feet on the ground (m), for the step it took this frame
+  yaw: number; // the mech's own facing (rad), so a step backward is known from a strafe
+}
+
+// What the screen used last frame: the place the camera was put, the point it looked at, the look point with no walls
+// (the wall's share is measured from it), and the mech's feet (for the step it took). The view keeps it between frames,
+// so the mech's motion follows with `lag` and only the wall's push and a wide swing ease.
+export interface CameraState {
+  pos: THREE.Vector3; // the camera's place on the screen
+  look: THREE.Vector3; // the point the screen looks at
+  openLook: THREE.Vector3; // the look point with no walls (see CameraPose.openLook)
+  feet: { x: number; z: number }; // the mech's feet last frame (m)
 }
 
 interface Hit {
@@ -143,6 +156,10 @@ export function cameraPose(
   const up = tune.height - baseDist * Math.sin(pitchUsed);
   const behind = new THREE.Vector3(Math.sin(target.yaw), 0, Math.cos(target.yaw));
 
+  // The look point with no walls: the share a wall adds or takes away is measured from it, so the view can keep the
+  // mech's own motion exact and ease only the wall's shoulder and close look.
+  const openLook = head.clone().addScaledVector(right, tune.shoulder);
+
   let shoulder = tune.shoulder;
   if (shoulder > 0) {
     const hit = nearestHitFan(head, right, shoulder, boxes, tune.probeDeg);
@@ -172,20 +189,38 @@ export function cameraPose(
     placed.pos.y = Math.max(placed.pos.y, target.y + tune.margin);
   }
 
-  return { pos: placed.pos, look, dist, pulled: placed.pulled, shoulder };
+  return {
+    pos: placed.pos,
+    look,
+    dist,
+    pulled: placed.pulled,
+    shoulder,
+    openLook,
+    feet: { x: target.x, z: target.z },
+    yaw: target.yaw,
+  };
 }
 
-// The line through the middle of the screen: from where the camera sits to the point it looks at. No walls are given,
-// so the line is the one the camera would have in the open.
-export function aimRay(target: CameraTarget, pitch: number, tune: CameraTune): Ray3 {
-  const pose = cameraPose(target, pitch, tune, []);
+// A pose as a camera state: a camera already in its place, with no ease behind it.
+export function stateOfPose(pose: CameraPose): CameraState {
   return {
-    ox: pose.pos.x,
-    oy: pose.pos.y,
-    oz: pose.pos.z,
-    dx: pose.look.x - pose.pos.x,
-    dy: pose.look.y - pose.pos.y,
-    dz: pose.look.z - pose.pos.z,
+    pos: pose.pos.clone(),
+    look: pose.look.clone(),
+    openLook: pose.openLook.clone(),
+    feet: { x: pose.feet.x, z: pose.feet.z },
+  };
+}
+
+// The line through the middle of the screen: from where the camera was put to the point it looked at. Taking the state
+// the view drew means a wall's shoulder, close look and close pitch all move the aim with the screen.
+export function aimRay(state: CameraState): Ray3 {
+  return {
+    ox: state.pos.x,
+    oy: state.pos.y,
+    oz: state.pos.z,
+    dx: state.look.x - state.pos.x,
+    dy: state.look.y - state.pos.y,
+    dz: state.look.z - state.pos.z,
   };
 }
 
@@ -196,34 +231,68 @@ export function followPose(prev: THREE.Vector3, next: THREE.Vector3, dt: number,
   return prev.clone().lerp(next, amount);
 }
 
-// The camera's place for this frame, followed from the last. A wall bringing the camera in is capped at `pullSpeed`, so
-// a wall appearing at a corner slides the camera in rather than snapping it; a wall letting it go returns it at
-// `returnSpeed`, slower than it came in. In the open the camera follows with `lag` as before.
-export function followCamera(
-  prev: THREE.Vector3 | null,
-  pose: CameraPose,
+// The wall's share of the look point's move, followed from the last frame. The mech's own motion is added outside this,
+// so the aim stays on the mech; only the shoulder's shortening and `closeLook` ease here. Pulling in changes it at most
+// `pullSpeed`; a wall that has let go (the share shrinks by more than `releaseGap` while it is longer than `pullNear`)
+// comes back at `returnSpeed`, eased by `returnLag`, and the last `pullGap` closes at the pull speed.
+function followWallOffset(
+  prevOffset: THREE.Vector3,
+  poseOffset: THREE.Vector3,
   dt: number,
   tune: CameraTune,
 ): THREE.Vector3 {
-  if (prev === null) return pose.pos.clone();
-  const prevDist = Math.hypot(prev.x - pose.look.x, prev.z - pose.look.z);
-  const inward = prevDist - pose.dist; // how much farther out the camera is than the pose wants (m)
-  const outward = pose.dist - prevDist; // how much nearer it is (m)
-  let lag = tune.lag;
-  let speed = Infinity;
-  const near = pose.pulled || prevDist < tune.dist - tune.pullNear;
-  if (outward > tune.releaseGap) {
-    // the wall let it go: come back out slowly
-    lag = tune.returnLag;
-    speed = tune.returnSpeed;
-  } else if (near || inward > tune.pullGap) {
-    // a wall is holding it in, or a corner is swinging its place: slide, do not jump
-    speed = tune.pullSpeed;
-  }
-  const step = followPose(prev, pose.pos, dt, lag).sub(prev);
+  const prevLength = prevOffset.length();
+  const poseLength = poseOffset.length();
+  const near = prevLength > tune.pullNear;
+  const remaining = poseOffset.distanceTo(prevOffset);
+  const returning = near && prevLength - poseLength > tune.releaseGap && remaining > tune.pullGap;
+  const step = (returning ? followPose(prevOffset, poseOffset, dt, tune.returnLag) : poseOffset.clone()).sub(
+    prevOffset,
+  );
+  const limit = (returning ? tune.returnSpeed : tune.pullSpeed) * dt;
   const length = step.length();
-  if (Number.isFinite(speed) && length > speed * dt) step.multiplyScalar((speed * dt) / length);
-  return prev.clone().add(step);
+  if (length > limit) step.multiplyScalar(limit / length);
+  return prevOffset.clone().add(step);
+}
+
+// The camera for this frame. The look point keeps the mech's own motion exact (a boost must not leave the aim behind)
+// and eases only the wall's shoulder and close look; the place follows the pose with `lag`, its speed held while a wall
+// or a turn is shaping it, and never held when the mech backs toward the camera (that would walk the camera into the
+// mech). In the open, no wall share is on the look and the place is still held while a turn swings it wide or a boost
+// outruns it.
+export function followCamera(prev: CameraState | null, pose: CameraPose, dt: number, tune: CameraTune): CameraState {
+  if (prev === null) return stateOfPose(pose);
+  const travel = new THREE.Vector3(pose.feet.x - prev.feet.x, 0, pose.feet.z - prev.feet.z);
+  const travelSpeed = travel.length() / dt;
+
+  const lookOffset = followWallOffset(
+    prev.look.clone().sub(prev.openLook),
+    pose.look.clone().sub(pose.openLook),
+    dt,
+    tune,
+  );
+  const look = pose.openLook.clone().add(lookOffset);
+
+  const prevDist = Math.hypot(prev.pos.x - pose.look.x, prev.pos.z - pose.look.z);
+  const near = pose.pulled || prevDist < tune.dist - tune.pullNear;
+  const returning = near && pose.dist - prevDist > tune.releaseGap;
+  const gap = prev.pos.distanceTo(pose.pos);
+  // The camera sits behind the mech, so only a step backward walks it into the camera; a strafe or a boost away does not.
+  const closing = travel.x * -Math.sin(pose.yaw) + travel.z * -Math.cos(pose.yaw) < 0;
+  const step = followPose(prev.pos, pose.pos, dt, tune.lag).sub(prev.pos);
+  // a wall pulling or a turn swings the place; the mech's own travel raises the limit, so a boost keeps up with it. A
+  // wall that is pulling always holds it, even when the mech backs toward the camera: the near place is then the safe one.
+  if ((pose.pulled || near || gap > tune.pullGap) && (!closing || pose.pulled)) {
+    const limit = Math.min(tune.maxSpeed, (returning ? tune.returnSpeed : tune.pullSpeed) + travelSpeed) * dt;
+    if (step.length() > limit) step.multiplyScalar(limit / step.length());
+  }
+
+  return {
+    pos: prev.pos.clone().add(step),
+    look,
+    openLook: pose.openLook.clone(),
+    feet: { x: pose.feet.x, z: pose.feet.z },
+  };
 }
 
 // Puts a pose on the camera: position, look direction and field of view.

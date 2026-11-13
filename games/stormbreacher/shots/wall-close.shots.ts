@@ -10,7 +10,7 @@ import { boot } from '../src/app/boot.ts';
 import { CAMERA_TUNE } from '../src/data/tune.ts';
 import { newEnemy } from '../src/logic/enemies.ts';
 import { sendToScript, step } from '../src/logic/game.ts';
-import { aimRay } from '../src/view/camera.ts';
+import { aimRay, cameraPose, stateOfPose } from '../src/view/camera.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
 
@@ -23,7 +23,7 @@ const DRAWN_FRAMES = 3; // frames drawn before the picture, so it does not show 
 const SNAP_SPEED = 1e6; // m/s: the ease's cap while a shot puts the camera in its place, high enough to count as no cap
 const SEAWALL_X = 20; // a piece of the seawall's middle (m)
 const SEAWALL_FACE = -65; // the seawall's near face on +z (m)
-const CORNER_X = 92; // the seawall's east end, under the cliff at x 100 (m)
+const CORNER_X = 85; // in front of the seawall, clear of the cliff's box (x 88.44 to 111.56), looking east at the corner (m)
 const CLOSE_DISTS = [3, 5, 8]; // the grunts' distance ahead (m)
 
 const idle = { moveX: 0, moveZ: 0, turn: 0, jump: false, jumpHeld: false, boost: false, fire: false, sub: false };
@@ -62,12 +62,14 @@ async function stand(x: number, z: number, yaw: number): Promise<void> {
   const ease = {
     lag: CAMERA_TUNE.lag,
     pullSpeed: CAMERA_TUNE.pullSpeed,
+    maxSpeed: CAMERA_TUNE.maxSpeed,
     returnSpeed: CAMERA_TUNE.returnSpeed,
     returnLag: CAMERA_TUNE.returnLag,
   };
   try {
     CAMERA_TUNE.lag = 0;
     CAMERA_TUNE.pullSpeed = SNAP_SPEED;
+    CAMERA_TUNE.maxSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnLag = 0;
     for (let n = 0; n < SETTLE; n++) await frame();
@@ -97,9 +99,10 @@ test('wall-close', async () => {
     await picture('wall-close-back');
   }
 
-  // the east end of the seawall and the cliff make a corner the camera turns around
+  // the east end of the seawall and the cliff make a corner the camera turns around; the mech stands outside the
+  // cliff's box (1925's result 4), looking east along the seawall
   if (wanted('wall-close-corner')) {
-    await stand(CORNER_X - 1, SEAWALL_FACE + 1, -0.6);
+    await stand(CORNER_X, SEAWALL_FACE + 1, -Math.PI / 2);
     await picture('wall-close-corner');
   }
 
@@ -124,7 +127,8 @@ test('wall-close', async () => {
     }
     // hold the loop's own clock, then fire a few frames by hand so the tracers are in the air
     LOOP.maxDt = 0;
-    const aim = aimRay({ x: g.mech.x, y: g.mech.y, z: g.mech.z, yaw: g.mech.yaw }, -0.18, CAMERA_TUNE);
+    const target = { x: g.mech.x, y: g.mech.y, z: g.mech.z, yaw: g.mech.yaw };
+    const aim = aimRay(stateOfPose(cameraPose(target, -0.18, CAMERA_TUNE, [])));
     for (let i = 0; i < 2; i++) {
       step(g, { ...idle, fire: true, aim }, 1 / 60);
       await frame();

@@ -4,12 +4,19 @@
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
-import { cameraBoxes, cameraPose, followCamera, type CameraPose, type CameraTarget } from '../../src/view/camera.ts';
+import {
+  cameraBoxes,
+  cameraPose,
+  followCamera,
+  type CameraPose,
+  type CameraState,
+  type CameraTarget,
+} from '../../src/view/camera.ts';
 
 const DT = 1 / 60;
 const TURN_RATE = Math.PI; // rad/s, a full turn in two seconds
 const SETTLE = 30; // frames the camera gets to reach its place before the turn starts
-const MAX_JUMP = 0.2; // the most one frame may move the camera (m); the wall holds it under pullSpeed * dt
+const MAX_JUMP = CAMERA_TUNE.pullSpeed * DT + 1e-6; // the most one frame may move the camera (m): the wall holds it to pullSpeed
 
 interface Run {
   maxJump: number; // the largest move one frame makes (m)
@@ -22,14 +29,15 @@ interface Run {
 
 // Turns the mech a full circle in place while the camera follows as the game does, and measures the run.
 function turnRun(target: CameraTarget, boxes: readonly THREE.Box3[], tune = CAMERA_TUNE): Run {
-  let pos: THREE.Vector3 | null = null;
+  let state: CameraState | null = null;
   let prev: THREE.Vector3 | null = null;
   const chest = new THREE.Vector3(target.x, target.y + MECH_TUNE.chestHeight, target.z);
   const run: Run = { maxJump: 0, minChest: Infinity, minHeight: Infinity, maxHeight: -Infinity, faded: 0, behind: 0 };
   for (let frame = 0; frame < SETTLE + 120; frame++) {
     const yaw = target.yaw + (frame < SETTLE ? 0 : (frame - SETTLE) * DT * TURN_RATE);
     const pose = cameraPose({ ...target, yaw }, 0, tune, boxes);
-    pos = followCamera(pos, pose, DT, tune);
+    state = followCamera(state, pose, DT, tune);
+    const pos = state.pos;
     if (prev) run.maxJump = Math.max(run.maxJump, pos.distanceTo(prev));
     prev = pos.clone();
     const chestDist = pos.distanceTo(chest);

@@ -8,7 +8,7 @@ import { newEnemy } from '../../src/logic/enemies.ts';
 import { fireRayHit } from '../../src/logic/fire.ts';
 import { enemyBox, step, type GameModel } from '../../src/logic/game.ts';
 import { seed } from '../../src/logic/rng.ts';
-import { aimRay } from '../../src/view/camera.ts';
+import { aimRay, cameraPose, stateOfPose } from '../../src/view/camera.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
@@ -21,11 +21,16 @@ const WANT_HIT = 18; // the shots that must hit of 20 (90%)
 
 const idle = { moveX: 0, moveZ: 0, turn: 0, jump: false, jumpHeld: false, boost: false, fire: false, sub: false };
 
+// The middle of the screen the open camera draws, for a mech standing as it is.
+function openAim(game: GameModel, pitch: number) {
+  const { x, y, z, yaw } = game.mech;
+  return aimRay(stateOfPose(cameraPose({ x, y, z, yaw }, pitch, CAMERA_TUNE, [])));
+}
+
 // The pitch that puts the camera's line through `point` (rad). The line rises with the pitch.
 function pitchTo(game: GameModel, point: { x: number; y: number; z: number }): number {
   const at = (pitch: number): number => {
-    const { x, y, z, yaw } = game.mech;
-    const aim = aimRay({ x, y, z, yaw }, pitch, CAMERA_TUNE);
+    const aim = openAim(game, pitch);
     const t = ((point.x - aim.ox) * aim.dx + (point.z - aim.oz) * aim.dz) / (aim.dx * aim.dx + aim.dz * aim.dz);
     return aim.oy + aim.dy * t;
   };
@@ -60,7 +65,7 @@ function measure(dist: number): Measure {
   const enemy = game.enemies[0];
   const box = enemyBox(enemy);
   const cy = (box.minY + box.maxY) / 2;
-  const aim = aimRay({ x: 0, y: 0, z: MECH_Z, yaw: 0 }, pitchTo(game, { x: targetX, y: cy, z: targetZ }), CAMERA_TUNE);
+  const aim = openAim(game, pitchTo(game, { x: targetX, y: cy, z: targetZ }));
 
   // The reticle's point: where the camera's line first meets the grunt, counted past the muzzle (manualDir's rule).
   const raw = { dx: aim.dx, dy: aim.dy, dz: aim.dz };
@@ -159,12 +164,12 @@ function orbitHits(dist: number): number {
   };
   for (let frame = 0; frame < 600 && fired < SHOTS; frame++) {
     enemy.hp = 40;
-    const { x, y, z, yaw } = game.mech;
+    const { x, z, yaw } = game.mech;
     const right = { x: Math.cos(yaw), z: -Math.sin(yaw) };
     const forward = { x: -Math.sin(yaw), z: -Math.cos(yaw) };
     enemy.x = x + right.x * CAMERA_TUNE.shoulder + forward.x * dist;
     enemy.z = z + right.z * CAMERA_TUNE.shoulder + forward.z * dist;
-    const aim = aimRay({ x, y, z, yaw }, pitchTo(game, { x: enemy.x, y: cy, z: enemy.z }), CAMERA_TUNE);
+    const aim = openAim(game, pitchTo(game, { x: enemy.x, y: cy, z: enemy.z }));
     step(game, { ...idle, turn: ORBIT_RATE * DT, fire: true, aim }, DT);
     take();
     if (fired >= SHOTS) {
