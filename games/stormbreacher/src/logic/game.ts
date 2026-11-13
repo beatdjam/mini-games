@@ -24,6 +24,7 @@ import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
+import { RADIO_TUNE } from '../data/script.ts';
 import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
 import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
@@ -204,7 +205,8 @@ export interface GameModel {
   map: MapDef;
   mission: MissionDef; // the script's write-up (data/missions/m1.ts)
   script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
-  radio: { line: string; time: number } | null; // the last radio line's key and when it came; null before one
+  radio: { line: string; time: number } | null; // the line on screen now, with the game time it came up; null before one
+  radioQueue: { line: string; time: number }[]; // the lines waiting to come up after it, oldest first; time is when the script said it (s)
   mech: MechState;
   armor: number; // the mech's armour left (MECH_TUNE.armor at the start)
   downed: boolean; // set when the armour reaches 0; step does nothing after
@@ -548,6 +550,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     mission,
     script: newScript(mission),
     radio: null,
+    radioQueue: [],
     mech,
     armor: MECH_TUNE.armor,
     downed: false,
@@ -651,13 +654,29 @@ function spawnAlly(game: GameModel, event: Extract<ScriptOut, { kind: 'ally' }>)
   game.allies.push(newAlly(event.id, way, fate));
 }
 
-// Keeps every event the script reported. The game itself takes four: a radio line (the last one stays up), a wave to
-// put out and start the barrage of (`spawn`), an ally to put out (`ally`) and the end (the sortie is cleared).
+// Puts one radio line behind the one on screen. `time` is when the script said it (s). When the queue is full the newest
+// line is dropped: dropping the oldest would leave the lines behind the one on screen waiting longer.
+export function queueRadio(game: GameModel, line: string, time: number): void {
+  if (game.radioQueue.length >= RADIO_TUNE.maxPending) return;
+  game.radioQueue.push({ line, time });
+}
+
+// Moves the radio band on: the next line comes up when the one on screen has had RADIO_TUNE.minSec (s), one line a
+// frame at most, so a line that came with another still gets its time on screen. `time` is when it came up.
+export function stepRadio(game: GameModel): void {
+  const shown = game.radio;
+  if (shown !== null && game.time - shown.time < RADIO_TUNE.minSec) return;
+  const next = game.radioQueue.shift();
+  game.radio = next === undefined ? null : { line: next.line, time: game.time };
+}
+
+// Keeps every event the script reported. The game itself takes four: a radio line (the lines queue up, one on screen), a
+// wave to put out and start the barrage of (`spawn`), an ally to put out (`ally`) and the end (the sortie is cleared).
 function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
   let checkpoint: string | null = null;
   for (const event of outs) {
     game.events.push({ kind: 'script', event });
-    if (event.kind === 'radio') game.radio = { line: event.line, time: game.time };
+    if (event.kind === 'radio') queueRadio(game, event.line, game.time);
     if (event.kind === 'spawn') {
       spawnWave(game, event.wave);
       startBarrage(game, event.wave);
@@ -951,4 +970,5 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     if (inArea(area, game.mech.x, game.mech.z)) sendToScript(game, { kind: 'enter', area: id });
   }
   applyScriptOut(game, stepScript(game.script, game.mission, dt));
+  stepRadio(game);
 }

@@ -3,11 +3,20 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { RADIO_MIN_SEC } from '../../src/data/script.ts';
+import { RADIO_TUNE } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
-import { newGame, sendToScript, step, type GameInput, type GameModel, type TargetState } from '../../src/logic/game.ts';
+import {
+  newGame,
+  queueRadio,
+  sendToScript,
+  step,
+  stepRadio,
+  type GameInput,
+  type GameModel,
+  type TargetState,
+} from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { hudModel } from '../../src/logic/hud.ts';
 
@@ -116,18 +125,29 @@ test('an objective that is not counted shows no count', () => {
   expect(hudModel(game).objective).toEqual({ key: 'obj.hit-magazine', count: null });
 });
 
-test('the radio line stays for RADIO_MIN_SEC', () => {
+test('two radio lines come up in turn, each for RADIO_TUNE.minSec', () => {
   const game = newGame(M1B_HAND);
   step(game, idle, 1 / 60);
   expect(hudModel(game).radio).toBeNull();
 
+  // the same frame brings two lines: the b-line's radio and one queued behind it
   sendToScript(game, { kind: 'enter', area: 'b-line' });
+  queueRadio(game, 'm1.pillboxes-down', game.time);
+  step(game, idle, 1 / 60);
   expect(game.radio?.line).toBe('m1.depot-hint');
   expect(hudModel(game).radio).toBe('m1.depot-hint');
 
-  game.time += RADIO_MIN_SEC - 0.1;
+  game.time += RADIO_TUNE.minSec - 0.1;
+  stepRadio(game);
   expect(hudModel(game).radio).toBe('m1.depot-hint');
-  game.time += 0.2;
+  game.time += 0.1;
+  stepRadio(game);
+  expect(game.radio?.line).toBe('m1.pillboxes-down');
+  expect(hudModel(game).radio).toBe('m1.pillboxes-down');
+
+  game.time += RADIO_TUNE.minSec;
+  stepRadio(game);
+  expect(game.radio).toBeNull();
   expect(hudModel(game).radio).toBeNull();
 });
 

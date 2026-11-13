@@ -17,12 +17,15 @@ export interface SoundTarget {
   box: { minX: number; maxX: number; minZ: number; maxZ: number };
 }
 
-// What one frame says to the sound layer. `hostile` is the hostile bullets that were not in the last frame.
+// What one frame says to the sound layer. `hostile` is the hostile bullets that were not in the last frame. `radio` is
+// the line on screen now and `lastRadio` the one the last frame had, so the voice comes with the text.
 export interface SoundInput {
   events: readonly GameEvent[];
   mech: SoundPoint;
   targets: readonly SoundTarget[];
   hostile: readonly SoundPoint[];
+  radio?: { line: string; time: number } | null;
+  lastRadio?: { line: string; time: number } | null;
 }
 
 // One sound to play, with the distance's effect already worked into gain and pitch.
@@ -97,12 +100,19 @@ export function planSounds(input: SoundInput): SoundCue[] {
       case 'downed':
         ask('downed', input.mech);
         break;
-      case 'script':
-        if (event.event.kind === 'radio') ask('radio', input.mech);
-        break;
       default:
         break;
     }
+  }
+  // The voice is the line the screen put up, not the script's event: a queued line speaks when it comes up.
+  if (
+    input.radio &&
+    (input.lastRadio === null ||
+      input.lastRadio === undefined ||
+      input.radio.line !== input.lastRadio.line ||
+      input.radio.time !== input.lastRadio.time)
+  ) {
+    ask('radio', input.mech);
   }
   for (const shot of input.hostile) ask('enemyGun', shot);
 
@@ -139,6 +149,9 @@ let nextBoom = 0;
 // The hostile bullets already heard. A fresh shot is a new object, so a hit that removes an old one cannot hide a new
 // one the way a count would.
 let heardHostile = new WeakSet<Bullet>();
+// The radio line the last frame had on screen; the voice plays when this changes. A copy, so the state here does not
+// hold the game's object.
+let lastRadio: { line: string; time: number } | null = null;
 // The ambience draws from its own fixed-seed generator: it must not touch the game's stream, and a fixed seed keeps a
 // sortie's beach the same every run.
 let ambientRng: Rng = createRng(SOUND_AMBIENT.seed);
@@ -152,6 +165,7 @@ export function resetSound(): void {
   nextBoom = SOUND_AMBIENT.firstBoom;
   ambientRng = createRng(SOUND_AMBIENT.seed);
   heardHostile = new WeakSet();
+  lastRadio = null;
 }
 
 // The beach while the sortie runs. It is driven from update, so a pause, the result and the title stop it by not calling
@@ -177,8 +191,16 @@ export function soundFrame(game: GameModel, dt: number): void {
     heardHostile.add(bullet);
     hostile.push({ x: bullet.x, z: bullet.z });
   }
-  for (const cue of planSounds({ events: game.events, mech: game.mech, targets: game.targets, hostile })) {
+  for (const cue of planSounds({
+    events: game.events,
+    mech: game.mech,
+    targets: game.targets,
+    hostile,
+    radio: game.radio,
+    lastRadio,
+  })) {
     playSound(cue);
   }
+  lastRadio = game.radio === null ? null : { line: game.radio.line, time: game.radio.time };
   stepAmbient(dt);
 }

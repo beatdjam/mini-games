@@ -67,7 +67,6 @@ test('a frame maps its events to the table’s sounds', () => {
     { kind: 'shellLand', x: 0, z: 30, hit: false },
     { kind: 'damaged', amount: 10, fromX: 0, fromZ: 1 },
     { kind: 'downed' },
-    { kind: 'script', event: { kind: 'radio', line: 'radio.test', time: 0 } },
   ];
   const names = planSounds({ events, mech: MECH, targets: [target('pillbox', 40)], hostile: [{ x: 0, z: 50 }] }).map(
     cue => cue.name,
@@ -83,7 +82,6 @@ test('a frame maps its events to the table’s sounds', () => {
     'shellWarn',
     'shellLand',
     'downed',
-    'radio',
     'enemyGun',
   ]);
   // a mine blast is the big explosion too, and the per-frame limit leaves one big blast when two land together
@@ -92,6 +90,18 @@ test('a frame maps its events to the table’s sounds', () => {
       cue => cue.name,
     ),
   ).toEqual(['explosionLarge']);
+});
+
+test('the radio speaks when the line on screen changes', () => {
+  const radio = { line: 'm1.depot-hint', time: 4 };
+  const names = (input: { radio: { line: string; time: number } | null; lastRadio: typeof radio | null }) =>
+    planSounds({ events: [], mech: MECH, targets: [], hostile: [], ...input }).map(cue => cue.name);
+  expect(names({ radio, lastRadio: { ...radio } })).toEqual([]);
+  expect(names({ radio, lastRadio: { line: radio.line, time: radio.time + 1 } })).toEqual(['radio']);
+  expect(names({ radio, lastRadio: { line: 'm1.pillboxes-down', time: radio.time } })).toEqual(['radio']);
+  expect(names({ radio, lastRadio: null })).toEqual(['radio']);
+  // a line going away is not a voice
+  expect(names({ radio: null, lastRadio: radio })).toEqual([]);
 });
 
 test('a planted charge rings and a blast is the big explosion', () => {
@@ -166,9 +176,9 @@ beforeEach(() => {
 });
 
 const enemyBullet = (): Bullet => ({ x: 6, y: 1, z: 4, dx: 0, dy: 0, dz: 1, left: 10, enemy: 'grunt' });
-// Only the fields soundFrame reads: the frame's events, the bullets, the mech and the targets.
+// Only the fields soundFrame reads: the frame's events, the bullets, the mech, the targets and the radio.
 const fakeGame = (bullets: Bullet[]): GameModel =>
-  ({ bullets, events: [], mech: MECH, targets: [] }) as unknown as GameModel;
+  ({ bullets, events: [], mech: MECH, targets: [], radio: null }) as unknown as GameModel;
 
 test('one enemy bullet is heard once, however many frames it lives', () => {
   const game = fakeGame([enemyBullet()]);
@@ -177,6 +187,22 @@ test('one enemy bullet is heard once, however many frames it lives', () => {
   // the enemy gun is the only sound with a tone here; the ambience's wave is noise only and its far gun is not due yet
   expect(synth.tones).toHaveLength(1);
   expect(synth.tones[0].type).toBe('sine');
+});
+
+test('the radio sounds once, on the frame the line on screen changes', () => {
+  const withRadio = (line: string | null, time: number): GameModel =>
+    ({ ...fakeGame([]), radio: line === null ? null : { line, time } }) as unknown as GameModel;
+  // the radio's one tone is a square; the ambience's wave has noises only and its far gun is not due yet
+  const voices = (): number => synth.tones.filter(tone => tone.type === 'square').length;
+
+  soundFrame(withRadio('m1.depot-hint', 2), 0);
+  expect(voices()).toBe(1);
+  soundFrame(withRadio('m1.depot-hint', 2), 0); // the same line on screen: nothing new
+  expect(voices()).toBe(1);
+  soundFrame(withRadio('m1.pillboxes-down', 5), 0);
+  expect(voices()).toBe(2);
+  soundFrame(withRadio(null, 5), 0); // the band empties: no voice
+  expect(voices()).toBe(2);
 });
 
 test('the ambience keeps its interval and starts again from its seed', () => {

@@ -112,6 +112,18 @@ describe('suspend', () => {
     expect(back?.aimed).toEqual({ anchor: { x: 12, z: 34 }, still: 1.75 });
   });
 
+  test('the radio queue comes back in the same order', () => {
+    const game = newGame(M1B_HAND);
+    game.radio = { line: 'm1.depot-hint', time: 1 };
+    game.radioQueue.push({ line: 'm1.pillboxes-down', time: 2 }, { line: 'm1.wave2-lost', time: 3 });
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.radio).toEqual({ line: 'm1.depot-hint', time: 1 });
+    expect(back?.radioQueue).toEqual([
+      { line: 'm1.pillboxes-down', time: 2 },
+      { line: 'm1.wave2-lost', time: 3 },
+    ]);
+  });
+
   test('a version that is not this one is thrown away', () => {
     const data = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
     expect(restoreSuspend({ ...data, v: SUSPEND_VERSION + 1 })).toBeNull();
@@ -147,5 +159,7 @@ describe('suspend', () => {
     for (const data of cases) expect(restoreSuspend(data)).toBeNull();
     const { retries: _retries, ...noRetries } = game;
     expect(restoreSuspend({ ...good, game: noRetries })).toBeNull();
+    const { radioQueue: _radioQueue, ...noRadioQueue } = game;
+    expect(restoreSuspend({ ...good, game: noRadioQueue })).toBeNull();
   });
 });

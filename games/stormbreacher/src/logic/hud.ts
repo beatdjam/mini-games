@@ -2,7 +2,7 @@
 // view/hud.ts draws them. There is no heat.
 import { ENEMIES, type EnemyKind } from '../data/enemies.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
-import { RADIO_MIN_SEC, OBJECTIVE_COUNT } from '../data/script.ts';
+import { RADIO_TUNE, OBJECTIVE_COUNT } from '../data/script.ts';
 import { TARGET_HP } from '../data/props.ts';
 import { HUD_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
@@ -32,7 +32,7 @@ export interface HudModel {
   main: HudAmmo;
   sub: HudAmmo;
   objective: { key: string; count: { done: number; total: number } | null } | null; // the script's objective (`obj.<id>`); count is set for the objectives in OBJECTIVE_COUNT; null before the script names one
-  radio: string | null; // the language key of the last radio line while it is within RADIO_MIN_SEC, else null
+  radio: string | null; // the language key of the radio line on screen while it is within RADIO_TUNE.minSec, else null
   lock: Aabb | null; // the box of the target or enemy `enemy` describes, for the lock frame; null when `enemy` is
   enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp
   radar: HudRadarMark[]; // the living targets and enemies within HUD_TUNE.radarRange
@@ -123,7 +123,7 @@ export function hudModel(game: GameModel): HudModel {
     main: hudAmmo(game.main),
     sub: hudAmmo(game.sub),
     objective,
-    radio: radio !== null && game.time - radio.time < RADIO_MIN_SEC ? radio.line : null,
+    radio: radio !== null && game.time - radio.time < RADIO_TUNE.minSec ? radio.line : null,
     enemy,
     lock,
     radar,

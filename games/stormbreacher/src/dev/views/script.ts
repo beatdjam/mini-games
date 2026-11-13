@@ -3,7 +3,7 @@
 // buttons stand in for the player, the map and the enemies, none of which exist yet.
 import { addSystem, el, t } from '@engine/core/index.ts';
 import { M1 } from '../../data/missions/m1.ts';
-import { RADIO_MIN_SEC } from '../../data/script.ts';
+import { RADIO_TUNE } from '../../data/script.ts';
 import { newScript, scriptInput, stepScript, type ScriptInput, type ScriptOut } from '../../logic/script.ts';
 
 declare global {
@@ -142,7 +142,7 @@ export function showScript(_hash: string) {
     }
     const next = radioQueue.shift();
     radio.textContent = next === undefined ? '' : t(next);
-    radioLeft = next === undefined ? 0 : RADIO_MIN_SEC;
+    radioLeft = next === undefined ? 0 : RADIO_TUNE.minSec;
   }
 
   for (const area of Object.keys(M1.areas)) {
