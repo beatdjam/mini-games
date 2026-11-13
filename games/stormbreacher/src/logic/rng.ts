@@ -5,7 +5,7 @@ import { createRng, type Rng } from '@engine/core/index.ts';
 // The named streams: each kind of thing draws from its own sequence, so adding a draw in one place does not shift
 // another place's numbers.
 export type StreamName =
-  'field' | 'fcs' | 'dummies' | 'map' | 'craters' | 'shots' | 'enemies' | 'mortar' | 'battery' | 'battle';
+  'field' | 'fcs' | 'dummies' | 'map' | 'craters' | 'shots' | 'enemies' | 'mortar' | 'battery' | 'pillboxes' | 'battle';
 
 // The value mixed into the seed for a stream (a 32-bit constant). Each stream needs its own.
 const STREAM_SALT: Record<StreamName, number> = {
@@ -18,6 +18,7 @@ const STREAM_SALT: Record<StreamName, number> = {
   enemies: 0x6a09e667,
   mortar: 0xbb67ae85,
   battery: 0x3c6ef372,
+  pillboxes: 0x510e527f,
   battle: 0xa54ff53a,
 };
 

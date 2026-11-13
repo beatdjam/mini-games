@@ -1,10 +1,12 @@
 // The low wall and the stairs: the stairs turn into one rect per step, each a rise higher than the last and facing the
 // way the prop is turned, and the low wall is higher than a step but lower than a jump's peak.
+import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { PROP_SIZE, STAIRS_TUNE, STAIR_RISE } from '../../src/data/props.ts';
 import { MOVE_TUNE } from '../../src/data/tune.ts';
 import type { MapDef, Prop } from '../../src/data/types.ts';
 import { blockingPropIndexes, mapBlockers } from '../../src/logic/mapShapes.ts';
+import { buildOutdoor } from '../../src/view/outdoor.ts';
 
 function mapOf(props: Prop[]): MapDef {
   return { id: 'stairs-test', bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, props, targets: [], spawns: {} };
@@ -47,4 +49,13 @@ test('the low wall is higher than a step and lower than a jump’s peak', () => 
   expect(PROP_SIZE.lowWall.h).toBeGreaterThan(MOVE_TUNE.stepHeight);
   const peak = MOVE_TUNE.jump ** 2 / (2 * MOVE_TUNE.gravity);
   expect(PROP_SIZE.lowWall.h).toBeLessThan(peak);
+});
+
+test('a flight of stairs is still drawn now that M1 climbs by ramp', () => {
+  const built = buildOutdoor([stairs()], { chunk: 32, chunkMin: 3000 });
+  let copies = 0;
+  built.group.traverse(child => {
+    if (child instanceof THREE.InstancedMesh && child.name === 'stairs') copies += child.count;
+  });
+  expect(copies).toBe(1);
 });

@@ -38,6 +38,7 @@ const KINDS: PropKind[] = [
   'wreck',
   'lowWall',
   'stairs',
+  'ramp',
 ];
 
 // Each kind's colour. The tile has none: its ground plane takes its colour from the look (view/look.ts). The concrete
@@ -52,6 +53,7 @@ const KIND_COLOR: Record<Exclude<PropKind, 'tile'>, number> = {
   wreck: BURNT_COLOR,
   lowWall: 0x827f78,
   stairs: 0x88857e,
+  ramp: 0x88857e,
 };
 
 // The kinds that wear a surface picture (view/surfaces.ts). The cliff and the crater keep their colour alone.
@@ -61,6 +63,7 @@ const KIND_SURFACE: Partial<Record<PropKind, SurfaceName>> = {
   seawall: 'concrete',
   lowWall: 'concrete',
   stairs: 'concrete',
+  ramp: 'concrete',
   hedgehog: 'rust',
   wreck: 'burnt',
 };
@@ -177,6 +180,63 @@ function stairsGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
+// A wedge for a ramp: the low edge on the ground at +z, the high edge at -z, a slanted top and two triangular sides.
+// Its corners are laid out by hand so every face keeps its own normal; the slanted face then points up and towards +z
+// instead of taking the near-horizontal normal a box's face would leave.
+function rampGeometry(): THREE.BufferGeometry {
+  const hw = PROP_SIZE.ramp.w / 2;
+  const h = PROP_SIZE.ramp.h;
+  const hd = PROP_SIZE.ramp.d / 2;
+  // a: the low edge (+z, y 0); b: the high edge's foot (-z, y 0); c: the high edge's top (-z, y h)
+  const a0 = [-hw, 0, hd];
+  const a1 = [hw, 0, hd];
+  const b0 = [-hw, 0, -hd];
+  const b1 = [hw, 0, -hd];
+  const c0 = [-hw, h, -hd];
+  const c1 = [hw, h, -hd];
+  const positions = [
+    // the slanted top (up and towards +z)
+    ...a0,
+    ...a1,
+    ...c1,
+    ...a0,
+    ...c1,
+    ...c0,
+    // the two triangular sides
+    ...a0,
+    ...c0,
+    ...b0,
+    ...a1,
+    ...b1,
+    ...c1,
+    // the high end and the bottom
+    ...b0,
+    ...c1,
+    ...b1,
+    ...b0,
+    ...c0,
+    ...c1,
+    ...a0,
+    ...b0,
+    ...b1,
+    ...a0,
+    ...b1,
+    ...a1,
+  ];
+  // The concrete picture (view/surfaces.ts) needs UVs: across the width for u, and up the climb (the run plus the
+  // height, so the slanted face and the high end both get their share) for v.
+  const uvs: number[] = [];
+  for (let i = 0; i < positions.length; i += 3) {
+    const [x, y, z] = [positions[i], positions[i + 1], positions[i + 2]];
+    uvs.push((x + hw) / (2 * hw), (hd - z + y) / (2 * hd + h));
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
   tile: () => fitBox(tileGeometry(), PROP_SIZE.tile),
   hedgehog: () => fitBox(hedgehogGeometry(), PROP_SIZE.hedgehog),
@@ -188,6 +248,7 @@ const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
   wreck: () => fitBox(wreckGeometry(), PROP_SIZE.wreck),
   lowWall: () => fitBox(lowWallGeometry(), PROP_SIZE.lowWall),
   stairs: () => fitBox(stairsGeometry(), PROP_SIZE.stairs),
+  ramp: () => fitBox(rampGeometry(), PROP_SIZE.ramp),
 };
 
 const UP = new THREE.Vector3(0, 1, 0);

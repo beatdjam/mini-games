@@ -72,6 +72,8 @@ LANG.ja = {
     'target.gun': '主砲',
     'target.magazine': '弾薬庫',
     'target.grunt': '小型量産機',
+    'target.assault': '突撃型量産機',
+    'target.heavy': '重装型量産機',
     'obj.reach-pillboxes': 'トーチカ線まで前進',
     'obj.break-pillboxes': 'トーチカを2基破壊',
     'obj.take-seawall': '防波堤を押さえる',

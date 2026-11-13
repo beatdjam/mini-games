@@ -8,7 +8,7 @@ import { TARGET_SIZE, TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
 import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
-import { cameraBoxes } from './camera.ts';
+import { cameraBoxesOfRect } from './camera.ts';
 import { buildShore } from './shore.ts';
 import { breakPropSlot, buildOutdoor, buildTargets, type OutdoorBuild, type PropSlot } from './outdoor.ts';
 
@@ -85,9 +85,11 @@ export function buildWorld(map: MapDef): World {
     shutters.set(def.target, plate);
   }
 
-  // cameraBoxes runs over mapBlockers' rects, which put the blocking props first in map.props' order, so box i belongs
-  // to blockingPropIndexes(map)[i]. Only the breakable props need their box kept.
-  const boxes = cameraBoxes(mapBlockers(map));
+  // cameraBoxesOfRect runs over mapBlockers' rects, which put the blocking props first in map.props' order, so the
+  // boxes of rect i belong to blockingPropIndexes(map)[i]. A breakable prop is one flat rect, so its list holds one box.
+  const rects = mapBlockers(map);
+  const boxesByRect = rects.map(cameraBoxesOfRect);
+  const boxes = boxesByRect.flat();
   const slots = new Map<number, PropSlot>();
   const propCameraBoxes = new Map<number, THREE.Box3>();
   map.props.forEach((prop, index) => {
@@ -96,7 +98,8 @@ export function buildWorld(map: MapDef): World {
   });
   blockingPropIndexes(map).forEach((propIndex, i) => {
     if (map.props[propIndex].breakable !== true) return;
-    propCameraBoxes.set(propIndex, boxes[i]);
+    const box = boxesByRect[i][0];
+    if (box) propCameraBoxes.set(propIndex, box);
   });
 
   return {

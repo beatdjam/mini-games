@@ -24,12 +24,12 @@ function drawn(name: string): number {
   return count;
 }
 
-test('a sortie draws the low walls and the stairs', async () => {
+test('a sortie draws the low walls and the ramps', async () => {
   startSortie();
   await frame();
   const map = currentGame()?.map;
   if (!map) throw new Error('the sortie has not started');
-  for (const kind of ['lowWall', 'stairs'] as const) {
+  for (const kind of ['lowWall', 'ramp'] as const) {
     const placed = map.props.filter(prop => prop.kind === kind).length;
     expect(placed, kind).toBeGreaterThan(0);
     expect(drawn(kind), kind).toBe(placed);
@@ -52,8 +52,9 @@ test('a sortie draws every target of the map, the battery’s parts among them',
   if (!game) throw new Error('the sortie has not started');
   const map = game.map;
   const group = find('targets');
-  // the targets, and a plate for each shutter
-  expect(group?.children).toHaveLength(map.targets.length + game.shutters.length);
+  // the targets, and a plate for each shutter; the warning lights hang in the same group but are not targets
+  const children = group?.children.filter(child => child.name !== 'sb-pillbox-warn');
+  expect(children).toHaveLength(map.targets.length + game.shutters.length);
   for (const id of ['main-gun-1', 'main-gun-2', 'magazine']) {
     expect(
       group?.children.some(child => child.name === id),

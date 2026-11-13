@@ -113,7 +113,7 @@ function checkWaves(map: MapDef, mission: MissionDef, skip: MapCheckSkip, out: M
 // A target or a blocking prop stops the mech's middle from coming within MECH_TUNE.radius of its rect. The rects come
 // from mapBlockers, the same ones the mech's collision uses. The map is checked in the shape it has before anything is
 // broken: a breakable stretch counts as blocking, so a map must still be crossable through its breakthroughs even
-// without breaking it. Stairs are walked up from their lowest step, so they count as open ground here: a flight set
+// without breaking it. Stairs and ramps are walked up from their lowest edge, so they count as open ground here: one set
 // behind a breakthrough does not close it (the climb itself is checked by walking it in the tests).
 function blockedCells(map: MapDef): Grid {
   const { minX, minZ, maxX, maxZ } = map.bounds;
@@ -122,7 +122,7 @@ function blockedCells(map: MapDef): Grid {
   const cells = new Uint8Array(cols * rows); // 0 free, 1 blocked
   // Each blocker looks only at the cells within its reach (its corner's distance from the middle plus the radius), so
   // the check does not go over every cell for every blocker; a cell outside that square cannot be within the radius.
-  const walls = { ...map, props: map.props.filter(prop => prop.kind !== 'stairs') };
+  const walls = { ...map, props: map.props.filter(prop => prop.kind !== 'stairs' && prop.kind !== 'ramp') };
   for (const blocker of mapBlockers(walls)) {
     const reach = Math.hypot(blocker.halfW, blocker.halfD) + MECH_TUNE.radius;
     const i0 = Math.max(0, Math.floor((blocker.x - reach - minX) / CELL));
@@ -156,8 +156,8 @@ function seawallFaces(map: MapDef): { foot: number; back: number } | null {
 }
 
 // The row the first stretch has to reach. Without a seawall it is the back edge (row 0). With one it is the row just
-// landward of the clearance in front of the seawall's seaward face: the seawall is climbed by its stairs, which this
-// check does not walk, so the check asks for a way from the front edge to the seawall's foot.
+// landward of the clearance in front of the seawall's seaward face: the seawall is climbed by its stairs or ramp, which
+// this check does not walk, so the check asks for a way from the front edge to the seawall's foot.
 function goalRow(map: MapDef): number {
   const faces = seawallFaces(map);
   if (faces === null) return 0;
@@ -210,7 +210,8 @@ function flood(grid: Grid, visited: Uint8Array, queue: number[], stop: (row: num
 
 // The second stretch, only for a map with a seawall and targets behind it: from the free cells just landward of the
 // seawall's back face, the mech must be able to come within TARGET_REACH of every target behind the seawall. The
-// stretch starts where the mech drops off the seawall, so it does not depend on the first one.
+// stretch starts where the mech drops off the seawall, so it does not depend on the first one (nor on how it climbed:
+// stairs or ramp).
 function checkBehind(map: MapDef, grid: Grid): MapViolation[] {
   const faces = seawallFaces(map);
   if (faces === null) return [];
@@ -249,8 +250,8 @@ function checkBehind(map: MapDef, grid: Grid): MapViolation[] {
 }
 
 // The walking check on its own. A map with a seawall is walked in two stretches, because the seawall is climbed by its
-// stairs and dropped off at its back, which this check does not walk: from the front edge to the seawall's foot, and
-// from the seawall's back face to the targets behind it. A map without one is walked from the front edge to the back
+// stairs or ramp and dropped off at its back, which this check does not walk: from the front edge to the seawall's foot,
+// and from the seawall's back face to the targets behind it. A map without one is walked from the front edge to the back
 // edge. generateMap runs this after each try, so the two views and the tests see the same answer.
 export function checkMapPath(map: MapDef): MapViolation[] {
   const grid = blockedCells(map);

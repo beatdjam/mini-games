@@ -17,7 +17,7 @@ test('an 8 m mech gets the 8 m values from before SB-100 back', () => {
   expect(scale.moveTune.accel).toBeCloseTo(80, 10);
   expect(scale.moveTune.boost).toBeCloseTo(30, 10);
   expect(scale.moveTune.boostAccel).toBeCloseTo(160, 10);
-  expect(scale.moveTune.jump).toBeCloseTo(10.2, 1);
+  expect(scale.moveTune.jump).toBeCloseTo(MOVE_TUNE.jump * Math.sqrt(2), 9);
   expect(scale.moveTune.gravity).toBe(MOVE_TUNE.gravity);
   expect(scale.moveTune.turn).toBe(MOVE_TUNE.turn);
 

@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
-import { ENEMIES } from '../../src/data/enemies.ts';
+import { ENEMIES, M1_WAVE_ENEMY, type EnemyKind } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { M1 } from '../../src/data/missions/m1.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
@@ -16,6 +17,7 @@ import {
 } from '../../src/logic/game.ts';
 import { mapBlockers } from '../../src/logic/mapShapes.ts';
 import { fireRayHit } from '../../src/logic/fire.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
@@ -33,18 +35,22 @@ const idle: GameInput = {
   sub: false,
 };
 
-// An open field with a wave `b-squad` that comes in at the given places: no props, no targets.
+// An open field with a wave `b-squad`: no props, no targets. The wave's table plays no part here, so a test chooses the
+// places and the kinds itself.
 function field(places: { x: number; z: number }[]): MapDef {
   return { ...M1B_HAND, props: [], targets: [], spawns: { 'b-squad': places } };
 }
 
-// Starts the wave through the script (the mech at the origin facing -z), as the b-line cue does.
+// Starts the wave by hand (the mech at the origin facing -z), as the b-line cue does, with a grunt at each place. A test
+// that wants another kind pushes it in itself.
 function withSquad(places: { x: number; z: number }[]): GameModel {
   const game = newPlayGame(field(places));
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
-  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  places.forEach((place, i) => {
+    game.enemies.push(newEnemy(`b-squad-${i + 1}`, 'b-squad', 'grunt', place.x, place.z));
+  });
   return game;
 }
 
@@ -65,14 +71,17 @@ function walkIntoBLine(game: GameModel): GameEvent[] | null {
   return null;
 }
 
-test('walking into b-line puts one enemy at each of the six b-squad places, and the beach wave puts out none', () => {
+test('walking into b-line puts one enemy at each of the six b-squad places, in the wave’s order and kind', () => {
   const game = newPlayGame(M1B_HAND);
   const events = walkIntoBLine(game);
   expect(events).toContainEqual({ kind: 'spawned', wave: 'b-squad', count: 6 });
   expect(game.script.spawned).toEqual(['beach-mortar', 'b-squad']);
   expect(game.enemies.map(enemy => enemy.id)).toEqual([1, 2, 3, 4, 5, 6].map(n => `b-squad-${n}`));
+  const kinds = ['heavy', 'assault', 'grunt', 'grunt', 'assault', 'grunt'] as const;
+  expect(kinds).toHaveLength(6);
   game.enemies.forEach((enemy, i) => {
-    expect(enemy).toMatchObject({ wave: 'b-squad', kind: 'grunt', hp: GRUNT.hp, awake: false });
+    const kind = kinds[i];
+    expect(enemy).toMatchObject({ wave: 'b-squad', kind, hp: ENEMIES[kind].hp, awake: false });
     expect(enemy.x).toBe(M1B_HAND.spawns['b-squad'][i].x);
     expect(enemy.z).toBe(M1B_HAND.spawns['b-squad'][i].z);
   });
@@ -84,6 +93,16 @@ test('a wave the map has no place for puts out nothing', () => {
   expect(walkIntoBLine(game)).toBeNull();
   expect(game.script.spawned).toContain('b-squad');
   expect(game.enemies).toEqual([]);
+});
+
+test('every wave with places on the hand map has a kind for each place', () => {
+  for (const wave of M1.waves) {
+    const places = M1B_HAND.spawns[wave];
+    if (places === undefined) continue;
+    const kinds = M1_WAVE_ENEMY[wave];
+    expect(kinds, `the wave ${wave} has no kind table`).toBeDefined();
+    expect(kinds, `the wave ${wave} has a kind for each of its places`).toHaveLength(places.length);
+  }
 });
 
 test('four autocannon shots bring a grunt down, and so does one heavy gun shot', () => {
@@ -203,13 +222,13 @@ test('an enemy’s bullet stops at a prop and does not hit the mech behind it', 
 test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind it fires only once it has come round to a clear line', () => {
   seed(5);
   const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
-  const game = newPlayGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
+  const game = newPlayGame({ ...field([]), targets: [pillbox] });
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
+  game.enemies.push(newEnemy('b-squad-1', 'b-squad', 'grunt', 0, -30));
   const y = game.mech.y + MECH_TUNE.chestHeight;
   game.bullets.push({ enemy: 'grunt', x: 0, y, z: -30, dx: 0, dy: 0, dz: 1, left: 80 });
-  sendToScript(game, { kind: 'enter', area: 'b-line' });
   const hits: Extract<GameEvent, { kind: 'hit' }>[] = [];
   let shotsWithoutLine = 0;
   let shots = 0;
@@ -235,11 +254,11 @@ test('a standing pillbox stops an enemy’s bullet unharmed, and an enemy behind
 test('the soft lock does not pull toward an enemy hidden behind a pillbox, but toward the pillbox in front', () => {
   seed(5);
   const pillbox = { id: 'pillbox-1', kind: 'pillbox' as const, x: 0, z: -15, yaw: 0 };
-  const game = newPlayGame({ ...field([{ x: 0, z: -30 }]), targets: [pillbox] });
+  const game = newPlayGame({ ...field([]), targets: [pillbox] });
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
-  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  game.enemies.push(newEnemy('b-squad-1', 'b-squad', 'grunt', 0, -30));
   // the aim goes straight at the enemy's middle, through the pillbox, so by angle alone the enemy would win
   const atEnemy = (): GameInput => {
     const enemy = game.enemies[0];
@@ -367,7 +386,7 @@ test('b-squad, put out behind line 3, finds the way through its breakthrough and
   const blockers = mapBlockers(game.map).filter(rect => rect.top !== undefined && rect.top > 1);
   for (const enemy of game.enemies) {
     for (const rect of blockers)
-      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES.grunt.radius - 1e-6);
+      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
   }
 });
 
@@ -386,6 +405,7 @@ test('seawall-drop is put out on top of the seawall and jumps down to the ground
     if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
   }
   expect(game.enemies).toHaveLength(6);
+  expect(game.enemies.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['seawall-drop']);
   for (const enemy of game.enemies) {
     expect(enemy.y).toBeGreaterThan(PROP_SIZE.seawall.h - 1);
     expect(enemy.z).toBeLessThan(-65);
@@ -404,6 +424,126 @@ test('seawall-drop is put out on top of the seawall and jumps down to the ground
   for (const enemy of game.enemies) {
     expect(enemy.z).toBeGreaterThan(-65);
     for (const rect of game.rects)
-      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES.grunt.radius - 1e-6);
+      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
   }
+});
+
+// The mech at the origin facing -z, on an open field, and one enemy pushed in by the test itself: the wave table plays no
+// part, so the roles are told apart by their own values alone.
+function loneFoe(kind: EnemyKind, z: number): GameModel {
+  const game = newPlayGame(field([]));
+  game.mech.x = 0;
+  game.mech.z = 0;
+  game.mech.yaw = 0;
+  game.armor = 1e9; // it keeps shooting through a long test
+  game.enemies.push(newEnemy(`${kind}-1`, 'b-squad', kind, 0, z));
+  return game;
+}
+
+function distanceToMech(game: GameModel): number {
+  const enemy = game.enemies[0];
+  return Math.hypot(game.mech.x - enemy.x, game.mech.z - enemy.z);
+}
+
+const ASSAULT = ENEMIES.assault;
+const HEAVY = ENEMIES.heavy;
+
+test('a grunt comes in to rifle range and shoots from there, farther out than an assault and nearer than a heavy', () => {
+  seed(1);
+  const game = loneFoe('grunt', -60);
+  let shotOnceStopped = false;
+  for (let i = 0; i < 15 / DT; i++) {
+    step(game, idle, DT);
+    if (distanceToMech(game) <= GRUNT.stopDist + 1 && game.bullets.some(isEnemyBullet)) shotOnceStopped = true;
+  }
+  expect(distanceToMech(game)).toBeGreaterThan(GRUNT.stopDist - 1);
+  expect(distanceToMech(game)).toBeLessThan(GRUNT.stopDist + 1);
+  expect(shotOnceStopped).toBe(true);
+  expect(GRUNT.stopDist).toBeGreaterThan(ASSAULT.stopDist);
+  expect(GRUNT.stopDist).toBeLessThan(HEAVY.stopDist);
+});
+
+test('an assault closes to point-blank, firing on the way in, and two autocannon shots bring it down', () => {
+  seed(1);
+  const game = loneFoe('assault', -60);
+  let firedOnTheWay = false;
+  for (let i = 0; i < 15 / DT; i++) {
+    step(game, idle, DT);
+    if (distanceToMech(game) > 15 && game.bullets.some(isEnemyBullet)) firedOnTheWay = true;
+  }
+  expect(distanceToMech(game)).toBeGreaterThan(ASSAULT.stopDist - 1);
+  expect(distanceToMech(game)).toBeLessThan(ASSAULT.stopDist + 1);
+  expect(firedOnTheWay).toBe(true);
+
+  seed(1);
+  const shooting = loneFoe('assault', -40);
+  const hits: string[] = [];
+  let down: GameEvent | null = null;
+  for (let i = 0; i < 240 && !down; i++) {
+    step(shooting, { ...idle, fire: true }, DT);
+    for (const event of shooting.events) {
+      if (event.kind === 'hit' && event.enemy !== null) hits.push(event.enemy);
+      if (event.kind === 'enemyDown') down = event;
+    }
+  }
+  expect(hits).toEqual(Array(ASSAULT.hp / WEAPONS.autocannon.damage).fill('assault-1'));
+  expect(down).toMatchObject({ kind: 'enemyDown', id: 'assault-1' });
+});
+
+test('a heavy stops far out, shoots less often but heavier, and takes 12 autocannon or 2 heavy gun shots', () => {
+  seed(1);
+  const game = loneFoe('heavy', -60);
+  for (let i = 0; i < 15 / DT; i++) step(game, idle, DT);
+  expect(distanceToMech(game)).toBeGreaterThan(HEAVY.stopDist - 1);
+  expect(distanceToMech(game)).toBeLessThan(HEAVY.stopDist + 1);
+
+  // at 10 m, inside every stop distance: the heavy shoots less often than a grunt, and each shot takes its own damage
+  const shots = (kind: 'grunt' | 'heavy'): { amount: number; at: number }[] => {
+    seed(1);
+    const g = loneFoe(kind, -10);
+    const taken: { amount: number; at: number }[] = [];
+    for (let i = 0; i < 10 / DT; i++) {
+      step(g, idle, DT);
+      for (const event of g.events) if (event.kind === 'damaged') taken.push({ amount: event.amount, at: g.time });
+    }
+    return taken;
+  };
+  const gruntShots = shots('grunt');
+  const heavyShots = shots('heavy');
+  expect(heavyShots.length).toBeGreaterThan(0);
+  expect(heavyShots.length).toBeLessThan(gruntShots.length);
+  for (const shot of heavyShots) expect(shot.amount).toBe(HEAVY.damage);
+  for (let i = 1; i < heavyShots.length; i++) {
+    const gap = heavyShots[i].at - heavyShots[i - 1].at;
+    expect(gap).toBeGreaterThan(HEAVY.fireInterval - 0.5);
+    expect(gap).toBeLessThan(HEAVY.fireInterval + 0.5);
+  }
+
+  seed(1);
+  const autocannon = loneFoe('heavy', -40);
+  const hits: string[] = [];
+  let down = false;
+  for (let i = 0; i < 360 && !down; i++) {
+    step(autocannon, { ...idle, fire: true }, DT);
+    for (const event of autocannon.events) {
+      if (event.kind === 'hit' && event.enemy !== null) hits.push(event.enemy);
+      if (event.kind === 'enemyDown') down = true;
+    }
+  }
+  expect(hits).toHaveLength(HEAVY.hp / WEAPONS.autocannon.damage);
+  expect(down).toBe(true);
+
+  seed(1);
+  const heavyGun = loneFoe('heavy', -40);
+  const heavyHits: string[] = [];
+  let heavyDown = 0;
+  for (let i = 0; i < 360 && heavyDown === 0; i++) {
+    step(heavyGun, { ...idle, sub: true }, DT);
+    for (const event of heavyGun.events) {
+      if (event.kind === 'hit' && event.enemy !== null) heavyHits.push(event.enemy);
+      if (event.kind === 'enemyDown') heavyDown++;
+    }
+  }
+  expect(heavyHits).toHaveLength(HEAVY.hp / WEAPONS.heavyGun.damage);
+  expect(heavyDown).toBe(1);
 });

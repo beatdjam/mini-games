@@ -51,9 +51,10 @@ function scriptLabels(game: GameModel): string[] {
   return labels;
 }
 
-// Runs M1 from the landing to the cleared result. The depot and the two pillboxes are shot from their fronts; the rest
-// of the targets (main-gun-1, main-gun-2, magazine) are not on M1B_HAND and the mech does not climb the seawall here, so
-// the test hands those and seawall-top to the script with sendToScript (seawall.test.ts walks up to seawall-top).
+// Runs M1 from the landing to the cleared result. The depot and the two pillboxes are shot down from spots that see
+// them; the pillboxes are shot from their sides, where their front does not turn the shots away. The rest of the targets
+// (main-gun-1, main-gun-2, magazine) are not on M1B_HAND and the mech does not climb the seawall here, so the test hands
+// those and seawall-top to the script with sendToScript (seawall.test.ts walks up to seawall-top).
 function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAfterTargets: boolean } {
   const outs: ScriptOut[] = [];
   let cleared = 0;
@@ -76,9 +77,12 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
     take(from);
   };
   const shootDown = (x: number, z: number, id: string): void => {
+    const place = M1B_HAND.targets.find(item => item.id === id);
+    if (!place) throw new Error(`the hand map has ${id}`);
     game.mech.x = x;
     game.mech.z = z;
-    game.mech.yaw = 0;
+    // face the target, so the shots fly at it rather than wherever yaw 0 points
+    game.mech.yaw = Math.atan2(-(place.x - x), -(place.z - z));
     for (let i = 0; i < 600; i++) {
       step(game, { ...idle, fire: true }, 1 / 60);
       take();
@@ -92,8 +96,8 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
   game.mech.z = 140;
   run(idle, 1); // the b-line fires the pillboxes cue
   shootDown(53, 51, 'depot');
-  shootDown(-33, 5, 'pillbox-1');
-  shootDown(22, 5, 'pillbox-2'); // cp1 fires once both pillboxes are down
+  shootDown(-13, -15, 'pillbox-1');
+  shootDown(42, -15, 'pillbox-2'); // cp1 fires once both pillboxes are down
   const clearedAfterTargets = game.cleared;
   run(idle, 240); // wave2-lost fires 4 s after cp1
   send({ kind: 'enter', area: 'c-line' });
