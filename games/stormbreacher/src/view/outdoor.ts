@@ -3,9 +3,11 @@
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { chunkInstances, type Chunk } from '@engine/render/index.ts';
-import { SAND_COLOR } from '../data/colors.ts';
+import { BURNT_COLOR, DRY_SAND_COLOR, RUST_COLOR, WET_SAND_COLOR } from '../data/colors.ts';
 import { PROP_SIZE, TARGET_SIZE, TILE_SIZE, type PropSize, type TargetSize } from '../data/props.ts';
+import { SAND_SURFACE } from '../data/surfaces.ts';
 import type { Prop, PropKind, TargetKind, TargetPlace } from '../data/types.ts';
+import { groundMaterial, surfaceMaterial, targetMaterial, type SurfaceName } from './surfaces.ts';
 
 export interface OutdoorBuildOpts {
   chunk: number; // the chunk side (m); 0 leaves everything in one instanced mesh per kind
@@ -39,21 +41,31 @@ const KINDS: PropKind[] = [
   'ramp',
 ];
 
-export const TILE_COLOR = SAND_COLOR; // the sand a tile is drawn in at scale 1
-
-// Each kind's colour; the tile's material stays white and its colour comes from instanceColor instead.
-const KIND_COLOR: Record<PropKind, number> = {
-  tile: 0xffffff,
-  hedgehog: 0x666b6e,
-  block: 0x9c978d,
-  bunker: 0x7e7a72,
-  seawall: 0x8b8880,
+// Each kind's colour. The tile has none: its ground plane takes its colour from the look (view/look.ts). The concrete
+// kinds sit around a grey 0x8a8780 so the overcast light does not turn them into glowing white boxes.
+const KIND_COLOR: Record<Exclude<PropKind, 'tile'>, number> = {
+  hedgehog: RUST_COLOR,
+  block: 0x8a8780,
+  bunker: 0x74716a,
+  seawall: 0x7f7c76,
   cliff: 0x6e6759,
   crater: 0x8f7a58,
-  wreck: 0x5a5148,
-  lowWall: 0x8f8a80,
-  stairs: 0x9a968c,
-  ramp: 0x9a968c,
+  wreck: BURNT_COLOR,
+  lowWall: 0x827f78,
+  stairs: 0x88857e,
+  ramp: 0x88857e,
+};
+
+// The kinds that wear a surface picture (view/surfaces.ts). The cliff and the crater keep their colour alone.
+const KIND_SURFACE: Partial<Record<PropKind, SurfaceName>> = {
+  block: 'concrete',
+  bunker: 'concrete',
+  seawall: 'concrete',
+  lowWall: 'concrete',
+  stairs: 'concrete',
+  ramp: 'concrete',
+  hedgehog: 'rust',
+  wreck: 'burnt',
 };
 
 // A box with its place baked in (the base sits on y = 0 when y is half its height).
@@ -211,8 +223,16 @@ function rampGeometry(): THREE.BufferGeometry {
     ...b1,
     ...a1,
   ];
+  // The concrete picture (view/surfaces.ts) needs UVs: across the width for u, and up the climb (the run plus the
+  // height, so the slanted face and the high end both get their share) for v.
+  const uvs: number[] = [];
+  for (let i = 0; i < positions.length; i += 3) {
+    const [x, y, z] = [positions[i], positions[i + 1], positions[i + 2]];
+    uvs.push((x + hw) / (2 * hw), (hd - z + y) / (2 * hd + h));
+  }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -240,34 +260,79 @@ export const BROKEN_COLOR = 0x2a2622; // the dark colour a broken prop's copy ke
 // How close a copy's place must be to a prop's own x and z for it to be that prop's copy (m).
 const SLOT_TOLERANCE = 0.01;
 
+// The ground: one plane over all the tiles, so the sand's picture repeats in the world's metres and no tile seam shows.
+// Its vertex colour fades from the dry sand inland to the wet sand within reach of the sea.
+function addGround(group: THREE.Group, items: Prop[]) {
+  if (items.length === 0) return; // no tiles: no plane (the bounds below would stay infinite and give a NaN size)
+  let minX = Infinity,
+    maxX = -Infinity,
+    minZ = Infinity,
+    maxZ = -Infinity;
+  for (const item of items) {
+    minX = Math.min(minX, item.x - TILE_SIZE / 2);
+    maxX = Math.max(maxX, item.x + TILE_SIZE / 2);
+    minZ = Math.min(minZ, item.z - TILE_SIZE / 2);
+    maxZ = Math.max(maxZ, item.z + TILE_SIZE / 2);
+  }
+  const width = maxX - minX,
+    depth = maxZ - minZ;
+  const geometry = new THREE.PlaneGeometry(width, depth, 1, SAND_SURFACE.wetRows)
+    .rotateX(-Math.PI / 2)
+    .translate((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+  const at = geometry.getAttribute('position'),
+    uv = geometry.getAttribute('uv'),
+    colors = new Float32Array(at.count * 3);
+  const dry = new THREE.Color(DRY_SAND_COLOR),
+    wet = new THREE.Color(WET_SAND_COLOR),
+    wetR = wet.r / dry.r,
+    wetG = wet.g / dry.g,
+    wetB = wet.b / dry.b;
+  for (let i = 0; i < at.count; i++) {
+    const x = at.getX(i),
+      z = at.getZ(i);
+    uv.setXY(i, x / SAND_SURFACE.repeatM, z / SAND_SURFACE.repeatM);
+    const inland = Math.max(0, Math.min(1, (maxZ - z) / SAND_SURFACE.wetBand));
+    const wetness = 1 - inland * inland * (3 - 2 * inland); // smooth: wet at the sea's edge, dry inland
+    colors[i * 3] = 1 + (wetR - 1) * wetness;
+    colors[i * 3 + 1] = 1 + (wetG - 1) * wetness;
+    colors[i * 3 + 2] = 1 + (wetB - 1) * wetness;
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const mesh = new THREE.Mesh(geometry, groundMaterial());
+  mesh.name = 'tile';
+  group.add(mesh);
+}
+
 // One instanced mesh per kind, with each copy's place, turn and size in its matrix. A kind with a breakable prop gets an
 // instance colour for every copy (white material, the kind's colour in the buffer), so the breakable ones can lean red
-// without adding a draw.
+// without adding a draw. A kind with a surface picture always carries its colour that way, so one shared material can
+// serve several kinds.
 function addKind(group: THREE.Group, kind: PropKind, items: Prop[]) {
-  const tinted = kind !== 'tile' && items.some(item => item.breakable === true);
-  const mesh = new THREE.InstancedMesh(
-    SHAPES[kind](),
-    new THREE.MeshLambertMaterial({ color: tinted ? 0xffffff : KIND_COLOR[kind] }),
-    items.length,
-  );
+  if (kind === 'tile') {
+    addGround(group, items);
+    return;
+  }
+  const surface = KIND_SURFACE[kind];
+  const tinted = items.some(item => item.breakable === true);
+  const colored = surface !== undefined || tinted;
+  const material = surface
+    ? surfaceMaterial(surface)
+    : new THREE.MeshLambertMaterial({ color: tinted ? 0xffffff : KIND_COLOR[kind] });
+  const mesh = new THREE.InstancedMesh(SHAPES[kind](), material, items.length);
   mesh.name = kind;
   const matrix = new THREE.Matrix4(),
     at = new THREE.Vector3(),
     turn = new THREE.Quaternion(),
     size = new THREE.Vector3(),
-    color = new THREE.Color(),
     baseColor = new THREE.Color(KIND_COLOR[kind]),
     breakColor = baseColor.clone().lerp(new THREE.Color(BREAK_TINT), 0.45);
   items.forEach((item, i) => {
     at.set(item.x, 0, item.z);
     turn.setFromAxisAngle(UP, item.yaw);
-    // the tile is always 4 m; its scale only darkens or lightens the sand
-    const s = kind === 'tile' ? 1 : item.scale;
-    size.set(s, s, s);
+    size.set(item.scale, item.scale, item.scale);
     matrix.compose(at, turn, size);
     mesh.setMatrixAt(i, matrix);
-    if (kind === 'tile') mesh.setColorAt(i, color.setHex(TILE_COLOR).multiplyScalar(item.scale));
-    else if (tinted) mesh.setColorAt(i, item.breakable === true ? breakColor : baseColor);
+    if (colored) mesh.setColorAt(i, item.breakable === true ? breakColor : baseColor);
   });
   mesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -370,6 +435,14 @@ const TARGET_COLORS: Record<TargetKind, number> = {
   magazine: 0x7a4fa0,
 };
 
+// The surface each target wears; its own colour still tells the four kinds apart from above.
+const TARGET_SURFACE: Record<TargetKind, SurfaceName> = {
+  pillbox: 'concrete',
+  depot: 'wood',
+  gun: 'rust',
+  magazine: 'concrete',
+};
+
 // The mission's targets as one group, each turned the way the map says.
 export function buildTargets(targets: readonly TargetPlace[]): THREE.Group {
   const group = new THREE.Group();
@@ -377,7 +450,7 @@ export function buildTargets(targets: readonly TargetPlace[]): THREE.Group {
   for (const target of targets) {
     const mesh = new THREE.Mesh(
       TARGET_SHAPES[target.kind](),
-      new THREE.MeshLambertMaterial({ color: TARGET_COLORS[target.kind] }),
+      targetMaterial(TARGET_SURFACE[target.kind], TARGET_COLORS[target.kind]),
     );
     mesh.name = target.id;
     mesh.position.set(target.x, 0, target.z);

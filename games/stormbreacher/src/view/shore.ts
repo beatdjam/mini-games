@@ -3,8 +3,10 @@
 // is a mesh of its own), so it costs four draws.
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { SEA_COLOR } from '../data/colors.ts';
+import { FOAM_COLOR, SEA_COLOR } from '../data/colors.ts';
+import { SEA_SURFACE } from '../data/surfaces.ts';
 import type { MapBounds } from '../data/types.ts';
+import { seaMaterial, seaTexture } from './surfaces.ts';
 
 export const SEA_LEVEL = -0.1; // the water's surface, just under the sand (m)
 const SEA_DEPTH = 260; // how far the sea runs past the front edge (m); the fog hides the end
@@ -81,16 +83,41 @@ export const craftZ = (bounds: MapBounds): number => bounds.maxZ + CRAFT_GAP;
 
 // The sea and the landing craft as one group, placed from the map's bounds: the sea starts at the front edge (maxZ).
 // Hung off the world so a new sortie takes it out with the rest.
+// The sea is one plane whose vertices hold the water's colour and the white foam line at the beach; its picture (long
+// crests) is carried toward the shore by the texture's offset every frame, with no extra mesh or draw.
 export function buildShore(bounds: MapBounds): THREE.Group {
   const group = new THREE.Group();
   group.name = 'shore';
   const width = bounds.maxX - bounds.minX + SEA_SIDE * 2;
-  const sea = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, SEA_DEPTH).rotateX(-Math.PI / 2),
-    new THREE.MeshLambertMaterial({ color: SEA_COLOR }),
+  const geometry = new THREE.PlaneGeometry(width, SEA_DEPTH, SEA_SURFACE.foamCols, SEA_SURFACE.foamRows).rotateX(
+    -Math.PI / 2,
   );
+  const at = geometry.getAttribute('position'),
+    colors = new Float32Array(at.count * 3);
+  const water = new THREE.Color(SEA_COLOR),
+    foam = new THREE.Color(FOAM_COLOR),
+    shoreZ = -SEA_DEPTH / 2;
+  for (let i = 0; i < at.count; i++) {
+    const x = at.getX(i),
+      fromShore = at.getZ(i) - shoreZ;
+    // the foam line wanders along the beach and thins out over a few metres
+    const band = SEA_SURFACE.foamWidth + Math.sin(x * 0.11) * SEA_SURFACE.foamWobble;
+    const edge = Math.max(0, Math.min(1, 1 - (fromShore - band) / SEA_SURFACE.foamFade));
+    const t = edge * edge * (3 - 2 * edge);
+    colors[i * 3] = water.r + (foam.r - water.r) * t;
+    colors[i * 3 + 1] = water.g + (foam.g - water.g) * t;
+    colors[i * 3 + 2] = water.b + (foam.b - water.b) * t;
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const sea = new THREE.Mesh(geometry, seaMaterial());
   sea.name = 'sea';
   sea.position.set((bounds.minX + bounds.maxX) / 2, SEA_LEVEL, bounds.maxZ + SEA_DEPTH / 2);
+  const crests = seaTexture();
+  if (crests) {
+    sea.onBeforeRender = () => {
+      crests.offset.y = (performance.now() / 1000) * SEA_SURFACE.waveSpeed;
+    };
+  }
   group.add(sea);
 
   const craft = buildCraft(CRAFT_NAME);

@@ -9,8 +9,23 @@ export { hideInFog } from './fogcull.ts';
 export { FX, burst, clearFx, fireball, parts } from './fx.ts';
 export { mergeParts } from './merge.ts';
 export { mergeFlat } from './mergeflat.ts';
-export { block, canvasTex, grain, grime, oval, paintTex, poolTex, smudge, soil, stripes, words } from './paint.ts';
+export {
+  block,
+  canvasTex,
+  grain,
+  grime,
+  oval,
+  paintRand,
+  paintTex,
+  poolTex,
+  smudge,
+  soil,
+  stripes,
+  words,
+} from './paint.ts';
 export type { Paint } from './paint.ts';
+export { defineMaterial, defineTexture, material, ownMaterial } from './materials.ts';
+export type { MaterialDef, TextureDef, TextureSource } from './materials.ts';
 export { at, ballGeo, boxGeo, cylGeo } from './parts.ts';
 export {
   UP,

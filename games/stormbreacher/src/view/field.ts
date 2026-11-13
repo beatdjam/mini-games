@@ -6,6 +6,7 @@ import { camera, scene } from '@engine/render/index.ts';
 import { SAND_COLOR, SKY_COLOR } from '../data/colors.ts';
 import { BASE_LIGHTS } from '../data/looks.ts';
 import { FIELD_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { setSky } from './sky.ts';
 
 const BOX = 0x5c6670;
 
@@ -17,7 +18,7 @@ export const GROUND_NAME = 'ground';
 // Builds the field into the engine's scene: ground, sky, the two lights, the fog and the size box. Called once at
 // start-up; placeCamera() then puts the camera where the view starts.
 export function buildField() {
-  scene.background = new THREE.Color(SKY_COLOR);
+  setSky(SKY_COLOR, SKY_COLOR);
   scene.fog = new THREE.Fog(SKY_COLOR, FIELD_TUNE.fogNear, FIELD_TUNE.fogFar);
   camera.far = FIELD_TUNE.viewFar;
   camera.updateProjectionMatrix();
