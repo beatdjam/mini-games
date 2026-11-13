@@ -22,7 +22,7 @@ import { CHARGE_TUNE } from '../data/charge.ts';
 import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
-import { PILLBOX_TUNE } from '../data/pillbox.ts';
+import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
 import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
@@ -40,6 +40,7 @@ import {
 import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
 import {
   blastPropIndexes,
+  blastTarget,
   newBlasts,
   stepBlasts,
   stepCharge,
@@ -404,14 +405,20 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   if (enemy) damageEnemy(game, enemy, damage);
   if (mine) damageMine(game, mine, damage);
   if (!target) return true;
-  // a target behind a shut shutter stops the bullet and takes no harm
-  if (shuttered(game.shutters, target.id)) return true;
-  target.hp = Math.max(0, target.hp - damage * mul);
-  if (target.hp > 0) return true;
+  damageTarget(game, target, damage * mul);
+  return true;
+}
+
+// Takes `damage` off the target; at 0 it falls, the frame reports it and the script is told. A target behind a shut
+// shutter stops the shot and takes no harm. The one way to hurt a target, so a shot and a charge on a pillbox's point
+// (SB-1540) go through the same fall.
+function damageTarget(game: GameModel, target: TargetState, damage: number): void {
+  if (shuttered(game.shutters, target.id)) return;
+  target.hp = Math.max(0, target.hp - damage);
+  if (target.hp > 0) return;
   game.events.push({ kind: 'destroyed', id: target.id });
   checkShutters(game);
   sendToScript(game, { kind: 'destroyed', target: target.id });
-  return true;
 }
 
 // Opens every shutter whose targets are all down and reports each one. Also called every frame, so a target whose health
@@ -929,6 +936,11 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     openBlastHole(game, blast);
     blast.blasted = true;
     game.events.push({ kind: 'blast', id: blast.id, x: blast.x, z: blast.z, hit: blown.hit });
+    // A point that names a target breaks it (a pillbox's point, SB-1540). The charge sits outside the armour, so the
+    // shot's shares are not taken off it, and a target already down is not reported again.
+    const targetId = blastTarget(game.map, blast.id);
+    const target = targetId === undefined ? undefined : game.targets.find(entry => entry.id === targetId);
+    if (target && target.hp > 0) damageTarget(game, target, PILLBOX_BLAST.damage);
     if (blown.hit) damageMech(game, CHARGE_TUNE.damage, blast.x - game.mech.x, blast.z - game.mech.z);
   }
   stepAllies(game, dt);

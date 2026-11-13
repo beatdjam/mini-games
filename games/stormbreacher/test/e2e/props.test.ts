@@ -72,6 +72,25 @@ test('a blast lowers the line’s hedgehogs where they stand, with no new mesh',
   expect(loweredHedgehogs()).toBe(props.length);
 });
 
+test('the pillboxes’ blast points are drawn, and not once their pillbox is down', async () => {
+  startSortie();
+  await frame();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  const points = game.blasts.length;
+  // the lines' six points and the pillboxes' four are all rings on the fresh map
+  expect(points).toBe(10);
+  expect(drawn('sb-blast-points')).toBe(points);
+
+  // pillbox-1's two points leave the ground once its guns are down; the other rings stay
+  const pillbox = game.targets.find(target => target.id === 'pillbox-1');
+  if (!pillbox) throw new Error('the map has no pillbox-1');
+  pillbox.hp = 0;
+  await frame();
+  await frame();
+  expect(drawn('sb-blast-points')).toBe(points - 2);
+});
+
 // The first object in the scene with this name, anywhere below it.
 function find(name: string): THREE.Object3D | undefined {
   let found: THREE.Object3D | undefined;

@@ -5,11 +5,12 @@ import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { BLAST_POINT_COLOR, CHARGE_COLOR } from '../data/colors.ts';
 import type { MapDef } from '../data/types.ts';
+import { blastTarget } from '../logic/blasts.ts';
 import type { GameModel } from '../logic/game.ts';
 
 export const BLAST_POINT_MESH_NAME = 'sb-blast-points';
 export const CHARGE_MESH_NAME = 'sb-charges';
-export const MAX_BLAST_RINGS = 12; // the most points drawn at once; SB-1500's next cards add the pillboxes' points
+export const MAX_BLAST_RINGS = 12; // the most points drawn at once: the lines' 6 and the pillboxes' 4, with room for 2 more
 
 const MAX_CHARGES = 12; // the most charges drawn at once; the rest still count down unseen
 const RING_INNER = 1.7; // the point's ring (m)
@@ -42,7 +43,7 @@ function instanced(name: string, geometry: THREE.BufferGeometry, material: THREE
 }
 
 // Builds the rings and charges into the scene, with nothing drawn yet. The map fixes how many points there can be, but
-// the mesh keeps MAX_BLAST_RINGS so a later card can add the pillboxes' points without building it again.
+// the mesh keeps MAX_BLAST_RINGS so a map with every point still has room for all of them.
 export function buildBlastView(_map: MapDef): BlastView {
   const ring = new THREE.RingGeometry(RING_INNER, RING_OUTER, RING_SEGMENTS).rotateX(-Math.PI / 2);
   const box = new THREE.BoxGeometry(CHARGE_SIZE, CHARGE_HEIGHT, CHARGE_SIZE);
@@ -60,13 +61,17 @@ export function buildBlastView(_map: MapDef): BlastView {
 const place = new THREE.Object3D();
 const tint = new THREE.Color();
 
-// Writes a ring for every point that has no charge and a blinking box for every charge, and sets how many are drawn.
+// Writes a ring for every point that has no charge and a blinking box for every charge, and sets how many are drawn. A
+// point that names a target is drawn only while that target stands: a pillbox the guns already broke has nothing to
+// plant on.
 export function drawBlasts(view: BlastView, game: GameModel): void {
   let rings = 0;
   for (const blast of game.blasts) {
     if (rings === MAX_BLAST_RINGS) break;
     if (blast.blasted) continue;
     if (game.charges.some(charge => charge.blast === blast.id)) continue;
+    const target = blastTarget(game.map, blast.id);
+    if (target !== undefined && (game.targets.find(entry => entry.id === target)?.hp ?? 0) <= 0) continue;
     place.position.set(blast.x, GROUND_LIFT, blast.z);
     place.rotation.set(0, 0, 0);
     place.scale.set(1, 1, 1);

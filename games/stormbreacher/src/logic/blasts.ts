@@ -27,7 +27,14 @@ export interface PlantState {
   hold: number; // seconds held so far
 }
 
-export interface ChargeWorld {
+// Where a point's target lives and how much health it has left. The game passes itself; a caller that leaves these out
+// (the unit tests on their small points) gets every point as live.
+export interface BlastTargetWorld {
+  map?: MapDef;
+  targets?: readonly { id: string; hp: number }[];
+}
+
+export interface ChargeWorld extends BlastTargetWorld {
   blasts: readonly BlastState[];
   charges: ChargeState[];
   plant: PlantState | null;
@@ -38,6 +45,20 @@ export interface BlastWorld {
   charges: ChargeState[];
   blasts: readonly BlastState[];
   mech: { x: number; z: number };
+}
+
+// The id of the target a point breaks (a pillbox's point), or undefined for a point on a line.
+export function blastTarget(map: MapDef, id: string): string | undefined {
+  return map.blasts?.find(place => place.id === id)?.target;
+}
+
+// Whether the target a point names still stands. A point that names no target, or a world without the map, counts as
+// live.
+function targetStands(blast: BlastState, world: BlastTargetWorld): boolean {
+  if (world.map === undefined) return true;
+  const target = blastTarget(world.map, blast.id);
+  if (target === undefined) return true;
+  return (world.targets?.find(entry => entry.id === target)?.hp ?? 0) > 0;
 }
 
 // The map's blast points as the game keeps them, none of them blown yet.
@@ -75,17 +96,20 @@ export function openBreach(map: MapDef, ids: readonly string[]): MapDef {
   return { ...map, props: map.props.filter((_prop, index) => !removed.has(index)) };
 }
 
-// The nearest blast point within reach that has no charge on it and has not blown yet, or null when there is none.
+// The nearest blast point within reach that has no charge on it and has not blown yet, and whose target (a pillbox) still
+// stands, or null when there is none.
 export function nearBlast(
   blasts: readonly BlastState[],
   charges: readonly ChargeState[],
   mech: { x: number; z: number },
+  world: BlastTargetWorld = {},
 ): BlastState | null {
   let best: BlastState | null = null;
   let bestDist = CHARGE_TUNE.reach;
   for (const blast of blasts) {
     if (blast.blasted) continue;
     if (charges.some(charge => charge.blast === blast.id)) continue;
+    if (!targetStands(blast, world)) continue;
     const dist = distXZ(blast, mech);
     if (dist > bestDist) continue;
     best = blast;
@@ -103,7 +127,7 @@ export function stepCharge(
   dt: number,
 ): { plant: PlantState | null; planted: BlastState | null } {
   const near =
-    use && world.mech.grounded && world.mech.y === 0 ? nearBlast(world.blasts, world.charges, world.mech) : null;
+    use && world.mech.grounded && world.mech.y === 0 ? nearBlast(world.blasts, world.charges, world.mech, world) : null;
   if (near === null) {
     world.plant = null;
     return { plant: null, planted: null };

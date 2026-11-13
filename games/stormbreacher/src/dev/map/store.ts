@@ -101,12 +101,15 @@ function blastsOf(value: unknown): BlastPlace[] | undefined {
     const blast = record(entry, `blasts[${index}]`);
     const line = blast.line;
     if (line !== null) num(line, `blasts[${index}].line`);
-    return {
+    const out: BlastPlace = {
       id: text(blast.id, `blasts[${index}].id`),
       line: line === null ? null : num(line, `blasts[${index}].line`),
       x: num(blast.x, `blasts[${index}].x`),
       z: num(blast.z, `blasts[${index}].z`),
     };
+    // a pillbox's point names the target its charge breaks (SB-1540); a point on a line names none
+    if (blast.target !== undefined) out.target = text(blast.target, `blasts[${index}].target`);
+    return out;
   });
 }
 

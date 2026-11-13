@@ -15,6 +15,7 @@ import { showFx } from './fx.ts';
 import { showBoom } from './boom.ts';
 import { showBreach } from './breach.ts';
 import { showHurt } from './hurt.ts';
+import { showPillbox } from './pillbox.ts';
 import { showSound } from './sound.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -114,6 +115,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the signs of being under fire in the sortie, with knobs',
     run: showHurt,
+  },
+  {
+    hash: '#view-pillbox',
+    match: 'is',
+    name: 'the pillboxes’ blast points in the sortie, with knobs',
+    run: showPillbox,
   },
   {
     hash: '#view-mapedit',

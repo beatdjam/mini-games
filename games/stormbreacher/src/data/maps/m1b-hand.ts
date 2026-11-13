@@ -654,6 +654,10 @@ const MINES: MinePlace[] = [
 // are at z 143, 93.33 and 23 and their scales there are about 1, so the points stand at z 146.5, 96.8 and 26.5. x is the
 // centre of the old breakthrough (line 1) or of the old breakable stretch (lines 2 and 3); a hole opened there takes the
 // filled hedgehogs out again.
+//
+// The two pillboxes of the objective get a point beside and behind each (SB-1540), 2 m outside the box on its side and
+// 4 m behind it on the landward side, clear of every prop. A charge on one breaks that pillbox; its point belongs to no
+// line, so it opens no hedgehog.
 const BLASTS: BlastPlace[] = [
   { id: 'l1-a', line: 137, x: -55, z: 146.5 },
   { id: 'l1-b', line: 137, x: 40, z: 146.5 },
@@ -661,6 +665,10 @@ const BLASTS: BlastPlace[] = [
   { id: 'l2-b', line: 88, x: 50, z: 96.8 },
   { id: 'l3-a', line: 17, x: -30, z: 26.5 },
   { id: 'l3-b', line: 17, x: 61, z: 26.5 },
+  { id: 'blast-pillbox-1-side', line: null, x: -41, z: -15, target: 'pillbox-1' },
+  { id: 'blast-pillbox-1-back', line: null, x: -33, z: -23, target: 'pillbox-1' },
+  { id: 'blast-pillbox-2-side', line: null, x: 30, z: -17, target: 'pillbox-2' },
+  { id: 'blast-pillbox-2-back', line: null, x: 21, z: -23, target: 'pillbox-2' },
 ];
 
 export const M1B_HAND: MapDef = {

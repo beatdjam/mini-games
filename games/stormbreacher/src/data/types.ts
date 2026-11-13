@@ -131,14 +131,16 @@ export interface MinePlace {
   z: number;
 }
 
-// A place a charge may be planted on a defence line (m). `line` is the line's centre z (null for a point that belongs to
-// no line, such as a pillbox's later); `x` and `z` are the point on the ground. +z is the sea, and the point stands 2 m
-// sea-side of the line's most seaward face.
+// A place a charge may be planted (m). `line` is the line's centre z (null for a point that belongs to no line, such as a
+// pillbox's); `x` and `z` are the point on the ground. +z is the sea, and a point on a line stands 2 m sea-side of the
+// line's most seaward face. `target` names the target the charge breaks: a pillbox's point sets it, a point on a line
+// leaves it out.
 export interface BlastPlace {
   id: string;
   line: number | null;
   x: number;
   z: number;
+  target?: string;
 }
 
 export interface MapBounds {

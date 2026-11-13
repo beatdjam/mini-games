@@ -16,6 +16,12 @@ export const PILLBOX_TUNE = {
   muzzleGap: 0.5, // how far past the pillbox's box a shot starts (m)
 };
 
+// A charge planted on a pillbox's blast point (SB-1540, 仮). One is enough to break the pillbox: the charge sits outside
+// the armour, so PILLBOX_ARMOR's shares are not taken off it.
+export const PILLBOX_BLAST = {
+  damage: 150, // what one charge takes off the pillbox it is planted on; more than TARGET_HP.pillbox (100)
+};
+
 // A pillbox's armour (仮): its front shrugs off shots, its sides and back take them whole. The angle is measured on the
 // ground from the direction the shot came from, so a shot from within `frontArc` of the front is a front hit.
 export const PILLBOX_ARMOR = {

@@ -11,6 +11,7 @@ import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
+import { blastTarget } from '../logic/blasts.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneMech } from '../logic/cutscene.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
@@ -212,6 +213,9 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     feelBoom(view.feel, boomShakeAt(kind, distXZ({ x, z }, game.mech)), FEEL_TUNE);
     hurtBlast(view.hurt, x, z, game.mech);
   };
+  // A blast that broke its target on this same frame has a `destroyed` event, whose large blast already stands at the
+  // target's middle; the blast's own must not be drawn on top of it.
+  const brokenThisFrame = new Set(game.events.flatMap(event => (event.kind === 'destroyed' ? [event.id] : [])));
   for (const event of game.events) {
     if (event.kind === 'mech') {
       mechEvents.push(event.event);
@@ -252,7 +256,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     } else if (event.kind === 'planted') {
       spawnDust(event.x, event.z, PLANT_DUST, FEEL_TUNE);
     } else if (event.kind === 'blast') {
-      blast('large', event.x, 0.8, event.z);
+      const target = blastTarget(game.map, event.id);
+      // A charge that broke its pillbox on this frame leaves the boom to the destroyed event; one whose pillbox was
+      // already down (broken by a shot while the fuse burnt) draws its own.
+      if (target === undefined || !brokenThisFrame.has(target)) blast('large', event.x, 0.8, event.z);
     } else if (event.kind === 'allyDown') {
       // the only fate there is is a mortar shell, drawn as a battle shell is
       shellBurst(event.x, event.z);

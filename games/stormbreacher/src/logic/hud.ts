@@ -104,7 +104,7 @@ export function hudModel(game: GameModel): HudModel {
     };
   }
   const radio = game.radio;
-  const near = nearBlast(game.blasts, game.charges, game.mech);
+  const near = nearBlast(game.blasts, game.charges, game.mech, game);
   const use =
     near === null
       ? null
