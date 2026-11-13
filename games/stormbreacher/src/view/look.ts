@@ -90,6 +90,8 @@ export function collectGroundTiles(root: THREE.Object3D): GroundTint[] {
   return tiles;
 }
 
+// The sand's shared material serves the ground alone (the props and targets have their own pictures and colours), so the
+// colour written here does not reach any other surface in the engine's table.
 export function applyGroundColor(look: LookTune, tiles: readonly GroundTint[]): void {
   for (const { material } of tiles) material.color.setHex(look.groundColor);
 }

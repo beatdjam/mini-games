@@ -277,28 +277,24 @@ export function surfaceMaterial(name: SurfaceName): SurfaceMaterial {
 }
 
 // The ground's material: the sand picture, tinted by the look, with a vertex colour that darkens the wet band.
-let groundMarked = false;
 export function groundMaterial(): THREE.MeshLambertMaterial {
   if (!CAN_PAINT) return new THREE.MeshLambertMaterial({ color: DRY_SAND_COLOR, vertexColors: true });
   const made = material(NAME.sand) as THREE.MeshLambertMaterial;
   // the wet band is a vertex colour, so the material has to read the colours (set before its first draw)
-  if (!groundMarked) {
+  if (!made.vertexColors) {
     made.vertexColors = true;
     made.needsUpdate = true;
-    groundMarked = true;
   }
   return made;
 }
 
 // The sea: one picture whose offset moves each frame, and vertex colours for the water and the foam line.
-let seaMarked = false;
 export function seaMaterial(): THREE.MeshLambertMaterial {
   if (!CAN_PAINT) return new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
   const made = material(NAME.sea) as THREE.MeshLambertMaterial;
-  if (!seaMarked) {
+  if (!made.vertexColors) {
     made.vertexColors = true;
     made.needsUpdate = true;
-    seaMarked = true;
   }
   const map = made.map;
   if (map) {
