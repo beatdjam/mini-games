@@ -6,7 +6,7 @@ import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtil
 import { SEA_COLOR } from '../data/colors.ts';
 import type { MapBounds } from '../data/types.ts';
 
-const SEA_LEVEL = -0.1; // the water's surface, just under the sand (m)
+export const SEA_LEVEL = -0.1; // the water's surface, just under the sand (m)
 const SEA_DEPTH = 260; // how far the sea runs past the front edge (m); the fog hides the end
 const SEA_SIDE = 160; // how far it runs past each side edge (m)
 export const CRAFT_NAME = 'craft'; // the player's craft in buildCraft (its ramp is `${CRAFT_NAME}Ramp`)

@@ -20,6 +20,7 @@ import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildWorld, MAP_FOG, type World } from '../../view/world.ts';
 import { buildAreaFrames, buildSpawnMarks, countProps } from '../map/build.ts';
 import { loadDevMap } from '../map/store.ts';
+import { createTunePanel } from '../tunePanel.ts';
 import { buildFlatRange, moveFeelFromParams } from './move.ts';
 
 declare global {
@@ -150,6 +151,66 @@ export function showMap(_hash: string) {
     'position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 8px);padding:4px 6px;' +
     'font:12px/1.4 monospace;color:#fff;background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none;z-index:5';
   document.body.appendChild(hud);
+
+  // The feel's values, turned while walking: the movement, the camera's place and the effects that sell a step, a
+  // landing and a shot. The walk uses the copies with the URL's values on top (moveFeelFromParams), so the panel starts
+  // from what the view actually runs.
+  createTunePanel({
+    title: '手応え #view-map',
+    groups: [
+      {
+        name: 'MOVE_TUNE',
+        table: moveTune,
+        ranges: {
+          walk: { min: 0, max: 20, step: 0.1 },
+          jump: { min: 0, max: 20, step: 0.1 },
+          gravity: { min: 0, max: 60, step: 0.5 },
+          boost: { min: 0, max: 30, step: 0.5 },
+        },
+        labels: {
+          walk: '歩く速さ（m/s）',
+          jump: 'ジャンプ（m/s）',
+          gravity: '重力（m/s^2）',
+          boost: 'ブースト（m/s）',
+        },
+      },
+      {
+        name: 'CAMERA_TUNE',
+        table: CAMERA_TUNE,
+        ranges: {
+          dist: { min: 1, max: 20, step: 0.1 },
+          height: { min: -5, max: 10, step: 0.1 },
+        },
+        labels: { dist: '距離（m）', height: '高さ（m）' },
+      },
+      {
+        name: 'FEEL_TUNE',
+        table: feelTune,
+        ranges: {
+          boostFov: { min: 0, max: 40, step: 1 },
+          fovRate: { min: 0.5, max: 30, step: 0.5 },
+          landShake: { min: 0, max: 2, step: 0.01 },
+          fireShake: { min: 0, max: 1, step: 0.01 },
+          damageShake: { min: 0, max: 2, step: 0.01 },
+          shakeDecay: { min: 0, max: 30, step: 0.5 },
+          hitStop: { min: 0, max: 0.5, step: 0.01 },
+          dust: { min: 0, max: 3, step: 0.1 },
+          fireRate: { min: 1, max: 20, step: 0.5 },
+        },
+        labels: {
+          boostFov: 'ブーストの画角（度）',
+          fovRate: '画角の速さ（1/s）',
+          landShake: '着地の揺れ（m）',
+          fireShake: '射撃の揺れ（m）',
+          damageShake: '被弾の揺れ（m）',
+          shakeDecay: '揺れの収まり（1/s）',
+          hitStop: 'ヒットストップ（s）',
+          dust: '砂煙の倍率',
+          fireRate: '連射（発/s）',
+        },
+      },
+    ],
+  });
 
   window.sbMapReport = () => {
     const report: MapReport = {

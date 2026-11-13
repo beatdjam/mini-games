@@ -12,12 +12,15 @@ import { recordClear } from '../logic/save.ts';
 import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME, placeCamera } from '../view/field.ts';
 import { removeAllyView } from '../view/allies.ts';
+import { removeBooms } from '../view/boom.ts';
 import { removeCutsceneView } from '../view/cutscene.ts';
 import { removeEnemyView } from '../view/enemies.ts';
 import { removeHazardView } from '../view/hazards.ts';
+import { removeHurtView } from '../view/hurt.ts';
 import { removeHud } from '../view/hud.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
+import { resetSound, soundFrame } from '../view/sound.ts';
 import { openBriefing } from './briefing.ts';
 import { clearSuspend, loadSuspend, save, writeSave, writeSuspend } from './storage.ts';
 import { initPlayInput, readInput } from './input.ts';
@@ -56,8 +59,10 @@ function clearPlay(old: PlayView): void {
   removeSeaFire(old.seaFire);
   old.battle.dispose();
   removeAllyView(old.allies);
+  removeHurtView(old.hurt);
   removeHud(old.hud);
   removeCutsceneView(old.cutscene);
+  removeBooms();
 }
 
 // The sortie's time as minutes and seconds ("3:07").
@@ -77,6 +82,7 @@ function beginPlay(next: GameModel): void {
   setState('play');
   hideField();
   game = next;
+  resetSound();
   view = buildPlayView(game);
   initPlayInput();
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
@@ -193,6 +199,8 @@ function update(dt: number): void {
   const skip = takeSkip();
   const cutscene = game.script.cutscene;
   if (cutscene !== null && (skip || !hasCutscene(cutscene.id))) sendToScript(game, { kind: 'skip' });
+  // the cutscene's sounds play too: this line is not behind the cutscene branch
+  soundFrame(game, dt);
   drawPlay(view, game, dt, read.pitchDelta);
   // a cleared sortie shows its result once the closing cutscene is over
   if ((game.cleared && game.script.cutscene === null) || game.downed) showResult();

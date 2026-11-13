@@ -98,6 +98,7 @@ export const FEEL_TUNE = {
   landShake: 0.35, // the landing's shake at a falling speed of 10 m/s (m)
   fireShake: 0.06, // the shake a shot adds (m)
   damageShake: 0.2, // the shake a hit on the mech adds (m)
+  shakeMax: 0.9, // the most a frame's shake may reach when blasts add to it (m; the biggest blast 0.7 plus a hit's 0.2)
   shakeDecay: 10, // how fast the shake dies away (1/s)
   hitStop: 0.05, // how long a kill stops the mech (s); a plain hit does not (8 shots a second made it stutter)
   dust: 1, // the multiplier on how much dust a burst makes; 0 makes none
@@ -122,6 +123,26 @@ export const FCS_TUNE: Record<FcsKind, FcsTune> = {
 export const HUD_TUNE = {
   radarRange: 200, // how far the radar sees (m); a target farther than this is not drawn
 };
+
+// The signs of being under fire (SB-1380): the red edge a hit from a direction lights, the white flash of a blast close
+// by, and the dark, drained edge while the armour is low. Colours are 0xRRGGBB and shares are 0-1. All provisional,
+// settled by eye in #view-hurt.
+export const HURT_TUNE = {
+  edgeColor: 0xff2a1a, // the edge's colour (0xRRGGBB)
+  edgeAlpha: 0.55, // the strongest a lit edge gets (0-1)
+  edgeWidth: 0.28, // how far the glow reaches in, as a share of the screen's farthest side from its anchor (0-1)
+  edgeFade: 0.8, // how long a hit's glow takes to go (s)
+  flashColor: 0xffffff, // the white flash's colour (0xRRGGBB)
+  flashAlpha: 0.35, // the flash at 0m from the mech (0-1)
+  flashNear: 15, // a blast closer than this whitens the screen (m)
+  flashFade: 0.3, // how long the white takes to go (s)
+  armorDarkFrom: 0.5, // the armour's share below which the edge darkens (1 = full armour)
+  armorDarkMax: 0.7, // the edge's darkness at no armour (0-1)
+  armorDrain: 0.45, // the share of the colour the screen loses at no armour (0-1)
+  armorColor: 0x000000, // the darkening edge's colour (0xRRGGBB)
+};
+
+export type HurtTune = typeof HURT_TUNE;
 
 // The look and the battle effects of #view-fx (SB-045): the resolution and the colour, the shells near the mech, the
 // smoke they leave, the tracers that cross the view, the allies walking landward and the planes overhead. The values

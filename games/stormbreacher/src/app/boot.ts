@@ -1,6 +1,8 @@
 // Start-up: the table of steps, run in order. Tests call boot() as the page's main.ts does; a second call does nothing.
 import { defaultLang, el, isTouch, LOOP, setLang, startLoop } from '@engine/core/index.ts';
+import { setVolumes, unlockAudio } from '@engine/audio/index.ts';
 import { initRender } from '@engine/render/index.ts';
+import { SOUND_VOLUME } from '../data/sounds.ts';
 import { FIELD_TUNE } from '../data/tune.ts';
 import { buildField, placeCamera } from '../view/field.ts';
 import { initFullscreen } from './fullscreen.ts';
@@ -44,6 +46,13 @@ const BOOT: { name: string; run: () => void }[] = [
   },
   { name: 'start', run: initStart },
   { name: 'fullscreen', run: initFullscreen },
+  {
+    name: 'audio',
+    run: () => {
+      setVolumes(SOUND_VOLUME.sfx, SOUND_VOLUME.bgm);
+      unlockAudio();
+    },
+  },
   {
     name: 'loop',
     run: () => {
