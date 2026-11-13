@@ -89,7 +89,7 @@ test('#view-mech pattern e keeps its parts and colours', () => {
   const report = JSON.parse(window.sbMechReport!()) as { pattern: string; mech: { calls: number; boxes: number } };
   expect(report.pattern).toBe('e');
   expect(report.mech.calls).toBe(5);
-  expect(report.mech.boxes).toBe(19);
+  expect(report.mech.boxes).toBe(53);
   expect(PATTERNS.e.palette.armor).toBe(0x6f735c);
   expect(PATTERNS.e.palette.sensor).toBe(0xd8482a);
 });

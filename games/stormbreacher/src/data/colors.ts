@@ -1,6 +1,7 @@
 // The colours the field, the map's ground and the sky share, so the same one is not written in two files.
 import type { EnemyKind } from './enemies.ts';
 import type { MechColor } from './mech.ts';
+import type { ProtoMaterial } from './mechProto.ts';
 
 export const SAND_COLOR = 0xc2a878; // the ground's sand
 export const SKY_COLOR = 0x9db8c6; // the sky and the fog
@@ -66,6 +67,24 @@ export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
 };
 // The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
 export const MECH_FLAME_COLOR = 0xffd27a;
+
+// The prototype's metal (SB-1468, 仮): a blue-grey armour, a near-black frame, bare gunmetal, an orange hazard accent
+// and the warm lights. One hex per material name of data/mechProto.ts.
+export const MECH_PROTO_COLOR: Record<ProtoMaterial, number> = {
+  armor: 0x5f6b66,
+  frame: 0x2f3335,
+  weapon: 0x8d9296,
+  accent: 0xd08a2a,
+  sensor: 0xff5c2a,
+  lamp: 0xffe2a0,
+};
+
+// The light the confirmation view puts around the prototype (SB-1468, 仮): the warm sun that casts its shadow and the
+// cool edge light along its back.
+export const MECH_PROTO_LIGHT_COLOR = {
+  key: 0xfff1d4,
+  rim: 0x8cc4f0,
+};
 
 // The paint on a mech's boxes (SB-1460, 仮): the strokes of view/mechSurfaces.ts, as the canvas's "r,g,b" strings. The
 // picture multiplies the palette's hex, so these stay near white and darken the hue rather than replacing it. Chosen
