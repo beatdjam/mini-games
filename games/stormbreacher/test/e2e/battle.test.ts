@@ -64,6 +64,17 @@ function battleBodies(): THREE.InstancedMesh {
   return bodies;
 }
 
+// One number from the drawn soldiers' places: a frame that moved any of them changes it.
+function battleBodiesPlacement(bodies: THREE.InstancedMesh): number {
+  const matrix = new THREE.Matrix4();
+  let sum = 0;
+  for (let i = 0; i < bodies.count; i++) {
+    bodies.getMatrixAt(i, matrix);
+    sum += matrix.elements[12] * 1000 + matrix.elements[14];
+  }
+  return sum;
+}
+
 test('a sortie draws the battle: the allies walking, the holes and the smoke, in one group', async () => {
   startSortie();
   await frames(3);
@@ -94,6 +105,29 @@ test('the battlefield holds still during the landing and starts when the control
   runSystems(1 / 60);
   await frames(1);
   expect(bodies.count).toBeGreaterThan(0);
+});
+
+test('the battlefield runs while the wave 2 cutscene plays', async () => {
+  startSortie();
+  await frames(3);
+  sendToScript(game(), { kind: 'skip' });
+  // both pillboxes down fires cp1; wave2-lost starts the cutscene 4 s later
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game().targets.find(entry => entry.id === id);
+    if (target) target.hp = 0;
+    sendToScript(game(), { kind: 'destroyed', target: id });
+  }
+  for (let i = 0; i < 60 * 5 && game().script.cutscene === null; i++) runSystems(1 / 60);
+  expect(game().script.cutscene?.id).toBe('wave2-sinks');
+  await frames(1);
+  const bodies = battleBodies();
+  expect(bodies.count).toBeGreaterThan(0);
+  const before = battleBodiesPlacement(bodies);
+  // half a second into the cutscene the infantry has moved on (the landing is the one that holds it still)
+  for (let i = 0; i < 30; i++) runSystems(1 / 60);
+  await frames(1);
+  expect(game().script.cutscene?.id).toBe('wave2-sinks');
+  expect(battleBodiesPlacement(bodies)).not.toBe(before);
 });
 
 test('a blast of the game takes the soldiers near it', () => {
@@ -136,7 +170,10 @@ test('the cutscene shows no ally, and the ashore input puts them out and then li
   expect(allyGroups()).toHaveLength(0);
   sendToScript(game(), { kind: 'ashore' });
   await frames(2);
-  expect(allyGroups()).toHaveLength(8);
+  // the buddy, the three cover mechs and the gunner: two groups each, the runner and the wreck
+  expect(game().allies).toHaveLength(5);
+  expect(allyGroups()).toHaveLength(10);
+  expect(allyGroups().filter(group => group.userData.allyId === 'gunner')).toHaveLength(2);
   const buddyGroups = allyGroups().filter(group => group.userData.allyId === 'buddy');
   expect(buddyGroups).toHaveLength(2);
   const [run, wreck] = buddyGroups;
@@ -150,12 +187,11 @@ test('the cutscene shows no ally, and the ashore input puts them out and then li
   expect(run.visible).toBe(false);
   expect(wreck.visible).toBe(true);
 
-  // entering B puts the gunner out as the fifth ally, the tenth group
+  // entering B wakes the pillboxes but brings out no more allies: the gunner came with the beach and waits by line 1
   game().mech.x = 0;
   game().mech.z = 140;
   step(game(), IDLE, 0.1);
   await frames(2);
   expect(game().allies).toHaveLength(5);
   expect(allyGroups()).toHaveLength(10);
-  expect(allyGroups().filter(group => group.userData.allyId === 'gunner')).toHaveLength(2);
 });

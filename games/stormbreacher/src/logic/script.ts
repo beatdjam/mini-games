@@ -166,7 +166,8 @@ function checkWay(def: MissionDef, way: string | HolePaths): void {
 }
 
 // The path an `ally` or `allyMove` takes now: the first point the game blew in each line the way crosses picks that
-// line's part. A line with no blown point uses its first id, so a cue reached without the blast still has a way.
+// line's part. A line with no blown point uses its first id: an escape hatch for the dev views and the tests, never for
+// the sortie's own order (a cue that picks a hole is written to fire after the blast).
 function wayPath(s: ScriptState, way: string | HolePaths): string {
   if (typeof way === 'string') return way;
   const chosen: string[] = [];

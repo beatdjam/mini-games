@@ -1,4 +1,4 @@
-// Screenshots of the five allied mechs (SB-1590): the four on the beach, the three at their posts behind line 1, the
+// Screenshots of the five allied mechs (SB-1590): the five on the beach, the three at their posts behind line 1, the
 // gunner where the machine gun takes it, the three at C's posts and the three at the boss's cover. npm run shots. Not a
 // test: it is not part of npm test or the CI (the drawn pixels differ between machines). SHOTS_OUT=<folder> picks where
 // the pictures go; SHOTS_ONLY=<text> takes only the shots whose names contain it.
@@ -76,7 +76,8 @@ async function picture(name: string, place: { eye: readonly number[]; at: readon
   if (play) play.enabled = true;
 }
 
-// Starts the sortie and passes over the landing, so the beach cue has put the four allies out.
+// Starts the sortie and passes over the landing, so the ashore cue has put the five allies out: the buddy, the three
+// cover mechs and the gunner, who waits with them by line 1.
 async function beach(): Promise<void> {
   startSortie();
   await until(() => game().script.cutscene !== null);
@@ -103,15 +104,16 @@ beforeAll(async () => {
 
 test('ally-mechs', async () => {
   await beach();
-  // the four on the beach (the gunner is the fifth and comes at B)
+  // the five on the beach: the three cover mechs and the gunner wait sea-side of line 1
   await picture('ally-mechs-beach', BEACH);
 
-  // B: the gunner comes out, falls to the machine gun, and the three take their posts behind line 1
+  // B: line 1's hole opens, the three run through it with the gunner, and the machine gun takes the gunner
+  sendToScript(game(), { kind: 'blast', id: 'l1-b' });
   game().mech.x = 0;
   game().mech.z = 140;
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
   LOOP.maxDt = 0;
-  advance(4.5);
+  advance(6);
   await picture('ally-mechs-gunner-down', GUNNER);
   advance(8);
   await picture('ally-mechs-b-posts', B_POSTS);

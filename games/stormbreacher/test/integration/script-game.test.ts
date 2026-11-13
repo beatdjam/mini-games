@@ -18,6 +18,7 @@ const idle: GameInput = {
   fire: false,
   sub: false,
 };
+const LONG = 15000; // these tests run many hundreds of frames; the default 5 s is short on a busy CI machine
 
 // The script's events with the names m1.test.ts reads them by; this file keeps its own copy.
 function label(event: ScriptOut): string {
@@ -136,7 +137,7 @@ test('stepping off the craft puts the beach allies out', () => {
   game.mech.x = 0;
   game.mech.z = 166;
   step(game, idle, 1 / 60);
-  expect(scriptLabels(game)).toEqual(['ally:buddy', 'ally:cover-b1', 'ally:cover-b2', 'ally:cover-b3']);
+  expect(scriptLabels(game)).toEqual(['ally:buddy', 'ally:cover-b1', 'ally:cover-b2', 'ally:cover-b3', 'ally:gunner']);
 });
 
 test('entering the b-line changes the objective and brings a radio line', () => {
@@ -153,7 +154,6 @@ test('entering the b-line changes the objective and brings a radio line', () => 
     'spawn:b-squad',
     'spawn:b-emplacements',
     'radio:m1.depot-hint',
-    'ally:gunner',
   ]);
   expect(game.radio).toEqual({ line: 'm1.depot-hint', time: game.time });
   step(game, idle, 1 / 60);
@@ -185,18 +185,28 @@ test('breaking the depot reaches the script', () => {
   expect(labels).toContain('radio:m1.depot-down');
 });
 
-test('the whole of M1 runs from the landing to the cleared result', () => {
-  const game = newGame(M1B_HAND);
-  const { outs, cleared, clearedAfterTargets } = runM1(game);
-  expect(clearedAfterTargets).toBe(false);
-  expect(Object.keys(game.script.fired).sort()).toEqual(M1.cues.map(cue => cue.id).sort());
-  const objectives: string[] = [];
-  for (const event of outs) if (event.kind === 'objective') objectives.push(event.id);
-  expect(objectives).toEqual(['reach-pillboxes', 'break-pillboxes', 'take-seawall', 'silence-battery', 'hit-magazine']);
-  expect(game.script.ended).toBe('cleared');
-  expect(game.cleared).toBe(true);
-  expect(cleared).toBe(1);
-}, 15000);
+test(
+  'the whole of M1 runs from the landing to the cleared result',
+  () => {
+    const game = newGame(M1B_HAND);
+    const { outs, cleared, clearedAfterTargets } = runM1(game);
+    expect(clearedAfterTargets).toBe(false);
+    expect(Object.keys(game.script.fired).sort()).toEqual(M1.cues.map(cue => cue.id).sort());
+    const objectives: string[] = [];
+    for (const event of outs) if (event.kind === 'objective') objectives.push(event.id);
+    expect(objectives).toEqual([
+      'reach-pillboxes',
+      'break-pillboxes',
+      'take-seawall',
+      'silence-battery',
+      'hit-magazine',
+    ]);
+    expect(game.script.ended).toBe('cleared');
+    expect(game.cleared).toBe(true);
+    expect(cleared).toBe(1);
+  },
+  LONG,
+);
 
 test('the game stops once the script has ended', () => {
   const game = newGame(M1B_HAND);

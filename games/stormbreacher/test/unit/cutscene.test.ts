@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { LANG } from '@engine/core/index.ts';
-import { CUTSCENES } from '../../src/data/cutscenes.ts';
+import { CUTSCENES, type CutsceneEvent } from '../../src/data/cutscenes.ts';
 import { CRAFT_TUNE, craftZ } from '../../src/data/craft.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
@@ -343,18 +343,23 @@ test('the near shell takes r1 and r5, the sweep takes r2, r3 and r4, and r6 stan
   expect(riderFall('r6', CUTSCENE_SEC.landing, events)).toBe(0);
 });
 
-test('each fall starts after a tracer has reached the deck', () => {
+test('each fall starts after the burst that takes it has reached the deck', () => {
   const tracers = landing.events.filter(event => event.kind === 'tracers');
-  const arrivals = tracers.map(event => event.at + (event.z - LANDING_TUNE.tracer.fromZ) / LANDING_TUNE.tracer.speed);
-  expect(arrivals.length).toBeGreaterThan(0);
-  // the 6.5 s riders fall to the near shell, not to the sweep: only the falls after the first tracer are checked
-  const firstTracer = Math.min(...tracers.map(event => event.at));
-  for (const event of landing.events) {
-    if (event.kind !== 'riders' || event.at < firstTracer) continue;
-    expect(
-      arrivals.some(arrival => arrival <= event.at + 1e-9),
-      `the riders at ${event.at} s fall before every tracer arrives`,
-    ).toBe(true);
+  const arrivalOf = (event: Extract<CutsceneEvent, { kind: 'tracers' }>): number =>
+    event.at + (event.z - LANDING_TUNE.tracer.fromZ) / LANDING_TUNE.tracer.speed;
+  // The sweep's bursts and the riders they take: the first (11.0 s) takes r2 and r3, the second (11.2 s) takes r4.
+  // The near shell's riders (r1 and r5) are not checked here; their fall is the shell's.
+  const takes = [
+    ['r2', 11.0],
+    ['r3', 11.0],
+    ['r4', 11.2],
+  ] as const;
+  for (const [id, burstAt] of takes) {
+    const tracer = tracers.find(event => event.at === burstAt);
+    if (!tracer) throw new Error(`the landing has no tracer at ${burstAt} s`);
+    const fall = landing.events.find(event => event.kind === 'riders' && event.ids.includes(id) && event.at >= 10);
+    if (!fall) throw new Error(`the landing has no sweep fall for ${id}`);
+    expect(fall.at, `${id} falls before its burst reaches the deck`).toBeGreaterThan(arrivalOf(tracer));
   }
 });
 

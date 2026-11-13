@@ -24,6 +24,7 @@ import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const MORTAR = BARRAGES.mortar;
+const LONG = 15000; // these tests run many hundreds of frames; the default 5 s is short on a busy CI machine
 
 const idle: GameInput = {
   moveX: 0,
@@ -96,43 +97,47 @@ test('the beach wave starts a mortar barrage, and a shell warns, then lands afte
   expect(game.shells).toHaveLength(0);
 });
 
-test('a shell hurts a mech inside the blast and not one outside it, with the way it came from', () => {
-  let hits = 0;
-  let misses = 0;
-  for (let n = 1; n <= 12; n++) {
-    seed(n);
-    const game = newPlayGame(M1B_HAND);
-    // the mech stands still here, so the aimed mortar would also warn; this test reads the barrage's shells alone
-    game.aimed = null;
-    const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
-    const warn = events.find((event): event is Warned => event.kind === 'shellWarn');
-    const land = events.find((event): event is Landed => event.kind === 'shellLand');
-    if (!warn || !land) throw new Error('no shell came');
-    const inside = Math.hypot(land.x - game.mech.x, land.z - game.mech.z) <= MORTAR.radius;
-    expect(land.hit).toBe(inside);
-    const damaged = events.filter(event => event.kind === 'damaged');
-    if (inside) {
-      hits++;
-      expect(game.armor).toBe(MECH_TUNE.armor - MORTAR.damage);
-      expect(damaged).toHaveLength(1);
-      const { fromX, fromZ } = damaged[0] as Extract<GameEvent, { kind: 'damaged' }>;
-      // toward the shell's place, as a unit vector
-      const dx = land.x - game.mech.x;
-      const dz = land.z - game.mech.z;
-      const d = Math.hypot(dx, dz);
-      if (d > 1e-6) {
-        expect(fromX).toBeCloseTo(dx / d, 6);
-        expect(fromZ).toBeCloseTo(dz / d, 6);
+test(
+  'a shell hurts a mech inside the blast and not one outside it, with the way it came from',
+  () => {
+    let hits = 0;
+    let misses = 0;
+    for (let n = 1; n <= 12; n++) {
+      seed(n);
+      const game = newPlayGame(M1B_HAND);
+      // the mech stands still here, so the aimed mortar would also warn; this test reads the barrage's shells alone
+      game.aimed = null;
+      const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
+      const warn = events.find((event): event is Warned => event.kind === 'shellWarn');
+      const land = events.find((event): event is Landed => event.kind === 'shellLand');
+      if (!warn || !land) throw new Error('no shell came');
+      const inside = Math.hypot(land.x - game.mech.x, land.z - game.mech.z) <= MORTAR.radius;
+      expect(land.hit).toBe(inside);
+      const damaged = events.filter(event => event.kind === 'damaged');
+      if (inside) {
+        hits++;
+        expect(game.armor).toBe(MECH_TUNE.armor - MORTAR.damage);
+        expect(damaged).toHaveLength(1);
+        const { fromX, fromZ } = damaged[0] as Extract<GameEvent, { kind: 'damaged' }>;
+        // toward the shell's place, as a unit vector
+        const dx = land.x - game.mech.x;
+        const dz = land.z - game.mech.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 1e-6) {
+          expect(fromX).toBeCloseTo(dx / d, 6);
+          expect(fromZ).toBeCloseTo(dz / d, 6);
+        }
+      } else {
+        misses++;
+        expect(game.armor).toBe(MECH_TUNE.armor);
+        expect(damaged).toHaveLength(0);
       }
-    } else {
-      misses++;
-      expect(game.armor).toBe(MECH_TUNE.armor);
-      expect(damaged).toHaveLength(0);
     }
-  }
-  expect(hits).toBeGreaterThan(0);
-  expect(misses).toBeGreaterThan(0);
-});
+    expect(hits).toBeGreaterThan(0);
+    expect(misses).toBeGreaterThan(0);
+  },
+  LONG,
+);
 
 test('a mech past the barrage’s reach (z under minZ) gets no warning', () => {
   seed(1);
@@ -146,16 +151,20 @@ test('a mech past the barrage’s reach (z under minZ) gets no warning', () => {
   expect(game.shells).toHaveLength(0);
 });
 
-test('the same seed and input give the same events', () => {
-  const play = (): GameEvent[] => {
-    seed(42);
-    const game = newPlayGame(M1B_HAND);
-    return run(game, 900, { ...idle, moveZ: 1 });
-  };
-  const first = play();
-  expect(first.filter(event => event.kind === 'shellWarn').length).toBeGreaterThan(1);
-  expect(play()).toEqual(first);
-}, 15000);
+test(
+  'the same seed and input give the same events',
+  () => {
+    const play = (): GameEvent[] => {
+      seed(42);
+      const game = newPlayGame(M1B_HAND);
+      return run(game, 900, { ...idle, moveZ: 1 });
+    };
+    const first = play();
+    expect(first.filter(event => event.kind === 'shellWarn').length).toBeGreaterThan(1);
+    expect(play()).toEqual(first);
+  },
+  LONG,
+);
 
 test('the mech’s shot sets a mine off: the shot stops, the mine goes, and a mech far away is not hurt', () => {
   const mine = { x: 0, z: -20 };

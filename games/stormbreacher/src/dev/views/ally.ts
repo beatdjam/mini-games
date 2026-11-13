@@ -139,20 +139,31 @@ export function showAlly(_hash: string) {
   row.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
   extra.appendChild(row);
   button(row, 'B の手前へ', () => {
-    standAt(BEFORE_B);
     const game = currentGame();
-    if (game) sendToScript(game, { kind: 'enter', area: 'b-line' });
+    if (!game) return;
+    // the dev page skips the landing but not the walk off the craft: the beach's allies (the gunner with them) come out
+    // only on `ashore`, and line 1 must be open for the four to run through its hole
+    sendToScript(game, { kind: 'ashore' });
+    sendToScript(game, { kind: 'blast', id: 'l1-b' });
+    standAt(BEFORE_B);
+    sendToScript(game, { kind: 'enter', area: 'b-line' });
   });
   button(row, 'C の手前へ', () => {
+    const game = currentGame();
+    if (!game) return;
+    sendToScript(game, { kind: 'ashore' });
+    // cp1 sends the three through lines 2 and 3: open both first, or they would take the fallback ways
+    for (const id of ['l2-a', 'l3-a']) sendToScript(game, { kind: 'blast', id });
     standAt(BEFORE_C);
     breakPillboxes();
-    const game = currentGame();
-    if (game) sendToScript(game, { kind: 'enter', area: 'c-line' });
+    sendToScript(game, { kind: 'enter', area: 'c-line' });
   });
   button(row, '防波堤の上へ', () => {
-    standAt(ON_SEAWALL);
     const game = currentGame();
-    if (game) sendToScript(game, { kind: 'enter', area: 'seawall-top' });
+    if (!game) return;
+    sendToScript(game, { kind: 'ashore' });
+    standAt(ON_SEAWALL);
+    sendToScript(game, { kind: 'enter', area: 'seawall-top' });
   });
   const enemyRow = document.createElement('div');
   enemyRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
@@ -167,8 +178,8 @@ export function showAlly(_hash: string) {
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
   note.textContent =
-    'B の手前: 4機が出て、B に入ると gunner が5機目に出て倒れる。\n' +
-    'C の手前: トーチカ2基を壊して cp1 を起こし、3機が C へ動く。\n' +
+    'B の手前: 線1を爆破して、艇を降りた5機のうち覆いの3機と gunner が穴を抜ける。gunner は B の手前で倒れる。\n' +
+    'C の手前: 線2・3を開け、トーチカ2基を壊して cp1 を起こし、3機が C へ動く。\n' +
     '防波堤の上: 3機がボスの投稿へ動く（坂の上で足元が上がる）。\n' +
     'B/C の手前に敵: 味方機の曳光が敵へ、敵の曳光が味方機へ向く（当たりは無い）。\n' +
     '保存はしない。';

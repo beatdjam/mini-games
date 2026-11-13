@@ -46,6 +46,9 @@ export interface CutsceneDef {
   mech?: readonly MechKey[];
   lines: readonly CutsceneLine[];
   events: readonly CutsceneEvent[];
+  // Set: the battlefield's clock stands still while this cutscene plays, so the first squad runs once the player has
+  // the controls (the landing). Unset: the battlefield runs on as the picture plays.
+  holdsBattle?: true;
 }
 
 // The map is M1B_HAND: the mech waits on the craft's deck at (0, 1.8, 177) looking to -z, the player's craft lies at
@@ -70,6 +73,7 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
       { at: 12, pos: [2.15, 6.2, 185.6], look: [2.15, 4.7, 177] }, // the game's camera behind the mech at the start
     ],
     mech: [{ at: 0, pos: [0, 1.8, 177] }],
+    holdsBattle: true,
     lines: [
       { from: 0.4, to: 2.8, key: 'cutscene.landing.wave' },
       { from: 3.6, to: 5.4, key: 'cutscene.landing.hit' },
@@ -86,13 +90,13 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
       { at: 6.4, kind: 'burst', x: -6, z: 180 }, // a shell falls off the port side and takes the riders there
       { at: 6.5, kind: 'riders', ids: ['r1', 'r5'], sec: 0.7 },
       { at: 9.2, kind: 'ramp', sec: 1.6 },
-      // The machine gun sweeps the boat once the ramp is down (10.8 s); each rider starts to fall when a tracer has
-      // reached the deck (about 0.33 s after it starts), so the fall follows the line that takes it.
+      // The machine gun sweeps the boat once the ramp is down (10.8 s); each rider starts to fall once a tracer has
+      // reached the deck (about 0.32 s after it starts). r4 falls to the 11.2 s burst, so it goes after that one lands.
       { at: 11.0, kind: 'tracers', x: 0.4, z: 176, n: 4 },
       { at: 11.2, kind: 'tracers', x: -0.6, z: 175.6, n: 3 },
       { at: 11.35, kind: 'tracers', x: 1.2, z: 176, n: 3 },
       { at: 11.35, kind: 'riders', ids: ['r2', 'r3'], sec: 0.5 },
-      { at: 11.5, kind: 'riders', ids: ['r4'], sec: 0.5 },
+      { at: 11.6, kind: 'riders', ids: ['r4'], sec: 0.4 },
     ],
   },
   // The second wave goes down at sea (the sea starts at z 170, the player's craft's body at z 175). The camera starts

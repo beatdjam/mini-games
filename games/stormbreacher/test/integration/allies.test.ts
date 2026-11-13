@@ -77,6 +77,28 @@ function runQuiet(game: GameModel, frames: number): GameEvent[] {
   return events;
 }
 
+// Stands the mech at `place` and holds use, as a player plants a charge: the hold and the fuse run, nothing shoots back,
+// and the frame the charge blows is the frame the script hears it. Gives back the events of those frames.
+function plantAndBlow(game: GameModel, place: { x: number; z: number }, blast: string): GameEvent[] {
+  game.mech.x = place.x;
+  game.mech.z = place.z;
+  game.mech.y = 0;
+  game.mech.grounded = true;
+  const events: GameEvent[] = [];
+  for (let i = 0; i < 60 * 10 && !game.script.blasts.includes(blast); i++) {
+    game.enemies = [];
+    game.barrages = [];
+    game.shells = [];
+    game.aimed = null;
+    game.armor = MECH_TUNE.armor;
+    game.battery.on = false;
+    step(game, { ...IDLE, use: true }, DT);
+    events.push(...game.events);
+  }
+  expect(game.script.blasts).toContain(blast);
+  return events;
+}
+
 test('the beach allies stay out of it while the mech is on the craft, and run once it steps off', () => {
   const game = newGame(M1B_HAND);
   step(game, IDLE, 0);
@@ -88,7 +110,7 @@ test('the beach allies stay out of it while the mech is on the craft, and run on
   // down the ramp: the ashored input puts the buddy and the three cover mechs out in the same frame
   game.mech.z = M1B_HAND.bounds.maxZ;
   step(game, IDLE, DT);
-  expect(game.allies.map(ally => ally.id).sort()).toEqual(['buddy', 'cover-b1', 'cover-b2', 'cover-b3']);
+  expect(game.allies.map(ally => ally.id).sort()).toEqual(['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner']);
   const buddy = allyById(game.allies, 'buddy');
   const start = { x: buddy.x, z: buddy.z };
   expect(start.z).toBeGreaterThan(160);
@@ -296,15 +318,44 @@ test(
 );
 
 test(
-  'entering B puts the gunner out as the fifth ally, and it calls and falls to the machine gun',
+  'the gunner waits by line 1 and takes the first blown hole in the order the sortie runs',
+  () => {
+    // b-line from the inside: the mech enters B on its way to l1-b, before the charge blows
+    const inside = newPlayGame(M1B_HAND);
+    const gunnerInside = allyById(inside.allies, 'gunner');
+    expect(gunnerInside.way).toEqual(M1.paths['gunner-wait']);
+    plantAndBlow(inside, { x: 40, z: 149 }, 'l1-b');
+    expect(gunnerInside.way).toEqual(M1.paths['gunner-run-l1b']);
+
+    // the band outside b-line: l1-b is still in reach, so the mech plants it without ever entering B
+    const band = newPlayGame(M1B_HAND);
+    plantAndBlow(band, { x: 40, z: 151.3 }, 'l1-b');
+    expect(allyById(band.allies, 'gunner').way).toEqual(M1.paths['gunner-run-l1b']);
+
+    // l1-a blown first
+    const left = newPlayGame(M1B_HAND);
+    plantAndBlow(left, { x: -55, z: 148 }, 'l1-a');
+    expect(allyById(left.allies, 'gunner').way).toEqual(M1.paths['gunner-run-l1a']);
+    // line1-open fires only on the blast: the way was never picked from the fallback
+    expect(left.script.fired['line1-open']).toBeTypeOf('number');
+  },
+  LONG,
+);
+
+test(
+  'the gunner comes out with the beach and falls to the machine gun once line 1 is blown',
   () => {
     const game = newPlayGame(M1B_HAND);
-    sendToScript(game, { kind: 'blast', id: 'l1-b' });
+    expect(game.allies).toHaveLength(5);
+    expect(allyById(game.allies, 'gunner').way).toEqual(M1.paths['gunner-wait']);
+    // the sortie's order: the mech enters B (the pillboxes wake), then a charge blows line 1
     game.mech.x = 0;
     game.mech.z = 140;
     step(game, IDLE, DT);
-    expect(game.allies).toHaveLength(5);
+    expect(game.script.fired['pillboxes']).toBeTypeOf('number');
+    sendToScript(game, { kind: 'blast', id: 'l1-b' });
     const gunner = allyById(game.allies, 'gunner');
+    expect(gunner.way).toEqual(M1.paths['gunner-run-l1b']);
     const events = runQuiet(game, 60 * 20);
     expect(gunner.down).toBe(true);
     const called = events.filter(event => event.kind === 'allyCall' && event.id === 'gunner');
@@ -320,7 +371,8 @@ test('a checkpoint keeps all five allies with their height, call and way, and co
   const game = newPlayGame(M1B_HAND);
   game.mech.x = 0;
   game.mech.z = 140;
-  step(game, IDLE, DT); // the gunner comes out
+  step(game, IDLE, DT); // the pillboxes wake
+  sendToScript(game, { kind: 'blast', id: 'l1-b' }); // the gunner takes its way before the checkpoint
   breakPillboxes(game);
 
   const kept = structuredClone(game.checkpoint?.allies ?? []);
@@ -354,7 +406,7 @@ test(
     const keptAgain = allyById(again.allies, 'buddy');
     expect(keptAgain).toEqual(kept);
     expect(keptAgain).not.toBe(game.checkpoint?.allies.find(ally => ally.id === 'buddy'));
-    expect(again.allies.map(ally => ally.id)).toEqual(['buddy', 'cover-b1', 'cover-b2', 'cover-b3']);
+    expect(again.allies.map(ally => ally.id)).toEqual(['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner']);
     // it runs on from there and falls once more
     expect(downs(run(again, IDLE, 60 * 20))).toHaveLength(1);
     // and the checkpoint itself still holds the buddy running

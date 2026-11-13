@@ -15,8 +15,9 @@ const LINE2 = ['l2-a', 'l2-b'] as const;
 const LINE3 = ['l3-a', 'l3-b'] as const;
 
 // A run from B's cover to C's post: it crosses line 2 and line 3, and each line's first hole decides that crossing.
-// The points are 仮, like the rest of the ways; the box test keeps them off the props and pillboxes.
-function cRun(post: GroundSpot, l2x: number, l3x: number, tail: readonly GroundSpot[]): GroundSpot[] {
+// The points are 仮, like the rest of the ways; the box test keeps them off the props and pillboxes. `l3endZ` is the z
+// the way turns at after line 3: the hole's landward edge (8) spares two ways a 4 m run down to z 4 and back.
+function cRun(post: GroundSpot, l2x: number, l3x: number, tail: readonly GroundSpot[], l3endZ = 4): GroundSpot[] {
   return [
     post,
     // pass seaward of the wreck at (30, 110) before dropping to the line 2 crossing
@@ -28,15 +29,15 @@ function cRun(post: GroundSpot, l2x: number, l3x: number, tail: readonly GroundS
     // the depot at (53, 31) reaches z 37: come to line 3 from seaward of it
     { x: l3x, z: 42 },
     { x: l3x, z: 36 },
-    { x: l3x, z: 4 },
+    { x: l3x, z: l3endZ },
     ...tail,
   ];
 }
 
 // The ways the allied mechs run (SB-170, SB-1590, SB-1775). The beach's buddy falls beside line 1's blast point. The
-// three cover mechs wait at the cover sea-side of line 1 until a charge opens its hole (`line1-open`), then run through
-// that hole to the cover behind the line, and on to C and the boss's ground. The gunner falls on the way to B's cover.
-// The points are a guess; +z is the sea.
+// three cover mechs and the gunner wait at the cover sea-side of line 1 until a charge opens its hole (`line1-open`),
+// then run through that hole: the cover mechs to the cover behind the line and on, the gunner only as far as B's cover,
+// where the machine guns take it. The points are a guess; +z is the sea.
 const PATHS = {
   // along the sea edge and then landward, clear of the low wall at x 30 (z 154)
   'beach-run': [
@@ -108,7 +109,9 @@ const PATHS = {
     { x: 40, z: 126 },
     { x: 55, z: 129 },
   ],
-  // the gunner: clear of the buddy's fall, through line 1's hole (l1-b) to B's cover, where the machine guns take it
+  // the gunner waits with the cover mechs, clear of the buddy's fall (44,151); 仮 like the rest of the ways
+  'gunner-wait': [{ x: 47, z: 154 }],
+  // the gunner: through line 1's hole (l1-b) to B's cover, where the machine guns take it
   'gunner-run-l1b': [
     { x: 47, z: 154 },
     { x: 40, z: 146 },
@@ -129,31 +132,51 @@ const PATHS = {
   ],
   // from B's cover to C's posts; the tails keep clear of the block at (0, 0) and the wreck at (45, 3)
   'c1-run-l2a-l3a': cRun({ x: 20, z: 110 }, -10, -30, [{ x: 0, z: 6 }]),
-  'c1-run-l2a-l3b': cRun({ x: 20, z: 110 }, -10, 61, [
-    { x: 61, z: 8 },
-    { x: 20, z: 8 },
-    { x: 0, z: 6 },
-  ]),
+  'c1-run-l2a-l3b': cRun(
+    { x: 20, z: 110 },
+    -10,
+    61,
+    [
+      { x: 20, z: 8 },
+      { x: 0, z: 6 },
+    ],
+    8,
+  ),
   'c1-run-l2b-l3a': cRun({ x: 20, z: 110 }, 50, -30, [{ x: 0, z: 6 }]),
-  'c1-run-l2b-l3b': cRun({ x: 20, z: 110 }, 50, 61, [
-    { x: 61, z: 8 },
-    { x: 20, z: 8 },
-    { x: 0, z: 6 },
-  ]),
+  'c1-run-l2b-l3b': cRun(
+    { x: 20, z: 110 },
+    50,
+    61,
+    [
+      { x: 20, z: 8 },
+      { x: 0, z: 6 },
+    ],
+    8,
+  ),
   'c2-run-l2a-l3a': cRun({ x: 30, z: 118 }, -10, -30, [{ x: -7, z: 1 }]),
-  'c2-run-l2a-l3b': cRun({ x: 30, z: 118 }, -10, 61, [
-    { x: 61, z: 8 },
-    { x: 20, z: 8 },
-    { x: -7, z: 6 },
-    { x: -7, z: 1 },
-  ]),
+  'c2-run-l2a-l3b': cRun(
+    { x: 30, z: 118 },
+    -10,
+    61,
+    [
+      { x: 20, z: 8 },
+      { x: -7, z: 6 },
+      { x: -7, z: 1 },
+    ],
+    8,
+  ),
   'c2-run-l2b-l3a': cRun({ x: 30, z: 118 }, 50, -30, [{ x: -7, z: 1 }]),
-  'c2-run-l2b-l3b': cRun({ x: 30, z: 118 }, 50, 61, [
-    { x: 61, z: 8 },
-    { x: 20, z: 8 },
-    { x: -7, z: 6 },
-    { x: -7, z: 1 },
-  ]),
+  'c2-run-l2b-l3b': cRun(
+    { x: 30, z: 118 },
+    50,
+    61,
+    [
+      { x: 20, z: 8 },
+      { x: -7, z: 6 },
+      { x: -7, z: 1 },
+    ],
+    8,
+  ),
   'c3-run-l2a-l3a': cRun({ x: 55, z: 129 }, -10, -30, [
     { x: 0, z: 8 },
     { x: 45, z: 9 },
@@ -293,6 +316,9 @@ const CUES = [
       { kind: 'ally', id: 'cover-b1', path: 'b1-wait' },
       { kind: 'ally', id: 'cover-b2', path: 'b2-wait' },
       { kind: 'ally', id: 'cover-b3', path: 'b3-wait' },
+      // the gunner waits with them and runs once a charge opens line 1 (line1-open): it must not take a way before
+      // the hole is picked, for a way read before the blast would fall back to line 1's first id
+      { kind: 'ally', id: 'gunner', path: 'gunner-wait', fate: { at: 'b-mid', by: 'gun', call: 'm1.gunner-call' } },
     ],
   },
   {
@@ -303,6 +329,7 @@ const CUES = [
       { kind: 'allyMove', id: 'cover-b1', path: B1_WAYS },
       { kind: 'allyMove', id: 'cover-b2', path: B2_WAYS },
       { kind: 'allyMove', id: 'cover-b3', path: B3_WAYS },
+      { kind: 'allyMove', id: 'gunner', path: GUNNER_WAYS },
     ],
   },
   {
@@ -314,13 +341,6 @@ const CUES = [
       { kind: 'spawn', wave: 'b-squad' },
       { kind: 'spawn', wave: 'b-emplacements' },
       { kind: 'radio', line: 'm1.depot-hint' },
-      // the gunner runs with the line's cover and the machine guns take it there
-      {
-        kind: 'ally',
-        id: 'gunner',
-        path: GUNNER_WAYS,
-        fate: { at: 'b-mid', by: 'gun', call: 'm1.gunner-call' },
-      },
     ],
   },
   {

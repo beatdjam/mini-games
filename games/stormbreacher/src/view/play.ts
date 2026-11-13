@@ -5,6 +5,7 @@ import { clamp, distXZ } from '@engine/core/index.ts';
 import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
 import { boomShakeAt } from '../data/boom.ts';
 import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
+import { CUTSCENES } from '../data/cutscenes.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1, PILLBOXES_DOWN_FLAG } from '../data/missions/m1.ts';
@@ -284,9 +285,11 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     }
   }
   // The infantry waits at BATTLE_TUNE.holdZ until the pillboxes are down, then goes on to the far line. The landing
-  // cutscene keeps the battlefield's clock still, so the first squad runs and falls once the player has the controls;
-  // the cutscene's own machine-gun tracers still fly (advanceTracers).
-  if (game.script.cutscene === null) {
+  // cutscene holds the battlefield's clock still (`holdsBattle`), so the first squad runs and falls once the player has
+  // the controls; the cutscene's own machine-gun tracers still fly (advanceTracers). The other cutscenes run it on.
+  const cutscene = game.script.cutscene;
+  const holdsBattle = cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true;
+  if (!holdsBattle) {
     view.feel.shake += view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
   } else {
     view.battle.advanceTracers(dt);
@@ -297,7 +300,6 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   // A cutscene that has the mech walk (the landing's ramp) draws it on its path; this is the picture only, so the
   // game's mech stays at its start and a skip, a checkpoint or a suspend need nothing: the model is back on the game's
   // mech in the frame the cutscene ends. A cutscene with no path does not draw the mech: it is still in the boat.
-  const cutscene = game.script.cutscene;
   const walk = cutscene === null ? null : cutsceneMech(cutscene.id, CUTSCENE_SEC[cutscene.id] - cutscene.left);
   if (walk === null) {
     view.model.position.set(game.mech.x, game.mech.y, game.mech.z);

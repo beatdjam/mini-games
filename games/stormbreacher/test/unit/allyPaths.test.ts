@@ -80,3 +80,20 @@ test('no ally’s way runs through a prop or a pillbox', () => {
     }
   }
 });
+
+test('a way a cue picks by its holes crosses exactly the holes its key names', () => {
+  // Every `ally`/`allyMove` that lets the blast choose the way (a HolePaths object) is checked: each key's path must
+  // cross the same blast points as the key, in any order.
+  const ways = M1.cues.flatMap(cue =>
+    cue.actions.flatMap(action =>
+      (action.kind === 'ally' || action.kind === 'allyMove') && typeof action.path === 'object' ? [action.path] : [],
+    ),
+  );
+  expect(ways.length).toBeGreaterThan(0);
+  for (const way of ways) {
+    for (const [key, name] of Object.entries(way.paths)) {
+      const crossed = holesOf(M1.paths[name]);
+      expect(crossed.slice().sort(), `${name} (${key})`).toEqual(key.split('+').sort());
+    }
+  }
+});
