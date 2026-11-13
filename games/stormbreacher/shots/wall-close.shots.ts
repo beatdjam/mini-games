@@ -20,6 +20,7 @@ declare const __SHOTS_ONLY__: string; // only the shots whose names contain this
 const HIDDEN = 'body * { visibility: hidden !important; } #gl { visibility: visible !important; }'; // only the 3D view
 const SETTLE = 60; // frames the camera gets to come to its place (at 60 fps, one second)
 const DRAWN_FRAMES = 3; // frames drawn before the picture, so it does not show the one before the state was set
+const SNAP_SPEED = 1e6; // m/s: the ease's cap while a shot puts the camera in its place, high enough to count as no cap
 const SEAWALL_X = 20; // a piece of the seawall's middle (m)
 const SEAWALL_FACE = -65; // the seawall's near face on +z (m)
 const CORNER_X = 92; // the seawall's east end, under the cliff at x 100 (m)
@@ -48,7 +49,9 @@ async function picture(name: string): Promise<void> {
   await page.screenshot({ path: `${__SHOTS_OUT__}/${name}.png` });
 }
 
-// Puts the mech at (x, z) facing `yaw` and lets the camera settle against the walls there.
+// Puts the mech at (x, z) facing `yaw` and lets the camera settle against the walls there. The camera eases over when the
+// mech is put somewhere new (SB-1910), so the settle turns the easing off and then puts the tune back: a picture wants the
+// camera already at its place, not partway there.
 async function stand(x: number, z: number, yaw: number): Promise<void> {
   const g = game();
   g.mech.x = x;
@@ -56,7 +59,21 @@ async function stand(x: number, z: number, yaw: number): Promise<void> {
   g.mech.yaw = yaw;
   g.mech.vx = 0;
   g.mech.vz = 0;
-  for (let n = 0; n < SETTLE; n++) await frame();
+  const ease = {
+    lag: CAMERA_TUNE.lag,
+    pullSpeed: CAMERA_TUNE.pullSpeed,
+    returnSpeed: CAMERA_TUNE.returnSpeed,
+    returnLag: CAMERA_TUNE.returnLag,
+  };
+  try {
+    CAMERA_TUNE.lag = 0;
+    CAMERA_TUNE.pullSpeed = SNAP_SPEED;
+    CAMERA_TUNE.returnSpeed = SNAP_SPEED;
+    CAMERA_TUNE.returnLag = 0;
+    for (let n = 0; n < SETTLE; n++) await frame();
+  } finally {
+    Object.assign(CAMERA_TUNE, ease);
+  }
 }
 
 beforeAll(async () => {
@@ -73,9 +90,10 @@ test('wall-close', async () => {
   sendToScript(game(), { kind: 'skip' });
   await until(() => game().script.cutscene === null);
 
-  // the mech's back is 1 m from the seawall: the camera is pushed to minDist and lifted over its shoulder
+  // the mech's back is 1 m from the seawall: the camera is pushed to minDist and lifted over its shoulder (yaw 0 faces
+  // -z, so a half turn points it away from the wall)
   if (wanted('wall-close-back')) {
-    await stand(SEAWALL_X, SEAWALL_FACE + 1, 0);
+    await stand(SEAWALL_X, SEAWALL_FACE + 1, Math.PI);
     await picture('wall-close-back');
   }
 
