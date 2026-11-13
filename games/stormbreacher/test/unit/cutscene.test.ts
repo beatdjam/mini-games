@@ -1,8 +1,9 @@
 import { expect, test } from 'vitest';
 import { LANG } from '@engine/core/index.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
+import { CRAFT_TUNE, craftZ } from '../../src/data/craft.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
-import { CAMERA_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { hasCutscene, cutsceneEvents, cutsceneLine, cutsceneMech, cutscenePose } from '../../src/logic/cutscene.ts';
 import { newGame } from '../../src/logic/game.ts';
@@ -54,6 +55,96 @@ test('the last key is the game camera behind the mech at the start, and the tabl
   expect(last.look[1]).toBeCloseTo(pose.look.y, 2);
   expect(last.look[2]).toBeCloseTo(pose.look.z, 2);
   expect(last.at).toBe(CUTSCENE_SEC.landing);
+});
+
+// The wheelhouse's box in the map's coordinates, from the craft's table (its middle is fromStern in front of the stern).
+function wheelhouseBox() {
+  const z = craftZ(M1B_HAND.bounds) + (CRAFT_TUNE.length - CRAFT_TUNE.wheelhouse.fromStern);
+  return {
+    minX: -CRAFT_TUNE.wheelhouse.w / 2,
+    maxX: CRAFT_TUNE.wheelhouse.w / 2,
+    minY: CRAFT_TUNE.hullTop,
+    maxY: CRAFT_TUNE.hullTop + CRAFT_TUNE.wheelhouse.h,
+    minZ: z - CRAFT_TUNE.wheelhouse.d / 2,
+    maxZ: z + CRAFT_TUNE.wheelhouse.d / 2,
+  };
+}
+
+type Box = ReturnType<typeof wheelhouseBox>;
+
+const inside = (box: Box, point: readonly number[]): boolean =>
+  point[0] >= box.minX &&
+  point[0] <= box.maxX &&
+  point[1] >= box.minY &&
+  point[1] <= box.maxY &&
+  point[2] >= box.minZ &&
+  point[2] <= box.maxZ;
+
+test('the landing camera never goes into the wheelhouse, at a key or between two', () => {
+  const box = wheelhouseBox();
+  for (let i = 0; i <= Math.round(CUTSCENE_SEC.landing / 0.05); i++) {
+    const second = i * 0.05;
+    const pose = cutscenePose('landing', second);
+    expect(inside(box, pose.pos), `the camera at ${second} s`).toBe(false);
+  }
+});
+
+test('the landing cuts from the sea outside the craft to the deck inside at 3.45 seconds', () => {
+  const outside = keys.find(key => key.at === 3.4);
+  const within = keys.find(key => key.at === 3.45);
+  if (!outside || !within) throw new Error('the landing has no cut at 3.4 and 3.45');
+  expect(within.at - outside.at).toBeCloseTo(0.05, 9);
+  expect(within.pos).not.toEqual(outside.pos);
+  const z = craftZ(M1B_HAND.bounds);
+  // outside: over the sea past the craft's stern
+  expect(outside.pos[2]).toBeGreaterThan(z + CRAFT_TUNE.length);
+  // inside: over the deck, within the hull's width and length
+  expect(Math.abs(within.pos[0])).toBeLessThan(CRAFT_TUNE.width / 2);
+  expect(within.pos[2]).toBeGreaterThan(z);
+  expect(within.pos[2]).toBeLessThan(z + CRAFT_TUNE.length);
+  expect(within.pos[1]).toBeGreaterThan(CRAFT_TUNE.deckTop);
+});
+
+test('the keys inside the craft keep the mech out of its see-through distance', () => {
+  const start = newGame(M1B_HAND).mech;
+  const chest = [start.x, start.y + MECH_TUNE.chestHeight, start.z] as const;
+  const z = craftZ(M1B_HAND.bounds);
+  const insideKeys = keys.filter(
+    key => Math.abs(key.pos[0]) < CRAFT_TUNE.width / 2 && key.pos[2] > z && key.pos[2] < z + CRAFT_TUNE.length,
+  );
+  expect(insideKeys.length).toBeGreaterThan(0);
+  for (const key of insideKeys) {
+    const distance = Math.hypot(key.pos[0] - chest[0], key.pos[1] - chest[1], key.pos[2] - chest[2]);
+    expect(distance, `the key at ${key.at} s`).toBeGreaterThan(MECH_TUNE.fadeDist);
+    // Claude's rule for this ticket: 4 m or more, so the model has room before it would fade
+    expect(distance, `the key at ${key.at} s`).toBeGreaterThanOrEqual(4);
+  }
+});
+
+test('the landing sinks two craft to port, out at sea, and no blast is put in its last 1.5 seconds', () => {
+  // the two craft of the row that the outside shot watches go down (the near craft beside the player's has no z: it
+  // begins where the player's craft does, and the 6 s key turns to it)
+  const sinks = landing.events.filter(event => event.kind === 'sink' && event.z !== undefined);
+  const bursts = landing.events.filter(event => event.kind === 'burst');
+  expect(sinks).toHaveLength(2);
+  expect(bursts).toHaveLength(2);
+  for (const sink of sinks) {
+    if (sink.kind !== 'sink') throw new Error('not a sink');
+    expect(sink.z ?? 0).toBeGreaterThan(M1B_HAND.bounds.maxZ);
+  }
+  const near = landing.events.filter(event => event.kind === 'sink' && event.z === undefined);
+  expect(near).toHaveLength(1);
+  for (const event of landing.events) {
+    if (event.kind === 'burst' || event.kind === 'sink') expect(event.at, `${event.kind}`).toBeLessThan(10.5);
+  }
+});
+
+test('the two new landing lines have text in ja and en', () => {
+  for (const code of ['ja', 'en']) {
+    for (const key of ['cutscene.landing.shell', 'cutscene.landing.sweep']) {
+      expect(LANG[code].ui[key], `${code} lacks "${key}"`).toBeTruthy();
+    }
+  }
 });
 
 test('the line follows the schedule, and none shows between lines', () => {

@@ -13,6 +13,7 @@ import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
 import { showFx } from './fx.ts';
 import { showBoom } from './boom.ts';
+import { showLanding } from './landing.ts';
 import { showBreach } from './breach.ts';
 import { showHurt } from './hurt.ts';
 import { showPillbox } from './pillbox.ts';
@@ -105,6 +106,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'starts',
     name: 'explosions at the water’s edge: fire, smoke, debris and water, with knobs',
     run: showBoom,
+  },
+  {
+    hash: '#view-landing',
+    match: 'starts',
+    name: 'the landing cutscene, held at a second, with the camera and deck knobs',
+    run: showLanding,
   },
   {
     hash: '#view-breach',

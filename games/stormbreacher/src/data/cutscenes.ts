@@ -51,22 +51,36 @@ export interface CutsceneDef {
 // compares it with cameraPose). The mech stands on the deck the whole time and the ramp comes down; the player walks down
 // it once the cutscene has handed over the controls.
 export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
+  // The landing opens outside: over the sea behind the craft, the row of craft as it is shelled, then a cut at 3.45 s to
+  // the camera inside the craft (behind and a little above the mech, in front of the wheelhouse). No key or second between
+  // them goes into the wheelhouse box (x +-1.5, z 182.5-185.5, y 1.7-4.3; unit test), and the keys inside stay 4 m or more
+  // from the mech's chest so the model is not drawn see-through. The last key is the game's own camera.
   landing: {
     camera: [
-      { at: 0, pos: [-8, 9, 206], look: [-10, 1, 170] }, // over the sea behind the craft, the craft and the beach in view
-      { at: 4, pos: [30, 5, 178], look: [-14, 2, 175] }, // from the side along the row of craft
-      { at: 7.5, pos: [16, 5, 172], look: [0, 3, 178] }, // beside the ramp, the mech on the deck
-      { at: 10.8, pos: [2.15, 5.2, 180], look: [2.15, 3.4, 176] }, // in the craft behind the mech, the ramp fully down
+      { at: 0, pos: [-10, 8, 210], look: [-8, 2, 172] }, // over the sea behind the craft, the craft and the beach
+      { at: 1.6, pos: [-14, 7, 206], look: [-20, 2, 180] }, // swing left along the row of craft
+      { at: 3.4, pos: [-18, 6, 202], look: [-36, 1.5, 196] }, // the two craft to port as they go down
+      { at: 3.45, pos: [0.9, 4.9, 181.2], look: [0.4, 3.4, 174.6] }, // cut inside, behind the mech: the raised ramp
+      { at: 5.4, pos: [0.6, 4.7, 181.5], look: [0.2, 3.2, 174.2] }, // a little closer
+      { at: 6.0, pos: [-1.8, 4.5, 181.7], look: [-20, 2.5, 182] }, // to port, the craft right beside us going down
+      { at: 8.0, pos: [1.6, 4.5, 181.8], look: [0.4, 3.1, 174.6] }, // back to the deck as the ramp starts down
+      { at: 10.8, pos: [2.0, 4.6, 181.2], look: [0.8, 3.2, 174.6] }, // the ramp fully down
       { at: 12, pos: [2.15, 6.2, 185.6], look: [2.15, 4.7, 177] }, // the game's camera behind the mech at the start
     ],
     mech: [{ at: 0, pos: [0, 1.8, 177] }],
     lines: [
-      { from: 0.5, to: 3.5, key: 'cutscene.landing.wave' },
-      { from: 3.8, to: 6.3, key: 'cutscene.landing.hit' },
-      { from: 6.5, to: 9.5, key: 'cutscene.landing.ramp' },
+      { from: 0.4, to: 2.8, key: 'cutscene.landing.wave' },
+      { from: 3.6, to: 5.4, key: 'cutscene.landing.hit' },
+      { from: 6.6, to: 8.0, key: 'cutscene.landing.shell' },
+      { from: 8.6, to: 10.2, key: 'cutscene.landing.ramp' },
+      { from: 10.9, to: 11.8, key: 'cutscene.landing.sweep' },
     ],
     events: [
-      { at: 4.2, kind: 'sink', x: -20, sec: 2.5 },
+      { at: 3.3, kind: 'burst', x: -34, z: 196 }, // a shell hits the first craft to port
+      { at: 3.4, kind: 'sink', x: -34, z: 196, sec: 2.2 },
+      { at: 3.9, kind: 'burst', x: -58, z: 210 }, // and the one beyond it
+      { at: 4.0, kind: 'sink', x: -58, z: 210, sec: 2.4 },
+      { at: 4.2, kind: 'sink', x: -20, sec: 2.5 }, // the craft right beside the player's: the near miss at 6 s
       { at: 9.2, kind: 'ramp', sec: 1.6 },
     ],
   },

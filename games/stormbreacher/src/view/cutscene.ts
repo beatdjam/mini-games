@@ -163,6 +163,8 @@ export function drawCutscene(
   if (key !== view.lineKey) {
     view.lineKey = key;
     view.caption.textContent = key === null ? '' : t(key);
+    // a new line comes in over the radio; the blasts already sound (the blast above)
+    if (key !== null) playSound({ name: 'radio', gain: 1, pitch: 1 });
   }
 
   camera.fov = CAMERA_TUNE.fov;
