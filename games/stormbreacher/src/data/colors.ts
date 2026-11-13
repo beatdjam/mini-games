@@ -67,6 +67,23 @@ export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
 // The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
 export const MECH_FLAME_COLOR = 0xffd27a;
 
+// The paint on a mech's boxes (SB-1460, 仮): the strokes of view/mechSurfaces.ts, as the canvas's "r,g,b" strings. The
+// picture multiplies the palette's hex, so these stay near white and darken the hue rather than replacing it. Chosen
+// apart from the field's and the HUD's colours so the grime does not read as an effect.
+export const MECH_PAINT_COLOR = {
+  baseLight: '234,231,222', // the armour's paint under the grime
+  baseMid: '212,209,200', // the frame and the weapon's worn metal
+  grimeLight: '244,240,228', // a dusty patch
+  grimeDark: '46,44,38', // soot and dirt running down a plate
+  rust: '102,72,48', // rust on the frame's joints
+  scrape: '252,250,242', // a scraped edge showing bare metal
+  stencil: '34,32,28', // the number stencilled on the armour
+  stripeLight: '246,242,228', // a warning stripe's light band
+  stripeDark: '38,36,30', // its dark band
+  sensorBase: '44,42,40', // the head's housing around the window
+  sensorWindow: '252,250,244', // the lit sensor window
+};
+
 // An explosion (SB-1340, 仮): the flash of each kind, the smoke that turns from black to grey, the debris, and the sand
 // or water a blast lifts from the ground or the sea.
 export const BOOM_COLOR = {

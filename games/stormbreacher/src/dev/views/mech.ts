@@ -6,13 +6,15 @@ import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
-import { CORES, PARTS } from '../../data/mech.ts';
+import { CORES, MECH_PAINT, MECH_PAINT_TEX, PARTS } from '../../data/mech.ts';
 import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
 import { moveTuneOf } from '../../logic/mechTune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { animateMech, buildMechVisual, countMechDraws, disposeMech } from '../../view/mechModel.ts';
+import { resetMechPaint } from '../../view/mechSurfaces.ts';
 import { PATTERN_IDS, PATTERN_LABELS, PATTERNS, type PatternId } from '../mech/patterns.ts';
+import { createTunePanel } from '../tunePanel.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
 
 declare global {
@@ -141,6 +143,48 @@ export function showMech(_hash: string) {
       button(bar, ACT_LABELS[act], () => toggleAct(act)),
     );
 
+  // The paint's numbers (#view-mech's panel): a change repaints the pictures and rebuilds the mech where it stands, so
+  // the grime, the stencil and the stripes can be judged against the sand.
+  createTunePanel({
+    title: '機体の質感 #view-mech',
+    groups: [
+      {
+        name: 'MECH_PAINT',
+        table: MECH_PAINT,
+        ranges: {
+          'armor.grime': { min: 0, max: 80, step: 1 },
+          'armor.scratches': { min: 0, max: 60, step: 1 },
+          'armor.grain': { min: 0, max: 60, step: 1 },
+          'frame.grime': { min: 0, max: 80, step: 1 },
+          'frame.scratches': { min: 0, max: 60, step: 1 },
+          'accent.grime': { min: 0, max: 40, step: 1 },
+          'weapon.scratches': { min: 0, max: 60, step: 1 },
+          'sensor.grime': { min: 0, max: 40, step: 1 },
+        },
+        labels: {
+          'armor.grime': '装甲の汚れ',
+          'armor.scratches': '装甲の傷',
+          'armor.grain': '装甲の粒',
+          'frame.grime': '骨格の汚れ',
+          'frame.scratches': '骨格の傷',
+          'accent.grime': '警告の汚れ',
+          'weapon.scratches': '武器の傷',
+          'sensor.grime': 'センサーの汚れ',
+        },
+      },
+      {
+        name: 'MECH_PAINT_TEX',
+        table: MECH_PAINT_TEX,
+        ranges: {
+          stencilSize: { min: 8, max: 48, step: 1 },
+          stripePitch: { min: 6, max: 40, step: 1 },
+        },
+        labels: { stencilSize: '番号の大きさ', stripePitch: '縞の間隔' },
+      },
+    ],
+    onChange: () => rebuild(true),
+  });
+
   function toggleAct(act: Act) {
     if (act === 'jump') {
       if (state.on.jump) return;
@@ -159,20 +203,27 @@ export function showMech(_hash: string) {
     paintButton(viewButton, state.view === 'behind');
   }
 
+  // Rebuilds the mech where it stands: for another pattern, or for the panel's changed paint counts, which are painted
+  // into new pictures (repaint).
+  function rebuild(repaint: boolean) {
+    if (repaint) resetMechPaint();
+    const position = mech.position.clone();
+    const yaw = mech.rotation.y;
+    scene.remove(mech);
+    disposeMech(mech);
+    mech = buildMechVisual(PATTERNS[state.pattern], height);
+    mech.position.copy(position);
+    mech.rotation.y = yaw;
+    scene.add(mech);
+  }
+
   function setPattern(next: PatternId) {
     if (next === state.pattern) {
       paintButtons();
       return;
     }
     state.pattern = next;
-    const position = mech.position.clone();
-    const yaw = mech.rotation.y;
-    scene.remove(mech);
-    disposeMech(mech);
-    mech = buildMechVisual(PATTERNS[next], height);
-    mech.position.copy(position);
-    mech.rotation.y = yaw;
-    scene.add(mech);
+    rebuild(false);
     paintButtons();
     const query = new URLSearchParams(location.search);
     query.set('pattern', next);
