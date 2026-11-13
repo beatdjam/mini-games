@@ -20,6 +20,23 @@ export const FOAM_COLOR = 0x9aa5a3;
 // two always meet.
 export const SKY_TOP_COLOR = 0x5b6a74;
 
+// The overcast light over the beach (SB-1440, 仮): a pale, cool sky above and a dark, warm ground below, so a face that
+// turns away from the sun falls off instead of being filled in from every side. The low sun is warm, like a sun near
+// the horizon behind the cloud.
+export const LIGHT_SKY_COLOR = 0xd3dfe3;
+export const LIGHT_GROUND_COLOR = 0x2c2823;
+export const LIGHT_SUN_COLOR = 0xffe0b6;
+
+// The air over the beach (SB-1440, 仮): the smoke of the drifting columns from its first puff to its last, the low haze
+// lying over the sand, and the fire on the wrecks (its bright core, its orange edge and the warm pool it casts on the
+// ground). The smoke lifts towards the sky's own colour as it thins, so a column reads as air, not as a black box.
+export const PLUME_SMOKE_COLOR = 0x2a2724;
+export const PLUME_FADE_COLOR = 0xa6a9a4;
+export const HAZE_COLOR = 0xb0aea4;
+export const FIRE_CORE_COLOR = 0xffe2a0;
+export const FIRE_FLAME_COLOR = 0xff7a28;
+export const FIRE_GLOW_COLOR = 0xff8a3c;
+
 // The HUD's colours, shared by the mock (#view-hud) and the game's sortie. The values come from the mock as they were;
 // the shades are 仮 and will be tuned later.
 export const HUD_COLOR = {

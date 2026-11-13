@@ -7,6 +7,7 @@ import { addSystem, clamp, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../data/maps/m1b-rules.ts';
+import { ATMOSPHERE_TUNE } from '../../data/atmosphere.ts';
 import { M1 } from '../../data/missions/m1.ts';
 import { CAMERA_TUNE } from '../../data/tune.ts';
 import { PROP_KINDS, type MapBounds, type MapDef, type PropKind } from '../../data/types.ts';
@@ -16,6 +17,7 @@ import { generateMap } from '../../logic/mapgen.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
 import { stream } from '../../logic/rng.ts';
 import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
+import { applyAtmosphere } from '../../view/atmosphere.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildWorld, MAP_FOG, type World } from '../../view/world.ts';
 import { buildAreaFrames, buildSpawnMarks, countProps } from '../map/build.ts';
@@ -209,7 +211,52 @@ export function showMap(_hash: string) {
           fireRate: '連射（発/s）',
         },
       },
+      {
+        // SB-1440: the beach's air. The scene redraws from these every frame; the screen layers and the canvas's grade
+        // are put back by applyAtmosphere, which the change below calls.
+        name: 'ATMOSPHERE_TUNE',
+        table: ATMOSPHERE_TUNE,
+        ranges: {
+          columns: { min: 0, max: 12, step: 1 },
+          rise: { min: 0, max: 6, step: 0.1 },
+          windX: { min: -8, max: 8, step: 0.1 },
+          windZ: { min: -8, max: 8, step: 0.1 },
+          plumeLife: { min: 1, max: 20, step: 0.5 },
+          plumeOpacity: { min: 0, max: 1, step: 0.01 },
+          hazeSheets: { min: 0, max: 8, step: 1 },
+          hazeOpacity: { min: 0, max: 0.5, step: 0.01 },
+          hazeDrift: { min: -6, max: 6, step: 0.1 },
+          fires: { min: 0, max: 5, step: 1 },
+          glowSize: { min: 0, max: 30, step: 0.5 },
+          glowOpacity: { min: 0, max: 1, step: 0.01 },
+          flameFlicker: { min: 0, max: 1, step: 0.01 },
+          grade: { min: 0, max: 1, step: 0.01 },
+          vignette: { min: 0, max: 1, step: 0.01 },
+          grain: { min: 0, max: 1, step: 0.01 },
+        },
+        labels: {
+          columns: '煙の柱の本数（0で無し）',
+          rise: '煙の上る速さ（m/s）',
+          windX: '風（x m/s）',
+          windZ: '風（z m/s）',
+          plumeLife: '煙の寿命（s）',
+          plumeOpacity: '煙の濃さ',
+          hazeSheets: 'かすみの枚数（0で無し）',
+          hazeOpacity: 'かすみの濃さ',
+          hazeDrift: 'かすみの流れ（m/s）',
+          fires: '燃える残骸の数（0で無し）',
+          glowSize: '炎の照り返し（m）',
+          glowOpacity: '炎の照り返しの濃さ',
+          flameFlicker: '炎の揺れ',
+          grade: '画面の色（0で無し）',
+          vignette: '画面の端の暗さ（0で無し）',
+          grain: '粒状感（0で無し）',
+        },
+      },
     ],
+    onChange: group => {
+      if (group === 'ATMOSPHERE_TUNE') applyAtmosphere();
+    },
   });
 
   window.sbMapReport = () => {

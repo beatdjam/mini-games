@@ -18,6 +18,7 @@ import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
+import { burnAtmosphere } from './atmosphere.ts';
 import { buildBattle, type Battle } from './battle/index.ts';
 import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
@@ -237,12 +238,15 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       if (target) {
         const { box } = target;
         blast('large', (box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, (box.minZ + box.maxZ) / 2);
+        burnAtmosphere((box.minX + box.maxX) / 2, (box.minZ + box.maxZ) / 2);
       }
     } else if (event.kind === 'enemyDown') {
       kill = true;
       blast('small', event.x, 0.6, event.z);
     } else if (event.kind === 'propDestroyed') {
       blast('small', event.x, 0.5, event.z);
+      // the broken prop keeps a fire of its own, which its wreck stands in for well enough at this size
+      burnAtmosphere(event.x, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
       blast(event.z >= game.map.bounds.maxZ ? 'water' : 'large', event.x, 0.8, event.z);
     } else if (event.kind === 'allyDown') {

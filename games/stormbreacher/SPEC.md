@@ -104,6 +104,19 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - 装甲の減り: 装甲が `HURT_TUNE.armorDarkFrom`（0.5 = 50%）を下回ると、画面の縁を暗くし、`backdrop-filter` の `saturate()` で色を抜く。強さは減るほど強く、装甲 0 で `armorDarkMax`・`armorDrain`。暗くする層と色を抜く層は分け、色を抜く層の `opacity` は 1 のままにする（同じ層に置くと暗さの `opacity` が抜けも弱めるため）。色を抜くのは縁だけで、画面の真ん中は残す。出撃を作り直す（やり直し）と戻る
 - 確認用の入口 `#view-hurt`: 本体の出撃を始める（導入のカットシーンは飛ばす）。右上の調整パネルが `HURT_TUNE` を書き換え、「右から被弾」「近くに着弾」「装甲25%」「装甲を戻す」のボタンで、その場で3つの印を起こせる
 
+### 浜の空気感
+
+上陸の戦場の空気（SB-1440）。煙と砂ぼこりと炎で視界が濁り、光が鈍い画面にする。見た目だけで、当たり・体力・動き・台本は変えない。定義場所は `ATMOSPHERE_TUNE`・`ATMOSPHERE_PLUMES`・`ATMOSPHERE_FIRES`・`ATMOSPHERE_LIGHT` in `src/data/atmosphere.ts`（表）、`buildAtmosphere`・`drawAtmosphere`・`applyAtmosphereLight`・`applyAtmosphereScreen`・`burnAtmosphere`・`removeAtmosphere`・`gradeFilterCss` in `src/view/atmosphere.ts`（描く）、`softDiscTexture` in `src/view/puff.ts`（ぼけた丸い質感の1枚の絵）、色は `PLUME_SMOKE_COLOR`・`PLUME_FADE_COLOR`・`HAZE_COLOR`・`FIRE_CORE_COLOR`・`FIRE_FLAME_COLOR`・`FIRE_GLOW_COLOR`・`LIGHT_SKY_COLOR`・`LIGHT_GROUND_COLOR`・`LIGHT_SUN_COLOR` in `src/data/colors.ts`。`buildWorld` がマップを作るときに `buildAtmosphere(map)` を呼び、出撃・`#view-map`・`#view-fx` などの同じマップが同じ空気を持つ。値はすべて仮で、`#view-map` の調整パネル（`ATMOSPHERE_TUNE` の行）でその場で決める。
+
+- 煙の柱: `ATMOSPHERE_PLUMES` の置き場所（地図の残骸と砲撃の跡。上部 `columns` 本を使う。8〜12本が目安）から、`columnEvery` 秒ごとに1粒ずつ上がる。粒は `rise` で上り、`windX`・`windZ` の一方向の風で流れ、上へ行くほど `plumeGrow` で大きくなりながら `PLUME_FADE_COLOR` へ薄れる。粒は上限 `plumeCap` で、空いている枠を先に使う
+- 低いかすみ: 地面から高さ 0〜3m のあいだに、大きな半透明の板を `hazeSheets` 枚、カメラの方を向けて置く（`hazeWidth`・`hazeHeight`・`hazeY`）。`hazeDrift` でゆっくり流れ、地図の端で折り返す。今の距離の霧（`MAP_FOG`）と重なって奥行きを出す
+- 燃える残骸: `ATMOSPHERE_FIRES` の数だけ残骸が燃える。炎は `flameEvery` 秒ごとに `flameCap` の枠へ上がり、`flameFlicker` で揺れ、明るい中心 `FIRE_CORE_COLOR` から橙 `FIRE_FLAME_COLOR` へ変わる（加算）。足元には点光源を足さず、加算の板（`glowSize`・`glowOpacity`）で周りを照らす。出撃中に壊れた物（`propDestroyed`・`destroyed`）は `burnAtmosphere` で自分の炎を持ち、その煙は `burnSmokeEvery` ごとに1粒上がる（上限 `burnFires`）
+- 光: マップを作るとき、`applyAtmosphereLight` がシーンの半球光と向きのある光をその場で書き換える（ライトは増やさない）。半球光は曇り空の `LIGHT_SKY_COLOR` と地面の `LIGHT_GROUND_COLOR`、強さ `ATMOSPHERE_LIGHT.hemi`。低い日の光は `LIGHT_SUN_COLOR`、強さ `ATMOSPHERE_LIGHT.sun`、向きは `BASE_LIGHTS.sunAt`（`src/data/looks.ts`）。物の面ごとに明暗が付く。影（shadow map）は今回入れず、描く回数と時間の測定も並列作業のため未実施
+- 画面: canvas に CSS の `filter`（`grade`。彩度を少し落とし、コントラストを上げ、少し暖色へ）、画面の端を暗くするビネット（`vignette`）、`GRAIN_TILE` のノイズ画像を重ねて毎フレーム位置をずらす粒状感（`grain`）。0 でその層を消す。canvas の `filter` は `view/look.ts` が look の項の後ろに `gradeFilterCss()` を足す。ビネットと粒状感は `#sbAtmosphere`（`z-index: 4`。canvas の上、HUD の下）に置く
+- 爆発の形: `view/boom.ts` の火球と煙も、`view/puff.ts` の同じ丸い板（カメラを向くビルボード）に替えた。火球は加算で明るい中心と橙のふち、煙は中心が濃く外が透明。数・寿命・色の表（`BOOM_DEFS`・`BOOM_CAP`・`BOOM_LOOK`）は変えない
+- 描く回数: 空気で増える描く回数は、煙・炎・照り返し・かすみの4つ（それぞれ1つの `InstancedMesh`）。粒の数は表の上限で決まる
+- 確認用の入口 `#view-map`: 調整パネルに `ATMOSPHERE_TUNE` の行（柱の本数・風・煙の寿命と濃さ・かすみの枚数と濃さ・燃える残骸の数・照り返し・画面の色・ビネット・粒状感）を出す。シーンの値は毎フレーム読み直し、画面の層と光は変更時（`onChange`）に `applyAtmosphere` で入れ直す
+
 ### ブリーフィング
 
 出撃の前に、上から見た地図と1行ずつの文で作戦を告げる画面（`briefing`）。画面は `src/app/briefing.ts`、地図の絵は `src/view/briefing.ts`、地図の記号と時計は `src/logic/briefing.ts`（純粋）、行と時間割の表は `src/data/briefings.ts`（型 `BriefingLine`・`BriefingSymbol` は `src/data/types.ts`）、色は `BRIEFING_COLOR` in `src/data/colors.ts`。声はなし。

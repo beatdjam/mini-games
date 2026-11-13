@@ -9,6 +9,7 @@ import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
 import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxesOfRect } from './camera.ts';
+import { buildAtmosphere } from './atmosphere.ts';
 import { buildShore } from './shore.ts';
 import { breakPropSlot, buildOutdoor, buildTargets, type OutdoorBuild, type PropSlot } from './outdoor.ts';
 
@@ -65,6 +66,8 @@ export function buildWorld(map: MapDef): World {
   scene.add(targetGroup);
   const shore = buildShore(map.bounds);
   scene.add(shore);
+  // the air over the beach: its smoke, haze, fires and screen grade (SB-1440). A new map replaces the last one's
+  buildAtmosphere(map);
   const targets = new Map<string, THREE.Mesh>();
   for (const child of targetGroup.children) {
     if (child instanceof THREE.Mesh) targets.set(child.name, child);
