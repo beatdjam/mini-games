@@ -16,7 +16,8 @@ export interface MechScale {
 }
 
 // The tables to run the mech with at `mech` metres tall. A jump's start speed grows with the square root, so the jump's
-// height stays the same share of the mech while gravity stays as it is.
+// height stays the same share of the mech while gravity stays as it is. Only the look tools run a larger mech, so a
+// scaled jump may clear what the 4 m mech cannot (an 8 m mech clears a 4 m block): the game's own map is not for it.
 export function scaleForMech(
   mech: number,
   moveTune: MoveTune,
