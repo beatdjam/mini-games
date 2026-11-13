@@ -122,6 +122,8 @@ export function stepPillbox(
     state.shotWait = PILLBOX_TUNE.shotInterval;
     if (state.shots === 0) state.wait = PILLBOX_TUNE.interval;
     const { muzzle, dx, dy, dz } = aim;
+    // The spread is not checked against the pillbox's own box again: a shot spread into its corner stops there and is
+    // only a wasted round, which costs less than a second line test for every shot.
     const aimed = spreadDir({ dx, dy, dz }, PILLBOX_TUNE.spread, rng);
     return { warnAt: null, shot: { x: muzzle.x, y: muzzle.y, z: muzzle.z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz } };
   }
