@@ -8,7 +8,7 @@ import { boot } from '../../src/app/boot.ts';
 import { PLAY_BATTLE_TUNE } from '../../src/data/tune.ts';
 import { ALLY_MESH_NAME } from '../../src/view/allies.ts';
 import { BATTLE_GROUP_NAME } from '../../src/view/battle/index.ts';
-import { sendToScript, step, type GameInput } from '../../src/logic/game.ts';
+import { sendToScript } from '../../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -19,17 +19,6 @@ beforeAll(async () => {
 
 const frames = async (n: number): Promise<void> => {
   for (let i = 0; i < n; i++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-};
-
-const IDLE: GameInput = {
-  moveX: 0,
-  moveZ: 0,
-  turn: 0,
-  jump: false,
-  jumpHeld: false,
-  boost: false,
-  fire: false,
-  sub: false,
 };
 
 function game() {
@@ -90,8 +79,10 @@ test('the cutscene shows no ally, and the ally runs and then lies down once the 
   expect(allyGroups()).toHaveLength(2);
   expect(run.visible).toBe(true);
   expect(wreck.visible).toBe(false);
-  // run the logic on until the mortar takes it; the page draws the next frame
-  for (let i = 0; i < 20 && !game().allies[0].down; i++) step(game(), IDLE, 1);
+  // Run the page's own frame by hand until the mortar takes it. A frame moves the ally 9 * dt metres: the page's frames
+  // are capped at LOOP.maxDt (0.05 s, under 0.5 m), but a 1 s step moves it 9 m, enough to pass over the place it falls
+  // at and end farther than ALLY_TUNE.arrive from it, so the fall is never seen.
+  for (let i = 0; i < 600 && !game().allies[0].down; i++) runSystems(1 / 60);
   await frames(2);
   expect(game().allies[0].down).toBe(true);
   expect(run.visible).toBe(false);
