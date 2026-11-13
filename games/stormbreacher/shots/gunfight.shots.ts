@@ -160,7 +160,8 @@ async function picture(name: string, place: { eye: readonly number[]; at: readon
   if (play) play.enabled = true;
 }
 
-// Starts the sortie and passes over the landing, so the beach cue has put the four allies out.
+// Starts the sortie and passes over the landing. The five allies come out with the ashore cue, once the mech is off the
+// craft.
 async function beach(): Promise<void> {
   startSortie();
   await until(() => game().script.cutscene !== null);
