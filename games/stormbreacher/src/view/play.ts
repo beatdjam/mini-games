@@ -109,9 +109,10 @@ export function buildPlayView(game: GameModel): PlayView {
     blasts: buildBlastView(game.map),
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
-    // PLAY_BATTLE_TUNE keeps FX_TUNE's look; only the main sortie's waves are thinner. The battle is made at the
-    // mech's start and keeps no link to the game's state. BATTLE_TUNE.holdZ is where the allies wait until both
-    // pillboxes are down; PLAY_BATTLE_TUNE has no such value, so it stays the FX look.
+    // PLAY_BATTLE_TUNE keeps FX_TUNE's look; only the main sortie's waves are thinner, and its squads fall in the
+    // machine-gun nests' fire. The battle is made at the mech's start and keeps no link to the game's state.
+    // BATTLE_TUNE.holdZ is where the allies wait until both pillboxes are down; PLAY_BATTLE_TUNE has no such value, so
+    // it stays the FX look.
     battle: buildBattle(
       game.map,
       PLAY_BATTLE_TUNE,
@@ -260,6 +261,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       blast('small', event.x, 0.5, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
       blast(event.z >= game.map.bounds.maxZ ? 'water' : 'large', event.x, 0.8, event.z);
+      // the game's own blast takes the infantry near it, as the battle's shells do (SB-1610)
+      view.battle.blast(event.x, event.z);
     } else if (event.kind === 'planted') {
       spawnDust(event.x, event.z, PLANT_DUST, FEEL_TUNE);
     } else if (event.kind === 'blast') {

@@ -2,9 +2,9 @@
 // functions over a small state, with the random draw passed in; no three and no DOM, so a node test can run them. What
 // the shells and the walkers look like is the view's (view/battle/); nothing here touches the mech or the game's state.
 import type { Rng } from '@engine/core/index.ts';
-import type { MapBounds } from '../data/types.ts';
+import type { MapBounds, SpawnPoint } from '../data/types.ts';
 import type { FxTune } from '../data/tune.ts';
-import { newCrowd, spawnWave, stepCrowd, type Crowd, type Soldier } from './crowd.ts';
+import { fallNear, newCrowd, spawnWave, stepCrowd, type Crowd, type Soldier } from './crowd.ts';
 
 const SHELL_FIRST = 0.5; // the first shell comes this share of FxTune.shellEvery after the start
 const SHAKE_DIST = 10; // the distance the shell's shake is told for (m); a shell nearer than this shakes no more than at it
@@ -29,18 +29,26 @@ export interface BattleFrame {
 
 // The battle at its start: the first wave on the map's sea edge, the next wave after tune.allyWaves, and the first shell
 // half an interval in (none when tune.shellEvery is 0). The draws are the first wave's. `holdZ` is where the allies wait
-// while the battle is held; null lets them walk on to the far line as before.
-export function newBattle(rng: Rng, bounds: MapBounds, tune: FxTune, holdZ: number | null = null): BattleState {
+// while the battle is held; null lets them walk on to the far line as before. `nests` are the machine-gun nests' places:
+// the squads of a wave walk on them and fall in their fire.
+export function newBattle(
+  rng: Rng,
+  bounds: MapBounds,
+  tune: FxTune,
+  holdZ: number | null = null,
+  nests: readonly SpawnPoint[] = [],
+): BattleState {
   const crowd = newCrowd();
   crowd.holdZ = holdZ;
-  spawnWave(crowd, rng, bounds, Math.round(tune.allies));
+  crowd.nests = nests;
+  spawnWave(crowd, rng, bounds, Math.round(tune.allies), tune);
   crowd.waveT = tune.allyWaves;
   return { crowd, shellT: tune.shellEvery > 0 ? tune.shellEvery * SHELL_FIRST : 0 };
 }
 
 // Moves the battle by one frame: the crowd walks (waits at its holdZ while `held`), and when the shell's time comes one
 // lands at a place between tune.shellNear and tune.shellFar from `at` (the mech) in a random direction. The shell's draws
-// are the distance and the angle, in that order, and none while no shell lands.
+// are the distance and the angle, in that order, and none while no shell lands; the soldiers near it fall after them.
 export function stepBattle(
   state: BattleState,
   rng: Rng,
@@ -62,6 +70,7 @@ export function stepBattle(
         shake: (tune.shellShake * SHAKE_DIST) / Math.max(SHAKE_DIST, dist),
       };
       state.shellT = Math.max(0.01, tune.shellEvery);
+      fell.push(...fallNear(state.crowd, shell.x, shell.z, tune.shellFallRadius, tune.shellFallShare, rng));
     }
   }
   return { fell, shell };

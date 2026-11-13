@@ -37,11 +37,23 @@ test('the same seed gives the same walkers and the same shells', () => {
   expect(run(8, 30, FX_TUNE).shells).not.toEqual(a.shells);
 });
 
-test('the main sortie thins each wave to 60 allies, and #view-fx keeps 300', () => {
+test('the main sortie puts out 20 allies a wave, in squads, and #view-fx keeps 300', () => {
   expect(PLAY_BATTLE_TUNE.allies).toBe(BATTLE_TUNE.allies);
-  expect(BATTLE_TUNE.allies).toBe(60);
+  expect(BATTLE_TUNE.allies).toBe(20);
+  expect(PLAY_BATTLE_TUNE.allyWaves).toBe(10);
+  expect(PLAY_BATTLE_TUNE.allySpeed).toBe(3.5);
+  expect(PLAY_BATTLE_TUNE.squads).toBe(BATTLE_TUNE.squads);
+  expect(BATTLE_TUNE.squads).toBe(2);
+  expect(PLAY_BATTLE_TUNE.squad).toBe(BATTLE_TUNE.squad);
+  expect(BATTLE_TUNE.squad).toBe(5);
   expect(FX_TUNE.allies).toBe(300);
   expect(BATTLE_TUNE.allies).toBeLessThan(FX_TUNE.allies);
+});
+
+test('#view-fx brings its wave in scattered, with no squad and no nest to fall at', () => {
+  const state = newBattle(createRng(1), BOUNDS, FX_TUNE, null, [{ x: 0, z: 147 }]);
+  expect(state.crowd.soldiers).toHaveLength(FX_TUNE.allies);
+  expect(state.crowd.soldiers.every(soldier => soldier.squad === 0 && soldier.fallAt === null)).toBe(true);
 });
 
 test('the first wave is tune.allies strong, and the first shell comes half an interval in', () => {
@@ -87,6 +99,45 @@ test('the walkers never pass MAX_SOLDIERS, however long the battle goes', () => 
     stepBattle(state, rng, DT, tune, MECH);
     expect(state.crowd.soldiers.length).toBeLessThanOrEqual(MAX_SOLDIERS);
   }
+});
+
+test("a shell takes the soldiers near it into the frame's fallen, and #view-fx keeps them up", () => {
+  const tune = tuneWith({
+    allyDeathRate: 0,
+    allyWaves: 0,
+    allySpeed: 0,
+    shellEvery: 1,
+    shellFallRadius: 40,
+    shellFallShare: 1,
+  });
+  const rng = createRng(6);
+  const state = newBattle(rng, BOUNDS, tune);
+  // the wave stands around the mech, inside the shell's circle
+  for (const soldier of state.crowd.soldiers) {
+    soldier.x = MECH.x;
+    soldier.z = MECH.z;
+  }
+  let fell = 0;
+  for (let i = 0; i < 60 * 2; i++) fell += stepBattle(state, rng, DT, tune, MECH).fell.length;
+  expect(fell).toBeGreaterThan(0);
+
+  const quiet = tuneWith({
+    allyDeathRate: 0,
+    allyWaves: 0,
+    allySpeed: 0,
+    shellEvery: 1,
+    shellFallRadius: 0,
+    shellFallShare: 1,
+  });
+  const quietRng = createRng(6);
+  const quietState = newBattle(quietRng, BOUNDS, quiet);
+  for (const soldier of quietState.crowd.soldiers) {
+    soldier.x = MECH.x;
+    soldier.z = MECH.z;
+  }
+  let keptUp = 0;
+  for (let i = 0; i < 60 * 2; i++) keptUp += stepBattle(quietState, quietRng, DT, quiet, MECH).fell.length;
+  expect(keptUp).toBe(0);
 });
 
 test('a battle made with a holdZ keeps the walkers there while held, and lets them go after', () => {

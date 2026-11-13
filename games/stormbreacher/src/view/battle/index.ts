@@ -7,10 +7,11 @@ import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { burst, disposeTree, scene } from '@engine/render/index.ts';
 import type { FxTune } from '../../data/tune.ts';
+import { M1_NEST_WAVE } from '../../data/enemies.ts';
 import { PROP_SIZE } from '../../data/props.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
 import { newBattle, stepBattle } from '../../logic/battle.ts';
-import { MAX_SOLDIERS, crowdCounts, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
+import { MAX_SOLDIERS, crowdCounts, fallNear, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
 import { shellBurst } from '../hazards.ts';
@@ -80,6 +81,8 @@ export interface Battle {
   step(dt: number, mech: { x: number; y: number; z: number }, held?: boolean): number;
   // Lets one tracer fly from a place at a velocity (m, m/s); the allies of the sortie shoot with it.
   tracer(at: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }): void;
+  // Lets a blast of the game's own (a mortar shell or a mine) take the soldiers near it (m), with the dust of each.
+  blast(x: number, z: number): void;
   counts(): CrowdCounts;
   smoke(): number; // the smoke puffs on screen now
   dispose(): void;
@@ -112,7 +115,8 @@ export function buildBattle(
 ): Battle {
   const group = new THREE.Group();
   group.name = BATTLE_GROUP_NAME;
-  const state = newBattle(rng, map.bounds, tune, holdZ);
+  // the machine-gun nests are on the map's spawns; a squad walks on one and falls in its fire (see logic/crowd.ts)
+  const state = newBattle(rng, map.bounds, tune, holdZ, map.spawns[M1_NEST_WAVE] ?? []);
   const crowd = state.crowd;
   const { bodies, heads } = soldierMeshes();
   const smoke = smokeMesh(tune.smokeMax);
@@ -382,6 +386,11 @@ export function buildBattle(
     tracer(at, velocity) {
       if (tracerList.length >= MAX_TRACERS) return;
       tracerList.push({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, life: TRACER_LIFE });
+    },
+    blast(x, z) {
+      for (const soldier of fallNear(crowd, x, z, tune.shellFallRadius, tune.shellFallShare, rng)) {
+        burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
+      }
     },
     counts: () => crowdCounts(crowd),
     smoke: () => smokePuffs.length,

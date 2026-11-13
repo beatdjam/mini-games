@@ -556,7 +556,7 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 | `speed` | 8 | m/s。動く的の速さ |
 | `respawn` | 1.5 | s。倒されてから最初の場所に戻るまで |
 
-上陸戦の迫力の出発点は `FX_TUNE`（SB-045）。段階 2（中）の値で、`FX_STAGES` が段階 0（切る）・1（弱）・3（強）の上書きを持つ。色は `0xRRGGBB`。本体の出撃は `LOOKS` の M1 の行（今は `FX_TUNE` のまま）で、`pixel`・`saturate`・`contrast`・`sepia`・`haze`・`fogColor`・`skyColor`・`light`・`sun`・`groundColor` の10項目を使う。戦場の層（歩兵・砲撃・煙・曳光弾・飛行機・砲弾穴）は本体にも `FX_TUNE` の値（段階 2）で出る（下の「戦場の層」）。ただし本体の歩兵の人数だけは `PLAY_BATTLE_TUNE.allies`（60。`BATTLE_TUNE.allies`）で、`#view-fx` は `FX_TUNE.allies`（300）のまま。
+上陸戦の迫力の出発点は `FX_TUNE`（SB-045）。段階 2（中）の値で、`FX_STAGES` が段階 0（切る）・1（弱）・3（強）の上書きを持つ。色は `0xRRGGBB`。本体の出撃は `LOOKS` の M1 の行（今は `FX_TUNE` のまま）で、`pixel`・`saturate`・`contrast`・`sepia`・`haze`・`fogColor`・`skyColor`・`light`・`sun`・`groundColor` の10項目を使う。戦場の層（歩兵・砲撃・煙・曳光弾・飛行機・砲弾穴）は本体にも `FX_TUNE` の値（段階 2）で出る（下の「戦場の層」）。ただし本体の歩兵の波だけは `PLAY_BATTLE_TUNE`（`BATTLE_TUNE` の値）で、1波 20 人・10 秒おき・5人の分隊・機銃座と着弾で倒れる。`#view-fx` は `FX_TUNE`（歩兵 300・5 秒・分隊なし）のまま。
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -588,26 +588,34 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 | `craterCap` | 50 | 個。砲撃で増やす穴の上限。超えたら古いものから消す |
 | `tracers` | 15 | 本/秒。画面を横切る曳光弾の数（0 で無し） |
 | `tracerSpeed` | 80 | m/s。曳光弾の速さ |
-| `allies` | 300 | 人。最初に出す味方の人数（0 で無し）。`#view-fx` の既定で、本体は `BATTLE_TUNE.allies`（60） |
-| `allyWaves` | 5 | s。何秒ごとに次の波を出すか（0 で次の波を出さない） |
-| `allySpeed` | 2 | m/s。味方の進む速さ |
+| `allies` | 300 | 人。1波に出す味方の人数（0 で無し）。`#view-fx` の既定で、本体は `BATTLE_TUNE.allies`（20） |
+| `allyWaves` | 5 | s。何秒ごとに次の波を出すか（0 で次の波を出さない）。本体は `BATTLE_TUNE.allyWaves`（10） |
+| `allySpeed` | 2 | m/s。味方の進む速さ。本体は `BATTLE_TUNE.allySpeed`（3.5） |
 | `allyDeathRate` | 0.1 | 1人が1秒に倒れる確率（0 で誰も倒れない） |
+| `squads` | 0 | 隊。1波のうち機銃座へ歩く分隊の数（0 で今までの散らばり）。本体は 2 |
+| `squad` | 0 | 人。1分隊の人数（0 で今までの散らばり）。本体は 5 |
+| `squadFallShare` | 0 | 分隊のうち機銃座の火線で倒れる割合（0〜1、0 で誰も倒れない）。本体は 0.4 |
+| `squadFallRadius` | 0 | m。機銃座からこの距離に入った分隊が倒れる（0 で誰も倒れない）。本体は 10 |
+| `shellFallRadius` | 0 | m。着弾からこの距離にいる歩兵が倒れうる（0 で誰も倒れない）。本体は 10 |
+| `shellFallShare` | 0 | 半径 `shellFallRadius` の中の歩兵が倒れる確率（0〜1、0 で誰も倒れない）。本体は 0.5 |
 | `planes` | 8 | 機。同時に飛ぶ飛行機の数（0 で無し） |
 | `planeHeight` | 80 | m。飛行機の高さ |
 | `planeSpeed` | 30 | m/s。飛行機の速さ |
 
 ### 戦場の層
 
-本体の出撃と `#view-fx` が同じ層を出す。歩兵・砲撃・煙・曳光弾・飛行機・砲弾穴で、見た目だけ。機体にも弾にも当たらず、`GameModel` に何も持たせない。値は `FX_TUNE`（段階 2）で、本体は `PLAY_BATTLE_TUNE`（`FX_TUNE` の歩兵の人数だけを `BATTLE_TUNE.allies` の 60 にしたもの）を、`#view-fx` は `FX_TUNE`（歩兵 300）を使う。`BATTLE_TUNE`・`PLAY_BATTLE_TUNE` の定義場所は `src/data/tune.ts`（`FX_TUNE` の隣）。層の定義場所は `buildBattle` in src/view/battle/index.ts（描く）、`newBattle`・`stepBattle` in src/logic/battle.ts（進行）、`stepCrowd` in src/logic/crowd.ts、`stepPlane` in src/logic/planes.ts、`scatterCraters` in src/logic/craters.ts。
+本体の出撃と `#view-fx` が同じ層を出す。歩兵・砲撃・煙・曳光弾・飛行機・砲弾穴で、見た目だけ。機体にも弾にも当たらず、`GameModel` に何も持たせない。値は `FX_TUNE`（段階 2）で、本体は `PLAY_BATTLE_TUNE`（`FX_TUNE` に `BATTLE_TUNE` の戦場の値だけを重ねたもの。1波 20 人・10 秒おき・3.5m/s・分隊・機銃座と着弾の倒れ）を、`#view-fx` は `FX_TUNE`（歩兵 300・5 秒・2m/s・分隊なし）を使う。`BATTLE_TUNE`・`PLAY_BATTLE_TUNE` の定義場所は `src/data/tune.ts`（`FX_TUNE` の隣）。層の定義場所は `buildBattle` in src/view/battle/index.ts（描く）、`newBattle`・`stepBattle` in src/logic/battle.ts（進行）、`spawnWave`・`stepCrowd`・`fallNear` in src/logic/crowd.ts、`stepPlane` in src/logic/planes.ts、`scatterCraters` in src/logic/craters.ts。機銃座の場所は `M1_NEST_WAVE`（`b-emplacements`）の `map.spawns` から取る。
 
-- 進行は `logic/battle.ts`（three も DOM も読まない）。`BattleState` は歩兵 `crowd` と次の砲撃までの秒 `shellT`。`newBattle(rng, bounds, tune, holdZ = null)` が `crowd.holdZ` を入れ、`stepBattle(state, rng, dt, tune, at, held = false)` が歩兵を進め（`stepCrowd(crowd, rng, dt, tune, held)`）、`shellT` が 0 になったら砲撃を1発落とす（`at` は機体の位置）。砲撃の場所は `at` から `shellNear`〜`shellFar` m の輪の中で、引く乱数は距離、角度の順。揺れは `shellShake * 10 / max(10, 距離)`。最初の1発は `shellEvery` の半分の秒、あとは `shellEvery` ごと。歩兵は同時に `MAX_SOLDIERS`（1200）まで
+- 進行は `logic/battle.ts`（three も DOM も読まない）。`BattleState` は歩兵 `crowd` と次の砲撃までの秒 `shellT`。`newBattle(rng, bounds, tune, holdZ = null, nests = [])` が `crowd.holdZ` と `crowd.nests`（機銃座の場所）を入れ、`stepBattle(state, rng, dt, tune, at, held = false)` が歩兵を進め（`stepCrowd(crowd, rng, dt, tune, held)`）、`shellT` が 0 になったら砲撃を1発落とす（`at` は機体の位置）。砲撃の場所は `at` から `shellNear`〜`shellFar` m の輪の中で、引く乱数は距離、角度の順。揺れは `shellShake * 10 / max(10, 距離)`。最初の1発は `shellEvery` の半分の秒、あとは `shellEvery` ごと。歩兵は同時に `MAX_SOLDIERS`（1200）まで
+- 歩兵の分隊（SB-1610）: 本体の波は 20 人で、そのうち `BATTLE_TUNE.squads`（2）隊 × `squad`（5）人が分隊として来る。`spawnWave` は分隊ごとに `crowd.nests` の機銃座を1つ選び、その x のまわり `SQUAD_NEST_SPREAD`（3m）に寄せて海側から出し、隊員を `SQUAD_GAP_X`・`SQUAD_GAP_Z` の楔（横3・後ろ2）に置く。残りの10人は今までどおり幅いっぱいに散らばる。分隊のうち `squadFallShare`（0.4）の人（5人なら2人）は `fallAt` にその機銃座の場所を持ち、`stepCrowd` が `squadFallRadius`（10m）に入った所で倒す（`alive = false`・`fallen++`・`fell` に足す）。`squads` か `squad` が 0 なら今までの散らばりと乱数の消費順のまま
+- 着弾の近くの倒れ（SB-1610）: 砲撃が落ちたフレーム、`stepBattle` が `fallNear` で `shellFallRadius`（10m）の中の生きている歩兵を `shellFallShare`（0.5）の確率で倒し、`fell` に足す。乱数は砲撃の距離・角度の後に引くので、着弾の場所は今までどおり。本体ではさらに `drawPlay` が、機体を狙う迫撃砲・狙う迫撃砲・地雷の爆発（`shellLand`・`mineBlast` の出来事）でも `Battle.blast` を呼び、その近くの歩兵を同じ値で倒して砂煙を出す。`#view-fx` は `squads`・`squad`・`squadFallShare`・`squadFallRadius`・`shellFallRadius`・`shellFallShare` がすべて 0 なので、見た目も乱数の消費も変わらない
 - 歩兵の待ち（s3-3）: 本体の歩兵は `BATTLE_TUNE.holdZ`（-6。トーチカの箱 z -19〜-11 の海側 5m）で、旗 `pillboxes-down` が立つまで待つ。`Crowd.holdZ` は待つ z（null なら待たない）。`stepCrowd` の `held` が真で `holdZ` が null でないとき、生きている歩兵の z は `holdZ` より小さくならず（`lineZ` の判定より前に戻すので `through` を増やさない）、新しい波も出さない（待つ間に `MAX_SOLDIERS` へ近づかないため）。`held` が偽なら今までどおり `lineZ` まで歩いて消える。`spawnWave` は `lineZ` だけを毎回設定し、`holdZ` は変えない。`Battle.step(dt, mech, held)` が `stepBattle` へ渡す。待ち線は view の側だけが持ち、`GameModel`・チェックポイント・中断に入れない。`#view-fx` は `buildBattle` に `holdZ` を渡さず（null）、`held` も渡さないので待たない
 - 本体では `buildPlayView` が `buildBattle(..., BATTLE_TUNE.holdZ)` で作り、`drawPlay` が `view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG))` と呼ぶ。旗の名前は `PILLBOXES_DOWN_FLAG` in src/data/missions/m1.ts
 - 描くのは `view/battle/`。砲撃の閃光と破片は `shellBurst` in src/view/hazards.ts（機体を狙う迫撃砲の着弾予告とは別で、予告の輪も機体への当たりも無い）。煙・曳光弾・飛行機・砲弾穴の乱数も同じ列から引く
 - 乱数は `stream('battle')`（歩兵の波・砲撃の予定・煙・曳光弾・飛行機）と `stream('craters')`（穴）。`#view-fx` も同じ列を使う
 - 本体は出撃ごとに `buildPlayView` が作り、やり直し（`retryFromCheckpoint`・`restartGame`）や次の出撃で作り直す。状態は view の側が持ち、`GameModel` にもチェックポイントにも入れない。見た目だけで勝ち負けに関わらず、チェックポイントに戻しても歩兵が巻き戻るかどうかは遊びに関係しないため。logic の `battle.ts` に出したのは、進行をページなしでテストするため
 - 砲撃の揺れは本体のカメラの揺れ `FeelState.shake` に足す。導入のカットシーンの間も戦場の層は流れる
-- 描く回数: 本体の出撃（導入のカットシーンを飛ばした 90 フレーム後）は 120 calls・45k tris（歩兵を1波 60 人にしたあと）、`#view-fx` の段階 2（40 フレーム後）は 252 calls・100k tris（headless Chromium。`test/e2e/battle.test.ts`・`test/e2e/fxView.test.ts` が出力する）。本体は地面の塊を視錐台で切る（`cullChunks`）ため、`#view-fx` より少ない
+- 描く回数: 本体の出撃（導入のカットシーンを飛ばした 90 フレーム後）は 136 calls・46k tris（歩兵を1波 20 人にしたあと。60 人のときは 132 calls・48k tris）、`#view-fx` の段階 2（40 フレーム後）は 252 calls・100k tris（headless Chromium。`test/e2e/battle.test.ts`・`test/e2e/fxView.test.ts` が出力する）。本体は地面の塊を視錐台で切る（`cullChunks`）ため、`#view-fx` より少ない
 
 ### 台本の味方の機体
 
@@ -717,6 +725,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `#view-breach`: 手書きマップの線1の爆破点と爆薬を、機体を (40, 150) に置いて見る入口。右上の調整パネルが `CHARGE_TUNE`（長押し・届く距離・導火線・爆風の半径と装甲・穴の半幅と半奥行き）と `ENEMIES.emplacement`（体力・射程・1発の装甲・掃射の弾数・弧・間隔・次の掃射まで）、`AIMED_MORTAR`（同じ所にいる秒・同じと見る半径・予告・爆風の半径・装甲・区間の手前）を書き換え、「仕掛ける」「爆破」「戻す」と「この線を爆破で開く」（`openBreach` の結果でシーンを作り直す）「閉じた線に戻す」、「機銃座を出す」（`M1B_HAND.spawns['b-emplacements']` の6か所に機銃座を置き、機体へ掃射させる。曳光はこの入口だけの線で描く）、「狙う迫撃砲を始める」（その場に立ち続けると予告の輪と着弾が出る。`still` の残りを画面に出す）でその場で試せる。`window.sbBreachReport()` が機体・爆破点・爆薬・機銃座の数・弾の数・狙う迫撃砲（`still`・予告の数）・`?stats` の数字を JSON の文字列で返す
 - `#view-pillbox`: 本体の出撃を始め、導入のカットシーンを飛ばして、機体をトーチカ1の横の爆破点の海側4m（陸向き）か、後ろの爆破点の陸側4m（海向き）に置く入口。点が画面の前に来る。右上の調整パネルが `PILLBOX_BLAST.damage` と `PILLBOX_BREAK`（`sec`・`sink`・`lean`）と `BATTLE_TUNE.holdZ`（-30〜10、歩兵の待ち線）を書き換え、「横の爆破点へ」「後ろの爆破点へ」「トーチカ2基を壊す」「やり直す」でその場で試せる。`BATTLE_TUNE.holdZ` は「やり直す」（`startSortie`）で作り直した群れに効き、動いている群れの待ち線は変えない。「トーチカ2基を壊す」は2基の体力を1にして横の外側から `heavyGun` の弾を入れ、次のフレームで壊して沈みを始める（無線・旗・cp1 も出る）。旗が立つと歩兵が待ち線を越えて進み、味方機3機が C の投稿へ動く。F を長押しして仕掛け、離れて爆破する。保存はしない
 - `#view-allies`: 本体の出撃を始め、導入のカットシーンを飛ばして、味方機5機を試す入口。「B の手前へ」で機体を (0,140) に置いて `enter b-line` を起こし、4機が出ている所と、`gunner` が5機目に出て倒れる所を見る。「C の手前へ」は機体を (35,-30) に置き、トーチカ2基を壊して cp1 を起こし、3機が C の投稿へ動く所を見る。「防波堤の上へ」は機体を (35,-70) に置いて `enter seawall-top` を起こし、3機がボスの投稿へ動く所を見る。「B の手前に敵」「C の手前に敵」は、その区画の味方機の `engageRange` 以内に grunt を3体出し、味方機の曳光が敵へ、敵の曳光が味方機へ向くのを見る（当たりは無い）。「やり直す」で最初から。右上の調整パネルが `ALLY_TUNE`（走る速さ・着いたと見る距離・倒れる前に叫ぶ秒・足元の半径・上がれる高さ・落ちる速さ・撃つ敵を探す距離・味方機の散らし・敵の曳光の間隔・敵が探す距離・敵の散らし）と `RADIO_TUNE`（1行を出す秒・待たせる行の上限）を書き換える。座標はこの入口の `const` に置き、本編のデータには置かない。保存はしない
+- `#view-squad`: 本体の出撃を始め、導入のカットシーンを飛ばして、戦場の層の歩兵を試す入口。`?seed=<n>` は波の種。最初の波（20人）は海側から来て、5人の分隊2つが機銃座の列（`M1_NEST_WAVE` の `map.spawns`、z 147）へ歩き、`squadFallShare` の人数がそこで倒れる。残りの10人は今までどおり幅いっぱいに散らばり、倒れ方も今までどおり。砲撃の着弾の `shellFallRadius` 以内の歩兵も倒れる。「B の手前へ」で機体を (0,140) に置いて `enter b-line` を起こす。「出撃し直す」は `startSortie` で群れを作り直すので、右上の調整パネルの `PLAY_BATTLE_TUNE`（1波の人数・波の間隔・歩く速さ・1秒に倒れる確率・分隊の数と人数・線で倒れる割合と機銃座からの距離・着弾で倒れる半径と確率）の変更はこのボタンで反映する。保存はしない
 - `#view-mapedit`: マップの簡易エディタ。上から見下ろすカメラで、ホイールかピンチで寄り・引き、右ドラッグか2本指で動かす。右の一覧で物の8種か目標の4種を選び、地面をクリックかタップすると置く。目標は `id` を一覧から選ぶ。置いた物はドラッグで動き、`R` か回転のボタンで15度ずつ回り、`Delete` か削除のボタンで消える。「手書き」「生成（種）」「空」から始められ、置くたびに `validateMapForMission` を回して違反を出し、通り道が無ければ赤くする。「書き出し」は JSON を `<textarea>` に出し、「読み込み」はその JSON を読む。編集は `localStorage` の `stormbreacher-dev-map` に保存し、`#view-map?src=edit` で歩ける
 - `#view-sound`: 音の表の全部（`SOUND_NAMES`）をボタンで並べ、押すとその音を鳴らす入口。距離のつまみ（0〜200m）が `SOUND_DISTANCE` の距離の扱いを通すので、遠い音の小ささ・こもり方も試せる。右上の調整パネルで `SOUND_DISTANCE`（近い・遠い・遠くの音量と高さ）と `SOUND_VOLUME.sfx`（効果音の音量）も変えられる。`#sbSound` に並び、ボタンは `data-sound` に音の名前を持つ
 - `#view-outdoor`: 上陸戦の浜辺のような広い屋外（地面・障害物・トーチカ・防波堤・崖・歩く敵の機体）を種から作り、その重さを測る入口。開いて2秒たってから10秒のあいだ、フレームの間隔・描く回数・三角形の数を記録し、終わると画面の右上に大きく出す（下の `textarea` は同じ結果の JSON）。`window.sbBenchReport()` は終わっていればその JSON の文字列、まだなら `null`

@@ -186,6 +186,13 @@ export const FX_TUNE = {
   allySpeed: 2, // how fast an ally walks landward (m/s)
   allyDeathRate: 0.1, // the chance that one ally falls in a second (0 keeps them all up)
 
+  squads: 0, // the squads in a wave (0 keeps the old scatter)
+  squad: 0, // the soldiers in one squad (0 keeps the old scatter)
+  squadFallShare: 0, // the share of a squad that falls at the machine-gun nests (0-1; 0 keeps them up)
+  squadFallRadius: 0, // how near a machine-gun nest a squad falls (m; 0 keeps them up)
+  shellFallRadius: 0, // a shell this near a soldier may make it fall (m; 0 keeps them up)
+  shellFallShare: 0, // the chance that a soldier inside shellFallRadius falls (0-1; 0 keeps them up)
+
   planes: 8, // the planes in the air at once (0 makes none)
   planeHeight: 80, // how high a plane flies (m)
   planeSpeed: 30, // how fast a plane crosses (m/s)
@@ -195,13 +202,35 @@ export type FxTune = typeof FX_TUNE;
 
 // The battle layer of the main sortie. #view-fx keeps FX_TUNE, so the tools can still compare 150/300/450.
 export const BATTLE_TUNE = {
-  allies: 60, // the allies in each wave of the main sortie (0 makes none)
+  allies: 20, // the allies in each wave of the main sortie (0 makes none)
+  allyWaves: 10, // seconds between one wave and the next (s)
+  allySpeed: 3.5, // how fast an ally walks landward (m/s)
+  allyDeathRate: 0.03, // the chance that one ally falls in a second (0 keeps them all up)
+  squads: 2, // the squads that walk on a machine-gun nest; the rest of the wave comes in scattered
+  squad: 5, // the soldiers in one squad
+  squadFallShare: 0.4, // the share of a squad that falls at the nest it walks on (0-1)
+  squadFallRadius: 10, // how near a machine-gun nest a squad falls (m)
+  shellFallRadius: 10, // a shell this near a soldier may make it fall (m)
+  shellFallShare: 0.5, // the chance that a soldier inside shellFallRadius falls (0-1)
   // The z the allies wait at until the pillboxes are down. It sits 5 m seaward of the pillboxes' boxes (z -19..-11), so
   // they stop just short of the line. A guess, to be judged on the screen.
   holdZ: -6,
 };
 
-export const PLAY_BATTLE_TUNE: FxTune = { ...FX_TUNE, allies: BATTLE_TUNE.allies };
+// Only FxTune's own values: BATTLE_TUNE.holdZ is the view's and must not ride along in the look. All provisional.
+export const PLAY_BATTLE_TUNE: FxTune = {
+  ...FX_TUNE,
+  allies: BATTLE_TUNE.allies,
+  allyWaves: BATTLE_TUNE.allyWaves,
+  allySpeed: BATTLE_TUNE.allySpeed,
+  allyDeathRate: BATTLE_TUNE.allyDeathRate,
+  squads: BATTLE_TUNE.squads,
+  squad: BATTLE_TUNE.squad,
+  squadFallShare: BATTLE_TUNE.squadFallShare,
+  squadFallRadius: BATTLE_TUNE.squadFallRadius,
+  shellFallRadius: BATTLE_TUNE.shellFallRadius,
+  shellFallShare: BATTLE_TUNE.shellFallShare,
+};
 
 // What each strength changes; the rest stays as FX_TUNE. Stage 0 is #view-map's look with every effect off, so the two
 // can be compared. Stage 2 is FX_TUNE itself.

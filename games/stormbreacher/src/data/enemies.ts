@@ -97,6 +97,10 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
 // The height a shot leaves an enemy at, as a share of its height.
 export const ENEMY_CHEST = 0.7;
 
+// The wave of the machine-gun nests on M1's B line (the six nests' places are the map's spawns for it). The battle layer
+// puts a squad on a nest and lets it fall in that nest's fire (logic/crowd.ts).
+export const M1_NEST_WAVE = 'b-emplacements';
+
 // The enemies a wave puts out, in the order of the map's spawn points for that wave: the i-th place gets the i-th kind.
 // The list must be as long as `map.spawns[wave]`; a wave that is not here, or a list of another length, puts out nothing.
 // `beach-mortar` (the mortar, SB-190's third card) and `battery` (the boss) are made by other cards.
