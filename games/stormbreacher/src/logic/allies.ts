@@ -54,6 +54,20 @@ export function moveAlly(ally: AllyState, way: readonly GroundSpot[]): void {
   if (way.length > 1) ally.yaw = faceTo(ally, way[1]);
 }
 
+// The index of the point nearest `from` within `range` (m), the first of equal distances, or null when none is that
+// near. Used for an ally's pick of an enemy and an enemy's pick of an ally.
+export function nearestIndex(from: GroundSpot, points: readonly GroundSpot[], range: number): number | null {
+  let best: number | null = null;
+  let bestDist = Infinity;
+  for (let i = 0; i < points.length; i++) {
+    const dist = distXZ(from, points[i]);
+    if (dist > range || dist >= bestDist) continue;
+    best = i;
+    bestDist = dist;
+  }
+  return best;
+}
+
 function faceTo(from: GroundSpot, to: GroundSpot): number {
   // `|| 0` turns the -0 a straight -z step gives into 0, so a checkpoint and a suspend keep the same number
   return Math.atan2(-(to.x - from.x), -(to.z - from.z)) || 0;

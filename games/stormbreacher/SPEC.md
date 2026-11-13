@@ -157,7 +157,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 - 乱数は `src/logic/rng.ts` の1つの口からだけ引く。ほかで `Math.random` を呼ばない
 - `rng()`: 全体の乱数。`seed(n)` で種を入れると、同じ種からは同じ並びになる
-- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`battle`（戦場の層の歩兵の波と砲撃の予定）・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）・`emplacements`（機銃座の掃射の散らし）・`mortar`（迫撃砲の狙いのずれ）・`battery`（砲台の機銃の散らし）・`pillboxes`（トーチカの弾の散らし）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
+- `stream(name)`: 要素ごとの専用の乱数列。`field`・`fcs`・`dummies`・`map`・`craters`・`battle`（戦場の層の歩兵の波と砲撃の予定）・`shots`（機体の弾の散らし）・`enemies`（敵の弾の散らし）・`emplacements`（機銃座の掃射の散らし）・`mortar`（迫撃砲の狙いのずれ）・`battery`（砲台の機銃の散らし）・`pillboxes`（トーチカの弾の散らし）・`allyFx`（味方機と敵の曳光の散らし）がある。種を入れると、種と `STREAM_SALT[name]` を混ぜた種から始まる
 - 種を入れていないときは、どれも `Math.random` から引く
 
 ## 4. セーブ
@@ -611,7 +611,7 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 
 ### 台本の味方の機体
 
-台本の `ally` が出す、機体の隣を走る味方。5機いて、区画ごとの遮蔽の後ろで止まって撃ち、2機が台本どおりに倒れる。当たり判定は無い。定義場所は `AllyState`・`newAlly`・`moveAlly`・`stepAlly` in src/logic/allies.ts、`ALLY_TUNE`・`ALLY_FATES` in src/data/allies.ts、`ALLY_PALETTE`・`ALLY_WRECK_PALETTE` in src/data/colors.ts、`drawAllies` in src/view/allies.ts、`stepAllies`・`spawnAlly`・`moveAllyTo` in src/logic/game.ts、`groundAt` in src/logic/collide.ts。
+台本の `ally` が出す、機体の隣を走る味方。5機いて、区画ごとの遮蔽の後ろで止まって撃ち、2機が台本どおりに倒れる。当たり判定は無い。定義場所は `AllyState`・`newAlly`・`moveAlly`・`stepAlly`・`nearestIndex` in src/logic/allies.ts、`ALLY_TUNE`・`ALLY_FATES` in src/data/allies.ts、`ALLY_PALETTE`・`ALLY_WRECK_PALETTE` in src/data/colors.ts、`drawAllies`・`drawEnemyTracers` in src/view/allies.ts、`stepAllies`・`spawnAlly`・`moveAllyTo` in src/logic/game.ts、`groundAt` in src/logic/collide.ts。
 
 - M1 では5機が出る。`beach` の `buddy` は浜を走って迫撃砲に倒れ、同じく `beach` の `cover-b1`・`cover-b2`・`cover-b3` は線1の穴（爆破点 l1-b、x 40）を通って B の遮蔽の後ろ（z 110〜129）まで走って止まり、そこから撃ち続ける。`pillboxes`（B に入る）で5機目の `gunner` が出て、B の遮蔽の手前で機銃に倒れる。`cp1`（トーチカ2基が壊れた）で3機は C の投稿（z 0〜9）へ、`seawall`（防波堤の上に入る）でボスの遮蔽（z −76〜−84）へ、`allyMove` で道を替えて走る。座標は仮
 - 出る所: `ally` の出来事で `spawnAlly` が `GameModel.allies` に足す。道は `mission.paths[path]`、`fate.at` の座標は `mission.places[at]`。`AllyState` は道の点と場所の座標を自分で持つ（チェックポイントのコピーだけで立つため）。名前が無ければ例外。`validateMission` も `paths`・`places`・`ALLY_FATES` の名前を確かめる
@@ -621,7 +621,8 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 - 落ち方: `fate` の場所から `ALLY_TUNE.arrive` 以内に入った1フレームで落ち（`down`）、`stepAllies` が出来事 `allyDown`（`by` は `mortar` か `gun`）を1回出す。`fate.call` があれば、倒れる場所まで `ALLY_TUNE.callLead × ALLY_TUNE.speed`（m）より近づいたフレームで `called` を立て、`queueRadio` と出来事 `allyCall`（`id`・`line`）で1回だけ叫ぶ。同じフレームでも `allyCall` が `allyDown` より先に並ぶ。落ちたあとは動かず、出来事も出ない。当たり判定が無いので、機体も弾もすり抜け、ダメージも与えない
 - カットシーンの間は `stepAllies` が止まる。味方は導入のカットシーンと同じフレームに出るが、カットシーンの間は動かず描かれない（機体が走れるようになってから走り出す）
 - 見た目: 機体の箱の組み立て（`buildMechVisual`）を `ALLY_TUNE.height`（3.4m。機体は 4m）と `ALLY_PALETTE` で作る。落ちたら同じ箱を `ALLY_WRECK_PALETTE` で作ったものを `wreckTilt` 倒して置く（5色ごとに1 draw で、走る姿と残骸の2体分）。メッシュの名前は `ally`（機体の `mech` と数え分ける）。走る姿と残骸の `userData.allyId` に味方機の id を入れる（e2e が5機の中の1機を探せるように）
-- 撃つ真似: 走っている間と、投稿に着いて止まった後、`fireEvery` ごとに、前（向き）へ曳光弾を `Battle.tracer` で出す（当たりは無い）。散らしは `tracerSpread`。倒れている間は撃たない。撃つ向きを一番近い敵へ寄せるのは次の票
+- 撃つ真似: 走っている間と、投稿に着いて止まった後、`fireEvery` ごとに曳光弾を `Battle.tracer` で出す（当たりは無い）。`engageRange` 以内の一番近い生きている敵がいれば、その敵の胸（`ENEMIES[kind].height × ENEMY_CHEST`）へ向け、出る所は `fireAhead` 進めた所、散らしは `aimSpreadDeg`。その敵がいる間は体の向き（見た目だけ）も敵へ向ける。当たりを足さないので `ally.yaw` は書き換えない（走る向きと残骸の向きはそのまま）。敵がいなければ、今までどおり向きの前へ `tracerSpread` の散らしで撃つ。倒れている間は撃たない。敵選びは `nearestIndex`
+- 敵の曳光: 起きている（`awake`）生きている敵が、`enemyTracerRange` 以内の一番近い味方機へ、`enemyTracerEvery` ごとに1本、`enemyTracerSpreadDeg` の散らしで曳光を出す（敵の胸から味方機の胸 `fireHeight`）。当たりは無く、見た目だけ。敵の実弾（`EnemyBullet`）とは別の間隔で見せる（敵が撃てない時にも出る）。味方機がいなければ撃たずに次の間隔へ。乱数は `stream('allyFx')`
 - 落ちたときの見た目: `allyDown` を `drawPlay` が受けて、`by` が `mortar` なら `shellBurst`（戦場の砲撃と同じ閃光と破片）と砂煙（`BLAST_DUST`）、`by` が `gun` なら砂煙（`HIT_DUST`）だけをその場に出す。機銃で倒れた機体を迫撃砲の着弾に見せない。着弾予告の輪は出さない
 
 | 名前（`ALLY_TUNE`） | 値 | 単位・意味 |
@@ -633,7 +634,12 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 | `fireHeight` | 2.2 | m。曳光弾が出る高さ（足元から） |
 | `fireAhead` | 1.6 | m。曳光弾が出る足元からの前への距離 |
 | `tracerSpeed` | 80 | m/s。曳光弾の速さ |
-| `tracerSpread` | 6 | m/s。曳光弾の速さの横と上への散らし |
+| `tracerSpread` | 6 | m/s。敵がいないときに曳光弾の速さへ足す横と上への散らし |
+| `engageRange` | 70 | m。味方機が撃つ敵を探す距離 |
+| `aimSpreadDeg` | 1.5 | deg。狙った敵への曳光弾の散らし |
+| `enemyTracerEvery` | 2.5 | s。1機の敵が味方機へ見せる曳光弾の間隔 |
+| `enemyTracerRange` | 80 | m。敵が味方機へ曳光弾を向ける距離 |
+| `enemyTracerSpreadDeg` | 2 | deg。敵から味方機への曳光弾の散らし |
 | `wreckTilt` | 1.35 | rad。残骸が倒れる角度 |
 | `callLead` | 4 | s。倒れる場所までこの秒数ぶんの距離（`speed` を掛けた m）より近づいたら無線で叫ぶ |
 | `groundRadius` | 0.5 | m。`groundAt` に渡す足元の半径 |
@@ -710,7 +716,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `#view-boom`: 浜と海の境を固定カメラで見て、爆発の見た目と揺れを試す入口。種類 `small`・`large`・`craft`・`water` のボタン（とキー 1〜4）でその種類を選んで出し、右上の調整パネル（`BOOM_DEFS.<種類>` の行）で「大きさ（火球の半径）」「煙の数」「煙の寿命」「揺れ」をその場で書き換える（保存しない。「値をコピー」で `BOOM_DEFS.large.fire.radius: 6.4` の形になる）。今の値を文字で出し、`window.sbBoomReport()` が同じ値と粒の数・描く回数・三角形を JSON の文字列で返す。土の上は砂柱、海の上は水柱
 - `#view-breach`: 手書きマップの線1の爆破点と爆薬を、機体を (40, 150) に置いて見る入口。右上の調整パネルが `CHARGE_TUNE`（長押し・届く距離・導火線・爆風の半径と装甲・穴の半幅と半奥行き）と `ENEMIES.emplacement`（体力・射程・1発の装甲・掃射の弾数・弧・間隔・次の掃射まで）、`AIMED_MORTAR`（同じ所にいる秒・同じと見る半径・予告・爆風の半径・装甲・区間の手前）を書き換え、「仕掛ける」「爆破」「戻す」と「この線を爆破で開く」（`openBreach` の結果でシーンを作り直す）「閉じた線に戻す」、「機銃座を出す」（`M1B_HAND.spawns['b-emplacements']` の6か所に機銃座を置き、機体へ掃射させる。曳光はこの入口だけの線で描く）、「狙う迫撃砲を始める」（その場に立ち続けると予告の輪と着弾が出る。`still` の残りを画面に出す）でその場で試せる。`window.sbBreachReport()` が機体・爆破点・爆薬・機銃座の数・弾の数・狙う迫撃砲（`still`・予告の数）・`?stats` の数字を JSON の文字列で返す
 - `#view-pillbox`: 本体の出撃を始め、導入のカットシーンを飛ばして、機体をトーチカ1の横の爆破点の海側4m（陸向き）か、後ろの爆破点の陸側4m（海向き）に置く入口。点が画面の前に来る。右上の調整パネルが `PILLBOX_BLAST.damage` と `PILLBOX_BREAK`（`sec`・`sink`・`lean`）と `BATTLE_TUNE.holdZ`（-30〜10、歩兵の待ち線）を書き換え、「横の爆破点へ」「後ろの爆破点へ」「トーチカ2基を壊す」「やり直す」でその場で試せる。`BATTLE_TUNE.holdZ` は「やり直す」（`startSortie`）で作り直した群れに効き、動いている群れの待ち線は変えない。「トーチカ2基を壊す」は2基の体力を1にして横の外側から `heavyGun` の弾を入れ、次のフレームで壊して沈みを始める（無線・旗・cp1 も出る）。旗が立つと歩兵が待ち線を越えて進み、味方機3機が C の投稿へ動く。F を長押しして仕掛け、離れて爆破する。保存はしない
-- `#view-allies`: 本体の出撃を始め、導入のカットシーンを飛ばして、味方機5機を試す入口。「B の手前へ」で機体を (0,140) に置いて `enter b-line` を起こし、4機が出ている所と、`gunner` が5機目に出て倒れる所を見る。「C の手前へ」は機体を (35,-30) に置き、トーチカ2基を壊して cp1 を起こし、3機が C の投稿へ動く所を見る。「防波堤の上へ」は機体を (35,-70) に置いて `enter seawall-top` を起こし、3機がボスの投稿へ動く所を見る。「やり直す」で最初から。右上の調整パネルが `ALLY_TUNE`（走る速さ・着いたと見る距離・倒れる前に叫ぶ秒・足元の半径・上がれる高さ・落ちる速さ）と `RADIO_TUNE`（1行を出す秒・待たせる行の上限）を書き換える。座標はこの入口の `const` に置き、本編のデータには置かない。保存はしない
+- `#view-allies`: 本体の出撃を始め、導入のカットシーンを飛ばして、味方機5機を試す入口。「B の手前へ」で機体を (0,140) に置いて `enter b-line` を起こし、4機が出ている所と、`gunner` が5機目に出て倒れる所を見る。「C の手前へ」は機体を (35,-30) に置き、トーチカ2基を壊して cp1 を起こし、3機が C の投稿へ動く所を見る。「防波堤の上へ」は機体を (35,-70) に置いて `enter seawall-top` を起こし、3機がボスの投稿へ動く所を見る。「B の手前に敵」「C の手前に敵」は、その区画の味方機の `engageRange` 以内に grunt を3体出し、味方機の曳光が敵へ、敵の曳光が味方機へ向くのを見る（当たりは無い）。「やり直す」で最初から。右上の調整パネルが `ALLY_TUNE`（走る速さ・着いたと見る距離・倒れる前に叫ぶ秒・足元の半径・上がれる高さ・落ちる速さ・撃つ敵を探す距離・味方機の散らし・敵の曳光の間隔・敵が探す距離・敵の散らし）と `RADIO_TUNE`（1行を出す秒・待たせる行の上限）を書き換える。座標はこの入口の `const` に置き、本編のデータには置かない。保存はしない
 - `#view-mapedit`: マップの簡易エディタ。上から見下ろすカメラで、ホイールかピンチで寄り・引き、右ドラッグか2本指で動かす。右の一覧で物の8種か目標の4種を選び、地面をクリックかタップすると置く。目標は `id` を一覧から選ぶ。置いた物はドラッグで動き、`R` か回転のボタンで15度ずつ回り、`Delete` か削除のボタンで消える。「手書き」「生成（種）」「空」から始められ、置くたびに `validateMapForMission` を回して違反を出し、通り道が無ければ赤くする。「書き出し」は JSON を `<textarea>` に出し、「読み込み」はその JSON を読む。編集は `localStorage` の `stormbreacher-dev-map` に保存し、`#view-map?src=edit` で歩ける
 - `#view-sound`: 音の表の全部（`SOUND_NAMES`）をボタンで並べ、押すとその音を鳴らす入口。距離のつまみ（0〜200m）が `SOUND_DISTANCE` の距離の扱いを通すので、遠い音の小ささ・こもり方も試せる。右上の調整パネルで `SOUND_DISTANCE`（近い・遠い・遠くの音量と高さ）と `SOUND_VOLUME.sfx`（効果音の音量）も変えられる。`#sbSound` に並び、ボタンは `data-sound` に音の名前を持つ
 - `#view-outdoor`: 上陸戦の浜辺のような広い屋外（地面・障害物・トーチカ・防波堤・崖・歩く敵の機体）を種から作り、その重さを測る入口。開いて2秒たってから10秒のあいだ、フレームの間隔・描く回数・三角形の数を記録し、終わると画面の右上に大きく出す（下の `textarea` は同じ結果の JSON）。`window.sbBenchReport()` は終わっていればその JSON の文字列、まだなら `null`

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { ALLY_FATES, ALLY_TUNE } from '../../src/data/allies.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { moveAlly, newAlly, stepAlly } from '../../src/logic/allies.ts';
+import { moveAlly, nearestIndex, newAlly, stepAlly } from '../../src/logic/allies.ts';
 
 const DT = 1 / 60;
 const WAY = M1.paths['beach-run'];
@@ -107,4 +107,29 @@ test('a fallen ally keeps the way and the place it fell at', () => {
 test('moving an ally along a way with no point is refused', () => {
   const ally = newAlly('buddy', WAY, null);
   expect(() => moveAlly(ally, [])).toThrow(/no point/);
+});
+
+test('nearestIndex gives the nearest point within the range', () => {
+  const points = [
+    { x: 0, z: 10 },
+    { x: 3, z: 4 },
+    { x: -20, z: 0 },
+  ];
+  expect(nearestIndex({ x: 0, z: 0 }, points, 70)).toBe(1);
+});
+
+test('nearestIndex gives the first of points at the same distance', () => {
+  const points = [
+    { x: -3, z: 4 },
+    { x: 3, z: 4 },
+  ];
+  expect(nearestIndex({ x: 0, z: 0 }, points, 70)).toBe(0);
+});
+
+test('nearestIndex gives null when every point is farther than the range', () => {
+  expect(nearestIndex({ x: 0, z: 0 }, [{ x: 0, z: 5 }], 4)).toBeNull();
+});
+
+test('nearestIndex gives null for no points', () => {
+  expect(nearestIndex({ x: 0, z: 0 }, [], 70)).toBeNull();
 });

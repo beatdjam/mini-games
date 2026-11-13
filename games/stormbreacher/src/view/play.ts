@@ -340,7 +340,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawHazards(view.hazards, game);
   drawBlasts(view.blasts, game);
   drawSeaFire(view.seaFire, game);
-  drawAllies(view.allies, game, view.battle, stream('battle'), dt);
+  drawAllies(view.allies, game, view.battle, stream('allyFx'), dt);
   hurtStep(view.hurt, dt, game.armor / MECH_TUNE.armor);
   const hud = hudModel(game);
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
