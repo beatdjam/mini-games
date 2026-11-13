@@ -8,6 +8,7 @@ import { LOOP, runSystems } from '@engine/core/index.ts';
 import { currentGame, startSortie } from '../src/app/play.ts';
 import { boot } from '../src/app/boot.ts';
 import { WEAPONS } from '../src/data/weapons.ts';
+import { MECH_TUNE } from '../src/data/tune.ts';
 import { sendToScript } from '../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
@@ -154,5 +155,41 @@ test('break', async () => {
     advance(at);
     if (wanted(`pillbox-break-${name}`)) await picture(`pillbox-break-${name}`);
   }
+  LOOP.maxDt = 0.05;
+});
+
+test('advance', async () => {
+  startSortie();
+  await until(() => game().script.cutscene !== null);
+  sendToScript(game(), { kind: 'skip' });
+  await until(() => game().script.cutscene === null);
+
+  // 20 m behind the pillboxes, facing the land: both pillboxes and the line the infantry waits at are in the picture
+  await standAtPlace(0, 20);
+
+  // the shots own the game's clock: a drawn frame adds no time, and the seconds are the ones a player sees
+  LOOP.maxDt = 0;
+  // For the picture only: nothing shoots back and the armour is kept full, so the mech stands through the wait while
+  // the infantry crosses the 176 m from the sea to the waiting line.
+  const holdTheMech = () => {
+    const current = game();
+    current.enemies = [];
+    current.barrages = [];
+    current.shells = [];
+    current.armor = MECH_TUNE.armor;
+  };
+  for (let i = 0; i < 60 * 90; i++) {
+    holdTheMech();
+    runSystems(1 / 60);
+  }
+  if (wanted('advance-wait')) await picture('advance-wait');
+
+  // break both pillboxes; the flag stands and the infantry and the two allied mechs go on
+  breakBoth();
+  for (let i = 0; i < 60 * 4; i++) {
+    holdTheMech();
+    runSystems(1 / 60);
+  }
+  if (wanted('advance-go')) await picture('advance-go');
   LOOP.maxDt = 0.05;
 });

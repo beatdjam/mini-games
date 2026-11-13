@@ -30,6 +30,8 @@ const EXPECTED: readonly string[] = [
   'radio:m1.pillboxes-down',
   'flag:pillboxes-down',
   'checkpoint:cp1',
+  'ally:advance-1',
+  'ally:advance-2',
   'cutscene:wave2-sinks',
   'radio:m1.wave2-lost',
   'map:wave2:off',

@@ -7,10 +7,10 @@ import { boomShakeAt } from '../data/boom.ts';
 import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
-import { M1 } from '../data/missions/m1.ts';
+import { M1, PILLBOXES_DOWN_FLAG } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
-import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
+import { BATTLE_TUNE, CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import { blastTarget } from '../logic/blasts.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneMech } from '../logic/cutscene.ts';
@@ -110,11 +110,16 @@ export function buildPlayView(game: GameModel): PlayView {
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
     // PLAY_BATTLE_TUNE keeps FX_TUNE's look; only the main sortie's waves are thinner. The battle is made at the
-    // mech's start and keeps no link to the game's state
-    battle: buildBattle(game.map, PLAY_BATTLE_TUNE, stream('battle'), stream('craters'), {
-      x: game.mech.x,
-      z: game.mech.z,
-    }),
+    // mech's start and keeps no link to the game's state. BATTLE_TUNE.holdZ is where the allies wait until both
+    // pillboxes are down; PLAY_BATTLE_TUNE has no such value, so it stays the FX look.
+    battle: buildBattle(
+      game.map,
+      PLAY_BATTLE_TUNE,
+      stream('battle'),
+      stream('craters'),
+      { x: game.mech.x, z: game.mech.z },
+      BATTLE_TUNE.holdZ,
+    ),
     allies: buildAllyView(),
     hud,
     hurt: buildHurtView(document.body),
@@ -271,7 +276,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw);
     }
   }
-  view.feel.shake += view.battle.step(dt, game.mech);
+  // The infantry waits at BATTLE_TUNE.holdZ until the pillboxes are down, then goes on to the far line.
+  view.feel.shake += view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
   feelEvents(view.feel, mechEvents, kill, FEEL_TUNE);
   const frame = feelStep(view.feel, dt, game.mech.boosting, CAMERA_TUNE.fov, FEEL_TUNE);
 

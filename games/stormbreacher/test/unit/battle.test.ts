@@ -88,3 +88,17 @@ test('the walkers never pass MAX_SOLDIERS, however long the battle goes', () => 
     expect(state.crowd.soldiers.length).toBeLessThanOrEqual(MAX_SOLDIERS);
   }
 });
+
+test('a battle made with a holdZ keeps the walkers there while held, and lets them go after', () => {
+  const tune = tuneWith({ allyDeathRate: 0, allyWaves: 0, allySpeed: 10, shellEvery: 0 });
+  const rng = createRng(5);
+  const state = newBattle(rng, BOUNDS, tune, -6);
+  expect(state.crowd.holdZ).toBe(-6);
+  // 20 s walks the 176 m from the sea edge to the line at 10 m/s
+  for (let i = 0; i < 60 * 20; i++) stepBattle(state, rng, DT, tune, MECH, true);
+  expect(state.crowd.through).toBe(0);
+  for (const soldier of state.crowd.soldiers) expect(soldier.z).toBeGreaterThanOrEqual(-6);
+
+  for (let i = 0; i < 60 * 30; i++) stepBattle(state, rng, DT, tune, MECH, false);
+  expect(state.crowd.through).toBe(tune.allies);
+});

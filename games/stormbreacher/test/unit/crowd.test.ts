@@ -71,3 +71,29 @@ test('no allies asked for means no one comes in', () => {
   expect(crowd.soldiers).toHaveLength(0);
   expect(crowdCounts(crowd)).toEqual({ advancing: 0, fallen: 0, through: 0, capped: false });
 });
+
+test('spawnWave sets the far line and leaves the waiting line as it was', () => {
+  const crowd = newCrowd();
+  crowd.holdZ = 4;
+  spawnWave(crowd, createRng(4), BOUNDS, 5);
+  expect(crowd.holdZ).toBe(4);
+  expect(crowd.lineZ).not.toBe(4);
+});
+
+test('a held crowd waits at holdZ, brings no new wave, and walks on to the line once let go', () => {
+  const crowd = newCrowd();
+  const rng = createRng(9);
+  spawnWave(crowd, rng, BOUNDS, 10);
+  crowd.holdZ = 0;
+  // 30 s is enough to walk the 170 m from the sea edge at 10 m/s; the waves are due every 5 s
+  const waiting = tuneWith({ allyDeathRate: 0, allyWaves: 5, allySpeed: 10 });
+  for (let i = 0; i < 60 * 30; i++) stepCrowd(crowd, rng, DT, waiting, true);
+  expect(crowd.through).toBe(0);
+  expect(crowd.soldiers).toHaveLength(10);
+  for (const soldier of crowd.soldiers) expect(soldier.z).toBeGreaterThanOrEqual(0);
+
+  const walking = tuneWith({ allyDeathRate: 0, allyWaves: 0, allySpeed: 10 });
+  for (let i = 0; i < 60 * 30; i++) stepCrowd(crowd, rng, DT, walking, false);
+  expect(crowd.through).toBe(10);
+  expect(crowd.soldiers).toHaveLength(0);
+});

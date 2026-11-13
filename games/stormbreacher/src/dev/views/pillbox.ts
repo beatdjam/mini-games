@@ -5,6 +5,7 @@
 import { addSystem, systems } from '@engine/core/index.ts';
 import { currentGame, startSortie } from '../../app/play.ts';
 import { PILLBOX_BLAST, PILLBOX_BREAK } from '../../data/pillbox.ts';
+import { BATTLE_TUNE } from '../../data/tune.ts';
 import { WEAPONS } from '../../data/weapons.ts';
 import { sendToScript } from '../../logic/game.ts';
 import { createTunePanel, type TuneRange } from '../tunePanel.ts';
@@ -34,6 +35,16 @@ const BREAK_LABELS: Record<string, string> = {
   sec: '沈み切るまでの秒',
   sink: '沈む深さ(m)',
   lean: '傾く角(rad)',
+};
+
+// The battle layer's table: only the waiting line. The allies' count is not here, because the sortie reads it when it
+// makes PLAY_BATTLE_TUNE; change src/data/tune.ts to see another number.
+const BATTLE_RANGES: Record<string, TuneRange> = {
+  holdZ: { min: -30, max: 10, step: 1 },
+};
+
+const BATTLE_LABELS: Record<string, string> = {
+  holdZ: '歩兵の待ち線(z)',
 };
 
 const BUTTON_STYLE =
@@ -124,7 +135,7 @@ export function showPillbox(_hash: string) {
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
   note.textContent =
-    'F（使う）を長押しすると仕掛ける。\n離れて導火線が切れると爆破する。\n壊し直すときは「やり直す」。\n保存はしない。';
+    'F（使う）を長押しすると仕掛ける。\n離れて導火線が切れると爆破する。\n壊し直すときは「やり直す」。\n待ち線は作り直しで反映する。\n保存はしない。';
   extra.appendChild(note);
 
   createTunePanel({
@@ -133,6 +144,7 @@ export function showPillbox(_hash: string) {
     groups: [
       { name: 'PILLBOX_BLAST', table: PILLBOX_BLAST, ranges: PILLBOX_RANGES, labels: PILLBOX_LABELS },
       { name: 'PILLBOX_BREAK', table: PILLBOX_BREAK, ranges: BREAK_RANGES, labels: BREAK_LABELS },
+      { name: 'BATTLE_TUNE', table: BATTLE_TUNE, ranges: BATTLE_RANGES, labels: BATTLE_LABELS },
     ],
   });
 }

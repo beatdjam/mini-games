@@ -75,8 +75,9 @@ export const BATTLE_GROUP_NAME = 'sbBattle';
 export interface Battle {
   crowd: Crowd;
   group: THREE.Group;
-  // Moves the battle one frame and gives back the shake the shells ask the camera to add this frame (m).
-  step(dt: number, mech: { x: number; y: number; z: number }): number;
+  // Moves the battle one frame and gives back the shake the shells ask the camera to add this frame (m). While `held`,
+  // the allies wait at the crowd's holdZ and no new wave comes in.
+  step(dt: number, mech: { x: number; y: number; z: number }, held?: boolean): number;
   // Lets one tracer fly from a place at a velocity (m, m/s); the allies of the sortie shoot with it.
   tracer(at: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }): void;
   counts(): CrowdCounts;
@@ -107,10 +108,11 @@ export function buildBattle(
   rng: Rng,
   craterRng: Rng,
   start: { x: number; z: number },
+  holdZ: number | null = null,
 ): Battle {
   const group = new THREE.Group();
   group.name = BATTLE_GROUP_NAME;
-  const state = newBattle(rng, map.bounds, tune);
+  const state = newBattle(rng, map.bounds, tune, holdZ);
   const crowd = state.crowd;
   const { bodies, heads } = soldierMeshes();
   const smoke = smokeMesh(tune.smokeMax);
@@ -360,8 +362,8 @@ export function buildBattle(
   return {
     crowd,
     group,
-    step(dt, mech) {
-      const frame = stepBattle(state, rng, dt, tune, mech);
+    step(dt, mech, held = false) {
+      const frame = stepBattle(state, rng, dt, tune, mech, held);
       for (const soldier of frame.fell) burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);
       let shake = 0;
       if (frame.shell !== null) {

@@ -30,6 +30,7 @@ export interface Crowd {
   soldiers: Soldier[];
   bounds: MapBounds | null; // where the waves come in; set by the first spawnWave
   lineZ: number; // the z a soldier reaches the far defence line at (m)
+  holdZ: number | null; // the z a held soldier waits at (m); null waits nowhere
   waveT: number; // seconds until the next wave (s)
   fallen: number; // how many have fallen so far
   through: number; // how many have reached the line so far
@@ -43,7 +44,7 @@ export interface CrowdCounts {
 }
 
 export function newCrowd(): Crowd {
-  return { soldiers: [], bounds: null, lineZ: 0, waveT: 0, fallen: 0, through: 0 };
+  return { soldiers: [], bounds: null, lineZ: 0, holdZ: null, waveT: 0, fallen: 0, through: 0 };
 }
 
 // Puts `count` soldiers near the sea edge, spread across the map. Gives back how many joined; the cap may take fewer.
@@ -67,13 +68,15 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
 }
 
 // Moves the crowd by one frame: brings the next wave when its time comes, walks the living, makes some fall, takes the
-// fallen away after DEAD_LINGER and counts the ones that reach the line. Gives back the soldiers that fell this frame,
-// so the view can put a little dust where each one went down.
-export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune): Soldier[] {
+// fallen away after DEAD_LINGER and counts the ones that reach the line. While `held` and the crowd has a holdZ, the
+// living stop at that line and no new wave comes in, so the field does not fill up while they wait. Gives back the
+// soldiers that fell this frame, so the view can put a little dust where each one went down.
+export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held = false): Soldier[] {
   const span = Math.max(0, dt);
   const fell: Soldier[] = [];
+  const holdZ = held ? crowd.holdZ : null;
 
-  if (crowd.bounds !== null && tune.allyWaves > 0) {
+  if (holdZ === null && crowd.bounds !== null && tune.allyWaves > 0) {
     crowd.waveT -= span;
     if (crowd.waveT <= 0) {
       spawnWave(crowd, rng, crowd.bounds, Math.round(tune.allies));
@@ -99,6 +102,9 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune): Sol
     if (bounds !== null) {
       soldier.x = clamp(soldier.x, bounds.minX + EDGE_MARGIN, bounds.maxX - EDGE_MARGIN);
     }
+
+    // the waiting line comes before the far line: a held soldier stops there and never counts as through
+    if (holdZ !== null && soldier.z < holdZ) soldier.z = holdZ;
 
     if (soldier.z <= crowd.lineZ) {
       crowd.through++;

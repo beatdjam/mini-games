@@ -4,6 +4,10 @@
 // seawall (z -75..-65), and the boss's ground lies past it: the guns at z -135 and the magazine at z -150.
 import type { Area, Cue, GroundSpot, MissionDef } from '../types.ts';
 
+// The flag cp1 raises once both pillboxes are down. The battle layer reads it: until it stands the allies wait at
+// BATTLE_TUNE.holdZ, and once it stands they walk on to the far line (s3-3).
+export const PILLBOXES_DOWN_FLAG = 'pillboxes-down';
+
 // The way the allied mech runs along the beach and where the mortar takes it (SB-170). It starts beside the mech's start
 // (x 0, z 166), runs to the front of line 1's blast point (40, 146.5) and falls beside it.
 const PATHS = {
@@ -11,6 +15,18 @@ const PATHS = {
     { x: 10, z: 166 },
     { x: 24, z: 156 },
     { x: 44, z: 151 },
+  ],
+  // The two allied mechs that go on with the infantry once the pillboxes are down (s3-3). They start in the gap between
+  // the pillboxes and run through it toward C's breakthrough at x 35, then stop short of C. The places are a guess.
+  'advance-run-1': [
+    { x: 12, z: -4 },
+    { x: 32, z: -24 },
+    { x: 32, z: -60 },
+  ],
+  'advance-run-2': [
+    { x: -12, z: -4 },
+    { x: 38, z: -26 },
+    { x: 38, z: -60 },
   ],
 } as const satisfies Record<string, readonly GroundSpot[]>;
 
@@ -71,10 +87,14 @@ const CUES = [
     id: 'cp1',
     trigger: { kind: 'destroyed', targets: ['pillbox-1', 'pillbox-2'] },
     // the flag and the radio come before the checkpoint, so its copy holds both (the copy is taken after the whole cue)
+    // the two allies come after the checkpoint, in the same cue: the copy is taken after all of its actions, so they
+    // are in the checkpoint too and a retry does not put them out twice
     actions: [
       { kind: 'radio', line: 'm1.pillboxes-down' },
-      { kind: 'flag', name: 'pillboxes-down' },
+      { kind: 'flag', name: PILLBOXES_DOWN_FLAG },
       { kind: 'checkpoint', id: 'cp1' },
+      { kind: 'ally', id: 'advance-1', path: 'advance-run-1' },
+      { kind: 'ally', id: 'advance-2', path: 'advance-run-2' },
     ],
   },
   {
@@ -133,7 +153,7 @@ export const M1: MissionDef = {
   waves: ['beach-mortar', 'b-squad', 'b-emplacements', 'depot-guard', 'seawall-drop', 'c-squad', 'battery'],
   objectives: ['reach-pillboxes', 'break-pillboxes', 'take-seawall', 'silence-battery', 'hit-magazine'],
   marks: ['wave2'],
-  allies: ['buddy'],
+  allies: ['buddy', 'advance-1', 'advance-2'],
   paths: PATHS,
   places: PLACES,
 };

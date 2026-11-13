@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { ALLY_TUNE } from '../../src/data/allies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
+import type { AllyState } from '../../src/logic/allies.ts';
 import {
   newGame,
   retryFromCheckpoint,
@@ -38,6 +39,22 @@ function run(game: GameModel, input: GameInput, frames: number): GameEvent[] {
 }
 
 const downs = (events: GameEvent[]) => events.filter(event => event.kind === 'allyDown');
+
+// Breaks both pillboxes, which fires cp1: the checkpoint, and the two allies that go on with the infantry.
+function breakPillboxes(game: GameModel): void {
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game.targets.find(t => t.id === id);
+    if (!target) throw new Error(`the map has no ${id}`);
+    target.hp = 0;
+    sendToScript(game, { kind: 'destroyed', target: id });
+  }
+}
+
+function allyById(allies: readonly AllyState[], id: string): AllyState {
+  const ally = allies.find(entry => entry.id === id);
+  if (!ally) throw new Error(`the sortie has no ally "${id}"`);
+  return ally;
+}
 
 test('the beach cue puts the buddy out at the start, standing until the cutscene is over', () => {
   const game = newGame(M1B_HAND);
@@ -109,27 +126,36 @@ test('a shot passing through the buddy goes on, and the mech stands where the bu
   expect(game.bullets[0].z).toBeLessThan(buddy.z + 1);
 });
 
+test('cp1 puts out the two allies that go on with the infantry, and both run past z -50', () => {
+  const game = newPlayGame(M1B_HAND);
+  run(game, IDLE, 60);
+  breakPillboxes(game);
+  const advance = ['advance-1', 'advance-2'].map(id => allyById(game.allies, id));
+  // the wave2-sinks cutscene holds them for a few seconds; 30 s covers it and the run to the end of the way
+  run(game, IDLE, 60 * 30);
+  for (const ally of advance) expect(ally.z).toBeLessThan(-50);
+  // no fate, so they stand at the end of the way and do not fall
+  expect(advance.every(ally => ally.down === false)).toBe(true);
+});
+
 test('going back to the checkpoint brings the buddy back as the checkpoint kept it', () => {
   const game = newPlayGame(M1B_HAND);
   run(game, IDLE, 60);
   // cp1 is taken while the buddy is still running
-  for (const id of ['pillbox-1', 'pillbox-2']) {
-    const target = game.targets.find(t => t.id === id);
-    if (!target) throw new Error(`the map has no ${id}`);
-    target.hp = 0;
-    sendToScript(game, { kind: 'destroyed', target: id });
-  }
-  const kept = structuredClone(game.allies[0]);
+  breakPillboxes(game);
+  const kept = structuredClone(allyById(game.allies, 'buddy'));
   expect(kept.down).toBe(false);
-  expect(game.checkpoint?.allies[0]).toEqual(kept);
+  expect(allyById(game.checkpoint?.allies ?? [], 'buddy')).toEqual(kept);
   run(game, IDLE, 60 * 20);
-  expect(game.allies[0].down).toBe(true);
+  expect(allyById(game.allies, 'buddy').down).toBe(true);
 
   const again = retryFromCheckpoint(game);
-  expect(again.allies).toEqual([kept]);
-  expect(again.allies[0]).not.toBe(game.checkpoint?.allies[0]);
+  const keptAgain = allyById(again.allies, 'buddy');
+  expect(keptAgain).toEqual(kept);
+  expect(keptAgain).not.toBe(game.checkpoint?.allies.find(ally => ally.id === 'buddy'));
+  expect(again.allies.map(ally => ally.id)).toEqual(expect.arrayContaining(['advance-1', 'advance-2']));
   // it runs on from there and falls once more
   expect(downs(run(again, IDLE, 60 * 20))).toHaveLength(1);
   // and the checkpoint itself still holds the buddy running
-  expect(game.checkpoint?.allies[0]).toEqual(kept);
+  expect(allyById(game.checkpoint?.allies ?? [], 'buddy')).toEqual(kept);
 });

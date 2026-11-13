@@ -196,6 +196,9 @@ export type FxTune = typeof FX_TUNE;
 // The battle layer of the main sortie. #view-fx keeps FX_TUNE, so the tools can still compare 150/300/450.
 export const BATTLE_TUNE = {
   allies: 60, // the allies in each wave of the main sortie (0 makes none)
+  // The z the allies wait at until the pillboxes are down. It sits 5 m seaward of the pillboxes' boxes (z -19..-11), so
+  // they stop just short of the line. A guess, to be judged on the screen.
+  holdZ: -6,
 };
 
 export const PLAY_BATTLE_TUNE: FxTune = { ...FX_TUNE, allies: BATTLE_TUNE.allies };

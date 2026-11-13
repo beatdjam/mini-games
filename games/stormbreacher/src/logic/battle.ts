@@ -28,25 +28,28 @@ export interface BattleFrame {
 }
 
 // The battle at its start: the first wave on the map's sea edge, the next wave after tune.allyWaves, and the first shell
-// half an interval in (none when tune.shellEvery is 0). The draws are the first wave's.
-export function newBattle(rng: Rng, bounds: MapBounds, tune: FxTune): BattleState {
+// half an interval in (none when tune.shellEvery is 0). The draws are the first wave's. `holdZ` is where the allies wait
+// while the battle is held; null lets them walk on to the far line as before.
+export function newBattle(rng: Rng, bounds: MapBounds, tune: FxTune, holdZ: number | null = null): BattleState {
   const crowd = newCrowd();
+  crowd.holdZ = holdZ;
   spawnWave(crowd, rng, bounds, Math.round(tune.allies));
   crowd.waveT = tune.allyWaves;
   return { crowd, shellT: tune.shellEvery > 0 ? tune.shellEvery * SHELL_FIRST : 0 };
 }
 
-// Moves the battle by one frame: the crowd walks, and when the shell's time comes one lands at a place between
-// tune.shellNear and tune.shellFar from `at` (the mech) in a random direction. The shell's draws are the distance and the
-// angle, in that order, and none while no shell lands.
+// Moves the battle by one frame: the crowd walks (waits at its holdZ while `held`), and when the shell's time comes one
+// lands at a place between tune.shellNear and tune.shellFar from `at` (the mech) in a random direction. The shell's draws
+// are the distance and the angle, in that order, and none while no shell lands.
 export function stepBattle(
   state: BattleState,
   rng: Rng,
   dt: number,
   tune: FxTune,
   at: { x: number; z: number },
+  held = false,
 ): BattleFrame {
-  const fell = stepCrowd(state.crowd, rng, dt, tune);
+  const fell = stepCrowd(state.crowd, rng, dt, tune, held);
   let shell: ShellFall | null = null;
   if (tune.shellEvery > 0) {
     state.shellT -= dt;
