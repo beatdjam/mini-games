@@ -2,16 +2,18 @@
 // view reads GameModel and never writes it; logic/game.ts owns the mech, the targets and the frame's events.
 import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
-import { camera, cullChunks, scene } from '@engine/render/index.ts';
+import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
 import { boomShakeAt } from '../data/boom.ts';
-import { ENEMY_BULLET_COLOR } from '../data/colors.ts';
+import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
+import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
-import { CAMERA_TUNE, FEEL_TUNE, FX_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneMech } from '../logic/cutscene.ts';
+import { pillboxMuzzle } from '../logic/pillbox.ts';
 import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
@@ -35,14 +37,26 @@ const TRACER_COLOR = 0xffe066; // the bullet's line
 const TRACER_LENGTH = 4; // how far behind its head a bullet's line reaches (m)
 const MAX_BULLET_LINES = 96; // the most bullets drawn at once, for the mech's and for the enemies' each; the rest fly unseen
 const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
+const DEFLECT_SPARKS = 6; // the sparks a shot off a pillbox's front throws
+const DEFLECT_SPEED = 5; // how fast a spark flies out (m/s)
+const DEFLECT_LIFE = 0.18; // how long a spark lives (s)
+const DEFLECT_GRAVITY = -4; // how fast a spark falls (m/s^2)
 const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per landing
 const BOOST_DUST = 6; // the same, per boost start
 const BLAST_DUST = 14; // the same, per ally falling to a mortar shell
+const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the hand map has 3 pillboxes, so it is not reached
+const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
+const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
 
 // The bullets in flight, drawn as one set of line segments: two vertices a bullet, the position written every frame.
 export interface BulletLines {
   lines: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
   positions: THREE.BufferAttribute; // MAX_BULLET_LINES * 2 vertices (the tail, then the head)
+}
+
+// The warning lights, one instanced mesh for all of them.
+export interface PillboxWarnView {
+  mesh: THREE.InstancedMesh;
 }
 
 export interface PlayView {
@@ -55,6 +69,7 @@ export interface PlayView {
   bullets: BulletLines; // the lines of the mech's shots in flight
   enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
   enemies: EnemyView; // the enemies' instanced boxes
+  pillboxWarns: PillboxWarnView; // the lights at the pillboxes' muzzles while they warn of a burst
   hazards: HazardView; // the warned shells' rings and the mines' discs
   seaFire: SeaFireView; // the main guns' flashes and lines toward the sea
   battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; looks only (SB-170)
@@ -86,10 +101,15 @@ export function buildPlayView(game: GameModel): PlayView {
     bullets: buildBulletLines(TRACER_COLOR),
     enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
     enemies: buildEnemyView(),
+    pillboxWarns: buildPillboxWarnView(world.targetGroup),
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
-    // FX_TUNE is #view-fx's stage 2; the battle is made at the mech's start and keeps no link to the game's state
-    battle: buildBattle(game.map, FX_TUNE, stream('battle'), stream('craters'), { x: game.mech.x, z: game.mech.z }),
+    // PLAY_BATTLE_TUNE keeps FX_TUNE's look; only the main sortie's waves are thinner. The battle is made at the
+    // mech's start and keeps no link to the game's state
+    battle: buildBattle(game.map, PLAY_BATTLE_TUNE, stream('battle'), stream('craters'), {
+      x: game.mech.x,
+      z: game.mech.z,
+    }),
     allies: buildAllyView(),
     hud,
     hurt: buildHurtView(document.body),
@@ -108,6 +128,53 @@ function buildBulletLines(color: number): BulletLines {
   lines.frustumCulled = false;
   scene.add(lines);
   return { lines, positions };
+}
+
+// The lights at the pillboxes' muzzles: one instanced mesh, added to the targets' group so that group's removal takes
+// it out with them.
+function buildPillboxWarnView(group: THREE.Group): PillboxWarnView {
+  const mesh = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(1, 8, 6),
+    new THREE.MeshBasicMaterial({
+      color: PILLBOX_WARN_COLOR,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
+    }),
+    MAX_PILLBOX_WARNS,
+  );
+  mesh.name = 'sb-pillbox-warn';
+  mesh.count = 0;
+  // the lights come and go, so the bounding sphere made at the start would cull them
+  mesh.frustumCulled = false;
+  group.add(mesh);
+  return { mesh };
+}
+
+const pillboxWarnPlace = new THREE.Object3D();
+
+// Draws a light at the muzzle of every pillbox whose warning is running, up to the mesh's capacity, smaller as the
+// warning nears its end. The light is read from the pillbox's own countdown each frame, so a cutscene, a pause or a
+// suspend holds it where it stands.
+function drawPillboxWarns(view: PillboxWarnView, game: GameModel): void {
+  let count = 0;
+  for (const state of game.pillboxes) {
+    if (count === MAX_PILLBOX_WARNS) break;
+    if (state.warn <= 0) continue;
+    const target = game.targets.find(target => target.id === state.id);
+    // a destroyed pillbox keeps its state but must not keep its light
+    if (!target || target.hp <= 0) continue;
+    const muzzle = pillboxMuzzle(target.box, target.yaw);
+    const share = clamp(state.warn / PILLBOX_TUNE.warn, 0, 1); // 1 at the warning, 0 as it ends
+    const size = PILLBOX_WARN_SIZE * (PILLBOX_WARN_SHRINK + (1 - PILLBOX_WARN_SHRINK) * share);
+    pillboxWarnPlace.position.set(muzzle.x, muzzle.y, muzzle.z);
+    pillboxWarnPlace.scale.setScalar(size);
+    pillboxWarnPlace.updateMatrix();
+    view.mesh.setMatrixAt(count, pillboxWarnPlace.matrix);
+    count++;
+  }
+  view.mesh.count = count;
+  view.mesh.instanceMatrix.needsUpdate = true;
 }
 
 // Writes each bullet's head and the point TRACER_LENGTH behind it, and draws only as many segments as there are bullets.
@@ -149,7 +216,21 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     } else if (event.kind === 'shot') {
       mechEvents.push({ kind: 'fire', speed: 0 });
     } else if (event.kind === 'hit') {
-      spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+      // a shot a pillbox's front turned away throws a small bright spark; everything else leaves sand
+      if (event.deflected) {
+        burst(
+          event.x,
+          event.y,
+          event.z,
+          PILLBOX_DEFLECT_COLOR,
+          DEFLECT_SPARKS,
+          DEFLECT_SPEED,
+          DEFLECT_LIFE,
+          DEFLECT_GRAVITY,
+        );
+      } else {
+        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+      }
     } else if (event.kind === 'destroyed') {
       kill = true;
       const target = game.targets.find(entry => entry.id === event.id);
@@ -228,6 +309,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   );
   drawBullets(view.enemyBullets, game.bullets.filter(isHostileBullet));
   drawEnemies(view.enemies, game);
+  drawPillboxWarns(view.pillboxWarns, game);
   drawHazards(view.hazards, game);
   drawSeaFire(view.seaFire, game);
   drawAllies(view.allies, game, view.battle, stream('battle'), dt);

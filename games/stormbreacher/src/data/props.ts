@@ -1,5 +1,5 @@
 // The sizes of the map's props and targets (m), decided when the mech was 8 m tall with a 2 m hit radius. The mech is
-// now 4 m tall with a 1 m radius (MECH_TUNE), and a jump peaks at about 1 m, so a hedgehog (3 m) is not jumped over.
+// now 4 m tall with a 1 m radius (MECH_TUNE), and a jump peaks at about 2.2 m, so a hedgehog (3 m) is not jumped over.
 import type { PropKind, TargetKind } from './types.ts';
 
 export interface PropSize {
@@ -30,7 +30,7 @@ export const PROP_SIZE: Record<PropKind, PropSize> = {
   cliff: { w: 20, h: 30, d: 16, blocks: true },
   crater: { w: 12, h: 0, d: 12, blocks: false },
   wreck: { w: 12, h: 5, d: 6, blocks: true },
-  lowWall: { w: 6, h: 0.85, d: 1, blocks: true }, // above the 0.75 m step, below a jump's peak of about 1.04 m
+  lowWall: { w: 6, h: 0.85, d: 1, blocks: true }, // above the 0.75 m step, below a jump's peak of about 2.2 m
   stairs: { w: 8, h: SEAWALL_HEIGHT, d: STAIRS_TUNE.steps * STAIRS_TUNE.run, blocks: true },
 };
 
@@ -65,8 +65,9 @@ export const TARGET_SIZE: Record<TargetKind, TargetSize> = {
 };
 
 // The targets' health (provisional; SB-190 decides it again). One autocannon shot does WEAPONS.autocannon.damage 10,
-// so a pillbox (100) breaks in 10 shots, a depot (60) in 6, a gun (200) in 20 and a magazine (80) in 8; the heavy gun
-// (WEAPONS.heavyGun.damage 60) breaks a pillbox in 2.
+// so a depot (60) breaks in 6 shots, a gun (200) in 20 and a magazine (80) in 8. A pillbox (100) breaks in 10 autocannon
+// shots or 2 heavy-gun shots (WEAPONS.heavyGun.damage 60) from its side or back, and in 40 or 7 from its front
+// (PILLBOX_ARMOR in src/data/pillbox.ts).
 export const TARGET_HP: Record<TargetKind, number> = {
   pillbox: 100,
   depot: 60,

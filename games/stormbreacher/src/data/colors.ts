@@ -23,6 +23,8 @@ export const HUD_COLOR = {
 // The enemies on the field (仮): each kind's body, the body of one that is down and the line of an enemy's shot.
 export const ENEMY_COLOR: Record<EnemyKind, number> = {
   grunt: 0x8c3b32,
+  assault: 0xc94a3d, // a brighter red than a grunt's, so the fast one reads apart at a distance
+  heavy: 0x4a5340, // a dark grey-green, far from the grunt's red
 };
 export const ENEMY_DOWN_COLOR = 0x2a2522;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
@@ -38,6 +40,13 @@ export const MINE_COLOR = 0x3a3d2e;
 export const SHUTTER_COLOR = 0x5b6168;
 export const SEA_FLASH_COLOR = 0xfff1b0;
 export const SEA_TRACER_COLOR = 0xffb347;
+
+// The light at a pillbox's muzzle while it warns of a burst (仮).
+export const PILLBOX_WARN_COLOR = 0xffd890;
+
+// The sparks of a shot a pillbox's front turns away (仮). A little warmer than SEA_FLASH_COLOR, so the two do not read
+// as the same flash.
+export const PILLBOX_DEFLECT_COLOR = 0xffe080;
 
 // The allied mech of the script (SB-170, 仮): the colours it wears running and the dark ones of its wreck, one hex per
 // colour name of the mech's look.

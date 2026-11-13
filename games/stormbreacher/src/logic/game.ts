@@ -6,7 +6,9 @@
 // meets, at the first target or living enemy along its path or at the ground, whichever is nearest, and vanishes at its
 // range; a breakable prop takes the damage and breaks at 0. An enemy's shot (logic/enemies.ts) flies at its kind's
 // speed and stops at a prop, at the mech or at the ground; the mech's armour takes its damage, and at 0 the mech is
-// downed and the game stops. The script's `spawn` puts a wave's enemies out (the wave's kind is in M1_WAVE_ENEMY), starts
+// downed and the game stops. A pillbox (logic/pillbox.ts) that sees the mech warns of a burst and then fires it, and its
+// shots fly as an enemy's do; a shot from its front does little damage and is reported as deflected. The
+// script's `spawn` puts a wave's enemies out (the wave's kinds are in M1_WAVE_ENEMY), starts
 // the wave's barrage (M1_WAVE_BARRAGE; logic/hazards.ts) and, when the last of the enemies falls, `cleared` goes back
 // through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; a mine blows up
 // when the mech steps on it or the mech's shot breaks it, and both take armour from a mech inside the blast. The boss
@@ -18,6 +20,7 @@ import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { BARRAGES, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
+import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
 import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
@@ -35,6 +38,7 @@ import {
 import { newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
 import { newNav, stepNav, type NavState } from './nav.ts';
+import { newPillbox, pillboxDamageMul, stepPillbox, type PillboxState } from './pillbox.ts';
 import {
   newFcs,
   spreadDir,
@@ -71,6 +75,7 @@ export interface TargetState {
   kind: TargetKind;
   hp: number; // the health left
   box: Aabb; // the box a shot may hit
+  yaw: number; // how far it is turned about its middle (rad); a pillbox fires toward its front
 }
 
 export interface BreakableState {
@@ -93,6 +98,7 @@ export type GameEvent =
       prop: number | null; // the prop's place in map.props when a prop stopped it
       enemy: string | null; // the enemy's id when an enemy stopped the bullet
       mech: boolean; // whether the mech stopped the bullet; all of these are empty at the ground and at a mine
+      deflected: boolean; // whether a pillbox's front turned the bullet away; false everywhere else
     }
   | { kind: 'destroyed'; id: string }
   | { kind: 'shutterOpen'; target: string } // the shutter before this target opened
@@ -104,6 +110,7 @@ export type GameEvent =
   | { kind: 'shellWarn'; x: number; z: number; radius: number } // a shell will land here
   | { kind: 'shellLand'; x: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
   | { kind: 'mineBlast'; x: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
+  | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
   | { kind: 'allyDown'; id: string; x: number; z: number; by: string } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   | { kind: 'cleared' }
@@ -133,7 +140,12 @@ export interface BatteryBullet extends BulletBase {
   gun: string; // the id of the target that fired it
 }
 
-export type Bullet = MechBullet | EnemyBullet | BatteryBullet;
+// A shot of a pillbox's machine gun.
+export interface PillboxBullet extends BulletBase {
+  pillbox: string; // the id of the target that fired it
+}
+
+export type Bullet = MechBullet | EnemyBullet | BatteryBullet | PillboxBullet;
 
 export function isEnemyBullet(bullet: Bullet): bullet is EnemyBullet {
   return 'enemy' in bullet;
@@ -143,13 +155,18 @@ export function isBatteryBullet(bullet: Bullet): bullet is BatteryBullet {
   return 'gun' in bullet;
 }
 
-// Whether the bullet is fired at the mech: an enemy's or the battery's.
-export function isHostileBullet(bullet: Bullet): bullet is EnemyBullet | BatteryBullet {
+export function isPillboxBullet(bullet: Bullet): bullet is PillboxBullet {
+  return 'pillbox' in bullet;
+}
+
+// Whether the bullet is fired at the mech: an enemy's, the battery's or a pillbox's.
+export function isHostileBullet(bullet: Bullet): bullet is EnemyBullet | BatteryBullet | PillboxBullet {
   return !('weapon' in bullet);
 }
 
-// How fast a bullet flies and what it does, from the table of the weapon, the enemy or the gun that fired it.
+// How fast a bullet flies and what it does, from the table of the weapon, the enemy, the gun or the pillbox that fired it.
 function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
+  if (isPillboxBullet(bullet)) return { speed: PILLBOX_TUNE.bulletSpeed, damage: PILLBOX_TUNE.damage };
   if (isBatteryBullet(bullet)) return { speed: GUN_TUNE.bulletSpeed, damage: GUN_TUNE.damage };
   if (isEnemyBullet(bullet)) {
     const def = ENEMIES[bullet.enemy];
@@ -178,6 +195,7 @@ export interface GameModel {
   propRefs: number[]; // the prop's place in map.props for each propBoxes entry
   breakables: BreakableState[]; // the breakable blocking props, with their health
   targets: TargetState[];
+  pillboxes: PillboxState[]; // the pillboxes' machine guns, by target id; a destroyed pillbox's state stays
   enemies: EnemyState[]; // every enemy put out, the fallen too (hp 0: they do not move, shoot or take a hit)
   nav: NavState; // the cells and counts the enemies find their way by; made again from rects, so a copy leaves it out
   main: WeaponState; // the main weapon's ammo and wait
@@ -344,6 +362,9 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
     !hostile && met >= aliveTargets.length && met < enemyEnd ? aliveEnemies[met - aliveTargets.length] : null;
   const mine = !hostile && met >= enemyEnd && met < front.length ? game.mines[met - enemyEnd] : null;
   const propBox = met >= front.length && met < front.length + game.propBoxes.length ? met - front.length : -1;
+  // A pillbox's front takes a quarter of the shot; everything else takes it whole. The way it came from is the
+  // bullet's own direction turned around, so this is settled before the damage is taken.
+  const mul = target && target.kind === 'pillbox' ? pillboxDamageMul(target.yaw, bullet.dx, bullet.dz) : 1;
   game.events.push({
     kind: 'hit',
     x,
@@ -354,6 +375,7 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
     prop: propBox >= 0 ? game.propRefs[propBox] : null,
     enemy: enemy ? enemy.id : null,
     mech: asMech,
+    deflected: mul < 1,
   });
   if (asMech) damageMech(game, damage, -bullet.dx, -bullet.dz);
   // an enemy's bullet does not break a prop
@@ -363,7 +385,7 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   if (!target) return true;
   // a target behind a shut shutter stops the bullet and takes no harm
   if (shuttered(game.shutters, target.id)) return true;
-  target.hp = Math.max(0, target.hp - damage);
+  target.hp = Math.max(0, target.hp - damage * mul);
   if (target.hp > 0) return true;
   game.events.push({ kind: 'destroyed', id: target.id });
   checkShutters(game);
@@ -470,7 +492,9 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
       kind: place.kind,
       hp: TARGET_HP[place.kind],
       box: targetBox(place),
+      yaw: place.yaw,
     })),
+    pillboxes: map.targets.filter(place => place.kind === 'pillbox').map(place => newPillbox(place.id)),
     enemies: [],
     nav: newNav(),
     main: newWeapon(M1_LOADOUT.main),
@@ -500,15 +524,20 @@ export function sendToScript(game: GameModel, input: ScriptInput): void {
   applyScriptOut(game, scriptInput(game.script, game.mission, input));
 }
 
-// Puts a wave's enemies out, one at each of the map's spawn points for the wave. A wave that M1_WAVE_ENEMY does not
-// name, or that the map has no place for, puts out nothing.
+// Puts a wave's enemies out, one at each of the map's spawn points for the wave: the i-th place gets the i-th kind in
+// M1_WAVE_ENEMY. A wave the table does not name, a wave the map has no place for, or a list whose length does not match
+// the places puts out nothing, so a half-written table cannot put out a wrong mix.
 function spawnWave(game: GameModel, wave: string): void {
-  const kind = M1_WAVE_ENEMY[wave];
+  const kinds = M1_WAVE_ENEMY[wave];
   const places = game.map.spawns[wave];
-  if (kind === undefined || places === undefined || places.length === 0) return;
+  if (kinds === undefined || places === undefined || places.length === 0 || kinds.length !== places.length) return;
   const y = M1_WAVE_DROP[wave] ?? 0;
-  places.forEach((place, i) => game.enemies.push(newEnemy(`${wave}-${i + 1}`, wave, kind, place.x, place.z, y)));
-  game.events.push({ kind: 'spawned', wave, count: places.length });
+  let count = 0;
+  places.forEach((place, i) => {
+    game.enemies.push(newEnemy(`${wave}-${i + 1}`, wave, kinds[i], place.x, place.z, y));
+    count++;
+  });
+  game.events.push({ kind: 'spawned', wave, count });
 }
 
 // Starts the barrage a wave names in M1_WAVE_BARRAGE, once; a wave that is not there starts none.
@@ -588,7 +617,7 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
   const checkpoint = game.checkpoint;
   if (checkpoint === null) throw new Error('no checkpoint to retry from');
   const { id, map, mission, ...rest } = checkpoint;
-  return {
+  const next: GameModel = {
     ...structuredClone(rest),
     map,
     mission,
@@ -607,6 +636,10 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
     checkpoint,
     retries: game.retries + 1,
   };
+  // The bullets in flight are gone, so a warning or a burst under way is dropped too; the wait stays as the
+  // checkpoint kept it, and the next warning comes after it.
+  next.pillboxes = next.pillboxes.map(pillbox => ({ ...pillbox, warn: 0, shots: 0, shotWait: 0 }));
+  return next;
 }
 
 // The sortie again from the start.
@@ -635,6 +668,25 @@ function stepEnemies(game: GameModel, dt: number): void {
     const shot: EnemyShot | null = stepEnemy(enemy, game.mech, world, dt, stream('enemies'));
     if (!shot) continue;
     game.bullets.push({ enemy: enemy.kind, ...shot, left: ENEMIES[enemy.kind].fireRange });
+  }
+}
+
+// Counts every pillbox still standing down by `dt`; one that sees the mech warns and then fires a burst, and the shots
+// become bullets. A cutscene holds the pillboxes still, as it holds the barrages and the allies: nothing counts.
+function stepPillboxes(game: GameModel, dt: number): void {
+  if (game.script.cutscene !== null) return;
+  for (const target of game.targets) {
+    if (target.kind !== 'pillbox' || target.hp <= 0) continue;
+    const state = game.pillboxes.find(pillbox => pillbox.id === target.id);
+    if (!state) continue;
+    // the line is stopped by a prop or by another standing target; stepPillbox adds the pillbox's own box
+    const blockers = [
+      ...game.propBoxes,
+      ...game.targets.filter(other => other.hp > 0 && other.id !== target.id).map(other => other.box),
+    ];
+    const { warnAt, shot } = stepPillbox(state, target.box, target.yaw, game.mech, blockers, dt, stream('pillboxes'));
+    if (warnAt) game.events.push({ kind: 'pillboxWarn', target: target.id, ...warnAt });
+    if (shot) game.bullets.push({ pillbox: target.id, ...shot, left: PILLBOX_TUNE.range });
   }
 }
 
@@ -769,6 +821,7 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir);
   for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir);
   stepEnemies(game, dt);
+  stepPillboxes(game, dt);
   stepBattery(game, dt);
   stepBullets(game, dt);
   stepHazards(game, dt);
