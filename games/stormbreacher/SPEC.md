@@ -234,7 +234,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `camHeight` | 3 | m。箱の中ほどからの高さ |
 | `touchMaxFps` | 60 | コマ/秒。スマホで描く上限 |
 
-`src/data/looks.ts` の `BASE_LIGHTS` はシーンの光の元の強さ。`hemi` 1.9（半球の強さ）・`sun` 1.25（太陽の強さ）・`sky` 0xe6f7ff・`ground` 0x4c4942（半球の上の色と下の色）・`sunAt` [24, 50, 16]（太陽の位置）。
+`src/data/looks.ts` の `BASE_LIGHTS` はシーンの光の元の強さ。`hemi` 1.9（半球の強さ）・`sun` 1.25（太陽の強さ）・`sky` 0xe6f7ff・`ground` 0x4c4942（半球の上の色と下の色）・`sunAt` [42, 30, 22]（太陽の位置。横から当てて箱の面ごとに陰影を付ける）。合計の元は engine の半球 1.0・太陽 0.45 と `src/view/field.ts` の半球 0.9・太陽 0.8。上を向いた面の光は 1 を超えるため、`src/data/looks.ts` の `TONE.exposure`（0.85）を露出にして `ACESFilmicToneMapping` を掛け、砂や白波が白に飛ばないようにする（`applyToneBase` in `src/view/look.ts`。engine のレンダラーは共有なので STORMBREACHER の側で設定する）。
 
 機体そのものの大きさは `MECH_TUNE`（D-24: 高さ 4m）。下の `CAMERA_TUNE`・`MOVE_TUNE` はこの高さを基準に書く。
 
@@ -434,9 +434,9 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | `haze` | 0.25 | 霧の近い側を手前に寄せる割合（0 で `#view-map` と同じ見た目） |
 | `fogColor` | 0x9aa9b0 | 霧の色 |
 | `skyColor` | 0x93a3ac | 空（背景）の色 |
-| `light` | 0.6 | シーンの全部の光の強さに掛ける倍率 |
-| `sun` | 1 | 太陽（`DirectionalLight`）だけにさらに掛ける倍率 |
-| `groundColor` | 0x7a6a4f | 地面のタイルの色（`0xRRGGBB`） |
+| `light` | 0.6 | シーンの全部の光の強さに掛ける倍率（1 で今のまま） |
+| `sun` | 1 | 太陽（`DirectionalLight`）だけにさらに掛ける倍率（1 で今のまま） |
+| `groundColor` | 0x7a6a4f | 地面の色（`0xRRGGBB`。海沿いは濡れて暗い） |
 | `shellEvery` | 10 | s。何秒に1発落ちるか（0 で無し） |
 | `shellNear` | 17 | m。機体からこの距離より内側には落とさない |
 | `shellFar` | 70 | m。機体からこの距離までの輪の中に落とす |
@@ -656,7 +656,7 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 
 - 種類: `small`（敵・物が壊れる）・`large`（目標・地雷・迫撃砲の着弾・カットシーンの着弾）・`craft`（艇の爆破・沈む艇）・`water`（海に落ちた着弾。本体の着弾とカットシーンの着弾の両方で、z がマップの `maxZ` より先ならこれを使う）。表の行は火球（`radius`・`life`・`color`）、煙の柱（`count`・`rise`・`spread`・`size`・`grow`・`life`・`color`・`fade`）、破片（`count`・`speed`・`gravity`・`life`・`size`・`color`）、柱（`height`・`radius`・`life`・`color`）、揺れ（`shake`）を持つ。煙の寿命は 6〜12 秒。値はどれも仮で、`#view-boom` で決める。粒ごとのばらつき・火球が縮み始める割合・破片の跳ね返り・柱が残る割合は種類に依らないので `BOOM_LOOK` に置く
 - 上限: 粒は種類ごとに1つの `InstancedMesh`（火球・煙・破片・砂柱・水柱の5つ。名前は `sb-boom-fire` など）。上限は `BOOM_CAP`（火球 20・煙 520・破片 560・柱 36＋36）。空いている枠を先に使い（`freeSlot`）、全部埋まっているときだけ古いものから使い回す。出ていない種類は描かないので、爆発で増える描く回数は最大5
-- 煙: 半透明（不透明度 0.42）で `depthWrite: false`。色は黒から灰へ変わる。煙は `SMOKE_EMIT`（1.6 秒）の間に少しずつ地面を離れ、柱になって上がる
+- 煙: 半透明（不透明度 0.42）で `depthWrite: false`。色は黒から灰へ変わる。煙は `SMOKE_EMIT`（1.6 秒）の間に少しずつ地面を離れ、柱になって上がる。火球と閃光（`sb-boom-fire`）だけ `toneMapped: false` にして表の色をそのまま出し、煙・破片・柱はページのトーンマッピングを通す（ACES を通すと火球が暗くくすむため）
 - 柱: `spawnBoom` の z が海（マップの `maxZ` より先）なら水柱、そうでなければ砂柱。`water` はいつでも水柱。水柱の根元は渡された高さではなく、海面（`SEA_LEVEL` in `src/view/shore.ts`）に置く
 - 揺れ: `boomShakeAt(kind, distance)` が `BOOM_SHAKE.near`（10m）で行の `shake`、`BOOM_SHAKE.far`（90m）で 0 になる（距離の2乗で弱まる）。本体は機体から、カットシーンはそのカメラからの距離で `feelBoom` に足す。カットシーンのカメラにも同じ揺れを足す
 - つなぐ所（`drawPlay`）: `destroyed` は目標の箱の真ん中で `large`、`enemyDown` と `propDestroyed` はその場所で `small`、`shellLand` と `mineBlast` はその場所で、z が海なら `water`、そうでなければ `large`。`hit` は砂ぼこりを出す。味方機の `allyDown` は `by` が `mortar` なら `shellBurst` と砂煙（`BLAST_DUST`）、`gun` なら砂煙（`HIT_DUST`）だけ。戦場の層の砲撃は `shellBurst` で出す
@@ -676,7 +676,7 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 - 乱数は `stream('battle')`（歩兵の波・砲撃の予定・煙・曳光弾・飛行機）と `stream('craters')`（穴）。`#view-fx` も同じ列を使う
 - 本体は出撃ごとに `buildPlayView` が作り、やり直し（`retryFromCheckpoint`・`restartGame`）や次の出撃で作り直す。状態は view の側が持ち、`GameModel` にもチェックポイントにも入れない。見た目だけで勝ち負けに関わらず、チェックポイントに戻しても歩兵が巻き戻るかどうかは遊びに関係しないため。logic の `battle.ts` に出したのは、進行をページなしでテストするため
 - 砲撃の揺れは本体のカメラの揺れ `FeelState.shake` に足す。戦場の層（歩兵・分隊・着弾・煙・飛行機）の時計を止めるかは `CutsceneDef` の `holdsBattle` で決め、今は導入（`landing`）だけが持つ。止めている間は揺れも足さない。操作を渡した瞬間から進め、最初の分隊が走って機銃座の手前で倒れるのをプレイヤーが見られるようにする。カットシーン自身の機銃の曳光だけは `Battle.advanceTracers` で動かす（`drawPlay`）
-- 描く回数: 本体の出撃（導入のカットシーンを飛ばした 90 フレーム後）は 137〜143 calls・48k tris（実行ごとに揺れる）、`#view-fx` の段階 2（40 フレーム後）は 145 calls・52k tris（headless Chromium。`test/e2e/battle.test.ts`・`test/e2e/fxView.test.ts` が出力する）。本体は地面の塊を視錐台で切る（`cullChunks`）ため、`#view-fx` より少ない
+- 描く回数: 本体の出撃（導入のカットシーンを飛ばした 90 フレーム後）は 66 calls・63k tris、`#view-fx` の段階 2（40 フレーム後）は 91 calls・68k tris（headless Chromium。`test/e2e/battle.test.ts`・`test/e2e/fxView.test.ts` が出力する）。本体は地面の塊を視錐台で切る（`cullChunks`）ため、`#view-fx` より少ない
 
 ### 台本の味方の機体
 
@@ -785,7 +785,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
   - 選ぶ: `?src=hand|gen|edit` で M1 の B の手書きのマップ・生成したマップ・エディタが `localStorage` に保存したマップを選び（既定 `hand`。`edit` で保存が無いときは「保存されたマップが無い」を出して空のマップで開く）、`?fx=0|1|2|3` で濃さを選び（0 は演出を全部切った見た目で、`mech=4` なら `#view-map` と同じ。1 は弱、2 は中、3 は強。既定 2）、`FX_TUNE` の各項目を同じ名前でさらに上書きできる（例 `?fx=3&pixel=0.4&tracers=6`）。`?seed=<n>` は場面の種
   - 機体の大きさ: `?mech=<m>` は機体の高さ（3〜8m、既定は `MECH_TUNE.height` の 4）で、仮の模型を `mech/4` 倍にし、足元は地面に付けたままにする。機体は `#view-map` と同じく物と目標に入らず、斜めに当たると壁に沿って滑る。当たり半径は `?mech=` とつまみに比例する（`MECH_TUNE.radius` × `mech/4`。`?mechMove=0` でも比例し、`?mech=8` で 2m）。`?mechCam=0` はカメラの距離・肩・注視点の高さ・上への持ち上げ・狙うときの距離を、`?mechMove=0` は歩き・ブーストの速さと加速・ジャンプの初速を `mech/4` に比例させない（ジャンプの初速は `sqrt(mech/4)`。既定はどちらも比例）。`MOVE_TUNE`・`CAMERA_TUNE` は 4m 用で、`?mech=8` にすると 8m の機体用の値になる。物と歩兵の大きさは 8m の機体を基準にした値で、`?mech=` に比例しない。機体の始まりは地図の手前の端から、`mech` に比例したカメラの距離＋4m 内側にして、カメラが地図の外に出ないようにする
   - 戦場: 味方の歩兵は海側から波で出て -z へ進み、倒れた人と抜けた人を数える。砲撃は機体のまわりの輪に落ちて閃光・破片・灰色の煙を出し、近いほどカメラを揺らす。残骸からは煙の柱が立ち、曳光弾が画面を横切り、飛行機はマップの左右の端の外側（`PLANE_MARGIN`）まで機体と関係なくマップの座標で横切る。地面には `stream('craters')` の種から散らした砲弾穴があり、`craterWater` の割合で水が溜まる（見た目だけで、地面の高さ・機体の歩き・当たり判定は変えない）。砲撃は `shellCrater` が 1 なら落ちた所に新しい穴を残し、`craterCap` を超えると古いものから消える
-  - 画面: 見た目は `pixel` の解像度と canvas の CSS の `filter`（`saturate`・`contrast`・`sepia`）と霧で作る。`light` はシーンの全部の光の強さに掛ける倍率、`sun` はそのうち `DirectionalLight` だけにさらに掛ける倍率、`groundColor` は地面のタイルの色（タイルごとの濃淡は残す）で、色は URL では10進の数値で上書きできる。煙の色は `smokeColor`・`smokeDark` で変えられる（URL のみ）
+  - 画面: 見た目は `pixel` の解像度と canvas の CSS の `filter`（`saturate`・`contrast`・`sepia`）と霧で作る。`light` はシーンの全部の光の強さに掛ける倍率、`sun` はそのうち `DirectionalLight` だけにさらに掛ける倍率、`groundColor` は地面の色（海沿いの濡れの濃淡は残す）で、色は URL では10進の数値で上書きできる。煙の色は `smokeColor`・`smokeDark` で変えられる（URL のみ）
   - つまみと書き出し: 右上のつまみは `FX_TUNE` の主な値をスライダーで変え（歩兵の人数・煙の上限・穴の数と上限・穴の半径と水の割合は「やり直し」で作り直す）、`mech` のスライダーと `mechCam`・`mechMove` のチェックも置き、折りたためる。「書き出し」は今の値を JSON で `<textarea>` に出し、`window.sbFxReport()` が同じ JSON に機体の高さ・比例のありなし・歩きとブーストの速さ・描く回数・三角形の数・直近の fps を足して文字列で返す。左上に選んだ `src`・前進・倒れ・抜けの人数（戦場の歩兵が上限に当たっているときは「上限」も）・煙の塊の数と描く回数・三角形の数・fps を出し、`window.sbFxReport()` と書き出しの JSON にも `src` を出す
 - `#view-boom`: 爆発の見た目と揺れを試す入口。仕様は6章「爆発」。
 - `#view-landing`: 本体の出撃を始め、導入のカットシーンを `?at=<秒>`（0〜11.95、既定 0。12 にすると `left` が 0 になって台本が導入を終える）の秒で止めて見る入口。`←`・`→` で 1/10 秒ずつ動かす。右上の調整パネルが、今の秒以前で一番近いカメラキーの6値（`CUTSCENES.landing.camera.<番号>.pos.0` など）と `LANDING_TUNE.startDepth`、選んだ同乗者の `LANDING_RIDERS.<番号>.x`・`.z`、`CUTSCENES.landing.events.<番号>.at` を書き換え、「値をコピー」で変えた値だけを表の形で出す。同乗者は「同乗者」の一覧で選ぶ。画面に今の秒・キーの秒・キーの番号・カメラの姿勢と、コピーの形を出し、`window.sbLandingReport()` が秒・キーの秒・姿勢・描く回数・三角形・同乗者の `id`・`x`・`z`・`fall`（0 が立ち、1 が甲板に倒れた）・`tracers` の出来事の数を JSON の文字列で返す
@@ -947,6 +947,11 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
 - `MapDef`（`src/data/types.ts`）は `id`・`bounds`（`minX`・`maxX`・`minZ`・`maxZ`）・`props`・`targets`・`spawns` と、省略できる `mines`（`MinePlace`: `x`・`z`）・`blasts`（`BlastPlace`: `id`・`line`・`x`・`z`・`target?`。6章「爆破点と爆薬」）を持つ。`bounds` の外は作らない
 - `Prop` は `kind`・`x`・`z`・`yaw`・`scale`・`breakable?`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）・`lowWall`（低い障害物）・`stairs`（防波堤へ上る階段1本）・`ramp`（防波堤へ上る坂1本）。`breakable: true` は撃つと壊れる物の印。体力は種類ごとに `PROP_HP`（仮）で、`hedgehog` 30・`block` 60・`bunker` 150・`seawall` 120・`wreck` 80・`cliff` 300・`lowWall` 40（`tile`・`crater`・`stairs`・`ramp` は 0。階段と坂は壊さない）。壊れると機体の当たりと弾の箱から外れて通れる。見た目は低い暗い残骸（`BROKEN_SCALE_Y`）で、`InstancedMesh` と描く回数は増えない
 - `TargetPlace` は `id`・`kind`・`x`・`z`・`yaw`。種類（`TargetKind`）は `pillbox`・`depot`・`gun`・`magazine`。`spawns` は波の名前 → `SpawnPoint`（`x`・`z`）の一覧
+- 見た目の質感（SB-1360。値はどれも仮で、`shots/surfaces.shots.ts` の3か所と `shots/surfaces-landing.shots.ts` の上陸直後の絵を見て決める）: 絵の値は `src/data/surfaces.ts`（種・大きさ・繰り返し・汚れの量・濡れの幅・波の速さ）、名前を付けた色は `src/data/colors.ts`（`DRY_SAND_COLOR`・`WET_SAND_COLOR`・`RUST_COLOR`・`BURNT_COLOR`・`FOAM_COLOR`・`SKY_TOP_COLOR`）。絵は `src/view/surfaces.ts` が engine の `defineTexture`・`defineMaterial`（engine の SPEC 7.3節）で描き、名前で引く。絵は起動後に1回だけ作り、毎フレームは作らない。node の単体テストには canvas が無いので、絵の無い材質に切り替える
+  - 地面: `tile` は種類ごとの `InstancedMesh` をやめ、範囲を覆う1枚の平面（名前 `tile`）にする。UV はワールドの x・z を `SAND_SURFACE.repeatM`（12m）で割ったもので、砂の絵（粒・まだら・轍・足跡）がタイルの継ぎ目なく繰り返す。海の縁から `wetBand`（15m）は頂点色で `WET_SAND_COLOR` の比まで暗くし、奥は乾いた `DRY_SAND_COLOR` にする。地面は1回で描き、区画には分けない
+  - 物: `block`・`bunker`・`seawall`・`lowWall`・`stairs`・`ramp` はコンクリートの絵（汚れ・雨だれの筋・欠け）、`hedgehog` は錆びた鉄、`wreck` は焦げた鉄。目標は `pillbox`・`magazine` がコンクリート、`gun` が錆びた鉄、`depot` が木。絵は灰色で、色は物の `instanceColor` か目標ごとの材質で付ける。コンクリートは 0x8a8780 のまわりの灰色に落とし、錆は 0x4a3f38 の暗い灰褐色に赤茶の斑点を混ぜる（周りのコンクリートより暗い）。形・大きさ・置き場所と、種類ごとに1回の描く回数は変えない。坂は手で並べた形なので、UV を位置から作る（幅で u、上る向きと高さで v）
+  - 海: 1枚の平面の頂点色を、曇りの日の荒れた海の灰緑〜灰青 `SEA_COLOR`（0x3d5560）から浜の白波（`FOAM_COLOR` 0x9aa5a3、幅 `foamWidth`・薄れ `foamFade`・揺れ `foamWobble`）へ変える。白波は幅 2.4m・薄れ 2.5m の細い線にし、白に飛ばないよう白そのものは使わない。平面の奥行きは `foamRows` の行に分け、1行を白波の幅の半分より細かくして、白波がぼかしではなく線に見えるようにする。波の絵は `waveSpeed` で流す（`onBeforeRender` で `offset` を書くだけで、毎フレーム絵は作らない）。海の描く回数は1回のまま
+  - 空と光: トーンマッピング（`ACESFilmicToneMapping` と露出 `TONE.exposure` 0.85、`src/data/looks.ts`）は STORMBREACHER のページ全体に掛かり、確認用の入口（`#view-map`・`#view-boom`・`#view-fx` など）も同じレンダラーで描くので同じく掛かる。engine のレンダラーは他のゲームと共有なので、設定は `src/view/look.ts` の `applyToneBase` が `initRender` のあとに STORMBREACHER の側で行う。空はカメラの位置に付く大きな内向きの球（`toneMapped: false`・`fog: false`・`depthTest: false`）の縦グラデーションで、赤道（地平）は霧の色 `fogColor`、上は `skyColor` を `SKY_TOP_COLOR` へ `SKY_TOP_MIX` 混ぜた色にする。背景の絵（`scene.background`）はトーンマッピングを通るが、Lambert の霧はトーンマッピングの後に混ざるので、絵では地平で空と霧の色がずれる。球はトーンマッピングを通さないので、地平で霧と同じ値になる。絵は `src/view/sky.ts` が作り、色が変わったときだけ描き直す。太陽の向き（`BASE_LIGHTS.sunAt`）は横からにして、箱の面ごとに陰影を付ける（影の計算はしない）。上を向いた面の光は 1 を超えるので、露出を 1 未満にして白に飛ばさない
 - 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。物の大きさは高さ 8m・当たり半径 2m の機体を基準にする。機体は 4m・当たり半径 1m（`MECH_TUNE`）で、ジャンプの最高点は約 2.2m なので、対戦車障害物（3m）は跳んでも越えられない。描く形（`src/view/outdoor.ts`）も検査も当たりもこの表を読む。`breakable` の物は同じ形のまま色を少し赤っぽくし、種類ごとの `InstancedMesh` と描く回数は増やさない（`instanceColor`）
 - 低い障害物 `lowWall` は 6×0.85×1m（`PROP_SIZE`）。段差 `MOVE_TUNE.stepHeight`（0.75m）より高いので歩いては越えられず、ジャンプの最高点（約 2.2m）より低いので跳ぶと越えられる
 - 階段 `stairs`（`STAIRS_TUNE`・`STAIR_RISE` in `src/data/props.ts`）は幅 8m で、1つの物が段ごとの四角になる（`mapBlockers` が `STAIRS_TUNE.steps`＝9 の四角を出す。`propRects` in `src/logic/mapShapes.ts`）
@@ -988,7 +993,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
 - 高さを見る。物と目標の四角は上の面の高さ `top`（m）を持ち（`GroundRect.top`。`mapBlockers` が物は `PROP_SIZE` の `h` × `scale`、目標は `TARGET_SIZE` の `h` を入れる）、`top` の無い四角はどの高さからも越えられない壁になる。坂（`ramp`）の四角は `ramp: true` で、`top` を高い端の高さとし、`surfaceAt` in `src/logic/collide.ts` が位置に応じて低い端の 0 まで線形に下げる。弾とカメラの線が当たる箱は `rectBoxes` が作り、坂は面に沿った段の箱の集まりにするので、低い端の上の空間を飛ぶ弾は坂に当たらない。地面にいる機体は、足元から `MOVE_TUNE.stepHeight`（仮 0.75m）までの物には歩いて乗る。それより高い物は壁になり、押し出される。坂の上では足元の高さを面の高さそのものにし、下りでは stepHeight 以内の下がりを歩いて降りる（ほかの物から歩いて外れると、その高さから地面へ落ちる）。坂の横の面はどの高さでも壁で、坂の上にいる機体は幅の外へ歩き出せない。跳んでいる機体は、足より低い物の上を越えられ、その上に降りられる。`breakable` の物も壊れるまでは当たる
 - 効くのは `#view-map` と `#view-fx`。平らな地面の入口（`#view-move`・`#view-touch`・`#view-play`・`#view-fcs`）の的には当たらない
 - 海と揚陸艇（`buildShore` in `src/view/shore.ts`）: `buildWorld` が作り、`#view-map`・`#view-fx`・本体が同じ関数を通る。出撃をやり直すと `World.shore` ごと外す。艇の寸法は `CRAFT_TUNE`（`src/data/craft.ts`）に置き、描く形と歩ける面が同じ値を使う
-  - 海: 範囲の手前の端（`maxZ`）から +z へ 260m（`SEA_DEPTH`）、x は範囲の両側に 160m ずつ広げた平面を1枚。高さは砂より少し低い -0.1m、色は `SEA_COLOR`（`data/colors.ts`、霧と空より少し暗い青灰）。ミッションの見た目の表（`LOOKS`）は海に掛からず、霧の色だけが遠くを溶かす
+  - 海: 範囲の手前の端（`maxZ`）から +z へ 260m（`SEA_DEPTH`）、x は範囲の両側に 160m ずつ広げた平面を1枚。高さは砂より少し低い -0.1m。頂点色は `SEA_COLOR`（`data/colors.ts`、曇りの日の荒れた海の暗い灰緑〜灰青 0x3d5560）から浜の白波（`FOAM_COLOR` 0x9aa5a3、白ではない灰白）へ変わり、波の絵（`src/view/surfaces.ts`）を `onBeforeRender` で流す。ミッションの見た目の表（`LOOKS`）は海に掛からず、霧の色だけが遠くを溶かす
   - 揚陸艇: 範囲の手前の端から 5m 後ろ（z 175）から +z へ長さ 12m の船体（幅 7m、甲板の高さ 1.7m、水に 0.6m 沈む）と、両脇の壁、後ろの壁、操舵室、浜（-z）へ下ろした開いたランプ（長さ 5m、先が砂に着く）。x は範囲の真ん中（機体の始まりの真後ろ）。箱の組み合わせで、船体（灰）と甲板（暗い灰）の2つのメッシュ（`buildCraft`。グループ名 `craft`）と、甲板の前の縁を蝶番にしたランプのメッシュ（暗い灰。グループ名 `craftRamp`。カットシーンで上げ下げする。8章「カットシーンの演出」）。甲板・両脇の壁・船尾・操舵室・ランプは `craftRects`（`src/logic/craft.ts`）が同じ寸法から `rects` の四角にするので、機体は描かれた艇の上を歩ける（甲板の面 1.8m、両脇の壁 3.3m、船尾 4.7m、操舵室 4.3m）。ランプは坂の四角（`ramp`）で、蝶番の 1.7m から砂の 0m へ下りる。艇の船尾まで行けるのはランプの幅（船体の幅 7m から当たり半径を引いた所）の中だけで、機体が艇の上にいる間は浜の迫撃砲が予告を出さない。艇は物ではないので弾は止めず、`propBoxes` にも入れない
   - 描く回数は海1・揚陸艇2・ランプ1の4回（カメラの視錐台の外にあるあいだは省かれる）
 - 防波堤へは坂（`ramp`）を歩いて上がる。坂は1つの四角で斜めの面の高さを持ち、階段は段ごとの四角のまま残す（M1 では使わない）。M1 の範囲の外（浜より海側）に当たるものは置かない

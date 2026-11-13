@@ -179,9 +179,11 @@ test('the cutscene shows no ally, and the ashore input puts them out and then li
   const [run, wreck] = buddyGroups;
   expect(run.visible).toBe(true);
   expect(wreck.visible).toBe(false);
-  // run the logic on until the mortar takes it; the page draws the next frame
+  // Run the page's own frame by hand until the mortar takes it. A frame moves the ally 9 * dt metres: the page's frames
+  // are capped at LOOP.maxDt (0.05 s, under 0.5 m), but a 1 s step moves it 9 m, enough to pass over the place it falls
+  // at and end farther than ALLY_TUNE.arrive from it, so the fall is never seen.
   const buddy = () => game().allies.find(ally => ally.id === 'buddy');
-  for (let i = 0; i < 20 && buddy()?.down !== true; i++) step(game(), IDLE, 1);
+  for (let i = 0; i < 600 && buddy()?.down !== true; i++) runSystems(1 / 60);
   await frames(2);
   expect(buddy()?.down).toBe(true);
   expect(run.visible).toBe(false);
