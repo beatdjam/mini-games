@@ -159,6 +159,7 @@ export function showBoom(_hash: string) {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = name;
+    button.dataset.boomKind = name;
     button.style.cssText =
       'flex:1;height:26px;border:1px solid rgba(213,228,238,0.35);background:rgba(10,17,25,0.7);' +
       'color:inherit;font:inherit';

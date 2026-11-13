@@ -16,13 +16,16 @@ export interface HurtView {
   root: HTMLElement;
   edges: HTMLElement[]; // EDGE_COUNT glows, in EDGE_ANCHORS' order
   flash: HTMLElement;
-  armor: HTMLElement;
+  armorTint: HTMLElement; // the dark ring; its opacity is the armour's darkness
+  armorFilter: HTMLElement; // the layer that drains the colour; its own opacity stays 1, so the drain is not weakened
   edgeLeft: number[]; // how long each direction's glow has left (s)
   flashLeft: number; // how long the white has left (s)
   flashTop: number; // the white's strength when it was set (0-1)
   width: number; // the edge width the glows were made for
   dark: number; // the armour's darkness last written (-1 before the first)
   drain: number; // the colour's drain last written (-1 before the first)
+  lit: number[]; // each edge's opacity last written (-1 before the first)
+  white: number; // the white's opacity last written (-1 before the first)
 }
 
 // The direction a shot came from, as degrees from the mech's front, + to the right. (fromX, fromZ) is the way from the
@@ -65,9 +68,13 @@ function edgeBackground(anchor: string, tune: HurtTune): string {
 }
 
 // The darkening of the armour: clear in the middle, darkest at the edge.
+const ARMOR_EDGE_START = 40; // the share of the way from the middle where the edge starts
 function armorBackground(tune: HurtTune): string {
-  return `radial-gradient(ellipse farthest-corner at 50% 50%, transparent 40%, ${rgba(tune.armorColor, 1)} 100%)`;
+  return `radial-gradient(ellipse farthest-corner at 50% 50%, transparent ${ARMOR_EDGE_START}%, ${rgba(tune.armorColor, 1)} 100%)`;
 }
+
+// The same ring as a mask, so the colour is drained at the edge only, as the ticket asks, and not across the whole screen.
+const ARMOR_MASK = `radial-gradient(ellipse farthest-corner at 50% 50%, transparent ${ARMOR_EDGE_START}%, #000 100%)`;
 
 let live: HurtView | null = null;
 
@@ -83,10 +90,15 @@ export function buildHurtView(parent: HTMLElement): HurtView {
   root.id = 'sbPlayHurt';
   root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden';
 
-  const armor = document.createElement('div');
-  armor.dataset.hurtArmor = '';
-  armor.style.cssText = `position:absolute;inset:0;opacity:0;background:${armorBackground(HURT_TUNE)}`;
-  root.appendChild(armor);
+  const armorTint = document.createElement('div');
+  armorTint.dataset.hurtArmor = '';
+  armorTint.style.cssText = `position:absolute;inset:0;opacity:0;background:${armorBackground(HURT_TUNE)}`;
+  // The drain sits on a layer of its own with opacity 1: on the tint's layer the tint's opacity would multiply the
+  // backdrop-filter and the colour would only partly drain (HURT_TUNE.armorDrain would not be reached).
+  const armorFilter = document.createElement('div');
+  armorFilter.dataset.hurtDrain = '';
+  armorFilter.style.cssText = `position:absolute;inset:0;opacity:1;mask-image:${ARMOR_MASK};-webkit-mask-image:${ARMOR_MASK}`;
+  root.append(armorFilter, armorTint);
 
   const edges = EDGE_ANCHORS.map((anchor, index) => {
     const node = document.createElement('div');
@@ -106,13 +118,16 @@ export function buildHurtView(parent: HTMLElement): HurtView {
     root,
     edges,
     flash,
-    armor,
+    armorTint,
+    armorFilter,
     edgeLeft: Array.from({ length: EDGE_COUNT }, () => 0),
     flashLeft: 0,
     flashTop: 0,
     width: HURT_TUNE.edgeWidth,
     dark: -1,
     drain: -1,
+    lit: Array.from({ length: EDGE_COUNT }, () => -1),
+    white: -1,
   };
   return live;
 }
@@ -160,25 +175,31 @@ export function hurtStep(view: HurtView, dt: number, armorRatio: number, tune: H
   for (let i = 0; i < view.edges.length; i++) {
     view.edgeLeft[i] = Math.max(0, view.edgeLeft[i] - span);
     const lit = tune.edgeFade > 0 ? (view.edgeLeft[i] / tune.edgeFade) * tune.edgeAlpha : 0;
-    view.edges[i].style.opacity = String(lit);
+    if (lit !== view.lit[i]) {
+      view.lit[i] = lit;
+      view.edges[i].style.opacity = String(lit);
+    }
   }
 
   view.flashLeft = Math.max(0, view.flashLeft - span);
   const white = tune.flashFade > 0 ? (view.flashLeft / tune.flashFade) * view.flashTop : 0;
-  view.flash.style.opacity = String(white);
+  if (white !== view.white) {
+    view.white = white;
+    view.flash.style.opacity = String(white);
+  }
 
   const loss = armorLoss(armorRatio, tune);
   const dark = loss * tune.armorDarkMax;
   if (dark !== view.dark) {
     view.dark = dark;
-    view.armor.style.opacity = String(dark);
+    view.armorTint.style.opacity = String(dark);
   }
   const drain = loss * tune.armorDrain;
   if (drain !== view.drain) {
     view.drain = drain;
     const filter = drain > 0 ? `saturate(${1 - drain})` : '';
-    view.armor.style.setProperty('-webkit-backdrop-filter', filter);
-    view.armor.style.setProperty('backdrop-filter', filter);
+    view.armorFilter.style.setProperty('-webkit-backdrop-filter', filter);
+    view.armorFilter.style.setProperty('backdrop-filter', filter);
   }
 }
 

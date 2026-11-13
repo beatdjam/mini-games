@@ -1,6 +1,7 @@
 // The sortie's sound: turns a frame's events (and the hostile bullets that appeared this frame) into the table's sounds,
 // then plays them with the engine's synth. It only reads the game; the state in logic/ never knows a sound exists.
 import { audioNow, noiseBurst, sweepTone } from '@engine/audio/index.ts';
+import { createRng, type Rng } from '@engine/core/index.ts';
 import { SOUND_AMBIENT, SOUND_DISTANCE, SOUND_FRAME_LIMIT, SOUND_LAYERS, type SoundName } from '../data/sounds.ts';
 import { isHostileBullet, type Bullet, type GameEvent, type GameModel } from '../logic/game.ts';
 
@@ -59,9 +60,11 @@ export function planSounds(input: SoundInput): SoundCue[] {
         ask(event.weapon === 'heavyGun' ? 'heavyGun' : 'autocannon', event);
         break;
       case 'hit':
-        // A hit on the mech is reported as damaged too; the metal sound plays once, there.
-        if (event.target !== null || event.enemy !== null) ask('impactArmor', event);
-        else if (!event.mech) ask('impactDirt', event);
+        // A hit on the mech is the metal sound here as well as in `damaged`: the frame's one sound survives the limit,
+        // and the hit is reported even during a cutscene, when `damaged` is not.
+        if (event.mech) ask('mechHit', input.mech);
+        else if (event.target !== null || event.enemy !== null) ask('impactArmor', event);
+        else ask('impactDirt', event);
         break;
       case 'damaged':
         ask('mechHit', input.mech);
@@ -130,15 +133,18 @@ let nextBoom = 0;
 // The hostile bullets already heard. A fresh shot is a new object, so a hit that removes an old one cannot hide a new
 // one the way a count would.
 let heardHostile = new WeakSet<Bullet>();
+// The ambience draws from its own fixed-seed generator: it must not touch the game's stream, and a fixed seed keeps a
+// sortie's beach the same every run.
+let ambientRng: Rng = createRng(SOUND_AMBIENT.seed);
 
-const randomBetween = (range: { min: number; max: number }): number =>
-  range.min + Math.random() * (range.max - range.min);
+const randomBetween = (range: { min: number; max: number }): number => ambientRng.rand(range.min, range.max);
 
 // Puts the ambience back to the start of a sortie and forgets the bullets of the last one.
 export function resetSound(): void {
   ambientTime = 0;
   nextWave = 0;
   nextBoom = SOUND_AMBIENT.firstBoom;
+  ambientRng = createRng(SOUND_AMBIENT.seed);
   heardHostile = new WeakSet();
 }
 

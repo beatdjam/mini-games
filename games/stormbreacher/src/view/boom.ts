@@ -4,14 +4,15 @@
 // shake from boomShakeAt; this file only draws.
 import * as THREE from 'three';
 import { disposeTree, scene } from '@engine/render/index.ts';
-import { BOOM_CAP, BOOM_DEFS, type BoomKind } from '../data/boom.ts';
+import { BOOM_CAP, BOOM_DEFS, BOOM_LOOK, type BoomKind } from '../data/boom.ts';
 import type { MapBounds } from '../data/types.ts';
+import { SEA_LEVEL } from './shore.ts';
 
 const SMOKE_EMIT = 1.6; // how long a blast keeps adding to its smoke column (s); a puff waits its turn
+const FIRE_OPACITY = 0.88; // the flash is see-through so its own colour reads on the bright beach
 const SMOKE_OPACITY = 0.42; // the smoke is see-through so what lies behind it still reads
 const WATER_OPACITY = 0.7;
 const GROUND = 0.05; // where a piece of debris bounces (m)
-const BOUNCE = 0.35; // how much of a piece's speed a bounce keeps
 const FIRE_GROW = 0.3; // the share of the flash's life it takes to reach its full size
 const COLUMN_GROW = 0.18; // the share of the column's life it takes to reach its full height
 
@@ -154,7 +155,7 @@ function ensurePools(): BoomPools {
     new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.88,
+      opacity: FIRE_OPACITY,
       depthWrite: false,
     }),
     BOOM_CAP.fire,
@@ -197,9 +198,20 @@ export function buildBooms(bounds: MapBounds): void {
   clearBooms();
 }
 
+// The slot a new part takes: the first dead one from `next` on, so a short-lived part that has gone leaves room and a
+// live one is not stamped out early; only when all are live does the oldest (`next`) go. Exported for the unit test.
+export function freeSlot(slots: readonly { live: boolean }[], next: number): number {
+  for (let i = 0; i < slots.length; i++) {
+    const at = (next + i) % slots.length;
+    if (!slots[at].live) return at;
+  }
+  return next % slots.length;
+}
+
 function fireAt(x: number, y: number, z: number, radius: number, life: number, color: number): void {
-  const slot = fires[fireNext];
-  fireNext = (fireNext + 1) % fires.length;
+  const at = freeSlot(fires, fireNext);
+  fireNext = (at + 1) % fires.length;
+  const slot = fires[at];
   slot.live = true;
   slot.age = 0;
   slot.life = life;
@@ -222,8 +234,9 @@ function smokeAt(
   color: number,
   fade: number,
 ): void {
-  const slot = smokes[smokeNext];
-  smokeNext = (smokeNext + 1) % smokes.length;
+  const at = freeSlot(smokes, smokeNext);
+  smokeNext = (at + 1) % smokes.length;
+  const slot = smokes[at];
   slot.live = true;
   slot.age = 0;
   slot.delay = delay;
@@ -250,8 +263,9 @@ function debrisAt(
   size: number,
   color: number,
 ): void {
-  const slot = debris[debrisNext];
-  debrisNext = (debrisNext + 1) % debris.length;
+  const at = freeSlot(debris, debrisNext);
+  debrisNext = (at + 1) % debris.length;
+  const slot = debris[at];
   slot.live = true;
   slot.age = 0;
   slot.life = life;
@@ -305,10 +319,10 @@ export function spawnBoom(kind: BoomKind, x: number, y: number, z: number): void
       y,
       z + spread(def.smoke.spread),
       delay,
-      def.smoke.rise * (0.7 + Math.random() * 0.6),
-      def.smoke.size * (0.7 + Math.random() * 0.6),
+      def.smoke.rise * (BOOM_LOOK.riseMin + Math.random() * BOOM_LOOK.riseVar),
+      def.smoke.size * (BOOM_LOOK.smokeSizeMin + Math.random() * BOOM_LOOK.smokeSizeVar),
       def.smoke.grow,
-      def.smoke.life * (0.9 + Math.random() * 0.25),
+      def.smoke.life * (BOOM_LOOK.smokeLifeMin + Math.random() * BOOM_LOOK.smokeLifeVar),
       def.smoke.color,
       def.smoke.fade,
     );
@@ -319,30 +333,41 @@ export function spawnBoom(kind: BoomKind, x: number, y: number, z: number): void
     const angle = Math.random() * Math.PI * 2;
     const up = Math.random() * 2 - 1;
     const side = Math.sqrt(1 - up * up);
-    const speed = def.debris.speed * (0.35 + Math.random() * 0.75);
+    const speed = def.debris.speed * (BOOM_LOOK.debrisSpeedMin + Math.random() * BOOM_LOOK.debrisSpeedVar);
     debrisAt(
       x,
       y,
       z,
       Math.cos(angle) * side * speed,
-      up * speed + def.debris.speed * 0.45,
+      up * speed + def.debris.speed * BOOM_LOOK.debrisLift,
       Math.sin(angle) * side * speed,
       def.debris.gravity,
-      def.debris.life * (0.7 + Math.random() * 0.6),
-      def.debris.size * (0.7 + Math.random() * 0.7),
+      def.debris.life * (BOOM_LOOK.debrisLifeMin + Math.random() * BOOM_LOOK.debrisLifeVar),
+      def.debris.size * (BOOM_LOOK.debrisSizeMin + Math.random() * BOOM_LOOK.debrisSizeVar),
       def.debris.color,
     );
   }
 
+  // A column of water stands on the sea's own surface, whatever height the blast was given; a column of sand stands
+  // where it was put.
   if (kind === 'water' || z >= seaZ) {
-    const slot = waters[waterNext];
-    waterNext = (waterNext + 1) % waters.length;
+    const at = freeSlot(waters, waterNext);
+    waterNext = (at + 1) % waters.length;
     // the water's colour is the sea's own, whatever kind of blast lifted it
-    columnAt(slot, x, y, z, def.column.height, def.column.radius, def.column.life, BOOM_DEFS.water.column.color);
+    columnAt(
+      waters[at],
+      x,
+      SEA_LEVEL,
+      z,
+      def.column.height,
+      def.column.radius,
+      def.column.life,
+      BOOM_DEFS.water.column.color,
+    );
   } else {
-    const slot = sands[sandNext];
-    sandNext = (sandNext + 1) % sands.length;
-    columnAt(slot, x, y, z, def.column.height, def.column.radius, def.column.life, def.column.color);
+    const at = freeSlot(sands, sandNext);
+    sandNext = (at + 1) % sands.length;
+    columnAt(sands[at], x, y, z, def.column.height, def.column.radius, def.column.life, def.column.color);
   }
 }
 
@@ -361,7 +386,8 @@ function drawFire(mesh: THREE.InstancedMesh, dt: number): number {
     }
     const u = slot.age / slot.life;
     const grow = Math.min(1, u / FIRE_GROW);
-    const fade = u < 0.5 ? 1 : Math.max(0, 1 - (u - 0.5) / 0.5);
+    const fade =
+      u < BOOM_LOOK.fireFadeFrom ? 1 : Math.max(0, 1 - (u - BOOM_LOOK.fireFadeFrom) / (1 - BOOM_LOOK.fireFadeFrom));
     dummy.position.set(slot.x, slot.y, slot.z);
     dummy.rotation.set(0, 0, 0);
     dummy.scale.setScalar(Math.max(0.001, slot.radius * grow * fade));
@@ -412,9 +438,9 @@ function drawDebris(mesh: THREE.InstancedMesh, dt: number): number {
     slot.z += slot.vz * dt;
     if (slot.y < GROUND) {
       slot.y = GROUND;
-      slot.vy *= -BOUNCE;
-      slot.vx *= 0.6;
-      slot.vz *= 0.6;
+      slot.vy *= -BOOM_LOOK.debrisBounce;
+      slot.vx *= BOOM_LOOK.debrisDrag;
+      slot.vz *= BOOM_LOOK.debrisDrag;
     }
     dummy.position.set(slot.x, slot.y, slot.z);
     dummy.rotation.set(0, 0, 0);
@@ -439,8 +465,9 @@ function drawColumns(mesh: THREE.InstancedMesh, slots: ColumnSlot[], dt: number)
     const u = slot.age / slot.life;
     const grow = Math.min(1, u / COLUMN_GROW);
     // the column climbs to its height, holds, then falls back and thins to nothing
-    const fall = u < 0.6 ? 1 : Math.max(0, 1 - (u - 0.6) / 0.4);
-    const width = slot.radius * grow * (0.5 + 0.5 * fall);
+    const fall =
+      u < BOOM_LOOK.columnHold ? 1 : Math.max(0, 1 - (u - BOOM_LOOK.columnHold) / (1 - BOOM_LOOK.columnHold));
+    const width = slot.radius * grow * (BOOM_LOOK.columnFoot + (1 - BOOM_LOOK.columnFoot) * fall);
     dummy.position.set(slot.x, slot.y, slot.z);
     dummy.rotation.set(0, 0, 0);
     dummy.scale.set(width, slot.height * grow * fall, width);

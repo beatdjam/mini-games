@@ -46,13 +46,38 @@ export interface BoomDef {
   shake: number; // the camera's shake at the nearest distance (m)
 }
 
-// The pools are fixed so that a frame never makes a mesh: more than this at once and the oldest is reused. The counts
-// are the most the four kinds together may have on screen.
+// The pools are fixed so that a frame never makes a mesh: a blast takes a free slot first and only overwrites the oldest
+// when its kind's pool is full. The counts are the most of each part that may be on screen at once (sand and water have
+// a column pool each, so column is the cap of each of them).
 export const BOOM_CAP = {
   fire: 20,
   smoke: 520,
   debris: 560,
   column: 36,
+} as const;
+
+// How a part changes over its life, shared by every kind: where the flash starts to fade, how much speed and bounce a
+// piece of debris keeps, and the spread of the values each blast gives its parts. They live here so the drawing makes no
+// number up of its own; tune them by the look, not one kind at a time.
+export const BOOM_LOOK = {
+  fireFadeFrom: 0.5, // the share of the flash's life before it starts shrinking
+  debrisBounce: 0.35, // the share of its speed a piece keeps when it bounces
+  debrisDrag: 0.6, // the share of its sideways speed a piece keeps per bounce
+  columnHold: 0.6, // the share of the column's life it holds its height before falling back
+  columnFoot: 0.5, // the share of the radius the column still has at its thinnest
+  debrisLift: 0.45, // upward speed added to a piece, as a share of the row's speed
+  riseMin: 0.7, // a smoke puff's rise is the row's value times riseMin..riseMin + riseVar
+  riseVar: 0.6,
+  smokeSizeMin: 0.7, // a puff's size, the same way
+  smokeSizeVar: 0.6,
+  smokeLifeMin: 0.9, // a puff's life, the same way
+  smokeLifeVar: 0.25,
+  debrisSpeedMin: 0.35, // a piece's speed, the same way
+  debrisSpeedVar: 0.75,
+  debrisLifeMin: 0.7, // a piece's life, the same way
+  debrisLifeVar: 0.6,
+  debrisSizeMin: 0.7, // a piece's size, the same way
+  debrisSizeVar: 0.7,
 } as const;
 
 // How the shake falls off: a blast at `near` m shakes the camera by the row's `shake`, one at `far` m or farther does

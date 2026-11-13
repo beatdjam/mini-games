@@ -18,7 +18,7 @@ const shot = (weapon: 'autocannon' | 'heavyGun'): GameEvent => ({
   weapon,
 });
 
-const hit = (target: string | null): GameEvent => ({
+const hit = (target: string | null, mech = false): GameEvent => ({
   kind: 'hit',
   x: MECH.x,
   y: 0,
@@ -27,7 +27,7 @@ const hit = (target: string | null): GameEvent => ({
   target,
   prop: null,
   enemy: null,
-  mech: false,
+  mech,
 });
 
 const target = (id: string, x: number): SoundTarget => ({
@@ -41,6 +41,7 @@ test('a frame maps its events to the table’s sounds', () => {
     shot('heavyGun'),
     hit('pillbox'),
     hit(null),
+    hit(null, true),
     { kind: 'destroyed', id: 'pillbox' },
     { kind: 'enemyDown', id: 'e', x: 10, z: 0 },
     { kind: 'mineBlast', x: 0, z: 20, hit: false },
@@ -58,11 +59,11 @@ test('a frame maps its events to the table’s sounds', () => {
     'heavyGun',
     'impactArmor',
     'impactDirt',
+    'mechHit',
     'explosionLarge',
     'explosionSmall',
     'shellWarn',
     'shellLand',
-    'mechHit',
     'downed',
     'radio',
     'enemyGun',
@@ -73,6 +74,21 @@ test('a frame maps its events to the table’s sounds', () => {
       cue => cue.name,
     ),
   ).toEqual(['explosionLarge']);
+});
+
+test('a hit on the mech plays the metal sound once, even with its damaged event', () => {
+  const metal: GameEvent[] = [hit(null, true), { kind: 'damaged', amount: 10, fromX: 0, fromZ: 1 }];
+  // The bullet's hit and the damage it does are the same blow; the per-frame limit leaves one metal sound.
+  expect(planSounds({ events: metal, mech: MECH, targets: [], hostile: [] }).map(cue => cue.name)).toEqual(['mechHit']);
+  // A mine or a mortar shell hurts the mech without a hit event, so the damaged event still plays it.
+  expect(
+    planSounds({
+      events: [{ kind: 'damaged', amount: 10, fromX: 0, fromZ: 1 }],
+      mech: MECH,
+      targets: [],
+      hostile: [],
+    }).map(cue => cue.name),
+  ).toEqual(['mechHit']);
 });
 
 test('the same sound in one frame is cut to the table’s limit', () => {

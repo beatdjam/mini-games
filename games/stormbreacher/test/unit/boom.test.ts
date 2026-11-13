@@ -1,20 +1,67 @@
 import { expect, test } from 'vitest';
+import * as THREE from 'three';
+import { scene } from '@engine/render/index.ts';
 import { BOOM_CAP, BOOM_DEFS, BOOM_SHAKE, boomShakeAt } from '../../src/data/boom.ts';
-import { boomCounts, buildBooms, clearBooms, drawBooms, spawnBoom } from '../../src/view/boom.ts';
+import { boomCounts, buildBooms, clearBooms, drawBooms, freeSlot, spawnBoom } from '../../src/view/boom.ts';
+import { SEA_LEVEL } from '../../src/view/shore.ts';
 
 const BOUNDS = { minX: -100, maxX: 100, minZ: -170, maxZ: 170 };
 
-test('a full pool reuses its oldest parts instead of growing', () => {
+function baseY(meshName: string): number {
+  const mesh = scene.getObjectByName(meshName);
+  if (!(mesh instanceof THREE.InstancedMesh)) throw new Error(`the scene has no ${meshName} pool`);
+  const matrix = new THREE.Matrix4();
+  mesh.getMatrixAt(0, matrix);
+  return matrix.elements[13];
+}
+
+test('a full pool keeps exactly its cap of parts, not more', () => {
   buildBooms(BOUNDS);
   for (let i = 0; i < 2000; i++) spawnBoom('small', 0, 0.4, 0);
   const live = boomCounts();
-  expect(live.fire).toBeLessThanOrEqual(BOOM_CAP.fire);
-  expect(live.smoke).toBeLessThanOrEqual(BOOM_CAP.smoke);
-  expect(live.debris).toBeLessThanOrEqual(BOOM_CAP.debris);
-  expect(live.sand).toBeLessThanOrEqual(BOOM_CAP.column);
-  expect(live.fire + live.smoke + live.debris + live.sand + live.water).toBeLessThanOrEqual(
-    BOOM_CAP.fire + BOOM_CAP.smoke + BOOM_CAP.debris + BOOM_CAP.column * 2,
-  );
+  // 2000 blasts of 10 smoke puffs and 18 pieces fill every pool; the fire pool fills after 20
+  expect(live.fire).toBe(BOOM_CAP.fire);
+  expect(live.smoke).toBe(BOOM_CAP.smoke);
+  expect(live.debris).toBe(BOOM_CAP.debris);
+  expect(live.sand).toBe(BOOM_CAP.column);
+  expect(live.water).toBe(0);
+});
+
+test('a new part takes a dead slot before it takes one still in use', () => {
+  buildBooms(BOUNDS);
+  clearBooms();
+  // alternate short-lived and long-lived flashes: after half a second the even slots are dead and the odd ones live
+  for (let i = 0; i < BOOM_CAP.fire; i++) spawnBoom(i % 2 === 0 ? 'small' : 'craft', 0, 0.4, 0);
+  drawBooms(0.5);
+  expect(boomCounts().fire).toBe(BOOM_CAP.fire / 2);
+  // the first new flash fills a dead slot; the second must fill another dead slot, not a live craft's flash
+  spawnBoom('small', 0, 0.4, 0);
+  spawnBoom('small', 0, 0.4, 0);
+  expect(boomCounts().fire).toBe(BOOM_CAP.fire / 2 + 2);
+});
+
+test('freeSlot picks the first dead slot, and the oldest only when every slot is live', () => {
+  expect(freeSlot([{ live: true }, { live: false }, { live: true }], 0)).toBe(1);
+  expect(freeSlot([{ live: true }, { live: true }, { live: false }], 1)).toBe(2);
+  // every slot live: the oldest at `next` goes
+  expect(freeSlot([{ live: true }, { live: true }, { live: true }], 2)).toBe(2);
+  expect(freeSlot([{ live: false }], 0)).toBe(0);
+});
+
+test('a water column stands on the sea’s surface, whatever height the blast was given', () => {
+  buildBooms(BOUNDS);
+  clearBooms();
+  spawnBoom('water', 0, 8, BOUNDS.maxZ + 20);
+  drawBooms(0);
+  expect(baseY('sb-boom-water')).toBeCloseTo(SEA_LEVEL);
+});
+
+test('a sand column stands where the blast was put', () => {
+  buildBooms(BOUNDS);
+  clearBooms();
+  spawnBoom('large', 0, 2, BOUNDS.maxZ - 20);
+  drawBooms(0);
+  expect(baseY('sb-boom-sand')).toBeCloseTo(2);
 });
 
 test('a blast is gone once its life is over', () => {

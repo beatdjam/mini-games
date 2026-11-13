@@ -183,9 +183,11 @@ export const SOUND_DISTANCE = {
 // The effects bus level (0..1) and the music level. There is no music, so bgm stays 0.
 export const SOUND_VOLUME = { sfx: 0.75, bgm: 0 };
 
-// The beach's ambience: a wave swell now and then, and a distant gun far off at an uneven interval. These use Math.random,
-// never logic/rng.ts's stream, so the game's own random sequence does not change.
+// The beach's ambience: a wave swell now and then, and a distant gun far off at an uneven interval. These draw from a
+// generator of their own with a fixed seed, never logic/rng.ts's stream, so neither the game's random sequence nor the
+// sound changes from run to run.
 export const SOUND_AMBIENT = {
+  seed: 0x5b0a4d13, // the ambience's own seed; the same sortie sounds the same every time
   waveEvery: { min: 2.6, max: 3.4 }, // s between wave swells
   boomEvery: { min: 4, max: 11 }, // s between distant shots
   firstBoom: 1.5, // s from the sortie's start to the first distant shot

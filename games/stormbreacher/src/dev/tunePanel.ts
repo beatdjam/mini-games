@@ -167,6 +167,12 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
   body.appendChild(output);
 
   let groups: GroupState[] = [];
+  // Every group the panel has shown, with the values its table held when it was first shown. "元に戻す" goes through
+  // this, so it puts back the kinds a view switched away from too, not only the row on screen.
+  const resetTargets = new Map<
+    string,
+    { table: object; ranges: Readonly<Record<string, TuneRange>>; baseline: Record<string, number> }
+  >();
 
   const updateRow = (state: GroupState, key: string, value: number) => {
     const row = state.rows.get(key);
@@ -238,9 +244,22 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
 
   const setGroups = (next: readonly TuneGroup[]) => {
     groups = next.map(spec => {
-      const baseline: Record<string, number> = {};
-      for (const key of Object.keys(spec.ranges)) {
-        baseline[key] = spec.baseline?.[key] ?? readTune(spec.table, key) ?? 0;
+      const known = resetTargets.get(spec.name);
+      let baseline: Record<string, number>;
+      if (known) {
+        // the table object can be the same one; the baseline stays what the view first opened with
+        known.table = spec.table;
+        known.ranges = spec.ranges;
+        baseline = known.baseline;
+      } else {
+        baseline = {};
+        for (const key of Object.keys(spec.ranges)) {
+          const value = readTune(spec.table, key);
+          // A misspelt key would otherwise show 0 and write nothing, with no sign of the mistake.
+          if (value === null) throw new Error(`the tune table "${spec.name}" has no number at "${key}"`);
+          baseline[key] = spec.baseline?.[key] ?? value;
+        }
+        resetTargets.set(spec.name, { table: spec.table, ranges: spec.ranges, baseline });
       }
       return { spec, baseline, rows: new Map<string, Row>() };
     });
@@ -269,19 +288,20 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
       .join('\n');
 
   resetButton.addEventListener('click', () => {
-    for (const state of groups) {
-      for (const key of Object.keys(state.spec.ranges)) {
-        const before = readTune(state.spec.table, key);
-        const target = state.baseline[key];
-        if (before === target) continue;
-        writeTune(state.spec.table, key, target);
-        const row = state.rows.get(key);
+    for (const [name, target] of resetTargets) {
+      const state = groups.find(group => group.spec.name === name);
+      for (const key of Object.keys(target.ranges)) {
+        const before = readTune(target.table, key);
+        const value = target.baseline[key];
+        if (before === null || before === value) continue;
+        writeTune(target.table, key, value);
+        const row = state?.rows.get(key);
         if (row) {
-          row.value.textContent = tuneNumber(target);
-          row.range.value = String(target);
-          row.number.value = tuneNumber(target);
+          row.value.textContent = tuneNumber(value);
+          row.range.value = String(value);
+          row.number.value = tuneNumber(value);
         }
-        options.onChange?.(state.spec.name, key, target);
+        options.onChange?.(name, key, value);
       }
     }
   });

@@ -134,8 +134,9 @@ function drawBullets(lines: BulletLines, bullets: readonly Bullet[]): void {
 export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
   const mechEvents: MechEvent[] = [];
   let kill = false;
-  // the blast and the shake its distance from the mech asks for; a close blast also whitens the screen
-  const blast = (kind: 'small' | 'large', x: number, y: number, z: number) => {
+  // the blast and the shake its distance from the mech asks for; a close blast also whitens the screen. A shell that
+  // falls past the map's front edge lands in the sea, so it lifts a water column and takes the water's colours.
+  const blast = (kind: 'small' | 'large' | 'water', x: number, y: number, z: number) => {
     spawnBoom(kind, x, y, z);
     feelBoom(view.feel, boomShakeAt(kind, distXZ({ x, z }, game.mech)));
     hurtBlast(view.hurt, x, z, game.mech);
@@ -162,7 +163,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     } else if (event.kind === 'propDestroyed') {
       blast('small', event.x, 0.5, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
-      blast('large', event.x, 0.8, event.z);
+      blast(event.z >= game.map.bounds.maxZ ? 'water' : 'large', event.x, 0.8, event.z);
     } else if (event.kind === 'allyDown') {
       // the only fate there is is a mortar shell, drawn as a battle shell is
       shellBurst(event.x, event.z);

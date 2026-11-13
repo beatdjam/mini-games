@@ -58,9 +58,11 @@ export function showSound(): void {
         labels: { sfx: '効果音の音量' },
       },
     ],
-    onChange: () => {
+    onChange: (group, _key, _value) => {
+      // audioInit is safe to call again (it keeps the context it made), but only the volume row needs the bus level
+      // updated; the distance row changes what the next play does, not the bus.
       audioInit();
-      setVolumes(SOUND_VOLUME.sfx, SOUND_VOLUME.bgm);
+      if (group === 'SOUND_VOLUME') setVolumes(SOUND_VOLUME.sfx, SOUND_VOLUME.bgm);
     },
   });
 }

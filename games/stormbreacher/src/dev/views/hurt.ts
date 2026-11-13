@@ -2,11 +2,20 @@
 // red edge, the white flash and the dark, drained edge can be seen on the game's own screen, and puts the shared tuning
 // panel on HURT_TUNE. The buttons bring the three things the effects answer without playing them: a hit from the right,
 // a blast close by and a low armour. The landing cutscene is passed over so the first click has somewhere to show.
-import { addSystem } from '@engine/core/index.ts';
+import { addSystem, systems } from '@engine/core/index.ts';
 import { currentGame, startSortie } from '../../app/play.ts';
 import { HURT_TUNE, MECH_TUNE } from '../../data/tune.ts';
 import { sendToScript } from '../../logic/game.ts';
 import { createTunePanel, type TuneRange } from '../tunePanel.ts';
+
+const SYSTEMS = ['sb-hurt-skip', 'sb-hurt-values'] as const;
+
+// Opening the entry again (the dev page can) must not leave the last opening's systems running beside the new ones.
+function dropSystems(): void {
+  for (let i = systems.length - 1; i >= 0; i--) {
+    if ((SYSTEMS as readonly string[]).includes(systems[i].name)) systems.splice(i, 1);
+  }
+}
 
 // The values the panel turns, with the ranges a slider can reach. The colours are the 0xRRGGBB numbers the table holds.
 const HURT_RANGES: Record<string, TuneRange> = {
@@ -53,6 +62,7 @@ function button(parent: HTMLElement, label: string, run: () => void): void {
 }
 
 export function showHurt(_hash: string) {
+  dropSystems();
   startSortie();
 
   // The game's own step sets the landing cutscene at its end, so the skip waits for it to appear.
@@ -115,10 +125,15 @@ export function showHurt(_hash: string) {
   note.textContent = '導入のカットシーンは飛ばす。\n保存はしない。';
   extra.appendChild(note);
 
+  let painted = -1; // the armour's percent last written, so a frame without a hit writes nothing
   const paint = () => {
     const game = currentGame();
     const ratio = game ? game.armor / MECH_TUNE.armor : 1;
-    values.textContent = `装甲 ${Math.round(ratio * 100)}%`;
+    const percent = Math.round(ratio * 100);
+    // the armour changes only on a hit or a button, so the text is not remade every frame
+    if (percent === painted) return;
+    painted = percent;
+    values.textContent = `装甲 ${percent}%`;
   };
 
   createTunePanel({

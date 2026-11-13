@@ -42,6 +42,7 @@ export interface CutsceneView {
   rampZ: number; // where the player's craft's body begins (m)
   crafts: { cutscene: CutsceneId; event: SinkEvent | ArriveEvent; craft: THREE.Group }[]; // the crafts at sea, with their events
   targets: Map<string, THREE.Mesh>; // the map's mission targets by id, for the collapse
+  seaZ: number; // the map's front edge: a shell past it falls in the sea
 }
 
 const smooth = (u: number): number => u * u * (3 - 2 * u);
@@ -102,6 +103,7 @@ export function buildCutsceneView(
     rampZ: z,
     crafts,
     targets,
+    seaZ: bounds.maxZ,
   };
 }
 
@@ -141,15 +143,16 @@ export function drawCutscene(
 
   const elapsed = CUTSCENE_SEC[cutscene.id] - cutscene.left;
   const pose = cutscenePose(cutscene.id, elapsed, game.mech);
-  // a blast shakes the cutscene's camera by how near it is to that camera
-  const blast = (kind: 'large' | 'craft', x: number, y: number, z: number) => {
+  // a blast shakes the cutscene's camera by how near it is to that camera; a shell that falls past the map's front edge
+  // is a water blast, as in the sortie
+  const blast = (kind: 'large' | 'craft' | 'water', x: number, y: number, z: number) => {
     spawnBoom(kind, x, y, z);
     feelBoom(feel, boomShakeAt(kind, Math.hypot(pose.pos[0] - x, pose.pos[2] - z)));
   };
   for (const event of cutsceneEvents(cutscene.id, view.elapsed, elapsed)) {
     if (event.kind === 'sink') blast('craft', event.x, 1.2, (event.z ?? view.rampZ) + 6);
     else if (event.kind === 'ramp') spawnDust(view.rampX, view.rampZ - RAMP_LENGTH, RAMP_DUST, FEEL_TUNE);
-    else if (event.kind === 'burst') blast('large', event.x, 0.8, event.z);
+    else if (event.kind === 'burst') blast(event.z >= view.seaZ ? 'water' : 'large', event.x, 0.8, event.z);
   }
   view.elapsed = elapsed;
 
