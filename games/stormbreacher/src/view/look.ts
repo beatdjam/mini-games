@@ -3,11 +3,18 @@
 import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import { renderer, scene } from '@engine/render/index.ts';
-import type { LookTune } from '../data/looks.ts';
+import { TONE, type LookTune } from '../data/looks.ts';
 import { setSky } from './sky.ts';
 import { MAP_FOG } from './world.ts';
 
 let keptPixelRatio: number | null = null;
+
+// The engine's renderer is shared with the other games, so the beach's tone map is set here, after initRender, and not in
+// the engine. ACES keeps the bright sand and surf under the cloud from clipping to white.
+export function applyToneBase(): void {
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = TONE.exposure;
+}
 
 // The renderer's resolution before any look lowered it. Kept from the first call, so a second sortie on one page does
 // not take the lowered value for the original.

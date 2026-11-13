@@ -40,3 +40,9 @@ export const BASE_LIGHTS = {
   sun: 1.25,
   sunAt: [42, 30, 22] as const,
 };
+
+// The renderer's tone map for the beach. ACES rolls the bright sand and sea off instead of clipping them to white; the
+// exposure sits below 1 because an up-facing surface under the two lights adds up past 1 (hemi 1.9 and a sun at 1.25).
+export const TONE = {
+  exposure: 0.85,
+};

@@ -40,17 +40,18 @@ const KINDS: PropKind[] = [
   'stairs',
 ];
 
-// Each kind's colour. The tile has none: its ground plane takes its colour from the look (view/look.ts).
+// Each kind's colour. The tile has none: its ground plane takes its colour from the look (view/look.ts). The concrete
+// kinds sit around a grey 0x8a8780 so the overcast light does not turn them into glowing white boxes.
 const KIND_COLOR: Record<Exclude<PropKind, 'tile'>, number> = {
   hedgehog: RUST_COLOR,
-  block: 0x9c978d,
-  bunker: 0x7e7a72,
-  seawall: 0x8b8880,
+  block: 0x8a8780,
+  bunker: 0x74716a,
+  seawall: 0x7f7c76,
   cliff: 0x6e6759,
   crater: 0x8f7a58,
   wreck: BURNT_COLOR,
-  lowWall: 0x8f8a80,
-  stairs: 0x9a968c,
+  lowWall: 0x827f78,
+  stairs: 0x88857e,
 };
 
 // The kinds that wear a surface picture (view/surfaces.ts). The cliff and the crater keep their colour alone.

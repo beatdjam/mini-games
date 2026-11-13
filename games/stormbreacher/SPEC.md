@@ -187,7 +187,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `camHeight` | 3 | m。箱の中ほどからの高さ |
 | `touchMaxFps` | 60 | コマ/秒。スマホで描く上限 |
 
-`src/data/looks.ts` の `BASE_LIGHTS` はシーンの光の元の強さ。`hemi` 1.9（半球の強さ）・`sun` 1.25（太陽の強さ）・`sky` 0xe6f7ff・`ground` 0x4c4942（半球の上の色と下の色）・`sunAt` [42, 30, 22]（太陽の位置。横から当てて箱の面ごとに陰影を付ける）。合計の元は engine の半球 1.0・太陽 0.45 と `src/view/field.ts` の半球 0.9・太陽 0.8。
+`src/data/looks.ts` の `BASE_LIGHTS` はシーンの光の元の強さ。`hemi` 1.9（半球の強さ）・`sun` 1.25（太陽の強さ）・`sky` 0xe6f7ff・`ground` 0x4c4942（半球の上の色と下の色）・`sunAt` [42, 30, 22]（太陽の位置。横から当てて箱の面ごとに陰影を付ける）。合計の元は engine の半球 1.0・太陽 0.45 と `src/view/field.ts` の半球 0.9・太陽 0.8。上を向いた面の光は 1 を超えるため、`src/data/looks.ts` の `TONE.exposure`（0.85）を露出にして `ACESFilmicToneMapping` を掛け、砂や白波が白に飛ばないようにする（`applyToneBase` in `src/view/look.ts`。engine のレンダラーは共有なので STORMBREACHER の側で設定する）。
 
 機体そのものの大きさは `MECH_TUNE`（D-24: 高さ 4m）。下の `CAMERA_TUNE`・`MOVE_TUNE` はこの高さを基準に書く。
 
@@ -705,11 +705,11 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
 - `MapDef`（`src/data/types.ts`）は `id`・`bounds`（`minX`・`maxX`・`minZ`・`maxZ`）・`props`・`targets`・`spawns` と、省略できる `mines`（`MinePlace`: `x`・`z`）を持つ。`bounds` の外は作らない
 - `Prop` は `kind`・`x`・`z`・`yaw`・`scale`・`breakable?`。種類（`PropKind`）は `tile`（地面）・`hedgehog`・`block`・`bunker`・`seawall`・`cliff`・`crater`（低い凹み）・`wreck`（壊れた艇や車両）・`lowWall`（低い障害物）・`stairs`（防波堤へ上る階段1本）。`breakable: true` は撃つと壊れる物の印。体力は種類ごとに `PROP_HP`（仮）で、`hedgehog` 30・`block` 60・`bunker` 150・`seawall` 120・`wreck` 80・`cliff` 300・`lowWall` 40（`tile`・`crater`・`stairs` は 0。階段は壊さない）。壊れると機体の当たりと弾の箱から外れて通れる。見た目は低い暗い残骸（`BROKEN_SCALE_Y`）で、`InstancedMesh` と描く回数は増えない
 - `TargetPlace` は `id`・`kind`・`x`・`z`・`yaw`。種類（`TargetKind`）は `pillbox`・`depot`・`gun`・`magazine`。`spawns` は波の名前 → `SpawnPoint`（`x`・`z`）の一覧
-- 見た目の質感（SB-1360。値はどれも仮で、`shots/surfaces.shots.ts` の絵を見て決める）: 絵の値は `src/data/surfaces.ts`（種・大きさ・繰り返し・汚れの量・濡れの幅・波の速さ）、名前を付けた色は `src/data/colors.ts`（`DRY_SAND_COLOR`・`WET_SAND_COLOR`・`RUST_COLOR`・`BURNT_COLOR`・`FOAM_COLOR`・`SKY_TOP_COLOR`）。絵は `src/view/surfaces.ts` が engine の `defineTexture`・`defineMaterial`（engine の SPEC 7.3節）で描き、名前で引く。絵は起動後に1回だけ作り、毎フレームは作らない。node の単体テストには canvas が無いので、絵の無い材質に切り替える
+- 見た目の質感（SB-1360。値はどれも仮で、`shots/surfaces.shots.ts` の3か所と `shots/surfaces-landing.shots.ts` の上陸直後の絵を見て決める）: 絵の値は `src/data/surfaces.ts`（種・大きさ・繰り返し・汚れの量・濡れの幅・波の速さ）、名前を付けた色は `src/data/colors.ts`（`DRY_SAND_COLOR`・`WET_SAND_COLOR`・`RUST_COLOR`・`BURNT_COLOR`・`FOAM_COLOR`・`SKY_TOP_COLOR`）。絵は `src/view/surfaces.ts` が engine の `defineTexture`・`defineMaterial`（engine の SPEC 7.3節）で描き、名前で引く。絵は起動後に1回だけ作り、毎フレームは作らない。node の単体テストには canvas が無いので、絵の無い材質に切り替える
   - 地面: `tile` は種類ごとの `InstancedMesh` をやめ、範囲を覆う1枚の平面（名前 `tile`）にする。UV はワールドの x・z を `SAND_SURFACE.repeatM`（12m）で割ったもので、砂の絵（粒・まだら・轍・足跡）がタイルの継ぎ目なく繰り返す。海の縁から `wetBand`（15m）は頂点色で `WET_SAND_COLOR` の比まで暗くし、奥は乾いた `DRY_SAND_COLOR` にする。地面は1回で描き、区画には分けない
-  - 物: `block`・`bunker`・`seawall`・`lowWall`・`stairs` はコンクリートの絵（汚れ・雨だれの筋・欠け）、`hedgehog` は錆びた鉄、`wreck` は焦げた鉄。目標は `pillbox`・`magazine` がコンクリート、`gun` が錆びた鉄、`depot` が木。絵は灰色で、色は物の `instanceColor` か目標ごとの材質で付ける。形・大きさ・置き場所と、種類ごとに1回の描く回数は変えない
-  - 海: 1枚の平面の頂点色を、`SEA_COLOR` から浜の白波（`FOAM_COLOR`、幅 `foamWidth`・揺れ `foamWobble`）へ変える。平面の奥行きは `foamRows` の行に分け、1行を白波の幅の半分より細かくして、白波がぼかしではなく線に見えるようにする。波の絵は `waveSpeed` で流す（`onBeforeRender` で `offset` を書くだけで、毎フレーム絵は作らない）。海の描く回数は1回のまま
-  - 空と光: 空は `scene.background` の縦グラデーション（上は `skyColor` を `SKY_TOP_COLOR` へ `SKY_TOP_MIX` 混ぜた色、下は霧の色 `fogColor`）で、霧と地平で合う。絵は `src/view/sky.ts` が作り、色が変わったときだけ描き直す。太陽の向き（`BASE_LIGHTS.sunAt`）は横からにして、箱の面ごとに陰影を付ける（影の計算はしない）
+  - 物: `block`・`bunker`・`seawall`・`lowWall`・`stairs` はコンクリートの絵（汚れ・雨だれの筋・欠け）、`hedgehog` は錆びた鉄、`wreck` は焦げた鉄。目標は `pillbox`・`magazine` がコンクリート、`gun` が錆びた鉄、`depot` が木。絵は灰色で、色は物の `instanceColor` か目標ごとの材質で付ける。コンクリートは 0x8a8780 のまわりの灰色に落とし、錆は 0x4a3f38 の暗い灰褐色に赤茶の斑点を混ぜる（周りのコンクリートより暗い）。形・大きさ・置き場所と、種類ごとに1回の描く回数は変えない
+  - 海: 1枚の平面の頂点色を、曇りの日の荒れた海の灰緑〜灰青 `SEA_COLOR`（0x3d5560）から浜の白波（`FOAM_COLOR` 0x9aa5a3、幅 `foamWidth`・薄れ `foamFade`・揺れ `foamWobble`）へ変える。白波は幅 2.4m・薄れ 2.5m の細い線にし、白に飛ばないよう白そのものは使わない。平面の奥行きは `foamRows` の行に分け、1行を白波の幅の半分より細かくして、白波がぼかしではなく線に見えるようにする。波の絵は `waveSpeed` で流す（`onBeforeRender` で `offset` を書くだけで、毎フレーム絵は作らない）。海の描く回数は1回のまま
+  - 空と光: 空は `scene.background` の縦グラデーション（上は `skyColor` を `SKY_TOP_COLOR` へ `SKY_TOP_MIX` 混ぜた色、下は霧の色 `fogColor`）で、霧と地平で合う。絵は `src/view/sky.ts` が作り、色が変わったときだけ描き直す。太陽の向き（`BASE_LIGHTS.sunAt`）は横からにして、箱の面ごとに陰影を付ける（影の計算はしない）。上を向いた面の光は 1 を超えるので、レンダラーのトーンマッピングを `ACESFilmicToneMapping` にし、露出を `TONE.exposure`（0.85、`src/data/looks.ts`）で持つ。engine のレンダラーは他のゲームと共有なので、設定は `src/view/look.ts` の `applyToneBase` が `initRender` のあとに STORMBREACHER の側で行う
 - 物と目標の大きさは `src/data/props.ts` の `PROP_SIZE`（物）・`TARGET_SIZE`（目標）に置く。`PropSize` は `w`（x の幅）・`h`（高さ）・`d`（z の奥行き）・`blocks`（機体の通り道を塞ぐか）。物の大きさは高さ 8m・当たり半径 2m の機体に合わせて決めたときのまま。機体は今 4m・当たり半径 1m（`MECH_TUNE`）で、ジャンプの最高点は約 1m なので、対戦車障害物（3m）は跳んでも越えられない。描く形（`src/view/outdoor.ts`）も検査も当たりもこの表を読む。`breakable` の物は同じ形のまま色を少し赤っぽくし、種類ごとの `InstancedMesh` と描く回数は増やさない（`instanceColor`）
 - 低い障害物 `lowWall` は 6×0.85×1m（`PROP_SIZE`）。段差 `MOVE_TUNE.stepHeight`（0.75m）より高いので歩いては越えられず、ジャンプの最高点（約 1.04m）より低いので跳ぶと越えられる
 - 階段 `stairs`（`STAIRS_TUNE`・`STAIR_RISE` in `src/data/props.ts`）は幅 8m で、1つの物が段ごとの四角になる（`mapBlockers` が `STAIRS_TUNE.steps`＝9 の四角を出す。`propRects` in `src/logic/mapShapes.ts`）
@@ -744,7 +744,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
 - 高さを見る。物と目標の四角は上の面の高さ `top`（m）を持ち（`GroundRect.top`。`mapBlockers` が物は `PROP_SIZE` の `h` × `scale`、目標は `TARGET_SIZE` の `h` を入れる）、`top` の無い四角はどの高さからも越えられない壁になる。地面にいる機体は、足元から `MOVE_TUNE.stepHeight`（仮 0.75m）までの物には歩いて乗る。それより高い物は壁になり、押し出される。跳んでいる機体は、足より低い物の上を越えられ、その上に降りられる。物から歩いて外れると、その高さから地面へ落ちる。`breakable` の物も壊れるまでは当たる
 - 効くのは `#view-map` と `#view-fx`。平らな地面の入口（`#view-move`・`#view-touch`・`#view-play`・`#view-fcs`）の的には当たらない
 - 海と揚陸艇（`buildShore` in `src/view/shore.ts`。見た目だけで、当たりも検査も無い）: `buildWorld` が作り、`#view-map`・`#view-fx`・本体が同じ関数を通る。出撃をやり直すと `World.shore` ごと外す
-  - 海: 範囲の手前の端（`maxZ`）から +z へ 260m（`SEA_DEPTH`）、x は範囲の両側に 160m ずつ広げた平面を1枚。高さは砂より少し低い -0.1m。頂点色は `SEA_COLOR`（`data/colors.ts`、霧と空より少し暗い青灰）から浜の白波（`FOAM_COLOR`）へ変わり、波の絵（`src/view/surfaces.ts`）を `onBeforeRender` で流す。ミッションの見た目の表（`LOOKS`）は海に掛からず、霧の色だけが遠くを溶かす
+  - 海: 範囲の手前の端（`maxZ`）から +z へ 260m（`SEA_DEPTH`）、x は範囲の両側に 160m ずつ広げた平面を1枚。高さは砂より少し低い -0.1m。頂点色は `SEA_COLOR`（`data/colors.ts`、曇りの日の荒れた海の暗い灰緑〜灰青 0x3d5560）から浜の白波（`FOAM_COLOR` 0x9aa5a3、白ではない灰白）へ変わり、波の絵（`src/view/surfaces.ts`）を `onBeforeRender` で流す。ミッションの見た目の表（`LOOKS`）は海に掛からず、霧の色だけが遠くを溶かす
   - 揚陸艇: 範囲の手前の端から 5m 後ろ（z 175）から +z へ長さ 12m の船体（幅 7m、甲板の高さ 1.7m、水に 0.6m 沈む）と、両脇の壁、後ろの壁、操舵室、浜（-z）へ下ろした開いたランプ（長さ 5m、先が砂に着く）。x は範囲の真ん中（機体の始まりの真後ろ）。箱の組み合わせで、船体（灰）と甲板（暗い灰）の2つのメッシュ（`buildCraft`。グループ名 `craft`）と、甲板の前の縁を蝶番にしたランプのメッシュ（暗い灰。グループ名 `craftRamp`。カットシーンで上げ下げする。7章「カットシーンの演出」）
   - 描く回数は海1・揚陸艇2・ランプ1の4回（カメラの視錐台の外にあるあいだは省かれる）
 - 坂の形の当たりは作らず、防波堤へは階段の段で上がる。M1 の範囲の外（浜より海側）に当たるものは置かない

@@ -35,19 +35,21 @@ export const CONCRETE_SURFACE: SurfaceDef & {
   size: 256,
   repeat: [2, 2],
   grain: 18,
-  grime: 90,
-  drips: 18,
+  grime: 150,
+  drips: 26,
   chips: 55,
 };
 
-// Rusted iron: the hedgehogs and the guns of the battery.
-export const RUST_SURFACE: SurfaceDef & { grain: number; patches: number; pits: number } = {
+// Rusted iron: the hedgehogs and the guns of the battery. Most of the face is dark iron, with a few red-brown spots of
+// rust breaking through, so it reads as wet metal rather than as bright wood.
+export const RUST_SURFACE: SurfaceDef & { grain: number; patches: number; pits: number; spots: number } = {
   seed: 1362,
   size: 256,
   repeat: [2, 2],
   grain: 24,
   patches: 120,
   pits: 90,
+  spots: 48,
 };
 
 // Charred iron: the wrecks of boats and vehicles.
@@ -79,13 +81,13 @@ export const SEA_SURFACE = {
   grain: 8,
   streaks: 80,
   waveSpeed: -0.045,
-  foamWidth: 3.5, // m from the sea's edge
-  foamFade: 11, // m the foam thins out over
-  foamWobble: 2.2, // m the foam line wanders up and down the beach
+  foamWidth: 2.4, // m from the sea's edge
+  foamFade: 2.5, // m the foam thins out over
+  foamWobble: 1.2, // m the foam line wanders up and down the beach
   foamCols: 48,
-  // rows the sea's 260m depth is split into, about 1.5m apart: less than half the foam's width, so the vertex colours
+  // rows the sea's 260m depth is split into, about 1.18m apart: less than half the foam's width, so the vertex colours
   // keep the foam a line at the beach instead of blending it into a soft wash over several rows
-  foamRows: 170,
+  foamRows: 220,
 };
 
 // The sky's gradient: the top is mixed this far toward SKY_TOP_COLOR (the rest is the look's sky colour), and the

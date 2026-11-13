@@ -99,7 +99,7 @@ const paintSand: TextureSource = (g, size) => {
 // Concrete: a grimy, chipped face with rain running down it.
 const paintConcrete: TextureSource = (g, size) => {
   const rand = paintRand(CONCRETE_SURFACE.seed);
-  g.fillStyle = 'rgb(224,224,224)';
+  g.fillStyle = 'rgb(190,190,190)';
   g.fillRect(0, 0, size, size);
   grime(g, rand, CONCRETE_SURFACE.grime, 'rgb(255,255,255)', 'rgb(96,96,96)', size, size);
   for (let i = 0; i < CONCRETE_SURFACE.drips; i++) {
@@ -122,10 +122,10 @@ const paintConcrete: TextureSource = (g, size) => {
   grain(g, rand, CONCRETE_SURFACE.grain, size, size);
 };
 
-// Rusted iron: broad soft patches and small pits, the metal showing through in flecks.
+// Rusted iron: broad soft patches and small pits, dark iron with a few red-brown spots of rust.
 const paintRust: TextureSource = (g, size) => {
   const rand = paintRand(RUST_SURFACE.seed);
-  g.fillStyle = 'rgb(204,204,204)';
+  g.fillStyle = 'rgb(176,176,176)';
   g.fillRect(0, 0, size, size);
   for (let i = 0; i < RUST_SURFACE.patches; i++) {
     smudge(
@@ -134,8 +134,22 @@ const paintRust: TextureSource = (g, size) => {
       rand() * size,
       10 + rand() * 46,
       8 + rand() * 34,
-      '110,104,96',
+      '96,90,83',
       0.06 + rand() * 0.14,
+      size,
+      size,
+    );
+  }
+  // red-brown rust: small, soft spots that keep the iron dark while showing where the metal has gone
+  for (let i = 0; i < RUST_SURFACE.spots; i++) {
+    smudge(
+      g,
+      rand() * size,
+      rand() * size,
+      3 + rand() * 12,
+      3 + rand() * 10,
+      '122,70,44',
+      0.12 + rand() * 0.2,
       size,
       size,
     );
@@ -213,10 +227,11 @@ const paintWood: TextureSource = (g, size) => {
   grain(g, rand, WOOD_SURFACE.grain, size, size);
 };
 
-// The sea: long crests on a bright base. The base is bright so the vertex colours (sea and foam) keep their hue.
+// The sea: long crests on a mid-grey base. The base is not white so the vertex colours (sea and foam) keep their hue
+// under the cloud, and the foam does not clip.
 const paintSea: TextureSource = (g, size) => {
   const rand = paintRand(SEA_SURFACE.seed);
-  g.fillStyle = 'rgb(240,240,240)';
+  g.fillStyle = 'rgb(200,200,200)';
   g.fillRect(0, 0, size, size);
   for (let i = 0; i < SEA_SURFACE.streaks; i++) {
     const light = rand() < 0.5;
@@ -226,7 +241,7 @@ const paintSea: TextureSource = (g, size) => {
       rand() * size,
       30 + rand() * 90,
       2 + rand() * 7,
-      light ? '255,255,255' : '96,96,96',
+      light ? '230,230,230' : '84,84,84',
       0.05 + rand() * 0.13,
       size,
       size,
