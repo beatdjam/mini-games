@@ -22,8 +22,8 @@ export const STAIRS_TUNE = {
 export const STAIR_RISE = SEAWALL_HEIGHT / STAIRS_TUNE.steps; // how much each step rises above the one before (m)
 
 // A ramp up the seawall: one prop, one rect whose top slopes down to its seaward end (mapBlockers). Its height and run
-// decide the slope; a ramp steeper than maxSlopeDeg would be climbed in jumps rather than walked, so the prop table's
-// check (props.test.ts) fails one that is too steep. 6 m over 18 m is about 18.4 degrees.
+// decide the slope; a ramp steeper than maxSlopeDeg would be climbed in jumps rather than walked, so the check in
+// test/unit/ramp.test.ts fails one that is too steep. 6 m over 18 m is about 18.4 degrees.
 export const RAMP_TUNE = {
   width: 8, // the width across the climb (m)
   length: 18, // the run along the climb (m)

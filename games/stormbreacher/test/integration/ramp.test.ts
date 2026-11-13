@@ -3,7 +3,7 @@
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
-import { MOVE_TUNE } from '../../src/data/tune.ts';
+import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import { step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
 
@@ -66,5 +66,24 @@ test('the mech walks down a ramp smoothly to the ground', () => {
     expect(game.mech.z, `ramp at x ${ramp.x}`).toBeGreaterThanOrEqual(-44);
     expect(game.mech.y, `ramp at x ${ramp.x}`).toBeCloseTo(0, 2);
     expect(drop, `ramp at x ${ramp.x}`).toBeLessThanOrEqual(MAX_STEP);
+  }
+});
+
+test('the sides of a ramp hold the mech on its width partway up', () => {
+  for (const ramp of ramps) {
+    const game = newBeachGame();
+    game.mech.x = ramp.x;
+    game.mech.z = ramp.z;
+    game.mech.y = PROP_SIZE.ramp.h / 2;
+    game.mech.yaw = 0;
+    let widest = Math.abs(game.mech.x - ramp.x);
+    for (let i = 0; i < 180; i++) {
+      step(game, { ...idle, moveX: 1 }, DT);
+      widest = Math.max(widest, Math.abs(game.mech.x - ramp.x));
+    }
+    const inside = PROP_SIZE.ramp.w / 2 - MECH_TUNE.radius;
+    expect(widest, `ramp at x ${ramp.x}`).toBeLessThanOrEqual(inside + 0.01);
+    expect(game.mech.y, `ramp at x ${ramp.x}`).toBeCloseTo(PROP_SIZE.ramp.h / 2, 1);
+    expect(game.mech.grounded, `ramp at x ${ramp.x}`).toBe(true);
   }
 });

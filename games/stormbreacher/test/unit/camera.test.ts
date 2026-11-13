@@ -90,6 +90,17 @@ test('cameraBoxes turns rects into boxes up to their tops', () => {
   expect(boxes[1].max.y).toBe(100);
 });
 
+test('cameraBoxes follows a ramp up in steps instead of filling the air over its low end', () => {
+  const boxes = cameraBoxes([{ x: 0, z: 0, halfW: 4, halfD: 9, yaw: 0, top: 6, ramp: true }]);
+  expect(boxes.length).toBeGreaterThan(1);
+  const low = boxes.filter(box => box.min.z >= 8);
+  const high = boxes.filter(box => box.max.z <= -8);
+  expect(low.length).toBeGreaterThan(0);
+  expect(high.length).toBeGreaterThan(0);
+  expect(Math.max(...low.map(box => box.max.y))).toBeLessThan(1);
+  expect(Math.max(...high.map(box => box.max.y))).toBeCloseTo(6, 6);
+});
+
 test('a box behind the mech pulls the camera in front of it', () => {
   const boxes = cameraBoxes([{ x: 0, z: 3, halfW: 5, halfD: 0.5, yaw: 0, top: 6 }]);
   const pose = cameraPose(at(), 0, CAMERA_TUNE, boxes);

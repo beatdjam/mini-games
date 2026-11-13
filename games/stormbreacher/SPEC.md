@@ -228,7 +228,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 撃つ: 1発ごとに、弾の出る所（`muzzleOf` in `src/logic/game.ts`。機体の中心から右へ `muzzleSide`・前へ `muzzleForward`、高さは足元から `chestHeight`）から `spreadDir(fcs.shotDir, FCS_TUNE.soft.spread, stream('shots'))` の向きへ弾 `Bullet`（`weapon`・位置・向き `dx dy dz`（長さ1）・射程の残り `left`）を出す。出来事 `shot`（位置・向き・`weapon`）を残す
 - 狙い: `step` は、入力の `aim`（カメラの狙いの線。無いときは胸から機体の向きへ水平な線）と、生きている目標（`fcsTargets`。id は `game.targets` の番号、中心は箱の真ん中）で `stepFcs(game.fcs, 'soft', FCS_TUNE.soft, …)` を回す。照準の円（`FCS_TUNE.soft.cone`）の中の目標へ狙いが寄り、その目標の id が `game.aimTarget` になる（無ければ null）。本体は `aimRay`（`src/view/camera.ts`）でカメラの線を作り、`src/app/play.ts` の `update` が `step` に渡す
 - 照準の点: ソフトロックが寄せている相手がいないとき、弾は照準の点へ向かう。照準の点は、カメラの狙いの線が、物の箱（`game.propBoxes`）・壊れていない目標の箱・生きている敵の箱・地面（y = 0）のうち最初に当たる点で、`FCS_TUNE.soft.range` の内に当たらなければ、線を `range` 延ばした点。カメラの線の上で、弾の出る所より手前の当たりは数えない。弾はカメラより右の腕の先から出るので、照準の点へ向けないと近くの壁で照準から横にそれる。`manualDir` in `src/logic/fcs.ts`（`fcs.ts` はゲームの表を読まないため、物と敵と地面は `stepFcs` の引数 `world`（`FcsWorld`）で受ける。`world` が無い `#view-fcs` は的の箱だけを見る）。寄せている間は、寄せた向きのまま
-- 進む: 1フレームに min(`speed` × dt, `left`) m 進む。その区間で、生きている目標の箱・物の箱・地面（y = 0。下向きの弾だけ）のうち一番手前で止まる。止まった所で出来事 `hit`（位置・`weapon`・`target`（目標の id か null）・`prop`（`map.props` の添字か null）。地面は両方 null）を残して弾を外す。止まらなければ `left` を減らし、0 以下で黙って消える
+- 進む: 1フレームに min(`speed` × dt, `left`) m 進む。その区間で、生きている目標の箱・物の箱（坂は面に沿った段の箱。`rectBoxes`）・地面（y = 0。下向きの弾だけ）のうち一番手前で止まる。止まった所で出来事 `hit`（位置・`weapon`・`target`（目標の id か null）・`prop`（`map.props` の添字か null）。地面は両方 null）を残して弾を外す。止まらなければ `left` を減らし、0 以下で黙って消える
 - 当たったあと: 目標は体力が減って 0 で `destroyed` を残して台本に渡す。物は `damageProp` が体力を減らす。撃ったフレームの弾も同じフレームで進み、途中で壊れた目標や物には、あとの弾は当たらない
 - 表示: `src/view/play.ts` は飛んでいる弾を `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` = 96 本。超えた弾は飛ぶが描かない）で、弾の頭から後ろへ `TRACER_LENGTH` = 4m の線として毎フレーム描く（色は `TRACER_COLOR`）。`hit` の起きた所に `HIT_DUST` = 3 の砂ぼこりを出し、`shot` で撃った手応え（`fire`）を出す
 - 物と壊れる物: 弾は物で止まり、物の向こうの目標には当たらない。壊せる物（`breakable`）は体力が 0 で壊れ、当たりと弾の箱から外れる。ほかの物は壊れない
@@ -313,7 +313,7 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 | `MINE_TUNE.hp` | 10 | 機体の弾に対する体力 |
 | `MINE_TUNE.size` | 1×0.3×1 | m。弾の当たる箱（幅・高さ・奥行き） |
 
-三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）をカメラの壁として渡す。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
+三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）をカメラの壁として渡す。坂は斜面に沿った段の箱に分けて渡す（`rectBoxes` in `src/logic/collide.ts`）ので、低い端の上の空間でカメラが引っかからない。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -713,8 +713,8 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - 見た目は段の箱ではなく坂（手前の上の辺を地面まで下げた箱）で、段ごとの `top` の奥の辺を通る。種類ごとに `InstancedMesh` 1つで、描く回数は増えない
 - 坂 `ramp`（`RAMP_TUNE` in `src/data/props.ts`）は幅 8m・長さ 18m・高さ 6m（防波堤と同じ）のくさび形で、1つの物が1つの四角になる（`mapBlockers` が `ramp: true` の四角を1つ出す。`propRects` in `src/logic/mapShapes.ts`）
   - `yaw` 0 で -z の向きへ上り、低い端が +z 側。`yaw` で坂ごと回る（`yaw` π/2 で -x の向きへ上る）。壊れず（`PROP_HP` 0）。四角の `top` は高い端の高さで、`logic/collide.ts` の `surfaceAt` が四角の上の位置から低い端の 0 へ線形に下げる
-  - 機体の足元は `groundAt` が返す坂の面の高さをそのまま使う（段差 `stepHeight` は使わない）。坂の中央が四角の上にあるときだけ面を読み、`radius` の重なりでは読まない（低い端は地面から段なく入り、高い端は防波堤の上面に段なく続く）。坂の横と高い端の面は壁として `pushOutCircle` が押し出す
-  - 傾きは `atan2(高さ, 長さ)` で約 18.4°。歩いて上がれる傾きの上限 `RAMP_TUNE.maxSlopeDeg`（20°）を超えたら物の表の検査（`test/unit/ramp.test.ts`）が落ちる
+  - 機体の足元は `groundAt` が返す坂の面の高さをそのまま使う（段差 `stepHeight` は使わない）。坂の中央が四角の上にあるときだけ面を読み、`radius` の重なりでは読まない（低い端は地面から段なく入り、高い端は防波堤の上面に段なく続く）。坂の横の面はどの高さでも壁で、坂の上にいる機体は `pushOutCircle` が当たり半径の分だけ幅の内側に留める（低い端と高い端は面の高さに応じて通す）。
+  - 傾きは `atan2(高さ, 長さ)` で約 18.4°。歩いて上がれる傾きの上限 `RAMP_TUNE.maxSlopeDeg`（20°）を超えたら物の表の検査（`test/unit/ramp.test.ts`）が落ちる。テストは 6m・18m・20° を値で持ち、上限を上げて通す形にはしない
   - 見た目は、低い端の辺から高い端の上辺へ上がる斜めの面と、両側の三角形の側面で、色と質感は階段と同じ。斜めの面は手で並べた頂点で法線を上向きにする
 - 目標の体力は `TARGET_HP`（仮。`pillbox` 100・`depot` 60・`gun` 200・`magazine` 80。武器の表の威力で減り、トーチカは機関砲10発・砲2発で壊れる。SB-190 で決め直す）
 - 手書きは `src/data/maps/m1b-hand.ts`。範囲は x −100〜100・z −170〜170。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`pillbox-3`・`depot` と、ボスの場所の `main-gun-1`・`main-gun-2`・`magazine`、波は `b-squad`・`depot-guard`・`seawall-drop`・`c-squad`。地雷は浜（z 148〜162、x −60〜60）に6個で、機体の始まり（x 0, z 166）から 6m 以上離す
@@ -741,7 +741,7 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - 生成（`generateMap`）は、規則の `bounds` の外にある目標を作る地図に入れない。M1 の規則（z −60〜170）は手書きの `main-gun-1`・`main-gun-2`・`magazine` を持たず、防波堤も置かないので、区間1だけを見る
 - 機体は、`mapBlockers`（`src/logic/mapShapes.ts`）が作る四角（`blocks` が真の物と全部の目標。表の `w`×`d` に `scale` を掛け `yaw` で回したもの。通り道の検査と同じ）から、当たり半径 `MECH_TUNE.radius` 以上離れた所に押し出される（`pushOutCircle` in `src/logic/collide.ts`）
 - 押し出したあと、壁へ向かう速さだけを消し、壁に沿う速さは残すので、斜めに当たると滑る（`stepMech` in `src/logic/mech.ts`）。1歩は `MOVE_TUNE.maxStep` 以下に刻むので、ブーストでも薄い物を抜けない
-- 高さを見る。物と目標の四角は上の面の高さ `top`（m）を持ち（`GroundRect.top`。`mapBlockers` が物は `PROP_SIZE` の `h` × `scale`、目標は `TARGET_SIZE` の `h` を入れる）、`top` の無い四角はどの高さからも越えられない壁になる。坂（`ramp`）の四角は `ramp: true` で、`top` を高い端の高さとし、`surfaceAt` in `src/logic/collide.ts` が位置に応じて低い端の 0 まで線形に下げる。地面にいる機体は、足元から `MOVE_TUNE.stepHeight`（仮 0.75m）までの物には歩いて乗る。それより高い物は壁になり、押し出される。坂の上では足元の高さを面の高さそのものにし、下りでは stepHeight 以内の下がりを歩いて降りる（ほかの物から歩いて外れると、その高さから地面へ落ちる）。跳んでいる機体は、足より低い物の上を越えられ、その上に降りられる。`breakable` の物も壊れるまでは当たる
+- 高さを見る。物と目標の四角は上の面の高さ `top`（m）を持ち（`GroundRect.top`。`mapBlockers` が物は `PROP_SIZE` の `h` × `scale`、目標は `TARGET_SIZE` の `h` を入れる）、`top` の無い四角はどの高さからも越えられない壁になる。坂（`ramp`）の四角は `ramp: true` で、`top` を高い端の高さとし、`surfaceAt` in `src/logic/collide.ts` が位置に応じて低い端の 0 まで線形に下げる。弾とカメラの線が当たる箱は `rectBoxes` が作り、坂は面に沿った段の箱の集まりにするので、低い端の上の空間を飛ぶ弾は坂に当たらない。地面にいる機体は、足元から `MOVE_TUNE.stepHeight`（仮 0.75m）までの物には歩いて乗る。それより高い物は壁になり、押し出される。坂の上では足元の高さを面の高さそのものにし、下りでは stepHeight 以内の下がりを歩いて降りる（ほかの物から歩いて外れると、その高さから地面へ落ちる）。坂の横の面はどの高さでも壁で、坂の上にいる機体は幅の外へ歩き出せない。跳んでいる機体は、足より低い物の上を越えられ、その上に降りられる。`breakable` の物も壊れるまでは当たる
 - 効くのは `#view-map` と `#view-fx`。平らな地面の入口（`#view-move`・`#view-touch`・`#view-play`・`#view-fcs`）の的には当たらない
 - 海と揚陸艇（`buildShore` in `src/view/shore.ts`。見た目だけで、当たりも検査も無い）: `buildWorld` が作り、`#view-map`・`#view-fx`・本体が同じ関数を通る。出撃をやり直すと `World.shore` ごと外す
   - 海: 範囲の手前の端（`maxZ`）から +z へ 260m（`SEA_DEPTH`）、x は範囲の両側に 160m ずつ広げた平面を1枚。高さは砂より少し低い -0.1m、色は `SEA_COLOR`（`data/colors.ts`、霧と空より少し暗い青灰）。ミッションの見た目の表（`LOOKS`）は海に掛からず、霧の色だけが遠くを溶かす
