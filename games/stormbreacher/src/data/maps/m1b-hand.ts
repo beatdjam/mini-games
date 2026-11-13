@@ -5,7 +5,7 @@ import type { MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B line is three defence lines across the map: three hedgehog rows each, with breakthroughs and, on lines 2 and 3,
 // a stretch marked breakable. Each row is spaced so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows
-// hold the front before the seawall, which runs across the whole map with a flight of stairs
+// hold the front before the seawall, which runs across the whole map with a ramp
 // right behind each breakthrough of the line before it (x -50 and x 35). Behind the seawall (z -75..-170) is the boss's
 // ground: cover in its first stretch (z -80..-115) and the battery's three parts at the back (the targets below).
 const PROPS: Prop[] = [
@@ -586,9 +586,9 @@ const PROPS: Prop[] = [
   { kind: 'seawall', x: 80, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 88, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 96, z: -67, yaw: 0, scale: 1 },
-  // two flights up the seawall from its sea side (z -65..-51.5), climbing towards -z
-  { kind: 'stairs', x: -50, z: -58.25, yaw: 0, scale: 1 },
-  { kind: 'stairs', x: 35, z: -58.25, yaw: 0, scale: 1 },
+  // two ramps up the seawall from its sea side (z -65..-47), climbing towards -z
+  { kind: 'ramp', x: -50, z: -56, yaw: 0, scale: 1 },
+  { kind: 'ramp', x: 35, z: -56, yaw: 0, scale: 1 },
   // low walls across the beach (z 154): too high to walk onto, low enough to jump, with 14 m between them
   { kind: 'lowWall', x: -42, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: -18, z: 154, yaw: 0, scale: 1 },
@@ -653,14 +653,14 @@ export const M1B_HAND: MapDef = {
       { x: 66, z: 32 },
       { x: 60, z: 42 },
     ],
-    // four in the band between C's two rows (z -50 and -40), clear of both rows and of the stairs behind them
+    // four in the band between C's two rows (z -50 and -40), clear of both rows and of the ramps behind them
     'c-squad': [
       { x: -70, z: -45 },
       { x: -20, z: -45 },
       { x: 15, z: -45 },
       { x: 65, z: -45 },
     ],
-    // on top of the seawall (z -75..-65), clear of the two flights of stairs (x -54..-46 and 31..39), and each jumps
+    // on top of the seawall (z -75..-65), clear of the two ramps (x -54..-46 and 31..39), and each jumps
     // down to the seaward side; the landing is about 6 m on, in the band between the wall and C's rear row
     'seawall-drop': [
       { x: -62, z: -70 },

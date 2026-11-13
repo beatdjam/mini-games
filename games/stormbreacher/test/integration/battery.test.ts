@@ -136,7 +136,7 @@ test('from the ground below the seawall the mech walks round the cover to every 
   expect(game.mech.y).toBe(0);
 });
 
-test('M1 clears: up the stairs into seawall-top, both guns down, then the magazine', () => {
+test('M1 clears: up the ramp into seawall-top, both guns down, then the magazine', () => {
   const game = newBatteryGame();
   game.mech.x = 35;
   game.mech.z = -45;

@@ -11,7 +11,7 @@ export interface PropSize {
 
 export const TILE_SIZE = 4; // the ground tile's side (m)
 
-const SEAWALL_HEIGHT = 6; // the seawall's height (m), also the height a flight of stairs climbs
+const SEAWALL_HEIGHT = 6; // the seawall's height (m), also the height a flight of stairs or a ramp climbs
 
 // A flight of stairs up the seawall: one prop, one rect per step (mapBlockers). The rise follows from the seawall's
 // height, so the mech can walk up every step (MOVE_TUNE.stepHeight is 0.75 m).
@@ -20,6 +20,16 @@ export const STAIRS_TUNE = {
   run: 1.5, // each step's depth along the climb (m)
 };
 export const STAIR_RISE = SEAWALL_HEIGHT / STAIRS_TUNE.steps; // how much each step rises above the one before (m)
+
+// A ramp up the seawall: one prop, one rect whose top slopes down to its seaward end (mapBlockers). Its height and run
+// decide the slope; a ramp steeper than maxSlopeDeg would be climbed in jumps rather than walked, so the check in
+// test/unit/ramp.test.ts fails one that is too steep. 6 m over 18 m is about 18.4 degrees.
+export const RAMP_TUNE = {
+  width: 8, // the width across the climb (m)
+  length: 18, // the run along the climb (m)
+  height: SEAWALL_HEIGHT, // the height it climbs to (m)
+  maxSlopeDeg: 20, // the steepest slope a ramp may have (deg)
+};
 
 export const PROP_SIZE: Record<PropKind, PropSize> = {
   tile: { w: 4, h: 0, d: 4, blocks: false },
@@ -32,12 +42,13 @@ export const PROP_SIZE: Record<PropKind, PropSize> = {
   wreck: { w: 12, h: 5, d: 6, blocks: true },
   lowWall: { w: 6, h: 0.85, d: 1, blocks: true }, // above the 0.75 m step, below a jump's peak of about 2.2 m
   stairs: { w: 8, h: SEAWALL_HEIGHT, d: STAIRS_TUNE.steps * STAIRS_TUNE.run, blocks: true },
+  ramp: { w: RAMP_TUNE.width, h: RAMP_TUNE.height, d: RAMP_TUNE.length, blocks: true },
 };
 
 // A prop's health (provisional). Only a `breakable: true` prop uses it. The autocannon (WEAPONS.autocannon.damage 10)
 // and the heavy gun (WEAPONS.heavyGun.damage 60) take this many shots: a hedgehog 3 and 1, a block 6 and 1, a bunker 15
 // and 3, a seawall 12 and 2, a wreck 8 and 2, a low wall 4 and 1, and a cliff 30 and 5. The tile and the crater do not
-// block, so they are never shot down. The stairs are not broken either (their health is 0).
+// block, so they are never shot down. The stairs and the ramp are not broken either (their health is 0).
 export const PROP_HP: Record<PropKind, number> = {
   tile: 0,
   hedgehog: 30,
@@ -49,6 +60,7 @@ export const PROP_HP: Record<PropKind, number> = {
   wreck: 80,
   lowWall: 40,
   stairs: 0,
+  ramp: 0,
 };
 
 export interface TargetSize {

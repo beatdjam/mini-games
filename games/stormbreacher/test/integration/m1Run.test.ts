@@ -1,5 +1,5 @@
 // A bot plays M1 from the landing to the cleared result with inputs alone (no teleport, no health written): it walks a
-// list of points through the breakthroughs and up a flight of stairs, shoots what is in its sight and steps out of a
+// list of points through the breakthroughs and up a ramp, shoots what is in its sight and steps out of a
 // shell's circle. It tells whether the sortie can be done and gives a rough measure of the ammo and the armour it costs.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
@@ -28,7 +28,7 @@ interface Waypoint {
 
 // The route. +z is the sea. It goes through the gaps the map leaves: the low walls (z 154) have 14 m between them, line 1
 // (z 128..146) has its breakthrough at x 40, line 2 (z 80..96) at x -10, line 3 (z 8..26) at x 61 and C's rows
-// (z -55..-35) at x 35, right in front of the stairs up the seawall.
+// (z -55..-35) at x 35, right in front of the ramp up the seawall.
 const ROUTE: readonly Waypoint[] = [
   { x: 26, z: 166, why: 'along the sea edge, clear of the mines at x 14 and x 34' },
   { x: 42, z: 160, why: 'the gap between the low walls at x 30 and x 54, 10 m from the mine at x 52' },
@@ -47,7 +47,7 @@ const ROUTE: readonly Waypoint[] = [
     hold: ['pillbox-1', 'pillbox-2'],
   },
   { x: 35, z: -30, why: 'before the breakthrough of C at x 35' },
-  { x: 35, z: -62, why: 'up the stairs onto the seawall (area seawall-top)' },
+  { x: 35, z: -62, why: 'up the ramp onto the seawall (area seawall-top)' },
   { x: 35, z: -78, why: 'off the seawall, onto the boss ground' },
   { x: 0, z: -118, why: 'in front of the guns and the magazine', hold: ['main-gun-1', 'main-gun-2', 'magazine'] },
 ];
