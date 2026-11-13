@@ -3,8 +3,9 @@
 // mesh, geometry or material; a pool that is full reuses its oldest slot. The values come from data/boom.ts and the
 // shake from boomShakeAt; this file only draws.
 import * as THREE from 'three';
+import { createRng, type Rng } from '@engine/core/index.ts';
 import { disposeTree, scene } from '@engine/render/index.ts';
-import { BOOM_CAP, BOOM_DEFS, BOOM_LOOK, type BoomKind } from '../data/boom.ts';
+import { BOOM_CAP, BOOM_DEFS, BOOM_LOOK, BOOM_SEED, type BoomKind } from '../data/boom.ts';
 import type { MapBounds } from '../data/types.ts';
 import { SEA_LEVEL } from './shore.ts';
 
@@ -92,6 +93,9 @@ let sandNext = 0;
 let waterNext = 0;
 let pools: BoomPools | null = null;
 let seaZ = Number.POSITIVE_INFINITY; // the sea begins at this z; before buildBooms nothing is over it
+// The look draws from its own fixed-seed generator, the same way the ambience does: the game's random stream stays
+// untouched and a run's blasts come out the same every time.
+let boomRng: Rng = createRng(BOOM_SEED);
 
 function emptyFire(): FireSlot {
   return { live: false, age: 0, life: 0, radius: 0, x: 0, y: 0, z: 0, color: 0 };
@@ -194,6 +198,7 @@ function ensurePools(): BoomPools {
 // when they build their scene; it also clears what the last scene left.
 export function buildBooms(bounds: MapBounds): void {
   seaZ = bounds.maxZ;
+  boomRng = createRng(BOOM_SEED);
   ensurePools();
   clearBooms();
 }
@@ -301,7 +306,10 @@ function columnAt(
   slot.color = color;
 }
 
-const spread = (radius: number): number => Math.sqrt(Math.random()) * radius * (Math.random() < 0.5 ? -1 : 1);
+const next = (): number => boomRng.next();
+const spread = (radius: number): number => Math.sqrt(next()) * radius * (next() < 0.5 ? -1 : 1);
+// A part's value from its row, spread over the row's min..min + var.
+const varied = (base: number, min: number, span: number): number => base * (min + next() * span);
 
 // Blows up at a place (m). Over the sea a blast lifts a column of water instead of sand.
 export function spawnBoom(kind: BoomKind, x: number, y: number, z: number): void {
@@ -319,10 +327,10 @@ export function spawnBoom(kind: BoomKind, x: number, y: number, z: number): void
       y,
       z + spread(def.smoke.spread),
       delay,
-      def.smoke.rise * (BOOM_LOOK.riseMin + Math.random() * BOOM_LOOK.riseVar),
-      def.smoke.size * (BOOM_LOOK.smokeSizeMin + Math.random() * BOOM_LOOK.smokeSizeVar),
+      varied(def.smoke.rise, BOOM_LOOK.riseMin, BOOM_LOOK.riseVar),
+      varied(def.smoke.size, BOOM_LOOK.smokeSizeMin, BOOM_LOOK.smokeSizeVar),
       def.smoke.grow,
-      def.smoke.life * (BOOM_LOOK.smokeLifeMin + Math.random() * BOOM_LOOK.smokeLifeVar),
+      varied(def.smoke.life, BOOM_LOOK.smokeLifeMin, BOOM_LOOK.smokeLifeVar),
       def.smoke.color,
       def.smoke.fade,
     );
@@ -330,10 +338,10 @@ export function spawnBoom(kind: BoomKind, x: number, y: number, z: number): void
 
   const debrisCount = Math.max(0, Math.round(def.debris.count));
   for (let i = 0; i < debrisCount; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const up = Math.random() * 2 - 1;
+    const angle = next() * Math.PI * 2;
+    const up = next() * 2 - 1;
     const side = Math.sqrt(1 - up * up);
-    const speed = def.debris.speed * (BOOM_LOOK.debrisSpeedMin + Math.random() * BOOM_LOOK.debrisSpeedVar);
+    const speed = varied(def.debris.speed, BOOM_LOOK.debrisSpeedMin, BOOM_LOOK.debrisSpeedVar);
     debrisAt(
       x,
       y,
@@ -342,8 +350,8 @@ export function spawnBoom(kind: BoomKind, x: number, y: number, z: number): void
       up * speed + def.debris.speed * BOOM_LOOK.debrisLift,
       Math.sin(angle) * side * speed,
       def.debris.gravity,
-      def.debris.life * (BOOM_LOOK.debrisLifeMin + Math.random() * BOOM_LOOK.debrisLifeVar),
-      def.debris.size * (BOOM_LOOK.debrisSizeMin + Math.random() * BOOM_LOOK.debrisSizeVar),
+      varied(def.debris.life, BOOM_LOOK.debrisLifeMin, BOOM_LOOK.debrisLifeVar),
+      varied(def.debris.size, BOOM_LOOK.debrisSizeMin, BOOM_LOOK.debrisSizeVar),
       def.debris.color,
     );
   }

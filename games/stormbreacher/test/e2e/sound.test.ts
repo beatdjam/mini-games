@@ -20,6 +20,8 @@ test('#view-sound opens with a button for every sound and a distance knob', () =
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('#sbSound button[data-sound]')];
   expect(buttons.map(button => button.dataset.sound)).toEqual([...SOUND_NAMES]);
   expect(document.querySelector('#sbSoundDistance')).not.toBeNull();
+  // the list covers the page and the tuning panel sits above it; the next test runs a sortie, so it goes
+  document.getElementById('sbSound')?.remove();
 });
 
 test('a sortie plays frames through the sound layer without throwing', () => {

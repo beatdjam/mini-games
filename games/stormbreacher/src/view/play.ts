@@ -138,7 +138,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   // falls past the map's front edge lands in the sea, so it lifts a water column and takes the water's colours.
   const blast = (kind: 'small' | 'large' | 'water', x: number, y: number, z: number) => {
     spawnBoom(kind, x, y, z);
-    feelBoom(view.feel, boomShakeAt(kind, distXZ({ x, z }, game.mech)));
+    feelBoom(view.feel, boomShakeAt(kind, distXZ({ x, z }, game.mech)), FEEL_TUNE);
     hurtBlast(view.hurt, x, z, game.mech);
   };
   for (const event of game.events) {

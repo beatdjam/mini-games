@@ -43,9 +43,10 @@ export function feelDamage(f: FeelState, tune: FeelTune) {
   f.shake += tune.damageShake;
 }
 
-// Adds the shake an explosion asks for (data/boom.ts's boomShakeAt has already made it smaller with distance).
-export function feelBoom(f: FeelState, amount: number) {
-  f.shake += Math.max(0, amount);
+// Adds the shake an explosion asks for (data/boom.ts's boomShakeAt has already made it smaller with distance). The cap
+// keeps a frame of several blasts from driving the camera past the biggest single one plus a hit on the mech.
+export function feelBoom(f: FeelState, amount: number, tune: FeelTune) {
+  f.shake = Math.min(tune.shakeMax, f.shake + Math.max(0, amount));
 }
 
 // The next number of the shake's fixed sequence (a linear congruential generator: the same seed gives the same run).

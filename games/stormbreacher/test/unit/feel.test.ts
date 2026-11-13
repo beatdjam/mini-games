@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest';
+import { BOOM_DEFS } from '../../src/data/boom.ts';
 import { FEEL_TUNE } from '../../src/data/tune.ts';
 import type { MechEvent } from '../../src/logic/mech.ts';
-import { feelDamage, feelEvents, feelStep, newFeel } from '../../src/view/feel.ts';
+import { feelBoom, feelDamage, feelEvents, feelStep, newFeel } from '../../src/view/feel.ts';
 
 const fire: MechEvent = { kind: 'fire', speed: 0 };
 
@@ -25,4 +26,12 @@ test('a hit on the mech shakes the camera and does not stop the mech', () => {
   feelDamage(feel, FEEL_TUNE);
   expect(feel.shake).toBe(FEEL_TUNE.damageShake);
   expect(feel.stopT).toBe(0);
+});
+
+// Several blasts in one frame must not shake the camera further than the biggest one plus a hit on the mech: a frame
+// that lands a target and a shell together would otherwise throw the camera far off.
+test('five blasts in one frame stop at the shake cap', () => {
+  const feel = newFeel(72);
+  for (let i = 0; i < 5; i++) feelBoom(feel, BOOM_DEFS.large.shake, FEEL_TUNE);
+  expect(feel.shake).toBe(FEEL_TUNE.shakeMax);
 });

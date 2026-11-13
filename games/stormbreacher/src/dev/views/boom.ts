@@ -152,7 +152,7 @@ export function showBoom(_hash: string) {
     step++;
     const z = kind === 'water' ? SEA_Z : LAND_Z;
     spawnBoom(kind, x, 0.4, z);
-    feelBoom(feel, boomShakeAt(kind, Math.hypot(CAM_POS[0] - x, CAM_POS[2] - z)));
+    feelBoom(feel, boomShakeAt(kind, Math.hypot(CAM_POS[0] - x, CAM_POS[2] - z)), FEEL_TUNE);
   };
 
   for (const name of KINDS) {

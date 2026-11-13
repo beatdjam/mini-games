@@ -507,7 +507,7 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 - カットシーンの間は `stepAllies` が止まる。味方は導入のカットシーンと同じフレームに出るが、カットシーンの間は動かず描かれない（機体が走れるようになってから走り出す）
 - 見た目: 機体の箱の組み立て（`buildMechVisual`）を `ALLY_TUNE.height`（3.4m。機体は 4m）と `ALLY_PALETTE` で作る。落ちたら同じ箱を `ALLY_WRECK_PALETTE` で作ったものを `wreckTilt` 倒して置く（5色ごとに1 draw で、走る姿と残骸の2体分）。メッシュの名前は `ally`（機体の `mech` と数え分ける）
 - 撃つ真似: 走っている間 `fireEvery` ごとに、前（走る向き）へ曳光弾を `Battle.tracer` で出す（当たりは無い）。散らしは `tracerSpread`
-- 落ちたときの見た目: `allyDown` を `drawPlay` が受けて、`shellBurst`（戦場の砲撃と同じ閃光と破片）と、迫撃砲の着弾と同じ砂煙（`BLAST_DUST`）をその場に出す。着弾予告の輪は出さない
+- 落ちたときの見た目: `allyDown` を `drawPlay` が受けて、`shellBurst`（戦場の砲撃と同じ閃光と破片）と、砂煙（`BLAST_DUST`。`allyDown` だけのもので、迫撃砲の着弾は爆発の `large` を使う）をその場に出す。着弾予告の輪は出さない
 
 | 名前（`ALLY_TUNE`） | 値 | 単位・意味 |
 |------|----|------------|
@@ -775,9 +775,10 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
 
 出撃の効果音と浜の環境音を、engine の合成音（`@engine/audio` の `noiseBurst`・`sweepTone`・`audioNow`）だけで鳴らす。音のファイルは使わず、音楽（BGM）は無い。値はすべて仮で、`#view-sound` で聞いて決める。
 
-- 表: `src/data/sounds.ts`。音は `SoundName` の14種で、`SOUND_NAMES` が並び順を持つ。`SOUND_LAYERS` は音ごとの層の列で、`tone` は `sweepTone` に、`noise` は `noiseBurst` に渡す周波数（`f0`・`f1`）・長さ（`dur`）・音量（`vol`）・遅れ（`at`）・フィルタの種類を持つ。`SOUND_FRAME_LIMIT` は1フレームに鳴らす上限、`SOUND_DISTANCE` は距離の扱い、`SOUND_VOLUME` は全体の音量、`SOUND_AMBIENT` は環境音の間隔と音量。鳴らす所（`src/view/sound.ts` と `src/dev/views/sound.ts`）に数値は置かない
-- 鳴らす: `src/view/sound.ts` の `planSounds` が、そのフレームの出来事と、増えた敵の弾から `{ name, gain, pitch }` の列を返す（純粋。`planSounds` in `src/view/sound.ts`）。`playSound` が `SOUND_LAYERS` を `audioNow()` から鳴らし、`soundFrame` を `src/app/play.ts` の `update` が `step` のあとに毎フレーム呼ぶ。カットシーンの間も同じように鳴らす（`update` の飛ばしの分岐の外で呼ぶ）
+- 表: `src/data/sounds.ts`。音は `SoundName` の14種で、`SOUND_NAMES` が並び順を持つ。`SOUND_LAYERS` は音ごとの層の列で、`tone` は `sweepTone` に、`noise` は `noiseBurst` に渡す周波数（`f0`・`f1`）・長さ（`dur`）・音量（`vol`）・遅れ（`at`）・フィルタの種類を持つ。`SOUND_FRAME_LIMIT` は1フレームに鳴らす上限、`SOUND_DISTANCE` は距離の扱い、`SOUND_VOLUME` は全体の音量、`SOUND_AMBIENT` は環境音の間隔と音量。鳴らす所（`src/view/sound.ts` と `src/dev/views/sound.ts`）に音の値は置かない（画面の作りの数値は除く）
+- 鳴らす: `src/view/sound.ts` の `planSounds` が、そのフレームの出来事と、増えた敵の弾から `{ name, gain, pitch }` の列を返す（純粋。`planSounds` in `src/view/sound.ts`）。`playSound` が `SOUND_LAYERS` を `audioNow()` から鳴らし、`soundFrame` を `src/app/play.ts` の `update` が `step` のあとに毎フレーム呼ぶ。カットシーンの間も同じように鳴らす（`update` の飛ばしの分岐の外で呼ぶ）。カットシーンの `drawCutscene` の `blast`（艇の爆破 `craft`・着弾 `large`・`water`）も、`drawPlay` の爆発と同じく `explosionLarge` をカメラからの距離で鳴らす
 - 出来事 → 音: `shot` は `weapon` が `autocannon` なら `autocannon`、`heavyGun` なら `heavyGun`。`hit` は機体で止まった弾（`mech`）なら `mechHit`、目標か敵に当たったら `impactArmor`、物か地面なら `impactDirt`。`damaged` も `mechHit`（地雷・迫撃砲は `hit` を出さないため。弾の `hit` と `damaged` が同じフレームに来ても、1フレームの上限で1回だけ鳴る）。機体の `hit` はカットシーン中にも出るので、カットシーン中も金属音が鳴る。`destroyed` は `explosionLarge`、`enemyDown`・`propDestroyed`・`allyDown` は `explosionSmall`、`mineBlast` は `explosionLarge`、`shellWarn` は `shellWarn`、`shellLand` は `shellLand`、`downed` は `downed`、`script` の `radio` は `radio`。`destroyed` の位置は目標の箱の真ん中、ほかは出来事の位置、機体の音は機体の位置
+- `damaged` は機体の被弾だけ。目標・敵への着弾は `hit` で判定する
 - 敵の射撃: 敵と砲台の弾には `shot` の出来事が無いので、`soundFrame` が前のフレームで聞いていない敵の弾を見つけたら `enemyGun` を鳴らす。弾のオブジェクトを `WeakSet` で覚えるので、同じフレームに古い弾が消えても新しい弾を見落とさない
 - 上限: 1フレームに同じ種類の音を `SOUND_FRAME_LIMIT` までしか鳴らさない（機関砲2・敵の射撃2・着弾2・小爆発2・大爆発1・迫撃砲の予告2・着弾2、ほかは1）。多数の着弾や連射が1つの大きな音に重ならないため。上限を超えた分は出来事の順に捨てる
 - 距離: 機体からの水平距離で、`SOUND_DISTANCE.near`（12m）までが音量1・高さ1、`far`（200m）から先が音量 `minGain`（0.12）・高さ `farPitch`（0.55）。その間は直線で下げる。音量は層の `vol` に掛け、高さは `f0`・`f1` に掛けるので、遠い音は小さく、低くこもる（`soundMix` in `src/view/sound.ts`）

@@ -16,6 +16,7 @@ import type { GameModel } from '../logic/game.ts';
 import { spawnBoom } from './boom.ts';
 import { feelBoom, spawnDust, type FeelState } from './feel.ts';
 import { buildCraft, CRAFT_NAME, craftZ, RAMP_DOWN } from './shore.ts';
+import { playSound, soundMix } from './sound.ts';
 
 const BAR_HEIGHT = '12vh'; // each black bar, as in the HUD mock (#view-hud?cut=1)
 const CAPTION_SIZE = 16; // px
@@ -144,10 +145,12 @@ export function drawCutscene(
   const elapsed = CUTSCENE_SEC[cutscene.id] - cutscene.left;
   const pose = cutscenePose(cutscene.id, elapsed, game.mech);
   // a blast shakes the cutscene's camera by how near it is to that camera; a shell that falls past the map's front edge
-  // is a water blast, as in the sortie
+  // is a water blast, as in the sortie. It sounds the way a big blast in the sortie does, from that camera's distance
   const blast = (kind: 'large' | 'craft' | 'water', x: number, y: number, z: number) => {
     spawnBoom(kind, x, y, z);
-    feelBoom(feel, boomShakeAt(kind, Math.hypot(pose.pos[0] - x, pose.pos[2] - z)));
+    const distance = Math.hypot(pose.pos[0] - x, pose.pos[2] - z);
+    feelBoom(feel, boomShakeAt(kind, distance), FEEL_TUNE);
+    playSound({ name: 'explosionLarge', ...soundMix(distance) });
   };
   for (const event of cutsceneEvents(cutscene.id, view.elapsed, elapsed)) {
     if (event.kind === 'sink') blast('craft', event.x, 1.2, (event.z ?? view.rampZ) + 6);

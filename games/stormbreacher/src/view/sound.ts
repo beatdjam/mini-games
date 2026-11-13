@@ -149,8 +149,8 @@ export function resetSound(): void {
 }
 
 // The beach while the sortie runs. It is driven from update, so a pause, the result and the title stop it by not calling
-// this; nothing is scheduled far ahead that would sound after the screen has gone.
-function stepAmbient(dt: number): void {
+// this; nothing is scheduled far ahead that would sound after the screen has gone. Exported for the unit test.
+export function stepAmbient(dt: number): void {
   ambientTime += dt;
   if (ambientTime >= nextWave) {
     playSound({ name: 'wave', gain: SOUND_AMBIENT.waveGain, pitch: SOUND_AMBIENT.wavePitch });

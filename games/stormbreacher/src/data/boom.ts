@@ -56,6 +56,10 @@ export const BOOM_CAP = {
   column: 36,
 } as const;
 
+// The blasts draw the small differences between a puff and a piece from a generator of their own, seeded here: the look
+// must not touch the game's random stream (SPEC §3), and a fixed seed keeps the same sequence of blasts every run.
+export const BOOM_SEED = 0x7a1c9e35;
+
 // How a part changes over its life, shared by every kind: where the flash starts to fade, how much speed and bounce a
 // piece of debris keeps, and the spread of the values each blast gives its parts. They live here so the drawing makes no
 // number up of its own; tune them by the look, not one kind at a time.
