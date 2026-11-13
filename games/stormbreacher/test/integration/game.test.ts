@@ -31,6 +31,15 @@ function atPillbox1(game: GameModel): void {
   game.mech.yaw = 0;
 }
 
+// Puts the mech east of pillbox-1 (x +20, same z), facing it (-x): its side, where a shot does full damage. No prop
+// stands on that stretch of the hand map.
+function atPillbox1Side(game: GameModel): void {
+  const place = M1B_HAND.targets[0];
+  game.mech.x = place.x + 20;
+  game.mech.z = place.z;
+  game.mech.yaw = Math.PI / 2;
+}
+
 // The breakable hedgehog of line 2 nearest the sea, found by its place rather than its index in the map.
 function breakableHedgehogIndex(): number {
   const prop = M1B_HAND.props.find(item => item.breakable === true && item.x === 52.33 && item.z === 93.33);
@@ -73,9 +82,9 @@ test('a new game puts the mech at the front edge facing the land', () => {
   for (const target of game.targets) expect(target.hp).toBe(TARGET_HP[target.kind]);
 });
 
-test('holding fire in front of a pillbox breaks it', () => {
+test('holding fire on a pillbox’s side breaks it', () => {
   const game = newPlayGame(M1B_HAND);
-  atPillbox1(game);
+  atPillbox1Side(game);
   let hits = 0;
   let destroyedFrame = -1;
   for (let i = 0; i < 600 && destroyedFrame < 0; i++) {
@@ -181,9 +190,9 @@ test('a prop between the mech and a target stops the shot', () => {
   expect(game.bullets).toHaveLength(0);
 });
 
-test('the sub gun breaks a pillbox in fewer shots', () => {
+test('the sub gun breaks a pillbox in fewer shots from its side', () => {
   const game = newPlayGame(M1B_HAND);
-  atPillbox1(game);
+  atPillbox1Side(game);
   let hits = 0;
   for (let i = 0; i < 600 && game.targets[0].hp > 0; i++) {
     step(game, { ...idle, sub: true }, 1 / 60);
@@ -195,6 +204,42 @@ test('the sub gun breaks a pillbox in fewer shots', () => {
   }
   expect(hits).toBe(Math.ceil(TARGET_HP.pillbox / WEAPONS.heavyGun.damage));
   expect(game.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
+});
+
+test('a pillbox takes a quarter of a shot from its front and all of one from its side', () => {
+  const map: MapDef = { ...M1B_HAND, props: [], targets: [M1B_HAND.targets[0]] };
+  const place = map.targets[0];
+  // a mech's shot of the main gun from 20 m out, flying (dx, dz); the pillboxes' own attack never starts (the mech is
+  // still on the beach), so the bullet flies a few frames and the target takes one hit
+  const one = (dx: number, dz: number): { hp: number; deflected: boolean } => {
+    const game = newPlayGame(map);
+    game.bullets.push({
+      weapon: M1_LOADOUT.main,
+      x: place.x - dx * 20,
+      y: 2,
+      z: place.z - dz * 20,
+      dx,
+      dy: 0,
+      dz,
+      left: 100,
+    });
+    let hit: HitEvent | null = null;
+    for (let i = 0; i < 10 && hit === null; i++) {
+      step(game, idle, DT);
+      for (const event of game.events) if (event.kind === 'hit') hit = event;
+    }
+    if (hit === null) throw new Error('the shot hit the pillbox');
+    return { hp: game.targets[0].hp, deflected: hit.deflected };
+  };
+
+  // from the +z side, toward -z: the front
+  const front = one(0, -1);
+  expect(front.hp).toBe(97.5);
+  expect(front.deflected).toBe(true);
+  // from the +x side, toward -x: the side
+  const side = one(-1, 0);
+  expect(side.hp).toBe(90);
+  expect(side.deflected).toBe(false);
 });
 
 test('the autocannon does not reach past its range', () => {

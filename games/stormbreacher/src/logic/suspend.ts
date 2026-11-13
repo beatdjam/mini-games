@@ -6,7 +6,7 @@ import type { MapDef, MissionDef } from '../data/types.ts';
 import type { GameModel, GameSnapshot } from './game.ts';
 import { newNav } from './nav.ts';
 
-export const SUSPEND_VERSION = 2; // 2: an enemy has a height and a fall speed
+export const SUSPEND_VERSION = 3; // 3: a pillbox keeps its wait and warning
 
 // The game as a suspend keeps it: every field of GameModel except the ones listed in suspendOf. `map` and `mission` are
 // definitions nothing writes to, so they go by id (below) and come back from the tables; `checkpoint` is kept apart.
@@ -61,6 +61,7 @@ const GAME_SHAPE: Record<keyof SuspendedGame, Shape> = {
   propRefs: 'array',
   breakables: 'array',
   targets: 'array',
+  pillboxes: 'array',
   enemies: 'array',
   allies: 'array', // the scripted friends (SB-170): where each runs and whether it is down
   main: 'object',
