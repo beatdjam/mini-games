@@ -8,6 +8,7 @@ import { camera } from '@engine/render/index.ts';
 import { boomShakeAt } from '../data/boom.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import { CUTSCENES, type CutsceneEvent } from '../data/cutscenes.ts';
+import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE } from '../data/tune.ts';
 import type { CutsceneId, MapBounds } from '../data/types.ts';
@@ -15,7 +16,7 @@ import { cutsceneEvents, cutsceneLine, cutscenePose } from '../logic/cutscene.ts
 import type { GameModel } from '../logic/game.ts';
 import { spawnBoom } from './boom.ts';
 import { feelBoom, spawnDust, type FeelState } from './feel.ts';
-import { buildCraft, CRAFT_NAME, craftZ, RAMP_DOWN } from './shore.ts';
+import { buildCraft, CRAFT_NAME, RAMP_DOWN } from './shore.ts';
 import { playSound, soundMix } from './sound.ts';
 
 const BAR_HEIGHT = '12vh'; // each black bar, as in the HUD mock (#view-hud?cut=1)
@@ -24,7 +25,6 @@ const RAMP_UP = 1.35; // the ramp's turn about its hinge when it is shut (rad)
 const SINK_ROLL = 0.6; // how far a sinking craft rolls over (rad)
 const SINK_DEPTH = 5; // how far it goes down (m)
 const RAMP_DUST = 8; // the dust's particle count before FEEL_TUNE.dust, where the ramp meets the sand
-const RAMP_LENGTH = 5; // the ramp's length (m), for where its tip lands
 const COLLAPSE_DEPTH = 3; // how far a target of the battery goes down in a collapse (m)
 const COLLAPSE_TILT = 0.35; // how far it tips over (rad); alternate targets tip the other way
 
@@ -154,7 +154,7 @@ export function drawCutscene(
   };
   for (const event of cutsceneEvents(cutscene.id, view.elapsed, elapsed)) {
     if (event.kind === 'sink') blast('craft', event.x, 1.2, (event.z ?? view.rampZ) + 6);
-    else if (event.kind === 'ramp') spawnDust(view.rampX, view.rampZ - RAMP_LENGTH, RAMP_DUST, FEEL_TUNE);
+    else if (event.kind === 'ramp') spawnDust(view.rampX, view.rampZ - CRAFT_TUNE.rampLength, RAMP_DUST, FEEL_TUNE);
     else if (event.kind === 'burst') blast(event.z >= view.seaZ ? 'water' : 'large', event.x, 0.8, event.z);
   }
   view.elapsed = elapsed;

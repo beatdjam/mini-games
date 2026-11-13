@@ -2,9 +2,11 @@
 // mech or from its shot, a checkpoint does not keep a shell in flight, and the hand map's mines stand clear of the start.
 import { expect, test } from 'vitest';
 import { AIMED_MORTAR, BARRAGES, MINE_TUNE } from '../../src/data/hazards.ts';
+import { craftZ } from '../../src/data/craft.ts';
+import { LANDING_TUNE } from '../../src/data/landing.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { MECH_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
+import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import {
@@ -78,6 +80,10 @@ test('the beach wave starts a mortar barrage, and a shell warns, then lands afte
   const game = newPlayGame(M1B_HAND);
   // the aimed mortar is another hazard: this test reads the barrage's shells alone
   game.aimed = null;
+  // on the sand, clear of the craft: its deck holds the barrage until the mech has left it
+  game.mech.x = 0;
+  game.mech.y = 0;
+  game.mech.z = 100;
   const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
   expect(game.barrages).toMatchObject([{ wave: 'beach-mortar', kind: 'mortar' }]);
   const warns = events.filter((event): event is Warned => event.kind === 'shellWarn');
@@ -230,7 +236,7 @@ test('a checkpoint keeps the barrage and the mines but not a shell that has not 
 test('the hand map’s mines are on the beach, 6 m or more from the start, and the map still passes the check', () => {
   const mines = M1B_HAND.mines ?? [];
   expect(mines).toHaveLength(6);
-  const start = { x: 0, z: M1B_HAND.bounds.maxZ - PLAY_TUNE.startMargin };
+  const start = { x: 0, z: craftZ(M1B_HAND.bounds) + LANDING_TUNE.startDepth };
   for (const mine of mines) {
     expect(Math.hypot(mine.x - start.x, mine.z - start.z)).toBeGreaterThanOrEqual(6);
     expect(mine.z).toBeGreaterThanOrEqual(148);

@@ -4,7 +4,7 @@
 import type { CutsceneId } from './types.ts';
 
 export const CUTSCENE_SEC: Record<CutsceneId, number> = {
-  landing: 10,
+  landing: 12,
   'wave2-sinks': 6,
   'beach-held': 8,
 };

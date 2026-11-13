@@ -51,7 +51,7 @@ export function cutscenePose(id: CutsceneId, elapsed: number, mech?: Origin): Cu
   if (elapsed <= first.at) return keyPose(first, mech);
   if (elapsed >= last.at) return keyPose(last, mech);
   let next = 1;
-  while (keys[next].at < elapsed) next++;
+  while (keys[next].at <= elapsed) next++;
   const a = keyPose(keys[next - 1], mech);
   const b = keyPose(keys[next], mech);
   const u = smooth((elapsed - keys[next - 1].at) / (keys[next].at - keys[next - 1].at));

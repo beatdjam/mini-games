@@ -98,22 +98,30 @@ test('a skip ends the landing at once, and the script is the same as after watch
   expect(withoutTimes(skippedRest)).toEqual(withoutTimes(watchedRest));
 });
 
-test('no mortar shell is warned of while the landing plays, and the barrage starts once it is over', () => {
+test('no mortar shell is warned of while the landing plays or the mech is on the craft, and one comes once it is off', () => {
   const game = newGame(M1B_HAND);
   let warned = 0;
-  for (let t = 0; t < CUTSCENE_SEC.landing - 0.1; t += 1 / 60) {
-    step(game, idle, 1 / 60);
-    warned += game.events.filter(event => event.kind === 'shellWarn').length;
-  }
+  const run = (seconds: number): void => {
+    for (let t = 0; t < seconds; t += 1 / 60) {
+      step(game, idle, 1 / 60);
+      warned += game.events.filter(event => event.kind === 'shellWarn').length;
+    }
+  };
+  run(CUTSCENE_SEC.landing - 0.1);
   expect(game.script.cutscene?.id).toBe('landing');
   expect(game.barrages.length).toBeGreaterThan(0);
   expect(warned).toBe(0);
   expect(game.armor).toBe(MECH_TUNE.armor);
-  for (let t = 0; t < 8; t += 1 / 60) {
-    step(game, idle, 1 / 60);
-    warned += game.events.filter(event => event.kind === 'shellWarn').length;
-  }
+  // past the cutscene the mech still waits on the deck, and the beach's mortar leaves the boat alone
+  run(2);
   expect(game.script.cutscene).toBeNull();
+  expect(game.mech.z).toBeGreaterThan(game.map.bounds.maxZ);
+  expect(warned).toBe(0);
+  // once it has walked down the ramp the barrage starts, and a shell is warned of
+  game.mech.x = 0;
+  game.mech.y = 0;
+  game.mech.z = 160;
+  run(8);
   expect(warned).toBeGreaterThan(0);
 });
 

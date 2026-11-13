@@ -138,7 +138,7 @@ test('a sortie draws the sea past the front edge and the landing craft behind th
 
     const craftBox = new THREE.Box3().setFromObject(craft);
     expect(craftBox.min.z).toBeGreaterThanOrEqual(maxZ - 6);
-    expect(craftBox.max.z).toBeGreaterThan(game.mech.z + 10);
+    expect(craftBox.max.z).toBeGreaterThan(game.mech.z);
     expect(craftBox.max.y).toBeGreaterThan(seaBox.max.y + 1);
     // one draw a colour: the hull and the dark deck and ramp
     const meshes: THREE.Mesh[] = [];

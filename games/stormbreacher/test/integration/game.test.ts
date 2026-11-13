@@ -1,12 +1,14 @@
 import { expect, test } from 'vitest';
+import { CRAFT_TUNE, craftZ } from '../../src/data/craft.ts';
+import { LANDING_TUNE } from '../../src/data/landing.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../../src/data/props.ts';
-import { MECH_TUNE, MOVE_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
+import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { M1_LOADOUT, WEAPONS } from '../../src/data/weapons.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
 import type { Ray3 } from '../../src/logic/fcs.ts';
-import { step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newGame, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
@@ -83,10 +85,11 @@ test('120 frames of 1/60 s advance the game by 2 s', () => {
   expect(game.time).toBeCloseTo(2, 6);
 });
 
-test('a new game puts the mech at the front edge facing the land', () => {
-  const game = newPlayGame(M1B_HAND);
+test('a new game puts the mech on the landing craft, facing the land', () => {
+  const game = newGame(M1B_HAND);
   expect(game.mech.x).toBe((M1B_HAND.bounds.minX + M1B_HAND.bounds.maxX) / 2);
-  expect(game.mech.z).toBe(M1B_HAND.bounds.maxZ - PLAY_TUNE.startMargin);
+  expect(game.mech.z).toBe(craftZ(M1B_HAND.bounds) + LANDING_TUNE.startDepth);
+  expect(game.mech.y).toBe(CRAFT_TUNE.deckTop);
   expect(game.mech.yaw).toBe(0);
   expect(game.targets).toHaveLength(7);
   for (const target of game.targets) expect(target.hp).toBe(TARGET_HP[target.kind]);

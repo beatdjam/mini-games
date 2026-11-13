@@ -21,16 +21,19 @@ import { ALLY_TUNE } from '../data/allies.ts';
 import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
+import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
 import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
+import { LANDING_TUNE } from '../data/landing.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
-import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
+import { FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { AllyFateBy, Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
+import { craftBack, craftRects, inCraftLane } from './craft.ts';
 import {
   newBattery,
   newShutters,
@@ -529,14 +532,16 @@ function openBlastHole(game: GameModel, blast: BlastState): void {
   for (const index of rects) game.rects.splice(index, 1);
 }
 
-// A new sortie on `map` with the script `mission`: the mech at the middle of the front edge, facing the land, every
-// target at its health, and the script at its start.
+// A new sortie on `map` with the script `mission`: the mech on the landing craft's deck at the middle of the front edge,
+// facing the land, every target at its health, and the script at its start.
 export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
   const mech = newMech();
   mech.x = (map.bounds.minX + map.bounds.maxX) / 2;
-  mech.z = map.bounds.maxZ - PLAY_TUNE.startMargin;
+  mech.z = craftZ(map.bounds) + LANDING_TUNE.startDepth;
+  // The deck's height: at 0 the deck's box would push the mech out over the sea.
+  mech.y = CRAFT_TUNE.deckTop;
   mech.yaw = 0;
-  const rects = mapBlockers(map);
+  const rects = [...mapBlockers(map), ...craftRects(map.bounds)];
   // mapBlockers puts the props first and the targets after; blockingPropIndexes gives the prop for each of those rects.
   const propRects = blockingPropIndexes(map);
   const propBoxes: Aabb[] = [];
@@ -829,8 +834,9 @@ function stepBattery(game: GameModel, dt: number): void {
 // off.
 function stepHazards(game: GameModel, dt: number): void {
   // A cutscene holds the mech still, so no barrage counts down or warns of a shell while one plays; the shells already
-  // warned of still land. The barrage starts counting again when the cutscene ends or is skipped.
-  const held = game.script.cutscene !== null;
+  // warned of still land. The landing craft holds it too: the beach's mortar does not drop shells on the boat until the
+  // mech has walked down the ramp. The barrage starts counting again when the mech leaves the craft.
+  const held = game.script.cutscene !== null || game.mech.z > game.map.bounds.maxZ;
   for (const barrage of held ? [] : game.barrages) {
     // a barrage the script's flag slows (the depot's loss) comes that many times as seldom
     const slow = BARRAGES[barrage.kind].slow;
@@ -923,7 +929,10 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   const minX = game.map.bounds.minX + radius;
   const maxX = game.map.bounds.maxX - radius;
   const minZ = game.map.bounds.minZ + radius;
-  const maxZ = game.map.bounds.maxZ - radius;
+  // The ramp's lane is the only way past the map's front edge: in it the mech may go back to the craft's stern.
+  const maxZ = inCraftLane(game.mech.x, game.map.bounds)
+    ? craftBack(game.map.bounds) - radius
+    : game.map.bounds.maxZ - radius;
   if (game.mech.x < minX) {
     game.mech.x = minX;
     if (game.mech.vx < 0) game.mech.vx = 0;

@@ -6,7 +6,10 @@ import { camera, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
+import { craftZ } from '../../src/data/craft.ts';
+import { LANDING_TUNE } from '../../src/data/landing.ts';
 import { M1_MECH_PALETTE } from '../../src/data/mech.ts';
+import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
@@ -163,25 +166,25 @@ const lastKey = (): THREE.Vector3 => {
   return new THREE.Vector3(...last.pos);
 };
 
-const START_Z = 166; // the mech's start (SPEC 3.1; newGame)
+const START_Z = craftZ(M1B_HAND.bounds) + LANDING_TUNE.startDepth; // where newGame puts the mech on the deck
 
-test('the landing draws the mech standing in the craft, then walking down the ramp with its legs swinging', async () => {
+test('the landing draws the mech standing on the deck, not walking', async () => {
   startSortie();
   await until(() => !bars().hidden);
-  // in the craft before the ramp comes down: drawn, behind the start, standing
+  // the deck before the ramp comes down: drawn where the game's mech stands, standing
   game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 6 };
   await frames(10);
   expect(mechModel().visible).toBe(true);
-  expect(mechModel().position.z).toBeGreaterThan(START_Z + 10);
+  expect(mechModel().position.z).toBeCloseTo(START_Z, 6);
+  expect(mechModel().position.y).toBeCloseTo(game().mech.y, 6);
   const rest = legMatrices();
-  // on the ramp: drawn over the craft and the ramp, past the start, and the legs swing
-  game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 8.8 };
+  // the ramp coming down: the model stays on the deck and the legs do not swing
+  game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 2.4 };
   await frames(10);
   expect(mechModel().visible).toBe(true);
-  expect(mechModel().position.z).toBeGreaterThan(START_Z);
-  expect(mechModel().position.z).toBeLessThan(START_Z + 14);
-  expect(legMatrices()).not.toEqual(rest);
-  // the game's own mech never moved
+  expect(mechModel().position.z).toBeCloseTo(START_Z, 6);
+  expect(legMatrices()).toEqual(rest);
+  // the game's own mech is the same place
   expect(game().mech.z).toBeCloseTo(START_Z, 3);
 });
 

@@ -4,7 +4,7 @@ import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { RADIO_TUNE } from '../../src/data/script.ts';
-import { HUD_TUNE, MECH_TUNE, PLAY_TUNE } from '../../src/data/tune.ts';
+import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import {
@@ -304,9 +304,10 @@ test('a planted charge shows its fuse left and full length', () => {
 
 test('a warned aimed shell inside its circle shows the shell warning', () => {
   const game = newGame(M1B_HAND);
-  // the mech's start, clear of the map's props
+  // the mech's old start on the sand, clear of the map's props and off the craft, which holds the barrage
   game.mech.x = 0;
-  game.mech.z = M1B_HAND.bounds.maxZ - PLAY_TUNE.startMargin;
+  game.mech.y = 0;
+  game.mech.z = 166;
   game.mech.yaw = 0;
   // one step short of a full stay, so the next frame's warning lands on the mech
   game.aimed = { anchor: { x: game.mech.x, z: game.mech.z }, still: AIMED_MORTAR.stillSec - 0.1 };

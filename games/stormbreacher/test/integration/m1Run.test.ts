@@ -37,6 +37,7 @@ interface Waypoint {
 // through the hole the charge opens: line 1 at x 40, line 2 at x -10, line 3 at x 61. C's rows (z -55..-35) still have
 // their breakthrough at x 35, right in front of the ramp up the seawall.
 const ROUTE: readonly Waypoint[] = [
+  { x: 0, z: 170, why: 'down the ramp, off the craft' },
   { x: 26, z: 166, why: 'along the sea edge, clear of the mines at x 14 and x 34' },
   { x: 42, z: 160, why: 'the gap between the low walls at x 30 and x 54, 10 m from the mine at x 52' },
   { x: 40, z: 150, why: "in front of line 1's blast point l1-b, and stands to plant", plant: 'l1-b' },
@@ -269,7 +270,7 @@ test(
     const times = STORY.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    // seed 7 took about 130 s of game time and 44 armour (of 200), and left 138 of 400 autocannon shots and 0 of 12 heavy
+    // seed 7 took about 132 s of game time and 35 armour (of 200), and left 104 of 400 autocannon shots and 0 of 12 heavy
     // gun shots; it stepped aside from the aimed mortar 4 times. The limits below keep room for a retune of the values,
     // and fail if the sortie turns out hardly possible
     expect(result.time).toBeLessThan(LIMIT_SECONDS);

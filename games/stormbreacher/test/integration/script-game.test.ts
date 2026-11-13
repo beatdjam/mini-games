@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import { TARGET_HP } from '../../src/data/props.ts';
+import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { newPlayGame } from './playGame.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
@@ -93,7 +94,7 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
     }
   };
 
-  run(idle, 600); // the landing ends after 10 s
+  run(idle, 60 * (CUTSCENE_SEC.landing + 1)); // the landing ends after its 12 s
   game.mech.x = 0;
   game.mech.z = 140;
   run(idle, 1); // the b-line fires the pillboxes cue

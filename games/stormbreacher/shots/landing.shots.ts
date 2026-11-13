@@ -1,5 +1,5 @@
-// Screenshots of the landing's end, where the mech walks down the ramp and the game's camera takes over (SB-1230):
-// npm run shots. Not a test: it is not part of npm test or the CI (the drawn pixels differ between machines).
+// Screenshots of the landing, where the ramp comes down while the mech stands on the deck and the game's camera takes over
+// (SB-1230): npm run shots. Not a test: it is not part of npm test or the CI (the drawn pixels differ between machines).
 // SHOTS_OUT=<folder> picks where the pictures go; SHOTS_ONLY=<text> takes only the shots whose names contain it.
 import { beforeAll, test } from 'vitest';
 import { page } from 'vitest/browser';
@@ -13,9 +13,9 @@ import '../src/main.ts';
 declare const __SHOTS_OUT__: string; // the folder the pictures go to (vitest.shots.config.ts)
 declare const __SHOTS_ONLY__: string; // only the shots whose names contain this ('' = all)
 
-// The landing's seconds to take: the ramp starts coming down at 7, the mech steps onto it at 7.5 and reaches the start at
-// 10; the rest are around the ramp's tip and the change to the game's camera.
-const LANDING_AT = [0, 4, 7, 7.5, 8, 8.5, 9, 9.3, 9.7, 9.95] as const;
+// The landing's seconds to take: the ramp starts coming down at 9.2 and is down at 10.8, when the camera moves in behind
+// the mech; the rest are around the ramp's tip and the change to the game's camera.
+const LANDING_AT = [0, 4, 7.5, 9.5, 10.8, 11.9] as const;
 const HELD_DT = 0; // the loop's step while a shot is taken: the cutscene's second stands still, the page still draws
 const SHOT_CLOCK = 1000; // what performance.now() says while a shot is taken (ms)
 const DRAWN_FRAMES = 3; // frames drawn before the picture, so it does not show the one before the state was set

@@ -9,6 +9,7 @@ import { TARGET_SIZE, TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
 import { blastPropIndexes } from '../logic/blasts.ts';
+import { craftRects } from '../logic/craft.ts';
 import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxesOfRect } from './camera.ts';
 import { buildShore } from './shore.ts';
@@ -104,7 +105,8 @@ export function buildWorld(map: MapDef): World {
 
   // cameraBoxesOfRect runs over mapBlockers' rects, which put the blocking props first in map.props' order, so the
   // boxes of rect i belong to blockingPropIndexes(map)[i]. A breakable prop is one flat rect, so its list holds one box.
-  const rects = mapBlockers(map);
+  // The craft's rects come after the map's, so the props' places still line up.
+  const rects = [...mapBlockers(map), ...craftRects(map.bounds)];
   const boxesByRect = rects.map(cameraBoxesOfRect);
   const boxes = boxesByRect.flat();
   const slots = new Map<number, PropSlot>();

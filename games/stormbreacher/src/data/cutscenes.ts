@@ -46,24 +46,20 @@ export interface CutsceneDef {
   events: readonly CutsceneEvent[];
 }
 
-// The map is M1B_HAND: the mech starts at (0, 166) looking to -z, the player's craft lies at z 175-187 behind it and the
-// sea is +z. The last key is the game's own camera behind the mech at the start (the test compares it with cameraPose).
-// The landing's mech walks down the ramp: it stands on the deck (y 1.7, in the craft), starts once the ramp is nearly
-// down, crosses the ramp's hinge (z 175) and its tip on the sand (z 170.3) and ends at the start (0, 166) at the last second.
+// The map is M1B_HAND: the mech waits on the craft's deck at (0, 1.8, 177) looking to -z, the player's craft lies at
+// z 175-187 behind it and the sea is +z. The last key is the game's own camera behind the mech at the start (the test
+// compares it with cameraPose). The mech stands on the deck the whole time and the ramp comes down; the player walks down
+// it once the cutscene has handed over the controls.
 export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
   landing: {
     camera: [
       { at: 0, pos: [-8, 9, 206], look: [-10, 1, 170] }, // over the sea behind the craft, the craft and the beach in view
       { at: 4, pos: [30, 5, 178], look: [-14, 2, 175] }, // from the side along the row of craft
-      { at: 7, pos: [16, 5, 172], look: [0, 3, 178] }, // beside the ramp, the mech on the deck and the ramp coming down
-      { at: 10, pos: [2.15, 4.4, 174.6], look: [2.15, 2.9, 166] }, // behind the mech, where the game's camera takes over
+      { at: 7.5, pos: [16, 5, 172], look: [0, 3, 178] }, // beside the ramp, the mech on the deck
+      { at: 10.8, pos: [2.15, 5.2, 180], look: [2.15, 3.4, 176] }, // in the craft behind the mech, the ramp fully down
+      { at: 12, pos: [2.15, 6.2, 185.6], look: [2.15, 4.7, 177] }, // the game's camera behind the mech at the start
     ],
-    mech: [
-      { at: 7.5, pos: [0, 1.7, 180] },
-      { at: 8.5, pos: [0, 1.7, 175] },
-      { at: 9.3, pos: [0, 0, 170.3] },
-      { at: 10, pos: [0, 0, 166] },
-    ],
+    mech: [{ at: 0, pos: [0, 1.8, 177] }],
     lines: [
       { from: 0.5, to: 3.5, key: 'cutscene.landing.wave' },
       { from: 3.8, to: 6.3, key: 'cutscene.landing.hit' },
@@ -71,7 +67,7 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
     ],
     events: [
       { at: 4.2, kind: 'sink', x: -20, sec: 2.5 },
-      { at: 7, kind: 'ramp', sec: 1.5 },
+      { at: 9.2, kind: 'ramp', sec: 1.6 },
     ],
   },
   // The second wave goes down at sea (the sea starts at z 170, the player's craft's body at z 175). The camera starts
