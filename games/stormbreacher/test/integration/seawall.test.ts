@@ -1,6 +1,6 @@
-// The low walls on the beach and the stairs up the seawall (SB-120), walked with inputs: a low wall stops a walk and
-// lets a jump over, a flight of stairs is walked up to the seawall's top and into M1's seawall-top place, and the
-// ground in front of the seawall is not that place.
+// The low walls on the beach and the ramps up the seawall (SB-120), walked with inputs: a low wall stops a walk and
+// lets a jump over, a ramp is walked up to the seawall's top and into M1's seawall-top place, and the ground in front
+// of the seawall is not that place.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
@@ -35,7 +35,7 @@ function newBeachGame(): GameModel {
 }
 
 const lowWall = M1B_HAND.props.filter(prop => prop.kind === 'lowWall')[0];
-const stairs = M1B_HAND.props.filter(prop => prop.kind === 'stairs');
+const ramps = M1B_HAND.props.filter(prop => prop.kind === 'ramp');
 
 test('walking into a low wall stops the mech in front of it', () => {
   const game = newBeachGame();
@@ -58,18 +58,18 @@ test('a jump takes the mech over a low wall', () => {
   expect(game.mech.z).toBeLessThan(lowWall.z - PROP_SIZE.lowWall.d / 2 - MECH_TUNE.radius);
 });
 
-test('a flight of stairs is walked up to the seawall and into the seawall-top place', () => {
-  for (const flight of stairs) {
+test('a ramp is walked up to the seawall and into the seawall-top place', () => {
+  for (const ramp of ramps) {
     const game = newBeachGame();
-    // in the breakthrough of the line before the seawall (between its two rows, z -50 and z -40), facing the stairs;
-    // the walk goes straight through the line's last row and up the steps
-    game.mech.x = flight.x;
+    // in the breakthrough of the line before the seawall (between its two rows, z -50 and z -40), facing the ramp;
+    // the walk goes straight through the line and up the slope
+    game.mech.x = ramp.x;
     game.mech.z = -45;
-    // up the steps and onto the seawall, stopping when the place is entered (the walk would go on and drop off the back)
+    // up the ramp and onto the seawall, stopping when the place is entered (the walk would go on and drop off the back)
     for (let i = 0; i < 300 && !game.script.entered.includes('seawall-top'); i++) {
       step(game, { ...idle, moveZ: 1 }, DT);
     }
-    expect(game.mech.y, `flight at x ${flight.x}`).toBeCloseTo(PROP_SIZE.seawall.h, 2);
+    expect(game.mech.y, `ramp at x ${ramp.x}`).toBeCloseTo(PROP_SIZE.seawall.h, 2);
     const area = M1.areas['seawall-top'];
     expect(game.mech.z).toBeLessThan(area.z + area.d / 2);
     expect(game.script.entered).toContain('seawall-top');

@@ -25,7 +25,7 @@ import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { FCS_TUNE, MECH_TUNE, PLAY_TUNE } from '../data/tune.ts';
 import type { Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
-import { rectBox, type GroundRect } from './collide.ts';
+import { rectBox, rectBoxes, type GroundRect } from './collide.ts';
 import {
   newBattery,
   newShutters,
@@ -191,7 +191,7 @@ export interface GameModel {
   armor: number; // the mech's armour left (MECH_TUNE.armor at the start)
   downed: boolean; // set when the armour reaches 0; step does nothing after
   rects: GroundRect[]; // the map's blockers (mapBlockers)
-  propBoxes: Aabb[]; // the props' boxes, which stop a shot
+  propBoxes: Aabb[]; // the props' boxes, which stop a shot; a ramp is a stack that follows its slope
   propRefs: number[]; // the prop's place in map.props for each propBoxes entry
   breakables: BreakableState[]; // the breakable blocking props, with their health
   targets: TargetState[];
@@ -446,6 +446,17 @@ function stepBullets(game: GameModel, dt: number): void {
   game.bullets = game.bullets.filter(bullet => !flyBullet(game, bullet, dt));
 }
 
+// The place in game.rects of the rect the prop box at boxIndex wraps. propBoxes holds one box per prop rect, or a
+// stack of them for a ramp, in the same order as the rects, so the boxes are counted along until boxIndex falls in one.
+function rectIndexOfBox(game: GameModel, boxIndex: number): number {
+  let seen = 0;
+  for (let i = 0; i < game.rects.length; i++) {
+    seen += rectBoxes(game.rects[i]).length;
+    if (boxIndex < seen) return i;
+  }
+  return -1;
+}
+
 // Takes `damage` off the prop at `boxIndex` when it can break. At 0 the prop leaves rects, propBoxes and propRefs at that
 // same place, in place, so the mech's path opens without a new array (step hands game.rects to stepMech as it is) and the
 // frame reports it. A prop with no health left never comes back.
@@ -455,9 +466,13 @@ function damageProp(game: GameModel, boxIndex: number, damage: number): void {
   if (!breakable) return;
   breakable.hp = Math.max(0, breakable.hp - damage);
   if (breakable.hp > 0) return;
-  game.rects.splice(boxIndex, 1);
-  game.propBoxes.splice(boxIndex, 1);
-  game.propRefs.splice(boxIndex, 1);
+  const rectIndex = rectIndexOfBox(game, boxIndex);
+  for (let i = game.propRefs.length - 1; i >= 0; i--) {
+    if (game.propRefs[i] !== prop) continue;
+    game.propBoxes.splice(i, 1);
+    game.propRefs.splice(i, 1);
+  }
+  if (rectIndex >= 0) game.rects.splice(rectIndex, 1);
   const place = game.map.props[prop];
   game.events.push({ kind: 'propDestroyed', prop, x: place.x, z: place.z });
 }
@@ -470,8 +485,16 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
   mech.z = map.bounds.maxZ - PLAY_TUNE.startMargin;
   mech.yaw = 0;
   const rects = mapBlockers(map);
-  // mapBlockers puts the props first and the targets after, so the first propRefs.length rects are the props.
-  const propRefs = blockingPropIndexes(map);
+  // mapBlockers puts the props first and the targets after; blockingPropIndexes gives the prop for each of those rects.
+  const propRects = blockingPropIndexes(map);
+  const propBoxes: Aabb[] = [];
+  const propRefs: number[] = [];
+  propRects.forEach((prop, i) => {
+    for (const box of rectBoxes(rects[i])) {
+      propBoxes.push(box);
+      propRefs.push(prop);
+    }
+  });
   return {
     time: 0,
     map,
@@ -482,7 +505,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     armor: MECH_TUNE.armor,
     downed: false,
     rects,
-    propBoxes: rects.slice(0, propRefs.length).map(rectBox),
+    propBoxes,
     propRefs,
     breakables: propRefs
       .filter(index => map.props[index].breakable === true)

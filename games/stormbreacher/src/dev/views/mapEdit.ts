@@ -54,6 +54,7 @@ const PROP_LABEL: Record<PropKind, string> = {
   wreck: '残骸',
   lowWall: '低い障害物',
   stairs: '階段',
+  ramp: '坂',
 };
 
 const TARGET_LABEL: Record<TargetKind, string> = {

@@ -82,7 +82,8 @@ export type PropKind =
   | 'crater'
   | 'wreck'
   | 'lowWall' // a low obstacle: too high to walk onto, low enough to jump over
-  | 'stairs'; // one flight of steps up the seawall; its rects are one per step (STAIRS_TUNE)
+  | 'stairs' // one flight of steps up the seawall; its rects are one per step (STAIRS_TUNE)
+  | 'ramp'; // one ramp up the seawall; one rect whose top slopes down to its seaward end (RAMP_TUNE)
 
 export const PROP_KINDS: readonly PropKind[] = [
   'tile',
@@ -95,6 +96,7 @@ export const PROP_KINDS: readonly PropKind[] = [
   'wreck',
   'lowWall',
   'stairs',
+  'ramp',
 ];
 
 export interface Prop {

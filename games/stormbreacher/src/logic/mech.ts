@@ -3,7 +3,7 @@
 // forward; touch (SB-030) gives the same shape as the keyboard. Given the map's rects, the mech cannot enter them.
 // A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
 import type { MoveTune } from '../data/tuneTypes.ts';
-import { groundAt, pushOutCircle, type GroundRect } from './collide.ts';
+import { groundAt, groundIsRamp, pushOutCircle, type GroundRect } from './collide.ts';
 
 export interface MechInput {
   moveX: number; // the mech's right/left input (-1 to 1, right is +)
@@ -208,13 +208,16 @@ function stepOnce(
         m.vz -= dot * hit.nz;
       }
     }
-    // On the ground: step up onto what is now under the feet, or start falling when nothing is.
+    // On the ground: step up onto what is now under the feet, or start falling when nothing is. A ramp's drop within
+    // the step height is walked down too, so its surface is followed smoothly instead of being fallen off every step;
+    // any other edge leaves the mech falling, as before.
     if (m.grounded) {
       const under = groundAt(m.x, m.z, world.radius, world.rects, m.y + tune.stepHeight);
       if (under > m.y) {
         m.y = under;
       } else if (under < m.y - 1e-6) {
-        m.grounded = false;
+        if (m.y - under <= tune.stepHeight && groundIsRamp(m.x, m.z, world.rects, m.y + tune.stepHeight)) m.y = under;
+        else m.grounded = false;
       }
     }
   }

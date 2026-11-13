@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import type { CameraTune } from '../data/tuneTypes.ts';
-import { rectBox, type GroundRect } from '../logic/collide.ts';
+import { rectBoxes, type GroundRect } from '../logic/collide.ts';
 import type { Ray3 } from '../logic/fcs.ts';
 import type { Aabb } from '../logic/fire.ts';
 
@@ -45,9 +45,15 @@ function nearestHit(origin: THREE.Vector3, dir: THREE.Vector3, max: number, boxe
 }
 
 // The rects as boxes the camera keeps out of: each rect's box up to its top, or up to WALL_HEIGHT when it has no top.
+// A ramp becomes a stack of boxes along its slope (rectBoxes), so the camera line meets the surface rather than the
+// air over the low end. Every flat rect is still one box.
 export function cameraBoxes(rects: readonly GroundRect[]): THREE.Box3[] {
-  return rects.map(rect => {
-    const box = rectBox(rect);
+  return rects.flatMap(cameraBoxesOfRect);
+}
+
+// The boxes one rect gives the camera; a ramp is a stack (see collide.ts's rectBoxes).
+export function cameraBoxesOfRect(rect: GroundRect): THREE.Box3[] {
+  return rectBoxes(rect).map(box => {
     const top = rect.top === undefined ? WALL_HEIGHT : box.maxY;
     return new THREE.Box3(new THREE.Vector3(box.minX, box.minY, box.minZ), new THREE.Vector3(box.maxX, top, box.maxZ));
   });

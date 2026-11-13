@@ -4,8 +4,10 @@ import { PROP_SIZE, STAIRS_TUNE, STAIR_RISE, TARGET_SIZE } from '../data/props.t
 import type { MapDef, Prop } from '../data/types.ts';
 import type { GroundRect } from './collide.ts';
 
-// The rects of one blocking prop: one for most, one per step for stairs. A flight climbs towards -z at yaw 0 (the lowest
-// step on the +z side), and each step's top is STAIR_RISE higher than the one before. The prop's scale stretches it.
+// The rects of one blocking prop: one for most, one per step for stairs, one slanted rect for a ramp. A flight climbs
+// towards -z at yaw 0 (the lowest step on the +z side), and each step's top is STAIR_RISE higher than the one before.
+// A ramp climbs the same way: one rect with `ramp`, its top the height at the -z edge (see collide.ts's surfaceAt).
+// The prop's scale stretches it.
 function propRects(prop: Prop): GroundRect[] {
   const size = PROP_SIZE[prop.kind];
   if (prop.kind !== 'stairs') {
@@ -17,6 +19,7 @@ function propRects(prop: Prop): GroundRect[] {
         halfD: (size.d * prop.scale) / 2,
         yaw: prop.yaw,
         top: size.h * prop.scale,
+        ramp: prop.kind === 'ramp' ? true : undefined,
       },
     ];
   }
@@ -38,7 +41,7 @@ function propRects(prop: Prop): GroundRect[] {
 }
 
 // For each rect of the blocking props, in mapBlockers' order, the place in map.props of the prop it belongs to. A prop
-// with steps appears once per step.
+// with steps appears once per step; a ramp appears once.
 export function blockingPropIndexes(map: MapDef): number[] {
   const indexes: number[] = [];
   map.props.forEach((prop, index) => {
@@ -49,8 +52,8 @@ export function blockingPropIndexes(map: MapDef): number[] {
 }
 
 // Every blocking prop and every target, as a rect on the ground: the table's w and d with the prop's scale, turned by
-// its yaw and topped at its height (stairs: one rect per step). Breakable props block too in the shape the map was
-// made; game.ts takes a broken prop out of GameModel.rects.
+// its yaw and topped at its height (stairs: one rect per step; ramp: one slanted rect). Breakable props block too in the
+// shape the map was made; game.ts takes a broken prop out of GameModel.rects.
 export function mapBlockers(map: MapDef): GroundRect[] {
   const rects: GroundRect[] = [];
   for (const prop of map.props) {
