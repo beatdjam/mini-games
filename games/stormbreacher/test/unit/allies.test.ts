@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { ALLY_FATES, ALLY_TUNE } from '../../src/data/allies.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { enemyTracerTargets, moveAlly, nearestIndex, newAlly, stepAlly } from '../../src/logic/allies.ts';
+import { enemyTracerTarget, moveAlly, nearestIndex, newAlly, stepAlly } from '../../src/logic/allies.ts';
 
 const DT = 1 / 60;
 const WAY = M1.paths['beach-run'];
@@ -80,10 +80,10 @@ test('a way with no point is refused', () => {
 });
 
 test('moving an ally swaps its way, starts at the next point and faces on from where it stands', () => {
-  const ally = newAlly('cover-b1', M1.paths['b1-run'], null);
+  const ally = newAlly('cover-b1', M1.paths['b1-run-l1b'], null);
   stepAlly(ally, 60 / ALLY_TUNE.speed); // 60 m along the way, so it stands away from the first point
   const from = { x: ally.x, z: ally.z };
-  const next = M1.paths['c1-run'];
+  const next = M1.paths['c1-run-l2a-l3b'];
   moveAlly(ally, next);
   expect(ally.next).toBe(1);
   // the state does not jump to the new way's first point: it runs on from where it stood
@@ -98,7 +98,7 @@ test('a fallen ally keeps the way and the place it fell at', () => {
   const ally = newAlly('buddy', WAY, FATE);
   while (!ally.down) stepAlly(ally, DT);
   const was = { way: ally.way, next: ally.next, x: ally.x, z: ally.z };
-  moveAlly(ally, M1.paths['c1-run']);
+  moveAlly(ally, M1.paths['c1-run-l2a-l3b']);
   expect(ally.way).toBe(was.way);
   expect(ally.next).toBe(was.next);
   expect([ally.x, ally.z]).toEqual([was.x, was.z]);
@@ -134,26 +134,22 @@ test('nearestIndex gives null for no points', () => {
   expect(nearestIndex({ x: 0, z: 0 }, [], 70)).toBeNull();
 });
 
-test('enemyTracerTargets picks a living, awake enemy’s nearest ally, and leaves the others out', () => {
+test('enemyTracerTarget picks a living, awake enemy’s nearest ally', () => {
   const allies = [
     { x: 0, z: 10 },
     { x: 0, z: -10 },
   ];
-  const enemies = [
-    { id: 'awake', x: 50, z: 0, hp: 1, awake: true },
-    { id: 'asleep', x: 50, z: 0, hp: 1, awake: false },
-    { id: 'dead', x: 50, z: 0, hp: 0, awake: true },
-    { id: 'far', x: 500, z: 0, hp: 1, awake: true },
-  ];
-  const targets = enemyTracerTargets(enemies, allies, 70, false);
-  expect([...targets.keys()]).toEqual(['awake', 'far']);
+  const enemy = { id: 'awake', x: 50, z: 0, hp: 1, awake: true };
   // both allies are 50 m away: the first of equal distances is the one nearestIndex gives
-  expect(targets.get('awake')).toEqual(allies[0]);
-  // an awake enemy with no ally in range still gets its timer, then fires nothing
-  expect(targets.get('far')).toBeNull();
+  expect(enemyTracerTarget(enemy, allies, 70, false)).toEqual(allies[0]);
+  // an awake enemy with no ally in range fires nothing
+  expect(enemyTracerTarget({ ...enemy, x: 500 }, allies, 70, false)).toBeNull();
 });
 
-test('enemyTracerTargets shows nothing during a cutscene', () => {
-  const targets = enemyTracerTargets([{ id: 'awake', x: 0, z: 0, hp: 1, awake: true }], [{ x: 0, z: 5 }], 70, true);
-  expect(targets.size).toBe(0);
+test('enemyTracerTarget leaves out a sleeping or dead enemy, and shows nothing during a cutscene', () => {
+  const allies = [{ x: 0, z: 5 }];
+  const enemy = { id: 'awake', x: 0, z: 0, hp: 1, awake: true };
+  expect(enemyTracerTarget({ ...enemy, awake: false }, allies, 70, false)).toBeNull();
+  expect(enemyTracerTarget({ ...enemy, hp: 0 }, allies, 70, false)).toBeNull();
+  expect(enemyTracerTarget(enemy, allies, 70, true)).toBeNull();
 });

@@ -27,9 +27,19 @@ export type Trigger =
   | { kind: 'enter'; area: string }
   | { kind: 'destroyed'; targets: readonly string[]; count?: number }
   | { kind: 'blast'; ids: readonly string[] }
+  | { kind: 'ashore' } // the mech has left the landing craft (mech.z at or past the map's front edge)
   | { kind: 'cleared'; wave: string }
   | { kind: 'after'; cue: string; sec: number } // sec 0 fires in the same frame as the cue it follows
   | { kind: 'flag'; name: string };
+
+// A way the player's first blast in each line decides. `lines` lists each line's blast points in the order the run
+// crosses their lines; the first point of a line that the game blew picks that line's part. `paths` maps the chosen ids,
+// joined with '+', to a path name. A line with no blown point falls back to its first id, which keeps a checkpoint or a
+// test that reaches the cue without the blast on the expected way.
+export interface HolePaths {
+  lines: readonly (readonly string[])[];
+  paths: Readonly<Record<string, string>>;
+}
 
 // How an ally falls (`fate.by` of a script's `ally` action): a mortar shell on the beach, or a machine gun on the
 // bunker line. ALLY_FATES in data/allies.ts lists them for validateMission.
@@ -40,8 +50,8 @@ export type Action =
   | { kind: 'objective'; id: string }
   | { kind: 'radio'; line: string }
   | { kind: 'spawn'; wave: string }
-  | { kind: 'ally'; id: string; path: string; fate?: { at: string; by: AllyFateBy; call?: string } }
-  | { kind: 'allyMove'; id: string; path: string } // an ally already out takes the next way
+  | { kind: 'ally'; id: string; path: string | HolePaths; fate?: { at: string; by: AllyFateBy; call?: string } }
+  | { kind: 'allyMove'; id: string; path: string | HolePaths } // an ally already out takes the next way
   | { kind: 'cutscene'; id: CutsceneId }
   | { kind: 'checkpoint'; id: string }
   | { kind: 'flag'; name: string }

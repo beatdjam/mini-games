@@ -13,6 +13,8 @@ export function newPlayGame(map: MapDef, mission: MissionDef = M1): GameModel {
   game.mech.x = 0;
   game.mech.y = 0;
   game.mech.z = 166;
+  // the mech has stepped off the craft: the script puts the beach's allies out now
+  sendToScript(game, { kind: 'ashore' });
   game.events = [];
   return game;
 }

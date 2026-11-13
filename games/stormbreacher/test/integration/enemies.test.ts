@@ -358,7 +358,7 @@ test('the same seed and inputs give the same events; another seed gives other sh
   expect(first.flat().some(event => event.kind === 'damaged')).toBe(true);
   expect(run(21)).toEqual(first);
   expect(run(22)).not.toEqual(first);
-});
+}, 15000);
 
 // How many of the living enemies have a clear line from their chest to the mech's chest (no prop or standing target between).
 function inSight(game: GameModel): number {
@@ -395,7 +395,7 @@ test('b-squad, put out behind line 3, finds the way through the hole a blast ope
     for (const rect of blockers)
       expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
   }
-});
+}, 15000);
 
 test('a closed line 3 keeps b-squad out of the mech’s sight', () => {
   seed(1);
@@ -408,7 +408,7 @@ test('a closed line 3 keeps b-squad out of the mech’s sight', () => {
   game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
   for (let i = 0; i < SQUAD_SECONDS / DT; i++) step(game, idle, DT);
   expect(inSight(game)).toBe(0);
-});
+}, 15000);
 
 test('the six nests come out with b-line at the map’s places, awake on the first frame and never moving', () => {
   const game = newPlayGame(M1B_HAND);

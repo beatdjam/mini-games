@@ -123,19 +123,29 @@ test('the first step starts the landing and the beach', () => {
     'objective:reach-pillboxes',
     'map:wave2:on',
     'spawn:beach-mortar',
-    'ally:buddy',
-    'ally:cover-b1',
-    'ally:cover-b2',
-    'ally:cover-b3',
   ]);
   expect(game.script.objective).toBe('reach-pillboxes');
   expect(game.script.marks).toEqual(['wave2']);
+  expect(game.allies).toEqual([]);
+});
+
+test('stepping off the craft puts the beach allies out', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'skip' });
+  game.mech.x = 0;
+  game.mech.z = 166;
+  step(game, idle, 1 / 60);
+  expect(scriptLabels(game)).toEqual(['ally:buddy', 'ally:cover-b1', 'ally:cover-b2', 'ally:cover-b3']);
 });
 
 test('entering the b-line changes the objective and brings a radio line', () => {
   const game = newGame(M1B_HAND);
   step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'skip' });
   game.mech.x = 0;
+  game.mech.z = 166;
+  step(game, idle, 1 / 60); // the ashore cue
   game.mech.z = 140;
   step(game, idle, 1 / 60);
   expect(scriptLabels(game)).toEqual([
@@ -186,7 +196,7 @@ test('the whole of M1 runs from the landing to the cleared result', () => {
   expect(game.script.ended).toBe('cleared');
   expect(game.cleared).toBe(true);
   expect(cleared).toBe(1);
-});
+}, 15000);
 
 test('the game stops once the script has ended', () => {
   const game = newGame(M1B_HAND);

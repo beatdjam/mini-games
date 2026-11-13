@@ -5,7 +5,7 @@ import { CRAFT_TUNE, craftZ } from '../../src/data/craft.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { LANDING_RIDERS } from '../../src/data/landing.ts';
+import { LANDING_RIDERS, LANDING_TUNE } from '../../src/data/landing.ts';
 import {
   hasCutscene,
   cutsceneEvents,
@@ -132,13 +132,14 @@ test('the keys inside the craft keep the mech out of its see-through distance', 
 
 test('the landing sinks two craft to port, out at sea, and no blast is put in its last 1.5 seconds', () => {
   // the two craft of the row that the outside shot watches go down (the near craft beside the player's has no z: it
-  // begins where the player's craft does, and the 6 s key turns to it)
+  // begins where the player's craft does, and the 6.4 s burst takes it)
   const sinks = landing.events.filter(event => event.kind === 'sink' && event.z !== undefined);
   const bursts = landing.events.filter(event => event.kind === 'burst');
   expect(sinks).toHaveLength(2);
   // two shells hit the craft to port and the third is the near miss beside the player's craft that takes the riders
   expect(bursts).toHaveLength(3);
-  const nearMiss = bursts.find(event => event.kind === 'burst' && event.x < 0 && event.z < 175 + CRAFT_TUNE.length);
+  // the near miss is the one off the player's port side at 6.4 s, not just any burst on the craft's side of the sea
+  const nearMiss = bursts.find(event => event.kind === 'burst' && event.x === -6 && event.z === 180);
   expect(nearMiss).toBeDefined();
   for (const sink of sinks) {
     if (sink.kind !== 'sink') throw new Error('not a sink');
@@ -338,8 +339,23 @@ test('the near shell takes r1 and r5, the sweep takes r2, r3 and r4, and r6 stan
   expect(riderFall('r1', 7.3, events)).toBeCloseTo(1, 9);
   expect(riderFall('r2', 11.9, events)).toBeCloseTo(1, 9);
   expect(riderFall('r3', 11.9, events)).toBeCloseTo(1, 9);
-  expect(riderFall('r4', 11.9, events)).toBeCloseTo(1, 9);
+  expect(riderFall('r4', CUTSCENE_SEC.landing, events)).toBeCloseTo(1, 9);
   expect(riderFall('r6', CUTSCENE_SEC.landing, events)).toBe(0);
+});
+
+test('each fall starts after a tracer has reached the deck', () => {
+  const tracers = landing.events.filter(event => event.kind === 'tracers');
+  const arrivals = tracers.map(event => event.at + (event.z - LANDING_TUNE.tracer.fromZ) / LANDING_TUNE.tracer.speed);
+  expect(arrivals.length).toBeGreaterThan(0);
+  // the 6.5 s riders fall to the near shell, not to the sweep: only the falls after the first tracer are checked
+  const firstTracer = Math.min(...tracers.map(event => event.at));
+  for (const event of landing.events) {
+    if (event.kind !== 'riders' || event.at < firstTracer) continue;
+    expect(
+      arrivals.some(arrival => arrival <= event.at + 1e-9),
+      `the riders at ${event.at} s fall before every tracer arrives`,
+    ).toBe(true);
+  }
 });
 
 test('the tracers come only after the ramp is down and nothing blows up in the last half second', () => {

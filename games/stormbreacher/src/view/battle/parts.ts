@@ -39,6 +39,8 @@ export function soldierMeshes(capacity = MAX_SOLDIERS): { bodies: THREE.Instance
     new THREE.MeshLambertMaterial({ color: ALLY_HEAD_COLOR }),
     capacity,
   );
+  bodies.name = 'sb-battle-bodies';
+  heads.name = 'sb-battle-heads';
   for (const mesh of [bodies, heads]) {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;

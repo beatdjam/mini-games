@@ -1,9 +1,11 @@
 // The mech walks on the player's craft: up the ramp from the sand, along the deck without leaving it over the side, and
 // back down the ramp, and it cannot pass the map's front edge outside the ramp's lane.
 import { expect, test } from 'vitest';
+import { CRAFT_TUNE } from '../../src/data/craft.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { craftRects } from '../../src/logic/craft.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
@@ -68,10 +70,17 @@ test('outside the ramp’s lane the mech stops at the map’s front edge', () =>
 test('the deck’s side wall keeps the mech from walking off into the sea', () => {
   const game = onDeck();
   const startZ = game.mech.z;
+  // the wall's inner face, from the same boxes the walking uses, and the mech's radius back from it
+  const cx = (M1B_HAND.bounds.minX + M1B_HAND.bounds.maxX) / 2;
+  const rightWall = craftRects(M1B_HAND.bounds).find(
+    rect => rect.x > cx && rect.top === CRAFT_TUNE.hullTop + CRAFT_TUNE.wallHeight,
+  );
+  if (!rightWall) throw new Error('the craft has no right side wall');
+  const expected = rightWall.x - rightWall.halfW - MECH_TUNE.radius - cx;
   // face +x and walk into the side wall
   game.mech.yaw = -Math.PI / 2;
   walk(game, 120, { ...idle, moveZ: 1 });
-  expect(Math.abs(game.mech.x)).toBeLessThanOrEqual(2 + 1e-3);
+  expect(game.mech.x).toBeCloseTo(expected, 2);
   expect(game.mech.y).toBeCloseTo(1.8, 3);
   expect(game.mech.z).toBeCloseTo(startZ, 3);
 });

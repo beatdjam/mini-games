@@ -9,7 +9,7 @@ import { ALLY_TUNE } from '../data/allies.ts';
 import { ALLY_PALETTE, ALLY_WRECK_PALETTE } from '../data/colors.ts';
 import { ENEMIES, ENEMY_CHEST } from '../data/enemies.ts';
 import { M1_MECH, M1_WEAPON_SCALE } from '../data/mech.ts';
-import { enemyTracerTargets, nearestIndex } from '../logic/allies.ts';
+import { enemyTracerTarget, nearestIndex } from '../logic/allies.ts';
 import { spreadDir } from '../logic/fcs.ts';
 import type { GameModel } from '../logic/game.ts';
 import type { Battle } from './battle/index.ts';
@@ -120,12 +120,12 @@ export function drawAllies(view: AllyView, game: GameModel, battle: Battle, rng:
 // Gives the living enemies a tracer at the nearest ally now and then. No hit: it is only a look, and the enemy's real
 // shots are EnemyBullet. The enemies show these at their own intervals, not at the ones of their real fire.
 function drawEnemyTracers(view: AllyView, game: GameModel, battle: Battle, rng: Rng, dt: number): void {
+  if (game.script.cutscene !== null) return;
   const allies = game.allies.filter(ally => !ally.down);
   if (allies.length === 0) return;
-  const targets = enemyTracerTargets(game.enemies, allies, ALLY_TUNE.enemyTracerRange, game.script.cutscene !== null);
   const speed = ALLY_TUNE.tracerSpeed;
   for (const enemy of game.enemies) {
-    if (!targets.has(enemy.id)) continue;
+    if (enemy.hp <= 0 || !enemy.awake) continue;
     let wait = view.enemyFireT.get(enemy.id);
     if (wait === undefined) wait = rng.rand(0, ALLY_TUNE.enemyTracerEvery);
     wait -= dt;
@@ -133,8 +133,9 @@ function drawEnemyTracers(view: AllyView, game: GameModel, battle: Battle, rng: 
       view.enemyFireT.set(enemy.id, wait);
       continue;
     }
-    const ally = targets.get(enemy.id) ?? null;
     view.enemyFireT.set(enemy.id, ALLY_TUNE.enemyTracerEvery);
+    // the pick is made only on the frame the tracer is due, not for every awake enemy every frame
+    const ally = enemyTracerTarget(enemy, allies, ALLY_TUNE.enemyTracerRange, false);
     if (ally === null) continue;
     const from = { x: enemy.x, y: enemy.y + ENEMIES[enemy.kind].height * ENEMY_CHEST, z: enemy.z };
     const to = { x: ally.x, y: ally.y + ALLY_TUNE.fireHeight, z: ally.z };

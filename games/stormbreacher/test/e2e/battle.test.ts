@@ -5,10 +5,12 @@ import { runSystems } from '@engine/core/index.ts';
 import { drawStats, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PLAY_BATTLE_TUNE } from '../../src/data/tune.ts';
 import { ALLY_MESH_NAME } from '../../src/view/allies.ts';
-import { BATTLE_GROUP_NAME } from '../../src/view/battle/index.ts';
+import { BATTLE_GROUP_NAME, buildBattle } from '../../src/view/battle/index.ts';
 import { sendToScript, step, type GameInput } from '../../src/logic/game.ts';
+import { stream } from '../../src/logic/rng.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -55,6 +57,13 @@ function allyGroups(): THREE.Group[] {
   return scene.children.filter((child): child is THREE.Group => child.name === ALLY_MESH_NAME);
 }
 
+// The battle's infantry bodies, named in parts.ts so the test can read how many are drawn.
+function battleBodies(): THREE.InstancedMesh {
+  const bodies = battleGroups()[0].getObjectByName('sb-battle-bodies');
+  if (!(bodies instanceof THREE.InstancedMesh)) throw new Error('the battle has no soldier bodies');
+  return bodies;
+}
+
 test('a sortie draws the battle: the allies walking, the holes and the smoke, in one group', async () => {
   startSortie();
   await frames(3);
@@ -71,6 +80,42 @@ test('a sortie draws the battle: the allies walking, the holes and the smoke, in
   console.log(`sortie after the cutscene: ${drawStats()}`);
 });
 
+test('the battlefield holds still during the landing and starts when the controls do', async () => {
+  startSortie();
+  await frames(3);
+  const bodies = battleBodies();
+  // the landing's frames do not move the infantry: it starts at the sea edge and is not drawn yet
+  expect(bodies.count).toBe(0);
+  for (let i = 0; i < 120; i++) runSystems(1 / 60);
+  await frames(1);
+  expect(bodies.count).toBe(0);
+  // the first controlled frame steps the battle and draws the first wave
+  sendToScript(game(), { kind: 'skip' });
+  runSystems(1 / 60);
+  await frames(1);
+  expect(bodies.count).toBeGreaterThan(0);
+});
+
+test('a blast of the game takes the soldiers near it', () => {
+  const tune = {
+    ...PLAY_BATTLE_TUNE,
+    shellEvery: 0,
+    squadFallRadius: 0,
+    squadFallShare: 0,
+    allyDeathRate: 0,
+    shellFallRadius: 10,
+    shellFallShare: 1,
+  };
+  const battle = buildBattle(M1B_HAND, tune, stream('battle'), stream('craters'), { x: 0, z: 166 }, null);
+  const soldier = battle.crowd.soldiers[0];
+  if (!soldier) throw new Error('the battle put out no soldier');
+  const before = battle.counts().fallen;
+  battle.blast(soldier.x, soldier.z);
+  expect(battle.counts().fallen).toBeGreaterThan(before);
+  expect(soldier.alive).toBe(false);
+  battle.dispose();
+});
+
 test('starting again builds the battle anew, and leaves one', async () => {
   startSortie();
   await frames(2);
@@ -79,12 +124,17 @@ test('starting again builds the battle anew, and leaves one', async () => {
   expect(battleGroups()).toHaveLength(1);
 });
 
-test('the cutscene shows no ally, and the allies run and then lie down once the cutscene is over', async () => {
+test('the cutscene shows no ally, and the ashore input puts them out and then lies them down', async () => {
   startSortie();
   await frames(3);
-  expect(game().allies).toHaveLength(4);
+  // the beach's allies wait until the mech has left the craft
+  expect(game().allies).toHaveLength(0);
   expect(allyGroups()).toHaveLength(0);
   sendToScript(game(), { kind: 'skip' });
+  await frames(2);
+  expect(game().allies).toHaveLength(0);
+  expect(allyGroups()).toHaveLength(0);
+  sendToScript(game(), { kind: 'ashore' });
   await frames(2);
   expect(allyGroups()).toHaveLength(8);
   const buddyGroups = allyGroups().filter(group => group.userData.allyId === 'buddy');

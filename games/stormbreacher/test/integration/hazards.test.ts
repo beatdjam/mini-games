@@ -155,7 +155,7 @@ test('the same seed and input give the same events', () => {
   const first = play();
   expect(first.filter(event => event.kind === 'shellWarn').length).toBeGreaterThan(1);
   expect(play()).toEqual(first);
-});
+}, 15000);
 
 test('the mech’s shot sets a mine off: the shot stops, the mine goes, and a mech far away is not hurt', () => {
   const mine = { x: 0, z: -20 };

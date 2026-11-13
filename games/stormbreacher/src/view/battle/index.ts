@@ -77,6 +77,8 @@ export interface Battle {
   step(dt: number, mech: { x: number; y: number; z: number }, held?: boolean): number;
   // Lets one tracer fly from a place at a velocity (m, m/s); the allies of the sortie shoot with it.
   tracer(at: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }): void;
+  // Moves and draws only the tracers already out, for the landing cutscene: the battlefield's own clock stays still.
+  advanceTracers(dt: number): void;
   // Lets a blast of the game's own (a mortar shell or a mine) take the soldiers near it (m), with the dust of each.
   blast(x: number, z: number): void;
   counts(): CrowdCounts;
@@ -257,6 +259,18 @@ export function buildBattle(
     }
   }
 
+  // Moves the tracers already out and takes the old ones away; it draws none.
+  function moveTracers(dt: number) {
+    for (let i = tracerList.length - 1; i >= 0; i--) {
+      const tracer = tracerList[i];
+      tracer.x += tracer.vx * dt;
+      tracer.y += tracer.vy * dt;
+      tracer.z += tracer.vz * dt;
+      tracer.life -= dt;
+      if (tracer.life <= 0 || tracer.z > map.bounds.maxZ + TRACER_PAST) tracerList.splice(i, 1);
+    }
+  }
+
   function stepTracers(dt: number, at: { x: number; z: number }) {
     const rate = tune.tracers;
     if (rate > 0) {
@@ -267,14 +281,7 @@ export function buildBattle(
       }
       if (tracerT <= 0) tracerT = 0;
     }
-    for (let i = tracerList.length - 1; i >= 0; i--) {
-      const tracer = tracerList[i];
-      tracer.x += tracer.vx * dt;
-      tracer.y += tracer.vy * dt;
-      tracer.z += tracer.vz * dt;
-      tracer.life -= dt;
-      if (tracer.life <= 0 || tracer.z > map.bounds.maxZ + TRACER_PAST) tracerList.splice(i, 1);
-    }
+    moveTracers(dt);
   }
 
   function stepPlanes(dt: number) {
@@ -386,6 +393,10 @@ export function buildBattle(
     tracer(at, velocity) {
       if (tracerList.length >= MAX_TRACERS) return;
       tracerList.push({ x: at.x, y: at.y, z: at.z, vx: velocity.x, vy: velocity.y, vz: velocity.z, life: TRACER_LIFE });
+    },
+    advanceTracers(dt) {
+      moveTracers(dt);
+      drawTracers();
     },
     blast(x, z) {
       for (const soldier of fallNear(crowd, x, z, tune.shellFallRadius, tune.shellFallShare, rng)) {

@@ -107,6 +107,8 @@ test("a shell takes the soldiers near it into the frame's fallen, and #view-fx k
     allyWaves: 0,
     allySpeed: 0,
     shellEvery: 1,
+    shellNear: 5,
+    shellFar: 5,
     shellFallRadius: 40,
     shellFallShare: 1,
   });
@@ -126,6 +128,8 @@ test("a shell takes the soldiers near it into the frame's fallen, and #view-fx k
     allyWaves: 0,
     allySpeed: 0,
     shellEvery: 1,
+    shellNear: 5,
+    shellFar: 5,
     shellFallRadius: 0,
     shellFallShare: 1,
   });

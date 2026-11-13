@@ -283,8 +283,14 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw);
     }
   }
-  // The infantry waits at BATTLE_TUNE.holdZ until the pillboxes are down, then goes on to the far line.
-  view.feel.shake += view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+  // The infantry waits at BATTLE_TUNE.holdZ until the pillboxes are down, then goes on to the far line. The landing
+  // cutscene keeps the battlefield's clock still, so the first squad runs and falls once the player has the controls;
+  // the cutscene's own machine-gun tracers still fly (advanceTracers).
+  if (game.script.cutscene === null) {
+    view.feel.shake += view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+  } else {
+    view.battle.advanceTracers(dt);
+  }
   feelEvents(view.feel, mechEvents, kill, FEEL_TUNE);
   const frame = feelStep(view.feel, dt, game.mech.boosting, CAMERA_TUNE.fov, FEEL_TUNE);
 

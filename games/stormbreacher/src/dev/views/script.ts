@@ -153,6 +153,7 @@ export function showScript(_hash: string) {
   for (const target of M1.targets) {
     button(bar, `sbScriptDestroy-${target}`, `destroyed ${target}`, () => send({ kind: 'destroyed', target }));
   }
+  button(bar, 'sbScriptAshore', 'ashore', () => send({ kind: 'ashore' }));
   button(bar, 'sbScriptSkip', 'skip', () => send({ kind: 'skip' }));
 
   const speedRow = document.createElement('div');

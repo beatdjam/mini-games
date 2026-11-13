@@ -109,9 +109,9 @@ export function showSquad(_hash: string) {
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
   note.textContent =
-    '出た瞬間: 海側から20人が来て、5人の分隊2つが機銃座の列（z 147）へ歩き、一部がそこで倒れる。\n' +
+    '出た瞬間: 海側から20人が来て、5人の分隊2つが機銃座へ歩き、機銃座から10m以内で一部が倒れる。\n' +
     '残りの10人は今までどおり浜に散らばり、倒れ方も今までどおり。\n' +
-    'B の手前: 機銃座の6基が目に入る所へ機体を置く。\n' +
+    'B の手前: 機銃座（z 147）は機体の後ろ（海側）に立つ。\n' +
     'つまみは「出撃し直す」で反映する（人数・分隊は作り直しで効く）。\n' +
     '保存はしない。';
   extra.appendChild(note);

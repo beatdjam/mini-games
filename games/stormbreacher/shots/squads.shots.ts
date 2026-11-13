@@ -1,5 +1,5 @@
-// Screenshots of the infantry's squads (SB-1610): the wave coming in, the four squad soldiers cut down at the
-// machine-gun nests, and a shell taking the soldiers around the mech. npm run shots. Not a test: it is not part of npm
+// Screenshots of the infantry's squads (SB-1610): the wave coming in, the four squad soldiers cut down within 10 m of
+// the machine-gun nests, and a shell taking the soldiers around the mech. npm run shots. Not a test: it is not part of npm
 // test or the CI (the drawn pixels differ between machines). SHOTS_OUT=<folder> picks where the pictures go;
 // SHOTS_ONLY=<text> takes only the shots whose names contain it.
 import { beforeAll, test } from 'vitest';
@@ -92,7 +92,7 @@ test('squads', async () => {
   advance(1.5);
   await picture('squads-wave', WAVE);
 
-  // the nests: two of each squad down where the machine guns stand (z 147), the rest walking on
+  // the nests: two of each squad down within 10 m of the machine guns, the rest walking on
   advance(3);
   await picture('squads-falls', FALLS);
 

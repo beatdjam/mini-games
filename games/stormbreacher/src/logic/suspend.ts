@@ -6,7 +6,7 @@ import type { MapDef, MissionDef } from '../data/types.ts';
 import type { GameModel, GameSnapshot } from './game.ts';
 import { newNav } from './nav.ts';
 
-export const SUSPEND_VERSION = 11; // 11: the script remembers which blast points have opened their line (the cover mechs' way on); 10: the landing craft's boxes and the mech's start on its deck change what an old cutscene's left seconds mean; 9: an ally's ground height and its radio call are kept; 8: the radio queue is kept; 7: the aimed mortar remembers where the mech stood; 6: a machine-gun nest's burst under way; 5: a blasted line stays open; 4: the planted charges, their fuses and the hold under way
+export const SUSPEND_VERSION = 12; // 12: the script remembers that the mech has left the craft (the beach's allies wait for it); 11: the script remembers which blast points have opened their line (the cover mechs' way on); 10: the landing craft's boxes and the mech's start on its deck change what an old cutscene's left seconds mean; 9: an ally's ground height and its radio call are kept; 8: the radio queue is kept; 7: the aimed mortar remembers where the mech stood; 6: a machine-gun nest's burst under way; 5: a blasted line stays open; 4: the planted charges, their fuses and the hold under way
 
 // The game as a suspend keeps it: every field of GameModel except the ones listed in suspendOf. `map` and `mission` are
 // definitions nothing writes to, so they go by id (below) and come back from the tables; `checkpoint` is kept apart.

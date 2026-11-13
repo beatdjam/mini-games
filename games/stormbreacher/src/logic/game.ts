@@ -999,6 +999,8 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     if (target && target.hp > 0) damageTarget(game, target, PILLBOX_BLAST.damage);
     if (blown.hit) damageMech(game, CHARGE_TUNE.damage, blast.x - game.mech.x, blast.z - game.mech.z);
   }
+  // The mech has walked down the ramp: the script puts the beach's allies out now, and they start running this frame.
+  if (!game.script.ashore && game.mech.z <= game.map.bounds.maxZ) sendToScript(game, { kind: 'ashore' });
   stepAllies(game, dt);
   checkShutters(game);
   checkWaves(game);

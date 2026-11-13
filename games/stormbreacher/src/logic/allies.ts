@@ -68,9 +68,10 @@ export function nearestIndex(from: GroundSpot, points: readonly GroundSpot[], ra
   return best;
 }
 
-// The enemy the view draws a tracer from to which ally: every living, awake enemy within `range` of an ally gets that
-// ally (the nearest), and an enemy with none in range gets null. A cutscene stops them all, as it stops the allies: the
-// picture must not show a fight the logic is holding. Pure, so a node test can check the awake and health branches.
+// The ally the view draws an enemy's tracer to: the nearest within `range`, or null when the enemy is down or asleep,
+// none is in range, or a cutscene is playing (the picture must not show a fight the logic is holding). One enemy only,
+// so the view asks when that enemy's tracer is due rather than looking for every enemy every frame. Pure, so a node test
+// can check the awake and health branches.
 export interface EnemyTracerState {
   id: string;
   x: number;
@@ -79,20 +80,15 @@ export interface EnemyTracerState {
   awake: boolean;
 }
 
-export function enemyTracerTargets<T extends EnemyTracerState, A extends GroundSpot>(
-  enemies: readonly T[],
+export function enemyTracerTarget<T extends EnemyTracerState, A extends GroundSpot>(
+  enemy: T,
   allies: readonly A[],
   range: number,
   cutscene: boolean,
-): Map<string, A | null> {
-  const targets = new Map<string, A | null>();
-  if (cutscene) return targets;
-  for (const enemy of enemies) {
-    if (enemy.hp <= 0 || !enemy.awake) continue;
-    const pick = nearestIndex(enemy, allies, range);
-    targets.set(enemy.id, pick === null ? null : allies[pick]);
-  }
-  return targets;
+): A | null {
+  if (cutscene || enemy.hp <= 0 || !enemy.awake) return null;
+  const pick = nearestIndex(enemy, allies, range);
+  return pick === null ? null : allies[pick];
 }
 
 function faceTo(from: GroundSpot, to: GroundSpot): number {

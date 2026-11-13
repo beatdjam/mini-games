@@ -257,7 +257,7 @@ function playM1(): Result {
 }
 
 // The cues in the order the story runs them; the depot's cue is left out, for the bot does not go for the depot.
-const STORY = ['intro', 'beach', 'pillboxes', 'cp1', 'wave2-lost', 'seawall', 'gun1', 'shutter', 'win'];
+const STORY = ['intro', 'beach', 'ashore', 'pillboxes', 'cp1', 'wave2-lost', 'seawall', 'gun1', 'shutter', 'win'];
 
 test(
   'a bot clears M1 from the landing on with its inputs alone',

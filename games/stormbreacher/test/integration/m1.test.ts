@@ -19,11 +19,11 @@ const EXPECTED: readonly string[] = [
   'objective:reach-pillboxes',
   'map:wave2:on',
   'spawn:beach-mortar',
+  'cutsceneEnd:landing',
   'ally:buddy',
   'ally:cover-b1',
   'ally:cover-b2',
   'ally:cover-b3',
-  'cutsceneEnd:landing',
   'objective:break-pillboxes',
   'spawn:b-squad',
   'spawn:b-emplacements',
@@ -93,6 +93,7 @@ function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[
   const outputs: ScriptOut[] = [];
   outputs.push(...stepScript(state, M1, 0));
   outputs.push(...scriptInput(state, M1, { kind: 'skip' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'ashore' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'b-line' }));
   outputs.push(...scriptInput(state, M1, { kind: 'blast', id: 'l1-b' }));
   if (destroyDepot) outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'depot' }));
