@@ -31,11 +31,15 @@
 
 `src/logic/mech.ts` は機体の歩く・跳ぶ・ブースト・着地を、状態を引数で受けて進める純粋な関数で、three も DOM も読まない。`src/logic/fire.ts` は正面への線が的の箱に当たるかを返す純粋な関数。`src/view/feel.ts` は動きの出来事からカメラの揺れ・FOV・ヒットストップ・砂煙を作る。
 
+`src/data/sounds.ts` は音の表（`SoundName`・`SOUND_NAMES`・音ごとの層 `SOUND_LAYERS`・1フレームの上限 `SOUND_FRAME_LIMIT`・距離 `SOUND_DISTANCE`・音量 `SOUND_VOLUME`・環境音 `SOUND_AMBIENT`）を持ち、`src/view/sound.ts` がその表から出来事の音を選び、engine の合成音で鳴らす（9章）。`src/app/play.ts` の `update` が `step` のあとに `soundFrame` を呼び、`src/app/boot.ts` が `setVolumes` と `unlockAudio` を1回呼ぶ。この2つは音の値を持たない。
+
 `src/logic/fcs.ts` は三人称の照準の線・機体の胸・的から、撃つ向きと `hard` が捕まえた的を決める純粋な関数。本体の射撃は `soft` を使う（`game.ts`）。撃つ向きは弾の出る所（機体の右腕の先）から照準の点へ向ける。`src/logic/dummies.ts` は `#view-fcs` の動く的の動きと当たりを、`src/view/reticle.ts` はその照準（点・円・候補の弧・捕まえた印）を DOM で描く。
 
 `src/data/enemies.ts` は敵の表（`EnemyKind`・`ENEMY_KINDS`・`ENEMIES`・波の名前から出る敵の種類の並びを引く `M1_WAVE_ENEMY`・撃つ高さの割合 `ENEMY_CHEST`）、`src/logic/enemies.ts` は敵1体の状態 `EnemyState` と1フレームの動き `stepEnemy`（three も DOM も読まない純粋な関数。乱数は引数で受ける）、`src/view/enemies.ts` は敵を種類ごとに1つの `InstancedMesh`（描く回数は種類の数）で描く。敵の色は `src/data/colors.ts` の `ENEMY_COLOR`・`ENEMY_DOWN_COLOR`・`ENEMY_BULLET_COLOR`。
 
 `src/data/hazards.ts` は迫撃砲の砲撃と地雷の表（`BarrageKind`・`BARRAGE_KINDS`・`BARRAGES`・波の名前から出る砲撃の種類を引く `M1_WAVE_BARRAGE`・地雷の `MINE_TUNE`）、`src/logic/hazards.ts` は砲撃と地雷の純粋な関数（`newBarrage`・`stepBarrage`・`stepShells`・`inCircle`・`mineStepped`。乱数は引数で受ける）、`src/view/hazards.ts` は着弾予告の輪と地雷の円盤を `InstancedMesh` 1つずつで描く。色は `src/data/colors.ts` の `SHELL_WARN_COLOR`・`SHELL_LAND_COLOR`・`MINE_COLOR`。
+
+`src/data/boom.ts` は爆発の表（`BoomKind`・`BOOM_DEFS`・`BOOM_CAP`・`BOOM_SHAKE`・`boomShakeAt`）、`src/view/boom.ts` はその表から火球・煙の柱・破片・砂柱・水柱を種類ごとに1つの `InstancedMesh` で描く（`spawnBoom`・`drawBooms`・`buildBooms`・`clearBooms`・`removeBooms`）。色は `src/data/colors.ts` の `BOOM_COLOR`。詳しくは5章「爆発」。
 
 `src/data/battery.ts` はボス（沿岸砲台）の表（機銃の `GUN_TUNE`・機銃が動き出す波 `BATTERY_WAVE`・シャッターの `ShutterDef` と `M1_SHUTTERS`）、`src/logic/battery.ts` は機銃とシャッターの純粋な関数（`newBattery`・`newShutters`・`stepGun`・`shuttered`・`openShutters`。乱数は引数で受ける）、`src/view/seaFire.ts` は主砲が海を撃つ見た目、シャッターの板は `src/view/world.ts` が描く。詳しくは「ボス（沿岸砲台）」。
 
@@ -92,6 +96,13 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `result` | false | 結果の画面 |
 
 画面はタイトル → ブリーフィング → 出撃 → 結果と進む。タイトルの「出撃」（`#sbStart` のクリックか Enter）でブリーフィングが出て、そこを抜けると `play` になり、M1 の B のマップで機体を歩かせて撃ち、目標を全部壊すと `result` の画面（所要時間・報酬の内訳・所持金と「タイトルへ」）になる。内訳は「報酬と所持金」（4章）。「タイトルへ」は今は `location.reload()` で戻る。出撃の見た目は `src/data/looks.ts` の `LOOKS` から決まる。出撃中は D 案の HUD（目標・敵の体力・レーダー・照準の円に沿った装甲とブーストの弧・メインとサブの弾数）が出る。装甲の弧は `armor / MECH_TUNE.armor`（数字なし）。熱は出さない。出撃中の HUD は左上に目標、下の真ん中に最後の無線（`RADIO_MIN_SEC` の間だけ。ラベルは `hud.radio`）を出し、ソフトロックが狙いを寄せている相手がいる間は、その相手を囲む四隅の鉤形の枠（ロック枠。色は `HUD_COLOR.lock`）を毎フレーム出す。枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）。機体が着弾予告の円の中にいる間だけ、照準の円の上の真ん中に警告（`hud.warn.shell`。赤い文字）を出す。値の出し方は `src/logic/hud.ts`。色と主張は仮。
+
+撃たれている感（SB-1380）は `src/view/hurt.ts` が画面の縁に出す。要素 `#sbPlayHurt`（`z-index: 4`。キャンバスの上、HUD とカットシーンの帯の下）は出撃を作るときに1度だけ作り、毎フレームは縁と白みの `opacity`、色を抜く層の `backdrop-filter` を書き換えるだけ（変わるまで書かない）。値は `HURT_TUNE` in `src/data/tune.ts`（すべて仮。`#view-hurt` の調整パネルで決める）。
+
+- 被弾の方向: 出来事 `damaged` の `fromX`・`fromZ`（機体から撃った側への向き）と機体の `yaw` から、機体の正面を 0 度とする角度を `hurtAngle` で出す。画面の縁を8方向（正面・右前・右・右後ろ・後ろ・左後ろ・左・左前。`hurtEdge`）に分け、その方向の縁を `HURT_TUNE.edgeFade` 秒かけて赤く光らせる。同じ方向に重ねて受けたら消えるまでの時間を戻し、別の方向は同時に出る
+- 近い着弾: 爆発が機体から `HURT_TUNE.flashNear` m 以内で起きたら、`HURT_TUNE.flashFade` 秒かけて画面を白ませる。強さは近いほど強く、0m で `flashAlpha`、`flashNear` で 0。爆発は迫撃砲・地雷のほか、自分が壊した目標・敵・物の爆発も同じに扱い（どれも「爆発」）、カットシーン中に着弾した砲弾でも白む。揺れは5章の爆発の `boomShakeAt` が近いほど強くする（ここでは足さない）
+- 装甲の減り: 装甲が `HURT_TUNE.armorDarkFrom`（0.5 = 50%）を下回ると、画面の縁を暗くし、`backdrop-filter` の `saturate()` で色を抜く。強さは減るほど強く、装甲 0 で `armorDarkMax`・`armorDrain`。暗くする層と色を抜く層は分け、色を抜く層の `opacity` は 1 のままにする（同じ層に置くと暗さの `opacity` が抜けも弱めるため）。色を抜くのは縁だけで、画面の真ん中は残す。出撃を作り直す（やり直し）と戻る
+- 確認用の入口 `#view-hurt`: 本体の出撃を始める（導入のカットシーンは飛ばす）。右上の調整パネルが `HURT_TUNE` を書き換え、「右から被弾」「近くに着弾」「装甲25%」「装甲を戻す」のボタンで、その場で3つの印を起こせる
 
 ### ブリーフィング
 
@@ -346,7 +357,7 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 - 見た目（`src/view/hazards.ts`）
   - 着弾予告の輪: 地面の輪を `InstancedMesh`（名前 `sb-shells`、最大 16）1つで描く。輪の半径は爆発の半径のまま、落ちるまでの間に `SHELL_WARN_COLOR` から `SHELL_LAND_COLOR` へ明るくなる
   - 地雷: 地面の円盤を `InstancedMesh`（名前 `sb-mines`、最大 64）1つで描く。爆発したものは描かない
-  - 落ちた・爆発したときは、その場に砂ぼこり（`spawnDust`）を出し、外れても機体から 25m 以内ならカメラが揺れる（当たったときは `damaged` の揺れ）。描く回数は輪1・地雷1。`clearPlay` が片付ける
+  - 落ちた・爆発したときは、その場に爆発（`spawnBoom('large', ...)` in `src/view/boom.ts`、下の「爆発」）を出し、揺れは爆発の表の距離の値で決める（近いほど強い）。描く回数は輪1・地雷1に爆発の最大5つが加わる。`clearPlay` が片付ける
 - HUD の警告: `hudModel` の `warning` は、機体がどれかの着弾予告の円の中にいる間 `'shell'`、ほかは null
 
 | 名前 | 値 | 単位・意味 |
@@ -363,6 +374,19 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 | `MINE_TUNE.damage` | 30 | 爆発で減る装甲 |
 | `MINE_TUNE.hp` | 10 | 機体の弾に対する体力 |
 | `MINE_TUNE.size` | 1×0.3×1 | m。弾の当たる箱（幅・高さ・奥行き） |
+
+### 爆発
+
+SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・艇の爆破・海に落ちた砲弾を、火球 → 黒い煙の柱 → 破片 → 砂柱（海の上では水柱）で出す。見た目だけで、当たり・体力・音は変えない。定義場所は `BoomKind`・`BOOM_DEFS`・`BOOM_CAP`・`BOOM_LOOK`・`BOOM_SHAKE`・`boomShakeAt` in `src/data/boom.ts`（表）、`spawnBoom`・`drawBooms`・`buildBooms`・`clearBooms`・`removeBooms`・`boomCounts`・`freeSlot` in `src/view/boom.ts`（描く）、`feelBoom` in `src/view/feel.ts`（揺れ）。色は `BOOM_COLOR` in `src/data/colors.ts`。
+
+- 種類: `small`（敵・物が壊れる）・`large`（目標・地雷・迫撃砲の着弾・カットシーンの着弾）・`craft`（艇の爆破・沈む艇）・`water`（海に落ちた着弾。本体の着弾とカットシーンの着弾の両方で、z がマップの `maxZ` より先ならこれを使う）。表の行は火球（`radius`・`life`・`color`）、煙の柱（`count`・`rise`・`spread`・`size`・`grow`・`life`・`color`・`fade`）、破片（`count`・`speed`・`gravity`・`life`・`size`・`color`）、柱（`height`・`radius`・`life`・`color`）、揺れ（`shake`）を持つ。煙の寿命は 6〜12 秒。値はどれも仮で、`#view-boom` で決める。粒ごとのばらつき・火球が縮み始める割合・破片の跳ね返り・柱が残る割合は種類に依らないので `BOOM_LOOK` に置く
+- 上限: 粒は種類ごとに1つの `InstancedMesh`（火球・煙・破片・砂柱・水柱の5つ。名前は `sb-boom-fire` など）。上限は `BOOM_CAP`（火球 20・煙 520・破片 560・柱 36＋36）。空いている枠を先に使い（`freeSlot`）、全部埋まっているときだけ古いものから使い回す。出ていない種類は描かないので、爆発で増える描く回数は最大5
+- 煙: 半透明（不透明度 0.42）で `depthWrite: false`。色は黒から灰へ変わる。煙は `SMOKE_EMIT`（1.6 秒）の間に少しずつ地面を離れ、柱になって上がる
+- 柱: `spawnBoom` の z が海（マップの `maxZ` より先）なら水柱、そうでなければ砂柱。`water` はいつでも水柱。水柱の根元は渡された高さではなく、海面（`SEA_LEVEL` in `src/view/shore.ts`）に置く
+- 揺れ: `boomShakeAt(kind, distance)` が `BOOM_SHAKE.near`（10m）で行の `shake`、`BOOM_SHAKE.far`（90m）で 0 になる（距離の2乗で弱まる）。本体は機体から、カットシーンはそのカメラからの距離で `feelBoom` に足す。カットシーンのカメラにも同じ揺れを足す
+- つなぐ所（`drawPlay`）: `destroyed` は目標の箱の真ん中で `large`、`enemyDown` と `propDestroyed` はその場所で `small`、`shellLand` と `mineBlast` はその場所で、z が海なら `water`、そうでなければ `large`。`hit` の砂ぼこりは今のまま。`allyDown` と戦場の層の砲撃は今のまま（`shellBurst`）
+- カットシーン（`drawCutscene`）: `burst` は着弾点が海なら `water`、陸なら `large`、`sink` は艇の中ほどで `craft`。ランプの砂ぼこりは今のまま
+- 確認用の入口 `#view-boom`: 浜と海の境を固定カメラで見る。種類のボタン（とキー 1〜4）でその種類を選んで出し、つまみ（大きさ＝火球の半径・煙の数・煙の寿命・揺れ）が選んだ種類の表の値をその場で書き換える（保存しない）。今の値を文字で出し、`window.sbBoomReport()` が同じ値を JSON の文字列で返す。土の上は砂柱、海の上は水柱
 
 三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）をカメラの壁として渡す。坂は斜面に沿った段の箱に分けて渡す（`rectBoxes` in `src/logic/collide.ts`）ので、低い端の上の空間でカメラが引っかからない。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
 
@@ -534,7 +558,7 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
 - カットシーンの間は `stepAllies` が止まる。味方は導入のカットシーンと同じフレームに出るが、カットシーンの間は動かず描かれない（機体が走れるようになってから走り出す）
 - 見た目: 機体の箱の組み立て（`buildMechVisual`）を `ALLY_TUNE.height`（3.4m。機体は 4m）と `ALLY_PALETTE` で作る。落ちたら同じ箱を `ALLY_WRECK_PALETTE` で作ったものを `wreckTilt` 倒して置く（5色ごとに1 draw で、走る姿と残骸の2体分）。メッシュの名前は `ally`（機体の `mech` と数え分ける）
 - 撃つ真似: 走っている間 `fireEvery` ごとに、前（走る向き）へ曳光弾を `Battle.tracer` で出す（当たりは無い）。散らしは `tracerSpread`
-- 落ちたときの見た目: `allyDown` を `drawPlay` が受けて、`shellBurst`（戦場の砲撃と同じ閃光と破片）と、迫撃砲の着弾と同じ砂煙（`BLAST_DUST`）をその場に出す。着弾予告の輪は出さない
+- 落ちたときの見た目: `allyDown` を `drawPlay` が受けて、`shellBurst`（戦場の砲撃と同じ閃光と破片）と、砂煙（`BLAST_DUST`。`allyDown` だけのもので、迫撃砲の着弾は爆発の `large` を使う）をその場に出す。着弾予告の輪は出さない
 
 | 名前（`ALLY_TUNE`） | 値 | 単位・意味 |
 |------|----|------------|
@@ -600,6 +624,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `?fps`: 直近1秒に描いたコマ数と、最後のコマが描いた物を画面の上に出す
 - `?stats`: 最後のコマが描いた物（描く回数と三角形の数）を、0.1秒ごとにページのタイトルへ書く
 - `?seed=<n>`: 乱数の種を入れる。確認用の入口は起動（`boot()`）のあとに読み込むので、種が効くのはそのあとに引く乱数だけ。起動時に作る屋外は乱数を使っていない
+- 調整パネル（`src/dev/tunePanel.ts`）: 表（`MOVE_TUNE` など）と、つまみの範囲（最小・最大・刻み）を渡すと、画面の右端に折りたためるパネルを作り、表の項目ごとにスライダーと数値の欄を並べる。動かすと表の値をその場で書き換え（ファイルは書き換えず、読み直すと元に戻る）、「値をコピー」が変えた値だけを `MOVE_TUNE.walk: 8` の形（表の名前と鍵）でクリップボードに入れる。クリップボードが使えないときは、同じ文字を欄に出して選べるようにする。「元に戻す」はパネルを開いたときの値に戻す（表示する表を切り替えた入口でも、それまでに表示した全部の表を戻す）。範囲に無い鍵を渡すと、黙って 0 にせずに読み込みの時点でエラーにする。`#view-boom`・`#view-map`・`#view-sound` が使う
 - `#view-field`: 起動時のカメラで止まった、空の屋外の絵にする
 - `#view-scale…`: 寸法を見比べる試験コースを出す。`#view-scale` は全体を斜め上から、`#view-scale-<場所>`（`corridor`・`door`・`hall`・`step`・`ref`）はその場所を正面やや上から、`#view-scale-<場所>-tp` は機体の後ろからの三人称の構図。`?mech=<m>` は三人称の機体の高さ（既定 8）、`?ceil=<m>` は部屋の天井の高さ（既定 18）、`?radius=<m>` は当たり半径（既定 2）
 - `#view-camera`: 三人称カメラを測る入口。試験コースを 8m の模型が道筋で歩き、カメラが追う。カメラの既定は `CAMERA_TUNE` を `scaleForMech` で 8m 用に戻した値。`?dist=14` のように `CAMERA_TUNE` の項目を URL の値で上書きでき（数値でない値は無視）、`?ceil=<m>` は部屋の天井（既定 18）、`?aim` は狙う距離と画角に固定、`?speed=<倍率>` は道筋の速さ（既定 1。測る数字はコマごと）
@@ -612,9 +637,11 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `#view-script`: M1「強襲上陸」の台本をボタンで動かす入口。3D は描かず、屋外の画面に DOM を重ねる。左に今の目標・地図の印・カットシーンと残りの秒・旗・結果、下の真ん中に無線の帯（1行を最低 `RADIO_MIN_SEC` ずつ順に出す）、右に出来事を入れるボタン（`enter b-line`・`enter seawall-top`・各物の `destroyed`・`skip`）と時間の速さ（×1・×4）、右下に cue が発火した時刻と出来事のログを出す。毎フレーム `stepScript` を回し、`window.sbScriptReport()` が `fired`（cue → 時刻）と出来事の列を JSON の文字列で返す
 - `#view-hud`: HUD の配置の見本を4案（A 四隅に散らす・B 下にまとめる・C 照準のまわりに寄せる・D A の配置に照準のまわりの細い計器を足す）で切り替えて見る入口。`#view-map` の浜のマップ（`buildMapScene`）を固定カメラで描き、機体の模型を置く。ゲームの状態にはつながず、見本の値（`src/dev/hud/plans.ts` の `HUD_SAMPLE`）で描く。`?plan=a|b|c|d`（既定 a）、`?cut=1`（カットシーンの帯）、`?touch=1`（タッチのボタンの輪）、数字キー 1〜4 で案を切り替える。ロック枠は `lockFrame` で描き、見本の四角（`LOCK_SAMPLE`）に出す。`window.sbHudReport()` が各要素の矩形を JSON の文字列で返す。弧・レーダー・点と円の描き方は `src/view/hudParts.ts` から読む（見本の値と動きは変えない）。要素の値の多く（装甲・熱・弾数・武器の枠（メインとサブの2つ）・レーダー）と、カットシーン中の表示（無線以外を隠す）は仮であること
 - `#view-mech`: 機体の見た目の案を5つ（A 重装ずんぐり・E 中量（A を細く）・F 中量・脚長・B 逆関節の軽め・D 四脚の戦車寄り）で切り替えて見る入口。`#view-hud` と同じ浜のマップに機体を置き、ゲームの状態にはつながない。`?pattern=a|e|f|b|d`（既定 a）、`?spin=0`（回転を止める）、`?view=behind`（ゲームの三人称カメラの構図で止める）。数字キー 1〜5 と上のボタンで案を切り替え、`回転`・`後ろから` のボタンで視点を替える。`window.sbMechReport()` が案・回転・視点と、機体の描く回数・三角形・箱の数・重さの合計と、画面全体の直近の描く回数・三角形を JSON の文字列で返す。`歩く`・`ブースト`・`跳ぶ`・`撃つ` のボタン（キー W・B・J・F）で機体の動きを見られる（`歩く`・`ブースト`・`撃つ` は押すたびに入り切り、`跳ぶ` は1回跳ぶ。速さと跳びは案の脚の種類の値で、案 B は逆関節、案 D は四脚の動きになる）。`window.sbMechReport()` の JSON には、動きの入り切り `acts` も入る。部品の寸法・色・重さはどれも仮であること
-- `#view-map`: M1 の手書きのマップ（浜・B トーチカ線・C・防波堤・ボスの場所）を歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、海と揚陸艇を `buildShore`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（8章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す
+- `#view-map`: M1 の手書きのマップ（浜・B トーチカ線・C・防波堤・ボスの場所）を歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、海と揚陸艇を `buildShore`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（8章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す。右上の調整パネルで `MOVE_TUNE`（歩く速さ・ジャンプ・重力・ブースト）・`CAMERA_TUNE`（距離・高さ）・`FEEL_TUNE`（画角・揺れ・ヒットストップ・砂煙・連射）を歩きながら変えられる（保存しない。`?walk=` などの URL の値の上に載る）
 - `#view-fx`: M1 の B のマップ（手書き・生成・エディタが保存したもの）を機体で歩きながら、周りで戦闘が起きている迫力を試す入口。`?src=hand|gen|edit` で M1 の B の手書きのマップ・生成したマップ・エディタが `localStorage` に保存したマップを選び（既定 `hand`。`edit` で保存が無いときは「保存されたマップが無い」を出して空のマップで開く）、`?fx=0|1|2|3` で濃さを選び（0 は演出を全部切った見た目で、`mech=4` なら `#view-map` と同じ。1 は弱、2 は中、3 は強。既定 2）、`FX_TUNE` の各項目を同じ名前でさらに上書きできる（例 `?fx=3&pixel=0.4&tracers=6`）。`?seed=<n>` は場面の種。`?mech=<m>` は機体の高さ（3〜8m、既定は `MECH_TUNE.height` の 4）で、仮の模型を `mech/4` 倍にし、足元は地面に付けたままにする。機体は `#view-map` と同じく物と目標に入らず、斜めに当たると壁に沿って滑る。当たり半径は `?mech=` とつまみに比例する（`MECH_TUNE.radius` × `mech/4`。`?mechMove=0` でも比例し、`?mech=8` で 2m）。`?mechCam=0` はカメラの距離・肩・注視点の高さ・上への持ち上げ・狙うときの距離を、`?mechMove=0` は歩き・ブーストの速さと加速・ジャンプの初速を `mech/4` に比例させない（ジャンプの初速は `sqrt(mech/4)`。既定はどちらも比例）。`MOVE_TUNE`・`CAMERA_TUNE` は 4m 用で、`?mech=8` にすると SB-100 の前の 8m の値に戻る。物と歩兵の大きさは 8m の機体に合わせて決めたときのまま。機体の始まりは地図の手前の端から、`mech` に比例したカメラの距離＋4m 内側にして、カメラが地図の外に出ないようにする。味方の歩兵は海側から波で出て -z へ進み、倒れた人と抜けた人を数える。砲撃は機体のまわりの輪に落ちて閃光・破片・灰色の煙を出し、近いほどカメラを揺らす。残骸からは煙の柱が立ち、曳光弾が画面を横切り、飛行機はマップの左右の端の外側（`PLANE_MARGIN`）まで機体と関係なくマップの座標で横切る。地面には `stream('craters')` の種から散らした砲弾穴があり、`craterWater` の割合で水が溜まる（見た目だけで、地面の高さ・機体の歩き・当たり判定は変えない）。砲撃は `shellCrater` が 1 なら落ちた所に新しい穴を残し、`craterCap` を超えると古いものから消える。見た目は `pixel` の解像度と canvas の CSS の `filter`（`saturate`・`contrast`・`sepia`）と霧で作る。`light` はシーンの全部の光の強さに掛ける倍率、`sun` はそのうち `DirectionalLight` だけにさらに掛ける倍率、`groundColor` は地面の色（海沿いの濡れの濃淡は残す）で、色は URL では10進の数値で上書きできる。煙の色は `smokeColor`・`smokeDark` で変えられる（URL のみ）。右上のつまみは `FX_TUNE` の主な値をスライダーで変え（歩兵の人数・煙の上限・穴の数と上限・穴の半径と水の割合は「やり直し」で作り直す）、`mech` のスライダーと `mechCam`・`mechMove` のチェックも置き、折りたためる。「書き出し」は今の値を JSON で `<textarea>` に出し、`window.sbFxReport()` が同じ JSON に機体の高さ・比例のありなし・歩きとブーストの速さ・描く回数・三角形の数・直近の fps を足して文字列で返す。左上に選んだ `src`・前進・倒れ・抜けの人数（戦場の歩兵が上限に当たっているときは「上限」も）・煙の塊の数と描く回数・三角形の数・fps を出し、`window.sbFxReport()` と書き出しの JSON にも `src` を出す。演出はゲームの状態に影響しない
+- `#view-boom`: 浜と海の境を固定カメラで見て、爆発の見た目と揺れを試す入口。種類 `small`・`large`・`craft`・`water` のボタン（とキー 1〜4）でその種類を選んで出し、右上の調整パネル（`BOOM_DEFS.<種類>` の行）で「大きさ（火球の半径）」「煙の数」「煙の寿命」「揺れ」をその場で書き換える（保存しない。「値をコピー」で `BOOM_DEFS.large.fire.radius: 6.4` の形になる）。今の値を文字で出し、`window.sbBoomReport()` が同じ値と粒の数・描く回数・三角形を JSON の文字列で返す。土の上は砂柱、海の上は水柱
 - `#view-mapedit`: マップの簡易エディタ。上から見下ろすカメラで、ホイールかピンチで寄り・引き、右ドラッグか2本指で動かす。右の一覧で物の8種か目標の4種を選び、地面をクリックかタップすると置く。目標は `id` を一覧から選ぶ。置いた物はドラッグで動き、`R` か回転のボタンで15度ずつ回り、`Delete` か削除のボタンで消える。「手書き」「生成（種）」「空」から始められ、置くたびに `validateMapForMission` を回して違反を出し、通り道が無ければ赤くする。「書き出し」は JSON を `<textarea>` に出し、「読み込み」はその JSON を読む。編集は `localStorage` の `stormbreacher-dev-map` に保存し、`#view-map?src=edit` で歩ける
+- `#view-sound`: 音の表の全部（`SOUND_NAMES`）をボタンで並べ、押すとその音を鳴らす入口。距離のつまみ（0〜200m）が `SOUND_DISTANCE` の距離の扱いを通すので、遠い音の小ささ・こもり方も試せる。右上の調整パネルで `SOUND_DISTANCE`（近い・遠い・遠くの音量と高さ）と `SOUND_VOLUME.sfx`（効果音の音量）も変えられる。`#sbSound` に並び、ボタンは `data-sound` に音の名前を持つ
 - `#view-outdoor`: 上陸戦の浜辺のような広い屋外（地面・障害物・トーチカ・防波堤・崖・歩く敵の機体）を種から作り、その重さを測る入口。開いて2秒たってから10秒のあいだ、フレームの間隔・描く回数・三角形の数を記録し、終わると画面の右上に大きく出す（下の `textarea` は同じ結果の JSON）。`window.sbBenchReport()` は終わっていればその JSON の文字列、まだなら `null`
   - `?chunk=<m>`: 区画の一辺（`0`・`16`・`32`・`64`。既定 `32`。`0` は区画に分けない）。`?chunkMin=<n>`: 区画に分ける種類の三角形の数の下限（既定 `3000`）
   - `?far=<m>`: 描く距離と霧の終わり（`80`・`120`・`160`。既定 `120`）。霧の始まりは `far × 0.4`
@@ -726,15 +753,15 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
   - `mech`（省略可）: 機体の道 `{ at, pos }` の列（時刻・足元の位置。マップの座標）。キーとキーの間は直線を一定の速さで歩く。最初のキーより前は最初の位置、最後のキーより後は最後の位置に立つ。省くと機体を描かない。`landing` だけが持ち、最後のキーは `CUTSCENE_SEC` ちょうどで、機体の始まりの位置（`newGame` の `game.mech`）に合わせる（unit テストが比べる）
   - `lines`: 文の時間割 `{ from, to, key }`（出す秒・消す秒・言語キー）。重ならない。間は何も出ない
   - `events`: 見た目の出来事。座標はマップの座標
-    - `sink`: `x`・`z`（艇の船体の始まり。省くと始まりの艇の z）の艇が `sec` 秒かけて傾いて沈む
+    - `sink`: `x`・`z`（艇の船体の始まり。省くと始まりの艇の z）の艇が `sec` 秒かけて傾いて沈む。沈み始めに艇の中ほどで爆発する
     - `arrive`: `x`・`z` の艇が、`from` の z から `sec` 秒かけて進んで着く
-    - `burst`: `x`・`z` に砲弾が落ちる（`shellBurst` in src/view/hazards.ts と砂煙）
+    - `burst`: `x`・`z` に砲弾が落ちて爆発する（`spawnBoom('large', ...)` in src/view/boom.ts）
     - `collapse`: `targets`（ミッションの物の id）が `sec` 秒かけて沈んで傾く
     - `ramp`: 始まりの艇のランプが `sec` 秒かけて上がった形から下りる
   - 表の時刻は `CUTSCENE_SEC`（7章「動き」）を超えない。`landing` の最後のキーは `CUTSCENE_SEC` ちょうどにして、その姿勢を本体のカメラ（`CAMERA_TUNE`、ピッチ 0）の始まりの位置に合わせる（unit テストが比べる）。`wave2-sinks` は防波堤の上を見せるため合わせず、最後のキーで止めて終わると本体のカメラに切り替わる。`beach-held` は結果の画面へ進むので合わせない
 - カメラ: キーとキーの間は、時刻をなめらかに（`u*u*(3-2u)`）して位置と見る点を線形に混ぜる。そのためキーの時刻ちょうどは、そのキーの値で、前後で速さが 0 になる。画角は `CAMERA_TUNE.fov`。カットシーンが終わると、次のコマから本体のカメラに戻る。カットシーンの間も本体のカメラは機体の始まりの位置の後ろに置いてあり（遅れて追わず、そこに合わせる）、カメラのピッチもカットシーンの間は動かさない。そのため `landing` が最後まで流れても飛ばされても、次のコマの本体のカメラは最後のキーの位置（誤差 0.5m 以内。e2e テストが比べる）で、跳ばない
 - 文: `cutsceneLine` が今の秒の言語キーを返す（なければ null）。下の帯の中に、`t(key)` の文字で出す
-- 見た目の出来事: `cutsceneEvents(id, from, to)` は `from` より後で `to` 以前の出来事を返すので、コマごとに呼ぶと各出来事は1回だけ出る。画面はこれで砂煙を出す。艇の沈み方・着き方・ランプの角度・物の崩れ方は、経過秒と表の `at`・`sec` から毎コマ決める（見た目だけで、当たり判定・マップの検査には入らない）
+- 見た目の出来事: `cutsceneEvents(id, from, to)` は `from` より後で `to` 以前の出来事を返すので、コマごとに呼ぶと各出来事は1回だけ出る。画面はこれで爆発を出す。艇の沈み方・着き方・ランプの角度・物の崩れ方は、経過秒と表の `at`・`sec` から毎コマ決める（見た目だけで、当たり判定・マップの検査には入らない）
 - 帯: 上下に高さ 12vh の黒い帯（`#sbCutscene`。`#view-hud?cut=1` の見本の帯に合わせる）。文は下の帯の中の真ん中。カットシーンの間は HUD（`#sbPlayHud`）を隠し、終わると出す。帯は `pointer-events:none`
 - 海の艇: 表の `sink`・`arrive` の数だけ、始まりの艇と同じ作り（`buildCraft` in src/view/shore.ts）の艇を置く。そのカットシーンの間だけ見え、`sink` は沈み終えると消える。物の崩れ（`collapse`）は、`buildCutsceneView` が渡された `world.targets` の模型の高さと傾きを動かす（`COLLAPSE_DEPTH` 3m・`COLLAPSE_TILT` 0.35 rad。1つおきに逆へ傾く。崩す物の id が無ければ例外）。始まりの艇のランプは別のメッシュ（`${CRAFT_NAME}Ramp`）で、カットシーンの外では下りた形
 - 入力: 台本の `cutscene` の間（`game.script.cutscene` が null でない間）は、`step` が機体に何も押していない入力を渡す。動かず、撃たず（メインもサブも）、ジャンプもブーストもしない。敵・砲撃・弾・台本の時間は止まらず進む。台本が最初の `stepScript` でカットシーンに入るので、出撃の最初の1コマだけは入力が通る
@@ -805,3 +832,18 @@ M1 の浜・B トーチカ線・C・防波堤とボスの場所（z −170〜170
   - 揚陸艇: 範囲の手前の端から 5m 後ろ（z 175）から +z へ長さ 12m の船体（幅 7m、甲板の高さ 1.7m、水に 0.6m 沈む）と、両脇の壁、後ろの壁、操舵室、浜（-z）へ下ろした開いたランプ（長さ 5m、先が砂に着く）。x は範囲の真ん中（機体の始まりの真後ろ）。箱の組み合わせで、船体（灰）と甲板（暗い灰）の2つのメッシュ（`buildCraft`。グループ名 `craft`）と、甲板の前の縁を蝶番にしたランプのメッシュ（暗い灰。グループ名 `craftRamp`。カットシーンで上げ下げする。7章「カットシーンの演出」）
   - 描く回数は海1・揚陸艇2・ランプ1の4回（カメラの視錐台の外にあるあいだは省かれる）
 - 防波堤へは坂（`ramp`）を歩いて上がる。坂は1つの四角で斜めの面の高さを持ち、階段は段ごとの四角のまま残す（M1 では使わない）。M1 の範囲の外（浜より海側）に当たるものは置かない
+
+## 9. 音
+
+出撃の効果音と浜の環境音を、engine の合成音（`@engine/audio` の `noiseBurst`・`sweepTone`・`audioNow`）だけで鳴らす。音のファイルは使わず、音楽（BGM）は無い。値はすべて仮で、`#view-sound` で聞いて決める。
+
+- 表: `src/data/sounds.ts`。音は `SoundName` の14種で、`SOUND_NAMES` が並び順を持つ。`SOUND_LAYERS` は音ごとの層の列で、`tone` は `sweepTone` に、`noise` は `noiseBurst` に渡す周波数（`f0`・`f1`）・長さ（`dur`）・音量（`vol`）・遅れ（`at`）・フィルタの種類を持つ。`SOUND_FRAME_LIMIT` は1フレームに鳴らす上限、`SOUND_DISTANCE` は距離の扱い、`SOUND_VOLUME` は全体の音量、`SOUND_AMBIENT` は環境音の間隔と音量。鳴らす所（`src/view/sound.ts` と `src/dev/views/sound.ts`）に音の値は置かない（画面の作りの数値は除く）
+- 鳴らす: `src/view/sound.ts` の `planSounds` が、そのフレームの出来事と、増えた敵の弾から `{ name, gain, pitch }` の列を返す（純粋。`planSounds` in `src/view/sound.ts`）。`playSound` が `SOUND_LAYERS` を `audioNow()` から鳴らし、`soundFrame` を `src/app/play.ts` の `update` が `step` のあとに毎フレーム呼ぶ。カットシーンの間も同じように鳴らす（`update` の飛ばしの分岐の外で呼ぶ）。カットシーンの `drawCutscene` の `blast`（艇の爆破 `craft`・着弾 `large`・`water`）も、`drawPlay` の爆発と同じく `explosionLarge` をカメラからの距離で鳴らす
+- 出来事 → 音: `shot` は `weapon` が `autocannon` なら `autocannon`、`heavyGun` なら `heavyGun`。`hit` は機体で止まった弾（`mech`）なら `mechHit`、目標か敵に当たったら `impactArmor`、物か地面なら `impactDirt`。`damaged` も `mechHit`（地雷・迫撃砲は `hit` を出さないため。弾の `hit` と `damaged` が同じフレームに来ても、1フレームの上限で1回だけ鳴る）。機体の `hit` はカットシーン中にも出るので、カットシーン中も金属音が鳴る。`destroyed` は `explosionLarge`、`enemyDown`・`propDestroyed`・`allyDown` は `explosionSmall`、`mineBlast` は `explosionLarge`、`shellWarn` は `shellWarn`、`shellLand` は `shellLand`、`downed` は `downed`、`script` の `radio` は `radio`。`destroyed` の位置は目標の箱の真ん中、ほかは出来事の位置、機体の音は機体の位置
+- `damaged` は機体の被弾だけ。目標・敵への着弾は `hit` で判定する
+- 敵の射撃: 敵と砲台の弾には `shot` の出来事が無いので、`soundFrame` が前のフレームで聞いていない敵の弾を見つけたら `enemyGun` を鳴らす。弾のオブジェクトを `WeakSet` で覚えるので、同じフレームに古い弾が消えても新しい弾を見落とさない
+- 上限: 1フレームに同じ種類の音を `SOUND_FRAME_LIMIT` までしか鳴らさない（機関砲2・敵の射撃2・着弾2・小爆発2・大爆発1・迫撃砲の予告2・着弾2、ほかは1）。多数の着弾や連射が1つの大きな音に重ならないため。上限を超えた分は出来事の順に捨てる
+- 距離: 機体からの水平距離で、`SOUND_DISTANCE.near`（12m）までが音量1・高さ1、`far`（200m）から先が音量 `minGain`（0.12）・高さ `farPitch`（0.55）。その間は直線で下げる。音量は層の `vol` に掛け、高さは `f0`・`f1` に掛けるので、遠い音は小さく、低くこもる（`soundMix` in `src/view/sound.ts`）
+- 環境音: 出撃の間、波のうねり（`wave`。2.6〜3.4秒ごとに低いノイズを重ねる）と、遠い砲声（`distantBoom`。4〜11秒ごとに90〜200mの距離として鳴らす）を流す。間隔と距離は `SOUND_AMBIENT` に置く。乱数は音だけの固定シードの生成器（`createRng(SOUND_AMBIENT.seed)`。`logic/rng.ts` の `createRng` と同じ形）から引き、`Math.random` も `logic/rng.ts` の `stream` も使わない（ゲームの乱数の流れを変えず、同じ出撃は同じ環境音になる）。`soundFrame` が `update` から呼ばれた分だけ進むので、一時停止・結果・タイトルでは呼ばれず、音も止まる
+- 音量と解錠: `src/app/boot.ts` が起動時に `setVolumes(SOUND_VOLUME.sfx, SOUND_VOLUME.bgm)` を1回呼び、`unlockAudio()` で最初のクリック・キー・タップから音を出せるようにする。`SOUND_VOLUME` は効果音0.75・BGM0。タイトルに音量の設定は無い
+- 確認用: `#view-sound`（`src/dev/views/sound.ts`）。`SOUND_NAMES` の全部をボタンで並べ、距離のつまみ（0〜200m）を `soundMix` に通して鳴らす。ボタンは `data-sound` に音の名前を持つ（6章）。
