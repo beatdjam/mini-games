@@ -705,7 +705,7 @@ export const M1B_HAND: MapDef = {
       { x: -30, z: 99 },
       { x: 40, z: 99 },
       { x: -20, z: 29 },
-      { x: 59.8, z: 29 },
+      { x: 60.7, z: 29 },
     ],
     // three at the depot, round it on the sides the mech does not come from; each stands clear of the cover and of
     // pillbox-3 (z 48..56)

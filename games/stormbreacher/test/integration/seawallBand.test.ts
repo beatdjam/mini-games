@@ -1,11 +1,13 @@
 // The band between C's rear row and the seawall (task 1985): C's four hedgehogs beside the ramps are gone, so the mech
 // walks out of every part of the band to C's sea side, the seawall-drop wave lands there and walks out by the nav, the
-// map's bounds hold the mech, and every wave spawns outside the props' and targets' shot boxes.
+// map's bounds hold the mech (also where a hedgehog's box crosses them), and every wave's enemies spawn with their bodies
+// outside the props' and targets' shot boxes.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP } from '../../src/data/enemies.ts';
+import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY } from '../../src/data/enemies.ts';
 import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
-import { rectBoxes, type GroundRect } from '../../src/logic/collide.ts';
+import { rectBoxes, rectDistance, type GroundRect } from '../../src/logic/collide.ts';
+import type { Aabb } from '../../src/logic/fire.ts';
 import { newEnemy, stepEnemy, type EnemyWorld } from '../../src/logic/enemies.ts';
 import { mapBlockers } from '../../src/logic/mapShapes.ts';
 import { newMech, stepMech, type MechInput, type MechState } from '../../src/logic/mech.ts';
@@ -139,21 +141,49 @@ test('the mech stays inside the map’s bounds when it walks at each edge', () =
   }
 });
 
-test('every wave spawns outside the props’ and targets’ boxes', () => {
+test('the mech stays out of the hedgehog’s box where it crosses the map’s west edge', () => {
+  // the hedgehogs at x -98 reach to x -99.62, past the -99 the mech's middle may stand at: walking at one sideways must
+  // neither take the mech out of the map nor push it into the box
+  const { minX } = MAP.bounds;
+  const radius = MECH_TUNE.radius;
+  const mech = newMech();
+  mech.x = -96;
+  mech.z = 134;
+  let closest = { gap: Infinity, x: 0, z: 0, frame: -1 };
+  for (let frame = 0; frame < 600; frame++) {
+    stepMech(mech, { ...idle, moveX: -1, moveZ: 1 }, DT, MOVE_TUNE, 0, world);
+    expect(mech.x, `frame ${frame}`).toBeGreaterThanOrEqual(minX + radius - 1e-6);
+    for (const rect of rects) {
+      const gap = rectDistance(rect, mech.x, mech.z);
+      if (gap < closest.gap) closest = { gap, x: mech.x, z: mech.z, frame };
+    }
+  }
+  expect(closest.gap, `the closest at (${closest.x}, ${closest.z}), frame ${closest.frame}`).toBeGreaterThanOrEqual(
+    radius - 1e-6,
+  );
+  expect(mech.x).toBeCloseTo(minX + radius, 3);
+});
+
+// The distance from a point to a box on the ground; 0 inside it.
+function boxDistance(box: Aabb, x: number, z: number): number {
+  return Math.hypot(Math.max(box.minX - x, 0, x - box.maxX), Math.max(box.minZ - z, 0, z - box.maxZ));
+}
+
+test('every wave’s enemies spawn with their bodies outside the props’ and targets’ boxes', () => {
   const boxes = rects.flatMap(rect => rectBoxes(rect));
   for (const wave of Object.keys(MAP.spawns)) {
     const y = M1_WAVE_DROP[wave] ?? 0;
+    const kinds = M1_WAVE_ENEMY[wave];
     for (const [index, place] of MAP.spawns[wave].entries()) {
+      const kind = kinds?.[index];
+      if (kind === undefined) continue;
+      const radius = ENEMIES[kind].radius;
       // a spawn on top of a box (the seawall's 6 m) is not inside it; one at the bottom of a box is
-      const inside = boxes.find(
-        box =>
-          place.x >= box.minX &&
-          place.x <= box.maxX &&
-          place.z >= box.minZ &&
-          place.z <= box.maxZ &&
-          y < box.maxY - 1e-9,
-      );
-      expect(inside, `${wave} ${index + 1} at (${place.x}, ${place.z})`).toBeUndefined();
+      const near = boxes
+        .filter(box => y < box.maxY - 1e-9)
+        .map(box => ({ box, gap: boxDistance(box, place.x, place.z) }))
+        .find(item => item.gap < radius - 1e-9);
+      expect(near, `${wave} ${index + 1} (${kind}) at (${place.x}, ${place.z})`).toBeUndefined();
     }
   }
 });

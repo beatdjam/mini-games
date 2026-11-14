@@ -932,6 +932,7 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     bounds: stepBounds,
   });
   // The mech stays inside the map: the mech is kept a radius in from every side, and a speed that pushed it out stops.
+  // The lane is read again from the mech's x after the step, so a mech that left it sideways this frame goes back to the front edge.
   const minX = game.map.bounds.minX + radius;
   const maxX = game.map.bounds.maxX - radius;
   const minZ = game.map.bounds.minZ + radius;
