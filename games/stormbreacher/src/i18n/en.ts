@@ -86,6 +86,7 @@ LANG.en = {
     'target.depot': 'Depot',
     'target.gun': 'Gun',
     'target.magazine': 'Magazine',
+    'target.fortressGun': 'Fortress gun',
     'target.grunt': 'Grunt',
     'target.assault': 'Assault Grunt',
     'target.heavy': 'Heavy Grunt',

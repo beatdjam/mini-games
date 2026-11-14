@@ -137,9 +137,10 @@ export interface Prop {
   breakable?: boolean; // a prop a shot may break (SB-190); its kind's health is PROP_HP
 }
 
-export type TargetKind = 'pillbox' | 'depot' | 'gun' | 'magazine';
+// fortressGun: the heavy machine-gun nest on the fortress's sea wall.
+export type TargetKind = 'pillbox' | 'depot' | 'gun' | 'magazine' | 'fortressGun';
 
-export const TARGET_KINDS: readonly TargetKind[] = ['pillbox', 'depot', 'gun', 'magazine'];
+export const TARGET_KINDS: readonly TargetKind[] = ['pillbox', 'depot', 'gun', 'magazine', 'fortressGun'];
 
 export interface TargetPlace {
   id: string; // the name the mission uses (pillbox-1, depot, ...)
@@ -147,6 +148,7 @@ export interface TargetPlace {
   x: number;
   z: number;
   yaw: number;
+  y?: number; // the bottom of the target's box above the ground (m); left out means 0
 }
 
 export interface SpawnPoint {

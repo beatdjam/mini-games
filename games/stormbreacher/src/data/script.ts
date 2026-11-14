@@ -30,5 +30,6 @@ export const CUTSCENE_SKIP_GUARD_SEC = 0.4;
 // "done/total" for these; an objective that is not here shows no count. A target the map does not have is not counted.
 export const OBJECTIVE_COUNT: Record<string, readonly string[]> = {
   'break-pillboxes': ['pillbox-1', 'pillbox-2'],
+  'stop-fortress-gun': ['fortress-gun'],
   'silence-battery': ['main-gun-1', 'main-gun-2'],
 };

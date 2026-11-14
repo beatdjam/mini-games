@@ -25,6 +25,7 @@ import { showAlly } from './ally.ts';
 import { showAllyDetail } from './allyDetail.ts';
 import { showSquad } from './squad.ts';
 import { showDroid } from './droid.ts';
+import { showFortress } from './fortress.ts';
 import { showSound } from './sound.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -184,6 +185,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'starts',
     name: 'one infantry droid close up, from the front, the quarter or the side',
     run: showDroid,
+  },
+  {
+    hash: '#view-fortress',
+    match: 'starts',
+    name: 'the fortress gun sweeping the open ground, with knobs',
+    run: showFortress,
   },
   {
     hash: '#view-mapedit',

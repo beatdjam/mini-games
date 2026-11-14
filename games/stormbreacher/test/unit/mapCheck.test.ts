@@ -10,8 +10,8 @@ import type { MapDef, MapLine, Prop } from '../../src/data/types.ts';
 // The mission's things past this map's range: the guns and the magazine behind the seawall, the beach's mortar and
 // the battery on the other side.
 const SKIP = {
-  targets: ['main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'shelling', 'battery'],
+  targets: ['fortress-gun', 'main-gun-1', 'main-gun-2', 'magazine'],
+  waves: ['beach-mortar', 'shelling', 'fortress-drop', 'battery'],
 };
 
 function withoutTargets(ids: readonly string[]): MapDef {
@@ -43,6 +43,11 @@ function withGapWall(z: number): MapDef {
 
 test('the hand map has no violations against M1 once the out-of-range names are left out', () => {
   expect(validateMapForMission(M1B_HAND, M1, SKIP)).toEqual([]);
+});
+
+test('the hand map has no violations with only the waves that come in from off the map left out', () => {
+  // the fortress nest stands on the wall's top and its box is inside the wall's footprint: the check adds no unseen wall
+  expect(validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'shelling', 'battery'] })).toEqual([]);
 });
 
 test('the hand map without its blast points is a closed line and has no path', () => {

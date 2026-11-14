@@ -199,6 +199,18 @@ test('a sortie draws every target of the map, the battery’s parts among them',
   }
 });
 
+test('the fortress’s gun stands on the sea wall’s top, not on the ground', async () => {
+  startSortie();
+  steps(1);
+  const group = find('targets');
+  const gun = group?.children.find(child => child.name === 'fortress-gun');
+  if (!gun) throw new Error('the sortie has not drawn the fortress gun');
+  const place = currentGame()?.map.targets.find(target => target.id === 'fortress-gun');
+  if (!place) throw new Error('the map has no fortress-gun');
+  expect(gun.position.y).toBe(place.y);
+  expect(gun.position.y).toBeGreaterThan(0);
+});
+
 test('a sortie draws the sea past the front edge and the landing craft behind the mech, and starting again leaves one of each', async () => {
   for (let sortie = 0; sortie < 2; sortie++) {
     startSortie();

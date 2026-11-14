@@ -112,6 +112,14 @@ test('the battery objective counts the main guns', () => {
   expect(hudModel(game).objective?.count).toEqual({ done: 1, total: 2 });
 });
 
+test('the fortress-gun objective counts the one nest on the sea wall', () => {
+  const game = newGame(M1B_HAND);
+  game.script.objective = 'stop-fortress-gun';
+  expect(hudModel(game).objective).toEqual({ key: 'obj.stop-fortress-gun', count: { done: 0, total: 1 } });
+  targetAt(game, 'fortress-gun').hp = 0;
+  expect(hudModel(game).objective?.count).toEqual({ done: 1, total: 1 });
+});
+
 test('a counted objective leaves out the targets the map does not have', () => {
   const game = withoutGuns();
   game.script.objective = 'silence-battery';

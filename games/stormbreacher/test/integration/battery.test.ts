@@ -84,7 +84,10 @@ function shootDown(game: GameModel, id: string): void {
 test('the hand map holds M1’s guns and magazine, and the check finds no violation without leaving them out', () => {
   for (const id of PARTS) expect(M1B_HAND.targets.map(target => target.id)).toContain(id);
   expect(M1.targets).toEqual(expect.arrayContaining(PARTS));
-  const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'shelling', 'battery'] });
+  const violations = validateMapForMission(M1B_HAND, M1, {
+    targets: ['fortress-gun'],
+    waves: ['beach-mortar', 'shelling', 'fortress-drop', 'battery'],
+  });
   expect(violations).toEqual([]);
 });
 

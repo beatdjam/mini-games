@@ -16,6 +16,21 @@ export const FORTRESS_TUNE = {
   yardZ: -98, // the yard's middle (m)
 } as const;
 
+// The heavy machine-gun nest on the fortress's sea wall (SB-1830): it sweeps the open ground before the sea gate and
+// keeps firing out to sea. Every value here is provisional and settled on #view-fortress's panel.
+export const FORTRESS_GUN_TUNE = {
+  range: 160, // the mech within this distance of the muzzle, on the ground (m), is in reach
+  damage: 4, // what one shot takes off the mech's armour
+  shots: 8, // how many shots one burst sweeps
+  arcDeg: 60, // the swept arc, from -arcDeg/2 to +arcDeg/2 (deg)
+  interval: 0.12, // the seconds between one shot and the next in a burst (s)
+  rest: 2.5, // the seconds after a burst before the next (s)
+  spread: 2, // each shot's drift from its aim (deg)
+  bulletSpeed: 200, // m/s
+  muzzle: 0.7, // the height a shot leaves at, as a share of the target's box top
+  muzzleGap: 0.3, // how far in front of the box's seaward face a shot starts (m)
+} as const;
+
 // The depot detour (SB-1820): the leader asks after cp1, and the mech answers by walking down to the depot or on to the
 // fortress. Every value is provisional and settled on #view-breach's panel.
 export const DEPOT_CHOICE_TUNE = {

@@ -366,7 +366,10 @@ test('the hand map’s mines are on the beach, 6 m or more from the start, and t
     expect(mine.z).toBeLessThanOrEqual(162);
     expect(Math.abs(mine.x)).toBeLessThanOrEqual(60);
   }
-  const skip = { targets: ['main-gun-1', 'main-gun-2', 'magazine'], waves: ['beach-mortar', 'shelling', 'battery'] };
+  const skip = {
+    targets: ['fortress-gun', 'main-gun-1', 'main-gun-2', 'magazine'],
+    waves: ['beach-mortar', 'shelling', 'fortress-drop', 'battery'],
+  };
   expect(validateMapForMission(M1B_HAND, M1, skip)).toEqual([]);
   // a map with no `mines` field plays as before
   const { mines: _mines, ...bare } = M1B_HAND;

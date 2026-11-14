@@ -85,6 +85,7 @@ LANG.ja = {
     'target.depot': '集積所',
     'target.gun': '主砲',
     'target.magazine': '弾薬庫',
+    'target.fortressGun': '要塞機関砲',
     'target.grunt': '小型量産機',
     'target.assault': '突撃型量産機',
     'target.heavy': '重装型量産機',

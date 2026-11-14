@@ -10,8 +10,8 @@ import type { MapBounds, MapDef, PropKind, TargetKind } from '../../data/types.t
 
 // The mission's names outside this map's range, left out of the editor's check like #view-map's.
 export const MAP_SKIP = {
-  targets: ['main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'shelling', 'battery'],
+  targets: ['fortress-gun', 'main-gun-1', 'main-gun-2', 'magazine'],
+  waves: ['beach-mortar', 'shelling', 'fortress-drop', 'battery'],
 } as const;
 
 // The ids a target may take: the names M1's script uses. The editor asks which one when a target is placed.

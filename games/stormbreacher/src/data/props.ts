@@ -76,6 +76,8 @@ export const TARGET_SIZE: Record<TargetKind, TargetSize> = {
   depot: { w: 10, h: 6, d: 10 },
   gun: { w: 14, h: 8, d: 14 },
   magazine: { w: 10, h: 8, d: 10 },
+  // the sea wall is 6 m thick, so the nest's box stays within the wall's footprint and leaves no unseen wall on the ground
+  fortressGun: { w: 16, h: 10, d: 6 },
 };
 
 // How tall a broken target's wreck stands: the share of its height the view draws it at, and the height the rect it
@@ -90,4 +92,5 @@ export const TARGET_HP: Record<TargetKind, number> = {
   depot: 60,
   gun: 200,
   magazine: 80,
+  fortressGun: 300, // provisional: 30 autocannon shots or 5 heavy-gun shots
 };
