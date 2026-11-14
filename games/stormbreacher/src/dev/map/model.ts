@@ -35,6 +35,7 @@ export function cloneMap(map: MapDef): MapDef {
     props: map.props.map(prop => ({ ...prop })),
     targets: map.targets.map(target => ({ ...target })),
     spawns: Object.fromEntries(Object.entries(map.spawns).map(([wave, places]) => [wave, places.map(p => ({ ...p }))])),
+    blasts: map.blasts?.map(blast => ({ ...blast })),
   };
 }
 

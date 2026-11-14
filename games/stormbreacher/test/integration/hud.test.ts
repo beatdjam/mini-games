@@ -1,11 +1,22 @@
 import { expect, test } from 'vitest';
 import { ENEMIES } from '../../src/data/enemies.ts';
+import { CHARGE_TUNE } from '../../src/data/charge.ts';
+import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { RADIO_MIN_SEC } from '../../src/data/script.ts';
+import { RADIO_TUNE } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
-import { newGame, sendToScript, step, type GameInput, type GameModel, type TargetState } from '../../src/logic/game.ts';
+import {
+  newGame,
+  queueRadio,
+  sendToScript,
+  step,
+  stepRadio,
+  type GameInput,
+  type GameModel,
+  type TargetState,
+} from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { hudModel } from '../../src/logic/hud.ts';
 
@@ -114,18 +125,29 @@ test('an objective that is not counted shows no count', () => {
   expect(hudModel(game).objective).toEqual({ key: 'obj.hit-magazine', count: null });
 });
 
-test('the radio line stays for RADIO_MIN_SEC', () => {
+test('two radio lines come up in turn, each for RADIO_TUNE.minSec', () => {
   const game = newGame(M1B_HAND);
   step(game, idle, 1 / 60);
   expect(hudModel(game).radio).toBeNull();
 
+  // the same frame brings two lines: the b-line's radio and one queued behind it
   sendToScript(game, { kind: 'enter', area: 'b-line' });
+  queueRadio(game, 'm1.pillboxes-down');
+  step(game, idle, 1 / 60);
   expect(game.radio?.line).toBe('m1.depot-hint');
   expect(hudModel(game).radio).toBe('m1.depot-hint');
 
-  game.time += RADIO_MIN_SEC - 0.1;
+  game.time += RADIO_TUNE.minSec - 0.1;
+  stepRadio(game);
   expect(hudModel(game).radio).toBe('m1.depot-hint');
-  game.time += 0.2;
+  game.time += 0.1;
+  stepRadio(game);
+  expect(game.radio?.line).toBe('m1.pillboxes-down');
+  expect(hudModel(game).radio).toBe('m1.pillboxes-down');
+
+  game.time += RADIO_TUNE.minSec;
+  stepRadio(game);
+  expect(game.radio).toBeNull();
   expect(hudModel(game).radio).toBeNull();
 });
 
@@ -253,4 +275,45 @@ test('the radar shows the living enemies and leaves out the fallen and the far',
   expect(radar[0].kind).toBe('grunt');
   expect(radar[0].angle).toBeCloseTo(0, 6);
   expect(radar[0].dist).toBeCloseTo(50 / HUD_TUNE.radarRange, 6);
+});
+
+test('the use prompt comes up near a blast point and follows the hold', () => {
+  const game = newGame(M1B_HAND);
+  const blast = game.blasts.find(place => place.id === 'l1-b');
+  if (!blast) throw new Error('the map has no l1-b');
+  game.mech.x = blast.x;
+  game.mech.z = blast.z + 2;
+  expect(hudModel(game).use).toEqual({ key: 'hud.use', progress: 0 });
+
+  game.plant = { blast: blast.id, hold: CHARGE_TUNE.holdSec / 2 };
+  expect(hudModel(game).use?.progress).toBeCloseTo(0.5, 6);
+
+  game.mech.z = blast.z + CHARGE_TUNE.reach + 1;
+  expect(hudModel(game).use).toBeNull();
+});
+
+test('a planted charge shows its fuse left and full length', () => {
+  const game = newGame(M1B_HAND);
+  const blast = game.blasts.find(place => place.id === 'l1-b');
+  if (!blast) throw new Error('the map has no l1-b');
+  game.mech.x = blast.x;
+  game.mech.z = blast.z + 2;
+  game.charges.push({ blast: blast.id, left: CHARGE_TUNE.fuse / 2 });
+  expect(hudModel(game).charge).toEqual({ left: CHARGE_TUNE.fuse / 2, total: CHARGE_TUNE.fuse });
+});
+
+test('a warned aimed shell inside its circle shows the shell warning', () => {
+  const game = newGame(M1B_HAND);
+  // the mech's old start on the sand, clear of the map's props and off the craft, which holds the barrage
+  game.mech.x = 0;
+  game.mech.y = 0;
+  game.mech.z = 166;
+  game.mech.yaw = 0;
+  // one step short of a full stay, so the next frame's warning lands on the mech
+  game.aimed = { anchor: { x: game.mech.x, z: game.mech.z }, still: AIMED_MORTAR.stillSec - 0.1 };
+  step(game, idle, 0.2);
+  expect(game.shells).toHaveLength(1);
+  expect(hudModel(game).warning).toBe('shell');
+  game.mech.x = AIMED_MORTAR.radius + 1;
+  expect(hudModel(game).warning).toBeNull();
 });

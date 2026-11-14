@@ -20,7 +20,7 @@ import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
 import { applyAtmosphere } from '../../view/atmosphere.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildWorld, MAP_FOG, type World } from '../../view/world.ts';
-import { buildAreaFrames, buildSpawnMarks, countProps } from '../map/build.ts';
+import { buildAreaFrames, buildBlastMarks, buildSpawnMarks, countProps } from '../map/build.ts';
 import { loadDevMap } from '../map/store.ts';
 import { createTunePanel } from '../tunePanel.ts';
 import { buildFlatRange, moveFeelFromParams } from './move.ts';
@@ -116,16 +116,17 @@ function hudText(
 
 // Hides the start-up field and builds the walkable map into the scene: its ground and props, its targets, the mission's
 // areas and the waves' marks. #view-map and #view-fx share it; the fog it sets is the one both start from.
-export function buildMapScene(map: MapDef): MapScene {
+export function buildMapScene(map: MapDef, air = true): MapScene {
   el('#sbApp').hidden = true;
   const sizeBox = scene.getObjectByName(SIZE_BOX_NAME);
   if (sizeBox) sizeBox.visible = false;
   const ground = scene.getObjectByName(GROUND_NAME);
   if (ground) ground.visible = false;
 
-  const { built, cameraBoxes } = buildWorld(map);
+  const { built, cameraBoxes } = buildWorld(map, air);
   scene.add(buildAreaFrames(M1.areas, map.bounds));
   scene.add(buildSpawnMarks(map.spawns));
+  scene.add(buildBlastMarks(map.blasts));
   return { built, cameraBoxes };
 }
 

@@ -7,6 +7,7 @@ import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
+import { openBreach } from '../../src/logic/blasts.ts';
 import {
   isEnemyBullet,
   sendToScript,
@@ -23,6 +24,7 @@ import { seed } from '../../src/logic/rng.ts';
 
 const DT = 1 / 60;
 const GRUNT = ENEMIES.grunt;
+const LONG = 15000; // these tests run many hundreds of frames; the default 5 s is short on a busy CI machine
 
 const idle: GameInput = {
   moveX: 0,
@@ -48,6 +50,8 @@ function withSquad(places: { x: number; z: number }[]): GameModel {
   game.mech.x = 0;
   game.mech.z = 0;
   game.mech.yaw = 0;
+  // the mech stands still through the test, so the aimed mortar would hurt it too; these tests read the enemies' bullets
+  game.aimed = null;
   places.forEach((place, i) => {
     game.enemies.push(newEnemy(`b-squad-${i + 1}`, 'b-squad', 'grunt', place.x, place.z));
   });
@@ -75,11 +79,13 @@ test('walking into b-line puts one enemy at each of the six b-squad places, in t
   const game = newPlayGame(M1B_HAND);
   const events = walkIntoBLine(game);
   expect(events).toContainEqual({ kind: 'spawned', wave: 'b-squad', count: 6 });
-  expect(game.script.spawned).toEqual(['beach-mortar', 'b-squad']);
-  expect(game.enemies.map(enemy => enemy.id)).toEqual([1, 2, 3, 4, 5, 6].map(n => `b-squad-${n}`));
+  expect(events).toContainEqual({ kind: 'spawned', wave: 'b-emplacements', count: 6 });
+  expect(game.script.spawned).toEqual(['beach-mortar', 'b-squad', 'b-emplacements']);
+  const squad = game.enemies.filter(enemy => enemy.wave === 'b-squad');
+  expect(squad.map(enemy => enemy.id)).toEqual([1, 2, 3, 4, 5, 6].map(n => `b-squad-${n}`));
   const kinds = ['heavy', 'assault', 'grunt', 'grunt', 'assault', 'grunt'] as const;
   expect(kinds).toHaveLength(6);
-  game.enemies.forEach((enemy, i) => {
+  squad.forEach((enemy, i) => {
     const kind = kinds[i];
     expect(enemy).toMatchObject({ wave: 'b-squad', kind, hp: ENEMIES[kind].hp, awake: false });
     expect(enemy.x).toBe(M1B_HAND.spawns['b-squad'][i].x);
@@ -335,25 +341,29 @@ test('shots aimed at an enemy reach it through the soft lock', () => {
   expect(hits).toBeGreaterThan(0);
 });
 
-test('the same seed and inputs give the same events; another seed gives other shots', () => {
-  const run = (n: number): GameEvent[][] => {
-    seed(n);
-    const game = withSquad([
-      { x: 0, z: -GRUNT.stopDist },
-      { x: 10, z: -30 },
-    ]);
-    const frames: GameEvent[][] = [];
-    for (let i = 0; i < 600; i++) {
-      step(game, { ...idle, fire: i % 3 === 0 }, DT);
-      frames.push(game.events);
-    }
-    return frames;
-  };
-  const first = run(21);
-  expect(first.flat().some(event => event.kind === 'damaged')).toBe(true);
-  expect(run(21)).toEqual(first);
-  expect(run(22)).not.toEqual(first);
-});
+test(
+  'the same seed and inputs give the same events; another seed gives other shots',
+  () => {
+    const run = (n: number): GameEvent[][] => {
+      seed(n);
+      const game = withSquad([
+        { x: 0, z: -GRUNT.stopDist },
+        { x: 10, z: -30 },
+      ]);
+      const frames: GameEvent[][] = [];
+      for (let i = 0; i < 600; i++) {
+        step(game, { ...idle, fire: i % 3 === 0 }, DT);
+        frames.push(game.events);
+      }
+      return frames;
+    };
+    const first = run(21);
+    expect(first.flat().some(event => event.kind === 'damaged')).toBe(true);
+    expect(run(21)).toEqual(first);
+    expect(run(22)).not.toEqual(first);
+  },
+  LONG,
+);
 
 // How many of the living enemies have a clear line from their chest to the mech's chest (no prop or standing target between).
 function inSight(game: GameModel): number {
@@ -369,25 +379,117 @@ function inSight(game: GameModel): number {
 
 const SQUAD_SECONDS = 35; // the time the squad has to come out into the mech's sight (s)
 
-test('b-squad, put out behind line 3, finds the way through its breakthrough and comes into the mech’s sight', () => {
-  seed(1);
-  const game = newPlayGame({ ...M1B_HAND, mines: [] });
-  // in front of line 3 (z 8..26), a long way from the squad (z -25..-33)
+test(
+  'b-squad, put out behind line 3, finds the way through the hole a blast opens and comes into the mech’s sight',
+  () => {
+    seed(1);
+    const game = newPlayGame(openBreach({ ...M1B_HAND, mines: [] }, ['l3-b']));
+    // in front of line 3 (z 8..26), a long way from the squad (z -25..-33)
+    game.mech.x = 0;
+    game.mech.z = 40;
+    game.mech.yaw = 0;
+    game.armor = 1e9; // the squad shoots at the mech once it sees it; this test is about where it comes
+    sendToScript(game, { kind: 'enter', area: 'b-line' });
+    // this test is about where b-squad comes; the nests shoot from their own places
+    game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
+    expect(game.enemies).toHaveLength(6);
+    expect(inSight(game)).toBe(0);
+    for (let i = 0; i < SQUAD_SECONDS / DT; i++) step(game, idle, DT);
+    expect(inSight(game)).toBeGreaterThanOrEqual(game.enemies.length / 2);
+    // they came round the line, not through it
+    const blockers = mapBlockers(game.map).filter(rect => rect.top !== undefined && rect.top > 1);
+    for (const enemy of game.enemies) {
+      for (const rect of blockers)
+        expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
+    }
+  },
+  LONG,
+);
+
+test(
+  'a closed line 3 keeps b-squad out of the mech’s sight',
+  () => {
+    seed(1);
+    const game = newPlayGame({ ...M1B_HAND, mines: [] });
+    game.mech.x = 0;
+    game.mech.z = 40;
+    game.mech.yaw = 0;
+    game.armor = 1e9;
+    sendToScript(game, { kind: 'enter', area: 'b-line' });
+    game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
+    for (let i = 0; i < SQUAD_SECONDS / DT; i++) step(game, idle, DT);
+    expect(inSight(game)).toBe(0);
+  },
+  LONG,
+);
+
+test('the six nests come out with b-line at the map’s places, awake on the first frame and never moving', () => {
+  const game = newPlayGame(M1B_HAND);
+  const events = walkIntoBLine(game);
+  expect(events).toContainEqual({ kind: 'spawned', wave: 'b-emplacements', count: 6 });
+  const nests = game.enemies.filter(enemy => enemy.wave === 'b-emplacements');
+  expect(nests).toHaveLength(6);
+  const burst = ENEMIES.emplacement.burst;
+  if (burst === undefined) throw new Error('the nest has a burst');
+  nests.forEach((enemy, i) => {
+    expect(enemy).toMatchObject({
+      kind: 'emplacement',
+      hp: ENEMIES.emplacement.hp,
+      awake: false,
+      burstLeft: burst.shots,
+    });
+    expect(enemy.x).toBe(M1B_HAND.spawns['b-emplacements'][i].x);
+    expect(enemy.z).toBe(M1B_HAND.spawns['b-emplacements'][i].z);
+  });
+  const places = nests.map(enemy => ({ x: enemy.x, z: enemy.z }));
+  step(game, idle, DT);
+  expect(nests.every(enemy => enemy.awake)).toBe(true);
+  expect(nests.map(enemy => ({ x: enemy.x, z: enemy.z }))).toEqual(places);
+});
+
+test('the nav is not made while only the nests are alive, and is made for a walker', () => {
+  const map = { ...M1B_HAND, props: [], targets: [], spawns: {} };
+  const onlyNests = newPlayGame(map);
+  onlyNests.mech.x = 0;
+  onlyNests.mech.z = 0;
+  onlyNests.enemies.push(newEnemy('e-1', 'b-emplacements', 'emplacement', 0, -40));
+  step(onlyNests, idle, DT);
+  expect(onlyNests.nav.grid).toBeNull();
+  expect(onlyNests.nav.field).toBeNull();
+
+  const withWalker = newPlayGame(map);
+  withWalker.mech.x = 0;
+  withWalker.mech.z = 0;
+  withWalker.enemies.push(newEnemy('w-1', 'b-squad', 'grunt', 0, -40));
+  step(withWalker, idle, DT);
+  expect(withWalker.nav.grid).not.toBeNull();
+});
+
+test('six nests in the open sweep their bursts together, within the screen’s 96 lines', () => {
+  const map = { ...M1B_HAND, props: [], targets: [], spawns: {} };
+  const game = newPlayGame(map);
   game.mech.x = 0;
-  game.mech.z = 40;
-  game.mech.yaw = 0;
-  game.armor = 1e9; // the squad shoots at the mech once it sees it; this test is about where it comes
-  sendToScript(game, { kind: 'enter', area: 'b-line' });
-  expect(game.enemies).toHaveLength(6);
-  expect(inSight(game)).toBe(0);
-  for (let i = 0; i < SQUAD_SECONDS / DT; i++) step(game, idle, DT);
-  expect(inSight(game)).toBeGreaterThanOrEqual(game.enemies.length / 2);
-  // they came round the line, not through it
-  const blockers = mapBlockers(game.map).filter(rect => rect.top !== undefined && rect.top > 1);
-  for (const enemy of game.enemies) {
-    for (const rect of blockers)
-      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
+  game.mech.z = 0;
+  game.armor = 1e9;
+  for (let i = 0; i < 6; i++) {
+    game.enemies.push(newEnemy(`e-${i + 1}`, 'b-emplacements', 'emplacement', -25 + i * 10, -60));
   }
+  let most = 0;
+  for (let i = 0; i < Math.round(4 / DT); i++) {
+    step(game, idle, DT);
+    most = Math.max(most, game.bullets.length);
+  }
+  console.log(`six nests: at most ${most} bullets in the air`);
+  expect(most).toBeGreaterThan(0);
+  expect(most).toBeLessThanOrEqual(96); // MAX_BULLET_LINES in src/view/play.ts
+});
+
+test('once the six nests are down the script is told b-emplacements is cleared', () => {
+  const game = newPlayGame(M1B_HAND);
+  walkIntoBLine(game);
+  for (const enemy of game.enemies) if (enemy.wave === 'b-emplacements') enemy.hp = 0;
+  step(game, idle, DT);
+  expect(game.script.cleared).toContain('b-emplacements');
 });
 
 test('seawall-drop is put out on top of the seawall and jumps down to the ground on its seaward side, shooting only after', () => {
@@ -436,6 +538,8 @@ function loneFoe(kind: EnemyKind, z: number): GameModel {
   game.mech.z = 0;
   game.mech.yaw = 0;
   game.armor = 1e9; // it keeps shooting through a long test
+  // the mech stands still through the test, so the aimed mortar would hurt it too; these tests read the enemies' bullets
+  game.aimed = null;
   game.enemies.push(newEnemy(`${kind}-1`, 'b-squad', kind, 0, z));
   return game;
 }

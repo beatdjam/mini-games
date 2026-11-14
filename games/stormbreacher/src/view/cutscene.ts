@@ -8,14 +8,18 @@ import { camera } from '@engine/render/index.ts';
 import { boomShakeAt } from '../data/boom.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import { CUTSCENES, type CutsceneEvent } from '../data/cutscenes.ts';
+import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
+import { LANDING_TUNE } from '../data/landing.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE } from '../data/tune.ts';
 import type { CutsceneId, MapBounds } from '../data/types.ts';
 import { cutsceneEvents, cutsceneLine, cutscenePose } from '../logic/cutscene.ts';
 import type { GameModel } from '../logic/game.ts';
+import type { Battle } from './battle/index.ts';
 import { spawnBoom } from './boom.ts';
 import { feelBoom, spawnDust, type FeelState } from './feel.ts';
-import { buildCraft, CRAFT_NAME, craftZ, RAMP_DOWN } from './shore.ts';
+import { buildRiders, drawRiders, removeRiders, type RidersView } from './riders.ts';
+import { buildCraft, CRAFT_NAME, RAMP_DOWN } from './shore.ts';
 import { playSound, soundMix } from './sound.ts';
 
 const BAR_HEIGHT = '12vh'; // each black bar, as in the HUD mock (#view-hud?cut=1)
@@ -24,7 +28,6 @@ const RAMP_UP = 1.35; // the ramp's turn about its hinge when it is shut (rad)
 const SINK_ROLL = 0.6; // how far a sinking craft rolls over (rad)
 const SINK_DEPTH = 5; // how far it goes down (m)
 const RAMP_DUST = 8; // the dust's particle count before FEEL_TUNE.dust, where the ramp meets the sand
-const RAMP_LENGTH = 5; // the ramp's length (m), for where its tip lands
 const COLLAPSE_DEPTH = 3; // how far a target of the battery goes down in a collapse (m)
 const COLLAPSE_TILT = 0.35; // how far it tips over (rad); alternate targets tip the other way
 
@@ -44,6 +47,7 @@ export interface CutsceneView {
   crafts: { cutscene: CutsceneId; event: SinkEvent | ArriveEvent; craft: THREE.Group }[]; // the crafts at sea, with their events
   targets: Map<string, THREE.Mesh>; // the map's mission targets by id, for the collapse
   seaZ: number; // the map's front edge: a shell past it falls in the sea
+  riders: RidersView; // the infantry on the landing craft's deck
 }
 
 const smooth = (u: number): number => u * u * (3 - 2 * u);
@@ -105,10 +109,12 @@ export function buildCutsceneView(
     crafts,
     targets,
     seaZ: bounds.maxZ,
+    riders: buildRiders(),
   };
 }
 
 export function removeCutsceneView(view: CutsceneView): void {
+  removeRiders(view.riders);
   view.root.remove();
 }
 
@@ -116,16 +122,18 @@ export function removeCutsceneView(view: CutsceneView): void {
 const progress = (elapsed: number, at: number, sec: number): number => clamp((elapsed - at) / sec, 0, 1);
 
 // One frame. While a cutscene with a table plays: the bars and the line show, the HUD hides, the camera goes where the
-// table says, the ramp, the crafts and the collapsing targets follow the second, and the events of the frame blow up.
-// `feel` takes the shake of those blasts; `offset` is the frame's shake, added to the cutscene's camera as well.
-// Otherwise the bars are away, the ramp is down and the crafts beside the player's are out of sight. Call it after the
-// game's own camera is placed and before anything is culled by the camera.
+// table says, the ramp, the crafts, the riders and the collapsing targets follow the second, and the events of the frame
+// blow up. `feel` takes the shake of those blasts; `offset` is the frame's shake, added to the cutscene's camera as well.
+// The machine-gun tracers fly through `battle`, which draws them with its own line. Otherwise the bars are away, the ramp
+// is down, the riders and the crafts beside the player's are out of sight. Call it after the game's own camera is placed
+// and before anything is culled by the camera.
 export function drawCutscene(
   view: CutsceneView,
   game: GameModel,
   hud: HTMLElement,
   feel: FeelState,
   offset: THREE.Vector3,
+  battle: Battle,
 ): void {
   const cutscene = game.script.cutscene;
   const def = cutscene === null ? undefined : CUTSCENES[cutscene.id];
@@ -139,6 +147,7 @@ export function drawCutscene(
     view.elapsed = -1;
     view.ramp.rotation.x = RAMP_DOWN;
     for (const entry of view.crafts) entry.craft.visible = false;
+    view.riders.group.visible = false;
     return;
   }
 
@@ -154,15 +163,41 @@ export function drawCutscene(
   };
   for (const event of cutsceneEvents(cutscene.id, view.elapsed, elapsed)) {
     if (event.kind === 'sink') blast('craft', event.x, 1.2, (event.z ?? view.rampZ) + 6);
-    else if (event.kind === 'ramp') spawnDust(view.rampX, view.rampZ - RAMP_LENGTH, RAMP_DUST, FEEL_TUNE);
+    else if (event.kind === 'ramp') spawnDust(view.rampX, view.rampZ - CRAFT_TUNE.rampLength, RAMP_DUST, FEEL_TUNE);
     else if (event.kind === 'burst') blast(event.z >= view.seaZ ? 'water' : 'large', event.x, 0.8, event.z);
+    else if (event.kind === 'tracers') {
+      const tracer = LANDING_TUNE.tracer;
+      for (let i = 0; i < event.n; i++) {
+        const from = {
+          x: event.x + (i - (event.n - 1) / 2) * tracer.spread,
+          y: tracer.height,
+          z: tracer.fromZ,
+        };
+        const to = { x: event.x, y: tracer.height - 0.5, z: event.z };
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const dz = to.z - from.z;
+        const len = Math.hypot(dx, dy, dz) || 1;
+        battle.tracer(from, {
+          x: (dx / len) * tracer.speed,
+          y: (dy / len) * tracer.speed,
+          z: (dz / len) * tracer.speed,
+        });
+      }
+    }
   }
   view.elapsed = elapsed;
+  // the riders are on the landing craft alone; the other cutscenes leave them out of sight
+  const onDeck = cutscene.id === 'landing';
+  view.riders.group.visible = onDeck;
+  if (onDeck) drawRiders(view.riders, elapsed, def.events);
 
   const key = cutsceneLine(cutscene.id, elapsed);
   if (key !== view.lineKey) {
     view.lineKey = key;
     view.caption.textContent = key === null ? '' : t(key);
+    // a new line comes in over the radio; the blasts already sound (the blast above)
+    if (key !== null) playSound({ name: 'radio', gain: 1, pitch: 1 });
   }
 
   camera.fov = CAMERA_TUNE.fov;

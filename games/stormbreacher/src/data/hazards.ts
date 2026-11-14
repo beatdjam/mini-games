@@ -45,6 +45,22 @@ export const M1_WAVE_BARRAGE: Readonly<Partial<Record<string, BarrageKind>>> = {
   battery: 'battery',
 };
 
+// The aimed mortar: when the mech stands in the same place for `stillSec`, a shell comes down on that place, cover or no
+// cover. Every value is provisional.
+export const AIMED_MORTAR = {
+  stillSec: 5, // the seconds at the same place before a shell is warned of
+  stillRadius: 3, // the mech counts as in the same place while its feet stay this near the anchor (m)
+  warn: 2.5, // the seconds from the warning to the landing
+  radius: 6, // the blast's radius on the ground (m)
+  damage: 20, // what a shell that lands on the mech takes off its armour
+  minZ: -10, // the mortar reaches only the mech at or past this z (m); +z is the sea; just short of the pillboxes
+  maxZ: Infinity, // and at or before this z (m); Infinity for no limit
+};
+
+// The waves that start the aimed mortar, by the wave's name in the mission's script. The beach's `spawn` starts it; it
+// goes on until the sortie ends.
+export const M1_WAVE_AIMED: readonly string[] = ['beach-mortar'];
+
 // The mines on the beach.
 export const MINE_TUNE = {
   stepRadius: 1.8, // the mech's feet this near a mine set it off (m)

@@ -34,6 +34,7 @@ const HAZE_MAX = 8; // the most haze sheets the pools room for (the panel stops 
 const HAZE_MARGIN = 40; // how far past the map's sides a sheet may wander (m)
 const GLOW_Y = 0.07; // how high the warm pool lies above the ground (m)
 const GRAIN_TILE = 96; // the noise picture's side (px)
+const PLUME_FADE_FROM = 0.8; // the share of a puff's life where it starts to shrink away
 const SEED = 0x1440a11e; // the look's own stream, so the game's random sequence is untouched
 
 interface Puff {
@@ -89,9 +90,9 @@ interface Atmosphere {
 }
 
 interface ScreenFx {
-  root: HTMLDivElement;
+  root: HTMLDivElement; // the vignette's layer (#sbAtmosphere)
   vignette: HTMLDivElement;
-  grain: HTMLDivElement;
+  grain: HTMLDivElement; // a layer of its own on body, so its overlay blend reaches the canvas
 }
 
 const rng = createRng(SEED);
@@ -102,6 +103,9 @@ let plumeNext = 0;
 let flameNext = 0;
 // The look's own filter terms (view/look.ts), with the grade's added after them.
 let baseFilter = '';
+// Whether a map's air is built. The grade is the air's, so a page without air (a dev view asked for no effects) keeps
+// the look's own filter alone.
+let gradeOn = false;
 
 const puffs: Puff[] = [];
 const flames: Flame[] = [];
@@ -114,12 +118,14 @@ function emptyFlame(): Flame {
   return { live: false, age: 0, life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, size: 0, flicker: 0 };
 }
 
-function freeOf(slots: readonly { live: boolean }[], next: number): number {
+// The first dead slot from `next` on, or -1 when every slot is live: a full pool drops the new part instead of taking
+// one still in use (which would make it vanish mid-life).
+export function freeOf(slots: readonly { live: boolean }[], next: number): number {
   for (let i = 0; i < slots.length; i++) {
     const at = (next + i) % slots.length;
     if (!slots[at].live) return at;
   }
-  return next % slots.length;
+  return -1;
 }
 
 function poolMesh(
@@ -172,7 +178,7 @@ export function applyAtmosphereLight(): void {
 }
 
 // The canvas's part of the screen grade (5): a little less colour, a little more contrast and a warm cast. 0 leaves the
-// filter alone; view/look.ts puts these terms after the look's own.
+// filter alone; view/look.ts puts these terms after the look's own, while a map's air is built.
 export function gradeFilterCss(): string {
   const grade = clamp(ATMOSPHERE_TUNE.grade, 0, 1);
   if (grade <= 0) return '';
@@ -188,8 +194,9 @@ export function setGradeBase(filter: string): void {
 }
 
 export function refreshGradeFilter(): void {
+  if (!renderer) return; // the unit tests run without a page
   const style = renderer.domElement.style;
-  style.filter = [baseFilter, gradeFilterCss()].filter(value => value !== '').join(' ');
+  style.filter = [baseFilter, gradeOn ? gradeFilterCss() : ''].filter(value => value !== '').join(' ');
 }
 
 // A small tile of grey noise for the grain layer, made once and repeated by the browser.
@@ -221,13 +228,17 @@ function ensureScreen(): ScreenFx | null {
   const vignette = document.createElement('div');
   vignette.style.cssText =
     'position:absolute;inset:0;background:radial-gradient(ellipse at 50% 48%,rgba(3,5,8,0) 40%,rgba(3,5,8,0.9) 100%)';
+  // The grain is a layer of its own on the body: inside #sbAtmosphere its overlay blend would see the vignette alone and
+  // never the canvas. It is one tile wider on every side than the screen, so moving it by up to a tile leaves no edge.
   const grain = document.createElement('div');
+  grain.id = 'sbAtmosphereGrain';
   grain.style.cssText =
-    'position:absolute;inset:-8px;background-repeat:repeat;image-rendering:pixelated;mix-blend-mode:overlay';
+    `position:fixed;inset:-${GRAIN_TILE}px;pointer-events:none;z-index:4;` +
+    'background-repeat:repeat;image-rendering:pixelated;mix-blend-mode:overlay;will-change:transform';
   const url = grainUrl();
   if (url) grain.style.backgroundImage = `url(${url})`;
-  root.append(vignette, grain);
-  document.body.appendChild(root);
+  root.append(vignette);
+  document.body.append(root, grain);
   screen = { root, vignette, grain };
   applyAtmosphereScreen();
   return screen;
@@ -239,11 +250,10 @@ export function applyAtmosphereScreen(): void {
   if (!view) return;
   const vignette = clamp(ATMOSPHERE_TUNE.vignette, 0, 1);
   const grain = clamp(ATMOSPHERE_TUNE.grain, 0, 1);
-  view.vignette.style.display = vignette > 0 ? '' : 'none';
+  view.root.style.display = vignette > 0 ? '' : 'none';
   view.vignette.style.opacity = String(vignette);
   view.grain.style.display = grain > 0 ? '' : 'none';
   view.grain.style.opacity = String(grain * 0.2);
-  view.root.style.display = vignette > 0 || grain > 0 ? '' : 'none';
 }
 
 // Re-applies what is not drawn every frame: the page's layers, the canvas's grade and the map's lights. #view-map calls
@@ -257,6 +267,7 @@ export function applyAtmosphere(): void {
 function spawnPuff(x: number, y: number, z: number, age = 0): number {
   const tune = ATMOSPHERE_TUNE;
   const at = freeOf(puffs, plumeNext);
+  if (at < 0) return -1; // a full pool drops this puff; the live ones keep their life
   plumeNext = (at + 1) % puffs.length;
   const slot = puffs[at];
   slot.live = true;
@@ -276,6 +287,7 @@ function spawnPuff(x: number, y: number, z: number, age = 0): number {
 function spawnFlame(fire: Fire): number {
   const tune = ATMOSPHERE_TUNE;
   const at = freeOf(flames, flameNext);
+  if (at < 0) return -1; // a full pool drops this flame
   flameNext = (at + 1) % flames.length;
   const slot = flames[at];
   slot.live = true;
@@ -304,6 +316,7 @@ function prefillFlame(fire: Fire): void {
   const count = Math.min(12, Math.floor(ATMOSPHERE_TUNE.flameLife / Math.max(0.02, ATMOSPHERE_TUNE.flameEvery)));
   for (let i = 0; i < count; i++) {
     const at = spawnFlame(fire);
+    if (at < 0) return;
     flames[at].age = (i / count) * flames[at].life;
   }
 }
@@ -377,12 +390,19 @@ export function buildAtmosphere(map: MapDef): void {
   for (let i = 0; i < fires.length && i < tune.fires; i++) prefillFlame(fires[i]);
   ensureScreen();
   // a page without a look (the map views) still gets the beach's grade on the canvas
+  gradeOn = true;
   refreshGradeFilter();
 
   if (!systemAdded) {
     systemAdded = true;
-    // after the views have moved the camera for the frame, so the billboards face where it now looks
-    addSystem({ name: 'sb-atmosphere', order: 20, update: drawAtmosphere });
+    // after the views have moved the camera for the frame, so the billboards face where it now looks. It runs in the
+    // sortie, the title (the dev views walk their map there) and the result, but not while paused.
+    addSystem({
+      name: 'sb-atmosphere',
+      order: 20,
+      modes: ['play', 'title', 'result'],
+      update: drawAtmosphere,
+    });
   }
 }
 
@@ -431,6 +451,12 @@ function stepEmitters(view: Atmosphere, dt: number): void {
   }
 }
 
+// How much of its size a puff keeps at `k` (its age over its life): the last fifth shrinks it away, so a puff is
+// unseen before its life ends instead of a large pale sheet going out at full opacity.
+export function plumeFade(k: number): number {
+  return k <= PLUME_FADE_FROM ? 1 : Math.max(0, 1 - (k - PLUME_FADE_FROM) / (1 - PLUME_FADE_FROM));
+}
+
 function drawPlumes(view: Atmosphere): void {
   const tune = ATMOSPHERE_TUNE;
   const mesh = view.plumes;
@@ -448,7 +474,7 @@ function drawPlumes(view: Atmosphere): void {
     const z = slot.z + tune.windZ * slot.drift * slot.age;
     dummy.position.set(x, y, z);
     dummy.quaternion.copy(camera.quaternion);
-    dummy.scale.setScalar(slot.size * (1 + slot.grow * k));
+    dummy.scale.setScalar(Math.max(0.001, slot.size * (1 + slot.grow * k) * plumeFade(k)));
     dummy.updateMatrix();
     mesh.setMatrixAt(n, dummy.matrix);
     mesh.setColorAt(n, tint.copy(fresh).lerp(faded, k));
@@ -539,10 +565,22 @@ export function drawAtmosphere(dt: number): void {
   drawGlows(view);
   drawFlames(view);
   if (screen && ATMOSPHERE_TUNE.grain > 0) {
+    // transform, not background-position: the position change redraws the whole-screen layer every frame, while a
+    // transform is composited. The layer is a tile wider on every side, so a step of up to a tile shows no edge.
     const x = Math.round((view.clock * 61) % GRAIN_TILE);
     const y = Math.round((view.clock * 37) % GRAIN_TILE);
-    screen.grain.style.backgroundPosition = `${x}px ${y}px`;
+    screen.grain.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   }
+}
+
+// What the pools hold now, for the tests and the dev screens: the live puffs and flames, and the fires (the table's
+// plus those broken in play).
+export function atmosphereCounts(): { puffs: number; flames: number; fires: number } {
+  let livePuffs = 0;
+  for (const slot of puffs) if (slot.live) livePuffs++;
+  let liveFlames = 0;
+  for (const slot of flames) if (slot.live) liveFlames++;
+  return { puffs: livePuffs, flames: liveFlames, fires: current ? current.fires.length : 0 };
 }
 
 // Lets a thing broken in play keep a fire of its own (a prop's wreck). The cap is the table's burnFires; the same place
@@ -566,10 +604,15 @@ export function removeAtmosphere(): void {
   }
   if (screen) {
     screen.root.remove();
+    screen.grain.remove();
     screen = null;
   }
   puffs.length = 0;
   flames.length = 0;
   plumeNext = 0;
   flameNext = 0;
+  // the canvas's grade was the air's: go back to the look's own filter alone (a title return inside the page keeps it)
+  gradeOn = false;
+  baseFilter = '';
+  refreshGradeFilter();
 }
