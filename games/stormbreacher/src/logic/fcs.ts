@@ -39,6 +39,7 @@ export interface FcsState {
 
 export interface FcsStep {
   shotDir: Dir3; // the direction a shot from the muzzle flies
+  shotDist: number; // how far the shot is aimed from the muzzle (m)
   lockId: number | null;
   candidateId: number | null;
   inCone: number[]; // the indices of the targets in the aim circle
@@ -107,14 +108,15 @@ export interface FcsWorld {
 // The shot direction manual aiming gives: from the muzzle toward the point where the aim line first meets a target,
 // a box of `world` or the ground within `range` m, or else the point where it passes `range` m out. Aiming at that point
 // (not at a point 200 m out) makes a shot from the muzzle, which sits off the camera's line, land on the reticle at any
-// distance. `world` is optional: the dev view has none, and aims at the targets alone.
+// distance. `world` is optional: the dev view has none, and aims at the targets alone. The distance to that point comes
+// back too, so a near shot can be given a smaller spread.
 function manualDir(
   aim: Ray3,
   muzzle: { x: number; y: number; z: number },
   range: number,
   targets: readonly FcsTarget[],
   world: FcsWorld | null,
-): Dir3 {
+): { dir: Dir3; dist: number } {
   const boxes = [...targets.filter(t => t.alive).map(t => t.box), ...(world ? world.boxes : [])];
   const dir = normalize(aim.dx, aim.dy, aim.dz);
   // A hit between the camera and the muzzle would put the aim point behind the mech, sending the shot backwards or
@@ -140,11 +142,42 @@ function manualDir(
     const ground = (world.groundY - aim.oy) / dir.dy;
     if (ground >= start) reach = Math.min(reach, ground);
   }
-  return normalize(
-    aim.ox + dir.dx * reach - muzzle.x,
-    aim.oy + dir.dy * reach - muzzle.y,
-    aim.oz + dir.dz * reach - muzzle.z,
-  );
+  const point = {
+    x: aim.ox + dir.dx * reach,
+    y: aim.oy + dir.dy * reach,
+    z: aim.oz + dir.dz * reach,
+  };
+  return {
+    dir: normalize(point.x - muzzle.x, point.y - muzzle.y, point.z - muzzle.z),
+    dist: distance(point.x, point.y, point.z, muzzle.x, muzzle.y, muzzle.z),
+  };
+}
+
+// The direction and distance from the muzzle to a point inside the target's box: the box's nearest point to the muzzle,
+// moved a quarter of the way to the centre. Aiming there enters the box squarely from the muzzle rather than at its
+// centre, which a wall or the box's own skin could put out of reach.
+function insideAim(chest: { x: number; y: number; z: number }, target: FcsTarget): { dir: Dir3; dist: number } {
+  const near = {
+    x: Math.min(Math.max(chest.x, target.box.minX), target.box.maxX),
+    y: Math.min(Math.max(chest.y, target.box.minY), target.box.maxY),
+    z: Math.min(Math.max(chest.z, target.box.minZ), target.box.maxZ),
+  };
+  const point = {
+    x: near.x + (target.cx - near.x) * 0.25,
+    y: near.y + (target.cy - near.y) * 0.25,
+    z: near.z + (target.cz - near.z) * 0.25,
+  };
+  return {
+    dir: normalize(point.x - chest.x, point.y - chest.y, point.z - chest.z),
+    dist: distance(point.x, point.y, point.z, chest.x, chest.y, chest.z),
+  };
+}
+
+// The spread a shot at `dist` m gets: `nearSpread` of it close in, growing to the full `spread` at `nearRange`.
+export function spreadFor(dist: number, tune: FcsTune): number {
+  if (!(tune.nearRange > 0)) return tune.spread;
+  const t = Math.min(1, Math.max(0, dist / tune.nearRange));
+  return tune.spread * (tune.nearSpread + (1 - tune.nearSpread) * t);
 }
 
 // The indices (and the nearest by angle) of the alive targets inside the aim circle and within range.
@@ -191,24 +224,47 @@ export function stepFcs(
     normalize(target.cx - chest.x, target.cy - chest.y, target.cz - chest.z);
 
   if (kind === 'manual') {
-    state.muzzle = manual;
-    return { shotDir: manual, lockId: null, candidateId: null, inCone, lockProgress: 0 };
+    state.muzzle = manual.dir;
+    return { shotDir: manual.dir, shotDist: manual.dist, lockId: null, candidateId: null, inCone, lockProgress: 0 };
   }
 
   if (kind === 'soft') {
     if (nearest === null) {
       state.lockCandidate = null;
-      state.muzzle = manual;
-      return { shotDir: manual, lockId: null, candidateId: null, inCone, lockProgress: 0 };
+      state.muzzle = manual.dir;
+      return {
+        shotDir: manual.dir,
+        shotDist: manual.dist,
+        lockId: null,
+        candidateId: null,
+        inCone,
+        lockProgress: 0,
+      };
     }
     // A new target starts from the manual aim, so the pull always begins at what the player sees.
     if (state.lockCandidate !== nearest.id) {
       state.lockCandidate = nearest.id;
-      state.muzzle = manual;
+      state.muzzle = manual.dir;
+    }
+    // Close in, the slow pull would trail a target the player is turning past. Aim straight at a point inside the box
+    // instead, so the shot lands where the reticle is even while the mech moves.
+    const near = distance(nearest.cx, nearest.cy, nearest.cz, chest.x, chest.y, chest.z) <= tune.nearRange;
+    if (near) {
+      const aimed = insideAim(chest, nearest);
+      state.muzzle = aimed.dir;
+      return {
+        shotDir: state.muzzle,
+        shotDist: aimed.dist,
+        lockId: null,
+        candidateId: nearest.id,
+        inCone,
+        lockProgress: 0,
+      };
     }
     state.muzzle = turnToward(state.muzzle, targetDir(nearest), tune.pull * dt);
     return {
       shotDir: state.muzzle,
+      shotDist: distance(nearest.cx, nearest.cy, nearest.cz, chest.x, chest.y, chest.z),
       lockId: null,
       candidateId: nearest.id,
       inCone,
@@ -228,6 +284,7 @@ export function stepFcs(
       state.lockProgress = Math.min(tune.lockTime, state.lockProgress + dt);
       return {
         shotDir: state.muzzle,
+        shotDist: distance(locked.cx, locked.cy, locked.cz, chest.x, chest.y, chest.z),
         lockId: state.lockId,
         candidateId: nearest ? nearest.id : null,
         inCone,
@@ -243,8 +300,15 @@ export function stepFcs(
   if (nearest === null) {
     state.lockCandidate = null;
     state.lockProgress = 0;
-    state.muzzle = manual;
-    return { shotDir: manual, lockId: null, candidateId: null, inCone, lockProgress: 0 };
+    state.muzzle = manual.dir;
+    return {
+      shotDir: manual.dir,
+      shotDist: manual.dist,
+      lockId: null,
+      candidateId: null,
+      inCone,
+      lockProgress: 0,
+    };
   }
 
   if (state.lockCandidate !== nearest.id) {
@@ -252,14 +316,15 @@ export function stepFcs(
     state.lockProgress = 0;
   }
   state.lockProgress += dt;
-  state.muzzle = manual;
+  state.muzzle = manual.dir;
   // lockTime 0 catches on the first frame in the circle (to compare a hard lock with no wait)
   if (state.lockProgress >= tune.lockTime) {
     state.lockId = nearest.id;
     state.lockProgress = tune.lockTime;
   }
   return {
-    shotDir: manual,
+    shotDir: manual.dir,
+    shotDist: manual.dist,
     lockId: state.lockId,
     candidateId: nearest.id,
     inCone,

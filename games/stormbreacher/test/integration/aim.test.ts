@@ -4,7 +4,7 @@ import { CAMERA_TUNE, FCS_TUNE } from '../../src/data/tune.ts';
 import type { Prop } from '../../src/data/types.ts';
 import { step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { seed } from '../../src/logic/rng.ts';
-import { aimRay } from '../../src/view/camera.ts';
+import { aimRay, cameraPose, stateOfPose } from '../../src/view/camera.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
@@ -39,7 +39,7 @@ function gameWithWall(dist: number): GameModel {
 // The camera's centre line, as the view makes it, for the mech standing as it is.
 function cameraAim(game: GameModel, pitch: number) {
   const { x, y, z, yaw } = game.mech;
-  return aimRay({ x, y, z, yaw }, pitch, CAMERA_TUNE);
+  return aimRay(stateOfPose(cameraPose({ x, y, z, yaw }, pitch, CAMERA_TUNE, [])));
 }
 
 // One shot fired along `aim`; where its bullet reported the hit.
