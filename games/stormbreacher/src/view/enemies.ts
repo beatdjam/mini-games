@@ -24,7 +24,7 @@ export function buildEnemyView(): EnemyView {
       MAX_ENEMIES,
     );
     mesh.name = enemyMeshName(kind);
-    // three r128 sizes instanceColor at the first setColorAt from the count then, still 0 here: make the whole room now.
+    // three r128 sizes instanceColor from the count at the first setColorAt, which is 0 here, so build it at full size now
     mesh.instanceColor = new THREE.BufferAttribute(new Float32Array(MAX_ENEMIES * 3), 3);
     mesh.count = 0;
     // the instances move every frame, so the bounding sphere made at the start would cull them

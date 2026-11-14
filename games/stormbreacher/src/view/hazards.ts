@@ -35,7 +35,7 @@ function instanced(
 ): THREE.InstancedMesh {
   const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }), max);
   mesh.name = name;
-  // three r128 sizes instanceColor at the first setColorAt from the count then, still 0 here: make the whole room now.
+  // three r128 sizes instanceColor from the count at the first setColorAt, which is 0 here, so build it at full size now
   if (colored) mesh.instanceColor = new THREE.BufferAttribute(new Float32Array(max * 3), 3);
   mesh.count = 0;
   // the instances change as the game goes on, so the bounding sphere made at the start would cull them
