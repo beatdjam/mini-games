@@ -1,11 +1,11 @@
-// The mech walks on the player's craft: up the ramp from the sand, along the deck without leaving it over the side, and
-// back down the ramp, and it cannot pass the map's front edge outside the ramp's lane.
+// The mech walks on the player's craft: up the ramp from the sand, along the deck without leaving it over the side, aft to
+// the wheelhouse, and back down the ramp, and it cannot pass the map's front edge outside the ramp's lane.
 import { expect, test } from 'vitest';
 import { CRAFT_TUNE } from '../../src/data/craft.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
-import { craftRects } from '../../src/logic/craft.ts';
+import { craftBack, craftRects } from '../../src/logic/craft.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
@@ -83,6 +83,23 @@ test('the deck’s side wall keeps the mech from walking off into the sea', () =
   expect(game.mech.x).toBeCloseTo(expected, 2);
   expect(game.mech.y).toBeCloseTo(1.8, 3);
   expect(game.mech.z).toBeCloseTo(startZ, 3);
+});
+
+test('the mech walking aft stops at the wheelhouse, short of the stern', () => {
+  const game = onDeck();
+  const startZ = game.mech.z;
+  // face the stern (+z) and walk forward: the wheelhouse stands across the deck behind the mech, and the gap beside it is
+  // narrower than the mech, so the deck's aft end cannot be walked to
+  game.mech.yaw = Math.PI;
+  walk(game, 240, { ...idle, moveZ: 1 });
+  const stern = craftBack(M1B_HAND.bounds);
+  const wheelhouseNear = stern - CRAFT_TUNE.wheelhouse.fromStern - CRAFT_TUNE.wheelhouse.d / 2;
+  expect(game.mech.z).toBeGreaterThan(startZ);
+  expect(game.mech.z).toBeCloseTo(wheelhouseNear - MECH_TUNE.radius, 2);
+  // the map's own stop at the stern (craftBack - radius) is still not reached, let alone passed
+  expect(game.mech.z).toBeLessThan(stern - MECH_TUNE.radius);
+  expect(game.mech.y).toBeCloseTo(CRAFT_TUNE.deckTop, 3);
+  expect(game.mech.grounded).toBe(true);
 });
 
 test('the mech walks down the ramp from the deck and reaches the sand', () => {

@@ -920,12 +920,19 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   const use = input.use === true && game.script.cutscene === null;
   const held = use ? { ...input, fire: false, sub: false } : input;
   game.time += dt;
+  const radius = MECH_TUNE.radius;
+  // stepMech keeps the mech a radius inside the map's bounds. The landing craft's lane is the one way past the front
+  // edge, so while the mech stands in it the bound reaches back to the craft's stern.
+  const stepBounds = inCraftLane(game.mech.x, game.map.bounds)
+    ? { ...game.map.bounds, maxZ: craftBack(game.map.bounds) }
+    : game.map.bounds;
   const events = stepMech(game.mech, held, dt, moveTuneOf(M1_MECH), 0, {
     rects: game.rects,
-    radius: MECH_TUNE.radius,
+    radius,
+    bounds: stepBounds,
   });
   // The mech stays inside the map: the mech is kept a radius in from every side, and a speed that pushed it out stops.
-  const radius = MECH_TUNE.radius;
+  // The lane is read again from the mech's x after the step, so a mech that left it sideways this frame goes back to the front edge.
   const minX = game.map.bounds.minX + radius;
   const maxX = game.map.bounds.maxX - radius;
   const minZ = game.map.bounds.minZ + radius;
