@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { PAYOFF_TUNE } from '../../src/data/payoff.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
@@ -125,82 +124,6 @@ test('no mortar shell is warned of while the landing plays or the mech is on the
   game.mech.z = 160;
   run(8);
   expect(warned).toBeGreaterThan(0);
-});
-
-// A game past the landing, with the mech at the pillbox line and both pillboxes handed to the script as down: cp1 fires
-// at once, and the wave2-lost cue 4 s after it.
-function afterPillboxes(): GameModel {
-  const game = newPlayGame(M1B_HAND);
-  game.mech.x = 10;
-  game.mech.z = -20;
-  sendToScript(game, { kind: 'destroyed', target: 'pillbox-1' });
-  sendToScript(game, { kind: 'destroyed', target: 'pillbox-2' });
-  expect(game.script.fired.cp1).toBeDefined();
-  return game;
-}
-
-// Runs frames until the game's cutscene is `id`; returns the script events seen on the way.
-function runUntilCutscene(game: GameModel, id: string, seconds: number): string[] {
-  const seen: string[] = [];
-  for (let i = 0; i < 60 * seconds && game.script.cutscene?.id !== id; i++) {
-    step(game, idle, DT);
-    for (const out of scriptEvents(game)) seen.push(out.kind);
-  }
-  return seen;
-}
-
-test('wave2-sinks starts right after the bunker payoff (SB-2027), holds the mech still, and ends with the radio, objective and drop done', () => {
-  const game = afterPillboxes();
-  const wave2Wait = PAYOFF_TUNE.slowSec + PAYOFF_TUNE.headlineSec + PAYOFF_TUNE.wave2Pad;
-  runUntilCutscene(game, 'wave2-sinks', 4.5);
-  expect(game.script.cutscene?.id).toBe('wave2-sinks');
-  expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeGreaterThan(wave2Wait - 0.01);
-  expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeLessThan(wave2Wait + 0.1);
-  // the cue's other actions come in the same frame; the ally calls may still hold the band, so the line is on it or queued
-  expect(game.script.objective).toBe('take-seawall');
-  expect([game.radio?.line ?? null, ...game.radioQueue.map(entry => entry.line)]).toContain('m1.wave2-lost');
-  expect(game.enemies.some(enemy => enemy.wave === 'seawall-drop')).toBe(true);
-  const start = { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw };
-  let shots = 0;
-  for (let i = 0; i < 60 * (CUTSCENE_SEC['wave2-sinks'] - 1); i++) {
-    step(game, pressing, DT);
-    shots += game.events.filter(event => event.kind === 'shot').length;
-  }
-  expect(game.script.cutscene?.id).toBe('wave2-sinks');
-  expect({ x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw }).toEqual(start);
-  expect(shots).toBe(0);
-  // once it is over the mech moves again
-  for (let i = 0; i < 60 * 2 && game.script.cutscene !== null; i++) step(game, idle, DT);
-  expect(game.script.cutscene).toBeNull();
-  const z = game.mech.z;
-  for (let i = 0; i < 30; i++) step(game, { ...idle, moveZ: 1 }, DT);
-  expect(game.mech.z).toBeLessThan(z);
-});
-
-test('the wave2-lost line reaches the screen once the ally call before it has had its time', () => {
-  const game = afterPillboxes();
-  runUntilCutscene(game, 'wave2-sinks', 4.5);
-  // buddy's call takes the band first; the line waits behind it and then is the one on screen. The cutscene hides the HUD,
-  // so the band does not move while it plays: the wait is the cutscene's seconds on top of the call's own
-  for (let i = 0; i < 60 * 16 && game.radio?.line !== 'm1.wave2-lost'; i++) step(game, idle, DT);
-  expect(game.radio?.line).toBe('m1.wave2-lost');
-});
-
-test('a skip of wave2-sinks leaves the script as watching it does', () => {
-  const skipped = afterPillboxes();
-  runUntilCutscene(skipped, 'wave2-sinks', 4.5);
-  sendToScript(skipped, { kind: 'skip' });
-  expect(skipped.script.cutscene).toBeNull();
-  const watched = afterPillboxes();
-  runUntilCutscene(watched, 'wave2-sinks', 4.5);
-  for (let i = 0; i < 60 * (CUTSCENE_SEC['wave2-sinks'] + 1) && watched.script.cutscene !== null; i++)
-    step(watched, idle, DT);
-  expect(watched.script.cutscene).toBeNull();
-  const { time: skippedTime, ...skippedRest } = skipped.script;
-  const { time: watchedTime, ...watchedRest } = watched.script;
-  expect(skippedTime).toBeLessThan(watchedTime);
-  const withoutTimes = (s: typeof skippedRest) => ({ ...s, fired: Object.keys(s.fired).sort() });
-  expect(withoutTimes(skippedRest)).toEqual(withoutTimes(watchedRest));
 });
 
 // A game at the end of M1: the guns and the magazine are handed to the script as down.

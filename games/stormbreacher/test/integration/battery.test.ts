@@ -3,7 +3,7 @@
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { PROP_SIZE, TARGET_SIZE } from '../../src/data/props.ts';
+import { TARGET_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetPlace } from '../../src/data/types.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
@@ -97,67 +97,55 @@ test('the battery’s parts stand landward of the seawall’s back face, with th
   }
 });
 
-test('walking off the back of the seawall drops the mech to the ground', () => {
-  for (const x of [-50, 35]) {
-    const game = newBatteryGame();
-    game.mech.x = x;
-    game.mech.z = -45;
-    let top = 0;
-    for (let i = 0; i < 400 && game.mech.z > SEAWALL_BACK - 3; i++) {
-      step(game, { ...idle, moveZ: 1 }, DT);
-      top = Math.max(top, game.mech.y);
-    }
-    expect(top, `flight at x ${x}`).toBeCloseTo(PROP_SIZE.seawall.h, 2);
-    expect(game.mech.z, `flight at x ${x}`).toBeLessThanOrEqual(SEAWALL_BACK - 3);
-    run(game, 60);
-    expect(game.mech.y, `flight at x ${x}`).toBe(0);
-  }
-});
-
-function run(game: GameModel, frames: number): void {
-  for (let i = 0; i < frames; i++) step(game, { ...idle, moveZ: 1 }, DT);
-}
-
-test('from the ground below the seawall the mech walks round the cover to every part of the battery', () => {
+test('from the yard the mech walks through the land gate and round the cover to every part of the battery', () => {
   const game = newBatteryGame();
   game.mech.x = 10;
   game.mech.z = -78;
-  // the legs go between the wrecks at z -100 and z -114, then along the guns’ front to the magazine
-  walkTo(game, 10, -95);
-  walkTo(game, 0, -125);
-  walkTo(game, -20, -135);
+  // down the yard, through the land gate (x 0, z -128), then between the cover pieces to the guns and the magazine
+  walkTo(game, 0, -96);
+  walkTo(game, 0, -120);
+  walkTo(game, 0, -140);
+  walkTo(game, -30, -175);
+  walkTo(game, -40, -225);
   expect(distanceToPart(game, 'main-gun-1')).toBeLessThanOrEqual(REACH);
-  walkTo(game, 0, -125);
-  walkTo(game, 20, -135);
+  walkTo(game, 0, -225);
+  walkTo(game, 40, -225);
   expect(distanceToPart(game, 'main-gun-2')).toBeLessThanOrEqual(REACH);
-  walkTo(game, 0, -125);
-  walkTo(game, 0, -143);
+  walkTo(game, 0, -230);
+  walkTo(game, 0, -243);
   expect(distanceToPart(game, 'magazine')).toBeLessThanOrEqual(REACH);
   expect(game.mech.y).toBe(0);
 });
 
-test('M1 clears: up the ramp into seawall-top, both guns down, then the magazine', () => {
+test('M1 clears: through the gates, both guns down, then the magazine', () => {
   const game = newBatteryGame();
-  game.mech.x = 35;
-  game.mech.z = -45;
-  for (let i = 0; i < 300 && !game.script.entered.includes('seawall-top'); i++) {
+  game.mech.x = 0;
+  game.mech.z = -55;
+  for (let i = 0; i < 600 && !game.script.entered.includes('fortress-gate'); i++) {
     step(game, { ...idle, moveZ: 1 }, DT);
   }
-  expect(game.script.entered).toContain('seawall-top');
-  expect(game.script.objective).toBe('silence-battery');
-  // the shots are fired from the ground below the seawall (the walk down is tested above)
-  game.mech.x = -30;
+  expect(game.script.entered).toContain('fortress-gate');
+  expect(game.script.objective).toBe('stop-fortress-gun');
+  // the field past the land gate starts the battery's wave and the count of its main guns
+  game.mech.x = 0;
   game.mech.y = 0;
-  game.mech.z = -115;
+  game.mech.z = -140;
+  step(game, idle, DT);
+  expect(game.script.entered).toContain('fortress-out');
+  expect(game.script.objective).toBe('silence-battery');
+  // the shots are fired from the field before the guns
+  game.mech.x = -30;
+  game.mech.z = -200;
   shootDown(game, 'main-gun-1');
   expect(game.script.objective).toBe('silence-battery');
   game.mech.x = 30;
+  game.mech.z = -200;
   shootDown(game, 'main-gun-2');
   expect(game.script.destroyed).toEqual(expect.arrayContaining(['main-gun-1', 'main-gun-2']));
   expect(game.script.objective).toBe('hit-magazine');
   expect(game.cleared).toBe(false);
   game.mech.x = 0;
-  game.mech.z = -125;
+  game.mech.z = -230;
   shootDown(game, 'magazine');
   expect(game.script.ended).toBe('cleared');
   expect(game.cleared).toBe(true);

@@ -35,8 +35,9 @@ interface Waypoint {
 
 // The route. +z is the sea. It plants a charge at one blast point of each line, walks back out of the blast and goes
 // through the hole the charge opens: line 1 at x 40, line 2 at its near point x -10 (SB-2020; the ally's support fire
-// keeps the nests quiet while it plants). C's rows (z -55..-35) still have their breakthrough at x 35, right in front
-// of the ramp up the seawall.
+// keeps the nests quiet while it plants). C's rows (z -55..-35) still have their breakthrough at x 35; past them the way
+// turns to the fortress's sea gate (x 0, z -68), crosses the yard and the land gate (x 0, z -128) to the battery. The
+// guns are held first, then the magazine, so the bot leaves the shut shutter alone until both guns are down.
 const ROUTE: readonly Waypoint[] = [
   { x: 0, z: 170, why: 'down the ramp, off the craft' },
   { x: 26, z: 166, why: 'along the sea edge, clear of the mines at x 14 and x 34' },
@@ -73,9 +74,15 @@ const ROUTE: readonly Waypoint[] = [
   { x: -33, z: -34, why: 'clear of the blast while the fuse burns', wait: 'blast-pillbox-1-back' },
   { x: 0, z: -30, why: 'back to the middle, behind the broken line' },
   { x: 35, z: -30, why: 'before the breakthrough of C at x 35' },
-  { x: 35, z: -62, why: 'up the ramp onto the seawall (area seawall-top)' },
-  { x: 35, z: -78, why: 'off the seawall, onto the boss ground' },
-  { x: 0, z: -118, why: 'in front of the guns and the magazine', hold: ['main-gun-1', 'main-gun-2', 'magazine'] },
+  { x: 35, z: -46, why: "between C's two rows, in its breakthrough" },
+  { x: 35, z: -58, why: 'past C, turning towards the fortress gate' },
+  { x: 0, z: -58, why: 'before the fortress gate (area fortress-approach)' },
+  { x: 0, z: -68, why: 'through the sea gate' },
+  { x: 0, z: -95, why: 'in the yard (area fortress-yard), with no prop on the way' },
+  { x: 0, z: -128, why: 'through the land gate' },
+  { x: 0, z: -190, why: 'the field before the battery (area fortress-out)' },
+  { x: 0, z: -205, why: 'in front of the main guns, which it holds for', hold: ['main-gun-1', 'main-gun-2'] },
+  { x: 0, z: -230, why: 'in front of the magazine, which it holds for', hold: ['magazine'] },
 ];
 
 const idle: GameInput = {
@@ -255,7 +262,7 @@ function playM1(): Result {
   const game = newGame(M1B_HAND, M1);
   const bot: Bot = { next: 0, side: null, steps: 0 };
   for (let i = 0; i < LIMIT_SECONDS / DT && !game.cleared && !game.downed; i++) {
-    // the cutscenes are skipped: the landing, and the wave 2 sinking
+    // the cutscene is skipped: the landing
     if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
     step(game, decide(game, bot), DT);
   }
@@ -280,9 +287,11 @@ const STORY = [
   'pillboxes',
   'line2-approach',
   'line2-open',
+  'c-squad',
   'cp1',
-  'wave2-lost',
-  'seawall',
+  'fortress-gate',
+  'fortress-yard',
+  'fortress-out',
   'gun1',
   'shutter',
   'win',

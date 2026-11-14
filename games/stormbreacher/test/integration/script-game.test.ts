@@ -63,8 +63,8 @@ function scriptLabels(game: GameModel): string[] {
 
 // Runs M1 from the landing to the cleared result. The depot and the two pillboxes are shot down from spots that see
 // them; the pillboxes are shot from their sides, where their front does not turn the shots away. The rest of the targets
-// (main-gun-1, main-gun-2, magazine) are not on M1B_HAND and the mech does not climb the seawall here, so the test hands
-// those and seawall-top to the script with sendToScript (seawall.test.ts walks up to seawall-top).
+// (main-gun-1, main-gun-2, magazine) and the fortress's gates are handed to the script with sendToScript, so the test reads
+// the cue's order alone (fortress.test.ts walks through the gates).
 function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAfterTargets: boolean } {
   const outs: ScriptOut[] = [];
   let cleared = 0;
@@ -110,10 +110,10 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
   breakTarget('pillbox-1');
   breakTarget('pillbox-2'); // cp1 fires once both pillboxes are down
   const clearedAfterTargets = game.cleared;
-  // wave2-lost fires 4 s after cp1; the milestone's slow makes those 4 s take a little longer than 240 frames (SB-2010)
-  run(idle, 60 * 5);
   send({ kind: 'enter', area: 'c-line' });
-  send({ kind: 'enter', area: 'seawall-top' });
+  send({ kind: 'enter', area: 'fortress-gate' });
+  send({ kind: 'enter', area: 'fortress-yard' });
+  send({ kind: 'enter', area: 'fortress-out' });
   send({ kind: 'destroyed', target: 'main-gun-2' });
   send({ kind: 'destroyed', target: 'main-gun-1' });
   send({ kind: 'destroyed', target: 'magazine' });
@@ -131,14 +131,13 @@ test('the first step starts the landing and the beach', () => {
     'ally:cover-b3',
     'ally:gunner',
     'objective:reach-pillboxes',
-    'map:wave2:on',
     'spawn:beach-mortar',
     'spawn:b-emplacements',
     'spawn:line1-hold',
     'spawn:pillbox-hold',
   ]);
   expect(game.script.objective).toBe('reach-pillboxes');
-  expect(game.script.marks).toEqual(['wave2']);
+  expect(game.script.marks).toEqual([]);
   // the five are aboard the crafts beside the player's, waiting for the mech to step off
   expect(game.allies.map(ally => ally.id).sort()).toEqual(['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner']);
 });
@@ -218,7 +217,7 @@ test(
     expect(objectives).toEqual([
       'reach-pillboxes',
       'break-pillboxes',
-      'take-seawall',
+      'stop-fortress-gun',
       'silence-battery',
       'hit-magazine',
     ]);

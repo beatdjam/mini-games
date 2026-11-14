@@ -2,7 +2,6 @@ import { expect, test } from 'vitest';
 import { ENEMIES, M1_WAVE_ENEMY, type EnemyKind } from '../../src/data/enemies.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
@@ -629,88 +628,6 @@ test('once the six nests are down the script is told b-emplacements is cleared',
   for (const enemy of game.enemies) if (enemy.wave === 'b-emplacements') enemy.hp = 0;
   step(game, idle, DT);
   expect(game.script.cleared).toContain('b-emplacements');
-});
-
-test('seawall-drop is put out on top of the seawall and jumps down to the ground on its seaward side, shooting only after', () => {
-  seed(1);
-  const game = newPlayGame({ ...M1B_HAND, mines: [] });
-  game.mech.x = 0;
-  game.mech.z = -20;
-  game.mech.yaw = 0;
-  game.armor = 1e9;
-  // the six nests and the defenders stand from the beach now; this test reads the drop alone
-  game.enemies = game.enemies.filter(enemy => !['b-emplacements', 'line1-hold', 'pillbox-hold'].includes(enemy.wave));
-  // both pillboxes down: cp1, then the wave 2 sinking and `seawall-drop` four seconds on
-  sendToScript(game, { kind: 'destroyed', target: 'pillbox-1' });
-  sendToScript(game, { kind: 'destroyed', target: 'pillbox-2' });
-  for (let i = 0; i < 600 && game.enemies.length === 0; i++) {
-    step(game, idle, DT);
-    if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
-  }
-  expect(game.enemies).toHaveLength(6);
-  expect(game.enemies.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['seawall-drop']);
-  for (const enemy of game.enemies) {
-    expect(enemy.y).toBeGreaterThan(PROP_SIZE.seawall.h - 1);
-    expect(enemy.z).toBeLessThan(-65);
-  }
-  let hostileInTheAir = 0;
-  let landed = -1;
-  for (let i = 0; i < 4 * 60 && landed < 0; i++) {
-    step(game, idle, DT);
-    if (game.enemies.every(enemy => enemy.y > 0) && game.bullets.some(isEnemyBullet)) hostileInTheAir++;
-    if (game.enemies.every(enemy => enemy.y === 0)) landed = i;
-  }
-  expect(landed).toBeGreaterThan(0);
-  expect(landed * DT).toBeLessThan(1.5);
-  expect(hostileInTheAir).toBe(0);
-  // on the ground on the seaward side of the wall (z -65), outside every wall
-  for (const enemy of game.enemies) {
-    expect(enemy.z).toBeGreaterThan(-65);
-    for (const rect of game.rects)
-      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
-  }
-});
-
-test('seawall-drop comes down as before while the six nests are out', () => {
-  seed(1);
-  const game = newPlayGame({ ...M1B_HAND, mines: [] });
-  game.mech.x = 0;
-  game.mech.z = -20;
-  game.mech.yaw = 0;
-  game.armor = 1e9;
-  // the nests are left on the field; this test reads the drop
-  expect(game.enemies.filter(enemy => enemy.wave === 'b-emplacements')).toHaveLength(6);
-  // both pillboxes down: cp1, then the wave 2 sinking and `seawall-drop` four seconds on
-  sendToScript(game, { kind: 'destroyed', target: 'pillbox-1' });
-  sendToScript(game, { kind: 'destroyed', target: 'pillbox-2' });
-  for (let i = 0; i < 600 && !game.enemies.some(enemy => enemy.wave === 'seawall-drop'); i++) {
-    step(game, idle, DT);
-    if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
-  }
-  const drop = game.enemies.filter(enemy => enemy.wave === 'seawall-drop');
-  expect(drop).toHaveLength(6);
-  expect(drop.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['seawall-drop']);
-  for (const enemy of drop) {
-    expect(enemy.y).toBeGreaterThan(PROP_SIZE.seawall.h - 1);
-    expect(enemy.z).toBeLessThan(-65);
-  }
-  let hostileInTheAir = 0;
-  let landed = -1;
-  for (let i = 0; i < 4 * 60 && landed < 0; i++) {
-    step(game, idle, DT);
-    const theirs = game.bullets.filter(bullet => isEnemyBullet(bullet) && bullet.enemy !== 'emplacement');
-    if (drop.every(enemy => enemy.y > 0) && theirs.length > 0) hostileInTheAir++;
-    if (drop.every(enemy => enemy.y === 0)) landed = i;
-  }
-  expect(landed).toBeGreaterThan(0);
-  expect(landed * DT).toBeLessThan(1.5);
-  expect(hostileInTheAir).toBe(0);
-  // on the ground on the seaward side of the wall (z -65), outside every wall
-  for (const enemy of drop) {
-    expect(enemy.z).toBeGreaterThan(-65);
-    for (const rect of game.rects)
-      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
-  }
 });
 
 // The mech at the origin facing -z, on an open field, and one enemy pushed in by the test itself: the wave table plays no

@@ -1,6 +1,6 @@
 // The five allied mechs as the sortie runs them (#view-allies, SB-1590): the entry starts the real sortie and passes over
-// the landing cutscene, and its buttons put the mech in front of B, before C and on the seawall, fire the cue of the
-// place, and let the five take their posts, the gunner fall and the three cover mechs go on to C and the boss. The panel
+// the landing cutscene, and its buttons put the mech in front of B, before C and at the fortress gate, fire the cue of
+// the place, and let the five take their posts, the gunner fall and the three cover mechs go on to C and the fortress. The panel
 // turns ALLY_TUNE and RADIO_TUNE; nothing is saved.
 import { addSystem, systems } from '@engine/core/index.ts';
 import { currentGame, startSortie } from '../../app/play.ts';
@@ -15,7 +15,7 @@ const SYSTEMS = ['sb-ally-skip'] as const;
 // Where a button puts the mech (m); +z is the sea. The seawall's top is 6 m up.
 const BEFORE_B = { x: 0, z: 140, y: 0 };
 const BEFORE_C = { x: 35, z: -30, y: 0 };
-const ON_SEAWALL = { x: 35, z: -70, y: 6 };
+const AT_GATE = { x: 0, z: -60, y: 0 };
 const PILLBOXES = ['pillbox-1', 'pillbox-2'] as const;
 
 // Where the buttons put enemies to be shot at (m); within ALLY_TUNE.engageRange of the allies' posts.
@@ -158,12 +158,12 @@ export function showAlly(_hash: string) {
     breakPillboxes();
     sendToScript(game, { kind: 'enter', area: 'c-line' });
   });
-  button(row, '防波堤の上へ', () => {
+  button(row, '要塞の門へ', () => {
     const game = currentGame();
     if (!game) return;
     sendToScript(game, { kind: 'ashore' });
-    standAt(ON_SEAWALL);
-    sendToScript(game, { kind: 'enter', area: 'seawall-top' });
+    standAt(AT_GATE);
+    sendToScript(game, { kind: 'enter', area: 'fortress-gate' });
   });
   const enemyRow = document.createElement('div');
   enemyRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
@@ -180,7 +180,7 @@ export function showAlly(_hash: string) {
   note.textContent =
     'B の手前: 線1を爆破して、艇を降りた5機のうち覆いの3機と gunner が穴を抜ける。gunner は B の手前で倒れる。\n' +
     'C の手前: 線2・3を開け、トーチカ2基を壊して cp1 を起こし、3機が C へ動く。\n' +
-    '防波堤の上: 3機がボスの投稿へ動く（坂の上で足元が上がる）。\n' +
+    '要塞の門: 3機が海側の門から中庭へ動く。\n' +
     'B/C の手前に敵: 味方機の曳光が敵へ、敵の曳光が味方機へ向く（当たりは無い）。\n' +
     '保存はしない。';
   extra.appendChild(note);

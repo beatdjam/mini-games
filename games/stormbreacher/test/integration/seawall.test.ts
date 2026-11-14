@@ -1,9 +1,7 @@
-// The low walls on the beach and the ramps up the seawall (SB-120), walked with inputs: a low wall stops a walk and
-// lets a jump over, a ramp is walked up to the seawall's top and into M1's seawall-top place, and the ground in front
-// of the seawall is not that place.
+// The low walls on the beach and the seawall either side of the fortress (SB-120), walked with inputs: a low wall stops a
+// walk and lets a jump over, and the seawall's sea face is a wall the mech cannot climb now that M1 has no ramp.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { M1 } from '../../src/data/missions/m1.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { checkMapPath } from '../../src/logic/mapCheck.ts';
@@ -34,8 +32,8 @@ function newBeachGame(): GameModel {
   return game;
 }
 
-const lowWall = M1B_HAND.props.filter(prop => prop.kind === 'lowWall')[0];
-const ramps = M1B_HAND.props.filter(prop => prop.kind === 'ramp');
+const lowWall = M1B_HAND.props.find(prop => prop.kind === 'lowWall' && prop.z > 0);
+if (!lowWall) throw new Error('the hand map has no low wall on the beach');
 
 test('walking into a low wall stops the mech in front of it', () => {
   const game = newBeachGame();
@@ -58,35 +56,16 @@ test('a jump takes the mech over a low wall', () => {
   expect(game.mech.z).toBeLessThan(lowWall.z - PROP_SIZE.lowWall.d / 2 - MECH_TUNE.radius);
 });
 
-test('a ramp is walked up to the seawall and into the seawall-top place', () => {
-  for (const ramp of ramps) {
-    const game = newBeachGame();
-    // in the breakthrough of the line before the seawall (between its two rows, z -50 and z -40), facing the ramp;
-    // the walk goes straight through the line and up the slope
-    game.mech.x = ramp.x;
-    game.mech.z = -45;
-    // up the ramp and onto the seawall, stopping when the place is entered (the walk would go on and drop off the back)
-    for (let i = 0; i < 300 && !game.script.entered.includes('seawall-top'); i++) {
-      step(game, { ...idle, moveZ: 1 }, DT);
-    }
-    expect(game.mech.y, `ramp at x ${ramp.x}`).toBeCloseTo(PROP_SIZE.seawall.h, 2);
-    const area = M1.areas['seawall-top'];
-    expect(game.mech.z).toBeLessThan(area.z + area.d / 2);
-    expect(game.script.entered).toContain('seawall-top');
-    expect(game.checkpoint?.id).toBe('cp2');
-  }
-});
-
-test('walking along the foot of the seawall does not enter the seawall-top place', () => {
+test('the seawall’s sea face stops the mech, which cannot climb it without a ramp', () => {
   const game = newBeachGame();
-  game.mech.x = 0;
+  // beside the fortress, where the seawall stands; its seaward face is z -65
+  game.mech.x = 60;
   game.mech.z = -55;
   run(game, { ...idle, moveZ: 1 }, 300);
   const foot = -65 + MECH_TUNE.radius;
   expect(game.mech.z).toBeCloseTo(foot, 2);
   expect(game.mech.y).toBe(0);
   run(game, { ...idle, moveX: 1 }, 120);
-  expect(game.script.entered).not.toContain('seawall-top');
   expect(game.checkpoint).toBeNull();
 });
 

@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { PAYOFF_TUNE } from '../../src/data/payoff.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import type { Cue, MissionDef } from '../../src/data/types.ts';
 import {
@@ -60,14 +59,23 @@ test('destroyed without count waits for every target', () => {
   expect(s.fired.cp1).toBeTypeOf('number');
 });
 
-test('an after cue does not fire a step early and fires on its second (wave2-lost, SB-2027)', () => {
-  const sec = PAYOFF_TUNE.slowSec + PAYOFF_TUNE.headlineSec + PAYOFF_TUNE.wave2Pad;
-  const s = atPillboxesDown();
-  const steps = Math.round(sec / 0.05);
-  for (let i = 0; i < steps - 1; i++) stepScript(s, M1, 0.05);
-  expect(s.fired['wave2-lost']).toBeUndefined();
-  stepScript(s, M1, 0.05);
-  expect(s.fired['wave2-lost']).toBeTypeOf('number');
+test('after 4 s does not fire at 3.9 s and fires at 4 s', () => {
+  // M1 has no cue timed from cp1 any more, so the rule is read on a copy with one test cue added
+  const def = cloneM1();
+  def.cues = [
+    ...def.cues,
+    { id: 'cp1-later', trigger: { kind: 'after', cue: 'cp1', sec: 4 }, actions: [{ kind: 'flag', name: 'later' }] },
+  ];
+  const s = newScript(def);
+  stepScript(s, def, 0);
+  scriptInput(s, def, { kind: 'skip' });
+  scriptInput(s, def, { kind: 'enter', area: 'b-line' });
+  scriptInput(s, def, { kind: 'destroyed', target: 'pillbox-1' });
+  scriptInput(s, def, { kind: 'destroyed', target: 'pillbox-2' });
+  for (let i = 0; i < 39; i++) stepScript(s, def, 0.1);
+  expect(s.fired['cp1-later']).toBeUndefined();
+  stepScript(s, def, 0.1);
+  expect(s.fired['cp1-later']).toBeTypeOf('number');
 });
 
 test('a cue fires only once', () => {
@@ -118,7 +126,7 @@ test('validateMission refuses names the mission does not have', () => {
   }
   {
     const def = cloneM1();
-    cueOf(def, 'wave2-lost').trigger = { kind: 'after', cue: 'no-such-cue', sec: 1 };
+    cueOf(def, 'c-squad').trigger = { kind: 'after', cue: 'no-such-cue', sec: 1 };
     expect(() => validateMission(def)).toThrow(/cue/);
   }
   {

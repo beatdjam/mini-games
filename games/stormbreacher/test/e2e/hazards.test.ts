@@ -65,12 +65,12 @@ test('a warned shell on the seawall is drawn on the wall’s top, not inside it'
   const current = game();
   steps(1);
   // the mech's stand on the seawall (z -75..-65) is 6 m up; a ring left on the ground would sit inside the wall
-  current.shells.push({ x: 35, z: -70, radius: 6, warn: 2, left: 2, damage: 0 });
+  current.shells.push({ x: 60, z: -70, radius: 6, warn: 2, left: 2, damage: 0 });
   steps(1);
   const matrix = new THREE.Matrix4();
   meshes(SHELL_MESH_NAME)[0].getMatrixAt(0, matrix);
   const at = new THREE.Vector3().setFromMatrixPosition(matrix);
-  expect(at.x).toBeCloseTo(35, 5);
+  expect(at.x).toBeCloseTo(60, 5);
   expect(at.z).toBeCloseTo(-70, 5);
   expect(at.y).toBeCloseTo(6 + SHELL_RING_LIFT, 5);
 });

@@ -87,17 +87,18 @@ test('a mine goes off under the mech’s feet and not from afar', () => {
 });
 
 const BATTERY = BARRAGES.battery;
-const ON_WALL = { x: 0, z: -70 }; // the seawall's top
-const BEHIND_WALL = { x: 0, z: -100 };
-const SEAWARD = { x: 0, z: -64 };
+const BEFORE_BATTERY = { x: 0, z: -150 }; // the field just past the fortress's land gate
+const DEEP = { x: 0, z: -250 };
+const SEAWARD = { x: 0, z: -100 }; // the yard, short of the reach
 
-test('the battery’s barrage reaches the seawall’s top and the ground behind it, and not the land seaward of the wall', () => {
-  expect(BATTERY.maxZ).toBe(-65);
-  expect(run(newBarrage('battery', 'battery'), ON_WALL, BATTERY.interval + 0.1)).toHaveLength(1);
-  expect(run(newBarrage('battery', 'battery'), BEHIND_WALL, BATTERY.interval + 0.1)).toHaveLength(1);
+test('the battery’s barrage reaches the field before the battery and not the land seaward of it', () => {
+  expect(BATTERY.minZ).toBe(-Infinity);
+  expect(BATTERY.maxZ).toBe(-135);
+  expect(run(newBarrage('battery', 'battery'), BEFORE_BATTERY, BATTERY.interval + 0.1)).toHaveLength(1);
+  expect(run(newBarrage('battery', 'battery'), DEEP, BATTERY.interval + 0.1)).toHaveLength(1);
   expect(run(newBarrage('battery', 'battery'), SEAWARD, BATTERY.interval * 4)).toHaveLength(0);
-  // the mortar still reaches only the beach, not the wall
-  expect(run(newBarrage('beach-mortar', 'mortar'), ON_WALL, MORTAR.interval * 4)).toHaveLength(0);
+  // the mortar still reaches only the beach, not the fortress or the field past it
+  expect(run(newBarrage('beach-mortar', 'mortar'), BEFORE_BATTERY, MORTAR.interval * 4)).toHaveLength(0);
 });
 
 test('a slowed barrage counts its interval as many times as long', () => {
@@ -108,7 +109,7 @@ test('a slowed barrage counts its interval as many times as long', () => {
   const barrage = newBarrage('battery', 'battery');
   const at: number[] = [];
   for (let i = 1; i <= Math.round((BATTERY.interval * slow.mul * 3 + 0.1) / DT); i++) {
-    if (stepBarrage(barrage, ON_WALL, DT, rng, slow.mul)) at.push(i * DT);
+    if (stepBarrage(barrage, BEFORE_BATTERY, DT, rng, slow.mul)) at.push(i * DT);
   }
   expect(at).toHaveLength(3);
   at.forEach((time, i) => expect(time).toBeCloseTo(BATTERY.interval * slow.mul * (i + 1), 1));

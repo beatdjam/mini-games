@@ -20,8 +20,9 @@ import { seed } from '../../src/logic/rng.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
-const SEAWALL_TOP = { x: 0, y: 6, z: -68 }; // on the seawall, in the area `seawall-top`
-const GROUND_FRONT = { x: 0, y: 0, z: -125 }; // on the ground before the guns and the magazine, inside the barrage's reach
+const BATTERY_FRONT = { x: 0, y: 0, z: -200 }; // in the field before the guns, inside the barrage's reach and the guns' range
+const FORTRESS_OUT = { x: 0, y: 0, z: -140 }; // the place that starts the battery's wave
+const COVERED = { x: 80, y: 0, z: -155 }; // in the guns' range, with the block at (80, -160) between it and the gun
 const SEED = 42;
 const BOT_SECONDS = 30; // the bot has this long (s)
 const SAFE_ARMOR = 1e6; // armour no test can spend, for the ones that look at the shots and not at the mech's fall
@@ -113,7 +114,7 @@ function playBot(game: GameModel): GameEvent[] {
 }
 
 test('the magazine takes no harm while the main guns stand, but its shutter stops the shots and reports the hits', () => {
-  const game = newBossGame(GROUND_FRONT);
+  const game = newBossGame(BATTERY_FRONT);
   const magazine = targetOf(game, 'magazine');
   const full = magazine.hp;
   expect(game.shutters).toEqual([{ target: 'magazine', open: false }]);
@@ -126,7 +127,7 @@ test('the magazine takes no harm while the main guns stand, but its shutter stop
 });
 
 test('one main gun down leaves the shutter shut; both open it once, and then the magazine breaks and ends the sortie', () => {
-  const game = newBossGame(GROUND_FRONT);
+  const game = newBossGame(BATTERY_FRONT);
   const aim = aimAt(game, 'magazine');
   breakTarget(game, 'main-gun-1');
   expect(run(game, 2).some(event => event.kind === 'shutterOpen')).toBe(false);
@@ -143,7 +144,7 @@ test('one main gun down leaves the shutter shut; both open it once, and then the
 });
 
 test('a shot that breaks the second main gun opens the shutter in the same frame, after the gun’s destroyed', () => {
-  const game = newBossGame(GROUND_FRONT);
+  const game = newBossGame(BATTERY_FRONT);
   breakTarget(game, 'main-gun-1');
   const gun = targetOf(game, 'main-gun-2');
   gun.hp = 1;
@@ -154,23 +155,23 @@ test('a shot that breaks the second main gun opens the shutter in the same frame
 
 test('before the battery wave the guns do not shoot and the barrage has not started; the wave starts both', () => {
   seed(SEED);
-  const game = newBossGame(GROUND_FRONT);
+  const game = newBossGame(BATTERY_FRONT);
   game.armor = SAFE_ARMOR;
   expect(game.battery.on).toBe(false);
   expect(gunShots(game, framesOf(6))).toBe(0);
   expect(game.barrages.some(barrage => barrage.kind === 'battery')).toBe(false);
   expect(game.shells).toHaveLength(0);
-  // the mech goes up on the seawall: the area starts the wave, and the next seconds hold fire and shells
-  game.mech.x = SEAWALL_TOP.x;
-  game.mech.y = SEAWALL_TOP.y;
-  game.mech.z = SEAWALL_TOP.z;
+  // the field past the fortress starts the wave, and the next seconds hold fire and shells
+  game.mech.x = FORTRESS_OUT.x;
+  game.mech.y = FORTRESS_OUT.y;
+  game.mech.z = FORTRESS_OUT.z;
   step(game, idle, DT);
-  expect(game.script.entered).toContain('seawall-top');
+  expect(game.script.entered).toContain('fortress-out');
   expect(game.battery.on).toBe(true);
   expect(game.barrages.map(barrage => barrage.kind)).toContain('battery');
-  game.mech.x = GROUND_FRONT.x;
-  game.mech.y = GROUND_FRONT.y;
-  game.mech.z = GROUND_FRONT.z;
+  game.mech.x = BATTERY_FRONT.x;
+  game.mech.y = BATTERY_FRONT.y;
+  game.mech.z = BATTERY_FRONT.z;
   const events = run(game, framesOf(BARRAGES.battery.interval + BARRAGES.battery.warn + 1));
   expect(events.some(event => event.kind === 'shellWarn')).toBe(true);
   expect(events.some(event => event.kind === 'shellLand')).toBe(true);
@@ -178,9 +179,9 @@ test('before the battery wave the guns do not shoot and the barrage has not star
 
 test('with the battery on, each main gun still standing shoots the mech, and one that fell does not', () => {
   seed(SEED);
-  const game = newBossGame(GROUND_FRONT);
+  const game = newBossGame(BATTERY_FRONT);
   game.armor = SAFE_ARMOR;
-  sendToScript(game, { kind: 'enter', area: 'seawall-top' });
+  sendToScript(game, { kind: 'enter', area: 'fortress-out' });
   expect(game.battery.on).toBe(true);
   const seconds = 6;
   const both = gunShots(game, framesOf(seconds));
@@ -196,38 +197,40 @@ test('with the battery on, each main gun still standing shoots the mech, and one
   expect((SAFE_ARMOR - game.armor) % GUN_TUNE.damage).toBe(0);
 });
 
-test('a main gun shoots only a mech in reach and in sight: not one far off, nor one on the ground behind the wall', () => {
+test('a main gun shoots only a mech in reach and in sight: not one far off, nor one behind cover', () => {
   seed(SEED);
   const far = newBossGame({ x: 0, y: 0, z: -20 }); // more than GUN_TUNE.range away
   far.armor = SAFE_ARMOR;
-  sendToScript(far, { kind: 'enter', area: 'seawall-top' });
+  sendToScript(far, { kind: 'enter', area: 'fortress-out' });
   expect(gunShots(far, framesOf(5))).toBe(0);
-  const covered = newBossGame({ x: 0, y: 0, z: -58 }); // in range, with the seawall between
+  const covered = newBossGame(COVERED); // in range, with the block at (80, -160) between
   covered.armor = SAFE_ARMOR;
-  sendToScript(covered, { kind: 'enter', area: 'seawall-top' });
+  sendToScript(covered, { kind: 'enter', area: 'fortress-out' });
   expect(gunShots(covered, framesOf(5))).toBe(0);
-  // on top of the wall the line clears it
-  const top = newBossGame(SEAWALL_TOP);
-  top.armor = SAFE_ARMOR;
-  expect(gunShots(top, framesOf(5))).toBeGreaterThan(0);
+  // in the open before the battery the line clears
+  const open = newBossGame(BATTERY_FRONT);
+  open.armor = SAFE_ARMOR;
+  sendToScript(open, { kind: 'enter', area: 'fortress-out' });
+  expect(gunShots(open, framesOf(5))).toBeGreaterThan(0);
 });
 
-test('the secondary guns’ barrage reaches the seawall’s top and the ground behind it, and not the land before the wall', () => {
+test('the secondary guns’ barrage reaches the field before the battery, and not the land seaward of the fortress', () => {
   seed(SEED);
   const before = newBossGame({ x: 0, y: 0, z: -40 });
   before.armor = SAFE_ARMOR;
-  sendToScript(before, { kind: 'enter', area: 'seawall-top' });
+  sendToScript(before, { kind: 'enter', area: 'fortress-out' });
   expect(run(before, framesOf(BARRAGES.battery.interval * 3)).some(event => event.kind === 'shellWarn')).toBe(false);
-  const top = newBossGame(SEAWALL_TOP);
-  top.armor = SAFE_ARMOR;
-  expect(run(top, framesOf(BARRAGES.battery.interval + 0.5)).some(event => event.kind === 'shellWarn')).toBe(true);
+  const front = newBossGame(BATTERY_FRONT);
+  front.armor = SAFE_ARMOR;
+  sendToScript(front, { kind: 'enter', area: 'fortress-out' });
+  expect(run(front, framesOf(BARRAGES.battery.interval + 0.5)).some(event => event.kind === 'shellWarn')).toBe(true);
 });
 
 test('the barrage goes on after both main guns are down', () => {
   seed(SEED);
-  const game = newBossGame(GROUND_FRONT);
+  const game = newBossGame(BATTERY_FRONT);
   game.armor = SAFE_ARMOR;
-  sendToScript(game, { kind: 'enter', area: 'seawall-top' });
+  sendToScript(game, { kind: 'enter', area: 'fortress-out' });
   breakTarget(game, 'main-gun-1');
   breakTarget(game, 'main-gun-2');
   const events = run(game, framesOf(BARRAGES.battery.interval * 2 + 0.5));
@@ -248,21 +251,24 @@ function warnGap(game: GameModel, warnings: number): number {
 
 test('the depot’s loss makes the secondary guns’ barrage come 1.5 times as seldom', () => {
   seed(SEED);
-  const kept = newBossGame(SEAWALL_TOP);
+  const kept = newBossGame(BATTERY_FRONT);
   kept.armor = SAFE_ARMOR;
+  sendToScript(kept, { kind: 'enter', area: 'fortress-out' });
   const gap = warnGap(kept, 4);
   expect(gap).toBeCloseTo(BARRAGES.battery.interval, 1);
   seed(SEED);
-  const broken = newBossGame(SEAWALL_TOP);
+  const broken = newBossGame(BATTERY_FRONT);
   broken.armor = SAFE_ARMOR;
+  sendToScript(broken, { kind: 'enter', area: 'fortress-out' });
   breakTarget(broken, 'depot');
   expect(broken.script.flags).toContain('depot-down');
   expect(warnGap(broken, 4)).toBeCloseTo(gap * 1.5, 1);
 });
 
-test('a bot on the seawall shoots the guns, then the magazine, and clears with armour to spare', () => {
+test('a bot before the battery shoots the guns, then the magazine, and clears with armour to spare', () => {
   seed(SEED);
-  const game = newBossGame(SEAWALL_TOP);
+  const game = newBossGame(BATTERY_FRONT);
+  sendToScript(game, { kind: 'enter', area: 'fortress-out' });
   const events = playBot(game);
   const order = events.flatMap(event =>
     event.kind === 'destroyed' || event.kind === 'shutterOpen' ? [`${event.kind}`] : [],
@@ -280,7 +286,8 @@ test('a bot on the seawall shoots the guns, then the magazine, and clears with a
 test('the same seed and inputs give the same events and the same end', () => {
   const play = (): { events: GameEvent[]; armor: number; time: number } => {
     seed(SEED);
-    const game = newBossGame(SEAWALL_TOP);
+    const game = newBossGame(BATTERY_FRONT);
+    sendToScript(game, { kind: 'enter', area: 'fortress-out' });
     const events = playBot(game);
     return { events, armor: game.armor, time: game.time };
   };
@@ -290,11 +297,12 @@ test('the same seed and inputs give the same events and the same end', () => {
   expect(b).toEqual(a);
 });
 
-test('a retry from cp2 puts the battery back: the guns, the shutter and the barrage as the checkpoint kept them', () => {
+test('a retry from cp3 puts the battery back: the guns, the shutter and the barrage as the checkpoint kept them', () => {
   seed(SEED);
-  const game = newBossGame(SEAWALL_TOP);
+  const game = newBossGame(BATTERY_FRONT);
+  sendToScript(game, { kind: 'enter', area: 'fortress-out' });
   step(game, idle, DT);
-  expect(game.checkpoint?.id).toBe('cp2');
+  expect(game.checkpoint?.id).toBe('cp3');
   expect(game.checkpoint?.battery.on).toBe(true);
   // the fight goes on: a gun falls, the shutter opens, the guns shoot and the barrage ticks
   run(game, framesOf(4));

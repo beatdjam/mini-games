@@ -117,18 +117,17 @@ test('the battlefield holds still during the landing and starts when the control
   expect(battleSoldierCount(bodies)).toBeGreaterThan(0);
 });
 
-test('the battlefield runs while the wave 2 cutscene plays', async () => {
+test('the battlefield runs while a cutscene past the landing plays', async () => {
   startSortie();
   steps(3);
   sendToScript(game(), { kind: 'skip' });
-  // both pillboxes down fires cp1; wave2-lost starts the cutscene 4 s later
-  for (const id of ['pillbox-1', 'pillbox-2']) {
+  // the magazine's fall starts beach-held; the guns go first so the shutter opens
+  for (const id of ['main-gun-1', 'main-gun-2', 'magazine']) {
     const target = game().targets.find(entry => entry.id === id);
     if (target) target.hp = 0;
     sendToScript(game(), { kind: 'destroyed', target: id });
   }
-  for (let i = 0; i < 60 * 5 && game().script.cutscene === null; i++) runSystems(1 / 60);
-  expect(game().script.cutscene?.id).toBe('wave2-sinks');
+  expect(game().script.cutscene?.id).toBe('beach-held');
   steps(1);
   const bodies = battleBodies();
   expect(battleSoldierCount(bodies)).toBeGreaterThan(0);
@@ -136,7 +135,7 @@ test('the battlefield runs while the wave 2 cutscene plays', async () => {
   // half a second into the cutscene the infantry has moved on (the landing is the one that holds it still)
   for (let i = 0; i < 30; i++) runSystems(1 / 60);
   steps(1);
-  expect(game().script.cutscene?.id).toBe('wave2-sinks');
+  expect(game().script.cutscene?.id).toBe('beach-held');
   expect(battleBodiesPlacement(bodies)).not.toBe(before);
 });
 

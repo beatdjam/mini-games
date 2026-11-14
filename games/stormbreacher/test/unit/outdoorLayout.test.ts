@@ -16,6 +16,7 @@ function countByKind(items: OutdoorItem[]): Record<OutdoorKind, number> {
     lowWall: 0,
     stairs: 0,
     ramp: 0,
+    fortWall: 0,
   };
   for (const item of items) counts[item.kind]++;
   return counts;

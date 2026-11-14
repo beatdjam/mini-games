@@ -34,6 +34,7 @@ export function countProps(props: readonly Prop[]): Record<PropKind, number> {
     lowWall: 0,
     stairs: 0,
     ramp: 0,
+    fortWall: 0,
   };
   for (const prop of props) counts[prop.kind]++;
   return counts;

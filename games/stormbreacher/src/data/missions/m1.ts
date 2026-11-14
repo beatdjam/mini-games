@@ -1,7 +1,8 @@
 // M1 「強襲上陸」の台本 (SB-050). The paper's write-down, one cue at a time: a trigger and the actions in order.
-// The places follow the hand map (data/maps/m1b-hand.ts), 340 m deep and 200 m wide: +z is the sea, the beach and the
+// The places follow the hand map (data/maps/m1b-hand.ts), 470 m deep and 200 m wide: +z is the sea, the beach and the
 // bunker line B run from z 170 to about z 0 (the pillboxes stand at z -15), C's two rows (z -55..-35) stand before the
-// seawall (z -75..-65), and the boss's ground lies past it: the guns at z -135 and the magazine at z -150.
+// seawall (z -75..-65), the fortress spans z -68..-128, and the battery's parts stand past it: the guns at z -235 and the
+// magazine at z -250.
 import { LINE1_FLAG, LINE2_FLAG, PILLBOXES_FLAG } from '../front.ts';
 import { PAYOFF_TUNE } from '../payoff.ts';
 import type { Area, Cue, GroundSpot, HolePaths, MissionDef } from '../types.ts';
@@ -198,16 +199,19 @@ const PATHS = {
     { x: 40, z: 20 },
     { x: 45, z: 9 },
   ],
-  // the boss's ground: past pillbox-2 on its open side (x 35), then up the ramp at x 35 (the seawall is 6 m)
+  // the boss's ground: through C at its x 35 breakthrough, then over to the fortress's sea gate (x 0, z -68) and into
+  // the yard (x 0, z -95); the walls leave only that way through
   'boss1-run': [
     { x: 0, z: 6 },
     { x: 35, z: -4 },
     { x: 35, z: -20 },
     { x: 35, z: -30 },
     { x: 35, z: -46 },
-    { x: 35, z: -66 },
-    { x: 35, z: -78 },
-    { x: 0, z: -76 },
+    { x: 35, z: -58 },
+    { x: 20, z: -60 },
+    { x: 0, z: -62 },
+    { x: 0, z: -68 },
+    { x: 0, z: -95 },
   ],
   // up out of the block at (0, 0) first: its box reaches z 2
   'boss2-run': [
@@ -217,10 +221,11 @@ const PATHS = {
     { x: 35, z: -20 },
     { x: 35, z: -30 },
     { x: 35, z: -46 },
-    { x: 35, z: -66 },
-    { x: 35, z: -78 },
-    { x: -20, z: -78 },
-    { x: -35, z: -84 },
+    { x: 35, z: -58 },
+    { x: 20, z: -60 },
+    { x: 0, z: -62 },
+    { x: 0, z: -68 },
+    { x: 0, z: -95 },
   ],
   // the wreck at (45, 3) reaches x 39..51: go round it on the land side of x 35
   'boss3-run': [
@@ -229,9 +234,11 @@ const PATHS = {
     { x: 35, z: -20 },
     { x: 35, z: -30 },
     { x: 35, z: -46 },
-    { x: 35, z: -66 },
-    { x: 35, z: -78 },
-    { x: 25, z: -82 },
+    { x: 35, z: -58 },
+    { x: 20, z: -60 },
+    { x: 0, z: -62 },
+    { x: 0, z: -68 },
+    { x: 0, z: -95 },
   ],
 } as const satisfies Record<string, readonly GroundSpot[]>;
 
@@ -278,7 +285,10 @@ const AREAS = {
   'line2-approach': { x: 0, z: 91, w: 200, d: 18 },
   'depot-approach': { x: 55, z: 52, w: 50, d: 30 }, // the way down to the depot (x 30..80, z 37..67), past line 2
   'c-line': { x: 0, z: -30, w: 200, d: 10 }, // just before C's first row (z -35..-25)
-  'seawall-top': { x: 0, z: -70, w: 200, d: 10 }, // the top of the seawall (z -75..-65); the ground cannot reach it
+  'fortress-approach': { x: 0, z: -61.5, w: 70, d: 13 }, // the open ground before the sea gate (z -68..-55)
+  'fortress-gate': { x: 0, z: -65, w: 14, d: 10 }, // the sea gate itself (x -7..7, z -70..-60)
+  'fortress-yard': { x: 0, z: -98, w: 58, d: 48 }, // the yard inside the walls (z -122..-74)
+  'fortress-out': { x: 0, z: -140, w: 70, d: 20 }, // the field past the land gate (z -150..-130)
 } as const satisfies Record<string, Area>;
 
 // The names the cues may use. A typo here is caught by validateMission when logic/script.ts loads the mission.
@@ -306,7 +316,6 @@ const CUES = [
     trigger: { kind: 'after', cue: 'intro', sec: 0 },
     actions: [
       { kind: 'objective', id: 'reach-pillboxes' },
-      { kind: 'map', mark: 'wave2', on: true },
       // the beach's mortar also starts the aimed mortar (M1_WAVE_AIMED)
       { kind: 'spawn', wave: 'beach-mortar' },
       // the six machine-gun nests stand on their line from the start, asleep until the script wakes them
@@ -412,33 +421,37 @@ const CUES = [
     ],
   },
   {
-    id: 'wave2-lost',
-    // after the bunker's slow and heading are over, so the cutscene does not trail the mech up the seawall (SB-2027)
-    trigger: { kind: 'after', cue: 'cp1', sec: PAYOFF_TUNE.slowSec + PAYOFF_TUNE.headlineSec + PAYOFF_TUNE.wave2Pad },
-    actions: [
-      { kind: 'cutscene', id: 'wave2-sinks' },
-      { kind: 'radio', line: 'm1.wave2-lost' },
-      { kind: 'map', mark: 'wave2', on: false },
-      // already up on the seawall: the seawall cue has set the next objective, so this one is not set back
-      { kind: 'objective', id: 'take-seawall', unlessFired: 'seawall' },
-      { kind: 'spawn', wave: 'seawall-drop' },
-    ],
-  },
-  {
     id: 'c-squad',
     trigger: { kind: 'enter', area: 'c-line' },
     actions: [{ kind: 'spawn', wave: 'c-squad' }],
   },
   {
-    id: 'seawall',
-    trigger: { kind: 'enter', area: 'seawall-top' },
+    id: 'fortress-gate',
+    trigger: { kind: 'enter', area: 'fortress-gate' },
     actions: [
       { kind: 'checkpoint', id: 'cp2' },
-      { kind: 'objective', id: 'silence-battery' },
-      { kind: 'spawn', wave: 'battery' },
+      { kind: 'objective', id: 'stop-fortress-gun' },
+      { kind: 'radio', line: 'm1.fortress-gate' },
+      // the three cover mechs go on to the yard through the sea gate; the checkpoint above is copied after all actions,
+      // so their next way is in the copy too
       { kind: 'allyMove', id: 'cover-b1', path: 'boss1-run' },
       { kind: 'allyMove', id: 'cover-b2', path: 'boss2-run' },
       { kind: 'allyMove', id: 'cover-b3', path: 'boss3-run' },
+    ],
+  },
+  {
+    id: 'fortress-yard',
+    trigger: { kind: 'enter', area: 'fortress-yard' },
+    actions: [{ kind: 'radio', line: 'm1.fortress-yard' }],
+  },
+  {
+    id: 'fortress-out',
+    trigger: { kind: 'enter', area: 'fortress-out' },
+    actions: [
+      { kind: 'checkpoint', id: 'cp3' },
+      { kind: 'objective', id: 'silence-battery' },
+      // L7 moves the battery's wave to the blast after the gates; for now it starts once the mech is past them
+      { kind: 'spawn', wave: 'battery' },
     ],
   },
   {
@@ -476,12 +489,11 @@ export const M1: MissionDef = {
     'line1-hold',
     'pillbox-hold',
     'depot-guard',
-    'seawall-drop',
     'c-squad',
     'battery',
   ],
-  objectives: ['reach-pillboxes', 'break-pillboxes', 'take-seawall', 'silence-battery', 'hit-magazine'],
-  marks: ['wave2'],
+  objectives: ['reach-pillboxes', 'break-pillboxes', 'stop-fortress-gun', 'silence-battery', 'hit-magazine'],
+  marks: [],
   allies: ['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner'],
   paths: PATHS,
   places: PLACES,

@@ -98,29 +98,6 @@ function seaCrafts(): number {
   return count;
 }
 
-test('wave2-sinks shows the bars and its line, hides the HUD and draws the crafts at sea', async () => {
-  startSortie();
-  await untilSteps(() => !bars().hidden);
-  await pastSkipGuard();
-  el('#gl').click();
-  await untilSteps(() => bars().hidden);
-  expect(seaCrafts()).toBe(0);
-  game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };
-  steps(1);
-  expect(bars().hidden).toBe(false);
-  expect(el('#sbPlayHud').hidden).toBe(true);
-  expect(caption()).toBe(t('cutscene.wave2.hit'));
-  expect(seaCrafts()).toBe(4);
-  game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 4 };
-  steps(1);
-  expect(caption()).toBe(t('cutscene.wave2.none'));
-  // when it is over the bars go, the HUD comes and the crafts are out of sight
-  game().script.cutscene = null;
-  await untilSteps(() => bars().hidden);
-  expect(el('#sbPlayHud').hidden).toBe(false);
-  expect(seaCrafts()).toBe(0);
-});
-
 test('beach-held plays after the win and then the result shows', async () => {
   startSortie();
   await untilSteps(() => !bars().hidden);
@@ -197,7 +174,7 @@ test('the other cutscenes do not draw the mech', async () => {
   await pastSkipGuard();
   el('#gl').click();
   await untilSteps(() => bars().hidden);
-  game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };
+  game().script.cutscene = { id: 'beach-held', left: CUTSCENE_SEC['beach-held'] - 1 };
   steps(1);
   expect(mechModel().visible).toBe(false);
   game().script.cutscene = null;
@@ -227,7 +204,7 @@ test('the landing draws six riders, hides them after, and a restart keeps one se
     expect(mesh.visible).toBe(true);
   }
   // another cutscene leaves them on the beach
-  game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };
+  game().script.cutscene = { id: 'beach-held', left: CUTSCENE_SEC['beach-held'] - 1 };
   steps(1);
   expect(groups[0].visible).toBe(false);
   // and once the landing is over they are out of sight too

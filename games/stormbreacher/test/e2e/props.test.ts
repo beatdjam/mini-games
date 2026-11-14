@@ -44,12 +44,12 @@ function loweredHedgehogs(): number {
   return count;
 }
 
-test('a sortie draws the low walls and the ramps', async () => {
+test('a sortie draws the low walls and the fortress walls', async () => {
   startSortie();
   steps(1);
   const map = currentGame()?.map;
   if (!map) throw new Error('the sortie has not started');
-  for (const kind of ['lowWall', 'ramp'] as const) {
+  for (const kind of ['lowWall', 'fortWall'] as const) {
     const placed = map.props.filter(prop => prop.kind === kind).length;
     expect(placed, kind).toBeGreaterThan(0);
     expect(drawn(kind), kind).toBe(placed);

@@ -136,12 +136,13 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
       { at: 2.9, kind: 'sink', x: 42, z: 226, sec: 1.8 },
     ],
   },
-  // The battery goes down (the guns at z -135, the magazine at z -150), then the camera turns to the sea, where the
-  // crafts come in beside the player's, and ends over the beach as the allies walk inland.
+  // The battery goes down (the guns at z -235, the magazine at z -250), seen from the wreckage past the fortress's land
+  // gate (z -140); then the camera turns to the sea, where the crafts come in beside the player's, and ends over the beach
+  // as the allies walk inland. It ends in the result screen, so its last key need not match the game camera.
   'beach-held': {
     camera: [
-      { at: 0, pos: [0, 14, -105], look: [0, 2, -145] },
-      { at: 3, pos: [0, 12, -108], look: [0, 3, -145] },
+      { at: 0, pos: [0, 14, -140], look: [0, 4, -235] },
+      { at: 3, pos: [0, 12, -145], look: [0, 5, -240] },
       { at: 5, pos: [0, 8, 140], look: [0, 2, 190] },
       { at: 8, pos: [0, 14, 110], look: [0, 1, 40] },
     ],
@@ -150,9 +151,9 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
       { from: 4.5, to: 7.5, key: 'cutscene.held.landing' },
     ],
     events: [
-      { at: 0.3, kind: 'burst', x: -30, z: -135 },
-      { at: 0.6, kind: 'burst', x: 30, z: -135 },
-      { at: 1, kind: 'burst', x: 0, z: -150 },
+      { at: 0.3, kind: 'burst', x: -45, z: -235 },
+      { at: 0.6, kind: 'burst', x: 45, z: -235 },
+      { at: 1, kind: 'burst', x: 0, z: -250 },
       { at: 0.8, kind: 'collapse', targets: ['main-gun-1', 'main-gun-2', 'magazine'], sec: 2.2 },
       { at: 3.2, kind: 'arrive', x: -35, z: 175, from: 230, sec: 2.5 },
       { at: 3.6, kind: 'arrive', x: 40, z: 175, from: 240, sec: 2.5 },

@@ -104,10 +104,10 @@ test('a shell that lands on the seawall reports the wall’s top as the height o
   // the barrage and the aimed mortar would warn of shells on their own; this test reads the one pushed here alone
   game.barrages = [];
   game.aimed = null;
-  game.mech.x = 35;
+  game.mech.x = 60;
   game.mech.y = 6;
   game.mech.z = -70;
-  game.shells.push({ x: 35, z: -70, radius: BARRAGES.battery.radius, warn: 0.1, left: 0.1, damage: 0 });
+  game.shells.push({ x: 60, z: -70, radius: BARRAGES.battery.radius, warn: 0.1, left: 0.1, damage: 0 });
   const lands = run(game, 20).filter((event): event is Landed => event.kind === 'shellLand');
   expect(lands).toHaveLength(1);
   // the seawall's top is 6 m; a blast left at the ground would sit inside the wall
@@ -115,7 +115,7 @@ test('a shell that lands on the seawall reports the wall’s top as the height o
 });
 
 test('a mine that goes off on the seawall reports the wall’s top as the height of its blast', () => {
-  const mine = { x: 35, z: -70 };
+  const mine = { x: 60, z: -70 };
   const game = newPlayGame({ ...M1B_HAND, mines: [mine] });
   game.barrages = [];
   game.aimed = null;
@@ -136,12 +136,12 @@ test('an enemy down on the seawall reports the wall’s top as the height of its
   game.barrages = [];
   game.aimed = null;
   const kind = 'emplacement';
-  const enemy = newEnemy('e-1', 'b-emplacements', kind, 35, -70, 6);
+  const enemy = newEnemy('e-1', 'b-emplacements', kind, 60, -70, 6);
   enemy.hp = 1;
   game.enemies.push(enemy);
   // a shot over the wall's top, straight at the enemy's chest
   const chest = 6 + ENEMIES[kind].height * ENEMY_CHEST;
-  game.bullets.push({ weapon: 'autocannon', x: 35, y: chest, z: -60, dx: 0, dy: 0, dz: -1, left: 50 });
+  game.bullets.push({ weapon: 'autocannon', x: 60, y: chest, z: -60, dx: 0, dy: 0, dz: -1, left: 50 });
   const down = run(game, 20).find(
     (event): event is Extract<GameEvent, { kind: 'enemyDown' }> => event.kind === 'enemyDown',
   );
