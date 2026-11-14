@@ -176,6 +176,63 @@ test('a 180 degree flick at a wall 1 m behind: the camera slides, not jumps, and
   expect(behind).toBe(0);
 });
 
+test('a wall that has let the camera back out, then a 180 degree flick: the camera takes the open lag step', () => {
+  // The mech backs away from the wall 1 m behind until the wall lets go, and keeps backing until the camera has almost
+  // come back to its open place. A flick then starts while the camera is still nearer than its open distance, so the
+  // wall's old hold would carry; a fast turn must take the open lag's step instead (SB-1951).
+  const boxes = cameraBoxes([{ x: 0, z: 2, halfW: 10, halfD: 1, yaw: 0, top: 6 }]); // near face z = 1
+  const targets: CameraTarget[] = [];
+  for (let frame = 0; frame < FLICK_SETTLE; frame++) targets.push(at(0, 0));
+  for (let frame = 0; frame < 32; frame++) targets.push(at(0, -BOOST * (frame + 1) * DT));
+  const end = -BOOST * 32 * DT;
+  for (let frame = 0; frame < 16; frame++) targets.push(at(0, end));
+  const flickStart = targets.length;
+  const frames = Math.ceil(Math.PI / (FLICK_TURN * DT));
+  for (let frame = 1; frame <= frames; frame++) targets.push(at(0, end, Math.min(Math.PI, frame * FLICK_TURN * DT)));
+  for (let frame = 0; frame < 120; frame++) targets.push(at(0, end, Math.PI));
+
+  let state: CameraState | null = null;
+  let lagged: THREE.Vector3 | null = null;
+  for (const [frame, target] of targets.entries()) {
+    const pose = cameraPose(target, 0, CAMERA_TUNE, boxes);
+    state = followCamera(state, pose, DT, CAMERA_TUNE);
+    if (frame === flickStart - 1) {
+      expect(pose.pulled, 'the wall has let go').toBe(false);
+      expect(state.held, 'the wall held the camera last frame').toBe(true);
+      lagged = state.pos.clone();
+    } else if (frame >= flickStart) {
+      lagged = followPose(lagged!, pose.pos, DT, CAMERA_TUNE.lag);
+      expect(state.pos.distanceTo(lagged), `frame ${frame}`).toBeLessThan(WITHIN);
+    }
+  }
+});
+
+test('a wall that pulls a standing camera in never puts the camera in a box', () => {
+  // The mech stands still, so only the wall's share moves the camera. The wall may come between the look point and the
+  // camera from several angles, and the camera must stop before it rather than pass through (SB-1951).
+  const cases: Array<[string, THREE.Box3[]]> = [
+    ['behind', cameraBoxes([{ x: 0, z: 2, halfW: 10, halfD: 1, yaw: 0, top: 6 }])],
+    ['behind and to the right', cameraBoxes([{ x: 5, z: 5, halfW: 3, halfD: 2, yaw: 0, top: 6 }])],
+    [
+      'a corner',
+      cameraBoxes([
+        { x: 5, z: 5, halfW: 3, halfD: 3, yaw: 0, top: 6 },
+        { x: -5, z: 5, halfW: 3, halfD: 3, yaw: 0, top: 6 },
+      ]),
+    ],
+    ['across the camera path', cameraBoxes([{ x: 6, z: 6, halfW: 4, halfD: 1, yaw: 0, top: 6 }])],
+  ];
+  for (const [name, boxes] of cases) {
+    let state = stateOfPose(cameraPose(at(0, 0), 0, CAMERA_TUNE, []));
+    let inside = 0;
+    for (let frame = 0; frame < 180; frame++) {
+      state = followCamera(state, cameraPose(at(0, 0), 0, CAMERA_TUNE, boxes), DT, CAMERA_TUNE);
+      if (boxes.some(box => box.containsPoint(state.pos))) inside++;
+    }
+    expect(inside, name).toBe(0);
+  }
+});
+
 // The wall behind the mech at 1 m, 20 m long: the mech walks +x past its end while the camera follows.
 const wallBehind = (): THREE.Box3[] => cameraBoxes([{ x: 0, z: 2, halfW: 10, halfD: 1, yaw: 0, top: 6 }]);
 

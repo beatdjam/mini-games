@@ -31,14 +31,15 @@ export interface CameraPose {
 }
 
 // What the screen used last frame: the place the camera was put, the point it looked at, the look point with no walls
-// (the wall's share is measured from it), and the mech's feet (for the step it took). The view keeps it between frames,
-// so the mech's motion follows with `lag` and only a wall's push eases.
+// (the wall's share is measured from it), the mech's feet and facing (for the step it took and how fast it turned). The
+// view keeps it between frames, so the mech's motion follows with `lag` and only a wall's push eases.
 export interface CameraState {
   pos: THREE.Vector3; // the camera's place on the screen
   look: THREE.Vector3; // the point the screen looks at
   openLook: THREE.Vector3; // the look point with no walls (see CameraPose.openLook)
   feet: { x: number; z: number }; // the mech's feet last frame (m)
-  held: boolean; // a wall pulled the camera in last frame, or held it nearer than its open place
+  yaw: number; // the mech's facing last frame (rad), so a fast turn is known from a stalled wall return
+  held: boolean; // a wall pulled the camera in last frame, or the hold carried while it came back out
 }
 
 interface Hit {
@@ -49,6 +50,7 @@ interface Hit {
 const FAN_SAMPLES = 3; // rays across a probe fan: the middle and one each side
 const DEG = Math.PI / 180;
 const CLOSE_PITCH_MAX = 1.5; // rad; the steepest the wall-side camera may look down past its open angle
+const FAST_TURN = 8; // rad/s; past this the lag cuts the corner enough that a wall's hold drags a turn (SB-1949)
 
 // The nearest box the ray meets, when that is no farther than `max` (m).
 function nearestHit(origin: THREE.Vector3, dir: THREE.Vector3, max: number, boxes: readonly THREE.Box3[]): Hit | null {
@@ -214,6 +216,7 @@ export function stateOfPose(pose: CameraPose): CameraState {
     look: pose.look.clone(),
     openLook: pose.openLook.clone(),
     feet: { x: pose.feet.x, z: pose.feet.z },
+    yaw: pose.yaw,
     held: pose.pulled,
   };
 }
@@ -262,8 +265,9 @@ function followWallOffset(
   return prevOffset.clone().add(step);
 }
 
-// The mech's step, cut short a margin before the first wall the camera would meet on its way: the camera may be carried
-// by the mech, but not into a wall. A camera already inside a box is left alone, so a wall behind it does not jump it out.
+// A step, cut short a margin before the first wall the camera would meet on its way: the camera may be carried by the
+// mech or pulled by a wall's share, but not into a wall. A camera already inside a box is left alone, so a wall behind
+// it does not jump it out.
 function stepRoom(
   prevPos: THREE.Vector3,
   travel: THREE.Vector3,
@@ -280,8 +284,8 @@ function stepRoom(
 // The camera for this frame. The look point keeps the mech's own motion exact (a boost must not leave the aim behind)
 // and eases only the wall's shoulder and close look. The place follows the pose with `lag`, and with no wall that is all
 // it does. While a wall pulls the camera or holds it nearer than its open place, only the part of the move beyond the
-// mech's own step is held to `pullSpeed`, so the mech's motion is followed exactly and the wall's share slides. The
-// mech's step itself stops a margin before a wall, so backing up cannot carry the camera into it.
+// mech's own step is held to `pullSpeed`, so the mech's motion is followed exactly and the wall's share slides. Both the
+// mech's step and the wall's share stop a margin before a wall, so neither can carry the camera into it.
 export function followCamera(prev: CameraState | null, pose: CameraPose, dt: number, tune: CameraTune): CameraState {
   if (prev === null) return stateOfPose(pose);
   const travel = new THREE.Vector3(pose.feet.x - prev.feet.x, 0, pose.feet.z - prev.feet.z);
@@ -298,14 +302,24 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
   const prevDist = Math.hypot(prev.pos.x - pose.look.x, prev.pos.z - pose.look.z);
   const near = prevDist < pose.openDist - tune.pullNear;
   const returning = near && prevOffset.length() > tune.pullNear && pose.dist - prevDist > tune.releaseGap;
-  const held = pose.pulled || (near && prev.held);
+  // A wall's return moves the camera out from the look point over many frames. A fast turn also leaves the camera
+  // behind, while the wall's return is nearly done, and holding its speed there would drag the camera through the turn
+  // (SB-1949, SB-1951). So the hold carries while the camera is still well inside its open place or the wall's share is
+  // coming back, and ends on a fast turn once the camera is within releaseGap of its open place: that nearer place is
+  // then the turn cutting the corner, not a wall pushing it.
+  const turn = Math.abs(Math.atan2(Math.sin(pose.yaw - prev.yaw), Math.cos(pose.yaw - prev.yaw)));
+  const wallReturn = returning || pose.dist - prevDist > tune.releaseGap;
+  const held = pose.pulled || (near && prev.held && (wallReturn || turn < FAST_TURN * dt));
   const step = followPose(prev.pos, pose.pos, dt, returning ? tune.returnLag : tune.lag).sub(prev.pos);
   if (held) {
     const rel = step.clone().sub(travel);
     const limit = (returning ? tune.returnSpeed : tune.pullSpeed) * dt;
     const length = rel.length();
     if (length > limit) rel.multiplyScalar(limit / length);
-    step.copy(stepRoom(prev.pos, travel, pose.boxes, tune)).add(rel);
+    // The wall's share can turn the camera toward another wall too (a wall that has just come between the look and the
+    // camera, say), so it stops a margin before one as the mech's own step does (SB-1951).
+    const moved = stepRoom(prev.pos, travel, pose.boxes, tune);
+    step.copy(moved).add(stepRoom(prev.pos.clone().add(moved), rel, pose.boxes, tune));
   }
 
   return {
@@ -313,6 +327,7 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
     look,
     openLook: pose.openLook.clone(),
     feet: { x: pose.feet.x, z: pose.feet.z },
+    yaw: pose.yaw,
     held,
   };
 }
