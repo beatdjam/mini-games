@@ -49,7 +49,17 @@ test('an 8 m mech scales every camera distance and speed, and keeps the angles a
     'closeLook',
   ];
   for (const key of lengths) expect(scale.cameraTune[key], key).toBeCloseTo(CAMERA_TUNE[key] * 2, 10);
-  for (const key of ['closePitch', 'probeDeg', 'pitchMin', 'pitchMax', 'lag', 'returnLag', 'fov', 'aimFov'] as const) {
+  for (const key of [
+    'closePitch',
+    'probeDeg',
+    'fastTurn',
+    'pitchMin',
+    'pitchMax',
+    'lag',
+    'returnLag',
+    'fov',
+    'aimFov',
+  ] as const) {
     expect(scale.cameraTune[key], key).toBe(CAMERA_TUNE[key]);
   }
   // the course's walking speed is not a camera distance, so the look keeps the same lap time

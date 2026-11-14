@@ -193,6 +193,7 @@ export function showMap(_hash: string) {
           riseRange: { min: 0, max: 5, step: 0.1 },
           closeLook: { min: 0, max: 5, step: 0.1 },
           closePitch: { min: 0, max: 0.5, step: 0.01 },
+          fastTurn: { min: 0, max: 20, step: 0.5 },
           probeDeg: { min: 0, max: 15, step: 0.5 },
         },
         labels: {
@@ -210,6 +211,7 @@ export function showMap(_hash: string) {
           riseRange: '上げを戻す距離（m）',
           closeLook: '寄ったとき前へ出す注視点（m）',
           closePitch: '見下ろしの上乗せ（rad）',
+          fastTurn: '急旋回とみなす速さ（rad/s）',
           probeDeg: '角を見る角度（度）',
         },
       },

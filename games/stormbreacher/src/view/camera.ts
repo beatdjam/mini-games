@@ -50,7 +50,6 @@ interface Hit {
 const FAN_SAMPLES = 3; // rays across a probe fan: the middle and one each side
 const DEG = Math.PI / 180;
 const CLOSE_PITCH_MAX = 1.5; // rad; the steepest the wall-side camera may look down past its open angle
-const FAST_TURN = 8; // rad/s; past this the lag cuts the corner enough that a wall's hold drags a turn (SB-1949)
 
 // The nearest box the ray meets, when that is no farther than `max` (m).
 function nearestHit(origin: THREE.Vector3, dir: THREE.Vector3, max: number, boxes: readonly THREE.Box3[]): Hit | null {
@@ -308,8 +307,8 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
   // coming back, and ends on a fast turn once the camera is within releaseGap of its open place: that nearer place is
   // then the turn cutting the corner, not a wall pushing it.
   const turn = Math.abs(Math.atan2(Math.sin(pose.yaw - prev.yaw), Math.cos(pose.yaw - prev.yaw)));
-  const wallReturn = returning || pose.dist - prevDist > tune.releaseGap;
-  const held = pose.pulled || (near && prev.held && (wallReturn || turn < FAST_TURN * dt));
+  const wallReturn = pose.dist - prevDist > tune.releaseGap;
+  const held = pose.pulled || (near && prev.held && (wallReturn || turn < tune.fastTurn * dt));
   const step = followPose(prev.pos, pose.pos, dt, returning ? tune.returnLag : tune.lag).sub(prev.pos);
   if (held) {
     const rel = step.clone().sub(travel);
