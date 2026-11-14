@@ -177,8 +177,9 @@ test('wave2-sinks starts 4 s after cp1, holds the mech still, and ends with the 
 test('the wave2-lost line reaches the screen once the ally call before it has had its time', () => {
   const game = afterPillboxes();
   runUntilCutscene(game, 'wave2-sinks', 4.5);
-  // buddy's call takes the band first; the line waits behind it and then is the one on screen
-  for (let i = 0; i < 60 * 8 && game.radio?.line !== 'm1.wave2-lost'; i++) step(game, idle, DT);
+  // buddy's call takes the band first; the line waits behind it and then is the one on screen. The cutscene hides the HUD,
+  // so the band does not move while it plays: the wait is the cutscene's seconds on top of the call's own
+  for (let i = 0; i < 60 * 16 && game.radio?.line !== 'm1.wave2-lost'; i++) step(game, idle, DT);
   expect(game.radio?.line).toBe('m1.wave2-lost');
 });
 

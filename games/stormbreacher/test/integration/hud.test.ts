@@ -3,7 +3,7 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { RADIO_TUNE } from '../../src/data/script.ts';
+import { RADIO_TUNE, CUTSCENE_SEC } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
@@ -128,6 +128,7 @@ test('an objective that is not counted shows no count', () => {
 test('two radio lines come up in turn, each for RADIO_TUNE.minSec', () => {
   const game = newGame(M1B_HAND);
   step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'skip' }); // the opening cutscene hides the HUD, and no line comes up behind it
   expect(hudModel(game).radio).toBeNull();
 
   // the same frame brings two lines: the b-line's radio and one queued behind it
@@ -138,17 +139,48 @@ test('two radio lines come up in turn, each for RADIO_TUNE.minSec', () => {
   expect(hudModel(game).radio).toBe('m1.depot-hint');
 
   game.time += RADIO_TUNE.minSec - 0.1;
-  stepRadio(game);
+  stepRadio(game, 1 / 60);
   expect(hudModel(game).radio).toBe('m1.depot-hint');
   game.time += 0.1;
-  stepRadio(game);
+  stepRadio(game, 1 / 60);
   expect(game.radio?.line).toBe('m1.pillboxes-down');
   expect(hudModel(game).radio).toBe('m1.pillboxes-down');
 
   game.time += RADIO_TUNE.minSec;
-  stepRadio(game);
+  stepRadio(game, 1 / 60);
   expect(game.radio).toBeNull();
   expect(hudModel(game).radio).toBeNull();
+});
+
+test('the radio queue does not move while a cutscene hides the HUD', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'skip' });
+  // the wave 2 line is on screen as its cutscene starts, and the bars hide the HUD for the whole cutscene; a second line waits
+  game.radio = { line: 'm1.wave2-lost', time: game.time };
+  game.radioQueue = [{ line: 'm1.pillboxes-down' }];
+  game.script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] };
+  // the cutscene is longer than RADIO_TUNE.minSec, so the queue would move on if the clock ran while it plays
+  expect(CUTSCENE_SEC['wave2-sinks']).toBeGreaterThan(RADIO_TUNE.minSec);
+  const age = game.time - game.radio.time;
+  for (let i = 0; i < 500 && game.script.cutscene !== null; i++) {
+    step(game, idle, 1 / 60);
+    if (game.script.cutscene !== null) {
+      expect(game.radio?.line).toBe('m1.wave2-lost');
+      expect(game.radioQueue.some(entry => entry.line === 'm1.pillboxes-down')).toBe(true);
+    }
+  }
+  expect(game.script.cutscene).toBeNull();
+  // the line has aged by at most the frame the cutscene ended in
+  expect(game.time - (game.radio?.time ?? 0) - age).toBeLessThan(2 / 60);
+  expect(hudModel(game).radio).toBe('m1.wave2-lost');
+  expect(game.radioQueue.some(entry => entry.line === 'm1.pillboxes-down')).toBe(true);
+
+  // the line then gets its full RADIO_TUNE.minSec once the HUD is back, and the next one comes up after it
+  for (let i = 0; i < 150; i++) step(game, idle, 1 / 60); // 2.5 s
+  expect(hudModel(game).radio).toBe('m1.wave2-lost');
+  for (let i = 0; i < 60; i++) step(game, idle, 1 / 60); // 1 s more (3.5 s)
+  expect(hudModel(game).radio).not.toBe('m1.wave2-lost');
 });
 
 test('the lock box is the box of the target or enemy the aim is pulled toward', () => {

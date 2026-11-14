@@ -4,8 +4,10 @@
 import { el } from '@engine/core/index.ts';
 import { exitLock, requestLock } from '@engine/ui/index.ts';
 import { PAUSE_KEYS } from '../data/keys.ts';
+import { clearPendingJump } from './keyboard.ts';
 import { setState, state } from './screen.ts';
-import { takeSkip } from './skip.ts';
+import { requestSkip, takeSkip } from './skip.ts';
+import { clearPendingTouch } from './touch.ts';
 
 export interface PauseHooks {
   inCutscene: () => boolean; // whether a cutscene is playing, where Esc skips it instead of pausing
@@ -48,6 +50,9 @@ function resume(): void {
   setState('play');
   // a press that came while paused (Esc, the menu's clicks) must not skip the cutscene that goes on
   takeSkip();
+  // a jump or a use (the keyboard's and the touch buttons') pressed while paused would act on the first frame after the resume
+  clearPendingJump();
+  clearPendingTouch();
 }
 
 // A key at the pause: Esc and P pause, close the abandon question or resume.
@@ -72,8 +77,12 @@ export function initPause(given: PauseHooks): void {
   hooks = given;
   window.addEventListener('keydown', onKey);
   // Esc while the pointer is locked is taken by the browser to release it, and no keydown comes; the release is the pause
+  // outside a cutscene. In one it is the skip first (SPEC: Esc in a cutscene skips before it pauses), so the release
+  // asks to skip and does not open the menu.
   document.addEventListener('pointerlockchange', () => {
-    if (!document.pointerLockElement && state === 'play') pause();
+    if (document.pointerLockElement || state !== 'play') return;
+    if (hooks?.inCutscene()) requestSkip();
+    else pause();
   });
   el('#sbPauseBtn').addEventListener('click', () => {
     pause();

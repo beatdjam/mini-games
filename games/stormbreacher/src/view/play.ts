@@ -9,11 +9,10 @@ import { CUTSCENES } from '../data/cutscenes.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1, PILLBOXES_DOWN_FLAG } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { CUTSCENE_SEC } from '../data/script.ts';
 import { BATTLE_TUNE, CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import { blastTarget } from '../logic/blasts.ts';
 import { blastFaceHeight, isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
-import { cutsceneMech } from '../logic/cutscene.ts';
+import { cutsceneElapsed, cutsceneMech } from '../logic/cutscene.ts';
 import type { Ray3 } from '../logic/fcs.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
 import { hudModel } from '../logic/hud.ts';
@@ -107,6 +106,9 @@ export function buildPlayView(game: GameModel): PlayView {
     stage.setEnv(env);
   }
   const hud = buildPlayHud(document.body);
+  // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
+  // events before it (already played) are not all played again in the first frame.
+  const startSecond = cutsceneElapsed(game.script.cutscene);
   // The sortie starts with the camera already in its place: a checkpoint or a suspend resumes without it flying in.
   const cam = stateOfPose(
     cameraPose(
@@ -148,7 +150,7 @@ export function buildPlayView(game: GameModel): PlayView {
     allies: buildAllyView(),
     hud,
     hurt: buildHurtView(document.body),
-    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets),
+    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets, startSecond),
   };
 }
 
@@ -332,7 +334,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   // A cutscene that has the mech walk (the landing's ramp) draws it on its path; this is the picture only, so the
   // game's mech stays at its start and a skip, a checkpoint or a suspend need nothing: the model is back on the game's
   // mech in the frame the cutscene ends. A cutscene with no path does not draw the mech: it is still in the boat.
-  const walk = cutscene === null ? null : cutsceneMech(cutscene.id, CUTSCENE_SEC[cutscene.id] - cutscene.left);
+  const walk = cutscene === null ? null : cutsceneMech(cutscene.id, cutsceneElapsed(cutscene));
   if (walk === null) {
     view.model.position.set(game.mech.x, game.mech.y, game.mech.z);
     view.model.rotation.y = game.mech.yaw;

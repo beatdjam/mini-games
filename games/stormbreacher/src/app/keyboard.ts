@@ -60,6 +60,13 @@ export function initKeyboard() {
   initMouse();
 }
 
+// Throws away a jump pressed before the pause menu was up: nothing reads it while paused, so without this the mech jumps
+// on the first frame after the resume. The touch buttons' jump and use go the same way (clearPendingTouch in touch.ts, called
+// with this one).
+export function clearPendingJump(): void {
+  jumpPressed = false;
+}
+
 const actionAxis = (plus: KeyAction, minus: KeyAction): number =>
   (actionDown(plus) ? 1 : 0) - (actionDown(minus) ? 1 : 0);
 

@@ -8,6 +8,7 @@ import { currentGame, startSortie, syncTitle, titleReturn } from '../../src/app/
 import { state } from '../../src/app/screen.ts';
 import { SAVE_KEY, SUSPEND_KEY, loadSuspend, save } from '../../src/app/storage.ts';
 import { sendToScript } from '../../src/logic/game.ts';
+import { pastSkipGuard } from './cutsceneSkip.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -55,6 +56,7 @@ const menu = (): HTMLElement => el('#sbPause');
 // Skips the opening cutscene, so Esc is a pause key.
 async function pastCutscene(): Promise<void> {
   await frame();
+  await until(pastSkipGuard);
   press('Enter');
   await until(() => game().script.cutscene === null);
 }
@@ -133,6 +135,7 @@ test('the pause button pauses', async () => {
 test('Esc in a cutscene skips it and does not pause', async () => {
   await frame();
   expect(game().script.cutscene).not.toBeNull();
+  await until(pastSkipGuard);
   press('Escape');
   await until(() => game().script.cutscene === null);
   expect(state).toBe('play');
