@@ -29,6 +29,7 @@ export interface EnemyState {
   hp: number; // the health left; 0 stays after it falls
   awake: boolean; // set once the mech comes within the kind's `notice`; it never sleeps again
   wait: number; // the seconds before it may shoot again
+  burstLeft: number; // the shots still to fire in this burst; 0 for a kind with no burst
 }
 
 // What an enemy sees of the world: the walls it is pushed out of, the boxes that stop a shot and the map's edge.
@@ -53,7 +54,20 @@ export interface EnemyShot {
 // `y` is the height it comes in at (m); above the ground it falls first.
 export function newEnemy(id: string, wave: string, kind: EnemyKind, x: number, z: number, y = 0): EnemyState {
   const def = ENEMIES[kind];
-  return { id, wave, kind, x, z, y, vy: 0, yaw: 0, hp: def.hp, awake: false, wait: def.fireInterval };
+  return {
+    id,
+    wave,
+    kind,
+    x,
+    z,
+    y,
+    vy: 0,
+    yaw: 0,
+    hp: def.hp,
+    awake: false,
+    wait: def.fireInterval,
+    burstLeft: def.burst?.shots ?? 0,
+  };
 }
 
 // Pushes the enemy out of the walls and keeps it inside the map.
@@ -110,7 +124,8 @@ function fall(enemy: EnemyState, world: EnemyWorld, dt: number): void {
 }
 
 // One frame of one enemy. `mech` is the mech's feet. Returns the shot it fired this frame, or null. An enemy with no
-// health left does nothing, and one in the air only falls.
+// health left does nothing, and one in the air only falls. A static enemy (a machine-gun nest) turns and shoots but
+// never walks, falls or is pushed.
 export function stepEnemy(
   enemy: EnemyState,
   mech: { x: number; y: number; z: number },
@@ -122,6 +137,8 @@ export function stepEnemy(
   const def = ENEMIES[enemy.kind];
   enemy.yaw = Math.atan2(enemy.x - mech.x, enemy.z - mech.z);
   if (enemy.y > 0) {
+    // only a wave that comes in high falls; a nest is put on the ground
+    if (def.static === true) return null;
     fall(enemy, world, dt);
     return null;
   }
@@ -136,24 +153,49 @@ export function stepEnemy(
   const clear =
     dist <= def.fireRange &&
     !fireRayHit(enemy.x, y, enemy.z, mech.x - enemy.x, dy, mech.z - enemy.z, Math.hypot(dist, dy), world.propBoxes);
-  // it stops at its distance only with a clear line; without one it goes on, by the nav's way when it has one
-  if (!(clear && dist <= def.stopDist)) {
-    const via = world.nav ? navTarget(world.nav, enemy.x, enemy.z, mech.x, mech.z) : null;
-    const to = via ?? mech;
-    walk(
-      enemy,
-      to.x,
-      to.z,
-      clear && dist > def.stopDist ? Math.min(def.speed * dt, dist - def.stopDist) : def.speed * dt,
-      world,
-    );
+  if (def.static !== true) {
+    // it stops at its distance only with a clear line; without one it goes on, by the nav's way when it has one
+    if (!(clear && dist <= def.stopDist)) {
+      const via = world.nav ? navTarget(world.nav, enemy.x, enemy.z, mech.x, mech.z) : null;
+      const to = via ?? mech;
+      walk(
+        enemy,
+        to.x,
+        to.z,
+        clear && dist > def.stopDist ? Math.min(def.speed * dt, dist - def.stopDist) : def.speed * dt,
+        world,
+      );
+    }
+    keepApart(enemy, world, dt);
   }
-  keepApart(enemy, world, dt);
+  const burst = def.burst;
+  // a machine-gun nest sweeps a burst across its arc; a burst that loses its line stops
   enemy.wait = Math.max(0, enemy.wait - dt);
+  if (burst !== undefined && !clear && enemy.burstLeft < burst.shots) {
+    enemy.burstLeft = burst.shots;
+    enemy.wait = burst.rest;
+  }
   if (enemy.wait > 0 || !clear) return null;
   const dx = mech.x - enemy.x;
   const dz = mech.z - enemy.z;
-  enemy.wait = def.fireInterval;
-  const aimed = spreadDir({ dx, dy, dz }, def.spread, rng);
+  if (burst === undefined) {
+    enemy.wait = def.fireInterval;
+    const aimed = spreadDir({ dx, dy, dz }, def.spread, rng);
+    return { x: enemy.x, y, z: enemy.z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz };
+  }
+  enemy.burstLeft -= 1;
+  const index = burst.shots - enemy.burstLeft - 1;
+  // the sweep: the first shot of the burst is the left edge of the arc, the last the right edge
+  const turn = burst.shots > 1 ? ((-burst.arcDeg / 2 + (burst.arcDeg * index) / (burst.shots - 1)) * Math.PI) / 180 : 0;
+  const cos = Math.cos(turn);
+  const sin = Math.sin(turn);
+  const swept = { dx: dx * cos + dz * sin, dy, dz: -dx * sin + dz * cos };
+  if (enemy.burstLeft === 0) {
+    enemy.burstLeft = burst.shots;
+    enemy.wait = burst.rest;
+  } else {
+    enemy.wait = burst.interval;
+  }
+  const aimed = spreadDir(swept, def.spread, rng);
   return { x: enemy.x, y, z: enemy.z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz };
 }

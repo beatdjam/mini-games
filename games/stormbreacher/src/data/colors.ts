@@ -39,6 +39,7 @@ export const ENEMY_COLOR: Record<EnemyKind, number> = {
   grunt: 0x8c3b32,
   assault: 0xc94a3d, // a brighter red than a grunt's, so the fast one reads apart at a distance
   heavy: 0x4a5340, // a dark grey-green, far from the grunt's red
+  emplacement: 0x6f6a5c, // a sand-grey nest, apart from the heavy's grey-green and the grunt's red (仮)
 };
 export const ENEMY_DOWN_COLOR = 0x2a2522;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
@@ -57,6 +58,11 @@ export const SEA_TRACER_COLOR = 0xffb347;
 
 // The light at a pillbox's muzzle while it warns of a burst (仮).
 export const PILLBOX_WARN_COLOR = 0xffd890;
+
+// The blast points on the hedgehog lines and the charges planted on them (SB-1500, 仮): the ring the player stands in,
+// and the box that blinks as its fuse burns.
+export const BLAST_POINT_COLOR = 0xffb347;
+export const CHARGE_COLOR = 0xffe066;
 
 // The sparks of a shot a pillbox's front turns away (仮). A little warmer than SEA_FLASH_COLOR, so the two do not read
 // as the same flash.

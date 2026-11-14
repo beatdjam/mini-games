@@ -12,6 +12,7 @@ export interface PlayRead {
   pitchDelta: number; // the touch drag and the arrow keys added this frame (rad)
   lock: boolean; // the lock display, shared by the touch lock button and the lock key
   sub: boolean; // the touch sub button, the sub key, or the right mouse button
+  use: boolean; // the touch use button or the use key
 }
 
 let ready = false; // initPlayInput has run (a second call does nothing)
@@ -35,5 +36,6 @@ export function readInput(dt: number): PlayRead {
     pitchDelta: touch.pitchDelta + keyboard.pitchDelta,
     lock: keyboard.lock,
     sub: touch.sub || keyboard.sub,
+    use: touch.use || keyboard.use,
   };
 }

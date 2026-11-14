@@ -1,13 +1,15 @@
 // The HUD mock's view (#view-hud, SB-160): the M1 B beach drawn once with a fixed camera, a mech proxy standing on
 // it and the three layout plans' sample HUD over it. It never reads the game's state and never takes input.
-import { addSystem, el } from '@engine/core/index.ts';
+import { addSystem, el, t } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { lookOf } from '../../data/looks.ts';
+import { RADIO_TUNE } from '../../data/script.ts';
 import { CAMERA_TUNE, MECH_TUNE } from '../../data/tune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
 import { buildHud } from '../hud/build.ts';
 import { PLAN_IDS, PLAN_LABELS, type PlanId } from '../hud/plans.ts';
+import { createTunePanel } from '../tunePanel.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { buildMechProxy } from '../../view/mechProxy.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
@@ -73,6 +75,11 @@ export function showHud(_hash: string) {
   let cutscene = params.get('cut') === '1';
   let touch = params.get('touch') === '1';
 
+  // The radio sample: the mock has no GameModel, so the view keeps the same one-line-at-a-time rule here to show a queue.
+  let radioLine: string | null = 'm1.wave2-lost';
+  let radioLeft = RADIO_TUNE.minSec;
+  const radioQueue: string[] = [];
+
   const planButtons = new Map<PlanId, HTMLButtonElement>();
 
   document.getElementById('sbHudBar')?.remove();
@@ -103,8 +110,16 @@ export function showHud(_hash: string) {
     paintButton(touchButton, touch);
   }
 
+  function paintRadio() {
+    const node = document.querySelector<HTMLElement>('#sbHud [data-hud="radio"]');
+    if (!node) return;
+    node.hidden = radioLine === null;
+    node.textContent = radioLine === null ? '' : `${t('hud.radio')} ${t(radioLine)}`;
+  }
+
   function render() {
     buildHud(document.body, plan, { cutscene, touch });
+    paintRadio();
     paintButtons();
   }
 
@@ -115,6 +130,50 @@ export function showHud(_hash: string) {
     query.set('plan', plan);
     history.replaceState(null, '', `${location.pathname}?${query.toString()}${location.hash}`);
   }
+
+  // Queues two sample lines, so the eye can see the first hold RADIO_TUNE.minSec before the second comes up.
+  function flowRadio() {
+    radioQueue.length = 0;
+    radioQueue.push('m1.depot-hint', 'm1.pillboxes-down');
+    const next = radioQueue.shift();
+    radioLine = next ?? null;
+    radioLeft = next === undefined ? 0 : RADIO_TUNE.minSec;
+    paintRadio();
+  }
+
+  const extra = document.createElement('div');
+  const radioButton = button(extra, '無線を2行流す', flowRadio);
+  radioButton.dataset.sbRadio = 'flow';
+  createTunePanel({
+    id: 'sbTunePanel',
+    title: '無線の調整',
+    groups: [
+      {
+        name: 'RADIO_TUNE',
+        table: RADIO_TUNE,
+        ranges: {
+          minSec: { min: 0.5, max: 8, step: 0.1 },
+          maxPending: { min: 1, max: 16, step: 1 },
+        },
+        labels: { minSec: '表示の秒', maxPending: '待ちの上限' },
+      },
+    ],
+    extra,
+  });
+
+  addSystem({
+    name: 'sb-hud-radio',
+    update: dt => {
+      if (radioLeft > 0) {
+        radioLeft = Math.max(0, radioLeft - dt);
+        if (radioLeft > 0) return;
+      }
+      const next = radioQueue.shift();
+      radioLine = next ?? null;
+      radioLeft = next === undefined ? 0 : RADIO_TUNE.minSec;
+      paintRadio();
+    },
+  });
 
   window.sbHudReport = () => {
     const elements: Record<string, { left: number; top: number; width: number; height: number }> = {};
@@ -132,7 +191,7 @@ export function showHud(_hash: string) {
         };
       }
     }
-    return JSON.stringify({ plan, cutscene, touch, elements });
+    return JSON.stringify({ plan, cutscene, touch, radio: radioLine, elements });
   };
 
   document.addEventListener('keydown', event => {
