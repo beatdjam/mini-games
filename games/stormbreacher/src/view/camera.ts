@@ -38,6 +38,7 @@ export interface CameraState {
   look: THREE.Vector3; // the point the screen looks at
   openLook: THREE.Vector3; // the look point with no walls (see CameraPose.openLook)
   feet: { x: number; z: number }; // the mech's feet last frame (m)
+  held: boolean; // a wall pulled the camera in last frame, or held it nearer than its open place
 }
 
 interface Hit {
@@ -213,6 +214,7 @@ export function stateOfPose(pose: CameraPose): CameraState {
     look: pose.look.clone(),
     openLook: pose.openLook.clone(),
     feet: { x: pose.feet.x, z: pose.feet.z },
+    held: pose.pulled,
   };
 }
 
@@ -291,11 +293,14 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
   // A wall holds the camera closer than its open place: the step it takes is measured without the mech's own travel,
   // so a boost is not mistaken for the wall's push and the camera never lags into the mech. A wall that has let go is
   // known by the share it had on the look (its shoulder and close look), so a mech backing up with no wall keeps `lag`.
+  // A fast turn in the open also brings the camera nearer the look point (the lag cuts the corner), so `near` counts
+  // only while a wall pulled the camera in or held it last frame; an open turn then takes the `lag` step exactly.
   const prevDist = Math.hypot(prev.pos.x - pose.look.x, prev.pos.z - pose.look.z);
   const near = prevDist < pose.openDist - tune.pullNear;
   const returning = near && prevOffset.length() > tune.pullNear && pose.dist - prevDist > tune.releaseGap;
+  const held = pose.pulled || (near && prev.held);
   const step = followPose(prev.pos, pose.pos, dt, returning ? tune.returnLag : tune.lag).sub(prev.pos);
-  if (pose.pulled || near) {
+  if (held) {
     const rel = step.clone().sub(travel);
     const limit = (returning ? tune.returnSpeed : tune.pullSpeed) * dt;
     const length = rel.length();
@@ -308,6 +313,7 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
     look,
     openLook: pose.openLook.clone(),
     feet: { x: pose.feet.x, z: pose.feet.z },
+    held,
   };
 }
 

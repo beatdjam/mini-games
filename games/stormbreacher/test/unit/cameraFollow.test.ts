@@ -1,8 +1,9 @@
-// The camera's state across frames (SB-1935, SB-1945): with no wall the camera takes the open lag's step exactly; a
-// wall eases only its own share of the move; and the aim is the middle of the screen the state drew.
+// The camera's state across frames (SB-1935, SB-1945, SB-1949): with no wall the camera takes the open lag's step exactly,
+// even through a flick; a wall eases only its own share of the move; a wall holds the camera's step to pullSpeed; and the
+// aim is the middle of the screen the state drew.
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
-import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import {
   aimRay,
   applyPose,
@@ -22,8 +23,35 @@ const SECONDS = 2; // the boost's length
 const MAX_FRAME_TURN = 5; // deg
 const PULL_STEP = CAMERA_TUNE.pullSpeed * DT; // the most a wall's share may move the camera in one frame (m)
 const WITHIN = 1e-9; // m
+const FLICK_TURN = 12; // rad/s, a hard mouse flick: 180 degrees in a quarter second, far past MOVE_TUNE.turn
+const FLICK_SETTLE = 30; // frames the camera reaches its place before the flick
 
 const at = (x: number, z: number, yaw = 0): CameraTarget => ({ x, y: 0, z, yaw });
+
+// The mech moving along its facing at `speed` while it turns 180 degrees at `rate`, then keeping on while the camera
+// settles. The lag cuts the corner of a fast turn, so this is where the camera used to be mistaken for a wall-held one.
+function turnTargets(speed: number, rate = FLICK_TURN): CameraTarget[] {
+  const targets: CameraTarget[] = [];
+  let x = 0;
+  let z = 0;
+  let yaw = 0;
+  const move = () => {
+    x -= Math.sin(yaw) * speed * DT;
+    z -= Math.cos(yaw) * speed * DT;
+  };
+  for (let frame = 0; frame < FLICK_SETTLE; frame++) targets.push(at(x, z, yaw));
+  const frames = Math.ceil(Math.PI / (rate * DT));
+  for (let frame = 1; frame <= frames; frame++) {
+    yaw = Math.min(Math.PI, frame * rate * DT);
+    move();
+    targets.push(at(x, z, yaw));
+  }
+  for (let frame = 0; frame < 120; frame++) {
+    move();
+    targets.push(at(x, z, yaw));
+  }
+  return targets;
+}
 
 // The camera followed frame by frame for `frames`, with the mech put at each frame's target.
 function followFrames(targets: readonly CameraTarget[], boxes: readonly THREE.Box3[]): CameraState[] {
@@ -100,6 +128,52 @@ test('a boost for two seconds in the open: every frame is the open lag step', ()
     lagged = lagged === null ? pose.pos.clone() : followPose(lagged, pose.pos, DT, CAMERA_TUNE.lag);
     expect(state.pos.distanceTo(lagged), `frame ${frame}`).toBeLessThan(WITHIN);
   }
+});
+
+// A fast turn with no wall is still no wall: the lag may cut the corner and bring the camera nearer the look point than
+// its open distance, but no wall held it, so every frame takes the open lag's step exactly (SB-1949). The turn keys stop
+// at MOVE_TUNE.turn; a mouse flick is much faster and is where the old cap used to bite.
+for (const rate of [MOVE_TUNE.turn, FLICK_TURN]) {
+  for (const [name, speed] of [
+    ['standing', 0],
+    ['walking', MOVE_TUNE.walk],
+    ['boosting', MOVE_TUNE.boost],
+  ] as const) {
+    test(`no wall, a 180 degree turn at ${rate} rad/s while ${name}: the camera takes the open lag's step`, () => {
+      let state: CameraState | null = null;
+      let lagged: THREE.Vector3 | null = null;
+      for (const [frame, target] of turnTargets(speed, rate).entries()) {
+        const pose = cameraPose(target, 0, CAMERA_TUNE, []);
+        state = followCamera(state, pose, DT, CAMERA_TUNE);
+        lagged = lagged === null ? pose.pos.clone() : followPose(lagged, pose.pos, DT, CAMERA_TUNE.lag);
+        expect(state.pos.distanceTo(lagged), `frame ${frame}`).toBeLessThan(WITHIN);
+      }
+    });
+  }
+}
+
+test('a 180 degree flick at a wall 1 m behind: the camera slides, not jumps, and stays this side of the wall', () => {
+  // The same flick as above, but a wall behind the mech pulls the camera in; the wall's hold must keep its 0.15 m frame.
+  const boxes = cameraBoxes([{ x: 0, z: 3, halfW: 10, halfD: 2, yaw: 0, top: 4 }]); // near face z = 1
+  const targets = turnTargets(0); // the turn in place: the mech stands still
+  let state: CameraState | null = null;
+  let prev: CameraState | null = null;
+  let maxJump = 0;
+  let behind = 0;
+  for (const target of targets) {
+    const pose = cameraPose(target, 0, CAMERA_TUNE, boxes);
+    state = followCamera(state, pose, DT, CAMERA_TUNE);
+    if (prev !== null) maxJump = Math.max(maxJump, state.pos.distanceTo(prev.pos));
+    const ray = new THREE.Ray(pose.look, state.pos.clone().sub(pose.look).normalize());
+    const point = new THREE.Vector3();
+    for (const box of boxes) {
+      if (!ray.intersectBox(box, point)) continue;
+      if (point.distanceTo(pose.look) < state.pos.distanceTo(pose.look) - 0.05) behind++;
+    }
+    prev = state;
+  }
+  expect(maxJump).toBeLessThanOrEqual(PULL_STEP + 1e-6);
+  expect(behind).toBe(0);
 });
 
 // The wall behind the mech at 1 m, 20 m long: the mech walks +x past its end while the camera follows.
