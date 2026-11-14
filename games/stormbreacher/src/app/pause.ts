@@ -7,6 +7,7 @@ import { PAUSE_KEYS } from '../data/keys.ts';
 import { clearPendingJump } from './keyboard.ts';
 import { setState, state } from './screen.ts';
 import { requestSkip, takeSkip } from './skip.ts';
+import { clearPendingTouch } from './touch.ts';
 
 export interface PauseHooks {
   inCutscene: () => boolean; // whether a cutscene is playing, where Esc skips it instead of pausing
@@ -49,8 +50,9 @@ function resume(): void {
   setState('play');
   // a press that came while paused (Esc, the menu's clicks) must not skip the cutscene that goes on
   takeSkip();
-  // a jump pressed while paused would jump on the first frame after the resume
+  // a jump or a use (the keyboard's and the touch buttons') pressed while paused would act on the first frame after the resume
   clearPendingJump();
+  clearPendingTouch();
 }
 
 // A key at the pause: Esc and P pause, close the abandon question or resume.

@@ -682,8 +682,14 @@ export function queueRadio(game: GameModel, line: string): void {
 
 // Moves the radio band on: the next line comes up when the one on screen has had RADIO_TUNE.minSec (s), one line a
 // frame at most, so a line that came with another still gets its time on screen. `time` is when it came up.
-export function stepRadio(game: GameModel): void {
+// A cutscene hides the HUD, so while one plays nothing comes up and the line on screen keeps its age: `time` moves on
+// with `dt` (game.time has already), so the line gets its RADIO_TUNE.minSec of the HUD, not of the sortie's clock.
+export function stepRadio(game: GameModel, dt: number): void {
   const shown = game.radio;
+  if (game.script.cutscene !== null) {
+    if (shown !== null) shown.time += dt;
+    return;
+  }
   if (shown !== null && game.time - shown.time < RADIO_TUNE.minSec) return;
   const next = game.radioQueue.shift();
   game.radio = next === undefined ? null : { line: next.line, time: game.time };
@@ -1018,5 +1024,5 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     if (inArea(area, game.mech.x, game.mech.z)) sendToScript(game, { kind: 'enter', area: id });
   }
   applyScriptOut(game, stepScript(game.script, game.mission, dt));
-  stepRadio(game);
+  stepRadio(game, dt);
 }

@@ -1,5 +1,5 @@
 // The cutscene's edge against the input: the frame a cutscene starts takes no skip, Esc while the pointer is locked
-// skips instead of pausing, a jump pressed while paused is thrown away, and a sortie taken up mid-cutscene does not play
+// skips instead of pausing (and inside the guard does nothing), a jump pressed while paused is thrown away, and a sortie taken up mid-cutscene does not play
 // its past blasts again.
 import { afterEach, beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
@@ -91,6 +91,23 @@ test('a lost pointer lock in a cutscene skips it and does not pause', async () =
   await until(() => game().script.cutscene === null);
   expect(state).toBe('play');
   expect(el('#sbPause').hidden).toBe(true);
+});
+
+// What the code does today, not a decision: inside the guard the release is thrown away like any skip, and it does not
+// pause either, so the cutscene goes on without the lock until the player skips it or it ends.
+test('a lost pointer lock inside the skip guard does nothing: no skip and no pause', async () => {
+  startSortie();
+  await frame();
+  expect(pastGuard()).toBe(false);
+  document.dispatchEvent(new Event('pointerlockchange'));
+  runSystems(1 / 60);
+  expect(game().script.cutscene?.id).toBe('landing');
+  expect(state).toBe('play');
+  expect(el('#sbPause').hidden).toBe(true);
+  // the release was not saved up: the cutscene is still playing once the guard is over
+  await until(pastGuard);
+  expect(game().script.cutscene?.id).toBe('landing');
+  expect(state).toBe('play');
 });
 
 test('a jump pressed while paused does not jump on the first frame after the resume', async () => {

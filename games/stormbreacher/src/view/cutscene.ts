@@ -10,10 +10,9 @@ import { HUD_COLOR } from '../data/colors.ts';
 import { CUTSCENES, type CutsceneEvent } from '../data/cutscenes.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
-import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE } from '../data/tune.ts';
 import type { CutsceneId, MapBounds } from '../data/types.ts';
-import { cutsceneEvents, cutsceneLine, cutscenePose } from '../logic/cutscene.ts';
+import { cutsceneElapsed, cutsceneEvents, cutsceneLine, cutscenePose } from '../logic/cutscene.ts';
 import type { GameModel } from '../logic/game.ts';
 import type { Battle } from './battle/index.ts';
 import { spawnBoom } from './boom.ts';
@@ -154,7 +153,8 @@ export function drawCutscene(
     return;
   }
 
-  const elapsed = CUTSCENE_SEC[cutscene.id] - cutscene.left;
+  // cutsceneElapsed says -1 for a cutscene that is only starting; the pose and the events here take 0 for it
+  const elapsed = Math.max(0, cutsceneElapsed(cutscene));
   const pose = cutscenePose(cutscene.id, elapsed, game.mech);
   // a blast shakes the cutscene's camera by how near it is to that camera; a shell that falls past the map's front edge
   // is a water blast, as in the sortie. It sounds the way a big blast in the sortie does, from that camera's distance
