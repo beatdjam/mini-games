@@ -61,7 +61,7 @@ test('taking the air out leaves no group, pool or live part', () => {
   removeAtmosphere();
   expect(named('sbAtmosphere')).toHaveLength(0);
   for (const name of MESH_NAMES) expect(named(name)).toHaveLength(0);
-  expect(atmosphereCounts()).toEqual({ puffs: 0, flames: 0, fires: 0 });
+  expect(atmosphereCounts()).toEqual({ puffs: 0, flames: 0, fires: 0, plumeAges: [] });
 });
 
 test('a pool takes the first dead slot and drops the new part when every slot is live', () => {
@@ -82,16 +82,28 @@ test('the fires broken in play stay within burnFires and do not light the same p
   expect(atmosphereCounts().fires).toBe(ATMOSPHERE_FIRES.length + 1);
 });
 
-test('the steady columns and six fires broken in play never put more than plumeCap puffs on screen', () => {
-  buildAtmosphere(MAP);
-  for (let i = 0; i < 6; i++) burnAtmosphere(300 + i * 5, 0);
-  let most = 0;
-  for (let i = 0; i < 1400; i++) {
+test('a full pool drops the new puffs and leaves the live ones as they were', () => {
+  const kept = ATMOSPHERE_TUNE.plumeCap;
+  try {
+    ATMOSPHERE_TUNE.plumeCap = 20; // small enough that the columns fill it at once
+    buildAtmosphere(MAP);
+    for (let i = 0; i < 6; i++) burnAtmosphere(300 + i * 5, 0);
     drawAtmosphere(0.05);
-    most = Math.max(most, atmosphereCounts().puffs);
+    expect(atmosphereCounts().puffs).toBe(20);
+    for (let i = 0; i < 40; i++) {
+      const before = atmosphereCounts().plumeAges;
+      drawAtmosphere(0.05);
+      const now = atmosphereCounts();
+      expect(now.puffs).toBeLessThanOrEqual(20);
+      // a puff that stayed alive only got older: none was taken over by a new one (an age back near 0)
+      for (let at = 0; at < before.length; at++) {
+        if (before[at] >= 0 && now.plumeAges[at] >= 0) expect(now.plumeAges[at]).toBeGreaterThan(before[at]);
+      }
+    }
+  } finally {
+    ATMOSPHERE_TUNE.plumeCap = kept;
+    removeAtmosphere();
   }
-  expect(most).toBeLessThanOrEqual(ATMOSPHERE_TUNE.plumeCap);
-  expect(atmosphereCounts().puffs).toBeLessThanOrEqual(ATMOSPHERE_TUNE.plumeCap);
 });
 
 test('a puff keeps its size until the last fifth and shrinks away by the end', () => {

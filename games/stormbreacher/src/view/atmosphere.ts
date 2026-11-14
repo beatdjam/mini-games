@@ -575,12 +575,13 @@ export function drawAtmosphere(dt: number): void {
 
 // What the pools hold now, for the tests and the dev screens: the live puffs and flames, and the fires (the table's
 // plus those broken in play).
-export function atmosphereCounts(): { puffs: number; flames: number; fires: number } {
+export function atmosphereCounts(): { puffs: number; flames: number; fires: number; plumeAges: number[] } {
   let livePuffs = 0;
   for (const slot of puffs) if (slot.live) livePuffs++;
   let liveFlames = 0;
   for (const slot of flames) if (slot.live) liveFlames++;
-  return { puffs: livePuffs, flames: liveFlames, fires: current ? current.fires.length : 0 };
+  const plumeAges = puffs.map(slot => (slot.live ? slot.age : -1)); // -1 for a free slot; the tests read it
+  return { puffs: livePuffs, flames: liveFlames, fires: current ? current.fires.length : 0, plumeAges };
 }
 
 // Lets a thing broken in play keep a fire of its own (a prop's wreck). The cap is the table's burnFires; the same place
@@ -611,8 +612,7 @@ export function removeAtmosphere(): void {
   flames.length = 0;
   plumeNext = 0;
   flameNext = 0;
-  // the canvas's grade was the air's: go back to the look's own filter alone (a title return inside the page keeps it)
+  // the canvas's grade was the air's: drop only that term and keep the look's own filter (a title return inside the page)
   gradeOn = false;
-  baseFilter = '';
   refreshGradeFilter();
 }

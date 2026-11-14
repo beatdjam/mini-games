@@ -321,7 +321,7 @@ const FX_WEAK: Partial<FxTune> = {
   smokeLife: 5.5,
   smokeCubes: 5,
   smokeMax: 135,
-  wreckSmoke: 2,
+  wreckSmoke: 0, // the air builds the wrecks' columns (SB-1440)
   craters: 45,
   craterMin: 2.5,
   craterMax: 8,
@@ -356,7 +356,7 @@ const FX_STRONG: Partial<FxTune> = {
   smokeLife: 5.5,
   smokeCubes: 15,
   smokeMax: 405,
-  wreckSmoke: 5,
+  wreckSmoke: 0, // the air builds the wrecks' columns (SB-1440)
   craters: 135,
   craterMin: 2.5,
   craterMax: 8,
