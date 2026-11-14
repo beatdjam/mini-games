@@ -26,6 +26,12 @@ export const MECH_TUNE = {
   fadeOpacity: 0.35, // the mech's opacity while see-through
 };
 
+// The face a blast stands on: its event carries the height of the ground or the top of a prop under it, and the view
+// stands the fire on it. The radius is the mech's own, so only a face the mech itself could stand on lifts a blast.
+export const BLAST_FACE_TUNE = {
+  maxHeight: 6.5, // the highest face a blast is put on (m); the seawall and a ramp's high end are 6 m
+};
+
 // The third-person camera's starting values (SB-020). Distances are measured on the ground plane unless noted.
 export const CAMERA_TUNE: CameraTune = {
   dist: 8.6, // the camera's horizontal distance from the look point (m)

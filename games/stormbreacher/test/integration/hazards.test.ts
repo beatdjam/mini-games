@@ -1,6 +1,7 @@
 // The hazards in the game: the beach wave starts a mortar barrage whose shells warn and land, a mine goes off under the
 // mech or from its shot, a checkpoint does not keep a shell in flight, and the hand map's mines stand clear of the start.
 import { expect, test } from 'vitest';
+import { ENEMIES, ENEMY_CHEST } from '../../src/data/enemies.ts';
 import { AIMED_MORTAR, BARRAGES, MINE_TUNE } from '../../src/data/hazards.ts';
 import { craftZ } from '../../src/data/craft.ts';
 import { LANDING_TUNE } from '../../src/data/landing.ts';
@@ -19,6 +20,7 @@ import {
   type GameModel,
 } from '../../src/logic/game.ts';
 import { validateMapForMission } from '../../src/logic/mapCheck.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { seed } from '../../src/logic/rng.ts';
 import { newPlayGame } from './playGame.ts';
 
@@ -110,6 +112,56 @@ test('a shell that lands on the seawall reports the wall’s top as the height o
   expect(lands).toHaveLength(1);
   // the seawall's top is 6 m; a blast left at the ground would sit inside the wall
   expect(lands[0].y).toBeCloseTo(6, 6);
+});
+
+test('a mine that goes off on the seawall reports the wall’s top as the height of its blast', () => {
+  const mine = { x: 35, z: -70 };
+  const game = newPlayGame({ ...M1B_HAND, mines: [mine] });
+  game.barrages = [];
+  game.aimed = null;
+  // stepping on the mine sets it off; the hill it stands on is the blast's face
+  game.mech.x = mine.x;
+  game.mech.y = 6;
+  game.mech.z = mine.z;
+  const events = run(game, 2);
+  const blasts = events.filter(
+    (event): event is Extract<GameEvent, { kind: 'mineBlast' }> => event.kind === 'mineBlast',
+  );
+  expect(blasts).toHaveLength(1);
+  expect(blasts[0].y).toBeCloseTo(6, 6);
+});
+
+test('an enemy down on the seawall reports the wall’s top as the height of its blast', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.barrages = [];
+  game.aimed = null;
+  const kind = 'emplacement';
+  const enemy = newEnemy('e-1', 'b-emplacements', kind, 35, -70, 6);
+  enemy.hp = 1;
+  game.enemies.push(enemy);
+  // a shot over the wall's top, straight at the enemy's chest
+  const chest = 6 + ENEMIES[kind].height * ENEMY_CHEST;
+  game.bullets.push({ weapon: 'autocannon', x: 35, y: chest, z: -60, dx: 0, dy: 0, dz: -1, left: 50 });
+  const down = run(game, 20).find(
+    (event): event is Extract<GameEvent, { kind: 'enemyDown' }> => event.kind === 'enemyDown',
+  );
+  expect(down?.y).toBeCloseTo(6, 3);
+});
+
+test('an enemy down in the air keeps its feet above the ground for its blast', () => {
+  const game = newPlayGame({ ...M1B_HAND, props: [], targets: [], mines: [] });
+  game.barrages = [];
+  game.aimed = null;
+  const kind = 'emplacement';
+  const enemy = newEnemy('e-1', 'b-emplacements', kind, 0, -20, 8);
+  enemy.hp = 1;
+  game.enemies.push(enemy);
+  const chest = 8 + ENEMIES[kind].height * ENEMY_CHEST;
+  game.bullets.push({ weapon: 'autocannon', x: 0, y: chest, z: -10, dx: 0, dy: 0, dz: -1, left: 50 });
+  const down = run(game, 20).find(
+    (event): event is Extract<GameEvent, { kind: 'enemyDown' }> => event.kind === 'enemyDown',
+  );
+  expect(down?.y).toBeCloseTo(8, 3);
 });
 
 test(

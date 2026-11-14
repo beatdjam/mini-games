@@ -5,7 +5,7 @@ import { el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
-import { GROUND_LIFT, MINE_MESH_NAME, SHELL_MESH_NAME } from '../../src/view/hazards.ts';
+import { SHELL_RING_LIFT, MINE_MESH_NAME, SHELL_MESH_NAME } from '../../src/view/hazards.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -73,7 +73,7 @@ test('a warned shell on the seawall is drawn on the wall’s top, not inside it'
   const at = new THREE.Vector3().setFromMatrixPosition(matrix);
   expect(at.x).toBeCloseTo(35, 5);
   expect(at.z).toBeCloseTo(-70, 5);
-  expect(at.y).toBeCloseTo(6 + GROUND_LIFT, 5);
+  expect(at.y).toBeCloseTo(6 + SHELL_RING_LIFT, 5);
 });
 
 test('a mine that goes off is no longer drawn', async () => {

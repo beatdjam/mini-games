@@ -29,7 +29,7 @@ import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
-import { FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
+import { BLAST_FACE_TUNE, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { AllyFateBy, Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
@@ -440,9 +440,8 @@ function checkShutters(game: GameModel): void {
 // 6 m, a ramp's slope, a pillbox's roof). A blast beside a wall's foot stays on the ground: the radius is the mech's own,
 // so only a face the mech itself could stand on lifts it. The view draws the warned shell's ring at this height too.
 const BLAST_FACE_RADIUS = MECH_TUNE.radius;
-const BLAST_FACE_MAX = 6.5; // the highest face a blast is put on (m); the seawall and a ramp's high end are 6 m
 export function blastFaceHeight(rects: readonly GroundRect[], x: number, z: number): number {
-  return groundAt(x, z, BLAST_FACE_RADIUS, rects, BLAST_FACE_MAX);
+  return groundAt(x, z, BLAST_FACE_RADIUS, rects, BLAST_FACE_TUNE.maxHeight);
 }
 
 // Takes `damage` off the enemy; at 0 it falls (it stays in game.enemies).
@@ -453,7 +452,8 @@ function damageEnemy(game: GameModel, enemy: EnemyState, damage: number): void {
     kind: 'enemyDown',
     id: enemy.id,
     x: enemy.x,
-    y: blastFaceHeight(game.rects, enemy.x, enemy.z),
+    // An enemy falling in can be above the face below it: its blast belongs at its feet then, not in the ground.
+    y: Math.max(enemy.y, blastFaceHeight(game.rects, enemy.x, enemy.z)),
     z: enemy.z,
   });
 }
