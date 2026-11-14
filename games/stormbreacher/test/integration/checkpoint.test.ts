@@ -235,6 +235,32 @@ describe('checkpoint', () => {
   test('retrying without a checkpoint is refused', () => {
     expect(() => retryFromCheckpoint(newGame(M1B_HAND))).toThrow('no checkpoint');
   });
+
+  test('cp3 keeps the assist and the cover mechs at their post, and a retry sends no yard wave twice', () => {
+    const game = newPlayGame(M1B_HAND);
+    sendToScript(game, { kind: 'enter', area: 'fortress-yard' });
+    run(game, idle, 1);
+    const assist = structuredClone(game.assist);
+    sendToScript(game, { kind: 'enter', area: 'fortress-out' });
+    const copy = game.checkpoint;
+    if (!copy) throw new Error('no checkpoint');
+    expect(copy.id).toBe('cp3');
+    expect(copy.assist).toEqual(assist);
+    expect(copy.assist).not.toBeNull();
+    expect(copy.allies).toEqual(game.allies);
+    // the yard’s first wave stands in the copy, and the script knows it went out
+    expect(copy.enemies.filter(enemy => enemy.wave === 'yard-1')).toHaveLength(3);
+    expect(copy.script.spawned).toContain('yard-1');
+
+    // the assist’s wait runs on after the checkpoint, and the retry comes back with the copy’s
+    run(game, idle, 60);
+    expect(game.assist?.left).toBeLessThan(copy.assist?.left ?? 0);
+    const again = retryFromCheckpoint(game);
+    expect(again.assist).toEqual(copy.assist);
+    expect(again.script.spawned).toEqual(copy.script.spawned);
+    expect(again.enemies.filter(enemy => enemy.wave === 'yard-1')).toHaveLength(3);
+    expect(again.enemies.map(enemy => enemy.id).sort()).toEqual(copy.enemies.map(enemy => enemy.id).sort());
+  });
 });
 
 describe('restart', () => {

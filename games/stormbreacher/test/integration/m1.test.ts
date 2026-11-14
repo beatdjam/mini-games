@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { YARD_TUNE } from '../../src/data/fortress.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import {
   checkpointReplay,
@@ -85,6 +86,18 @@ const TAIL: readonly string[] = [
   'allyMove:cover-b2',
   'allyMove:cover-b3',
   'radio:m1.fortress-yard',
+  'radio:m1.yard-trap',
+  'spawn:yard-1',
+  'assist:yard-1,yard-2,yard-3',
+  'allyMove:cover-b1',
+  'allyMove:cover-b2',
+  'allyMove:cover-b3',
+  'spawn:yard-2',
+  'flag:yard-1-clear',
+  'spawn:yard-3',
+  'flag:yard-2-clear',
+  'flag:yard-3-clear',
+  'radio:m1.yard-clear',
   'checkpoint:cp3',
   'objective:silence-battery',
   'spawn:battery',
@@ -114,6 +127,8 @@ function label(event: ScriptOut): string {
       return `suppress:${event.id}:${event.wave}`;
     case 'allyFall':
       return `allyFall:${event.id}:${event.by}`;
+    case 'assist':
+      return `assist:${event.waves.join(',')}`;
     case 'loss':
       return `loss:${event.allies}/${event.squads}`;
     case 'cutscene':
@@ -157,13 +172,18 @@ function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[
 }
 
 // Plays the fortress's gate and yard, the field, the two guns, the magazine and the ending; the skipped depot's ally
-// falls 1.5 s after the answer.
+// falls 1.5 s after the answer. The yard's waves are handed to the script with `cleared`, as the assist brings them down.
 function fromCp1(state: ScriptState, destroyDepot: boolean): ScriptOut[] {
   const outputs: ScriptOut[] = [];
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' }));
   if (!destroyDepot) outputs.push(...stepScript(state, M1, 2));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-yard' }));
+  // yard-2 comes YARD_TUNE.waveGapSec after the cue that sent yard-1
+  outputs.push(...stepScript(state, M1, YARD_TUNE.waveGapSec));
+  outputs.push(...scriptInput(state, M1, { kind: 'cleared', wave: 'yard-1' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'cleared', wave: 'yard-2' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'cleared', wave: 'yard-3' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-out' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'main-gun-2' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'main-gun-1' }));

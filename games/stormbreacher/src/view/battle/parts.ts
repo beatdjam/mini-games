@@ -84,6 +84,7 @@ export function tracerMesh(): THREE.InstancedMesh {
     new THREE.MeshBasicMaterial({ color: TRACER_COLOR }),
     MAX_TRACERS,
   );
+  mesh.name = 'sb-battle-tracers'; // the e2e reads how many are drawn
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   mesh.frustumCulled = false;
   mesh.count = 0;

@@ -39,3 +39,16 @@ export const DEPOT_CHOICE_TUNE = {
   lossAllies: 1, // the friends lost when the mech passes the depot
   lossSquads: 1, // the squads lost when the mech passes the depot
 } as const;
+
+// The yard's trap and the survivors' assist (SB-1840): three waves shut the mech in from the doors, and the cover mechs
+// that lived through the first half shoot them down one at a time from the sea gate. Every value is provisional and
+// settled on #view-breach's panel.
+export const YARD_TUNE = {
+  gate: { x: 0, z: -68 }, // the point above the sea gate the assist's tracers leave from (m)
+  gateY: 3, // that point's height above the ground (m)
+  assistEvery: 12, // seconds between two of the assist's shots when the depot was passed (s)
+  assistEveryDepot: 8, // ... when the depot was broken, so the mech is not shut in as long (s)
+  assistTracerSpeed: 80, // how fast the assist's tracer flies (m/s)
+  assistDust: 1, // the multiplier on the dust of an enemy the assist brings down
+  waveGapSec: 6, // seconds from yard-1 to yard-2 (s)
+} as const;

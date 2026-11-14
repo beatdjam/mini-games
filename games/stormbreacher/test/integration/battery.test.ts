@@ -41,13 +41,16 @@ function part(id: string): TargetPlace {
   return place;
 }
 
-// Walks forward, facing the waypoint each frame, until the mech's middle is within ARRIVE of it.
+// Walks forward, facing the waypoint each frame, until the mech's middle is within ARRIVE of it. The armour is filled
+// each frame: the walk is about the ground, and the yard's new waves (SB-1840) would otherwise shoot the mech down on
+// the way.
 function walkTo(game: GameModel, x: number, z: number): void {
   for (let i = 0; i < 1200; i++) {
     const dx = x - game.mech.x;
     const dz = z - game.mech.z;
     if (Math.hypot(dx, dz) < ARRIVE) return;
     game.mech.yaw = Math.atan2(-dx, -dz);
+    game.armor = MECH_TUNE.armor;
     step(game, { ...idle, moveZ: 1 }, DT);
   }
   throw new Error(`the mech did not reach (${x}, ${z}); it stands at (${game.mech.x}, ${game.mech.z})`);
@@ -84,7 +87,7 @@ function shootDown(game: GameModel, id: string): void {
 test('the hand map holds M1’s guns and magazine, and the check finds no violation without leaving them out', () => {
   for (const id of PARTS) expect(M1B_HAND.targets.map(target => target.id)).toContain(id);
   expect(M1.targets).toEqual(expect.arrayContaining(PARTS));
-  const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'shelling', 'battery'] });
+  const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'shelling', 'yard-1', 'yard-2', 'yard-3', 'battery'] });
   expect(violations).toEqual([]);
 });
 

@@ -6,12 +6,13 @@ import { drawStats, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { PLAY_BATTLE_TUNE } from '../../src/data/tune.ts';
+import { MECH_TUNE, PLAY_BATTLE_TUNE } from '../../src/data/tune.ts';
 import { ALLY_MESH_NAME } from '../../src/view/allies.ts';
 import { BATTLE_GROUP_NAME, buildBattle } from '../../src/view/battle/index.ts';
+import { MAX_TRACERS } from '../../src/view/battle/parts.ts';
 import { sendToScript, step, type GameInput } from '../../src/logic/game.ts';
 import { stream } from '../../src/logic/rng.ts';
-import { draw, steps } from './steps.ts';
+import { draw, steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -82,6 +83,13 @@ function battleBodiesPlacement(bodies: readonly THREE.InstancedMesh[]): number {
     }
   }
   return sum;
+}
+
+// The battle's tracers, named in parts.ts so the test can read how many are drawn.
+function battleTracers(): THREE.InstancedMesh {
+  const mesh = battleGroups()[0].getObjectByName('sb-battle-tracers');
+  if (!(mesh instanceof THREE.InstancedMesh)) throw new Error('the battle has no tracers');
+  return mesh;
 }
 
 test('a sortie draws the battle: the allies walking, the holes and the smoke, in one group', async () => {
@@ -213,4 +221,52 @@ test('the landing shows the five allies on their decks, and the handover starts 
   steps(2);
   expect(game().allies).toHaveLength(5);
   expect(allyGroups()).toHaveLength(10);
+});
+
+test('the survivors shoot from the sea gate in the yard, and the battle draws no more tracers than its cap', async () => {
+  startSortie();
+  steps(3);
+  sendToScript(game(), { kind: 'skip' });
+  const g = game();
+  g.mech.x = 0;
+  g.mech.z = -80;
+  g.mech.y = 0;
+  g.mech.grounded = true;
+  sendToScript(g, { kind: 'ashore' });
+  // the depot broken: the assist shoots every YARD_TUNE.assistEveryDepot seconds, so the shot comes quickly
+  sendToScript(g, { kind: 'destroyed', target: 'depot' });
+  sendToScript(g, { kind: 'enter', area: 'fortress-yard' });
+  const covers = ['cover-b1', 'cover-b2', 'cover-b3'];
+  for (const id of covers) {
+    const ally = g.allies.find(entry => entry.id === id);
+    if (!ally) throw new Error(`the sortie has no ${id}`);
+    // they were given their post by the cue; this stands them near it so the page need not walk them from the beach
+    ally.x = 0;
+    ally.z = -90;
+    ally.y = 0;
+  }
+
+  // run the page by hand until the assist has brought an enemy down
+  const downs = () => g.enemies.filter(enemy => enemy.wave.startsWith('yard-') && enemy.hp <= 0).length;
+  await untilSteps(() => {
+    g.armor = MECH_TUNE.armor;
+    return downs() > 0;
+  }, 600);
+  expect(downs()).toBe(1);
+  steps(1);
+  draw();
+  const drawn = battleTracers();
+  expect(drawn.count).toBeGreaterThan(0);
+  expect(drawn.count).toBeLessThanOrEqual(MAX_TRACERS);
+
+  // the survivors stand inside the sea gate and keep shooting
+  for (const id of covers) {
+    const ally = g.allies.find(entry => entry.id === id);
+    if (!ally) throw new Error(`the sortie has no ${id}`);
+    expect(ally.down).toBe(false);
+    expect(ally.next).toBe(ally.way.length);
+    expect(ally.z).toBeGreaterThan(-80);
+    expect(ally.z).toBeLessThan(-70);
+    expect(Math.abs(ally.x)).toBeLessThanOrEqual(6);
+  }
 });

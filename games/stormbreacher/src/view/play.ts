@@ -9,6 +9,7 @@ import { MELEE_SPARK_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_SMOKE_COLOR, PILLBOX_
 import { CUTSCENES } from '../data/cutscenes.ts';
 import { MELEE_TUNE } from '../data/melee.ts';
 import { PILLBOXES_FLAG } from '../data/front.ts';
+import { YARD_TUNE } from '../data/fortress.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
@@ -456,6 +457,17 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
         shellBurst(event.x, event.z, face);
         spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE, face);
       }
+    } else if (event.kind === 'assistFire') {
+      // The survivors' shot from above the sea gate, and the sand it lifts where the enemy stood: a look only. The
+      // same frame's `enemyDown` draws the fall itself.
+      const dx = event.toX - event.fromX;
+      const dz = event.toZ - event.fromZ;
+      const length = Math.hypot(dx, dz) || 1;
+      view.battle.tracer(
+        { x: event.fromX, y: YARD_TUNE.gateY, z: event.fromZ },
+        { x: (dx / length) * YARD_TUNE.assistTracerSpeed, y: 0, z: (dz / length) * YARD_TUNE.assistTracerSpeed },
+      );
+      spawnDust(event.toX, event.toZ, HIT_DUST * YARD_TUNE.assistDust, FEEL_TUNE);
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw);

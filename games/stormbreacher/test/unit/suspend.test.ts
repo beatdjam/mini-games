@@ -180,6 +180,15 @@ describe('suspend', () => {
     expect(back?.fortressGun).toEqual({ wait: 0.08, burstLeft: 3 });
   });
 
+  test('the yard’s assist comes back with its waves and its wait', () => {
+    const game = newGame(M1B_HAND);
+    game.assist = { waves: ['yard-1', 'yard-3'], left: 3.5 };
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.assist).toEqual({ waves: ['yard-1', 'yard-3'], left: 3.5 });
+    // a game that never got the cue has none
+    expect(restoreSuspend(stored(suspendOf(newGame(M1B_HAND))))?.assist).toBeNull();
+  });
+
   test('the radio queue comes back in the same order', () => {
     const game = newGame(M1B_HAND);
     game.radio = { line: 'm1.depot-hint', time: 1 };

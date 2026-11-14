@@ -342,6 +342,11 @@ const STORY = [
   'win',
 ];
 
+// The yard's five cues fire while the mech is still in the yard or already past it, and the two later waves can be
+// cleared in either order: the run checks that they all come between the yard's entry and the ending, and that the gate's
+// wave follows the gate and the clear comes last.
+const YARD = ['yard-drop', 'yard-gate', 'yard-2-clear', 'yard-3-clear', 'yard-clear'];
+
 // The depot run's cues: the other answer does not fire.
 const STORY_DEPOT = [
   'intro',
@@ -362,6 +367,19 @@ const STORY_DEPOT = [
   'win',
 ];
 
+// What the yard's five cues must do in either run: all between entering the yard and the ending, the sea gate's wave
+// after the gate, and the yard-clear cue after every other one.
+function expectYard(result: Result): void {
+  const at = result.fired;
+  for (const id of YARD) {
+    expect(at[id], id).toBeTypeOf('number');
+    expect(at[id], id).toBeGreaterThan(at['fortress-yard']);
+    expect(at[id], id).toBeLessThan(at['win']);
+  }
+  expect(at['yard-gate']).toBeLessThanOrEqual(at['yard-3-clear']);
+  expect(at['yard-clear']).toBeGreaterThanOrEqual(Math.max(at['yard-gate'], at['yard-2-clear'], at['yard-3-clear']));
+}
+
 test(
   'a bot clears M1 from the landing on with its inputs alone',
   () => {
@@ -374,6 +392,7 @@ test(
     const times = STORY.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
+    expectYard(result);
     expect(result.fired['depot-go']).toBeUndefined();
     expect(result.fired['depot']).toBeUndefined();
     // the answer comes after the question, not with it (a bot at seed 7: the question at 105.2 s, the answer at 106.9 s)
@@ -400,6 +419,7 @@ test(
     const times = STORY_DEPOT.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
+    expectYard(result);
     expect(result.fired['fortress-go']).toBeUndefined();
     expect(result.fired['fortress-ally-lost']).toBeUndefined();
     // the depot's answer comes after the question (seed 7: the question at 105.2 s, the hollow at 109.0 s)

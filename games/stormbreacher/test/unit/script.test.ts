@@ -408,3 +408,31 @@ test('the same inputs at the same times give the same flags and the same fired c
   };
   expect(run()).toEqual(run());
 });
+
+test('an assist action checks its waves and goes out as one assist event', () => {
+  const def = cloneM1();
+  def.cues = [
+    {
+      id: 'a',
+      trigger: { kind: 'start' },
+      actions: [{ kind: 'assist', waves: ['yard-1', 'yard-2'] }],
+    },
+  ];
+  const s = newScript(def);
+  const out = stepScript(s, def, 0);
+  expect(out).toEqual([{ kind: 'assist', waves: ['yard-1', 'yard-2'], time: 0 }]);
+  // the script reports it only: its own state holds no assist, the game does
+  expect(s.flags).toEqual([]);
+});
+
+test('an assist action naming a wave the mission does not have is refused', () => {
+  const def = cloneM1();
+  def.cues = [
+    {
+      id: 'a',
+      trigger: { kind: 'start' },
+      actions: [{ kind: 'assist', waves: ['yard-1', 'no-such-wave'] }],
+    },
+  ];
+  expect(() => validateMission(def)).toThrow(/wave/);
+});

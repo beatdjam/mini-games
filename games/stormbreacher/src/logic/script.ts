@@ -34,6 +34,7 @@ export type ScriptOut =
   | { kind: 'allyMove'; id: string; path: string; time: number }
   | { kind: 'suppress'; id: string; wave: string; sec: number; time: number } // an ally's support fire on a wave (SB-2020)
   | { kind: 'allyFall'; id: string; by: AllyFateBy; time: number }
+  | { kind: 'assist'; waves: readonly string[]; time: number }
   | { kind: 'loss'; allies: number; squads: number; time: number }
   | { kind: 'cutscene'; id: CutsceneId; time: number }
   | { kind: 'cutsceneEnd'; id: CutsceneId; time: number }
@@ -160,6 +161,10 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
     case 'allyFall':
       requireIn(def.allies, action.id, 'ally');
       requireIn(ALLY_FATES, action.by, 'fate');
+      return;
+    case 'assist':
+      // the waves the allies shoot at are the mission's own, as a `spawn` names one
+      for (const wave of action.waves) requireIn(def.waves, wave, 'wave');
       return;
     case 'loss':
       // the counts are what the result adds up; a negative number would make losses a reward
@@ -351,6 +356,10 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
       return;
     case 'allyFall':
       out.push({ kind: 'allyFall', id: action.id, by: action.by, time });
+      return;
+    case 'assist':
+      // the script only reports it: the game holds how often the allies shoot and which enemy each shot takes
+      out.push({ kind: 'assist', waves: action.waves, time });
       return;
     case 'loss':
       out.push({ kind: 'loss', allies: action.allies ?? 0, squads: action.squads ?? 0, time });

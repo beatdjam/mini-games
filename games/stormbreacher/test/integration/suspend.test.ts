@@ -100,6 +100,21 @@ describe('suspend and resume', () => {
     expect(resumed(game).checkpoint).toBeNull();
   });
 
+  test('the yard’s assist and the cover mechs’ post come back with the resume', () => {
+    const game = newPlayGame(M1B_HAND);
+    sendToScript(game, { kind: 'enter', area: 'fortress-yard' });
+    if (game.assist === null) throw new Error('the yard cue did not start the assist');
+    game.assist.left = 4.25;
+    const ally = game.allies.find(entry => entry.id === 'cover-b1');
+    if (!ally) throw new Error('the sortie has no cover-b1');
+    ally.x = 0;
+    ally.z = -76;
+    ally.next = ally.way.length;
+    const back = resumed(game);
+    expect(back.assist).toEqual({ waves: ['yard-1', 'yard-2', 'yard-3'], left: 4.25 });
+    expect(back.allies.find(entry => entry.id === 'cover-b1')).toEqual(ally);
+  });
+
   test('the aimed mortar’s anchor and stay come back with the resume', () => {
     const game = newPlayGame(M1B_HAND);
     if (game.aimed === null) throw new Error('the beach cue did not start the aimed mortar');

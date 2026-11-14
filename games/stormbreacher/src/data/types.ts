@@ -56,6 +56,7 @@ export type Action =
   | { kind: 'allyMove'; id: string; path: string | HolePaths } // an ally already out takes the next way
   | { kind: 'suppress'; id: string; wave: string; sec: number } // an ally's support fire silences a wave of nests for sec (SB-2020); `id` names the ally mech for the script check only, a tracer leaves from whichever ally is nearest the nest
   | { kind: 'allyFall'; id: string; by: AllyFateBy } // an ally already out falls where it stands
+  | { kind: 'assist'; waves: readonly string[] } // the scripted allies shoot one enemy of these waves every interval; no hit box
   | { kind: 'loss'; allies?: number; squads?: number } // the friends lost on the way (the result's losses line)
   | { kind: 'cutscene'; id: CutsceneId }
   | { kind: 'checkpoint'; id: string }
