@@ -427,7 +427,9 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 79, z: 23, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: 83, z: 23, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: 87, z: 23, yaw: 0.23, scale: 1 },
-  // C's two rows before the seawall (z -55..-35): breakthroughs near x -50 and x 35
+  // C's two rows before the seawall (z -55..-35): breakthroughs near x -50 and x 35. The rear row leaves the four
+  // hedgehogs beside the ramps out (x -56, -44, 29 and 41 below), so the band between C and the seawall has a 4.7 m way
+  // out to C's sea side on both sides of either ramp.
   { kind: 'hedgehog', x: -98, z: -50, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: -93.8, z: -50, yaw: 0.12, scale: 1.05 },
   { kind: 'hedgehog', x: -89.6, z: -50, yaw: -0.18, scale: 1.06 },
@@ -438,8 +440,6 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: -68.6, z: -50, yaw: 0.08, scale: 0.93 },
   { kind: 'hedgehog', x: -64.4, z: -50, yaw: -0.14, scale: 1.1 },
   { kind: 'hedgehog', x: -60.2, z: -50, yaw: 0.16, scale: 0.97 },
-  { kind: 'hedgehog', x: -56, z: -50, yaw: 0, scale: 1 },
-  { kind: 'hedgehog', x: -44, z: -50, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: -39.71, z: -50, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: -35.41, z: -50, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: -31.12, z: -50, yaw: 0, scale: 1.08 },
@@ -456,8 +456,6 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 16.12, z: -50, yaw: 0.23, scale: 1 },
   { kind: 'hedgehog', x: 20.41, z: -50, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: 24.71, z: -50, yaw: 0.12, scale: 1.05 },
-  { kind: 'hedgehog', x: 29, z: -50, yaw: 0, scale: 1 },
-  { kind: 'hedgehog', x: 41, z: -50, yaw: 0, scale: 1 },
   { kind: 'hedgehog', x: 45.18, z: -50, yaw: -0.18, scale: 1.06 },
   { kind: 'hedgehog', x: 49.36, z: -50, yaw: 0.25, scale: 0.9 },
   { kind: 'hedgehog', x: 53.55, z: -50, yaw: -0.05, scale: 1.03 },
@@ -699,14 +697,16 @@ export const M1B_HAND: MapDef = {
       { x: 65, z: -33 },
     ],
     // the six machine-gun nests, seaward of each line, so the hedgehogs behind do not stop their fire; clear of the low
-    // walls and the mines
+    // walls and the mines. The last stands just east of the depot's box (the nearest way out of it, and clear for its
+    // line to the sea), not inside it. Its body clears the depot's box by only a few centimetres, and it stands 2.5 m
+    // from line 3's east blast point (l3-b), closer than the other nests stand to theirs: move it with care
     'b-emplacements': [
       { x: -30, z: 147 },
       { x: 45, z: 147 },
       { x: -30, z: 99 },
       { x: 40, z: 99 },
       { x: -20, z: 29 },
-      { x: 55, z: 29 },
+      { x: 60.7, z: 29 },
     ],
     // three at the depot, round it on the sides the mech does not come from; each stands clear of the cover and of
     // pillbox-3 (z 48..56)

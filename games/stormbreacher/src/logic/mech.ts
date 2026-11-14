@@ -3,6 +3,7 @@
 // forward; touch (SB-030) gives the same shape as the keyboard. Given the map's rects, the mech cannot enter them.
 // A candidate to move into the engine (D-23): it reads no game table, so every value comes in as an argument.
 import type { MoveTune } from '../data/tuneTypes.ts';
+import type { MapBounds } from '../data/types.ts';
 import { groundAt, groundIsRamp, pushOutCircle, type GroundRect } from './collide.ts';
 
 export interface MechInput {
@@ -38,10 +39,12 @@ export interface MechEvent {
   speed: number; // the landing's falling speed (m/s); 0 for the other events
 }
 
-// The ground the mech may not enter: the rects (see collide.ts) and the mech's hit radius (m).
+// The ground the mech may not enter: the rects (see collide.ts) and the mech's hit radius (m). `bounds` keeps the
+// middle a radius in from the map's edge; left out, nothing holds it in (the landing craft's lane is a caller's).
 interface MechWorld {
   rects: readonly GroundRect[];
   radius: number;
+  bounds?: MapBounds;
 }
 
 export function newMech(): MechState {
@@ -206,6 +209,27 @@ function stepOnce(
       if (dot < 0) {
         m.vx -= dot * hit.nx;
         m.vz -= dot * hit.nz;
+      }
+    }
+    // The map's edge is a wall too: the middle stays a radius inside it, and a speed that pushed it out stops.
+    if (world.bounds) {
+      const minX = world.bounds.minX + world.radius;
+      const maxX = world.bounds.maxX - world.radius;
+      const minZ = world.bounds.minZ + world.radius;
+      const maxZ = world.bounds.maxZ - world.radius;
+      if (m.x < minX) {
+        m.x = minX;
+        if (m.vx < 0) m.vx = 0;
+      } else if (m.x > maxX) {
+        m.x = maxX;
+        if (m.vx > 0) m.vx = 0;
+      }
+      if (m.z < minZ) {
+        m.z = minZ;
+        if (m.vz < 0) m.vz = 0;
+      } else if (m.z > maxZ) {
+        m.z = maxZ;
+        if (m.vz > 0) m.vz = 0;
       }
     }
     // On the ground: step up onto what is now under the feet, or start falling when nothing is. A ramp's drop within
