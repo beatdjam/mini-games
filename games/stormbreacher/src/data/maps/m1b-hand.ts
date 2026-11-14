@@ -698,7 +698,8 @@ export const M1B_HAND: MapDef = {
     ],
     // the six machine-gun nests, seaward of each line, so the hedgehogs behind do not stop their fire; clear of the low
     // walls and the mines. The last stands just east of the depot's box (the nearest way out of it, and clear for its
-    // line to the sea), not inside it
+    // line to the sea), not inside it. Its body clears the depot's box by only a few centimetres, and it stands 2.5 m
+    // from line 3's east blast point (l3-b), closer than the other nests stand to theirs: move it with care
     'b-emplacements': [
       { x: -30, z: 147 },
       { x: 45, z: 147 },
