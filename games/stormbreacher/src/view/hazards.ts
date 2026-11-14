@@ -26,9 +26,17 @@ export interface HazardView {
   mines: THREE.InstancedMesh;
 }
 
-function instanced(name: string, geometry: THREE.BufferGeometry, max: number, color: number): THREE.InstancedMesh {
+function instanced(
+  name: string,
+  geometry: THREE.BufferGeometry,
+  max: number,
+  color: number,
+  { colored = false }: { colored?: boolean } = {},
+): THREE.InstancedMesh {
   const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }), max);
   mesh.name = name;
+  // three r128 sizes instanceColor from the count at the first setColorAt, which is 0 here, so build it at full size now
+  if (colored) mesh.instanceColor = new THREE.BufferAttribute(new Float32Array(max * 3), 3);
   mesh.count = 0;
   // the instances change as the game goes on, so the bounding sphere made at the start would cull them
   mesh.frustumCulled = false;
@@ -44,7 +52,7 @@ export function buildHazardView(): HazardView {
   disc.rotateX(-Math.PI / 2);
   return {
     // the instance colour multiplies the white base, so each ring takes its own shade
-    shells: instanced(SHELL_MESH_NAME, ring, MAX_SHELLS, 0xffffff),
+    shells: instanced(SHELL_MESH_NAME, ring, MAX_SHELLS, 0xffffff, { colored: true }),
     mines: instanced(MINE_MESH_NAME, disc, MAX_MINES, MINE_COLOR),
   };
 }

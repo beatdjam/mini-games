@@ -61,6 +61,20 @@ test('a warned shell is drawn as a ring and the HUD warns inside it, and both go
   expect(meshes(SHELL_MESH_NAME)[0].count).toBe(0);
 });
 
+test('a warned shell keeps room for its instance colour, so the GPU can draw it', async () => {
+  startSortie();
+  const current = game();
+  await frame();
+  current.shells.push({ x: current.mech.x, z: current.mech.z, radius: 7, warn: 2.5, left: 2.5, damage: 25 });
+  await frame();
+  const mesh = meshes(SHELL_MESH_NAME)[0];
+  expect(mesh.count).toBe(1);
+  // The room covers every copy the mesh may draw, so the GPU finds a colour for each one.
+  const colors = mesh.instanceColor;
+  if (colors === null) throw new Error('the shells have no instance colours');
+  expect(colors.array.length, 'shell colour room').toBe((mesh.instanceMatrix.array.length / 16) * 3);
+});
+
 test('a mine that goes off is no longer drawn', async () => {
   startSortie();
   const current = game();
