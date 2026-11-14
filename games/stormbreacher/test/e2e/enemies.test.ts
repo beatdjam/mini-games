@@ -107,8 +107,7 @@ test('every kind keeps room for its instance colours, so the GPU can draw it', a
   for (const kind of ENEMY_KINDS) {
     const mesh = scene.getObjectByName(enemyMeshName(kind)) as THREE.InstancedMesh;
     expect(mesh.count, kind).toBeGreaterThan(0);
-    // three r128 makes instanceColor inside the first setColorAt, with the count at that moment. A mesh built with count
-    // 0 would keep an empty buffer, and the GPU would read past its end: nothing of that kind would be drawn.
+    // The room covers every copy the mesh may draw, so the GPU finds a colour for each one.
     const colors = mesh.instanceColor;
     if (colors === null) throw new Error(`${kind} has no instance colours`);
     expect(colors.array.length, `${kind} colour room`).toBe((mesh.instanceMatrix.array.length / 16) * 3);
