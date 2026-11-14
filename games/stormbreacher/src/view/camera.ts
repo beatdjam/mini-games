@@ -21,14 +21,35 @@ export interface CameraPose {
   pos: THREE.Vector3; // where the camera goes
   look: THREE.Vector3; // the point it looks at
   dist: number; // the horizontal distance from look to pos (m)
+  openDist: number; // the horizontal distance the pose wants with no wall (m)
   pulled: boolean; // a wall pulled the camera closer than dist
   shoulder: number; // how far the look point moved right (m)
+  openLook: THREE.Vector3; // where the look point would be with no walls
+  feet: { x: number; z: number }; // the mech's feet on the ground (m), for the step it took this frame
+  yaw: number; // the mech's own facing (rad), so a step backward is known from a strafe
+  boxes: readonly THREE.Box3[]; // the wall boxes the pose was made with, so the mech's step can be stopped at one
+}
+
+// What the screen used last frame: the place the camera was put, the point it looked at, the look point with no walls
+// (the wall's share is measured from it), the mech's feet and facing (for the step it took and how fast it turned). The
+// view keeps it between frames, so the mech's motion follows with `lag` and only a wall's push eases.
+export interface CameraState {
+  pos: THREE.Vector3; // the camera's place on the screen
+  look: THREE.Vector3; // the point the screen looks at
+  openLook: THREE.Vector3; // the look point with no walls (see CameraPose.openLook)
+  feet: { x: number; z: number }; // the mech's feet last frame (m)
+  yaw: number; // the mech's facing last frame (rad), so a fast turn is known from a stalled wall return
+  held: boolean; // a wall pulled the camera in last frame, or the hold carried while it came back out
 }
 
 interface Hit {
   point: THREE.Vector3;
   dist: number;
 }
+
+const FAN_SAMPLES = 3; // rays across a probe fan: the middle and one each side
+const DEG = Math.PI / 180;
+const CLOSE_PITCH_MAX = 1.5; // rad; the steepest the wall-side camera may look down past its open angle
 
 // The nearest box the ray meets, when that is no farther than `max` (m).
 function nearestHit(origin: THREE.Vector3, dir: THREE.Vector3, max: number, boxes: readonly THREE.Box3[]): Hit | null {
@@ -40,6 +61,29 @@ function nearestHit(origin: THREE.Vector3, dir: THREE.Vector3, max: number, boxe
     const dist = origin.distanceTo(point);
     if (dist > max) continue;
     if (!best || dist < best.dist) best = { point: point.clone(), dist };
+  }
+  return best;
+}
+
+// The nearest hit across a fan of rays from `dir` to `probeDeg` either side of it. A corner's single edge then enters the
+// test through the side rays, so the pull it causes grows with the angle instead of jumping when the middle ray crosses.
+function nearestHitFan(
+  origin: THREE.Vector3,
+  dir: THREE.Vector3,
+  max: number,
+  boxes: readonly THREE.Box3[],
+  probeDeg: number,
+): Hit | null {
+  if (probeDeg <= 0) return nearestHit(origin, dir, max, boxes);
+  let best: Hit | null = null;
+  const step = (2 * probeDeg * DEG) / (FAN_SAMPLES - 1);
+  for (let i = 0; i < FAN_SAMPLES; i++) {
+    const angle = -probeDeg * DEG + step * i;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const ray = new THREE.Vector3(dir.x * c + dir.z * s, dir.y, -dir.x * s + dir.z * c).normalize();
+    const hit = nearestHit(origin, ray, max, boxes);
+    if (hit && (!best || hit.dist < best.dist)) best = hit;
   }
   return best;
 }
@@ -59,6 +103,45 @@ export function cameraBoxesOfRect(rect: GroundRect): THREE.Box3[] {
   });
 }
 
+interface Placed {
+  pos: THREE.Vector3; // where the camera goes with no lift
+  dist: number; // the horizontal distance from the look point the wall left (m)
+  pulled: boolean; // a wall pulled the camera closer than the desired place
+}
+
+// The camera's place for a look point: the desired position, pulled to a gap in front of the first wall between them.
+function placedAt(
+  look: THREE.Vector3,
+  behind: THREE.Vector3,
+  horizontal: number,
+  up: number,
+  tune: CameraTune,
+  boxes: readonly THREE.Box3[],
+  groundY: number,
+): Placed {
+  const desired = new THREE.Vector3(look.x + behind.x * horizontal, look.y + up, look.z + behind.z * horizontal);
+  const offset = desired.clone().sub(look);
+  const length = offset.length();
+  let pos = desired;
+  let dist = horizontal;
+  let pulled = false;
+  if (length > 1e-6) {
+    const dir = offset.clone().divideScalar(length);
+    const hit = nearestHitFan(look, dir, length, boxes, tune.probeDeg);
+    if (hit) {
+      pulled = true;
+      const hitHorizontal = (hit.dist / length) * horizontal;
+      const wanted = Math.max(tune.minDist, hitHorizontal - tune.margin);
+      const scale = horizontal > 1e-6 ? wanted / horizontal : 0;
+      pos = look.clone().addScaledVector(offset, scale);
+      dist = wanted;
+    }
+  }
+  // the ground is not one of the boxes: looking up drops the camera, so it stops a margin above the mech's feet
+  pos.y = Math.max(pos.y, groundY + tune.margin);
+  return { pos, dist, pulled };
+}
+
 // The point a mech's feet and yaw put the camera behind, with the walls kept out of the way.
 export function cameraPose(
   target: CameraTarget,
@@ -71,56 +154,82 @@ export function cameraPose(
 
   // the look point goes to the mech's right; a wall there shortens the shoulder
   const right = new THREE.Vector3(Math.cos(target.yaw), 0, -Math.sin(target.yaw));
-  let shoulder = tune.shoulder;
-  if (shoulder > 0) {
-    const hit = nearestHit(head, right, shoulder, boxes);
-    if (hit) shoulder = Math.max(0, hit.dist - tune.margin);
-  }
-  const look = head.clone().addScaledVector(right, shoulder);
-
   // Positive pitch looks up, so the camera drops below the look point; negative pitch lifts it.
   const pitchUsed = clamp(pitch, tune.pitchMin, tune.pitchMax);
   const baseDist = aim ? tune.aimDist : tune.dist;
   const horizontal = baseDist * Math.cos(pitchUsed);
   const up = tune.height - baseDist * Math.sin(pitchUsed);
   const behind = new THREE.Vector3(Math.sin(target.yaw), 0, Math.cos(target.yaw));
-  const desired = new THREE.Vector3(look.x + behind.x * horizontal, look.y + up, look.z + behind.z * horizontal);
 
-  // A wall between the look point and the desired position pulls the camera to a gap in front of it.
-  const offset = desired.clone().sub(look);
-  const length = offset.length();
-  let pos = desired;
-  let dist = horizontal;
-  let pulled = false;
-  if (length > 1e-6) {
-    const dir = offset.clone().divideScalar(length);
-    const hit = nearestHit(look, dir, length, boxes);
-    if (hit) {
-      pulled = true;
-      const hitHorizontal = (hit.dist / length) * horizontal;
-      const wanted = Math.max(tune.minDist, hitHorizontal - tune.margin);
-      const scale = horizontal > 1e-6 ? wanted / horizontal : 0;
-      pos = look.clone().addScaledVector(offset, scale);
-      dist = wanted;
-    }
+  // The look point with no walls: the share a wall adds or takes away is measured from it, so the view can keep the
+  // mech's own motion exact and ease only the wall's shoulder and close look.
+  const openLook = head.clone().addScaledVector(right, tune.shoulder);
+
+  let shoulder = tune.shoulder;
+  if (shoulder > 0) {
+    const hit = nearestHitFan(head, right, shoulder, boxes, tune.probeDeg);
+    if (hit) shoulder = Math.max(0, hit.dist - tune.margin);
   }
-  // the ground is not one of the boxes: looking up drops the camera, so it stops a margin above the mech's feet
-  pos.y = Math.max(pos.y, target.y + tune.margin);
+  const look = head.clone().addScaledVector(right, shoulder);
+  const placed = placedAt(look, behind, horizontal, up, tune, boxes, target.y);
 
-  return { pos, look, dist, pulled, shoulder };
+  // A wall at minDist would put the lifted camera almost overhead, so the screen would be ground and shoulder. The look
+  // point moves toward the mech's front by the pull, and the lift keeps the view no steeper than the open one plus
+  // closePitch, so the wall-side camera still looks ahead over the shoulder.
+  let dist = placed.dist;
+  if (placed.pulled) {
+    const closeness = 1 - clamp((placed.dist - tune.minDist) / Math.max(tune.riseRange, 1e-6), 0, 1);
+    placed.pos.y += tune.rise * closeness;
+    // the look point moves toward the mech's front, but stops a margin short of a wall the mech faces
+    const forward = behind.clone().negate();
+    let ahead = tune.closeLook * closeness;
+    const aheadHit = nearestHit(look, forward, ahead, boxes);
+    if (aheadHit) ahead = Math.max(0, aheadHit.dist - tune.margin);
+    look.addScaledVector(forward, ahead);
+    dist = placed.dist + ahead;
+    const openDown = Math.atan2(up, Math.max(horizontal, 1e-6));
+    const mostDown = clamp(openDown + tune.closePitch, -CLOSE_PITCH_MAX, CLOSE_PITCH_MAX);
+    const above = placed.pos.y - look.y;
+    placed.pos.y = look.y + Math.min(above, dist * Math.tan(mostDown));
+    placed.pos.y = Math.max(placed.pos.y, target.y + tune.margin);
+  }
+
+  return {
+    pos: placed.pos,
+    look,
+    dist,
+    openDist: horizontal,
+    pulled: placed.pulled,
+    shoulder,
+    openLook,
+    feet: { x: target.x, z: target.z },
+    yaw: target.yaw,
+    boxes,
+  };
 }
 
-// The line through the middle of the screen: from where the camera sits to the point it looks at. No walls are given,
-// so the line is the one the camera would have in the open.
-export function aimRay(target: CameraTarget, pitch: number, tune: CameraTune): Ray3 {
-  const pose = cameraPose(target, pitch, tune, []);
+// A pose as a camera state: a camera already in its place, with no ease behind it.
+export function stateOfPose(pose: CameraPose): CameraState {
   return {
-    ox: pose.pos.x,
-    oy: pose.pos.y,
-    oz: pose.pos.z,
-    dx: pose.look.x - pose.pos.x,
-    dy: pose.look.y - pose.pos.y,
-    dz: pose.look.z - pose.pos.z,
+    pos: pose.pos.clone(),
+    look: pose.look.clone(),
+    openLook: pose.openLook.clone(),
+    feet: { x: pose.feet.x, z: pose.feet.z },
+    yaw: pose.yaw,
+    held: pose.pulled,
+  };
+}
+
+// The line through the middle of the screen: from where the camera was put to the point it looked at. Taking the state
+// the view drew means a wall's shoulder, close look and close pitch all move the aim with the screen.
+export function aimRay(state: CameraState): Ray3 {
+  return {
+    ox: state.pos.x,
+    oy: state.pos.y,
+    oz: state.pos.z,
+    dx: state.look.x - state.pos.x,
+    dy: state.look.y - state.pos.y,
+    dz: state.look.z - state.pos.z,
   };
 }
 
@@ -129,6 +238,97 @@ export function followPose(prev: THREE.Vector3, next: THREE.Vector3, dt: number,
   if (lag <= 0) return next.clone();
   const amount = 1 - Math.exp(-dt / lag);
   return prev.clone().lerp(next, amount);
+}
+
+// The wall's share of the look point's move, followed from the last frame. The mech's own motion is added outside this,
+// so the aim stays on the mech; only the shoulder's shortening and `closeLook` ease here. Pulling in changes it at most
+// `pullSpeed`; a wall that has let go (the share shrinks by more than `releaseGap` while it is longer than `pullNear`)
+// comes back at `returnSpeed`, eased by `returnLag`, and the last `pullGap` closes at the pull speed.
+function followWallOffset(
+  prevOffset: THREE.Vector3,
+  poseOffset: THREE.Vector3,
+  dt: number,
+  tune: CameraTune,
+): THREE.Vector3 {
+  const prevLength = prevOffset.length();
+  const poseLength = poseOffset.length();
+  const near = prevLength > tune.pullNear;
+  const remaining = poseOffset.distanceTo(prevOffset);
+  const returning = near && prevLength - poseLength > tune.releaseGap && remaining > tune.pullGap;
+  const step = (returning ? followPose(prevOffset, poseOffset, dt, tune.returnLag) : poseOffset.clone()).sub(
+    prevOffset,
+  );
+  const limit = (returning ? tune.returnSpeed : tune.pullSpeed) * dt;
+  const length = step.length();
+  if (length > limit) step.multiplyScalar(limit / length);
+  return prevOffset.clone().add(step);
+}
+
+// A step, cut short a margin before the first wall the camera would meet on its way: the camera may be carried by the
+// mech or pulled by a wall's share, but not into a wall. A camera already inside a box is left alone, so a wall behind
+// it does not jump it out.
+function stepRoom(
+  prevPos: THREE.Vector3,
+  travel: THREE.Vector3,
+  boxes: readonly THREE.Box3[],
+  tune: CameraTune,
+): THREE.Vector3 {
+  const length = travel.length();
+  if (length <= 1e-6 || boxes.some(box => box.containsPoint(prevPos))) return travel;
+  const hit = nearestHit(prevPos, travel.clone().divideScalar(length), length + tune.margin, boxes);
+  if (!hit) return travel;
+  return travel.clone().multiplyScalar(Math.max(0, hit.dist - tune.margin) / length);
+}
+
+// The camera for this frame. The look point keeps the mech's own motion exact (a boost must not leave the aim behind)
+// and eases only the wall's shoulder and close look. The place follows the pose with `lag`, and with no wall that is all
+// it does. While a wall pulls the camera or holds it nearer than its open place, only the part of the move beyond the
+// mech's own step is held to `pullSpeed`, so the mech's motion is followed exactly and the wall's share slides. Both the
+// mech's step and the wall's share stop a margin before a wall, so neither can carry the camera into it.
+export function followCamera(prev: CameraState | null, pose: CameraPose, dt: number, tune: CameraTune): CameraState {
+  if (prev === null) return stateOfPose(pose);
+  const travel = new THREE.Vector3(pose.feet.x - prev.feet.x, 0, pose.feet.z - prev.feet.z);
+
+  const prevOffset = prev.look.clone().sub(prev.openLook);
+  const lookOffset = followWallOffset(prevOffset, pose.look.clone().sub(pose.openLook), dt, tune);
+  const look = pose.openLook.clone().add(lookOffset);
+
+  // A wall holds the camera closer than its open place: the step it takes is measured without the mech's own travel,
+  // so a boost is not mistaken for the wall's push and the camera never lags into the mech. A wall that has let go is
+  // known by the share it had on the look (its shoulder and close look), so a mech backing up with no wall keeps `lag`.
+  // A fast turn in the open also brings the camera nearer the look point (the lag cuts the corner), so `near` counts
+  // only while a wall pulled the camera in or held it last frame; an open turn then takes the `lag` step exactly.
+  const prevDist = Math.hypot(prev.pos.x - pose.look.x, prev.pos.z - pose.look.z);
+  const near = prevDist < pose.openDist - tune.pullNear;
+  const returning = near && prevOffset.length() > tune.pullNear && pose.dist - prevDist > tune.releaseGap;
+  // A wall's return moves the camera out from the look point over many frames. A fast turn also leaves the camera
+  // behind, while the wall's return is nearly done, and holding its speed there would drag the camera through the turn
+  // (SB-1949, SB-1951). So the hold carries while the camera is still well inside its open place or the wall's share is
+  // coming back, and ends on a fast turn once the camera is within releaseGap of its open place: that nearer place is
+  // then the turn cutting the corner, not a wall pushing it.
+  const turn = Math.abs(Math.atan2(Math.sin(pose.yaw - prev.yaw), Math.cos(pose.yaw - prev.yaw)));
+  const wallReturn = pose.dist - prevDist > tune.releaseGap;
+  const held = pose.pulled || (near && prev.held && (wallReturn || turn < tune.fastTurn * dt));
+  const step = followPose(prev.pos, pose.pos, dt, returning ? tune.returnLag : tune.lag).sub(prev.pos);
+  if (held) {
+    const rel = step.clone().sub(travel);
+    const limit = (returning ? tune.returnSpeed : tune.pullSpeed) * dt;
+    const length = rel.length();
+    if (length > limit) rel.multiplyScalar(limit / length);
+    // The wall's share can turn the camera toward another wall too (a wall that has just come between the look and the
+    // camera, say), so it stops a margin before one as the mech's own step does (SB-1951).
+    const moved = stepRoom(prev.pos, travel, pose.boxes, tune);
+    step.copy(moved).add(stepRoom(prev.pos.clone().add(moved), rel, pose.boxes, tune));
+  }
+
+  return {
+    pos: prev.pos.clone().add(step),
+    look,
+    openLook: pose.openLook.clone(),
+    feet: { x: pose.feet.x, z: pose.feet.z },
+    yaw: pose.yaw,
+    held,
+  };
 }
 
 // Puts a pose on the camera: position, look direction and field of view.

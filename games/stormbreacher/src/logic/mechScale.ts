@@ -35,11 +35,22 @@ export function scaleForMech(
     move.jump *= Math.sqrt(ratio);
   }
   if (opts.camera) {
+    // every length grows with the mech; times (`lag`, `returnLag`) and angles (`closePitch`, `probeDeg`, `fov`) and the turn rate `fastTurn` (rad/s) do not
     camera.dist *= ratio;
     camera.height *= ratio;
     camera.shoulder *= ratio;
     camera.lookHeight *= ratio;
     camera.aimDist *= ratio;
+    camera.minDist *= ratio;
+    camera.margin *= ratio;
+    camera.pullSpeed *= ratio;
+    camera.pullGap *= ratio;
+    camera.pullNear *= ratio;
+    camera.returnSpeed *= ratio;
+    camera.releaseGap *= ratio;
+    camera.rise *= ratio;
+    camera.riseRange *= ratio;
+    camera.closeLook *= ratio;
   }
   return { cameraTune: camera, moveTune: move };
 }
