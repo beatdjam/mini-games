@@ -96,6 +96,14 @@ export const BLAST_LIFT = {
   prop: 0.5, // a prop breaks
 } as const;
 
+export const SEA_BLAST_HEIGHT = 0.8; // how high a blast's flash stands over the sea (m); the water column itself sits on SEA_LEVEL
+
+// The height a shell or mine blast's fire starts at: over the sea (past the map's front edge) the flash keeps its old
+// height, elsewhere it stands `BLAST_LIFT.large` above the face the event carries.
+export function landBlastHeight(water: boolean, faceY: number): number {
+  return water ? SEA_BLAST_HEIGHT : faceY + BLAST_LIFT.large;
+}
+
 export const BOOM_DEFS: Record<BoomKind, BoomDef> = {
   // an enemy or a prop breaks: enough to read, small enough for a stream of them
   small: {

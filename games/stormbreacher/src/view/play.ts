@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
 import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
-import { BLAST_LIFT, boomShakeAt } from '../data/boom.ts';
+import { BLAST_LIFT, boomShakeAt, landBlastHeight } from '../data/boom.ts';
 import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { CUTSCENES } from '../data/cutscenes.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
@@ -51,7 +51,6 @@ const PLANT_DUST = 4; // the same, when a charge is set on a blast point
 const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the hand map has 3 pillboxes, so it is not reached
 const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
 const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
-const SEA_BLAST_HEIGHT = 0.8; // how high a blast's flash stands over the sea (m); the water column itself sits on SEA_LEVEL
 
 // The bullets in flight, drawn as one set of line segments: two vertices a bullet, the position written every frame.
 export interface BulletLines {
@@ -248,7 +247,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
           DEFLECT_GRAVITY,
         );
       } else {
-        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE, event.y);
+        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE, blastFaceHeight(game.rects, event.x, event.z));
       }
     } else if (event.kind === 'destroyed') {
       kill = true;
@@ -267,7 +266,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
       // the sea has no ground face: a shell past the map's front edge keeps the height its flash had over the water
       const water = event.z >= game.map.bounds.maxZ;
-      blast(water ? 'water' : 'large', event.x, water ? SEA_BLAST_HEIGHT : event.y + BLAST_LIFT.large, event.z);
+      blast(water ? 'water' : 'large', event.x, landBlastHeight(water, event.y), event.z);
       // the game's own blast takes the infantry near it, as the battle's shells do (SB-1610)
       view.battle.blast(event.x, event.z);
     } else if (event.kind === 'planted') {
