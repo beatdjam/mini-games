@@ -17,9 +17,12 @@ import {
   NEST_SENSOR_COLOR,
   NEST_SHIELD_COLOR,
   NEST_TRIM_COLOR,
+  PILLBOX_WARN_COLOR,
+  WARDEN_COLOR,
 } from '../data/colors.ts';
 import { ENEMIES, ENEMY_KINDS, type EnemyKind, type SoldierKind } from '../data/enemies.ts';
 import { ENEMY_DETAIL_DISTANCE, ENEMY_KITS } from '../data/enemyLooks.ts';
+import { WARDEN_TUNE } from '../data/warden.ts';
 import type { EnemyState } from '../logic/enemies.ts';
 import type { GameModel } from '../logic/game.ts';
 import { bakeProtoMech } from './mechProtoBake.ts';
@@ -192,6 +195,41 @@ function buildSoldierView(kind: SoldierKind): EnemyKindView {
     detail: ENEMY_DETAIL_DISTANCE[kind],
     farLevels: new WeakMap(),
   };
+}
+
+// The mid boss (SB-1850): its body, the shoulder light that warns of a burst and the radiator plate on its back, merged
+// into one shape in metres with its feet at y = 0. The boxes are laid out at the unit size and scaled by the kind's
+// height and WARDEN_TUNE.look. The shape is white, so the copy's colour is the body's colour (WARDEN_COLOR) and the
+// shoulder light's warning can swap it for PILLBOX_WARN_COLOR while a burst telegraph runs.
+function wardenGeometry(): THREE.BufferGeometry {
+  const body = new THREE.BoxGeometry(0.86, 0.8, 0.7);
+  body.translate(0, -0.06, 0);
+  const shoulder = new THREE.BoxGeometry(1, 0.08, 0.46);
+  shoulder.translate(0, 0.18, -0.12);
+  const back = new THREE.BoxGeometry(0.62, 0.42, 0.08);
+  back.translate(0, -0.06, 0.36);
+  const merged = merge([body, shoulder, back]);
+  const look = WARDEN_TUNE.look;
+  const height = ENEMIES.warden.height;
+  merged.scale(look.bodyW, height, look.bodyD);
+  merged.translate(0, height / 2, 0);
+  merged.computeVertexNormals();
+  return painted(merged, 0xffffff);
+}
+
+function buildWardenView(): EnemyKindView {
+  const mesh = partMesh(
+    enemyMeshName('warden'),
+    wardenGeometry(),
+    new THREE.MeshLambertMaterial({ vertexColors: true }),
+    true,
+  );
+  const part: EnemyPart = {
+    mesh,
+    standing: new THREE.Matrix4(),
+    fallen: shifted([0, 0, 0], { x: 1, y: DOWN_SCALE_Y, z: 1 }),
+  };
+  return { mesh, parts: [part], colored: true };
 }
 
 // A ring of sandbags: four courses of boxes, each turned half a bag from the one below and drawn a little inside, with
@@ -391,7 +429,8 @@ function buildNestView(): EnemyKindView {
 export function buildEnemyView(): EnemyView {
   const view = {} as EnemyView; // filled for every kind in the loop below
   for (const kind of ENEMY_KINDS) {
-    const kindView = kind === 'emplacement' ? buildNestView() : buildSoldierView(kind);
+    const kindView =
+      kind === 'emplacement' ? buildNestView() : kind === 'warden' ? buildWardenView() : buildSoldierView(kind);
     for (const part of kindView.parts) scene.add(part.mesh);
     view[kind] = kindView;
   }
@@ -464,7 +503,16 @@ export function drawEnemies(view: EnemyView, game: GameModel): void {
       part.mesh.setMatrixAt(at, matrix.multiplyMatrices(place.matrix, local));
       if (kindView.colored) {
         // the shape carries the enemy side's own colours; the copy only darkens one that is down
-        part.mesh.setColorAt(at, tint.setHex(alive ? ALIVE_TINT : ENEMY_DOWN_TINT));
+        // the mid boss is white in the shape and takes its body colour here; its shoulder light warms the whole body
+        // while a burst telegraph runs
+        const telegraph =
+          enemy.kind === 'warden' &&
+          alive &&
+          enemy.warden?.phase === 'burst' &&
+          enemy.warden.burstLeft > 0 &&
+          enemy.warden.timer > 0;
+        const aliveTint = enemy.kind === 'warden' ? (telegraph ? PILLBOX_WARN_COLOR : WARDEN_COLOR) : ALIVE_TINT;
+        part.mesh.setColorAt(at, tint.setHex(alive ? aliveTint : ENEMY_DOWN_TINT));
       }
     }
   }

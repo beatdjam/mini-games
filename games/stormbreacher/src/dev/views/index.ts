@@ -26,6 +26,7 @@ import { showAllyDetail } from './allyDetail.ts';
 import { showSquad } from './squad.ts';
 import { showDroid } from './droid.ts';
 import { showFortress } from './fortress.ts';
+import { showWarden } from './warden.ts';
 import { showSound } from './sound.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -191,6 +192,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'starts',
     name: 'the fortress gun sweeping the open ground, with knobs',
     run: showFortress,
+  },
+  {
+    hash: '#view-warden',
+    match: 'starts',
+    name: 'the heavy command mech: phases, telegraphs and the back plate, with knobs',
+    run: showWarden,
   },
   {
     hash: '#view-mapedit',

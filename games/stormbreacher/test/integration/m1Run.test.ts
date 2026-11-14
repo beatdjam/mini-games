@@ -28,7 +28,7 @@ interface Waypoint {
   x: number;
   z: number;
   why: string;
-  hold?: readonly string[]; // targets that stand the bot here, shooting, until they are all down
+  hold?: readonly string[]; // targets, enemies or waves that stand the bot here, shooting, until they are all down
   plant?: string; // stands here and holds use until this blast point has a charge on it
   wait?: string; // stands here until this blast point has blown
 }
@@ -113,9 +113,26 @@ const TO_DEPOT: readonly Waypoint[] = [
 const TO_BATTERY: readonly Waypoint[] = [
   { x: 0, z: -68, why: 'through the sea gate' },
   { x: 0, z: -95, why: 'in the yard (area fortress-yard), with no prop on the way' },
+  // The mid boss comes out of the land gate: go round its left side, then stand by the land wall. It turns too slowly to
+  // keep the mech off its flank, and its charge runs into the wall and leaves it exposed for two seconds.
+  { x: 0, z: -110, why: 'down the yard and off the gate line' },
+  { x: 26, z: -104, why: 'by the yard’s right cover, clear of its corner, while the warden comes out' },
+  {
+    x: -26,
+    z: -121,
+    why: 'in the land wall’s corner, holding until it and its two adds fall',
+    hold: ['warden', 'warden-adds'],
+  },
+  { x: -20, z: -118, why: 'off the wall and back towards the gate' },
+  { x: 0, z: -118, why: 'in front of the land gate' },
   { x: 0, z: -128, why: 'through the land gate' },
-  { x: 0, z: -190, why: 'the field before the battery (area fortress-out)' },
-  { x: 0, z: -205, why: 'in front of the main guns, which it holds for', hold: ['main-gun-1', 'main-gun-2'] },
+  // hold the main guns from the field: nearer the magazine the shots at its shuttered face would be wasted
+  {
+    x: 0,
+    z: -205,
+    why: 'in front of the main guns, which it holds for',
+    hold: ['main-gun-1', 'main-gun-2'],
+  },
   { x: 0, z: -230, why: 'in front of the magazine, which it holds for', hold: ['magazine'] },
 ];
 
@@ -144,7 +161,9 @@ interface Foe {
   heavy: boolean;
 }
 
-// The living enemies and targets the bot may shoot, nearest first, that it can see from its chest.
+// The living enemies and targets the bot may shoot, nearest first, that it can see from its chest. The depot is only
+// shot when a point's hold names it, so walking past the hollow does not break the side goal by chance. The mid boss is
+// only shot while it is exposed: its front plate is too thick, and the ammo is needed for the battery after it.
 function foesInSight(game: GameModel, only: readonly string[] | null): Foe[] {
   const { mech } = game;
   const chest = { x: mech.x, y: mech.y + MECH_TUNE.chestHeight, z: mech.z };
@@ -155,7 +174,14 @@ function foesInSight(game: GameModel, only: readonly string[] | null): Foe[] {
     target => target.hp > 0 && target.kind !== 'pillbox' && (only === null ? target.id !== 'depot' : true),
   );
   const foes: Foe[] = [
-    ...game.enemies.filter(enemy => enemy.hp > 0).map(enemy => ({ box: enemyBox(enemy), heavy: false })),
+    ...game.enemies
+      .filter(
+        enemy =>
+          enemy.hp > 0 &&
+          (enemy.kind !== 'warden' || (enemy.warden?.exposed ?? 0) > 0) &&
+          (only === null || only.includes(enemy.id) || only.includes(enemy.wave)),
+      )
+      .map(enemy => ({ box: enemyBox(enemy), heavy: false })),
     ...standing
       .filter(target => only === null || only.includes(target.id))
       .map(target => ({ box: target.box, heavy: HEAVY_TARGETS.includes(target.kind) })),
@@ -184,6 +210,21 @@ interface Bot {
   steps: number; // how many times it stepped aside from the aimed mortar
 }
 
+// Whether a point's hold still waits on `id`: a target's health, an enemy's health, or a wave that has not cleared. A
+// wave whose last enemy is smoking still holds the bot until the smoke's three seconds are up.
+function waitingOn(game: GameModel, id: string): boolean {
+  const target = game.targets.find(entry => entry.id === id);
+  if (target !== undefined) return target.hp !== 0;
+  const enemy = game.enemies.find(entry => entry.id === id);
+  if (enemy !== undefined) return enemy.hp > 0;
+  if (M1.waves.includes(id) || game.script.spawned.includes(id)) {
+    const wave = game.enemies.filter(entry => entry.wave === id);
+    if (wave.some(entry => entry.hp > 0 || (entry.warden?.dying ?? 0) > 0)) return true;
+    return !game.script.cleared.includes(id);
+  }
+  return false;
+}
+
 // Whether a blast point has a charge on it.
 const charged = (game: GameModel, id: string): boolean => game.charges.some(charge => charge.blast === id);
 
@@ -196,7 +237,7 @@ const blasted = (game: GameModel, id: string): boolean => game.blasts.find(blast
 function decide(game: GameModel, bot: Bot, route: readonly Waypoint[]): GameInput {
   const { mech } = game;
   const point = route[bot.next];
-  const held = point.hold?.filter(id => game.targets.find(target => target.id === id)?.hp !== 0) ?? [];
+  const held = point.hold?.filter(id => waitingOn(game, id)) ?? [];
   const arrived = Math.hypot(point.x - mech.x, point.z - mech.z) < REACH;
   if (arrived && held.length === 0 && bot.next < route.length - 1) {
     const plantingLeft = point.plant !== undefined && !charged(game, point.plant);
@@ -249,7 +290,10 @@ function decide(game: GameModel, bot: Bot, route: readonly Waypoint[]): GameInpu
   // the world's direction in the mech's own forward and right
   const fx = -Math.sin(mech.yaw);
   const fz = -Math.cos(mech.yaw);
-  const foes = foesInSight(game, held.length > 0 ? held : null);
+  // While it walks to the main guns' point it keeps its fire: the shots at a gun behind the field's cover are wasted, and
+  // the magazine behind it would take the rest through its shut face.
+  const gunsHold = held.includes('main-gun-1') || held.includes('main-gun-2');
+  const foes = gunsHold && !arrived ? [] : foesInSight(game, held.length > 0 ? held : null);
   const foe = foes[0];
   // it faces what it shoots, or else the way it walks
   const look = foe ? { x: centre(foe.box).x - mech.x, z: centre(foe.box).z - mech.z } : { x: wx, z: wz };
@@ -308,7 +352,7 @@ function playM1(depot = false): Result {
     if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
     step(game, decide(game, bot, route), DT);
   }
-  return {
+  const result = {
     cleared: game.cleared,
     downed: game.downed,
     time: game.time,
@@ -320,6 +364,7 @@ function playM1(depot = false): Result {
     fired: game.script.fired,
     at: { x: game.mech.x, z: game.mech.z, next: bot.next },
   };
+  return result;
 }
 
 // The cues in the order the story runs them; the depot's own cues are left out of the straight-on run's list.

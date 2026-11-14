@@ -4,6 +4,7 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { rectBox, rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import { newEnemy, stepEnemy, type EnemyShot, type EnemyState, type EnemyWorld } from '../../src/logic/enemies.ts';
 import type { Aabb } from '../../src/logic/fire.ts';
+import { NAV_RADIUS } from '../../src/logic/game.ts';
 import { buildNavField, buildNavGrid } from '../../src/logic/nav.ts';
 
 const DT = 1 / 60;
@@ -20,6 +21,21 @@ const OPEN: EnemyWorld = {
 const mechAt = (x: number, z: number): { x: number; y: number; z: number } => ({ x, y: 0, z });
 
 const distTo = (e: { x: number; z: number }, m: { x: number; z: number }): number => Math.hypot(e.x - m.x, e.z - m.z);
+
+test('the warden keeps a walker’s nav width: its navRadius, not its hit radius, is what NAV_RADIUS takes', () => {
+  expect(ENEMIES.warden.radius).toBe(2.5);
+  expect(ENEMIES.warden.navRadius).toBe(0.75);
+  expect(NAV_RADIUS).toBe(0.75);
+});
+
+test('a warden is born with its own phase state, which stepEnemy does not touch', () => {
+  const warden = newEnemy('w-1', 'w', 'warden', 0, -60);
+  expect(warden.warden).toMatchObject({ phase: 'walkout', called: false, dying: 0 });
+  // stepEnemy's own fields are not what the warden reads: the game sends a warden through stepWarden instead
+  const before = structuredClone(warden.warden);
+  stepEnemy(warden, mechAt(0, 0), OPEN, DT, createRng(1));
+  expect(warden.warden).toEqual(before);
+});
 
 test('an enemy beyond the notice distance sleeps: it does not move or shoot', () => {
   const enemy = newEnemy('w-1', 'w', 'grunt', 0, -(GRUNT.notice + 10));

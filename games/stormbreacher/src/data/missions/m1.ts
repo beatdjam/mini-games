@@ -548,10 +548,14 @@ const CUES = [
   },
   {
     id: 'yard-clear',
-    // the yard is done once all three waves are down; L6 puts the next hill (the mid boss) on this cue
+    // the yard is done once all three waves are down; the land gate opens and the mid boss walks out (SB-1850)
     trigger: { kind: 'flag', name: 'yard-3-clear' },
     when: ['yard-1-clear', 'yard-2-clear', 'yard-3-clear'],
-    actions: [{ kind: 'radio', line: 'm1.yard-clear' }],
+    actions: [
+      { kind: 'radio', line: 'm1.yard-clear' },
+      { kind: 'radio', line: 'm1.warden' },
+      { kind: 'spawn', wave: 'warden' },
+    ],
   },
   {
     id: 'fortress-out',
@@ -603,6 +607,8 @@ export const M1: MissionDef = {
     'yard-1',
     'yard-2',
     'yard-3',
+    'warden',
+    'warden-adds',
     'battery',
   ],
   objectives: ['reach-pillboxes', 'break-pillboxes', 'stop-fortress-gun', 'silence-battery', 'hit-magazine'],

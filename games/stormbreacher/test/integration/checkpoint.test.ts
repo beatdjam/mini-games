@@ -14,6 +14,7 @@ import {
   type GameModel,
 } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { restoreCheckpoint } from '../../src/logic/script.ts';
 
 const DT = 1 / 60;
@@ -230,6 +231,38 @@ describe('checkpoint', () => {
     const third = retryFromCheckpoint(again);
     expect(third.enemies).toEqual(before?.enemies);
     expect(third.rects).toEqual(before?.rects);
+  });
+
+  test('the mid boss’s health and phase come back from the checkpoint', () => {
+    const game = newPlayGame(M1B_HAND);
+    const warden = newEnemy('warden-1', 'warden', 'warden', 0, -118);
+    if (!warden.warden) throw new Error('the warden has no state');
+    warden.hp = 180;
+    warden.warden.phase = 'charge';
+    warden.warden.timer = 0.3;
+    warden.warden.chargeLeft = 12;
+    warden.warden.exposed = 0.4;
+    warden.warden.mortarT = 4;
+    warden.warden.called = true;
+    game.enemies.push(warden);
+    takeCp1(game);
+    const copy = game.checkpoint;
+    if (!copy) throw new Error('no checkpoint');
+    const savedState = structuredClone(warden.warden);
+    const saved = copy.enemies.find(enemy => enemy.id === 'warden-1');
+    expect(saved).toMatchObject({ hp: 180, warden: savedState });
+
+    // the game goes on, the warden takes a burst of the next phase, and a retry comes back at the copy
+    const state = warden.warden;
+    state.phase = 'burst';
+    state.burstLeft = 2;
+    state.timer = 0.1;
+    warden.hp = 90;
+    const again = retryFromCheckpoint(game);
+    expect(again.enemies.find(enemy => enemy.id === 'warden-1')).toMatchObject({
+      hp: 180,
+      warden: savedState,
+    });
   });
 
   test('retrying without a checkpoint is refused', () => {

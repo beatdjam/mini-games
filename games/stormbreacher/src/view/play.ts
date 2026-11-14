@@ -5,8 +5,15 @@ import { clamp, distXZ } from '@engine/core/index.ts';
 import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
 import { BLAST_LIFT, boomShakeAt, landBlastHeight, type BoomKind } from '../data/boom.ts';
 import { COVER_TUNE } from '../data/allies.ts';
-import { MELEE_SPARK_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_SMOKE_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
+import {
+  MELEE_SPARK_COLOR,
+  PILLBOX_DEFLECT_COLOR,
+  PILLBOX_SMOKE_COLOR,
+  PILLBOX_WARN_COLOR,
+  SHELL_LAND_COLOR,
+} from '../data/colors.ts';
 import { CUTSCENES } from '../data/cutscenes.ts';
+import { ENEMIES } from '../data/enemies.ts';
 import { MELEE_TUNE } from '../data/melee.ts';
 import { PILLBOXES_FLAG } from '../data/front.ts';
 import { YARD_TUNE } from '../data/fortress.ts';
@@ -15,6 +22,7 @@ import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../data/tune.ts';
+import { WARDEN_TUNE } from '../data/warden.ts';
 import type { WeaponId } from '../data/weapons.ts';
 import { blastTarget } from '../logic/blasts.ts';
 import { frontOf, type FrontId } from '../logic/front.ts';
@@ -67,12 +75,20 @@ const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
 const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
 const PILLBOX_SMOKE_SIZE = 1.3; // the smoke at a suppressed muzzle's size (m)
 const PILLBOX_SMOKE_LIFT = 0.5; // how far above the muzzle the smoke floats (m)
+const MAX_WARDEN_BANDS = 4; // the charge bands the mesh can draw at once; the game has one warden
+const WARDEN_BAND_LIFT = 0.07; // how far above the ground the band sits, so it does not fight with it (m)
+const WARDEN_SMOKE_EVERY = 0.7; // s between the smoke puffs of a warden that is falling
 
 // The warning lights and the suppression smoke, one instanced mesh each for all of them.
 export interface PillboxWarnView {
   mesh: THREE.InstancedMesh;
   smoke: THREE.InstancedMesh;
   nestSmoke: THREE.InstancedMesh; // the smoke over the machine-gun nests the allies' fire holds quiet (SB-2024)
+}
+
+// The red bands ahead of a warden that is about to charge, one instanced mesh.
+export interface WardenChargeView {
+  mesh: THREE.InstancedMesh;
 }
 
 export interface PlayView {
@@ -86,6 +102,8 @@ export interface PlayView {
   aim: Ray3; // the line through the middle of the screen the last frame drew
   gunfire: GunfireView; // the muzzle flashes, the tracers in flight and the impacts' sparks and smoke
   enemies: EnemyView; // the enemies' instanced boxes
+  wardenCharge: WardenChargeView; // the red band ahead of a warden about to charge
+  wardenSmoke: Map<string, number>; // s to the next smoke puff of each warden that is falling
   coverHits: { t: number; x: number; y: number; z: number }[]; // the support fire's landings still to come: seconds until the tracer arrives, and where (SB-2024)
   pillboxWarns: PillboxWarnView; // the lights at the pillboxes' muzzles while they warn of a burst
   blasts: BlastView; // the blast points' rings and the charges planted on them
@@ -152,6 +170,8 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     aim: aimRay(cam),
     gunfire: buildGunfireView(),
     enemies: buildEnemyView(),
+    wardenCharge: buildWardenChargeView(),
+    wardenSmoke: new Map(),
     coverHits: [],
     pillboxWarns: buildPillboxWarnView(world.targetGroup),
     blasts: buildBlastView(game.map),
@@ -253,6 +273,63 @@ function drawPillboxWarns(view: PillboxWarnView, game: GameModel): void {
   }
   view.mesh.count = count;
   view.mesh.instanceMatrix.needsUpdate = true;
+}
+
+// The red band a warden shows ahead of a charge: one flat plane, added to the scene on its own.
+export function buildWardenChargeView(): WardenChargeView {
+  const plane = new THREE.PlaneGeometry(1, 1);
+  plane.rotateX(-Math.PI / 2);
+  const mesh = new THREE.InstancedMesh(
+    plane,
+    new THREE.MeshBasicMaterial({
+      color: SHELL_LAND_COLOR,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+    MAX_WARDEN_BANDS,
+  );
+  mesh.name = 'sb-warden-charge';
+  mesh.count = 0;
+  // the band comes and goes, so the bounding sphere made at the start would cull it
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+  return { mesh };
+}
+
+const wardenBandPlace = new THREE.Object3D();
+
+// Draws the band ahead of every warden in its charge (the crouch and the run), up to the mesh's capacity.
+export function drawWardenCharge(view: WardenChargeView, game: GameModel): void {
+  let count = 0;
+  for (const enemy of game.enemies) {
+    if (count === MAX_WARDEN_BANDS) break;
+    if (enemy.kind !== 'warden' || enemy.hp <= 0) continue;
+    if (enemy.warden?.phase !== 'charge') continue;
+    const radius = ENEMIES.warden.radius;
+    const distance = WARDEN_TUNE.charge.distance;
+    wardenBandPlace.position.set(
+      enemy.x - Math.sin(enemy.yaw) * (radius + distance / 2),
+      WARDEN_BAND_LIFT,
+      enemy.z - Math.cos(enemy.yaw) * (radius + distance / 2),
+    );
+    wardenBandPlace.rotation.y = enemy.yaw;
+    wardenBandPlace.scale.set(WARDEN_TUNE.look.bandWidth, 1, distance);
+    wardenBandPlace.updateMatrix();
+    view.mesh.setMatrixAt(count, wardenBandPlace.matrix);
+    count++;
+  }
+  view.mesh.count = count;
+  view.mesh.instanceMatrix.needsUpdate = true;
+}
+
+// Takes the charge band out of the scene.
+export function removeWardenChargeView(view: WardenChargeView): void {
+  scene.remove(view.mesh);
+  view.mesh.geometry.dispose();
+  (view.mesh.material as THREE.Material).dispose();
+  view.mesh.dispose();
 }
 
 // Draws the smoke over every suppressed pillbox's muzzle, up to the mesh's capacity. It reads the pillbox's own quiet
@@ -424,8 +501,15 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
         burnAtmosphere((box.minX + box.maxX) / 2, (box.minZ + box.maxZ) / 2);
       }
     } else if (event.kind === 'enemyDown') {
+      // the mid boss smokes for its three seconds and blows on `wardenDown`; the others fall at once
+      const fallen = game.enemies.find(enemy => enemy.id === event.id);
+      if (fallen?.kind !== 'warden') {
+        kill = true;
+        blast('small', event.x, event.y + BLAST_LIFT.small, event.z);
+      }
+    } else if (event.kind === 'wardenDown') {
       kill = true;
-      blast('small', event.x, event.y + BLAST_LIFT.small, event.z);
+      blast('large', event.x, BLAST_LIFT.large, event.z);
     } else if (event.kind === 'propDestroyed') {
       blast('small', event.x, BLAST_LIFT.prop, event.z);
       // the broken prop keeps a fire of its own, which its wreck stands in for well enough at this size
@@ -549,7 +633,19 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game, dt);
   drawGunfire(view.gunfire, game.bullets, dt, muzzle);
+  // a warden that is falling smokes until its three seconds are up; the blast itself is the `wardenDown` event
+  for (const enemy of game.enemies) {
+    if (enemy.kind !== 'warden' || enemy.hp > 0 || (enemy.warden?.dying ?? 0) <= 0) continue;
+    const next = (view.wardenSmoke.get(enemy.id) ?? 0) - dt;
+    if (next > 0) {
+      view.wardenSmoke.set(enemy.id, next);
+      continue;
+    }
+    spawnBoom('small', enemy.x, 1.5, enemy.z);
+    view.wardenSmoke.set(enemy.id, WARDEN_SMOKE_EVERY);
+  }
   drawEnemies(view.enemies, game);
+  drawWardenCharge(view.wardenCharge, game);
   drawPillboxWarns(view.pillboxWarns, game);
   drawPillboxSmoke(view.pillboxWarns, game);
   drawNestSmoke(view.pillboxWarns, game);

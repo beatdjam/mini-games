@@ -13,6 +13,7 @@ import { pushOutCircle, type GroundRect } from './collide.ts';
 import { spreadDir } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
 import { navTarget, type NavField } from './nav.ts';
+import { newWarden, type WardenState } from './warden.ts';
 
 const SEPARATION_DIST = 2.5; // enemies nearer than this push each other apart (m); two grunts touch at 1.5
 const SEPARATION_SPEED = 3; // how fast two enemies at the same spot push apart; it falls to 0 at SEPARATION_DIST (m/s)
@@ -39,6 +40,7 @@ export interface EnemyState {
   fallbackPost: number | null; // the hold post it runs to; on arrival it holds there instead of walking on
   holdOut: boolean; // a posted enemy has stepped out from cover to fire
   holdLeft: number; // the seconds left in its hide or its step out
+  warden?: WardenState; // the mid boss's own phases and timers; only a `warden` has one
 }
 
 // What an enemy sees of the world: the walls it is pushed out of, the boxes that stop a shot and the map's edge.
@@ -92,6 +94,7 @@ export function newEnemy(
     fallbackPost: null,
     holdOut: false,
     holdLeft: 0,
+    ...(kind === 'warden' ? { warden: newWarden() } : {}),
   };
 }
 

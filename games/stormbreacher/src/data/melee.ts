@@ -16,6 +16,8 @@ export const MELEE_DAMAGE_MUL: Record<MeleeKind, number> = {
   heavy: 0.5,
   // the machine-gun nest is a structure, but its gun and crew are open, so it is not as hard as a pillbox
   emplacement: 0.6,
+  // the mid boss (SB-1850) is a heavy machine: a fist barely scratches it, so its fight stays with the guns
+  warden: 0.1,
   // the objectives: a pillbox takes no health from a blow (only a charge breaks it), the guns of the battery barely feel a fist
   pillbox: 0,
   depot: 0.25,

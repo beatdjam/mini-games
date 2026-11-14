@@ -166,6 +166,22 @@ describe('suspend', () => {
     expect(back && JSON.stringify(suspendOf(back))).toBe(JSON.stringify(suspendOf(game)));
   });
 
+  test('the mid boss’s phase, timers and exposure come back', () => {
+    const game = newGame(M1B_HAND);
+    const warden = newEnemy('warden-1', 'warden', 'warden', 0, -118);
+    if (!warden.warden) throw new Error('the warden has no state');
+    warden.hp = 210;
+    warden.warden.phase = 'charge';
+    warden.warden.timer = 0.4;
+    warden.warden.chargeLeft = 13;
+    warden.warden.exposed = 0.4;
+    warden.warden.mortarT = 3.5;
+    warden.warden.called = true;
+    game.enemies.push(warden);
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.enemies[0]).toMatchObject({ id: 'warden-1', hp: 210, warden: warden.warden });
+  });
+
   test('the aimed mortar’s anchor and stay come back', () => {
     const game = newGame(M1B_HAND);
     game.aimed = { anchor: { x: 12, z: 34 }, still: 1.75 };

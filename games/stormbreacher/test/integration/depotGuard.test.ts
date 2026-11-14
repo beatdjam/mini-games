@@ -93,7 +93,16 @@ test('the hand map holds the depot’s guard and passes the check against M1', (
   expect(M1B_HAND.targets.map(target => target.id)).not.toContain('pillbox-3');
   expect(M1.targets).not.toContain('pillbox-3');
   const violations = validateMapForMission(M1B_HAND, M1, {
-    waves: ['beach-mortar', 'shelling', 'yard-1', 'yard-2', 'yard-3', 'battery'],
+    waves: [
+      'beach-mortar',
+      'shelling',
+      'yard-1',
+      'yard-2',
+      'yard-3',
+      'warden',
+      'warden-adds',
+      'battery',
+    ],
   });
   expect(violations).toEqual([]);
 });

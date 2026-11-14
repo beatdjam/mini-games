@@ -576,5 +576,11 @@ export const M1B_HAND: MapDef = {
       { x: -8, z: -78 },
       { x: 8, z: -78 },
     ],
+    // the mid boss comes out of the land gate's inside (SB-1850); its adds come from the yard's left and right doors
+    warden: [{ x: 0, z: -118 }],
+    'warden-adds': [
+      { x: -22, z: -95 },
+      { x: 22, z: -95 },
+    ],
   },
 };

@@ -31,7 +31,7 @@ import { removeHud } from '../view/hud.ts';
 import { disposeProtoMech } from '../view/mechProtoModel.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { applyMarkerQuery } from '../data/marker.ts';
-import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
+import { buildPlayView, drawPlay, removeWardenChargeView, type PlayView } from '../view/play.ts';
 import { resetSound, soundFrame } from '../view/sound.ts';
 import { openBriefing } from './briefing.ts';
 import { clearSuspend, loadSuspend, save, writeSave, writeSuspend } from './storage.ts';
@@ -70,6 +70,7 @@ function clearPlay(old: PlayView): void {
   disposeProtoMech(old.model);
   old.stage?.dispose();
   removeEnemyView(old.enemies);
+  removeWardenChargeView(old.wardenCharge);
   removeHazardView(old.hazards);
   removeSeaFire(old.seaFire);
   old.battle.dispose();
