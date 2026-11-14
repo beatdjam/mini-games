@@ -1,6 +1,8 @@
-// The prototype of M1's mech (SB-1468, second pass SB-1469): the E medium built for density, the way MechWarrior and
-// War Robots build theirs, but cut to a cleaner silhouette: long legs, a high hip, a broad chest and shoulders over a
-// narrow waist, plates that taper and are cut on a diagonal, two paints and an orange accent, and thin light lines.
+// The prototype of M1's mech (SB-1468, second pass SB-1469, third pass SB-1471): the E medium built for density, the way
+// MechWarrior and War Robots build theirs, but cut to a cleaner silhouette: long legs, a high hip, a broad chest and
+// shoulders over a narrow waist, plates that taper and are cut on a diagonal, two paints and an orange accent, and thin
+// light lines. The third pass bends the rig: the legs take a knee and an ankle, the arms a shoulder and an elbow, and the
+// mech stands with its knees bent and its torso forward, as the heavy mechs do.
 // It is a second table beside M1_MECH (data/mech.ts), so the sortie's mech stays as it is until a player has seen this.
 // The ratios are the same as the other table's: of the mech's height, the feet at y = 0, the front toward -z and the
 // right toward +x; the legs are measured from the ground and the rest from the hip top. Every value here is provisional.
@@ -64,13 +66,27 @@ export interface ProtoWeapon {
   shapes: readonly ProtoShape[]; // relative to the part's mount, like WEAPON_LOOK
 }
 
+// Where the rig bends. The heights are ratios from the ground; the arm and head pivots are ratios from the hip top.
+// A leg shape belongs to the bone above its own height (the thigh above the knee, the shin above the ankle, the foot
+// below it); an arm shape above the elbow swings from the shoulder, the rest from the elbow.
+export interface ProtoJoints {
+  knee: number;
+  ankle: number;
+  shoulder: Vec3; // the right shoulder's pivot, from the hip top
+  elbow: Vec3; // the elbow, from the shoulder
+  neck: Vec3; // the head's pivot, from the hip top
+}
+
 // The prototype's parts. The legs stand on the ground; every other part's y is measured from the hip top.
 export interface ProtoParts {
   hipY: number; // the hip top's height, as a ratio of the mech's height
   gait: 'biped';
+  joints: ProtoJoints;
   legs: readonly ProtoShape[];
   core: readonly ProtoShape[];
   arms: readonly ProtoShape[];
+  handR: readonly ProtoShape[]; // the hand that grips the main weapon
+  handL: readonly ProtoShape[]; // the free hand: an open palm, so it does not read as a magazine
   back: readonly ProtoShape[];
   head: readonly ProtoShape[];
   armMount: Vec3; // where the main weapon hangs (ratio, from the hip top)
@@ -86,6 +102,13 @@ export interface ProtoParts {
 export const MECH_PROTO: ProtoParts = {
   hipY: 0.55,
   gait: 'biped',
+  joints: {
+    knee: 0.335,
+    ankle: 0.09,
+    shoulder: [0.235, 0.3, 0.015],
+    elbow: [0, -0.11, -0.015],
+    neck: [0, 0.365, -0.005],
+  },
   legs: [
     // the foot: a long low sole, a wedge toe, a heel block, and a light line along the instep
     {
@@ -504,7 +527,7 @@ export const MECH_PROTO: ProtoParts = {
     // the elbow
     { kind: 'tube', material: 'frame', axis: 'x', radius: 0.045, length: 0.11, at: [0.235, 0.19, 0], mirror: true },
     { kind: 'ring', material: 'frame', axis: 'x', radius: 0.035, tube: 0.007, at: [0.29, 0.19, 0], mirror: true },
-    // the forearm, its outer plate, a light line and the fist
+    // the forearm and its outer plate with a light line (the hands are their own parts below)
     {
       kind: 'plate',
       material: 'armor',
@@ -531,15 +554,6 @@ export const MECH_PROTO: ProtoParts = {
       bevel: 0.001,
       mirror: true,
     },
-    {
-      kind: 'plate',
-      material: 'frame',
-      size: [0.075, 0.06, 0.08],
-      at: [0.235, 0.025, -0.015],
-      bevel: 0.007,
-      taper: { front: 0.8, nose: 0.8 },
-      mirror: true,
-    },
     // the hydraulics and the cable down the arm
     {
       kind: 'piston',
@@ -552,6 +566,60 @@ export const MECH_PROTO: ProtoParts = {
       mirror: true,
     },
     { kind: 'tube', material: 'frame', axis: 'y', radius: 0.005, length: 0.13, at: [0.215, 0.24, 0.05], mirror: true },
+  ],
+  handR: [
+    // the weapon hand: a closed fist around the mount, with a thumb over it
+    {
+      kind: 'plate',
+      material: 'frame',
+      size: [0.075, 0.06, 0.08],
+      at: [0.235, 0.025, -0.015],
+      bevel: 0.007,
+      taper: { front: 0.8, nose: 0.8 },
+    },
+    {
+      kind: 'plate',
+      material: 'frame',
+      size: [0.018, 0.04, 0.022],
+      at: [0.203, 0.03, -0.03],
+      rot: [0.3, 0, 0.25],
+      bevel: 0.002,
+    },
+  ],
+  handL: [
+    // the free hand: an open palm with three fingers, so the left arm does not end in something gun-shaped
+    {
+      kind: 'plate',
+      material: 'frame',
+      size: [0.06, 0.05, 0.07],
+      at: [-0.235, 0.025, -0.01],
+      bevel: 0.006,
+      taper: { front: 0.85, nose: 0.85 },
+    },
+    {
+      kind: 'plate',
+      material: 'frame',
+      size: [0.012, 0.045, 0.016],
+      at: [-0.257, 0.0, -0.03],
+      rot: [0.35, 0, 0],
+      bevel: 0.002,
+    },
+    {
+      kind: 'plate',
+      material: 'frame',
+      size: [0.012, 0.045, 0.016],
+      at: [-0.235, -0.002, -0.038],
+      rot: [0.35, 0, 0],
+      bevel: 0.002,
+    },
+    {
+      kind: 'plate',
+      material: 'frame',
+      size: [0.012, 0.045, 0.016],
+      at: [-0.213, -0.002, -0.03],
+      rot: [0.35, 0, 0],
+      bevel: 0.002,
+    },
   ],
   back: [
     // the pack: layered plates that narrow forward, with the stacks splayed out and pipes over the top
@@ -787,13 +855,45 @@ export const MECH_PROTO_TEX = {
 };
 
 // The numbers of the prototype's look: the chamfer every plate takes when it does not name one, the round shapes'
-// segments, the flame's size, the standing lean, and the light and shadow the confirmation view adds around it.
+// segments, the stance and the motion, the body's proportions, the flame's size, and the light and shadow the
+// confirmation view adds around it.
 export const PROTO_TUNE = {
   bevel: 0.008, // a plate's chamfer when it names none (ratio of the height)
   bevelSegments: 1, // layers in a chamfer
   roundSegments: 12, // a tube's and a piston's sides
   ringSegments: 18, // a ring's sides
-  lean: -0.08, // the body's standing tilt forward (rad, negative tips the top toward -z)
+  // The stance and the motion (SB-1471, 仮): the hips drop and the knees fold, the torso tips forward while the head
+  // stays level, the weapon arm comes up and the free arm follows. Walking adds a swing, a knee lift and a bob; a stop
+  // dips once; the air folds the knees and tucks the feet; a shot lowers the elbow and the hips; standing breathes.
+  pose: {
+    hip: 0.48, // the hip's height when standing (ratio of the mech's height)
+    knee: 1.05, // the knee's flex when standing (rad)
+    lean: -0.22, // the torso's standing tilt (rad; negative tips the top toward -z)
+    head: 0.8, // how much the head stays level against the torso's tilt (0..1)
+    shoulder: 0.8, // the weapon arm's shoulder forward (rad)
+    elbow: 0.58, // the weapon arm's elbow flex (rad); the shoulder's turn less this keeps the gun level
+    offShoulder: 0.55, // the free arm's shoulder forward (rad)
+    offElbow: 0.45, // the free arm's elbow flex (rad)
+    stance: 0.28, // how far each leg splays out from the hip, so the feet sit about shoulder width (rad)
+    stride: 0.6, // how much of the walk's swing the legs take (0..1)
+    kneeWalk: 0.45, // the extra knee flex while a leg swings forward (rad)
+    bob: 0.008, // how far the hip drops at the walk's lowest point (ratio)
+    settle: 0.012, // the dip as the walk dies away (ratio)
+    air: 0.8, // the extra knee flex in the air (rad)
+    airLift: 0.1, // how far the feet tuck up in the air (ratio)
+    recoilElbow: 0.3, // the elbow's dip when the gun fires (rad)
+    recoilSink: 0.012, // the hip's dip when the gun fires (ratio)
+    idleRate: 1.7, // the breathing's speed (rad/s)
+    idleBob: 0.003, // the breathing's rise and fall (ratio)
+    idleLean: 0.01, // the breathing's lean (rad)
+  },
+  // The body's proportions the panel can change; 1 is the 1469 shape. The legs stretch from the hip, the torso widens
+  // about its middle line, and the limbs thicken about their own axis.
+  build: {
+    legLength: 1,
+    torsoWidth: 1,
+    limbGirth: 1,
+  },
   flame: { radius: 0.018, opacity: 0.65 }, // the boost's flame: its radius (ratio of the height) and opacity
   light: {
     key: { at: [-1.3, 2.5, -2], intensity: 0.4 }, // the sun that casts the shadow (at, in heights from the mech)

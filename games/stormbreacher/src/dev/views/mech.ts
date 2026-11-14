@@ -4,15 +4,17 @@
 import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
+import { MECH_PROTO_COLOR } from '../../data/colors.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { CORES, MECH_PAINT, MECH_PAINT_TEX, PARTS } from '../../data/mech.ts';
+import { PROTO_MATERIALS, PROTO_TUNE } from '../../data/mechProto.ts';
 import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
 import { moveTuneOf } from '../../logic/mechTune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { animateMech, buildMechVisual, countMechDraws, disposeMech } from '../../view/mechModel.ts';
-import { animateProtoMech, buildProtoMech, countProtoDraws } from '../../view/mechProtoModel.ts';
+import { animateProtoMech, buildProtoMech, countProtoDraws, disposeProtoMech } from '../../view/mechProtoModel.ts';
 import { protoTextureBytes } from '../../view/mechProtoSurfaces.ts';
 import { resetMechPaint } from '../../view/mechSurfaces.ts';
 import { addProtoStage, type ProtoStage } from '../mech/protoStage.ts';
@@ -237,6 +239,93 @@ export function showMech(_hash: string) {
     onChange: () => rebuild(true),
   });
 
+  // The prototype's numbers, apart from the sortie's mech's panel: the stance, the colours, the materials and the body's
+  // proportions. A stance change is read every frame; the rest need the model (or its materials) remade, so they wait
+  // for the slider to be let go. A colour row writes the whole 0xRRGGBB number the table holds.
+  const protoPanel =
+    protoMech === null
+      ? null
+      : createTunePanel({
+          id: 'sbProtoPanel',
+          title: '試作の調整 #view-mech?proto',
+          groups: [
+            {
+              name: 'PROTO_TUNE',
+              table: PROTO_TUNE,
+              ranges: {
+                'pose.knee': { min: 0, max: 1.7, step: 0.01 },
+                'pose.lean': { min: -0.6, max: 0, step: 0.01 },
+                'pose.hip': { min: 0.32, max: 0.56, step: 0.005 },
+                'pose.elbow': { min: 0, max: 1.2, step: 0.01 },
+                'build.legLength': { min: 0.8, max: 1.25, step: 0.01 },
+                'build.torsoWidth': { min: 0.8, max: 1.3, step: 0.01 },
+                'build.limbGirth': { min: 0.8, max: 1.4, step: 0.01 },
+                'light.env': { min: 0, max: 2.5, step: 0.05 },
+              },
+              labels: {
+                'pose.knee': '膝の曲げ',
+                'pose.lean': '前傾',
+                'pose.hip': '腰の高さ',
+                'pose.elbow': '肘の曲げ',
+                'build.legLength': '脚の長さ',
+                'build.torsoWidth': '胸と肩の幅',
+                'build.limbGirth': '四肢の太さ',
+                'light.env': '環境の光',
+              },
+            },
+            {
+              name: 'PROTO_MATERIALS',
+              table: PROTO_MATERIALS,
+              ranges: {
+                'armor.metalness': { min: 0, max: 1, step: 0.01 },
+                'armor.roughness': { min: 0, max: 1, step: 0.01 },
+                'armor.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+                'frame.metalness': { min: 0, max: 1, step: 0.01 },
+                'frame.roughness': { min: 0, max: 1, step: 0.01 },
+                'frame.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+                'accent.metalness': { min: 0, max: 1, step: 0.01 },
+                'accent.roughness': { min: 0, max: 1, step: 0.01 },
+                'accent.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+                'glow.metalness': { min: 0, max: 1, step: 0.01 },
+                'glow.roughness': { min: 0, max: 1, step: 0.01 },
+                'glow.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+                'glow.emissive': { min: 0, max: 3, step: 0.05 },
+              },
+              labels: {
+                'armor.metalness': '装甲の金属度',
+                'armor.roughness': '装甲の粗さ',
+                'armor.envMapIntensity': '装甲の環境の光',
+                'frame.metalness': '骨格の金属度',
+                'frame.roughness': '骨格の粗さ',
+                'frame.envMapIntensity': '骨格の環境の光',
+                'accent.metalness': '差し色の金属度',
+                'accent.roughness': '差し色の粗さ',
+                'accent.envMapIntensity': '差し色の環境の光',
+                'glow.metalness': '発光の金属度',
+                'glow.roughness': '発光の粗さ',
+                'glow.envMapIntensity': '発光の環境の光',
+                'glow.emissive': '発光の明るさ',
+              },
+            },
+            {
+              name: 'MECH_PROTO_COLOR',
+              table: MECH_PROTO_COLOR,
+              ranges: {},
+              colors: { armor: '装甲', frame: '地', accent: '差し色', glow: '発光の線' },
+            },
+          ],
+          onCommit: (group, key) => {
+            // the stance is read every frame; the rest remakes the model
+            if (group === 'PROTO_TUNE' && key.startsWith('pose.')) return;
+            rebuildProto();
+          },
+        });
+  if (protoPanel !== null) {
+    // the sortie's mech keeps the right side; the prototype's panel sits on the left
+    protoPanel.element.style.left = '8px';
+    protoPanel.element.style.right = 'auto';
+  }
+
   function toggleAct(act: Act) {
     if (act === 'jump') {
       if (state.on.jump) return;
@@ -270,6 +359,31 @@ export function showMech(_hash: string) {
     if (state.compare) query.set('compare', '1');
     else query.delete('compare');
     history.replaceState(null, '', `${location.pathname}?${query.toString()}${location.hash}`);
+  }
+
+  // Remakes the prototype after a colour, material or proportion change: the pictures, the materials and the shapes
+  // are made once when the mech is built, so the model and its light are rebuilt where it stands.
+  function rebuildProto() {
+    if (protoMech === null) return;
+    const shadow = stage?.shadowOn ?? true;
+    const env = stage?.envOn ?? true;
+    const position = protoMech.position.clone();
+    const yaw = protoMech.rotation.y;
+    const visible = protoMech.visible;
+    scene.remove(protoMech);
+    disposeProtoMech(protoMech);
+    stage?.dispose();
+    stage = null;
+    protoMech = buildProtoMech(height);
+    protoMech.position.copy(position);
+    protoMech.rotation.y = yaw;
+    protoMech.visible = visible;
+    scene.add(protoMech);
+    stage = addProtoStage(protoMech, built.group, x, z);
+    stage.setShadow(shadow);
+    stage.setEnv(env);
+    layout();
+    paintButtons();
   }
 
   // Rebuilds the mech where it stands: for another pattern, or for the panel's changed paint counts, which are painted

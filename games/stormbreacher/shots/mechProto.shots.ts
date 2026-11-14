@@ -1,9 +1,10 @@
-// Screenshots of the prototype mech (SB-1468, second pass SB-1469): #view-mech?proto from the front, the rear quarter,
-// the front 3/4 and the side, plus two close pictures (the chest and head, a leg's joints) and one from the sortie's
-// shoulder camera. Every shot keeps the shadow and the surroundings' light on, on the beach. The same four angles are
-// taken of the sortie's mech as it is now, so the two can be compared side by side. npm run shots. Not a test: it is
-// not part of npm test or the CI (the drawn pixels differ between machines). SHOTS_OUT=<folder> picks where the
-// pictures go; SHOTS_ONLY=<text> takes only the shots whose names contain it.
+// Screenshots of the prototype mech (SB-1468, second pass SB-1469, third pass SB-1471): #view-mech?proto from the front,
+// the rear quarter, the front 3/4 and the side, plus two close pictures (the chest and head, a leg's joints), one from
+// the sortie's shoulder camera, and two of the motion (mid-walk, the crouch of a jump). Every shot keeps the shadow and
+// the surroundings' light on, on the beach. The same four angles are taken of the sortie's mech as it is now, so the two
+// can be compared side by side. npm run shots. Not a test: it is not part of npm test or the CI (the drawn pixels differ
+// between machines). SHOTS_OUT=<folder> picks where the pictures go; SHOTS_ONLY=<text> takes only the shots whose names
+// contain it.
 import { beforeAll, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
@@ -14,7 +15,7 @@ import { CAMERA_TUNE, MECH_TUNE } from '../src/data/tune.ts';
 import { showMech } from '../src/dev/views/mech.ts';
 import { applyPose, cameraPose } from '../src/view/camera.ts';
 import { disposeMech } from '../src/view/mechModel.ts';
-import { disposeProtoMech } from '../src/view/mechProtoModel.ts';
+import { animateProtoMech, disposeProtoMech } from '../src/view/mechProtoModel.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
 
@@ -51,6 +52,7 @@ function clearView(before: Set<THREE.Object3D>): void {
   }
   document.getElementById('sbMechBar')?.remove();
   document.getElementById('sbTunePanel')?.remove();
+  document.getElementById('sbProtoPanel')?.remove();
   scene.environment = null;
   renderer.shadowMap.enabled = false;
 }
@@ -77,10 +79,10 @@ const ANGLES = [
 // The two close pictures: the chest and head from the front 3/4, and a knee and thigh from the outside front.
 const DETAILS = [
   { name: 'detail-chest', at: [0.32, 0.82, -0.55], look: [0, 0.8, 0] },
-  { name: 'detail-leg', at: [0.3, 0.4, -0.35], look: [0.12, 0.35, 0] },
+  { name: 'detail-leg', at: [0.55, 0.5, -0.8], look: [0.12, 0.3, -0.22] },
 ] as const;
 
-test('mech-proto2', async () => {
+test('mech-proto3', async () => {
   const height = MECH_TUNE.height;
   const params = new URLSearchParams(location.search);
   params.set('pattern', 'e');
@@ -102,15 +104,25 @@ test('mech-proto2', async () => {
   try {
     for (const angle of ANGLES) {
       look(angle.at[0], angle.at[1], angle.at[2]);
-      await picture(`mech-proto2-${angle.name}`);
+      await picture(`mech-proto3-${angle.name}`);
     }
     for (const detail of DETAILS) {
       look(detail.at[0], detail.at[1], detail.at[2], detail.look[0], detail.look[1], detail.look[2]);
-      await picture(`mech-proto2-${detail.name}`);
+      await picture(`mech-proto3-${detail.name}`);
     }
     // the sortie's shoulder camera: the same place view/camera.ts puts it behind the mech
     applyPose(camera, cameraPose({ x: at.x, y: 0, z: at.z, yaw: 0 }, 0, CAMERA_TUNE, []), CAMERA_TUNE.fov);
-    await picture('mech-proto2-game');
+    await picture('mech-proto3-game');
+
+    // the motion: ten frames of walking catch the legs apart, then a hop's crouch bends the knees deep
+    const walk = { speed: 6, grounded: true, boosting: false, landSpeed: null, fired: false };
+    for (let n = 0; n < 10; n++) animateProtoMech(proto, walk, 1 / 60);
+    look(ANGLES[2].at[0], ANGLES[2].at[1], ANGLES[2].at[2]);
+    await picture('mech-proto3-walk');
+    for (let n = 0; n < 30; n++) animateProtoMech(proto, { ...walk, speed: 0 }, 1 / 60);
+    animateProtoMech(proto, { speed: 0, grounded: false, boosting: false, landSpeed: 12, fired: false }, 1 / 60);
+    look(ANGLES[3].at[0], ANGLES[3].at[1], ANGLES[3].at[2]);
+    await picture('mech-proto3-jump');
   } finally {
     clearView(beforeProto);
     disposeProtoMech(proto);
@@ -132,7 +144,7 @@ test('mech-proto2', async () => {
   try {
     for (const angle of ANGLES) {
       lookBase(angle.at[0], angle.at[1], angle.at[2]);
-      await picture(`mech-proto2-base-${angle.name}`);
+      await picture(`mech-proto3-base-${angle.name}`);
     }
   } finally {
     clearView(beforeBase);
