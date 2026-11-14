@@ -23,19 +23,19 @@
 
 `logic/`・`data/` は three・DOM・`view/`・`app/`・`dev/`・`i18n/` を読まない。`data/` は `logic/` も読まない。`view/` は `app/` と `dev/` を読まない。`app/` は `dev/` を読まない（本体のページに開発用の入口が入らないため）。この向きは dependency-cruiser の規則（`sb-logic-data-no-render`・`sb-logic-data-inward`・`sb-data-is-data`・`sb-view-reads-only`・`sb-app-no-dev`・`sb-portable-no-game`）で止めてある。
 
-- `src/view/camera.ts`: 三人称カメラの位置を決める純粋な関数で、`scene` も `camera` も触らない（カメラに書くのは `applyPose` だけ）。`aimRay` はカメラの位置から注視点への線（壁を考えない）を返し、本体の射撃の狙いになる
+- `src/view/camera.ts`: 三人称カメラの位置を決める純粋な関数で、`scene` も `camera` も触らない（カメラに書くのは `applyPose` だけ）。`aimRay` は画面に使ったカメラの位置から注視点への線（画面の真ん中）を返し、本体の射撃の狙いになる。`followCamera` は前のフレームの姿勢（`CameraState`）を受けて今のフレームの姿勢を返す。
 - `src/view/world.ts`: マップの描き方を本体と開発用の入口で共有する。`syncWorld`（毎フレーム `dt` を受ける）が、壊れたトーチカを `PILLBOX_BREAK.sec` かけて砂へ沈ませ陸側へ傾け、ほかの壊れた目標をその場で低く暗い姿にし、壊れた物（`breakable` の物）・爆破で開いた物（`game.blasts` の `blasted` の点のハリネズミ）を低く暗い姿にする。シャッターの板も描く（6章「ボス（沿岸砲台）」）
 - `src/view/outdoor.ts`: 地面と物を描く
 - `src/view/shore.ts`: 海と揚陸艇を描く（9章。艇の寸法は `src/data/craft.ts`、歩ける面の四角は `src/logic/craft.ts`）
 - `src/view/mechProxy.ts`: 寸法の確認用の仮の模型を描く（開発用の入口だけが使う）
 - `src/data/colors.ts`: 地面の砂と空と海の色、敵・弾・爆発・トーチカ・爆破点の色を名前で持つ（HUD の色は3章「HUD」）
-- `src/view/mechModel.ts`: 機体を箱で描く関数で、ゲームの状態に触らず、形を共有した単位の箱を色ごとに `InstancedMesh` で描く（1体の描く回数は使った色の数）
+- `src/view/mechModel.ts`: 機体を箱で描く関数で、ゲームの状態に触らず、形を共有した単位の箱を色ごとに `InstancedMesh` で描く（1体の描く回数は使った色の数。色ごとの材質には `src/view/mechSurfaces.ts` が一度だけ描く絵（汚れ・番号・警告の縞・センサーの窓。`MECH_PAINT`・`MECH_PAINT_TEX` in `src/data/mech.ts`、色は `MECH_PAINT_COLOR` in `src/data/colors.ts`）を掛ける
 - `src/view/mechMotion.ts`: 状態と角度の計算（three を読まない）
 - `src/view/mechDrive.ts`: ゲームの状態から動きへの入力を作る
 - `src/logic/mechTune.ts`: 脚の種類ごとの動きの値を作る `moveTuneOf`
-- `src/data/mech.ts`: 機体の部品の表（腕・脚・背中・FCS の4スロットと武器2、胴は4スロットの外の枠、箱は高さの割合、色は名前、値は仮）と M1 の固定の1組 `M1_MECH`（見本 E の部品: 胴 `medium`・腕 `midArms`・脚 `midLegs`・背中 `pack`・FCS `blockHead`）、その色 `M1_MECH_PALETTE`（色の名前ごとの16進数）、武器の大きさ `M1_WEAPON_SCALE` を持つ
+- `src/data/mech.ts`: 機体の部品の表（腕・脚・背中・FCS の4スロットと武器2、胴は4スロットの外の枠、箱は高さの割合、色は名前、値は仮）と M1 の固定の1組 `M1_MECH`（見本 E の部品: 胴 `medium`・腕 `midArms`・脚 `midLegs`・背中 `pack`・FCS `blockHead`）、その色 `M1_MECH_PALETTE`（色の名前ごとの16進数）、武器の大きさ `M1_WEAPON_SCALE` を持つ。M1 の E 中量の部品は、装甲板の段・関節・脚の油圧・背中の箱と排気口・武器の銃身/弾倉/照準・頭のセンサーの窓を持つ（SB-1460。形は箱のままで、シルエットの寸法は D-24 の4m）
 - `src/view/play.ts`: 出撃中の画面を組み立てて描く
-  - 本体の機体は `buildMechVisual` で M1 の組・色・武器の大きさから高さ `MECH_TUNE.height` に描き、向きと位置はゲームの機体に合わせる（1体の描く回数は色の数の5）。動かすのは `animateMech`（6章「機体の動き」）
+  - 本体の機体は試作の機体（`buildProtoMech`・`src/view/mechProtoModel.ts`）を高さ `MECH_TUNE.height` で作り、向きと位置はゲームの機体に合わせる（材質ごとにまとめた SkinnedMesh。メッシュの名前は `mech-proto`）。動かすのは `animateProtoMech`。カメラが機体の胸から `MECH_TUNE.fadeDist` より近いと半透明にする判定は `mechSeeThrough` in `src/view/mechFade.ts`。出撃を作り直すときは `disposeProtoMech` で片付ける。味方機は `buildMechVisual`・`animateMech`（6章「機体の動き」）のまま
   - 銃眼の予兆の光を `InstancedMesh` 1つ（名前 `sb-pillbox-warn`）で描く（色は `src/data/colors.ts` の `PILLBOX_WARN_COLOR`。6章「トーチカ」）
 - `src/data/looks.ts`: ミッションごとの見た目の表（`LOOKS`・`lookOf`）と光の元の強さ（`BASE_LIGHTS`）を持つ
 - `src/view/look.ts`: 解像度・色味・霧・空・光・地面の色をかけ、`#view-fx`・`#view-hud`・本体が同じ関数を使う
@@ -262,7 +262,9 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `fadeDist` | 3.5 | m。カメラと機体の胸（足元から `chestHeight`）の距離がこれより近いとき、機体を半透明にする |
 | `fadeOpacity` | 0.35 | 半透明のときの不透明度。遠ざかると 1 に戻る |
 
-半透明は、壁で寄ったカメラに画面を埋められないための決まり。`setMechOpacity`（`src/view/mechModel.ts`）が機体の材質の `transparent` と `opacity` を切り替えるだけなので、描く回数は変わらない。毎フレーム、カメラを置いたあとに距離を測る（`drawPlay`）。
+半透明は、壁で寄ったカメラに画面を埋められないための決まり。`setProtoOpacity`（`src/view/mechProtoModel.ts`。炎の材質は自分の不透明度に同じ割合をかける）が機体の材質の `transparent` と `opacity` を切り替えるだけなので、描く回数は変わらない。毎フレーム、カメラを置いたあとに距離を測る（`drawPlay`）。
+
+出撃・導入のカットシーン・艇の甲板の自機は、試作の模型（`buildProtoMech` in `src/view/mechProtoModel.ts`、表は `src/data/mechProto.ts`、SB-1473）で描く。骨と `SkinnedMesh` で、材質ごとに1回描く。動きは `src/view/mechDrive.ts` が `animateProtoMech` に渡す（入力と数は `mechMotion.ts` のまま）。敵・味方機は今までの `src/view/mechModel.ts`（`M1_MECH` の箱）で、`#view-mech` は既定でその箱の案を出し、`?proto`・`?compare` で試作を出す。立ちの姿勢は `PROTO_TUNE.pose` の `hip` 0.5・`knee` 0.85（1471 では 0.48・1.05。仮）。影と環境の光は既定で入れない。`?shadow=1`・`?env=1` を付けたときだけ `src/view/protoStage.ts`（太陽・縁の光・環境）を自機に追わせて入れる。
 出撃の値は `LANDING_TUNE`（SB-120）。艇の寸法は `CRAFT_TUNE`（`src/data/craft.ts`）。
 
 | 名前 | 値 | 単位・意味 |
@@ -304,15 +306,16 @@ HUD の値は `HUD_TUNE`（SB-160）。値は仮。
 M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` の弾を積み、撃ち切ると撃てない。撃つ間隔は `logic/weapons.ts` の `stepWeapon` が決め、`wait` の残りを次のフレームへ持ち越すので、フレームの長さで連射の速さは変わらない。
 
 本体の射撃は、速さのある弾を飛ばす（`shoot`・`flyBullet` in `src/logic/game.ts`）。
-- 撃つ: 1発ごとに、弾の出る所（`muzzleOf` in `src/logic/game.ts`。機体の中心から右へ `muzzleSide`・前へ `muzzleForward`、高さは足元から `chestHeight`）から `spreadDir(fcs.shotDir, FCS_TUNE.soft.spread, stream('shots'))` の向きへ弾 `Bullet`（`weapon`・位置・向き `dx dy dz`（長さ1）・射程の残り `left`）を出す。出来事 `shot`（位置・向き・`weapon`）を残す
-- 狙い: `step` は、入力の `aim`（カメラの狙いの線。無いときは胸から機体の向きへ水平な線）と、生きている目標（`fcsTargets`。id は `game.targets` の番号、中心は箱の真ん中）で `stepFcs(game.fcs, 'soft', FCS_TUNE.soft, …)` を回す。照準の円（`FCS_TUNE.soft.cone`）の中の目標へ狙いが寄り、その目標の id が `game.aimTarget` になる（無ければ null）。本体は `aimRay`（`src/view/camera.ts`）でカメラの線を作り、`src/app/play.ts` の `update` が `step` に渡す
+- 撃つ: 1発ごとに、弾の出る所（`muzzleOf` in `src/logic/game.ts`。機体の中心から右へ `muzzleSide`・前へ `muzzleForward`、高さは足元から `chestHeight`）から `spreadDir(fcs.shotDir, spreadFor(fcs.shotDist, FCS_TUNE.soft), stream('shots'))` の向きへ弾 `Bullet`（`weapon`・位置・向き `dx dy dz`（長さ1）・射程の残り `left`）を出す。散らしは照準の点までの距離で小さくなる（`spreadFor`）。出来事 `shot`（位置・向き・`weapon`）を残す
+- 狙い: `step` は、入力の `aim`（カメラの狙いの線。無いときは胸から機体の向きへ水平な線）と、生きている目標（`fcsTargets`。id は `game.targets` の番号、中心は箱の真ん中）で `stepFcs(game.fcs, 'soft', FCS_TUNE.soft, …)` を回す。照準の円（`FCS_TUNE.soft.cone`）の中の目標へ狙いが寄り、その目標の id が `game.aimTarget` になる（無ければ null）。本体は、画面に使ったカメラの状態（`CameraState` in `src/view/camera.ts`）から `aimRay` で線を作り、`src/app/play.ts` の `update` が前のフレームに画面へ使った線を `step` に渡す。画面の中の線と照準が同じカメラから出るので、壁で肩が縮んだり `closeLook`・`closePitch` が効いたりしても、弾は画面の真ん中へ向かう
+- 近距離の狙い: `soft` が寄せている相手が `FCS_TUNE.soft.nearRange`（15m）以内なら、20度/秒のゆっくりした寄せを待たず、弾の出る所から相手の箱へ入る点（弾の出る所から見た箱の一番近い点から、中心へ 1/4 進んだ所。`insideAim` in `src/logic/fcs.ts`）へ直接向ける。近くで機体を回しながら撃っても、銃口が的を置いていかない。散らしも距離で小さくなり、`spreadFor` が 0m で `nearSpread` 倍、`nearRange` で `spread` そのものにする
 - 照準の点: ソフトロックが寄せている相手がいないとき、弾は照準の点へ向かう。照準の点は、カメラの狙いの線が、物の箱（`game.propBoxes`）・壊れていない目標の箱・生きている敵の箱・地面（y = 0）のうち最初に当たる点で、`FCS_TUNE.soft.range` の内に当たらなければ、線を `range` 延ばした点。カメラの線の上で、弾の出る所より手前の当たりは数えない。弾はカメラより右の腕の先から出るので、照準の点へ向けないと近くの壁で照準から横にそれる。`manualDir` in `src/logic/fcs.ts`（`fcs.ts` はゲームの表を読まないため、物と敵と地面は `stepFcs` の引数 `world`（`FcsWorld`）で受ける。`world` が無い `#view-fcs` は的の箱だけを見る）。寄せている間は、寄せた向きのまま
 - 進む: 1フレームに min(`speed` × dt, `left`) m 進む。その区間で、生きている目標の箱・物の箱（坂は面に沿った段の箱。`rectBoxes`）・地面（y = 0。下向きの弾だけ）のうち一番手前で止まる。止まった所で出来事 `hit`（位置・`weapon`・`target`（目標の id か null）・`prop`（`map.props` の添字か null）・`enemy`・`mech`・`deflected`（トーチカの正面に弾かれたか。ほかは false）。地面は `target` `prop` `enemy` が null で `mech` は false）を残して弾を外す。止まらなければ `left` を減らし、0 以下で黙って消える
 - 当たったあと: 目標は体力が減って 0 で `destroyed` を残して台本に渡す（`damageTarget` in `src/logic/game.ts` が、弾と爆薬の共通の道）。トーチカの体力は、弾では正面から（`pillboxDamageMul` の倍率 1 未満）は `PILLBOX_ARMOR.frontMul` = 0.25 倍だけ減り、横・後ろからは `sideMul` = 1 倍そのまま減る。ほかの目標は 1 倍。爆破点の爆薬は装甲の倍率を掛けず `PILLBOX_BLAST.damage` をそのまま与える（6章「トーチカ」）。物は `damageProp` が体力を減らす。撃ったフレームの弾も同じフレームで進み、途中で壊れた目標や物には、あとの弾は当たらない
-- 表示: `src/view/play.ts` は飛んでいる弾を `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` = 96 本。超えた弾は飛ぶが描かない）で、弾の頭から後ろへ `TRACER_LENGTH` = 4m の線として毎フレーム描く（色は `TRACER_COLOR`）。`hit` の起きた所に `HIT_DUST` = 3 の砂ぼこりを出し（`deflected` は火花。6章「トーチカ」）、`shot` で撃った手応え（`fire`）を出す
+- 表示: `src/view/play.ts` は飛んでいる弾を `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` = 96 本。超えた弾は飛ぶが描かない）で、弾の頭から後ろへ `TRACER_LENGTH` = 4m の線として毎フレーム描く（色は `TRACER_COLOR`）。`hit` の起きた所に `HIT_DUST` = 3 の砂ぼこりを、その `x` `z` の面の高さ（`blastFaceHeight`。弾が止まった点の高さ `hit.y` ではない）に出し（`deflected` は火花。6章「トーチカ」）、`shot` で撃った手応え（`fire`）を出す
 - 物と壊れる物: 弾は物で止まり、物の向こうの目標には当たらない。壊せる物（`breakable`）は体力が 0 で壊れ、当たりと弾の箱から外れる。ほかの物は壊れない
 - 弾は4種類で、型 `Bullet = MechBullet | EnemyBullet | BatteryBullet | PillboxBullet`（`weapon` を持つのが機体の弾、`enemy` を持つのが敵の弾、`gun`（撃った主砲の目標 id）を持つのが砲台の弾、`pillbox`（撃ったトーチカの目標 id）を持つのがトーチカの弾。`isEnemyBullet`・`isBatteryBullet`・`isPillboxBullet` で絞り、敵の弾・砲台の弾・トーチカの弾をまとめて `isHostileBullet` で絞る）。速さと威力は `bulletSpec` が `WEAPONS`・`ENEMIES`・`GUN_TUNE`・`PILLBOX_TUNE` の表から引く
-  - 機体の弾: 物・生きている目標・生きている敵・地面のうち一番手前で止まる。敵の箱は x z が ± `radius`、y が 0〜`height`。敵に当たると体力が減り、0 で出来事 `enemyDown`（`id`・`x`・`z`）を残す。`hit` の `enemy` は敵の id
+  - 機体の弾: 物・生きている目標・生きている敵・地面のうち一番手前で止まる。敵の箱は x z が ± `radius`、y が 0〜`height`。敵に当たると体力が減り、0 で出来事 `enemyDown`（`id`・`x`・`y`・`z`）を残す。`hit` の `enemy` は敵の id
   - 敵の弾・砲台の弾・トーチカの弾（`isHostileBullet`。以下は「敵の弾」と呼ぶ）: 物・機体・壊れていない目標・地面のうち一番手前で止まる。機体の箱は x z が ± `MECH_TUNE.radius`、y が足元から `MECH_TUNE.height`。目標は壁として弾を止めるだけで体力は減らない（トーチカの奥の敵がトーチカ越しに撃たないため）。敵には当たらず、物を壊さない。`hit` の `weapon` は null、機体に当たると `mech` が true
   - トーチカの弾: 型 `PillboxBullet`（`pillbox` に撃ったトーチカの id）。速さ `PILLBOX_TUNE.bulletSpeed`、威力 `PILLBOX_TUNE.damage`、飛ぶ距離 `PILLBOX_TUNE.range`。扱いは敵の弾と同じ（機体・物・壊れていない目標・地面で止まり、機体に当たると装甲が減って `damaged` を出す）
   - 機体に当たる（`damageMech`）: 装甲が弾の威力だけ減り、出来事 `damaged`（`amount`・`fromX`・`fromZ`。`fromX` `fromZ` は機体から見た、弾が来た側の地面の単位ベクトル）を残す。装甲が 0 になると `downed` を1回残し、`GameModel.downed` が true になる
@@ -383,6 +386,15 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 ### カメラ・手応え・FCS
 
 三人称カメラの出発点は `CAMERA_TUNE`（SB-020）。距離は地面に沿って測る。本体（`src/view/play.ts`）と開発用の入口 `#view-map`・`#view-fx` は、マップの物と目標の四角（`top` の無い四角は 100m の壁）をカメラの壁として渡す。坂は斜面に沿った段の箱に分けて渡す（`rectBoxes` in `src/logic/collide.ts`）ので、低い端の上の空間でカメラが引っかからない。壊れた物の箱は壁から外れる。注視点（足元から 2.9m）より下で終わる低い物は、カメラを引き寄せない。
+三人称カメラは、`cameraPose` が壁を考えた望みの姿勢（位置と注視点）を作り、`followCamera` が画面に使った姿勢（`CameraState` in `src/view/camera.ts`）をフレームをまたいで持って、毎フレーム望みの姿勢へ寄せる（SB-1935）。
+
+- 置き方: 位置は `lag` で望みの姿勢へ寄せる。注視点は機体の頭（足元から `lookHeight`・右へ `shoulder`）をそのまま使い、壁による肩の縮みと `closeLook` の分だけを `pullSpeed`・`returnSpeed` で滑らかにするので、機体の移動で注視点が遅れない
+- 上限は壁か近い間だけ: 壁が寄せている間（`pulled`）と、注視点からの距離が壁のないときの水平距離（`openDist`）より `pullNear` 以上近く（`near`）、かつ前のフレームに壁が寄せていた（`held`）間だけ、機体の足の動きを引いた「機体から見た動き」を `pullSpeed` で頭打ちにする。`near` を前のフレームの `held` に限るのは、壁のない急旋回でも `lag` が角を曲がってカメラが注視点へ近づき、`near` になるため。壁が離したあとも `held` を持ち越すのは、壁が寄せていたカメラを `openDist` へ戻す途中を `pullSpeed` で滑らせるため。持ち越しは、前のフレームの注視点に壁の分（肩・`closeLook`）が残っていて戻っている間か、望みの距離（`pose.dist`）より `releaseGap` 以上内側にある間だけ続け、`releaseGap` 以内で `fastTurn` 以上の急旋回をしたら終える（その近さが壁の戻りではなく、旋回で `lag` が角を曲がった分であるため）。機体の動きで運ぶ分と壁の分の両方は、今の位置からその向きへ見て最初の壁の手前 `margin` で止める（カメラがもう箱の中なら止めない）。壁が注視点に壁の分（肩・`closeLook`）を足していた（前のフレームの `look - openLook` が `pullNear` より長い）ときに壁が離したら `returnSpeed` と `returnLag` で戻し、注視点の壁の分の残りが `pullGap` 以下になったら `pullSpeed` で閉じる。遠い壁のように注視点に壁の分を足していない壁が離したときは、`pullSpeed` で戻る
+- 壁なしは `lag` だけ: 壁がなければ画面の位置は `lag` の追い方だけで、ブーストも旋回も上限を掛けない。機体の動きは常にそのまま足すので、後ろへ下がってもカメラが機体へ入らない
+- 照準: 画面の照準と弾は、前のフレームに画面へ使ったカメラの状態（`CameraState`）から `aimRay` で作った線を使う。揺れ（`frame.offset`）は含めない。照準の線は前のフレームの機体の向きから作るので、向きは1フレーム遅れる
+- 見下ろしで `held` にならない: `near` は `openDist`（見下ろし・見上げを含む、壁のないときの水平距離）で測るので、見下ろし・見上げで近くならない。壁のない急旋回では `near` になりうるが、前のフレームに壁が寄せていなければ `held` にしない。壁が寄せた後でも、`openDist` から `releaseGap` 以内での `fastTurn` 以上の旋回では持ち越しを終える
+- 壁の当たり: 後ろ向きの線の左右 `probeDeg` 度にも線を飛ばして一番近い所を採るので、角を回るときも片側の当たりだけで動かない
+- 最短まで寄ったとき: `rise` だけ上へ逃がし（`riseRange` で 0 に戻す）つつ、注視点を `closeLook` だけ機体の前へ出して `closePitch` を超えて見下ろさないので、壁のそばでも前が見える。機体の胸との距離が `MECH_TUNE.fadeDist` より近い間は機体を半透明にする
 
 | 名前 | 値 | 単位・意味 |
 |------|----|------------|
@@ -392,6 +404,18 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | `lookHeight` | 2.9 | m。注視点の足元からの高さ |
 | `minDist` | 0.5 | m。壁で寄せるときの、注視点からの最短水平距離。ほぼ 0 にして、壁の向こうへ抜けないようにする |
 | `margin` | 0.6 | m。壁の手前に残す隙間 |
+| `pullSpeed` | 9 | m/s。壁に押されて寄るときの、機体の動きを除いたカメラの1フレームの移動の上限 |
+| `pullGap` | 1 | m。壁が離したあとの注視点の戻りが、これ以下になったら `pullSpeed` で閉じる |
+| `pullNear` | 0.5 | m。注視点からの距離が、壁のないときの距離（`openDist`）よりこれだけ近いカメラを、寄っているとみなす（前のフレームに壁が寄せていたときだけ） |
+| `returnSpeed` | 4 | m/s。壁が離したあと、カメラが戻る速さの上限 |
+| `returnLag` | 0.35 | s。壁が離したあと、カメラが戻る時定数 |
+| `releaseGap` | 1.2 | m。望みの距離がカメラよりこれだけ遠いと、壁が離したとみなす |
+| `rise` | 0.9 | m。最短まで寄ったとき、肩越しに見えるようカメラを上げる量 |
+| `riseRange` | 1.5 | m。最短からこれだけ離れると、上げを 0 に戻す |
+| `closeLook` | 2 | m。最短まで寄ったとき、注視点を機体の前へ出す量 |
+| `closePitch` | 0.1 | rad。壁がないときの見下ろし角に足してよい上限 |
+| `fastTurn` | 8 | rad/s。これ以上の旋回は、壁が寄せていたカメラを望みの距離へ戻す途中の持ち越しを、望みの位置の `releaseGap` 以内で終える。角速度なので機体の大きさに比例させない |
+| `probeDeg` | 4 | 度。壁の当たりを測る線を、向きの左右へ振る角度 |
 | `pitchMin` | -0.5 | rad。上下の向きの下限（負が見下ろす） |
 | `pitchMax` | 0.8 | rad。上下の向きの上限（正が見上げる） |
 | `lag` | 0.12 | s。カメラが目標の位置に追いつく時定数（0 なら遅れなし） |
@@ -421,6 +445,8 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | `cone` | 0 | 8 | 12 | 度。照準の円の半径（半角）。`soft`・`hard` が使い、`manual` は使わない |
 | `range` | 200 | 200 | 180 | m。的の中心が胸からこの距離までのものを狙える |
 | `spread` | 0.5 | 0.8 | 1.5 | 度。撃った弾が向きからずれる円錐の半径 |
+| `nearRange` | 15 | 15 | 15 | m。この距離より近い的は、寄せを待たず直接狙い、散らしも `nearSpread` から `spread` へ戻す |
+| `nearSpread` | 0.25 | 0.25 | 0.5 | 倍。0m での散らしの `spread` に対する割合（`nearRange` で 1 倍） |
 | `pull` | 0 | 20 | 0 | 度/秒。`soft` が的へ狙いを引き寄せる速さ。ほかの型は 0 |
 | `lockTime` | 0 | 0 | 0.35 | 秒。`hard` が円の中の的を捕まえるまで入れ続ける時間。ほかの型は 0 |
 | `trackRate` | 0 | 0 | 90 | 度/秒。`hard` が捕まえた的へ銃口を向ける速さ。ほかの型は 0 |
@@ -453,7 +479,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | `shellEvery` | 10 | s。何秒に1発落ちるか（0 で無し） |
 | `shellNear` | 17 | m。機体からこの距離より内側には落とさない |
 | `shellFar` | 70 | m。機体からこの距離までの輪の中に落とす |
-| `shellShake` | 0.14 | m。10m で落ちたときの揺れ（距離で減らす） |
+| `shellShake` | 0.14 | m。10m で落ちたときの揺れ（距離で減らす）。機体の近くの爆発の揺れと合わせて `FEEL_TUNE.shakeMax` を超えない |
 | `smokeLife` | 5.5 | s。砲撃の煙が残る時間 |
 | `smokeCubes` | 10 | 個。1発で出る煙の塊の数 |
 | `smokeMax` | 270 | 個。同時に出せる煙の塊の上限 |
@@ -533,7 +559,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
   - 歩く先（`navTarget`）: 敵から機体への直線が塞がれた格子を通らなければ機体そのもの。通るなら、敵のいる格子から歩数の少ない隣（8方向。斜めは両側が空いているときだけ。同じ歩数なら機体に近いほう）を `NAV_LOOKAHEAD`（6）格子まで先へたどり、敵から直線で行ける最も遠い格子の中心を返す（角でだけ曲がる）。敵が壁沿いで塞がれた格子の中にいるときは、まわりでいちばん歩数の少ない格子から始める。機体が囲われていて歩数がつかないときは null（まっすぐ歩く）。直線の判定は `NAV_SAMPLE`（1m）ごとの点で、始まりの格子は数えない
   - 作り直し（`stepNav`）: `game.nav`（`NavState`）が持つ。生きていて `speed > 0` の敵がいるフレームだけ呼ぶ（機銃座だけが残ったら作らない）。格子は最初と `rectCount` が変わったとき、歩数は格子を作ったときと、機体が別の格子に移ったとき（前の作り直しから `NAV_REBUILD_GAP` = 0.25 秒以上たっていれば）に作り直す。M1 の手書きマップ（四角 603 個）で、歩数の作り直しは1回 約 0.3 ms、格子は約 3 ms（壊せる物が壊れたときだけ）
   - 保存: `nav` は四角から作り直せるので、チェックポイント（`snapshotOf`・`GameSnapshot`）にも中断（`suspendOf`・`SuspendedGame`）にも入れず、戻したときは `newNav()`
-- 倒れる: 体力 0 の敵は `game.enemies` に残るが、動かず、撃たず、弾も当たらない。FCS の対象にもならない
+- 倒れる: 体力 0 の敵は `game.enemies` に残るが、動かず、撃たず、弾も当たらない。FCS の対象にもならない。出来事 `enemyDown`（`id`・`x`・`y`・`z`）を出し、`y` は倒れた所の面の高さ（`blastFaceHeight`）と敵の足元の高いほう（落ちている途中なら足元）。爆発はその高さに `BLAST_LIFT.small` を足した所に出る
 - 波が終わる: 波の敵が全部倒れると、`checkWaves` が台本に `cleared`（`wave`）を渡す。台本が覚えるので1回だけ。敵を出さなかった波には渡さない
 - FCS: 生きている敵も `fcsTargets` に入る。`aimTarget` は目標か敵の id
 - 見えない相手には寄らない: 胸から相手の箱の中心への線が、物の箱か壊れていない目標の箱（相手自身の箱は除く）に先に当たる相手は、生きていても `fcsTargets` で生きていない扱いにする（トーチカの陰の敵にソフトロックとロック枠が寄らないため。`inSight` in `src/logic/game.ts`）
@@ -618,7 +644,7 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
   - 始まる: 台本の `spawn` で、波の名前が `M1_WAVE_BARRAGE`（`beach-mortar` が `mortar`、`battery` が `battery`）にあれば `startBarrage` が `game.barrages` に足す。同じ波では1回だけ。始まったら止まらない（迫撃砲の陣地は壊せないため、台本で止める仕組みは持たない。副砲も主砲が倒れたあとも続き、弾薬庫を壊して出撃が終わるまで止まらない）
   - 流れ（`stepBarrage`）: 機体の足元の z が `minZ` 以上 `maxZ` 以下の間だけ `wait` を数える（`inReach`。限りのない側は `-Infinity`・`Infinity`）。`slow`（`flag` と `mul`）を持つ砲撃は、台本のその印が立っている間、`wait` を `dt / mul` ずつ数える（間隔が `mul` 倍になる。`stepHazards` が `game.script.flags` を見て渡す）。0 になるたびに着弾予告 `ShellState` を `game.shells` に足し、出来事 `shellWarn`（`x`・`z`・`radius`）を出す。届かない間は数えない（届く所に戻ってから `interval` 後が最初の予告）
   - 狙い: 機体の位置から、向きは 0〜2π、距離は 0〜`aimJitter` の一様な乱数でずらした所。乱数の列は `stream('mortar')`
-  - 落ちる: `shells` の `left` が `dt` ずつ減り、0 になった予告が落ちて `shellLand`（`x`・`z`・`hit`）を出す。機体の足元が半径 `radius` の円の中なら `hit` が true で、`damageMech` と同じ道で装甲が `damage` 減る（`damaged` の向きは機体から落ちた所へ）
+  - 落ちる: `shells` の `left` が `dt` ずつ減り、0 になった予告が落ちて `shellLand`（`x`・`y`・`z`・`hit`）を出す。`y` は落ちた所の面の高さ（`blastFaceHeight`）。機体の足元が半径 `radius` の円の中なら `hit` が true で、`damageMech` と同じ道で装甲が `damage` 減る（`damaged` の向きは機体から落ちた所へ）
 - 狙う迫撃砲（`AIMED_MORTAR`）
   - 始まる: 台本の `spawn` の波の名前が `M1_WAVE_AIMED`（`beach-mortar`）にあれば `startAimed` が `game.aimed`（`anchor`・`still`）を作る。同じ波では1回だけ（`game.aimed` があれば何もしない）。`BARRAGES.mortar` の砲撃も同時に続き、`beach-mortar` は両方を始める
   - 区間: 機体の足元の z が `minZ` 以上 `maxZ` 以下の間（既存の `inReach` と同じ向き。+z が海）。`minZ` はトーチカ線の手前。`aimedInReach` が判定する
@@ -633,12 +659,12 @@ SB-190 の3枚目。迫撃砲の陣地は壊せない背景の脅威で、遊ぶ
   - 置き場所は `MapDef.mines`（`MinePlace` の一覧。省略できる）。省略した地図は地雷なしで、生成の地図と簡易エディタの地図は地雷を持たない。`newGame` が `game.mines`（`x`・`z`・`hp`）にする
   - 踏む: 機体の足元から `stepRadius` 以内で爆発する（跳んでいても高さは見ない）
   - 撃つ: 機体の弾は、地雷の箱（`size` の幅・高さ・奥行き）に当たると止まり、`hp` が威力の分だけ減る。0 で爆発する。弾が止まる順は、目標・敵・地雷・物・地面のうち、飛ぶ道の上でいちばん近いもの（敵の弾は地雷を素通りする）。当たりの出来事 `hit` は、地面と同じく目標・物・敵・機体のどれも空
-  - 爆発（`blowUp`）: 地雷が `game.mines` から消え、出来事 `mineBlast`（`x`・`z`・`hit`）を出す。機体の足元が `blastRadius` 以内なら `hit` が true で、装甲が `damage` 減る
+  - 爆発（`blowUp`）: 地雷が `game.mines` から消え、出来事 `mineBlast`（`x`・`y`・`z`・`hit`）を出す。`y` は地雷の下の面の高さ（`blastFaceHeight`）。機体の足元が `blastRadius` 以内なら `hit` が true で、装甲が `damage` 減る
 - チェックポイント: `shells` は持ち越さない（`retryFromCheckpoint` で空にする。`bullets` と同じ）。`barrages` と `mines` はコピーで、壊した地雷は戻らない
 - 見た目（`src/view/hazards.ts`）
-  - 着弾予告の輪: 地面の輪を `InstancedMesh`（名前 `sb-shells`、最大 16）1つで描く。輪の半径は爆発の半径のまま、落ちるまでの間に `SHELL_WARN_COLOR` から `SHELL_LAND_COLOR` へ明るくなる
+  - 着弾予告の輪: 落ちる所の面の輪を `InstancedMesh`（名前 `sb-shells`、最大 16）1つで描く。高さは `blastFaceHeight` に `SHELL_RING_LIFT`（0.06m）を足した所。輪の半径は爆発の半径のまま、落ちるまでの間に `SHELL_WARN_COLOR` から `SHELL_LAND_COLOR` へ明るくなる
   - 地雷: 地面の円盤を `InstancedMesh`（名前 `sb-mines`、最大 64）1つで描く。爆発したものは描かない
-  - 落ちた・爆発したときは、その場に爆発（`spawnBoom('large', ...)` in `src/view/boom.ts`、下の「爆発」）を出し、揺れは爆発の表の距離の値で決める（近いほど強い）。描く回数は輪1・地雷1に爆発の最大5つが加わる。`clearPlay` が片付ける
+  - 落ちた・爆発したときは、その場に爆発（`spawnBoom('large', ...)` in `src/view/boom.ts`、下の「爆発」）を出し、揺れは爆発の表の距離の値で決める（近いほど強い）。面の高さは `blastFaceHeight`（`src/logic/game.ts`。機体の半径で足元の面を読み、`BLAST_FACE_TUNE.maxHeight` = 6.5m を上限にする）で取り、閃光・煙・砂柱はその高さに `BLAST_LIFT`（`src/data/boom.ts`）を足した所に出す（`shellLand`・`mineBlast` は `large`）。戦場の層の着弾も同じ面の高さに閃光と破片を出す。描く回数は輪1・地雷1に爆発の最大5つが加わる。`clearPlay` が片付ける
 - HUD の警告: `hudModel` の `warning` は、機体がどれかの着弾予告の円の中にいる間 `'shell'`、ほかは null
 
 | 名前 | 値 | 単位・意味 |
@@ -672,7 +698,7 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 - 煙: 半透明（不透明度 0.42）で `depthWrite: false`。色は黒から灰へ変わる。煙は `SMOKE_EMIT`（1.6 秒）の間に少しずつ地面を離れ、柱になって上がる。火球と閃光（`sb-boom-fire`）だけ `toneMapped: false` にして表の色をそのまま出し、煙・破片・柱はページのトーンマッピングを通す（ACES を通すと火球が暗くくすむため）
 - 柱: `spawnBoom` の z が海（マップの `maxZ` より先）なら水柱、そうでなければ砂柱。`water` はいつでも水柱。水柱の根元は渡された高さではなく、海面（`SEA_LEVEL` in `src/view/shore.ts`）に置く
 - 揺れ: `boomShakeAt(kind, distance)` が `BOOM_SHAKE.near`（10m）で行の `shake`、`BOOM_SHAKE.far`（90m）で 0 になる（距離の2乗で弱まる）。本体は機体から、カットシーンはそのカメラからの距離で `feelBoom` に足す。カットシーンのカメラにも同じ揺れを足す
-- つなぐ所（`drawPlay`）: `destroyed` は目標の箱の真ん中で `large`、`enemyDown` と `propDestroyed` はその場所で `small`、`shellLand` と `mineBlast` はその場所で、z が海なら `water`、そうでなければ `large`。`hit` は砂ぼこりを出す。味方機の `allyDown` は `by` が `mortar` なら `shellBurst` と砂煙（`BLAST_DUST`）、`gun` なら砂煙（`HIT_DUST`）だけ。戦場の層の砲撃は `shellBurst` で出す
+- つなぐ所（`drawPlay`）: `destroyed` は目標の箱の真ん中で `large`、`enemyDown` と `propDestroyed` はその場所で `small`、`shellLand` と `mineBlast` はその場所で、z が海なら `water`、そうでなければ `large`。`hit` は砂ぼこりを、`x` `z` の面の高さ（`blastFaceHeight`）に出す。敵や壁の側面に当たっても、砂ぼこりは空中に出ず、平地では元の地面の 0.6m のまま。味方機の `allyDown` は `by` が `mortar` なら `shellBurst` と砂煙（`BLAST_DUST`）、`gun` なら砂煙（`HIT_DUST`）だけ。戦場の層の砲撃は `shellBurst` で出す
 - カットシーン（`drawCutscene`）: `burst` は着弾点が海なら `water`、陸なら `large`、`sink` は艇の中ほどで `craft`。ランプの砂ぼこりは `spawnDust`
 - 確認用の入口 `#view-boom`: 浜と海の境を固定カメラで見て、爆発の見た目と揺れを試す。種類 `small`・`large`・`craft`・`water` のボタン（とキー 1〜4）でその種類を選んで出し、右上の調整パネル（`BOOM_DEFS.<種類>` の行）で「大きさ（火球の半径）」「煙の数」「煙の寿命」「揺れ」をその場で書き換える（保存しない。「値をコピー」で `BOOM_DEFS.large.fire.radius: 6.4` の形になる）。今の値を文字で出し、`window.sbBoomReport()` が同じ値と粒の数・描く回数・三角形を JSON の文字列で返す。土の上は砂柱、海の上は水柱
 
@@ -705,7 +731,7 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 - 見た目: 機体の箱の組み立て（`buildMechVisual`）を `ALLY_TUNE.height`（3.4m。機体は 4m）と `ALLY_PALETTE` で作る。落ちたら同じ箱を `ALLY_WRECK_PALETTE` で作ったものを `wreckTilt` 倒して置く（5色ごとに1 draw で、走る姿と残骸の2体分）。メッシュの名前は `ally`（機体の `mech` と数え分ける）。走る姿と残骸の `userData.allyId` に味方機の id を入れる（e2e が5機の中の1機を探せるように）
 - 撃つ真似: 走っている間と、投稿に着いて止まった後、`fireEvery` ごとに曳光弾を `Battle.tracer` で出す（当たりは無い）。`engageRange` 以内の一番近い生きている敵がいれば、その敵の胸（`ENEMIES[kind].height × ENEMY_CHEST`）へ向け、出る所は `fireAhead` 進めた所、散らしは `aimSpreadDeg`。その敵がいる間は体の向き（見た目だけ）も敵へ向ける。当たりを足さないので `ally.yaw` は書き換えない（走る向きと残骸の向きはそのまま）。敵がいなければ、向きの前へ `tracerSpread` の散らしで撃つ。倒れている間は撃たない。敵選びは `nearestIndex`
 - 敵の曳光: 起きている（`awake`）生きている敵が、`enemyTracerRange` 以内の一番近い味方機へ、`enemyTracerEvery` ごとに1本、`enemyTracerSpreadDeg` の散らしで曳光を出す（敵の胸から味方機の胸 `fireHeight`）。当たりは無く、見た目だけ。敵の実弾（`EnemyBullet`）とは別の間隔で見せる（敵が撃てない時にも出る）。味方機がいなければ撃たずに次の間隔へ。乱数は `stream('allyFx')`
-- 落ちたときの見た目: `allyDown` を `drawPlay` が受けて、`by` が `mortar` なら `shellBurst`（戦場の砲撃と同じ閃光と破片）と砂煙（`BLAST_DUST`）、`by` が `gun` なら砂煙（`HIT_DUST`）だけをその場に出す。機銃で倒れた機体を迫撃砲の着弾に見せない。着弾予告の輪は出さない
+- 落ちたときの見た目: `allyDown` を `drawPlay` が受けて、`by` が `mortar` なら `shellBurst`（戦場の砲撃と同じ閃光と破片）と砂煙（`BLAST_DUST`）、`by` が `gun` なら砂煙（`HIT_DUST`）だけをその場に出す。どれも味方の足元の面の高さ（`blastFaceHeight`）に出す。機銃で倒れた機体を迫撃砲の着弾に見せない。着弾予告の輪は出さない
 
 | 名前（`ALLY_TUNE`） | 値 | 単位・意味 |
 |------|----|------------|
@@ -792,11 +818,11 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `#view-fcs`: 平らな地面で、8体の動く的（止まる2・左右に往復2・円を回る2・近づいて離れる2）へ撃ち、FCS の3つの型を比べる入口。`?fcs=manual|soft|hard` で型を選び（既定はゲームで使う `soft`。表に無い値は既定にして画面に「無効な値」と出す）、`FCS_TUNE` の各項目を同じ名前で上書きできる（例 `?fcs=soft&cone=10&pull=30`）。`MOVE_TUNE`・`FEEL_TUNE` の項目と `?feel=0` も `#view-move` と同じく効く。`?move=still` で的を全部止める。画面の上の真ん中のボタンで型を切り替える（`?fcs=` を変えて読み直す）。照準は画面の真ん中の点と、`cone` が 0 より大きい型ではカメラの画角から出した円、円の中の的の角の印、`hard` の候補の進み具合の弧、捕まえた的の四角で出す。画面の左上に撃った数・当てた数・当たる率・倒した数・倒すまでの時間の平均・捕まえるまでの時間の平均を出し、`window.sbFcsReport()` が同じ数字を JSON の文字列で返す。測る数字は型ごとで、切り替えると 0 から
 - `#view-script`: M1「強襲上陸」の台本をボタンで動かす入口。3D は描かず、屋外の画面に DOM を重ねる。左に今の目標・地図の印・カットシーンと残りの秒・旗・結果、下の真ん中に無線の帯（1行を最低 `RADIO_TUNE.minSec` ずつ順に出す）、右に出来事を入れるボタン（`enter b-line`・`enter seawall-top`・各物の `destroyed`・`skip`）と時間の速さ（×1・×4）、右下に cue が発火した時刻と出来事のログを出す。毎フレーム `stepScript` を回し、`window.sbScriptReport()` が `fired`（cue → 時刻）と出来事の列を JSON の文字列で返す
 - `#view-hud`: HUD の配置の見本を4案（A 四隅に散らす・B 下にまとめる・C 照準のまわりに寄せる・D A の配置に照準のまわりの細い計器を足す）で切り替えて見る入口。`#view-map` の浜のマップ（`buildMapScene`）を固定カメラで描き、機体の模型を置く。ゲームの状態にはつながず、見本の値（`src/dev/hud/plans.ts` の `HUD_SAMPLE`）で描く。`?plan=a|b|c|d`（既定 a）、`?cut=1`（カットシーンの帯）、`?touch=1`（タッチのボタンの輪）、数字キー 1〜4 で案を切り替える。ロック枠は `lockFrame` で描き、見本の四角（`LOCK_SAMPLE`）に出す。`window.sbHudReport()` が各要素の矩形を JSON の文字列で返す。弧・レーダー・点と円の描き方は `src/view/hudParts.ts` から読む（見本の値と動きは変えない）。要素の値の多く（装甲・熱・弾数・武器の枠（メインとサブの2つ）・レーダー）と、カットシーン中の表示（無線以外を隠す）は仮であること。見本には熱の欄が残る（本体は熱を持たない）。右上の調整パネルで `RADIO_TUNE` の `minSec` と `maxPending` を変えられ、「無線を2行流す」で1行ずつ順に出る様子を見られる
-- `#view-mech`: 機体の見た目の案を5つ（A 重装ずんぐり・E 中量（A を細く）・F 中量・脚長・B 逆関節の軽め・D 四脚の戦車寄り）で切り替えて見る入口。`#view-hud` と同じ浜のマップに機体を置き、ゲームの状態にはつながない。`?pattern=a|e|f|b|d`（既定 a）、`?spin=0`（回転を止める）、`?view=behind`（ゲームの三人称カメラの構図で止める）。数字キー 1〜5 と上のボタンで案を切り替え、`回転`・`後ろから` のボタンで視点を替える。`window.sbMechReport()` が案・回転・視点と、機体の描く回数・三角形・箱の数・重さの合計と、画面全体の直近の描く回数・三角形を JSON の文字列で返す。`歩く`・`ブースト`・`跳ぶ`・`撃つ` のボタン（キー W・B・J・F）で機体の動きを見られる（`歩く`・`ブースト`・`撃つ` は押すたびに入り切り、`跳ぶ` は1回跳ぶ。速さと跳びは案の脚の種類の値で、案 B は逆関節、案 D は四脚の動きになる）。`window.sbMechReport()` の JSON には、動きの入り切り `acts` も入る。部品の寸法・色・重さはどれも仮であること
-- `#view-map`: M1 の手書きのマップ（浜・B トーチカ線・C・防波堤・ボスの場所）を歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、海と揚陸艇を `buildShore`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（9章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す。右上の調整パネルで `MOVE_TUNE`（歩く速さ・ジャンプ・重力・ブースト）・`CAMERA_TUNE`（距離・高さ）・`FEEL_TUNE`（画角・揺れ・ヒットストップ・砂煙・連射）を歩きながら変えられる（保存しない。`?walk=` などの URL の値の上に載る）
+- `#view-mech`: 機体の見た目の案を5つ（A 重装ずんぐり・E 中量（A を細く）・F 中量・脚長・B 逆関節の軽め・D 四脚の戦車寄り）で切り替えて見る入口。`#view-hud` と同じ浜のマップに機体を置き、ゲームの状態にはつながない。`?pattern=a|e|f|b|d`（既定 a）、`?spin=0`（回転を止める）、`?view=behind`（ゲームの三人称カメラの構図で止める）。数字キー 1〜5 と上のボタンで案を切り替え、`回転`・`後ろから` のボタンで視点を替える。`window.sbMechReport()` が案・回転・視点と、機体の描く回数・三角形・箱の数・重さの合計と、画面全体の直近の描く回数・三角形を JSON の文字列で返す。`歩く`・`ブースト`・`跳ぶ`・`撃つ` のボタン（キー W・B・J・F）で機体の動きを見られる（`歩く`・`ブースト`・`撃つ` は押すたびに入り切り、`跳ぶ` は1回跳ぶ。速さと跳びは案の脚の種類の値で、案 B は逆関節、案 D は四脚の動きになる）。`window.sbMechReport()` の JSON には、動きの入り切り `acts` も入る。右上の調整パネルは `MECH_PAINT`（色ごとの汚れ・粒・傷の数）と `MECH_PAINT_TEX`（番号の大きさ・縞の間隔）を書き換え、その場で機体を描き直す（SB-1460）。部品の寸法・色・重さはどれも仮であること
+- `#view-map`: M1 の手書きのマップ（浜・B トーチカ線・C・防波堤・ボスの場所）を歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、海と揚陸艇を `buildShore`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（9章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す。右上の調整パネルで `MOVE_TUNE`（歩く速さ・ジャンプ・重力・ブースト）・`CAMERA_TUNE`（距離・高さ・壁で寄るときの速さと戻り・最短の距離・上げ・`closeLook`・`closePitch`・`fastTurn`）・`FEEL_TUNE`（画角・揺れ・ヒットストップ・砂煙・連射）を歩きながら変えられる（保存しない。`?walk=` などの URL の値の上に載る）。射撃の値（`FCS_TUNE.soft`）は `#view-fcs` で URL から変える
 - `#view-fx`: M1 の B のマップ（手書き・生成・エディタが保存したもの）を機体で歩きながら、周りで戦闘が起きている迫力を試す入口。演出はゲームの状態に影響しない
   - 選ぶ: `?src=hand|gen|edit` で M1 の B の手書きのマップ・生成したマップ・エディタが `localStorage` に保存したマップを選び（既定 `hand`。`edit` で保存が無いときは「保存されたマップが無い」を出して空のマップで開く）、`?fx=0|1|2|3` で濃さを選び（0 は演出を全部切った見た目で、`mech=4` なら `#view-map` と同じ。1 は弱、2 は中、3 は強。既定 2）、`FX_TUNE` の各項目を同じ名前でさらに上書きできる（例 `?fx=3&pixel=0.4&tracers=6`）。`?seed=<n>` は場面の種
-  - 機体の大きさ: `?mech=<m>` は機体の高さ（3〜8m、既定は `MECH_TUNE.height` の 4）で、仮の模型を `mech/4` 倍にし、足元は地面に付けたままにする。機体は `#view-map` と同じく物と目標に入らず、斜めに当たると壁に沿って滑る。当たり半径は `?mech=` とつまみに比例する（`MECH_TUNE.radius` × `mech/4`。`?mechMove=0` でも比例し、`?mech=8` で 2m）。`?mechCam=0` はカメラの距離・肩・注視点の高さ・上への持ち上げ・狙うときの距離を、`?mechMove=0` は歩き・ブーストの速さと加速・ジャンプの初速を `mech/4` に比例させない（ジャンプの初速は `sqrt(mech/4)`。既定はどちらも比例）。`MOVE_TUNE`・`CAMERA_TUNE` は 4m 用で、`?mech=8` にすると 8m の機体用の値になる。物と歩兵の大きさは 8m の機体を基準にした値で、`?mech=` に比例しない。機体の始まりは地図の手前の端から、`mech` に比例したカメラの距離＋4m 内側にして、カメラが地図の外に出ないようにする
+  - 機体の大きさ: `?mech=<m>` は機体の高さ（3〜8m、既定は `MECH_TUNE.height` の 4）で、仮の模型を `mech/4` 倍にし、足元は地面に付けたままにする。機体は `#view-map` と同じく物と目標に入らず、斜めに当たると壁に沿って滑る。当たり半径は `?mech=` とつまみに比例する（`MECH_TUNE.radius` × `mech/4`。`?mechMove=0` でも比例し、`?mech=8` で 2m）。`?mechCam=0` はカメラの距離と速さを、`?mechMove=0` は歩き・ブーストの速さと加速・ジャンプの初速を `mech/4` に比例させない（ジャンプの初速は `sqrt(mech/4)`。既定はどちらも比例）。`MOVE_TUNE`・`CAMERA_TUNE` は 4m 用で、`?mech=8` にすると 8m の機体用の値になる。物と歩兵の大きさは 8m の機体を基準にした値で、`?mech=` に比例しない。機体の始まりは地図の手前の端から、`mech` に比例したカメラの距離＋4m 内側にして、カメラが地図の外に出ないようにする
   - 戦場: 味方の歩兵は海側から波で出て -z へ進み、倒れた人と抜けた人を数える。砲撃は機体のまわりの輪に落ちて閃光・破片・灰色の煙を出し、近いほどカメラを揺らす。残骸からは煙の柱が立ち、曳光弾が画面を横切り、飛行機はマップの左右の端の外側（`PLANE_MARGIN`）まで機体と関係なくマップの座標で横切る。地面には `stream('craters')` の種から散らした砲弾穴があり、`craterWater` の割合で水が溜まる（見た目だけで、地面の高さ・機体の歩き・当たり判定は変えない）。砲撃は `shellCrater` が 1 なら落ちた所に新しい穴を残し、`craterCap` を超えると古いものから消える
   - 画面: 見た目は `pixel` の解像度と canvas の CSS の `filter`（`saturate`・`contrast`・`sepia`）と霧で作る。`light` はシーンの全部の光の強さに掛ける倍率、`sun` はそのうち `DirectionalLight` だけにさらに掛ける倍率、`groundColor` は地面の色（海沿いの濡れの濃淡は残す）で、色は URL では10進の数値で上書きできる。煙の色は `smokeColor`・`smokeDark` で変えられる（URL のみ）
   - つまみと書き出し: 右上のつまみは `FX_TUNE` の主な値をスライダーで変え（歩兵の人数・煙の上限・穴の数と上限・穴の半径と水の割合は「やり直し」で作り直す）、`mech` のスライダーと `mechCam`・`mechMove` のチェックも置き、折りたためる。「書き出し」は今の値を JSON で `<textarea>` に出し、`window.sbFxReport()` が同じ JSON に機体の高さ・比例のありなし・歩きとブーストの速さ・描く回数・三角形の数・直近の fps を足して文字列で返す。左上に選んだ `src`・前進・倒れ・抜けの人数（戦場の歩兵が上限に当たっているときは「上限」も）・煙の塊の数と描く回数・三角形の数・fps を出し、`window.sbFxReport()` と書き出しの JSON にも `src` を出す

@@ -29,6 +29,43 @@ test('an 8 m mech gets the 8 m values from before SB-100 back', () => {
   expect(scale.cameraTune.fov).toBe(CAMERA_TUNE.fov);
 });
 
+test('an 8 m mech scales every camera distance and speed, and keeps the angles and times', () => {
+  const scale = scaleForMech(8, MOVE_TUNE, CAMERA_TUNE, ALL_ON);
+  const lengths: (keyof typeof CAMERA_TUNE)[] = [
+    'dist',
+    'height',
+    'shoulder',
+    'lookHeight',
+    'minDist',
+    'margin',
+    'aimDist',
+    'pullSpeed',
+    'pullGap',
+    'pullNear',
+    'returnSpeed',
+    'releaseGap',
+    'rise',
+    'riseRange',
+    'closeLook',
+  ];
+  for (const key of lengths) expect(scale.cameraTune[key], key).toBeCloseTo(CAMERA_TUNE[key] * 2, 10);
+  for (const key of [
+    'closePitch',
+    'probeDeg',
+    'fastTurn',
+    'pitchMin',
+    'pitchMax',
+    'lag',
+    'returnLag',
+    'fov',
+    'aimFov',
+  ] as const) {
+    expect(scale.cameraTune[key], key).toBe(CAMERA_TUNE[key]);
+  }
+  // the course's walking speed is not a camera distance, so the look keeps the same lap time
+  expect(scale.cameraTune.walk).toBe(CAMERA_TUNE.walk);
+});
+
 test('turning the camera proportion off keeps CAMERA_TUNE', () => {
   const scale = scaleForMech(8, MOVE_TUNE, CAMERA_TUNE, { camera: false, move: true });
   expect(scale.cameraTune).toEqual(CAMERA_TUNE);

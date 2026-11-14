@@ -12,8 +12,10 @@ import { PROP_SIZE } from '../../data/props.ts';
 import { SOLDIER_POSE } from '../../data/soldiers.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
 import { newBattle, stepBattle } from '../../logic/battle.ts';
+import type { GroundRect } from '../../logic/collide.ts';
 import { MAX_SOLDIERS, crowdCounts, fallNear, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
+import { blastFaceHeight } from '../../logic/game.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
 import { shellBurst } from '../hazards.ts';
 import { MAX_TRACERS, craterMeshes, planeGroup, smokeMesh, soldierMeshes, tracerMesh } from './parts.ts';
@@ -110,6 +112,7 @@ export function buildBattle(
   craterRng: Rng,
   start: { x: number; z: number },
   holdZ: number | null = null,
+  rects: readonly GroundRect[] = [],
 ): Battle {
   const group = new THREE.Group();
   group.name = BATTLE_GROUP_NAME;
@@ -201,9 +204,10 @@ export function buildBattle(
     smokePuffs.push({ x, y, z, age: 0, life, size, rise });
   }
 
-  // Shows a shell that landed at (x, z): its flash and dirt, its hole and its smoke.
+  // Shows a shell that landed at (x, z): its flash and dirt, its hole and its smoke. The flash stands on the face under
+  // it, so one that lands on the seawall is not drawn inside it.
   function landShell(x: number, z: number) {
-    shellBurst(x, z);
+    shellBurst(x, z, blastFaceHeight(rects, x, z));
     addShellCraterAt(x, z);
     const cubes = Math.min(200, Math.max(0, Math.round(tune.smokeCubes)));
     for (let i = 0; i < cubes; i++) {

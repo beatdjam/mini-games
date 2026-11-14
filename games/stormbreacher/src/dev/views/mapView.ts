@@ -16,7 +16,7 @@ import { validateMapForMission, type MapViolation } from '../../logic/mapCheck.t
 import { generateMap } from '../../logic/mapgen.ts';
 import { mapBlockers } from '../../logic/mapShapes.ts';
 import { stream } from '../../logic/rng.ts';
-import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
+import { applyPose, cameraPose, followCamera, type CameraState } from '../../view/camera.ts';
 import { applyAtmosphere } from '../../view/atmosphere.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildWorld, MAP_FOG, type World } from '../../view/world.ts';
@@ -183,8 +183,39 @@ export function showMap(_hash: string) {
         ranges: {
           dist: { min: 1, max: 20, step: 0.1 },
           height: { min: -5, max: 10, step: 0.1 },
+          minDist: { min: 0, max: 3, step: 0.1 },
+          margin: { min: 0, max: 2, step: 0.05 },
+          pullSpeed: { min: 0, max: 20, step: 0.5 },
+          pullGap: { min: 0, max: 3, step: 0.1 },
+          pullNear: { min: 0, max: 2, step: 0.05 },
+          returnSpeed: { min: 0, max: 10, step: 0.5 },
+          returnLag: { min: 0, max: 1, step: 0.01 },
+          releaseGap: { min: 0, max: 5, step: 0.1 },
+          rise: { min: 0, max: 3, step: 0.05 },
+          riseRange: { min: 0, max: 5, step: 0.1 },
+          closeLook: { min: 0, max: 5, step: 0.1 },
+          closePitch: { min: 0, max: 0.5, step: 0.01 },
+          fastTurn: { min: 0, max: 20, step: 0.5 },
+          probeDeg: { min: 0, max: 15, step: 0.5 },
         },
-        labels: { dist: '距離（m）', height: '高さ（m）' },
+        labels: {
+          dist: '距離（m）',
+          height: '高さ（m）',
+          minDist: '寄れる最短（m）',
+          margin: '壁の前の隙間（m）',
+          pullSpeed: '寄る速さの上限（m/s）',
+          pullGap: '戻りを閉じる残り（m）',
+          pullNear: '寄りとみなす近さ（m）',
+          returnSpeed: '戻る速さ（m/s）',
+          returnLag: '戻る時定数（s）',
+          releaseGap: '離れたとみなす差（m）',
+          rise: '寄ったときの上げ（m）',
+          riseRange: '上げを戻す距離（m）',
+          closeLook: '寄ったとき前へ出す注視点（m）',
+          closePitch: '見下ろしの上乗せ（rad）',
+          fastTurn: '急旋回とみなす速さ（rad/s）',
+          probeDeg: '角を見る角度（度）',
+        },
       },
       {
         name: 'FEEL_TUNE',
@@ -277,7 +308,7 @@ export function showMap(_hash: string) {
   };
 
   let pitch = 0;
-  let camPos: THREE.Vector3 | null = null;
+  let cam: CameraState | null = null;
 
   addSystem({
     name: 'sb-map',
@@ -286,9 +317,9 @@ export function showMap(_hash: string) {
       pitch = clamp(pitch + read.pitchDelta, CAMERA_TUNE.pitchMin, CAMERA_TUNE.pitchMax);
       const step = range.step(read.input, dt, moveTune, feelTune);
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, cameraBoxes);
-      camPos = camPos ? followPose(camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
-      const pos = camPos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos }, step.fov);
+      cam = followCamera(cam, pose, dt, CAMERA_TUNE);
+      const pos = cam.pos.clone().add(step.offset);
+      applyPose(camera, { ...pose, pos, look: cam.look }, step.fov);
       cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
       hud.textContent = hudText(source, seed, message, map, counts, violations, mech);
     },

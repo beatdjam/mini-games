@@ -3,6 +3,7 @@ import { page } from 'vitest/browser';
 import * as THREE from 'three';
 import { el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
+import { ENEMY_COLOR } from '../../src/data/colors.ts';
 import { ENEMY_KINDS } from '../../src/data/enemies.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
@@ -93,4 +94,26 @@ test('the enemies of a wave are drawn, and starting again leaves one set', async
       .sort(),
   ).toEqual(ENEMY_KINDS.map(enemyMeshName).sort());
   expect(drawnEnemies()).toBe(0);
+});
+
+const colorAt = new THREE.Color();
+
+test('every kind keeps room for its instance colours, so the GPU can draw it', async () => {
+  startSortie();
+  await frame();
+  sendToScript(game(), { kind: 'enter', area: 'b-line' });
+  await frame();
+  expect(drawnEnemies()).toBe(12);
+  for (const kind of ENEMY_KINDS) {
+    const mesh = scene.getObjectByName(enemyMeshName(kind)) as THREE.InstancedMesh;
+    expect(mesh.count, kind).toBeGreaterThan(0);
+    // The room covers every copy the mesh may draw, so the GPU finds a colour for each one.
+    const colors = mesh.instanceColor;
+    if (colors === null) throw new Error(`${kind} has no instance colours`);
+    expect(colors.array.length, `${kind} colour room`).toBe((mesh.instanceMatrix.array.length / 16) * 3);
+    for (let i = 0; i < mesh.count; i++) {
+      mesh.getColorAt(i, colorAt);
+      expect(colorAt.getHex(), `${kind} ${i}`).toBe(ENEMY_COLOR[kind]);
+    }
+  }
 });

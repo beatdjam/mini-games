@@ -81,10 +81,10 @@ export function feelStep(
   return { fov: f.fov, offset, stopped };
 }
 
-// A puff of sand dust at the feet. `amount` is the number of particles before tune.dust multiplies it; a dust of 0
-// (or an amount that rounds to 0) makes none.
-export function spawnDust(x: number, z: number, amount: number, tune: FeelTune) {
+// A puff of sand dust at the feet, `y` m above the ground under them. `amount` is the number of particles before
+// tune.dust multiplies it; a dust of 0 (or an amount that rounds to 0) makes none.
+export function spawnDust(x: number, z: number, amount: number, tune: FeelTune, y = 0) {
   const count = Math.round(amount * tune.dust);
   if (count <= 0) return;
-  burst(x, DUST_SIZE, z, DUST_COLOR, count, DUST_SPEED, DUST_LIFE, DUST_GRAVITY);
+  burst(x, y + DUST_SIZE, z, DUST_COLOR, count, DUST_SPEED, DUST_LIFE, DUST_GRAVITY);
 }
