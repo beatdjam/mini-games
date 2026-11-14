@@ -3,18 +3,19 @@
 // it nears landing. It reads GameModel and never writes it.
 import * as THREE from 'three';
 import { burst, fireball, scene } from '@engine/render/index.ts';
+import { BLAST_LIFT } from '../data/boom.ts';
 import { MINE_COLOR, SHELL_LAND_COLOR, SHELL_WARN_COLOR } from '../data/colors.ts';
 import { MINE_TUNE } from '../data/hazards.ts';
-import type { GameModel } from '../logic/game.ts';
+import { blastFaceHeight, type GameModel } from '../logic/game.ts';
 
 export const SHELL_MESH_NAME = 'sb-shells';
 export const MINE_MESH_NAME = 'sb-mines';
+export const SHELL_RING_LIFT = 0.06; // how far above the face the ring and the discs sit, so they do not fight with it (m)
 
 const MAX_SHELLS = 16; // the most shells drawn at once; the rest fall unseen
 const MAX_MINES = 64; // the most mines drawn at once
 const RING_INNER = 0.88; // the ring's inner radius as a share of its outer one
 const RING_SEGMENTS = 48;
-const GROUND_LIFT = 0.06; // how far above the ground the ring and the discs sit, so they do not fight with it (m)
 const DISC_SEGMENTS = 16;
 const SHELL_FIRE_COLOR = 0xffb347; // the flash of a shell that lands
 const SHELL_DEBRIS_COLOR = 0x746654; // the dirt it throws
@@ -67,7 +68,8 @@ export function drawHazards(view: HazardView, game: GameModel): void {
   const shells = Math.min(game.shells.length, MAX_SHELLS);
   for (let i = 0; i < shells; i++) {
     const shell = game.shells[i];
-    place.position.set(shell.x, GROUND_LIFT, shell.z);
+    // the ring lies on the face the shell will land on, so it stays above a seawall or a ramp rather than inside it
+    place.position.set(shell.x, blastFaceHeight(game.rects, shell.x, shell.z) + SHELL_RING_LIFT, shell.z);
     place.scale.set(shell.radius, 1, shell.radius);
     place.updateMatrix();
     view.shells.setMatrixAt(i, place.matrix);
@@ -82,7 +84,7 @@ export function drawHazards(view: HazardView, game: GameModel): void {
   const mines = Math.min(game.mines.length, MAX_MINES);
   for (let i = 0; i < mines; i++) {
     const mine = game.mines[i];
-    place.position.set(mine.x, GROUND_LIFT, mine.z);
+    place.position.set(mine.x, SHELL_RING_LIFT, mine.z);
     place.scale.set(MINE_TUNE.size.w / 2, 1, MINE_TUNE.size.d / 2);
     place.updateMatrix();
     view.mines.setMatrixAt(i, place.matrix);
@@ -91,10 +93,11 @@ export function drawHazards(view: HazardView, game: GameModel): void {
   view.mines.instanceMatrix.needsUpdate = true;
 }
 
-// The flash and the dirt of a shell landing at (x, z). The battle's shells and the one that takes an ally down look the same.
-export function shellBurst(x: number, z: number): void {
-  fireball(x, 0.8, z, SHELL_RADIUS, SHELL_FIRE_COLOR);
-  burst(x, 0.8, z, SHELL_DEBRIS_COLOR, SHELL_DEBRIS, 10, 0.7, 18);
+// The flash and the dirt of a shell landing at (x, z) on a face `y` m high. The battle's shells and the one that takes an
+// ally down look the same.
+export function shellBurst(x: number, z: number, y = 0): void {
+  fireball(x, y + BLAST_LIFT.large, z, SHELL_RADIUS, SHELL_FIRE_COLOR);
+  burst(x, y + BLAST_LIFT.large, z, SHELL_DEBRIS_COLOR, SHELL_DEBRIS, 10, 0.7, 18);
 }
 
 // Takes the meshes out of the scene.

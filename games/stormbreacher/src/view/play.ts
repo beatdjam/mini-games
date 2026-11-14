@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
 import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
-import { boomShakeAt } from '../data/boom.ts';
+import { BLAST_LIFT, boomShakeAt, landBlastHeight } from '../data/boom.ts';
 import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { CUTSCENES } from '../data/cutscenes.ts';
 import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
@@ -13,7 +13,7 @@ import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import { BATTLE_TUNE, CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import { blastTarget } from '../logic/blasts.ts';
-import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
+import { blastFaceHeight, isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneMech } from '../logic/cutscene.ts';
 import type { Ray3 } from '../logic/fcs.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
@@ -133,6 +133,7 @@ export function buildPlayView(game: GameModel): PlayView {
       stream('craters'),
       { x: game.mech.x, z: game.mech.z },
       BATTLE_TUNE.holdZ,
+      game.rects,
     ),
     allies: buildAllyView(),
     hud,
@@ -238,8 +239,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   for (const event of game.events) {
     if (event.kind === 'mech') {
       mechEvents.push(event.event);
-      if (event.event.kind === 'land') spawnDust(game.mech.x, game.mech.z, LAND_DUST, FEEL_TUNE);
-      else if (event.event.kind === 'boostStart') spawnDust(game.mech.x, game.mech.z, BOOST_DUST, FEEL_TUNE);
+      if (event.event.kind === 'land') spawnDust(game.mech.x, game.mech.z, LAND_DUST, FEEL_TUNE, game.mech.y);
+      else if (event.event.kind === 'boostStart') {
+        spawnDust(game.mech.x, game.mech.z, BOOST_DUST, FEEL_TUNE, game.mech.y);
+      }
     } else if (event.kind === 'shot') {
       mechEvents.push({ kind: 'fire', speed: 0 });
     } else if (event.kind === 'hit') {
@@ -256,7 +259,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
           DEFLECT_GRAVITY,
         );
       } else {
-        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE, blastFaceHeight(game.rects, event.x, event.z));
       }
     } else if (event.kind === 'destroyed') {
       kill = true;
@@ -269,11 +272,13 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       }
     } else if (event.kind === 'enemyDown') {
       kill = true;
-      blast('small', event.x, 0.6, event.z);
+      blast('small', event.x, event.y + BLAST_LIFT.small, event.z);
     } else if (event.kind === 'propDestroyed') {
-      blast('small', event.x, 0.5, event.z);
+      blast('small', event.x, BLAST_LIFT.prop, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
-      blast(event.z >= game.map.bounds.maxZ ? 'water' : 'large', event.x, 0.8, event.z);
+      // the sea has no ground face: a shell past the map's front edge keeps the height its flash had over the water
+      const water = event.z >= game.map.bounds.maxZ;
+      blast(water ? 'water' : 'large', event.x, landBlastHeight(water, event.y), event.z);
       // the game's own blast takes the infantry near it, as the battle's shells do (SB-1610)
       view.battle.blast(event.x, event.z);
     } else if (event.kind === 'planted') {
@@ -282,14 +287,16 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       const target = blastTarget(game.map, event.id);
       // A charge that broke its pillbox on this frame leaves the boom to the destroyed event; one whose pillbox was
       // already down (broken by a shot while the fuse burnt) draws its own.
-      if (target === undefined || !brokenThisFrame.has(target)) blast('large', event.x, 0.8, event.z);
+      if (target === undefined || !brokenThisFrame.has(target)) blast('large', event.x, BLAST_LIFT.large, event.z);
     } else if (event.kind === 'allyDown') {
+      // the ally stands on the face under it, so its blast and dust belong there rather than inside a wall
+      const face = blastFaceHeight(game.rects, event.x, event.z);
       // A machine gun's burst takes the gunner down: dust, no blast, so it does not look like a mortar round.
       if (event.by === 'gun') {
-        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE, face);
       } else {
-        shellBurst(event.x, event.z);
-        spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
+        shellBurst(event.x, event.z, face);
+        spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE, face);
       }
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
@@ -302,7 +309,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   const cutscene = game.script.cutscene;
   const holdsBattle = cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true;
   if (!holdsBattle) {
-    view.feel.shake += view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+    const shellShake = view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+    // The battlefield's shells shake the camera within the same cap as the blasts: a shell landing in the same frame as
+    // a blast near the mech must not add the two past shakeMax and throw the camera off.
+    if (shellShake > 0) feelBoom(view.feel, shellShake, FEEL_TUNE);
   } else {
     view.battle.advanceTracers(dt);
   }
