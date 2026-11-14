@@ -15,6 +15,7 @@ export interface TuneGroup {
   name: string; // the table's name in the source ("MOVE_TUNE"), printed when a changed value is copied
   table: object; // the table itself: a change is written into it in place
   ranges: Readonly<Record<string, TuneRange>>; // the values to show, by dotted path ("fire.radius")
+  colors?: Readonly<Record<string, string>>; // colours to show as a picker, by dotted path (a number in the table)
   labels?: Readonly<Record<string, string>>; // what a row is called on screen (the path when left out)
   baseline?: Readonly<Record<string, number>>; // what "元に戻す" goes back to (the values when the panel is made)
 }
@@ -25,6 +26,9 @@ export interface TunePanelOptions {
   id?: string;
   extra?: HTMLElement; // the view's own buttons, shown above the sliders
   onChange?: (group: string, key: string, value: number) => void;
+  // Called when a change is finished (a slider let go, a number field left, a colour closed), for a view that
+  // remakes something costly. A change that is cheap to follow can use onChange alone.
+  onCommit?: (group: string, key: string, value: number) => void;
   zIndex?: number;
 }
 
@@ -70,12 +74,14 @@ function writeTune(table: object, path: string, value: number): void {
 }
 
 // The lines to copy for one table: only the values that differ from `baseline`, each as `TABLE.path: value`.
-// `keys` is the dotted paths the panel shows; the baseline holds what they were when the panel was made.
+// `keys` is the dotted paths the panel shows; the baseline holds what they were when the panel was made. A path in
+// `hexKeys` is written as the source writes a colour (0xRRGGBB).
 export function changedValuesText(
   name: string,
   table: object,
   baseline: Readonly<Record<string, number>>,
   keys: readonly string[],
+  hexKeys: readonly string[] = [],
 ): string {
   const lines: string[] = [];
   for (const key of keys) {
@@ -83,7 +89,8 @@ export function changedValuesText(
     const before = baseline[key];
     if (value === null || before === undefined) continue;
     if (Math.abs(value - before) < 1e-9) continue;
-    lines.push(`${name}.${key}: ${tuneNumber(value)}`);
+    const shown = hexKeys.includes(key) ? `0x${Math.round(value).toString(16).padStart(6, '0')}` : tuneNumber(value);
+    lines.push(`${name}.${key}: ${shown}`);
   }
   return lines.join('\n');
 }
@@ -94,10 +101,16 @@ interface Row {
   value: HTMLElement;
 }
 
+interface ColorRow {
+  picker: HTMLInputElement;
+  value: HTMLElement;
+}
+
 interface GroupState {
   spec: TuneGroup;
   baseline: Record<string, number>;
   rows: Map<string, Row>;
+  colorRows: Map<string, ColorRow>;
 }
 
 const BUTTON_STYLE =
@@ -171,8 +184,17 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
   // this, so it puts back the kinds a view switched away from too, not only the row on screen.
   const resetTargets = new Map<
     string,
-    { table: object; ranges: Readonly<Record<string, TuneRange>>; baseline: Record<string, number> }
+    {
+      table: object;
+      ranges: Readonly<Record<string, TuneRange>>;
+      colors: Readonly<Record<string, string>>;
+      baseline: Record<string, number>;
+    }
   >();
+
+  const colorKeysOf = (spec: TuneGroup): string[] => Object.keys(spec.colors ?? {});
+  const allKeysOf = (spec: TuneGroup): string[] => [...Object.keys(spec.ranges), ...colorKeysOf(spec)];
+  const hexOf = (value: number): string => `#${Math.round(value).toString(16).padStart(6, '0')}`;
 
   const updateRow = (state: GroupState, key: string, value: number) => {
     const row = state.rows.get(key);
@@ -180,6 +202,22 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
     row.value.textContent = tuneNumber(value);
     row.range.value = String(value);
     row.number.value = tuneNumber(value);
+  };
+
+  const updateColorRow = (state: GroupState, key: string, value: number) => {
+    const row = state.colorRows.get(key);
+    if (!row) return;
+    row.value.textContent = hexOf(value);
+    row.picker.value = hexOf(value);
+  };
+
+  // A colour row writes the whole number (0xRRGGBB) the table holds, not one channel.
+  const applyColor = (state: GroupState, key: string, raw: string) => {
+    const parsed = Number.parseInt(raw.replace('#', ''), 16);
+    if (!Number.isFinite(parsed)) return;
+    writeTune(state.spec.table, key, parsed);
+    updateColorRow(state, key, parsed);
+    options.onChange?.(state.spec.name, key, parsed);
   };
 
   const apply = (state: GroupState, key: string, raw: string, fromRange: boolean) => {
@@ -233,11 +271,35 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
 
       range.addEventListener('input', () => apply(state, key, range.value, true));
       number.addEventListener('input', () => apply(state, key, number.value, false));
+      // a finished change: a view that rebuilds something costly waits for this
+      range.addEventListener('change', () => options.onCommit?.(state.spec.name, key, Number(range.value)));
+      number.addEventListener('change', () => options.onCommit?.(state.spec.name, key, Number(number.value)));
 
       line.append(range, number);
       row.append(label, value, line);
       box.appendChild(row);
       state.rows.set(key, { range, number, value });
+    }
+
+    for (const key of colorKeysOf(state.spec)) {
+      const row = document.createElement('label');
+      row.dataset.tuneKey = key;
+      row.style.cssText =
+        'display:flex;gap:4px;align-items:center;border-top:1px solid rgba(213,228,238,0.12);padding:2px 0';
+      const label = document.createElement('span');
+      label.textContent = `${state.spec.labels?.[key] ?? key} `;
+      label.style.cssText = 'flex:1';
+      const value = document.createElement('b');
+      const picker = document.createElement('input');
+      picker.type = 'color';
+      picker.style.cssText = 'width:48px;height:20px;padding:0;border:1px solid rgba(213,228,238,0.35);background:none';
+      picker.addEventListener('input', () => applyColor(state, key, picker.value));
+      picker.addEventListener('change', () =>
+        options.onCommit?.(state.spec.name, key, Number.parseInt(picker.value.replace('#', ''), 16)),
+      );
+      row.append(label, value, picker);
+      box.appendChild(row);
+      state.colorRows.set(key, { picker, value });
     }
     return box;
   };
@@ -250,23 +312,27 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
         // the table object can be the same one; the baseline stays what the view first opened with
         known.table = spec.table;
         known.ranges = spec.ranges;
+        known.colors = spec.colors ?? {};
         baseline = known.baseline;
       } else {
         baseline = {};
-        for (const key of Object.keys(spec.ranges)) {
+        for (const key of allKeysOf(spec)) {
           const value = readTune(spec.table, key);
           // A misspelt key would otherwise show 0 and write nothing, with no sign of the mistake.
           if (value === null) throw new Error(`the tune table "${spec.name}" has no number at "${key}"`);
           baseline[key] = spec.baseline?.[key] ?? value;
         }
-        resetTargets.set(spec.name, { table: spec.table, ranges: spec.ranges, baseline });
+        resetTargets.set(spec.name, { table: spec.table, ranges: spec.ranges, colors: spec.colors ?? {}, baseline });
       }
-      return { spec, baseline, rows: new Map<string, Row>() };
+      return { spec, baseline, rows: new Map<string, Row>(), colorRows: new Map<string, ColorRow>() };
     });
     groupsBox.replaceChildren(...groups.map(buildGroup));
     for (const state of groups) {
       for (const key of Object.keys(state.spec.ranges)) {
         updateRow(state, key, readTune(state.spec.table, key) ?? 0);
+      }
+      for (const key of colorKeysOf(state.spec)) {
+        updateColorRow(state, key, readTune(state.spec.table, key) ?? 0);
       }
     }
   };
@@ -276,13 +342,22 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
       for (const key of Object.keys(state.spec.ranges)) {
         updateRow(state, key, readTune(state.spec.table, key) ?? 0);
       }
+      for (const key of colorKeysOf(state.spec)) {
+        updateColorRow(state, key, readTune(state.spec.table, key) ?? 0);
+      }
     }
   };
 
   const changedText = () =>
     groups
       .map(state =>
-        changedValuesText(state.spec.name, state.spec.table, state.baseline, Object.keys(state.spec.ranges)),
+        changedValuesText(
+          state.spec.name,
+          state.spec.table,
+          state.baseline,
+          allKeysOf(state.spec),
+          colorKeysOf(state.spec),
+        ),
       )
       .filter(text => text !== '')
       .join('\n');
@@ -290,7 +365,8 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
   resetButton.addEventListener('click', () => {
     for (const [name, target] of resetTargets) {
       const state = groups.find(group => group.spec.name === name);
-      for (const key of Object.keys(target.ranges)) {
+      const keys = [...Object.keys(target.ranges), ...Object.keys(target.colors)];
+      for (const key of keys) {
         const before = readTune(target.table, key);
         const value = target.baseline[key];
         if (before === null || before === value) continue;
@@ -301,7 +377,9 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
           row.range.value = String(value);
           row.number.value = tuneNumber(value);
         }
+        if (state) updateColorRow(state, key, value);
         options.onChange?.(name, key, value);
+        options.onCommit?.(name, key, value);
       }
     }
   });

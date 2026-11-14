@@ -6,7 +6,6 @@ import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
 import { BLAST_LIFT, boomShakeAt, landBlastHeight } from '../data/boom.ts';
 import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { CUTSCENES } from '../data/cutscenes.ts';
-import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1, PILLBOXES_DOWN_FLAG } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
@@ -34,7 +33,9 @@ import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from './hurt.ts';
 import { applyLookTo } from './look.ts';
 import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
-import { buildMechVisual, setMechOpacity } from './mechModel.ts';
+import { mechSeeThrough } from './mechFade.ts';
+import { buildProtoMech, setProtoOpacity } from './mechProtoModel.ts';
+import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const TRACER_COLOR = 0xffe066; // the bullet's line
@@ -66,7 +67,8 @@ export interface PillboxWarnView {
 
 export interface PlayView {
   world: World;
-  model: THREE.Group; // the mech, M1's look (pattern E)
+  model: THREE.Group; // the mech (the prototype of data/mechProto.ts, bones and skinned meshes)
+  stage: ProtoStage | null; // the prototype's sun, shadow and surroundings' light; only with ?shadow=1 or ?env=1
   mechFaded: boolean; // whether the mech is drawn see-through, for the camera is near
   feel: FeelState;
   pitch: number; // the camera's pitch (rad)
@@ -92,11 +94,18 @@ export function buildPlayView(game: GameModel): PlayView {
   buildBooms(game.map.bounds);
   // the look comes from the mission's row; the sortie is M1's B alone, so M1.id is written here (SB-300 picks the mission)
   applyLookTo(lookOf(M1.id), world.built.group);
-  const model = buildMechVisual(
-    { build: M1_MECH, palette: M1_MECH_PALETTE, weaponScale: M1_WEAPON_SCALE },
-    MECH_TUNE.height,
-  );
+  const model = buildProtoMech(MECH_TUNE.height);
   scene.add(model);
+  // The mech's shadow and the surroundings' light are off unless the page asks (?shadow=1, ?env=1), so a plain sortie
+  // keeps the look's lights and costs what it did; SB-1474 measures what each adds.
+  const shadow = stageFlag('shadow') === '1';
+  const env = stageFlag('env') === '1';
+  let stage: ProtoStage | null = null;
+  if (shadow || env) {
+    stage = addProtoStage(model, world.built.group, game.mech.x, game.mech.z);
+    stage.setShadow(shadow);
+    stage.setEnv(env);
+  }
   const hud = buildPlayHud(document.body);
   // The sortie starts with the camera already in its place: a checkpoint or a suspend resumes without it flying in.
   const cam = stateOfPose(
@@ -110,6 +119,7 @@ export function buildPlayView(game: GameModel): PlayView {
   return {
     world,
     model,
+    stage,
     mechFaded: false,
     feel: newFeel(CAMERA_TUNE.fov),
     pitch: 0,
@@ -333,6 +343,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     drawMechWalk(view.model, walk.speed, dt);
   }
   view.model.visible = cutscene === null || walk !== null;
+  view.stage?.follow(view.model.position.x, view.model.position.z);
 
   // The camera's pitch is held while a cutscene plays, so the game's camera is where the cutscene's last key puts its
   // own (the key is written for pitch 0) in the first frame the player controls.
@@ -355,12 +366,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawBooms(dt);
 
   // a camera pushed close by a wall would fill the screen with the mech, so the mech turns see-through
-  const near =
-    camera.position.distanceTo(new THREE.Vector3(game.mech.x, game.mech.y + MECH_TUNE.chestHeight, game.mech.z)) <
-    MECH_TUNE.fadeDist;
+  const near = mechSeeThrough(camera.position, game.mech);
   if (near !== view.mechFaded) {
     view.mechFaded = near;
-    setMechOpacity(view.model, near ? MECH_TUNE.fadeOpacity : 1);
+    setProtoOpacity(view.model, near ? MECH_TUNE.fadeOpacity : 1);
   }
 
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);

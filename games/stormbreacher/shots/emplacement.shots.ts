@@ -10,7 +10,6 @@ import { boot } from '../src/app/boot.ts';
 import { ENEMY_BULLET_COLOR } from '../src/data/colors.ts';
 import { lookOf } from '../src/data/looks.ts';
 import { M1B_HAND } from '../src/data/maps/m1b-hand.ts';
-import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../src/data/mech.ts';
 import { M1 } from '../src/data/missions/m1.ts';
 import { MECH_TUNE } from '../src/data/tune.ts';
 import { newEnemy, stepEnemy, type EnemyShot } from '../src/logic/enemies.ts';
@@ -19,7 +18,7 @@ import { stream } from '../src/logic/rng.ts';
 import { buildEnemyView, drawEnemies } from '../src/view/enemies.ts';
 import { GROUND_NAME, SIZE_BOX_NAME } from '../src/view/field.ts';
 import { applyLookTo } from '../src/view/look.ts';
-import { buildMechVisual } from '../src/view/mechModel.ts';
+import { buildProtoMech } from '../src/view/mechProtoModel.ts';
 import { buildWorld } from '../src/view/world.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
@@ -77,10 +76,7 @@ test('emplacement', async () => {
   const world = buildWorld(map);
   applyLookTo(lookOf(M1.id), world.built.group);
   const game = newGame(map);
-  const model = buildMechVisual(
-    { build: M1_MECH, palette: M1_MECH_PALETTE, weaponScale: M1_WEAPON_SCALE },
-    MECH_TUNE.height,
-  );
+  const model = buildProtoMech(MECH_TUNE.height);
   scene.add(model);
   const enemyView = buildEnemyView();
   const tracers = buildTracers();

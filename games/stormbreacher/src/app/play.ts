@@ -17,6 +17,7 @@ import { removeEnemyView } from '../view/enemies.ts';
 import { removeHazardView } from '../view/hazards.ts';
 import { removeHurtView } from '../view/hurt.ts';
 import { removeHud } from '../view/hud.ts';
+import { disposeProtoMech } from '../view/mechProtoModel.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
 import { resetSound, soundFrame } from '../view/sound.ts';
@@ -47,6 +48,8 @@ function clearPlay(old: PlayView): void {
   scene.remove(old.world.targetGroup);
   scene.remove(old.world.shore);
   scene.remove(old.model);
+  disposeProtoMech(old.model);
+  old.stage?.dispose();
   scene.remove(old.bullets.lines);
   old.bullets.lines.geometry.dispose();
   old.bullets.lines.material.dispose();

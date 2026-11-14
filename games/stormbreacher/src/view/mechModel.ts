@@ -20,6 +20,7 @@ import {
   type Vec3,
 } from '../data/mech.ts';
 import { MOTION_TUNE } from '../data/tune.ts';
+import { mechPaintTexture } from './mechSurfaces.ts';
 import {
   dipDepth,
   flameLength,
@@ -159,9 +160,11 @@ export function buildMechVisual(look: MechLook, height: number): THREE.Group {
   for (const color of MECH_COLORS) {
     const boxes = byColor.get(color);
     if (boxes === undefined) continue;
+    // the picture (grime, the stencil, the warning stripes) multiplies the palette's colour; without a canvas, it is
+    // null and the material keeps the colour alone
     const mesh = new THREE.InstancedMesh(
       geometry,
-      new THREE.MeshLambertMaterial({ color: look.palette[color] }),
+      new THREE.MeshLambertMaterial({ color: look.palette[color], map: mechPaintTexture(color) }),
       boxes.length,
     );
     if (color === FLAME_HOST) {
@@ -259,19 +262,6 @@ function isMesh(object: THREE.Object3D): object is THREE.Mesh {
 
 function isInstanced(mesh: THREE.Mesh): mesh is THREE.InstancedMesh {
   return (mesh as THREE.InstancedMesh).isInstancedMesh === true;
-}
-
-// Makes every material of the mech see-through (`opacity` below 1) or solid again (1). It only flips the materials, so
-// the draw calls stay the same.
-export function setMechOpacity(root: THREE.Object3D, opacity: number): void {
-  root.traverse(object => {
-    if (!isMesh(object)) return;
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
-    for (const material of materials) {
-      material.transparent = opacity < 1;
-      material.opacity = opacity;
-    }
-  });
 }
 
 export function countMechDraws(root: THREE.Object3D): { calls: number; triangles: number } {

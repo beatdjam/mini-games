@@ -1,6 +1,7 @@
 // The colours the field, the map's ground and the sky share, so the same one is not written in two files.
 import type { EnemyKind } from './enemies.ts';
 import type { MechColor } from './mech.ts';
+import type { ProtoMaterial } from './mechProto.ts';
 
 export const SAND_COLOR = 0xc2a878; // the ground's sand
 export const SKY_COLOR = 0x9db8c6; // the sky and the fog
@@ -86,6 +87,48 @@ export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
 };
 // The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
 export const MECH_FLAME_COLOR = 0xffd27a;
+
+// The prototype's metal (SB-1468, second pass SB-1469, 仮): a pale steel armour over a near-black frame, an orange
+// accent, and a cool light for the seams, the windows and the lamps. One hex per material name of data/mechProto.ts.
+export const MECH_PROTO_COLOR: Record<ProtoMaterial, number> = {
+  armor: 0x747d7f,
+  frame: 0x2b3134,
+  accent: 0xe07a2a,
+  glow: 0x4fc8ee,
+};
+
+// The light the confirmation view puts around the prototype (SB-1468, second pass SB-1469, 仮): a warm sun that casts
+// its shadow, a cool edge light along its back, a soft fill on the dark side, and the room the metal reflects.
+export const MECH_PROTO_LIGHT_COLOR = {
+  key: 0xfff3df,
+  rim: 0x8fc8ff,
+  fill: 0xd8e8ff,
+};
+
+// The paint under the prototype's colours (SB-1469, 仮): the armour and the frame keep their tone in the picture, so the
+// pale armour does not blow out to white in the sun. The grime, the rust and the stencil stay MECH_PAINT_COLOR's.
+export const MECH_PROTO_PAINT_COLOR = {
+  armorBase: '176,182,184', // the armour's mid tone under the grime
+  frameBase: '158,164,166', // the frame's worn metal
+  accentBase: '238,234,226', // the accent's stripes, so the orange keeps its colour
+};
+
+// The paint on a mech's boxes (SB-1460, 仮): the strokes of view/mechSurfaces.ts, as the canvas's "r,g,b" strings. The
+// picture multiplies the palette's hex, so these stay near white and darken the hue rather than replacing it. Chosen
+// apart from the field's and the HUD's colours so the grime does not read as an effect.
+export const MECH_PAINT_COLOR = {
+  baseLight: '234,231,222', // the armour's paint under the grime
+  baseMid: '212,209,200', // the frame and the weapon's worn metal
+  grimeLight: '244,240,228', // a dusty patch
+  grimeDark: '46,44,38', // soot and dirt running down a plate
+  rust: '102,72,48', // rust on the frame's joints
+  scrape: '252,250,242', // a scraped edge showing bare metal
+  stencil: '34,32,28', // the number stencilled on the armour
+  stripeLight: '246,242,228', // a warning stripe's light band
+  stripeDark: '38,36,30', // its dark band
+  sensorBase: '44,42,40', // the head's housing around the window
+  sensorWindow: '252,250,244', // the lit sensor window
+};
 
 // An explosion (SB-1340, 仮): the flash of each kind, the smoke that turns from black to grey, the debris, and the sand
 // or water a blast lifts from the ground or the sea.

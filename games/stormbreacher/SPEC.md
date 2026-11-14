@@ -29,13 +29,13 @@
 - `src/view/shore.ts`: 海と揚陸艇を描く（9章。艇の寸法は `src/data/craft.ts`、歩ける面の四角は `src/logic/craft.ts`）
 - `src/view/mechProxy.ts`: 寸法の確認用の仮の模型を描く（開発用の入口だけが使う）
 - `src/data/colors.ts`: 地面の砂と空と海の色、敵・弾・爆発・トーチカ・爆破点の色を名前で持つ（HUD の色は3章「HUD」）
-- `src/view/mechModel.ts`: 機体を箱で描く関数で、ゲームの状態に触らず、形を共有した単位の箱を色ごとに `InstancedMesh` で描く（1体の描く回数は使った色の数）
+- `src/view/mechModel.ts`: 機体を箱で描く関数で、ゲームの状態に触らず、形を共有した単位の箱を色ごとに `InstancedMesh` で描く（1体の描く回数は使った色の数。色ごとの材質には `src/view/mechSurfaces.ts` が一度だけ描く絵（汚れ・番号・警告の縞・センサーの窓。`MECH_PAINT`・`MECH_PAINT_TEX` in `src/data/mech.ts`、色は `MECH_PAINT_COLOR` in `src/data/colors.ts`）を掛ける
 - `src/view/mechMotion.ts`: 状態と角度の計算（three を読まない）
 - `src/view/mechDrive.ts`: ゲームの状態から動きへの入力を作る
 - `src/logic/mechTune.ts`: 脚の種類ごとの動きの値を作る `moveTuneOf`
-- `src/data/mech.ts`: 機体の部品の表（腕・脚・背中・FCS の4スロットと武器2、胴は4スロットの外の枠、箱は高さの割合、色は名前、値は仮）と M1 の固定の1組 `M1_MECH`（見本 E の部品: 胴 `medium`・腕 `midArms`・脚 `midLegs`・背中 `pack`・FCS `blockHead`）、その色 `M1_MECH_PALETTE`（色の名前ごとの16進数）、武器の大きさ `M1_WEAPON_SCALE` を持つ
+- `src/data/mech.ts`: 機体の部品の表（腕・脚・背中・FCS の4スロットと武器2、胴は4スロットの外の枠、箱は高さの割合、色は名前、値は仮）と M1 の固定の1組 `M1_MECH`（見本 E の部品: 胴 `medium`・腕 `midArms`・脚 `midLegs`・背中 `pack`・FCS `blockHead`）、その色 `M1_MECH_PALETTE`（色の名前ごとの16進数）、武器の大きさ `M1_WEAPON_SCALE` を持つ。M1 の E 中量の部品は、装甲板の段・関節・脚の油圧・背中の箱と排気口・武器の銃身/弾倉/照準・頭のセンサーの窓を持つ（SB-1460。形は箱のままで、シルエットの寸法は D-24 の4m）
 - `src/view/play.ts`: 出撃中の画面を組み立てて描く
-  - 本体の機体は `buildMechVisual` で M1 の組・色・武器の大きさから高さ `MECH_TUNE.height` に描き、向きと位置はゲームの機体に合わせる（1体の描く回数は色の数の5）。動かすのは `animateMech`（6章「機体の動き」）
+  - 本体の機体は試作の機体（`buildProtoMech`・`src/view/mechProtoModel.ts`）を高さ `MECH_TUNE.height` で作り、向きと位置はゲームの機体に合わせる（材質ごとにまとめた SkinnedMesh。メッシュの名前は `mech-proto`）。動かすのは `animateProtoMech`。カメラが機体の胸から `MECH_TUNE.fadeDist` より近いと半透明にする判定は `mechSeeThrough` in `src/view/mechFade.ts`。出撃を作り直すときは `disposeProtoMech` で片付ける。味方機は `buildMechVisual`・`animateMech`（6章「機体の動き」）のまま
   - 銃眼の予兆の光を `InstancedMesh` 1つ（名前 `sb-pillbox-warn`）で描く（色は `src/data/colors.ts` の `PILLBOX_WARN_COLOR`。6章「トーチカ」）
 - `src/data/looks.ts`: ミッションごとの見た目の表（`LOOKS`・`lookOf`）と光の元の強さ（`BASE_LIGHTS`）を持つ
 - `src/view/look.ts`: 解像度・色味・霧・空・光・地面の色をかけ、`#view-fx`・`#view-hud`・本体が同じ関数を使う
@@ -249,7 +249,9 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 | `fadeDist` | 3.5 | m。カメラと機体の胸（足元から `chestHeight`）の距離がこれより近いとき、機体を半透明にする |
 | `fadeOpacity` | 0.35 | 半透明のときの不透明度。遠ざかると 1 に戻る |
 
-半透明は、壁で寄ったカメラに画面を埋められないための決まり。`setMechOpacity`（`src/view/mechModel.ts`）が機体の材質の `transparent` と `opacity` を切り替えるだけなので、描く回数は変わらない。毎フレーム、カメラを置いたあとに距離を測る（`drawPlay`）。
+半透明は、壁で寄ったカメラに画面を埋められないための決まり。`setProtoOpacity`（`src/view/mechProtoModel.ts`。炎の材質は自分の不透明度に同じ割合をかける）が機体の材質の `transparent` と `opacity` を切り替えるだけなので、描く回数は変わらない。毎フレーム、カメラを置いたあとに距離を測る（`drawPlay`）。
+
+出撃・導入のカットシーン・艇の甲板の自機は、試作の模型（`buildProtoMech` in `src/view/mechProtoModel.ts`、表は `src/data/mechProto.ts`、SB-1473）で描く。骨と `SkinnedMesh` で、材質ごとに1回描く。動きは `src/view/mechDrive.ts` が `animateProtoMech` に渡す（入力と数は `mechMotion.ts` のまま）。敵・味方機は今までの `src/view/mechModel.ts`（`M1_MECH` の箱）で、`#view-mech` は既定でその箱の案を出し、`?proto`・`?compare` で試作を出す。立ちの姿勢は `PROTO_TUNE.pose` の `hip` 0.5・`knee` 0.85（1471 では 0.48・1.05。仮）。影と環境の光は既定で入れない。`?shadow=1`・`?env=1` を付けたときだけ `src/view/protoStage.ts`（太陽・縁の光・環境）を自機に追わせて入れる。
 出撃の値は `LANDING_TUNE`（SB-120）。艇の寸法は `CRAFT_TUNE`（`src/data/craft.ts`）。
 
 | 名前 | 値 | 単位・意味 |
@@ -803,7 +805,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `#view-fcs`: 平らな地面で、8体の動く的（止まる2・左右に往復2・円を回る2・近づいて離れる2）へ撃ち、FCS の3つの型を比べる入口。`?fcs=manual|soft|hard` で型を選び（既定はゲームで使う `soft`。表に無い値は既定にして画面に「無効な値」と出す）、`FCS_TUNE` の各項目を同じ名前で上書きできる（例 `?fcs=soft&cone=10&pull=30`）。`MOVE_TUNE`・`FEEL_TUNE` の項目と `?feel=0` も `#view-move` と同じく効く。`?move=still` で的を全部止める。画面の上の真ん中のボタンで型を切り替える（`?fcs=` を変えて読み直す）。照準は画面の真ん中の点と、`cone` が 0 より大きい型ではカメラの画角から出した円、円の中の的の角の印、`hard` の候補の進み具合の弧、捕まえた的の四角で出す。画面の左上に撃った数・当てた数・当たる率・倒した数・倒すまでの時間の平均・捕まえるまでの時間の平均を出し、`window.sbFcsReport()` が同じ数字を JSON の文字列で返す。測る数字は型ごとで、切り替えると 0 から
 - `#view-script`: M1「強襲上陸」の台本をボタンで動かす入口。3D は描かず、屋外の画面に DOM を重ねる。左に今の目標・地図の印・カットシーンと残りの秒・旗・結果、下の真ん中に無線の帯（1行を最低 `RADIO_TUNE.minSec` ずつ順に出す）、右に出来事を入れるボタン（`enter b-line`・`enter seawall-top`・各物の `destroyed`・`skip`）と時間の速さ（×1・×4）、右下に cue が発火した時刻と出来事のログを出す。毎フレーム `stepScript` を回し、`window.sbScriptReport()` が `fired`（cue → 時刻）と出来事の列を JSON の文字列で返す
 - `#view-hud`: HUD の配置の見本を4案（A 四隅に散らす・B 下にまとめる・C 照準のまわりに寄せる・D A の配置に照準のまわりの細い計器を足す）で切り替えて見る入口。`#view-map` の浜のマップ（`buildMapScene`）を固定カメラで描き、機体の模型を置く。ゲームの状態にはつながず、見本の値（`src/dev/hud/plans.ts` の `HUD_SAMPLE`）で描く。`?plan=a|b|c|d`（既定 a）、`?cut=1`（カットシーンの帯）、`?touch=1`（タッチのボタンの輪）、数字キー 1〜4 で案を切り替える。ロック枠は `lockFrame` で描き、見本の四角（`LOCK_SAMPLE`）に出す。`window.sbHudReport()` が各要素の矩形を JSON の文字列で返す。弧・レーダー・点と円の描き方は `src/view/hudParts.ts` から読む（見本の値と動きは変えない）。要素の値の多く（装甲・熱・弾数・武器の枠（メインとサブの2つ）・レーダー）と、カットシーン中の表示（無線以外を隠す）は仮であること。見本には熱の欄が残る（本体は熱を持たない）。右上の調整パネルで `RADIO_TUNE` の `minSec` と `maxPending` を変えられ、「無線を2行流す」で1行ずつ順に出る様子を見られる
-- `#view-mech`: 機体の見た目の案を5つ（A 重装ずんぐり・E 中量（A を細く）・F 中量・脚長・B 逆関節の軽め・D 四脚の戦車寄り）で切り替えて見る入口。`#view-hud` と同じ浜のマップに機体を置き、ゲームの状態にはつながない。`?pattern=a|e|f|b|d`（既定 a）、`?spin=0`（回転を止める）、`?view=behind`（ゲームの三人称カメラの構図で止める）。数字キー 1〜5 と上のボタンで案を切り替え、`回転`・`後ろから` のボタンで視点を替える。`window.sbMechReport()` が案・回転・視点と、機体の描く回数・三角形・箱の数・重さの合計と、画面全体の直近の描く回数・三角形を JSON の文字列で返す。`歩く`・`ブースト`・`跳ぶ`・`撃つ` のボタン（キー W・B・J・F）で機体の動きを見られる（`歩く`・`ブースト`・`撃つ` は押すたびに入り切り、`跳ぶ` は1回跳ぶ。速さと跳びは案の脚の種類の値で、案 B は逆関節、案 D は四脚の動きになる）。`window.sbMechReport()` の JSON には、動きの入り切り `acts` も入る。部品の寸法・色・重さはどれも仮であること
+- `#view-mech`: 機体の見た目の案を5つ（A 重装ずんぐり・E 中量（A を細く）・F 中量・脚長・B 逆関節の軽め・D 四脚の戦車寄り）で切り替えて見る入口。`#view-hud` と同じ浜のマップに機体を置き、ゲームの状態にはつながない。`?pattern=a|e|f|b|d`（既定 a）、`?spin=0`（回転を止める）、`?view=behind`（ゲームの三人称カメラの構図で止める）。数字キー 1〜5 と上のボタンで案を切り替え、`回転`・`後ろから` のボタンで視点を替える。`window.sbMechReport()` が案・回転・視点と、機体の描く回数・三角形・箱の数・重さの合計と、画面全体の直近の描く回数・三角形を JSON の文字列で返す。`歩く`・`ブースト`・`跳ぶ`・`撃つ` のボタン（キー W・B・J・F）で機体の動きを見られる（`歩く`・`ブースト`・`撃つ` は押すたびに入り切り、`跳ぶ` は1回跳ぶ。速さと跳びは案の脚の種類の値で、案 B は逆関節、案 D は四脚の動きになる）。`window.sbMechReport()` の JSON には、動きの入り切り `acts` も入る。右上の調整パネルは `MECH_PAINT`（色ごとの汚れ・粒・傷の数）と `MECH_PAINT_TEX`（番号の大きさ・縞の間隔）を書き換え、その場で機体を描き直す（SB-1460）。部品の寸法・色・重さはどれも仮であること
 - `#view-map`: M1 の手書きのマップ（浜・B トーチカ線・C・防波堤・ボスの場所）を歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、海と揚陸艇を `buildShore`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（9章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す。右上の調整パネルで `MOVE_TUNE`（歩く速さ・ジャンプ・重力・ブースト）・`CAMERA_TUNE`（距離・高さ・壁で寄るときの速さと戻り・最短の距離・上げ・`closeLook`・`closePitch`・`fastTurn`）・`FEEL_TUNE`（画角・揺れ・ヒットストップ・砂煙・連射）を歩きながら変えられる（保存しない。`?walk=` などの URL の値の上に載る）。射撃の値（`FCS_TUNE.soft`）は `#view-fcs` で URL から変える
 - `#view-fx`: M1 の B のマップ（手書き・生成・エディタが保存したもの）を機体で歩きながら、周りで戦闘が起きている迫力を試す入口。演出はゲームの状態に影響しない
   - 選ぶ: `?src=hand|gen|edit` で M1 の B の手書きのマップ・生成したマップ・エディタが `localStorage` に保存したマップを選び（既定 `hand`。`edit` で保存が無いときは「保存されたマップが無い」を出して空のマップで開く）、`?fx=0|1|2|3` で濃さを選び（0 は演出を全部切った見た目で、`mech=4` なら `#view-map` と同じ。1 は弱、2 は中、3 は強。既定 2）、`FX_TUNE` の各項目を同じ名前でさらに上書きできる（例 `?fx=3&pixel=0.4&tracers=6`）。`?seed=<n>` は場面の種
