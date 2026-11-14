@@ -1,19 +1,20 @@
-// The light and shadow the confirmation view (#view-mech?proto) puts around the prototype (SB-1468): a warm sun that
-// casts the mech's shadow onto the beach, a cool edge light behind it, and the surroundings' light from a small room, so
-// the metal has something to reflect. The sortie keeps its own lights (view/look.ts); nothing here runs outside the dev
-// view, and dispose puts the renderer and the map back.
+// The light and shadow around the prototype mech (SB-1468): a warm sun that casts the mech's shadow onto the beach, a
+// cool edge light behind it, and the surroundings' light from a small room, so the metal has something to reflect. The
+// confirmation view (#view-mech?proto) always builds it; the sortie builds it only for ?shadow=1 or ?env=1 (SB-1473:
+// both are off by default, and their weight is measured in SB-1474). Dispose puts the renderer and the map back.
 import * as THREE from 'three';
 import { renderer, scene } from '@engine/render/index.ts';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { MECH_PROTO_LIGHT_COLOR } from '../../data/colors.ts';
-import { PROTO_TUNE } from '../../data/mechProto.ts';
-import { MECH_TUNE } from '../../data/tune.ts';
+import { MECH_PROTO_LIGHT_COLOR } from '../data/colors.ts';
+import { PROTO_TUNE } from '../data/mechProto.ts';
+import { MECH_TUNE } from '../data/tune.ts';
 
 export interface ProtoStage {
   shadowOn: boolean;
   envOn: boolean;
   setShadow(on: boolean): void;
   setEnv(on: boolean): void;
+  follow(x: number, z: number): void; // moves the lights and the shadow's camera to where the mech stands now
   dispose(): void;
 }
 
@@ -34,9 +35,13 @@ export function addProtoStage(mech: THREE.Object3D, map: THREE.Object3D, x: numb
   const light = PROTO_TUNE.light;
   const extent = light.shadow.extent * height;
 
+  const place = (light: THREE.DirectionalLight, at: readonly number[], x: number, z: number): void => {
+    light.position.set(x + at[0] * height, at[1] * height, z + at[2] * height);
+    light.target.position.set(x, height * 0.5, z);
+  };
+
   const sun = new THREE.DirectionalLight(MECH_PROTO_LIGHT_COLOR.key, light.key.intensity);
-  sun.position.set(x + light.key.at[0] * height, light.key.at[1] * height, z + light.key.at[2] * height);
-  sun.target.position.set(x, height * 0.5, z);
+  place(sun, light.key.at, x, z);
   sun.castShadow = true;
   sun.shadow.mapSize.set(light.shadow.mapSize, light.shadow.mapSize);
   sun.shadow.camera.left = -extent;
@@ -50,13 +55,11 @@ export function addProtoStage(mech: THREE.Object3D, map: THREE.Object3D, x: numb
   scene.add(sun, sun.target);
 
   const rim = new THREE.DirectionalLight(MECH_PROTO_LIGHT_COLOR.rim, light.rim.intensity);
-  rim.position.set(x + light.rim.at[0] * height, light.rim.at[1] * height, z + light.rim.at[2] * height);
-  rim.target.position.set(x, height * 0.5, z);
+  place(rim, light.rim.at, x, z);
   scene.add(rim, rim.target);
 
   const fill = new THREE.DirectionalLight(MECH_PROTO_LIGHT_COLOR.fill, light.fill.intensity);
-  fill.position.set(x + light.fill.at[0] * height, light.fill.at[1] * height, z + light.fill.at[2] * height);
-  fill.target.position.set(x, height * 0.5, z);
+  place(fill, light.fill.at, x, z);
   scene.add(fill, fill.target);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -101,6 +104,11 @@ export function addProtoStage(mech: THREE.Object3D, map: THREE.Object3D, x: numb
       stage.envOn = on;
       scene.environment = on ? envTarget.texture : null;
       refresh();
+    },
+    follow(fx: number, fz: number): void {
+      place(sun, light.key.at, fx, fz);
+      place(rim, light.rim.at, fx, fz);
+      place(fill, light.fill.at, fx, fz);
     },
     dispose(): void {
       scene.remove(sun, sun.target, rim, rim.target, fill, fill.target);

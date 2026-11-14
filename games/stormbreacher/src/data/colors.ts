@@ -5,7 +5,21 @@ import type { ProtoMaterial } from './mechProto.ts';
 
 export const SAND_COLOR = 0xc2a878; // the ground's sand
 export const SKY_COLOR = 0x9db8c6; // the sky and the fog
-export const SEA_COLOR = 0x4f6f80; // the sea's surface, a little darker than the fog it fades into (仮)
+export const SEA_COLOR = 0x3d5560; // the sea's surface: a dark grey-green under a cloudy sky, darker than the fog it fades into
+
+// The beach's surfaces (SB-1360, 仮): the dry sand away from the water, the wet sand kept in the sea's reach, the rust
+// of the hedgehogs and the charred iron of the wrecks, and the foam the sea leaves on the shore. New names because the
+// look is provisional and will be tuned from the shots. The rust and the foam are kept darker than white so the overcast
+// light does not clip them: the hedgehogs read as wet iron and the surf as a thin line, not as a glowing band.
+export const DRY_SAND_COLOR = 0xc9b184;
+export const WET_SAND_COLOR = 0x6f6250;
+export const RUST_COLOR = 0x4a3f38;
+export const BURNT_COLOR = 0x3a3733;
+export const FOAM_COLOR = 0x9aa5a3;
+
+// The cloudy sky's top, the darkest part of the gradient behind the fog (仮). The bottom is the fog's own colour, so the
+// two always meet.
+export const SKY_TOP_COLOR = 0x5b6a74;
 
 // The HUD's colours, shared by the mock (#view-hud) and the game's sortie. The values come from the mock as they were;
 // the shades are 仮 and will be tuned later.
@@ -26,6 +40,7 @@ export const ENEMY_COLOR: Record<EnemyKind, number> = {
   grunt: 0x8c3b32,
   assault: 0xc94a3d, // a brighter red than a grunt's, so the fast one reads apart at a distance
   heavy: 0x4a5340, // a dark grey-green, far from the grunt's red
+  emplacement: 0x6f6a5c, // a sand-grey nest, apart from the heavy's grey-green and the grunt's red (仮)
 };
 export const ENEMY_DOWN_COLOR = 0x2a2522;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
@@ -44,6 +59,11 @@ export const SEA_TRACER_COLOR = 0xffb347;
 
 // The light at a pillbox's muzzle while it warns of a burst (仮).
 export const PILLBOX_WARN_COLOR = 0xffd890;
+
+// The blast points on the hedgehog lines and the charges planted on them (SB-1500, 仮): the ring the player stands in,
+// and the box that blinks as its fuse burns.
+export const BLAST_POINT_COLOR = 0xffb347;
+export const CHARGE_COLOR = 0xffe066;
 
 // The sparks of a shot a pillbox's front turns away (仮). A little warmer than SEA_FLASH_COLOR, so the two do not read
 // as the same flash.

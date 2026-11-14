@@ -25,6 +25,7 @@ export interface TouchRead {
   pitchDelta: number; // the pitch this frame's drag adds (rad)
   lock: boolean; // the lock display the #btnLock button toggles
   sub: boolean; // #btnFire2 held (MechInput has no sub yet)
+  use: boolean; // #btnUse held (MechInput has no use yet)
 }
 
 export interface TouchStats {
@@ -41,7 +42,7 @@ const STICK_ZONE = 0.45;
 // How long after a view drag the view still counts as in use (s).
 export const LOOK_RECENT = 0.25;
 
-const presses: Record<TouchButton, number> = { main: 0, sub: 0, jump: 0, boost: 0, lock: 0 };
+const presses: Record<TouchButton, number> = { main: 0, sub: 0, jump: 0, boost: 0, lock: 0, use: 0 };
 const pointers = new Set<number>(); // every finger down on #touch (buttons included)
 let maxPointers = 0;
 let stickId: number | null = null; // the finger the engine's stick took
@@ -50,6 +51,7 @@ let lastLookAt = -Infinity; // when the view last moved (ms, performance.now)
 let jumpPressed = false; // went down since the last readTouch
 let jumpHeld = false; // the jump button is held
 let boostHeld = false;
+let useHeld = false; // the use button is held
 let yawDelta = 0; // the view drag since the last readTouch (rad)
 let pitchDelta = 0; // the same, for the pitch (rad)
 let touchActive = false; // the touch view is running (INPUT.active)
@@ -105,6 +107,7 @@ function touchDefs(): Record<TouchButton, TouchDefault & { name: string }> {
     jump: { ...TOUCH_DEFAULTS.jump, name: t('btn.jump') },
     boost: { ...TOUCH_DEFAULTS.boost, name: t('btn.boost') },
     lock: { ...TOUCH_DEFAULTS.lock, name: t('btn.lock') },
+    use: { ...TOUCH_DEFAULTS.use, name: t('btn.use') },
   };
 }
 
@@ -199,6 +202,9 @@ export function initTouch(options: { show?: boolean } = {}) {
   bindHold(el('#btnBoost'), down => {
     boostHeld = down;
   });
+  bindHold(el('#btnUse'), down => {
+    useHeld = down;
+  });
 
   INPUT.active = () => touchActive;
   INPUT.key = handleKey;
@@ -225,7 +231,7 @@ export function readTouch(): TouchRead {
   yawDelta = 0;
   pitchDelta = 0;
   jumpPressed = false;
-  return { input, pitchDelta: pitch, lock: lockState(), sub: fire2Held };
+  return { input, pitchDelta: pitch, lock: lockState(), sub: fire2Held, use: useHeld };
 }
 
 export function touchStats(): TouchStats {

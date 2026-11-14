@@ -13,7 +13,12 @@ import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
 import { showFx } from './fx.ts';
 import { showBoom } from './boom.ts';
+import { showLanding } from './landing.ts';
+import { showBreach } from './breach.ts';
 import { showHurt } from './hurt.ts';
+import { showPillbox } from './pillbox.ts';
+import { showAlly } from './ally.ts';
+import { showSquad } from './squad.ts';
 import { showSound } from './sound.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -103,10 +108,40 @@ export const DEV_VIEWS: DevView[] = [
     run: showBoom,
   },
   {
+    hash: '#view-landing',
+    match: 'starts',
+    name: 'the landing cutscene, held at a second, with the camera and deck knobs',
+    run: showLanding,
+  },
+  {
+    hash: '#view-breach',
+    match: 'starts',
+    name: 'blast points, charges, machine-gun nests and the aimed mortar, with knobs',
+    run: showBreach,
+  },
+  {
     hash: '#view-hurt',
     match: 'is',
     name: 'the signs of being under fire in the sortie, with knobs',
     run: showHurt,
+  },
+  {
+    hash: '#view-pillbox',
+    match: 'is',
+    name: 'the pillboxes’ blast points in the sortie, with knobs',
+    run: showPillbox,
+  },
+  {
+    hash: '#view-allies',
+    match: 'starts',
+    name: 'the five allied mechs taking their posts, with knobs',
+    run: showAlly,
+  },
+  {
+    hash: '#view-squad',
+    match: 'starts',
+    name: 'the infantry: squads of five cut down at the machine-gun nests, with knobs',
+    run: showSquad,
   },
   {
     hash: '#view-mapedit',

@@ -152,7 +152,9 @@ function ensurePools(): BoomPools {
   }
   const group = new THREE.Group();
   group.name = 'sbBooms';
-  // the flash is see-through so its own colour reads; the smoke does not write depth either
+  // the flash is see-through so its own colour reads; the smoke does not write depth either. The flash keeps the table's
+  // colour (toneMapped: false): under ACES and the beach's exposure the fireball came out dark and dull, while the sky and
+  // the fog are drawn with their own colours and the flash is the one thing meant to burn through them.
   const fire = poolMesh(
     'fire',
     new THREE.SphereGeometry(1, 12, 8),
@@ -161,6 +163,7 @@ function ensurePools(): BoomPools {
       transparent: true,
       opacity: FIRE_OPACITY,
       depthWrite: false,
+      toneMapped: false,
     }),
     BOOM_CAP.fire,
   );

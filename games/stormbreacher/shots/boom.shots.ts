@@ -46,7 +46,7 @@ function hold(): () => void {
 // Puts one blast at `at` and lets it run `seconds` before the picture.
 async function shot(
   name: string,
-  kind: 'large' | 'water' | 'craft',
+  kind: 'small' | 'large' | 'water' | 'craft',
   at: { x: number; y: number; z: number },
   seconds: number,
 ) {
@@ -60,6 +60,16 @@ async function shot(
 test('boom', async () => {
   const release = hold();
   try {
+    // one blast of each kind while its flash is at its full size and before it fades: the four kinds can be compared
+    const fullFlash: [string, 'small' | 'large' | 'water' | 'craft', { x: number; y: number; z: number }, number][] = [
+      ['boom-small-0.2', 'small', LAND, 0.2],
+      ['boom-large-0.2', 'large', LAND, 0.2],
+      ['boom-craft-0.3', 'craft', LAND, 0.3],
+      ['boom-water-0.2', 'water', SEA, 0.2],
+    ];
+    for (const [name, kind, at, seconds] of fullFlash) {
+      if (wanted(name)) await shot(name, kind, at, seconds);
+    }
     for (const at of [0.1, 0.4, 1, 3, 8]) {
       const name = `boom-large-${at}`;
       if (wanted(name)) await shot(name, 'large', LAND, at);

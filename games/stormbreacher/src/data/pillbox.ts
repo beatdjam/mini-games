@@ -16,6 +16,20 @@ export const PILLBOX_TUNE = {
   muzzleGap: 0.5, // how far past the pillbox's box a shot starts (m)
 };
 
+// A charge planted on a pillbox's blast point (SB-1540, 仮). One is enough to break the pillbox: the charge sits outside
+// the armour, so PILLBOX_ARMOR's shares are not taken off it.
+export const PILLBOX_BLAST = {
+  damage: 150, // what one charge takes off the pillbox it is planted on; more than TARGET_HP.pillbox (100)
+};
+
+// How a broken pillbox goes down (SB-1550, 仮): it sinks into the sand and leans toward the land while the blast's smoke
+// stands, so the road opening shows. The seconds live in the view only (World.breaks), not in the game or the saves.
+export const PILLBOX_BREAK = {
+  sec: 2.5, // the seconds from the blast to fully sunk and leaning
+  sink: 1.6, // how deep it goes into the sand by the end (m)
+  lean: 0.2, // the angle it leans toward the land (-z) by the end (rad)
+};
+
 // A pillbox's armour (仮): its front shrugs off shots, its sides and back take them whole. The angle is measured on the
 // ground from the direction the shot came from, so a shot from within `frontArc` of the front is a front hit.
 export const PILLBOX_ARMOR = {

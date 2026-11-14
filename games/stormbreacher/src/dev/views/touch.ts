@@ -49,6 +49,7 @@ function reportJson(): string {
       jump: place('jump'),
       boost: place('boost'),
       lock: place('lock'),
+      use: place('use'),
     },
     screen: {
       width: window.innerWidth,
@@ -125,7 +126,7 @@ export function showTouch(_hash: string) {
     hint.id = 'sbPlayHint';
     hint.textContent =
       'クリックで操作開始 / WASD 移動 / マウス・矢印 視点 / Space ジャンプ（長押しで滞空） / Shift ブースト / ' +
-      '左クリック・J メイン / 右クリック・K サブ / E ロック / Esc 解除';
+      '左クリック・J メイン / 右クリック・K サブ / E ロック / F 使う / Esc 解除';
     hint.style.cssText =
       'position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);transform:translateX(-50%);' +
       'max-width:calc(100% - 16px);padding:4px 8px;border-radius:6px;font:11px/1.4 monospace;color:#d5e4ee;' +

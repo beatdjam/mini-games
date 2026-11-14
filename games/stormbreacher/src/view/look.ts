@@ -3,11 +3,18 @@
 import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import { renderer, scene } from '@engine/render/index.ts';
-import type { LookTune } from '../data/looks.ts';
-import { TILE_COLOR } from './outdoor.ts';
+import { TONE, type LookTune } from '../data/looks.ts';
+import { setSky } from './sky.ts';
 import { MAP_FOG } from './world.ts';
 
 let keptPixelRatio: number | null = null;
+
+// The engine's renderer is shared with the other games, so the beach's tone map is set here, after initRender, and not in
+// the engine. ACES keeps the bright sand and surf under the cloud from clipping to white.
+export function applyToneBase(): void {
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = TONE.exposure;
+}
 
 // The renderer's resolution before any look lowered it. Kept from the first call, so a second sortie on one page does
 // not take the lowered value for the original.
@@ -30,7 +37,8 @@ export function applyLook(look: LookTune, basePixel: number): void {
     scene.fog.near = MAP_FOG.near * (1 - clamp(look.haze, 0, 0.9));
     scene.fog.far = MAP_FOG.far;
   }
-  if (scene.background instanceof THREE.Color) scene.background.setHex(look.skyColor);
+  // the sky's lower edge is the fog's colour, so the two meet at the horizon
+  setSky(look.skyColor, look.fogColor);
 }
 
 export interface LightBase {
@@ -64,38 +72,32 @@ export function applyLights(look: LookTune, lights: readonly LightBase[]): void 
 }
 
 export interface GroundTint {
-  mesh: THREE.InstancedMesh;
-  scales: Float32Array; // each tile's light/dark scale, kept from the build
+  material: THREE.MeshLambertMaterial; // the one ground plane's material
 }
 
-// The map's tile meshes (the build may have split them into chunks): their colour is per instance.
+// The map's ground material (the ground is one plane, named 'tile').
 export function collectGroundTiles(root: THREE.Object3D): GroundTint[] {
   const tiles: GroundTint[] = [];
-  const base = new THREE.Color(TILE_COLOR).r;
   root.traverse(object => {
-    if (!(object instanceof THREE.InstancedMesh) || object.name !== 'tile' || !object.instanceColor) return;
-    const colors = object.instanceColor.array;
-    const scales = new Float32Array(object.count);
-    for (let i = 0; i < object.count; i++) scales[i] = base > 0 ? Number(colors[i * 3]) / base : 1;
-    tiles.push({ mesh: object, scales });
+    if (
+      object instanceof THREE.Mesh &&
+      object.name === 'tile' &&
+      object.material instanceof THREE.MeshLambertMaterial
+    ) {
+      tiles.push({ material: object.material });
+    }
   });
   return tiles;
 }
 
+// The sand's shared material serves the ground alone (the props and targets have their own pictures and colours), so the
+// colour written here does not reach any other surface in the engine's table.
 export function applyGroundColor(look: LookTune, tiles: readonly GroundTint[]): void {
-  const base = new THREE.Color(look.groundColor);
-  const color = new THREE.Color();
-  for (const { mesh, scales } of tiles) {
-    for (let i = 0; i < scales.length; i++) {
-      color.copy(base).multiplyScalar(scales[i]);
-      mesh.setColorAt(i, color);
-    }
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }
+  for (const { material } of tiles) material.color.setHex(look.groundColor);
 }
 
-// The whole look over a built map: the canvas, the scene's lights and the ground's tiles. The sortie and #view-hud use
-// this; #view-fx needs its lights collected once, so it calls the parts itself.
+// The whole look over a built map: the canvas, the scene's lights and the ground. The sortie and #view-hud use this;
+// #view-fx needs its lights collected once, so it calls the parts itself.
 export function applyLookTo(look: LookTune, root: THREE.Object3D): void {
   applyLook(look, basePixelRatio());
   applyLights(look, collectLights());

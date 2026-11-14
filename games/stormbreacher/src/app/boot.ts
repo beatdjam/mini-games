@@ -5,6 +5,7 @@ import { initRender } from '@engine/render/index.ts';
 import { SOUND_VOLUME } from '../data/sounds.ts';
 import { FIELD_TUNE } from '../data/tune.ts';
 import { buildField, placeCamera } from '../view/field.ts';
+import { applyToneBase } from '../view/look.ts';
 import { initFullscreen } from './fullscreen.ts';
 import { continueSortie, pressStart, syncTitle } from './play.ts';
 import { loopMode, state } from './screen.ts';
@@ -30,13 +31,14 @@ function initStart() {
   });
 }
 
-// The order matters: the save tells the language, the renderer needs the page, the field needs the renderer, the start
-// button needs the field's page, and the loop draws what the field made. Only functions: nothing here touches the page
-// as the module loads.
+// The order matters: the save tells the language, the renderer needs the page, the tone map needs the renderer, the field
+// needs the renderer, the start button needs the field's page, and the loop draws what the field made. Only functions:
+// nothing here touches the page as the module loads.
 const BOOT: { name: string; run: () => void }[] = [
   { name: 'save', run: initSave },
   { name: 'language', run: () => setLang(settings.lang ?? defaultLang()) },
   { name: 'render', run: () => initRender(el<HTMLCanvasElement>('#gl')) },
+  { name: 'tone', run: applyToneBase },
   {
     name: 'field',
     run: () => {

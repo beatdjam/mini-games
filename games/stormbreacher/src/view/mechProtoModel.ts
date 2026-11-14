@@ -82,6 +82,7 @@ interface ProtoRig {
   motion: MotionState;
   bones: Record<ProtoBone, THREE.Bone>;
   flames: { mesh: THREE.Mesh }[];
+  flameMaterial: THREE.MeshBasicMaterial; // shared by the flame cones; its opacity follows the see-through fade
   shapes: number; // how many shapes the tables drew (for the weight table)
   time: number; // seconds since the build, for the breathing
 }
@@ -436,6 +437,7 @@ export function buildProtoMech(height: number): THREE.Group {
     motion: newMotion(),
     bones,
     flames,
+    flameMaterial,
     shapes,
     time: 0,
   };
@@ -515,6 +517,24 @@ export function animateProtoMech(root: THREE.Object3D, input: MotionInput, dt: n
   rig.time += dt;
   stepMotion(rig.motion, input, dt, rig.look.stride * rig.height);
   poseProto(rig);
+}
+
+// Makes the prototype see-through (`opacity` below 1) or solid again (1), for the sortie's camera pushed close by a wall.
+// It only flips the materials, so the draw calls stay the same; the flame keeps its own opacity scaled by the same ratio.
+export function setProtoOpacity(root: THREE.Object3D, opacity: number): void {
+  const rig = rigs.get(root);
+  const done = new Set<THREE.Material>();
+  root.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (mesh.isMesh !== true) return;
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const material of materials) {
+      if (done.has(material)) continue;
+      done.add(material);
+      material.transparent = opacity < 1 || material === rig?.flameMaterial;
+      material.opacity = material === rig?.flameMaterial ? PROTO_TUNE.flame.opacity * opacity : opacity;
+    }
+  });
 }
 
 export function countProtoDraws(root: THREE.Object3D): ProtoStats {

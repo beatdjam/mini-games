@@ -12,6 +12,7 @@ export type SoundName =
   | 'shellLand'
   | 'enemyGun'
   | 'mechHit'
+  | 'charge'
   | 'radio'
   | 'downed'
   | 'wave'
@@ -29,6 +30,7 @@ export const SOUND_NAMES: readonly SoundName[] = [
   'shellLand',
   'enemyGun',
   'mechHit',
+  'charge',
   'radio',
   'downed',
   'wave',
@@ -126,6 +128,12 @@ export const SOUND_LAYERS: Record<SoundName, readonly SoundLayer[]> = {
     { kind: 'tone', type: 'square', f0: 620, f1: 190, dur: 0.16, vol: 0.11 },
     { kind: 'tone', type: 'sine', f0: 130, f1: 42, dur: 0.18, vol: 0.3 },
   ],
+  charge: [
+    { kind: 'noise', type: 'highpass', f0: 5200, f1: 3000, dur: 0.03, vol: 0.3 },
+    { kind: 'tone', type: 'square', f0: 940, f1: 520, dur: 0.07, vol: 0.12 },
+    { kind: 'tone', type: 'sine', f0: 210, f1: 120, dur: 0.12, vol: 0.3 },
+    { kind: 'noise', type: 'bandpass', f0: 2100, f1: 900, dur: 0.09, vol: 0.14, q: 2.5, at: 0.02 },
+  ],
   radio: [
     { kind: 'noise', type: 'bandpass', f0: 1900, f1: 1200, dur: 0.1, vol: 0.14, q: 4 },
     { kind: 'noise', type: 'highpass', f0: 3200, f1: 2000, dur: 0.035, vol: 0.18, at: 0.01 },
@@ -165,6 +173,7 @@ export const SOUND_FRAME_LIMIT: Record<SoundName, number> = {
   shellLand: 2,
   enemyGun: 2,
   mechHit: 1,
+  charge: 1,
   radio: 1,
   downed: 1,
   wave: 1,

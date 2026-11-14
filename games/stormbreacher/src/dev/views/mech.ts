@@ -17,7 +17,7 @@ import { animateMech, buildMechVisual, countMechDraws, disposeMech } from '../..
 import { animateProtoMech, buildProtoMech, countProtoDraws, disposeProtoMech } from '../../view/mechProtoModel.ts';
 import { protoTextureBytes } from '../../view/mechProtoSurfaces.ts';
 import { resetMechPaint } from '../../view/mechSurfaces.ts';
-import { addProtoStage, type ProtoStage } from '../mech/protoStage.ts';
+import { addProtoStage, type ProtoStage } from '../../view/protoStage.ts';
 import { PATTERN_IDS, PATTERN_LABELS, PATTERNS, type PatternId } from '../mech/patterns.ts';
 import { createTunePanel } from '../tunePanel.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';

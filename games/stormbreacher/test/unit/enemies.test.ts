@@ -240,3 +240,86 @@ test('an enemy that comes in above the ground falls to it without shooting, and 
   expect(rectDistance(wall, enemy.x, enemy.z)).toBeGreaterThanOrEqual(GRUNT.radius - 1e-9);
   expect(enemy.z).toBeGreaterThan(-65);
 });
+
+const NEST = ENEMIES.emplacement;
+const NEST_BURST = NEST.burst;
+if (NEST_BURST === undefined) throw new Error('the nest has a burst');
+
+// The horizontal way a shot goes, in degrees either side of straight ahead (+z). The mech stands at the origin through
+// the nest's x, so the aim itself is +z.
+const sweepOf = (shot: EnemyShot): number => (Math.atan2(shot.dx, shot.dz) * 180) / Math.PI;
+
+test('a nest is awake as soon as it is put out, stands still and fires after its first wait', () => {
+  const enemy = newEnemy('e-1', 'w', 'emplacement', 0, -60);
+  expect(enemy.burstLeft).toBe(NEST_BURST.shots);
+  const start = { x: enemy.x, z: enemy.z };
+  expect(stepEnemy(enemy, mechAt(0, 0), OPEN, DT, createRng(1))).toBeNull();
+  expect(enemy.awake).toBe(true);
+  let frame = -1;
+  for (let i = 0; i < Math.round(NEST.fireInterval / DT) + 3 && frame < 0; i++) {
+    if (stepEnemy(enemy, mechAt(0, 0), OPEN, DT, createRng(1))) frame = i;
+  }
+  expect(frame).toBeGreaterThanOrEqual(0);
+  // the first step already counted, so the shot comes a frame short of the interval
+  expect((frame + 1) * DT).toBeCloseTo(NEST.fireInterval, 1);
+  expect({ x: enemy.x, z: enemy.z }).toEqual(start);
+});
+
+test('a burst sweeps six shots from the left of its arc to the right, interval apart, then rests', () => {
+  const enemy = newEnemy('e-1', 'w', 'emplacement', 0, -60);
+  const rng = createRng(7);
+  const frames: number[] = [];
+  const angles: number[] = [];
+  const wanted = Math.round((NEST.fireInterval + NEST_BURST.interval * 5 + 3) / DT);
+  for (let i = 0; i < wanted; i++) {
+    const shot = stepEnemy(enemy, mechAt(0, 0), OPEN, DT, rng);
+    if (!shot) continue;
+    frames.push(i);
+    angles.push(sweepOf(shot));
+  }
+  expect(frames.length).toBeGreaterThanOrEqual(NEST_BURST.shots + 1); // the second burst starts in the window too
+  const first = angles.slice(0, NEST_BURST.shots);
+  first.forEach((angle, i) => {
+    const want = -NEST_BURST.arcDeg / 2 + (NEST_BURST.arcDeg * i) / (NEST_BURST.shots - 1);
+    // the spread is laid on top of the sweep, so each shot is within the spread of its place on the arc
+    expect(Math.abs(angle - want)).toBeLessThanOrEqual(NEST.spread + 1e-6);
+  });
+  for (let i = 1; i < first.length; i++) expect((frames[i] - frames[i - 1]) * DT).toBeCloseTo(NEST_BURST.interval, 1);
+  // after the last shot of the burst the rest passes before the next burst's first shot, back at the left edge
+  expect((frames[NEST_BURST.shots] - frames[NEST_BURST.shots - 1]) * DT).toBeCloseTo(NEST_BURST.rest, 1);
+  expect(Math.abs(angles[NEST_BURST.shots] + NEST_BURST.arcDeg / 2)).toBeLessThanOrEqual(NEST.spread + 1e-6);
+});
+
+test('a burst that loses its line stops, and the next burst starts again after the rest', () => {
+  const boxes: Aabb[] = [];
+  const world: EnemyWorld = { ...OPEN, propBoxes: boxes };
+  const enemy = newEnemy('e-1', 'w', 'emplacement', 0, -60);
+  const rng = createRng(3);
+  const shots: number[] = [];
+  for (let i = 0; i < Math.round(6 / DT) && shots.length < 2; i++) {
+    if (stepEnemy(enemy, mechAt(0, 0), world, DT, rng)) shots.push(i);
+  }
+  expect(shots).toHaveLength(2);
+  expect(enemy.burstLeft).toBe(NEST_BURST.shots - 2);
+  // a wall between the nest and the mech: the next due shot is dropped and the burst is put back
+  boxes.push({ minX: -10, maxX: 10, minY: 0, maxY: 10, minZ: -31, maxZ: -29 });
+  for (let i = 0; i < 30; i++) expect(stepEnemy(enemy, mechAt(0, 0), world, DT, rng)).toBeNull();
+  expect(enemy.burstLeft).toBe(NEST_BURST.shots);
+  // the wall goes: the rest has to pass, then the burst starts at the left edge again
+  boxes.length = 0;
+  let first: EnemyShot | null = null;
+  for (let i = 0; i < Math.round((NEST_BURST.rest + 1) / DT) && first === null; i++) {
+    first = stepEnemy(enemy, mechAt(0, 0), world, DT, rng);
+  }
+  expect(first).not.toBeNull();
+  expect(Math.abs(sweepOf(first as EnemyShot) + NEST_BURST.arcDeg / 2)).toBeLessThanOrEqual(NEST.spread + 1e-6);
+});
+
+test('a nest is not pushed by the enemies near it, and a walker still is', () => {
+  const nest = newEnemy('e-1', 'w', 'emplacement', 0, -60);
+  const grunt = newEnemy('w-1', 'w', 'grunt', 0.5, -60);
+  const world: EnemyWorld = { ...OPEN, others: [nest, grunt] };
+  const start = { x: nest.x, z: nest.z };
+  for (let i = 0; i < 120; i++) stepEnemy(nest, mechAt(0, 0), world, DT, createRng(1));
+  expect({ x: nest.x, z: nest.z }).toEqual(start);
+});

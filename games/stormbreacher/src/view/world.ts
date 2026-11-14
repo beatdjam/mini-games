@@ -4,9 +4,12 @@ import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
 import { M1_SHUTTERS } from '../data/battery.ts';
 import { SHUTTER_COLOR, SKY_COLOR } from '../data/colors.ts';
+import { PILLBOX_BREAK } from '../data/pillbox.ts';
 import { TARGET_SIZE, TILE_SIZE } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
+import { blastPropIndexes } from '../logic/blasts.ts';
+import { craftRects } from '../logic/craft.ts';
 import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxesOfRect } from './camera.ts';
 import { buildShore } from './shore.ts';
@@ -29,9 +32,11 @@ export interface World {
   shutters: Map<string, THREE.Mesh>; // the armour plate before a target, by the target's id; hidden once it is open
   shore: THREE.Group; // the sea and the landing craft, to take out with them
   cameraBoxes: THREE.Box3[]; // the props and targets as walls the camera keeps out of
-  slots: Map<number, PropSlot>; // a breakable prop's place in map.props -> where it is drawn
-  propCameraBoxes: Map<number, THREE.Box3>; // a breakable prop's place in map.props -> its box in cameraBoxes
-  broken: Set<number>; // the props already drawn broken
+  slots: Map<number, PropSlot>; // a breakable or blast-opened prop's place in map.props -> where it is drawn
+  propCameraBoxes: Map<number, THREE.Box3>; // those props' place in map.props -> its box in cameraBoxes
+  broken: Set<number>; // the props already drawn broken or opened
+  opened: Set<string>; // the blast points whose hole is already open in the draw, so the props are not searched again
+  breaks: Map<string, number>; // a target's id -> the seconds since it broke, for the pillboxes' sink
 }
 
 // The tiles that cover the whole bounds. The last row and column may hang a little past the edge, so no gap is left.
@@ -49,6 +54,16 @@ export function groundTiles(bounds: MapBounds): Prop[] {
   return tiles;
 }
 
+// The props a blast point would take out of its line, for the draw: their copies get a slot and a camera box now, so a
+// blast can lower them where they stand without a new mesh.
+function blastPropsOf(map: MapDef): Set<Prop> {
+  const props = new Set<Prop>();
+  for (const blast of map.blasts ?? []) {
+    for (const index of blastPropIndexes(map, blast)) props.add(map.props[index]);
+  }
+  return props;
+}
+
 // Builds the walkable map into the scene and returns what was built. Hiding the start-up field is left to the caller.
 export function buildWorld(map: MapDef): World {
   const fog = scene.fog instanceof THREE.Fog ? scene.fog : new THREE.Fog(SKY_COLOR, FOG_NEAR, FOG_FAR);
@@ -58,7 +73,11 @@ export function buildWorld(map: MapDef): World {
   camera.far = FOG_FAR + 20;
   camera.updateProjectionMatrix();
 
-  const built = buildOutdoor([...groundTiles(map.bounds), ...map.props], { chunk: CHUNK, chunkMin: CHUNK_MIN });
+  const built = buildOutdoor([...groundTiles(map.bounds), ...map.props], {
+    chunk: CHUNK,
+    chunkMin: CHUNK_MIN,
+    slotProps: blastPropsOf(map),
+  });
   scene.add(built.group);
 
   const targetGroup = buildTargets(map.targets);
@@ -87,17 +106,20 @@ export function buildWorld(map: MapDef): World {
 
   // cameraBoxesOfRect runs over mapBlockers' rects, which put the blocking props first in map.props' order, so the
   // boxes of rect i belong to blockingPropIndexes(map)[i]. A breakable prop is one flat rect, so its list holds one box.
-  const rects = mapBlockers(map);
+  // The craft's rects come after the map's, so the props' places still line up.
+  const rects = [...mapBlockers(map), ...craftRects(map.bounds)];
   const boxesByRect = rects.map(cameraBoxesOfRect);
   const boxes = boxesByRect.flat();
   const slots = new Map<number, PropSlot>();
   const propCameraBoxes = new Map<number, THREE.Box3>();
+  const blastProps = blastPropsOf(map);
   map.props.forEach((prop, index) => {
     const slot = built.slots.get(prop);
     if (slot) slots.set(index, slot);
   });
   blockingPropIndexes(map).forEach((propIndex, i) => {
-    if (map.props[propIndex].breakable !== true) return;
+    const prop = map.props[propIndex];
+    if (prop.breakable !== true && !blastProps.has(prop)) return;
     const box = boxesByRect[i][0];
     if (box) propCameraBoxes.set(propIndex, box);
   });
@@ -112,19 +134,39 @@ export function buildWorld(map: MapDef): World {
     slots,
     propCameraBoxes,
     broken: new Set(),
+    opened: new Set(),
+    breaks: new Map(),
   };
 }
 
-// Lowers and darkens every target whose health is gone, hides every shutter that is open, and every breakable prop the game has broken: its copy becomes
-// a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands that same array to the camera every frame).
-// Called every frame, so one already down or broken is left as it is.
-export function syncWorld(world: World, game: GameModel): void {
+// Lowers and darkens every target whose health is gone, hides every shutter that is open, and every prop the game has
+// broken or a blast has opened: its copy becomes a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands
+// that same array to the camera every frame). A blasted line is drawn open from the first frame after a checkpoint or a
+// suspend brings it back. A pillbox goes down over PILLBOX_BREAK.sec instead, so its fall reads as the road opening: the
+// seconds live here, in the view, and a save or a checkpoint needs nothing new. Called every frame: a pillbox keeps
+// sinking until PILLBOX_BREAK.sec, while every other broken target is left as it is once it is down, and a blast point's
+// hole is searched only on the frame it opens.
+export function syncWorld(world: World, game: GameModel, dt: number): void {
   for (const target of game.targets) {
     if (target.hp > 0) continue;
     const mesh = world.targets.get(target.id);
-    if (!mesh || mesh.scale.y === WRECK_SCALE_Y) continue;
+    if (!mesh) continue;
+    if (target.kind === 'pillbox') {
+      // A pillbox already down when the world is built (a checkpoint or a suspend brings one back) has no seconds yet:
+      // start it fully down, so it does not sink again.
+      const before = world.breaks.get(target.id) ?? PILLBOX_BREAK.sec;
+      const at = Math.min(PILLBOX_BREAK.sec, before + dt);
+      world.breaks.set(target.id, at);
+      const share = PILLBOX_BREAK.sec <= 0 ? 1 : Math.min(1, at / PILLBOX_BREAK.sec);
+      const k = share * share * (3 - 2 * share); // smooth in and out
+      mesh.scale.y = 1 + (WRECK_SCALE_Y - 1) * k;
+      mesh.position.y = -PILLBOX_BREAK.sink * k;
+      mesh.rotation.x = -PILLBOX_BREAK.lean * k; // toward the land (-z); the yaw in rotation.y stays
+    } else {
+      if (mesh.scale.y === WRECK_SCALE_Y) continue;
+      mesh.scale.y = WRECK_SCALE_Y;
+    }
     if (mesh.material instanceof THREE.MeshLambertMaterial) mesh.material.color.setHex(WRECK_COLOR);
-    mesh.scale.y = WRECK_SCALE_Y;
   }
   for (const shutter of game.shutters) {
     const plate = world.shutters.get(shutter.target);
@@ -140,5 +182,20 @@ export function syncWorld(world: World, game: GameModel): void {
       if (at >= 0) world.cameraBoxes.splice(at, 1);
     }
     world.broken.add(breakable.prop);
+  }
+  for (const blast of game.blasts) {
+    if (!blast.blasted || world.opened.has(blast.id)) continue;
+    world.opened.add(blast.id);
+    for (const prop of blastPropIndexes(game.map, blast)) {
+      if (world.broken.has(prop)) continue;
+      const slot = world.slots.get(prop);
+      if (slot) breakPropSlot(slot);
+      const box = world.propCameraBoxes.get(prop);
+      if (box) {
+        const at = world.cameraBoxes.indexOf(box);
+        if (at >= 0) world.cameraBoxes.splice(at, 1);
+      }
+      world.broken.add(prop);
+    }
   }
 }

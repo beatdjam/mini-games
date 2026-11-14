@@ -98,22 +98,30 @@ test('a skip ends the landing at once, and the script is the same as after watch
   expect(withoutTimes(skippedRest)).toEqual(withoutTimes(watchedRest));
 });
 
-test('no mortar shell is warned of while the landing plays, and the barrage starts once it is over', () => {
+test('no mortar shell is warned of while the landing plays or the mech is on the craft, and one comes once it is off', () => {
   const game = newGame(M1B_HAND);
   let warned = 0;
-  for (let t = 0; t < CUTSCENE_SEC.landing - 0.1; t += 1 / 60) {
-    step(game, idle, 1 / 60);
-    warned += game.events.filter(event => event.kind === 'shellWarn').length;
-  }
+  const run = (seconds: number): void => {
+    for (let t = 0; t < seconds; t += 1 / 60) {
+      step(game, idle, 1 / 60);
+      warned += game.events.filter(event => event.kind === 'shellWarn').length;
+    }
+  };
+  run(CUTSCENE_SEC.landing - 0.1);
   expect(game.script.cutscene?.id).toBe('landing');
   expect(game.barrages.length).toBeGreaterThan(0);
   expect(warned).toBe(0);
   expect(game.armor).toBe(MECH_TUNE.armor);
-  for (let t = 0; t < 8; t += 1 / 60) {
-    step(game, idle, 1 / 60);
-    warned += game.events.filter(event => event.kind === 'shellWarn').length;
-  }
+  // past the cutscene the mech still waits on the deck, and the beach's mortar leaves the boat alone
+  run(2);
   expect(game.script.cutscene).toBeNull();
+  expect(game.mech.z).toBeGreaterThan(game.map.bounds.maxZ);
+  expect(warned).toBe(0);
+  // once it has walked down the ramp the barrage starts, and a shell is warned of
+  game.mech.x = 0;
+  game.mech.y = 0;
+  game.mech.z = 160;
+  run(8);
   expect(warned).toBeGreaterThan(0);
 });
 
@@ -145,9 +153,9 @@ test('wave2-sinks starts 4 s after cp1, holds the mech still, and ends with the 
   expect(game.script.cutscene?.id).toBe('wave2-sinks');
   expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeGreaterThan(3.99);
   expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeLessThan(4.1);
-  // the cue's other actions come in the same frame
+  // the cue's other actions come in the same frame; the ally calls may still hold the band, so the line is on it or queued
   expect(game.script.objective).toBe('take-seawall');
-  expect(game.radio?.line).toBe('m1.wave2-lost');
+  expect([game.radio?.line ?? null, ...game.radioQueue.map(entry => entry.line)]).toContain('m1.wave2-lost');
   expect(game.enemies.some(enemy => enemy.wave === 'seawall-drop')).toBe(true);
   const start = { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw };
   let shots = 0;
@@ -164,6 +172,14 @@ test('wave2-sinks starts 4 s after cp1, holds the mech still, and ends with the 
   const z = game.mech.z;
   for (let i = 0; i < 30; i++) step(game, { ...idle, moveZ: 1 }, DT);
   expect(game.mech.z).toBeLessThan(z);
+});
+
+test('the wave2-lost line reaches the screen once the ally call before it has had its time', () => {
+  const game = afterPillboxes();
+  runUntilCutscene(game, 'wave2-sinks', 4.5);
+  // buddy's call takes the band first; the line waits behind it and then is the one on screen
+  for (let i = 0; i < 60 * 8 && game.radio?.line !== 'm1.wave2-lost'; i++) step(game, idle, DT);
+  expect(game.radio?.line).toBe('m1.wave2-lost');
 });
 
 test('a skip of wave2-sinks leaves the script as watching it does', () => {

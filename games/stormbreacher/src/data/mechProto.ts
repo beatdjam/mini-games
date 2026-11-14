@@ -866,8 +866,8 @@ export const PROTO_TUNE = {
   // stays level, the weapon arm comes up and the free arm follows. Walking adds a swing, a knee lift and a bob; a stop
   // dips once; the air folds the knees and tucks the feet; a shot lowers the elbow and the hips; standing breathes.
   pose: {
-    hip: 0.48, // the hip's height when standing (ratio of the mech's height)
-    knee: 1.05, // the knee's flex when standing (rad)
+    hip: 0.5, // the hip's height when standing (ratio of the mech's height; 1471 had 0.48)
+    knee: 0.85, // the knee's flex when standing (rad; 1471 had 1.05, which looked folded from the side)
     lean: -0.22, // the torso's standing tilt (rad; negative tips the top toward -z)
     head: 0.8, // how much the head stays level against the torso's tilt (0..1)
     shoulder: 0.8, // the weapon arm's shoulder forward (rad)
