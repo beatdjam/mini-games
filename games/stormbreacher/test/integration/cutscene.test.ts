@@ -161,6 +161,19 @@ test('beach-held plays on the win, the game goes on until it ends, and a skip en
   expect(Object.keys(skipped.script.fired).sort()).toEqual(Object.keys(game.script.fired).sort());
 });
 
+test('the fortress blast plays for its table length and ends by itself', () => {
+  const game = newPlayGame(M1B_HAND);
+  sendToScript(game, { kind: 'fortressDown' });
+  expect(game.script.cutscene).toEqual({ id: 'fortress-blast', left: CUTSCENE_SEC['fortress-blast'] });
+  const seen: string[] = [];
+  for (let i = 0; i < 60 * (CUTSCENE_SEC['fortress-blast'] + 2) && game.script.cutscene !== null; i++) {
+    step(game, idle, DT);
+    for (const out of scriptEvents(game)) seen.push(out.kind);
+  }
+  expect(game.script.cutscene).toBeNull();
+  expect(seen).toContain('cutsceneEnd');
+});
+
 test('nothing takes armour off the mech while a cutscene plays', () => {
   const game = newGame(M1B_HAND);
   step(game, idle, DT);

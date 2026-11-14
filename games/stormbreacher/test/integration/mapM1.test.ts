@@ -70,8 +70,9 @@ test('the hand map keeps at least 120 hedgehogs', () => {
 });
 
 test('the hand map has two blast points on each of the two lines and none on C', () => {
-  // the pillboxes' points name a target and belong to no line; the line tests count only the line's points (SB-1540)
-  const blasts = (M1B_HAND.blasts ?? []).filter(blast => blast.target === undefined);
+  // the pillboxes' points name a target and the fortress's point names no line; the line tests count only the lines' own
+  // points (SB-1540, SB-1860)
+  const blasts = (M1B_HAND.blasts ?? []).filter(blast => blast.target === undefined && blast.line !== null);
   expect(blasts).toHaveLength(4);
   for (const line of M1B_RULES.lines.slice(0, 2)) {
     const onLine = blasts.filter(blast => blast.line === line.z);
@@ -84,6 +85,25 @@ test('the hand map has two blast points on each of the two lines and none on C',
       `line at z ${line.z}`,
     ).toEqual([]);
   }
+});
+
+test('the fortress’s charge sits in the land wall with a 20 s fuse, and its walls and door collapse', () => {
+  const bomb = (M1B_HAND.blasts ?? []).find(blast => blast.id === 'fort-bomb');
+  if (!bomb) throw new Error('the hand map has no fort-bomb');
+  expect(bomb).toMatchObject({ line: null, x: 0, z: -124, fuse: 20 });
+  expect(bomb.target).toBeUndefined();
+
+  const walls = M1B_HAND.props.filter(prop => prop.kind === 'fortWall');
+  expect(walls).toHaveLength(21); // the twenty pieces and the land gate's door
+  for (const wall of walls) {
+    expect(wall.collapse, `${wall.x}, ${wall.z}`).toBe(true);
+    expect(wall.breakable).toBeUndefined();
+  }
+  // the door fills the land gate at x 0, inside the wall's thickness
+  const door = walls.find(wall => wall.x === 0);
+  if (!door) throw new Error('the hand map has no land door');
+  expect(door.z).toBe(-125);
+  expect(door.yaw).toBe(0);
 });
 
 test('the two pillboxes have a side and a back blast point outside their boxes', () => {

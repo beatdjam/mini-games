@@ -159,4 +159,39 @@ export const CUTSCENES: Partial<Record<CutsceneId, CutsceneDef>> = {
       { at: 3.6, kind: 'arrive', x: 40, z: 175, from: 240, sec: 2.5 },
     ],
   },
+  // The fortress's charge blows (SB-1860): the walls come down under the camera, then the view rises to the battery past
+  // them, cuts out to the sea where a craft goes down, and ends behind the mech outside the sea gate. Every key is relative
+  // to the mech (the run may end anywhere outside the gate); the last one is the game's own camera. The sea keys stand at
+  // z 100-150, inside camera.far 260 of the craft they watch. The wall's fall is drawn by syncWorld from `brokenProps`,
+  // not by a `collapse` event; the bursts here are the shells of the charge going off.
+  'fortress-blast': {
+    camera: [
+      { at: 0, pos: [0, 18, -8], look: [0, 8, -128], rel: true }, // outside the sea gate, over the fortress
+      { at: 3, pos: [0, 14, -14], look: [0, 10, -240], rel: true }, // up to the battery's place beyond the ruin
+      { at: 4, pos: [0, 16, 178], look: [0, 6, 258], rel: true }, // cut out to the sea
+      { at: 4.02, pos: [0, 16, 178], look: [0, 6, 258], rel: true }, // hold it: the cut is not a long flight
+      { at: 7, pos: [0, 14, 198], look: [0, 4, 278], rel: true }, // the craft off the beach as it goes down
+      { at: 10, pos: [2.15, 4.4, 8.6], look: [2.15, 2.9, 0], rel: true }, // the game's camera behind the mech
+    ],
+    lines: [
+      { from: 0.5, to: 3.6, key: 'cutscene.blast.fall' },
+      { from: 6.2, to: 9.4, key: 'cutscene.blast.gun' },
+    ],
+    events: [
+      { at: 0.2, kind: 'burst', x: -30, z: -120 },
+      { at: 0.5, kind: 'burst', x: 0, z: -120 },
+      { at: 0.8, kind: 'burst', x: 30, z: -120 },
+      { at: 1.1, kind: 'burst', x: -24, z: -71 }, // the sea wall
+      { at: 1.4, kind: 'burst', x: 24, z: -71 },
+      { at: 1.7, kind: 'burst', x: -12, z: -125 },
+      { at: 2.0, kind: 'burst', x: 12, z: -125 },
+      { at: 2.3, kind: 'burst', x: 0, z: -100 },
+      { at: 2.6, kind: 'burst', x: -32, z: -100 },
+      { at: 2.8, kind: 'burst', x: 32, z: -100 },
+      // the craft off the beach rolls over as the charge blows; at 6 s the great gun beyond fires on another
+      { at: 2.5, kind: 'sink', x: 0, z: 180, sec: 2 },
+      { at: 6, kind: 'burst', x: 0, z: -265 }, // the super-heavy gun's place (L8 brings its model)
+      { at: 6, kind: 'sink', x: 30, z: 184, sec: 2 },
+    ],
+  },
 };

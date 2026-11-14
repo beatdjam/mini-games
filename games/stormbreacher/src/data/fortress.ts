@@ -40,6 +40,15 @@ export const DEPOT_CHOICE_TUNE = {
   lossSquads: 1, // the squads lost when the mech passes the depot
 } as const;
 
+// The fortress blast (SB-1860): the charge in the land wall's magazine, its countdown, the blast that brings the walls
+// down and the hurt it does to a mech that stayed inside. Every value is provisional and settled on #view-breach's
+// panel.
+export const FORT_BLAST_TUNE = {
+  countdownSec: 20, // from planting the charge to the blast (s)
+  blastRadius: 30, // a blast this near hurts a mech; the sortie spares one that made the sea gate (m)
+  damage: 120, // the armour the blast takes from a mech still inside (仮)
+} as const;
+
 // The yard's trap and the survivors' assist (SB-1840): three waves shut the mech in from the doors, and the cover mechs
 // that lived through the first half shoot them down one at a time from the sea gate. Every value is provisional and
 // settled on #view-breach's panel.

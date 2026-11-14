@@ -10,19 +10,19 @@ import { ENEMIES, M1_WAVE_DROP, M1_WAVE_ENEMY } from '../../data/enemies.ts';
 import { CHARGE_TUNE } from '../../data/charge.ts';
 import { applyMarkerQuery, MARKER_TUNE } from '../../data/marker.ts';
 import { ENEMY_BULLET_COLOR } from '../../data/colors.ts';
-import { DEPOT_CHOICE_TUNE, YARD_TUNE } from '../../data/fortress.ts';
+import { DEPOT_CHOICE_TUNE, FORT_BLAST_TUNE, YARD_TUNE } from '../../data/fortress.ts';
 import { AIMED_MORTAR, BARRAGES } from '../../data/hazards.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1 } from '../../data/missions/m1.ts';
 import { MECH_TUNE } from '../../data/tune.ts';
-import { newGame, type GameModel } from '../../logic/game.ts';
+import { newGame, fortressBlast, type GameModel } from '../../logic/game.ts';
 import { newEnemy, stepEnemy, type EnemyState } from '../../logic/enemies.ts';
 import { newAssist, stepAssist } from '../../logic/assist.ts';
 import { inCircle, newAimed, stepAimed, stepShells } from '../../logic/hazards.ts';
 import { hudModel } from '../../logic/hud.ts';
 import { stream } from '../../logic/rng.ts';
-import { buildWorld } from '../../view/world.ts';
+import { buildWorld, syncWorld } from '../../view/world.ts';
 import { buildBlastView, drawBlasts, type BlastView } from '../../view/blasts.ts';
 import { buildBooms, drawBooms, spawnBoom } from '../../view/boom.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from '../../view/enemies.ts';
@@ -158,6 +158,18 @@ const YARD_LABELS: Record<string, string> = {
   waveGapSec: 'yard-1 から yard-2 まで（s）',
 };
 
+// The fortress blast's values the panel turns (SB-1860).
+const FORT_BLAST_RANGES: Record<string, TuneRange> = {
+  countdownSec: { min: 5, max: 60, step: 1 },
+  blastRadius: { min: 5, max: 60, step: 1 },
+  damage: { min: 0, max: 300, step: 5 },
+};
+const FORT_BLAST_LABELS: Record<string, string> = {
+  countdownSec: '仕掛けから爆発まで（s）',
+  blastRadius: '爆風の半径（m）',
+  damage: '中に残ったときの装甲',
+};
+
 // The yard's three waves, in the order the script sends them.
 const YARD_WAVES = ['yard-1', 'yard-2', 'yard-3'] as const;
 
@@ -254,6 +266,8 @@ interface BreachReport {
   losses: { allies: number; squads: number };
   optional: { key: string; distance: number } | null;
   calls: number;
+  brokenProps: number;
+  fortressDown: boolean;
   triangles: number;
 }
 
@@ -393,6 +407,30 @@ export function showBreach(_hash: string) {
     game.assist.left = 0;
   });
   startAssist.dataset.sbBreach = 'assist';
+  const fortRow = document.createElement('div');
+  fortRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
+  extra.appendChild(fortRow);
+  const plantFort = button(fortRow, '要塞に仕掛ける', () => {
+    // the mech at the land wall's inner face, with the charge's point 3 m beyond it in the wall
+    game.mech.x = 0;
+    game.mech.z = -120;
+    game.mech.y = 0;
+    game.mech.grounded = true;
+    game.mech.yaw = 0;
+    stepCharge(game, true, CHARGE_TUNE.holdSec);
+  });
+  plantFort.dataset.sbBreach = 'fort-plant';
+  const advanceFort = button(fortRow, '20秒進める', () => {
+    for (const charge of game.charges) {
+      if (charge.blast !== 'fort-bomb') continue;
+      charge.left = Math.max(0, charge.left - FORT_BLAST_TUNE.countdownSec);
+    }
+  });
+  advanceFort.dataset.sbBreach = 'fort-advance';
+  const blowFort = button(fortRow, '爆発', () => {
+    for (const charge of game.charges) if (charge.blast === 'fort-bomb') charge.left = 0;
+  });
+  blowFort.dataset.sbBreach = 'fort-blow';
 
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
@@ -417,6 +455,12 @@ export function showBreach(_hash: string) {
       { name: 'DEPOT_CHOICE_TUNE', table: DEPOT_CHOICE_TUNE, ranges: DEPOT_RANGES, labels: DEPOT_LABELS },
       { name: 'BARRAGES.shelling', table: BARRAGES.shelling, ranges: SHELLING_RANGES, labels: SHELLING_LABELS },
       { name: 'YARD_TUNE', table: YARD_TUNE, ranges: YARD_RANGES, labels: YARD_LABELS },
+      {
+        name: 'FORT_BLAST_TUNE',
+        table: FORT_BLAST_TUNE,
+        ranges: FORT_BLAST_RANGES,
+        labels: FORT_BLAST_LABELS,
+      },
     ],
   });
 
@@ -433,6 +477,8 @@ export function showBreach(_hash: string) {
       yard: game.enemies.filter(enemy => enemy.hp > 0 && enemy.wave.startsWith('yard-')).length,
       losses: game.losses,
       optional: hudModel(game).optional,
+      brokenProps: game.brokenProps.length,
+      fortressDown: game.script.fortressDown,
       calls: renderer.info.render.calls,
       triangles: renderer.info.render.triangles,
     };
@@ -447,7 +493,12 @@ export function showBreach(_hash: string) {
       game.plant = hold.plant;
       for (const blown of stepBlasts(game, dt)) {
         spawnBoom('large', blown.blast.x, 0.8, blown.blast.z);
-        if (blown.blast.id === 'l1-b' && !blown.blast.blasted) showLine(true);
+        if (blown.blast.id === 'fort-bomb' && !blown.blast.blasted) {
+          blown.blast.blasted = true;
+          fortressBlast(game, blown.blast);
+        } else if (blown.blast.id === 'l1-b' && !blown.blast.blasted) {
+          showLine(true);
+        }
       }
       // the aimed mortar, if the button has started it: a warning goes on the ground and then lands on the mech
       if (game.aimed !== null) {
@@ -460,7 +511,7 @@ export function showBreach(_hash: string) {
       }
       // the nests shoot at the mech as stepEnemies has them: a prop or a standing target stops the line
       const blockers = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
-      const world = {
+      const enemyWorld = {
         rects: game.rects,
         propBoxes: blockers,
         bounds: game.map.bounds,
@@ -469,7 +520,7 @@ export function showBreach(_hash: string) {
       };
       for (const enemy of game.enemies) {
         const rng = ENEMIES[enemy.kind].burst ? stream('emplacements') : stream('enemies');
-        const shot = stepEnemy(enemy, game.mech, world, dt, rng);
+        const shot = stepEnemy(enemy, game.mech, enemyWorld, dt, rng);
         if (shot) tracers.push({ ...shot, life: TRACER_LIFE });
       }
       // the survivors' assist, if the button has started it: one enemy of the yard's waves at a time, with the tracer
@@ -504,6 +555,7 @@ export function showBreach(_hash: string) {
       tracers = tracers.filter(tracer => tracer.life > 0);
       model.position.set(game.mech.x, game.mech.y, game.mech.z);
       drawBooms(dt);
+      syncWorld(world, game, dt);
       drawBlasts(view, game);
       drawEnemies(enemyView, game);
       drawHazards(hazardView, game);

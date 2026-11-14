@@ -11,6 +11,7 @@ import { MECH_TUNE } from '../src/data/tune.ts';
 import { sendToScript } from '../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
+import { CHARGE_TUNE } from '../src/data/charge.ts';
 
 declare const __SHOTS_OUT__: string; // the folder the pictures go to (vitest.shots.config.ts)
 declare const __SHOTS_ONLY__: string; // only the shots whose names contain this ('' = all)
@@ -83,7 +84,7 @@ async function standAtPlace(x: number, z: number): Promise<void> {
 function breakBoth(): void {
   const current = game();
   for (const id of ['blast-pillbox-1-side', 'blast-pillbox-2-side']) {
-    current.charges.push({ blast: id, left: 0 });
+    current.charges.push({ blast: id, left: 0, total: CHARGE_TUNE.fuse });
   }
 }
 

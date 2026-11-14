@@ -138,6 +138,16 @@ test('a wall of blocks between the front edge and the seawall’s foot leaves no
   expect(validateMapForMission(map, M1, SKIP).some(violation => violation.kind === 'no-path')).toBe(true);
 });
 
+test('a wall of collapse props is walked as already down, so it leaves a path', () => {
+  // the fortress's land door is such a prop: the blast opens it, so the check does not count it as a wall
+  const map = structuredClone(M1B_HAND);
+  for (let x = -99; x <= 99; x += 2) {
+    map.props.push({ kind: 'block', x, z: -58, yaw: 0, scale: 1, collapse: true });
+  }
+  expect(validateMapForMission(map, M1, SKIP)).toEqual([]);
+  expect(checkMapPath(map)).toEqual([]);
+});
+
 test('a prop outside the bounds is a violation', () => {
   const map = structuredClone(M1B_HAND);
   map.props.push({ kind: 'block', x: 120, z: 0, yaw: 0, scale: 1 });

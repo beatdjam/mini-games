@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { ALLY_TUNE } from '../../src/data/allies.ts';
+import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { CRAFT_TUNE } from '../../src/data/craft.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
@@ -199,7 +200,7 @@ test('a shot passing through the buddy goes on, and the mech stands where the bu
 test('a charge blown in the game tells the script, and the cover mechs take the first hole of the line', () => {
   const game = newPlayGame(M1B_HAND);
   runQuiet(game, 60 * 5); // the cover mechs reach their waiting cover
-  game.charges.push({ blast: 'l1-b', left: 0 });
+  game.charges.push({ blast: 'l1-b', left: 0, total: CHARGE_TUNE.fuse });
   step(game, IDLE, DT);
   expect(game.script.blasts).toEqual(['l1-b']);
   for (const id of COVERS) {
@@ -208,7 +209,7 @@ test('a charge blown in the game tells the script, and the cover mechs take the 
   }
 
   // the same line's other point can still be planted, but the way stays the first hole's
-  game.charges.push({ blast: 'l1-a', left: 0 });
+  game.charges.push({ blast: 'l1-a', left: 0, total: CHARGE_TUNE.fuse });
   step(game, IDLE, DT);
   expect(game.script.blasts).toEqual(['l1-b', 'l1-a']);
   for (const id of COVERS) {
@@ -220,7 +221,7 @@ test('a charge blown in the game tells the script, and the cover mechs take the 
 test('blowing l1-a first sends the cover mechs through its hole, and a suspend keeps that way', () => {
   const game = newPlayGame(M1B_HAND);
   runQuiet(game, 60 * 5);
-  game.charges.push({ blast: 'l1-a', left: 0 });
+  game.charges.push({ blast: 'l1-a', left: 0, total: CHARGE_TUNE.fuse });
   step(game, IDLE, DT);
   expect(game.script.blasts).toEqual(['l1-a']);
   for (const id of COVERS) {

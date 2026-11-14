@@ -217,7 +217,7 @@ export function hudModel(game: GameModel): HudModel {
     warning,
     callout,
     use,
-    charge: planted === undefined ? null : { left: Math.max(0, planted.left), total: CHARGE_TUNE.fuse },
+    charge: planted === undefined ? null : { left: Math.max(0, planted.left), total: planted.total },
     melee: game.main.ammo <= 0 && game.sub.ammo <= 0,
   };
 }

@@ -12,6 +12,7 @@ export interface BlastState {
   line: number | null; // the line's centre z; null for a point that belongs to no line
   x: number;
   z: number;
+  fuse: number; // seconds from planting to the blast (SB-1860; CHARGE_TUNE.fuse when the place leaves it out)
   blasted: boolean;
 }
 
@@ -19,6 +20,7 @@ export interface BlastState {
 export interface ChargeState {
   blast: string; // the BlastPlace id
   left: number; // seconds to the blast
+  total: number; // the fuse it was planted with (s), for the HUD's bar
 }
 
 // A hold under way: the point it is being planted on and how long the use key has been held.
@@ -63,7 +65,14 @@ export function targetStands(blast: BlastState, world: BlastTargetWorld): boolea
 
 // The map's blast points as the game keeps them, none of them blown yet.
 export function newBlasts(map: MapDef): BlastState[] {
-  return (map.blasts ?? []).map(place => ({ id: place.id, line: place.line, x: place.x, z: place.z, blasted: false }));
+  return (map.blasts ?? []).map(place => ({
+    id: place.id,
+    line: place.line,
+    x: place.x,
+    z: place.z,
+    fuse: place.fuse ?? CHARGE_TUNE.fuse,
+    blasted: false,
+  }));
 }
 
 // The place in map.props of every hedgehog a blast at `blast` opens out of the line: the rectangle of half width
@@ -134,7 +143,7 @@ export function stepCharge(
   }
   const hold = world.plant !== null && world.plant.blast === near.id ? world.plant.hold + dt : dt;
   if (hold >= CHARGE_TUNE.holdSec) {
-    world.charges.push({ blast: near.id, left: CHARGE_TUNE.fuse });
+    world.charges.push({ blast: near.id, left: near.fuse, total: near.fuse });
     world.plant = null;
     return { plant: null, planted: near };
   }

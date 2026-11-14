@@ -21,7 +21,6 @@ import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
 const BATTERY_FRONT = { x: 0, y: 0, z: -200 }; // in the field before the guns, inside the barrage's reach and the guns' range
-const FORTRESS_OUT = { x: 0, y: 0, z: -140 }; // the place that starts the battery's wave
 const COVERED = { x: 80, y: 0, z: -155 }; // in the guns' range, with the block at (80, -160) between it and the gun
 const SEED = 42;
 const BOT_SECONDS = 30; // the bot has this long (s)
@@ -89,6 +88,14 @@ function run(game: GameModel, frames: number, input: GameInput = idle): GameEven
 }
 
 const framesOf = (seconds: number): number => Math.ceil(seconds / DT);
+
+// The fortress's charge has blown: the script sends the battery's wave and takes cp3. The cutscene is skipped, so the
+// tests get the controls at once.
+function startBattery(game: GameModel): void {
+  sendToScript(game, { kind: 'wardenDown' });
+  sendToScript(game, { kind: 'fortressDown' });
+  sendToScript(game, { kind: 'skip' });
+}
 
 // Runs `frames` frames and counts the machine-gun shots made (each new battery bullet once).
 function gunShots(game: GameModel, frames: number): number {
@@ -161,12 +168,8 @@ test('before the battery wave the guns do not shoot and the barrage has not star
   expect(gunShots(game, framesOf(6))).toBe(0);
   expect(game.barrages.some(barrage => barrage.kind === 'battery')).toBe(false);
   expect(game.shells).toHaveLength(0);
-  // the field past the fortress starts the wave, and the next seconds hold fire and shells
-  game.mech.x = FORTRESS_OUT.x;
-  game.mech.y = FORTRESS_OUT.y;
-  game.mech.z = FORTRESS_OUT.z;
-  step(game, idle, DT);
-  expect(game.script.entered).toContain('fortress-out');
+  // the fortress's charge starts the wave, and the next seconds hold fire and shells
+  startBattery(game);
   expect(game.battery.on).toBe(true);
   expect(game.barrages.map(barrage => barrage.kind)).toContain('battery');
   game.mech.x = BATTERY_FRONT.x;
@@ -181,7 +184,7 @@ test('with the battery on, each main gun still standing shoots the mech, and one
   seed(SEED);
   const game = newBossGame(BATTERY_FRONT);
   game.armor = SAFE_ARMOR;
-  sendToScript(game, { kind: 'enter', area: 'fortress-out' });
+  startBattery(game);
   expect(game.battery.on).toBe(true);
   const seconds = 6;
   const both = gunShots(game, framesOf(seconds));
@@ -201,16 +204,16 @@ test('a main gun shoots only a mech in reach and in sight: not one far off, nor 
   seed(SEED);
   const far = newBossGame({ x: 0, y: 0, z: -20 }); // more than GUN_TUNE.range away
   far.armor = SAFE_ARMOR;
-  sendToScript(far, { kind: 'enter', area: 'fortress-out' });
+  startBattery(far);
   expect(gunShots(far, framesOf(5))).toBe(0);
   const covered = newBossGame(COVERED); // in range, with the block at (80, -160) between
   covered.armor = SAFE_ARMOR;
-  sendToScript(covered, { kind: 'enter', area: 'fortress-out' });
+  startBattery(covered);
   expect(gunShots(covered, framesOf(5))).toBe(0);
   // in the open before the battery the line clears
   const open = newBossGame(BATTERY_FRONT);
   open.armor = SAFE_ARMOR;
-  sendToScript(open, { kind: 'enter', area: 'fortress-out' });
+  startBattery(open);
   expect(gunShots(open, framesOf(5))).toBeGreaterThan(0);
 });
 
@@ -218,11 +221,11 @@ test('the secondary guns’ barrage reaches the field before the battery, and no
   seed(SEED);
   const before = newBossGame({ x: 0, y: 0, z: -40 });
   before.armor = SAFE_ARMOR;
-  sendToScript(before, { kind: 'enter', area: 'fortress-out' });
+  startBattery(before);
   expect(run(before, framesOf(BARRAGES.battery.interval * 3)).some(event => event.kind === 'shellWarn')).toBe(false);
   const front = newBossGame(BATTERY_FRONT);
   front.armor = SAFE_ARMOR;
-  sendToScript(front, { kind: 'enter', area: 'fortress-out' });
+  startBattery(front);
   expect(run(front, framesOf(BARRAGES.battery.interval + 0.5)).some(event => event.kind === 'shellWarn')).toBe(true);
 });
 
@@ -230,7 +233,7 @@ test('the barrage goes on after both main guns are down', () => {
   seed(SEED);
   const game = newBossGame(BATTERY_FRONT);
   game.armor = SAFE_ARMOR;
-  sendToScript(game, { kind: 'enter', area: 'fortress-out' });
+  startBattery(game);
   breakTarget(game, 'main-gun-1');
   breakTarget(game, 'main-gun-2');
   const events = run(game, framesOf(BARRAGES.battery.interval * 2 + 0.5));
@@ -253,13 +256,13 @@ test('the depot’s loss makes the secondary guns’ barrage come 1.5 times as s
   seed(SEED);
   const kept = newBossGame(BATTERY_FRONT);
   kept.armor = SAFE_ARMOR;
-  sendToScript(kept, { kind: 'enter', area: 'fortress-out' });
+  startBattery(kept);
   const gap = warnGap(kept, 4);
   expect(gap).toBeCloseTo(BARRAGES.battery.interval, 1);
   seed(SEED);
   const broken = newBossGame(BATTERY_FRONT);
   broken.armor = SAFE_ARMOR;
-  sendToScript(broken, { kind: 'enter', area: 'fortress-out' });
+  startBattery(broken);
   breakTarget(broken, 'depot');
   expect(broken.script.flags).toContain('depot-down');
   expect(warnGap(broken, 4)).toBeCloseTo(gap * 1.5, 1);
@@ -268,7 +271,7 @@ test('the depot’s loss makes the secondary guns’ barrage come 1.5 times as s
 test('a bot before the battery shoots the guns, then the magazine, and clears with armour to spare', () => {
   seed(SEED);
   const game = newBossGame(BATTERY_FRONT);
-  sendToScript(game, { kind: 'enter', area: 'fortress-out' });
+  startBattery(game);
   const events = playBot(game);
   const order = events.flatMap(event =>
     event.kind === 'destroyed' || event.kind === 'shutterOpen' ? [`${event.kind}`] : [],
@@ -287,7 +290,7 @@ test('the same seed and inputs give the same events and the same end', () => {
   const play = (): { events: GameEvent[]; armor: number; time: number } => {
     seed(SEED);
     const game = newBossGame(BATTERY_FRONT);
-    sendToScript(game, { kind: 'enter', area: 'fortress-out' });
+    startBattery(game);
     const events = playBot(game);
     return { events, armor: game.armor, time: game.time };
   };
@@ -300,7 +303,7 @@ test('the same seed and inputs give the same events and the same end', () => {
 test('a retry from cp3 puts the battery back: the guns, the shutter and the barrage as the checkpoint kept them', () => {
   seed(SEED);
   const game = newBossGame(BATTERY_FRONT);
-  sendToScript(game, { kind: 'enter', area: 'fortress-out' });
+  startBattery(game);
   step(game, idle, DT);
   expect(game.checkpoint?.id).toBe('cp3');
   expect(game.checkpoint?.battery.on).toBe(true);

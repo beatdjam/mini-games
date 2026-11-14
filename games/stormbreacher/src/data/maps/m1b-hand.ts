@@ -2,7 +2,7 @@
 // tool. +z is the sea and -z is the land; the bounds run from the beach (z 170) back past the seawall (z -75..-65) and the
 // fortress (z -68..-128) to the field before the battery and its parts (z -300).
 import { DEFENDER_SPAWNS } from '../defenders.ts';
-import { FORTRESS_TUNE } from '../fortress.ts';
+import { FORT_BLAST_TUNE, FORTRESS_TUNE } from '../fortress.ts';
 import type { BlastPlace, MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B section is two closed defence lines across the map (SB-2020): line 1 at the water's edge and line 2 69 m on,
@@ -411,27 +411,31 @@ const PROPS: Prop[] = [
   { kind: 'seawall', x: 96, z: -67, yaw: 0, scale: 1 },
   // the fortress (FORTRESS_TUNE): 12 m square wall pieces, inner faces at x +-29 and z -74/-122, gates 12 m wide at x 0.
   // The sea-side wall covers x 6..35 and -35..-6 with three overlapping pieces a side; the land-side wall does the same.
-  { kind: 'fortWall', x: -12, z: -71, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: -24, z: -71, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: -29, z: -71, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: 12, z: -71, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: 24, z: -71, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: 29, z: -71, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: -12, z: -125, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: -24, z: -125, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: -29, z: -125, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: 12, z: -125, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: 24, z: -125, yaw: 0, scale: 1 },
-  { kind: 'fortWall', x: 29, z: -125, yaw: 0, scale: 1 },
+  // Every piece is `collapse` (SB-1860): the charge in the land wall brings them down, and no shot breaks them. The land
+  // gate's own door is one more piece, shut until the blast takes it away; the sea gate stays the way out.
+  { kind: 'fortWall', x: -12, z: -71, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: -24, z: -71, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: -29, z: -71, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 12, z: -71, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 24, z: -71, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 29, z: -71, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: -12, z: -125, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: -24, z: -125, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: -29, z: -125, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 12, z: -125, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 24, z: -125, yaw: 0, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 29, z: -125, yaw: 0, scale: 1, collapse: true },
+  // the door in the land gate: the way to the magazine and the field stays shut until the blast (SB-1860)
+  { kind: 'fortWall', x: 0, z: FORTRESS_TUNE.landWallZ, yaw: 0, scale: 1, collapse: true },
   // the left and right walls run between them (z -122..-74), four pieces a side
-  { kind: 'fortWall', x: -32, z: -80, yaw: Math.PI / 2, scale: 1 },
-  { kind: 'fortWall', x: -32, z: -92, yaw: Math.PI / 2, scale: 1 },
-  { kind: 'fortWall', x: -32, z: -104, yaw: Math.PI / 2, scale: 1 },
-  { kind: 'fortWall', x: -32, z: -116, yaw: Math.PI / 2, scale: 1 },
-  { kind: 'fortWall', x: 32, z: -80, yaw: Math.PI / 2, scale: 1 },
-  { kind: 'fortWall', x: 32, z: -92, yaw: Math.PI / 2, scale: 1 },
-  { kind: 'fortWall', x: 32, z: -104, yaw: Math.PI / 2, scale: 1 },
-  { kind: 'fortWall', x: 32, z: -116, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'fortWall', x: -32, z: -80, yaw: Math.PI / 2, scale: 1, collapse: true },
+  { kind: 'fortWall', x: -32, z: -92, yaw: Math.PI / 2, scale: 1, collapse: true },
+  { kind: 'fortWall', x: -32, z: -104, yaw: Math.PI / 2, scale: 1, collapse: true },
+  { kind: 'fortWall', x: -32, z: -116, yaw: Math.PI / 2, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 32, z: -80, yaw: Math.PI / 2, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 32, z: -92, yaw: Math.PI / 2, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 32, z: -104, yaw: Math.PI / 2, scale: 1, collapse: true },
+  { kind: 'fortWall', x: 32, z: -116, yaw: Math.PI / 2, scale: 1, collapse: true },
   // the yard's cover (z -74..-122): 9 pieces, with the way from gate to gate (x 0) clear. The two wrecks sit 8 m either
   // side of that way, so the doors yard-1 comes from (x -22 and 22) stay clear of them (SB-1840)
   { kind: 'block', x: -20, z: -84, yaw: 0.12, scale: 1.05 },
@@ -502,6 +506,8 @@ const BLASTS: BlastPlace[] = [
   { id: 'blast-pillbox-1-back', line: null, x: -33, z: -23, target: 'pillbox-1' },
   { id: 'blast-pillbox-2-side', line: null, x: 30, z: -17, target: 'pillbox-2' },
   { id: 'blast-pillbox-2-back', line: null, x: 21, z: -23, target: 'pillbox-2' },
+  // the charge in the land wall's magazine (SB-1860): a 20 s fuse, and the blast brings the fortress down
+  { id: 'fort-bomb', line: null, x: 0, z: -124, fuse: FORT_BLAST_TUNE.countdownSec },
 ];
 
 export const M1B_HAND: MapDef = {

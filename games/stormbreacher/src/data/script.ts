@@ -7,6 +7,7 @@ export const CUTSCENE_SEC: Record<CutsceneId, number> = {
   landing: 12,
   'wave2-sinks': 6,
   'beach-held': 8,
+  'fortress-blast': 10,
 };
 
 export const RADIO_TUNE = {

@@ -10,7 +10,8 @@ import { newPlayGame } from './playGame.ts';
 
 const PILLBOX_1 = ['blast-pillbox-1-side', 'blast-pillbox-1-back'];
 const PILLBOX_2 = ['blast-pillbox-2-side', 'blast-pillbox-2-back'];
-const LINE_POINTS = ['l1-a', 'l1-b', 'l2-a', 'l2-b'];
+// the lines' points and the fortress's bomb (SB-1860): all of them show a ring from the start
+const LINE_POINTS = ['l1-a', 'l1-b', 'l2-a', 'l2-b', 'fort-bomb'];
 
 function newGame(): GameModel {
   return newPlayGame({ ...M1B_HAND, spawns: {}, mines: [] });

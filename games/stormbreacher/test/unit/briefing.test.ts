@@ -57,15 +57,15 @@ test("the sites are the map's targets, one for one, where the targets are", () =
   expect(sites.filter(mark => mark.target === 'depot')).toHaveLength(1);
 });
 
-test("the squad dots are the wave's spawn points and the arrows start in the sea and end on the beach", () => {
+test("the squad dots are the wave's spawn points and the arrow starts in the sea and ends on the beach", () => {
   const dots = map.marks.filter(mark => mark.shape === 'dot').map(mark => mark.points[0]);
   expect(dots).toEqual(M1B_HAND.spawns[M1_BRIEFING_SQUAD_WAVE]);
   const wave1 = map.marks.find(mark => mark.symbol === 'wave1');
   const wave2 = map.marks.find(mark => mark.symbol === 'wave2');
   expect(wave1?.points.slice(1)).toEqual(path);
   expect(wave1?.points[0]?.z).toBeGreaterThan(M1B_HAND.bounds.maxZ);
-  expect(wave2?.points.length).toBe(BRIEFING_TUNE.wave2Points);
-  expect(wave2?.points[0]?.x).toBe((wave1?.points[0]?.x ?? 0) + BRIEFING_TUNE.wave2ShiftX);
+  // the second wave's arrow is gone with its line (SB-1860)
+  expect(wave2).toBeUndefined();
   expect(map.bounds.maxZ).toBe(M1B_HAND.bounds.maxZ + BRIEFING_TUNE.seaMargin);
 });
 
@@ -82,8 +82,5 @@ test('lines come out by the time, and a symbol shows from its line and blinks wh
   expect(nextLineAt(M1_BRIEFING, M1_BRIEFING.length)).toBeNull();
   expect(symbolState(M1_BRIEFING, 0, 'battery')).toEqual({ shown: true, since: 0, latest: true });
   expect(symbolState(M1_BRIEFING, 0, 'depot').shown).toBe(false);
-  const wave2Line = M1_BRIEFING.find(line => line.show.includes('wave2'));
-  const after = symbolState(M1_BRIEFING, (wave2Line?.at ?? 0) + 0.1, 'wave2');
-  expect(after).toEqual({ shown: true, since: wave2Line?.at, latest: true });
   expect(symbolState(M1_BRIEFING, 100, 'battery').latest).toBe(false);
 });

@@ -116,6 +116,7 @@ export interface PlayView {
   useNear: boolean; // whether the mech is in reach of a blast point, so the touch use button lights (SB-2017)
   hurt: HurtView; // the red edge, the white flash and the dark edge while the armour is low
   cutscene: CutsceneView; // the bars, the line and the pictures only a cutscene shows
+  fortressBoomed: boolean; // whether the fortress blast's dust has been drawn (a game past it starts quiet)
 }
 
 // Builds the sortie's map and its mech into the scene. Hiding the start-up field is left to the caller.
@@ -196,6 +197,7 @@ export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): P
     useNear: false,
     hurt: buildHurtView(document.body),
     cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets, startSecond),
+    fortressBoomed: game.script.fortressDown,
   };
 }
 
@@ -555,6 +557,24 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw);
+    }
+  }
+  // The fortress's charge blew (SB-1860): a large blast at the magazine and dust along each wall that comes down. The
+  // script's `fortressDown` is the mark, as the blast itself is a `blast` event; a game that starts after it is quiet.
+  if (game.script.fortressDown && !view.fortressBoomed) {
+    view.fortressBoomed = true;
+    for (const [x, z] of [
+      [-30, -120],
+      [30, -120],
+      [-24, -71],
+      [24, -71],
+      [-12, -125],
+      [12, -125],
+      [-32, -100],
+      [32, -100],
+      [0, -100],
+    ] as const) {
+      blast('large', x, 1, z);
     }
   }
   // The infantry waits at the front line's hold until the pillboxes are down, then goes on to the far line. When a

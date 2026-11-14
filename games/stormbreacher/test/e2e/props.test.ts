@@ -28,13 +28,18 @@ function drawn(name: string): number {
 
 // How many hedgehog copies are drawn low (a broken or blast-opened one makes its copy this low).
 function loweredHedgehogs(): number {
+  return loweredCopies('hedgehog');
+}
+
+// How many copies of a kind are drawn low (a prop lowered by the fortress blast too).
+function loweredCopies(name: string): number {
   const matrix = new THREE.Matrix4();
   const at = new THREE.Vector3();
   const turn = new THREE.Quaternion();
   const size = new THREE.Vector3();
   let count = 0;
   scene.traverse(child => {
-    if (!(child instanceof THREE.InstancedMesh) || child.name !== 'hedgehog') return;
+    if (!(child instanceof THREE.InstancedMesh) || child.name !== name) return;
     for (let i = 0; i < child.count; i++) {
       child.getMatrixAt(i, matrix);
       matrix.decompose(at, turn, size);
@@ -89,8 +94,8 @@ test('the pillboxes’ blast points are drawn, and not once their pillbox is dow
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
   const points = game.blasts.length;
-  // the lines' four points and the pillboxes' four are all rings on the fresh map
-  expect(points).toBe(8);
+  // the lines' four points, the pillboxes' four and the fortress's bomb are all rings on the fresh map (SB-1860)
+  expect(points).toBe(9);
   expect(drawn('sb-blast-points')).toBe(points);
 
   // pillbox-1's two points leave the ground once its guns are down; the other rings stay
@@ -178,6 +183,26 @@ function find(name: string): THREE.Object3D | undefined {
   });
   return found;
 }
+
+test('the fortress blast lowers its walls where they stand, with no new mesh', async () => {
+  startSortie();
+  steps(1);
+  draw();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  const walls = game.map.props.flatMap((prop, index) =>
+    prop.kind === 'fortWall' && prop.collapse === true ? [index] : [],
+  );
+  expect(walls.length).toBe(21);
+  expect(drawn('fortWall')).toBe(walls.length);
+  expect(loweredCopies('fortWall')).toBe(0);
+  game.brokenProps.push(...walls);
+  steps(2);
+  draw();
+  expect(loweredCopies('fortWall')).toBe(walls.length);
+  // the copies stay in the same instanced meshes: no draw was added
+  expect(drawn('fortWall')).toBe(walls.length);
+});
 
 test('a sortie draws every target of the map, the battery’s parts among them', async () => {
   startSortie();
