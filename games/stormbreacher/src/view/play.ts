@@ -32,8 +32,9 @@ import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from './hurt.ts';
 import { applyLookTo } from './look.ts';
 import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
+import { mechSeeThrough } from './mechFade.ts';
 import { buildProtoMech, setProtoOpacity } from './mechProtoModel.ts';
-import { addProtoStage, type ProtoStage } from './protoStage.ts';
+import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const TRACER_COLOR = 0xffe066; // the bullet's line
@@ -95,9 +96,8 @@ export function buildPlayView(game: GameModel): PlayView {
   scene.add(model);
   // The mech's shadow and the surroundings' light are off unless the page asks (?shadow=1, ?env=1), so a plain sortie
   // keeps the look's lights and costs what it did; SB-1474 measures what each adds.
-  const query = new URLSearchParams(location.search);
-  const shadow = query.get('shadow') === '1';
-  const env = query.get('env') === '1';
+  const shadow = stageFlag('shadow') === '1';
+  const env = stageFlag('env') === '1';
   let stage: ProtoStage | null = null;
   if (shadow || env) {
     stage = addProtoStage(model, world.built.group, game.mech.x, game.mech.z);
@@ -342,9 +342,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawBooms(dt);
 
   // a camera pushed close by a wall would fill the screen with the mech, so the mech turns see-through
-  const near =
-    camera.position.distanceTo(new THREE.Vector3(game.mech.x, game.mech.y + MECH_TUNE.chestHeight, game.mech.z)) <
-    MECH_TUNE.fadeDist;
+  const near = mechSeeThrough(camera.position, game.mech);
   if (near !== view.mechFaded) {
     view.mechFaded = near;
     setProtoOpacity(view.model, near ? MECH_TUNE.fadeOpacity : 1);

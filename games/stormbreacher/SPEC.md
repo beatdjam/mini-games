@@ -35,7 +35,7 @@
 - `src/logic/mechTune.ts`: 脚の種類ごとの動きの値を作る `moveTuneOf`
 - `src/data/mech.ts`: 機体の部品の表（腕・脚・背中・FCS の4スロットと武器2、胴は4スロットの外の枠、箱は高さの割合、色は名前、値は仮）と M1 の固定の1組 `M1_MECH`（見本 E の部品: 胴 `medium`・腕 `midArms`・脚 `midLegs`・背中 `pack`・FCS `blockHead`）、その色 `M1_MECH_PALETTE`（色の名前ごとの16進数）、武器の大きさ `M1_WEAPON_SCALE` を持つ。M1 の E 中量の部品は、装甲板の段・関節・脚の油圧・背中の箱と排気口・武器の銃身/弾倉/照準・頭のセンサーの窓を持つ（SB-1460。形は箱のままで、シルエットの寸法は D-24 の4m）
 - `src/view/play.ts`: 出撃中の画面を組み立てて描く
-  - 本体の機体は `buildMechVisual` で M1 の組・色・武器の大きさから高さ `MECH_TUNE.height` に描き、向きと位置はゲームの機体に合わせる（1体の描く回数は色の数の5）。動かすのは `animateMech`（6章「機体の動き」）
+  - 本体の機体は試作の機体（`buildProtoMech`・`src/view/mechProtoModel.ts`）を高さ `MECH_TUNE.height` で作り、向きと位置はゲームの機体に合わせる（材質ごとにまとめた SkinnedMesh。メッシュの名前は `mech-proto`）。動かすのは `animateProtoMech`。カメラが機体の胸から `MECH_TUNE.fadeDist` より近いと半透明にする判定は `mechSeeThrough` in `src/view/mechFade.ts`。出撃を作り直すときは `disposeProtoMech` で片付ける。味方機は `buildMechVisual`・`animateMech`（6章「機体の動き」）のまま
   - 銃眼の予兆の光を `InstancedMesh` 1つ（名前 `sb-pillbox-warn`）で描く（色は `src/data/colors.ts` の `PILLBOX_WARN_COLOR`。6章「トーチカ」）
 - `src/data/looks.ts`: ミッションごとの見た目の表（`LOOKS`・`lookOf`）と光の元の強さ（`BASE_LIGHTS`）を持つ
 - `src/view/look.ts`: 解像度・色味・霧・空・光・地面の色をかけ、`#view-fx`・`#view-hud`・本体が同じ関数を使う

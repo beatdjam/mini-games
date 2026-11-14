@@ -70,6 +70,7 @@ export interface ProtoWeapon {
 // A leg shape belongs to the bone above its own height (the thigh above the knee, the shin above the ankle, the foot
 // below it); an arm shape above the elbow swings from the shoulder, the rest from the elbow.
 export interface ProtoJoints {
+  hipX: number; // the hip joint's offset from the middle, each side
   knee: number;
   ankle: number;
   shoulder: Vec3; // the right shoulder's pivot, from the hip top
@@ -103,6 +104,7 @@ export const MECH_PROTO: ProtoParts = {
   hipY: 0.55,
   gait: 'biped',
   joints: {
+    hipX: 0.115,
     knee: 0.335,
     ankle: 0.09,
     shoulder: [0.235, 0.3, 0.015],

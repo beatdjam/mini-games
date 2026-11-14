@@ -269,7 +269,7 @@ export function buildProtoMech(height: number): THREE.Group {
     [bones.thighR, bones.shinR, bones.footR, 1],
     [bones.thighL, bones.shinL, bones.footL, -1],
   ] as const) {
-    thighBone.position.set(side * 0.115 * height, 0, 0);
+    thighBone.position.set(side * joints.hipX * height, 0, 0);
     shinBone.position.set(0, -thigh * height, 0);
     footBone.position.set(0, -shin * height, 0);
   }
@@ -309,16 +309,16 @@ export function buildProtoMech(height: number): THREE.Group {
   };
   const legPivot = (bone: ProtoBone): Vec3 => {
     const side = bone.endsWith('R') ? 1 : -1;
-    if (bone.startsWith('thigh')) return [side * 0.115, hipY, 0];
-    if (bone.startsWith('shin')) return [side * 0.115, kneeY, 0];
-    return [side * 0.115, ankleY, 0];
+    if (bone.startsWith('thigh')) return [side * joints.hipX, hipY, 0];
+    if (bone.startsWith('shin')) return [side * joints.hipX, kneeY, 0];
+    return [side * joints.hipX, ankleY, 0];
   };
   // a leg shape is stretched from the joint's place in the table to the joint's place after the panel's stretch
   const legOrigin = (bone: ProtoBone): Vec3 => {
     const side = bone.endsWith('R') ? 1 : -1;
-    if (bone.startsWith('thigh')) return [side * 0.115, hipY, 0];
-    if (bone.startsWith('shin')) return [side * 0.115, joints.knee, 0];
-    return [side * 0.115, joints.ankle, 0];
+    if (bone.startsWith('thigh')) return [side * joints.hipX, hipY, 0];
+    if (bone.startsWith('shin')) return [side * joints.hipX, joints.knee, 0];
+    return [side * joints.hipX, joints.ankle, 0];
   };
   const legScale: Vec3 = [girth, legLength, girth];
 

@@ -1,6 +1,12 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
-import { animateProtoMech, buildProtoMech, countProtoDraws, setProtoOpacity } from '../../src/view/mechProtoModel.ts';
+import {
+  animateProtoMech,
+  buildProtoMech,
+  countProtoDraws,
+  disposeProtoMech,
+  setProtoOpacity,
+} from '../../src/view/mechProtoModel.ts';
 
 // The size of the rest pose's boxes: the shapes are built from ratios of the height, so a taller mech is the same mech.
 function sizeOf(root: THREE.Object3D): THREE.Vector3 {
@@ -53,4 +59,25 @@ test('the bones stay finite as the motion runs at 8 m, and the fade and the flam
   setProtoOpacity(mech, 1);
   const solid = [...materials].filter(material => !flames.some(flame => flame.material === material));
   expect(solid.every(material => !material.transparent && material.opacity === 1)).toBe(true);
+});
+
+test('disposing the sortie mech frees every geometry and material once, the flame included', () => {
+  const mech = buildProtoMech(4);
+  const geometries = new Set<THREE.BufferGeometry>();
+  const materials = new Set<THREE.Material>();
+  mech.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (mesh.isMesh !== true) return;
+    geometries.add(mesh.geometry);
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) materials.add(material);
+  });
+  let geometryCalls = 0;
+  let materialCalls = 0;
+  for (const geometry of geometries) geometry.addEventListener('dispose', () => geometryCalls++);
+  for (const material of materials) material.addEventListener('dispose', () => materialCalls++);
+  expect(geometries.size).toBeGreaterThan(1);
+  expect(materials.size).toBeGreaterThan(1);
+  disposeProtoMech(mech);
+  expect(geometryCalls).toBe(geometries.size);
+  expect(materialCalls).toBe(materials.size);
 });

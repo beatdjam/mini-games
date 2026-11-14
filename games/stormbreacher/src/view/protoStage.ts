@@ -9,6 +9,12 @@ import { MECH_PROTO_LIGHT_COLOR } from '../data/colors.ts';
 import { PROTO_TUNE } from '../data/mechProto.ts';
 import { MECH_TUNE } from '../data/tune.ts';
 
+// The page's ?shadow and ?env values (null when absent), read in one place so the sortie and the confirmation view spell
+// them the same: the sortie turns a light on with 1, the confirmation view turns it off with 0.
+export function stageFlag(name: 'shadow' | 'env'): string | null {
+  return new URLSearchParams(location.search).get(name);
+}
+
 export interface ProtoStage {
   shadowOn: boolean;
   envOn: boolean;

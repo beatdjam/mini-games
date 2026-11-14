@@ -17,7 +17,7 @@ import { animateMech, buildMechVisual, countMechDraws, disposeMech } from '../..
 import { animateProtoMech, buildProtoMech, countProtoDraws, disposeProtoMech } from '../../view/mechProtoModel.ts';
 import { protoTextureBytes } from '../../view/mechProtoSurfaces.ts';
 import { resetMechPaint } from '../../view/mechSurfaces.ts';
-import { addProtoStage, type ProtoStage } from '../../view/protoStage.ts';
+import { addProtoStage, stageFlag, type ProtoStage } from '../../view/protoStage.ts';
 import { PATTERN_IDS, PATTERN_LABELS, PATTERNS, type PatternId } from '../mech/patterns.ts';
 import { createTunePanel } from '../tunePanel.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
@@ -137,8 +137,8 @@ export function showMech(_hash: string) {
     scene.add(protoMech);
     stage = addProtoStage(protoMech, built.group, x, z);
     // ?shadow=0 and ?env=0 start with that light off, for a picture of what it adds
-    if (new URLSearchParams(location.search).get('shadow') === '0') stage.setShadow(false);
-    if (new URLSearchParams(location.search).get('env') === '0') stage.setEnv(false);
+    if (stageFlag('shadow') === '0') stage.setShadow(false);
+    if (stageFlag('env') === '0') stage.setEnv(false);
   }
 
   document.getElementById('sbMechBar')?.remove();
