@@ -24,6 +24,9 @@ export function buildEnemyView(): EnemyView {
       MAX_ENEMIES,
     );
     mesh.name = enemyMeshName(kind);
+    // three r128 makes instanceColor inside the first setColorAt, at the mesh's count then: the count is 0 until a frame
+    // draws, so the buffer would stay empty and the GPU would read past its end. Make its room here, once.
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_ENEMIES * 3), 3);
     mesh.count = 0;
     // the instances move every frame, so the bounding sphere made at the start would cull them
     mesh.frustumCulled = false;
