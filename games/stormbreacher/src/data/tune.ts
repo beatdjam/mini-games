@@ -35,10 +35,10 @@ export const CAMERA_TUNE: CameraTune = {
   minDist: 0.5, // the shortest horizontal distance a wall may pull the camera to (m): near 0, so the camera stays on this side of any wall farther than this
   margin: 0.6, // the gap kept in front of a wall (m)
   pullSpeed: 9, // the fastest a wall may bring the camera in, or hold a swing while it is near (m/s); keeps a corner from snapping
-  pullGap: 1, // a gap this large between the camera and the pose counts as the wall pulling it in (m)
+  pullGap: 1, // the look point's return left after a wall lets go; at or below this the pull speed closes it (m)
   pullNear: 0.5, // the camera counts as near the mech this much closer than its open distance (m)
-  returnSpeed: 4, // the fastest the camera comes back out after a wall lets it go (m/s)
-  returnLag: 0.35, // the time constant for coming back out (s)
+  returnSpeed: 4, // the fastest the camera comes back out after a wall that added its share to the look point lets go (m/s)
+  returnLag: 0.35, // the time constant for that return (s)
   releaseGap: 1.2, // a wall lets the camera go when it is this much farther than the camera was (m)
   rise: 0.9, // how far the camera rises at minDist, so it looks over the mech's shoulder (m)
   riseRange: 1.5, // how far above minDist the rise has fallen to 0 (m)

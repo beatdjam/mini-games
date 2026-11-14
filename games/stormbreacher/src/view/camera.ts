@@ -27,6 +27,7 @@ export interface CameraPose {
   openLook: THREE.Vector3; // where the look point would be with no walls
   feet: { x: number; z: number }; // the mech's feet on the ground (m), for the step it took this frame
   yaw: number; // the mech's own facing (rad), so a step backward is known from a strafe
+  boxes: readonly THREE.Box3[]; // the wall boxes the pose was made with, so the mech's step can be stopped at one
 }
 
 // What the screen used last frame: the place the camera was put, the point it looked at, the look point with no walls
@@ -201,6 +202,7 @@ export function cameraPose(
     openLook,
     feet: { x: target.x, z: target.z },
     yaw: target.yaw,
+    boxes,
   };
 }
 
@@ -258,10 +260,26 @@ function followWallOffset(
   return prevOffset.clone().add(step);
 }
 
+// The mech's step, cut short a margin before the first wall the camera would meet on its way: the camera may be carried
+// by the mech, but not into a wall. A camera already inside a box is left alone, so a wall behind it does not jump it out.
+function stepRoom(
+  prevPos: THREE.Vector3,
+  travel: THREE.Vector3,
+  boxes: readonly THREE.Box3[],
+  tune: CameraTune,
+): THREE.Vector3 {
+  const length = travel.length();
+  if (length <= 1e-6 || boxes.some(box => box.containsPoint(prevPos))) return travel;
+  const hit = nearestHit(prevPos, travel.clone().divideScalar(length), length + tune.margin, boxes);
+  if (!hit) return travel;
+  return travel.clone().multiplyScalar(Math.max(0, hit.dist - tune.margin) / length);
+}
+
 // The camera for this frame. The look point keeps the mech's own motion exact (a boost must not leave the aim behind)
 // and eases only the wall's shoulder and close look. The place follows the pose with `lag`, and with no wall that is all
 // it does. While a wall pulls the camera or holds it nearer than its open place, only the part of the move beyond the
-// mech's own step is held to `pullSpeed`, so the mech's motion is followed exactly and the wall's share slides.
+// mech's own step is held to `pullSpeed`, so the mech's motion is followed exactly and the wall's share slides. The
+// mech's step itself stops a margin before a wall, so backing up cannot carry the camera into it.
 export function followCamera(prev: CameraState | null, pose: CameraPose, dt: number, tune: CameraTune): CameraState {
   if (prev === null) return stateOfPose(pose);
   const travel = new THREE.Vector3(pose.feet.x - prev.feet.x, 0, pose.feet.z - prev.feet.z);
@@ -282,7 +300,7 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
     const limit = (returning ? tune.returnSpeed : tune.pullSpeed) * dt;
     const length = rel.length();
     if (length > limit) rel.multiplyScalar(limit / length);
-    step.copy(travel).add(rel);
+    step.copy(stepRoom(prev.pos, travel, pose.boxes, tune)).add(rel);
   }
 
   return {

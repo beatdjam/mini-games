@@ -200,7 +200,7 @@ export function showMap(_hash: string) {
           minDist: '寄れる最短（m）',
           margin: '壁の前の隙間（m）',
           pullSpeed: '寄る速さの上限（m/s）',
-          pullGap: '寄りとみなす差（m）',
+          pullGap: '戻りを閉じる残り（m）',
           pullNear: '寄りとみなす近さ（m）',
           returnSpeed: '戻る速さ（m/s）',
           returnLag: '戻る時定数（s）',

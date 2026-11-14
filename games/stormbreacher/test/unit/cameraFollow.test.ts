@@ -139,6 +139,55 @@ test('backing the mech up for two seconds never walks the camera into its chest,
   );
 });
 
+// The targets of a run that ends at a wall: settle, travel along `ratio` (x to z) at `speed` until the mech stands
+// `stopZ` from the start, then stand there for 90 frames while the camera settles.
+function runIntoWall(ratio: number, speed: number, stopZ: number, yaw: number): CameraTarget[] {
+  const length = Math.hypot(ratio, 1);
+  const dir = { x: ratio / length, z: 1 / length };
+  const seconds = stopZ / (speed * dir.z);
+  const settle = Array.from({ length: 30 }, () => at(0, 0, yaw));
+  const run = Array.from({ length: Math.ceil(seconds / DT) }, (_, frame) => {
+    const t = Math.min((frame + 1) * DT, seconds);
+    return at(dir.x * speed * t, dir.z * speed * t, yaw);
+  });
+  const end = run[run.length - 1];
+  const watch = Array.from({ length: 90 }, () => at(end.x, end.z, yaw));
+  return [...settle, ...run, ...watch];
+}
+
+test('backing or sliding into a wall until the mech stops never puts the camera in a box', () => {
+  const boxes = cameraBoxes([{ x: 0, z: 38, halfW: 10, halfD: 3, yaw: 0, top: 6 }]); // near face z = 35
+  const runs: Array<[string, CameraTarget[]]> = [
+    ['backing up at 15 m/s', runIntoWall(0, BOOST, 34, 0)],
+    ['diagonally back at 15 m/s', runIntoWall(0.2, BOOST, 34, 0)],
+    ['walking sideways at 7.5 m/s', runIntoWall(0, 7.5, 34, Math.PI / 2)],
+  ];
+  for (const [name, targets] of runs) {
+    const states = followFrames(targets, boxes);
+    const end = targets[targets.length - 1];
+    const chest = new THREE.Vector3(end.x, MECH_TUNE.chestHeight, end.z);
+    let inside = 0;
+    let nearest = Infinity;
+    for (const state of states) {
+      if (boxes.some(box => box.containsPoint(state.pos))) inside++;
+      nearest = Math.min(nearest, state.pos.distanceTo(chest));
+    }
+    expect(inside, name).toBe(0);
+    expect(nearest, name).toBeGreaterThan(MECH_TUNE.radius);
+  }
+});
+
+test('a far wall that lets go brings the camera back at pullSpeed, without a jump', () => {
+  // The wall stands 6 m ahead; the mech slides along +x out from behind it. The wall never added its share to the look
+  // point, so the camera comes back at pullSpeed rather than returnSpeed, and must not jump.
+  const wall = cameraBoxes([{ x: 2.15, z: 6.5, halfW: 1, halfD: 0.5, yaw: 0, top: 6 }]);
+  const settle = Array.from({ length: 60 }, () => at(0, 0));
+  const run = Array.from({ length: 180 }, (_, frame) => at(3 * frame * DT, 0));
+  const { rel, turn } = motion(followFrames([...settle, ...run], wall));
+  expect(rel).toBeLessThanOrEqual(PULL_STEP + 1e-6);
+  expect(turn).toBeLessThanOrEqual(1);
+});
+
 test('a frame of no time gives the camera a place, not a NaN', () => {
   const prev = stateOfPose(cameraPose(at(0, 0), 0, CAMERA_TUNE, []));
   const pose = cameraPose(at(0, BOOST * DT), 0, CAMERA_TUNE, wallBehind());
