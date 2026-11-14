@@ -4,9 +4,9 @@ import { addSystem, el, isTouch, lang, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
-import { CUTSCENE_SEC, CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
+import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
 import { CAMERA_TUNE } from '../data/tune.ts';
-import { hasCutscene } from '../logic/cutscene.ts';
+import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
 import { newGame, restartGame, retryFromCheckpoint, sendToScript, step, type GameModel } from '../logic/game.ts';
 import { recordClear } from '../logic/save.ts';
@@ -202,7 +202,7 @@ function update(dt: number): void {
   const skip = takeSkip();
   const cutscene = game.script.cutscene;
   if (cutscene !== null) {
-    const elapsed = CUTSCENE_SEC[cutscene.id] - cutscene.left;
+    const elapsed = cutsceneElapsed(cutscene);
     if (!hasCutscene(cutscene.id) || (skip && elapsed >= CUTSCENE_SKIP_GUARD_SEC)) sendToScript(game, { kind: 'skip' });
   }
   // the cutscene's sounds play too: this line is not behind the cutscene branch

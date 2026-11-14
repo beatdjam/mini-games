@@ -1,6 +1,7 @@
 // What a cutscene shows at a second (SB-180), as pure functions over the tables in data/cutscenes.ts: the camera's place,
 // the line to show and the picture's events. No three and no DOM; view/cutscene.ts draws what these return.
 import { CUTSCENES, type CameraKey, type CutsceneDef, type CutsceneEvent, type Vec3 } from '../data/cutscenes.ts';
+import { CUTSCENE_SEC } from '../data/script.ts';
 import type { CutsceneId } from '../data/types.ts';
 
 export interface CutscenePose {
@@ -10,6 +11,15 @@ export interface CutscenePose {
 
 // Whether the cutscene has a table. One that has none is not played (data/cutscenes.ts).
 export const hasCutscene = (id: CutsceneId): boolean => CUTSCENES[id] !== undefined;
+
+// The second to start a cutscene's view at: the second it has played to, or -1 when none plays or it is only starting.
+// cutsceneEvents takes the events after `from`, so a view made at the start (-1) plays the events at second 0 once; one
+// made in the middle of a cutscene (a sortie taken up from a suspend) does not play the events before it again.
+export function cutsceneElapsed(cutscene: { id: CutsceneId; left: number } | null): number {
+  if (cutscene === null) return -1;
+  const elapsed = CUTSCENE_SEC[cutscene.id] - cutscene.left;
+  return elapsed <= 0 ? -1 : elapsed;
+}
 
 function tableOf(id: CutsceneId): CutsceneDef {
   const def = CUTSCENES[id];

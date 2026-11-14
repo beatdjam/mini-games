@@ -9,10 +9,9 @@ import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { CUTSCENE_SEC } from '../data/script.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
-import { cutsceneMech } from '../logic/cutscene.ts';
+import { cutsceneElapsed, cutsceneMech } from '../logic/cutscene.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
 import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
@@ -93,8 +92,7 @@ export function buildPlayView(game: GameModel): PlayView {
   const hud = buildPlayHud(document.body);
   // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
   // events before it (already played) are not all played again in the first frame.
-  const cutscene = game.script.cutscene;
-  const cutsceneElapsed = cutscene === null ? -1 : CUTSCENE_SEC[cutscene.id] - cutscene.left;
+  const startSecond = cutsceneElapsed(game.script.cutscene);
   return {
     world,
     model,
@@ -117,7 +115,7 @@ export function buildPlayView(game: GameModel): PlayView {
     allies: buildAllyView(),
     hud,
     hurt: buildHurtView(document.body),
-    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets, cutsceneElapsed),
+    cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets, startSecond),
   };
 }
 
@@ -266,7 +264,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   // game's mech stays at its start and a skip, a checkpoint or a suspend need nothing: the model is back on the game's
   // mech in the frame the cutscene ends. A cutscene with no path does not draw the mech: it is still in the boat.
   const cutscene = game.script.cutscene;
-  const walk = cutscene === null ? null : cutsceneMech(cutscene.id, CUTSCENE_SEC[cutscene.id] - cutscene.left);
+  const walk = cutscene === null ? null : cutsceneMech(cutscene.id, cutsceneElapsed(cutscene));
   if (walk === null) {
     view.model.position.set(game.mech.x, game.mech.y, game.mech.z);
     view.model.rotation.y = game.mech.yaw;

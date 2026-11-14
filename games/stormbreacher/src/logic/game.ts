@@ -186,7 +186,9 @@ export interface GameModel {
   map: MapDef;
   mission: MissionDef; // the script's write-up (data/missions/m1.ts)
   script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
-  radio: { line: string; time: number } | null; // the last radio line's key and when it came; null before one
+  // The last radio line's key, and when it came plus the cutscene seconds since, so game.time - time is the seconds the
+  // HUD has shown it; null before one
+  radio: { line: string; time: number } | null;
   mech: MechState;
   armor: number; // the mech's armour left (MECH_TUNE.armor at the start)
   downed: boolean; // set when the armour reaches 0; step does nothing after

@@ -7,8 +7,9 @@ import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { M1_MECH_PALETTE } from '../../src/data/mech.ts';
-import { CUTSCENE_SEC, CUTSCENE_SKIP_GUARD_SEC } from '../../src/data/script.ts';
+import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { sendToScript } from '../../src/logic/game.ts';
+import { pastSkipGuard as pastGuard } from './cutsceneSkip.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -39,10 +40,7 @@ async function until(done: () => boolean, tries = 240): Promise<void> {
 
 // A cutscene takes no skip for CUTSCENE_SKIP_GUARD_SEC after it starts, so a test that skips it waits that out first.
 async function pastSkipGuard(): Promise<void> {
-  await until(() => {
-    const cutscene = game().script.cutscene;
-    return cutscene === null || CUTSCENE_SEC[cutscene.id] - cutscene.left >= CUTSCENE_SKIP_GUARD_SEC + 0.1;
-  });
+  await until(pastGuard);
 }
 
 const bars = (): HTMLElement => el('#sbCutscene');

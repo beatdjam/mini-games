@@ -1,7 +1,7 @@
 // The cutscene's edge against the input: the frame a cutscene starts takes no skip, Esc while the pointer is locked
 // skips instead of pausing, a jump pressed while paused is thrown away, and a sortie taken up mid-cutscene does not play
-// its past blasts again. The ticket is 1680.
-import { beforeAll, expect, test } from 'vitest';
+// its past blasts again.
+import { afterEach, beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
 import { el, runSystems } from '@engine/core/index.ts';
@@ -9,7 +9,9 @@ import { scene } from '@engine/render/index.ts';
 import { boot } from '../../src/app/boot.ts';
 import { currentGame, startSortie, titleReturn } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
-import { CUTSCENE_SEC, CUTSCENE_SKIP_GUARD_SEC } from '../../src/data/script.ts';
+import { SUSPEND_KEY } from '../../src/app/storage.ts';
+import { CUTSCENE_SEC } from '../../src/data/script.ts';
+import { pastSkipGuard as pastGuard } from './cutsceneSkip.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -19,6 +21,9 @@ beforeAll(async () => {
   // the real page loads again to go back to the title; a test cannot, so it takes the in-page way
   titleReturn.reload = false;
 });
+
+// A test that fails before its resume would leave the suspend for the next file.
+afterEach(() => localStorage.removeItem(SUSPEND_KEY));
 
 const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
@@ -35,17 +40,18 @@ async function until(done: () => boolean, tries = 720): Promise<void> {
     runSystems(1 / 60);
     if (i % 30 === 29) await frame();
   }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps`);
+  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps (cutscene: ${describeCutscene()})`);
+}
+
+// The cutscene's state for a failed wait: which one plays, or none, and the second it is at.
+function describeCutscene(): string {
+  const cutscene = currentGame()?.script.cutscene;
+  if (!cutscene) return 'none';
+  return `${cutscene.id} at ${(CUTSCENE_SEC[cutscene.id] - cutscene.left).toFixed(2)} s`;
 }
 
 const press = (code: string): boolean => window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
 const button = (id: string): HTMLButtonElement => el<HTMLButtonElement>(id);
-
-// A cutscene takes no skip for CUTSCENE_SKIP_GUARD_SEC after it starts, so the tests that skip one wait that out first.
-const pastGuard = (): boolean => {
-  const cutscene = game().script.cutscene;
-  return cutscene !== null && CUTSCENE_SEC[cutscene.id] - cutscene.left >= CUTSCENE_SKIP_GUARD_SEC + 0.1;
-};
 
 async function pastLanding(): Promise<void> {
   await frame();
