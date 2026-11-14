@@ -3,7 +3,7 @@
 // buttons stand in for the player, the map and the enemies, none of which exist yet.
 import { addSystem, el, t } from '@engine/core/index.ts';
 import { M1 } from '../../data/missions/m1.ts';
-import { RADIO_MIN_SEC } from '../../data/script.ts';
+import { RADIO_TUNE } from '../../data/script.ts';
 import { newScript, scriptInput, stepScript, type ScriptInput, type ScriptOut } from '../../logic/script.ts';
 
 declare global {
@@ -39,6 +39,8 @@ function eventText(event: ScriptOut): string {
       return `spawn ${event.wave}`;
     case 'ally':
       return `ally ${event.id} ${event.path}`;
+    case 'allyMove':
+      return `allyMove ${event.id} ${event.path}`;
     case 'cutscene':
       return `cutscene ${event.id}`;
     case 'cutsceneEnd':
@@ -142,7 +144,7 @@ export function showScript(_hash: string) {
     }
     const next = radioQueue.shift();
     radio.textContent = next === undefined ? '' : t(next);
-    radioLeft = next === undefined ? 0 : RADIO_MIN_SEC;
+    radioLeft = next === undefined ? 0 : RADIO_TUNE.minSec;
   }
 
   for (const area of Object.keys(M1.areas)) {
@@ -151,6 +153,7 @@ export function showScript(_hash: string) {
   for (const target of M1.targets) {
     button(bar, `sbScriptDestroy-${target}`, `destroyed ${target}`, () => send({ kind: 'destroyed', target }));
   }
+  button(bar, 'sbScriptAshore', 'ashore', () => send({ kind: 'ashore' }));
   button(bar, 'sbScriptSkip', 'skip', () => send({ kind: 'skip' }));
 
   const speedRow = document.createElement('div');

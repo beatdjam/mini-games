@@ -48,6 +48,7 @@
   - `tileIndex(x, z)`: ワールド座標からタイル番号（`engine/src/world/tiles.ts`）
   - 同じ計算を3か所以上に書きそうになったら、関数にする。タイル・距離のように engine の世界の概念なら engine に置き、テストも足す
 - 保存キー（`localStorage`）は `SAVE_KEY`・`BASE_TAB_KEY` のように名前を付け、セーブのモジュール（`src/core/save.ts`）に並べる
+- **three.js の `InstancedMesh` の色**: 色を付けるときは、`setColorAt` に任せず、作る時に `mesh.instanceColor = new THREE.BufferAttribute(new Float32Array(上限 * 3), 3)` を作っておく。型は three が `setColorAt` で作るのと同じ `BufferAttribute` に揃える。three r128 は最初の `setColorAt` の時の `count` で長さを決め、あとで `count` を増やしても伸びないため
 
 ## 4. engine とゲームの境界
 

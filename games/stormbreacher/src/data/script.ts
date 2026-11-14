@@ -1,15 +1,18 @@
 // The lengths the mission script needs (SB-050). The cutscene table is a starting point: the staging ticket (SB-045)
-// may change the seconds. RADIO_MIN_SEC is the screen's rule, not the script's: one radio line stays up at least this
+// may change the seconds. RADIO_TUNE is the screen's rule, not the script's: one radio line stays up at least this
 // long, and lines that arrive together wait their turn.
 import type { CutsceneId } from './types.ts';
 
 export const CUTSCENE_SEC: Record<CutsceneId, number> = {
-  landing: 10,
+  landing: 12,
   'wave2-sinks': 6,
   'beach-held': 8,
 };
 
-export const RADIO_MIN_SEC = 3; // seconds one radio line stays on screen
+export const RADIO_TUNE = {
+  minSec: 3, // how long one radio line stays on screen (s)
+  maxPending: 8, // the most lines that may wait behind the one on screen
+};
 
 // A cutscene takes no skip this soon after it starts: the jump, shot or Enter that starts one (wave2-sinks, beach-held)
 // comes in the same frame, and must not pass the cutscene over before it is drawn. Presses before this are thrown away.

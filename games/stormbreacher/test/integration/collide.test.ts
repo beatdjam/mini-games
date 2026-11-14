@@ -3,6 +3,7 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
 import { PROP_SIZE, STAIRS_TUNE } from '../../src/data/props.ts';
 import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
+import { openBreach } from '../../src/logic/blasts.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
 import { blockingPropIndexes, mapBlockers } from '../../src/logic/mapShapes.ts';
 import { newMech, stepMech, type MechInput } from '../../src/logic/mech.ts';
@@ -24,23 +25,37 @@ const world = { rects: mapBlockers(M1B_HAND), radius: MECH_TUNE.radius };
 // The nearest any rect comes to the mech's middle; one expect a frame instead of one a rect keeps the test quick.
 const nearest = (x: number, z: number): number => Math.min(...world.rects.map(rect => rectDistance(rect, x, z)));
 
-test('the hand map lets the mech walk straight through lines 1 to 3 at their breakthroughs', () => {
-  for (const line of M1B_RULES.lines.slice(0, 3)) {
-    const gapX = line.gaps[0].x;
+test('a closed line stops the mech, and one opened blast point lets it through', () => {
+  const points = M1B_HAND.blasts ?? [];
+  // the mech's day starts at the sea side of the line, facing the land
+  const fresh = (x: number, z: number) => {
     const m = newMech();
-    m.x = gapX;
-    m.z = line.z + line.depth / 2 + 4;
+    m.x = x;
+    m.z = z;
     m.yaw = 0;
-    let crossed = false;
-    for (let i = 0; i < 600; i++) {
-      stepMech(m, input({ moveZ: 1 }), 1 / 60, MOVE_TUNE, 0, world);
-      expect(nearest(m.x, m.z), `line at z ${line.z}`).toBeGreaterThanOrEqual(MECH_TUNE.radius - 1e-6);
-      if (m.z < line.z - line.depth / 2 - 2) {
-        crossed = true;
-        break;
+    return m;
+  };
+  for (const line of M1B_RULES.lines.slice(0, 3)) {
+    const onLine = points.filter(point => point.line === line.z);
+    expect(onLine.length, `line at z ${line.z}`).toBe(2);
+    for (const point of onLine) {
+      const world = { rects: mapBlockers(openBreach(M1B_HAND, [point.id])), radius: MECH_TUNE.radius };
+      const m = fresh(point.x, line.z + line.depth / 2 + 4);
+      let crossed = false;
+      for (let i = 0; i < 600; i++) {
+        stepMech(m, input({ moveZ: 1 }), 1 / 60, MOVE_TUNE, 0, world);
+        if (m.z < line.z - line.depth / 2 - 2) {
+          crossed = true;
+          break;
+        }
       }
+      expect(crossed, `line at z ${line.z} opened by ${point.id}`).toBe(true);
     }
-    expect(crossed, `line at z ${line.z}`).toBe(true);
+    // the same walk with every hole shut stops at the line
+    const world = { rects: mapBlockers(M1B_HAND), radius: MECH_TUNE.radius };
+    const m = fresh(onLine[0].x, line.z + line.depth / 2 + 4);
+    for (let i = 0; i < 240; i++) stepMech(m, input({ moveZ: 1 }), 1 / 60, MOVE_TUNE, 0, world);
+    expect(m.z, `line at z ${line.z} closed`).toBeGreaterThan(line.z);
   }
 });
 

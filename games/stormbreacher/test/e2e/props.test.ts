@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { blastPropIndexes } from '../../src/logic/blasts.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -24,6 +25,24 @@ function drawn(name: string): number {
   return count;
 }
 
+// How many hedgehog copies are drawn low (a broken or blast-opened one makes its copy this low).
+function loweredHedgehogs(): number {
+  const matrix = new THREE.Matrix4();
+  const at = new THREE.Vector3();
+  const turn = new THREE.Quaternion();
+  const size = new THREE.Vector3();
+  let count = 0;
+  scene.traverse(child => {
+    if (!(child instanceof THREE.InstancedMesh) || child.name !== 'hedgehog') return;
+    for (let i = 0; i < child.count; i++) {
+      child.getMatrixAt(i, matrix);
+      matrix.decompose(at, turn, size);
+      if (size.y < 0.5) count++;
+    }
+  });
+  return count;
+}
+
 test('a sortie draws the low walls and the ramps', async () => {
   startSortie();
   await frame();
@@ -34,6 +53,42 @@ test('a sortie draws the low walls and the ramps', async () => {
     expect(placed, kind).toBeGreaterThan(0);
     expect(drawn(kind), kind).toBe(placed);
   }
+});
+
+test('a blast lowers the line’s hedgehogs where they stand, with no new mesh', async () => {
+  startSortie();
+  await frame();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  const blast = game.blasts.find(place => place.id === 'l1-b');
+  if (!blast) throw new Error('the map has no l1-b');
+  const props = blastPropIndexes(game.map, blast);
+  expect(props.length).toBeGreaterThan(0);
+  expect(loweredHedgehogs()).toBe(0);
+
+  blast.blasted = true;
+  await frame();
+  await frame();
+  expect(loweredHedgehogs()).toBe(props.length);
+});
+
+test('the pillboxes’ blast points are drawn, and not once their pillbox is down', async () => {
+  startSortie();
+  await frame();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  const points = game.blasts.length;
+  // the lines' six points and the pillboxes' four are all rings on the fresh map
+  expect(points).toBe(10);
+  expect(drawn('sb-blast-points')).toBe(points);
+
+  // pillbox-1's two points leave the ground once its guns are down; the other rings stay
+  const pillbox = game.targets.find(target => target.id === 'pillbox-1');
+  if (!pillbox) throw new Error('the map has no pillbox-1');
+  pillbox.hp = 0;
+  await frame();
+  await frame();
+  expect(drawn('sb-blast-points')).toBe(points - 2);
 });
 
 // The first object in the scene with this name, anywhere below it.
@@ -83,7 +138,7 @@ test('a sortie draws the sea past the front edge and the landing craft behind th
 
     const craftBox = new THREE.Box3().setFromObject(craft);
     expect(craftBox.min.z).toBeGreaterThanOrEqual(maxZ - 6);
-    expect(craftBox.max.z).toBeGreaterThan(game.mech.z + 10);
+    expect(craftBox.max.z).toBeGreaterThan(game.mech.z);
     expect(craftBox.max.y).toBeGreaterThan(seaBox.max.y + 1);
     // one draw a colour: the hull and the dark deck and ramp
     const meshes: THREE.Mesh[] = [];

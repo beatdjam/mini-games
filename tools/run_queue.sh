@@ -8,6 +8,7 @@
 # - 起動したきり止まったら（セッションが出てこなければ）起動し直す
 # - 終わったら result を .tasks/ に写し、変更を「WIP（未レビュー）」のコミットにする。push・PR はしない
 # - 回し終えた印は .tasks/<番号>-<名前>.result.md。あれば飛ばす。票が消えていれば（レビュー済み）飛ばす
+# - 次の票を選ぶたびに queue.txt を先頭から読み直す（回している途中で順を入れ替えると、次から反映される）
 # - queue.txt の2列目からは土台。master か、先に回す票の番号（その票の未レビューのコミットの上に積む）
 # - result が出なかったときは、混雑で落ちたなら少し待って続きから回し直す。それでも出なければ止める
 # - merge がぶつかったときは、そこで止める
@@ -103,27 +104,69 @@ run_oc() {
 [ -f "$T/queue.txt" ] || { echo "$T/queue.txt が無い"; exit 1; }
 [ $DRY = 1 ] || git -C "$R" fetch -q origin
 log "---- 開始 ----"
-while read -r -u 3 n bases; do
-  case "$n" in '' | '#'*) continue ;; esac
+
+if [ $DRY = 1 ]; then
+  # 今の並びのまま、何をどの順で回すかだけ出す（読み直しはしない）
+  while read -r -u 3 n bases; do
+    case "$n" in '' | '#'*) continue ;; esac
+    t=$(ticket_of "$n")
+    [ -z "$t" ] && { log "票$n: 票が無い（レビュー済み）ので飛ばす"; continue; }
+    name=$(basename "$t" .md)
+    [ -f "$T/$name.result.md" ] && { log "票$n: result があるので飛ばす"; continue; }
+    br=$(branch_of "$t")
+    [ -z "$bases" ] && bases=master
+    refs=()
+    for b in $bases; do
+      r=$(base_ref "$b")
+      [ -z "$r" ] && r="(票$b の WIP)"
+      refs+=("$r")
+    done
+    wt=$(worktree_of "$br")
+    echo "票$n  $br  土台: ${refs[*]}  作業ツリー: ${wt:-.wt/t${n}（作る）}"
+  done 3<"$T/queue.txt"
+  log "---- 終わり ----"
+  exit 0
+fi
+
+# queue.txt を先頭から読み直し、次に回す票を選ぶ（result が無く、票がある最初の行。この起動で回した番号は飛ばす）
+N=
+BASES=
+RUN=" "
+next_ticket() {
+  local line cand t name
+  while read -r line; do
+    case "$line" in '' | '#'*) continue ;; esac
+    set -- $line
+    cand=$1
+    shift
+    t=$(ticket_of "$cand")
+    [ -z "$t" ] && continue
+    name=$(basename "$t" .md)
+    [ -f "$T/$name.result.md" ] && continue
+    case "$RUN" in *" $cand "*) continue ;; esac
+    N=$cand
+    BASES=$*
+    return 0
+  done < "$T/queue.txt"
+  return 1
+}
+
+while next_ticket; do
+  n=$N
+  bases=$BASES
+  RUN="$RUN$n "
   t=$(ticket_of "$n")
-  [ -z "$t" ] && { log "票$n: 票が無い（レビュー済み）ので飛ばす"; continue; }
   name=$(basename "$t" .md)
-  [ -f "$T/$name.result.md" ] && { log "票$n: result があるので飛ばす"; continue; }
   br=$(branch_of "$t")
   title=$(head -1 "$t" | sed 's/^# タスク: //')
   [ -z "$bases" ] && bases=master
   refs=()
   for b in $bases; do
     r=$(base_ref "$b")
-    [ -z "$r" ] && [ $DRY = 1 ] && r="(票$b の WIP)"
     [ -z "$r" ] && { log "票$n: 土台の票$b がまだ回っていない。止める"; exit 1; }
     refs+=("$r")
   done
   wt=$(worktree_of "$br")
-  if [ $DRY = 1 ]; then
-    echo "票$n  $br  土台: ${refs[*]}  作業ツリー: ${wt:-.wt/t${n}（作る）}"
-    continue
-  fi
 
   # 前に回して result だけ残っている（写す前に止まった）なら、仕上げだけする
   if [ -n "$wt" ] && [ -f "$wt/.tasks/$name.result.md" ]; then
@@ -183,5 +226,5 @@ while read -r -u 3 n bases; do
     fi
   fi
   finish "$n" "$wt" "$name" "$title"
-done 3<"$T/queue.txt"
+done
 log "---- 終わり ----"

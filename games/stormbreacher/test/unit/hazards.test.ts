@@ -2,8 +2,17 @@
 // after its warning, a circle holds the mech or not, and a mine goes off under the mech's feet.
 import { expect, test } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
-import { BARRAGES, MINE_TUNE } from '../../src/data/hazards.ts';
-import { inCircle, mineStepped, newBarrage, stepBarrage, stepShells } from '../../src/logic/hazards.ts';
+import { AIMED_MORTAR, BARRAGES, MINE_TUNE } from '../../src/data/hazards.ts';
+import {
+  aimedInReach,
+  inCircle,
+  mineStepped,
+  newAimed,
+  newBarrage,
+  stepAimed,
+  stepBarrage,
+  stepShells,
+} from '../../src/logic/hazards.ts';
 
 const DT = 1 / 60;
 const MORTAR = BARRAGES.mortar;
@@ -103,4 +112,71 @@ test('a slowed barrage counts its interval as many times as long', () => {
   }
   expect(at).toHaveLength(3);
   at.forEach((time, i) => expect(time).toBeCloseTo(BATTERY.interval * slow.mul * (i + 1), 1));
+});
+
+const AIMED = AIMED_MORTAR;
+const STANDING = { x: 5, z: AIMED.minZ + 20 };
+
+// Steps the aimed mortar for `seconds` and returns the shells it warned of, each with the time it came.
+function runAimed(state: ReturnType<typeof newAimed>, mech: { x: number; z: number }, seconds: number) {
+  const warned: { at: number; x: number; z: number; radius: number; left: number; damage: number }[] = [];
+  const frames = Math.round(seconds / DT);
+  for (let i = 1; i <= frames; i++) {
+    const shell = stepAimed(state, mech, DT);
+    if (shell) warned.push({ at: i * DT, ...shell });
+  }
+  return warned;
+}
+
+test('an aimed mortar warns on the mech’s place once the stay is full, and not before', () => {
+  const state = newAimed(STANDING);
+  const warned = runAimed(state, STANDING, AIMED.stillSec - 0.2);
+  expect(warned).toHaveLength(0);
+  expect(state.still).toBeGreaterThan(AIMED.stillSec - 0.3);
+  const next = runAimed(state, STANDING, 0.3);
+  expect(next).toHaveLength(1);
+  expect(next[0].at).toBeCloseTo(0.2, 1);
+  expect(next[0]).toMatchObject({
+    x: STANDING.x,
+    z: STANDING.z,
+    radius: AIMED.radius,
+    warn: AIMED.warn,
+    left: AIMED.warn,
+    damage: AIMED.damage,
+  });
+  // the count starts again after the warning
+  expect(state.still).toBeLessThan(0.2);
+});
+
+test('the stay counts within the still radius and starts again outside it', () => {
+  const state = newAimed(STANDING);
+  runAimed(state, STANDING, 2);
+  const near = { x: STANDING.x + AIMED.stillRadius - 0.2, z: STANDING.z };
+  expect(runAimed(state, near, AIMED.stillSec - 2 - 0.2)).toHaveLength(0);
+  expect(runAimed(state, near, 0.3)).toHaveLength(1);
+
+  const left = newAimed(STANDING);
+  runAimed(left, STANDING, 2);
+  const out = { x: STANDING.x + AIMED.stillRadius + 0.1, z: STANDING.z };
+  expect(runAimed(left, out, 0.1)).toHaveLength(0);
+  expect(left.still).toBeLessThan(0.2);
+  expect(runAimed(left, out, AIMED.stillSec - 0.2)).toHaveLength(0);
+  expect(runAimed(left, out, 0.3)).toHaveLength(1);
+});
+
+test('the aimed mortar reaches only at or past its minZ, and counts no stay outside it', () => {
+  expect(aimedInReach({ x: 0, z: AIMED.minZ })).toBe(true);
+  expect(aimedInReach({ x: 0, z: AIMED.minZ - 0.1 })).toBe(false);
+  expect(aimedInReach({ x: 0, z: AIMED.maxZ })).toBe(true);
+  const out = { x: 0, z: AIMED.minZ - 5 };
+  const state = newAimed(out);
+  expect(runAimed(state, out, AIMED.stillSec * 2)).toHaveLength(0);
+  expect(state.still).toBe(0);
+});
+
+test('the same input gives the same aimed shells', () => {
+  const a = runAimed(newAimed(STANDING), STANDING, AIMED.stillSec * 2 + 0.2);
+  const b = runAimed(newAimed(STANDING), STANDING, AIMED.stillSec * 2 + 0.2);
+  expect(a.length).toBeGreaterThan(1);
+  expect(a).toEqual(b);
 });
