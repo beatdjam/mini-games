@@ -3,17 +3,17 @@
 import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
 import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
-import { boomShakeAt } from '../data/boom.ts';
+import { BLAST_LIFT, boomShakeAt, landBlastHeight } from '../data/boom.ts';
 import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { CUTSCENES } from '../data/cutscenes.ts';
-import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1, PILLBOXES_DOWN_FLAG } from '../data/missions/m1.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { BATTLE_TUNE, CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import { blastTarget } from '../logic/blasts.ts';
-import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
+import { blastFaceHeight, isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneElapsed, cutsceneMech } from '../logic/cutscene.ts';
+import type { Ray3 } from '../logic/fcs.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
 import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
@@ -21,7 +21,7 @@ import type { MechEvent } from '../logic/mech.ts';
 import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
 import { buildBattle, type Battle } from './battle/index.ts';
 import { buildBlastView, drawBlasts, type BlastView } from './blasts.ts';
-import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
+import { aimRay, applyPose, cameraPose, followCamera, screenRect, stateOfPose, type CameraState } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
 import { buildBooms, drawBooms, spawnBoom } from './boom.ts';
@@ -32,7 +32,9 @@ import { buildPlayHud, drawHud, type PlayHud } from './hud.ts';
 import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from './hurt.ts';
 import { applyLookTo } from './look.ts';
 import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
-import { buildMechVisual, setMechOpacity } from './mechModel.ts';
+import { mechSeeThrough } from './mechFade.ts';
+import { buildProtoMech, setProtoOpacity } from './mechProtoModel.ts';
+import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
 const TRACER_COLOR = 0xffe066; // the bullet's line
@@ -64,11 +66,13 @@ export interface PillboxWarnView {
 
 export interface PlayView {
   world: World;
-  model: THREE.Group; // the mech, M1's look (pattern E)
+  model: THREE.Group; // the mech (the prototype of data/mechProto.ts, bones and skinned meshes)
+  stage: ProtoStage | null; // the prototype's sun, shadow and surroundings' light; only with ?shadow=1 or ?env=1
   mechFaded: boolean; // whether the mech is drawn see-through, for the camera is near
   feel: FeelState;
   pitch: number; // the camera's pitch (rad)
-  camPos: THREE.Vector3 | null; // the camera's place in the last frame
+  cam: CameraState | null; // the camera's place and look in the last frame
+  aim: Ray3; // the line through the middle of the screen the last frame drew
   bullets: BulletLines; // the lines of the mech's shots in flight
   enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
   enemies: EnemyView; // the enemies' instanced boxes
@@ -89,22 +93,40 @@ export function buildPlayView(game: GameModel): PlayView {
   buildBooms(game.map.bounds);
   // the look comes from the mission's row; the sortie is M1's B alone, so M1.id is written here (SB-300 picks the mission)
   applyLookTo(lookOf(M1.id), world.built.group);
-  const model = buildMechVisual(
-    { build: M1_MECH, palette: M1_MECH_PALETTE, weaponScale: M1_WEAPON_SCALE },
-    MECH_TUNE.height,
-  );
+  const model = buildProtoMech(MECH_TUNE.height);
   scene.add(model);
+  // The mech's shadow and the surroundings' light are off unless the page asks (?shadow=1, ?env=1), so a plain sortie
+  // keeps the look's lights and costs what it did; SB-1474 measures what each adds.
+  const shadow = stageFlag('shadow') === '1';
+  const env = stageFlag('env') === '1';
+  let stage: ProtoStage | null = null;
+  if (shadow || env) {
+    stage = addProtoStage(model, world.built.group, game.mech.x, game.mech.z);
+    stage.setShadow(shadow);
+    stage.setEnv(env);
+  }
   const hud = buildPlayHud(document.body);
   // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
   // events before it (already played) are not all played again in the first frame.
   const startSecond = cutsceneElapsed(game.script.cutscene);
+  // The sortie starts with the camera already in its place: a checkpoint or a suspend resumes without it flying in.
+  const cam = stateOfPose(
+    cameraPose(
+      { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw },
+      0,
+      CAMERA_TUNE,
+      world.cameraBoxes,
+    ),
+  );
   return {
     world,
     model,
+    stage,
     mechFaded: false,
     feel: newFeel(CAMERA_TUNE.fov),
     pitch: 0,
-    camPos: null,
+    cam,
+    aim: aimRay(cam),
     bullets: buildBulletLines(TRACER_COLOR),
     enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
     enemies: buildEnemyView(),
@@ -123,6 +145,7 @@ export function buildPlayView(game: GameModel): PlayView {
       stream('craters'),
       { x: game.mech.x, z: game.mech.z },
       BATTLE_TUNE.holdZ,
+      game.rects,
     ),
     allies: buildAllyView(),
     hud,
@@ -228,8 +251,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   for (const event of game.events) {
     if (event.kind === 'mech') {
       mechEvents.push(event.event);
-      if (event.event.kind === 'land') spawnDust(game.mech.x, game.mech.z, LAND_DUST, FEEL_TUNE);
-      else if (event.event.kind === 'boostStart') spawnDust(game.mech.x, game.mech.z, BOOST_DUST, FEEL_TUNE);
+      if (event.event.kind === 'land') spawnDust(game.mech.x, game.mech.z, LAND_DUST, FEEL_TUNE, game.mech.y);
+      else if (event.event.kind === 'boostStart') {
+        spawnDust(game.mech.x, game.mech.z, BOOST_DUST, FEEL_TUNE, game.mech.y);
+      }
     } else if (event.kind === 'shot') {
       mechEvents.push({ kind: 'fire', speed: 0 });
     } else if (event.kind === 'hit') {
@@ -246,7 +271,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
           DEFLECT_GRAVITY,
         );
       } else {
-        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE, blastFaceHeight(game.rects, event.x, event.z));
       }
     } else if (event.kind === 'destroyed') {
       kill = true;
@@ -259,11 +284,13 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       }
     } else if (event.kind === 'enemyDown') {
       kill = true;
-      blast('small', event.x, 0.6, event.z);
+      blast('small', event.x, event.y + BLAST_LIFT.small, event.z);
     } else if (event.kind === 'propDestroyed') {
-      blast('small', event.x, 0.5, event.z);
+      blast('small', event.x, BLAST_LIFT.prop, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
-      blast(event.z >= game.map.bounds.maxZ ? 'water' : 'large', event.x, 0.8, event.z);
+      // the sea has no ground face: a shell past the map's front edge keeps the height its flash had over the water
+      const water = event.z >= game.map.bounds.maxZ;
+      blast(water ? 'water' : 'large', event.x, landBlastHeight(water, event.y), event.z);
       // the game's own blast takes the infantry near it, as the battle's shells do (SB-1610)
       view.battle.blast(event.x, event.z);
     } else if (event.kind === 'planted') {
@@ -272,14 +299,16 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       const target = blastTarget(game.map, event.id);
       // A charge that broke its pillbox on this frame leaves the boom to the destroyed event; one whose pillbox was
       // already down (broken by a shot while the fuse burnt) draws its own.
-      if (target === undefined || !brokenThisFrame.has(target)) blast('large', event.x, 0.8, event.z);
+      if (target === undefined || !brokenThisFrame.has(target)) blast('large', event.x, BLAST_LIFT.large, event.z);
     } else if (event.kind === 'allyDown') {
+      // the ally stands on the face under it, so its blast and dust belong there rather than inside a wall
+      const face = blastFaceHeight(game.rects, event.x, event.z);
       // A machine gun's burst takes the gunner down: dust, no blast, so it does not look like a mortar round.
       if (event.by === 'gun') {
-        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE);
+        spawnDust(event.x, event.z, HIT_DUST, FEEL_TUNE, face);
       } else {
-        shellBurst(event.x, event.z);
-        spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE);
+        shellBurst(event.x, event.z, face);
+        spawnDust(event.x, event.z, BLAST_DUST, FEEL_TUNE, face);
       }
     } else if (event.kind === 'damaged') {
       feelDamage(view.feel, FEEL_TUNE);
@@ -292,7 +321,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   const cutscene = game.script.cutscene;
   const holdsBattle = cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true;
   if (!holdsBattle) {
-    view.feel.shake += view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+    const shellShake = view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+    // The battlefield's shells shake the camera within the same cap as the blasts: a shell landing in the same frame as
+    // a blast near the mech must not add the two past shakeMax and throw the camera off.
+    if (shellShake > 0) feelBoom(view.feel, shellShake, FEEL_TUNE);
   } else {
     view.battle.advanceTracers(dt);
   }
@@ -313,6 +345,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     drawMechWalk(view.model, walk.speed, dt);
   }
   view.model.visible = cutscene === null || walk !== null;
+  view.stage?.follow(view.model.position.x, view.model.position.z);
 
   // The camera's pitch is held while a cutscene plays, so the game's camera is where the cutscene's last key puts its
   // own (the key is written for pitch 0) in the first frame the player controls.
@@ -325,20 +358,20 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   );
   // The cutscene draws its own camera over this one (drawCutscene). The game's camera sits at its place meanwhile, so it
   // starts the first controlled frame, or the one after a skip, where it stands and does not fly in from elsewhere.
-  view.camPos =
-    view.camPos && cutscene === null ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
-  const pos = view.camPos.clone().add(frame.offset);
-  applyPose(camera, { ...pose, pos }, frame.fov);
+  view.cam = cutscene === null ? followCamera(view.cam, pose, dt, CAMERA_TUNE) : stateOfPose(pose);
+  const pos = view.cam.pos.clone().add(frame.offset);
+  applyPose(camera, { ...pose, pos, look: view.cam.look }, frame.fov);
+  // The aim is the middle of the screen without the feel's shake: the reticle stays still and next frame's shot goes
+  // where the player aimed, along the same line the state holds.
+  view.aim = aimRay(view.cam);
   drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset, view.battle);
   drawBooms(dt);
 
   // a camera pushed close by a wall would fill the screen with the mech, so the mech turns see-through
-  const near =
-    camera.position.distanceTo(new THREE.Vector3(game.mech.x, game.mech.y + MECH_TUNE.chestHeight, game.mech.z)) <
-    MECH_TUNE.fadeDist;
+  const near = mechSeeThrough(camera.position, game.mech);
   if (near !== view.mechFaded) {
     view.mechFaded = near;
-    setMechOpacity(view.model, near ? MECH_TUNE.fadeOpacity : 1);
+    setProtoOpacity(view.model, near ? MECH_TUNE.fadeOpacity : 1);
   }
 
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);

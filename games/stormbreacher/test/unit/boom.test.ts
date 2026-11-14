@@ -1,7 +1,15 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
-import { BOOM_CAP, BOOM_DEFS, BOOM_SHAKE, boomShakeAt } from '../../src/data/boom.ts';
+import {
+  BLAST_LIFT,
+  BOOM_CAP,
+  BOOM_DEFS,
+  BOOM_SHAKE,
+  SEA_BLAST_HEIGHT,
+  boomShakeAt,
+  landBlastHeight,
+} from '../../src/data/boom.ts';
 import { boomCounts, buildBooms, clearBooms, drawBooms, freeSlot, spawnBoom } from '../../src/view/boom.ts';
 import { SEA_LEVEL } from '../../src/view/shore.ts';
 
@@ -101,4 +109,13 @@ test('a farther blast shakes the camera less, and one past the far distance not 
   expect(middle).toBeGreaterThan(0);
   expect(far).toBe(0);
   expect(boomShakeAt('large', BOOM_SHAKE.far + 50)).toBe(0);
+});
+
+test('a blast over the sea keeps its flash height, a blast on land stands on its face', () => {
+  // the sea has no face: whatever height the event carries, the flash stays at SEA_BLAST_HEIGHT
+  expect(landBlastHeight(true, 0)).toBe(SEA_BLAST_HEIGHT);
+  expect(landBlastHeight(true, 6)).toBe(SEA_BLAST_HEIGHT);
+  // flat ground gives the old fixed height, a 6 m seawall lifts it by the same amount
+  expect(landBlastHeight(false, 0)).toBeCloseTo(BLAST_LIFT.large, 9);
+  expect(landBlastHeight(false, 6)).toBeCloseTo(6 + BLAST_LIFT.large, 9);
 });

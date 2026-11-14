@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
-import { CAMERA_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
+import { mechSeeThrough } from '../../src/view/mechFade.ts';
+import { buildProtoMech, setProtoOpacity } from '../../src/view/mechProtoModel.ts';
 import { cameraBoxes, cameraPose, followPose, screenRect, type CameraTarget } from '../../src/view/camera.ts';
 
 const at = (x = 0, z = 0, yaw = 0): CameraTarget => ({ x, y: 0, z, yaw });
@@ -164,4 +166,30 @@ test('a box that runs off the screen is cut to the screen', () => {
   const rect = screenRect(aabb(5, 200, -1, 1, -21, -19), lookingDownZ(), 1000, 500);
   if (!rect) throw new Error('the box is in view');
   expect(rect.left + rect.width).toBeCloseTo(1000, 6);
+});
+
+test('a wall behind the mech pushes the camera inside fadeDist, and the mech turns see-through', () => {
+  const mech = { x: 0, y: 0, z: 0 };
+  const open = cameraPose(at(), 0, CAMERA_TUNE, []);
+  expect(mechSeeThrough(open.pos, mech)).toBe(false);
+
+  const wall = box([-50, 0, 2], [50, 20, 3]);
+  const pushed = cameraPose(at(), 0, CAMERA_TUNE, [wall]);
+  expect(pushed.pulled).toBe(true);
+  const chest = new THREE.Vector3(mech.x, mech.y + MECH_TUNE.chestHeight, mech.z);
+  expect(pushed.pos.distanceTo(chest)).toBeLessThan(MECH_TUNE.fadeDist);
+  expect(mechSeeThrough(pushed.pos, mech)).toBe(true);
+
+  const model = buildProtoMech(MECH_TUNE.height);
+  const opacityOf = (): number[] => {
+    const list: number[] = [];
+    model.traverse(object => {
+      const mesh = object as THREE.SkinnedMesh;
+      if (mesh.isSkinnedMesh === true) list.push((mesh.material as THREE.Material).opacity);
+    });
+    return list;
+  };
+  expect(opacityOf().every(opacity => opacity === 1)).toBe(true);
+  setProtoOpacity(model, mechSeeThrough(pushed.pos, mech) ? MECH_TUNE.fadeOpacity : 1);
+  expect(opacityOf().every(opacity => opacity === MECH_TUNE.fadeOpacity)).toBe(true);
 });

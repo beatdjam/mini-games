@@ -33,7 +33,7 @@ export function buildAllyView(): AllyView {
 }
 
 // Builds the mech's boxes with an ally's palette. The meshes get the ally's name, so a count of the player's mech's
-// meshes (named 'mech') does not take them.
+// meshes (named 'mech-proto') does not take them.
 function buildModel(palette: typeof ALLY_PALETTE): THREE.Group {
   const group = buildMechVisual({ build: M1_MECH, palette, weaponScale: M1_WEAPON_SCALE }, ALLY_TUNE.height);
   group.name = ALLY_MESH_NAME;

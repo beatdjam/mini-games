@@ -4,15 +4,22 @@
 import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
+import { MECH_PROTO_COLOR } from '../../data/colors.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
-import { CORES, PARTS } from '../../data/mech.ts';
+import { CORES, MECH_PAINT, MECH_PAINT_TEX, PARTS } from '../../data/mech.ts';
+import { PROTO_MATERIALS, PROTO_TUNE } from '../../data/mechProto.ts';
 import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
 import { moveTuneOf } from '../../logic/mechTune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
 import { applyLookTo } from '../../view/look.ts';
 import { animateMech, buildMechVisual, countMechDraws, disposeMech } from '../../view/mechModel.ts';
+import { animateProtoMech, buildProtoMech, countProtoDraws, disposeProtoMech } from '../../view/mechProtoModel.ts';
+import { protoTextureBytes } from '../../view/mechProtoSurfaces.ts';
+import { resetMechPaint } from '../../view/mechSurfaces.ts';
+import { addProtoStage, stageFlag, type ProtoStage } from '../../view/protoStage.ts';
 import { PATTERN_IDS, PATTERN_LABELS, PATTERNS, type PatternId } from '../mech/patterns.ts';
+import { createTunePanel } from '../tunePanel.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
 
 declare global {
@@ -50,6 +57,8 @@ interface MechState {
   pattern: PatternId;
   spin: boolean;
   view: ViewMode;
+  proto: boolean; // draw the prototype (data/mechProto.ts) in place of the sortie's mech
+  compare: boolean; // draw the prototype and the sortie's mech side by side
   on: Record<Act, boolean>; // 'jump' is on while a hop lasts
   hopT: number; // the time since the hop began (s)
   fireT: number; // the time left to the next acted shot (s)
@@ -78,6 +87,8 @@ function stateOf(params: URLSearchParams): MechState {
     pattern,
     spin: params.get('spin') !== '0',
     view: params.get('view') === 'behind' ? 'behind' : 'spin',
+    proto: params.has('proto') || params.has('compare'),
+    compare: params.has('compare'),
     on: { walk: false, boost: false, jump: false, fire: false },
     hopT: 0,
     fireT: 0,
@@ -107,9 +118,28 @@ export function showMech(_hash: string) {
   const height = MECH_TUNE.height;
   const state = stateOf(new URLSearchParams(location.search));
 
+  // How far apart the prototype and the sortie's mech stand in ?compare (m).
+  const SLOT = height * 0.95;
+  const currentX = (): number => (state.compare ? x + SLOT : x);
+  const protoX = (): number => (state.compare ? x - SLOT : x);
+
   let mech = buildMechVisual(PATTERNS[state.pattern], height);
-  mech.position.set(x, 0, z);
+  mech.position.set(currentX(), 0, z);
+  mech.visible = !state.proto || state.compare;
   scene.add(mech);
+
+  // The prototype is drawn only by the confirmation view; the stage's light and shadow come with it.
+  let protoMech: THREE.Group | null = null;
+  let stage: ProtoStage | null = null;
+  if (state.proto) {
+    protoMech = buildProtoMech(height);
+    protoMech.position.set(protoX(), 0, z);
+    scene.add(protoMech);
+    stage = addProtoStage(protoMech, built.group, x, z);
+    // ?shadow=0 and ?env=0 start with that light off, for a picture of what it adds
+    if (stageFlag('shadow') === '0') stage.setShadow(false);
+    if (stageFlag('env') === '0') stage.setEnv(false);
+  }
 
   document.getElementById('sbMechBar')?.remove();
   const bar = document.createElement('div');
@@ -141,6 +171,161 @@ export function showMech(_hash: string) {
       button(bar, ACT_LABELS[act], () => toggleAct(act)),
     );
 
+  // The prototype's switches: its shadow and surroundings' light can be turned off to see what each adds, and it can
+  // stand beside the sortie's mech (?compare).
+  const shadowButton =
+    stage === null
+      ? null
+      : button(bar, '影', () => {
+          stage?.setShadow(!stage.shadowOn);
+          paintButtons();
+        });
+  const envButton =
+    stage === null
+      ? null
+      : button(bar, '環境の光', () => {
+          stage?.setEnv(!stage.envOn);
+          paintButtons();
+        });
+  const compareButton =
+    protoMech === null
+      ? null
+      : button(bar, '並べる', () => {
+          state.compare = !state.compare;
+          layout();
+          paintButtons();
+          syncUrl();
+        });
+
+  // The paint's numbers (#view-mech's panel): a change repaints the pictures and rebuilds the mech where it stands, so
+  // the grime, the stencil and the stripes can be judged against the sand.
+  createTunePanel({
+    title: '機体の質感 #view-mech',
+    groups: [
+      {
+        name: 'MECH_PAINT',
+        table: MECH_PAINT,
+        ranges: {
+          'armor.grime': { min: 0, max: 80, step: 1 },
+          'armor.scratches': { min: 0, max: 60, step: 1 },
+          'armor.grain': { min: 0, max: 60, step: 1 },
+          'frame.grime': { min: 0, max: 80, step: 1 },
+          'frame.scratches': { min: 0, max: 60, step: 1 },
+          'accent.grime': { min: 0, max: 40, step: 1 },
+          'weapon.scratches': { min: 0, max: 60, step: 1 },
+          'sensor.grime': { min: 0, max: 40, step: 1 },
+        },
+        labels: {
+          'armor.grime': '装甲の汚れ',
+          'armor.scratches': '装甲の傷',
+          'armor.grain': '装甲の粒',
+          'frame.grime': '骨格の汚れ',
+          'frame.scratches': '骨格の傷',
+          'accent.grime': '警告の汚れ',
+          'weapon.scratches': '武器の傷',
+          'sensor.grime': 'センサーの汚れ',
+        },
+      },
+      {
+        name: 'MECH_PAINT_TEX',
+        table: MECH_PAINT_TEX,
+        ranges: {
+          stencilSize: { min: 8, max: 48, step: 1 },
+          stripePitch: { min: 6, max: 40, step: 1 },
+        },
+        labels: { stencilSize: '番号の大きさ', stripePitch: '縞の間隔' },
+      },
+    ],
+    onChange: () => rebuild(true),
+  });
+
+  // The prototype's numbers, apart from the sortie's mech's panel: the stance, the colours, the materials and the body's
+  // proportions. A stance change is read every frame; the rest need the model (or its materials) remade, so they wait
+  // for the slider to be let go. A colour row writes the whole 0xRRGGBB number the table holds.
+  const protoPanel =
+    protoMech === null
+      ? null
+      : createTunePanel({
+          id: 'sbProtoPanel',
+          title: '試作の調整 #view-mech?proto',
+          groups: [
+            {
+              name: 'PROTO_TUNE',
+              table: PROTO_TUNE,
+              ranges: {
+                'pose.knee': { min: 0, max: 1.7, step: 0.01 },
+                'pose.lean': { min: -0.6, max: 0, step: 0.01 },
+                'pose.hip': { min: 0.32, max: 0.56, step: 0.005 },
+                'pose.elbow': { min: 0, max: 1.2, step: 0.01 },
+                'build.legLength': { min: 0.8, max: 1.25, step: 0.01 },
+                'build.torsoWidth': { min: 0.8, max: 1.3, step: 0.01 },
+                'build.limbGirth': { min: 0.8, max: 1.4, step: 0.01 },
+                'light.env': { min: 0, max: 2.5, step: 0.05 },
+              },
+              labels: {
+                'pose.knee': '膝の曲げ',
+                'pose.lean': '前傾',
+                'pose.hip': '腰の高さ',
+                'pose.elbow': '肘の曲げ',
+                'build.legLength': '脚の長さ',
+                'build.torsoWidth': '胸と肩の幅',
+                'build.limbGirth': '四肢の太さ',
+                'light.env': '環境の光',
+              },
+            },
+            {
+              name: 'PROTO_MATERIALS',
+              table: PROTO_MATERIALS,
+              ranges: {
+                'armor.metalness': { min: 0, max: 1, step: 0.01 },
+                'armor.roughness': { min: 0, max: 1, step: 0.01 },
+                'armor.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+                'frame.metalness': { min: 0, max: 1, step: 0.01 },
+                'frame.roughness': { min: 0, max: 1, step: 0.01 },
+                'frame.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+                'accent.metalness': { min: 0, max: 1, step: 0.01 },
+                'accent.roughness': { min: 0, max: 1, step: 0.01 },
+                'accent.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+                'glow.metalness': { min: 0, max: 1, step: 0.01 },
+                'glow.roughness': { min: 0, max: 1, step: 0.01 },
+                'glow.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+                'glow.emissive': { min: 0, max: 3, step: 0.05 },
+              },
+              labels: {
+                'armor.metalness': '装甲の金属度',
+                'armor.roughness': '装甲の粗さ',
+                'armor.envMapIntensity': '装甲の環境の光',
+                'frame.metalness': '骨格の金属度',
+                'frame.roughness': '骨格の粗さ',
+                'frame.envMapIntensity': '骨格の環境の光',
+                'accent.metalness': '差し色の金属度',
+                'accent.roughness': '差し色の粗さ',
+                'accent.envMapIntensity': '差し色の環境の光',
+                'glow.metalness': '発光の金属度',
+                'glow.roughness': '発光の粗さ',
+                'glow.envMapIntensity': '発光の環境の光',
+                'glow.emissive': '発光の明るさ',
+              },
+            },
+            {
+              name: 'MECH_PROTO_COLOR',
+              table: MECH_PROTO_COLOR,
+              ranges: {},
+              colors: { armor: '装甲', frame: '地', accent: '差し色', glow: '発光の線' },
+            },
+          ],
+          onCommit: (group, key) => {
+            // the stance is read every frame; the rest remakes the model
+            if (group === 'PROTO_TUNE' && key.startsWith('pose.')) return;
+            rebuildProto();
+          },
+        });
+  if (protoPanel !== null) {
+    // the sortie's mech keeps the right side; the prototype's panel sits on the left
+    protoPanel.element.style.left = '8px';
+    protoPanel.element.style.right = 'auto';
+  }
+
   function toggleAct(act: Act) {
     if (act === 'jump') {
       if (state.on.jump) return;
@@ -157,6 +342,64 @@ export function showMech(_hash: string) {
     for (const [act, node] of actButtons) paintButton(node, state.on[act]);
     paintButton(spinButton, state.spin);
     paintButton(viewButton, state.view === 'behind');
+    if (shadowButton !== null && stage !== null) paintButton(shadowButton, stage.shadowOn);
+    if (envButton !== null && stage !== null) paintButton(envButton, stage.envOn);
+    if (compareButton !== null) paintButton(compareButton, state.compare);
+  }
+
+  // Where the two mechs stand: in proto mode the sortie's mech hides unless ?compare shows them side by side.
+  function layout() {
+    mech.visible = !state.proto || state.compare;
+    mech.position.x = currentX();
+    if (protoMech !== null) protoMech.position.x = protoX();
+  }
+
+  function syncUrl() {
+    const query = new URLSearchParams(location.search);
+    if (state.compare) query.set('compare', '1');
+    else query.delete('compare');
+    history.replaceState(null, '', `${location.pathname}?${query.toString()}${location.hash}`);
+  }
+
+  // Remakes the prototype after a colour, material or proportion change: the pictures, the materials and the shapes
+  // are made once when the mech is built, so the model and its light are rebuilt where it stands.
+  function rebuildProto() {
+    if (protoMech === null) return;
+    const shadow = stage?.shadowOn ?? true;
+    const env = stage?.envOn ?? true;
+    const position = protoMech.position.clone();
+    const yaw = protoMech.rotation.y;
+    const visible = protoMech.visible;
+    scene.remove(protoMech);
+    disposeProtoMech(protoMech);
+    stage?.dispose();
+    stage = null;
+    protoMech = buildProtoMech(height);
+    protoMech.position.copy(position);
+    protoMech.rotation.y = yaw;
+    protoMech.visible = visible;
+    scene.add(protoMech);
+    stage = addProtoStage(protoMech, built.group, x, z);
+    stage.setShadow(shadow);
+    stage.setEnv(env);
+    layout();
+    paintButtons();
+  }
+
+  // Rebuilds the mech where it stands: for another pattern, or for the panel's changed paint counts, which are painted
+  // into new pictures (repaint).
+  function rebuild(repaint: boolean) {
+    if (repaint) resetMechPaint();
+    const position = mech.position.clone();
+    const yaw = mech.rotation.y;
+    const visible = mech.visible;
+    scene.remove(mech);
+    disposeMech(mech);
+    mech = buildMechVisual(PATTERNS[state.pattern], height);
+    mech.position.copy(position);
+    mech.rotation.y = yaw;
+    mech.visible = visible;
+    scene.add(mech);
   }
 
   function setPattern(next: PatternId) {
@@ -165,14 +408,7 @@ export function showMech(_hash: string) {
       return;
     }
     state.pattern = next;
-    const position = mech.position.clone();
-    const yaw = mech.rotation.y;
-    scene.remove(mech);
-    disposeMech(mech);
-    mech = buildMechVisual(PATTERNS[next], height);
-    mech.position.copy(position);
-    mech.rotation.y = yaw;
-    scene.add(mech);
+    rebuild(false);
     paintButtons();
     const query = new URLSearchParams(location.search);
     query.set('pattern', next);
@@ -188,12 +424,16 @@ export function showMech(_hash: string) {
       PARTS.legs[build.legs].weight +
       PARTS.back[build.back].weight +
       PARTS.fcs[build.fcs].weight;
+    const proto = protoMech === null ? null : { ...countProtoDraws(protoMech), textureBytes: protoTextureBytes() };
     return JSON.stringify({
-      pattern: state.pattern,
+      pattern: state.proto ? 'proto' : state.pattern,
+      mode: state.proto ? (state.compare ? 'compare' : 'proto') : 'pattern',
       spin: state.spin,
       view: state.view,
       acts: state.on,
       mech: { calls: draws.calls, triangles: draws.triangles, boxes: countBoxes(mech), weight },
+      proto,
+      light: stage === null ? null : { shadow: stage.shadowOn, env: stage.envOn },
       frame: { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles },
     });
   };
@@ -211,6 +451,7 @@ export function showMech(_hash: string) {
         paintButtons();
       }
       mech.position.y = Math.max(0, height);
+      if (protoMech !== null) protoMech.position.y = Math.max(0, height);
     }
     let fired = false;
     state.fireT = Math.max(0, state.fireT - dt);
@@ -219,18 +460,29 @@ export function showMech(_hash: string) {
       state.fireT = FIRE_INTERVAL;
     }
     const speed = state.on.boost ? tune.boost : state.on.walk ? tune.walk : 0;
-    animateMech(mech, { speed, grounded: !state.on.jump, boosting: state.on.boost, landSpeed, fired }, dt);
+    const input = { speed, grounded: !state.on.jump, boosting: state.on.boost, landSpeed, fired };
+    animateMech(mech, input, dt);
+    if (protoMech !== null) animateProtoMech(protoMech, input, dt);
   };
 
   const update = (dt: number) => {
     actMotion(dt);
     if (state.view === 'behind') {
       mech.rotation.y = 0;
+      if (protoMech !== null) protoMech.rotation.y = 0;
       applyPose(camera, cameraPose({ x, y: 0, z, yaw: 0 }, 0, CAMERA_TUNE, []), CAMERA_TUNE.fov);
     } else {
-      if (state.spin) mech.rotation.y += SPIN_RATE * dt;
-      camera.position.set(x + height, height * 0.9, z + height * 2.4);
-      camera.lookAt(x, height * 0.5, z);
+      if (state.spin) {
+        mech.rotation.y += SPIN_RATE * dt;
+        if (protoMech !== null) protoMech.rotation.y += SPIN_RATE * dt;
+      }
+      if (state.compare) {
+        camera.position.set(x, height * 0.95, z + height * 3.4);
+        camera.lookAt(x, height * 0.52, z);
+      } else {
+        camera.position.set(x + height, height * 0.9, z + height * 2.4);
+        camera.lookAt(x, height * 0.5, z);
+      }
     }
     cullChunks(built.chunks, built.group, camera, MAP_FOG.far);
   };

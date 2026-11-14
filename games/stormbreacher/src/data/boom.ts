@@ -88,6 +88,22 @@ export const BOOM_LOOK = {
 // not shake it at all. The falloff is squared, so a blast a little way off is much gentler than one at the feet.
 export const BOOM_SHAKE = { near: 10, far: 90 } as const;
 
+// How high above the face a blast's fire starts (m). The events carry the height of the face a blast stands on, and these
+// keep the look each kind had when its fire was drawn at a fixed height over the flat ground.
+export const BLAST_LIFT = {
+  small: 0.6, // an enemy falls
+  large: 0.8, // a shell lands, a mine blows up or a charge goes off
+  prop: 0.5, // a prop breaks
+} as const;
+
+export const SEA_BLAST_HEIGHT = 0.8; // how high a blast's flash stands over the sea (m); the water column itself sits on SEA_LEVEL
+
+// The height a shell or mine blast's fire starts at: over the sea (past the map's front edge) the flash keeps its old
+// height, elsewhere it stands `BLAST_LIFT.large` above the face the event carries.
+export function landBlastHeight(water: boolean, faceY: number): number {
+  return water ? SEA_BLAST_HEIGHT : faceY + BLAST_LIFT.large;
+}
+
 export const BOOM_DEFS: Record<BoomKind, BoomDef> = {
   // an enemy or a prop breaks: enough to read, small enough for a stream of them
   small: {

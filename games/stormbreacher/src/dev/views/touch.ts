@@ -2,7 +2,6 @@
 // touch screen (app/touch.ts) or the keyboard and mouse (app/keyboard.ts) through app/input.ts. The button layout can
 // be edited on the phone, and the screen reports how hard the layout is to use: the presses, the most fingers down at
 // once and how long the three actions overlapped.
-import * as THREE from 'three';
 import { addSystem, clamp, el, isTouch } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { buttonLayout, locked, openLayoutEditor } from '@engine/ui/index.ts';
@@ -11,7 +10,7 @@ import { TOUCH_BUTTONS, type TouchButton } from '../../data/touch.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
 import { touchStats, type TouchStats } from '../../app/touch.ts';
 import type { MechState } from '../../logic/mech.ts';
-import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
+import { applyPose, cameraPose, followCamera, type CameraState } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildFlatRange, moveFeelFromParams } from './move.ts';
 
@@ -111,7 +110,7 @@ export function showTouch(_hash: string) {
   initPlayInput();
 
   let pitch = 0;
-  let camPos: THREE.Vector3 | null = null;
+  let cam: CameraState | null = null;
 
   const hud = document.createElement('div');
   hud.id = 'sbTouchHud';
@@ -164,9 +163,9 @@ export function showTouch(_hash: string) {
       const step = range.step(read.input, dt, moveTune, feelTune);
 
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
-      camPos = camPos ? followPose(camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
-      const pos = camPos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos }, step.fov);
+      cam = followCamera(cam, pose, dt, CAMERA_TUNE);
+      const pos = cam.pos.clone().add(step.offset);
+      applyPose(camera, { ...pose, pos, look: cam.look }, step.fov);
 
       hud.textContent = hudText(mech, read.lock, touchStats());
     },

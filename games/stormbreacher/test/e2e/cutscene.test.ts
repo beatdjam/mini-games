@@ -8,7 +8,6 @@ import { boot } from '../../src/app/boot.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { craftZ } from '../../src/data/craft.ts';
 import { LANDING_RIDERS, LANDING_TUNE } from '../../src/data/landing.ts';
-import { M1_MECH_PALETTE } from '../../src/data/mech.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { sendToScript } from '../../src/logic/game.ts';
@@ -154,23 +153,25 @@ test('beach-held plays after the win and then the result shows', async () => {
   expect(bars().hidden).toBe(true);
 });
 
+// The sortie's mech is the prototype's rig (view/mechProtoModel.ts): a group named 'mech-proto' on bones.
 const mechModel = (): THREE.Object3D => {
-  const found = scene.children.filter(child => child.name === 'mech').reverse()[0];
+  const found = scene.children.filter(child => child.name === 'mech-proto').reverse()[0];
   if (!found) throw new Error('no mech model in the scene');
   return found;
 };
 
-// The frame-coloured mesh holds the legs' boxes first (the legs are placed before the rest).
-const LEG_VALUES = 4 * 16;
-function legMatrices(): number[] {
-  const mesh = mechModel().children.find(
-    (child): child is THREE.InstancedMesh =>
-      (child as THREE.InstancedMesh).isInstancedMesh === true &&
-      ((child as THREE.InstancedMesh).material as THREE.MeshLambertMaterial).color.getHex() === M1_MECH_PALETTE.frame,
-  );
-  if (!mesh) throw new Error('the mech has no frame mesh');
-  return Array.from(mesh.instanceMatrix.array).slice(0, LEG_VALUES);
+// The legs' joint angles (rad): the hips' and knees' turns about x. They swing while the mech walks and hold still
+// (but for the breathing's few thousandths) while it stands.
+function legAngles(): number[] {
+  const angles: number[] = [];
+  mechModel().traverse(object => {
+    if ((object as THREE.Bone).isBone === true && /^(thigh|shin)[RL]$/.test(object.name))
+      angles.push(object.rotation.x);
+  });
+  if (angles.length !== 4) throw new Error('the mech has no leg bones');
+  return angles;
 }
+const sameAngles = (a: number[], b: number[]): boolean => a.every((v, i) => Math.abs(v - b[i]) < 0.02);
 
 const lastKey = (): THREE.Vector3 => {
   const keys = CUTSCENES.landing?.camera ?? [];
@@ -189,13 +190,13 @@ test('the landing draws the mech standing on the deck, not walking', async () =>
   expect(mechModel().visible).toBe(true);
   expect(mechModel().position.z).toBeCloseTo(START_Z, 6);
   expect(mechModel().position.y).toBeCloseTo(game().mech.y, 6);
-  const rest = legMatrices();
+  const rest = legAngles();
   // the ramp coming down: the model stays on the deck and the legs do not swing
   game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 2.4 };
   await frames(10);
   expect(mechModel().visible).toBe(true);
   expect(mechModel().position.z).toBeCloseTo(START_Z, 6);
-  expect(legMatrices()).toEqual(rest);
+  expect(sameAngles(legAngles(), rest)).toBe(true);
   // the game's own mech is the same place
   expect(game().mech.z).toBeCloseTo(START_Z, 3);
 });

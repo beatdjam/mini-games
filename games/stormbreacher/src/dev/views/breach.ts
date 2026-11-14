@@ -12,7 +12,6 @@ import { ENEMY_BULLET_COLOR } from '../../data/colors.ts';
 import { AIMED_MORTAR } from '../../data/hazards.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
-import { M1_MECH, M1_MECH_PALETTE, M1_WEAPON_SCALE } from '../../data/mech.ts';
 import { M1 } from '../../data/missions/m1.ts';
 import { MECH_TUNE } from '../../data/tune.ts';
 import { newGame, type GameModel } from '../../logic/game.ts';
@@ -26,7 +25,7 @@ import { buildEnemyView, drawEnemies, type EnemyView } from '../../view/enemies.
 import { GROUND_NAME, SIZE_BOX_NAME } from '../../view/field.ts';
 import { buildHazardView, drawHazards, type HazardView } from '../../view/hazards.ts';
 import { applyLookTo } from '../../view/look.ts';
-import { buildMechVisual } from '../../view/mechModel.ts';
+import { buildProtoMech } from '../../view/mechProtoModel.ts';
 import { createTunePanel, type TuneRange } from '../tunePanel.ts';
 import { openBreach, stepBlasts, stepCharge } from '../../logic/blasts.ts';
 
@@ -197,10 +196,7 @@ export function showBreach(_hash: string) {
     applyLookTo(lookOf(M1.id), world.built.group);
   };
 
-  const model = buildMechVisual(
-    { build: M1_MECH, palette: M1_MECH_PALETTE, weaponScale: M1_WEAPON_SCALE },
-    MECH_TUNE.height,
-  );
+  const model = buildProtoMech(MECH_TUNE.height);
   model.position.set(game.mech.x, game.mech.y, game.mech.z);
   scene.add(model);
 

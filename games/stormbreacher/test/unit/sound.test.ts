@@ -61,10 +61,10 @@ test('a frame maps its events to the table’s sounds', () => {
     hit(null),
     hit(null, true),
     { kind: 'destroyed', id: 'pillbox' },
-    { kind: 'enemyDown', id: 'e', x: 10, z: 0 },
-    { kind: 'mineBlast', x: 0, z: 20, hit: false },
+    { kind: 'enemyDown', id: 'e', x: 10, y: 0, z: 0 },
+    { kind: 'mineBlast', x: 0, y: 0, z: 20, hit: false },
     { kind: 'shellWarn', x: 0, z: 30, radius: 4 },
-    { kind: 'shellLand', x: 0, z: 30, hit: false },
+    { kind: 'shellLand', x: 0, y: 0, z: 30, hit: false },
     { kind: 'damaged', amount: 10, fromX: 0, fromZ: 1 },
     { kind: 'downed' },
   ];
@@ -86,9 +86,12 @@ test('a frame maps its events to the table’s sounds', () => {
   ]);
   // a mine blast is the big explosion too, and the per-frame limit leaves one big blast when two land together
   expect(
-    planSounds({ events: [{ kind: 'mineBlast', x: 0, z: 20, hit: false }], mech: MECH, targets: [], hostile: [] }).map(
-      cue => cue.name,
-    ),
+    planSounds({
+      events: [{ kind: 'mineBlast', x: 0, y: 0, z: 20, hit: false }],
+      mech: MECH,
+      targets: [],
+      hostile: [],
+    }).map(cue => cue.name),
   ).toEqual(['explosionLarge']);
   // a machine gun's burst leaves no explosion; a mortar's round does
   const allyDown = (by: 'gun' | 'mortar') =>
