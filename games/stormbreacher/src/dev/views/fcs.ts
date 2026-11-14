@@ -19,7 +19,7 @@ import {
   type Dummy,
 } from '../../logic/dummies.ts';
 import { stream } from '../../logic/rng.ts';
-import { applyPose, cameraPose, followPose } from '../../view/camera.ts';
+import { aimRay, applyPose, cameraPose, followCamera, stateOfPose, type CameraState } from '../../view/camera.ts';
 import { SIZE_BOX_NAME } from '../../view/field.ts';
 import type { ShotResult } from '../../view/feel.ts';
 import { updateReticle } from '../../view/reticle.ts';
@@ -135,7 +135,9 @@ export function showFcs(_hash: string) {
   const state = newFcs();
   const fcsRng = stream('fcs');
   let pitch = 0;
-  let camPos: THREE.Vector3 | null = null;
+  let cam: CameraState = stateOfPose(
+    cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, 0, CAMERA_TUNE, []),
+  );
   let elapsed = 0;
 
   // The numbers of the run: reset on every load, so a switch starts from 0.
@@ -177,15 +179,8 @@ export function showFcs(_hash: string) {
   }
 
   function aimStep(dt: number): FcsStep {
-    const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
-    const aim: Ray3 = {
-      ox: pose.pos.x,
-      oy: pose.pos.y,
-      oz: pose.pos.z,
-      dx: pose.look.x - pose.pos.x,
-      dy: pose.look.y - pose.pos.y,
-      dz: pose.look.z - pose.pos.z,
-    };
+    // the middle of the screen the last frame drew, as the sortie's own firing uses it
+    const aim: Ray3 = aimRay(cam);
     const result = stepFcs(
       state,
       fcsKind,
@@ -294,9 +289,9 @@ export function showFcs(_hash: string) {
       }
 
       const pose = cameraPose({ x: mech.x, y: mech.y, z: mech.z, yaw: mech.yaw }, pitch, CAMERA_TUNE, []);
-      camPos = camPos ? followPose(camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
-      const pos = camPos.clone().add(step.offset);
-      applyPose(camera, { ...pose, pos }, step.fov);
+      cam = followCamera(cam, pose, dt, CAMERA_TUNE);
+      const pos = cam.pos.clone().add(step.offset);
+      applyPose(camera, { ...pose, pos, look: cam.look }, step.fov);
 
       updateReticle(camera, fcsKind, tune, frameResult, targets());
       hud.textContent = hudText();

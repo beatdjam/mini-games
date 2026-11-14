@@ -15,6 +15,7 @@ import { BATTLE_TUNE, CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from
 import { blastTarget } from '../logic/blasts.ts';
 import { isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneMech } from '../logic/cutscene.ts';
+import type { Ray3 } from '../logic/fcs.ts';
 import { pillboxMuzzle } from '../logic/pillbox.ts';
 import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
@@ -22,7 +23,7 @@ import type { MechEvent } from '../logic/mech.ts';
 import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
 import { buildBattle, type Battle } from './battle/index.ts';
 import { buildBlastView, drawBlasts, type BlastView } from './blasts.ts';
-import { applyPose, cameraPose, followPose, screenRect } from './camera.ts';
+import { aimRay, applyPose, cameraPose, followCamera, screenRect, stateOfPose, type CameraState } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
 import { buildBooms, drawBooms, spawnBoom } from './boom.ts';
@@ -69,7 +70,8 @@ export interface PlayView {
   mechFaded: boolean; // whether the mech is drawn see-through, for the camera is near
   feel: FeelState;
   pitch: number; // the camera's pitch (rad)
-  camPos: THREE.Vector3 | null; // the camera's place in the last frame
+  cam: CameraState | null; // the camera's place and look in the last frame
+  aim: Ray3; // the line through the middle of the screen the last frame drew
   bullets: BulletLines; // the lines of the mech's shots in flight
   enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
   enemies: EnemyView; // the enemies' instanced boxes
@@ -96,13 +98,23 @@ export function buildPlayView(game: GameModel): PlayView {
   );
   scene.add(model);
   const hud = buildPlayHud(document.body);
+  // The sortie starts with the camera already in its place: a checkpoint or a suspend resumes without it flying in.
+  const cam = stateOfPose(
+    cameraPose(
+      { x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw },
+      0,
+      CAMERA_TUNE,
+      world.cameraBoxes,
+    ),
+  );
   return {
     world,
     model,
     mechFaded: false,
     feel: newFeel(CAMERA_TUNE.fov),
     pitch: 0,
-    camPos: null,
+    cam,
+    aim: aimRay(cam),
     bullets: buildBulletLines(TRACER_COLOR),
     enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
     enemies: buildEnemyView(),
@@ -323,10 +335,12 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   );
   // The cutscene draws its own camera over this one (drawCutscene). The game's camera sits at its place meanwhile, so it
   // starts the first controlled frame, or the one after a skip, where it stands and does not fly in from elsewhere.
-  view.camPos =
-    view.camPos && cutscene === null ? followPose(view.camPos, pose.pos, dt, CAMERA_TUNE.lag) : pose.pos.clone();
-  const pos = view.camPos.clone().add(frame.offset);
-  applyPose(camera, { ...pose, pos }, frame.fov);
+  view.cam = cutscene === null ? followCamera(view.cam, pose, dt, CAMERA_TUNE) : stateOfPose(pose);
+  const pos = view.cam.pos.clone().add(frame.offset);
+  applyPose(camera, { ...pose, pos, look: view.cam.look }, frame.fov);
+  // The aim is the middle of the screen without the feel's shake: the reticle stays still and next frame's shot goes
+  // where the player aimed, along the same line the state holds.
+  view.aim = aimRay(view.cam);
   drawCutscene(view.cutscene, game, view.hud.root, view.feel, frame.offset, view.battle);
   drawBooms(dt);
 

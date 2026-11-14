@@ -4,12 +4,10 @@ import { addSystem, el, isTouch, lang, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
-import { CAMERA_TUNE } from '../data/tune.ts';
 import { hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
 import { newGame, restartGame, retryFromCheckpoint, sendToScript, step, type GameModel } from '../logic/game.ts';
 import { recordClear } from '../logic/save.ts';
-import { aimRay } from '../view/camera.ts';
 import { GROUND_NAME, SIZE_BOX_NAME, placeCamera } from '../view/field.ts';
 import { removeAllyView } from '../view/allies.ts';
 import { removeBooms } from '../view/boom.ts';
@@ -194,8 +192,8 @@ export function continueSortie(): void {
 function update(dt: number): void {
   if (!game || !view) return;
   const read = readInput(dt);
-  // The aim is the camera's line with the pitch of the last frame; drawPlay adds this frame's pitch change after.
-  const aim = aimRay({ x: game.mech.x, y: game.mech.y, z: game.mech.z, yaw: game.mech.yaw }, view.pitch, CAMERA_TUNE);
+  // The aim is the middle of the screen the last frame drew; drawPlay adds this frame's pitch change and camera after.
+  const aim = view.aim;
   step(game, { ...read.input, sub: read.sub, use: read.use, aim }, dt);
   // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn.
   const skip = takeSkip();
@@ -270,3 +268,6 @@ export function showResult(): void {
 
 // The game in play, for the tests; null before the first sortie.
 export const currentGame = (): GameModel | null => game;
+
+// The sortie's view, for the tests; null before the first sortie.
+export const currentPlayView = (): PlayView | null => view;
