@@ -113,6 +113,8 @@ test('a lost pointer lock inside the skip guard does nothing: no skip and no pau
 test('a jump pressed while paused does not jump on the first frame after the resume', async () => {
   startSortie();
   await pastLanding();
+  // the mech stands on whatever the landing left it on (the boat's deck, y 1.8), not always on the ground
+  const standY = game().mech.y;
   press('KeyP');
   expect(state).toBe('paused');
   press('Space');
@@ -120,7 +122,7 @@ test('a jump pressed while paused does not jump on the first frame after the res
   expect(state).toBe('play');
   runSystems(1 / 60);
   expect(game().mech.vy).toBe(0);
-  expect(game().mech.y).toBe(0);
+  expect(game().mech.y).toBe(standY);
 });
 
 test('a sortie taken up in the middle of a cutscene does not play its past blasts again', async () => {
