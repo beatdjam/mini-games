@@ -187,7 +187,8 @@ for (const { name, map } of MAPS) {
       expect(onMap.has(target), target).toBe(true);
       expect(M1.targets).toContain(target);
     }
-    for (const wave of ['b-squad', 'depot-guard', 'c-squad']) expect(map.spawns[wave]?.length ?? 0).toBeGreaterThan(0);
+    for (const wave of ['b-squad', 'depot-guard']) expect(map.spawns[wave]?.length ?? 0).toBeGreaterThan(0);
+    expect(map.spawns['c-squad']).toBeUndefined();
     expect(map.spawns['seawall-drop']).toBeUndefined();
   });
 

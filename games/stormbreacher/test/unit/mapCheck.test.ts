@@ -11,7 +11,7 @@ import type { MapDef, MapLine, Prop } from '../../src/data/types.ts';
 // the battery on the other side.
 const SKIP = {
   targets: ['main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'battery'],
+  waves: ['beach-mortar', 'shelling', 'battery'],
 };
 
 function withoutTargets(ids: readonly string[]): MapDef {

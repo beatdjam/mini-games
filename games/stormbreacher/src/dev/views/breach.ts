@@ -10,7 +10,8 @@ import { ENEMIES } from '../../data/enemies.ts';
 import { CHARGE_TUNE } from '../../data/charge.ts';
 import { applyMarkerQuery, MARKER_TUNE } from '../../data/marker.ts';
 import { ENEMY_BULLET_COLOR } from '../../data/colors.ts';
-import { AIMED_MORTAR } from '../../data/hazards.ts';
+import { DEPOT_CHOICE_TUNE } from '../../data/fortress.ts';
+import { AIMED_MORTAR, BARRAGES } from '../../data/hazards.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1 } from '../../data/missions/m1.ts';
@@ -18,6 +19,7 @@ import { MECH_TUNE } from '../../data/tune.ts';
 import { newGame, type GameModel } from '../../logic/game.ts';
 import { newEnemy, stepEnemy } from '../../logic/enemies.ts';
 import { inCircle, newAimed, stepAimed, stepShells } from '../../logic/hazards.ts';
+import { hudModel } from '../../logic/hud.ts';
 import { stream } from '../../logic/rng.ts';
 import { buildWorld } from '../../view/world.ts';
 import { buildBlastView, drawBlasts, type BlastView } from '../../view/blasts.ts';
@@ -118,6 +120,42 @@ const AIMED_LABELS: Record<string, string> = {
   minZ: '区間の手前（m）',
 };
 
+// The depot detour's values the panel turns.
+const DEPOT_RANGES: Record<string, TuneRange> = {
+  askSec: { min: 0, max: 30, step: 0.5 },
+  allyFallSec: { min: 0, max: 10, step: 0.1 },
+  lossAllies: { min: 0, max: 5, step: 1 },
+  lossSquads: { min: 0, max: 5, step: 1 },
+};
+const DEPOT_LABELS: Record<string, string> = {
+  askSec: 'cp1 から問いまで（s）',
+  allyFallSec: '答えから倒れるまで（s）',
+  lossAllies: '失う味方機',
+  lossSquads: '失う分隊',
+};
+
+// The shelling's values the panel turns.
+const SHELLING_RANGES: Record<string, TuneRange> = {
+  interval: { min: 1, max: 15, step: 0.5 },
+  warn: { min: 0.5, max: 8, step: 0.1 },
+  radius: { min: 1, max: 20, step: 0.5 },
+  damage: { min: 0, max: 100, step: 1 },
+  aimJitter: { min: 0, max: 40, step: 1 },
+  minZ: { min: -170, max: 170, step: 1 },
+  maxZ: { min: -170, max: 170, step: 1 },
+  'slow.mul': { min: 1, max: 4, step: 0.05 },
+};
+const SHELLING_LABELS: Record<string, string> = {
+  interval: '間隔（s）',
+  warn: '予告から着弾まで（s）',
+  radius: '爆風の半径（m）',
+  damage: '当たったときの装甲',
+  aimJitter: '狙いのずれ（m）',
+  minZ: '届く手前（m）',
+  maxZ: '届く奥（m）',
+  'slow.mul': '集積所を潰した後の倍率',
+};
+
 const TRACER_LENGTH = 4; // how long a nest's tracer is drawn (m)
 const TRACER_LIFE = 0.35; // how long a tracer stays in the dev view (s)
 const MAX_TRACERS = 64; // the most tracers drawn at once here
@@ -174,6 +212,8 @@ interface BreachReport {
   nests: number;
   bullets: number;
   aimed: { still: number; warns: number } | null;
+  losses: { allies: number; squads: number };
+  optional: { key: string; distance: number } | null;
   calls: number;
   triangles: number;
 }
@@ -318,6 +358,8 @@ export function showBreach(_hash: string) {
         labels: EMPLACEMENT_LABELS,
       },
       { name: 'AIMED_MORTAR', table: AIMED_MORTAR, ranges: AIMED_RANGES, labels: AIMED_LABELS },
+      { name: 'DEPOT_CHOICE_TUNE', table: DEPOT_CHOICE_TUNE, ranges: DEPOT_RANGES, labels: DEPOT_LABELS },
+      { name: 'BARRAGES.shelling', table: BARRAGES.shelling, ranges: SHELLING_RANGES, labels: SHELLING_LABELS },
     ],
   });
 
@@ -330,6 +372,8 @@ export function showBreach(_hash: string) {
       nests: game.enemies.filter(enemy => enemy.kind === 'emplacement').length,
       bullets: tracers.length,
       aimed: game.aimed === null ? null : { still: game.aimed.still, warns: game.shells.length },
+      losses: game.losses,
+      optional: hudModel(game).optional,
       calls: renderer.info.render.calls,
       triangles: renderer.info.render.triangles,
     };

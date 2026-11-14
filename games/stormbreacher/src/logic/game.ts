@@ -166,6 +166,7 @@ export type GameEvent =
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
   | { kind: 'allyDown'; id: string; x: number; z: number; by: AllyFateBy } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'allyCall'; id: string; line: string } // an ally called on the radio before its fate
+  | { kind: 'loss'; allies: number; squads: number } // the friends the script lost on the way
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   // an ally's support fire flies at a silenced nest (SB-2024): from (x, y, z) to (tx, ty, tz); the view draws the tracer and the spark
   | { kind: 'coverFire'; enemy: string; x: number; y: number; z: number; tx: number; ty: number; tz: number }
@@ -279,6 +280,7 @@ export interface GameModel {
   calm: { left: number; mul: number } | null; // the milestone's lull in the enemy mortar: seconds left and its interval share
   // the allies' support fire under way (SB-2024): the wave it holds quiet, the seconds left, the wait to the next tracer, the nest to fire at next, and whether the radio line about the rounds running short has gone out; null when none
   cover: { wave: string; left: number; wait: number; next: number; warned: boolean } | null;
+  losses: { allies: number; squads: number }; // the friends lost on the way (SB-1820); the result shows the count
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
   checkpoint: GameSnapshot | null; // the game as the last checkpoint kept it; null before one
@@ -885,6 +887,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     slow: null,
     calm: null,
     cover: null,
+    losses: { allies: 0, squads: 0 },
     events: [],
     cleared: false,
     checkpoint: null,
@@ -1176,6 +1179,19 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
       applyPayoff(game, event.id);
       const at = payoffSpot(game, event.id);
       game.events.push({ kind: 'payoff', id: event.id, x: at.x, z: at.z });
+    }
+    if (event.kind === 'allyFall') {
+      // a fall the script calls for (SB-1820): the ally is already out, so it falls where it stands, as stepAllies does it
+      const ally = game.allies.find(entry => entry.id === event.id);
+      if (ally !== undefined && !ally.down) {
+        ally.down = true;
+        game.events.push({ kind: 'allyDown', id: ally.id, x: ally.x, z: ally.z, by: event.by });
+      }
+    }
+    if (event.kind === 'loss') {
+      game.losses.allies += event.allies;
+      game.losses.squads += event.squads;
+      game.events.push({ kind: 'loss', allies: event.allies, squads: event.squads });
     }
     if (event.kind === 'end' && !game.cleared) {
       game.cleared = true;

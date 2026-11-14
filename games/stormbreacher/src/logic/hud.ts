@@ -48,6 +48,7 @@ export interface HudModel {
   main: HudAmmo;
   sub: HudAmmo;
   objective: { key: string; count: { done: number; total: number } | null } | null; // the script's objective (`obj.<id>`); count is set for the objectives in OBJECTIVE_COUNT; null before the script names one
+  optional: { key: string; distance: number } | null; // the side goal (the depot) once the leader asks; distance is on the ground (m)
   radio: string | null; // the language key of the radio line on screen while it is within RADIO_TUNE.minSec, else null
   callout: string | null; // the language key of the short order near the aim (SB-2028): the on-screen radio line's `callout` for CALLOUT_TUNE.sec, and never while a shell warning shows; else null
   lock: Aabb | null; // the box of the target or enemy `enemy` describes, for the lock frame; null when `enemy` is
@@ -177,6 +178,16 @@ export function hudModel(game: GameModel): HudModel {
     warning === null && radio?.callout !== undefined && game.time - radio.time < CALLOUT_TUNE.sec
       ? radio.callout
       : null;
+  // The side goal: the depot stays worth showing after the leader asks and while it still stands; the flag, not the
+  // walk into the hollow, is what takes it away.
+  const depot = game.targets.find(target => target.id === 'depot' && target.hp > 0);
+  const asked = Object.prototype.hasOwnProperty.call(game.script.fired, 'depot-ask');
+  let optional: HudModel['optional'] = null;
+  if (depot !== undefined && asked && !game.script.flags.includes('depot-down')) {
+    const x = (depot.box.minX + depot.box.maxX) / 2;
+    const z = (depot.box.minZ + depot.box.maxZ) / 2;
+    optional = { key: 'hud.optional.depot', distance: Math.hypot(x - game.mech.x, z - game.mech.z) };
+  }
   const near = nearBlast(game.blasts, game.charges, game.mech, game);
   const use =
     near === null
@@ -196,6 +207,7 @@ export function hudModel(game: GameModel): HudModel {
     main: hudAmmo(game.main),
     sub: hudAmmo(game.sub),
     objective,
+    optional,
     radio: radio !== null && game.time - radio.time < RADIO_TUNE.minSec ? radio.line : null,
     enemy,
     lock,

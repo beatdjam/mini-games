@@ -6,7 +6,7 @@ import type { BlastPlace, MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B section is two closed defence lines across the map (SB-2020): line 1 at the water's edge and line 2 69 m on,
 // three hedgehog rows each, with the old breakthroughs filled in so only a charge's hole opens them. Each row is spaced
-// so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows hold the front before the seawall, which now
+// so neighbouring hedgehogs stand under 2 m apart (SB-120). C's low cover holds the front before the seawall, which now
 // runs only either side of the fortress (x -96..-40 and 40..96). The fortress stands where the middle of the seawall
 // was: walls on all four sides with the sea and land gates at x 0, and cover in its yard (z -74..-122). Past it
 // (z -140..-225) is the field before the battery, and the battery's three parts stand at the back (the targets below).
@@ -307,85 +307,18 @@ const PROPS: Prop[] = [
   { kind: 'hedgehog', x: 78.33, z: 72, yaw: 0.16, scale: 0.97 },
   { kind: 'hedgehog', x: 82.67, z: 72, yaw: -0.09, scale: 1.02 },
   { kind: 'hedgehog', x: 87, z: 72, yaw: 0.23, scale: 1 },
-  // C's two rows before the seawall (z -55..-35): breakthroughs near x -50 and x 35. The rear row leaves the four
-  // hedgehogs beside the ramps out (x -56, -44, 29 and 41 below), so the band between C and the seawall has a 4.7 m way
-  // out to C's sea side on both sides of either ramp.
-  { kind: 'hedgehog', x: -98, z: -50, yaw: 0, scale: 1.08 },
-  { kind: 'hedgehog', x: -93.8, z: -50, yaw: 0.12, scale: 1.05 },
-  { kind: 'hedgehog', x: -89.6, z: -50, yaw: -0.18, scale: 1.06 },
-  { kind: 'hedgehog', x: -85.4, z: -50, yaw: 0.25, scale: 0.9 },
-  { kind: 'hedgehog', x: -81.2, z: -50, yaw: -0.05, scale: 1.03 },
-  { kind: 'hedgehog', x: -77, z: -50, yaw: 0.2, scale: 0.98 },
-  { kind: 'hedgehog', x: -72.8, z: -50, yaw: -0.22, scale: 0.95 },
-  { kind: 'hedgehog', x: -68.6, z: -50, yaw: 0.08, scale: 0.93 },
-  { kind: 'hedgehog', x: -64.4, z: -50, yaw: -0.14, scale: 1.1 },
-  { kind: 'hedgehog', x: -60.2, z: -50, yaw: 0.16, scale: 0.97 },
-  { kind: 'hedgehog', x: -39.71, z: -50, yaw: -0.09, scale: 1.02 },
-  { kind: 'hedgehog', x: -35.41, z: -50, yaw: 0.23, scale: 1 },
-  { kind: 'hedgehog', x: -31.12, z: -50, yaw: 0, scale: 1.08 },
-  { kind: 'hedgehog', x: -26.82, z: -50, yaw: 0.12, scale: 1.05 },
-  { kind: 'hedgehog', x: -22.53, z: -50, yaw: -0.18, scale: 1.06 },
-  { kind: 'hedgehog', x: -18.24, z: -50, yaw: 0.25, scale: 0.9 },
-  { kind: 'hedgehog', x: -13.94, z: -50, yaw: -0.05, scale: 1.03 },
-  { kind: 'hedgehog', x: -9.65, z: -50, yaw: 0.2, scale: 0.98 },
-  { kind: 'hedgehog', x: -5.35, z: -50, yaw: -0.22, scale: 0.95 },
-  { kind: 'hedgehog', x: -1.06, z: -50, yaw: 0.08, scale: 0.93 },
-  { kind: 'hedgehog', x: 3.24, z: -50, yaw: -0.14, scale: 1.1 },
-  { kind: 'hedgehog', x: 7.53, z: -50, yaw: 0.16, scale: 0.97 },
-  { kind: 'hedgehog', x: 11.82, z: -50, yaw: -0.09, scale: 1.02 },
-  { kind: 'hedgehog', x: 16.12, z: -50, yaw: 0.23, scale: 1 },
-  { kind: 'hedgehog', x: 20.41, z: -50, yaw: 0, scale: 1.08 },
-  { kind: 'hedgehog', x: 24.71, z: -50, yaw: 0.12, scale: 1.05 },
-  { kind: 'hedgehog', x: 45.18, z: -50, yaw: -0.18, scale: 1.06 },
-  { kind: 'hedgehog', x: 49.36, z: -50, yaw: 0.25, scale: 0.9 },
-  { kind: 'hedgehog', x: 53.55, z: -50, yaw: -0.05, scale: 1.03 },
-  { kind: 'hedgehog', x: 57.73, z: -50, yaw: 0.2, scale: 0.98 },
-  { kind: 'hedgehog', x: 61.91, z: -50, yaw: -0.22, scale: 0.95 },
-  { kind: 'hedgehog', x: 66.09, z: -50, yaw: 0.08, scale: 0.93 },
-  { kind: 'hedgehog', x: 70.27, z: -50, yaw: -0.14, scale: 1.1 },
-  { kind: 'hedgehog', x: 74.45, z: -50, yaw: 0.16, scale: 0.97 },
-  { kind: 'hedgehog', x: 78.64, z: -50, yaw: -0.09, scale: 1.02 },
-  { kind: 'hedgehog', x: 82.82, z: -50, yaw: 0.23, scale: 1 },
-  { kind: 'hedgehog', x: 87, z: -50, yaw: 0, scale: 1.08 },
-  { kind: 'hedgehog', x: -98, z: -40, yaw: -0.05, scale: 1.03 },
-  { kind: 'hedgehog', x: -93.8, z: -40, yaw: 0.2, scale: 0.98 },
-  { kind: 'hedgehog', x: -89.6, z: -40, yaw: -0.22, scale: 0.95 },
-  { kind: 'hedgehog', x: -85.4, z: -40, yaw: 0.08, scale: 0.93 },
-  { kind: 'hedgehog', x: -81.2, z: -40, yaw: -0.14, scale: 1.1 },
-  { kind: 'hedgehog', x: -77, z: -40, yaw: 0.16, scale: 0.97 },
-  { kind: 'hedgehog', x: -72.8, z: -40, yaw: -0.09, scale: 1.02 },
-  { kind: 'hedgehog', x: -68.6, z: -40, yaw: 0.23, scale: 1 },
-  { kind: 'hedgehog', x: -64.4, z: -40, yaw: 0, scale: 1.08 },
-  { kind: 'hedgehog', x: -60.2, z: -40, yaw: 0.12, scale: 1.05 },
-  { kind: 'hedgehog', x: -56, z: -40, yaw: 0, scale: 1 },
-  { kind: 'hedgehog', x: -40.75, z: -40, yaw: 0, scale: 1 },
-  { kind: 'hedgehog', x: -36.39, z: -40, yaw: -0.18, scale: 1.06 },
-  { kind: 'hedgehog', x: -32.03, z: -40, yaw: 0.25, scale: 0.9 },
-  { kind: 'hedgehog', x: -27.67, z: -40, yaw: -0.05, scale: 1.03 },
-  { kind: 'hedgehog', x: -23.31, z: -40, yaw: 0.2, scale: 0.98 },
-  { kind: 'hedgehog', x: -18.95, z: -40, yaw: -0.22, scale: 0.95 },
-  { kind: 'hedgehog', x: -14.59, z: -40, yaw: 0.08, scale: 0.93 },
-  { kind: 'hedgehog', x: -10.23, z: -40, yaw: -0.14, scale: 1.1 },
-  { kind: 'hedgehog', x: -5.87, z: -40, yaw: 0.16, scale: 0.97 },
-  { kind: 'hedgehog', x: -1.52, z: -40, yaw: -0.09, scale: 1.02 },
-  { kind: 'hedgehog', x: 2.84, z: -40, yaw: 0.23, scale: 1 },
-  { kind: 'hedgehog', x: 7.2, z: -40, yaw: 0, scale: 1.08 },
-  { kind: 'hedgehog', x: 11.56, z: -40, yaw: 0.12, scale: 1.05 },
-  { kind: 'hedgehog', x: 15.92, z: -40, yaw: -0.18, scale: 1.06 },
-  { kind: 'hedgehog', x: 20.28, z: -40, yaw: 0.25, scale: 0.9 },
-  { kind: 'hedgehog', x: 24.64, z: -40, yaw: -0.05, scale: 1.03 },
-  { kind: 'hedgehog', x: 29, z: -40, yaw: 0, scale: 1 },
-  { kind: 'hedgehog', x: 44.25, z: -40, yaw: 0, scale: 1 },
-  { kind: 'hedgehog', x: 48.53, z: -40, yaw: 0.2, scale: 0.98 },
-  { kind: 'hedgehog', x: 52.8, z: -40, yaw: -0.22, scale: 0.95 },
-  { kind: 'hedgehog', x: 57.08, z: -40, yaw: 0.08, scale: 0.93 },
-  { kind: 'hedgehog', x: 61.35, z: -40, yaw: -0.14, scale: 1.1 },
-  { kind: 'hedgehog', x: 65.63, z: -40, yaw: 0.16, scale: 0.97 },
-  { kind: 'hedgehog', x: 69.9, z: -40, yaw: -0.09, scale: 1.02 },
-  { kind: 'hedgehog', x: 74.18, z: -40, yaw: 0.23, scale: 1 },
-  { kind: 'hedgehog', x: 78.45, z: -40, yaw: 0, scale: 1.08 },
-  { kind: 'hedgehog', x: 82.73, z: -40, yaw: 0.12, scale: 1.05 },
-  { kind: 'hedgehog', x: 87, z: -40, yaw: -0.18, scale: 1.06 },
+  // C is no longer a line (SB-1820): low cover scattered through the band before the seawall (z -55..-35), so the
+  // mech may pick its way through. The right side (x 80..95, z -60..-20) is left clear for the way down to the depot.
+  { kind: 'lowWall', x: -88, z: -52, yaw: 0.12, scale: 1 },
+  { kind: 'wreck', x: -74, z: -44, yaw: -0.18, scale: 1.06 },
+  { kind: 'lowWall', x: -56, z: -50, yaw: -0.05, scale: 1 },
+  { kind: 'wreck', x: -38, z: -38, yaw: 0.25, scale: 0.9 },
+  { kind: 'lowWall', x: -20, z: -52, yaw: 0.2, scale: 1 },
+  { kind: 'wreck', x: -2, z: -44, yaw: -0.09, scale: 1.02 },
+  { kind: 'lowWall', x: 16, z: -38, yaw: 0.16, scale: 1 },
+  { kind: 'wreck', x: -40, z: -46, yaw: -0.22, scale: 0.95 },
+  { kind: 'lowWall', x: 52, z: -44, yaw: 0.08, scale: 1 },
+  { kind: 'wreck', x: 42, z: -36, yaw: 0.23, scale: 1 },
   // The first interval (line 1 to line 2, 69 m): the beach's shell holes and wrecks, thickening near line 2
   { kind: 'block', x: -80, z: 118, yaw: 0, scale: 1.08 },
   { kind: 'block', x: -30, z: 112, yaw: 0.12, scale: 1.05 },
@@ -572,7 +505,7 @@ export const M1B_HAND: MapDef = {
   targets: [
     { id: 'pillbox-1', kind: 'pillbox', x: -33, z: -15, yaw: 0 },
     { id: 'pillbox-2', kind: 'pillbox', x: 22, z: -15, yaw: 0.2 },
-    { id: 'depot', kind: 'depot', x: 53, z: 31, yaw: -0.3 },
+    { id: 'depot', kind: 'depot', x: 75, z: -40, yaw: Math.PI / 2 },
     // the battery past the fortress: two main guns, and the magazine between and behind them; provisional places until
     // L8 makes them the super-heavy gun's turrets and core
     { id: 'main-gun-1', kind: 'gun', x: -45, z: -235, yaw: 0 },
@@ -603,21 +536,13 @@ export const M1B_HAND: MapDef = {
       { x: -40, z: 84 },
       { x: 8, z: 84 },
     ],
-    // five at the depot: three round it on the sides the mech does not come from, and two on the road from line 2's
-    // far point (x 50) where the third pillbox stood (SB-2023); each stands clear of the cover
+    // four round the depot under the right cliff, on the sides the mech does not come from, with the machine-gun nest on
+    // the cliff side
     'depot-guard': [
-      { x: 40, z: 36 },
-      { x: 66, z: 32 },
-      { x: 60, z: 42 },
-      { x: 56, z: 52 },
-      { x: 62, z: 54 },
-    ],
-    // four in the band between C's two rows (z -50 and -40), clear of both rows
-    'c-squad': [
-      { x: -70, z: -45 },
-      { x: -20, z: -45 },
-      { x: 15, z: -45 },
-      { x: 65, z: -45 },
+      { x: 65, z: -30 },
+      { x: 88, z: -45 },
+      { x: 70, z: -55 },
+      { x: 84, z: -22 },
     ],
   },
 };

@@ -37,6 +37,10 @@ function label(event: ScriptOut): string {
       return `allyMove:${event.id}`;
     case 'suppress':
       return `suppress:${event.id}:${event.wave}`;
+    case 'allyFall':
+      return `allyFall:${event.id}:${event.by}`;
+    case 'loss':
+      return `loss:${event.allies}/${event.squads}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':
@@ -61,11 +65,15 @@ function scriptLabels(game: GameModel): string[] {
   return labels;
 }
 
-// Runs M1 from the landing to the cleared result. The depot and the two pillboxes are shot down from spots that see
-// them; the pillboxes are shot from their sides, where their front does not turn the shots away. The rest of the targets
-// (main-gun-1, main-gun-2, magazine) and the fortress's gates are handed to the script with sendToScript, so the test reads
-// the cue's order alone (fortress.test.ts walks through the gates).
-function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAfterTargets: boolean } {
+// Runs M1 from the landing to the cleared result. The pillboxes and, when the run goes for it, the depot are handed to
+// the script as down (the charges and the shots are other tests' work). The rest of the targets (main-gun-1,
+// main-gun-2, magazine) and the fortress's gates are handed to the script with sendToScript, so the test reads the
+// cue's order alone (fortress.test.ts walks through the gates). The leader asks 10 s after cp1, and the two paths
+// answer by walking into the hollow or on to the fortress.
+function runM1(
+  game: GameModel,
+  goForDepot: boolean,
+): { outs: ScriptOut[]; cleared: number; clearedAfterTargets: boolean } {
   const outs: ScriptOut[] = [];
   let cleared = 0;
   const take = (from = 0): void => {
@@ -105,12 +113,22 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
   // the nests and the defenders would shoot the mech on the way; this test reads the script's line alone
   game.enemies = game.enemies.filter(enemy => !['b-emplacements', 'line1-hold', 'pillbox-hold'].includes(enemy.wave));
   // the pillboxes are broken by their charges in the sortie (SB-2015); this test tells the script directly
-  send({ kind: 'enter', area: 'depot-approach' });
-  breakTarget('depot');
   breakTarget('pillbox-1');
   breakTarget('pillbox-2'); // cp1 fires once both pillboxes are down
   const clearedAfterTargets = game.cleared;
-  send({ kind: 'enter', area: 'c-line' });
+  // the leader's question comes 10 s after cp1; the enemies and the shells would shoot the mech down while it waits, and
+  // this test reads the script's line alone
+  game.enemies = [];
+  game.armor = 10000;
+  game.downed = false;
+  run(idle, 60 * 11);
+  if (goForDepot) {
+    send({ kind: 'enter', area: 'depot-approach' });
+    breakTarget('depot');
+    game.enemies = [];
+  }
+  send({ kind: 'enter', area: 'fortress-approach' });
+  run(idle, 60 * 2);
   send({ kind: 'enter', area: 'fortress-gate' });
   send({ kind: 'enter', area: 'fortress-yard' });
   send({ kind: 'enter', area: 'fortress-out' });
@@ -192,8 +210,8 @@ test('breaking the depot reaches the script', () => {
   const game = newGame(M1B_HAND);
   step(game, idle, 1 / 60);
   sendToScript(game, { kind: 'skip' }); // the mech takes no input during the landing
-  game.mech.x = 53;
-  game.mech.z = 41;
+  game.mech.x = 75;
+  game.mech.z = -25;
   game.mech.yaw = 0;
   let labels: string[] = [];
   for (let i = 0; i < 600 && !game.script.destroyed.includes('depot'); i++) {
@@ -206,12 +224,19 @@ test('breaking the depot reaches the script', () => {
 });
 
 test(
-  'the whole of M1 runs from the landing to the cleared result',
+  'the whole of M1 runs from the landing to the cleared result by going for the depot',
   () => {
     const game = newGame(M1B_HAND);
-    const { outs, cleared, clearedAfterTargets } = runM1(game);
+    const { outs, cleared, clearedAfterTargets } = runM1(game, true);
     expect(clearedAfterTargets).toBe(false);
-    expect(Object.keys(game.script.fired).sort()).toEqual(M1.cues.map(cue => cue.id).sort());
+    // the other answer's cues do not fire: the depot's detour takes it
+    const skipped = new Set(['fortress-go', 'fortress-ally-lost']);
+    expect(Object.keys(game.script.fired).sort()).toEqual(
+      M1.cues
+        .map(cue => cue.id)
+        .filter(id => !skipped.has(id))
+        .sort(),
+    );
     const objectives: string[] = [];
     for (const event of outs) if (event.kind === 'objective') objectives.push(event.id);
     expect(objectives).toEqual([
@@ -224,13 +249,35 @@ test(
     expect(game.script.ended).toBe('cleared');
     expect(game.cleared).toBe(true);
     expect(cleared).toBe(1);
+    expect(game.losses).toEqual({ allies: 0, squads: 0 });
+  },
+  LONG,
+);
+
+test(
+  'the whole of M1 runs from the landing to the cleared result by going straight on',
+  () => {
+    const game = newGame(M1B_HAND);
+    const { cleared } = runM1(game, false);
+    // the depot's own cues do not fire: the mech never walks into the hollow
+    const depots = new Set(['depot-go', 'depot']);
+    expect(Object.keys(game.script.fired).sort()).toEqual(
+      M1.cues
+        .map(cue => cue.id)
+        .filter(id => !depots.has(id))
+        .sort(),
+    );
+    expect(game.script.ended).toBe('cleared');
+    expect(game.cleared).toBe(true);
+    expect(cleared).toBe(1);
+    expect(game.losses).toEqual({ allies: 1, squads: 1 });
   },
   LONG,
 );
 
 test('the game stops once the script has ended', () => {
   const game = newGame(M1B_HAND);
-  runM1(game);
+  runM1(game, false);
   // the closing cutscene still runs the game; once it is over the game stops
   sendToScript(game, { kind: 'skip' });
   const time = game.time;

@@ -10,9 +10,9 @@ import {
   type ScriptState,
 } from '../../src/logic/script.ts';
 
-// The kinds and names M1 should give, in order, from the landing to the cleared result. The skip of the landing is in the
-// flow; the last skip closes beach-held.
-const EXPECTED: readonly string[] = [
+// The kinds and names M1 should give, in order, from the landing to cp1 and the leader's question. The skip of the
+// landing is in the flow.
+const COMMON: readonly string[] = [
   'cutscene:landing',
   'ally:buddy',
   'ally:cover-b1',
@@ -43,8 +43,6 @@ const EXPECTED: readonly string[] = [
   'flag:line2-open',
   'radio:m1.line2-cheer',
   'radio:m1.line2-hold',
-  'flag:depot-down',
-  'radio:m1.depot-down',
   'payoff:bunker1',
   'radio:m1.pillboxes-down',
   'flag:pillboxes-down',
@@ -53,7 +51,32 @@ const EXPECTED: readonly string[] = [
   'allyMove:cover-b1',
   'allyMove:cover-b2',
   'allyMove:cover-b3',
-  'spawn:c-squad',
+  'radio:m1.depot-ask-1',
+  'radio:m1.depot-ask-2',
+  'flag:depot-asked',
+  'spawn:shelling',
+];
+
+// The two answers: down to the depot first, or straight on to the fortress.
+const DEPOT_GO: readonly string[] = [
+  'radio:m1.depot-go',
+  'spawn:depot-guard',
+  'map:depot:on',
+  'flag:depot-taken',
+  'flag:depot-down',
+  'radio:m1.depot-down',
+];
+
+const FORTRESS_GO: readonly string[] = [
+  'radio:m1.depot-skip',
+  'allyMove:cover-b3',
+  'loss:1/1',
+  'flag:fortress-skip',
+  'allyFall:cover-b3:shell',
+  'radio:m1.ally-lost',
+];
+
+const TAIL: readonly string[] = [
   'checkpoint:cp2',
   'objective:stop-fortress-gun',
   'radio:m1.fortress-gate',
@@ -88,6 +111,10 @@ function label(event: ScriptOut): string {
       return `allyMove:${event.id}`;
     case 'suppress':
       return `suppress:${event.id}:${event.wave}`;
+    case 'allyFall':
+      return `allyFall:${event.id}:${event.by}`;
+    case 'loss':
+      return `loss:${event.allies}/${event.squads}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':
@@ -105,7 +132,8 @@ function label(event: ScriptOut): string {
   }
 }
 
-// Runs M1 up to cp1 (both pillboxes down). The landing is passed at once; `destroyDepot` is the detour.
+// Runs M1 up to cp1 and the leader's question (10 s after cp1). A depot run then walks into the hollow and breaks the
+// depot; the other goes no further, so `fromCp1` can take the fortress's answer.
 function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[] } {
   const state = newScript(M1);
   const outputs: ScriptOut[] = [];
@@ -116,16 +144,23 @@ function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[
   outputs.push(...scriptInput(state, M1, { kind: 'blast', id: 'l1-b' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'line2-approach' }));
   outputs.push(...scriptInput(state, M1, { kind: 'blast', id: 'l2-a' }));
-  if (destroyDepot) outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'depot' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-1' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-2' }));
+  // cp1's `after 10` question
+  outputs.push(...stepScript(state, M1, 10));
+  if (destroyDepot) {
+    outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'depot-approach' }));
+    outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'depot' }));
+  }
   return { state, outputs };
 }
 
-// Plays C, the fortress's gate and yard, the field, the two guns, the magazine and the ending.
-function fromCp1(state: ScriptState): ScriptOut[] {
+// Plays the fortress's gate and yard, the field, the two guns, the magazine and the ending; the skipped depot's ally
+// falls 1.5 s after the answer.
+function fromCp1(state: ScriptState, destroyDepot: boolean): ScriptOut[] {
   const outputs: ScriptOut[] = [];
-  outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'c-line' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' }));
+  if (!destroyDepot) outputs.push(...stepScript(state, M1, 2));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-yard' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'fortress-out' }));
@@ -138,29 +173,39 @@ function fromCp1(state: ScriptState): ScriptOut[] {
 
 function runM1(destroyDepot: boolean): { state: ScriptState; events: string[] } {
   const { state, outputs } = toCp1(destroyDepot);
-  outputs.push(...fromCp1(state));
+  outputs.push(...fromCp1(state, destroyDepot));
   return { state, events: outputs.map(label) };
 }
 
-test('M1 runs from the landing to the cleared result', () => {
+test('M1 runs to the cleared result by going for the depot', () => {
   const run = runM1(true);
-  expect(run.events).toEqual(EXPECTED);
+  expect(run.events).toEqual([...COMMON, ...DEPOT_GO, ...TAIL]);
   expect(run.state.ended).toBe('cleared');
 });
 
+test('M1 runs to the cleared result by going straight on, and the skipped depot costs an ally and a squad', () => {
+  const run = runM1(false);
+  expect(run.events).toEqual([...COMMON, ...FORTRESS_GO, ...TAIL]);
+  expect(run.state.ended).toBe('cleared');
+  expect(run.state.flags).toContain('fortress-skip');
+  expect(run.state.flags).not.toContain('depot-down');
+});
+
 test('restoring cp1 drops the cues after it and replays the same column', () => {
-  const { state } = toCp1(true);
-  scriptInput(state, M1, { kind: 'enter', area: 'c-line' }); // c-squad has fired
-  expect(state.fired['c-squad']).toBeTypeOf('number');
+  const { state } = toCp1(false);
+  scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' }); // the choice has fired
 
   const restored = restoreCheckpoint(state);
   expect(restored.fired.cp1).toBeTypeOf('number');
-  expect(restored.fired['c-squad']).toBeUndefined();
+  expect(restored.fired['fortress-go']).toBeUndefined();
   expect(restored.ended).toBeNull();
   // the flag is one of cp1's actions before the checkpoint, so the copy holds it
   expect(restored.flags).toContain('pillboxes-down');
 
-  expect(fromCp1(restored).map(label)).toEqual(EXPECTED.slice(EXPECTED.indexOf('spawn:c-squad')));
+  // the question is after the checkpoint, so the restored game gets it again
+  const replayed = stepScript(restored, M1, 10);
+  expect(replayed.map(label)).toEqual(COMMON.slice(COMMON.indexOf('radio:m1.depot-ask-1')));
+  expect(fromCp1(restored, false).map(label)).toEqual([...FORTRESS_GO, ...TAIL]);
   expect(restored.ended).toBe('cleared');
 });
 
@@ -168,7 +213,7 @@ test('restoring cp1 drops the cues after it and replays the same column', () => 
 // without them when the copy was taken in the middle of the cue)
 test('restoring cp3 comes back with the battery objective and sends the battery again', () => {
   const { state } = toCp1(true);
-  scriptInput(state, M1, { kind: 'enter', area: 'c-line' });
+  scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' });
   scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' });
   scriptInput(state, M1, { kind: 'enter', area: 'fortress-yard' });
   scriptInput(state, M1, { kind: 'enter', area: 'fortress-out' });
@@ -194,15 +239,6 @@ test('restoring cp3 comes back with the battery objective and sends the battery 
   expect(again.ended).toBe('cleared');
 });
 
-test('the run without the depot still ends, and the depot flag stays down', () => {
-  const run = runM1(false);
-  expect(run.events).not.toContain('flag:depot-down');
-  expect(run.events).not.toContain('radio:m1.depot-down');
-  expect(run.events.slice(-2)).toEqual(['end:cleared', 'cutsceneEnd:beach-held']);
-  expect(run.state.flags).not.toContain('depot-down');
-  expect(run.state.ended).toBe('cleared');
-});
-
 test('the same inputs give the same events twice', () => {
-  expect(runM1(true).events).toEqual(runM1(true).events);
+  expect(runM1(false).events).toEqual(runM1(false).events);
 });
