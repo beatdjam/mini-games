@@ -125,13 +125,13 @@ export type GameEvent =
   | { kind: 'destroyed'; id: string }
   | { kind: 'shutterOpen'; target: string } // the shutter before this target opened
   | { kind: 'spawned'; wave: string; count: number } // a wave's enemies were put out
-  | { kind: 'enemyDown'; id: string; x: number; z: number } // an enemy's health reached 0
+  | { kind: 'enemyDown'; id: string; x: number; y: number; z: number } // an enemy's health reached 0
   | { kind: 'damaged'; amount: number; fromX: number; fromZ: number } // the mech took `amount`; (fromX, fromZ) is the unit direction on the ground from the mech toward where the bullet came from
   | { kind: 'downed' } // the armour reached 0
   | { kind: 'propDestroyed'; prop: number; x: number; z: number }
   | { kind: 'shellWarn'; x: number; z: number; radius: number } // a shell will land here
-  | { kind: 'shellLand'; x: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
-  | { kind: 'mineBlast'; x: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
+  | { kind: 'shellLand'; x: number; y: number; z: number; hit: boolean } // a shell landed; `hit` is whether the mech was inside the blast
+  | { kind: 'mineBlast'; x: number; y: number; z: number; hit: boolean } // a mine blew up; `hit` is whether the mech was inside the blast
   | { kind: 'planted'; id: string; x: number; z: number } // a charge was planted on this blast point
   | { kind: 'blast'; id: string; x: number; z: number; hit: boolean } // a charge blew up; `hit` is whether the mech was inside the blast
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
@@ -436,11 +436,26 @@ function checkShutters(game: GameModel): void {
   for (const target of openShutters(game.shutters, hpOf)) game.events.push({ kind: 'shutterOpen', target });
 }
 
+// The height of the face a blast at (x, z) stands on: the ground, or the top of a prop or a target there (the seawall's
+// 6 m, a ramp's slope, a pillbox's roof). A blast beside a wall's foot stays on the ground: the radius is the mech's own,
+// so only a face the mech itself could stand on lifts it. The view draws the warned shell's ring at this height too.
+const BLAST_FACE_RADIUS = MECH_TUNE.radius;
+const BLAST_FACE_MAX = 6.5; // the highest face a blast is put on (m); the seawall and a ramp's high end are 6 m
+export function blastFaceHeight(rects: readonly GroundRect[], x: number, z: number): number {
+  return groundAt(x, z, BLAST_FACE_RADIUS, rects, BLAST_FACE_MAX);
+}
+
 // Takes `damage` off the enemy; at 0 it falls (it stays in game.enemies).
 function damageEnemy(game: GameModel, enemy: EnemyState, damage: number): void {
   enemy.hp = Math.max(0, enemy.hp - damage);
   if (enemy.hp > 0) return;
-  game.events.push({ kind: 'enemyDown', id: enemy.id, x: enemy.x, z: enemy.z });
+  game.events.push({
+    kind: 'enemyDown',
+    id: enemy.id,
+    x: enemy.x,
+    y: blastFaceHeight(game.rects, enemy.x, enemy.z),
+    z: enemy.z,
+  });
 }
 
 // Takes `damage` off the mech's armour and reports it with the way it came from, (toX, toZ) being the direction on the
@@ -473,7 +488,7 @@ function damageMine(game: GameModel, mine: MineState, damage: number): void {
 function blowUp(game: GameModel, mine: MineState): void {
   game.mines.splice(game.mines.indexOf(mine), 1);
   const hit = inCircle(mine, MINE_TUNE.blastRadius, game.mech);
-  game.events.push({ kind: 'mineBlast', x: mine.x, z: mine.z, hit });
+  game.events.push({ kind: 'mineBlast', x: mine.x, y: blastFaceHeight(game.rects, mine.x, mine.z), z: mine.z, hit });
   if (hit) damageMech(game, MINE_TUNE.damage, mine.x - game.mech.x, mine.z - game.mech.z);
 }
 
@@ -856,7 +871,8 @@ function stepHazards(game: GameModel, dt: number): void {
   }
   for (const shell of stepShells(game.shells, dt)) {
     const hit = inCircle(shell, shell.radius, game.mech);
-    game.events.push({ kind: 'shellLand', x: shell.x, z: shell.z, hit });
+    const y = blastFaceHeight(game.rects, shell.x, shell.z);
+    game.events.push({ kind: 'shellLand', x: shell.x, y, z: shell.z, hit });
     if (hit) damageMech(game, shell.damage, shell.x - game.mech.x, shell.z - game.mech.z);
   }
   for (const mine of [...game.mines]) if (mineStepped(mine, game.mech)) blowUp(game, mine);

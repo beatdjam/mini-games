@@ -51,6 +51,7 @@ const PLANT_DUST = 4; // the same, when a charge is set on a blast point
 const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the hand map has 3 pillboxes, so it is not reached
 const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
 const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
+const SEA_BLAST_HEIGHT = 0.8; // how high a blast's flash stands over the sea (m); the water column itself sits on SEA_LEVEL
 
 // The bullets in flight, drawn as one set of line segments: two vertices a bullet, the position written every frame.
 export interface BulletLines {
@@ -257,11 +258,13 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       }
     } else if (event.kind === 'enemyDown') {
       kill = true;
-      blast('small', event.x, 0.6, event.z);
+      blast('small', event.x, event.y, event.z);
     } else if (event.kind === 'propDestroyed') {
       blast('small', event.x, 0.5, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
-      blast(event.z >= game.map.bounds.maxZ ? 'water' : 'large', event.x, 0.8, event.z);
+      // the sea has no ground face: a shell past the map's front edge keeps the height its flash had over the water
+      const water = event.z >= game.map.bounds.maxZ;
+      blast(water ? 'water' : 'large', event.x, water ? SEA_BLAST_HEIGHT : event.y, event.z);
       // the game's own blast takes the infantry near it, as the battle's shells do (SB-1610)
       view.battle.blast(event.x, event.z);
     } else if (event.kind === 'planted') {
@@ -290,7 +293,10 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   const cutscene = game.script.cutscene;
   const holdsBattle = cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true;
   if (!holdsBattle) {
-    view.feel.shake += view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+    const shellShake = view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+    // The battlefield's shells shake the camera within the same cap as the blasts: a shell landing in the same frame as
+    // a blast near the mech must not add the two past shakeMax and throw the camera off.
+    if (shellShake > 0) feelBoom(view.feel, shellShake, FEEL_TUNE);
   } else {
     view.battle.advanceTracers(dt);
   }

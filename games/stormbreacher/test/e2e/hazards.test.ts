@@ -5,7 +5,7 @@ import { el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
-import { MINE_MESH_NAME, SHELL_MESH_NAME } from '../../src/view/hazards.ts';
+import { GROUND_LIFT, MINE_MESH_NAME, SHELL_MESH_NAME } from '../../src/view/hazards.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -59,6 +59,21 @@ test('a warned shell is drawn as a ring and the HUD warns inside it, and both go
   current.shells.length = 0;
   await frame();
   expect(meshes(SHELL_MESH_NAME)[0].count).toBe(0);
+});
+
+test('a warned shell on the seawall is drawn on the wall’s top, not inside it', async () => {
+  startSortie();
+  const current = game();
+  await frame();
+  // the mech's stand on the seawall (z -75..-65) is 6 m up; a ring left on the ground would sit inside the wall
+  current.shells.push({ x: 35, z: -70, radius: 6, warn: 2, left: 2, damage: 0 });
+  await frame();
+  const matrix = new THREE.Matrix4();
+  meshes(SHELL_MESH_NAME)[0].getMatrixAt(0, matrix);
+  const at = new THREE.Vector3().setFromMatrixPosition(matrix);
+  expect(at.x).toBeCloseTo(35, 5);
+  expect(at.z).toBeCloseTo(-70, 5);
+  expect(at.y).toBeCloseTo(6 + GROUND_LIFT, 5);
 });
 
 test('a mine that goes off is no longer drawn', async () => {

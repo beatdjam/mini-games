@@ -97,6 +97,21 @@ test('the beach wave starts a mortar barrage, and a shell warns, then lands afte
   expect(game.shells).toHaveLength(0);
 });
 
+test('a shell that lands on the seawall reports the wall’s top as the height of its blast', () => {
+  const game = newPlayGame(M1B_HAND);
+  // the barrage and the aimed mortar would warn of shells on their own; this test reads the one pushed here alone
+  game.barrages = [];
+  game.aimed = null;
+  game.mech.x = 35;
+  game.mech.y = 6;
+  game.mech.z = -70;
+  game.shells.push({ x: 35, z: -70, radius: BARRAGES.battery.radius, warn: 0.1, left: 0.1, damage: 0 });
+  const lands = run(game, 20).filter((event): event is Landed => event.kind === 'shellLand');
+  expect(lands).toHaveLength(1);
+  // the seawall's top is 6 m; a blast left at the ground would sit inside the wall
+  expect(lands[0].y).toBeCloseTo(6, 6);
+});
+
 test(
   'a shell hurts a mech inside the blast and not one outside it, with the way it came from',
   () => {
@@ -173,7 +188,7 @@ test('the mech’s shot sets a mine off: the shot stops, the mine goes, and a me
   for (let i = 0; i < shots; i++) shootMine(game, mine);
   const events = run(game, 10);
   expect(events.filter(event => event.kind === 'mineBlast')).toEqual([
-    { kind: 'mineBlast', x: mine.x, z: mine.z, hit: false },
+    { kind: 'mineBlast', x: mine.x, y: 0, z: mine.z, hit: false },
   ]);
   expect(game.mines).toHaveLength(0);
   expect(game.bullets).toHaveLength(0);
@@ -199,7 +214,7 @@ test('a mine shot near the mech hurts it, from the mine’s side', () => {
   for (let i = 0; i < Math.ceil(MINE_TUNE.hp / WEAPONS.autocannon.damage); i++) shootMine(game, mine);
   const events = run(game, 10);
   expect(events.filter(event => event.kind === 'mineBlast')).toEqual([
-    { kind: 'mineBlast', x: mine.x, z: mine.z, hit: true },
+    { kind: 'mineBlast', x: mine.x, y: 0, z: mine.z, hit: true },
   ]);
   expect(game.armor).toBe(MECH_TUNE.armor - MINE_TUNE.damage);
   const damaged = events.find((event): event is Extract<GameEvent, { kind: 'damaged' }> => event.kind === 'damaged');
@@ -212,7 +227,9 @@ test('stepping on a mine sets it off and hurts the mech; a mine only beyond the 
     { x: 60, z: 0 },
   ]);
   const events = run(game, 2);
-  expect(events.filter(event => event.kind === 'mineBlast')).toEqual([{ kind: 'mineBlast', x: 1, z: 0, hit: true }]);
+  expect(events.filter(event => event.kind === 'mineBlast')).toEqual([
+    { kind: 'mineBlast', x: 1, y: 0, z: 0, hit: true },
+  ]);
   expect(game.mines).toEqual([{ x: 60, z: 0, hp: MINE_TUNE.hp }]);
   expect(game.armor).toBe(MECH_TUNE.armor - MINE_TUNE.damage);
   // a mine that went off does not go off again
