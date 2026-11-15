@@ -3,7 +3,7 @@
 // aim is the middle of the screen the state drew.
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
-import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE as TUNED, MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import {
   aimRay,
   applyPose,
@@ -15,6 +15,10 @@ import {
   type CameraState,
   type CameraTarget,
 } from '../../src/view/camera.ts';
+
+// These runs time the wall's own release and return, so the wait before it starts back out (SB-2050's returnDelay) is off
+// here; cameraWallTurn.test.ts covers the wait.
+const CAMERA_TUNE = { ...TUNED, returnDelay: 0 };
 
 const DT = 1 / 60;
 const DEG = 180 / Math.PI;
@@ -67,24 +71,21 @@ function followFrames(targets: readonly CameraTarget[], boxes: readonly THREE.Bo
 // The direction from the camera to the point it looks at, normalized.
 const view = (state: CameraState): THREE.Vector3 => state.look.clone().sub(state.pos).normalize();
 
-// The most one frame moved the camera relative to the mech, and the most the screen turned (deg).
+// How far one frame moved the camera from `before` to `after`, away from the look point or up (m), not counting the
+// mech's own step. The swing round the look point is not capped: it follows the mech's facing with turnLag (SB-2050).
+function radialMove(before: CameraState, after: CameraState): number {
+  const travel = new THREE.Vector3(after.feet.x - before.feet.x, 0, after.feet.z - before.feet.z);
+  const away = (pos: THREE.Vector3) => Math.hypot(pos.x - after.look.x, pos.z - after.look.z);
+  const carried = before.pos.clone().add(travel);
+  return Math.max(Math.abs(away(after.pos) - away(carried)), Math.abs(after.pos.y - carried.y));
+}
+
+// The most one frame moved the camera away from the look point relative to the mech, and the most the screen turned (deg).
 function motion(states: readonly CameraState[]): { rel: number; turn: number } {
   let rel = 0;
   let turn = 0;
   for (let i = 1; i < states.length; i++) {
-    const travel = new THREE.Vector3(
-      states[i].feet.x - states[i - 1].feet.x,
-      0,
-      states[i].feet.z - states[i - 1].feet.z,
-    );
-    rel = Math.max(
-      rel,
-      states[i].pos
-        .clone()
-        .sub(states[i - 1].pos)
-        .sub(travel)
-        .length(),
-    );
+    rel = Math.max(rel, radialMove(states[i - 1], states[i]));
     const dot = Math.min(1, Math.max(-1, view(states[i]).dot(view(states[i - 1]))));
     turn = Math.max(turn, Math.acos(dot) * DEG);
   }
@@ -163,7 +164,7 @@ test('a 180 degree flick at a wall 1 m behind: the camera slides, not jumps, and
   for (const target of targets) {
     const pose = cameraPose(target, 0, CAMERA_TUNE, boxes);
     state = followCamera(state, pose, DT, CAMERA_TUNE);
-    if (prev !== null) maxJump = Math.max(maxJump, state.pos.distanceTo(prev.pos));
+    if (prev !== null) maxJump = Math.max(maxJump, radialMove(prev, state));
     const ray = new THREE.Ray(pose.look, state.pos.clone().sub(pose.look).normalize());
     const point = new THREE.Vector3();
     for (const box of boxes) {

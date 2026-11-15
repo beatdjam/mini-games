@@ -33,6 +33,8 @@ export interface CameraTune {
   pullNear: number; // how much nearer than its open distance a wall-held camera counts as near (m)
   returnSpeed: number; // the fastest the camera comes back out after a wall lets it go (m/s)
   returnLag: number; // the time constant for coming back out (s)
+  turnLag: number; // the time constant for the camera to swing round behind the mech's facing while a wall holds or releases it (s); the distance keeps returnSpeed and returnLag
+  returnDelay: number; // a wall's release must last this long before the camera starts back out; a wall that pushes again sooner keeps it near (s); 0 returns at once
   releaseGap: number; // a wall lets the camera go when it is this much farther than the camera was (m)
   rise: number; // how far the camera rises at minDist, so it looks over the mech's shoulder (m)
   riseRange: number; // how far above minDist the rise has fallen to 0 (m)

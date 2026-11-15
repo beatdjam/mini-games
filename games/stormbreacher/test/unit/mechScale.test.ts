@@ -57,6 +57,8 @@ test('an 8 m mech scales every camera distance and speed, and keeps the angles a
     'pitchMax',
     'lag',
     'returnLag',
+    'turnLag',
+    'returnDelay',
     'fov',
     'aimFov',
   ] as const) {
