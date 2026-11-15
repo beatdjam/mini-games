@@ -3,7 +3,8 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
-import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newGame, sendToScript, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { newPlayGame } from './playGame.ts';
 import type { ScriptOut } from '../../src/logic/script.ts';
 
@@ -244,4 +245,49 @@ test('nothing takes armour off the mech while a cutscene plays', () => {
   for (let i = 0; i < 30; i++) step(game, idle, DT);
   expect(game.armor).toBe(MECH_TUNE.armor);
   expect(game.events.some(event => event.kind === 'damaged')).toBe(false);
+});
+
+test('a cutscene holds the enemies and the battery where they stand', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] };
+  game.mech.x = -30;
+  game.mech.z = -125;
+  game.mech.yaw = 0;
+  game.enemies = [newEnemy('seawall-drop-1', 'seawall-drop', 'grunt', -30, -165)];
+  // the battery is on and its guns are ready: without the hold they fire this frame
+  game.battery.on = true;
+  for (const gun of game.battery.guns) gun.wait = 0;
+  const enemy = { x: game.enemies[0].x, z: game.enemies[0].z, wait: game.enemies[0].wait };
+  const waits = game.battery.guns.map(gun => gun.wait);
+  for (let i = 0; i < 30; i++) step(game, idle, DT);
+  expect(game.script.cutscene?.id).toBe('wave2-sinks');
+  expect({ x: game.enemies[0].x, z: game.enemies[0].z, wait: game.enemies[0].wait }).toEqual(enemy);
+  expect(game.battery.guns.map(gun => gun.wait)).toEqual(waits);
+  expect(game.bullets).toHaveLength(0);
+});
+
+test('a bullet in flight goes on through a cutscene and stops at the mech without hurting it', () => {
+  const game = landing();
+  const y = game.mech.y + MECH_TUNE.chestHeight;
+  const bullet = {
+    enemy: 'grunt' as const,
+    x: game.mech.x,
+    y,
+    z: game.mech.z - 20,
+    dx: 0,
+    dy: 0,
+    dz: 1,
+    left: 80,
+  };
+  game.bullets.push(bullet);
+  const z = bullet.z;
+  const hits: GameEvent[] = [];
+  for (let i = 0; i < 30; i++) {
+    step(game, idle, DT);
+    hits.push(...game.events.filter(event => event.kind === 'hit' && event.mech));
+  }
+  expect(bullet.z).toBeGreaterThan(z);
+  expect(game.bullets).toHaveLength(0);
+  expect(hits).toHaveLength(1);
+  expect(game.armor).toBe(MECH_TUNE.armor);
 });

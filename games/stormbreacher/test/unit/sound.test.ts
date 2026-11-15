@@ -143,6 +143,12 @@ test('a hit on the mech plays the metal sound once, even with its damaged event'
   ).toEqual(['mechHit']);
 });
 
+test('a hit on the mech is silent while a cutscene plays', () => {
+  // The mech takes no harm in a cutscene, so a shot that stops at it is not a wound and makes no metal sound.
+  const events: GameEvent[] = [hit(null, true)];
+  expect(planSounds({ events, mech: MECH, targets: [], hostile: [], cutscene: true }).map(cue => cue.name)).toEqual([]);
+});
+
 test('the same sound in one frame is cut to the table’s limit', () => {
   const events: GameEvent[] = [
     ...Array.from({ length: 5 }, () => shot('autocannon')),
@@ -189,9 +195,9 @@ beforeEach(() => {
 });
 
 const enemyBullet = (): Bullet => ({ x: 6, y: 1, z: 4, dx: 0, dy: 0, dz: 1, left: 10, enemy: 'grunt' });
-// Only the fields soundFrame reads: the frame's events, the bullets, the mech, the targets and the radio.
+// Only the fields soundFrame reads: the frame's events, the bullets, the mech, the targets, the radio and the cutscene.
 const fakeGame = (bullets: Bullet[]): GameModel =>
-  ({ bullets, events: [], mech: MECH, targets: [], radio: null }) as unknown as GameModel;
+  ({ bullets, events: [], mech: MECH, targets: [], radio: null, script: { cutscene: null } }) as unknown as GameModel;
 
 test('one enemy bullet is heard once, however many frames it lives', () => {
   const game = fakeGame([enemyBullet()]);
