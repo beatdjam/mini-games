@@ -11,9 +11,11 @@ permissions:
   id-token: write
   actions: read   # 更新履歴の生成で、過去の公開の実行履歴を読む
 
+# 新しい push が来たら、実行中の公開も止めて最新だけを回す（テストが長いので、続けてマージすると待ちが積み上がる）。
+# 止められた公開は build_updates.py が成功の公開として数えないので、その分のコミットは次の公開の更新履歴に入る
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
