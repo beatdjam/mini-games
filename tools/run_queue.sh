@@ -7,7 +7,7 @@
 # - 票ごとに作業ツリー（.wt/t<番号>。そのブランチの作業ツリーが既にあればそれ）で OpenCode を起動する
 # - 起動したきり止まったら（セッションが出てこなければ）起動し直す
 # - 終わったら result を .tasks/ に写し、変更を「WIP（未レビュー）」のコミットにする。push・PR はしない
-# - 回し終えた印は .tasks/<番号>-<名前>.result.md。あれば飛ばす。票が消えていれば（レビュー済み）飛ばす
+# - 回し終えた印は .tasks/<番号>-<名前>.result.md。あれば飛ばす。Claude が引き取った票（queue.log の最後が「Claude が回している」。tools/queue_mark.sh）も飛ばす。票が消えていれば（レビュー済み）飛ばす
 # - 次の票を選ぶたびに queue.txt を先頭から読み直す（回している途中で順を入れ替えると、次から反映される）
 # - queue.txt の2列目からは土台。master か、先に回す票の番号（その票の未レビューのコミットの上に積む）
 # - result が出なかったときは、混雑で落ちたなら少し待って続きから回し直す。それでも出なければ止める
@@ -38,6 +38,8 @@ log() {
   [ -n "${QUEUE_STATUS_FILE:-}" ] && python3 "$R/tools/queue_status.py" --out "$QUEUE_STATUS_FILE" >/dev/null 2>&1
   return 0
 }
+# 票の最後のログが「Claude が回している」か（tools/queue_mark.sh が書く）
+claude_running() { grep -E " 票$1: " "$LOG" 2>/dev/null | tail -1 | grep -q '票[0-9]*: Claude が回している'; }
 ticket_of() { ls "$T"/"$1"-*.md 2>/dev/null | grep -v '\.result\.md$' | head -1; }
 branch_of() { grep -o -m1 -E 'git switch [^ `]+' "$1" | awk '{print $3}'; }
 worktree_of() { # そのブランチを開いている作業ツリー
@@ -113,6 +115,7 @@ if [ $DRY = 1 ]; then
     [ -z "$t" ] && { log "票$n: 票が無い（レビュー済み）ので飛ばす"; continue; }
     name=$(basename "$t" .md)
     [ -f "$T/$name.result.md" ] && { log "票$n: result があるので飛ばす"; continue; }
+    claude_running "$n" && { log "票$n: Claude が回しているので飛ばす"; continue; }
     br=$(branch_of "$t")
     [ -z "$bases" ] && bases=master
     refs=()
@@ -144,6 +147,11 @@ next_ticket() {
     name=$(basename "$t" .md)
     [ -f "$T/$name.result.md" ] && continue
     case "$RUN" in *" $cand "*) continue ;; esac
+    if claude_running "$cand"; then
+      RUN="$RUN$cand "
+      log "票$cand: Claude が回しているので飛ばす"
+      continue
+    fi
     N=$cand
     BASES=$*
     return 0

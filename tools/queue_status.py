@@ -87,6 +87,11 @@ def state_of(root: Path, num: str, name: str, queued: set[str], latest: dict[str
     sent_back = any(p.exists() and "差し戻し" in p.read_text(encoding="utf-8") for p in copies)
     done = (tasks / f"{name}.result.md").exists()
     log = latest.get(num, "")
+    # Claude took the ticket over (tools/queue_mark.sh)
+    if log.startswith("Claude が回している"):
+        return "Claude が回している"
+    if log.startswith("Claude が回した"):
+        return "レビュー待ち"
     if sent_back and not log.startswith(("回す", "起動")):
         return "差し戻し中"
     if log.startswith(("回す", "起動")):
