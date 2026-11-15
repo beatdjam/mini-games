@@ -8,6 +8,7 @@ import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { LANDING_RIDERS, LANDING_TUNE } from '../../src/data/landing.ts';
 import {
   hasCutscene,
+  cutsceneElapsed,
   cutsceneEvents,
   cutsceneLine,
   cutsceneMech,
@@ -192,6 +193,14 @@ test('an event comes once, in the frame that reaches its second', () => {
   const first = landing.events[0];
   expect(cutsceneEvents('landing', first.at - 0.5, first.at)).toContain(first);
   expect(cutsceneEvents('landing', first.at, first.at + 0.5)).not.toContain(first);
+});
+
+test('a view starts at -1 until the cutscene has played a second, and in the middle at that second', () => {
+  expect(cutsceneElapsed(null)).toBe(-1);
+  // only starting: the events at second 0 have not played yet (cutsceneEvents takes the events after `from`)
+  expect(cutsceneElapsed({ id: 'landing', left: CUTSCENE_SEC.landing })).toBe(-1);
+  expect(cutsceneElapsed({ id: 'landing', left: CUTSCENE_SEC.landing - 0.01 })).toBeCloseTo(0.01, 9);
+  expect(cutsceneElapsed({ id: 'wave2-sinks', left: 2.5 })).toBeCloseTo(CUTSCENE_SEC['wave2-sinks'] - 2.5, 9);
 });
 
 test('every table keeps to its cutscene length, and all three cutscenes have one', () => {

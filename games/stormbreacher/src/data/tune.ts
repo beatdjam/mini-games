@@ -263,6 +263,8 @@ export const BATTLE_TUNE = {
 // Only FxTune's own values: BATTLE_TUNE.holdZ is the view's and must not ride along in the look. All provisional.
 export const PLAY_BATTLE_TUNE: FxTune = {
   ...FX_TUNE,
+  // the beach's smoke columns (SB-1440) already rise from the wrecks, so the battle's own three would double them
+  wreckSmoke: 0,
   allies: BATTLE_TUNE.allies,
   allyWaves: BATTLE_TUNE.allyWaves,
   allySpeed: BATTLE_TUNE.allySpeed,
@@ -319,7 +321,7 @@ const FX_WEAK: Partial<FxTune> = {
   smokeLife: 5.5,
   smokeCubes: 5,
   smokeMax: 135,
-  wreckSmoke: 2,
+  wreckSmoke: 0, // the air builds the wrecks' columns (SB-1440)
   craters: 45,
   craterMin: 2.5,
   craterMax: 8,
@@ -354,7 +356,7 @@ const FX_STRONG: Partial<FxTune> = {
   smokeLife: 5.5,
   smokeCubes: 15,
   smokeMax: 405,
-  wreckSmoke: 5,
+  wreckSmoke: 0, // the air builds the wrecks' columns (SB-1440)
   craters: 135,
   craterMin: 2.5,
   craterMax: 8,

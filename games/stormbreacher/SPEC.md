@@ -65,7 +65,7 @@
 - `src/logic/pillbox.ts`: トーチカの純粋な関数（`PillboxState`・`newPillbox`・`pillboxFront`・`pillboxMuzzle`・`stepPillbox`。乱数は引数で受ける）
 - `src/logic/script.ts`: ミッションの台本を進める純粋な関数
 - `src/data/missions/m1.ts`: M1 の cue の並びと、場所・物・波・目標・印・味方・道の名前の一覧
-- `src/data/script.ts`: カットシーンの秒と無線の表示の表 `RADIO_TUNE`（1行を出す最低の秒 `minSec`・待たせる行の上限 `maxPending`）
+- `src/data/script.ts`: カットシーンの秒・カットシーンを飛ばせない最初の秒 `CUTSCENE_SKIP_GUARD_SEC`・無線の表示の表 `RADIO_TUNE`（1行を出す最低の秒 `minSec`・待たせる行の上限 `maxPending`）
 - `src/logic/mapCheck.ts`: マップが台本と機体の大きさに合うかを調べる純粋な関数
 - `src/logic/mapgen.ts`: 種と規則から物を並べる純粋な関数
 - `src/data/maps/m1b-hand.ts`: M1 の B の手書きのマップ
@@ -126,7 +126,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - 枠の位置は、相手の箱の8隅をカメラで画面に投影した外接四角（`screenRect` in `src/view/camera.ts`。四角は画面の内側に切る。箱の隅がカメラの後ろにあるとき、または四角が画面の外にあるときは null で、枠を出さない）に、4px の余白を足したもの。枠は HTML で HUD と同じ層（`#sbPlayHud` の中、`data-hud="lock"`）に描く（`lockFrame` in `src/view/hudParts.ts`）
 - 値: `hudModel` in `src/logic/hud.ts`（純粋）が、HUD に出す値（ブースト・装甲・メインとサブの弾数・台本の今の目標と数えている数 `objective`・今出している1行の無線 `radio`・ソフトロックが狙いを寄せている目標か敵の体力 `enemy` とその箱 `lock`・レーダーの点・着弾予告の警告 `warning`）を `GameModel` から作る。装甲は `armor / MECH_TUNE.armor`。熱は持たない
 - HUD の目標: `objective` は台本の今の目標 `game.script.objective` の言語キー `obj.<id>`。台本がまだ目標を出していないときは null で、何も出さない。数える目標だけ `count: { done, total }` を持ち、画面は「目標 トーチカを2基破壊 1/2」のように数を足して書く。どの目標が何を数えるかは `OBJECTIVE_COUNT` in `src/data/script.ts`（目標 id → 数える目標 id の列。`break-pillboxes` は `pillbox-1`・`pillbox-2`、`silence-battery` は `main-gun-1`・`main-gun-2`）。表に無い目標（`reach-pillboxes`・`take-seawall`・`hit-magazine`）は数を出さない。`total` はマップにある目標だけ、`done` はその中で体力 0 のもの。数える目標がマップに1つも無いときも数を出さない
-- HUD の無線: `radio` は今出している1行 `game.radio` の言語キーで、`game.radio` が出てから `RADIO_TUNE.minSec`（3 秒）の間だけ。その後は null。同時に来た行は列で待ち、1フレームに1行だけ出す（`stepRadio`）
+- HUD の無線: `radio` は今出している1行 `game.radio` の言語キーで、HUD が出ている間の経過（`game.time - game.radio.time`）が `RADIO_TUNE.minSec`（3 秒）に届くまで。その後は null。同時に来た行は列で待ち、1フレームに1行だけ出す（`stepRadio`）。カットシーンの間は HUD を隠すので、`stepRadio` は表示中の行の経過を数えず、列の次の行も上げない。終わってから残りの秒を出し、次の行へ進む
 - ロック枠: `lock` は `enemy` と同じ相手の箱（目標は `box`、敵は `enemyBox` in `src/logic/game.ts`）。`enemy` が null のときは null
 - 描く: `src/view/hud.ts` が本体の出撃中の HUD を `HudModel` から描き、`src/view/hudParts.ts` は弧・丸いレーダー・点と円・照準の円の半径を持ち、`#view-hud` の見本と本体が同じものを使う。`src/data/colors.ts` は HUD の色（`HUD_COLOR`）も名前で持つ
 
@@ -137,6 +137,19 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 - 被弾の方向: 出来事 `damaged` の `fromX`・`fromZ`（機体から撃った側への向き）と機体の `yaw` から、機体の正面を 0 度とする角度を `hurtAngle` で出す。画面の縁を8方向（正面・右前・右・右後ろ・後ろ・左後ろ・左・左前。`hurtEdge`）に分け、その方向の縁を `HURT_TUNE.edgeFade` 秒かけて赤く光らせる。同じ方向に重ねて受けたら消えるまでの時間を戻し、別の方向は同時に出る
 - 近い着弾: 爆発が機体から `HURT_TUNE.flashNear` m 以内で起きたら、`HURT_TUNE.flashFade` 秒かけて画面を白ませる。強さは近いほど強く、0m で `flashAlpha`、`flashNear` で 0。爆発は迫撃砲・地雷のほか、自分が壊した目標・敵・物の爆発も同じに扱い（どれも「爆発」）、カットシーン中に着弾した砲弾でも白む。揺れは6章の爆発の `boomShakeAt` が近いほど強くする（ここでは足さない）
 - 装甲の減り: 装甲が `HURT_TUNE.armorDarkFrom`（0.5 = 50%）を下回ると、画面の縁を暗くし、`backdrop-filter` の `saturate()` で色を抜く。強さは減るほど強く、装甲 0 で `armorDarkMax`・`armorDrain`。暗くする層と色を抜く層は分け、色を抜く層の `opacity` は 1 のままにする（同じ層に置くと暗さの `opacity` が抜けも弱めるため）。色を抜くのは縁だけで、画面の真ん中は残す。出撃を作り直す（やり直し）と戻る
+
+### 浜の空気感
+
+上陸の戦場の空気（SB-1440）。煙と砂ぼこりと炎で視界が濁り、光が鈍い画面にする。見た目だけで、当たり・体力・動き・台本は変えない。定義場所は `ATMOSPHERE_TUNE`・`ATMOSPHERE_PLUMES`・`ATMOSPHERE_FIRES`・`ATMOSPHERE_LIGHT` in `src/data/atmosphere.ts`（表）、`buildAtmosphere`・`drawAtmosphere`・`applyAtmosphereLight`・`applyAtmosphereScreen`・`burnAtmosphere`・`removeAtmosphere`・`gradeFilterCss` in `src/view/atmosphere.ts`（描く）、`softDiscTexture` in `src/view/puff.ts`（ぼけた丸い質感の1枚の絵）、色は `PLUME_SMOKE_COLOR`・`PLUME_FADE_COLOR`・`HAZE_COLOR`・`FIRE_CORE_COLOR`・`FIRE_FLAME_COLOR`・`FIRE_GLOW_COLOR`・`LIGHT_SKY_COLOR`・`LIGHT_GROUND_COLOR`・`LIGHT_SUN_COLOR` in `src/data/colors.ts`。`buildWorld` がマップを作るときに `buildAtmosphere(map)` を呼び、出撃・`#view-map`・`#view-fx` などの同じマップが同じ空気を持つ（`#view-fx` のステージ 0 は効果なしの基準なので、空気も建てない）。出撃の残骸の煙は空気の柱に一本化し、戦闘側の `wreckSmoke` は `PLAY_BATTLE_TUNE` で 0 にしている。値はすべて仮で、`#view-map` の調整パネル（`ATMOSPHERE_TUNE` の行）でその場で決める。
+
+- 煙の柱: `ATMOSPHERE_PLUMES` の置き場所（地図の残骸と砲撃の跡。上部 `columns` 本を使う。8〜12本が目安）から、`columnEvery` 秒ごとに1粒ずつ上がる。粒は `rise` で上り、`windX`・`windZ` の一方向の風で流れ、上へ行くほど `plumeGrow` で大きくなりながら `PLUME_FADE_COLOR` へ薄れる。粒は上限 `plumeCap` で、空いている枠を先に使い、枠が全部埋まっているときは新しい粒を捨てる（生きている粒は上書きしない）。粒は寿命の最後の 2 割（`PLUME_FADE_FROM`）で大きさを縮めて消える（`plumeFade`）
+- 低いかすみ: 地面から高さ 0〜3m のあいだに、大きな半透明の板を `hazeSheets` 枚、カメラの方を向けて置く（`hazeWidth`・`hazeHeight`・`hazeY`）。`hazeDrift` でゆっくり流れ、地図の端で折り返す。今の距離の霧（`MAP_FOG`）と重なって奥行きを出す
+- 燃える残骸: `ATMOSPHERE_FIRES` の数だけ残骸が燃える。炎は `flameEvery` 秒ごとに `flameCap` の枠へ上がり、`flameFlicker` で揺れ、明るい中心 `FIRE_CORE_COLOR` から橙 `FIRE_FLAME_COLOR` へ変わる（加算）。足元には点光源を足さず、加算の板（`glowSize`・`glowOpacity`）で周りを照らす。出撃中に壊れた物（`propDestroyed`・`destroyed`）は `burnAtmosphere` で自分の炎を持ち、その煙は `burnSmokeEvery` ごとに1粒上がる（上限 `burnFires`）
+- 光: マップを作るとき、`applyAtmosphereLight` がシーンの半球光と向きのある光をその場で書き換える（ライトは増やさない）。半球光は曇り空の `LIGHT_SKY_COLOR` と地面の `LIGHT_GROUND_COLOR`、強さ `ATMOSPHERE_LIGHT.hemi`。低い日の光は `LIGHT_SUN_COLOR`、強さ `ATMOSPHERE_LIGHT.sun`、向きは `BASE_LIGHTS.sunAt`（`src/data/looks.ts`）。物の面ごとに明暗が付く。影（shadow map）は今回入れず、描く回数と時間の測定も並列作業のため未実施
+- 画面: canvas に CSS の `filter`（`grade`。彩度を少し落とし、コントラストを上げ、少し暖色へ）、画面の端を暗くするビネット（`vignette`）、`GRAIN_TILE` のノイズ画像を重ねて毎フレーム位置をずらす粒状感（`grain`。`transform` で動かす）。0 でその層を消す。canvas の `filter` は `view/look.ts` が look の項の後ろに `gradeFilterCss()` を足す。ビネットは `#sbAtmosphere`、粒状感は `body` 直下の `#sbAtmosphereGrain`（どちらも `z-index: 4`。canvas の上、HUD の下）に置く（粒状感の `overlay` を canvas と混ぜるため、ビネットの親の中には入れない）。`grade` は空気を建てたあいだだけ掛け、`removeAtmosphere` で look の `filter` だけに戻す。空気はポーズ中（`paused`）は動かない（`modes: ['play', 'title', 'result']`）
+- 爆発の形: `view/boom.ts` の火球と煙も、`view/puff.ts` の同じ丸い板（カメラを向くビルボード）に替えた。火球は加算で明るい中心と橙のふち、煙は中心が濃く外が透明。数・寿命・色の表（`BOOM_DEFS`・`BOOM_CAP`・`BOOM_LOOK`）は変えない
+- 描く回数: 空気で増える描く回数は、煙・炎・照り返し・かすみの4つ（それぞれ1つの `InstancedMesh`）。粒の数は表の上限で決まる
+- 確認用の入口 `#view-map`: 調整パネルに `ATMOSPHERE_TUNE` の行（柱の本数・風・煙の寿命と濃さ・かすみの枚数と濃さ・燃える残骸の数・照り返し・画面の色・ビネット・粒状感）を出す。シーンの値は毎フレーム読み直し、画面の層と光は変更時（`onChange`）に `applyAtmosphere` で入れ直す
 
 ### ブリーフィング
 
@@ -172,8 +185,8 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 出撃を止めて、あとで続けられる（中断）か、やめる（放棄）ための仕組み。画面は `src/app/pause.ts`、中断と放棄の中身は `suspendSortie`・`abandonSortie`・`returnToTitle` in `src/app/play.ts`、保存は 5章。
 
-- 止める: 出撃中（`play`）に P か Esc（`PAUSE_KEYS` in `src/data/keys.ts`）、または左上の「一時停止」（`#sbPauseBtn`。HUD の目標の上、右上の全画面のボタンと重ならない）で `paused` になる。ポインターロックは外す（Esc でロックが外れたときも一時停止）。`paused` の間は `sb-play` のシステムが走らず、`step` も時計も進まない
-- カットシーンの間の Esc は飛ばしが先で、止めない（P は止める）。止めている間に来た押し込みとメニューのクリック（`data-noskip` の要素）は飛ばしの要求に数えず、再開のときに溜まった要求も捨てる
+- 止める: 出撃中（`play`）に P か Esc（`PAUSE_KEYS` in `src/data/keys.ts`）、または左上の「一時停止」（`#sbPauseBtn`。HUD の目標の上、右上の全画面のボタンと重ならない）で `paused` になる。ポインターロックは外す（Esc でロックが外れたときも一時停止。カットシーンの間は次の箇条のとおり飛ばし）。`paused` の間は `sb-play` のシステムが走らず、`step` も時計も進まない
+- カットシーンの間の Esc は飛ばしが先で、止めない（P は止める）。ポインターロック中の Esc はブラウザがロックを外して keydown を渡さないので、ロックが外れたことを飛ばしの要求にする（`requestSkip` in `src/app/skip.ts`、`initPause` in `src/app/pause.ts`）。止めている間に来た押し込みとメニューのクリック（`data-noskip` の要素）は飛ばしの要求に数えず、再開のときに溜まった要求も、止めている間に押したジャンプも捨てる（`clearPendingJump` in `src/app/keyboard.ts`）
 - メニュー（`#sbPause`。タッチの層より手前）: 「再開」「中断」「放棄」。再開は `play` に戻り（ボタンのときは PC でポインターロックを取り直す）、P か Esc でも戻る
 - 中断: 今の `GameModel` を `SUSPEND_KEY` に書き（5章）、タイトルへ戻って「続きから」（`#sbContinue`）を出す
 - 放棄: 押すと確認に変わる（「放棄する（報酬なし）」`#sbAbandonYes` と「やめる」`#sbAbandonNo`。確認の間の Esc は確認を閉じる）。確定すると中断（あれば）も消してタイトルへ戻る。報酬もセーブも書かない
@@ -470,7 +483,7 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 | `smokeLife` | 5.5 | s。砲撃の煙が残る時間 |
 | `smokeCubes` | 10 | 個。1発で出る煙の塊の数 |
 | `smokeMax` | 270 | 個。同時に出せる煙の塊の上限 |
-| `wreckSmoke` | 3 | 本。マップの残骸から立ち続ける煙の柱の数 |
+| `wreckSmoke` | 3 | 本。マップの残骸から立ち続ける煙の柱の数（出撃の `PLAY_BATTLE_TUNE` は 0。残骸の柱は 1440 の空気が立てる） |
 | `smokeColor` | 0xb0aaa0 | 出たばかりの煙の色 |
 | `smokeDark` | 0x3f3d3a | 消える直前の煙の色 |
 | `craters` | 90 | 個。最初からマップに散らす砲弾穴の数（0 で無し） |
@@ -803,7 +816,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - `#view-touch`: 同じ平らな地面で、タッチで機体を動かす入口。左 45% のスティックが移動、残りのドラッグが視点、`#btnFire`（メイン）が撃つ、`#btnFire2`（サブ）が押した回数だけ、`#btnJump`（ジャンプ）が押した瞬間に跳び、空中で押し続けると滞空、`#btnBoost`（ブースト）が押している間ブースト、`#btnLock`（ロック）が LOCK の表示を切り替える。ボタンの最初の配置は `src/data/touch.ts` の `TOUCH_DEFAULTS` のとおりで、右手側に寄せ、メインを少し大きくする。画面の上の「配置」で engine の配置の編集画面を開き、指で動かした座標と大きさを保存する。画面の左上に速さ・ゲージ・LOCK・押した回数・同時に触れた指の最大・「スティック＋視点＋メイン」と「スティック＋視点＋ブースト」が同時に効いた秒を出す。視点は `INPUT.look` が呼ばれた時刻から `LOOK_RECENT`（0.25 秒）以内なら使っていると数え、メインのボタンを押したままのドラッグも含める。画面の上の「結果」で、`window.sbTouchReport()` と同じ JSON（測った数字、ボタンの配置 `x`・`y`・`s`・`b`、画面の大きさと `devicePixelRatio`、`userAgent`）を出す
 - `#view-play`: `#view-touch` と同じ画面を、PC ではキーボードとマウス、スマホではタッチで動かす入口。キーボードは W/S が前後、A/D が左右、マウスの移動と矢印キーが視点、Space がジャンプ（押した瞬間に跳び、空中で押し続けると滞空）、Shift がブースト、J かマウスの左ボタンがメイン（機関砲）、K かマウスの右ボタンがサブ（砲）、E がロック、Esc がロック解除。スマホではタッチのメインのボタンで機関砲、サブのボタンで砲を撃つ。PC では画面の下の真ん中に操作の一覧を出し、ポインタロック中は消す。`MOVE_TUNE`・`FEEL_TUNE` の項目と `?feel=0` は `#view-move` と同じく URL で上書きできる（`#view-touch` も同じ）
 - `#view-fcs`: 平らな地面で、8体の動く的（止まる2・左右に往復2・円を回る2・近づいて離れる2）へ撃ち、FCS の3つの型を比べる入口。`?fcs=manual|soft|hard` で型を選び（既定はゲームで使う `soft`。表に無い値は既定にして画面に「無効な値」と出す）、`FCS_TUNE` の各項目を同じ名前で上書きできる（例 `?fcs=soft&cone=10&pull=30`）。`MOVE_TUNE`・`FEEL_TUNE` の項目と `?feel=0` も `#view-move` と同じく効く。`?move=still` で的を全部止める。画面の上の真ん中のボタンで型を切り替える（`?fcs=` を変えて読み直す）。照準は画面の真ん中の点と、`cone` が 0 より大きい型ではカメラの画角から出した円、円の中の的の角の印、`hard` の候補の進み具合の弧、捕まえた的の四角で出す。画面の左上に撃った数・当てた数・当たる率・倒した数・倒すまでの時間の平均・捕まえるまでの時間の平均を出し、`window.sbFcsReport()` が同じ数字を JSON の文字列で返す。測る数字は型ごとで、切り替えると 0 から
-- `#view-script`: M1「強襲上陸」の台本をボタンで動かす入口。3D は描かず、屋外の画面に DOM を重ねる。左に今の目標・地図の印・カットシーンと残りの秒・旗・結果、下の真ん中に無線の帯（1行を最低 `RADIO_TUNE.minSec` ずつ順に出す）、右に出来事を入れるボタン（`enter b-line`・`enter seawall-top`・各物の `destroyed`・`skip`）と時間の速さ（×1・×4）、右下に cue が発火した時刻と出来事のログを出す。毎フレーム `stepScript` を回し、`window.sbScriptReport()` が `fired`（cue → 時刻）と出来事の列を JSON の文字列で返す
+- `#view-script`: M1「強襲上陸」の台本をボタンで動かす入口。3D は描かず、屋外の画面に DOM を重ねる。左に今の目標・地図の印・カットシーンと残りの秒・旗・結果、下の真ん中に無線の帯（1行を最低 `RADIO_TUNE.minSec` ずつ順に出す。カットシーンの間は止める）、右に出来事を入れるボタン（`enter b-line`・`enter seawall-top`・各物の `destroyed`・`skip`）と時間の速さ（×1・×4）、右下に cue が発火した時刻と出来事のログを出す。毎フレーム `stepScript` を回し、`window.sbScriptReport()` が `fired`（cue → 時刻）と出来事の列を JSON の文字列で返す
 - `#view-hud`: HUD の配置の見本を4案（A 四隅に散らす・B 下にまとめる・C 照準のまわりに寄せる・D A の配置に照準のまわりの細い計器を足す）で切り替えて見る入口。`#view-map` の浜のマップ（`buildMapScene`）を固定カメラで描き、機体の模型を置く。ゲームの状態にはつながず、見本の値（`src/dev/hud/plans.ts` の `HUD_SAMPLE`）で描く。`?plan=a|b|c|d`（既定 a）、`?cut=1`（カットシーンの帯）、`?touch=1`（タッチのボタンの輪）、数字キー 1〜4 で案を切り替える。ロック枠は `lockFrame` で描き、見本の四角（`LOCK_SAMPLE`）に出す。`window.sbHudReport()` が各要素の矩形を JSON の文字列で返す。弧・レーダー・点と円の描き方は `src/view/hudParts.ts` から読む（見本の値と動きは変えない）。要素の値の多く（装甲・熱・弾数・武器の枠（メインとサブの2つ）・レーダー）と、カットシーン中の表示（無線以外を隠す）は仮であること。見本には熱の欄が残る（本体は熱を持たない）。右上の調整パネルで `RADIO_TUNE` の `minSec` と `maxPending` を変えられ、「無線を2行流す」で1行ずつ順に出る様子を見られる
 - `#view-mech`: 機体の見た目の案を5つ（A 重装ずんぐり・E 中量（A を細く）・F 中量・脚長・B 逆関節の軽め・D 四脚の戦車寄り）で切り替えて見る入口。`#view-hud` と同じ浜のマップに機体を置き、ゲームの状態にはつながない。`?pattern=a|e|f|b|d`（既定 a）、`?spin=0`（回転を止める）、`?view=behind`（ゲームの三人称カメラの構図で止める）。数字キー 1〜5 と上のボタンで案を切り替え、`回転`・`後ろから` のボタンで視点を替える。`window.sbMechReport()` が案・回転・視点と、機体の描く回数・三角形・箱の数・重さの合計と、画面全体の直近の描く回数・三角形を JSON の文字列で返す。`歩く`・`ブースト`・`跳ぶ`・`撃つ` のボタン（キー W・B・J・F）で機体の動きを見られる（`歩く`・`ブースト`・`撃つ` は押すたびに入り切り、`跳ぶ` は1回跳ぶ。速さと跳びは案の脚の種類の値で、案 B は逆関節、案 D は四脚の動きになる）。`window.sbMechReport()` の JSON には、動きの入り切り `acts` も入る。右上の調整パネルは `MECH_PAINT`（色ごとの汚れ・粒・傷の数）と `MECH_PAINT_TEX`（番号の大きさ・縞の間隔）を書き換え、その場で機体を描き直す（SB-1460）。部品の寸法・色・重さはどれも仮であること
 - `#view-map`: M1 の手書きのマップ（浜・B トーチカ線・C・防波堤・ボスの場所）を歩く入口。`?src=hand|gen|edit` で手書き（`m1b-hand.ts`）・生成（`m1b-rules.ts`）・エディタが `localStorage` に保存したマップを選び（既定 `hand`、無いときは「保存されたマップが無い」）、`?seed=<n>` を生成の種にする。地面のタイルと物を `buildOutdoor`、目標を `buildTargets`、海と揚陸艇を `buildShore`、台本の場所を薄い枠、波の出る場所を小さな輪で描く。描き方は `src/view/world.ts` の `buildWorld` を使う。機体は `#view-play` と同じ入力で歩き、始まりは範囲の手前の真ん中。機体は物（`blocks` が真の物）と目標に入らず、斜めに当たると壁に沿って滑る（9章）。左上に種類ごとの物の数・目標の数・違反の一覧・描く回数と三角形の数を出し、`window.sbMapReport()` が同じ数字と機体の位置を JSON の文字列で返す。右上の調整パネルで `MOVE_TUNE`（歩く速さ・ジャンプ・重力・ブースト）・`CAMERA_TUNE`（距離・高さ・壁で寄るときの速さと戻り・最短の距離・上げ・`closeLook`・`closePitch`・`fastTurn`）・`FEEL_TUNE`（画角・揺れ・ヒットストップ・砂煙・連射）を歩きながら変えられる（保存しない。`?walk=` などの URL の値の上に載る）。射撃の値（`FCS_TUNE.soft`）は `#view-fcs` で URL から変える
@@ -933,7 +946,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 
 ### カットシーンの演出
 
-台本の `cutscene` の間、カメラの通り道・文・見た目の出来事・戦場の時計を止めるか（`holdsBattle`。`landing` だけが持つ）を表で持ち、上下に黒い帯を出して流す。定義場所は `CUTSCENES` in src/data/cutscenes.ts（表）、`cutscenePose`・`keyPose`・`cutsceneLine`・`cutsceneEvents`・`riderFall`・`hasCutscene` in src/logic/cutscene.ts（時刻から引く純粋な関数）、`buildCutsceneView`・`drawCutscene` in src/view/cutscene.ts（帯・カメラ・艇・着弾・砲台の崩れ・同乗者）、`buildRiders`・`drawRiders` in src/view/riders.ts（甲板の同乗者）、`LANDING_RIDERS` in src/data/landing.ts、`SOLDIER_POSE` in src/data/soldiers.ts（浜の歩兵と共通の姿）、`armSkip`・`takeSkip` in src/app/skip.ts（飛ばす）。
+台本の `cutscene` の間、カメラの通り道・文・見た目の出来事・戦場の時計を止めるか（`holdsBattle`。`landing` だけが持つ）を表で持ち、上下に黒い帯を出して流す。定義場所は `CUTSCENES` in src/data/cutscenes.ts（表）、`cutscenePose`・`keyPose`・`cutsceneLine`・`cutsceneEvents`・`cutsceneElapsed`・`riderFall`・`hasCutscene` in src/logic/cutscene.ts（時刻から引く純粋な関数）、`buildCutsceneView`・`drawCutscene` in src/view/cutscene.ts（帯・カメラ・艇・着弾・砲台の崩れ・同乗者）、`buildRiders`・`drawRiders` in src/view/riders.ts（甲板の同乗者）、`LANDING_RIDERS` in src/data/landing.ts、`SOLDIER_POSE` in src/data/soldiers.ts（浜の歩兵と共通の姿）、`armSkip`・`takeSkip`・`requestSkip` in src/app/skip.ts（飛ばす）。
 
 - 表（`CutsceneDef`）: カットシーンの id ごとに、時刻は流し始めからの秒で持つ
   - `camera`: キーフレームの列 `{ at, pos, look, rel? }`（時刻・カメラの位置・見る点。マップの座標）。最初のキーより前は最初の姿勢、最後のキーより後は最後の姿勢
@@ -958,7 +971,8 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - 砲撃: カットシーンの間は、砲撃（`game.barrages`）が数えず、着弾予告を出さない。もう予告した弾は落ちる。機体が艇の上（`mech.z` が `map.bounds.maxZ` より大きい）間も同じく数えず、ランプを降りた所から数え始める（機体が動けない間や艇の上にいる間に被弾しないため。`stepHazards` in `src/logic/game.ts`）
 - 被弾: カットシーンの間は、機体の装甲が減らない（弾は機体で止まる）。機体が動けない間に倒されないため（`damageMech` in `src/logic/game.ts`）
 - 機体: 表に `mech`（機体の道）があるカットシーン（`landing`）の間は、模型を道に沿って描く。`landing` の道は甲板の1点（x 0・y 1.8・z 177、`newGame` の機体と同じ所）だけで、機体は甲板に立ったままランプが下りるのを見る。歩かないので脚も振らない（`cutsceneMech` in `src/logic/cutscene.ts` が位置と地面の上の速さを返し、`drawMechWalk` in `src/view/mechDrive.ts` が `mechMotion` の歩きにその速さを渡す）。見た目だけの動きで、ゲームの機体（`game.mech`）は始まりの位置のまま動かさない。飛ばし・チェックポイント・中断で整合を取る必要がなく、飛ばすと次のコマから模型はゲームの機体（始まりの位置）に戻る。機体の道が無いカットシーン（`wave2-sinks`・`beach-held`）の間は、模型を描かない（`drawPlay` in `src/view/play.ts`）
-- 飛ばし方: クリック・タップ（`pointerdown`）・Enter・Space・Esc のどれでも飛ばせる。出撃の開始より前の押し込み（出撃を始めたクリックや Enter）と、押しっぱなしの繰り返し（`repeat`）は数えない。`update` が `step` の後に取り、`game.script.cutscene` があれば台本に `skip` を渡す（`cutsceneEnd` が出て、次のコマから本体のカメラと HUD）。飛ばしても台本の状態は、最後まで見たときと同じ（台本の時計だけ、見た秒の分だけ小さい）
+- 飛ばし方: クリック・タップ（`pointerdown`）・Enter・Space・Esc のどれでも飛ばせる。出撃の開始より前の押し込み（出撃を始めたクリックや Enter）と、押しっぱなしの繰り返し（`repeat`）は数えない。始まって `CUTSCENE_SKIP_GUARD_SEC`（0.4 秒）の間は飛ばさず、その間の押し込みは捨てる（同じフレームのジャンプ・射撃・Enter が始めたカットシーンを1コマで飛ばさないため。`CUTSCENE_SKIP_GUARD_SEC` in `src/data/script.ts`、`update` in `src/app/play.ts`）。ポインターロック中の Esc は `requestSkip` が同じ要求にする（`src/app/pause.ts`）。`update` が `step` の後に要求を取り、`game.script.cutscene` があれば台本に `skip` を渡す（`cutsceneEnd` が出て、次のコマから本体のカメラと HUD）。飛ばしても台本の状態は、最後まで見たときと同じ（台本の時計だけ、見た秒の分だけ小さい）
+- 中断から戻ったとき: カットシーンの途中なら、`CutsceneView` をその秒から始めるので、過ぎた見た目の出来事は出し直さない（`buildPlayView` in `src/view/play.ts`、`elapsed` in `buildCutsceneView` in `src/view/cutscene.ts`）。始まったばかりのカットシーンは -1 から始め、0 秒の出来事を1回出す（`cutsceneElapsed` in `src/logic/cutscene.ts`）
 - 表に無いカットシーン: 表の無い id は流さず、`update` が `step` の直後に台本へ `skip` を渡すので、描かれる前に終わる。台本の出来事（`cutscene` と `cutsceneEnd`）は出る
 - やり直し: 最初からのやり直し（`restartGame`）は台本が最初に戻るので、また流れる。チェックポイントからのやり直しは、`intro` が済んだ状態に戻るので流れない
 - 文言: `cutscene.landing.wave`・`cutscene.landing.hit`・`cutscene.landing.shell`・`cutscene.landing.ramp`・`cutscene.landing.sweep`・`cutscene.wave2.hit`・`cutscene.wave2.none`・`cutscene.held.silent`・`cutscene.held.landing`（ja・en）

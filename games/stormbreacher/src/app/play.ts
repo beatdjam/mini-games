@@ -4,13 +4,15 @@ import { addSystem, el, isTouch, lang, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
-import { hasCutscene } from '../logic/cutscene.ts';
+import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
+import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
 import { newGame, restartGame, retryFromCheckpoint, sendToScript, step, type GameModel } from '../logic/game.ts';
 import { recordClear } from '../logic/save.ts';
 import { GROUND_NAME, SIZE_BOX_NAME, placeCamera } from '../view/field.ts';
 import { removeAllyView } from '../view/allies.ts';
 import { removeBooms } from '../view/boom.ts';
+import { removeAtmosphere } from '../view/atmosphere.ts';
 import { removeBlastView } from '../view/blasts.ts';
 import { removeCutsceneView } from '../view/cutscene.ts';
 import { removeEnemyView } from '../view/enemies.ts';
@@ -67,6 +69,7 @@ function clearPlay(old: PlayView): void {
   removeHud(old.hud);
   removeCutsceneView(old.cutscene);
   removeBooms();
+  removeAtmosphere();
 }
 
 // The sortie's time as minutes and seconds ("3:07").
@@ -219,10 +222,15 @@ function update(dt: number): void {
   // The aim is the middle of the screen the last frame drew; drawPlay adds this frame's pitch change and camera after.
   const aim = view.aim;
   step(game, { ...read.input, sub: read.sub, use: read.use, aim }, dt);
-  // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn.
+  // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn. A
+  // cutscene that step has just started takes no skip for CUTSCENE_SKIP_GUARD_SEC: the jump, shot or Enter of this frame
+  // started it. takeSkip runs every frame, so a press inside the guard is thrown away rather than saved up.
   const skip = takeSkip();
   const cutscene = game.script.cutscene;
-  if (cutscene !== null && (skip || !hasCutscene(cutscene.id))) sendToScript(game, { kind: 'skip' });
+  if (cutscene !== null) {
+    const elapsed = cutsceneElapsed(cutscene);
+    if (!hasCutscene(cutscene.id) || (skip && elapsed >= CUTSCENE_SKIP_GUARD_SEC)) sendToScript(game, { kind: 'skip' });
+  }
   hideTouchInCutscene(game.script.cutscene !== null);
   // the cutscene's sounds play too: this line is not behind the cutscene branch
   soundFrame(game, dt);

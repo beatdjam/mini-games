@@ -4,9 +4,10 @@
 // shake from boomShakeAt; this file only draws.
 import * as THREE from 'three';
 import { createRng, type Rng } from '@engine/core/index.ts';
-import { disposeTree, scene } from '@engine/render/index.ts';
+import { camera, disposeTree, scene } from '@engine/render/index.ts';
 import { BOOM_CAP, BOOM_DEFS, BOOM_LOOK, BOOM_SEED, type BoomKind } from '../data/boom.ts';
 import type { MapBounds } from '../data/types.ts';
+import { softDiscTexture } from './puff.ts';
 import { SEA_LEVEL } from './shore.ts';
 
 const SMOKE_EMIT = 1.6; // how long a blast keeps adding to its smoke column (s); a puff waits its turn
@@ -152,25 +153,36 @@ function ensurePools(): BoomPools {
   }
   const group = new THREE.Group();
   group.name = 'sbBooms';
-  // the flash is see-through so its own colour reads; the smoke does not write depth either. The flash keeps the table's
-  // colour (toneMapped: false): under ACES and the beach's exposure the fireball came out dark and dull, while the sky and
-  // the fog are drawn with their own colours and the flash is the one thing meant to burn through them.
+  // The flash and the smoke are camera-facing plates with one soft round patch (view/puff.ts): a dense middle that
+  // fades out at the edge, so neither reads as a box. The flash adds its light to what is behind it and keeps the
+  // table's colour (toneMapped: false): under ACES and the beach's exposure a lit fireball came out dark and dull.
+  const disc = softDiscTexture();
   const fire = poolMesh(
     'fire',
-    new THREE.SphereGeometry(1, 12, 8),
+    new THREE.PlaneGeometry(1, 1),
     new THREE.MeshBasicMaterial({
+      ...(disc ? { map: disc } : {}),
       color: 0xffffff,
       transparent: true,
       opacity: FIRE_OPACITY,
       depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
       toneMapped: false,
     }),
     BOOM_CAP.fire,
   );
   const smoke = poolMesh(
     'smoke',
-    new THREE.BoxGeometry(1, 1, 1),
-    new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: SMOKE_OPACITY, depthWrite: false }),
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({
+      ...(disc ? { map: disc } : {}),
+      color: 0xffffff,
+      transparent: true,
+      opacity: SMOKE_OPACITY,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
     BOOM_CAP.smoke,
   );
   const debris = poolMesh(
@@ -400,7 +412,7 @@ function drawFire(mesh: THREE.InstancedMesh, dt: number): number {
     const fade =
       u < BOOM_LOOK.fireFadeFrom ? 1 : Math.max(0, 1 - (u - BOOM_LOOK.fireFadeFrom) / (1 - BOOM_LOOK.fireFadeFrom));
     dummy.position.set(slot.x, slot.y, slot.z);
-    dummy.rotation.set(0, 0, 0);
+    dummy.quaternion.copy(camera.quaternion);
     dummy.scale.setScalar(Math.max(0.001, slot.radius * grow * fade));
     dummy.updateMatrix();
     mesh.setMatrixAt(n, dummy.matrix);
@@ -424,7 +436,7 @@ function drawSmoke(mesh: THREE.InstancedMesh, dt: number): number {
     slot.y += slot.rise * dt;
     const k = local / slot.life;
     dummy.position.set(slot.x, slot.y, slot.z);
-    dummy.rotation.set(0, 0, 0);
+    dummy.quaternion.copy(camera.quaternion);
     dummy.scale.setScalar(slot.size * (1 + slot.grow * k));
     dummy.updateMatrix();
     mesh.setMatrixAt(n, dummy.matrix);

@@ -172,7 +172,8 @@ export function showScript(_hash: string) {
       const out = stepScript(state, M1, dt * speed);
       noteFired();
       noteOut(out);
-      stepRadio(dt);
+      // a cutscene hides the radio band in the sortie, so the band stops here too (logic/game.ts does the same)
+      if (state.cutscene === null) stepRadio(dt);
       render();
     },
   });

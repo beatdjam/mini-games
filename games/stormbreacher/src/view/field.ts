@@ -3,7 +3,7 @@
 // own here.
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
-import { SAND_COLOR, SKY_COLOR } from '../data/colors.ts';
+import { LIGHT_SUN_COLOR, SAND_COLOR, SKY_COLOR } from '../data/colors.ts';
 import { BASE_LIGHTS } from '../data/looks.ts';
 import { FIELD_TUNE, MECH_TUNE } from '../data/tune.ts';
 import { setSky } from './sky.ts';
@@ -37,7 +37,7 @@ export function buildField() {
     if (child instanceof THREE.Light) scene.remove(child);
   }
   scene.add(new THREE.HemisphereLight(BASE_LIGHTS.sky, BASE_LIGHTS.ground, BASE_LIGHTS.hemi));
-  const sun = new THREE.DirectionalLight('white', BASE_LIGHTS.sun);
+  const sun = new THREE.DirectionalLight(LIGHT_SUN_COLOR, BASE_LIGHTS.sun);
   sun.position.set(...BASE_LIGHTS.sunAt);
   scene.add(sun);
 

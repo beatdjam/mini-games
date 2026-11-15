@@ -216,6 +216,12 @@ export function initTouch(options: { show?: boolean } = {}) {
   };
 }
 
+// Throws away the jump and the use pressed before the pause menu was up (see clearPendingJump in keyboard.ts).
+export function clearPendingTouch(): void {
+  jumpPressed = false;
+  useHeld = false;
+}
+
 // This frame's input. The view motion is read and cleared, and a jump is true for one read only.
 export function readTouch(): TouchRead {
   sampleCombos(performance.now());
