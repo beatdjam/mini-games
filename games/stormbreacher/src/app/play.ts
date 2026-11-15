@@ -27,6 +27,7 @@ import { initPlayInput, readInput } from './input.ts';
 import { hidePause, initPause, showPauseButton } from './pause.ts';
 import { setState } from './screen.ts';
 import { armSkip, takeSkip } from './skip.ts';
+import { releaseTouch } from './touch.ts';
 
 let game: GameModel | null = null; // the sortie in play; null before the first one
 let view: PlayView | null = null;
@@ -90,6 +91,7 @@ function beginPlay(next: GameModel): void {
   initPlayInput();
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
   el('#touch').hidden = !isTouch;
+  touchCovered = false;
   hidePause();
   showPauseButton(true);
   armSkip();
@@ -192,6 +194,25 @@ export function continueSortie(): void {
   beginPlay(resumed);
 }
 
+// Whether the cutscene has hidden the touch layer (so the layer is put back only once, as the cutscene ends).
+let touchCovered = false;
+
+// The touch layer (stick and buttons) is hidden while a cutscene plays, as the HUD is, and comes back when it ends. It
+// was shown only where the sortie showed it (a touch device), and a PC has it hidden all along, so a PC is not touched
+// here. Hiding lets go of what the fingers held, so nothing walks or shoots on return. A tap still skips: the skip
+// listens on the window, not on #touch.
+function hideTouchInCutscene(inCutscene: boolean): void {
+  const touch = el('#touch');
+  if (inCutscene && !touchCovered && !touch.hidden) {
+    touchCovered = true;
+    touch.hidden = true;
+    releaseTouch();
+  } else if (!inCutscene && touchCovered) {
+    touchCovered = false;
+    touch.hidden = false;
+  }
+}
+
 function update(dt: number): void {
   if (!game || !view) return;
   const read = readInput(dt);
@@ -202,6 +223,7 @@ function update(dt: number): void {
   const skip = takeSkip();
   const cutscene = game.script.cutscene;
   if (cutscene !== null && (skip || !hasCutscene(cutscene.id))) sendToScript(game, { kind: 'skip' });
+  hideTouchInCutscene(game.script.cutscene !== null);
   // the cutscene's sounds play too: this line is not behind the cutscene branch
   soundFrame(game, dt);
   drawPlay(view, game, dt, read.pitchDelta);
