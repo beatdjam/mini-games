@@ -84,11 +84,14 @@ export const SOUND_LAYERS: Record<SoundName, readonly SoundLayer[]> = {
     { kind: 'tone', type: 'sine', f0: 110, f1: 45, dur: 0.08, vol: 0.18 },
     { kind: 'noise', type: 'lowpass', f0: 900, f1: 180, dur: 0.18, vol: 0.12, at: 0.01 },
   ],
+  // A round on the armour: a crack, the ring of the plate (narrow noise at the metal's own band, not a pitch), and the
+  // thump of the hit. The ring is two bands so the plate answers with more than one note.
   impactArmor: [
-    { kind: 'noise', type: 'highpass', f0: 4800, f1: 2400, dur: 0.025, vol: 0.28 },
-    { kind: 'noise', type: 'bandpass', f0: 2400, f1: 900, dur: 0.06, vol: 0.32, q: 2.5 },
-    { kind: 'tone', type: 'square', f0: 760, f1: 280, dur: 0.1, vol: 0.09 },
-    { kind: 'tone', type: 'sine', f0: 150, f1: 50, dur: 0.09, vol: 0.25 },
+    { kind: 'noise', type: 'highpass', f0: 5200, f1: 3200, dur: 0.022, vol: 0.3 },
+    { kind: 'noise', type: 'bandpass', f0: 2600, f1: 2300, dur: 0.13, vol: 0.3, q: 7 },
+    { kind: 'noise', type: 'bandpass', f0: 3900, f1: 3500, dur: 0.08, vol: 0.14, q: 9 },
+    { kind: 'tone', type: 'sine', f0: 140, f1: 55, dur: 0.1, vol: 0.22 },
+    { kind: 'tone', type: 'triangle', f0: 1180, f1: 880, dur: 0.14, vol: 0.04 },
   ],
   explosionSmall: [
     { kind: 'tone', type: 'sine', f0: 100, f1: 30, dur: 0.4, vol: 0.5 },
@@ -104,9 +107,12 @@ export const SOUND_LAYERS: Record<SoundName, readonly SoundLayer[]> = {
     { kind: 'noise', type: 'lowpass', f0: 800, f1: 120, dur: 0.9, vol: 0.09, at: 0.5 },
     { kind: 'noise', type: 'bandpass', f0: 600, f1: 180, dur: 0.8, vol: 0.06, q: 2, at: 0.9 },
   ],
+  // The incoming mortar: the air over the falling shell, a falling narrow band of noise with the wind around it. Only a
+  // breath of tone sits inside the band so the drop has a pitch without turning into an alarm.
   shellWarn: [
-    { kind: 'tone', type: 'sine', f0: 1150, f1: 280, dur: 1.5, vol: 0.15, att: 0.18 },
-    { kind: 'tone', type: 'triangle', f0: 1500, f1: 380, dur: 1.2, vol: 0.05, at: 0.1, att: 0.25 },
+    { kind: 'noise', type: 'bandpass', f0: 1700, f1: 360, dur: 1.5, vol: 0.85, q: 3.2 },
+    { kind: 'noise', type: 'lowpass', f0: 2600, f1: 280, dur: 1.6, vol: 0.2, at: 0.02 },
+    { kind: 'tone', type: 'sine', f0: 460, f1: 120, dur: 1.4, vol: 0.05, at: 0.05, att: 0.35 },
   ],
   shellLand: [
     { kind: 'tone', type: 'sine', f0: 62, f1: 18, dur: 1, vol: 0.8 },
@@ -122,29 +128,41 @@ export const SOUND_LAYERS: Record<SoundName, readonly SoundLayer[]> = {
     { kind: 'tone', type: 'sine', f0: 145, f1: 50, dur: 0.06, vol: 0.13 },
     { kind: 'noise', type: 'lowpass', f0: 1300, f1: 300, dur: 0.1, vol: 0.05, at: 0.01 },
   ],
+  // The mech taking a round: heavier and closer than impactArmor. A deep thump and a low body, one dull clank, and a saw
+  // that falls away under it as the frame groans.
   mechHit: [
-    { kind: 'noise', type: 'bandpass', f0: 2600, f1: 700, dur: 0.1, vol: 0.34, q: 3 },
-    { kind: 'noise', type: 'highpass', f0: 5000, f1: 2800, dur: 0.03, vol: 0.26 },
-    { kind: 'tone', type: 'square', f0: 620, f1: 190, dur: 0.16, vol: 0.11 },
-    { kind: 'tone', type: 'sine', f0: 130, f1: 42, dur: 0.18, vol: 0.3 },
+    { kind: 'tone', type: 'sine', f0: 88, f1: 30, dur: 0.24, vol: 0.42 },
+    { kind: 'noise', type: 'lowpass', f0: 1400, f1: 160, dur: 0.22, vol: 0.34 },
+    { kind: 'noise', type: 'bandpass', f0: 2100, f1: 1200, dur: 0.12, vol: 0.16, q: 3 },
+    { kind: 'tone', type: 'sawtooth', f0: 120, f1: 50, dur: 0.28, vol: 0.1, att: 0.02 },
   ],
+  // Work on the charge: a latch, then ticks that come faster as the hold goes on. The ticks are short filtered noise so
+  // the work reads as metal on metal, not as a countdown beep.
   charge: [
-    { kind: 'noise', type: 'highpass', f0: 5200, f1: 3000, dur: 0.03, vol: 0.3 },
-    { kind: 'tone', type: 'square', f0: 940, f1: 520, dur: 0.07, vol: 0.12 },
-    { kind: 'tone', type: 'sine', f0: 210, f1: 120, dur: 0.12, vol: 0.3 },
-    { kind: 'noise', type: 'bandpass', f0: 2100, f1: 900, dur: 0.09, vol: 0.14, q: 2.5, at: 0.02 },
+    { kind: 'noise', type: 'highpass', f0: 4200, f1: 2600, dur: 0.02, vol: 0.22 },
+    { kind: 'noise', type: 'bandpass', f0: 1900, f1: 900, dur: 0.06, vol: 0.3, q: 2 },
+    { kind: 'tone', type: 'triangle', f0: 300, f1: 140, dur: 0.09, vol: 0.22 },
+    { kind: 'noise', type: 'bandpass', f0: 3400, f1: 3200, dur: 0.02, vol: 0.35, q: 2, at: 0.12 },
+    { kind: 'noise', type: 'bandpass', f0: 3400, f1: 3200, dur: 0.02, vol: 0.35, q: 2, at: 0.2 },
+    { kind: 'noise', type: 'bandpass', f0: 3400, f1: 3200, dur: 0.02, vol: 0.35, q: 2, at: 0.26 },
+    { kind: 'noise', type: 'bandpass', f0: 3400, f1: 3200, dur: 0.02, vol: 0.35, q: 2, at: 0.3 },
   ],
+  // The radio opening: a band-limited burst of noise (the voice band) and a shorter squelch on top. There is no tone: the
+  // burst alone is the radio, so no beep can stand in for it.
   radio: [
-    { kind: 'noise', type: 'bandpass', f0: 1900, f1: 1200, dur: 0.1, vol: 0.14, q: 4 },
-    { kind: 'noise', type: 'highpass', f0: 3200, f1: 2000, dur: 0.035, vol: 0.18, at: 0.01 },
-    { kind: 'tone', type: 'square', f0: 1100, f1: 900, dur: 0.025, vol: 0.06, at: 0.12 },
-    { kind: 'noise', type: 'bandpass', f0: 1600, f1: 1300, dur: 0.03, vol: 0.05, q: 5, at: 0.14 },
+    { kind: 'noise', type: 'bandpass', f0: 2400, f1: 1400, dur: 0.09, vol: 0.55, q: 2.2 },
+    { kind: 'noise', type: 'bandpass', f0: 1200, f1: 700, dur: 0.16, vol: 0.3, q: 2.5, at: 0.02 },
+    { kind: 'noise', type: 'highpass', f0: 3800, f1: 2600, dur: 0.04, vol: 0.5, at: 0.01 },
   ],
+  // The mech going down: a deeper, longer blast than explosionLarge, debris over it, and the machine winding down on a
+  // saw that falls under the boom.
   downed: [
-    { kind: 'tone', type: 'sawtooth', f0: 260, f1: 40, dur: 1.1, vol: 0.24, att: 0.05 },
-    { kind: 'noise', type: 'lowpass', f0: 1000, f1: 70, dur: 1, vol: 0.3 },
-    { kind: 'tone', type: 'sine', f0: 75, f1: 24, dur: 0.9, vol: 0.45 },
-    { kind: 'noise', type: 'bandpass', f0: 700, f1: 150, dur: 0.7, vol: 0.08, q: 2, at: 0.3 },
+    { kind: 'tone', type: 'sine', f0: 62, f1: 16, dur: 1.4, vol: 0.72 },
+    { kind: 'noise', type: 'lowpass', f0: 1800, f1: 60, dur: 1.2, vol: 0.65 },
+    { kind: 'noise', type: 'highpass', f0: 3200, f1: 1200, dur: 0.08, vol: 0.45 },
+    { kind: 'noise', type: 'bandpass', f0: 1000, f1: 220, dur: 0.8, vol: 0.45, q: 1.8, at: 0.16 },
+    { kind: 'tone', type: 'sawtooth', f0: 170, f1: 24, dur: 1.3, vol: 0.14, att: 0.12 },
+    { kind: 'noise', type: 'lowpass', f0: 700, f1: 70, dur: 1.1, vol: 0.18, at: 0.35 },
   ],
   wave: [
     { kind: 'noise', type: 'lowpass', f0: 600, f1: 160, dur: 0.9, vol: 0.5 },
@@ -191,6 +209,18 @@ export const SOUND_DISTANCE = {
 
 // The effects bus level (0..1) and the music level. There is no music, so bgm stays 0.
 export const SOUND_VOLUME = { sfx: 0.75, bgm: 0 };
+
+// The level trim of the six rebuilt sounds (impactArmor, shellWarn, mechHit, charge, radio, downed), so they sit with
+// the shots, explosions and ambience instead of standing out. playSound multiplies every layer by it; a sound not listed
+// plays at 1. Downed stays a step above the other explosions, as its scene is the sortie's end.
+export const SOUND_TRIM: Partial<Record<SoundName, number>> = {
+  impactArmor: 1,
+  shellWarn: 0.9,
+  mechHit: 0.95,
+  charge: 0.9,
+  radio: 0.85,
+  downed: 1.1,
+};
 
 // The beach's ambience: a wave swell now and then, and a distant gun far off at an uneven interval. These draw from a
 // generator of their own with a fixed seed, never logic/rng.ts's stream, so neither the game's random sequence nor the

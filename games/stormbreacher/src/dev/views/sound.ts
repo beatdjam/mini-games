@@ -1,5 +1,5 @@
 import { audioInit, setVolumes } from '@engine/audio/index.ts';
-import { SOUND_NAMES, SOUND_DISTANCE, SOUND_VOLUME } from '../../data/sounds.ts';
+import { SOUND_NAMES, SOUND_DISTANCE, SOUND_TRIM, SOUND_VOLUME } from '../../data/sounds.ts';
 import { createTunePanel } from '../tunePanel.ts';
 import { playSound, soundMix } from '../../view/sound.ts';
 
@@ -50,6 +50,27 @@ export function showSound(): void {
           farPitch: { min: 0.1, max: 2, step: 0.01 },
         },
         labels: { near: '近い（m）', far: '遠い（m）', minGain: '遠くの音量', farPitch: '遠くの高さ' },
+      },
+      {
+        // the level trim of the six rebuilt sounds, so each can be balanced against the shots and the ambience
+        name: 'SOUND_TRIM',
+        table: SOUND_TRIM,
+        ranges: {
+          impactArmor: { min: 0, max: 2, step: 0.01 },
+          shellWarn: { min: 0, max: 2, step: 0.01 },
+          mechHit: { min: 0, max: 2, step: 0.01 },
+          charge: { min: 0, max: 2, step: 0.01 },
+          radio: { min: 0, max: 2, step: 0.01 },
+          downed: { min: 0, max: 2, step: 0.01 },
+        },
+        labels: {
+          impactArmor: '装甲の着弾',
+          shellWarn: '迫撃砲の予告',
+          mechHit: '自機の被弾',
+          charge: '爆薬の作業',
+          radio: '無線',
+          downed: '自機のやられ',
+        },
       },
       {
         name: 'SOUND_VOLUME',

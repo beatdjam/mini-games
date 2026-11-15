@@ -2,7 +2,14 @@
 // then plays them with the engine's synth. It only reads the game; the state in logic/ never knows a sound exists.
 import { audioNow, noiseBurst, sweepTone } from '@engine/audio/index.ts';
 import { createRng, type Rng } from '@engine/core/index.ts';
-import { SOUND_AMBIENT, SOUND_DISTANCE, SOUND_FRAME_LIMIT, SOUND_LAYERS, type SoundName } from '../data/sounds.ts';
+import {
+  SOUND_AMBIENT,
+  SOUND_DISTANCE,
+  SOUND_FRAME_LIMIT,
+  SOUND_LAYERS,
+  SOUND_TRIM,
+  type SoundName,
+} from '../data/sounds.ts';
 import { isHostileBullet, type Bullet, type GameEvent, type GameModel } from '../logic/game.ts';
 
 // A place on the ground the sound comes from.
@@ -131,17 +138,19 @@ export function planSounds(input: SoundInput): SoundCue[] {
   return cues;
 }
 
-// Plays one sound from the table, with the distance's gain on every layer's volume and its pitch on every frequency.
+// Plays one sound from the table, with the distance's gain and the sound's trim on every layer's volume and the
+// distance's pitch on every frequency.
 export function playSound(cue: SoundCue): void {
   const layers = SOUND_LAYERS[cue.name];
   if (!layers) return;
+  const vol = cue.gain * (SOUND_TRIM[cue.name] ?? 1);
   const now = audioNow();
   for (const layer of layers) {
     const at = now + (layer.at ?? 0);
     if (layer.kind === 'tone') {
-      sweepTone(at, layer.type, layer.f0 * cue.pitch, layer.f1 * cue.pitch, layer.dur, layer.vol * cue.gain, layer.att);
+      sweepTone(at, layer.type, layer.f0 * cue.pitch, layer.f1 * cue.pitch, layer.dur, layer.vol * vol, layer.att);
     } else {
-      noiseBurst(at, layer.dur, layer.vol * cue.gain, layer.type, layer.f0 * cue.pitch, layer.f1 * cue.pitch, layer.q);
+      noiseBurst(at, layer.dur, layer.vol * vol, layer.type, layer.f0 * cue.pitch, layer.f1 * cue.pitch, layer.q);
     }
   }
 }
