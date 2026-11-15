@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
-import { el, runSystems, t } from '@engine/core/index.ts';
+import { el, LOOP, runSystems, t } from '@engine/core/index.ts';
 import { renderer, scene } from '@engine/render/index.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
@@ -19,6 +19,9 @@ beforeAll(async () => {
 });
 
 const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+// Draws a frame by hand. Waiting for the page's own frame timed out at 60 s on CI when every game's tests ran at once.
+const draw = (): void => LOOP.render?.();
 
 // How many warning lights the scene draws, from the pillboxes' instanced mesh.
 function warnLights(): number {
@@ -125,16 +128,17 @@ test('a retry frees the last sortie’s shapes and pictures', async () => {
     current.downed = true;
     await until(() => state === 'result');
     button('#sbResultRestart').click();
-    await frame();
+    draw();
   };
   startSortie();
-  await frame();
+  draw();
   await downAndRetry(); // the first retry builds the views the test measures, so nothing is made for the first time after it
   const before = { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures };
   for (let i = 0; i < 5; i++) await downAndRetry();
   expect(renderer.info.memory.geometries).toBe(before.geometries);
   expect(renderer.info.memory.textures).toBe(before.textures);
-});
+  // six sorties run by hand: 45 to 49 s with every test at once, so the default 60 s leaves little room
+}, 120000);
 
 test('a warning light goes out once the sortie starts again', async () => {
   startSortie();

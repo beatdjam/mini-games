@@ -2,6 +2,7 @@
 // real sortie, so the report reads the drawn frame's counts as well as the second and the pose.
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import { LOOP, runSystems } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { boot } from '../../src/app/boot.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
@@ -26,8 +27,13 @@ interface LandingReport {
   tracers: number;
 }
 
-const frames = async (n: number): Promise<void> => {
-  for (let i = 0; i < n; i++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+// Draws n frames by hand: the systems run (the view puts the second in) and the scene is drawn. Waiting for the page's
+// own frames timed out on CI when every game's tests ran at once, as the browser gives a busy page few of them.
+const frames = (n: number): void => {
+  for (let i = 0; i < n; i++) {
+    runSystems(0);
+    LOOP.render?.();
+  }
 };
 
 function report(): LandingReport {
@@ -38,20 +44,21 @@ function report(): LandingReport {
 const landed = (name: string): string => document.querySelector(`[data-landing="${name}"]`)?.textContent ?? '';
 
 // A synthetic key can be lost while the page is busy; the view moves on it at once, so check and press again if it did
-// not take.
+// not take. The wait is in time, not in frames: the view stops the clock (performance.now), so Date.now measures it.
 async function press(code: 'ArrowLeft' | 'ArrowRight'): Promise<void> {
   const before = report().at;
-  for (let i = 0; i < 5; i++) {
+  const end = Date.now() + 2000;
+  do {
     window.dispatchEvent(new KeyboardEvent('keydown', { code, key: code, bubbles: true }));
-    await frames(1);
     if (Math.abs(report().at - before) > 1e-9) return;
-  }
+    await new Promise<void>(resolve => setTimeout(resolve, 20));
+  } while (Date.now() < end);
 }
 
 test('#view-landing holds at ?at, moves by a tenth with the arrows and stops before the end', async () => {
   history.replaceState(null, '', '#view-landing?at=6');
   showLanding('#view-landing?at=6');
-  await frames(3);
+  frames(3);
   const held = report();
   expect(held.at).toBeCloseTo(6, 6);
   expect(held.keyAt).toBeCloseTo(6, 6);
@@ -60,19 +67,19 @@ test('#view-landing holds at ?at, moves by a tenth with the arrows and stops bef
   expect(landed('pose')).toContain('pos');
 
   await press('ArrowRight');
-  await frames(2);
+  frames(2);
   const moved = report();
   expect(moved.at).toBeCloseTo(6.1, 6);
   expect(landed('at')).toBe('6.1');
   expect(moved.pose.pos).not.toEqual(held.pose.pos);
 
   await press('ArrowLeft');
-  await frames(2);
+  frames(2);
   expect(report().at).toBeCloseTo(6, 6);
 
   // 12 s would put the cutscene's `left` at 0, so the view stops just before it
   showLanding('#view-landing?at=12');
-  await frames(3);
+  frames(3);
   expect(report().at).toBeCloseTo(CUTSCENE_SEC.landing - 0.05, 6);
   // the nearest key at or before that second is the 10.8 s one
   expect(landed('key')).toBe('7');
@@ -81,7 +88,7 @@ test('#view-landing holds at ?at, moves by a tenth with the arrows and stops bef
 test('#view-landing knobs turn the nearest key and copy it in the table shape', async () => {
   history.replaceState(null, '', '#view-landing?at=8');
   showLanding('#view-landing?at=8');
-  await frames(3);
+  frames(3);
   expect(report().at).toBeCloseTo(8, 6);
   expect(landed('key')).toBe('6');
 
@@ -91,7 +98,7 @@ test('#view-landing knobs turn the nearest key and copy it in the table shape', 
   if (!(range instanceof HTMLInputElement)) throw new Error('the key has no pos.0 knob');
   range.value = '2.5';
   range.dispatchEvent(new Event('input', { bubbles: true }));
-  await frames(2);
+  frames(2);
   expect(report().pose.pos[0]).toBeCloseTo(2.5, 6);
 
   // the page's clipboard is replaced so the test reads what the button would copy
@@ -103,7 +110,7 @@ test('#view-landing knobs turn the nearest key and copy it in the table shape', 
   const copy = document.querySelector('#sbTunePanel [data-tune-action="copy"]');
   if (!(copy instanceof HTMLButtonElement)) throw new Error('the panel has no copy button');
   copy.click();
-  await frames(1);
+  frames(1);
   expect(copied).toMatch(/^CUTSCENES\.landing\.camera\.6\.pos\.0: 2\.5$/m);
 });
 
@@ -116,7 +123,7 @@ function knob(groupName: string, key: string): HTMLInputElement {
 test('#view-landing shows the riders and their fall follows the events’ seconds', async () => {
   history.replaceState(null, '', '#view-landing?at=6.6');
   showLanding('#view-landing?at=6.6');
-  await frames(3);
+  frames(3);
   const held = report();
   const fallOf = (id: string): number => held.riders.find(rider => rider.id === id)?.fall ?? 0;
   // the near shell at 6.4 s has begun to take r1 and r5; r6 is not named
@@ -129,7 +136,7 @@ test('#view-landing shows the riders and their fall follows the events’ second
   const x = knob('LANDING_RIDERS.0', 'x');
   x.value = '-2.7';
   x.dispatchEvent(new Event('input', { bubbles: true }));
-  await frames(2);
+  frames(2);
   expect(report().riders.find(rider => rider.id === 'r1')?.x).toBeCloseTo(-2.7, 6);
 
   // moving the fall's second past the held second puts the rider back on their feet
@@ -139,7 +146,7 @@ test('#view-landing shows the riders and their fall follows the events’ second
   const atKnob = knob(`CUTSCENES.landing.events.${index}`, 'at');
   atKnob.value = '7';
   atKnob.dispatchEvent(new Event('input', { bubbles: true }));
-  await frames(2);
+  frames(2);
   expect(report().riders.find(rider => rider.id === 'r1')?.fall).toBe(0);
 
   // the drawn frame with the riders, and without them for the measure
@@ -147,12 +154,12 @@ test('#view-landing shows the riders and their fall follows the events’ second
   const riders = scene.getObjectByName(RIDERS_NAME);
   if (!riders) throw new Error('the landing has no riders in the scene');
   scene.remove(riders);
-  await frames(2);
+  frames(2);
   const without = report();
   console.log(
     `#view-landing 6.6: riders ${withRiders.calls} calls, ${withRiders.triangles} tris; ` +
       `without ${without.calls} calls, ${without.triangles} tris`,
   );
   scene.add(riders);
-  await frames(1);
+  frames(1);
 });
