@@ -2,6 +2,9 @@
 // puffs, the tracers) and the cross-shaped planes. Made once at the size the tune asks for; battle/index.ts moves them.
 import * as THREE from 'three';
 import { MAX_SOLDIERS } from '../../logic/crowd.ts';
+import { softDiscTexture } from '../puff.ts';
+
+export const SMOKE_MESH_NAME = 'sb-battle-smoke';
 
 const BODY = { w: 0.55, h: 1.05, d: 0.4 } as const; // an ally's body (m)
 const HEAD = 0.4; // an ally's head (m)
@@ -49,14 +52,26 @@ export function soldierMeshes(capacity = MAX_SOLDIERS): { bodies: THREE.Instance
   return { bodies, heads };
 }
 
-// The smoke: cubes of one size, scaled per puff (their colour comes from instanceColor).
+const SMOKE_OPACITY = 0.5; // the smoke is see-through, so the puffs stack and what lies behind still reads
+
+// The smoke: camera-facing plates of one size with the soft round patch (view/puff.ts), scaled per puff (their colour
+// comes from instanceColor). Drawn like the air's smoke (view/atmosphere.ts): see-through and writing no depth.
 export function smokeMesh(size: number): THREE.InstancedMesh {
   const capacity = Math.max(1, size);
+  const disc = softDiscTexture();
   const mesh = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(1, 1, 1),
-    new THREE.MeshLambertMaterial({ color: 0xffffff }),
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({
+      ...(disc ? { map: disc } : {}),
+      color: 0xffffff,
+      transparent: true,
+      opacity: SMOKE_OPACITY,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
     capacity,
   );
+  mesh.name = SMOKE_MESH_NAME;
   // make instanceColor before the first draw: three r128 creates it in setColorAt
   const color = new THREE.Color(0xffffff);
   for (let i = 0; i < capacity; i++) mesh.setColorAt(i, color);

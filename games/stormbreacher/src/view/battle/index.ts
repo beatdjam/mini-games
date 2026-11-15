@@ -5,7 +5,7 @@
 // the size the tune asks for.
 import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
-import { burst, disposeTree, scene } from '@engine/render/index.ts';
+import { burst, camera, disposeTree, scene } from '@engine/render/index.ts';
 import type { FxTune } from '../../data/tune.ts';
 import { M1_NEST_WAVE } from '../../data/enemies.ts';
 import { PROP_SIZE } from '../../data/props.ts';
@@ -335,7 +335,7 @@ export function buildBattle(
       const puff = smokePuffs[i];
       const k = Math.min(1, puff.age / puff.life);
       dummy.position.set(puff.x, puff.y, puff.z);
-      dummy.rotation.set(0, 0, 0);
+      dummy.quaternion.copy(camera.quaternion);
       dummy.scale.setScalar(puff.size * (0.7 + SMOKE_GROW * k));
       dummy.updateMatrix();
       smoke.setMatrixAt(i, dummy.matrix);
