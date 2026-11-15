@@ -1,9 +1,10 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { el } from '@engine/core/index.ts';
+import { el, runSystems } from '@engine/core/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { readTouch } from '../../src/app/touch.ts';
+import { pastSkipGuard } from './cutsceneSkip.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -14,12 +15,22 @@ beforeAll(async () => {
 
 const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
-async function until(done: () => boolean, tries = 240): Promise<void> {
+// Runs the game's systems by hand until `done` holds (the pattern of the other e2e tests: the page's own frame loop may
+// be throttled while many test files share the browser), and fails when it never does.
+async function until(done: () => boolean, tries = 720): Promise<void> {
   for (let i = 0; i < tries; i++) {
     if (done()) return;
-    await frame();
+    runSystems(1 / 60);
+    if (i % 30 === 29) await frame();
   }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} frames`);
+  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps`);
+}
+
+// A tap that skips the cutscene: the first moment after the skip guard, which throws away earlier presses.
+async function skipCutscene(): Promise<void> {
+  await until(pastSkipGuard);
+  document.body.click();
+  await until(() => currentGame()?.script.cutscene === null);
 }
 
 // The test browser is not a touch device, so the sortie leaves the layer hidden; it is shown as a phone has it.
@@ -38,8 +49,7 @@ test('the touch layer is hidden while the cutscene plays and comes back when it 
   await until(() => currentGame()?.script.cutscene !== null);
   await until(() => el('#touch').hidden);
   // a tap on the screen still skips it, with the layer hidden
-  document.body.click();
-  await until(() => currentGame()?.script.cutscene === null);
+  await skipCutscene();
   expect(el('#touch').hidden).toBe(false);
 });
 
@@ -60,8 +70,7 @@ test('what the fingers held is let go when the layer is hidden', async () => {
   expect(held.input.fire).toBe(false);
   expect(held.input.moveX).toBe(0);
   expect(Math.abs(held.input.moveZ)).toBe(0);
-  document.body.click();
-  await until(() => currentGame()?.script.cutscene === null);
+  await skipCutscene();
   const after = readTouch();
   expect(after.input.boost).toBe(false);
   expect(after.input.fire).toBe(false);
@@ -72,7 +81,6 @@ test('the red edge of a hit is hidden while the cutscene plays, as the HUD is', 
   startSortie();
   await until(() => currentGame()?.script.cutscene !== null);
   await until(() => el('#sbPlayHurt').hidden);
-  document.body.click();
-  await until(() => currentGame()?.script.cutscene === null);
+  await skipCutscene();
   await until(() => !el('#sbPlayHurt').hidden);
 });
