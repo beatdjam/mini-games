@@ -13,7 +13,7 @@ import { SOLDIER_POSE } from '../../data/soldiers.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
 import { newBattle, stepBattle } from '../../logic/battle.ts';
 import type { GroundRect } from '../../logic/collide.ts';
-import { MAX_SOLDIERS, crowdCounts, fallNear, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
+import { MAX_SOLDIERS, crowdCounts, fallNear, spawnWave, type Crowd, type CrowdCounts } from '../../logic/crowd.ts';
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
 import { blastFaceHeight } from '../../logic/game.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
@@ -77,6 +77,8 @@ export interface Battle {
   // Moves the battle one frame and gives back the shake the shells ask the camera to add this frame (m). While `held`,
   // the allies wait at the crowd's holdZ and no new wave comes in.
   step(dt: number, mech: { x: number; y: number; z: number }, held?: boolean): number;
+  // Moves the waiting line to a milestone's next cover and sends one more wave of infantry in from the sea (SB-2010).
+  advance(holdZ: number, count: number): void;
   // Lets one tracer fly from a place at a velocity (m, m/s); the allies of the sortie shoot with it.
   tracer(at: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }): void;
   // Moves and draws only the tracers already out, for the landing cutscene: the battlefield's own clock stays still.
@@ -377,6 +379,11 @@ export function buildBattle(
   return {
     crowd,
     group,
+    advance(holdZ, count) {
+      crowd.holdZ = holdZ;
+      crowd.holdT = 0; // each new line starts its waiting loss over (SB-2020)
+      if (crowd.bounds !== null && count > 0) spawnWave(crowd, rng, crowd.bounds, count, tune);
+    },
     step(dt, mech, held = false) {
       const frame = stepBattle(state, rng, dt, tune, mech, held);
       for (const soldier of frame.fell) burst(soldier.x, 0.5, soldier.z, FALL_DUST_COLOR, FALL_DUST, 3, 0.4, 2);

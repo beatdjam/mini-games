@@ -1,14 +1,19 @@
 // The blast points and the charges on them as the screen draws them (SB-1500): a ring on the ground for every point not
-// yet blown and with no charge on it, and a small blinking box for every charge planted. One InstancedMesh each, so two
-// draws in all; a frame makes no mesh, geometry or material. It reads GameModel and never writes it.
+// yet blown and with no charge on it, a thin pillar of light and a floating diamond over that ring so the point shows
+// from far off (SB-2017), and a small blinking box for every charge planted. One InstancedMesh each, so four draws in
+// all; a frame makes no mesh, geometry or material. It reads GameModel and never writes it.
 import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { BLAST_POINT_COLOR, CHARGE_COLOR } from '../data/colors.ts';
+import { MARKER_TUNE, markerMode } from '../data/marker.ts';
 import type { MapDef } from '../data/types.ts';
+import { blastMarks } from '../logic/blastMarks.ts';
 import { targetStands } from '../logic/blasts.ts';
 import type { GameModel } from '../logic/game.ts';
 
 export const BLAST_POINT_MESH_NAME = 'sb-blast-points';
+export const BLAST_PILLAR_MESH_NAME = 'sb-blast-pillars';
+export const BLAST_DIAMOND_MESH_NAME = 'sb-blast-diamonds';
 export const CHARGE_MESH_NAME = 'sb-charges';
 export const MAX_BLAST_RINGS = 12; // the most points drawn at once: the lines' 6 and the pillboxes' 4, with room for 2 more
 
@@ -17,6 +22,11 @@ const RING_INNER = 1.7; // the point's ring (m)
 const RING_OUTER = 2.4;
 const RING_SEGMENTS = 32;
 const GROUND_LIFT = 0.07; // how far above the ground the ring sits, so it does not fight it (m)
+// The pillar (SB-2017, toned down in SB-2022): its size comes from MARKER_TUNE, and its colour is the point's colour at
+// MARKER_TUNE.brightness. The mech's nearness thins the light by shrinking it, down to nothing inside the use reach.
+const PILLAR_OPACITY = 0.6; // the pillar is see-through so it marks the ground without hiding what stands behind it
+const PILLAR_TOP_SHARE = 0.5; // its top radius as a share of its foot's (SB-2017: 0.22 of 0.45)
+const PILLAR_SIDES = 6; // the pieces round its light: a narrow column reads as a beam, not a tree
 const CHARGE_SIZE = 0.7; // the charge box's width and depth (m)
 const CHARGE_HEIGHT = 0.5; // its height (m)
 const CHARGE_LIFT = 0.05; // its bottom sits this far above the ground (m)
@@ -24,6 +34,8 @@ const CHARGE_BLINK_HZ = 9; // how fast the box's light goes up and down (1/s)
 
 export interface BlastView {
   points: THREE.InstancedMesh;
+  pillars: THREE.InstancedMesh;
+  diamonds: THREE.InstancedMesh;
   charges: THREE.InstancedMesh;
 }
 
@@ -42,16 +54,42 @@ function instanced(name: string, geometry: THREE.BufferGeometry, material: THREE
   return mesh;
 }
 
-// Builds the rings and charges into the scene, with nothing drawn yet. The map fixes how many points there can be, but
-// the mesh keeps MAX_BLAST_RINGS so a map with every point still has room for all of them.
+// Builds the rings, pillars and charges into the scene, with nothing drawn yet. The map fixes how many points there can
+// be, but the mesh keeps MAX_BLAST_RINGS so a map with every point still has room for all of them.
 export function buildBlastView(_map: MapDef): BlastView {
   const ring = new THREE.RingGeometry(RING_INNER, RING_OUTER, RING_SEGMENTS).rotateX(-Math.PI / 2);
+  // unit-sized: the instance's scale gives MARKER_TUNE's size, so the panel can change it while the game runs
+  const pillar = new THREE.CylinderGeometry(PILLAR_TOP_SHARE, 1, 1, PILLAR_SIDES);
+  const diamond = new THREE.OctahedronGeometry(1, 0);
   const box = new THREE.BoxGeometry(CHARGE_SIZE, CHARGE_HEIGHT, CHARGE_SIZE);
   return {
     points: instanced(
       BLAST_POINT_MESH_NAME,
       ring,
       new THREE.MeshBasicMaterial({ color: BLAST_POINT_COLOR, side: THREE.DoubleSide }),
+      MAX_BLAST_RINGS,
+    ),
+    pillars: instanced(
+      BLAST_PILLAR_MESH_NAME,
+      pillar,
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff, // the instance's colour carries the point's colour and brightness
+        transparent: true,
+        opacity: PILLAR_OPACITY,
+        depthWrite: false,
+        fog: false, // a guide mark stays its own colour past the fog's reach
+        toneMapped: false,
+      }),
+      MAX_BLAST_RINGS,
+    ),
+    diamonds: instanced(
+      BLAST_DIAMOND_MESH_NAME,
+      diamond,
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        fog: false,
+        toneMapped: false,
+      }),
       MAX_BLAST_RINGS,
     ),
     charges: instanced(CHARGE_MESH_NAME, box, new THREE.MeshBasicMaterial({ color: 0xffffff }), MAX_CHARGES),
@@ -61,12 +99,13 @@ export function buildBlastView(_map: MapDef): BlastView {
 const place = new THREE.Object3D();
 const tint = new THREE.Color();
 
-// Writes a ring for every point that has no charge and a blinking box for every charge, and sets how many are drawn. A
-// point that names a target is drawn only while that target stands: a pillbox the guns already broke has nothing to
-// plant on.
+// Writes a ring for every point that has no charge, a pillar and a diamond (thinner as the mech nears) for every point `blastMarks` lights, and a
+// blinking box for every charge, and sets how many are drawn. A point that names a target is drawn only while that
+// target stands: a pillbox the guns already broke has nothing to plant on. A cutscene draws no ring, pillar or diamond.
 export function drawBlasts(view: BlastView, game: GameModel): void {
+  const quiet = game.script.cutscene !== null;
   let rings = 0;
-  for (const blast of game.blasts) {
+  for (const blast of quiet ? [] : game.blasts) {
     if (rings === MAX_BLAST_RINGS) break;
     if (blast.blasted) continue;
     if (game.charges.some(charge => charge.blast === blast.id)) continue;
@@ -80,6 +119,39 @@ export function drawBlasts(view: BlastView, game: GameModel): void {
   }
   view.points.count = rings;
   view.points.instanceMatrix.needsUpdate = true;
+
+  // the lights: a pillar on the ground and a diamond above it, one pair for each lit point
+  let lights = 0;
+  for (const mark of blastMarks(game, markerMode())) {
+    if (lights === MAX_BLAST_RINGS) break;
+    const blast = game.blasts.find(entry => entry.id === mark.id);
+    if (!blast || mark.alpha <= 0) continue;
+    const power = MARKER_TUNE.brightness;
+    const thin = mark.alpha; // 1 far off, 0 inside the use reach
+    place.rotation.set(0, 0, 0);
+    place.position.set(blast.x, GROUND_LIFT + (MARKER_TUNE.pillarHeight * thin) / 2, blast.z);
+    place.scale.set(
+      MARKER_TUNE.pillarBaseRadius * thin,
+      MARKER_TUNE.pillarHeight * thin,
+      MARKER_TUNE.pillarBaseRadius * thin,
+    );
+    place.updateMatrix();
+    view.pillars.setMatrixAt(lights, place.matrix);
+    view.pillars.setColorAt(lights, tint.setHex(BLAST_POINT_COLOR).multiplyScalar(power));
+    // the diamond keeps the point readable at the distances the pillars thin out to
+    place.position.set(blast.x, MARKER_TUNE.diamondLift, blast.z);
+    place.scale.set(MARKER_TUNE.diamondSize * thin, MARKER_TUNE.diamondSize * thin, MARKER_TUNE.diamondSize * thin);
+    place.updateMatrix();
+    view.diamonds.setMatrixAt(lights, place.matrix);
+    view.diamonds.setColorAt(lights, tint.setHex(BLAST_POINT_COLOR).multiplyScalar(power));
+    lights++;
+  }
+  view.pillars.count = lights;
+  view.pillars.instanceMatrix.needsUpdate = true;
+  if (view.pillars.instanceColor) view.pillars.instanceColor.needsUpdate = true;
+  view.diamonds.count = lights;
+  view.diamonds.instanceMatrix.needsUpdate = true;
+  if (view.diamonds.instanceColor) view.diamonds.instanceColor.needsUpdate = true;
 
   let drawn = 0;
   for (const charge of game.charges) {
@@ -101,9 +173,9 @@ export function drawBlasts(view: BlastView, game: GameModel): void {
   if (view.charges.instanceColor) view.charges.instanceColor.needsUpdate = true;
 }
 
-// Takes the two meshes out of the scene and frees them.
+// Takes the four meshes out of the scene and frees them.
 export function removeBlastView(view: BlastView): void {
-  for (const mesh of [view.points, view.charges]) {
+  for (const mesh of [view.points, view.pillars, view.diamonds, view.charges]) {
     scene.remove(mesh);
     mesh.geometry.dispose();
     (mesh.material as THREE.Material).dispose(); // built above as a single material

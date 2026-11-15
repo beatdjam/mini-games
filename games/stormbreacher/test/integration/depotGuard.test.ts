@@ -1,4 +1,4 @@
-// The depot's guard and C's reinforcement (SB-300): pillbox-3 and the three enemies of `depot-guard` stand round the
+// The depot's guard and C's reinforcement (SB-300): the five enemies of `depot-guard` stand round the
 // depot on the side road, and `c-squad`'s four come out when the mech nears C. Walked with inputs.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
@@ -68,25 +68,26 @@ function waveEnemies(game: GameModel, wave: string) {
 }
 
 test('the hand map holds the depot’s guard and passes the check against M1', () => {
-  expect(M1B_HAND.targets.map(target => target.id)).toContain('pillbox-3');
-  expect(M1.targets).toContain('pillbox-3');
+  // the third pillbox is gone (SB-2023): the objective's two are the only pillboxes
+  expect(M1B_HAND.targets.map(target => target.id)).not.toContain('pillbox-3');
+  expect(M1.targets).not.toContain('pillbox-3');
   const violations = validateMapForMission(M1B_HAND, M1, { waves: ['beach-mortar', 'battery'] });
   expect(violations).toEqual([]);
 });
 
-test('walking to the depot enters depot-approach, which puts out the guard’s three in the wave’s order and kind', () => {
+test('walking to the depot enters depot-approach, which puts out the guard’s five in the wave’s order and kind', () => {
   const game = newWalkGame();
   const places = M1B_HAND.spawns['depot-guard'];
   for (const way of WAY_TO_DEPOT) {
     expect(waveEnemies(game, 'depot-guard'), `before (${way.x}, ${way.z})`).toHaveLength(
-      game.script.entered.includes('depot-approach') ? 3 : 0,
+      game.script.entered.includes('depot-approach') ? 5 : 0,
     );
     walkTo(game, way.x, way.z);
   }
   expect(game.script.entered).toContain('depot-approach');
   const guard = waveEnemies(game, 'depot-guard');
-  expect(guard).toHaveLength(3);
-  expect(guard.map(enemy => enemy.kind)).toEqual(['assault', 'heavy', 'grunt']);
+  expect(guard).toHaveLength(5);
+  expect(guard.map(enemy => enemy.kind)).toEqual(['assault', 'heavy', 'grunt', 'grunt', 'grunt']);
   expect(guard.length).toBe(places.length);
 
   // the mech came to the depot's side without a shot
@@ -105,23 +106,28 @@ test('the guard comes out once, and not before the mech is in depot-approach', (
   expect(waveEnemies(game, 'depot-guard')).toHaveLength(0);
   game.mech.z = 60;
   step(game, idle, DT);
-  expect(waveEnemies(game, 'depot-guard')).toHaveLength(3);
+  expect(waveEnemies(game, 'depot-guard')).toHaveLength(5);
   game.mech.z = 75;
   step(game, idle, DT);
   game.mech.z = 60;
   step(game, idle, DT);
-  expect(waveEnemies(game, 'depot-guard')).toHaveLength(3);
+  expect(waveEnemies(game, 'depot-guard')).toHaveLength(5);
 });
 
-test('pillbox-3 does not count toward the two pillboxes of the objective', () => {
+test('every pillbox target of the map has a blast point, so each one can be broken', () => {
+  const pillboxes = M1B_HAND.targets.filter(target => target.kind === 'pillbox');
+  expect(pillboxes.length).toBeGreaterThan(0);
+  for (const pillbox of pillboxes) {
+    const points = (M1B_HAND.blasts ?? []).filter(blast => blast.target === pillbox.id);
+    expect(points.length, `${pillbox.id} has no blast point`).toBeGreaterThan(0);
+  }
+  // and the objective counts exactly these
   const game = newWalkGame();
   sendToScript(game, { kind: 'enter', area: 'b-line' });
-  expect(hudModel(game).objective).toEqual({ key: 'obj.break-pillboxes', count: { done: 0, total: 2 } });
-  const pillbox3 = game.targets.find(target => target.id === 'pillbox-3');
-  if (!pillbox3) throw new Error('the game has no pillbox-3');
-  pillbox3.hp = 0;
-  expect(hudModel(game).objective?.count).toEqual({ done: 0, total: 2 });
-  expect(game.script.fired).not.toHaveProperty('cp1');
+  expect(hudModel(game).objective).toEqual({
+    key: 'obj.break-pillboxes',
+    count: { done: 0, total: pillboxes.length },
+  });
 });
 
 test('entering c-line puts out the four of c-squad between C’s two rows, in the wave’s order and kind, once', () => {

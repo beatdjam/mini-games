@@ -78,13 +78,14 @@ test('the enemies of a wave are drawn, and starting again leaves one set', async
   startSortie();
   await frame();
   expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length);
-  expect(drawnEnemies()).toBe(0);
+  // the six nests and the two sectors' ten posted defenders (SB-2015) stand from the start
+  expect(drawnEnemies()).toBe(16);
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
   await frame();
-  // the squad and the six nests
-  expect(game().enemies).toHaveLength(12);
+  // the squad, on top of the six nests and the ten defenders
+  expect(game().enemies).toHaveLength(22);
   expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length);
-  expect(drawnEnemies()).toBe(12);
+  expect(drawnEnemies()).toBe(22);
 
   startSortie();
   await frame();
@@ -93,20 +94,43 @@ test('the enemies of a wave are drawn, and starting again leaves one set', async
       .map(mesh => mesh.name)
       .sort(),
   ).toEqual(ENEMY_KINDS.map(enemyMeshName).sort());
-  expect(drawnEnemies()).toBe(0);
+  expect(drawnEnemies()).toBe(16);
 });
 
 const colorAt = new THREE.Color();
+
+// Every part of the machine-gun nest's model: the named sandbags mesh and the meshes named after it.
+function nestParts(): THREE.InstancedMesh[] {
+  const name = enemyMeshName('emplacement');
+  const found: THREE.InstancedMesh[] = [];
+  scene.traverse(object => {
+    if (object instanceof THREE.InstancedMesh && object.name.startsWith(name)) found.push(object);
+  });
+  expect(found.length).toBeGreaterThan(1);
+  return found;
+}
 
 test('every kind keeps room for its instance colours, so the GPU can draw it', async () => {
   startSortie();
   await frame();
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
   await frame();
-  expect(drawnEnemies()).toBe(12);
+  // the six nests, the ten posted defenders and the squad (SB-2015)
+  expect(drawnEnemies()).toBe(22);
   for (const kind of ENEMY_KINDS) {
     const mesh = scene.getObjectByName(enemyMeshName(kind)) as THREE.InstancedMesh;
     expect(mesh.count, kind).toBeGreaterThan(0);
+    // The nest's parts take no colour per copy: three multiplies the material's colour by instanceColor when it exists,
+    // and a colour array that is never written is all zeros, which would draw the nest black. So it has none, and the
+    // part shows its material's colour (or its painted vertex colours).
+    if (kind === 'emplacement') {
+      for (const part of nestParts()) {
+        expect(part.instanceColor, `${part.name} has no colour array`).toBeNull();
+        const material = part.material as THREE.MeshLambertMaterial | THREE.MeshBasicMaterial;
+        if (!material.vertexColors) expect(material.color.getHex(), `${part.name} colour`).not.toBe(0);
+      }
+      continue;
+    }
     // The room covers every copy the mesh may draw, so the GPU finds a colour for each one.
     const colors = mesh.instanceColor;
     if (colors === null) throw new Error(`${kind} has no instance colours`);

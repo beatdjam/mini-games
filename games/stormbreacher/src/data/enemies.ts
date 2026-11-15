@@ -75,8 +75,8 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
     spread: 2,
   },
   // the machine-gun nest: it stands still and sweeps a burst across the way to the mech. It is awake as soon as it is put
-  // out (`notice` Infinity), and its range (180m) reaches from the b-line to line 3, so a nest fires as soon as the line
-  // it guards is not between it and the mech. All of the values are provisional.
+  // out (`notice` Infinity), and its range (180m) covers both of B's lines, so a nest fires as soon as the line it
+  // guards is not between it and the mech. All of the values are provisional.
   emplacement: {
     hp: 140, // 14 autocannon shots or 3 heavy gun shots
     height: 2.2,
@@ -109,8 +109,9 @@ export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]
   // mech must choose between the hard target and the fast ones
   'b-squad': ['heavy', 'assault', 'grunt', 'grunt', 'assault', 'grunt'],
   // an assault meets the mech on the way in, a heavy fires from the east end, and a grunt stands between them, so the
-  // guard watches the road and the open flank
-  'depot-guard': ['assault', 'heavy', 'grunt'],
+  // guard watches the road and the open flank; two more grunts hold the road from line 2's far point, where the third
+  // pillbox stood (SB-2023)
+  'depot-guard': ['assault', 'heavy', 'grunt', 'grunt', 'grunt'],
   // from the top of the seawall: an assault and a grunt on the left, a heavy in the middle, then a grunt, an assault and
   // a grunt on the right
   'seawall-drop': ['assault', 'grunt', 'heavy', 'grunt', 'assault', 'grunt'],
@@ -120,6 +121,10 @@ export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]
   // six nests, one at each of the map's places: entering B wakes them all, and a nest whose line to the mech is clear
   // fires; the hedgehogs of a line hide the nests beyond it until the mech crosses
   'b-emplacements': ['emplacement', 'emplacement', 'emplacement', 'emplacement', 'emplacement', 'emplacement'],
+  // the defenders posted behind line 1 and behind line 2 (SB-2015): five riflemen each, one at each post in
+  // DEFENDER_POSTS (data/defenders.ts). They hold their posts until a milestone breaks their line.
+  'line1-hold': ['grunt', 'grunt', 'grunt', 'grunt', 'grunt'],
+  'pillbox-hold': ['grunt', 'grunt', 'grunt', 'grunt', 'grunt'],
 };
 
 // The height a wave's enemies come in at (m), by the wave's name. A wave that is not here comes in on the ground. The

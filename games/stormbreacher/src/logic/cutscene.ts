@@ -1,5 +1,6 @@
 // What a cutscene shows at a second (SB-180), as pure functions over the tables in data/cutscenes.ts: the camera's place,
 // the line to show and the picture's events. No three and no DOM; view/cutscene.ts draws what these return.
+import { CRAFT_TUNE } from '../data/craft.ts';
 import { CUTSCENES, type CameraKey, type CutsceneDef, type CutsceneEvent, type Vec3 } from '../data/cutscenes.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import type { CutsceneId } from '../data/types.ts';
@@ -96,6 +97,22 @@ export function riderFall(id: string, elapsed: number, events: readonly Cutscene
   return smooth(Math.min(1, Math.max(0, (elapsed - at) / sec)));
 }
 
+// How far seaward (m) the three craft of the landing are from their place at the shore at `elapsed` (SB-1967). A table
+// with no `sail` event gives 0.
+export function cutsceneSail(id: CutsceneId, elapsed: number): number {
+  const event = tableOf(id).events.find(item => item.kind === 'sail');
+  if (event === undefined) return 0;
+  if (event.kind !== 'sail') return 0;
+  const along = Math.min(1, Math.max(0, (elapsed - event.at) / event.sec));
+  return event.from * (1 - along);
+}
+
+// Where the blast of a sinking craft goes off (m): at the middle of its hull, which sails with the row up to the second it
+// is hit. `z` is where its hull began at the shore; a table with no `sail` leaves it there (SB-1983).
+export function sinkBlastZ(id: CutsceneId, at: number, z: number): number {
+  return z + cutsceneSail(id, at) + CRAFT_TUNE.length / 2;
+}
+
 // Where the walking mech's feet are at `elapsed`, and how fast it goes along the ground (m/s).
 export interface CutsceneMech {
   x: number;
@@ -105,19 +122,21 @@ export interface CutsceneMech {
 }
 
 // The mech's place in the cutscene, or null when the cutscene has no mech path (the mech is not drawn then). It goes
-// in a straight line at an even speed between two keys, so the legs swing in time with the ground it covers.
+// in a straight line at an even speed between two keys, so the legs swing in time with the ground it covers. A table
+// that brings the crafts in makes the whole path ride with them (cutsceneSail), so the mech stays on the deck.
 export function cutsceneMech(id: CutsceneId, elapsed: number): CutsceneMech | null {
   const keys = tableOf(id).mech;
   if (keys === undefined) return null;
+  const sail = cutsceneSail(id, elapsed);
   const first = keys[0];
   const last = keys[keys.length - 1];
-  if (elapsed <= first.at) return { x: first.pos[0], y: first.pos[1], z: first.pos[2], speed: 0 };
-  if (elapsed >= last.at) return { x: last.pos[0], y: last.pos[1], z: last.pos[2], speed: 0 };
+  if (elapsed <= first.at) return { x: first.pos[0], y: first.pos[1], z: first.pos[2] + sail, speed: 0 };
+  if (elapsed >= last.at) return { x: last.pos[0], y: last.pos[1], z: last.pos[2] + sail, speed: 0 };
   let next = 1;
   while (keys[next].at < elapsed) next++;
   const a = keys[next - 1];
   const b = keys[next];
   const span = b.at - a.at;
   const [x, y, z] = mix(a.pos, b.pos, (elapsed - a.at) / span);
-  return { x, y, z, speed: Math.hypot(b.pos[0] - a.pos[0], b.pos[2] - a.pos[2]) / span };
+  return { x, y, z: z + sail, speed: Math.hypot(b.pos[0] - a.pos[0], b.pos[2] - a.pos[2]) / span };
 }

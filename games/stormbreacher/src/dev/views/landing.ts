@@ -9,7 +9,7 @@ import { CUTSCENES, type CameraKey, type CutsceneEvent } from '../../data/cutsce
 import { LANDING_RIDERS, LANDING_TUNE } from '../../data/landing.ts';
 import { CUTSCENE_SEC } from '../../data/script.ts';
 import { FEEL_TUNE } from '../../data/tune.ts';
-import { cutscenePose, riderFall, type CutscenePose } from '../../logic/cutscene.ts';
+import { cutsceneMech, cutscenePose, riderFall, type CutscenePose } from '../../logic/cutscene.ts';
 import { createTunePanel, tuneNumber, type TuneGroup, type TuneRange } from '../tunePanel.ts';
 
 declare global {
@@ -72,7 +72,8 @@ const EVENT_LABELS: readonly string[] = (() => {
   let falls = 0;
   let sweeps = 0;
   for (const event of landingEvents()) {
-    if (event.kind === 'burst') labels.push(event.x < -5 ? '近くの爆発' : `着弾${++bursts}`);
+    if (event.kind === 'sail') labels.push('艇が進む');
+    else if (event.kind === 'burst') labels.push(event.x < -5 ? '近くの爆発' : `着弾${++bursts}`);
     else if (event.kind === 'sink') labels.push('沈む艇');
     else if (event.kind === 'ramp') labels.push('ランプ');
     else if (event.kind === 'riders') labels.push(`倒れる${++falls}`);
@@ -235,7 +236,11 @@ export function showLanding(hash: string): void {
     tune.setGroups(cameraGroups(keyIndex));
   });
 
-  const poseOf = (): CutscenePose => cutscenePose('landing', at);
+  // The landing's keys are offsets from the mech, which sails in with the craft.
+  const poseOf = (): CutscenePose => {
+    const mech = cutsceneMech('landing', at);
+    return cutscenePose('landing', at, mech === null ? undefined : mech);
+  };
 
   paint = () => {
     const next = keyIndexAt(at);

@@ -29,10 +29,14 @@ function label(event: ScriptOut): string {
       return `radio:${event.line}`;
     case 'spawn':
       return `spawn:${event.wave}`;
+    case 'wake':
+      return `wake:${'wave' in event ? event.wave : event.enemy}`;
     case 'ally':
       return `ally:${event.id}`;
     case 'allyMove':
       return `allyMove:${event.id}`;
+    case 'suppress':
+      return `suppress:${event.id}:${event.wave}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':
@@ -43,6 +47,8 @@ function label(event: ScriptOut): string {
       return `flag:${event.name}`;
     case 'map':
       return `map:${event.mark}:${event.on ? 'on' : 'off'}`;
+    case 'payoff':
+      return `payoff:${event.id}`;
     case 'end':
       return `end:${event.result}`;
   }
@@ -80,19 +86,11 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
     sendToScript(game, input);
     take(from);
   };
-  const shootDown = (x: number, z: number, id: string): void => {
-    const place = M1B_HAND.targets.find(item => item.id === id);
-    if (!place) throw new Error(`the hand map has ${id}`);
-    game.mech.x = x;
-    game.mech.z = z;
-    // face the target, so the shots fly at it rather than wherever yaw 0 points
-    game.mech.yaw = Math.atan2(-(place.x - x), -(place.z - z));
-    for (let i = 0; i < 600; i++) {
-      step(game, { ...idle, fire: true }, 1 / 60);
-      take();
-      const target = game.targets.find(item => item.id === id);
-      if (!target || target.hp <= 0) return;
-    }
+  const breakTarget = (id: string): void => {
+    const target = game.targets.find(item => item.id === id);
+    if (!target) throw new Error(`the hand map has ${id}`);
+    target.hp = 0;
+    send({ kind: 'destroyed', target: id });
   };
 
   run(idle, 60 * (CUTSCENE_SEC.landing + 1)); // the landing ends after its 12 s
@@ -101,13 +99,19 @@ function runM1(game: GameModel): { outs: ScriptOut[]; cleared: number; clearedAf
   run(idle, 1); // the b-line fires the pillboxes cue
   // the script hears line 1 open, as the bot's charge does in the real sortie, so its cue enters `fired`
   send({ kind: 'blast', id: 'l1-b' });
-  // the nests would shoot the mech on the way to the depot and the pillboxes; this test reads the script's line alone
-  game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
-  shootDown(53, 51, 'depot');
-  shootDown(-13, -15, 'pillbox-1');
-  shootDown(42, -15, 'pillbox-2'); // cp1 fires once both pillboxes are down
+  // line 2's approach (the ally's support fire) and its breach, as the bot does in the real sortie (SB-2020)
+  send({ kind: 'enter', area: 'line2-approach' });
+  send({ kind: 'blast', id: 'l2-a' });
+  // the nests and the defenders would shoot the mech on the way; this test reads the script's line alone
+  game.enemies = game.enemies.filter(enemy => !['b-emplacements', 'line1-hold', 'pillbox-hold'].includes(enemy.wave));
+  // the pillboxes are broken by their charges in the sortie (SB-2015); this test tells the script directly
+  send({ kind: 'enter', area: 'depot-approach' });
+  breakTarget('depot');
+  breakTarget('pillbox-1');
+  breakTarget('pillbox-2'); // cp1 fires once both pillboxes are down
   const clearedAfterTargets = game.cleared;
-  run(idle, 240); // wave2-lost fires 4 s after cp1
+  // wave2-lost fires 4 s after cp1; the milestone's slow makes those 4 s take a little longer than 240 frames (SB-2010)
+  run(idle, 60 * 5);
   send({ kind: 'enter', area: 'c-line' });
   send({ kind: 'enter', area: 'seawall-top' });
   send({ kind: 'destroyed', target: 'main-gun-2' });
@@ -121,23 +125,40 @@ test('the first step starts the landing and the beach', () => {
   step(game, idle, 1 / 60);
   expect(scriptLabels(game)).toEqual([
     'cutscene:landing',
+    'ally:buddy',
+    'ally:cover-b1',
+    'ally:cover-b2',
+    'ally:cover-b3',
+    'ally:gunner',
     'objective:reach-pillboxes',
     'map:wave2:on',
     'spawn:beach-mortar',
+    'spawn:b-emplacements',
+    'spawn:line1-hold',
+    'spawn:pillbox-hold',
   ]);
   expect(game.script.objective).toBe('reach-pillboxes');
   expect(game.script.marks).toEqual(['wave2']);
-  expect(game.allies).toEqual([]);
+  // the five are aboard the crafts beside the player's, waiting for the mech to step off
+  expect(game.allies.map(ally => ally.id).sort()).toEqual(['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner']);
 });
 
-test('stepping off the craft puts the beach allies out', () => {
+test('the landing hands the allies down their ramps before the mech steps off, and stepping off wakes the front nest', () => {
   const game = newGame(M1B_HAND);
   step(game, idle, 1 / 60);
   sendToScript(game, { kind: 'skip' });
+  const buddy = game.allies.find(ally => ally.id === 'buddy');
+  if (!buddy) throw new Error('the sortie has no buddy');
+  const start = { x: buddy.x, z: buddy.z };
+  // the handover alone sends them down their ramps, with the mech still on the deck
+  step(game, idle, 1 / 60);
+  expect(scriptLabels(game)).toEqual([]);
+  expect({ x: buddy.x, z: buddy.z }).not.toEqual(start);
+  // the mech's own step off the craft wakes the front nest
   game.mech.x = 0;
   game.mech.z = 166;
   step(game, idle, 1 / 60);
-  expect(scriptLabels(game)).toEqual(['ally:buddy', 'ally:cover-b1', 'ally:cover-b2', 'ally:cover-b3', 'ally:gunner']);
+  expect(scriptLabels(game)).toEqual(['wake:b-emplacements-1']); // the other five wait for B
 });
 
 test('entering the b-line changes the objective and brings a radio line', () => {
@@ -152,7 +173,7 @@ test('entering the b-line changes the objective and brings a radio line', () => 
   expect(scriptLabels(game)).toEqual([
     'objective:break-pillboxes',
     'spawn:b-squad',
-    'spawn:b-emplacements',
+    'wake:b-emplacements',
     'radio:m1.depot-hint',
   ]);
   expect(game.radio).toEqual({ line: 'm1.depot-hint', time: game.time });
@@ -173,7 +194,7 @@ test('breaking the depot reaches the script', () => {
   step(game, idle, 1 / 60);
   sendToScript(game, { kind: 'skip' }); // the mech takes no input during the landing
   game.mech.x = 53;
-  game.mech.z = 51;
+  game.mech.z = 41;
   game.mech.yaw = 0;
   let labels: string[] = [];
   for (let i = 0; i < 600 && !game.script.destroyed.includes('depot'); i++) {
@@ -236,10 +257,11 @@ test('the game can hand a cleared wave to the script', () => {
 });
 
 test('a target the mission does not know does not break the game', () => {
-  const map: MapDef = { ...M1B_HAND, targets: [{ id: 'extra', kind: 'pillbox', x: -33, z: -15, yaw: 0 }] };
+  // a depot, because a shot no longer breaks a pillbox (SB-2015)
+  const map: MapDef = { ...M1B_HAND, targets: [{ id: 'extra', kind: 'depot', x: -33, z: -15, yaw: 0 }] };
   const game = newPlayGame(map);
   game.mech.x = -33;
-  game.mech.z = 5;
+  game.mech.z = -5;
   game.mech.yaw = 0;
   for (let i = 0; i < 600 && game.targets[0].hp > 0; i++) step(game, { ...idle, fire: true }, 1 / 60);
   expect(game.targets[0].hp).toBe(0);

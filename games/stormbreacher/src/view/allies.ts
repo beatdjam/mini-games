@@ -1,7 +1,8 @@
 // The allied mech of the mission script as the screen draws it (SB-170): the mech's boxes in the ally's colours at a
 // smaller size, running along its way and shooting at the nearest enemy (a tracer a moment, no hit), and the same boxes
 // dark and lying over once it has fallen. It reads GameModel and never writes it. A model is built when its ally is
-// first drawn, and nothing is drawn while a cutscene plays (the logic holds the allies then too).
+// first drawn. During the landing the five are aboard the crafts beside the player's and are drawn standing on their
+// decks, but they do not shoot (the logic holds them until the mech is ashore); the other cutscenes hide them.
 import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
@@ -9,7 +10,9 @@ import { ALLY_TUNE } from '../data/allies.ts';
 import { ALLY_PALETTE, ALLY_WRECK_PALETTE } from '../data/colors.ts';
 import { ENEMIES, ENEMY_CHEST } from '../data/enemies.ts';
 import { M1_MECH, M1_WEAPON_SCALE } from '../data/mech.ts';
+import { CUTSCENE_SEC } from '../data/script.ts';
 import { enemyTracerTarget, nearestIndex } from '../logic/allies.ts';
+import { cutsceneSail } from '../logic/cutscene.ts';
 import { spreadDir } from '../logic/fcs.ts';
 import type { GameModel } from '../logic/game.ts';
 import type { Battle } from './battle/index.ts';
@@ -60,7 +63,12 @@ function modelOf(view: AllyView, id: string): AllyModel {
 // the nearest enemy within ALLY_TUNE.engageRange (or ahead when none is near). The enemies answer with tracers of their
 // own; both are only a look, with no hit. One that has reached the end of its way keeps shooting at its post.
 export function drawAllies(view: AllyView, game: GameModel, battle: Battle, rng: Rng, dt: number): void {
-  const shown = game.script.cutscene === null;
+  const cutscene = game.script.cutscene;
+  const aboard = cutscene !== null && cutscene.id === 'landing';
+  const shown = cutscene === null || aboard;
+  // While the landing brings the craft in, the five ride on their decks: the game's allies stand at the shore's deck
+  // points, so the picture moves them seaward with the craft (the models only; their state stays put).
+  const sail = cutscene !== null && aboard ? cutsceneSail(cutscene.id, CUTSCENE_SEC[cutscene.id] - cutscene.left) : 0;
   const enemies = game.enemies.filter(enemy => enemy.hp > 0);
   const speed = ALLY_TUNE.tracerSpeed;
   for (const ally of game.allies) {
@@ -68,11 +76,11 @@ export function drawAllies(view: AllyView, game: GameModel, battle: Battle, rng:
     const model = modelOf(view, ally.id);
     model.run.visible = shown && !ally.down;
     model.wreck.visible = shown && ally.down;
-    model.run.position.set(ally.x, ally.y, ally.z);
+    model.run.position.set(ally.x, ally.y, ally.z + sail);
     model.run.rotation.y = ally.yaw;
-    model.wreck.position.set(ally.x, ally.y, ally.z);
+    model.wreck.position.set(ally.x, ally.y, ally.z + sail);
     model.wreck.rotation.set(0, ally.yaw, ALLY_TUNE.wreckTilt, 'YXZ');
-    if (!shown || ally.down) continue;
+    if (!shown || ally.down || aboard) continue;
     const pick = nearestIndex({ x: ally.x, z: ally.z }, enemies, ALLY_TUNE.engageRange);
     const enemy = pick === null ? null : enemies[pick];
     // it faces its enemy every frame, so the body does not snap back between shots; the state's yaw is left alone

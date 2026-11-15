@@ -194,3 +194,30 @@ test('a shell makes the soldiers inside its radius fall, by its share', () => {
   expect(fallNear(crowd, 0, 0, 0, 1, rng)).toHaveLength(0);
   expect(crowd.fallen).toBe(3);
 });
+
+// How many of 300 soldiers waiting at the line fall in `seconds`, with the held line's loss set as given (SB-2020).
+function heldLoss(seconds: number, loss: Partial<FxTune>, startHeld = 0): number {
+  const tune = tuneWith({ allyDeathRate: 0, allyWaves: 0, allySpeed: 100, ...loss });
+  const crowd = newCrowd();
+  const rng = createRng(21);
+  spawnWave(crowd, rng, BOUNDS, 300, tune);
+  crowd.holdZ = 150;
+  // let them all reach the line first (no loss yet), then set how long it has been held
+  for (let i = 0; i < 60 * 3; i++) stepCrowd(crowd, rng, DT, tune, true);
+  crowd.holdT = startHeld;
+  for (let i = 0; i < Math.round(seconds / DT); i++) stepCrowd(crowd, rng, DT, tune, true);
+  return crowd.fallen;
+}
+
+test('a held line loses soldiers, more the longer it has been held, and never faster than holdLossMax', () => {
+  const none = heldLoss(2, { holdLossRate: 0, holdLossRamp: 0, holdLossMax: 0.12 });
+  expect(none).toBe(0);
+  const ramp = { holdLossRate: 0.02, holdLossRamp: 0.05, holdLossMax: 0.5 };
+  // the same two seconds cost more once the line has already waited
+  expect(heldLoss(2, ramp, 10)).toBeGreaterThan(heldLoss(2, ramp, 0));
+  // past the cap the loss stops growing: waiting 10 s more costs the same as waiting 100 s more
+  const capped = { holdLossRate: 0.02, holdLossRamp: 0.05, holdLossMax: 0.1 };
+  expect(heldLoss(2, capped, 10)).toBe(heldLoss(2, capped, 100));
+  // a lower cap loses fewer
+  expect(heldLoss(2, { ...capped, holdLossMax: 0.05 }, 100)).toBeLessThan(heldLoss(2, capped, 100));
+});

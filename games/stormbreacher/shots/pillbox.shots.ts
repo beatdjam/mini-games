@@ -7,7 +7,6 @@ import { page } from 'vitest/browser';
 import { LOOP, runSystems } from '@engine/core/index.ts';
 import { currentGame, startSortie } from '../src/app/play.ts';
 import { boot } from '../src/app/boot.ts';
-import { WEAPONS } from '../src/data/weapons.ts';
 import { MECH_TUNE } from '../src/data/tune.ts';
 import { sendToScript } from '../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
@@ -79,25 +78,12 @@ async function standAtPlace(x: number, z: number): Promise<void> {
   }
 }
 
-// Breaks both pillboxes with a heavy-gun shot from the side, as a player would: the health is left at 1 and a shot starts
-// just outside each box, so the game's own hit reports `destroyed` (sendToScript is not called).
+// Breaks both pillboxes with a charge on each side point, as a player would (SB-2015: shots only suppress), so the
+// game's own blast reports the falls.
 function breakBoth(): void {
   const current = game();
-  for (const id of ['pillbox-1', 'pillbox-2']) {
-    const target = current.targets.find(entry => entry.id === id);
-    if (!target || target.hp <= 0) continue;
-    target.hp = 1;
-    const { box } = target;
-    current.bullets.push({
-      weapon: 'heavyGun',
-      x: box.minX - 0.5,
-      y: (box.minY + box.maxY) / 2,
-      z: (box.minZ + box.maxZ) / 2,
-      dx: 1,
-      dy: 0,
-      dz: 0,
-      left: WEAPONS.heavyGun.range,
-    });
+  for (const id of ['blast-pillbox-1-side', 'blast-pillbox-2-side']) {
+    current.charges.push({ blast: id, left: 0 });
   }
 }
 

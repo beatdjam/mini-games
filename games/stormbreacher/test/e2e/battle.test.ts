@@ -150,6 +150,15 @@ test('a blast of the game takes the soldiers near it', () => {
   battle.dispose();
 });
 
+test("advancing to the next waiting line starts the held line's growing loss over", () => {
+  const battle = buildBattle(M1B_HAND, PLAY_BATTLE_TUNE, stream('battle'), stream('craters'), { x: 0, z: 166 }, null);
+  battle.advance(150, 0);
+  battle.crowd.holdT = 20; // the line has waited a long while
+  battle.advance(122, 0);
+  expect(battle.crowd.holdT).toBe(0);
+  battle.dispose();
+});
+
 test('starting again builds the battle anew, and leaves one', async () => {
   startSortie();
   await frames(2);
@@ -158,21 +167,21 @@ test('starting again builds the battle anew, and leaves one', async () => {
   expect(battleGroups()).toHaveLength(1);
 });
 
-test('the cutscene shows no ally, and the ashore input puts them out and then lies them down', async () => {
+test('the landing shows the five allies on their decks, and the handover starts them down their ramps', async () => {
   startSortie();
   await frames(3);
-  // the beach's allies wait until the mech has left the craft
-  expect(game().allies).toHaveLength(0);
-  expect(allyGroups()).toHaveLength(0);
-  sendToScript(game(), { kind: 'skip' });
-  await frames(2);
-  expect(game().allies).toHaveLength(0);
-  expect(allyGroups()).toHaveLength(0);
-  sendToScript(game(), { kind: 'ashore' });
-  await frames(2);
-  // the buddy, the three cover mechs and the gunner: two groups each, the runner and the wreck
+  // the five are aboard the crafts beside the player's from the intro and stand on their decks through the cutscene
   expect(game().allies).toHaveLength(5);
   expect(allyGroups()).toHaveLength(10);
+  const buddy = () => game().allies.find(ally => ally.id === 'buddy');
+  const before = buddy()?.z ?? 0;
+  sendToScript(game(), { kind: 'skip' });
+  await frames(2);
+  expect(game().allies).toHaveLength(5);
+  expect(allyGroups()).toHaveLength(10);
+  // the handover alone sends them down their ramps; no `ashore` input and the mech still on the deck
+  expect(game().mech.z).toBeGreaterThan(M1B_HAND.bounds.maxZ);
+  expect(buddy()?.z).toBeLessThan(before);
   expect(allyGroups().filter(group => group.userData.allyId === 'gunner')).toHaveLength(2);
   const buddyGroups = allyGroups().filter(group => group.userData.allyId === 'buddy');
   expect(buddyGroups).toHaveLength(2);
@@ -182,7 +191,6 @@ test('the cutscene shows no ally, and the ashore input puts them out and then li
   // Run the page's own frame by hand until the mortar takes it. A frame moves the ally 9 * dt metres: the page's frames
   // are capped at LOOP.maxDt (0.05 s, under 0.5 m), but a 1 s step moves it 9 m, enough to pass over the place it falls
   // at and end farther than ALLY_TUNE.arrive from it, so the fall is never seen.
-  const buddy = () => game().allies.find(ally => ally.id === 'buddy');
   for (let i = 0; i < 600 && buddy()?.down !== true; i++) runSystems(1 / 60);
   await frames(2);
   expect(buddy()?.down).toBe(true);

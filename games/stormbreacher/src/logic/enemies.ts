@@ -4,9 +4,11 @@
 // shoots at its interval while it has a clear line. One that comes in above the ground first falls to it. Nothing here
 // reads three or the DOM, and the random draws come in as an argument, so a node test can run it. game.ts keeps the list.
 import type { Rng } from '@engine/core/index.ts';
-import { ENEMIES, ENEMY_CHEST, type EnemyKind } from '../data/enemies.ts';
+import { DEFENDER_POSTS, DEFENDER_TUNE } from '../data/defenders.ts';
+import { ENEMIES, ENEMY_CHEST, type EnemyDef, type EnemyKind } from '../data/enemies.ts';
+import { PAYOFF_TUNE } from '../data/payoff.ts';
 import { MECH_TUNE } from '../data/tune.ts';
-import type { MapBounds } from '../data/types.ts';
+import type { GroundSpot, MapBounds } from '../data/types.ts';
 import { pushOutCircle, type GroundRect } from './collide.ts';
 import { spreadDir } from './fcs.ts';
 import { fireRayHit, type Aabb } from './fire.ts';
@@ -27,9 +29,16 @@ export interface EnemyState {
   vy: number; // how fast it falls (m/s, up is +)
   yaw: number; // the way it faces, in the mech's sense (the front is (-sin yaw, -cos yaw))
   hp: number; // the health left; 0 stays after it falls
-  awake: boolean; // set once the mech comes within the kind's `notice`; it never sleeps again
+  awake: boolean; // set once the mech comes within the kind's `notice` or a script wakes it; it never sleeps again
+  dormant: boolean; // put out asleep and held: `notice` does not wake it, only a script's `wake` does
   wait: number; // the seconds before it may shoot again
   burstLeft: number; // the shots still to fire in this burst; 0 for a kind with no burst
+  fallback: GroundSpot | null; // the next line's cover it runs to when a milestone breaks its sector (SB-2010)
+  fallbackHold: number; // the seconds it holds that cover once it is there
+  post: number | null; // the DEFENDER_POSTS place it holds, or null for a walking enemy (SB-2015)
+  fallbackPost: number | null; // the hold post it runs to; on arrival it holds there instead of walking on
+  holdOut: boolean; // a posted enemy has stepped out from cover to fire
+  holdLeft: number; // the seconds left in its hide or its step out
 }
 
 // What an enemy sees of the world: the walls it is pushed out of, the boxes that stop a shot and the map's edge.
@@ -51,8 +60,17 @@ export interface EnemyShot {
   dz: number;
 }
 
-// `y` is the height it comes in at (m); above the ground it falls first.
-export function newEnemy(id: string, wave: string, kind: EnemyKind, x: number, z: number, y = 0): EnemyState {
+// `y` is the height it comes in at (m); above the ground it falls first. `dormant` puts it out asleep and held until
+// a script's `wake`: the mech's distance does not wake it.
+export function newEnemy(
+  id: string,
+  wave: string,
+  kind: EnemyKind,
+  x: number,
+  z: number,
+  y = 0,
+  dormant = false,
+): EnemyState {
   const def = ENEMIES[kind];
   return {
     id,
@@ -65,9 +83,27 @@ export function newEnemy(id: string, wave: string, kind: EnemyKind, x: number, z
     yaw: 0,
     hp: def.hp,
     awake: false,
+    dormant,
     wait: def.fireInterval,
     burstLeft: def.burst?.shots ?? 0,
+    fallback: null,
+    fallbackHold: 0,
+    post: null,
+    fallbackPost: null,
+    holdOut: false,
+    holdLeft: 0,
   };
+}
+
+// Puts an enemy on a hold post: it starts hidden, and the hide and step-out counts begin. A defender put out by a wave
+// or one that has just run to its next line's cover uses this.
+export function holdAt(enemy: EnemyState, post: number): void {
+  enemy.post = post;
+  enemy.fallback = null;
+  enemy.fallbackPost = null;
+  enemy.holdOut = false;
+  enemy.holdLeft = DEFENDER_TUNE.hideSec;
+  enemy.wait = DEFENDER_TUNE.firstWait;
 }
 
 // Pushes the enemy out of the walls and keeps it inside the map.
@@ -88,6 +124,21 @@ function walk(enemy: EnemyState, tx: number, tz: number, step: number, world: En
   enemy.x += ((tx - enemy.x) / len) * go;
   enemy.z += ((tz - enemy.z) / len) * go;
   settle(enemy, world);
+}
+
+// Moves a posted defender toward its next cover without pushing it out of the props: the line it runs from is its own,
+// and the gaps in it are the enemy's, not the mech's (SB-2015). It still stays inside the map. Other walkers keep the
+// walls (`walk`).
+function run(enemy: EnemyState, tx: number, tz: number, step: number, world: EnemyWorld): void {
+  const len = Math.hypot(tx - enemy.x, tz - enemy.z);
+  if (len < 1e-9) return;
+  const go = Math.min(step, len);
+  enemy.x += ((tx - enemy.x) / len) * go;
+  enemy.z += ((tz - enemy.z) / len) * go;
+  const radius = ENEMIES[enemy.kind].radius;
+  const { minX, maxX, minZ, maxZ } = world.bounds;
+  enemy.x = Math.min(Math.max(enemy.x, minX + radius), maxX - radius);
+  enemy.z = Math.min(Math.max(enemy.z, minZ + radius), maxZ - radius);
 }
 
 // Pushes the enemy away from the living enemies near it, harder the nearer they are, so a squad does not pile up.
@@ -123,6 +174,45 @@ function fall(enemy: EnemyState, world: EnemyWorld, dt: number): void {
   settle(enemy, world);
 }
 
+// One frame of a posted defender (SB-2015): it never walks toward the mech, only between its hiding place and its step
+// out point. It stays hidden for `hideSec`, steps out, fires when its line is clear for `peekSec`, then goes back. It
+// does not keep apart from the others while hidden, so a post stays a post. Returns the shot it fired.
+function stepHolder(
+  enemy: EnemyState,
+  mech: { x: number; y: number; z: number },
+  world: EnemyWorld,
+  dt: number,
+  rng: Rng,
+  def: EnemyDef,
+  dist: number,
+): EnemyShot | null {
+  const post = DEFENDER_POSTS[enemy.post as number];
+  const tx = enemy.holdOut ? post.peekX : post.x;
+  const tz = enemy.holdOut ? post.peekZ : post.z;
+  if (Math.hypot(tx - enemy.x, tz - enemy.z) > DEFENDER_TUNE.arrive) {
+    walk(enemy, tx, tz, DEFENDER_TUNE.stepSpeed * dt, world);
+  }
+  enemy.holdLeft -= dt;
+  if (enemy.holdLeft <= 1e-9) {
+    enemy.holdOut = !enemy.holdOut;
+    enemy.holdLeft = enemy.holdOut ? DEFENDER_TUNE.peekSec : DEFENDER_TUNE.hideSec;
+    if (enemy.holdOut) enemy.wait = Math.min(enemy.wait, DEFENDER_TUNE.firstWait);
+  }
+  if (!enemy.holdOut) return null;
+  // it fires only once it stands at the step out point, so the shot comes from the place the view draws it
+  if (Math.hypot(post.peekX - enemy.x, post.peekZ - enemy.z) > DEFENDER_TUNE.arrive) return null;
+  enemy.wait = Math.max(0, enemy.wait - dt);
+  if (enemy.wait > 0 || dist > def.fireRange) return null;
+  const y = def.height * ENEMY_CHEST;
+  const dy = mech.y + MECH_TUNE.chestHeight - y;
+  const dx = mech.x - enemy.x;
+  const dz = mech.z - enemy.z;
+  if (fireRayHit(enemy.x, y, enemy.z, dx, dy, dz, Math.hypot(dx, dz, dy), world.propBoxes)) return null;
+  enemy.wait = DEFENDER_TUNE.fireInterval;
+  const aimed = spreadDir({ dx, dy, dz }, def.spread, rng);
+  return { x: enemy.x, y, z: enemy.z, dx: aimed.dx, dy: aimed.dy, dz: aimed.dz };
+}
+
 // One frame of one enemy. `mech` is the mech's feet. Returns the shot it fired this frame, or null. An enemy with no
 // health left does nothing, and one in the air only falls. A static enemy (a machine-gun nest) turns and shoots but
 // never walks, falls or is pushed.
@@ -142,18 +232,43 @@ export function stepEnemy(
     fall(enemy, world, dt);
     return null;
   }
+  // A milestone's fall back (SB-2010): the walking enemies of the sector run to the next line's cover, their backs to
+  // the mech, and fire nothing on the way. At the cover they turn, shoot and wait there for the hold's seconds. A nest
+  // is fixed and never carries this.
+  let holding = false;
+  if (enemy.fallback) {
+    const to = enemy.fallback;
+    const gap = Math.hypot(to.x - enemy.x, to.z - enemy.z);
+    if (gap > PAYOFF_TUNE.retreatArrive) {
+      enemy.yaw = Math.atan2(-(to.x - enemy.x), -(to.z - enemy.z));
+      const step = def.speed * PAYOFF_TUNE.retreatSpeed * dt;
+      if (enemy.fallbackPost !== null) run(enemy, to.x, to.z, step, world);
+      else walk(enemy, to.x, to.z, step, world);
+      keepApart(enemy, world, dt);
+      return null;
+    }
+    if (enemy.fallbackPost !== null) {
+      // a defender has run to the next line's cover: it holds that post from now on (SB-2015)
+      holdAt(enemy, enemy.fallbackPost);
+    } else {
+      enemy.fallbackHold -= dt;
+      if (enemy.fallbackHold <= 1e-9) enemy.fallback = null;
+      else holding = true;
+    }
+  }
   const dist = Math.hypot(mech.x - enemy.x, mech.z - enemy.z);
   if (!enemy.awake) {
-    if (dist > def.notice) return null;
+    if (enemy.dormant || dist > def.notice) return null;
     enemy.awake = true;
   }
+  if (enemy.post !== null) return stepHolder(enemy, mech, world, dt, rng, def, dist);
   // from its chest to the mech's chest; a prop between them stops the shot
   const y = def.height * ENEMY_CHEST;
   const dy = mech.y + MECH_TUNE.chestHeight - y;
   const clear =
     dist <= def.fireRange &&
     !fireRayHit(enemy.x, y, enemy.z, mech.x - enemy.x, dy, mech.z - enemy.z, Math.hypot(dist, dy), world.propBoxes);
-  if (def.static !== true) {
+  if (def.static !== true && !holding) {
     // it stops at its distance only with a clear line; without one it goes on, by the nav's way when it has one
     if (!(clear && dist <= def.stopDist)) {
       const via = world.nav ? navTarget(world.nav, enemy.x, enemy.z, mech.x, mech.z) : null;

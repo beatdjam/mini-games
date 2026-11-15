@@ -1,7 +1,7 @@
 // The boxes of the player's landing craft, shared by the game's walking and the camera (view/world.ts). The craft is
 // drawn at the middle of the map's front edge (view/shore.ts); these boxes come from the same sizes, so the mech walks on
 // what is drawn.
-import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
+import { ALLY_CRAFT_SIDES, CRAFT_TUNE, craftSideX, craftZ } from '../data/craft.ts';
 import { MECH_TUNE } from '../data/tune.ts';
 import type { MapBounds } from '../data/types.ts';
 import type { GroundRect } from './collide.ts';
@@ -9,7 +9,17 @@ import type { GroundRect } from './collide.ts';
 // The rects the mech walks on and against on the player's craft: the deck, the two side walls, the stern, the wheelhouse
 // and the ramp. The ramp's high end is the hinge at the craft's front; its low end reaches the sand.
 export function craftRects(bounds: MapBounds): GroundRect[] {
-  const cx = (bounds.minX + bounds.maxX) / 2;
+  return craftRectsAt(bounds, (bounds.minX + bounds.maxX) / 2);
+}
+
+// The same boxes for the crafts that come in beside the player's, where the allies stand until they step off
+// (SB-1965). They are not on the mech's way: the map's front edge keeps it out of them.
+export function allyCraftRects(bounds: MapBounds): GroundRect[] {
+  return ALLY_CRAFT_SIDES.flatMap(side => craftRectsAt(bounds, craftSideX(bounds, side)));
+}
+
+// The craft's boxes with its middle at `cx`.
+function craftRectsAt(bounds: MapBounds, cx: number): GroundRect[] {
   const z0 = craftZ(bounds);
   const { width, length, hullTop, deckTop, deckWidth, wallHeight, wallThickness, sternHeightExtra, wheelhouse } =
     CRAFT_TUNE;

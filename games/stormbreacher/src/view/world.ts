@@ -9,8 +9,7 @@ import { TARGET_SIZE, TILE_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
 import { blastPropIndexes } from '../logic/blasts.ts';
-import { craftRects } from '../logic/craft.ts';
-import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
+import { blockingPropIndexes, cameraBlockers, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxesOfRect } from './camera.ts';
 import { buildAtmosphere } from './atmosphere.ts';
 import { buildShore } from './shore.ts';
@@ -108,11 +107,11 @@ export function buildWorld(map: MapDef, air = true): World {
     shutters.set(def.target, plate);
   }
 
-  // cameraBoxesOfRect runs over mapBlockers' rects, which put the blocking props first in map.props' order, so the
+  // cameraBoxesOfRect runs over cameraBlockers' rects, which put the blocking props first in map.props' order, so the
   // boxes of rect i belong to blockingPropIndexes(map)[i]. A breakable prop is one flat rect, so its list holds one box.
-  // The targets come after the props and the craft's rects after them, so the props' places still line up.
+  // The targets come after the props and the three crafts' rects after them, so the props' places still line up.
   const mapRects = mapBlockers(map);
-  const rects = [...mapRects, ...craftRects(map.bounds)];
+  const rects = cameraBlockers(map);
   const boxesByRect = rects.map(cameraBoxesOfRect);
   const boxes = boxesByRect.flat();
   // The targets' own boxes, so syncWorld can lower one when its target breaks: the camera must not keep avoiding a wall

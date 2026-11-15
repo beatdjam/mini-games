@@ -34,8 +34,9 @@ interface Waypoint {
 }
 
 // The route. +z is the sea. It plants a charge at one blast point of each line, walks back out of the blast and goes
-// through the hole the charge opens: line 1 at x 40, line 2 at x -10, line 3 at x 61. C's rows (z -55..-35) still have
-// their breakthrough at x 35, right in front of the ramp up the seawall.
+// through the hole the charge opens: line 1 at x 40, line 2 at its near point x -10 (SB-2020; the ally's support fire
+// keeps the nests quiet while it plants). C's rows (z -55..-35) still have their breakthrough at x 35, right in front
+// of the ramp up the seawall.
 const ROUTE: readonly Waypoint[] = [
   { x: 0, z: 170, why: 'down the ramp, off the craft' },
   { x: 26, z: 166, why: 'along the sea edge, clear of the mines at x 14 and x 34' },
@@ -44,20 +45,33 @@ const ROUTE: readonly Waypoint[] = [
   { x: 40, z: 162, why: 'back from line 1 while the fuse burns', wait: 'l1-b' },
   { x: 40, z: 122, why: "through the hole line 1's blast opened" },
   { x: 5, z: 110, why: 'between the covers of the first stretch, towards line 2' },
-  { x: -10, z: 100, why: "in front of line 2's blast point l2-a, and stands to plant", plant: 'l2-a' },
-  { x: -10, z: 112, why: 'back from line 2 while the fuse burns', wait: 'l2-a' },
-  { x: -10, z: 76, why: "through the hole line 2's blast opened" },
-  { x: 20, z: 56, why: 'between the covers of the second stretch, towards line 3' },
-  { x: 61, z: 36, why: 'in front of the line 3 row, clear of the cover' },
-  { x: 61, z: 29, why: "in front of line 3's blast point l3-b, and stands to plant", plant: 'l3-b' },
-  { x: 61, z: 41, why: 'back from line 3 while the fuse burns', wait: 'l3-b' },
-  { x: 61, z: 4, why: "through the hole line 3's blast opened" },
+  { x: -10, z: 100, why: "into line 2's approach; the ally's support fire silences the nests" },
+  { x: -10, z: 80, why: "at line 2's near point, in the nests' crossfire, and stands to plant", plant: 'l2-a' },
+  { x: -10, z: 96, why: 'back from line 2 while the fuse burns', wait: 'l2-a' },
+  { x: -10, z: 58, why: "through the hole line 2's blast opened" },
+  { x: 0, z: 50, why: 'through the cover behind line 2, towards the pillboxes' },
+  { x: 0, z: 10, why: 'up the second interval, clear of the block at (0, 0)' },
+  // SB-2015: shots no longer break a pillbox, so the bot stands at each back point, plants a charge, steps clear of the
+  // blast and waits for it to open the line. It goes round the landward side so the pillboxes' own boxes do not block it.
+  { x: 40, z: -8, why: 'round the landward side of the line and the wreck at (45, 3)' },
+  { x: 30, z: -20, why: 'past pillbox-2 on its land side' },
   {
-    x: 45,
-    z: -8,
-    why: 'in sight of both pillboxes (x -33 and x 22), which it holds for',
-    hold: ['pillbox-1', 'pillbox-2'],
+    x: 21,
+    z: -27,
+    why: "within reach of pillbox-2's back point, and stands to plant",
+    plant: 'blast-pillbox-2-back',
   },
+  { x: 21, z: -34, why: 'clear of the blast while the fuse burns', wait: 'blast-pillbox-2-back' },
+  { x: 0, z: -30, why: 'behind the pillbox line, towards pillbox-1' },
+  { x: -20, z: -27, why: 'past the block at (0, 0) on its land side' },
+  {
+    x: -33,
+    z: -27,
+    why: "within reach of pillbox-1's back point, and stands to plant",
+    plant: 'blast-pillbox-1-back',
+  },
+  { x: -33, z: -34, why: 'clear of the blast while the fuse burns', wait: 'blast-pillbox-1-back' },
+  { x: 0, z: -30, why: 'back to the middle, behind the broken line' },
   { x: 35, z: -30, why: 'before the breakthrough of C at x 35' },
   { x: 35, z: -62, why: 'up the ramp onto the seawall (area seawall-top)' },
   { x: 35, z: -78, why: 'off the seawall, onto the boss ground' },
@@ -90,7 +104,9 @@ interface Foe {
 function foesInSight(game: GameModel, only: readonly string[] | null): Foe[] {
   const { mech } = game;
   const chest = { x: mech.x, y: mech.y + MECH_TUNE.chestHeight, z: mech.z };
-  const standing = game.targets.filter(target => target.hp > 0);
+  // A pillbox takes no damage from shots (SB-2015), so the bot leaves it to the charges and shoots only the enemies
+  // and the other targets.
+  const standing = game.targets.filter(target => target.hp > 0 && target.kind !== 'pillbox');
   const foes: Foe[] = [
     ...game.enemies.filter(enemy => enemy.hp > 0).map(enemy => ({ box: enemyBox(enemy), heavy: false })),
     ...standing
@@ -257,7 +273,20 @@ function playM1(): Result {
 }
 
 // The cues in the order the story runs them; the depot's cue is left out, for the bot does not go for the depot.
-const STORY = ['intro', 'beach', 'ashore', 'pillboxes', 'cp1', 'wave2-lost', 'seawall', 'gun1', 'shutter', 'win'];
+const STORY = [
+  'intro',
+  'beach',
+  'ashore',
+  'pillboxes',
+  'line2-approach',
+  'line2-open',
+  'cp1',
+  'wave2-lost',
+  'seawall',
+  'gun1',
+  'shutter',
+  'win',
+];
 
 test(
   'a bot clears M1 from the landing on with its inputs alone',
@@ -270,9 +299,10 @@ test(
     const times = STORY.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    // seed 7 took about 132 s of game time and 35 armour (of 200), and left 104 of 400 autocannon shots and 0 of 12 heavy
-    // gun shots; it stepped aside from the aimed mortar 4 times. The limits below keep room for a retune of the values,
-    // and fail if the sortie turns out hardly possible
+    // seed 7 took about 163 s of game time and left 73 armour (of 200), 116 of 400 autocannon shots and 6 of 12
+    // heavy gun shots (SB-2020: line 2 stands 69 m in from line 1 and the section has one line fewer; the run is longer
+    // than the three-line one). The limits below keep room for a retune of the values, and fail if the sortie turns out
+    // hardly possible
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
     expect(result.armor).toBeGreaterThan(0);
     expect(result.main).toBeGreaterThan(0);

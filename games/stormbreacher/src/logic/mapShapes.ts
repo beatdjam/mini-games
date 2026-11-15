@@ -1,8 +1,9 @@
-// The rects the map's blocking things stand on. The walking check (mapCheck.ts) and the mech's collision both read
-// these, so a map's breakthroughs are open in the check and in the walk alike.
+// The rects the map's blocking things stand on, and the ones the camera keeps out of. The walking check (mapCheck.ts) and
+// the mech's collision both read these, so a map's breakthroughs are open in the check and in the walk alike.
 import { PROP_SIZE, STAIRS_TUNE, STAIR_RISE, TARGET_SIZE } from '../data/props.ts';
 import type { MapDef, Prop } from '../data/types.ts';
 import type { GroundRect } from './collide.ts';
+import { allyCraftRects, craftRects } from './craft.ts';
 
 // The rects of one blocking prop: one for most, one per step for stairs, one slanted rect for a ramp. A flight climbs
 // towards -z at yaw 0 (the lowest step on the +z side), and each step's top is STAIR_RISE higher than the one before.
@@ -71,4 +72,11 @@ export function mapBlockers(map: MapDef): GroundRect[] {
     });
   }
   return rects;
+}
+
+// The rects the camera keeps out of: the map's blockers and the three landing craft, the player's and the two beside it
+// (SB-1983). The craft's rects come after the map's, so a blocker's place among the first ones still matches
+// blockingPropIndexes(map).
+export function cameraBlockers(map: MapDef): GroundRect[] {
+  return [...mapBlockers(map), ...craftRects(map.bounds), ...allyCraftRects(map.bounds)];
 }

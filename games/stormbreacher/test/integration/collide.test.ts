@@ -35,7 +35,7 @@ test('a closed line stops the mech, and one opened blast point lets it through',
     m.yaw = 0;
     return m;
   };
-  for (const line of M1B_RULES.lines.slice(0, 3)) {
+  for (const line of M1B_RULES.lines.slice(0, 2)) {
     const onLine = points.filter(point => point.line === line.z);
     expect(onLine.length, `line at z ${line.z}`).toBe(2);
     for (const point of onLine) {

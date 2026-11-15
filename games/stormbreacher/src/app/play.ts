@@ -7,7 +7,15 @@ import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
 import { cutsceneElapsed, hasCutscene } from '../logic/cutscene.ts';
 import { payoutOf, type Payout } from '../logic/economy.ts';
-import { newGame, restartGame, retryFromCheckpoint, sendToScript, step, type GameModel } from '../logic/game.ts';
+import {
+  newGame,
+  restartGame,
+  retryFromCheckpoint,
+  sendToScript,
+  step,
+  timeScale,
+  type GameModel,
+} from '../logic/game.ts';
 import { recordClear } from '../logic/save.ts';
 import { GROUND_NAME, SIZE_BOX_NAME, placeCamera } from '../view/field.ts';
 import { removeAllyView } from '../view/allies.ts';
@@ -21,6 +29,7 @@ import { removeHurtView } from '../view/hurt.ts';
 import { removeHud } from '../view/hud.ts';
 import { disposeProtoMech } from '../view/mechProtoModel.ts';
 import { removeSeaFire } from '../view/seaFire.ts';
+import { applyMarkerQuery } from '../data/marker.ts';
 import { buildPlayView, drawPlay, type PlayView } from '../view/play.ts';
 import { resetSound, soundFrame } from '../view/sound.ts';
 import { openBriefing } from './briefing.ts';
@@ -95,6 +104,8 @@ function beginPlay(next: GameModel): void {
   hideField();
   game = next;
   resetSound(game.radio);
+  // `?marker=dim|map|next` picks how the blast points' lights show (SB-2022)
+  applyMarkerQuery(location.search);
   view = buildPlayView(game);
   initPlayInput();
   // the title hides the touch layer so it does not cover the title's buttons; a sortie shows it again
@@ -227,6 +238,9 @@ function update(dt: number): void {
   // The aim is the middle of the screen the last frame drew; drawPlay adds this frame's pitch change and camera after.
   const aim = view.aim;
   step(game, { ...read.input, sub: read.sub, use: read.use, aim }, dt);
+  // A milestone's short slowdown (SB-2010) slows the picture as well as the game: the blast, the smoke and the battle
+  // run at the same share of time, while the input still goes through (step already scaled its own frame).
+  const drawDt = dt * timeScale(game);
   // A request to skip, or a cutscene that has no table (it is not played), ends the cutscene before it is drawn. A
   // cutscene that step has just started takes no skip for CUTSCENE_SKIP_GUARD_SEC: the jump, shot or Enter of this frame
   // started it. takeSkip runs every frame, so a press inside the guard is thrown away rather than saved up.
@@ -239,7 +253,9 @@ function update(dt: number): void {
   hideTouchInCutscene(game.script.cutscene !== null);
   // the cutscene's sounds play too: this line is not behind the cutscene branch
   soundFrame(game, dt);
-  drawPlay(view, game, dt, read.pitchDelta);
+  drawPlay(view, game, drawDt, read.pitchDelta);
+  // the touch use button lights while the mech stands in reach of a blast point (SB-2017)
+  el('#btnUse').classList.toggle('on', view.useNear);
   // a cleared sortie shows its result once the closing cutscene is over
   if ((game.cleared && game.script.cutscene === null) || game.downed) showResult();
 }

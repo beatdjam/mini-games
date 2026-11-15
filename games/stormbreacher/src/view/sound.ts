@@ -107,6 +107,10 @@ export function planSounds(input: SoundInput): SoundCue[] {
       case 'blast':
         ask('explosionLarge', event);
         break;
+      case 'payoff':
+        // the milestone's knock adds a lower, heavier blast under the one its cause plays (SB-2010)
+        ask('explosionHeavy', event);
+        break;
       case 'shellWarn':
         ask('shellWarn', event);
         break;

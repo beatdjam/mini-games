@@ -12,13 +12,21 @@ import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
 import { CAMERA_TUNE, FEEL_TUNE } from '../data/tune.ts';
 import type { CutsceneId, MapBounds } from '../data/types.ts';
-import { cutsceneElapsed, cutsceneEvents, cutsceneLine, cutscenePose } from '../logic/cutscene.ts';
+import {
+  cutsceneElapsed,
+  cutsceneEvents,
+  cutsceneLine,
+  cutsceneMech,
+  cutscenePose,
+  cutsceneSail,
+  sinkBlastZ,
+} from '../logic/cutscene.ts';
 import type { GameModel } from '../logic/game.ts';
 import type { Battle } from './battle/index.ts';
 import { spawnBoom } from './boom.ts';
 import { feelBoom, spawnDust, type FeelState } from './feel.ts';
 import { buildRiders, drawRiders, removeRiders, type RidersView } from './riders.ts';
-import { buildCraft, CRAFT_NAME, RAMP_DOWN } from './shore.ts';
+import { ALLY_CRAFT_NAMES, buildCraft, CRAFT_NAME, RAMP_DOWN } from './shore.ts';
 import { playSound, soundMix } from './sound.ts';
 
 const BAR_HEIGHT = '12vh'; // each black bar, as in the HUD mock (#view-hud?cut=1)
@@ -42,7 +50,10 @@ export interface CutsceneView {
   elapsed: number; // the cutscene's second in the last frame; below 0 when none was playing
   ramp: THREE.Object3D; // the player's ramp, turning about x
   rampX: number; // where the player's craft stands on x (m)
-  rampZ: number; // where the player's craft's body begins (m)
+  rampZ: number; // where the player's craft's body begins at the shore (m)
+  playerCraft: THREE.Group; // the player's craft, which sails in with the two beside it
+  allyCrafts: THREE.Group[]; // the two craft with the allies aboard, in ALLY_CRAFT_SIDES' order
+  allyRamps: THREE.Object3D[]; // their ramps, which come down with the player's
   crafts: { cutscene: CutsceneId; event: SinkEvent | ArriveEvent; craft: THREE.Group }[]; // the crafts at sea, with their events
   targets: Map<string, THREE.Mesh>; // the map's mission targets by id, for the collapse
   seaZ: number; // the map's front edge: a shell past it falls in the sea
@@ -99,6 +110,18 @@ export function buildCutsceneView(
   }
   const ramp = shore.getObjectByName(`${CRAFT_NAME}Ramp`);
   if (!ramp) throw new Error("the player's craft has no ramp");
+  const playerCraft = shore.getObjectByName(`${CRAFT_NAME}Unit`);
+  if (!(playerCraft instanceof THREE.Group)) throw new Error("the player's craft is not in the shore");
+  const allyCrafts = ALLY_CRAFT_NAMES.map(name => {
+    const craft = shore.getObjectByName(`${name}Unit`);
+    if (!(craft instanceof THREE.Group)) throw new Error(`the ally craft "${name}" is not in the shore`);
+    return craft;
+  });
+  const allyRamps = ALLY_CRAFT_NAMES.map(name => {
+    const allyRamp = shore.getObjectByName(`${name}Ramp`);
+    if (!allyRamp) throw new Error(`the ally craft "${name}" has no ramp`);
+    return allyRamp;
+  });
   return {
     root,
     caption,
@@ -108,6 +131,9 @@ export function buildCutsceneView(
     ramp,
     rampX: (bounds.minX + bounds.maxX) / 2,
     rampZ: z,
+    playerCraft,
+    allyCrafts,
+    allyRamps,
     crafts,
     targets,
     seaZ: bounds.maxZ,
@@ -150,12 +176,22 @@ export function drawCutscene(
     view.ramp.rotation.x = RAMP_DOWN;
     for (const entry of view.crafts) entry.craft.visible = false;
     view.riders.group.visible = false;
+    view.riders.group.position.z = 0;
+    view.playerCraft.position.z = view.rampZ;
+    for (const craft of view.allyCrafts) craft.position.z = view.rampZ;
+    for (const allyRamp of view.allyRamps) allyRamp.rotation.x = RAMP_DOWN;
     return;
   }
 
   // cutsceneElapsed says -1 for a cutscene that is only starting; the pose and the events here take 0 for it
   const elapsed = Math.max(0, cutsceneElapsed(cutscene));
-  const pose = cutscenePose(cutscene.id, elapsed, game.mech);
+  // The picture rides with the mech's path, which itself rides with the craft the landing brings in (cutsceneSail).
+  const walk = cutsceneMech(cutscene.id, elapsed);
+  const pose = cutscenePose(cutscene.id, elapsed, walk === null ? game.mech : walk);
+  const sail = cutsceneSail(cutscene.id, elapsed);
+  view.playerCraft.position.z = view.rampZ + sail;
+  for (const craft of view.allyCrafts) craft.position.z = view.rampZ + sail;
+  view.riders.group.position.z = sail;
   // a blast shakes the cutscene's camera by how near it is to that camera; a shell that falls past the map's front edge
   // is a water blast, as in the sortie. It sounds the way a big blast in the sortie does, from that camera's distance
   const blast = (kind: 'large' | 'craft' | 'water', x: number, y: number, z: number) => {
@@ -165,7 +201,7 @@ export function drawCutscene(
     playSound({ name: 'explosionLarge', ...soundMix(distance) });
   };
   for (const event of cutsceneEvents(cutscene.id, view.elapsed, elapsed)) {
-    if (event.kind === 'sink') blast('craft', event.x, 1.2, (event.z ?? view.rampZ) + 6);
+    if (event.kind === 'sink') blast('craft', event.x, 1.2, sinkBlastZ(cutscene.id, event.at, event.z ?? view.rampZ));
     else if (event.kind === 'ramp') spawnDust(view.rampX, view.rampZ - CRAFT_TUNE.rampLength, RAMP_DUST, FEEL_TUNE);
     else if (event.kind === 'burst') blast(event.z >= view.seaZ ? 'water' : 'large', event.x, 0.8, event.z);
     else if (event.kind === 'tracers') {
@@ -211,11 +247,16 @@ export function drawCutscene(
   const ramp = def.events.find(event => event.kind === 'ramp');
   view.ramp.rotation.x =
     ramp === undefined ? RAMP_DOWN : RAMP_UP + (RAMP_DOWN - RAMP_UP) * smooth(progress(elapsed, ramp.at, ramp.sec));
+  // the two crafts beside the player's lower their ramps at the same second
+  for (const allyRamp of view.allyRamps) allyRamp.rotation.x = view.ramp.rotation.x;
   for (const entry of view.crafts) {
     const { event, craft } = entry;
     const p = smooth(progress(elapsed, event.at, event.sec));
     craft.visible = entry.cutscene === cutscene.id && (event.kind === 'arrive' || p < 1);
     if (event.kind === 'sink') {
+      // it sails with the row until it is hit, then goes down where it was
+      const at = Math.min(elapsed, event.at);
+      craft.position.z = (event.z ?? view.rampZ) + cutsceneSail(cutscene.id, at);
       craft.rotation.z = p * SINK_ROLL;
       craft.position.y = -p * SINK_DEPTH;
     } else {

@@ -61,9 +61,9 @@ test('#view-landing holds at ?at, moves by a tenth with the arrows and stops bef
   frames(3);
   const held = report();
   expect(held.at).toBeCloseTo(6, 6);
-  expect(held.keyAt).toBeCloseTo(6, 6);
+  expect(held.keyAt).toBeCloseTo(5.4, 6);
   expect(landed('at')).toBe('6');
-  expect(landed('key')).toBe('5');
+  expect(landed('key')).toBe('3');
   expect(landed('pose')).toContain('pos');
 
   await press('ArrowRight');
@@ -86,14 +86,14 @@ test('#view-landing holds at ?at, moves by a tenth with the arrows and stops bef
 });
 
 test('#view-landing knobs turn the nearest key and copy it in the table shape', async () => {
-  history.replaceState(null, '', '#view-landing?at=8');
-  showLanding('#view-landing?at=8');
+  history.replaceState(null, '', '#view-landing?at=7.4');
+  showLanding('#view-landing?at=7.4');
   frames(3);
-  expect(report().at).toBeCloseTo(8, 6);
-  expect(landed('key')).toBe('6');
+  expect(report().at).toBeCloseTo(7.4, 6);
+  expect(landed('key')).toBe('5');
 
-  const group = document.querySelector('[data-tune-group="CUTSCENES.landing.camera.6"]');
-  if (!group) throw new Error('the panel has no group for the 8 s key');
+  const group = document.querySelector('[data-tune-group="CUTSCENES.landing.camera.5"]');
+  if (!group) throw new Error('the panel has no group for the 7.4 s key');
   const range = group.querySelector('[data-tune-key="pos.0"] input[type="range"]');
   if (!(range instanceof HTMLInputElement)) throw new Error('the key has no pos.0 knob');
   range.value = '2.5';
@@ -111,7 +111,7 @@ test('#view-landing knobs turn the nearest key and copy it in the table shape', 
   if (!(copy instanceof HTMLButtonElement)) throw new Error('the panel has no copy button');
   copy.click();
   frames(1);
-  expect(copied).toMatch(/^CUTSCENES\.landing\.camera\.6\.pos\.0: 2\.5$/m);
+  expect(copied).toMatch(/^CUTSCENES\.landing\.camera\.5\.pos\.0: 2\.5$/m);
 });
 
 function knob(groupName: string, key: string): HTMLInputElement {

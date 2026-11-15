@@ -16,7 +16,19 @@ export const CRAFT_TUNE = {
   wheelhouse: { w: 3, h: 2.6, d: 3, fromStern: 3 }, // its size, and how far in front of the stern it stands (m)
   rampLength: 5, // the ramp plate's length (m)
   rampTilt: 0.35, // how far the ramp's tip is lowered from the hinge (rad)
+  sideGap: 5, // the clear water between the hulls of the player's craft and the ones beside it (m)
 } as const;
 
 // The z the player's craft's body begins at, for a map with these bounds.
 export const craftZ = (bounds: MapBounds): number => bounds.maxZ + CRAFT_TUNE.gap;
+
+// The two crafts that come in beside the player's with the allies aboard (SB-1965): their middles lie a hull and a gap
+// apart, so the three hulls neither touch nor crowd (SB-1967). They are not the crafts the cutscene sinks
+// (data/cutscenes.ts).
+export const ALLY_CRAFT_SIDES = [-1, 1] as const;
+export type AllyCraftSide = (typeof ALLY_CRAFT_SIDES)[number];
+
+// The x the middle of the craft on `side` (-1 port, 1 starboard) of the player's stands at.
+export function craftSideX(bounds: MapBounds, side: AllyCraftSide): number {
+  return (bounds.minX + bounds.maxX) / 2 + side * (CRAFT_TUNE.width + CRAFT_TUNE.sideGap);
+}

@@ -62,7 +62,8 @@ function measure(dist: number): Measure {
   const targetZ = MECH_Z - dist;
   const targetX = CAMERA_TUNE.shoulder; // the camera's line is this far right of the mech
   game.enemies.push(newEnemy(ENEMY, 'test', 'grunt', targetX, targetZ, 0));
-  const enemy = game.enemies[0];
+  const enemy = game.enemies.find(placed => placed.id === ENEMY);
+  if (!enemy) throw new Error('the grunt is placed');
   const box = enemyBox(enemy);
   const cy = (box.minY + box.maxY) / 2;
   const aim = openAim(game, pitchTo(game, { x: targetX, y: cy, z: targetZ }));
@@ -152,7 +153,8 @@ function orbitHits(dist: number): number {
   game.mech.z = MECH_Z;
   game.mech.yaw = 0;
   game.enemies.push(newEnemy(ENEMY, 'test', 'grunt', CAMERA_TUNE.shoulder, MECH_Z - dist, 0));
-  const enemy = game.enemies[0];
+  const enemy = game.enemies.find(placed => placed.id === ENEMY);
+  if (!enemy) throw new Error('the grunt is placed');
   const cy = (enemyBox(enemy).minY + enemyBox(enemy).maxY) / 2;
   let fired = 0;
   let hits = 0;

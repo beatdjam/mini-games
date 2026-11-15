@@ -1,11 +1,11 @@
 // The mech walks on the player's craft: up the ramp from the sand, along the deck without leaving it over the side, aft to
 // the wheelhouse, and back down the ramp, and it cannot pass the map's front edge outside the ramp's lane.
 import { expect, test } from 'vitest';
-import { CRAFT_TUNE } from '../../src/data/craft.ts';
+import { CRAFT_TUNE, craftSideX } from '../../src/data/craft.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { newGame, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
-import { craftBack, craftRects } from '../../src/logic/craft.ts';
+import { allyCraftRects, craftBack, craftRects } from '../../src/logic/craft.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
@@ -62,6 +62,22 @@ test('outside the ramp’s lane the mech stops at the map’s front edge', () =>
   const game = onSand();
   game.mech.x = 20;
   game.mech.yaw = Math.PI;
+  walk(game, 240, { ...idle, moveZ: 1 });
+  expect(game.mech.z).toBeLessThanOrEqual(M1B_HAND.bounds.maxZ - MECH_TUNE.radius + 1e-6);
+  expect(game.mech.y).toBe(0);
+});
+
+test('the allies’ crafts are in the game’s boxes, with their decks and ramps to walk on', () => {
+  const game = newGame(M1B_HAND);
+  for (const rect of allyCraftRects(M1B_HAND.bounds)) expect(game.rects).toContainEqual(rect);
+});
+
+test('the mech on the sand cannot climb an ally craft’s ramp past the map’s front edge', () => {
+  const game = onSand();
+  // the nests are not part of this: their fire would only stop the walk
+  game.enemies = [];
+  game.mech.x = craftSideX(M1B_HAND.bounds, -1);
+  game.mech.yaw = Math.PI; // face the sea, up the ally craft's ramp
   walk(game, 240, { ...idle, moveZ: 1 });
   expect(game.mech.z).toBeLessThanOrEqual(M1B_HAND.bounds.maxZ - MECH_TUNE.radius + 1e-6);
   expect(game.mech.y).toBe(0);

@@ -230,6 +230,9 @@ export const FX_TUNE = {
   allyWaves: 5, // seconds between one wave and the next (0 makes no more waves)
   allySpeed: 2, // how fast an ally walks landward (m/s)
   allyDeathRate: 0.1, // the chance that one ally falls in a second (0 keeps them all up)
+  holdLossRate: 0, // the chance a second that one held ally falls at the waiting line, before the ramp (SB-2020)
+  holdLossRamp: 0, // how much holdLossRate grows for each second the line is held (0 keeps it flat)
+  holdLossMax: 0.12, // the most the held line's loss reaches (a chance a second; SB-2020)
 
   squads: 0, // the squads in a wave (0 keeps the old scatter)
   squad: 0, // the soldiers in one squad (0 keeps the old scatter)
@@ -251,6 +254,11 @@ export const BATTLE_TUNE = {
   allyWaves: 10, // seconds between one wave and the next (s)
   allySpeed: 3.5, // how fast an ally walks landward (m/s)
   allyDeathRate: 0.03, // the chance that one ally falls in a second (0 keeps them all up)
+  // A line held under the machine guns bleeds more the longer it is held (SB-2020): the loss starts at holdLossRate a
+  // second and grows by holdLossRamp a second, so the waiting infantry visibly thins before the charge opens the line.
+  holdLossRate: 0.02,
+  holdLossRamp: 0.015,
+  holdLossMax: 0.12,
   squads: 2, // the squads that walk on a machine-gun nest; the rest of the wave comes in scattered
   squad: 5, // the soldiers in one squad
   squadFallShare: 0.4, // the share of a squad that falls at the nest it walks on (0-1)
@@ -260,6 +268,11 @@ export const BATTLE_TUNE = {
   // The z the allies wait at until the pillboxes are down. It sits 5 m seaward of the pillboxes' boxes (z -19..-11), so
   // they stop just short of the line. A guess, to be judged on the screen.
   holdZ: -6,
+  // The waiting lines between the milestones (SB-2010, SB-2020): the beach just seaward of line 1, the cover behind
+  // line 1 and the cover behind line 2. A guess, to be judged on the screen.
+  holdBeachZ: 150,
+  holdLine1Z: 122,
+  holdLine2Z: 60,
 };
 
 // Only FxTune's own values: BATTLE_TUNE.holdZ is the view's and must not ride along in the look. All provisional.
@@ -271,6 +284,9 @@ export const PLAY_BATTLE_TUNE: FxTune = {
   allyWaves: BATTLE_TUNE.allyWaves,
   allySpeed: BATTLE_TUNE.allySpeed,
   allyDeathRate: BATTLE_TUNE.allyDeathRate,
+  holdLossRate: BATTLE_TUNE.holdLossRate,
+  holdLossRamp: BATTLE_TUNE.holdLossRamp,
+  holdLossMax: BATTLE_TUNE.holdLossMax,
   squads: BATTLE_TUNE.squads,
   squad: BATTLE_TUNE.squad,
   squadFallShare: BATTLE_TUNE.squadFallShare,

@@ -37,10 +37,14 @@ function eventText(event: ScriptOut): string {
       return `radio ${event.line}`;
     case 'spawn':
       return `spawn ${event.wave}`;
+    case 'wake':
+      return 'wave' in event ? `wake ${event.wave}` : `wake ${event.enemy}`;
     case 'ally':
       return `ally ${event.id} ${event.path}`;
     case 'allyMove':
       return `allyMove ${event.id} ${event.path}`;
+    case 'suppress':
+      return `suppress ${event.id} ${event.wave} ${event.sec}s`;
     case 'cutscene':
       return `cutscene ${event.id}`;
     case 'cutsceneEnd':
@@ -51,6 +55,8 @@ function eventText(event: ScriptOut): string {
       return `flag ${event.name}`;
     case 'map':
       return `map ${event.mark} ${event.on ? 'on' : 'off'}`;
+    case 'payoff':
+      return `payoff ${event.id}`;
     case 'end':
       return `end ${event.result}`;
   }

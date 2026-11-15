@@ -18,6 +18,8 @@ export interface PillboxState {
   warn: number; // the seconds of warning left; 0 when it is not warning
   shots: number; // the shots left in the burst
   shotWait: number; // the seconds before the next shot of the burst
+  suppress: number; // the seconds its muzzle stays quiet after a hit; 0 when it may fire (SB-2015)
+  shot: boolean; // whether a shot has landed on it once; its blast points show their light only after that (SB-2022)
 }
 
 // What one frame of a pillbox did: the warning it started and the shot it fired, either or both absent.
@@ -28,7 +30,19 @@ export interface PillboxStep {
 
 // A pillbox with its first warning still to come.
 export function newPillbox(id: string): PillboxState {
-  return { id, wait: PILLBOX_TUNE.firstWait, warn: 0, shots: 0, shotWait: 0 };
+  return { id, wait: PILLBOX_TUNE.firstWait, warn: 0, shots: 0, shotWait: 0, suppress: 0, shot: false };
+}
+
+// A shot on the pillbox does no damage but keeps its muzzle quiet for `seconds` (SB-2015). A warning or a burst under
+// way stops at once, and the next warning comes a full interval after the suppression ends. A second hit while the
+// first still runs extends it rather than shortening it.
+export function suppressPillbox(state: PillboxState, seconds = PILLBOX_TUNE.suppressSec): void {
+  state.suppress = Math.max(state.suppress, seconds);
+  state.shot = true;
+  state.warn = 0;
+  state.shots = 0;
+  state.shotWait = 0;
+  state.wait = PILLBOX_TUNE.interval;
 }
 
 // The direction a pillbox faces on the ground: its front is +z turned by the map's yaw.
@@ -90,8 +104,9 @@ function aimAt(
 
 // One frame of one pillbox. `box` is its box, `mech` the mech's feet and `blockers` the props and the other standing
 // targets. It waits until it can see the mech, warns for `warn` seconds, then fires `burst` shots `shotInterval` apart;
-// a line that closes during the burst ends it, and `interval` passes before the next warning. Returns the warning it
-// started and the shot it fired this frame.
+// a line that closes during the burst ends it, and `interval` passes before the next warning. A suppressed pillbox
+// counts its quiet seconds and does nothing else (SB-2015). Returns the warning it started and the shot it fired this
+// frame.
 export function stepPillbox(
   state: PillboxState,
   box: Aabb,
@@ -101,6 +116,10 @@ export function stepPillbox(
   dt: number,
   rng: Rng,
 ): PillboxStep {
+  if (state.suppress > 0) {
+    state.suppress = Math.max(0, state.suppress - dt);
+    return { warnAt: null, shot: null };
+  }
   const aim = aimAt(box, yaw, mech, blockers);
   if (state.warn > 0) {
     state.warn = Math.max(0, state.warn - dt);
