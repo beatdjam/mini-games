@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { clamp } from '@engine/core/index.ts';
 import { renderer, scene } from '@engine/render/index.ts';
 import { TONE, type LookTune } from '../data/looks.ts';
+import { refreshGradeFilter, setGradeBase } from './atmosphere.ts';
 import { setSky } from './sky.ts';
 import { MAP_FOG } from './world.ts';
 
@@ -28,10 +29,13 @@ export function applyLook(look: LookTune, basePixel: number): void {
   renderer.setPixelRatio(Math.max(0.1, basePixel * look.pixel));
   const style = renderer.domElement.style;
   style.imageRendering = look.pixel < 0.999 ? 'pixelated' : 'auto';
-  style.filter =
+  setGradeBase(
     look.saturate === 1 && look.contrast === 1 && look.sepia === 0
       ? ''
-      : `saturate(${look.saturate}) contrast(${look.contrast}) sepia(${look.sepia})`;
+      : `saturate(${look.saturate}) contrast(${look.contrast}) sepia(${look.sepia})`,
+  );
+  // the beach's own grade (view/atmosphere.ts) comes after the look's terms; 0 leaves the look alone
+  refreshGradeFilter();
   if (scene.fog instanceof THREE.Fog) {
     scene.fog.color.setHex(look.fogColor);
     scene.fog.near = MAP_FOG.near * (1 - clamp(look.haze, 0, 0.9));

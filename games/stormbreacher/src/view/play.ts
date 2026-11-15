@@ -19,6 +19,7 @@ import { hudModel } from '../logic/hud.ts';
 import { stream } from '../logic/rng.ts';
 import type { MechEvent } from '../logic/mech.ts';
 import { buildAllyView, drawAllies, type AllyView } from './allies.ts';
+import { burnAtmosphere } from './atmosphere.ts';
 import { buildBattle, type Battle } from './battle/index.ts';
 import { buildBlastView, drawBlasts, type BlastView } from './blasts.ts';
 import { aimRay, applyPose, cameraPose, followCamera, screenRect, stateOfPose, type CameraState } from './camera.ts';
@@ -281,12 +282,15 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
         if (target.kind === 'pillbox') view.world.breaks.set(event.id, 0);
         const { box } = target;
         blast('large', (box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, (box.minZ + box.maxZ) / 2);
+        burnAtmosphere((box.minX + box.maxX) / 2, (box.minZ + box.maxZ) / 2);
       }
     } else if (event.kind === 'enemyDown') {
       kill = true;
       blast('small', event.x, event.y + BLAST_LIFT.small, event.z);
     } else if (event.kind === 'propDestroyed') {
       blast('small', event.x, BLAST_LIFT.prop, event.z);
+      // the broken prop keeps a fire of its own, which its wreck stands in for well enough at this size
+      burnAtmosphere(event.x, event.z);
     } else if (event.kind === 'shellLand' || event.kind === 'mineBlast') {
       // the sea has no ground face: a shell past the map's front edge keeps the height its flash had over the water
       const water = event.z >= game.map.bounds.maxZ;

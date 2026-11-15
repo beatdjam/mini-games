@@ -12,6 +12,7 @@ import { blastPropIndexes } from '../logic/blasts.ts';
 import { craftRects } from '../logic/craft.ts';
 import { blockingPropIndexes, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxesOfRect } from './camera.ts';
+import { buildAtmosphere } from './atmosphere.ts';
 import { buildShore } from './shore.ts';
 import { breakPropSlot, buildOutdoor, buildTargets, type OutdoorBuild, type PropSlot } from './outdoor.ts';
 
@@ -65,7 +66,8 @@ function blastPropsOf(map: MapDef): Set<Prop> {
 }
 
 // Builds the walkable map into the scene and returns what was built. Hiding the start-up field is left to the caller.
-export function buildWorld(map: MapDef): World {
+// `air` false leaves out the beach's air (its smoke, haze, fires and grade): #view-fx's stage 0 asks for no effects.
+export function buildWorld(map: MapDef, air = true): World {
   const fog = scene.fog instanceof THREE.Fog ? scene.fog : new THREE.Fog(SKY_COLOR, FOG_NEAR, FOG_FAR);
   fog.near = FOG_NEAR;
   fog.far = FOG_FAR;
@@ -84,6 +86,8 @@ export function buildWorld(map: MapDef): World {
   scene.add(targetGroup);
   const shore = buildShore(map.bounds);
   scene.add(shore);
+  // the air over the beach: its smoke, haze, fires and screen grade (SB-1440). A new map replaces the last one's
+  if (air) buildAtmosphere(map);
   const targets = new Map<string, THREE.Mesh>();
   for (const child of targetGroup.children) {
     if (child instanceof THREE.Mesh) targets.set(child.name, child);

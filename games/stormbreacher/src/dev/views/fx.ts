@@ -159,7 +159,8 @@ export function showFx(_hash: string) {
   const tune = tuneWithParams({ ...FX_STAGES[stage] }, params);
   const { moveTune, feelTune } = moveFeelFromParams(params);
 
-  const { built, cameraBoxes } = buildMapScene(map);
+  // Stage 0 is the look with every effect off, so the air (its smoke, fires, haze, grade and layers) is left out too.
+  const { built, cameraBoxes } = buildMapScene(map, stage !== 0);
   const basePixel = basePixelRatio();
   const lights = collectLights();
   const groundTiles = collectGroundTiles(built.group);
