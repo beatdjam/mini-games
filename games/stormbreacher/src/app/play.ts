@@ -1,7 +1,7 @@
 // The screens the sortie moves through: the start button (title), the sortie itself and its result. The logic stays in
 // logic/game.ts and the drawing in view/play.ts; this file decides which of them runs and what the page shows.
 import { addSystem, el, isTouch, lang, t } from '@engine/core/index.ts';
-import { scene } from '@engine/render/index.ts';
+import { disposeTree, scene } from '@engine/render/index.ts';
 import { exitLock } from '@engine/ui/index.ts';
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { CUTSCENE_SKIP_GUARD_SEC } from '../data/script.ts';
@@ -47,9 +47,14 @@ function hideField(): void {
 
 // Takes the last sortie's map, targets, enemies and mech out of the scene.
 function clearPlay(old: PlayView): void {
+  // The map, the targets, the shore and the mech are built anew for every sortie, so their shapes and pictures are freed
+  // here: leaving them to the scene's removal alone would keep them on the GPU, one sortie's worth each time.
   scene.remove(old.world.built.group);
+  disposeTree(old.world.built.group);
   scene.remove(old.world.targetGroup);
+  disposeTree(old.world.targetGroup);
   scene.remove(old.world.shore);
+  disposeTree(old.world.shore);
   scene.remove(old.model);
   disposeProtoMech(old.model);
   old.stage?.dispose();

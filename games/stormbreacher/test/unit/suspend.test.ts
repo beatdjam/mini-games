@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
-import { newGame } from '../../src/logic/game.ts';
+import { TARGET_SIZE, WRECK_SCALE_Y } from '../../src/data/props.ts';
+import { newGame, targetRect } from '../../src/logic/game.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { buildNavGrid, newNav } from '../../src/logic/nav.ts';
 import { SUSPEND_VERSION, restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
@@ -48,6 +49,19 @@ describe('suspend', () => {
     expect(back).toEqual({ ...game, bullets: [], shells: [], events: [] });
     expect(back?.map).toBe(M1B_HAND);
     expect(back?.mission).toBe(M1);
+  });
+
+  test('a broken target saved before the wreck reached its rect comes back at the wreck height', () => {
+    const game = newGame(M1B_HAND);
+    const target = game.targets.find(entry => entry.id === 'pillbox-1');
+    if (!target) throw new Error('the game has no pillbox-1');
+    target.hp = 0;
+    const rect = targetRect(game, 'pillbox-1');
+    if (!rect) throw new Error('the game has no pillbox-1 rect');
+    rect.top = TARGET_SIZE.pillbox.h; // an old save, whose rect kept the wall's height
+    const back = restoreSuspend(stored(suspendOf(game)));
+    if (!back) throw new Error('not read');
+    expect(targetRect(back, 'pillbox-1')?.top).toBeCloseTo(TARGET_SIZE.pillbox.h * WRECK_SCALE_Y, 9);
   });
 
   test('the data is a deep copy: changing the game afterwards does not change it', () => {

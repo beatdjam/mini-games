@@ -556,9 +556,16 @@ export function countProtoDraws(root: THREE.Object3D): ProtoStats {
 
 export function disposeProtoMech(root: THREE.Object3D): void {
   const disposed = new Set<THREE.Material>();
+  const skeletons = new Set<THREE.Skeleton>();
   root.traverse(object => {
     const mesh = object as THREE.Mesh;
     if (mesh.isMesh !== true) return;
+    // the shapes share one skeleton, whose bone texture the renderer keeps on the GPU until the skeleton is disposed
+    const skeleton = (mesh as THREE.SkinnedMesh).skeleton as THREE.Skeleton | undefined;
+    if (skeleton !== undefined && !skeletons.has(skeleton)) {
+      skeletons.add(skeleton);
+      skeleton.dispose();
+    }
     mesh.geometry.dispose();
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     for (const material of materials) {

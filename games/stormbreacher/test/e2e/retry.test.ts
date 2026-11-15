@@ -2,7 +2,7 @@ import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
 import { el, runSystems, t } from '@engine/core/index.ts';
-import { scene } from '@engine/render/index.ts';
+import { renderer, scene } from '@engine/render/index.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
@@ -115,6 +115,25 @@ test('the start button goes back to the sortie at the start', async () => {
   expect(again.armor).toBe(MECH_TUNE.armor);
   expect(again.checkpoint).toBeNull();
   expect(again.retries).toBe(1);
+});
+
+test('a retry frees the last sortie’s shapes and pictures', async () => {
+  // goes down, opens the result and takes the start again; the new sortie is drawn once, so its shapes reach the GPU
+  const downAndRetry = async (): Promise<void> => {
+    const current = game();
+    current.armor = 0;
+    current.downed = true;
+    await until(() => state === 'result');
+    button('#sbResultRestart').click();
+    await frame();
+  };
+  startSortie();
+  await frame();
+  await downAndRetry(); // the first retry builds the views the test measures, so nothing is made for the first time after it
+  const before = { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures };
+  for (let i = 0; i < 5; i++) await downAndRetry();
+  expect(renderer.info.memory.geometries).toBe(before.geometries);
+  expect(renderer.info.memory.textures).toBe(before.textures);
 });
 
 test('a warning light goes out once the sortie starts again', async () => {
