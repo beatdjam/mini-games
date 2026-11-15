@@ -25,7 +25,8 @@ export interface SoundTarget {
 }
 
 // What one frame says to the sound layer. `hostile` is the hostile bullets that were not in the last frame. `radio` is
-// the line on screen now and `lastRadio` the one the last frame had, so the voice comes with the text.
+// the line on screen now and `lastRadio` the one the last frame had (compared as objects, not by `time`), so the voice
+// comes with the text.
 export interface SoundInput {
   events: readonly GameEvent[];
   mech: SoundPoint;
@@ -120,13 +121,9 @@ export function planSounds(input: SoundInput): SoundCue[] {
     }
   }
   // The voice is the line the screen put up, not the script's event: a queued line speaks when it comes up.
-  if (
-    input.radio &&
-    (input.lastRadio === null ||
-      input.lastRadio === undefined ||
-      input.radio.line !== input.lastRadio.line ||
-      input.radio.time !== input.lastRadio.time)
-  ) {
+  // A new line is a new object (`stepRadio` makes one each time), so the voice goes by identity: `time` also moves on
+  // every frame of a cutscene (the line on screen keeps its age), and a same-text line coming up again still speaks.
+  if (input.radio && input.radio !== input.lastRadio) {
     ask('radio', input.mech);
   }
   for (const shot of input.hostile) ask('enemyGun', shot);
@@ -166,8 +163,7 @@ let nextBoom = 0;
 // The hostile bullets already heard. A fresh shot is a new object, so a hit that removes an old one cannot hide a new
 // one the way a count would.
 let heardHostile = new WeakSet<Bullet>();
-// The radio line the last frame had on screen; the voice plays when this changes. A copy, so the state here does not
-// hold the game's object.
+// The radio line the last frame had on screen; the voice plays when the line on screen is another object than this.
 let lastRadio: { line: string; time: number } | null = null;
 // The ambience draws from its own fixed-seed generator: it must not touch the game's stream, and a fixed seed keeps a
 // sortie's beach the same every run.
@@ -184,7 +180,7 @@ export function resetSound(radio: { line: string; time: number } | null = null):
   nextBoom = SOUND_AMBIENT.firstBoom;
   ambientRng = createRng(SOUND_AMBIENT.seed);
   heardHostile = new WeakSet();
-  lastRadio = radio === null ? null : { line: radio.line, time: radio.time };
+  lastRadio = radio;
 }
 
 // The beach while the sortie runs. It is driven from update, so a pause, the result and the title stop it by not calling
@@ -221,6 +217,6 @@ export function soundFrame(game: GameModel, dt: number): void {
   })) {
     playSound(cue);
   }
-  lastRadio = game.radio === null ? null : { line: game.radio.line, time: game.radio.time };
+  lastRadio = game.radio;
   stepAmbient(dt);
 }
