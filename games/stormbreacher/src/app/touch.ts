@@ -13,6 +13,7 @@ import {
   initInput,
   initTouchLayout,
   joy,
+  releaseInputs,
   tapBtn,
 } from '@engine/ui/index.ts';
 import { TOUCH_BUTTONS, TOUCH_DEFAULTS, TOUCH_TUNE, type TouchButton, type TouchDefault } from '../data/touch.ts';
@@ -238,6 +239,23 @@ export function readTouch(): TouchRead {
   pitchDelta = 0;
   jumpPressed = false;
   return { input, pitchDelta: pitch, lock: lockState(), sub: fire2Held, use: useHeld };
+}
+
+// Lets go of everything the fingers hold: the stick, the view drag, fire, jump, boost and use. A layer hidden under a
+// finger sends no pointerup, so what was held would stay held (and the mech would walk or shoot the moment the layer
+// comes back). The press counts and the stats are kept.
+export function releaseTouch(): void {
+  releaseInputs();
+  pointers.clear();
+  stickId = null;
+  lookId = null;
+  jumpPressed = false;
+  jumpHeld = false;
+  boostHeld = false;
+  useHeld = false;
+  yawDelta = 0;
+  pitchDelta = 0;
+  for (const id of ['#btnJump', '#btnBoost', '#btnUse']) el(id).classList.remove('down');
 }
 
 export function touchStats(): TouchStats {

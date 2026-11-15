@@ -392,6 +392,8 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawSeaFire(view.seaFire, game);
   drawAllies(view.allies, game, view.battle, stream('allyFx'), dt);
   hurtStep(view.hurt, dt, game.armor / MECH_TUNE.armor);
+  // the red edge and the flash are the player's damage readout, as the HUD is: a cutscene hides them with the HUD
+  view.hurt.root.hidden = game.script.cutscene !== null;
   const hud = hudModel(game);
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
   drawHud(view.hud, hud, lock);

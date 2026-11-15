@@ -132,7 +132,7 @@ E2E に書いてよいのは、画面か入力が無いと確かめられない�
 
 ### 撃たれている感
 
-撃たれている感（SB-1380）は `src/view/hurt.ts` が画面の縁に出す。要素 `#sbPlayHurt`（`z-index: 4`。キャンバスの上、HUD とカットシーンの帯の下）は出撃を作るときに1度だけ作り、毎フレームは縁と白みの `opacity`、色を抜く層の `backdrop-filter` を書き換えるだけ（変わるまで書かない）。値は `HURT_TUNE` in `src/data/tune.ts`（すべて仮。`#view-hurt` の調整パネルで決める）。
+撃たれている感（SB-1380）は `src/view/hurt.ts` が画面の縁に出す。要素 `#sbPlayHurt`（`z-index: 4`。キャンバスの上、HUD とカットシーンの帯の下）は出撃を作るときに1度だけ作り、カットシーンの間は HUD と同じく隠す。毎フレームは縁と白みの `opacity`、色を抜く層の `backdrop-filter` を書き換えるだけ（変わるまで書かない）。値は `HURT_TUNE` in `src/data/tune.ts`（すべて仮。`#view-hurt` の調整パネルで決める）。
 
 - 被弾の方向: 出来事 `damaged` の `fromX`・`fromZ`（機体から撃った側への向き）と機体の `yaw` から、機体の正面を 0 度とする角度を `hurtAngle` で出す。画面の縁を8方向（正面・右前・右・右後ろ・後ろ・左後ろ・左・左前。`hurtEdge`）に分け、その方向の縁を `HURT_TUNE.edgeFade` 秒かけて赤く光らせる。同じ方向に重ねて受けたら消えるまでの時間を戻し、別の方向は同時に出る
 - 近い着弾: 爆発が機体から `HURT_TUNE.flashNear` m 以内で起きたら、`HURT_TUNE.flashFade` 秒かけて画面を白ませる。強さは近いほど強く、0m で `flashAlpha`、`flashNear` で 0。爆発は迫撃砲・地雷のほか、自分が壊した目標・敵・物の爆発も同じに扱い（どれも「爆発」）、カットシーン中に着弾した砲弾でも白む。揺れは6章の爆発の `boomShakeAt` が近いほど強くする（ここでは足さない）
@@ -965,7 +965,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
 - カメラ: キーとキーの間は、時刻をなめらかに（`u*u*(3-2u)`）して位置と見る点を線形に混ぜる。そのためキーの時刻ちょうどは、そのキーの値で、前後で速さが 0 になる。画角は `CAMERA_TUNE.fov`。カットシーンが終わると、次のコマから本体のカメラに戻る。カットシーンの間も本体のカメラは機体の始まりの位置の後ろに置いてあり（遅れて追わず、そこに合わせる）、カメラのピッチもカットシーンの間は動かさない。そのため `landing` が最後まで流れても飛ばされても、次のコマの本体のカメラは最後のキーの位置（誤差 0.5m 以内。e2e テストが比べる）で、跳ばない
 - 文: `cutsceneLine` が今の秒の言語キーを返す（なければ null）。下の帯の中に、`t(key)` の文字で出す
 - 見た目の出来事: `cutsceneEvents(id, from, to)` は `from` より後で `to` 以前の出来事を返すので、コマごとに呼ぶと各出来事は1回だけ出る。画面はこれで爆発を出す。爆発は `explosionLarge` を、カットシーンのカメラからその場所までの距離の gain と pitch で鳴らす（艇の爆破・着弾・水柱とも。`blast` in src/view/cutscene.ts）。`tracers` は `view/battle` の `Battle.tracer(at, velocity)` を呼び、`view/battle` が持つ線（`tracerMesh`）を使い回す（新しい線・材質を作らない）。`riders` は `view/riders.ts` が読み、音も出さない。文が変わったフレームは `radio` を1回鳴らす。`SoundName` は増やさない。艇の沈み方・着き方・ランプの角度・物の崩れ方・同乗者の倒れ方は、経過秒と表の `at`・`sec` から毎コマ決める（見た目だけで、当たり判定・マップの検査には入らない）
-- 帯: 上下に高さ 12vh の黒い帯（`#sbCutscene`。`#view-hud?cut=1` の見本の帯に合わせる）。文は下の帯の中の真ん中。カットシーンの間は HUD（`#sbPlayHud`）を隠し、終わると出す。帯は `pointer-events:none`
+- 帯: 上下に高さ 12vh の黒い帯（`#sbCutscene`。`#view-hud?cut=1` の見本の帯に合わせる）。文は下の帯の中の真ん中。カットシーンの間は HUD（`#sbPlayHud`）とタッチの層（`#touch`。タッチの端末で出している間だけ）を隠し、終わると出す。隠すときに押しっぱなしのスティック・視点・ボタンは離した扱いにする（`releaseTouch` in `src/app/touch.ts`。終わった瞬間に歩いたり撃ったりしない）。タップで飛ばすのは window で受けるので、隠れていても飛ばせる。帯は `pointer-events:none`
 - 海の艇: 表の `sink`・`arrive` の数だけ、始まりの艇と同じ作り（`buildCraft` in src/view/shore.ts）の艇を置く。そのカットシーンの間だけ見え、`sink` は沈み終えると消える。物の崩れ（`collapse`）は、`buildCutsceneView` が渡された `world.targets` の模型の高さと傾きを動かす（`COLLAPSE_DEPTH` 3m・`COLLAPSE_TILT` 0.35 rad。1つおきに逆へ傾く。崩す物の id が無ければ例外）。始まりの艇のランプは別のメッシュ（`${CRAFT_NAME}Ramp`）で、カットシーンの外では下りた形
 - 入力: 台本の `cutscene` の間（`game.script.cutscene` が null でない間）は、`step` が機体に何も押していない入力を渡す。動かず、撃たず（メインもサブも）、ジャンプもブーストもしない。敵・砲撃・弾・台本の時間は止まらず進む。台本が最初の `stepScript` でカットシーンに入るので、出撃の最初の1コマだけは入力が通る
 - 砲撃: カットシーンの間は、砲撃（`game.barrages`）が数えず、着弾予告を出さない。もう予告した弾は落ちる。機体が艇の上（`mech.z` が `map.bounds.maxZ` より大きい）間も同じく数えず、ランプを降りた所から数え始める（機体が動けない間や艇の上にいる間に被弾しないため。`stepHazards` in `src/logic/game.ts`）
