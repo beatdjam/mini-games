@@ -97,3 +97,66 @@ test('a wall that lets go keeps the camera near for returnDelay, then it comes b
   expect(Math.max(...away.slice(SETTLE, SETTLE + wait))).toBeLessThan(near + 0.05);
   expect(away[away.length - 1]).toBeGreaterThan(near + 2);
 });
+
+// Nothing stands between the look point and the camera: the mech is on the screen (SB-2052).
+function blocked(state: CameraState, boxes: readonly THREE.Box3[]): boolean {
+  const line = state.pos.clone().sub(state.look);
+  const length = line.length();
+  if (length < 1e-6) return false;
+  const ray = new THREE.Ray(state.look, line.divideScalar(length));
+  const point = new THREE.Vector3();
+  // a box the look point is inside (its eased share lagging into a wall) is not a box between the two
+  return boxes.some(
+    box =>
+      !box.containsPoint(state.look) &&
+      ray.intersectBox(box, point) !== null &&
+      state.look.distanceTo(point) < length - 1e-6,
+  );
+}
+
+test.each([QUARTER, Math.PI])(
+  'turning %f rad with a wall behind, no frame has a box between the look point and the camera',
+  turn => {
+    // a wall behind the mech and a little to the left: the swing round the mech crosses its corner
+    const boxes = cameraBoxes([{ x: -2, z: 1.5, halfW: 3, halfD: 1, yaw: 0, top: 6 }]);
+    const targets = [
+      ...Array.from({ length: SETTLE }, () => at(0, 0, 0)),
+      ...Array.from({ length: 60 }, () => at(0, 0, turn)),
+    ];
+    const states = follow(targets, boxes);
+    expect(states.filter(state => blocked(state, boxes))).toHaveLength(0);
+  },
+);
+
+test('turning while walking past two blocks, no frame has a box between the look point and the camera', () => {
+  const boxes = cameraBoxes([
+    { x: 5, z: 2, halfW: 2, halfD: 1, yaw: 0, top: 6 },
+    { x: 12, z: 2, halfW: 2, halfD: 1, yaw: 0, top: 6 },
+  ]);
+  const targets = [
+    ...Array.from({ length: SETTLE }, () => at(0, 0)),
+    ...Array.from({ length: 220 }, (_, frame) => at(7.5 * frame * DT, 0, Math.sin(frame * 0.07) * 1.6)),
+  ];
+  const states = follow(targets, boxes);
+  expect(states.filter(state => blocked(state, boxes))).toHaveLength(0);
+});
+
+test('a corner that only grazes the camera moves it at most pullSpeed per frame', () => {
+  // a block ahead of the mech's right shoulder side corner: the mech walks along it, the line never crosses it
+  const boxes = cameraBoxes([{ x: 4, z: 4.5, halfW: 3, halfD: 1, yaw: 0, top: 6 }]);
+  const targets = [
+    ...Array.from({ length: SETTLE }, () => at(0, 0)),
+    ...Array.from({ length: 120 }, (_, frame) => at(7.5 * frame * DT, 0)),
+  ];
+  const states = follow(targets, boxes);
+  let worst = 0;
+  for (let i = SETTLE + 1; i < states.length; i++) {
+    const travel = new THREE.Vector3(targets[i].x - targets[i - 1].x, 0, 0);
+    const move = states[i].pos
+      .clone()
+      .sub(states[i - 1].pos)
+      .sub(travel);
+    worst = Math.max(worst, Math.hypot(move.x, move.z));
+  }
+  expect(worst).toBeLessThanOrEqual(CAMERA_TUNE.pullSpeed * DT + 1e-6);
+});

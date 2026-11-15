@@ -209,6 +209,7 @@ export function cameraPose(
   };
 }
 
+const TOUCH = 0.01; // m; a box face this near the camera does not count as between it and the look point
 const NEVER = 1e9; // s; the time since a push that has not happened
 
 // A pose as a camera state: a camera already in its place, with no ease behind it.
@@ -285,6 +286,31 @@ function stepRoom(
   const hit = nearestHit(prevPos, travel.clone().divideScalar(length), length + tune.margin, boxes);
   if (!hit) return travel;
   return travel.clone().multiplyScalar(Math.max(0, hit.dist - tune.margin) / length);
+}
+
+// A camera that a box has come between it and the look point is put in front of the box at once (SB-2052): the swing and the
+// distance ease, but the screen must never be a wall with the mech behind it. A line nothing crosses leaves the camera as
+// it is, so a corner's grazing still eases at pullSpeed.
+function inFront(
+  look: THREE.Vector3,
+  pos: THREE.Vector3,
+  boxes: readonly THREE.Box3[],
+  tune: CameraTune,
+): THREE.Vector3 {
+  const line = pos.clone().sub(look);
+  const length = line.length();
+  if (length <= 1e-6) return pos;
+  // a box the look point is already inside (its eased share can lag into a wall) is no wall between: ray-casting from inside
+  // would snap the camera onto the look point
+  const hit = nearestHit(
+    look,
+    line.divideScalar(length),
+    length,
+    boxes.filter(box => !box.containsPoint(look)),
+  );
+  // a camera that only touches the face (the pose's own place at minDist) is not behind it
+  if (!hit || hit.dist > length - TOUCH) return pos;
+  return look.clone().addScaledVector(line, Math.max(0, hit.dist - tune.margin));
 }
 
 // The camera for this frame. The look point keeps the mech's own motion exact (a boost must not leave the aim behind)
@@ -380,7 +406,7 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
   }
 
   return {
-    pos: prev.pos.clone().add(step),
+    pos: inFront(look, prev.pos.clone().add(step), pose.boxes, tune),
     look,
     openLook: pose.openLook.clone(),
     feet: { x: pose.feet.x, z: pose.feet.z },
