@@ -48,22 +48,22 @@ function atPillbox1Side(game: GameModel): void {
 function breakableLine2(): MapDef {
   const map = structuredClone(M1B_HAND);
   for (const prop of map.props) {
-    if (prop.kind === 'hedgehog' && prop.z >= 80 && prop.z <= 96 && prop.x >= 40 && prop.x <= 60) prop.breakable = true;
+    if (prop.kind === 'hedgehog' && prop.z >= 56 && prop.z <= 76 && prop.x >= 40 && prop.x <= 60) prop.breakable = true;
   }
   return map;
 }
 
 // The breakable hedgehog of line 2 nearest the sea, found by its place rather than its index in the map.
 function breakableHedgehogIndex(map: MapDef): number {
-  const prop = map.props.find(item => item.breakable === true && item.x === 52.33 && item.z === 93.33);
-  if (!prop) throw new Error('the map has the breakable hedgehog at x 52.33, z 93.33');
+  const prop = map.props.find(item => item.breakable === true && item.x === 52.33 && item.z === 72);
+  if (!prop) throw new Error('the map has the breakable hedgehog at x 52.33, z 72');
   return map.props.indexOf(prop);
 }
 
 // Puts the mech in front of that hedgehog (its +z side), facing the land.
 function atBreakableHedgehog(game: GameModel): void {
   game.mech.x = 52.33;
-  game.mech.z = 105;
+  game.mech.z = 84;
   game.mech.yaw = 0;
 }
 
@@ -92,13 +92,15 @@ test('a new game puts the mech on the landing craft, facing the land', () => {
   expect(game.mech.z).toBe(craftZ(M1B_HAND.bounds) + LANDING_TUNE.startDepth);
   expect(game.mech.y).toBe(CRAFT_TUNE.deckTop);
   expect(game.mech.yaw).toBe(0);
-  expect(game.targets).toHaveLength(7);
+  expect(game.targets).toHaveLength(6);
   for (const target of game.targets) expect(target.hp).toBe(TARGET_HP[target.kind]);
 });
 
-test('holding fire on a pillbox’s side breaks it', () => {
+test('holding fire on a pillbox’s side suppresses it and never breaks it', () => {
   const game = newPlayGame(M1B_HAND);
   atPillbox1Side(game);
+  const target = game.targets.find(entry => entry.id === 'pillbox-1');
+  if (!target) throw new Error('the map has no pillbox-1');
   let hits = 0;
   let destroyedFrame = -1;
   for (let i = 0; i < 600 && destroyedFrame < 0; i++) {
@@ -108,19 +110,23 @@ test('holding fire on a pillbox’s side breaks it', () => {
       if (event.kind === 'destroyed' && event.id === 'pillbox-1') destroyedFrame = i;
     }
   }
-  expect(destroyedFrame).toBeGreaterThanOrEqual(0);
-  expect(hits).toBe(TARGET_HP.pillbox / WEAPONS[M1_LOADOUT.main].damage);
-  expect(game.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
+  expect(hits).toBeGreaterThan(0);
+  expect(destroyedFrame).toBe(-1);
+  expect(target.hp).toBe(TARGET_HP.pillbox);
+  expect(game.pillboxes.find(pillbox => pillbox.id === 'pillbox-1')?.suppress).toBeGreaterThan(0);
 });
 
 test('a broken target leaves a wreck-high wall and makes the enemy cells again', () => {
-  const game = newPlayGame(M1B_HAND);
-  atPillbox1Side(game);
-  const place = M1B_HAND.targets.find(entry => entry.id === 'pillbox-1');
-  if (!place) throw new Error('the hand map has no pillbox-1');
-  const target = game.targets.find(entry => entry.id === 'pillbox-1');
-  if (!target) throw new Error('the game has no pillbox-1');
-  expect(targetRect(game, 'pillbox-1')?.top).toBe(TARGET_SIZE[place.kind].h);
+  // the depot: a pillbox is not broken by bullets (SB-2015). No props, so nothing stands in the line of fire.
+  const game = newPlayGame({ ...M1B_HAND, props: [] });
+  const place = M1B_HAND.targets.find(entry => entry.id === 'depot');
+  if (!place) throw new Error('the hand map has no depot');
+  game.mech.x = place.x + 20;
+  game.mech.z = place.z;
+  game.mech.yaw = Math.PI / 2;
+  const target = game.targets.find(entry => entry.id === 'depot');
+  if (!target) throw new Error('the game has no depot');
+  expect(targetRect(game, 'depot')?.top).toBe(TARGET_SIZE[place.kind].h);
 
   // a walking enemy (far off and asleep) makes the cells on the first step
   game.enemies.push(newEnemy('nav-test', 'test-nav', 'grunt', 0, 160));
@@ -130,7 +136,7 @@ test('a broken target leaves a wreck-high wall and makes the enemy cells again',
 
   for (let i = 0; i < 600 && target.hp > 0; i++) step(game, { ...idle, fire: true }, DT);
   expect(target.hp).toBe(0);
-  expect(targetRect(game, 'pillbox-1')?.top).toBeCloseTo(TARGET_SIZE[place.kind].h * WRECK_SCALE_Y, 9);
+  expect(targetRect(game, 'depot')?.top).toBeCloseTo(TARGET_SIZE[place.kind].h * WRECK_SCALE_Y, 9);
   // the target is down, so the next frame that walks an enemy makes the cells again
   step(game, idle, DT);
   expect(game.nav.grid).not.toBeNull();
@@ -138,7 +144,7 @@ test('a broken target leaves a wreck-high wall and makes the enemy cells again',
 });
 
 test('a shot that misses flies its range and vanishes without a hit', () => {
-  // no props: a shot now stops at a prop (the hedgehogs of line 3 stand on the sea side of this spot)
+  // no props: a shot now stops at a prop (the hedgehogs of line 2 stand on the sea side of this spot)
   const game = newPlayGame({ ...M1B_HAND, props: [] });
   atPillbox1(game);
   game.mech.yaw = Math.PI; // away from the land, toward the sea
@@ -158,9 +164,13 @@ test('a shot that misses flies its range and vanishes without a hit', () => {
 });
 
 test('breaking every target on the map no longer clears the game', () => {
-  const oneTarget = { ...M1B_HAND, targets: [M1B_HAND.targets[0]] };
+  const depot = M1B_HAND.targets.find(target => target.id === 'depot');
+  if (!depot) throw new Error('the map has no depot');
+  const oneTarget = { ...M1B_HAND, targets: [depot] };
   const game = newPlayGame(oneTarget);
-  atPillbox1(game);
+  game.mech.x = depot.x;
+  game.mech.z = depot.z + 10;
+  game.mech.yaw = 0;
   let destroyed = false;
   for (let i = 0; i < 600 && !destroyed; i++) {
     step(game, { ...idle, fire: true }, 1 / 60);
@@ -228,28 +238,32 @@ test('a prop between the mech and a target stops the shot', () => {
   expect(game.bullets).toHaveLength(0);
 });
 
-test('the sub gun breaks a pillbox in fewer shots from its side', () => {
+test('the mech’s shots do not break a pillbox: they quiet its muzzle and leave its health alone', () => {
   const game = newPlayGame(M1B_HAND);
   atPillbox1Side(game);
+  const target = game.targets.find(entry => entry.id === 'pillbox-1');
+  if (!target) throw new Error('the map has no pillbox-1');
   let hits = 0;
-  for (let i = 0; i < 600 && game.targets[0].hp > 0; i++) {
-    step(game, { ...idle, sub: true }, 1 / 60);
+  for (let i = 0; i < 600; i++) {
+    step(game, { ...idle, sub: i === 0, fire: i > 0 }, 1 / 60);
     for (const event of game.events) {
       if (event.kind !== 'hit' || event.target !== 'pillbox-1') continue;
       hits++;
-      expect(event.weapon).toBe('heavyGun');
     }
   }
-  expect(hits).toBe(Math.ceil(TARGET_HP.pillbox / WEAPONS.heavyGun.damage));
-  expect(game.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
+  expect(hits).toBeGreaterThan(0);
+  // SB-2015: a shot only suppresses; the pillbox keeps every point of its health
+  expect(target.hp).toBe(TARGET_HP.pillbox);
+  const state = game.pillboxes.find(pillbox => pillbox.id === 'pillbox-1');
+  expect(state?.suppress).toBeGreaterThan(0);
 });
 
-test('a pillbox takes a quarter of a shot from its front and all of one from its side', () => {
+test('a shot quiets a pillbox from its front or its side, and keeps the front’s spark', () => {
   const map: MapDef = { ...M1B_HAND, props: [], targets: [M1B_HAND.targets[0]] };
   const place = map.targets[0];
-  // a mech's shot of the main gun from 20 m out, flying (dx, dz); the pillboxes' own attack never starts (the mech is
+  // a mech's shot of the main gun from 20 m out, flying (dx, dz); the pillbox's own attack never starts (the mech is
   // still on the beach), so the bullet flies a few frames and the target takes one hit
-  const one = (dx: number, dz: number): { hp: number; deflected: boolean } => {
+  const one = (dx: number, dz: number): { hp: number; suppress: number; deflected: boolean } => {
     const game = newPlayGame(map);
     game.bullets.push({
       weapon: M1_LOADOUT.main,
@@ -267,16 +281,19 @@ test('a pillbox takes a quarter of a shot from its front and all of one from its
       for (const event of game.events) if (event.kind === 'hit') hit = event;
     }
     if (hit === null) throw new Error('the shot hit the pillbox');
-    return { hp: game.targets[0].hp, deflected: hit.deflected };
+    const state = game.pillboxes.find(pillbox => pillbox.id === 'pillbox-1');
+    return { hp: game.targets[0].hp, suppress: state?.suppress ?? 0, deflected: hit.deflected };
   };
 
   // from the +z side, toward -z: the front
   const front = one(0, -1);
-  expect(front.hp).toBe(97.5);
+  expect(front.hp).toBe(TARGET_HP.pillbox);
+  expect(front.suppress).toBeGreaterThan(0);
   expect(front.deflected).toBe(true);
   // from the +x side, toward -x: the side
   const side = one(-1, 0);
-  expect(side.hp).toBe(90);
+  expect(side.hp).toBe(TARGET_HP.pillbox);
+  expect(side.suppress).toBeGreaterThan(0);
   expect(side.deflected).toBe(false);
 });
 
@@ -401,9 +418,9 @@ test('the breakable stretch of line 2 is shut until it is shot, then the mech wa
   const shut = newPlayGame(map);
   atBreakableHedgehog(shut);
   for (let i = 0; i < 600; i++) step(shut, { ...idle, moveZ: 1 }, 1 / 60);
-  expect(shut.mech.z).toBeGreaterThan(90);
+  expect(shut.mech.z).toBeGreaterThan(73);
 
-  // firing while walking breaks the stretch and the mech passes the back edge of line 2 (z 80)
+  // firing while walking breaks the stretch and the mech passes the back edge of line 2 (z 62)
   const through = newPlayGame(structuredClone(map));
   atBreakableHedgehog(through);
   const broke: number[] = [];
@@ -414,7 +431,7 @@ test('the breakable stretch of line 2 is shut until it is shot, then the mech wa
     for (const rect of through.rects) {
       expect(rectDistance(rect, through.mech.x, through.mech.z)).toBeGreaterThanOrEqual(MECH_TUNE.radius - 1e-9);
     }
-    if (through.mech.z < 78) crossed = true;
+    if (through.mech.z < 60) crossed = true;
   }
   expect(crossed).toBe(true);
   expect(broke.length).toBeGreaterThanOrEqual(3);

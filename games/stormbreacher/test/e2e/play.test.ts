@@ -78,14 +78,15 @@ test("the script's end shows the result", async () => {
   startSortie();
   const current = game();
   for (const target of current.targets) target.hp = 1;
-  const pillbox = current.targets.find(target => target.id === 'pillbox-1');
-  if (!pillbox) throw new Error('the map has no pillbox-1');
-  current.mech.x = -33;
-  current.mech.z = 5;
+  // a depot still breaks from a shot (SB-2015 leaves only the pillboxes to the charges)
+  const depot = current.targets.find(target => target.id === 'depot');
+  if (!depot) throw new Error('the map has no depot');
+  current.mech.x = depot.box ? (depot.box.minX + depot.box.maxX) / 2 : 0;
+  current.mech.z = 41;
   current.mech.yaw = 0;
   window.dispatchEvent(key('keydown', 'KeyJ'));
   // the first shot brings one target down; the rest stay up, so the sortie goes on
-  await until(() => pillbox.hp === 0);
+  await until(() => depot.hp === 0);
   expect(state).toBe('play');
   // every target on the map down still does not end the sortie: only the script's end does
   for (const target of current.targets) target.hp = 0;

@@ -47,15 +47,19 @@ export type AllyFateBy = 'mortar' | 'gun';
 
 // What a cue does, in order. The script only reports these as events; the screen and the map carry them out.
 export type Action =
-  | { kind: 'objective'; id: string }
-  | { kind: 'radio'; line: string }
-  | { kind: 'spawn'; wave: string }
+  | { kind: 'objective'; id: string; unlessFired?: string } // `unlessFired`: skipped when that cue has already fired (an objective of a later step must not be pulled back)
+  | { kind: 'radio'; line: string; delay?: number; callout?: string } // `delay`: the line waits this many seconds before it comes up; `callout`: a language key for a short order shown near the aim while the line is up (SB-2028)
+  | { kind: 'spawn'; wave: string; dormant?: boolean } // `dormant`: put out asleep, held until a `wake`
+  | { kind: 'wake'; wave: string } // wake every living enemy of the wave
+  | { kind: 'wake'; enemy: string } // wake one enemy by id
   | { kind: 'ally'; id: string; path: string | HolePaths; fate?: { at: string; by: AllyFateBy; call?: string } }
   | { kind: 'allyMove'; id: string; path: string | HolePaths } // an ally already out takes the next way
+  | { kind: 'suppress'; id: string; wave: string; sec: number } // an ally's support fire silences a wave of nests for sec (SB-2020); `id` names the ally mech for the script check only, a tracer leaves from whichever ally is nearest the nest
   | { kind: 'cutscene'; id: CutsceneId }
   | { kind: 'checkpoint'; id: string }
   | { kind: 'flag'; name: string }
   | { kind: 'map'; mark: string; on: boolean }
+  | { kind: 'payoff'; id: string } // a milestone's knock (data/payoff.ts)
   | { kind: 'end'; result: 'cleared' };
 
 // One line of a mission's script.

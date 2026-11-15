@@ -152,8 +152,8 @@ export function showAlly(_hash: string) {
     const game = currentGame();
     if (!game) return;
     sendToScript(game, { kind: 'ashore' });
-    // cp1 sends the three through lines 2 and 3: open both first, or they would take the fallback ways
-    for (const id of ['l2-a', 'l3-a']) sendToScript(game, { kind: 'blast', id });
+    // cp1 sends the three through line 2: open it first, or they would take the fallback way
+    sendToScript(game, { kind: 'blast', id: 'l2-a' });
     standAt(BEFORE_C);
     breakPillboxes();
     sendToScript(game, { kind: 'enter', area: 'c-line' });

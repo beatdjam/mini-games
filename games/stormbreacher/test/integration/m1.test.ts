@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { M1 } from '../../src/data/missions/m1.ts';
+import { PAYOFF_TUNE } from '../../src/data/payoff.ts';
 import {
   checkpointReplay,
   newScript,
@@ -16,27 +17,42 @@ const STEP = 1 / 60;
 // wave2-sinks cutscene are in the flow; the last skip closes beach-held.
 const EXPECTED: readonly string[] = [
   'cutscene:landing',
-  'objective:reach-pillboxes',
-  'map:wave2:on',
-  'spawn:beach-mortar',
-  'cutsceneEnd:landing',
   'ally:buddy',
   'ally:cover-b1',
   'ally:cover-b2',
   'ally:cover-b3',
   'ally:gunner',
+  'objective:reach-pillboxes',
+  'map:wave2:on',
+  'spawn:beach-mortar',
+  'spawn:b-emplacements',
+  'spawn:line1-hold',
+  'spawn:pillbox-hold',
+  'cutsceneEnd:landing',
+  'wake:b-emplacements-1',
   'objective:break-pillboxes',
   'spawn:b-squad',
-  'spawn:b-emplacements',
+  'wake:b-emplacements',
   'radio:m1.depot-hint',
+  'payoff:breach',
+  'flag:line1-open',
   'allyMove:cover-b1',
   'allyMove:cover-b2',
   'allyMove:cover-b3',
   'allyMove:gunner',
+  'radio:m1.line1-cheer',
+  'suppress:cover-b2:b-emplacements',
+  'radio:m1.line2-support',
+  'payoff:breach2',
+  'flag:line2-open',
+  'radio:m1.line2-cheer',
+  'radio:m1.line2-hold',
   'flag:depot-down',
   'radio:m1.depot-down',
+  'payoff:bunker1',
   'radio:m1.pillboxes-down',
   'flag:pillboxes-down',
+  'payoff:bunker',
   'checkpoint:cp1',
   'allyMove:cover-b1',
   'allyMove:cover-b2',
@@ -69,10 +85,14 @@ function label(event: ScriptOut): string {
       return `radio:${event.line}`;
     case 'spawn':
       return `spawn:${event.wave}`;
+    case 'wake':
+      return `wake:${'wave' in event ? event.wave : event.enemy}`;
     case 'ally':
       return `ally:${event.id}`;
     case 'allyMove':
       return `allyMove:${event.id}`;
+    case 'suppress':
+      return `suppress:${event.id}:${event.wave}`;
     case 'cutscene':
       return `cutscene:${event.id}`;
     case 'cutsceneEnd':
@@ -83,6 +103,8 @@ function label(event: ScriptOut): string {
       return `flag:${event.name}`;
     case 'map':
       return `map:${event.mark}:${event.on ? 'on' : 'off'}`;
+    case 'payoff':
+      return `payoff:${event.id}`;
     case 'end':
       return `end:${event.result}`;
   }
@@ -97,6 +119,8 @@ function toCp1(destroyDepot: boolean): { state: ScriptState; outputs: ScriptOut[
   outputs.push(...scriptInput(state, M1, { kind: 'ashore' }));
   outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'b-line' }));
   outputs.push(...scriptInput(state, M1, { kind: 'blast', id: 'l1-b' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'enter', area: 'line2-approach' }));
+  outputs.push(...scriptInput(state, M1, { kind: 'blast', id: 'l2-a' }));
   if (destroyDepot) outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'depot' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-1' }));
   outputs.push(...scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-2' }));
@@ -184,4 +208,32 @@ test('the run without the depot still ends, and the depot flag stays down', () =
 
 test('the same inputs give the same events twice', () => {
   expect(runM1(true).events).toEqual(runM1(true).events);
+});
+
+// SB-2027: the sinking cutscene follows the bunker's slow and heading closely, not 4 s later
+test('wave2-sinks starts right after the bunker payoff is over', () => {
+  const wait = PAYOFF_TUNE.slowSec + PAYOFF_TUNE.headlineSec + PAYOFF_TUNE.wave2Pad;
+  expect(wait).toBeLessThan(2.5);
+  const { state } = toCp1(true);
+  const early: ScriptOut[] = [];
+  for (let i = 0; i < Math.floor((wait - 0.1) / STEP); i++) early.push(...stepScript(state, M1, STEP));
+  expect(early.map(label)).not.toContain('cutscene:wave2-sinks');
+  const late: ScriptOut[] = [];
+  for (let i = 0; i < Math.ceil(0.2 / STEP) + 1; i++) late.push(...stepScript(state, M1, STEP));
+  expect(late.map(label)).toContain('cutscene:wave2-sinks');
+  expect(state.objective).toBe('take-seawall');
+});
+
+// the mech already up on the seawall when the cutscene comes: the cutscene plays but the goal stays the next one
+test('wave2-lost does not pull the objective back when the seawall cue has fired', () => {
+  const { state } = toCp1(true);
+  const out = scriptInput(state, M1, { kind: 'enter', area: 'seawall-top' });
+  expect(out.map(label)).toContain('objective:silence-battery');
+  const after: ScriptOut[] = [];
+  for (let i = 0; i < 240; i++) after.push(...stepScript(state, M1, STEP));
+  const labels = after.map(label);
+  expect(labels).toContain('cutscene:wave2-sinks');
+  expect(labels).toContain('spawn:seawall-drop');
+  expect(labels).not.toContain('objective:take-seawall');
+  expect(state.objective).toBe('silence-battery');
 });

@@ -9,6 +9,9 @@ import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../data/maps/m1b-rules.ts';
 import { ATMOSPHERE_TUNE } from '../../data/atmosphere.ts';
 import { M1 } from '../../data/missions/m1.ts';
+import { DEFENDER_TUNE } from '../../data/defenders.ts';
+import { FRONT_TUNE } from '../../data/front.ts';
+import { PAYOFF_TUNE } from '../../data/payoff.ts';
 import { CAMERA_TUNE } from '../../data/tune.ts';
 import { PROP_KINDS, type MapBounds, type MapDef, type PropKind } from '../../data/types.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
@@ -245,6 +248,72 @@ export function showMap(_hash: string) {
           hitStop: 'ヒットストップ（s）',
           dust: '砂煙の倍率',
           fireRate: '連射（発/s）',
+        },
+      },
+      {
+        name: 'FRONT_TUNE',
+        table: FRONT_TUNE,
+        ranges: {
+          beachZ: { min: -20, max: 170, step: 1 },
+          line1Z: { min: 0, max: 170, step: 1 },
+          pillboxesZ: { min: -60, max: 40, step: 1 },
+        },
+        labels: {
+          beachZ: '前線: 浜(z)',
+          line1Z: '前線: 線1(z)',
+          pillboxesZ: '前線: トーチカ線(z)',
+        },
+      },
+      {
+        name: 'PAYOFF_TUNE',
+        table: PAYOFF_TUNE,
+        ranges: {
+          slowSec: { min: 0, max: 1, step: 0.01 },
+          slowScale: { min: 0, max: 1, step: 0.05 },
+          firstSlowSec: { min: 0, max: 1, step: 0.01 },
+          firstSlowScale: { min: 0, max: 1, step: 0.05 },
+          calmSec: { min: 0, max: 15, step: 0.5 },
+          calmMul: { min: 1, max: 5, step: 0.1 },
+          headlineSec: { min: 0, max: 4, step: 0.1 },
+          cheerDelay: { min: 0, max: 5, step: 0.1 },
+          retreatSpeed: { min: 1, max: 3, step: 0.05 },
+          retreatHold: { min: 0, max: 10, step: 0.5 },
+          retreatArrive: { min: 0.5, max: 5, step: 0.1 },
+          surgeAllies: { min: 0, max: 40, step: 1 },
+        },
+        labels: {
+          slowSec: '溜めの秒',
+          slowScale: '溜めの時間の割合',
+          firstSlowSec: '1基目の溜めの秒',
+          firstSlowScale: '1基目の時間の割合',
+          calmSec: '砲撃が弱まる秒',
+          calmMul: '砲撃の間隔の倍率',
+          headlineSec: '見出しの秒',
+          cheerDelay: '歓声の遅れ（秒）',
+          retreatSpeed: '下がる速さの倍率',
+          retreatHold: '遮蔽に留まる秒',
+          retreatArrive: '着いたと見る距離(m)',
+          surgeAllies: '節目の増援（人）',
+        },
+      },
+      {
+        name: 'DEFENDER_TUNE',
+        table: DEFENDER_TUNE,
+        ranges: {
+          hideSec: { min: 0, max: 8, step: 0.1 },
+          peekSec: { min: 0.5, max: 8, step: 0.1 },
+          stepSpeed: { min: 1, max: 10, step: 0.1 },
+          arrive: { min: 0.1, max: 2, step: 0.1 },
+          firstWait: { min: 0, max: 5, step: 0.1 },
+          fireInterval: { min: 0.5, max: 8, step: 0.1 },
+        },
+        labels: {
+          hideSec: '守備: 隠れる秒',
+          peekSec: '守備: 身を出す秒',
+          stepSpeed: '守備: 出る速さ(m/s)',
+          arrive: '守備: 着いたと見る距離(m)',
+          firstWait: '守備: 出てから最初の射撃まで(s)',
+          fireInterval: '守備: 射撃間隔(s)',
         },
       },
       {

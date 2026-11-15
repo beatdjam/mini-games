@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { PAYOFF_TUNE } from '../../src/data/payoff.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
@@ -148,12 +149,13 @@ function runUntilCutscene(game: GameModel, id: string, seconds: number): string[
   return seen;
 }
 
-test('wave2-sinks starts 4 s after cp1, holds the mech still, and ends with the radio, objective and drop done', () => {
+test('wave2-sinks starts right after the bunker payoff (SB-2027), holds the mech still, and ends with the radio, objective and drop done', () => {
   const game = afterPillboxes();
+  const wave2Wait = PAYOFF_TUNE.slowSec + PAYOFF_TUNE.headlineSec + PAYOFF_TUNE.wave2Pad;
   runUntilCutscene(game, 'wave2-sinks', 4.5);
   expect(game.script.cutscene?.id).toBe('wave2-sinks');
-  expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeGreaterThan(3.99);
-  expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeLessThan(4.1);
+  expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeGreaterThan(wave2Wait - 0.01);
+  expect(game.script.time - (game.script.fired.cp1 ?? 0)).toBeLessThan(wave2Wait + 0.1);
   // the cue's other actions come in the same frame; the ally calls may still hold the band, so the line is on it or queued
   expect(game.script.objective).toBe('take-seawall');
   expect([game.radio?.line ?? null, ...game.radioQueue.map(entry => entry.line)]).toContain('m1.wave2-lost');

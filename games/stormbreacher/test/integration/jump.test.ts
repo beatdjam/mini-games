@@ -21,8 +21,8 @@ const idle: GameInput = {
 
 // A full-sized hedgehog of line 2, found by its place rather than its index in the map.
 function lineHedgehog(): { x: number; z: number } {
-  const prop = M1B_HAND.props.find(item => item.kind === 'hedgehog' && item.x === 35 && item.z === 93.33);
-  if (!prop) throw new Error('the hand map has the hedgehog at x 35, z 93.33');
+  const prop = M1B_HAND.props.find(item => item.kind === 'hedgehog' && item.x === 35 && item.z === 72);
+  if (!prop) throw new Error('the hand map has the hedgehog at x 35, z 72');
   return prop;
 }
 

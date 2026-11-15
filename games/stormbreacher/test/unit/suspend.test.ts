@@ -104,6 +104,56 @@ describe('suspend', () => {
     expect(back?.enemies[0]).toMatchObject({ kind: 'emplacement', burstLeft: 3, wait: 0.08 });
   });
 
+  test('a dormant nest stays dormant and an awake one stays awake through a suspend', () => {
+    const game = newGame(M1B_HAND);
+    const asleep = newEnemy('b-emplacements-1', 'b-emplacements', 'emplacement', 0, 140, 0, true);
+    const awake = newEnemy('b-emplacements-2', 'b-emplacements', 'emplacement', 0, 100, 0, true);
+    awake.awake = true;
+    awake.dormant = false;
+    game.enemies.push(asleep, awake);
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.enemies[0]).toMatchObject({ awake: false, dormant: true });
+    expect(back?.enemies[1]).toMatchObject({ awake: true, dormant: false });
+  });
+
+  test('a window of support fire, the milestone slowdown and lull, a late radio line, a pillbox’s quiet and a defender’s post come back the same', () => {
+    const game = newGame(M1B_HAND);
+    game.cover = { wave: 'b-emplacements', left: 5.25, wait: 0.05, next: 7, warned: true };
+    game.slow = { left: 0.2, scale: 0.3 };
+    game.calm = { left: 3.5, mul: 2.5 };
+    game.pillboxHint = true;
+    game.radioQueue.push({ line: 'm1.line2-hold', at: 12.5 }, { line: 'm1.pillboxes-down' });
+    const pillbox = game.pillboxes[0];
+    if (!pillbox) throw new Error('the map has no pillbox');
+    pillbox.suppress = 1.75;
+    const guard = newEnemy('b-guard-1', 'b-emplacements', 'grunt', 4, 60);
+    guard.post = 3;
+    guard.holdOut = true;
+    guard.holdLeft = 1.25;
+    guard.fallback = { x: 9, z: -15 };
+    guard.fallbackHold = 2.5;
+    guard.fallbackPost = 5;
+    game.enemies.push(guard);
+
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.cover).toEqual(game.cover);
+    expect(back?.slow).toEqual(game.slow);
+    expect(back?.calm).toEqual(game.calm);
+    expect(back?.pillboxHint).toBe(true);
+    expect(back?.radioQueue).toEqual(game.radioQueue);
+    expect(back?.pillboxes[0]?.suppress).toBe(1.75);
+    expect(back?.enemies[back.enemies.length - 1]).toMatchObject({
+      post: 3,
+      holdOut: true,
+      holdLeft: 1.25,
+      fallback: { x: 9, z: -15 },
+      fallbackHold: 2.5,
+      fallbackPost: 5,
+    });
+    // and a second round trip changes nothing
+    expect(back && JSON.stringify(suspendOf(back))).toBe(JSON.stringify(suspendOf(game)));
+  });
+
   test('the aimed mortar’s anchor and stay come back', () => {
     const game = newGame(M1B_HAND);
     game.aimed = { anchor: { x: 12, z: 34 }, still: 1.75 };

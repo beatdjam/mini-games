@@ -13,8 +13,8 @@ test('the ally starts at the first point of its way, facing the second, on the g
   expect(ally.y).toBe(0);
   expect(ally.called).toBe(false);
   expect(ally.down).toBe(false);
-  // the way goes toward -z and +x: the yaw (0 faces -z) turns to -x's side
-  expect(ally.yaw).toBeLessThan(0);
+  // the first two points are the deck and the foot of the craft's ramp, straight toward -z
+  expect(ally.yaw).toBe(0);
 });
 
 test('the fates an ally may fall by are the mortar and the gun', () => {
@@ -83,7 +83,7 @@ test('moving an ally swaps its way, starts at the next point and faces on from w
   const ally = newAlly('cover-b1', M1.paths['b1-run-l1b'], null);
   stepAlly(ally, 60 / ALLY_TUNE.speed); // 60 m along the way, so it stands away from the first point
   const from = { x: ally.x, z: ally.z };
-  const next = M1.paths['c1-run-l2a-l3b'];
+  const next = M1.paths['c1-run-l2b'];
   moveAlly(ally, next);
   expect(ally.next).toBe(1);
   // the state does not jump to the new way's first point: it runs on from where it stood
@@ -98,7 +98,7 @@ test('a fallen ally keeps the way and the place it fell at', () => {
   const ally = newAlly('buddy', WAY, FATE);
   while (!ally.down) stepAlly(ally, DT);
   const was = { way: ally.way, next: ally.next, x: ally.x, z: ally.z };
-  moveAlly(ally, M1.paths['c1-run-l2a-l3b']);
+  moveAlly(ally, M1.paths['c1-run-l2b']);
   expect(ally.way).toBe(was.way);
   expect(ally.next).toBe(was.next);
   expect([ally.x, ally.z]).toEqual([was.x, was.z]);

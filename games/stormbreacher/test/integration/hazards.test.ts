@@ -174,6 +174,8 @@ test(
       const game = newPlayGame(M1B_HAND);
       // the mech stands still here, so the aimed mortar would also warn; this test reads the barrage's shells alone
       game.aimed = null;
+      // the nests stand from the beach now; their fire is not this test's
+      game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
       const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
       const warn = events.find((event): event is Warned => event.kind === 'shellWarn');
       const land = events.find((event): event is Landed => event.kind === 'shellLand');
@@ -202,6 +204,49 @@ test(
     }
     expect(hits).toBeGreaterThan(0);
     expect(misses).toBeGreaterThan(0);
+  },
+  LONG,
+);
+
+test(
+  'a shell still hits and comes from its side while the six nests are out',
+  () => {
+    let hits = 0;
+    for (let n = 1; n <= 12; n++) {
+      seed(n);
+      const game = newPlayGame(M1B_HAND);
+      game.aimed = null;
+      // The nests fire too: a large armour keeps the mech up until the shell lands, and the shell's own damage is read by
+      // its amount below. The nests are left in the game: this checks the barrage with them on the field.
+      game.armor = 1e9;
+      expect(game.enemies.filter(enemy => enemy.wave === 'b-emplacements')).toHaveLength(6);
+      const events = run(game, framesOf(MORTAR.interval + MORTAR.warn + 0.2));
+      const warn = events.find((event): event is Warned => event.kind === 'shellWarn');
+      const land = events.find((event): event is Landed => event.kind === 'shellLand');
+      if (!warn || !land) throw new Error('no shell came');
+      const inside = Math.hypot(land.x - game.mech.x, land.z - game.mech.z) <= MORTAR.radius;
+      expect(land.hit).toBe(inside);
+      const damaged = events.filter(
+        (event): event is Extract<GameEvent, { kind: 'damaged' }> =>
+          event.kind === 'damaged' && event.amount === MORTAR.damage,
+      );
+      if (inside) {
+        hits++;
+        expect(damaged).toHaveLength(1);
+        const { fromX, fromZ } = damaged[0];
+        // toward the shell's place, as a unit vector
+        const dx = land.x - game.mech.x;
+        const dz = land.z - game.mech.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 1e-6) {
+          expect(fromX).toBeCloseTo(dx / d, 6);
+          expect(fromZ).toBeCloseTo(dz / d, 6);
+        }
+      } else {
+        expect(damaged).toHaveLength(0);
+      }
+    }
+    expect(hits).toBeGreaterThan(0);
   },
   LONG,
 );

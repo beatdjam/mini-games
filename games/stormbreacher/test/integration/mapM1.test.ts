@@ -46,9 +46,9 @@ function acrossLine(line: MapLine): MapDef {
   };
 }
 
-test('each of the three lines is closed, and one blast point of each opens it', () => {
+test('each of the two lines is closed, and one blast point of each opens it', () => {
   const points = M1B_HAND.blasts ?? [];
-  for (const line of M1B_RULES.lines.slice(0, 3)) {
+  for (const line of M1B_RULES.lines.slice(0, 2)) {
     const onLine = points.filter(point => point.line === line.z);
     const others = points.filter(point => point.line !== line.z);
     expect(onLine.length, `line at z ${line.z}`).toBe(2);
@@ -68,16 +68,16 @@ test('the hand map keeps at least 120 hedgehogs', () => {
   expect(M1B_HAND.props.filter(prop => prop.kind === 'hedgehog').length).toBeGreaterThanOrEqual(120);
 });
 
-test('the hand map has two blast points on each of the three lines and none on C', () => {
+test('the hand map has two blast points on each of the two lines and none on C', () => {
   // the pillboxes' points name a target and belong to no line; the line tests count only the line's points (SB-1540)
   const blasts = (M1B_HAND.blasts ?? []).filter(blast => blast.target === undefined);
-  expect(blasts).toHaveLength(6);
-  for (const line of M1B_RULES.lines.slice(0, 3)) {
+  expect(blasts).toHaveLength(4);
+  for (const line of M1B_RULES.lines.slice(0, 2)) {
     const onLine = blasts.filter(blast => blast.line === line.z);
     expect(onLine, `line at z ${line.z}`).toHaveLength(2);
     for (const blast of onLine) expect(blast.z, blast.id).toBeGreaterThan(line.z);
   }
-  for (const line of M1B_RULES.lines.slice(3)) {
+  for (const line of M1B_RULES.lines.slice(2)) {
     expect(
       blasts.filter(blast => blast.line === line.z),
       `line at z ${line.z}`,
@@ -109,7 +109,7 @@ test('the two pillboxes have a side and a back blast point outside their boxes',
 });
 
 test('the hand map’s line hedgehogs are not breakable', () => {
-  for (const line of M1B_RULES.lines.slice(0, 3)) {
+  for (const line of M1B_RULES.lines.slice(0, 2)) {
     const marked = M1B_HAND.props.filter(
       prop =>
         prop.kind === 'hedgehog' &&

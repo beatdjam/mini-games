@@ -25,3 +25,23 @@ export const ALLY_TUNE = {
 
 // The ways an ally may fall (`fate.by` of the script's `ally` action).
 export const ALLY_FATES: readonly AllyFateBy[] = ['mortar', 'gun'];
+
+// The allies' support fire made visible (SB-2024). While a `suppress` window runs, tracers fly at the silenced nests
+// from the nearest ally, or from out at sea when none is in range, with a spark and dust where they land; a puff of
+// smoke sits over each silenced nest. Only a look: the nests' quiet is the `suppress` action's own seconds. The values
+// are provisional.
+export const COVER_TUNE = {
+  fireEvery: 0.1, // seconds between one tracer and the next, taken nest by nest in turn (s)
+  allyRange: 110, // an ally within this many metres of the nest fires from where it stands (m)
+  seaDist: 70, // otherwise the tracer comes from this far seaward (+z) of the nest (m)
+  seaLanes: 3, // the sea tracers come from this many places across: left, middle and right of the nest
+  seaSpread: 25, // and from this far to either side (m)
+  fromHeight: 2.2, // the height a tracer leaves from over the ground (m)
+  hitHeight: 0.6, // the fraction of the nest's height a tracer lands at (0-1)
+  speed: 150, // how fast the tracer flies (m/s)
+  smokeSize: 1.9, // the smoke over a silenced nest (m)
+  smokeLift: 2.6, // how far above the nest's feet the smoke floats (m)
+  warnBefore: 2, // the radio line that the rounds run short comes this many seconds before the window ends (s)
+  endLine: 'm1.line2-ammo', // its language key
+  endCallout: 'm1.callout.line2-ammo', // the short order near the aim that goes with it (SB-2028)
+};

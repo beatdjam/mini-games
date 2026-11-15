@@ -173,13 +173,14 @@ function legAngles(): number[] {
 }
 const sameAngles = (a: number[], b: number[]): boolean => a.every((v, i) => Math.abs(v - b[i]) < 0.02);
 
+const START_Z = craftZ(M1B_HAND.bounds) + LANDING_TUNE.startDepth; // where newGame puts the mech on the deck
+
+// The landing's keys are offsets from the mech; the last one is the game camera behind it at the shore.
 const lastKey = (): THREE.Vector3 => {
   const keys = CUTSCENES.landing?.camera ?? [];
   const last = keys[keys.length - 1];
-  return new THREE.Vector3(...last.pos);
+  return new THREE.Vector3(last.pos[0], last.pos[1], last.pos[2] + START_Z);
 };
-
-const START_Z = craftZ(M1B_HAND.bounds) + LANDING_TUNE.startDepth; // where newGame puts the mech on the deck
 
 test('the landing draws the mech standing on the deck, not walking', async () => {
   startSortie();
@@ -188,11 +189,11 @@ test('the landing draws the mech standing on the deck, not walking', async () =>
   game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 6 };
   await frames(10);
   expect(mechModel().visible).toBe(true);
-  expect(mechModel().position.z).toBeCloseTo(START_Z, 6);
+  expect(mechModel().position.z).toBeGreaterThan(START_Z); // still sailing in
   expect(mechModel().position.y).toBeCloseTo(game().mech.y, 6);
   const rest = legAngles();
-  // the ramp coming down: the model stays on the deck and the legs do not swing
-  game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 2.4 };
+  // the ramp coming down, the craft at the shore: the model is on the deck and the legs do not swing
+  game().script.cutscene = { id: 'landing', left: 1 };
   await frames(10);
   expect(mechModel().visible).toBe(true);
   expect(mechModel().position.z).toBeCloseTo(START_Z, 6);

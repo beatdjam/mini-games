@@ -62,6 +62,20 @@ export const ENEMY_COLOR: Record<EnemyKind, number> = {
 export const ENEMY_DOWN_COLOR = 0x2a2522;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
 
+// The machine-gun nest's model (SB-1981, provisional): sandbags of a dark grey-green, far from the dry sand and the hedgehogs'
+// rust, the gun and the shield in dark greys with bright edges, a small red-orange mark, the gunner's armour, the light
+// of its sensor and the flash of its muzzle. The dark colours are kept above black so the overcast light still shapes
+// them; the bright ones below white so it does not clip them.
+export const NEST_SAND_COLOR = 0x526044;
+export const NEST_MOUNT_COLOR = 0x2f3437;
+export const NEST_BARREL_COLOR = 0x3a4146;
+export const NEST_SHIELD_COLOR = 0x424a4f;
+export const NEST_TRIM_COLOR = 0xb9c2c6; // the bright edges of the gun and the shield
+export const NEST_MARK_COLOR = 0xd4552b; // the small red-orange mark
+export const NEST_DROID_COLOR = 0x6f7d84;
+export const NEST_SENSOR_COLOR = 0x6fe0f2;
+export const NEST_FLASH_COLOR = 0xffcf6a;
+
 // The hazards on the field (仮): the ring of a coming shell from the moment it is warned to the moment it lands, and a
 // mine's disc.
 export const SHELL_WARN_COLOR = 0x5a1a14;
@@ -74,8 +88,9 @@ export const SHUTTER_COLOR = 0x5b6168;
 export const SEA_FLASH_COLOR = 0xfff1b0;
 export const SEA_TRACER_COLOR = 0xffb347;
 
-// The light at a pillbox's muzzle while it warns of a burst (仮).
+// The light at a pillbox's muzzle while it warns of a burst, and the smoke that marks a suppressed muzzle (仮; SB-2015).
 export const PILLBOX_WARN_COLOR = 0xffd890;
+export const PILLBOX_SMOKE_COLOR = 0x4b4743;
 
 // The blast points on the hedgehog lines and the charges planted on them (SB-1500, 仮): the ring the player stands in,
 // and the box that blinks as its fuse burns.

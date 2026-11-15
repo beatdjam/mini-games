@@ -40,6 +40,7 @@ export interface Crowd {
   holdZ: number | null; // the z a held soldier waits at (m); null waits nowhere
   nests: readonly SpawnPoint[]; // where the machine guns stand (m); a squad walks on one and falls there
   waveT: number; // seconds until the next wave (s)
+  holdT: number; // seconds the line has been held, for the growing loss; Battle.advance sets it back to 0 at each new line (s; SB-2020)
   fallen: number; // how many have fallen so far
   through: number; // how many have reached the line so far
 }
@@ -52,7 +53,7 @@ export interface CrowdCounts {
 }
 
 export function newCrowd(): Crowd {
-  return { soldiers: [], bounds: null, lineZ: 0, holdZ: null, nests: [], waveT: 0, fallen: 0, through: 0 };
+  return { soldiers: [], bounds: null, lineZ: 0, holdZ: null, nests: [], waveT: 0, holdT: 0, fallen: 0, through: 0 };
 }
 
 // Puts `count` soldiers near the sea edge. Squads of tune.squad come in on the nests, one squad to a nest and each
@@ -112,14 +113,23 @@ export function spawnWave(crowd: Crowd, rng: Rng, bounds: MapBounds, count: numb
 
 // Moves the crowd by one frame: brings the next wave when its time comes, walks the living, makes some fall, takes the
 // fallen away after DEAD_LINGER and counts the ones that reach the line. While `held` and the crowd has a holdZ, the
-// living stop at that line and no new wave comes in, so the field does not fill up while they wait; nobody falls to the
-// steady loss while they wait, and one that waited does not fall to it after the line is let go either (a shell or a
-// squad's machine gun still takes it). Gives back the soldiers that fell this frame, so the view can put a little dust
-// where each one went down.
+// living stop at that line and no new wave comes in, so the field does not fill up while they wait. The pinned line
+// still bleeds: with SB-2020's holdLossRate/holdLossRamp the soldiers at it fall faster the longer it is held (the loss
+// is 0 unless a tune sets it, as #view-fx keeps). One that waited does not fall to the steady loss after the line is let
+// go (a shell or a squad's machine gun still takes it). Gives back the soldiers that fell this frame, so the view can put
+// a little dust where each one went down.
 export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held = false): Soldier[] {
   const span = Math.max(0, dt);
   const fell: Soldier[] = [];
   const holdZ = held ? crowd.holdZ : null;
+
+  if (holdZ === null) crowd.holdT = 0;
+  else crowd.holdT += span;
+  const holdRate = Math.min(
+    Math.max(0, tune.holdLossMax),
+    Math.max(0, tune.holdLossRate) + Math.max(0, tune.holdLossRamp) * crowd.holdT,
+  );
+  const holdDeathChance = 1 - Math.exp(-holdRate * span);
 
   if (holdZ === null && crowd.bounds !== null && tune.allyWaves > 0) {
     crowd.waveT -= span;
@@ -158,6 +168,15 @@ export function stepCrowd(crowd: Crowd, rng: Rng, dt: number, tune: FxTune, held
 
     // the waiting line comes before the far line: a held soldier stops there and never counts as through
     if (holdZ !== null && soldier.z < holdZ) soldier.z = holdZ;
+
+    // the line is pinned under the machine guns: the soldiers standing at it fall faster the longer it is held
+    if (holdZ !== null && soldier.waited && holdRate > 0 && rng.next() < holdDeathChance) {
+      soldier.alive = false;
+      soldier.deadT = 0;
+      crowd.fallen++;
+      fell.push(soldier);
+      continue;
+    }
 
     if (soldier.z <= crowd.lineZ) {
       crowd.through++;

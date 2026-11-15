@@ -40,7 +40,7 @@ export function arcPath(cx: number, cy: number, radius: number, startDeg: number
   return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} ${sweep} ${x2} ${y2}`;
 }
 
-export type RadarMarkKind = 'objective' | 'depot' | 'enemy';
+export type RadarMarkKind = 'objective' | 'depot' | 'enemy' | 'blast';
 
 export interface RadarKey {
   kind: RadarMarkKind;
@@ -48,39 +48,89 @@ export interface RadarKey {
   dist: number; // 0 at the centre, 1 at the edge
 }
 
+// A front line's two ends on the radar, in the same angle and distance as a mark. A point may lie outside the dial; the
+// line is clipped to the circle.
+export interface RadarFront {
+  a: { angle: number; dist: number };
+  b: { angle: number; dist: number };
+}
+
+const FRONT_DASH = '5 4'; // px; the front line is dashed so it reads apart from the marks
+const FRONT_WIDTH = 1.5; // px
+let radarCount = 0; // one clip path an instance, so two radars in a page do not share one
+
 export function markShape(kind: RadarMarkKind, x: number, y: number): SVGElement {
   if (kind === 'enemy') return svg('circle', { cx: x, cy: y, r: 3, fill: HUD_COLOR.warn });
   if (kind === 'depot') return svg('rect', { x: x - 3, y: y - 3, width: 6, height: 6, fill: HUD_COLOR.amber });
+  // a blast point is a small hollow diamond (SB-2017): on the objective's colour, but open, so it reads apart from the
+  // solid diamond of the target it breaks
+  if (kind === 'blast') {
+    return svg('polygon', {
+      points: `${x},${y - 3.5} ${x + 3.5},${y} ${x},${y + 3.5} ${x - 3.5},${y}`,
+      fill: 'none',
+      stroke: HUD_COLOR.amber,
+      'stroke-width': 1.2,
+    });
+  }
   const points = `${x},${y - 5} ${x + 5},${y} ${x},${y + 5} ${x - 5},${y}`;
   return svg('polygon', { points, fill: HUD_COLOR.amber });
 }
 
 // A round radar with the mech at its centre and the mech's front up. The outer circle and the centre dot are drawn once;
-// `set` puts the marks down again.
+// `set` puts the front line and the marks down again. The front line is the edge of the ground the allies hold (SB-2010).
 export function roundRadar(
   width: number,
   height: number,
-): { root: SVGSVGElement; set(marks: readonly RadarKey[]): void } {
+): { root: SVGSVGElement; set(marks: readonly RadarKey[], front?: RadarFront | null): void } {
   const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, width: '100%', height: '100%' }) as SVGSVGElement;
   const cx = width / 2;
   const cy = height / 2;
   const radius = Math.min(width, height) / 2 - RADAR_PAD;
+  const clipId = `sb-radar-clip-${radarCount++}`;
+  const defs = svg('defs', {});
+  const clip = svg('clipPath', { id: clipId });
+  clip.appendChild(svg('circle', { cx, cy, r: radius }));
+  defs.appendChild(clip);
+  root.appendChild(defs);
   root.appendChild(
     svg('circle', { cx, cy, r: radius, fill: HUD_COLOR.panel, stroke: HUD_COLOR.text, 'stroke-opacity': 0.35 }),
   );
   root.appendChild(svg('circle', { cx, cy, r: 2.5, fill: HUD_COLOR.bar }));
+  const frontLine = svg('g', { 'clip-path': `url(#${clipId})` }) as SVGGElement;
+  root.appendChild(frontLine);
   const marks = svg('g', {}) as SVGGElement;
   root.appendChild(marks);
+  const at = (point: { angle: number; dist: number }): { x: number; y: number } => {
+    const angle = (point.angle * Math.PI) / 180;
+    return {
+      x: cx + Math.sin(angle) * point.dist * radius,
+      y: cy - Math.cos(angle) * point.dist * radius,
+    };
+  };
   return {
     root,
-    set(list) {
+    set(list, front = null) {
       marks.replaceChildren();
       for (const mark of list) {
-        const angle = (mark.angle * Math.PI) / 180;
-        const x = cx + Math.sin(angle) * mark.dist * radius;
-        const y = cy - Math.cos(angle) * mark.dist * radius;
-        marks.appendChild(markShape(mark.kind, x, y));
+        const place = at(mark);
+        marks.appendChild(markShape(mark.kind, place.x, place.y));
       }
+      frontLine.replaceChildren();
+      if (front === null) return;
+      const a = at(front.a);
+      const b = at(front.b);
+      frontLine.appendChild(
+        svg('line', {
+          x1: a.x,
+          y1: a.y,
+          x2: b.x,
+          y2: b.y,
+          stroke: HUD_COLOR.bar,
+          'stroke-width': FRONT_WIDTH,
+          'stroke-opacity': 0.85,
+          'stroke-dasharray': FRONT_DASH,
+        }),
+      );
     },
   };
 }

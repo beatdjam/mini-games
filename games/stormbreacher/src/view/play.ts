@@ -3,14 +3,18 @@
 import * as THREE from 'three';
 import { clamp, distXZ } from '@engine/core/index.ts';
 import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
-import { BLAST_LIFT, boomShakeAt, landBlastHeight } from '../data/boom.ts';
-import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
+import { BLAST_LIFT, boomShakeAt, landBlastHeight, type BoomKind } from '../data/boom.ts';
+import { COVER_TUNE } from '../data/allies.ts';
+import { ENEMY_BULLET_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_SMOKE_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { CUTSCENES } from '../data/cutscenes.ts';
+import { PILLBOXES_FLAG } from '../data/front.ts';
 import { lookOf } from '../data/looks.ts';
-import { M1, PILLBOXES_DOWN_FLAG } from '../data/missions/m1.ts';
+import { M1 } from '../data/missions/m1.ts';
+import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { BATTLE_TUNE, CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
+import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
 import { blastTarget } from '../logic/blasts.ts';
+import { frontOf, type FrontId } from '../logic/front.ts';
 import { blastFaceHeight, isHostileBullet, type Bullet, type GameModel } from '../logic/game.ts';
 import { cutsceneElapsed, cutsceneMech } from '../logic/cutscene.ts';
 import type { Ray3 } from '../logic/fcs.ts';
@@ -50,9 +54,18 @@ const LAND_DUST = 10; // the dust's particle count before FEEL_TUNE.dust, per la
 const BOOST_DUST = 6; // the same, per boost start
 const BLAST_DUST = 14; // the same, per ally falling to a mortar shell
 const PLANT_DUST = 4; // the same, when a charge is set on a blast point
+const COVER_SPARKS = 5; // the sparks a support-fire tracer throws where it lands on a nest (SB-2024)
+const COVER_SPARK_SPEED = 4; // how fast a spark flies out (m/s)
+const COVER_SPARK_LIFE = 0.2; // how long a spark lives (s)
+const COVER_SPARK_GRAVITY = -5; // how fast a spark falls (m/s^2)
+const COVER_DUST = 4; // the dust's particle count before FEEL_TUNE.dust, per landing
+const MAX_COVER_HITS = 32; // the landings waiting for their tracer to arrive; the rest are dropped
+const MAX_NEST_SMOKE = 12; // the nests' smoke the mesh can draw at once
 const MAX_PILLBOX_WARNS = 8; // the warning lights the mesh can draw at once; the hand map has 3 pillboxes, so it is not reached
 const PILLBOX_WARN_SIZE = 0.6; // the light's size when the warning starts (m)
 const PILLBOX_WARN_SHRINK = 0.6; // how small it gets as the warning ends, as a share of its start size
+const PILLBOX_SMOKE_SIZE = 1.3; // the smoke at a suppressed muzzle's size (m)
+const PILLBOX_SMOKE_LIFT = 0.5; // how far above the muzzle the smoke floats (m)
 
 // The bullets in flight, drawn as one set of line segments: two vertices a bullet, the position written every frame.
 export interface BulletLines {
@@ -60,9 +73,11 @@ export interface BulletLines {
   positions: THREE.BufferAttribute; // MAX_BULLET_LINES * 2 vertices (the tail, then the head)
 }
 
-// The warning lights, one instanced mesh for all of them.
+// The warning lights and the suppression smoke, one instanced mesh each for all of them.
 export interface PillboxWarnView {
   mesh: THREE.InstancedMesh;
+  smoke: THREE.InstancedMesh;
+  nestSmoke: THREE.InstancedMesh; // the smoke over the machine-gun nests the allies' fire holds quiet (SB-2024)
 }
 
 export interface PlayView {
@@ -77,13 +92,16 @@ export interface PlayView {
   bullets: BulletLines; // the lines of the mech's shots in flight
   enemyBullets: BulletLines; // the lines of the enemies' shots, in another colour
   enemies: EnemyView; // the enemies' instanced boxes
+  coverHits: { t: number; x: number; y: number; z: number }[]; // the support fire's landings still to come: seconds until the tracer arrives, and where (SB-2024)
   pillboxWarns: PillboxWarnView; // the lights at the pillboxes' muzzles while they warn of a burst
   blasts: BlastView; // the blast points' rings and the charges planted on them
   hazards: HazardView; // the warned shells' rings and the mines' discs
   seaFire: SeaFireView; // the main guns' flashes and lines toward the sea
   battle: Battle; // the battle around the mech: allies walking, shells, smoke, tracers, planes and holes; looks only (SB-170)
+  frontId: FrontId; // the front line the battle layer was last put at (SB-2010)
   allies: AllyView; // the script's allied mech
   hud: PlayHud; // the sortie's HUD, in the page
+  useNear: boolean; // whether the mech is in reach of a blast point, so the touch use button lights (SB-2017)
   hurt: HurtView; // the red edge, the white flash and the dark edge while the armour is low
   cutscene: CutsceneView; // the bars, the line and the pictures only a cutscene shows
 }
@@ -107,6 +125,9 @@ export function buildPlayView(game: GameModel): PlayView {
     stage.setEnv(env);
   }
   const hud = buildPlayHud(document.body);
+  // The line the allies hold now: a checkpoint or a suspend that comes back after a milestone starts the battle layer
+  // at that line's waiting z, so the infantry does not walk the ground it has already taken again (SB-2010).
+  const front = frontOf(game.script.flags);
   // A sortie taken up from a suspend can come back in the middle of a cutscene: its view starts at that second, so the
   // events before it (already played) are not all played again in the first frame.
   const startSecond = cutsceneElapsed(game.script.cutscene);
@@ -131,13 +152,14 @@ export function buildPlayView(game: GameModel): PlayView {
     bullets: buildBulletLines(TRACER_COLOR),
     enemyBullets: buildBulletLines(ENEMY_BULLET_COLOR),
     enemies: buildEnemyView(),
+    coverHits: [],
     pillboxWarns: buildPillboxWarnView(world.targetGroup),
     blasts: buildBlastView(game.map),
     hazards: buildHazardView(),
     seaFire: buildSeaFire(game),
     // PLAY_BATTLE_TUNE keeps FX_TUNE's look; only the main sortie's waves are thinner, and its squads fall in the
     // machine-gun nests' fire. The battle is made at the mech's start and keeps no link to the game's state.
-    // BATTLE_TUNE.holdZ is where the allies wait until both pillboxes are down; PLAY_BATTLE_TUNE has no such value, so
+    // `front.holdZ` is where the infantry waits at the line the allies hold now; PLAY_BATTLE_TUNE has no such value, so
     // it stays the FX look.
     battle: buildBattle(
       game.map,
@@ -145,11 +167,13 @@ export function buildPlayView(game: GameModel): PlayView {
       stream('battle'),
       stream('craters'),
       { x: game.mech.x, z: game.mech.z },
-      BATTLE_TUNE.holdZ,
+      front.holdZ,
       game.rects,
     ),
+    frontId: front.id,
     allies: buildAllyView(),
     hud,
+    useNear: false,
     hurt: buildHurtView(document.body),
     cutscene: buildCutsceneView(document.body, world.shore, game.map.bounds, world.targets, startSecond),
   };
@@ -186,7 +210,36 @@ function buildPillboxWarnView(group: THREE.Group): PillboxWarnView {
   // the lights come and go, so the bounding sphere made at the start would cull them
   mesh.frustumCulled = false;
   group.add(mesh);
-  return { mesh };
+  // the smoke over a suppressed muzzle (SB-2015): a soft grey ball, see-through and not writing depth
+  const smoke = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(1, 8, 6),
+    new THREE.MeshBasicMaterial({
+      color: PILLBOX_SMOKE_COLOR,
+      transparent: true,
+      opacity: 0.45,
+      depthWrite: false,
+    }),
+    MAX_PILLBOX_WARNS,
+  );
+  smoke.name = 'sb-pillbox-smoke';
+  smoke.count = 0;
+  smoke.frustumCulled = false;
+  group.add(smoke);
+  const nestSmoke = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(1, 8, 6),
+    new THREE.MeshBasicMaterial({
+      color: PILLBOX_SMOKE_COLOR,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+    }),
+    MAX_NEST_SMOKE,
+  );
+  nestSmoke.name = 'sb-nest-smoke';
+  nestSmoke.count = 0;
+  nestSmoke.frustumCulled = false;
+  group.add(nestSmoke);
+  return { mesh, smoke, nestSmoke };
 }
 
 const pillboxWarnPlace = new THREE.Object3D();
@@ -215,6 +268,84 @@ function drawPillboxWarns(view: PillboxWarnView, game: GameModel): void {
   view.mesh.instanceMatrix.needsUpdate = true;
 }
 
+// Draws the smoke over every suppressed pillbox's muzzle, up to the mesh's capacity. It reads the pillbox's own quiet
+// seconds each frame, so the smoke stays while a cutscene, a pause or a suspend holds it where it stands.
+function drawPillboxSmoke(view: PillboxWarnView, game: GameModel): void {
+  let count = 0;
+  for (const state of game.pillboxes) {
+    if (count === MAX_PILLBOX_WARNS) break;
+    if (state.suppress <= 0) continue;
+    const target = game.targets.find(target => target.id === state.id);
+    if (!target || target.hp <= 0) continue;
+    const muzzle = pillboxMuzzle(target.box, target.yaw);
+    // a fresh hit's cloud is a little bigger; it settles as the quiet runs out
+    const share = clamp(state.suppress / PILLBOX_TUNE.suppressSec, 0, 1);
+    const size = PILLBOX_SMOKE_SIZE * (0.8 + 0.2 * share);
+    pillboxWarnPlace.position.set(muzzle.x, muzzle.y + PILLBOX_SMOKE_LIFT, muzzle.z);
+    pillboxWarnPlace.scale.setScalar(size);
+    pillboxWarnPlace.updateMatrix();
+    view.smoke.setMatrixAt(count, pillboxWarnPlace.matrix);
+    count++;
+  }
+  view.smoke.count = count;
+  view.smoke.instanceMatrix.needsUpdate = true;
+}
+
+// Draws a puff over every living nest of the wave the allies' fire holds quiet (SB-2024). It reads the game's `cover` each
+// frame, so it stands while the window runs and goes with it; a nest that falls loses its puff.
+function drawNestSmoke(view: PillboxWarnView, game: GameModel): void {
+  let count = 0;
+  const cover = game.cover;
+  if (cover !== null) {
+    for (const enemy of game.enemies) {
+      if (count === MAX_NEST_SMOKE) break;
+      if (enemy.hp <= 0 || enemy.wave !== cover.wave) continue;
+      // it swells a little at the start and settles as the window runs out
+      const swell = 0.85 + 0.15 * Math.sin(game.time * 5 + count);
+      pillboxWarnPlace.position.set(enemy.x, enemy.y + COVER_TUNE.smokeLift, enemy.z);
+      pillboxWarnPlace.scale.setScalar(COVER_TUNE.smokeSize * swell);
+      pillboxWarnPlace.updateMatrix();
+      view.nestSmoke.setMatrixAt(count, pillboxWarnPlace.matrix);
+      count++;
+    }
+  }
+  view.nestSmoke.count = count;
+  view.nestSmoke.instanceMatrix.needsUpdate = true;
+}
+
+// Lets the support fire's tracers fly and throws a spark and dust where each lands, once its flight time has passed.
+function drawCoverFire(view: PlayView, game: GameModel, dt: number): void {
+  for (const event of game.events) {
+    if (event.kind !== 'coverFire') continue;
+    const dx = event.tx - event.x;
+    const dy = event.ty - event.y;
+    const dz = event.tz - event.z;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const k = COVER_TUNE.speed / len;
+    view.battle.tracer({ x: event.x, y: event.y, z: event.z }, { x: dx * k, y: dy * k, z: dz * k });
+    if (view.coverHits.length < MAX_COVER_HITS) {
+      view.coverHits.push({ t: len / COVER_TUNE.speed, x: event.tx, y: event.ty, z: event.tz });
+    }
+  }
+  for (let i = view.coverHits.length - 1; i >= 0; i--) {
+    const hit = view.coverHits[i];
+    hit.t -= dt;
+    if (hit.t > 0) continue;
+    view.coverHits.splice(i, 1);
+    burst(
+      hit.x,
+      hit.y,
+      hit.z,
+      PILLBOX_DEFLECT_COLOR,
+      COVER_SPARKS,
+      COVER_SPARK_SPEED,
+      COVER_SPARK_LIFE,
+      COVER_SPARK_GRAVITY,
+    );
+    spawnDust(hit.x, hit.z, COVER_DUST, FEEL_TUNE, hit.y);
+  }
+}
+
 // Writes each bullet's head and the point TRACER_LENGTH behind it, and draws only as many segments as there are bullets.
 function drawBullets(lines: BulletLines, bullets: readonly Bullet[]): void {
   const count = Math.min(bullets.length, MAX_BULLET_LINES);
@@ -241,7 +372,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   let kill = false;
   // the blast and the shake its distance from the mech asks for; a close blast also whitens the screen. A shell that
   // falls past the map's front edge lands in the sea, so it lifts a water column and takes the water's colours.
-  const blast = (kind: 'small' | 'large' | 'water', x: number, y: number, z: number) => {
+  const blast = (kind: BoomKind, x: number, y: number, z: number) => {
     spawnBoom(kind, x, y, z);
     feelBoom(view.feel, boomShakeAt(kind, distXZ({ x, z }, game.mech)), FEEL_TUNE);
     hurtBlast(view.hurt, x, z, game.mech);
@@ -281,7 +412,15 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
         // the pillbox's fall starts now; syncWorld advances its seconds (SB-1550)
         if (target.kind === 'pillbox') view.world.breaks.set(event.id, 0);
         const { box } = target;
-        blast('large', (box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, (box.minZ + box.maxZ) / 2);
+        // The second bunker falls with the milestone's bigger blast; the first gets the smaller one (SB-2010). Every
+        // other target keeps the plain blast.
+        const milestone = target.kind === 'pillbox' && (target.id === 'pillbox-1' || target.id === 'pillbox-2');
+        const kind = milestone
+          ? game.script.flags.includes(PILLBOXES_FLAG)
+            ? PAYOFFS.bunker.boom
+            : PAYOFFS.bunker1.boom
+          : 'large';
+        blast(kind, (box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, (box.minZ + box.maxZ) / 2);
         burnAtmosphere((box.minX + box.maxX) / 2, (box.minZ + box.maxZ) / 2);
       }
     } else if (event.kind === 'enemyDown') {
@@ -301,9 +440,13 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       spawnDust(event.x, event.z, PLANT_DUST, FEEL_TUNE);
     } else if (event.kind === 'blast') {
       const target = blastTarget(game.map, event.id);
-      // A charge that broke its pillbox on this frame leaves the boom to the destroyed event; one whose pillbox was
-      // already down (broken by a shot while the fuse burnt) draws its own.
-      if (target === undefined || !brokenThisFrame.has(target)) blast('large', event.x, BLAST_LIFT.large, event.z);
+      // A charge that opens line 1 or line 2 is a milestone: it draws the bigger blast (SB-2010, SB-2020). A charge whose
+      // pillbox broke on this frame leaves the boom to the destroyed event; one whose pillbox was already down (broken by
+      // a shot while the fuse burnt) draws its own.
+      const opensLine =
+        PAYOFFS.breach.blasts?.includes(event.id) === true || PAYOFFS.breach2.blasts?.includes(event.id) === true;
+      const kind = opensLine ? PAYOFFS.breach.boom : 'large';
+      if (target === undefined || !brokenThisFrame.has(target)) blast(kind, event.x, BLAST_LIFT.large, event.z);
     } else if (event.kind === 'allyDown') {
       // the ally stands on the face under it, so its blast and dust belong there rather than inside a wall
       const face = blastFaceHeight(game.rects, event.x, event.z);
@@ -319,13 +462,20 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       hurtDamage(view.hurt, event.fromX, event.fromZ, game.mech.yaw);
     }
   }
-  // The infantry waits at BATTLE_TUNE.holdZ until the pillboxes are down, then goes on to the far line. The landing
-  // cutscene holds the battlefield's clock still (`holdsBattle`), so the first squad runs and falls once the player has
-  // the controls; the cutscene's own machine-gun tracers still fly (advanceTracers). The other cutscenes run it on.
+  // The infantry waits at the front line's hold until the pillboxes are down, then goes on to the far line. When a
+  // milestone moves the line, the battle layer takes the next hold and one more wave comes in from the sea (SB-2010).
+  // The landing cutscene holds the battlefield's clock still (`holdsBattle`), so the first squad runs and falls once the
+  // player has the controls; the cutscene's own machine-gun tracers still fly (advanceTracers). The other cutscenes run
+  // it on.
   const cutscene = game.script.cutscene;
   const holdsBattle = cutscene !== null && CUTSCENES[cutscene.id]?.holdsBattle === true;
+  const front = frontOf(game.script.flags);
+  if (view.frontId !== front.id) {
+    view.frontId = front.id;
+    view.battle.advance(front.holdZ, PAYOFF_TUNE.surgeAllies);
+  }
   if (!holdsBattle) {
-    const shellShake = view.battle.step(dt, game.mech, !game.script.flags.includes(PILLBOXES_DOWN_FLAG));
+    const shellShake = view.battle.step(dt, game.mech, front.id !== 'pillboxes');
     // The battlefield's shells shake the camera within the same cap as the blasts: a shell landing in the same frame as
     // a blast near the mech must not add the two past shakeMax and throw the camera off.
     if (shellShake > 0) feelBoom(view.feel, shellShake, FEEL_TUNE);
@@ -387,6 +537,9 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   drawBullets(view.enemyBullets, game.bullets.filter(isHostileBullet));
   drawEnemies(view.enemies, game);
   drawPillboxWarns(view.pillboxWarns, game);
+  drawPillboxSmoke(view.pillboxWarns, game);
+  drawNestSmoke(view.pillboxWarns, game);
+  drawCoverFire(view, game, dt);
   drawHazards(view.hazards, game);
   drawBlasts(view.blasts, game);
   drawSeaFire(view.seaFire, game);
@@ -395,6 +548,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   // the red edge and the flash are the player's damage readout, as the HUD is: a cutscene hides them with the HUD
   view.hurt.root.hidden = game.script.cutscene !== null;
   const hud = hudModel(game);
+  view.useNear = hud.use !== null;
   const lock = hud.lock === null ? null : screenRect(hud.lock, camera, window.innerWidth, window.innerHeight);
   drawHud(view.hud, hud, lock);
 }

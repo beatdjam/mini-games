@@ -8,6 +8,7 @@ export type SoundName =
   | 'impactArmor'
   | 'explosionSmall'
   | 'explosionLarge'
+  | 'explosionHeavy'
   | 'shellWarn'
   | 'shellLand'
   | 'enemyGun'
@@ -26,6 +27,7 @@ export const SOUND_NAMES: readonly SoundName[] = [
   'impactArmor',
   'explosionSmall',
   'explosionLarge',
+  'explosionHeavy',
   'shellWarn',
   'shellLand',
   'enemyGun',
@@ -107,6 +109,15 @@ export const SOUND_LAYERS: Record<SoundName, readonly SoundLayer[]> = {
     { kind: 'noise', type: 'lowpass', f0: 800, f1: 120, dur: 0.9, vol: 0.09, at: 0.5 },
     { kind: 'noise', type: 'bandpass', f0: 600, f1: 180, dur: 0.8, vol: 0.06, q: 2, at: 0.9 },
   ],
+  // the milestone's heavier blast (SB-2010): lower and longer than explosionLarge, with the ground's own rumble
+  explosionHeavy: [
+    { kind: 'tone', type: 'sine', f0: 52, f1: 16, dur: 1.4, vol: 0.85 },
+    { kind: 'tone', type: 'triangle', f0: 38, f1: 14, dur: 1.1, vol: 0.2, at: 0.04 },
+    { kind: 'noise', type: 'lowpass', f0: 1100, f1: 60, dur: 1.1, vol: 0.62 },
+    { kind: 'noise', type: 'highpass', f0: 3000, f1: 1200, dur: 0.08, vol: 0.26 },
+    { kind: 'noise', type: 'bandpass', f0: 900, f1: 200, dur: 0.8, vol: 0.18, q: 1.6, at: 0.24 },
+    { kind: 'noise', type: 'lowpass', f0: 620, f1: 90, dur: 1.4, vol: 0.12, at: 0.65 },
+  ],
   // The incoming mortar: the air over the falling shell, a falling narrow band of noise with the wind around it. Only a
   // breath of tone sits inside the band so the drop has a pitch without turning into an alarm.
   shellWarn: [
@@ -187,6 +198,7 @@ export const SOUND_FRAME_LIMIT: Record<SoundName, number> = {
   impactArmor: 2,
   explosionSmall: 2,
   explosionLarge: 1,
+  explosionHeavy: 1,
   shellWarn: 2,
   shellLand: 2,
   enemyGun: 2,

@@ -1,13 +1,17 @@
-// The ways the allied mechs run must stay out of the props and the pillboxes: an ally has no hit box, so a way laid
-// through a hedgehog, a block or a pillbox shows it walking through a wall. The line holes are opened from the way's
-// crossing before the boxes are read, so a way through a blast point's hole is tested as the game draws it after the
-// blast. Ramps and stairs are left out: the allies walk on them, and their boxes reach up from the ground. The seawall
-// is left out too: the boss ways climb its ramp and cross it on top (the ground height, not the flat box, carries them).
+// The ways the allied mechs run must stay out of the props, the pillboxes and the crafts beside the player's: an ally
+// has no hit box, so a way laid through a hedgehog, a block, a pillbox or a craft's wall shows it walking through a wall.
+// The line holes are opened from the way's crossing before the boxes are read, so a way through a blast point's hole is
+// tested as the game draws it after the blast. Ramps and stairs are left out: the allies walk on them, and their boxes
+// reach up from the ground. The crafts' decks and ramps are left out for the same reason: the allies stand and walk on
+// them. The seawall is left out too: the boss ways climb its ramp and cross it on top (the ground height, not the flat
+// box, carries them).
 import { expect, test } from 'vitest';
+import { CRAFT_TUNE } from '../../src/data/craft.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import type { GroundSpot, PropKind } from '../../src/data/types.ts';
 import { openBreach } from '../../src/logic/blasts.ts';
+import { allyCraftRects } from '../../src/logic/craft.ts';
 import { newGame } from '../../src/logic/game.ts';
 
 interface Box {
@@ -63,7 +67,7 @@ function meets(a: GroundSpot, b: GroundSpot, box: Box): boolean {
   return true;
 }
 
-test('no ally’s way runs through a prop or a pillbox', () => {
+test('no ally’s way runs through a prop, a pillbox or a craft beside the player’s', () => {
   for (const [name, way] of Object.entries(M1.paths)) {
     const game = newGame(openBreach(M1B_HAND, holesOf(way)), M1);
     const boxes: { box: Box; what: string }[] = [];
@@ -73,6 +77,20 @@ test('no ally’s way runs through a prop or a pillbox', () => {
       boxes.push({ box: game.propBoxes[i], what: `${prop.kind} at (${prop.x}, ${prop.z})` });
     }
     for (const target of game.targets) boxes.push({ box: target.box, what: target.id });
+    // The crafts beside the player's, where the allies wait and step off (SB-1965). Their decks and ramps are walking
+    // surfaces; their side walls, stern and wheelhouse are boxes.
+    for (const rect of allyCraftRects(M1B_HAND.bounds)) {
+      if (rect.ramp === true || rect.top === CRAFT_TUNE.deckTop) continue;
+      boxes.push({
+        box: {
+          minX: rect.x - rect.halfW,
+          maxX: rect.x + rect.halfW,
+          minZ: rect.z - rect.halfD,
+          maxZ: rect.z + rect.halfD,
+        },
+        what: `craft box at (${rect.x}, ${rect.z})`,
+      });
+    }
     for (let i = 1; i < way.length; i++) {
       for (const { box, what } of boxes) {
         expect(meets(way[i - 1], way[i], box), `${name} runs through the ${what}`).toBe(false);

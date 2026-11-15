@@ -10,6 +10,8 @@ import { rectDistance } from '../../src/logic/collide.ts';
 import { openBreach } from '../../src/logic/blasts.ts';
 import {
   isEnemyBullet,
+  newGame,
+  retryFromCheckpoint,
   sendToScript,
   step,
   type GameEvent,
@@ -79,8 +81,7 @@ test('walking into b-line puts one enemy at each of the six b-squad places, in t
   const game = newPlayGame(M1B_HAND);
   const events = walkIntoBLine(game);
   expect(events).toContainEqual({ kind: 'spawned', wave: 'b-squad', count: 6 });
-  expect(events).toContainEqual({ kind: 'spawned', wave: 'b-emplacements', count: 6 });
-  expect(game.script.spawned).toEqual(['beach-mortar', 'b-squad', 'b-emplacements']);
+  expect(game.script.spawned).toEqual(['beach-mortar', 'b-emplacements', 'line1-hold', 'pillbox-hold', 'b-squad']);
   const squad = game.enemies.filter(enemy => enemy.wave === 'b-squad');
   expect(squad.map(enemy => enemy.id)).toEqual([1, 2, 3, 4, 5, 6].map(n => `b-squad-${n}`));
   const kinds = ['heavy', 'assault', 'grunt', 'grunt', 'assault', 'grunt'] as const;
@@ -377,23 +378,27 @@ function inSight(game: GameModel): number {
   }).length;
 }
 
-const SQUAD_SECONDS = 35; // the time the squad has to come out into the mech's sight (s)
+const SQUAD_SECONDS = 60; // the time the squad has to come out into the mech's sight (s; the second line is farther in)
 
 test(
-  'b-squad, put out behind line 3, finds the way through the hole a blast opens and comes into the mech’s sight',
+  'b-squad, put out behind line 2, finds the way through the hole a blast opens and comes into the mech’s sight',
   () => {
     seed(1);
-    const game = newPlayGame(openBreach({ ...M1B_HAND, mines: [] }, ['l3-b']));
-    // in front of line 3 (z 8..26), a long way from the squad (z -25..-33)
+    const game = newPlayGame(openBreach({ ...M1B_HAND, mines: [] }, ['l2-b']));
+    // in front of line 2 (z 62..74), a long way from the squad (z -25..-33)
     game.mech.x = 0;
-    game.mech.z = 40;
+    game.mech.z = 88;
     game.mech.yaw = 0;
     game.armor = 1e9; // the squad shoots at the mech once it sees it; this test is about where it comes
     sendToScript(game, { kind: 'enter', area: 'b-line' });
     // this test is about where b-squad comes; the nests shoot from their own places
-    game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
+    // the nests and the posted defenders (SB-2015) stand on this map too; these tests read the squad alone
+    game.enemies = game.enemies.filter(enemy => !['b-emplacements', 'line1-hold', 'pillbox-hold'].includes(enemy.wave));
     expect(game.enemies).toHaveLength(6);
     expect(inSight(game)).toBe(0);
+    // line 2 is far enough in that the ends of the squad lie past a grunt's notice; the test is about the way it takes,
+    // so every one of them is woken
+    for (const enemy of game.enemies) enemy.awake = true;
     for (let i = 0; i < SQUAD_SECONDS / DT; i++) step(game, idle, DT);
     expect(inSight(game)).toBeGreaterThanOrEqual(game.enemies.length / 2);
     // they came round the line, not through it
@@ -407,26 +412,28 @@ test(
 );
 
 test(
-  'a closed line 3 keeps b-squad out of the mech’s sight',
+  'a closed line 2 keeps b-squad out of the mech’s sight',
   () => {
     seed(1);
     const game = newPlayGame({ ...M1B_HAND, mines: [] });
     game.mech.x = 0;
-    game.mech.z = 40;
+    game.mech.z = 88;
     game.mech.yaw = 0;
     game.armor = 1e9;
     sendToScript(game, { kind: 'enter', area: 'b-line' });
-    game.enemies = game.enemies.filter(enemy => enemy.wave !== 'b-emplacements');
+    // the nests and the posted defenders (SB-2015) stand on this map too; these tests read the squad alone
+    game.enemies = game.enemies.filter(enemy => !['b-emplacements', 'line1-hold', 'pillbox-hold'].includes(enemy.wave));
+    // every one of them tries the line, however far past a grunt's notice its end stands
+    for (const enemy of game.enemies) enemy.awake = true;
     for (let i = 0; i < SQUAD_SECONDS / DT; i++) step(game, idle, DT);
     expect(inSight(game)).toBe(0);
   },
   LONG,
 );
 
-test('the six nests come out with b-line at the map’s places, awake on the first frame and never moving', () => {
-  const game = newPlayGame(M1B_HAND);
-  const events = walkIntoBLine(game);
-  expect(events).toContainEqual({ kind: 'spawned', wave: 'b-emplacements', count: 6 });
+test('the six nests stand at the map’s places from the first frame, asleep and held', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 0); // the intro and the beach fire: the nests are put out with the beach
   const nests = game.enemies.filter(enemy => enemy.wave === 'b-emplacements');
   expect(nests).toHaveLength(6);
   const burst = ENEMIES.emplacement.burst;
@@ -436,6 +443,7 @@ test('the six nests come out with b-line at the map’s places, awake on the fir
       kind: 'emplacement',
       hp: ENEMIES.emplacement.hp,
       awake: false,
+      dormant: true,
       burstLeft: burst.shots,
     });
     expect(enemy.x).toBe(M1B_HAND.spawns['b-emplacements'][i].x);
@@ -443,8 +451,139 @@ test('the six nests come out with b-line at the map’s places, awake on the fir
   });
   const places = nests.map(enemy => ({ x: enemy.x, z: enemy.z }));
   step(game, idle, DT);
-  expect(nests.every(enemy => enemy.awake)).toBe(true);
+  expect(nests.every(enemy => !enemy.awake && enemy.dormant)).toBe(true);
   expect(nests.map(enemy => ({ x: enemy.x, z: enemy.z }))).toEqual(places);
+});
+
+test('stepping off the craft wakes the front nest alone, and it starts to shoot', () => {
+  const game = newPlayGame(M1B_HAND);
+  const nests = game.enemies.filter(enemy => enemy.wave === 'b-emplacements');
+  const front = nests.find(enemy => enemy.id === 'b-emplacements-1');
+  if (!front) throw new Error('the front nest is out');
+  expect(front).toMatchObject({ awake: true, dormant: false });
+  expect(nests.filter(enemy => enemy !== front).every(enemy => !enemy.awake && enemy.dormant)).toBe(true);
+
+  game.armor = 1e9;
+  let shots = 0;
+  for (let i = 0; i < Math.round((ENEMIES.emplacement.fireInterval + 0.5) / DT); i++) {
+    step(game, idle, DT);
+    for (const bullet of game.bullets) {
+      if (!isEnemyBullet(bullet)) continue;
+      shots++;
+    }
+  }
+  // the nests are the only enemies out, so a shot is the front one's; the five that sleep never start a burst
+  expect(shots).toBeGreaterThan(0);
+  expect(nests.filter(enemy => enemy !== front).every(enemy => !enemy.awake && enemy.dormant)).toBe(true);
+});
+
+test('the nest that wakes at the shore is the seaward nest nearest the craft’s lane', () => {
+  const places = M1B_HAND.spawns['b-emplacements'] ?? [];
+  const lane = (M1B_HAND.bounds.minX + M1B_HAND.bounds.maxX) / 2;
+  let front = 0;
+  for (let i = 1; i < places.length; i++) {
+    const here = places[front];
+    const there = places[i];
+    const seaward = there.z > here.z;
+    const sameZNearer = there.z === here.z && Math.abs(there.x - lane) < Math.abs(here.x - lane);
+    if (seaward || sameZNearer) front = i;
+  }
+  const ashore = M1.cues.find(cue => cue.id === 'ashore');
+  if (!ashore) throw new Error('the mission has no ashore cue');
+  const wake = ashore.actions.find(action => action.kind === 'wake' && 'enemy' in action);
+  if (!wake || wake.kind !== 'wake' || !('enemy' in wake)) throw new Error('the ashore cue wakes no nest');
+  expect(wake.enemy).toBe(`b-emplacements-${front + 1}`);
+});
+
+test('the other five stay asleep when the mech comes near them before B', () => {
+  const game = newPlayGame(M1B_HAND);
+  game.armor = 1e9;
+  game.mech.x = 0;
+  game.mech.z = 155; // outside b-line (z 120..150), within the nests' notice
+  const nests = game.enemies.filter(enemy => enemy.wave === 'b-emplacements');
+  const sleeping = nests.filter(enemy => enemy.id !== 'b-emplacements-1');
+  for (let i = 0; i < Math.round(5 / DT); i++) step(game, idle, DT);
+  expect(sleeping.every(enemy => !enemy.awake && enemy.dormant)).toBe(true);
+});
+
+test('entering B wakes every living nest, and one broken before it stays down', () => {
+  const game = newPlayGame(M1B_HAND);
+  const nests = game.enemies.filter(enemy => enemy.wave === 'b-emplacements');
+  const broken = nests[3];
+  broken.hp = 0; // shot down before the mech reached B
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  expect(broken).toMatchObject({ hp: 0, awake: false, dormant: true });
+  expect(nests.filter(enemy => enemy !== broken).every(enemy => enemy.awake && !enemy.dormant)).toBe(true);
+});
+
+test('a dormant nest can be shot down before B', () => {
+  const map: MapDef = {
+    ...M1B_HAND,
+    props: [],
+    targets: [],
+    spawns: {
+      'b-emplacements': [
+        { x: 0, z: 166 },
+        { x: 0, z: 150 },
+        { x: -80, z: 120 },
+        { x: 80, z: 120 },
+        { x: -80, z: 100 },
+        { x: 80, z: 100 },
+      ],
+    },
+  };
+  const game = newPlayGame(map);
+  game.armor = 1e9;
+  game.mech.x = 0;
+  game.mech.z = 160; // still outside b-line
+  game.mech.y = 0;
+  game.mech.yaw = 0;
+  const back = game.enemies.find(enemy => enemy.id === 'b-emplacements-2');
+  if (!back) throw new Error('the second nest is out');
+  expect(back).toMatchObject({ awake: false, dormant: true });
+  for (let i = 0; i < 600 && back.hp > 0; i++) step(game, { ...idle, fire: true }, DT);
+  expect(back.hp).toBe(0);
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  expect(back).toMatchObject({ hp: 0, awake: false, dormant: true });
+});
+
+test('a checkpoint keeps the nests asleep, and a retry brings them back asleep', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 0); // the beach puts the six nests out asleep
+  sendToScript(game, { kind: 'skip' }); // end the landing, but stay on the deck: `ashore` does not fire yet
+  game.armor = 1e9;
+  const nestsOf = (model: GameModel) => model.enemies.filter(enemy => enemy.wave === 'b-emplacements');
+  expect(nestsOf(game)).toHaveLength(6);
+  expect(nestsOf(game).every(enemy => !enemy.awake && enemy.dormant)).toBe(true);
+  // both pillboxes down take cp1 with every nest still asleep
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game.targets.find(entry => entry.id === id);
+    if (!target) throw new Error(`the map has no ${id}`);
+    target.hp = 0;
+    sendToScript(game, { kind: 'destroyed', target: id });
+  }
+  expect(game.checkpoint?.id).toBe('cp1');
+  expect(
+    game.checkpoint?.enemies
+      .filter(enemy => enemy.wave === 'b-emplacements')
+      .every(enemy => !enemy.awake && enemy.dormant),
+  ).toBe(true);
+  // entering B wakes every living nest in this sortie
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  expect(nestsOf(game).every(enemy => enemy.awake && !enemy.dormant)).toBe(true);
+  // the retry comes back to the checkpoint's asleep nests
+  const again = retryFromCheckpoint(game);
+  expect(nestsOf(again)).toHaveLength(6);
+  expect(nestsOf(again).every(enemy => !enemy.awake && enemy.dormant)).toBe(true);
+  // and they stay asleep a frame on: the mech is back on the deck, outside B
+  step(again, idle, DT);
+  expect(nestsOf(again).every(enemy => !enemy.awake && enemy.dormant)).toBe(true);
+  // the checkpoint itself still holds them asleep
+  expect(
+    game.checkpoint?.enemies
+      .filter(enemy => enemy.wave === 'b-emplacements')
+      .every(enemy => !enemy.awake && enemy.dormant),
+  ).toBe(true);
 });
 
 test('the nav is not made while only the nests are alive, and is made for a walker', () => {
@@ -499,6 +638,8 @@ test('seawall-drop is put out on top of the seawall and jumps down to the ground
   game.mech.z = -20;
   game.mech.yaw = 0;
   game.armor = 1e9;
+  // the six nests and the defenders stand from the beach now; this test reads the drop alone
+  game.enemies = game.enemies.filter(enemy => !['b-emplacements', 'line1-hold', 'pillbox-hold'].includes(enemy.wave));
   // both pillboxes down: cp1, then the wave 2 sinking and `seawall-drop` four seconds on
   sendToScript(game, { kind: 'destroyed', target: 'pillbox-1' });
   sendToScript(game, { kind: 'destroyed', target: 'pillbox-2' });
@@ -524,6 +665,48 @@ test('seawall-drop is put out on top of the seawall and jumps down to the ground
   expect(hostileInTheAir).toBe(0);
   // on the ground on the seaward side of the wall (z -65), outside every wall
   for (const enemy of game.enemies) {
+    expect(enemy.z).toBeGreaterThan(-65);
+    for (const rect of game.rects)
+      expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);
+  }
+});
+
+test('seawall-drop comes down as before while the six nests are out', () => {
+  seed(1);
+  const game = newPlayGame({ ...M1B_HAND, mines: [] });
+  game.mech.x = 0;
+  game.mech.z = -20;
+  game.mech.yaw = 0;
+  game.armor = 1e9;
+  // the nests are left on the field; this test reads the drop
+  expect(game.enemies.filter(enemy => enemy.wave === 'b-emplacements')).toHaveLength(6);
+  // both pillboxes down: cp1, then the wave 2 sinking and `seawall-drop` four seconds on
+  sendToScript(game, { kind: 'destroyed', target: 'pillbox-1' });
+  sendToScript(game, { kind: 'destroyed', target: 'pillbox-2' });
+  for (let i = 0; i < 600 && !game.enemies.some(enemy => enemy.wave === 'seawall-drop'); i++) {
+    step(game, idle, DT);
+    if (game.script.cutscene !== null) sendToScript(game, { kind: 'skip' });
+  }
+  const drop = game.enemies.filter(enemy => enemy.wave === 'seawall-drop');
+  expect(drop).toHaveLength(6);
+  expect(drop.map(enemy => enemy.kind)).toEqual(M1_WAVE_ENEMY['seawall-drop']);
+  for (const enemy of drop) {
+    expect(enemy.y).toBeGreaterThan(PROP_SIZE.seawall.h - 1);
+    expect(enemy.z).toBeLessThan(-65);
+  }
+  let hostileInTheAir = 0;
+  let landed = -1;
+  for (let i = 0; i < 4 * 60 && landed < 0; i++) {
+    step(game, idle, DT);
+    const theirs = game.bullets.filter(bullet => isEnemyBullet(bullet) && bullet.enemy !== 'emplacement');
+    if (drop.every(enemy => enemy.y > 0) && theirs.length > 0) hostileInTheAir++;
+    if (drop.every(enemy => enemy.y === 0)) landed = i;
+  }
+  expect(landed).toBeGreaterThan(0);
+  expect(landed * DT).toBeLessThan(1.5);
+  expect(hostileInTheAir).toBe(0);
+  // on the ground on the seaward side of the wall (z -65), outside every wall
+  for (const enemy of drop) {
     expect(enemy.z).toBeGreaterThan(-65);
     for (const rect of game.rects)
       expect(rectDistance(rect, enemy.x, enemy.z)).toBeGreaterThanOrEqual(ENEMIES[enemy.kind].radius - 1e-6);

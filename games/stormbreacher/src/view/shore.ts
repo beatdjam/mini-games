@@ -1,10 +1,11 @@
 // The sea past the map's front edge and the landing craft the mech came in on (SB-120). The craft's sizes come from
-// data/craft.ts, which the walking and the camera read too; the drawn shape is this file's. The sea is one plane and the
-// craft is one mesh a colour (the ramp is a mesh of its own), so it costs four draws.
+// data/craft.ts, which the walking and the camera read too; the drawn shape is this file's. The sea is one plane and each
+// craft is one mesh a colour (the ramp is a mesh of its own). The two crafts beside the player's carry the allies in
+// (SB-1965); they come in with it and stay on the beach.
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { FOAM_COLOR, SEA_COLOR } from '../data/colors.ts';
-import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
+import { ALLY_CRAFT_SIDES, CRAFT_TUNE, craftSideX, craftZ } from '../data/craft.ts';
 import { SEA_SURFACE } from '../data/surfaces.ts';
 import type { MapBounds } from '../data/types.ts';
 import { seaMaterial, seaTexture } from './surfaces.ts';
@@ -13,6 +14,7 @@ export const SEA_LEVEL = -0.1; // the water's surface, just under the sand (m)
 const SEA_DEPTH = 260; // how far the sea runs past the front edge (m); the fog hides the end
 const SEA_SIDE = 160; // how far it runs past each side edge (m)
 export const CRAFT_NAME = 'craft'; // the player's craft in buildCraft (its ramp is `${CRAFT_NAME}Ramp`)
+export const ALLY_CRAFT_NAMES = ['craftAllyPort', 'craftAllyStarboard'] as const; // the allies' crafts, in ALLY_CRAFT_SIDES' order
 const CRAFT_HULL_COLOR = 0x6b7378;
 const CRAFT_DECK_COLOR = 0x484d50;
 export const RAMP_DOWN = -CRAFT_TUNE.rampTilt; // the ramp's turn about its hinge when it is down (rad); a bigger value lifts the tip
@@ -141,5 +143,12 @@ export function buildShore(bounds: MapBounds): THREE.Group {
   const craft = buildCraft(CRAFT_NAME);
   craft.position.set((bounds.minX + bounds.maxX) / 2, 0, craftZ(bounds));
   group.add(craft);
+
+  // the crafts beside it, with the allies aboard; they are drawn where they come in and stay there
+  ALLY_CRAFT_SIDES.forEach((side, i) => {
+    const beside = buildCraft(ALLY_CRAFT_NAMES[i]);
+    beside.position.set(craftSideX(bounds, side), 0, craftZ(bounds));
+    group.add(beside);
+  });
   return group;
 }

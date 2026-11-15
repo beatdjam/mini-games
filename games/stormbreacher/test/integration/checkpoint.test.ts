@@ -44,7 +44,8 @@ function takeCp1(game: GameModel): void {
   }
 }
 
-// Shoots the target down from its east side, where the pillboxes take the shot whole.
+// Shoots the target down from its east side. A pillbox is not one of them: bullets only suppress it, so a pillbox goes
+// down by hand (takeCp1) or by a charge.
 function shootDownFromSide(game: GameModel, id: string): void {
   const place = M1B_HAND.targets.find(target => target.id === id);
   if (!place) throw new Error(`the hand map has no ${id}`);
@@ -145,17 +146,23 @@ describe('checkpoint', () => {
   });
 
   test('a broken target comes back from the checkpoint as the same low wreck', () => {
-    const game = newPlayGame(M1B_HAND);
-    shootDownFromSide(game, 'pillbox-1');
-    shootDownFromSide(game, 'pillbox-2');
+    // no props, so nothing stands in the line of fire to the depot
+    const game = newPlayGame({ ...M1B_HAND, props: [] });
+    shootDownFromSide(game, 'depot');
+    takeCp1(game);
     expect(game.checkpoint?.id).toBe('cp1');
-    const place = M1B_HAND.targets.find(target => target.id === 'pillbox-1');
-    if (!place) throw new Error('the hand map has no pillbox-1');
-    const wreckTop = TARGET_SIZE[place.kind].h * WRECK_SCALE_Y;
-    expect(targetRect(game, 'pillbox-1')?.top).toBeCloseTo(wreckTop, 9);
-    const again = retryFromCheckpoint(game);
-    expect(again.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
-    expect(targetRect(again, 'pillbox-1')?.top).toBeCloseTo(wreckTop, 9);
+    // a pillbox set to 0 by hand keeps its wall's height until the checkpoint's copy lowers it
+    for (const id of ['depot', 'pillbox-1']) {
+      const place = M1B_HAND.targets.find(target => target.id === id);
+      if (!place) throw new Error(`the hand map has no ${id}`);
+      const wreckTop = TARGET_SIZE[place.kind].h * WRECK_SCALE_Y;
+      const again = retryFromCheckpoint(game);
+      expect(again.targets.find(target => target.id === id)?.hp, id).toBe(0);
+      expect(targetRect(again, id)?.top, id).toBeCloseTo(wreckTop, 9);
+    }
+    const depot = M1B_HAND.targets.find(target => target.id === 'depot');
+    if (!depot) throw new Error('the hand map has no depot');
+    expect(targetRect(game, 'depot')?.top).toBeCloseTo(TARGET_SIZE[depot.kind].h * WRECK_SCALE_Y, 9);
   });
 
   test('a retry counts and reports where it began from', () => {
