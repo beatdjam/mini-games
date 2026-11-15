@@ -27,7 +27,7 @@ import { LANDING_TUNE } from '../data/landing.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
-import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../data/props.ts';
+import { PROP_HP, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
 import { BLAST_FACE_TUNE, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { AllyFateBy, Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
@@ -287,6 +287,38 @@ export function targetBox(place: TargetPlace): Aabb {
   });
 }
 
+// The rect the target stands on. mapBlockers writes the targets after the props, so a prop that broke has moved the
+// number; the rect is found by the target's place and size instead.
+export function targetRect(game: Pick<GameModel, 'map' | 'rects'>, id: string): GroundRect | null {
+  const place = game.map.targets.find(entry => entry.id === id);
+  if (place === undefined) return null;
+  const size = TARGET_SIZE[place.kind];
+  return (
+    game.rects.find(
+      rect =>
+        rect.ramp !== true &&
+        rect.x === place.x &&
+        rect.z === place.z &&
+        rect.yaw === place.yaw &&
+        rect.halfW === size.w / 2 &&
+        rect.halfD === size.d / 2,
+    ) ?? null
+  );
+}
+
+// The target's rect stands at the wreck's height once it is down, the share of its height the view draws the wreck at.
+function lowerWreckRect(game: Pick<GameModel, 'map' | 'rects'>, target: TargetState): void {
+  if (target.hp > 0) return;
+  const rect = targetRect(game, target.id);
+  if (rect !== null) rect.top = TARGET_SIZE[target.kind].h * WRECK_SCALE_Y;
+}
+
+// Lowers the rect of every broken target, for a checkpoint or a suspend written before the rect kept the wreck's
+// height: the ground then matches the low wreck the view draws.
+export function lowerBrokenTargetRects(game: Pick<GameModel, 'map' | 'targets' | 'rects'>): void {
+  for (const target of game.targets) lowerWreckRect(game, target);
+}
+
 // The FCS's view of the targets and then the enemies: the id is the place in game.targets, or past them in
 // game.enemies; the centre is the middle of the box. One the chest cannot see (a prop or a standing target in the way)
 // counts as not alive, so the soft lock never pulls toward an enemy behind a pillbox's wall.
@@ -427,6 +459,12 @@ function damageTarget(game: GameModel, target: TargetState, damage: number): voi
   if (shuttered(game.shutters, target.id)) return;
   target.hp = Math.max(0, target.hp - damage);
   if (target.hp > 0) return;
+  // The view draws the wreck at WRECK_SCALE_Y of the target's height, so the wall left on the ground stands at the same
+  // height: the mech may jump over it, the camera looks over it, and the shots still pass through the fallen target.
+  lowerWreckRect(game, target);
+  // The enemy's cells are made from the rects and their count does not change with a target, so stepNav would keep the
+  // grid made before the fall. Dropping it rebuilds the grid on the next frame that has a walking enemy.
+  game.nav.grid = null;
   game.events.push({ kind: 'destroyed', id: target.id });
   checkShutters(game);
   sendToScript(game, { kind: 'destroyed', target: target.id });
@@ -749,7 +787,10 @@ function snapshotOf(game: GameModel, id: string): GameSnapshot {
     mission,
     ...kept
   } = game;
-  return { ...structuredClone(kept), map, mission, id };
+  const snapshot = { ...structuredClone(kept), map, mission, id };
+  // A target's rect may have run ahead of the health in a test or an old save; the checkpoint keeps the wreck's height.
+  lowerBrokenTargetRects(snapshot);
+  return snapshot;
 }
 
 // The sortie again from the last checkpoint: the checkpoint's game with the armour full, both weapons loaded, the aim
@@ -782,6 +823,9 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
   // The bullets in flight are gone, so a warning or a burst under way is dropped too; the wait stays as the
   // checkpoint kept it, and the next warning comes after it.
   next.pillboxes = next.pillboxes.map(pillbox => ({ ...pillbox, warn: 0, shots: 0, shotWait: 0 }));
+  // An old checkpoint kept a broken target's rect at the wall's height; the ground matches the low wreck once the
+  // sortie is back.
+  lowerBrokenTargetRects(next);
   return next;
 }
 

@@ -3,7 +3,7 @@
 import { M1B_HAND } from '../data/maps/m1b-hand.ts';
 import { M1 } from '../data/missions/m1.ts';
 import type { MapDef, MissionDef } from '../data/types.ts';
-import type { GameModel, GameSnapshot } from './game.ts';
+import { lowerBrokenTargetRects, type GameModel, type GameSnapshot } from './game.ts';
 import { newNav } from './nav.ts';
 
 export const SUSPEND_VERSION = 12; // 12: the script remembers that the mech has left the craft (the beach's allies wait for it); 11: the script remembers which blast points have opened their line (the cover mechs' way on); 10: the landing craft's boxes and the mech's start on its deck change what an old cutscene's left seconds mean; 9: an ally's ground height and its radio call are kept; 8: the radio queue is kept; 7: the aimed mortar remembers where the mech stood; 6: a machine-gun nest's burst under way; 5: a blasted line stays open; 4: the planted charges, their fuses and the hold under way
@@ -121,5 +121,8 @@ export function restoreSuspend(data: unknown): GameModel | null {
   // hasGameShape checked every field of SuspendedGame, which is what the casts below rely on
   const kept = structuredClone(data.game) as SuspendedGame;
   const checkpoint = saved === null ? null : { ...(structuredClone(saved) as SuspendedCheckpoint), map, mission };
-  return { ...kept, map, mission, bullets: [], shells: [], nav: newNav(), events: [], checkpoint };
+  // An old save kept a broken target's rect at the wall's height; the wreck the view draws is low, so the rect is too.
+  const game = { ...kept, map, mission, bullets: [], shells: [], nav: newNav(), events: [], checkpoint };
+  lowerBrokenTargetRects(game);
+  return game;
 }

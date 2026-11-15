@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { TARGET_SIZE, WRECK_SCALE_Y } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
 import {
@@ -8,6 +9,7 @@ import {
   retryFromCheckpoint,
   sendToScript,
   step,
+  targetRect,
   type GameInput,
   type GameModel,
 } from '../../src/logic/game.ts';
@@ -40,6 +42,20 @@ function takeCp1(game: GameModel): void {
     target.hp = 0;
     sendToScript(game, { kind: 'destroyed', target: id });
   }
+}
+
+// Shoots the target down from its east side, where the pillboxes take the shot whole.
+function shootDownFromSide(game: GameModel, id: string): void {
+  const place = M1B_HAND.targets.find(target => target.id === id);
+  if (!place) throw new Error(`the hand map has no ${id}`);
+  const target = game.targets.find(entry => entry.id === id);
+  if (!target) throw new Error(`the game has no ${id}`);
+  game.mech.x = place.x + 20;
+  game.mech.z = place.z;
+  game.mech.y = 0;
+  game.mech.yaw = Math.PI / 2;
+  for (let i = 0; i < 600 && target.hp > 0; i++) step(game, { ...idle, fire: true }, DT);
+  expect(target.hp, id).toBe(0);
 }
 
 // A game that walked, met the B line's squad and then took cp1.
@@ -126,6 +142,20 @@ describe('checkpoint', () => {
     expect(again.sub.ammo).toBe(WEAPONS[again.sub.id].ammo);
     expect(again.main.wait).toBe(0);
     expect(again.aimTarget).toBeNull();
+  });
+
+  test('a broken target comes back from the checkpoint as the same low wreck', () => {
+    const game = newPlayGame(M1B_HAND);
+    shootDownFromSide(game, 'pillbox-1');
+    shootDownFromSide(game, 'pillbox-2');
+    expect(game.checkpoint?.id).toBe('cp1');
+    const place = M1B_HAND.targets.find(target => target.id === 'pillbox-1');
+    if (!place) throw new Error('the hand map has no pillbox-1');
+    const wreckTop = TARGET_SIZE[place.kind].h * WRECK_SCALE_Y;
+    expect(targetRect(game, 'pillbox-1')?.top).toBeCloseTo(wreckTop, 9);
+    const again = retryFromCheckpoint(game);
+    expect(again.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
+    expect(targetRect(again, 'pillbox-1')?.top).toBeCloseTo(wreckTop, 9);
   });
 
   test('a retry counts and reports where it began from', () => {

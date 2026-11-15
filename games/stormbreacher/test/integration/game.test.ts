@@ -2,13 +2,14 @@ import { expect, test } from 'vitest';
 import { CRAFT_TUNE, craftZ } from '../../src/data/craft.ts';
 import { LANDING_TUNE } from '../../src/data/landing.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { PROP_HP, TARGET_HP, TARGET_SIZE } from '../../src/data/props.ts';
+import { PROP_HP, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../../src/data/props.ts';
 import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { M1_LOADOUT, WEAPONS } from '../../src/data/weapons.ts';
 import { rectDistance } from '../../src/logic/collide.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import type { Ray3 } from '../../src/logic/fcs.ts';
-import { newGame, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
+import { newGame, step, targetRect, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { newPlayGame } from './playGame.ts';
 import { seed } from '../../src/logic/rng.ts';
 
@@ -110,6 +111,30 @@ test('holding fire on a pillbox’s side breaks it', () => {
   expect(destroyedFrame).toBeGreaterThanOrEqual(0);
   expect(hits).toBe(TARGET_HP.pillbox / WEAPONS[M1_LOADOUT.main].damage);
   expect(game.targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
+});
+
+test('a broken target leaves a wreck-high wall and makes the enemy cells again', () => {
+  const game = newPlayGame(M1B_HAND);
+  atPillbox1Side(game);
+  const place = M1B_HAND.targets.find(entry => entry.id === 'pillbox-1');
+  if (!place) throw new Error('the hand map has no pillbox-1');
+  const target = game.targets.find(entry => entry.id === 'pillbox-1');
+  if (!target) throw new Error('the game has no pillbox-1');
+  expect(targetRect(game, 'pillbox-1')?.top).toBe(TARGET_SIZE[place.kind].h);
+
+  // a walking enemy (far off and asleep) makes the cells on the first step
+  game.enemies.push(newEnemy('nav-test', 'test-nav', 'grunt', 0, 160));
+  step(game, idle, DT);
+  const grid = game.nav.grid;
+  expect(grid).not.toBeNull();
+
+  for (let i = 0; i < 600 && target.hp > 0; i++) step(game, { ...idle, fire: true }, DT);
+  expect(target.hp).toBe(0);
+  expect(targetRect(game, 'pillbox-1')?.top).toBeCloseTo(TARGET_SIZE[place.kind].h * WRECK_SCALE_Y, 9);
+  // the target is down, so the next frame that walks an enemy makes the cells again
+  step(game, idle, DT);
+  expect(game.nav.grid).not.toBeNull();
+  expect(game.nav.grid).not.toBe(grid);
 });
 
 test('a shot that misses flies its range and vanishes without a hit', () => {

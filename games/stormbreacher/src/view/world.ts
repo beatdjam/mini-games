@@ -5,7 +5,7 @@ import { camera, scene } from '@engine/render/index.ts';
 import { M1_SHUTTERS } from '../data/battery.ts';
 import { SHUTTER_COLOR, SKY_COLOR } from '../data/colors.ts';
 import { PILLBOX_BREAK } from '../data/pillbox.ts';
-import { TARGET_SIZE, TILE_SIZE } from '../data/props.ts';
+import { TARGET_SIZE, TILE_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
 import { blastPropIndexes } from '../logic/blasts.ts';
@@ -21,7 +21,6 @@ const FOG_FAR = 240; // m; the map is 340 m deep, so the far end appears as the 
 const CHUNK = 32; // m
 const CHUNK_MIN = 3000; // triangles
 const WRECK_COLOR = 0x1f1c18; // the colour a broken target keeps
-const WRECK_SCALE_Y = 0.35; // how low a broken target sits (its height scale)
 
 // The fog's numbers the map views set; #view-fx starts from the same ones when its own look is off.
 export const MAP_FOG = { near: FOG_NEAR, far: FOG_FAR } as const;
@@ -33,6 +32,7 @@ export interface World {
   shutters: Map<string, THREE.Mesh>; // the armour plate before a target, by the target's id; hidden once it is open
   shore: THREE.Group; // the sea and the landing craft, to take out with them
   cameraBoxes: THREE.Box3[]; // the props and targets as walls the camera keeps out of
+  targetCameraBoxes: Map<string, THREE.Box3>; // a target's id -> its box in cameraBoxes, lowered when it breaks
   slots: Map<number, PropSlot>; // a breakable or blast-opened prop's place in map.props -> where it is drawn
   propCameraBoxes: Map<number, THREE.Box3>; // those props' place in map.props -> its box in cameraBoxes
   broken: Set<number>; // the props already drawn broken or opened
@@ -110,10 +110,19 @@ export function buildWorld(map: MapDef, air = true): World {
 
   // cameraBoxesOfRect runs over mapBlockers' rects, which put the blocking props first in map.props' order, so the
   // boxes of rect i belong to blockingPropIndexes(map)[i]. A breakable prop is one flat rect, so its list holds one box.
-  // The craft's rects come after the map's, so the props' places still line up.
-  const rects = [...mapBlockers(map), ...craftRects(map.bounds)];
+  // The targets come after the props and the craft's rects after them, so the props' places still line up.
+  const mapRects = mapBlockers(map);
+  const rects = [...mapRects, ...craftRects(map.bounds)];
   const boxesByRect = rects.map(cameraBoxesOfRect);
   const boxes = boxesByRect.flat();
+  // The targets' own boxes, so syncWorld can lower one when its target breaks: the camera must not keep avoiding a wall
+  // that is already a low wreck.
+  const targetCameraBoxes = new Map<string, THREE.Box3>();
+  const targetStart = mapRects.length - map.targets.length;
+  map.targets.forEach((place, i) => {
+    const box = boxesByRect[targetStart + i]?.[0];
+    if (box) targetCameraBoxes.set(place.id, box);
+  });
   const slots = new Map<number, PropSlot>();
   const propCameraBoxes = new Map<number, THREE.Box3>();
   const blastProps = blastPropsOf(map);
@@ -135,6 +144,7 @@ export function buildWorld(map: MapDef, air = true): World {
     shutters,
     shore,
     cameraBoxes: boxes,
+    targetCameraBoxes,
     slots,
     propCameraBoxes,
     broken: new Set(),
@@ -143,16 +153,18 @@ export function buildWorld(map: MapDef, air = true): World {
   };
 }
 
-// Lowers and darkens every target whose health is gone, hides every shutter that is open, and every prop the game has
-// broken or a blast has opened: its copy becomes a low, dark wreck and its box leaves cameraBoxes in place (play.ts hands
-// that same array to the camera every frame). A blasted line is drawn open from the first frame after a checkpoint or a
-// suspend brings it back. A pillbox goes down over PILLBOX_BREAK.sec instead, so its fall reads as the road opening: the
+// Lowers and darkens every target whose health is gone, lowers its camera box to the wreck's height, hides every shutter
+// that is open, and every prop the game has broken or a blast has opened: its copy becomes a low, dark wreck and its box
+// leaves cameraBoxes in place (play.ts hands that same array to the camera every frame). A blasted line is drawn open
+// from the first frame after a checkpoint or a suspend brings it back. A pillbox goes down over PILLBOX_BREAK.sec instead, so its fall reads as the road opening: the
 // seconds live here, in the view, and a save or a checkpoint needs nothing new. Called every frame: a pillbox keeps
 // sinking until PILLBOX_BREAK.sec, while every other broken target is left as it is once it is down, and a blast point's
 // hole is searched only on the frame it opens.
 export function syncWorld(world: World, game: GameModel, dt: number): void {
   for (const target of game.targets) {
     if (target.hp > 0) continue;
+    const box = world.targetCameraBoxes.get(target.id);
+    if (box) box.max.y = TARGET_SIZE[target.kind].h * WRECK_SCALE_Y;
     const mesh = world.targets.get(target.id);
     if (!mesh) continue;
     if (target.kind === 'pillbox') {
