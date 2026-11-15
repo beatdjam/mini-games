@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { ALLY_TUNE } from '../../src/data/allies.ts';
+import { CRAFT_TUNE } from '../../src/data/craft.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
 import type { AllyState } from '../../src/logic/allies.ts';
@@ -99,25 +100,28 @@ function plantAndBlow(game: GameModel, place: { x: number; z: number }, blast: s
   return events;
 }
 
-test('the beach allies stay out of it while the mech is on the craft, and run once it steps off', () => {
+test('the five allies step off their craft when the landing hands over, while the mech is still aboard', () => {
   const game = newGame(M1B_HAND);
-  step(game, IDLE, 0);
-  expect(game.allies).toEqual([]);
-  // the landing ends, but the mech is still on the deck
-  sendToScript(game, { kind: 'skip' });
-  run(game, IDLE, 60);
-  expect(game.allies).toEqual([]);
-  // down the ramp: the ashored input puts the buddy and the three cover mechs out in the same frame
-  game.mech.z = M1B_HAND.bounds.maxZ;
-  step(game, IDLE, DT);
+  step(game, IDLE, 0); // the intro puts them aboard
+  step(game, IDLE, DT); // the held landing sets their feet on the decks
   expect(game.allies.map(ally => ally.id).sort()).toEqual(['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner']);
-  const buddy = allyById(game.allies, 'buddy');
-  const start = { x: buddy.x, z: buddy.z };
-  expect(start.z).toBeGreaterThan(160);
-  // it runs from the first frame it is out
-  run(game, IDLE, 30);
-  expect(buddy.z).toBeLessThan(start.z);
-  expect(buddy.down).toBe(false);
+  const starts = new Map(game.allies.map(ally => [ally.id, { x: ally.x, z: ally.z }]));
+  for (const ally of game.allies) expect(ally.y, `${ally.id} stands on the deck`).toBeCloseTo(CRAFT_TUNE.deckTop, 5);
+  // the landing ends, and the mech is still on the deck: they start down their own ramps all the same
+  sendToScript(game, { kind: 'skip' });
+  expect(game.mech.z).toBeGreaterThan(M1B_HAND.bounds.maxZ);
+  step(game, IDLE, DT);
+  for (const ally of game.allies) {
+    expect(ally.z, `${ally.id} steps off at the handover`).toBeLessThan(starts.get(ally.id)?.z ?? 0);
+  }
+  expect(allyById(game.allies, 'buddy').z).toBeLessThan(starts.get('buddy')?.z ?? 0);
+  // and they keep going down the ramps and out onto the beach without waiting for the mech
+  runQuiet(game, 60);
+  for (const ally of game.allies) {
+    expect(ally.z, `${ally.id} has left its craft`).toBeLessThan((starts.get(ally.id)?.z ?? 0) - 1);
+    expect(ally.y, `${ally.id} is off the deck`).toBeLessThan(CRAFT_TUNE.deckTop);
+    expect(ally.down).toBe(false);
+  }
 });
 
 test(
@@ -125,8 +129,9 @@ test(
   () => {
     const game = newPlayGame(M1B_HAND);
     const buddy = allyById(game.allies, 'buddy');
+    const start = buddy.z;
     const events = run(game, IDLE, 60);
-    expect(buddy.z).toBeLessThan(166 - ALLY_TUNE.speed / 2);
+    expect(buddy.z).toBeLessThan(start - ALLY_TUNE.speed / 2);
     expect(downs(events)).toHaveLength(0);
     events.push(...run(game, IDLE, 60 * 20));
     expect(buddy.down).toBe(true);

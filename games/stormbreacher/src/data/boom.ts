@@ -3,7 +3,7 @@
 // be settled by eye in #view-boom. view/boom.ts draws them and view/feel.ts takes the shake.
 import { BOOM_COLOR } from './colors.ts';
 
-export type BoomKind = 'small' | 'large' | 'craft' | 'water';
+export type BoomKind = 'small' | 'large' | 'bunkerSmall' | 'bunker' | 'breach' | 'craft' | 'water';
 
 export interface BoomFire {
   radius: number; // how big the flash grows (m)
@@ -138,6 +138,57 @@ export const BOOM_DEFS: Record<BoomKind, BoomDef> = {
     debris: { count: 46, speed: 15, gravity: 20, life: 1.7, size: 0.2, color: BOOM_COLOR.debris },
     column: { height: 7.2, radius: 3.6, life: 1.5, color: BOOM_COLOR.sand },
     shake: 0.7,
+  },
+  // the first bunker goes down: a little more than a plain blast, with the debris and the dust of the wall it loses
+  bunkerSmall: {
+    fire: { radius: 6.4, life: 0.75, color: BOOM_COLOR.fireLarge },
+    smoke: {
+      count: 44,
+      rise: 2.7,
+      spread: 4,
+      size: 2,
+      grow: 3,
+      life: 8.8,
+      color: BOOM_COLOR.smoke,
+      fade: BOOM_COLOR.smokeFade,
+    },
+    debris: { count: 60, speed: 17, gravity: 20, life: 1.9, size: 0.24, color: BOOM_COLOR.debris },
+    column: { height: 8.2, radius: 4.2, life: 1.6, color: BOOM_COLOR.sand },
+    shake: 0.8,
+  },
+  // the second bunker falls: the blast the milestone is built on, with the wall's debris and a column of dust
+  bunker: {
+    fire: { radius: 8, life: 0.9, color: BOOM_COLOR.fireCraft },
+    smoke: {
+      count: 72,
+      rise: 3.2,
+      spread: 5.2,
+      size: 2.6,
+      grow: 3.2,
+      life: 10,
+      color: BOOM_COLOR.smoke,
+      fade: BOOM_COLOR.smokeFade,
+    },
+    debris: { count: 96, speed: 21, gravity: 22, life: 2.4, size: 0.3, color: BOOM_COLOR.debris },
+    column: { height: 11, radius: 5.2, life: 2, color: BOOM_COLOR.sand },
+    shake: 0.95,
+  },
+  // a charge opens a line: the biggest ground blast, its smoke standing long enough to read the hole through it
+  breach: {
+    fire: { radius: 7.6, life: 0.85, color: BOOM_COLOR.fireCraft },
+    smoke: {
+      count: 80,
+      rise: 3.4,
+      spread: 6,
+      size: 2.5,
+      grow: 3.4,
+      life: 11,
+      color: BOOM_COLOR.smoke,
+      fade: BOOM_COLOR.smokeFade,
+    },
+    debris: { count: 104, speed: 20, gravity: 21, life: 2.5, size: 0.28, color: BOOM_COLOR.debris },
+    column: { height: 12, radius: 5.6, life: 2.2, color: BOOM_COLOR.sand },
+    shake: 0.95,
   },
   // a landing craft blows up: the biggest of them, and the one the opening cutscene leans on
   craft: {

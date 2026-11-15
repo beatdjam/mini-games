@@ -14,6 +14,7 @@ export const PILLBOX_TUNE = {
   spread: 3, // the shot's drift from its aim (deg)
   muzzle: 0.5, // the height a shot leaves at, as a share of the pillbox's height
   muzzleGap: 0.5, // how far past the pillbox's box a shot starts (m)
+  suppressSec: 4, // a shot that hits the pillbox quiets its muzzle for this long; it takes no damage (SB-2015)
 };
 
 // A charge planted on a pillbox's blast point (SB-1540, 仮). One is enough to break the pillbox: the charge sits outside
@@ -25,13 +26,14 @@ export const PILLBOX_BLAST = {
 // How a broken pillbox goes down (SB-1550, 仮): it sinks into the sand and leans toward the land while the blast's smoke
 // stands, so the road opening shows. The seconds live in the view only (World.breaks), not in the game or the saves.
 export const PILLBOX_BREAK = {
-  sec: 2.5, // the seconds from the blast to fully sunk and leaning
-  sink: 1.6, // how deep it goes into the sand by the end (m)
-  lean: 0.2, // the angle it leans toward the land (-z) by the end (rad)
+  sec: 1.6, // the seconds from the blast to fully sunk and leaning (SB-2010: faster, so the moment lands)
+  sink: 2.3, // how deep it goes into the sand by the end (m; SB-2010: deeper)
+  lean: 0.36, // the angle it leans toward the land (-z) by the end (rad; SB-2010: stronger)
 };
 
 // A pillbox's armour (仮): its front shrugs off shots, its sides and back take them whole. The angle is measured on the
-// ground from the direction the shot came from, so a shot from within `frontArc` of the front is a front hit.
+// ground from the direction the shot came from, so a shot from within `frontArc` of the front is a front hit. Since
+// SB-2015 shots only suppress and take no health, the shares now decide only whether the hit shows the front's spark.
 export const PILLBOX_ARMOR = {
   frontMul: 0.25, // the share of a front shot's damage
   sideMul: 1, // the share of a side or back shot's damage

@@ -8,7 +8,6 @@ import { scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { PILLBOX_BREAK } from '../../src/data/pillbox.ts';
-import { WEAPONS } from '../../src/data/weapons.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { boomCounts } from '../../src/view/boom.ts';
 // loads the language files and boots the page, as the real page does
@@ -31,24 +30,13 @@ function game() {
   return current;
 }
 
-// A heavy-gun shot from the pillbox's side, as a player would make it: the health is left at 1 and the shot starts just
-// outside the box, so the game's own hit reports `destroyed` (sendToScript is not called).
-function breakFromSide(id: string): void {
+// A charge on one of the pillbox's blast points, with its fuse already out, as a player would set it (SB-2015: shots no
+// longer break a pillbox): the game's own blast reports `destroyed` (sendToScript is not called).
+function breakWithCharge(id: string): void {
   const current = game();
-  const target = current.targets.find(entry => entry.id === id);
-  if (!target) throw new Error(`the map has no ${id}`);
-  target.hp = 1;
-  const { box } = target;
-  current.bullets.push({
-    weapon: 'heavyGun',
-    x: box.minX - 0.5,
-    y: (box.minY + box.maxY) / 2,
-    z: (box.minZ + box.maxZ) / 2,
-    dx: 1,
-    dy: 0,
-    dz: 0,
-    left: WEAPONS.heavyGun.range,
-  });
+  const point = (current.map.blasts ?? []).find(place => place.target === id);
+  if (!point) throw new Error(`the map has no blast point for ${id}`);
+  current.charges.push({ blast: point.id, left: 0 });
 }
 
 function meshOf(id: string): THREE.Mesh {
@@ -66,7 +54,7 @@ test('a broken pillbox sinks and leans, and the second brings the radio, the fla
   runSystems(1 / 60);
   expect(game().script.cutscene).toBeNull();
 
-  breakFromSide('pillbox-1');
+  breakWithCharge('pillbox-1');
   runSystems(1 / 60);
   expect(game().targets.find(target => target.id === 'pillbox-1')?.hp).toBe(0);
 
@@ -89,7 +77,7 @@ test('a broken pillbox sinks and leans, and the second brings the radio, the fla
   expect(mesh.position.y).toBeCloseTo(-PILLBOX_BREAK.sink);
 
   // the second one down fires cp1: the radio line, the flag and the checkpoint
-  breakFromSide('pillbox-2');
+  breakWithCharge('pillbox-2');
   runSystems(1 / 60);
   expect(game().targets.find(target => target.id === 'pillbox-2')?.hp).toBe(0);
   // the ally's call may still hold the band: the line reaches the screen once the lines before it have had their time

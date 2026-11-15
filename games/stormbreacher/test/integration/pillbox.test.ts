@@ -3,6 +3,7 @@
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { PILLBOX_TUNE } from '../../src/data/pillbox.ts';
+import { TARGET_HP } from '../../src/data/props.ts';
 import type { MapDef } from '../../src/data/types.ts';
 import { isPillboxBullet, step, type GameEvent, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { pillboxMuzzle } from '../../src/logic/pillbox.ts';
@@ -85,6 +86,54 @@ test('a pillbox behind cover is silent, and warns and fires a burst once the lin
   expect(shotTime).not.toBeNull();
   if (shotTime === null) return;
   expect(shotTime - warnTime).toBeCloseTo(PILLBOX_TUNE.warn, 1);
+});
+
+test('a shot takes no health but quiets the muzzle for the suppression’s seconds', () => {
+  seed(5);
+  const game = newPlayGame(field());
+  atMech(game, 30, 20);
+  const target = game.targets[0];
+  const state = game.pillboxes[0];
+  // let it start a warning, so the suppression also has to cut a warning short
+  let warned = false;
+  for (let i = 0; i < 240 && !warned; i++) {
+    step(game, idle, DT);
+    if (game.events.some(event => event.kind === 'pillboxWarn')) warned = true;
+  }
+  expect(warned).toBe(true);
+  game.bullets = [];
+
+  // a mech shot into the pillbox's side: the health stays whole and the muzzle is quiet
+  game.bullets.push({
+    weapon: 'autocannon',
+    x: target.box.minX - 1,
+    y: 2,
+    z: (target.box.minZ + target.box.maxZ) / 2,
+    dx: 1,
+    dy: 0,
+    dz: 0,
+    left: 20,
+  });
+  step(game, idle, DT);
+  expect(target.hp).toBe(TARGET_HP.pillbox);
+  expect(state.suppress).toBeGreaterThan(PILLBOX_TUNE.suppressSec - DT * 2);
+  expect(state.warn).toBe(0);
+  game.bullets = [];
+
+  // it neither warns nor fires while it is held quiet
+  const quietFrames = Math.ceil(PILLBOX_TUNE.suppressSec / DT) - 4;
+  for (let i = 0; i < quietFrames; i++) {
+    step(game, idle, DT);
+    expect(game.events.some(event => event.kind === 'pillboxWarn')).toBe(false);
+    expect(game.bullets.some(isPillboxBullet)).toBe(false);
+  }
+  // the quiet runs out, the wait passes and the warning comes again
+  let again = false;
+  for (let i = 0; i < (PILLBOX_TUNE.interval + PILLBOX_TUNE.warn + 1) / DT && !again; i++) {
+    step(game, idle, DT);
+    again = game.events.some(event => event.kind === 'pillboxWarn');
+  }
+  expect(again).toBe(true);
 });
 
 test('a cutscene holds a pillbox still: it neither counts down nor warns', () => {

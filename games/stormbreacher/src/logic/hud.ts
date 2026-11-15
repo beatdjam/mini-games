@@ -2,13 +2,17 @@
 // view/hud.ts draws them. There is no heat.
 import { ENEMIES, type EnemyKind } from '../data/enemies.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
-import { RADIO_TUNE, OBJECTIVE_COUNT } from '../data/script.ts';
+import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
+import { PILLBOX_TUNE } from '../data/pillbox.ts';
+import { CALLOUT_TUNE, RADIO_TUNE, OBJECTIVE_COUNT } from '../data/script.ts';
 import { TARGET_HP } from '../data/props.ts';
 import { HUD_TUNE, MECH_TUNE } from '../data/tune.ts';
 import type { TargetKind } from '../data/types.ts';
 import { WEAPONS, type WeaponId } from '../data/weapons.ts';
-import { nearBlast } from './blasts.ts';
+import { blastTarget, nearBlast, targetStands } from './blasts.ts';
+import { pillboxShot } from './blastMarks.ts';
 import type { Aabb } from './fire.ts';
+import { frontOf } from './front.ts';
 import { enemyBox, type GameModel } from './game.ts';
 import { inCircle } from './hazards.ts';
 import type { WeaponState } from './weapons.ts';
@@ -21,9 +25,21 @@ export interface HudAmmo {
 
 // angle: deg from the mech's front, + to the right; dist: 0 at the centre, 1 at the edge
 export interface HudRadarMark {
-  kind: TargetKind | EnemyKind;
+  kind: TargetKind | EnemyKind | 'blast'; // `blast` is a pillbox's blast point (SB-2017)
   angle: number;
   dist: number;
+}
+
+// A point on the radar, as `bearing` gives it (angle in degrees, distance as a share of the radar's range). A front line
+// is two of these, one at each side of the map; a point past the edge is clipped by the view.
+export interface HudRadarPoint {
+  angle: number;
+  dist: number;
+}
+
+export interface HudFront {
+  a: HudRadarPoint;
+  b: HudRadarPoint;
 }
 
 export interface HudModel {
@@ -33,9 +49,12 @@ export interface HudModel {
   sub: HudAmmo;
   objective: { key: string; count: { done: number; total: number } | null } | null; // the script's objective (`obj.<id>`); count is set for the objectives in OBJECTIVE_COUNT; null before the script names one
   radio: string | null; // the language key of the radio line on screen while it is within RADIO_TUNE.minSec, else null
+  callout: string | null; // the language key of the short order near the aim (SB-2028): the on-screen radio line's `callout` for CALLOUT_TUNE.sec, and never while a shell warning shows; else null
   lock: Aabb | null; // the box of the target or enemy `enemy` describes, for the lock frame; null when `enemy` is
-  enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp
-  radar: HudRadarMark[]; // the living targets and enemies within HUD_TUNE.radarRange
+  enemy: { kind: TargetKind | EnemyKind; ratio: number } | null; // the living target or enemy the soft FCS pulls toward (game.aimTarget); ratio is hp / TARGET_HP[kind] or hp / ENEMIES[kind].hp, and for a pillbox the suppression left (SB-2015)
+  radar: HudRadarMark[]; // the living targets and enemies within HUD_TUNE.radarRange, and the pillboxes' blast points
+  front: HudFront; // the line the allies hold, as two points across the map (SB-2010)
+  headline: string | null; // the short heading a milestone puts up (`m1.breach`), or null
   warning: 'shell' | null; // 'shell' while the mech stands inside a warned shell's blast, else null
   use: { key: 'hud.use'; progress: number } | null; // the use prompt near a blast point; progress is the hold, 0-1
   charge: { left: number; total: number } | null; // the first planted charge's fuse left and its full length (s)
@@ -62,6 +81,31 @@ function hudAmmo(weapon: WeaponState): HudAmmo {
   return { id: weapon.id, ammo: weapon.ammo, max: WEAPONS[weapon.id].ammo };
 }
 
+// The short heading a milestone put up, while it is within PAYOFF_TUNE.headlineSec of its cue. The cue's time is the
+// script's own clock, so a checkpoint or a suspend that brings the cue back brings the heading with it.
+function headlineOf(game: GameModel): string | null {
+  for (const def of Object.values(PAYOFFS)) {
+    if (def.headline === null || def.flag === null) continue;
+    if (!game.script.flags.includes(def.flag)) continue;
+    const fired = game.script.fired[def.cue];
+    if (fired !== undefined && game.time - fired <= PAYOFF_TUNE.headlineSec) return def.headline;
+  }
+  return null;
+}
+
+// The front line as two points on the radar: the ends of the line across the map's width. The view clips the stretch to
+// the radar's circle, so a line behind the mech or past the edge shows only where it crosses the dial.
+function radarFront(game: GameModel): HudFront {
+  const front = frontOf(game.script.flags);
+  const a = bearing(game, game.map.bounds.minX, front.z);
+  const b = bearing(game, game.map.bounds.maxX, front.z);
+  const range = HUD_TUNE.radarRange;
+  return {
+    a: { angle: a.angle, dist: a.dist / range },
+    b: { angle: b.angle, dist: b.dist / range },
+  };
+}
+
 export function hudModel(game: GameModel): HudModel {
   const living = game.targets.filter(target => target.hp > 0);
 
@@ -70,7 +114,15 @@ export function hudModel(game: GameModel): HudModel {
   let enemy: HudModel['enemy'] = null;
   let lock: Aabb | null = null;
   if (aimed && aimed.hp > 0) {
-    enemy = { kind: aimed.kind, ratio: aimed.hp / TARGET_HP[aimed.kind] };
+    // A pillbox takes no damage from shots (SB-2015), so its bar shows the suppression left: full again when its muzzle
+    // is free, empty while it is held quiet.
+    if (aimed.kind === 'pillbox') {
+      const state = game.pillboxes.find(pillbox => pillbox.id === aimed.id);
+      const suppress = state?.suppress ?? 0;
+      enemy = { kind: aimed.kind, ratio: Math.max(0, 1 - suppress / PILLBOX_TUNE.suppressSec) };
+    } else {
+      enemy = { kind: aimed.kind, ratio: aimed.hp / TARGET_HP[aimed.kind] };
+    }
     lock = aimed.box;
   } else if (aimedEnemy && aimedEnemy.hp > 0) {
     enemy = { kind: aimedEnemy.kind, ratio: aimedEnemy.hp / ENEMIES[aimedEnemy.kind].hp };
@@ -85,6 +137,19 @@ export function hudModel(game: GameModel): HudModel {
       z: (target.box.minZ + target.box.maxZ) / 2,
     })),
     ...game.enemies.filter(placed => placed.hp > 0).map(placed => ({ kind: placed.kind, x: placed.x, z: placed.z })),
+    // A pillbox's points are the ones the player must find behind the box: the radar marks them like an objective until
+    // their charge is planted or their pillbox falls (SB-2017). The lines' points are left off, so the small dial keeps
+    // the four the player is looking for apart from the six the lines already show.
+    ...game.blasts
+      .filter(blast => {
+        if (blast.blasted) return false;
+        if (blastTarget(game.map, blast.id) === undefined) return false;
+        if (game.charges.some(charge => charge.blast === blast.id)) return false;
+        // a pillbox's points show on the small map only once it has been shot (SB-2022)
+        if (!pillboxShot(game, blastTarget(game.map, blast.id) ?? '')) return false;
+        return targetStands(blast, game);
+      })
+      .map(blast => ({ kind: 'blast' as const, x: blast.x, z: blast.z })),
   ];
   for (const mark of marks) {
     const { angle, dist } = bearing(game, mark.x, mark.z);
@@ -104,6 +169,13 @@ export function hudModel(game: GameModel): HudModel {
     };
   }
   const radio = game.radio;
+  const warning: HudModel['warning'] = game.shells.some(shell => inCircle(shell, shell.radius, game.mech))
+    ? 'shell'
+    : null;
+  const callout =
+    warning === null && radio?.callout !== undefined && game.time - radio.time < CALLOUT_TUNE.sec
+      ? radio.callout
+      : null;
   const near = nearBlast(game.blasts, game.charges, game.mech, game);
   const use =
     near === null
@@ -127,7 +199,10 @@ export function hudModel(game: GameModel): HudModel {
     enemy,
     lock,
     radar,
-    warning: game.shells.some(shell => inCircle(shell, shell.radius, game.mech)) ? 'shell' : null,
+    front: radarFront(game),
+    headline: headlineOf(game),
+    warning,
+    callout,
     use,
     charge: planted === undefined ? null : { left: Math.max(0, planted.left), total: CHARGE_TUNE.fuse },
   };

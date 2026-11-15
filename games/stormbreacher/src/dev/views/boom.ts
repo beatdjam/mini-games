@@ -101,6 +101,9 @@ export function showBoom(_hash: string) {
   const originals = {
     small: tuneOf('small'),
     large: tuneOf('large'),
+    bunkerSmall: tuneOf('bunkerSmall'),
+    bunker: tuneOf('bunker'),
+    breach: tuneOf('breach'),
     craft: tuneOf('craft'),
     water: tuneOf('water'),
   };
@@ -182,6 +185,9 @@ export function showBoom(_hash: string) {
       defs: {
         small: valuesOf('small'),
         large: valuesOf('large'),
+        bunkerSmall: valuesOf('bunkerSmall'),
+        bunker: valuesOf('bunker'),
+        breach: valuesOf('breach'),
         craft: valuesOf('craft'),
         water: valuesOf('water'),
       },

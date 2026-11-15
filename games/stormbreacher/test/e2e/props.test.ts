@@ -4,7 +4,9 @@ import * as THREE from 'three';
 import { scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { MARKER_TUNE, MARKER_MODES } from '../../src/data/marker.ts';
 import { blastPropIndexes } from '../../src/logic/blasts.ts';
+import { sendToScript } from '../../src/logic/game.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -72,14 +74,26 @@ test('a blast lowers the line’s hedgehogs where they stand, with no new mesh',
   expect(loweredHedgehogs()).toBe(props.length);
 });
 
+// Plays the opening cutscene out, so the sortie draws its rings and lights (a cutscene draws none: SB-2022).
+async function endCutscene(game: NonNullable<ReturnType<typeof currentGame>>): Promise<void> {
+  sendToScript(game, { kind: 'skip' });
+  await frame();
+  await frame();
+}
+
+function setMarkerMode(mode: (typeof MARKER_MODES)[number]): void {
+  MARKER_TUNE.mode = MARKER_MODES.indexOf(mode);
+}
+
 test('the pillboxes’ blast points are drawn, and not once their pillbox is down', async () => {
   startSortie();
   await frame();
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
+  await endCutscene(game);
   const points = game.blasts.length;
-  // the lines' six points and the pillboxes' four are all rings on the fresh map
-  expect(points).toBe(10);
+  // the lines' four points and the pillboxes' four are all rings on the fresh map
+  expect(points).toBe(8);
   expect(drawn('sb-blast-points')).toBe(points);
 
   // pillbox-1's two points leave the ground once its guns are down; the other rings stay
@@ -89,6 +103,77 @@ test('the pillboxes’ blast points are drawn, and not once their pillbox is dow
   await frame();
   await frame();
   expect(drawn('sb-blast-points')).toBe(points - 2);
+});
+
+test('a cutscene draws no ring and no light, and they come back when it ends', async () => {
+  setMarkerMode('dim');
+  startSortie();
+  await frame();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  await frame();
+  expect(game.script.cutscene).not.toBeNull();
+  expect(drawn('sb-blast-points')).toBe(0);
+  expect(drawn('sb-blast-pillars')).toBe(0);
+  expect(drawn('sb-blast-diamonds')).toBe(0);
+  await endCutscene(game);
+  expect(drawn('sb-blast-points')).toBeGreaterThan(0);
+  expect(drawn('sb-blast-pillars')).toBeGreaterThan(0);
+  expect(drawn('sb-blast-diamonds')).toBeGreaterThan(0);
+});
+
+test('a light stands over every blast point of a shot pillbox and of the lines (dim), and goes with its pillbox', async () => {
+  setMarkerMode('dim');
+  startSortie();
+  await frame();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  await endCutscene(game);
+  // a point shows no light until its pillbox has been shot: the lines' four stand alone, and the mech is far enough off
+  game.mech.x = 0;
+  game.mech.z = 166;
+  await frame();
+  expect(drawn('sb-blast-pillars')).toBe(4);
+  for (const state of game.pillboxes) state.shot = true;
+  await frame();
+  expect(drawn('sb-blast-pillars')).toBe(8);
+  expect(drawn('sb-blast-diamonds')).toBe(8);
+
+  // pillbox-1's two lights go when its points do; the other six stay
+  const pillbox = game.targets.find(target => target.id === 'pillbox-1');
+  if (!pillbox) throw new Error('the map has no pillbox-1');
+  pillbox.hp = 0;
+  await frame();
+  await frame();
+  expect(drawn('sb-blast-pillars')).toBe(6);
+});
+
+test('`map` draws no light on screen, and `next` draws one that moves on when its pillbox falls', async () => {
+  startSortie();
+  await frame();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  await endCutscene(game);
+  for (const state of game.pillboxes) state.shot = true;
+  game.mech.x = 22;
+  game.mech.z = -40;
+  setMarkerMode('map');
+  await frame();
+  expect(drawn('sb-blast-points')).toBe(8);
+  expect(drawn('sb-blast-pillars')).toBe(0);
+  expect(drawn('sb-blast-diamonds')).toBe(0);
+
+  setMarkerMode('next');
+  await frame();
+  expect(drawn('sb-blast-pillars')).toBe(1);
+  expect(drawn('sb-blast-diamonds')).toBe(1);
+  const pillbox = game.targets.find(target => target.id === 'pillbox-2');
+  if (!pillbox) throw new Error('the map has no pillbox-2');
+  pillbox.hp = 0;
+  await frame();
+  await frame();
+  expect(drawn('sb-blast-pillars')).toBe(1);
+  setMarkerMode('dim');
 });
 
 // The first object in the scene with this name, anywhere below it.
@@ -107,8 +192,10 @@ test('a sortie draws every target of the map, the battery’s parts among them',
   if (!game) throw new Error('the sortie has not started');
   const map = game.map;
   const group = find('targets');
-  // the targets, and a plate for each shutter; the warning lights hang in the same group but are not targets
-  const children = group?.children.filter(child => child.name !== 'sb-pillbox-warn');
+  // the targets, and a plate for each shutter; the warning lights and the two smokes (over a suppressed muzzle and over a
+  // nest) hang in the same group but are not targets
+  const effects = ['sb-pillbox-warn', 'sb-pillbox-smoke', 'sb-nest-smoke'];
+  const children = group?.children.filter(child => !effects.includes(child.name));
   expect(children).toHaveLength(map.targets.length + game.shutters.length);
   for (const id of ['main-gun-1', 'main-gun-2', 'magazine']) {
     expect(

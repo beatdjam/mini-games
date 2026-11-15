@@ -3,7 +3,7 @@
 // main and sub ammo under the circle, the last radio line at the bottom centre and a lock frame round the target the
 // aim is pulled toward. It reads HudModel (logic/hud.ts) and draws it; it never writes the model. Heat is not drawn;
 // the only warning is the shell's. The shades and the emphasis are 仮.
-import { t } from '@engine/core/index.ts';
+import { isTouch, t } from '@engine/core/index.ts';
 import { HUD_COLOR } from '../data/colors.ts';
 import type { EnemyKind } from '../data/enemies.ts';
 import type { TargetKind } from '../data/types.ts';
@@ -15,6 +15,7 @@ import {
   reticleSvg,
   ringRadius,
   roundRadar,
+  type RadarFront,
   type RadarKey,
   type RadarMarkKind,
 } from './hudParts.ts';
@@ -32,9 +33,14 @@ const PLAY_HUD_LAYOUT = {
   objective: { css: 'left:24px;top:48px;width:340px' },
   radio: { css: 'left:50%;transform:translateX(-50%);bottom:48px;width:560px;padding:2px 6px' },
   enemy: { css: 'left:50%;transform:translateX(-50%);top:48px;width:300px' },
+  headline: { css: 'left:50%;transform:translateX(-50%);top:24%;width:720px;text-align:center' },
   warning: { css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 40px);text-align:center' },
+  // the short order near the aim (SB-2028): above the shell warning (-40px) and the use prompt's spot, so none overlap
+  callout: {
+    css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 120px);width:520px;text-align:center',
+  },
   use: {
-    css: 'left:50%;transform:translateX(-50%);top:calc(50% - var(--ring) - 80px);width:220px;text-align:center',
+    css: 'left:50%;transform:translateX(-50%);top:calc(50% + var(--ring) + 72px);width:280px;text-align:center',
   },
   reticle: { css: 'inset:0;pointer-events:none' },
 } as const;
@@ -47,7 +53,9 @@ const PLAY_HUD_TEXT = {
   objective: { label: 16, value: 16 }, // px
   radio: { label: 16, value: 16 }, // px
   enemy: { name: 14, bar: 10 }, // px
+  headline: { text: 34 }, // px
   warning: { text: 18 }, // px
+  callout: { text: 26 }, // px
   use: { text: 13, bar: 6 }, // px; the charge's fuse uses the same sizes
 } as const;
 
@@ -72,7 +80,7 @@ interface ArcGauge {
 }
 
 interface RadarGauge {
-  set(marks: readonly RadarKey[]): void;
+  set(marks: readonly RadarKey[], front?: RadarFront | null): void;
 }
 
 // The values written last, so a frame writes only what changed. null means "not written yet".
@@ -86,6 +94,8 @@ interface HudLast {
   enemy: TargetKind | EnemyKind | null;
   enemyRatio: number | null;
   enemyHidden: boolean | null;
+  headline: string | null;
+  callout: string | null;
   warning: HudModel['warning'] | undefined; // undefined means "not written yet" (null is a written "none")
   use: number | null; // the hold's progress (0-1), or null when the prompt is not up
   charge: string | null; // the fuse's text, or null when no charge is shown
@@ -106,8 +116,12 @@ export interface PlayHud {
   enemy: HTMLElement;
   enemyName: HTMLSpanElement;
   enemyFill: HTMLElement;
+  headline: HTMLElement;
+  headlineText: HTMLSpanElement;
   warning: HTMLElement;
   warningText: HTMLSpanElement;
+  callout: HTMLElement;
+  calloutText: HTMLSpanElement;
   use: HTMLElement;
   useRow: HTMLElement;
   useText: HTMLSpanElement;
@@ -168,6 +182,8 @@ function freshLast(): HudLast {
     enemy: null,
     enemyRatio: null,
     enemyHidden: null,
+    headline: null,
+    callout: null,
     warning: undefined,
     use: null,
     charge: null,
@@ -228,16 +244,28 @@ function layOut(root: HTMLElement): PlayHud {
   enemy.append(enemyName, enemyBar.box);
   enemy.hidden = true;
 
+  // The short heading a milestone puts up for a moment (SB-2010), above the aim circle and below the enemy's health.
+  const headline = place(root, PLAY_HUD_LAYOUT.headline.css, 'headline');
+  const headlineText = span('', PLAY_HUD_TEXT.headline.text, HUD_COLOR.amber);
+  headline.appendChild(headlineText);
+  headline.hidden = true;
+
   const warning = place(root, PLAY_HUD_LAYOUT.warning.css, 'warning');
   const warningText = span('', PLAY_HUD_TEXT.warning.text, HUD_COLOR.warn);
   warning.appendChild(warningText);
   warning.hidden = true;
 
-  // One place above the aim circle: the use prompt with the hold's progress, or the planted charge's fuse. Both rows sit
-  // in the same element and only one shows.
+  const callout = place(root, PLAY_HUD_LAYOUT.callout.css, 'callout');
+  const calloutText = span('', PLAY_HUD_TEXT.callout.text, HUD_COLOR.amber);
+  callout.appendChild(calloutText);
+  callout.hidden = true;
+
+  // One place below the aim circle: the use prompt with the hold's progress, or the planted charge's fuse. Both rows sit
+  // in the same element and only one shows. On a keyboard the prompt says how to plant (SB-2017); on touch there is no F
+  // key, so it keeps the button's name and the button itself lights up (app/play.ts).
   const use = place(root, PLAY_HUD_LAYOUT.use.css, 'use');
   const useRow = document.createElement('div');
-  const useText = span(t('hud.use'), PLAY_HUD_TEXT.use.text, HUD_COLOR.amber);
+  const useText = span(t(isTouch ? 'hud.use' : 'hud.plant'), PLAY_HUD_TEXT.use.text, HUD_COLOR.amber);
   const useMeter = useBar(HUD_COLOR.bar);
   useRow.append(useText, useMeter.box);
   const chargeRow = document.createElement('div');
@@ -272,8 +300,12 @@ function layOut(root: HTMLElement): PlayHud {
     enemy,
     enemyName,
     enemyFill: enemyBar.fill,
+    headline,
+    headlineText,
     warning,
     warningText,
+    callout,
+    calloutText,
     use,
     useRow,
     useText,
@@ -369,6 +401,19 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null):
     }
   }
 
+  const headline = model.headline === null ? '' : t(model.headline);
+  if (last.headline !== headline) {
+    hud.headline.hidden = model.headline === null;
+    hud.headlineText.textContent = headline;
+    last.headline = headline;
+  }
+
+  if (last.callout !== model.callout) {
+    hud.callout.hidden = model.callout === null;
+    if (model.callout !== null) hud.calloutText.textContent = t(model.callout);
+    last.callout = model.callout;
+  }
+
   if (last.warning !== model.warning) {
     hud.warning.hidden = model.warning === null;
     if (model.warning !== null) hud.warningText.textContent = t(`hud.warn.${model.warning}`);
@@ -398,7 +443,14 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null):
   if (hud.use.hidden === useVisible) hud.use.hidden = !useVisible;
 
   hud.lock.set(lock);
-  hud.radar.set(model.radar.map(mark => ({ kind: RADAR_MARK[mark.kind], angle: mark.angle, dist: mark.dist })));
+  hud.radar.set(
+    model.radar.map(mark => ({
+      kind: mark.kind === 'blast' ? 'blast' : RADAR_MARK[mark.kind],
+      angle: mark.angle,
+      dist: mark.dist,
+    })),
+    model.front,
+  );
 }
 
 // Takes the HUD out of the page.

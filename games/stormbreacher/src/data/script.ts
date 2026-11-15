@@ -14,6 +14,14 @@ export const RADIO_TUNE = {
   maxPending: 8, // the most lines that may wait behind the one on screen
 };
 
+// The short order near the aim (SB-2028). A radio line that asks the player to act carries a `callout` key; while that
+// line is up (and for `sec` s at most) the HUD writes the order above the aim circle, where the eyes are in a fight. The
+// radio band keeps the full line. A shell warning takes the place: while one shows, no callout does. The place and the
+// size are CALLOUT_LAYOUT in view/hud.ts (provisional).
+export const CALLOUT_TUNE = {
+  sec: 2.5, // how long the order stays up from the moment its radio line comes up (s); under RADIO_TUNE.minSec
+};
+
 // A cutscene takes no skip this soon after it starts: the jump, shot or Enter that starts one (wave2-sinks, beach-held)
 // comes in the same frame, and must not pass the cutscene over before it is drawn. Presses before this are thrown away.
 export const CUTSCENE_SKIP_GUARD_SEC = 0.4;

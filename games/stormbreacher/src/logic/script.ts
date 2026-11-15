@@ -2,6 +2,7 @@
 // write-up (data/missions/m1.ts) is passed in on every call. No three and no DOM, so a node test can run it. Time is
 // the script's own seconds, advanced by stepScript, never the wall clock.
 import { ALLY_FATES } from '../data/allies.ts';
+import { PAYOFFS } from '../data/payoff.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import type { Action, AllyFateBy, Cue, CutsceneId, HolePaths, MissionDef, Trigger } from '../data/types.ts';
 
@@ -25,15 +26,19 @@ export interface ScriptState {
 // An event per action kind, plus the end of a cutscene; `time` is when the script produced it (s).
 export type ScriptOut =
   | { kind: 'objective'; id: string; time: number }
-  | { kind: 'radio'; line: string; time: number }
-  | { kind: 'spawn'; wave: string; time: number }
+  | { kind: 'radio'; line: string; delay?: number; callout?: string; time: number }
+  | { kind: 'spawn'; wave: string; dormant?: boolean; time: number }
+  | { kind: 'wake'; wave: string; time: number }
+  | { kind: 'wake'; enemy: string; time: number }
   | { kind: 'ally'; id: string; path: string; fate?: { at: string; by: AllyFateBy; call?: string }; time: number }
   | { kind: 'allyMove'; id: string; path: string; time: number }
+  | { kind: 'suppress'; id: string; wave: string; sec: number; time: number } // an ally's support fire on a wave (SB-2020)
   | { kind: 'cutscene'; id: CutsceneId; time: number }
   | { kind: 'cutsceneEnd'; id: CutsceneId; time: number }
   | { kind: 'checkpoint'; id: string; time: number }
   | { kind: 'flag'; name: string; time: number }
   | { kind: 'map'; mark: string; on: boolean; time: number }
+  | { kind: 'payoff'; id: string; time: number } // a milestone's knock, carried out by the game and the view
   | { kind: 'end'; result: string; time: number };
 
 // What the game tells the script. `skip` is the cutscene being passed over.
@@ -118,11 +123,18 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
   switch (action.kind) {
     case 'objective':
       requireIn(def.objectives, action.id, 'objective');
+      if (action.unlessFired !== undefined && !def.cues.some(c => c.id === action.unlessFired)) {
+        throw new Error(`cue "${cueId}": no cue "${action.unlessFired}" for unlessFired`);
+      }
       return;
     case 'radio':
       return;
     case 'spawn':
       requireIn(def.waves, action.wave, 'wave');
+      return;
+    case 'wake':
+      // an enemy id is made at run time, so only a wave name can be checked here
+      if ('wave' in action) requireIn(def.waves, action.wave, 'wave');
       return;
     case 'ally':
       requireIn(def.allies, action.id, 'ally');
@@ -136,6 +148,10 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
       requireIn(def.allies, action.id, 'ally');
       checkWay(def, action.path);
       return;
+    case 'suppress':
+      requireIn(def.allies, action.id, 'ally');
+      requireIn(def.waves, action.wave, 'wave');
+      return;
     case 'cutscene':
       if (!(action.id in CUTSCENE_SEC)) throw new Error(`cue "${cueId}": no cutscene "${action.id}"`);
       return;
@@ -145,6 +161,9 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
       return;
     case 'map':
       requireIn(def.marks, action.mark, 'mark');
+      return;
+    case 'payoff':
+      requireIn(Object.keys(PAYOFFS), action.id, 'payoff');
       return;
     default:
       throw new Error(`cue "${cueId}": unknown action ${JSON.stringify(action)}`);
@@ -265,15 +284,31 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
   const time = s.time;
   switch (action.kind) {
     case 'objective':
+      if (action.unlessFired !== undefined && firedAt(s, action.unlessFired) !== undefined) return;
       s.objective = action.id;
       out.push({ kind: 'objective', id: action.id, time });
       return;
     case 'radio':
-      out.push({ kind: 'radio', line: action.line, time });
+      out.push({
+        kind: 'radio',
+        line: action.line,
+        ...(action.delay === undefined ? {} : { delay: action.delay }),
+        ...(action.callout === undefined ? {} : { callout: action.callout }),
+        time,
+      });
       return;
     case 'spawn':
       if (!s.spawned.includes(action.wave)) s.spawned.push(action.wave);
-      out.push({ kind: 'spawn', wave: action.wave, time });
+      out.push(
+        action.dormant === true
+          ? { kind: 'spawn', wave: action.wave, dormant: true, time }
+          : { kind: 'spawn', wave: action.wave, time },
+      );
+      return;
+    case 'wake':
+      out.push(
+        'wave' in action ? { kind: 'wake', wave: action.wave, time } : { kind: 'wake', enemy: action.enemy, time },
+      );
       return;
     case 'ally': {
       const path = wayPath(s, action.path);
@@ -286,6 +321,9 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
     }
     case 'allyMove':
       out.push({ kind: 'allyMove', id: action.id, path: wayPath(s, action.path), time });
+      return;
+    case 'suppress':
+      out.push({ kind: 'suppress', id: action.id, wave: action.wave, sec: action.sec, time });
       return;
     case 'cutscene':
       s.cutscene = { id: action.id, left: CUTSCENE_SEC[action.id] };
@@ -306,6 +344,9 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
         s.marks = s.marks.filter(mark => mark !== action.mark);
       }
       out.push({ kind: 'map', mark: action.mark, on: action.on, time });
+      return;
+    case 'payoff':
+      out.push({ kind: 'payoff', id: action.id, time });
       return;
     case 'end':
       s.ended = action.result;

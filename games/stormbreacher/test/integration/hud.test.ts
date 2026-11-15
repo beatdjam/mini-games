@@ -3,7 +3,8 @@ import { ENEMIES } from '../../src/data/enemies.ts';
 import { CHARGE_TUNE } from '../../src/data/charge.ts';
 import { AIMED_MORTAR } from '../../src/data/hazards.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { RADIO_TUNE, CUTSCENE_SEC } from '../../src/data/script.ts';
+import { PILLBOX_TUNE } from '../../src/data/pillbox.ts';
+import { CALLOUT_TUNE, RADIO_TUNE, CUTSCENE_SEC } from '../../src/data/script.ts';
 import { HUD_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import type { TargetKind, TargetPlace } from '../../src/data/types.ts';
 import { WEAPONS } from '../../src/data/weapons.ts';
@@ -214,7 +215,10 @@ test('the enemy is the living target the aim is pulled toward', () => {
   game.aimTarget = 'near';
   expect(hudModel(game).enemy).toEqual({ kind: 'pillbox', ratio: 1 });
 
-  targetAt(game, 'near').hp = 50;
+  // a pillbox's bar is its suppression left (SB-2015), not its health, which shots do not take
+  const state = game.pillboxes.find(pillbox => pillbox.id === 'near');
+  if (!state) throw new Error('the sortie has no pillbox near');
+  state.suppress = PILLBOX_TUNE.suppressSec / 2;
   expect(hudModel(game).enemy).toEqual({ kind: 'pillbox', ratio: 0.5 });
 
   game.aimTarget = 'far';
@@ -348,4 +352,56 @@ test('a warned aimed shell inside its circle shows the shell warning', () => {
   expect(hudModel(game).warning).toBe('shell');
   game.mech.x = AIMED_MORTAR.radius + 1;
   expect(hudModel(game).warning).toBeNull();
+});
+
+test('a radio line with a callout puts the short order near the aim for CALLOUT_TUNE.sec (SB-2028)', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'skip' });
+  expect(hudModel(game).callout).toBeNull();
+
+  // the script's own line: line 2's approach says "now" and carries its order
+  sendToScript(game, { kind: 'enter', area: 'line2-approach' });
+  step(game, idle, 1 / 60);
+  expect(game.radio?.line).toBe('m1.line2-support');
+  expect(hudModel(game).callout).toBe('m1.callout.line2-support');
+  expect(hudModel(game).radio).toBe('m1.line2-support');
+
+  game.time += CALLOUT_TUNE.sec - 0.1;
+  expect(hudModel(game).callout).toBe('m1.callout.line2-support');
+  game.time += 0.2;
+  expect(hudModel(game).callout).toBeNull();
+  // the radio band still holds the line after the order has gone
+  expect(hudModel(game).radio).toBe('m1.line2-support');
+});
+
+test('a radio line without a callout shows no order, and the order follows its own line in the queue', () => {
+  const game = newGame(M1B_HAND);
+  step(game, idle, 1 / 60);
+  sendToScript(game, { kind: 'skip' });
+  queueRadio(game, 'm1.depot-hint');
+  queueRadio(game, 'm1.line2-hold', 0, 'm1.callout.line2-hold');
+  stepRadio(game, 1 / 60);
+  expect(hudModel(game).callout).toBeNull();
+  game.time += RADIO_TUNE.minSec;
+  stepRadio(game, 1 / 60);
+  expect(game.radio?.line).toBe('m1.line2-hold');
+  expect(hudModel(game).callout).toBe('m1.callout.line2-hold');
+});
+
+test('the shell warning takes the place of the callout while it shows (SB-2028)', () => {
+  const game = newGame(M1B_HAND);
+  game.mech.x = 0;
+  game.mech.y = 0;
+  game.mech.z = 166;
+  game.mech.yaw = 0;
+  game.aimed = { anchor: { x: game.mech.x, z: game.mech.z }, still: AIMED_MORTAR.stillSec - 0.1 };
+  step(game, idle, 0.2);
+  game.radio = { line: 'm1.line2-hold', time: game.time, callout: 'm1.callout.line2-hold' };
+  expect(hudModel(game).warning).toBe('shell');
+  expect(hudModel(game).callout).toBeNull();
+  // out of the circle, the order comes back for the rest of its seconds
+  game.mech.x = AIMED_MORTAR.radius + 1;
+  expect(hudModel(game).warning).toBeNull();
+  expect(hudModel(game).callout).toBe('m1.callout.line2-hold');
 });

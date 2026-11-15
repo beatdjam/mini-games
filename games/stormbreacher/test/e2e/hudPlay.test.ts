@@ -70,6 +70,36 @@ test("the objective is the script's first one", async () => {
   expect(objective.textContent).toContain(t('obj.reach-pillboxes'));
 });
 
+test('the use prompt says how to plant a charge at a blast point, and the touch button lights', async () => {
+  startSortie();
+  const game = currentGame();
+  if (!game) throw new Error('the sortie has not started');
+  await frame();
+  sendToScript(game, { kind: 'skip' }); // the mech takes no input during the landing
+  const use = el('#sbPlayHud [data-hud="use"]');
+  const button = el('#btnUse');
+  expect(use.hidden).toBe(true);
+  expect(button.classList.contains('on')).toBe(false);
+
+  // pillbox-1's side point is at (-41, -15); stand 2 m sea-side of it
+  game.mech.x = -41;
+  game.mech.y = 0;
+  game.mech.z = -13;
+  game.mech.grounded = true;
+  runSystems(1 / 60);
+  await frame();
+  expect(use.hidden).toBe(false);
+  expect(use.textContent).toContain(t('hud.plant'));
+  expect(button.classList.contains('on')).toBe(true);
+
+  // out of reach: the prompt and the lit button go
+  game.mech.z = -30;
+  runSystems(1 / 60);
+  await frame();
+  expect(use.hidden).toBe(true);
+  expect(button.classList.contains('on')).toBe(false);
+});
+
 test('the lock frame shows only while the aim is pulled toward a target', async () => {
   startSortie();
   const game = currentGame();

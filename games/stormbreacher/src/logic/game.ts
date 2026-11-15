@@ -7,8 +7,9 @@
 // range; a breakable prop takes the damage and breaks at 0. An enemy's shot (logic/enemies.ts) flies at its kind's
 // speed and stops at a prop, at the mech or at the ground; the mech's armour takes its damage, and at 0 the mech is
 // downed and the game stops. A pillbox (logic/pillbox.ts) that sees the mech warns of a burst and then fires it, and its
-// shots fly as an enemy's do; a shot from its front does little damage and is reported as deflected. The
-// script's `spawn` puts a wave's enemies out (the wave's kinds are in M1_WAVE_ENEMY), starts
+// shots fly as an enemy's do. A shot on a pillbox takes no health and quiets its muzzle for a while instead (SB-2015);
+// only a charge on a blast point breaks it. The script's `spawn` puts a wave's enemies out (the wave's kinds are in
+// M1_WAVE_ENEMY), starts
 // the wave's barrage (M1_WAVE_BARRAGE; logic/hazards.ts) and, when the last of the enemies falls, `cleared` goes back
 // through sendToScript. A barrage warns of a shell while the mech is in reach and the shell lands later; an aimed mortar
 // warns of a shell on the place the mech has stayed at for a while; a mine blows up
@@ -17,7 +18,9 @@
 // gun, and the magazine takes no harm while its shutter is shut, until both main guns are down. An `ally` (a friend,
 // logic/allies.ts) runs its way with no hit box and falls at the place its fate names (SB-170).
 import { distXZ } from '@engine/core/index.ts';
-import { ALLY_TUNE } from '../data/allies.ts';
+import { ALLY_TUNE, COVER_TUNE } from '../data/allies.ts';
+import { LINE2_FLAG } from '../data/front.ts';
+import { DEFENDER_POSTS, defenderPostOf } from '../data/defenders.ts';
 import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
@@ -26,14 +29,15 @@ import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/haz
 import { LANDING_TUNE } from '../data/landing.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
+import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_BLAST, PILLBOX_TUNE } from '../data/pillbox.ts';
 import { PROP_HP, TARGET_HP, TARGET_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
 import { RADIO_TUNE } from '../data/script.ts';
 import { BLAST_FACE_TUNE, FCS_TUNE, MECH_TUNE } from '../data/tune.ts';
-import type { AllyFateBy, Area, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
+import type { AllyFateBy, Area, GroundSpot, MapDef, MissionDef, TargetKind, TargetPlace } from '../data/types.ts';
 import { M1_LOADOUT, WEAPONS, type WeaponId } from '../data/weapons.ts';
 import { rectBox, rectBoxes, groundAt, type GroundRect } from './collide.ts';
-import { craftBack, craftRects, inCraftLane } from './craft.ts';
+import { allyCraftRects, craftBack, craftRects, inCraftLane } from './craft.ts';
 import {
   newBattery,
   newShutters,
@@ -54,9 +58,9 @@ import {
   type ChargeState,
   type PlantState,
 } from './blasts.ts';
-import { newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
+import { holdAt, newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
 import { newNav, stepNav, type NavState } from './nav.ts';
-import { newPillbox, pillboxDamageMul, stepPillbox, type PillboxState } from './pillbox.ts';
+import { newPillbox, pillboxDamageMul, stepPillbox, suppressPillbox, type PillboxState } from './pillbox.ts';
 import {
   newFcs,
   spreadDir,
@@ -139,6 +143,9 @@ export type GameEvent =
   | { kind: 'allyDown'; id: string; x: number; z: number; by: AllyFateBy } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'allyCall'; id: string; line: string } // an ally called on the radio before its fate
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
+  // an ally's support fire flies at a silenced nest (SB-2024): from (x, y, z) to (tx, ty, tz); the view draws the tracer and the spark
+  | { kind: 'coverFire'; enemy: string; x: number; y: number; z: number; tx: number; ty: number; tz: number }
+  | { kind: 'payoff'; id: string; x: number; z: number } // a milestone's knock, at the blast or the thing that fell
   | { kind: 'cleared' }
   | { kind: 'retried'; from: string | null }; // the sortie began again: from the checkpoint with this id, or null from the start
 
@@ -214,8 +221,8 @@ export interface GameModel {
   script: ScriptState; // the mission script's own state; the objective, marks and the rest are read from here
   // The line on screen now. `time` is when it came up plus the cutscene seconds since (stepRadio holds it still while a
   // cutscene hides the HUD), so game.time - time is the seconds the HUD has shown it; null before one
-  radio: { line: string; time: number } | null;
-  radioQueue: { line: string }[]; // the lines waiting to come up after it, oldest first
+  radio: { line: string; time: number; callout?: string } | null;
+  radioQueue: { line: string; at?: number; callout?: string }[]; // the lines waiting to come up after it, oldest first; `at` is the game time it may come up
   mech: MechState;
   armor: number; // the mech's armour left (MECH_TUNE.armor at the start)
   downed: boolean; // set when the armour reaches 0; step does nothing after
@@ -225,6 +232,7 @@ export interface GameModel {
   breakables: BreakableState[]; // the breakable blocking props, with their health
   targets: TargetState[];
   pillboxes: PillboxState[]; // the pillboxes' machine guns, by target id; a destroyed pillbox's state stays
+  pillboxHint: boolean; // whether the radio line about how to break a pillbox has gone out (SB-2017)
   enemies: EnemyState[]; // every enemy put out, the fallen too (hp 0: they do not move, shoot or take a hit)
   nav: NavState; // the cells and counts the enemies find their way by; made again from rects, so a copy leaves it out
   main: WeaponState; // the main weapon's ammo and wait
@@ -242,6 +250,10 @@ export interface GameModel {
   charges: ChargeState[]; // the charges planted and not yet blown
   plant: PlantState | null; // the hold under way on a blast point, if any
   allies: AllyState[]; // the allies the script has put out, the fallen too (down: they do not move); no hit box
+  slow: { left: number; scale: number } | null; // the milestone's short slowdown: real seconds left and the time's share
+  calm: { left: number; mul: number } | null; // the milestone's lull in the enemy mortar: seconds left and its interval share
+  // the allies' support fire under way (SB-2024): the wave it holds quiet, the seconds left, the wait to the next tracer, the nest to fire at next, and whether the radio line about the rounds running short has gone out; null when none
+  cover: { wave: string; left: number; wait: number; next: number; warned: boolean } | null;
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
   checkpoint: GameSnapshot | null; // the game as the last checkpoint kept it; null before one
@@ -448,6 +460,19 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   if (enemy) damageEnemy(game, enemy, damage);
   if (mine) damageMine(game, mine, damage);
   if (!target) return true;
+  // A shot does not break a pillbox (SB-2015): it suppresses the muzzle for a while and leaves the armour alone. A
+  // charge on a blast point is the only way to break one.
+  if (target.kind === 'pillbox') {
+    // The first shot that lands tells the player the front will not open and where to plant a charge (SB-2017). It is
+    // said once: the line's lesson is worth one moment, not a nag.
+    if (!game.pillboxHint) {
+      game.pillboxHint = true;
+      queueRadio(game, 'm1.pillbox-charge', 0, 'm1.callout.pillbox-charge');
+    }
+    const state = game.pillboxes.find(pillbox => pillbox.id === target.id);
+    if (state) suppressPillbox(state);
+    return true;
+  }
   damageTarget(game, target, damage * mul);
   return true;
 }
@@ -597,7 +622,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
   // The deck's height: at 0 the deck's box would push the mech out over the sea.
   mech.y = CRAFT_TUNE.deckTop;
   mech.yaw = 0;
-  const rects = [...mapBlockers(map), ...craftRects(map.bounds)];
+  const rects = [...mapBlockers(map), ...craftRects(map.bounds), ...allyCraftRects(map.bounds)];
   // mapBlockers puts the props first and the targets after; blockingPropIndexes gives the prop for each of those rects.
   const propRects = blockingPropIndexes(map);
   const propBoxes: Aabb[] = [];
@@ -632,6 +657,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
       yaw: place.yaw,
     })),
     pillboxes: map.targets.filter(place => place.kind === 'pillbox').map(place => newPillbox(place.id)),
+    pillboxHint: false,
     enemies: [],
     nav: newNav(),
     main: newWeapon(M1_LOADOUT.main),
@@ -649,6 +675,9 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     charges: [],
     plant: null,
     allies: [],
+    slow: null,
+    calm: null,
+    cover: null,
     events: [],
     cleared: false,
     checkpoint: null,
@@ -667,18 +696,95 @@ export function sendToScript(game: GameModel, input: ScriptInput): void {
 
 // Puts a wave's enemies out, one at each of the map's spawn points for the wave: the i-th place gets the i-th kind in
 // M1_WAVE_ENEMY. A wave the table does not name, a wave the map has no place for, or a list whose length does not match
-// the places puts out nothing, so a half-written table cannot put out a wrong mix.
-function spawnWave(game: GameModel, wave: string): void {
+// the places puts out nothing, so a half-written table cannot put out a wrong mix. `dormant` puts them out asleep and
+// held until a script's `wake` (the machine-gun nests are on the field from the start).
+function spawnWave(game: GameModel, wave: string, dormant = false): void {
   const kinds = M1_WAVE_ENEMY[wave];
   const places = game.map.spawns[wave];
   if (kinds === undefined || places === undefined || places.length === 0 || kinds.length !== places.length) return;
   const y = M1_WAVE_DROP[wave] ?? 0;
   let count = 0;
   places.forEach((place, i) => {
-    game.enemies.push(newEnemy(`${wave}-${i + 1}`, wave, kinds[i], place.x, place.z, y));
+    const enemy = newEnemy(`${wave}-${i + 1}`, wave, kinds[i], place.x, place.z, y, dormant);
+    // the defenders of a sector stand on the posts of their own (SB-2015); the other waves walk
+    const post = defenderPostOf(wave, i);
+    if (post !== undefined) holdAt(enemy, post);
+    game.enemies.push(enemy);
     count++;
   });
   game.events.push({ kind: 'spawned', wave, count });
+}
+
+// Wakes the enemies a script's `wake` names: every living one of a wave, or one by id. A fallen enemy stays down.
+function wakeEnemies(game: GameModel, event: Extract<ScriptOut, { kind: 'wake' }>): void {
+  for (const enemy of game.enemies) {
+    if (enemy.hp <= 0) continue;
+    const named = 'wave' in event ? enemy.wave === event.wave : enemy.id === event.enemy;
+    if (!named) continue;
+    enemy.awake = true;
+    enemy.dormant = false;
+  }
+}
+
+// The allies' support fire (SB-2020): every living nest of the wave holds its next burst for `sec` seconds, so a window
+// opens for the charge at line 2's near point. The nest stays awake and keeps its health; the burst starts afresh when
+// the seconds run out. `wait` and `burstLeft` are already in the enemy and the saves, so no new field is kept.
+function silenceNests(game: GameModel, event: Extract<ScriptOut, { kind: 'suppress' }>): void {
+  for (const enemy of game.enemies) {
+    if (enemy.hp <= 0 || enemy.wave !== event.wave) continue;
+    const burst = ENEMIES[enemy.kind].burst;
+    if (burst === undefined) continue;
+    enemy.wait = Math.max(enemy.wait, Math.max(0, event.sec));
+    enemy.burstLeft = burst.shots;
+  }
+  game.cover = { wave: event.wave, left: Math.max(0, event.sec), wait: 0, next: 0, warned: false };
+}
+
+// The support fire's picture (SB-2024), run each frame while a window is open: a `coverFire` event for one living nest in
+// turn every COVER_TUNE.fireEvery seconds (from the nearest ally in range, else from out at sea), and the radio line
+// that the rounds run short a little before the window closes. Nothing here touches the nests: their quiet is the seconds
+// `silenceNests` set.
+function stepCover(game: GameModel, dt: number): void {
+  const cover = game.cover;
+  if (cover === null) return;
+  // the hole is open: the window is over, so no more tracers and no "rounds run short" over a gap that is already there
+  if (game.script.flags.includes(LINE2_FLAG)) {
+    game.cover = null;
+    return;
+  }
+  cover.left -= dt;
+  if (cover.left <= 1e-9) {
+    game.cover = null;
+    return;
+  }
+  if (!cover.warned && cover.left <= COVER_TUNE.warnBefore) {
+    cover.warned = true;
+    queueRadio(game, COVER_TUNE.endLine, 0, COVER_TUNE.endCallout);
+  }
+  cover.wait -= dt;
+  if (cover.wait > 0) return;
+  cover.wait = COVER_TUNE.fireEvery;
+  // only the nests ahead of the mech get a tracer; the ones it has passed are out of the picture
+  const nests = game.enemies.filter(enemy => enemy.hp > 0 && enemy.wave === cover.wave && enemy.z <= game.mech.z);
+  if (nests.length === 0) return;
+  const nest = nests[cover.next % nests.length];
+  cover.next += 1;
+  const def = ENEMIES[nest.kind];
+  const to = { x: nest.x, y: nest.y + def.height * COVER_TUNE.hitHeight, z: nest.z };
+  let from = {
+    x: nest.x + ((cover.next % COVER_TUNE.seaLanes) - (COVER_TUNE.seaLanes - 1) / 2) * COVER_TUNE.seaSpread,
+    y: COVER_TUNE.fromHeight,
+    z: nest.z + COVER_TUNE.seaDist,
+  };
+  let best = COVER_TUNE.allyRange;
+  for (const ally of game.allies) {
+    if (ally.down) continue;
+    const dist = distXZ(ally, nest);
+    if (dist >= best) continue;
+    best = dist;
+    from = { x: ally.x, y: ally.y + COVER_TUNE.fromHeight, z: ally.z };
+  }
+  game.events.push({ kind: 'coverFire', enemy: nest.id, ...from, tx: to.x, ty: to.y, tz: to.z });
 }
 
 // Starts the barrage a wave names in M1_WAVE_BARRAGE, once; a wave that is not there starts none.
@@ -727,15 +833,21 @@ function moveAllyTo(game: GameModel, event: Extract<ScriptOut, { kind: 'allyMove
   if (ally !== undefined) moveAlly(ally, way);
 }
 
-// Puts one radio line behind the one on screen; its time is stamped when `stepRadio` brings it up. When the queue is
-// full the newest line is dropped: dropping the oldest would leave the lines behind the one on screen waiting longer.
-export function queueRadio(game: GameModel, line: string): void {
+// Puts one radio line behind the one on screen; its time is stamped when `stepRadio` brings it up. `delay` holds it off
+// the band for that many game seconds (a milestone's cheer comes a moment after the blast). When the queue is full the
+// newest line is dropped: dropping the oldest would leave the lines behind the one on screen waiting longer.
+// `callout` is the language key of a short order that shows near the aim while the line is up (SB-2028).
+export function queueRadio(game: GameModel, line: string, delay = 0, callout?: string): void {
   if (game.radioQueue.length >= RADIO_TUNE.maxPending) return;
-  game.radioQueue.push({ line });
+  const entry: GameModel['radioQueue'][number] = { line };
+  if (delay > 0) entry.at = game.time + delay;
+  if (callout !== undefined) entry.callout = callout;
+  game.radioQueue.push(entry);
 }
 
 // Moves the radio band on: the next line comes up when the one on screen has had RADIO_TUNE.minSec (s), one line a
-// frame at most, so a line that came with another still gets its time on screen. `time` is when it came up.
+// frame at most, so a line that came with another still gets its time on screen. A line with `at` in the future keeps
+// the band as it is until its time; the queue stays in order. `time` is when it came up.
 // A cutscene hides the HUD, so while one plays nothing comes up and the line on screen keeps its age: `time` moves on
 // with `dt` (game.time has already), so the line gets its RADIO_TUNE.minSec of the HUD, not of the sortie's clock.
 export function stepRadio(game: GameModel, dt: number): void {
@@ -745,25 +857,119 @@ export function stepRadio(game: GameModel, dt: number): void {
     return;
   }
   if (shown !== null && game.time - shown.time < RADIO_TUNE.minSec) return;
-  const next = game.radioQueue.shift();
-  game.radio = next === undefined ? null : { line: next.line, time: game.time };
+  const next = game.radioQueue[0];
+  if (next === undefined) {
+    game.radio = null;
+    return;
+  }
+  if (next.at !== undefined && game.time < next.at) return;
+  game.radioQueue.shift();
+  game.radio =
+    next.callout === undefined
+      ? { line: next.line, time: game.time }
+      : { line: next.line, time: game.time, callout: next.callout };
 }
 
-// Keeps every event the script reported. The game itself takes four: a radio line (the lines queue up, one on screen), a
-// wave to put out and start the barrage of (`spawn`), an ally to put out (`ally`) and the end (the sortie is cleared).
+// The cover point nearest an enemy, for its fall back to the next line.
+function nearestCover(enemy: GroundSpot, at: readonly GroundSpot[]): GroundSpot {
+  let best = at[0];
+  let bestDist = Infinity;
+  for (const point of at) {
+    const dist = distXZ(enemy, point);
+    if (dist >= bestDist) continue;
+    best = point;
+    bestDist = dist;
+  }
+  return { ...best };
+}
+
+// The defenders a milestone breaks: line 1's and line 2's falls send their own posts back, the first bunker's fall
+// sends only the posts around that bunker, and the second's sends the whole pillbox line back (SB-2015, SB-2020). Each
+// runs to the next line's post and holds there in turn; a post with no `next` is the last line.
+function routeDefenders(game: GameModel, id: string): void {
+  for (const enemy of game.enemies) {
+    if (enemy.hp <= 0 || enemy.post === null) continue;
+    const post = DEFENDER_POSTS[enemy.post];
+    const runs =
+      id === 'breach'
+        ? post.line === 'line1'
+        : id === 'breach2'
+          ? post.line === 'line2'
+          : id === 'bunker1'
+            ? post.line === 'pillbox' && post.firstRout
+            : id === 'bunker' && post.line === 'pillbox';
+    if (!runs || post.next === null) continue;
+    const next = DEFENDER_POSTS[post.next];
+    enemy.fallback = { x: next.x, z: next.z };
+    enemy.fallbackPost = post.next;
+    enemy.fallbackHold = PAYOFF_TUNE.retreatHold;
+    enemy.holdOut = false;
+  }
+}
+
+// Carries out a milestone's knock (SB-2010): the short slowdown, the enemy mortar's lull and the fall back of every
+// walking enemy in the sector. A nest stays and fires: it is fixed, so it does not run. The first bunker only gets the
+// smaller, shorter knock. The posted defenders of the sector run to the next line's cover (SB-2015).
+function applyPayoff(game: GameModel, id: string): void {
+  if (!Object.keys(PAYOFFS).includes(id)) return;
+  const first = id === 'bunker1';
+  game.slow = {
+    left: first ? PAYOFF_TUNE.firstSlowSec : PAYOFF_TUNE.slowSec,
+    scale: first ? PAYOFF_TUNE.firstSlowScale : PAYOFF_TUNE.slowScale,
+  };
+  game.calm = id === 'bunker1' ? null : { left: PAYOFF_TUNE.calmSec, mul: PAYOFF_TUNE.calmMul };
+  routeDefenders(game, id);
+  const fallback = PAYOFFS[id as keyof typeof PAYOFFS].fallback;
+  if (fallback === null) return;
+  for (const enemy of game.enemies) {
+    if (enemy.hp <= 0 || enemy.post !== null || ENEMIES[enemy.kind].static === true) continue;
+    if (enemy.z <= fallback.lineZ) continue;
+    enemy.fallback = nearestCover(enemy, fallback.at);
+    enemy.fallbackHold = PAYOFF_TUNE.retreatHold;
+  }
+}
+
+// Where a milestone happened, for its sound and its view: the blast that opened the line or the target that fell. A cue
+// that has neither (a dev view's) tells it at the mech.
+function payoffSpot(game: GameModel, id: string): { x: number; z: number } {
+  const def = PAYOFFS[id as keyof typeof PAYOFFS];
+  const blasts = def.blasts ?? [];
+  for (let i = game.events.length - 1; i >= 0; i--) {
+    const event = game.events[i];
+    if (event.kind === 'blast' && blasts.includes(event.id)) return { x: event.x, z: event.z };
+    if (event.kind === 'destroyed') {
+      const target = game.targets.find(entry => entry.id === event.id);
+      if (target) {
+        return { x: (target.box.minX + target.box.maxX) / 2, z: (target.box.minZ + target.box.maxZ) / 2 };
+      }
+    }
+  }
+  return { x: game.mech.x, z: game.mech.z };
+}
+
+// Keeps every event the script reported. The game itself takes six: a radio line (the lines queue up, one on screen), a
+// wave to put out and start the barrage of (`spawn`), an ally to put out (`ally`), an ally's fire on a wave
+// (`suppress`), a milestone's knock (`payoff`) and the end (the sortie is cleared).
 function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
   let checkpoint: string | null = null;
   for (const event of outs) {
     game.events.push({ kind: 'script', event });
-    if (event.kind === 'radio') queueRadio(game, event.line);
+    if (event.kind === 'radio') queueRadio(game, event.line, event.delay ?? 0, event.callout);
     if (event.kind === 'spawn') {
-      spawnWave(game, event.wave);
+      spawnWave(game, event.wave, event.dormant === true);
       startBarrage(game, event.wave);
       startAimed(game, event.wave);
       if (event.wave === BATTERY_WAVE) game.battery.on = true;
     }
+    if (event.kind === 'wake') wakeEnemies(game, event);
+    if (event.kind === 'suppress') silenceNests(game, event);
     if (event.kind === 'ally') spawnAlly(game, event);
     if (event.kind === 'allyMove') moveAllyTo(game, event);
+    if (event.kind === 'payoff') {
+      applyPayoff(game, event.id);
+      const at = payoffSpot(game, event.id);
+      game.events.push({ kind: 'payoff', id: event.id, x: at.x, z: at.z });
+    }
     if (event.kind === 'end' && !game.cleared) {
       game.cleared = true;
       game.events.push({ kind: 'cleared' });
@@ -820,9 +1026,10 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
     checkpoint,
     retries: game.retries + 1,
   };
-  // The bullets in flight are gone, so a warning or a burst under way is dropped too; the wait stays as the
-  // checkpoint kept it, and the next warning comes after it.
-  next.pillboxes = next.pillboxes.map(pillbox => ({ ...pillbox, warn: 0, shots: 0, shotWait: 0 }));
+  // The bullets in flight are gone, so a warning, a burst or a suppression under way is dropped too; the wait stays as
+  // the checkpoint kept it, and the next warning comes after it.
+  next.cover = null;
+  next.pillboxes = next.pillboxes.map(pillbox => ({ ...pillbox, warn: 0, shots: 0, shotWait: 0, suppress: 0 }));
   // An old checkpoint kept a broken target's rect at the wall's height; the ground matches the low wreck once the
   // sortie is back.
   lowerBrokenTargetRects(next);
@@ -909,18 +1116,29 @@ function stepHazards(game: GameModel, dt: number): void {
   // warned of still land. The landing craft holds it too: the beach's mortar does not drop shells on the boat until the
   // mech has walked down the ramp. The barrage starts counting again when the mech leaves the craft.
   const held = game.script.cutscene !== null || game.mech.z > game.map.bounds.maxZ;
+  // A milestone's lull (SB-2010) eases the enemy mortar for a few seconds: its interval is multiplied, as the depot's
+  // flag does. The counter runs on the game's clock, so a pause holds it.
+  const calm = game.calm;
+  const calmMul = calm === null ? 1 : calm.mul;
+  if (calm !== null) {
+    calm.left -= dt;
+    if (calm.left <= 1e-9) game.calm = null;
+  }
   for (const barrage of held ? [] : game.barrages) {
-    // a barrage the script's flag slows (the depot's loss) comes that many times as seldom
+    // a barrage the script's flag slows (the depot's loss) comes that many times as seldom; the milestone only eases the
+    // enemy mortar, not the battery's guns
     const slow = BARRAGES[barrage.kind].slow;
-    const mul = slow !== undefined && game.script.flags.includes(slow.flag) ? slow.mul : 1;
+    let mul = slow !== undefined && game.script.flags.includes(slow.flag) ? slow.mul : 1;
+    if (barrage.kind === 'mortar') mul *= calmMul;
     const shell = stepBarrage(barrage, game.mech, dt, stream('mortar'), mul);
     if (!shell) continue;
     game.shells.push(shell);
     game.events.push({ kind: 'shellWarn', x: shell.x, z: shell.z, radius: shell.radius });
   }
-  // The aimed mortar counts the stay as the barrage counts its interval: nothing while a cutscene holds the mech.
+  // The aimed mortar counts the stay as the barrage counts its interval: nothing while a cutscene holds the mech. The
+  // lull slows it the same way.
   if (!held && game.aimed !== null) {
-    const shell = stepAimed(game.aimed, game.mech, dt);
+    const shell = stepAimed(game.aimed, game.mech, dt / calmMul);
     if (shell) {
       game.shells.push(shell);
       game.events.push({ kind: 'shellWarn', x: shell.x, z: shell.z, radius: shell.radius });
@@ -936,16 +1154,19 @@ function stepHazards(game: GameModel, dt: number): void {
 }
 
 // Runs every ally on by `dt`; one that reaches its fate's place falls there. A cutscene holds them where they stand, as it
-// holds the barrages: the beach's cue puts the ally out in the same frame as the landing, and it should run once the
-// mech can. The feet follow the ground under them (a ramp up the seawall), and an ally that steps off a drop falls at
-// ALLY_TUNE.fallSpeed rather than dropping in one frame.
+// holds the barrages: the landing puts them aboard the crafts beside the player's, and they should run once the mech can.
+// Their feet follow the ground under them (the deck, a ramp up the seawall), and an ally that steps off a drop falls at
+// ALLY_TUNE.fallSpeed rather than dropping in one frame. They step off their ramps the moment the landing hands over the
+// controls (SB-1967), not when the player's mech leaves its craft; the mech still walks down its own ramp by the player's
+// hand. The feet are set even while they are held, so the five are drawn standing on their decks through the landing.
 function stepAllies(game: GameModel, dt: number): void {
-  if (game.script.cutscene !== null) return;
+  const running = game.script.cutscene === null;
   for (const ally of game.allies) {
-    const fell = stepAlly(ally, dt);
+    const fell = running ? stepAlly(ally, dt) : false;
     const ground = groundAt(ally.x, ally.z, ALLY_TUNE.groundRadius, game.rects, ALLY_TUNE.maxGround);
     if (ground > ally.y) ally.y = ground;
     else ally.y = Math.max(ground, ally.y - ALLY_TUNE.fallSpeed * dt);
+    if (!running) continue;
     const fate = ally.fate;
     if (fate === null) continue;
     // The call comes a few seconds before the fate's place, so it is out before the ally falls, never after.
@@ -978,28 +1199,42 @@ const IDLE_INPUT: GameInput = {
   sub: false,
 };
 
+// The share of time the world keeps this frame: the milestone's short slowdown, or 1. The app scales its drawing by it
+// too, so the blast and the battle read in slow motion as well; the input still goes through.
+export function timeScale(game: GameModel): number {
+  return game.slow === null ? 1 : game.slow.scale;
+}
+
 // One frame: the mech moves, the soft FCS picks the target or enemy in the aim circle, each weapon fires as often as its
 // interval allows while its trigger is held, each enemy wakes, walks and shoots, and every bullet in flight (the new
 // ones too) moves on, stopping at a prop, a target, an enemy, a mine, the mech or the ground; the hazards run next
 // (stepHazards); a broken target goes to the script, and so does a wave whose enemies are all down. The mech then
 // enters any area it stands in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
 // (the closing cutscene may still be playing: it goes on to its end) or the mech is downed, step does nothing.
+// A milestone's slowdown (SB-2010) scales the whole frame by `slow.scale`; its clock counts real seconds, so it ends
+// after `slow.left` seconds have gone by whatever the game's own clock says.
 export function step(game: GameModel, given: GameInput, dt: number): void {
   game.events = [];
   if ((game.cleared && game.script.cutscene === null) || game.downed) return;
+  const slow = game.slow;
+  const span = slow === null ? dt : dt * slow.scale;
+  if (slow !== null) {
+    slow.left -= dt;
+    if (slow.left <= 1e-9) game.slow = null;
+  }
   // while a cutscene plays the mech holds still and holds its fire; the aim line still passes through
   const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
   // Use plants a charge: while it is held the mech does not shoot, so a charge and a shot cannot be asked for together.
   const use = input.use === true && game.script.cutscene === null;
   const held = use ? { ...input, fire: false, sub: false } : input;
-  game.time += dt;
+  game.time += span;
   const radius = MECH_TUNE.radius;
   // stepMech keeps the mech a radius inside the map's bounds. The landing craft's lane is the one way past the front
   // edge, so while the mech stands in it the bound reaches back to the craft's stern.
   const stepBounds = inCraftLane(game.mech.x, game.map.bounds)
     ? { ...game.map.bounds, maxZ: craftBack(game.map.bounds) }
     : game.map.bounds;
-  const events = stepMech(game.mech, held, dt, moveTuneOf(M1_MECH), 0, {
+  const events = stepMech(game.mech, held, span, moveTuneOf(M1_MECH), 0, {
     rects: game.rects,
     radius,
     bounds: stepBounds,
@@ -1046,24 +1281,24 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
     ],
     groundY: 0,
   };
-  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, muzzleOf(game.mech), fcsTargets(game, chest), dt, world);
+  const fcs = stepFcs(game.fcs, 'soft', FCS_TUNE.soft, aim, muzzleOf(game.mech), fcsTargets(game, chest), span, world);
   game.aimTarget = fcs.candidateId === null ? null : fcsName(game, fcs.candidateId);
-  const mainShots = stepWeapon(game.main, held.fire, dt);
-  const subShots = stepWeapon(game.sub, held.sub, dt);
+  const mainShots = stepWeapon(game.main, held.fire, span);
+  const subShots = stepWeapon(game.sub, held.sub, span);
   for (let i = 0; i < mainShots; i++) shoot(game, game.main.id, fcs.shotDir, fcs.shotDist);
   for (let i = 0; i < subShots; i++) shoot(game, game.sub.id, fcs.shotDir, fcs.shotDist);
-  stepEnemies(game, dt);
-  stepPillboxes(game, dt);
-  stepBattery(game, dt);
-  stepBullets(game, dt);
-  stepHazards(game, dt);
-  const charge = stepCharge(game, use, dt);
+  stepEnemies(game, span);
+  stepPillboxes(game, span);
+  stepBattery(game, span);
+  stepBullets(game, span);
+  stepHazards(game, span);
+  const charge = stepCharge(game, use, span);
   game.plant = charge.plant;
   if (charge.planted) {
     const { id, x, z } = charge.planted;
     game.events.push({ kind: 'planted', id, x, z });
   }
-  for (const blown of stepBlasts(game, dt)) {
+  for (const blown of stepBlasts(game, span)) {
     const blast = blown.blast;
     if (blast.blasted) continue;
     openBlastHole(game, blast);
@@ -1081,13 +1316,14 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   }
   // The mech has walked down the ramp: the script puts the beach's allies out now, and they start running this frame.
   if (!game.script.ashore && game.mech.z <= game.map.bounds.maxZ) sendToScript(game, { kind: 'ashore' });
-  stepAllies(game, dt);
+  stepAllies(game, span);
   checkShutters(game);
   checkWaves(game);
   for (const [id, area] of Object.entries(game.mission.areas)) {
     if (game.script.entered.includes(id)) continue;
     if (inArea(area, game.mech.x, game.mech.z)) sendToScript(game, { kind: 'enter', area: id });
   }
-  applyScriptOut(game, stepScript(game.script, game.mission, dt));
-  stepRadio(game, dt);
+  applyScriptOut(game, stepScript(game.script, game.mission, span));
+  stepCover(game, span);
+  stepRadio(game, span);
 }

@@ -8,6 +8,7 @@ import { addSystem, el } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
 import { ENEMIES } from '../../data/enemies.ts';
 import { CHARGE_TUNE } from '../../data/charge.ts';
+import { applyMarkerQuery, MARKER_TUNE } from '../../data/marker.ts';
 import { ENEMY_BULLET_COLOR } from '../../data/colors.ts';
 import { AIMED_MORTAR } from '../../data/hazards.ts';
 import { lookOf } from '../../data/looks.ts';
@@ -47,6 +48,27 @@ const CHARGE_RANGES: Record<string, TuneRange> = {
   damage: { min: 0, max: 200, step: 1 },
   holeHalfWidth: { min: 0.5, max: 15, step: 0.1 },
   holeHalfDepth: { min: 1, max: 30, step: 0.5 },
+};
+// The lights over the blast points (SB-2022). `mode` is 0 dim, 1 map, 2 next (the URL's `?marker=` sets it too).
+const MARKER_RANGES: Record<string, TuneRange> = {
+  mode: { min: 0, max: 2, step: 1 },
+  pillarHeight: { min: 0.5, max: 12, step: 0.1 },
+  pillarBaseRadius: { min: 0.05, max: 1, step: 0.01 },
+  diamondSize: { min: 0.2, max: 3, step: 0.05 },
+  diamondLift: { min: 1, max: 16, step: 0.5 },
+  brightness: { min: 0.1, max: 1.5, step: 0.05 },
+  fadeStart: { min: 5, max: 40, step: 0.5 },
+  fadeEnd: { min: 0, max: 15, step: 0.5 },
+};
+const MARKER_LABELS: Record<string, string> = {
+  mode: '出し方（0 dim・1 map・2 next）',
+  pillarHeight: '柱の高さ（m）',
+  pillarBaseRadius: '柱の根元の半径（m）',
+  diamondSize: '菱形の大きさ（m）',
+  diamondLift: '菱形の高さ（m）',
+  brightness: '明るさ',
+  fadeStart: '薄くなり始める距離（m）',
+  fadeEnd: '消える距離（m）',
 };
 const CHARGE_LABELS: Record<string, string> = {
   holdSec: '長押し（s）',
@@ -259,7 +281,8 @@ export function showBreach(_hash: string) {
   nestRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
   extra.appendChild(nestRow);
   const putNests = button(nestRow, '機銃座を出す', () => {
-    // the six nests of the hand map, shot at the mech as stepEnemies does it
+    // The six nests of the hand map, not put to sleep: this page has no script to wake the dormant ones the mission puts
+    // out, so each nest wakes the usual way and the view shows what they do once up.
     const places = M1B_HAND.spawns['b-emplacements'] ?? [];
     game.enemies = places.map((place, i) =>
       newEnemy(`b-emplacements-${i + 1}`, 'b-emplacements', 'emplacement', place.x, place.z),
@@ -281,11 +304,13 @@ export function showBreach(_hash: string) {
   note.textContent = 'F を押し続けても仕掛けられる。\n保存はしない。';
   extra.appendChild(note);
 
+  applyMarkerQuery(location.search);
   createTunePanel({
     title: '爆破点・爆薬・機銃座・狙う迫撃砲 #view-breach',
     extra,
     groups: [
       { name: 'CHARGE_TUNE', table: CHARGE_TUNE, ranges: CHARGE_RANGES, labels: CHARGE_LABELS },
+      { name: 'MARKER_TUNE', table: MARKER_TUNE, ranges: MARKER_RANGES, labels: MARKER_LABELS },
       {
         name: 'ENEMIES.emplacement',
         table: ENEMIES.emplacement,
