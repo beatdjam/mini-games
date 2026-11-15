@@ -3,22 +3,31 @@
 // stand-in synth that only records what it was asked to play.
 import { beforeEach, expect, test, vi } from 'vitest';
 import { createRng } from '@engine/core/index.ts';
-import { SOUND_AMBIENT, SOUND_DISTANCE, SOUND_FRAME_LIMIT } from '../../src/data/sounds.ts';
+import { SOUND_AMBIENT, SOUND_DISTANCE, SOUND_FRAME_LIMIT, SOUND_LAYERS, SOUND_TRIM } from '../../src/data/sounds.ts';
+import type { SoundName } from '../../src/data/sounds.ts';
 import type { Bullet, GameEvent, GameModel } from '../../src/logic/game.ts';
-import { planSounds, resetSound, soundFrame, soundMix, stepAmbient, type SoundTarget } from '../../src/view/sound.ts';
+import {
+  planSounds,
+  playSound,
+  resetSound,
+  soundFrame,
+  soundMix,
+  stepAmbient,
+  type SoundTarget,
+} from '../../src/view/sound.ts';
 
 const synth = vi.hoisted(() => ({
-  tones: [] as { type: string; f0: number; dur: number }[],
-  noises: [] as { f0: number; dur: number }[],
+  tones: [] as { type: string; f0: number; dur: number; vol: number }[],
+  noises: [] as { f0: number; dur: number; vol: number }[],
 }));
 
 vi.mock('@engine/audio/index.ts', () => ({
   audioNow: () => 0,
-  sweepTone: (_t: number, type: string, f0: number, _f1: number, dur: number) => {
-    synth.tones.push({ type, f0, dur });
+  sweepTone: (_t: number, type: string, f0: number, _f1: number, dur: number, vol: number) => {
+    synth.tones.push({ type, f0, dur, vol });
   },
-  noiseBurst: (_t: number, dur: number, _vol: number, _type: string, f0: number) => {
-    synth.noises.push({ f0, dur });
+  noiseBurst: (_t: number, dur: number, vol: number, _type: string, f0: number) => {
+    synth.noises.push({ f0, dur, vol });
   },
 }));
 
@@ -188,6 +197,42 @@ test('a destroyed target far from the mech plays quieter than one at the mech', 
   expect(far[0].pitch).toBeLessThan(near[0].pitch);
 });
 
+// Every layer playSound sends to the synth must carry the layer's own `vol` from the table, times the cue's gain and the
+// sound's trim. Reading it back layer by layer also guards the table values themselves: a layer that stops being played,
+// or a volume that stops coming from the table, changes these lengths or levels.
+const expectLayersFromTable = (name: SoundName, gain: number): void => {
+  const trim = SOUND_TRIM[name] ?? 1;
+  let toneIndex = 0;
+  let noiseIndex = 0;
+  for (const layer of SOUND_LAYERS[name]) {
+    if (layer.kind === 'tone') {
+      expect(synth.tones[toneIndex].type).toBe(layer.type);
+      expect(synth.tones[toneIndex].f0).toBe(layer.f0);
+      expect(synth.tones[toneIndex].dur).toBe(layer.dur);
+      expect(synth.tones[toneIndex].vol).toBeCloseTo(layer.vol * gain * trim);
+      toneIndex += 1;
+    } else {
+      expect(synth.noises[noiseIndex].f0).toBe(layer.f0);
+      expect(synth.noises[noiseIndex].dur).toBe(layer.dur);
+      expect(synth.noises[noiseIndex].vol).toBeCloseTo(layer.vol * gain * trim);
+      noiseIndex += 1;
+    }
+  }
+  expect(synth.tones).toHaveLength(toneIndex);
+  expect(synth.noises).toHaveLength(noiseIndex);
+};
+
+test('a trimmed sound plays each layer at the table’s level times the trim', () => {
+  playSound({ name: 'downed', gain: 1, pitch: 1 });
+  expectLayersFromTable('downed', 1);
+});
+
+test('a sound the trim table does not list plays at the distance gain alone', () => {
+  expect(SOUND_TRIM.autocannon).toBeUndefined();
+  playSound({ name: 'autocannon', gain: 0.5, pitch: 1 });
+  expectLayersFromTable('autocannon', 0.5);
+});
+
 beforeEach(() => {
   synth.tones.length = 0;
   synth.noises.length = 0;
@@ -208,20 +253,27 @@ test('one enemy bullet is heard once, however many frames it lives', () => {
   expect(synth.tones[0].type).toBe('sine');
 });
 
+// The opening band of the radio's noise burst. The wave is low-pass noise with other bands, so this counts the radio
+// alone without tying the test to a tone type; the line on screen still decides when it plays.
+const RADIO_OPENING_HZ = (() => {
+  const opening = SOUND_LAYERS.radio.find(layer => layer.kind === 'noise');
+  if (opening?.kind !== 'noise') throw new Error('the radio needs a noise layer');
+  return opening.f0;
+})();
+const radioVoices = (): number => synth.noises.filter(noise => noise.f0 === RADIO_OPENING_HZ).length;
+
 test('the radio sounds once, on the frame the line on screen changes', () => {
   const withRadio = (line: string | null, time: number): GameModel =>
     ({ ...fakeGame([]), radio: line === null ? null : { line, time } }) as unknown as GameModel;
-  // the radio's one tone is a square; the ambience's wave has noises only and its far gun is not due yet
-  const voices = (): number => synth.tones.filter(tone => tone.type === 'square').length;
 
   soundFrame(withRadio('m1.depot-hint', 2), 0);
-  expect(voices()).toBe(1);
+  expect(radioVoices()).toBe(1);
   soundFrame(withRadio('m1.depot-hint', 2), 0); // the same line on screen: nothing new
-  expect(voices()).toBe(1);
+  expect(radioVoices()).toBe(1);
   soundFrame(withRadio('m1.pillboxes-down', 5), 0);
-  expect(voices()).toBe(2);
+  expect(radioVoices()).toBe(2);
   soundFrame(withRadio(null, 5), 0); // the band empties: no voice
-  expect(voices()).toBe(2);
+  expect(radioVoices()).toBe(2);
 });
 
 test('a resume does not speak the line that was already on screen', () => {
@@ -229,7 +281,7 @@ test('a resume does not speak the line that was already on screen', () => {
   // beginPlay calls this with the resumed game's line, so lastRadio starts where the screen already is
   resetSound(game.radio);
   soundFrame(game, 0);
-  expect(synth.tones.filter(tone => tone.type === 'square')).toHaveLength(0);
+  expect(radioVoices()).toBe(0);
 });
 
 test('the ambience keeps its interval and starts again from its seed', () => {
