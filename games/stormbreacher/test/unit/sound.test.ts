@@ -118,8 +118,11 @@ test('the radio speaks when the line on screen changes', () => {
   const radio = { line: 'm1.depot-hint', time: 4 };
   const names = (input: { radio: { line: string; time: number } | null; lastRadio: typeof radio | null }) =>
     planSounds({ events: [], mech: MECH, targets: [], hostile: [], ...input }).map(cue => cue.name);
-  expect(names({ radio, lastRadio: { ...radio } })).toEqual([]);
-  expect(names({ radio, lastRadio: { line: radio.line, time: radio.time + 1 } })).toEqual(['radio']);
+  expect(names({ radio, lastRadio: radio })).toEqual([]);
+  // `time` moving on (a cutscene keeps the line's age) is the same line
+  radio.time += 1;
+  expect(names({ radio, lastRadio: radio })).toEqual([]);
+  expect(names({ radio, lastRadio: { line: radio.line, time: radio.time } })).toEqual(['radio']);
   expect(names({ radio, lastRadio: { line: 'm1.pillboxes-down', time: radio.time } })).toEqual(['radio']);
   expect(names({ radio, lastRadio: null })).toEqual(['radio']);
   // a line going away is not a voice
@@ -263,17 +266,40 @@ const RADIO_OPENING_HZ = (() => {
 const radioVoices = (): number => synth.noises.filter(noise => noise.f0 === RADIO_OPENING_HZ).length;
 
 test('the radio sounds once, on the frame the line on screen changes', () => {
-  const withRadio = (line: string | null, time: number): GameModel =>
-    ({ ...fakeGame([]), radio: line === null ? null : { line, time } }) as unknown as GameModel;
+  const withRadio = (radio: { line: string; time: number } | null): GameModel =>
+    ({ ...fakeGame([]), radio }) as unknown as GameModel;
 
-  soundFrame(withRadio('m1.depot-hint', 2), 0);
+  const first = { line: 'm1.depot-hint', time: 2 };
+  soundFrame(withRadio(first), 0);
   expect(radioVoices()).toBe(1);
-  soundFrame(withRadio('m1.depot-hint', 2), 0); // the same line on screen: nothing new
+  soundFrame(withRadio(first), 0); // the same line on screen: nothing new
   expect(radioVoices()).toBe(1);
-  soundFrame(withRadio('m1.pillboxes-down', 5), 0);
+  const second = { line: 'm1.pillboxes-down', time: 5 };
+  soundFrame(withRadio(second), 0);
   expect(radioVoices()).toBe(2);
-  soundFrame(withRadio(null, 5), 0); // the band empties: no voice
+  soundFrame(withRadio(null), 0); // the band empties: no voice
   expect(radioVoices()).toBe(2);
+});
+
+test('a cutscene moving the line on screen on every frame does not make the radio noise', () => {
+  const line = { line: 'm1.pillboxes-down', time: 5 };
+  const game = { ...fakeGame([]), radio: line } as unknown as GameModel;
+  soundFrame(game, 0);
+  for (let frame = 0; frame < 5; frame += 1) {
+    line.time += 1 / 60; // what `stepRadio` does while a cutscene plays
+    soundFrame(game, 0);
+  }
+  expect(radioVoices()).toBe(1);
+});
+
+test('a line with the same text coming up again speaks again', () => {
+  const game = (time: number): GameModel =>
+    ({ ...fakeGame([]), radio: { line: 'm1.depot-hint', time } }) as unknown as GameModel;
+  soundFrame(game(2), 0);
+  soundFrame(game(5), 0); // a new object with the same text and a later time
+  expect(radioVoices()).toBe(2);
+  soundFrame(game(5), 0); // another new object, even with the same time
+  expect(radioVoices()).toBe(3);
 });
 
 test('a resume does not speak the line that was already on screen', () => {
