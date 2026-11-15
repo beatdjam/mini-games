@@ -798,8 +798,11 @@ function inArea(area: Area, x: number, z: number): boolean {
   return Math.abs(x - area.x) <= area.w / 2 && Math.abs(z - area.z) <= area.d / 2;
 }
 
-// Moves every enemy on by `dt`; the shots they fire become bullets.
+// Moves every enemy on by `dt`; the shots they fire become bullets. A cutscene holds them where they stand, as it holds the
+// pillboxes and the allies: the seawall's drop comes out in the same frame as the wave 2 cutscene, and walking and shooting
+// through it would put the reinforcements somewhere else by the time the camera comes back.
 function stepEnemies(game: GameModel, dt: number): void {
+  if (game.script.cutscene !== null) return;
   // a standing target blocks an enemy's line as a prop does
   const blockers = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
   const mech = game.mech;
@@ -836,9 +839,10 @@ function stepPillboxes(game: GameModel, dt: number): void {
   }
 }
 
-// Counts every main gun still standing down by `dt` once the battery is on; the shots they fire become bullets.
+// Counts every main gun still standing down by `dt` once the battery is on; the shots they fire become bullets. A cutscene
+// holds the guns too, as it holds the pillboxes: nothing counts while the mech cannot move.
 function stepBattery(game: GameModel, dt: number): void {
-  if (!game.battery.on) return;
+  if (!game.battery.on || game.script.cutscene !== null) return;
   for (const gun of game.battery.guns) {
     const place = game.targets.find(target => target.id === gun.id);
     if (!place || place.hp <= 0) continue;

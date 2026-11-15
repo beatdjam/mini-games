@@ -26,6 +26,9 @@ export interface SoundInput {
   hostile: readonly SoundPoint[];
   radio?: { line: string; time: number } | null;
   lastRadio?: { line: string; time: number } | null;
+  // Whether a cutscene plays: the mech then takes no harm, so a hostile bullet that stops at it is not a wound and makes no
+  // metal sound.
+  cutscene?: boolean;
 }
 
 // One sound to play, with the distance's effect already worked into gain and pitch.
@@ -63,10 +66,11 @@ export function planSounds(input: SoundInput): SoundCue[] {
         ask(event.weapon === 'heavyGun' ? 'heavyGun' : 'autocannon', event);
         break;
       case 'hit':
-        // A hit on the mech is the metal sound here as well as in `damaged`: the frame's one sound survives the limit,
-        // and the hit is reported even during a cutscene, when `damaged` is not.
-        if (event.mech) ask('mechHit', input.mech);
-        else if (event.target !== null || event.enemy !== null) ask('impactArmor', event);
+        // A hit on the mech is the metal sound here as well as in `damaged`: the frame's one sound survives the limit. The
+        // hit is reported even during a cutscene, when `damaged` is not, but the mech takes no harm then, so it is silent.
+        if (event.mech) {
+          if (!input.cutscene) ask('mechHit', input.mech);
+        } else if (event.target !== null || event.enemy !== null) ask('impactArmor', event);
         else ask('impactDirt', event);
         break;
       case 'damaged':
@@ -204,6 +208,7 @@ export function soundFrame(game: GameModel, dt: number): void {
     hostile,
     radio: game.radio,
     lastRadio,
+    cutscene: game.script.cutscene !== null,
   })) {
     playSound(cue);
   }
