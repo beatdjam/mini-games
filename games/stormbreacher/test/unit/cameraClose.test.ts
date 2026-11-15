@@ -3,7 +3,7 @@
 // than jump (no frame moves more than 0.2 m), and it must not cross the wall.
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
-import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
+import { CAMERA_TUNE as TUNED, MECH_TUNE } from '../../src/data/tune.ts';
 import {
   cameraBoxes,
   cameraPose,
@@ -13,13 +13,17 @@ import {
   type CameraTarget,
 } from '../../src/view/camera.ts';
 
+// These runs time the wall's own release and return, so the wait before it starts back out (SB-2050's returnDelay) is off
+// here; cameraWallTurn.test.ts covers the wait.
+const CAMERA_TUNE = { ...TUNED, returnDelay: 0 };
+
 const DT = 1 / 60;
 const TURN_RATE = Math.PI; // rad/s, a full turn in two seconds
 const SETTLE = 30; // frames the camera gets to reach its place before the turn starts
-const MAX_JUMP = CAMERA_TUNE.pullSpeed * DT + 1e-6; // the most one frame may move the camera (m): the wall holds it to pullSpeed
+const MAX_JUMP = CAMERA_TUNE.pullSpeed * DT + 1e-6; // the most one frame may change the camera's distance or height (m): the wall holds it to pullSpeed
 
 interface Run {
-  maxJump: number; // the largest move one frame makes (m)
+  maxJump: number; // the largest change one frame makes in the camera's distance from the look point or its height (m); the swing round the look point is not capped (SB-2050)
   minChest: number; // the smallest distance from the camera to the chest (m)
   minHeight: number; // the lowest the camera gets above the feet (m)
   maxHeight: number;
@@ -38,7 +42,10 @@ function turnRun(target: CameraTarget, boxes: readonly THREE.Box3[], tune = CAME
     const pose = cameraPose({ ...target, yaw }, 0, tune, boxes);
     state = followCamera(state, pose, DT, tune);
     const pos = state.pos;
-    if (prev) run.maxJump = Math.max(run.maxJump, pos.distanceTo(prev));
+    if (prev) {
+      const away = (p: THREE.Vector3) => Math.hypot(p.x - state!.look.x, p.z - state!.look.z);
+      run.maxJump = Math.max(run.maxJump, Math.abs(away(pos) - away(prev)), Math.abs(pos.y - prev.y));
+    }
     prev = pos.clone();
     const chestDist = pos.distanceTo(chest);
     run.minChest = Math.min(run.minChest, chestDist);

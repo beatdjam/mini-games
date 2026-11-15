@@ -40,6 +40,7 @@ export interface CameraState {
   feet: { x: number; z: number }; // the mech's feet last frame (m)
   yaw: number; // the mech's facing last frame (rad), so a fast turn is known from a stalled wall return
   held: boolean; // a wall pulled the camera in last frame, or the hold carried while it came back out
+  sincePush: number; // how long since a wall last pushed the camera or the look point (s), so a release that a push soon follows does not start the return
 }
 
 interface Hit {
@@ -208,6 +209,9 @@ export function cameraPose(
   };
 }
 
+const TOUCH = 0.01; // m; a box face this near the camera does not count as between it and the look point
+const NEVER = 1e9; // s; the time since a push that has not happened
+
 // A pose as a camera state: a camera already in its place, with no ease behind it.
 export function stateOfPose(pose: CameraPose): CameraState {
   return {
@@ -217,6 +221,7 @@ export function stateOfPose(pose: CameraPose): CameraState {
     feet: { x: pose.feet.x, z: pose.feet.z },
     yaw: pose.yaw,
     held: pose.pulled,
+    sincePush: pose.pulled ? 0 : NEVER,
   };
 }
 
@@ -249,12 +254,15 @@ function followWallOffset(
   poseOffset: THREE.Vector3,
   dt: number,
   tune: CameraTune,
+  waiting: boolean,
 ): THREE.Vector3 {
   const prevLength = prevOffset.length();
   const poseLength = poseOffset.length();
   const near = prevLength > tune.pullNear;
   const remaining = poseOffset.distanceTo(prevOffset);
   const returning = near && prevLength - poseLength > tune.releaseGap && remaining > tune.pullGap;
+  // a release that has not lasted `returnDelay` yet keeps the share, so a wall that pushes again does not swing it
+  if (returning && waiting) return prevOffset.clone();
   const step = (returning ? followPose(prevOffset, poseOffset, dt, tune.returnLag) : poseOffset.clone()).sub(
     prevOffset,
   );
@@ -280,6 +288,31 @@ function stepRoom(
   return travel.clone().multiplyScalar(Math.max(0, hit.dist - tune.margin) / length);
 }
 
+// A camera that a box has come between it and the look point is put in front of the box at once (SB-2052): the swing and the
+// distance ease, but the screen must never be a wall with the mech behind it. A line nothing crosses leaves the camera as
+// it is, so a corner's grazing still eases at pullSpeed.
+function inFront(
+  look: THREE.Vector3,
+  pos: THREE.Vector3,
+  boxes: readonly THREE.Box3[],
+  tune: CameraTune,
+): THREE.Vector3 {
+  const line = pos.clone().sub(look);
+  const length = line.length();
+  if (length <= 1e-6) return pos;
+  // a box the look point is already inside (its eased share can lag into a wall) is no wall between: ray-casting from inside
+  // would snap the camera onto the look point
+  const hit = nearestHit(
+    look,
+    line.divideScalar(length),
+    length,
+    boxes.filter(box => !box.containsPoint(look)),
+  );
+  // a camera that only touches the face (the pose's own place at minDist) is not behind it
+  if (!hit || hit.dist > length - TOUCH) return pos;
+  return look.clone().addScaledVector(line, Math.max(0, hit.dist - tune.margin));
+}
+
 // The camera for this frame. The look point keeps the mech's own motion exact (a boost must not leave the aim behind)
 // and eases only the wall's shoulder and close look. The place follows the pose with `lag`, and with no wall that is all
 // it does. While a wall pulls the camera or holds it nearer than its open place, only the part of the move beyond the
@@ -290,7 +323,10 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
   const travel = new THREE.Vector3(pose.feet.x - prev.feet.x, 0, pose.feet.z - prev.feet.z);
 
   const prevOffset = prev.look.clone().sub(prev.openLook);
-  const lookOffset = followWallOffset(prevOffset, pose.look.clone().sub(pose.openLook), dt, tune);
+  const poseOffset = pose.look.clone().sub(pose.openLook);
+  const sincePush = pose.pulled || poseOffset.length() > tune.pullNear ? 0 : prev.sincePush + dt;
+  const waiting = sincePush < tune.returnDelay;
+  const lookOffset = followWallOffset(prevOffset, poseOffset, dt, tune, waiting);
   const look = pose.openLook.clone().add(lookOffset);
 
   // A wall holds the camera closer than its open place: the step it takes is measured without the mech's own travel,
@@ -310,24 +346,73 @@ export function followCamera(prev: CameraState | null, pose: CameraPose, dt: num
   const wallReturn = pose.dist - prevDist > tune.releaseGap;
   const held = pose.pulled || (near && prev.held && (wallReturn || turn < tune.fastTurn * dt));
   const step = followPose(prev.pos, pose.pos, dt, returning ? tune.returnLag : tune.lag).sub(prev.pos);
-  if (held) {
-    const rel = step.clone().sub(travel);
-    const limit = (returning ? tune.returnSpeed : tune.pullSpeed) * dt;
-    const length = rel.length();
-    if (length > limit) rel.multiplyScalar(limit / length);
-    // The wall's share can turn the camera toward another wall too (a wall that has just come between the look and the
-    // camera, say), so it stops a margin before one as the mech's own step does (SB-1951).
-    const moved = stepRoom(prev.pos, travel, pose.boxes, tune);
-    step.copy(moved).add(stepRoom(prev.pos.clone().add(moved), rel, pose.boxes, tune));
+  if (held || returning) {
+    // The wall slows the camera's distance from the look point, not its direction: the move beyond the mech's own step is
+    // split into the part along the line from the look point (the distance) and the rest (the swing round it). The
+    // distance keeps `pullSpeed` or `returnSpeed` and `returnLag`; the swing follows with `turnLag` and no cap, so a
+    // camera that a wall holds near still reaches the back of a mech that turns, rather than arriving late and showing a
+    // view that turned all at once (SB-2050). A release that has not lasted `returnDelay` yet keeps the distance, so walls
+    // that push again and again do not send the camera out and back.
+    // the place measured from the look point the screen uses (the wall's share eased), not the pose's: the shoulder's
+    // share then slides with the look point at its own speed instead of counting as a swing
+    const place = pose.pos.clone().add(look).sub(pose.look);
+    const slow = followPose(prev.pos, place, dt, returning ? tune.returnLag : tune.lag).sub(prev.pos);
+    const carried = prev.pos.clone().add(travel);
+    const out = new THREE.Vector3(carried.x - look.x, 0, carried.z - look.z);
+    const outLength = out.length();
+    if (outLength > 1e-6) {
+      out.divideScalar(outLength);
+      const rel = slow.clone().sub(travel);
+      const limit = (returning ? tune.returnSpeed : tune.pullSpeed) * dt;
+      const cut = (value: number) => (held ? clamp(value, -limit, limit) : value);
+      let radial = cut(rel.dot(out));
+      if (held && near && wallReturn && waiting) radial = Math.min(0, radial);
+      // the swing: the angle round the look point moves toward the angle behind the mech with turnLag, whatever the
+      // distance is doing. It turns the camera round at the distance the cap allows, so it adds nothing to the distance.
+      const angle = Math.atan2(out.x, out.z);
+      const wanted = Math.atan2(place.x - look.x, place.z - look.z);
+      const gap = Math.atan2(Math.sin(wanted - angle), Math.cos(wanted - angle));
+      const share = tune.turnLag <= 0 ? 1 : 1 - Math.exp(-dt / tune.turnLag);
+      const turned = angle + gap * share;
+      const length = outLength + radial;
+      const nearer = new THREE.Vector3(out.x * radial, cut(slow.y - travel.y), out.z * radial);
+      const swung = new THREE.Vector3(
+        look.x + Math.sin(turned) * length - carried.x,
+        0,
+        look.z + Math.cos(turned) * length - carried.z,
+      ).sub(new THREE.Vector3(out.x * radial, 0, out.z * radial));
+      // The wall's share can turn the camera toward another wall too (a wall that has just come between the look and the
+      // camera, say), so each part stops a margin before one as the mech's own step does (SB-1951). The distance goes
+      // first: a swing that a wall blocks must not hold back the distance that would take the camera out of its way.
+      if (held) {
+        const moved = stepRoom(prev.pos, travel, pose.boxes, tune);
+        const closer = stepRoom(prev.pos.clone().add(moved), nearer, pose.boxes, tune);
+        const around = stepRoom(prev.pos.clone().add(moved).add(closer), swung, pose.boxes, tune);
+        step.copy(moved).add(closer).add(around);
+        // a swing cut short by a wall goes along its chord, a little inside the arc: put the distance back within the cap
+        const end = prev.pos.clone().add(step);
+        const reach = Math.hypot(end.x - look.x, end.z - look.z);
+        const kept = clamp(reach, outLength - limit, outLength + limit);
+        if (reach > 1e-6 && Math.abs(kept - reach) > 1e-9) {
+          const fixed = end.clone();
+          fixed.x = look.x + ((end.x - look.x) * kept) / reach;
+          fixed.z = look.z + ((end.z - look.z) * kept) / reach;
+          if (!pose.boxes.some(box => box.containsPoint(fixed))) step.add(fixed.sub(end));
+        }
+      } else {
+        step.copy(travel).add(nearer).add(swung);
+      }
+    }
   }
 
   return {
-    pos: prev.pos.clone().add(step),
+    pos: inFront(look, prev.pos.clone().add(step), pose.boxes, tune),
     look,
     openLook: pose.openLook.clone(),
     feet: { x: pose.feet.x, z: pose.feet.z },
     yaw: pose.yaw,
     held,
+    sincePush,
   };
 }
 

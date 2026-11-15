@@ -64,12 +64,16 @@ async function stand(x: number, z: number, yaw: number): Promise<void> {
     pullSpeed: CAMERA_TUNE.pullSpeed,
     returnSpeed: CAMERA_TUNE.returnSpeed,
     returnLag: CAMERA_TUNE.returnLag,
+    turnLag: CAMERA_TUNE.turnLag,
+    returnDelay: CAMERA_TUNE.returnDelay,
   };
   try {
     CAMERA_TUNE.lag = 0;
     CAMERA_TUNE.pullSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnLag = 0;
+    CAMERA_TUNE.turnLag = 0;
+    CAMERA_TUNE.returnDelay = 0;
     for (let n = 0; n < SETTLE; n++) await frame();
   } finally {
     Object.assign(CAMERA_TUNE, ease);

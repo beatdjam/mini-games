@@ -68,7 +68,7 @@ test('the mech turns see-through while the camera is near its chest, and solid a
   sendToScript(currentGame()!, { kind: 'skip' });
   await frame();
   expect(opacities().every(opacity => opacity === 1)).toBe(true);
-  const { dist, lag, pullSpeed, returnSpeed, returnLag } = CAMERA_TUNE;
+  const { dist, lag, pullSpeed, returnSpeed, returnLag, returnDelay } = CAMERA_TUNE;
   try {
     CAMERA_TUNE.dist = 0.5;
     CAMERA_TUNE.lag = 0; // the camera reaches its place in one frame
@@ -76,6 +76,7 @@ test('the mech turns see-through while the camera is near its chest, and solid a
     CAMERA_TUNE.pullSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnLag = 0;
+    CAMERA_TUNE.returnDelay = 0;
     await frame();
     await frame();
     expect(opacities().every(opacity => opacity === MECH_TUNE.fadeOpacity)).toBe(true);
@@ -91,6 +92,7 @@ test('the mech turns see-through while the camera is near its chest, and solid a
     CAMERA_TUNE.pullSpeed = pullSpeed;
     CAMERA_TUNE.returnSpeed = returnSpeed;
     CAMERA_TUNE.returnLag = returnLag;
+    CAMERA_TUNE.returnDelay = returnDelay;
   }
 });
 

@@ -35,7 +35,7 @@ export function scaleForMech(
     move.jump *= Math.sqrt(ratio);
   }
   if (opts.camera) {
-    // every length grows with the mech; times (`lag`, `returnLag`) and angles (`closePitch`, `probeDeg`, `fov`) and the turn rate `fastTurn` (rad/s) do not
+    // every length grows with the mech; times (`lag`, `returnLag`, `turnLag`, `returnDelay`) and angles (`closePitch`, `probeDeg`, `fov`) and the turn rate `fastTurn` (rad/s) do not
     camera.dist *= ratio;
     camera.height *= ratio;
     camera.shoulder *= ratio;
