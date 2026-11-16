@@ -321,14 +321,29 @@ M1 は組み替え無しの1組（`M1_LOADOUT`）で、出撃ごとに `ammo` �
 - 照準の点: ソフトロックが寄せている相手がいないとき、弾は照準の点へ向かう。照準の点は、カメラの狙いの線が、物の箱（`game.propBoxes`）・壊れていない目標の箱・生きている敵の箱・地面（y = 0）のうち最初に当たる点で、`FCS_TUNE.soft.range` の内に当たらなければ、線を `range` 延ばした点。カメラの線の上で、弾の出る所より手前の当たりは数えない。弾はカメラより右の腕の先から出るので、照準の点へ向けないと近くの壁で照準から横にそれる。`manualDir` in `src/logic/fcs.ts`（`fcs.ts` はゲームの表を読まないため、物と敵と地面は `stepFcs` の引数 `world`（`FcsWorld`）で受ける。`world` が無い `#view-fcs` は的の箱だけを見る）。寄せている間は、寄せた向きのまま
 - 進む: 1フレームに min(`speed` × dt, `left`) m 進む。その区間で、生きている目標の箱・物の箱（坂は面に沿った段の箱。`rectBoxes`）・地面（y = 0。下向きの弾だけ）のうち一番手前で止まる。止まった所で出来事 `hit`（位置・`weapon`・`target`（目標の id か null）・`prop`（`map.props` の添字か null）・`enemy`・`mech`・`deflected`（トーチカの正面に弾かれたか。ほかは false）。地面は `target` `prop` `enemy` が null で `mech` は false）を残して弾を外す。止まらなければ `left` を減らし、0 以下で黙って消える
 - 当たったあと: 目標は体力が減って 0 で `destroyed` を残して台本に渡す（`damageTarget` in `src/logic/game.ts` が、弾と爆薬の共通の道）。トーチカは弾では体力が減らず、`suppressPillbox` が銃眼を `PILLBOX_TUNE.suppressSec` 黙らせるだけ（SB-2015。6章「トーチカ」）。ほかの目標は弾の威力だけ減る。爆破点の爆薬は装甲の倍率を掛けず `PILLBOX_BLAST.damage` をそのまま与える。物は `damageProp` が体力を減らす。撃ったフレームの弾も同じフレームで進み、途中で壊れた目標や物には、あとの弾は当たらない
-- 表示: `src/view/play.ts` は飛んでいる弾を `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` = 96 本。超えた弾は飛ぶが描かない）で、弾の頭から後ろへ `TRACER_LENGTH` = 4m の線として毎フレーム描く（色は `TRACER_COLOR`）。`hit` の起きた所に `HIT_DUST` = 3 の砂ぼこりを、その `x` `z` の面の高さ（`blastFaceHeight`。弾が止まった点の高さ `hit.y` ではない）に出し（`deflected` は火花。6章「トーチカ」）、`shot` で撃った手応え（`fire`）を出す
+- 表示: 飛んでいる弾は `src/view/gunfire.ts` が、カメラへ向けた細長い板（`InstancedMesh` 1つ、最大 `GUNFIRE_CAP.tracers` = 128 本。超えた弾は飛ぶが描かない）で、頭を明るく尾を暗くした光る帯として毎フレーム描く。長さは `GUNFIRE_TUNE.tracer.length` = 8m、太さは `tracer.width`、尾の明るさは `tracer.tail`。機体の弾は `GUNFIRE_COLOR.mechTracer`、敵の弾は `enemyTracer`。`shot` で撃った手応え（`fire`）を出し、撃った武器の銃口（`muzzleOf`）に大きさの違う炎（`GUNFIRE_TUNE.flash` の `autocannon` と `heavyGun`）を 0.08〜0.1 秒（5〜6 コマ）出す。`hit` の起きた所に `HIT_DUST` = 3 の砂ぼこりを、その `x` `z` の面の高さ（`blastFaceHeight`）に出し（`deflected` は火花。6章「トーチカ」）、火花と小さな煙（`spawnImpact`。目標・敵・機体なら金属の火花を多めに）を出す
 - 物と壊れる物: 弾は物で止まり、物の向こうの目標には当たらない。壊せる物（`breakable`）は体力が 0 で壊れ、当たりと弾の箱から外れる。ほかの物は壊れない
 - 弾は4種類で、型 `Bullet = MechBullet | EnemyBullet | BatteryBullet | PillboxBullet`（`weapon` を持つのが機体の弾、`enemy` を持つのが敵の弾、`gun`（撃った主砲の目標 id）を持つのが砲台の弾、`pillbox`（撃ったトーチカの目標 id）を持つのがトーチカの弾。`isEnemyBullet`・`isBatteryBullet`・`isPillboxBullet` で絞り、敵の弾・砲台の弾・トーチカの弾をまとめて `isHostileBullet` で絞る）。速さと威力は `bulletSpec` が `WEAPONS`・`ENEMIES`・`GUN_TUNE`・`PILLBOX_TUNE` の表から引く
   - 機体の弾: 物・生きている目標・生きている敵・地面のうち一番手前で止まる。敵の箱は x z が ± `radius`、y が 0〜`height`。敵に当たると体力が減り、0 で出来事 `enemyDown`（`id`・`x`・`y`・`z`）を残す。`hit` の `enemy` は敵の id
   - 敵の弾・砲台の弾・トーチカの弾（`isHostileBullet`。以下は「敵の弾」と呼ぶ）: 物・機体・壊れていない目標・地面のうち一番手前で止まる。機体の箱は x z が ± `MECH_TUNE.radius`、y が足元から `MECH_TUNE.height`。目標は壁として弾を止めるだけで体力は減らない（トーチカの奥の敵がトーチカ越しに撃たないため）。敵には当たらず、物を壊さない。`hit` の `weapon` は null、機体に当たると `mech` が true
   - トーチカの弾: 型 `PillboxBullet`（`pillbox` に撃ったトーチカの id）。速さ `PILLBOX_TUNE.bulletSpeed`、威力 `PILLBOX_TUNE.damage`、飛ぶ距離 `PILLBOX_TUNE.range`。扱いは敵の弾と同じ（機体・物・壊れていない目標・地面で止まり、機体に当たると装甲が減って `damaged` を出す）
   - 機体に当たる（`damageMech`）: 装甲が弾の威力だけ減り、出来事 `damaged`（`amount`・`fromX`・`fromZ`。`fromX` `fromZ` は機体から見た、弾が来た側の地面の単位ベクトル）を残す。装甲が 0 になると `downed` を1回残し、`GameModel.downed` が true になる
-  - 見た目: `src/view/play.ts` は敵・砲台・トーチカの弾（`isHostileBullet`）を機体の弾とは別の `THREE.LineSegments` 1つ（最大 `MAX_BULLET_LINES` 本、色 `ENEMY_BULLET_COLOR`）で描く。`damaged` で `feelDamage`（`FEEL_TUNE.damageShake`）の揺れを足す。`enemyDown` は `destroyed` と同じに「倒した」手応え（ヒットストップ）を出す
+- 見た目: 敵の弾・砲台の弾・トーチカの弾も、機体の弾と同じ帯（`src/view/gunfire.ts`）を `GUNFIRE_COLOR.enemyTracer` で描く。敵・トーチカ・砲台は撃ったことを出来事にしないので、見た目は飛んでいる弾を初めて見たフレームを「撃った瞬間」とし、弾の位置からその弾の速さ × dt だけ戻した所（銃口）を `GUNFIRE_TUNE.flash.enemy` の大きさで光らせる。`damaged` で `feelDamage`（`FEEL_TUNE.damageShake`）の揺れを足す。`enemyDown` は `destroyed` と同じに「倒した」手応え（ヒットストップ）を出す
+
+射撃の見た目の値は `src/data/gunfire.ts` の `GUNFIRE_TUNE`（仮）と、上限の `GUNFIRE_CAP`、火花を散らす種の `GUNFIRE_SEED`。色は `src/data/colors.ts` の `GUNFIRE_COLOR`。同じ種類は1つの `InstancedMesh` にまとめ、毎フレーム新しい mesh・geometry・material は作らない。あふれた粒は一番古い所を使い回す。
+
+| 名前 | 値 | 単位・意味 |
+|------|----|------------|
+| `tracer.length` | 8 | m。帯の長さ |
+| `tracer.width` | 0.4 | m。帯の頭の太さ |
+| `tracer.tail` | 0.35 | 頭を1とした尾の明るさ |
+| `flash.autocannon.size` / `life` | 1 / 0.08 | m / s。機関砲の銃口炎 |
+| `flash.heavyGun.size` / `life` | 1.6 / 0.1 | m / s。重い砲の銃口炎 |
+| `flash.enemy.size` / `life` | 2 / 0.16 | m / s。敵・トーチカ・砲台の銃口炎 |
+| `impact.surfaceSparks` / `metalSparks` | 16 / 22 | 個。地面・物 / 目標・敵・機体に当たったときの火花 |
+| `impact.sparkSpeed` / `sparkLife` / `sparkSize` | 9 / 0.35 / 0.25 | m/s / s / m。火花 |
+| `impact.smokeSize` / `smokeLife` | 1.5 / 1.2 | m / s。着弾の煙 |
+| `GUNFIRE_CAP.tracers` / `flashes` / `sparks` / `smoke` | 128 / 24 / 160 / 48 | 同時に描く上限 |
 
 ### 機体の動き
 
@@ -889,6 +904,7 @@ SB-200。M1 の防波堤の奥にある砲台。主砲2門が海の上の味方�
   - 画面: 見た目は `pixel` の解像度と canvas の CSS の `filter`（`saturate`・`contrast`・`sepia`）と霧で作る。`light` はシーンの全部の光の強さに掛ける倍率、`sun` はそのうち `DirectionalLight` だけにさらに掛ける倍率、`groundColor` は地面の色（海沿いの濡れの濃淡は残す）で、色は URL では10進の数値で上書きできる。煙の色は `smokeColor`・`smokeDark` で変えられる（URL のみ）
   - つまみと書き出し: 右上のつまみは `FX_TUNE` の主な値をスライダーで変え（歩兵ドロイドの体数・煙の上限・穴の数と上限・穴の半径と水の割合は「やり直し」で作り直す）、`mech` のスライダーと `mechCam`・`mechMove` のチェックも置き、折りたためる。「書き出し」は今の値を JSON で `<textarea>` に出し、`window.sbFxReport()` が同じ JSON に機体の高さ・比例のありなし・歩きとブーストの速さ・描く回数・三角形の数・直近の fps を足して文字列で返す。左上に選んだ `src`・前進・倒れ・抜けの体数（戦場の歩兵ドロイドが上限に当たっているときは「上限」も）・煙の塊の数と描く回数・三角形の数・fps を出し、`window.sbFxReport()` と書き出しの JSON にも `src` を出す
 - `#view-boom`: 爆発の見た目と揺れを試す入口。仕様は6章「爆発」。
+- `#view-gunfire`: 撃つ手応えの見た目（SB-1450）を試す入口。浜のマップに機体を置き、右肩越しの固定カメラで見る。「撃つ（機関砲）」「撃つ（重い砲）」で銃口炎と曳光の帯を出し、「当てる（金属）」「当てる（地面）」で目標と地面の火花と煙を出し、「敵の射撃」で敵の銃口炎と赤橙の帯を出す。右上の調整パネル（`GUNFIRE_TUNE`）で曳光の長さ・太さ・尾の明るさ、銃口炎の大きさ、火花と煙の数・大きさ・寿命をその場で書き換える（保存しない）。`window.sbGunfireReport()` が弾・帯・炎・火花・煙の数と描く回数・三角形を JSON の文字列で返す
 - `#view-landing`: 本体の出撃を始め、導入のカットシーンを `?at=<秒>`（0〜11.95、既定 0。12 にすると `left` が 0 になって台本が導入を終える）の秒で止めて見る入口。`←`・`→` で 1/10 秒ずつ動かす。右上の調整パネルが、今の秒以前で一番近いカメラキーの6値（`CUTSCENES.landing.camera.<番号>.pos.0` など）と `LANDING_TUNE.startDepth`、選んだ同乗者の `LANDING_RIDERS.<番号>.x`・`.z`、`CUTSCENES.landing.events.<番号>.at` を書き換え、「値をコピー」で変えた値だけを表の形で出す。同乗者は「同乗者」の一覧で選ぶ。画面に今の秒・キーの秒・キーの番号・カメラの姿勢と、コピーの形を出し、`window.sbLandingReport()` が秒・キーの秒・姿勢・描く回数・三角形・同乗者の `id`・`x`・`z`・`fall`（0 が立ち、1 が甲板に倒れた）・`tracers` の出来事の数を JSON の文字列で返す
 - `#view-breach`: 手書きマップの線1の爆破点と爆薬を、機体を (40, 150) に置いて見る入口。右上の調整パネルが `CHARGE_TUNE`（長押し・届く距離・導火線・爆風の半径と装甲・穴の半幅と半奥行き）と `ENEMIES.emplacement`（体力・射程・1発の装甲・掃射の弾数・弧・間隔・次の掃射まで）、`AIMED_MORTAR`（同じ所にいる秒・同じと見る半径・予告・爆風の半径・装甲・区間の手前）を書き換え、「仕掛ける」「爆破」「戻す」と「この線を爆破で開く」（`openBreach` の結果でシーンを作り直す）「閉じた線に戻す」、「機銃座を出す」（`M1B_HAND.spawns['b-emplacements']` の6か所に機銃座を置き、機体へ掃射させる。曳光はこの入口だけの線で描く）、「狙う迫撃砲を始める」（その場に立ち続けると予告の輪と着弾が出る。`still` の残りを画面に出す）でその場で試せる。`window.sbBreachReport()` が機体・爆破点・爆薬・機銃座の数・弾の数・狙う迫撃砲（`still`・予告の数）・`?stats` の数字を JSON の文字列で返す
 - `#view-hurt`: 本体の出撃を始め、導入のカットシーンを飛ばして、撃たれている感（画面の縁の赤・近い着弾の白み・装甲が減ったときの暗み）を試す入口。右上の調整パネルが `HURT_TUNE` を書き換え、「右から被弾」「近くに着弾」「装甲25%」「装甲を戻す」でその場で3つの印を起こせる。装甲の割合を文字で出し、保存はしない
