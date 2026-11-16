@@ -28,12 +28,12 @@ const BATTLE_RANGES: Record<string, TuneRange> = {
 };
 
 const BATTLE_LABELS: Record<string, string> = {
-  allies: '1波の人数(人)',
+  allies: '1波の体数',
   allyWaves: '波の間隔(s)',
   allySpeed: '歩く速さ(m/s)',
   allyDeathRate: '1秒に倒れる確率',
   squads: '分隊の数',
-  squad: '分隊の人数(人)',
+  squad: '分隊の体数',
   squadFallShare: '線で倒れる割合',
   squadFallRadius: '機銃座から倒れる距離(m)',
   shellFallRadius: '着弾で倒れる半径(m)',
@@ -109,15 +109,15 @@ export function showSquad(_hash: string) {
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
   note.textContent =
-    '出た瞬間: 海側から20人が来て、5人の分隊2つが機銃座へ歩き、機銃座から10m以内で一部が倒れる。\n' +
-    '残りの10人は今までどおり浜に散らばり、倒れ方も今までどおり。\n' +
+    '出た瞬間: 海側から歩兵ドロイドが20体来て、5体の分隊2つが機銃座へ歩き、機銃座から10m以内で一部が倒れる。\n' +
+    '残りの10体は今までどおり浜に散らばり、倒れ方も今までどおり。\n' +
     'B の手前: 機銃座（z 147）は機体の後ろ（海側）に立つ。\n' +
-    'つまみは「出撃し直す」で反映する（人数・分隊は作り直しで効く）。\n' +
+    'つまみは「出撃し直す」で反映する（体数・分隊は作り直しで効く）。\n' +
     '保存はしない。';
   extra.appendChild(note);
 
   createTunePanel({
-    title: '歩兵の分隊 #view-squad',
+    title: '歩兵ドロイドの分隊 #view-squad',
     extra,
     groups: [
       {

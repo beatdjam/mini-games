@@ -20,6 +20,7 @@ import { showHurt } from './hurt.ts';
 import { showPillbox } from './pillbox.ts';
 import { showAlly } from './ally.ts';
 import { showSquad } from './squad.ts';
+import { showDroid } from './droid.ts';
 import { showSound } from './sound.ts';
 
 // The views the dev server can open (dev/dev.ts).
@@ -147,8 +148,14 @@ export const DEV_VIEWS: DevView[] = [
   {
     hash: '#view-squad',
     match: 'starts',
-    name: 'the infantry: squads of five cut down at the machine-gun nests, with knobs',
+    name: 'the infantry droids: squads of five cut down at the machine-gun nests, with knobs',
     run: showSquad,
+  },
+  {
+    hash: '#view-droid',
+    match: 'starts',
+    name: 'one infantry droid close up, from the front, the quarter or the side',
+    run: showDroid,
   },
   {
     hash: '#view-mapedit',
