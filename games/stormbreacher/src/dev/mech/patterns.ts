@@ -36,11 +36,11 @@ export const PATTERNS: Record<PatternId, MechLook> = {
   b: {
     build: build({ core: 'slim', arms: 'slimArms', legs: 'reverseLegs', back: 'boosters', fcs: 'visor' }),
     weaponScale: 0.8,
-    palette: { armor: 0x7d8a96, frame: 0x3c4650, accent: 0x4fb4c8, sensor: 0xe8e060, weapon: 0x2c3238 },
+    palette: { armor: 0x7d8a96, frame: 0x3c4650, accent: 0x4fb4c8, sensor: 0xe8e060, weapon: 0x2c3238, band: 0x4fb4c8 },
   },
   d: {
     build: build({ core: 'low', arms: 'stubArms', legs: 'quadLegs', back: 'turret', fcs: 'sensorPod' }),
     weaponScale: 1.2,
-    palette: { armor: 0x7a6a48, frame: 0x3a3228, accent: 0x9c3a2a, sensor: 0x5ad0a0, weapon: 0x55504a },
+    palette: { armor: 0x7a6a48, frame: 0x3a3228, accent: 0x9c3a2a, sensor: 0x5ad0a0, weapon: 0x55504a, band: 0x9c3a2a },
   },
 };

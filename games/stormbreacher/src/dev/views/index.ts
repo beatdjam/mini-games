@@ -21,6 +21,7 @@ import { showBreach } from './breach.ts';
 import { showHurt } from './hurt.ts';
 import { showPillbox } from './pillbox.ts';
 import { showAlly } from './ally.ts';
+import { showAllyDetail } from './allyDetail.ts';
 import { showSquad } from './squad.ts';
 import { showDroid } from './droid.ts';
 import { showSound } from './sound.ts';
@@ -104,6 +105,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the three enemy roles side by side, near and far, with shape knobs',
     run: showGrunts,
+  },
+  {
+    hash: '#view-ally',
+    match: 'is',
+    name: 'the allied mech up close, far off or wrecked, with its detail knobs',
+    run: showAllyDetail,
   },
   {
     hash: '#view-map',
