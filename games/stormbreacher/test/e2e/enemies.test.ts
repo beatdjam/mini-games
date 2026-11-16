@@ -3,7 +3,6 @@ import { page } from 'vitest/browser';
 import * as THREE from 'three';
 import { el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
-import { ENEMY_COLOR } from '../../src/data/colors.ts';
 import { ENEMY_KINDS } from '../../src/data/enemies.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
@@ -135,9 +134,12 @@ test('every kind keeps room for its instance colours, so the GPU can draw it', a
     const colors = mesh.instanceColor;
     if (colors === null) throw new Error(`${kind} has no instance colours`);
     expect(colors.array.length, `${kind} colour room`).toBe((mesh.instanceMatrix.array.length / 16) * 3);
+    // A soldier's copy multiplies the shape's own colours (SB-1480): alive it is white, so the baked colours show, and a
+    // written array is never all zeros, which would draw the copy black.
     for (let i = 0; i < mesh.count; i++) {
       mesh.getColorAt(i, colorAt);
-      expect(colorAt.getHex(), `${kind} ${i}`).toBe(ENEMY_COLOR[kind]);
+      expect(colorAt.getHex(), `${kind} ${i}`).toBe(0xffffff);
     }
+    expect(mesh.geometry.attributes.color, `${kind} baked colours`).toBeDefined();
   }
 });

@@ -1,11 +1,10 @@
 import { expect, test } from 'vitest';
-import { ENEMY_COLOR } from '../../src/data/colors.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { newGame } from '../../src/logic/game.ts';
 import { buildEnemyView, drawEnemies, removeEnemyView } from '../../src/view/enemies.ts';
 
-test('every part with a colour array holds room for each copy after a draw, and the one-box kinds hold their colour', () => {
+test('every part with a colour array holds room for each copy after a draw, and the soldiers carry their colours', () => {
   const view = buildEnemyView();
   const game = newGame(M1B_HAND);
   game.enemies = [
@@ -22,8 +21,10 @@ test('every part with a colour array holds room for each copy after a draw, and 
   }
   const grunt = view.grunt.mesh.instanceColor;
   if (!grunt) throw new Error('the grunt has no colour array');
-  const expected = [(ENEMY_COLOR.grunt >> 16) & 255, (ENEMY_COLOR.grunt >> 8) & 255, ENEMY_COLOR.grunt & 255];
-  // the colour is stored linear, so only check it is not black
-  expect(grunt.array[0] + grunt.array[1] + grunt.array[2], `grunt colour for ${expected.join(',')}`).toBeGreaterThan(0);
+  // a copy multiplies the shape's own colours, so an alive one is white and only a fallen one is tinted
+  expect(grunt.array[0] + grunt.array[1] + grunt.array[2], 'grunt alive tint').toBeGreaterThan(0);
+  // the enemy side's colours (SB-1480) are baked into the shape, so a white copy is still not black
+  expect(view.grunt.mesh.geometry.attributes.color, 'grunt painted shape').toBeDefined();
+  expect(view.emplacement.mesh.geometry.attributes.color, 'the nest is not painted').toBeUndefined();
   removeEnemyView(view);
 });
