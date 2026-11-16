@@ -6,6 +6,7 @@ import { showMove } from './move.ts';
 import { showTouch } from './touch.ts';
 import { showFcs } from './fcs.ts';
 import { showOutdoor } from './outdoor.ts';
+import { showProps } from './propsView.ts';
 import { showScript } from './script.ts';
 import { showHud } from './hud.ts';
 import { showMech } from './mech.ts';
@@ -70,6 +71,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the beach bench: draw calls, triangles and fps',
     run: showOutdoor,
+  },
+  {
+    hash: '#view-props',
+    match: 'is',
+    name: 'the defence works and the landing craft lined up, with knobs',
+    run: showProps,
   },
   {
     hash: '#view-script',
