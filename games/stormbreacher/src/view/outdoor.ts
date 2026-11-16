@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { chunkInstances, type Chunk } from '@engine/render/index.ts';
-import { BURNT_COLOR, DRY_SAND_COLOR, RUST_COLOR, WET_SAND_COLOR } from '../data/colors.ts';
+import { BURNT_COLOR, DEFENSE_COLOR, DRY_SAND_COLOR, RUST_COLOR, WET_SAND_COLOR } from '../data/colors.ts';
+import { DEFENSE_DETAIL } from '../data/defenses.ts';
 import { PROP_SIZE, TARGET_SIZE, TILE_SIZE, type PropSize, type TargetSize } from '../data/props.ts';
 import { SAND_SURFACE } from '../data/surfaces.ts';
 import type { Prop, PropKind, TargetKind, TargetPlace } from '../data/types.ts';
@@ -69,7 +70,23 @@ const KIND_SURFACE: Partial<Record<PropKind, SurfaceName>> = {
   wreck: 'burnt',
 };
 
-// A box with its place baked in (the base sits on y = 0 when y is half its height).
+// Puts one colour on every vertex, so a kind with several colours still draws in one instance. The surface materials
+// read these colours and multiply them by the kind's own colour and the picture.
+function tint<T extends THREE.BufferGeometry>(geometry: T, color: number): T {
+  const at = geometry.getAttribute('position');
+  const colors = new Float32Array(at.count * 3);
+  const c = new THREE.Color(color);
+  for (let i = 0; i < at.count; i++) {
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return geometry;
+}
+
+// A box with its place baked in (the base sits on y = 0 when y is half its height). The colour is white unless a part
+// of a detailed shape asks for its own; every shape carries the attribute so the surfaces can read it in one draw.
 function box(
   w: number,
   h: number,
@@ -84,7 +101,7 @@ function box(
   if (turnZ) geometry.rotateZ(turnZ);
   if (turnY) geometry.rotateY(turnY);
   geometry.translate(x, y, z);
-  return geometry;
+  return tint(geometry, 0xffffff);
 }
 
 // Joins parts into one shape, so one copy of the thing is one draw.
@@ -111,35 +128,224 @@ function tileGeometry(): THREE.BufferGeometry {
   return new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE).rotateX(-Math.PI / 2);
 }
 
-// Three thin beams crossed at the middle, the anti-tank hedgehog's shape.
+// One beam as an L: a web and a flange sharing a corner, so the steel reads as angle iron rather than a square bar.
+// Two boxes keep the many hedgehogs cheap (the beach can hold hundreds).
+function hedgehogBeamGeometry(): THREE.BufferGeometry {
+  const { beam, web, length } = DEFENSE_DETAIL.hedgehog;
+  const half = beam / 2;
+  return merge([box(web, length, beam, -half + web / 2, 0, 0), box(beam, length, web, 0, 0, -half + web / 2)]);
+}
+
+// Three L beams crossed at the middle, with a plate welded over the crossing: the anti-tank hedgehog's shape.
 function hedgehogGeometry(): THREE.BufferGeometry {
-  const beam = 0.35; // the beam's thickness (m)
-  const length = 3; // the beam's length (m)
+  const { length, tilt, plate, plateThick } = DEFENSE_DETAIL.hedgehog;
   const parts: THREE.BufferGeometry[] = [];
   for (let i = 0; i < 3; i++) {
-    const geometry = new THREE.BoxGeometry(beam, length, beam);
-    geometry.rotateZ(0.7);
+    const geometry = hedgehogBeamGeometry();
+    geometry.rotateZ(tilt);
     geometry.rotateY((i * Math.PI) / 3);
     geometry.translate(0, length / 2, 0);
     parts.push(geometry);
   }
+  parts.push(tint(box(plate, plateThick, plate, 0, length / 2, 0), DEFENSE_COLOR.hedgehogPlate));
   return merge(parts);
 }
 
-function blockGeometry(): THREE.BufferGeometry {
-  return box(3, 2, 4, 0, 1, 0);
+// A box whose twelve edges and eight corners are cut back, the low-poly chamfer of the bunker's concrete. Each face
+// keeps its own normal and gets a UV from the plane it lies in, so the concrete picture still runs across it. The cut is
+// held to a quarter of each side (as view/mechShapes.ts does), so a thin piece keeps a real side face instead of a wedge.
+export function chamferBoxGeometry(w: number, h: number, d: number, cut: number): THREE.BufferGeometry {
+  const hx = w / 2,
+    hy = h / 2,
+    hz = d / 2;
+  const bevel = Math.min(cut, w * 0.24, h * 0.24, d * 0.24);
+  const cx = Math.max(0.001, hx - bevel),
+    cy = Math.max(0.001, hy - bevel),
+    cz = Math.max(0.001, hz - bevel);
+  const half = [hx, hy, hz],
+    inset = [cx, cy, cz];
+  const positions: number[] = [],
+    normals: number[] = [],
+    uvs: number[] = [];
+  const triangle = (a: number[], b: number[], c: number[], n: number[]) => {
+    const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const cross = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]];
+    const second = cross[0] * n[0] + cross[1] * n[1] + cross[2] * n[2] < 0 ? c : b;
+    const third = second === b ? c : b;
+    for (const p of [a, second, third]) {
+      positions.push(p[0], p[1], p[2]);
+      normals.push(n[0], n[1], n[2]);
+      const ax = Math.abs(n[0]),
+        ay = Math.abs(n[1]),
+        az = Math.abs(n[2]);
+      if (ax >= ay && ax >= az) uvs.push((p[2] + hz) / (2 * hz), (p[1] + hy) / (2 * hy));
+      else if (ay >= az) uvs.push((p[0] + hx) / (2 * hx), (p[2] + hz) / (2 * hz));
+      else uvs.push((p[0] + hx) / (2 * hx), (p[1] + hy) / (2 * hy));
+    }
+  };
+  const quad = (a: number[], b: number[], c: number[], d: number[], n: number[]) => {
+    triangle(a, b, c, n);
+    triangle(a, c, d, n);
+  };
+
+  // the six flat faces, inset along both of their edges
+  quad([hx, -cy, -cz], [hx, cy, -cz], [hx, cy, cz], [hx, -cy, cz], [1, 0, 0]);
+  quad([-hx, -cy, -cz], [-hx, -cy, cz], [-hx, cy, cz], [-hx, cy, -cz], [-1, 0, 0]);
+  quad([-cx, hy, -cz], [cx, hy, -cz], [cx, hy, cz], [-cx, hy, cz], [0, 1, 0]);
+  quad([-cx, -hy, -cz], [-cx, -hy, cz], [cx, -hy, cz], [cx, -hy, -cz], [0, -1, 0]);
+  quad([-cx, -cy, hz], [cx, -cy, hz], [cx, cy, hz], [-cx, cy, hz], [0, 0, 1]);
+  quad([-cx, -cy, -hz], [-cx, cy, -hz], [cx, cy, -hz], [cx, -cy, -hz], [0, 0, -1]);
+
+  // the twelve edge strips between those faces
+  for (const [i, j] of [
+    [0, 1],
+    [0, 2],
+    [1, 2],
+  ] as const) {
+    const k = 3 - i - j;
+    for (const si of [1, -1]) {
+      for (const sj of [1, -1]) {
+        const n = [0, 0, 0];
+        n[i] = si;
+        n[j] = sj;
+        const length = Math.hypot(n[0], n[1], n[2]);
+        const normal = (contrib: number) => contrib / length;
+        const at = (face: number, sk: number): number[] => {
+          const p = [0, 0, 0];
+          p[i] = face === i ? si * half[i] : si * inset[i];
+          p[j] = face === j ? sj * half[j] : sj * inset[j];
+          p[k] = sk * inset[k];
+          return p;
+        };
+        quad(at(i, 1), at(j, 1), at(j, -1), at(i, -1), n.map(normal));
+      }
+    }
+  }
+
+  // the eight corner triangles
+  for (const sx of [1, -1]) {
+    for (const sy of [1, -1]) {
+      for (const sz of [1, -1]) {
+        const n = [sx, sy, sz];
+        const length = Math.hypot(sx, sy, sz);
+        triangle(
+          [sx * hx, sy * cy, sz * cz],
+          [sx * cx, sy * hy, sz * cz],
+          [sx * cx, sy * cy, sz * hz],
+          n.map(component => component / length),
+        );
+      }
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  // the boxes it merges with are indexed, so this one is too
+  geometry.setIndex(Array.from({ length: positions.length / 3 }, (_, i) => i));
+  return tint(geometry, 0xffffff);
 }
 
-// A concrete bunker: a low body, a roof slab, a slit with two posts and a back parapet.
-function bunkerGeometry(): THREE.BufferGeometry {
+// A concrete block with one top corner broken away, the bars left standing in it and a crack down the face.
+function blockGeometry(): THREE.BufferGeometry {
+  const D = DEFENSE_DETAIL.block;
+  const hx = D.bodyW / 2;
+  const lowerH = Math.max(0, D.bodyH - D.chipH);
   return merge([
-    box(9, 2.4, 7, 0, 1.2, 0),
-    box(10, 0.8, 8, 0, 2.8, 0),
-    box(2.2, 1.6, 1, -2.6, 2.4, 3.4),
-    box(2.2, 1.6, 1, 2.6, 2.4, 3.4),
-    box(4, 0.5, 1, 0, 3.1, 3.4),
-    box(9, 1.2, 1, 0, 2.6, -3.6),
+    box(D.bodyW, lowerH, D.bodyD, 0, lowerH / 2, 0),
+    box(D.bodyW - D.chipW, D.chipH, D.bodyD, -D.chipW / 2, lowerH + D.chipH / 2, 0),
+    // the bars' angles are shape dimensions, kept here rather than in the table
+    tint(
+      new THREE.BoxGeometry(D.rebar, D.rebarLength, D.rebar)
+        .rotateZ(0.22)
+        .translate(hx - D.chipW, D.bodyH, D.bodyD * 0.18),
+      DEFENSE_COLOR.rebar,
+    ),
+    tint(
+      new THREE.BoxGeometry(D.rebar, D.rebarLength, D.rebar)
+        .rotateZ(-0.34)
+        .translate(hx - D.chipW * 0.6, lowerH + D.chipH * 0.4, -D.bodyD * 0.16),
+      DEFENSE_COLOR.rebar,
+    ),
+    tint(
+      box(D.crack, D.crackLength, 0.02, D.crackX, D.crackY, D.bodyD / 2 + 0.015, 0, D.crackTurn),
+      DEFENSE_COLOR.crack,
+    ),
+    tint(
+      box(D.crack * 0.8, D.crackLength * 0.45, 0.02, D.crack2X, D.crack2Y, D.bodyD / 2 + 0.015, 0, D.crack2Turn),
+      DEFENSE_COLOR.crack,
+    ),
   ]);
+}
+
+// A concrete bunker: a chamfered mass and roof, a dark embrasure framed on the front, sandbags and grass above, and a
+// dark entrance on the side. Everything merges into one shape, so the bunker still costs one draw.
+function bunkerGeometry(): THREE.BufferGeometry {
+  const D = DEFENSE_DETAIL.bunker;
+  const roofTop = D.bodyH + D.roofH;
+  const slitY = D.bodyH - D.slitHeight / 2 - D.slitBar / 2;
+  const frameDepth = D.slitDepth + D.frameProud;
+  const frameZ = D.bodyD / 2 + frameDepth / 2;
+  const darkZ = D.bodyD / 2 + D.slitDepth / 2 - D.slitInset;
+  const parts: THREE.BufferGeometry[] = [
+    chamferBoxGeometry(D.bodyW, D.bodyH, D.bodyD, D.bevel).translate(0, D.bodyH / 2, 0),
+    chamferBoxGeometry(D.roofW, D.roofH, D.roofD, D.bevel).translate(0, D.bodyH + D.roofH / 2, 0),
+    // the dark inside, framed above, below and at both ends so it reads as a slot going in
+    tint(box(D.slitWidth, D.slitHeight, D.slitDepth, 0, slitY, darkZ), DEFENSE_COLOR.bunkerSlit),
+    box(D.slitWidth + D.slitPost * 2, D.slitBar, frameDepth, 0, slitY - D.slitHeight / 2 - D.slitBar / 2, frameZ),
+    box(D.slitWidth + D.slitPost * 2, D.slitBar, frameDepth, 0, slitY + D.slitHeight / 2 + D.slitBar / 2, frameZ),
+    box(D.slitPost, D.slitHeight + D.slitBar * 2, frameDepth, -D.slitWidth / 2 - D.slitPost / 2, slitY, frameZ),
+    box(D.slitPost, D.slitHeight + D.slitBar * 2, frameDepth, D.slitWidth / 2 + D.slitPost / 2, slitY, frameZ),
+    // a back parapet (its 1.2 m height and 1 m depth are shape dimensions, kept here rather than in the table)
+    box(D.bodyW * 0.95, 1.2, 1, 0, D.bodyH + 0.6, -D.roofD / 2 + 0.5),
+    // the side entrance, a dark plate on the left wall (only its 0.06 m inset lies inside the wall; the 0.1 m and
+    // 0.06 m steps of its lintel are shape dimensions)
+    tint(
+      box(D.doorD, D.doorH, D.doorW, -D.bodyW / 2 - D.doorD / 2 + D.slitInset, D.doorH / 2, -D.bodyD / 4),
+      DEFENSE_COLOR.bunkerDoor,
+    ),
+    box(D.doorD * 1.5, D.slitBar * 0.7, D.doorW + D.slitPost, -D.bodyW / 2 - D.doorD / 4, D.doorH + 0.1, -D.bodyD / 4),
+  ];
+
+  // sandbags in two rows, turned a little so they do not read as one long box
+  for (let i = 0; i < D.bags; i++) {
+    const row = i % 2,
+      col = Math.floor(i / 2),
+      cols = Math.ceil(D.bags / 2);
+    parts.push(
+      tint(
+        box(
+          D.bagW,
+          D.bagH,
+          D.bagD,
+          (col - (cols - 1) / 2) * D.bagW * 1.06,
+          roofTop + D.bagH / 2,
+          (row - 0.5) * D.bagD,
+          (i % 2 === 0 ? 1 : -1) * D.bagTurn,
+        ),
+        DEFENSE_COLOR.bunkerBag,
+      ),
+    );
+  }
+  for (let i = 0; i < D.grass; i++) {
+    parts.push(
+      tint(
+        box(
+          D.grassW,
+          D.grassH,
+          D.grassW,
+          (i - (D.grass - 1) / 2) * D.grassW * 3,
+          roofTop + D.grassH / 2,
+          (i % 2 === 0 ? 1 : -1) * D.roofD * 0.3,
+          i * D.grassTurn,
+        ),
+        DEFENSE_COLOR.bunkerGrass,
+      ),
+    );
+  }
+  return merge(parts);
 }
 
 function seawallGeometry(): THREE.BufferGeometry {
@@ -152,7 +358,7 @@ function cliffGeometry(): THREE.BufferGeometry {
 
 // A shell crater: a low disc just above the ground, its colour darker than the sand's.
 function craterGeometry(): THREE.BufferGeometry {
-  return new THREE.CircleGeometry(3, 18).rotateX(-Math.PI / 2).translate(0, 0.03, 0);
+  return tint(new THREE.CircleGeometry(3, 18).rotateX(-Math.PI / 2).translate(0, 0.03, 0), 0xffffff);
 }
 
 // A broken boat or vehicle: a hull, a cabin and a tilted plate.
@@ -164,8 +370,26 @@ function wreckGeometry(): THREE.BufferGeometry {
   ]);
 }
 
+// A low wall with a broken end, a bar left in it and a crack down the face.
 function lowWallGeometry(): THREE.BufferGeometry {
-  return box(6, 0.85, 1, 0, 0.425, 0);
+  const D = DEFENSE_DETAIL.lowWall;
+  const hw = D.bodyW / 2;
+  const lowerH = Math.max(0, D.bodyH - D.chipH);
+  return merge([
+    box(D.bodyW, lowerH, D.bodyD, 0, lowerH / 2, 0),
+    box(D.bodyW - D.chipW, D.chipH, D.bodyD, -D.chipW / 2, lowerH + D.chipH / 2, 0),
+    // the bar's angle is a shape dimension, kept here rather than in the table
+    tint(
+      new THREE.BoxGeometry(D.rebarLength, D.rebar, D.rebar)
+        .rotateZ(0.18)
+        .translate(hw - D.chipW * 0.5, lowerH, D.bodyD * 0.2),
+      DEFENSE_COLOR.rebar,
+    ),
+    tint(
+      box(D.crack, D.crackLength, 0.02, D.crackX, D.bodyH * D.crackYShare, D.bodyD / 2 + 0.015, 0, D.crackTurn),
+      DEFENSE_COLOR.crack,
+    ),
+  ]);
 }
 
 // A flight of stairs drawn as a slope (its rects are steps, but a slope reads better from afar): a box whose near top
@@ -178,7 +402,7 @@ function stairsGeometry(): THREE.BufferGeometry {
     if (at.getZ(i) > 0 && at.getY(i) > 0) at.setY(i, 0);
   }
   geometry.computeVertexNormals();
-  return geometry;
+  return tint(geometry, 0xffffff);
 }
 
 // A wedge for a ramp: the low edge on the ground at +z, the high edge at -z, a slanted top and two triangular sides.
@@ -235,7 +459,7 @@ function rampGeometry(): THREE.BufferGeometry {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
-  return geometry;
+  return tint(geometry, 0xffffff);
 }
 
 const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {

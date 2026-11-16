@@ -1,15 +1,13 @@
-// The shapes #view-fx's battle draws: one instanced mesh per kind of thing (the allies' bodies and heads, the smoke
-// puffs, the tracers) and the cross-shaped planes. Made once at the size the tune asks for; battle/index.ts moves them.
+// The shapes #view-fx's battle draws: one instanced mesh per kind of thing (the droids' bodies, heads and lit parts,
+// the smoke puffs, the tracers) and the cross-shaped planes. Made once at the size the tune asks for; battle/index.ts
+// moves them.
 import * as THREE from 'three';
 import { MAX_SOLDIERS } from '../../logic/crowd.ts';
+import { buildDroidGeometries } from '../droidModel.ts';
+import type { DroidMeshes } from '../droidPose.ts';
 import { softDiscTexture } from '../puff.ts';
 
 export const SMOKE_MESH_NAME = 'sb-battle-smoke';
-
-const BODY = { w: 0.55, h: 1.05, d: 0.4 } as const; // an ally's body (m)
-const HEAD = 0.4; // an ally's head (m)
-const ALLY_BODY_COLOR = 0x5d6b57; // the allies' uniforms
-const ALLY_HEAD_COLOR = 0x8f8064; // the helmets
 
 const TRACER = { length: 6, width: 0.075 } as const; // a tracer's size (m)
 const TRACER_COLOR = 0xffd27a; // the tracers' line
@@ -29,19 +27,16 @@ export interface CraterMeshes {
   water: THREE.InstancedMesh;
 }
 
-// The allies: one box for the body and one for the head, both moved every frame. The landing's riders use it too, at their
-// own smaller count.
-export function soldierMeshes(capacity = MAX_SOLDIERS): { bodies: THREE.InstancedMesh; heads: THREE.InstancedMesh } {
-  const bodies = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(BODY.w, BODY.h, BODY.d),
-    new THREE.MeshLambertMaterial({ color: ALLY_BODY_COLOR }),
-    capacity,
-  );
-  const heads = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(HEAD, HEAD, HEAD),
-    new THREE.MeshLambertMaterial({ color: ALLY_HEAD_COLOR }),
-    capacity,
-  );
+// The infantry droids: the body and the head, each one instanced mesh with the painted part and the lit part as its two
+// material groups. The landing's riders use it too, at their own smaller count.
+export function soldierMeshes(capacity = MAX_SOLDIERS): DroidMeshes {
+  const geometries = buildDroidGeometries();
+  const materials = [
+    new THREE.MeshLambertMaterial({ vertexColors: true }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true }),
+  ];
+  const bodies = new THREE.InstancedMesh(geometries.body, materials, capacity);
+  const heads = new THREE.InstancedMesh(geometries.head, materials, capacity);
   bodies.name = 'sb-battle-bodies';
   heads.name = 'sb-battle-heads';
   for (const mesh of [bodies, heads]) {
