@@ -10,6 +10,7 @@ import { showProps } from './propsView.ts';
 import { showScript } from './script.ts';
 import { showHud } from './hud.ts';
 import { showMech } from './mech.ts';
+import { showGrunts } from './grunts.ts';
 import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
 import { showFx } from './fx.ts';
@@ -98,6 +99,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'mech look plans A-D on the beach, spinning, with draw counts',
     run: showMech,
+  },
+  {
+    hash: '#view-grunts',
+    match: 'is',
+    name: 'the three enemy roles side by side, near and far, with shape knobs',
+    run: showGrunts,
   },
   {
     hash: '#view-ally',

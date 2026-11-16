@@ -1,10 +1,15 @@
 // The enemies' table (SB-190). Every value here is provisional. The kinds are the enemies that walk and shoot; adding
-// one is a line in ENEMIES (and in ENEMY_KINDS, ENEMY_COLOR and the language files' `target.<kind>`).
+// one is a line in ENEMIES (and in ENEMY_KINDS, the kind's look and the language files' `target.<kind>`).
 import { PROP_SIZE } from './props.ts';
 
-export type EnemyKind = 'grunt' | 'assault' | 'heavy' | 'emplacement';
+// The kinds drawn as a soldier whose body is a set of boxes (data/enemyLooks.ts); the machine-gun nest is a model of its
+// own (SB-1981) and keeps its parts in view/enemies.ts.
+export type SoldierKind = 'grunt' | 'assault' | 'heavy';
+export const SOLDIER_KINDS: readonly SoldierKind[] = ['grunt', 'assault', 'heavy'];
 
-export const ENEMY_KINDS: readonly EnemyKind[] = ['grunt', 'assault', 'heavy', 'emplacement'];
+export type EnemyKind = SoldierKind | 'emplacement';
+
+export const ENEMY_KINDS: readonly EnemyKind[] = [...SOLDIER_KINDS, 'emplacement'];
 
 // A burst of shots: `shots` of them, swept from -arcDeg/2 to +arcDeg/2 across the way to the mech, `interval` seconds
 // apart, then the next burst after `rest` seconds.

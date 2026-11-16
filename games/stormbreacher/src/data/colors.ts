@@ -1,6 +1,6 @@
 // The colours the field, the map's ground and the sky share, so the same one is not written in two files.
 import type { DroidMaterial } from './droids.ts';
-import type { EnemyKind } from './enemies.ts';
+import type { SoldierKind } from './enemies.ts';
 import type { MechColor } from './mech.ts';
 import type { ProtoMaterial } from './mechProto.ts';
 
@@ -77,15 +77,22 @@ export const HUD_COLOR = {
   track: 'rgba(84, 232, 255, 0.2)', // the empty part of an arc (仮)
 };
 
-// The enemies on the field (仮): each kind's body, the body of one that is down and the line of an enemy's shot (the
-// dev views and the shots still draw a plain line).
-export const ENEMY_COLOR: Record<EnemyKind, number> = {
-  grunt: 0x8c3b32,
-  assault: 0xc94a3d, // a brighter red than a grunt's, so the fast one reads apart at a distance
-  heavy: 0x4a5340, // a dark grey-green, far from the grunt's red
-  emplacement: 0x6f6a5c, // a sand-grey nest, apart from the heavy's grey-green and the grunt's red (仮)
+// The enemy soldiers (SB-1480, 仮): the enemy side's own warm brown, kept apart from the mech's and the allies' blue-grey.
+// Each kind has three colours at most: the body, the small mark that tells the role apart and the weapons. They are baked
+// into the shape as vertex colours, so one mesh of one material still covers a whole enemy. The role itself is the shape
+// (data/enemyLooks.ts); the colour only tells the enemy side apart.
+export interface EnemyPalette {
+  body: number;
+  mark: number;
+  gun: number;
+}
+export const ENEMY_PALETTE: Record<SoldierKind, EnemyPalette> = {
+  grunt: { body: 0x7a4034, mark: 0xb87840, gun: 0x342f2a },
+  assault: { body: 0x8a4a2e, mark: 0xd08a48, gun: 0x2e2a26 }, // a little brighter, so the fast one reads apart
+  heavy: { body: 0x5f4a3a, mark: 0x9c7448, gun: 0x3d362d }, // a little darker and greyer, a heavy block at a distance
 };
-export const ENEMY_DOWN_COLOR = 0x2a2522;
+// What an enemy that is down is multiplied by (the instance colour over the shape's own colours).
+export const ENEMY_DOWN_TINT = 0x574d46;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
 
 // The machine-gun nest's model (SB-1981, provisional): sandbags of a dark grey-green, far from the dry sand and the hedgehogs'

@@ -1,11 +1,13 @@
-// The enemies as the screen draws them: one instanced box per kind, and the machine-gun nest built from parts (one
-// instanced mesh each, drawn once for every nest). It reads GameModel and never writes it.
+// The enemies as the screen draws them: one instanced mesh per kind, each soldier one merged low-poly shape whose parts
+// are baked into it, and the machine-gun nest built from parts (one instanced mesh each, drawn once for every nest). The
+// shape, not the colour, tells the soldiers' roles apart at a distance (data/enemyLooks.ts); their colours are baked in,
+// so one material still covers a whole soldier. It reads GameModel and never writes it.
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { scene } from '@engine/render/index.ts';
+import { mergeParts, scene } from '@engine/render/index.ts';
 import {
-  ENEMY_COLOR,
-  ENEMY_DOWN_COLOR,
+  ENEMY_DOWN_TINT,
+  ENEMY_PALETTE,
   NEST_BARREL_COLOR,
   NEST_DROID_COLOR,
   NEST_FLASH_COLOR,
@@ -16,12 +18,14 @@ import {
   NEST_SHIELD_COLOR,
   NEST_TRIM_COLOR,
 } from '../data/colors.ts';
-import { ENEMIES, ENEMY_KINDS, type EnemyKind } from '../data/enemies.ts';
+import { ENEMIES, ENEMY_KINDS, type EnemyKind, type SoldierKind } from '../data/enemies.ts';
+import { ENEMY_LOOKS, ENEMY_LOOK_TUNE, type EnemyBox } from '../data/enemyLooks.ts';
 import type { GameModel } from '../logic/game.ts';
 
 const MAX_ENEMIES = 64; // the most enemies of one kind drawn at once; the rest walk unseen
 const DOWN_SCALE_Y = 0.35; // how low a fallen enemy sits (its height scale)
 const HOLD_HIDE_SCALE = 0.55; // how low a posted defender sits while it hides behind cover (SB-2015)
+const ALIVE_TINT = 0xffffff; // an instance's colour multiplies the shape's own, so white leaves it as built
 
 // The machine-gun nest's model (m), all in the nest's own frame: the middle of the ring on the ground, the front at -z.
 // The enclosure is wider and taller than the hit box (5.8 m across, its wall 1.9 m high) so it reads from far away, and
@@ -71,7 +75,7 @@ export interface EnemyPart {
 export interface EnemyKindView {
   mesh: THREE.InstancedMesh; // the mesh named for the kind
   parts: readonly EnemyPart[]; // its parts, the named mesh among them
-  colored: boolean; // whether each copy takes ENEMY_COLOR (the one-box kinds) or the parts' own colours (the nest)
+  colored: boolean; // whether each copy takes a tint (the soldiers' alive or down) or the parts' own colours (the nest)
 }
 
 export type EnemyView = Record<EnemyKind, EnemyKindView>;
@@ -154,19 +158,84 @@ function partMesh(
   return mesh;
 }
 
-// The one-box kinds: a unit box scaled per copy, as the kind's size asks.
-function buildOneBoxView(kind: EnemyKind): EnemyKindView {
+// Paints every vertex of a part with one colour, so the merged shape carries its colours with no extra material.
+function paint(geometry: THREE.BufferGeometry, hex: number): void {
+  const color = new THREE.Color(hex);
+  const count = geometry.attributes.position.count;
+  const colors = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+}
+
+// Builds one soldier's boxes and joins them into a single shape: the whole enemy then costs one instanced draw, however
+// many parts give it its silhouette. The boxes are in metres, with their feet at y = 0, so an instance only moves and
+// turns them.
+function buildSoldierGeometry(kind: SoldierKind): THREE.BufferGeometry {
   const def = ENEMIES[kind];
+  const tune = ENEMY_LOOK_TUNE[kind];
+  const palette = ENEMY_PALETTE[kind];
+  const root = new THREE.Group();
+  // the upper body turns about the hip, so a lean does not lift the feet off the ground
+  const upper = new THREE.Group();
+  upper.position.y = tune.hip * def.height;
+  upper.rotation.x = tune.lean;
+  root.add(upper);
+
+  const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const parts: THREE.BufferGeometry[] = [];
+
+  const addBox = (box: EnemyBox, side: number) => {
+    const gun = box.color === 'gun';
+    const reach = gun ? tune.reach : 1;
+    const geometry = new THREE.BoxGeometry(
+      box.size[0] * tune.width * def.radius,
+      box.size[1] * def.height,
+      box.size[2] * reach * def.radius,
+    );
+    paint(geometry, palette[box.color]);
+    const mesh = new THREE.Mesh(geometry, material);
+    const above = box.at[1] >= tune.hip;
+    mesh.position.set(
+      box.at[0] * tune.width * side * def.radius,
+      box.at[1] * def.height - (above ? tune.hip * def.height : 0),
+      box.at[2] * reach * def.radius,
+    );
+    mesh.rotation.x = box.rotX ?? 0;
+    mesh.rotation.z = box.rotZ ?? 0;
+    (above ? upper : root).add(mesh);
+    parts.push(geometry);
+  };
+
+  for (const box of ENEMY_LOOKS[kind]) {
+    const sides = box.mirror === 'x' ? [1, -1] : [1];
+    for (const side of sides) addBox(box, side);
+  }
+
+  mergeParts(root);
+  const merged = root.children.find(child => (child as THREE.Mesh).isMesh === true) as THREE.Mesh | undefined;
+  if (merged === undefined) throw new Error(`the enemy kind ${kind} built no shape`);
+  const shape = merged.geometry;
+  // the merge cloned the parts' shapes; these are only the originals it read
+  for (const part of parts) part.dispose();
+  material.dispose();
+  return shape;
+}
+
+// A soldier: its whole body baked into one shape, drawn as one copy of one instanced mesh. The shape is already in
+// metres with its feet at y = 0, so standing is the copy's own place, and it is only squashed to fall.
+function buildSoldierView(kind: SoldierKind): EnemyKindView {
   const mesh = partMesh(
     enemyMeshName(kind),
-    new THREE.BoxGeometry(1, 1, 1),
-    new THREE.MeshLambertMaterial({ color: 0xffffff }),
-    true, // each copy takes ENEMY_COLOR, so the colour array is made at the full size (SB-1983)
+    buildSoldierGeometry(kind),
+    new THREE.MeshLambertMaterial({ vertexColors: true }),
+    true, // each copy takes its alive or down tint, so the colour array is made at the full size (SB-1983)
   );
-  const radius = def.radius * 2;
-  const downHeight = def.height * DOWN_SCALE_Y;
-  const standing = shifted([0, def.height / 2, 0], { x: radius, y: def.height, z: radius });
-  const fallen = shifted([0, downHeight / 2, 0], { x: radius, y: downHeight, z: radius });
+  const standing = new THREE.Matrix4();
+  const fallen = shifted([0, 0, 0], { x: 1, y: DOWN_SCALE_Y, z: 1 });
   return { mesh, parts: [{ mesh, standing, fallen }], colored: true };
 }
 
@@ -367,7 +436,7 @@ function buildNestView(): EnemyKindView {
 export function buildEnemyView(): EnemyView {
   const view = {} as EnemyView; // filled for every kind in the loop below
   for (const kind of ENEMY_KINDS) {
-    const kindView = kind === 'emplacement' ? buildNestView() : buildOneBoxView(kind);
+    const kindView = kind === 'emplacement' ? buildNestView() : buildSoldierView(kind);
     for (const part of kindView.parts) scene.add(part.mesh);
     view[kind] = kindView;
   }
@@ -378,15 +447,17 @@ const place = new THREE.Object3D();
 const tint = new THREE.Color();
 const matrix = new THREE.Matrix4();
 const NOTHING = new THREE.Matrix4().makeScale(0, 0, 0); // a part not drawn at all: its copies shrink to nothing
+// How many copies of each kind this frame has taken. Kept between frames, so the draw makes no garbage every frame.
+const counts = Object.fromEntries(ENEMY_KINDS.map(kind => [kind, 0])) as Record<EnemyKind, number>;
 
 // Writes each enemy of each kind into its meshes and sets how many are drawn.
 export function drawEnemies(view: EnemyView, game: GameModel): void {
-  const counts = new Map<EnemyKind, number>(ENEMY_KINDS.map(kind => [kind, 0]));
+  for (const kind of ENEMY_KINDS) counts[kind] = 0;
   for (const enemy of game.enemies) {
     const kindView = view[enemy.kind];
-    const at = counts.get(enemy.kind) ?? 0;
+    const at = counts[enemy.kind]!;
     if (at >= MAX_ENEMIES) continue;
-    counts.set(enemy.kind, at + 1);
+    counts[enemy.kind] = at + 1;
     const alive = enemy.hp > 0;
     // a posted defender ducks behind its cover while it hides and stands up to fire (SB-2015)
     const hidden = alive && enemy.post !== null && !enemy.holdOut;
@@ -408,13 +479,14 @@ export function drawEnemies(view: EnemyView, game: GameModel): void {
       place.updateMatrix();
       part.mesh.setMatrixAt(at, matrix.multiplyMatrices(place.matrix, local));
       if (kindView.colored) {
-        part.mesh.setColorAt(at, tint.setHex(alive ? ENEMY_COLOR[enemy.kind] : ENEMY_DOWN_COLOR));
+        // the shape carries the enemy side's own colours; the copy only darkens one that is down
+        part.mesh.setColorAt(at, tint.setHex(alive ? ALIVE_TINT : ENEMY_DOWN_TINT));
       }
     }
   }
   for (const kind of ENEMY_KINDS) {
     const kindView = view[kind];
-    const count = counts.get(kind) ?? 0;
+    const count = counts[kind]!;
     for (const part of kindView.parts) {
       part.mesh.count = count;
       part.mesh.instanceMatrix.needsUpdate = true;
