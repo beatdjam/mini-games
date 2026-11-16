@@ -6,8 +6,9 @@ import { M1_LOADOUT, type WeaponId } from './weapons.ts';
 export type SlotId = 'arms' | 'legs' | 'back' | 'fcs';
 export const SLOT_IDS: readonly SlotId[] = ['arms', 'legs', 'back', 'fcs'];
 
-// the colour names a box asks for; the hex values belong to the look that draws it (M1_MECH_PALETTE, dev/mech/patterns.ts)
-export const MECH_COLORS = ['armor', 'frame', 'accent', 'sensor', 'weapon'] as const;
+// the colour names a box asks for; the hex values belong to the look that draws it (M1_MECH_PALETTE, dev/mech/patterns.ts).
+// The band is the side's own mark on an ally (its shoulder band and number); M1 has no box that asks for it.
+export const MECH_COLORS = ['armor', 'frame', 'accent', 'sensor', 'weapon', 'band'] as const;
 export type MechColor = (typeof MECH_COLORS)[number];
 
 export type Vec3 = readonly [number, number, number];
@@ -279,6 +280,7 @@ export const M1_MECH_PALETTE: Record<MechColor, number> = {
   accent: 0xc8a23a,
   sensor: 0xd8482a,
   weapon: 0x9a9a92,
+  band: 0xc8a23a, // M1 has no band box; its accent's gold keeps the table complete
 };
 export const M1_WEAPON_SCALE = 1;
 
@@ -297,6 +299,10 @@ export const MECH_PAINT: Record<MechColor, MechPaintDef> = {
   accent: { seed: 146043, grime: 8, grain: 10, scratches: 6 },
   sensor: { seed: 146044, grime: 4, grain: 6, scratches: 2 },
   weapon: { seed: 146045, grime: 20, grain: 14, scratches: 28 },
+  // the band is painted like the accent (paintAccent), so its stripes stay as they were when it shared the accent's
+  // colour: only the seed is read here; the grime, grain and scratches come from the accent's row, and turning these
+  // in the #view-mech panel changes nothing (they are here to fill the record)
+  band: { seed: 146043, grime: 8, grain: 10, scratches: 6 },
 };
 
 // The size of a painted picture and the markings on it: the number stencilled on the armour and the pitch of the

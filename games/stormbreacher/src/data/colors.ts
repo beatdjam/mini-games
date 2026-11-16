@@ -102,13 +102,17 @@ export const CHARGE_COLOR = 0xffe066;
 export const PILLBOX_DEFLECT_COLOR = 0xffe080;
 
 // The allied mech of the script (SB-170, 仮): the colours it wears running and the dark ones of its wreck, one hex per
-// colour name of the mech's look.
+// colour name of the mech's look. The band is a pale green-teal, a side's colour clear of M1's gold and of the enemies'
+// reds and dark olive; it is the ally's own mark, so it goes on the shoulder band and the number alone. The accent stays
+// the cream the mech's pods' plate wears.
+export const ALLY_BAND_COLOR = 0x7fd4b0;
 export const ALLY_PALETTE: Record<MechColor, number> = {
   armor: 0x5c6f7a,
   frame: 0x363b3e,
   accent: 0xd8d2b8,
   sensor: 0x4ab6d8,
   weapon: 0x8c9296,
+  band: ALLY_BAND_COLOR,
 };
 export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
   armor: 0x2e3234,
@@ -116,6 +120,7 @@ export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
   accent: 0x35332c,
   sensor: 0x1e2022,
   weapon: 0x2a2c2d,
+  band: 0x35332c,
 };
 // The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
 export const MECH_FLAME_COLOR = 0xffd27a;

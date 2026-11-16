@@ -37,6 +37,9 @@ export interface MechLook {
   build: MechBuild;
   palette: Record<MechColor, number>; // hex per colour name
   weaponScale: number; // scales the weapons' boxes and their offsets from the mount; 1 is as the table says
+  // Extra boxes a look adds to the body (an ally's shoulder plates and antenna, say). They join the colour meshes,
+  // so detail in a colour the mech already wears adds no draw call; a new colour adds one.
+  detail?: readonly MechBox[];
 }
 
 // Which part of the mech a box moves with: the legs swing, the arms pull back when it fires, the flame grows with the
@@ -97,6 +100,10 @@ function placedBoxes(look: MechLook): PlacedBox[] {
   ];
   for (const [part, limb] of upper)
     for (const box of part.boxes) placed.push(...place({ ...box, at: [box.at[0], box.at[1] + hipY, box.at[2]] }, limb));
+
+  // The detail is body too: it leans and sinks with the core, and its own `rotX` tilts it further.
+  for (const box of look.detail ?? [])
+    placed.push(...place({ ...box, at: [box.at[0], box.at[1] + hipY, box.at[2]] }, 'body'));
 
   const addWeapon = (weapon: (typeof build)['main'], mount: Vec3 | undefined, limb: Limb) => {
     if (mount === undefined) return;
