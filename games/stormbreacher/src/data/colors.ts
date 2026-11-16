@@ -21,6 +21,30 @@ export const FOAM_COLOR = 0x9aa5a3;
 // two always meet.
 export const SKY_TOP_COLOR = 0x5b6a74;
 
+// The detail on the beach's defence works (SB-1470, 仮). These are vertex colours that multiply the kind's own colour
+// and the grey surface picture, so they read as darker or warmer patches on the same concrete and rust.
+export const DEFENSE_COLOR = {
+  hedgehogPlate: 0xd6c8b4, // the steel plate welded over a hedgehog's crossing
+  bunkerSlit: 0x1b1a18, // the dark inside of a bunker's embrasure
+  bunkerBag: 0xa89a7c, // the sandbags on a bunker's roof
+  bunkerGrass: 0x66704f, // the grass growing on a bunker's roof
+  bunkerDoor: 0x232320, // the dark of a bunker's side entrance
+  rebar: 0xb07048, // the exposed reinforcing bar in a chipped corner
+  crack: 0x3a3833, // a crack across a concrete face
+};
+
+// The landing craft (SB-1470, 仮): its hull and deck, and the seams, hinges, chains, windows and bow plate that dress
+// them. These are absolute colours on the craft's one vertex-coloured material (not multipliers).
+export const CRAFT_COLOR = {
+  hull: 0x6b7378,
+  deck: 0x484d50,
+  seam: 0x565e63,
+  hinge: 0x2d3235,
+  chain: 0x6e777c,
+  window: 0x18252b,
+  bow: 0x7d858a,
+};
+
 // The overcast light over the beach (SB-1440, 仮): a pale, cool sky above and a dark, warm ground below, so a face that
 // turns away from the sun falls off instead of being filled in from every side. The low sun is warm, like a sun near
 // the horizon behind the cloud.
