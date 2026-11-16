@@ -13,6 +13,7 @@ import { showMap } from './mapView.ts';
 import { showMapEdit } from './mapEdit.ts';
 import { showFx } from './fx.ts';
 import { showBoom } from './boom.ts';
+import { showGunfire } from './gunfire.ts';
 import { showLanding } from './landing.ts';
 import { showBreach } from './breach.ts';
 import { showHurt } from './hurt.ts';
@@ -106,6 +107,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'starts',
     name: 'explosions at the water’s edge: fire, smoke, debris and water, with knobs',
     run: showBoom,
+  },
+  {
+    hash: '#view-gunfire',
+    match: 'starts',
+    name: 'the look of a shot: muzzle flash, tracer bands, sparks and smoke, with knobs',
+    run: showGunfire,
   },
   {
     hash: '#view-landing',

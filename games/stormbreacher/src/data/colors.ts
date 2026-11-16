@@ -52,7 +52,8 @@ export const HUD_COLOR = {
   track: 'rgba(84, 232, 255, 0.2)', // the empty part of an arc (仮)
 };
 
-// The enemies on the field (仮): each kind's body, the body of one that is down and the line of an enemy's shot.
+// The enemies on the field (仮): each kind's body, the body of one that is down and the line of an enemy's shot (the
+// dev views and the shots still draw a plain line).
 export const ENEMY_COLOR: Record<EnemyKind, number> = {
   grunt: 0x8c3b32,
   assault: 0xc94a3d, // a brighter red than a grunt's, so the fast one reads apart at a distance
@@ -100,6 +101,19 @@ export const CHARGE_COLOR = 0xffe066;
 // The sparks of a shot a pillbox's front turns away (仮). A little warmer than SEA_FLASH_COLOR, so the two do not read
 // as the same flash.
 export const PILLBOX_DEFLECT_COLOR = 0xffe080;
+
+// The look of a shot (SB-1450, 仮): the muzzle's flash, the tracer's band and the sparks and smoke of an impact. The
+// mech's are yellow-white and the enemies' red-orange, so which way a shot goes reads at a glance.
+export const GUNFIRE_COLOR = {
+  mechMuzzle: 0xfffbe2, // the mech's weapons' flash
+  enemyMuzzle: 0xff8f4e, // the enemies', the pillboxes' and the battery's flash
+  mechTracer: 0xfff3bd, // the mech's tracer band
+  enemyTracer: 0xff7a42, // the enemies' tracer band
+  surfaceSpark: 0xffc978, // a spark off sand or a prop
+  metalSpark: 0xfff2cf, // a spark off a target, an enemy or the mech's armour
+  smoke: 0x736a5c, // a fresh puff of an impact
+  smokeFade: 0x9a9287, // that puff just before it goes
+};
 
 // The allied mech of the script (SB-170, 仮): the colours it wears running and the dark ones of its wreck, one hex per
 // colour name of the mech's look.
