@@ -1,15 +1,15 @@
-// The allied mech of the mission script as the screen draws it (SB-170): the mech's boxes in the ally's colours at a
-// smaller size, running along its way and shooting at the nearest enemy (a tracer a moment, no hit), and the same boxes
-// dark and lying over once it has fallen. It reads GameModel and never writes it. A model is built when its ally is
-// first drawn. During the landing the five are aboard the crafts beside the player's and are drawn standing on their
-// decks, but they do not shoot (the logic holds them until the mech is ashore); the other cutscenes hide them.
+// The allied mech of the mission script as the screen draws it (SB-170): its own boxes (a lighter type than M1, with
+// shoulder plates and a radio) in the ally's colours at a smaller size, running along its way and shooting at the nearest
+// enemy (a tracer a moment, no hit), and the same boxes dark, with the plates and antenna knocked over, lying over once
+// it has fallen. It reads GameModel and never writes it. A model is built when its ally is first drawn. During the
+// landing the five are aboard the crafts beside the player's and are drawn standing on their decks, but they do not
+// shoot (the logic holds them until the mech is ashore); the other cutscenes hide them.
 import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
-import { ALLY_TUNE } from '../data/allies.ts';
+import { ALLY_MECH, ALLY_TUNE, ALLY_WEAPON_SCALE, allyDetailBoxes, type AllyShape } from '../data/allies.ts';
 import { ALLY_PALETTE, ALLY_WRECK_PALETTE } from '../data/colors.ts';
 import { ENEMIES, ENEMY_CHEST } from '../data/enemies.ts';
-import { M1_MECH, M1_WEAPON_SCALE } from '../data/mech.ts';
 import { CUTSCENE_SEC } from '../data/script.ts';
 import { enemyTracerTarget, nearestIndex } from '../logic/allies.ts';
 import { cutsceneSail } from '../logic/cutscene.ts';
@@ -35,14 +35,28 @@ export function buildAllyView(): AllyView {
   return { models: new Map(), enemyFireT: new Map() };
 }
 
-// Builds the mech's boxes with an ally's palette. The meshes get the ally's name, so a count of the player's mech's
-// meshes (named 'mech-proto') does not take them.
-function buildModel(palette: typeof ALLY_PALETTE): THREE.Group {
-  const group = buildMechVisual({ build: M1_MECH, palette, weaponScale: M1_WEAPON_SCALE }, ALLY_TUNE.height);
+// Builds the ally's boxes, running or wrecked, with its own detail boxes joined into the same colour meshes (so the
+// model's draw calls are the colours' count, 6, either way). The meshes get the ally's name, so a count of the
+// player's mech's meshes (named 'mech-proto') does not take them. The dev view builds one without adding it to the scene.
+export function buildAllyMech(shape: AllyShape): THREE.Group {
+  const group = buildMechVisual(
+    {
+      build: ALLY_MECH,
+      palette: shape === 'run' ? ALLY_PALETTE : ALLY_WRECK_PALETTE,
+      weaponScale: ALLY_WEAPON_SCALE,
+      detail: allyDetailBoxes(shape),
+    },
+    ALLY_TUNE.height,
+  );
   group.name = ALLY_MESH_NAME;
   group.traverse(object => {
     object.name = ALLY_MESH_NAME;
   });
+  return group;
+}
+
+function buildModel(shape: AllyShape): THREE.Group {
+  const group = buildAllyMech(shape);
   scene.add(group);
   return group;
 }
@@ -50,7 +64,7 @@ function buildModel(palette: typeof ALLY_PALETTE): THREE.Group {
 function modelOf(view: AllyView, id: string): AllyModel {
   let model = view.models.get(id);
   if (model === undefined) {
-    model = { run: buildModel(ALLY_PALETTE), wreck: buildModel(ALLY_WRECK_PALETTE), fireT: ALLY_TUNE.fireEvery };
+    model = { run: buildModel('run'), wreck: buildModel('wreck'), fireT: ALLY_TUNE.fireEvery };
     // the e2e finds one ally among the five by its id
     model.run.userData.allyId = id;
     model.wreck.userData.allyId = id;

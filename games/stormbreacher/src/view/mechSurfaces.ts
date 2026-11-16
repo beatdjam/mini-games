@@ -172,6 +172,7 @@ const PAINTERS: Record<MechColor, Paint> = {
   accent: paintAccent,
   sensor: paintSensor,
   weapon: paintWeapon,
+  band: paintAccent,
 };
 
 // One picture is made per colour name and shared by every mech that wears it (the sortie's, the ally's, the views'), so
