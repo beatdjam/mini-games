@@ -9,7 +9,6 @@ import { burst, camera, disposeTree, scene } from '@engine/render/index.ts';
 import type { FxTune } from '../../data/tune.ts';
 import { M1_NEST_WAVE } from '../../data/enemies.ts';
 import { PROP_SIZE } from '../../data/props.ts';
-import { SOLDIER_POSE } from '../../data/soldiers.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
 import { newBattle, stepBattle } from '../../logic/battle.ts';
 import type { GroundRect } from '../../logic/collide.ts';
@@ -17,6 +16,7 @@ import { MAX_SOLDIERS, crowdCounts, fallNear, spawnWave, type Crowd, type CrowdC
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
 import { blastFaceHeight } from '../../logic/game.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
+import { droidMatricesChanged, showDroid, writeDroid } from '../droidPose.ts';
 import { shellBurst } from '../hazards.ts';
 import { MAX_TRACERS, craterMeshes, planeGroup, smokeMesh, soldierMeshes, tracerMesh } from './parts.ts';
 
@@ -121,14 +121,23 @@ export function buildBattle(
   // the machine-gun nests are on the map's spawns; a squad walks on one and falls in its fire (see logic/crowd.ts)
   const state = newBattle(rng, map.bounds, tune, holdZ, map.spawns[M1_NEST_WAVE] ?? []);
   const crowd = state.crowd;
-  const { bodies, heads } = soldierMeshes();
+  const soldiers = soldierMeshes();
   const smoke = smokeMesh(tune.smokeMax);
   const smokeCapacity = Math.max(1, Math.round(tune.smokeMax));
   const tracers = tracerMesh();
   const planeGroups = Array.from({ length: MAX_PLANES }, () => planeGroup());
   const craterCapacity = Math.max(1, Math.round(tune.craters) + Math.round(tune.craterCap));
   const craterParts = craterMeshes(craterCapacity);
-  group.add(bodies, heads, smoke, tracers, ...planeGroups, craterParts.discs, craterParts.rims, craterParts.water);
+  group.add(
+    soldiers.bodies,
+    soldiers.heads,
+    smoke,
+    tracers,
+    ...planeGroups,
+    craterParts.discs,
+    craterParts.rims,
+    craterParts.water,
+  );
   scene.add(group);
 
   const craterList = scatterCraters(craterRng, map, tune, start);
@@ -294,42 +303,29 @@ export function buildBattle(
     for (const plane of planes) stepPlane(plane, rng, map.bounds, tune.planeSpeed, dt);
   }
 
-  function drawSoldiers() {
+  function drawSoldiers(held: boolean) {
     const list = crowd.soldiers;
     const n = Math.min(list.length, MAX_SOLDIERS);
+    const holdZ = crowd.holdZ;
     for (let i = 0; i < n; i++) {
       const soldier = list[i];
-      if (soldier.alive) {
-        dummy.rotation.set(0, soldier.yaw, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.position.set(soldier.x, SOLDIER_POSE.bodyY, soldier.z);
-        dummy.updateMatrix();
-        bodies.setMatrixAt(i, dummy.matrix);
-        dummy.position.set(soldier.x, SOLDIER_POSE.headY, soldier.z);
-        dummy.updateMatrix();
-        heads.setMatrixAt(i, dummy.matrix);
-      } else {
-        const fx = -Math.sin(soldier.yaw);
-        const fz = -Math.cos(soldier.yaw);
-        dummy.rotation.set(Math.PI / 2, soldier.yaw, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.position.set(soldier.x, SOLDIER_POSE.bodyDeadY, soldier.z);
-        dummy.updateMatrix();
-        bodies.setMatrixAt(i, dummy.matrix);
-        dummy.position.set(
-          soldier.x + fx * SOLDIER_POSE.headForward,
-          SOLDIER_POSE.headDeadY,
-          soldier.z + fz * SOLDIER_POSE.headForward,
-        );
-        dummy.rotation.set(Math.PI / 2, soldier.yaw, Math.PI / 2);
-        dummy.updateMatrix();
-        heads.setMatrixAt(i, dummy.matrix);
-      }
+      // waiting at the line: the view's own read of the crowd's rule (stepCrowd pins it at holdZ while held)
+      const waiting = soldier.alive && held && holdZ !== null && soldier.z <= holdZ + 1e-9;
+      writeDroid(
+        soldiers,
+        i,
+        soldier.x,
+        0,
+        soldier.z,
+        soldier.yaw,
+        soldier.alive ? 0 : 1,
+        waiting ? 1 : 0,
+        soldier.alive && !waiting ? 1 : 0,
+        soldier.phase,
+      );
     }
-    showInstances(bodies, n);
-    showInstances(heads, n);
-    bodies.instanceMatrix.needsUpdate = true;
-    heads.instanceMatrix.needsUpdate = true;
+    showDroid(soldiers, n);
+    droidMatricesChanged(soldiers);
   }
 
   function drawSmoke() {
@@ -395,7 +391,7 @@ export function buildBattle(
       stepSmoke(dt);
       stepTracers(dt, mech);
       stepPlanes(dt);
-      drawSoldiers();
+      drawSoldiers(held);
       drawSmoke();
       drawTracers();
       drawPlanes();

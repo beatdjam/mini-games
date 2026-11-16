@@ -1,4 +1,5 @@
 // The colours the field, the map's ground and the sky share, so the same one is not written in two files.
+import type { DroidMaterial } from './droids.ts';
 import type { EnemyKind } from './enemies.ts';
 import type { MechColor } from './mech.ts';
 import type { ProtoMaterial } from './mechProto.ts';
@@ -127,6 +128,16 @@ export const MECH_PROTO_COLOR: Record<ProtoMaterial, number> = {
   frame: 0x2b3134,
   accent: 0xe07a2a,
   glow: 0x4fc8ee,
+};
+
+// The beach's infantry droids (SB-1745, 仮): a pale steel armour over a near-black frame, a burnt orange accent and a
+// cool light for the sensor window and the thin lines. Chosen apart from the humans' uniforms, so the beach reads as
+// machines, and from MECH_PROTO_COLOR, so the infantry is not mistaken for the player's mech.
+export const DROID_COLOR: Record<DroidMaterial, number> = {
+  armor: 0x8a9296,
+  frame: 0x2b3033,
+  accent: 0xc9662b,
+  glow: 0x5fd6f0,
 };
 
 // The light the confirmation view puts around the prototype (SB-1468, second pass SB-1469, 仮): a warm sun that casts

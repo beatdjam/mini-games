@@ -72,7 +72,7 @@ const BATTLE_RANGES: Record<string, TuneRange> = {
 };
 
 const BATTLE_LABELS: Record<string, string> = {
-  holdZ: '歩兵の待ち線(z)',
+  holdZ: '歩兵ドロイドの待ち線(z)',
   holdBeachZ: '待ち線: 浜(z)',
   holdLine1Z: '待ち線: 線1の後ろ(z)',
 };
