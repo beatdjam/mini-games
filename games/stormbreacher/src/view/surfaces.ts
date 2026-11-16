@@ -267,12 +267,17 @@ if (CAN_PAINT) {
 }
 
 // A surface's shared material. The texture's repeat is set here (once per name is enough); sand keeps the world's
-// metres in its UVs, so it is left at one.
+// metres in its UVs, so it is left at one. The props' pictures also read the vertex colours (SB-1470), so the details
+// of a shape (a dark slit, a sandbag, a crack) are part of the same draw.
 export function surfaceMaterial(name: SurfaceName): SurfaceMaterial {
   if (!CAN_PAINT) return new THREE.MeshLambertMaterial({ color: 0xffffff });
   const made = material(NAME[name]);
   const map = made.map;
   if (map) map.repeat.set(REPEAT[name][0], REPEAT[name][1]);
+  if (!made.vertexColors) {
+    made.vertexColors = true;
+    made.needsUpdate = true;
+  }
   return made;
 }
 

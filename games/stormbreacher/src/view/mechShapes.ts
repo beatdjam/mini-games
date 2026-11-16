@@ -213,10 +213,12 @@ export function projectUV(geometry: THREE.BufferGeometry, tile: number): THREE.B
   return geometry;
 }
 
-// Joins shapes into one geometry (one draw). The shapes must carry the same attributes; every shape here does.
-export function mergeShapes(geometries: THREE.BufferGeometry[]): THREE.BufferGeometry {
+// Joins shapes into one geometry (one draw). The shapes must carry the same attributes; every shape here does. With
+// `useGroups`, each shape becomes a group in the result, so one mesh can draw them with a material per shape (the
+// infantry droids put the painted body and its lit parts in one instanced mesh this way).
+export function mergeShapes(geometries: THREE.BufferGeometry[], useGroups = false): THREE.BufferGeometry {
   if (geometries.length === 0) throw new Error('mergeShapes needs at least one shape');
-  const merged = BufferGeometryUtils.mergeBufferGeometries(geometries);
+  const merged = BufferGeometryUtils.mergeBufferGeometries(geometries, useGroups);
   if (merged === null) throw new Error('the shapes did not join: their attributes differ');
   return merged;
 }
