@@ -1,17 +1,18 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { el, t } from '@engine/core/index.ts';
+import { el, t, LOOP, runSystems } from '@engine/core/index.ts';
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { CUTSCENES } from '../../src/data/cutscenes.ts';
 import { craftZ } from '../../src/data/craft.ts';
-import { LANDING_RIDERS, LANDING_TUNE } from '../../src/data/landing.ts';
+import { LANDING_RIDERS, LANDING_TUNE, SINKING_CREWS } from '../../src/data/landing.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { RIDERS_NAME } from '../../src/view/riders.ts';
+import { SINKING_CREW_NAME } from '../../src/view/sinkingCrews.ts';
 import { pastSkipGuard as pastGuard } from './cutsceneSkip.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
@@ -249,6 +250,64 @@ test('the landing draws six riders, hides them after, and a restart keeps one se
   startSortie();
   await frames(2);
   expect(riderGroups()).toHaveLength(1);
+});
+
+const sinkingCrewGroups = (): THREE.Object3D[] => {
+  const groups: THREE.Object3D[] = [];
+  scene.traverse(child => {
+    if (child.name === SINKING_CREW_NAME) groups.push(child);
+  });
+  return groups;
+};
+
+test('the landing draws the sinking crews and the ally mech, and a skip hides them and a restart keeps one set', () => {
+  // no waiting for frames: the systems run and the scene is drawn by hand, as landingView does
+  const step = (n: number): void => {
+    for (let i = 0; i < n; i++) {
+      runSystems(0);
+      LOOP.render?.();
+    }
+  };
+  startSortie();
+  // the first step starts the landing, which sets its own second: the table's second is put in after that
+  step(1);
+  game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 3.9 };
+  step(3);
+  const groups = sinkingCrewGroups();
+  expect(groups).toHaveLength(1);
+  expect(groups[0].visible).toBe(true);
+  const meshes: THREE.InstancedMesh[] = [];
+  groups[0].traverse(object => {
+    const mesh = object as THREE.InstancedMesh;
+    if (mesh.isInstancedMesh === true) meshes.push(mesh);
+  });
+  expect(meshes).toHaveLength(2);
+  for (const mesh of meshes) {
+    expect(mesh.count).toBeGreaterThan(0);
+    expect(mesh.visible).toBe(true);
+  }
+  const allyIndex = SINKING_CREWS.findIndex(place => place.ally !== undefined);
+  const ally = scene.getObjectByName(`${SINKING_CREW_NAME}Ally${allyIndex}`);
+  expect(ally).toBeDefined();
+  expect(ally?.visible).toBe(true);
+
+  // the skip ends it before the next frame: the crews and the ally are out of sight
+  el('#gl').click();
+  step(2);
+  expect(game().script.cutscene).toBeNull();
+  expect(groups[0].visible).toBe(false);
+  expect(ally?.visible).toBe(false);
+
+  // starting again builds one set of crews, not two: the old set is taken out of the scene
+  startSortie();
+  step(2);
+  expect(sinkingCrewGroups()).toHaveLength(1);
+  expect(sinkingCrewGroups()[0]).not.toBe(groups[0]);
+  let allies = 0;
+  scene.traverse(child => {
+    if (child.name === `${SINKING_CREW_NAME}Ally${allyIndex}`) allies++;
+  });
+  expect(allies).toBe(1);
 });
 
 test('when the landing ends the mech is at its start and the camera is where the last key put it', async () => {
