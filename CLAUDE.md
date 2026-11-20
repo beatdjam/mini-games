@@ -57,6 +57,7 @@
    - まとめて回す: Claude の枠が切れているあいだは、ユーザーが `tools/run_queue.sh` で `.tasks/queue.txt` の票を1本ずつ回す（変更は「WIP（未レビュー）」のコミットになり、push はしない）。Claude は票を上げたら `queue.txt` に順番と土台を足しておく。回している途中で `queue.txt` の順を入れ替えても、次に選ぶ票から反映される（止めて起動し直さなくてよい）。作業ツリーには、票と一緒に `.tasks/` の `context/`・`draft/`・ほかの票の result も写る。戻ったら、`.tasks/queue.log` と result を見て、WIP のコミットを番号の順にレビューする。OpenCode がサーバーの混雑で途中で止まったときは、少し待って同じセッションの続きから回し直す（`BUSY_WAIT` 秒を `BUSY_TRIES` 回まで）。環境変数 `QUEUE_STATUS_FILE` に書き出す先を渡すと、ログを書くたびに票の状態のページ（`tools/queue_status.py`。票ごとの状態・開いている PR・下書き・ログの最後）を書く。外から見るためのページで、Claude も票を上げたり PR を出したりしたら `python3 tools/queue_status.py --out <同じ先>` で書き直す
    - Claude がキューの票を引き取って回すときは、`tools/queue_mark.sh <番号> claude` を呼ぶ（`queue.log` に「Claude が回している」を書く。`run_queue.sh` はその票を飛ばし、状態のページにも出る）
    - 回し終えたら `tools/queue_mark.sh <番号> review`（作業ツリーの result を `.tasks/` に写し、レビュー待ちにする）
+   - レビュー（OpenCode の Haiku・Claude のサブエージェント）を起動するときは `tools/queue_mark.sh <番号> reviewing`（状態のページに「レビュー中」と出る。キューでもキュー外でも同じ）
    - 仕上げた（PR に出した・マージされた）ら `tools/queue_mark.sh <番号> done [PR 番号]`（票・result・review を `.tasks/done/` に移し、`queue.txt` から消す）。どれも `QUEUE_STATUS_FILE` があれば状態のページを書き直す
    - モデルは Flash（`opencode-go/deepseek-v4.1-flash`）。Pro は約2〜4.5倍遅く、出来は少し丁寧な程度だった。Flash で回して、レビューで差し戻す
 3. **レビュー**: result を読み、`git diff` と確認の実行で見る。見る点は `.opencode/review-guide.md`（一次レビューを Haiku・Sonnet に任せるときも、これを観点として渡す）。直しが要るときは、票に「差し戻し」の節を足して渡し直すか、小さければメインで直す

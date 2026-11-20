@@ -92,6 +92,9 @@ def state_of(root: Path, num: str, name: str, queued: set[str], latest: dict[str
         return "Claude が回している"
     if log.startswith("Claude が回した"):
         return "レビュー待ち"
+    # a review was started on it (tools/queue_mark.sh reviewing)
+    if log.startswith("レビュー中"):
+        return "レビュー中"
     if sent_back and not log.startswith(("回す", "起動")):
         return "差し戻し中"
     if log.startswith(("回す", "起動")):

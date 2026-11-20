@@ -45,6 +45,12 @@ ok "review: 状態" "state 10 | grep -q 'レビュー待ち'"
 out=$(bash "$D/tools/run_queue.sh" --dry-run 2>&1)
 ok "review 後は result があるので飛ばされる" "printf '%s' '$out' | grep -q '票10: result があるので飛ばす'"
 
+# reviewing
+bash "$M" 10 reviewing >/dev/null
+ok "reviewing: ログ" "tail -1 '$T/queue.log' | grep -q '票10: レビュー中'"
+ok "reviewing: 状態" "state 10 | grep -q 'レビュー中'"
+ok "reviewing: 状態ページが書き直される" "grep -q 'レビュー中' '$D/status.md'"
+
 # done
 bash "$M" 10 done 535 >/dev/null
 ok "done: 票・result・review が done/ に移る" "[ -f '$T/done/10-chore-one.md' ] && [ -f '$T/done/10-chore-one.result.md' ] && [ -f '$T/done/review-codex-10.md' ]"

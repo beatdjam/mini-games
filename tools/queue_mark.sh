@@ -3,6 +3,7 @@
 #
 #   tools/queue_mark.sh <番号> claude          Claude が引き取った。queue.log に「Claude が回している」を書く
 #   tools/queue_mark.sh <番号> review          Claude が回し終えた。作業ツリーの result を .tasks/ に写し、「Claude が回した（レビュー待ち）」を書く
+#   tools/queue_mark.sh <番号> reviewing       レビューを始めた（OpenCode の Haiku でも Claude でも）。「レビュー中」を書く
 #   tools/queue_mark.sh <番号> done [PR 番号]  仕上がった。票・result・review*-<番号>.md を .tasks/done/ に移し、queue.txt から行を消す
 #
 # - 作業ツリーから呼んでも、本体（.git がある所）の .tasks/ を見る
@@ -14,7 +15,7 @@ R=$(dirname "$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir)
 T=$R/.tasks
 
 usage() {
-  echo "使い方: tools/queue_mark.sh <番号> claude|review|done [PR 番号]" >&2
+  echo "使い方: tools/queue_mark.sh <番号> claude|review|reviewing|done [PR 番号]" >&2
   exit 1
 }
 
@@ -22,7 +23,7 @@ n=${1:-}
 mark=${2:-}
 pr=${3:-}
 case "$n" in '' | *[!0-9]*) usage ;; esac
-case "$mark" in claude | review | done) ;; *) usage ;; esac
+case "$mark" in claude | review | reviewing | done) ;; *) usage ;; esac
 
 t=$(ls "$T"/"$n"-*.md 2>/dev/null | grep -vE '\.(result|review-[a-z]+)\.md$' | head -1)
 if [ -z "$t" ]; then
@@ -54,6 +55,9 @@ case "$mark" in
       usage
     fi
     log "票$n: Claude が回した（レビュー待ち）"
+    ;;
+  reviewing)
+    log "票$n: レビュー中"
     ;;
   done)
     mkdir -p "$T/done"
