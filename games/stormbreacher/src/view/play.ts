@@ -13,6 +13,7 @@ import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
 import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
+import type { WeaponId } from '../data/weapons.ts';
 import { blastTarget } from '../logic/blasts.ts';
 import { frontOf, type FrontId } from '../logic/front.ts';
 import { blastFaceHeight, type GameModel } from '../logic/game.ts';
@@ -39,7 +40,7 @@ import { buildHurtView, hurtBlast, hurtDamage, hurtStep, type HurtView } from '.
 import { applyLookTo } from './look.ts';
 import { drawMechMotion, drawMechWalk } from './mechDrive.ts';
 import { mechSeeThrough } from './mechFade.ts';
-import { buildProtoMech, setProtoOpacity } from './mechProtoModel.ts';
+import { buildProtoMech, protoMuzzle, setProtoOpacity } from './mechProtoModel.ts';
 import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
@@ -329,6 +330,8 @@ function drawCoverFire(view: PlayView, game: GameModel, dt: number): void {
 // used: the logic cannot be frozen.
 export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta: number): void {
   const mechEvents: MechEvent[] = [];
+  // The frame's shots, lit once the model has taken this frame's pose: the flash leaves the cannon's own muzzle.
+  const shots: { weapon: WeaponId; x: number; y: number; z: number }[] = [];
   let kill = false;
   // the blast and the shake its distance from the mech asks for; a close blast also whitens the screen. A shell that
   // falls past the map's front edge lands in the sea, so it lifts a water column and takes the water's colours.
@@ -349,8 +352,9 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       }
     } else if (event.kind === 'shot') {
       mechEvents.push({ kind: 'fire', speed: 0 });
-      // the muzzle flash carries the weapon, so the heavy gun's reads bigger than the autocannon's
-      spawnMuzzleFlash(view.gunfire, event.weapon, event.x, event.y, event.z);
+      // the muzzle flash carries the weapon, so the heavy gun's reads bigger than the autocannon's; it is lit below,
+      // where the model has this frame's pose and the cannon's mouth is known
+      shots.push({ weapon: event.weapon, x: event.x, y: event.y, z: event.z });
     } else if (event.kind === 'hit') {
       // A shot a pillbox's front turned away throws a small bright spark and nothing else; every other hit leaves sand.
       if (event.deflected) {
@@ -470,6 +474,12 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   }
   view.model.visible = cutscene === null || walk !== null;
   view.stage?.follow(view.model.position.x, view.model.position.z);
+  // the cannon's mouth once the arm has this frame's pose; a kit without one keeps the shot's own place
+  const muzzle = protoMuzzle(view.model);
+  for (const shot of shots) {
+    const at = muzzle ?? shot;
+    spawnMuzzleFlash(view.gunfire, shot.weapon, at.x, at.y, at.z);
+  }
 
   // The camera's pitch is held while a cutscene plays, so the game's camera is where the cutscene's last key puts its
   // own (the key is written for pitch 0) in the first frame the player controls.
@@ -500,7 +510,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
 
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game, dt);
-  drawGunfire(view.gunfire, game.bullets, dt);
+  drawGunfire(view.gunfire, game.bullets, dt, muzzle);
   drawEnemies(view.enemies, game);
   drawPillboxWarns(view.pillboxWarns, game);
   drawPillboxSmoke(view.pillboxWarns, game);

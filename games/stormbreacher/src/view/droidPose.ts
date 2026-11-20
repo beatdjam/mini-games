@@ -1,12 +1,15 @@
-// The infantry droids' pose (SB-1640, droids SB-1745, second pass SB-1747): the body stands with its soles on the ground
-// and the head rides at the top of its neck, so the two never come apart. Both are made once by battle/parts.ts as
-// instanced meshes; this file only writes their matrices.
+// The infantry droids' pose (SB-1640, droids SB-1745, second pass SB-1747, close form SB-2085): the body stands with its
+// soles on the ground and the head rides at the top of its neck, so the two never come apart. Both are made once by
+// battle/parts.ts as instanced meshes; this file only writes their matrices. The battle's crowd is split between a close
+// form and a far one by `selectNearSoldiers`, so a soldier near the camera moves with the same pose but shows more of its
+// shape.
 //
 // A droid that walks bobs a little; one that waits at the hold line squats (the body's height is drawn down and it
 // leans onto its toes), which reads as a crouch without a second shape. A droid that falls turns onto its back, so the
 // rifle held across the chest ends up above the sand, not through it. The death's time is the logic's (a soldier is
 // alive or not); this only sets how the droid lies.
 import * as THREE from 'three';
+import { DROID_TUNE } from '../data/droids.ts';
 import { SOLDIER_POSE } from '../data/soldiers.ts';
 
 export interface DroidMeshes {
@@ -83,6 +86,31 @@ export function showDroid(meshes: DroidMeshes, count: number): void {
   meshes.bodies.visible = count > 0;
   meshes.heads.count = count;
   meshes.heads.visible = count > 0;
+}
+
+// The soldiers that take the close form this frame (SB-2085): the nearest ones within `distance` of the camera, nearest
+// first, and no more than `cap` of them. The rest keep the far form, so one soldier is never drawn in both. A soldier
+// stands on the beach's ground (y = 0), which the camera's own height is measured against. `out` is filled and returned,
+// so a caller that runs every frame can keep the list between frames.
+export function selectNearSoldiers(
+  soldiers: readonly { x: number; z: number }[],
+  eye: { x: number; y: number; z: number },
+  distance: number = DROID_TUNE.nearDistance,
+  cap: number = DROID_TUNE.nearCap,
+  out: number[] = [],
+): number[] {
+  const limit = distance * distance;
+  const distanceTo = (index: number): number => {
+    const soldier = soldiers[index];
+    const dx = soldier.x - eye.x;
+    const dz = soldier.z - eye.z;
+    return dx * dx + eye.y * eye.y + dz * dz;
+  };
+  out.length = 0;
+  for (let i = 0; i < soldiers.length; i++) if (distanceTo(i) <= limit) out.push(i);
+  out.sort((a, b) => distanceTo(a) - distanceTo(b) || a - b);
+  out.length = Math.min(out.length, Math.max(0, Math.floor(cap)));
+  return out;
 }
 
 // Tells three that the matrices written this frame are new.

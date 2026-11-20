@@ -6,15 +6,29 @@
 // It moves exactly where the sortie's mech does: the same motion input and numbers (mechMotion.ts). The rig never reads
 // the game (no GameModel).
 import * as THREE from 'three';
-import { MECH_FLAME_COLOR, MECH_PROTO_COLOR } from '../data/colors.ts';
+import { MECH_FLAME_COLOR, PROTO_PALETTES } from '../data/colors.ts';
 import { GAIT_LOOK, type GaitLook, type Vec3 } from '../data/mech.ts';
 import {
-  MECH_PROTO,
   MECH_PROTO_TEX,
+  PROTO_BACKS,
+  PROTO_DEFAULT_KIT,
+  PROTO_HANDS,
+  PROTO_HEADS,
+  PROTO_KITS,
   PROTO_MATERIALS,
+  PROTO_SHOULDERS,
+  PROTO_SKELETON,
+  PROTO_TORSOS,
   PROTO_TUNE,
+  PROTO_WEAPONS,
+  mirrorShape,
+  type ProtoDetail,
+  type ProtoKitName,
   type ProtoMaterial,
+  type ProtoPaletteId,
   type ProtoShape,
+  type ProtoShoulderPart,
+  type ProtoWeaponPart,
 } from '../data/mechProto.ts';
 import {
   dipDepth,
@@ -83,6 +97,10 @@ interface ProtoRig {
   bones: Record<ProtoBone, THREE.Bone>;
   flames: { mesh: THREE.Mesh }[];
   flameMaterial: THREE.MeshBasicMaterial; // shared by the flame cones; its opacity follows the see-through fade
+  muzzle: THREE.Object3D | null; // the weapon's mouth, on the elbow bone, so the flash and the tracer leave it
+  offShoulder: number; // the free arm's forward turn (rad; the kit may hold its weapon with both hands)
+  armInL: number; // the free shoulder's inward turn about z (rad)
+  armInR: number; // the weapon shoulder's inward turn about z (rad)
   shapes: number; // how many shapes the tables drew (for the weight table)
   time: number; // seconds since the build, for the breathing
 }
@@ -96,12 +114,13 @@ export interface ProtoStats {
 
 const rigs = new WeakMap<THREE.Object3D, ProtoRig>();
 
-// The material of a name, with its three pictures and the light it gives (the sensor and the lamps).
-function materialOf(name: ProtoMaterial): THREE.MeshStandardMaterial {
+// The material of a name, with its three pictures and the light it gives (the sensor and the lamps). `palette` is the
+// kit's four colours; the pictures are shared by every kit, so two machines of one material still cost one set of maps.
+function materialOf(name: ProtoMaterial, palette: Record<ProtoMaterial, number>): THREE.MeshStandardMaterial {
   const def = PROTO_MATERIALS[name];
   const maps = protoMaps(name);
   const material = new THREE.MeshStandardMaterial({
-    color: MECH_PROTO_COLOR[name],
+    color: palette[name],
     metalness: def.metalness,
     roughness: def.roughness,
     map: maps.map,
@@ -114,7 +133,7 @@ function materialOf(name: ProtoMaterial): THREE.MeshStandardMaterial {
   if (def.emissive > 0) {
     // a light gives its colour without the paint under it, so the thin lines stay cyan rather than washing out white
     material.color.setRGB(0, 0, 0);
-    material.emissive = new THREE.Color(MECH_PROTO_COLOR[name]);
+    material.emissive = new THREE.Color(palette[name]);
     material.emissiveIntensity = def.emissive;
   }
   return material;
@@ -137,20 +156,26 @@ function shapeGeometry(
   target: Vec3,
   scale: Vec3,
   lift: number,
+  detail: ProtoDetail,
 ): THREE.BufferGeometry {
   const bevel = (shape.bevel ?? PROTO_TUNE.bevel) * height;
+  const far = detail === 'far';
   let geometry: THREE.BufferGeometry;
   switch (shape.kind) {
     case 'plate': {
       const size = shape.size ?? [0, 0, 0];
-      geometry = plateGeometry(
-        size[0] * height,
-        size[1] * height,
-        size[2] * height,
-        bevel,
-        PROTO_TUNE.bevelSegments,
-        shape.taper,
-      );
+      // A far build cuts the chamfer and the taper: a plain box has 12 triangles where a bent, chamfered plate has
+      // over a hundred, and at the far distance the bevelled edges no longer read (SB-2086).
+      geometry = far
+        ? new THREE.BoxGeometry(size[0] * height, size[1] * height, size[2] * height).toNonIndexed()
+        : plateGeometry(
+            size[0] * height,
+            size[1] * height,
+            size[2] * height,
+            bevel,
+            PROTO_TUNE.bevelSegments,
+            shape.taper,
+          );
       break;
     }
     case 'tube':
@@ -158,7 +183,7 @@ function shapeGeometry(
         (shape.radius ?? 0) * height,
         (shape.length ?? 0) * height,
         shape.axis ?? 'y',
-        PROTO_TUNE.roundSegments,
+        far ? PROTO_TUNE.farRoundSegments : PROTO_TUNE.roundSegments,
       );
       break;
     case 'ring':
@@ -166,7 +191,7 @@ function shapeGeometry(
         (shape.radius ?? 0) * height,
         (shape.tube ?? 0) * height,
         shape.axis ?? 'y',
-        PROTO_TUNE.ringSegments,
+        far ? PROTO_TUNE.farRingSegments : PROTO_TUNE.ringSegments,
       );
       break;
     case 'piston':
@@ -198,17 +223,6 @@ function shapeGeometry(
   return geometry;
 }
 
-// A shape turned over the x = 0 plane: its place at -x, the turns about y and z flipped, and a one-sided cut moved to
-// the other side, so a pauldron stays symmetrical.
-function mirroredShape(shape: ProtoShape): ProtoShape {
-  const mirrored: ProtoShape = { ...shape, at: [-shape.at[0], shape.at[1], shape.at[2]] };
-  if (shape.rot !== undefined) mirrored.rot = [shape.rot[0], -shape.rot[1], -shape.rot[2]];
-  if (shape.taper?.cutSide !== undefined) {
-    mirrored.taper = { ...shape.taper, cutSide: shape.taper.cutSide === 'left' ? 'right' : 'left' };
-  }
-  return mirrored;
-}
-
 // The thigh's angle about the hip (rad) that puts its ankle `drop` below the hip when the knee is `knee` rad bent:
 // a cos(t) + b cos(t - knee) = drop, solved in one step.
 function thighAngle(drop: number, knee: number, thigh: number, shin: number): number {
@@ -221,11 +235,44 @@ function thighAngle(drop: number, knee: number, thigh: number, shin: number): nu
   return tilt + Math.acos(ratio);
 }
 
-export function buildProtoMech(height: number): THREE.Group {
+// How wide a shape is across its widest side, as a ratio of the height: the table's own number, without building it.
+function shapeExtent(shape: ProtoShape): number {
+  switch (shape.kind) {
+    case 'plate':
+      return Math.max(...(shape.size ?? [0, 0, 0]));
+    case 'ring':
+      return 2 * ((shape.radius ?? 0) + (shape.tube ?? 0));
+    case 'bolts':
+      return 2 * ((shape.radius ?? 0) + (shape.bolt ?? 0));
+    default:
+      return Math.max(2 * (shape.radius ?? 0), shape.length ?? 0);
+  }
+}
+
+// A `far` build keeps only the shapes a machine reads at a distance (SB-2083): the bolts, the pistons and the small
+// rims and lit lines are left out, while the plates, the limbs and the weapons stay (SB-2086).
+function keepsShape(shape: ProtoShape, detail: ProtoDetail): boolean {
+  if (detail === 'full') return true;
+  if (shape.kind === 'bolts' || shape.kind === 'piston') return false;
+  return shapeExtent(shape) >= PROTO_TUNE.farShape;
+}
+
+// `paletteId` overrides the kit's own row, for the allies' wreck (the same parts and mark gone dark). `detail` builds the
+// full machine or the simplified one a far crowd is drawn from (SB-2083). A kit's scale makes it stand larger than the
+// height it is asked for (the boss, SB-2084), so the parts and the rig keep one set of numbers.
+export function buildProtoMech(
+  tall: number,
+  kitId: ProtoKitName = PROTO_DEFAULT_KIT,
+  paletteId?: ProtoPaletteId,
+  detail: ProtoDetail = 'full',
+): THREE.Group {
   const group = new THREE.Group();
   group.name = 'mech-proto';
 
-  const parts = MECH_PROTO;
+  const kit = PROTO_KITS[kitId] ?? PROTO_KITS[PROTO_DEFAULT_KIT];
+  const height = tall * (kit.scale ?? 1);
+  const palette = PROTO_PALETTES[paletteId ?? kit.palette];
+  const parts = PROTO_SKELETON;
   const joints = parts.joints;
   const proportions = PROTO_TUNE.build;
   const girth = proportions.limbGirth;
@@ -323,13 +370,16 @@ export function buildProtoMech(height: number): THREE.Group {
   const legScale: Vec3 = [girth, legLength, girth];
 
   for (const part of parts.legs) {
+    if (!keepsShape(part, detail)) continue;
     const shape = { ...part, mirror: false };
     const right = legBone(shape, 1);
-    add(right, shape.material, [shapeGeometry(shape, height, legOrigin(right), legPivot(right), legScale, 0)]);
+    add(right, shape.material, [shapeGeometry(shape, height, legOrigin(right), legPivot(right), legScale, 0, detail)]);
     if (part.mirror === true) {
-      const leftShape = { ...mirroredShape(part), mirror: false };
+      const leftShape = { ...mirrorShape(part), mirror: false };
       const left = legBone(leftShape, -1);
-      add(left, leftShape.material, [shapeGeometry(leftShape, height, legOrigin(left), legPivot(left), legScale, 0)]);
+      add(left, leftShape.material, [
+        shapeGeometry(leftShape, height, legOrigin(left), legPivot(left), legScale, 0, detail),
+      ]);
     }
   }
 
@@ -347,36 +397,37 @@ export function buildProtoMech(height: number): THREE.Group {
   const armScale: Vec3 = [girth, 1, girth];
 
   for (const part of parts.arms) {
+    if (!keepsShape(part, detail)) continue;
     const shape = { ...part, mirror: false };
     const right = armBone(shape, 1);
     const rightPivot = armPivot(right);
-    add(right, shape.material, [shapeGeometry(shape, height, rightPivot, rightPivot, armScale, hipY)]);
+    add(right, shape.material, [shapeGeometry(shape, height, rightPivot, rightPivot, armScale, hipY, detail)]);
     if (part.mirror === true) {
-      const leftShape = { ...mirroredShape(part), mirror: false };
+      const leftShape = { ...mirrorShape(part), mirror: false };
       const left = armBone(leftShape, -1);
       const leftPivot = armPivot(left);
-      add(left, leftShape.material, [shapeGeometry(leftShape, height, leftPivot, leftPivot, armScale, hipY)]);
+      add(left, leftShape.material, [shapeGeometry(leftShape, height, leftPivot, leftPivot, armScale, hipY, detail)]);
     }
   }
-  for (const shape of parts.handR) {
-    const pivot = armPivot('elbowR');
-    add('elbowR', shape.material, [shapeGeometry(shape, height, pivot, pivot, armScale, hipY)]);
-  }
-  for (const shape of parts.handL) {
+  // the free hand: the skeleton's open palm, or the part the kit puts there (the boss's claw)
+  const handL = kit.handL === undefined ? parts.handL : PROTO_HANDS[kit.handL].shapes;
+  for (const shape of handL) {
+    if (!keepsShape(shape, detail)) continue;
     const pivot = armPivot('elbowL');
-    add('elbowL', shape.material, [shapeGeometry(shape, height, pivot, pivot, armScale, hipY)]);
+    add('elbowL', shape.material, [shapeGeometry(shape, height, pivot, pivot, armScale, hipY, detail)]);
   }
 
   // A weapon's shapes, moved from the mount they hang on. The front toward -z is the table's own.
   const addWeapon = (bone: ProtoBone, shapesOf: readonly ProtoShape[], mount: Vec3): void => {
     const pivot: Vec3 = bone === 'torso' ? [0, 0, 0] : armPivot(bone);
     for (const shape of shapesOf) {
+      if (!keepsShape(shape, detail)) continue;
       const at: Vec3 = [shape.at[0] + mount[0], shape.at[1] + mount[1], shape.at[2] + mount[2]];
       const placed = { ...shape, at, mirror: false };
-      add(bone, shape.material, [shapeGeometry(placed, height, pivot, pivot, [1, 1, 1], hipY)]);
+      add(bone, shape.material, [shapeGeometry(placed, height, pivot, pivot, [1, 1, 1], hipY, detail)]);
       if (shape.mirror === true) {
-        const left = { ...mirroredShape(placed), mirror: false };
-        add(bone, shape.material, [shapeGeometry(left, height, pivot, pivot, [1, 1, 1], hipY)]);
+        const left = { ...mirrorShape(placed), mirror: false };
+        add(bone, shape.material, [shapeGeometry(left, height, pivot, pivot, [1, 1, 1], hipY, detail)]);
       }
     }
   };
@@ -384,20 +435,68 @@ export function buildProtoMech(height: number): THREE.Group {
   const torsoScale: Vec3 = [torsoWidth, 1, 1];
   const torsoOrigin: Vec3 = [0, 0, 0];
   for (const part of parts.core) {
-    add('torso', part.material, mirroredPair(part, height, torsoOrigin, torsoScale, hipY));
+    if (!keepsShape(part, detail)) continue;
+    add('torso', part.material, mirroredPair(part, height, torsoOrigin, torsoScale, hipY, detail));
   }
-  for (const part of parts.back) {
-    add('torso', part.material, mirroredPair(part, height, torsoOrigin, torsoScale, hipY));
+  // the torso's ornament, the head and the back are parts a kit chooses; the shell above is shared
+  for (const part of PROTO_TORSOS[kit.torso].shapes) {
+    if (!keepsShape(part, detail)) continue;
+    add('torso', part.material, mirroredPair(part, height, torsoOrigin, torsoScale, hipY, detail));
   }
-  for (const part of parts.head) {
-    add('head', part.material, mirroredPair(part, height, joints.neck, [1, 1, 1], hipY));
+  for (const part of PROTO_BACKS[kit.back].shapes) {
+    if (!keepsShape(part, detail)) continue;
+    add('torso', part.material, mirroredPair(part, height, torsoOrigin, torsoScale, hipY, detail));
   }
-  addWeapon('elbowR', parts.main.shapes, parts.armMount);
-  addWeapon('torso', parts.sub.shapes, [parts.backMount[0] * torsoWidth, parts.backMount[1], parts.backMount[2]]);
+  // the head keeps every shape even in a far build: its three lamps are the side's mark, and it is small
+  for (const part of PROTO_HEADS[kit.head].shapes) {
+    add('head', part.material, mirroredPair(part, height, joints.neck, [1, 1, 1], hipY, detail));
+  }
+
+  // The shoulders are two slots: the pauldron turns with the arm, and a pod over it stays on the torso. The left slot
+  // mirrors a part written for the right, so a kit can choose the same name on both sides.
+  for (const side of [1, -1] as const) {
+    const shoulder: ProtoShoulderPart = side > 0 ? PROTO_SHOULDERS[kit.shoulderR] : PROTO_SHOULDERS[kit.shoulderL];
+    const bone: ProtoBone = side > 0 ? 'shoulderR' : 'shoulderL';
+    const pivot = armPivot(bone);
+    for (const part of shoulder.shapes) {
+      if (!keepsShape(part, detail)) continue;
+      const shape = side > 0 ? { ...part, mirror: false } : { ...mirrorShape(part), mirror: false };
+      add(bone, shape.material, [shapeGeometry(shape, height, pivot, pivot, armScale, hipY, detail)]);
+    }
+    const pod = side > 0 ? shoulder.onRight : shoulder.onLeft;
+    if (pod !== undefined) {
+      const mount = pod.mount ?? [0, 0, 0];
+      addWeapon('torso', pod.shapes, [mount[0] * torsoWidth, mount[1], mount[2]]);
+    }
+  }
+
+  // the right hand's weapon: the fist turns with the elbow, the gun hangs from its mount
+  const weapon: ProtoWeaponPart = PROTO_WEAPONS[kit.weapon];
+  for (const shape of weapon.hand) {
+    if (!keepsShape(shape, detail)) continue;
+    const pivot = armPivot('elbowR');
+    add('elbowR', shape.material, [shapeGeometry(shape, height, pivot, pivot, armScale, hipY, detail)]);
+  }
+  addWeapon('elbowR', weapon.shapes, weapon.mount);
+
+  // The weapon's mouth sits on the elbow bone, in the same place as the gun's shapes, so it turns with the arm. The
+  // view reads it each frame to put the flash and the tracer at the barrel rather than at the old chest place.
+  let muzzle: THREE.Object3D | null = null;
+  if (weapon.muzzle !== undefined) {
+    const pivot = armPivot('elbowR');
+    muzzle = new THREE.Object3D();
+    muzzle.name = 'mech-proto-muzzle';
+    muzzle.position.set(
+      (weapon.muzzle[0] + weapon.mount[0] - pivot[0]) * height,
+      (weapon.muzzle[1] + weapon.mount[1] - pivot[1]) * height,
+      (weapon.muzzle[2] + weapon.mount[2] - pivot[2]) * height,
+    );
+    bones.elbowR.add(muzzle);
+  }
 
   const skeleton = new THREE.Skeleton(BONE_ORDER.map(name => bones[name]));
   for (const [materialName, geometries] of bins) {
-    const material = materialOf(materialName);
+    const material = materialOf(materialName, palette);
     const mesh = new THREE.SkinnedMesh(mergeShapes(geometries), material);
     mesh.name = 'mech-proto';
     // three culls by the shape's bounds alone, and a limb that swings would vanish at the screen's edge
@@ -419,7 +518,7 @@ export function buildProtoMech(height: number): THREE.Group {
     depthWrite: false,
   });
   const flames: { mesh: THREE.Mesh }[] = [];
-  for (const at of parts.exhaust) {
+  for (const at of PROTO_BACKS[kit.back].exhaust) {
     const mesh = new THREE.Mesh(flameGeometry(PROTO_TUNE.flame.radius * height), flameMaterial);
     mesh.position.set(at[0] * height, at[1] * height, at[2] * height);
     mesh.frustumCulled = false;
@@ -438,6 +537,10 @@ export function buildProtoMech(height: number): THREE.Group {
     bones,
     flames,
     flameMaterial,
+    muzzle,
+    offShoulder: kit.arms?.offShoulder ?? PROTO_TUNE.pose.offShoulder,
+    armInL: kit.arms?.leftIn ?? 0,
+    armInR: kit.arms?.rightIn ?? 0,
     shapes,
     time: 0,
   };
@@ -453,9 +556,10 @@ function mirroredPair(
   pivot: Vec3,
   scale: Vec3,
   lift: number,
+  detail: ProtoDetail,
 ): THREE.BufferGeometry[] {
-  const made = [shapeGeometry(shape, height, pivot, pivot, scale, lift)];
-  if (shape.mirror === true) made.push(shapeGeometry(mirroredShape(shape), height, pivot, pivot, scale, lift));
+  const made = [shapeGeometry(shape, height, pivot, pivot, scale, lift, detail)];
+  if (shape.mirror === true) made.push(shapeGeometry(mirrorShape(shape), height, pivot, pivot, scale, lift, detail));
   return made;
 }
 
@@ -480,8 +584,10 @@ function poseProto(rig: ProtoRig): void {
   bones.torso.rotation.x = lean;
   bones.head.rotation.x = -lean * pose.head;
   bones.shoulderR.rotation.x = pose.shoulder;
+  bones.shoulderR.rotation.z = -rig.armInR;
   bones.elbowR.rotation.x = -pose.elbow + recoil * pose.recoilElbow;
-  bones.shoulderL.rotation.x = pose.offShoulder;
+  bones.shoulderL.rotation.x = rig.offShoulder;
+  bones.shoulderL.rotation.z = rig.armInL;
   bones.elbowL.rotation.x = -pose.offElbow;
 
   // the ankle stays on the ground: the pair of angles is solved for the hip's height on every frame
@@ -517,6 +623,18 @@ export function animateProtoMech(root: THREE.Object3D, input: MotionInput, dt: n
   rig.time += dt;
   stepMotion(rig.motion, input, dt, rig.look.stride * rig.height);
   poseProto(rig);
+}
+
+// Where the weapon's mouth is in the world this frame, for the muzzle flash and the tracer. It hangs on the elbow bone,
+// so it follows the arm as the mech fires and breathes; null when the kit's weapon has no muzzle. The vector is reused
+// from frame to frame (and `getWorldPosition` walks up only the mouth's own chain), so a frame allocates nothing; the
+// caller must use it that frame and not keep it.
+const muzzleWorld = new THREE.Vector3();
+
+export function protoMuzzle(root: THREE.Object3D): THREE.Vector3 | null {
+  const rig = rigs.get(root);
+  if (rig?.muzzle === null || rig?.muzzle === undefined) return null;
+  return rig.muzzle.getWorldPosition(muzzleWorld);
 }
 
 // Makes the prototype see-through (`opacity` below 1) or solid again (1), for the sortie's camera pushed close by a wall.

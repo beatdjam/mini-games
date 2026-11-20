@@ -2,6 +2,7 @@
 // the smoke puffs, the tracers) and the cross-shaped planes. Made once at the size the tune asks for; battle/index.ts
 // moves them.
 import * as THREE from 'three';
+import type { DroidDetail } from '../../data/droids.ts';
 import { MAX_SOLDIERS } from '../../logic/crowd.ts';
 import { buildDroidGeometries } from '../droidModel.ts';
 import type { DroidMeshes } from '../droidPose.ts';
@@ -28,17 +29,18 @@ export interface CraterMeshes {
 }
 
 // The infantry droids: the body and the head, each one instanced mesh with the painted part and the lit part as its two
-// material groups. The landing's riders use it too, at their own smaller count.
-export function soldierMeshes(capacity = MAX_SOLDIERS): DroidMeshes {
-  const geometries = buildDroidGeometries();
+// material groups. The landing's riders and the single droid use the close form (`near`); the beach builds both forms and
+// each soldier takes one or the other (SB-2085). The far form's meshes are named with a `-far` suffix.
+export function soldierMeshes(capacity = MAX_SOLDIERS, detail: DroidDetail = 'near'): DroidMeshes {
+  const geometries = buildDroidGeometries(detail);
   const materials = [
     new THREE.MeshLambertMaterial({ vertexColors: true }),
     new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true }),
   ];
   const bodies = new THREE.InstancedMesh(geometries.body, materials, capacity);
   const heads = new THREE.InstancedMesh(geometries.head, materials, capacity);
-  bodies.name = 'sb-battle-bodies';
-  heads.name = 'sb-battle-heads';
+  bodies.name = detail === 'near' ? 'sb-battle-bodies' : 'sb-battle-bodies-far';
+  heads.name = detail === 'near' ? 'sb-battle-heads' : 'sb-battle-heads-far';
   for (const mesh of [bodies, heads]) {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;

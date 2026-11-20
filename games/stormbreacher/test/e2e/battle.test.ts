@@ -57,20 +57,32 @@ function allyGroups(): THREE.Group[] {
   return scene.children.filter((child): child is THREE.Group => child.name === ALLY_MESH_NAME);
 }
 
-// The battle's infantry bodies, named in parts.ts so the test can read how many are drawn.
-function battleBodies(): THREE.InstancedMesh {
-  const bodies = battleGroups()[0].getObjectByName('sb-battle-bodies');
-  if (!(bodies instanceof THREE.InstancedMesh)) throw new Error('the battle has no soldier bodies');
+// The battle's infantry bodies, named in parts.ts so the test can read how many are drawn. The near and far forms are
+// separate meshes (SB-2085); a soldier is written into one of them only.
+function battleBodies(): THREE.InstancedMesh[] {
+  const group = battleGroups()[0];
+  const bodies: THREE.InstancedMesh[] = [];
+  for (const name of ['sb-battle-bodies', 'sb-battle-bodies-far']) {
+    const mesh = group.getObjectByName(name);
+    if (mesh instanceof THREE.InstancedMesh) bodies.push(mesh);
+  }
+  if (bodies.length === 0) throw new Error('the battle has no soldier bodies');
   return bodies;
 }
 
+function battleSoldierCount(bodies: readonly THREE.InstancedMesh[]): number {
+  return bodies.reduce((sum, mesh) => sum + mesh.count, 0);
+}
+
 // One number from the drawn soldiers' places: a frame that moved any of them changes it.
-function battleBodiesPlacement(bodies: THREE.InstancedMesh): number {
+function battleBodiesPlacement(bodies: readonly THREE.InstancedMesh[]): number {
   const matrix = new THREE.Matrix4();
   let sum = 0;
-  for (let i = 0; i < bodies.count; i++) {
-    bodies.getMatrixAt(i, matrix);
-    sum += matrix.elements[12] * 1000 + matrix.elements[14];
+  for (const mesh of bodies) {
+    for (let i = 0; i < mesh.count; i++) {
+      mesh.getMatrixAt(i, matrix);
+      sum += matrix.elements[12] * 1000 + matrix.elements[14];
+    }
   }
   return sum;
 }
@@ -96,15 +108,15 @@ test('the battlefield holds still during the landing and starts when the control
   await frames(3);
   const bodies = battleBodies();
   // the landing's frames do not move the infantry: it starts at the sea edge and is not drawn yet
-  expect(bodies.count).toBe(0);
+  expect(battleSoldierCount(bodies)).toBe(0);
   for (let i = 0; i < 120; i++) runSystems(1 / 60);
   await frames(1);
-  expect(bodies.count).toBe(0);
+  expect(battleSoldierCount(bodies)).toBe(0);
   // the first controlled frame steps the battle and draws the first wave
   sendToScript(game(), { kind: 'skip' });
   runSystems(1 / 60);
   await frames(1);
-  expect(bodies.count).toBeGreaterThan(0);
+  expect(battleSoldierCount(bodies)).toBeGreaterThan(0);
 });
 
 test('the battlefield runs while the wave 2 cutscene plays', async () => {
@@ -121,7 +133,7 @@ test('the battlefield runs while the wave 2 cutscene plays', async () => {
   expect(game().script.cutscene?.id).toBe('wave2-sinks');
   await frames(1);
   const bodies = battleBodies();
-  expect(bodies.count).toBeGreaterThan(0);
+  expect(battleSoldierCount(bodies)).toBeGreaterThan(0);
   const before = battleBodiesPlacement(bodies);
   // half a second into the cutscene the infantry has moved on (the landing is the one that holds it still)
   for (let i = 0; i < 30; i++) runSystems(1 / 60);

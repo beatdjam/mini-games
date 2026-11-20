@@ -1,12 +1,12 @@
-// Builds the beach's infantry droids (SB-1745) out of the shapes of SB-1468 and the table in data/droids.ts. The body is
-// one merged geometry and the head another, each painted with vertex colours (armour, frame and accent); the lit windows
-// and lines are a second group in the same geometry, so a crowd of them costs one instanced mesh a part (two draws per
-// part: the paint and the light). The shapes are made once for a whole crowd, never per frame, and a mirrored shape (a
-// leg, a shoulder) is built as its own half and turned over x = 0.
+// Builds the beach's infantry droids (SB-1745, near and far forms SB-2085) out of the shapes of SB-1468 and the tables in
+// data/droids.ts. The body is one merged geometry and the head another, each painted with vertex colours (armour, frame
+// and accent); the lit windows and lines are a second group in the same geometry, so a crowd of them costs one instanced
+// mesh a part (two draws per part: the paint and the light). The shapes are made once for a whole crowd, never per frame,
+// and a mirrored shape (a leg, a shoulder) is built as its own half and turned over x = 0.
 import * as THREE from 'three';
 import { DROID_COLOR } from '../data/colors.ts';
-import { DROID_PARTS, DROID_TUNE, type DroidShape } from '../data/droids.ts';
-import { bakeGeometry, mergeShapes, plateGeometry, tubeGeometry } from './mechShapes.ts';
+import { DROID_PARTS, DROID_TUNE, type DroidDetail, type DroidShape } from '../data/droids.ts';
+import { bakeGeometry, mergeShapes, plateGeometry, ringGeometry, tubeGeometry } from './mechShapes.ts';
 
 // Group 0 is painted, group 1 is lit (the material array in battle/parts.ts follows this order).
 export interface DroidGeometries {
@@ -20,8 +20,9 @@ function colorOf(shape: DroidShape): THREE.Color {
 }
 
 // A shape with its place and turn baked in, then painted per vertex. Boxes are turned into triangle lists first, so
-// every shape in a merge carries the same attributes.
-function shapeGeometry(shape: DroidShape): THREE.BufferGeometry {
+// every shape in a merge carries the same attributes. The close form uses more sides on its round joints (SB-2085).
+function shapeGeometry(shape: DroidShape, detail: DroidDetail): THREE.BufferGeometry {
+  const sides = detail === 'near' ? DROID_TUNE.nearRoundSegments : DROID_TUNE.roundSegments;
   let geometry: THREE.BufferGeometry;
   switch (shape.kind) {
     case 'plate': {
@@ -43,7 +44,10 @@ function shapeGeometry(shape: DroidShape): THREE.BufferGeometry {
       break;
     }
     case 'tube':
-      geometry = tubeGeometry(shape.radius ?? 0, shape.length ?? 0, shape.axis ?? 'y', DROID_TUNE.roundSegments);
+      geometry = tubeGeometry(shape.radius ?? 0, shape.length ?? 0, shape.axis ?? 'y', sides);
+      break;
+    case 'ring':
+      geometry = ringGeometry(shape.radius ?? 0, shape.tube ?? 0, shape.axis ?? 'y', sides);
       break;
   }
   geometry = bakeGeometry(geometry, shape.at, shape.rot);
@@ -72,11 +76,11 @@ function mirroredShape(shape: DroidShape): DroidShape {
 
 // The body or the head: the painted shapes are merged into one geometry and the lit ones into another, then the two
 // are joined with a group each, so the mesh draws the paint and the light with the two materials of parts.ts.
-function mergePart(shapes: readonly DroidShape[]): THREE.BufferGeometry {
+function mergePart(shapes: readonly DroidShape[], detail: DroidDetail): THREE.BufferGeometry {
   const painted: THREE.BufferGeometry[] = [];
   const lit: THREE.BufferGeometry[] = [];
   const add = (shape: DroidShape): void => {
-    const geometry = shapeGeometry(shape);
+    const geometry = shapeGeometry(shape, detail);
     if (shape.material === 'glow') lit.push(geometry);
     else painted.push(geometry);
     if (shape.mirror === true) add({ ...mirroredShape(shape), mirror: false });
@@ -85,9 +89,10 @@ function mergePart(shapes: readonly DroidShape[]): THREE.BufferGeometry {
   return mergeShapes([mergeShapes(painted), mergeShapes(lit)], true);
 }
 
-export function buildDroidGeometries(): DroidGeometries {
+export function buildDroidGeometries(detail: DroidDetail = 'near'): DroidGeometries {
+  const parts = DROID_PARTS[detail];
   return {
-    body: mergePart(DROID_PARTS.body),
-    head: mergePart(DROID_PARTS.head),
+    body: mergePart(parts.body, detail),
+    head: mergePart(parts.head, detail),
   };
 }

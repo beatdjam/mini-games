@@ -4,11 +4,11 @@
 import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
-import { MECH_PROTO_COLOR } from '../../data/colors.ts';
+import { PROTO_PALETTES } from '../../data/colors.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { CORES, MECH_PAINT, MECH_PAINT_TEX, PARTS } from '../../data/mech.ts';
-import { PROTO_MATERIALS, PROTO_TUNE } from '../../data/mechProto.ts';
+import { PROTO_KIT_IDS, PROTO_KITS, PROTO_MATERIALS, PROTO_TUNE, type ProtoKitId } from '../../data/mechProto.ts';
 import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
 import { moveTuneOf } from '../../logic/mechTune.ts';
 import { applyPose, cameraPose } from '../../view/camera.ts';
@@ -19,7 +19,7 @@ import { protoTextureBytes } from '../../view/mechProtoSurfaces.ts';
 import { resetMechPaint } from '../../view/mechSurfaces.ts';
 import { addProtoStage, stageFlag, type ProtoStage } from '../../view/protoStage.ts';
 import { PATTERN_IDS, PATTERN_LABELS, PATTERNS, type PatternId } from '../mech/patterns.ts';
-import { createTunePanel } from '../tunePanel.ts';
+import { createTunePanel, type TunePanel } from '../tunePanel.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
 
 declare global {
@@ -44,6 +44,20 @@ const SPIN_RATE = 0.6;
 
 const KEY_PATTERN: Record<string, PatternId> = { '1': 'a', '2': 'e', '3': 'f', '4': 'b', '5': 'd' };
 
+// The kits of #view-mech?kit: the player's prototype, the friendly paint, and the three views' variants. The labels stay
+// in src/dev/, where screen text is allowed.
+const KIT_LABELS: Record<ProtoKitId, string> = {
+  player: '自機（白・黄）',
+  ally: '味方（明るい黄・橙）',
+  sniper: '狙撃',
+  scout: '偵察',
+  enemy: '敵（灰・赤）',
+  enemyRifle: '敵・小銃',
+  enemyGunner: '敵・ガンナー',
+  enemyHeavy: '敵・重装',
+  boss: 'ボス（黒・赤）',
+};
+
 // The motions the buttons act out. 'jump' lasts one hop; the others stay on until pressed again.
 const ACTS = ['walk', 'boost', 'jump', 'fire'] as const;
 type Act = (typeof ACTS)[number];
@@ -58,6 +72,7 @@ interface MechState {
   spin: boolean;
   view: ViewMode;
   proto: boolean; // draw the prototype (data/mechProto.ts) in place of the sortie's mech
+  kit: ProtoKitId; // the parts and palette the prototype wears (?kit=player, sniper, scout, enemy)
   compare: boolean; // draw the prototype and the sortie's mech side by side
   on: Record<Act, boolean>; // 'jump' is on while a hop lasts
   hopT: number; // the time since the hop began (s)
@@ -83,11 +98,15 @@ function button(parent: HTMLElement, label: string, onClick: () => void): HTMLBu
 function stateOf(params: URLSearchParams): MechState {
   const asked = params.get('pattern');
   const pattern = asked !== null && (PATTERN_IDS as readonly string[]).includes(asked) ? (asked as PatternId) : 'a';
+  const askedKit = params.get('kit');
+  const kit =
+    askedKit !== null && (PROTO_KIT_IDS as readonly string[]).includes(askedKit) ? (askedKit as ProtoKitId) : 'player';
   return {
     pattern,
     spin: params.get('spin') !== '0',
     view: params.get('view') === 'behind' ? 'behind' : 'spin',
-    proto: params.has('proto') || params.has('compare'),
+    proto: params.has('proto') || params.has('compare') || params.has('kit'),
+    kit,
     compare: params.has('compare'),
     on: { walk: false, boost: false, jump: false, fire: false },
     hopT: 0,
@@ -132,7 +151,7 @@ export function showMech(_hash: string) {
   let protoMech: THREE.Group | null = null;
   let stage: ProtoStage | null = null;
   if (state.proto) {
-    protoMech = buildProtoMech(height);
+    protoMech = buildProtoMech(height, state.kit);
     protoMech.position.set(protoX(), 0, z);
     scene.add(protoMech);
     stage = addProtoStage(protoMech, built.group, x, z);
@@ -142,6 +161,7 @@ export function showMech(_hash: string) {
   }
 
   document.getElementById('sbMechBar')?.remove();
+  document.getElementById('sbKitBar')?.remove();
   const bar = document.createElement('div');
   bar.id = 'sbMechBar';
   bar.style.cssText =
@@ -197,6 +217,23 @@ export function showMech(_hash: string) {
           syncUrl();
         });
 
+  // The kit's switches: a named set of parts and colours (?kit=player, ally, sniper, scout, enemy). The row sits under
+  // the main bar, so the pattern buttons keep their place.
+  const kitButtons = new Map<ProtoKitId, HTMLButtonElement>();
+  if (protoMech !== null) {
+    const kitBar = document.createElement('div');
+    kitBar.id = 'sbKitBar';
+    kitBar.style.cssText =
+      'position:fixed;left:50%;top:30px;transform:translateX(-50%);height:28px;z-index:8;' +
+      'pointer-events:auto;display:flex;gap:4px';
+    document.body.appendChild(kitBar);
+    for (const id of PROTO_KIT_IDS)
+      kitButtons.set(
+        id,
+        button(kitBar, KIT_LABELS[id], () => setKit(id)),
+      );
+  }
+
   // The paint's numbers (#view-mech's panel): a change repaints the pictures and rebuilds the mech where it stands, so
   // the grime, the stencil and the stripes can be judged against the sand.
   createTunePanel({
@@ -241,89 +278,92 @@ export function showMech(_hash: string) {
 
   // The prototype's numbers, apart from the sortie's mech's panel: the stance, the colours, the materials and the body's
   // proportions. A stance change is read every frame; the rest need the model (or its materials) remade, so they wait
-  // for the slider to be let go. A colour row writes the whole 0xRRGGBB number the table holds.
-  const protoPanel =
-    protoMech === null
-      ? null
-      : createTunePanel({
-          id: 'sbProtoPanel',
-          title: '試作の調整 #view-mech?proto',
-          groups: [
-            {
-              name: 'PROTO_TUNE',
-              table: PROTO_TUNE,
-              ranges: {
-                'pose.knee': { min: 0, max: 1.7, step: 0.01 },
-                'pose.lean': { min: -0.6, max: 0, step: 0.01 },
-                'pose.hip': { min: 0.32, max: 0.56, step: 0.005 },
-                'pose.elbow': { min: 0, max: 1.2, step: 0.01 },
-                'build.legLength': { min: 0.8, max: 1.25, step: 0.01 },
-                'build.torsoWidth': { min: 0.8, max: 1.3, step: 0.01 },
-                'build.limbGirth': { min: 0.8, max: 1.4, step: 0.01 },
-                'light.env': { min: 0, max: 2.5, step: 0.05 },
-              },
-              labels: {
-                'pose.knee': '膝の曲げ',
-                'pose.lean': '前傾',
-                'pose.hip': '腰の高さ',
-                'pose.elbow': '肘の曲げ',
-                'build.legLength': '脚の長さ',
-                'build.torsoWidth': '胸と肩の幅',
-                'build.limbGirth': '四肢の太さ',
-                'light.env': '環境の光',
-              },
-            },
-            {
-              name: 'PROTO_MATERIALS',
-              table: PROTO_MATERIALS,
-              ranges: {
-                'armor.metalness': { min: 0, max: 1, step: 0.01 },
-                'armor.roughness': { min: 0, max: 1, step: 0.01 },
-                'armor.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
-                'frame.metalness': { min: 0, max: 1, step: 0.01 },
-                'frame.roughness': { min: 0, max: 1, step: 0.01 },
-                'frame.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
-                'accent.metalness': { min: 0, max: 1, step: 0.01 },
-                'accent.roughness': { min: 0, max: 1, step: 0.01 },
-                'accent.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
-                'glow.metalness': { min: 0, max: 1, step: 0.01 },
-                'glow.roughness': { min: 0, max: 1, step: 0.01 },
-                'glow.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
-                'glow.emissive': { min: 0, max: 3, step: 0.05 },
-              },
-              labels: {
-                'armor.metalness': '装甲の金属度',
-                'armor.roughness': '装甲の粗さ',
-                'armor.envMapIntensity': '装甲の環境の光',
-                'frame.metalness': '骨格の金属度',
-                'frame.roughness': '骨格の粗さ',
-                'frame.envMapIntensity': '骨格の環境の光',
-                'accent.metalness': '差し色の金属度',
-                'accent.roughness': '差し色の粗さ',
-                'accent.envMapIntensity': '差し色の環境の光',
-                'glow.metalness': '発光の金属度',
-                'glow.roughness': '発光の粗さ',
-                'glow.envMapIntensity': '発光の環境の光',
-                'glow.emissive': '発光の明るさ',
-              },
-            },
-            {
-              name: 'MECH_PROTO_COLOR',
-              table: MECH_PROTO_COLOR,
-              ranges: {},
-              colors: { armor: '装甲', frame: '地', accent: '差し色', glow: '発光の線' },
-            },
-          ],
-          onCommit: (group, key) => {
-            // the stance is read every frame; the rest remakes the model
-            if (group === 'PROTO_TUNE' && key.startsWith('pose.')) return;
-            rebuildProto();
+  // for the slider to be let go. A colour row writes the whole 0xRRGGBB number the table holds. The colour table is the
+  // selected kit's row, so another kit shows (and edits) its own palette.
+  createProtoPanel();
+
+  function createProtoPanel(): TunePanel | null {
+    if (protoMech === null) return null;
+    const palette = PROTO_PALETTES[PROTO_KITS[state.kit].palette];
+    const panel = createTunePanel({
+      id: 'sbProtoPanel',
+      title: `試作の調整 #view-mech?kit=${state.kit}`,
+      groups: [
+        {
+          name: 'PROTO_TUNE',
+          table: PROTO_TUNE,
+          ranges: {
+            'pose.knee': { min: 0, max: 1.7, step: 0.01 },
+            'pose.lean': { min: -0.6, max: 0, step: 0.01 },
+            'pose.hip': { min: 0.32, max: 0.56, step: 0.005 },
+            'pose.elbow': { min: 0, max: 1.2, step: 0.01 },
+            'build.legLength': { min: 0.8, max: 1.25, step: 0.01 },
+            'build.torsoWidth': { min: 0.8, max: 1.3, step: 0.01 },
+            'build.limbGirth': { min: 0.8, max: 1.4, step: 0.01 },
+            'light.env': { min: 0, max: 2.5, step: 0.05 },
           },
-        });
-  if (protoPanel !== null) {
+          labels: {
+            'pose.knee': '膝の曲げ',
+            'pose.lean': '前傾',
+            'pose.hip': '腰の高さ',
+            'pose.elbow': '肘の曲げ',
+            'build.legLength': '脚の長さ',
+            'build.torsoWidth': '胸と肩の幅',
+            'build.limbGirth': '四肢の太さ',
+            'light.env': '環境の光',
+          },
+        },
+        {
+          name: 'PROTO_MATERIALS',
+          table: PROTO_MATERIALS,
+          ranges: {
+            'armor.metalness': { min: 0, max: 1, step: 0.01 },
+            'armor.roughness': { min: 0, max: 1, step: 0.01 },
+            'armor.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+            'frame.metalness': { min: 0, max: 1, step: 0.01 },
+            'frame.roughness': { min: 0, max: 1, step: 0.01 },
+            'frame.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+            'accent.metalness': { min: 0, max: 1, step: 0.01 },
+            'accent.roughness': { min: 0, max: 1, step: 0.01 },
+            'accent.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+            'glow.metalness': { min: 0, max: 1, step: 0.01 },
+            'glow.roughness': { min: 0, max: 1, step: 0.01 },
+            'glow.envMapIntensity': { min: 0, max: 2.5, step: 0.05 },
+            'glow.emissive': { min: 0, max: 3, step: 0.05 },
+          },
+          labels: {
+            'armor.metalness': '装甲の金属度',
+            'armor.roughness': '装甲の粗さ',
+            'armor.envMapIntensity': '装甲の環境の光',
+            'frame.metalness': '骨格の金属度',
+            'frame.roughness': '骨格の粗さ',
+            'frame.envMapIntensity': '骨格の環境の光',
+            'accent.metalness': '差し色の金属度',
+            'accent.roughness': '差し色の粗さ',
+            'accent.envMapIntensity': '差し色の環境の光',
+            'glow.metalness': '発光の金属度',
+            'glow.roughness': '発光の粗さ',
+            'glow.envMapIntensity': '発光の環境の光',
+            'glow.emissive': '発光の明るさ',
+          },
+        },
+        {
+          name: `PROTO_PALETTES.${PROTO_KITS[state.kit].palette}`,
+          table: palette,
+          ranges: {},
+          colors: { armor: '装甲', frame: '関節', accent: '差し色', glow: '発光', mark: '味方の印' },
+        },
+      ],
+      onCommit: (group, key) => {
+        // the stance is read every frame; the rest remakes the model
+        if (group === 'PROTO_TUNE' && key.startsWith('pose.')) return;
+        rebuildProto();
+      },
+    });
     // the sortie's mech keeps the right side; the prototype's panel sits on the left
-    protoPanel.element.style.left = '8px';
-    protoPanel.element.style.right = 'auto';
+    panel.element.style.left = '8px';
+    panel.element.style.right = 'auto';
+    return panel;
   }
 
   function toggleAct(act: Act) {
@@ -340,6 +380,7 @@ export function showMech(_hash: string) {
   function paintButtons() {
     for (const [id, node] of patternButtons) paintButton(node, id === state.pattern);
     for (const [act, node] of actButtons) paintButton(node, state.on[act]);
+    for (const [id, node] of kitButtons) paintButton(node, id === state.kit);
     paintButton(spinButton, state.spin);
     paintButton(viewButton, state.view === 'behind');
     if (shadowButton !== null && stage !== null) paintButton(shadowButton, stage.shadowOn);
@@ -374,7 +415,7 @@ export function showMech(_hash: string) {
     disposeProtoMech(protoMech);
     stage?.dispose();
     stage = null;
-    protoMech = buildProtoMech(height);
+    protoMech = buildProtoMech(height, state.kit);
     protoMech.position.copy(position);
     protoMech.rotation.y = yaw;
     protoMech.visible = visible;
@@ -415,6 +456,22 @@ export function showMech(_hash: string) {
     history.replaceState(null, '', `${location.pathname}?${query.toString()}${location.hash}`);
   }
 
+  // Switches the prototype's kit: the model, the palette shown in the panel and ?kit all follow. The old panel is
+  // replaced, so its colour rows point at the new kit's palette.
+  function setKit(next: ProtoKitId) {
+    if (next === state.kit) {
+      paintButtons();
+      return;
+    }
+    state.kit = next;
+    rebuildProto();
+    createProtoPanel();
+    paintButtons();
+    const query = new URLSearchParams(location.search);
+    query.set('kit', next);
+    history.replaceState(null, '', `${location.pathname}?${query.toString()}${location.hash}`);
+  }
+
   window.sbMechReport = () => {
     const draws = countMechDraws(mech);
     const build = PATTERNS[state.pattern].build;
@@ -428,6 +485,7 @@ export function showMech(_hash: string) {
     return JSON.stringify({
       pattern: state.proto ? 'proto' : state.pattern,
       mode: state.proto ? (state.compare ? 'compare' : 'proto') : 'pattern',
+      kit: state.proto ? state.kit : null,
       spin: state.spin,
       view: state.view,
       acts: state.on,

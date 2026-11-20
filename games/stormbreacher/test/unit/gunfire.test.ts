@@ -1,5 +1,7 @@
 import { expect, test } from 'vitest';
+import * as THREE from 'three';
 import { GUNFIRE_CAP, GUNFIRE_TUNE } from '../../src/data/gunfire.ts';
+import { WEAPONS } from '../../src/data/weapons.ts';
 import type { Bullet } from '../../src/logic/game.ts';
 import {
   buildGunfireView,
@@ -34,6 +36,67 @@ test('a hostile bullet flashes its muzzle once, not on every frame it is seen', 
     // the same bullet is in flight on the next frame too, but its muzzle has already flashed
     drawGunfire(view, [bullet], 0);
     expect(gunfireCounts(view).flashes).toBe(1);
+  } finally {
+    removeGunfireView(view);
+  }
+});
+
+test('the mech’s tracer leaves the cannon’s mouth while the bullet is still behind it', () => {
+  const view = buildGunfireView();
+  try {
+    // the logic fires from the chest, well behind the cannon the three views draw
+    const bullet: Bullet = {
+      weapon: 'autocannon',
+      x: 0.9,
+      y: 2.5,
+      z: -0.4,
+      dx: 0,
+      dy: 0,
+      dz: -1,
+      left: WEAPONS.autocannon.range,
+    };
+    const muzzle = new THREE.Vector3(0.64, 2.9, -3);
+    drawGunfire(view, [bullet], 0, muzzle);
+    const matrix = new THREE.Matrix4();
+    view.tracers.getMatrixAt(0, matrix);
+    const mid = new THREE.Vector3().setFromMatrixPosition(matrix);
+    // the band starts at the muzzle and reaches forward, not back from the bullet
+    expect(mid.z).toBeCloseTo(muzzle.z - GUNFIRE_TUNE.tracer.length / 2, 5);
+  } finally {
+    removeGunfireView(view);
+  }
+});
+
+// SB-2086: whether a shot is new enough to leave the barrel is read from its own range left, not from where the muzzle
+// stands. A shot that crosses in front of the gun (here fired backwards) still starts at the mouth, and an older shot
+// whose mouth has walked forward stays at its own head.
+test('a new shot starts at the muzzle whichever way it flies, and an old one does not', () => {
+  const view = buildGunfireView();
+  const matrix = new THREE.Matrix4();
+  const mid = new THREE.Vector3();
+  try {
+    const across: Bullet = {
+      weapon: 'autocannon',
+      x: 0.9,
+      y: 2.5,
+      z: -0.4,
+      dx: 0,
+      dy: 0,
+      dz: 1,
+      left: WEAPONS.autocannon.range,
+    };
+    const muzzle = new THREE.Vector3(0.64, 2.9, -3);
+    drawGunfire(view, [across], 0, muzzle);
+    view.tracers.getMatrixAt(0, matrix);
+    mid.setFromMatrixPosition(matrix);
+    expect(mid.z, 'across the muzzle').toBeCloseTo(muzzle.z + GUNFIRE_TUNE.tracer.length / 2, 5);
+
+    const old: Bullet = { ...across, x: 0.9, z: -20, left: WEAPONS.autocannon.range - 20 };
+    drawGunfire(view, [old], 0, muzzle);
+    view.tracers.getMatrixAt(0, matrix);
+    mid.setFromMatrixPosition(matrix);
+    // its band's middle is 4 m behind its own head, not at the mouth
+    expect(mid.z, 'an older shot').toBeCloseTo(-20 - GUNFIRE_TUNE.tracer.length / 2, 5);
   } finally {
     removeGunfireView(view);
   }

@@ -35,5 +35,7 @@ async function picture(name: string, distance: number): Promise<void> {
 
 test('grunts', async () => {
   if (wanted('grunts-near')) await picture('grunts-near', 10);
+  // a middle distance reads the parts (SB-2083): past 40 m the camera turns to the side, and the roles take their far shapes
+  if (wanted('grunts-mid')) await picture('grunts-mid', 45);
   if (wanted('grunts-far')) await picture('grunts-far', 80);
 });

@@ -2,7 +2,7 @@ import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
 import { renderer, scene } from '@engine/render/index.ts';
-import { PROTO_MATERIALS } from '../../src/data/mechProto.ts';
+
 import { CAMERA_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { sendToScript } from '../../src/logic/game.ts';
@@ -38,7 +38,8 @@ test('a sortie draws the mech as one skinned mesh per material, with no stand-in
   startSortie();
   await frame();
   const meshes = mechMeshes();
-  expect(meshes.length).toBe(Object.keys(PROTO_MATERIALS).length);
+  // the player's kit wears armour, frame, accent and glow: the friendly side's mark (#551) is the allies' alone
+  expect(meshes.length).toBe(4);
   const group = meshes[0].parent!;
   const draws = countProtoDraws(group);
   console.log(`sortie mech draws: ${draws.calls} calls, ${draws.triangles} triangles, ${draws.shapes} shapes`);
