@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Write the state of the tickets (.tasks/) as one Markdown page, to look at away from the machine.
 
-The page lists each ticket with what it is about and where it stands (waiting / running / to review / sent back /
+When the queue gave up (tools/run_queue.sh logged "…止める", e.g. OpenCode's usage ran out), the page starts with that
+line, so it is noticed from the phone. The page lists each ticket with what it is about and where it stands (waiting / running / to review / sent back /
 PR #n), the open PRs, the drafts and the last lines of the queue's log. .tasks/ is not committed, so this page is how
 the state is seen from elsewhere (the Obsidian vault the page is written into syncs to the phone).
 
@@ -78,6 +79,20 @@ def last_log_lines(log: Path) -> dict[str, str]:
     return latest
 
 
+def stop_line(log: Path) -> str:
+    # tools/run_queue.sh writes "---- 開始 ----" / "---- 終わり ----" around a run and "…止める" when it gives up.
+    # When the latest of those is a stop, the queue is not running any more and someone should look; return that line
+    if not log.exists():
+        return ""
+    last = ""
+    for line in log.read_text(encoding="utf-8").splitlines():
+        if "---- 開始 ----" in line or "---- 終わり ----" in line:
+            last = ""
+        elif "止める" in line:
+            last = line
+    return last
+
+
 def state_of(root: Path, num: str, name: str, queued: set[str], latest: dict[str, str], prs: dict[str, dict]) -> str:
     branch = branch_of(name)
     if branch in prs:
@@ -132,6 +147,18 @@ def build(root: Path) -> str:
         "",
         f"`tools/queue_status.py` が書いたページ（{now} JST）。手で直さない。",
         "",
+    ]
+    stopped = stop_line(tasks / "queue.log")
+    if stopped:
+        out += [
+            "## キューが止まっている",
+            "",
+            f"> {stopped}",
+            "",
+            "ログと作業ツリーを確かめてから、`tools/run_queue.sh` を回し直す。",
+            "",
+        ]
+    out += [
         "## 票",
         "",
     ]
