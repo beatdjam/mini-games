@@ -11,6 +11,7 @@
 # - 次の票を選ぶたびに queue.txt を先頭から読み直す（回している途中で順を入れ替えると、次から反映される）
 # - queue.txt の2列目からは土台。master か、先に回す票の番号（その票の未レビューのコミットの上に積む）
 # - result が出なかったときは、混雑で落ちたなら少し待って続きから回し直す。それでも出なければ止める
+# - OpenCode の使える量（月などの枠）が尽きて落ちたときは、待っても戻らないので、その理由をログに書いてキューごと止める
 # - merge がぶつかったときは、そこで止める
 # - queue.txt の例: 「110 master」「160 110」（# から後と空行は読まない）。.tasks/ はコミットしないので、手元で書く
 # 経過は .tasks/queue.log に書く。Claude が戻ったら、result と WIP のコミットを番号の順にレビューする。
@@ -23,7 +24,7 @@ DRY=0
 # 作業ツリーから動かしても、本体（.git がある所）の .tasks/ を見る
 R=$(dirname "$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir)")
 T=$R/.tasks
-OC=$HOME/.opencode/bin/opencode
+OC=${QUEUE_OPENCODE:-$HOME/.opencode/bin/opencode} # QUEUE_OPENCODE はテストで偽物に替えるため
 LOG=$T/queue.log
 # 混雑で落ちたときに、待つ秒数と回し直す回数
 BUSY_WAIT=60
@@ -51,6 +52,10 @@ busy_log() {
   local tail; tail=$(tail -n "$BUSY_TAIL" "$1" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
   printf '%s\n' "$tail" | grep -q 'Upstream request failed' || return 1
   printf '%s\n' "$tail" | grep -qE 'overloaded|at capacity'
+}
+# ログの末尾が、OpenCode の使える量が尽きたときのものなら、その理由（「usage limit reached (monthly, resets in 5d 11h)」）を出す
+limit_log() {
+  tail -n "$BUSY_TAIL" "$1" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | grep -m1 -oE 'usage limit reached( \([^)]*\))?'
 }
 # --title で引いたセッションの ID
 session_of() { env -C "$1" PWD="$1" "$OC" session list 2>/dev/null | awk -v t="$2" 'index($0, t) {print $1; exit}'; }
@@ -228,6 +233,10 @@ while next_ticket; do
       env -C "$wt" PWD="$wt" OPENCODE_DISABLE_CLAUDE_CODE=1 "$OC" run --standalone --session "$id" "$cont" \
         </dev/null >>"$wt/.tasks/oc-$n.log" 2>&1
     done
+    if [ ! -f "$wt/.tasks/$name.result.md" ] && why=$(limit_log "$wt/.tasks/oc-$n.log"); then
+      log "票$n: OpenCode の使える量が尽きた（${why}）。キューを止める"
+      exit 1
+    fi
     if [ ! -f "$wt/.tasks/$name.result.md" ]; then
       log "票$n: result が無い。止める（$wt/.tasks/oc-$n.log を見る）"
       exit 1
