@@ -65,16 +65,16 @@ export const CAMERA_TUNE: CameraTune = {
 
 // The mech's movement on flat ground (SB-025). Speeds are m/s, accelerations m/s^2.
 export const MOVE_TUNE: MoveTune = {
-  walk: 7.5, // the walking speed (m/s)
+  walk: 8, // the walking speed (m/s)
   stepHeight: 0.75, // the highest ledge the mech walks onto without a jump (m); provisional, SB-120's low obstacles settle it
   accel: 40, // how fast walking speeds up (m/s^2)
   decel: 90, // how fast the mech slows down with no input (m/s^2)
-  jump: 9.4, // the upward speed a jump starts with (m/s)
+  jump: 10, // the upward speed a jump starts with (m/s); the peak is about 2.5 m
   gravity: 20, // the downward pull in the air (m/s^2)
   airControl: 0.4, // the share of the walking acceleration that works in the air (0-1)
-  boost: 15, // the boost's speed (m/s)
+  boost: 25, // the boost's speed (m/s)
   boostAccel: 80, // how fast the boost speeds up (m/s^2)
-  boostDrain: 0.5, // the gauge a second of boosting uses (gauge/s)
+  boostDrain: 0.3, // the gauge a second of boosting uses (gauge/s)
   boostRegen: 0.35, // the gauge a second on the ground gives back (gauge/s)
   hoverFall: 1.5, // the fastest a hover lets the mech fall (m/s)
   hoverDrain: 0.3, // the gauge a second of hovering uses (gauge/s)
@@ -88,7 +88,7 @@ export const MOVE_TUNE: MoveTune = {
 // written; the biped is the standard and changes none. The mech's own table is made by moveTuneOf (logic/mechTune.ts).
 export const LEG_MOVE_TUNE: Record<GaitKind, Partial<MoveTune>> = {
   biped: {},
-  reverse: { walk: 8.5, accel: 44, jump: 10.4, boostDrain: 0.42, stepHeight: 0.6 }, // fast, jumps high, boosts long
+  reverse: { walk: 8.5, accel: 44, jump: 10.4, boostDrain: 0.25, stepHeight: 0.6 }, // fast, jumps high, boosts long
   multi: { walk: 6.2, jump: 7.05, stepHeight: 0.6 }, // slow, jumps low
 };
 
@@ -120,7 +120,7 @@ export const FEEL_TUNE = {
   damageShake: 0.2, // the shake a hit on the mech adds (m)
   shakeMax: 0.9, // the most a frame's shake may reach when blasts add to it (m; the biggest blast 0.7 plus a hit's 0.2)
   shakeDecay: 10, // how fast the shake dies away (1/s)
-  hitStop: 0.05, // how long a kill stops the mech (s); a plain hit does not (8 shots a second made it stutter)
+  hitStop: 0.025, // how long a kill stops the mech (s); a plain hit does not (8 shots a second made it stutter)
   dust: 1, // the multiplier on how much dust a burst makes; 0 makes none
   fireRate: 8, // the shots a second while the fire key is held (shots/s)
 };
@@ -141,12 +141,12 @@ export const FCS_TUNE: Record<FcsKind, FcsTune> = {
     breakCone: 0,
   },
   soft: {
-    cone: 8,
+    cone: 10,
     range: 200,
     spread: 0.8,
-    nearRange: 15,
+    nearRange: 20,
     nearSpread: 0.25,
-    pull: 20,
+    pull: 25,
     lockTime: 0,
     trackRate: 0,
     breakCone: 0,

@@ -22,12 +22,13 @@ const CAMERA_TUNE = { ...TUNED, returnDelay: 0 };
 
 const DT = 1 / 60;
 const DEG = 180 / Math.PI;
-const BOOST = 15; // m/s
+const BOOST = MOVE_TUNE.boost; // m/s, the boost speed the push and release cases below run at
 const SECONDS = 2; // the boost's length
 const MAX_FRAME_TURN = 5; // deg
 const PULL_STEP = CAMERA_TUNE.pullSpeed * DT; // the most a wall's share may move the camera in one frame (m)
 const WITHIN = 1e-9; // m
 const FLICK_TURN = 12; // rad/s, a hard mouse flick: 180 degrees in a quarter second, far past MOVE_TUNE.turn
+const BACK_FRAMES = 36; // frames the mech backs away in the let-go flick case: the wall has let go, the camera not yet back (36 to 40 at the boost)
 const FLICK_SETTLE = 30; // frames the camera reaches its place before the flick
 
 const at = (x: number, z: number, yaw = 0): CameraTarget => ({ x, y: 0, z, yaw });
@@ -184,8 +185,8 @@ test('a wall that has let the camera back out, then a 180 degree flick: the came
   const boxes = cameraBoxes([{ x: 0, z: 2, halfW: 10, halfD: 1, yaw: 0, top: 6 }]); // near face z = 1
   const targets: CameraTarget[] = [];
   for (let frame = 0; frame < FLICK_SETTLE; frame++) targets.push(at(0, 0));
-  for (let frame = 0; frame < 32; frame++) targets.push(at(0, -BOOST * (frame + 1) * DT));
-  const end = -BOOST * 32 * DT;
+  for (let frame = 0; frame < BACK_FRAMES; frame++) targets.push(at(0, -BOOST * (frame + 1) * DT));
+  const end = -BOOST * BACK_FRAMES * DT;
   for (let frame = 0; frame < 16; frame++) targets.push(at(0, end));
   const flickStart = targets.length;
   const frames = Math.ceil(Math.PI / (FLICK_TURN * DT));
@@ -238,7 +239,7 @@ test('a wall that pulls a standing camera in never puts the camera in a box', ()
 const wallBehind = (): THREE.Box3[] => cameraBoxes([{ x: 0, z: 2, halfW: 10, halfD: 1, yaw: 0, top: 6 }]);
 
 // The wall's share of the move alone is held to pullSpeed; the mech's own travel is followed exactly.
-for (const speed of [7.5, BOOST]) {
+for (const speed of [MOVE_TUNE.walk, MOVE_TUNE.boost]) {
   test(`walking past a wall's end at ${speed} m/s: the wall's share slides and the screen turns little`, () => {
     const settle = Array.from({ length: 30 }, () => at(0, 0));
     const run = Array.from({ length: 240 }, (_, frame) => at(speed * frame * DT, 0));
@@ -266,9 +267,10 @@ test('backing the mech up for two seconds never walks the camera into its chest,
   // The wall's near face is 5 m past where the two seconds of backing end: it presses the camera in late, then the mech
   // reaches the end of the run before the wall stops it.
   expect(minChest([]), 'the open').toBeGreaterThan(MECH_TUNE.fadeDist);
-  expect(minChest(cameraBoxes([{ x: 0, z: 38, halfW: 10, halfD: 3, yaw: 0, top: 6 }])), 'a wall').toBeGreaterThan(
-    MECH_TUNE.fadeDist,
-  );
+  expect(
+    minChest(cameraBoxes([{ x: 0, z: BOOST * SECONDS + 8, halfW: 10, halfD: 3, yaw: 0, top: 6 }])),
+    'a wall',
+  ).toBeGreaterThan(MECH_TUNE.fadeDist);
 });
 
 // The targets of a run that ends at a wall: settle, travel along `ratio` (x to z) at `speed` until the mech stands
@@ -290,9 +292,9 @@ function runIntoWall(ratio: number, speed: number, stopZ: number, yaw: number): 
 test('backing or sliding into a wall until the mech stops never puts the camera in a box', () => {
   const boxes = cameraBoxes([{ x: 0, z: 38, halfW: 10, halfD: 3, yaw: 0, top: 6 }]); // near face z = 35
   const runs: Array<[string, CameraTarget[]]> = [
-    ['backing up at 15 m/s', runIntoWall(0, BOOST, 34, 0)],
-    ['diagonally back at 15 m/s', runIntoWall(0.2, BOOST, 34, 0)],
-    ['walking sideways at 7.5 m/s', runIntoWall(0, 7.5, 34, Math.PI / 2)],
+    [`backing up at ${MOVE_TUNE.boost} m/s`, runIntoWall(0, MOVE_TUNE.boost, 34, 0)],
+    [`diagonally back at ${MOVE_TUNE.boost} m/s`, runIntoWall(0.2, MOVE_TUNE.boost, 34, 0)],
+    [`walking sideways at ${MOVE_TUNE.walk} m/s`, runIntoWall(0, MOVE_TUNE.walk, 34, Math.PI / 2)],
   ];
   for (const [name, targets] of runs) {
     const states = followFrames(targets, boxes);

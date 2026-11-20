@@ -299,10 +299,9 @@ test(
     const times = STORY.map(id => result.fired[id]);
     expect(times.every(time => time !== undefined)).toBe(true);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    // seed 7 took about 163 s of game time and left 73 armour (of 200), 116 of 400 autocannon shots and 6 of 12
-    // heavy gun shots (SB-2020: line 2 stands 69 m in from line 1 and the section has one line fewer; the run is longer
-    // than the three-line one). The limits below keep room for a retune of the values, and fail if the sortie turns out
-    // hardly possible
+    // seed 7 took about 117 s of game time and left 142 armour (of 200), 82 of 400 autocannon shots and 5 of 12 heavy
+    // gun shots (SB-2072: the walk, jump and boost are faster and the hit stop shorter). The limits below keep room for a
+    // retune of the values, and fail if the sortie turns out hardly possible
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
     expect(result.armor).toBeGreaterThan(0);
     expect(result.main).toBeGreaterThan(0);

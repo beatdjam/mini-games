@@ -6,8 +6,8 @@ import * as THREE from 'three';
 import { addSystem, el, isTouch } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { initPlayInput, readInput } from '../../app/input.ts';
-import { SOLDIER_KINDS, type SoldierKind } from '../../data/enemies.ts';
-import { FCS_TUNE, FEEL_TUNE, MOVE_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../data/tune.ts';
+import { mixOf } from '../arenaMix.ts';
+import { FCS_TUNE, FEEL_TUNE, MECH_TUNE, MOVE_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../../data/tune.ts';
 import type { MapDef, MissionDef } from '../../data/types.ts';
 import { WEAPONS } from '../../data/weapons.ts';
 import { newEnemy } from '../../logic/enemies.ts';
@@ -33,11 +33,6 @@ const RESPAWN_SEC = 3; // the seconds between a group's fall and the next group 
 const ARENA_HALF = 60; // the arena's half-width and half-depth (m): 120 m each way
 const ENEMY_NEAR = 34; // the nearest a group comes in (m)
 const ENEMY_FAR = 54; // the farthest (m)
-const DEFAULT_MIX: readonly { kind: SoldierKind; count: number }[] = [
-  { kind: 'grunt', count: 3 },
-  { kind: 'assault', count: 1 },
-];
-const GOD_ARMOR = 0; // the armour the mech is kept at, so it never falls in the arena's default hand
 
 // The arena's flat sand and its cover: a few concrete blocks near the middle, well inside the ring the enemies come in on.
 const ARENA_MAP: MapDef = {
@@ -91,29 +86,10 @@ let game: GameModel | null = null; // the arena in play, for the tests; null bef
 // The arena in play, for the tests.
 export const currentArenaGame = (): GameModel | null => game;
 
-const isSoldierKind = (value: string): value is SoldierKind => (SOLDIER_KINDS as readonly string[]).includes(value);
-
 // The query of the hash (`#view-arena?enemies=grunt:4`) or, when it has none, of the page (`?enemies=grunt:4#view-arena`).
 function viewParams(): URLSearchParams {
   const at = location.hash.indexOf('?');
   return new URLSearchParams(at >= 0 ? location.hash.slice(at + 1) : location.search);
-}
-
-// The enemies the URL asks for (?enemies=grunt:4,assault:2), as one kind per enemy in the order they come in. A name the
-// table does not have is skipped, and a list with nothing in it falls back to the default mix.
-function mixOf(raw: string | null): SoldierKind[] {
-  const kinds: SoldierKind[] = [];
-  if (raw !== null && raw.trim() !== '') {
-    for (const part of raw.split(',')) {
-      const [name, countText] = part.split(':');
-      if (name === undefined || !isSoldierKind(name.trim())) continue;
-      const count = countText === undefined ? 1 : Math.floor(Number(countText));
-      if (!Number.isFinite(count) || count <= 0) continue;
-      for (let i = 0; i < count; i++) kinds.push(name.trim() as SoldierKind);
-    }
-  }
-  if (kinds.length > 0) return kinds;
-  return DEFAULT_MIX.flatMap(({ kind, count }) => Array.from({ length: count }, () => kind));
 }
 
 // Where the i-th enemy stands: a ring round the mech at three distances, all inside the arena's bounds.
@@ -169,6 +145,9 @@ function addTunePanel() {
   createTunePanel({
     id: 'sbArenaTune',
     title: '調整',
+    // The fullscreen button (#sbFs in index.html) sits in the top right corner: 10px down, about 25px tall (3px padding,
+    // 1px border, a 11-14px line), so 44px leaves about 9px under it. Change this with that button's size or place.
+    topOffset: 44,
     groups: [
       {
         name: 'MOVE_TUNE',
@@ -234,22 +213,9 @@ function addTunePanel() {
   });
 }
 
-// The values the user settled in this arena (2026-11-17), put on the shared tables when it opens so the arena starts
-// from them; the game's own tables keep theirs until a ticket brings these in (the jump test and the hedgehog wall,
-// the 8 m scale and the depot walk all read the old numbers). `?tuned=0` opens with the game's values.
-const ARENA_START = {
-  move: { walk: 8, jump: 10, boost: 25 },
-  feel: { hitStop: 0.025 },
-  soft: { cone: 10, pull: 25, nearRange: 20 },
-} as const;
-
+// The values the user settled in the arena (2026-11-17) are the game's own now (SB-2072), so the arena opens on them.
 export function showArena(_hash: string) {
   const params = viewParams();
-  if (params.get('tuned') !== '0') {
-    Object.assign(MOVE_TUNE, ARENA_START.move);
-    Object.assign(FEEL_TUNE, ARENA_START.feel);
-    Object.assign(FCS_TUNE.soft, ARENA_START.soft);
-  }
   const mix = mixOf(params.get('enemies'));
   const god = params.get('god') !== '0';
   const endlessAmmo = params.get('ammo') === 'inf';
@@ -314,9 +280,32 @@ export function showArena(_hash: string) {
       const read = readInput(dt);
       step(arena, { ...read.input, sub: read.sub, use: read.use, aim: view.aim }, dt);
 
-      // The arena's mech does not fall unless ?god=0 asks for the sortie's way.
+      // The sortie's craft lane is the one way past the front edge of the map (logic/game.ts stepBounds); the arena has no
+      // craft, so put the mech back on the sand where the craft's walls would have stood.
+      const radius = MECH_TUNE.radius;
+      const minX = ARENA_MAP.bounds.minX + radius;
+      const maxX = ARENA_MAP.bounds.maxX - radius;
+      const minZ = ARENA_MAP.bounds.minZ + radius;
+      const maxZ = ARENA_MAP.bounds.maxZ - radius;
+      if (arena.mech.x < minX) {
+        arena.mech.x = minX;
+        if (arena.mech.vx < 0) arena.mech.vx = 0;
+      } else if (arena.mech.x > maxX) {
+        arena.mech.x = maxX;
+        if (arena.mech.vx > 0) arena.mech.vx = 0;
+      }
+      if (arena.mech.z < minZ) {
+        arena.mech.z = minZ;
+        if (arena.mech.vz < 0) arena.mech.vz = 0;
+      } else if (arena.mech.z > maxZ) {
+        arena.mech.z = maxZ;
+        if (arena.mech.vz > 0) arena.mech.vz = 0;
+      }
+
+      // The arena's mech does not fall unless ?god=0 asks for the sortie's way. Its armour is put back full every frame,
+      // so the gauge stays full and a hit only shows for the frame it lands.
       if (god) {
-        arena.armor = Math.max(arena.armor, GOD_ARMOR);
+        arena.armor = MECH_TUNE.armor;
         if (arena.downed) {
           arena.downed = false;
           arena.events = arena.events.filter(event => event.kind !== 'downed');

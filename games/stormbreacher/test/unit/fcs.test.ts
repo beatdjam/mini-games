@@ -88,7 +88,7 @@ test('soft turns a shot to a target 5 degrees off within a second', () => {
 });
 
 test('soft leaves a target outside the circle alone', () => {
-  const centre = atAngle(10, 50);
+  const centre = atAngle(FCS_TUNE.soft.cone + 2, 50);
   const t = target(0, centre.x, centre.y, centre.z);
   const state = newFcs();
   let result = stepFcs(state, 'soft', FCS_TUNE.soft, aimStraight(), CHEST, [t], 1 / 60);
