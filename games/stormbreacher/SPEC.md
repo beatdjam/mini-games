@@ -41,7 +41,7 @@
 - `src/view/look.ts`: 解像度・色味・霧・空・光・地面の色をかけ、`#view-fx`・`#view-hud`・本体が同じ関数を使う
 - `src/view/field.ts`: 光は半球1つ・太陽1つ（engine の光は外す）
 - `src/logic/planes.ts`: 飛行機の動き（機体と関係なくマップの座標で往復）を持つ
-- `src/logic/battle.ts`: 戦場の層の進行（歩兵ドロイドの波と砲撃の予定。6章「戦場の層」）を、`src/view/battle/` が読んで描く（本体と `#view-fx` が同じものを使う）。歩兵は人間ではなくドロイドで、形は `src/data/droids.ts`（`DROID_PARTS.near` と `DROID_PARTS.far`・`DROID_JOINTS`・`DROID_TUNE`。近い形は面取りした札を重ねた胸と腰、関節の円筒、腿と脛の装甲、センサーの頭、小銃、背中のパック。遠い形は同じ輪郭の軽い形。`DROID_TUNE.nearDistance` 以内を近い形で `nearCap` 体まで）、組み立ては `src/view/droidModel.ts`（SB-1468 の形の道具で体と頭をまとめる）、姿勢は `src/view/droidPose.ts`（`writeDroid`・`showDroid`・`selectNearSoldiers`。膝を曲げた走り、待つときのしゃがみ、仰向けの倒れ）が持つ。色は味方の明るい灰・黄色・青緑の `DROID_COLOR` in src/data/colors.ts。パイロットと無線の声は人間のまま
+- `src/logic/battle.ts`: 戦場の層の進行（歩兵ドロイドの波と砲撃の予定。6章「戦場の層」）を、`src/view/battle/` が読んで描く（本体と `#view-fx` が同じものを使う）。歩兵は人間ではなくドロイドで、形は `src/data/droids.ts`（`DROID_PARTS.near` と `DROID_PARTS.far`・`DROID_JOINTS`・`DROID_TUNE`。近い形は面取りした札を重ねた胸と腰、関節の円筒、腿と脛の装甲、小さい暗い顔に横長の青緑のバイザーと白い殻をかぶせた頭（頭の上は 1.47m。胸の上の白い襟に首が収まり、首は短く見える）、小銃、背中のパック。遠い形は同じ輪郭の軽い形（体の色の割り当てだけ近い形に合わせ、胸の板や腿の枠は持たない）。`DROID_TUNE.nearDistance` 以内を近い形で `nearCap` 体まで）、組み立ては `src/view/droidModel.ts`（SB-1468 の形の道具で体と頭をまとめる）、姿勢は `src/view/droidPose.ts`（`writeDroid`・`showDroid`・`selectNearSoldiers`。膝を曲げた走り、待つときのしゃがみ、仰向けの倒れ）が持つ。色は味方の明るい灰・黄色・青緑の `DROID_COLOR` in src/data/colors.ts。パイロットと無線の声は人間のまま
 - `src/logic/mech.ts`: 機体の歩く・跳ぶ・ブースト・着地を、状態を引数で受けて進める純粋な関数で、three も DOM も読まない
 - `src/logic/fire.ts`: 正面への線が的の箱に当たるかを返す純粋な関数
 - `src/view/feel.ts`: 動きの出来事からカメラの揺れ・FOV・ヒットストップ・砂煙を作る
@@ -759,7 +759,7 @@ SB-1340。敵や物が壊れたとき・目標・地雷・迫撃砲の着弾・�
 - 乱数は `stream('battle')`（歩兵ドロイドの波・砲撃の予定・煙・曳光弾・飛行機）と `stream('craters')`（穴）。`#view-fx` も同じ列を使う
 - 本体は出撃ごとに `buildPlayView` が作り、やり直し（`retryFromCheckpoint`・`restartGame`）や次の出撃で作り直す。状態は view の側が持ち、`GameModel` にもチェックポイントにも入れない。見た目だけで勝ち負けに関わらず、チェックポイントに戻しても歩兵ドロイドが巻き戻るかどうかは遊びに関係しないため。logic の `battle.ts` に出したのは、進行をページなしでテストするため
 - 砲撃の揺れは本体のカメラの揺れ `FeelState.shake` に足す。戦場の層（歩兵ドロイド・分隊・着弾・煙・飛行機）の時計を止めるかは `CutsceneDef` の `holdsBattle` で決め、今は導入（`landing`）だけが持つ。止めている間は揺れも足さない。操作を渡した瞬間から進め、最初の分隊が走って機銃座の手前で倒れるのをプレイヤーが見られるようにする。カットシーン自身の機銃の曳光だけは `Battle.advanceTracers` で動かす（`drawPlay`）
-- 描く回数: 本体の出撃（導入のカットシーンを飛ばした 90 フレーム後）は 103 calls・280k tris、`#view-fx` の段階 2（40 フレーム後）は 103 calls・463k tris（headless Chromium。`test/e2e/battle.test.ts`・`test/e2e/fxView.test.ts` が出力する。SB-2085 の実測）。歩兵ドロイドは近い形 3,960 三角形（体 3,324・頭 636）・4 draws、遠い形 796 三角形（体 700・頭 96）・4 draws。カメラから `DROID_TUNE.nearDistance`（25m）以内の兵は近い形、残りは遠い形で、近い形は `nearCap`（48体）まで。同じ兵を両方の形で描かない。本体の calls が揺れるのは、地面の塊などの視錐台カリング（`cullChunks`）のため
+- 描く回数: 本体の出撃（導入のカットシーンを飛ばした 90 フレーム後）は 103 calls・280k tris、`#view-fx` の段階 2（40 フレーム後）は 103 calls・463k tris（headless Chromium。`test/e2e/battle.test.ts`・`test/e2e/fxView.test.ts` が出力する。SB-2085 の実測）。歩兵ドロイドは近い形 3,948 三角形（体 3,360・頭 588）・4 draws、遠い形 820 三角形（体 688・頭 132）・4 draws（SB-2087 で頭と色分けを作り直し、首を詰めた後の値）。カメラから `DROID_TUNE.nearDistance`（38m）以内の兵は近い形、残りは遠い形で、近い形は `nearCap`（48体）まで。同じ兵を両方の形で描かない。本体の calls が揺れるのは、地面の塊などの視錐台カリング（`cullChunks`）のため
 
 ### 節目（突破の手応え）
 

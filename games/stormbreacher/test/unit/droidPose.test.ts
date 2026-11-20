@@ -81,28 +81,99 @@ test('the droid model builds a painted and a lit group for the body and the head
   }
 });
 
-// SB-2085: the close form carries the layered armour, round joints and the detailed rifle within 4,000 triangles; the far
-// form keeps 2084's 796 for the crowd.
-test('the close droid stays within its budget and the far one keeps the old weight', () => {
+// SB-2085: the close form carries the layered armour, round joints and the detailed rifle within 4,000 triangles; SB-2087
+// keeps the far form light, under 860 for the crowd.
+test('the close droid stays within its budget and the far one stays light', () => {
   const near = buildDroidGeometries('near');
   const far = buildDroidGeometries('far');
   const nearTriangles = triangles(near.body) + triangles(near.head);
   const farTriangles = triangles(far.body) + triangles(far.head);
   expect(nearTriangles).toBeGreaterThanOrEqual(3000);
   expect(nearTriangles).toBeLessThanOrEqual(4000);
-  expect(farTriangles).toBeLessThanOrEqual(796);
+  expect(farTriangles).toBeLessThanOrEqual(860);
 });
 
-test('both forms put three lit eyes on the face', () => {
+// SB-2087: the head sits down to a 1.47 m top, and both forms show a long lit visor on a face in place of the white box.
+test('both forms keep the 1.47 m head top and a long lit visor on the face', () => {
   for (const detail of ['near', 'far'] as const) {
-    const eyes = DROID_PARTS[detail].head
-      .filter(shape => shape.material === 'glow' && shape.at[2] < -0.1)
-      .reduce((count, shape) => count + (shape.mirror === true ? 2 : 1), 0);
-    expect(eyes).toBe(3);
+    const { head } = buildDroidGeometries(detail);
+    const positions = head.getAttribute('position');
+    let top = -Infinity;
+    for (let i = 0; i < positions.count; i++) top = Math.max(top, positions.getY(i));
+    expect(Math.abs(DROID_TUNE.height - (SOLDIER_POSE.headY + top))).toBeLessThan(0.005);
+
+    const face = DROID_PARTS[detail].head.filter(shape => shape.material === 'glow' && shape.at[2] < -0.1);
+    expect(face.length).toBeGreaterThan(0);
+    const visor = face.reduce((widest, shape) => ((shape.size?.[0] ?? 0) > (widest.size?.[0] ?? 0) ? shape : widest));
+    expect(visor.size?.[0] ?? 0).toBeGreaterThan(visor.size?.[1] ?? 0);
   }
 });
 
-// SB-2085: the close form is for the soldiers within 25 m of the camera, and the far form for the rest.
+type Shape = (typeof DROID_PARTS)['near']['head'][number];
+
+// The lowest and highest y a shape reaches, before any taper.
+const bottomOf = (shape: Shape): number => shape.at[1] - (shape.size?.[1] ?? 0) / 2;
+const topOf = (shape: Shape): number => shape.at[1] + (shape.size?.[1] ?? 0) / 2;
+
+// SB-2087: the face is a dark plate with the visor set in front of it, and the white armour is the shell behind it.
+test('the face is a dark plate in front of the white shell, with the visor inside its width', () => {
+  for (const detail of ['near', 'far'] as const) {
+    const head = DROID_PARTS[detail].head;
+    const faces = head.filter(shape => shape.material === 'frame' && shape.size !== undefined && shape.at[2] < -0.1);
+    expect(faces.length).toBeGreaterThan(0);
+    const face = faces[0];
+    const faceFront = face.at[2] - (face.size?.[2] ?? 0) / 2;
+    const armor = head.filter(shape => shape.material === 'armor' && shape.size !== undefined);
+    expect(armor.length).toBeGreaterThan(0);
+    // no white shape reaches the face's front, so the face is never painted white
+    for (const shape of armor) expect(shape.at[2] - (shape.size?.[2] ?? 0) / 2).toBeGreaterThan(faceFront);
+    const visors = head.filter(shape => shape.material === 'glow' && shape.at[2] < faceFront + 0.02);
+    expect(visors.length).toBeGreaterThan(0);
+    for (const visor of visors) {
+      expect(visor.at[2] - (visor.size?.[2] ?? 0) / 2).toBeLessThan(faceFront);
+      expect((visor.size?.[0] ?? 0) / 2 + Math.abs(visor.at[0])).toBeLessThanOrEqual((face.size?.[0] ?? 0) / 2);
+      expect(bottomOf(visor)).toBeGreaterThanOrEqual(bottomOf(face));
+      expect(topOf(visor)).toBeLessThanOrEqual(topOf(face));
+    }
+  }
+});
+
+// SB-2087: the neck shows no longer than half the helmet shell's height, and is wide enough not to read as a thin pole.
+test('the neck shows no longer than half the shell is tall and is wide against the head', () => {
+  const headRise = SOLDIER_POSE.headY - SOLDIER_POSE.bodyY;
+  for (const detail of ['near', 'far'] as const) {
+    const { body, head } = DROID_PARTS[detail];
+    const neck = body.find(shape => shape.at[0] === 0 && Math.abs(shape.at[1] - 0.575) < 1e-9);
+    const collar = body.find(
+      shape => shape.material === 'armor' && shape.at[0] === 0 && shape.at[1] > 0.5 && shape.at[1] < 0.57,
+    );
+    expect(neck).toBeDefined();
+    expect(collar).toBeDefined();
+    // the chest's top the neck comes out of: the top of the white collar
+    const chestTop = collar ? topOf(collar) : 0;
+    const core = head.filter(
+      shape => shape.material === 'frame' && (shape.size?.[0] ?? 0) >= 0.15 && shape.at[2] > -0.1,
+    );
+    const headBottom = headRise + Math.min(...core.map(bottomOf));
+    const armor = head.filter(shape => shape.material === 'armor' && shape.size !== undefined);
+    const shellHeight = Math.max(...armor.map(topOf)) - Math.min(...armor.map(bottomOf));
+    expect(headBottom - chestTop).toBeLessThanOrEqual(shellHeight * 0.5);
+    const neckWidth = neck?.kind === 'tube' ? (neck.radius ?? 0) * 2 : (neck?.size?.[0] ?? 0);
+    const headWidth = Math.max(...core.map(shape => shape.size?.[0] ?? 0));
+    expect(neckWidth).toBeGreaterThanOrEqual(headWidth * 0.6);
+  }
+});
+
+// SB-2087: the lit parts are the visor, not an extra point in front of it, and the head's shell is white.
+test('the head has one lit visor in front and a white shell', () => {
+  for (const detail of ['near', 'far'] as const) {
+    const head = DROID_PARTS[detail].head;
+    expect(head.filter(shape => shape.material === 'glow' && shape.at[2] < -0.1)).toHaveLength(1);
+    expect(head.some(shape => shape.material === 'armor')).toBe(true);
+  }
+});
+
+// SB-2085: the close form is for the soldiers within DROID_TUNE.nearDistance of the camera, and the far form for the rest.
 test('a soldier inside the close distance takes the near form and one outside the far form', () => {
   const inside = { x: 10, z: 0 };
   const outside = { x: DROID_TUNE.nearDistance + 5, z: 0 };

@@ -4,6 +4,6 @@
 // are needed: on its back the whole droid turns about the body's middle and comes to rest at `bodyDeadY`.
 export const SOLDIER_POSE = {
   bodyY: 0.62, // the body's middle above the feet (m)
-  headY: 1.36, // the head's middle above the feet (m)
+  headY: 1.27, // the head's middle above the feet (m)
   bodyDeadY: 0.17, // the body's middle once the droid lies on its back (m)
 } as const;
