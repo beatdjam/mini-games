@@ -1,13 +1,15 @@
-// The beach's infantry droids (SB-1745, second pass SB-1747, three views SB-2084, near form SB-2085): a slim humanoid of
-// armour plates, thin joints and a faceted sensor head, built with the shapes of SB-1468 and the face language of SB-1469
-// and SB-1471 (tapered plates, a diagonal cut, two paints and an accent, thin light lines, a stance with the knees bent and
-// the torso forward). SB-2084 gives them the three views' small machine: the three eyes, the short rifle held across the
-// chest and the low pack with its lit vents. SB-2085 gives the beach's own side their colours back and splits the shapes in
-// two: a close form of about 3,700 triangles with layered armour, round joints, a detailed rifle and pack, and the old
-// 796-triangle form for the crowd at a distance. The body carries the neck up to the head's base, so the two never come
-// apart; the rifle is held across the chest with both hands, along x, so a droid that lies on its back keeps the barrel off
-// the sand. The shapes are in metres from the body's own middle (SOLDIER_POSE.bodyY) or the head's (SOLDIER_POSE.headY) in
-// data/soldiers.ts. Every value here is provisional.
+// The beach's infantry droids (SB-1745, second pass SB-1747, three views SB-2084, near form SB-2085, head and colours
+// SB-2087): a slim humanoid of armour plates, thin joints and a small wedged sensor head, built with the shapes of SB-1468
+// and the face language of SB-1469 and SB-1471 (tapered plates, a diagonal cut, two paints and an accent, thin light lines,
+// a stance with the knees bent and the torso forward). SB-2084 gives them the three views' small machine: the short rifle
+// held across the chest and the low pack with its lit vents. SB-2085 gives the beach's own side their colours back and
+// splits the shapes in two: a close form of about 3,900 triangles with layered armour, round joints, a detailed rifle and
+// pack, and a lighter form for the crowd at a distance. SB-2087 makes the head a small dark face under a white helmet
+// shell, with one long lit visor instead of the big white box, and breaks the white body with a dark chest panel, belt and
+// inner thighs, so the infantry read as the mech's white shell, dark insides, yellow marks and cyan light. The body carries
+// the neck up to the head's base, so the two never come apart; the rifle is held across the chest with both hands, along x,
+// so a droid that lies on its back keeps the barrel off the sand. The shapes are in metres from the body's own middle
+// (SOLDIER_POSE.bodyY) or the head's (SOLDIER_POSE.headY) in data/soldiers.ts. Every value here is provisional.
 import type { Vec3 } from './mech.ts';
 
 export type DroidMaterial = 'armor' | 'frame' | 'accent' | 'glow';
@@ -50,15 +52,15 @@ export interface DroidShape {
 export type DroidDetail = 'near' | 'far';
 
 // The droid's size, the look of its plates and the distance from the camera at which a droid takes the close form. The body
-// is 1.56 m tall from the soles to the top of the head, as the humans it replaces were: the pose's body and head heights
-// (SOLDIER_POSE) still hold.
+// is 1.47 m tall from the soles to the top of the head (the humans it replaces were 1.56 m; the head sits lower, SB-2087): the
+// pose's body and head heights (SOLDIER_POSE) still hold.
 export const DROID_TUNE = {
-  height: 1.56, // metres from the soles to the top of the head
+  height: 1.47, // metres from the soles to the top of the head
   bevel: 0.007, // a plate's chamfer when it names none (m)
   bevelSegments: 1, // layers in a chamfer
   roundSegments: 8, // a tube's sides on the far form
   nearRoundSegments: 12, // a tube's or ring's sides on the close form
-  nearDistance: 25, // m from the camera within which a soldier takes the close form
+  nearDistance: 38, // m from the camera within which a soldier takes the close form
   nearCap: 48, // the most soldiers in the close form at once
 } as const;
 
@@ -125,10 +127,10 @@ const THIGH_TAPER: DroidPlateTaper = { top: 1.18, front: 0.88, nose: 0.88, cut: 
 const THIGH_TAPER_L: DroidPlateTaper = { ...THIGH_TAPER, cutSide: 'left' };
 
 // The close form: layered armour on the chest and the waist, round joints, plated thighs, shins and feet, a sensor head
-// with the three eyes, an antenna and side discs, the short rifle with its barrel, magazine and sight, and the pack with
-// its vents, thrusters and antenna. It makes about 3,700 triangles a droid (SB-2085).
+// with one long visor, an antenna and side discs, the short rifle with its barrel, magazine and sight, and the pack with
+// its vents, thrusters and antenna. It makes about 3,900 triangles a droid (SB-2085, SB-2087).
 const NEAR_BODY: readonly DroidShape[] = [
-  // the pelvis: a dark core under a layered front plate, with a hip plate on each side and an accent belt
+  // the pelvis: a dark core under a layered front plate, with a hip plate on each side and a dark belt
   { kind: 'box', material: 'frame', size: [0.2, 0.12, 0.15], at: [0, 0.075, 0.005] },
   {
     kind: 'plate',
@@ -145,7 +147,7 @@ const NEAR_BODY: readonly DroidShape[] = [
     taper: { top: 0.85, nose: 0.85 },
     mirror: true,
   },
-  { kind: 'box', material: 'accent', size: [0.11, 0.02, 0.014], at: [0, 0.11, -0.101] },
+  { kind: 'box', material: 'frame', size: [0.11, 0.02, 0.014], at: [0, 0.11, -0.101] },
   // the waist: a dark block inside a round joint, under a plated abdomen with a lit vent on each side
   { kind: 'box', material: 'frame', size: [0.13, 0.12, 0.11], at: [0, 0.2, 0] },
   { kind: 'tube', material: 'frame', radius: 0.07, length: 0.09, at: [0, 0.2, 0] },
@@ -157,7 +159,7 @@ const NEAR_BODY: readonly DroidShape[] = [
     taper: { top: 1.1, front: 0.9, nose: 0.9 },
   },
   { kind: 'box', material: 'glow', size: [0.014, 0.05, 0.012], at: [0.085, 0.26, -0.085], mirror: true },
-  // the chest: the main plate under a top plate and a plate on each side, over a dark back, leaning into the run
+  // the chest: the main plate under a dark upper panel and a plate on each side, over a dark back, leaning into the run
   {
     kind: 'plate',
     material: 'armor',
@@ -169,7 +171,7 @@ const NEAR_BODY: readonly DroidShape[] = [
   },
   {
     kind: 'plate',
-    material: 'armor',
+    material: 'frame',
     size: [0.2, 0.12, 0.055],
     at: [0, 0.43, -0.15],
     rot: [-0.2, 0, 0],
@@ -191,12 +193,14 @@ const NEAR_BODY: readonly DroidShape[] = [
     at: [0, 0.35, 0.135],
     taper: { top: 1.02, front: 0.9, nose: 0.9 },
   },
-  // the lit window in the chest, with an accent line above it
-  { kind: 'box', material: 'glow', size: [0.075, 0.026, 0.014], at: [0, 0.44, -0.17] },
-  { kind: 'box', material: 'accent', size: [0.09, 0.008, 0.014], at: [0, 0.458, -0.168] },
-  // the short dark neck that reaches up into the head's base, inside a collar ring
-  { kind: 'tube', material: 'frame', radius: 0.045, length: 0.15, at: [0, 0.55, -0.07], rot: [0.3, 0, 0] },
-  { kind: 'ring', material: 'frame', radius: 0.06, tube: 0.012, at: [0, 0.525, -0.062], rot: [0.3, 0, 0] },
+  // the lit window in the dark chest panel, with an accent line above it (SB-2087: set proud of the darker, turned panel)
+  { kind: 'box', material: 'glow', size: [0.075, 0.026, 0.014], at: [0, 0.44, -0.192] },
+  { kind: 'box', material: 'accent', size: [0.09, 0.008, 0.014], at: [0, 0.46, -0.188] },
+  // the short dark neck that reaches up into the smaller head's base, inside a collar ring (SB-2087 lengthens it a little)
+  { kind: 'tube', material: 'frame', radius: 0.06, length: 0.24, at: [0, 0.575, -0.07], rot: [0.3, 0, 0] },
+  { kind: 'ring', material: 'frame', radius: 0.07, tube: 0.012, at: [0, 0.525, -0.062], rot: [0.3, 0, 0] },
+  // the white collar round the neck's foot, about three quarters of the chest's width, so the head sits down on the chest (SB-2087)
+  { kind: 'box', material: 'armor', size: [0.19, 0.055, 0.15], at: [0, 0.552, -0.068], rot: [0.3, 0, 0] },
   // the shoulder bar, the small cut pauldrons over it, and the round shoulder joints
   { kind: 'tube', material: 'frame', axis: 'x', radius: 0.035, length: 0.31, at: [0, 0.47, -0.07] },
   {
@@ -215,6 +219,15 @@ const NEAR_BODY: readonly DroidShape[] = [
     at: [0.23, 0.545, -0.06],
     rot: [-0.1, 0, -0.12],
     taper: { top: 0.75, front: 0.8, nose: 0.7 },
+    mirror: true,
+  },
+  // SB-2087: a yellow mark along each pauldron's front rim, so the white shell reads against the dark joints
+  {
+    kind: 'box',
+    material: 'accent',
+    size: [0.05, 0.012, 0.012],
+    at: [0.22, 0.455, -0.147],
+    rot: [-0.1, 0, -0.12],
     mirror: true,
   },
   {
@@ -282,7 +295,14 @@ const NEAR_BODY: readonly DroidShape[] = [
     at: DROID_JOINTS.right.hip,
     mirror: true,
   },
-  { kind: 'box', material: 'frame', size: [0.05, THIGH_R.length * 0.95, 0.055], at: THIGH_R.at, rot: THIGH_R.rot },
+  // SB-2087: the thigh's dark frame sits a little toward the middle and wider than the plate, so the inner face shows dark
+  {
+    kind: 'box',
+    material: 'frame',
+    size: [0.12, THIGH_R.length * 0.9, 0.06],
+    at: [THIGH_R.at[0] - 0.012, THIGH_R.at[1], THIGH_R.at[2]],
+    rot: THIGH_R.rot,
+  },
   {
     kind: 'plate',
     material: 'armor',
@@ -291,7 +311,13 @@ const NEAR_BODY: readonly DroidShape[] = [
     rot: THIGH_R.rot,
     taper: THIGH_TAPER,
   },
-  { kind: 'box', material: 'frame', size: [0.05, THIGH_L.length * 0.95, 0.055], at: THIGH_L.at, rot: THIGH_L.rot },
+  {
+    kind: 'box',
+    material: 'frame',
+    size: [0.12, THIGH_L.length * 0.9, 0.06],
+    at: [THIGH_L.at[0] + 0.012, THIGH_L.at[1], THIGH_L.at[2]],
+    rot: THIGH_L.rot,
+  },
   {
     kind: 'plate',
     material: 'armor',
@@ -439,62 +465,79 @@ const NEAR_BODY: readonly DroidShape[] = [
   { kind: 'box', material: 'frame', size: [0.03, 0.05, 0.035], at: [-0.12, 0.25, -0.21] },
 ];
 
-// The head: a faceted sensor box under a brow and a face plate, the three lit eyes on its front, an antenna and a round
-// sensor on each side, and a collar ring at the neck. Its top is the 1.56 m the humans stood (SB-2084, SB-2085).
+// The head (SB-2084, remade SB-2087): a small dark core under a white helmet shell, a dark face plate with one long cyan
+// visor, a low crest, an antenna and a round sensor on each side, and a collar at
+// the neck. The white armour is only the shell (top, sides and back), as on the player's mech; the face stays dark. The
+// head is a small wedge, longer toward the front, and it stands lower than the humans did (its top is 1.47 m), so the head sits down between the shoulders (SB-2087).
 const NEAR_HEAD: readonly DroidShape[] = [
-  {
-    kind: 'plate',
-    material: 'armor',
-    size: [0.3, 0.3, 0.24],
-    at: [0, 0.05, 0],
-    bevel: 0.01,
-    taper: { top: 0.82, front: 0.8, nose: 0.72, drop: 0.04 },
-  },
-  {
-    kind: 'plate',
-    material: 'armor',
-    size: [0.24, 0.2, 0.055],
-    at: [0, 0.055, -0.14],
-    taper: { top: 0.9, front: 0.82, nose: 0.8, drop: 0.02 },
-  },
+  // the dark core and the face plate under the helmet's brow
+  { kind: 'box', material: 'frame', size: [0.17, 0.18, 0.18], at: [0, 0.07, -0.02] },
   {
     kind: 'plate',
     material: 'frame',
-    size: [0.22, 0.05, 0.1],
-    at: [0, 0.155, -0.08],
-    taper: { top: 0.85, front: 0.85, nose: 0.8 },
+    size: [0.17, 0.15, 0.03],
+    at: [0, 0.085, -0.128],
+    bevel: 0.006,
+    taper: { top: 0.95, front: 0.95, nose: 0.9 },
+  },
+  // the helmet shell: a low cap that narrows and drops toward the front, a plate on each side and one at the back
+  {
+    kind: 'plate',
+    material: 'armor',
+    size: [0.22, 0.05, 0.22],
+    at: [0, 0.155, -0.01],
+    bevel: 0.008,
+    taper: { top: 0.85, front: 0.85, nose: 0.8, drop: 0.02 },
   },
   {
     kind: 'plate',
     material: 'armor',
-    size: [0.05, 0.12, 0.14],
-    at: [0.13, 0.03, -0.03],
-    taper: { top: 0.8, front: 0.85, nose: 0.8 },
+    size: [0.03, 0.17, 0.19],
+    at: [0.095, 0.065, -0.02],
+    bevel: 0.006,
+    taper: { top: 0.9, front: 0.85, nose: 0.72, drop: 0.02 },
     mirror: true,
   },
-  { kind: 'box', material: 'glow', size: [0.04, 0.032, 0.014], at: [0, 0.085, -0.172] },
-  { kind: 'box', material: 'glow', size: [0.03, 0.024, 0.014], at: [0.052, 0.035, -0.169], mirror: true },
-  { kind: 'tube', material: 'frame', radius: 0.007, length: 0.12, at: [-0.12, 0.13, 0.02] },
-  { kind: 'box', material: 'glow', size: [0.018, 0.018, 0.018], at: [-0.12, 0.19, 0.02] },
+  {
+    kind: 'plate',
+    material: 'armor',
+    size: [0.19, 0.17, 0.03],
+    at: [0, 0.065, 0.09],
+    bevel: 0.006,
+    taper: { top: 0.85, front: 0.9, nose: 0.8 },
+  },
+  // the low crest on the cap, the long visor across the face
+  {
+    kind: 'plate',
+    material: 'armor',
+    size: [0.05, 0.04, 0.18],
+    at: [0, 0.18, -0.02],
+    bevel: 0.006,
+    taper: { top: 0.6, front: 0.7, nose: 0.6 },
+  },
+  { kind: 'box', material: 'glow', size: [0.14, 0.022, 0.012], at: [0, 0.128, -0.147] },
+  // the antenna on the cap's left back and a round sensor on each side
+  { kind: 'tube', material: 'frame', radius: 0.006, length: 0.07, at: [-0.085, 0.15, 0.04] },
+  { kind: 'box', material: 'glow', size: [0.014, 0.014, 0.014], at: [-0.085, 0.19, 0.04] },
   {
     kind: 'tube',
     material: 'frame',
     axis: 'x',
-    radius: 0.028,
-    length: 0.035,
-    at: [0.15, 0.06, 0],
+    radius: 0.024,
+    length: 0.03,
+    at: [0.11, 0.085, -0.02],
     mirror: true,
   },
-  { kind: 'ring', material: 'frame', radius: 0.07, tube: 0.012, at: [0, -0.075, 0] },
+  // the collar at the neck's top, under the jaw
+  { kind: 'tube', material: 'frame', radius: 0.06, length: 0.05, at: [0, -0.045, -0.04], rot: [0.3, 0, 0] },
 ];
 
-// The far form: the 2084 shapes at their old weight (the body 700 triangles and the head 96), kept for the crowd. Its
-// limbs, shins and feet take the close form's widths so the outline matches; only the colours and those widths change
-// with SB-2085.
+// The far form: the 2084 shapes at their old weight (the body about 700 triangles and the head 132), kept for the crowd. Its
+// limbs, shins and feet take the close form's widths so the outline matches, and its head
+// the close head's outline (SB-2085, SB-2087).
 const FAR_BODY: readonly DroidShape[] = [
-  // the pelvis: a dark block with an accent band across its front, under a narrow dark waist
+  // the pelvis: a dark block under a narrow dark waist
   { kind: 'box', material: 'frame', size: [0.2, 0.12, 0.15], at: [0, 0.075, 0.005] },
-  { kind: 'box', material: 'accent', size: [0.11, 0.02, 0.012], at: [0, 0.1, -0.077] },
   { kind: 'box', material: 'frame', size: [0.13, 0.13, 0.11], at: [0, 0.2, 0] },
   // the chest: one narrow plate that narrows and drops toward the front, over a dark back, leaning into the run
   {
@@ -509,9 +552,9 @@ const FAR_BODY: readonly DroidShape[] = [
   { kind: 'box', material: 'frame', size: [0.17, 0.23, 0.09], at: [0, 0.35, 0.095] },
   // the lit window in the chest
   { kind: 'box', material: 'glow', size: [0.07, 0.024, 0.012], at: [0, 0.44, -0.163] },
-  // the collar on the chest's top and the short dark neck that reaches up into the head's base
-  { kind: 'box', material: 'armor', size: [0.13, 0.04, 0.11], at: [0, 0.515, -0.065] },
-  { kind: 'box', material: 'frame', size: [0.09, 0.16, 0.095], at: [0, 0.55, -0.07], rot: [0.3, 0, 0] },
+  // the collar on the chest's top and the dark neck, a little longer to reach the smaller head's base (SB-2087)
+  { kind: 'box', material: 'armor', size: [0.19, 0.055, 0.14], at: [0, 0.552, -0.068], rot: [0.3, 0, 0] },
+  { kind: 'box', material: 'frame', size: [0.12, 0.25, 0.11], at: [0, 0.575, -0.07], rot: [0.3, 0, 0] },
   // the shoulder bar and the small cut pauldrons over it
   { kind: 'box', material: 'frame', size: [0.31, 0.045, 0.075], at: [0, 0.47, -0.07] },
   {
@@ -594,18 +637,22 @@ const FAR_BODY: readonly DroidShape[] = [
   { kind: 'box', material: 'frame', size: [0.04, 0.12, 0.05], at: [0.03, 0.215, -0.21] },
 ];
 
+// The far form's head takes the close head's outline at a light weight (SB-2087): a small dark core and face, a white cap,
+// a white plate on each side and one at the back, and one long visor. Its top is 1.47 m, lower than the humans stood (SB-2087).
 const FAR_HEAD: readonly DroidShape[] = [
-  // the head: a faceted sensor box with the three lit eyes on its front; its top is the 1.56 m the humans stood
+  { kind: 'box', material: 'frame', size: [0.17, 0.18, 0.18], at: [0, 0.07, -0.02] },
+  { kind: 'box', material: 'frame', size: [0.16, 0.13, 0.03], at: [0, 0.085, -0.128] },
   {
     kind: 'plate',
     material: 'armor',
-    size: [0.3, 0.3, 0.24],
-    at: [0, 0.05, 0],
-    bevel: 0.01,
-    taper: { top: 0.82, front: 0.8, nose: 0.72, drop: 0.04 },
+    size: [0.22, 0.06, 0.22],
+    at: [0, 0.17, -0.01],
+    bevel: 0.008,
+    taper: { top: 0.85, front: 0.85, nose: 0.8, drop: 0.02 },
   },
-  { kind: 'box', material: 'glow', size: [0.04, 0.032, 0.014], at: [0, 0.075, -0.128] },
-  { kind: 'box', material: 'glow', size: [0.03, 0.024, 0.014], at: [0.052, 0.03, -0.125], mirror: true },
+  { kind: 'box', material: 'armor', size: [0.03, 0.17, 0.19], at: [0.095, 0.065, -0.02], mirror: true },
+  { kind: 'box', material: 'armor', size: [0.19, 0.17, 0.03], at: [0, 0.065, 0.09] },
+  { kind: 'box', material: 'glow', size: [0.14, 0.022, 0.012], at: [0, 0.128, -0.147] },
 ];
 
 export const DROID_PARTS: Record<DroidDetail, { body: readonly DroidShape[]; head: readonly DroidShape[] }> = {
