@@ -27,6 +27,7 @@ import { spawnBoom } from './boom.ts';
 import { feelBoom, spawnDust, type FeelState } from './feel.ts';
 import { buildRiders, drawRiders, removeRiders, type RidersView } from './riders.ts';
 import { ALLY_CRAFT_NAMES, buildCraft, CRAFT_NAME, RAMP_DOWN } from './shore.ts';
+import { buildSinkingCrews, drawSinkingCrews, removeSinkingCrews, type SinkingCrewsView } from './sinkingCrews.ts';
 import { playSound, soundMix } from './sound.ts';
 
 const BAR_HEIGHT = '12vh'; // each black bar, as in the HUD mock (#view-hud?cut=1)
@@ -55,6 +56,7 @@ export interface CutsceneView {
   allyCrafts: THREE.Group[]; // the two craft with the allies aboard, in ALLY_CRAFT_SIDES' order
   allyRamps: THREE.Object3D[]; // their ramps, which come down with the player's
   crafts: { cutscene: CutsceneId; event: SinkEvent | ArriveEvent; craft: THREE.Group }[]; // the crafts at sea, with their events
+  sinkingCrews: SinkingCrewsView; // the crews aboard the landing's sinking crafts
   targets: Map<string, THREE.Mesh>; // the map's mission targets by id, for the collapse
   seaZ: number; // the map's front edge: a shell past it falls in the sea
   riders: RidersView; // the infantry on the landing craft's deck
@@ -108,6 +110,13 @@ export function buildCutsceneView(
       crafts.push({ cutscene: id as CutsceneId, event, craft }); // the keys of CUTSCENES are cutscene ids
     }
   }
+  const sinkingSinks: { event: SinkEvent; craft: THREE.Group }[] = [];
+  for (const entry of crafts) {
+    if (entry.cutscene === 'landing' && entry.event.kind === 'sink') {
+      sinkingSinks.push({ event: entry.event, craft: entry.craft });
+    }
+  }
+  const sinkingCrews = buildSinkingCrews(shore, sinkingSinks);
   const ramp = shore.getObjectByName(`${CRAFT_NAME}Ramp`);
   if (!ramp) throw new Error("the player's craft has no ramp");
   const playerCraft = shore.getObjectByName(`${CRAFT_NAME}Unit`);
@@ -135,6 +144,7 @@ export function buildCutsceneView(
     allyCrafts,
     allyRamps,
     crafts,
+    sinkingCrews,
     targets,
     seaZ: bounds.maxZ,
     riders: buildRiders(),
@@ -143,6 +153,7 @@ export function buildCutsceneView(
 
 export function removeCutsceneView(view: CutsceneView): void {
   removeRiders(view.riders);
+  removeSinkingCrews(view.sinkingCrews);
   view.root.remove();
 }
 
@@ -175,6 +186,7 @@ export function drawCutscene(
     view.elapsed = -1;
     view.ramp.rotation.x = RAMP_DOWN;
     for (const entry of view.crafts) entry.craft.visible = false;
+    drawSinkingCrews(view.sinkingCrews, null, 0);
     view.riders.group.visible = false;
     view.riders.group.position.z = 0;
     view.playerCraft.position.z = view.rampZ;
@@ -263,6 +275,7 @@ export function drawCutscene(
       craft.position.z = event.from + (event.z - event.from) * p;
     }
   }
+  drawSinkingCrews(view.sinkingCrews, cutscene.id, elapsed);
   for (const event of def.events) {
     if (event.kind === 'collapse') collapse(view, event, progress(elapsed, event.at, event.sec));
   }
