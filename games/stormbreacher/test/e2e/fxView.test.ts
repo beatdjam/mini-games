@@ -32,7 +32,15 @@ test('#view-fx stage 2 draws the battle: the allies, the holes and the smoke', a
     const mesh = object as THREE.InstancedMesh;
     if (mesh.isInstancedMesh === true && mesh.visible && mesh.count > 0) drawn.push(mesh);
   });
-  expect(drawn.filter(mesh => mesh.count === Math.round(FX_STAGES[2].allies)).length).toBeGreaterThanOrEqual(2);
+  // the soldiers are split between the close and far forms (SB-2085); together they hold the stage's whole wave once
+  const soldierCount = (names: readonly string[]): number =>
+    names.reduce((sum, name) => {
+      const mesh = group!.getObjectByName(name);
+      return mesh instanceof THREE.InstancedMesh ? sum + mesh.count : sum;
+    }, 0);
+  const allies = Math.round(FX_STAGES[2].allies);
+  expect(soldierCount(['sb-battle-bodies', 'sb-battle-bodies-far'])).toBe(allies);
+  expect(soldierCount(['sb-battle-heads', 'sb-battle-heads-far'])).toBe(allies);
   expect(drawn.length).toBeGreaterThanOrEqual(5);
   console.log(`#view-fx stage 2: ${drawStats()}`);
 });

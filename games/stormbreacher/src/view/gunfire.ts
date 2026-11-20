@@ -17,6 +17,7 @@ import {
   type MuzzleFlashDef,
 } from '../data/gunfire.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
+import { WEAPONS } from '../data/weapons.ts';
 import { isHostileBullet, type Bullet } from '../logic/game.ts';
 import { freeSlot } from './boom.ts';
 
@@ -337,14 +338,22 @@ const quat = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
 const SIDE = new THREE.Vector3(1, 0, 0);
 
-// Writes each bullet as a band from its head back along its direction, turned so its face is toward the camera.
-function drawTracers(view: GunfireView, bullets: readonly Bullet[]): number {
+// Writes each bullet as a band from its head back along its direction, turned so its face is toward the camera. A mech's
+// shot for the first metres of its flight starts at the cannon's mouth the view knows, so its band leaves the barrel with
+// the flash rather than from the chest the logic fires the bullet at. Whether it is that new is read from the range it has
+// left, not from where the mouth stands: the mech walks and turns, and a moving mouth would put an older shot back at the
+// barrel (SB-2086).
+function drawTracers(view: GunfireView, bullets: readonly Bullet[], muzzle: THREE.Vector3 | null): number {
   const { length, width } = GUNFIRE_TUNE.tracer;
   let n = 0;
   for (const bullet of bullets) {
     if (n >= GUNFIRE_CAP.tracers) break;
     dir.set(bullet.dx, bullet.dy, bullet.dz);
     head.set(bullet.x, bullet.y, bullet.z);
+    if (muzzle !== null && !isHostileBullet(bullet)) {
+      const travelled = WEAPONS[bullet.weapon].range - bullet.left;
+      if (travelled < length) head.copy(muzzle).addScaledVector(dir, length);
+    }
     mid.copy(head).addScaledVector(dir, -length / 2);
     toCam.copy(camera.position).sub(mid);
     normal.copy(toCam).addScaledVector(dir, -toCam.dot(dir));
@@ -458,11 +467,17 @@ function show(mesh: THREE.InstancedMesh, count: number): void {
 }
 
 // Moves every flash, spark and puff on by a frame and writes what is left, with the bullets in flight, into the pools.
-// Call it once a frame after the camera is placed and the game has spawned the frame's shots and hits.
-export function drawGunfire(view: GunfireView, bullets: readonly Bullet[], dt: number): void {
+// Call it once a frame after the camera is placed and the game has spawned the frame's shots and hits. `muzzle` is the
+// mech's cannon mouth in the world, when the view knows it; the mech's new bands start there.
+export function drawGunfire(
+  view: GunfireView,
+  bullets: readonly Bullet[],
+  dt: number,
+  muzzle: THREE.Vector3 | null = null,
+): void {
   const span = Math.max(0, dt);
   flashNewHostileBullets(view, bullets, span);
-  show(view.tracers, drawTracers(view, bullets));
+  show(view.tracers, drawTracers(view, bullets, muzzle));
   show(view.flashes, drawFlashes(view, span));
   show(view.sparks, drawSparks(view, span));
   show(view.smoke, drawSmoke(view, span));

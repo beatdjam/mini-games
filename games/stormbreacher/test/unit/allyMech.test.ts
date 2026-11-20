@@ -1,22 +1,33 @@
 import { expect, test } from 'vitest';
-import { allyDetailBoxes, type AllyShape } from '../../src/data/allies.ts';
+import { ALLY_KIT_IDS, ALLY_KITS, allyKitOf } from '../../src/data/allies.ts';
 import { buildAllyMech } from '../../src/view/allies.ts';
-import { countMechDraws } from '../../src/view/mechModel.ts';
+import { countProtoDraws, disposeProtoMech } from '../../src/view/mechProtoModel.ts';
 
-// The ally's detail boxes join the mech's colour meshes, so the model draws once per colour (6), however many boxes it
-// has. A node test has no canvas: the paint is null and the material keeps the palette's colour alone.
-const placedBoxes = (shape: AllyShape): number =>
-  allyDetailBoxes(shape).reduce((count, box) => count + (box.mirror === 'xz' ? 4 : box.mirror === 'x' ? 2 : 1), 0);
-
-test("the ally's draw calls are its colours' count (6), running or wrecked", () => {
-  for (const shape of ['run', 'wreck'] as const) {
-    expect(countMechDraws(buildAllyMech(shape)).calls).toBe(6);
+// SB-2082: an ally is the three views' sniper or scout on the common skeleton, with the friendly side's band and number
+// (#551) on its shoulders. The mark is one material of its own, so an ally costs five draws: armour, frame, accent,
+// glow and mark. A node test has no canvas: the paint is null and the material keeps the palette's colour alone.
+test('an ally draws its four materials plus the friendly mark, running or wrecked', () => {
+  for (const kit of ALLY_KIT_IDS) {
+    for (const shape of ['run', 'wreck'] as const) {
+      const mech = buildAllyMech(shape, kit);
+      const stats = countProtoDraws(mech);
+      console.log(`ally ${kit} ${shape}: ${stats.calls} calls, ${stats.triangles} triangles, ${stats.shapes} shapes`);
+      expect(stats.calls).toBe(5);
+      expect(stats.triangles).toBeGreaterThan(0);
+      disposeProtoMech(mech);
+    }
   }
 });
 
-test('the ally keeps its own boxes: 8 boxes (13 placed) running, 6 (8 placed) wrecked', () => {
-  expect(allyDetailBoxes('run')).toHaveLength(8);
-  expect(placedBoxes('run')).toBe(13);
-  expect(allyDetailBoxes('wreck')).toHaveLength(6);
-  expect(placedBoxes('wreck')).toBe(8);
+test('each named ally gets one of the two types, and the two types are different machines', () => {
+  expect(Object.keys(ALLY_KITS)).toHaveLength(5);
+  for (const id of Object.keys(ALLY_KITS)) expect(ALLY_KIT_IDS).toContain(allyKitOf(id));
+  // an ally the mission has not named still builds
+  expect(ALLY_KIT_IDS).toContain(allyKitOf('a-new-ally'));
+
+  const sniper = buildAllyMech('run', 'sniper');
+  const scout = buildAllyMech('run', 'scout');
+  expect(countProtoDraws(sniper).triangles).not.toBe(countProtoDraws(scout).triangles);
+  disposeProtoMech(sniper);
+  disposeProtoMech(scout);
 });

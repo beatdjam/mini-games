@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { type Rng } from '@engine/core/index.ts';
 import { burst, camera, disposeTree, scene } from '@engine/render/index.ts';
 import type { FxTune } from '../../data/tune.ts';
+import { DROID_TUNE } from '../../data/droids.ts';
 import { M1_NEST_WAVE } from '../../data/enemies.ts';
 import { PROP_SIZE } from '../../data/props.ts';
 import type { MapDef, Prop } from '../../data/types.ts';
@@ -16,7 +17,7 @@ import { MAX_SOLDIERS, crowdCounts, fallNear, spawnWave, type Crowd, type CrowdC
 import { addShellCrater, craterInsideBounds, scatterCraters, type Crater } from '../../logic/craters.ts';
 import { blastFaceHeight } from '../../logic/game.ts';
 import { newPlane, stepPlane, type Plane } from '../../logic/planes.ts';
-import { droidMatricesChanged, showDroid, writeDroid } from '../droidPose.ts';
+import { droidMatricesChanged, selectNearSoldiers, showDroid, writeDroid } from '../droidPose.ts';
 import { shellBurst } from '../hazards.ts';
 import { MAX_TRACERS, craterMeshes, planeGroup, smokeMesh, soldierMeshes, tracerMesh } from './parts.ts';
 
@@ -121,7 +122,8 @@ export function buildBattle(
   // the machine-gun nests are on the map's spawns; a squad walks on one and falls in its fire (see logic/crowd.ts)
   const state = newBattle(rng, map.bounds, tune, holdZ, map.spawns[M1_NEST_WAVE] ?? []);
   const crowd = state.crowd;
-  const soldiers = soldierMeshes();
+  const nearSoldiers = soldierMeshes();
+  const farSoldiers = soldierMeshes(MAX_SOLDIERS, 'far');
   const smoke = smokeMesh(tune.smokeMax);
   const smokeCapacity = Math.max(1, Math.round(tune.smokeMax));
   const tracers = tracerMesh();
@@ -129,8 +131,10 @@ export function buildBattle(
   const craterCapacity = Math.max(1, Math.round(tune.craters) + Math.round(tune.craterCap));
   const craterParts = craterMeshes(craterCapacity);
   group.add(
-    soldiers.bodies,
-    soldiers.heads,
+    nearSoldiers.bodies,
+    nearSoldiers.heads,
+    farSoldiers.bodies,
+    farSoldiers.heads,
     smoke,
     tracers,
     ...planeGroups,
@@ -303,17 +307,30 @@ export function buildBattle(
     for (const plane of planes) stepPlane(plane, rng, map.bounds, tune.planeSpeed, dt);
   }
 
+  // the view's own mark of which soldiers take the close form this frame, kept between frames (SB-2085)
+  const nearFlags = new Uint8Array(MAX_SOLDIERS);
+  const nearList: number[] = [];
+
   function drawSoldiers(held: boolean) {
     const list = crowd.soldiers;
     const n = Math.min(list.length, MAX_SOLDIERS);
     const holdZ = crowd.holdZ;
+    // the close form goes to the nearest soldiers within the tune's distance, up to its cap; the rest keep the far form
+    const near = selectNearSoldiers(list, camera.position, DROID_TUNE.nearDistance, DROID_TUNE.nearCap, nearList);
+    nearFlags.fill(0, 0, n);
+    for (const index of near) if (index < n) nearFlags[index] = 1;
+    let nearCount = 0;
+    let farCount = 0;
     for (let i = 0; i < n; i++) {
       const soldier = list[i];
       // waiting at the line: the view's own read of the crowd's rule (stepCrowd pins it at holdZ while held)
       const waiting = soldier.alive && held && holdZ !== null && soldier.z <= holdZ + 1e-9;
+      const close = nearFlags[i] === 1;
+      const meshes = close ? nearSoldiers : farSoldiers;
+      const at = close ? nearCount++ : farCount++;
       writeDroid(
-        soldiers,
-        i,
+        meshes,
+        at,
         soldier.x,
         0,
         soldier.z,
@@ -324,8 +341,10 @@ export function buildBattle(
         soldier.phase,
       );
     }
-    showDroid(soldiers, n);
-    droidMatricesChanged(soldiers);
+    showDroid(nearSoldiers, nearCount);
+    showDroid(farSoldiers, farCount);
+    droidMatricesChanged(nearSoldiers);
+    droidMatricesChanged(farSoldiers);
   }
 
   function drawSmoke() {

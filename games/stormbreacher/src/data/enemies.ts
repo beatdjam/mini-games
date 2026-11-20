@@ -2,8 +2,8 @@
 // one is a line in ENEMIES (and in ENEMY_KINDS, the kind's look and the language files' `target.<kind>`).
 import { PROP_SIZE } from './props.ts';
 
-// The kinds drawn as a soldier whose body is a set of boxes (data/enemyLooks.ts); the machine-gun nest is a model of its
-// own (SB-1981) and keeps its parts in view/enemies.ts.
+// The kinds drawn as a soldier's mech (SB-2083, the kit table in data/enemyLooks.ts and data/mechProto.ts); the
+// machine-gun nest is a model of its own (SB-1981) and keeps its parts in view/enemies.ts.
 export type SoldierKind = 'grunt' | 'assault' | 'heavy';
 export const SOLDIER_KINDS: readonly SoldierKind[] = ['grunt', 'assault', 'heavy'];
 

@@ -1,8 +1,6 @@
 // The colours the field, the map's ground and the sky share, so the same one is not written in two files.
 import type { DroidMaterial } from './droids.ts';
-import type { SoldierKind } from './enemies.ts';
-import type { MechColor } from './mech.ts';
-import type { ProtoMaterial } from './mechProto.ts';
+import type { ProtoMaterial, ProtoPaletteId } from './mechProto.ts';
 
 export const SAND_COLOR = 0xc2a878; // the ground's sand
 export const SKY_COLOR = 0x9db8c6; // the sky and the fog
@@ -77,21 +75,8 @@ export const HUD_COLOR = {
   track: 'rgba(84, 232, 255, 0.2)', // the empty part of an arc (仮)
 };
 
-// The enemy soldiers (SB-1480, 仮): the enemy side's own warm brown, kept apart from the mech's and the allies' blue-grey.
-// Each kind has three colours at most: the body, the small mark that tells the role apart and the weapons. They are baked
-// into the shape as vertex colours, so one mesh of one material still covers a whole enemy. The role itself is the shape
-// (data/enemyLooks.ts); the colour only tells the enemy side apart.
-export interface EnemyPalette {
-  body: number;
-  mark: number;
-  gun: number;
-}
-export const ENEMY_PALETTE: Record<SoldierKind, EnemyPalette> = {
-  grunt: { body: 0x7a4034, mark: 0xb87840, gun: 0x342f2a },
-  assault: { body: 0x8a4a2e, mark: 0xd08a48, gun: 0x2e2a26 }, // a little brighter, so the fast one reads apart
-  heavy: { body: 0x5f4a3a, mark: 0x9c7448, gun: 0x3d362d }, // a little darker and greyer, a heavy block at a distance
-};
-// What an enemy that is down is multiplied by (the instance colour over the shape's own colours).
+// The enemies wear the enemy row of PROTO_PALETTES (SB-2083): dark grey armour, near-black joints, red accents and red
+// lamps. What an enemy that is down is multiplied by (the instance colour over the baked colours).
 export const ENEMY_DOWN_TINT = 0x574d46;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
 
@@ -147,47 +132,41 @@ export const GUNFIRE_COLOR = {
   smokeFade: 0x9a9287, // that puff just before it goes
 };
 
-// The allied mech of the script (SB-170, 仮): the colours it wears running and the dark ones of its wreck, one hex per
-// colour name of the mech's look. The band is a pale green-teal, a side's colour clear of M1's gold and of the enemies'
-// reds and dark olive; it is the ally's own mark, so it goes on the shoulder band and the number alone. The accent stays
-// the cream the mech's pods' plate wears.
-export const ALLY_BAND_COLOR = 0x7fd4b0;
-export const ALLY_PALETTE: Record<MechColor, number> = {
-  armor: 0x5c6f7a,
-  frame: 0x363b3e,
-  accent: 0xd8d2b8,
-  sensor: 0x4ab6d8,
-  weapon: 0x8c9296,
-  band: ALLY_BAND_COLOR,
-};
-export const ALLY_WRECK_PALETTE: Record<MechColor, number> = {
-  armor: 0x2e3234,
-  frame: 0x1e2022,
-  accent: 0x35332c,
-  sensor: 0x1e2022,
-  weapon: 0x2a2c2d,
-  band: 0x35332c,
-};
+// The friendly side's painted band and number (#551), a pale green-teal clear of M1's gold and of the enemies' reds and
+// dark olive. It goes on the shoulder band and the number alone; the machine itself wears its type's colours (SB-2082).
+// A little deeper (SB-2082) so it still reads as teal under the beach's bright sun rather than washing out to white.
+export const PROTO_MARK_COLOR = 0x2fa890;
 // The mech's boost flame (SB-130, 仮): a small bright box behind the back part.
 export const MECH_FLAME_COLOR = 0xffd27a;
 
 // The prototype's metal (SB-1468, second pass SB-1469, 仮): a pale steel armour over a near-black frame, an orange
 // accent, and a cool light for the seams, the windows and the lamps. One hex per material name of data/mechProto.ts.
-export const MECH_PROTO_COLOR: Record<ProtoMaterial, number> = {
-  armor: 0x747d7f,
-  frame: 0x2b3134,
-  accent: 0xe07a2a,
-  glow: 0x4fc8ee,
+// SB-2080 puts the colours in a table by faction and type: SB-2081 makes the player the three views' white armour,
+// near-black joints, yellow bands and teal sensor; SB-2082 gives the sniper olive/navy/orange and the scout
+// blue-grey/white/yellow, and puts the friendly side's green-teal band and number (#551, PROTO_MARK_COLOR, deepened so it
+// reads under the sun) on the allies of either type. The enemy is dark grey with red lamps, its
+// row lightened a little in SB-2083 so the plates read under the beach's light. A kit picks one row
+// (data/mechProto.ts's PROTO_KITS) and the shapes never carry a colour.
+export const PROTO_PALETTES: Record<ProtoPaletteId, Record<ProtoMaterial, number>> = {
+  player: { armor: 0xd2d7d5, frame: 0x202528, accent: 0xe8b23c, glow: 0x43ddd0, mark: PROTO_MARK_COLOR },
+  ally: { armor: 0xd2dad8, frame: 0x252b2e, accent: 0xe8b43a, glow: 0xffcf5a, mark: PROTO_MARK_COLOR },
+  sniper: { armor: 0x4c5436, frame: 0x222931, accent: 0xcf6d24, glow: 0x9fdfe8, mark: PROTO_MARK_COLOR },
+  scout: { armor: 0x4c6270, frame: 0x2d373e, accent: 0xe8e4d8, glow: 0xffcf3a, mark: PROTO_MARK_COLOR },
+  // SB-2083: a little lighter than SB-2080's row, so the dark machine still shows its plates under the beach's light
+  enemy: { armor: 0x5a6067, frame: 0x2b3035, accent: 0xa52e33, glow: 0xff3b36, mark: 0xa52e33 },
+  boss: { armor: 0x24262a, frame: 0x141618, accent: 0xa01e22, glow: 0xff1a1a, mark: 0xa01e22 },
+  allyWreck: { armor: 0x2e3234, frame: 0x1e2022, accent: 0x35332c, glow: 0x1e2022, mark: 0x35332c },
 };
 
-// The beach's infantry droids (SB-1745, 仮): a pale steel armour over a near-black frame, a burnt orange accent and a
-// cool light for the sensor window and the thin lines. Chosen apart from the humans' uniforms, so the beach reads as
-// machines, and from MECH_PROTO_COLOR, so the infantry is not mistaken for the player's mech.
+// The beach's infantry droids (SB-1745, second pass SB-1747, three views SB-2084, near form SB-2085): the allies' bright
+// grey armour over dark joints, their yellow accents and teal lights. SB-2084 had taken them for the enemy's small machine
+// and given them its dark grey and red; SB-2085 puts them back on the friendly side, near the player's palette
+// (PROTO_PALETTES.player) so the beach's own troops read as part of the same army at a glance on the sand.
 export const DROID_COLOR: Record<DroidMaterial, number> = {
-  armor: 0x8a9296,
-  frame: 0x2b3033,
-  accent: 0xc9662b,
-  glow: 0x5fd6f0,
+  armor: 0xb4bcb8,
+  frame: 0x2a3034,
+  accent: 0xe8b43a,
+  glow: 0x43ddd0,
 };
 
 // The light the confirmation view puts around the prototype (SB-1468, second pass SB-1469, 仮): a warm sun that casts

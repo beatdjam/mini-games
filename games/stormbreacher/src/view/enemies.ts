@@ -1,13 +1,13 @@
-// The enemies as the screen draws them: one instanced mesh per kind, each soldier one merged low-poly shape whose parts
-// are baked into it, and the machine-gun nest built from parts (one instanced mesh each, drawn once for every nest). The
-// shape, not the colour, tells the soldiers' roles apart at a distance (data/enemyLooks.ts); their colours are baked in,
-// so one material still covers a whole soldier. It reads GameModel and never writes it.
+// The enemies as the screen draws them: one instanced mesh per kind, each soldier one merged shape baked from a mech kit
+// (view/mechProtoBake.ts, SB-2083), and the machine-gun nest built from parts (one instanced mesh each, drawn once for
+// every nest). The shape, not the colour, tells the soldiers' roles apart; their colours are baked in, so two materials
+// still cover a whole soldier. Past a role's distance (data/enemyLooks.ts) its copies move to a second, simpler instanced
+// mesh, so a crowd at a distance costs fewer triangles. It reads GameModel and never writes it.
 import * as THREE from 'three';
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { mergeParts, scene } from '@engine/render/index.ts';
+import { camera, scene } from '@engine/render/index.ts';
 import {
   ENEMY_DOWN_TINT,
-  ENEMY_PALETTE,
   NEST_BARREL_COLOR,
   NEST_DROID_COLOR,
   NEST_FLASH_COLOR,
@@ -19,13 +19,17 @@ import {
   NEST_TRIM_COLOR,
 } from '../data/colors.ts';
 import { ENEMIES, ENEMY_KINDS, type EnemyKind, type SoldierKind } from '../data/enemies.ts';
-import { ENEMY_LOOKS, ENEMY_LOOK_TUNE, type EnemyBox } from '../data/enemyLooks.ts';
+import { ENEMY_DETAIL_DISTANCE, ENEMY_KITS } from '../data/enemyLooks.ts';
+import type { EnemyState } from '../logic/enemies.ts';
 import type { GameModel } from '../logic/game.ts';
+import { bakeProtoMech } from './mechProtoBake.ts';
+import { MAP_FOG } from './world.ts';
 
 const MAX_ENEMIES = 64; // the most enemies of one kind drawn at once; the rest walk unseen
 const DOWN_SCALE_Y = 0.35; // how low a fallen enemy sits (its height scale)
 const HOLD_HIDE_SCALE = 0.55; // how low a posted defender sits while it hides behind cover (SB-2015)
 const ALIVE_TINT = 0xffffff; // an instance's colour multiplies the shape's own, so white leaves it as built
+const DETAIL_HYSTERESIS = 3; // m either side of a role's distance; inside it a copy keeps the shape it had (SB-2086)
 
 // The machine-gun nest's model (m), all in the nest's own frame: the middle of the ring on the ground, the front at -z.
 // The enclosure is wider and taller than the hit box (5.8 m across, its wall 1.9 m high) so it reads from far away, and
@@ -70,18 +74,23 @@ export interface EnemyPart {
   fallen: THREE.Matrix4;
   sleeping?: THREE.Matrix4;
   firingOnly?: boolean; // drawn only while the enemy is awake (the nest's muzzle flash)
+  level?: 'near' | 'far'; // the soldier's detail: a copy takes one level or the other
 }
 
 export interface EnemyKindView {
-  mesh: THREE.InstancedMesh; // the mesh named for the kind
+  mesh: THREE.InstancedMesh; // the mesh named for the kind (the full shape, for a soldier)
   parts: readonly EnemyPart[]; // its parts, the named mesh among them
   colored: boolean; // whether each copy takes a tint (the soldiers' alive or down) or the parts' own colours (the nest)
+  detail?: number; // m from the camera past which a soldier's copies take the far part
+  farLevels?: WeakMap<EnemyState, boolean>; // soldiers: the shape each copy had last frame, for the switch's width
 }
 
 export type EnemyView = Record<EnemyKind, EnemyKindView>;
 
 // The name of a kind's mesh in the scene.
 export const enemyMeshName = (kind: EnemyKind): string => `sb-enemy-${kind}`;
+// The name of a soldier's simplified mesh, drawn past the role's distance (SB-2083).
+export const enemyFarMeshName = (kind: SoldierKind): string => `${enemyMeshName(kind)}-far`;
 
 // One box with its place baked in.
 function box(
@@ -145,7 +154,7 @@ function tipped(pivot: readonly [number, number, number], rotX: number, drop: nu
 function partMesh(
   name: string,
   geometry: THREE.BufferGeometry,
-  material: THREE.Material,
+  material: THREE.Material | THREE.Material[],
   colored = false,
 ): THREE.InstancedMesh {
   const mesh = new THREE.InstancedMesh(geometry, material, MAX_ENEMIES);
@@ -158,85 +167,31 @@ function partMesh(
   return mesh;
 }
 
-// Paints every vertex of a part with one colour, so the merged shape carries its colours with no extra material.
-function paint(geometry: THREE.BufferGeometry, hex: number): void {
-  const color = new THREE.Color(hex);
-  const count = geometry.attributes.position.count;
-  const colors = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    colors[i * 3] = color.r;
-    colors[i * 3 + 1] = color.g;
-    colors[i * 3 + 2] = color.b;
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-}
-
-// Builds one soldier's boxes and joins them into a single shape: the whole enemy then costs one instanced draw, however
-// many parts give it its silhouette. The boxes are in metres, with their feet at y = 0, so an instance only moves and
-// turns them.
-function buildSoldierGeometry(kind: SoldierKind): THREE.BufferGeometry {
-  const def = ENEMIES[kind];
-  const tune = ENEMY_LOOK_TUNE[kind];
-  const palette = ENEMY_PALETTE[kind];
-  const root = new THREE.Group();
-  // the upper body turns about the hip, so a lean does not lift the feet off the ground
-  const upper = new THREE.Group();
-  upper.position.y = tune.hip * def.height;
-  upper.rotation.x = tune.lean;
-  root.add(upper);
-
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const parts: THREE.BufferGeometry[] = [];
-
-  const addBox = (box: EnemyBox, side: number) => {
-    const gun = box.color === 'gun';
-    const reach = gun ? tune.reach : 1;
-    const geometry = new THREE.BoxGeometry(
-      box.size[0] * tune.width * def.radius,
-      box.size[1] * def.height,
-      box.size[2] * reach * def.radius,
-    );
-    paint(geometry, palette[box.color]);
-    const mesh = new THREE.Mesh(geometry, material);
-    const above = box.at[1] >= tune.hip;
-    mesh.position.set(
-      box.at[0] * tune.width * side * def.radius,
-      box.at[1] * def.height - (above ? tune.hip * def.height : 0),
-      box.at[2] * reach * def.radius,
-    );
-    mesh.rotation.x = box.rotX ?? 0;
-    mesh.rotation.z = box.rotZ ?? 0;
-    (above ? upper : root).add(mesh);
-    parts.push(geometry);
-  };
-
-  for (const box of ENEMY_LOOKS[kind]) {
-    const sides = box.mirror === 'x' ? [1, -1] : [1];
-    for (const side of sides) addBox(box, side);
-  }
-
-  mergeParts(root);
-  const merged = root.children.find(child => (child as THREE.Mesh).isMesh === true) as THREE.Mesh | undefined;
-  if (merged === undefined) throw new Error(`the enemy kind ${kind} built no shape`);
-  const shape = merged.geometry;
-  // the merge cloned the parts' shapes; these are only the originals it read
-  for (const part of parts) part.dispose();
-  material.dispose();
-  return shape;
-}
-
-// A soldier: its whole body baked into one shape, drawn as one copy of one instanced mesh. The shape is already in
-// metres with its feet at y = 0, so standing is the copy's own place, and it is only squashed to fall.
+// A soldier: its kit baked into one shape, drawn as one copy of one instanced mesh. The shape is already in metres with
+// its feet at y = 0, so standing is the copy's own place, and it is only squashed to fall. Two shapes are built: the full
+// one and the simplified one the far copies use (SB-2083), and both share the two materials (paint and light).
 function buildSoldierView(kind: SoldierKind): EnemyKindView {
-  const mesh = partMesh(
-    enemyMeshName(kind),
-    buildSoldierGeometry(kind),
+  const kit = ENEMY_KITS[kind];
+  const height = ENEMIES[kind].height;
+  const near = bakeProtoMech(kit, height, 'full');
+  const far = bakeProtoMech(kit, height, 'far');
+  const materials = [
     new THREE.MeshLambertMaterial({ vertexColors: true }),
-    true, // each copy takes its alive or down tint, so the colour array is made at the full size (SB-1983)
-  );
+    new THREE.MeshBasicMaterial({ vertexColors: true }),
+  ];
+  const nearMesh = partMesh(enemyMeshName(kind), near.geometry, materials, true);
+  const farMesh = partMesh(enemyFarMeshName(kind), far.geometry, materials, true);
   const standing = new THREE.Matrix4();
   const fallen = shifted([0, 0, 0], { x: 1, y: DOWN_SCALE_Y, z: 1 });
-  return { mesh, parts: [{ mesh, standing, fallen }], colored: true };
+  const nearPart: EnemyPart = { mesh: nearMesh, standing, fallen, level: 'near' };
+  const farPart: EnemyPart = { mesh: farMesh, standing, fallen, level: 'far' };
+  return {
+    mesh: nearMesh,
+    parts: [nearPart, farPart],
+    colored: true,
+    detail: ENEMY_DETAIL_DISTANCE[kind],
+    farLevels: new WeakMap(),
+  };
 }
 
 // A ring of sandbags: four courses of boxes, each turned half a bag from the one below and drawn a little inside, with
@@ -447,22 +402,51 @@ const place = new THREE.Object3D();
 const tint = new THREE.Color();
 const matrix = new THREE.Matrix4();
 const NOTHING = new THREE.Matrix4().makeScale(0, 0, 0); // a part not drawn at all: its copies shrink to nothing
-// How many copies of each kind this frame has taken. Kept between frames, so the draw makes no garbage every frame.
-const counts = Object.fromEntries(ENEMY_KINDS.map(kind => [kind, 0])) as Record<EnemyKind, number>;
+const FORWARD = new THREE.Vector3();
+// How many copies a mesh has taken this frame is kept in the mesh's own `count`: the meshes are the view's, so nothing
+// outlives the view that built them (SB-2086, where a map here kept a removed sortie's meshes alive).
 
-// Writes each enemy of each kind into its meshes and sets how many are drawn.
+// The shape a soldier's copy takes: the far one past its role's distance, with a band either side of the edge where it
+// keeps the shape it had, so walking back and forth across the line does not flicker between two very different builds.
+function soldierIsFar(kindView: EnemyKindView, enemy: EnemyState, distanceSq: number): boolean {
+  const detail = kindView.detail;
+  const levels = kindView.farLevels;
+  if (detail === undefined || levels === undefined) return false;
+  const had = levels.get(enemy);
+  let far = had ?? distanceSq > detail ** 2;
+  if (!far && distanceSq > (detail + DETAIL_HYSTERESIS) ** 2) far = true;
+  else if (far && distanceSq < (detail - DETAIL_HYSTERESIS) ** 2) far = false;
+  levels.set(enemy, far);
+  return far;
+}
+
+// Writes each enemy of each kind into its meshes and sets how many are drawn. A soldier past its role's distance takes
+// the simpler shape (SB-2083); one behind the camera or past the fog is not written at all (SB-2086). Every other part is
+// written as before.
 export function drawEnemies(view: EnemyView, game: GameModel): void {
-  for (const kind of ENEMY_KINDS) counts[kind] = 0;
+  for (const kind of ENEMY_KINDS) {
+    for (const part of view[kind].parts) part.mesh.count = 0;
+  }
+  camera.getWorldDirection(FORWARD);
   for (const enemy of game.enemies) {
     const kindView = view[enemy.kind];
-    const at = counts[enemy.kind]!;
-    if (at >= MAX_ENEMIES) continue;
-    counts[enemy.kind] = at + 1;
+    const dx = enemy.x - camera.position.x;
+    const dy = enemy.y - camera.position.y;
+    const dz = enemy.z - camera.position.z;
+    const distanceSq = dx * dx + dy * dy + dz * dz;
+    // the fog hides everything past its far plane, and nothing behind the camera shows
+    if (distanceSq > MAP_FOG.far ** 2) continue;
+    if (dx * FORWARD.x + dy * FORWARD.y + dz * FORWARD.z < 0) continue;
+    const far = soldierIsFar(kindView, enemy, distanceSq);
     const alive = enemy.hp > 0;
     // a posted defender ducks behind its cover while it hides and stands up to fire (SB-2015)
     const hidden = alive && enemy.post !== null && !enemy.holdOut;
     const asleep = !enemy.awake;
     for (const part of kindView.parts) {
+      if (part.level !== undefined && (part.level === 'far') !== far) continue;
+      const at = part.mesh.count;
+      if (at >= MAX_ENEMIES) continue;
+      part.mesh.count = at + 1;
       const local =
         part.firingOnly === true
           ? alive && !asleep
@@ -485,24 +469,27 @@ export function drawEnemies(view: EnemyView, game: GameModel): void {
     }
   }
   for (const kind of ENEMY_KINDS) {
-    const kindView = view[kind];
-    const count = counts[kind]!;
-    for (const part of kindView.parts) {
-      part.mesh.count = count;
+    for (const part of view[kind].parts) {
+      // an empty mesh is not drawn, so the near and far shapes cost one draw between them, not two
+      part.mesh.visible = part.mesh.count > 0;
       part.mesh.instanceMatrix.needsUpdate = true;
       if (part.mesh.instanceColor) part.mesh.instanceColor.needsUpdate = true;
     }
   }
 }
 
-// Takes the meshes out of the scene.
+// Takes the meshes out of the scene. The two materials of a soldier are shared by its near and far shapes, so each one
+// is disposed once.
 export function removeEnemyView(view: EnemyView): void {
+  const materials = new Set<THREE.Material>();
   for (const kind of ENEMY_KINDS) {
     for (const part of view[kind].parts) {
       scene.remove(part.mesh);
       part.mesh.geometry.dispose();
-      (part.mesh.material as THREE.Material).dispose(); // built above as a single material
+      const parts = Array.isArray(part.mesh.material) ? part.mesh.material : [part.mesh.material];
+      for (const material of parts) materials.add(material);
       part.mesh.dispose();
     }
   }
+  for (const material of materials) material.dispose();
 }

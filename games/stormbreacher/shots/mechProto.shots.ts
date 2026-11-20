@@ -51,6 +51,7 @@ function clearView(before: Set<THREE.Object3D>): void {
     });
   }
   document.getElementById('sbMechBar')?.remove();
+  document.getElementById('sbKitBar')?.remove();
   document.getElementById('sbTunePanel')?.remove();
   document.getElementById('sbProtoPanel')?.remove();
   scene.environment = null;

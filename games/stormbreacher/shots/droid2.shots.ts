@@ -1,7 +1,7 @@
-// Screenshots of the infantry droids' second pass (SB-1747): one droid standing, waiting and fallen (#view-droid), the
-// squads walking on the beach, the crowd, and the riders on the landing craft. npm run shots. Not a test: it is not part
-// of npm test or the CI (the drawn pixels differ between machines). SHOTS_OUT=<folder> picks where the pictures go;
-// SHOTS_ONLY=<text> takes only the shots whose names contain it.
+// Screenshots of the infantry droids' second pass (SB-1747) and close form (SB-2085): one droid standing, waiting and
+// fallen (#view-droid), beside the mech, the squads walking on the beach, the crowd, and the riders on the landing craft.
+// npm run shots. Not a test: it is not part of npm test or the CI (the drawn pixels differ between machines).
+// SHOTS_OUT=<folder> picks where the pictures go; SHOTS_ONLY=<text> takes only the shots whose names contain it.
 import { beforeAll, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
@@ -9,10 +9,11 @@ import { LOOP, runSystems, systems } from '@engine/core/index.ts';
 import { camera, scene } from '@engine/render/index.ts';
 import { boot } from '../src/app/boot.ts';
 import { currentGame } from '../src/app/play.ts';
-import { BATTLE_TUNE } from '../src/data/tune.ts';
+import { BATTLE_TUNE, MECH_TUNE } from '../src/data/tune.ts';
 import { DROID_VIEW_AT, showDroid } from '../src/dev/views/droid.ts';
 import { showLanding } from '../src/dev/views/landing.ts';
 import { showSquad } from '../src/dev/views/squad.ts';
+import { buildProtoMech } from '../src/view/mechProtoModel.ts';
 // loads the language files and boots the page, as the real page does
 import '../src/main.ts';
 
@@ -102,10 +103,17 @@ beforeAll(async () => {
 
 test('droid2', async () => {
   const { x, z } = DROID_VIEW_AT;
-  // the single droid standing: front and front quarter, framed on the whole 1.56 m body
+  // the single droid standing: front, front quarter and beside the mech, framed on the whole 1.56 m body
   await droidPictures('#view-droid?spin=0', async () => {
     await picture('droid2-front', { eye: [x, 1.0, z - 1.9], look: [x, 0.84, z] });
     await picture('droid2-quarter', { eye: [x + 1.3, 1.05, z - 1.4], look: [x, 0.84, z] });
+    // SB-2085: the close droid beside the player's mech, to judge the infantry against the machine
+    const view = scene.getObjectByName('sb-droid-view');
+    if (!view) throw new Error('the droid view is not in the scene');
+    const mech = buildProtoMech(MECH_TUNE.height);
+    mech.position.set(x + 2.4, 0, z + 0.3);
+    view.add(mech);
+    await picture('droid2-beside-mech', { eye: [x + 1.1, 2.7, z - 8], look: [x + 1.2, 1.5, z] });
   });
 
   // the squat at the hold line: lower and leaning onto the toes
@@ -125,8 +133,14 @@ test('droid2', async () => {
   await until(() => game().script.cutscene === null);
   LOOP.maxDt = 0;
   advance(1.5);
-  const bodies = scene.getObjectByName('sb-battle-bodies');
-  if (!(bodies instanceof THREE.InstancedMesh) || bodies.count === 0) throw new Error('the battle drew no droid');
+  // the near and far forms are separate meshes (SB-2085): read both, so the picture does not depend on which one the view
+  // chose for the first wave
+  const soldierBodies = (): THREE.InstancedMesh[] =>
+    ['sb-battle-bodies', 'sb-battle-bodies-far']
+      .map(name => scene.getObjectByName(name))
+      .filter((mesh): mesh is THREE.InstancedMesh => mesh instanceof THREE.InstancedMesh && mesh.count > 0);
+  const bodies = soldierBodies()[0];
+  if (!bodies) throw new Error('the battle drew no droid');
   const matrix = new THREE.Matrix4();
   const target = new THREE.Vector3();
   bodies.getMatrixAt(0, matrix);
@@ -148,13 +162,15 @@ test('droid2', async () => {
   const place = new THREE.Vector3();
   let waitAt: THREE.Vector3 | null = null;
   let best = Infinity;
-  for (let i = 0; i < bodies.count; i++) {
-    bodies.getMatrixAt(i, line);
-    place.setFromMatrixPosition(line);
-    const near = Math.abs(place.z - BATTLE_TUNE.holdBeachZ);
-    if (near < best) {
-      best = near;
-      waitAt = place.clone();
+  for (const mesh of soldierBodies()) {
+    for (let i = 0; i < mesh.count; i++) {
+      mesh.getMatrixAt(i, line);
+      place.setFromMatrixPosition(line);
+      const near = Math.abs(place.z - BATTLE_TUNE.holdBeachZ);
+      if (near < best) {
+        best = near;
+        waitAt = place.clone();
+      }
     }
   }
   if (waitAt === null) throw new Error('no droid reached the hold line');

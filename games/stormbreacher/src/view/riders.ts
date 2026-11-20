@@ -1,6 +1,7 @@
-// The infantry droids who ride in on the landing craft (SB-1640, droids SB-1745), as the screen draws them: the
-// battle's own body, head and lit parts, at the deck's height. They stand until a `riders` event names them and then lie
-// down as the battle's fallen do. The view reads the cutscene's table and never writes the game.
+// The infantry droids who ride in on the landing craft (SB-1640, droids SB-1745, close form SB-2085), as the screen draws
+// them: the battle's own body, head and lit parts in the close form (the riders are always seen near), at the deck's
+// height. They stand until a `riders` event names them and then lie down as the battle's fallen do. The view reads the
+// cutscene's table and never writes the game.
 import * as THREE from 'three';
 import { disposeTree, scene } from '@engine/render/index.ts';
 import { CRAFT_TUNE } from '../data/craft.ts';

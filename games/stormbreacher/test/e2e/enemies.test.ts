@@ -3,13 +3,13 @@ import { page } from 'vitest/browser';
 import * as THREE from 'three';
 import { el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
-import { ENEMY_KINDS } from '../../src/data/enemies.ts';
+import { ENEMY_KINDS, SOLDIER_KINDS, type EnemyKind, type SoldierKind } from '../../src/data/enemies.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
 import { sendToScript } from '../../src/logic/game.ts';
-import { enemyMeshName } from '../../src/view/enemies.ts';
+import { enemyFarMeshName, enemyMeshName } from '../../src/view/enemies.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -36,11 +36,16 @@ async function until(done: () => boolean, tries = 240, what = (): string => ''):
   if (!done()) throw new Error(`the page did not reach the state in ${tries} frames ${what()}`);
 }
 
+// Every mesh of a kind: a soldier has the full shape and the far one (SB-2083); the nest has its named sandbags only.
+const meshNamesOf = (kind: EnemyKind): string[] =>
+  kind === 'emplacement' ? [enemyMeshName(kind)] : [enemyMeshName(kind), enemyFarMeshName(kind as SoldierKind)];
+
 // The mesh of every kind; a wave of mixed kinds draws into more than one of them.
 const enemyMeshes = (): THREE.Object3D[] =>
-  scene.children.filter(child => ENEMY_KINDS.some(kind => child.name === enemyMeshName(kind)));
+  scene.children.filter(child => ENEMY_KINDS.some(kind => meshNamesOf(kind).includes(child.name)));
 
-// How many enemies the scene draws across every kind's mesh.
+// How many enemies the scene draws across every kind's mesh. A copy is written into one level only, and one behind the
+// camera or past the fog is not written at all (SB-2086), so the sum is what the frame draws.
 const drawnEnemies = (): number => enemyMeshes().reduce((sum, mesh) => sum + (mesh as THREE.InstancedMesh).count, 0);
 
 test('an enemy’s bullet that takes the last armour shows the result with the downed heading', async () => {
@@ -73,26 +78,34 @@ test('the script’s end keeps the cleared heading', () => {
   expect(el('#sbResult .title').textContent).toBe(t('result.title'));
 });
 
+// The meshes a wave can draw into: each role's full shape and far shape, and the nest's named sandbags.
+const allMeshNames = (): string[] => ENEMY_KINDS.flatMap(kind => meshNamesOf(kind)).sort();
+
 test('the enemies of a wave are drawn, and starting again leaves one set', async () => {
   startSortie();
   await frame();
-  expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length);
+  // the landing cutscene puts the camera out at sea, past the fog that hides the far squad; play starts at the mech
+  sendToScript(game(), { kind: 'skip' });
+  await frame();
+  expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length + SOLDIER_KINDS.length);
   // the six nests and the two sectors' ten posted defenders (SB-2015) stand from the start
   expect(drawnEnemies()).toBe(16);
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
   await frame();
   // the squad, on top of the six nests and the ten defenders
   expect(game().enemies).toHaveLength(22);
-  expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length);
+  expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length + SOLDIER_KINDS.length);
   expect(drawnEnemies()).toBe(22);
 
   startSortie();
+  await frame();
+  sendToScript(game(), { kind: 'skip' });
   await frame();
   expect(
     enemyMeshes()
       .map(mesh => mesh.name)
       .sort(),
-  ).toEqual(ENEMY_KINDS.map(enemyMeshName).sort());
+  ).toEqual(allMeshNames());
   expect(drawnEnemies()).toBe(16);
 });
 
@@ -112,13 +125,14 @@ function nestParts(): THREE.InstancedMesh[] {
 test('every kind keeps room for its instance colours, so the GPU can draw it', async () => {
   startSortie();
   await frame();
+  // the landing cutscene's camera is out past the fog; the wave is measured from where the player stands
+  sendToScript(game(), { kind: 'skip' });
+  await frame();
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
   await frame();
   // the six nests, the ten posted defenders and the squad (SB-2015)
   expect(drawnEnemies()).toBe(22);
   for (const kind of ENEMY_KINDS) {
-    const mesh = scene.getObjectByName(enemyMeshName(kind)) as THREE.InstancedMesh;
-    expect(mesh.count, kind).toBeGreaterThan(0);
     // The nest's parts take no colour per copy: three multiplies the material's colour by instanceColor when it exists,
     // and a colour array that is never written is all zeros, which would draw the nest black. So it has none, and the
     // part shows its material's colour (or its painted vertex colours).
@@ -130,16 +144,24 @@ test('every kind keeps room for its instance colours, so the GPU can draw it', a
       }
       continue;
     }
-    // The room covers every copy the mesh may draw, so the GPU finds a colour for each one.
-    const colors = mesh.instanceColor;
-    if (colors === null) throw new Error(`${kind} has no instance colours`);
-    expect(colors.array.length, `${kind} colour room`).toBe((mesh.instanceMatrix.array.length / 16) * 3);
-    // A soldier's copy multiplies the shape's own colours (SB-1480): alive it is white, so the baked colours show, and a
-    // written array is never all zeros, which would draw the copy black.
-    for (let i = 0; i < mesh.count; i++) {
-      mesh.getColorAt(i, colorAt);
-      expect(colorAt.getHex(), `${kind} ${i}`).toBe(0xffffff);
+    // A soldier's copies are split between the full shape and the far one (SB-2083), so each kind draws in one of the
+    // two; the room of each mesh covers every copy it may draw, so the GPU finds a colour for each one.
+    const meshes = meshNamesOf(kind).map(name => scene.getObjectByName(name) as THREE.InstancedMesh);
+    expect(
+      meshes.reduce((sum, mesh) => sum + mesh.count, 0),
+      kind,
+    ).toBeGreaterThan(0);
+    for (const mesh of meshes) {
+      const colors = mesh.instanceColor;
+      if (colors === null) throw new Error(`${kind} (${mesh.name}) has no instance colours`);
+      expect(colors.array.length, `${mesh.name} colour room`).toBe((mesh.instanceMatrix.array.length / 16) * 3);
+      // A soldier's copy multiplies the shape's own baked colours: alive it is white, so they show, and a written array
+      // is never all zeros, which would draw the copy black.
+      for (let i = 0; i < mesh.count; i++) {
+        mesh.getColorAt(i, colorAt);
+        expect(colorAt.getHex(), `${mesh.name} ${i}`).toBe(0xffffff);
+      }
+      expect(mesh.geometry.attributes.color, `${mesh.name} baked colours`).toBeDefined();
     }
-    expect(mesh.geometry.attributes.color, `${kind} baked colours`).toBeDefined();
   }
 });

@@ -1,16 +1,16 @@
-// The ally's own look (#view-ally, SB-1730): M1 B's beach with the script's allied mech standing on it, seen from 10 m
-// (close enough to read the plates, band and antenna) or 60 m (whether it still reads as an ally), running or wrecked.
-// The tuning panel changes ALLY_DETAIL and builds the model again, so a value is judged on the next frame.
+// The ally's own look (#view-ally, SB-1730, SB-2082): M1 B's beach with the script's allied mech standing on it, seen
+// from 4 m (the shoulder band and number), 10 m (the plates) or 60 m (whether it still reads as an ally), running or
+// wrecked, as either of the two types (the sniper or the scout). The buttons build the other model at once.
 import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, scene } from '@engine/render/index.ts';
-import { ALLY_DETAIL, ALLY_TUNE, type AllyShape } from '../../data/allies.ts';
+import { ALLY_KIT_IDS, ALLY_TUNE, type AllyKit, type AllyShape } from '../../data/allies.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { buildAllyMech } from '../../view/allies.ts';
 import { applyLookTo } from '../../view/look.ts';
-import { countMechDraws, disposeMech } from '../../view/mechModel.ts';
-import { createTunePanel, type TuneGroup } from '../tunePanel.ts';
+import { countProtoDraws, disposeProtoMech } from '../../view/mechProtoModel.ts';
+import { createTunePanel } from '../tunePanel.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
 
 declare global {
@@ -20,7 +20,7 @@ declare global {
 }
 
 // The shots the view offers: how far the camera stands (m) and whether the ally lies wrecked.
-export type AllyShot = 'near' | 'far' | 'wreck';
+export type AllyShot = 'near' | 'band' | 'far' | 'wreck';
 
 interface ShotSpec {
   distance: number; // the camera's distance from the ally (m)
@@ -31,6 +31,7 @@ interface ShotSpec {
 
 const SHOTS: Record<AllyShot, ShotSpec> = {
   near: { distance: 10, height: 2.6, lookAt: 1.5, shape: 'run' },
+  band: { distance: 4, height: 2.5, lookAt: 2.1, shape: 'run' },
   far: { distance: 60, height: 9, lookAt: 1.7, shape: 'run' },
   wreck: { distance: 10, height: 2.4, lookAt: 0.7, shape: 'wreck' },
 };
@@ -44,36 +45,14 @@ const WRECK_YAW = 0.4; // the wreck's own turn, so its broken side shows
 const BUTTON =
   'height:24px;border:1px solid rgba(213,228,238,0.35);background:rgba(10,17,25,0.7);color:inherit;font:inherit';
 
-const TUNE: TuneGroup = {
-  name: 'ALLY_DETAIL',
-  table: ALLY_DETAIL,
-  ranges: {
-    'shoulder.width': { min: 0.08, max: 0.28, step: 0.005 },
-    'shoulder.height': { min: 0.04, max: 0.18, step: 0.005 },
-    'shoulder.depth': { min: 0.12, max: 0.36, step: 0.005 },
-    'shoulder.y': { min: 0.24, max: 0.42, step: 0.005 },
-    'band.width': { min: 0.06, max: 0.18, step: 0.005 },
-    'band.height': { min: 0.01, max: 0.06, step: 0.002 },
-    'antenna.height': { min: 0.1, max: 0.4, step: 0.005 },
-    'wreck.shoulderLean': { min: 0, max: 1.2, step: 0.01 },
-    'wreck.antennaLean': { min: 0, max: 1.4, step: 0.01 },
-  },
-  labels: {
-    'shoulder.width': '肩の幅',
-    'shoulder.height': '肩の厚み',
-    'shoulder.depth': '肩の奥行き',
-    'shoulder.y': '肩の高さ',
-    'band.width': '帯の幅',
-    'band.height': '帯の太さ',
-    'antenna.height': 'アンテナの長さ',
-    'wreck.shoulderLean': '倒れた肩の傾き',
-    'wreck.antennaLean': '倒れたアンテナの傾き',
-  },
-};
-
 function shotOf(params: URLSearchParams): AllyShot {
   const asked = params.get('shot');
   return asked === 'far' || asked === 'wreck' ? asked : 'near';
+}
+
+function kitOf(params: URLSearchParams): AllyKit {
+  const asked = params.get('kit');
+  return asked !== null && (ALLY_KIT_IDS as readonly string[]).includes(asked) ? (asked as AllyKit) : 'sniper';
 }
 
 function placeCamera(shot: AllyShot): void {
@@ -95,41 +74,63 @@ export function showAllyDetail(_hash: string) {
 
   const params = new URLSearchParams(location.search);
   let shot = shotOf(params);
+  let kit = kitOf(params);
 
   // builds the model for a shot and puts it on the sand; the caller drops the one it replaces
-  const make = (next: AllyShot): THREE.Group => {
-    const group = buildAllyMech(SHOTS[next].shape);
+  const make = (next: AllyShot, nextKit: AllyKit): THREE.Group => {
+    const group = buildAllyMech(SHOTS[next].shape, nextKit);
     group.position.set(ALLY_AT.x, 0, ALLY_AT.z);
     if (SHOTS[next].shape === 'wreck') group.rotation.set(0, WRECK_YAW, ALLY_TUNE.wreckTilt, 'YXZ');
     scene.add(group);
     return group;
   };
-  let model = make(shot);
+  let model = make(shot, kit);
   placeCamera(shot);
   const place = (next: AllyShot) => {
     scene.remove(model);
-    disposeMech(model);
-    model = make(next);
+    disposeProtoMech(model);
+    model = make(next, kit);
     placeCamera(next);
   };
 
   const buttons = document.createElement('div');
-  buttons.style.cssText = 'display:flex;gap:4px;margin-bottom:4px';
-  const labels: Record<AllyShot, string> = { near: '近く 10m', far: '遠く 60m', wreck: '倒れた姿' };
+  const typeRow = document.createElement('div');
+  typeRow.style.cssText = 'display:flex;gap:4px;margin-bottom:4px';
+  const typeLabels: Record<AllyKit, string> = { sniper: '狙撃', scout: '偵察' };
+  const kitNodes = new Map<AllyKit, HTMLButtonElement>();
+  for (const name of ALLY_KIT_IDS) {
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.textContent = typeLabels[name];
+    node.style.cssText = `${BUTTON};flex:1`;
+    node.addEventListener('click', () => setKit(name));
+    typeRow.appendChild(node);
+    kitNodes.set(name, node);
+  }
+  const shotRow = document.createElement('div');
+  shotRow.style.cssText = 'display:flex;gap:4px;margin-bottom:4px';
+  const labels: Record<AllyShot, string> = { near: '近く 10m', band: '肩 4m', far: '遠く 60m', wreck: '倒れた姿' };
   const nodes = new Map<AllyShot, HTMLButtonElement>();
-  for (const name of ['near', 'far', 'wreck'] as const) {
+  for (const name of ['near', 'band', 'far', 'wreck'] as const) {
     const node = document.createElement('button');
     node.type = 'button';
     node.textContent = labels[name];
     node.style.cssText = `${BUTTON};flex:1`;
     node.addEventListener('click', () => setShot(name));
-    buttons.appendChild(node);
+    shotRow.appendChild(node);
     nodes.set(name, node);
   }
+  buttons.append(typeRow, shotRow);
 
   function paint() {
     for (const [name, node] of nodes) {
       const on = name === shot;
+      node.setAttribute('aria-pressed', String(on));
+      node.style.background = on ? 'rgba(213,228,238,0.85)' : 'rgba(10,17,25,0.7)';
+      node.style.color = on ? '#10161d' : 'inherit';
+    }
+    for (const [name, node] of kitNodes) {
+      const on = name === kit;
       node.setAttribute('aria-pressed', String(on));
       node.style.background = on ? 'rgba(213,228,238,0.85)' : 'rgba(10,17,25,0.7)';
       node.style.color = on ? '#10161d' : 'inherit';
@@ -144,18 +145,26 @@ export function showAllyDetail(_hash: string) {
   }
   shotSetter = setShot;
 
+  function setKit(next: AllyKit) {
+    if (next === kit) return;
+    kit = next;
+    place(shot);
+    paint();
+  }
+  kitSetter = setKit;
+
   createTunePanel({
-    groups: [TUNE],
+    groups: [],
     title: '味方機',
     extra: buttons,
-    onChange: () => place(shot),
   });
   paint();
 
   window.sbAllyReport = () => {
-    const draws = countMechDraws(model);
+    const draws = countProtoDraws(model);
     return JSON.stringify({
       shot,
+      kit,
       shape: SHOTS[shot].shape,
       height: ALLY_TUNE.height,
       draws,
@@ -169,11 +178,17 @@ export function showAllyDetail(_hash: string) {
   });
 }
 
-// A view's setting of the shot, once showAlly has made one. The shots use this so each picture is the state the
-// button would give, without a click having to land on the page.
+// A view's setting of the shot and the type, once showAlly has made one. The shots use these so each picture is the
+// state the button would give, without a click having to land on the page.
 let shotSetter: ((shot: AllyShot) => void) | null = null;
+let kitSetter: ((kit: AllyKit) => void) | null = null;
 
 export function showAllyDetailShot(shot: AllyShot): void {
   if (shotSetter === null) throw new Error('showAllyDetail must run before showAllyDetailShot');
   shotSetter(shot);
+}
+
+export function showAllyDetailKit(kit: AllyKit): void {
+  if (kitSetter === null) throw new Error('showAllyDetail must run before showAllyDetailKit');
+  kitSetter(kit);
 }

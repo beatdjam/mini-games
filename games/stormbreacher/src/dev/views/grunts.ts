@@ -1,18 +1,16 @@
-// The three enemy roles side by side (#view-grunts, SB-1480): the M1 B beach with one grunt, one assault and one heavy,
-// seen from close (10m) and from far (80m), so the silhouette can be judged at both distances. It never reads the game's
-// state; the panel turns the shape knobs of data/enemyLooks.ts and rebuilds the shapes.
+// The three enemy roles side by side (#view-grunts, SB-1480; rebuilt on the mech kit by SB-2083): the M1 B beach with one
+// grunt, one assault and one heavy, seen from close (10m) and from far (80m), so the silhouette can be judged at both
+// distances and the simplified far shape can be seen. It never reads the game's state.
 import type * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, cullChunks, renderer } from '@engine/render/index.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
-import { SOLDIER_KINDS, type SoldierKind } from '../../data/enemies.ts';
-import { ENEMY_LOOKS, ENEMY_LOOK_TUNE } from '../../data/enemyLooks.ts';
+import { SOLDIER_KINDS } from '../../data/enemies.ts';
 import { newEnemy } from '../../logic/enemies.ts';
 import type { GameModel } from '../../logic/game.ts';
 import { applyLookTo } from '../../view/look.ts';
-import { buildEnemyView, drawEnemies, removeEnemyView, type EnemyView } from '../../view/enemies.ts';
-import { createTunePanel, type TuneRange } from '../tunePanel.ts';
+import { buildEnemyView, drawEnemies, type EnemyView } from '../../view/enemies.ts';
 import { buildMapScene, MAP_FOG } from './mapView.ts';
 
 declare global {
@@ -37,26 +35,10 @@ const CAM_HEIGHT = 2.6; // m
 const LOOK_HEIGHT = 1.5; // m
 const KEY_DISTANCE: Record<string, number> = { '1': NEAR, '2': FAR };
 
-const TUNE_RANGES: Record<string, TuneRange> = {
-  width: { min: 0.6, max: 1.6, step: 0.01 },
-  lean: { min: -0.6, max: 0.2, step: 0.01 },
-  reach: { min: 0.5, max: 1.8, step: 0.01 },
-  hip: { min: 0.2, max: 0.7, step: 0.01 },
-};
-const TUNE_LABELS: Record<string, string> = {
-  width: '幅',
-  lean: '前のめり（rad）',
-  reach: '銃の長さ',
-  hip: '腰の高さ',
-};
-
-// How many boxes one enemy of a kind is built from (a mirrored box counts twice).
-function boxCount(kind: SoldierKind): number {
-  return ENEMY_LOOKS[kind].reduce((sum, box) => sum + (box.mirror === 'x' ? 2 : 1), 0);
-}
-
-function enemyMeshes(view: EnemyView): THREE.InstancedMesh[] {
-  return SOLDIER_KINDS.map(kind => view[kind].mesh);
+// The mesh a role is actually drawn in after the draw: its full shape, or the simpler one the switch chose.
+function soldierMesh(view: EnemyView, kind: (typeof SOLDIER_KINDS)[number]): THREE.InstancedMesh {
+  const shown = view[kind].parts.find(part => part.mesh.count > 0);
+  return shown?.mesh ?? view[kind].mesh;
 }
 
 export function showGrunts(_hash: string): GruntsShow {
@@ -67,7 +49,7 @@ export function showGrunts(_hash: string): GruntsShow {
   const asked = Number(new URLSearchParams(location.search).get('dist'));
   let distance = Number.isFinite(asked) && asked > 0 ? asked : NEAR;
 
-  let view = buildEnemyView();
+  const view = buildEnemyView();
   const enemies = SOLDIER_KINDS.map((kind, index) => {
     const enemy = newEnemy(
       `view-${kind}`,
@@ -94,12 +76,6 @@ export function showGrunts(_hash: string): GruntsShow {
   };
   placeCamera();
 
-  const rebuild = () => {
-    removeEnemyView(view);
-    view = buildEnemyView();
-    drawEnemies(view, game);
-  };
-
   const hud = document.createElement('div');
   hud.dataset.gruntDistance = '1';
   hud.style.cssText =
@@ -107,52 +83,50 @@ export function showGrunts(_hash: string): GruntsShow {
     'font:12px/1.4 monospace;color:#fff;background:rgba(0,0,0,0.45);white-space:pre;pointer-events:none;z-index:5';
   document.body.appendChild(hud);
 
-  const extra = document.createElement('div');
-  const note = document.createElement('div');
-  note.style.cssText = 'margin-bottom:6px;color:#9fb3c0;white-space:pre-wrap';
-  note.textContent =
-    'キー 1 近く（10m）・2 遠く（80m。40m より遠いは横から）。\nつまみを動かすと形を作り直す。\n保存はしない。';
-  extra.appendChild(note);
-
-  createTunePanel({
-    title: '量産機 #view-grunts',
-    extra,
-    groups: SOLDIER_KINDS.map(kind => ({
-      name: `ENEMY_LOOK_TUNE.${kind}`,
-      table: ENEMY_LOOK_TUNE[kind],
-      ranges: TUNE_RANGES,
-      labels: TUNE_LABELS,
-      baseline: { ...ENEMY_LOOK_TUNE[kind] },
-    })),
-    onChange: rebuild,
-  });
-
   const setDistance = (next: number) => {
     distance = next;
     placeCamera();
+    // the shapes the copies take depend on how far the camera stands, so the draw follows the camera
+    drawEnemies(view, game);
     hud.dataset.gruntDistance = String(distance);
     hud.textContent =
-      `距離 ${distance}m\n` +
-      SOLDIER_KINDS.map(kind => `${kind.padEnd(8)} 箱 ${boxCount(kind)}`).join('\n') +
+      `距離 ${distance}m　キー 1 近く・2 遠く\n` +
+      SOLDIER_KINDS.map(kind => {
+        const mesh = soldierMesh(view, kind);
+        const triangles = (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3;
+        return `${kind.padEnd(8)} ${mesh === view[kind].mesh ? '全部品' : '簡素'} 三角 ${triangles}`;
+      }).join('\n') +
       `\n描画 calls ${renderer.info.render.calls} / tris ${renderer.info.render.triangles}`;
   };
   setDistance(distance);
 
   window.sbGruntReport = () => {
+    // A soldier's shape is one geometry in two material groups (paint and the lit lamps), so every mesh with copies
+    // costs one draw per group. The near and far shapes may both stand in a mixed frame, so both count (SB-2086).
+    const drawsOf = (mesh: THREE.InstancedMesh): number =>
+      mesh.count === 0 ? 0 : Math.max(1, mesh.geometry.groups.length);
     const kinds = SOLDIER_KINDS.map(kind => {
-      const mesh = view[kind].mesh;
+      const kindView = view[kind];
+      const parts = kindView.parts.map(part => ({
+        level: part.level,
+        draws: drawsOf(part.mesh),
+        count: part.mesh.count,
+        triangles: (part.mesh.geometry.index?.count ?? part.mesh.geometry.attributes.position.count) / 3,
+      }));
+      const shown = parts.filter(part => part.count > 0);
       return {
         kind,
-        draws: 1,
-        boxes: boxCount(kind),
-        // an indexed shape counts its index, the way the renderer does
-        triangles: (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3,
+        level: shown.length === 0 ? 'none' : shown.map(part => part.level).join('+'),
+        draws: parts.reduce((sum, part) => sum + part.draws, 0),
+        // the shape's own triangles; the copies cost that many each
+        triangles: shown.length === 0 ? 0 : shown[0].triangles,
+        instances: shown.reduce((sum, part) => sum + part.count, 0),
       };
     });
     return JSON.stringify({
       distance,
       kinds,
-      draws: enemyMeshes(view).length,
+      draws: kinds.reduce((sum, kind) => sum + kind.draws, 0),
       frame: { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles },
     });
   };
