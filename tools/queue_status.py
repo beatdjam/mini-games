@@ -12,9 +12,12 @@ the state is seen from elsewhere (the Obsidian vault the page is written into sy
 The open PRs come from `gh pr list`; without gh (or offline) that part is left out.
 """
 
+from __future__ import annotations
+
 import argparse
 import datetime
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -68,15 +71,56 @@ def open_prs(root: Path) -> list[dict]:
         return []
 
 
-def last_log_lines(log: Path) -> dict[str, str]:
-    # the latest line of the queue's log for each ticket number ("11-08 01:04:20 票870: ...")
-    latest: dict[str, str] = {}
+def last_log_lines(log: Path) -> tuple[dict[str, str], dict[str, str]]:
+    # the latest line of the queue's log for each ticket number ("11-08 01:04:20 票870: ..."),
+    # apart for the implementation and the first review (their own logs and outcomes)
+    impl: dict[str, str] = {}
+    review: dict[str, str] = {}
     if log.exists():
         for line in log.read_text(encoding="utf-8").splitlines():
             m = re.match(r"\S+ \S+ 票(\d+):\s*(.*)", line)
-            if m:
-                latest[m.group(1)] = m.group(2)
-    return latest
+            if not m:
+                continue
+            if lane_of(m.group(2)) == "review":
+                review[m.group(1)] = m.group(2)
+            else:
+                impl[m.group(1)] = m.group(2)
+    return impl, review
+
+
+def queue_kinds(queue: Path) -> dict[str, list[str]]:
+    # the lane of each queued ticket, from the marker at the end of its line (no marker: @browser)
+    kinds: dict[str, list[str]] = {}
+    if queue.exists():
+        for line in queue.read_text(encoding="utf-8").splitlines():
+            line = line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            tokens = line.split()
+            kind = "browser"
+            for token in tokens[1:]:
+                if token in ("@browser", "@node", "@review"):
+                    kind = token[1:]
+            names = kinds.setdefault(tokens[0], [])
+            if kind not in names:
+                names.append(kind)
+    return kinds
+
+
+def lane_of(message: str) -> str | None:
+    m = re.search(r"レーン (browser|node|review)", message)
+    return m.group(1) if m else None
+
+
+def lane_cap(kind: str) -> str:
+    if kind == "browser":
+        return "1本ずつ"
+    var = "NODE_LANES" if kind == "node" else "REVIEW_LANES"
+    try:
+        count = int(os.environ.get(var, "3"))
+    except ValueError:
+        count = 3
+    return f"{count}本まで"
 
 
 def stop_line(log: Path) -> str:
@@ -88,12 +132,21 @@ def stop_line(log: Path) -> str:
     for line in log.read_text(encoding="utf-8").splitlines():
         if "---- 開始 ----" in line or "---- 終わり ----" in line:
             last = ""
-        elif "止める" in line:
+        elif "止める" in line and "ほかのレーンは続ける" not in line:
+            # (a stop of one ticket's lane is not a stop of the queue: its line says the other lanes go on)
             last = line
     return last
 
 
-def state_of(root: Path, num: str, name: str, queued: set[str], latest: dict[str, str], prs: dict[str, dict]) -> str:
+def state_of(
+    root: Path,
+    num: str,
+    name: str,
+    queued: set[str],
+    latest: dict[str, str],
+    prs: dict[str, dict],
+    latest_review: dict[str, str] | None = None,
+) -> str:
     branch = branch_of(name)
     if branch in prs:
         return f"PR #{prs[branch]['number']}"
@@ -107,14 +160,24 @@ def state_of(root: Path, num: str, name: str, queued: set[str], latest: dict[str
         return "Claude が回している"
     if log.startswith("Claude が回した"):
         return "レビュー待ち"
-    # a review was started on it (tools/queue_mark.sh reviewing)
-    if log.startswith("レビュー中"):
+    # a review was started on it: by hand (tools/queue_mark.sh reviewing, a line without a lane) or by the queue's
+    # @review lane (a "回す" / "起動" line of the review lane, kept apart in latest_review). Not while the implementation runs
+    review_log = (latest_review or {}).get(num, "")
+    if log.startswith("レビュー中") or (review_log.startswith(("回す", "起動", "混雑で止まった")) and not log.startswith(("回す", "起動"))):
         return "レビュー中"
-    if sent_back and not log.startswith(("回す", "起動")):
+    if sent_back and not log.startswith(("回す", "起動", "混雑で止まった")):
         return "差し戻し中"
-    if log.startswith(("回す", "起動")):
+    if log.startswith(("回す", "起動", "混雑で止まった")):
         return "回している"
-    if "止める" in log or "result が無い" in log:
+    # the log says "止まった（レーン …）" for a stopped ticket and "…止める" when a step gave up. A line that only
+    # mentions waiting ("混雑で止まったので、…待って続きから回す") is not a stop, and "実装の result が無いので…" is only
+    # the review's own line and is not a stop of the ticket
+    # ("土台の票N が回らないので回さない" は、土台が止まって回せなかった票。待ちではなく止まりに出す)
+    if (
+        log.startswith("止まった")
+        or ("止める" in log and not log.startswith("実装の result が無い"))
+        or "が回らないので回さない" in log
+    ):
         return "止まった"
     if done or "WIP" in log or "コードの変更なし" in log:
         return "レビュー待ち"
@@ -133,7 +196,8 @@ def build(root: Path) -> str:
             if line:
                 order.append(line.split()[0])
     queued = set(order)
-    latest = last_log_lines(tasks / "queue.log")
+    kinds = queue_kinds(queue)
+    latest, latest_review = last_log_lines(tasks / "queue.log")
     pr_list = open_prs(root)
     prs = {p["headRefName"]: p for p in pr_list}
 
@@ -163,13 +227,31 @@ def build(root: Path) -> str:
         "",
     ]
     if tickets:
-        out += ["| 番号 | 状態 | 内容 |", "| --- | --- | --- |"]
+        out += ["| 番号 | レーン | 状態 | 内容 |", "| --- | --- | --- | --- |"]
         for p in tickets:
             name = p.name[:-3]
             num = name.split("-", 1)[0]
-            out.append(f"| {num} | {state_of(root, num, name, queued, latest, prs)} | {title_of(p)} |")
+            lane = lane_of(latest.get(num, "")) or "/".join(kinds.get(num, [])) or "-"
+            out.append(f"| {num} | {lane} | {state_of(root, num, name, queued, latest, prs, latest_review)} | {title_of(p)} |")
     else:
         out.append("票は無い。")
+
+    running: dict[str, list[str]] = {"browser": [], "node": [], "review": []}
+    for p in tickets:
+        name = p.name[:-3]
+        num = name.split("-", 1)[0]
+        impl = latest.get(num, "")
+        rev = latest_review.get(num, "")
+        if impl.startswith(("回す", "起動", "混雑で止まった")):
+            lane = lane_of(impl) or (kinds.get(num) or ["browser"])[-1]
+            running.setdefault(lane, []).append(num)
+        if rev.startswith(("回す", "起動", "混雑で止まった")):
+            running["review"].append(num)
+    out += ["", "## レーン（今回っている票）", ""]
+    for kind in ("browser", "node", "review"):
+        nums = running.get(kind, [])
+        shown = "、".join(f"票{n}" for n in nums) if nums else "なし"
+        out.append(f"- {kind}（{lane_cap(kind)}）: {shown}")
 
     out += ["", "## 開いている PR", ""]
     if not pr_list:
@@ -201,7 +283,12 @@ def main() -> None:
     args = ap.parse_args()
     page = build(repo_root())
     if args.out:
-        Path(args.out).write_text(page, encoding="utf-8")
+        out = Path(args.out)
+        # write beside it and rename, so a reader (the phone) never sees a half page
+        # (the name has the PID: run_queue.sh and queue_mark.sh may write at the same time)
+        tmp = out.with_name(f"{out.name}.{os.getpid()}.tmp")
+        tmp.write_text(page, encoding="utf-8")
+        tmp.replace(out)
     else:
         print(page, end="")
 
