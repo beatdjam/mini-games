@@ -30,9 +30,10 @@ const must = (selector: string): HTMLElement => {
 };
 
 test('ringRadius(720) is about the aim cone at the camera fov', () => {
+  // the soft lock's cone is 10° (SB-2072; it was 8° and the ring about 70px), so the ring is about 87px at a height of 720
   const radius = ringRadius(720);
-  expect(radius).toBeGreaterThanOrEqual(69);
-  expect(radius).toBeLessThanOrEqual(71);
+  expect(radius).toBeGreaterThanOrEqual(86);
+  expect(radius).toBeLessThanOrEqual(89);
 });
 
 test('every plan has the same elements except the strip', () => {

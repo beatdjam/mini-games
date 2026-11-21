@@ -5,6 +5,7 @@ import { showCamera } from './camera.ts';
 import { showMove } from './move.ts';
 import { showTouch } from './touch.ts';
 import { showFcs } from './fcs.ts';
+import { showArena } from './arena.ts';
 import { showOutdoor } from './outdoor.ts';
 import { showProps } from './propsView.ts';
 import { showScript } from './script.ts';
@@ -69,6 +70,12 @@ export const DEV_VIEWS: DevView[] = [
     match: 'is',
     name: 'the three FCS types against moving dummies',
     run: showFcs,
+  },
+  {
+    hash: '#view-arena',
+    match: 'starts',
+    name: 'the sortie’s own fight in a flat arena: endless groups of grunts, assaults and heavies',
+    run: showArena,
   },
   {
     hash: '#view-outdoor',

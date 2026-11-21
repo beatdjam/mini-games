@@ -1,4 +1,4 @@
-// The jump's height on the hand map (TL-1250): the standard legs peak at about 2.2 m, and a hedgehog (3 m) stays a wall
+// The jump's height on the hand map (TL-1250): the standard legs peak at about 2.5 m, and a hedgehog (3 m) stays a wall
 // even when the mech jumps at it with the boost on, for the boost adds no upward speed.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
@@ -31,7 +31,7 @@ function newBeachGame(): GameModel {
   return newPlayGame({ ...M1B_HAND, mines: [] });
 }
 
-test('a jump peaks at 2.0 to 2.4 m and a hedgehog stays a wall even with the boost', () => {
+test('a jump peaks at 2.4 to 2.6 m and a hedgehog stays a wall even with the boost', () => {
   const hedgehog = lineHedgehog();
   const game = newBeachGame();
   game.mech.x = hedgehog.x;
@@ -43,8 +43,8 @@ test('a jump peaks at 2.0 to 2.4 m and a hedgehog stays a wall even with the boo
     step(game, { ...idle, moveZ: 1, jump: i === 0, jumpHeld: i < 120, boost: i < 120 }, DT);
     peak = Math.max(peak, game.mech.y);
   }
-  expect(peak).toBeGreaterThanOrEqual(2.0);
-  expect(peak).toBeLessThanOrEqual(2.4);
+  expect(peak).toBeGreaterThanOrEqual(2.4);
+  expect(peak).toBeLessThanOrEqual(2.6);
   expect(peak).toBeLessThan(PROP_SIZE.hedgehog.h);
   // still on the sea side of the hedgehog's near face, so the jump never crossed it
   expect(game.mech.z).toBeGreaterThan(hedgehog.z + PROP_SIZE.hedgehog.d / 2);

@@ -13,7 +13,7 @@ import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
 import { PILLBOX_TUNE } from '../data/pillbox.ts';
-import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE } from '../data/tune.ts';
+import { CAMERA_TUNE, FEEL_TUNE, MECH_TUNE, PLAY_BATTLE_TUNE, type FxTune } from '../data/tune.ts';
 import type { WeaponId } from '../data/weapons.ts';
 import { blastTarget } from '../logic/blasts.ts';
 import { frontOf, type FrontId } from '../logic/front.ts';
@@ -100,8 +100,15 @@ export interface PlayView {
 }
 
 // Builds the sortie's map and its mech into the scene. Hiding the start-up field is left to the caller.
-export function buildPlayView(game: GameModel): PlayView {
-  const world = buildWorld(game.map);
+// `world` lets a view bring its own map (the arena's flat ground); `battleTune` thins the battle layer, which the arena
+// leaves out by asking for no allies, shells or planes.
+export interface PlayViewOptions {
+  world?: World;
+  battleTune?: FxTune;
+}
+
+export function buildPlayView(game: GameModel, options: PlayViewOptions = {}): PlayView {
+  const world = options.world ?? buildWorld(game.map);
   buildBooms(game.map.bounds);
   // the look comes from the mission's row; the sortie is M1's B alone, so M1.id is written here (SB-300 picks the mission)
   applyLookTo(lookOf(M1.id), world.built.group);
@@ -155,7 +162,7 @@ export function buildPlayView(game: GameModel): PlayView {
     // it stays the FX look.
     battle: buildBattle(
       game.map,
-      PLAY_BATTLE_TUNE,
+      options.battleTune ?? PLAY_BATTLE_TUNE,
       stream('battle'),
       stream('craters'),
       { x: game.mech.x, z: game.mech.z },

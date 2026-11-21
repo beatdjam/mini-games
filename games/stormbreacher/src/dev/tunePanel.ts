@@ -30,6 +30,8 @@ export interface TunePanelOptions {
   // remakes something costly. A change that is cheap to follow can use onChange alone.
   onCommit?: (group: string, key: string, value: number) => void;
   zIndex?: number;
+  // How far from the top of the page the panel starts (px), for a page with a button in the top right corner.
+  topOffset?: number;
 }
 
 export interface TunePanel {
@@ -121,9 +123,10 @@ export function createTunePanel(options: TunePanelOptions): TunePanel {
 
   const panel = document.createElement('div');
   panel.id = options.id ?? 'sbTunePanel';
+  const topOffset = options.topOffset ?? 8;
   panel.style.cssText =
-    'position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);width:260px;' +
-    'max-height:calc(100vh - 16px);display:flex;flex-direction:column;font:11px/1.35 monospace;color:#e8eef2;' +
+    `position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + ${topOffset}px);width:260px;` +
+    `max-height:calc(100vh - ${topOffset + 8}px);display:flex;flex-direction:column;font:11px/1.35 monospace;color:#e8eef2;` +
     `background:rgba(10,17,25,0.88);border:1px solid rgba(213,228,238,0.3);z-index:${options.zIndex ?? 6}`;
   document.body.appendChild(panel);
 
