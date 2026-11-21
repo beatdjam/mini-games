@@ -10,6 +10,7 @@ export interface KeyboardRead {
   lock: boolean; // the lock display, shared with the touch screen's lock button
   sub: boolean; // the sub shot: its key, or the right mouse button while locked
   use: boolean; // the use key (planting a charge)
+  melee: boolean; // the fist's key
 }
 
 // The action table defineActions takes, built from the defaults (the object's keys are the action ids).
@@ -88,5 +89,6 @@ export function readKeyboard(dt: number): KeyboardRead {
     lock: lockState(),
     sub: actionDown('sub') || (locked && subMouse),
     use: actionDown('use'),
+    melee: actionDown('melee'),
   };
 }

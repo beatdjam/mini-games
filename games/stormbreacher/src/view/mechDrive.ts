@@ -7,8 +7,8 @@ import type { GameModel } from '../logic/game.ts';
 import type { MotionInput } from './mechMotion.ts';
 import { animateProtoMech } from './mechProtoModel.ts';
 
-// What the frame's events tell the motion: the landing's falling speed, and whether the main weapon fired (the back
-// weapon does not pull the arms).
+// What the frame's events tell the motion: the landing's falling speed, whether the main weapon fired (the back
+// weapon does not pull the arms) and the clock of the fist's blow.
 export function motionInputOf(game: GameModel): MotionInput {
   const mech = game.mech;
   let landSpeed: number | null = null;
@@ -17,7 +17,14 @@ export function motionInputOf(game: GameModel): MotionInput {
     if (event.kind === 'mech' && event.event.kind === 'land') landSpeed = event.event.speed;
     else if (event.kind === 'shot' && event.weapon === M1_MECH.main) fired = true;
   }
-  return { speed: Math.hypot(mech.vx, mech.vz), grounded: mech.grounded, boosting: mech.boosting, landSpeed, fired };
+  return {
+    speed: Math.hypot(mech.vx, mech.vz),
+    grounded: mech.grounded,
+    boosting: mech.boosting,
+    landSpeed,
+    fired,
+    meleeT: game.melee.blow?.t ?? null,
+  };
 }
 
 export function drawMechMotion(model: THREE.Object3D, game: GameModel, dt: number): void {

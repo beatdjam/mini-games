@@ -36,6 +36,8 @@ import {
   leanAngle,
   legOffset,
   newMotion,
+  punchReach,
+  punchTwist,
   stepMotion,
   type MotionInput,
   type MotionState,
@@ -564,7 +566,12 @@ function mirroredPair(
 }
 
 // Writes the rig's stance and motion into its bones: the hips drop, the knees fold and the feet stay flat, the torso
-// leans while the head looks on, the arms take their forward hold, and the flame grows across its stacks.
+// leans while the head looks on, the arms take their forward hold, the free arm throws a blow, and the flame grows across
+// its stacks.
+// How far the free arm's turn follows punchReach, and how far its elbow straightens (rad): punchReach is a reach in the
+// mech's height, too small an angle on its own.
+const PUNCH_ARM = 2.4;
+const PUNCH_ELBOW = 1.8;
 function poseProto(rig: ProtoRig): void {
   const { height, motion, look, bones } = rig;
   const pose = PROTO_TUNE.pose;
@@ -582,13 +589,17 @@ function poseProto(rig: ProtoRig): void {
 
   const lean = pose.lean + leanAngle(motion) + breathe * idle * pose.idleLean;
   bones.torso.rotation.x = lean;
+  // The free (left) arm throws the blow; the right holds the cannon, so it keeps its aim. The torso turns into the swing
+  // with it. punchReach is a distance in the mech's height, so the arm's turn scales it up to a visible angle.
+  const punch = punchReach(motion);
+  bones.torso.rotation.y = punchTwist(motion);
   bones.head.rotation.x = -lean * pose.head;
   bones.shoulderR.rotation.x = pose.shoulder;
   bones.shoulderR.rotation.z = -rig.armInR;
   bones.elbowR.rotation.x = -pose.elbow + recoil * pose.recoilElbow;
-  bones.shoulderL.rotation.x = rig.offShoulder;
+  bones.shoulderL.rotation.x = rig.offShoulder + punch * PUNCH_ARM;
   bones.shoulderL.rotation.z = rig.armInL;
-  bones.elbowL.rotation.x = -pose.offElbow;
+  bones.elbowL.rotation.x = -pose.offElbow + punch * PUNCH_ELBOW;
 
   // the ankle stays on the ground: the pair of angles is solved for the hip's height on every frame
   const drop = hip - rig.ankle - air * pose.airLift;

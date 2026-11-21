@@ -119,6 +119,10 @@ export const CHARGE_COLOR = 0xffe066;
 // as the same flash.
 export const PILLBOX_DEFLECT_COLOR = 0xffe080;
 
+// The sparks a mech's fist throws off an enemy's armour (仮). Warm metal, close to the pillbox's deflect sparks but a
+// little deeper, so a blow reads apart from a ricochet.
+export const MELEE_SPARK_COLOR = 0xffb84d;
+
 // The look of a shot (SB-1450, 仮): the muzzle's flash, the tracer's band and the sparks and smoke of an impact. The
 // mech's are yellow-white and the enemies' red-orange, so which way a shot goes reads at a glance.
 export const GUNFIRE_COLOR = {

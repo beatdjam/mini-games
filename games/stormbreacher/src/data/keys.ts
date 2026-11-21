@@ -11,6 +11,7 @@ export type KeyAction =
   | 'boost'
   | 'main'
   | 'sub'
+  | 'melee'
   | 'lock'
   | 'use'
   | 'lookLeft'
@@ -28,6 +29,7 @@ export const KEY_DEFAULTS: Record<KeyAction, string[]> = {
   boost: ['ShiftLeft'],
   main: ['KeyJ'],
   sub: ['KeyK'],
+  melee: ['KeyQ'],
   lock: ['KeyE'],
   use: ['KeyF'],
   lookLeft: ['ArrowLeft'],

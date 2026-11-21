@@ -74,7 +74,15 @@ const atXZ = (at: Vec3, x: number, z: number): Vec3 => [at[0] * x, at[1], at[2] 
 
 // One box as the table says, or the 2 or 4 boxes its mirror asks for.
 function place(box: MechBox, limb: Limb): PlacedBox[] {
-  const base: PlacedBox = { size: box.size, at: box.at, color: box.color, rotX: box.rotX ?? 0, limb, sx: 0, sz: 0 };
+  const base: PlacedBox = {
+    size: box.size,
+    at: box.at,
+    color: box.color,
+    rotX: box.rotX ?? 0,
+    limb,
+    sx: 0,
+    sz: 0,
+  };
   if (box.mirror === undefined) return [base];
   const xs = [1, -1];
   const zs = box.mirror === 'xz' ? [1, -1] : [0];
@@ -210,7 +218,8 @@ const tmpScale = new THREE.Vector3();
 const tmpMatrix = new THREE.Matrix4();
 
 // Writes every box's matrix from the rig's motion. A leg turns about the hip; everything else leans about the hip and
-// sinks together, the arms pulled back first and the flame grown to its length.
+// sinks together, and the flame grows to its length. The fist's swing is the sortie's prototype (mechProtoModel.ts), not
+// this box mech; the dev views that draw these boxes do not throw a blow.
 function poseMech(rig: MechRig): void {
   const { height, hipY, motion } = rig;
   const pivotY = hipY * height;
@@ -232,7 +241,9 @@ function poseMech(rig: MechRig): void {
       } else {
         turn = lean;
         y -= sink;
-        if (box.limb === 'arm') z += back;
+        if (box.limb === 'arm') {
+          z += back;
+        }
         if (box.limb === 'flame') {
           sizeX = MOTION_TUNE.flameSize * height;
           sizeY = sizeX;
@@ -244,7 +255,9 @@ function poseMech(rig: MechRig): void {
       const dy = y - pivotY;
       const cos = Math.cos(turn);
       const sin = Math.sin(turn);
-      tmpPosition.set(x, pivotY + dy * cos - z * sin, dy * sin + z * cos);
+      const px = x;
+      const pz = dy * sin + z * cos;
+      tmpPosition.set(px, pivotY + dy * cos - z * sin, pz);
       tmpQuaternion.setFromAxisAngle(X_AXIS, box.rotX + turn);
       tmpScale.set(sizeX, sizeY, sizeZ);
       mesh.setMatrixAt(index, tmpMatrix.compose(tmpPosition, tmpQuaternion, tmpScale));

@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { GAIT_LOOK } from '../../src/data/mech.ts';
+import { MELEE_TUNE } from '../../src/data/melee.ts';
 import { MOTION_TUNE } from '../../src/data/tune.ts';
 import {
   dipDepth,
@@ -8,6 +9,10 @@ import {
   legAngle,
   legOffset,
   newMotion,
+  punchLean,
+  punchReach,
+  punchSink,
+  punchTwist,
   recoilBack,
   stepMotion,
   type MotionInput,
@@ -109,4 +114,24 @@ test('a landing sinks the body by how fast it fell, then it comes back up', () =
   expect(dipDepth(hard)).toBeLessThanOrEqual(MOTION_TUNE.landDip);
   run(hard, standing, MOTION_TUNE.landTime + 0.1);
   expect(dipDepth(hard)).toBe(0);
+});
+
+test('a blow draws the fist back, throws it through on the hit frame and returns it', () => {
+  const m = newMotion();
+  stepMotion(m, { ...standing, meleeT: MELEE_TUNE.windupSec }, DT, STRIDE);
+  expect(punchReach(m)).toBeCloseTo(-MOTION_TUNE.punchBack, 10);
+  expect(punchTwist(m)).toBeCloseTo(-MOTION_TUNE.punchTwist, 10);
+
+  stepMotion(m, { ...standing, meleeT: MELEE_TUNE.windupSec + MELEE_TUNE.swingSec * MELEE_TUNE.hitShare }, DT, STRIDE);
+  expect(punchReach(m)).toBeCloseTo(MOTION_TUNE.punchReach, 10);
+  expect(punchTwist(m)).toBeCloseTo(MOTION_TUNE.punchTwist, 10);
+  expect(punchLean(m)).toBeCloseTo(MOTION_TUNE.punchLean, 10);
+  expect(leanAngle(m)).toBeLessThan(0);
+  expect(punchSink(m)).toBeGreaterThan(0);
+
+  stepMotion(m, { ...standing, meleeT: null }, DT, STRIDE);
+  expect(punchReach(m)).toBe(0);
+  expect(punchTwist(m)).toBe(0);
+  expect(punchLean(m)).toBe(0);
+  expect(dipDepth(m)).toBe(0);
 });

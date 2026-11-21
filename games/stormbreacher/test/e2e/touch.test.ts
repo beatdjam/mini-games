@@ -49,6 +49,36 @@ test('the use button holds while its finger stays down', () => {
   expect(readTouch().use).toBe(false);
 });
 
+test('releaseTouch lets go of a held melee button and its pressed mark', async () => {
+  const { releaseTouch } = await import('../../src/app/touch.ts');
+  const button = el('#btnMelee');
+  button.dispatchEvent(pointer('pointerdown', 36, 10, 10));
+  expect(readTouch().melee).toBe(true);
+  releaseTouch();
+  expect(readTouch().melee).toBe(false);
+  expect(button.classList.contains('down')).toBe(false);
+});
+
+test('clearPendingTouch lets go of a held melee button and its pressed mark', async () => {
+  const { clearPendingTouch } = await import('../../src/app/touch.ts');
+  const button = el('#btnMelee');
+  button.dispatchEvent(pointer('pointerdown', 37, 10, 10));
+  expect(readTouch().melee).toBe(true);
+  clearPendingTouch();
+  expect(readTouch().melee).toBe(false);
+  expect(button.classList.contains('down')).toBe(false);
+  button.dispatchEvent(pointer('pointerup', 37, 10, 10));
+});
+
+test('the melee button holds while its finger stays down', () => {
+  const button = el('#btnMelee');
+  button.dispatchEvent(pointer('pointerdown', 35, 10, 10));
+  expect(readTouch().melee).toBe(true);
+  expect(readTouch().melee).toBe(true);
+  button.dispatchEvent(pointer('pointerup', 35, 10, 10));
+  expect(readTouch().melee).toBe(false);
+});
+
 test('the use button does not sit on top of the other buttons', () => {
   const box = (id: string): DOMRect => el(`[data-lb="${id}"]`).getBoundingClientRect();
   const use = box('use');
@@ -58,6 +88,17 @@ test('the use button does not sit on top of the other buttons', () => {
     const apart =
       use.right <= other.left || other.right <= use.left || use.bottom <= other.top || other.bottom <= use.top;
     expect(apart, `use overlaps ${id}`).toBe(true);
+  }
+});
+
+test('the melee button does not sit on top of the main and sub buttons', () => {
+  const box = (id: string): DOMRect => el(`[data-lb="${id}"]`).getBoundingClientRect();
+  const melee = box('melee');
+  for (const id of ['main', 'sub']) {
+    const other = box(id);
+    const apart =
+      melee.right <= other.left || other.right <= melee.left || melee.bottom <= other.top || other.bottom <= melee.top;
+    expect(apart, `melee overlaps ${id}`).toBe(true);
   }
 });
 

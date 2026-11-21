@@ -5,8 +5,9 @@ import { clamp, distXZ } from '@engine/core/index.ts';
 import { burst, camera, cullChunks, scene } from '@engine/render/index.ts';
 import { BLAST_LIFT, boomShakeAt, landBlastHeight, type BoomKind } from '../data/boom.ts';
 import { COVER_TUNE } from '../data/allies.ts';
-import { PILLBOX_DEFLECT_COLOR, PILLBOX_SMOKE_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
+import { MELEE_SPARK_COLOR, PILLBOX_DEFLECT_COLOR, PILLBOX_SMOKE_COLOR, PILLBOX_WARN_COLOR } from '../data/colors.ts';
 import { CUTSCENES } from '../data/cutscenes.ts';
+import { MELEE_TUNE } from '../data/melee.ts';
 import { PILLBOXES_FLAG } from '../data/front.ts';
 import { lookOf } from '../data/looks.ts';
 import { M1 } from '../data/missions/m1.ts';
@@ -31,7 +32,7 @@ import { aimRay, applyPose, cameraPose, followCamera, screenRect, stateOfPose, t
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
 import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
 import { buildBooms, drawBooms, spawnBoom } from './boom.ts';
-import { feelBoom, feelDamage, feelEvents, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
+import { feelBoom, feelDamage, feelEvents, feelMelee, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
 import { buildCutsceneView, drawCutscene, type CutsceneView } from './cutscene.ts';
 import { buildGunfireView, drawGunfire, spawnImpact, spawnMuzzleFlash, type GunfireView } from './gunfire.ts';
 import { buildSeaFire, drawSeaFire, type SeaFireView } from './seaFire.ts';
@@ -333,6 +334,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
   // The frame's shots, lit once the model has taken this frame's pose: the flash leaves the cannon's own muzzle.
   const shots: { weapon: WeaponId; x: number; y: number; z: number }[] = [];
   let kill = false;
+  let meleeHit = false;
   // the blast and the shake its distance from the mech asks for; a close blast also whitens the screen. A shell that
   // falls past the map's front edge lands in the sea, so it lifts a water column and takes the water's colours.
   const blast = (kind: BoomKind, x: number, y: number, z: number) => {
@@ -355,6 +357,22 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
       // the muzzle flash carries the weapon, so the heavy gun's reads bigger than the autocannon's; it is lit below,
       // where the model has this frame's pose and the cannon's mouth is known
       shots.push({ weapon: event.weapon, x: event.x, y: event.y, z: event.z });
+    } else if (event.kind === 'melee') {
+      // a blow that lands throws sparks from the enemy; the shake and the stop are added after the kill's, so the
+      // fist's longer stop is the one the frame keeps
+      if (event.hit) {
+        meleeHit = true;
+        burst(
+          event.x,
+          event.y,
+          event.z,
+          MELEE_SPARK_COLOR,
+          MELEE_TUNE.sparkCount,
+          MELEE_TUNE.sparkSpeed,
+          MELEE_TUNE.sparkLife,
+          MELEE_TUNE.sparkGravity,
+        );
+      }
     } else if (event.kind === 'hit') {
       // A shot a pillbox's front turned away throws a small bright spark and nothing else; every other hit leaves sand.
       if (event.deflected) {
@@ -457,6 +475,7 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     view.battle.advanceTracers(dt);
   }
   feelEvents(view.feel, mechEvents, kill, FEEL_TUNE);
+  if (meleeHit) feelMelee(view.feel);
   const frame = feelStep(view.feel, dt, game.mech.boosting, CAMERA_TUNE.fov, FEEL_TUNE);
 
   // A cutscene that has the mech walk (the landing's ramp) draws it on its path; this is the picture only, so the

@@ -7,6 +7,7 @@ import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
 import { PROTO_PALETTES } from '../../data/colors.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
+import { meleeBlowSec } from '../../data/melee.ts';
 import { CORES, MECH_PAINT, MECH_PAINT_TEX, PARTS } from '../../data/mech.ts';
 import { PROTO_KIT_IDS, PROTO_KITS, PROTO_MATERIALS, PROTO_TUNE, type ProtoKitId } from '../../data/mechProto.ts';
 import { CAMERA_TUNE, MECH_TUNE, MOVE_TUNE } from '../../data/tune.ts';
@@ -77,6 +78,7 @@ interface MechState {
   on: Record<Act, boolean>; // 'jump' is on while a hop lasts
   hopT: number; // the time since the hop began (s)
   fireT: number; // the time left to the next acted shot (s)
+  punchT: number | null; // the seconds since the acted blow began; null between blows
 }
 
 function paintButton(node: HTMLButtonElement, on: boolean) {
@@ -111,6 +113,7 @@ function stateOf(params: URLSearchParams): MechState {
     on: { walk: false, boost: false, jump: false, fire: false },
     hopT: 0,
     fireT: 0,
+    punchT: null,
   };
 }
 
@@ -190,6 +193,8 @@ export function showMech(_hash: string) {
       act,
       button(bar, ACT_LABELS[act], () => toggleAct(act)),
     );
+  // A blow is one swing, not a switch: the prototype's free arm and torso move through it on the mech's own clock.
+  button(bar, '殴る', () => startPunch());
 
   // The prototype's switches: its shadow and surroundings' light can be turned off to see what each adds, and it can
   // stand beside the sortie's mech (?compare).
@@ -377,6 +382,10 @@ export function showMech(_hash: string) {
     paintButtons();
   }
 
+  function startPunch() {
+    state.punchT = 0;
+  }
+
   function paintButtons() {
     for (const [id, node] of patternButtons) paintButton(node, id === state.pattern);
     for (const [act, node] of actButtons) paintButton(node, state.on[act]);
@@ -518,7 +527,11 @@ export function showMech(_hash: string) {
       state.fireT = FIRE_INTERVAL;
     }
     const speed = state.on.boost ? tune.boost : state.on.walk ? tune.walk : 0;
-    const input = { speed, grounded: !state.on.jump, boosting: state.on.boost, landSpeed, fired };
+    if (state.punchT !== null) {
+      state.punchT += dt;
+      if (state.punchT >= meleeBlowSec()) state.punchT = null;
+    }
+    const input = { speed, grounded: !state.on.jump, boosting: state.on.boost, landSpeed, fired, meleeT: state.punchT };
     animateMech(mech, input, dt);
     if (protoMech !== null) animateProtoMech(protoMech, input, dt);
   };
@@ -551,6 +564,7 @@ export function showMech(_hash: string) {
     if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
     const next = KEY_PATTERN[event.key];
     if (next !== undefined) setPattern(next);
+    if (event.key === 'q') startPunch();
     const act = KEY_ACT[event.key];
     if (act !== undefined) toggleAct(act);
   });

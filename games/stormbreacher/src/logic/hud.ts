@@ -58,6 +58,7 @@ export interface HudModel {
   warning: 'shell' | null; // 'shell' while the mech stands inside a warned shell's blast, else null
   use: { key: 'hud.use'; progress: number } | null; // the use prompt near a blast point; progress is the hold, 0-1
   charge: { left: number; total: number } | null; // the first planted charge's fuse left and its full length (s)
+  melee: boolean; // the "melee (Q)" hint under the aim circle when both guns are empty
 }
 
 const DEG = 180 / Math.PI;
@@ -205,5 +206,6 @@ export function hudModel(game: GameModel): HudModel {
     callout,
     use,
     charge: planted === undefined ? null : { left: Math.max(0, planted.left), total: CHARGE_TUNE.fuse },
+    melee: game.main.ammo <= 0 && game.sub.ammo <= 0,
   };
 }

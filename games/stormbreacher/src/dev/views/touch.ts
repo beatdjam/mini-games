@@ -45,6 +45,7 @@ function reportJson(): string {
     layout: {
       main: place('main'),
       sub: place('sub'),
+      melee: place('melee'),
       jump: place('jump'),
       boost: place('boost'),
       lock: place('lock'),

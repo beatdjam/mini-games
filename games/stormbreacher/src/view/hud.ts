@@ -42,6 +42,9 @@ const PLAY_HUD_LAYOUT = {
   use: {
     css: 'left:50%;transform:translateX(-50%);top:calc(50% + var(--ring) + 72px);width:280px;text-align:center',
   },
+  melee: {
+    css: 'left:50%;transform:translateX(-50%);top:calc(50% + var(--ring) + 8px);text-align:center',
+  },
   reticle: { css: 'inset:0;pointer-events:none' },
 } as const;
 
@@ -57,6 +60,7 @@ const PLAY_HUD_TEXT = {
   warning: { text: 18 }, // px
   callout: { text: 26 }, // px
   use: { text: 13, bar: 6 }, // px; the charge's fuse uses the same sizes
+  melee: { text: 13 }, // px
 } as const;
 
 // The target and enemy kinds become the radar's mark kinds: the bunkers, the guns and the magazine are objectives (an
@@ -99,6 +103,7 @@ interface HudLast {
   warning: HudModel['warning'] | undefined; // undefined means "not written yet" (null is a written "none")
   use: number | null; // the hold's progress (0-1), or null when the prompt is not up
   charge: string | null; // the fuse's text, or null when no charge is shown
+  melee: boolean | null; // whether the "melee (Q)" hint shows
 }
 
 export interface PlayHud {
@@ -129,6 +134,7 @@ export interface PlayHud {
   chargeRow: HTMLElement;
   chargeText: HTMLSpanElement;
   chargeFill: HTMLElement;
+  melee: HTMLElement;
   radar: RadarGauge;
   last: HudLast;
 }
@@ -187,6 +193,7 @@ function freshLast(): HudLast {
     warning: undefined,
     use: null,
     charge: null,
+    melee: null,
   };
 }
 
@@ -276,6 +283,11 @@ function layOut(root: HTMLElement): PlayHud {
   use.append(useRow, chargeRow);
   use.hidden = true;
 
+  // Under the aim circle: the fist's hint when neither gun has a shot left.
+  const melee = place(root, PLAY_HUD_LAYOUT.melee.css, 'melee');
+  melee.appendChild(span(t(isTouch ? 'btn.melee' : 'hud.melee'), PLAY_HUD_TEXT.melee.text, HUD_COLOR.amber));
+  melee.hidden = true;
+
   const radarNode = place(root, PLAY_HUD_LAYOUT.radar.css, 'radar');
   const radar = roundRadar(RADAR_SIZE, RADAR_SIZE);
   radarNode.appendChild(radar.root);
@@ -313,6 +325,7 @@ function layOut(root: HTMLElement): PlayHud {
     chargeRow,
     chargeText,
     chargeFill: chargeMeter.fill,
+    melee,
     radar,
     last: freshLast(),
   };
@@ -441,6 +454,11 @@ export function drawHud(hud: PlayHud, model: HudModel, lock: ScreenRect | null):
   if (hud.chargeRow.hidden === showCharge) hud.chargeRow.hidden = !showCharge;
   const useVisible = showUse || showCharge;
   if (hud.use.hidden === useVisible) hud.use.hidden = !useVisible;
+
+  if (last.melee !== model.melee) {
+    hud.melee.hidden = !model.melee;
+    last.melee = model.melee;
+  }
 
   hud.lock.set(lock);
   hud.radar.set(
