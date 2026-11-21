@@ -106,6 +106,11 @@ export const MOTION_TUNE = {
   flameShow: 0.02, // the flame is drawn above this share of full boost
   recoilBack: 0.06, // how far a shot pulls the arms back
   recoilTime: 0.16, // how long the arms take to come back (s)
+  punchBack: 0.12, // how far a melee blow draws the fist back in its windup
+  punchReach: 0.22, // how far a melee blow throws the arm forward
+  punchTwist: 0.45, // how far the torso turns with a blow (rad)
+  punchLean: 0.18, // how far the torso tips forward into a blow (rad)
+  punchDip: 0.05, // how far the body sinks as the blow lands
   landDip: 0.05, // how far a landing at landSpeed sinks the body
   landSpeed: 10, // the falling speed that sinks the body fully (m/s)
   landTime: 0.2, // how long the body takes to come back up (s)

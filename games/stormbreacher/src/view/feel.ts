@@ -2,6 +2,7 @@
 // events go in; camera offsets and the field of view come out. Nothing here reads the camera or the scene.
 import * as THREE from 'three';
 import { burst } from '@engine/render/index.ts';
+import { MELEE_TUNE } from '../data/melee.ts';
 import type { FeelTune } from '../data/tune.ts';
 import type { MechEvent } from '../logic/mech.ts';
 
@@ -41,6 +42,13 @@ export function feelEvents(f: FeelState, events: readonly MechEvent[], kill: boo
 // Adds the shake a hit on the mech asks for.
 export function feelDamage(f: FeelState, tune: FeelTune) {
   f.shake += tune.damageShake;
+}
+
+// Adds a melee hit's shake and hit stop. The stop takes the longer of the two, so a blow that also brings an enemy down
+// keeps the fist's 0.08 s instead of the smaller stop a kill asks for.
+export function feelMelee(f: FeelState): void {
+  f.shake += MELEE_TUNE.hitShake;
+  f.stopT = Math.max(f.stopT, MELEE_TUNE.hitStop);
 }
 
 // Adds the shake an explosion asks for (data/boom.ts's boomShakeAt has already made it smaller with distance). The cap

@@ -1,11 +1,14 @@
 // The sound table: every value the synth uses, named here so the view/sound.ts recipes have no numbers of their own. All values are provisional and get tuned by listening at #view-sound. There is no music: SOUND_VOLUME.bgm is 0.
 
-// The sounds the game can play. The first twelve answer a frame's events; wave and distantBoom are the beach's ambience.
+// The sounds the game can play. The first fifteen answer a frame's events (the fist's hit and miss among them); wave
+// and distantBoom are the beach's ambience.
 export type SoundName =
   | 'autocannon'
   | 'heavyGun'
   | 'impactDirt'
   | 'impactArmor'
+  | 'meleeHit'
+  | 'meleeMiss'
   | 'explosionSmall'
   | 'explosionLarge'
   | 'explosionHeavy'
@@ -25,6 +28,8 @@ export const SOUND_NAMES: readonly SoundName[] = [
   'heavyGun',
   'impactDirt',
   'impactArmor',
+  'meleeHit',
+  'meleeMiss',
   'explosionSmall',
   'explosionLarge',
   'explosionHeavy',
@@ -94,6 +99,19 @@ export const SOUND_LAYERS: Record<SoundName, readonly SoundLayer[]> = {
     { kind: 'noise', type: 'bandpass', f0: 3900, f1: 3500, dur: 0.08, vol: 0.14, q: 9 },
     { kind: 'tone', type: 'sine', f0: 140, f1: 55, dur: 0.1, vol: 0.22 },
     { kind: 'tone', type: 'triangle', f0: 1180, f1: 880, dur: 0.14, vol: 0.04 },
+  ],
+  meleeHit: [
+    // a heavy blow on armour: a metal crack, a ringing body and a low thump under it
+    { kind: 'noise', type: 'highpass', f0: 3600, f1: 1600, dur: 0.04, vol: 0.4 },
+    { kind: 'noise', type: 'bandpass', f0: 1500, f1: 520, dur: 0.14, vol: 0.5, q: 1.6 },
+    { kind: 'tone', type: 'square', f0: 310, f1: 120, dur: 0.18, vol: 0.16 },
+    { kind: 'tone', type: 'sine', f0: 82, f1: 30, dur: 0.24, vol: 0.55 },
+    { kind: 'noise', type: 'lowpass', f0: 1100, f1: 180, dur: 0.32, vol: 0.16, at: 0.02 },
+  ],
+  meleeMiss: [
+    // the air of an empty swing: a light whoosh with no metal in it
+    { kind: 'noise', type: 'bandpass', f0: 700, f1: 1700, dur: 0.13, vol: 0.18, q: 0.9 },
+    { kind: 'noise', type: 'lowpass', f0: 500, f1: 900, dur: 0.1, vol: 0.09, at: 0.01 },
   ],
   explosionSmall: [
     { kind: 'tone', type: 'sine', f0: 100, f1: 30, dur: 0.4, vol: 0.5 },
@@ -196,6 +214,8 @@ export const SOUND_FRAME_LIMIT: Record<SoundName, number> = {
   heavyGun: 1,
   impactDirt: 2,
   impactArmor: 2,
+  meleeHit: 1,
+  meleeMiss: 1,
   explosionSmall: 2,
   explosionLarge: 1,
   explosionHeavy: 1,

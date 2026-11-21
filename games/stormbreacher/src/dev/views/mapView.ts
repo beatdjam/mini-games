@@ -8,6 +8,7 @@ import { camera, cullChunks, renderer, scene } from '@engine/render/index.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../data/maps/m1b-rules.ts';
 import { ATMOSPHERE_TUNE } from '../../data/atmosphere.ts';
+import { MELEE_TUNE } from '../../data/melee.ts';
 import { M1 } from '../../data/missions/m1.ts';
 import { DEFENDER_TUNE } from '../../data/defenders.ts';
 import { FRONT_TUNE } from '../../data/front.ts';
@@ -356,6 +357,34 @@ export function showMap(_hash: string) {
           grade: '画面の色（0で無し）',
           vignette: '画面の端の暗さ（0で無し）',
           grain: '粒状感（0で無し）',
+        },
+      },
+      {
+        // The fist's values: the sector, the wait, the lunge and what a hit asks the feel for. The walk here has no
+        // enemies, so the panel shows the numbers for a sortie to use; the sortie's mech swings the fist.
+        name: 'MELEE_TUNE',
+        table: MELEE_TUNE,
+        ranges: {
+          damage: { min: 0, max: 100, step: 1 },
+          range: { min: 1, max: 15, step: 0.1 },
+          halfArcDeg: { min: 5, max: 180, step: 1 },
+          interval: { min: 0.5, max: 3, step: 0.01 },
+          lungeSec: { min: 0.05, max: 1, step: 0.01 },
+          lungeDistance: { min: 0, max: 15, step: 0.1 },
+          missDistance: { min: 0, max: 5, step: 0.1 },
+          hitStop: { min: 0, max: 0.3, step: 0.01 },
+          hitShake: { min: 0, max: 2, step: 0.01 },
+        },
+        labels: {
+          damage: '威力',
+          range: '届く距離（m）',
+          halfArcDeg: '扇の半角（度）',
+          interval: '間隔（s）',
+          lungeSec: '踏み込みの時間（s）',
+          lungeDistance: '踏み込み（m）',
+          missDistance: '空振りの踏み込み（m）',
+          hitStop: 'ヒットストップ（s）',
+          hitShake: '当たったときの揺れ（m）',
         },
       },
     ],

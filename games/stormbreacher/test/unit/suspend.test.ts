@@ -51,6 +51,18 @@ describe('suspend', () => {
     expect(back?.mission).toBe(M1);
   });
 
+  test('a blow under way is kept: its wait, lunge and clock come back the same', () => {
+    const game = newGame(M1B_HAND);
+    game.melee = {
+      wait: 0.37,
+      lunge: { dx: 0, dz: -1, left: 1.4, speed: 6 },
+      blow: { t: 0.09, struck: false },
+    };
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.melee).toEqual(game.melee);
+    expect(back?.melee).not.toBe(game.melee);
+  });
+
   test('a broken target saved before the wreck reached its rect comes back at the wreck height', () => {
     const game = newGame(M1B_HAND);
     const target = game.targets.find(entry => entry.id === 'pillbox-1');

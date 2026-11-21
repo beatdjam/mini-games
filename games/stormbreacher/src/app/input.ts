@@ -13,6 +13,7 @@ export interface PlayRead {
   lock: boolean; // the lock display, shared by the touch lock button and the lock key
   sub: boolean; // the touch sub button, the sub key, or the right mouse button
   use: boolean; // the touch use button or the use key
+  melee: boolean; // the touch melee button or the melee key
 }
 
 let ready = false; // initPlayInput has run (a second call does nothing)
@@ -37,5 +38,6 @@ export function readInput(dt: number): PlayRead {
     lock: keyboard.lock,
     sub: touch.sub || keyboard.sub,
     use: touch.use || keyboard.use,
+    melee: touch.melee || keyboard.melee,
   };
 }

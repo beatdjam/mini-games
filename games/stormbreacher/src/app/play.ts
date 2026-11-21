@@ -233,7 +233,7 @@ function update(dt: number): void {
   const read = readInput(dt);
   // The aim is the middle of the screen the last frame drew; drawPlay adds this frame's pitch change and camera after.
   const aim = view.aim;
-  step(game, { ...read.input, sub: read.sub, use: read.use, aim }, dt);
+  step(game, { ...read.input, sub: read.sub, use: read.use, melee: read.melee, aim }, dt);
   // A milestone's short slowdown (SB-2010) slows the picture as well as the game: the blast, the smoke and the battle
   // run at the same share of time, while the input still goes through (step already scaled its own frame).
   const drawDt = dt * timeScale(game);

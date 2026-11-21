@@ -1,10 +1,10 @@
 // The touch screen's buttons (SB-030): which ones there are, where they start and how fast the view turns. The names
 // come from the language files (btn.*), and the player's edits are kept apart in app/storage.ts.
 
-export type TouchButton = 'main' | 'sub' | 'jump' | 'boost' | 'lock' | 'use';
+export type TouchButton = 'main' | 'sub' | 'melee' | 'jump' | 'boost' | 'lock' | 'use';
 
 // The order the buttons are listed in the result's JSON.
-export const TOUCH_BUTTONS: readonly TouchButton[] = ['main', 'sub', 'jump', 'boost', 'lock', 'use'];
+export const TOUCH_BUTTONS: readonly TouchButton[] = ['main', 'sub', 'melee', 'jump', 'boost', 'lock', 'use'];
 
 export interface TouchPlace {
   x: number; // the button's centre across the screen (0-1)
@@ -21,6 +21,7 @@ export interface TouchDefault extends TouchPlace {
 export const TOUCH_DEFAULTS: Record<TouchButton, TouchDefault> = {
   main: { x: 0.83, y: 0.56, s: 1.1, b: 84 },
   sub: { x: 0.77, y: 0.82, s: 1, b: 64 },
+  melee: { x: 0.73, y: 0.45, s: 1, b: 64 }, // by the main shot: the fist is the fallback when the guns are empty
   jump: { x: 0.87, y: 0.84, s: 1, b: 64 },
   boost: { x: 0.95, y: 0.57, s: 1, b: 64 },
   lock: { x: 0.9, y: 0.34, s: 1, b: 64 },

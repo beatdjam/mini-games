@@ -73,6 +73,9 @@ export function planSounds(input: SoundInput): SoundCue[] {
       case 'shot':
         ask(event.weapon === 'heavyGun' ? 'heavyGun' : 'autocannon', event);
         break;
+      case 'melee':
+        ask(event.hit ? 'meleeHit' : 'meleeMiss', event);
+        break;
       case 'hit':
         // A hit on the mech is the metal sound here as well as in `damaged`: the frame's one sound survives the limit. The
         // hit is reported even during a cutscene, when `damaged` is not, but the mech takes no harm then, so it is silent.

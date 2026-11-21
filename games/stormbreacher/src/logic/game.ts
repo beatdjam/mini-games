@@ -1,5 +1,6 @@
 // The game's state and the entry for updating it by one frame: the mech and its armour, the map, the targets' health,
-// the props that break, the enemies, the weapons, the shots in flight, the mission script and the frame's events.
+// the props that break, the enemies, the weapons, the mech's fist, the shots in flight, the mission script and the
+// frame's events.
 // Nothing here reads three or the DOM, so a test runs it in node without a page. The mech's shot is a bullet that flies
 // at its weapon's speed (data/weapons.ts) from the mech's chest toward the camera's aim, drawn toward a target or an
 // enemy in the aim circle by the soft FCS (fcs.ts) and spread a little by a random draw. It stops at the first prop it
@@ -21,12 +22,13 @@ import { distXZ } from '@engine/core/index.ts';
 import { ALLY_TUNE, COVER_TUNE } from '../data/allies.ts';
 import { LINE2_FLAG } from '../data/front.ts';
 import { DEFENDER_POSTS, defenderPostOf } from '../data/defenders.ts';
-import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
+import { ENEMIES, ENEMY_CHEST, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type EnemyKind } from '../data/enemies.ts';
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
 import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
+import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
 import { M1_MECH } from '../data/mech.ts';
 import { M1 } from '../data/missions/m1.ts';
 import { PAYOFFS, PAYOFF_TUNE } from '../data/payoff.ts';
@@ -87,6 +89,16 @@ import {
   type ShellState,
 } from './hazards.ts';
 import { blockingPropIndexes, mapBlockers } from './mapShapes.ts';
+import {
+  beginLunge,
+  beginMelee,
+  meleeTarget,
+  newMelee,
+  stepMeleeBlow,
+  stepMeleeLunge,
+  type MeleePoint,
+  type MeleeState,
+} from './melee.ts';
 import { newMech, stepMech, type MechEvent, type MechInput, type MechState } from './mech.ts';
 import { moveTuneOf } from './mechTune.ts';
 import { stream } from './rng.ts';
@@ -115,6 +127,18 @@ export type GameEvent =
   | { kind: 'mech'; event: MechEvent } // what stepMech reported, wrapped as it came
   // a bullet leaves the mech's chest
   | { kind: 'shot'; x: number; y: number; z: number; dx: number; dy: number; dz: number; weapon: WeaponId }
+  // the mech's fist: `hit` is whether it met something, and (x, y, z) is where the blow landed or the empty air in front;
+  // the id of the enemy or target, or the prop's place in map.props, when one of those took it
+  | {
+      kind: 'melee';
+      hit: boolean;
+      x: number;
+      y: number;
+      z: number;
+      enemy: string | null;
+      target: string | null;
+      prop: number | null;
+    }
   | {
       kind: 'hit';
       x: number;
@@ -237,6 +261,7 @@ export interface GameModel {
   nav: NavState; // the cells and counts the enemies find their way by; made again from rects, so a copy leaves it out
   main: WeaponState; // the main weapon's ammo and wait
   sub: WeaponState; // the sub weapon's ammo and wait
+  melee: MeleeState; // the fist's wait and lunge
   fcs: FcsState; // the aim assist's state (the soft kind)
   aimTarget: string | null; // the id of the target or enemy the soft FCS pulls the aim toward, or null
   bullets: Bullet[]; // the shots in flight
@@ -350,21 +375,22 @@ function fcsTargets(game: GameModel, chest: { x: number; y: number; z: number })
 }
 
 // Whether the line from the chest to (cx, cy, cz) meets none of `walls` before it enters `own` (the thing's own box,
-// which is left out of the walls: a target's centre is inside its own box).
+// which is left out of the walls: a target's centre is inside its own box). With no own box the whole line is checked.
 function inSight(
   chest: { x: number; y: number; z: number },
   cx: number,
   cy: number,
   cz: number,
-  own: Aabb,
+  own: Aabb | null,
   walls: readonly Aabb[],
 ): boolean {
   const dx = cx - chest.x;
   const dy = cy - chest.y;
   const dz = cz - chest.z;
   const length = Math.hypot(dx, dy, dz);
-  const reach = fireRayHit(chest.x, chest.y, chest.z, dx, dy, dz, length, [own])?.dist ?? length;
-  const others = walls.filter(wall => wall !== own);
+  const reach =
+    own === null ? length : (fireRayHit(chest.x, chest.y, chest.z, dx, dy, dz, length, [own])?.dist ?? length);
+  const others = own === null ? walls : walls.filter(wall => wall !== own);
   return fireRayHit(chest.x, chest.y, chest.z, dx, dy, dz, reach, others) === null;
 }
 
@@ -463,18 +489,23 @@ function flyBullet(game: GameModel, bullet: Bullet, dt: number): boolean {
   // A shot does not break a pillbox (SB-2015): it suppresses the muzzle for a while and leaves the armour alone. A
   // charge on a blast point is the only way to break one.
   if (target.kind === 'pillbox') {
-    // The first shot that lands tells the player the front will not open and where to plant a charge (SB-2017). It is
-    // said once: the line's lesson is worth one moment, not a nag.
-    if (!game.pillboxHint) {
-      game.pillboxHint = true;
-      queueRadio(game, 'm1.pillbox-charge', 0, 'm1.callout.pillbox-charge');
-    }
-    const state = game.pillboxes.find(pillbox => pillbox.id === target.id);
-    if (state) suppressPillbox(state);
+    suppressPillboxBy(game, target.id);
     return true;
   }
   damageTarget(game, target, damage * mul);
   return true;
+}
+
+// What a shot or a blow does to a pillbox (SB-2015): the muzzle is quieted for a while and the armour is left alone. The
+// first one that lands tells the player the front will not open and where to plant a charge (SB-2017). It is said once:
+// the line's lesson is worth one moment, not a nag.
+function suppressPillboxBy(game: GameModel, id: string): void {
+  if (!game.pillboxHint) {
+    game.pillboxHint = true;
+    queueRadio(game, 'm1.pillbox-charge', 0, 'm1.callout.pillbox-charge');
+  }
+  const state = game.pillboxes.find(pillbox => pillbox.id === id);
+  if (state) suppressPillbox(state);
 }
 
 // Takes `damage` off the target; at 0 it falls, the frame reports it and the script is told. A target behind a shut
@@ -524,6 +555,179 @@ function damageEnemy(game: GameModel, enemy: EnemyState, damage: number): void {
   });
 }
 
+// One thing the fist may reach: what it is, where the ground point the sector is measured to is (the nearest face of a
+// structure, not its middle), where the blow shows, the box it owns (so its own face is not taken for a wall) and the
+// share of the damage that kind takes.
+type MeleeHit =
+  | { kind: 'enemy'; enemy: EnemyState }
+  | { kind: 'target'; target: TargetState }
+  | { kind: 'mine'; mine: MineState }
+  | { kind: 'prop'; prop: number };
+
+interface MeleeCandidate {
+  at: MeleePoint;
+  hit: MeleeHit;
+  box: Aabb | null; // the candidate's own box; null for a mine
+  x: number;
+  y: number;
+  z: number;
+  mul: number;
+}
+
+// A point on a face, moved MELEE_TUNE.contactGap toward the mech, so the sparks of a blow stand in front of the face rather
+// than inside it. A mech already at the point (inside the box) is left where it is.
+function inFrontOfFace(x: number, z: number, mech: { x: number; z: number }, gap: number): { x: number; z: number } {
+  const dx = mech.x - x;
+  const dz = mech.z - z;
+  const length = Math.hypot(dx, dz);
+  if (length < 1e-9) return { x, z };
+  return { x: x + (dx / length) * gap, z: z + (dz / length) * gap };
+}
+
+// Everything in the sector's reach that a blow can harm: the living enemies, the standing targets, the mines and the
+// breakable props. The fallen and the broken are left out, as a shot leaves them out. The sector is measured to the
+// nearest point of a box, so a big structure can be reached from its face; a blow does not go through a wall or a prop,
+// and a defender still hidden behind its cover is not seen at all. Returns the candidate's box too, so the sight test can
+// leave out the face it is aimed at.
+function meleeCandidates(game: GameModel): MeleeCandidate[] {
+  const candidates: MeleeCandidate[] = [];
+  for (const enemy of game.enemies) {
+    if (enemy.hp <= 0) continue;
+    // a posted defender is behind its cover while it hides; only a stepped-out one, or one running to the next cover, can be hit
+    if (enemy.post !== null && !enemy.holdOut && enemy.fallback === null) continue;
+    const def = ENEMIES[enemy.kind];
+    const box = enemyBox(enemy);
+    const face = inFrontOfFace(
+      Math.min(Math.max(game.mech.x, box.minX), box.maxX),
+      Math.min(Math.max(game.mech.z, box.minZ), box.maxZ),
+      game.mech,
+      MELEE_TUNE.contactGap,
+    );
+    candidates.push({
+      at: face,
+      hit: { kind: 'enemy', enemy },
+      box,
+      // the sparks show on the side toward the mech, not inside the machine
+      x: face.x,
+      y: enemy.y + def.height * ENEMY_CHEST,
+      z: face.z,
+      mul: MELEE_DAMAGE_MUL[enemy.kind],
+    });
+  }
+  for (const target of game.targets) {
+    if (target.hp <= 0) continue;
+    const { box } = target;
+    const face = inFrontOfFace(
+      Math.min(Math.max(game.mech.x, box.minX), box.maxX),
+      Math.min(Math.max(game.mech.z, box.minZ), box.maxZ),
+      game.mech,
+      MELEE_TUNE.contactGap,
+    );
+    candidates.push({
+      at: face,
+      hit: { kind: 'target', target },
+      box,
+      // sparks show on the face nearest the mech rather than inside the structure
+      x: face.x,
+      y: (box.minY + box.maxY) / 2,
+      z: face.z,
+      mul: MELEE_DAMAGE_MUL[target.kind],
+    });
+  }
+  for (const mine of game.mines) {
+    candidates.push({
+      at: mine,
+      hit: { kind: 'mine', mine },
+      box: null,
+      x: mine.x,
+      y: 0.5,
+      z: mine.z,
+      mul: MELEE_DAMAGE_MUL.mine,
+    });
+  }
+  for (const breakable of game.breakables) {
+    if (breakable.hp <= 0) continue;
+    let box: Aabb | null = null;
+    let pointX = 0;
+    let pointZ = 0;
+    let nearest = Infinity;
+    for (let i = 0; i < game.propBoxes.length; i++) {
+      if (game.propRefs[i] !== breakable.prop) continue;
+      const candidate = game.propBoxes[i];
+      const x = Math.min(Math.max(game.mech.x, candidate.minX), candidate.maxX);
+      const z = Math.min(Math.max(game.mech.z, candidate.minZ), candidate.maxZ);
+      const dist = Math.hypot(game.mech.x - x, game.mech.z - z);
+      if (dist >= nearest) continue;
+      nearest = dist;
+      box = candidate;
+      pointX = x;
+      pointZ = z;
+    }
+    if (box === null) continue;
+    const face = inFrontOfFace(pointX, pointZ, game.mech, MELEE_TUNE.contactGap);
+    candidates.push({
+      at: face,
+      hit: { kind: 'prop', prop: breakable.prop },
+      box,
+      x: face.x,
+      y: 0.8,
+      z: face.z,
+      mul: MELEE_DAMAGE_MUL.prop,
+    });
+  }
+  return candidates;
+}
+
+// One blow of the mech's fist, landing where the swing is: the nearest thing in the front sector takes the kind's share of
+// MELEE_TUNE.damage and a lunge follows. An empty sector is a miss, so the lunge is short and only the air is struck. The
+// blow reports where it landed (the target's near face, or the point in front of the mech) so the view's sparks and the
+// sound come from there. A blow on a pillbox suppresses it and takes no health, as a shot does.
+function meleeStrike(game: GameModel): void {
+  const chest = { x: game.mech.x, y: game.mech.y + MECH_TUNE.chestHeight, z: game.mech.z };
+  const walls = [...game.propBoxes, ...game.targets.filter(target => target.hp > 0).map(target => target.box)];
+  // The fist goes no farther than its own reach: a prop or a standing target between the chest and the face turns the
+  // blow away, the same rule a shot follows.
+  const candidates = meleeCandidates(game).filter(candidate =>
+    inSight(chest, candidate.x, candidate.y, candidate.z, candidate.box, walls),
+  );
+  const index = meleeTarget(
+    game.mech,
+    candidates.map(candidate => candidate.at),
+  );
+  const met = index >= 0 ? candidates[index] : null;
+  const fx = -Math.sin(game.mech.yaw);
+  const fz = -Math.cos(game.mech.yaw);
+  const x = met ? met.x : game.mech.x + fx * (MELEE_TUNE.range / 2);
+  const y = met ? met.y : game.mech.y + MECH_TUNE.chestHeight;
+  const z = met ? met.z : game.mech.z + fz * (MELEE_TUNE.range / 2);
+  const target = met?.hit.kind === 'target' ? met.hit.target : null;
+  const prop = met?.hit.kind === 'prop' ? met.hit.prop : null;
+  game.events.push({
+    kind: 'melee',
+    hit: met !== null,
+    x,
+    y,
+    z,
+    enemy: met?.hit.kind === 'enemy' ? met.hit.enemy.id : null,
+    target: target ? target.id : null,
+    prop,
+  });
+  if (met !== null) {
+    const damage = MELEE_TUNE.damage * met.mul;
+    if (met.hit.kind === 'enemy') damageEnemy(game, met.hit.enemy, damage);
+    else if (met.hit.kind === 'target') {
+      // a blow, like a shot, only quiets a pillbox's muzzle; a charge is the one way to break it (SB-2015)
+      if (met.hit.target.kind === 'pillbox') suppressPillboxBy(game, met.hit.target.id);
+      else damageTarget(game, met.hit.target, damage);
+    } else if (met.hit.kind === 'mine') damageMine(game, met.hit.mine, damage, true);
+    else {
+      const box = game.propRefs.indexOf(met.hit.prop);
+      if (box >= 0) damageProp(game, box, damage);
+    }
+  }
+  beginLunge(game.melee, game.mech.yaw, met !== null);
+}
+
 // Takes `damage` off the mech's armour and reports it with the way it came from, (toX, toZ) being the direction on the
 // ground from the mech toward the source (any length); at 0 the mech is downed, once.
 function damageMech(game: GameModel, damage: number, toX: number, toZ: number): void {
@@ -543,17 +747,19 @@ function damageMech(game: GameModel, damage: number, toX: number, toZ: number): 
   game.events.push({ kind: 'downed' });
 }
 
-// Takes `damage` off the mine's health; at 0 it goes off.
-function damageMine(game: GameModel, mine: MineState, damage: number): void {
+// Takes `damage` off the mine's health; at 0 it goes off. `punched` is a blow's damage: the fist's own blast leaves the
+// mech out of it.
+function damageMine(game: GameModel, mine: MineState, damage: number, punched = false): void {
   mine.hp = Math.max(0, mine.hp - damage);
   if (mine.hp > 0) return;
-  blowUp(game, mine);
+  blowUp(game, mine, punched);
 }
 
-// Takes the mine off the ground and blows it up: a mech inside MINE_TUNE.blastRadius takes MINE_TUNE.damage.
-function blowUp(game: GameModel, mine: MineState): void {
+// Takes the mine off the ground and blows it up: a mech inside MINE_TUNE.blastRadius takes MINE_TUNE.damage. A punched
+// mine's blast is reported without the mech, so its shake and sound still play but the fist's own blast cannot hurt it.
+function blowUp(game: GameModel, mine: MineState, punched = false): void {
   game.mines.splice(game.mines.indexOf(mine), 1);
-  const hit = inCircle(mine, MINE_TUNE.blastRadius, game.mech);
+  const hit = !punched && inCircle(mine, MINE_TUNE.blastRadius, game.mech);
   game.events.push({ kind: 'mineBlast', x: mine.x, y: blastFaceHeight(game.rects, mine.x, mine.z), z: mine.z, hit });
   if (hit) damageMech(game, MINE_TUNE.damage, mine.x - game.mech.x, mine.z - game.mech.z);
 }
@@ -662,6 +868,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     nav: newNav(),
     main: newWeapon(M1_LOADOUT.main),
     sub: newWeapon(M1_LOADOUT.sub),
+    melee: newMelee(),
     fcs: newFcs(),
     aimTarget: null,
     bullets: [],
@@ -1016,6 +1223,8 @@ export function retryFromCheckpoint(game: GameModel): GameModel {
     // the weapons the checkpoint had, loaded full again
     main: newWeapon(rest.main.id),
     sub: newWeapon(rest.sub.id),
+    // the fist is ready at once: the wait a retry was taken over does not carry into the new sortie
+    melee: newMelee(),
     fcs: newFcs(),
     aimTarget: null,
     bullets: [],
@@ -1179,12 +1388,13 @@ function stepAllies(game: GameModel, dt: number): void {
   }
 }
 
-// A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the camera's aim and
-// the use key (planting a charge; left out where there is none, so the old test inputs need no change).
+// A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the camera's aim,
+// the use key (planting a charge; left out where there is none, so the old test inputs need no change) and the fist.
 export interface GameInput extends MechInput {
   sub: boolean;
   aim?: Ray3; // the camera's line through the middle of the screen; without it, level from the chest along the mech's yaw
   use?: boolean;
+  melee?: boolean;
 }
 
 // No key, no stick, no trigger: what the mech gets while a cutscene plays.
@@ -1206,7 +1416,8 @@ export function timeScale(game: GameModel): number {
 }
 
 // One frame: the mech moves, the soft FCS picks the target or enemy in the aim circle, each weapon fires as often as its
-// interval allows while its trigger is held, each enemy wakes, walks and shoots, and every bullet in flight (the new
+// interval allows while its trigger is held, the fist strikes when its wait allows and lunges, each enemy wakes, walks
+// and shoots, and every bullet in flight (the new
 // ones too) moves on, stopping at a prop, a target, an enemy, a mine, the mech or the ground; the hazards run next
 // (stepHazards); a broken target goes to the script, and so does a wave whose enemies are all down. The mech then
 // enters any area it stands in, and the script's time moves on; what the script reports is kept as this frame's events. The main weapon fires first. Once the sortie is cleared
@@ -1226,28 +1437,40 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   const input = game.script.cutscene === null ? given : { ...IDLE_INPUT, aim: given.aim };
   // Use plants a charge: while it is held the mech does not shoot, so a charge and a shot cannot be asked for together.
   const use = input.use === true && game.script.cutscene === null;
-  const held = use ? { ...input, fire: false, sub: false } : input;
+  const held = use ? { ...input, fire: false, sub: false, melee: false } : input;
   game.time += span;
+  const moveTune = moveTuneOf(M1_MECH);
   const radius = MECH_TUNE.radius;
   // stepMech keeps the mech a radius inside the map's bounds. The landing craft's lane is the one way past the front
   // edge, so while the mech stands in it the bound reaches back to the craft's stern.
   const stepBounds = inCraftLane(game.mech.x, game.map.bounds)
     ? { ...game.map.bounds, maxZ: craftBack(game.map.bounds) }
     : game.map.bounds;
-  const events = stepMech(game.mech, held, span, moveTuneOf(M1_MECH), 0, {
+  const events = stepMech(game.mech, held, span, moveTune, 0, {
     rects: game.rects,
     radius,
     bounds: stepBounds,
   });
+  // The fist counts its wait down every frame. A held key swings again as soon as the wait is over, so the interval is the
+  // same whether the key is tapped or held. The blow lands on the swing's own frame (stepMeleeBlow), not when the key went
+  // down, so the damage and the arm cannot drift apart; the lunge starts on that same frame. All of it runs on the
+  // milestone's own span, so the fist keeps time with the enemies and the shots. The lunge moves the mech before the map's
+  // edge is applied to it.
+  game.melee.wait = Math.max(0, game.melee.wait - span);
+  if (held.melee === true && game.melee.wait <= 0 && game.melee.blow === null) beginMelee(game.melee);
+  if (stepMeleeBlow(game.melee, span)) meleeStrike(game);
+  const over = game.mech.grounded ? game.mech.y + moveTune.stepHeight : game.mech.y;
+  stepMeleeLunge(game.melee, game.mech, span, game.rects, radius, over);
   // The mech stays inside the map: the mech is kept a radius in from every side, and a speed that pushed it out stops.
-  // The lane is read again from the mech's x after the step, so a mech that left it sideways this frame goes back to the front edge.
-  const minX = game.map.bounds.minX + radius;
-  const maxX = game.map.bounds.maxX - radius;
-  const minZ = game.map.bounds.minZ + radius;
-  // The ramp's lane is the only way past the map's front edge: in it the mech may go back to the craft's stern.
-  const maxZ = inCraftLane(game.mech.x, game.map.bounds)
-    ? craftBack(game.map.bounds) - radius
-    : game.map.bounds.maxZ - radius;
+  // The lane is read again from the mech's x after the step and the lunge, so a mech that left it sideways this frame
+  // goes back to the front edge.
+  const bounds = inCraftLane(game.mech.x, game.map.bounds)
+    ? { ...game.map.bounds, maxZ: craftBack(game.map.bounds) }
+    : game.map.bounds;
+  const minX = bounds.minX + radius;
+  const maxX = bounds.maxX - radius;
+  const minZ = bounds.minZ + radius;
+  const maxZ = bounds.maxZ - radius;
   if (game.mech.x < minX) {
     game.mech.x = minX;
     if (game.mech.vx < 0) game.mech.vx = 0;
