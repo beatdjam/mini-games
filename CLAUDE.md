@@ -49,6 +49,7 @@
    - 完了条件は、確認のコマンドの結果で判定できる形にする
    - 期待値（「この入力ならこうなる」）は、票に書く前に実物で確かめる。詰めvim では、Claude が頭で書いた Vim の期待値が3回違っていた
    - 票の大きさ: 実装の票は typecheck・lint・unit・integration まで（`@node`）。e2e・絵・描く回数・重さの測定は別の確認の票（`@browser`、`xxx5-check-*` の形）にする。1票に1つの変更。変えるファイルが15を超える、またはセッションが30分を超えそうなら段に分ける。例外は、小さな直しで e2e が1本で済むとき
+   - STORMBREACHER の e2e で時間を進めるときは、`games/stormbreacher/test/e2e/steps.ts` で手で回す（`steps`・`untilSteps`・`draw`）。描画のフレームを待つのは、ページの rAF を確かめるテストだけ（CI には GPU が無く、1 フレームに数秒かかる）。残す所には理由を 1 行のコメントで書く
    - 下書きの事実確認は、書いたのとは別のモデル（Claude のサブエージェント）に、観点ごとに分けて並べて任せると漏れが見つかる。重い指摘は Claude が自分でも確かめる
 2. **渡す**: ユーザーが OpenCode に票を渡す。OpenCode は票のブランチに移り、編集と確認だけを行う。commit・push はしない。結果は `.tasks/<番号>-<名前>.result.md` に書く。Claude から `opencode run` をバックグラウンドで起動してもよい（出力は読まず、終わったら result を読む）
    - 起動: `env -C <作業ツリー> PWD=<作業ツリー> OPENCODE_DISABLE_CLAUDE_CODE=1 ~/.opencode/bin/opencode run --standalone --title "<票の番号>" "<票> の票をやって"`。`--dir` は無い。`--standalone` と `PWD` が無いと、共有のサービスにつながって、起動した場所（Vault など）で作業してしまう

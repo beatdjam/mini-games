@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
-import { el, t, LOOP, runSystems } from '@engine/core/index.ts';
+import { el, t, runSystems } from '@engine/core/index.ts';
 import * as THREE from 'three';
 import { camera, scene } from '@engine/render/index.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
@@ -14,6 +14,7 @@ import { sendToScript } from '../../src/logic/game.ts';
 import { RIDERS_NAME } from '../../src/view/riders.ts';
 import { SINKING_CREW_NAME } from '../../src/view/sinkingCrews.ts';
 import { pastSkipGuard as pastGuard } from './cutsceneSkip.ts';
+import { draw, steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -23,35 +24,10 @@ beforeAll(async () => {
   boot();
 });
 
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
-const frames = async (n: number): Promise<void> => {
-  for (let i = 0; i < n; i++) await frame();
-};
-
 function game() {
   const current = currentGame();
   if (!current) throw new Error('the sortie has not started');
   return current;
-}
-
-async function until(done: () => boolean, tries = 240): Promise<void> {
-  for (let i = 0; i < tries; i++) {
-    if (done()) return;
-    await frame();
-  }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} frames`);
-}
-
-// Runs the game's systems by hand, a 60th of a second each, until `done` holds. Waiting for drawn frames timed out at 60 s
-// on CI, where a frame is drawn in software and can take seconds. A drawn frame every 30 steps lets the page's own timers
-// move on, and the page's updates that wait for a drawn frame still come.
-async function untilSteps(done: () => boolean, tries = 720): Promise<void> {
-  for (let i = 0; i < tries; i++) {
-    if (done()) return;
-    runSystems(1 / 60);
-    if (i % 30 === 29) await frame();
-  }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps`);
 }
 
 // A cutscene takes no skip for CUTSCENE_SKIP_GUARD_SEC after it starts, so a test that skips it waits that out first.
@@ -64,7 +40,7 @@ const caption = (): string => el('#sbCutscene [data-cutscene="caption"]').textCo
 
 test('a sortie shows the black bars and a line, and hides the HUD', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   expect(el('#sbPlayHud').hidden).toBe(true);
   expect(bars().querySelectorAll('[data-cutscene="top"], [data-cutscene="bottom"]')).toHaveLength(2);
   const bottom = el('#sbCutscene [data-cutscene="bottom"]').getBoundingClientRect();
@@ -73,13 +49,13 @@ test('a sortie shows the black bars and a line, and hides the HUD', async () => 
   // the line is in the lower bar once the first line's second comes
   expect(game().script.cutscene?.id).toBe('landing');
   game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 1 };
-  await frame();
+  steps(1);
   expect(caption()).toBe(t('cutscene.landing.wave'));
 });
 
 test('a click skips the cutscene: the bars go and the HUD comes', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   await pastSkipGuard();
   el('#gl').click();
   await untilSteps(() => bars().hidden);
@@ -89,25 +65,25 @@ test('a click skips the cutscene: the bars go and the HUD comes', async () => {
 
 test('Enter skips it too, and the click that started the sortie does not', async () => {
   startSortie();
-  await frame();
+  steps(1);
   expect(game().script.cutscene).not.toBeNull();
   await pastSkipGuard();
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', repeat: true, bubbles: true }));
-  await frame();
+  steps(1);
   expect(game().script.cutscene).not.toBeNull();
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', bubbles: true }));
-  await until(() => game().script.cutscene === null);
+  await untilSteps(() => game().script.cutscene === null);
   expect(bars().hidden).toBe(true);
 });
 
 test('starting again from the beginning plays it again, with one set of bars', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   await pastSkipGuard();
   el('#gl').click();
-  await until(() => bars().hidden);
+  await untilSteps(() => bars().hidden);
   el('#sbResultRestart').click();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   expect(document.querySelectorAll('#sbCutscene')).toHaveLength(1);
   expect(game().script.cutscene?.id).toBe('landing');
   expect(el('#sbPlayHud').hidden).toBe(true);
@@ -124,45 +100,45 @@ function seaCrafts(): number {
 
 test('wave2-sinks shows the bars and its line, hides the HUD and draws the crafts at sea', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   await pastSkipGuard();
   el('#gl').click();
-  await until(() => bars().hidden);
+  await untilSteps(() => bars().hidden);
   expect(seaCrafts()).toBe(0);
   game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };
-  await frame();
+  steps(1);
   expect(bars().hidden).toBe(false);
   expect(el('#sbPlayHud').hidden).toBe(true);
   expect(caption()).toBe(t('cutscene.wave2.hit'));
   expect(seaCrafts()).toBe(4);
   game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 4 };
-  await frame();
+  steps(1);
   expect(caption()).toBe(t('cutscene.wave2.none'));
   // when it is over the bars go, the HUD comes and the crafts are out of sight
   game().script.cutscene = null;
-  await until(() => bars().hidden);
+  await untilSteps(() => bars().hidden);
   expect(el('#sbPlayHud').hidden).toBe(false);
   expect(seaCrafts()).toBe(0);
 });
 
 test('beach-held plays after the win and then the result shows', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   await pastSkipGuard();
   el('#gl').click();
-  await until(() => bars().hidden);
+  await untilSteps(() => bars().hidden);
   for (const target of ['main-gun-1', 'main-gun-2', 'magazine']) sendToScript(game(), { kind: 'destroyed', target });
   expect(game().script.cutscene?.id).toBe('beach-held');
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   expect(game().cleared).toBe(true);
   expect(el('#sbResult').hidden).toBe(true);
   game().script.cutscene = { id: 'beach-held', left: CUTSCENE_SEC['beach-held'] - 5 };
-  await frame();
+  steps(1);
   expect(caption()).toBe(t('cutscene.held.landing'));
   expect(seaCrafts()).toBe(2);
   // a skip ends it, and the result follows
   el('#gl').click();
-  await until(() => !el('#sbResult').hidden);
+  await untilSteps(() => !el('#sbResult').hidden);
   expect(bars().hidden).toBe(true);
 });
 
@@ -197,17 +173,17 @@ const lastKey = (): THREE.Vector3 => {
 
 test('the landing draws the mech standing on the deck, not walking', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   // the deck before the ramp comes down: drawn where the game's mech stands, standing
   game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 6 };
-  await frames(10);
+  steps(10);
   expect(mechModel().visible).toBe(true);
   expect(mechModel().position.z).toBeGreaterThan(START_Z); // still sailing in
   expect(mechModel().position.y).toBeCloseTo(game().mech.y, 6);
   const rest = legAngles();
   // the ramp coming down, the craft at the shore: the model is on the deck and the legs do not swing
   game().script.cutscene = { id: 'landing', left: 1 };
-  await frames(10);
+  steps(10);
   expect(mechModel().visible).toBe(true);
   expect(mechModel().position.z).toBeCloseTo(START_Z, 6);
   expect(sameAngles(legAngles(), rest)).toBe(true);
@@ -217,15 +193,15 @@ test('the landing draws the mech standing on the deck, not walking', async () =>
 
 test('the other cutscenes do not draw the mech', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   await pastSkipGuard();
   el('#gl').click();
-  await until(() => bars().hidden);
+  await untilSteps(() => bars().hidden);
   game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };
-  await frame();
+  steps(1);
   expect(mechModel().visible).toBe(false);
   game().script.cutscene = null;
-  await frame();
+  steps(1);
   expect(mechModel().visible).toBe(true);
 });
 
@@ -234,9 +210,9 @@ const riderGroups = (): THREE.Group[] =>
 
 test('the landing draws six riders, hides them after, and a restart keeps one set', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 6 };
-  await frames(3);
+  steps(3);
   const groups = riderGroups();
   expect(groups).toHaveLength(1);
   expect(groups[0].visible).toBe(true);
@@ -252,15 +228,15 @@ test('the landing draws six riders, hides them after, and a restart keeps one se
   }
   // another cutscene leaves them on the beach
   game().script.cutscene = { id: 'wave2-sinks', left: CUTSCENE_SEC['wave2-sinks'] - 1 };
-  await frame();
+  steps(1);
   expect(groups[0].visible).toBe(false);
   // and once the landing is over they are out of sight too
   game().script.cutscene = null;
-  await frame();
+  steps(1);
   expect(groups[0].visible).toBe(false);
   // starting again builds one set of riders, not two
   startSortie();
-  await frames(2);
+  steps(2);
   expect(riderGroups()).toHaveLength(1);
 });
 
@@ -277,7 +253,7 @@ test('the landing draws the sinking crews and the ally mech, and a skip hides th
   const step = (n: number): void => {
     for (let i = 0; i < n; i++) {
       runSystems(0);
-      LOOP.render?.();
+      draw();
     }
   };
   startSortie();
@@ -324,9 +300,11 @@ test('the landing draws the sinking crews and the ally mech, and a skip hides th
 
 test('when the landing ends the mech is at its start and the camera is where the last key put it', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   game().script.cutscene = { id: 'landing', left: 0.05 };
-  await until(() => bars().hidden);
+  await untilSteps(() => bars().hidden);
+  // the blasts' shake runs out by the step's dt, not by the page's frames: half a second of steps lets it settle
+  steps(30);
   const model = mechModel();
   expect(model.visible).toBe(true);
   expect(model.position.x).toBeCloseTo(game().mech.x, 3);
@@ -337,11 +315,11 @@ test('when the landing ends the mech is at its start and the camera is where the
 
 test('a skip puts the mech at its start and the camera at the game camera', async () => {
   startSortie();
-  await until(() => !bars().hidden);
+  await untilSteps(() => !bars().hidden);
   game().script.cutscene = { id: 'landing', left: CUTSCENE_SEC.landing - 2 };
-  await frames(3);
+  steps(3);
   el('#gl').click();
-  await until(() => bars().hidden);
+  await untilSteps(() => bars().hidden);
   expect(mechModel().position.z).toBeCloseTo(START_Z, 3);
   expect(camera.position.distanceTo(lastKey())).toBeLessThan(0.5);
 });

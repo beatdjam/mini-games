@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
-import { el, LOOP, runSystems, t } from '@engine/core/index.ts';
+import { el, t } from '@engine/core/index.ts';
 import { renderer, scene } from '@engine/render/index.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { currentGame, showResult, startSortie } from '../../src/app/play.ts';
@@ -10,6 +10,7 @@ import { boot } from '../../src/app/boot.ts';
 import { newGame, sendToScript } from '../../src/logic/game.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { pastSkipGuard } from './cutsceneSkip.ts';
+import { draw, steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -18,11 +19,6 @@ beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
 });
-
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
-
-// Draws a frame by hand. Waiting for the page's own frame timed out at 60 s on CI when every game's tests ran at once.
-const draw = (): void => LOOP.render?.();
 
 // How many warning lights the scene draws, from the pillboxes' instanced mesh.
 function warnLights(): number {
@@ -37,19 +33,6 @@ function game() {
   const current = currentGame();
   if (!current) throw new Error('the sortie has not started');
   return current;
-}
-
-// Runs the game's systems by hand, a 60th of a second each, until `done` holds, and fails when it never does. Waiting
-// for drawn frames instead timed out at 60 s on CI when every game's tests ran at once. A drawn frame could be up to a
-// 20th of a second, so 720 steps are the 12 s of the game that 240 frames were. A drawn frame every 30 steps lets the
-// page's own timers move on.
-async function until(done: () => boolean, tries = 720): Promise<void> {
-  for (let i = 0; i < tries; i++) {
-    if (done()) return;
-    runSystems(1 / 60);
-    if (i % 30 === 29) await frame();
-  }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps`);
 }
 
 const button = (id: string): HTMLButtonElement => el<HTMLButtonElement>(id);
@@ -67,7 +50,7 @@ async function downAfterCheckpoint(): Promise<void> {
   current.mech.z = 20;
   current.armor = 0;
   current.downed = true;
-  await until(() => state === 'result');
+  await untilSteps(() => state === 'result');
 }
 
 test('the downed result shows the three buttons when there is a checkpoint', async () => {
@@ -84,7 +67,7 @@ test('without a checkpoint the downed result has no checkpoint button', async ()
   const current = game();
   current.armor = 0;
   current.downed = true;
-  await until(() => state === 'result');
+  await untilSteps(() => state === 'result');
   expect(button('#sbResultCheckpoint').hidden).toBe(true);
   expect(button('#sbResultRestart').hidden).toBe(false);
   expect(button('#sbResultBack').hidden).toBe(false);
@@ -103,8 +86,7 @@ test('the checkpoint button goes back to the sortie at the checkpoint with the a
   expect(again.armor).toBe(MECH_TUNE.armor);
   expect(again.downed).toBe(false);
   expect(again.retries).toBe(1);
-  await frame();
-  await frame();
+  steps(2);
   expect(state).toBe('play');
 });
 
@@ -127,7 +109,7 @@ test('a retry frees the last sortie’s shapes and pictures', async () => {
     const current = game();
     current.armor = 0;
     current.downed = true;
-    await until(() => state === 'result');
+    await untilSteps(() => state === 'result');
     button('#sbResultRestart').click();
     draw();
   };
@@ -145,20 +127,20 @@ test('a warning light goes out once the sortie starts again', async () => {
   startSortie();
   const current = game();
   // a skip before the guard seconds are past does nothing, and the cutscene would run its whole 12 s of steps
-  await until(pastSkipGuard);
+  await untilSteps(pastSkipGuard);
   sendToScript(current, { kind: 'skip' });
-  await until(() => current.script.cutscene === null);
+  await untilSteps(() => current.script.cutscene === null);
   current.mech.x = -33;
   current.mech.z = 10;
-  await until(() => current.pillboxes.some(pillbox => pillbox.warn > 0));
-  await frame();
+  await untilSteps(() => current.pillboxes.some(pillbox => pillbox.warn > 0));
+  draw();
   expect(warnLights()).toBeGreaterThan(0);
 
   current.armor = 0;
   current.downed = true;
-  await until(() => state === 'result');
+  await untilSteps(() => state === 'result');
   button('#sbResultRestart').click();
-  await frame();
+  draw();
   expect(warnLights()).toBe(0);
 });
 
@@ -178,7 +160,7 @@ test('the result buttons take a tap above the touch layer', async () => {
   const current = game();
   current.armor = 0;
   current.downed = true;
-  await until(() => state === 'result');
+  await untilSteps(() => state === 'result');
   expect(el('#touch').hidden).toBe(true);
   for (const id of ['#sbResultBack', '#sbResultRestart']) {
     const target = button(id);
