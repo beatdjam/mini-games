@@ -7,6 +7,7 @@ import { boot } from '../../src/app/boot.ts';
 import { MARKER_TUNE, MARKER_MODES } from '../../src/data/marker.ts';
 import { blastPropIndexes } from '../../src/logic/blasts.ts';
 import { sendToScript } from '../../src/logic/game.ts';
+import { draw, steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -15,8 +16,6 @@ beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
 });
-
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
 // How many copies of a kind are drawn: the instanced meshes under the scene with that name (the chunks may split one).
 function drawn(name: string): number {
@@ -47,7 +46,7 @@ function loweredHedgehogs(): number {
 
 test('a sortie draws the low walls and the ramps', async () => {
   startSortie();
-  await frame();
+  steps(1);
   const map = currentGame()?.map;
   if (!map) throw new Error('the sortie has not started');
   for (const kind of ['lowWall', 'ramp'] as const) {
@@ -59,7 +58,7 @@ test('a sortie draws the low walls and the ramps', async () => {
 
 test('a blast lowers the line’s hedgehogs where they stand, with no new mesh', async () => {
   startSortie();
-  await frame();
+  steps(1);
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   const blast = game.blasts.find(place => place.id === 'l1-b');
@@ -69,16 +68,14 @@ test('a blast lowers the line’s hedgehogs where they stand, with no new mesh',
   expect(loweredHedgehogs()).toBe(0);
 
   blast.blasted = true;
-  await frame();
-  await frame();
+  steps(2);
   expect(loweredHedgehogs()).toBe(props.length);
 });
 
 // Plays the opening cutscene out, so the sortie draws its rings and lights (a cutscene draws none: SB-2022).
 async function endCutscene(game: NonNullable<ReturnType<typeof currentGame>>): Promise<void> {
   sendToScript(game, { kind: 'skip' });
-  await frame();
-  await frame();
+  steps(2);
 }
 
 function setMarkerMode(mode: (typeof MARKER_MODES)[number]): void {
@@ -87,7 +84,7 @@ function setMarkerMode(mode: (typeof MARKER_MODES)[number]): void {
 
 test('the pillboxes’ blast points are drawn, and not once their pillbox is down', async () => {
   startSortie();
-  await frame();
+  steps(1);
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
@@ -100,18 +97,17 @@ test('the pillboxes’ blast points are drawn, and not once their pillbox is dow
   const pillbox = game.targets.find(target => target.id === 'pillbox-1');
   if (!pillbox) throw new Error('the map has no pillbox-1');
   pillbox.hp = 0;
-  await frame();
-  await frame();
+  steps(2);
   expect(drawn('sb-blast-points')).toBe(points - 2);
 });
 
 test('a cutscene draws no ring and no light, and they come back when it ends', async () => {
   setMarkerMode('dim');
   startSortie();
-  await frame();
+  steps(1);
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
-  await frame();
+  steps(1);
   expect(game.script.cutscene).not.toBeNull();
   expect(drawn('sb-blast-points')).toBe(0);
   expect(drawn('sb-blast-pillars')).toBe(0);
@@ -125,17 +121,17 @@ test('a cutscene draws no ring and no light, and they come back when it ends', a
 test('a light stands over every blast point of a shot pillbox and of the lines (dim), and goes with its pillbox', async () => {
   setMarkerMode('dim');
   startSortie();
-  await frame();
+  steps(1);
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
   // a point shows no light until its pillbox has been shot: the lines' four stand alone, and the mech is far enough off
   game.mech.x = 0;
   game.mech.z = 166;
-  await frame();
+  steps(1);
   expect(drawn('sb-blast-pillars')).toBe(4);
   for (const state of game.pillboxes) state.shot = true;
-  await frame();
+  steps(1);
   expect(drawn('sb-blast-pillars')).toBe(8);
   expect(drawn('sb-blast-diamonds')).toBe(8);
 
@@ -143,14 +139,13 @@ test('a light stands over every blast point of a shot pillbox and of the lines (
   const pillbox = game.targets.find(target => target.id === 'pillbox-1');
   if (!pillbox) throw new Error('the map has no pillbox-1');
   pillbox.hp = 0;
-  await frame();
-  await frame();
+  steps(2);
   expect(drawn('sb-blast-pillars')).toBe(6);
 });
 
 test('`map` draws no light on screen, and `next` draws one that moves on when its pillbox falls', async () => {
   startSortie();
-  await frame();
+  steps(1);
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
@@ -158,20 +153,19 @@ test('`map` draws no light on screen, and `next` draws one that moves on when it
   game.mech.x = 22;
   game.mech.z = -40;
   setMarkerMode('map');
-  await frame();
+  steps(1);
   expect(drawn('sb-blast-points')).toBe(8);
   expect(drawn('sb-blast-pillars')).toBe(0);
   expect(drawn('sb-blast-diamonds')).toBe(0);
 
   setMarkerMode('next');
-  await frame();
+  steps(1);
   expect(drawn('sb-blast-pillars')).toBe(1);
   expect(drawn('sb-blast-diamonds')).toBe(1);
   const pillbox = game.targets.find(target => target.id === 'pillbox-2');
   if (!pillbox) throw new Error('the map has no pillbox-2');
   pillbox.hp = 0;
-  await frame();
-  await frame();
+  steps(2);
   expect(drawn('sb-blast-pillars')).toBe(1);
   setMarkerMode('dim');
 });
@@ -187,7 +181,7 @@ function find(name: string): THREE.Object3D | undefined {
 
 test('a sortie draws every target of the map, the battery’s parts among them', async () => {
   startSortie();
-  await frame();
+  steps(1);
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   const map = game.map;
@@ -208,7 +202,9 @@ test('a sortie draws every target of the map, the battery’s parts among them',
 test('a sortie draws the sea past the front edge and the landing craft behind the mech, and starting again leaves one of each', async () => {
   for (let sortie = 0; sortie < 2; sortie++) {
     startSortie();
-    await frame();
+    steps(1);
+    // the craft and the sea are measured as drawn
+    draw();
     const game = currentGame();
     if (!game) throw new Error('the sortie has not started');
     const { maxX, minX, maxZ } = game.map.bounds;

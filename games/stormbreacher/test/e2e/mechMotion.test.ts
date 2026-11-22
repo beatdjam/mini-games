@@ -1,7 +1,6 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
-import { runSystems } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { M1_MECH_PALETTE } from '../../src/data/mech.ts';
 import { currentGame, startSortie } from '../../src/app/play.ts';
@@ -9,6 +8,7 @@ import { sendToScript } from '../../src/logic/game.ts';
 import { boot } from '../../src/app/boot.ts';
 import { showMech } from '../../src/dev/views/mech.ts';
 import { countProtoDraws } from '../../src/view/mechProtoModel.ts';
+import { steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -17,7 +17,6 @@ beforeAll(async () => {
   boot();
 });
 
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 const key = (type: 'keydown' | 'keyup', code: string) => new KeyboardEvent(type, { code, bubbles: true });
 
 const mechGroups = (): THREE.Object3D[] => scene.children.filter(child => child.name === 'mech');
@@ -63,13 +62,8 @@ const flames = (group: THREE.Object3D): THREE.Mesh[] => {
 };
 
 test('walking in a sortie swings the legs, and standing keeps them still', async () => {
-  // A drawn frame of the sortie is slow on CI when every game's tests run at once (it timed out at 60 s waiting for
-  // ~110 frames), so after the first frame the systems run by hand, a 60th of a second each.
-  const steps = (n: number) => {
-    for (let i = 0; i < n; i++) runSystems(1 / 60);
-  };
   startSortie();
-  await frame();
+  steps(1);
   sendToScript(currentGame()!, { kind: 'skip' });
   steps(2);
   const group = protoGroups().reverse()[0];
@@ -91,11 +85,8 @@ test('walking in a sortie swings the legs, and standing keeps them still', async
 });
 
 test('the sortie shows the flame while boosting and hides it again, and the main weapon pulls the arm', async () => {
-  const steps = (n: number) => {
-    for (let i = 0; i < n; i++) runSystems(1 / 60);
-  };
   startSortie();
-  await frame();
+  steps(1);
   sendToScript(currentGame()!, { kind: 'skip' });
   steps(2);
   const group = protoGroups().reverse()[0];
@@ -135,10 +126,6 @@ test('#view-mech acts out walking, boosting, jumping and firing', () => {
       acts: Record<string, boolean>;
       mech: { calls: number; boxes: number };
     };
-  // a frame of the page takes long to draw, so the systems run by hand, a 60th of a second each
-  const steps = (n: number) => {
-    for (let i = 0; i < n; i++) runSystems(1 / 60);
-  };
   const buttons = (label: string): HTMLButtonElement => {
     const found = [...document.querySelectorAll<HTMLButtonElement>('#sbMechBar button')].find(
       node => node.textContent === label,

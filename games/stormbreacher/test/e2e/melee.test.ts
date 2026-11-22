@@ -7,6 +7,7 @@ import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { newEnemy } from '../../src/logic/enemies.ts';
 import { sendToScript, type GameEvent, type GameModel } from '../../src/logic/game.ts';
+import { steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -14,8 +15,6 @@ beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
 });
-
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
 const key = (type: string, code: string): KeyboardEvent => new KeyboardEvent(type, { code, bubbles: true });
 
@@ -44,7 +43,7 @@ test('Q throws a blow that reports a hit and takes an enemy in front down in hea
     if (found) blow = found;
   }
   window.dispatchEvent(key('keyup', 'KeyQ'));
-  await frame();
+  steps(1);
 
   expect(blow?.hit).toBe(true);
   expect(blow?.enemy).toBe('melee-target');

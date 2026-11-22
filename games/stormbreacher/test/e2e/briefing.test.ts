@@ -9,6 +9,7 @@ import { SUSPEND_KEY, writeSuspend } from '../../src/app/storage.ts';
 import { M1_BRIEFING } from '../../src/data/briefings.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { newGame } from '../../src/logic/game.ts';
+import { steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -17,8 +18,6 @@ beforeAll(async () => {
   boot();
   titleReturn.reload = false;
 });
-
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
 const button = (id: string): HTMLButtonElement => el<HTMLButtonElement>(id);
 const lines = (): string[] => [...document.querySelectorAll('#sbBriefingLines p')].map(p => p.textContent ?? '');
@@ -36,7 +35,7 @@ beforeEach(() => {
 // Opens the briefing as the title's start button does, and waits a frame so a press after it is not the opening one.
 async function open(): Promise<void> {
   button('#sbStart').click();
-  await frame();
+  steps(1);
 }
 
 test('the start button opens the briefing, not the sortie', async () => {
@@ -72,8 +71,7 @@ test('a tap brings the next line, and Enter and Space do too', async () => {
 test('the lines also come by themselves with time', async () => {
   await open();
   briefingUI.time = (M1_BRIEFING[1]?.at ?? 0) - 0.01;
-  await frame();
-  await frame();
+  steps(2);
   expect(lines()).toHaveLength(2);
 });
 
@@ -88,8 +86,7 @@ test('when all lines are out the sortie button shows and a press goes to the sor
   expect(state).toBe('play');
   expect(el('#sbBriefing').hidden).toBe(true);
   // the sortie's first step starts the cutscene; the press that left the briefing does not skip it
-  await frame();
-  await frame();
+  steps(2);
   expect(currentGame()?.script.cutscene?.id).toBe('landing');
 });
 
@@ -104,8 +101,7 @@ test('Esc skips the briefing at any line', async () => {
   await open();
   press('Escape');
   expect(state).toBe('play'); // the Esc that skips the briefing does not also pause the sortie
-  await frame();
-  await frame();
+  steps(2);
   expect(state).toBe('play');
   expect(currentGame()?.script.cutscene?.id).toBe('landing');
 });
@@ -121,7 +117,7 @@ test('Enter on the title opens the briefing once, and the same Enter does not br
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', bubbles: true }));
   expect(state).toBe('briefing');
   expect(lines()).toHaveLength(1);
-  await frame();
+  steps(1);
   expect(lines()).toHaveLength(1);
   expect(state).toBe('briefing');
 });
