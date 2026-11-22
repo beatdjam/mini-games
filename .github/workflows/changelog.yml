@@ -8,7 +8,10 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  # ジョブ名は changelog。Checks のまとめのジョブ（check）と名前がかぶると、master の必須チェックの check が
+  # こちらで先に満たされ、テストの前に自動マージで入ってしまうため
+
+  changelog:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
