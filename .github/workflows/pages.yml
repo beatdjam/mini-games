@@ -1,8 +1,8 @@
-# ジョブは 3 段: 確認（check）→ Chromium のテスト（e2e、matrix の 3 本が並ぶ）→ 公開（deploy）。
+# ジョブは 3 段: 確認（check）→ Chromium のテスト（e2e、matrix の 5 本が並ぶ）→ 公開（deploy）。
 # 確認と公開を別のジョブにしているのは、公開の手順だけが GitHub 側の失敗で落ちたときに、
 # 「落ちたジョブを流し直す」で、テストをやり直さずに公開だけを流し直すため。
 # Chromium のテストも別のジョブにしているのは、待ち時間を縮めるのと、e2e が落ちたときにそのジョブだけ流し直せるようにするため
-# （STORMBREACHER の e2e が 35 ファイルで重いので、--shard で 2 本に割る。分け方は checks.yml の先頭のコメントと同じ）。
+# （重い STORMBREACHER と SDX は、--shard でそれぞれ 2 本に割る。分け方は checks.yml の先頭のコメントと同じ）。
 # check は型チェック、lint、node の層のテスト、ビルドのテスト。deploy は check と e2e の全部を待つ
 name: Deploy Pages
 
@@ -66,8 +66,12 @@ jobs:
             args: --project stormbreacher-e2e --shard=1/2
           - name: stormbreacher-2
             args: --project stormbreacher-e2e --shard=2/2
-          - name: others # sector-dive-ex を含む、残りの Chromium のプロジェクト全部
-            args: --project !*-unit --project !*-integration --project !stormbreacher-e2e
+          - name: sector-dive-ex-1
+            args: --project sector-dive-ex --shard=1/2
+          - name: sector-dive-ex-2
+            args: --project sector-dive-ex --shard=2/2
+          - name: others # 残りの Chromium のプロジェクト全部
+            args: --project !*-unit --project !*-integration --project !stormbreacher-e2e --project !sector-dive-ex
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
