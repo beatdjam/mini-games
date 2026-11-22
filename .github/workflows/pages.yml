@@ -1,5 +1,9 @@
-# 確認（check）と公開（deploy）を別のジョブにしている。公開の手順だけが GitHub 側の失敗で落ちたときに、
-# 「落ちたジョブを流し直す」で、約 9.5 分のテストをやり直さずに公開だけを流し直すため。
+# ジョブは 3 段: 確認（check）→ Chromium のテスト（e2e、matrix の 3 本が並ぶ）→ 公開（deploy）。
+# 確認と公開を別のジョブにしているのは、公開の手順だけが GitHub 側の失敗で落ちたときに、
+# 「落ちたジョブを流し直す」で、テストをやり直さずに公開だけを流し直すため。
+# Chromium のテストも別のジョブにしているのは、待ち時間を縮めるのと、e2e が落ちたときにそのジョブだけ流し直せるようにするため
+# （STORMBREACHER の e2e が 35 ファイルで重いので、--shard で 2 本に割る。分け方は checks.yml の先頭のコメントと同じ）。
+# check は型チェック、lint、node の層のテスト、ビルドのテスト。deploy は check と e2e の全部を待つ
 name: Deploy Pages
 
 on:
@@ -32,26 +36,62 @@ jobs:
           npm run typecheck
       - name: 書式・スタイル・文言の確認（Prettier、ESLint、tools/check_style.js、tools/check_i18n.js）
         run: npm run lint
-      - name: テスト（engine のテストと各ゲームのスモークは Vitest。ビルドのテストは公開用のビルドを Chromium で開く）
-        # 失敗したら公開しない。ランナーの Chrome を使う。結果はジョブのサマリに出る
+      - name: テスト（node の層。ページを使わないテスト）
+        # 全部を一度に流すと、node の層と Chromium が CPU を取り合って、重いテストが 5 秒の上限を超える（#509〜#511 で落ちた）。
+        # Chromium の層は、別のジョブ（e2e）に分けてある
+        run: npx vitest run --project '*-unit' --project '*-integration'
+      - name: テスト（ビルドのテスト。公開用のビルドを Chromium で開く）
+        # ランナーの Chrome を使う。結果はジョブのサマリに出る
         env:
           CHROME: /usr/bin/google-chrome
-        # PR の確認（checks.yml）と同じく、node の層を先に流してから Chromium の層を流す。
-        # 全部を一度に流すと、node の層と Chromium が CPU を取り合って、重いテストが 5 秒の上限を超える（#509〜#511 で落ちた）
-        run: |
-          npx vitest run --project '*-unit' --project '*-integration'
-          npx vitest run --project '!*-unit' --project '!*-integration'
-          npm run test:build
+        run: npm run test:build
       - name: テストのレポートを保存（失敗したときも）
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report
+          name: test-report-check
+          path: test-results/
+          if-no-files-found: ignore
+
+  e2e:
+    # Chromium の層。matrix の行ごとに別の runner で並べて流す。失敗したら公開しない
+    name: e2e (${{ matrix.name }})
+    needs: check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # 1 本が落ちても、ほかの本は流し切る（落ちたものだけ流し直せるように）
+      matrix:
+        include:
+          - name: stormbreacher-1
+            args: --project stormbreacher-e2e --shard=1/2
+          - name: stormbreacher-2
+            args: --project stormbreacher-e2e --shard=2/2
+          - name: others # sector-dive-ex を含む、残りの Chromium のプロジェクト全部
+            args: --project !*-unit --project !*-integration --project !stormbreacher-e2e
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: テスト（Chromium の層）
+        env:
+          CHROME: /usr/bin/google-chrome
+          VITEST_ARGS: ${{ matrix.args }}
+        run: |
+          set -f # '!*-unit' のような引数を、シェルに展開させない
+          npx vitest run $VITEST_ARGS
+      - name: テストのレポートを保存（失敗したときも）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.name }}
           path: test-results/
           if-no-files-found: ignore
 
   deploy:
-    needs: check
+    needs: [check, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -2,10 +2,26 @@ name: Checks
 
 # PR ごとに、公開ジョブ（pages.yml）と同じ確認を流す。マージしてから公開ジョブで落ちて公開が止まる、を防ぐため。
 # 公開ジョブでも同じ確認をもう一度流す（PR どうしの組み合わせで master が壊れたときに、公開しないため）
-# テストだけは、PR が変えたファイルに合わせて絞る（tools/test_scope.js）: 1つのゲームの中だけを変えた PR は、
-# そのゲームのテストだけ。engine・道具・設定などを変えた PR は全部。文書（*.md）だけの PR はテストなし。
-# 層に分けたゲームは、node の層を先に流す
+# テストだけは、PR が変えたファイルに合わせて絞る（tools/test_scope.js が 1 行で答える）:
+#   all … 全部。engine・package.json・設定（tsconfig.json、vitest.config.ts、vite.config.js、.nvmrc）・checks.yml・test_scope.js 自身、
+#         そして test_scope.js の表に無い games/ の外のファイル（新しく足したファイルは安全側に倒す）
+#   <ゲームの id> ... … そのゲームのテストだけ（ビルドのテストも）
+#   build … index.html・privacy.html・public/・tools/build.test.ts・vitest.build.config.ts だけを変えたとき。ビルドのテストだけ
+#   none … 文書（*.md）と、型チェックや lint で確かめられる・CI のテストでは動かないファイル（pages.yml、.claude/、キューの道具、
+#          lint の設定など。一覧は test_scope.js の先頭）だけを変えたとき。テストなし
+# ビルドのテストは、none 以外のとき static ジョブで流す
 # 公開ジョブは、いつも全部のテストを流す
+#
+# ジョブは 3 段:
+#   static … 型チェック、lint、node の層のテスト（*-unit、*-integration）、ビルドのテスト。範囲（scope）と Chromium のジョブの表も、ここで決める
+#   e2e   … Chromium の層のテスト。static が通ったら、表の行ごとのジョブで並べて流す（行ごとに別の runner）
+#   check … static と e2e の結果をまとめるだけのジョブ。master の必須チェックはこの名前なので、e2e が落ちても止まる
+# 全部を流すとき（scope が all）の e2e は 3 本:
+#   stormbreacher-1・stormbreacher-2 … stormbreacher-e2e を vitest の --shard=1/2・2/2 で半分ずつ
+#   others … sector-dive-ex を含む、残りの Chromium のプロジェクト全部（engine、sector-dive、sector-dive-ex、tsume-vim ...）
+# 絞ったとき（ゲームの id が並ぶとき）は、そのゲームの Chromium のプロジェクトだけ。stormbreacher が入っていれば 2 本に割り、残りは 1 本（others）。
+# 範囲が none か build のとき（Chromium のプロジェクトが入らないとき）は、e2e は表が空なので動かない（skipped）。
+# 落ちた e2e は、そのジョブだけ「落ちたジョブを流し直す」で流し直せる。テストのレポート（test-results/）はジョブごとに別の名前で保存する
 on:
   pull_request:
 
@@ -18,8 +34,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  static:
     runs-on: ubuntu-latest
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+      matrix: ${{ steps.scope.outputs.matrix }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -33,39 +52,116 @@ jobs:
         run: npm run typecheck
       - name: 書式・スタイル・文言の確認（Prettier、ESLint、tools/check_style.js、tools/check_i18n.js）
         run: npm run lint
-      - name: テスト（engine のテストと各ゲームのスモークは Vitest。ビルドのテストは公開用のビルドを Chromium で開く）
+      - name: テストの範囲と、Chromium のジョブの表を決める
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          scope="$(node tools/test_scope.js "$BASE_SHA")"
+          echo "テストの範囲: $scope" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "scope=$scope" >> "$GITHUB_OUTPUT"
+          # Chromium のジョブの表（matrix）。1 行が 1 ジョブ。name はジョブとレポートの名前、args は vitest に渡す引数
+          rows=()
+          add() { rows+=("$(jq -cn --arg name "$1" --arg args "$2" '{name: $name, args: $args}')"); }
+          if [ "$scope" = all ]; then
+            add stormbreacher-1 "--project stormbreacher-e2e --shard=1/2"
+            add stormbreacher-2 "--project stormbreacher-e2e --shard=2/2"
+            add others "--project !*-unit --project !*-integration --project !stormbreacher-e2e"
+          elif [ "$scope" != none ] && [ "$scope" != build ]; then
+            others=""
+            for game in $scope; do
+              if [ -d "games/$game/test/unit" ]; then
+                if [ "$game" = stormbreacher ]; then
+                  add stormbreacher-1 "--project stormbreacher-e2e --shard=1/2"
+                  add stormbreacher-2 "--project stormbreacher-e2e --shard=2/2"
+                else
+                  others="$others --project $game-e2e"
+                fi
+              else
+                others="$others --project $game"
+              fi
+            done
+            if [ -n "$others" ]; then add others "$others"; fi
+          fi
+          if [ "${#rows[@]}" -eq 0 ]; then matrix='[]'; else matrix="$(printf '%s\n' "${rows[@]}" | jq -sc .)"; fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Chromium のジョブ: $matrix" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: テスト（node の層。ページを使わないテスト）
+        run: |
+          scope="${{ steps.scope.outputs.scope }}"
+          if [ "$scope" = none ] || [ "$scope" = build ]; then exit 0; fi
+          if [ "$scope" = all ]; then
+            npx vitest run --project '*-unit' --project '*-integration'
+          else
+            node_projects=""
+            for game in $scope; do
+              if [ -d "games/$game/test/unit" ]; then
+                node_projects="$node_projects --project $game-unit --project $game-integration"
+              fi
+            done
+            if [ -n "$node_projects" ]; then npx vitest run $node_projects; fi
+          fi
+      - name: テスト（ビルドのテスト。公開用のビルドを Chromium で開く）
         # ランナーの Chrome を使う。結果はジョブのサマリに出て、JUnit と HTML のレポートは test-results/ に書かれる
         env:
           CHROME: /usr/bin/google-chrome
         run: |
-          scope="$(node tools/test_scope.js "${{ github.event.pull_request.base.sha }}")"
-          echo "テストの範囲: $scope" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$scope" = none ]; then exit 0; fi
-          if [ "$scope" = all ]; then
-            # node の層（ページを使わないテスト）を先に流す。落ちたらここで止まり、Chromium の層は流さない
-            npx vitest run --project '*-unit' --project '*-integration'
-            npx vitest run --project '!*-unit' --project '!*-integration'
-          else
-            node_projects=""
-            projects=""
-            for game in $scope; do
-              if [ -d "games/$game/test/unit" ]; then
-                node_projects="$node_projects --project $game-unit --project $game-integration"
-                projects="$projects --project $game-e2e"
-              else
-                projects="$projects --project $game"
-              fi
-            done
-            if [ -n "$node_projects" ]; then npx vitest run $node_projects; fi
-            npx vitest run $projects
-          fi
+          if [ "${{ steps.scope.outputs.scope }}" = none ]; then exit 0; fi
           npm run test:build
       - name: テストのレポートを保存（失敗したときも）
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report
+          name: test-report-static
           path: test-results/
           if-no-files-found: ignore
       - name: 公開用のビルド
         run: npm run build
+
+  e2e:
+    # Chromium の層。matrix の行ごとに別のジョブ（別の runner）で並べて流す。表が空なら動かない
+    name: e2e (${{ matrix.name }})
+    needs: static
+    if: needs.static.outputs.matrix != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # 1 本が落ちても、ほかの本は流し切る（落ちたものだけ流し直せるように）
+      matrix:
+        include: ${{ fromJSON(needs.static.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: テスト（Chromium の層）
+        env:
+          CHROME: /usr/bin/google-chrome
+          VITEST_ARGS: ${{ matrix.args }}
+        run: |
+          set -f # '!*-unit' のような引数を、シェルに展開させない
+          npx vitest run $VITEST_ARGS
+      - name: テストのレポートを保存（失敗したときも）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.name }}
+          path: test-results/
+          if-no-files-found: ignore
+
+  check:
+    # master の必須チェックはこのジョブの名前（check）。static と e2e の結果をまとめ、どちらかが落ちたら落ちる。
+    # e2e が表が空で動かなかった（skipped）ときは通す。これが無いと、e2e が落ちても自動マージで入ってしまう
+    needs: [static, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: static と e2e の結果をまとめる
+        env:
+          STATIC: ${{ needs.static.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          echo "static: $STATIC / e2e: $E2E"
+          [ "$STATIC" = success ] || exit 1
+          [ "$E2E" = success ] || [ "$E2E" = skipped ] || exit 1
