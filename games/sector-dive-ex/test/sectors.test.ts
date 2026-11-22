@@ -25,7 +25,7 @@ import { PLAT_H } from '../src/data/level.ts';
 import { BOSS_ORDER } from '../src/data/bosses.ts';
 import { BIOMES } from '../src/data/biomes.ts';
 import { PER } from '../src/data/progress.ts';
-import { buildFixedLevel, buildLevel, level, roomSpot } from '../src/world/level.ts';
+import { buildFixedLevel, buildLevel, level, newSeed, roomSpot } from '../src/world/level.ts';
 import { hazardState } from '../src/world/hazards.ts';
 import { generateLevel } from '../src/world/levelGen.ts';
 import type { GeneratedLevel } from '../src/world/levelGen.ts';
@@ -35,7 +35,7 @@ import { player, run } from '../src/actors/player.ts';
 import { hurtEnemy } from '../src/actors/combat.ts';
 import { spawnBoss } from '../src/actors/bosses/common.ts';
 import { endRun, goBase, startRun, startStage } from '../src/flow/run.ts';
-import { building } from '../src/world/building.ts';
+import { building, makeBuilding } from '../src/world/building.ts';
 import { tick, bootGame, failInfo, goToFloor } from './helpers.ts';
 
 beforeAll(bootGame);
@@ -163,20 +163,29 @@ test('gates: one opening underfoot waits until the player steps off and back', (
   goBase();
 });
 test('hazard floors: none in the start room, off at the start of an area', () => {
-  goBase();
-  startRun();
+  // the data: the top floor of the building startStage makes (ensureBuilding: makeBuilding(sector, boss, newSeed()), floor 0),
+  // made without the meshes; level.hazardTiles / rooms / startIdx there are this floor's gen.hazard / rooms / startIdx
   for (const route of [1, 4])
     for (let k = 0; k < 30; k++) {
-      run.route = [route];
-      run.stage = (k % 6) * PER + (k % 3);
-      startStage();
-      const R = level.rooms[level.startIdx]!;
+      const stage = (k % 6) * PER + (k % 3),
+        biome = BIOMES[route]!,
+        seed = newSeed(),
+        gen = makeBuilding(biome, biome.bosses[k % biome.bosses.length]!, seed).plans[0]!.gen,
+        R = gen.rooms[gen.startIdx]!;
       for (let j = R.y - 1; j <= R.y + R.h; j++)
         for (let i = R.x - 1; i <= R.x + R.w; i++)
-          if (level.hazardTiles[j * W + i])
-            throw new Error(`hazard in the start room: route ${route} stage ${run.stage} tile ${i},${j}`);
-      if (hazardState() === 'on') throw new Error('hazards live at the start of an area');
+          if (gen.hazard[j * gen.W + i])
+            throw new Error(`hazard in the start room: route ${route} stage ${stage} seed ${seed} tile ${i},${j}`);
     }
+  // the clock: startStage starts it with the hazards off (one floor of each route's sector is enough)
+  goBase();
+  startRun();
+  for (const route of [1, 4]) {
+    run.route = [route];
+    run.stage = 0;
+    startStage();
+    if (hazardState() === 'on') throw new Error('hazards live at the start of an area: route ' + route);
+  }
   endRun('abandon');
   goBase();
 });

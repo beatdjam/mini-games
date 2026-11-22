@@ -1424,20 +1424,28 @@ test('trooper: 3-round bursts, hit spheres at head, chest and legs', () => {
     throw new Error('trooper burst ' + shots + ' spheres ' + [head, chest, legs]);
 });
 test('hazard floors: none in the start room, off at the start of an area', () => {
-  goBase();
-  startRun();
+  // the data: the level startStage makes for a stage that is not a boss's (buildLevel: generateLevel(sector, false, null,
+  // createRng(seed))), made without the meshes; level.hazardTiles / rooms / startIdx are this level's hazard / rooms / startIdx
   for (const route of [1, 4])
     for (let k = 0; k < 30; k++) {
-      run.route = [route];
-      run.stage = (k % 6) * PER + (k % 3);
-      startStage();
-      const R = level.rooms[level.startIdx]!;
+      const stage = (k % 6) * PER + (k % 3),
+        seed = (Math.random() * 2 ** 32) >>> 0,
+        gen = generateLevel(BIOMES[route]!, false, null, createRng(seed)),
+        R = gen.rooms[gen.startIdx]!;
       for (let j = R.y - 1; j <= R.y + R.h; j++)
         for (let i = R.x - 1; i <= R.x + R.w; i++)
-          if (level.hazardTiles[j * W + i])
-            throw new Error(`hazard in the start room: route ${route} stage ${run.stage} tile ${i},${j}`);
-      if (hazardState() === 'on') throw new Error('hazards live at the start of an area');
+          if (gen.hazard[j * gen.W + i])
+            throw new Error(`hazard in the start room: route ${route} stage ${stage} seed ${seed} tile ${i},${j}`);
     }
+  // the clock: startStage starts it with the hazards off (one level of each route's sector is enough)
+  goBase();
+  startRun();
+  for (const route of [1, 4]) {
+    run.route = [route];
+    run.stage = 0;
+    startStage();
+    if (hazardState() === 'on') throw new Error('hazards live at the start of an area: route ' + route);
+  }
   endRun('abandon');
   goBase();
 });
