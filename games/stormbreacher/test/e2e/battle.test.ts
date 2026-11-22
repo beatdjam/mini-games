@@ -11,6 +11,7 @@ import { ALLY_MESH_NAME } from '../../src/view/allies.ts';
 import { BATTLE_GROUP_NAME, buildBattle } from '../../src/view/battle/index.ts';
 import { sendToScript, step, type GameInput } from '../../src/logic/game.ts';
 import { stream } from '../../src/logic/rng.ts';
+import { draw, steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -18,10 +19,6 @@ beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
 });
-
-const frames = async (n: number): Promise<void> => {
-  for (let i = 0; i < n; i++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-};
 
 const IDLE: GameInput = {
   moveX: 0,
@@ -89,12 +86,13 @@ function battleBodiesPlacement(bodies: readonly THREE.InstancedMesh[]): number {
 
 test('a sortie draws the battle: the allies walking, the holes and the smoke, in one group', async () => {
   startSortie();
-  await frames(3);
+  steps(3);
   sendToScript(game(), { kind: 'skip' });
   // 1.5 s of the battle, run by hand: waiting for 90 drawn frames timed out at 60 s on CI when every game's tests ran at
   // once. One drawn frame after it gives the draw counts.
   for (let i = 0; i < 90; i++) runSystems(1 / 60);
-  await frames(1);
+  steps(1);
+  draw();
   expect(battleGroups()).toHaveLength(1);
   const drawn = drawnBattleMeshes();
   // the walkers' bodies and heads (some have fallen or gone by now), and the holes, the smoke and the rest
@@ -105,23 +103,23 @@ test('a sortie draws the battle: the allies walking, the holes and the smoke, in
 
 test('the battlefield holds still during the landing and starts when the controls do', async () => {
   startSortie();
-  await frames(3);
+  steps(3);
   const bodies = battleBodies();
   // the landing's frames do not move the infantry: it starts at the sea edge and is not drawn yet
   expect(battleSoldierCount(bodies)).toBe(0);
   for (let i = 0; i < 120; i++) runSystems(1 / 60);
-  await frames(1);
+  steps(1);
   expect(battleSoldierCount(bodies)).toBe(0);
   // the first controlled frame steps the battle and draws the first wave
   sendToScript(game(), { kind: 'skip' });
   runSystems(1 / 60);
-  await frames(1);
+  steps(1);
   expect(battleSoldierCount(bodies)).toBeGreaterThan(0);
 });
 
 test('the battlefield runs while the wave 2 cutscene plays', async () => {
   startSortie();
-  await frames(3);
+  steps(3);
   sendToScript(game(), { kind: 'skip' });
   // both pillboxes down fires cp1; wave2-lost starts the cutscene 4 s later
   for (const id of ['pillbox-1', 'pillbox-2']) {
@@ -131,13 +129,13 @@ test('the battlefield runs while the wave 2 cutscene plays', async () => {
   }
   for (let i = 0; i < 60 * 5 && game().script.cutscene === null; i++) runSystems(1 / 60);
   expect(game().script.cutscene?.id).toBe('wave2-sinks');
-  await frames(1);
+  steps(1);
   const bodies = battleBodies();
   expect(battleSoldierCount(bodies)).toBeGreaterThan(0);
   const before = battleBodiesPlacement(bodies);
   // half a second into the cutscene the infantry has moved on (the landing is the one that holds it still)
   for (let i = 0; i < 30; i++) runSystems(1 / 60);
-  await frames(1);
+  steps(1);
   expect(game().script.cutscene?.id).toBe('wave2-sinks');
   expect(battleBodiesPlacement(bodies)).not.toBe(before);
 });
@@ -173,22 +171,22 @@ test("advancing to the next waiting line starts the held line's growing loss ove
 
 test('starting again builds the battle anew, and leaves one', async () => {
   startSortie();
-  await frames(2);
+  steps(2);
   startSortie();
-  await frames(2);
+  steps(2);
   expect(battleGroups()).toHaveLength(1);
 });
 
 test('the landing shows the five allies on their decks, and the handover starts them down their ramps', async () => {
   startSortie();
-  await frames(3);
+  steps(3);
   // the five are aboard the crafts beside the player's from the intro and stand on their decks through the cutscene
   expect(game().allies).toHaveLength(5);
   expect(allyGroups()).toHaveLength(10);
   const buddy = () => game().allies.find(ally => ally.id === 'buddy');
   const before = buddy()?.z ?? 0;
   sendToScript(game(), { kind: 'skip' });
-  await frames(2);
+  steps(2);
   expect(game().allies).toHaveLength(5);
   expect(allyGroups()).toHaveLength(10);
   // the handover alone sends them down their ramps; no `ashore` input and the mech still on the deck
@@ -204,7 +202,7 @@ test('the landing shows the five allies on their decks, and the handover starts 
   // are capped at LOOP.maxDt (0.05 s, under 0.5 m), but a 1 s step moves it 9 m, enough to pass over the place it falls
   // at and end farther than ALLY_TUNE.arrive from it, so the fall is never seen.
   for (let i = 0; i < 600 && buddy()?.down !== true; i++) runSystems(1 / 60);
-  await frames(2);
+  steps(2);
   expect(buddy()?.down).toBe(true);
   expect(run.visible).toBe(false);
   expect(wreck.visible).toBe(true);
@@ -213,7 +211,7 @@ test('the landing shows the five allies on their decks, and the handover starts 
   game().mech.x = 0;
   game().mech.z = 140;
   step(game(), IDLE, 0.1);
-  await frames(2);
+  steps(2);
   expect(game().allies).toHaveLength(5);
   expect(allyGroups()).toHaveLength(10);
 });

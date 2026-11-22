@@ -10,6 +10,7 @@ import { boot } from '../../src/app/boot.ts';
 import { PATTERNS } from '../../src/dev/mech/patterns.ts';
 import { showMech } from '../../src/dev/views/mech.ts';
 import { countProtoDraws } from '../../src/view/mechProtoModel.ts';
+import { steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -17,8 +18,6 @@ beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
 });
-
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
 const SNAP_SPEED = 1e6; // m/s: the ease's cap while a test puts the camera in its place, high enough to count as no cap
 
@@ -36,7 +35,7 @@ const opacities = (): number[] => mechMeshes().map(mesh => (mesh.material as THR
 
 test('a sortie draws the mech as one skinned mesh per material, with no stand-in boxes', async () => {
   startSortie();
-  await frame();
+  steps(1);
   const meshes = mechMeshes();
   // the player's kit wears armour, frame, accent and glow: the friendly side's mark (#551) is the allies' alone
   expect(meshes.length).toBe(4);
@@ -56,7 +55,7 @@ test('a sortie draws the mech as one skinned mesh per material, with no stand-in
   expect(renderer.shadowMap.enabled).toBe(false);
   // the landing walks the model down the ramp, so it is on the game's mech once the cutscene is skipped
   sendToScript(currentGame()!, { kind: 'skip' });
-  await frame();
+  steps(1);
   const game = currentGame()!;
   expect(group.position.x).toBe(game.mech.x);
   expect(group.position.z).toBe(game.mech.z);
@@ -64,10 +63,10 @@ test('a sortie draws the mech as one skinned mesh per material, with no stand-in
 
 test('the mech turns see-through while the camera is near its chest, and solid again when it moves away', async () => {
   startSortie();
-  await frame();
+  steps(1);
   // the landing cutscene holds its own camera and the mech is on the ramp, so the test starts past it
   sendToScript(currentGame()!, { kind: 'skip' });
-  await frame();
+  steps(1);
   expect(opacities().every(opacity => opacity === 1)).toBe(true);
   const { dist, lag, pullSpeed, returnSpeed, returnLag, returnDelay } = CAMERA_TUNE;
   try {
@@ -78,13 +77,11 @@ test('the mech turns see-through while the camera is near its chest, and solid a
     CAMERA_TUNE.returnSpeed = SNAP_SPEED;
     CAMERA_TUNE.returnLag = 0;
     CAMERA_TUNE.returnDelay = 0;
-    await frame();
-    await frame();
+    steps(2);
     expect(opacities().every(opacity => opacity === MECH_TUNE.fadeOpacity)).toBe(true);
     expect(mechMeshes().every(mesh => (mesh.material as THREE.Material).transparent)).toBe(true);
     CAMERA_TUNE.dist = dist;
-    await frame();
-    await frame();
+    steps(2);
     expect(opacities().every(opacity => opacity === 1)).toBe(true);
     expect(mechMeshes().every(mesh => !(mesh.material as THREE.Material).transparent)).toBe(true);
   } finally {

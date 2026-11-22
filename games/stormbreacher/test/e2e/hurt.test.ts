@@ -4,6 +4,7 @@ import { page } from 'vitest/browser';
 import { currentGame, startSortie } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
 import { HURT_TUNE, MECH_TUNE } from '../../src/data/tune.ts';
+import { steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -11,8 +12,6 @@ beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
 });
-
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
 function game() {
   const current = currentGame();
@@ -44,14 +43,13 @@ test('a shot from the right lights the right edge, and the glow goes out in time
     dz: 0,
     left: 50,
   });
-  await frame();
+  steps(1);
 
   expect(Number(edge(RIGHT).style.opacity)).toBeGreaterThan(0);
   expect(Number(edge(LEFT).style.opacity)).toBe(0);
 
-  // the glow lasts HURT_TUNE.edgeFade seconds of the game's own time, whatever the frame rate: wait for that much
-  // simulated time (the frames add up to it), not a number of frames
+  // the glow lasts HURT_TUNE.edgeFade seconds of the game's own time: run the game by hand until that much has passed
   const began = current.time;
-  for (let i = 0; i < 600 && current.time - began < HURT_TUNE.edgeFade + 0.05; i++) await frame();
+  await untilSteps(() => current.time - began >= HURT_TUNE.edgeFade + 0.05);
   expect(Number(edge(RIGHT).style.opacity)).toBe(0);
 });

@@ -6,6 +6,7 @@ import { WEAPONS } from '../../src/data/weapons.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { currentGame, startSortie, showResult } from '../../src/app/play.ts';
 import { boot } from '../../src/app/boot.ts';
+import { steps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -14,8 +15,6 @@ beforeAll(async () => {
   await page.viewport(1280, 720);
   boot();
 });
-
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
 const key = (type: string, code: string): KeyboardEvent => new KeyboardEvent(type, { code, bubbles: true });
 
@@ -39,7 +38,7 @@ test('the ammo count follows the shots', async () => {
     return Number(hit[1]);
   };
   // the HUD is filled on the first frame of the sortie
-  await frame();
+  steps(1);
   const current = currentGame();
   if (!current) throw new Error('the sortie has not started');
   sendToScript(current, { kind: 'skip' }); // the mech takes no input during the landing
@@ -47,7 +46,7 @@ test('the ammo count follows the shots', async () => {
   window.dispatchEvent(key('keydown', 'KeyJ'));
   // the systems run by hand, a 60th of a second each: drawn frames are slow on CI (software GL, seconds each)
   for (let i = 0; i < 30; i++) runSystems(1 / 60);
-  await frame();
+  steps(1);
   window.dispatchEvent(key('keyup', 'KeyJ'));
   expect(shotsLeft()).toBeLessThan(WEAPONS.autocannon.ammo);
 });
@@ -66,7 +65,7 @@ test('the result hides the HUD', () => {
 
 test("the objective is the script's first one", async () => {
   startSortie();
-  await frame();
+  steps(1);
   const objective = el('#sbPlayHud [data-hud="objective"]');
   expect(objective.hidden).toBe(false);
   expect(objective.textContent).toContain(t('obj.reach-pillboxes'));
@@ -76,7 +75,7 @@ test('the use prompt says how to plant a charge at a blast point, and the touch 
   startSortie();
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
-  await frame();
+  steps(1);
   sendToScript(game, { kind: 'skip' }); // the mech takes no input during the landing
   const use = el('#sbPlayHud [data-hud="use"]');
   const button = el('#btnUse');
@@ -89,7 +88,7 @@ test('the use prompt says how to plant a charge at a blast point, and the touch 
   game.mech.z = -13;
   game.mech.grounded = true;
   runSystems(1 / 60);
-  await frame();
+  steps(1);
   expect(use.hidden).toBe(false);
   expect(use.textContent).toContain(t('hud.plant'));
   expect(button.classList.contains('on')).toBe(true);
@@ -97,7 +96,7 @@ test('the use prompt says how to plant a charge at a blast point, and the touch 
   // out of reach: the prompt and the lit button go
   game.mech.z = -30;
   runSystems(1 / 60);
-  await frame();
+  steps(1);
   expect(use.hidden).toBe(true);
   expect(button.classList.contains('on')).toBe(false);
 });
@@ -106,7 +105,7 @@ test('the lock frame shows only while the aim is pulled toward a target', async 
   startSortie();
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
-  await frame();
+  steps(1);
   sendToScript(game, { kind: 'skip' }); // the mech takes no input during the landing
   const lock = el('#sbPlayHud [data-hud="lock"]');
   expect(game.aimTarget).toBeNull();
@@ -119,7 +118,7 @@ test('the lock frame shows only while the aim is pulled toward a target', async 
   // the systems run by hand, a 60th of a second each: waiting for drawn frames timed out on CI
   for (let i = 0; i < 120 && game.aimTarget === null; i++) runSystems(1 / 60);
   expect(game.aimTarget).not.toBeNull();
-  await frame();
+  steps(1);
   expect(lock.hidden).toBe(false);
   expect(lock.getBoundingClientRect().width).toBeGreaterThan(0);
 
@@ -127,6 +126,6 @@ test('the lock frame shows only while the aim is pulled toward a target', async 
   game.mech.z = 140;
   for (let i = 0; i < 120 && game.aimTarget !== null; i++) runSystems(1 / 60);
   expect(game.aimTarget).toBeNull();
-  await frame();
+  steps(1);
   expect(lock.hidden).toBe(true);
 });
