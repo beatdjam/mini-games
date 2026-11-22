@@ -9,12 +9,13 @@ name: Checks
 #   build … index.html・privacy.html・public/・tools/build.test.ts・vitest.build.config.ts だけを変えたとき。ビルドのテストだけ
 #   none … 文書（*.md）と、型チェックや lint で確かめられる・CI のテストでは動かないファイル（pages.yml、.claude/、キューの道具、
 #          lint の設定など。一覧は test_scope.js の先頭）だけを変えたとき。テストなし
-# ビルドのテストは、none 以外のとき check ジョブで流す
+# ビルドのテストは、none 以外のとき static ジョブで流す
 # 公開ジョブは、いつも全部のテストを流す
 #
-# ジョブは 2 段:
-#   check … 型チェック、lint、node の層のテスト（*-unit、*-integration）、ビルドのテスト。範囲（scope）と Chromium のジョブの表も、ここで決める
-#   e2e   … Chromium の層のテスト。check が通ったら、表の行ごとのジョブで並べて流す（行ごとに別の runner）
+# ジョブは 3 段:
+#   static … 型チェック、lint、node の層のテスト（*-unit、*-integration）、ビルドのテスト。範囲（scope）と Chromium のジョブの表も、ここで決める
+#   e2e   … Chromium の層のテスト。static が通ったら、表の行ごとのジョブで並べて流す（行ごとに別の runner）
+#   check … static と e2e の結果をまとめるだけのジョブ。master の必須チェックはこの名前なので、e2e が落ちても止まる
 # 全部を流すとき（scope が all）の e2e は 3 本:
 #   stormbreacher-1・stormbreacher-2 … stormbreacher-e2e を vitest の --shard=1/2・2/2 で半分ずつ
 #   others … sector-dive-ex を含む、残りの Chromium のプロジェクト全部（engine、sector-dive、sector-dive-ex、tsume-vim ...）
@@ -33,7 +34,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  static:
     runs-on: ubuntu-latest
     outputs:
       scope: ${{ steps.scope.outputs.scope }}
@@ -111,7 +112,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report-check
+          name: test-report-static
           path: test-results/
           if-no-files-found: ignore
       - name: 公開用のビルド
@@ -120,13 +121,13 @@ jobs:
   e2e:
     # Chromium の層。matrix の行ごとに別のジョブ（別の runner）で並べて流す。表が空なら動かない
     name: e2e (${{ matrix.name }})
-    needs: check
-    if: needs.check.outputs.matrix != '[]'
+    needs: static
+    if: needs.static.outputs.matrix != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false # 1 本が落ちても、ほかの本は流し切る（落ちたものだけ流し直せるように）
       matrix:
-        include: ${{ fromJSON(needs.check.outputs.matrix) }}
+        include: ${{ fromJSON(needs.static.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -148,3 +149,19 @@ jobs:
           name: test-report-${{ matrix.name }}
           path: test-results/
           if-no-files-found: ignore
+
+  check:
+    # master の必須チェックはこのジョブの名前（check）。static と e2e の結果をまとめ、どちらかが落ちたら落ちる。
+    # e2e が表が空で動かなかった（skipped）ときは通す。これが無いと、e2e が落ちても自動マージで入ってしまう
+    needs: [static, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: static と e2e の結果をまとめる
+        env:
+          STATIC: ${{ needs.static.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          echo "static: $STATIC / e2e: $E2E"
+          [ "$STATIC" = success ] || exit 1
+          [ "$E2E" = success ] || [ "$E2E" = skipped ] || exit 1
