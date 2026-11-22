@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
-import { el, runSystems, t } from '@engine/core/index.ts';
+import { el, t } from '@engine/core/index.ts';
 import { camera } from '@engine/render/index.ts';
 import { craftZ } from '../../src/data/craft.ts';
 import { LANDING_TUNE } from '../../src/data/landing.ts';
@@ -10,6 +10,7 @@ import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { aimRay } from '../../src/view/camera.ts';
+import { steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -19,27 +20,12 @@ beforeAll(async () => {
   boot();
 });
 
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
-
 const key = (type: string, code: string): KeyboardEvent => new KeyboardEvent(type, { code, bubbles: true });
 
 function game() {
   const current = currentGame();
   if (!current) throw new Error('the sortie has not started');
   return current;
-}
-
-// Runs the game's systems by hand, a 60th of a second each, until `done` holds, and fails when it never does. Waiting
-// for drawn frames instead timed out at 60 s on CI when every game's tests ran at once. A drawn frame could be up to a
-// 20th of a second, so 720 steps are the 12 s of the game that 240 frames were. A drawn frame every 30 steps lets the
-// page's own timers move on.
-async function until(done: () => boolean, tries = 720): Promise<void> {
-  for (let i = 0; i < tries; i++) {
-    if (done()) return;
-    runSystems(1 / 60);
-    if (i % 30 === 29) await frame();
-  }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps`);
 }
 
 test('the start button begins a sortie on M1 B', () => {
@@ -62,7 +48,7 @@ test('the mech walks and shoots in the sortie', async () => {
   window.dispatchEvent(key('keydown', 'KeyJ'));
   let shots = 0;
   for (let i = 0; i < 30; i++) {
-    await frame();
+    steps(1);
     shots += game().events.filter(event => event.kind === 'shot').length;
   }
   window.dispatchEvent(key('keyup', 'KeyW'));
@@ -86,16 +72,16 @@ test("the script's end shows the result", async () => {
   current.mech.yaw = 0;
   window.dispatchEvent(key('keydown', 'KeyJ'));
   // the first shot brings one target down; the rest stay up, so the sortie goes on
-  await until(() => depot.hp === 0);
+  await untilSteps(() => depot.hp === 0);
   expect(state).toBe('play');
   // every target on the map down still does not end the sortie: only the script's end does
   for (const target of current.targets) target.hp = 0;
-  await frame();
+  steps(1);
   expect(state).toBe('play');
   sendToScript(current, { kind: 'destroyed', target: 'main-gun-1' });
   sendToScript(current, { kind: 'destroyed', target: 'main-gun-2' });
   sendToScript(current, { kind: 'destroyed', target: 'magazine' });
-  await until(() => state === 'result');
+  await untilSteps(() => state === 'result');
   window.dispatchEvent(key('keyup', 'KeyJ'));
   expect(el('#sbResult').hidden).toBe(false);
   expect(el('#sbResultTime').textContent).toContain('0:');
@@ -103,14 +89,14 @@ test("the script's end shows the result", async () => {
 
 test('the aim is the camera state with the feel shake taken out', async () => {
   startSortie();
-  await frame();
+  steps(1);
   sendToScript(game(), { kind: 'skip' });
-  await frame();
+  steps(1);
   const view = currentPlayView();
   if (!view || view.cam === null) throw new Error('the sortie has no camera');
   // a big shake moves the camera the screen draws, but the reticle and the shots keep the state's line
   view.feel.shake = 1;
-  await frame();
+  steps(1);
   expect(view.aim).toEqual(aimRay(view.cam));
   const origin = new THREE.Vector3(view.aim.ox, view.aim.oy, view.aim.oz);
   expect(origin.distanceTo(view.cam.pos)).toBe(0);

@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import * as THREE from 'three';
-import { el, runSystems, t } from '@engine/core/index.ts';
+import { el, t } from '@engine/core/index.ts';
 import { scene } from '@engine/render/index.ts';
 import { boot } from '../../src/app/boot.ts';
 import { currentGame, startSortie, syncTitle, titleReturn } from '../../src/app/play.ts';
@@ -9,6 +9,7 @@ import { state } from '../../src/app/screen.ts';
 import { SAVE_KEY, SUSPEND_KEY, loadSuspend, save } from '../../src/app/storage.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { pastSkipGuard } from './cutsceneSkip.ts';
+import { draw, steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -25,28 +26,10 @@ beforeEach(() => {
   startSortie();
 });
 
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
-const frames = async (n: number): Promise<void> => {
-  for (let i = 0; i < n; i++) await frame();
-};
-
 function game() {
   const current = currentGame();
   if (!current) throw new Error('the sortie has not started');
   return current;
-}
-
-// Runs the game's systems by hand, a 60th of a second each, until `done` holds, and fails when it never does. Waiting
-// for drawn frames instead timed out at 60 s on CI when every game's tests ran at once. A drawn frame could be up to a
-// 20th of a second, so 720 steps are the 12 s of the game that 240 frames were. A drawn frame every 30 steps lets the
-// page's own timers move on.
-async function until(done: () => boolean, tries = 720): Promise<void> {
-  for (let i = 0; i < tries; i++) {
-    if (done()) return;
-    runSystems(1 / 60);
-    if (i % 30 === 29) await frame();
-  }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps`);
 }
 
 const press = (code: string): boolean => window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
@@ -55,10 +38,10 @@ const menu = (): HTMLElement => el('#sbPause');
 
 // Skips the opening cutscene, so Esc is a pause key.
 async function pastCutscene(): Promise<void> {
-  await frame();
-  await until(pastSkipGuard);
+  steps(1);
+  await untilSteps(pastSkipGuard);
   press('Enter');
-  await until(() => game().script.cutscene === null);
+  await untilSteps(() => game().script.cutscene === null);
 }
 
 // Takes cp1, then moves the mech and spends armour, so the game has something to bring back.
@@ -71,7 +54,7 @@ async function playedSortie(): Promise<void> {
   current.mech.z = 40;
   current.armor -= 200;
   current.retries = 1;
-  await frames(5);
+  steps(5);
 }
 
 // How many warning lights the scene draws, from the pillboxes' instanced mesh.
@@ -89,7 +72,7 @@ async function warnedSortie(): Promise<void> {
   const current = game();
   current.mech.x = -33;
   current.mech.z = 10;
-  await until(() => current.pillboxes.some(pillbox => pillbox.warn > 0));
+  await untilSteps(() => current.pillboxes.some(pillbox => pillbox.warn > 0));
 }
 
 test('P pauses: the menu comes, the clock stops and the pointer lock goes', async () => {
@@ -102,7 +85,7 @@ test('P pauses: the menu comes, the clock stops and the pointer lock goes', asyn
   expect(button('#sbPauseSuspend').textContent).toBe(t('pause.suspend'));
   expect(button('#sbPauseAbandon').textContent).toBe(t('pause.abandon'));
   const time = game().time;
-  await frames(10);
+  steps(10);
   expect(game().time).toBe(time);
   expect(document.pointerLockElement).toBeNull();
 });
@@ -114,9 +97,7 @@ test('the resume button goes back to the sortie and the clock runs again', async
   expect(state).toBe('play');
   expect(menu().hidden).toBe(true);
   const time = game().time;
-  // the systems run by hand: drawn frames are slow on CI (software GL, seconds each)
-  for (let i = 0; i < 5; i++) runSystems(1 / 60);
-  await frame();
+  steps(5);
   expect(game().time).toBeGreaterThan(time);
 });
 
@@ -135,21 +116,21 @@ test('the pause button pauses', async () => {
 });
 
 test('Esc in a cutscene skips it and does not pause', async () => {
-  await frame();
+  steps(1);
   expect(game().script.cutscene).not.toBeNull();
-  await until(pastSkipGuard);
+  await untilSteps(pastSkipGuard);
   press('Escape');
-  await until(() => game().script.cutscene === null);
+  await untilSteps(() => game().script.cutscene === null);
   expect(state).toBe('play');
   expect(menu().hidden).toBe(true);
 });
 
 test('pausing in a cutscene with P does not skip it, and the resume does not either', async () => {
-  await frame();
+  steps(1);
   press('KeyP');
   expect(state).toBe('paused');
   button('#sbPauseResume').click();
-  await frames(5);
+  steps(5);
   expect(game().script.cutscene).not.toBeNull();
 });
 
@@ -182,7 +163,7 @@ test('suspend goes to the title with "continue"; continue brings the same sortie
   // one suspend gives one sortie back
   expect(localStorage.getItem(SUSPEND_KEY)).toBeNull();
   expect(loadSuspend()).toBeNull();
-  await frames(3);
+  steps(3);
   expect(game().time).toBeGreaterThan(time);
 });
 
@@ -191,7 +172,8 @@ test('a sortie suspended during a warning comes back with the light still on', a
   press('KeyP');
   button('#sbPauseSuspend').click();
   button('#sbContinue').click();
-  await frames(2);
+  steps(2);
+  draw();
   expect(warnLights()).toBeGreaterThan(0);
 });
 

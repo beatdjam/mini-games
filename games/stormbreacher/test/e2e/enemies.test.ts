@@ -10,6 +10,7 @@ import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
 import { sendToScript } from '../../src/logic/game.ts';
 import { enemyFarMeshName, enemyMeshName } from '../../src/view/enemies.ts';
+import { steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -19,21 +20,10 @@ beforeAll(async () => {
   boot();
 });
 
-const frame = (): Promise<void> => new Promise(resolve => requestAnimationFrame(() => resolve()));
-
 function game() {
   const current = currentGame();
   if (!current) throw new Error('the sortie has not started');
   return current;
-}
-
-// Runs frames until `done` says so, and fails when it never does, saying what the page was in (`what`).
-async function until(done: () => boolean, tries = 240, what = (): string => ''): Promise<void> {
-  for (let i = 0; i < tries; i++) {
-    if (done()) return;
-    await frame();
-  }
-  if (!done()) throw new Error(`the page did not reach the state in ${tries} frames ${what()}`);
 }
 
 // Every mesh of a kind: a soldier has the full shape and the far one (SB-2083); the nest has its named sandbags only.
@@ -53,19 +43,20 @@ test('an enemy’s bullet that takes the last armour shows the result with the d
   // The landing cutscene starts on the first step, and no hit takes armour while it plays: a bullet that has not reached
   // the mech in the first frame (a short frame on a busy machine) would hit during it and change nothing. So the
   // cutscene is skipped before the bullet is put out.
-  await frame();
+  steps(1);
   sendToScript(game(), { kind: 'skip' });
-  await frame();
+  steps(1);
   const current = game();
   expect(current.script.cutscene).toBeNull();
   current.armor = 1;
   const y = current.mech.y + MECH_TUNE.chestHeight;
   current.bullets.push({ enemy: 'grunt', x: current.mech.x, y, z: current.mech.z - 5, dx: 0, dy: 0, dz: 1, left: 50 });
-  await until(
-    () => state === 'result',
-    240,
-    () => `state ${state}, armour ${current.armor}, cutscene ${current.script.cutscene?.id ?? 'none'}`,
-  );
+  try {
+    await untilSteps(() => state === 'result');
+  } catch (error) {
+    const what = `state ${state}, armour ${current.armor}, cutscene ${current.script.cutscene?.id ?? 'none'}`;
+    throw new Error(`${(error as Error).message}: ${what}`);
+  }
   expect(current.downed).toBe(true);
   expect(el('#sbResult').hidden).toBe(false);
   expect(el('#sbResult .title').textContent).toBe(t('result.downed'));
@@ -83,24 +74,24 @@ const allMeshNames = (): string[] => ENEMY_KINDS.flatMap(kind => meshNamesOf(kin
 
 test('the enemies of a wave are drawn, and starting again leaves one set', async () => {
   startSortie();
-  await frame();
+  steps(1);
   // the landing cutscene puts the camera out at sea, past the fog that hides the far squad; play starts at the mech
   sendToScript(game(), { kind: 'skip' });
-  await frame();
+  steps(1);
   expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length + SOLDIER_KINDS.length);
   // the six nests and the two sectors' ten posted defenders (SB-2015) stand from the start
   expect(drawnEnemies()).toBe(16);
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
-  await frame();
+  steps(1);
   // the squad, on top of the six nests and the ten defenders
   expect(game().enemies).toHaveLength(22);
   expect(enemyMeshes()).toHaveLength(ENEMY_KINDS.length + SOLDIER_KINDS.length);
   expect(drawnEnemies()).toBe(22);
 
   startSortie();
-  await frame();
+  steps(1);
   sendToScript(game(), { kind: 'skip' });
-  await frame();
+  steps(1);
   expect(
     enemyMeshes()
       .map(mesh => mesh.name)
@@ -124,12 +115,12 @@ function nestParts(): THREE.InstancedMesh[] {
 
 test('every kind keeps room for its instance colours, so the GPU can draw it', async () => {
   startSortie();
-  await frame();
+  steps(1);
   // the landing cutscene's camera is out past the fog; the wave is measured from where the player stands
   sendToScript(game(), { kind: 'skip' });
-  await frame();
+  steps(1);
   sendToScript(game(), { kind: 'enter', area: 'b-line' });
-  await frame();
+  steps(1);
   // the six nests, the ten posted defenders and the squad (SB-2015)
   expect(drawnEnemies()).toBe(22);
   for (const kind of ENEMY_KINDS) {
