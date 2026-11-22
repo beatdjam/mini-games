@@ -16,10 +16,12 @@ name: Checks
 #   static … 型チェック、lint、node の層のテスト（*-unit、*-integration）、ビルドのテスト。範囲（scope）と Chromium のジョブの表も、ここで決める
 #   e2e   … Chromium の層のテスト。static が通ったら、表の行ごとのジョブで並べて流す（行ごとに別の runner）
 #   check … static と e2e の結果をまとめるだけのジョブ。master の必須チェックはこの名前なので、e2e が落ちても止まる
-# 全部を流すとき（scope が all）の e2e は 3 本:
+# 全部を流すとき（scope が all）の e2e は 5 本:
 #   stormbreacher-1・stormbreacher-2 … stormbreacher-e2e を vitest の --shard=1/2・2/2 で半分ずつ
-#   others … sector-dive-ex を含む、残りの Chromium のプロジェクト全部（engine、sector-dive、sector-dive-ex、tsume-vim ...）
-# 絞ったとき（ゲームの id が並ぶとき）は、そのゲームの Chromium のプロジェクトだけ。stormbreacher が入っていれば 2 本に割り、残りは 1 本（others）。
+#   sector-dive-ex-1・sector-dive-ex-2 … sector-dive-ex を同じく半分ずつ（テストの中身が重く、1 本だと 3 分半かかった）
+#   others … 残りの Chromium のプロジェクト全部（engine、sector-dive、tsume-vim ...）
+# 絞ったとき（ゲームの id が並ぶとき）は、そのゲームの Chromium のプロジェクトだけ。stormbreacher・sector-dive-ex が入っていれば
+# それぞれ 2 本に割り、残りは 1 本（others）。
 # 範囲が none か build のとき（Chromium のプロジェクトが入らないとき）は、e2e は表が空なので動かない（skipped）。
 # 落ちた e2e は、そのジョブだけ「落ちたジョブを流し直す」で流し直せる。テストのレポート（test-results/）はジョブごとに別の名前で保存する
 on:
@@ -66,7 +68,9 @@ jobs:
           if [ "$scope" = all ]; then
             add stormbreacher-1 "--project stormbreacher-e2e --shard=1/2"
             add stormbreacher-2 "--project stormbreacher-e2e --shard=2/2"
-            add others "--project !*-unit --project !*-integration --project !stormbreacher-e2e"
+            add sector-dive-ex-1 "--project sector-dive-ex --shard=1/2"
+            add sector-dive-ex-2 "--project sector-dive-ex --shard=2/2"
+            add others "--project !*-unit --project !*-integration --project !stormbreacher-e2e --project !sector-dive-ex"
           elif [ "$scope" != none ] && [ "$scope" != build ]; then
             others=""
             for game in $scope; do
@@ -77,6 +81,9 @@ jobs:
                 else
                   others="$others --project $game-e2e"
                 fi
+              elif [ "$game" = sector-dive-ex ]; then
+                add sector-dive-ex-1 "--project sector-dive-ex --shard=1/2"
+                add sector-dive-ex-2 "--project sector-dive-ex --shard=2/2"
               else
                 others="$others --project $game"
               fi
