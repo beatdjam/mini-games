@@ -1,3 +1,5 @@
+# 確認（check）と公開（deploy）を別のジョブにしている。公開の手順だけが GitHub 側の失敗で落ちたときに、
+# 「落ちたジョブを流し直す」で、約 9.5 分のテストをやり直さずに公開だけを流し直すため。
 name: Deploy Pages
 
 on:
@@ -5,11 +7,9 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# 権限は各ジョブに付ける（既定は読み取りだけ）
 permissions:
   contents: read
-  pages: write
-  id-token: write
-  actions: read   # 更新履歴の生成で、過去の公開の実行履歴を読む
 
 # 新しい push が来たら、実行中の公開も止めて最新だけを回す（テストが長いので、続けてマージすると待ちが積み上がる）。
 # 止められた公開は build_updates.py が成功の公開として数えないので、その分のコミットは次の公開の更新履歴に入る
@@ -18,21 +18,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  check:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0   # push ごとにコミットを分けるので全履歴が要る
-      - name: 各ゲームの更新履歴を生成
-        # 失敗しても公開は止めない（その場合はコミット済みのページがそのまま出る）
-        continue-on-error: true
-        run: python3 tools/build_updates.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
@@ -60,11 +49,43 @@ jobs:
           name: test-report
           path: test-results/
           if-no-files-found: ignore
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      actions: read   # 更新履歴の生成で、過去の公開の実行履歴を読む
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # push ごとにコミットを分けるので全履歴が要る
+      - name: 各ゲームの更新履歴を生成
+        # 失敗しても公開は止めない（その場合はコミット済みのページがそのまま出る）
+        continue-on-error: true
+        run: python3 tools/build_updates.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
       - name: ビルド（Vite。dist/ に出力し、版番号を書き込む。確認用のコードは入らない）
         run: npm run build
       - uses: actions/configure-pages@v5
+      # 同じ run を流し直すと前の回の github-pages が残り、deploy-pages が「artifact が 2 つ」で落ちる。
+      # 流し直しの回ごとに名前を変え、deploy-pages にも同じ名前を渡す
       - uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages-${{ github.run_attempt }}
           path: dist
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
