@@ -42,9 +42,21 @@ async function until(done: () => boolean, tries = 240): Promise<void> {
   if (!done()) throw new Error(`the page did not reach the state in ${tries} frames`);
 }
 
+// Runs the game's systems by hand, a 60th of a second each, until `done` holds. Waiting for drawn frames timed out at 60 s
+// on CI, where a frame is drawn in software and can take seconds. A drawn frame every 30 steps lets the page's own timers
+// move on, and the page's updates that wait for a drawn frame still come.
+async function untilSteps(done: () => boolean, tries = 720): Promise<void> {
+  for (let i = 0; i < tries; i++) {
+    if (done()) return;
+    runSystems(1 / 60);
+    if (i % 30 === 29) await frame();
+  }
+  if (!done()) throw new Error(`the page did not reach the state in ${tries} steps`);
+}
+
 // A cutscene takes no skip for CUTSCENE_SKIP_GUARD_SEC after it starts, so a test that skips it waits that out first.
 async function pastSkipGuard(): Promise<void> {
-  await until(pastGuard);
+  await untilSteps(pastGuard);
 }
 
 const bars = (): HTMLElement => el('#sbCutscene');
@@ -70,7 +82,7 @@ test('a click skips the cutscene: the bars go and the HUD comes', async () => {
   await until(() => !bars().hidden);
   await pastSkipGuard();
   el('#gl').click();
-  await until(() => bars().hidden);
+  await untilSteps(() => bars().hidden);
   expect(game().script.cutscene).toBeNull();
   expect(el('#sbPlayHud').hidden).toBe(false);
 });

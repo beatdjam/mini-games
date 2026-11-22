@@ -45,7 +45,9 @@ test('the ammo count follows the shots', async () => {
   sendToScript(current, { kind: 'skip' }); // the mech takes no input during the landing
   expect(shotsLeft()).toBe(WEAPONS.autocannon.ammo);
   window.dispatchEvent(key('keydown', 'KeyJ'));
-  for (let i = 0; i < 30; i++) await frame();
+  // the systems run by hand, a 60th of a second each: drawn frames are slow on CI (software GL, seconds each)
+  for (let i = 0; i < 30; i++) runSystems(1 / 60);
+  await frame();
   window.dispatchEvent(key('keyup', 'KeyJ'));
   expect(shotsLeft()).toBeLessThan(WEAPONS.autocannon.ammo);
 });

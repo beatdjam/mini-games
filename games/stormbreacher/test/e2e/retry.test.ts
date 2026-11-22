@@ -9,6 +9,7 @@ import { state } from '../../src/app/screen.ts';
 import { boot } from '../../src/app/boot.ts';
 import { newGame, sendToScript } from '../../src/logic/game.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
+import { pastSkipGuard } from './cutsceneSkip.ts';
 // loads the language files and boots the page, as the real page does
 import '../../src/main.ts';
 
@@ -143,6 +144,8 @@ test('a retry frees the last sortie’s shapes and pictures', async () => {
 test('a warning light goes out once the sortie starts again', async () => {
   startSortie();
   const current = game();
+  // a skip before the guard seconds are past does nothing, and the cutscene would run its whole 12 s of steps
+  await until(pastSkipGuard);
   sendToScript(current, { kind: 'skip' });
   await until(() => current.script.cutscene === null);
   current.mech.x = -33;
