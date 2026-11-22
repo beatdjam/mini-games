@@ -2,8 +2,14 @@ name: Checks
 
 # PR ごとに、公開ジョブ（pages.yml）と同じ確認を流す。マージしてから公開ジョブで落ちて公開が止まる、を防ぐため。
 # 公開ジョブでも同じ確認をもう一度流す（PR どうしの組み合わせで master が壊れたときに、公開しないため）
-# テストだけは、PR が変えたファイルに合わせて絞る（tools/test_scope.js）: 1つのゲームの中だけを変えた PR は、
-# そのゲームのテストだけ。engine・道具・設定などを変えた PR は全部。文書（*.md）だけの PR はテストなし。
+# テストだけは、PR が変えたファイルに合わせて絞る（tools/test_scope.js が 1 行で答える）:
+#   all … 全部。engine・package.json・設定（tsconfig.json、vitest.config.ts、vite.config.js、.nvmrc）・checks.yml・test_scope.js 自身、
+#         そして test_scope.js の表に無い games/ の外のファイル（新しく足したファイルは安全側に倒す）
+#   <ゲームの id> ... … そのゲームのテストだけ（ビルドのテストも）
+#   build … index.html・privacy.html・public/・tools/build.test.ts・vitest.build.config.ts だけを変えたとき。ビルドのテストだけ
+#   none … 文書（*.md）と、型チェックや lint で確かめられる・CI のテストでは動かないファイル（pages.yml、.claude/、キューの道具、
+#          lint の設定など。一覧は test_scope.js の先頭）だけを変えたとき。テストなし
+# ビルドのテストは、none 以外のとき check ジョブで流す
 # 公開ジョブは、いつも全部のテストを流す
 #
 # ジョブは 2 段:
@@ -13,7 +19,7 @@ name: Checks
 #   stormbreacher-1・stormbreacher-2 … stormbreacher-e2e を vitest の --shard=1/2・2/2 で半分ずつ
 #   others … sector-dive-ex を含む、残りの Chromium のプロジェクト全部（engine、sector-dive、sector-dive-ex、tsume-vim ...）
 # 絞ったとき（ゲームの id が並ぶとき）は、そのゲームの Chromium のプロジェクトだけ。stormbreacher が入っていれば 2 本に割り、残りは 1 本（others）。
-# 範囲が none のときと、Chromium のプロジェクトが入らないときは、e2e は表が空なので動かない（skipped）。
+# 範囲が none か build のとき（Chromium のプロジェクトが入らないとき）は、e2e は表が空なので動かない（skipped）。
 # 落ちた e2e は、そのジョブだけ「落ちたジョブを流し直す」で流し直せる。テストのレポート（test-results/）はジョブごとに別の名前で保存する
 on:
   pull_request:
@@ -60,7 +66,7 @@ jobs:
             add stormbreacher-1 "--project stormbreacher-e2e --shard=1/2"
             add stormbreacher-2 "--project stormbreacher-e2e --shard=2/2"
             add others "--project !*-unit --project !*-integration --project !stormbreacher-e2e"
-          elif [ "$scope" != none ]; then
+          elif [ "$scope" != none ] && [ "$scope" != build ]; then
             others=""
             for game in $scope; do
               if [ -d "games/$game/test/unit" ]; then
@@ -82,7 +88,7 @@ jobs:
       - name: テスト（node の層。ページを使わないテスト）
         run: |
           scope="${{ steps.scope.outputs.scope }}"
-          if [ "$scope" = none ]; then exit 0; fi
+          if [ "$scope" = none ] || [ "$scope" = build ]; then exit 0; fi
           if [ "$scope" = all ]; then
             npx vitest run --project '*-unit' --project '*-integration'
           else
