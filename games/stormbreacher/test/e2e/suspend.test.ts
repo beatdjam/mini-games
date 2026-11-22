@@ -114,7 +114,9 @@ test('the resume button goes back to the sortie and the clock runs again', async
   expect(state).toBe('play');
   expect(menu().hidden).toBe(true);
   const time = game().time;
-  await frames(5);
+  // the systems run by hand: drawn frames are slow on CI (software GL, seconds each)
+  for (let i = 0; i < 5; i++) runSystems(1 / 60);
+  await frame();
   expect(game().time).toBeGreaterThan(time);
 });
 
