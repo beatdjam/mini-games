@@ -6,7 +6,7 @@ export { showFps } from './dev.ts';
 export { FEEDBACK, FEEDBACK_FORM, feedbackReady, openFeedback } from './feedback.ts';
 export { LANG, applyStaticText, defaultLang, fillData, lang, setI18nHook, setLang, t } from './i18n.ts';
 export { withLang } from './langslots.ts';
-export { LOOP, addSystem, runSystems, startLoop, stopFrame, systems } from './loop.ts';
+export { LOOP, addSystem, loopFrame, runSystems, startLoop, stopFrame, systems } from './loop.ts';
 export {
   clearStore,
   decodeStore,
