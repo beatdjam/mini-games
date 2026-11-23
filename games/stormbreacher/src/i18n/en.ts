@@ -86,7 +86,6 @@ LANG.en = {
     'target.emplacement': 'Machine-gun nest',
     'obj.reach-pillboxes': 'Advance to the bunker line',
     'obj.break-pillboxes': 'Blow up the bunkers',
-    'obj.take-seawall': 'Take the seawall',
     'obj.stop-fortress-gun': 'Silence the fortress gun',
     'obj.silence-battery': "Knock out the battery's main guns",
     'obj.hit-magazine': 'Destroy the magazine',

@@ -164,12 +164,12 @@ test('the hand map’s bounds and the battery’s parts reach to z -300', () => 
   expect(at('main-gun-1')?.z).toBe(-235);
   expect(at('main-gun-2')?.z).toBe(-235);
   expect(at('magazine')?.z).toBe(-250);
-  // the mech can walk the map's whole depth, the fortress's gates included; the walking check is empty
+  // the walking check is empty (it stops at the seawall's foot; the gates are walked in fortress.test.ts)
   expect(checkMapPath(M1B_HAND)).toEqual([]);
 });
 
 test('the hand map’s low walls leave room to walk round them', () => {
-  // the beach's five; the yard's three door markers are read by the fortress test
+  // the beach's five (the yard's three door markers stand at z < 0 and are not read here)
   const walls = M1B_HAND.props.filter(prop => prop.kind === 'lowWall' && prop.z > 0).sort((a, b) => a.x - b.x);
   expect(walls.length).toBeGreaterThanOrEqual(4);
   expect(walls.length).toBeLessThanOrEqual(6);

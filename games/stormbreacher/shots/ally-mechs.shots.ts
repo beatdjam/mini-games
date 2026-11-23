@@ -124,8 +124,8 @@ test('ally-mechs', async () => {
   advance(40);
   await picture('ally-mechs-c-posts', C_POSTS);
 
-  // the boss's cover: the three climb the ramp at x 35 and take their posts beyond the seawall
-  sendToScript(game(), { kind: 'enter', area: 'seawall-top' });
+  // the boss's cover: the three go through the sea gate and into the yard
+  sendToScript(game(), { kind: 'enter', area: 'fortress-gate' });
   advance(20);
   await picture('ally-mechs-boss-posts', BOSS_POSTS);
 });

@@ -85,7 +85,6 @@ LANG.ja = {
     'target.emplacement': '機銃座',
     'obj.reach-pillboxes': 'トーチカ線まで前進',
     'obj.break-pillboxes': 'トーチカを爆破',
-    'obj.take-seawall': '防波堤を押さえる',
     'obj.stop-fortress-gun': '要塞の機関砲を黙らせろ',
     'obj.silence-battery': '沿岸砲台の主砲を破壊',
     'obj.hit-magazine': '弾薬庫を破壊',

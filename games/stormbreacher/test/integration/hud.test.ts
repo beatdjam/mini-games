@@ -65,7 +65,7 @@ const idle: GameInput = {
 };
 
 // M1B_HAND with the battery's two main guns added, so the silence-battery objective has something to count.
-// M1's B with both main guns: the hand map has them behind the seawall (SB-120); the check keeps that true.
+// M1's B with both main guns: the hand map has them past the fortress (SB-120); the check keeps that true.
 function withGuns(): GameModel {
   const guns = M1B_HAND.targets.filter(target => target.kind === 'gun');
   expect(guns.map(target => target.id).sort()).toEqual(['main-gun-1', 'main-gun-2']);
