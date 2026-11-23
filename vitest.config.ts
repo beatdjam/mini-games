@@ -26,7 +26,9 @@ const nodeProject = (id: string, layer: 'unit' | 'integration') => ({
     name: `${id}-${layer}`,
     include: [`games/${id}/test/${layer}/**/*.test.ts`],
     environment: 'node' as const,
-    testTimeout: 60000, // the generator tests loop over many seeds, and the first one is slow while the modules load
+    // Sector Dive Extended's generator tests loop over many seeds, and the first one is slow while the modules load.
+    // The other games keep the default 5 s, so a node test that grows slow shows up
+    ...(id === 'sector-dive-ex' ? { testTimeout: 60000 } : {}),
   },
 });
 
