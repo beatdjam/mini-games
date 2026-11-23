@@ -142,23 +142,31 @@ test('validateMission refuses a flag the mission does not list, wherever the cue
   const unknown = 'no-such-flag';
   {
     const def = cloneM1();
-    def.cues = [...def.cues, { id: 'x', trigger: { kind: 'start' }, when: [unknown], actions: [] }];
-    expect(() => validateMission(def)).toThrow(/flag/);
+    def.cues = [...def.cues, { id: 'x', trigger: { kind: 'ashore' }, when: [unknown], actions: [] }];
+    expect(() => validateMission(def)).toThrow(/flag "no-such-flag"/);
   }
   {
     const def = cloneM1();
-    def.cues = [...def.cues, { id: 'x', trigger: { kind: 'start' }, unless: [unknown], actions: [] }];
-    expect(() => validateMission(def)).toThrow(/flag/);
+    def.cues = [...def.cues, { id: 'x', trigger: { kind: 'ashore' }, unless: [unknown], actions: [] }];
+    expect(() => validateMission(def)).toThrow(/flag "no-such-flag"/);
   }
   {
     const def = cloneM1();
     cueOf(def, 'depot').actions = [{ kind: 'flag', name: unknown }];
-    expect(() => validateMission(def)).toThrow(/flag/);
+    expect(() => validateMission(def)).toThrow(/flag "no-such-flag"/);
   }
   {
     const def = cloneM1();
     cueOf(def, 'depot').trigger = { kind: 'flag', name: unknown };
-    expect(() => validateMission(def)).toThrow(/flag/);
+    expect(() => validateMission(def)).toThrow(/flag "no-such-flag"/);
+  }
+});
+
+test('validateMission refuses when or unless on a start cue, which is due at time 0 only', () => {
+  for (const condition of [{ when: [PILLBOXES_DOWN_FLAG] }, { unless: [PILLBOXES_DOWN_FLAG] }]) {
+    const def = cloneM1();
+    def.cues = [...def.cues, { id: 'x', trigger: { kind: 'start' }, ...condition, actions: [] }];
+    expect(() => validateMission(def)).toThrow(/start cue/);
   }
 });
 
@@ -215,9 +223,9 @@ const CONDITIONS_MISSION: MissionDef = {
   cues: [
     { id: 'a', trigger: { kind: 'start' }, actions: [{ kind: 'flag', name: 'one' }] },
     { id: 'b', trigger: { kind: 'enter', area: 'gate' }, actions: [{ kind: 'flag', name: 'two' }] },
-    { id: 'c', trigger: { kind: 'start' }, when: ['one'], actions: [{ kind: 'radio', line: 'c' }] },
+    { id: 'c', trigger: { kind: 'after', cue: 'a', sec: 0 }, when: ['one'], actions: [{ kind: 'radio', line: 'c' }] },
     { id: 'd', trigger: { kind: 'flag', name: 'one' }, when: ['two'], actions: [{ kind: 'radio', line: 'd' }] },
-    { id: 'e', trigger: { kind: 'start' }, unless: ['two'], actions: [{ kind: 'radio', line: 'e' }] },
+    { id: 'e', trigger: { kind: 'after', cue: 'a', sec: 0 }, unless: ['two'], actions: [{ kind: 'radio', line: 'e' }] },
     {
       id: 'f',
       trigger: { kind: 'after', cue: 'a', sec: 1 },
@@ -225,7 +233,13 @@ const CONDITIONS_MISSION: MissionDef = {
       unless: ['two'],
       actions: [{ kind: 'radio', line: 'f' }],
     },
-    { id: 'g', trigger: { kind: 'start' }, when: ['one'], unless: ['one'], actions: [{ kind: 'radio', line: 'g' }] },
+    {
+      id: 'g',
+      trigger: { kind: 'after', cue: 'a', sec: 0 },
+      when: ['one'],
+      unless: ['one'],
+      actions: [{ kind: 'radio', line: 'g' }],
+    },
   ],
   areas: { gate: { x: 0, z: 0, w: 1, d: 1 } },
   targets: [],
@@ -286,7 +300,7 @@ test('a flag stays up, so a later cue still sees it', () => {
   expect(s.fired.f).toBeTypeOf('number'); // `when: ['one']` was still true a second later
 });
 
-test('an entered area stays entered, so its cue stays fired after the mech walks out', () => {
+test('an entered area stays in entered, so its cue stays fired as time goes on', () => {
   const s = newScript(M1);
   stepScript(s, M1, 0);
   scriptInput(s, M1, { kind: 'skip' });
@@ -294,7 +308,7 @@ test('an entered area stays entered, so its cue stays fired after the mech walks
   expect(out.filter(e => e.kind === 'spawn' && e.wave === 'b-squad')).toHaveLength(1);
   const at = s.fired.pillboxes;
   expect(at).toBeTypeOf('number');
-  // the script has no way to leave an area: walking out is the game's side, and `entered` only grows
+  // the script has no input for leaving an area, so `entered` only grows; the test shows it is not cleared by time
   for (let i = 0; i < 60; i++) stepScript(s, M1, STEP);
   expect(s.entered).toContain('b-line');
   expect(s.fired.pillboxes).toBe(at);
