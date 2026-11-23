@@ -111,13 +111,15 @@ test('the lock frame shows only while the aim is pulled toward a target', async 
   expect(game.aimTarget).toBeNull();
   expect(lock.hidden).toBe(true);
 
-  // in front of pillbox-1; the camera sits to the mech's right, so the mech stands that far to its left
+  // in front of pillbox-1; the camera sits to the mech's right, so the mech stands that far to its left. The pillbox
+  // itself is never a target (a charge breaks it, SB-2043): the aim pulls toward the defenders around it
   game.mech.x = -33 - CAMERA_TUNE.shoulder;
   game.mech.z = 5;
   game.mech.yaw = 0;
   // the systems run by hand, a 60th of a second each: waiting for drawn frames timed out on CI
   for (let i = 0; i < 120 && game.aimTarget === null; i++) runSystems(1 / 60);
   expect(game.aimTarget).not.toBeNull();
+  expect(game.aimTarget).not.toBe('pillbox-1');
   steps(1);
   expect(lock.hidden).toBe(false);
   expect(lock.getBoundingClientRect().width).toBeGreaterThan(0);
