@@ -51,10 +51,10 @@ const COMMON: readonly string[] = [
   'allyMove:cover-b1',
   'allyMove:cover-b2',
   'allyMove:cover-b3',
-  'radio:m1.depot-ask-1',
-  'radio:m1.depot-ask-2',
   'flag:depot-asked',
   'spawn:shelling',
+  'radio:m1.depot-ask-1',
+  'radio:m1.depot-ask-2',
 ];
 
 // The two answers: down to the depot first, or straight on to the fortress.
@@ -204,7 +204,7 @@ test('restoring cp1 drops the cues after it and replays the same column', () => 
 
   // the question is after the checkpoint, so the restored game gets it again
   const replayed = stepScript(restored, M1, 10);
-  expect(replayed.map(label)).toEqual(COMMON.slice(COMMON.indexOf('radio:m1.depot-ask-1')));
+  expect(replayed.map(label)).toEqual(COMMON.slice(COMMON.indexOf('flag:depot-asked')));
   expect(fromCp1(restored, false).map(label)).toEqual([...FORTRESS_GO, ...TAIL]);
   expect(restored.ended).toBe('cleared');
 });
@@ -241,4 +241,5 @@ test('restoring cp3 comes back with the battery objective and sends the battery 
 
 test('the same inputs give the same events twice', () => {
   expect(runM1(false).events).toEqual(runM1(false).events);
+  expect(runM1(true).events).toEqual(runM1(true).events);
 });

@@ -60,6 +60,7 @@ export type Action =
   | { kind: 'cutscene'; id: CutsceneId }
   | { kind: 'checkpoint'; id: string }
   | { kind: 'flag'; name: string }
+  | { kind: 'rearm'; areas: readonly string[] } // forget that the areas were entered; walking in again counts
   | { kind: 'map'; mark: string; on: boolean }
   | { kind: 'payoff'; id: string } // a milestone's knock (data/payoff.ts)
   | { kind: 'end'; result: 'cleared' };

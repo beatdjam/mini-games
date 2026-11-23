@@ -180,6 +180,9 @@ function checkAction(def: MissionDef, cueId: string, action: Action): void {
     case 'flag':
       requireIn(def.flags ?? [], action.name, 'flag');
       return;
+    case 'rearm':
+      for (const area of action.areas) requireIn(Object.keys(def.areas), area, 'area');
+      return;
     case 'map':
       requireIn(def.marks, action.mark, 'mark');
       return;
@@ -366,6 +369,10 @@ function applyAction(s: ScriptState, action: Action, out: ScriptOut[]): void {
     case 'flag':
       if (!s.flags.includes(action.name)) s.flags.push(action.name);
       out.push({ kind: 'flag', name: action.name, time });
+      return;
+    case 'rearm':
+      // An area the mech passed before the question must not answer it; the game sends `enter` again while it stands inside
+      s.entered = s.entered.filter(area => !action.areas.includes(area));
       return;
     case 'map':
       if (action.on) {

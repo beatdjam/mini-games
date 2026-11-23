@@ -365,8 +365,9 @@ test('the optional depot mark comes after the question and goes when the depot i
 test('the radar keeps the depot’s own mark', () => {
   const game = newGame(M1B_HAND);
   atOrigin(game);
-  const radar = hudModel(game).radar.find(mark => mark.kind === 'depot');
-  expect(radar).toBeDefined();
+  const radar = hudModel(game).radar.filter(mark => mark.kind === 'depot');
+  expect(radar).toHaveLength(1);
+  expect(radar[0].dist).toBeGreaterThan(0);
 });
 
 test('a warned aimed shell inside its circle shows the shell warning', () => {

@@ -109,7 +109,7 @@ test('depot-choice', async () => {
   quiet();
   if (wanted('depot-choice-optional')) await picture('depot-choice-optional', CHOICE);
 
-  // the hollow: the depot and pillbox-3, with the guard the cue puts out
+  // the hollow: the depot, with the guard the cue puts out
   sendToScript(game(), { kind: 'enter', area: 'depot-approach' });
   advance(0.5);
   if (wanted('depot-choice-hollow')) await picture('depot-choice-hollow', HOLLOW);

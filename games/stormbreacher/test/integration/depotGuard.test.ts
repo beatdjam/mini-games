@@ -119,7 +119,7 @@ test('walking into the hollow after the question puts out the guard’s four in 
   expect(rectDistance(rect, game.mech.x, game.mech.z)).toBeLessThan(AT_DEPOT);
 });
 
-test('the guard comes out once, and not before the question and the hollow', () => {
+test('the guard comes out once, when the mech walks into the hollow after the question', () => {
   const game = newWalkGame();
   toAsked(game);
   game.mech.x = 55;

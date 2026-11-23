@@ -15,6 +15,7 @@ test('every HUD key has text in ja and en', () => {
     'hud.sub',
     'hud.objective',
     'hud.optional',
+    'hud.optional.depot',
     'hud.radio',
     'hud.use',
     'hud.plant',
@@ -24,7 +25,7 @@ test('every HUD key has text in ja and en', () => {
   for (const kind of TARGET_KINDS) keys.add(`target.${kind}`);
   for (const kind of ENEMY_KINDS) keys.add(`target.${kind}`);
 
-  expect(keys.size).toBe(11 + TARGET_KINDS.length + ENEMY_KINDS.length);
+  expect(keys.size).toBe(12 + TARGET_KINDS.length + ENEMY_KINDS.length);
   for (const code of ['ja', 'en']) {
     const ui = LANG[code].ui;
     for (const key of keys) expect(ui[key], `${code} is missing "${key}"`).toBeTruthy();

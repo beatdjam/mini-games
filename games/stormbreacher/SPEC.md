@@ -1057,11 +1057,12 @@ SB-200。M1 の要塞の先（z −235〜−250）にある砲台。主砲2門�
 | `pillboxes` | `enter b-line` | `objective break-pillboxes`・`spawn b-squad`・`wake b-emplacements`（残り5基を起こす）・`radio m1.depot-hint`（`gunner` は出さない。線1の爆破で動く） |
 | `line2-approach` | `enter line2-approach` | `suppress cover-b2 b-emplacements 9`（味方機の援護射撃。機銃座が9秒黙る）・`radio m1.line2-support`（指示 `m1.callout.line2-support`。窓が終わる2秒前に `m1.line2-ammo` が出る（指示 `m1.callout.line2-ammo`）） |
 | `line2-open` | `blast l2-a / l2-b` | `payoff breach2`・`flag line2-open`・`radio m1.line2-cheer`・`radio m1.line2-hold`（指示 `m1.callout.line2-hold`。歓声のあと `PAYOFF_TUNE.holdDelay` 秒後。「迎撃が来る。障害物の手前で片付けてから進め」）（近い点でも遠い点でも開く。道は cp1 で選ぶ） |
-| `depot-ask` | `after cp1 10` | `radio m1.depot-ask-1`・`radio m1.depot-ask-2`・`flag depot-asked`・`spawn shelling`（両方の道で砲撃が始まる） |
+| `depot-ask` | `after cp1 10` | `flag depot-asked`・`rearm depot-approach / fortress-approach`（問いより前に通った所は答えにしない）・`spawn shelling`（両方の道で砲撃が始まる） |
+| `depot-ask-radio` | `after depot-ask 0`（`unless depot-down`） | `radio m1.depot-ask-1`・`radio m1.depot-ask-2`（弾薬庫を先に壊していたら問わない） |
 | `depot-go` | `enter depot-approach`（`when depot-asked`、`unless depot-down / fortress-skip`） | `radio m1.depot-go`・`spawn depot-guard`・`map depot on`・`flag depot-taken` |
 | `depot` | `destroyed depot` | `flag depot-down`・`radio m1.depot-down` |
 | `fortress-go` | `enter fortress-approach`（`when depot-asked`、`unless depot-down / depot-taken`） | `radio m1.depot-skip`・`allyMove cover-b3 fortress-cover-run`・`loss allies 1 squads 1`・`flag fortress-skip` |
-| `fortress-ally-lost` | `after fortress-go 1.5`（`when fortress-skip`） | `allyFall cover-b3 shell`・`radio m1.ally-lost`（動き終わった味方機を要塞の手前で倒す） |
+| `fortress-ally-lost` | `after fortress-go 1.5`（`when fortress-skip`） | `allyFall cover-b3 shell`・`radio m1.ally-lost`（味方機はその場で倒れる。cp1 から C へ走っている途中で、プレイヤーから遠いことがある。ボットの通しでは 117m） |
 | `pillbox1` | `destroyed pillbox-1, pillbox-2`（どれか1つ） | `payoff bunker1`（1基目だけの小さい決め） |
 | `cp1` | `destroyed pillbox-1, pillbox-2` | `radio m1.pillboxes-down`・`flag pillboxes-down`・`payoff bunker`・`checkpoint cp1`・`allyMove cover-b1 C1_WAYS`・`allyMove cover-b2 C2_WAYS`・`allyMove cover-b3 C3_WAYS`（線2の最初の穴を通る） |
 | `fortress-gate` | `enter fortress-gate`（`when depot-asked`） | `checkpoint cp2`・`objective stop-fortress-gun`・`radio m1.fortress-gate`・`allyMove cover-b1 boss1-run`・`allyMove cover-b2 boss2-run`・`allyMove cover-b3 boss3-run`（海側の門から中庭へ） |
@@ -1077,10 +1078,10 @@ SB-200。M1 の要塞の先（z −235〜−250）にある砲台。主砲2門�
 
 #### 選択（寄り道）
 
-cp1 の10秒後、隊長機が「右の崖下に敵の弾薬庫。叩けば砲撃が弱まる。寄るか」と無線で問う（`depot-ask`）。メニューやボタンは出さず、右の `depot-approach`（x 60〜95・z −60〜−20）に入るか、要塞の手前の `fortress-approach`（x −35〜35・z −68〜−55）へ先に進むかで答える。2つの矩形は重ならず、先に入ったほうの cue が旗を立てる（`depot-go` は `depot-taken`、`fortress-go` は `fortress-skip`）。どちらの cue も `depot-asked` を待つので、問いの前に要塞へ着いても発火しない。
+cp1 の10秒後、隊長機が「右の崖下に敵の弾薬庫。叩けば砲撃が弱まる。寄るか」と無線で問う（`depot-ask`）。メニューやボタンは出さず、右の `depot-approach`（x 60〜95・z −60〜−20）に入るか、要塞の手前の `fortress-approach`（x −35〜35・z −68〜−55）へ先に進むかで答える。2つの矩形は重ならず、問いの後に先に入ったほうの cue が旗を立てる（問いの前に通った area は `rearm` で忘れる。問いの時に area の中に立っていれば、その場で答えになる）（`depot-go` は `depot-taken`、`fortress-go` は `fortress-skip`）。どちらの cue も `depot-asked` を待つので、問いの前に要塞へ着いても発火しない。
 
 - 寄る道: `depot-approach` で `depot-guard`（量産機3・機銃座1）が出て、`depot` を壊すと `depot-down` が立つ。効くのはこの旗だけで、入っただけでは弱くならない
-- 寄らない道: `fortress-go` で味方機 `cover-b3` が `fortress-cover` へ走り、`loss allies 1 squads 1` が入る。1.5秒後に `fortress-ally-lost` の `allyFall` でその場に倒れる（`m1.ally-lost`）。分隊の見た目は 1610 の歩兵の層が `depot-down` で出し分ける（この票は数を `losses` に持つだけ）
+- 寄らない道: `fortress-go` で味方機 `cover-b3` が `fortress-cover` へ走り、`loss allies 1 squads 1` が入る。1.5秒後に `fortress-ally-lost` の `allyFall` でその場に倒れる（`m1.ally-lost`。走り終えるのを待たないので、倒れる所は `fortress-cover` ではなく、プレイヤーから遠いことがある）。分隊の見た目は 1610 の歩兵の層が `depot-down` で出し分ける（この票は数を `losses` に持つだけ）
 - `depot-down` の効き: `BARRAGES.shelling` の間隔が1.6倍（`slow`）、味方の損耗が入らない、弾薬庫の報酬 2,000cr が付く。沈む艇の数は L10、中庭の援護は L5。報酬の式は変えない
 - 値: `DEPOT_CHOICE_TUNE` in `src/data/fortress.ts`（`askSec` 10・`allyFallSec` 1.5・`lossAllies` 1・`lossSquads` 1。すべて仮）。`#view-breach` の調整パネルで触る
 
@@ -1188,7 +1189,7 @@ M1 の浜・B トーチカ線・C・防波堤・要塞と砲台の場所（z −
 - 目標の体力は `TARGET_HP`（仮。`pillbox` 100・`depot` 60・`gun` 200・`magazine` 80。武器の表の威力で減る。トーチカだけは弾で減らず、爆破点の爆薬でだけ壊れる（SB-2015。6章「トーチカ」）。SB-190 で決め直す）
 - 目標の描画（SB-1550）: 目標は `buildTargets`（`src/view/outdoor.ts`）が id を名前にした `THREE.Mesh` で作り、位置 (x, 0, z)・向き yaw だけを持つ。`buildWorld` が `World.targets` に id で持ち、`syncWorld(world, game, dt)` が毎フレーム、体力 0 の目標を低く暗くする。トーチカだけは `PILLBOX_BREAK` に従って時間で沈み・傾き（6章「トーチカ」）、ほかの目標はその場で `WRECK_SCALE_Y`（0.35）・`WRECK_COLOR` になる。`World.breaks` は view だけが持ち、保存しない。壊れた目標の地面の四角の `top` も `TARGET_SIZE[kind].h × WRECK_SCALE_Y` にし、カメラの箱（`World.targetCameraBoxes`）も同じ高さへ下げる（`damageTarget` in `src/logic/game.ts`、`syncWorld` in `src/view/world.ts`）。`WRECK_SCALE_Y` の定義は `src/data/props.ts`。古い中断データの四角は読み込み時に、チェックポイントの四角は作るときと戻すときに直す（`lowerBrokenTargetRects`・`snapshotOf`・`retryFromCheckpoint` in `src/logic/game.ts`、`restoreSuspend` in `src/logic/suspend.ts`）
 - 手書きは `src/data/maps/m1b-hand.ts`。範囲は x −100〜100・z −300〜170。物は1行に1つ書き、数を数える関数は置かない。目標は `pillbox-1`・`pillbox-2`・`depot` と、砲台の `main-gun-1`・`main-gun-2`・`magazine`、波は `b-squad`・`b-emplacements`・`depot-guard`。地雷は浜（z 148〜162、x −60〜60）に6個で、機体が艇を降りた所（x 0, z 166）から 6m 以上離す。爆破点は2本の線に2か所ずつ計4か所と、トーチカ2基に横・後ろの1か所ずつ計4か所（6章「爆破点と爆薬」「トーチカ」）。線2の点は、近い点 `l2-a`（x −10, z 75.5）が機銃座2〜3基の射線の真ん中に立ち、遠い点 `l2-b`（x 50, z 75.5）は x 25, z 78 の残骸の陰で射線の外れになる（SB-2020）。トーチカの点は `blast-pillbox-1-side`（x −41, z −15）・`blast-pillbox-1-back`（−33, −23）・`blast-pillbox-2-side`（30, −17）・`blast-pillbox-2-back`（21, −23）で、箱の外・地面の空いた所に置き、物は足さない。生成マップ（`M1B_RULES`）は爆破点を持たない
-  - B は「二重の防御線」（SB-2020）: z 128〜146（線1）・z 62〜74（線2）に、それぞれ対戦車障害物を3列（列の間 4〜6m、同じ列の中は 4.4m 以下の間隔で均等に並べる）。2本とも切れ目が無く、各列の旧い突破口（線1 x −55・40、線2 x −10）と旧い壊せる区間（線2 x 50 前後）は埋めた。同じ列の中の隣との四角の距離は 2m 未満（最大 約 1.3m）で、当たり半径 1m の機体は爆破で穴を開けなければ列を抜けられない。爆破点は各線の海側の面の 2m 前に2か所ずつ（計4か所）あり、どれか1つを爆破すると `holeHalfWidth`（4m）× `holeHalfDepth`（10m）の四角のハリネズミが抜けて 9m 前後の穴が開く。爆破点のハリネズミは `breakable` ではなく、弾では壊れない。線1の爆破点の列から線2の爆破点の列までは約 71m、線2からトーチカ線までは約 91m ある（前は約 50m おきに3本だった）。C の2列は突破口が2か所開いている。後列（z −50）はハリネズミを4本（x −56・−44・29・41）外し、C と防波堤の間の帯（z −63.5〜−52.5）の西・中央・東のどれからも海側へ歩いて出られる（幅 約4.7m）
+  - B は「二重の防御線」（SB-2020）: z 128〜146（線1）・z 62〜74（線2）に、それぞれ対戦車障害物を3列（列の間 4〜6m、同じ列の中は 4.4m 以下の間隔で均等に並べる）。2本とも切れ目が無く、各列の旧い突破口（線1 x −55・40、線2 x −10）と旧い壊せる区間（線2 x 50 前後）は埋めた。同じ列の中の隣との四角の距離は 2m 未満（最大 約 1.3m）で、当たり半径 1m の機体は爆破で穴を開けなければ列を抜けられない。爆破点は各線の海側の面の 2m 前に2か所ずつ（計4か所）あり、どれか1つを爆破すると `holeHalfWidth`（4m）× `holeHalfDepth`（10m）の四角のハリネズミが抜けて 9m 前後の穴が開く。爆破点のハリネズミは `breakable` ではなく、弾では壊れない。線1の爆破点の列から線2の爆破点の列までは約 71m、線2からトーチカ線までは約 91m ある（前は約 50m おきに3本だった）。C の手前（z −55〜−35）の2列は SB-1820 で外した（下の「C の手前」）
   - 防波堤は z −75〜−65 に `seawall`（8×6×4m）を z −73・−70・−67 の3列、x −96〜−40 と 40〜96 に 8m おきに並べる（3列は1m ずつ重なる）。中央の x −36〜36 は無く、そこに要塞の海側の壁と門が立つ。防波堤の上（高さ 6m）は残るが、M1 には坂も階段も無いので上れない
   - 要塞（`FORTRESS_TUNE` in `src/data/fortress.ts`）は外寸 70×60m・壁 12m 角（高さ 12m・厚さ 6m。`fortWall`）で、内側の中庭は 58×48m（x ±29・z −74〜−122）。海側の壁は中心 z −71、陸側は中心 z −125、左右は中心 x ±32 に 12m 角の `fortWall` を重ねて並べ、内側の面を設計の線に合わせる。海側・陸側の門はどちらも幅 12m（x −6〜6）の開いた開口で、扉は無い（閉じる扉と爆破は L7）。中庭には遮蔽 9 個（`block` 4・`wreck` 2・`crater` 3）を置き、門から門への x 0 の通り道は空ける。三方の壁には L5 の敵の出入り口の目印として短い `lowWall` を3個置く
   - 坂 `ramp` と階段 `stairs` の種類はエディタと確認用の入口のために残すが、M1 では使わない（防波堤の上へ上がる道は無い）

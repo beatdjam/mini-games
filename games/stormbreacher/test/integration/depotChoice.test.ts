@@ -92,7 +92,8 @@ test('the game counts the skipped ally and the squad, and the depot run keeps bo
       target.hp = 0;
       sendToScript(game, { kind: 'destroyed', target: id });
     }
-    for (let i = 0; i < 60 * 10; i++) step(game, idle, DT);
+    // a little past the 10 s (the script's clock runs a few frames behind): the question has been asked and the walked-before areas are forgotten
+    for (let i = 0; i < 60 * 11; i++) step(game, idle, DT);
     game.enemies = [];
     if (depot) {
       sendToScript(game, { kind: 'enter', area: 'depot-approach' });
@@ -126,7 +127,7 @@ function shellCount(sec: number, depotDown: boolean): number {
     target.hp = 0;
     sendToScript(game, { kind: 'destroyed', target: id });
   }
-  for (let i = 0; i < 60 * 10; i++) step(game, idle, DT);
+  for (let i = 0; i < 60 * 11; i++) step(game, idle, DT);
   // only the shelling is read; the mech stands in its reach and cannot go down
   game.barrages = game.barrages.filter(barrage => barrage.kind === 'shelling');
   game.shells = [];
@@ -146,14 +147,86 @@ function shellCount(sec: number, depotDown: boolean): number {
   return warned;
 }
 
-test('the depot makes the same seconds of shelling rarer', () => {
-  const broken = shellCount(30, true);
-  const whole = shellCount(30, false);
-  expect(whole).toBeGreaterThan(0);
-  expect(broken).toBeLessThan(whole);
-  // about 1.6 times as far apart: 30 s of 5 s shells is six, of 8 s shells about four
-  expect(whole).toBeGreaterThanOrEqual(4);
-  expect(broken).toBeLessThanOrEqual(whole - 1);
+test('the depot makes the same seconds of shelling rarer', { timeout: 30000 }, () => {
+  // 80 s of 5 s shells is sixteen, of 8 s shells ten
+  const broken = shellCount(80, true);
+  const whole = shellCount(80, false);
+  expect(whole).toBeGreaterThanOrEqual(15);
+  expect(whole / broken).toBeGreaterThan(1.4);
+  expect(whole / broken).toBeLessThan(1.8);
+});
+
+// The answer is walked after the question: an area the mech passed before it does not answer it (SB-1820 review).
+test('an area passed before the question does not answer it', () => {
+  const state = newScript(M1);
+  stepScript(state, M1, 0);
+  scriptInput(state, M1, { kind: 'skip' });
+  scriptInput(state, M1, { kind: 'ashore' });
+  scriptInput(state, M1, { kind: 'enter', area: 'b-line' });
+  scriptInput(state, M1, { kind: 'blast', id: 'l1-b' });
+  scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-1' });
+  scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-2' });
+  scriptInput(state, M1, { kind: 'enter', area: 'fortress-approach' });
+  scriptInput(state, M1, { kind: 'enter', area: 'depot-approach' });
+  const asked = stepScript(state, M1, 10.1);
+  expect(labels(asked)).toContain('flag:depot-asked');
+  expect(labels(asked)).not.toContain('loss:1/1');
+  expect(state.flags).not.toContain('fortress-skip');
+  expect(state.flags).not.toContain('depot-taken');
+  // walking in after the question answers it
+  const go = scriptInput(state, M1, { kind: 'enter', area: 'depot-approach' });
+  expect(labels(go)).toContain('flag:depot-taken');
+});
+
+test('the game: the mech that walked on before the question answers only by walking in again', () => {
+  const game = newPlayGame(M1B_HAND);
+  sendToScript(game, { kind: 'enter', area: 'b-line' });
+  for (const id of ['pillbox-1', 'pillbox-2']) {
+    const target = game.targets.find(item => item.id === id);
+    if (!target) throw new Error(`the map has no ${id}`);
+    target.hp = 0;
+    sendToScript(game, { kind: 'destroyed', target: id });
+  }
+  game.enemies = [];
+  game.mech.x = 0;
+  game.mech.z = -60; // inside fortress-approach, two seconds into the ten
+  for (let i = 0; i < 60 * 2; i++) step(game, idle, DT);
+  expect(game.script.entered).toContain('fortress-approach');
+  game.mech.z = 100; // and out again before the question
+  game.barrages = [];
+  for (let i = 0; i < 60 * 9; i++) step(game, idle, DT);
+  const askedAt = game.script.fired['depot-ask'];
+  expect(askedAt).toBeDefined();
+  expect(game.script.fired['fortress-go']).toBeUndefined();
+  expect(game.losses).toEqual({ allies: 0, squads: 0 });
+  game.mech.z = -60;
+  game.mech.x = 0;
+  game.armor = MECH_TUNE.armor * 100;
+  for (let i = 0; i < 3; i++) step(game, idle, DT);
+  const wentAt = game.script.fired['fortress-go'];
+  expect(wentAt).toBeDefined();
+  expect((wentAt ?? 0) - (askedAt ?? 0)).toBeGreaterThan(0.5);
+  expect(game.losses).toEqual({ allies: 1, squads: 1 });
+});
+
+// The depot may fall in the 10 s before the question: the leader does not ask, but the flag and the shelling still start.
+test('a depot already down is not asked about', () => {
+  const state = newScript(M1);
+  stepScript(state, M1, 0);
+  scriptInput(state, M1, { kind: 'skip' });
+  scriptInput(state, M1, { kind: 'ashore' });
+  scriptInput(state, M1, { kind: 'enter', area: 'b-line' });
+  scriptInput(state, M1, { kind: 'blast', id: 'l1-b' });
+  scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-1' });
+  scriptInput(state, M1, { kind: 'destroyed', target: 'pillbox-2' });
+  scriptInput(state, M1, { kind: 'destroyed', target: 'depot' });
+  const asked = stepScript(state, M1, 10.1);
+  expect(labels(asked)).toContain('flag:depot-asked');
+  expect(asked.some(event => event.kind === 'spawn' && event.wave === 'shelling')).toBe(true);
+  expect(asked.some(event => event.kind === 'radio')).toBe(false);
+  // the gate waits for the question, so it is not stuck
+  const gate = scriptInput(state, M1, { kind: 'enter', area: 'fortress-gate' });
+  expect(gate.some(event => event.kind === 'checkpoint')).toBe(true);
 });
 
 test('the two answers’ areas do not overlap', () => {

@@ -397,10 +397,20 @@ const CUES = [
     // cp1's 10 s give the leader time to ask; shelling starts on both ways, so the flag alone decides how hard it falls
     trigger: { kind: 'after', cue: 'cp1', sec: DEPOT_CHOICE_TUNE.askSec },
     actions: [
+      { kind: 'flag', name: 'depot-asked' },
+      // the answer is walked after the question: an area passed during the 10 s before it does not count
+      { kind: 'rearm', areas: ['depot-approach', 'fortress-approach'] },
+      { kind: 'spawn', wave: 'shelling' },
+    ],
+  },
+  {
+    id: 'depot-ask-radio',
+    // the leader does not ask about a depot that is already down; the flag and the shelling above still run
+    trigger: { kind: 'after', cue: 'depot-ask', sec: 0 },
+    unless: ['depot-down'],
+    actions: [
       { kind: 'radio', line: 'm1.depot-ask-1' },
       { kind: 'radio', line: 'm1.depot-ask-2' },
-      { kind: 'flag', name: 'depot-asked' },
-      { kind: 'spawn', wave: 'shelling' },
     ],
   },
   {

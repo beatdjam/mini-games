@@ -364,6 +364,8 @@ test(
     expect([...times].sort((a, b) => a - b)).toEqual(times);
     expect(result.fired['depot-go']).toBeUndefined();
     expect(result.fired['depot']).toBeUndefined();
+    // the answer comes after the question, not with it (a bot at seed 7: the question at 105.2 s, the answer at 106.9 s)
+    expect((result.fired['fortress-go'] ?? 0) - (result.fired['depot-ask'] ?? 0)).toBeGreaterThan(1);
     // seed 7 took about 117 s of game time and left 142 armour (of 200), 82 of 400 autocannon shots and 5 of 12 heavy
     // gun shots (SB-2072: the walk, jump and boost are faster and the hit stop shorter). The limits below keep room for a
     // retune of the values, and fail if the sortie turns out hardly possible
@@ -388,6 +390,8 @@ test(
     expect([...times].sort((a, b) => a - b)).toEqual(times);
     expect(result.fired['fortress-go']).toBeUndefined();
     expect(result.fired['fortress-ally-lost']).toBeUndefined();
+    // the depot's answer comes after the question (seed 7: the question at 105.2 s, the hollow at 109.0 s)
+    expect((result.fired['depot-go'] ?? 0) - (result.fired['depot-ask'] ?? 0)).toBeGreaterThan(1);
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
     expect(result.armor).toBeGreaterThan(0);
     expect(result.main).toBeGreaterThan(0);
