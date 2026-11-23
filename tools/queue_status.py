@@ -9,7 +9,9 @@ the state is seen from elsewhere (the Obsidian vault the page is written into sy
   python3 tools/queue_status.py                 # print it
   python3 tools/queue_status.py --out <file>    # write it (tools/run_queue.sh does this when QUEUE_STATUS_FILE is set)
 
-The open PRs come from `gh pr list`; without gh (or offline) that part is left out.
+The state is inferred from what exists, not only from what was marked: the PRs (open ones and the last 50 merged ones,
+tied to a ticket by the branch name or by "票<番号>" / "SB-<番号>" in the title or body), the queue's log and the worktrees
+in .wt/ that have commits ahead of origin/master. The PRs come from `gh pr list`; without gh (or offline) that part is left out.
 """
 
 from __future__ import annotations
@@ -52,23 +54,118 @@ def branch_of(name: str) -> str:
     return rest.replace("-", "/", 1)
 
 
-def open_prs(root: Path) -> list[dict]:
+def gh_prs(root: Path, state: str, limit: int | None = None) -> list[dict]:
+    cmd = ["gh", "pr", "list", "--state", state, "--json", "number,title,body,headRefName,isDraft,url,updatedAt"]
+    if limit:
+        cmd += ["--limit", str(limit)]
     try:
-        out = subprocess.run(
-            ["gh", "pr", "list", "--state", "open", "--json", "number,title,headRefName,isDraft,url"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        out = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.TimeoutExpired):
         return []
     if out.returncode != 0:
         return []
     try:
-        return json.loads(out.stdout)
+        prs = json.loads(out.stdout)
     except json.JSONDecodeError:
         return []
+    if not isinstance(prs, list):
+        return []
+    for p in prs:
+        p["state"] = state
+    return prs
+
+
+def open_prs(root: Path) -> list[dict]:
+    return gh_prs(root, "open")
+
+
+def merged_prs(root: Path) -> list[dict]:
+    return gh_prs(root, "merged", 50)
+
+
+def pr_for(num: str, name: str, prs: list[dict]) -> dict | None:
+    # a PR is the ticket's when its branch is the ticket's branch, or its title / body names the ticket ("票1850", "SB-1850")
+    branch = branch_of(name)
+    ref = re.compile(rf"(票|SB-){re.escape(num)}(?!\d)")
+    found = [
+        p
+        for p in prs
+        if p.get("headRefName") == branch or ref.search(f"{p.get('title') or ''}\n{p.get('body') or ''}")
+    ]
+    if not found:
+        return None
+    # merged first, then the newest
+    return max(found, key=lambda p: (p["state"] == "merged", p.get("updatedAt") or "", p["number"]))
+
+
+def parse_utc(text: str) -> datetime.datetime | None:
+    try:
+        return datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def log_times(log: Path) -> dict[str, datetime.datetime]:
+    # when the latest line of each ticket was written ("11-08 01:04:20 票870: ...": no year, JST)
+    times: dict[str, datetime.datetime] = {}
+    if not log.exists():
+        return times
+    now = datetime.datetime.now(JST)
+    for line in log.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d) 票(\d+):", line)
+        if not m:
+            continue
+        mo, d, h, mi, sec = (int(m.group(i)) for i in range(1, 6))
+        try:
+            t = datetime.datetime(now.year, mo, d, h, mi, sec, tzinfo=JST)
+        except ValueError:
+            continue
+        if t > now + datetime.timedelta(days=1):  # a line of the last year
+            t = t.replace(year=now.year - 1)
+        times[m.group(6)] = t
+    return times
+
+
+def worktrees(root: Path) -> list[tuple[Path, str]]:
+    # the worktrees with commits ahead of origin/master: (path, branch or folder name)
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "worktree", "list", "--porcelain"], capture_output=True, text=True, timeout=30
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if out.returncode != 0:
+        return []
+    found: list[tuple[Path, str]] = []
+    for block in out.stdout.split("\n\n"):
+        path = branch = ""
+        for line in block.splitlines():
+            if line.startswith("worktree "):
+                path = line[len("worktree ") :]
+            elif line.startswith("branch "):
+                branch = re.sub(r"^refs/heads/", "", line[len("branch ") :])
+        if not path or Path(path) == root:
+            continue
+        try:
+            ahead = subprocess.run(
+                ["git", "-C", path, "rev-list", "--count", "origin/master..HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if ahead.returncode == 0 and ahead.stdout.strip().isdigit() and int(ahead.stdout.strip()) > 0:
+            found.append((Path(path), branch or Path(path).name))
+    return found
+
+
+def working_branch(num: str, trees: list[tuple[Path, str]]) -> str:
+    ref = re.compile(rf"(?<!\d){re.escape(num)}(?!\d)")
+    for path, branch in trees:
+        if ref.search(branch) or ref.search(path.name):
+            return branch
+    return ""
 
 
 def last_log_lines(log: Path) -> tuple[dict[str, str], dict[str, str]]:
@@ -144,12 +241,22 @@ def state_of(
     name: str,
     queued: set[str],
     latest: dict[str, str],
-    prs: dict[str, dict],
+    prs: list[dict],
     latest_review: dict[str, str] | None = None,
+    times: dict[str, datetime.datetime] | None = None,
+    trees: list[tuple[Path, str]] | None = None,
 ) -> str:
-    branch = branch_of(name)
-    if branch in prs:
-        return f"PR #{prs[branch]['number']}"
+    pr = pr_for(num, name, prs)
+    if pr:
+        label = f"済み（#{pr['number']} マージ）" if pr["state"] == "merged" else f"PR #{pr['number']}"
+        # the queue's log wins when its line is newer than the PR (e.g. sent back after the PR and run again)
+        log_time = (times or {}).get(num)
+        pr_time = parse_utc(pr.get("updatedAt") or "")
+        if log_time and pr_time and log_time > pr_time:
+            newer = state_of(root, num, name, queued, latest, [], latest_review, times, None)
+            if newer in ("Claude が回している", "レビュー中", "回している"):
+                return newer
+        return label
     tasks = root / ".tasks"
     copies = [tasks / f"{name}.md", root / ".wt" / f"t{num}" / ".tasks" / f"{name}.md"]
     sent_back = any(p.exists() and "差し戻し" in p.read_text(encoding="utf-8") for p in copies)
@@ -179,6 +286,10 @@ def state_of(
         or "が回らないので回さない" in log
     ):
         return "止まった"
+    # a worktree of the ticket with commits ahead of origin/master, and no PR yet: someone is on it
+    work = working_branch(num, trees or [])
+    if work:
+        return f"作業中（{work}）"
     if done or "WIP" in log or "コードの変更なし" in log:
         return "レビュー待ち"
     if num in queued:
@@ -199,7 +310,9 @@ def build(root: Path) -> str:
     kinds = queue_kinds(queue)
     latest, latest_review = last_log_lines(tasks / "queue.log")
     pr_list = open_prs(root)
-    prs = {p["headRefName"]: p for p in pr_list}
+    prs = pr_list + merged_prs(root)
+    times = log_times(tasks / "queue.log")
+    trees = worktrees(root)
 
     tickets = sorted(
         (p for p in tasks.glob("[0-9]*-*.md") if not re.search(r"\.(result|review-[a-z]+)\.md$", p.name)),
@@ -210,6 +323,9 @@ def build(root: Path) -> str:
         "# mini-games の票の状態",
         "",
         f"`tools/queue_status.py` が書いたページ（{now} JST）。手で直さない。",
+        "",
+        "状態は印（queue.log）だけでなく実物から推す。PR（開いている・直近 50 本のマージ済み。ブランチ名か、タイトル・本文の「票<番号>」「SB-<番号>」で結ぶ）、"
+        "queue.log、`.wt/` の作業ツリー（origin/master より先の commit がある）の順に強い。queue.log の行が PR より新しければ、queue.log を出す。",
         "",
     ]
     stopped = stop_line(tasks / "queue.log")
@@ -232,7 +348,7 @@ def build(root: Path) -> str:
             name = p.name[:-3]
             num = name.split("-", 1)[0]
             lane = lane_of(latest.get(num, "")) or "/".join(kinds.get(num, [])) or "-"
-            out.append(f"| {num} | {lane} | {state_of(root, num, name, queued, latest, prs, latest_review)} | {title_of(p)} |")
+            out.append(f"| {num} | {lane} | {state_of(root, num, name, queued, latest, prs, latest_review, times, trees)} | {title_of(p)} |")
     else:
         out.append("票は無い。")
 
