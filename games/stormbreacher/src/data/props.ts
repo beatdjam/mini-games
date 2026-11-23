@@ -43,6 +43,7 @@ export const PROP_SIZE: Record<PropKind, PropSize> = {
   lowWall: { w: 6, h: 0.85, d: 1, blocks: true }, // above the 0.75 m step, below a jump's peak of about 2.5 m
   stairs: { w: 8, h: SEAWALL_HEIGHT, d: STAIRS_TUNE.steps * STAIRS_TUNE.run, blocks: true },
   ramp: { w: RAMP_TUNE.width, h: RAMP_TUNE.height, d: RAMP_TUNE.length, blocks: true },
+  fortWall: { w: 12, h: 12, d: 6, blocks: true },
 };
 
 // A prop's health (provisional). Only a `breakable: true` prop uses it. The autocannon (WEAPONS.autocannon.damage 10)
@@ -61,6 +62,7 @@ export const PROP_HP: Record<PropKind, number> = {
   lowWall: 40,
   stairs: 0,
   ramp: 0,
+  fortWall: 200, // never breakable: a shot does not bring the fortress down
 };
 
 export interface TargetSize {

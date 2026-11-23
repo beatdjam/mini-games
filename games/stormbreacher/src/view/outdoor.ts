@@ -41,6 +41,7 @@ const KINDS: PropKind[] = [
   'lowWall',
   'stairs',
   'ramp',
+  'fortWall',
 ];
 
 // Each kind's colour. The tile has none: its ground plane takes its colour from the look (view/look.ts). The concrete
@@ -56,6 +57,7 @@ const KIND_COLOR: Record<Exclude<PropKind, 'tile'>, number> = {
   lowWall: 0x827f78,
   stairs: 0x88857e,
   ramp: 0x88857e,
+  fortWall: 0x7f7c76,
 };
 
 // The kinds that wear a surface picture (view/surfaces.ts). The cliff and the crater keep their colour alone.
@@ -66,6 +68,7 @@ const KIND_SURFACE: Partial<Record<PropKind, SurfaceName>> = {
   lowWall: 'concrete',
   stairs: 'concrete',
   ramp: 'concrete',
+  fortWall: 'concrete',
   hedgehog: 'rust',
   wreck: 'burnt',
 };
@@ -352,6 +355,11 @@ function seawallGeometry(): THREE.BufferGeometry {
   return merge([box(8, 5, 4, 0, 2.5, 0), box(8.4, 0.6, 4.4, 0, 5.3, 0)]);
 }
 
+// The fortress's wall: one thick concrete box, 12 m square by 6 m deep (PROP_SIZE.fortWall).
+function fortWallGeometry(): THREE.BufferGeometry {
+  return box(12, 12, 6, 0, 6, 0);
+}
+
 function cliffGeometry(): THREE.BufferGeometry {
   return merge([box(20, 24, 16, 0, 12, 0), box(8, 30, 10, 6, 15, 2)]);
 }
@@ -474,6 +482,7 @@ const SHAPES: Record<PropKind, () => THREE.BufferGeometry> = {
   lowWall: () => fitBox(lowWallGeometry(), PROP_SIZE.lowWall),
   stairs: () => fitBox(stairsGeometry(), PROP_SIZE.stairs),
   ramp: () => fitBox(rampGeometry(), PROP_SIZE.ramp),
+  fortWall: () => fitBox(fortWallGeometry(), PROP_SIZE.fortWall),
 };
 
 const UP = new THREE.Vector3(0, 1, 0);

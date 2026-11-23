@@ -23,8 +23,8 @@ export interface BarrageSlow {
 
 export const BARRAGES: Record<BarrageKind, BarrageDef> = {
   mortar: { interval: 4, warn: 2.5, radius: 7, damage: 25, aimJitter: 12, minZ: 30, maxZ: Infinity },
-  // the battery's secondary guns (SB-200): they reach the seawall's top and the ground behind it; the depot's ammunition
-  // being gone, they fire less often
+  // the battery's secondary guns (SB-200): they reach the field before the battery, past the fortress; the depot's
+  // ammunition being gone, they fire less often
   battery: {
     interval: 3,
     warn: 2,
@@ -32,7 +32,7 @@ export const BARRAGES: Record<BarrageKind, BarrageDef> = {
     damage: 30,
     aimJitter: 8,
     minZ: -Infinity,
-    maxZ: -65,
+    maxZ: -135,
     slow: { flag: 'depot-down', mul: 1.5 },
   },
 };

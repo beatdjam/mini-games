@@ -1,23 +1,19 @@
 // The band between C's rear row and the seawall (task 1985): C's four hedgehogs beside the ramps are gone, so the mech
-// walks out of every part of the band to C's sea side, the seawall-drop wave lands there and walks out by the nav, the
+// walks out of every part of the band to C's sea side, the
 // map's bounds hold the mech (also where a hedgehog's box crosses them), and every wave's enemies spawn with their bodies
 // outside the props' and targets' shot boxes.
 import { expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
-import { ENEMIES, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY } from '../../src/data/enemies.ts';
+import { ENEMIES, M1_WAVE_DROP, M1_WAVE_ENEMY } from '../../src/data/enemies.ts';
 import { MECH_TUNE, MOVE_TUNE } from '../../src/data/tune.ts';
 import { rectBoxes, rectDistance, type GroundRect } from '../../src/logic/collide.ts';
 import type { Aabb } from '../../src/logic/fire.ts';
-import { newEnemy, stepEnemy, type EnemyWorld } from '../../src/logic/enemies.ts';
 import { mapBlockers } from '../../src/logic/mapShapes.ts';
 import { newMech, stepMech, type MechInput, type MechState } from '../../src/logic/mech.ts';
-import { buildNavField, buildNavGrid } from '../../src/logic/nav.ts';
-import { rng, seed } from '../../src/logic/rng.ts';
 
 const MAP = M1B_HAND;
 const DT = 1 / 30;
 const TURN_RATE = 6; // how fast the walk turns toward its next point (rad/s)
-const NAV_RADIUS = Math.max(...ENEMY_KINDS.filter(kind => ENEMIES[kind].speed > 0).map(kind => ENEMIES[kind].radius));
 
 const idle: MechInput = {
   moveX: 0,
@@ -92,30 +88,6 @@ test('the mech walks out of every part of the band to C’s sea side', () => {
       );
     }
     expect(mech.z, `${band.name} band`).toBeGreaterThan(-40);
-  }
-});
-
-test('the seawall-drop wave lands in the band and walks out by the nav', () => {
-  const grid = buildNavGrid(rects, MAP.bounds, NAV_RADIUS);
-  const mech = { x: 0, y: 0, z: -30 };
-  const field = buildNavField(grid, mech.x, mech.z);
-  for (const [index, place] of MAP.spawns['seawall-drop'].entries()) {
-    seed(1);
-    const enemy = newEnemy(`drop-${index + 1}`, 'seawall-drop', 'grunt', place.x, place.z, 6);
-    const falling: EnemyWorld = { rects, propBoxes: [], bounds: MAP.bounds, nav: null, others: [] };
-    for (let frame = 0; frame < 240 && enemy.y > 0; frame++) stepEnemy(enemy, mech, falling, DT, rng());
-    expect(enemy.y, `landing of (${place.x}, ${place.z})`).toBe(0);
-    expect(enemy.z, `landing of (${place.x}, ${place.z})`).toBeLessThan(-52.5);
-    const walking: EnemyWorld = { ...falling, nav: field };
-    let out = false;
-    for (let frame = 0; frame < 1200; frame++) {
-      stepEnemy(enemy, mech, walking, DT, rng());
-      if (enemy.z > -45) {
-        out = true;
-        break;
-      }
-    }
-    expect(out, `the enemy from (${place.x}, ${place.z}) left the band`).toBe(true);
   }
 });
 

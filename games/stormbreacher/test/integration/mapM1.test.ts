@@ -12,6 +12,7 @@ import { targetBox } from '../../src/logic/game.ts';
 import { checkMapPath } from '../../src/logic/mapCheck.ts';
 import { generateMap } from '../../src/logic/mapgen.ts';
 
+// The targets the generated map stops short of: its rules end at z -60, before the fortress and the battery.
 const OUT_OF_RANGE = new Set(['main-gun-1', 'main-gun-2', 'magazine']);
 
 const MAPS: { name: string; map: MapDef }[] = [
@@ -127,7 +128,7 @@ test('the two pillboxes of the objective stand landward of z 0', () => {
   for (const pillbox of pillboxes) expect(pillbox.z, pillbox.id).toBeLessThan(0);
 });
 
-test('the hand map’s seawall runs from x -100 to 100 with no gap along x, inside the bounds', () => {
+test('the hand map’s seawall runs from x -100 to -36 and 36 to 100 with no gap, inside the bounds', () => {
   const size = PROP_SIZE.seawall;
   const rows = new Map<number, number[]>();
   for (const prop of M1B_HAND.props) {
@@ -140,27 +141,36 @@ test('the hand map’s seawall runs from x -100 to 100 with no gap along x, insi
   expect(rows.size).toBeGreaterThan(0);
   const { minX, maxX, minZ } = M1B_HAND.bounds;
   for (const [z, xs] of rows) {
-    expect(xs[0] - size.w / 2, `row ${z}`).toBeLessThanOrEqual(minX);
-    expect(xs[xs.length - 1] + size.w / 2, `row ${z}`).toBeGreaterThanOrEqual(maxX);
-    for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1], `row ${z}`).toBeLessThanOrEqual(size.w);
+    const left = xs.filter(x => x < 0);
+    const right = xs.filter(x => x > 0);
+    expect(left[0] - size.w / 2, `row ${z}`).toBeLessThanOrEqual(minX);
+    expect(left[left.length - 1] + size.w / 2, `row ${z}`).toBeLessThanOrEqual(-36);
+    expect(right[0] - size.w / 2, `row ${z}`).toBeGreaterThanOrEqual(36);
+    expect(right[right.length - 1] + size.w / 2, `row ${z}`).toBeGreaterThanOrEqual(maxX);
+    for (let i = 1; i < left.length; i++) expect(left[i] - left[i - 1], `row ${z}`).toBeLessThanOrEqual(size.w);
+    for (let i = 1; i < right.length; i++) expect(right[i] - right[i - 1], `row ${z}`).toBeLessThanOrEqual(size.w);
     expect(z - size.d / 2, `row ${z}`).toBeGreaterThanOrEqual(minZ);
   }
 });
 
-test('the hand map’s ramps stand against the seawall’s sea side and climb to its height', () => {
-  const ramps = M1B_HAND.props.filter(prop => prop.kind === 'ramp');
-  expect(ramps.length).toBe(2);
-  const seaSide = Math.max(
-    ...M1B_HAND.props.filter(prop => prop.kind === 'seawall').map(prop => prop.z + PROP_SIZE.seawall.d / 2),
-  );
-  for (const ramp of ramps) {
-    expect(ramp.z - PROP_SIZE.ramp.d / 2).toBeCloseTo(seaSide, 6);
-    expect(PROP_SIZE.ramp.h).toBe(PROP_SIZE.seawall.h);
-  }
+test('the hand map has no ramp up the seawall and keeps the ramp kind for the editor and the tests', () => {
+  expect(M1B_HAND.props.filter(prop => prop.kind === 'ramp')).toEqual([]);
+  expect(PROP_SIZE.ramp.h).toBe(PROP_SIZE.seawall.h);
+});
+
+test('the hand map’s bounds and the battery’s parts reach to z -300', () => {
+  expect(M1B_HAND.bounds.minZ).toBe(-300);
+  const at = (id: string) => M1B_HAND.targets.find(target => target.id === id);
+  expect(at('main-gun-1')?.z).toBe(-235);
+  expect(at('main-gun-2')?.z).toBe(-235);
+  expect(at('magazine')?.z).toBe(-250);
+  // the walking check is empty (it stops at the seawall's foot; the gates are walked in fortress.test.ts)
+  expect(checkMapPath(M1B_HAND)).toEqual([]);
 });
 
 test('the hand map’s low walls leave room to walk round them', () => {
-  const walls = M1B_HAND.props.filter(prop => prop.kind === 'lowWall').sort((a, b) => a.x - b.x);
+  // the beach's five (the yard's three door markers stand at z < 0 and are not read here)
+  const walls = M1B_HAND.props.filter(prop => prop.kind === 'lowWall' && prop.z > 0).sort((a, b) => a.x - b.x);
   expect(walls.length).toBeGreaterThanOrEqual(4);
   expect(walls.length).toBeLessThanOrEqual(6);
   for (let i = 1; i < walls.length; i++) {
@@ -173,12 +183,12 @@ for (const { name, map } of MAPS) {
   test(`the ${name} map has the targets and spawns M1 uses on this range`, () => {
     const onMap = new Set(map.targets.map(target => target.id));
     for (const target of destroyedTargets()) {
-      if (OUT_OF_RANGE.has(target)) continue;
+      if (name !== 'hand' && OUT_OF_RANGE.has(target)) continue;
       expect(onMap.has(target), target).toBe(true);
       expect(M1.targets).toContain(target);
     }
-    for (const wave of ['b-squad', 'depot-guard', 'seawall-drop', 'c-squad'])
-      expect(map.spawns[wave]?.length ?? 0).toBeGreaterThan(0);
+    for (const wave of ['b-squad', 'depot-guard', 'c-squad']) expect(map.spawns[wave]?.length ?? 0).toBeGreaterThan(0);
+    expect(map.spawns['seawall-drop']).toBeUndefined();
   });
 
   test(`the ${name} map keeps the pillboxes out of the b-line place`, () => {

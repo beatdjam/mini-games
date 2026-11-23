@@ -51,7 +51,7 @@ export const HUD_SAMPLE = {
   sub: { current: 6, max: 8 }, // 仮
   enemy: { name: 'トーチカ', health: 0.6 }, // M1's enemy; the bar is 仮
   objective: { key: 'obj.break-pillboxes', count: ' 1/2' }, // the key is t()'d in build.ts
-  radio: { key: 'm1.wave2-lost', label: '無線' }, // the key is t()'d in build.ts
+  radio: { key: 'm1.fortress-gate', label: '無線' }, // the key is t()'d in build.ts
   warning: '被弾: 左脚', // 仮
   radar: [
     { kind: 'objective', angle: 20, dist: 0.7 },

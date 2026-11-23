@@ -1,15 +1,15 @@
 // All of M1 (SB-055, SB-120), written by hand: every prop is one line so the shape can be read and edited without a
-// tool. +z is the sea and -z is the land; the bounds run from the beach (z 170) back past the seawall (z -75..-65) to
-// the boss's ground (z -170).
+// tool. +z is the sea and -z is the land; the bounds run from the beach (z 170) back past the seawall (z -75..-65) and the
+// fortress (z -68..-128) to the field before the battery and its parts (z -300).
 import { DEFENDER_SPAWNS } from '../defenders.ts';
 import type { BlastPlace, MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B section is two closed defence lines across the map (SB-2020): line 1 at the water's edge and line 2 69 m on,
 // three hedgehog rows each, with the old breakthroughs filled in so only a charge's hole opens them. Each row is spaced
-// so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows hold the front before the seawall, which runs
-// across the whole map with a ramp right behind each breakthrough of the line before it (x -50 and x 35). Behind the
-// seawall (z -75..-170) is the boss's ground: cover in its first stretch (z -80..-115) and the battery's three parts at
-// the back (the targets below).
+// so neighbouring hedgehogs stand under 2 m apart (SB-120). C's two rows hold the front before the seawall, which now
+// runs only either side of the fortress (x -96..-40 and 40..96). The fortress stands where the middle of the seawall
+// was: walls on all four sides with the sea and land gates at x 0, and cover in its yard (z -74..-122). Past it
+// (z -140..-225) is the field before the battery, and the battery's three parts stand at the back (the targets below).
 const PROPS: Prop[] = [
   // the cliff along the right edge (x 100, clear of the line's last props)
   { kind: 'cliff', x: 100, z: 160, yaw: 0, scale: 1.08 },
@@ -24,6 +24,19 @@ const PROPS: Prop[] = [
   { kind: 'cliff', x: 100, z: -20, yaw: 0.16, scale: 0.97 },
   { kind: 'cliff', x: 100, z: -40, yaw: -0.09, scale: 1.02 },
   { kind: 'cliff', x: 100, z: -60, yaw: 0.23, scale: 1 },
+  // the same cliff on down to the back edge (z -300), past the fortress and the battery
+  { kind: 'cliff', x: 100, z: -80, yaw: -0.11, scale: 1.04 },
+  { kind: 'cliff', x: 100, z: -100, yaw: 0.17, scale: 0.96 },
+  { kind: 'cliff', x: 100, z: -120, yaw: -0.24, scale: 1.07 },
+  { kind: 'cliff', x: 100, z: -140, yaw: 0.06, scale: 0.92 },
+  { kind: 'cliff', x: 100, z: -160, yaw: -0.15, scale: 1.02 },
+  { kind: 'cliff', x: 100, z: -180, yaw: 0.21, scale: 0.99 },
+  { kind: 'cliff', x: 100, z: -200, yaw: -0.03, scale: 1.06 },
+  { kind: 'cliff', x: 100, z: -220, yaw: 0.13, scale: 0.94 },
+  { kind: 'cliff', x: 100, z: -240, yaw: -0.19, scale: 1.09 },
+  { kind: 'cliff', x: 100, z: -260, yaw: 0.08, scale: 0.97 },
+  { kind: 'cliff', x: 100, z: -280, yaw: -0.12, scale: 1.03 },
+  { kind: 'cliff', x: 100, z: -300, yaw: 0.2, scale: 1 },
   // line 1 at the water's edge (z 128..146): closed; the blast points at x -55 and x 40 open it
   { kind: 'hedgehog', x: -98, z: 131, yaw: 0, scale: 1.08 },
   { kind: 'hedgehog', x: -93.89, z: 131, yaw: 0.12, scale: 1.05 },
@@ -412,7 +425,8 @@ const PROPS: Prop[] = [
   { kind: 'wreck', x: -15, z: -5, yaw: -0.18, scale: 1.06 },
   { kind: 'wreck', x: 45, z: 3, yaw: 0.25, scale: 0.9 },
   { kind: 'crater', x: 65, z: -2, yaw: -0.05, scale: 1.03 },
-  // the seawall across the map (z -75..-65): three overlapping rows of 8 m pieces leave no gap
+  // the seawall either side of the fortress (z -75..-65): three overlapping rows of 8 m pieces leave no gap; the middle
+  // (x -36..36) is gone, for the fortress's sea-side wall and gate stand there
   { kind: 'seawall', x: -96, z: -73, yaw: 0, scale: 1 },
   { kind: 'seawall', x: -88, z: -73, yaw: 0, scale: 1 },
   { kind: 'seawall', x: -80, z: -73, yaw: 0, scale: 1 },
@@ -421,15 +435,6 @@ const PROPS: Prop[] = [
   { kind: 'seawall', x: -56, z: -73, yaw: 0, scale: 1 },
   { kind: 'seawall', x: -48, z: -73, yaw: 0, scale: 1 },
   { kind: 'seawall', x: -40, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -32, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -24, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -16, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -8, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 0, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 8, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 16, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 24, z: -73, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 32, z: -73, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 40, z: -73, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 48, z: -73, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 56, z: -73, yaw: 0, scale: 1 },
@@ -446,15 +451,6 @@ const PROPS: Prop[] = [
   { kind: 'seawall', x: -56, z: -70, yaw: 0, scale: 1 },
   { kind: 'seawall', x: -48, z: -70, yaw: 0, scale: 1 },
   { kind: 'seawall', x: -40, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -32, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -24, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -16, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -8, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 0, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 8, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 16, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 24, z: -70, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 32, z: -70, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 40, z: -70, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 48, z: -70, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 56, z: -70, yaw: 0, scale: 1 },
@@ -471,15 +467,6 @@ const PROPS: Prop[] = [
   { kind: 'seawall', x: -56, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: -48, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: -40, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -32, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -24, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -16, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: -8, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 0, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 8, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 16, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 24, z: -67, yaw: 0, scale: 1 },
-  { kind: 'seawall', x: 32, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 40, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 48, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 56, z: -67, yaw: 0, scale: 1 },
@@ -488,28 +475,62 @@ const PROPS: Prop[] = [
   { kind: 'seawall', x: 80, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 88, z: -67, yaw: 0, scale: 1 },
   { kind: 'seawall', x: 96, z: -67, yaw: 0, scale: 1 },
-  // two ramps up the seawall from its sea side (z -65..-47), climbing towards -z
-  { kind: 'ramp', x: -50, z: -56, yaw: 0, scale: 1 },
-  { kind: 'ramp', x: 35, z: -56, yaw: 0, scale: 1 },
+  // the fortress (FORTRESS_TUNE): 12 m square wall pieces, inner faces at x +-29 and z -74/-122, gates 12 m wide at x 0.
+  // The sea-side wall covers x 6..35 and -35..-6 with three overlapping pieces a side; the land-side wall does the same.
+  { kind: 'fortWall', x: -12, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: -24, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: -29, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 12, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 24, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 29, z: -71, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: -12, z: -125, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: -24, z: -125, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: -29, z: -125, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 12, z: -125, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 24, z: -125, yaw: 0, scale: 1 },
+  { kind: 'fortWall', x: 29, z: -125, yaw: 0, scale: 1 },
+  // the left and right walls run between them (z -122..-74), four pieces a side
+  { kind: 'fortWall', x: -32, z: -80, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'fortWall', x: -32, z: -92, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'fortWall', x: -32, z: -104, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'fortWall', x: -32, z: -116, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'fortWall', x: 32, z: -80, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'fortWall', x: 32, z: -92, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'fortWall', x: 32, z: -104, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'fortWall', x: 32, z: -116, yaw: Math.PI / 2, scale: 1 },
+  // the yard's cover (z -74..-122): 9 pieces, with the way from gate to gate (x 0) clear
+  { kind: 'block', x: -20, z: -84, yaw: 0.12, scale: 1.05 },
+  { kind: 'block', x: 18, z: -86, yaw: -0.18, scale: 1.06 },
+  { kind: 'block', x: -18, z: -112, yaw: 0.25, scale: 0.9 },
+  { kind: 'block', x: 20, z: -112, yaw: -0.05, scale: 1.03 },
+  { kind: 'wreck', x: -22, z: -98, yaw: -0.22, scale: 0.95 },
+  { kind: 'wreck', x: 22, z: -98, yaw: 0.08, scale: 0.93 },
+  { kind: 'crater', x: -9, z: -78, yaw: -0.14, scale: 1.1 },
+  { kind: 'crater', x: 9, z: -100, yaw: 0.16, scale: 0.97 },
+  { kind: 'crater', x: 9, z: -118, yaw: -0.09, scale: 1.02 },
+  // the door markers for L5's enemies, short low walls against the left, right and land walls
+  { kind: 'lowWall', x: -28.4, z: -90, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'lowWall', x: 28.4, z: -106, yaw: Math.PI / 2, scale: 1 },
+  { kind: 'lowWall', x: 9, z: -120, yaw: 0, scale: 1 },
   // low walls across the beach (z 154): too high to walk onto, low enough to jump, with 14 m between them
   { kind: 'lowWall', x: -42, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: -18, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: 6, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: 30, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: 54, z: 154, yaw: 0, scale: 1 },
-  // cover on the boss's ground, landward of the seawall (z -80..-115): no sight line runs straight to the battery, and
-  // every gap between two pieces stays wider than the mech
-  { kind: 'block', x: -70, z: -84, yaw: 0.12, scale: 1.05 },
-  { kind: 'block', x: -35, z: -90, yaw: -0.18, scale: 1.06 },
-  { kind: 'block', x: -5, z: -82, yaw: 0.25, scale: 0.9 },
-  { kind: 'block', x: 25, z: -88, yaw: -0.05, scale: 1.03 },
-  { kind: 'block', x: 60, z: -85, yaw: 0.2, scale: 0.98 },
-  { kind: 'block', x: -50, z: -108, yaw: -0.22, scale: 0.95 },
-  { kind: 'block', x: 45, z: -110, yaw: 0.08, scale: 0.93 },
-  { kind: 'wreck', x: -88, z: -100, yaw: -0.14, scale: 1.1 },
-  { kind: 'wreck', x: -15, z: -100, yaw: 0.16, scale: 0.97 },
-  { kind: 'wreck', x: 78, z: -102, yaw: -0.09, scale: 1.02 },
-  { kind: 'wreck', x: 15, z: -114, yaw: 0.23, scale: 1 },
+  // cover in the field before the battery (z -140..-225): the 7 blocks and 4 wrecks that stood behind the seawall, moved
+  // on; every two pieces stand 20 m or more apart, and the way from the land gate to the guns (x 0) stays clear
+  { kind: 'block', x: -80, z: -150, yaw: 0.12, scale: 1.05 },
+  { kind: 'block', x: -35, z: -152, yaw: -0.18, scale: 1.06 },
+  { kind: 'block', x: 40, z: -150, yaw: 0.25, scale: 0.9 },
+  { kind: 'block', x: 80, z: -160, yaw: -0.05, scale: 1.03 },
+  { kind: 'wreck', x: -80, z: -185, yaw: 0.2, scale: 0.98 },
+  { kind: 'wreck', x: -25, z: -180, yaw: -0.22, scale: 0.95 },
+  { kind: 'wreck', x: 30, z: -185, yaw: 0.08, scale: 0.93 },
+  { kind: 'wreck', x: 75, z: -190, yaw: -0.14, scale: 1.1 },
+  { kind: 'block', x: -55, z: -210, yaw: 0.16, scale: 0.97 },
+  { kind: 'block', x: -20, z: -205, yaw: -0.09, scale: 1.02 },
+  { kind: 'block', x: 55, z: -215, yaw: 0.23, scale: 1 },
 ];
 
 // Six mines on the beach (z 148..162), kept 6 m or more from the mech's start (x 0, z 166).
@@ -544,7 +565,7 @@ const BLASTS: BlastPlace[] = [
 
 export const M1B_HAND: MapDef = {
   id: 'm1b-hand',
-  bounds: { minX: -100, maxX: 100, minZ: -170, maxZ: 170 },
+  bounds: { minX: -100, maxX: 100, minZ: -300, maxZ: 170 },
   props: PROPS,
   mines: MINES,
   blasts: BLASTS,
@@ -552,10 +573,11 @@ export const M1B_HAND: MapDef = {
     { id: 'pillbox-1', kind: 'pillbox', x: -33, z: -15, yaw: 0 },
     { id: 'pillbox-2', kind: 'pillbox', x: 22, z: -15, yaw: 0.2 },
     { id: 'depot', kind: 'depot', x: 53, z: 31, yaw: -0.3 },
-    // the battery on the seawall's landward side: two main guns, and the magazine between and behind them
-    { id: 'main-gun-1', kind: 'gun', x: -30, z: -135, yaw: 0 },
-    { id: 'main-gun-2', kind: 'gun', x: 30, z: -135, yaw: 0 },
-    { id: 'magazine', kind: 'magazine', x: 0, z: -150, yaw: 0 },
+    // the battery past the fortress: two main guns, and the magazine between and behind them; provisional places until
+    // L8 makes them the super-heavy gun's turrets and core
+    { id: 'main-gun-1', kind: 'gun', x: -45, z: -235, yaw: 0 },
+    { id: 'main-gun-2', kind: 'gun', x: 45, z: -235, yaw: 0 },
+    { id: 'magazine', kind: 'magazine', x: 0, z: -250, yaw: 0 },
   ],
   spawns: {
     'b-squad': [
@@ -590,22 +612,12 @@ export const M1B_HAND: MapDef = {
       { x: 56, z: 52 },
       { x: 62, z: 54 },
     ],
-    // four in the band between C's two rows (z -50 and -40), clear of both rows and of the ramps behind them
+    // four in the band between C's two rows (z -50 and -40), clear of both rows
     'c-squad': [
       { x: -70, z: -45 },
       { x: -20, z: -45 },
       { x: 15, z: -45 },
       { x: 65, z: -45 },
-    ],
-    // on top of the seawall (z -75..-65), clear of the two ramps (x -54..-46 and 31..39), and each jumps
-    // down to the seaward side; the landing is about 6 m on, in the band between the wall and C's rear row
-    'seawall-drop': [
-      { x: -62, z: -70 },
-      { x: -30, z: -70 },
-      { x: -10, z: -70 },
-      { x: 10, z: -70 },
-      { x: 24, z: -70 },
-      { x: 50, z: -70 },
     ],
   },
 };

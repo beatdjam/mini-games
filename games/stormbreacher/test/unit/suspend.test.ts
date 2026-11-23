@@ -185,6 +185,7 @@ describe('suspend', () => {
   test('a version that is not this one is thrown away', () => {
     const data = stored(suspendOf(newGame(M1B_HAND))) as Record<string, unknown>;
     expect(restoreSuspend({ ...data, v: SUSPEND_VERSION + 1 })).toBeNull();
+    expect(restoreSuspend({ ...data, v: SUSPEND_VERSION - 1 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 6 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 5 })).toBeNull();
     expect(restoreSuspend({ ...data, v: 4 })).toBeNull();

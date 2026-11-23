@@ -11,6 +11,7 @@ import { currentGame, startSortie, titleReturn } from '../../src/app/play.ts';
 import { state } from '../../src/app/screen.ts';
 import { SUSPEND_KEY } from '../../src/app/storage.ts';
 import { CUTSCENE_SEC } from '../../src/data/script.ts';
+import { sendToScript } from '../../src/logic/game.ts';
 import { pastSkipGuard as pastGuard } from './cutsceneSkip.ts';
 import { steps, untilSteps } from './steps.ts';
 // loads the language files and boots the page, as the real page does
@@ -68,14 +69,18 @@ test('the jump of the frame a cutscene starts does not skip it, and the press is
   startSortie();
   await pastLanding();
   const current = game();
-  // the wave 2 cue fires on the next step (an after-cp1 cue): jump in the same frame it starts the cutscene
-  current.script.fired.cp1 = current.script.time - 4;
+  // the magazine's fall starts beach-held (the guns go first so the shutter opens): jump in the same frame
+  for (const id of ['main-gun-1', 'main-gun-2', 'magazine']) {
+    const target = current.targets.find(entry => entry.id === id);
+    if (target) target.hp = 0;
+    sendToScript(current, { kind: 'destroyed', target: id });
+  }
   press('Space');
   steps(1);
-  expect(current.script.cutscene?.id).toBe('wave2-sinks');
+  expect(current.script.cutscene?.id).toBe('beach-held');
   // the press inside the guard is gone, not saved up for the moment the guard ends
   await until(pastGuard);
-  expect(current.script.cutscene?.id).toBe('wave2-sinks');
+  expect(current.script.cutscene?.id).toBe('beach-held');
   press('Enter');
   await until(() => current.script.cutscene === null);
 });

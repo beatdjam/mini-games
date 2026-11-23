@@ -292,7 +292,7 @@ test(
       return { x: ally.x, z: ally.z };
     });
 
-    sendToScript(game, { kind: 'enter', area: 'seawall-top' });
+    sendToScript(game, { kind: 'enter', area: 'fortress-gate' });
     COVERS.forEach((id, i) => {
       const ally = allyById(game.allies, id);
       expect(ally.way[0]).toEqual(cPosts[i]);
@@ -303,20 +303,16 @@ test(
 );
 
 test(
-  'on the way to the boss the cover mechs climb the ramp and come back to the ground past the seawall',
+  'on the way to the boss the cover mechs go through the sea gate into the fortress yard',
   () => {
     const game = newPlayGame(M1B_HAND);
     breakPillboxes(game);
     runQuiet(game, 60 * 40);
-    sendToScript(game, { kind: 'enter', area: 'seawall-top' });
+    sendToScript(game, { kind: 'enter', area: 'fortress-gate' });
 
     const ally = allyById(game.allies, 'cover-b1');
-    let highest = 0;
-    for (let i = 0; i < 60 * 25; i++) {
-      runQuiet(game, 1);
-      highest = Math.max(highest, ally.y);
-    }
-    expect(highest).toBeGreaterThan(3);
+    for (let i = 0; i < 60 * 25 && ally.z > -90; i++) runQuiet(game, 1);
+    expect(ally.z).toBeLessThan(-74);
     expect(ally.y).toBe(0);
   },
   LONG,

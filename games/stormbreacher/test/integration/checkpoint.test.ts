@@ -204,10 +204,11 @@ describe('checkpoint', () => {
     run(again, walk, 30);
     expect(again.mech.z).not.toBe(z);
     expect(again.time).toBeGreaterThan(time);
-    // cp1 was taken in the checkpoint, so wave2-lost fires 4 s later
-    run(again, idle, 60 * 5);
-    expect(again.script.fired['wave2-lost']).toBeDefined();
-    expect(again.script.objective).toBe('take-seawall');
+    // the script goes on from the copy: the fortress gate takes cp2 and its objective
+    sendToScript(again, { kind: 'enter', area: 'fortress-gate' });
+    run(again, idle, 1);
+    expect(again.script.fired['fortress-gate']).toBeDefined();
+    expect(again.script.objective).toBe('stop-fortress-gun');
   });
 
   test('the checkpoint does not change with what the retried game does', () => {

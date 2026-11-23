@@ -62,10 +62,13 @@ export type Action =
   | { kind: 'payoff'; id: string } // a milestone's knock (data/payoff.ts)
   | { kind: 'end'; result: 'cleared' };
 
-// One line of a mission's script.
+// One line of a mission's script. `when` and `unless` are extra conditions on the flags: all of `when` must stand and
+// none of `unless` may; the flags are the mission's `flags`. Either may be left out.
 export interface Cue {
   id: string;
   trigger: Trigger;
+  when?: readonly string[];
+  unless?: readonly string[];
   actions: readonly Action[];
 }
 
@@ -84,6 +87,7 @@ export interface MissionDef {
   waves: readonly string[];
   objectives: readonly string[];
   marks: readonly string[];
+  flags?: readonly string[]; // the flags the cues may raise and test; left out means the mission has none
   allies: readonly string[];
   paths: Readonly<Record<string, readonly GroundSpot[]>>; // the ways an ally runs, by name; a way is the points it passes in order
   places: Readonly<Record<string, GroundSpot>>; // the places a fate happens at, by name
@@ -103,7 +107,8 @@ export type PropKind =
   | 'wreck'
   | 'lowWall' // a low obstacle: too high to walk onto, low enough to jump over
   | 'stairs' // one flight of steps up the seawall; its rects are one per step (STAIRS_TUNE)
-  | 'ramp'; // one ramp up the seawall; one rect whose top slopes down to its seaward end (RAMP_TUNE)
+  | 'ramp' // one ramp up the seawall; one rect whose top slopes down to its seaward end (RAMP_TUNE)
+  | 'fortWall'; // a wall of the fortress: high, thick, not shot down
 
 export const PROP_KINDS: readonly PropKind[] = [
   'tile',
@@ -117,6 +122,7 @@ export const PROP_KINDS: readonly PropKind[] = [
   'lowWall',
   'stairs',
   'ramp',
+  'fortWall',
 ];
 
 export interface Prop {
