@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
 import { PROTO_KIT_IDS, PROTO_KITS, PROTO_MATERIALS } from '../../src/data/mechProto.ts';
+import { bakeProtoMech } from '../../src/view/mechProtoBake.ts';
+import { buildWardenShapes } from '../../src/view/wardenModel.ts';
 import { buildProtoMech, countProtoDraws, disposeProtoMech, protoMuzzle } from '../../src/view/mechProtoModel.ts';
 
 // SB-2081: the player's kit is the three views' white machine on the common skeleton. It still costs one mesh per
@@ -66,4 +68,19 @@ test('the boss kit stands larger and wears its own parts at the same four draws'
   expect(hip(boss) / hip(player)).toBeCloseTo(PROTO_KITS.boss.scale ?? 1, 2);
   disposeProtoMech(player);
   disposeProtoMech(boss);
+});
+
+// SB-2049: the mid boss is the boss's machine with added layers, baked like a soldier. It carries at least twice the
+// triangles of the largest line soldier, in three shapes (body, lamps, vents), and has the gold command mark in its row.
+test('the mid boss kit is baked with at least twice the triangles of the heavy soldier', () => {
+  const heavy = bakeProtoMech('enemyHeavy', 3.5, 'full').triangles;
+  const warden = buildWardenShapes(6);
+  const total = warden.triangles.body + warden.triangles.lamps + warden.triangles.vents;
+  console.log(`warden: ${JSON.stringify(warden.triangles)}, heavy soldier: ${heavy}`);
+  expect(total).toBeGreaterThanOrEqual(heavy * 2);
+  expect(PROTO_KITS.warden.legPlus?.length).toBeGreaterThan(0);
+  warden.body.computeBoundingBox();
+  // the body stays within the hit box's width at the shoulders and under 1.2 times its height at the turret
+  expect(warden.body.boundingBox!.max.y).toBeLessThan(6 * 1.2);
+  expect(warden.body.boundingBox!.min.y).toBeGreaterThanOrEqual(0);
 });

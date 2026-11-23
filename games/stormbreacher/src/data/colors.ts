@@ -83,7 +83,7 @@ export const ENEMY_DOWN_TINT = 0x574d46;
 // lamps and vents are white in the shape and take these colours per copy: the lamps glow red and warm to
 // PILLBOX_WARN_COLOR while it warns of a burst, the radiator's vents smoulder and burn open while it is exposed, and
 // both go dark when it is down.
-export const WARDEN_PALETTE = { armor: 0x474e57, frame: 0x22262b, accent: 0xb3262b };
+export const WARDEN_PALETTE = { armor: 0x474e57, frame: 0x22262b, accent: 0xb3262b, mark: 0xd9a63a };
 export const WARDEN_LAMP_COLOR = 0xff2a22;
 export const WARDEN_VENT_IDLE_COLOR = 0x7a1812;
 export const WARDEN_VENT_OPEN_COLOR = 0xffb25a;
@@ -169,6 +169,8 @@ export const PROTO_PALETTES: Record<ProtoPaletteId, Record<ProtoMaterial, number
   // SB-2083: a little lighter than SB-2080's row, so the dark machine still shows its plates under the beach's light
   enemy: { armor: 0x5a6067, frame: 0x2b3035, accent: 0xa52e33, glow: 0xff3b36, mark: 0xa52e33 },
   boss: { armor: 0x24262a, frame: 0x141618, accent: 0xa01e22, glow: 0xff1a1a, mark: 0xa01e22 },
+  // SB-2049: the mid boss, the boss's black lightened as the enemy row was, with the gold of the command mark
+  warden: { ...WARDEN_PALETTE, glow: 0xff2a22 },
   allyWreck: { armor: 0x2e3234, frame: 0x1e2022, accent: 0x35332c, glow: 0x1e2022, mark: 0x35332c },
 };
 

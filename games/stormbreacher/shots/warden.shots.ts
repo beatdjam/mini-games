@@ -99,6 +99,31 @@ test('warden', async () => {
     await picture('warden-front-3q');
   }
 
+  // the three line soldiers beside it at the same depth, to compare the size and the work (SB-2049's second pass)
+  if (wanted('warden-vs-soldiers')) {
+    const line = (id: string, kind: 'grunt' | 'assault' | 'heavy', x: number) => {
+      const soldier = newEnemy(id, 'line', kind, x, -118 + DZ);
+      soldier.awake = true;
+      return soldier;
+    };
+    game.enemies = [
+      warden,
+      line('s-grunt', 'grunt', -6),
+      line('s-assault', 'assault', -9.5),
+      line('s-heavy', 'heavy', 6),
+    ];
+    look([-1, 3.2, -131], [0, 2.8, -118]);
+    drawEnemies(enemyView, game);
+    await picture('warden-vs-soldiers');
+    game.enemies = [warden];
+  }
+
+  if (wanted('warden-close')) {
+    look([-4, 4, -124], [0, 3.2, -118]);
+    drawEnemies(enemyView, game);
+    await picture('warden-close');
+  }
+
   if (wanted('warden-side')) {
     look([12, 3.5, -118], [0, 3, -118]);
     drawEnemies(enemyView, game);

@@ -204,16 +204,17 @@ function buildSoldierView(kind: SoldierKind): EnemyKindView {
   };
 }
 
-// The mid boss (SB-1850, built from parts by SB-2049): view/wardenModel.ts builds three shapes, each one draw: the body
-// (painted with the boss row of PROTO_PALETTES), the lamps and the vents (white, so each copy gives them their colour).
-// The body stands in metres with its feet at y = 0, so the copy's own place is all it needs. The `charging` place leans
-// it forward and lowers it a little: the crouch of a charge, the run included.
+// The mid boss (SB-1850, built on the mech kit by SB-2049): view/wardenModel.ts bakes the `warden` kit as a soldier is
+// baked and builds three shapes, each one draw: the body (painted with the warden row of PROTO_PALETTES), the lamps and
+// the vents (white, so each copy gives them their colour). The body stands in metres with its feet at y = 0, so the
+// copy's own place is all it needs. The `charging` place leans it forward and lowers it a little: the crouch of a charge,
+// the run included.
 const WARDEN_CROUCH = { lean: -0.2, squash: 0.9 } as const; // the forward tilt (rad) and the height scale of a charge
 const WARDEN_LAMP_NAME = `${enemyMeshName('warden')}-lamps`;
 const WARDEN_VENT_NAME = `${enemyMeshName('warden')}-vents`;
 
 function buildWardenView(): EnemyKindView {
-  const shapes = buildWardenShapes();
+  const shapes = buildWardenShapes(ENEMIES.warden.height);
   const bodyMesh = partMesh(
     enemyMeshName('warden'),
     shapes.body,
