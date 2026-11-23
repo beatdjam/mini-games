@@ -13,6 +13,10 @@ import type { Area, Cue, GroundSpot, HolePaths, MissionDef } from '../types.ts';
 // (SB-2010; data/front.ts).
 export const PILLBOXES_DOWN_FLAG = PILLBOXES_FLAG;
 
+// The flag the mech's step onto the open ground before the sea gate raises (SB-2045): until it stands, the fortress's
+// sea-wall nest does not fire.
+export const FORTRESS_GUN_FLAG = 'fortress-gun-awake';
+
 // The one machine-gun nest that wakes when the mech steps off the craft (SB-1975). It is the seaward nest nearest the
 // landing: the map's b-emplacements places at z 147 are x -75, -30 and 45, and x 0 (the craft's lane) is nearer -30.
 // The others stay asleep until the mech enters B.
@@ -490,6 +494,13 @@ const CUES = [
     ],
   },
   {
+    id: 'fortress-gun-wake',
+    // the wall's nest holds its fire while the mech fights the pillboxes: it starts to sweep once the mech is on the
+    // open ground before the sea gate (SB-2045). No `when`: walking there before the leader asks counts too
+    trigger: { kind: 'enter', area: 'fortress-approach' },
+    actions: [{ kind: 'flag', name: FORTRESS_GUN_FLAG }],
+  },
+  {
     id: 'fortress-gate',
     trigger: { kind: 'enter', area: 'fortress-gate' },
     when: ['depot-asked'],
@@ -643,6 +654,7 @@ export const M1: MissionDef = {
     'depot-asked',
     'depot-taken',
     'fortress-skip',
+    FORTRESS_GUN_FLAG,
     LINE1_FLAG,
     LINE2_FLAG,
     PILLBOXES_DOWN_FLAG,
