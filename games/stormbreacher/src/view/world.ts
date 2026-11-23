@@ -6,12 +6,14 @@ import { M1_SHUTTERS } from '../data/battery.ts';
 import { SHUTTER_COLOR, SKY_COLOR } from '../data/colors.ts';
 import { PILLBOX_BREAK } from '../data/pillbox.ts';
 import { TARGET_SIZE, TILE_SIZE, WRECK_SCALE_Y } from '../data/props.ts';
+import { CAMERA_TUNE } from '../data/tune.ts';
 import type { MapBounds, MapDef, Prop } from '../data/types.ts';
 import type { GameModel } from '../logic/game.ts';
 import { blastPropIndexes } from '../logic/blasts.ts';
 import { blockingPropIndexes, cameraBlockers, mapBlockers } from '../logic/mapShapes.ts';
 import { cameraBoxesOfRect } from './camera.ts';
 import { buildAtmosphere } from './atmosphere.ts';
+import { addFadeProp, dropFade, lowRects, newFadeSet, type FadeSet } from './fade.ts';
 import { buildShore } from './shore.ts';
 import { breakPropSlot, buildOutdoor, buildTargets, type OutdoorBuild, type PropSlot } from './outdoor.ts';
 
@@ -30,7 +32,8 @@ export interface World {
   targetGroup: THREE.Group; // every target and shutter, to take out when the world is built again
   shutters: Map<string, THREE.Mesh>; // the armour plate before a target, by the target's id; hidden once it is open
   shore: THREE.Group; // the sea and the landing craft, to take out with them
-  cameraBoxes: THREE.Box3[]; // the props and targets as walls the camera keeps out of
+  cameraBoxes: THREE.Box3[]; // the tall props, the targets and the crafts as walls the camera keeps out of (a prop under CAMERA_TUNE.wallHeight is in `fade` instead)
+  fade: FadeSet; // the low props that turn see-through when they stand between the camera and the mech (SB-2048)
   targetCameraBoxes: Map<string, THREE.Box3>; // a target's id -> its box in cameraBoxes, lowered when it breaks
   slots: Map<number, PropSlot>; // a breakable or blast-opened prop's place in map.props -> where it is drawn
   propCameraBoxes: Map<number, THREE.Box3>; // those props' place in map.props -> its box in cameraBoxes
@@ -113,7 +116,11 @@ export function buildWorld(map: MapDef, air = true): World {
   const mapRects = mapBlockers(map);
   const rects = cameraBlockers(map);
   const boxesByRect = rects.map(cameraBoxesOfRect);
-  const boxes = boxesByRect.flat();
+  // A low prop is no wall: it fades when it is between the camera and the mech, and stays out of cameraBoxes (SB-2048).
+  // The rects past the props' (the targets and the crafts) always stay walls.
+  const owners = blockingPropIndexes(map);
+  const lowRect = lowRects(map, rects.length, CAMERA_TUNE);
+  const boxes = boxesByRect.filter((_, i) => !lowRect[i]).flat();
   // The targets' own boxes, so syncWorld can lower one when its target breaks: the camera must not keep avoiding a wall
   // that is already a low wreck.
   const targetCameraBoxes = new Map<string, THREE.Box3>();
@@ -136,6 +143,12 @@ export function buildWorld(map: MapDef, air = true): World {
     if (box) propCameraBoxes.set(propIndex, box);
   });
 
+  const fade = newFadeSet(built.group, built.slots);
+  lowRect.forEach((low, i) => {
+    if (!low) return;
+    for (const box of boxesByRect[i]) addFadeProp(fade, owners[i], map.props[owners[i]], box);
+  });
+
   return {
     built,
     targets,
@@ -143,6 +156,7 @@ export function buildWorld(map: MapDef, air = true): World {
     shutters,
     shore,
     cameraBoxes: boxes,
+    fade,
     targetCameraBoxes,
     slots,
     propCameraBoxes,
@@ -204,6 +218,8 @@ export function syncWorld(world: World, game: GameModel, dt: number): void {
 // Lowers and darkens one prop where it stands and takes its box out of cameraBoxes, once.
 function breakPropAt(world: World, prop: number): void {
   if (world.broken.has(prop)) return;
+  // a prop that is fading has its copy in the see-through twin: put it back before the break lowers it
+  dropFade(world.fade, prop);
   const slot = world.slots.get(prop);
   if (slot) breakPropSlot(slot);
   const box = world.propCameraBoxes.get(prop);
