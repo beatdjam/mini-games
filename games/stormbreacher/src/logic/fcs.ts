@@ -28,6 +28,7 @@ export interface FcsTarget {
   cy: number;
   cz: number;
   alive: boolean;
+  lockable?: boolean; // false for one the aim line stops at but the circle never picks (a pillbox only a charge breaks); left out means true
 }
 
 export interface FcsState {
@@ -192,7 +193,7 @@ function circleTargets(
   let nearestAngle = Infinity;
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
-    if (!target.alive) continue;
+    if (!target.alive || target.lockable === false) continue;
     if (distance(target.cx, target.cy, target.cz, chest.x, chest.y, chest.z) > tune.range) continue;
     const angle = angleDeg(aim.dx, aim.dy, aim.dz, target.cx - aim.ox, target.cy - aim.oy, target.cz - aim.oz);
     if (angle > tune.cone) continue;

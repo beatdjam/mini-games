@@ -87,6 +87,16 @@ export const WRECK_SCALE_Y = 0.35;
 // The targets' health (provisional; SB-190 decides it again). One autocannon shot does WEAPONS.autocannon.damage 10,
 // so a depot (60) breaks in 6 shots, a gun (200) in 20 and a magazine (80) in 8. A pillbox (100) is broken only by a
 // charge on one of its blast points (SB-2015); shots suppress its muzzle and take no health (src/data/pillbox.ts).
+// The targets only a charge breaks (SB-2015): the soft lock does not pull toward them and the HUD shows no bar for them,
+// since a shot only suppresses the muzzle. Every other target breaks by shots and may be locked on.
+export const TARGET_CHARGE_ONLY: Record<TargetKind, boolean> = {
+  pillbox: true,
+  depot: false,
+  gun: false,
+  magazine: false,
+  fortressGun: false,
+};
+
 export const TARGET_HP: Record<TargetKind, number> = {
   pillbox: 100,
   depot: 60,
