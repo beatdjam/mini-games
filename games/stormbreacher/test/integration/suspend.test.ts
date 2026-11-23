@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { AIMED_MORTAR } from '../../src/data/hazards.ts';
+import { WARDEN_TUNE } from '../../src/data/warden.ts';
 import { payoutOf } from '../../src/logic/economy.ts';
 import { retryFromCheckpoint, sendToScript, step, type GameInput, type GameModel } from '../../src/logic/game.ts';
 import { restoreSuspend, suspendOf } from '../../src/logic/suspend.ts';
+import { newEnemy } from '../../src/logic/enemies.ts';
 import { newPlayGame } from './playGame.ts';
 
 const DT = 1 / 60;
@@ -113,6 +115,25 @@ describe('suspend and resume', () => {
     const back = resumed(game);
     expect(back.assist).toEqual({ waves: ['yard-1', 'yard-2', 'yard-3'], left: 4.25 });
     expect(back.allies.find(entry => entry.id === 'cover-b1')).toEqual(ally);
+  });
+
+  test('the mid boss comes back at the head of its phase with the resume', () => {
+    const game = newPlayGame(M1B_HAND);
+    const warden = newEnemy('warden-1', 'warden', 'warden', 0, -118);
+    if (!warden.warden) throw new Error('the warden has no state');
+    warden.hp = 190;
+    warden.warden.phase = 'stagger';
+    warden.warden.timer = 1.2;
+    warden.warden.exposed = 1.2;
+    warden.warden.mortarT = 2;
+    warden.warden.called = true;
+    game.enemies = [warden];
+    const back = resumed(game);
+    expect(back.enemies[0]).toMatchObject({
+      id: 'warden-1',
+      hp: 190,
+      warden: { phase: 'burst', burstLeft: 0, timer: WARDEN_TUNE.burstRest, exposed: 0, called: true },
+    });
   });
 
   test('the aimed mortar’s anchor and stay come back with the resume', () => {

@@ -78,6 +78,9 @@ export const HUD_COLOR = {
 // The enemies wear the enemy row of PROTO_PALETTES (SB-2083): dark grey armour, near-black joints, red accents and red
 // lamps. What an enemy that is down is multiplied by (the instance colour over the baked colours).
 export const ENEMY_DOWN_TINT = 0x574d46;
+// The mid boss's body (SB-1850, 仮): a grey-blue, apart from the soldiers' dark grey and red. It is the instance colour
+// over a white baked shape, so the shoulder light's warning can swap it for PILLBOX_WARN_COLOR.
+export const WARDEN_COLOR = 0x56657d;
 export const ENEMY_BULLET_COLOR = 0xff6a4a;
 
 // The machine-gun nest's model (SB-1981, provisional): sandbags of a dark grey-green, far from the dry sand and the hedgehogs'

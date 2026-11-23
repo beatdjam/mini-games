@@ -98,6 +98,8 @@ const TAIL: readonly string[] = [
   'flag:yard-2-clear',
   'flag:yard-3-clear',
   'radio:m1.yard-clear',
+  'radio:m1.warden',
+  'spawn:warden',
   'checkpoint:cp3',
   'objective:silence-battery',
   'spawn:battery',

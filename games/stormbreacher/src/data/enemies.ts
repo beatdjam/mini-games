@@ -4,13 +4,14 @@ import { FORTRESS_TUNE } from './fortress.ts';
 import { PROP_SIZE } from './props.ts';
 
 // The kinds drawn as a soldier's mech (SB-2083, the kit table in data/enemyLooks.ts and data/mechProto.ts); the
-// machine-gun nest is a model of its own (SB-1981) and keeps its parts in view/enemies.ts.
+// machine-gun nest is a model of its own (SB-1981) and keeps its parts in view/enemies.ts; the mid boss `warden`
+// (SB-1850) is a model of its own too.
 export type SoldierKind = 'grunt' | 'assault' | 'heavy';
 export const SOLDIER_KINDS: readonly SoldierKind[] = ['grunt', 'assault', 'heavy'];
 
-export type EnemyKind = SoldierKind | 'emplacement';
+export type EnemyKind = SoldierKind | 'emplacement' | 'warden';
 
-export const ENEMY_KINDS: readonly EnemyKind[] = [...SOLDIER_KINDS, 'emplacement'];
+export const ENEMY_KINDS: readonly EnemyKind[] = [...SOLDIER_KINDS, 'emplacement', 'warden'];
 
 // A burst of shots: `shots` of them, swept from -arcDeg/2 to +arcDeg/2 across the way to the mech, `interval` seconds
 // apart, then the next burst after `rest` seconds.
@@ -25,6 +26,7 @@ export interface EnemyDef {
   hp: number; // the health a new enemy has
   height: number; // m
   radius: number; // the hit radius on the ground (m); a shot's box is x and z +- radius, y from the ground to `height`
+  navRadius?: number; // the radius the enemies' nav cells are blocked for (m); the hit radius when left out
   speed: number; // how fast it walks (m/s)
   notice: number; // the mech's distance at which a sleeping enemy wakes (m)
   stopDist: number; // it stops walking toward the mech at this distance (m)
@@ -98,6 +100,24 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
     static: true,
     burst: { shots: 6, arcDeg: 36, interval: 0.16, rest: 2.4 },
   },
+  // the mid boss (L6): a heavy command mech that walks out of the land gate, turns slowly and bursts, charges and (below
+  // half health) drops shoulder mortars. Its phases, telegraphs, charge and mortars are in WARDEN_TUNE; the burst's
+  // damage lives here and nowhere else. `navRadius` keeps the enemies' nav cells at a walker's width although the mech
+  // itself is 2.5 m across, so the other kinds' ways do not change. All of the values are provisional.
+  warden: {
+    hp: 400,
+    height: 6,
+    radius: 2.5,
+    navRadius: 0.75,
+    speed: 4,
+    notice: 120,
+    stopDist: 12,
+    fireRange: 90,
+    fireInterval: 2.6,
+    damage: 6,
+    bulletSpeed: 150,
+    spread: 2,
+  },
 };
 
 // The height a shot leaves an enemy at, as a share of its height.
@@ -134,6 +154,10 @@ export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]
   'yard-1': ['assault', 'grunt', 'assault'],
   'yard-2': ['grunt', 'assault'],
   'yard-3': ['assault', 'grunt'],
+  // the mid boss comes out of the land gate once the yard is clear (SB-1850); its two adds come from the yard's left and
+  // right doors when its health falls to the halfway mark
+  warden: ['warden'],
+  'warden-adds': ['assault', 'assault'],
 };
 
 // The height a wave's enemies come in at (m), by the wave's name. A wave that is not here comes in on the ground. The
