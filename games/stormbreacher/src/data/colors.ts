@@ -30,6 +30,10 @@ export const DEFENSE_COLOR = {
   bunkerDoor: 0x232320, // the dark of a bunker's side entrance
   rebar: 0xb07048, // the exposed reinforcing bar in a chipped corner
   crack: 0x3a3833, // a crack across a concrete face
+  pillboxPlinth: 0xb8b4ac, // the footing a pillbox stands on, darker than its walls
+  pillboxRoof: 0xe0dcd6, // a pillbox's roof slab, a little lighter than its walls
+  pillboxNet: 0x6f7a4e, // the camouflage net over a pillbox's roof
+  pillboxStain: 0x8a8680, // a rain streak or a patch of soot on a concrete face
 };
 
 // The landing craft (SB-1470, 仮): its hull and deck, and the seams, hinges, chains, windows and bow plate that dress

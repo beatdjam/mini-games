@@ -639,8 +639,103 @@ export function breakPropSlot(slot: PropSlot): void {
 
 // The mission's targets, each a shape with its own colour so the four kinds are told apart from above: a low wide
 // pillbox, a pile of crates for the depot, a base and barrel for the gun, and a square magazine.
+// A pillbox (SB-2050): a heavy concrete position, 12 x 6 x 8 m with its front (the muzzle's side) at +z. A chamfered
+// plinth, a walled body and a roof slab under a camouflage net; a dark embrasure on the front with a sill and a brow
+// over it, three courses of sandbags before it, an entrance in the left wall, and cracks, rain streaks and bars bared
+// by a chipped corner. It reads as something a shot only suppresses and a charge breaks. Everything is one shape, so a
+// pillbox is still one draw. The muzzle (half its height, past the front face) and the hit box do not move, and the
+// shape ends exactly on the 12 x 6 x 8 box, so fitBox leaves it as it is.
 function pillboxTargetGeometry(): THREE.BufferGeometry {
-  return merge([box(10, 2.2, 6, 0, 1.1, 0), box(10.6, 0.6, 6.6, 0, 2.5, 0), box(3, 1, 1, 0, 1.8, 3.2)]);
+  const parts: THREE.BufferGeometry[] = [];
+  const paint = (geometry: THREE.BufferGeometry, color: number) => tint(geometry, color);
+  const WALL_X = 5.2; // the side walls' faces
+  const FRONT_Z = 2.5; // the front wall's face
+  const BACK_Z = -3.9; // the back wall's face
+  const SLIT_Y = 3.1; // the embrasure's middle: the muzzle's height is half of 6 m = 3 m
+
+  parts.push(
+    paint(chamferBoxGeometry(12, 0.5, 8, 0.12).translate(0, 0.25, 0), DEFENSE_COLOR.pillboxPlinth),
+    chamferBoxGeometry(10.4, 4.4, 6.4, 0.35).translate(0, 2.7, (FRONT_Z + BACK_Z) / 2),
+    paint(chamferBoxGeometry(11.2, 0.9, 7.2, 0.3).translate(0, 5.35, -0.3), DEFENSE_COLOR.pillboxRoof),
+  );
+
+  // the embrasure: the dark inside, a post at each end, a sill under it and a heavy brow over it
+  parts.push(
+    paint(box(5, 0.9, 0.5, 0, SLIT_Y, FRONT_Z + 0.19), DEFENSE_COLOR.bunkerSlit),
+    box(0.5, 0.9, 0.9, -2.75, SLIT_Y, FRONT_Z + 0.45),
+    box(0.5, 0.9, 0.9, 2.75, SLIT_Y, FRONT_Z + 0.45),
+    box(6, 0.3, 0.9, 0, 2.5, FRONT_Z + 0.45),
+    chamferBoxGeometry(6.6, 0.6, 1.3, 0.14).translate(0, 3.85, FRONT_Z + 0.55),
+  );
+
+  // three courses of sandbags across the front, each shifted half a bag and turned a little so the rows do not read as
+  // one long box; they stop under the sill so the embrasure stays open
+  for (let course = 0; course < 3; course++) {
+    for (let i = 0; i < 10; i++) {
+      const x = (i - 4.5) * 1.1 + (course % 2 === 0 ? 0 : 0.5);
+      if (Math.abs(x) > 5.3) continue;
+      parts.push(
+        paint(
+          box(1, 0.45, 0.9, x, 0.5 + 0.225 + course * 0.45, 3.4, ((i + course) % 2 === 0 ? 1 : -1) * 0.07),
+          DEFENSE_COLOR.bunkerBag,
+        ),
+      );
+    }
+  }
+
+  // the entrance in the left wall: a dark doorway, two jambs and a lintel, and a short wall of bags before it
+  parts.push(
+    paint(box(0.5, 2, 1.5, -WALL_X - 0.19, 1.5, -1), DEFENSE_COLOR.bunkerDoor),
+    box(0.6, 2, 0.3, -WALL_X - 0.2, 1.5, -1 + 0.9),
+    box(0.6, 2, 0.3, -WALL_X - 0.2, 1.5, -1 - 0.9),
+    box(0.7, 0.4, 2.1, -WALL_X - 0.25, 2.7, -1),
+  );
+  for (let course = 0; course < 2; course++) {
+    for (let i = 0; i < 2; i++) {
+      parts.push(
+        paint(
+          box(0.6, 0.45, 1, -5.5, 0.5 + 0.225 + course * 0.45, 1 + i * 1.05 + course * 0.4, 0.05),
+          DEFENSE_COLOR.bunkerBag,
+        ),
+      );
+    }
+  }
+
+  // the camouflage net: two sheets laid over the roof at slightly different slopes, and a flap hanging off the front
+  const net = DEFENSE_COLOR.pillboxNet;
+  parts.push(
+    paint(chamferBoxGeometry(6.2, 0.16, 5.4, 0.05).rotateZ(-0.04).translate(-2.6, 5.8, -0.4), net),
+    paint(chamferBoxGeometry(4.6, 0.16, 4.4, 0.05).rotateZ(0.05).translate(3.4, 5.78, -1), net),
+    paint(new THREE.BoxGeometry(3.4, 0.08, 0.9).rotateX(0.7).translate(-1.4, 5.35, 3.55), net),
+  );
+
+  // cracks across the faces, and the rain streaks under the roof's edge
+  const crack = DEFENSE_COLOR.crack;
+  const streak = DEFENSE_COLOR.pillboxStain;
+  parts.push(
+    paint(box(0.09, 1.5, 0.03, -3.8, 3.1, FRONT_Z + 0.015, 0, 0.22), crack),
+    paint(box(0.07, 0.8, 0.03, -3.45, 3.95, FRONT_Z + 0.015, 0, -0.3), crack),
+    paint(box(0.09, 1.2, 0.03, 4.1, 3.3, FRONT_Z + 0.015, 0, -0.18), crack),
+    paint(box(0.03, 1.4, 0.09, WALL_X + 0.015, 3.0, 0.4, 0, -0.25), crack),
+    paint(box(0.03, 1.1, 0.07, -WALL_X - 0.015, 3.6, 1.6, 0, 0.2), crack),
+    paint(box(0.09, 1.7, 0.03, 1.2, 3.1, BACK_Z - 0.015, 0, 0.15), crack),
+    paint(box(0.09, 1.2, 0.03, -2.6, 2.4, BACK_Z - 0.015, 0, -0.2), crack),
+    paint(box(0.4, 1.3, 0.02, -4.2, 4.2, FRONT_Z + 0.01), streak),
+    paint(box(0.3, 0.9, 0.02, 3.6, 4.4, FRONT_Z + 0.01), streak),
+    paint(box(0.02, 1.2, 0.4, WALL_X + 0.01, 4.2, -2.2), streak),
+    paint(box(0.02, 0.9, 0.3, -WALL_X - 0.01, 4.3, -2.8), streak),
+    paint(box(0.4, 1.4, 0.02, -1.5, 4.2, BACK_Z - 0.01), streak),
+    paint(box(10.2, 0.04, 0.02, 0, 3.9, BACK_Z - 0.012), crack),
+  );
+
+  // a corner chipped at the right wall's top: a dark patch and three bars left sticking out of it
+  parts.push(
+    paint(box(0.03, 1, 1.4, WALL_X + 0.015, 4.2, -3, 0, 0), crack),
+    paint(box(0.8, 0.08, 0.08, WALL_X + 0.35, 4.5, -3.3, 0, 0.12), DEFENSE_COLOR.rebar),
+    paint(box(0.7, 0.08, 0.08, WALL_X + 0.3, 4.2, -2.9, 0, -0.1), DEFENSE_COLOR.rebar),
+    paint(box(0.6, 0.08, 0.08, WALL_X + 0.25, 3.9, -2.55, 0, 0.2), DEFENSE_COLOR.rebar),
+  );
+  return merge(parts);
 }
 
 function depotTargetGeometry(): THREE.BufferGeometry {
