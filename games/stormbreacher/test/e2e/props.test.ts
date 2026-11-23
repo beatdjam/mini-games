@@ -130,22 +130,23 @@ test('a light stands over every blast point of a shot pillbox and of the lines (
   const game = currentGame();
   if (!game) throw new Error('the sortie has not started');
   await endCutscene(game);
-  // a point shows no light until its pillbox has been shot: the lines' four stand alone, and the mech is far enough off
+  // a point shows no light until its pillbox has been shot: the lines' four and the fortress's bomb (SB-1860) stand
+  // alone, and the mech is far enough off
   game.mech.x = 0;
   game.mech.z = 166;
   steps(1);
-  expect(drawn('sb-blast-pillars')).toBe(4);
+  expect(drawn('sb-blast-pillars')).toBe(5);
   for (const state of game.pillboxes) state.shot = true;
   steps(1);
-  expect(drawn('sb-blast-pillars')).toBe(8);
-  expect(drawn('sb-blast-diamonds')).toBe(8);
+  expect(drawn('sb-blast-pillars')).toBe(9);
+  expect(drawn('sb-blast-diamonds')).toBe(9);
 
-  // pillbox-1's two lights go when its points do; the other six stay
+  // pillbox-1's two lights go when its points do; the other seven stay
   const pillbox = game.targets.find(target => target.id === 'pillbox-1');
   if (!pillbox) throw new Error('the map has no pillbox-1');
   pillbox.hp = 0;
   steps(2);
-  expect(drawn('sb-blast-pillars')).toBe(6);
+  expect(drawn('sb-blast-pillars')).toBe(7);
 });
 
 test('`map` draws no light on screen, and `next` draws one that moves on when its pillbox falls', async () => {
@@ -159,7 +160,7 @@ test('`map` draws no light on screen, and `next` draws one that moves on when it
   game.mech.z = -40;
   setMarkerMode('map');
   steps(1);
-  expect(drawn('sb-blast-points')).toBe(8);
+  expect(drawn('sb-blast-points')).toBe(9);
   expect(drawn('sb-blast-pillars')).toBe(0);
   expect(drawn('sb-blast-diamonds')).toBe(0);
 
