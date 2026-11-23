@@ -120,6 +120,18 @@ test('fortress-blast', async () => {
     release();
   }
 
+  // the charge's place after the mid boss is down (SB-2047): the ring, the light and the door are looked at from the yard
+  if (wanted('fortress-bomb-place')) {
+    g.mech.z = -112;
+    for (let i = 0; i < 40; i++) {
+      quiet();
+      await frame();
+    }
+    const bomb = g.blasts.find(blast => blast.id === 'fort-bomb');
+    if (!bomb) throw new Error('the map has no fort-bomb');
+    await ownCamera('fortress-bomb-place', [0, 7, bomb.z + 14], [0, 1, -124], () => quiet());
+  }
+
   if (wanted('fortress-blast-countdown')) {
     g.mech.z = -100;
     for (let i = 0; i < 40; i++) {

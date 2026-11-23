@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import { createRng, distXZ } from '@engine/core/index.ts';
 import { M1B_HAND } from '../../src/data/maps/m1b-hand.ts';
 import { M1B_RULES } from '../../src/data/maps/m1b-rules.ts';
+import { FORTRESS_TUNE } from '../../src/data/fortress.ts';
 import { PROP_SIZE } from '../../src/data/props.ts';
 import { MECH_TUNE } from '../../src/data/tune.ts';
 import { M1 } from '../../src/data/missions/m1.ts';
@@ -90,8 +91,12 @@ test('the hand map has two blast points on each of the two lines and none on C',
 test('the fortress’s charge sits in the land wall with a 20 s fuse that waits for the mid boss, and the land and side walls and the door collapse', () => {
   const bomb = (M1B_HAND.blasts ?? []).find(blast => blast.id === 'fort-bomb');
   if (!bomb) throw new Error('the hand map has no fort-bomb');
-  expect(bomb).toMatchObject({ line: null, x: 0, z: -124, fuse: 20, after: 'wardenDown' });
+  expect(bomb).toMatchObject({ line: null, x: 0, z: -119.5, fuse: 20, after: 'wardenDown' });
   expect(bomb.target).toBeUndefined();
+  // it stands in the yard in front of the land wall, not inside the wall's or the door's thickness (SB-2047)
+  const yardFace = FORTRESS_TUNE.landWallZ + FORTRESS_TUNE.wallT / 2; // -122
+  expect(bomb.z).toBeGreaterThan(yardFace + 1);
+  expect(bomb.z).toBeLessThan(yardFace + 4);
 
   const walls = M1B_HAND.props.filter(prop => prop.kind === 'fortWall');
   expect(walls).toHaveLength(21); // the twenty pieces and the land gate's door
