@@ -89,10 +89,6 @@ export function validateMission(def: MissionDef): void {
   }
   for (const cue of def.cues) {
     checkTrigger(def, cue.id, cue.trigger, ids);
-    // `start` is due in one frame only (time 0), so a condition that is not met then would keep the cue from ever firing
-    if (cue.trigger.kind === 'start' && (cue.when !== undefined || cue.unless !== undefined)) {
-      throw new Error(`cue "${cue.id}": a start cue cannot have when or unless; it can only fire at time 0`);
-    }
     for (const name of cue.when ?? []) requireIn(def.flags ?? [], name, 'flag');
     for (const name of cue.unless ?? []) requireIn(def.flags ?? [], name, 'flag');
     for (const action of cue.actions) checkAction(def, cue.id, action);
@@ -261,7 +257,8 @@ function isDue(s: ScriptState, cue: Cue, allowStart: boolean): boolean {
   const trigger = cue.trigger;
   switch (trigger.kind) {
     case 'start':
-      return allowStart && s.time === 0;
+      // a plain start is due at time 0 only; a start with when or unless waits for its condition (checked above)
+      return allowStart && (s.time === 0 || cue.when !== undefined || cue.unless !== undefined);
     case 'enter':
       return s.entered.includes(trigger.area);
     case 'destroyed': {
