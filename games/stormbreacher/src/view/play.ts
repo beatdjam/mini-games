@@ -39,6 +39,7 @@ import { buildBattle, type Battle } from './battle/index.ts';
 import { buildBlastView, drawBlasts, type BlastView } from './blasts.ts';
 import { aimRay, applyPose, cameraPose, followCamera, screenRect, stateOfPose, type CameraState } from './camera.ts';
 import { buildEnemyView, drawEnemies, type EnemyView } from './enemies.ts';
+import { fadeStep } from './fade.ts';
 import { drawHazards, buildHazardView, shellBurst, type HazardView } from './hazards.ts';
 import { buildBooms, drawBooms, spawnBoom } from './boom.ts';
 import { feelBoom, feelDamage, feelEvents, feelMelee, feelStep, newFeel, spawnDust, type FeelState } from './feel.ts';
@@ -54,6 +55,7 @@ import { buildProtoMech, protoMuzzle, setProtoOpacity } from './mechProtoModel.t
 import { addProtoStage, stageFlag, type ProtoStage } from './protoStage.ts';
 import { buildWorld, MAP_FOG, syncWorld, type World } from './world.ts';
 
+const fadeChest = new THREE.Vector3(); // the mech's chest, the far end of the line a low prop fades on
 const HIT_DUST = 3; // the dust's particle count before FEEL_TUNE.dust, per hit
 const DEFLECT_SPARKS = 6; // the sparks a shot off a pillbox's front throws
 const DEFLECT_SPEED = 5; // how fast a spark flies out (m/s)
@@ -650,6 +652,15 @@ export function drawPlay(view: PlayView, game: GameModel, dt: number, pitchDelta
     setProtoOpacity(view.model, near ? MECH_TUNE.fadeOpacity : 1);
   }
 
+  // a low prop between the camera and the mech's chest turns see-through (the camera is not pulled in by it)
+  const model = view.model.position;
+  fadeStep(
+    view.world.fade,
+    camera.position,
+    fadeChest.set(model.x, model.y + MECH_TUNE.height / 2, model.z),
+    dt,
+    CAMERA_TUNE,
+  );
   cullChunks(view.world.built.chunks, view.world.built.group, camera, MAP_FOG.far);
   syncWorld(view.world, game, dt);
   drawGunfire(view.gunfire, game.bullets, dt, muzzle);

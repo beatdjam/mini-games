@@ -602,7 +602,7 @@ export function buildOutdoor(items: Prop[], opts: OutdoorBuildOpts): OutdoorBuil
 }
 
 // The copy of `prop` under `group` (inside the chunk roots too), or null when none is that close to its place.
-function findSlot(group: THREE.Group, prop: Prop): PropSlot | null {
+export function findSlot(group: THREE.Group, prop: Prop): PropSlot | null {
   const matrix = new THREE.Matrix4(),
     at = new THREE.Vector3();
   let found: PropSlot | null = null;
