@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import type { DevView } from '../src/dev/views/view.ts';
-import { findDevView } from '../src/dev/views/view.ts';
+import type { DevView } from '../../src/dev/views/view.ts';
+import { findDevView } from '../../src/dev/views/view.ts';
 
 const views: DevView[] = [
   { hash: '#view-', match: 'starts', name: 'a sector', run: () => {} },

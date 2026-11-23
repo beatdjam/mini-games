@@ -26,20 +26,27 @@ const nodeProject = (id: string, layer: 'unit' | 'integration') => ({
     name: `${id}-${layer}`,
     include: [`games/${id}/test/${layer}/**/*.test.ts`],
     environment: 'node' as const,
+    testTimeout: 60000, // the generator tests loop over many seeds, and the first one is slow while the modules load
   },
 });
 
-// the page layer: the game's page booted in Chromium
-const e2eProject = (id: string) => ({
-  resolve: { alias: { '@engine': resolve('engine/src') } },
-  test: {
-    name: `${id}-e2e`,
-    include: [`games/${id}/test/e2e/**/*.test.ts`],
-    setupFiles: [`games/${id}/test/e2e/setup.ts`],
-    testTimeout: 60000,
-    browser: browser(),
-  },
-});
+// the page layer: the game's page booted in Chromium. A game with a test/e2e/ folder keeps its page tests (and setup.ts)
+// there (STORMBREACHER). A game without one (Sector Dive Extended) keeps them where they were, in test/ itself: the
+// project reads every test file under test/ except the node layers, and the setup is test/setup.ts
+const e2eProject = (id: string) => {
+  const own = existsSync(`games/${id}/test/e2e`);
+  return {
+    resolve: { alias: { '@engine': resolve('engine/src') } },
+    test: {
+      name: `${id}-e2e`,
+      include: own ? [`games/${id}/test/e2e/**/*.test.ts`] : [`games/${id}/test/**/*.test.ts`],
+      exclude: own ? [] : [`games/${id}/test/unit/**`, `games/${id}/test/integration/**`, '**/node_modules/**'],
+      setupFiles: [own ? `games/${id}/test/e2e/setup.ts` : `games/${id}/test/setup.ts`],
+      testTimeout: 60000,
+      browser: browser(),
+    },
+  };
+};
 
 // a game that is not split into layers: one Chromium project as before
 const gameProject = (id: string) => ({

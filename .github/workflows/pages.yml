@@ -67,11 +67,11 @@ jobs:
           - name: stormbreacher-2
             args: --project stormbreacher-e2e --shard=2/2
           - name: sector-dive-ex-1
-            args: --project sector-dive-ex --shard=1/2
+            args: --project sector-dive-ex-e2e --shard=1/2
           - name: sector-dive-ex-2
-            args: --project sector-dive-ex --shard=2/2
+            args: --project sector-dive-ex-e2e --shard=2/2
           - name: others # 残りの Chromium のプロジェクト全部
-            args: --project !*-unit --project !*-integration --project !stormbreacher-e2e --project !sector-dive-ex
+            args: --project !*-unit --project !*-integration --project !stormbreacher-e2e --project !sector-dive-ex-e2e
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
