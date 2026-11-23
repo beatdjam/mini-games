@@ -129,6 +129,11 @@ export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]
   // three from the fortress's sea wall: an assault and a grunt on the left and right, and an assault between them, so
   // the mech at the gate is taken from behind as it goes in (SB-1830)
   'fortress-drop': ['assault', 'grunt', 'assault'],
+  // the yard's trap (SB-1840): left and right doors and the middle of the yard, then the back of the yard, then the two
+  // beside the sea gate, which cut the way out; every list is provisional
+  'yard-1': ['assault', 'grunt', 'assault'],
+  'yard-2': ['grunt', 'assault'],
+  'yard-3': ['assault', 'grunt'],
 };
 
 // The height a wave's enemies come in at (m), by the wave's name. A wave that is not here comes in on the ground. The

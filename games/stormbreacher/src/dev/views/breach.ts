@@ -6,18 +6,19 @@
 import * as THREE from 'three';
 import { addSystem, el } from '@engine/core/index.ts';
 import { camera, renderer, scene } from '@engine/render/index.ts';
-import { ENEMIES } from '../../data/enemies.ts';
+import { ENEMIES, M1_WAVE_DROP, M1_WAVE_ENEMY } from '../../data/enemies.ts';
 import { CHARGE_TUNE } from '../../data/charge.ts';
 import { applyMarkerQuery, MARKER_TUNE } from '../../data/marker.ts';
 import { ENEMY_BULLET_COLOR } from '../../data/colors.ts';
-import { DEPOT_CHOICE_TUNE } from '../../data/fortress.ts';
+import { DEPOT_CHOICE_TUNE, YARD_TUNE } from '../../data/fortress.ts';
 import { AIMED_MORTAR, BARRAGES } from '../../data/hazards.ts';
 import { lookOf } from '../../data/looks.ts';
 import { M1B_HAND } from '../../data/maps/m1b-hand.ts';
 import { M1 } from '../../data/missions/m1.ts';
 import { MECH_TUNE } from '../../data/tune.ts';
 import { newGame, type GameModel } from '../../logic/game.ts';
-import { newEnemy, stepEnemy } from '../../logic/enemies.ts';
+import { newEnemy, stepEnemy, type EnemyState } from '../../logic/enemies.ts';
+import { newAssist, stepAssist } from '../../logic/assist.ts';
 import { inCircle, newAimed, stepAimed, stepShells } from '../../logic/hazards.ts';
 import { hudModel } from '../../logic/hud.ts';
 import { stream } from '../../logic/rng.ts';
@@ -134,6 +135,42 @@ const DEPOT_LABELS: Record<string, string> = {
   lossSquads: '失う分隊',
 };
 
+// The yard's trap and the survivors' assist the panel turns (SB-1840). The gate's x and z go in the table, so the point
+// the tracers leave from can be moved too.
+const YARD_RANGES: Record<string, TuneRange> = {
+  'gate.x': { min: -30, max: 30, step: 1 },
+  'gate.z': { min: -80, max: -50, step: 1 },
+  gateY: { min: 0, max: 12, step: 0.5 },
+  assistEvery: { min: 2, max: 30, step: 0.5 },
+  assistEveryDepot: { min: 2, max: 30, step: 0.5 },
+  assistTracerSpeed: { min: 20, max: 200, step: 5 },
+  assistDust: { min: 0, max: 4, step: 0.1 },
+  waveGapSec: { min: 1, max: 20, step: 0.5 },
+};
+const YARD_LABELS: Record<string, string> = {
+  'gate.x': '門の x（m）',
+  'gate.z': '門の z（m）',
+  gateY: '撃つ高さ（m）',
+  assistEvery: '寄らないときの間隔（s）',
+  assistEveryDepot: '寄ったときの間隔（s）',
+  assistTracerSpeed: '曳光の速さ（m/s）',
+  assistDust: '倒れた敵の砂煙の倍率',
+  waveGapSec: 'yard-1 から yard-2 まで（s）',
+};
+
+// The yard's three waves, in the order the script sends them.
+const YARD_WAVES = ['yard-1', 'yard-2', 'yard-3'] as const;
+
+// Every enemy of the yard's waves at the map's places for it, as spawnWave in logic/game.ts puts them out.
+function yardWave(): EnemyState[] {
+  return YARD_WAVES.flatMap(wave => {
+    const places = M1B_HAND.spawns[wave] ?? [];
+    const kinds = M1_WAVE_ENEMY[wave] ?? [];
+    const y = M1_WAVE_DROP[wave] ?? 0;
+    return places.map((place, i) => newEnemy(`${wave}-${i + 1}`, wave, kinds[i] ?? 'grunt', place.x, place.z, y));
+  });
+}
+
 // The shelling's values the panel turns.
 const SHELLING_RANGES: Record<string, TuneRange> = {
   interval: { min: 1, max: 15, step: 0.5 },
@@ -212,6 +249,8 @@ interface BreachReport {
   nests: number;
   bullets: number;
   aimed: { still: number; warns: number } | null;
+  assist: { waves: string[]; left: number } | null;
+  yard: number;
   losses: { allies: number; squads: number };
   optional: { key: string; distance: number } | null;
   calls: number;
@@ -338,15 +377,32 @@ export function showBreach(_hash: string) {
     game.shells = [];
   });
   startAimed.dataset.sbBreach = 'aimed';
+  const yardRow = document.createElement('div');
+  yardRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
+  extra.appendChild(yardRow);
+  const putYard = button(yardRow, '中庭の波を出す', () => {
+    // the yard's three waves at the map's places, shot at the mech as stepEnemies does it
+    game.enemies = yardWave();
+    game.assist = null;
+    tracers = [];
+  });
+  putYard.dataset.sbBreach = 'yard';
+  const startAssist = button(yardRow, '援護を始める', () => {
+    // the survivors at the sea gate start shooting at once: the first shot comes on the next frame
+    game.assist = newAssist(YARD_WAVES);
+    game.assist.left = 0;
+  });
+  startAssist.dataset.sbBreach = 'assist';
 
   const note = document.createElement('div');
   note.style.cssText = 'margin-top:6px;color:#9fb3c0;white-space:pre-wrap';
-  note.textContent = 'F を押し続けても仕掛けられる。\n保存はしない。';
+  note.textContent =
+    'F を押し続けても仕掛けられる。\n中庭の波は機体のいる所には出ない（機体は線1にいる）。\n保存はしない。';
   extra.appendChild(note);
 
   applyMarkerQuery(location.search);
   createTunePanel({
-    title: '爆破点・爆薬・機銃座・狙う迫撃砲 #view-breach',
+    title: '爆破点・爆薬・機銃座・狙う迫撃砲・中庭 #view-breach',
     extra,
     groups: [
       { name: 'CHARGE_TUNE', table: CHARGE_TUNE, ranges: CHARGE_RANGES, labels: CHARGE_LABELS },
@@ -360,6 +416,7 @@ export function showBreach(_hash: string) {
       { name: 'AIMED_MORTAR', table: AIMED_MORTAR, ranges: AIMED_RANGES, labels: AIMED_LABELS },
       { name: 'DEPOT_CHOICE_TUNE', table: DEPOT_CHOICE_TUNE, ranges: DEPOT_RANGES, labels: DEPOT_LABELS },
       { name: 'BARRAGES.shelling', table: BARRAGES.shelling, ranges: SHELLING_RANGES, labels: SHELLING_LABELS },
+      { name: 'YARD_TUNE', table: YARD_TUNE, ranges: YARD_RANGES, labels: YARD_LABELS },
     ],
   });
 
@@ -372,6 +429,8 @@ export function showBreach(_hash: string) {
       nests: game.enemies.filter(enemy => enemy.kind === 'emplacement').length,
       bullets: tracers.length,
       aimed: game.aimed === null ? null : { still: game.aimed.still, warns: game.shells.length },
+      assist: game.assist === null ? null : { waves: game.assist.waves, left: game.assist.left },
+      yard: game.enemies.filter(enemy => enemy.hp > 0 && enemy.wave.startsWith('yard-')).length,
       losses: game.losses,
       optional: hudModel(game).optional,
       calls: renderer.info.render.calls,
@@ -409,8 +468,31 @@ export function showBreach(_hash: string) {
         others: game.enemies,
       };
       for (const enemy of game.enemies) {
-        const shot = stepEnemy(enemy, game.mech, world, dt, stream('emplacements'));
+        const rng = ENEMIES[enemy.kind].burst ? stream('emplacements') : stream('enemies');
+        const shot = stepEnemy(enemy, game.mech, world, dt, rng);
         if (shot) tracers.push({ ...shot, life: TRACER_LIFE });
+      }
+      // the survivors' assist, if the button has started it: one enemy of the yard's waves at a time, with the tracer
+      // from above the sea gate
+      if (game.assist !== null) {
+        const every = game.script.flags.includes('depot-down') ? YARD_TUNE.assistEveryDepot : YARD_TUNE.assistEvery;
+        const shot = stepAssist(game.assist, game.enemies, YARD_TUNE.gate, every, dt);
+        const enemy = shot === null ? undefined : game.enemies.find(entry => entry.id === shot.id);
+        if (enemy !== undefined) {
+          enemy.hp = 0;
+          const dx = enemy.x - YARD_TUNE.gate.x;
+          const dz = enemy.z - YARD_TUNE.gate.z;
+          const length = Math.hypot(dx, dz) || 1;
+          tracers.push({
+            x: YARD_TUNE.gate.x,
+            y: YARD_TUNE.gateY,
+            z: YARD_TUNE.gate.z,
+            dx: dx / length,
+            dy: 0,
+            dz: dz / length,
+            life: TRACER_LIFE,
+          });
+        }
       }
       const speed = ENEMIES.emplacement.bulletSpeed;
       for (const tracer of tracers) {
@@ -436,6 +518,9 @@ export function showBreach(_hash: string) {
         `狙う迫撃砲 ${
           game.aimed === null ? '止' : `あと ${Math.max(0, AIMED_MORTAR.stillSec - game.aimed.still).toFixed(1)}s`
         } / 予告 ${game.shells.length} / 装甲 ${game.armor}\n` +
+        `中庭 ${game.enemies.filter(enemy => enemy.hp > 0 && enemy.wave.startsWith('yard-')).length} / 援護 ${
+          game.assist === null ? '止' : `あと ${Math.max(0, game.assist.left).toFixed(1)}s`
+        }\n` +
         `描画 calls ${renderer.info.render.calls} / tris ${renderer.info.render.triangles}`;
     },
   });

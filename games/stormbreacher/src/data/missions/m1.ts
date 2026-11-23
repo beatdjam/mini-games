@@ -4,7 +4,7 @@
 // seawall (z -75..-65), the fortress spans z -68..-128, and the battery's parts stand past it: the guns at z -235 and the
 // magazine at z -250.
 import { LINE1_FLAG, LINE2_FLAG, PILLBOXES_FLAG } from '../front.ts';
-import { DEPOT_CHOICE_TUNE } from '../fortress.ts';
+import { DEPOT_CHOICE_TUNE, YARD_TUNE } from '../fortress.ts';
 import { PAYOFF_TUNE } from '../payoff.ts';
 import type { Area, Cue, GroundSpot, HolePaths, MissionDef } from '../types.ts';
 
@@ -248,6 +248,14 @@ const PATHS = {
     { x: 20, z: -54 },
     { x: 0, z: -58 },
     { x: -20, z: -58 },
+  ],
+  // the survivors' post in the yard's trap (SB-1840): just inside the sea gate, clear of the walls and the cover, where
+  // they shoot into the yard. moveAlly starts from where the ally stands, so the first point is only a stand-in.
+  'yard-cover': [
+    { x: 0, z: -92 },
+    { x: -5, z: -76 },
+    { x: 0, z: -75 },
+    { x: 5, z: -76 },
   ],
 } as const satisfies Record<string, readonly GroundSpot[]>;
 
@@ -500,8 +508,50 @@ const CUES = [
   },
   {
     id: 'fortress-yard',
+    // the yard's trap (SB-1840): the three doors shut the mech in, and the cover mechs that lived through the first half
+    // take their post by the sea gate and start shooting one enemy at a time
     trigger: { kind: 'enter', area: 'fortress-yard' },
-    actions: [{ kind: 'radio', line: 'm1.fortress-yard' }],
+    actions: [
+      { kind: 'radio', line: 'm1.fortress-yard' },
+      { kind: 'radio', line: 'm1.yard-trap' },
+      { kind: 'spawn', wave: 'yard-1' },
+      { kind: 'assist', waves: ['yard-1', 'yard-2', 'yard-3'] },
+      { kind: 'allyMove', id: 'cover-b1', path: 'yard-cover' },
+      { kind: 'allyMove', id: 'cover-b2', path: 'yard-cover' },
+      { kind: 'allyMove', id: 'cover-b3', path: 'yard-cover' },
+    ],
+  },
+  {
+    id: 'yard-drop',
+    // the second wave comes from the back of the yard a few seconds after the first, so the mech is taken from both ends
+    trigger: { kind: 'after', cue: 'fortress-yard', sec: YARD_TUNE.waveGapSec },
+    actions: [{ kind: 'spawn', wave: 'yard-2' }],
+  },
+  {
+    id: 'yard-gate',
+    // the first wave down brings out the two beside the sea gate, which cut the way out; the flag shows the yard is one wave lighter
+    trigger: { kind: 'cleared', wave: 'yard-1' },
+    actions: [
+      { kind: 'flag', name: 'yard-1-clear' },
+      { kind: 'spawn', wave: 'yard-3' },
+    ],
+  },
+  {
+    id: 'yard-2-clear',
+    trigger: { kind: 'cleared', wave: 'yard-2' },
+    actions: [{ kind: 'flag', name: 'yard-2-clear' }],
+  },
+  {
+    id: 'yard-3-clear',
+    trigger: { kind: 'cleared', wave: 'yard-3' },
+    actions: [{ kind: 'flag', name: 'yard-3-clear' }],
+  },
+  {
+    id: 'yard-clear',
+    // the yard is done once all three waves are down; L6 puts the next hill (the mid boss) on this cue
+    trigger: { kind: 'flag', name: 'yard-3-clear' },
+    when: ['yard-1-clear', 'yard-2-clear', 'yard-3-clear'],
+    actions: [{ kind: 'radio', line: 'm1.yard-clear' }],
   },
   {
     id: 'fortress-out',
@@ -550,6 +600,9 @@ export const M1: MissionDef = {
     'depot-guard',
     'shelling',
     'fortress-drop',
+    'yard-1',
+    'yard-2',
+    'yard-3',
     'battery',
   ],
   objectives: ['reach-pillboxes', 'break-pillboxes', 'stop-fortress-gun', 'silence-battery', 'hit-magazine'],
@@ -563,6 +616,9 @@ export const M1: MissionDef = {
     LINE2_FLAG,
     PILLBOXES_DOWN_FLAG,
     'shutter-open',
+    'yard-1-clear',
+    'yard-2-clear',
+    'yard-3-clear',
   ],
   allies: ['buddy', 'cover-b1', 'cover-b2', 'cover-b3', 'gunner'],
   paths: PATHS,

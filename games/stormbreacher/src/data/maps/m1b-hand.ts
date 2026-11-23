@@ -432,13 +432,14 @@ const PROPS: Prop[] = [
   { kind: 'fortWall', x: 32, z: -92, yaw: Math.PI / 2, scale: 1 },
   { kind: 'fortWall', x: 32, z: -104, yaw: Math.PI / 2, scale: 1 },
   { kind: 'fortWall', x: 32, z: -116, yaw: Math.PI / 2, scale: 1 },
-  // the yard's cover (z -74..-122): 9 pieces, with the way from gate to gate (x 0) clear
+  // the yard's cover (z -74..-122): 9 pieces, with the way from gate to gate (x 0) clear. The two wrecks sit 8 m either
+  // side of that way, so the doors yard-1 comes from (x -22 and 22) stay clear of them (SB-1840)
   { kind: 'block', x: -20, z: -84, yaw: 0.12, scale: 1.05 },
   { kind: 'block', x: 18, z: -86, yaw: -0.18, scale: 1.06 },
   { kind: 'block', x: -18, z: -112, yaw: 0.25, scale: 0.9 },
   { kind: 'block', x: 20, z: -112, yaw: -0.05, scale: 1.03 },
-  { kind: 'wreck', x: -22, z: -98, yaw: -0.22, scale: 0.95 },
-  { kind: 'wreck', x: 22, z: -98, yaw: 0.08, scale: 0.93 },
+  { kind: 'wreck', x: -14, z: -98, yaw: -0.22, scale: 0.95 },
+  { kind: 'wreck', x: 14, z: -98, yaw: 0.08, scale: 0.93 },
   { kind: 'crater', x: -9, z: -78, yaw: -0.14, scale: 1.1 },
   { kind: 'crater', x: 9, z: -100, yaw: 0.16, scale: 0.97 },
   { kind: 'crater', x: 9, z: -118, yaw: -0.09, scale: 1.02 },
@@ -559,6 +560,21 @@ export const M1B_HAND: MapDef = {
       { x: -20, z: -70 },
       { x: 8, z: -70 },
       { x: 32, z: -70 },
+    ],
+    // the yard's trap (SB-1840): the left and right doors and the middle of the yard, the back of the yard, and the two
+    // beside the sea gate. All of them stand inside the walls (z -122..-74), clear of the yard's cover
+    'yard-1': [
+      { x: -22, z: -95 },
+      { x: 22, z: -95 },
+      { x: 0, z: -100 },
+    ],
+    'yard-2': [
+      { x: -10, z: -118 },
+      { x: 10, z: -118 },
+    ],
+    'yard-3': [
+      { x: -8, z: -78 },
+      { x: 8, z: -78 },
     ],
   },
 };

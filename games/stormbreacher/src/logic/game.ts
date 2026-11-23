@@ -26,7 +26,7 @@ import { ENEMIES, ENEMY_CHEST, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type En
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
-import { FORTRESS_GUN_TUNE } from '../data/fortress.ts';
+import { FORTRESS_GUN_TUNE, YARD_TUNE } from '../data/fortress.ts';
 import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
 import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
@@ -51,6 +51,7 @@ import {
   type ShutterState,
 } from './battery.ts';
 import { moveAlly, newAlly, stepAlly, type AllyFate, type AllyState } from './allies.ts';
+import { newAssist, stepAssist as stepAssistState, type AssistState } from './assist.ts';
 import {
   blastPropIndexes,
   blastTarget,
@@ -168,6 +169,7 @@ export type GameEvent =
   | { kind: 'pillboxWarn'; target: string; x: number; y: number; z: number } // a pillbox will fire a burst from this muzzle; the view reads the countdown, so this is for the tests and a future sound or effect
   | { kind: 'allyDown'; id: string; x: number; z: number; by: AllyFateBy } // an ally fell where it stood; `by` is how (the script's fate)
   | { kind: 'allyCall'; id: string; line: string } // an ally called on the radio before its fate
+  | { kind: 'assistFire'; fromX: number; fromZ: number; toX: number; toZ: number } // the scripted allies shot an enemy from (fromX, fromZ) at (toX, toZ); a look only
   | { kind: 'loss'; allies: number; squads: number } // the friends the script lost on the way
   | { kind: 'script'; event: ScriptOut } // what the mission script reported, wrapped as it came
   // an ally's support fire flies at a silenced nest (SB-2024): from (x, y, z) to (tx, ty, tz); the view draws the tracer and the spark
@@ -298,6 +300,7 @@ export interface GameModel {
   calm: { left: number; mul: number } | null; // the milestone's lull in the enemy mortar: seconds left and its interval share
   // the allies' support fire under way (SB-2024): the wave it holds quiet, the seconds left, the wait to the next tracer, the nest to fire at next, and whether the radio line about the rounds running short has gone out; null when none
   cover: { wave: string; left: number; wait: number; next: number; warned: boolean } | null;
+  assist: AssistState | null; // the script's assist once a cue has started it (SB-1840); null before one
   losses: { allies: number; squads: number }; // the friends lost on the way (SB-1820); the result shows the count
   events: GameEvent[]; // this frame's events; step empties it first
   cleared: boolean; // set when the script's `end` fires
@@ -909,6 +912,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     slow: null,
     calm: null,
     cover: null,
+    assist: null,
     losses: { allies: 0, squads: 0 },
     events: [],
     cleared: false,
@@ -1202,6 +1206,13 @@ function applyScriptOut(game: GameModel, outs: readonly ScriptOut[]): void {
       const at = payoffSpot(game, event.id);
       game.events.push({ kind: 'payoff', id: event.id, x: at.x, z: at.z });
     }
+    if (event.kind === 'assist') {
+      // the interval the first shot waits for: the shorter one once the depot is down. stepAssist reads the flag again
+      // after each shot, so a depot that goes down later shortens the waits from the next shot on, not this one
+      const every = game.script.flags.includes('depot-down') ? YARD_TUNE.assistEveryDepot : YARD_TUNE.assistEvery;
+      game.assist = newAssist(event.waves);
+      game.assist.left = every;
+    }
     if (event.kind === 'allyFall') {
       // a fall the script calls for (SB-1820): the ally is already out, so it falls where it stands, as stepAllies does it
       const ally = game.allies.find(entry => entry.id === event.id);
@@ -1440,6 +1451,22 @@ function stepAllies(game: GameModel, dt: number): void {
   }
 }
 
+// The script's assist (SB-1840): the cover mechs at the sea gate shoot one enemy of the waves the script names every
+// interval, the shorter one once the depot is down. It only takes that enemy's health to 0 (no hit box, no change to the
+// enemies' aim), and reports the tracer before the `enemyDown` of the same frame, so the view draws the shot first.
+function stepAssist(game: GameModel, dt: number): void {
+  if (game.assist === null) return;
+  // a cutscene holds the allies where they stand, so the assist waits with them
+  if (game.script.cutscene !== null) return;
+  const every = game.script.flags.includes('depot-down') ? YARD_TUNE.assistEveryDepot : YARD_TUNE.assistEvery;
+  const shot = stepAssistState(game.assist, game.enemies, YARD_TUNE.gate, every, dt);
+  if (shot === null) return;
+  const enemy = game.enemies.find(entry => entry.id === shot.id);
+  if (enemy === undefined) return;
+  game.events.push({ kind: 'assistFire', fromX: YARD_TUNE.gate.x, fromZ: YARD_TUNE.gate.z, toX: shot.x, toZ: shot.z });
+  damageEnemy(game, enemy, enemy.hp);
+}
+
 // A frame's input: the mech's own input, the sub weapon's trigger (the main uses the mech's fire), the camera's aim,
 // the use key (planting a charge; left out where there is none, so the old test inputs need no change) and the fist.
 export interface GameInput extends MechInput {
@@ -1593,6 +1620,7 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   // The mech has walked down the ramp: the script puts the beach's allies out now, and they start running this frame.
   if (!game.script.ashore && game.mech.z <= game.map.bounds.maxZ) sendToScript(game, { kind: 'ashore' });
   stepAllies(game, span);
+  stepAssist(game, span);
   checkShutters(game);
   checkWaves(game);
   for (const [id, area] of Object.entries(game.mission.areas)) {

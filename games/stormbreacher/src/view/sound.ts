@@ -101,6 +101,10 @@ export function planSounds(input: SoundInput): SoundCue[] {
         // mortar's round lifts the sand as an explosion.
         ask(event.by === 'gun' ? 'impactArmor' : 'explosionSmall', event);
         break;
+      case 'assistFire':
+        // the survivors' shot at an enemy of the yard: the machine gun's note, from the gate it came from
+        ask('enemyGun', { x: event.fromX, z: event.fromZ });
+        break;
       case 'mineBlast':
         ask('explosionLarge', event);
         break;

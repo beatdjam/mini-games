@@ -336,7 +336,14 @@ const STORY = [
   'fortress-ally-lost',
   'fortress-gate',
   'fortress-yard',
+  // the bot downs yard-1 and then the sea gate's two before yard-2 comes (yard-drop, 6 s after the entry), and leaves the
+  // yard before yard-2 is down on this road
+  'yard-gate',
+  'yard-3-clear',
+  'yard-drop',
   'fortress-out',
+  'yard-2-clear',
+  'yard-clear',
   'gun1',
   'shutter',
   'win',
@@ -356,6 +363,12 @@ const STORY_DEPOT = [
   'depot',
   'fortress-gate',
   'fortress-yard',
+  // on this road the yard is cleared (yard-2 included) before the bot leaves it
+  'yard-gate',
+  'yard-3-clear',
+  'yard-drop',
+  'yard-2-clear',
+  'yard-clear',
   'fortress-out',
   'gun1',
   'shutter',
@@ -378,9 +391,8 @@ test(
     expect(result.fired['depot']).toBeUndefined();
     // the answer comes after the question, not with it (a bot at seed 7: the question at 105.2 s, the answer at 106.9 s)
     expect((result.fired['fortress-go'] ?? 0) - (result.fired['depot-ask'] ?? 0)).toBeGreaterThan(1);
-    // seed 7 took about 117 s of game time and left 142 armour (of 200), 82 of 400 autocannon shots and 5 of 12 heavy
-    // gun shots (SB-2072: the walk, jump and boost are faster and the hit stop shorter). The limits below keep room for a
-    // retune of the values, and fail if the sortie turns out hardly possible
+    // seed 7 took about 131 s of game time and left 174 armour (of 200) and 65 of 400 autocannon shots and 1 of 12 heavy
+    // gun shots. The limits below keep room for a retune of the values, and fail if the sortie turns out hardly possible
     expect(result.time).toBeLessThan(LIMIT_SECONDS);
     expect(result.armor).toBeGreaterThan(0);
     expect(result.main).toBeGreaterThan(0);

@@ -116,6 +116,8 @@ LANG.en = {
     'm1.wave2-lost': 'The second wave is lost. Push through with what we have.',
     'm1.fortress-gate': 'Through the fortress gate',
     'm1.fortress-yard': 'Into the yard',
+    'm1.yard-trap': "It's a trap. We're surrounded.",
+    'm1.yard-clear': 'The yard is clear.',
     'm1.gun1-down': 'One main gun down. Fire on the boats is halved.',
     'm1.callout.line2-support': 'Now, plant the charge',
     'm1.callout.line2-ammo': 'Cover ending, hurry',

@@ -39,6 +39,8 @@ function label(event: ScriptOut): string {
       return `suppress:${event.id}:${event.wave}`;
     case 'allyFall':
       return `allyFall:${event.id}:${event.by}`;
+    case 'assist':
+      return `assist:${event.waves.join(',')}`;
     case 'loss':
       return `loss:${event.allies}/${event.squads}`;
     case 'cutscene':
@@ -131,6 +133,12 @@ function runM1(
   run(idle, 60 * 2);
   send({ kind: 'enter', area: 'fortress-gate' });
   send({ kind: 'enter', area: 'fortress-yard' });
+  // the yard's second wave comes 6 s after the first; the waves are then handed to the script as the assist brings them
+  // down (this test reads the script's line, not the fight)
+  run(idle, 60 * 7);
+  send({ kind: 'cleared', wave: 'yard-1' });
+  send({ kind: 'cleared', wave: 'yard-2' });
+  send({ kind: 'cleared', wave: 'yard-3' });
   send({ kind: 'enter', area: 'fortress-out' });
   send({ kind: 'destroyed', target: 'main-gun-2' });
   send({ kind: 'destroyed', target: 'main-gun-1' });

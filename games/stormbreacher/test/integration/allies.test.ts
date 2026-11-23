@@ -319,6 +319,28 @@ test(
 );
 
 test(
+  'entering the yard sends the surviving cover mechs to their post by the sea gate',
+  () => {
+    const game = newPlayGame(M1B_HAND);
+    sendToScript(game, { kind: 'enter', area: 'fortress-yard' });
+    for (const id of COVERS) {
+      expect(allyById(game.allies, id).way).toEqual(M1.paths['yard-cover']);
+    }
+    // they run from where they were given the way to the gate's inner side and stop there
+    runQuiet(game, 60 * 30);
+    for (const id of COVERS) {
+      const ally = allyById(game.allies, id);
+      expect(ally.down).toBe(false);
+      expect(ally.next).toBe(ally.way.length);
+      expect(ally.z).toBeGreaterThan(-80);
+      expect(ally.z).toBeLessThan(-70);
+      expect(Math.abs(ally.x)).toBeLessThanOrEqual(6);
+    }
+  },
+  LONG,
+);
+
+test(
   'the gunner waits by line 1 and takes the first blown hole in the order the sortie runs',
   () => {
     // b-line from the inside: the mech enters B on its way to l1-b, before the charge blows
