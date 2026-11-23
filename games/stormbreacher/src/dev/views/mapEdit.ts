@@ -63,6 +63,7 @@ const TARGET_LABEL: Record<TargetKind, string> = {
   depot: '集積所',
   gun: '砲',
   magazine: '弾薬庫',
+  fortressGun: '要塞機関砲',
 };
 
 function makeButton(parent: HTMLElement, id: string, label: string, onClick: () => void): HTMLButtonElement {

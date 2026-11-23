@@ -655,11 +655,26 @@ function magazineTargetGeometry(): THREE.BufferGeometry {
   return merge([box(7, 4, 7, 0, 2, 0), box(8, 0.7, 8, 0, 4.3, 0), box(2, 2, 1, 0, 1, 4)]);
 }
 
+// The fortress's heavy machine-gun nest: a deck plate, a mount and a turret with twin barrels pointing seaward (+z),
+// under an armour plate.
+function fortressGunTargetGeometry(): THREE.BufferGeometry {
+  return merge([
+    box(14, 1.2, 5.2, 0, 0.6, 0),
+    box(9, 2.6, 4.4, 0, 2.5, 0),
+    box(6, 3.4, 3.6, 0, 5.5, 0),
+    box(0.8, 0.8, 7, -1.5, 6, 2),
+    box(0.8, 0.8, 7, 1.5, 6, 2),
+    box(9, 0.6, 4, 0, 7.6, 0),
+    box(2, 1.6, 0.6, 0, 5.4, -2.2),
+  ]);
+}
+
 const TARGET_SHAPES: Record<TargetKind, () => THREE.BufferGeometry> = {
   pillbox: () => fitBox(pillboxTargetGeometry(), TARGET_SIZE.pillbox),
   depot: () => fitBox(depotTargetGeometry(), TARGET_SIZE.depot),
   gun: () => fitBox(gunTargetGeometry(), TARGET_SIZE.gun),
   magazine: () => fitBox(magazineTargetGeometry(), TARGET_SIZE.magazine),
+  fortressGun: () => fitBox(fortressGunTargetGeometry(), TARGET_SIZE.fortressGun),
 };
 
 const TARGET_COLORS: Record<TargetKind, number> = {
@@ -667,14 +682,16 @@ const TARGET_COLORS: Record<TargetKind, number> = {
   depot: 0xd4a017,
   gun: 0x3f6f8f,
   magazine: 0x7a4fa0,
+  fortressGun: 0x4a4843, // a dark grey, darker than the gun's rust steel
 };
 
-// The surface each target wears; its own colour still tells the four kinds apart from above.
+// The surface each target wears; its own colour still tells the kinds apart from above.
 const TARGET_SURFACE: Record<TargetKind, SurfaceName> = {
   pillbox: 'concrete',
   depot: 'wood',
   gun: 'rust',
   magazine: 'concrete',
+  fortressGun: 'rust',
 };
 
 // The mission's targets as one group, each turned the way the map says.
@@ -687,7 +704,7 @@ export function buildTargets(targets: readonly TargetPlace[]): THREE.Group {
       targetMaterial(TARGET_SURFACE[target.kind], TARGET_COLORS[target.kind]),
     );
     mesh.name = target.id;
-    mesh.position.set(target.x, 0, target.z);
+    mesh.position.set(target.x, target.y ?? 0, target.z);
     mesh.rotation.y = target.yaw;
     group.add(mesh);
   }

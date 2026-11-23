@@ -26,6 +26,7 @@ import { ENEMIES, ENEMY_CHEST, ENEMY_KINDS, M1_WAVE_DROP, M1_WAVE_ENEMY, type En
 import { BATTERY_WAVE, GUN_TUNE } from '../data/battery.ts';
 import { CHARGE_TUNE } from '../data/charge.ts';
 import { CRAFT_TUNE, craftZ } from '../data/craft.ts';
+import { FORTRESS_GUN_TUNE } from '../data/fortress.ts';
 import { BARRAGES, M1_WAVE_AIMED, M1_WAVE_BARRAGE, MINE_TUNE } from '../data/hazards.ts';
 import { LANDING_TUNE } from '../data/landing.ts';
 import { MELEE_DAMAGE_MUL, MELEE_TUNE } from '../data/melee.ts';
@@ -61,6 +62,7 @@ import {
   type PlantState,
 } from './blasts.ts';
 import { holdAt, newEnemy, stepEnemy, type EnemyShot, type EnemyState } from './enemies.ts';
+import { newFortressGun, stepFortressGun, type FortressGunState } from './fortress.ts';
 import { newNav, stepNav, type NavState } from './nav.ts';
 import { newPillbox, pillboxDamageMul, stepPillbox, suppressPillbox, type PillboxState } from './pillbox.ts';
 import {
@@ -203,7 +205,12 @@ export interface PillboxBullet extends BulletBase {
   pillbox: string; // the id of the target that fired it
 }
 
-export type Bullet = MechBullet | EnemyBullet | BatteryBullet | PillboxBullet;
+// A shot of the fortress's heavy machine-gun nest.
+export interface FortressBullet extends BulletBase {
+  fort: string; // the id of the target that fired it
+}
+
+export type Bullet = MechBullet | EnemyBullet | BatteryBullet | PillboxBullet | FortressBullet;
 
 export function isEnemyBullet(bullet: Bullet): bullet is EnemyBullet {
   return 'enemy' in bullet;
@@ -217,13 +224,23 @@ export function isPillboxBullet(bullet: Bullet): bullet is PillboxBullet {
   return 'pillbox' in bullet;
 }
 
-// Whether the bullet is fired at the mech: an enemy's, the battery's or a pillbox's.
-export function isHostileBullet(bullet: Bullet): bullet is EnemyBullet | BatteryBullet | PillboxBullet {
+export function isFortressBullet(bullet: Bullet): bullet is FortressBullet {
+  return 'fort' in bullet;
+}
+
+// Whether the bullet is fired at the mech: an enemy's, the battery's, a pillbox's or the fortress nest's.
+export function isHostileBullet(
+  bullet: Bullet,
+): bullet is EnemyBullet | BatteryBullet | PillboxBullet | FortressBullet {
   return !('weapon' in bullet);
 }
 
-// How fast a bullet flies and what it does, from the table of the weapon, the enemy, the gun or the pillbox that fired it.
+// How fast a bullet flies and what it does, from the table of the weapon, the enemy, the gun, the pillbox or the nest
+// that fired it.
 function bulletSpec(bullet: Bullet): { speed: number; damage: number } {
+  if (isFortressBullet(bullet)) {
+    return { speed: FORTRESS_GUN_TUNE.bulletSpeed, damage: FORTRESS_GUN_TUNE.damage };
+  }
   if (isPillboxBullet(bullet)) return { speed: PILLBOX_TUNE.bulletSpeed, damage: PILLBOX_TUNE.damage };
   if (isBatteryBullet(bullet)) return { speed: GUN_TUNE.bulletSpeed, damage: GUN_TUNE.damage };
   if (isEnemyBullet(bullet)) {
@@ -271,6 +288,7 @@ export interface GameModel {
   shells: ShellState[]; // the shells warned and not yet landed
   shutters: ShutterState[]; // the armour plates before the targets that have one, shut or open
   battery: BatteryState; // the main guns' machine guns
+  fortressGun: FortressGunState; // the fortress sea wall's heavy machine-gun nest (SB-1830)
   mines: MineState[]; // the mines still on the ground
   blasts: BlastState[]; // the map's blast points, and which have blown their line open
   charges: ChargeState[]; // the charges planted and not yet blown
@@ -313,10 +331,11 @@ function mechBox(mech: MechState): Aabb {
   };
 }
 
-// The box a shot may hit: TARGET_SIZE's w and d turned by the target's yaw, with y from the ground to its height.
+// The box a shot may hit: TARGET_SIZE's w and d turned by the target's yaw, with y from the target's foot (`place.y`,
+// 0 when left out, as the fortress nest is set on the wall's top) to its height.
 export function targetBox(place: TargetPlace): Aabb {
   const size = TARGET_SIZE[place.kind];
-  return rectBox({
+  const box = rectBox({
     x: place.x,
     z: place.z,
     halfW: size.w / 2,
@@ -324,6 +343,8 @@ export function targetBox(place: TargetPlace): Aabb {
     yaw: place.yaw,
     top: size.h,
   });
+  const y = place.y ?? 0;
+  return { ...box, minY: y, maxY: y + size.h };
 }
 
 // The rect the target stands on. mapBlockers writes the targets after the props, so a prop that broke has moved the
@@ -879,6 +900,7 @@ export function newGame(map: MapDef, mission: MissionDef = M1): GameModel {
     shells: [],
     shutters: newShutters(map.targets.map(place => place.id)),
     battery: newBattery(map.targets),
+    fortressGun: newFortressGun(),
     mines: (map.mines ?? []).map(place => ({ x: place.x, z: place.z, hp: MINE_TUNE.hp })),
     blasts: newBlasts(map),
     charges: [],
@@ -1333,6 +1355,20 @@ function stepBattery(game: GameModel, dt: number): void {
   }
 }
 
+// Runs the fortress's heavy machine-gun nest while its target stands; the shots it fires become FortressBullets. The
+// line is stopped by a prop or by another standing target; the nest's own box is left out (its muzzle is past it).
+function stepFortressGunNest(game: GameModel, dt: number): void {
+  const target = game.targets.find(item => item.kind === 'fortressGun' && item.hp > 0);
+  if (!target) return;
+  const blockers = [
+    ...game.propBoxes,
+    ...game.targets.filter(other => other.hp > 0 && other.id !== target.id).map(other => other.box),
+  ];
+  const shot = stepFortressGun(game.fortressGun, target.box, game.mech, blockers, dt, stream('battery'));
+  if (!shot) return;
+  game.bullets.push({ fort: target.id, ...shot, left: FORTRESS_GUN_TUNE.range });
+}
+
 // Runs the hazards by `dt`: each barrage may warn of a shell, the aimed mortar warns of one on the place the mech has
 // stayed at, each shell counts down and one that lands hurts a mech inside its blast, and a mine the mech stands on goes
 // off.
@@ -1529,6 +1565,7 @@ export function step(game: GameModel, given: GameInput, dt: number): void {
   stepEnemies(game, span);
   stepPillboxes(game, span);
   stepBattery(game, span);
+  stepFortressGunNest(game, span);
   stepBullets(game, span);
   stepHazards(game, span);
   const charge = stepCharge(game, use, span);

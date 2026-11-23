@@ -72,6 +72,7 @@ const RADAR_MARK: Record<TargetKind | EnemyKind, RadarMarkKind> = {
   depot: 'depot',
   gun: 'objective',
   magazine: 'objective',
+  fortressGun: 'objective',
   grunt: 'enemy',
   assault: 'enemy',
   heavy: 'enemy',

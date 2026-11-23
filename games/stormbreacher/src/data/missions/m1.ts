@@ -489,6 +489,8 @@ const CUES = [
       { kind: 'checkpoint', id: 'cp2' },
       { kind: 'objective', id: 'stop-fortress-gun' },
       { kind: 'radio', line: 'm1.fortress-gate' },
+      // the wall's nest drops its three onto the open ground behind the mech as it goes in (SB-1830)
+      { kind: 'spawn', wave: 'fortress-drop' },
       // the three cover mechs go on to the yard through the sea gate; the checkpoint above is copied after all actions,
       // so their next way is in the copy too
       { kind: 'allyMove', id: 'cover-b1', path: 'boss1-run' },
@@ -538,7 +540,7 @@ export const M1: MissionDef = {
   id: 'm1',
   cues: CUES,
   areas: AREAS,
-  targets: ['depot', 'pillbox-1', 'pillbox-2', 'main-gun-1', 'main-gun-2', 'magazine'],
+  targets: ['depot', 'pillbox-1', 'pillbox-2', 'fortress-gun', 'main-gun-1', 'main-gun-2', 'magazine'],
   waves: [
     'beach-mortar',
     'b-squad',
@@ -547,6 +549,7 @@ export const M1: MissionDef = {
     'pillbox-hold',
     'depot-guard',
     'shelling',
+    'fortress-drop',
     'battery',
   ],
   objectives: ['reach-pillboxes', 'break-pillboxes', 'stop-fortress-gun', 'silence-battery', 'hit-magazine'],

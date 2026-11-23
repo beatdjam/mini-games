@@ -92,7 +92,7 @@ test('a new game puts the mech on the landing craft, facing the land', () => {
   expect(game.mech.z).toBe(craftZ(M1B_HAND.bounds) + LANDING_TUNE.startDepth);
   expect(game.mech.y).toBe(CRAFT_TUNE.deckTop);
   expect(game.mech.yaw).toBe(0);
-  expect(game.targets).toHaveLength(6);
+  expect(game.targets).toHaveLength(7);
   for (const target of game.targets) expect(target.hp).toBe(TARGET_HP[target.kind]);
 });
 

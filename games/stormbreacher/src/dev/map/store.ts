@@ -72,13 +72,16 @@ function propOf(value: unknown, index: number): Prop {
 
 function targetOf(value: unknown, index: number): TargetPlace {
   const target = record(value, `targets[${index}]`);
-  return {
+  const out: TargetPlace = {
     id: text(target.id, `targets[${index}].id`),
     kind: targetKind(target.kind, `targets[${index}].kind`),
     x: num(target.x, `targets[${index}].x`),
     z: num(target.z, `targets[${index}].z`),
     yaw: num(target.yaw, `targets[${index}].yaw`),
   };
+  // a target set on a wall's top keeps its height; a target without one stands on the ground, as before
+  if (target.y !== undefined) out.y = num(target.y, `targets[${index}].y`);
+  return out;
 }
 
 function spawnsOf(value: unknown): Record<string, SpawnPoint[]> {

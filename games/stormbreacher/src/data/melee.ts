@@ -20,6 +20,9 @@ export const MELEE_DAMAGE_MUL: Record<MeleeKind, number> = {
   pillbox: 0,
   depot: 0.25,
   gun: 0.1,
+  // the fortress's nest sits on the wall's top (12 m), but the fist measures its reach along the ground, so a mech at the
+  // wall's foot can still hit it; it takes the same share as the battery's guns (provisional)
+  fortressGun: 0.1,
   magazine: 0.15,
   // the other things a shot breaks: a mine is small and a breakable prop is a wall of hedgehogs or a wreck
   mine: 1,

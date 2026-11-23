@@ -40,8 +40,8 @@ export type Source = 'hand' | 'gen' | 'edit';
 // The mission's names that stand past this map's range: the guns and the magazine are behind the seawall, and the
 // beach's mortar and the battery are on the other side of the bounds.
 const OUT_OF_RANGE = {
-  targets: ['main-gun-1', 'main-gun-2', 'magazine'],
-  waves: ['beach-mortar', 'shelling', 'battery'],
+  targets: ['fortress-gun', 'main-gun-1', 'main-gun-2', 'magazine'],
+  waves: ['beach-mortar', 'shelling', 'fortress-drop', 'battery'],
 } as const;
 
 const MECH_MARGIN = 4; // how far inside the front edge the mech starts (m)

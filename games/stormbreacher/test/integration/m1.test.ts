@@ -80,6 +80,7 @@ const TAIL: readonly string[] = [
   'checkpoint:cp2',
   'objective:stop-fortress-gun',
   'radio:m1.fortress-gate',
+  'spawn:fortress-drop',
   'allyMove:cover-b1',
   'allyMove:cover-b2',
   'allyMove:cover-b3',

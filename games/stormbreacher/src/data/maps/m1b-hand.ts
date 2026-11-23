@@ -2,6 +2,7 @@
 // tool. +z is the sea and -z is the land; the bounds run from the beach (z 170) back past the seawall (z -75..-65) and the
 // fortress (z -68..-128) to the field before the battery and its parts (z -300).
 import { DEFENDER_SPAWNS } from '../defenders.ts';
+import { FORTRESS_TUNE } from '../fortress.ts';
 import type { BlastPlace, MapDef, MinePlace, Prop } from '../types.ts';
 
 // The B section is two closed defence lines across the map (SB-2020): line 1 at the water's edge and line 2 69 m on,
@@ -445,6 +446,12 @@ const PROPS: Prop[] = [
   { kind: 'lowWall', x: -28.4, z: -90, yaw: Math.PI / 2, scale: 1 },
   { kind: 'lowWall', x: 28.4, z: -106, yaw: Math.PI / 2, scale: 1 },
   { kind: 'lowWall', x: 9, z: -120, yaw: 0, scale: 1 },
+  // the open ground before the sea gate (z -55..-68), staggered cover for the wall's gun: two pieces near the gate's
+  // sides and two against the wall, so the gun's sweep does not reach every place at once (SB-1830)
+  { kind: 'block', x: -24, z: -56, yaw: 0.12, scale: 1.05 },
+  { kind: 'wreck', x: -28, z: -64, yaw: -0.18, scale: 1 },
+  { kind: 'block', x: 14, z: -58.5, yaw: -0.05, scale: 0.8 },
+  { kind: 'wreck', x: 30, z: -64, yaw: 0.08, scale: 1 },
   // low walls across the beach (z 154): too high to walk onto, low enough to jump, with 14 m between them
   { kind: 'lowWall', x: -42, z: 154, yaw: 0, scale: 1 },
   { kind: 'lowWall', x: -18, z: 154, yaw: 0, scale: 1 },
@@ -511,6 +518,8 @@ export const M1B_HAND: MapDef = {
     { id: 'main-gun-1', kind: 'gun', x: -45, z: -235, yaw: 0 },
     { id: 'main-gun-2', kind: 'gun', x: 45, z: -235, yaw: 0 },
     { id: 'magazine', kind: 'magazine', x: 0, z: -250, yaw: 0 },
+    // the heavy machine-gun nest on the sea wall's top: its box (16x10x6) stays inside the wall's 6 m thickness
+    { id: 'fortress-gun', kind: 'fortressGun', x: 20, z: -71, yaw: 0, y: FORTRESS_TUNE.wallH },
   ],
   spawns: {
     'b-squad': [
@@ -543,6 +552,13 @@ export const M1B_HAND: MapDef = {
       { x: 88, z: -45 },
       { x: 70, z: -55 },
       { x: 84, z: -22 },
+    ],
+    // on the sea wall's top, clear of the gate (x -6..6) and of the nest's box (x 12..28); they drop to the wall's
+    // seaward side
+    'fortress-drop': [
+      { x: -20, z: -70 },
+      { x: 8, z: -70 },
+      { x: 32, z: -70 },
     ],
   },
 };

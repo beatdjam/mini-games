@@ -17,7 +17,7 @@ const LIMIT_SECONDS = 15 * 60; // the bot has this long in the game (s)
 const TEST_TIMEOUT = 30000; // a run is about 2.5 s; the default 5 s is short for two runs on a busy CI machine (ms)
 const REACH = 1.5; // a point counts as reached this near (m)
 const SIGHT = 100; // the bot shoots what is this near and in sight (m); the autocannon reaches 120
-const HEAVY_TARGETS = ['pillbox', 'gun', 'magazine']; // what the heavy gun is spent on (the kinds of target)
+const HEAVY_TARGETS = ['pillbox', 'gun', 'magazine', 'fortressGun']; // what the heavy gun is spent on (the kinds of target)
 const SHELL_MARGIN = 3; // the bot leaves a shell's circle by this much more than its radius (m)
 const TURN_RATE = 6; // how fast the bot turns (rad/s)
 const AIMED_LEAD = 1; // the bot steps aside this long before the aimed mortar's stay is full (s)
@@ -80,6 +80,12 @@ const TO_FORTRESS: readonly Waypoint[] = [
   { x: 35, z: -30, why: 'before C at x 35' },
   { x: 35, z: -46, why: 'down through C, before the fortress approach' },
   { x: 35, z: -58, why: 'into the fortress approach, clear of its right edge' },
+  {
+    x: 20,
+    z: -55,
+    why: 'in the open before the sea gate, holding the machine-gun nest on the wall',
+    hold: ['fortress-gun'],
+  },
   { x: 0, z: -58, why: 'before the fortress gate (area fortress-approach)' },
 ];
 
@@ -94,6 +100,12 @@ const TO_DEPOT: readonly Waypoint[] = [
   { x: 68, z: -42, why: 'back from the depot, towards the fortress' },
   { x: 50, z: -55, why: 'under the right side of the approach' },
   { x: 30, z: -57, why: 'into the fortress approach from the right' },
+  {
+    x: 20,
+    z: -55,
+    why: 'in the open before the sea gate, holding the machine-gun nest on the wall',
+    hold: ['fortress-gun'],
+  },
   { x: 0, z: -58, why: 'before the fortress gate (area fortress-approach)' },
 ];
 

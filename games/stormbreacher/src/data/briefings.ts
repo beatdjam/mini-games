@@ -23,6 +23,7 @@ export const BRIEFING_TARGET_SYMBOL: Record<TargetKind, BriefingSymbol> = {
   depot: 'depot',
   gun: 'battery',
   magazine: 'battery',
+  fortressGun: 'battery',
 };
 
 // The props drawn as the map's ground; the rest of the props are left out of the briefing.

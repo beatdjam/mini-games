@@ -173,6 +173,13 @@ describe('suspend', () => {
     expect(back?.aimed).toEqual({ anchor: { x: 12, z: 34 }, still: 1.75 });
   });
 
+  test('the fortress nest’s burst under way comes back at the same shot', () => {
+    const game = newGame(M1B_HAND);
+    game.fortressGun = { wait: 0.08, burstLeft: 3 };
+    const back = restoreSuspend(stored(suspendOf(game)));
+    expect(back?.fortressGun).toEqual({ wait: 0.08, burstLeft: 3 });
+  });
+
   test('the radio queue comes back in the same order', () => {
     const game = newGame(M1B_HAND);
     game.radio = { line: 'm1.depot-hint', time: 1 };

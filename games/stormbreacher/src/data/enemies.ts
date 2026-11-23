@@ -1,5 +1,6 @@
 // The enemies' table (SB-190). Every value here is provisional. The kinds are the enemies that walk and shoot; adding
 // one is a line in ENEMIES (and in ENEMY_KINDS, the kind's look and the language files' `target.<kind>`).
+import { FORTRESS_TUNE } from './fortress.ts';
 import { PROP_SIZE } from './props.ts';
 
 // The kinds drawn as a soldier's mech (SB-2083, the kit table in data/enemyLooks.ts and data/mechProto.ts); the
@@ -125,10 +126,14 @@ export const M1_WAVE_ENEMY: Readonly<Partial<Record<string, readonly EnemyKind[]
   // DEFENDER_POSTS (data/defenders.ts). They hold their posts until a milestone breaks their line.
   'line1-hold': ['grunt', 'grunt', 'grunt', 'grunt', 'grunt'],
   'pillbox-hold': ['grunt', 'grunt', 'grunt', 'grunt', 'grunt'],
+  // three from the fortress's sea wall: an assault and a grunt on the left and right, and an assault between them, so
+  // the mech at the gate is taken from behind as it goes in (SB-1830)
+  'fortress-drop': ['assault', 'grunt', 'assault'],
 };
 
 // The height a wave's enemies come in at (m), by the wave's name. A wave that is not here comes in on the ground. The
 // enemies of `seawall-drop` stand on top of the seawall and jump down to its seaward side (logic/enemies.ts).
 export const M1_WAVE_DROP: Readonly<Partial<Record<string, number>>> = {
   'seawall-drop': PROP_SIZE.seawall.h,
+  'fortress-drop': FORTRESS_TUNE.wallH,
 };
